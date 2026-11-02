@@ -294,7 +294,7 @@ TAutomapWindow::TAutomapWindow()
 }
 
 #pragma warning(push)
-#pragma warning(disable: 4297) // the handlers rethrow out of the destructor
+#pragma warning(disable : 4297) // the handlers rethrow out of the destructor
 // 0x426c40, line 406 (deleting destructor 0x436e80). The zoom goes back into
 // the preferences.
 TAutomapWindow::~TAutomapWindow()
@@ -613,7 +613,7 @@ TMark TAutomapView::GetMark(int x, int y)
 					int MarkX = (Mark.x - Left) * Window->Zoom / 2;
 					int MarkY = (Mark.y - Top) * Window->Zoom / 2;
 					if (MarkX >= 0 && MarkY >= 0 && MarkX < 106 && MarkY < 106 && abs(x - MarkX) < 6
-					 && abs(y - MarkY) < 6)
+						&& abs(y - MarkY) < 6)
 						return Mark;
 				}
 			}
@@ -847,7 +847,7 @@ int TPlayerStates::GetIconAt(int x, int y)
 		}
 		IconX = SkinProperties.PlayerStates.Data24 * i + IconX;
 		if (IconX <= x && x <= IconX + SkinProperties.PlayerStates.Data24 && IconY <= y
-		 && y <= IconY + SkinProperties.PlayerStates.Data24)
+			&& y <= IconY + SkinProperties.PlayerStates.Data24)
 			return i;
 	}
 	return -1;
@@ -968,10 +968,12 @@ void TSmallInventoryWindow::Draw(int Surface, int x, int y)
 	TBEGIN
 	TContentWindow::Draw(Surface, x, y);
 	if (In(GetMouseX() - SkinProperties.Data590.x - x, 0, SkinProperties.Data590.width - 1)
-	 && In(GetMouseY() - SkinProperties.Data590.y - y, 0, SkinProperties.Data590.height - 1)
-	 && GetActionState() == 6)
-		GetSurface()->DrawFrame(Surface, TRect(SkinProperties.Data590.x + x, SkinProperties.Data590.y + y,
-			SkinProperties.Data590.width, SkinProperties.Data590.height), 1, TRGBColor(255, 255, 255));
+		&& In(GetMouseY() - SkinProperties.Data590.y - y, 0, SkinProperties.Data590.height - 1)
+		&& GetActionState() == 6)
+		GetSurface()->DrawFrame(Surface,
+			TRect(SkinProperties.Data590.x + x, SkinProperties.Data590.y + y,
+				SkinProperties.Data590.width, SkinProperties.Data590.height),
+			1, TRGBColor(255, 255, 255));
 	TEND1(1099, Surface)
 }
 
@@ -983,7 +985,7 @@ bool TSmallInventoryWindow::LeftButtonUp(int x, int y, int Flags)
 	TBEGIN
 	bool Result = TContentWindow::LeftButtonUp(x, y, Flags);
 	if (In(x - SkinProperties.Data590.x, 0, SkinProperties.Data590.width - 1)
-	 && In(y - SkinProperties.Data590.y, 0, SkinProperties.Data590.height - 1) && GetActionState() == 6) {
+		&& In(y - SkinProperties.Data590.y, 0, SkinProperties.Data590.height - 1) && GetActionState() == 6) {
 		int Index, SrcX, SrcY, SrcZ;
 		TObject *Obj = GetDragObject(&Index, &SrcX, &SrcY, &SrcZ);
 		if (!GetObjectFlag(Obj->Type, CUMULATIVE) || Obj->Data < 2 || (Flags & 0x200) != 0) {
@@ -1440,7 +1442,7 @@ TContainerWindowBody::TContainerWindowBody(int _Container)
 }
 
 #pragma warning(push)
-#pragma warning(disable: 4297) // the handlers rethrow out of the destructor
+#pragma warning(disable : 4297) // the handlers rethrow out of the destructor
 // 0x42cc70, line 1628 (deleting destructor 0x438700). Closing the window
 // closes the container.
 TContainerWindowBody::~TContainerWindowBody()
@@ -1492,9 +1494,11 @@ void TContainerWindowBody::Draw(int Surface, int x, int y)
 							TRGBColor(0, 0, 0), TRect(ScreenX, ScreenY, SlotWidth, ClipHeight), SkinProperties.Data498,
 							false);
 					if (GetActionState() == 6 && In(GetMouseX(), ScreenX, ScreenX + SlotWidth - 1)
-					 && In(GetMouseY(), ScreenY, ScreenY + ClipHeight - 1))
-						GetSurface()->DrawFrameClipped(Surface, TRect(SkinProperties.Data630.x + SlotX + x,
-							SlotY + SkinProperties.Data630.y + y, 34, 34), 1, TRGBColor(255, 255, 255),
+						&& In(GetMouseY(), ScreenY, ScreenY + ClipHeight - 1))
+						GetSurface()->DrawFrameClipped(Surface,
+							TRect(SkinProperties.Data630.x + SlotX + x,
+								SlotY + SkinProperties.Data630.y + y, 34, 34),
+							1, TRGBColor(255, 255, 255),
 							TRect(ScreenX, ScreenY, SlotWidth, ClipHeight));
 				}
 			}
@@ -1718,7 +1722,7 @@ int TContainerWindowBody::GetSlotAt(int x, int y, bool Occupied)
 	y += ScrollBar->Range->Value - SkinProperties.Data630.y;
 	int Column = x / SkinProperties.Data648;
 	if (Column < SkinProperties.Data62C && x % SkinProperties.Data648 <= SkinProperties.Data638.x
-	 && y % SkinProperties.Data64C <= SkinProperties.Data638.y) {
+		&& y % SkinProperties.Data64C <= SkinProperties.Data638.y) {
 		int Position = SkinProperties.Data62C * (y / SkinProperties.Data64C) + Column;
 		if (Occupied && GetContainerObjectCount(Container) <= Position)
 			return -1;
@@ -1763,7 +1767,7 @@ TSkillsWindowBody::TSkillsWindowBody()
 }
 
 #pragma warning(push)
-#pragma warning(disable: 4297) // the handlers rethrow out of the destructor
+#pragma warning(disable : 4297) // the handlers rethrow out of the destructor
 // 0x42e6b0 (deleting destructor 0x4394b0). An open skill menu forgets the
 // window. The try block was dropped (nothing in it can throw).
 TSkillsWindowBody::~TSkillsWindowBody()
@@ -1832,11 +1836,16 @@ void TSkillsWindowBody::Draw(int Surface, int x, int y)
 						TRect(ClipX, ClipY, TextWidth, ClipHeight));
 					if (Progress != -1) {
 						int BarHeight = 5;
-						GetSurface()->DrawFrameClipped(Surface, TRect(Margin + x, LineHeight + 8 + LineY + y, TextWidth,
-							BarHeight), 1, TRGBColor(0), TRect(ClipX, ClipY, TextWidth, ClipHeight));
-						GetSurface()->FillRectangleClipped(Surface, TRect(Margin + x + 1, LineHeight + 8 + LineY + y + 1,
-							(TextWidth - 2) * Progress / 100, BarHeight - 2), i < 7 ? SkinProperties.Data670
-							: SkinProperties.Data67C, TRect(ClipX, ClipY, TextWidth, ClipHeight));
+						GetSurface()->DrawFrameClipped(Surface,
+							TRect(Margin + x, LineHeight + 8 + LineY + y, TextWidth,
+								BarHeight),
+							1, TRGBColor(0), TRect(ClipX, ClipY, TextWidth, ClipHeight));
+						GetSurface()->FillRectangleClipped(Surface,
+							TRect(Margin + x + 1, LineHeight + 8 + LineY + y + 1,
+								(TextWidth - 2) * Progress / 100, BarHeight - 2),
+							i < 7 ? SkinProperties.Data670
+								  : SkinProperties.Data67C,
+							TRect(ClipX, ClipY, TextWidth, ClipHeight));
 					}
 				}
 			}
@@ -1900,7 +1909,7 @@ void TSkillsWindowBody::MouseHover(int x, int y)
 				if (ClipHeight + Top > Bottom)
 					ClipHeight = Bottom - Top + 1;
 				if (Top <= y && y <= ClipHeight + Top && SkinProperties.Data668 <= x
-				 && x <= SkinProperties.Data668 + TextWidth && Progress != -1) {
+					&& x <= SkinProperties.Data668 + TextWidth && Progress != -1) {
 					_snprintf(SkillMouseOverText, 256, TextPercentToGo, 100 - Progress);
 					SetMouseOverText(SkillMouseOverText);
 				}
@@ -2130,7 +2139,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 			bool Framed = false;
 			TRGBColor Color = SkinProperties.Style688.Data54.Color;
 			if (In(GetMouseY(), ClipY, ClipY + ClipHeight) && In(GetMouseX(), x, ClipWidth + x)
-			 && i == GetOpponentAt(GetMouseX() - x, GetMouseY() - y)) {
+				&& i == GetOpponentAt(GetMouseX() - x, GetMouseY() - y)) {
 				SetHighlightID(Creature->CreatureID);
 				Color = SkinProperties.HighlightColor;
 				Framed = true;
@@ -2149,9 +2158,11 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 				Framed = true;
 			}
 			if (Framed)
-				GetSurface()->DrawFrameClipped(Surface, TRect(SkinProperties.Style688.Data38.x + x,
-					SkinProperties.Style688.Data38.y + RowY + y, SkinProperties.Style688.Data38.width,
-					SkinProperties.Style688.Data38.height), 1, Color, TRect(x, ClipY, ClipWidth, ClipHeight));
+				GetSurface()->DrawFrameClipped(Surface,
+					TRect(SkinProperties.Style688.Data38.x + x,
+						SkinProperties.Style688.Data38.y + RowY + y, SkinProperties.Style688.Data38.width,
+						SkinProperties.Style688.Data38.height),
+					1, Color, TRect(x, ClipY, ClipWidth, ClipHeight));
 			GetSurface()->Flag26 = true;
 			DrawOutfit(Surface, SkinProperties.Style688.Data04.x + x, SkinProperties.Style688.Data04.y + RowY + y,
 				SkinProperties.Style688.Data04.width, Creature->OutfitType, Creature->Colors,
@@ -2200,8 +2211,9 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 				default:
 					goto NoSkull;
 				}
-				if (Creature->SkullTime < 1 || !In((int)_time32(NULL), (int)Creature->SkullTime,
-					(int)Creature->SkullTime + 4) || GetBlinkState())
+				if (Creature->SkullTime < 1
+					|| !In((int)_time32(NULL), (int)Creature->SkullTime, (int)Creature->SkullTime + 4)
+					|| GetBlinkState())
 					DrawSkinClipped(Surface, SkinProperties.Style688.Data14.x + Offset + x,
 						SkinProperties.Style688.Data14.y + RowY + y, Skins[Skin].width, Skins[Skin].height, Skin, x,
 						ClipY, ClipWidth, ClipHeight, 0, 0);
@@ -2225,14 +2237,18 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 				PrintFormattedTextClipped(Surface, SkinProperties.Style688.Data14.x + Offset + x,
 					SkinProperties.Style688.Data14.y + RowY + y, SkinProperties.Style688.Data54, Name,
 					TRect(x, ClipY, ClipWidth, ClipHeight));
-			GetSurface()->DrawFrameClipped(Surface, TRect(SkinProperties.Style688.Data28.x + x,
-				SkinProperties.Style688.Data28.y + RowY + y, SkinProperties.Style688.Data28.width,
-				SkinProperties.Style688.Data28.height), 1, SkinProperties.Style688.Data48,
+			GetSurface()->DrawFrameClipped(Surface,
+				TRect(SkinProperties.Style688.Data28.x + x,
+					SkinProperties.Style688.Data28.y + RowY + y, SkinProperties.Style688.Data28.width,
+					SkinProperties.Style688.Data28.height),
+				1, SkinProperties.Style688.Data48,
 				TRect(x, ClipY, ClipWidth, ClipHeight));
-			GetSurface()->FillRectangleClipped(Surface, TRect(SkinProperties.Style688.Data28.x + x + 1,
-				SkinProperties.Style688.Data28.y + RowY + y + 1,
-				Creature->Health * (SkinProperties.Style688.Data28.width - 2) / 100,
-				SkinProperties.Style688.Data28.height - 2), Creature->GetHealthColor(),
+			GetSurface()->FillRectangleClipped(Surface,
+				TRect(SkinProperties.Style688.Data28.x + x + 1,
+					SkinProperties.Style688.Data28.y + RowY + y + 1,
+					Creature->Health * (SkinProperties.Style688.Data28.width - 2) / 100,
+					SkinProperties.Style688.Data28.height - 2),
+				Creature->GetHealthColor(),
 				TRect(x, ClipY, ClipWidth, ClipHeight));
 		}
 	}
@@ -2517,8 +2533,9 @@ int TTradeOffers::GetContentHeight()
 	int CounterCount = GetCounterOfferCount();
 	int OwnCount = GetOwnOfferCount();
 	int Count = (std::max)(OwnCount, CounterCount);
-	int Result = SkinProperties.Style6FC.Data9C * (Count / SkinProperties.Style6FC.DataA4
-		+ (Count % SkinProperties.Style6FC.DataA4 > 0)) + 1 + SkinProperties.Style6FC.Data68.x;
+	int Result = SkinProperties.Style6FC.Data9C
+			* (Count / SkinProperties.Style6FC.DataA4 + (Count % SkinProperties.Style6FC.DataA4 > 0))
+		+ 1 + SkinProperties.Style6FC.Data68.x;
 	return (std::max)(getMinimumHeight(), Result);
 	TEND(2769)
 }
@@ -2539,7 +2556,7 @@ bool TTradeOffers::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::LeftButtonUp(x, y, Flags) && GetActionState() != 6 && GetActionState() != 7
-	 && GetActionState() != 8) {
+		&& GetActionState() != 8) {
 		int Side, Position;
 		GetOfferAt(x, y, &Side, &Position);
 		if (Side != -1)
@@ -2563,7 +2580,7 @@ bool TTradeOffers::RightButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::RightButtonUp(x, y, Flags) && GetActionState() != 6 && GetActionState() != 7
-	 && GetActionState() != 8) {
+		&& GetActionState() != 8) {
 		int Side, Position;
 		GetOfferAt(x, y, &Side, &Position);
 		if (Side != -1)
@@ -2600,7 +2617,7 @@ void TTradeOffers::GetOfferAt(int x, int y, int *Side, int *Position)
 		int RelativeY = ScrollBar->Range->Value - AreaY + y;
 		int Column = (x - AreaX) / SkinProperties.Style6FC.DataA0;
 		if (Column < SkinProperties.Style6FC.DataA4 && (x - AreaX) % SkinProperties.Style6FC.DataA0 <= AreaWidth
-		 && RelativeY % SkinProperties.Style6FC.Data9C <= AreaHeight) {
+			&& RelativeY % SkinProperties.Style6FC.Data9C <= AreaHeight) {
 			int Found = RelativeY / SkinProperties.Style6FC.Data9C * SkinProperties.Style6FC.DataA4 + Column;
 			if (Found < Count) {
 				*Position = Found;
@@ -2775,7 +2792,7 @@ TTradeWindowBody::TTradeWindowBody()
 }
 
 #pragma warning(push)
-#pragma warning(disable: 4297) // the handlers rethrow out of the destructor
+#pragma warning(disable : 4297) // the handlers rethrow out of the destructor
 // 0x433e60, line 3048 (deleting destructor 0x43bd20). Closing the window
 // rejects an open offer.
 TTradeWindowBody::~TTradeWindowBody()
@@ -2923,7 +2940,7 @@ void TBuddylistWindowBody::Draw(int Surface, int x, int y)
 					SkinProperties.BuddylistWindow.Logo.height, Icon + 217, x, y, ClipWidth, ClipHeight, 0, 0);
 			}
 			TRGBColor Color = GetBuddyListOnline(i) ? SkinProperties.BuddylistWindow.Data3C
-				: SkinProperties.BuddylistWindow.Data48;
+													: SkinProperties.BuddylistWindow.Data48;
 			if (GetBuddyListNew(i))
 				Color = SkinProperties.BuddylistWindow.Data54;
 			const char *Name = GetBuddyListName(i);

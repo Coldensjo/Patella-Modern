@@ -30,27 +30,27 @@
 	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr " " Bug)
 
 // Data, in .bss order. 0x5cc75c is not used.
-int MemoryHashTable[HASH_TABLE_SIZE];   // 0x5cc430
-int VideoHashTable[HASH_TABLE_SIZE];    // 0x5cc5c0
-int NumberOfFonts;                      // 0x5cc750
-int NumberOfPictures;                   // 0x5cc754
-uint32 PictureSignature;                // 0x5cc758
-char PictureFileName[PATH_MAX];         // 0x5cc760
-int NumberOfSprites;                    // 0x5ccb60
-uint32 SpriteSignature;                 // 0x5ccb64
-char SpriteFileName[PATH_MAX];          // 0x5ccb68
-int LeastRecentMemoryItem;              // 0x5ccf68, tail of the memory cache's LRU list
-int MostRecentMemoryItem;               // 0x5ccf6c, head
-int MemoryCacheSize;                    // 0x5ccf70
-uint8 *MemoryCacheData;                 // 0x5ccf74, MemoryCacheSize tiles of 32*32*3 bytes
-int LeastRecentVideoItem;               // 0x5ccf78
-int MostRecentVideoItem;                // 0x5ccf7c
-int VideoCacheSize;                     // 0x5ccf80
-TVideoCacheItem *VideoCache;            // 0x5ccf84
-TMemoryCacheItem *MemoryCache;          // 0x5ccf88
-TSprite *Sprites;                       // 0x5ccf8c
-TPicture *Pictures;                     // 0x5ccf90
-TFontInfo *Fonts;                       // 0x5ccf94
+int MemoryHashTable[HASH_TABLE_SIZE]; // 0x5cc430
+int VideoHashTable[HASH_TABLE_SIZE];  // 0x5cc5c0
+int NumberOfFonts;                    // 0x5cc750
+int NumberOfPictures;                 // 0x5cc754
+uint32 PictureSignature;              // 0x5cc758
+char PictureFileName[PATH_MAX];       // 0x5cc760
+int NumberOfSprites;                  // 0x5ccb60
+uint32 SpriteSignature;               // 0x5ccb64
+char SpriteFileName[PATH_MAX];        // 0x5ccb68
+int LeastRecentMemoryItem;            // 0x5ccf68, tail of the memory cache's LRU list
+int MostRecentMemoryItem;             // 0x5ccf6c, head
+int MemoryCacheSize;                  // 0x5ccf70
+uint8 *MemoryCacheData;               // 0x5ccf74, MemoryCacheSize tiles of 32*32*3 bytes
+int LeastRecentVideoItem;             // 0x5ccf78
+int MostRecentVideoItem;              // 0x5ccf7c
+int VideoCacheSize;                   // 0x5ccf80
+TVideoCacheItem *VideoCache;          // 0x5ccf84
+TMemoryCacheItem *MemoryCache;        // 0x5ccf88
+TSprite *Sprites;                     // 0x5ccf8c
+TPicture *Pictures;                   // 0x5ccf90
+TFontInfo *Fonts;                     // 0x5ccf94
 
 // 0x48b3f0, passed to the eh vector constructor iterator by InitVideoCache.
 // It clears the four colours, then the font colour, which overlaps them
@@ -397,7 +397,7 @@ int FindMemoryPicture(int PictureNumber, int TileX, int TileY)
 	while (Position != -1) {
 		TMemoryCacheItem &Item = MemoryCache[Position];
 		if (Item.Type == PICTURE_ITEM && Item.Number == PictureNumber && Item.TileX == TileX
-				&& Item.TileY == TileY)
+			&& Item.TileY == TileY)
 			return Position;
 		Position = Item.HashNext;
 	}
@@ -567,8 +567,8 @@ int FindVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColor *Colors)
 	while (Position != -1) {
 		TVideoCacheItem &Item = VideoCache[Position];
 		if (Item.Type == SPRITE_ITEM && Item.Number == SpriteNumber && Item.MaskNumber == MaskNumber
-				&& Item.Colors[0] == Colors[0] && Item.Colors[1] == Colors[1]
-				&& Item.Colors[2] == Colors[2] && Item.Colors[3] == Colors[3])
+			&& Item.Colors[0] == Colors[0] && Item.Colors[1] == Colors[1]
+			&& Item.Colors[2] == Colors[2] && Item.Colors[3] == Colors[3])
 			return Position;
 		Position = Item.HashNext;
 		if (Count++ > VideoCacheSize)
@@ -587,7 +587,7 @@ int FindVideoPicture(int PictureNumber, int TileX, int TileY)
 	while (Position != -1) {
 		TVideoCacheItem &Item = VideoCache[Position];
 		if (Item.Type == PICTURE_ITEM && Item.Number == PictureNumber && Item.TileX == TileX
-				&& Item.TileY == TileY)
+			&& Item.TileY == TileY)
 			return Position;
 		Position = Item.HashNext;
 		if (Count++ > VideoCacheSize)
@@ -606,7 +606,7 @@ int FindVideoFontChar(int PictureNumber, int TileX, int TileY, TRGBColor Color)
 	while (Position != -1) {
 		TVideoCacheItem &Item = VideoCache[Position];
 		if (Item.Type == PICTURE_ITEM && Item.Number == PictureNumber && Item.TileX == TileX
-				&& Item.TileY == TileY && Item.Color == Color)
+			&& Item.TileY == TileY && Item.Color == Color)
 			return Position;
 		Position = Item.HashNext;
 		if (Count++ > VideoCacheSize)
@@ -958,11 +958,11 @@ void DrawPicturePart(int Surface, int x, int y, int PictureNumber, int SourceX, 
 	TBEGIN
 	TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = (SourceY / 32 < 0 ? 0 : SourceY / 32);
-			TileY < ((SourceY + Height + 31) / 32 > Picture.TilesY ? Picture.TilesY : (SourceY + Height + 31) / 32);
-			TileY++) {
+		TileY < ((SourceY + Height + 31) / 32 > Picture.TilesY ? Picture.TilesY : (SourceY + Height + 31) / 32);
+		TileY++) {
 		for (int TileX = (SourceX / 32 < 0 ? 0 : SourceX / 32);
-				TileX < ((SourceX + Width + 31) / 32 > Picture.TilesX ? Picture.TilesX : (SourceX + Width + 31) / 32);
-				TileX++) {
+			TileX < ((SourceX + Width + 31) / 32 > Picture.TilesX ? Picture.TilesX : (SourceX + Width + 31) / 32);
+			TileX++) {
 			TVideoCacheItem *Item = GetVideoPicture(PictureNumber, TileX, TileY);
 			int OffsetY = SourceY - TileY * 32;
 			int PartHeight = (Height + OffsetY > 32 ? 32 : Height + OffsetY);
@@ -990,11 +990,11 @@ void DrawPicturePartClipped(int Surface, int x, int y, int PictureNumber, int So
 	TBEGIN
 	TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = (SourceY / 32 < 0 ? 0 : SourceY / 32);
-			TileY < ((SourceY + Height + 31) / 32 > Picture.TilesY ? Picture.TilesY : (SourceY + Height + 31) / 32);
-			TileY++) {
+		TileY < ((SourceY + Height + 31) / 32 > Picture.TilesY ? Picture.TilesY : (SourceY + Height + 31) / 32);
+		TileY++) {
 		for (int TileX = (SourceX / 32 < 0 ? 0 : SourceX / 32);
-				TileX < ((SourceX + Width + 31) / 32 > Picture.TilesX ? Picture.TilesX : (SourceX + Width + 31) / 32);
-				TileX++) {
+			TileX < ((SourceX + Width + 31) / 32 > Picture.TilesX ? Picture.TilesX : (SourceX + Width + 31) / 32);
+			TileX++) {
 			TVideoCacheItem *Item = GetVideoPicture(PictureNumber, TileX, TileY);
 			int OffsetY = SourceY - TileY * 32;
 			int PartHeight = (OffsetY + Height > 32 ? 32 : OffsetY + Height);

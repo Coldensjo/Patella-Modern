@@ -41,19 +41,19 @@
 
 // Data, in address order (.data, then .bss; the glh_extensions.h pointers
 // lie between 0x71d318 and 0x71dbb0).
-static int CurrentFilter = GL_LINEAR;                 // 0x5c257c, the textures' filter (SetTextureFilter)
-static int CurrentSurface = SCREEN_SURFACE;           // 0x5c2580, the selected surface
-static RECT DirtyRect;                                // 0x71d290, drawn into CurrentSurface since it was selected
-static HPBUFFERARB Pbuffer;                           // 0x71d2a0
-static HDC PbufferDC;                                 // 0x71d2a4
-static HGLRC PbufferContext;                          // 0x71d2a8
-static int PbufferWidth;                              // 0x71d2ac
-static int PbufferHeight;                             // 0x71d2b0
-static HGLRC MainContext;                             // 0x71d2b4, the window's context
-static HDC MainDC;                                    // 0x71d2b8, the window's device context
-static int SurfaceCreated[NUMBER_OF_SURFACES_GL];     // 0x71d2c0, indexed by NumberOfSurfaces
-static uint32 FrameCount;                             // 0x71dbb4
-static double LastFPSTime;                            // 0x71dbb8
+static int CurrentFilter = GL_LINEAR;             // 0x5c257c, the textures' filter (SetTextureFilter)
+static int CurrentSurface = SCREEN_SURFACE;       // 0x5c2580, the selected surface
+static RECT DirtyRect;                            // 0x71d290, drawn into CurrentSurface since it was selected
+static HPBUFFERARB Pbuffer;                       // 0x71d2a0
+static HDC PbufferDC;                             // 0x71d2a4
+static HGLRC PbufferContext;                      // 0x71d2a8
+static int PbufferWidth;                          // 0x71d2ac
+static int PbufferHeight;                         // 0x71d2b0
+static HGLRC MainContext;                         // 0x71d2b4, the window's context
+static HDC MainDC;                                // 0x71d2b8, the window's device context
+static int SurfaceCreated[NUMBER_OF_SURFACES_GL]; // 0x71d2c0, indexed by NumberOfSurfaces
+static uint32 FrameCount;                         // 0x71dbb4
+static double LastFPSTime;                        // 0x71dbb8
 
 // 0x4f9550. Odd behaviour kept: the imported functions are checked for NULL
 // before they are called.
@@ -81,6 +81,7 @@ static bool CreatePbuffer()
 	Pbuffer = NULL;
 	PbufferWidth = 640;
 	PbufferHeight = 480;
+	// clang-format off
 	int Attributes[] = {
 		WGL_DRAW_TO_PBUFFER_ARB, 1,
 		WGL_SUPPORT_OPENGL_ARB, 1,
@@ -90,6 +91,7 @@ static bool CreatePbuffer()
 		WGL_ALPHA_BITS_ARB, 8,
 		0,
 	};
+	// clang-format on
 	int Format;
 	UINT Count = 0;
 	if (wglChoosePixelFormatARB != NULL) {
@@ -117,11 +119,13 @@ bool IsOpenGLWorking(HDC Context)
 {
 	bool Works = false;
 	MainDC = Context;
+	// clang-format off
 	PIXELFORMATDESCRIPTOR Format = {
 		sizeof(PIXELFORMATDESCRIPTOR), 1,
 		PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_DEPTH_DONTCARE,
 		PFD_TYPE_RGBA, 32,
 	};
+	// clang-format on
 	int Number = ChoosePixelFormat(Context, &Format);
 	if (Number == 0 || !SetPixelFormat(MainDC, Number, &Format))
 		return false;
@@ -189,7 +193,7 @@ void TSurfaceGL::SelectSurface(int Surface)
 			wglMakeCurrent(PbufferDC, PbufferContext);
 		TTextureGL *Texture = &Textures[Surface];
 		if (Texture->TexWidth > Textures[CurrentSurface].TexWidth
-				|| Texture->TexHeight > Textures[CurrentSurface].TexHeight) {
+			|| Texture->TexHeight > Textures[CurrentSurface].TexHeight) {
 			glMatrixMode(GL_PROJECTION);
 			glLoadIdentity();
 			glViewport(0, 0, Texture->TexWidth, Texture->TexHeight);
@@ -371,8 +375,10 @@ void TSurfaceGL::DrawFrame(int Surface, TRect Rect, int LineWidth, TRGBColor Col
 		return;
 	}
 	FillRectangle(Surface, TRect(Rect.x, Rect.y, Rect.width - LineWidth, LineWidth), Color);
-	FillRectangle(Surface, TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth, Rect.width - LineWidth,
-		LineWidth), Color);
+	FillRectangle(Surface,
+		TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth, Rect.width - LineWidth,
+			LineWidth),
+		Color);
 	FillRectangle(Surface, TRect(Rect.x, Rect.y + LineWidth, LineWidth, Rect.height - LineWidth), Color);
 	FillRectangle(Surface, TRect(Rect.x + Rect.width - LineWidth, Rect.y, LineWidth, Rect.height - LineWidth), Color);
 }
@@ -385,8 +391,10 @@ void TSurfaceGL::DrawFrameClipped(int Surface, TRect Rect, int LineWidth, TRGBCo
 		return;
 	}
 	FillRectangleClipped(Surface, TRect(Rect.x, Rect.y, Rect.width - LineWidth, LineWidth), Color, Clip);
-	FillRectangleClipped(Surface, TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth, Rect.width - LineWidth,
-		LineWidth), Color, Clip);
+	FillRectangleClipped(Surface,
+		TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth, Rect.width - LineWidth,
+			LineWidth),
+		Color, Clip);
 	FillRectangleClipped(Surface, TRect(Rect.x, Rect.y + LineWidth, LineWidth, Rect.height - LineWidth), Color, Clip);
 	FillRectangleClipped(Surface, TRect(Rect.x + Rect.width - LineWidth, Rect.y, LineWidth, Rect.height - LineWidth),
 		Color, Clip);
@@ -483,8 +491,8 @@ void TSurfaceGL::StretchBlit(int ToSurface, TRect ToRect, int FromSurface, TRect
 		uint8 *Pixel = Pixels;
 		for (int i = 0; i < 64 * 64; i++) {
 			if (Pixel[0] >= Highlight.R - 2 && Pixel[0] <= Highlight.R + 2
-					&& Pixel[1] >= Highlight.G - 2 && Pixel[1] <= Highlight.G + 2
-					&& Pixel[2] >= Highlight.B - 2 && Pixel[2] <= Highlight.B + 2)
+				&& Pixel[1] >= Highlight.G - 2 && Pixel[1] <= Highlight.G + 2
+				&& Pixel[2] >= Highlight.B - 2 && Pixel[2] <= Highlight.B + 2)
 				Pixel[3] = 0;
 			Pixel += 4;
 		}
@@ -739,11 +747,13 @@ bool TSurfaceGL::Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, b
 	ResetDisplay(ViewMode, Resolution);
 	hWindow = *Window;
 	DeviceContext = GetDC(hWindow);
+	// clang-format off
 	PIXELFORMATDESCRIPTOR Format = {
 		sizeof(PIXELFORMATDESCRIPTOR), 1,
 		PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_DEPTH_DONTCARE,
 		PFD_TYPE_RGBA, (BYTE)Resolution->Depth,
 	};
+	// clang-format on
 	int Number = ChoosePixelFormat(DeviceContext, &Format);
 	if (Number == 0 || !SetPixelFormat(DeviceContext, Number, &Format))
 		return false;
@@ -931,12 +941,12 @@ void TSurfaceGL::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 			Pixel[3] = 0xff;
 		}
 		goto Next;
-Copy:
+	Copy:
 		Pixel[0] = From[0];
 		Pixel[1] = From[1];
 		Pixel[2] = From[2];
 		Pixel[3] = TRGBColor(From[0], From[1], From[2]) == Textures[ToSurface].ColorKey ? 0 : 0xff;
-Next:
+	Next:
 		Pixel += 4;
 	}
 	glEnable(GL_TEXTURE_2D);

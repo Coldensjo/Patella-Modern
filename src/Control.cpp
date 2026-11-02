@@ -613,10 +613,10 @@ bool CloseRequest()
 	if (GetConnectionState() == 8) {
 		if (ModalWindow == NULL) {
 			INT_PTR *Data = new INT_PTR[4];
-			Data[0] = (INT_PTR)"Warning";
-			Data[1] = (INT_PTR)"If you shut down the program, your character might stay in the game.\n"
-				"Click on \"Logout\" to ensure that your character leaves the game properly.\n"
-				"Click on \"Exit\" if you want to exit the program without logging out your character.";
+			Data[0] = (INT_PTR) "Warning";
+			Data[1] = (INT_PTR) "If you shut down the program, your character might stay in the game.\n"
+								"Click on \"Logout\" to ensure that your character leaves the game properly.\n"
+								"Click on \"Exit\" if you want to exit the program without logging out your character.";
 			Data[2] = 0;
 			Data[3] = 0;
 			AddMessage(7, (INT_PTR)Data, 0);
@@ -640,7 +640,7 @@ void LinkCopyWarning()
 {
 	TBEGIN
 	SetActionState(0);
-	AddMessage(11, (INT_PTR)"Link Copy Warning", 0);
+	AddMessage(11, (INT_PTR) "Link Copy Warning", 0);
 	TEND(1155)
 }
 
@@ -686,10 +686,14 @@ void ReceivePackets()
 			switch (Type) {
 			case 0x0a: ReceiveLoginError(); break;
 			case 0x0b: ReceiveLoginMessage(); break;
-			case 0x14: ReceiveMessageOfTheDay(); break;
+			case 0x14:
+				ReceiveMessageOfTheDay();
+				break;
+				// clang-format off
 			case 0x1e: ReceivePatch(); HandleEvents(); break;
 			case 0x1f: ReceiveWholeFile(); HandleEvents(); break;
 			case 0x20: ReceivePatchBlock(); HandleEvents(); break;
+			// clang-format on
 			case 0x28: ReceiveLoginServerOverloaded(); break;
 			case 0x64: ReceiveCharacterList(); break;
 			default:
@@ -738,10 +742,14 @@ void ReceivePackets()
 			case 0x71: ReceiveContainerChangeObject(); break;
 			case 0x72: ReceiveContainerDeleteObject(); break;
 			case 0x78: ReceiveInventoryObject(); break;
-			case 0x79: ReceiveDeleteInventoryObject(); break;
+			case 0x79:
+				ReceiveDeleteInventoryObject();
+				break;
+				// clang-format off
 			case 0x7d: ReceiveOwnTrade(); MainWindow->OpenTrade(); break;
 			case 0x7e: ReceiveCounterTrade(); MainWindow->UpdateTrade(); break;
 			case 0x7f: ReceiveCloseTrade(); MainWindow->CloseTrade(); break;
+			// clang-format on
 			case 0x82: ReceiveWorldLight(); break;
 			case 0x83: ReceiveMagicEffect(); break;
 			case 0x84: ReceiveAnimatedText(); break;
@@ -798,12 +806,12 @@ void ConnectionClosed()
 	} else if (GetConnectionState() == 6) {
 		char *Message = new char[1024];
 		GetErrorMessage(Message, ERROR_DISCONNECTED, 2);
-		AddMessage(1, (INT_PTR)"Connection failed", (INT_PTR)Message);
+		AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Message);
 		AddMessage(10, 300, 0);
 	} else if (GetConnectionState() == 3) {
 		char *Message = new char[1024];
 		GetErrorMessage(Message, ERROR_DISCONNECTED, 1);
-		AddMessage(1, (INT_PTR)"Connection failed", (INT_PTR)Message);
+		AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Message);
 	}
 	SetConnectionState(0);
 	if (Reconnect) {

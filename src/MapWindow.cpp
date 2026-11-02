@@ -403,8 +403,8 @@ void TMapWindow::Draw(int Surface, int x, int y)
 								MaxLevel = z - 1;
 							Obj = GetFirstObject(FieldX, FieldY, z);
 							if (Obj.Type != 0 && z - 1 < MaxLevel
-							 && (GetObjectFlag(Obj, BANK) || GetObjectFlag(Obj, BOTTOM))
-							 && !GetObjectFlag(Obj, DONTHIDE))
+								&& (GetObjectFlag(Obj, BANK) || GetObjectFlag(Obj, BOTTOM))
+								&& !GetObjectFlag(Obj, DONTHIDE))
 								MaxLevel = z - 1;
 						}
 					}
@@ -481,7 +481,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 						}
 					}
 					if (z == PositionZ + Level - 8 && z < 7 && FieldX > 0 && FieldY > 0
-					 && IsFieldTranslucent(FieldX - 1, FieldY - 1, z + 1))
+						&& IsFieldTranslucent(FieldX - 1, FieldY - 1, z + 1))
 						SetLightColor(FieldX, FieldY, GetAmbientBrightness() - 1);
 				}
 			}
@@ -893,10 +893,10 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 			Color = SkinProperties.HighlightColor;
 		if (Creatures[i]->CreatureID == GetAttackID())
 			Color = Creatures[i]->CreatureID == GetHighlightID() ? SkinProperties.HighlightedAttackColor
-				: SkinProperties.AttackColor;
+																 : SkinProperties.AttackColor;
 		if (Creatures[i]->CreatureID == GetFollowID())
 			Color = Creatures[i]->CreatureID == GetHighlightID() ? SkinProperties.HighlightedFollowColor
-				: SkinProperties.FollowColor;
+																 : SkinProperties.FollowColor;
 		int ox = OffsetX[i], oy = OffsetY[i];
 		if (Color != TRGBColor(0, 0, 0)) {
 			int cx = (ScrollX - Elevation + ox + posx) / 32, cy = (ScrollY - Elevation + oy + posy) / 32;
@@ -914,8 +914,10 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 			FlushField(cx, cy + 1);
 			FlushField(cx + 1, cy + 1);
 			int Margin = Color == TRGBColor(0, 0, 0) ? 0 : 2;
-			GetSurface()->DrawFrameClipped(2, TRect(Margin + ox - Elevation + posx, Margin - Elevation + oy + posy,
-				(16 - Margin) * 2, (16 - Margin) * 2), 2, TRGBColor(Creatures[i]->Mark), TRect(0, 0, 480, 352));
+			GetSurface()->DrawFrameClipped(2,
+				TRect(Margin + ox - Elevation + posx, Margin - Elevation + oy + posy,
+					(16 - Margin) * 2, (16 - Margin) * 2),
+				2, TRGBColor(Creatures[i]->Mark), TRect(0, 0, 480, 352));
 		}
 		int OutfitType = Creatures[i]->OutfitType;
 		if (OutfitType == 0) {
@@ -1102,7 +1104,8 @@ void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature
 		for (int Y = 1; Y <= GetOutfitHeight(OutfitType); Y++) {
 			int SpriteNumber = GetOutfitSpriteNumber(OutfitType, X, Y, 1, Creature->GetDrawDirection(), Phase);
 			int MaskNumber = GetOutfitLayers(OutfitType) == 2
-				? GetOutfitSpriteNumber(OutfitType, X, Y, 2, Creature->GetDrawDirection(), Phase) : 0;
+				? GetOutfitSpriteNumber(OutfitType, X, Y, 2, Creature->GetDrawDirection(), Phase)
+				: 0;
 			if (SpriteNumber > 0)
 				DrawFieldSprite(posx - X * 32 - ShiftX + 32, posy - Y * 32 - ShiftY + 32, Level, true, SpriteNumber,
 					MaskNumber, Colors);
@@ -1227,7 +1230,7 @@ void TMapWindow::CacheSprite(int FieldX, int FieldY, int SpriteNumber, int dx, i
 		Field->SpriteY[Field->CachedSprites] = dy;
 		Field->CachedSprites++;
 	} else if (Field->Sprite[Field->Sprites] != SpriteNumber || Field->SpriteX[Field->Sprites] != dx
-	 || Field->SpriteY[Field->Sprites] != dy) {
+		|| Field->SpriteY[Field->Sprites] != dy) {
 		for (int i = 0; i < Field->Sprites; i++) {
 			if (Field->Sprite[i] == 0)
 				DrawPicturePartClipped(4, Field->x + Field->SpriteX[i], Field->y + Field->SpriteY[i], 7, 0, 0, 32, 32,
@@ -1328,7 +1331,7 @@ void TMapWindow::AddLightSource(int posx, int posy, int z, int Brightness, TRGBC
 			} catch (TMyException &Exception) {
 				std::stringstream s;
 				s << "failed to get object flag from type " << Obj.Type << " (" << posx << "," << posy << ","
-					<< z << "->" << x << "," << y << "," << z << ")";
+				  << z << "->" << x << "," << y << "," << z << ")";
 				throw TMYEXCEPTION(1338, s.str().c_str(), "", 0, "", 0, Exception);
 			}
 			if (R < 0)
@@ -1410,7 +1413,8 @@ void TMapWindow::ArrangeTalkboxes()
 			int HalfHeight = BoxHeight[i] / 2;
 			MinY[i] = HalfHeight + 1 > cy ? HalfHeight + 1 : cy;
 			MaxY[i] = Height - HalfHeight - StatusHeight < cy + BoxHeight[i]
-				? Height - HalfHeight - StatusHeight : cy + BoxHeight[i];
+				? Height - HalfHeight - StatusHeight
+				: cy + BoxHeight[i];
 			Fixed[i] = 0;
 		} else {
 			int cx = Width / 2;
@@ -1439,7 +1443,8 @@ void TMapWindow::ArrangeTalkboxes()
 			int HalfHeight = BoxHeight[i] / 2;
 			MinY[i] = HalfHeight + 1 > cy - BoxHeight[i] ? HalfHeight + 1 : cy - BoxHeight[i];
 			MaxY[i] = Height - HalfHeight - StatusHeight < BoxHeight[i] + cy
-				? Height - HalfHeight - StatusHeight : BoxHeight[i] + cy;
+				? Height - HalfHeight - StatusHeight
+				: BoxHeight[i] + cy;
 			Fixed[i] = 3;
 		}
 		PosX[i] = CentreX[i];

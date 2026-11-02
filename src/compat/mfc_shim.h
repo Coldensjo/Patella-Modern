@@ -112,10 +112,12 @@ WNDPROC AfxGetAfxWndProc();
 protected: \
 	static const void *GetThisMessageMap(); \
 	virtual const void *GetMessageMap() const;
+// clang-format off
 #define BEGIN_MESSAGE_MAP(theClass, baseClass) \
 	const void *theClass::GetMessageMap() const { return GetThisMessageMap(); } \
 	const void *theClass::GetThisMessageMap() { static const int Entries[] = {
 #define END_MESSAGE_MAP() 0 }; return Entries; }
+// clang-format on
 #define afx_msg
 // The message map entries only need to compile here.
 #define ON_WM_CREATE() 0,

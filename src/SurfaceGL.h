@@ -54,64 +54,64 @@ struct TTextureGL {
 // 0x498 bytes, vtable 0x573250.
 class TSurfaceGL : public TSurface {
 public:
-	TSurfaceGL();                                                          // 0x4fb670
-	~TSurfaceGL();                                                         // 0x4f9860
+	TSurfaceGL();  // 0x4fb670
+	~TSurfaceGL(); // 0x4f9860
 
-	void SelectSurface(int Surface);                                       // +0x04, 0x4f9890
-	void SetTextureFilter(int Filter);                                     // +0x08, 0x4f9bd0
-	void SetPixel(int Surface, int x, int y, TRGBColor Color);             // +0x0c, 0x4f9dc0
-	void FillRectangleClipped(int Surface, TRect Rect, TRGBColor Color, TRect Clip); // +0x10, 0x4f9ef0
-	void FillRectangle(int Surface, TRect Rect, TRGBColor Color);         // +0x14, 0x4f9e50
-	void DrawHorizontalLine(int Surface, int x, int y, int Width, TRGBColor Color); // +0x18, 0x4f9ff0
-	void DrawVerticalLine(int Surface, int x, int y, int Height, TRGBColor Color); // +0x1c, 0x4fa080
+	void SelectSurface(int Surface);                                                            // +0x04, 0x4f9890
+	void SetTextureFilter(int Filter);                                                          // +0x08, 0x4f9bd0
+	void SetPixel(int Surface, int x, int y, TRGBColor Color);                                  // +0x0c, 0x4f9dc0
+	void FillRectangleClipped(int Surface, TRect Rect, TRGBColor Color, TRect Clip);            // +0x10, 0x4f9ef0
+	void FillRectangle(int Surface, TRect Rect, TRGBColor Color);                               // +0x14, 0x4f9e50
+	void DrawHorizontalLine(int Surface, int x, int y, int Width, TRGBColor Color);             // +0x18, 0x4f9ff0
+	void DrawVerticalLine(int Surface, int x, int y, int Height, TRGBColor Color);              // +0x1c, 0x4fa080
 	void DrawFrameClipped(int Surface, TRect Rect, int LineWidth, TRGBColor Color, TRect Clip); // +0x20, 0x4fa2c0
-	void DrawFrame(int Surface, TRect Rect, int LineWidth, TRGBColor Color); // +0x24, 0x4fa110
-	void WriteImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data); // +0x28, 0x4fb7f0
+	void DrawFrame(int Surface, TRect Rect, int LineWidth, TRGBColor Color);                    // +0x24, 0x4fa110
+	void WriteImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data);           // +0x28, 0x4fb7f0
 	void WriteMaskedImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data, uint8 *Mask,
-		TRGBColor *Colors);                                                // +0x2c, 0x4fbbb0
-	void BlitRect(int ToSurface, int x, int y, int FromSurface, TRect FromRect); // +0x30, 0x4fc6a0
-	void Blit(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey); // +0x34, 0x4fc480
+		TRGBColor *Colors);                                                                         // +0x2c, 0x4fbbb0
+	void BlitRect(int ToSurface, int x, int y, int FromSurface, TRect FromRect);                    // +0x30, 0x4fc6a0
+	void Blit(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey);    // +0x34, 0x4fc480
 	void BlitRectClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRect Clip); // +0x38, 0x4fc130
 	void BlitClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey,
-		TRect Clip);                                                       // +0x3c, 0x4fab70
+		TRect Clip);                                                                       // +0x3c, 0x4fab70
 	void StretchBlitRect(int ToSurface, TRect Destination, int FromSurface, TRect Source); // +0x40, 0x4fa700
 	void StretchBlitUnclipped(int ToSurface, TRect ToRect, int FromSurface, TRect FromRect, TRGBColor ColorKey,
-		TRGBColor Highlight);                                              // +0x44, 0x4fa510
+		TRGBColor Highlight); // +0x44, 0x4fa510
 	void StretchBlit(int ToSurface, TRect ToRect, int FromSurface, TRect FromRect, TRGBColor ColorKey,
-		TRGBColor Highlight, TRect Clip);                                  // +0x48, 0x4fa8b0
-	void ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor *Colors); // +0x4c, 0x4fabd0
-	void SetSourceColorKey(int Surface, TRGBColor ColorKey);              // +0x54, 0x4f9c10
-	bool ClipRect(TRect Clip, RECT *Rect, RECT *Source);                  // +0x58 (copy 0x4f0410)
-	void ResetFrameTimer();                                                // +0x5c (copy 0x4f04d0)
-	void WaitForNextFrame();                                               // +0x60, 0x4f9c40
-	void UpdateWindowRect();                                               // +0x68, 0x4f9d10
-	void InitDisplay(int VMode, TFullscreenMode *GMode);                  // +0x6c, 0x4fada0
-	void ExitDisplay();                                                    // +0x70, 0x4fb030
-	void CreateSurfaces();                                                 // +0x74, 0x4fb070
-	void ResetDisplay(int VMode, TFullscreenMode *GMode);                 // +0x78, 0x4fb1f0
-	void RestoreSurfaces(int ViewMode, TFullscreenMode *Mode);            // +0x7c, 0x4fb280
-	void AddDirtyRect(TRect Rect);                                         // +0x80, 0x4f9b80
-	void FinishFrame();                                                    // +0x84, 0x4fad20
+		TRGBColor Highlight, TRect Clip);                                           // +0x48, 0x4fa8b0
+	void ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor *Colors);  // +0x4c, 0x4fabd0
+	void SetSourceColorKey(int Surface, TRGBColor ColorKey);                        // +0x54, 0x4f9c10
+	bool ClipRect(TRect Clip, RECT *Rect, RECT *Source);                            // +0x58 (copy 0x4f0410)
+	void ResetFrameTimer();                                                         // +0x5c (copy 0x4f04d0)
+	void WaitForNextFrame();                                                        // +0x60, 0x4f9c40
+	void UpdateWindowRect();                                                        // +0x68, 0x4f9d10
+	void InitDisplay(int VMode, TFullscreenMode *GMode);                            // +0x6c, 0x4fada0
+	void ExitDisplay();                                                             // +0x70, 0x4fb030
+	void CreateSurfaces();                                                          // +0x74, 0x4fb070
+	void ResetDisplay(int VMode, TFullscreenMode *GMode);                           // +0x78, 0x4fb1f0
+	void RestoreSurfaces(int ViewMode, TFullscreenMode *Mode);                      // +0x7c, 0x4fb280
+	void AddDirtyRect(TRect Rect);                                                  // +0x80, 0x4f9b80
+	void FinishFrame();                                                             // +0x84, 0x4fad20
 	bool Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, bool Force); // +0x88, 0x4fb2e0
-	int GetFullscreenModes(TFullscreenMode **Modes);                      // +0x8c, 0x4fb4e0
-	int GetCacheSurfaces();                                                // +0x90, 0x4fb5e0
-	void GetSurfaceRect(int Surface, TRect *Rect);                        // +0x94, 0x4fc8a0
-	bool SurfaceRecreated(int Type);                                       // +0x9c, 0x4fca30
-	bool IsUnavailable();                                                  // +0xa0, 0x4fb5f0
-	bool CanShadeRectangles();                                             // +0xa4 (copy 0x4d7d40)
-	int GetSurfaceMemory(int Index);                                       // +0xa8, 0x4f9880
-	void SetFramerateLimit(int Limit);                                     // +0xac (copy 0x4eb000)
-	double GetFPS();                                                       // +0xb0, 0x4f9d00
-	void InitSurfaces();                                                   // +0xb4, 0x4fb700
-	void ExitSurfaces();                                                   // +0xb8, 0x4fb600
-	bool TestEngine();                                                     // +0xbc (copy 0x4d7d40)
+	int GetFullscreenModes(TFullscreenMode **Modes);                                // +0x8c, 0x4fb4e0
+	int GetCacheSurfaces();                                                         // +0x90, 0x4fb5e0
+	void GetSurfaceRect(int Surface, TRect *Rect);                                  // +0x94, 0x4fc8a0
+	bool SurfaceRecreated(int Type);                                                // +0x9c, 0x4fca30
+	bool IsUnavailable();                                                           // +0xa0, 0x4fb5f0
+	bool CanShadeRectangles();                                                      // +0xa4 (copy 0x4d7d40)
+	int GetSurfaceMemory(int Index);                                                // +0xa8, 0x4f9880
+	void SetFramerateLimit(int Limit);                                              // +0xac (copy 0x4eb000)
+	double GetFPS();                                                                // +0xb0, 0x4f9d00
+	void InitSurfaces();                                                            // +0xb4, 0x4fb700
+	void ExitSurfaces();                                                            // +0xb8, 0x4fb600
+	bool TestEngine();                                                              // +0xbc (copy 0x4d7d40)
 
 	bool CreateTexture(TTextureGL *Texture, int Width, int Height, bool Empty); // 0x4faef0
 
-	HGLRC Context;                          // +0x70, the window's rendering context
+	HGLRC Context;                              // +0x70, the window's rendering context
 	TTextureGL Textures[NUMBER_OF_SURFACES_GL]; // +0x74
-	RECT Rect[NUMBER_OF_SURFACES_GL];       // +0x334, the surfaces' areas (Rect[SCREEN_SURFACE] the client area)
-	bool Recreated[3];                      // +0x494, by Type: set by CreateSurfaces, read and cleared by SurfaceRecreated
+	RECT Rect[NUMBER_OF_SURFACES_GL];           // +0x334, the surfaces' areas (Rect[SCREEN_SURFACE] the client area)
+	bool Recreated[3];                          // +0x494, by Type: set by CreateSurfaces, read and cleared by SurfaceRecreated
 };
 
 // 0x4f9710. Surface.cpp's engine selection: OpenGL can draw on the window's

@@ -4841,3 +4841,94 @@ and runs the tests; the other presets of the plan (section 5) come with #5 and #
   7200 s for difftest and communicationtest (DIFFTEST_TIMEOUT still stops a hung child after 1800 s). The test
   preset prints the programs' output (verbosity verbose) so the counts are in the log. patcap.dll is a target
   only: compare_rendering.py still builds and uses build\capture\patcap.dll.
+
+## Compiler settings, warnings and code style (issue #8)
+
+Settled by Claude Opus 5.5, November 3, 2026 (MSVC 14.51 / cl 19.51, CMake 4.1.2, clang-format and clang-tidy
+22.1.3 from Visual Studio, mingw-w64 GCC 16.2). `cmake/Warnings.cmake`, `cmake/Hardening.cmake`, `.clang-format`,
+`.clang-format-ignore`, `.clang-tidy`, `tools/tidy.py`, `.editorconfig`; one reformat commit of src/.
+
+- **Modules as functions** (form). `patella_target_language`, `patella_target_warnings` and
+  `patella_target_hardening` set options on one target, nothing global, so the oracle-x86 targets keep exactly
+  Patella.vcxproj's and build.cmd's flags (/std:c++17 /W3 /Zc:strictStrings- ...; OracleX86.cmake is unchanged)
+  and the presets of #5 and #7 apply them to their own targets. No preset applies them yet.
+- **Language** (high). MSVC: `/std:c++latest` (cl 19.51 knows /std:c++23preview but not /std:c++23; the issue
+  chose c++latest), `/permissive- /Zc:__cplusplus` for C++, `/utf-8 /Zc:preprocessor /Zc:inline` for C and C++.
+  GCC and Clang: `-std=c++26`. The standard is an option, not CXX_STANDARD, which would add a second flag. The
+  sources are ASCII apart from comments in Utils.cpp and Utils.h (UTF-8), so /utf-8 changes no literal.
+- **String literals** (high). Without /Zc:strictStrings- (strict by /permissive-) one literal of src/ failed:
+  Status.h's `static char *LinkPattern = "..."`. It is a `const char *` now: the pointer keeps its size and its
+  place in .data of every object that includes Status.h; InitStatus casts it for regcomp, whose K&R signature
+  takes `char *` (src/Extern unchanged). The oracle's Patella.exe is unchanged (below).
+- **Warning baseline** (high). Measured with a local, uncommitted CMake project (build\issue-8\check: every
+  src/*.cpp and regexp.c with Patella's definitions, x86 against static MFC, the three functions applied, linked
+  with /guard:cf /CETCOMPAT), first with `--compile-no-warning-as-error` and an empty baseline: 1,234 /W4
+  warnings in 24 of the 36 translation units (931 C4100 unreferenced parameter, 180 C4458/C4456/C4459 hidden
+  names, 99 C4244 conversions, and in regexp.c 16 C4131 old-style declarators, 7 C4310 casts, 1 C4701; many come from GUI.h, DialogElements.h and ContentWindows.h, so a file is on the list when
+  its translation unit warns, wherever the warning is). Those 24 are PATELLA_WARNING_BASELINE (/W3); the other
+  12 build at /W4. With the list and /WX: 0 warnings, 0 errors. The list is x86's: the x64 build (#5) and GCC
+  and Clang (#7) measure again; GCC and Clang use the same list with `-Wall` as the lower level until then.
+  Warning fixes are left for M3: each changes src/ and needs the binary comparison.
+- **External headers** (form). `/external:anglebrackets /external:W0`: at /W4 the Windows SDK and MFC headers
+  would warn in every file. The plan does not name it; without it /W4 is not usable with MFC.
+- **Warnings as errors** (form). CMake's COMPILE_WARNING_AS_ERROR, so `cmake --compile-no-warning-as-error`
+  measures without editing a file. The level is a per-source COMPILE_OPTIONS, so no command line has two levels
+  (cl warns D9025 when /W3 overrides /W4).
+- **Hardening** (high). MSVC: /guard:cf (compiler and linker), /CETCOMPAT (linker; ASLR and DEP are link.exe's
+  defaults). GCC/Clang: -fstack-protector-strong; `-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3` only in optimised
+  configurations (glibc warns without optimisation, an error with -Werror; some distributions predefine level 2);
+  -D_GLIBCXX_ASSERTIONS in Debug; POSITION_INDEPENDENT_CODE with check_pie_supported (CMP0083 is NEW from 3.30,
+  so CMake links with -pie); `-z relro -z now` on Linux only. The GCC options were checked with mingw-w64 GCC
+  16.2 on vlong.cpp, TRSA.cpp and TXTEA.cpp (Release and Debug, 0 warnings; TRSA.cpp at the full level). Clang
+  is not installed here (no clang-cl, no clang): #7 checks it. regexp.c does not compile with GCC 16, whose
+  default C is C23 (K&R definitions): #7 needs a C standard for it (C17).
+- **.clang-format** (form). Written from the code: tabs of four (UseTab ForContinuationAndIndentation, so
+  alignment inside a line stays spaces), WebKit braces (function bodies on their own line), no indented case
+  labels, `public:` at the class's column, pointers to the right, breaks before binary operators, ColumnLimit 0
+  (the author's breaks), includes not sorted, comments not reflowed. WhitespaceSensitiveMacros lists every
+  macro of src/ that stringizes an argument (TASSERT*, TERROR*, TEND*, the local TASSERTB*, TASSERT*_BUG and
+  TERROR1B, and TMYEXCEPTION); StatementMacros TBEGIN. What clang-format 22 cannot keep: (1) trailing comments
+  aligned by hand: `AlignTrailingComments: Leave` with tabs writes tabs in the middle of lines and moves the
+  comments to tab stops, so they are aligned over consecutive lines (Kind Always, OverEmptyLines 0), most of the
+  reformat's lines; (2) several statements or case labels on one line: split, except in hand-laid tables, which
+  `// clang-format off/on` keeps (Communication.cpp's patch file table, two groups of Control.cpp's packet
+  switch, Creatures.cpp's direction table, Utils.cpp's colour table, Talk.cpp's GetTalkColor, surfaceDX9.cpp's
+  two vertex blocks, the pixel format and attribute lists of Surface.cpp and SurfaceGL.cpp), as are common.h's
+  TEND_HANDLERS and the MFC shim's message map macros, which clang-format parses as code; (3) a break inside a
+  nested call when the outer call's arguments are not broken: with ColumnLimit 0 clang-format joins such a
+  statement into one line (up to 177 columns). Before the reformat the break of those 31 statements moved to the
+  outer argument before the nested call (26) or before a binary operator (5), where clang-format keeps it.
+  src/Extern keeps its style (.clang-format-ignore; a moved line after glh_extensions.h's #line would change
+  __LINE__), and tools/ is not in the check yet.
+- **Reformat** (high). One commit, formatting only: 65 files, 3,172 lines in, 2,980 out. Lines moved, which
+  changes nothing: every error site names its line as the macro's first argument (common.h), no code of src/
+  uses __LINE__ outside src/Extern, and the binary is identical (below). No TASSERT/TERROR/TEND argument
+  changed: all 2,108 calls have the same text between their parentheses, whitespace included (a script
+  comparing them in order per file against main); `git diff -U0 | grep` shows four src/ lines, which differ
+  before the macro name (DialogElements.cpp's over-indented switch) or after its closing parenthesis (GUI.h's
+  trailing comments).
+- **clang-tidy** (form). `.clang-tidy`: bugprone-* without the checks that are noise for a reconstruction
+  (easily-swappable-parameters, narrowing-conversions, implicit-widening-of-multiplication-result,
+  reserved-identifier), cppcoreguidelines-no-malloc, -owning-memory, -pro-type-vararg, -use-enum-class,
+  modernize-use-nodiscard, -use-nullptr, -use-override, -use-std-print (plan section 8); headers of src/ but
+  not src/Extern. `tools/tidy.py` (no dependency beyond Python): finds clang-tidy (CLANG_TIDY, PATH, Visual
+  Studio's), runs it per file with `-Wno-unused-command-line-argument -Wno-error` (MSVC's command lines carry
+  options clang does not use, and /WX), splits the findings by whether they lie inside a macro call's
+  parentheses, and after `--fix` compares every file of src/ with its state before and puts back the old text
+  of each edit inside such a call (line diff, then character diff inside the changed lines). Shown with
+  build\issue-8\check's compile_commands.json and `--extra-arg=-m32` (clang-tidy takes its own default target,
+  x64, which fails the layout static_asserts of an x86 build): Utils, vlong, TRSA, Talk, Status and Map.cpp give
+  266 findings outside and 47 inside the arguments; `--fix --checks=-*,modernize-use-nullptr` on Utils, Talk and
+  Map.cpp applied the replacements of NULL outside the macros (101 lines in five files) and reverted the 43
+  inside (no changed macro line in the diff), and on a mixed line (`if (p == NULL) TASSERT(12, p!=NULL);`) the
+  condition changes while the argument stays. The baseline that "no new findings" (plan 4.1) needs comes with
+  the x64 build's compile_commands.json (#5) or CI.
+- **.editorconfig** (form). Tabs of four, LF, UTF-8, final newline, no trailing whitespace; spaces for YAML
+  (.clang-format and .clang-tidy are YAML) and Markdown (the notes indent list continuations with spaces), whose
+  trailing whitespace stays.
+- **Result** (high). oracle-x86 Patella.exe (Release) of main (d38b5a8) and of the branch, built in the same
+  directory: the same section sizes; .text, .data, .fptable, .rsrc and .reloc identical; .rdata and the headers
+  differ only in the link timestamps and one byte of the CodeView record (the PDB GUID). compare_imports.py and
+  compare_resources.py against Tibia.exe print the same for both (55 resources, 0 differences). lines.py check:
+  2,053 sites matched, 0 mismatches, the same output as for main. The CTest counts are main's (notes/progress.md,
+  "Last difftest").

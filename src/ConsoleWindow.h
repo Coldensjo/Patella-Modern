@@ -85,38 +85,38 @@ struct TLineFormat {
 // (SelectionEndLine, SelectionEndOffset) in either order; -1 is none.
 class TTextWindow : public TElement {
 public:
-	TTextWindow();                                         // 0x418520
+	TTextWindow(); // 0x418520
 	// Inline (0x4179f0, deleting destructor 0x417a80); Lines frees its entries.
 	~TTextWindow()
 	{
 		if (SelectedText != NULL)
 			delete[] SelectedText;
 	}
-	void Draw(int Surface, int x, int y);                  // +0x44, 0x420550, lines 84-119
-	void Arrange();                                        // +0x48, 0x420b80, line 148
-	bool MouseMove(int x, int y);                          // +0x4c, 0x4185b0, line 165
-	bool LeftButtonDown(int x, int y, int Flags);          // +0x50, 0x418930, line 195
-	bool LeftButtonUp(int x, int y, int Flags);            // +0x54, 0x418790, line 179
-	bool LeftButtonDoubleClick(int x, int y, int Flags);   // +0x58, 0x420d70, line 218
-	bool RightButtonUp(int x, int y, int Flags);           // +0x5c, 0x420f90, line 240
-	void HandleEvent(int Event);                           // +0x70, 0x421190, lines 262-265
+	void Draw(int Surface, int x, int y);                // +0x44, 0x420550, lines 84-119
+	void Arrange();                                      // +0x48, 0x420b80, line 148
+	bool MouseMove(int x, int y);                        // +0x4c, 0x4185b0, line 165
+	bool LeftButtonDown(int x, int y, int Flags);        // +0x50, 0x418930, line 195
+	bool LeftButtonUp(int x, int y, int Flags);          // +0x54, 0x418790, line 179
+	bool LeftButtonDoubleClick(int x, int y, int Flags); // +0x58, 0x420d70, line 218
+	bool RightButtonUp(int x, int y, int Flags);         // +0x5c, 0x420f90, line 240
+	void HandleEvent(int Event);                         // +0x70, 0x421190, lines 262-265
 	// Inline (0x417a50): the end of a selection drag.
 	void ReleaseCapture(TComponent *Component)
 	{
 		Selecting = false;
 		TElement::ReleaseCapture(Component);
 	}
-	virtual void FormatLines();                            // +0x84, 0x418ca0, line 379
+	virtual void FormatLines();                                                  // +0x84, 0x418ca0, line 379
 	virtual bool GetPosition(int x, int y, int *Line, int *Offset, int *Length); // +0x88, 0x419fc0, line 674
 
-	void SetTextBuffer(TTalkBuffer *TextBuffer);           // 0x418b10, line 277
-	TTalkLine *GetTalkLine(int LineNumber);                // 0x419030, line 411
-	TLineFormat *GetLineFormat(int LineNumber);            // 0x419200, line 425
-	void SetCurrentLineNumber(int _CurrentLineNumber);     // 0x4193d0, line 432
-	bool GetSelectionStart(int *Line, int *Offset);        // 0x419560, line 481
-	bool GetSelectionEnd(int *Line, int *Offset);          // 0x4197a0, line 510
-	bool SelectAll();                                      // 0x4199e0, line 526
-	const char *GetSelectedText();                         // 0x419bd0, line 626
+	void SetTextBuffer(TTalkBuffer *TextBuffer);       // 0x418b10, line 277
+	TTalkLine *GetTalkLine(int LineNumber);            // 0x419030, line 411
+	TLineFormat *GetLineFormat(int LineNumber);        // 0x419200, line 425
+	void SetCurrentLineNumber(int _CurrentLineNumber); // 0x4193d0, line 432
+	bool GetSelectionStart(int *Line, int *Offset);    // 0x419560, line 481
+	bool GetSelectionEnd(int *Line, int *Offset);      // 0x4197a0, line 510
+	bool SelectAll();                                  // 0x4199e0, line 526
+	const char *GetSelectedText();                     // 0x419bd0, line 626
 	int getFirstLineNumber() { return Lines.min; }
 	int getLastLineNumber() { return LastLineNumber; }
 	// Inline (out-of-line copy 0x417590; inlined into KeyPress): a selection
@@ -134,30 +134,30 @@ public:
 			&& (SelectionStartLine != SelectionEndLine || SelectionStartOffset != SelectionEndOffset);
 	}
 
-	TTalkBuffer *TextBuffer;     // +0x24
-	vector<TLineFormat> Lines;   // +0x28 (entry +0x68)
-	int CurrentLineNumber;       // +0x6c
-	int InvisibleLines;          // +0x70, lines above the window when the last one is at the bottom
-	int LastLineNumber;          // +0x74
-	int SelectionStartLine;      // +0x78
-	int SelectionStartOffset;    // +0x7c
-	int SelectionEndLine;        // +0x80
-	int SelectionEndOffset;      // +0x84
-	bool Selecting;              // +0x88, the left button is down
-	char *SelectedText;          // +0x8c, GetSelectedText's result
-	bool AtEnd;                  // +0x90, the last line is shown
+	TTalkBuffer *TextBuffer;   // +0x24
+	vector<TLineFormat> Lines; // +0x28 (entry +0x68)
+	int CurrentLineNumber;     // +0x6c
+	int InvisibleLines;        // +0x70, lines above the window when the last one is at the bottom
+	int LastLineNumber;        // +0x74
+	int SelectionStartLine;    // +0x78
+	int SelectionStartOffset;  // +0x7c
+	int SelectionEndLine;      // +0x80
+	int SelectionEndOffset;    // +0x84
+	bool Selecting;            // +0x88, the left button is down
+	char *SelectedText;        // +0x8c, GetSelectedText's result
+	bool AtEnd;                // +0x90, the last line is shown
 };
 
 // The view of the current channel: the text window with a scroll bar on its
 // right (ScrollToEnd moves it to the last line at the next Arrange).
 class TConsole : public TWindow {
 public:
-	TConsole();                                    // 0x41a280, line 695
+	TConsole(); // 0x41a280, line 695
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	int getMinimumHeight();                        // +0x40, 0x41a4d0
-	void Draw(int Surface, int x, int y);          // +0x44, 0x41a4f0, line 706
-	void Arrange();                                // +0x48, 0x421450, lines 753-794
-	bool MouseWheel(int x, int y, int Code);       // +0x60, 0x41a6a0, line 717
+	int getMinimumHeight();                  // +0x40, 0x41a4d0
+	void Draw(int Surface, int x, int y);    // +0x44, 0x41a4f0, line 706
+	void Arrange();                          // +0x48, 0x421450, lines 753-794
+	bool MouseWheel(int x, int y, int Code); // +0x60, 0x41a6a0, line 717
 	TTalkBuffer *getTextBuffer() { return TextWindow->TextBuffer; }
 
 	TTextWindow *TextWindow; // +0x2c
@@ -171,23 +171,23 @@ public:
 class TTab : public TElement {
 public:
 	TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback Callback); // 0x41a870, lines 806-831
-	~TTab();                                       // +0x00, 0x41acd0, lines 849-866 (deleting 0x421b10)
+	~TTab();                                                                  // +0x00, 0x41acd0, lines 849-866 (deleting 0x421b10)
 	// Inline (0x417700, folded with TTabBar's): the tab height.
 	int getMinimumHeight() { return SkinProperties.StyleAA4.Data04; } // +0x40
-	void Draw(int Surface, int x, int y);          // +0x44, 0x41b890, lines 981-996
-	void Arrange();                                // +0x48, 0x41b6c0, line 974
-	bool MouseMove(int x, int y);                  // +0x4c, 0x41b190, line 898
-	bool LeftButtonDown(int x, int y, int Flags);  // +0x50, 0x424200, line 916
-	bool LeftButtonUp(int x, int y, int Flags);    // +0x54, 0x41b370, line 931
-	bool RightButtonUp(int x, int y, int Flags);   // +0x5c, 0x4243d0, line 945
-	void MouseHover(int x, int y);                 // +0x64, 0x41b520, line 956
+	void Draw(int Surface, int x, int y);                             // +0x44, 0x41b890, lines 981-996
+	void Arrange();                                                   // +0x48, 0x41b6c0, line 974
+	bool MouseMove(int x, int y);                                     // +0x4c, 0x41b190, line 898
+	bool LeftButtonDown(int x, int y, int Flags);                     // +0x50, 0x424200, line 916
+	bool LeftButtonUp(int x, int y, int Flags);                       // +0x54, 0x41b370, line 931
+	bool RightButtonUp(int x, int y, int Flags);                      // +0x5c, 0x4243d0, line 945
+	void MouseHover(int x, int y);                                    // +0x64, 0x41b520, line 956
 	// Inline (0x41acc0): the end of a drag.
 	void ReleaseCapture(TComponent *Component)
 	{
 		Dragging = false;
 		TElement::ReleaseCapture(Component);
 	}
-	void SetActive(bool _Active);                  // 0x41afe0, line 880
+	void SetActive(bool _Active); // 0x41afe0, line 880
 	const char *getCaption() { return Shortened ? FullCaption : Caption; }
 	TTalkBuffer *getTextBuffer() { return TextBuffer; }
 
@@ -211,41 +211,41 @@ public:
 // (GetContainer); Moved is the tab being dragged, drawn last.
 class TTabBar : public TWindow {
 public:
-	TTabBar();                                     // 0x421b30, line 1016
+	TTabBar(); // 0x421b30, line 1016
 	// Inline (0x417610, deleting destructor 0x417a60).
 	~TTabBar()
 	{
 		delete LeftTabs;
 		delete RightTabs;
 	}
-	void InsertChild(TComponent *Child);           // +0x04, 0x41c2a0, line 1098
-	void AppendChild(TComponent *Child);           // +0x08, 0x41c450, line 1111
-	void RemoveChild(TComponent *Child);           // +0x0c, 0x422250, line 1177
-	void DeleteChild(TComponent *Child);           // +0x10, 0x422090, line 1125
+	void InsertChild(TComponent *Child);                            // +0x04, 0x41c2a0, line 1098
+	void AppendChild(TComponent *Child);                            // +0x08, 0x41c450, line 1111
+	void RemoveChild(TComponent *Child);                            // +0x0c, 0x422250, line 1177
+	void DeleteChild(TComponent *Child);                            // +0x10, 0x422090, line 1125
 	void InsertChildAfter(TComponent *Previous, TComponent *Child); // +0x14, 0x41c600, line 1139
-	void SwapChildren(TComponent *Child1, TComponent *Child2);     // +0x18, 0x41c7b0, line 1163
-	bool IsChild(TComponent *Child);               // +0x1c, 0x41c950, line 1191
-	void SetSize(int Width, int Height);           // +0x34, 0x41bf40, line 1055
+	void SwapChildren(TComponent *Child1, TComponent *Child2);      // +0x18, 0x41c7b0, line 1163
+	bool IsChild(TComponent *Child);                                // +0x1c, 0x41c950, line 1191
+	void SetSize(int Width, int Height);                            // +0x34, 0x41bf40, line 1055
 	// Inline (0x417700, folded with TTab's).
 	int getMinimumHeight() { return SkinProperties.StyleAA4.Data04; } // +0x40
-	void Draw(int Surface, int x, int y);          // +0x44, 0x41bd40, line 1043
-	void Arrange();                                // +0x48, 0x41c0f0, line 1068
-	bool HelpMouseMove(int x, int y);              // +0x68, 0x41cda0, lines 1215-1220
-	void HandleEvent(int Event);                   // +0x70, 0x41d040, line 1258
-	virtual void Rearrange(TTab *_Moved);          // +0xa0, 0x41d810, lines 1372-1427
+	void Draw(int Surface, int x, int y);                             // +0x44, 0x41bd40, line 1043
+	void Arrange();                                                   // +0x48, 0x41c0f0, line 1068
+	bool HelpMouseMove(int x, int y);                                 // +0x68, 0x41cda0, lines 1215-1220
+	void HandleEvent(int Event);                                      // +0x70, 0x41d040, line 1258
+	virtual void Rearrange(TTab *_Moved);                             // +0xa0, 0x41d810, lines 1372-1427
 
-	void SetCurrentTab(TTab *Tab);                 // 0x421d10, lines 1075-1085
-	TWindow *GetContainer(TComponent *Child);      // 0x41cb20, lines 1203-1205
-	TTab *FindTab(TTalkBuffer *TextBuffer);        // 0x41d270, line 1290
-	void ShowTab(TTab *Tab);                       // 0x41d450, line 1309
-	void StoreOpenChannels();                      // 0x41d620, line 1344
+	void SetCurrentTab(TTab *Tab);            // 0x421d10, lines 1075-1085
+	TWindow *GetContainer(TComponent *Child); // 0x41cb20, lines 1203-1205
+	TTab *FindTab(TTalkBuffer *TextBuffer);   // 0x41d270, line 1290
+	void ShowTab(TTab *Tab);                  // 0x41d450, line 1309
+	void StoreOpenChannels();                 // 0x41d620, line 1344
 
-	TTab *Moved;             // +0x2c
-	TTab *CurrentTab;        // +0x30
-	TWindow *LeftTabs;       // +0x34
-	TWindow *RightTabs;      // +0x38
-	bool Busy;               // +0x3c, Rearrange is running
-	bool Changed;            // +0x3d, the console updates its buttons when it is set
+	TTab *Moved;        // +0x2c
+	TTab *CurrentTab;   // +0x30
+	TWindow *LeftTabs;  // +0x34
+	TWindow *RightTabs; // +0x38
+	bool Busy;          // +0x3c, Rearrange is running
+	bool Changed;       // +0x3d, the console updates its buttons when it is set
 };
 
 // The console. TalkMode is the volume of the default channel (1 say,
@@ -253,33 +253,33 @@ public:
 // lines (HistoryPosition -1 is the edit line itself).
 class TConsoleWindow : public TWindow {
 public:
-	TConsoleWindow();                              // 0x422410, line 1516
-	~TConsoleWindow();                             // +0x00, 0x41dbe0, line 1543 (deleting 0x422aa0)
-	void SetSize(int Width, int Height);           // +0x34, 0x41de80, line 1571
+	TConsoleWindow();                    // 0x422410, line 1516
+	~TConsoleWindow();                   // +0x00, 0x41dbe0, line 1543 (deleting 0x422aa0)
+	void SetSize(int Width, int Height); // +0x34, 0x41de80, line 1571
 	// Inline (0x41de70).
 	int getMinimumHeight() { return SkinProperties.Style9E8.Data00; } // +0x40
-	void Draw(int Surface, int x, int y);          // +0x44, 0x422ac0, lines 1583-1601
-	void Arrange();                                // +0x48, 0x41e1e0, line 1647
-	bool LeftButtonDown(int x, int y, int Flags);  // +0x50, 0x41e5e0, line 1659
-	bool HelpMouseMove(int x, int y);              // +0x68, 0x41e7a0, line 1673
-	void KeyPress(int Key);                        // +0x6c, 0x424580, lines 1718-1773
-	void HandleEvent(int Event);                   // +0x70, 0x424b10, lines 1856-1859
+	void Draw(int Surface, int x, int y);                             // +0x44, 0x422ac0, lines 1583-1601
+	void Arrange();                                                   // +0x48, 0x41e1e0, line 1647
+	bool LeftButtonDown(int x, int y, int Flags);                     // +0x50, 0x41e5e0, line 1659
+	bool HelpMouseMove(int x, int y);                                 // +0x68, 0x41e7a0, line 1673
+	void KeyPress(int Key);                                           // +0x6c, 0x424580, lines 1718-1773
+	void HandleEvent(int Event);                                      // +0x70, 0x424b10, lines 1856-1859
 
-	void SetActive(bool Active);                   // 0x41e960, lines 1869-1875
-	void UpdateButtons();                          // 0x41ed00, lines 1888-1938
+	void SetActive(bool Active);                                           // 0x41e960, lines 1869-1875
+	void UpdateButtons();                                                  // 0x41ed00, lines 1888-1938
 	void OpenDefaultChannel(TTalkBuffer *TextBuffer, const char *Caption); // 0x422e70, line 1953
 	TTalkBuffer *OpenChannel(int RecvMode, int SendMode, const char *Name, int Channel,
-		const char *Caption);                      // 0x425070, lines 1965-1969
-	void AddChannel(TTalkBuffer *TextBuffer, const char *Caption); // 0x423060, lines 1977-1998
-	void CloseChannel();                           // 0x4234b0, lines 2009-2020
-	void ReportRuleViolation(const char *Question); // 0x425330, lines 2033-2051
-	bool GetServerMessages();                      // 0x41f1c0, lines 2060-2061
-	void SetServerMessages(bool Show);             // 0x41f470, lines 2071-2077
-	TTalkBuffer *GetTextBuffer();                  // 0x41f7f0, line 2085
-	void SendInput();                              // 0x423830, lines 2145-2184
-	void AddToHistory();                           // 0x41f940, line 2207
+		const char *Caption);                                                              // 0x425070, lines 1965-1969
+	void AddChannel(TTalkBuffer *TextBuffer, const char *Caption);                         // 0x423060, lines 1977-1998
+	void CloseChannel();                                                                   // 0x4234b0, lines 2009-2020
+	void ReportRuleViolation(const char *Question);                                        // 0x425330, lines 2033-2051
+	bool GetServerMessages();                                                              // 0x41f1c0, lines 2060-2061
+	void SetServerMessages(bool Show);                                                     // 0x41f470, lines 2071-2077
+	TTalkBuffer *GetTextBuffer();                                                          // 0x41f7f0, line 2085
+	void SendInput();                                                                      // 0x423830, lines 2145-2184
+	void AddToHistory();                                                                   // 0x41f940, line 2207
 	void ParseInput(char **Text, char **Addressee, int *TalkMode, char *MessageSeparator); // 0x41fb60, lines 2258-2304
-	bool SaveChannel();                            // 0x420090, lines 2316-2335
+	bool SaveChannel();                                                                    // 0x420090, lines 2316-2335
 
 	TTabBar *TabBar;                     // +0x2c
 	int Data30;                          // +0x30, not used

@@ -34,44 +34,44 @@
 	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, #V2, V2, #Expr " [" #Bug "]")
 
 // Data, in .bss order. 0x5c456c and 0x5c68ac are not used by any code.
-static int BuddySortMethods[3];             // 0x5c4560, 0 name, 1 icon, 2 online; most significant first
-static TBuddyEntry Buddies[BUDDIES];        // 0x5c4570
-static int NumberOfOnlineBuddies;           // 0x5c67d0
-static int NumberOfBuddies;                 // 0x5c67d4
-static int PlayerState;                     // 0x5c67d8, the state icons, one bit each
-static int PlayerSkillProgress[SKILLS];     // 0x5c67dc
-static int PlayerSkillValue[SKILLS];        // 0x5c67f8
-static uint32 HighlightID;                  // 0x5c6814
-static uint32 FollowID;                     // 0x5c6818
-static uint32 AttackID;                     // 0x5c681c
-static int PlayerCapacity;                  // 0x5c6820
-static int PlayerSoul;                      // 0x5c6824
-static int PlayerMaxMana;                   // 0x5c6828
-static int PlayerMana;                      // 0x5c682c
-static int PlayerMagicLevelProgress;        // 0x5c6830
-static int PlayerLevelProgress;             // 0x5c6834
-static int PlayerMagicLevel;                // 0x5c6838
-static int PlayerLevel;                     // 0x5c683c
-static int PlayerExperience;                // 0x5c6840
-static int PlayerMaxHealth;                 // 0x5c6844
-static int PlayerHealth;                    // 0x5c6848
-static uint32 PlayerID;                     // 0x5c684c
-static bool NewPlayerDestination;           // 0x5c6850, a destination came while the old path was walked
-static int CurrentPlayerStep;               // 0x5c6854
-static int NumberOfPlayerSteps;             // 0x5c6858
-static int PlayerSteps[10];                 // 0x5c685c, 1 east, 2 north-east, ..., 8 south-east; the path finder stops at 10
-static bool DestinationDiagonal;            // 0x5c6884, passed on to the path finder
-static bool DestinationExact;               // 0x5c6885, passed on to the path finder
-static int DestinationZ;                    // 0x5c6888
-static int DestinationY;                    // 0x5c688c
-static int DestinationX;                    // 0x5c6890, 0: no destination
-static int PlayerStepDirection;             // 0x5c6894, Direction of the step not confirmed yet
-static int PlayerStepDY;                    // 0x5c6898, the step sent but not confirmed by the server
-static int PlayerStepDX;                    // 0x5c689c
-static int Beat;                            // 0x5c68a0, step durations are rounded up to a multiple
-static int LastOpponent;                    // 0x5c68a4, battle list ends (slot numbers, -1: empty)
-static int FirstOpponent;                   // 0x5c68a8
-static TCreature Creatures[CREATURES];      // 0x5c68b0
+static int BuddySortMethods[3];         // 0x5c4560, 0 name, 1 icon, 2 online; most significant first
+static TBuddyEntry Buddies[BUDDIES];    // 0x5c4570
+static int NumberOfOnlineBuddies;       // 0x5c67d0
+static int NumberOfBuddies;             // 0x5c67d4
+static int PlayerState;                 // 0x5c67d8, the state icons, one bit each
+static int PlayerSkillProgress[SKILLS]; // 0x5c67dc
+static int PlayerSkillValue[SKILLS];    // 0x5c67f8
+static uint32 HighlightID;              // 0x5c6814
+static uint32 FollowID;                 // 0x5c6818
+static uint32 AttackID;                 // 0x5c681c
+static int PlayerCapacity;              // 0x5c6820
+static int PlayerSoul;                  // 0x5c6824
+static int PlayerMaxMana;               // 0x5c6828
+static int PlayerMana;                  // 0x5c682c
+static int PlayerMagicLevelProgress;    // 0x5c6830
+static int PlayerLevelProgress;         // 0x5c6834
+static int PlayerMagicLevel;            // 0x5c6838
+static int PlayerLevel;                 // 0x5c683c
+static int PlayerExperience;            // 0x5c6840
+static int PlayerMaxHealth;             // 0x5c6844
+static int PlayerHealth;                // 0x5c6848
+static uint32 PlayerID;                 // 0x5c684c
+static bool NewPlayerDestination;       // 0x5c6850, a destination came while the old path was walked
+static int CurrentPlayerStep;           // 0x5c6854
+static int NumberOfPlayerSteps;         // 0x5c6858
+static int PlayerSteps[10];             // 0x5c685c, 1 east, 2 north-east, ..., 8 south-east; the path finder stops at 10
+static bool DestinationDiagonal;        // 0x5c6884, passed on to the path finder
+static bool DestinationExact;           // 0x5c6885, passed on to the path finder
+static int DestinationZ;                // 0x5c6888
+static int DestinationY;                // 0x5c688c
+static int DestinationX;                // 0x5c6890, 0: no destination
+static int PlayerStepDirection;         // 0x5c6894, Direction of the step not confirmed yet
+static int PlayerStepDY;                // 0x5c6898, the step sent but not confirmed by the server
+static int PlayerStepDX;                // 0x5c689c
+static int Beat;                        // 0x5c68a0, step durations are rounded up to a multiple
+static int LastOpponent;                // 0x5c68a4, battle list ends (slot numbers, -1: empty)
+static int FirstOpponent;               // 0x5c68a8
+static TCreature Creatures[CREATURES];  // 0x5c68b0
 // At 0x5cc418, constructed by the static initialiser 0x559e00 as
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // the end of Creatures.obj's .bss, before Dialogs.obj's NoCallback 0x5cc420.
@@ -86,23 +86,23 @@ static_assert(sizeof(TBuddyEntry) == 0x2c, "TBuddyEntry is 0x2c bytes");
 TRGBColor TCreature::GetHealthColor()
 {
 	TRGBColor Color;
-	if (In(Health,0,3)) {
+	if (In(Health, 0, 3)) {
 		Color.R = 0x60;
 		Color.G = 0;
 		Color.B = 0;
-	} else if (In(Health,4,9)) {
+	} else if (In(Health, 4, 9)) {
 		Color.R = 0xc0;
 		Color.G = 0;
 		Color.B = 0;
-	} else if (In(Health,10,29)) {
+	} else if (In(Health, 10, 29)) {
 		Color.R = 0xc0;
 		Color.G = 0x30;
 		Color.B = 0x30;
-	} else if (In(Health,30,59)) {
+	} else if (In(Health, 30, 59)) {
 		Color.R = 0xc0;
 		Color.G = 0xc0;
 		Color.B = 0;
-	} else if (In(Health,60,94)) {
+	} else if (In(Health, 60, 94)) {
 		Color.R = 0x60;
 		Color.G = 0xc0;
 		Color.B = 0x60;
@@ -545,6 +545,7 @@ void DoPlayerStep()
 	int dx = 0;
 	int dy = 0;
 	switch (PlayerSteps[CurrentPlayerStep]) {
+		// clang-format off
 	case 1: dx = 1; dy = 0; break;
 	case 2: dx = 1; dy = -1; break;
 	case 3: dx = 0; dy = -1; break;
@@ -553,6 +554,7 @@ void DoPlayerStep()
 	case 6: dx = -1; dy = 1; break;
 	case 7: dx = 0; dy = 1; break;
 	case 8: dx = 1; dy = 1; break;
+		// clang-format on
 	}
 	TObject Bank = GetFirstObject(dx + 8, dy + 6, GetMapLevel());
 	if (Bank.Type == 0 || !GetObjectFlag(Bank.Type, BANK))
@@ -642,7 +644,7 @@ int SetPlayerDestination(int x, int y, int z, bool Exact, bool Diagonal)
 	DestinationExact = Exact;
 	DestinationDiagonal = Diagonal;
 	AbsoluteToRelative(&x, &y, &z);
-	if (In(x,1,15) && In(y,1,11) && z == GetMapLevel() && (x != 8 || y != 6)) {
+	if (In(x, 1, 15) && In(y, 1, 11) && z == GetMapLevel() && (x != 8 || y != 6)) {
 		if (!IsFieldPassable(x, y, z, true)) {
 			SetStatusMessage("Sorry, not possible.", false);
 			DestinationX = 0;
@@ -827,11 +829,11 @@ void CheckMonsterHint(TCreature *Creature)
 			TCreature *Opponent = GetOpponent(i);
 			TASSERT(585, Opponent!=NULL);
 			if (!IsPlayer(Opponent->CreatureID) && abs(Opponent->RealX - Player->RealX) <= 2
-					&& abs(Opponent->RealY - Player->RealY) <= 2)
+				&& abs(Opponent->RealY - Player->RealY) <= 2)
 				CheckEventHelpName(Opponent->Name);
 		}
 	} else if (!IsPlayer(Creature->CreatureID) && IsOpponent(Creature)
-			&& abs(Creature->RealX - Player->RealX) <= 2 && abs(Creature->RealY - Player->RealY) <= 2) {
+		&& abs(Creature->RealX - Player->RealX) <= 2 && abs(Creature->RealY - Player->RealY) <= 2) {
 		CheckEventHelpName(Creature->Name);
 	}
 	TEND(592)
@@ -1318,7 +1320,7 @@ void ResetCreatures()
 	int Methods[3];
 	GetBuddySortmethods(Methods);
 	for (int i = 0; i < 3; i++) {
-		if (In(Methods[i],0,2))
+		if (In(Methods[i], 0, 2))
 			BuddySortMethods[i] = Methods[i];
 	}
 	TEND(1414)

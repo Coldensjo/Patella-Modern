@@ -17,9 +17,9 @@ int IsSpace(int c)
 int IsAlpha(int c)
 {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-		|| c == (char)0xe4 || c == (char)0xf6 || c == (char)0xfc   // ä ö ü
-		|| c == (char)0xc4 || c == (char)0xd6 || c == (char)0xdc   // Ä Ö Ü
-		|| c == (char)0xdf;                                        // ß
+		|| c == (char)0xe4 || c == (char)0xf6 || c == (char)0xfc // ä ö ü
+		|| c == (char)0xc4 || c == (char)0xd6 || c == (char)0xdc // Ä Ö Ü
+		|| c == (char)0xdf;                                      // ß
 }
 
 // 0x509020
@@ -101,6 +101,7 @@ void GetOutfitColor(int Color, int *R, int *G, int *B)
 	double S = 1.0;
 	double V = 1.0;
 	switch (Color / 19) {
+		// clang-format off
 	case 0: S = 0.25; V = 1.0; break;
 	case 1: S = 0.25; V = 0.75; break;
 	case 2: S = 0.5; V = 0.75; break;
@@ -108,6 +109,7 @@ void GetOutfitColor(int Color, int *R, int *G, int *B)
 	case 4: S = 1.0; V = 1.0; break;
 	case 5: S = 1.0; V = 0.75; break;
 	case 6: S = 1.0; V = 0.5; break;
+		// clang-format on
 	}
 	HSVToRGB((Color % 19) * (1.0 / 18), S, V, R, G, B);
 }

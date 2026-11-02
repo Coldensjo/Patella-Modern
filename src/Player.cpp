@@ -40,14 +40,14 @@
 // The window title and class name are stored XOR-encoded. The key of each
 // string is in this object's .rdata (0x56dd98, 0x56ddb8); the other half,
 // TitleCode and ClassNameCode, is sysinc.cpp's (0x5733a4, 0x5733c4).
-static const int TitleKey[8] = {16, 34, 227, 56, 3, 110, 64, 173};                    // 0x56dd98
+static const int TitleKey[8] = {16, 34, 227, 56, 3, 110, 64, 173};                         // 0x56dd98
 static const int ClassNameKey[11] = {109, 168, 131, 83, 237, 53, 175, 191, 138, 154, 253}; // 0x56ddb8
 
 // Data, in .data/.bss order.
-static int LastMouseCursor = 1;    // 0x5c2518
-static int NumberOfTibiaWindows;   // 0x719db0, counted by CountTibiaWindows
-static POINT LastMousePosition;    // 0x719db4
-CPlayerApp theApp;                 // 0x719dc0
+static int LastMouseCursor = 1;  // 0x5c2518
+static int NumberOfTibiaWindows; // 0x719db0, counted by CountTibiaWindows
+static POINT LastMousePosition;  // 0x719db4
+CPlayerApp theApp;               // 0x719dc0
 
 // 0x4d7cd0: CPlayerApp has no message handlers of its own.
 BEGIN_MESSAGE_MAP(CPlayerApp, CWinApp)
@@ -113,7 +113,7 @@ static BOOL CALLBACK CountTibiaWindows(HWND Window, LPARAM Parameter)
 	GetWindowTitle(Title);
 	GetWindowClassName(ClassName);
 	if ((TextLength > 0 && CompareStrings(WindowText, Title, -1) == 0)
-			|| (ClassLength > 0 && CompareStrings(WindowClass, ClassName, -1) == 0))
+		|| (ClassLength > 0 && CompareStrings(WindowClass, ClassName, -1) == 0))
 		NumberOfTibiaWindows++;
 	return TRUE;
 }
@@ -127,7 +127,8 @@ void CPlayerApp::HandleProgramError(PROGRAM_ERROR Error)
 		return;
 	}
 	std::stringstream Message;
-	Message << GetErrorText(Error) << " (Error Code " << Error << ")\r\n\r\n" << GetErrorHint(Error);
+	Message << GetErrorText(Error) << " (Error Code " << Error << ")\r\n\r\n"
+			<< GetErrorHint(Error);
 	FatalError(Message.str().c_str(), "Tibia Error");
 }
 
@@ -144,15 +145,17 @@ void CPlayerApp::HandleException(TMyException &Exception)
 	}
 	std::ofstream Out("error.txt", std::ios::out | std::ios::app);
 	if (Out.is_open()) {
-		Out << std::endl << "+---------------------------------------------------------------" << std::endl
+		Out << std::endl
+			<< "+---------------------------------------------------------------" << std::endl
 			<< "Debug Assertion " << "7.72" << " " << Exception.GetOrigin();
 		time_t Now = time(NULL);
-		Out << std::endl << CRT71Time(ctime(&Now)); // the day as MSVC 7.1 writes it
+		Out << std::endl
+			<< CRT71Time(ctime(&Now)); // the day as MSVC 7.1 writes it
 		OSVERSIONINFOA Version;
 		memset(&Version, 0, sizeof(Version));
 		Version.dwOSVersionInfoSize = sizeof(Version);
 		try {
-#pragma warning(suppress: 4996) // deprecated in newer SDKs
+#pragma warning(suppress : 4996) // deprecated in newer SDKs
 			if (!GetVersionExA(&Version)) {
 				Out << "Windows Version: (error)" << std::endl;
 			} else {
@@ -199,7 +202,8 @@ void CPlayerApp::HandleException(TMyException &Exception)
 				Out << "OutputErrorInformations: (exception)" << std::endl;
 			}
 		}
-		Out << Exception.GetMessage() << std::endl << "----------------------------------------------------------------";
+		Out << Exception.GetMessage() << std::endl
+			<< "----------------------------------------------------------------";
 		Out.close();
 	}
 	FatalError(TextCriticalError, "Tibia Error - Debug Assertion");

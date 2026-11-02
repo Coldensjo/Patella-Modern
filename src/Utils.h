@@ -8,21 +8,21 @@
 #include "common.h"
 
 // Characters are Latin-1; the letter tests include the German umlauts and ß.
-int IsSpace(int c);                                     // 0x508fa0
-int IsAlpha(int c);                                     // 0x508fd0
-int IsDigit(int c);                                     // 0x509020
-int ToLower(int c);                                     // 0x509040
-int ToUpper(int c);                                     // 0x509060
+int IsSpace(int c);                                                  // 0x508fa0
+int IsAlpha(int c);                                                  // 0x508fd0
+int IsDigit(int c);                                                  // 0x509020
+int ToLower(int c);                                                  // 0x509040
+int ToUpper(int c);                                                  // 0x509060
 void HSVToRGB(double H, double S, double V, int *R, int *G, int *B); // 0x509080
-void GetOutfitColor(int Color, int *R, int *G, int *B); // 0x509280, Color 0..132
+void GetOutfitColor(int Color, int *R, int *G, int *B);              // 0x509280, Color 0..132
 
-void LowerString(char *s);                              // 0x5093d0
-void CapitalizeString(char *s);                         // 0x509540
-int CompareStrings(const char *s1, const char *s2, int Count); // 0x509710, caseless
+void LowerString(char *s);                                        // 0x5093d0
+void CapitalizeString(char *s);                                   // 0x509540
+int CompareStrings(const char *s1, const char *s2, int Count);    // 0x509710, caseless
 void CopyString(char *Destination, const char *Source, int Size); // 0x509a60
-void TrimString(char *Destination, const char *Source); // 0x509d10
-bool ShortenString(char *Text, int MaxLength);          // 0x50a040
-void FormatNumber(int Number, char *Buffer);            // 0x50bce0, "1,234,567"
+void TrimString(char *Destination, const char *Source);           // 0x509d10
+bool ShortenString(char *Text, int MaxLength);                    // 0x50a040
+void FormatNumber(int Number, char *Buffer);                      // 0x50bce0, "1,234,567"
 
 class TBuffer {
 public:
@@ -52,10 +52,10 @@ public:
 
 class TWriteBuffer : public TBuffer {
 public:
-	TWriteBuffer(uint8 *data, int size);         // 0x50b030
-	void PutByte(uint8 Data);                    // 0x50b2e0
-	void PutWord(uint16 Data);                   // 0x50b450
-	void PutQuad(uint32 Data);                   // 0x50b5e0
-	void PutString(const char *s);               // 0x50b780
+	TWriteBuffer(uint8 *data, int size);           // 0x50b030
+	void PutByte(uint8 Data);                      // 0x50b2e0
+	void PutWord(uint16 Data);                     // 0x50b450
+	void PutQuad(uint32 Data);                     // 0x50b5e0
+	void PutString(const char *s);                 // 0x50b780
 	void PutBytes(const uint8 *Buffer, int Count); // 0x50ba00
 };

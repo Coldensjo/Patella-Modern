@@ -1,0 +1,6 @@
+# Files clang-format leaves alone (issue #8; .clang-format).
+# The regexp library (Henry Spencer, 1986) and the glh extension loader keep their own style; a
+# #line directive in glh_extensions.h gives the original's __LINE__, which a moved line would change.
+src/Extern/**
+# The test and tool sources are not in the style check yet.
+tools/**

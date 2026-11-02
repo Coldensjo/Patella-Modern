@@ -12,8 +12,8 @@
 #include "Skins.h"
 
 // Data, in .bss order.
-int NumberOfSkins;                            // 0x71c450
-TSkin *Skins;                                 // 0x71c454
+int NumberOfSkins; // 0x71c450
+TSkin *Skins;      // 0x71c454
 
 // 0x4e3cb0. Fills the rectangles of the GUI graphics in Tibia.pic.
 // The table is a local array, so it is written to the stack on every call

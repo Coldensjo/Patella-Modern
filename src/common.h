@@ -92,6 +92,7 @@ enum PROGRAM_ERROR {
 // parameters, and anything else becomes "unknown exception occurred". Both
 // messages name the TEND's line.
 #define TBEGIN try {
+// clang-format off
 #define TEND_HANDLERS(Line, N1, V1, N2, V2) \
 	} catch (PROGRAM_ERROR Error_) { \
 		throw Error_; \
@@ -103,3 +104,4 @@ enum PROGRAM_ERROR {
 #define TEND(Line) TEND_HANDLERS(Line, "", 0, "", 0)
 #define TEND1(Line, V1) TEND_HANDLERS(Line, #V1, V1, "", 0)
 #define TEND2(Line, V1, V2) TEND_HANDLERS(Line, #V1, V1, #V2, V2)
+// clang-format on

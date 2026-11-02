@@ -27,51 +27,51 @@
 #include <ostream>
 
 // Data, in .bss order.
-uint8 PacketHeader[16];            // 0x5d1644, written by Network.cpp
-CMainFrame *MainFrame;             // 0x5d1654
-static HCURSOR HandCursor;         // 0x5d1658, cursor resource 0x89 (mouse cursor 6)
-static HCURSOR SizeCursor;         // 0x5d165c, IDC_SIZENS (mouse cursor 2)
-static HCURSOR WaitCursor;         // 0x5d1660, IDC_WAIT (mouse cursor 3)
-static HCURSOR ArrowCursor;        // 0x5d1664, IDC_ARROW (mouse cursor 1)
-static HCURSOR DefaultCursor;      // 0x5d1668, cursor resource 0x84 (the others)
-static bool LeftButtonPressed;     // 0x5d166c
-static bool RightButtonPressed;    // 0x5d166d
-static bool Closing;               // 0x5d166f, CloseRequest is not asked any more
-bool DisplayChanged;               // 0x5d1670, set by OnDisplayChange; SurfaceGL.cpp's Init reads and clears it
+uint8 PacketHeader[16];         // 0x5d1644, written by Network.cpp
+CMainFrame *MainFrame;          // 0x5d1654
+static HCURSOR HandCursor;      // 0x5d1658, cursor resource 0x89 (mouse cursor 6)
+static HCURSOR SizeCursor;      // 0x5d165c, IDC_SIZENS (mouse cursor 2)
+static HCURSOR WaitCursor;      // 0x5d1660, IDC_WAIT (mouse cursor 3)
+static HCURSOR ArrowCursor;     // 0x5d1664, IDC_ARROW (mouse cursor 1)
+static HCURSOR DefaultCursor;   // 0x5d1668, cursor resource 0x84 (the others)
+static bool LeftButtonPressed;  // 0x5d166c
+static bool RightButtonPressed; // 0x5d166d
+static bool Closing;            // 0x5d166f, CloseRequest is not asked any more
+bool DisplayChanged;            // 0x5d1670, set by OnDisplayChange; SurfaceGL.cpp's Init reads and clears it
 // At 0x5d1674, constructed by the static initialiser 0x559f20 as TCallback(NULL, 0) (no atexit) and
 // never used, like the window files' (issue #24).
 static TCallback NoCallback(NULL, 0);
-static char ClassName[32];         // 0x5d167c
-static int WheelDelta;             // 0x5d169c, the remainder below one notch (120)
+static char ClassName[32]; // 0x5d167c
+static int WheelDelta;     // 0x5d169c, the remainder below one notch (120)
 
 // 0x4a8200. The handlers that share an address in the table (OnKeyDown
 // and OnSysKeyDown, OnKeyUp and OnSysKeyUp) have identical code that the
 // linker folded.
 BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
-	ON_WM_CREATE()
-	ON_WM_ACTIVATEAPP()
-	ON_WM_SETCURSOR()
-	ON_WM_KEYDOWN()
-	ON_WM_KEYUP()
-	ON_WM_SYSKEYDOWN()
-	ON_WM_SYSKEYUP()
-	ON_WM_SIZE()
-	ON_WM_LBUTTONDOWN()
-	ON_WM_LBUTTONUP()
-	ON_WM_RBUTTONDOWN()
-	ON_WM_RBUTTONUP()
-	ON_WM_RBUTTONDBLCLK()
-	ON_WM_MOUSEWHEEL()
-	ON_WM_CLOSE()
-	ON_WM_DESTROY()
-	ON_WM_TIMER()
-	ON_WM_CHAR()
-	ON_WM_LBUTTONDBLCLK()
-	ON_WM_GETMINMAXINFO()
-	ON_WM_NCHITTEST()
-	ON_WM_CAPTURECHANGED()
-	ON_MESSAGE(WM_DISPLAYCHANGE, OnDisplayChange)
-	ON_MESSAGE(WM_USER + 1, OnHostResolved)
+ON_WM_CREATE()
+ON_WM_ACTIVATEAPP()
+ON_WM_SETCURSOR()
+ON_WM_KEYDOWN()
+ON_WM_KEYUP()
+ON_WM_SYSKEYDOWN()
+ON_WM_SYSKEYUP()
+ON_WM_SIZE()
+ON_WM_LBUTTONDOWN()
+ON_WM_LBUTTONUP()
+ON_WM_RBUTTONDOWN()
+ON_WM_RBUTTONUP()
+ON_WM_RBUTTONDBLCLK()
+ON_WM_MOUSEWHEEL()
+ON_WM_CLOSE()
+ON_WM_DESTROY()
+ON_WM_TIMER()
+ON_WM_CHAR()
+ON_WM_LBUTTONDBLCLK()
+ON_WM_GETMINMAXINFO()
+ON_WM_NCHITTEST()
+ON_WM_CAPTURECHANGED()
+ON_MESSAGE(WM_DISPLAYCHANGE, OnDisplayChange)
+ON_MESSAGE(WM_USER + 1, OnHostResolved)
 END_MESSAGE_MAP()
 
 // 0x4a8210. A virtual key to the client's key code: the modifiers, the
@@ -171,7 +171,7 @@ CMainFrame::CMainFrame(bool Gamemaster)
 // from ExitControl ends the program here, where the original's goes on to
 // the caller of the destructor (issue #34).
 #pragma warning(push)
-#pragma warning(disable: 4297)
+#pragma warning(disable : 4297)
 CMainFrame::~CMainFrame()
 {
 	TBEGIN
@@ -264,7 +264,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	bool Maximized;
 	GetWindowedMode(&x, &y, &Width, &Height, &Maximized);
 	if (x >= 0 && y >= 0 && x + Width <= GetSystemMetrics(SM_CXSCREEN)
-			&& y + Height <= GetSystemMetrics(SM_CYSCREEN))
+		&& y + Height <= GetSystemMetrics(SM_CYSCREEN))
 		MoveWindow(x, y, Width, Height, TRUE);
 	else
 		SetDefaultWindowPosition();
@@ -301,7 +301,7 @@ LRESULT CMainFrame::OnHostResolved(WPARAM wParam, LPARAM lParam)
 			Disconnect(true);
 			char *Text = new char[1024];
 			GetErrorMessage(Text, -1, 1);
-			AddMessage(1, (INT_PTR)"Connection failed", (INT_PTR)Text);
+			AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Text);
 			return 0;
 		}
 		SetConnectionTimeout(0);

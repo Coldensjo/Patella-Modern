@@ -4,7 +4,9 @@
 #	cmake --workflow --preset oracle-x86
 # So far only oracle-x86 exists (issue #4): today's 32-bit Patella.exe with exactly the flags of
 # Patella.vcxproj, and the differential tests of tools\difftest\build.cmd as CTest tests. It is a test
-# instrument until M6. The x64 and Linux presets come with issues #5 and #7.
+# instrument until M6. The x64 and Linux presets come with issues #5 and #7; their targets take the
+# language, warning and hardening settings of cmake/Warnings.cmake and cmake/Hardening.cmake (issue #8),
+# which the oracle never uses.
 
 cmake_minimum_required(VERSION 3.30)
 

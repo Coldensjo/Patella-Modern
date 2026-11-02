@@ -27,9 +27,9 @@
 #include "Container.h"
 #include "GUI.h"
 #include "graphics.h"
-#include "Skins.h"    // Skins
-#include "Status.h"   // SetMouseOverText
-#include "Objects.h"  // TObject
+#include "Skins.h"   // Skins
+#include "Status.h"  // SetMouseOverText
+#include "Objects.h" // TObject
 
 // --- Separator, resizer and frame -----------------------------------------------
 
@@ -45,8 +45,8 @@ public:
 		DrawingList = new TDrawing[2];
 	}
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void SetSize(int Width, int Height);               // +0x34, 0x453930, line 42
-	void Arrange();                                     // +0x48, 0x453ad0
+	void SetSize(int Width, int Height); // +0x34, 0x453930, line 42
+	void Arrange();                      // +0x48, 0x453ad0
 
 	bool Horizontal; // +0x24
 };
@@ -57,12 +57,12 @@ class TResizer : public TElement {
 public:
 	TResizer(TComponent *_ToResize, bool _ResizeWidth, bool _ResizeHeight, bool _Invisible); // 0x453be0, line 74
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void SetSize(int Width, int Height);               // +0x34, 0x453dc0, line 94
-	void Arrange();                                     // +0x48, 0x453f60
-	bool MouseMove(int x, int y);                       // +0x4c, 0x453fe0, lines 113-122
-	bool LeftButtonDown(int x, int y, int Flags);       // +0x50, 0x4542a0, lines 129-137
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x454530, lines 144-154
-	void ReleaseCapture(TComponent *Component)          // +0x7c, 0x453db0
+	void SetSize(int Width, int Height);          // +0x34, 0x453dc0, line 94
+	void Arrange();                               // +0x48, 0x453f60
+	bool MouseMove(int x, int y);                 // +0x4c, 0x453fe0, lines 113-122
+	bool LeftButtonDown(int x, int y, int Flags); // +0x50, 0x4542a0, lines 129-137
+	bool LeftButtonUp(int x, int y, int Flags);   // +0x54, 0x454530, lines 144-154
+	void ReleaseCapture(TComponent *Component)    // +0x7c, 0x453db0
 	{
 		Dragging = false;
 		TElement::ReleaseCapture(Component);
@@ -81,30 +81,30 @@ public:
 // window (vtable 0x561358, 0x68 bytes).
 class TBorder : public TWindow {
 public:
-	TBorder(TComponent *_Window, int _Border);          // 0x4547f0, lines 166-184, the skins 26-33
+	TBorder(TComponent *_Window, int _Border); // 0x4547f0, lines 166-184, the skins 26-33
 	TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int _Left, int _Right, int _BottomLeft,
-		int _Bottom, int _BottomRight, int _Border);    // 0x454b10, lines 192-210
+		int _Bottom, int _BottomRight, int _Border); // 0x454b10, lines 192-210
 	TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int _Left, int _Right, int _BottomLeft,
 		int _Bottom, int _BottomRight, int _Background, int _Border); // 0x454e30, lines 217-235
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void SetSize(int Width, int Height);               // +0x34, 0x455150, lines 242-251
-	int getMinimumWidth() { return Skins[Right].width + Skins[Left].width + 2 * Border; }      // +0x3c, 0x4525a0
-	int getMinimumHeight() { return Skins[Bottom].height + Skins[Top].height + 2 * Border; }   // +0x40, 0x452570
-	void Arrange();                                     // +0x48, 0x4556b0
-	void FitToWindow();                                 // 0x455500, line 262
+	void SetSize(int Width, int Height);                                                     // +0x34, 0x455150, lines 242-251
+	int getMinimumWidth() { return Skins[Right].width + Skins[Left].width + 2 * Border; }    // +0x3c, 0x4525a0
+	int getMinimumHeight() { return Skins[Bottom].height + Skins[Top].height + 2 * Border; } // +0x40, 0x452570
+	void Arrange();                                                                          // +0x48, 0x4556b0
+	void FitToWindow();                                                                      // 0x455500, line 262
 
 	TComponent *Window; // +0x2c, a window or an element (the outfit dialog frames its icon)
-	int TopLeft;      // +0x30, skins
-	int Top;          // +0x34
-	int TopRight;     // +0x38
-	int Left;         // +0x3c
-	int Right;        // +0x40
-	int BottomLeft;   // +0x44
-	int Bottom;       // +0x48
-	int BottomRight;  // +0x4c
-	int Background;   // +0x50, 0 for none
-	TRect WindowArea; // +0x54, Window's area, set by Arrange
-	int Border;       // +0x64, space between the frame and the window
+	int TopLeft;        // +0x30, skins
+	int Top;            // +0x34
+	int TopRight;       // +0x38
+	int Left;           // +0x3c
+	int Right;          // +0x40
+	int BottomLeft;     // +0x44
+	int Bottom;         // +0x48
+	int BottomRight;    // +0x4c
+	int Background;     // +0x50, 0 for none
+	TRect WindowArea;   // +0x54, Window's area, set by Arrange
+	int Border;         // +0x64, space between the frame and the window
 };
 
 // --- Texts ------------------------------------------------------------------------
@@ -114,8 +114,8 @@ public:
 class TLabel : public TElement {
 public:
 	TLabel(int x, int y, int Width, int Height, TFont _Font, const char *_Text, bool Shorten); // 0x465510, lines 337-348
-	TLabel(int x, int y, TFont _Font, const char *_Text);    // 0x465810, lines 355-369
-	TLabel(TFont _Font, const char *_Text);                  // 0x465b40, lines 376-389
+	TLabel(int x, int y, TFont _Font, const char *_Text);                                      // 0x465810, lines 355-369
+	TLabel(TFont _Font, const char *_Text);                                                    // 0x465b40, lines 376-389
 	// Inline (out-of-line copy 0x4525d0, deleting destructor 0x452d50).
 	~TLabel()
 	{
@@ -126,20 +126,20 @@ public:
 		if (Line != NULL)
 			delete[] Line;
 	}
-	void Draw(int Surface, int x, int y);                         // +0x44, 0x455a50, line 413
-	bool MouseMove(int x, int y) { return false; }                // +0x4c, 0x452620
+	void Draw(int Surface, int x, int y);                          // +0x44, 0x455a50, line 413
+	bool MouseMove(int x, int y) { return false; }                 // +0x4c, 0x452620
 	bool LeftButtonDown(int x, int y, int Flags) { return false; } // +0x50, 0x457700 (folded)
-	bool LeftButtonUp(int x, int y, int Flags) { return false; }  // +0x54, 0x457700
-	bool RightButtonUp(int x, int y, int Flags) { return false; } // +0x5c, 0x457700
-	void MouseHover(int x, int y);                                // +0x64, 0x455ca0, line 423
-	virtual void SetText(const char *_Text, bool Shorten);        // +0x84, 0x455e40, lines 431-472
+	bool LeftButtonUp(int x, int y, int Flags) { return false; }   // +0x54, 0x457700
+	bool RightButtonUp(int x, int y, int Flags) { return false; }  // +0x5c, 0x457700
+	void MouseHover(int x, int y);                                 // +0x64, 0x455ca0, line 423
+	virtual void SetText(const char *_Text, bool Shorten);         // +0x84, 0x455e40, lines 431-472
 
-	char *Text;      // +0x24, the lines, each terminated
-	char *FullText;  // +0x28, the text as given (the tooltip of a shortened text)
-	TFont Font;      // +0x2c
-	int Lines;       // +0x40
-	char **Line;     // +0x44, the start of each line in Text
-	bool Shortened;  // +0x48, a line was cut to the width
+	char *Text;     // +0x24, the lines, each terminated
+	char *FullText; // +0x28, the text as given (the tooltip of a shortened text)
+	TFont Font;     // +0x2c
+	int Lines;      // +0x40
+	char **Line;    // +0x44, the start of each line in Text
+	bool Shortened; // +0x48, a line was cut to the width
 };
 
 // A text with formatting tokens (<br>, <p>, <hr>, <vspace=n>, <hspace=n>,
@@ -148,7 +148,7 @@ public:
 // large as the text".
 class TFormattedText : public TWindow {
 public:
-	TFormattedText(const char *_Text);                 // 0x465e60, line 508
+	TFormattedText(const char *_Text); // 0x465e60, line 508
 	// Inline (out-of-line copy 0x452630, deleting destructor 0x452d70).
 	~TFormattedText()
 	{
@@ -157,9 +157,9 @@ public:
 		if (Line != NULL)
 			delete[] Line;
 	}
-	void SetSize(int Width, int Height);               // +0x34, 0x456200, line 531
-	void Arrange();                                     // +0x48, 0x466010, lines 684-715
-	virtual void SetText(const char *_Text, bool Rearrange); // +0xa0, 0x456810, lines 723-734
+	void SetSize(int Width, int Height);                            // +0x34, 0x456200, line 531
+	void Arrange();                                                 // +0x48, 0x466010, lines 684-715
+	virtual void SetText(const char *_Text, bool Rearrange);        // +0xa0, 0x456810, lines 723-734
 	int GetToken(const char *Text, int &TokenType, int &TokenData); // 0x4563d0, line 577
 
 	char *Text;      // +0x2c
@@ -175,14 +175,14 @@ class TTextButton;
 class TLink : public TWindow {
 public:
 	TLink(const char *_Text, const char *ButtonText, const char *_Destination, void (*_OpenURL)(const char *URL),
-		TFont Font);                                     // 0x46b030, lines 785-796
+		TFont Font); // 0x46b030, lines 785-796
 	// Inline (out-of-line copy 0x452670, deleting destructor 0x452d90).
 	~TLink() { delete[] Destination; }
-	void SetSize(int Width, int Height);               // +0x34, 0x456df0, line 838
-	int getMinimumWidth();                              // +0x3c, 0x4526a0 (inline, below)
-	int getMinimumHeight();                             // +0x40, 0x452690 (inline, below)
-	void Arrange();                                     // +0x48, 0x456b00, lines 812-824
-	void HandleEvent(int Event);                        // +0x70, 0x456fa0, line 848
+	void SetSize(int Width, int Height); // +0x34, 0x456df0, line 838
+	int getMinimumWidth();               // +0x3c, 0x4526a0 (inline, below)
+	int getMinimumHeight();              // +0x40, 0x452690 (inline, below)
+	void Arrange();                      // +0x48, 0x456b00, lines 812-824
+	void HandleEvent(int Event);         // +0x70, 0x456fa0, line 848
 
 	void (*OpenURL)(const char *URL); // +0x2c
 	char *Destination;                // +0x30
@@ -197,15 +197,15 @@ class TOutfitIcon : public TElement {
 public:
 	TOutfitIcon(int _Outfit, int _Direction, int *ColorData, const TRGBColor *_Highlight); // 0x4666a0, line 899
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void Draw(int Surface, int x, int y);                         // +0x44, 0x457140, lines 908-911
-	bool MouseMove(int x, int y) { return false; }                // +0x4c, 0x452620
+	void Draw(int Surface, int x, int y);                          // +0x44, 0x457140, lines 908-911
+	bool MouseMove(int x, int y) { return false; }                 // +0x4c, 0x452620
 	bool LeftButtonDown(int x, int y, int Flags) { return false; } // +0x50, 0x457700
-	bool LeftButtonUp(int x, int y, int Flags) { return false; }  // +0x54, 0x457700
-	bool RightButtonUp(int x, int y, int Flags) { return false; } // +0x5c, 0x457700
+	bool LeftButtonUp(int x, int y, int Flags) { return false; }   // +0x54, 0x457700
+	bool RightButtonUp(int x, int y, int Flags) { return false; }  // +0x5c, 0x457700
 	// Inline (out-of-line copy 0x4526b0, called by Dialogs.cpp).
 	void SetOutfit(int _Outfit) { Outfit = _Outfit; }
-	void SetColor(int Mask, int Color);                 // 0x457440, line 934
-	void SetColors(int *ColorData);                     // 0x4575a0, line 942
+	void SetColor(int Mask, int Color); // 0x457440, line 934
+	void SetColors(int *ColorData);     // 0x4575a0, line 942
 
 	int Outfit;          // +0x24
 	int Colors[4];       // +0x28, head, body, legs, feet
@@ -216,13 +216,13 @@ public:
 // One skin, sized to it (vtable 0x5614f8, 0x28 bytes).
 class TSkinIcon : public TElement {
 public:
-	TSkinIcon(int _Skin);                              // 0x457710, line 1002
+	TSkinIcon(int _Skin); // 0x457710, line 1002
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void Draw(int Surface, int x, int y);                         // +0x44, 0x4578c0, lines 1009-1014
-	bool MouseMove(int x, int y) { return false; }                // +0x4c, 0x452620
+	void Draw(int Surface, int x, int y);                          // +0x44, 0x4578c0, lines 1009-1014
+	bool MouseMove(int x, int y) { return false; }                 // +0x4c, 0x452620
 	bool LeftButtonDown(int x, int y, int Flags) { return false; } // +0x50, 0x457700
-	bool LeftButtonUp(int x, int y, int Flags) { return false; }  // +0x54, 0x457700
-	bool RightButtonUp(int x, int y, int Flags) { return false; } // +0x5c, 0x457700
+	bool LeftButtonUp(int x, int y, int Flags) { return false; }   // +0x54, 0x457700
+	bool RightButtonUp(int x, int y, int Flags) { return false; }  // +0x5c, 0x457700
 	bool MouseWheel(int x, int y, int Direction) { return false; } // +0x60, 0x457700
 
 	int Skin; // +0x24
@@ -234,11 +234,11 @@ public:
 	// Inline (out-of-line copy 0x4526c0).
 	TObjectIcon(TObject _Obj, const TRGBColor *_Highlight, bool _Framed);
 	// The destructor is the implicit one (deleting destructor 0x429590).
-	void Draw(int Surface, int x, int y);                         // +0x44, 0x457c40, lines 1052-1063
-	bool MouseMove(int x, int y) { return false; }                // +0x4c, 0x452620
+	void Draw(int Surface, int x, int y);                          // +0x44, 0x457c40, lines 1052-1063
+	bool MouseMove(int x, int y) { return false; }                 // +0x4c, 0x452620
 	bool LeftButtonDown(int x, int y, int Flags) { return false; } // +0x50, 0x457700
-	bool LeftButtonUp(int x, int y, int Flags) { return false; }  // +0x54, 0x457700
-	bool RightButtonUp(int x, int y, int Flags) { return false; } // +0x5c, 0x457700
+	bool LeftButtonUp(int x, int y, int Flags) { return false; }   // +0x54, 0x457700
+	bool RightButtonUp(int x, int y, int Flags) { return false; }  // +0x5c, 0x457700
 
 	TRect Unused24;      // +0x24, cleared, never read
 	bool Framed;         // +0x34
@@ -257,15 +257,15 @@ struct TRadioButtonGroup;
 class TSkinButton : public TElement {
 public:
 	TSkinButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback _Callback, const char *_Tooltip,
-		bool _Repeat);                                   // 0x466860, line 1113
+		bool _Repeat); // 0x466860, line 1113
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void Draw(int Surface, int x, int y);              // +0x44, 0x458150, lines 1122-1127
-	bool MouseMove(int x, int y);                       // +0x4c, 0x4584e0
-	bool LeftButtonDown(int x, int y, int Flags);       // +0x50, 0x458540, line 1155
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x458710, line 1174
-	bool MouseWheel(int x, int y, int Code);            // +0x60, 0x4588f0, line 1192
+	void Draw(int Surface, int x, int y);                        // +0x44, 0x458150, lines 1122-1127
+	bool MouseMove(int x, int y);                                // +0x4c, 0x4584e0
+	bool LeftButtonDown(int x, int y, int Flags);                // +0x50, 0x458540, line 1155
+	bool LeftButtonUp(int x, int y, int Flags);                  // +0x54, 0x458710, line 1174
+	bool MouseWheel(int x, int y, int Code);                     // +0x60, 0x4588f0, line 1192
 	void MouseHover(int x, int y) { SetMouseOverText(Tooltip); } // +0x64, 0x452780
-	void ReleaseCapture(TComponent *Component)          // +0x7c, 0x452770
+	void ReleaseCapture(TComponent *Component)                   // +0x7c, 0x452770
 	{
 		Pressed = false;
 		TElement::ReleaseCapture(Component);
@@ -302,8 +302,8 @@ struct TRadioButtonGroup {
 class TColorButton : public TSkinButton {
 public:
 	TColorButton(int x, int y, TRGBColor _Color, int _ButtonUp, int _ButtonDown, TCallback _Callback,
-		const char *_Tooltip);                           // 0x466a60
-	void Draw(int Surface, int x, int y);              // +0x44, 0x458f50, line 1274
+		const char *_Tooltip);            // 0x466a60
+	void Draw(int Surface, int x, int y); // +0x44, 0x458f50, line 1274
 
 	TRGBColor Color; // +0x44
 };
@@ -312,8 +312,8 @@ public:
 class TIconButton : public TSkinButton {
 public:
 	TIconButton(int x, int y, int _Icon, int _ButtonUp, int _ButtonDown, TCallback _Callback,
-		const char *_Tooltip);                           // 0x466ad0
-	void Draw(int Surface, int x, int y);              // +0x44, 0x459130, lines 1305-1310
+		const char *_Tooltip);            // 0x466ad0
+	void Draw(int Surface, int x, int y); // +0x44, 0x459130, lines 1305-1310
 
 	int Icon; // +0x44
 };
@@ -323,8 +323,8 @@ public:
 class TBlinkingButton : public TSkinButton {
 public:
 	TBlinkingButton(int x, int y, int _ButtonUp1, int _ButtonDown1, int _ButtonUp2, int _ButtonDown2,
-		TCallback _Callback, const char *_Tooltip);      // 0x466b20
-	void Draw(int Surface, int x, int y);              // +0x44, 0x4594e0, line 1363
+		TCallback _Callback, const char *_Tooltip); // 0x466b20
+	void Draw(int Surface, int x, int y);           // +0x44, 0x4594e0, line 1363
 
 	int NextChange;  // +0x44, GetMilliseconds() time
 	int Phase;       // +0x48, 1 or 2
@@ -338,10 +338,10 @@ public:
 class TTextButton : public TSkinButton {
 public:
 	TTextButton(int x, int y, const char *_Text, int _ButtonUp, int _ButtonDown, TCallback _Callback,
-		const char *_Tooltip);                           // 0x466bc0, lines 1378-1379
+		const char *_Tooltip);                                                               // 0x466bc0, lines 1378-1379
 	TTextButton(int x, int y, const char *_Text, TCallback _Callback, const char *_Tooltip); // 0x466ed0, lines 1390-1391
-	void Draw(int Surface, int x, int y);              // +0x44, 0x4596d0, line 1410
-	virtual void SetText(const char *_Text) { strcpy(Text, _Text); } // +0x88, 0x466eb0
+	void Draw(int Surface, int x, int y);                                                    // +0x44, 0x4596d0, line 1410
+	virtual void SetText(const char *_Text) { strcpy(Text, _Text); }                         // +0x88, 0x466eb0
 
 	char Text[50]; // +0x44
 };
@@ -368,10 +368,10 @@ inline int TLink::getMinimumHeight()
 class TToggleButton : public TSkinButton {
 public:
 	TToggleButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback _Callback, const char *_Tooltip1,
-		const char *_Tooltip2, bool _State);             // 0x4671e0
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x459940, line 1454
+		const char *_Tooltip2, bool _State);                                         // 0x4671e0
+	bool LeftButtonUp(int x, int y, int Flags);                                      // +0x54, 0x459940, line 1454
 	void MouseHover(int x, int y) { SetMouseOverText(State ? Tooltip2 : Tooltip1); } // +0x64, 0x4671b0
-	bool IsPressed();                                   // +0x84, 0x459b00
+	bool IsPressed();                                                                // +0x84, 0x459b00
 
 	bool State;           // +0x44
 	const char *Tooltip1; // +0x48
@@ -383,10 +383,10 @@ public:
 class TTextToggleButton : public TTextButton {
 public:
 	TTextToggleButton(int x, int y, const char *_Text, int _ButtonUp, int _ButtonDown, TCallback _Callback,
-		const char *_Tooltip1, const char *_Tooltip2, bool _State); // 0x467230
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x459b70, line 1511
+		const char *_Tooltip1, const char *_Tooltip2, bool _State);                  // 0x467230
+	bool LeftButtonUp(int x, int y, int Flags);                                      // +0x54, 0x459b70, line 1511
 	void MouseHover(int x, int y) { SetMouseOverText(State ? Tooltip2 : Tooltip1); } // +0x64, 0x467290
-	bool IsPressed();                                   // +0x84, 0x459d30
+	bool IsPressed();                                                                // +0x84, 0x459d30
 
 	bool State;           // +0x78
 	const char *Tooltip1; // +0x7c
@@ -399,7 +399,7 @@ public:
 class TMultiStateButton : public TSkinButton {
 public:
 	TMultiStateButton(int x, int y, const char *_Tooltip, int _States, int _ButtonUp, int _ButtonDown,
-		TCallback _Callback, ...);                      // 0x4672d0
+		TCallback _Callback, ...); // 0x4672d0
 	// Inline (out-of-line copy 0x452740, deleting destructor 0x452db0).
 	~TMultiStateButton()
 	{
@@ -407,7 +407,7 @@ public:
 		delete[] ButtonDowns;
 		delete[] Callbacks;
 	}
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x459da0, line 1609
+	bool LeftButtonUp(int x, int y, int Flags); // +0x54, 0x459da0, line 1609
 	// Inline (out-of-line copy 0x452790): State is set past the last state,
 	// which wraps to state 0.
 	void Reset()
@@ -429,11 +429,11 @@ public:
 // A check box with a text (vtable 0x561de8, 0x34 bytes).
 class TCheckBox : public TWindow {
 public:
-	TCheckBox(const char *_Text);                      // 0x467440, lines 1686-1699
+	TCheckBox(const char *_Text); // 0x467440, lines 1686-1699
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void Draw(int Surface, int x, int y);              // +0x44, 0x459f90, lines 1711-1716
-	void Arrange();                                     // +0x48, 0x45a360
-	bool LeftButtonUp(int x, int y, int Flags)          // +0x54, 0x4527c0
+	void Draw(int Surface, int x, int y);      // +0x44, 0x459f90, lines 1711-1716
+	void Arrange();                            // +0x48, 0x45a360
+	bool LeftButtonUp(int x, int y, int Flags) // +0x54, 0x4527c0
 	{
 		if (Enabled)
 			Checked = !Checked;
@@ -441,11 +441,11 @@ public:
 	}
 	virtual void SetChecked(bool _Checked) { Checked = _Checked; } // +0xa0, 0x467420
 	virtual bool IsChecked() { return Checked; }                   // +0xa4, 0x467430
-	void SetEnabled(bool _Enabled);                     // 0x4678d0, line 1768
+	void SetEnabled(bool _Enabled);                                // 0x4678d0, line 1768
 
-	TLabel *Label;  // +0x2c
-	bool Checked;   // +0x30
-	bool Enabled;   // +0x31
+	TLabel *Label; // +0x2c
+	bool Checked;  // +0x30
+	bool Enabled;  // +0x31
 };
 
 // --- Edit lines -------------------------------------------------------------------
@@ -462,33 +462,33 @@ public:
 	TEditLine(int _MaxLength, bool _ReadOnly);             // 0x45a4c0, lines 1908-1927
 	// Inline (out-of-line copy 0x4527e0, deleting destructor 0x452dd0).
 	~TEditLine() { delete[] Text; }
-	void SetSize(int Width, int Height);               // +0x34, 0x45ac40, line 1974
-	void Draw(int Surface, int x, int y);              // +0x44, 0x45a800, line 1963
-	void Arrange();                                     // +0x48, 0x45ade0
-	bool MouseMove(int x, int y);                       // +0x4c, 0x45af40, line 2014
-	bool LeftButtonDown(int x, int y, int Flags);       // +0x50, 0x467ec0, line 2037
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x45b130, line 2058
+	void SetSize(int Width, int Height);                 // +0x34, 0x45ac40, line 1974
+	void Draw(int Surface, int x, int y);                // +0x44, 0x45a800, line 1963
+	void Arrange();                                      // +0x48, 0x45ade0
+	bool MouseMove(int x, int y);                        // +0x4c, 0x45af40, line 2014
+	bool LeftButtonDown(int x, int y, int Flags);        // +0x50, 0x467ec0, line 2037
+	bool LeftButtonUp(int x, int y, int Flags);          // +0x54, 0x45b130, line 2058
 	bool LeftButtonDoubleClick(int x, int y, int Flags); // +0x58, 0x45b2e0, line 2078
-	bool RightButtonUp(int x, int y, int Flags);        // +0x5c, 0x45b5b0, line 2093
-	void KeyPress(int Key);                             // +0x6c, 0x4680c0, line 2156
-	void HandleEvent(int Event);                        // +0x70, 0x45b790, lines 2206-2209
-	void ReleaseCapture(TComponent *Component)          // +0x7c, 0x452800
+	bool RightButtonUp(int x, int y, int Flags);         // +0x5c, 0x45b5b0, line 2093
+	void KeyPress(int Key);                              // +0x6c, 0x4680c0, line 2156
+	void HandleEvent(int Event);                         // +0x70, 0x45b790, lines 2206-2209
+	void ReleaseCapture(TComponent *Component)           // +0x7c, 0x452800
 	{
 		Selecting = false;
 		TWindow::ReleaseCapture(Component);
 	}
-	virtual void SetText(const char *_Text);            // +0xa0, 0x45bcc0, lines 2243-2252
-	virtual void Clear();                               // +0xa4, 0x45c980, line 2342
-	virtual void DeleteText(int start, int length);     // +0xa8, 0x45c760, line 2327
-	virtual void DeleteChar(int Position) { DeleteText(Position, 1); } // +0xac, 0x452810
+	virtual void SetText(const char *_Text);                                    // +0xa0, 0x45bcc0, lines 2243-2252
+	virtual void Clear();                                                       // +0xa4, 0x45c980, line 2342
+	virtual void DeleteText(int start, int length);                             // +0xa8, 0x45c760, line 2327
+	virtual void DeleteChar(int Position) { DeleteText(Position, 1); }          // +0xac, 0x452810
 	virtual int InsertText(int Position, const char *String, int insertlength); // +0xb0, 0x45bf70, lines 2263-2294
-	virtual void InsertChar(int Position, char c);      // +0xb4, 0x45c490, lines 2302-2309
-	virtual void SetDisabled(bool _Disabled) { Disabled = _Disabled; } // +0xb8, 0x452830
-	virtual bool IsDisabled() { return Disabled; }      // +0xbc, 0x452840
-	virtual void SetFont(TFont _Font) { Font = _Font; } // +0xc0, 0x452850
-	virtual int GetPosition(int x, int y);              // +0xc4, 0x4528e0 (inline, below)
-	void SetActive(bool _Active);                       // 0x45bc80
-	void SetFocusGroup(TFocusGroup *_FocusGroup);       // 0x468470, lines 2230-2235
+	virtual void InsertChar(int Position, char c);                              // +0xb4, 0x45c490, lines 2302-2309
+	virtual void SetDisabled(bool _Disabled) { Disabled = _Disabled; }          // +0xb8, 0x452830
+	virtual bool IsDisabled() { return Disabled; }                              // +0xbc, 0x452840
+	virtual void SetFont(TFont _Font) { Font = _Font; }                         // +0xc0, 0x452850
+	virtual int GetPosition(int x, int y);                                      // +0xc4, 0x4528e0 (inline, below)
+	void SetActive(bool _Active);                                               // 0x45bc80
+	void SetFocusGroup(TFocusGroup *_FocusGroup);                               // 0x468470, lines 2230-2235
 	// Inline (out-of-line copy 0x417520 in ConsoleWindow.obj).
 	bool HasSelection() { return SelectionStart != -1 && SelectionLength != 0; }
 	// Inline (out-of-line copies 0x4524e0, 0x452530, 0x452880).
@@ -505,19 +505,19 @@ public:
 		SelectionStart = Position;
 	}
 
-	char *Text;               // +0x2c
-	int MaxLength;            // +0x30
-	int Cursor;               // +0x34
-	bool SingleLine;          // +0x38, a paste stops at the first line break
-	TFocusGroup *FocusGroup;  // +0x3c
-	TFont Font;               // +0x40
-	int FirstVisible;         // +0x54, the first character shown
-	bool Active;              // +0x58, shows the cursor
-	int SelectionStart;       // +0x5c, -1 without a selection
-	int SelectionLength;      // +0x60, negative when selected to the left
-	bool Selecting;           // +0x64, a mouse drag
-	bool Disabled;            // +0x65
-	bool ReadOnly;            // +0x66
+	char *Text;              // +0x2c
+	int MaxLength;           // +0x30
+	int Cursor;              // +0x34
+	bool SingleLine;         // +0x38, a paste stops at the first line break
+	TFocusGroup *FocusGroup; // +0x3c
+	TFont Font;              // +0x40
+	int FirstVisible;        // +0x54, the first character shown
+	bool Active;             // +0x58, shows the cursor
+	int SelectionStart;      // +0x5c, -1 without a selection
+	int SelectionLength;     // +0x60, negative when selected to the left
+	bool Selecting;          // +0x64, a mouse drag
+	bool Disabled;           // +0x65
+	bool ReadOnly;           // +0x66
 };
 
 // The character under (x, y): the first visible one left of the text, the
@@ -539,13 +539,13 @@ inline int TEditLine::GetPosition(int x, int y)
 // An edit line that shows stars (vtable 0x560f60, 0x6c bytes). It only pastes.
 class TPasswordEditLine : public TEditLine {
 public:
-	TPasswordEditLine(int _MaxLength);                 // 0x45cb50
+	TPasswordEditLine(int _MaxLength); // 0x45cb50
 	// Inline (out-of-line copy 0x452980, deleting destructor 0x452df0).
 	~TPasswordEditLine() { delete[] Stars; }
-	void Draw(int Surface, int x, int y);              // +0x44, 0x45cbb0, line 2420
-	bool MouseMove(int x, int y) { return TWindow::MouseMove(x, y); } // +0x4c, 0x4529c0, no selecting
+	void Draw(int Surface, int x, int y);                                                       // +0x44, 0x45cbb0, line 2420
+	bool MouseMove(int x, int y) { return TWindow::MouseMove(x, y); }                           // +0x4c, 0x4529c0, no selecting
 	bool RightButtonUp(int x, int y, int Flags) { return TWindow::RightButtonUp(x, y, Flags); } // +0x5c, 0x4529b0, no menu
-	void HandleEvent(int Event);                        // +0x70, 0x45cda0, line 2430
+	void HandleEvent(int Event);                                                                // +0x70, 0x45cda0, line 2430
 
 	char *Stars; // +0x68
 };
@@ -556,36 +556,36 @@ public:
 class TScrollBar;
 class TEditText : public TEditLine {
 public:
-	TEditText(int MaxLength, bool _ReadOnly);          // 0x46b570, line 2466
+	TEditText(int MaxLength, bool _ReadOnly); // 0x46b570, line 2466
 	// The destructor is the implicit one (0x46b540, deleting destructor 0x46b520).
-	int getMinimumWidth();                              // +0x3c, 0x46b500 (inline, below)
-	int getMinimumHeight();                             // +0x40, 0x46b510 (inline, below)
-	void Draw(int Surface, int x, int y);              // +0x44, 0x45cf30, line 2503
-	void Arrange();                                     // +0x48, 0x4686f0, line 2536
-	bool MouseWheel(int x, int y, int Code);            // +0x60, 0x45d400, line 2549
-	void KeyPress(int Key);                             // +0x6c, 0x468a60, line 2703
-	int GetPosition(int x, int y);                      // +0xc4, 0x45d770, line 2762
-	virtual void SetActive(bool _Active);               // +0xc8, 0x45d5d0, line 2728
+	int getMinimumWidth();                                      // +0x3c, 0x46b500 (inline, below)
+	int getMinimumHeight();                                     // +0x40, 0x46b510 (inline, below)
+	void Draw(int Surface, int x, int y);                       // +0x44, 0x45cf30, line 2503
+	void Arrange();                                             // +0x48, 0x4686f0, line 2536
+	bool MouseWheel(int x, int y, int Code);                    // +0x60, 0x45d400, line 2549
+	void KeyPress(int Key);                                     // +0x6c, 0x468a60, line 2703
+	int GetPosition(int x, int y);                              // +0xc4, 0x45d770, line 2762
+	virtual void SetActive(bool _Active);                       // +0xc8, 0x45d5d0, line 2728
 	virtual void SetText(const char *_Text, bool KeepPosition); // +0xcc, 0x469120, line 2711
-	void FormatText();                                  // 0x45da90, lines 2770-2795
+	void FormatText();                                          // 0x45da90, lines 2770-2795
 
-	vector<int> LineStart;  // +0x68
-	TScrollBar *ScrollBar;  // +0x88
-	int Lines;              // +0x8c
-	int FieldWidth;         // +0x90
-	int FieldHeight;        // +0x94
-	int VisibleLines;       // +0x98
+	vector<int> LineStart; // +0x68
+	TScrollBar *ScrollBar; // +0x88
+	int Lines;             // +0x8c
+	int FieldWidth;        // +0x90
+	int FieldHeight;       // +0x94
+	int VisibleLines;      // +0x98
 };
 
 // The edit lines of a dialog between which Tab and Shift+Tab move the input
 // (0x28 bytes).
 class TFocusGroup {
 public:
-	TFocusGroup();                                      // 0x45ddf0
-	void SetActive(TEditLine *Member);                  // 0x45de20, line 2828
-	void AddMember(TEditLine *Member);                  // 0x45dfc0, lines 2835-2836
-	void Next();                                        // 0x45e290, lines 2846-2860
-	void Previous();                                    // 0x45e630, lines 2868-2882
+	TFocusGroup();                     // 0x45ddf0
+	void SetActive(TEditLine *Member); // 0x45de20, line 2828
+	void AddMember(TEditLine *Member); // 0x45dfc0, lines 2835-2836
+	void Next();                       // 0x45e290, lines 2846-2860
+	void Previous();                   // 0x45e630, lines 2868-2882
 
 	TEditLine *Active;              // +0x00
 	vector<TEditLine *> MemberList; // +0x04
@@ -600,21 +600,21 @@ class THorizontalScrollBarRange : public TElement {
 public:
 	THorizontalScrollBarRange(int _Min, int _Max, int _Value, int _Visible, TCallback _Callback); // 0x45e9e0, lines 2925-2944
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void SetSize(int Width, int Height);               // +0x34, 0x45eff0, line 2986
+	void SetSize(int Width, int Height);                      // +0x34, 0x45eff0, line 2986
 	int getMinimumWidth() { return SkinProperties.Data87C; }  // +0x3c, 0x45ee00
 	int getMinimumHeight() { return SkinProperties.Data880; } // +0x40, 0x45edf0
-	void Arrange();                                     // +0x48, 0x45f1a0
-	bool MouseMove(int x, int y);                       // +0x4c, 0x45f3d0, line 3039
-	bool LeftButtonDown(int x, int y, int Flags);       // +0x50, 0x45f5c0, line 3057
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x45f790, line 3081
-	bool MouseWheel(int x, int y, int Code);            // +0x60, 0x45f9d0, line 3113
-	void KeyPress(int Key);                             // +0x6c, 0x45fca0, line 3131
-	void ReleaseCapture(TComponent *Component)          // +0x7c, 0x45ede0
+	void Arrange();                                           // +0x48, 0x45f1a0
+	bool MouseMove(int x, int y);                             // +0x4c, 0x45f3d0, line 3039
+	bool LeftButtonDown(int x, int y, int Flags);             // +0x50, 0x45f5c0, line 3057
+	bool LeftButtonUp(int x, int y, int Flags);               // +0x54, 0x45f790, line 3081
+	bool MouseWheel(int x, int y, int Code);                  // +0x60, 0x45f9d0, line 3113
+	void KeyPress(int Key);                                   // +0x6c, 0x45fca0, line 3131
+	void ReleaseCapture(TComponent *Component)                // +0x7c, 0x45ede0
 	{
 		Dragging = false;
 		TElement::ReleaseCapture(Component);
 	}
-	void SetValue(int _Value);                          // 0x45ee10, line 2974
+	void SetValue(int _Value); // 0x45ee10, line 2974
 
 	int ButtonRange;    // +0x24, the step of a button or wheel
 	int Min;            // +0x28
@@ -637,12 +637,12 @@ class THorizontalScrollBar : public TWindow {
 public:
 	THorizontalScrollBar(int Min, int Max, int _Value, int _Visible, int _ButtonRange, TCallback _Callback); // 0x4692d0, lines 3158-3169
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void SetSize(int Width, int Height);               // +0x34, 0x45fe90, line 3188
+	void SetSize(int Width, int Height);                      // +0x34, 0x45fe90, line 3188
 	int getMinimumWidth() { return SkinProperties.Data884; }  // +0x3c, 0x4692c0
 	int getMinimumHeight() { return SkinProperties.Data880; } // +0x40, 0x45edf0
-	bool MouseWheel(int x, int y, int Code);            // +0x60, 0x4600c0, line 3200
-	void KeyPress(int Key);                             // +0x6c, 0x4731d0 (inline, below)
-	void HandleEvent(int Event);                        // +0x70, 0x460280, line 3213
+	bool MouseWheel(int x, int y, int Code);                  // +0x60, 0x4600c0, line 3200
+	void KeyPress(int Key);                                   // +0x6c, 0x4731d0 (inline, below)
+	void HandleEvent(int Event);                              // +0x70, 0x460280, line 3213
 
 	THorizontalScrollBarRange *Range; // +0x2c
 	TSkinButton *LeftButton;          // +0x30, event 5
@@ -659,35 +659,35 @@ class TScrollBarRange : public TElement {
 public:
 	TScrollBarRange(int x, int y, int Width, int Height, int _Min, int _Max, int _Value, int _Visible); // 0x469670, lines 3227-3248
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void SetSize(int Width, int Height);               // +0x34, 0x4608e0, line 3315
+	void SetSize(int Width, int Height);                      // +0x34, 0x4608e0, line 3315
 	int getMinimumWidth() { return SkinProperties.Data870; }  // +0x3c, 0x469e60
 	int getMinimumHeight() { return SkinProperties.Data86C; } // +0x40, 0x460440
-	void Arrange();                                     // +0x48, 0x460a90
-	bool MouseMove(int x, int y);                       // +0x4c, 0x460cc0, line 3367
-	bool LeftButtonDown(int x, int y, int Flags);       // +0x50, 0x460eb0, line 3385
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x461080, line 3408
-	bool MouseWheel(int x, int y, int Code);            // +0x60, 0x4612c0, line 3438
-	void KeyPress(int Key);                             // +0x6c, 0x461580, line 3455
-	void ReleaseCapture(TComponent *Component)          // +0x7c, 0x460430
+	void Arrange();                                           // +0x48, 0x460a90
+	bool MouseMove(int x, int y);                             // +0x4c, 0x460cc0, line 3367
+	bool LeftButtonDown(int x, int y, int Flags);             // +0x50, 0x460eb0, line 3385
+	bool LeftButtonUp(int x, int y, int Flags);               // +0x54, 0x461080, line 3408
+	bool MouseWheel(int x, int y, int Code);                  // +0x60, 0x4612c0, line 3438
+	void KeyPress(int Key);                                   // +0x6c, 0x461580, line 3455
+	void ReleaseCapture(TComponent *Component)                // +0x7c, 0x460430
 	{
 		Dragging = false;
 		TElement::ReleaseCapture(Component);
 	}
 	void SetRange(int _Min, int _Max, int _Value, int _Visible); // 0x460450, lines 3281-3291
-	void SetValue(int _Value);                          // 0x460710, line 3303
+	void SetValue(int _Value);                                   // 0x460710, line 3303
 
-	int ButtonRange;     // +0x24
-	int Min;             // +0x28
-	int Max;             // +0x2c
-	int Value;           // +0x30
-	int Visible;         // +0x34
-	bool Pressed;        // +0x38
-	bool Dragging;       // +0x39
-	int DragOffset;      // +0x3c
-	int SliderHeight;    // +0x40
-	int SliderPosition;  // +0x44
-	bool PageScroll;     // +0x48
-	bool Enabled;        // +0x49
+	int ButtonRange;    // +0x24
+	int Min;            // +0x28
+	int Max;            // +0x2c
+	int Value;          // +0x30
+	int Visible;        // +0x34
+	bool Pressed;       // +0x38
+	bool Dragging;      // +0x39
+	int DragOffset;     // +0x3c
+	int SliderHeight;   // +0x40
+	int SliderPosition; // +0x44
+	bool PageScroll;    // +0x48
+	bool Enabled;       // +0x49
 };
 
 // A vertical scroll bar: two buttons and the range (vtable 0x561f70, 0x38
@@ -696,12 +696,12 @@ class TScrollBar : public TWindow {
 public:
 	TScrollBar(TRect Area, int Min, int Max, int _Value, int _Visible, int _ButtonRange); // 0x469a80, lines 3462-3475
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void SetSize(int Width, int Height);               // +0x34, 0x461770, line 3509
+	void SetSize(int Width, int Height);                      // +0x34, 0x461770, line 3509
 	int getMinimumWidth() { return SkinProperties.Data870; }  // +0x3c, 0x469e60
 	int getMinimumHeight() { return SkinProperties.Data874; } // +0x40, 0x469e50
-	bool MouseWheel(int x, int y, int Code);            // +0x60, 0x4619a0, line 3521
-	void KeyPress(int Key) { Range->KeyPress(Key); }    // +0x6c, 0x4731d0 (folded)
-	void HandleEvent(int Event);                        // +0x70, 0x461b60, line 3534
+	bool MouseWheel(int x, int y, int Code);                  // +0x60, 0x4619a0, line 3521
+	void KeyPress(int Key) { Range->KeyPress(Key); }          // +0x6c, 0x4731d0 (folded)
+	void HandleEvent(int Event);                              // +0x70, 0x461b60, line 3534
 
 	TScrollBarRange *Range;  // +0x2c
 	TSkinButton *UpButton;   // +0x30, event 3
@@ -735,22 +735,22 @@ public:
 		if (!Editing && EditLine != NULL)
 			delete EditLine;
 	}
-	void SetSize(int Width, int Height);               // +0x34, 0x4620e0, line 3646
-	void Draw(int Surface, int x, int y);              // +0x44, 0x461d10, line 3635
-	void Arrange();                                     // +0x48, 0x46a120, line 3676
-	bool LeftButtonDown(int x, int y, int Flags);       // +0x50, 0x46a460, line 3696
+	void SetSize(int Width, int Height);                 // +0x34, 0x4620e0, line 3646
+	void Draw(int Surface, int x, int y);                // +0x44, 0x461d10, line 3635
+	void Arrange();                                      // +0x48, 0x46a120, line 3676
+	bool LeftButtonDown(int x, int y, int Flags);        // +0x50, 0x46a460, line 3696
 	bool LeftButtonDoubleClick(int x, int y, int Flags); // +0x58, 0x46a640, line 3720
-	bool MouseWheel(int x, int y, int Code);            // +0x60, 0x462290, line 3747
-	void MouseHover(int x, int y);                      // +0x64, 0x46a830, line 3734
-	void KeyPress(int _Key);                            // +0x6c, 0x46aa30, line 3791
-	virtual void StartEdit();                           // +0xa0, 0x463060, line 3957
-	virtual void StopEdit();                            // +0xa4, 0x463280, line 3971
-	void AddLine(const char *Text);                     // 0x462460, lines 3799-3806
-	void SetLine(int Number, const char *Text);         // 0x462730, lines 3831-3839
-	char *GetLine(int Number);                          // 0x462b20, line 3847
-	void SetSelection(int Number);                      // 0x46ad10, lines 3891-3896
-	void Clear();                                       // 0x462ca0, line 3921
-	int GetLineAt(int x, int y);                        // 0x462e70, line 3938
+	bool MouseWheel(int x, int y, int Code);             // +0x60, 0x462290, line 3747
+	void MouseHover(int x, int y);                       // +0x64, 0x46a830, line 3734
+	void KeyPress(int _Key);                             // +0x6c, 0x46aa30, line 3791
+	virtual void StartEdit();                            // +0xa0, 0x463060, line 3957
+	virtual void StopEdit();                             // +0xa4, 0x463280, line 3971
+	void AddLine(const char *Text);                      // 0x462460, lines 3799-3806
+	void SetLine(int Number, const char *Text);          // 0x462730, lines 3831-3839
+	char *GetLine(int Number);                           // 0x462b20, line 3847
+	void SetSelection(int Number);                       // 0x46ad10, lines 3891-3896
+	void Clear();                                        // 0x462ca0, line 3921
+	int GetLineAt(int x, int y);                         // 0x462e70, line 3938
 	// Inline (out-of-line copies 0x4529d0 and 0x4529f0, called by Dialogs.cpp).
 	int GetSelection()
 	{
@@ -795,15 +795,15 @@ public:
 		for (int i = 0; i < Lines; i++)
 			delete[] FontLines(i).Text;
 	}
-	void Draw(int Surface, int x, int y);              // +0x44, 0x463430, line 4029
-	void MouseHover(int x, int y);                      // +0x64, 0x464670, line 4133
-	void StartEdit();                                   // +0xa0, 0x464870, line 4163
-	void StopEdit();                                    // +0xa4, 0x464af0, line 4183
-	void AddLine(const char *Text, TFont Font);         // 0x463820, lines 4051-4059
-	void AddLine(int MaxLength);                        // 0x463b10, lines 4067-4074
+	void Draw(int Surface, int x, int y);                   // +0x44, 0x463430, line 4029
+	void MouseHover(int x, int y);                          // +0x64, 0x464670, line 4133
+	void StartEdit();                                       // +0xa0, 0x464870, line 4163
+	void StopEdit();                                        // +0xa4, 0x464af0, line 4183
+	void AddLine(const char *Text, TFont Font);             // 0x463820, lines 4051-4059
+	void AddLine(int MaxLength);                            // 0x463b10, lines 4067-4074
 	void SetLine(int Number, const char *Text, TFont Font); // 0x463dc0, lines 4082-4091
-	void Clear();                                       // 0x4641e0, line 4105
-	char *GetLine(int Number, TFont *Font);             // 0x4643a0, lines 4113-4118
+	void Clear();                                           // 0x4641e0, line 4105
+	char *GetLine(int Number, TFont *Font);                 // 0x4643a0, lines 4113-4118
 
 	vector<TListBoxLine> FontLines; // +0x7c
 };
@@ -823,11 +823,11 @@ public:
 	}
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
 	int getMinimumWidth() { return Skins[256].width + Skins[258].width + Skins[257].width; } // +0x3c, 0x452a90
-	int getMinimumHeight() { return Skins[256].height; } // +0x40, 0x452ab0
-	void Arrange();                                     // +0x48, 0x464d00
-	void SetMaximum(int maximum);                       // 0x464f40, lines 4271-4276
-	void SetCurrent(int current);                       // 0x4651c0, line 4289
-	void SetComplete();                                 // 0x465380, line 4301
+	int getMinimumHeight() { return Skins[256].height; }                                     // +0x40, 0x452ab0
+	void Arrange();                                                                          // +0x48, 0x464d00
+	void SetMaximum(int maximum);                                                            // 0x464f40, lines 4271-4276
+	void SetCurrent(int current);                                                            // 0x4651c0, line 4289
+	void SetComplete();                                                                      // 0x465380, line 4301
 
 	int Maximum; // +0x24
 	int Current; // +0x28

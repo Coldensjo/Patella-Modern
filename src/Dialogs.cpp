@@ -670,7 +670,7 @@ void TDialog::KeyPress(int Key)
 	TBEGIN
 	if (Key == 13) {
 		if (OkButton != NULL
-				&& !(OkCallback.Event == NoCallback.Event && OkCallback.Receiver == NoCallback.Receiver)) {
+			&& !(OkCallback.Event == NoCallback.Event && OkCallback.Receiver == NoCallback.Receiver)) {
 			OkCallback.Send();
 			return;
 		}
@@ -811,9 +811,10 @@ TReconnectWindow::TReconnectWindow(const char *Text, int timeout)
 	ProgressBar = new TProgressBar();
 	TimeLabel = new TLabel(SkinProperties.StyleB08.Data64, this->Text);
 	int FullWidth = TextLabel->Width > ProgressBar->getMinimumWidth() ? TextLabel->Width
-		: ProgressBar->getMinimumWidth();
+																	  : ProgressBar->getMinimumWidth();
 	FullWidth = FullWidth > TimeLabel->Width + GetTextWidth(SkinProperties.StyleB08.Data64.FontNumber, "8888")
-		? FullWidth : TimeLabel->Width + GetTextWidth(SkinProperties.StyleB08.Data64.FontNumber, "8888");
+		? FullWidth
+		: TimeLabel->Width + GetTextWidth(SkinProperties.StyleB08.Data64.FontNumber, "8888");
 	int TextHeight = TextLabel->Height;
 	InsertChild(TextLabel);
 	int BarY = TextHeight + SkinProperties.DataBEC;
@@ -2710,7 +2711,8 @@ TGraphicsOptionsDialog::TGraphicsOptionsDialog(void (*_OpenURL)(const char *URL)
 		sprintf(Line, "%d*%d, %d Bits%s", Modes[i].Width, Modes[i].Height, Modes[i].Depth,
 			Modes[i].Frequency != 0 ? Frequency : "");
 		ResolutionList->AddLine(Line);
-		if (i == 0 || (Current->Width == Modes[i].Width && Current->Height == Modes[i].Height
+		if (i == 0
+			|| (Current->Width == Modes[i].Width && Current->Height == Modes[i].Height
 				&& Current->Depth == Modes[i].Depth))
 			ResolutionList->SetSelection(i);
 	}
@@ -2753,7 +2755,7 @@ void TGraphicsOptionsDialog::HandleEvent(int Event)
 		if (ResolutionList->GetSelection() != -1)
 			SetFullscreenMode(&Modes[ResolutionList->GetSelection()]);
 		if ((ViewMode == 2) != FullscreenChecked
-				&& (!Fullscreen->IsChecked() || ResolutionList->GetSelection() != -1))
+			&& (!Fullscreen->IsChecked() || ResolutionList->GetSelection() != -1))
 			SetDisplayMode(Fullscreen->IsChecked() + 1);
 		if (curEngine == 2 && Fullscreen->IsChecked())
 			Resize(0, 0);
@@ -3143,8 +3145,11 @@ TErrorReportDialog::TErrorReportDialog()
 	std::stringstream Text;
 	for (int i = 0; i < Reports; i++) {
 		if (i != 0)
-			Text << std::endl << std::endl;
-		Text << GetErrorReportTitle(i) << std::endl << GetErrorReportDate(i) << std::endl << GetErrorReportText(i);
+			Text << std::endl
+				 << std::endl;
+		Text << GetErrorReportTitle(i) << std::endl
+			 << GetErrorReportDate(i) << std::endl
+			 << GetErrorReportText(i);
 	}
 	ReportText->SetText(Text.str().c_str(), false);
 	CommentEdit->SetActive(true);

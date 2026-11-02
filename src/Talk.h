@@ -28,7 +28,8 @@ enum TALK_MODE {
 	TALK_INFO_MESSAGE = 22,
 	TALK_MODE_BEYONDLAST = 27
 };
-enum { TALKBOXES = 10, STATUSMESSAGE_LENGTH = 512 };
+enum { TALKBOXES = 10,
+	STATUSMESSAGE_LENGTH = 512 };
 struct TTalkbox {
 	int State, Order, RemainingTime, Mode;
 	int x, y, z, Lines;
@@ -54,15 +55,29 @@ class TTalkBuffer {
 public:
 	// 0x4fd5a0, Talk.h inline; Closed is deliberately not initialized.
 	TTalkBuffer(int TalkMode) : ReceiveTalkMode(TalkMode), SendTalkMode(TalkMode),
-		Changed(true), first(NULL), last(NULL), cursor(NULL), lines(0), limit(1000),
-		ShowMessages(false), Enabled(true), Complete(true), LinesChanged(true), Locked(false), Selected(false) {}
+								Changed(true), first(NULL), last(NULL), cursor(NULL), lines(0), limit(1000),
+								ShowMessages(false), Enabled(true), Complete(true), LinesChanged(true), Locked(false), Selected(false) {}
 	~TTalkBuffer() noexcept(false);
 	// 0x4fd5f0-0x4fd6b7, Talk.h inlines, in vtable order.
-	virtual bool GetChanged() { bool Result = Changed; Changed = false; return Result; }
-	virtual bool GetClosed() { bool Result = Closed; Closed = false; return Result; }
+	virtual bool GetChanged()
+	{
+		bool Result = Changed;
+		Changed = false;
+		return Result;
+	}
+	virtual bool GetClosed()
+	{
+		bool Result = Closed;
+		Closed = false;
+		return Result;
+	}
 	virtual void Close() { Closed = true; }
 	virtual bool CanWrite() { return true; }
-	virtual bool SetWriteEnabled(bool Value) { (void)Value; return true; }
+	virtual bool SetWriteEnabled(bool Value)
+	{
+		(void)Value;
+		return true;
+	}
 	virtual void Append(TTalkLine *line);
 	virtual void AddText(int Mode, const char *text, int DiffTime);
 	// The binary's vtable (0x573738) has Remove(int) at +0x1c and
@@ -88,8 +103,16 @@ public:
 	TTalkLine *GetLine(int lineNumber);
 	TTalkLine *GetNext();
 	// Inline (ConsoleWindow.cpp): the cursor moves to the first or the last line.
-	TTalkLine *GetFirst() { cursor = first; return cursor; }
-	TTalkLine *GetLast() { cursor = last; return cursor; }
+	TTalkLine *GetFirst()
+	{
+		cursor = first;
+		return cursor;
+	}
+	TTalkLine *GetLast()
+	{
+		cursor = last;
+		return cursor;
+	}
 	int Write(FILE *F);
 	int ReceiveTalkMode, SendTalkMode;
 	bool Changed, Closed;
@@ -115,7 +138,11 @@ class TRuleViolationTalkBuffer : public TTalkBuffer {
 public:
 	TRuleViolationTalkBuffer(int ReceiveTalkMode, int SendTalkMode, const char *_Addressee);
 	// 0x507260 and 0x507270, Talk.h inline.
-	bool SetWriteEnabled(bool Value) override { WriteEnabled = Value; return Value; }
+	bool SetWriteEnabled(bool Value) override
+	{
+		WriteEnabled = Value;
+		return Value;
+	}
 	bool CanWrite() override { return WriteEnabled; }
 	void Append(TTalkLine *line) override;
 	void AddText(int Mode, const char *text, int DiffTime) override;
@@ -133,7 +160,9 @@ public:
 	// 0x5075c0, Talk.h line 321.
 	void AddText(int Mode, const char *text, int DiffTime) override
 	{
-		(void)Mode; (void)text; (void)DiffTime;
+		(void)Mode;
+		(void)text;
+		(void)DiffTime;
 		TERROR(321, "not possible");
 	}
 	void Remove(int lineNumber) override;
@@ -145,7 +174,11 @@ class TPrivateChannel : public TChannelTalkBuffer {
 public:
 	TPrivateChannel(int TalkMode, int _ChannelID);
 	// Folded with 0x467420/0x467430 from another header instantiation.
-	bool SetWriteEnabled(bool Value) override { WriteEnabled = Value; return Value; }
+	bool SetWriteEnabled(bool Value) override
+	{
+		WriteEnabled = Value;
+		return Value;
+	}
 	bool CanWrite() override { return WriteEnabled; }
 	// 0x5079f0, Talk.h inline.
 	bool IsPrivateChannel() override { return GetChannelID() >= 8; }

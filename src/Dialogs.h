@@ -28,9 +28,9 @@
 #include "GUI.h"
 #include "graphics.h"
 #include "DialogElements.h"
-#include "Map.h"            // TCoordinate, TMark
-#include "Preferences.h"    // TFullscreenMode, HOTKEYS
-#include "Text.h"           // TReconnectBody::SetTime reads TextTryingToReconnect
+#include "Map.h"         // TCoordinate, TMark
+#include "Preferences.h" // TFullscreenMode, HOTKEYS
+#include "Text.h"        // TReconnectBody::SetTime reads TextTryingToReconnect
 
 class TDialog;
 struct TTalkLine;
@@ -40,43 +40,43 @@ struct TTalkLine;
 // Each makes a dialog and returns it as the new modal window (Control.cpp's
 // ProcessEvents); the Move Objects and Report dialogs return NULL when they
 // cannot be opened.
-TDialog *CreateMessageDialog(const char *Caption, const char *Text);                // 0x47f8a0, line 48
-TDialog *CreateFormattedMessageDialog(const char *Caption, const char *Text);       // 0x47faf0, line 67
+TDialog *CreateMessageDialog(const char *Caption, const char *Text);                          // 0x47f8a0, line 48
+TDialog *CreateFormattedMessageDialog(const char *Caption, const char *Text);                 // 0x47faf0, line 67
 TDialog *CreateConnectingDialog(const char *Caption, const char *Text, TComponent *Receiver); // 0x47fd30, line 84
-TDialog *CreateWaitDialog(const char *Caption, const char *Text, int Timeout);      // 0x47ff60, line 102
-TDialog *CreateReconnectDialog(const char *Caption, const char *Text, int timeout); // 0x4801c0, line 119
+TDialog *CreateWaitDialog(const char *Caption, const char *Text, int Timeout);                // 0x47ff60, line 102
+TDialog *CreateReconnectDialog(const char *Caption, const char *Text, int timeout);           // 0x4801c0, line 119
 TDialog *CreateQuestionDialog(const char *Caption, const char *Text, TComponent *Receiver, int YesEvent,
-	int NoEvent);                                                                   // 0x4803f0, line 134
-TDialog *CreateLogoutDialog(const char *Caption, const char *Text, TComponent *Receiver); // 0x480640, line 149
-TDialog *CreateInfoDialog(void (*OpenURL)(const char *URL));                         // 0x4808b0, line 177
-TDialog *CreateMoveObjectsDialog();                                                  // 0x480cd0, line 200
-TDialog *CreateLoginDialog(void (*OpenURL)(const char *URL));                        // 0x480f40, line 214
-TDialog *CreateCharacterListDialog(int Timeout);                                     // 0x481160, line 230
-TDialog *CreateTextDialog(int *ObjectData, const char *Author, const char *Text);   // 0x481370, line 280
-TDialog *CreateEditListDialog(int *HouseData, const char *Text);                    // 0x4817c0, line 294
-TDialog *CreateOutfitDialog(int *Data);                                              // 0x4819f0, line 307
-TDialog *CreateBugReportDialog();                                                    // 0x481bf0, line 321
+	int NoEvent);                                                                                       // 0x4803f0, line 134
+TDialog *CreateLogoutDialog(const char *Caption, const char *Text, TComponent *Receiver);               // 0x480640, line 149
+TDialog *CreateInfoDialog(void (*OpenURL)(const char *URL));                                            // 0x4808b0, line 177
+TDialog *CreateMoveObjectsDialog();                                                                     // 0x480cd0, line 200
+TDialog *CreateLoginDialog(void (*OpenURL)(const char *URL));                                           // 0x480f40, line 214
+TDialog *CreateCharacterListDialog(int Timeout);                                                        // 0x481160, line 230
+TDialog *CreateTextDialog(int *ObjectData, const char *Author, const char *Text);                       // 0x481370, line 280
+TDialog *CreateEditListDialog(int *HouseData, const char *Text);                                        // 0x4817c0, line 294
+TDialog *CreateOutfitDialog(int *Data);                                                                 // 0x4819f0, line 307
+TDialog *CreateBugReportDialog();                                                                       // 0x481bf0, line 321
 TDialog *CreateNewChannelDialog(int NumberOfChannels, int *ChannelIDs, const char (*ChannelNames)[30]); // 0x481e00, line 334
-TDialog *CreateInviteDialog();                                                       // 0x482010, line 347
-TDialog *CreateExcludeDialog();                                                      // 0x482210, line 360
-TDialog *CreateIgnoreListDialog();                                                   // 0x482410, line 375
-TDialog *CreateReportDialog();                                                       // 0x482640, line 407
-TDialog *CreateAddBuddyDialog();                                                     // 0x482870, line 420
-TDialog *CreateEditBuddyDialog(int CharacterID);                                     // 0x482a70, line 434
-TDialog *CreateUpdateDialog(const char *FileName, int DataSize);                     // 0x482c80, line 448
-TDialog *CreateHelpDialog(void (*OpenURL)(const char *URL));                         // 0x482ea0, line 462
-TDialog *CreateHintsDialog();                                                        // 0x4830c0, line 476
-TDialog *CreateRuleViolationDialog(const char *Name, TTalkLine *Statement);          // 0x485290, line 490
-TDialog *CreateEditMarkDialog(TCoordinate *Coordinate, TMark *Mark);                 // 0x4832e0, line 504
-TDialog *CreateOptionsDialog();                                                      // 0x483500, line 533
-TDialog *CreateGeneralOptionsDialog(void (*OpenURL)(const char *URL));               // 0x483730, line 547
+TDialog *CreateInviteDialog();                                                                          // 0x482010, line 347
+TDialog *CreateExcludeDialog();                                                                         // 0x482210, line 360
+TDialog *CreateIgnoreListDialog();                                                                      // 0x482410, line 375
+TDialog *CreateReportDialog();                                                                          // 0x482640, line 407
+TDialog *CreateAddBuddyDialog();                                                                        // 0x482870, line 420
+TDialog *CreateEditBuddyDialog(int CharacterID);                                                        // 0x482a70, line 434
+TDialog *CreateUpdateDialog(const char *FileName, int DataSize);                                        // 0x482c80, line 448
+TDialog *CreateHelpDialog(void (*OpenURL)(const char *URL));                                            // 0x482ea0, line 462
+TDialog *CreateHintsDialog();                                                                           // 0x4830c0, line 476
+TDialog *CreateRuleViolationDialog(const char *Name, TTalkLine *Statement);                             // 0x485290, line 490
+TDialog *CreateEditMarkDialog(TCoordinate *Coordinate, TMark *Mark);                                    // 0x4832e0, line 504
+TDialog *CreateOptionsDialog();                                                                         // 0x483500, line 533
+TDialog *CreateGeneralOptionsDialog(void (*OpenURL)(const char *URL));                                  // 0x483730, line 547
 TDialog *CreateGraphicsOptionsDialog(void (*OpenURL)(const char *URL), void (*SetDisplayMode)(int Mode),
-	TWindow *Parent);                                                               // 0x483950, line 561
+	TWindow *Parent);                                                                          // 0x483950, line 561
 TDialog *CreateAdvancedGraphicsDialog(void (*OpenURL)(const char *URL), TComponent *Receiver); // 0x483b80, line 576
-TDialog *CreateConsoleOptionsDialog(void (*OpenURL)(const char *URL));               // 0x483dc0, line 590
-TDialog *CreateNetworkOptionsDialog(void (*OpenURL)(const char *URL));               // 0x483fe0, line 604
-TDialog *CreateHotkeyDialog(void (*OpenURL)(const char *URL));                       // 0x484200, line 617
-TDialog *CreateErrorReportDialog();                                                  // 0x484400, line 631
+TDialog *CreateConsoleOptionsDialog(void (*OpenURL)(const char *URL));                         // 0x483dc0, line 590
+TDialog *CreateNetworkOptionsDialog(void (*OpenURL)(const char *URL));                         // 0x483fe0, line 604
+TDialog *CreateHotkeyDialog(void (*OpenURL)(const char *URL));                                 // 0x484200, line 617
+TDialog *CreateErrorReportDialog();                                                            // 0x484400, line 631
 
 // --- The frame ------------------------------------------------------------------
 
@@ -88,16 +88,16 @@ TDialog *CreateErrorReportDialog();                                             
 // the dialog inside the game window.
 class TDialog : public TWindow {
 public:
-	TDialog(const char *_Caption, TComponent *_Dialog);  // 0x47c970, lines 650-677
+	TDialog(const char *_Caption, TComponent *_Dialog); // 0x47c970, lines 650-677
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
 	int getMinimumWidth() { return SkinProperties.StyleB08.Data00; }  // +0x3c, 0x47cf50
 	int getMinimumHeight() { return SkinProperties.StyleB08.Data04; } // +0x40, 0x47cf60
-	void Arrange();                                     // +0x48, 0x46cd20, line 812
-	bool MouseMove(int x, int y);                       // +0x4c, 0x46d410, line 848
-	bool LeftButtonDown(int x, int y, int Flags);       // +0x50, 0x46d660, line 867
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x46d830, line 880
-	void KeyPress(int Key);                             // +0x6c, 0x46d220, line 831
-	void HandleEvent(int Event);                        // +0x70, 0x46d9f0, line 891
+	void Arrange();                                                   // +0x48, 0x46cd20, line 812
+	bool MouseMove(int x, int y);                                     // +0x4c, 0x46d410, line 848
+	bool LeftButtonDown(int x, int y, int Flags);                     // +0x50, 0x46d660, line 867
+	bool LeftButtonUp(int x, int y, int Flags);                       // +0x54, 0x46d830, line 880
+	void KeyPress(int Key);                                           // +0x6c, 0x46d220, line 831
+	void HandleEvent(int Event);                                      // +0x70, 0x46d9f0, line 891
 	// A NULL text removes the button. The OK button's callback NoCallback
 	// becomes (this, 1) for Return; the buttons themselves keep the callback
 	// given.
@@ -105,18 +105,18 @@ public:
 	void SetCancelButton(const char *Text, TCallback Callback); // 0x46c710, lines 710-723
 	void SetExtraButton(const char *Text, TCallback Callback);  // 0x46ca40, lines 734-744
 
-	TComponent *Dialog;         // +0x2c, the body (a window or a label)
-	TTextButton *OkButton;      // +0x30
-	TTextButton *CancelButton;  // +0x34
-	TTextButton *ExtraButton;   // +0x38
-	TLabel *CaptionLabel;       // +0x3c
-	TSeparator *Separator;      // +0x40
-	bool Dragging;              // +0x44
-	int DragX;                  // +0x48, where the drag started
-	int DragY;                  // +0x4c
-	char Caption[100];          // +0x50
-	TCallback OkCallback;       // +0xb4, Return
-	TCallback CancelCallback;   // +0xbc, Escape
+	TComponent *Dialog;        // +0x2c, the body (a window or a label)
+	TTextButton *OkButton;     // +0x30
+	TTextButton *CancelButton; // +0x34
+	TTextButton *ExtraButton;  // +0x38
+	TLabel *CaptionLabel;      // +0x3c
+	TSeparator *Separator;     // +0x40
+	bool Dragging;             // +0x44
+	int DragX;                 // +0x48, where the drag started
+	int DragY;                 // +0x4c
+	char Caption[100];         // +0x50
+	TCallback OkCallback;      // +0xb4, Return
+	TCallback CancelCallback;  // +0xbc, Escape
 };
 
 // --- Question labels -------------------------------------------------------------
@@ -133,7 +133,7 @@ public:
 		NoAnswerCallback = _NoAnswerCallback;
 	}
 	// The destructor is TLabel's (deleting destructor 0x46be00).
-	void KeyPress(int Key);                             // +0x6c, 0x46db80, line 915
+	void KeyPress(int Key); // +0x6c, 0x46db80, line 915
 
 	TCallback YesCallback;      // +0x4c
 	TCallback NoAnswerCallback; // +0x54
@@ -152,7 +152,7 @@ public:
 		ExitCallback = _ExitCallback;
 	}
 	// The destructor is TLabel's (deleting destructor 0x46be00, shared).
-	void KeyPress(int Key);                             // +0x6c, 0x46dd40, line 952
+	void KeyPress(int Key); // +0x6c, 0x46dd40, line 952
 
 	TCallback LogoutCallback; // +0x4c
 	TCallback ExitCallback;   // +0x54
@@ -174,8 +174,8 @@ public:
 	}
 	// Inline (out-of-line copy 0x46b950, deleting destructor 0x46be20).
 	~TWaitLabel() { delete Timer; }
-	void Draw(int Surface, int x, int y);              // +0x44, 0x46e2b0, line 1011
-	void HandleEvent(int Event);                        // +0x70, 0x46e0e0, line 1000
+	void Draw(int Surface, int x, int y);                // +0x44, 0x46e2b0, line 1011
+	void HandleEvent(int Event);                         // +0x70, 0x46e0e0, line 1000
 	virtual void SetTimer(int Time, TCallback Callback); // +0x88, 0x46df20, line 985
 
 	TTimer *Timer;       // +0x4c
@@ -189,11 +189,11 @@ public:
 // bar and the time left. When the timer runs out it connects again.
 class TReconnectWindow : public TWindow {
 public:
-	TReconnectWindow(const char *Text, int timeout);   // 0x46e470, line 1052
+	TReconnectWindow(const char *Text, int timeout); // 0x46e470, line 1052
 	// Inline (out-of-line copy 0x46b9b0, deleting destructor 0x46be40).
 	~TReconnectWindow() { delete Timer; }
-	void Draw(int Surface, int x, int y);              // +0x44, 0x46e8b0, line 1073
-	void HandleEvent(int Event);                        // +0x70, 0x46ea60, line 1122
+	void Draw(int Surface, int x, int y); // +0x44, 0x46e8b0, line 1073
+	void HandleEvent(int Event);          // +0x70, 0x46ea60, line 1122
 	// Inline (out-of-line copy 0x46ba10): Time in tenths of a second.
 	void SetTime(int Time)
 	{
@@ -206,11 +206,11 @@ public:
 		}
 	}
 
-	int Timeout;                // +0x2c, tenths of a second
-	char Text[512];             // +0x30, the time left
-	TTimer *Timer;              // +0x230, event 31
-	TProgressBar *ProgressBar;  // +0x234
-	TLabel *TimeLabel;          // +0x238
+	int Timeout;               // +0x2c, tenths of a second
+	char Text[512];            // +0x30, the time left
+	TTimer *Timer;             // +0x230, event 31
+	TProgressBar *ProgressBar; // +0x234
+	TLabel *TimeLabel;         // +0x238
 };
 
 // --- Login and character list ------------------------------------------------
@@ -219,11 +219,11 @@ public:
 // both shown as stars, and a link to the account creation.
 class TLoginDialog : public TWindow {
 public:
-	TLoginDialog(void (*OpenURL)(const char *URL));     // 0x46ecf0, line 1162
+	TLoginDialog(void (*OpenURL)(const char *URL)); // 0x46ecf0, line 1162
 	// Inline (out-of-line copy 0x46bf90, deleting destructor 0x46c090).
 	~TLoginDialog() { delete FocusGroup; }
-	void KeyPress(int Key);                             // +0x6c, 0x46f160, lines 1183-1187
-	void HandleEvent(int Event);                        // +0x70, 0x46f3e0, line 1203
+	void KeyPress(int Key);      // +0x6c, 0x46f160, lines 1183-1187
+	void HandleEvent(int Event); // +0x70, 0x46f3e0, line 1203
 
 	TPasswordEditLine *Account;  // +0x2c
 	TPasswordEditLine *Password; // +0x30
@@ -235,20 +235,20 @@ public:
 // timer runs out; every key and click starts it again.
 class TCharacterListDialog : public TWindow {
 public:
-	TCharacterListDialog();                             // 0x46f5c0, line 1262
+	TCharacterListDialog(); // 0x46f5c0, line 1262
 	// Inline (out-of-line copy 0x46baa0, deleting destructor 0x46be60).
 	~TCharacterListDialog()
 	{
 		delete Timer;
 		Timer = NULL;
 	}
-	bool LeftButtonDown(int x, int y, int Flags);       // +0x50, 0x46fa10, line 1274
-	bool RightButtonUp(int x, int y, int Flags);        // +0x5c, 0x46fbc0, line 1286
-	bool MouseWheel(int x, int y, int Code);            // +0x60, 0x46fd70, line 1298
-	void KeyPress(int Key);                             // +0x6c, 0x4700b0, line 1335
-	void HandleEvent(int Event);                        // +0x70, 0x470280, line 1361
-	void PositionChanged();                             // +0x74, 0x46ff20, line 1309
-	virtual void SetTimeout(int seconds);               // +0xa0, 0x470490, line 1374
+	bool LeftButtonDown(int x, int y, int Flags); // +0x50, 0x46fa10, line 1274
+	bool RightButtonUp(int x, int y, int Flags);  // +0x5c, 0x46fbc0, line 1286
+	bool MouseWheel(int x, int y, int Code);      // +0x60, 0x46fd70, line 1298
+	void KeyPress(int Key);                       // +0x6c, 0x4700b0, line 1335
+	void HandleEvent(int Event);                  // +0x70, 0x470280, line 1361
+	void PositionChanged();                       // +0x74, 0x46ff20, line 1309
+	virtual void SetTimeout(int seconds);         // +0xa0, 0x470490, line 1374
 
 	TListBox *ListBox; // +0x2c
 	TTimer *Timer;     // +0x30, event 31
@@ -261,23 +261,23 @@ public:
 // to move, chosen with a scroll bar or typed.
 class TMoveObjectsDialog : public TWindow {
 public:
-	TMoveObjectsDialog();                               // 0x470670, lines 1392-1406
+	TMoveObjectsDialog(); // 0x470670, lines 1392-1406
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void Draw(int Surface, int x, int y);              // +0x44, 0x470b60, line 1423
-	void KeyPress(int Key);                             // +0x6c, 0x470de0, line 1459
-	void HandleEvent(int Event);                        // +0x70, 0x471080, line 1475
+	void Draw(int Surface, int x, int y); // +0x44, 0x470b60, line 1423
+	void KeyPress(int Key);               // +0x6c, 0x470de0, line 1459
+	void HandleEvent(int Event);          // +0x70, 0x471080, line 1475
 
-	TObject DraggedObject;            // +0x2c
-	int SourceIndex;                  // +0x38, GetDragObject's Index
-	int SourceX;                      // +0x3c
-	int SourceY;                      // +0x40
-	int SourceZ;                      // +0x44
-	int DestinationX;                 // +0x48
-	int DestinationY;                 // +0x4c
-	int DestinationZ;                 // +0x50
-	THorizontalScrollBar *ScrollBar;  // +0x54
-	int Unused58;                     // +0x58, never used
-	int LastDigit;                    // +0x5c, the digit typed before
+	TObject DraggedObject;           // +0x2c
+	int SourceIndex;                 // +0x38, GetDragObject's Index
+	int SourceX;                     // +0x3c
+	int SourceY;                     // +0x40
+	int SourceZ;                     // +0x44
+	int DestinationX;                // +0x48
+	int DestinationY;                // +0x4c
+	int DestinationZ;                // +0x50
+	THorizontalScrollBar *ScrollBar; // +0x54
+	int Unused58;                    // +0x58, never used
+	int LastDigit;                   // +0x5c, the digit typed before
 };
 
 // --- Outfit -------------------------------------------------------------------
@@ -288,25 +288,25 @@ public:
 // the first and last outfit the player may choose.
 class TOutfitDialog : public TWindow {
 public:
-	TOutfitDialog(int *Data);                           // 0x47cf70, lines 1488-1542
+	TOutfitDialog(int *Data); // 0x47cf70, lines 1488-1542
 	// Inline (out-of-line copy 0x46bfc0, deleting destructor 0x46c0b0).
 	~TOutfitDialog()
 	{
 		delete ColorGroup;
 		delete PartGroup;
 	}
-	void HandleEvent(int Event);                        // +0x70, 0x471250, line 1586
+	void HandleEvent(int Event); // +0x70, 0x471250, line 1586
 
-	TOutfitIcon *OutfitIcon;          // +0x2c
-	TTextButton *PartButtons[4];      // +0x30, events 1000-1003
-	TRadioButtonGroup *PartGroup;     // +0x40
-	TColorButton *ColorButtons[133];  // +0x44, events 2000-2132
-	TRadioButtonGroup *ColorGroup;    // +0x258
-	int Colors[4];                    // +0x25c
-	int Outfit;                       // +0x26c
-	int FirstOutfit;                  // +0x270
-	int LastOutfit;                   // +0x274
-	int Part;                         // +0x278, the part whose colour the buttons show
+	TOutfitIcon *OutfitIcon;         // +0x2c
+	TTextButton *PartButtons[4];     // +0x30, events 1000-1003
+	TRadioButtonGroup *PartGroup;    // +0x40
+	TColorButton *ColorButtons[133]; // +0x44, events 2000-2132
+	TRadioButtonGroup *ColorGroup;   // +0x258
+	int Colors[4];                   // +0x25c
+	int Outfit;                      // +0x26c
+	int FirstOutfit;                 // +0x270
+	int LastOutfit;                  // +0x274
+	int Part;                        // +0x278, the part whose colour the buttons show
 };
 
 // --- Texts --------------------------------------------------------------------
@@ -318,22 +318,22 @@ public:
 class TTextDialog : public TWindow {
 public:
 	TTextDialog(int MaximumLength, const char *Text, uint32 _ObjectNumber, TObject _Obj,
-		const char *Description);                       // 0x471500, lines 1702-1727
+		const char *Description); // 0x471500, lines 1702-1727
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
 	void KeyPress(int Key) { EditText->KeyPress(Key); } // +0x6c, 0x4719a0
 	void HandleEvent(int Event);                        // +0x70, 0x4719b0, line 1739
 
-	uint32 ObjectNumber;    // +0x2c, the server's number for SendEditText
-	TObject Obj;            // +0x30
+	uint32 ObjectNumber;     // +0x2c, the server's number for SendEditText
+	TObject Obj;             // +0x30
 	TObjectIcon *ObjectIcon; // +0x3c
-	TEditText *EditText;    // +0x40
+	TEditText *EditText;     // +0x40
 };
 
 // "Edit List" (vtable 0x563868, 0x38 bytes): a house list, one name per line.
 class TEditListDialog : public TWindow {
 public:
 	TEditListDialog(int MaxLength, const char *Text, int _Type, uint32 _Identifier,
-		const char *Description);                       // 0x47d660, lines 1752-1775
+		const char *Description); // 0x47d660, lines 1752-1775
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
 	void Arrange();                                     // +0x48, 0x471b60
 	void KeyPress(int Key) { EditText->KeyPress(Key); } // +0x6c, 0x47db50
@@ -367,26 +367,26 @@ struct TIgnoreEntry {
 // two vectors next to the lists; OK (602) writes everything back to Talk.cpp.
 class TIgnoreListDialog : public TWindow {
 public:
-	TIgnoreListDialog();                                // 0x47db60, lines 1875-1975
+	TIgnoreListDialog(); // 0x47db60, lines 1875-1975
 	// The destructor is the implicit one (0x47eab0, deleting destructor 0x47ea90).
-	void Arrange();                                     // +0x48, 0x471d90, line 1987
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x472970, line 2205
-	void KeyPress(int Key);                             // +0x6c, 0x472d80, line 2216
-	void HandleEvent(int Event);                        // +0x70, 0x471f20, line 2171
+	void Arrange();                             // +0x48, 0x471d90, line 1987
+	bool LeftButtonUp(int x, int y, int Flags); // +0x54, 0x472970, line 2205
+	void KeyPress(int Key);                     // +0x6c, 0x472d80, line 2216
+	void HandleEvent(int Event);                // +0x70, 0x471f20, line 2171
 
-	TCheckBox *IgnoreListCheckBox;    // +0x2c, "Activate Ignore List"
-	TFontListBox *IgnoreList;         // +0x30, event 11
-	TTextButton *AddIgnoreButton;     // +0x34, event 709
-	TTextButton *DeleteIgnoreButton;  // +0x38, event 710
-	TCheckBox *IgnorePermanently;     // +0x3c
-	TCheckBox *IgnoreYelling;         // +0x40
-	TCheckBox *IgnorePrivate;         // +0x44
-	TCheckBox *WhiteListCheckBox;     // +0x48, "Activate White List"
-	TFontListBox *WhiteList;          // +0x4c, event 11
-	TTextButton *AddWhiteButton;      // +0x50, event 712
-	TTextButton *DeleteWhiteButton;   // +0x54, event 713
-	TCheckBox *AllowPermanently;      // +0x58
-	TCheckBox *AllowBuddies;          // +0x5c, "Allow VIPs to message you"
+	TCheckBox *IgnoreListCheckBox;      // +0x2c, "Activate Ignore List"
+	TFontListBox *IgnoreList;           // +0x30, event 11
+	TTextButton *AddIgnoreButton;       // +0x34, event 709
+	TTextButton *DeleteIgnoreButton;    // +0x38, event 710
+	TCheckBox *IgnorePermanently;       // +0x3c
+	TCheckBox *IgnoreYelling;           // +0x40
+	TCheckBox *IgnorePrivate;           // +0x44
+	TCheckBox *WhiteListCheckBox;       // +0x48, "Activate White List"
+	TFontListBox *WhiteList;            // +0x4c, event 11
+	TTextButton *AddWhiteButton;        // +0x50, event 712
+	TTextButton *DeleteWhiteButton;     // +0x54, event 713
+	TCheckBox *AllowPermanently;        // +0x58
+	TCheckBox *AllowBuddies;            // +0x5c, "Allow VIPs to message you"
 	vector<TIgnoreEntry> IgnoreEntries; // +0x60
 	vector<TIgnoreEntry> WhiteEntries;  // +0x98
 };
@@ -403,7 +403,7 @@ inline int CompareNames(const void *Name1, const void *Name2)
 // "Reporting" (vtable 0x562cd8, 0x30 bytes): a bug report.
 class TBugReportDialog : public TWindow {
 public:
-	TBugReportDialog();                                 // 0x472f20, line 2240
+	TBugReportDialog(); // 0x472f20, line 2240
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
 	// Inline (folded with the scroll bars' 0x4731d0).
 	void KeyPress(int Key) { EditText->KeyPress(Key); } // +0x6c, 0x4731d0
@@ -420,25 +420,25 @@ public:
 	TNewChannelDialog(int _NumberOfChannels, int *_ChannelIDs, const char (*ChannelNames)[30]); // 0x4733a0, lines 2265-2297
 	// Inline (out-of-line copy 0x46bb20, deleting destructor 0x46be80).
 	~TNewChannelDialog() { delete[] ChannelIDs; }
-	void KeyPress(int Key);                             // +0x6c, 0x473980, line 2321
-	void HandleEvent(int Event);                        // +0x70, 0x473b80, lines 2333-2349
+	void KeyPress(int Key);      // +0x6c, 0x473980, line 2321
+	void HandleEvent(int Event); // +0x70, 0x473b80, lines 2333-2349
 
-	TListBox *ListBox;     // +0x2c, double click 301
-	TEditLine *NameEdit;   // +0x30
-	int Unused34;          // +0x34, never used
-	int Unused38;          // +0x38, never used
-	int NumberOfChannels;  // +0x3c
-	int *ChannelIDs;       // +0x40
+	TListBox *ListBox;    // +0x2c, double click 301
+	TEditLine *NameEdit;  // +0x30
+	int Unused34;         // +0x34, never used
+	int Unused38;         // +0x38, never used
+	int NumberOfChannels; // +0x3c
+	int *ChannelIDs;      // +0x40
 };
 
 // "Invite player to private chat channel" and "Exclude player from private
 // chat channel" (vtable 0x562db8, 0x34 bytes).
 class TPrivateChannelDialog : public TWindow {
 public:
-	TPrivateChannelDialog(bool _Exclude);               // 0x473e60, line 2378
+	TPrivateChannelDialog(bool _Exclude); // 0x473e60, line 2378
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);                             // +0x6c, 0x474110, line 2392
-	void HandleEvent(int Event);                        // +0x70, 0x4742e0, line 2406
+	void KeyPress(int Key);      // +0x6c, 0x474110, line 2392
+	void HandleEvent(int Event); // +0x70, 0x4742e0, line 2406
 
 	bool Exclude;        // +0x2c
 	TEditLine *NameEdit; // +0x30
@@ -448,10 +448,10 @@ public:
 // to the gamemasters, one sentence.
 class TReportDialog : public TWindow {
 public:
-	TReportDialog();                                    // 0x4744b0, line 2551
+	TReportDialog(); // 0x4744b0, line 2551
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);                             // +0x6c, 0x474760, line 2565
-	void HandleEvent(int Event);                        // +0x70, 0x474930, line 2580
+	void KeyPress(int Key);      // +0x6c, 0x474760, line 2565
+	void HandleEvent(int Event); // +0x70, 0x474930, line 2580
 
 	TEditLine *TextEdit; // +0x2c
 };
@@ -461,10 +461,10 @@ public:
 // "Add to VIP list" (vtable 0x562ef8, 0x30 bytes).
 class TAddBuddyDialog : public TWindow {
 public:
-	TAddBuddyDialog();                                  // 0x474b20, line 2607
+	TAddBuddyDialog(); // 0x474b20, line 2607
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);                             // +0x6c, 0x474dd0, line 2621
-	void HandleEvent(int Event);                        // +0x70, 0x474fa0, line 2635
+	void KeyPress(int Key);      // +0x6c, 0x474dd0, line 2621
+	void HandleEvent(int Event); // +0x70, 0x474fa0, line 2635
 
 	TEditLine *NameEdit; // +0x2c
 };
@@ -473,18 +473,18 @@ public:
 // description and the login notification of a VIP.
 class TEditBuddyDialog : public TWindow {
 public:
-	TEditBuddyDialog(int _CharacterID);                 // 0x475160, lines 2652-2696
+	TEditBuddyDialog(int _CharacterID); // 0x475160, lines 2652-2696
 	// Inline (out-of-line copy 0x46bec0, deleting destructor 0x46c010).
 	~TEditBuddyDialog() { delete IconGroup; }
 	// Inline (out-of-line copy 0x46bef0).
 	void KeyPress(int Key) { Description->KeyPress(Key); } // +0x6c, 0x46bef0
-	void HandleEvent(int Event);                        // +0x70, 0x475820, line 2720
+	void HandleEvent(int Event);                           // +0x70, 0x475820, line 2720
 
-	int CharacterID;                // +0x2c
-	TRadioButtonGroup *IconGroup;   // +0x30
-	TCheckBox *Notify;              // +0x34
-	TEditText *Description;         // +0x38
-	TIconButton *IconButtons[11];   // +0x3c
+	int CharacterID;              // +0x2c
+	TRadioButtonGroup *IconGroup; // +0x30
+	TCheckBox *Notify;            // +0x34
+	TEditText *Description;       // +0x38
+	TIconButton *IconButtons[11]; // +0x3c
 };
 
 // --- Updates, help and hints ----------------------------------------------------
@@ -496,8 +496,8 @@ class TUpdateDialog : public TWindow {
 public:
 	TUpdateDialog(const char *FileName, int _DataSize); // 0x4759f0, line 2761
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void Draw(int Surface, int x, int y);              // +0x44, 0x475d00, line 2793
-	void HandleEvent(int Event);                        // +0x70, 0x475f00, line 2806
+	void Draw(int Surface, int x, int y); // +0x44, 0x475d00, line 2793
+	void HandleEvent(int Event);          // +0x70, 0x475f00, line 2806
 
 	int Unused2C;              // +0x2c, never used
 	TProgressBar *ProgressBar; // +0x30
@@ -510,10 +510,10 @@ public:
 // "Help" (vtable 0x5630c0, 0x30 bytes): six buttons with their texts.
 class THelpDialog : public TWindow {
 public:
-	THelpDialog(void (*_OpenURL)(const char *URL));     // 0x4760a0, line 2869
+	THelpDialog(void (*_OpenURL)(const char *URL)); // 0x4760a0, line 2869
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);                             // +0x6c, 0x476770, line 2882
-	void HandleEvent(int Event);                        // +0x70, 0x476930, lines 2914-2918
+	void KeyPress(int Key);      // +0x6c, 0x476770, line 2882
+	void HandleEvent(int Event); // +0x70, 0x476930, lines 2914-2918
 
 	void (*OpenURL)(const char *URL); // +0x2c
 };
@@ -521,10 +521,10 @@ public:
 // "Hints for Tibia" (vtable 0x563160, 0x30 bytes): the hints shown so far.
 class THintsDialog : public TWindow {
 public:
-	THintsDialog();                                     // 0x476cd0, line 2945
+	THintsDialog(); // 0x476cd0, line 2945
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);                             // +0x6c, 0x476fb0, line 2959
-	void HandleEvent(int Event);                        // +0x70, 0x477180, lines 2974-2983
+	void KeyPress(int Key);      // +0x6c, 0x476fb0, line 2959
+	void HandleEvent(int Event); // +0x70, 0x477180, lines 2974-2983
 
 	TListBox *ListBox; // +0x2c, double click 1
 };
@@ -540,21 +540,21 @@ public:
 	TRuleViolationDialog(const char *Name, TTalkLine *Statement); // 0x484620, line 3056
 	// Inline (out-of-line copy 0x46bf00, deleting destructor 0x46c030).
 	~TRuleViolationDialog() { delete FocusGroup; }
-	void KeyPress(int Key);                             // +0x6c, 0x4774d0, line 3080
-	void HandleEvent(int Event);                        // +0x70, 0x484e70, lines 3124-3128
-	void UpdateActions();                               // 0x47eae0, line 3158
-	int GetReason();                                    // 0x4776b0, line 3171
-	int GetAction();                                    // 0x477860, line 3191
+	void KeyPress(int Key);      // +0x6c, 0x4774d0, line 3080
+	void HandleEvent(int Event); // +0x70, 0x484e70, lines 3124-3128
+	void UpdateActions();        // 0x47eae0, line 3158
+	int GetReason();             // 0x4776b0, line 3171
+	int GetAction();             // 0x477860, line 3191
 
-	TFocusGroup *FocusGroup;    // +0x2c
-	TEditLine *NameEdit;        // +0x30
-	TListBox *ReasonList;       // +0x34, event 21
-	TListBox *ActionList;       // +0x38
-	TEditLine *CommentEdit;     // +0x3c
-	TEditLine *StatementEdit;   // +0x40
-	TCheckBox *IPBanishment;    // +0x44
-	uint32 StatementID;         // +0x48
-	int Reasons[50];            // +0x4c, the right of each reason line, -1 after the last
+	TFocusGroup *FocusGroup;  // +0x2c
+	TEditLine *NameEdit;      // +0x30
+	TListBox *ReasonList;     // +0x34, event 21
+	TListBox *ActionList;     // +0x38
+	TEditLine *CommentEdit;   // +0x3c
+	TEditLine *StatementEdit; // +0x40
+	TCheckBox *IPBanishment;  // +0x44
+	uint32 StatementID;       // +0x48
+	int Reasons[50];          // +0x4c, the right of each reason line, -1 after the last
 };
 
 // --- Automap marks ---------------------------------------------------------------
@@ -567,14 +567,14 @@ public:
 	TEditMarkDialog(TCoordinate *_Coordinate, TMark *_Mark); // 0x477c80, lines 3207-3242
 	// Inline (out-of-line copy 0x46bf30, deleting destructor 0x46c050).
 	~TEditMarkDialog() { delete TypeGroup; }
-	void KeyPress(int Key);                             // +0x6c, 0x478200, line 3268
-	void HandleEvent(int Event);                        // +0x70, 0x4783d0, lines 3294-3298
+	void KeyPress(int Key);      // +0x6c, 0x478200, line 3268
+	void HandleEvent(int Event); // +0x70, 0x4783d0, lines 3294-3298
 
-	TCoordinate Coordinate;         // +0x2c
-	TMark Mark;                     // +0x38
-	TEditLine *TextEdit;            // +0xa8
-	TRadioButtonGroup *TypeGroup;   // +0xac
-	TIconButton *TypeButtons[14];   // +0xb0
+	TCoordinate Coordinate;       // +0x2c
+	TMark Mark;                   // +0x38
+	TEditLine *TextEdit;          // +0xa8
+	TRadioButtonGroup *TypeGroup; // +0xac
+	TIconButton *TypeButtons[14]; // +0xb0
 };
 
 // --- Options -----------------------------------------------------------------------
@@ -583,10 +583,10 @@ public:
 // dialogs (each reopens this one when it closes) and the message of the day.
 class TOptionsDialog : public TWindow {
 public:
-	TOptionsDialog();                                   // 0x4786d0, line 3366
+	TOptionsDialog(); // 0x4786d0, line 3366
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);                             // +0x6c, 0x478e50, line 3380
-	void HandleEvent(int Event);                        // +0x70, 0x479010, lines 3422-3426
+	void KeyPress(int Key);      // +0x6c, 0x478e50, line 3380
+	void HandleEvent(int Event); // +0x70, 0x479010, lines 3422-3426
 };
 
 // "General Options" (vtable 0x563360, 0x44 bytes).
@@ -594,13 +594,13 @@ class TGeneralOptionsDialog : public TWindow {
 public:
 	TGeneralOptionsDialog(void (*_OpenURL)(const char *URL)); // 0x479310, line 3472
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void HandleEvent(int Event);                        // +0x70, 0x479720, lines 3495-3498
+	void HandleEvent(int Event); // +0x70, 0x479720, lines 3495-3498
 
-	TCheckBox *TextualEffects;  // +0x2c
-	TCheckBox *CreatureNames;   // +0x30
-	TCheckBox *ShowHints;       // +0x34
-	TCheckBox *ClassicControl;  // +0x38
-	TCheckBox *AutoChaseOff;    // +0x3c
+	TCheckBox *TextualEffects;        // +0x2c
+	TCheckBox *CreatureNames;         // +0x30
+	TCheckBox *ShowHints;             // +0x34
+	TCheckBox *ClassicControl;        // +0x38
+	TCheckBox *AutoChaseOff;          // +0x3c
 	void (*OpenURL)(const char *URL); // +0x40, the Help button (701)
 };
 
@@ -609,20 +609,20 @@ public:
 class TGraphicsOptionsDialog : public TWindow {
 public:
 	TGraphicsOptionsDialog(void (*_OpenURL)(const char *URL), void (*_SetDisplayMode)(int Mode),
-		TWindow *_Parent);                              // 0x479a30, line 3549
+		TWindow *_Parent); // 0x479a30, line 3549
 	// Inline (out-of-line copy 0x46bb40, deleting destructor 0x46bea0).
 	~TGraphicsOptionsDialog() { delete[] Modes; }
-	void KeyPress(int Key);                             // +0x6c, 0x479f50, line 3573
-	void HandleEvent(int Event);                        // +0x70, 0x47a150, line 3598
+	void KeyPress(int Key);      // +0x6c, 0x479f50, line 3573
+	void HandleEvent(int Event); // +0x70, 0x47a150, line 3598
 
-	TCheckBox *Fullscreen;              // +0x2c
-	TListBox *ResolutionList;           // +0x30
-	int NumberOfModes;                  // +0x34
-	TFullscreenMode *Modes;             // +0x38, the surface's list
-	void (*SetDisplayMode)(int Mode);   // +0x3c, 1 windowed, 2 fullscreen
-	TWindow *Parent;                    // +0x40, passed on to the advanced options
-	TTextButton *AdvancedButton;        // +0x44
-	void (*OpenURL)(const char *URL);   // +0x48
+	TCheckBox *Fullscreen;            // +0x2c
+	TListBox *ResolutionList;         // +0x30
+	int NumberOfModes;                // +0x34
+	TFullscreenMode *Modes;           // +0x38, the surface's list
+	void (*SetDisplayMode)(int Mode); // +0x3c, 1 windowed, 2 fullscreen
+	TWindow *Parent;                  // +0x40, passed on to the advanced options
+	TTextButton *AdvancedButton;      // +0x44
+	void (*OpenURL)(const char *URL); // +0x48
 };
 
 // "Advanced Graphics Options" (vtable 0x562738, 0x54 bytes): light,
@@ -633,19 +633,19 @@ public:
 	TAdvancedGraphicsDialog(void (*_OpenURL)(const char *URL), TComponent *_Receiver); // 0x47a3d0, line 3689
 	// Inline (out-of-line copy 0x46bf60, deleting destructor 0x46c070).
 	~TAdvancedGraphicsDialog() { delete EngineGroup; }
-	void Draw(int Surface, int x, int y);              // +0x44, 0x47aa30, line 3723
-	void HandleEvent(int Event);                        // +0x70, 0x47ad10, line 3751
+	void Draw(int Surface, int x, int y); // +0x44, 0x47aa30, line 3723
+	void HandleEvent(int Event);          // +0x70, 0x47ad10, line 3751
 
-	TComponent *Receiver;               // +0x2c
-	TCheckBox *LightEffects;            // +0x30
-	TCheckBox *NoStretching;            // +0x34
-	TCheckBox *WindowsMousepointer;     // +0x38
-	THorizontalScrollBar *Framerate;    // +0x3c, 10-201 (201 is no limit), event 30
-	void (*OpenURL)(const char *URL);   // +0x40
-	TTextButton *DirectX5Button;        // +0x44
-	TTextButton *DirectX9Button;        // +0x48
-	TTextButton *OpenGLButton;          // +0x4c
-	TRadioButtonGroup *EngineGroup;     // +0x50
+	TComponent *Receiver;             // +0x2c
+	TCheckBox *LightEffects;          // +0x30
+	TCheckBox *NoStretching;          // +0x34
+	TCheckBox *WindowsMousepointer;   // +0x38
+	THorizontalScrollBar *Framerate;  // +0x3c, 10-201 (201 is no limit), event 30
+	void (*OpenURL)(const char *URL); // +0x40
+	TTextButton *DirectX5Button;      // +0x44
+	TTextButton *DirectX9Button;      // +0x48
+	TTextButton *OpenGLButton;        // +0x4c
+	TRadioButtonGroup *EngineGroup;   // +0x50
 };
 
 // "Console Options" (vtable 0x563598, 0x44 bytes).
@@ -653,13 +653,13 @@ class TConsoleOptionsDialog : public TWindow {
 public:
 	TConsoleOptionsDialog(void (*_OpenURL)(const char *URL)); // 0x47afb0, line 3797
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void HandleEvent(int Event);                        // +0x70, 0x47b3c0, line 3819
+	void HandleEvent(int Event); // +0x70, 0x47b3c0, line 3819
 
-	TCheckBox *InfoMessages;    // +0x2c
-	TCheckBox *EventMessages;   // +0x30
-	TCheckBox *StatusMessages;  // +0x34
-	TCheckBox *TimeStamps;      // +0x38
-	TCheckBox *PrivateMessages; // +0x3c
+	TCheckBox *InfoMessages;          // +0x2c
+	TCheckBox *EventMessages;         // +0x30
+	TCheckBox *StatusMessages;        // +0x34
+	TCheckBox *TimeStamps;            // +0x38
+	TCheckBox *PrivateMessages;       // +0x3c
 	void (*OpenURL)(const char *URL); // +0x40
 };
 
@@ -668,7 +668,7 @@ class TNetworkOptionsDialog : public TWindow {
 public:
 	TNetworkOptionsDialog(void (*_OpenURL)(const char *URL)); // 0x47b5e0, line 3843
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void HandleEvent(int Event);                        // +0x70, 0x47b800, line 3860
+	void HandleEvent(int Event); // +0x70, 0x47b800, line 3860
 
 	TCheckBox *TestServerLogin;       // +0x2c
 	void (*OpenURL)(const char *URL); // +0x30
@@ -678,12 +678,12 @@ public:
 // hotkeys (F1-F12 with Shift and Control), edited one at a time.
 class THotkeyDialog : public TWindow {
 public:
-	THotkeyDialog(void (*_OpenURL)(const char *URL));   // 0x47edf0, line 3906
+	THotkeyDialog(void (*_OpenURL)(const char *URL)); // 0x47edf0, line 3906
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	bool LeftButtonUp(int x, int y, int Flags);         // +0x54, 0x47c400, line 4010
-	void KeyPress(int Key);                             // +0x6c, 0x47bd40, line 3958
-	void HandleEvent(int Event);                        // +0x70, 0x47c010, lines 3993-3996
-	void UpdateLine(int Number);                        // 0x47b9c0, lines 3914-3933
+	bool LeftButtonUp(int x, int y, int Flags); // +0x54, 0x47c400, line 4010
+	void KeyPress(int Key);                     // +0x6c, 0x47bd40, line 3958
+	void HandleEvent(int Event);                // +0x70, 0x47c010, lines 3993-3996
+	void UpdateLine(int Number);                // 0x47b9c0, lines 3914-3933
 
 	char Texts[HOTKEYS][256];         // +0x2c
 	bool AutoSend[HOTKEYS];           // +0x242c
@@ -698,10 +698,10 @@ public:
 // crashes and a comment to send with them.
 class TErrorReportDialog : public TWindow {
 public:
-	TErrorReportDialog();                               // 0x47f290, line 4053
+	TErrorReportDialog(); // 0x47f290, line 4053
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);                             // +0x6c, 0x47c5e0, line 4067
-	void HandleEvent(int Event);                        // +0x70, 0x47c7b0, line 4084
+	void KeyPress(int Key);      // +0x6c, 0x47c5e0, line 4067
+	void HandleEvent(int Event); // +0x70, 0x47c7b0, line 4084
 
 	TEditLine *CommentEdit; // +0x2c
 };

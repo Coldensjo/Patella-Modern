@@ -115,6 +115,19 @@ variable PATELLA_TIBIA_EXE, default the root's copy) and a private TEMP each (bu
 Details: notes/decisions.md, "CMake: the oracle-x86 preset (issue #4)". The MSBuild project and the .cmd
 scripts stay until issue #10 removes them.
 
+The product presets (windows-x64, issue #5; linux-x64-gcc and linux-x64-clang, issue #7) give their targets
+the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8), which the oracle never uses:
+
+- `patella_target_language(<target>)`: C++23 (`/std:c++latest` on MSVC, `-std=c++26` on GCC and Clang),
+  `/permissive- /Zc:__cplusplus /utf-8 /Zc:preprocessor /Zc:inline`, no `/Zc:strictStrings-`.
+- `patella_target_warnings(<target>)`: `/W4` (GCC and Clang `-Wall -Wextra -Wpedantic -Wconversion
+  -Wshadow`) per source, `/W3` (`-Wall`) for the files on the baseline list `PATELLA_WARNING_BASELINE` in
+  Warnings.cmake, and warnings as errors (`COMPILE_WARNING_AS_ERROR`; `cmake --compile-no-warning-as-error`
+  turns it off to measure). Headers in angle brackets are external to MSVC (`/external:anglebrackets
+  /external:W0`). A file leaves the list when it builds clean at /W4; the list only shrinks.
+- `patella_target_hardening(<target>)`: `/guard:cf /CETCOMPAT`; `-fstack-protector-strong`,
+  `_FORTIFY_SOURCE=3` (optimised builds), `_GLIBCXX_ASSERTIONS` (Debug), PIE and, on Linux, full RELRO.
+
 Run it only from a folder with copies of the data files (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg; for
 example build\run), never from the root: the client rewrites Tibia.cfg on exit, and the root's data files
 may be the user's own.
@@ -145,6 +158,21 @@ with time made virtual so both clients draw the same moment: notes/rendering.md.
 
 ## Checking
 
+- Code style (issue #8): `.clang-format` describes the style of src/ (tabs of four columns, function bodies
+  on their own line, no column limit; the arguments of TASSERT*, TERROR* and TEND* are whitespace-sensitive,
+  so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
+  `.editorconfig` sets tabs, LF and UTF-8 for every editor. With Visual Studio's clang-format 22
+  (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h
+  src/res/resource.h` reports nothing; `clang-format -i` on a changed file formats it. Hand-laid tables (case
+  tables, vertex and pixel format lists) and the macros clang-format cannot parse sit between
+  `// clang-format off` and `// clang-format on`.
+- clang-tidy (issue #8): `.clang-tidy` has the checks of the coding standard (notes/modernization-plan.md,
+  section 8). Run it only through `python -I tools/tidy.py -p <build dir> [--fix] <files>` (the build dir
+  needs compile_commands.json: CMAKE_EXPORT_COMPILE_COMMANDS; default build\windows-x64, the preset of
+  issue #5; for an x86 build's commands add `--extra-arg=-m32`). It lists the findings outside the
+  TASSERT*/TERROR*/TEND* arguments with a count per check and counts the ones inside apart (they wait for
+  M5); with `--fix` it reverts, character by character, every fix clang-tidy made inside such an argument,
+  in the file and in the headers it changed (plan 4.2). Never run `clang-tidy --fix` directly.
 - `tools\compile-check.cmd` compiles every `src/*.cpp` with MSVC 14.51 for x86 (`/W3`, no
   warnings expected) against real MFC. Without the Visual Studio MFC component, or with the environment
   variable `TIBIA_MFC_SHIM` set, it compiles against `src/compat/mfc_shim.h` (the difftest always does).

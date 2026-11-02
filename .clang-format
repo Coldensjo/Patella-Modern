@@ -1,0 +1,83 @@
+# The code style of src/ (issue #8; notes/decisions.md, "Compiler settings, warnings and code style
+# (issue #8)"): the style the reconstruction was written in. clang-format 22 (Visual Studio's
+# VC\Tools\Llvm\x64\bin), checked with
+#	clang-format --dry-run --Werror <files>
+# src/Extern keeps its own style (.clang-format-ignore).
+#
+# The arguments of TASSERT*, TERROR* and TEND* are stringized into the exception messages that
+# error.txt records and difftest compares (notes/modernization-plan.md, 4.2): clang-format leaves
+# them exactly as written (WhitespaceSensitiveMacros). The list names every such macro of src/,
+# the local ones of single files included; a new one is added here.
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: Latest
+
+# Tabs of four columns for indentation and continuation, spaces for alignment inside a line.
+UseTab: ForContinuationAndIndentation
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+AccessModifierOffset: -4
+IndentCaseLabels: false
+IndentPPDirectives: None
+
+# No column limit: the line breaks are the author's. Breaks go before binary operators.
+ColumnLimit: 0
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeTernaryOperators: true
+AlignAfterOpenBracket: DontAlign
+AlignOperands: DontAlign
+AlignEscapedNewlines: DontAlign
+BreakTemplateDeclarations: Leave
+
+# Function bodies open on their own line, every other brace on the line of its statement.
+BreakBeforeBraces: WebKit
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortEnumsOnASingleLine: true
+
+PointerAlignment: Right
+ReferenceAlignment: Pointer
+
+# Trailing comments (the addresses and offsets of the original) are aligned over consecutive lines.
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
+SpacesBeforeTrailingComments: 1
+ReflowComments: false
+
+# Includes keep their order (the MFC and Windows headers depend on it).
+SortIncludes: Never
+FixNamespaceComments: false
+MaxEmptyLinesToKeep: 2
+KeepEmptyLines:
+  AtStartOfBlock: true
+  AtStartOfFile: true
+
+# TBEGIN opens the try block that the TEND macros close.
+StatementMacros:
+  - TBEGIN
+WhitespaceSensitiveMacros:
+  - TASSERT
+  - TASSERT1
+  - TASSERT2
+  - TASSERTB
+  - TASSERTB1
+  - TASSERTB2
+  - TASSERT1_BUG
+  - TASSERT2_BUG
+  - TERROR
+  - TERROR1
+  - TERROR2
+  - TERROR1B
+  - TERROR_REASON
+  - TERROR1_REASON
+  - TEND
+  - TEND1
+  - TEND2
+  - TEND_HANDLERS
+  - TMYEXCEPTION

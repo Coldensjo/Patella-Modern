@@ -39,11 +39,11 @@
 #include <stdlib.h>
 
 // Data, in .bss order.
-static void (*OpenURLCallback)(const char *URL);       // 0x5d16a0
-static void (*SetDisplayModeCallback)(int Mode);       // 0x5d16a4
-static void (*ExitProgramCallback)();                  // 0x5d16a8
-TWindow *ModalWindow;                                  // 0x5d16ac
-TMainWindow *MainWindow;                               // 0x5d16b0
+static void (*OpenURLCallback)(const char *URL); // 0x5d16a0
+static void (*SetDisplayModeCallback)(int Mode); // 0x5d16a4
+static void (*ExitProgramCallback)();            // 0x5d16a8
+TWindow *ModalWindow;                            // 0x5d16ac
+TMainWindow *MainWindow;                         // 0x5d16b0
 // At 0x5d16b4, constructed by the static initialiser 0x559f30 as
 // TCallback(NULL, 0) and never used (MapWindow.cpp has one too).
 static TCallback NoCallback(NULL, 0);
@@ -281,8 +281,8 @@ void TMainWindow::HandleEvent(int Event)
 	case 0x1fb: {
 		// A question with an answer event; message 6 deletes the block.
 		INT_PTR *Data = new INT_PTR[4];
-		Data[0] = (INT_PTR)"Warning";
-		Data[1] = (INT_PTR)"Are you sure you want to leave Tibia?";
+		Data[0] = (INT_PTR) "Warning";
+		Data[1] = (INT_PTR) "Are you sure you want to leave Tibia?";
 		Data[2] = (INT_PTR)this;
 		Data[3] = 0x1fa;
 		AddMessage(6, (INT_PTR)Data, 0);

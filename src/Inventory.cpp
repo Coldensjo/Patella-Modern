@@ -14,10 +14,10 @@
 #include "Utils.h"
 
 // Data, in .bss order.
-static TObject Body[BODY_POSITIONS];            // 0x5ced60
-static TContainer Containers[OPEN_CONTAINERS];  // 0x5cedd8
-static TOffer OwnOffer;                         // 0x5d0c98
-static TOffer CounterOffer;                     // 0x5d1170 (4 bytes after OwnOffer's end)
+static TObject Body[BODY_POSITIONS];           // 0x5ced60
+static TContainer Containers[OPEN_CONTAINERS]; // 0x5cedd8
+static TOffer OwnOffer;                        // 0x5d0c98
+static TOffer CounterOffer;                    // 0x5d1170 (4 bytes after OwnOffer's end)
 
 // 0x4a4460
 void ClearBody()

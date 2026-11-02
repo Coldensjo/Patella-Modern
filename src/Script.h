@@ -82,17 +82,17 @@ public:
 	char *readString();
 	void readSymbol(char Symbol);
 
-	TOKEN Token;                     // +0x000
-	FILE *File;                      // +0x004
-	char Filename[1024];             // +0x008
-	int Line;                        // +0x408
-	char String[MAX_STRING_LENGTH];  // +0x40c, identifier or string
-	uint8 *Bytes;                    // +0x7f4, points to String
-	int Number;                      // +0x7f8
-	int CoordX;                      // +0x7fc
-	int CoordY;                      // +0x800
-	int CoordZ;                      // +0x804
-	char Special;                    // +0x808
+	TOKEN Token;                    // +0x000
+	FILE *File;                     // +0x004
+	char Filename[1024];            // +0x008
+	int Line;                       // +0x408
+	char String[MAX_STRING_LENGTH]; // +0x40c, identifier or string
+	uint8 *Bytes;                   // +0x7f4, points to String
+	int Number;                     // +0x7f8
+	int CoordX;                     // +0x7fc
+	int CoordY;                     // +0x800
+	int CoordZ;                     // +0x804
+	char Special;                   // +0x808
 };
 
 // 0x408 bytes.
@@ -132,9 +132,9 @@ public:
 	void writeString(const char *Text);
 	void writeNumber(int Number);
 
-	FILE *File;           // +0x000
-	char Filename[1024];  // +0x004
-	int Line;             // +0x404, set to 0 and never used
+	FILE *File;          // +0x000
+	char Filename[1024]; // +0x004
+	int Line;            // +0x404, set to 0 and never used
 };
 
 // 0x404 bytes. The constructor (0x4df690) and close() (0x4df6b0) are shared
@@ -169,8 +169,8 @@ public:
 	char *readString();
 	void readBytes(uint8 *Buffer, int Count);
 
-	FILE *File;           // +0x000
-	char Filename[1024];  // +0x004
+	FILE *File;          // +0x000
+	char Filename[1024]; // +0x004
 };
 
 class TWriteBinaryFile {
@@ -200,8 +200,8 @@ public:
 	void writeBytes(const uint8 *Buffer, int Count);
 	void writeString(const char *Text);
 
-	FILE *File;           // +0x000
-	char Filename[1024];  // +0x004
+	FILE *File;          // +0x000
+	char Filename[1024]; // +0x004
 };
 
 bool ApplyPatch(const char *FileName, const uint8 *Patch, int Size, uint32 Signature);
