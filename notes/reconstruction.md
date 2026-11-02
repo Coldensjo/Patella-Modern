@@ -95,6 +95,26 @@ fails on any compiler or linker warning (-warnAsError) and then checks the resou
 build\Release\Patella.exe` compares the import tables. Details: notes/decisions.md, "Building Patella.exe
 (issue #16)".
 
+Since issue #4 the same build also runs with CMake (3.30 or newer, Ninja; `CMakeLists.txt`,
+`CMakePresets.json`, `cmake/OracleX86.cmake`), as the preset `oracle-x86`, a test instrument until M6. From
+a developer prompt set up for x86 (`vcvarsall.bat x86`; the .cmd scripts call it themselves):
+
+```
+cmake --workflow --preset oracle-x86    # configure, build Release, run the four tests through CTest
+cmake --preset oracle-x86               # or step by step: configure,
+cmake --build --preset oracle-x86       # build Release (oracle-x86-debug: Debug),
+ctest --preset oracle-x86               # run difftest, sysinctest, communicationtest and vlongtest
+```
+
+It writes build\oracle-x86\<Configuration>: Patella.exe with exactly Patella.vcxproj's compiler, resource
+compiler and linker options (compare_imports.py and compare_resources.py give the same results as for
+build\Release\Patella.exe), the four test programs with exactly tools\difftest\build.cmd's options (the same in
+every configuration), and patcap.dll with tools\build-capture.cmd's. The resource pictures are extracted from
+Tibia.exe into build\oracle-x86\res at configure time. The tests get Tibia.exe as their argument (the cache
+variable PATELLA_TIBIA_EXE, default the root's copy) and a private TEMP each (build\oracle-x86\tmp\<test>).
+Details: notes/decisions.md, "CMake: the oracle-x86 preset (issue #4)". The MSBuild project and the .cmd
+scripts stay until issue #10 removes them.
+
 Run it only from a folder with copies of the data files (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg; for
 example build\run), never from the root: the client rewrites Tibia.cfg on exit, and the root's data files
 may be the user's own.
@@ -128,7 +148,8 @@ with time made virtual so both clients draw the same moment: notes/rendering.md.
 - `tools\compile-check.cmd` compiles every `src/*.cpp` with MSVC 14.51 for x86 (`/W3`, no
   warnings expected) against real MFC. Without the Visual Studio MFC component, or with the environment
   variable `TIBIA_MFC_SHIM` set, it compiles against `src/compat/mfc_shim.h` (the difftest always does).
-- `tools/difftest/build.cmd` runs the differential tests. `difftest.cpp` copies Tibia.exe into a
+- `tools/difftest/build.cmd` runs the differential tests (`ctest --preset oracle-x86` runs the same four
+  programs, built by CMake with the same options, with the same counts). `difftest.cpp` copies Tibia.exe into a
   child process at its base address 0x400000 (no loader, imports or entry point) and calls the
   original functions next to the reconstructed ones on the same inputs. Only functions that do
   not touch imports can be called this way. `statustest.cpp` patches the image's `malloc` and

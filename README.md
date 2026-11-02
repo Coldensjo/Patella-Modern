@@ -39,6 +39,15 @@ The output is `build\<Configuration>\Patella.exe`. Run it from a folder that hol
 (for example `build\run`), never from the root, because the client rewrites `Tibia.cfg` on exit. See
 "Building" in [notes/reconstruction.md](notes/reconstruction.md) for the details and for the tests.
 
+The same 32-bit build, with the differential tests, also runs with CMake (issue #4), from a developer
+prompt set up for x86 (`vcvarsall.bat x86`):
+
+```
+cmake --workflow --preset oracle-x86       # configure, build, test (output in build\oracle-x86)
+```
+
+`oracle-x86` is a test instrument until milestone M6, not a product.
+
 **After M1**, there will be one CMake command per platform (CMake 3.30 or newer, Ninja):
 
 ```
