@@ -4764,3 +4764,34 @@ through tools/proxy.py's replay, notes/network.md).
   had 41,985 checks instead of 43,150. compile-check clean with real MFC and with TIBIA_MFC_SHIM=1; lines.py check
   0 mismatches (src/ unchanged, so Patella.exe was built only for the real-client runs: 0 warnings, resources 0
   differences).
+
+## Modernization (Patella-Modern, November 2, 2026)
+
+The fork's decisions; the details, alternatives and reasons are in notes/modernization-plan.md (sections 3, 6,
+9 and 11).
+
+- **D1 Equivalence contract:** tier A (packets, written files, frames, user-visible behaviour) never changes
+  except by a recorded decision; tier B (difftest, the original layout) until M6; tier C (error.txt, import
+  table, resources) until M5/M6.
+- **D2 error.txt removed** (M5): no crash report file, no report dialog, no packet 0xE8. A fatal error shows the
+  "Tibia Error" message box and writes the message to stderr. The game server only logs 0xE8
+  (gameserver/src/game/receiving.cc CErrorFileEntry).
+- **D3 Targets:** Windows x64 and Linux x64; no 32-bit product (oracle-x86 is a test build until M6). SDL3 for
+  the window, input and clipboard on both (GLFW considered).
+- **D4 Linux details:** the client's 8-bit code page inside, UTF-8 at the platform boundary; Tibia.cfg next to
+  the data files; AppImage on Linux, a zip on Windows.
+- **D5 Rendering:** Vulkan 1.3 only, hand-written (volk, VMA, vk-bootstrap), on both platforms; a pinned CPU
+  Vulkan driver (lavapipe or SwiftShader) as the fallback and for the tests. The engine buttons become a
+  graphics device choice.
+- **D6 Compilers:** GCC 16 on Linux, MSVC on Windows x64, Clang on Linux in CI; C++23 baseline, C++26 through
+  src/compat/cxx26.h.
+- **D7 Reference frames:** Tibia.exe's DirectX 9 frames.
+- **Build:** CMake (presets, Ninja), one `cmake --workflow` command per platform; the .sln/.vcxproj and .cmd
+  scripts go.
+- **D8** configurable servers and RSA key; **D9** the built-in patcher removed; **D10** integer scaling of an
+  original-size canvas; **D11** borderless fullscreen; **D12** a settings file of the fork's own, Tibia.cfg
+  unchanged; **D13** vsync by default; **D14** data file lookup, no CipSoft files in packages; **D15**
+  namespace patella, the original naming style kept; **D16** a small developer log.
+- **D17 Public:** the repository goes public after the M0 cleanup, its history published as it is (it contains
+  earlier analysis output: rea-out/, names.tsv, symbols.tsv). The legal risk of publishing a reconstruction of a
+  proprietary client was raised and accepted. No CipSoft files in the repository or in any package.
