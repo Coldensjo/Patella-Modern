@@ -1,0 +1,33 @@
+# The clang-tidy configuration of src/ (issue #8; notes/modernization-plan.md, sections 4.1, 4.2 and
+# 8). Run it through tools/tidy.py, never with clang-tidy --fix directly: until M5 no fix may touch
+# the arguments of TASSERT*, TERROR* or TEND*, which are stringized into the exception messages that
+# error.txt records and difftest compares. tools/tidy.py reports the findings inside those arguments
+# apart and reverts every fix inside them.
+#
+# The checks follow the coding standard of plan section 8: owning raw pointers and new/delete
+# (cppcoreguidelines-owning-memory, -no-malloc), C string and formatting functions
+# (bugprone-unsafe-functions, cppcoreguidelines-pro-type-vararg, modernize-use-std-print), nullptr,
+# override, enum class and [[nodiscard]], and the bug-prone patterns. The checks that are noise for
+# a reconstruction (its parameter lists and integer types are the original's) are off.
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-reserved-identifier,
+  cppcoreguidelines-no-malloc,
+  cppcoreguidelines-owning-memory,
+  cppcoreguidelines-pro-type-vararg,
+  cppcoreguidelines-use-enum-class,
+  modernize-use-nodiscard,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-std-print
+WarningsAsErrors: ''
+# The headers of src/, not those of src/Extern (third-party code in its own style).
+HeaderFilterRegex: '.*[/\\]src[/\\].*'
+ExcludeHeaderFilterRegex: '.*[/\\]Extern[/\\].*'
+FormatStyle: file
+CheckOptions:
+  bugprone-unsafe-functions.ReportMoreUnsafeFunctions: true

@@ -1,0 +1,24 @@
+# The editor settings of the repository (issue #8): tabs of four columns, LF line ends (as
+# .gitattributes stores them), UTF-8. The C++ style itself is .clang-format.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = tab
+indent_size = 4
+tab_width = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Formats that require spaces.
+[{*.yml,*.yaml,.clang-format,.clang-tidy}]
+indent_style = space
+indent_size = 2
+
+# Markdown: list continuations are indented with spaces, as the notes have them; a line break at
+# the end of a line is two trailing spaces.
+[*.md]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false
