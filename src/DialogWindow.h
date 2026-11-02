@@ -39,12 +39,12 @@ class TContentWindow : public TWindow {
 public:
 	TContentWindow(int _Identifier, bool _Background); // 0x4854c0
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void Draw(int Surface, int x, int y);           // +0x44, 0x487210, lines 681-692
-	void Arrange();                                 // +0x48, 0x4875a0, line 703
-	bool MouseMove(int x, int y);                   // +0x4c, 0x4878d0, line 734
-	bool LeftButtonDown(int x, int y, int Flags);   // +0x50, 0x487ad0, line 751
-	bool LeftButtonUp(int x, int y, int Flags);     // +0x54, 0x487ca0, line 768
-	void ReleaseCapture(TComponent *Component);     // +0x7c, 0x487740, line 714
+	void Draw(int Surface, int x, int y);         // +0x44, 0x487210, lines 681-692
+	void Arrange();                               // +0x48, 0x4875a0, line 703
+	bool MouseMove(int x, int y);                 // +0x4c, 0x4878d0, line 734
+	bool LeftButtonDown(int x, int y, int Flags); // +0x50, 0x487ad0, line 751
+	bool LeftButtonUp(int x, int y, int Flags);   // +0x54, 0x487ca0, line 768
+	void ReleaseCapture(TComponent *Component);   // +0x7c, 0x487740, line 714
 
 	int Identifier;  // +0x2c
 	int BackgroundY; // +0x30, the background skin's row at the top edge
@@ -60,24 +60,24 @@ public:
 class TSubWindow : public TContentWindow {
 public:
 	TSubWindow(int _Identifier, TSubWindowBody *_Body, bool _Resizable, bool _Background); // 0x487e80, lines 791-804
-	~TSubWindow();                                  // +0x00, 0x485500 (deleting 0x485790)
-	void SetSize(int Width, int Height);            // +0x34, 0x4881f0, line 861
-	int getMinimumHeight();                         // +0x40, 0x485690
-	void Arrange();                                 // +0x48, 0x488510, lines 891-928
-	bool MouseMove(int x, int y);                   // +0x4c, 0x488c20, line 972
-	bool LeftButtonDown(int x, int y, int Flags);   // +0x50, 0x4889c0, line 950
-	bool LeftButtonDoubleClick(int x, int y, int Flags); // +0x58, 0x488e80, line 986
-	void HandleEvent(int Event);                    // +0x70, 0x489030, line 1002
-	virtual void Minimize();                        // +0xa0, 0x489220, lines 1009-1020
-	virtual void Maximize();                        // +0xa4, 0x489500, lines 1027-1037
-	void ShowUpButton();                            // 0x4897d0, line 1049
-	void HideUpButton();                            // 0x489970, line 1061
-	void SetUpButton(TComponent *Button);           // 0x489b10, line 1075
-	void SetCloseButton(TComponent *Button);        // 0x489cf0, line 1088
-	void SetMinimizeButton(TSkinButton *Button);    // 0x489ed0, line 1101
-	void SetIcon(TComponent *_Icon);                // 0x48a0b0, line 1114
-	void SetTitle(TComponent *_Title);              // 0x48a2a0, line 1127
-	static int GetFrameHeight();                    // 0x485670, the title bar and the bottom edge
+	~TSubWindow();                                                                         // +0x00, 0x485500 (deleting 0x485790)
+	void SetSize(int Width, int Height);                                                   // +0x34, 0x4881f0, line 861
+	int getMinimumHeight();                                                                // +0x40, 0x485690
+	void Arrange();                                                                        // +0x48, 0x488510, lines 891-928
+	bool MouseMove(int x, int y);                                                          // +0x4c, 0x488c20, line 972
+	bool LeftButtonDown(int x, int y, int Flags);                                          // +0x50, 0x4889c0, line 950
+	bool LeftButtonDoubleClick(int x, int y, int Flags);                                   // +0x58, 0x488e80, line 986
+	void HandleEvent(int Event);                                                           // +0x70, 0x489030, line 1002
+	virtual void Minimize();                                                               // +0xa0, 0x489220, lines 1009-1020
+	virtual void Maximize();                                                               // +0xa4, 0x489500, lines 1027-1037
+	void ShowUpButton();                                                                   // 0x4897d0, line 1049
+	void HideUpButton();                                                                   // 0x489970, line 1061
+	void SetUpButton(TComponent *Button);                                                  // 0x489b10, line 1075
+	void SetCloseButton(TComponent *Button);                                               // 0x489cf0, line 1088
+	void SetMinimizeButton(TSkinButton *Button);                                           // 0x489ed0, line 1101
+	void SetIcon(TComponent *_Icon);                                                       // 0x48a0b0, line 1114
+	void SetTitle(TComponent *_Title);                                                     // 0x48a2a0, line 1127
+	static int GetFrameHeight();                                                           // 0x485670, the title bar and the bottom edge
 	// Inline ("Window->getBody()!=NULL", MainWindow.cpp).
 	TSubWindowBody *getBody() { return Body; }
 
@@ -97,32 +97,32 @@ public:
 // A column of content windows.
 class TDialogWindow : public TWindow {
 public:
-	TDialogWindow();                                // 0x4856c0
+	TDialogWindow(); // 0x4856c0
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void InsertChild(TComponent *Child);            // +0x04, 0x485d70, line 181
-	void AppendChild(TComponent *Child);            // +0x08, 0x485f10, line 193
-	void DeleteChild(TComponent *Child);            // +0x10, 0x4860b0, line 205
+	void InsertChild(TComponent *Child);                            // +0x04, 0x485d70, line 181
+	void AppendChild(TComponent *Child);                            // +0x08, 0x485f10, line 193
+	void DeleteChild(TComponent *Child);                            // +0x10, 0x4860b0, line 205
 	void InsertChildAfter(TComponent *Previous, TComponent *Child); // +0x14, 0x486260, line 217
-	void SetSize(int Width, int Height);            // +0x34, 0x4857b0, line 63
-	int getMinimumWidth();                          // +0x3c, 0x4854b0
-	int getMinimumHeight();                         // +0x40, 0x485970, line 86
-	void Draw(int Surface, int x, int y);           // +0x44, 0x485b10, line 109
-	void Arrange();                                 // +0x48, 0x48a490, line 169
+	void SetSize(int Width, int Height);                            // +0x34, 0x4857b0, line 63
+	int getMinimumWidth();                                          // +0x3c, 0x4854b0
+	int getMinimumHeight();                                         // +0x40, 0x485970, line 86
+	void Draw(int Surface, int x, int y);                           // +0x44, 0x485b10, line 109
+	void Arrange();                                                 // +0x48, 0x48a490, line 169
 	// Strategy: 1 a child is dragged (Work, NULL when the drag ends), 2 a
 	// child grew, 4 a child (Work) shrank, 8 the column's height changed, 16
 	// a new child (Work) is appended, 32 a child was removed.
 	virtual void Rearrange(int Strategy, TComponent *Work); // +0xa0, 0x48aea0, lines 271-297
-	TContentWindow *GetContentWindow(int Identifier); // 0x486400, line 233
-	void StoreOpenDialogs();                        // 0x4865b0, line 247
+	TContentWindow *GetContentWindow(int Identifier);       // 0x486400, line 233
+	void StoreOpenDialogs();                                // 0x4865b0, line 247
 	// Inline ("!DialogWindow->hasContentWindow(TRADE_WINDOW)", MainWindow.cpp).
 	bool hasContentWindow(int Identifier) { return GetContentWindow(Identifier) != NULL; }
-	void PositionChildren(bool SkipDragged);        // 0x486760, line 317
-	void FitChildren();                             // 0x486930, line 353
-	bool Shrink();                                  // 0x48a990, lines 377-394
-	void DragChild(TComponent *Work);               // 0x486b30, lines 419-429
-	void MakeRoom(TComponent *Work);                // 0x486e20, line 477
-	void Grow(TComponent *Work);                    // 0x48acb0, line 505
-	int GetFreeHeight();                            // 0x487060, line 524
+	void PositionChildren(bool SkipDragged); // 0x486760, line 317
+	void FitChildren();                      // 0x486930, line 353
+	bool Shrink();                           // 0x48a990, lines 377-394
+	void DragChild(TComponent *Work);        // 0x486b30, lines 419-429
+	void MakeRoom(TComponent *Work);         // 0x486e20, line 477
+	void Grow(TComponent *Work);             // 0x48acb0, line 505
+	int GetFreeHeight();                     // 0x487060, line 524
 
 	TRect Area;            // +0x2c, where the children go (x, y, width, height)
 	TComponent *Dragged;   // +0x3c

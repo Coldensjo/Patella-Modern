@@ -180,10 +180,10 @@ void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin,
 	if (Skins[skin].width < 1 || Skins[skin].height < 1) {
 		std::stringstream s;
 		s << "some assertions failed " << "(surface: " << Surface << " x: " << x << " y: " << y
-			<< " width: " << width << " height: " << height << " skin: " << skin
-			<< " skinwidth: " << Skins[skin].width << " skinheight: " << Skins[skin].height
-			<< " skinoffsetx: " << skinoffsetx << " skinoffsety: " << skinoffsety
-			<< " cliprect: " << ClipX << "/" << ClipY << "/" << ClipWidth << "/" << ClipHeight << ")";
+		  << " width: " << width << " height: " << height << " skin: " << skin
+		  << " skinwidth: " << Skins[skin].width << " skinheight: " << Skins[skin].height
+		  << " skinoffsetx: " << skinoffsetx << " skinoffsety: " << skinoffsety
+		  << " cliprect: " << ClipX << "/" << ClipY << "/" << ClipWidth << "/" << ClipHeight << ")";
 		TERROR(123, s.str().c_str());
 	}
 	if (Skins[skin].width == width && Skins[skin].height == height) {
@@ -1755,11 +1755,11 @@ void TComponent::Draw(int Surface, int x, int y)
 			if (DrawingList[i].skin != 170)
 				Name = "";
 			s << "dialog origin outside main window " << "(surface: " << Surface << " x: " << x << " y: " << y
-				<< " DrawingListLength: " << DrawingListLength << " i: " << i << " DrawingList.Skin: "
-				<< DrawingList[i].skin << Name << " DrawingList.x: " << DrawingList[i].x
-				<< " DrawingList.y: " << DrawingList[i].y << " DrawingList.width: " << DrawingList[i].width
-				<< " DrawingList.height: " << DrawingList[i].height << " DrawingList.srcx: "
-				<< DrawingList[i].srcx << " DrawingList.srcy: " << DrawingList[i].srcy << ")";
+			  << " DrawingListLength: " << DrawingListLength << " i: " << i << " DrawingList.Skin: "
+			  << DrawingList[i].skin << Name << " DrawingList.x: " << DrawingList[i].x
+			  << " DrawingList.y: " << DrawingList[i].y << " DrawingList.width: " << DrawingList[i].width
+			  << " DrawingList.height: " << DrawingList[i].height << " DrawingList.srcx: "
+			  << DrawingList[i].srcx << " DrawingList.srcy: " << DrawingList[i].srcy << ")";
 			TERROR(1140, s.str().c_str());
 		}
 		DrawSkin(Surface, DrawingList[i].x + x, DrawingList[i].y + y, DrawingList[i].width,
@@ -1957,7 +1957,7 @@ bool TWindow::MouseMove(int x, int y)
 		return Capture->MouseMove(x - Capture->OffsetX, y - Capture->OffsetY);
 	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
-		 && Child->MouseMove(x - Child->OffsetX, y - Child->OffsetY))
+			&& Child->MouseMove(x - Child->OffsetX, y - Child->OffsetY))
 			return true;
 	}
 	return false;
@@ -1972,7 +1972,7 @@ bool TWindow::LeftButtonDown(int x, int y, int Flags)
 		return Capture->LeftButtonDown(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
 	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
-		 && Child->LeftButtonDown(x - Child->OffsetX, y - Child->OffsetY, Flags))
+			&& Child->LeftButtonDown(x - Child->OffsetX, y - Child->OffsetY, Flags))
 			return true;
 	}
 	return false;
@@ -1987,7 +1987,7 @@ bool TWindow::LeftButtonUp(int x, int y, int Flags)
 		return Capture->LeftButtonUp(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
 	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
-		 && Child->LeftButtonUp(x - Child->OffsetX, y - Child->OffsetY, Flags))
+			&& Child->LeftButtonUp(x - Child->OffsetX, y - Child->OffsetY, Flags))
 			return true;
 	}
 	return false;
@@ -2002,7 +2002,7 @@ bool TWindow::LeftButtonDoubleClick(int x, int y, int Flags)
 		return Capture->LeftButtonDoubleClick(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
 	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
-		 && Child->LeftButtonDoubleClick(x - Child->OffsetX, y - Child->OffsetY, Flags))
+			&& Child->LeftButtonDoubleClick(x - Child->OffsetX, y - Child->OffsetY, Flags))
 			return true;
 	}
 	return false;
@@ -2017,7 +2017,7 @@ bool TWindow::RightButtonUp(int x, int y, int Flags)
 		return Capture->RightButtonUp(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
 	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
-		 && Child->RightButtonUp(x - Child->OffsetX, y - Child->OffsetY, Flags))
+			&& Child->RightButtonUp(x - Child->OffsetX, y - Child->OffsetY, Flags))
 			return true;
 	}
 	return false;
@@ -2032,7 +2032,7 @@ bool TWindow::MouseWheel(int x, int y, int Direction)
 		return Capture->MouseWheel(x - Capture->OffsetX, y - Capture->OffsetY, Direction);
 	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
-		 && Child->MouseWheel(x - Child->OffsetX, y - Child->OffsetY, Direction))
+			&& Child->MouseWheel(x - Child->OffsetX, y - Child->OffsetY, Direction))
 			return true;
 	}
 	return false;
@@ -2060,7 +2060,7 @@ bool TWindow::HelpMouseMove(int x, int y)
 	TBEGIN
 	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
-		 && Child->HelpMouseMove(x - Child->OffsetX, y - Child->OffsetY)) {
+			&& Child->HelpMouseMove(x - Child->OffsetX, y - Child->OffsetY)) {
 			MoveHelpPosition(Child->OffsetX, Child->OffsetY);
 			return true;
 		}

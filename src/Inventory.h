@@ -17,21 +17,21 @@
 
 // 0x1ec bytes.
 struct TContainer {
-	bool IsOpen;                         // +0x00
-	TObject Object;                      // +0x04, the container itself
-	char Name[30];                       // +0x10
-	int Capacity;                        // +0x30
-	bool HasParent;                      // +0x34, can move up
-	int Count;                           // +0x38
-	TObject Objects[CONTAINER_OBJECTS];  // +0x3c
+	bool IsOpen;                        // +0x00
+	TObject Object;                     // +0x04, the container itself
+	char Name[30];                      // +0x10
+	int Capacity;                       // +0x30
+	bool HasParent;                     // +0x34, can move up
+	int Count;                          // +0x38
+	TObject Objects[CONTAINER_OBJECTS]; // +0x3c
 };
 
 // 0x4d4 bytes. CounterOffer starts 0x4d8 after OwnOffer: nothing refers to the four bytes between them
 // (issue #24).
 struct TOffer {
-	char Name[30];                       // +0x00, the trading partner
-	int Count;                           // +0x20
-	TObject Objects[OBJECTS_PER_OFFER];  // +0x24
+	char Name[30];                      // +0x00, the trading partner
+	int Count;                          // +0x20
+	TObject Objects[OBJECTS_PER_OFFER]; // +0x24
 };
 
 void ClearBody();

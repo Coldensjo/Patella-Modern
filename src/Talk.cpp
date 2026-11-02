@@ -9,21 +9,21 @@
 #include <stddef.h>
 #include <new>
 
-static bool IgnoreListEnabled; // 0x71dbd0
-static bool BuddyIgnore; // 0x71dbd1
-static bool IgnoreEnabled; // 0x71dbd2
-static bool ConsoleChanged; // 0x71dbd3
-static int StatusMessageTime; // 0x71dbdc
-static char StatusMessage[STATUSMESSAGE_LENGTH]; // 0x71dbe0
-static int TalkOrder; // 0x71dde0
-static bool TalkChanged; // 0x71dde4
-static TTalkbox Talkboxes[TALKBOXES]; // 0x71dde8
-TTalkBuffer *DefaultTextBuffer; // 0x71ef68
-static int TalkThrottle; // 0x71ef6c
-static vector<TTalkFilter *> BuddyExemptionList(0, 9, 10, NULL); // 0x71ef70, 0x55a140
+static bool IgnoreListEnabled;                                    // 0x71dbd0
+static bool BuddyIgnore;                                          // 0x71dbd1
+static bool IgnoreEnabled;                                        // 0x71dbd2
+static bool ConsoleChanged;                                       // 0x71dbd3
+static int StatusMessageTime;                                     // 0x71dbdc
+static char StatusMessage[STATUSMESSAGE_LENGTH];                  // 0x71dbe0
+static int TalkOrder;                                             // 0x71dde0
+static bool TalkChanged;                                          // 0x71dde4
+static TTalkbox Talkboxes[TALKBOXES];                             // 0x71dde8
+TTalkBuffer *DefaultTextBuffer;                                   // 0x71ef68
+static int TalkThrottle;                                          // 0x71ef6c
+static vector<TTalkFilter *> BuddyExemptionList(0, 9, 10, NULL);  // 0x71ef70, 0x55a140
 static vector<TTalkFilter *> TemporaryIgnoreList(0, 9, 10, NULL); // 0x71ef90, 0x55a160
-static vector<TTalkFilter *> IgnoreList(0, 9, 10, NULL); // 0x71efb0, 0x55a180
-static vector<TTalkFilter *> ConsoleFilterList(0, 4, 5, NULL); // 0x71efd0, 0x55a1a0
+static vector<TTalkFilter *> IgnoreList(0, 9, 10, NULL);          // 0x71efb0, 0x55a180
+static vector<TTalkFilter *> ConsoleFilterList(0, 4, 5, NULL);    // 0x71efd0, 0x55a1a0
 
 static_assert(sizeof(TTalkbox) == 0x1c0, "talkbox layout");
 static_assert(sizeof(TTalkLine) == 0x40, "statement layout");
@@ -94,6 +94,7 @@ void SetConsoleChanged() { ConsoleChanged = true; }
 TRGBColor *GetTalkColor(TRGBColor *Color, int TalkMode)
 {
 	switch (TalkMode) {
+		// clang-format off
 	case 0: TERROR(81, "none is talking");
 	case 1: case 2: case 3: case 5: case 7: case 8:
 		Color->R = 240; Color->G = 240; Color->B = 0; break;
@@ -112,6 +113,7 @@ TRGBColor *GetTalkColor(TRGBColor *Color, int TalkMode)
 	case 24:
 		Color->R = 160; Color->G = 160; Color->B = 255; break;
 	default: TERROR1(107, "something unknown is talking", TalkMode);
+		// clang-format on
 	}
 	return Color;
 }
@@ -140,7 +142,9 @@ void GetTalkboxPosition(int Number, int *x, int *y, int *z)
 	if (Mode == 22 || Mode == 19 || Mode == 18 || Mode == 4 || Mode == 9 || Mode == 11)
 		*x = *y = *z = 0;
 	else {
-		*x = Box->x; *y = Box->y; *z = Box->z;
+		*x = Box->x;
+		*y = Box->y;
+		*z = Box->z;
 	}
 	TEND1(180, Number)
 }
@@ -149,7 +153,10 @@ void GetTalkboxRectangle(int Number, int *x, int *y, int *Width, int *Height)
 {
 	TBEGIN
 	TTalkbox *Box = GetTalkbox(Number);
-	*x = Box->Left; *y = Box->Top; *Width = Box->Width; *Height = Box->Height;
+	*x = Box->Left;
+	*y = Box->Top;
+	*Width = Box->Width;
+	*Height = Box->Height;
 	TEND1(196, Number)
 }
 // 0x4fe470, line 208
@@ -237,7 +244,8 @@ void WrapTalkbox(TTalkbox *Talkbox, const char *Text)
 			Text += Count + (Text[Count] == '\n' ? 1 : 0);
 		} else if (Space == -1) {
 			strncpy(Line, Text, 38);
-			Line[38] = '-'; Line[39] = 0;
+			Line[38] = '-';
+			Line[39] = 0;
 			Text += 38;
 		} else {
 			strncpy(Line, Text, Space);
@@ -260,7 +268,9 @@ void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *
 	TTalkbox &Box = Talkboxes[Position];
 	Box.Order = TalkOrder++;
 	Box.Mode = Mode;
-	Box.x = x; Box.y = y; Box.z = z;
+	Box.x = x;
+	Box.y = y;
+	Box.z = z;
 	Box.Lines = 0;
 	Box.RemainingTime = ((int)(strlen(Text) >> 1) + 30) * 100;
 	const char *Format = NULL;
@@ -268,7 +278,9 @@ void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *
 	case 1: Format = "%s says:"; break;
 	case 2: Format = "%s whispers:"; break;
 	case 3: Format = "%s yells:"; break;
-	case 4: case 9: case 11: Format = "%s:"; break;
+	case 4:
+	case 9:
+	case 11: Format = "%s:"; break;
 	}
 	if (Format != NULL) {
 		Box.Lines = 1;
@@ -282,14 +294,14 @@ void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *
 		if (Search == Position || Other.State == 0)
 			continue;
 		if ((Mode == 1 || Mode == 2 || Mode == 3) && Other.Mode == Mode
-		 && strcmp(Other.Text[0], Box.Text[0]) == 0 && Other.x == x && Other.y == y && Other.z == z) {
+			&& strcmp(Other.Text[0], Box.Text[0]) == 0 && Other.x == x && Other.y == y && Other.z == z) {
 			for (int Line = 1; Line < Box.Lines; Line++)
 				if (Other.Lines < 10)
 					strcpy(Other.Text[Other.Lines++], Box.Text[Line]);
 			Box.State = 2;
 		}
 		if ((Mode == 16 || Mode == 17) && (Other.Mode == 16 || Other.Mode == 17)
-		 && Other.x == x && Other.y == y && Other.z == z) {
+			&& Other.x == x && Other.y == y && Other.z == z) {
 			for (int Line = 0; Line < Box.Lines; Line++)
 				if (Other.Lines < 10)
 					strcpy(Other.Text[Other.Lines++], Box.Text[Line]);
@@ -334,7 +346,7 @@ void AddMessageTalkbox(int Mode, const char *Text)
 		for (int Search = 0; Search < TALKBOXES; Search++) {
 			TTalkbox &Other = Talkboxes[Search];
 			if (Search != Position && Other.State != 0
-			 && (Other.Mode == 19 || Other.Mode == 18 || Other.Mode == 9 || Other.Mode == 11)) {
+				&& (Other.Mode == 19 || Other.Mode == 18 || Other.Mode == 9 || Other.Mode == 11)) {
 				if (Box.State == 1)
 					Box.RemainingTime /= 2;
 				Box.State = 2;
@@ -352,7 +364,10 @@ void SetTalkboxRectangle(int Number, int x, int y, int Width, int Height)
 {
 	TBEGIN
 	TTalkbox *Box = GetTalkbox(Number);
-	Box->Left = x; Box->Top = y; Box->Width = Width; Box->Height = Height;
+	Box->Left = x;
+	Box->Top = y;
+	Box->Width = Width;
+	Box->Height = Height;
 	TEND1(490, Number)
 }
 // 0x4ff130, line 517
@@ -710,14 +725,15 @@ void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const ch
 	bool Broadcast;
 	switch (TalkMode) {
 	case 18: Broadcast = true; break;
-	case 19: case 20: Broadcast = GetEventMessages(); break;
+	case 19:
+	case 20: Broadcast = GetEventMessages(); break;
 	case 21: Broadcast = GetStatusMessages(); break;
 	case 22: Broadcast = GetInfoMessages(); break;
 	case 23: return;
 	default: {
 		TTalkBuffer *TargetBuffer = DefaultTextBuffer;
 		if (TalkMode == 5 || TalkMode == 6 || TalkMode == 7 || TalkMode == 8
-		 || TalkMode == 10 || TalkMode == 14 || TalkMode == 12)
+			|| TalkMode == 10 || TalkMode == 14 || TalkMode == 12)
 			TargetBuffer = NULL;
 		if (TalkMode == 14)
 			Name = NULL;
@@ -846,7 +862,7 @@ bool HasOwnPrivateChannel()
 	for (i = ConsoleFilterList.min; i <= ConsoleFilterList.max; i++) {
 		TTalkFilter *Filter = ConsoleFilterList(i);
 		if (Filter != NULL && Filter->TextBuffer != NULL
-		 && Filter->TextBuffer->GetSelected() && Filter->TextBuffer->IsPrivateChannel())
+			&& Filter->TextBuffer->GetSelected() && Filter->TextBuffer->IsPrivateChannel())
 			return true;
 	}
 	return false;

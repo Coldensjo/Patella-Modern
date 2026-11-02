@@ -32,10 +32,10 @@ public:
 	void KeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
 	void KeyUp(UINT nChar, UINT nRepCnt, UINT nFlags);
 
-	int MouseCursor;              // +0xd0, unused after the constructor
-	WINDOWPLACEMENT Placement;    // +0xd4, the windowed placement while fullscreen
-	int KeyStates[64];            // +0x100, cleared by the constructor, not used
-	int KeyFlags;                 // +0x200, KEY_SHIFT/KEY_CONTROL/KEY_ALT held
+	int MouseCursor;           // +0xd0, unused after the constructor
+	WINDOWPLACEMENT Placement; // +0xd4, the windowed placement while fullscreen
+	int KeyStates[64];         // +0x100, cleared by the constructor, not used
+	int KeyFlags;              // +0x200, KEY_SHIFT/KEY_CONTROL/KEY_ALT held
 
 protected:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
@@ -66,9 +66,9 @@ protected:
 	DECLARE_MESSAGE_MAP()
 };
 
-extern uint8 PacketHeader[16];   // 0x5d1644, the first bytes of the last packet, for error.txt
-extern CMainFrame *MainFrame;    // 0x5d1654
-extern bool DisplayChanged;      // 0x5d1670, the display settings changed (OnDisplayChange); SurfaceGL.cpp
+extern uint8 PacketHeader[16]; // 0x5d1644, the first bytes of the last packet, for error.txt
+extern CMainFrame *MainFrame;  // 0x5d1654
+extern bool DisplayChanged;    // 0x5d1670, the display settings changed (OnDisplayChange); SurfaceGL.cpp
 
 void ExitProgram();
 void CloseProgram();

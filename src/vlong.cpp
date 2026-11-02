@@ -5,7 +5,7 @@
 
 #include "vlong.h"
 
-#define BPU (8 * sizeof(unsigned))      // bits per unit
+#define BPU (8 * sizeof(unsigned)) // bits per unit
 #define lo(x) ((x) & ((1 << (BPU / 2)) - 1))
 #define hi(x) ((x) >> (BPU / 2))
 #define lh(x) ((x) << (BPU / 2))
@@ -252,7 +252,7 @@ void vlong::docopy()
 }
 
 // 0x50c610
-vlong &vlong::operator =(const vlong &x)
+vlong &vlong::operator=(const vlong &x)
 {
 	if (value->share)
 		value->share -= 1;
@@ -329,7 +329,7 @@ int vlong::cf(const vlong x) const
 }
 
 // 0x50cb50
-vlong &vlong::operator +=(const vlong &x)
+vlong &vlong::operator+=(const vlong &x)
 {
 	if (negative == x.negative) {
 		docopy();
@@ -346,7 +346,7 @@ vlong &vlong::operator +=(const vlong &x)
 }
 
 // 0x50cc80
-vlong &vlong::operator -=(const vlong &x)
+vlong &vlong::operator-=(const vlong &x)
 {
 	if (negative != x.negative) {
 		docopy();
@@ -364,7 +364,7 @@ vlong &vlong::operator -=(const vlong &x)
 }
 
 // 0x50cdc0
-vlong operator +(const vlong &x, const vlong &y)
+vlong operator+(const vlong &x, const vlong &y)
 {
 	vlong result = x;
 	result += y;
@@ -372,7 +372,7 @@ vlong operator +(const vlong &x, const vlong &y)
 }
 
 // 0x50ceb0
-vlong operator -(const vlong &x, const vlong &y)
+vlong operator-(const vlong &x, const vlong &y)
 {
 	vlong result = x;
 	result -= y;
@@ -385,7 +385,7 @@ void vlong_value::mul(vlong_value &x, vlong_value &y)
 }
 
 // 0x50cfa0
-vlong operator *(const vlong &x, const vlong &y)
+vlong operator*(const vlong &x, const vlong &y)
 {
 	vlong result;
 	result.value->mul(*x.value, *y.value);
@@ -394,7 +394,7 @@ vlong operator *(const vlong &x, const vlong &y)
 }
 
 // 0x50d0c0
-vlong operator /(const vlong &x, const vlong &y)
+vlong operator/(const vlong &x, const vlong &y)
 {
 	vlong result;
 	vlong_value rem;
@@ -404,7 +404,7 @@ vlong operator /(const vlong &x, const vlong &y)
 }
 
 // 0x50d200
-vlong operator %(const vlong &x, const vlong &y)
+vlong operator%(const vlong &x, const vlong &y)
 {
 	vlong result;
 	vlong_value divide;
@@ -419,6 +419,7 @@ class monty {
 	vlong T, k;         // +0x30, +0x3c, work registers
 	unsigned N;         // +0x48, bits for R
 	void mul(vlong &x, const vlong &y);
+
 public:
 	vlong exp(const vlong &x, const vlong &e);
 	monty(const vlong &M);

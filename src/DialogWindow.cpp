@@ -690,12 +690,12 @@ bool TSubWindow::LeftButtonDown(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!IsMinimized && Resizer1 != NULL && In(x - Resizer1->OffsetX, 0, Resizer1->Width - 1)
-	 && In(y - Resizer1->OffsetY, 0, Resizer1->Height - 1)
-	 && Resizer1->LeftButtonDown(x - Resizer1->OffsetX, y - Resizer1->OffsetY, Flags))
+		&& In(y - Resizer1->OffsetY, 0, Resizer1->Height - 1)
+		&& Resizer1->LeftButtonDown(x - Resizer1->OffsetX, y - Resizer1->OffsetY, Flags))
 		return true;
 	if (!IsMinimized && Resizer2 != NULL && In(x - Resizer2->OffsetX, 0, Resizer2->Width - 1)
-	 && In(y - Resizer2->OffsetY, 0, Resizer2->Height - 1)
-	 && Resizer2->LeftButtonDown(x - Resizer2->OffsetX, y - Resizer2->OffsetY, Flags))
+		&& In(y - Resizer2->OffsetY, 0, Resizer2->Height - 1)
+		&& Resizer2->LeftButtonDown(x - Resizer2->OffsetX, y - Resizer2->OffsetY, Flags))
 		return true;
 	return TContentWindow::LeftButtonDown(x, y, Flags);
 	TEND2(950, x, y)
@@ -706,12 +706,12 @@ bool TSubWindow::MouseMove(int x, int y)
 {
 	TBEGIN
 	if (!IsMinimized && Resizer1 != NULL && In(x - Resizer1->OffsetX, 0, Resizer1->Width - 1)
-	 && In(y - Resizer1->OffsetY, 0, Resizer1->Height - 1)
-	 && Resizer1->MouseMove(x - Resizer1->OffsetX, y - Resizer1->OffsetY))
+		&& In(y - Resizer1->OffsetY, 0, Resizer1->Height - 1)
+		&& Resizer1->MouseMove(x - Resizer1->OffsetX, y - Resizer1->OffsetY))
 		return true;
 	if (!IsMinimized && Resizer2 != NULL && In(x - Resizer2->OffsetX, 0, Resizer2->Width - 1)
-	 && In(y - Resizer2->OffsetY, 0, Resizer2->Height - 1)
-	 && Resizer2->MouseMove(x - Resizer2->OffsetX, y - Resizer2->OffsetY))
+		&& In(y - Resizer2->OffsetY, 0, Resizer2->Height - 1)
+		&& Resizer2->MouseMove(x - Resizer2->OffsetX, y - Resizer2->OffsetY))
 		return true;
 	return TContentWindow::MouseMove(x, y);
 	TEND2(972, x, y)

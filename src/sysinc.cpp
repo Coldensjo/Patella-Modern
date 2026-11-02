@@ -19,13 +19,13 @@
 // class name ("TibiaClient"); the keys are Player.cpp's. First in this
 // object's .rdata, before the PROGRAM_ERROR texts (owner: notes/decisions.md,
 // "Unknown-owner data (issue #12)"; low).
-const int TitleCode[8] = {68, 75, 129, 81, 98, 78, 96, 141};                   // 0x5733a4
+const int TitleCode[8] = {68, 75, 129, 81, 98, 78, 96, 141};                         // 0x5733a4
 const int ClassNameCode[11] = {57, 193, 225, 58, 140, 118, 195, 214, 239, 244, 137}; // 0x5733c4
 
 // Data, in .bss order.
-static char *ClipboardBuffer;                // 0x71dbc4
-static unsigned int ClipboardBufferSize;     // 0x71dbc8
-static int StartTime = (int)timeGetTime();   // 0x71dbcc, initialiser at 0x55a130
+static char *ClipboardBuffer;              // 0x71dbc4
+static unsigned int ClipboardBufferSize;   // 0x71dbc8
+static int StartTime = (int)timeGetTime(); // 0x71dbcc, initialiser at 0x55a130
 
 // 0x4fcb90
 int GetMilliseconds()

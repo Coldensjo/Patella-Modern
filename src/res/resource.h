@@ -9,11 +9,11 @@
 
 // Icon of the window class and the frame (Player.cpp, CPlayerApp::InitInstance:
 // LoadIcon(AfxGetResourceHandle(), MAKEINTRESOURCE(128)), twice).
-#define IDR_MAINFRAME                   128
+#define IDR_MAINFRAME 128
 
 // Cursors of the client area (MainFrm.cpp, CMainFrame::CMainFrame:
 // LoadCursor(AfxGetInstanceHandle(), MAKEINTRESOURCE(...))). Named after their pictures.
-#define IDC_CROSSHAIR                   132     // 0x84: DefaultCursor, four arrows pointing inwards
-#define IDC_MAGNIFIER                   137     // 0x89: HandCursor (mouse cursor 6), a magnifying glass
+#define IDC_CROSSHAIR 132 // 0x84: DefaultCursor, four arrows pointing inwards
+#define IDC_MAGNIFIER 137 // 0x89: HandCursor (mouse cursor 6), a magnifying glass
 
 #endif

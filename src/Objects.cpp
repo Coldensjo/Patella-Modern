@@ -19,12 +19,12 @@
 #include "Script.h"
 
 // Data, in .bss order.
-array<TProperties> *MissileProperties;  // 0x719d8c
-array<TProperties> *EffectProperties;   // 0x719d90
-array<TProperties> *OutfitProperties;   // 0x719d94
-array<TProperties> *ObjectProperties;   // 0x719d98
-uint32 DatSignature;                    // 0x719d9c
-TObject NoObject;                       // 0x719da0, owner inferred from the address
+array<TProperties> *MissileProperties; // 0x719d8c
+array<TProperties> *EffectProperties;  // 0x719d90
+array<TProperties> *OutfitProperties;  // 0x719d94
+array<TProperties> *ObjectProperties;  // 0x719d98
+uint32 DatSignature;                   // 0x719d9c
+TObject NoObject;                      // 0x719da0, owner inferred from the address
 
 // Inlined everywhere: "GetEntryFlag(Entry,BANK)". Flag%8 and Flag/8 are
 // signed divisions in the binary.
@@ -121,8 +121,15 @@ static int GetEntrySpriteNumber(TProperties &Entry, int X, int Y, int Layer, int
 	TASSERT2(243, In(PatternZ,1,Entry.PatternDepth), PatternZ, Entry.PatternDepth);
 	TASSERT2(244, In(Phase,1,Entry.Phases), Phase, Entry.Phases);
 	return Entry.Sprites[((((((Phase - 1) * Entry.PatternDepth + PatternZ - 1) * Entry.PatternHeight
-		+ PatternY - 1) * Entry.PatternWidth + PatternX - 1) * Entry.Layers + Layer - 1) * Entry.Height
-		+ Y - 1) * Entry.Width + X - 1];
+								+ PatternY - 1)
+								   * Entry.PatternWidth
+							   + PatternX - 1)
+								  * Entry.Layers
+							  + Layer - 1)
+								 * Entry.Height
+							 + Y - 1)
+			* Entry.Width
+		+ X - 1];
 }
 
 // --- Object types ------------------------------------------------------------

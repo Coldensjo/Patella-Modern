@@ -265,8 +265,10 @@ void TContextMenuEntry::Draw(int Surface, int x, int y)
 {
 	TBEGIN
 	if (In(GetMouseX() - x, 0, Width - 1) && In(GetMouseY() - y, 0, Height - 1)) {
-		GetSurface()->FillRectangle(Surface, TRect(x, y, Width,
-			GetFontHeight(SkinProperties.Data0B0.FontNumber) + SkinProperties.Data0D4 * 2), SkinProperties.Data0C8);
+		GetSurface()->FillRectangle(Surface,
+			TRect(x, y, Width,
+				GetFontHeight(SkinProperties.Data0B0.FontNumber) + SkinProperties.Data0D4 * 2),
+			SkinProperties.Data0C8);
 	}
 	y += SkinProperties.Data0D4;
 	PrintText(Surface, x + SkinProperties.Data0D4, y, SkinProperties.Data0B0.FontNumber, SkinProperties.Data0B0.Color,
@@ -291,8 +293,8 @@ bool TContextMenuEntry::LeftButtonUp(int x, int y, int Flags)
 void TContextMenuEntry::SetLast()
 {
 	TBEGIN
-	SetSize(Width, Height - (GetFontLineHeight(SkinProperties.Data0B0.FontNumber)
-		- GetFontHeight(SkinProperties.Data0B0.FontNumber)));
+	SetSize(Width,
+		Height - (GetFontLineHeight(SkinProperties.Data0B0.FontNumber) - GetFontHeight(SkinProperties.Data0B0.FontNumber)));
 	TEND(361)
 }
 
@@ -1061,8 +1063,9 @@ void TTextContextMenu::HandleEvent(int Event)
 			if (Line == NULL) {
 				AddMessage(0x1c, 0, 0);
 			} else {
-				AddMessage(0x1c, 0, (INT_PTR)new TTalkLine(Line->StatementID, Line->Mode, Line->Addressee,
-					Line->Text, 0));
+				AddMessage(0x1c, 0,
+					(INT_PTR) new TTalkLine(Line->StatementID, Line->Mode, Line->Addressee,
+						Line->Text, 0));
 			}
 		}
 		break;
@@ -1127,7 +1130,7 @@ void TRequestContextMenu::HandleEvent(int Event)
 			break;
 		case 10023:
 			if (CheckAnyRight()) {
-				AddMessage(0x1c, 0, (INT_PTR)new TTalkLine(Line->StatementID, Line->Mode, Name, Line->Text, 0));
+				AddMessage(0x1c, 0, (INT_PTR) new TTalkLine(Line->StatementID, Line->Mode, Name, Line->Text, 0));
 			}
 			break;
 		}
@@ -1280,10 +1283,10 @@ void TMarkContextMenu::HandleEvent(int Event)
 	TBEGIN
 	switch (Event) {
 	case 10400:
-		AddMessage(0x1d, (INT_PTR)new TCoordinate(Data.Coordinate), 0);
+		AddMessage(0x1d, (INT_PTR) new TCoordinate(Data.Coordinate), 0);
 		break;
 	case 10401:
-		AddMessage(0x1e, (INT_PTR)new TCoordinate(Data.Coordinate), (INT_PTR)new TMark(Data.Mark));
+		AddMessage(0x1e, (INT_PTR) new TCoordinate(Data.Coordinate), (INT_PTR) new TMark(Data.Mark));
 		break;
 	case 10402:
 		if (Data.Mark.x != 0 && Data.Mark.y != 0) {

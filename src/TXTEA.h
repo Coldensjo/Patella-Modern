@@ -15,5 +15,5 @@ public:
 	void DecryptBlock(uint8 *Block); // 0x508f80
 
 private:
-	uint32 Key[4];                   // +0x4
+	uint32 Key[4]; // +0x4
 };

@@ -34,7 +34,8 @@ TMyException::TMyException(const std::string &File, int Line, const std::string 
 	if (Name2.size() != 0)
 		Text << " (" << Name2 << " = " << Value2 << ")";
 	if (Expression.size() != 0)
-		Text << ", reason:" << std::endl << Expression;
+		Text << ", reason:" << std::endl
+			 << Expression;
 	Message = Text.str();
 }
 
@@ -49,7 +50,8 @@ TMyException::TMyException(const std::string &File, int Line, const std::string 
 		Text << " (" << Name1 << " = " << Value1 << ")";
 	if (Name2.size() != 0)
 		Text << " (" << Name2 << " = " << Value2 << ")";
-	Text << ", reason:" << std::endl << Inner.GetMessage();
+	Text << ", reason:" << std::endl
+		 << Inner.GetMessage();
 	Message = Text.str();
 	Origin = Inner.GetOrigin();
 }

@@ -30,20 +30,20 @@ struct TMessage {
 // One entry of the character list (0x54 bytes). The 30-byte limits come
 // from "strlen(Name)<30" and "strlen(World)<30".
 struct TCharacter {
-	char Name[30];       // +0x00
-	char World[30];      // +0x1e
-	uint32 IP;           // +0x3c, as received
-	char IPAddress[16];  // +0x40, dotted text
-	int Port;            // +0x50
+	char Name[30];      // +0x00
+	char World[30];     // +0x1e
+	uint32 IP;          // +0x3c, as received
+	char IPAddress[16]; // +0x40, dotted text
+	int Port;           // +0x50
 };
 
 // One error report from error.txt (0xa5a bytes, byte aligned). Date is
 // 26 bytes, the size of an asctime() string.
 struct TErrorReport {
-	char Title[64];      // +0x000
-	char Date[26];       // +0x040
-	char Text[2048];     // +0x05a, lines separated by '\n'
-	char Comment[512];   // +0x85a, "Comment: " and the player's text
+	char Title[64];    // +0x000
+	char Date[26];     // +0x040
+	char Text[2048];   // +0x05a, lines separated by '\n'
+	char Comment[512]; // +0x85a, "Comment: " and the player's text
 
 	TErrorReport()
 	{

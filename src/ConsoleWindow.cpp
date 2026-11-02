@@ -115,7 +115,7 @@ void TTextWindow::Draw(int Surface, int x, int y)
 		int LineY = Bottom + y;
 		int EndLine, EndOffset, StartLine, StartOffset;
 		if (HasSelection() && GetSelectionEnd(&EndLine, &EndOffset) && GetSelectionStart(&StartLine, &StartOffset)
-		 && StartLine <= CurrentLine && CurrentLine <= EndLine) {
+			&& StartLine <= CurrentLine && CurrentLine <= EndLine) {
 			int SelectionHeight = GetFontLineHeight(Format->FontNumber);
 			int SelectionWidth = 0;
 			int SelectionX = LineX;
@@ -683,11 +683,11 @@ void TConsole::Arrange()
 	if (Maximum < Minimum) {
 		std::stringstream Error;
 		Error << "invalid range for console text window scroll bar" << " (minimum: " << Minimum
-			<< ", maximum: " << Maximum << ", visible: " << Visible << ", TotalLines: "
-			<< TextWindow->getLastLineNumber() - TextWindow->getFirstLineNumber() + 1
-			<< ", InvisibleLines: " << TextWindow->InvisibleLines << ", FirstLineNumber: "
-			<< TextWindow->getFirstLineNumber() << ", TotalLines: "
-			<< TextWindow->getLastLineNumber() - TextWindow->getFirstLineNumber() + 1 << ")";
+			  << ", maximum: " << Maximum << ", visible: " << Visible << ", TotalLines: "
+			  << TextWindow->getLastLineNumber() - TextWindow->getFirstLineNumber() + 1
+			  << ", InvisibleLines: " << TextWindow->InvisibleLines << ", FirstLineNumber: "
+			  << TextWindow->getFirstLineNumber() << ", TotalLines: "
+			  << TextWindow->getLastLineNumber() - TextWindow->getFirstLineNumber() + 1 << ")";
 		TERROR(753, Error.str().c_str());
 	}
 	int Value = Maximum;
@@ -751,7 +751,7 @@ TTab::TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback _Callback)
 // Then the buffer is deleted (Talk.cpp). The handlers rethrow out of the
 // destructor (MainFrm.cpp's pragma).
 #pragma warning(push)
-#pragma warning(disable: 4297)
+#pragma warning(disable : 4297)
 TTab::~TTab()
 {
 	TBEGIN
@@ -761,7 +761,7 @@ TTab::~TTab()
 	if (TextBuffer->IsRuleViolation() && TextBuffer->GetReceiveTalkMode() == TALK_GAMEMASTER_ANSWER) {
 		SendCancelRuleViolation();
 	} else if (TextBuffer->IsRuleViolation() && TextBuffer->GetReceiveTalkMode() == TALK_PLAYER_ANSWER
-	 && TextBuffer->CanWrite()) {
+		&& TextBuffer->CanWrite()) {
 		const char *PlayerName = TextBuffer->GetAddressee();
 		TASSERT(849, PlayerName!=NULL);
 		SendCloseRuleViolation(PlayerName);
@@ -838,8 +838,8 @@ bool TTab::LeftButtonUp(int x, int y, int Flags)
 // (Control.cpp's message 0x38).
 bool TTab::RightButtonUp(int x, int y, int Flags)
 {
-	TBEGIN
-	((TTabBar *)GetParent())->SetCurrentTab(this);
+	TBEGIN((TTabBar *)GetParent())
+	->SetCurrentTab(this);
 	Callback.Send();
 	AddMessage(0x38, 0, 0);
 	return true;
@@ -1285,7 +1285,7 @@ TConsoleWindow::TConsoleWindow()
 // 0x41dbe0, line 1543. Stores the open channels and the console height and
 // deletes the buttons that are not children.
 #pragma warning(push)
-#pragma warning(disable: 4297)
+#pragma warning(disable : 4297)
 TConsoleWindow::~TConsoleWindow()
 {
 	TBEGIN
@@ -1887,7 +1887,7 @@ void TConsoleWindow::SendInput()
 	Input->Clear();
 	if (TalkMode == TALK_PRIVATE_MESSAGE && Addressee != NULL) {
 		if (CurrentConsole->getTextBuffer()->GetAddressee() != NULL
-		 && CompareStrings(CurrentConsole->getTextBuffer()->GetAddressee(), Addressee, -1) == 0)
+			&& CompareStrings(CurrentConsole->getTextBuffer()->GetAddressee(), Addressee, -1) == 0)
 			return;
 		if (strlen(Addressee) > 29)
 			Addressee[29] = 0;
@@ -1978,12 +1978,12 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 		}
 	}
 	if (strstr(Line + i, GetAccountNumberString()) != NULL
-	 || (strstr(Line + i, GetAccountPassword()) != NULL && strlen(GetAccountPassword()) != 0)) {
+		|| (strstr(Line + i, GetAccountPassword()) != NULL && strlen(GetAccountPassword()) != 0)) {
 		*Text = NULL;
 		*Addressee = NULL;
 		*TalkMode = 0;
 		*Separator = 0;
-		AddMessage(0xc, (INT_PTR)"Account Data Warning", 0);
+		AddMessage(0xc, (INT_PTR) "Account Data Warning", 0);
 		return;
 	}
 	while (IsSpace(Line[i]))

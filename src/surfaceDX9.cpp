@@ -27,20 +27,20 @@
 typedef IDirect3D9 *(WINAPI *TDirect3DCreate9)(UINT SDKVersion);
 
 // Data, in address order (.data, then .bss).
-static int CurrentTargetNumber = -1;                  // 0x5c2574
-static D3DPRESENT_PARAMETERS PresentParameters;       // 0x71d170
-static D3DCOLOR ColorKey[NUMBER_OF_SURFACES_DX9];     // 0x71d1a8, 0 when the surface has none
-static TVertexDX9 *ShadeVertices;                     // 0x71d200, ShadeBuffer while it is locked
-static TVertexDX9 *Vertices;                          // 0x71d204, VertexBuffer, locked between draws
-static int SurfaceCreated[NUMBER_OF_SURFACES_DX9];    // 0x71d208, indexed by NumberOfSurfaces
-static int CurrentTexture;                            // 0x71d260
-static int NumberOfVertices;                          // 0x71d26c
-static int NumberOfShadeVertices;                     // 0x71d270
-static IDirect3DSurface9 *TempSurface;                // 0x71d274, 64x64 in system memory (ApplyColorKey)
-static TDirect3DCreate9 Direct3DCreate9Function;      // 0x71d278
-static HMODULE Direct3D9Module;                       // 0x71d27c, never set (IsDirect3D9Installed does not keep the module)
-static uint32 FrameCount;                             // 0x71d280
-static double LastFPSTime;                            // 0x71d288
+static int CurrentTargetNumber = -1;               // 0x5c2574
+static D3DPRESENT_PARAMETERS PresentParameters;    // 0x71d170
+static D3DCOLOR ColorKey[NUMBER_OF_SURFACES_DX9];  // 0x71d1a8, 0 when the surface has none
+static TVertexDX9 *ShadeVertices;                  // 0x71d200, ShadeBuffer while it is locked
+static TVertexDX9 *Vertices;                       // 0x71d204, VertexBuffer, locked between draws
+static int SurfaceCreated[NUMBER_OF_SURFACES_DX9]; // 0x71d208, indexed by NumberOfSurfaces
+static int CurrentTexture;                         // 0x71d260
+static int NumberOfVertices;                       // 0x71d26c
+static int NumberOfShadeVertices;                  // 0x71d270
+static IDirect3DSurface9 *TempSurface;             // 0x71d274, 64x64 in system memory (ApplyColorKey)
+static TDirect3DCreate9 Direct3DCreate9Function;   // 0x71d278
+static HMODULE Direct3D9Module;                    // 0x71d27c, never set (IsDirect3D9Installed does not keep the module)
+static uint32 FrameCount;                          // 0x71d280
+static double LastFPSTime;                         // 0x71d288
 
 // 0x4efd10. Surface.cpp's engine selection asks this before it tests the
 // engine. The module handle is not kept.
@@ -83,7 +83,9 @@ bool TSurfaceDX9::TestEngine()
 	Parameters.FullScreen_RefreshRateInHz = 0;
 	Parameters.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
 	if (Direct3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWindow,
-			D3DCREATE_HARDWARE_VERTEXPROCESSING, &Parameters, &Device) == D3D_OK && Device != NULL) {
+			D3DCREATE_HARDWARE_VERTEXPROCESSING, &Parameters, &Device)
+			== D3D_OK
+		&& Device != NULL) {
 		Device->Release();
 		Device = NULL;
 		if (Direct3D != NULL) {
@@ -114,6 +116,7 @@ void TSurfaceDX9::AddShadeQuad(int Left, int Top, int Right, int Bottom, D3DCOLO
 	float x2 = (float)Right;
 	float y2 = (float)Bottom;
 	TVertexDX9 *V = &ShadeVertices[NumberOfShadeVertices];
+	// clang-format off
 	V[0].x = x1; V[0].y = y1; V[0].z = 1.0f; V[0].rhw = 1.0f; V[0].Color = TopLeft;
 	V[0].u = (float)Left_u; V[0].v = (float)Top_v;
 	V[1].x = x2; V[1].y = y1; V[1].z = 1.0f; V[1].rhw = 1.0f; V[1].Color = TopRight;
@@ -126,6 +129,7 @@ void TSurfaceDX9::AddShadeQuad(int Left, int Top, int Right, int Bottom, D3DCOLO
 	V[4].u = (float)Left_u; V[4].v = (float)Bottom_v;
 	V[5].x = x1; V[5].y = y1; V[5].z = 1.0f; V[5].rhw = 1.0f; V[5].Color = TopLeft;
 	V[5].u = (float)Left_u; V[5].v = (float)Top_v;
+	// clang-format on
 	NumberOfShadeVertices += 6;
 }
 
@@ -542,7 +546,7 @@ bool TSurfaceDX9::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, boo
 		}
 	} else if (VMode == FULLSCREEN_MODE) {
 		if (ViewMode != FULLSCREEN_MODE || Resolution->Width != Width || Resolution->Height != Height
-				|| Resolution->Depth != Depth) {
+			|| Resolution->Depth != Depth) {
 			ExitDisplay();
 			hWindow = *Window;
 			ResetDisplay(FULLSCREEN_MODE, Resolution);
@@ -656,6 +660,7 @@ void TSurfaceDX9::AddQuad(int Left, int Top, int Right, int Bottom, double Left_
 	double Bottom_v, D3DCOLOR TopLeft, D3DCOLOR TopRight, D3DCOLOR BottomRight, D3DCOLOR BottomLeft)
 {
 	TVertexDX9 *V = &Vertices[NumberOfVertices];
+	// clang-format off
 	V[0].x = (float)Left; V[0].y = (float)Top; V[0].z = 1.0f; V[0].rhw = 1.0f; V[0].Color = TopLeft;
 	V[0].u = (float)Left_u; V[0].v = (float)Top_v;
 	V[1].x = (float)Right; V[1].y = (float)Top; V[1].z = 1.0f; V[1].rhw = 1.0f; V[1].Color = TopRight;
@@ -668,6 +673,7 @@ void TSurfaceDX9::AddQuad(int Left, int Top, int Right, int Bottom, double Left_
 	V[4].u = (float)Left_u; V[4].v = (float)Bottom_v;
 	V[5].x = (float)Left; V[5].y = (float)Top; V[5].z = 1.0f; V[5].rhw = 1.0f; V[5].Color = TopLeft;
 	V[5].u = (float)Left_u; V[5].v = (float)Top_v;
+	// clang-format on
 	NumberOfVertices += 6;
 	if (NumberOfVertices == 9600)
 		FlushVertices();
@@ -775,7 +781,7 @@ void TSurfaceDX9::InitSurfaces()
 	EmulationCaps.dwSize = sizeof(DDCAPS);
 	if (DirectDraw->GetCaps(&DriverCaps, &EmulationCaps) == DD_OK) {
 		if ((DriverCaps.dwFXCaps & DDFXCAPS_BLTSHRINKX) && (DriverCaps.dwFXCaps & DDFXCAPS_BLTSTRETCHX)
-				&& (DriverCaps.dwFXCaps & DDFXCAPS_BLTSHRINKY) && (DriverCaps.dwFXCaps & DDFXCAPS_BLTSTRETCHY))
+			&& (DriverCaps.dwFXCaps & DDFXCAPS_BLTSHRINKY) && (DriverCaps.dwFXCaps & DDFXCAPS_BLTSTRETCHY))
 			CanStretch = true;
 		else
 			CanStretch = false;
@@ -849,12 +855,12 @@ void TSurfaceDX9::WriteMaskedImage(int ToSurface, int x, int y, int Width, int H
 			Pixel[3] = 0xff;
 		}
 		goto Next;
-Copy:
+	Copy:
 		Pixel[0] = From[0];
 		Pixel[1] = From[1];
 		Pixel[2] = From[2];
 		Pixel[3] = D3DCOLOR_XRGB(From[0], From[1], From[2]) != ColorKey[ToSurface] ? 0xff : 0;
-Next:
+	Next:
 		Pixel += 4;
 	}
 	D3DLOCKED_RECT Locked;
@@ -1028,7 +1034,9 @@ void TSurfaceDX9::CreateSurfaces()
 		PresentParameters.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
 	}
 	if (Direct3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWindow, D3DCREATE_HARDWARE_VERTEXPROCESSING,
-			&PresentParameters, &Device) != D3D_OK || Device == NULL)
+			&PresentParameters, &Device)
+			!= D3D_OK
+		|| Device == NULL)
 		throw (PROGRAM_ERROR)12;
 	Device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &RenderTarget[SCREEN_SURFACE]);
 	Device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
@@ -1052,37 +1060,43 @@ void TSurfaceDX9::CreateSurfaces()
 	Device->CreateOffscreenPlainSurface(64, 64, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &TempSurface, NULL);
 
 	if (Device->CreateTexture(Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom, 1, D3DUSAGE_RENDERTARGET,
-			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[PRIMARY_SURFACE], NULL) != D3D_OK)
+			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[PRIMARY_SURFACE], NULL)
+		!= D3D_OK)
 		throw (PROGRAM_ERROR)14;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 	Surface9[PRIMARY_SURFACE]->GetSurfaceLevel(0, &RenderTarget[PRIMARY_SURFACE]);
 	Device->ColorFill(RenderTarget[PRIMARY_SURFACE], NULL, 0xffff0000);
 
 	if (Device->CreateTexture(106, 106, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &ScreenTexture,
-			NULL) != D3D_OK)
+			NULL)
+		!= D3D_OK)
 		throw (PROGRAM_ERROR)14;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 
 	if (Device->CreateTexture(Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom, 1, D3DUSAGE_RENDERTARGET,
-			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[TEMP_SURFACE], NULL) != D3D_OK)
+			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[TEMP_SURFACE], NULL)
+		!= D3D_OK)
 		throw (PROGRAM_ERROR)14;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 	Surface9[TEMP_SURFACE]->GetSurfaceLevel(0, &RenderTarget[TEMP_SURFACE]);
 
 	if (Device->CreateTexture(Rect[STRETCH_SURFACE].right, Rect[STRETCH_SURFACE].bottom, 1, D3DUSAGE_RENDERTARGET,
-			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[STRETCH_SURFACE], NULL) != D3D_OK)
+			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[STRETCH_SURFACE], NULL)
+		!= D3D_OK)
 		throw (PROGRAM_ERROR)15;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 	Surface9[STRETCH_SURFACE]->GetSurfaceLevel(0, &RenderTarget[STRETCH_SURFACE]);
 
 	if (Device->CreateTexture(Rect[CACHE_SURFACE].right, Rect[CACHE_SURFACE].bottom, 1, D3DUSAGE_RENDERTARGET,
-			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[CACHE_SURFACE], NULL) != D3D_OK)
+			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[CACHE_SURFACE], NULL)
+		!= D3D_OK)
 		throw (PROGRAM_ERROR)16;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 	Surface9[CACHE_SURFACE]->GetSurfaceLevel(0, &RenderTarget[CACHE_SURFACE]);
 
 	if (Device->CreateTexture(Rect[AUTOMAP_SURFACE].right, Rect[AUTOMAP_SURFACE].bottom, 1, D3DUSAGE_RENDERTARGET,
-			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[AUTOMAP_SURFACE], NULL) != D3D_OK)
+			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[AUTOMAP_SURFACE], NULL)
+		!= D3D_OK)
 		throw (PROGRAM_ERROR)17;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 	Surface9[AUTOMAP_SURFACE]->GetSurfaceLevel(0, &RenderTarget[AUTOMAP_SURFACE]);
@@ -1090,7 +1104,8 @@ void TSurfaceDX9::CreateSurfaces()
 	for (int i = 0; i < 16; i++) {
 		int Surface = SPRITE_SURFACE + i;
 		if (Device->CreateTexture(Rect[Surface].right, Rect[Surface].bottom, 1, D3DUSAGE_DYNAMIC,
-				D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[Surface], NULL) != D3D_OK) {
+				D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[Surface], NULL)
+			!= D3D_OK) {
 			if (i < 24)
 				throw (PROGRAM_ERROR)18;
 			break;
@@ -1128,8 +1143,10 @@ void TSurfaceDX9::DrawFrameClipped(int Surface, TRect Rect, int LineWidth, TRGBC
 		return;
 	}
 	FillRectangleClipped(Surface, TRect(Rect.x, Rect.y, Rect.width - LineWidth, LineWidth), Color, Clip);
-	FillRectangleClipped(Surface, TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth, Rect.width - LineWidth,
-		LineWidth), Color, Clip);
+	FillRectangleClipped(Surface,
+		TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth, Rect.width - LineWidth,
+			LineWidth),
+		Color, Clip);
 	FillRectangleClipped(Surface, TRect(Rect.x, Rect.y + LineWidth, LineWidth, Rect.height - LineWidth), Color, Clip);
 	FillRectangleClipped(Surface, TRect(Rect.x + Rect.width - LineWidth, Rect.y, LineWidth, Rect.height - LineWidth),
 		Color, Clip);
@@ -1143,8 +1160,10 @@ void TSurfaceDX9::DrawFrame(int Surface, TRect Rect, int LineWidth, TRGBColor Co
 		return;
 	}
 	FillRectangle(Surface, TRect(Rect.x, Rect.y, Rect.width - LineWidth, LineWidth), Color);
-	FillRectangle(Surface, TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth, Rect.width - LineWidth,
-		LineWidth), Color);
+	FillRectangle(Surface,
+		TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth, Rect.width - LineWidth,
+			LineWidth),
+		Color);
 	FillRectangle(Surface, TRect(Rect.x, Rect.y + LineWidth, LineWidth, Rect.height - LineWidth), Color);
 	FillRectangle(Surface, TRect(Rect.x + Rect.width - LineWidth, Rect.y, LineWidth, Rect.height - LineWidth), Color);
 }

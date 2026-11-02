@@ -46,7 +46,7 @@ enum {
 // SkinProperties that GUI.cpp's assertions name with .x and .y
 // (StatusWindow.HitpointsBar.x, BuddylistWindow.Logo.y); TSkin (Skins.h) and
 // TDrawing (GUI.h) have the same lower-case names (issue #29).
-struct TRect {     // passed by value (16 bytes)
+struct TRect { // passed by value (16 bytes)
 	constexpr TRect() : x(0), y(0), width(0), height(0) {}
 	constexpr TRect(int x, int y, int width, int height) : x(x), y(y), width(width), height(height) {}
 	int x, y, width, height;
@@ -86,11 +86,11 @@ const TRGBColor DefaultFontColor(224, 224, 224);
 
 // A text format: font, colour and alignment ("Format.Alignment" in
 // PrintFormattedText's assertion).
-struct TFont {     // passed by value (20 bytes)
+struct TFont { // passed by value (20 bytes)
 	TFont() : FontNumber(4), Color(DefaultFontColor), Alignment(LEFT_ALIGN) {}
 	int FontNumber;
 	TRGBColor Color;
-	int Alignment;     // LEFT_ALIGN, CENTER_ALIGN, RIGHT_ALIGN
+	int Alignment; // LEFT_ALIGN, CENTER_ALIGN, RIGHT_ALIGN
 };
 
 // Kinds of cache items. Pictures and font characters are both PICTURE_ITEM.
@@ -102,44 +102,44 @@ enum {
 
 // A sprite of Tibia.spr (0x10 bytes). Offset 0 is an empty sprite.
 struct TSprite {
-	int Offset;          // +0x00, in Tibia.spr
-	TRGBColor ColorKey;  // +0x04, the transparent colour, from the sprite's first three bytes
+	int Offset;         // +0x00, in Tibia.spr
+	TRGBColor ColorKey; // +0x04, the transparent colour, from the sprite's first three bytes
 };
 
 // A picture of Tibia.pic (0x18 bytes); "Picture" in the assertions.
 struct TPicture {
-	int TilesX;          // +0x00
-	int TilesY;          // +0x04
-	int *Offsets;        // +0x08, TilesX*TilesY offsets in Tibia.pic, row by row
-	TRGBColor ColorKey;  // +0x0c
+	int TilesX;         // +0x00
+	int TilesY;         // +0x04
+	int *Offsets;       // +0x08, TilesX*TilesY offsets in Tibia.pic, row by row
+	TRGBColor ColorKey; // +0x0c
 };
 
 // A font cut from a picture (0x71c bytes). Characters 33-127 have the
 // indices 1-95, characters 128-255 the indices 96-223.
 struct TFontInfo {
-	int PictureNumber;   // +0x000
-	int CharsPerLine;    // +0x004
-	int CharWidth;       // +0x008
-	int CharHeight;      // +0x00c
-	int Widths[224];     // +0x010, the visible width of each character
-	int Heights[224];    // +0x390, the visible height of each character
-	int Spacing;         // +0x710, added after every character
-	int Height;          // +0x714, the highest visible height
-	int LineHeight;      // +0x718
+	int PictureNumber; // +0x000
+	int CharsPerLine;  // +0x004
+	int CharWidth;     // +0x008
+	int CharHeight;    // +0x00c
+	int Widths[224];   // +0x010, the visible width of each character
+	int Heights[224];  // +0x390, the visible height of each character
+	int Spacing;       // +0x710, added after every character
+	int Height;        // +0x714, the highest visible height
+	int LineHeight;    // +0x718
 };
 
 // A decoded tile in the memory cache (0x28 bytes); "Item" in the assertions.
 struct TMemoryCacheItem {
-	uint8 *Data;         // +0x00, 32*32 RGB
-	int Type;            // +0x04
-	int Number;          // +0x08, sprite or picture number
-	int TileX;           // +0x0c
-	int TileY;           // +0x10
-	int Previous;        // +0x14, LRU list: towards the most recent item
-	int Next;            // +0x18
-	int HashPrevious;    // +0x1c
-	int HashNext;        // +0x20
-	int HashValue;       // +0x24
+	uint8 *Data;      // +0x00, 32*32 RGB
+	int Type;         // +0x04
+	int Number;       // +0x08, sprite or picture number
+	int TileX;        // +0x0c
+	int TileY;        // +0x10
+	int Previous;     // +0x14, LRU list: towards the most recent item
+	int Next;         // +0x18
+	int HashPrevious; // +0x1c
+	int HashNext;     // +0x20
+	int HashValue;    // +0x24
 };
 
 // A tile on a cache surface (0x5c bytes). Masked sprites (outfits) keep the
@@ -147,52 +147,52 @@ struct TMemoryCacheItem {
 // text colour, in the same place.
 struct TVideoCacheItem {
 	TVideoCacheItem();
-	int Surface;         // +0x00, cache surface; the engine's surface number is Surface+6
-	int x;               // +0x04
-	int y;               // +0x08
-	int Type;            // +0x0c
-	int Number;          // +0x10, sprite or picture number
+	int Surface; // +0x00, cache surface; the engine's surface number is Surface+6
+	int x;       // +0x04
+	int y;       // +0x08
+	int Type;    // +0x0c
+	int Number;  // +0x10, sprite or picture number
 	union {
-		int MaskNumber;  // +0x14, sprites; 0 without mask
-		int TileX;       // +0x14, pictures
+		int MaskNumber; // +0x14, sprites; 0 without mask
+		int TileX;      // +0x14, pictures
 	};
 	union {
-		TRGBColor Colors[4];     // +0x18, masked sprites
+		TRGBColor Colors[4]; // +0x18, masked sprites
 		struct {
-			int TileY;           // +0x18, pictures
-			TRGBColor Color;     // +0x1c, font characters; 0,0,0 for pictures
+			int TileY;       // +0x18, pictures
+			TRGBColor Color; // +0x1c, font characters; 0,0,0 for pictures
 		};
 	};
-	int Previous;        // +0x48
-	int Next;            // +0x4c
-	int HashPrevious;    // +0x50
-	int HashNext;        // +0x54
-	int HashValue;       // +0x58
+	int Previous;     // +0x48
+	int Next;         // +0x4c
+	int HashPrevious; // +0x50
+	int HashNext;     // +0x54
+	int HashValue;    // +0x58
 };
 
 // Data. Only graphics.cpp uses them except the two signatures (sent at login
 // and when patching); the others are declared for the differential tests.
-extern int MemoryHashTable[HASH_TABLE_SIZE];  // 0x5cc430
-extern int VideoHashTable[HASH_TABLE_SIZE];   // 0x5cc5c0
-extern int NumberOfFonts;                     // 0x5cc750
-extern int NumberOfPictures;                  // 0x5cc754
-extern uint32 PictureSignature;               // 0x5cc758
-extern char PictureFileName[PATH_MAX];        // 0x5cc760
-extern int NumberOfSprites;                   // 0x5ccb60
-extern uint32 SpriteSignature;                // 0x5ccb64
-extern char SpriteFileName[PATH_MAX];         // 0x5ccb68
-extern int LeastRecentMemoryItem;             // 0x5ccf68
-extern int MostRecentMemoryItem;              // 0x5ccf6c
-extern int MemoryCacheSize;                   // 0x5ccf70
-extern uint8 *MemoryCacheData;                // 0x5ccf74
-extern int LeastRecentVideoItem;              // 0x5ccf78
-extern int MostRecentVideoItem;               // 0x5ccf7c
-extern int VideoCacheSize;                    // 0x5ccf80
-extern TVideoCacheItem *VideoCache;           // 0x5ccf84
-extern TMemoryCacheItem *MemoryCache;         // 0x5ccf88
-extern TSprite *Sprites;                      // 0x5ccf8c
-extern TPicture *Pictures;                    // 0x5ccf90
-extern TFontInfo *Fonts;                      // 0x5ccf94
+extern int MemoryHashTable[HASH_TABLE_SIZE]; // 0x5cc430
+extern int VideoHashTable[HASH_TABLE_SIZE];  // 0x5cc5c0
+extern int NumberOfFonts;                    // 0x5cc750
+extern int NumberOfPictures;                 // 0x5cc754
+extern uint32 PictureSignature;              // 0x5cc758
+extern char PictureFileName[PATH_MAX];       // 0x5cc760
+extern int NumberOfSprites;                  // 0x5ccb60
+extern uint32 SpriteSignature;               // 0x5ccb64
+extern char SpriteFileName[PATH_MAX];        // 0x5ccb68
+extern int LeastRecentMemoryItem;            // 0x5ccf68
+extern int MostRecentMemoryItem;             // 0x5ccf6c
+extern int MemoryCacheSize;                  // 0x5ccf70
+extern uint8 *MemoryCacheData;               // 0x5ccf74
+extern int LeastRecentVideoItem;             // 0x5ccf78
+extern int MostRecentVideoItem;              // 0x5ccf7c
+extern int VideoCacheSize;                   // 0x5ccf80
+extern TVideoCacheItem *VideoCache;          // 0x5ccf84
+extern TMemoryCacheItem *MemoryCache;        // 0x5ccf88
+extern TSprite *Sprites;                     // 0x5ccf8c
+extern TPicture *Pictures;                   // 0x5ccf90
+extern TFontInfo *Fonts;                     // 0x5ccf94
 
 // Start-up and shut-down.
 void InitGraphics(int MemoryCacheBytes);

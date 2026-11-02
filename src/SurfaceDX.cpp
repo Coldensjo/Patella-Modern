@@ -115,8 +115,8 @@ void TSurfaceDX::SetFramerateLimit(int Framerate)
 // copy has its own).
 void TSurfaceDX::WaitForNextFrame()
 {
-	static uint32 Frames;      // 0x71d150
-	static double LastSecond;  // 0x71d158
+	static uint32 Frames;     // 0x71d150
+	static double LastSecond; // 0x71d158
 	double Now = timeGetTime();
 	Frames++;
 	if (Now - LastSecond > 1000.0) {
@@ -154,7 +154,8 @@ void TSurfaceDX::SetPixel(int Surface, int x, int y, TRGBColor Color)
 	Desc.dwSize = sizeof(DDSURFACEDESC);
 	HRESULT Result;
 	while ((Result = this->Surface[Surface]->Lock(NULL, &Desc,
-			DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL)) != DD_OK) {
+				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL))
+		!= DD_OK) {
 		if (Result != DDERR_SURFACEBUSY)
 			return;
 		Sleep(0);
@@ -265,7 +266,8 @@ void TSurfaceDX::WriteImage(int ToSurface, int x, int y, int Width, int Height, 
 	Desc.dwSize = sizeof(DDSURFACEDESC);
 	HRESULT Result;
 	while ((Result = Surface[ToSurface]->Lock(NULL, &Desc,
-			DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL)) != DD_OK) {
+				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL))
+		!= DD_OK) {
 		if (Result != DDERR_SURFACEBUSY)
 			return;
 		Sleep(0);
@@ -308,7 +310,8 @@ void TSurfaceDX::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 	Desc.dwSize = sizeof(DDSURFACEDESC);
 	HRESULT Result;
 	while ((Result = Surface[ToSurface]->Lock(NULL, &Desc,
-			DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL)) != DD_OK) {
+				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL))
+		!= DD_OK) {
 		if (Result != DDERR_SURFACEBUSY)
 			return;
 		Sleep(0);
@@ -632,7 +635,7 @@ bool TSurfaceDX::Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, b
 		}
 	} else if (ViewMode == FULLSCREEN_MODE) {
 		if (this->ViewMode != FULLSCREEN_MODE || Resolution->Width != Width
-				|| Resolution->Height != Height || Resolution->Depth != Depth) {
+			|| Resolution->Height != Height || Resolution->Depth != Depth) {
 			ExitDisplay();
 			hWindow = *Window;
 			ResetDisplay(FULLSCREEN_MODE, Resolution);
@@ -727,7 +730,8 @@ void TSurfaceDX::ShadeRectangle(int Surface, TRect Rect, TRGBColor TopLeft, TRGB
 		D3DRGB(BottomLeft.R * Scale, BottomLeft.G * Scale, BottomLeft.B * Scale), 0xff000000,
 		0.0f, 1.0f);
 	Vertices[3] = D3DTLVERTEX(D3DVECTOR((float)(Rect.x + Rect.width), (float)(Rect.y + Rect.height),
-		0.0f), 1.0f, D3DRGB(BottomRight.R * Scale, BottomRight.G * Scale, BottomRight.B * Scale),
+								  0.0f),
+		1.0f, D3DRGB(BottomRight.R * Scale, BottomRight.G * Scale, BottomRight.B * Scale),
 		0xff000000, 1.0f, 1.0f);
 	Device->DrawPrimitive(D3DPT_TRIANGLESTRIP, D3DFVF_TLVERTEX, Vertices, 4, 0);
 	Device->EndScene();
@@ -748,7 +752,8 @@ bool TSurfaceDX::TestShading(int Surface)
 	Desc.dwSize = sizeof(DDSURFACEDESC);
 	HRESULT Result;
 	while ((Result = this->Surface[Surface]->Lock(NULL, &Desc,
-			DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL)) != DD_OK) {
+				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL))
+		!= DD_OK) {
 		if (Result != DDERR_SURFACEBUSY)
 			return false;
 		Sleep(0);
@@ -1015,21 +1020,22 @@ void TSurfaceDX::CreateSurfaces()
 		HardwareDesc.dwSize = sizeof(D3DDEVICEDESC);
 		SoftwareDesc.dwSize = sizeof(D3DDEVICEDESC);
 		if (Create3DSurface(&Surface[TEMP_SURFACE], Rect[TEMP_SURFACE].right,
-					Rect[TEMP_SURFACE].bottom, false) && ++InitStep
-				&& Direct3D->CreateDevice(*DeviceGUID, Surface[TEMP_SURFACE], &Device, NULL) == D3D_OK
-				&& ++InitStep
-				&& Direct3D->CreateViewport(&Viewport, NULL) == D3D_OK && ++InitStep
-				&& Device->AddViewport(Viewport) == D3D_OK && ++InitStep
-				&& Viewport->SetViewport(&ViewportData) == D3D_OK && ++InitStep
-				&& Device->GetCaps(&HardwareDesc, &SoftwareDesc) == D3D_OK && ++InitStep
-				&& (HardwareDesc.dpcTriCaps.dwSrcBlendCaps & D3DPBLENDCAPS_ZERO) != 0 && ++InitStep
-				&& (HardwareDesc.dpcTriCaps.dwDestBlendCaps & D3DPBLENDCAPS_SRCCOLOR) != 0 && ++InitStep
-				&& Device->SetCurrentViewport(Viewport) == D3D_OK && ++InitStep
-				&& Device->SetRenderState(D3DRENDERSTATE_ALPHABLENDENABLE, TRUE) == D3D_OK && ++InitStep
-				&& Device->SetRenderState(D3DRENDERSTATE_SRCBLEND, D3DBLEND_ZERO) == D3D_OK && ++InitStep
-				&& Device->SetRenderState(D3DRENDERSTATE_DESTBLEND, D3DBLEND_SRCCOLOR) == D3D_OK
-				&& ++InitStep
-				&& TestShading(TEMP_SURFACE) && ++InitStep) {
+				Rect[TEMP_SURFACE].bottom, false)
+			&& ++InitStep
+			&& Direct3D->CreateDevice(*DeviceGUID, Surface[TEMP_SURFACE], &Device, NULL) == D3D_OK
+			&& ++InitStep
+			&& Direct3D->CreateViewport(&Viewport, NULL) == D3D_OK && ++InitStep
+			&& Device->AddViewport(Viewport) == D3D_OK && ++InitStep
+			&& Viewport->SetViewport(&ViewportData) == D3D_OK && ++InitStep
+			&& Device->GetCaps(&HardwareDesc, &SoftwareDesc) == D3D_OK && ++InitStep
+			&& (HardwareDesc.dpcTriCaps.dwSrcBlendCaps & D3DPBLENDCAPS_ZERO) != 0 && ++InitStep
+			&& (HardwareDesc.dpcTriCaps.dwDestBlendCaps & D3DPBLENDCAPS_SRCCOLOR) != 0 && ++InitStep
+			&& Device->SetCurrentViewport(Viewport) == D3D_OK && ++InitStep
+			&& Device->SetRenderState(D3DRENDERSTATE_ALPHABLENDENABLE, TRUE) == D3D_OK && ++InitStep
+			&& Device->SetRenderState(D3DRENDERSTATE_SRCBLEND, D3DBLEND_ZERO) == D3D_OK && ++InitStep
+			&& Device->SetRenderState(D3DRENDERSTATE_DESTBLEND, D3DBLEND_SRCCOLOR) == D3D_OK
+			&& ++InitStep
+			&& TestShading(TEMP_SURFACE) && ++InitStep) {
 			InitStep = 0;
 		} else {
 			NumberOfSurfaces--;
@@ -1037,8 +1043,9 @@ void TSurfaceDX::CreateSurfaces()
 			Direct3D = NULL;
 		}
 	}
-	if (Direct3D == NULL && !CreateOffscreenSurface(&Surface[TEMP_SURFACE], Rect[TEMP_SURFACE].right,
-			Rect[TEMP_SURFACE].bottom, false))
+	if (Direct3D == NULL
+		&& !CreateOffscreenSurface(&Surface[TEMP_SURFACE], Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom,
+			false))
 		throw (PROGRAM_ERROR)14;
 	if (!CreateOffscreenSurface(&Surface[STRETCH_SURFACE], Rect[STRETCH_SURFACE].right,
 			Rect[STRETCH_SURFACE].bottom, false))
@@ -1055,7 +1062,7 @@ void TSurfaceDX::CreateSurfaces()
 					Rect[SPRITE_SURFACE + LoopIndex].bottom, false))
 				throw (PROGRAM_ERROR)18;
 		} else if (!CreateOffscreenSurface(&Surface[SPRITE_SURFACE + LoopIndex], Rect[SPRITE_SURFACE + LoopIndex].right,
-				Rect[SPRITE_SURFACE + LoopIndex].bottom, true)) {
+					   Rect[SPRITE_SURFACE + LoopIndex].bottom, true)) {
 			break;
 		}
 		CacheSurfaces++;
@@ -1087,12 +1094,18 @@ void TSurfaceDX::DrawFrameClipped(int Surface, TRect Rect, int LineWidth, TRGBCo
 	}
 	FillRectangleClipped(Surface, TRect(Rect.x, Rect.y, Rect.width - LineWidth, LineWidth), Color,
 		Clip);
-	FillRectangleClipped(Surface, TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth,
-		Rect.width - LineWidth, LineWidth), Color, Clip);
-	FillRectangleClipped(Surface, TRect(Rect.x, Rect.y + LineWidth, LineWidth,
-		Rect.height - LineWidth), Color, Clip);
-	FillRectangleClipped(Surface, TRect(Rect.x + Rect.width - LineWidth, Rect.y, LineWidth,
-		Rect.height - LineWidth), Color, Clip);
+	FillRectangleClipped(Surface,
+		TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth,
+			Rect.width - LineWidth, LineWidth),
+		Color, Clip);
+	FillRectangleClipped(Surface,
+		TRect(Rect.x, Rect.y + LineWidth, LineWidth,
+			Rect.height - LineWidth),
+		Color, Clip);
+	FillRectangleClipped(Surface,
+		TRect(Rect.x + Rect.width - LineWidth, Rect.y, LineWidth,
+			Rect.height - LineWidth),
+		Color, Clip);
 }
 
 // SurfaceGL.cpp's 0x4fa110
@@ -1103,12 +1116,16 @@ void TSurfaceDX::DrawFrame(int Surface, TRect Rect, int LineWidth, TRGBColor Col
 		return;
 	}
 	FillRectangle(Surface, TRect(Rect.x, Rect.y, Rect.width - LineWidth, LineWidth), Color);
-	FillRectangle(Surface, TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth,
-		Rect.width - LineWidth, LineWidth), Color);
+	FillRectangle(Surface,
+		TRect(Rect.x + LineWidth, Rect.y + Rect.height - LineWidth,
+			Rect.width - LineWidth, LineWidth),
+		Color);
 	FillRectangle(Surface, TRect(Rect.x, Rect.y + LineWidth, LineWidth, Rect.height - LineWidth),
 		Color);
-	FillRectangle(Surface, TRect(Rect.x + Rect.width - LineWidth, Rect.y, LineWidth,
-		Rect.height - LineWidth), Color);
+	FillRectangle(Surface,
+		TRect(Rect.x + Rect.width - LineWidth, Rect.y, LineWidth,
+			Rect.height - LineWidth),
+		Color);
 }
 
 // surfaceDX9.cpp's 0x4f0410
@@ -1117,7 +1134,7 @@ bool TSurfaceDX::ClipRect(TRect Clip, RECT *Destination, RECT *Source)
 	int Right = Clip.x + Clip.width;
 	int Bottom = Clip.y + Clip.height;
 	if (Destination->left >= Right || Destination->top >= Bottom || Destination->right <= Clip.x
-			|| Destination->bottom <= Clip.y)
+		|| Destination->bottom <= Clip.y)
 		return false;
 	if (Destination->left < Clip.x) {
 		Source->left += Clip.x - Destination->left;

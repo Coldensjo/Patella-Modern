@@ -21,17 +21,17 @@
 #include "Text.h"
 #include <cstddef>
 
-static int SkipFields;        // 0x5c4340
-static uint8 *PatchData;      // 0x5c4344, cleared by InitCommunication
-static bool PatchWholeFile;  // 0x5c4348
-static int PatchDataCount;    // 0x5c434c
-static int PatchDataSize;     // 0x5c4350
-static int PatchFileNumber;   // 0x5c4354
-bool OutfitRequested;        // 0x5c4358
-static int CancelCount;       // 0x5c4378
-static int LastCancelZ;       // 0x5c437c
-static int LastCancelY;       // 0x5c4380
-static int LastCancelX;       // 0x5c4384
+static int SkipFields;      // 0x5c4340
+static uint8 *PatchData;    // 0x5c4344, cleared by InitCommunication
+static bool PatchWholeFile; // 0x5c4348
+static int PatchDataCount;  // 0x5c434c
+static int PatchDataSize;   // 0x5c4350
+static int PatchFileNumber; // 0x5c4354
+bool OutfitRequested;       // 0x5c4358
+static int CancelCount;     // 0x5c4378
+static int LastCancelZ;     // 0x5c437c
+static int LastCancelY;     // 0x5c4380
+static int LastCancelX;     // 0x5c4384
 
 static_assert(offsetof(TCreature, Direction) == 0x50, "creature direction");
 static_assert(offsetof(TCreature, OutfitType) == 0x60, "creature outfit");
@@ -555,7 +555,7 @@ void SendLeaveChannel(int ChannelID)
 }
 
 // 0x407800, lines 635-635
-void SendOpenPrivateConversation(const char * Name)
+void SendOpenPrivateConversation(const char *Name)
 {
 	TBEGIN
 	BeginCommand(0x9a);
@@ -565,7 +565,7 @@ void SendOpenPrivateConversation(const char * Name)
 }
 
 // 0x4079b0, lines 648-648
-void SendProcessRuleViolation(const char * Name)
+void SendProcessRuleViolation(const char *Name)
 {
 	TBEGIN
 	BeginCommand(0x9b);
@@ -575,7 +575,7 @@ void SendProcessRuleViolation(const char * Name)
 }
 
 // 0x407b60, lines 661-661
-void SendCloseRuleViolation(const char * Name)
+void SendCloseRuleViolation(const char *Name)
 {
 	TBEGIN
 	BeginCommand(0x9c);
@@ -639,7 +639,7 @@ void SendOpenPrivateChannel()
 }
 
 // 0x408580, lines 742-742
-void SendInviteToPrivateChannel(const char * Name)
+void SendInviteToPrivateChannel(const char *Name)
 {
 	TBEGIN
 	BeginCommand(0xab);
@@ -649,7 +649,7 @@ void SendInviteToPrivateChannel(const char * Name)
 }
 
 // 0x408730, lines 755-755
-void SendExcludeFromPrivateChannel(const char * Name)
+void SendExcludeFromPrivateChannel(const char *Name)
 {
 	TBEGIN
 	BeginCommand(0xac);
@@ -790,7 +790,7 @@ void SendRemoveBuddy(uint32 CharacterID)
 }
 
 // 0x409f40, lines 934-934
-void SendBugReport(const char * Text)
+void SendBugReport(const char *Text)
 {
 	TBEGIN
 	BeginCommand(0xe6);
@@ -832,7 +832,7 @@ void ReceiveLoginError()
 {
 	TBEGIN
 	char *Text = GetString();
-	AddMessage(1, (INT_PTR)"Sorry", (INT_PTR)Text);
+	AddMessage(1, (INT_PTR) "Sorry", (INT_PTR)Text);
 	Disconnect(false);
 	SetConnectionState(0);
 	TEND(994)
@@ -843,7 +843,7 @@ void ReceiveLoginMessage()
 {
 	TBEGIN
 	char *Text = GetString();
-	AddMessage(1, (INT_PTR)"For Your Information", (INT_PTR)Text);
+	AddMessage(1, (INT_PTR) "For Your Information", (INT_PTR)Text);
 	TEND(1006)
 }
 
@@ -929,11 +929,13 @@ void ReceivePatchBlock()
 	int CompleteEvent = 0;
 	uint32 Signature;
 	switch (PatchFileNumber) {
+		// clang-format off
 	case 0: Name = "Tibia.exe"; ReloadEvent = 0x48; Signature = 0; break;
 	case 1: Name = "Tibia.dat"; ReloadEvent = 0x41; CompleteEvent = 0x45; Signature = DatSignature; break;
 	case 2: Name = "Tibia.spr"; ReloadEvent = 0x42; CompleteEvent = 0x46; Signature = SpriteSignature; break;
 	case 3: Name = "Tibia.pic"; ReloadEvent = 0x43; CompleteEvent = 0x47; Signature = PictureSignature; break;
 	case 4: Name = "Patch.exe"; ReloadEvent = 0x44; Signature = 0; break;
+	// clang-format on
 	default: TERROR(1101, "unknown patch file number");
 	}
 	bool Success;
@@ -949,11 +951,11 @@ void ReceivePatchBlock()
 		SetConnectionState(0);
 		Disconnect(false);
 		ClearMessages();
-		AddMessage(1, (INT_PTR)"Error", (INT_PTR)Text);
+		AddMessage(1, (INT_PTR) "Error", (INT_PTR)Text);
 	} else if (ReloadEvent == 0x48) {
 		char *Text = new char[200];
 		strcpy(Text, "Program will now shut down and run an external patching program.\nAfterwards it will restart. Please login again then.");
-		AddMessageFirst(1, (INT_PTR)"Updating", (INT_PTR)Text);
+		AddMessageFirst(1, (INT_PTR) "Updating", (INT_PTR)Text);
 		AddMessageFirst(0x40, 0, 0);
 		AddMessage(0x48, 0, 0);
 	} else if (ReloadEvent == 0x44) {
@@ -1052,7 +1054,7 @@ void ReceiveGameError()
 {
 	TBEGIN
 	char *Text = GetString();
-	AddMessage(1, (INT_PTR)"Sorry", (INT_PTR)Text);
+	AddMessage(1, (INT_PTR) "Sorry", (INT_PTR)Text);
 	Disconnect(false);
 	SetConnectionState(0);
 	TEND(1246)
@@ -1063,7 +1065,7 @@ void ReceiveGameMessage()
 {
 	TBEGIN
 	char *Text = GetString();
-	AddMessage(1, (INT_PTR)"For Your Information", (INT_PTR)Text);
+	AddMessage(1, (INT_PTR) "For Your Information", (INT_PTR)Text);
 	TEND(1258)
 }
 
@@ -1563,7 +1565,8 @@ void ReceiveMoveCreature()
 				Text << " (" << Current.Type << "," << Current.Data << ")";
 				Current = GetNextObject();
 			}
-			Text << std::endl << " Start Cylinder (2): ";
+			Text << std::endl
+				 << " Start Cylinder (2): ";
 			for (int i = 0; i < 10; i++) {
 				Current = GetMapObject(sx, sy, sz, i);
 				if (Current.Type == NoObject.Type)
@@ -1571,13 +1574,15 @@ void ReceiveMoveCreature()
 				else
 					Text << " (" << Current.Type << "," << Current.Data << ")";
 			}
-			Text << std::endl << " Destination Cylinder (1): ";
+			Text << std::endl
+				 << " Destination Cylinder (1): ";
 			Current = GetFirstObject(zx, zy, zz);
 			while (Current.Type != 0) {
 				Text << " (" << Current.Type << "," << Current.Data << ")";
 				Current = GetNextObject();
 			}
-			Text << std::endl << " Destination Cylinder (2): ";
+			Text << std::endl
+				 << " Destination Cylinder (2): ";
 			for (int i = 0; i < 10; i++) {
 				Current = GetMapObject(zx, zy, zz, i);
 				if (Current.Type == NoObject.Type)
@@ -1586,12 +1591,17 @@ void ReceiveMoveCreature()
 					Text << " (" << Current.Type << "," << Current.Data << ")";
 			}
 		} catch (TMyException &Exception) {
-			Text << std::endl << "Exception during cylinder looping: " << std::endl << Exception.GetMessage();
+			Text << std::endl
+				 << "Exception during cylinder looping: " << std::endl
+				 << Exception.GetMessage();
 		}
 		if (Creature != NULL) {
-			Text << std::endl << " ID: " << Creature->CreatureID << " Name: " << Creature->Name;
-			Text << std::endl << " RealX: " << Creature->RealX << " RealY: " << Creature->RealY << " RealZ: " << Creature->RealZ;
-			Text << std::endl << " DeltaX: " << Creature->DeltaX << " DeltaY: " << Creature->DeltaY;
+			Text << std::endl
+				 << " ID: " << Creature->CreatureID << " Name: " << Creature->Name;
+			Text << std::endl
+				 << " RealX: " << Creature->RealX << " RealY: " << Creature->RealY << " RealZ: " << Creature->RealZ;
+			Text << std::endl
+				 << " DeltaX: " << Creature->DeltaX << " DeltaY: " << Creature->DeltaY;
 		}
 		throw TMYEXCEPTION(1879, Error.c_str(), "", 0, "", 0, Text.str().c_str());
 	}

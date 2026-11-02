@@ -31,25 +31,25 @@
 
 #define AUTOMAP_BLOCKS 10
 
-static void (*CreatureCallback)(int CreatureID);  // 0x5d16c0, called for every creature ClearField removes
-static int AmbienteActualBrightness;              // 0x5d16c4, follows AmbienteBrightness step by step
-static int AmbienteBrightness;                    // 0x5d16c8, -1: take the next value at once
-static bool AutomapChanged;                       // 0x5d16cc
-static int LeastRecentBlock;                      // 0x5d16d0, tail of the block cache's LRU list
-static int MostRecentBlock;                       // 0x5d16d4, head
-static int EffectIteratorCount;                   // 0x5d16d8
-static int EffectIteratorField;                   // 0x5d16dc
-static int ObjectIteratorCount;                   // 0x5d16e0
-static int ObjectIteratorField;                   // 0x5d16e4
-static int MapZ;                                  // 0x5d16e8, world position of the map's centre
-static int MapY;                                  // 0x5d16ec
-static int MapX;                                  // 0x5d16f0
-static TEffect Effects[EFFECTS];                  // 0x5d16f8
-static array<TMapPoint> Fields(0, MAPSIZE_X * MAPSIZE_Y * MAPSIZE_Z - 1); // 0x5d4c18, initialiser at 0x559f40
+static void (*CreatureCallback)(int CreatureID);                                        // 0x5d16c0, called for every creature ClearField removes
+static int AmbienteActualBrightness;                                                    // 0x5d16c4, follows AmbienteBrightness step by step
+static int AmbienteBrightness;                                                          // 0x5d16c8, -1: take the next value at once
+static bool AutomapChanged;                                                             // 0x5d16cc
+static int LeastRecentBlock;                                                            // 0x5d16d0, tail of the block cache's LRU list
+static int MostRecentBlock;                                                             // 0x5d16d4, head
+static int EffectIteratorCount;                                                         // 0x5d16d8
+static int EffectIteratorField;                                                         // 0x5d16dc
+static int ObjectIteratorCount;                                                         // 0x5d16e0
+static int ObjectIteratorField;                                                         // 0x5d16e4
+static int MapZ;                                                                        // 0x5d16e8, world position of the map's centre
+static int MapY;                                                                        // 0x5d16ec
+static int MapX;                                                                        // 0x5d16f0
+static TEffect Effects[EFFECTS];                                                        // 0x5d16f8
+static array<TMapPoint> Fields(0, MAPSIZE_X * MAPSIZE_Y * MAPSIZE_Z - 1);               // 0x5d4c18, initialiser at 0x559f40
 static matrix3d<int> FieldNumber(0, MAPSIZE_X - 1, 0, MAPSIZE_Y - 1, 0, MAPSIZE_Z - 1); // 0x5d4c24, 0x559f60
-static TAutomapBlock AutomapBlocks[AUTOMAP_BLOCKS]; // 0x5d4c40, initialiser at 0x559f90
-static TRGBColor AmbienteColor;                   // 0x7152d0
-static TRGBColor AmbienteActualColor;             // 0x7152dc
+static TAutomapBlock AutomapBlocks[AUTOMAP_BLOCKS];                                     // 0x5d4c40, initialiser at 0x559f90
+static TRGBColor AmbienteColor;                                                         // 0x7152d0
+static TRGBColor AmbienteActualColor;                                                   // 0x7152dc
 
 // --- Position (the MainWindow/Map gap) ------------------------------------
 
@@ -199,7 +199,7 @@ TObject GetTopMoveObject(int rx, int ry, int rz, int &Position)
 	while (Position < Point.ObjectCount - 1) {
 		TObject &Obj = Point.Objects[Position];
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
-		 && !GetObjectFlag(Obj.Type, TOP) && Obj.Type != CREATURE)
+			&& !GetObjectFlag(Obj.Type, TOP) && Obj.Type != CREATURE)
 			break;
 		Position++;
 	}
@@ -222,7 +222,7 @@ TObject GetTopLookObject(int rx, int ry, int rz, int &Position)
 	while (Position < Point.ObjectCount - 1) {
 		TObject &Obj = Point.Objects[Position];
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
-		 && !GetObjectFlag(Obj.Type, TOP))
+			&& !GetObjectFlag(Obj.Type, TOP))
 			break;
 		Position++;
 	}
@@ -246,12 +246,12 @@ TObject GetTopUseObject(int rx, int ry, int rz, int &Position)
 		if (GetObjectFlag(Obj.Type, FORCEUSE))
 			return Obj;
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
-		 && !GetObjectFlag(Obj.Type, TOP) && Obj.Type != CREATURE)
+			&& !GetObjectFlag(Obj.Type, TOP) && Obj.Type != CREATURE)
 			break;
 		Position++;
 	}
 	while (Position > 0
-	 && (Point.Objects[Position].Type == CREATURE || GetObjectFlag(Point.Objects[Position].Type, LIQUIDPOOL)))
+		&& (Point.Objects[Position].Type == CREATURE || GetObjectFlag(Point.Objects[Position].Type, LIQUIDPOOL)))
 		Position--;
 	return Point.Objects[Position];
 	TEND1(275, Position)
@@ -272,7 +272,7 @@ TObject GetTopMultiUseObject(int rx, int ry, int rz, int &Position)
 		if (GetObjectFlag(Obj.Type, FORCEUSE))
 			return Obj;
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
-		 && !GetObjectFlag(Obj.Type, TOP))
+			&& !GetObjectFlag(Obj.Type, TOP))
 			break;
 		Position++;
 	}
@@ -295,7 +295,7 @@ static void SortObjects(int rx, int ry, int rz)
 	int n = 0;
 	for (int i = 0; i < Point.ObjectCount; i++) {
 		if (!GetObjectFlag(Point.Objects[i].Type, BANK) && !GetObjectFlag(Point.Objects[i].Type, CLIP)
-		 && !GetObjectFlag(Point.Objects[i].Type, BOTTOM))
+			&& !GetObjectFlag(Point.Objects[i].Type, BOTTOM))
 			break;
 		Point.Order[n++] = i;
 	}
@@ -365,7 +365,7 @@ void AddObject(int rx, int ry, int rz, TObject Obj)
 					if (GetObjectFlag(Obj.Type, TOP) && !GetObjectFlag(Here.Type, TOP))
 						break;
 					if (GetObjectFlag(Obj.Type, TOP) == GetObjectFlag(Here.Type, TOP)
-					 && (Obj.Type == CREATURE || Here.Type != CREATURE))
+						&& (Obj.Type == CREATURE || Here.Type != CREATURE))
 						break;
 				}
 			}
@@ -1505,7 +1505,7 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 		TPathNode *Node = &Nodes(0, 0);
 		while (Node != NULL) {
 			if (!MustReach && Node->x == DestX - StartX && Node->y == DestY - StartY
-			 && IsAutomapBlocked(DestX, DestY, DestZ)) {
+				&& IsAutomapBlocked(DestX, DestY, DestZ)) {
 				Node = NULL;
 				break;
 			}
@@ -1543,9 +1543,9 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 	} catch (TMyException &Exception) {
 		std::stringstream Text;
 		Text << "Something failed" << " StartX: " << StartX << " StartY: " << StartY << " StartZ: " << StartZ
-			<< " DestX: " << DestX << " DestY: " << DestY << " DestZ: " << DestZ
-			<< " MustReach: " << (MustReach ? "true" : "false")
-			<< " ForceDiagonal: " << (ForceDiagonal ? "true" : "false") << ")";
+			 << " DestX: " << DestX << " DestY: " << DestY << " DestZ: " << DestZ
+			 << " MustReach: " << (MustReach ? "true" : "false")
+			 << " ForceDiagonal: " << (ForceDiagonal ? "true" : "false") << ")";
 		throw TMYEXCEPTION(1738, Text.str().c_str(), "", 0, "", 0, Exception);
 	}
 }

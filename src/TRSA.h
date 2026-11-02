@@ -9,13 +9,13 @@
 
 class TRSA {
 public:
-	TRSA();                                // 0x5089a0
-	virtual ~TRSA();                       // 0x5089c0; scalar deleting destructor 0x5089d0
+	TRSA();                                  // 0x5089a0
+	virtual ~TRSA();                         // 0x5089c0; scalar deleting destructor 0x5089d0
 	void SetPublicKey(const char *ModulusM); // 0x5089f0, decimal text
-	void Encrypt(uint8 *Data);             // 0x508aa0, 128 bytes in place, exponent 65537
+	void Encrypt(uint8 *Data);               // 0x508aa0, 128 bytes in place, exponent 65537
 
 private:
-	vlong m_ModulusM;                      // +0x4
+	vlong m_ModulusM; // +0x4
 };
 
 // Every object that includes this header constructs its own copy (static initialisers with an atexit

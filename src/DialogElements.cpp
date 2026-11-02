@@ -447,83 +447,83 @@ int TFormattedText::GetToken(const char *Text, int &TokenType, int &TokenData)
 	for (;;) {
 		char c = Text[Position];
 		switch (State) {
-			case 0:
-				if (c != '<')
+		case 0:
+			if (c != '<')
+				return 0;
+			Position++;
+			State = 1;
+			break;
+		case 1:
+			if (c == '>') {
+				Position++;
+				State = 5;
+			} else if (c == '=') {
+				Position++;
+				State = 6;
+			} else {
+				if (!IsAlpha(c))
 					return 0;
 				Position++;
-				State = 1;
-				break;
-			case 1:
-				if (c == '>') {
-					Position++;
-					State = 5;
-				} else if (c == '=') {
-					Position++;
-					State = 6;
-				} else {
-					if (!IsAlpha(c))
-						return 0;
-					Position++;
-				}
-				break;
-			case 5: {
-				int Length = Position - 2;
-				Text++;
-				if (CompareStrings(Text, "b", Length) == 0) {
-					TokenType = 1;
-				} else if (CompareStrings(Text, "n", Length) == 0) {
-					TokenType = 2;
-				} else {
-					if (CompareStrings(Text, "h", Length) != 0)
-						return 0;
-					TokenType = 3;
-				}
-				return Position;
 			}
-			case 6: {
-				int Length = Position - 2;
-				const char *Name = Text + 1;
-				if (CompareStrings(Name, "font", Length) == 0) {
-					TokenType = 10;
-					State = 7;
-				} else if (CompareStrings(Name, "hspace", Length) == 0) {
-					TokenType = 11;
-					State = 7;
-				} else if (CompareStrings(Name, "indent", Length) == 0) {
-					TokenType = 12;
-					State = 7;
-				} else if (CompareStrings(Name, "br", Length) == 0) {
-					TokenType = 13;
-					State = 7;
-				} else if (CompareStrings(Name, "color", Length) == 0) {
-					TokenType = 14;
-					State = 7;
-				} else if (CompareStrings(Name, "skin", Length) == 0) {
-					TokenType = 15;
-					State = 7;
-				} else if (CompareStrings(Name, "red", Length) == 0) {
-					TokenType = 16;
-					State = 7;
-				} else if (CompareStrings(Name, "green", Length) == 0) {
-					TokenType = 17;
-					State = 7;
-				} else {
-					if (CompareStrings(Name, "blue", Length) != 0)
-						return 0;
-					TokenType = 18;
-					State = 7;
-				}
-				break;
+			break;
+		case 5: {
+			int Length = Position - 2;
+			Text++;
+			if (CompareStrings(Text, "b", Length) == 0) {
+				TokenType = 1;
+			} else if (CompareStrings(Text, "n", Length) == 0) {
+				TokenType = 2;
+			} else {
+				if (CompareStrings(Text, "h", Length) != 0)
+					return 0;
+				TokenType = 3;
 			}
-			case 7:
-				if (!IsDigit(c)) {
-					if (c != '>')
-						return 0;
-					return Position + 1;
-				}
-				TokenData = c - '0' + TokenData * 10;
-				Position++;
-				break;
+			return Position;
+		}
+		case 6: {
+			int Length = Position - 2;
+			const char *Name = Text + 1;
+			if (CompareStrings(Name, "font", Length) == 0) {
+				TokenType = 10;
+				State = 7;
+			} else if (CompareStrings(Name, "hspace", Length) == 0) {
+				TokenType = 11;
+				State = 7;
+			} else if (CompareStrings(Name, "indent", Length) == 0) {
+				TokenType = 12;
+				State = 7;
+			} else if (CompareStrings(Name, "br", Length) == 0) {
+				TokenType = 13;
+				State = 7;
+			} else if (CompareStrings(Name, "color", Length) == 0) {
+				TokenType = 14;
+				State = 7;
+			} else if (CompareStrings(Name, "skin", Length) == 0) {
+				TokenType = 15;
+				State = 7;
+			} else if (CompareStrings(Name, "red", Length) == 0) {
+				TokenType = 16;
+				State = 7;
+			} else if (CompareStrings(Name, "green", Length) == 0) {
+				TokenType = 17;
+				State = 7;
+			} else {
+				if (CompareStrings(Name, "blue", Length) != 0)
+					return 0;
+				TokenType = 18;
+				State = 7;
+			}
+			break;
+		}
+		case 7:
+			if (!IsDigit(c)) {
+				if (c != '>')
+					return 0;
+				return Position + 1;
+			}
+			TokenData = c - '0' + TokenData * 10;
+			Position++;
+			break;
 		}
 	}
 	TEND2(577, TokenType, TokenData)
@@ -597,57 +597,57 @@ void TFormattedText::Arrange()
 			Position = LastSpace;
 		TComponent *Element = NULL;
 		switch (TokenType) {
-			case 0: {
-				CopyString(Line, Piece, Position + 1);
-				TFont Font;
-				Font.FontNumber = FontNumber;
-				Font.Color = Color;
-				Font.Alignment = LEFT_ALIGN;
-				Element = new TLabel(Font, Line);
-				break;
-			}
-			case 1:
-				Color = TRGBColor(255, 128, 128);
-				break;
-			case 2:
-				Color = TRGBColor(224, 224, 224);
-				break;
-			case 3:
-				Color = TRGBColor(224, 224, 0);
-				break;
-			case 10:
-				FontNumber = TokenData;
-				break;
-			case 11:
-				if (TokenData >= 1 && TokenData <= 200)
-					X += TokenData;
-				break;
-			case 12:
-				if (TokenData >= 0 && TokenData <= 200)
-					Indent = TokenData;
-				break;
-			case 13:
-				if (TokenData >= 1 && TokenData <= 50)
-					Y += TokenData;
-				break;
-			case 14:
-				Color = TRGBColor(TokenData / 36 * 51, TokenData / 6 % 6 * 51, TokenData % 6 * 51);
-				break;
-			case 15:
-				if (TokenData >= 0 && TokenData <= 262)
-					Element = new TSkinIcon(TokenData);
-				break;
-			case 16:
-				Color = TRGBColor(TokenData, Color.G, Color.B);
-				break;
-			case 17:
-				Color = TRGBColor(Color.R, TokenData, Color.B);
-				break;
-			case 18:
-				Color = TRGBColor(Color.R, Color.G, TokenData);
-				break;
-			default:
-				TERROR1(684, "unknown token type", TokenType);
+		case 0: {
+			CopyString(Line, Piece, Position + 1);
+			TFont Font;
+			Font.FontNumber = FontNumber;
+			Font.Color = Color;
+			Font.Alignment = LEFT_ALIGN;
+			Element = new TLabel(Font, Line);
+			break;
+		}
+		case 1:
+			Color = TRGBColor(255, 128, 128);
+			break;
+		case 2:
+			Color = TRGBColor(224, 224, 224);
+			break;
+		case 3:
+			Color = TRGBColor(224, 224, 0);
+			break;
+		case 10:
+			FontNumber = TokenData;
+			break;
+		case 11:
+			if (TokenData >= 1 && TokenData <= 200)
+				X += TokenData;
+			break;
+		case 12:
+			if (TokenData >= 0 && TokenData <= 200)
+				Indent = TokenData;
+			break;
+		case 13:
+			if (TokenData >= 1 && TokenData <= 50)
+				Y += TokenData;
+			break;
+		case 14:
+			Color = TRGBColor(TokenData / 36 * 51, TokenData / 6 % 6 * 51, TokenData % 6 * 51);
+			break;
+		case 15:
+			if (TokenData >= 0 && TokenData <= 262)
+				Element = new TSkinIcon(TokenData);
+			break;
+		case 16:
+			Color = TRGBColor(TokenData, Color.G, Color.B);
+			break;
+		case 17:
+			Color = TRGBColor(Color.R, TokenData, Color.B);
+			break;
+		case 18:
+			Color = TRGBColor(Color.R, Color.G, TokenData);
+			break;
+		default:
+			TERROR1(684, "unknown token type", TokenType);
 		}
 		if (Element != NULL) {
 			InsertChild(Element);
@@ -1294,8 +1294,8 @@ void TEditLine::Draw(int Surface, int x, int y)
 	if (!IsDisabled()) {
 		if (Cursor < FirstVisible)
 			FirstVisible = Cursor;
-		while (Cursor > FirstVisible + GetFittingTextLength(Font.FontNumber, Text + FirstVisible,
-				Width - 2 * SkinProperties.Data99C))
+		while (Cursor > FirstVisible
+				+ GetFittingTextLength(Font.FontNumber, Text + FirstVisible, Width - 2 * SkinProperties.Data99C))
 			FirstVisible++;
 		int TextX = x + SkinProperties.Data99C;
 		int TextY = y + SkinProperties.Data99C;
@@ -1307,13 +1307,15 @@ void TEditLine::Draw(int Surface, int x, int y)
 			int End = High < FirstVisible + Visible ? High : FirstVisible + Visible;
 			int Offset = GetTextPartWidth(Font.FontNumber, Text + FirstVisible, Begin - FirstVisible);
 			int SelectionWidth = GetTextPartWidth(Font.FontNumber, Text + Begin, End - Begin);
-			GetSurface()->FillRectangle(Surface, TRect(TextX + Offset, TextY, SelectionWidth,
-				GetFontHeight(Font.FontNumber)), SkinProperties.Style944.Data4C);
+			GetSurface()->FillRectangle(Surface,
+				TRect(TextX + Offset, TextY, SelectionWidth,
+					GetFontHeight(Font.FontNumber)),
+				SkinProperties.Style944.Data4C);
 		}
 		PrintFormattedTextPart(Surface, TextX, TextY, Font, Text + FirstVisible, Visible);
 		if (Active && GetActionNumber() / 5 % 2 == 0)
-			GetSurface()->DrawVerticalLine(Surface, TextX + GetTextPartWidth(Font.FontNumber, Text + FirstVisible,
-				Cursor - FirstVisible), TextY, GetFontHeight(Font.FontNumber), SkinProperties.Style944.Data18);
+			GetSurface()->DrawVerticalLine(Surface,
+				TextX + GetTextPartWidth(Font.FontNumber, Text + FirstVisible, Cursor - FirstVisible), TextY, GetFontHeight(Font.FontNumber), SkinProperties.Style944.Data18);
 	}
 	TEND(1963)
 }
@@ -1418,7 +1420,7 @@ bool TEditLine::RightButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::LeftButtonUp(x, y, Flags) && !IsDisabled() && GetActionState() != 10
-	 && GetActionState() != 11)
+		&& GetActionState() != 11)
 		AddMessage(58, (INT_PTR)this, 0);
 	return true;
 	TEND2(2093, x, y)
@@ -1505,63 +1507,63 @@ void TEditLine::HandleEvent(int Event)
 {
 	TBEGIN
 	switch (Event) {
-		case 16:
-			if (SelectionStart != -1 && SelectionLength != 0) {
-				int End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
-				int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
-				CheckClipboardText(Text + Begin, End - Begin);
-			}
-			return;
-		case 17: {
-			if (ReadOnly || !HasSelection())
-				return;
-			int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
+	case 16:
+		if (SelectionStart != -1 && SelectionLength != 0) {
 			int End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
+			int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
 			CheckClipboardText(Text + Begin, End - Begin);
-			SetCursor(SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart);
-			Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
-			End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
-			DeleteText(Begin, End - Begin);
-			SelectionLength = 0;
-			return;
 		}
-		case 18: {
-			if (ReadOnly || IsClipboardEmpty())
-				return;
-			char *Clipboard = GetClipboardText();
-			if (Clipboard == NULL)
-				return;
-			if (HasSelection()) {
-				SetCursor(SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart);
-				int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
-				int End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
-				DeleteText(Begin, End - Begin);
-				SelectionLength = 0;
-			}
-			if (!SingleLine)
-				SetCursor(Cursor + InsertText(Cursor, Clipboard, strlen(Clipboard)));
-			else
-				SetCursor(Cursor + InsertText(Cursor, Clipboard, strcspn(Clipboard, "\n")));
+		return;
+	case 17: {
+		if (ReadOnly || !HasSelection())
 			return;
-		}
-		case 19: {
-			if (ReadOnly || !HasSelection())
-				return;
+		int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
+		int End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
+		CheckClipboardText(Text + Begin, End - Begin);
+		SetCursor(SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart);
+		Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
+		End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
+		DeleteText(Begin, End - Begin);
+		SelectionLength = 0;
+		return;
+	}
+	case 18: {
+		if (ReadOnly || IsClipboardEmpty())
+			return;
+		char *Clipboard = GetClipboardText();
+		if (Clipboard == NULL)
+			return;
+		if (HasSelection()) {
 			SetCursor(SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart);
 			int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
 			int End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
 			DeleteText(Begin, End - Begin);
 			SelectionLength = 0;
-			return;
 		}
-		case 20:
-			// The cursor goes to max(length, 0) (the binary keeps the test).
-			SelectionStart = 0;
-			SelectionLength = strlen(Text);
-			SetCursor(SelectionLength < 0 ? 0 : SelectionLength);
+		if (!SingleLine)
+			SetCursor(Cursor + InsertText(Cursor, Clipboard, strlen(Clipboard)));
+		else
+			SetCursor(Cursor + InsertText(Cursor, Clipboard, strcspn(Clipboard, "\n")));
+		return;
+	}
+	case 19: {
+		if (ReadOnly || !HasSelection())
 			return;
-		default:
-			TERROR1(2206, "unknown event", Event);
+		SetCursor(SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart);
+		int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
+		int End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
+		DeleteText(Begin, End - Begin);
+		SelectionLength = 0;
+		return;
+	}
+	case 20:
+		// The cursor goes to max(length, 0) (the binary keeps the test).
+		SelectionStart = 0;
+		SelectionLength = strlen(Text);
+		SetCursor(SelectionLength < 0 ? 0 : SelectionLength);
+		return;
+	default:
+		TERROR1(2206, "unknown event", Event);
 	}
 	TEND1(2209, Event)
 }
@@ -1756,17 +1758,19 @@ void TEditText::Draw(int Surface, int x, int y)
 					int SelectionHeight = GetFontLineHeight(Font.FontNumber);
 					if (High < End)
 						SelectionHeight = GetFontHeight(Font.FontNumber);
-					GetSurface()->FillRectangle(Surface, TRect(TextX + Offset, i * LineHeight + TextY, SelectionWidth,
-						SelectionHeight), SkinProperties.Style944.Data4C);
+					GetSurface()->FillRectangle(Surface,
+						TRect(TextX + Offset, i * LineHeight + TextY, SelectionWidth,
+							SelectionHeight),
+						SkinProperties.Style944.Data4C);
 				}
 			}
 			int LineY = i * LineHeight + TextY;
 			PrintFormattedTextPart(Surface, TextX, LineY, Font, Text + Start, End - Start);
 			if (Active && !ReadOnly && GetActionNumber() / 5 % 2 == 0) {
 				if ((Cursor >= Start && Cursor <= End - 1)
-				 || (Line == Lines - 1 && Cursor == (int)strlen(Text)))
-					GetSurface()->DrawVerticalLine(Surface, TextX + GetTextPartWidth(Font.FontNumber, Text + Start,
-						Cursor - Start), LineY, GetFontHeight(Font.FontNumber), SkinProperties.Style944.Data18);
+					|| (Line == Lines - 1 && Cursor == (int)strlen(Text)))
+					GetSurface()->DrawVerticalLine(Surface,
+						TextX + GetTextPartWidth(Font.FontNumber, Text + Start, Cursor - Start), LineY, GetFontHeight(Font.FontNumber), SkinProperties.Style944.Data18);
 			}
 		}
 	}
@@ -1779,8 +1783,9 @@ void TEditText::Arrange()
 {
 	TBEGIN
 	int ScrollBarWidth = ScrollBar->Width;
-	SetChildArea(ScrollBar, TRect(-(Skins[10].width + ScrollBarWidth), Skins[9].height, ScrollBarWidth,
-		Height - Skins[11].width - Skins[10].width));
+	SetChildArea(ScrollBar,
+		TRect(-(Skins[10].width + ScrollBarWidth), Skins[9].height, ScrollBarWidth,
+			Height - Skins[11].width - Skins[10].width));
 	FieldWidth = Width - 2 * SkinProperties.Data99C - ScrollBar->Width;
 	FieldHeight = Height - 2 * SkinProperties.Data99C;
 	VisibleLines = FieldHeight / GetFontLineHeight(Font.FontNumber);
@@ -1819,18 +1824,18 @@ void TEditText::KeyPress(int Key)
 		if (Key == 0x461)
 			HandleEvent(20);
 		switch (Key & 0x1ff) {
-			case 0x10c:
-				Value--;
-				break;
-			case 0x10f:
-				Value++;
-				break;
-			case 0x114:
-				Value -= VisibleLines;
-				break;
-			case 0x115:
-				Value += VisibleLines;
-				break;
+		case 0x10c:
+			Value--;
+			break;
+		case 0x10f:
+			Value++;
+			break;
+		case 0x114:
+			Value -= VisibleLines;
+			break;
+		case 0x115:
+			Value += VisibleLines;
+			break;
 		}
 		if (Value < 0)
 			Value = 0;
@@ -1847,7 +1852,7 @@ void TEditText::KeyPress(int Key)
 	}
 	int Code = Key & 0x1ff;
 	if ((Code != 0x112 && Code != 0x113 && Code != 0x10c && Code != 0x10f && Code != 0x114 && Code != 0x115)
-	 || (Key & 0xe00) != 0) {
+		|| (Key & 0xe00) != 0) {
 		TEditLine::KeyPress(Key);
 	} else {
 		int Line = 0;
@@ -1856,67 +1861,67 @@ void TEditText::KeyPress(int Key)
 		SelectionLength = 0;
 		int PixelX, Next, MaxPosition, Fitting, Start;
 		switch (Code) {
-			case 0x10c:
-				if (Line == 0)
-					break;
-				PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
-				Next = LineStart(Line);
-				Line--;
-				MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
-				Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
-				Start = LineStart(Line);
-				Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
+		case 0x10c:
+			if (Line == 0)
 				break;
-			case 0x10f:
-				if (Line == Lines - 1)
-					break;
-				PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
-				Next = LineStart(Line + 2);
-				Line++;
-				MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
-				Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
-				Start = LineStart(Line);
-				Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
+			PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
+			Next = LineStart(Line);
+			Line--;
+			MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
+			Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
+			Start = LineStart(Line);
+			Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
+			break;
+		case 0x10f:
+			if (Line == Lines - 1)
 				break;
-			case 0x112:
+			PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
+			Next = LineStart(Line + 2);
+			Line++;
+			MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
+			Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
+			Start = LineStart(Line);
+			Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
+			break;
+		case 0x112:
+			Cursor = LineStart(Line);
+			break;
+		case 0x113:
+			if (Line == Lines - 1) {
+				Cursor = strlen(Text);
+			} else {
+				Next = LineStart(Line + 1);
+				Cursor = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
+			}
+			break;
+		case 0x114:
+			Line -= VisibleLines;
+			if (Line < 0) {
+				Line = 0;
+				Cursor = 0;
+			}
+			PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
+			Next = LineStart(Line);
+			Line--;
+			MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
+			Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
+			Start = LineStart(Line);
+			Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
+			break;
+		case 0x115:
+			Line += VisibleLines;
+			if (Line >= Lines) {
+				Line = Lines - 1;
 				Cursor = LineStart(Line);
-				break;
-			case 0x113:
-				if (Line == Lines - 1) {
-					Cursor = strlen(Text);
-				} else {
-					Next = LineStart(Line + 1);
-					Cursor = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
-				}
-				break;
-			case 0x114:
-				Line -= VisibleLines;
-				if (Line < 0) {
-					Line = 0;
-					Cursor = 0;
-				}
-				PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
-				Next = LineStart(Line);
-				Line--;
-				MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
-				Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
-				Start = LineStart(Line);
-				Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
-				break;
-			case 0x115:
-				Line += VisibleLines;
-				if (Line >= Lines) {
-					Line = Lines - 1;
-					Cursor = LineStart(Line);
-				}
-				PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
-				Next = LineStart(Line + 2);
-				Line++;
-				MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
-				Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
-				Start = LineStart(Line);
-				Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
-				break;
+			}
+			PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
+			Next = LineStart(Line + 2);
+			Line++;
+			MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
+			Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
+			Start = LineStart(Line);
+			Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
+			break;
 		}
 	}
 	Arrange();
@@ -2650,8 +2655,9 @@ void TListBox::Draw(int Surface, int x, int y)
 		if (Line == Selected) {
 			if (!Editing) {
 				int Margin = SkinProperties.Data9E4;
-				GetSurface()->FillRectangle(Surface, TRect(x - Margin, i * LineHeight - Margin + y, TextWidth + 2 * Margin,
-					GetFontHeight(SkinProperties.Style9A0.Data0C.FontNumber) + 2 * Margin),
+				GetSurface()->FillRectangle(Surface,
+					TRect(x - Margin, i * LineHeight - Margin + y, TextWidth + 2 * Margin,
+						GetFontHeight(SkinProperties.Style9A0.Data0C.FontNumber) + 2 * Margin),
 					SkinProperties.Style9A0.Data24);
 				PrintFormattedTextPart(Surface, x, i * LineHeight + y, SkinProperties.Style9A0.Data30, LineText(Line),
 					Fitting);
@@ -2679,8 +2685,9 @@ void TListBox::Arrange()
 {
 	TBEGIN
 	TextWidth = Width - 2 * SkinProperties.Style9A0.Data20 - ScrollBar->Width;
-	SetChildArea(ScrollBar, TRect(-(Skins[10].width + ScrollBar->Width), Skins[9].height, ScrollBar->Width,
-		Height - Skins[11].width - Skins[10].width));
+	SetChildArea(ScrollBar,
+		TRect(-(Skins[10].width + ScrollBar->Width), Skins[9].height, ScrollBar->Width,
+			Height - Skins[11].width - Skins[10].width));
 	VisibleLines = (Height - 2 * SkinProperties.Style9A0.Data20)
 		/ GetFontLineHeight(SkinProperties.Style9A0.Data0C.FontNumber);
 	if (VisibleLines < Lines)
@@ -2889,8 +2896,9 @@ void TListBox::StartEdit()
 		Editing = true;
 		EditLine->SetText(GetLine(Selected));
 		InsertChild(EditLine);
-		SetChildArea(EditLine, TRect(0, (Selected - ScrollBar->Range->Value) * LineHeight,
-			ListWidth - ScrollBarWidth, 16));
+		SetChildArea(EditLine,
+			TRect(0, (Selected - ScrollBar->Range->Value) * LineHeight,
+				ListWidth - ScrollBarWidth, 16));
 		EditScroll = ScrollBar->Range->Value;
 	}
 	TEND(3957)
@@ -2935,8 +2943,10 @@ void TFontListBox::Draw(int Surface, int x, int y)
 		if (Line == Selected) {
 			if (!Editing) {
 				int Margin = SkinProperties.Data9E4;
-				GetSurface()->FillRectangle(Surface, TRect(x - Margin, i * LineHeight - Margin + y, TextWidth + 2 * Margin,
-					GetFontHeight(FontLines(Line).Font.FontNumber) + 2 * Margin), SkinProperties.Style9A0.Data24);
+				GetSurface()->FillRectangle(Surface,
+					TRect(x - Margin, i * LineHeight - Margin + y, TextWidth + 2 * Margin,
+						GetFontHeight(FontLines(Line).Font.FontNumber) + 2 * Margin),
+					SkinProperties.Style9A0.Data24);
 				PrintFormattedTextPart(Surface, x, i * LineHeight + y, FontLines(Line).Font, FontLines(Line).Text,
 					Fitting);
 			}

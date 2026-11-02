@@ -17,54 +17,54 @@
 #include "Utils.h"
 
 // Data, in .data/.bss order.
-static int WindowedWidth = 600;               // 0x5c2558, "WindowedMode = (x,y,Width,Height,Maximized)"
-static int WindowedHeight = 400;              // 0x5c255c
-static bool SkillBars[SKILLS];                // 0x719e70, "SkillBars = {...}"
-static bool MagLevelBar;                      // 0x719e77
-static bool LevelBar;                         // 0x719e78
-static bool ShowNewHints;                     // 0x719e79
-static int NumberOfKnownHints;                // 0x719e7c, "KnownHints = {...}"
-static int NumberOfBuddyEntries;              // 0x719e80, "Buddy = (...)", deleted entries included
-static bool SecureMode;                       // 0x719e84
-static int ChaseMode;                         // 0x719e88
-static int AttackMode;                        // 0x719e8c
-static bool AutoChaseOff;                     // 0x719e90
-static bool ClassicControl;                   // 0x719e91
-static int NumberOfOpenChannels;              // 0x719e94, "OpenChannel = ..."
-static bool PrivateMessages;                  // 0x719e98
-static bool TimeStamps;                       // 0x719e99
-static bool StatusMessages;                   // 0x719e9a
-static bool EventMessages;                    // 0x719e9b
-static bool InfoMessages;                     // 0x719e9c
-static char *MotD;                            // 0x719ea0, text of the message of the day
-static int LastMotD;                          // 0x719ea4, its number
-static int NumberOfOpenDialogs;               // 0x719ea8, "OpenDialogs = ..."
-static bool BuddyHideOffline;                 // 0x719eac
-static int BuddySortmethods[3];               // 0x719eb0
-static int NumberOfContentWindows;            // 0x719ebc, "ContentWindow = (...)"
-static int AutomapZoom;                       // 0x719ec0
-static int ConsoleHeight;                     // 0x719ec4
-static bool WindowedMaximized;                // 0x719ec8
-static bool HotkeyAutoSend[HOTKEYS];          // 0x719ecc, saved as a '\n' after the text
-static char Hotkeys[HOTKEYS][HOTKEY_LENGTH];  // 0x719ef0, "Hotkey = (Number,Text)"
-static int Engine;                            // 0x71c2f0, -1 = not chosen
-static int ConfineFramerate;                  // 0x71c2f4
-static int NoStretching;                      // 0x71c2f8, 0 or 1, 2 = not set yet
-static int CreatureInfo;                      // 0x71c2fc
-static bool TextualEffects;                   // 0x71c300
-static bool LightEffects;                     // 0x71c301
-static bool WindowsMousepointer;              // 0x71c302
-static TFullscreenMode FullscreenMode;        // 0x71c304, Width 0 = not set
-static int ViewMode;                          // 0x71c314, "ViewMode" in a MainFrm.cpp catch block
-static bool TestServerLogin;                  // 0x71c318, "TestServer = yes"
-static bool PreferencesLoaded;               // 0x71c319, set by InitPreferences; SavePreferences writes only then
-static int WindowedX;                         // 0x71c31c
-static int WindowedY;                         // 0x71c320
+static int WindowedWidth = 600;                             // 0x5c2558, "WindowedMode = (x,y,Width,Height,Maximized)"
+static int WindowedHeight = 400;                            // 0x5c255c
+static bool SkillBars[SKILLS];                              // 0x719e70, "SkillBars = {...}"
+static bool MagLevelBar;                                    // 0x719e77
+static bool LevelBar;                                       // 0x719e78
+static bool ShowNewHints;                                   // 0x719e79
+static int NumberOfKnownHints;                              // 0x719e7c, "KnownHints = {...}"
+static int NumberOfBuddyEntries;                            // 0x719e80, "Buddy = (...)", deleted entries included
+static bool SecureMode;                                     // 0x719e84
+static int ChaseMode;                                       // 0x719e88
+static int AttackMode;                                      // 0x719e8c
+static bool AutoChaseOff;                                   // 0x719e90
+static bool ClassicControl;                                 // 0x719e91
+static int NumberOfOpenChannels;                            // 0x719e94, "OpenChannel = ..."
+static bool PrivateMessages;                                // 0x719e98
+static bool TimeStamps;                                     // 0x719e99
+static bool StatusMessages;                                 // 0x719e9a
+static bool EventMessages;                                  // 0x719e9b
+static bool InfoMessages;                                   // 0x719e9c
+static char *MotD;                                          // 0x719ea0, text of the message of the day
+static int LastMotD;                                        // 0x719ea4, its number
+static int NumberOfOpenDialogs;                             // 0x719ea8, "OpenDialogs = ..."
+static bool BuddyHideOffline;                               // 0x719eac
+static int BuddySortmethods[3];                             // 0x719eb0
+static int NumberOfContentWindows;                          // 0x719ebc, "ContentWindow = (...)"
+static int AutomapZoom;                                     // 0x719ec0
+static int ConsoleHeight;                                   // 0x719ec4
+static bool WindowedMaximized;                              // 0x719ec8
+static bool HotkeyAutoSend[HOTKEYS];                        // 0x719ecc, saved as a '\n' after the text
+static char Hotkeys[HOTKEYS][HOTKEY_LENGTH];                // 0x719ef0, "Hotkey = (Number,Text)"
+static int Engine;                                          // 0x71c2f0, -1 = not chosen
+static int ConfineFramerate;                                // 0x71c2f4
+static int NoStretching;                                    // 0x71c2f8, 0 or 1, 2 = not set yet
+static int CreatureInfo;                                    // 0x71c2fc
+static bool TextualEffects;                                 // 0x71c300
+static bool LightEffects;                                   // 0x71c301
+static bool WindowsMousepointer;                            // 0x71c302
+static TFullscreenMode FullscreenMode;                      // 0x71c304, Width 0 = not set
+static int ViewMode;                                        // 0x71c314, "ViewMode" in a MainFrm.cpp catch block
+static bool TestServerLogin;                                // 0x71c318, "TestServer = yes"
+static bool PreferencesLoaded;                              // 0x71c319, set by InitPreferences; SavePreferences writes only then
+static int WindowedX;                                       // 0x71c31c
+static int WindowedY;                                       // 0x71c320
 static vector<TContentWindowSize> ContentWindows(0, 9, 10); // 0x71c324, initialiser at 0x55a050
-static vector<int> OpenDialogs(0, 9, 10, -1);  // 0x71c348, initialiser at 0x55a070
-static vector<int> OpenChannels(0, 9, 10);     // 0x71c368, initialiser at 0x55a090
-static vector<TBuddy> Buddies(0, 9, 10);       // 0x71c388, initialiser at 0x55a0b0
-static vector<int> KnownHints(0, 9, 10);       // 0x71c430, initialiser at 0x55a0d0
+static vector<int> OpenDialogs(0, 9, 10, -1);               // 0x71c348, initialiser at 0x55a070
+static vector<int> OpenChannels(0, 9, 10);                  // 0x71c368, initialiser at 0x55a090
+static vector<TBuddy> Buddies(0, 9, 10);                    // 0x71c388, initialiser at 0x55a0b0
+static vector<int> KnownHints(0, 9, 10);                    // 0x71c430, initialiser at 0x55a0d0
 
 // 0x4db2a0
 bool GetTestServerLogin()

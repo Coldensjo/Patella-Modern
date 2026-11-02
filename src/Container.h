@@ -94,7 +94,7 @@ template <class T> T &array<T>::operator()(int i)
 	if (i < 0 || i >= d) {
 		std::stringstream s;
 		s << "index out of range (" << "original i: " << i + min << ", i: " << i << ", min: " << min
-			<< ", d: " << d << ")";
+		  << ", d: " << d << ")";
 		TERROR(178, s.str().c_str());
 	}
 	return entry[i];
@@ -142,8 +142,8 @@ template <class T> T &matrix<T>::operator()(int x, int y)
 	if (x < 0 || x >= dx || y < 0 || y >= dy) {
 		std::stringstream s;
 		s << "index out of range (" << "original x: " << x + xmin << ", original y: " << y + ymin
-			<< ", x: " << x << ", y: " << y << ", xmin: " << xmin << ", ymin: " << ymin << ", dx: " << dx
-			<< ", dy: " << dy << ")";
+		  << ", x: " << x << ", y: " << y << ", xmin: " << xmin << ", ymin: " << ymin << ", dx: " << dx
+		  << ", dy: " << dy << ")";
 		TERROR(253, s.str().c_str());
 	}
 	return entry[y * dx + x];
@@ -189,9 +189,9 @@ template <class T> T &matrix3d<T>::operator()(int x, int y, int z)
 	if (x < 0 || x >= dx || y < 0 || y >= dy || z < 0 || z >= dz) {
 		std::stringstream s;
 		s << "index out of range (" << "original x: " << x + xmin << ", original y: " << y + ymin
-			<< ", original z: " << z + zmin << ", x: " << x << ", y: " << y << ", z: " << z
-			<< ", xmin: " << xmin << ", ymin: " << ymin << ", zmin: " << zmin << ", dx: " << dx
-			<< ", dy: " << dy << ", dz: " << dz << ")";
+		  << ", original z: " << z + zmin << ", x: " << x << ", y: " << y << ", z: " << z
+		  << ", xmin: " << xmin << ", ymin: " << ymin << ", zmin: " << zmin << ", dx: " << dx
+		  << ", dy: " << dy << ", dz: " << dz << ")";
 		throw TMYEXCEPTION(328, s.str().c_str(), "", 0, "", 0, "[bug0000013]");
 	}
 	return entry[(z * dy + y) * dx + x];
