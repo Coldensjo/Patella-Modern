@@ -1,0 +1,97 @@
+{
+	"version": 6,
+	"cmakeMinimumRequired": {
+		"major": 3,
+		"minor": 30,
+		"patch": 0
+	},
+	"configurePresets": [
+		{
+			"name": "base",
+			"hidden": true,
+			"generator": "Ninja Multi-Config",
+			"binaryDir": "${sourceDir}/build/${presetName}",
+			"cacheVariables": {
+				"CMAKE_CONFIGURATION_TYPES": "Release;Debug",
+				"CMAKE_DEFAULT_BUILD_TYPE": "Release"
+			}
+		},
+		{
+			"name": "windows-base",
+			"hidden": true,
+			"inherits": "base",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			},
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "cl",
+				"CMAKE_CXX_COMPILER": "cl"
+			}
+		},
+		{
+			"name": "oracle-x86",
+			"displayName": "oracle-x86: today's 32-bit Patella.exe and the difftest (MSVC x86, static MFC; until M6)",
+			"description": "Run from an x86 developer prompt (vcvarsall.bat x86). Needs Tibia.exe in the root (or PATELLA_TIBIA_EXE) and Python.",
+			"inherits": "windows-base",
+			"architecture": {
+				"value": "x86",
+				"strategy": "external"
+			},
+			"toolset": {
+				"value": "host=x86",
+				"strategy": "external"
+			},
+			"cacheVariables": {
+				"PATELLA_ORACLE": "ON"
+			}
+		}
+	],
+	"buildPresets": [
+		{
+			"name": "oracle-x86",
+			"configurePreset": "oracle-x86",
+			"configuration": "Release"
+		},
+		{
+			"name": "oracle-x86-debug",
+			"configurePreset": "oracle-x86",
+			"configuration": "Debug"
+		}
+	],
+	"testPresets": [
+		{
+			"name": "oracle-x86",
+			"configurePreset": "oracle-x86",
+			"configuration": "Release",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			}
+		}
+	],
+	"workflowPresets": [
+		{
+			"name": "oracle-x86",
+			"displayName": "oracle-x86: configure, build Release, run the difftest",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "oracle-x86"
+				},
+				{
+					"type": "build",
+					"name": "oracle-x86"
+				},
+				{
+					"type": "test",
+					"name": "oracle-x86"
+				}
+			]
+		}
+	]
+}

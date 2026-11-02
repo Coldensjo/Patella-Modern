@@ -1,0 +1,244 @@
+# The oracle-x86 preset (issue #4; notes/modernization-plan.md, sections 5 and 7, M1): a test
+# instrument until M6, not a product.
+#
+# - Patella.exe with exactly the compiler, resource compiler and linker command lines of
+#   Patella.vcxproj (Release and Debug; tools\build-patella.cmd builds the same): /std:c++17 /W3,
+#   static MFC (nafxcw.lib, pulled in by the MFC headers), /MT, Tibia.exe's import libraries in
+#   their order, oleacc.dll delay-loaded, no manifest. The resource pictures are extracted from the
+#   local Tibia.exe at configure time.
+# - difftest, sysinctest, communicationtest and vlongtest with exactly the command lines of
+#   tools\difftest\build.cmd (the same in every configuration), run as CTest tests against
+#   PATELLA_TIBIA_EXE, each with a private TEMP; and the capture DLL patcap.dll of
+#   tools\build-capture.cmd.
+#
+# CMake's own default flags (/DWIN32 /D_WINDOWS /GR /EHsc, /Ob2, /machine, /INCREMENTAL, its
+# standard libraries) are cleared below, so every flag on the command lines is one written here.
+# Configure from an x86 developer prompt (vcvarsall.bat x86), as the .cmd scripts do.
+
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR NOT CMAKE_C_COMPILER_ID STREQUAL "MSVC"
+		OR NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
+	message(FATAL_ERROR "oracle-x86 needs MSVC's x86 compiler (cl.exe for x86): configure from a developer "
+		"prompt set up with vcvarsall.bat x86 (found ${CMAKE_CXX_COMPILER_ID}, ${CMAKE_SIZEOF_VOID_P}-byte pointers)")
+endif()
+
+enable_language(RC)
+enable_language(ASM_MASM)
+
+# The Python on PATH, as the .cmd scripts run, before any registered elsewhere.
+set(Python3_FIND_REGISTRY LAST)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+set(PATELLA_TIBIA_EXE "${PROJECT_SOURCE_DIR}/Tibia.exe" CACHE FILEPATH
+	"The original Tibia.exe: the resource pictures are extracted from it and the tests compare against it")
+if(NOT EXISTS "${PATELLA_TIBIA_EXE}")
+	message(FATAL_ERROR "${PATELLA_TIBIA_EXE} is missing: the resource pictures are extracted from it and "
+		"the tests compare against it (notes/resources.md; set PATELLA_TIBIA_EXE to use another copy)")
+endif()
+file(TO_NATIVE_PATH "${PATELLA_TIBIA_EXE}" PATELLA_TIBIA_EXE_NATIVE)
+
+# No flag of CMake's own: the targets below set every one.
+foreach(lang C CXX RC ASM_MASM)
+	set(CMAKE_${lang}_FLAGS "")
+	foreach(config DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+		set(CMAKE_${lang}_FLAGS_${config} "")
+	endforeach()
+endforeach()
+set(CMAKE_C_STANDARD_LIBRARIES "")
+set(CMAKE_CXX_STANDARD_LIBRARIES "")
+foreach(kind EXE SHARED MODULE)
+	set(CMAKE_${kind}_LINKER_FLAGS "")
+	foreach(config DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+		set(CMAKE_${kind}_LINKER_FLAGS_${config} "")
+	endforeach()
+endforeach()
+set(CMAKE_ASM_MASM_FLAGS "/nologo")
+# rc.exe as MSBuild runs it (its /D NDEBUG or /D _DEBUG come from the target's definitions).
+set(CMAKE_RC_FLAGS "/l0x0409 /nologo")
+# Not removable: Ninja Multi-Config defines CMAKE_INTDIR="<configuration>" on every compile, which
+# no source uses.
+
+set(DIFFTEST_DIR "${PROJECT_SOURCE_DIR}/tools/difftest")
+set(ORACLE_TMP_DIR "${PROJECT_BINARY_DIR}/tmp")
+
+# ---------------------------------------------------------------------------------------------------
+# The resource pictures (cursors, icon, bitmaps) of the local Tibia.exe, for src/res/Patella.rc; the
+# project's ExtractResources target does the same before the resources compile.
+
+set(PATELLA_RES_DIR "${PROJECT_BINARY_DIR}/res")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+	"${PATELLA_TIBIA_EXE}" "${PROJECT_SOURCE_DIR}/tools/extract_resources.py")
+execute_process(
+	COMMAND "${Python3_EXECUTABLE}" -I "${PROJECT_SOURCE_DIR}/tools/extract_resources.py"
+		"${PATELLA_TIBIA_EXE}" "${PATELLA_RES_DIR}"
+	RESULT_VARIABLE extract_result
+	OUTPUT_VARIABLE extract_output
+	ERROR_VARIABLE extract_output)
+if(NOT extract_result EQUAL 0)
+	message(FATAL_ERROR "tools/extract_resources.py failed (${extract_result}):\n${extract_output}")
+endif()
+
+# ---------------------------------------------------------------------------------------------------
+# Patella.exe: Patella.vcxproj's command lines (build\Release\build.log), in their order. /Oy- must
+# follow /O2, which turns frame pointer omission on.
+
+# MSBuild's order, in which the objects are linked: src\*.cpp sorted without case (the file system's
+# order), then the C files of the regexp.
+file(GLOB patella_cpp_sources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/src/*.cpp")
+list(SORT patella_cpp_sources CASE INSENSITIVE)
+file(GLOB patella_c_sources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/src/Extern/regexp/*.c")
+list(SORT patella_c_sources CASE INSENSITIVE)
+set(patella_rc "${PROJECT_SOURCE_DIR}/src/res/Patella.rc")
+set_source_files_properties("${patella_rc}" PROPERTIES OBJECT_DEPENDS "${PATELLA_RES_DIR}/resources.tsv")
+
+add_executable(Patella WIN32 ${patella_cpp_sources} ${patella_c_sources} "${patella_rc}")
+set_target_properties(Patella PROPERTIES
+	MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+	MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)
+target_include_directories(Patella PRIVATE
+	"$<$<COMPILE_LANGUAGE:C,CXX>:${PROJECT_SOURCE_DIR}/src>"
+	"$<$<COMPILE_LANGUAGE:RC>:${PATELLA_RES_DIR}>")
+target_compile_definitions(Patella PRIVATE
+	$<$<CONFIG:Debug>:_DEBUG>
+	$<$<CONFIG:Release>:NDEBUG>
+	$<$<COMPILE_LANGUAGE:C,CXX>:WIN32>
+	$<$<COMPILE_LANGUAGE:C,CXX>:_WINDOWS>
+	$<$<COMPILE_LANGUAGE:C,CXX>:_WIN32_WINNT=0x0601>)
+target_compile_options(Patella PRIVATE
+	$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Debug>>:/JMC>
+	$<$<COMPILE_LANGUAGE:C,CXX>:/W3 /WX- /diagnostics:column /sdl->
+	$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Release>>:/O2 /Oi>
+	$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Debug>>:/Od>
+	$<$<COMPILE_LANGUAGE:C,CXX>:/Oy- /Gm- /EHsc>
+	$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Debug>>:/RTC1>
+	$<$<COMPILE_LANGUAGE:C,CXX>:/GS>
+	$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Release>>:/Gy>
+	$<$<COMPILE_LANGUAGE:C,CXX>:/fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline>
+	$<$<COMPILE_LANGUAGE:CXX>:/std:c++17>
+	$<$<COMPILE_LANGUAGE:C,CXX>:/permissive- /external:W3 /Gd /analyze- /FC /Zc:strictStrings->)
+# Tibia.exe's import table in its order (notes/decisions.md, "Building Patella.exe (issue #16)");
+# Direct3D 9 is loaded at run time. MSBuild adds delayimp.lib for /DELAYLOAD.
+target_link_libraries(Patella PRIVATE
+	glu32 opengl32 ddraw dxguid winmm kernel32 user32 gdi32 winspool advapi32 shell32 comctl32 shlwapi
+	oleaut32 ws2_32 delayimp)
+# afxsock.h asks for wsock32.lib, which MFC's socket code would then import from; Tibia.exe imports
+# every Windows Sockets function from WS2_32.dll. /MANIFEST:NO also keeps CMake from embedding one.
+target_link_options(Patella PRIVATE
+	/INCREMENTAL:NO /NODEFAULTLIB:wsock32.lib /DELAYLOAD:oleacc.dll /MANIFEST:NO /DEBUG
+	$<$<CONFIG:Release>:/OPT:REF /OPT:ICF>
+	/TLBID:1 /DYNAMICBASE /NXCOMPAT /MACHINE:X86 /SAFESEH)
+
+# ---------------------------------------------------------------------------------------------------
+# The tests of tools\difftest\build.cmd. Its flags in every configuration:
+#	/std:c++17 /MT /O2 /W3 /DTIBIA_MFC_SHIM /D_WIN32_WINNT=0x0601 /I src, and /EHa or /EHsc,
+# for the C file too, as cl gets them there; cl links with only the libraries and options given.
+
+function(oracle_test_target target eh)
+	set_target_properties(${target} PROPERTIES
+		MSVC_RUNTIME_LIBRARY MultiThreaded
+		MSVC_DEBUG_INFORMATION_FORMAT "")
+	target_include_directories(${target} PRIVATE "$<$<COMPILE_LANGUAGE:C,CXX>:${PROJECT_SOURCE_DIR}/src>")
+	target_compile_definitions(${target} PRIVATE
+		$<$<COMPILE_LANGUAGE:C,CXX>:TIBIA_MFC_SHIM>
+		$<$<COMPILE_LANGUAGE:C,CXX>:_WIN32_WINNT=0x0601>)
+	target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:/std:c++17 /O2 /W3 ${eh}>)
+	# The programs cl links have no manifest; CMake would embed one.
+	target_link_options(${target} PRIVATE /MANIFEST:NO)
+endfunction()
+
+# Each test gets a private TEMP, as build.cmd gives its run one: several tests write fixed
+# directories there.
+function(oracle_test_environment test)
+	file(MAKE_DIRECTORY "${ORACLE_TMP_DIR}/${test}")
+	file(TO_NATIVE_PATH "${ORACLE_TMP_DIR}/${test}" tmp)
+	set_tests_properties(${test} PROPERTIES ENVIRONMENT "TEMP=${tmp};TMP=${tmp}")
+endfunction()
+
+# The base layer's sources in difftest.exe and communicationtest.exe, in build.cmd's order.
+set(difftest_game_sources
+	Script.cpp Talk.cpp Objects.cpp)
+list(TRANSFORM difftest_game_sources PREPEND "${PROJECT_SOURCE_DIR}/src/")
+set(difftest_window_sources
+	Surface.cpp SurfaceDX.cpp surfaceDX9.cpp SurfaceGL.cpp Help.cpp Inventory.cpp Creatures.cpp Map.cpp
+	graphics.cpp GUI.cpp DialogWindow.cpp ContextMenus.cpp ConsoleWindow.cpp ContentWindows.cpp
+	DialogElements.cpp Dialogs.cpp MapWindow.cpp MainWindow.cpp Extern/regexp/regexp.c)
+list(TRANSFORM difftest_window_sources PREPEND "${PROJECT_SOURCE_DIR}/src/")
+
+# difftest.exe: the reconstructed functions against the original machine code. imageeh.cpp's
+# exception handler trampoline must be in the SafeSEH table: only the assembler can put it there.
+set(difftest_tests
+	difftest.cpp statustest.cpp preferencestest.cpp scripttest.cpp talktest.cpp objectstest.cpp playertest.cpp
+	helptest.cpp inventorytest.cpp creaturestest.cpp maptest.cpp graphicstest.cpp guitest.cpp
+	dialogwindowtest.cpp contextmenustest.cpp consolewindowtest.cpp contentwindowstest.cpp
+	dialogelementstest.cpp dialogstest.cpp surfacedx9test.cpp surfacegltest.cpp containertest.cpp
+	surfacedxtest.cpp mapwindowtest.cpp mainwindowtest.cpp elementfakes.cpp regexptest.cpp errortest.cpp
+	networktest.cpp mainfrmtest.cpp imageeh.cpp imageehseh.asm)
+list(TRANSFORM difftest_tests PREPEND "${DIFFTEST_DIR}/")
+set_source_files_properties("${DIFFTEST_DIR}/imageehseh.asm" PROPERTIES COMPILE_OPTIONS /safeseh)
+add_executable(difftest ${difftest_tests}
+	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"
+	"${PROJECT_SOURCE_DIR}/src/TMyException.cpp" "${PROJECT_SOURCE_DIR}/src/Skins.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Status.cpp" "${PROJECT_SOURCE_DIR}/src/Preferences.cpp"
+	${difftest_game_sources} "${PROJECT_SOURCE_DIR}/src/Player.cpp" ${difftest_window_sources})
+oracle_test_target(difftest /EHa)
+target_link_libraries(difftest PRIVATE ddraw dxguid winmm user32)
+target_link_options(difftest PRIVATE /BASE:0x20000000 /DYNAMICBASE:NO /FIXED)
+
+# sysinctest.exe: sysinc.cpp on its own (difftest.exe replaces some of its functions with recorders).
+add_executable(sysinctest "${DIFFTEST_DIR}/difftest.cpp" "${DIFFTEST_DIR}/sysinctest.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"
+	"${PROJECT_SOURCE_DIR}/src/TMyException.cpp" "${PROJECT_SOURCE_DIR}/src/sysinc.cpp")
+oracle_test_target(sysinctest /EHa)
+target_compile_definitions(sysinctest PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:DIFFTEST_SYSINC>)
+target_link_libraries(sysinctest PRIVATE user32)
+target_link_options(sysinctest PRIVATE /BASE:0x20000000 /DYNAMICBASE:NO /FIXED)
+
+# communicationtest.exe: Communication.cpp and Control.cpp with every callee faked (issue #36).
+add_executable(communicationtest
+	"${DIFFTEST_DIR}/difftest.cpp" "${DIFFTEST_DIR}/communicationtest.cpp" "${DIFFTEST_DIR}/controltest.cpp"
+	"${DIFFTEST_DIR}/commworld.cpp" "${DIFFTEST_DIR}/imageeh.cpp" "${DIFFTEST_DIR}/imageehseh.asm"
+	"${PROJECT_SOURCE_DIR}/src/Communication.cpp" "${PROJECT_SOURCE_DIR}/src/Control.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Network.cpp" "${PROJECT_SOURCE_DIR}/src/sysinc.cpp"
+	"${PROJECT_SOURCE_DIR}/src/TRSA.cpp" "${PROJECT_SOURCE_DIR}/src/vlong.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"
+	"${PROJECT_SOURCE_DIR}/src/TMyException.cpp" "${PROJECT_SOURCE_DIR}/src/Skins.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Status.cpp" "${PROJECT_SOURCE_DIR}/src/Preferences.cpp"
+	${difftest_game_sources} ${difftest_window_sources})
+oracle_test_target(communicationtest /EHa)
+target_compile_definitions(communicationtest PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:DIFFTEST_COMMUNICATION>)
+target_link_libraries(communicationtest PRIVATE
+	ddraw dxguid winmm user32 ws2_32 gdi32 opengl32 glu32 shell32)
+target_link_options(communicationtest PRIVATE /BASE:0x20000000 /DYNAMICBASE:NO /FIXED /OPT:NOICF)
+
+# vlongtest.exe: vlong and TRSA against Python's exact integers (vlongcheck.py).
+add_executable(vlongtest "${DIFFTEST_DIR}/vlongtest.cpp" "${PROJECT_SOURCE_DIR}/src/vlong.cpp"
+	"${PROJECT_SOURCE_DIR}/src/TRSA.cpp" "${PROJECT_SOURCE_DIR}/src/TMyException.cpp")
+oracle_test_target(vlongtest /EHsc)
+
+# The capture DLL of the rendering comparison (tools\build-capture.cmd; compare_rendering.py still
+# builds its own copy in build\capture).
+add_library(patcap SHARED "${PROJECT_SOURCE_DIR}/tools/capture/patcap.c")
+set_target_properties(patcap PROPERTIES
+	MSVC_RUNTIME_LIBRARY MultiThreaded
+	MSVC_DEBUG_INFORMATION_FORMAT ""
+	DEFINE_SYMBOL "")
+target_compile_options(patcap PRIVATE /O2 /W4 /WX)
+target_link_libraries(patcap PRIVATE user32 gdi32 winmm ddraw opengl32)
+target_link_options(patcap PRIVATE /MANIFEST:NO)
+
+enable_testing()
+
+add_test(NAME difftest COMMAND difftest "${PATELLA_TIBIA_EXE_NATIVE}")
+oracle_test_environment(difftest)
+add_test(NAME sysinctest COMMAND sysinctest "${PATELLA_TIBIA_EXE_NATIVE}")
+oracle_test_environment(sysinctest)
+add_test(NAME communicationtest COMMAND communicationtest "${PATELLA_TIBIA_EXE_NATIVE}")
+oracle_test_environment(communicationtest)
+add_test(NAME vlongtest COMMAND "${CMAKE_COMMAND}"
+	"-DVLONGTEST=$<TARGET_FILE:vlongtest>"
+	"-DPYTHON=${Python3_EXECUTABLE}"
+	"-DCHECK=${DIFFTEST_DIR}/vlongcheck.py"
+	"-DOUTPUT=${ORACLE_TMP_DIR}/vlongtest/vlong.txt"
+	-P "${PROJECT_SOURCE_DIR}/cmake/RunVlongTest.cmake")
+oracle_test_environment(vlongtest)
+# The full difftest runs for a long time; DIFFTEST_TIMEOUT (default 1800 s) stops a hung child.
+set_tests_properties(difftest communicationtest PROPERTIES TIMEOUT 7200)

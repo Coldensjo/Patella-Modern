@@ -100,6 +100,9 @@ None.
 
 ## Last difftest
 
+Issue #4 (branch issue-4, November 3, 2026): `cmake --workflow --preset oracle-x86` (CTest) and the full build.cmd
+give the same counts as below, every per-test count included.
+
 16,848,752 checks against the original + 67 in sysinctest.exe + 1,134,513 in communicationtest.exe, 0 failures;
 3,201 vlong checks, 0 failures (main after merging #36 and #37, full build.cmd, November 2, 2026: #37 added
 Network 74,928 + 38,878 and MainFrm 31,424 + 18,152 to difftest.exe, every other count unchanged; #36 added

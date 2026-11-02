@@ -4795,3 +4795,49 @@ The fork's decisions; the details, alternatives and reasons are in notes/moderni
 - **D17 Public:** the repository goes public after the M0 cleanup, its history published as it is (it contains
   earlier analysis output: rea-out/, names.tsv, symbols.tsv). The legal risk of publishing a reconstruction of a
   proprietary client was raised and accepted. No CipSoft files in the repository or in any package.
+
+## CMake: the oracle-x86 preset (issue #4)
+
+Settled by Claude Opus 5.5, November 3, 2026 (CMake 4.1.2, Ninja 1.13.2, MSVC 14.51 x86). `CMakeLists.txt`
+(CMake 3.30+), `CMakePresets.json` (Ninja Multi-Config, configurations Release and Debug, binary directory
+build\<preset>) and `cmake/OracleX86.cmake`. `cmake --workflow --preset oracle-x86` configures, builds Release
+and runs the tests; the other presets of the plan (section 5) come with #5 and #7.
+
+- **Environment** (form). The preset does not set up the compiler: it runs from a developer prompt for x86
+  (`vcvarsall.bat x86`, the HostX86\x86 tools the .cmd scripts use); its architecture and toolset are marked
+  `external` for IDEs that do it. CMAKE_C/CXX_COMPILER are `cl` (mingw-w64's gcc is on PATH here), and the
+  configure stops unless MSVC targets 32-bit. Python is found on PATH before the registry
+  (Python3_FIND_REGISTRY LAST; the registry had an older 3.11).
+- **Flags** (high). Every one of CMake's default flags is cleared (CMAKE_<LANG>_FLAGS[_<CONFIG>], the linker
+  flags, CMAKE_<LANG>_STANDARD_LIBRARIES), so the command lines carry only the options written in
+  OracleX86.cmake. Patella.exe gets Patella.vcxproj's options in MSBuild's order (build\Release\build.log and
+  the Debug log: /JMC /Od /RTC1 /MTd for Debug, /O2 /Oi /Gy /MT for Release), rc.exe `/l0x0409` with NDEBUG or
+  _DEBUG and build\oracle-x86\res as its only include path, and the same linker options and import libraries
+  in the same order. The four test programs get build.cmd's `/std:c++17 /MT /O2 /W3 /DTIBIA_MFC_SHIM
+  /D_WIN32_WINNT=0x0601 /I src` with /EHa (/EHsc for vlongtest), for the C file too, the same sources in the
+  same order, the same libraries and linker options, in Release and Debug alike; ml.exe `/nologo /safeseh`.
+  patcap.dll gets build-capture.cmd's `/O2 /W4 /WX /MT`. One define is added that cannot be turned off:
+  Ninja Multi-Config defines `CMAKE_INTDIR="<configuration>"` on every compile; no source uses it. CMake links
+  through `cmake -E vs_link_exe`, which embeds a manifest unless it sees /MANIFEST:NO: Patella.exe has that
+  already, and the test programs and patcap.dll get it too, since the ones cl links have no manifest either.
+- **Object order** (form). The objects link in MSBuild's order: src\*.cpp sorted without case, then
+  src\Extern\regexp\*.c. With regexp.c sorted in among the .cpp files, .text came out 96 bytes longer.
+- **Result** (high). Patella.exe (Release): `compare_resources.py` 55 entries, 0 differences;
+  `compare_imports.py` against Tibia.exe prints exactly what it prints for build\Release\Patella.exe, and
+  against build\Release\Patella.exe no difference (the same DLLs in the same order, the same functions,
+  OLEACC.dll delay-loaded). Section by section the two images have the same sizes, .rsrc and .fptable
+  identical; .rdata differs in two strings, the rest are addresses that moved with them: the PDB path in the
+  debug directory, and the `#line 173 "Extern\glh/glh_extensions.h"` name in glh_extensions.h, which /FC makes
+  absolute from the compiler's working directory (MSBuild's: C:\Patella-Modern\Extern\glh\glh_extensions.h;
+  Ninja's: C:\Patella-Modern\build\oracle-x86\Extern\glh\glh_extensions.h; the original prints
+  "Extern\glh/glh_extensions.h" when malloc fails there, and so do the test programs, which build without /FC).
+  No compiler or linker warning in either build. The CTest tests give exactly build.cmd's counts.
+- **Resources** (form). tools/extract_resources.py runs at configure time (as the plan has it for Linux, section
+  5) into build\oracle-x86\res; Tibia.exe and the script are configure dependencies, so a new Tibia.exe
+  configures again. PATELLA_TIBIA_EXE (default the root's Tibia.exe) is also the tests' argument.
+- **Tests** (form). CTest tests difftest, sysinctest, communicationtest (the program with Tibia.exe's path as
+  its argument) and vlongtest (cmake/RunVlongTest.cmake: vlongtest.exe into a file, then vlongcheck.py), each
+  with a private TEMP and TMP under build\oracle-x86\tmp, as build.cmd gives its run one; a CTest timeout of
+  7200 s for difftest and communicationtest (DIFFTEST_TIMEOUT still stops a hung child after 1800 s). The test
+  preset prints the programs' output (verbosity verbose) so the counts are in the log. patcap.dll is a target
+  only: compare_rendering.py still builds and uses build\capture\patcap.dll.
