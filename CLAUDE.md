@@ -20,6 +20,17 @@ above, still ignored); `-Stash` puts it away again. The build and the tests (`to
 `tools\compile-check.cmd`, `tools\difftest\build.cmd`, `cmake --workflow --preset oracle-x86` from an x86
 developer prompt, the compare scripts) do not need it.
 
+## Code style
+
+`.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by
+`.clang-format-ignore`), `.editorconfig` the editor settings. Check with Visual Studio's clang-format
+(`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/res/resource.h`.
+Run clang-tidy only through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>`,
+never `clang-tidy --fix` directly: until M5 no change may touch the arguments of TASSERT*, TERROR* or TEND*
+(stringized into the messages difftest compares), and the wrapper reverts every fix inside them. The product
+targets' compiler, warning and hardening settings are `cmake/Warnings.cmake` and `cmake/Hardening.cmake`;
+the oracle-x86 preset never uses them. Details: `notes/reconstruction.md`, "Checking".
+
 ## REA
 
 The `rea` MCP server (https://github.com/morluto/rea) is registered at Claude Code local scope for this
