@@ -847,7 +847,7 @@ void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 	LinkWarningEventHandler = linkwarningeventhandler;
 	TaintedClipboardText = NULL;
 	LinkRegexp = NULL;
-	LinkRegexp = regcomp(LinkPattern);
+	LinkRegexp = regcomp((char *)LinkPattern);
 	::Gamemaster = Gamemaster;
 	ClearRights();
 	NumberOfMessages = 0;
