@@ -361,7 +361,7 @@ Each milestone ends when every gate passes and its exit criteria are met.
 - [x] Create `Coldensjo/Patella-Modern` (private until the cleanup below) with Patella's history; `upstream`
       remote set.
 - [x] Copy the client data files (gitignored) into `C:\Patella-Modern`.
-- [ ] README: what the fork is, the targets, a link to this plan, the upstream sync rule.
+- [x] README: what the fork is, the targets, a link to this plan, the upstream sync rule.
 - [x] Decisions D1 to D17 recorded in `notes/decisions.md` under "Modernization".
 - [ ] Go public (D17): a README and a notice on what the project is and that it contains no CipSoft files;
       the self-hosted runner restricted (4.7); then switch the repository to public. The history is
