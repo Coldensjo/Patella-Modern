@@ -46,6 +46,39 @@
 			"cacheVariables": {
 				"PATELLA_ORACLE": "ON"
 			}
+		},
+		{
+			"name": "windows-x64",
+			"displayName": "windows-x64: the Windows product (MSVC x64); so far the unit tests (issue #9), the client with issue #5",
+			"description": "Run from an x64 developer prompt (vcvarsall.bat x64).",
+			"inherits": "windows-base",
+			"architecture": {
+				"value": "x64",
+				"strategy": "external"
+			},
+			"toolset": {
+				"value": "host=x64",
+				"strategy": "external"
+			},
+			"cacheVariables": {
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+			}
+		},
+		{
+			"name": "windows-x64-gcc",
+			"displayName": "windows-x64-gcc: mingw-w64 GCC 16, C++26 on Windows (plan D6); so far the unit tests (issue #9)",
+			"description": "Needs mingw-w64 GCC 16 (gcc, g++) on PATH.",
+			"inherits": "base",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			},
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "gcc",
+				"CMAKE_CXX_COMPILER": "g++",
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+			}
 		}
 	],
 	"buildPresets": [
@@ -58,6 +91,26 @@
 			"name": "oracle-x86-debug",
 			"configurePreset": "oracle-x86",
 			"configuration": "Debug"
+		},
+		{
+			"name": "windows-x64",
+			"configurePreset": "windows-x64",
+			"configuration": "Release"
+		},
+		{
+			"name": "windows-x64-debug",
+			"configurePreset": "windows-x64",
+			"configuration": "Debug"
+		},
+		{
+			"name": "windows-x64-gcc",
+			"configurePreset": "windows-x64-gcc",
+			"configuration": "Release"
+		},
+		{
+			"name": "windows-x64-gcc-debug",
+			"configurePreset": "windows-x64-gcc",
+			"configuration": "Debug"
 		}
 	],
 	"testPresets": [
@@ -65,6 +118,54 @@
 			"name": "oracle-x86",
 			"configurePreset": "oracle-x86",
 			"configuration": "Release",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			}
+		},
+		{
+			"name": "windows-x64",
+			"configurePreset": "windows-x64",
+			"configuration": "Release",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			}
+		},
+		{
+			"name": "windows-x64-debug",
+			"configurePreset": "windows-x64",
+			"configuration": "Debug",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			}
+		},
+		{
+			"name": "windows-x64-gcc",
+			"configurePreset": "windows-x64-gcc",
+			"configuration": "Release",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			}
+		},
+		{
+			"name": "windows-x64-gcc-debug",
+			"configurePreset": "windows-x64-gcc",
+			"configuration": "Debug",
 			"output": {
 				"verbosity": "verbose",
 				"outputOnFailure": true
@@ -90,6 +191,42 @@
 				{
 					"type": "test",
 					"name": "oracle-x86"
+				}
+			]
+		},
+		{
+			"name": "windows-x64",
+			"displayName": "windows-x64: configure, build Release, run the unit tests",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "windows-x64"
+				},
+				{
+					"type": "build",
+					"name": "windows-x64"
+				},
+				{
+					"type": "test",
+					"name": "windows-x64"
+				}
+			]
+		},
+		{
+			"name": "windows-x64-gcc",
+			"displayName": "windows-x64-gcc: configure, build Release, run the unit tests",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "windows-x64-gcc"
+				},
+				{
+					"type": "build",
+					"name": "windows-x64-gcc"
+				},
+				{
+					"type": "test",
+					"name": "windows-x64-gcc"
 				}
 			]
 		}

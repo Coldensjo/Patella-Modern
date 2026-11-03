@@ -57,6 +57,31 @@ function(patella_target_language target)
 			$<$<COMPILE_LANGUAGE:C,CXX>:/utf-8 /Zc:preprocessor /Zc:inline>)
 	elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 		target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-std=c++26>)
+		# GCC 16 keeps the default contract violation handler, which contract_assert calls
+		# (src/compat/cxx26.h), in libstdc++exp.
+		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16)
+			target_link_libraries(${target} PRIVATE $<$<LINK_LANGUAGE:CXX>:stdc++exp>)
+		endif()
+		# mingw-w64: the compiler's runtime DLLs are copied next to the executable, where Windows
+		# looks first, so it never loads another GCC's libstdc++-6.dll that comes earlier on PATH (a
+		# loader error dialog at start). Linking them in (-static) is not possible with GCC 16.2: in
+		# C++26 an unoptimised object defines std::logic_error's copy constructor, which the static
+		# libstdc++.a defines too (multiple definition).
+		get_target_property(type ${target} TYPE)
+		if(MINGW AND type STREQUAL "EXECUTABLE")
+			cmake_path(GET CMAKE_CXX_COMPILER PARENT_PATH compiler_dir)
+			set(runtime "")
+			foreach(dll libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll)
+				if(EXISTS "${compiler_dir}/${dll}")
+					list(APPEND runtime "${compiler_dir}/${dll}")
+				endif()
+			endforeach()
+			if(runtime)
+				add_custom_command(TARGET ${target} POST_BUILD
+					COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${runtime} "$<TARGET_FILE_DIR:${target}>"
+					VERBATIM)
+			endif()
+		endif()
 	else()
 		message(FATAL_ERROR "patella_target_language: no settings for ${CMAKE_CXX_COMPILER_ID}")
 	endif()
@@ -97,6 +122,13 @@ function(patella_target_warnings target)
 			set(level ${baseline})
 		else()
 			set(level ${full})
+		endif()
+		# A source property belongs to the directory, not the target: a source that several targets
+		# share (the unit tests' two builds) gets its level once.
+		get_property(options SOURCE "${source}" TARGET_DIRECTORY ${target} PROPERTY COMPILE_OPTIONS)
+		list(GET level 0 first)
+		if(first IN_LIST options)
+			continue()
 		endif()
 		set_property(SOURCE "${source}" TARGET_DIRECTORY ${target} APPEND PROPERTY COMPILE_OPTIONS ${level})
 	endforeach()

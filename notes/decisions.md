@@ -4932,3 +4932,70 @@ Settled by Claude Opus 5.5, November 3, 2026 (MSVC 14.51 / cl 19.51, CMake 4.1.2
   compare_resources.py against Tibia.exe print the same for both (55 resources, 0 differences). lines.py check:
   2,053 sites matched, 0 mismatches, the same output as for main. The CTest counts are main's (notes/progress.md,
   "Last difftest").
+
+## src/compat/cxx26.h and the unit tests (issue #9)
+
+Settled by Claude Opus 5.5, November 3, 2026 (MSVC 14.51 / cl 19.51 x64, mingw-w64 GCC 16.2, CMake 4.1.2, Ninja
+1.13.2, doctest 2.5.3). `src/compat/cxx26.h`, `tests/unit/` (CMakeLists.txt, main.cpp, cxx26_contracts_test.cpp,
+cxx26_static_vector_test.cpp, RunContractViolation.cmake), the presets windows-x64 and windows-x64-gcc,
+`cmake/Warnings.cmake` (two additions for GCC). No client code changed; nothing of src/ includes the header yet.
+
+- **Selection** (high). Per feature by its test macro: `__cpp_contracts >= 202502` selects contract_assert,
+  `__cpp_lib_inplace_vector >= 202603` (libstdc++ 16's value, whose try_ functions return `std::optional<T &>`)
+  selects std::inplace_vector; `PATELLA_HAS_CONTRACTS` and `PATELLA_HAS_INPLACE_VECTOR` say which. Defining
+  `PATELLA_CXX26_STANDIN` for a whole target takes the stand-ins also where the real features exist (never for one
+  file: the two paths differ in types). MSVC 19.51 has neither feature, GCC 16.2 with -std=c++26 both.
+- **CONTRACT_ASSERT(Predicate)** (high). The plan's "contract macros"; one macro, since `pre` and `post` belong to
+  a declaration and have no macro form. Real: `contract_assert(__VA_ARGS__)` (variadic, so commas inside template
+  arguments pass). Stand-in: the "enforce" semantic, GCC's default: the predicate converted with
+  static_cast<bool> (a top-level comma is an error, as in contract_assert), evaluated once; when false or when it
+  throws, GCC's message (`contract violation in function F at FILE:LINE: PREDICATE`, then the
+  `[assertion_kind: assert, semantic: enforce, mode: ..., terminating: yes]` line, mode evaluation_exception when it
+  threw, where GCC 16.2 says predicate_false) through std::print to stderr, then std::terminate, inside the catch
+  handler when the predicate threw, as GCC. A do/while statement, usable in constexpr functions (a violation in
+  constant evaluation does not compile on either path). Not reproducible: const locals inside the predicate, the
+  other semantics, a replaceable handler. The name is the client's all-capitals macro style (TASSERT) without the T,
+  which belongs to the error.txt macros.
+- **libstdc++exp** (high). GCC 16.2 keeps the default violation handler (`handle_contract_violation`) in
+  libstdc++exp.a, as it keeps std::stacktrace; without it any contract_assert fails to link.
+  `patella_target_language` links it for GCC 16 and newer.
+- **TStaticVector<T, N>** (high). In namespace patella (D15; the client is not in it until M7). Real: an alias of
+  std::inplace_vector. Stand-in: libstdc++ 16's interface member by member (no try_append_range, which 202603
+  dropped), with its results and exceptions: std::bad_alloc beyond the capacity, checked before anything changes
+  when the number of new elements is known (sized or forward), after filling up when it is not (input iterators and
+  ranges); std::out_of_range from at(); trivially copyable, movable and destructible for such T (constrained
+  defaulted members); constexpr for trivially default-constructible, trivially copyable T (the slots get values
+  during constant evaluation, which makes the union's array active, as libstdc++ does). Storage: an anonymous union
+  with `T Slots[N]` and a size_t. Differences, documented in the header: iterators are pointers; try_push_back and
+  try_emplace_back return `T *` (C++23 has no `std::optional<T &>`; code uses only `if (auto E = ...)`, `*E`,
+  `E->`); N == 0 is not an empty type; the preconditions (operator[], front, back, pop_back, the unchecked_
+  functions, positions) are CONTRACT_ASSERTs, where std::inplace_vector's are undefined behaviour; sizeof differs.
+  The tests found two places where the difference shows: iterators of TStaticVector<int, 8> and <int, 6> are one
+  type on the stand-in, distinct ones in libstdc++; and `&V.push_back(1) == &V[0]` evaluated V[0] first on GCC, which
+  the stand-in reported as a violation.
+- **Unit tests** (form). doctest 2.5.3 (plan 4.6 and 5): `find_package(doctest 2.5.3 CONFIG)` first, otherwise
+  FetchContent of the release archive with its SHA256 (FIND_PACKAGE_ARGS); its own tests, main library and install
+  off. tests/unit builds the same three sources twice: `tests_unit` (the compiler's selection) and
+  `tests_unit_cxx26_standin` (PATELLA_CXX26_STANDIN), both with patella_target_language, _warnings and _hardening.
+  PATELLA_EXPECT_CXX26 (MSVC 0, GCC 16 1) makes the tests fail when the wrong path was taken. The violations end
+  the process, so each program has `--contract-violation <scenario>` and RunContractViolation.cmake (a CTest test per
+  scenario) checks that it ended abnormally before going on and that stderr has the message; the precondition
+  scenario applies to the stand-in only (exit 77, CTest's skip, on the real path). main sets
+  `_set_abort_behavior(0, ...)` so that no abort message box and no Windows Error Reporting appear.
+- **Presets** (form). windows-x64 (MSVC x64 from a `vcvarsall.bat x64` prompt) and windows-x64-gcc (mingw-w64 GCC
+  on PATH; plan D6, "C++26 parity build on Windows"), names from the plan's table; each with Release and Debug
+  build presets, test presets and a workflow preset, and compile_commands.json. They build only tests/unit; #5
+  adds the client to windows-x64, #7 the Linux presets. The top-level CMakeLists.txt adds tests/unit when
+  PATELLA_ORACLE is off (it stopped with an error before). The oracle's targets and flags are unchanged.
+- **mingw-w64 runtime** (high). The first GCC test run loaded an older libstdc++-6.dll that came first on PATH, and
+  the loader showed an "Entry Point Not Found" dialog. `-static` fixes that in Release, but GCC 16.2's Debug build
+  (-O0, C++26) then fails to link: the object defines std::logic_error's copy constructor and so does the static
+  libstdc++.a (cow-stdexcept.o, multiple definition; reproduced with a three-line program). So patella_target_language
+  copies the compiler's libstdc++-6.dll, libgcc_s_seh-1.dll and libwinpthread-1.dll next to each mingw executable
+  after the link, where Windows looks first; the tests then run with only System32 on PATH.
+- **Warnings.cmake** (form). A source shared by two targets got its warning level twice (a source property belongs
+  to the directory); it is set once now.
+- **Result** (high). windows-x64 (stand-ins) and windows-x64-gcc (real features, and the stand-ins forced): each 8
+  CTest tests, 0 failures, 0 warnings; doctest 18 test cases, 158 assertions (tests_unit) and 160
+  (tests_unit_cxx26_standin, two more path checks), Release and Debug. The oracle-x86 preset configures and builds
+  with 0 warnings; its tests were not run (nothing it builds changed).

@@ -128,6 +128,25 @@ the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8), w
 - `patella_target_hardening(<target>)`: `/guard:cf /CETCOMPAT`; `-fstack-protector-strong`,
   `_FORTIFY_SOURCE=3` (optimised builds), `_GLIBCXX_ASSERTIONS` (Debug), PIE and, on Linux, full RELRO.
 
+The unit tests (`tests/unit/`, doctest 2.5.3: an installed one through find_package, otherwise downloaded once
+by FetchContent and checked against its SHA256; issue #9) build with the presets windows-x64 (MSVC x64, from a
+`vcvarsall.bat x64` prompt) and windows-x64-gcc (mingw-w64 GCC 16 on PATH), which build nothing else yet (the
+client comes with issue #5):
+
+```
+cmake --workflow --preset windows-x64       # configure, build Release, run the unit tests through CTest
+cmake --workflow --preset windows-x64-gcc
+ctest --preset windows-x64-debug            # after cmake --build --preset windows-x64-debug
+```
+
+Both write build\<preset>\tests\unit\<Configuration>: `tests_unit` (src/compat/cxx26.h as the compiler selects
+it: the stand-ins on MSVC, contract_assert and std::inplace_vector on GCC 16) and `tests_unit_cxx26_standin` (the
+same tests with PATELLA_CXX26_STANDIN), each a CTest test, plus one per contract violation scenario
+(RunContractViolation.cmake). The mingw executables get the compiler's runtime DLLs copied next to them.
+src/compat/cxx26.h is the only way to C++26 features (plan section 8): `CONTRACT_ASSERT(Predicate)` and
+`patella::TStaticVector<T, N>` so far; its comment lists what the stand-ins do not reproduce. Details:
+notes/decisions.md, "src/compat/cxx26.h and the unit tests (issue #9)".
+
 Run it only from a folder with copies of the data files (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg; for
 example build\run), never from the root: the client rewrites Tibia.cfg on exit, and the root's data files
 may be the user's own.
@@ -163,7 +182,7 @@ with time made virtual so both clients draw the same moment: notes/rendering.md.
   so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
   `.editorconfig` sets tabs, LF and UTF-8 for every editor. With Visual Studio's clang-format 22
   (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h
-  src/res/resource.h` reports nothing; `clang-format -i` on a changed file formats it. Hand-laid tables (case
+  src/res/resource.h tests/unit/*.cpp` reports nothing; `clang-format -i` on a changed file formats it. Hand-laid tables (case
   tables, vertex and pixel format lists) and the macros clang-format cannot parse sit between
   `// clang-format off` and `// clang-format on`.
 - clang-tidy (issue #8): `.clang-tidy` has the checks of the coding standard (notes/modernization-plan.md,
