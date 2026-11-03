@@ -98,7 +98,7 @@ patcap.dll against the replayed server side (two live recordings from the test s
 writes the reference set (the test-mode script the run makes, the server side, Tibia.exe's packets, states,
 frames, files); tools/reference.py compare runs PatellaTest.exe on each script with --test-replay (the server
 side replayed inside the client over loopback, the virtual clock held while the network is busy: no server)
-and compares. All eight sessions match on the CPU driver (packets with keys and padding, 62 states, 58 frames,
+and compares. All eight sessions match on the CPU driver (packets with keys and padding, 62 states, 61 frames,
 every written file), 2 to 5 s each. Patella.exe and the oracle unchanged. notes/testmode.md, "Reference
 recordings".
 Next: the other open issues; see GitHub.
