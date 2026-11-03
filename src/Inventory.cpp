@@ -301,3 +301,15 @@ void ResetInventory()
 void ExitInventory()
 {
 }
+
+#if defined(PATELLA_TEST_MODE)
+// The test mode's state dump (issue #22; src/testmode/ClientView.h) reads this file's data; it writes
+// nothing. Test build only.
+void patella::testmode::ViewInventory(TInventoryView *View)
+{
+	View->Body = Body;
+	View->Containers = Containers;
+	View->OwnOffer = &OwnOffer;
+	View->CounterOffer = &CounterOffer;
+}
+#endif

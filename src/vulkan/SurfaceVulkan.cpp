@@ -1003,6 +1003,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		PixelsObserver = (TVulkanPixelsObserver)(void *)GetProcAddress(Observer, "PatcapVulkanPixels");
 		MaskObserver = (TVulkanMaskObserver)(void *)GetProcAddress(Observer, "PatcapVulkanMask");
 	}
+	PATELLA_TEST_FRAME_OBSERVERS(Observer, FrameObserver, PixelsObserver, MaskObserver)
 	try {
 		Renderer = std::make_unique<TRenderer>();
 		Renderer->Create(Request());

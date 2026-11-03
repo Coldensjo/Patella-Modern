@@ -1596,3 +1596,15 @@ void ExitMap()
 		SaveAutomapBlock(i);
 	TEND1(1842, i)
 }
+
+#if defined(PATELLA_TEST_MODE)
+// The test mode's state dump (issue #22; src/testmode/ClientView.h) reads this file's data; it writes
+// nothing. Test build only.
+void patella::testmode::ViewMap(TMapView *View)
+{
+	View->MapX = &MapX;
+	View->MapY = &MapY;
+	View->MapZ = &MapZ;
+	View->Fields = &Fields;
+}
+#endif

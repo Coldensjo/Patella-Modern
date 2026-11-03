@@ -239,6 +239,7 @@ void SendCommand(bool Encrypt)
 		SendBuffer.Position = 0;
 		SendBuffer.PutWord(0);
 		SendBuffer.PutWord((uint16)Size);
+		PATELLA_TEST_PACKET_SENT(SendData, Size, 0)
 		Socket->Send(&SendData[2], Size + 2, 0);
 		return;
 	}
@@ -250,6 +251,7 @@ void SendCommand(bool Encrypt)
 	SendBuffer.Position = 0;
 	SendBuffer.PutWord((uint16)Length);
 	SendBuffer.PutWord((uint16)Size);
+	PATELLA_TEST_PACKET_SENT(SendData, Size, Length)
 	try {
 		for (int i = 2; i < Length + 2; i += 8)
 			SymmetricKey.EncryptBlock(&SendData[i]);
@@ -285,6 +287,7 @@ void PrepareNextPacket()
 			TERROR(398, "Symmetric decryption failed with unknown exception");
 		}
 		ReceiveBuffer.SetSize(ReceiveBuffer.GetWord() + 4);
+		PATELLA_TEST_PACKET_RECEIVED(ReceiveData, PacketSize)
 		memset(PacketHeader, 0, sizeof(PacketHeader));
 		ReceiveRead = PacketSize + 2;
 		memcpy(PacketHeader, &ReceiveData[2], PacketSize < 16 ? PacketSize : 16);

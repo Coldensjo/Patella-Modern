@@ -28,13 +28,17 @@
 //	ldown, lup, rdown, rup <x> <y> [<mods>]   one button event (and the move to the point)
 //	wheel <notches>            the wheel at the mouse; positive turns it up, negative down
 //	quit                       closes the main window (WM_CLOSE)
+//	dump                       the state dump (issue #22, StateDump.h): the client's state and window
+//	                           tree as JSON, after every earlier event was handled
+//	frame                      the frame dump (issue #22, Png.h): the next frame the Vulkan engine shows,
+//	                           and its device-filtered pixels
 //
 // A coordinate is a number of pixels from the left or top edge of the client area, or R-<n> / B-<n>
 // for <n> pixels from its right or bottom edge (resolved when the event is delivered).
 //
 // Every event after the script's last one: none; the clock goes on, the client runs on until it
-// exits. Later test-mode commands (the state dump, packet log and frame dump of issue #22, the
-// session scripts of issue #23) are more commands of this parser.
+// exits. dump and frame are events of their own (TEventKind::StateDump, FrameDump): the driver
+// handles them in their turn, one per idle call, like the input.
 
 #pragma once
 
@@ -68,6 +72,8 @@ enum class TEventKind : std::uint8_t {
 	RightDouble, // X, Y
 	Wheel,       // Delta: notches, positive up
 	Quit,
+	StateDump, // issue #22: the state dump
+	FrameDump, // issue #22: the next frame shown
 };
 
 // A coordinate of the client area: Value pixels from the left or top edge, or (FromEnd) from the

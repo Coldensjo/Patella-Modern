@@ -18,6 +18,25 @@
 //	PATELLA_TEST_IDLE                  the driver's step, at the start of CPlayerApp::OnIdle (a statement
 //	                                   without a semicolon, like TBEGIN; empty outside the test build)
 //
+// Issue #22 (the packet log and the frame dump; notes/testmode.md), statements without a semicolon too,
+// nothing at all outside the test build:
+//
+//	PATELLA_TEST_RSA_BLOCK(Block)      Communication.cpp SendLogin, SendGameLogin: the RSA block before
+//	                                   it is encrypted (the packet log writes the first packets with it)
+//	PATELLA_TEST_PACKET_SENT(Data, Size, Padded)
+//	                                   Network.cpp SendCommand: SendData with the packet complete, before
+//	                                   XTEA encryption (Padded: its length with the padding; 0: not
+//	                                   encrypted)
+//	PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize)
+//	                                   Network.cpp PrepareNextPacket: ReceiveData with the next packet
+//	                                   decrypted
+//	PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask)
+//	                                   vulkan/SurfaceVulkan.cpp InitDisplay: without patcap.dll, the test
+//	                                   mode's frame dump becomes the engine's frame observer
+//
+// The state dump reads the client's data through the View functions at the end of Creatures.cpp,
+// Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h; test build only).
+//
 // With a script, CPlayerApp::PreTranslateMessage (test build only) drops the keyboard and mouse input
 // that comes from Windows, so the desktop's own mouse and keyboard cannot reach the client.
 
@@ -26,6 +45,8 @@
 #if defined(PATELLA_TEST_MODE)
 
 #include <ctime>
+
+#include "testmode/ClientView.h"
 
 namespace patella::testmode {
 DWORD TimeGetTime();
@@ -37,6 +58,11 @@ UINT_PTR SetMainTimer(HWND Window, UINT_PTR Id, UINT Elapse, TIMERPROC Function)
 void Idle();
 // True: the message is input from Windows that the driver's script replaces (dropped).
 bool DropInput(const MSG *Message);
+void RsaBlock(const unsigned char *Block);
+void PacketSent(const unsigned char *Data, int Size, int Padded);
+void PacketReceived(const unsigned char *Data, int PacketSize);
+void FrameObservers(HMODULE Patcap, int(__cdecl **Frame)(int, int), void(__cdecl **Pixels)(const void *, int, int, int),
+	void(__cdecl **Mask)(const unsigned char *, int, int));
 } // namespace patella::testmode
 
 #define PATELLA_TIME_GET_TIME() patella::testmode::TimeGetTime()
@@ -46,6 +72,10 @@ bool DropInput(const MSG *Message);
 #define PATELLA_GET_CURSOR_POS(Point) patella::testmode::GetCursorPosition(Point)
 #define PATELLA_SET_MAIN_TIMER(Window, Id, Elapse, Function) patella::testmode::SetMainTimer(Window, Id, Elapse, Function)
 #define PATELLA_TEST_IDLE patella::testmode::Idle();
+#define PATELLA_TEST_RSA_BLOCK(Block) patella::testmode::RsaBlock(Block);
+#define PATELLA_TEST_PACKET_SENT(Data, Size, Padded) patella::testmode::PacketSent(Data, Size, Padded);
+#define PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize) patella::testmode::PacketReceived(Data, PacketSize);
+#define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask) patella::testmode::FrameObservers(Patcap, &(Frame), &(Pixels), &(Mask));
 
 #else
 
@@ -58,5 +88,9 @@ bool DropInput(const MSG *Message);
 // No statement at all: an empty one is a nop in an unoptimised MSVC build (Debug), which would move
 // the code after it.
 #define PATELLA_TEST_IDLE
+#define PATELLA_TEST_RSA_BLOCK(Block)
+#define PATELLA_TEST_PACKET_SENT(Data, Size, Padded)
+#define PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize)
+#define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask)
 
 #endif

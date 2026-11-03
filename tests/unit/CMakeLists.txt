@@ -12,7 +12,8 @@
 #
 # - tests_testmode: patella_testmode (cmake/TestMode.cmake, issue #21): the virtual clock, the input
 #   script's parser and key table, the scheduler, the driver's loop on the virtual clock, and that the
-#   scripts in tests/testmode parse.
+#   scripts in tests/testmode parse; the dumps of issue #22: the script's dump and frame commands, the
+#   state dump's JSON, the packet log's lines and connections, the frame dump's PNG pictures.
 #
 # - tests_render: src/vulkan/Quads.cpp, the Vulkan engine's Direct3D 9 quads, and src/vulkan/FilterMask.cpp,
 #   its device-filtered pixels (issue #19).
@@ -102,7 +103,8 @@ add_test(NAME tests_core COMMAND tests_core)
 add_executable(tests_testmode
 	testmode_main.cpp
 	testmode_clock_test.cpp
-	testmode_script_test.cpp)
+	testmode_script_test.cpp
+	testmode_dump_test.cpp)
 target_link_libraries(tests_testmode PRIVATE patella_testmode doctest::doctest)
 target_compile_definitions(tests_testmode PRIVATE "PATELLA_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\"")
 patella_target_language(tests_testmode)

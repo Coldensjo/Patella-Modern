@@ -875,3 +875,12 @@ void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 	PendingActionNumber = 0;
 	Progress = -1;
 }
+
+#if defined(PATELLA_TEST_MODE)
+// The test mode's state dump (issue #22; src/testmode/ClientView.h) reads this file's data; it writes
+// nothing. Test build only.
+const int *patella::testmode::ViewConnectionState()
+{
+	return &ConnectionState;
+}
+#endif
