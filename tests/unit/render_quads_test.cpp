@@ -52,11 +52,26 @@ TEST_CASE("a texel-centred blit is a copy")
 	CHECK(Axis.CopyStart == 5);
 }
 
-TEST_CASE("the automap's u 0 to 1: a copy for point sampling, between texels for linear")
+TEST_CASE("the automap's u 0 to 1: an Edge copy for point sampling, between texels for linear")
 {
+	// The samples on the texel edges: pixel k reads texel max(k - 1, 0), as Direct3D 9 on the
+	// reference GPU (Quads.cpp).
 	TAxis Point = MapAxis(0, 106, 0.0f, 1.0f, 106, TFilter::Point);
 	CHECK(Point.Copy);
-	CHECK(Point.CopyStart == 0);
+	CHECK(Point.Edge);
+	CHECK(Point.CopyStart == -1);
+	TQuad Q{0, 0, 106, 106, 0.0f, 1.0f, 0.0f, 1.0f, 0xffffffffu, 0xffffffffu, 0xffffffffu, 0xffffffffu};
+	TQuadVertices V = ConvertQuad(Q, 106, 106, TFilter::Point);
+	CHECK(V.Nearest);
+	CHECK(V.Clamp);
+	CHECK(V.Vertices[0].u * 106 == doctest::Approx(-1.0));
+	CHECK(V.Vertices[2].u * 106 == doctest::Approx(105.0));
+	// An edge start elsewhere is left to the hardware, and a texel interior is an ordinary copy.
+	CHECK_FALSE(MapAxis(0, 50, static_cast<float>(3.0 / 106), static_cast<float>(53.0 / 106), 106, TFilter::Point).Copy);
+	TAxis Inside = MapAxis(0, 50, static_cast<float>(3.25 / 106), static_cast<float>(53.25 / 106), 106, TFilter::Point);
+	CHECK(Inside.Copy);
+	CHECK_FALSE(Inside.Edge);
+	CHECK(Inside.CopyStart == 3);
 	TAxis Linear = MapAxis(0, 106, 0.0f, 1.0f, 106, TFilter::Linear);
 	CHECK_FALSE(Linear.Copy);
 	CHECK(Linear.Start == doctest::Approx(-0.5));

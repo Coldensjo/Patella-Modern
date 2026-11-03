@@ -12,11 +12,12 @@ their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)
 | `src/vulkan/SurfaceVulkan.h`, `.cpp` | `TSurfaceVulkan`, the `TSurface` of the client: surfaceDX9.cpp's logic with the Direct3D 9 calls replaced; the engine choice (`PATELLA_VULKAN`); the Win32 surface |
 | `src/vulkan/Renderer.h`, `.cpp` | `patella::vulkan::TRenderer`, the back end: no window system, no MFC (portable C++23 with volk, vk-bootstrap and VMA) |
 | `src/vulkan/Quads.h`, `.cpp` | how Direct3D 9's quads become Vulkan vertices; no Vulkan at all (tests_render on every preset) |
+| `src/vulkan/FilterMask.h`, `.cpp` | `TFilterMasks`: which pixels come from the device's filter (the comparison's tolerance); no Vulkan (tests_render) |
 | `src/vulkan/Vma.cpp` | VMA's implementation |
 | `src/vulkan/shaders/*` | `Quad.vert` (every pipeline), `Quad.frag` (texture times vertex colour), `Fill.frag`, `ColorKey.frag`, `Constants.glsl` (the push constants) |
 | `cmake/Vulkan.cmake` | the pinned dependencies, the shaders (glslang), `patella_vulkan_deps`, `patella_render_vulkan`, the CPU driver, tests/vulkan |
 | `tests/vulkan/render_test.cpp` | `tests_vulkan`: the back end headless against a model of Direct3D 9's pixels |
-| `tests/unit/render_quads_test.cpp` | `tests_render`: Quads.cpp |
+| `tests/unit/render_quads_test.cpp`, `render_filtermask_test.cpp` | `tests_render`: Quads.cpp and FilterMask.cpp |
 
 None of it is in the oracle-x86 build: its glob is `src/*.cpp`, and the only change to a reconstructed file is
 Surface.cpp's choice of engine 2 behind two macros that are surfaceDX9.cpp's calls without `PATELLA_VULKAN`
@@ -24,27 +25,25 @@ Surface.cpp's choice of engine 2 behind two macros that are surfaceDX9.cpp's cal
 
 ## Choosing the engine
 
-Until issue #20 removes the three original engines from windows-x64, the Vulkan engine stands in for engine 2
-(DirectX 9) when the environment variable `PATELLA_VULKAN` asks for it (Surface.cpp's
-`PATELLA_ENGINE2_INSTALLED` and `PATELLA_CREATE_ENGINE2`):
+Since the user's decision of November 3, 2026, **engine 2 of the Windows x64 client is the Vulkan engine**
+(Surface.cpp's `PATELLA_ENGINE2_INSTALLED` and `PATELLA_CREATE_ENGINE2`, which are surfaceDX9.cpp's calls in the
+oracle): Tibia.cfg's `Engine = 2`, or no engine chosen when Vulkan is available, or "DirectX 9" in the advanced
+graphics options. Tibia.cfg, its format and the dialog are unchanged; the FPS line (Ctrl+F's overlay) still says
+"DX9". Until issue #20 removes the original engines and brings plan 6.3's device choice (the engine buttons
+becoming "Automatic", one entry per GPU and "CPU (compatibility)", stored in the fork's settings file, D12), the
+environment variable `PATELLA_VULKAN` chooses the device, or gives engine 2 back to Direct3D 9 for comparisons:
 
-| `PATELLA_VULKAN` | Device |
+| `PATELLA_VULKAN` | Engine 2 |
 | :--- | :--- |
-| unset, empty, `0`, `off`, `no` | none: the original engines, as before |
-| `auto` (also `1`, `on`, anything else) | the best GPU with Vulkan 1.3 (discrete, integrated, virtual, other), else the CPU driver |
-| `gpu`, `gpu0`, `gpu1` ... (`gpu:1`) | a GPU only: the best one, or the n-th in the loader's order |
-| `cpu` | the CPU driver only |
+| unset, empty, `auto` (also `1`, `on`, anything not below) | Vulkan: the best GPU with Vulkan 1.3 (discrete, integrated, virtual, other), else the CPU driver |
+| `gpu`, `gpu0`, `gpu1` ... (`gpu:1`) | Vulkan on a GPU only: the best one, or the n-th in the loader's order |
+| `cpu` | Vulkan on the CPU driver only |
+| `off` (also `0`, `no`, `dx9`) | surfaceDX9.cpp's Direct3D 9, as in the original (comparisons, until issue #20) |
 
-So the client takes the Vulkan engine where it would take DirectX 9: Tibia.cfg's `Engine = 2` (or no engine
-chosen, when Vulkan is available), or "DirectX 9" in the advanced graphics options. Tibia.cfg, its format and the
-dialog are unchanged; the FPS line (Ctrl+F's overlay) still says "DX9". `PATELLA_VULKAN_VALIDATION=1` asks for the
-validation layers (they come with the LunarG Vulkan SDK, which this machine does not have; without them the
-request is ignored).
-
-This is not yet the choice of plan 6.3 (the engine buttons becoming "Automatic", one entry per GPU and "CPU
-(compatibility)", stored in the fork's settings file, D12): that changes the dialog the user sees, so it goes
-with issue #20, when the engine buttons lose their meaning, and the settings file. `TDeviceRequest`
-(Renderer.h) already has the three kinds.
+A machine without a Vulkan loader (vulkan-1.dll) has no engine 2 then: the client's own selection falls back to
+OpenGL or DirectX 5, as it did without Direct3D 9. `PATELLA_VULKAN_VALIDATION=1` asks for the validation layers
+(they come with the LunarG Vulkan SDK, which this machine does not have; without them the request is ignored).
+`TDeviceRequest` (Renderer.h) already has plan 6.3's three kinds.
 
 ## How it works
 
@@ -94,29 +93,46 @@ frame dump's source for issue #22 (plan 4.4), on any device, without a window sy
 
 Direct3D 9 puts pixel centres on whole coordinates, the hardware (and Vulkan) at + 0.5; a Direct3D 9 driver moves
 every vertex half a pixel. surfaceDX9.cpp's quads have whole corners and texture coordinates `(x + 0.5) / width`,
-the texel centres. Quads.cpp turns a quad into vertices in one of two ways:
+the texel centres. Quads.cpp turns a quad into vertices in one of three ways:
 
-- **A copy** (one colour, texels one to one onto pixels: every unscaled blit, the automap's point-sampled
-  106x106 upload): the corners stay on whole pixels, so no pixel centre lies on an edge, and the coordinates put
-  the texel edges on the pixel edges, so nearest sampling reads the texel centres: the exact texels on every
-  device, whatever its filter rounds. Linear filtering at a texel centre reads only that texel too, so this is
-  what Direct3D 9 computes.
+- **A copy** (one colour, texels one to one onto pixels: every unscaled blit): the corners stay on whole pixels,
+  so no pixel centre lies on an edge, and the coordinates put the texel edges on the pixel edges, so nearest
+  sampling reads the texel centres: the exact texels on every device, whatever its filter rounds. Linear
+  filtering at a texel centre reads only that texel too, so this is what Direct3D 9 computes.
+- **An Edge copy**: point sampling whose samples fall on the texel edges, from edge 0. The one case is the
+  automap's upload (SurfaceVulkan.cpp WriteImage: ScreenTexture's 106x106 drawn to AUTOMAP_SURFACE with u and v
+  from 0 to 1). The interpolated coordinate lands a hair below each edge except at the corner, so Direct3D 9 on
+  the NVIDIA GPU shows texel max(k - 1, 0) at pixel k: issue #19's live comparison showed the minimap one pixel
+  off against Tibia.exe until this rule was in (up to 255 per channel in every game scene). tests_vulkan shows
+  the same mapping on that GPU through Vulkan, and lavapipe rounding to texel k; the engine gives every device
+  the rule as a copy (texel k - 1 through a nearest, clamp-to-edge sampler). Samples on the edges from another
+  start go to the hardware as below.
 - **Everything else** (a stretch, the light's coloured corners, a coordinate between texels) goes to the hardware
   as a Direct3D 9 driver gives it: the corners half a pixel on, the attributes as they are, the linear or point
   sampler with wrapping (D3DTADDRESS_WRAP). The hardware then covers the same pixels (the top-left rule on the
   edges), interpolates the same values and filters them with its own bilinear filter.
 
-So these pixels are exactly what Direct3D 9 gives, independent of the device: everything the client copies,
-fills, uploads and colour-keys. These depend on the device's filter and rounding: **the light** (plan 6.1) and the
-**bilinear stretches**: the start screen's picture (640x480 stretched over the window, MainWindow.cpp
-TStartWindow::Draw: the start, login and option dialog scenes), the map view (480x352 stretched to the map
-window, MapWindow.cpp, unless "no stretching" is set: the game scenes) and the scaled item pictures
-(graphics.cpp StretchBlit). Direct3D 9 filters them with the GPU too, so Tibia.exe's own DirectX 9 frames depend
-on the graphics card there. On the same NVIDIA GPU the Vulkan engine gives the hardware the same vertices as a
-Direct3D 9 driver does, so the same pixels are likely; on the CPU driver they can differ by 1 per colour channel
-(tests_vulkan below). The plan's contract (6.1, 4.5: "exact outside the light") assumed every engine operation
-except the light was integer work; the bilinear stretches are not (notes/decisions.md, issue #19,
-"Needs the user"). compare_rendering.py reports each scene's largest channel difference and takes `--tolerance`.
+So the pixels the client copies, fills, uploads and colour-keys are exactly what Direct3D 9 gives on every
+device. Those of **the light** (plan 6.1) and of the **bilinear stretches** depend on the device's filter and
+rounding: the start screen's picture (640x480 stretched over the window, MainWindow.cpp TStartWindow::Draw: the
+start, login and option dialog scenes), the map view (480x352 stretched to the map window, MapWindow.cpp, unless
+"no stretching" is set: the game scenes) and the scaled item pictures (graphics.cpp StretchBlit). Direct3D 9
+filters them with the GPU too, so Tibia.exe's own frames depend on the graphics card there. The live comparison
+(November 3, 2026): on the RTX 5080 they are identical to Tibia.exe's DirectX 9 frames (the engine gives the
+hardware what a Direct3D 9 driver gives it); on the CPU driver they differ by at most 2 per channel (mean about
+0.35).
+
+**The tolerance (the user's decision of November 3, 2026):** up to 2 per colour channel on the pixels whose value
+comes from the device's filter or interpolation (the bilinear stretches and the light), exact everywhere else, on
+every device. The engine knows those pixels: while a frame observer (patcap.dll) watches, `TFilterMasks`
+(FilterMask.cpp) follows its fills, uploads and quads with a byte per pixel of every image, "filtered" and
+"transparent" (alpha 0). Uploads and fills set it exactly; a copy carries the source's bytes over, texel for texel
+as the engine samples it, except through transparent texels (which leave the target's pixel); every other quad
+marks every pixel it covers. So a glyph over the stretched start screen is exact where its texels are opaque, and
+the lit map copied unscaled to the screen ("no stretching") keeps its marks. The captured frame's mask goes to
+patcap.dll (below); compare_rendering.py applies `--region-tolerance` (default 2) on it only. One case is wider
+than needed: a scaled item picture's colour-keyed texels (ApplyColorKey's pixels are only known on the GPU) count
+as filtered where they leave the target unchanged.
 
 What the engine does not reproduce of surfaceDX9.cpp: quads still queued when the device is released (a switch
 between window and fullscreen) are dropped, where Direct3D 9 would draw them from a new, undefined vertex buffer;
@@ -170,23 +186,30 @@ read back from outside the engine (the injected DLL would need the engine's devi
 swapchain), so the engine calls patcap.dll itself when it is loaded (GetModuleHandle "patcap.dll"):
 `PatcapVulkanDevice(name, type, cpu)` once it has a device, `PatcapVulkanFrame(width, height)` before every
 frame is shown (patcap counts the frame, API 5, and answers whether it wants it), and, when wanted,
-`PatcapVulkanPixels` with SCREEN_SURFACE's rectangle read back, the picture Present shows. Without patcap.dll the
-engine looks it up once per device and calls nothing. With the original engines (issue #20) these calls go;
-the test mode's frame dump (issue #22) reads the same canvas.
+`PatcapVulkanMask` (the frame's device-filtered pixels, a byte each, written raw to the capture's path with
+`.mask` appended) and `PatcapVulkanPixels` with SCREEN_SURFACE's rectangle read back, the picture Present shows.
+Shared memory version 3 (`MaskPixels` at 1016: the marked pixels of the last mask). Without patcap.dll the engine
+looks it up once per device, calls nothing and keeps no masks. With the original engines (issue #20) these
+calls go; the test mode's frame dump (issue #22) reads the same canvas.
 
 ## Checks
 
-- `tests_render` (every product preset, tests/unit): Quads.cpp, 8 test cases, 249 assertions: when a quad is a
-  copy, the texel-centred coordinates at Vulkan's pixel centres, Direct3D 9's coordinates and colours at the
-  pixel centres for the rest.
+- `tests_render` (every product preset, tests/unit): Quads.cpp and FilterMask.cpp, 12 test cases, 289
+  assertions: when a quad is a copy or an Edge copy, the texel-centred coordinates at Vulkan's pixel centres,
+  Direct3D 9's coordinates and colours at the pixel centres for the rest; the masks of fills, uploads,
+  stretches, copies through transparent texels, the light, the automap's Edge copy and a self-draw.
 - `tests_vulkan` (windows-x64 with the client; CTest, exit 77 = skipped without a loader): the back end
   headless, never a window, on the CPU driver next to it and on the machine's best GPU. Fills, 400 random
-  unscaled copies of a texture with transparent texels, the automap's point-sampled copy, stretches, the colour
-  key pass, the light, a draw that samples its target, six frames of 4.8 MB uploads and a resized image, each
-  read back and compared with a model of Direct3D 9's pixels (tests/vulkan/render_test.cpp `ModelDraw`). On
-  November 3, 2026: 9 test cases, 60 assertions; on llvmpipe (Mesa 26.2.5, LLVM 23.1.4) and on the NVIDIA GeForce
-  RTX 5080 (Vulkan 1.4.357): fills, copies, the automap copy and the colour key 0 pixels differ; stretches,
-  the automap quad sampled linearly and the light at most 1 per channel (CPU driver: 1,251, 7,263 and 996
-  pixels; GPU: 932, 5,768 and 27,944).
-- The live comparison against Tibia.exe: `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu
-  --modes windowed --patella build\windows-x64\Release\Patella.exe` (notes/rendering.md).
+  unscaled copies of a texture with transparent texels, the automap's upload (a texture of texel coordinates:
+  every pixel must show texel max(k - 1, 0)), stretches, the colour key pass, the light, a draw that samples its
+  target, six frames of 4.8 MB uploads and a resized image, each read back and compared with a model of Direct3D
+  9's pixels (tests/vulkan/render_test.cpp `ModelDraw`). On November 3, 2026: 9 test cases, 58 assertions; on
+  llvmpipe (Mesa 26.2.5, LLVM 23.1.4) and on the NVIDIA GeForce RTX 5080 (Vulkan 1.4.357): fills, copies, the
+  automap upload and the colour key 0 pixels differ; stretches, the automap quad sampled linearly and the light at
+  most 1 per channel from the model (CPU driver: 1,251, 11,155 and 996 pixels; GPU: 932, 11,040 and 27,944).
+- The live comparison against Tibia.exe (the orchestrator's, November 3, 2026, before the Edge copy):
+  `python -I tools/compare_rendering.py --engines vulkan --modes windowed --no-repeat --patella
+  build\windows-x64\Release\Patella.exe --recording build\traffic\result-x64\orig-live.jsonl`: on the RTX 5080
+  all 26 scenes identical but the minimap (the Edge copy since) and advanced-options inside its frame-rate mask;
+  with `--engines vulkan-cpu` the same minimap difference and the filtered stretches at most 2 per channel.
+

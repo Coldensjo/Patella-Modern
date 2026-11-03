@@ -33,8 +33,9 @@ patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`). `python -I tools/
 <command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. The
 test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/reconstruction.md`, "Building",
 "Test server", "Checking".
-The x64 client has the Vulkan engine (issue #19, `notes/vulkan.md`): `PATELLA_VULKAN=auto|gpu|cpu` in its
-environment runs it in place of DirectX 9; its pinned libraries and the CPU driver (Mesa's lavapipe, copied next to
+The x64 client's engine 2 is the Vulkan engine (issue #19, `notes/vulkan.md`); `PATELLA_VULKAN=gpu|cpu` in its
+environment chooses the device, `PATELLA_VULKAN=off` gives engine 2 back to DirectX 9 (comparisons, until #20); its
+pinned libraries and the CPU driver (Mesa's lavapipe, copied next to
 the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it
 headless.
 

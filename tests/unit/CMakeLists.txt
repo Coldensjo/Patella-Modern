@@ -14,7 +14,8 @@
 #   script's parser and key table, the scheduler, the driver's loop on the virtual clock, and that the
 #   scripts in tests/testmode parse.
 #
-# - tests_render: src/vulkan/Quads.cpp, the Vulkan engine's Direct3D 9 quads (issue #19).
+# - tests_render: src/vulkan/Quads.cpp, the Vulkan engine's Direct3D 9 quads, and src/vulkan/FilterMask.cpp,
+#   its device-filtered pixels (issue #19).
 #
 # All get the product settings of cmake/Warnings.cmake and cmake/Hardening.cmake.
 
@@ -114,7 +115,9 @@ add_test(NAME tests_testmode COMMAND tests_testmode)
 # Vulkan vertices. The engine itself is checked by tests/vulkan (Windows x64 with the client).
 add_executable(tests_render
 	render_quads_test.cpp
-	"${PROJECT_SOURCE_DIR}/src/vulkan/Quads.cpp")
+	render_filtermask_test.cpp
+	"${PROJECT_SOURCE_DIR}/src/vulkan/Quads.cpp"
+	"${PROJECT_SOURCE_DIR}/src/vulkan/FilterMask.cpp")
 target_include_directories(tests_render PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(tests_render PRIVATE doctest::doctest)
 patella_target_language(tests_render)

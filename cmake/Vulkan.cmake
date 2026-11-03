@@ -115,6 +115,7 @@ endforeach()
 add_library(patella_render_vulkan STATIC
 	"${PROJECT_SOURCE_DIR}/src/vulkan/Renderer.cpp"
 	"${PROJECT_SOURCE_DIR}/src/vulkan/Quads.cpp"
+	"${PROJECT_SOURCE_DIR}/src/vulkan/FilterMask.cpp"
 	${patella_shader_headers})
 target_include_directories(patella_render_vulkan PUBLIC "${PROJECT_SOURCE_DIR}/src")
 target_include_directories(patella_render_vulkan PRIVATE "${patella_shader_dir}")

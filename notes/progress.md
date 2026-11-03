@@ -105,6 +105,11 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #19, second part (branch issue-19 after merging main 193dee3, November 3, 2026): `python -I
+tools/build.py oracle-x86` (CTest, 0 warnings) after the Edge copy, the device-filtered masks and engine 2 as the
+Vulkan engine in the x64 client: the same counts as below; the oracle Patella.exe built from main 193dee3 and
+from the branch at the same path: 0 unexpected differences (pecompare).
+
 Patella-Modern issue #19 (branch issue-19, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest, 0
 warnings) after the Vulkan engine (src/vulkan, not in the oracle; Surface.cpp's choice of engine 2 behind macros
 that are surfaceDX9.cpp's calls in the oracle): the same counts as below; the oracle Patella.exe built from main

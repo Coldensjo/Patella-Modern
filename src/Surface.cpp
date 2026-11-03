@@ -14,9 +14,9 @@
 #include "SurfaceGL.h"
 #include "Preferences.h"
 
-// Engine 2 (DirectX 9) or, when the environment variable PATELLA_VULKAN asks for it, the Vulkan engine
-// in its place (Patella-Modern issue #19; src/vulkan/SurfaceVulkan.h). Only the Windows x64 client
-// defines PATELLA_VULKAN; elsewhere (the oracle) the macros are surfaceDX9.cpp's calls.
+// Engine 2: in the Windows x64 client the Vulkan engine (Patella-Modern issue #19; src/vulkan/SurfaceVulkan.h),
+// surfaceDX9.cpp only when the environment variable PATELLA_VULKAN is off (for comparisons, until issue
+// #20). Only that client defines PATELLA_VULKAN; elsewhere (the oracle) the macros are surfaceDX9.cpp's calls.
 #if defined(PATELLA_VULKAN)
 bool VulkanEngineRequested();
 bool IsVulkanInstalled();

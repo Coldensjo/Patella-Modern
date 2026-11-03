@@ -40,6 +40,7 @@ TAxis MapAxis(int From, int To, float FromCoordinate, float ToCoordinate, int Si
 	if (Pixels <= 0 || Size <= 0) {
 		Axis.Scale = 0.0;
 		Axis.Copy = false;
+		Axis.Edge = false;
 		Axis.CopyStart = 0;
 		return Axis;
 	}
@@ -48,11 +49,21 @@ TAxis MapAxis(int From, int To, float FromCoordinate, float ToCoordinate, int Si
 	bool OneToOne = std::fabs(Axis.Scale - 1.0) * Pixels < 0.5 / SubTexel;
 	double Snapped = std::round(Axis.Start * SubTexel) / SubTexel;
 	if (Filter == TFilter::Point) {
-		// Point sampling reads floor(s): any start is a copy.
-		Axis.Copy = OneToOne;
-		Axis.CopyStart = static_cast<int>(std::floor(Snapped));
+		// Point sampling reads floor(s): a copy. When the samples fall on the texel edges (the
+		// automap's upload: u from 0 to 1 over 106 pixels, SurfaceVulkan.cpp WriteImage), the
+		// interpolated coordinate lands a hair below each edge except at the corner itself, where it
+		// is exact: under Direct3D 9 on the NVIDIA GPU Tibia.exe's frames show texel max(k - 1, 0) at
+		// pixel k (issue #19's live comparison; tests_vulkan shows the same on that GPU through
+		// Vulkan, while lavapipe rounds to texel k). Starting at edge 0 that is an Edge copy: texel
+		// k - 1, clamped to the texture (the engine's nearest, clamp-to-edge sampler). An edge start
+		// elsewhere goes to the hardware as Direct3D 9 gives it.
+		bool OnEdge = Snapped == std::floor(Snapped);
+		Axis.Edge = OneToOne && OnEdge && Snapped == 0.0;
+		Axis.Copy = OneToOne && (!OnEdge || Axis.Edge);
+		Axis.CopyStart = Axis.Edge ? -1 : static_cast<int>(std::floor(Snapped));
 	} else {
 		// Linear filtering reads one texel only on its centre.
+		Axis.Edge = false;
 		Axis.Copy = OneToOne && Snapped == std::floor(Snapped);
 		Axis.CopyStart = static_cast<int>(Snapped);
 	}
@@ -74,6 +85,7 @@ TQuadVertices ConvertQuad(const TQuad &Quad, int TextureWidth, int TextureHeight
 		// A copy: the corners on whole pixels (no pixel centre on an edge) and the texel edges on the
 		// pixel edges, so nearest sampling at the pixel centres reads the texel centres, the exact texels.
 		Result.Nearest = true;
+		Result.Clamp = Horizontal.Edge || Vertical.Edge;
 		Left = Quad.Left;
 		Top = Quad.Top;
 		Right = Quad.Right;
@@ -87,6 +99,7 @@ TQuadVertices ConvertQuad(const TQuad &Quad, int TextureWidth, int TextureHeight
 		// on (Direct3D 9's pixel centre (x, y) is the hardware's (x + 0.5, y + 0.5)) with the
 		// attributes as they are, so the hardware interpolates and filters as for Direct3D 9.
 		Result.Nearest = false;
+		Result.Clamp = false;
 		Left = Quad.Left + 0.5;
 		Top = Quad.Top + 0.5;
 		Right = Quad.Right + 0.5;

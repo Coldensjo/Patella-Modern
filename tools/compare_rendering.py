@@ -11,13 +11,19 @@ Usage:
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
 	[--patella build\windows-x64\Release\Patella.exe] [--tolerance N]
 
---engines vulkan,vulkan-cpu (Patella-Modern issue #19): Patella.exe (the x64 client with the Vulkan
-engine) runs the Vulkan engine on a GPU (PATELLA_VULKAN=gpu) or on the CPU driver next to it
+--engines vulkan,vulkan-cpu (Patella-Modern issue #19): Patella.exe (the x64 client, whose engine 2 is
+the Vulkan engine) runs it on a GPU (PATELLA_VULKAN=gpu) or on the CPU driver next to it
 (PATELLA_VULKAN=cpu), Tibia.exe its DirectX 9 engine, the reference (plan D7); both with Engine = 2.
-The run checks that Patella.exe's frames came from the Vulkan engine on that kind of device.
---tolerance N: a pixel whose colour channels differ by at most N counts as equal (default 0); the
-report gives every scene's largest channel difference either way (the light and the bilinear
-stretches are filtered by the device: notes/vulkan.md, "Pixels").
+The run checks that Patella.exe's frames came from the Vulkan engine on that kind of device. With
+--engines dx9 the x64 Patella.exe gets PATELLA_VULKAN=off, so its engine 2 is surfaceDX9.cpp again
+(until issue #20 removes it).
+--region-tolerance N (default 2, the user's decision of November 3, 2026): on the pixels the Vulkan
+engine marks for each captured frame (those whose value comes from the device's bilinear filter or the
+light's interpolation: the stretches and the lit map, notes/vulkan.md "Pixels"; stored as
+<scene>.filtered.png, white where marked), a pixel whose colour channels differ by at most N counts as
+equal; everywhere else the comparison stays exact.
+--tolerance N: the same everywhere (default 0). The report gives every scene's largest channel
+difference either way.
 
 --patella: the Patella.exe to compare, x86 or x64 (Patella-Modern issue #18), with its PDB next to it
 (default the oracle's, build\oracle-x86\Release\Patella.exe); an x64 one: python -I tools/build.py
@@ -92,7 +98,8 @@ API_NAMES = {0: "none", 1: "DirectDraw Blt", 2: "DirectDraw Flip", 3: "Direct3D 
 OFF = {"Magic": 0, "Version": 4, "CmdSeq": 8, "DoneSeq": 12, "Cmd": 16, "Arg0": 20, "Arg1": 24, "Result": 28,
 	"Frames": 32, "Api": 36, "Now": 40, "Ticks": 44, "TimerWindow": 48, "TimerActive": 52, "Width": 56,
 	"Height": 60, "SourceBits": 64, "Hooks": 68, "Path": 72, "Message": 592, "ApiFrames": 848, "Realtime": 868,
-	"FirstCall": 872, "VulkanFrames": 876, "VulkanType": 880, "VulkanCpuDriver": 884, "VulkanDevice": 888}
+	"FirstCall": 872, "VulkanFrames": 876, "VulkanType": 880, "VulkanCpuDriver": 884, "VulkanDevice": 888,
+	"MaskPixels": 1016}
 # VkPhysicalDeviceType
 VULKAN_TYPES = {0: "other", 1: "integrated GPU", 2: "discrete GPU", 3: "virtual GPU", 4: "CPU"}
 # The CPU driver next to the x64 Patella.exe (cmake/Vulkan.cmake), copied into its run folder.
@@ -383,11 +390,12 @@ def masked(x, y, masks):
 	return any(m[0] <= x < m[2] and m[1] <= y < m[3] for m in masks)
 
 
-def diff_pictures(a, b, masks=(), tolerance=0):
+def diff_pictures(a, b, masks=(), tolerance=0, filtered=None, region_tolerance=0):
 	"""Differing pixels of two pictures: (count, bounding box (x0, y0, x1, y1) or None, the
 	differing pixels inside the masks, which are not counted, the largest channel difference
-	outside the masks, the pixels that differ by at most `tolerance` per channel, which are not
-	counted either)."""
+	outside the masks, the pixels that differ by at most `tolerance` per channel, or by at most
+	`region_tolerance` where the picture `filtered` (the Vulkan engine's mask) is not black, which
+	are not counted either)."""
 	wa, ha, ra = a
 	wb, hb, rb = b
 	if (wa, ha) != (wb, hb):
@@ -403,7 +411,8 @@ def diff_pictures(a, b, masks=(), tolerance=0):
 					continue
 				channel = max(abs(ra[y][3 * x + i] - rb[y][3 * x + i]) for i in range(3))
 				largest = max(largest, channel)
-				if channel <= tolerance:
+				if channel <= tolerance or (channel <= region_tolerance and filtered is not None
+						and filtered[2][y][3 * x] != 0):
 					within += 1
 					continue
 				count += 1
@@ -445,12 +454,13 @@ ENGINES = {
 
 
 def client_env(engine, client):
-	"""The environment of a run: PATELLA_VULKAN only for Patella.exe with a Vulkan engine, and never
-	inherited from this script's environment otherwise."""
+	"""The environment of a run: Patella.exe gets PATELLA_VULKAN, the device for a Vulkan engine and
+	"off" otherwise (the x64 client's engine 2 is then surfaceDX9.cpp; the oracle's ignores it);
+	Tibia.exe never gets it."""
 	env = dict(os.environ)
 	env.pop("PATELLA_VULKAN", None)
-	if client == "patella" and "vulkan" in ENGINES[engine]:
-		env["PATELLA_VULKAN"] = ENGINES[engine]["vulkan"]
+	if client == "patella":
+		env["PATELLA_VULKAN"] = ENGINES[engine].get("vulkan", "off")
 	return env
 
 # Every step ends with this much virtual time and these many ticks of the main timer, the same
@@ -726,7 +736,7 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 	mode_before = display_mode()
 	info = CLIENTS[client]
 	driver = Driver(ct.run_dir(label), info["exe"], info["pdb"], env=client_env(engine, client))
-	scenes, apis, scene_masks = {}, set(), {}
+	scenes, apis, scene_masks, filtered = {}, set(), {}, {}
 	proxy = px.Proxy(os.path.join(folder, "replay.jsonl"), px.load_private_key(ct.PEM),
 		replay=px.load_events(recording), log=log)
 
@@ -736,6 +746,16 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 		bmp = os.path.join(folder, "capture.bmp")
 		width, height, api = driver.capture(bmp, SKIP_FRAMES)
 		apis.add(api)
+		if os.path.isfile(bmp + ".mask"):
+			# The Vulkan engine's device-filtered pixels (patcap's PatcapVulkanMask), as a picture.
+			with open(bmp + ".mask", "rb") as f:
+				mask = f.read()
+			os.remove(bmp + ".mask")
+			if len(mask) == width * height:
+				write_png(os.path.join(folder, filtered_file(name)), width, height,
+					[bytes(255 if v else 0 for v in mask[y * width:(y + 1) * width] for _ in range(3))
+						for y in range(height)])
+				filtered[name] = sum(1 for v in mask if v)
 		picture = read_bmp(bmp)
 		os.remove(bmp)
 		write_png(os.path.join(folder, scene_file(name)), *picture)
@@ -776,7 +796,7 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 	mode_after = display_mode()
 	if mode_after != mode_before:
 		problems.append("the display mode changed from %s to %s" % (mode_before, mode_after))
-	result = {"scenes": scenes, "masks": scene_masks, "facts": dict(facts, **(facts_cap or {})),
+	result = {"scenes": scenes, "masks": scene_masks, "filtered_pixels": filtered, "facts": dict(facts, **(facts_cap or {})),
 		"problems": [str(p) for p in problems]}
 	with open(os.path.join(folder, "run.json"), "w", encoding="utf-8", newline="\n") as f:
 		json.dump(result, f, indent=1)
@@ -791,7 +811,11 @@ def run_masks(out, engine, label):
 		return json.load(f).get("masks", {})
 
 
-def compare_runs(out, engine, a, b, write_diffs=True, scenes=None, tolerance=0):
+def filtered_file(name):
+	return name.replace(" ", "-") + ".filtered.png"
+
+
+def compare_runs(out, engine, a, b, write_diffs=True, scenes=None, tolerance=0, region_tolerance=0):
 	"""Scene by scene: (name, None when identical, "missing", ("masks", masks of a, masks of b)
 	when the runs masked different areas, else (count, box, diff file, masked pixels that
 	differ, masks, the largest channel difference, pixels within the tolerance)); count 0 means
@@ -812,7 +836,10 @@ def compare_runs(out, engine, a, b, write_diffs=True, scenes=None, tolerance=0):
 		if picture_a == picture_b:
 			rows.append((name, None))
 			continue
-		count, box, hidden, largest, within = diff_pictures(picture_a, picture_b, masks, tolerance)
+		mask_file = os.path.join(out, engine, b, filtered_file(name))
+		filtered = read_png(mask_file) if os.path.isfile(mask_file) else None
+		count, box, hidden, largest, within = diff_pictures(picture_a, picture_b, masks, tolerance, filtered,
+			region_tolerance)
 		diff = None
 		if write_diffs:
 			diff = os.path.join(out, engine, "diff-%s-%s" % (b, scene_file(name)))
@@ -833,6 +860,8 @@ def main():
 	parser.add_argument("--compare-only", action="store_true", help="compare the pictures already in --out")
 	parser.add_argument("--tolerance", type=int, default=0, help="a pixel whose channels differ by at most this "
 		"much counts as equal (default 0: exact)")
+	parser.add_argument("--region-tolerance", type=int, default=2, help="the same on the device-filtered "
+		"pixels the Vulkan engine marks (default 2: the bilinear stretches and the light)")
 	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
 		"it (default build/oracle-x86/Release/Patella.exe; e.g. build/windows-x64/Release/Patella.exe; as "
 		"tools/compare_traffic.py's --patella)")
@@ -885,6 +914,8 @@ def main():
 	say("patella: %s (%s)" % (patella, capture_preset(patella) if os.path.isfile(patella) else "missing"))
 	if args.tolerance:
 		say("tolerance: pixels whose channels differ by at most %d count as equal" % args.tolerance)
+	say("region tolerance: on the Vulkan engine's device-filtered pixels (<scene>.filtered.png), pixels whose "
+		"channels differ by at most %d count as equal" % args.region_tolerance)
 	differences = 0
 	for engine, fullscreen in passes:
 		say("")
@@ -905,7 +936,8 @@ def main():
 		for a, b in pairs:
 			say("  %s against %s:" % (b, a))
 			for name, result in compare_runs(args.out, folder, a, b,
-					scenes=FULLSCREEN_SCENES if fullscreen else SCENES, tolerance=args.tolerance):
+					scenes=FULLSCREEN_SCENES if fullscreen else SCENES, tolerance=args.tolerance,
+					region_tolerance=args.region_tolerance):
 				if result is None:
 					say("    %-18s identical" % name)
 				elif result == "missing":
@@ -919,6 +951,9 @@ def main():
 					spread = "largest channel difference %d" % largest
 					if within:
 						spread += ", %d pixels within the tolerance" % within
+					if count == 0 and largest == 0 and hidden == 0:
+						say("    %-18s identical" % name)
+						continue
 					if count == 0:
 						say("    %-18s identical outside the mask %s (%d pixels differ inside it; %s); %s"
 							% (name, masks, hidden, spread, os.path.relpath(diff, args.out)))

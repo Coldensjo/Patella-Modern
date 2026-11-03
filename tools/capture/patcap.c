@@ -27,7 +27,8 @@ exactly the calls the client makes, and the same calls in both clients:
   Vulkan (the x64 client's src/vulkan/SurfaceVulkan.cpp, Patella-Modern issue #19): the engine looks
   this DLL up (GetModuleHandle "patcap.dll") and calls its exports: PatcapVulkanDevice once it has a
   device, PatcapVulkanFrame before each frame is shown (counts it; nonzero: the frame is wanted),
-  then PatcapVulkanPixels with the canvas read back (TRenderer::ReadBack, the rectangle Present shows).
+  then PatcapVulkanMask (which pixels come from the device's filter: <path>.mask) and PatcapVulkanPixels
+  with the canvas read back (TRenderer::ReadBack, the rectangle Present shows).
   Nothing is hooked: a swapchain image cannot be read back from outside the engine.
 
 The controller (tools/compare_rendering.py) talks to it through a named file mapping
@@ -97,6 +98,8 @@ typedef struct {
 	LONG VulkanType;       /* 880: VkPhysicalDeviceType of the device (4 the CPU) */
 	LONG VulkanCpuDriver;  /* 884: the device is the shipped CPU driver's */
 	char VulkanDevice[128]; /* 888: the device's name */
+	/* Version 3: the last Vulkan capture's mask (<path>.mask): its device-filtered pixels, or -1 */
+	LONG MaskPixels;       /* 1016 */
 } Shared;
 #pragma pack(pop)
 
@@ -737,6 +740,26 @@ __declspec(dllexport) int __cdecl PatcapVulkanFrame(int Width, int Height)
 	return FrameShown(API_VULKAN);
 }
 
+/* Before the pixels of a wanted frame: a byte per pixel, 1 where the value comes from the device's
+   filter (the bilinear stretches, the light), else 0; written raw (Width x Height bytes, rows top-down)
+   to the capture's path with ".mask" appended. */
+__declspec(dllexport) void __cdecl PatcapVulkanMask(const unsigned char *Mask, int Width, int Height)
+{
+	char Path[540];
+	FILE *Out;
+	LONG Count = 0;
+	int i;
+	sprintf_s(Path, sizeof(Path), "%s.mask", CapturePath);
+	S->MaskPixels = -1;
+	if (fopen_s(&Out, Path, "wb") != 0)
+		return;
+	for (i = 0; i < Width * Height; i++)
+		Count += Mask[i] != 0;
+	if (fwrite(Mask, 1, (size_t)Width * (size_t)Height, Out) == (size_t)Width * (size_t)Height)
+		S->MaskPixels = Count;
+	fclose(Out);
+}
+
 /* Width x Height pixels, rows top-down Pitch bytes apart, B G R A bytes (D3DCOLOR). */
 __declspec(dllexport) void __cdecl PatcapVulkanPixels(const void *Bits, int Pitch, int Width, int Height)
 {
@@ -765,7 +788,7 @@ BOOL WINAPI DllMain(HINSTANCE Instance, DWORD Reason, LPVOID Reserved)
 		if (S == NULL)
 			return FALSE;
 		S->Magic = 'PCAP';
-		S->Version = 2;
+		S->Version = 3;
 		S->Hooks = PatchImports();
 	}
 	return TRUE;
