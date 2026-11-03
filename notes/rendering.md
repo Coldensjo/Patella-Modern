@@ -43,7 +43,17 @@ python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,
   failed.
 - The fullscreen runs use the desktop's own mode (1024x768x32, the mode the monitor-off display has), so
   no display mode really changes; the script refuses them when the desktop is in another mode, checks the
-  mode before and after every run and stops when it changed.
+  mode before and after every run and stops when it changed. So they cannot run on an ordinary desktop: on
+  the 5120x1440 one (Patella-Modern issue #13) the script stops before any client with "the desktop is in
+  (5120, 1440, 32, 120), not (1024, 768, 32): the fullscreen runs would change the display mode", and
+  `--modes windowed` is what runs there. Letting the clients change the mode instead would be a real mode
+  switch of the user's monitor (slow, rearranges the other windows) and is not what the comparison needs;
+  decision D11 (notes/modernization-plan.md: borderless fullscreen at the desktop's resolution, no
+  exclusive display modes) removes the mode change from the client later, and the fullscreen runs can then
+  use any desktop.
+- The clients' windows get posted messages only, but real input reaches them too: keep off the mouse and
+  the keyboard during a run (notes/reconstruction.md "Test server"; a click during a run on November 2
+  crashed Tibia.exe with GUI.cpp 1633 "Capture==NULL").
 
 ## How the pixels are read without a display
 

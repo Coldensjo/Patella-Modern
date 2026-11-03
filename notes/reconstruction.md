@@ -205,6 +205,25 @@ Every GUI comparison (traffic, files, rendering, network) empties its run folder
 data files and the patched client, and a second Tibia.exe run (orig-repeat) has a folder of its own
 (Patella-Modern issue #12; notes/decisions.md "Clean run folders for the GUI comparisons (issue #12)").
 
+Limits of the GUI comparisons until M2's built-in test mode replaces them (Patella-Modern issue #13):
+
+- **Keep off the mouse and the keyboard while one runs.** They drive real client windows with posted window
+  messages, and real input reaches the same windows: a mouse move or click over a client window comes in
+  between the posted ones, a key goes to the client that has the focus. On November 2 a click during a
+  rendering run crashed Tibia.exe (error.txt: "Debug Assertion 7.72 GUI.cpp 1633", "Capture==NULL", from
+  MainFrm.cpp 568 at the point (2873,1375): TWindow::SetCapture asserts that no window holds the mouse
+  capture, and a button went down while another click still held it), and the run's
+  leftovers spoiled the following runs (since issue #12 every run starts from an emptied folder, so only the
+  run that was disturbed fails). Start a comparison and leave the desktop alone until it ends; a run that
+  failed while someone used the desktop is not evidence about the clients: run it again.
+- **compare_rendering.py's fullscreen runs need a 1024x768x32 desktop.** They use the desktop's own mode so
+  that no display mode really changes (FULLSCREEN_MODE, notes/rendering.md), and the script refuses them in any
+  other mode before it starts a client, for example on the 5120x1440 desktop: "the desktop is in (5120, 1440,
+  32, 120), not (1024, 768, 32): the fullscreen runs would change the display mode". On such a desktop run
+  `--modes windowed`; the fullscreen runs need the 1024x768 the display falls back to with the monitor off
+  (notes/testserver.md). Decision D11 (notes/modernization-plan.md: a borderless window at the desktop's
+  resolution instead of exclusive display modes) removes the mode change, and with it this limit, later.
+
 ## Checking
 
 - Code style (issue #8): `.clang-format` describes the style of src/ (tabs of four columns, function bodies
