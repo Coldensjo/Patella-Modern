@@ -6196,3 +6196,33 @@ forwarding in compare_traffic.py, compare_files.py and compare_rendering.py.
   format and the SHA-256 of Tibia.exe and the data files in meta.json.
 - **The old live modes stay** (high). They are the way to compare two live clients and to make new recordings;
   the record/compare split adds `record` and `compare` as first words of the three tools.
+
+## The test build in CI and the cold start (Patella-Modern issue #25)
+
+Settled by Claude Opus 5.5, November 3, 2026. cmake/WindowsX64.cmake (PATELLA_CLIENT_COMPILE_ONLY,
+PatellaTest_compile), .github/workflows/hosted.yml (job windows-test-build), .github/workflows/self-hosted.yml
+(testmode_check.py in the comparisons job), tools/testmode_check.py; notes/testmode.md, "The cold start (issue
+#25)".
+
+- **Hosted CI compiles the test build as an object library, without resources and without a link** (high).
+  The client's only tie to Tibia.exe at build time is the resource script, whose pictures are extracted from it
+  (cmake/Resources.cmake); hosted runners have no CipSoft file (plan 4.7). Placeholder pictures would let it
+  link, but they would be a second, made-up resource set to keep in step, and a linked PatellaTest.exe without
+  the real resources is nothing anyone should run; the issue asks for the compile. So
+  PATELLA_CLIENT_COMPILE_ONLY builds `PatellaTest_compile` (OBJECT) from PatellaTest.exe's C and C++ sources,
+  with the settings of one shared function (patella_client_compile_settings), so the two cannot drift: the
+  compiler flags of all 44 compiles are the same as PatellaTest.exe's, and Patella.exe's and PatellaTest.exe's
+  are unchanged against main (compared in build-tree ninja files). Patella.exe's own preprocessing (without
+  PATELLA_TEST_MODE) is not compiled there; the self-hosted windows-x64 job builds both.
+- **A job of its own** (medium). The existing windows-msvc job stays as it was (PATELLA_CLIENT=OFF, unit tests);
+  the new job fetches the pinned Vulkan dependencies (cmake/Vulkan.cmake, as every client configure does) and
+  builds only the target, so tests_vulkan is neither built nor run on a runner without a GPU.
+- **Wait for "Server Online!", and retry once** (high; the issue offers either). The server opens its ports
+  before it loads the world (server.log: "Starting Login Server", "Initializing connections & network", then the
+  map sectors, then "Server Online!"), so listening ports do not mean a game server that answers. Waiting for
+  that line removes the cause; but whether the server's output reaches server.log as it is written is the
+  server's business (its CRT buffers a redirected stdout unless it flushes), so the wait is skipped when the
+  early line is not in the file yet, and the retry (a run whose game logins got no server packet at all) covers
+  what the wait cannot see. A game login that the server answers is never retried: a real failure after the
+  login still fails the check. An active probe of the game port would need a game login, which changes the
+  player files and the server's state the runs compare.

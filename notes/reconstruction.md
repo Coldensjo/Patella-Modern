@@ -224,6 +224,11 @@ the system clock. Since issue #22 `--test-out <folder>` writes the test mode's d
 packet before encryption and after decryption), the state dump at a script's `dump` (client_state.py's state()
 and gui() as JSON) and the frame dump at a script's `frame` (the Vulkan engine's frame and its device-filtered
 pixels as PNG). notes/testmode.md.
+Without Tibia.exe (issue #25, for the hosted CI) `-DPATELLA_CLIENT_COMPILE_ONLY=ON` builds neither executable:
+only the object library `PatellaTest_compile`, PatellaTest.exe's C and C++ sources with its definitions, warnings
+and hardening (the same compiler flags for every file), without the resource script and never linked
+(`cmake --build --preset windows-x64 --target PatellaTest_compile`); the configure fetches the pinned Vulkan
+dependencies and reads no CipSoft file.
 
 Since Patella-Modern issue #19 both carry the Vulkan engine (notes/vulkan.md; `cmake/Vulkan.cmake`), since
 issue #20 as their only engine (SurfaceDX.cpp, surfaceDX9.cpp and SurfaceGL.cpp are not compiled, ddraw, dxguid,
@@ -289,7 +294,10 @@ nothing drives the window from outside, and the client drops the desktop's own i
 checks the test mode's dumps in every run: each state dump against client_state.py's reading of the same
 moment (the client waits for it), the packet log against the proxy's decrypted recording, the frame dumps, and
 statically the dump's keys against client_state.py's; `--self-test` runs those comparisons on made-up data
-without a server or a client: notes/testmode.md.
+without a server or a client: notes/testmode.md. Since issue #25 each run waits after the server's start until
+server.log says "Server Online!" (the server listens before it has loaded the world; on a cold start the world
+was still loading at the game login), and a run whose game logins got no server packet is run once more:
+notes/testmode.md, "The cold start (issue #25)".
 
 `python -I tools/reference.py record` / `compare` (Patella-Modern issue #23; the same as the first word of
 compare_traffic.py, compare_files.py and compare_rendering.py) is the record/compare split of those three
@@ -364,7 +372,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 - CI (issue #11; plan 4.7): `.github/workflows/hosted.yml` runs on GitHub's runners for every push and pull
   request (and by hand, workflow_dispatch), reads no CipSoft file and uses no secret: windows-latest with MSVC
   x64 (`python -I tools/build.py --env windows-x64 cmake --preset windows-x64 -DPATELLA_CLIENT=OFF`, then the
-  Release and Debug builds and `ctest`; cmake --workflow takes no -D, and the client needs Tibia.exe), and on
+  Release and Debug builds and `ctest`; cmake --workflow takes no -D, and the client needs Tibia.exe), the test
+  build compiled in a job of its own (issue #25: `-DPATELLA_CLIENT_COMPILE_ONLY=ON`, then `cmake --build --preset
+  windows-x64 --target PatellaTest_compile`; "Building" above), and on
   ubuntu-latest the image of docker/linux-x64, built from its pinned Dockerfile in each job: linux-x64-gcc and
   linux-x64-clang (Release and Debug, `python3 -I tools/build.py <preset>` in the container), clang-format (the
   files above) and clang-tidy against the baseline (above; checks only, never --fix). Every action is pinned by
@@ -372,7 +382,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   `.github/workflows/self-hosted.yml` runs on this machine (runner labels `self-hosted, Windows, X64, patella`):
   oracle-x86 and the difftest, the windows-x64 client (Release and Debug), compare_traffic.py and
   compare_files.py for the x64 client and compare_rendering.py `--modes windowed` for the x64 client (issue #18),
-  the golden corpus recorded and replayed in one job (issue #24, below), and the Linux presets through
+  testmode_check.py for PatellaTest.exe (issue #25), the golden corpus recorded and replayed in one job (issue #24, below), and the Linux presets through
   build.py in Docker. It triggers only on `push` to this repository's branches and on `workflow_dispatch`, never
   on `pull_request` or `pull_request_target`, every job checks the repository's name and the event, and every
   job is skipped (not queued) unless the repository variable `PATELLA_SELF_HOSTED` is `true`. The CipSoft files

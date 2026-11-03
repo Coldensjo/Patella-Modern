@@ -9,7 +9,9 @@ Usage (from the repository or a worktree; the test server of issue #18 must be s
                                     [--out build\testmode\result] [--timeout 180] [--vulkan cpu]
                                     [--compare-only]
   python -I tools/testmode_check.py --self-test     (no server, no client: the comparisons on made-up
-                                                     data and the static key lists; tools/testmode_dumps.py)
+                                                     data and the static key lists, tools/testmode_dumps.py;
+                                                     the cold start's wait and retry on a made-up server log
+                                                     and made-up recordings)
 
 Runs PatellaTest.exe (the test build, src/testmode/TestModeWin32.cpp) --runs times with the same
 input script against the local test server, through the recording proxy (tools/proxy.py), and
@@ -22,6 +24,15 @@ and gets compare_traffic.py's Tibia.cfg; the client is started with --test-scrip
 the client exits; then the server is stopped (it saves). Nothing drives the window from outside: the
 script is the only input, and the client drops the desktop's own mouse and keyboard while it runs.
 The client's window is still a real window on the desktop.
+
+The cold start (issue #25): the server listens on both ports (where testserver.py start returns) before
+it has loaded the world, and on a cold start (its files not in the disk cache: 21 s to listen in the
+first live run of issue #21) the world was still loading when the client logged into the game, which
+then never answered. So each run waits, after the start, until server.log says "Server Online!" (the
+server's line after loading; at most --online-timeout seconds; skipped, with a line in the log, when
+the server's output does not reach the file as it is written); and a run whose game logins got no
+server packet at all is run once more (the server started again), the first attempt's files kept as
+run<N>-attempt1*. Only the last attempt is compared.
 
 Compared, run 1 against every later run:
   a. the client packets (compare_traffic.client_packets: the first packet of each connection with
@@ -58,13 +69,16 @@ run<N>\ (the client's dumps and client_state.py's readings), report.txt.
 """
 
 import argparse
+import contextlib
 import ctypes
 import ctypes.wintypes as wt
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 
@@ -72,6 +86,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import compare_traffic as ct  # noqa: E402
 import proxy as px  # noqa: E402
 import testmode_dumps as td  # noqa: E402
+import testserver  # noqa: E402
 
 ROOT = ct.ROOT
 TESTMODE = os.path.join(ROOT, "build", "testmode")
@@ -83,6 +98,12 @@ SCRIPT_ERROR_EXIT = 3  # src/testmode/TestModeWin32.cpp: the script does not par
 # The Vulkan engine's CPU driver next to PatellaTest.exe (cmake/Vulkan.cmake; compare_rendering.py's).
 CPU_DRIVER_FILES = ("vulkan_lvp.dll", "lvp_icd.x86_64.json")
 WAIT_OBJECT_0, WAIT_TIMEOUT = 0, 0x102
+# The server's output (tools/testserver.py's server.log): a line it writes before it listens, and the
+# line it writes when the world is loaded and it is online (issue #25).
+SERVER_LOG_EARLY = "Starting Login Server"
+SERVER_LOG_ONLINE = "Server Online!"
+ONLINE_TIMEOUT = 180
+RETRIES = 1  # a run whose game server never answered is run once more
 
 
 class CheckError(Exception):
@@ -207,10 +228,91 @@ def run_client(script, log_path, timeout, dumps, pdb_exe, vulkan):
 	log("the client exited after %.1f s" % (time.time() - started))
 
 
-def live_run(number, script, out, players, timeout, pdb_exe, vulkan):
+def wait_online(path, timeout, alive, clock=time.monotonic, sleep=time.sleep):
+	"""Waits until the server's log at path says SERVER_LOG_ONLINE. Returns "online", or "unknown" when
+	the log does not have SERVER_LOG_EARLY (the server listens already, so its output does not reach the
+	file as it is written: nothing to wait for). CheckError when the server exits or timeout seconds
+	pass."""
+	deadline = clock() + timeout
+	while True:
+		try:
+			with open(path, "r", encoding="utf-8", errors="replace") as f:
+				text = f.read()
+		except OSError:
+			text = ""
+		if SERVER_LOG_ONLINE in text:
+			return "online"
+		if SERVER_LOG_EARLY not in text:
+			return "unknown"
+		if not alive():
+			raise CheckError("the server exited while it loaded the world (see %s)" % path)
+		if clock() >= deadline:
+			raise CheckError("the server did not say %r within %d s (see %s)" % (SERVER_LOG_ONLINE, timeout, path))
+		sleep(0.5)
+
+
+def start_server_online(online_timeout):
+	"""compare_traffic.py's start_server, then the wait for the loaded world."""
+	ct.start_server()
+	started = time.monotonic()
+	state = wait_online(testserver.LOG_FILE, online_timeout, ct.server_running)
+	if state == "online":
+		log("the server is online (the world loaded) after %.1f s more" % (time.monotonic() - started))
+	else:
+		log("server.log does not show the server's start-up as it goes: not waiting for %r" % SERVER_LOG_ONLINE)
+
+
+def game_answered(events):
+	"""False when the client sent a game login and no game connection got a server packet (the game
+	server never answered, the cold start of issue #25); True otherwise."""
+	logins = any(e["dir"] == "c2s" and e["kind"] == "game" and "fields_end" in e for e in events)
+	answers = any(e["dir"] == "s2c" and e["kind"] == "game" for e in events)
+	return answers or not logins
+
+
+def run_files(out, number):
+	"""A run's files and folder in out."""
+	prefix = os.path.join(out, "run%d" % number)
+	return [prefix + suffix for suffix in (".jsonl", ".log", ".Tibia.cfg", "")]
+
+
+def set_aside(out, number, attempt):
+	"""Renames a run's files to run<N>-attempt<attempt>*, replacing earlier ones of that name."""
+	stem = "run%d" % number
+	for path in run_files(out, number):
+		if not os.path.exists(path):
+			continue
+		suffix = os.path.basename(path)[len(stem):]
+		target = os.path.join(out, "%s-attempt%d%s" % (stem, attempt, suffix))
+		if os.path.isdir(target):
+			shutil.rmtree(target)
+		elif os.path.exists(target):
+			os.remove(target)
+		os.rename(path, target)
+
+
+def run_with_retry(number, out, run, retries=RETRIES):
+	"""run() records run <number> into out; again (up to retries times) while its game server never
+	answered, the earlier attempt set aside. Returns the number of attempts."""
+	attempt = 1
+	while True:
+		run()
+		path = os.path.join(out, "run%d.jsonl" % number)
+		if not os.path.isfile(path) or game_answered(px.load_events(path)):
+			return attempt
+		if attempt > retries:
+			log("run %d: the game server did not answer the game login again: compared as it is" % number)
+			return attempt
+		set_aside(out, number, attempt)
+		log("run %d: the game server never answered the game login (attempt %d, kept as run%d-attempt%d*):"
+			" running it again" % (number, attempt, number, attempt))
+		attempt += 1
+
+
+def live_run(number, script, out, players, timeout, pdb_exe, vulkan, online_timeout=ONLINE_TIMEOUT):
 	log("=== run %d" % number)
 	ct.restore_players(players)
-	ct.start_server()
+	start_server_online(online_timeout)
 	prefix = os.path.join(out, "run%d" % number)
 	try:
 		ct.clean_run_dir(RUN, keep=CPU_DRIVER_FILES)
@@ -421,6 +523,8 @@ def main(argv=None):
 	parser.add_argument("--runs", type=int, default=2, help="how many runs (at least 2; default 2)")
 	parser.add_argument("--out", default=os.path.join(TESTMODE, "result"))
 	parser.add_argument("--timeout", type=int, default=180, help="seconds a run may take (default 180)")
+	parser.add_argument("--online-timeout", type=int, default=ONLINE_TIMEOUT, help="seconds the server may take"
+		" to load the world after it listens (default %(default)s)")
 	parser.add_argument("--vulkan", default="cpu", help="PATELLA_VULKAN of the client (default %(default)s: the"
 		" pinned CPU driver)")
 	parser.add_argument("--compare-only", action="store_true", help="compare the recordings already in --out")
@@ -428,7 +532,9 @@ def main(argv=None):
 		" no client)")
 	args = parser.parse_args(argv)
 	if args.self_test:
-		return 1 if td.self_test(compare) else 0
+		failures = td.self_test(compare)
+		failures += cold_start_self_test()
+		return 1 if failures else 0
 	if args.runs < 2:
 		parser.error("--runs must be at least 2")
 	out = os.path.abspath(args.out)
@@ -444,11 +550,122 @@ def main(argv=None):
 		players = ct.snapshot_players()
 		try:
 			for number in range(1, args.runs + 1):
-				live_run(number, script, out, players, args.timeout, exe, args.vulkan)
+				run_with_retry(number, out, lambda number=number: live_run(number, script, out, players,
+					args.timeout, exe, args.vulkan, args.online_timeout))
 		finally:
 			ct.restore_players(players)
 			log("player files of the test characters restored")
 	return compare(out, args.runs, script)
+
+
+# --- the cold start's self-test (issue #25) ---------------------------------------------------
+
+SERVER_LOG_LINES = (":: Initializing network subsystem... [done]", ":: Starting Login Server on port 7171... [done]",
+	":: Loading map sectors... [done]", ">> Zanera (Tibia 7.72) Server Online!")
+
+
+def _made_up_events(answered):
+	"""A recording like the first run of issue #21's first live run (answered False: two game logins,
+	no server packet on them) or like a good one."""
+	events = [{"dir": "c2s", "kind": "login", "conn": 1, "conn_ordinal": 1, "fields_end": 30},
+		{"dir": "s2c", "kind": "login", "conn": 1, "conn_ordinal": 1},
+		{"dir": "c2s", "kind": "game", "conn": 2, "conn_ordinal": 1, "fields_end": 47}]
+	if answered:
+		events.append({"dir": "s2c", "kind": "game", "conn": 2, "conn_ordinal": 1})
+		events.append({"dir": "c2s", "kind": "game", "conn": 2, "conn_ordinal": 1, "plain": "14"})
+	else:
+		events.append({"dir": "close", "kind": "game", "conn": 2, "side": "client"})
+		events.append({"dir": "c2s", "kind": "game", "conn": 3, "conn_ordinal": 2, "fields_end": 47})
+	return events
+
+
+def cold_start_self_test(out=print):
+	"""wait_online on a made-up server log that grows as the made-up clock goes on, game_answered on
+	made-up recordings, run_with_retry with a made-up run (no server, no client). Returns the number of
+	failed expectations."""
+	failures = 0
+	out("the cold start (issue #25)")
+
+	def check(title, ok):
+		nonlocal failures
+		failures += not ok
+		out("  %-55s %s" % (title, "ok" if ok else "FAILED"))
+
+	folder = tempfile.mkdtemp(prefix="testmode-coldstart-")
+	try:
+		path = os.path.join(folder, "server.log")
+
+		def wait(lines_at_start, lines_per_sleep, timeout=10, alive=lambda: True):
+			"""wait_online on a log that has lines_at_start of SERVER_LOG_LINES and gets lines_per_sleep
+			more at each sleep; returns (the result or the CheckError's text, made-up seconds waited)."""
+			now = [0.0]
+			written = [lines_at_start]
+
+			def write():
+				with open(path, "w", encoding="utf-8") as f:
+					f.write("".join(line + "\n" for line in SERVER_LOG_LINES[:written[0]]))
+
+			def sleep(seconds):
+				now[0] += seconds
+				written[0] = min(len(SERVER_LOG_LINES), written[0] + lines_per_sleep)
+				write()
+
+			write()
+			try:
+				result = wait_online(path, timeout, alive, clock=lambda: now[0], sleep=sleep)
+			except CheckError as e:
+				result = str(e)
+			return result, now[0]
+
+		check("online at once", wait(4, 0) == ("online", 0.0))
+		result, waited = wait(2, 1)
+		check("loading, then online: waited for", result == "online" and waited == 1.0)
+		result, waited = wait(2, 0)
+		check("never online: CheckError after the timeout", "did not say" in result and waited >= 10)
+		result, _ = wait(2, 0, alive=lambda: False)
+		check("the server exits while it loads: CheckError", "exited" in result)
+		check("a log not written as it goes: not waited for", wait(0, 0) == ("unknown", 0.0))
+		os.remove(path)
+		check("no log at all: not waited for", wait_online(path, 10, lambda: True, clock=lambda: 0.0,
+			sleep=lambda seconds: None) == "unknown")
+
+		check("issue #21's first run: the game server never answered", not game_answered(_made_up_events(False)))
+		check("a session in the game: answered", game_answered(_made_up_events(True)))
+		check("no game login at all: nothing to run again", game_answered(_made_up_events(False)[:2]))
+
+		def retry(answers):
+			"""run_with_retry with a made-up run whose attempts answer as in answers; returns (attempts,
+			the files left in the folder)."""
+			out_dir = os.path.join(folder, "out")
+			if os.path.isdir(out_dir):
+				shutil.rmtree(out_dir)
+			os.makedirs(out_dir)
+			calls = [0]
+
+			def run():
+				answered = answers[calls[0]]
+				calls[0] += 1
+				with open(os.path.join(out_dir, "run1.jsonl"), "w", encoding="utf-8") as f:
+					for event in _made_up_events(answered):
+						f.write(json.dumps(event) + "\n")
+				with open(os.path.join(out_dir, "run1.log"), "w", encoding="utf-8") as f:
+					f.write("attempt %d\n" % calls[0])
+				os.makedirs(os.path.join(out_dir, "run1"), exist_ok=True)
+
+			with contextlib.redirect_stdout(io.StringIO()):
+				attempts = run_with_retry(1, out_dir, run)
+			return attempts, calls[0], sorted(os.listdir(out_dir))
+
+		check("answered at once: one attempt", retry([True]) == (1, 1, ["run1", "run1.jsonl", "run1.log"]))
+		check("the first attempt unanswered: run again, it kept", retry([False, True]) == (2, 2, ["run1",
+			"run1-attempt1", "run1-attempt1.jsonl", "run1-attempt1.log", "run1.jsonl", "run1.log"]))
+		attempts, calls, files = retry([False, False])
+		check("unanswered twice: two attempts, the last compared", attempts == 2 and calls == 2
+			and "run1.jsonl" in files and "run1-attempt2.jsonl" not in files)
+	finally:
+		shutil.rmtree(folder, ignore_errors=True)
+	out("cold start self test: %d failures" % failures)
+	return failures
 
 
 if __name__ == "__main__":

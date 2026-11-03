@@ -47,6 +47,28 @@ test server must be stopped; the script starts and stops it. About 25 s of scrip
 plus the server's start and stop and the six readings of client_state.py (about a second each): two runs take
 two to four minutes.
 
+### The cold start (issue #25)
+
+The test server listens on both ports (where `testserver.py start` returns) before it has loaded the world. In
+the first live run of issue #21 the server's start took 21 s (a cold start: its files not in the disk cache),
+and the game server never answered the client's game login (two attempts, no reply); that run never reached the
+game, the next run and a full rerun passed (build\logs\issue-21 of the orchestrator's checkout). So each run of
+testmode_check.py now:
+
+- waits, after the start, until build\testserver\server.log says `Server Online!` (the server's line once the
+  world is loaded), at most `--online-timeout` seconds (default 180; the server's exit or the timeout end the
+  check with an error). When the log does not have the server's early line `Starting Login Server` at that
+  point, its output does not reach the file as it is written, and the wait is skipped with a line in the log;
+- is run once more (the server started again, the player files restored) when the client sent a game login and
+  no game connection got a single server packet; the first attempt's files stay in --out as
+  `run<N>-attempt1.jsonl`, `.log`, `.Tibia.cfg` and `run<N>-attempt1\`, the log names it, and only the last
+  attempt is compared. A second unanswered attempt is compared as it is (and fails: no game).
+
+`--self-test` checks both without a server or a client: the wait on a made-up server.log that grows with a
+made-up clock (online at once, loading then online, never online, the server gone, a log not written as it
+goes, no log), the unanswered login on recordings shaped like issue #21's two runs, and the retry with a made-up
+run (one attempt, a retry with the first attempt kept, two unanswered attempts).
+
 ## The pieces
 
 | File | What it does |
@@ -61,7 +83,7 @@ two to four minutes.
 | src/testmode/TestModeWin32.cpp | the Windows side: TSystemClock, the command line, the driver, the messages, the dumps' files, the replay's sockets (#23) |
 | src/testmode/ClientStateWin32.cpp, ClientView.h | the state dump's reading of the client (test build only; #22) |
 | cmake/TestMode.cmake | patella_testmode, the portable part, on every product preset |
-| cmake/WindowsX64.cmake | PatellaTest.exe (option PATELLA_TEST_BUILD, default ON) next to Patella.exe |
+| cmake/WindowsX64.cmake | PatellaTest.exe (option PATELLA_TEST_BUILD, default ON) next to Patella.exe; PatellaTest_compile, its sources compiled without Tibia.exe (PATELLA_CLIENT_COMPILE_ONLY, the hosted CI; #25) |
 | tests/unit/testmode_*.cpp | tests_testmode: the clock, the parser, the scheduler, the driver loop; the dumps' formats |
 | tests/testmode/login-walk.script | the check's script (6 dumps, 3 frames) |
 | tools/testmode_check.py | the determinism check and the check of the dumps |

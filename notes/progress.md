@@ -101,6 +101,11 @@ side replayed inside the client over loopback, the virtual clock held while the 
 and compares. All eight sessions match on the CPU driver (packets with keys and padding, 62 states, 61 frames,
 every written file), 2 to 5 s each. Patella.exe and the oracle unchanged. notes/testmode.md, "Reference
 recordings".
+The test build in CI (Patella-Modern issue #25, November 3, 2026): the hosted CI compiles PatellaTest.exe's
+sources without Tibia.exe (PATELLA_CLIENT_COMPILE_ONLY: the object library PatellaTest_compile, no resources, no
+link), self-hosted.yml runs tools/testmode_check.py, and testmode_check.py waits for the server's "Server
+Online!" after each start and runs a run once more whose game login got no answer (issue #21's cold start).
+notes/testmode.md, "The cold start (issue #25)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
