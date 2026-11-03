@@ -90,14 +90,14 @@ class TDialog : public TWindow {
 public:
 	TDialog(const char *_Caption, TComponent *_Dialog); // 0x47c970, lines 650-677
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	int getMinimumWidth() { return SkinProperties.StyleB08.Data00; }  // +0x3c, 0x47cf50
-	int getMinimumHeight() { return SkinProperties.StyleB08.Data04; } // +0x40, 0x47cf60
-	void Arrange();                                                   // +0x48, 0x46cd20, line 812
-	bool MouseMove(int x, int y);                                     // +0x4c, 0x46d410, line 848
-	bool LeftButtonDown(int x, int y, int Flags);                     // +0x50, 0x46d660, line 867
-	bool LeftButtonUp(int x, int y, int Flags);                       // +0x54, 0x46d830, line 880
-	void KeyPress(int Key);                                           // +0x6c, 0x46d220, line 831
-	void HandleEvent(int Event);                                      // +0x70, 0x46d9f0, line 891
+	int getMinimumWidth() override { return SkinProperties.StyleB08.Data00; }  // +0x3c, 0x47cf50
+	int getMinimumHeight() override { return SkinProperties.StyleB08.Data04; } // +0x40, 0x47cf60
+	void Arrange() override;                                                   // +0x48, 0x46cd20, line 812
+	bool MouseMove(int x, int y) override;                                     // +0x4c, 0x46d410, line 848
+	bool LeftButtonDown(int x, int y, int Flags) override;                     // +0x50, 0x46d660, line 867
+	bool LeftButtonUp(int x, int y, int Flags) override;                       // +0x54, 0x46d830, line 880
+	void KeyPress(int Key) override;                                           // +0x6c, 0x46d220, line 831
+	void HandleEvent(int Event) override;                                      // +0x70, 0x46d9f0, line 891
 	// A NULL text removes the button. The OK button's callback NoCallback
 	// becomes (this, 1) for Return; the buttons themselves keep the callback
 	// given.
@@ -133,7 +133,7 @@ public:
 		NoAnswerCallback = _NoAnswerCallback;
 	}
 	// The destructor is TLabel's (deleting destructor 0x46be00).
-	void KeyPress(int Key); // +0x6c, 0x46db80, line 915
+	void KeyPress(int Key) override; // +0x6c, 0x46db80, line 915
 
 	TCallback YesCallback;      // +0x4c
 	TCallback NoAnswerCallback; // +0x54
@@ -152,7 +152,7 @@ public:
 		ExitCallback = _ExitCallback;
 	}
 	// The destructor is TLabel's (deleting destructor 0x46be00, shared).
-	void KeyPress(int Key); // +0x6c, 0x46dd40, line 952
+	void KeyPress(int Key) override; // +0x6c, 0x46dd40, line 952
 
 	TCallback LogoutCallback; // +0x4c
 	TCallback ExitCallback;   // +0x54
@@ -173,9 +173,9 @@ public:
 		CloseOnMessage = _CloseOnMessage;
 	}
 	// Inline (out-of-line copy 0x46b950, deleting destructor 0x46be20).
-	~TWaitLabel() { delete Timer; }
-	void Draw(int Surface, int x, int y);                // +0x44, 0x46e2b0, line 1011
-	void HandleEvent(int Event);                         // +0x70, 0x46e0e0, line 1000
+	~TWaitLabel() override { delete Timer; }
+	void Draw(int Surface, int x, int y) override;       // +0x44, 0x46e2b0, line 1011
+	void HandleEvent(int Event) override;                // +0x70, 0x46e0e0, line 1000
 	virtual void SetTimer(int Time, TCallback Callback); // +0x88, 0x46df20, line 985
 
 	TTimer *Timer;       // +0x4c
@@ -191,9 +191,9 @@ class TReconnectWindow : public TWindow {
 public:
 	TReconnectWindow(const char *Text, int timeout); // 0x46e470, line 1052
 	// Inline (out-of-line copy 0x46b9b0, deleting destructor 0x46be40).
-	~TReconnectWindow() { delete Timer; }
-	void Draw(int Surface, int x, int y); // +0x44, 0x46e8b0, line 1073
-	void HandleEvent(int Event);          // +0x70, 0x46ea60, line 1122
+	~TReconnectWindow() override { delete Timer; }
+	void Draw(int Surface, int x, int y) override; // +0x44, 0x46e8b0, line 1073
+	void HandleEvent(int Event) override;          // +0x70, 0x46ea60, line 1122
 	// Inline (out-of-line copy 0x46ba10): Time in tenths of a second.
 	void SetTime(int Time)
 	{
@@ -221,9 +221,9 @@ class TLoginDialog : public TWindow {
 public:
 	TLoginDialog(void (*OpenURL)(const char *URL)); // 0x46ecf0, line 1162
 	// Inline (out-of-line copy 0x46bf90, deleting destructor 0x46c090).
-	~TLoginDialog() { delete FocusGroup; }
-	void KeyPress(int Key);      // +0x6c, 0x46f160, lines 1183-1187
-	void HandleEvent(int Event); // +0x70, 0x46f3e0, line 1203
+	~TLoginDialog() override { delete FocusGroup; }
+	void KeyPress(int Key) override;      // +0x6c, 0x46f160, lines 1183-1187
+	void HandleEvent(int Event) override; // +0x70, 0x46f3e0, line 1203
 
 	TPasswordEditLine *Account;  // +0x2c
 	TPasswordEditLine *Password; // +0x30
@@ -237,18 +237,18 @@ class TCharacterListDialog : public TWindow {
 public:
 	TCharacterListDialog(); // 0x46f5c0, line 1262
 	// Inline (out-of-line copy 0x46baa0, deleting destructor 0x46be60).
-	~TCharacterListDialog()
+	~TCharacterListDialog() override
 	{
 		delete Timer;
 		Timer = nullptr;
 	}
-	bool LeftButtonDown(int x, int y, int Flags); // +0x50, 0x46fa10, line 1274
-	bool RightButtonUp(int x, int y, int Flags);  // +0x5c, 0x46fbc0, line 1286
-	bool MouseWheel(int x, int y, int Code);      // +0x60, 0x46fd70, line 1298
-	void KeyPress(int Key);                       // +0x6c, 0x4700b0, line 1335
-	void HandleEvent(int Event);                  // +0x70, 0x470280, line 1361
-	void PositionChanged();                       // +0x74, 0x46ff20, line 1309
-	virtual void SetTimeout(int seconds);         // +0xa0, 0x470490, line 1374
+	bool LeftButtonDown(int x, int y, int Flags) override; // +0x50, 0x46fa10, line 1274
+	bool RightButtonUp(int x, int y, int Flags) override;  // +0x5c, 0x46fbc0, line 1286
+	bool MouseWheel(int x, int y, int Code) override;      // +0x60, 0x46fd70, line 1298
+	void KeyPress(int Key) override;                       // +0x6c, 0x4700b0, line 1335
+	void HandleEvent(int Event) override;                  // +0x70, 0x470280, line 1361
+	void PositionChanged() override;                       // +0x74, 0x46ff20, line 1309
+	virtual void SetTimeout(int seconds);                  // +0xa0, 0x470490, line 1374
 
 	TListBox *ListBox; // +0x2c
 	TTimer *Timer;     // +0x30, event 31
@@ -263,9 +263,9 @@ class TMoveObjectsDialog : public TWindow {
 public:
 	TMoveObjectsDialog(); // 0x470670, lines 1392-1406
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void Draw(int Surface, int x, int y); // +0x44, 0x470b60, line 1423
-	void KeyPress(int Key);               // +0x6c, 0x470de0, line 1459
-	void HandleEvent(int Event);          // +0x70, 0x471080, line 1475
+	void Draw(int Surface, int x, int y) override; // +0x44, 0x470b60, line 1423
+	void KeyPress(int Key) override;               // +0x6c, 0x470de0, line 1459
+	void HandleEvent(int Event) override;          // +0x70, 0x471080, line 1475
 
 	TObject DraggedObject;           // +0x2c
 	int SourceIndex;                 // +0x38, GetDragObject's Index
@@ -290,12 +290,12 @@ class TOutfitDialog : public TWindow {
 public:
 	TOutfitDialog(int *Data); // 0x47cf70, lines 1488-1542
 	// Inline (out-of-line copy 0x46bfc0, deleting destructor 0x46c0b0).
-	~TOutfitDialog()
+	~TOutfitDialog() override
 	{
 		delete ColorGroup;
 		delete PartGroup;
 	}
-	void HandleEvent(int Event); // +0x70, 0x471250, line 1586
+	void HandleEvent(int Event) override; // +0x70, 0x471250, line 1586
 
 	TOutfitIcon *OutfitIcon;         // +0x2c
 	TTextButton *PartButtons[4];     // +0x30, events 1000-1003
@@ -320,8 +320,8 @@ public:
 	TTextDialog(int MaximumLength, const char *Text, uint32 _ObjectNumber, TObject _Obj,
 		const char *Description); // 0x471500, lines 1702-1727
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key) { EditText->KeyPress(Key); } // +0x6c, 0x4719a0
-	void HandleEvent(int Event);                        // +0x70, 0x4719b0, line 1739
+	void KeyPress(int Key) override { EditText->KeyPress(Key); } // +0x6c, 0x4719a0
+	void HandleEvent(int Event) override;                        // +0x70, 0x4719b0, line 1739
 
 	uint32 ObjectNumber;     // +0x2c, the server's number for SendEditText
 	TObject Obj;             // +0x30
@@ -335,9 +335,9 @@ public:
 	TEditListDialog(int MaxLength, const char *Text, int _Type, uint32 _Identifier,
 		const char *Description); // 0x47d660, lines 1752-1775
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void Arrange();                                     // +0x48, 0x471b60
-	void KeyPress(int Key) { EditText->KeyPress(Key); } // +0x6c, 0x47db50
-	void HandleEvent(int Event);                        // +0x70, 0x471be0, line 1800
+	void Arrange() override;                                     // +0x48, 0x471b60
+	void KeyPress(int Key) override { EditText->KeyPress(Key); } // +0x6c, 0x47db50
+	void HandleEvent(int Event) override;                        // +0x70, 0x471be0, line 1800
 
 	int Type;            // +0x2c, for SendEditHouseText
 	uint32 Identifier;   // +0x30
@@ -369,10 +369,10 @@ class TIgnoreListDialog : public TWindow {
 public:
 	TIgnoreListDialog(); // 0x47db60, lines 1875-1975
 	// The destructor is the implicit one (0x47eab0, deleting destructor 0x47ea90).
-	void Arrange();                             // +0x48, 0x471d90, line 1987
-	bool LeftButtonUp(int x, int y, int Flags); // +0x54, 0x472970, line 2205
-	void KeyPress(int Key);                     // +0x6c, 0x472d80, line 2216
-	void HandleEvent(int Event);                // +0x70, 0x471f20, line 2171
+	void Arrange() override;                             // +0x48, 0x471d90, line 1987
+	bool LeftButtonUp(int x, int y, int Flags) override; // +0x54, 0x472970, line 2205
+	void KeyPress(int Key) override;                     // +0x6c, 0x472d80, line 2216
+	void HandleEvent(int Event) override;                // +0x70, 0x471f20, line 2171
 
 	TCheckBox *IgnoreListCheckBox;      // +0x2c, "Activate Ignore List"
 	TFontListBox *IgnoreList;           // +0x30, event 11
@@ -406,8 +406,8 @@ public:
 	TBugReportDialog(); // 0x472f20, line 2240
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
 	// Inline (folded with the scroll bars' 0x4731d0).
-	void KeyPress(int Key) { EditText->KeyPress(Key); } // +0x6c, 0x4731d0
-	void HandleEvent(int Event);                        // +0x70, 0x4731e0, line 2252
+	void KeyPress(int Key) override { EditText->KeyPress(Key); } // +0x6c, 0x4731d0
+	void HandleEvent(int Event) override;                        // +0x70, 0x4731e0, line 2252
 
 	TEditText *EditText; // +0x2c
 };
@@ -419,9 +419,9 @@ class TNewChannelDialog : public TWindow {
 public:
 	TNewChannelDialog(int _NumberOfChannels, int *_ChannelIDs, const char (*ChannelNames)[30]); // 0x4733a0, lines 2265-2297
 	// Inline (out-of-line copy 0x46bb20, deleting destructor 0x46be80).
-	~TNewChannelDialog() { delete[] ChannelIDs; }
-	void KeyPress(int Key);      // +0x6c, 0x473980, line 2321
-	void HandleEvent(int Event); // +0x70, 0x473b80, lines 2333-2349
+	~TNewChannelDialog() override { delete[] ChannelIDs; }
+	void KeyPress(int Key) override;      // +0x6c, 0x473980, line 2321
+	void HandleEvent(int Event) override; // +0x70, 0x473b80, lines 2333-2349
 
 	TListBox *ListBox;    // +0x2c, double click 301
 	TEditLine *NameEdit;  // +0x30
@@ -437,8 +437,8 @@ class TPrivateChannelDialog : public TWindow {
 public:
 	TPrivateChannelDialog(bool _Exclude); // 0x473e60, line 2378
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);      // +0x6c, 0x474110, line 2392
-	void HandleEvent(int Event); // +0x70, 0x4742e0, line 2406
+	void KeyPress(int Key) override;      // +0x6c, 0x474110, line 2392
+	void HandleEvent(int Event) override; // +0x70, 0x4742e0, line 2406
 
 	bool Exclude;        // +0x2c
 	TEditLine *NameEdit; // +0x30
@@ -450,8 +450,8 @@ class TReportDialog : public TWindow {
 public:
 	TReportDialog(); // 0x4744b0, line 2551
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);      // +0x6c, 0x474760, line 2565
-	void HandleEvent(int Event); // +0x70, 0x474930, line 2580
+	void KeyPress(int Key) override;      // +0x6c, 0x474760, line 2565
+	void HandleEvent(int Event) override; // +0x70, 0x474930, line 2580
 
 	TEditLine *TextEdit; // +0x2c
 };
@@ -463,8 +463,8 @@ class TAddBuddyDialog : public TWindow {
 public:
 	TAddBuddyDialog(); // 0x474b20, line 2607
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);      // +0x6c, 0x474dd0, line 2621
-	void HandleEvent(int Event); // +0x70, 0x474fa0, line 2635
+	void KeyPress(int Key) override;      // +0x6c, 0x474dd0, line 2621
+	void HandleEvent(int Event) override; // +0x70, 0x474fa0, line 2635
 
 	TEditLine *NameEdit; // +0x2c
 };
@@ -475,10 +475,10 @@ class TEditBuddyDialog : public TWindow {
 public:
 	TEditBuddyDialog(int _CharacterID); // 0x475160, lines 2652-2696
 	// Inline (out-of-line copy 0x46bec0, deleting destructor 0x46c010).
-	~TEditBuddyDialog() { delete IconGroup; }
+	~TEditBuddyDialog() override { delete IconGroup; }
 	// Inline (out-of-line copy 0x46bef0).
-	void KeyPress(int Key) { Description->KeyPress(Key); } // +0x6c, 0x46bef0
-	void HandleEvent(int Event);                           // +0x70, 0x475820, line 2720
+	void KeyPress(int Key) override { Description->KeyPress(Key); } // +0x6c, 0x46bef0
+	void HandleEvent(int Event) override;                           // +0x70, 0x475820, line 2720
 
 	int CharacterID;              // +0x2c
 	TRadioButtonGroup *IconGroup; // +0x30
@@ -496,8 +496,8 @@ class TUpdateDialog : public TWindow {
 public:
 	TUpdateDialog(const char *FileName, int _DataSize); // 0x4759f0, line 2761
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void Draw(int Surface, int x, int y); // +0x44, 0x475d00, line 2793
-	void HandleEvent(int Event);          // +0x70, 0x475f00, line 2806
+	void Draw(int Surface, int x, int y) override; // +0x44, 0x475d00, line 2793
+	void HandleEvent(int Event) override;          // +0x70, 0x475f00, line 2806
 
 	int Unused2C;              // +0x2c, never used
 	TProgressBar *ProgressBar; // +0x30
@@ -512,8 +512,8 @@ class THelpDialog : public TWindow {
 public:
 	THelpDialog(void (*_OpenURL)(const char *URL)); // 0x4760a0, line 2869
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);      // +0x6c, 0x476770, line 2882
-	void HandleEvent(int Event); // +0x70, 0x476930, lines 2914-2918
+	void KeyPress(int Key) override;      // +0x6c, 0x476770, line 2882
+	void HandleEvent(int Event) override; // +0x70, 0x476930, lines 2914-2918
 
 	void (*OpenURL)(const char *URL); // +0x2c
 };
@@ -523,8 +523,8 @@ class THintsDialog : public TWindow {
 public:
 	THintsDialog(); // 0x476cd0, line 2945
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);      // +0x6c, 0x476fb0, line 2959
-	void HandleEvent(int Event); // +0x70, 0x477180, lines 2974-2983
+	void KeyPress(int Key) override;      // +0x6c, 0x476fb0, line 2959
+	void HandleEvent(int Event) override; // +0x70, 0x477180, lines 2974-2983
 
 	TListBox *ListBox; // +0x2c, double click 1
 };
@@ -539,12 +539,12 @@ class TRuleViolationDialog : public TWindow {
 public:
 	TRuleViolationDialog(const char *Name, TTalkLine *Statement); // 0x484620, line 3056
 	// Inline (out-of-line copy 0x46bf00, deleting destructor 0x46c030).
-	~TRuleViolationDialog() { delete FocusGroup; }
-	void KeyPress(int Key);      // +0x6c, 0x4774d0, line 3080
-	void HandleEvent(int Event); // +0x70, 0x484e70, lines 3124-3128
-	void UpdateActions();        // 0x47eae0, line 3158
-	int GetReason();             // 0x4776b0, line 3171
-	int GetAction();             // 0x477860, line 3191
+	~TRuleViolationDialog() override { delete FocusGroup; }
+	void KeyPress(int Key) override;      // +0x6c, 0x4774d0, line 3080
+	void HandleEvent(int Event) override; // +0x70, 0x484e70, lines 3124-3128
+	void UpdateActions();                 // 0x47eae0, line 3158
+	int GetReason();                      // 0x4776b0, line 3171
+	int GetAction();                      // 0x477860, line 3191
 
 	TFocusGroup *FocusGroup;  // +0x2c
 	TEditLine *NameEdit;      // +0x30
@@ -566,9 +566,9 @@ class TEditMarkDialog : public TWindow {
 public:
 	TEditMarkDialog(TCoordinate *_Coordinate, TMark *_Mark); // 0x477c80, lines 3207-3242
 	// Inline (out-of-line copy 0x46bf30, deleting destructor 0x46c050).
-	~TEditMarkDialog() { delete TypeGroup; }
-	void KeyPress(int Key);      // +0x6c, 0x478200, line 3268
-	void HandleEvent(int Event); // +0x70, 0x4783d0, lines 3294-3298
+	~TEditMarkDialog() override { delete TypeGroup; }
+	void KeyPress(int Key) override;      // +0x6c, 0x478200, line 3268
+	void HandleEvent(int Event) override; // +0x70, 0x4783d0, lines 3294-3298
 
 	TCoordinate Coordinate;       // +0x2c
 	TMark Mark;                   // +0x38
@@ -585,8 +585,8 @@ class TOptionsDialog : public TWindow {
 public:
 	TOptionsDialog(); // 0x4786d0, line 3366
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);      // +0x6c, 0x478e50, line 3380
-	void HandleEvent(int Event); // +0x70, 0x479010, lines 3422-3426
+	void KeyPress(int Key) override;      // +0x6c, 0x478e50, line 3380
+	void HandleEvent(int Event) override; // +0x70, 0x479010, lines 3422-3426
 };
 
 // "General Options" (vtable 0x563360, 0x44 bytes).
@@ -594,7 +594,7 @@ class TGeneralOptionsDialog : public TWindow {
 public:
 	TGeneralOptionsDialog(void (*_OpenURL)(const char *URL)); // 0x479310, line 3472
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void HandleEvent(int Event); // +0x70, 0x479720, lines 3495-3498
+	void HandleEvent(int Event) override; // +0x70, 0x479720, lines 3495-3498
 
 	TCheckBox *TextualEffects;        // +0x2c
 	TCheckBox *CreatureNames;         // +0x30
@@ -611,9 +611,9 @@ public:
 	TGraphicsOptionsDialog(void (*_OpenURL)(const char *URL), void (*_SetDisplayMode)(int Mode),
 		TWindow *_Parent); // 0x479a30, line 3549
 	// Inline (out-of-line copy 0x46bb40, deleting destructor 0x46bea0).
-	~TGraphicsOptionsDialog() { delete[] Modes; }
-	void KeyPress(int Key);      // +0x6c, 0x479f50, line 3573
-	void HandleEvent(int Event); // +0x70, 0x47a150, line 3598
+	~TGraphicsOptionsDialog() override { delete[] Modes; }
+	void KeyPress(int Key) override;      // +0x6c, 0x479f50, line 3573
+	void HandleEvent(int Event) override; // +0x70, 0x47a150, line 3598
 
 	TCheckBox *Fullscreen;            // +0x2c
 	TListBox *ResolutionList;         // +0x30
@@ -632,9 +632,9 @@ class TAdvancedGraphicsDialog : public TWindow {
 public:
 	TAdvancedGraphicsDialog(void (*_OpenURL)(const char *URL), TComponent *_Receiver); // 0x47a3d0, line 3689
 	// Inline (out-of-line copy 0x46bf60, deleting destructor 0x46c070).
-	~TAdvancedGraphicsDialog() { delete EngineGroup; }
-	void Draw(int Surface, int x, int y); // +0x44, 0x47aa30, line 3723
-	void HandleEvent(int Event);          // +0x70, 0x47ad10, line 3751
+	~TAdvancedGraphicsDialog() override { delete EngineGroup; }
+	void Draw(int Surface, int x, int y) override; // +0x44, 0x47aa30, line 3723
+	void HandleEvent(int Event) override;          // +0x70, 0x47ad10, line 3751
 
 	TComponent *Receiver;             // +0x2c
 	TCheckBox *LightEffects;          // +0x30
@@ -661,7 +661,7 @@ class TConsoleOptionsDialog : public TWindow {
 public:
 	TConsoleOptionsDialog(void (*_OpenURL)(const char *URL)); // 0x47afb0, line 3797
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void HandleEvent(int Event); // +0x70, 0x47b3c0, line 3819
+	void HandleEvent(int Event) override; // +0x70, 0x47b3c0, line 3819
 
 	TCheckBox *InfoMessages;          // +0x2c
 	TCheckBox *EventMessages;         // +0x30
@@ -676,7 +676,7 @@ class TNetworkOptionsDialog : public TWindow {
 public:
 	TNetworkOptionsDialog(void (*_OpenURL)(const char *URL)); // 0x47b5e0, line 3843
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void HandleEvent(int Event); // +0x70, 0x47b800, line 3860
+	void HandleEvent(int Event) override; // +0x70, 0x47b800, line 3860
 
 	TCheckBox *TestServerLogin;       // +0x2c
 	void (*OpenURL)(const char *URL); // +0x30
@@ -688,10 +688,10 @@ class THotkeyDialog : public TWindow {
 public:
 	THotkeyDialog(void (*_OpenURL)(const char *URL)); // 0x47edf0, line 3906
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	bool LeftButtonUp(int x, int y, int Flags); // +0x54, 0x47c400, line 4010
-	void KeyPress(int Key);                     // +0x6c, 0x47bd40, line 3958
-	void HandleEvent(int Event);                // +0x70, 0x47c010, lines 3993-3996
-	void UpdateLine(int Number);                // 0x47b9c0, lines 3914-3933
+	bool LeftButtonUp(int x, int y, int Flags) override; // +0x54, 0x47c400, line 4010
+	void KeyPress(int Key) override;                     // +0x6c, 0x47bd40, line 3958
+	void HandleEvent(int Event) override;                // +0x70, 0x47c010, lines 3993-3996
+	void UpdateLine(int Number);                         // 0x47b9c0, lines 3914-3933
 
 	char Texts[HOTKEYS][256];         // +0x2c
 	bool AutoSend[HOTKEYS];           // +0x242c
@@ -708,8 +708,8 @@ class TErrorReportDialog : public TWindow {
 public:
 	TErrorReportDialog(); // 0x47f290, line 4053
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key);      // +0x6c, 0x47c5e0, line 4067
-	void HandleEvent(int Event); // +0x70, 0x47c7b0, line 4084
+	void KeyPress(int Key) override;      // +0x6c, 0x47c5e0, line 4067
+	void HandleEvent(int Event) override; // +0x70, 0x47c7b0, line 4084
 
 	TEditLine *CommentEdit; // +0x2c
 };

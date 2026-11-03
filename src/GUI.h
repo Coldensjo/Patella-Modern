@@ -118,17 +118,17 @@ class TElement : public TComponent {
 public:
 	TElement(); // 0x496100
 	// The destructor is the implicit one (deleting destructor 0x496550).
-	bool MouseMove(int x, int y) { return true; }                                               // +0x4c, 0x4259f0
-	bool LeftButtonDown(int x, int y, int Flags) { return true; }                               // +0x50, 0x425a00
-	bool LeftButtonUp(int x, int y, int Flags) { return true; }                                 // +0x54, 0x425a00
-	bool LeftButtonDoubleClick(int x, int y, int Flags) { return LeftButtonDown(x, y, Flags); } // +0x58, 0x41acb0
-	bool RightButtonUp(int x, int y, int Flags) { return true; }                                // +0x5c, 0x425a00
-	bool MouseWheel(int x, int y, int Direction) { return true; }                               // +0x60, 0x425a00
-	void MouseHover(int x, int y) {}                                                            // +0x64, 0x417a30
-	bool HelpMouseMove(int x, int y);                                                           // +0x68, 0x417a40 (inline, below)
-	void SetCapture(TComponent *Component);                                                     // +0x78, 0x4a0bc0, line 1893
-	void ReleaseCapture(TComponent *Component);                                                 // +0x7c, 0x4a0d60, line 1905
-	void StopDragging() {}                                                                      // +0x80, empty (0x496160)
+	bool MouseMove(int x, int y) override { return true; }                                               // +0x4c, 0x4259f0
+	bool LeftButtonDown(int x, int y, int Flags) override { return true; }                               // +0x50, 0x425a00
+	bool LeftButtonUp(int x, int y, int Flags) override { return true; }                                 // +0x54, 0x425a00
+	bool LeftButtonDoubleClick(int x, int y, int Flags) override { return LeftButtonDown(x, y, Flags); } // +0x58, 0x41acb0
+	bool RightButtonUp(int x, int y, int Flags) override { return true; }                                // +0x5c, 0x425a00
+	bool MouseWheel(int x, int y, int Direction) override { return true; }                               // +0x60, 0x425a00
+	void MouseHover(int x, int y) override {}                                                            // +0x64, 0x417a30
+	bool HelpMouseMove(int x, int y) override;                                                           // +0x68, 0x417a40 (inline, below)
+	void SetCapture(TComponent *Component) override;                                                     // +0x78, 0x4a0bc0, line 1893
+	void ReleaseCapture(TComponent *Component) override;                                                 // +0x7c, 0x4a0d60, line 1905
+	void StopDragging() override {}                                                                      // +0x80, empty (0x496160)
 };
 
 // A component with children (vtable 0x564528, 0x2c bytes); the base of the
@@ -137,33 +137,33 @@ public:
 // event while it is set (a drag).
 class TWindow : public TComponent {
 public:
-	TWindow();                                                      // 0x496080
-	~TWindow();                                                     // +0x00, 0x4a2590 (deleting 0x4a29e0)
-	void InsertChild(TComponent *Child);                            // +0x04, 0x49c190, lines 1193-1194
-	void AppendChild(TComponent *Child);                            // +0x08, 0x49c430, lines 1206-1207
-	void RemoveChild(TComponent *Child);                            // +0x0c, 0x49c890, lines 1239-1260
-	void DeleteChild(TComponent *Child);                            // +0x10, 0x49c6f0, line 1231
-	void InsertChildAfter(TComponent *Previous, TComponent *Child); // +0x14, 0x49cd00, lines 1269-1287
-	void SwapChildren(TComponent *Child1, TComponent *Child2);      // +0x18, 0x49d200, lines 1295-1347
-	bool IsChild(TComponent *Child);                                // +0x1c, 0x4960b0
-	TComponent *GetFirstChild() { return FirstChild; }              // +0x20, 0x4176a0
-	TComponent *GetLastChild();                                     // +0x24, 0x4960e0
-	void SetPosition(int _OffsetX, int _OffsetY);                   // +0x38, 0x49da60, line 1389
-	void Draw(int Surface, int x, int y);                           // +0x44, 0x4a2600, line 1408
-	void Arrange();                                                 // +0x48, 0x49dc20, line 1424
-	bool MouseMove(int x, int y);                                   // +0x4c, 0x49ddc0, line 1448
-	bool LeftButtonDown(int x, int y, int Flags);                   // +0x50, 0x49dff0, line 1472
-	bool LeftButtonUp(int x, int y, int Flags);                     // +0x54, 0x49e230, line 1496
-	bool LeftButtonDoubleClick(int x, int y, int Flags);            // +0x58, 0x49e470, line 1520
-	bool RightButtonUp(int x, int y, int Flags);                    // +0x5c, 0x49e6b0, line 1544
-	bool MouseWheel(int x, int y, int Direction);                   // +0x60, 0x49e8f0, line 1568
-	void MouseHover(int x, int y);                                  // +0x64, 0x49eb30, line 1588
-	bool HelpMouseMove(int x, int y);                               // +0x68, 0x49ed10, line 1611
-	void SetCapture(TComponent *Component);                         // +0x78, 0x49ef10, lines 1633-1638
-	void ReleaseCapture(TComponent *Component);                     // +0x7c, 0x49f1a0, lines 1648-1653
-	void StopDragging();                                            // +0x80, 0x49f430, line 1668
-	virtual TComponent *GetCapture() { return Capture; }            // +0x84, 0x4176b0
-	virtual void SetChildPosition(TComponent *Child, int x, int y); // +0x88, 0x49fa40, lines 1700-1708
+	TWindow();                                                               // 0x496080
+	~TWindow() override;                                                     // +0x00, 0x4a2590 (deleting 0x4a29e0)
+	void InsertChild(TComponent *Child) override;                            // +0x04, 0x49c190, lines 1193-1194
+	void AppendChild(TComponent *Child) override;                            // +0x08, 0x49c430, lines 1206-1207
+	void RemoveChild(TComponent *Child) override;                            // +0x0c, 0x49c890, lines 1239-1260
+	void DeleteChild(TComponent *Child) override;                            // +0x10, 0x49c6f0, line 1231
+	void InsertChildAfter(TComponent *Previous, TComponent *Child) override; // +0x14, 0x49cd00, lines 1269-1287
+	void SwapChildren(TComponent *Child1, TComponent *Child2) override;      // +0x18, 0x49d200, lines 1295-1347
+	bool IsChild(TComponent *Child) override;                                // +0x1c, 0x4960b0
+	TComponent *GetFirstChild() override { return FirstChild; }              // +0x20, 0x4176a0
+	TComponent *GetLastChild() override;                                     // +0x24, 0x4960e0
+	void SetPosition(int _OffsetX, int _OffsetY) override;                   // +0x38, 0x49da60, line 1389
+	void Draw(int Surface, int x, int y) override;                           // +0x44, 0x4a2600, line 1408
+	void Arrange() override;                                                 // +0x48, 0x49dc20, line 1424
+	bool MouseMove(int x, int y) override;                                   // +0x4c, 0x49ddc0, line 1448
+	bool LeftButtonDown(int x, int y, int Flags) override;                   // +0x50, 0x49dff0, line 1472
+	bool LeftButtonUp(int x, int y, int Flags) override;                     // +0x54, 0x49e230, line 1496
+	bool LeftButtonDoubleClick(int x, int y, int Flags) override;            // +0x58, 0x49e470, line 1520
+	bool RightButtonUp(int x, int y, int Flags) override;                    // +0x5c, 0x49e6b0, line 1544
+	bool MouseWheel(int x, int y, int Direction) override;                   // +0x60, 0x49e8f0, line 1568
+	void MouseHover(int x, int y) override;                                  // +0x64, 0x49eb30, line 1588
+	bool HelpMouseMove(int x, int y) override;                               // +0x68, 0x49ed10, line 1611
+	void SetCapture(TComponent *Component) override;                         // +0x78, 0x49ef10, lines 1633-1638
+	void ReleaseCapture(TComponent *Component) override;                     // +0x7c, 0x49f1a0, lines 1648-1653
+	void StopDragging() override;                                            // +0x80, 0x49f430, line 1668
+	virtual TComponent *GetCapture() { return Capture; }                     // +0x84, 0x4176b0
+	virtual void SetChildPosition(TComponent *Child, int x, int y);          // +0x88, 0x49fa40, lines 1700-1708
 	// The area is a 16-byte block passed by value (every caller builds it
 	// with sub esp,0x10 and four stores, issue #27).
 	virtual void SetChildArea(TComponent *Child, TRect Area);                   // +0x8c, 0x49f5d0, lines 1679-1690

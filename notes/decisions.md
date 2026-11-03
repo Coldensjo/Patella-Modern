@@ -6277,3 +6277,38 @@ Settled by Claude Opus 5.5, November 3, 2026. cmake/WindowsX64.cmake (Patella_co
   separate build step for each object library shows in the log which of the two failed. Release only, as for
   PatellaTest_compile: the Debug flags differ only in optimisation and the debug CRT, and the self-hosted
   windows-x64 job builds both configurations.
+
+## override on every overrider, and no final yet (Patella-Modern issue #33)
+
+Settled by Claude Opus 5.5, November 3, 2026. The second change of M3 (plan section 7): `modernize-use-override`
+is clean on src/.
+
+- **clang-tidy through tools/tidy.py on every configuration that compiles src/** (high). As in issue #32: `python
+  -I tools/tidy.py -p <dir> --checks=-*,modernize-use-override --fix --all` once per target, on compile_commands.json
+  files holding one target's Release commands each (oracle-x86's Patella, mfc_shim_check, difftest,
+  communicationtest, sysinctest and vlongtest with `--extra-arg=-m32`; windows-x64's Patella, PatellaTest,
+  patella_core, patella_testmode and patella_render_vulkan). 667 declarations in 17 files got `override`: 21
+  that said `virtual` (the keyword goes, as the check does it), and 646 overriders that said neither (the
+  original's style: GUI.h's subclasses repeat TComponent's functions without `virtual`). Destructors of derived
+  classes are among them (`~TTextWindow() override`). The plan's "167 `virtual`" counted the keyword only. Not
+  one fix fell inside a TASSERT/TERROR/TEND argument (macrocheck: the 2,108 calls unchanged). The second run of
+  every target reports no use-override finding; MainFrm.cpp's two clang-diagnostic errors (the MFC message
+  map's ON_MESSAGE, also on main) did not stop the fixes of MainFrm.h, which the other translation units reach.
+- **No case outside the check's view** (high). Unlike use-nullptr there is no template or variadic blind spot:
+  every function that overrides is a member of a class that some target compiles, and the remaining `virtual`s
+  of src/ are the first declarations (TComponent, TTalkBuffer, TSurface, the subclasses' own new vtable slots
+  such as ConsoleWindow.h's FormatLines at +0x84, the MFC shim's base classes, IClock, the exception and
+  cipher classes' destructors).
+- **clang-format realigns the trailing comments next to a changed line** (high). `clang-format -i` on nine
+  headers aligned the comment columns again: 59 lines, whitespace only (checked with the whitespace removed).
+- **No `final` in this change** (high). The issue asked for `final` where nothing derives; 107 classes of src/
+  with an override have no subclass in src/ or tests/. Marking them `final` lets the compiler call their virtual
+  functions directly through a pointer of the class's own type, and it does: built at the same path, the oracle
+  Patella.exe's `.text` shrinks by 0x400 bytes and the x64 Patella.exe's by 0x1400, with 208,590 and 257,090
+  differing byte runs (pecompare against the override-only build). The oracle must stay the reconstruction of
+  Tibia.exe's code, so `final` waits until the oracle retires (M6), where a devirtualized call changes nothing
+  that is still compared; it then goes in as its own change, with the leaf list measured again.
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built
+  from main 6a20d32 and from the branch at the same path, differ only in the link time stamps and the PDB record
+  (pecompare: `.text` identical); the difftest counts are unchanged; the clang-tidy baseline did not hold a
+  use-override entry and is unchanged (21).

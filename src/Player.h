@@ -11,9 +11,9 @@
 class CPlayerApp : public CWinApp {
 public:
 	CPlayerApp();
-	virtual BOOL InitInstance();
-	virtual int Run();
-	virtual BOOL OnIdle(LONG lCount);
+	BOOL InitInstance() override;
+	int Run() override;
+	BOOL OnIdle(LONG lCount) override;
 #if defined(PATELLA_TEST_MODE)
 	// The test build only (src/TestHooks.h): drops the input from Windows while a script drives.
 	BOOL PreTranslateMessage(MSG *pMsg) override;

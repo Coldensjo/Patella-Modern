@@ -18,7 +18,7 @@ public:
 class CAsyncSocket : public CObject {
 public:
 	CAsyncSocket();
-	virtual ~CAsyncSocket();
+	~CAsyncSocket() override;
 	BOOL Create(UINT nSocketPort = 0, int nSocketType = SOCK_STREAM,
 		long lEvent = FD_READ | FD_WRITE | FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE,
 		LPCTSTR lpszSocketAddress = nullptr);
@@ -79,7 +79,7 @@ struct CCreateContext;
 class CFrameWnd : public CWnd {
 public:
 	CFrameWnd();
-	virtual ~CFrameWnd();
+	~CFrameWnd() override;
 	static const RECT rectDefault;
 	virtual BOOL Create(LPCTSTR lpszClassName, LPCTSTR lpszWindowName, DWORD dwStyle = WS_OVERLAPPEDWINDOW,
 		const RECT &rect = rectDefault, CWnd *pParentWnd = nullptr, LPCTSTR lpszMenuName = nullptr,
