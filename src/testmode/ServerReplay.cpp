@@ -65,7 +65,7 @@ std::vector<std::string_view> Fields(std::string_view Line)
 	while (i < Line.size()) {
 		while (i < Line.size() && (Line[i] == ' ' || Line[i] == '\r' || Line[i] == '\t'))
 			i++;
-		std::size_t Start = i;
+		const std::size_t Start = i;
 		while (i < Line.size() && Line[i] != ' ' && Line[i] != '\r' && Line[i] != '\t')
 			i++;
 		if (i > Start)
@@ -107,7 +107,7 @@ TReplayParseResult ParseReplay(std::string_view Text)
 	};
 	while (!Text.empty()) {
 		LineNumber++;
-		std::size_t End = Text.find('\n');
+		const std::size_t End = Text.find('\n');
 		std::string_view Line = Text.substr(0, End);
 		Text = End == std::string_view::npos ? std::string_view() : Text.substr(End + 1);
 		if (!Line.empty() && Line.back() == '\r')
@@ -312,8 +312,8 @@ void XteaDecrypt(std::span<std::uint8_t> Data, const std::array<std::uint8_t, 16
 
 std::vector<std::uint8_t> EncryptFrame(std::span<const std::uint8_t> Payload, const std::array<std::uint8_t, 16> &Key)
 {
-	std::size_t Inner = Payload.size() + 2;
-	std::size_t Padded = (Inner + 7) / 8 * 8;
+	const std::size_t Inner = Payload.size() + 2;
+	const std::size_t Padded = (Inner + 7) / 8 * 8;
 	std::vector<std::uint8_t> Frame(Padded + 2, 0);
 	Frame[0] = static_cast<std::uint8_t>(Padded & 0xffU);
 	Frame[1] = static_cast<std::uint8_t>((Padded >> 8U) & 0xffU);

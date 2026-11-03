@@ -159,7 +159,7 @@ TParseResult TParser::Run(std::string_view Text)
 	Result.Ok = true;
 	while (!Text.empty()) {
 		LineNumber++;
-		std::size_t End = Text.find('\n');
+		const std::size_t End = Text.find('\n');
 		const std::string_view Current = Text.substr(0, End);
 		Text = End == std::string_view::npos ? std::string_view() : Text.substr(End + 1);
 		if (!Line(Current))
@@ -178,7 +178,7 @@ bool TParser::Split(std::string_view Text, std::vector<TWord> *Words)
 		}
 		if (Text[i] == '#')
 			break;
-		std::size_t Start = i;
+		const std::size_t Start = i;
 		if (Text[i] == '"') {
 			i++;
 			while (i < Text.size() && Text[i] != '"') {
@@ -200,7 +200,7 @@ bool TParser::Split(std::string_view Text, std::vector<TWord> *Words)
 
 bool TParser::Expect(const std::vector<TWord> &Words, std::size_t Min, std::size_t Max)
 {
-	std::size_t Arguments = Words.size() - 1;
+	const std::size_t Arguments = Words.size() - 1;
 	if (Arguments < Min || Arguments > Max) {
 		std::string Message(Words[0].Text);
 		if (Min == Max)
@@ -263,7 +263,7 @@ bool TParser::Coordinate(std::string_view Word, char Anchor, TCoordinate *Value)
 bool TParser::Combo(std::string_view Word, std::vector<TKeyInfo> *Held, TKeyInfo *Key)
 {
 	while (true) {
-		std::size_t Plus = Word.find('+');
+		const std::size_t Plus = Word.find('+');
 		const std::string_view Name = Word.substr(0, Plus);
 		TKeyInfo Info;
 		if (!FindKey(Name, &Info))
@@ -286,7 +286,7 @@ bool TParser::Mods(const std::vector<TWord> &Words, std::size_t Index, std::vect
 	// Modifiers only: Shift, Ctrl+Shift.
 	std::string_view Word = Words[Index].Text;
 	while (true) {
-		std::size_t Plus = Word.find('+');
+		const std::size_t Plus = Word.find('+');
 		const std::string_view Name = Word.substr(0, Plus);
 		TKeyInfo Info;
 		if (!FindKey(Name, &Info) || ModifierOf(Info.Key) == 0)

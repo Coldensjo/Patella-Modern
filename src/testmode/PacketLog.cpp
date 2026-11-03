@@ -84,7 +84,7 @@ bool ParsePacketLogLine(std::string_view Line, TPacketRecord *Record)
 		return false;
 	std::vector<std::string_view> Fields;
 	while (!Line.empty()) {
-		std::size_t Space = Line.find(' ');
+		const std::size_t Space = Line.find(' ');
 		Fields.push_back(Line.substr(0, Space));
 		Line = Space == std::string_view::npos ? std::string_view() : Line.substr(Space + 1);
 	}

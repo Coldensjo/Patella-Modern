@@ -56,7 +56,7 @@ CheckOptions:
   # (WarnPointersAsValues off: `T *const p` adds noise and no safety). Spelled out, so that a change of
   # clang-tidy's defaults does not change what CI asks for. The check sees local variables only, not
   # parameters or members. A local that stays non-const for the image carries a NOLINT with its reason
-  # (Skins.cpp's SkinTable, Talk.cpp's TTalkBuffer::Remove; notes/decisions.md, issue #39).
+  # (Talk.cpp's TTalkBuffer::Remove; notes/decisions.md, issue #39).
   misc-const-correctness.AnalyzeValues: true
   misc-const-correctness.AnalyzeReferences: true
   misc-const-correctness.AnalyzePointers: true

@@ -22,10 +22,7 @@ TSkin *Skins;      // 0x71c454
 // so Skins[152] stays uninitialised.
 void InitSkins()
 {
-	// Not const (issue #39): a const local table may be emitted once in .rdata and copied or
-	// read from there, not built on the stack by the code as the binary does.
-	// NOLINTNEXTLINE(misc-const-correctness)
-	struct {
+	const struct {
 		int skin;
 		TSkin Rect;
 	} SkinTable[] = {

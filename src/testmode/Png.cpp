@@ -42,7 +42,7 @@ void PutBig32(std::vector<std::uint8_t> &Out, std::uint32_t Value)
 void Chunk(std::vector<std::uint8_t> &Out, std::string_view Kind, std::span<const std::uint8_t> Data)
 {
 	PutBig32(Out, static_cast<std::uint32_t>(Data.size()));
-	std::size_t Start = Out.size();
+	const std::size_t Start = Out.size();
 	for (char c : Kind)
 		Out.push_back(static_cast<std::uint8_t>(c));
 	Out.insert(Out.end(), Data.begin(), Data.end());
