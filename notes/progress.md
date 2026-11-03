@@ -144,6 +144,16 @@ their own are not done (their findings change Text.h's and Status.h's copies). O
 `<ostream>` moves `<charconv>`'s digit-pair table in .rdata (code identical after address normalisation).
 notes/decisions.md, "The <c...> forms of the C headers; each file includes what it uses (Patella-Modern issue
 #40)".
+Attributes (Patella-Modern issue #38, November 3, 2026; M3's fifth change, three commits): modernize-use-nodiscard
+through tools/tidy.py on every target that compiles src/ (17 const member functions in 7 files; no caller discards
+a result); `[[fallthrough]];` on the six cases that fall through (all already commented by the reconstruction, all
+the original's, difftest drives them), with -Wimplicit-fallthrough (GCC level 5, Clang) on the product targets;
+`[[maybe_unused]]` on 212 unused parameters in 18 files and instead of Talk.h's casts to void, ClientStateWin32.cpp's
+`#pragma warning(disable : 4100)` and the golden runner's cast, with the unused warnings on for every C++ source,
+the baseline files included (MSVC /w34100 /w34189 /w34505; -Wunused -Wunused-parameter
+-Wunused-but-set-parameter). The oracle Patella.exe and the x64 Patella.exe and PatellaTest.exe unchanged after
+each commit (pecompare); macrocheck 0 differences; the clang-tidy baseline 21 to 14 (the use-nodiscard entries).
+notes/decisions.md, "[[nodiscard]], [[fallthrough]] and [[maybe_unused]] (Patella-Modern issue #38)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -164,6 +174,12 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #38 (branch issue-38, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after [[nodiscard]], [[fallthrough]] and [[maybe_unused]] (three commits): 16,848,752 + 67 +
+1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release
+Patella.exe and PatellaTest.exe built from main (2ee58c9) and from each commit at the same path: `.text` and `.data`
+identical, 0 unexpected differences (pecompare); macrocheck 2ee58c9 issue-38: 2,108 calls, 0 differences.
 
 Patella-Modern issue #40 (branch issue-40, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after the <c...> headers (first commit) and the includes of misc-include-cleaner (second commit):

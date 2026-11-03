@@ -149,7 +149,12 @@ the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8), w
   --compile-no-warning-as-error` turns it off to measure). Headers in angle brackets are external to MSVC
   (`/external:anglebrackets /external:W0`). Clang's warning about K&R definitions
   (`-Wdeprecated-non-prototype`, on at every level) is off for C. A file leaves a list when it builds clean at
-  the full level; the lists only shrink.
+  the full level; the lists only shrink. On every C++ source, the baseline files included (issue #38): the
+  unused-entity warnings (MSVC `/w34100 /w34189 /w34505`, GCC and Clang `-Wunused -Wunused-parameter
+  -Wunused-but-set-parameter`) and the implicit-fallthrough warning (GCC `-Wimplicit-fallthrough=5`, which
+  takes only the attribute, not a comment; Clang `-Wimplicit-fallthrough`; MSVC has none). A parameter that is
+  unused on purpose says `[[maybe_unused]]`, a case that falls through on purpose `[[fallthrough]];` (no casts
+  to void, no pragmas).
 - `patella_target_hardening(<target>)`: `/guard:cf /CETCOMPAT`; `-fstack-protector-strong`,
   `_FORTIFY_SOURCE=3` (optimised builds), `_GLIBCXX_ASSERTIONS` (Debug), PIE and, on Linux, full RELRO; with
   the cache variable `PATELLA_SANITIZE` (GCC and Clang; linux-x64-clang sets `address,undefined`)
