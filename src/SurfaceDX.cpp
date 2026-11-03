@@ -146,8 +146,8 @@ void TSurfaceDX::UpdateWindowRect()
 		GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
 		GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
 		GetClientRect(hWindow, &WindowRect);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.left);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.right);
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.left));
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.right));
 	}
 }
 
@@ -183,7 +183,7 @@ void TSurfaceDX::SetPixel(int Surface, int x, int y, TRGBColor Color)
 	Bytes[1] = (uint8)(Pixel >> 16);
 	Bytes[0] = (uint8)(Pixel >> 24);
 	// Written through below (*Destination++ = ...); clang-tidy 22 takes the pointee for const (issue #39).
-	uint8 *Destination = (uint8 *)Desc.lpSurface + y * Desc.lPitch + x * BytesPerPixel; // NOLINT(misc-const-correctness)
+	uint8 *Destination = static_cast<uint8 *>(Desc.lpSurface) + y * Desc.lPitch + x * BytesPerPixel; // NOLINT(misc-const-correctness)
 	for (int LoopIndex = 3; LoopIndex >= 4 - BytesPerPixel; LoopIndex--)
 		*Destination++ = Bytes[LoopIndex];
 	this->Surface[Surface]->Unlock(nullptr);
@@ -280,7 +280,7 @@ void TSurfaceDX::WriteImage(int ToSurface, int x, int y, int Width, int Height, 
 			return;
 		Sleep(0);
 	}
-	uint8 *Pixels = (uint8 *)Desc.lpSurface;
+	uint8 *Pixels = static_cast<uint8 *>(Desc.lpSurface);
 	DDPIXELFORMAT Format;
 	memset(&Format, 0, sizeof(Format));
 	Format.dwSize = sizeof(Format);
@@ -324,7 +324,7 @@ void TSurfaceDX::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 			return;
 		Sleep(0);
 	}
-	uint8 *Pixels = (uint8 *)Desc.lpSurface;
+	uint8 *Pixels = static_cast<uint8 *>(Desc.lpSurface);
 	DDPIXELFORMAT Format;
 	memset(&Format, 0, sizeof(Format));
 	Format.dwSize = sizeof(Format);
@@ -660,7 +660,7 @@ bool TSurfaceDX::Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, b
 // pixel format's flags, not the descriptor's flags (0x4ec869).
 static HRESULT WINAPI AddFullscreenMode(DDSURFACEDESC2 *Desc, void *Context)
 {
-	TFullscreenMode **Modes = (TFullscreenMode **)Context;
+	TFullscreenMode **Modes = static_cast<TFullscreenMode **>(Context);
 	if (*Modes == nullptr)
 		GetSurface()->NumberOfModes = 0;
 	const int Width = (Desc->dwFlags & DDSD_WIDTH) ? Desc->dwWidth : 0;
@@ -766,7 +766,7 @@ bool TSurfaceDX::TestShading(int Surface)
 			return false;
 		Sleep(0);
 	}
-	const uint8 *Pixels = (uint8 *)Desc.lpSurface;
+	const uint8 *Pixels = static_cast<uint8 *>(Desc.lpSurface);
 	DDPIXELFORMAT Format;
 	memset(&Format, 0, sizeof(Format));
 	Format.dwSize = sizeof(Format);
@@ -820,7 +820,7 @@ void TSurfaceDX::InitSurfaces()
 	IDirectDraw *DirectDraw1;
 	if (DirectDrawCreate(nullptr, &DirectDraw1, nullptr) != DD_OK)
 		throw (PROGRAM_ERROR)7;
-	if (DirectDraw1->QueryInterface(IID_IDirectDraw4, (void **)&DirectDraw) != DD_OK)
+	if (DirectDraw1->QueryInterface(IID_IDirectDraw4, reinterpret_cast<void **>(&DirectDraw)) != DD_OK)
 		throw (PROGRAM_ERROR)7;
 	DDCAPS HardwareCaps;
 	memset(&HardwareCaps, 0, sizeof(HardwareCaps));
@@ -934,8 +934,8 @@ void TSurfaceDX::InitDisplay(int VMode, TFullscreenMode *GMode)
 		GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
 		GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
 		GetClientRect(hWindow, &WindowRect);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.left);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.right);
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.left));
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.right));
 	} else {
 		Width = GMode->Width;
 		Height = GMode->Height;
@@ -1017,7 +1017,7 @@ void TSurfaceDX::CreateSurfaces()
 	ViewportData.dvScaleY = Rect[TEMP_SURFACE].bottom * 0.5f;
 	ViewportData.dvMaxX = 1.0f;
 	ViewportData.dvMaxY = 1.0f;
-	if (DirectDraw->QueryInterface(IID_IDirect3D3, (void **)&Direct3D) != DD_OK)
+	if (DirectDraw->QueryInterface(IID_IDirect3D3, reinterpret_cast<void **>(&Direct3D)) != DD_OK)
 		Direct3D = nullptr;
 	InitStep = 2;
 	if (Direct3D != nullptr) {

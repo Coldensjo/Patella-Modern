@@ -1425,7 +1425,7 @@ bool TEditLine::RightButtonUp(int x, int y, int Flags)
 	TBEGIN
 	if (!TWindow::LeftButtonUp(x, y, Flags) && !IsDisabled() && GetActionState() != 10
 		&& GetActionState() != 11)
-		AddMessage(58, (INT_PTR)this, 0);
+		AddMessage(58, reinterpret_cast<INT_PTR>(this), 0);
 	return true;
 	TEND2(2093, x, y)
 }

@@ -519,7 +519,7 @@ char *TReadBinaryFile::readString()
 	const int Length = readWord() & 0xffff;
 	char *Text = new char[Length + 1];
 	if (Length != 0)
-		readBytes((uint8 *)Text, Length);
+		readBytes(reinterpret_cast<uint8 *>(Text), Length);
 	Text[Length] = 0;
 	return Text;
 	TEND(653)
@@ -598,7 +598,7 @@ void TWriteBinaryFile::writeString(const char *Text)
 	const int Length = (int)strlen(Text);
 	writeWord((uint16)Length);
 	if ((uint16)Length != 0)
-		writeBytes((const uint8 *)Text, (uint16)Length);
+		writeBytes(reinterpret_cast<const uint8 *>(Text), (uint16)Length);
 	TEND(779)
 }
 

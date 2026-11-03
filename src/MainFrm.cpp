@@ -197,7 +197,7 @@ void ExitProgram()
 void CloseProgram()
 {
 	TBEGIN
-	CPlayerApp *App = (CPlayerApp *)AfxGetApp();
+	CPlayerApp *App = static_cast<CPlayerApp *>(AfxGetApp());
 	if (App != nullptr)
 		App->RunPatch = true;
 	Closing = true;
@@ -305,7 +305,7 @@ LRESULT CMainFrame::OnHostResolved([[maybe_unused]] WPARAM wParam, LPARAM lParam
 			Disconnect(true);
 			char *Text = new char[1024];
 			GetErrorMessage(Text, -1, 1);
-			AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Text);
+			AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Text));
 			return 0;
 		}
 		SetConnectionTimeout(0);
@@ -491,8 +491,8 @@ BOOL CMainFrame::OnSetCursor(CWnd *pWnd, UINT nHitTest, UINT message)
 	if (GetViewMode() != 2) {
 		RECT Client;
 		::GetClientRect(m_hWnd, &Client);
-		::ClientToScreen(m_hWnd, (POINT *)&Client.left);
-		::ClientToScreen(m_hWnd, (POINT *)&Client.right);
+		::ClientToScreen(m_hWnd, reinterpret_cast<POINT *>(&Client.left));
+		::ClientToScreen(m_hWnd, reinterpret_cast<POINT *>(&Client.right));
 		POINT Cursor;
 		PATELLA_GET_CURSOR_POS(&Cursor);
 		if (!PtInRect(&Client, Cursor))

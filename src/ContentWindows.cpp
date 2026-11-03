@@ -473,7 +473,7 @@ void TAutomapWindow::Scroll(int Direction)
 void TAutomapView::Draw(int Surface, int x, int y)
 {
 	TBEGIN
-	TAutomapWindow *Window = (TAutomapWindow *)GetParent();
+	TAutomapWindow *Window = static_cast<TAutomapWindow *>(GetParent());
 	int PosX, PosY, PosZ;
 	GetMapPosition(&PosX, &PosY, &PosZ);
 	if (!Window->Centred) {
@@ -567,7 +567,7 @@ void TAutomapView::Draw(int Surface, int x, int y)
 bool TAutomapView::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
-	TAutomapWindow *Window = (TAutomapWindow *)GetParent();
+	TAutomapWindow *Window = static_cast<TAutomapWindow *>(GetParent());
 	TMark Mark = GetMark(x, y);
 	if (Window->Centred)
 		GetMapPosition(&Window->ViewX, &Window->ViewY, &Window->ViewZ);
@@ -590,7 +590,7 @@ bool TAutomapView::RightButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	TMarkMenuData *Data = new TMarkMenuData;
-	TAutomapWindow *Window = (TAutomapWindow *)GetParent();
+	TAutomapWindow *Window = static_cast<TAutomapWindow *>(GetParent());
 	Data->Window = Window;
 	if (Window->Centred)
 		GetMapPosition(&Window->ViewX, &Window->ViewY, &Window->ViewZ);
@@ -598,7 +598,7 @@ bool TAutomapView::RightButtonUp(int x, int y, [[maybe_unused]] int Flags)
 	Data->Coordinate.y = (y - Height / 2) * 2 / Window->Zoom + Window->ViewY;
 	Data->Coordinate.z = Window->ViewZ;
 	Data->Mark = GetMark(x, y);
-	AddMessage(59, (INT_PTR)Data, 0);
+	AddMessage(59, reinterpret_cast<INT_PTR>(Data), 0);
 	return true;
 	TEND2(732, x, y)
 }
@@ -608,7 +608,7 @@ bool TAutomapView::RightButtonUp(int x, int y, [[maybe_unused]] int Flags)
 TMark TAutomapView::GetMark(int x, int y)
 {
 	TBEGIN
-	TAutomapWindow *Window = (TAutomapWindow *)GetParent();
+	TAutomapWindow *Window = static_cast<TAutomapWindow *>(GetParent());
 	if (Window->Centred)
 		GetMapPosition(&Window->ViewX, &Window->ViewY, &Window->ViewZ);
 	const int Left = Window->ViewX - 106 / Window->Zoom;
@@ -669,7 +669,7 @@ bool TCompassRose::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 	if (Width / 2 + 5 <= x && x <= Width && Height / 2 - 5 <= y && y <= Height / 2 + 5)
 		Direction = 4;
 	if (Direction != -1)
-		((TAutomapWindow *)GetParent())->Scroll(Direction);
+		(static_cast<TAutomapWindow *>(GetParent()))->Scroll(Direction);
 	return true;
 	TEND2(825, x, y)
 }
@@ -1562,7 +1562,7 @@ void TContainerWindowBody::Arrange()
 	if (ContentHeight <= Height)
 		ContentHeight = Height;
 	ScrollBar->Range->SetRange(0, ContentHeight - Height, ScrollBar->Range->Value, Height);
-	TSubWindow *Window = (TSubWindow *)GetParent();
+	TSubWindow *Window = static_cast<TSubWindow *>(GetParent());
 	if (Window != nullptr) {
 		TObjectIcon *Icon = new TObjectIcon(GetContainerObject(Container), &SkinProperties.Style194.Data80, false);
 		TLabel *Title = new TLabel(SkinProperties.Style194.Data38, GetContainerName(Container));
@@ -1748,7 +1748,7 @@ int TContainerWindowBody::GetSlotAt(int x, int y, bool Occupied) const
 void TContainerWindowBody::UpdateUpButton()
 {
 	TBEGIN
-	TSubWindow *Window = (TSubWindow *)GetParent();
+	TSubWindow *Window = static_cast<TSubWindow *>(GetParent());
 	if (GetContainerHasParent(Container)) {
 		HasParent = true;
 		if (Window != nullptr)
@@ -1935,7 +1935,7 @@ void TSkillsWindowBody::MouseHover(int x, int y)
 bool TSkillsWindowBody::RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
-	AddMessage(60, (INT_PTR)this, 0);
+	AddMessage(60, reinterpret_cast<INT_PTR>(this), 0);
 	return true;
 	TEND(2144)
 }

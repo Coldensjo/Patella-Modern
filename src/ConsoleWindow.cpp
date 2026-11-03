@@ -797,7 +797,7 @@ bool TTab::MouseMove(int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	if (Dragging) {
-		TTabBar *Bar = (TTabBar *)GetParent();
+		TTabBar *Bar = static_cast<TTabBar *>(GetParent());
 		x = OffsetX - DragX + x;
 		if (x < 0)
 			x = 0;
@@ -819,7 +819,7 @@ bool TTab::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 	DragX = x;
 	DragRight = Width - OffsetX + x;
 	DragY = y;
-	((TTabBar *)GetParent())->SetCurrentTab(this);
+	(static_cast<TTabBar *>(GetParent()))->SetCurrentTab(this);
 	Callback.Send();
 	return true;
 	TEND2(916, x, y)
@@ -831,7 +831,7 @@ bool TTab::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_
 	TBEGIN
 	if (Dragging) {
 		ReleaseCapture(nullptr);
-		((TTabBar *)GetParent())->Rearrange(nullptr);
+		(static_cast<TTabBar *>(GetParent()))->Rearrange(nullptr);
 	}
 	return true;
 	TEND(931)
@@ -841,8 +841,8 @@ bool TTab::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_
 // (Control.cpp's message 0x38).
 bool TTab::RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN((TTabBar *)GetParent())
-	->SetCurrentTab(this);
+	TBEGIN
+	static_cast<TTabBar *>(GetParent())->SetCurrentTab(this);
 	Callback.Send();
 	AddMessage(0x38, 0, 0);
 	return true;
@@ -1113,16 +1113,16 @@ TTab *TTabBar::FindTab(TTalkBuffer *TextBuffer)
 {
 	TBEGIN
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
-		if (((TTab *)Child)->TextBuffer == TextBuffer)
-			return (TTab *)Child;
+		if ((static_cast<TTab *>(Child))->TextBuffer == TextBuffer)
+			return static_cast<TTab *>(Child);
 	}
 	for (TComponent *Child = LeftTabs->GetFirstChild(); Child != nullptr; Child = Child->GetNext()) {
-		if (((TTab *)Child)->TextBuffer == TextBuffer)
-			return (TTab *)Child;
+		if ((static_cast<TTab *>(Child))->TextBuffer == TextBuffer)
+			return static_cast<TTab *>(Child);
 	}
 	for (TComponent *Child = RightTabs->GetFirstChild(); Child != nullptr; Child = Child->GetNext()) {
-		if (((TTab *)Child)->TextBuffer == TextBuffer)
-			return (TTab *)Child;
+		if ((static_cast<TTab *>(Child))->TextBuffer == TextBuffer)
+			return static_cast<TTab *>(Child);
 	}
 	return nullptr;
 	TEND(1290)
@@ -1161,7 +1161,7 @@ void TTabBar::StoreOpenChannels()
 		TComponent *Child = Container->GetFirstChild();
 		while (Child != nullptr) {
 			TComponent *Next = Child->GetNext();
-			TTalkBuffer *TextBuffer = ((TTab *)Child)->TextBuffer;
+			TTalkBuffer *TextBuffer = (static_cast<TTab *>(Child))->TextBuffer;
 			Child = Next;
 			if (TextBuffer != nullptr && TextBuffer->GetChannelID() != -1 && !TextBuffer->IsPrivateChannel())
 				AddOpenChannel(TextBuffer->GetChannelID());
@@ -1580,7 +1580,7 @@ void TConsoleWindow::HandleEvent(int Event)
 			TabBar->HandleEvent(25);
 			NewTab = TabBar->GetFirstChild();
 		}
-		TabBar->SetCurrentTab((TTab *)NewTab);
+		TabBar->SetCurrentTab(static_cast<TTab *>(NewTab));
 		HandleEvent(201);
 		break;
 	}
@@ -1593,7 +1593,7 @@ void TConsoleWindow::HandleEvent(int Event)
 			TabBar->HandleEvent(26);
 			NewTab = TabBar->GetLastChild();
 		}
-		TabBar->SetCurrentTab((TTab *)NewTab);
+		TabBar->SetCurrentTab(static_cast<TTab *>(NewTab));
 		HandleEvent(201);
 		break;
 	}
@@ -1744,7 +1744,7 @@ void TConsoleWindow::CloseChannel()
 			NewTab = TabBar->GetFirstChild();
 			TASSERT(2015, NewTab!=NULL);
 		}
-		TabBar->SetCurrentTab((TTab *)NewTab);
+		TabBar->SetCurrentTab(static_cast<TTab *>(NewTab));
 		delete CurrentTab;
 		HandleEvent(201);
 	}
@@ -1824,7 +1824,7 @@ void TConsoleWindow::SendInput()
 		if (!TextBuffer->CanWrite())
 			TalkMode = 0;
 		ChannelID = TextBuffer->GetChannelID();
-		Addressee = (char *)TextBuffer->GetAddressee();
+		Addressee = const_cast<char *>(TextBuffer->GetAddressee());
 	} else {
 		TalkMode = this->TalkMode;
 		Addressee = nullptr;
@@ -1986,7 +1986,7 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 		*Addressee = nullptr;
 		*TalkMode = 0;
 		*Separator = 0;
-		AddMessage(0xc, (INT_PTR) "Account Data Warning", 0);
+		AddMessage(0xc, reinterpret_cast<INT_PTR>("Account Data Warning"), 0);
 		return;
 	}
 	while (IsSpace(Line[i]))

@@ -842,7 +842,7 @@ void ReceiveLoginError()
 {
 	TBEGIN
 	const char *Text = GetString();
-	AddMessage(1, (INT_PTR) "Sorry", (INT_PTR)Text);
+	AddMessage(1, reinterpret_cast<INT_PTR>("Sorry"), reinterpret_cast<INT_PTR>(Text));
 	Disconnect(false);
 	SetConnectionState(0);
 	TEND(994)
@@ -853,7 +853,7 @@ void ReceiveLoginMessage()
 {
 	TBEGIN
 	const char *Text = GetString();
-	AddMessage(1, (INT_PTR) "For Your Information", (INT_PTR)Text);
+	AddMessage(1, reinterpret_cast<INT_PTR>("For Your Information"), reinterpret_cast<INT_PTR>(Text));
 	TEND(1006)
 }
 
@@ -888,7 +888,7 @@ void ReceivePatch()
 	case 4: TERROR(1041, "no patch for patch.exe");
 	default: TERROR(1042, "unknown patch file number");
 	}
-	AddMessageFirst(0x29, (INT_PTR)Name, PatchDataSize);
+	AddMessageFirst(0x29, reinterpret_cast<INT_PTR>(Name), PatchDataSize);
 	TEND(1045)
 }
 
@@ -916,7 +916,7 @@ void ReceiveWholeFile()
 	case 4: Name = "Patch.exe"; break;
 	default: TERROR(1070, "unknown patch file number");
 	}
-	AddMessageFirst(0x29, (INT_PTR)Name, PatchDataSize);
+	AddMessageFirst(0x29, reinterpret_cast<INT_PTR>(Name), PatchDataSize);
 	TEND(1073)
 }
 
@@ -961,11 +961,11 @@ void ReceivePatchBlock()
 		SetConnectionState(0);
 		Disconnect(false);
 		ClearMessages();
-		AddMessage(1, (INT_PTR) "Error", (INT_PTR)Text);
+		AddMessage(1, reinterpret_cast<INT_PTR>("Error"), reinterpret_cast<INT_PTR>(Text));
 	} else if (ReloadEvent == 0x48) {
 		char *Text = new char[200];
 		strcpy(Text, "Program will now shut down and run an external patching program.\nAfterwards it will restart. Please login again then.");
-		AddMessageFirst(1, (INT_PTR) "Updating", (INT_PTR)Text);
+		AddMessageFirst(1, reinterpret_cast<INT_PTR>("Updating"), reinterpret_cast<INT_PTR>(Text));
 		AddMessageFirst(0x40, 0, 0);
 		AddMessage(0x48, 0, 0);
 	} else if (ReloadEvent == 0x44) {
@@ -1064,7 +1064,7 @@ void ReceiveGameError()
 {
 	TBEGIN
 	const char *Text = GetString();
-	AddMessage(1, (INT_PTR) "Sorry", (INT_PTR)Text);
+	AddMessage(1, reinterpret_cast<INT_PTR>("Sorry"), reinterpret_cast<INT_PTR>(Text));
 	Disconnect(false);
 	SetConnectionState(0);
 	TEND(1246)
@@ -1075,7 +1075,7 @@ void ReceiveGameMessage()
 {
 	TBEGIN
 	const char *Text = GetString();
-	AddMessage(1, (INT_PTR) "For Your Information", (INT_PTR)Text);
+	AddMessage(1, reinterpret_cast<INT_PTR>("For Your Information"), reinterpret_cast<INT_PTR>(Text));
 	TEND(1258)
 }
 
@@ -1085,7 +1085,7 @@ void ReceiveLoginWait()
 	TBEGIN
 	const char *Text = GetString();
 	const int Delay = GetByte();
-	AddMessage(5, (INT_PTR)Text, Delay);
+	AddMessage(5, reinterpret_cast<INT_PTR>(Text), Delay);
 	TEND(1271)
 }
 
@@ -2012,7 +2012,7 @@ void ReceiveEditText()
 	char **Strings = new char *[2];
 	Strings[0] = Writer;
 	Strings[1] = Text;
-	AddMessage(14, (INT_PTR)Info, (INT_PTR)Strings);
+	AddMessage(14, reinterpret_cast<INT_PTR>(Info), reinterpret_cast<INT_PTR>(Strings));
 	TEND(2303)
 }
 
@@ -2024,7 +2024,7 @@ void ReceiveEditHouseText()
 	Info[0] = GetByte();
 	Info[1] = GetQuad();
 	const char *Text = GetString();
-	AddMessage(15, (INT_PTR)Info, (INT_PTR)Text);
+	AddMessage(15, reinterpret_cast<INT_PTR>(Info), reinterpret_cast<INT_PTR>(Text));
 	TEND(2318)
 }
 
@@ -2175,7 +2175,7 @@ void ReceiveChannelList()
 		Channels[i + 1] = GetWord();
 		GetString(Names + i * 30, 30);
 	}
-	AddMessage(0x12, (INT_PTR)Channels, (INT_PTR)Names);
+	AddMessage(0x12, reinterpret_cast<INT_PTR>(Channels), reinterpret_cast<INT_PTR>(Names));
 	TEND1(2487, Count)
 }
 
@@ -2187,7 +2187,7 @@ void ReceiveOpenChannel()
 	ChannelID = GetWord();
 	char *Name = new char[30];
 	GetString(Name, 30);
-	AddMessage(48, ChannelID, (INT_PTR)Name);
+	AddMessage(48, ChannelID, reinterpret_cast<INT_PTR>(Name));
 	TEND1(2502, ChannelID)
 }
 
@@ -2197,7 +2197,7 @@ void ReceiveOpenPrivateConversation()
 	TBEGIN
 	char *Name = new char[30];
 	GetString(Name, 30);
-	AddMessage(0x2f, 0, (INT_PTR)Name);
+	AddMessage(0x2f, 0, reinterpret_cast<INT_PTR>(Name));
 	TEND(2515)
 }
 
@@ -2210,7 +2210,7 @@ void ReceiveRuleViolationChannel()
 	const TTalkBuffer *Channel = CreateTextBuffer(6, 1, nullptr, ChannelID);
 	if (Channel == nullptr)
 		Channel = GetTextBuffer(6, nullptr, -1);
-	AddMessage(0x32, (INT_PTR)Channel, 0);
+	AddMessage(0x32, reinterpret_cast<INT_PTR>(Channel), 0);
 	TEND1(2530, ChannelID)
 }
 
@@ -2273,7 +2273,7 @@ void ReceiveOwnChannel()
 	ChannelID = GetWord();
 	char *Name = new char[40];
 	GetString(Name, 40);
-	AddMessage(49, ChannelID, (INT_PTR)Name);
+	AddMessage(49, ChannelID, reinterpret_cast<INT_PTR>(Name));
 	TEND1(2606, ChannelID)
 }
 
@@ -2431,7 +2431,7 @@ void ReceiveOutfit()
 	Outfit[4] = GetByte();
 	Outfit[5] = GetWord();
 	Outfit[6] = GetWord();
-	AddMessage(16, (INT_PTR)Outfit, 0);
+	AddMessage(16, reinterpret_cast<INT_PTR>(Outfit), 0);
 	TEND(2768)
 }
 
@@ -2447,7 +2447,7 @@ void ReceiveBuddy()
 	const int State = GetByte();
 	AddBuddy(CharacterID, Name, State == 1);
 	const char *Copy = _strdup(Name);
-	AddMessage(25, (INT_PTR)Copy, 0);
+	AddMessage(25, reinterpret_cast<INT_PTR>(Copy), 0);
 	TEND1(2785, CharacterID)
 }
 

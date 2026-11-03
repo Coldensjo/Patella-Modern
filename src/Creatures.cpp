@@ -1162,7 +1162,7 @@ void RemoveBuddy(uint32 CharacterID)
 	const int Position = GetBuddyPosition(CharacterID);
 	if (Position == -1)
 		return;
-	AddMessage(0x1a, (INT_PTR)_strdup(Buddies[Position].Name), 0);
+	AddMessage(0x1a, reinterpret_cast<INT_PTR>(_strdup(Buddies[Position].Name)), 0);
 	if (Buddies[Position].Online)
 		NumberOfOnlineBuddies--;
 	for (int i = Position; i < NumberOfBuddies - 1; i++)

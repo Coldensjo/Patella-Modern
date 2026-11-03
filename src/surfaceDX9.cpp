@@ -53,7 +53,7 @@ bool IsDirect3D9Installed()
 	HMODULE Module = LoadLibraryA("d3d9.dll");
 	if (Module == nullptr)
 		return false;
-	Direct3DCreate9Function = (TDirect3DCreate9)GetProcAddress(Module, "Direct3DCreate9");
+	Direct3DCreate9Function = reinterpret_cast<TDirect3DCreate9>(GetProcAddress(Module, "Direct3DCreate9"));
 	return Direct3DCreate9Function != nullptr;
 }
 
@@ -145,7 +145,7 @@ void TSurfaceDX9::FlushVertices() const
 		Device->BeginScene();
 		Device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, NumberOfVertices / 3);
 		Device->EndScene();
-		VertexBuffer->Lock(0, 0, (void **)&Vertices, D3DLOCK_DISCARD);
+		VertexBuffer->Lock(0, 0, reinterpret_cast<void **>(&Vertices), D3DLOCK_DISCARD);
 		NumberOfVertices = 0;
 	}
 }
@@ -246,8 +246,8 @@ void TSurfaceDX9::UpdateWindowRect()
 		GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
 		GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
 		GetClientRect(hWindow, &WindowRect);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.left);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.right);
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.left));
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.right));
 	}
 }
 
@@ -281,7 +281,7 @@ void TSurfaceDX9::FillRectangleClipped(int Surface, TRect Rect, TRGBColor Color,
 	RECT R = {Rect.x, Rect.y, Rect.x + Rect.width, Rect.y + Rect.height};
 	if (R.top != R.bottom && R.left != R.right) {
 		const int Pixels = Rect.height * Rect.width;
-		if (ClipRect(Clip, &R, (RECT *)&Rect)) {
+		if (ClipRect(Clip, &R, reinterpret_cast<RECT *>(&Rect))) {
 			SetRenderTarget(Surface);
 			FlushVertices();
 			Device->ColorFill(CurrentTarget, &R, D3DCOLOR_XRGB(Color.R, Color.G, Color.B));
@@ -329,7 +329,7 @@ void TSurfaceDX9::WriteImage(int ToSurface, int x, int y, int Width, int Height,
 		RECT R;
 		SetRect(&R, 0, 0, 106, 106);
 		ScreenTexture->LockRect(0, &Locked, &R, D3DLOCK_NOSYSLOCK);
-		D3DCOLOR *Bits = (D3DCOLOR *)Locked.pBits;
+		D3DCOLOR *Bits = static_cast<D3DCOLOR *>(Locked.pBits);
 		for (int i = 0; i < Height; i++) {
 			for (int j = 0; j < Width; j++) {
 				D3DCOLOR Color = D3DCOLOR_XRGB(Data[0], Data[1], Data[2]);
@@ -349,7 +349,7 @@ void TSurfaceDX9::WriteImage(int ToSurface, int x, int y, int Width, int Height,
 		return;
 	}
 	Surface9[ToSurface]->LockRect(0, &Locked, &Rect[ToSurface], D3DLOCK_NOSYSLOCK);
-	D3DCOLOR *Bits = (D3DCOLOR *)Locked.pBits;
+	D3DCOLOR *Bits = static_cast<D3DCOLOR *>(Locked.pBits);
 	for (int i = 0; i < Height; i++) {
 		for (int j = 0; j < Width; j++) {
 			D3DCOLOR Color = D3DCOLOR_XRGB(Data[0], Data[1], Data[2]);
@@ -372,7 +372,7 @@ void TSurfaceDX9::ApplyColorKey(int Surface, TRGBColor ColorKey)
 	const RECT R = {0, 0, 64, 64};
 	D3DLOCKED_RECT Locked;
 	TempSurface->LockRect(&Locked, &R, D3DLOCK_NOSYSLOCK);
-	D3DCOLOR *Bits = (D3DCOLOR *)Locked.pBits;
+	D3DCOLOR *Bits = static_cast<D3DCOLOR *>(Locked.pBits);
 	const D3DCOLOR Key = D3DCOLOR_XRGB(ColorKey.R, ColorKey.G, ColorKey.B);
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
@@ -405,7 +405,7 @@ void TSurfaceDX9::FlushShade()
 void TSurfaceDX9::ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor *Colors)
 {
 	if (Surface == TEMP_SURFACE && Direct3D != nullptr) {
-		ShadeBuffer->Lock(0, 0, (void **)&ShadeVertices, D3DLOCK_DISCARD);
+		ShadeBuffer->Lock(0, 0, reinterpret_cast<void **>(&ShadeVertices), D3DLOCK_DISCARD);
 		for (int i = 0; i < Count; i++) {
 			const TRect *R = &Rects[i];
 			const TRGBColor *C = &Colors[i * 4];
@@ -567,7 +567,7 @@ bool TSurfaceDX9::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, boo
 // description's) have DDSD_REFRESHRATE.
 static HRESULT WINAPI EnumModesCallback(DDSURFACEDESC2 *Description, void *Context)
 {
-	TFullscreenMode **Modes = (TFullscreenMode **)Context;
+	TFullscreenMode **Modes = static_cast<TFullscreenMode **>(Context);
 	if (*Modes == nullptr)
 		GetSurface()->NumberOfModes = 0;
 	const int Width = (Description->dwFlags & DDSD_WIDTH) ? Description->dwWidth : 0;
@@ -776,7 +776,7 @@ void TSurfaceDX9::InitSurfaces()
 	IDirectDraw *DirectDraw1;
 	if (DirectDrawCreate(nullptr, &DirectDraw1, nullptr) != DD_OK)
 		throw (PROGRAM_ERROR)7;
-	if (DirectDraw1->QueryInterface(IID_IDirectDraw4, (void **)&DirectDraw) != DD_OK)
+	if (DirectDraw1->QueryInterface(IID_IDirectDraw4, reinterpret_cast<void **>(&DirectDraw)) != DD_OK)
 		throw (PROGRAM_ERROR)7;
 	DDCAPS DriverCaps, EmulationCaps;
 	memset(&DriverCaps, 0, sizeof(DriverCaps));
@@ -869,7 +869,7 @@ void TSurfaceDX9::WriteMaskedImage(int ToSurface, int x, int y, int Width, int H
 	}
 	D3DLOCKED_RECT Locked;
 	Surface9[ToSurface]->LockRect(0, &Locked, &Rect[ToSurface], D3DLOCK_NOSYSLOCK);
-	D3DCOLOR *Bits = (D3DCOLOR *)Locked.pBits;
+	D3DCOLOR *Bits = static_cast<D3DCOLOR *>(Locked.pBits);
 	Pixel = Image;
 	for (int i = 0; i < Height; i++) {
 		for (int j = 0; j < Width; j++) {
@@ -944,8 +944,8 @@ void TSurfaceDX9::InitDisplay(int VMode, TFullscreenMode *GMode)
 		GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
 		GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
 		GetClientRect(hWindow, &WindowRect);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.left);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.right);
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.left));
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.right));
 	} else {
 		TFullscreenMode *Modes;
 		const int Number = GetFullscreenModes(&Modes);
@@ -1120,7 +1120,7 @@ void TSurfaceDX9::CreateSurfaces()
 	}
 	Unavailable = false;
 	Ready = true;
-	VertexBuffer->Lock(0, 0, (void **)&Vertices, D3DLOCK_DISCARD);
+	VertexBuffer->Lock(0, 0, reinterpret_cast<void **>(&Vertices), D3DLOCK_DISCARD);
 	Device->SetFVF(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
 	Device->SetStreamSource(0, VertexBuffer, 0, sizeof(TVertexDX9));
 }
