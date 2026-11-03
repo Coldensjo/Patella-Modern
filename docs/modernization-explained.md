@@ -55,7 +55,8 @@ automatic tests compare the new program with the original 2006 one:
 - **The same files:** settings, maps and saved chats must come out identical.
 - **The same picture:** every frame both programs draw is compared pixel by pixel. The only exception is the
   soft light around torches and spells, which the graphics card itself draws, so even the original never
-  looked quite the same on two computers.
+  looked quite the same on two computers. (The graphics device buttons in the advanced graphics options are
+  new on purpose, so that small part of that one dialog is left out of the comparison.)
 
 A special test version of the client can also play a written script of key presses, mouse clicks and typed
 text on a clock of its own, which moves only when the script says so. Run twice, it does exactly the same
@@ -97,9 +98,15 @@ must keep matching.
 - **Vulkan:** a modern, open standard for talking to graphics cards, supported on Windows and Linux (and, through
   a translation layer, on Macs). Since November 2026 the 64-bit Windows client draws only with Vulkan (the old
   DirectX and OpenGL engines are gone from it), and the pictures are the same as the old client's DirectX 9 ones.
-  The graphics options still show the three old engine buttons for now: they only remember a choice for the
-  original program, and the drawing stays Vulkan. Later the buttons become a choice of graphics card
-  ("Automatic", each card, or "CPU").
+  The advanced graphics options' three old engine buttons are now a choice of **graphics device**: "Automatic"
+  (the best graphics card, or the CPU when there is none), "GPU" (a graphics card; on a computer with two, such
+  as many laptops, each click switches to the next one) and "CPU" (the compatibility choice: drawing without the
+  graphics card). The line above the buttons names the device in use. A click switches at once, as the old engine
+  buttons did; in fullscreen mode the choice is greyed out, as before.
+- **Patella.ini:** the modern client's own small settings file, next to Tibia.cfg, with lines like
+  `Device=gpu`. Tibia.cfg stays exactly as the original program writes it (so the original can still read it);
+  new settings go into Patella.ini instead. Today it remembers only the graphics device; later settings (such as
+  the server to connect to) will be added there.
 - **CPU driver (lavapipe):** a version of Vulkan that runs on the main processor instead of the graphics card. It
   comes with the client as one file next to the program and is used only by the client, only when no graphics
   card with Vulkan is found (or when asked for); nothing is installed on the computer. The tests use it, so the

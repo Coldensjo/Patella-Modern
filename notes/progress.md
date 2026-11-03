@@ -113,6 +113,13 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #31 (branch issue-31, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest 4/4, 0
+warnings) after the graphics device choice and Patella.ini (x64-only branches in Surface.cpp, Control.cpp,
+Dialogs.cpp and Dialogs.h; src/settings and the new src/vulkan files outside the oracle's glob): 16,848,752 + 67 +
+1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe built from main (a8d6b01) and
+from the branch at the same path: 0 unexpected differences (pecompare); macrocheck main issue-31: 2,108 calls, 0
+differences.
+
 Patella-Modern issue #20 (branch issue-20, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest, 0
 warnings) after the original engines left windows-x64 (x64-only branches in Surface.cpp and Control.cpp): the same
 counts as below; the oracle Patella.exe built from main d624a34 and from the branch at the same path: 0 unexpected

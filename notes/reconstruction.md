@@ -233,10 +233,14 @@ shaders compiled by a glslang built in the tree; Vulkan-Headers, volk, VMA, vk-b
 driver (Mesa 26.2.5's lavapipe) are pinned by URL and SHA256 and downloaded on the first configure of a build
 tree (about 85 MB). The CPU driver's `vulkan_lvp.dll` and `lvp_icd.x86_64.json` are copied next to Patella.exe,
 PatellaTest.exe and `tests_vulkan.exe`. The engine is the x64 client's engine 2 (curEngine is always 2; Tibia.cfg's
-`Engine` keeps the original's number for Tibia.exe; notes/vulkan.md, "Choosing the engine"): the environment
-variable `PATELLA_VULKAN` chooses the device (`gpu`, `gpuN`, `cpu`; unset: automatic). The preset's CTest
-has two more tests: `tests_render` (src/vulkan/Quads.cpp and FilterMask.cpp, on every product preset) and `tests_vulkan` (the back
-end headless on the CPU driver and the GPU, no window; skipped without a Vulkan loader). `-DPATELLA_CLIENT=OFF`
+`Engine` keeps the original's number for Tibia.exe; notes/vulkan.md, "Choosing the engine"). Its device is the
+advanced graphics options' choice (issue #31: "Automatic", "GPU", "CPU"; notes/vulkan.md, "Choosing the device"),
+stored as `Device` in Patella.ini, the fork's own settings file next to Tibia.cfg (src/settings/Settings.cpp, in
+patella_core); the environment variable `PATELLA_VULKAN` (`auto`, `gpu`, `gpuN`, `cpu`) overrides it at start-up
+and is never written. The preset's CTest
+has two more tests: `tests_render` (src/vulkan/Quads.cpp, FilterMask.cpp and DeviceChoice.cpp, on every product preset) and `tests_vulkan` (the back
+end headless on the CPU driver and the GPU, and the device choice's GPU list, no window; skipped without a Vulkan
+loader). `-DPATELLA_CLIENT=OFF`
 (the hosted CI) builds none of the engine and downloads nothing.
 
 Run either Patella.exe (or PatellaTest.exe) only from a folder with copies of the data files (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg; for
@@ -317,7 +321,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
   `.editorconfig` sets tabs, LF and UTF-8 for every editor. With Visual Studio's clang-format 22
   (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h
-  src/testmode/*.cpp src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/res/resource.h tests/unit/*.cpp
+  src/testmode/*.cpp src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h
+  src/res/resource.h tests/unit/*.cpp
   tests/vulkan/*.cpp tests/golden/*.cpp tests/golden/*.h` reports nothing; `clang-format -i` on a changed file
   formats it. Hand-laid tables (case
   tables, vertex and pixel format lists) and the macros clang-format cannot parse sit between

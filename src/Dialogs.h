@@ -646,6 +646,14 @@ public:
 	TTextButton *DirectX9Button;      // +0x48
 	TTextButton *OpenGLButton;        // +0x4c
 	TRadioButtonGroup *EngineGroup;   // +0x50
+#if defined(PATELLA_VULKAN)
+	// The x64 client (Patella-Modern issue #31, plan 6.3): the three buttons choose the graphics device
+	// ("Automatic", "GPU", "CPU" in the places of DirectX5Button, DirectX9Button, OpenGLButton), and the
+	// line above them names the device in use. Not in the oracle, whose layout stays the original's.
+	void ShowDevice();         // the selected button and the device's name
+	TLabel *DeviceLabel;       // the line above the buttons (the original's "Select graphics engine:")
+	char DeviceLabelName[128]; // the device the line names
+#endif
 };
 
 // "Console Options" (vtable 0x563598, 0x44 bytes).

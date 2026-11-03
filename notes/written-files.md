@@ -16,6 +16,7 @@ From the sources (every fopen, ofstream, remove and rename in src/):
 | error.txt | Player.cpp HandleException (appends a report); deleted by Control.cpp SendErrorReports on entering the game, or the error report dialog's Cancel (Status.cpp DeleteErrorFile) | a TMyException that reaches InitInstance or Run |
 | `<channel>.txt` | ConsoleWindow.cpp SaveChannel (appends) | "Save Window" in a console tab's menu |
 | Tibia.da_, Tibia.sp_, Tibia.pi_, Patch.ex_; Tibia.bak | Script.cpp ApplyPatch / ApplyFullPatch | a patch from the login server (0x1e difference patch, 0x1f whole file, 0x20 blocks; Communication.cpp ReceivePatch*) |
+| Patella.ini (the x64 client only, Patella-Modern issue #31) | src/vulkan/DeviceSettings.cpp SaveDeviceChoice | a click in the advanced graphics options that changes the graphics device (notes/vulkan.md, "Choosing the device") |
 | Tibia.dat, Tibia.spr, Tibia.pic, Patch.exe (replaced) | Script.cpp InstallPatch (remove, rename `_` to the name) | messages 0x41-0x44 after the patch, once the login connection is closed |
 
 The login server decides about patches: a 7.72 server can send them in answer to any login (the client's
@@ -37,6 +38,12 @@ python -I tools/compare_files.py --check-route     # the walks against the serve
 
 `--patella` names the Patella.exe to test, x86 or x64, with its PDB next to it (default
 build\oracle-x86\Release\Patella.exe; as compare_traffic.py's; Patella-Modern issue #15).
+
+The x64 client's own settings file Patella.ini (issue #31) is not compared: Tibia.exe has none. The report names
+it with its contents (the options scenario's click in OpenGL's place, the x64 client's "CPU" button, writes
+`Device=cpu`). For that click the run folder of an x64 client also gets the CPU driver next to it
+(vulkan_lvp.dll, lvp_icd.x86_64.json from the client's build folder, copied in every scenario's preparation):
+without it the CPU button is disabled and Tibia.cfg would keep `Engine = 2` where Tibia.exe writes 1.
 
 The test server must be stopped; the script starts it for the one live recording and stops it (a clean stop
 saves, as always) and puts the test characters' player files back, as compare_traffic.py does. Everything

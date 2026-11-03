@@ -11,6 +11,16 @@
 // with Container.h's vector<TIgnoreEntry>) is in Dialogs.h and Container.h.
 
 #include "Dialogs.h"
+#if defined(PATELLA_VULKAN)
+#include "vulkan/DeviceSettings.h"
+
+// The x64 client's graphics device choice in the advanced options (issue #31): the line above the
+// buttons before a device exists, and the buttons' help texts.
+static const char *TextSelectDevice = "Select graphics device:";
+static const char *TextUseAutomaticDevice = "Use the best graphics device: a GPU, else the CPU";
+static const char *TextUseGpuDevice = "Use the graphics card (GPU); with several, each click takes the next";
+static const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics card";
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2785,6 +2795,27 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 	NoStretching = new TCheckBox("Don't stretch/shrink the Map");
 	WindowsMousepointer = new TCheckBox("Windows Mouse Pointer");
 	Framerate = new THorizontalScrollBar(10, 201, 10, 11, 1, TCallback(this, 30));
+#if defined(PATELLA_VULKAN)
+	// The x64 client (issue #31): the graphics device choice in the engine buttons' places, with the
+	// original's events (MainWindow.cpp: 800, 801, 802; Control.cpp ChangeEngine). The buttons are 58
+	// pixels wide (skin 16), which "CPU (compatibility)" does not fit: its help text says it. The line
+	// above them is as wide as the dialog; a longer device name is shortened, the whole one is its help.
+	DeviceLabelName[0] = 0;
+	DeviceLabel = new TLabel(SkinProperties.Style1394.Data08.x, SkinProperties.Style1394.Data08.y,
+		SkinProperties.Style1394.Data00 - SkinProperties.Style1394.Data08.x,
+		GetFontLineHeight(SkinProperties.StyleB08.Data78.FontNumber), SkinProperties.StyleB08.Data78,
+		TextSelectDevice, true);
+	TLabel *Label = DeviceLabel;
+	DirectX5Button = new TTextButton(SkinProperties.Style1394.Data10.x, SkinProperties.Style1394.Data10.y,
+		"Automatic", 16, 17, TCallback(_Receiver, 800), TextUseAutomaticDevice);
+	DirectX5Button->SetRadioButtonGroup(EngineGroup);
+	DirectX9Button = new TTextButton(SkinProperties.Style1394.Data18.x, SkinProperties.Style1394.Data18.y,
+		"GPU", 16, 17, TCallback(_Receiver, 801), TextUseGpuDevice);
+	DirectX9Button->SetRadioButtonGroup(EngineGroup);
+	OpenGLButton = new TTextButton(SkinProperties.Style1394.Data20.x, SkinProperties.Style1394.Data20.y,
+		"CPU", 16, 17, TCallback(_Receiver, 802), TextUseCpuDevice);
+	OpenGLButton->SetRadioButtonGroup(EngineGroup);
+#else
 	TLabel *Label = new TLabel(SkinProperties.Style1394.Data08.x, SkinProperties.Style1394.Data08.y,
 		SkinProperties.StyleB08.Data78, TextSelectEngine);
 	DirectX5Button = new TTextButton(SkinProperties.Style1394.Data10.x, SkinProperties.Style1394.Data10.y,
@@ -2796,6 +2827,7 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 	OpenGLButton = new TTextButton(SkinProperties.Style1394.Data20.x, SkinProperties.Style1394.Data20.y,
 		"OpenGL", 16, 17, TCallback(_Receiver, 802), TextSwitchToOpenGL);
 	OpenGLButton->SetRadioButtonGroup(EngineGroup);
+#endif
 	InsertChild(Label);
 	InsertChild(DirectX5Button);
 	InsertChild(DirectX9Button);
@@ -2823,10 +2855,18 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 		DirectX9Button->SetEnabled(false);
 		OpenGLButton->SetEnabled(false);
 	} else {
+#if defined(PATELLA_VULKAN)
+		// GPU without a GPU, CPU without the CPU driver next to the executable (vulkan/DeviceSettings.h).
+		if (GetNumberOfGpus() == 0)
+			DirectX9Button->SetEnabled(false);
+		if (GetCpuDriverManifest().empty())
+			OpenGLButton->SetEnabled(false);
+#else
 		if ((GetSurface()->GetAvailableEngines() & 2) == 0)
 			DirectX9Button->SetEnabled(false);
 		if ((GetSurface()->GetAvailableEngines() & 1) == 0)
 			OpenGLButton->SetEnabled(false);
+#endif
 		switch (curEngine) {
 		case 0:
 			EngineGroup->Selected = DirectX5Button;
@@ -2839,9 +2879,42 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 			break;
 		}
 	}
+#if defined(PATELLA_VULKAN)
+	ShowDevice();
+#endif
 	Arrange();
 	TEND(3689)
 }
+
+#if defined(PATELLA_VULKAN)
+// The x64 client (issue #31): the device choice's button selected, after the original's selection of
+// the current engine's (curEngine is always 2 there), and the line above the buttons naming the device
+// in use, when that changed.
+void TAdvancedGraphicsDialog::ShowDevice()
+{
+	switch (patella::vulkan::ButtonOf(GetDeviceChoice())) {
+	case patella::vulkan::TDeviceButton::Automatic:
+		EngineGroup->Selected = DirectX5Button;
+		break;
+	case patella::vulkan::TDeviceButton::Gpu:
+		EngineGroup->Selected = DirectX9Button;
+		break;
+	case patella::vulkan::TDeviceButton::Cpu:
+		EngineGroup->Selected = OpenGLButton;
+		break;
+	}
+	const char *Name = GetDeviceName();
+	if (strncmp(Name, DeviceLabelName, sizeof(DeviceLabelName) - 1) == 0)
+		return;
+	snprintf(DeviceLabelName, sizeof(DeviceLabelName), "%s", Name);
+	char Text[sizeof(DeviceLabelName) + 16];
+	if (DeviceLabelName[0] != 0)
+		snprintf(Text, sizeof(Text), "Device: %s", DeviceLabelName);
+	else
+		snprintf(Text, sizeof(Text), "%s", TextSelectDevice);
+	DeviceLabel->SetText(Text, true);
+}
+#endif
 
 // 0x47aa30, line 3723. Draws the frame rate texts over the children and
 // shows the current engine as selected.
@@ -2871,6 +2944,9 @@ void TAdvancedGraphicsDialog::Draw(int Surface, int x, int y)
 		EngineGroup->Selected = DirectX9Button;
 		break;
 	}
+#if defined(PATELLA_VULKAN)
+	ShowDevice();
+#endif
 	TEND1(3723, Surface)
 }
 
