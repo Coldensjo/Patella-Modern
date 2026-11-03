@@ -22,10 +22,8 @@ namespace patella::vulkan {
 
 class TFilterMasks {
 public:
-	enum : uint8_t {
-		Filtered = 1,
-		Transparent = 2,
-	};
+	static constexpr uint8_t Filtered = 1;
+	static constexpr uint8_t Transparent = 2;
 
 	// Image's size; a new image, or a new size, is transparent black (no pixel filtered).
 	void Ensure(int Image, int Width, int Height);
@@ -36,7 +34,7 @@ public:
 	// Quads of Texture into Target, as TRenderer::Draw draws them.
 	void Draw(int Target, int Texture, TFilter Filter, const TQuad *Quads, size_t Count);
 	// The mask's byte (Filtered, Transparent); 0 for an unknown image or a pixel outside it.
-	uint8_t At(int Image, int x, int y) const;
+	[[nodiscard]] uint8_t At(int Image, int x, int y) const;
 
 private:
 	struct TMask {
