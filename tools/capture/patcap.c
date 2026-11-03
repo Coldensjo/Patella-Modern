@@ -24,6 +24,11 @@ exactly the calls the client makes, and the same calls in both clients:
   OpenGL (SurfaceGL.cpp): SwapBuffers (glReadPixels of the back buffer, the client area).
   The vtable entries are patched when the client creates the objects (DirectDrawCreate,
   IDirectDraw4::CreateSurface, GetProcAddress "Direct3DCreate9", IDirect3D9::CreateDevice).
+  Vulkan (the x64 client's src/vulkan/SurfaceVulkan.cpp, Patella-Modern issue #19): the engine looks
+  this DLL up (GetModuleHandle "patcap.dll") and calls its exports: PatcapVulkanDevice once it has a
+  device, PatcapVulkanFrame before each frame is shown (counts it; nonzero: the frame is wanted),
+  then PatcapVulkanPixels with the canvas read back (TRenderer::ReadBack, the rectangle Present shows).
+  Nothing is hooked: a swapchain image cannot be read back from outside the engine.
 
 The controller (tools/compare_rendering.py) talks to it through a named file mapping
 "Local\PatellaCapture-<pid>" (layout: struct Shared). Nothing here depends on which client it
@@ -60,6 +65,7 @@ window's handle is stored truncated to 32 bits (only informational; window handl
 #define API_DDRAW_FLIP 2
 #define API_D3D9 3
 #define API_OPENGL 4
+#define API_VULKAN 5
 
 #pragma pack(push, 4)
 typedef struct {
@@ -86,6 +92,11 @@ typedef struct {
 	LONG ApiFrames[5];     /* 848: frames per API */
 	LONG Realtime;         /* 868 */
 	LONG FirstCall;        /* 872: the virtual clock has started */
+	/* Version 2 (Patella-Modern issue #19), the Vulkan engine: */
+	LONG VulkanFrames;     /* 876: frames per API for API_VULKAN (ApiFrames has 5) */
+	LONG VulkanType;       /* 880: VkPhysicalDeviceType of the device (4 the CPU) */
+	LONG VulkanCpuDriver;  /* 884: the device is the shipped CPU driver's */
+	char VulkanDevice[128]; /* 888: the device's name */
 } Shared;
 #pragma pack(pop)
 
@@ -242,7 +253,10 @@ static BOOL FrameShown(int Api)
 {
 	S->Frames++;
 	S->Api = Api;
-	S->ApiFrames[Api]++;
+	if (Api < 5)
+		S->ApiFrames[Api]++;
+	else
+		S->VulkanFrames++;
 	if (!CapturePending)
 		return FALSE;
 	if (CaptureSkip > 0) {
@@ -708,6 +722,28 @@ static int PatchImports(void)
 	return Found;
 }
 
+/* Vulkan: the engine's calls (SurfaceVulkan.cpp CreateSurfaces and FinishFrame). */
+__declspec(dllexport) void __cdecl PatcapVulkanDevice(const char *Name, int Type, int CpuDriver)
+{
+	S->VulkanType = Type;
+	S->VulkanCpuDriver = CpuDriver;
+	lstrcpynA(S->VulkanDevice, Name ? Name : "", sizeof(S->VulkanDevice));
+}
+
+__declspec(dllexport) int __cdecl PatcapVulkanFrame(int Width, int Height)
+{
+	(void)Width;
+	(void)Height;
+	return FrameShown(API_VULKAN);
+}
+
+/* Width x Height pixels, rows top-down Pitch bytes apart, B G R A bytes (D3DCOLOR). */
+__declspec(dllexport) void __cdecl PatcapVulkanPixels(const void *Bits, int Pitch, int Width, int Height)
+{
+	BOOL Ok = WriteBitmap(CapturePath, (const BYTE *)Bits, Pitch, Width, Height, 32);
+	Captured(Ok, Width, Height, 32, "cannot write the file");
+}
+
 /* The function the clients' copies import (by name); never called. */
 __declspec(dllexport) int __cdecl PatcapLoaded(void)
 {
@@ -729,7 +765,7 @@ BOOL WINAPI DllMain(HINSTANCE Instance, DWORD Reason, LPVOID Reserved)
 		if (S == NULL)
 			return FALSE;
 		S->Magic = 'PCAP';
-		S->Version = 1;
+		S->Version = 2;
 		S->Hooks = PatchImports();
 	}
 	return TRUE;
