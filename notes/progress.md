@@ -113,6 +113,12 @@ where the check does not look (Container.h's template parameter, _execl's sentin
 TASSERT/TERROR/TEND arguments wait for M5 (macrocheck: 0 differences). The oracle Patella.exe and the x64
 Patella.exe and PatellaTest.exe unchanged (pecompare); the clang-tidy baseline 31 to 21 findings.
 notes/decisions.md, "NULL to nullptr outside the error macros (Patella-Modern issue #32)".
+override (Patella-Modern issue #33, November 3, 2026; M3's second change): modernize-use-override through
+tools/tidy.py on every target that compiles src/, 667 declarations in 16 headers and Network.cpp (21 of them
+`virtual` before, 646 implicit overriders); no fix inside a TASSERT/TERROR/TEND argument (macrocheck: 0
+differences). `final` left out: it devirtualizes calls and changes the oracle's code (it waits for M6). The
+oracle Patella.exe and the x64 Patella.exe and PatellaTest.exe unchanged (pecompare); the clang-tidy baseline
+unchanged (21). notes/decisions.md, "override on every overrider, and no final yet (Patella-Modern issue #33)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -133,6 +139,12 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #33 (branch issue-33, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after override on every overrider (17 files of src/): 16,848,752 + 67 + 1,134,513 checks and
+3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and
+PatellaTest.exe built from main (6a20d32) and from the branch at the same path: `.text` identical, 0 unexpected
+differences (pecompare); macrocheck 6a20d32 issue-33: 2,108 calls, 0 differences.
 
 Patella-Modern issue #32 (branch issue-32, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after NULL to nullptr outside the error macros (45 files of src/): 16,848,752 + 67 + 1,134,513
