@@ -30,7 +30,9 @@ just ends.
 
 ```
 python -I tools/build.py oracle-x86
-python -I tools/compare_files.py [--out build\files\result] [--only options,walk,...] [--skip-live] [--no-repeat] [--patella EXE]
+python -I tools/compare_files.py [--out build\files\result] [--only options,walk,...] [--skip-live] [--repeat]
+                                 [--walk ladder|stairs] [--patella EXE]
+python -I tools/compare_files.py --check-route     # the walks against the server's map, no client
 ```
 
 `--patella` names the Patella.exe to test, x86 or x64, with its PDB next to it (default
@@ -38,9 +40,14 @@ build\oracle-x86\Release\Patella.exe; as compare_traffic.py's; Patella-Modern is
 
 The test server must be stopped; the script starts it for the one live recording and stops it (a clean stop
 saves, as always) and puts the test characters' player files back, as compare_traffic.py does. Everything
-else runs against tools/proxy.py's replay, without a server. About 18 minutes for all scenarios. Exit code 0
-when nothing differs. `--skip-live` reuses `--out`'s walk-live.jsonl (no server); `--no-repeat` skips the
-second run of Tibia.exe that shows what the masks hide.
+else runs against tools/proxy.py's replay, without a server. Exit code 0 when nothing differs. Since
+Patella-Modern issue #16 the live recording is also Tibia.exe's walk run (its files are walk-live\orig\):
+only Patella.exe replays the walk, and the walk itself is 19 actions instead of 116 steps (below). About
+6 minutes for all scenarios (estimated from the November 3 timings; before #16 about 18, of which 13.5 were
+the four walks of about 3 minutes each). `--skip-live` reuses `--out`'s walk-live.jsonl (no server); Tibia.exe
+then replays it for the walk as before, and the walk is the recording's (walk-live.walk). `--repeat` runs
+Tibia.exe a second time for walk, error and error-login, the evidence for the masks (about 2 minutes more);
+before #16 that was the default and `--no-repeat` skipped it (still accepted, it changes nothing now).
 
 The run folders are build\files\orig, build\files\patella and build\files\orig-repeat, the second
 Tibia.exe run's own (Patella-Modern issue #12; before, it ran in build\files\orig) (compare_traffic.py's
@@ -57,7 +64,7 @@ recording and its files) and report.txt.
 | Scenario | Session | Server data |
 | :--- | :--- | :--- |
 | options | start window: Options; General (all five check boxes), Console (all five), Network (Test Server Login), Graphics (the next fullscreen resolution), Advanced (light, stretching, mouse pointer, the frame rate limit three steps down, the OpenGL engine: a live engine switch), Hotkeys (F1-F5: two texts, two sent automatically, one empty); OK everywhere; Tibia.cfg after the options dialog and after the exit | none |
-| walk | login; automap: three marks set (types 3, 9, none), one edited (text and type), one deleted; zoom in once, out twice; 116 steps over floors 7, 6, 8, 7, 6, 7 into a second automap block; "Save Window" of the default channel; logout | the live recording (Tibia.exe against the test server), replayed |
+| walk | login; automap: three marks set (types 3, 9, none), one edited (text and type), one deleted; zoom in once, out twice; 19 actions over floors 7, 6, 7, 8, 7 into a second automap block (116 steps over floors 7, 6, 8, 7, 6, 7 before issue #16); "Save Window" of the default channel; logout | the live recording (Tibia.exe against the test server); Patella.exe replays it |
 | error | login, then the server packet 0xff (unknown type in the game): HandleException, the critical error box (its OK is pressed), exit code 1 | the recording's login and first game packets, then the crafted packet |
 | error-login | error.txt holds an earlier report: the error report dialog at the start (a comment, Send); login; the login server answers 0x63 (unknown type at the login): the report is appended | crafted login answer |
 | report | error.txt is Tibia.exe's from "error" in both folders: the dialog (a comment, Send), login; on entering the game the client sends the report (0xe8) and deletes error.txt; logout | the recording's login and first game packets; the crafted script expects the 0xe8 packet computed from error.txt (independently of the clients) and the logout, then closes |
@@ -67,17 +74,40 @@ recording and its files) and report.txt.
 Every patch writes a new signature into its file (or eight bytes of Tibia.exe), so a patch that silently did
 nothing would be seen; the script also checks each patched file against the result it computes itself.
 
-Walking (tools/compare_files.py ROUTE): from the temple of Rookgaard (32097,32219,7), where Patella Tester
-starts, 29 fields north, the wooden stairs up (32098,32190,7 to 32098,32189,6), the hole next to them down
-(32098,32190,6 to 32098,32191,7), the stairs down (32096,32190,7 to 32096,32191,8), back up (32096,32190,8 to
-32096,32189,7), then south to (32110,32252,7), where the map shows y 32256 and more (block 125/126/7); the
-shortest way south goes up the wooden stairs and down the hole once more. Planned on the server's map
-(gameserver\data\map sector files, objects.srv's Bank/Unpass/Avoid flags and moveuse.dat's
-`Collision, IsType (Obj1,T) -> MoveTopRel(Obj1,[dx,dy,dz])` rules; build\scratch\plan_tour.py in the i21
-worktree). In the live session every arrow key is repeated until the player moved (read from the creature
-table); the replay presses the directions of the step packets the recording holds, each repeated until the
-client sends its step (a client sends no step while a creature stands on the field, and when the creature
-moves on depends on when the key comes).
+Walking (tools/compare_files.py WALKS, Patella-Modern issue #16). What the walk is for: the client writes the
+automap blocks 125/125 on floors 6, 7 and 8 and 125/126 on floor 7 (12512506.map, 12512507.map with the marks,
+12512508.map, 12512607.map), no other. The client records only the player's floor (Map.cpp UpdateAutomap), x-8
+to x+9 and y-6 to y+7 around the player, so the player has to stand on floors 6 and 8 with y at most 32248
+and on floor 7 with y at least 32249; the marks (automap pixels from the player, one field each at
+AutomapZoom 2: the old marks were at +20,0 and -12,+10 of the temple) have to lie in block 125/125/7.
+
+- **ladder** (the default, 19 actions): the test character starts on the ladder of a house in the south of
+  the town (32109,32244,7); record_walk writes that into its player file (CurrentPosition) for the live
+  recording and puts the file back afterwards. U: the ladder (Ctrl+right click on the player's own field,
+  packet 0x82; moveuse.dat `Use, IsType (Obj1,1948) -> MoveRel(User,Obj1,[0,1,-1])`) to (32109,32245,6); N
+  onto the trapdoor (32109,32244,6) down to the ladder's field; E, S onto the stairs (32110,32245,7) down to
+  (32110,32246,8); N onto the stairs up (32110,32245,8) to (32110,32244,7); out of the house and south to
+  (32107,32249,7). About 24 s live and 28 s in a replay (116 steps took 148 s and 168 s).
+- **stairs** (44 steps, no use; `--walk stairs`): from (32095,32235,7) the ramp west of the town up to floor
+  6 (32093,32235,7 to 32092,32235,6) and its stairs down (32093,32235,6 to 32094,32235,7), east to the same
+  house, its stairs down and up, then south to (32107,32249,7). The fallback if the ladder does not work.
+- Before #16: from the temple (32097,32219,7) 29 fields north, the wooden stairs up (32098,32190,7 to
+  32098,32189,6), the hole next to them down, the stairs down (32096,32190,7 to 32096,32191,8) and up, then
+  about 80 fields south to (32110,32252,7), with the wooden stairs and the hole once more: 116 steps.
+
+Planned on the server's map: the sector files (gameserver\data\map), objects.srv's flags (a field to stand on
+has a Bank object and no Unpass, Avoid or event object, at most one object with a Height and no event: the upper
+half of a ramp), houses.dat (no house fields), moveuse.dat's `Collision, IsType (Obj1,T) ->
+MoveTopRel(Obj1,[dx,dy,dz])` and `Use, IsType (Obj1,T) -> MoveRel(User,Obj1,[dx,dy,dz])` rules. A search over
+every start on floor 7 (build\logs\issue-16\route-search.log) found: 14 steps from (32025,32242,7) west
+of the town, among wolves and spiders (a fight would keep the character from logging out); 43 steps inside the
+town (the stairs walk takes one more to start on plain ground); with a ladder 18 actions from (32054,32240,7),
+nearer the wolves, and 19 from the house in the town, which the default takes. `python -I tools/compare_files.py --check-route` checks every walk against the map (each target field,
+each floor change and its landing against floor_changes, the end, the automap blocks, the marks) without a
+client; the old route passes the same check (the four blocks above). In the live session every action is
+repeated until the player moved (read from the creature table); the replay takes the actions of the step
+and use packets the recording holds, each repeated until the client sends its packet (a client sends no step
+while a creature stands on the field, and when the creature moves on depends on when the key comes).
 
 Clicks come from the clients' memory as in issue #19: the dialogs' members (TGeneralOptionsDialog's check
 boxes at +0x2c-+0x3c, THotkeyDialog's AutoSendCheckBox +0x2458 and Selected +0x245c, TEditMarkDialog's

@@ -5335,3 +5335,63 @@ Settled by Claude Opus 5.5, November 3, 2026 (Python 3.13). `tools/compare_traff
   another signature) and each tool's cleaning call: only the data files (equal to the root's), the client(s),
   Tibia.cfg and the seed remain; the folders of orig, patella and orig-repeat differ. `check_waits.py`: node,
   login, wait_node and click_open against fake clients. No client was started.
+
+## A shorter walk for compare_files.py (issue #16)
+
+Settled by Claude Opus 5.5, November 3, 2026 (Python 3.13; the test server's data in C:\Tibia\gameserver, only
+read). `tools/compare_files.py`. No change to src/ or the build.
+
+- **What the walk has to cover** (high). Its written files: the automap blocks 125/125 on floors 6, 7, 8 and
+  125/126 on floor 7 (12512506.map, 12512507.map with two marks, 12512508.map, 12512607.map; the four files of
+  every November 2 and 3 run), Default.txt and Tibia.cfg; the marks set, edited and deleted; the zoom. From
+  Map.cpp: UpdateAutomap records the player's floor only (ReadField and the field updates with
+  rz == GetMapLevel()), the map's 18x14 fields at x-8..x+9, y-6..y+7; only UpdateAutomap and AddAutomapMark mark a
+  block changed (GetAutomapColor and the path finder load blocks without it). So: floors 6 and 8 with y <= 32248,
+  floor 7 with y >= 32249, every view inside x 32000-32255, marks inside block 125/125/7.
+  | | before (issue #21) | now |
+  | :--- | :--- | :--- |
+  | start | the temple, (32097,32219,7) | the ladder of a house in the town's south, (32109,32244,7), written into the player file |
+  | actions | 116 steps | 19: the ladder (a use), 18 steps |
+  | floors | 7, 6, 7, 8, 7, 6, 7 | 7, 6, 7, 8, 7 |
+  | end | (32110,32252,7) | (32107,32249,7) |
+  | automap blocks | 12512506, 12512507, 12512508, 12512607 | the same (`--check-route`) |
+  | marks | +20,0 (set, edited), -12,+10 (set), 0,-15 (set, deleted), in 12512507 | the same offsets, in 12512507 |
+  | default channel, Tibia.cfg, logout | yes | yes |
+  | Tibia.exe runs of the walk | three: live, replay, repeat | one: the live run (the repeat with `--repeat`) |
+  | time (route only) | 148 s live, 168 s per replay | about 24 s and 28 s (the same per-action time) |
+  | walk time of a default run | about 13.5 min (four walks) | about 2.5 min (two walks) |
+  New in the session: one use packet (0x82, the ladder), compared like every client packet.
+- **The ladder, not the stairs** (medium until the live run). A search over every start on floor 7 with the
+  server's map (scratch planner, build\logs\issue-16\route-search.log): on foot 14 steps from (32025,32242,7)
+  west of the town (wolf and spider homes within a few fields; an attack would block the logout and could kill the
+  level-1 character), 43 inside the town; with ladders 18 actions from (32054,32240,7) (nearer the wolves) and 19
+  from the town house. The default is the 19-action ladder walk; the 44-step stairs walk (`--walk stairs`, start
+  (32095,32235,7), a ramp and its stairs for floor 6) stays as the fallback if the use does not work live. The use
+  is a Ctrl+right click on the player's own field: with ClassicControl off that is MapWindow's 0x400 use, and
+  GetTopUseObject returns the first FORCEUSE object, the ladder under the player. moveuse.dat's rule is
+  unconditional (`Use, IsType (Obj1,1948) -> MoveRel(User,Obj1,[0,1,-1])`).
+- **The start through the player file** (high). record_walk writes the start into Patella Tester's
+  15146574.usr (only the CurrentPosition value of the snapshot's text; StartPosition, the temple, stays) before
+  the server starts, and restore_players puts the snapshot back afterwards, as before. A character without a
+  player file is refused (log it in once). Replays do not need it: the recording carries the position.
+- **One Tibia.exe walk** (high). The live recording's run is Tibia.exe's walk result (its files in
+  walk-live\orig, its packets the recording's); only Patella.exe replays the walk. The November 2 results showed
+  the live run's automap files and Tibia.cfg identical to both replays', and the proxy compares every packet of
+  Patella.exe's replay with the recording, i.e. with Tibia.exe's live packets. With `--skip-live` there is no live
+  run, so Tibia.exe replays the recording as before; walk-live.walk names the recording's walk (an older
+  recording, from the temple, fails at the start position: record it again).
+- **The repeat is an option** (high). `--repeat` runs Tibia.exe a second time for walk, error and error-login
+  (the evidence for the masks: the times in Default.txt and error.txt); it was the default, `--no-repeat` is
+  still accepted and changes nothing. The masks keep their evidence from the November 2 and 3 runs.
+- **--check-route** (high). compare_files.py reads the sector files, objects.srv, houses.dat and moveuse.dat and
+  walks a route: every target field one to stand on (a Bank object; no Unpass, Avoid or event object; at most one
+  object with a Height and no event, the upper half of a ramp; not a house) or a plain floor change whose landing
+  is one to stand on and equals floor_changes, every floor_changes entry used, the ladder's rule for U, the end,
+  the automap blocks (exactly the four), the marks. The old route passes the same check with the same four blocks
+  (its floor changes are the ones its live runs went through), so the model agrees with the server where it has
+  been tried.
+- **Gates** (high). py_compile and the imports (compare_files, compare_network), `client_state.py --self-test`;
+  `compare_files.py --check-route` (both walks ok) and the old route through the same check
+  (check_old_new.py); check_walk_helpers.py (set_start on a copy of the player file changes only
+  CurrentPosition, walk_keys maps 0x82 to U, next_position follows both walks to their end); the issue #12
+  run-folder check again. Logs: build\logs\issue-16. Not run: `compare_files.py --skip-live` (it starts clients).

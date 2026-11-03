@@ -203,7 +203,9 @@ equal to the original's).
 `python -I tools/compare_files.py` (issue #21) compares the files both clients write after the same sessions
 (Tibia.cfg after the option dialogs, the automap files after a walk over three floors, a saved channel,
 error.txt after forced errors and the error report flow, the files a patch from the login server writes):
-notes/written-files.md. It takes `--patella <exe>` too and reads the dialogs' controls through client_state.py's
+notes/written-files.md. Its live recording is also Tibia.exe's walk run, the walk is 19 actions from a ladder
+(Patella-Modern issue #16; `--check-route` checks it against the server's map), and the second Tibia.exe run is
+`--repeat`. It takes `--patella <exe>` too and reads the dialogs' controls through client_state.py's
 PDB table; tools/patch_client.py patches x86 and x64 images (Patella-Modern issue #15).
 
 `python -I tools/compare_rendering.py` (issue #20) compares what both clients draw: issue #19's session
