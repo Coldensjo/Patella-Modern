@@ -390,7 +390,12 @@ def main():
 	parser.add_argument("--out", default=os.path.join(TRAFFIC, "result"))
 	parser.add_argument("--skip-live", action="store_true", help="reuse the live recordings in --out")
 	parser.add_argument("--no-cross", action="store_true", help="replay only Tibia.exe's live recording")
+	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
+		"it (default build/Release/Patella.exe; e.g. build/oracle-x86/Release/Patella.exe, "
+		"build/windows-x64/Release/Patella.exe)")
 	args = parser.parse_args()
+	if args.patella:
+		CLIENTS["patella"]["source"] = CLIENTS["patella"]["pdb"] = os.path.abspath(args.patella)
 	out = os.path.abspath(args.out)
 	os.makedirs(out, exist_ok=True)
 	report = []
