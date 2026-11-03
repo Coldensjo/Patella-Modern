@@ -92,6 +92,15 @@ tools/testmode_check.py compares, in every run, the state dumps with client_stat
 moment and the packet log with the proxy's decrypted recording; offline: the formats' unit tests, the
 checker's self-test on made-up data, the dump's keys against client_state.py's. Patella.exe and the oracle
 unchanged (pecompare: 0 unexpected differences). notes/testmode.md, "The dumps".
+Reference recordings (Patella-Modern issue #23, November 3, 2026; M2's exit): tools/reference.py record plays
+every session of compare_traffic.py, compare_files.py and compare_rendering.py once with Tibia.exe under
+patcap.dll against the replayed server side (two live recordings from the test server, the rest crafted) and
+writes the reference set (the test-mode script the run makes, the server side, Tibia.exe's packets, states,
+frames, files); tools/reference.py compare runs PatellaTest.exe on each script with --test-replay (the server
+side replayed inside the client over loopback, the virtual clock held while the network is busy: no server)
+and compares. All eight sessions match on the CPU driver (packets with keys and padding, 62 states, 61 frames,
+every written file), 2 to 5 s each. Patella.exe and the oracle unchanged. notes/testmode.md, "Reference
+recordings".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)

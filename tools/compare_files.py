@@ -3,6 +3,8 @@ r"""Compare the files Patella.exe and the original Tibia.exe write (issue #21).
 Usage (from the repository or a worktree; python -I tools/build.py oracle-x86 first; the test server of
 issue #18 must be stopped, the script starts and stops it for the one live recording):
   python -I tools/compare_files.py [--out build\files\result] [--only a,b] [--skip-live] [--repeat]
+  python -I tools/compare_files.py record|compare [tools/reference.py's options]   (issue #23: the
+      reference recordings of this tool's sessions; notes/testmode.md, "Reference recordings")
                                    [--walk ladder|stairs] [--patella EXE]
   python -I tools/compare_files.py --check-route [--walk NAME] [--server-dir C:\Tibia\gameserver]
 
@@ -1379,6 +1381,11 @@ REPEATED = {"walk", "error", "error-login"}  # the scenarios with masked files: 
 
 
 def main():
+	# The record/compare split (Patella-Modern issue #23): record or compare as the first word runs
+	# tools/reference.py with this tool's sessions (notes/testmode.md, "Reference recordings").
+	if len(sys.argv) > 1 and sys.argv[1] in ("record", "compare"):
+		import reference
+		return reference.main([sys.argv[1], "--sessions", ",".join(reference.tool_sessions("compare_files"))] + sys.argv[2:])
 	ctypes.windll.user32.SetProcessDPIAware()
 	parser = argparse.ArgumentParser(description="Compare the files Patella.exe and Tibia.exe write.")
 	parser.add_argument("--out", default=os.path.join(FILES, "result"))

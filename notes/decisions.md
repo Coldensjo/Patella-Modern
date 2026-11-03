@@ -6102,3 +6102,59 @@ tools/compare_files.py, tools/compare_rendering.py, tools/client_state.py.
 - **Not checked yet** (form). No client window was opened (another task used the test server and the desktop):
   compare_files.py, compare_rendering.py (vulkan, vulkan-cpu) and compare_traffic.py on the x64 client are the
   orchestrator's live check; the dialog's new look has not been seen.
+
+## Reference recordings (Patella-Modern issue #23)
+
+Settled by Claude Opus 5.5, November 3, 2026. notes/testmode.md, "Reference recordings", describes the result;
+src/testmode/ServerReplay.*, InputScript.* (clock manual, advance, cursor, post, save), TestModeWin32.cpp (the
+replay's sockets, the quiet passes, the message boxes), src/TestHooks.h and Player.cpp (PATELLA_MESSAGE_BOX),
+tests/unit/testmode_replay_test.cpp, tools/reference.py, tools/reference_record.py, tools/proxy.py (vclock), the
+forwarding in compare_traffic.py, compare_files.py and compare_rendering.py.
+
+- **The reference runs are Tibia.exe under patcap.dll, replaying a recording** (high). The live run's timing
+  belongs to the server and the desktop; the replay with patcap's clock, which moves only by the record step's
+  advances, gives every state, frame and written time a defined virtual moment. compare_rendering.py had shown
+  that Tibia.exe and Patella under patcap draw the same frames, compare_traffic.py that a replay gives the
+  states of the live run's server data. So one reference run per session gives packets, states, frames and
+  files at once, and the live server is used only to make the server side once.
+- **The script is written by the record step from what it did** (high). The sessions' drivers read their click
+  points from Tibia.exe's memory (window tree, skin, map names); written down as the posted messages
+  (`post`) and the clock's advances, they need no layout knowledge in the test client and keep the order of
+  events exactly. The alternative, hand-written scripts per session, would repeat the drivers' point logic by
+  hand and drift from them.
+- **The test client replays the server side itself, over loopback** (high). Inside the test build, the driver
+  owns the server's sockets on 127.0.0.1 and decides when a packet goes, so it can hold the virtual clock and the
+  script until the network has settled (connect, a client packet read, a server packet decrypted, a close
+  answered): every packet reaches the client at the same point of the script, without real-time races, and a
+  session runs in seconds. The client's own Network.cpp is untouched (no new hook there: the existing RSA block
+  and packet hooks give the key and the counts, the connection state the connect); an external Python replay
+  (tools/proxy.py) would have needed a handshake with the virtual clock for every packet. Each wait gives up
+  after 10 s and says so, so a broken replay cannot hang a run. The format is a line file of our own (no JSON
+  parser in C++).
+- **The packets' virtual times come from the proxy** (medium). The proxy stores patcap's clock when it sends a
+  replayed packet; the clock stands still while the packet is on its way (settles wait for the server to be
+  quiet before an advance), so that is the moment Tibia.exe handles it. Measured: every session's packets and
+  states match with these times.
+- **Quiet passes** (medium). Between two of the record step's messages Tibia.exe runs many idle passes (each
+  with ProcessEvents, which opens the dialogs queued by the last event); the test driver gave one per event, and
+  the error session's Return came before the character list was open. With a manual clock the driver now waits
+  10 idle calls after every event and network action: deterministic (idle calls, not time), and every session
+  matches with it.
+- **No masks for times, keys or padding** (high; the issue's question). The virtual clock gives rand() the same
+  seed, so the XTEA keys, the RSA blocks' random bytes and the padding are compared as they are, and they are
+  equal; the wall clock starts at patcap's and both clients run with TZ=UTC0, so error.txt's crash time and
+  Default.txt's "Channel saved at" are compared byte for byte. The remaining masks are the recorded ones: the
+  measured frame rate (as compare_rendering.py) and issue #31's device choice in the advanced options (frame
+  rectangle; the texts of the windows inside it in the state), plus Patella.ini, the x64 client's own file.
+- **Message boxes are not shown in a scripted run** (high; "a test program must never open a modal error
+  dialog"). PATELLA_MESSAGE_BOX is MessageBoxA outside the test build (Patella.exe unchanged: pecompare). The box's
+  modal loop is emulated (messages dispatched, the replay pumped, until 500 ms of quiet), because Tibia.exe saves
+  Tibia.cfg in it (the server's close after ShutdownConnection): without it the error session lacked Tibia.cfg.
+- **The frozen clock needs settles where real time did the work** (medium). Tibia.exe draws its first frame only
+  after the clock moved (every session starts with a settle), the patch-exe client leaves the "Downloading"
+  dialog and closes only with time; those sessions advance the clock where compare_files.py slept.
+- **Local data** (high). The reference set holds Tibia.exe's frames, files, packets and, for patch-exe, a copy of
+  the patched Tibia.exe: CipSoft-derived, gitignored under build\, never committed or uploaded. Staleness: the
+  format and the SHA-256 of Tibia.exe and the data files in meta.json.
+- **The old live modes stay** (high). They are the way to compare two live clients and to make new recordings;
+  the record/compare split adds `record` and `compare` as first words of the three tools.

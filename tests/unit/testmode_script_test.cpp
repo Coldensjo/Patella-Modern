@@ -41,6 +41,9 @@ std::string Short(const TInputEvent &Event)
 	case TEventKind::Quit: Text += "quit"; break;
 	case TEventKind::StateDump: Text += "dump"; break;
 	case TEventKind::FrameDump: Text += "frame"; break;
+	case TEventKind::Advance: Text += "advance " + std::to_string(Event.Duration); break;
+	case TEventKind::Post: Text += "post " + std::to_string(Event.Key); break;
+	case TEventKind::Save: Text += "save " + Event.Name; break;
 	}
 	if (Event.Modifiers != 0)
 		Text += " m" + std::to_string(Event.Modifiers);

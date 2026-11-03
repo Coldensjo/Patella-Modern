@@ -9,6 +9,8 @@ method and the results; notes/decisions.md "Rendering comparison (issue #20)" th
 Usage:
   python -I tools/build.py oracle-x86
   python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl | vulkan,vulkan-cpu]
+  python -I tools/compare_rendering.py record|compare [tools/reference.py's options]   (issue #23: the
+      reference recordings of this tool's sessions; notes/testmode.md, "Reference recordings")
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
 	[--patella build\windows-x64\Release\Patella.exe] [--tolerance N]
 
@@ -879,6 +881,11 @@ def compare_runs(out, engine, a, b, write_diffs=True, scenes=None, tolerance=0, 
 
 
 def main():
+	# The record/compare split (Patella-Modern issue #23): record or compare as the first word runs
+	# tools/reference.py with this tool's sessions (notes/testmode.md, "Reference recordings").
+	if len(sys.argv) > 1 and sys.argv[1] in ("record", "compare"):
+		import reference
+		return reference.main([sys.argv[1], "--sessions", ",".join(reference.tool_sessions("compare_rendering"))] + sys.argv[2:])
 	parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
 	parser.add_argument("--out", default=os.path.join(RENDER, "result"))
 	parser.add_argument("--engines", help="the engines (%s); default: the ones --patella has, dx5,dx9,gl for the "

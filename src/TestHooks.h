@@ -34,6 +34,12 @@
 //	                                   vulkan/SurfaceVulkan.cpp InitDisplay: without patcap.dll, the test
 //	                                   mode's frame dump becomes the engine's frame observer
 //
+// Issue #23 (the reference recordings; notes/testmode.md):
+//
+//	PATELLA_MESSAGE_BOX(Window, Text, Caption, Type)
+//	                                   MessageBoxA: Player.cpp (FatalError, the start's two boxes); with a
+//	                                   script the box is not shown (written to messages.txt, answered OK)
+//
 // The state dump reads the client's data through the View functions at the end of Creatures.cpp,
 // Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h; test build only).
 //
@@ -63,6 +69,7 @@ void PacketSent(const unsigned char *Data, int Size, int Padded);
 void PacketReceived(const unsigned char *Data, int PacketSize);
 void FrameObservers(HMODULE Patcap, int(__cdecl **Frame)(int, int), void(__cdecl **Pixels)(const void *, int, int, int),
 	void(__cdecl **Mask)(const unsigned char *, int, int));
+int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type);
 } // namespace patella::testmode
 
 #define PATELLA_TIME_GET_TIME() patella::testmode::TimeGetTime()
@@ -76,6 +83,7 @@ void FrameObservers(HMODULE Patcap, int(__cdecl **Frame)(int, int), void(__cdecl
 #define PATELLA_TEST_PACKET_SENT(Data, Size, Padded) patella::testmode::PacketSent(Data, Size, Padded);
 #define PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize) patella::testmode::PacketReceived(Data, PacketSize);
 #define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask) patella::testmode::FrameObservers(Patcap, &(Frame), &(Pixels), &(Mask));
+#define PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) patella::testmode::ShowMessageBox(Window, Text, Caption, Type)
 
 #else
 
@@ -92,5 +100,6 @@ void FrameObservers(HMODULE Patcap, int(__cdecl **Frame)(int, int), void(__cdecl
 #define PATELLA_TEST_PACKET_SENT(Data, Size, Padded)
 #define PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize)
 #define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask)
+#define PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) MessageBoxA(Window, Text, Caption, Type)
 
 #endif
