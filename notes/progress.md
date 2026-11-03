@@ -106,6 +106,11 @@ sources without Tibia.exe (PATELLA_CLIENT_COMPILE_ONLY: the object library Patel
 link), self-hosted.yml runs tools/testmode_check.py, and testmode_check.py waits for the server's "Server
 Online!" after each start and runs a run once more whose game login got no answer (issue #21's cold start).
 notes/testmode.md, "The cold start (issue #25)".
+Patella.exe's sources in the hosted CI too (Patella-Modern issue #46, November 3, 2026): PATELLA_CLIENT_COMPILE_ONLY
+also builds the object library Patella_compile, Patella.exe's sources with its own definitions (no
+PATELLA_TEST_MODE), compiled in hosted.yml's job windows-test-build next to PatellaTest_compile. The compile flags
+of all 36 sources are Patella.exe's; Patella.exe's and PatellaTest.exe's are unchanged against main. notes/decisions.md,
+"Patella.exe's sources in the hosted CI (Patella-Modern issue #46)".
 
 NULL to nullptr (Patella-Modern issue #32, November 3, 2026; M3's first change): modernize-use-nullptr through
 tools/tidy.py on every target that compiles src/ (windows-x64 and oracle-x86), 1,223 replacements, plus 40 by hand

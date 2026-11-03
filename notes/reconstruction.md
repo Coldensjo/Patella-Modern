@@ -224,11 +224,12 @@ the system clock. Since issue #22 `--test-out <folder>` writes the test mode's d
 packet before encryption and after decryption), the state dump at a script's `dump` (client_state.py's state()
 and gui() as JSON) and the frame dump at a script's `frame` (the Vulkan engine's frame and its device-filtered
 pixels as PNG). notes/testmode.md.
-Without Tibia.exe (issue #25, for the hosted CI) `-DPATELLA_CLIENT_COMPILE_ONLY=ON` builds neither executable:
-only the object library `PatellaTest_compile`, PatellaTest.exe's C and C++ sources with its definitions, warnings
-and hardening (the same compiler flags for every file), without the resource script and never linked
-(`cmake --build --preset windows-x64 --target PatellaTest_compile`); the configure fetches the pinned Vulkan
-dependencies and reads no CipSoft file.
+Without Tibia.exe (issues #25 and #46, for the hosted CI) `-DPATELLA_CLIENT_COMPILE_ONLY=ON` builds neither
+executable: only two object libraries, `Patella_compile` (Patella.exe's C and C++ sources with its definitions,
+issue #46) and `PatellaTest_compile` (PatellaTest.exe's, with PATELLA_TEST_MODE), each with its executable's
+warnings and hardening (the same compiler flags for every file), without the resource script and never linked
+(`cmake --build --preset windows-x64 --target Patella_compile` / `--target PatellaTest_compile`); the configure
+fetches the pinned Vulkan dependencies and reads no CipSoft file.
 
 Since Patella-Modern issue #19 both carry the Vulkan engine (notes/vulkan.md; `cmake/Vulkan.cmake`), since
 issue #20 as their only engine (SurfaceDX.cpp, surfaceDX9.cpp and SurfaceGL.cpp are not compiled, ddraw, dxguid,
@@ -373,9 +374,10 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 - CI (issue #11; plan 4.7): `.github/workflows/hosted.yml` runs on GitHub's runners for every push and pull
   request (and by hand, workflow_dispatch), reads no CipSoft file and uses no secret: windows-latest with MSVC
   x64 (`python -I tools/build.py --env windows-x64 cmake --preset windows-x64 -DPATELLA_CLIENT=OFF`, then the
-  Release and Debug builds and `ctest`; cmake --workflow takes no -D, and the client needs Tibia.exe), the test
-  build compiled in a job of its own (issue #25: `-DPATELLA_CLIENT_COMPILE_ONLY=ON`, then `cmake --build --preset
-  windows-x64 --target PatellaTest_compile`; "Building" above), and on
+  Release and Debug builds and `ctest`; cmake --workflow takes no -D, and the client needs Tibia.exe), the
+  client's and the test build's sources compiled in a job of its own (issues #25, #46:
+  `-DPATELLA_CLIENT_COMPILE_ONLY=ON`, then `cmake --build --preset windows-x64 --target Patella_compile` and
+  `--target PatellaTest_compile`; "Building" above), and on
   ubuntu-latest the image of docker/linux-x64, built from its pinned Dockerfile in each job: linux-x64-gcc and
   linux-x64-clang (Release and Debug, `python3 -I tools/build.py <preset>` in the container), clang-format (the
   files above) and clang-tidy against the baseline (above; checks only, never --fix). Every action is pinned by
