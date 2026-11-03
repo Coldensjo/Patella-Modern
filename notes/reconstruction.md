@@ -166,8 +166,10 @@ each with a `-debug` workflow, build patella_core and the unit tests, not the cl
 client needs Tibia.exe for its resources, and MFC). On Linux: `cmake --workflow --preset linux-x64-gcc`. On
 Windows, `python -I tools/build.py linux-x64-gcc` (and `--env linux-x64-gcc <command>`) runs them in the Docker
 image `patella-modern/linux-x64:gcc16.2-clang22.1` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
-pinned by digest, Debian's Clang 22.1.8, CMake 3.31.6 and Ninja 1.12.1 pinned by version; build it once with
-`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`, about half a minute). build.py
+pinned by digest, Debian's Clang 22.1.8, CMake 3.31.6 and Ninja 1.12.1 pinned by version, since issue #11
+also clang-format and clang-tidy 22.1.8; build it once with
+`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`, about half a minute, and again
+when the Dockerfile changes: the tag stays the same). build.py
 mounts the repository read-only, copies the files git knows (tracked, and untracked ones that are not ignored:
 never the CipSoft files) with their times to the container's case-sensitive /work and runs there;
 build\<preset> is mounted as /work/build/<preset>, so the build tree and doctest stay. Details:
@@ -281,6 +283,53 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   TASSERT*/TERROR*/TEND* arguments with a count per check and counts the ones inside apart (they wait for
   M5); with `--fix` it reverts, character by character, every fix clang-tidy made inside such an argument,
   in the file and in the headers it changed (plan 4.2). Never run `clang-tidy --fix` directly.
+  `--all` takes every source of compile_commands.json under src/ (not src/Extern).
+- No new clang-tidy findings (issue #11; plan 4.1): `tools/tidy-baseline.tsv` lists the findings outside the
+  macro arguments, counted by file, check and message (not by line, so moved code keeps its entry), for the
+  compile commands of linux-x64-clang (patella_core's sources and the headers of src/ they include; the rest of
+  src/ needs the Windows headers and MFC) with clang-tidy 22.1.8 of the Docker image. `--baseline <file>` fails
+  (exit 1) only on a finding that is not in the list, or one more of a kind, and reports the ones that are
+  gone; `--write-baseline <file>` writes the list. Check, and write it again after fixing findings or accepting
+  a new one on purpose (say why in the commit), from Windows:
+
+  ```
+  python -I tools/build.py --env linux-x64-clang bash -c "cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --baseline tools/tidy-baseline.tsv"
+  python -I tools/build.py --env linux-x64-clang bash -c "cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline build/linux-x64-clang/tidy-baseline.tsv"
+  ```
+
+  (build.py works on a copy in the container, so the list is written into the mounted build\linux-x64-clang;
+  copy it to tools\tidy-baseline.tsv). On Linux the same tidy.py commands run directly after `cmake --preset
+  linux-x64-clang`. 31 findings in 26 entries on November 3, 2026, and 16 more inside macro arguments.
+- CI (issue #11; plan 4.7): `.github/workflows/hosted.yml` runs on GitHub's runners for every push and pull
+  request (and by hand, workflow_dispatch), reads no CipSoft file and uses no secret: windows-latest with MSVC
+  x64 (`python -I tools/build.py --env windows-x64 cmake --preset windows-x64 -DPATELLA_CLIENT=OFF`, then the
+  Release and Debug builds and `ctest`; cmake --workflow takes no -D, and the client needs Tibia.exe), and on
+  ubuntu-latest the image of docker/linux-x64, built from its pinned Dockerfile in each job: linux-x64-gcc and
+  linux-x64-clang (Release and Debug, `python3 -I tools/build.py <preset>` in the container), clang-format (the
+  files above) and clang-tidy against the baseline (above; checks only, never --fix). Every action is pinned by
+  commit; `permissions: contents: read`.
+  `.github/workflows/self-hosted.yml` runs on this machine (runner labels `self-hosted, Windows, X64, patella`):
+  oracle-x86 and the difftest, the windows-x64 client (Release and Debug), compare_traffic.py and
+  compare_files.py for the x64 client and compare_rendering.py `--modes windowed`, and the Linux presets through
+  build.py in Docker. It triggers only on `push` to this repository's branches and on `workflow_dispatch`, never
+  on `pull_request` or `pull_request_target`, every job checks the repository's name and the event, and every
+  job is skipped (not queued) unless the repository variable `PATELLA_SELF_HOSTED` is `true`. The CipSoft files
+  come from `PATELLA_CIPSOFT_DIR` (a repository variable, default C:\Tibia) into the checkout's root (ignored by
+  git; Tibia.exe's sha256 is checked), and nothing is uploaded. To turn it on (issue #3's runner):
+  1. Create a separate, unprivileged Windows user for the runner; give it read access to the CipSoft folder and
+     C:\Tibia\gameserver (the test server), Python 3.13 and Visual Studio on its PATH, and the docker-users
+     group for the Linux job.
+  2. In the repository's settings (Actions, General) require approval for workflows from outside
+     collaborators (all outside collaborators, before the repository goes public).
+  3. Register the runner for this repository only, as that user (Settings, Actions, Runners, New self-hosted
+     runner; `config.cmd --url https://github.com/Coldensjo/Patella-Modern --token <token> --labels patella`),
+     and start it with `run.cmd` in that user's logged-in session, not as a service: the comparisons drive
+     client windows and need a desktop (fast user switching keeps it apart from the user's own mouse and
+     keyboard).
+  4. `gh variable set PATELLA_SELF_HOSTED --body true --repo Coldensjo/Patella-Modern` (and
+     `PATELLA_CIPSOFT_DIR` if the files are not in C:\Tibia). `--body false` turns it off again; a
+     `workflow_dispatch` run (`gh workflow run self-hosted.yml --ref <branch>`) checks it once.
+  The logs of a public repository's runs are public: the tools print counts and summaries, not the data files.
 - Compile checks: the oracle-x86 build compiles every `src/*.cpp` and `src/Extern/regexp/*.c` with MSVC 14.51
   for x86 (`/W3`; a warning fails `tools/build.py`, "Building" above) twice: against real MFC (the Patella target) and against
   `src/compat/mfc_shim.h` (the mfc_shim_check target, the former `compile-check.cmd` with `TIBIA_MFC_SHIM`

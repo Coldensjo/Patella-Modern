@@ -5523,3 +5523,69 @@ compat/cxx26.h, each value-preserving (below).
   case-sensitive names, so build.py's copy is not needed there). Nothing in these presets reads a CipSoft file;
   FetchContent downloads doctest once per build tree (cache build/<preset>/_deps). The windows-x64 job needs
   `-DPATELLA_CLIENT=OFF` without Tibia.exe and then builds patella_core and the unit tests.
+
+## CI: hosted and self-hosted workflows (issue #11)
+
+Settled by Claude Opus 5.5, November 3, 2026 (GitHub Actions: windows-latest was the image windows-2025-vs2026
+with MSVC 19.51, ubuntu-latest Ubuntu 26.04; the image of docker/linux-x64 with GCC 16.2.0, Clang, clang-format and
+clang-tidy 22.1.8). `.github/workflows/hosted.yml`, `.github/workflows/self-hosted.yml`, `tools/tidy.py`
+(`--all`, `--baseline`, `--write-baseline`), `tools/tidy-baseline.tsv`, `docker/linux-x64/Dockerfile`. No change to
+src/.
+
+- **Hosted jobs** (form). Five jobs, in parallel, on push (every branch), pull_request and workflow_dispatch:
+  windows-x64 with MSVC (configure with `-DPATELLA_CLIENT=OFF` through `tools/build.py --env windows-x64`, because
+  `cmake --workflow` takes no -D and the client's configure reads Tibia.exe; then the Release and Debug builds and
+  their ctest presets), linux-x64-gcc and linux-x64-clang (a matrix; `python3 -I tools/build.py <preset>` and
+  `<preset>-debug` in the container, so the warning check of #17 applies there too), clang-format and clang-tidy.
+  build.py's own Docker path (the copy to a case-sensitive /work) is for Windows hosts; a Linux runner mounts its
+  case-sensitive checkout at /work. A pull request run is cancelled by a newer push to it; branch runs are not.
+- **The image in CI** (form). Built in every Linux job from the pinned Dockerfile (the base image by digest, the
+  packages by version), about 30 s, rather than pushed to GHCR: no registry, no package permission, no second
+  place to keep in step with the Dockerfile. No Docker layer cache (it would need another action).
+- **clang-format and clang-tidy in the image** (high). The Dockerfile gets Debian's clang-format-22 and
+  clang-tidy-22 (`1:22.1.8-1~deb13u4`, the version of its clang-22), linked as clang-format and clang-tidy; the tag
+  stays gcc16.2-clang22.1, so a local image must be built again. Considered: Visual Studio's LLVM on the Windows
+  runner (another version than the local VS 2026's 22.1.3 is possible on any image update, and formatting and
+  findings change between major versions). The local check with Visual Studio's 22.1.3 and the image's 22.1.8 both
+  report nothing on the same files.
+- **clang-format's files** (form). CLAUDE.md's list and tests/unit/*.cpp, the list of notes/reconstruction.md
+  ("Checking"), which was longer; CLAUDE.md names tests/unit/*.cpp now too.
+- **The clang-tidy baseline** (high). tools/tidy.py with `--baseline <file>` counts the findings outside the
+  TASSERT/TERROR/TEND arguments by (file, check, message), not by line, so that moving code changes nothing, and
+  fails only when a key has more findings than the list; fewer are reported as gone (write the list again to drop
+  them). `--write-baseline` writes the list (tab-separated, sorted, a header with the command). The compile commands
+  are linux-x64-clang's (configure only): the hosted runners have neither Tibia.exe (the client's configure) nor a
+  pinned clang-tidy for MSVC's command lines, and Linux compiles only patella_core's sources there (vlong, TRSA,
+  TXTEA, TMyException, Utils, Skins), with the headers of src/ they include. `--all` takes the sources of
+  compile_commands.json under src/ but not src/Extern, so the check grows with patella_core; a newly added core
+  source brings its findings as new ones, which the change fixes or adds to the list on purpose. The first list:
+  31 findings in 26 entries (and 16 inside macro arguments, not in the list).
+- **Self-hosted workflow** (high). Jobs oracle-x86 (`tools/build.py oracle-x86`: build and the four CTest tests),
+  windows-x64 (client and unit tests, Release and Debug), comparisons (compare_traffic.py and compare_files.py with
+  `--patella build\windows-x64\Release\Patella.exe`, compare_rendering.py `--modes windowed` from compare_traffic's
+  recording, then `testserver.py stop --force` always) and linux-docker (the Linux presets through build.py in the
+  local image: the place of the Linux replays of M2 and M8). Triggers: `push` and `workflow_dispatch` only. Each
+  job's `if` also requires the repository Coldensjo/Patella-Modern (a fork's copy never asks for a runner), the
+  event push or workflow_dispatch (should someone add a trigger later), and the repository variable
+  `PATELLA_SELF_HOSTED == 'true'`. Runner labels `self-hosted, Windows, X64, patella`; one run at a time
+  (concurrency group, nothing cancelled: one machine, the server's fixed ports). The CipSoft files are copied from
+  `PATELLA_CIPSOFT_DIR` (a variable, default C:\Tibia) into the checkout's root, Tibia.exe's sha256 checked against
+  CLAUDE.md's; the next checkout's git clean removes them; no artifact or cache is uploaded. Each job checks out
+  again (git clean), so the comparisons job builds both clients itself.
+- **Until the runner exists** (high). With the variable unset every job is skipped at once: the push of 4f0f0dc
+  gave the run "self-hosted" with four skipped jobs and nothing queued. Considered: a commented-out `on:` or a
+  disabled workflow (`gh workflow disable`; a re-enable is as easy, but the state is not visible in the file and a
+  workflow_dispatch would still queue when enabled), `runs-on` chosen by an expression (a queued job all the same).
+  The variable keeps the trigger rule as it is and is one command to turn on (notes/reconstruction.md,
+  "Checking", with the runner's setup: a separate unprivileged user, its logged-in session with run.cmd rather than
+  a service, because the comparisons drive client windows; approval for outside contributors' workflows).
+- **Not here** (form). A clang-tidy run over the whole of src/ needs the client's compile commands (windows-x64 with
+  Tibia.exe) and MSVC's headers; it belongs to the self-hosted workflow with a baseline of its own once someone
+  wants it. Golden corpus (4.3) and Linux replays (M2, M8) do not exist yet.
+- **Result** (high). Hosted run of 4f0f0dc green: windows-x64 1 min 44 s, linux-x64-gcc 2 min 18 s, linux-x64-clang
+  2 min 20 s, clang-format 58 s, clang-tidy 1 min 7 s; CTest 9/9 in each of the six build configurations (tests_unit
+  18 test cases with 158 assertions on MSVC and GCC, 156 on Clang; tests_unit_cxx26_standin 18 / 160; tests_core 17 /
+  139). A throwaway branch (issue-11-negative, deleted after the run) with `int  is_one( ) const {return n==1;}` in
+  vlong.h failed exactly the clang-format job (six violations at vlong.h:44) and the clang-tidy job ("new: 1 x
+  src/vlong.h: function 'is_one' should be marked [[nodiscard]]", 32 against 31), the build jobs green. Logs:
+  build\logs\issue-11.

@@ -1,5 +1,7 @@
 # Patella-Modern
 
+[![hosted](https://github.com/Coldensjo/Patella-Modern/actions/workflows/hosted.yml/badge.svg?branch=main)](https://github.com/Coldensjo/Patella-Modern/actions/workflows/hosted.yml)
+
 Patella-Modern turns [Patella](https://github.com/Coldensjo/Patella), a source reconstruction of the Tibia
 7.72 client (`Tibia.exe`, built 2006-06-08 with MSVC 7.1), into a maintainable, portable C++ code base.
 
@@ -62,6 +64,12 @@ in a Docker image with GCC 16.2, Clang 22, CMake and Ninja, which you build once
 ```
 docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64
 ```
+
+CI (GitHub Actions): `.github/workflows/hosted.yml` builds and tests the Windows (MSVC x64) and Linux (GCC 16,
+Clang 22) presets and checks clang-format and clang-tidy on every push and pull request, without any CipSoft
+file. The checks that need the CipSoft files (the oracle, the differential tests, the comparisons against the
+test server) are in `.github/workflows/self-hosted.yml`, for the maintainer's own machine; they never run for
+pull requests. Details: "Checking" in [notes/reconstruction.md](notes/reconstruction.md).
 
 ## Documents
 

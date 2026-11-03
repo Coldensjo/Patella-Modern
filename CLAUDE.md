@@ -36,12 +36,24 @@ test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/rec
 
 `.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by
 `.clang-format-ignore`), `.editorconfig` the editor settings. Check with Visual Studio's clang-format
-(`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/res/resource.h`.
+(`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/res/resource.h
+tests/unit/*.cpp`.
 Run clang-tidy only through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>`,
 never `clang-tidy --fix` directly: until M5 no change may touch the arguments of TASSERT*, TERROR* or TEND*
 (stringized into the messages difftest compares), and the wrapper reverts every fix inside them. The product
 targets' compiler, warning and hardening settings are `cmake/Warnings.cmake` and `cmake/Hardening.cmake`;
 the oracle-x86 preset never uses them. Details: `notes/reconstruction.md`, "Checking".
+
+## CI
+
+`.github/workflows/hosted.yml` (GitHub's runners, also on pull requests): windows-x64 with MSVC x64 and
+`-DPATELLA_CLIENT=OFF`, linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, and
+clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings). A change that adds a finding
+fixes it or rewrites the baseline in the image: `python -I tools/build.py --env linux-x64-clang bash -c "cmake
+--preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline
+build/linux-x64-clang/tidy-baseline.tsv"`, then copy it to `tools/`. `.github/workflows/self-hosted.yml` (oracle-x86,
+the comparisons; this machine) runs only on push and workflow_dispatch, and only when the repository variable
+`PATELLA_SELF_HOSTED` is `true`. Details: `notes/reconstruction.md`, "Checking".
 
 ## REA
 
