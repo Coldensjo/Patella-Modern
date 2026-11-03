@@ -72,7 +72,7 @@ TSurface *CreateSurfaceVulkan()
 // The name of the device the engine runs on (DeviceSettings.h; the advanced options show it).
 const char *GetDeviceName()
 {
-	TSurfaceVulkan *Engine = static_cast<TSurfaceVulkan *>(GetSurface());
+	const TSurfaceVulkan *Engine = static_cast<TSurfaceVulkan *>(GetSurface());
 	return Engine != nullptr ? Engine->DeviceName() : "";
 }
 
@@ -86,7 +86,7 @@ const char *TSurfaceVulkan::DeviceName() const
 TDeviceRequest TSurfaceVulkan::Request()
 {
 	TDeviceRequest Result;
-	patella::vulkan::TDeviceChoice Choice = GetDeviceChoice();
+	const patella::vulkan::TDeviceChoice Choice = GetDeviceChoice();
 	Result.Kind = Choice.Kind;
 	Result.GpuIndex = Choice.Kind == TDeviceKind::Gpu ? Choice.GpuIndex : -1;
 	Result.CpuDriverManifest = GetCpuDriverManifest();
@@ -137,10 +137,10 @@ bool TSurfaceVulkan::TestEngine()
 void TSurfaceVulkan::AddShadeQuad(int Left, int Top, int Right, int Bottom, uint32 TopLeft, uint32 TopRight,
 	uint32 BottomRight, uint32 BottomLeft)
 {
-	double Left_u = (Left + 0.5) / Rect[TEMP_SURFACE].right;
-	double Right_u = (Right + 0.5) / Rect[TEMP_SURFACE].right;
-	double Top_v = (Top + 0.5) / Rect[TEMP_SURFACE].bottom;
-	double Bottom_v = (Bottom + 0.5) / Rect[TEMP_SURFACE].bottom;
+	const double Left_u = (Left + 0.5) / Rect[TEMP_SURFACE].right;
+	const double Right_u = (Right + 0.5) / Rect[TEMP_SURFACE].right;
+	const double Top_v = (Top + 0.5) / Rect[TEMP_SURFACE].bottom;
+	const double Bottom_v = (Bottom + 0.5) / Rect[TEMP_SURFACE].bottom;
 	Shade.push_back({Left, Top, Right, Bottom, (float)Left_u, (float)Right_u, (float)Top_v, (float)Bottom_v, TopLeft,
 		TopRight, BottomRight, BottomLeft});
 }
@@ -212,8 +212,8 @@ TSurfaceVulkan::~TSurfaceVulkan()
 // The same code in all engines.
 bool TSurfaceVulkan::ClipRect(TRect Clip, RECT *Area, RECT *Source)
 {
-	int ClipRight = Clip.x + Clip.width;
-	int ClipBottom = Clip.y + Clip.height;
+	const int ClipRight = Clip.x + Clip.width;
+	const int ClipBottom = Clip.y + Clip.height;
 	if (Area->left < ClipRight && Area->top < ClipBottom && Area->right > Clip.x && Area->bottom > Clip.y) {
 		if (Area->left < Clip.x) {
 			Source->left += Clip.x - Area->left;
@@ -238,7 +238,7 @@ bool TSurfaceVulkan::ClipRect(TRect Clip, RECT *Area, RECT *Source)
 
 void TSurfaceVulkan::ResetFrameTimer()
 {
-	double Now = PATELLA_TIME_GET_TIME();
+	const double Now = PATELLA_TIME_GET_TIME();
 	StartTime = Now;
 	Framerate = 0xffff;
 	NextFrame = Now;
@@ -248,7 +248,7 @@ void TSurfaceVulkan::ResetFrameTimer()
 
 void TSurfaceVulkan::WaitForNextFrame()
 {
-	double Now = PATELLA_TIME_GET_TIME();
+	const double Now = PATELLA_TIME_GET_TIME();
 	FrameCount++;
 	if (Now - LastFPSTime > 1000.0) {
 		FPS = (FrameCount * 1000) / (Now - LastFPSTime);
@@ -273,9 +273,9 @@ void TSurfaceVulkan::UpdateWindowRect()
 		ClientToScreen(hWindow, (POINT *)&WindowRect.left);
 		ClientToScreen(hWindow, (POINT *)&WindowRect.right);
 		if (Renderer != nullptr && Image[SCREEN_SURFACE] >= 0) {
-			int Canvas = Image[SCREEN_SURFACE];
-			int CanvasWidth = Renderer->ImageWidth(Canvas);
-			int CanvasHeight = Renderer->ImageHeight(Canvas);
+			const int Canvas = Image[SCREEN_SURFACE];
+			const int CanvasWidth = Renderer->ImageWidth(Canvas);
+			const int CanvasHeight = Renderer->ImageHeight(Canvas);
 			if (Rect[SCREEN_SURFACE].right > CanvasWidth || Rect[SCREEN_SURFACE].bottom > CanvasHeight) {
 				FlushVertices();
 				Renderer->ResizeImage(Canvas,
@@ -301,7 +301,7 @@ void TSurfaceVulkan::ColorFill(int Target, const RECT *R, uint32 Color)
 
 void TSurfaceVulkan::SetPixel(int Surface, int x, int y, TRGBColor Color)
 {
-	RECT R = {x, y, x + 1, y + 1};
+	const RECT R = {x, y, x + 1, y + 1};
 	SetRenderTarget(Surface);
 	FlushVertices();
 	ColorFill(CurrentTarget, &R, Xrgb(Color.R, Color.G, Color.B));
@@ -309,7 +309,7 @@ void TSurfaceVulkan::SetPixel(int Surface, int x, int y, TRGBColor Color)
 
 void TSurfaceVulkan::FillRectangle(int Surface, TRect Area, TRGBColor Color)
 {
-	RECT R = {Area.x, Area.y, Area.x + Area.width, Area.y + Area.height};
+	const RECT R = {Area.x, Area.y, Area.x + Area.width, Area.y + Area.height};
 	if (R.top != R.bottom && R.left != R.right) {
 		SetRenderTarget(Surface);
 		FlushVertices();
@@ -324,7 +324,7 @@ void TSurfaceVulkan::FillRectangleClipped(int Surface, TRect Area, TRGBColor Col
 {
 	RECT R = {Area.x, Area.y, Area.x + Area.width, Area.y + Area.height};
 	if (R.top != R.bottom && R.left != R.right) {
-		int Pixels = Area.height * Area.width;
+		const int Pixels = Area.height * Area.width;
 		RECT Unused = R;
 		if (ClipRect(Clip, &R, &Unused)) {
 			SetRenderTarget(Surface);
@@ -338,7 +338,7 @@ void TSurfaceVulkan::FillRectangleClipped(int Surface, TRect Area, TRGBColor Col
 
 void TSurfaceVulkan::DrawHorizontalLine(int Surface, int x, int y, int Length, TRGBColor Color)
 {
-	RECT R = {x, y, x + Length, y + 1};
+	const RECT R = {x, y, x + Length, y + 1};
 	if (R.top != R.bottom && R.left != R.right) {
 		SetRenderTarget(Surface);
 		FlushVertices();
@@ -350,7 +350,7 @@ void TSurfaceVulkan::DrawHorizontalLine(int Surface, int x, int y, int Length, T
 
 void TSurfaceVulkan::DrawVerticalLine(int Surface, int x, int y, int Length, TRGBColor Color)
 {
-	RECT R = {x, y, x + 1, y + Length};
+	const RECT R = {x, y, x + 1, y + Length};
 	if (R.top != R.bottom && R.left != R.right) {
 		SetRenderTarget(Surface);
 		FlushVertices();
@@ -427,8 +427,8 @@ void TSurfaceVulkan::ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBC
 	if (Surface == TEMP_SURFACE && Renderer != nullptr) {
 		Shade.clear();
 		for (int i = 0; i < Count; i++) {
-			TRect *R = &Rects[i];
-			TRGBColor *C = &Colors[i * 4];
+			const TRect *R = &Rects[i];
+			const TRGBColor *C = &Colors[i * 4];
 			AddShadeQuad(R->x, R->y, R->x + R->width, R->y + R->height, Xrgb(C[0].R, C[0].G, C[0].B),
 				Xrgb(C[1].R, C[1].G, C[1].B), Xrgb(C[3].R, C[3].G, C[3].B), Xrgb(C[2].R, C[2].G, C[2].B));
 		}
@@ -451,10 +451,10 @@ void TSurfaceVulkan::FinishFrame()
 		BlitPixels = 0;
 		FlushVertices();
 		if (Renderer != nullptr && Image[SCREEN_SURFACE] >= 0) {
-			int x = Rect[SCREEN_SURFACE].left;
-			int y = Rect[SCREEN_SURFACE].top;
-			int ShownWidth = Rect[SCREEN_SURFACE].right - x;
-			int ShownHeight = Rect[SCREEN_SURFACE].bottom - y;
+			const int x = Rect[SCREEN_SURFACE].left;
+			const int y = Rect[SCREEN_SURFACE].top;
+			const int ShownWidth = Rect[SCREEN_SURFACE].right - x;
+			const int ShownHeight = Rect[SCREEN_SURFACE].bottom - y;
 			try {
 				if (FrameObserver != nullptr && FrameObserver(ShownWidth, ShownHeight) && PixelsObserver != nullptr) {
 					if (MaskObserver != nullptr && Masked(Image[SCREEN_SURFACE])) {
@@ -485,8 +485,8 @@ bool TSurfaceVulkan::ReadScreen(std::vector<uint32_t> &Pixels, int &ShownWidth, 
 	if (Renderer == nullptr || Image[SCREEN_SURFACE] < 0)
 		return false;
 	FlushVertices();
-	int x = Rect[SCREEN_SURFACE].left;
-	int y = Rect[SCREEN_SURFACE].top;
+	const int x = Rect[SCREEN_SURFACE].left;
+	const int y = Rect[SCREEN_SURFACE].top;
 	ShownWidth = Rect[SCREEN_SURFACE].right - x;
 	ShownHeight = Rect[SCREEN_SURFACE].bottom - y;
 	Renderer->ReadBack(Image[SCREEN_SURFACE], x, y, ShownWidth, ShownHeight, Pixels);
@@ -690,10 +690,10 @@ void TSurfaceVulkan::StretchBlitUnclipped(int ToSurface, TRect ToRect, int FromS
 		Blit(ToSurface, ToRect.x, ToRect.y, FromSurface, FromRect, ColorKey);
 		return;
 	}
-	int Right = ToRect.x + ToRect.width;
-	int Bottom = ToRect.y + ToRect.height;
-	int FromRight = FromRect.x + FromRect.width;
-	int FromBottom = FromRect.y + FromRect.height;
+	const int Right = ToRect.x + ToRect.width;
+	const int Bottom = ToRect.y + ToRect.height;
+	const int FromRight = FromRect.x + FromRect.width;
+	const int FromBottom = FromRect.y + FromRect.height;
 	SetRenderTarget(ToSurface);
 	SetTexture(FromSurface);
 	AddQuad(ToRect.x, ToRect.y, Right, Bottom, (FromRect.x + 0.5) / Rect[FromSurface].right,
@@ -788,14 +788,14 @@ void TSurfaceVulkan::WriteMaskedImage(int ToSurface, int x, int y, int PartWidth
 {
 	if (ToSurface < 0 || ToSurface >= NUMBER_OF_SURFACES_VULKAN || PartWidth <= 0 || PartHeight <= 0)
 		return;
-	int Size = PartWidth * PartHeight;
+	const int Size = PartWidth * PartHeight;
 	std::vector<uint32_t> Pixels((size_t)Size);
 	for (int i = 0; i < Size; i++) {
-		uint8 *From = &Data[i * 3];
+		const uint8 *From = &Data[i * 3];
 		int Index = 0;
 		uint8 R = 0, G = 0, B = 0, A = 0;
 		if (Mask != nullptr) {
-			uint8 *M = &Mask[i * 3];
+			const uint8 *M = &Mask[i * 3];
 			if (M[0] == 0xff) {
 				if (M[1] == 0xff) {
 					if (M[2] != 0)
@@ -825,8 +825,8 @@ void TSurfaceVulkan::WriteMaskedImage(int ToSurface, int x, int y, int PartWidth
 			Index = 0;
 		}
 		{
-			int Grey = (From[1] * 59 + From[0] * 30 + From[2] * 11) / 100;
-			TRGBColor *C = &Colors[Index];
+			const int Grey = (From[1] * 59 + From[0] * 30 + From[2] * 11) / 100;
+			const TRGBColor *C = &Colors[Index];
 			R = (uint8)(C->R * Grey / 256);
 			G = (uint8)(C->G * Grey / 256);
 			B = (uint8)(C->B * Grey / 256);
@@ -900,7 +900,7 @@ void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 		ClientToScreen(hWindow, (POINT *)&WindowRect.right);
 	} else {
 		TFullscreenMode *Modes;
-		int Number = GetFullscreenModes(&Modes);
+		const int Number = GetFullscreenModes(&Modes);
 		int i;
 		for (i = 0; i < Number; i++) {
 			if (GMode->Width == Modes[i].Width && GMode->Height == Modes[i].Height)
@@ -1000,7 +1000,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		Image[AUTOMAP_SURFACE] = Renderer->CreateImage(Rect[AUTOMAP_SURFACE].right, Rect[AUTOMAP_SURFACE].bottom);
 		SurfaceCreated[NumberOfSurfaces++] = 1;
 		for (int i = 0; i < 16; i++) {
-			int Surface = SPRITE_SURFACE + i;
+			const int Surface = SPRITE_SURFACE + i;
 			Image[Surface] = Renderer->CreateImage(Rect[Surface].right, Rect[Surface].bottom);
 			SurfaceCreated[NumberOfSurfaces++] = 1;
 			CacheSurfaces++;

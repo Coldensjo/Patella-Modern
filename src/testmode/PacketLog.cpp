@@ -49,8 +49,8 @@ bool ParseHex(std::string_view Text, std::vector<std::uint8_t> *Bytes)
 	if (Text.empty() || Text.size() % 2 != 0)
 		return false;
 	for (std::size_t i = 0; i < Text.size(); i += 2) {
-		int High = HexValue(Text[i]);
-		int Low = HexValue(Text[i + 1]);
+		const int High = HexValue(Text[i]);
+		const int Low = HexValue(Text[i + 1]);
 		if (High < 0 || Low < 0)
 			return false;
 		Bytes->push_back(static_cast<std::uint8_t>((High << 4) | Low));
@@ -84,7 +84,7 @@ bool ParsePacketLogLine(std::string_view Line, TPacketRecord *Record)
 		return false;
 	std::vector<std::string_view> Fields;
 	while (!Line.empty()) {
-		std::size_t Space = Line.find(' ');
+		const std::size_t Space = Line.find(' ');
 		Fields.push_back(Line.substr(0, Space));
 		Line = Space == std::string_view::npos ? std::string_view() : Line.substr(Space + 1);
 	}

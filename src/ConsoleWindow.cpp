@@ -85,7 +85,7 @@ void TTextWindow::Draw(int Surface, int x, int y)
 		if (TextBuffer != nullptr && TextBuffer->first != nullptr)
 			TextBuffer->LinesChanged = false;
 		if (TextBuffer != nullptr) {
-			bool LinesChanged = TextBuffer->LinesChanged;
+			const bool LinesChanged = TextBuffer->LinesChanged;
 			TextBuffer->LinesChanged = false;
 			if (LinesChanged)
 				Arrange();
@@ -101,7 +101,7 @@ void TTextWindow::Draw(int Surface, int x, int y)
 	int Bottom = Height;
 	bool First = true;
 	for (int CurrentLine = CurrentLineNumber; CurrentLine >= getFirstLineNumber(); CurrentLine--) {
-		TLineFormat *Format = GetLineFormat(CurrentLine);
+		const TLineFormat *Format = GetLineFormat(CurrentLine);
 		TASSERT2(84, Format!=NULL, CurrentLine, getFirstLineNumber());
 		TASSERT2(85, Format->LineText!=NULL, CurrentLine, getFirstLineNumber());
 		int LineHeight;
@@ -114,8 +114,8 @@ void TTextWindow::Draw(int Surface, int x, int y)
 		Bottom -= LineHeight;
 		if (Bottom < 0)
 			break;
-		int LineX = Format->Indent + x;
-		int LineY = Bottom + y;
+		const int LineX = Format->Indent + x;
+		const int LineY = Bottom + y;
 		int EndLine, EndOffset, StartLine, StartOffset;
 		if (HasSelection() && GetSelectionEnd(&EndLine, &EndOffset) && GetSelectionStart(&StartLine, &StartOffset)
 			&& StartLine <= CurrentLine && CurrentLine <= EndLine) {
@@ -165,7 +165,7 @@ void TTextWindow::Arrange()
 	bool First = true;
 	int CurrentLine = LastLineNumber;
 	while (CurrentLine >= getFirstLineNumber()) {
-		TLineFormat *Format = GetLineFormat(CurrentLine);
+		const TLineFormat *Format = GetLineFormat(CurrentLine);
 		if (Format != nullptr) {
 			CurrentLine--;
 			if (First) {
@@ -235,7 +235,7 @@ bool TTextWindow::LeftButtonDoubleClick(int x, int y, [[maybe_unused]] int Flags
 	int Length = 0;
 	int Line, Offset, LineLength;
 	if (GetPosition(x, y, &Line, &Offset, &LineLength)) {
-		TLineFormat *Format = GetLineFormat(Line);
+		const TLineFormat *Format = GetLineFormat(Line);
 		if (Format != nullptr) {
 			while (Offset > 0 && !IsSpace(Format->LineText[Offset - 1]))
 				Offset--;
@@ -320,7 +320,7 @@ void TTextWindow::SetTextBuffer(TTalkBuffer *_TextBuffer)
 void TTextWindow::FormatLines()
 {
 	TBEGIN
-	int TextWidth = Width;
+	const int TextWidth = Width;
 	int Count = 0;
 	if (TextBuffer != nullptr) {
 		TTalkLine *TextLine = TextBuffer->GetFirst();
@@ -337,10 +337,10 @@ void TTextWindow::FormatLines()
 			int Start = 0;
 			while (!Last) {
 				int Blank = -1;
-				int End = GetFittingTextLength(4, Text + Start, TextWidth - Indent) + Start;
+				const int End = GetFittingTextLength(4, Text + Start, TextWidth - Indent) + Start;
 				int i;
 				for (i = Start; i < End; i++) {
-					char c = Text[i];
+					const char c = Text[i];
 					if (IsSpace(c))
 						Blank = i;
 					if (c == '\n') {
@@ -369,7 +369,7 @@ void TTextWindow::FormatLines()
 		TextBuffer->Complete = true;
 	}
 	LastLineNumber = Count - 1;
-	TLineFormat Empty;
+	const TLineFormat Empty;
 	for (int i = Count; i <= Lines.max; i++)
 		Lines(i) = Empty;
 	TEND(379)
@@ -383,7 +383,7 @@ TTalkLine *TTextWindow::GetTalkLine(int LineNumber)
 		if (!TextBuffer->Complete) {
 			TextBuffer->LinesChanged = false;
 		} else if (LineNumber <= Lines.max && LineNumber >= Lines.min) {
-			TLineFormat *Format = &Lines(LineNumber);
+			const TLineFormat *Format = &Lines(LineNumber);
 			if (Format != nullptr)
 				return Format->TextLine;
 		}
@@ -424,13 +424,13 @@ bool TTextWindow::GetSelectionStart(int *Line, int *Offset)
 	if (HasSelection()) {
 		int StartLine = SelectionStartLine;
 		int StartOffset = SelectionStartOffset;
-		int EndLine = SelectionEndLine;
-		int EndOffset = SelectionEndOffset;
+		const int EndLine = SelectionEndLine;
+		const int EndOffset = SelectionEndOffset;
 		if (EndLine < StartLine || (EndLine == StartLine && EndOffset < StartOffset)) {
 			StartLine = EndLine;
 			StartOffset = EndOffset;
 		}
-		TLineFormat *Format = GetLineFormat(StartLine);
+		const TLineFormat *Format = GetLineFormat(StartLine);
 		if (Format != nullptr && StartOffset <= Format->LineLength) {
 			*Line = StartLine;
 			*Offset = StartOffset;
@@ -452,13 +452,13 @@ bool TTextWindow::GetSelectionEnd(int *Line, int *Offset)
 	if (HasSelection()) {
 		int StartLine = SelectionStartLine;
 		int StartOffset = SelectionStartOffset;
-		int EndLine = SelectionEndLine;
-		int EndOffset = SelectionEndOffset;
+		const int EndLine = SelectionEndLine;
+		const int EndOffset = SelectionEndOffset;
 		if (StartLine < EndLine || (StartLine == EndLine && StartOffset <= EndOffset)) {
 			StartLine = EndLine;
 			StartOffset = EndOffset;
 		}
-		TLineFormat *Format = GetLineFormat(StartLine);
+		const TLineFormat *Format = GetLineFormat(StartLine);
 		if (Format != nullptr && StartOffset <= Format->LineLength) {
 			*Line = StartLine;
 			*Offset = StartOffset;
@@ -482,7 +482,7 @@ bool TTextWindow::SelectAll()
 			SelectionStartLine = 0;
 			SelectionStartOffset = 0;
 			SelectionEndLine = LastLineNumber;
-			TLineFormat *Format = GetLineFormat(LastLineNumber);
+			const TLineFormat *Format = GetLineFormat(LastLineNumber);
 			if (Format != nullptr)
 				SelectionEndOffset = Format->LineLength;
 			else
@@ -509,7 +509,7 @@ const char *TTextWindow::GetSelectedText()
 		if (GetSelectionStart(&StartLine, &StartOffset) && GetSelectionEnd(&EndLine, &EndOffset)) {
 			uint32 Size = 1;
 			for (int i = StartLine; i <= EndLine; i++) {
-				TLineFormat *Format = GetLineFormat(i);
+				const TLineFormat *Format = GetLineFormat(i);
 				if (Format != nullptr && Format->LineText != nullptr)
 					Size += 1 + Format->LineLength;
 			}
@@ -517,13 +517,13 @@ const char *TTextWindow::GetSelectedText()
 				SelectedText = new char[Size];
 				SelectedText[0] = 0;
 				if (StartLine == EndLine) {
-					TLineFormat *Format = GetLineFormat(StartLine);
+					const TLineFormat *Format = GetLineFormat(StartLine);
 					if (Format == nullptr || Format->LineText != nullptr)
 						CopyString(SelectedText, Format->LineText + StartOffset, EndOffset - StartOffset + 1);
 					return SelectedText;
 				}
 				for (int i = StartLine; i <= EndLine; i++) {
-					TLineFormat *Format = GetLineFormat(i);
+					const TLineFormat *Format = GetLineFormat(i);
 					if (Format == nullptr || Format->LineText == nullptr)
 						continue;
 					if (i == EndLine) {
@@ -572,7 +572,7 @@ bool TTextWindow::GetPosition(int x, int y, int *Line, int *Offset, int *Length)
 			bool Found = false;
 			int CurrentLine = CurrentLineNumber;
 			int LineNumber = 0;
-			TLineFormat *Format = nullptr;
+			const TLineFormat *Format = nullptr;
 			while (!Found) {
 				LineNumber = CurrentLine;
 				if (LineNumber < getFirstLineNumber())
@@ -641,8 +641,8 @@ TConsole::TConsole()
 // 0x41a4d0. No exception frame.
 int TConsole::getMinimumHeight()
 {
-	int ScrollBarHeight = ScrollBar->getMinimumHeight();
-	int TextHeight = TextWindow->getMinimumHeight();
+	const int ScrollBarHeight = ScrollBar->getMinimumHeight();
+	const int TextHeight = TextWindow->getMinimumHeight();
 	return TextHeight > ScrollBarHeight ? TextHeight : ScrollBarHeight;
 }
 
@@ -672,17 +672,17 @@ bool TConsole::MouseWheel(int x, int y, int Code)
 void TConsole::Arrange()
 {
 	TBEGIN
-	int WindowWidth = Width;
-	int Top = Skins[175].height;
-	int RightEdge = Skins[174].width;
-	int LeftEdge = Skins[173].width;
+	const int WindowWidth = Width;
+	const int Top = Skins[175].height;
+	const int RightEdge = Skins[174].width;
+	const int LeftEdge = Skins[173].width;
 	ScrollBar->SetSize(ScrollBar->Width, Height - Skins[176].height - Top);
 	ScrollBar->SetPosition(WindowWidth - RightEdge - LeftEdge - ScrollBar->Width + LeftEdge, Top);
 	SetChildArea(TextWindow, SkinProperties.Style9E8.Data8C);
 	TWindow::Arrange();
-	int Visible = TextWindow->getLastLineNumber() - TextWindow->getFirstLineNumber() - TextWindow->InvisibleLines;
-	int Minimum = TextWindow->getFirstLineNumber() + Visible;
-	int Maximum = TextWindow->getLastLineNumber() - TextWindow->getFirstLineNumber();
+	const int Visible = TextWindow->getLastLineNumber() - TextWindow->getFirstLineNumber() - TextWindow->InvisibleLines;
+	const int Minimum = TextWindow->getFirstLineNumber() + Visible;
+	const int Maximum = TextWindow->getLastLineNumber() - TextWindow->getFirstLineNumber();
 	if (Maximum < Minimum) {
 		std::stringstream Error;
 		Error << "invalid range for console text window scroll bar" << " (minimum: " << Minimum
@@ -739,7 +739,7 @@ TTab::TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback _Callback)
 	strcpy(FullCaption, Caption);
 	Callback = _Callback;
 	Shortened = false;
-	int Length = GetFittingTextLength(SkinProperties.StyleAA4.Data14.FontNumber, Caption,
+	const int Length = GetFittingTextLength(SkinProperties.StyleAA4.Data14.FontNumber, Caption,
 		SkinProperties.StyleAA4.Data00 - SkinProperties.StyleAA4.Data10 * 2);
 	if (ShortenString(Caption, Length))
 		Shortened = true;
@@ -958,7 +958,7 @@ void TTabBar::SetCurrentTab(TTab *Tab)
 {
 	TASSERT(1075, Tab!=NULL);
 	TBEGIN
-	TWindow *Container = GetContainer(Tab);
+	const TWindow *Container = GetContainer(Tab);
 	TASSERT(1078, Container!=NULL);
 	Changed = true;
 	if (CurrentTab != nullptr)
@@ -1067,7 +1067,7 @@ bool TTabBar::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(23);
-	TComponent *Parent = GetParent();
+	const TComponent *Parent = GetParent();
 	TASSERT(1215, Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
@@ -1277,7 +1277,7 @@ TConsoleWindow::TConsoleWindow()
 	AddHotkey(0x444, TCallback(this, 211));
 	SwitchTime = GetActionNumber() + 50;
 	int *Channels;
-	int Count = GetOpenChannels(&Channels);
+	const int Count = GetOpenChannels(&Channels);
 	for (int i = 0; i < Count; i++)
 		SendJoinChannel(Channels[i]);
 	if (Count > 0)
@@ -1355,7 +1355,7 @@ void TConsoleWindow::Draw(int Surface, int x, int y)
 		Input->SetDisabled(!TextBuffer->CanWrite());
 	}
 	IgnoreButton->SetSkins(IsTalkThrottled() ? 193 : 192, 194);
-	bool Changed = TabBar->Changed;
+	const bool Changed = TabBar->Changed;
 	TabBar->Changed = false;
 	if (Changed)
 		UpdateButtons();
@@ -1485,7 +1485,7 @@ void TConsoleWindow::KeyPress(int Key)
 	case 0x10b: Number = 11; break;
 	default: {
 		bool Moved = false;
-		int Code = Key % 0x200;
+		const int Code = Key % 0x200;
 		if (Code == 0x10f && HistoryPosition > -2) {
 			HistoryPosition--;
 			Moved = true;
@@ -1495,7 +1495,7 @@ void TConsoleWindow::KeyPress(int Key)
 		else if (!Moved)
 			return;
 		if (HistoryPosition >= 0) {
-			TTalkLine *Line = History->GetLine(History->lines - HistoryPosition - 1);
+			const TTalkLine *Line = History->GetLine(History->lines - HistoryPosition - 1);
 			if (Line == nullptr)
 				return;
 			Input->SetText(Line->Text);
@@ -1609,7 +1609,7 @@ void TConsoleWindow::HandleEvent(int Event)
 // 0x41e960, lines 1869-1875. Activates the edit line, never in a channel
 // the player may not write in; it is not deactivated while a context menu is
 // open (action state 11).
-void TConsoleWindow::SetActive(bool Active)
+void TConsoleWindow::SetActive(bool Active) const
 {
 	TBEGIN
 	TTalkBuffer *TextBuffer = CurrentConsole->getTextBuffer();
@@ -1715,7 +1715,7 @@ void TConsoleWindow::AddChannel(TTalkBuffer *TextBuffer, const char *Caption)
 		}
 		TASSERT(1988, NewTab!=NULL);
 	}
-	TTab *CurrentTab = TabBar->CurrentTab;
+	const TTab *CurrentTab = TabBar->CurrentTab;
 	TextBuffer->SetWriteEnabled(true);
 	if (GetActionNumber() >= SwitchTime) {
 		TabBar->SetCurrentTab(NewTab);
@@ -1779,7 +1779,7 @@ void TConsoleWindow::ReportRuleViolation(const char *Question)
 }
 
 // 0x41f1c0, lines 2060-2061. No try block (ContextMenus.cpp's channel menu).
-bool TConsoleWindow::GetServerMessages()
+bool TConsoleWindow::GetServerMessages() const
 {
 	TASSERT(2060, CurrentConsole->getTextBuffer()!=NULL);
 	TASSERT(2061, CurrentConsole->getTextBuffer()->isDefault()==false);
@@ -1799,7 +1799,7 @@ void TConsoleWindow::SetServerMessages(bool Show)
 }
 
 // 0x41f7f0, line 2085. No try block.
-TTalkBuffer *TConsoleWindow::GetTextBuffer()
+TTalkBuffer *TConsoleWindow::GetTextBuffer() const
 {
 	TASSERT(2085, CurrentConsole->getTextBuffer()!=NULL);
 	return CurrentConsole->getTextBuffer();
@@ -1906,7 +1906,7 @@ void TConsoleWindow::SendInput()
 void TConsoleWindow::AddToHistory()
 {
 	TBEGIN
-	char *Text = Input->Text;
+	const char *Text = Input->Text;
 	if (strlen(Text) != 0) {
 		if (History->GetLast() == nullptr || strcmp(History->GetLast()->Text, Text) != 0)
 			History->Append(new TTalkLine(0, TALK_SAY, Text, 0));
@@ -1923,7 +1923,7 @@ void TConsoleWindow::AddToHistory()
 // separator is cut out of the edit line). Text is the rest without leading
 // blanks, NULL if there is none or a separator is not closed. A text with
 // the account number or the password (if one is set) is not sent.
-void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, char *Separator)
+void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, char *Separator) const
 {
 	TBEGIN
 	int i = 0;
@@ -1932,11 +1932,11 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 	*Separator = 0;
 	while (IsSpace(Line[i]))
 		i++;
-	char MessageSeparator = Line[i];
+	const char MessageSeparator = Line[i];
 	if (MessageSeparator == 0)
 		return;
 	if (MessageSeparator == '#') {
-		char Command = (char)ToUpper(Line[i + 1]);
+		const char Command = (char)ToUpper(Line[i + 1]);
 		do {
 			i++;
 			if (IsSpace(Line[i]))
@@ -1998,7 +1998,7 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 
 // 0x420090, lines 2316-2335. "Save Window" of the channel menu: appends the
 // channel to "<caption>.txt" in the working directory.
-bool TConsoleWindow::SaveChannel()
+bool TConsoleWindow::SaveChannel() const
 {
 	TBEGIN
 	TTab *CurrentTab = TabBar->CurrentTab;
@@ -2009,9 +2009,9 @@ bool TConsoleWindow::SaveChannel()
 	FILE *File = fopen(FileName, "at");
 	if (File == nullptr)
 		return false;
-	TTalkBuffer *TextBuffer = GetTextBuffer();
+	const TTalkBuffer *TextBuffer = GetTextBuffer();
 	TASSERT(2324, TextBuffer!=NULL);
-	__time32_t Now = PATELLA_TIME32(nullptr);
+	const __time32_t Now = PATELLA_TIME32(nullptr);
 	fprintf(File, "\nChannel saved at %s", CRT71Time(_ctime32(&Now))); // the day as MSVC 7.1 writes it
 	TextBuffer->Write(File);
 	fclose(File);

@@ -84,13 +84,13 @@ THelpBubble::THelpBubble(const char *HelpText)
 void THelpBubble::SetSize(int Width, int Height)
 {
 	TBEGIN
-	int MaxWidth = SkinProperties.Data158;
+	const int MaxWidth = SkinProperties.Data158;
 	if (Width % SkinProperties.Data170 != SkinProperties.Data174)
 		Width += SkinProperties.Data174 - Width % SkinProperties.Data170;
 	if (Height % SkinProperties.Data170 != SkinProperties.Data174)
 		Height += SkinProperties.Data174 - Height % SkinProperties.Data170;
-	int MinWidth = getMinimumWidth();
-	int MaxHeight = SkinProperties.Data15C;
+	const int MinWidth = getMinimumWidth();
+	const int MaxHeight = SkinProperties.Data15C;
 	if (MaxWidth < MinWidth) {
 		if (Width < MaxWidth)
 			Width = MaxWidth;
@@ -102,7 +102,7 @@ void THelpBubble::SetSize(int Width, int Height)
 		if (Width > MaxWidth)
 			Width = MaxWidth;
 	}
-	int MinHeight = getMinimumHeight();
+	const int MinHeight = getMinimumHeight();
 	if (MaxHeight < MinHeight) {
 		if (Height < MaxHeight)
 			Height = MaxHeight;
@@ -150,7 +150,7 @@ void THelpBubble::Arrange()
 void THelpBubble::Place(TWindow *Window)
 {
 	TBEGIN
-	int Margin = SkinProperties.Data178;
+	const int Margin = SkinProperties.Data178;
 	int HelpX, HelpY, HelpWidth, HelpHeight;
 	GetHelpArea(&HelpX, &HelpY, &HelpWidth, &HelpHeight);
 	int w = Width;
@@ -226,7 +226,7 @@ void THelpBubble::Place(TWindow *Window)
 bool THelpBubble::FitsIn(int &x, int &y, int &Width, int &Height, TWindow *Window)
 {
 	TBEGIN
-	int Margin = SkinProperties.Data178;
+	const int Margin = SkinProperties.Data178;
 	if (x == 0)
 		x = Margin;
 	if (y == 0)
@@ -255,7 +255,7 @@ TContextMenuEntry::TContextMenuEntry(const char *_Text, const char *_Shortcut, T
 	else
 		CopyString(Shortcut, _Shortcut, 20);
 	Callback = _Callback;
-	int h = GetFontLineHeight(SkinProperties.Data0B0.FontNumber) + SkinProperties.Data0D4 * 2;
+	const int h = GetFontLineHeight(SkinProperties.Data0B0.FontNumber) + SkinProperties.Data0D4 * 2;
 	int w = GetTextWidth(SkinProperties.Data0B0.FontNumber, Text) + SkinProperties.Data0D4 * 2
 		+ SkinProperties.Data09C;
 	if (Shortcut[0] != 0)
@@ -439,7 +439,7 @@ TObjectContextMenu::TObjectContextMenu(int x, int y, int ParentWidth, int Parent
 	UsedObject = *GetUseObject(&UsedObjectIndex, &UsedObjectX, &UsedObjectY, &UsedObjectZ);
 	CreatureID = GetTradeInfo();
 	TASSERT(560, LookedObject!=0);
-	bool ClassicControl = GetClassicControl();
+	const bool ClassicControl = GetClassicControl();
 	AddEntry(10001, "Look", ClassicControl ? nullptr : "(Shift)");
 	if (UsedObject != 0) {
 		if (GetObjectFlag(UsedObject, CONTAINER)) {
@@ -629,25 +629,25 @@ void TObjectContextMenu::HandleEvent(int Event)
 		break;
 	}
 	case 10018: {
-		TCreature *Creature = GetCreature(CreatureID);
+		const TCreature *Creature = GetCreature(CreatureID);
 		if (Creature != nullptr)
 			SendInviteToParty(Creature->CreatureID);
 		break;
 	}
 	case 10019: {
-		TCreature *Creature = GetCreature(CreatureID);
+		const TCreature *Creature = GetCreature(CreatureID);
 		if (Creature != nullptr)
 			SendJoinParty(Creature->CreatureID);
 		break;
 	}
 	case 10021: {
-		TCreature *Creature = GetCreature(CreatureID);
+		const TCreature *Creature = GetCreature(CreatureID);
 		if (Creature != nullptr)
 			SendRevokePartyInvitation(Creature->CreatureID);
 		break;
 	}
 	case 10022: {
-		TCreature *Creature = GetCreature(CreatureID);
+		const TCreature *Creature = GetCreature(CreatureID);
 		if (Creature != nullptr)
 			SendPassPartyLeadership(Creature->CreatureID);
 		break;
@@ -803,25 +803,25 @@ void TCreatureContextMenu::HandleEvent(int Event)
 		break;
 	}
 	case 10018: {
-		TCreature *Creature = GetCreature(CreatureID);
+		const TCreature *Creature = GetCreature(CreatureID);
 		if (Creature != nullptr)
 			SendInviteToParty(Creature->CreatureID);
 		break;
 	}
 	case 10019: {
-		TCreature *Creature = GetCreature(CreatureID);
+		const TCreature *Creature = GetCreature(CreatureID);
 		if (Creature != nullptr)
 			SendJoinParty(Creature->CreatureID);
 		break;
 	}
 	case 10021: {
-		TCreature *Creature = GetCreature(CreatureID);
+		const TCreature *Creature = GetCreature(CreatureID);
 		if (Creature != nullptr)
 			SendRevokePartyInvitation(Creature->CreatureID);
 		break;
 	}
 	case 10022: {
-		TCreature *Creature = GetCreature(CreatureID);
+		const TCreature *Creature = GetCreature(CreatureID);
 		if (Creature != nullptr)
 			SendPassPartyLeadership(Creature->CreatureID);
 		break;
@@ -850,7 +850,7 @@ TBuddyContextMenu::TBuddyContextMenu(uint32 _CharacterID, int x, int y, int Pare
 {
 	TBEGIN
 	CharacterID = _CharacterID;
-	int Position = GetBuddyPosition(_CharacterID);
+	const int Position = GetBuddyPosition(_CharacterID);
 	if (Position != -1) {
 		char Text[50];
 		sprintf(Text, "Edit %s", GetBuddyListName(Position));
@@ -891,7 +891,7 @@ void TBuddyContextMenu::HandleEvent(int Event)
 	TBEGIN
 	switch (Event) {
 	case 10023: {
-		int Position = GetBuddyPosition(CharacterID);
+		const int Position = GetBuddyPosition(CharacterID);
 		if (Position != -1 && CheckAnyRight()) {
 			char *Name = new char[30];
 			strcpy(Name, GetBuddyListName(Position));
@@ -900,13 +900,13 @@ void TBuddyContextMenu::HandleEvent(int Event)
 		break;
 	}
 	case 10016: {
-		int Position = GetBuddyPosition(CharacterID);
+		const int Position = GetBuddyPosition(CharacterID);
 		if (Position != -1)
 			SendInviteToPrivateChannel(GetBuddyListName(Position));
 		break;
 	}
 	case 10204: {
-		int Position = GetBuddyPosition(CharacterID);
+		const int Position = GetBuddyPosition(CharacterID);
 		if (Position != -1)
 			CopyToClipboard(GetBuddyListName(Position));
 		break;
@@ -922,7 +922,7 @@ void TBuddyContextMenu::HandleEvent(int Event)
 		AddMessage(0x18, CharacterID, 0);
 		break;
 	case 10303: {
-		int Position = GetBuddyPosition(CharacterID);
+		const int Position = GetBuddyPosition(CharacterID);
 		if (Position != -1)
 			SendOpenPrivateConversation(GetBuddyListName(Position));
 		break;
@@ -1163,7 +1163,7 @@ TChannelContextMenu::TChannelContextMenu(TConsoleWindow *_ConsoleWindow, int x, 
 			Separator = true;
 		}
 		AddEntry(10103, "Close", nullptr);
-		bool Shown = ConsoleWindow->GetServerMessages();
+		const bool Shown = ConsoleWindow->GetServerMessages();
 		ShowServerMessages = !Shown;
 		AddEntry(10100, Shown ? "Hide server messages" : "Show server messages", nullptr);
 		Separator = true;

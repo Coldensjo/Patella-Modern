@@ -54,7 +54,7 @@ void flex_unit::fast_mul(flex_unit &x, flex_unit &y, unsigned keep)
 	if (min > limit)
 		min = limit;
 	for (i = 0; i < min; i += 1) {
-		unsigned m = x.a[i];
+		const unsigned m = x.a[i];
 		unsigned c = 0; // carry
 		unsigned min = i + y.n;
 		if (min > limit)
@@ -134,9 +134,9 @@ int vlong_value::cf(vlong_value &x) const
 void vlong_value::shl()
 {
 	unsigned carry = 0;
-	unsigned N = n; // necessary, since n can change
+	const unsigned N = n; // necessary, since n can change
 	for (unsigned i = 0; i <= N; i += 1) {
-		unsigned u = get(i);
+		const unsigned u = get(i);
 		set(i, (u << 1) + carry);
 		carry = u >> (BPU - 1);
 	}
@@ -149,7 +149,7 @@ void vlong_value::shr()
 	unsigned i = n;
 	while (i) {
 		i -= 1;
-		unsigned u = get(i);
+		const unsigned u = get(i);
 		set(i, (u >> 1) + carry);
 		carry = u << (BPU - 1);
 	}
@@ -158,7 +158,7 @@ void vlong_value::shr()
 // 0x50c390
 void vlong_value::shr(unsigned x)
 {
-	unsigned delta = x / BPU;
+	const unsigned delta = x / BPU;
 	x %= BPU;
 	for (unsigned i = 0; i < n; i += 1) {
 		unsigned u = get(i + delta);
@@ -182,7 +182,7 @@ void vlong_value::add(vlong_value &x)
 		unsigned u = get(i);
 		u = u + carry;
 		carry = (u < carry);
-		unsigned ux = x.get(i);
+		const unsigned ux = x.get(i);
 		u = u + ux;
 		carry += (u < ux);
 		set(i, u);
@@ -193,13 +193,13 @@ void vlong_value::add(vlong_value &x)
 void vlong_value::subtract(vlong_value &x)
 {
 	unsigned carry = 0;
-	unsigned N = n;
+	const unsigned N = n;
 	for (unsigned i = 0; i < N; i += 1) {
 		unsigned ux = x.get(i);
 		ux += carry;
 		if (ux >= carry) {
-			unsigned u = get(i);
-			unsigned nu = u - ux;
+			const unsigned u = get(i);
+			const unsigned nu = u - ux;
 			carry = nu > u;
 			set(i, nu);
 		}
@@ -273,7 +273,7 @@ void ByteArrayToVlong(const uint8 *pData, uint16 Size, vlong &Number)
 {
 	if (pData == nullptr)
 		throw "pData pointer is NULL";
-	int Length = Size;
+	const int Length = Size;
 	Number.value->n = 0;
 	for (int i = 0; i < Length; i += 4) {
 		unsigned Unit = 0;
@@ -323,7 +323,7 @@ vlong::~vlong()
 // 0x50c9d0
 int vlong::cf(const vlong x) const
 {
-	int neg = negative && !value->is_zero();
+	const int neg = negative && !value->is_zero();
 	if (neg == (x.negative && !x.value->is_zero()))
 		return value->cf(*x.value);
 	else if (neg)
@@ -342,7 +342,7 @@ vlong &vlong::operator+=(const vlong &x)
 		docopy();
 		value->subtract(*x.value);
 	} else {
-		vlong tmp = *this;
+		const vlong tmp = *this;
 		*this = x;
 		*this += tmp;
 	}
@@ -359,7 +359,7 @@ vlong &vlong::operator-=(const vlong &x)
 		docopy();
 		value->subtract(*x.value);
 	} else {
-		vlong tmp = *this;
+		const vlong tmp = *this;
 		*this = x;
 		*this -= tmp;
 		negative = 1 - negative;
@@ -434,10 +434,10 @@ void VlongToByteArray(vlong Number, uint8 *pData, uint16 Size)
 {
 	if (pData == nullptr)
 		throw "pData pointer is NULL";
-	int Length = Size;
+	const int Length = Size;
 	memset(pData, 0, Length);
 	for (int i = 0; i < Length; i += 4) {
-		unsigned Unit = Number.value->get(((Length + 3) >> 2) - i / 4 - 1);
+		const unsigned Unit = Number.value->get(((Length + 3) >> 2) - i / 4 - 1);
 		for (int j = 0; j < 4; j++) {
 			if (i + j < Length)
 				pData[i + j] = (uint8)(Unit >> ((3 - j) * 8));
@@ -464,7 +464,7 @@ void monty::mul(vlong &x, const vlong &y)
 vlong monty::exp(const vlong &x, const vlong &e)
 {
 	vlong result = R - m, t = (x * R) % m;
-	unsigned bits = e.value->bits();
+	const unsigned bits = e.value->bits();
 	unsigned i = 0;
 	while (1) {
 		if (e.value->test(i))
@@ -505,7 +505,7 @@ void DecimalToVlong(const char *pDecimal, vlong &Number)
 	Digit[1] = 1; // as in the binary; atoi stops at it
 	Number = 0;
 	for (Digit[0] = *pDecimal; Digit[0] != 0; Digit[0] = *++pDecimal) {
-		long Value = atoi(Digit);
+		const long Value = atoi(Digit);
 		if (Value < 0 || Value > 9)
 			throw "digit out of range";
 		Number = Number * 10L + Value;

@@ -391,7 +391,7 @@ void TWriteScriptFile::open(const char *FileName)
 }
 
 // 0x4e0790, line 441. The file is binary, so the line ends in CR LF.
-void TWriteScriptFile::writeLn()
+void TWriteScriptFile::writeLn() const
 {
 	if (File == nullptr)
 		TERROR(441, "no file open");
@@ -400,7 +400,7 @@ void TWriteScriptFile::writeLn()
 }
 
 // 0x4e08f0, lines 451-452
-void TWriteScriptFile::writeText(const char *Text)
+void TWriteScriptFile::writeText(const char *Text) const
 {
 	if (File == nullptr)
 		TERROR(451, "no file open");
@@ -414,7 +414,7 @@ void TWriteScriptFile::writeText(const char *Text)
 
 // 0x4e0bb0, lines 462-463. Quotes, escaping '"' and '\\', and writes a
 // line break as "\n".
-void TWriteScriptFile::writeString(const char *Text)
+void TWriteScriptFile::writeString(const char *Text) const
 {
 	if (File == nullptr)
 		TERROR(462, "no file open");
@@ -436,7 +436,7 @@ void TWriteScriptFile::writeString(const char *Text)
 }
 
 // 0x4e0ec0, line 481
-void TWriteScriptFile::writeNumber(int Number)
+void TWriteScriptFile::writeNumber(int Number) const
 {
 	if (File == nullptr)
 		TERROR(481, "no file open");
@@ -467,7 +467,7 @@ void TReadBinaryFile::seek(int Offset)
 }
 
 // 0x4e15e0, line 582
-bool TReadBinaryFile::eof()
+bool TReadBinaryFile::eof() const
 {
 	if (File == nullptr)
 		TERROR(582, "no file open");
@@ -490,8 +490,8 @@ uint8 TReadBinaryFile::readByte()
 uint16 TReadBinaryFile::readWord()
 {
 	TBEGIN
-	uint8 Low = readByte();
-	uint8 High = readByte();
+	const uint8 Low = readByte();
+	const uint8 High = readByte();
 	return (uint16)(Low | (High << 8));
 	TEND(619)
 }
@@ -502,10 +502,10 @@ int TReadBinaryFile::readQuad()
 	if (File == nullptr)
 		TERROR(627, "no file open");
 	TBEGIN
-	uint8 Byte0 = readByte();
-	uint8 Byte1 = readByte();
-	uint8 Byte2 = readByte();
-	uint8 Byte3 = readByte();
+	const uint8 Byte0 = readByte();
+	const uint8 Byte1 = readByte();
+	const uint8 Byte2 = readByte();
+	const uint8 Byte3 = readByte();
 	return Byte0 | (Byte1 << 8) | (Byte2 << 16) | (Byte3 << 24);
 	TEND(635)
 }
@@ -516,7 +516,7 @@ char *TReadBinaryFile::readString()
 	if (File == nullptr)
 		TERROR(644, "no file open");
 	TBEGIN
-	int Length = readWord() & 0xffff;
+	const int Length = readWord() & 0xffff;
 	char *Text = new char[Length + 1];
 	if (Length != 0)
 		readBytes((uint8 *)Text, Length);
@@ -595,7 +595,7 @@ void TWriteBinaryFile::writeBytes(const uint8 *Buffer, int Count)
 void TWriteBinaryFile::writeString(const char *Text)
 {
 	TBEGIN
-	int Length = (int)strlen(Text);
+	const int Length = (int)strlen(Text);
 	writeWord((uint16)Length);
 	if ((uint16)Length != 0)
 		writeBytes((const uint8 *)Text, (uint16)Length);
@@ -639,7 +639,7 @@ bool ApplyPatch(const char *FileName, const uint8 *Patch, int Size, uint32 Signa
 		Out.open(OutName);
 		int Pos = 0;
 		while (Pos < Size) {
-			int Command = Patch[Pos++];
+			const int Command = Patch[Pos++];
 			int Count = Command & 0x3f;
 			if (Count == 61) {
 				Count = Patch[Pos++];

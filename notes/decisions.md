@@ -6718,3 +6718,106 @@ enabled in .clang-tidy, and every class whose destructor frees what it holds can
   b123283 and from each of the three commits at the same path, differ only in the link time stamps and the PDB record
   (pecompare: `.text`, `.data` and `.pdata` identical, 0 unexpected differences). macrocheck b123283 against each
   commit: the 2,108 calls unchanged. The difftest counts are unchanged.
+
+## const locals and const member functions (Patella-Modern issue #39)
+
+Settled by Claude Opus 5.5, November 3, 2026. The ninth change of M3 (plan section 7), in two commits that can be
+reviewed and reverted alone, one per check, and a third with what CI's clang-tidy found beyond them (below):
+`misc-const-correctness` and `readability-make-member-function-const` are clean on src/ and enabled in .clang-tidy.
+
+- **clang-tidy through tools/tidy.py on every configuration that compiles src/** (high). As in issue #32: one run per
+  target on compile_commands.json files holding one target's Release commands each (oracle-x86's Patella,
+  mfc_shim_check, difftest, communicationtest, sysinctest and vlongtest with `--extra-arg=-m32`, the preset configured
+  once with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`; windows-x64's Patella, PatellaTest, patella_core, patella_testmode
+  and patella_render_vulkan), `--fix` one target after the other. Measured first without fixing: 1,163 distinct
+  misc-const-correctness findings and 50 readability-make-member-function-const findings over the 11 targets. After
+  the change both checks report nothing on any target (MainFrm.cpp's two clang-diagnostic errors of the MFC message
+  map, also on main, aside). No finding and no fix was inside a TASSERT/TERROR/TEND argument (a declaration is never
+  inside one); macrocheck 762f81b against each commit: the 2,108 calls unchanged.
+- **What misc-const-correctness covers: locals, with its defaults** (high). clang-tidy 22's check looks at local
+  variables only, not at parameters or members. Its options decide which locals: values (`int Mode = Box->Mode;`),
+  references (`TObject &Obj`) and the pointees of pointers (`TTalkbox *Box` to `const TTalkbox *Box`); not the
+  pointers themselves (WarnPointersAsValues, `T *const p`, off by default: noise without safety). The defaults are
+  kept and spelled out in .clang-tidy, so that a change of clang-tidy's defaults does not change what CI asks for.
+  They are noisy (about 800 of the findings are scalar locals), but a const local is what the check exists for, the
+  fix is mechanical, and every local that matters to the image is found by comparing the images, not by guessing
+  which kinds are safe. A narrower configuration (references and pointees only) would have left the check unusable
+  as a CI guard for the rest.
+- **The fixes, normalised to the code's const placement** (high). clang-tidy writes `int const Mode` and
+  `TTalkbox const *Box` (east const); src/ writes `const` first everywhere (no `int const` on main). The changed lines
+  were re-formatted with the repository's .clang-format plus `QualifierAlignment: Left`, restricted to those lines
+  (`clang-format --lines`), and the 29 declarations of ALL-CAPS Windows types that clang-format leaves alone
+  (`RECT const R`, `SOCKET const Socket`: it takes them for macros) by a script. Every changed line differs from
+  main only by the inserted `const` (git's word diff). A future `tidy.py --fix` of this check writes east const
+  again; normalise it the same way.
+- **By hand** (high). The check does not fix a declaration with several declarators (`int ox = OffsetX[i], oy =
+  OffsetY[i];`): MapWindow.cpp's ten such declarations got `const` for the whole declaration (no declarator is
+  modified; every compiler agrees). TSurfaceDX::TestShading's (0x4ecdd0) `Pixels`, which the runs after the first
+  could not fix because of the broken fix below in the same file. Commit 1: 1,144 `const`s in 52 files.
+- **One false positive** (high). TSurfaceDX::SetPixel writes through `uint8 *Destination` with
+  `*Destination++ = Bytes[LoopIndex];`, yet clang-tidy 22 takes its pointee for const; the fix did not compile on
+  the other targets. It stays `uint8 *`, with a NOLINT and the reason.
+- **One local stays non-const for the image** (high). Built at the same path, the oracle Patella.exe after the fixes
+  differed from main's in 124,344 ranges (`.text`, `.rdata`, `.data`, `.reloc`; the x64 images were identical). The
+  objects of main and of the branch, compared section by section without the debug sections: only Talk.obj's code
+  differed, and ConsoleWindow.obj held the same sections in another order (which leaves the image unchanged). In
+  TTalkBuffer::Remove(int) (0x503210) `int i = 0` is never changed (the binary never increments it; the loop asserts
+  for any nonzero index); as `const int` the compiler drops its stack slot (`sub esp,20Ch` becomes `208h`) and
+  compares with the constant. It stays `int`, with a NOLINT and the reason; the oracle image is then identical.
+  The local aggregates of constants, which a compiler may emit once in `.rdata` instead of building them on the
+  stack, were built both ways: Skins.cpp's InitSkins table (`SkinTable[]`, 262 entries; the binary builds it on the
+  stack on every call, 12,506 bytes of code) and SurfaceGL.cpp's two `PIXELFORMATDESCRIPTOR`s (oracle only). Const,
+  all three images are identical (MSVC still builds them on the stack), so they are const.
+- **readability-make-member-function-const: 60 member functions** (high). The second commit. A member function that
+  reads its object's members but changes none, calls no non-const member and hands out no non-const reference or
+  pointer to a member becomes const, in its declaration and its definition: TConsoleWindow's SetActive,
+  GetServerMessages, GetTextBuffer, ParseInput and SaveChannel; TTextWindow's getFirstLineNumber,
+  getLastLineNumber and HasSelection, TConsole's and TTab's getTextBuffer; TPlayerStates::GetNumberOfIcons and
+  GetIconAt, TContainerWindowBody::GetSlotAt, TSkillsWindowBody::GetLine, TTradeOffers::GetOfferAt; TCreature's
+  GetHealthColor, IsMarked, GetDeltaX, GetDeltaY, GetDrawDirection and GetAnimationPhase; TListBox's GetLineAt,
+  GetSelection and GetNumberOfLines, TEditLine::HasSelection; TSubWindow::getBody; TRuleViolationDialog::GetAction;
+  TTimer::GetTime and IsExpired, TCallback::Send, TComponent's getWidth and getHeight; CMainFrame::TranslateKey; ten
+  of TMainWindow's (ResizeConsole, GetConsoleWindowHeight, OpenContainer, CloseContainer, OpenTrade, UpdateTrade,
+  CloseTrade, OpenContentWindow, CloseContentWindow, SetConsoleActive); TWriteScriptFile's writeLn, writeText,
+  writeString and writeNumber, TReadBinaryFile::eof; three of TSurfaceDX's and two of TSurfaceDX9's;
+  TTalkBuffer::Write; and six helpers of vulkan/Renderer.cpp's TRenderer::TState. A const local can let a function
+  qualify and a const function more locals, so both checks were applied again until neither reported anything: the
+  second round made Renderer.cpp's Allocate const and five more pointees (ConsoleWindow.cpp, MainWindow.cpp,
+  MapWindow.cpp's three `Player`s), which belong to the second commit.
+- **const as the check means it: the object's own members** (medium). Several of these change something else:
+  TMainWindow's OpenContainer opens a window in the dialog column through a pointer member, TWriteScriptFile's
+  writers write to its `FILE *`, the Vulkan helpers create and destroy device objects. `const` on a member function
+  promises that the object's members do not change, which holds; it does not promise that nothing happens. Leaving
+  such functions out by judgement would make the rule unenforceable in CI, so the check's result is taken as it is,
+  with one exception: the MFC shim's `CWnd::UpdateWindow` keeps MFC's own non-const declaration (NOLINT), so that
+  the shim keeps standing for MFC.
+- **No virtual function, no overload, no layout** (high). The check leaves virtual functions alone, so no vtable and
+  no override changes (override is on everywhere since issue #33: a const base without const overriders would not
+  compile). Container.h's operator() has no const overload and no class of src/ has const/non-const pairs, so no call
+  inside a function made const resolves to another overload. A member function's const qualifies `this`, not the
+  class: no size, offset or alignment changes, and the static_asserts of the oracle-x86 build hold.
+- **The decorated names change; nothing looks them up** (high). A const member function is `QBE` instead of `QAE` in
+  MSVC's x86 names (`QEBA` instead of `QEAA` on x64), so the PDBs name these 60 functions differently. Nothing reads
+  them: tools/client_state.py takes globals by their plain names (SymEnumSymbols) and virtual slots from the type
+  information; the test mode's state dump (src/testmode/ClientStateWin32.cpp) reads classes by their RTTI names; the
+  difftest's `/alternatename`s name constructors only, and its tests call these functions through objects or image
+  addresses (creaturestest.cpp's GetDrawDirection, guitest.cpp's IsExpired, mainfrmtest.cpp's TranslateKey); the
+  comparison tools read no function names. The images are identical, so the code and data are too.
+- **Parameters: not in these checks** (medium). The issue's title names parameters, but neither check looks at them
+  in clang-tidy 22 (misc-const-correctness has no parameter analysis). `readability-non-const-parameter` (pointer
+  parameters only) would change function signatures, with them the decorated names and the difftest's typed calls of
+  image functions; it is not part of this issue.
+- **What clang-tidy 22.1.8 finds and 22.1.3 does not** (high). The third commit. The hosted CI's baseline check
+  (linux-x64-clang in the Docker image, clang-tidy 22.1.8) reported 11 more `std::size_t` locals of src/testmode
+  (InputScript.cpp, PacketLog.cpp, Png.cpp, ServerReplay.cpp: positions from `find` and sizes) that Visual Studio's
+  clang-tidy 22.1.3 did not report on the Windows targets' commands of the same files; none is modified, none is
+  in platform code. They are const by hand. The same commit makes InitSkins's table const after measuring it
+  (above). The x64 images are again identical to main's; the testmode files are not in the oracle.
+- **Both checks in .clang-tidy** (medium). CI's clang-tidy (linux-x64-clang: patella_core and the headers it includes)
+  keeps them clean; patella_core had 36 misc-const-correctness findings before (vlong.cpp, settings/Settings.cpp,
+  Utils.cpp, Skins.cpp, TMyException.cpp, TRSA.cpp), none after. The baseline held none of either check.
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built from main
+  762f81b and from each of the three commits at the same path, differ only in the link time stamps and the PDB
+  record (pecompare: 0 unexpected differences; `.text`, `.rdata`, `.data`, `.pdata` and `.reloc` identical).
+  macrocheck 762f81b against each commit: the 2,108 calls unchanged. The difftest counts are unchanged; the
+  clang-tidy baseline is unchanged (14 findings, 0 new, 0 gone).

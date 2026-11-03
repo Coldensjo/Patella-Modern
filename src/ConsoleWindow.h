@@ -119,11 +119,11 @@ public:
 	bool GetSelectionEnd(int *Line, int *Offset);      // 0x4197a0, line 510
 	bool SelectAll();                                  // 0x4199e0, line 526
 	const char *GetSelectedText();                     // 0x419bd0, line 626
-	int getFirstLineNumber() { return Lines.min; }
-	int getLastLineNumber() { return LastLineNumber; }
+	int getFirstLineNumber() const { return Lines.min; }
+	int getLastLineNumber() const { return LastLineNumber; }
 	// Inline (out-of-line copy 0x417590; inlined into KeyPress): a selection
 	// of at least one character exists.
-	bool HasSelection()
+	bool HasSelection() const
 	{
 		if (TextBuffer == nullptr)
 			return false;
@@ -160,7 +160,7 @@ public:
 	void Draw(int Surface, int x, int y) override;    // +0x44, 0x41a4f0, line 706
 	void Arrange() override;                          // +0x48, 0x421450, lines 753-794
 	bool MouseWheel(int x, int y, int Code) override; // +0x60, 0x41a6a0, line 717
-	TTalkBuffer *getTextBuffer() { return TextWindow->TextBuffer; }
+	TTalkBuffer *getTextBuffer() const { return TextWindow->TextBuffer; }
 
 	TTextWindow *TextWindow; // +0x2c
 	TScrollBar *ScrollBar;   // +0x30
@@ -193,7 +193,7 @@ public:
 	}
 	void SetActive(bool _Active); // 0x41afe0, line 880
 	const char *getCaption() { return Shortened ? FullCaption : Caption; }
-	TTalkBuffer *getTextBuffer() { return TextBuffer; }
+	TTalkBuffer *getTextBuffer() const { return TextBuffer; }
 
 	TTalkBuffer *TextBuffer; // +0x24
 	int LineCount;           // +0x28, the buffer's lines when the tab last looked
@@ -273,21 +273,21 @@ public:
 	void KeyPress(int Key) override;                                           // +0x6c, 0x424580, lines 1718-1773
 	void HandleEvent(int Event) override;                                      // +0x70, 0x424b10, lines 1856-1859
 
-	void SetActive(bool Active);                                           // 0x41e960, lines 1869-1875
+	void SetActive(bool Active) const;                                     // 0x41e960, lines 1869-1875
 	void UpdateButtons();                                                  // 0x41ed00, lines 1888-1938
 	void OpenDefaultChannel(TTalkBuffer *TextBuffer, const char *Caption); // 0x422e70, line 1953
 	TTalkBuffer *OpenChannel(int RecvMode, int SendMode, const char *Name, int Channel,
-		const char *Caption);                                                              // 0x425070, lines 1965-1969
-	void AddChannel(TTalkBuffer *TextBuffer, const char *Caption);                         // 0x423060, lines 1977-1998
-	void CloseChannel();                                                                   // 0x4234b0, lines 2009-2020
-	void ReportRuleViolation(const char *Question);                                        // 0x425330, lines 2033-2051
-	bool GetServerMessages();                                                              // 0x41f1c0, lines 2060-2061
-	void SetServerMessages(bool Show);                                                     // 0x41f470, lines 2071-2077
-	TTalkBuffer *GetTextBuffer();                                                          // 0x41f7f0, line 2085
-	void SendInput();                                                                      // 0x423830, lines 2145-2184
-	void AddToHistory();                                                                   // 0x41f940, line 2207
-	void ParseInput(char **Text, char **Addressee, int *TalkMode, char *MessageSeparator); // 0x41fb60, lines 2258-2304
-	bool SaveChannel();                                                                    // 0x420090, lines 2316-2335
+		const char *Caption);                                                                    // 0x425070, lines 1965-1969
+	void AddChannel(TTalkBuffer *TextBuffer, const char *Caption);                               // 0x423060, lines 1977-1998
+	void CloseChannel();                                                                         // 0x4234b0, lines 2009-2020
+	void ReportRuleViolation(const char *Question);                                              // 0x425330, lines 2033-2051
+	bool GetServerMessages() const;                                                              // 0x41f1c0, lines 2060-2061
+	void SetServerMessages(bool Show);                                                           // 0x41f470, lines 2071-2077
+	TTalkBuffer *GetTextBuffer() const;                                                          // 0x41f7f0, line 2085
+	void SendInput();                                                                            // 0x423830, lines 2145-2184
+	void AddToHistory();                                                                         // 0x41f940, line 2207
+	void ParseInput(char **Text, char **Addressee, int *TalkMode, char *MessageSeparator) const; // 0x41fb60, lines 2258-2304
+	bool SaveChannel() const;                                                                    // 0x420090, lines 2316-2335
 
 	TTabBar *TabBar;                     // +0x2c
 	int Data30;                          // +0x30, not used

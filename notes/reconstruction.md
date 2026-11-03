@@ -80,6 +80,12 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
   value) (issue #34). An empty special member is `= default` when it is defined outside the class (it stays
   user-provided); inside the class only where that changes neither the image nor value-initialization
   (`TSurfaceDX() {}` and TXTEA's destructor keep their bodies, with a NOLINT; notes/decisions.md).
+- A local that is not changed is `const` (values, references, and what a pointer points to), and a member
+  function that changes no member of its object is `const` (issue #39; misc-const-correctness and
+  readability-make-member-function-const in .clang-tidy). `const` goes first (`const int`, `const T *`), also
+  where clang-tidy's fix writes it after the type. A local stays non-const, with a NOLINT and the reason, where
+  const changes the oracle image (a constant the compiler then folds, as in TTalkBuffer::Remove): compare the
+  images. A virtual function becomes const only together with all its overriders.
 - Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`, `TBEGIN`/`TEND*`) exactly where
   the binary has the corresponding blocks.
 - Behaviour must match the binary exactly, including odd behaviour (for example
@@ -377,6 +383,11 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   includes first. The Windows SDK, MFC and compat/mfc_shim.h are not checked (IgnoreHeaders); an include that
   is there for the image keeps `// IWYU pragma: keep` (Text.h, Status.h). Check every target's commands, one
   run each (notes/decisions.md, issue #40).
+  misc-const-correctness (issue #39) writes its fix after the type (`int const x`); src/ puts `const` first, so
+  re-format the changed lines with .clang-format plus `QualifierAlignment: Left` (`clang-format --lines`), and
+  move it by hand on ALL-CAPS types (`RECT`, `SOCKET`), which clang-format takes for macros. It does not fix a
+  declaration with several declarators. A const local or member function can let the other check find more:
+  apply both until neither reports anything.
 - No new clang-tidy findings (issue #11; plan 4.1): `tools/tidy-baseline.tsv` lists the findings outside the
   macro arguments, counted by file, check and message (not by line, so moved code keeps its entry), for the
   compile commands of linux-x64-clang (patella_core's sources and the headers of src/ they include; the rest of

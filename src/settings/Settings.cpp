@@ -19,10 +19,10 @@ constexpr std::string_view ByteOrderMark = "\xEF\xBB\xBF";
 
 std::string_view Trim(std::string_view Text)
 {
-	size_t First = Text.find_first_not_of(Blanks);
+	const size_t First = Text.find_first_not_of(Blanks);
 	if (First == std::string_view::npos)
 		return {};
-	size_t Last = Text.find_last_not_of(Blanks);
+	const size_t Last = Text.find_last_not_of(Blanks);
 	return Text.substr(First, Last - First + 1);
 }
 
@@ -62,10 +62,10 @@ TSettingsFile::TLine TSettingsFile::ParseLine(std::string Text, bool First)
 	std::string_view Content = Text;
 	if (First && Content.starts_with(ByteOrderMark))
 		Content.remove_prefix(ByteOrderMark.size());
-	std::string_view Trimmed = Trim(Content);
+	const std::string_view Trimmed = Trim(Content);
 	if (!Trimmed.empty() && Trimmed.front() != '#' && Trimmed.front() != ';') {
-		size_t Equals = Trimmed.find('=');
-		std::string_view Key = Equals == std::string_view::npos ? std::string_view() : Trim(Trimmed.substr(0, Equals));
+		const size_t Equals = Trimmed.find('=');
+		const std::string_view Key = Equals == std::string_view::npos ? std::string_view() : Trim(Trimmed.substr(0, Equals));
 		if (Key.empty())
 			Line.Bad = true;
 		else {
@@ -79,8 +79,8 @@ TSettingsFile::TLine TSettingsFile::ParseLine(std::string Text, bool First)
 
 TSettingsFile TSettingsFile::Parse(std::string_view Text, std::string_view Newline)
 {
-	size_t FirstEnd = Text.find('\n');
-	bool Crlf = FirstEnd != std::string_view::npos && FirstEnd > 0 && Text[FirstEnd - 1] == '\r';
+	const size_t FirstEnd = Text.find('\n');
+	const bool Crlf = FirstEnd != std::string_view::npos && FirstEnd > 0 && Text[FirstEnd - 1] == '\r';
 	TSettingsFile Result(FirstEnd == std::string_view::npos ? Newline : Crlf ? "\r\n"
 																			 : "\n");
 	Result.FinalNewline = Text.empty() || Text.back() == '\n';
@@ -113,12 +113,12 @@ bool TSettingsFile::Set(std::string_view Key, std::string_view Value)
 	if (Key.empty() || Key.find('=') != std::string_view::npos || Key.front() == '#' || Key.front() == ';'
 		|| HasLineEnd(Key) || Padded(Key) || HasLineEnd(Value) || Padded(Value))
 		return false;
-	std::string Text = std::string(Key) + "=" + std::string(Value);
+	const std::string Text = std::string(Key) + "=" + std::string(Value);
 	for (size_t i = 0; i < Lines.size(); i++) {
 		TLine &Line = Lines[i];
 		if (Line.Key.empty() || !SameKey(Line.Key, Key))
 			continue;
-		bool Bom = i == 0 && Line.Text.starts_with(ByteOrderMark);
+		const bool Bom = i == 0 && Line.Text.starts_with(ByteOrderMark);
 		Line = ParseLine((Bom ? std::string(ByteOrderMark) : std::string()) + Text, i == 0);
 		return true;
 	}

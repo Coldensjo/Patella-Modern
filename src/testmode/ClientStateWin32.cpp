@@ -111,7 +111,7 @@ std::string Hex(std::uintptr_t Value)
 
 std::string ClassName(const TComponent *Component, std::uintptr_t Vtable)
 {
-	std::string_view Raw = typeid(*Component).raw_name();
+	const std::string_view Raw = typeid(*Component).raw_name();
 	if (Raw.starts_with(".?AV") && Raw.ends_with("@@"))
 		return std::string(Raw.substr(4, Raw.size() - 6));
 	auto Base = reinterpret_cast<std::uintptr_t>(::GetModuleHandleW(nullptr));

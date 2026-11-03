@@ -22,7 +22,7 @@ TSkin *Skins;      // 0x71c454
 // so Skins[152] stays uninitialised.
 void InitSkins()
 {
-	struct {
+	const struct {
 		int skin;
 		TSkin Rect;
 	} SkinTable[] = {

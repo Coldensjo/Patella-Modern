@@ -53,7 +53,7 @@ void SetHelpSize(int Width, int Height)
 // 0x4a2a70
 void SetHelpHandle(int Handle)
 {
-	bool Changed = HelpHandle != Handle;
+	const bool Changed = HelpHandle != Handle;
 	HelpHandle = Handle;
 	if (Changed)
 		HelpHandleChanged = true;
@@ -77,7 +77,7 @@ int GetHelpHandle()
 // 0x4a2ad0. Reports a change of the handle once.
 bool GetHelpHandleChanged()
 {
-	bool Changed = HelpHandleChanged;
+	const bool Changed = HelpHandleChanged;
 	HelpHandleChanged = false;
 	return Changed;
 }
@@ -103,7 +103,7 @@ int PopEventHelp()
 {
 	if (NumberOfEventHelps == 0)
 		return 0;
-	int Number = EventHelps(0);
+	const int Number = EventHelps(0);
 	for (int i = 0; i < NumberOfEventHelps - 1; i++)
 		EventHelps(i) = EventHelps(i + 1);
 	NumberOfEventHelps--;

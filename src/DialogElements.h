@@ -500,7 +500,7 @@ public:
 	void SetActive(bool _Active);                                               // 0x45bc80
 	void SetFocusGroup(TFocusGroup *_FocusGroup);                               // 0x468470, lines 2230-2235
 	// Inline (out-of-line copy 0x417520 in ConsoleWindow.obj).
-	bool HasSelection() { return SelectionStart != -1 && SelectionLength != 0; }
+	bool HasSelection() const { return SelectionStart != -1 && SelectionLength != 0; }
 	// Inline (out-of-line copies 0x4524e0, 0x452530, 0x452880).
 	void SetCursor(int Position)
 	{
@@ -540,7 +540,7 @@ inline int TEditLine::GetPosition(int x, int y)
 		return FirstVisible;
 	if (x > Width - 2 * SkinProperties.Data99C || y > Height - 2 * SkinProperties.Data99C)
 		return (int)strlen(Text);
-	int Position = GetFittingTextLength(Font.FontNumber, Text + FirstVisible, x) + FirstVisible;
+	const int Position = GetFittingTextLength(Font.FontNumber, Text + FirstVisible, x) + FirstVisible;
 	if (Position > (int)strlen(Text))
 		return (int)strlen(Text);
 	return Position;
@@ -764,9 +764,9 @@ public:
 	char *GetLine(int Number);                                    // 0x462b20, line 3847
 	void SetSelection(int Number);                                // 0x46ad10, lines 3891-3896
 	void Clear();                                                 // 0x462ca0, line 3921
-	int GetLineAt(int x, int y);                                  // 0x462e70, line 3938
+	int GetLineAt(int x, int y) const;                            // 0x462e70, line 3938
 	// Inline (out-of-line copies 0x4529d0 and 0x4529f0, called by Dialogs.cpp).
-	int GetSelection()
+	int GetSelection() const
 	{
 		if (Selected < 0 || Selected > Lines - 1)
 			return -1;
@@ -775,7 +775,7 @@ public:
 	void SetEditable(bool _Editable) { Editable = _Editable; }
 	// Inline (Dialogs.cpp; the out-of-line copy is folded with Talk.h's
 	// TChannelTalkBuffer::GetChannelID 0x507060).
-	int GetNumberOfLines() { return Lines; }
+	int GetNumberOfLines() const { return Lines; }
 
 	int Lines;                // +0x2c
 	int TextWidth;            // +0x30

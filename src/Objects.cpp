@@ -531,7 +531,7 @@ void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY)
 {
 	TBEGIN
 	TASSERT(796, GetObjectFlag(Obj,CUMULATIVE));
-	int Count = Obj.Data;
+	const int Count = Obj.Data;
 	if (Count < 2) {
 		*PatternX = 0;
 		*PatternY = 0;
@@ -640,7 +640,7 @@ static void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 	Entry->AutomapColor = 0;
 	Entry->LensHelp = 0;
 	while (true) {
-		int Flag = File->readByte();
+		const int Flag = File->readByte();
 		if (Flag == 0xff)
 			break;
 		Entry->Flags[Flag / 8] |= (uint8)(1 << (Flag % 8));
@@ -684,7 +684,7 @@ static void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 	Entry->PatternHeight = File->readByte();
 	Entry->PatternDepth = File->readByte();
 	Entry->Phases = File->readByte();
-	int Count = Entry->Width * Entry->Height * Entry->Layers * Entry->PatternWidth * Entry->PatternHeight
+	const int Count = Entry->Width * Entry->Height * Entry->Layers * Entry->PatternWidth * Entry->PatternHeight
 		* Entry->PatternDepth * Entry->Phases;
 	Entry->Sprites = new uint16[Count];
 	for (int i = 0; i < Count; i++)
@@ -704,10 +704,10 @@ void LoadObjects(const char *FileName)
 	TReadBinaryFile File;
 	File.open(FileName);
 	DatSignature = File.readQuad();
-	int Objects = File.readWord();
-	int Outfits = File.readWord();
-	int Effects = File.readWord();
-	int Missiles = File.readWord();
+	const int Objects = File.readWord();
+	const int Outfits = File.readWord();
+	const int Effects = File.readWord();
+	const int Missiles = File.readWord();
 	ObjectProperties = new array<TProperties>(100, Objects);
 	OutfitProperties = new array<TProperties>(1, Outfits);
 	EffectProperties = new array<TProperties>(1, Effects);

@@ -51,7 +51,7 @@ int GetCounterOfferCount()
 // 0x4a4550, line 55. Positions count from 1.
 void SetBodyObject(int Position, TObject Object)
 {
-	int Pos = Position - 1;
+	const int Pos = Position - 1;
 	TASSERT1(55, In(Pos,0,BODY_POSITIONS-1), Pos);
 	Body[Pos] = Object;
 }
@@ -68,7 +68,7 @@ void DeleteBodyObject(int Position)
 TObject *GetBodyObject(int Position)
 {
 	TBEGIN
-	int Pos = Position - 1;
+	const int Pos = Position - 1;
 	TASSERT1(77, In(Pos,0,BODY_POSITIONS-1), Pos);
 	return &Body[Pos];
 	TEND1(80, Position)

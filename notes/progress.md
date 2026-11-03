@@ -189,6 +189,12 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #39 (branch issue-39, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after the const locals and the const member functions (three commits): 16,848,752 + 67 + 1,134,513
+checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and
+PatellaTest.exe built from main (762f81b) and from each commit at the same path: 0 unexpected differences (pecompare);
+macrocheck 762f81b issue-39: 2,108 calls, 0 differences.
+
 Patella-Modern issue #34 (branch issue-34, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after = default / = delete and the non-copyable owning classes (three commits): 16,848,752 + 67 +
 1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release

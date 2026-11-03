@@ -92,7 +92,7 @@ void Resize(int Width, int Height)
 	TBEGIN
 	SetMouseCursor(1);
 	if (GetViewMode() == 2) {
-		TFullscreenMode *Mode = GetFullscreenMode();
+		const TFullscreenMode *Mode = GetFullscreenMode();
 		Width = Mode->Width;
 		Height = Mode->Height;
 	}
@@ -147,8 +147,8 @@ void ChangeEngine(int engine)
 	// tested on a new one (the next CheckSurface creates its surfaces); when the test fails, the old
 	// choice and Tibia.cfg's number stay, as the original keeps the old engine. Patella.ini gets the new
 	// choice. In fullscreen mode the dialog disables the buttons, as the original's. curEngine stays 2.
-	patella::vulkan::TDeviceChoice OldChoice = GetDeviceChoice();
-	patella::vulkan::TDeviceChoice NewChoice = patella::vulkan::ChoiceAfterButton(OldChoice,
+	const patella::vulkan::TDeviceChoice OldChoice = GetDeviceChoice();
+	const patella::vulkan::TDeviceChoice NewChoice = patella::vulkan::ChoiceAfterButton(OldChoice,
 		DeviceButtonOfEngine(engine), GetNumberOfGpus(), GetBestGpu());
 	if (NewChoice == OldChoice) {
 		SetEngine(engine);
@@ -157,7 +157,7 @@ void ChangeEngine(int engine)
 	SetDeviceChoice(NewChoice);
 	GetSurface()->ExitSurfaces();
 	SurfaceExitInstance();
-	bool Success = GetSurface()->TestEngine();
+	const bool Success = GetSurface()->TestEngine();
 	if (!Success) {
 		SetDeviceChoice(OldChoice);
 		SurfaceExitInstance();
@@ -171,7 +171,7 @@ void ChangeEngine(int engine)
 	if (engine == curEngine)
 		return;
 	TBEGIN
-	int oldEngine = curEngine;
+	const int oldEngine = curEngine;
 	curEngine = engine;
 	try {
 		GetSurface()->ExitSurfaces();
@@ -240,10 +240,10 @@ void Redraw(bool Force)
 	if (Tooltip != nullptr) {
 		int x, y;
 		GetMouseOverTextPosition(&x, &y);
-		int Width = GetTextWidth(SkinProperties.TooltipFont.FontNumber, Tooltip) + SkinProperties.TooltipBorder * 2;
-		int Height = GetTextHeight(SkinProperties.TooltipFont.FontNumber, Tooltip) + SkinProperties.TooltipBorder * 2;
+		const int Width = GetTextWidth(SkinProperties.TooltipFont.FontNumber, Tooltip) + SkinProperties.TooltipBorder * 2;
+		const int Height = GetTextHeight(SkinProperties.TooltipFont.FontNumber, Tooltip) + SkinProperties.TooltipBorder * 2;
 		y -= Height;
-		int MaxX = GetWindowWidth() - Width - 1;
+		const int MaxX = GetWindowWidth() - Width - 1;
 		if (MaxX >= 1) {
 			if (x < 1)
 				x = 1;
@@ -255,7 +255,7 @@ void Redraw(bool Force)
 			if (x > 1)
 				x = 1;
 		}
-		int MaxY = GetWindowHeight() - Height - 1;
+		const int MaxY = GetWindowHeight() - Height - 1;
 		if (MaxY >= 1) {
 			if (y < 1)
 				y = 1;
@@ -267,7 +267,7 @@ void Redraw(bool Force)
 			if (y > 1)
 				y = 1;
 		}
-		TRect Rect = {x, y, Width, Height};
+		const TRect Rect = {x, y, Width, Height};
 		GetSurface()->FillRectangle(1, Rect, SkinProperties.TooltipBackground);
 		GetSurface()->DrawFrame(1, Rect, 1, SkinProperties.TooltipFrame);
 		PrintFormattedText(1, SkinProperties.TooltipBorder + x, SkinProperties.TooltipBorder + y,
@@ -289,14 +289,14 @@ void Redraw(bool Force)
 			_snprintf(Engine, 4, "<?>");
 			break;
 		}
-		double FPS = GetSurface()->GetFPS();
+		const double FPS = GetSurface()->GetFPS();
 		char Text[64];
 		_snprintf(Text, 20, "%s %.02f fps", Engine, FPS);
-		TRGBColor Color = {200, 200, 200};
+		const TRGBColor Color = {200, 200, 200};
 		PrintText(1, 4, 4, 2, Color, Text, 0);
 	}
 	if (!GetWindowsMousepointer()) {
-		int Cursor = GetMouseCursor();
+		const int Cursor = GetMouseCursor();
 		if (GetMouseX() >= 0 && GetMouseY() >= 0) {
 			int x = GetMouseX();
 			int y = GetMouseY();
@@ -326,7 +326,7 @@ void Redraw(bool Force)
 				y -= SkinProperties.CursorHotspot6.y;
 				break;
 			}
-			TSkin *Picture = &Skins[Cursor];
+			const TSkin *Picture = &Skins[Cursor];
 			DrawPicturePart(1, x, y, 4, Picture->x, Picture->y, Picture->width, Picture->height);
 		}
 	}
@@ -341,7 +341,7 @@ void SendErrorReports()
 {
 	int i = 0;
 	TBEGIN
-	int Count = GetNumberOfErrorReports();
+	const int Count = GetNumberOfErrorReports();
 	for (i = 0; i < Count; i++)
 		SendDebugReport(GetErrorReportTitle(i), GetErrorReportDate(i), GetErrorReportText(i), GetErrorReportComment(i));
 	ClearErrorReports();
@@ -696,7 +696,7 @@ void ConnectionEstablished()
 		return;
 	}
 	if (GetConnectionState() == 5) {
-		int OldConnectionState = GetConnectionState();
+		const int OldConnectionState = GetConnectionState();
 		SetConnectionState(6);
 		OutfitRequested = false;
 		TASSERT2(1174, In(GetActiveCharacter(),0,GetAccountCharacters()-1), GetActiveCharacter(), OldConnectionState);
@@ -841,7 +841,7 @@ void ReceivePackets()
 void ConnectionClosed()
 {
 	TBEGIN
-	bool InGame = GetConnectionState() == 8;
+	const bool InGame = GetConnectionState() == 8;
 	if (GetConnectionState() == 8) {
 		LeaveGame();
 	} else if (GetConnectionState() == 6) {
@@ -949,14 +949,14 @@ void ProcessEvents()
 			delete[] (char *)Param1;
 			break;
 		case 0x06: {
-			INT_PTR *Data = (INT_PTR *)Param1;
+			const INT_PTR *Data = (INT_PTR *)Param1;
 			ModalWindow = CreateQuestionDialog((const char *)Data[0], (const char *)Data[1], (TWindow *)Data[2],
 				(int)Data[3], 2);
 			delete[] Data;
 			break;
 		}
 		case 0x07: {
-			INT_PTR *Data = (INT_PTR *)Param1;
+			const INT_PTR *Data = (INT_PTR *)Param1;
 			ModalWindow = CreateLogoutDialog((const char *)Data[0], (const char *)Data[1], MainWindow);
 			delete[] Data;
 			break;
@@ -980,7 +980,7 @@ void ProcessEvents()
 			ModalWindow = CreateMoveObjectsDialog();
 			break;
 		case 0x0e: {
-			INT_PTR *Texts = (INT_PTR *)Param2;
+			const INT_PTR *Texts = (INT_PTR *)Param2;
 			ModalWindow = CreateTextDialog((int *)Param1, (const char *)Texts[0], (const char *)Texts[1]);
 			delete[] (char *)Param1;
 			delete[] (char *)Texts[0];

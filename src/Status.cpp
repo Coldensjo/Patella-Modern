@@ -416,7 +416,7 @@ void GetMouseOverTextPosition(int *x, int *y)
 // 0x4e7340. Called once per main loop iteration.
 void UpdateBlinkState()
 {
-	int Now = GetMilliseconds();
+	const int Now = GetMilliseconds();
 	if (BlinkTime + 300 < Now) {
 		BlinkState = !BlinkState;
 		BlinkTime = Now;
@@ -469,7 +469,7 @@ void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2)
 void ClearMessages()
 {
 	for (int i = 0; i < NumberOfMessages; i++) {
-		int Type = Messages(i).Type;
+		const int Type = Messages(i).Type;
 		void *Param1 = (void *)Messages(i).Param1;
 		void *Param2 = (void *)Messages(i).Param2;
 		switch (Type) {
@@ -576,7 +576,7 @@ void SetErrorReportComment(const char *Comment)
 		i--;
 	if (i >= 0) {
 		char Prefix[] = "Comment: ";
-		int Length = (int)strlen(Prefix);
+		const int Length = (int)strlen(Prefix);
 		strncpy(ErrorReports(i).Comment, Prefix, Length);
 		strncpy(ErrorReports(i).Comment + Length, Comment, 512 - Length);
 	}
@@ -821,7 +821,7 @@ void CheckClipboardText(const char *Text, int Length)
 	char *Lower = new char[Length + 1];
 	memcpy(Lower, TaintedClipboardText, Length + 1);
 	LowerString(Lower);
-	int Match = regexec(LinkRegexp, Lower);
+	const int Match = regexec(LinkRegexp, Lower);
 	delete[] Lower;
 	if (Match == 1) {
 		LinkWarningEventHandler();

@@ -48,7 +48,7 @@ static_assert(offsetof(TTalkLine, WithoutTime) == 0x34, "statement text");
 // 0x4fd440, no line evidence; leading Talk.cpp helpers remain in link order.
 bool GetTalkChanged()
 {
-	bool Result = TalkChanged;
+	const bool Result = TalkChanged;
 	TalkChanged = false;
 	return Result;
 }
@@ -92,7 +92,7 @@ bool IsTalkThrottled()
 // 0x4fd580
 bool GetConsoleChanged()
 {
-	bool Result = ConsoleChanged;
+	const bool Result = ConsoleChanged;
 	ConsoleChanged = false;
 	return Result;
 }
@@ -146,8 +146,8 @@ int GetTalkboxMode(int Number)
 void GetTalkboxPosition(int Number, int *x, int *y, int *z)
 {
 	TBEGIN
-	TTalkbox *Box = GetTalkbox(Number);
-	int Mode = Box->Mode;
+	const TTalkbox *Box = GetTalkbox(Number);
+	const int Mode = Box->Mode;
 	if (Mode == 22 || Mode == 19 || Mode == 18 || Mode == 4 || Mode == 9 || Mode == 11)
 		*x = *y = *z = 0;
 	else {
@@ -161,7 +161,7 @@ void GetTalkboxPosition(int Number, int *x, int *y, int *z)
 void GetTalkboxRectangle(int Number, int *x, int *y, int *Width, int *Height)
 {
 	TBEGIN
-	TTalkbox *Box = GetTalkbox(Number);
+	const TTalkbox *Box = GetTalkbox(Number);
 	*x = Box->Left;
 	*y = Box->Top;
 	*Width = Box->Width;
@@ -273,7 +273,7 @@ void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *
 	TBEGIN
 	if (Mode == 4 && !GetPrivateMessages())
 		return;
-	int Position = FindFreeTalkbox();
+	const int Position = FindFreeTalkbox();
 	TTalkbox &Box = Talkboxes[Position];
 	Box.Order = TalkOrder++;
 	Box.Mode = Mode;
@@ -342,7 +342,7 @@ void AddMessageTalkbox(int Mode, const char *Text)
 		for (int Position = 0; Position < TALKBOXES; Position++)
 			if (Talkboxes[Position].State != 0 && Talkboxes[Position].Mode == 22)
 				RemoveTalkbox(Position);
-	int Position = FindFreeTalkbox();
+	const int Position = FindFreeTalkbox();
 	TTalkbox &Box = Talkboxes[Position];
 	Box.Order = TalkOrder++;
 	Box.Mode = Mode;
@@ -353,7 +353,7 @@ void AddMessageTalkbox(int Mode, const char *Text)
 	int Delay = 0;
 	if (Mode != 22) {
 		for (int Search = 0; Search < TALKBOXES; Search++) {
-			TTalkbox &Other = Talkboxes[Search];
+			const TTalkbox &Other = Talkboxes[Search];
 			if (Search != Position && Other.State != 0
 				&& (Other.Mode == 19 || Other.Mode == 18 || Other.Mode == 9 || Other.Mode == 11)) {
 				if (Box.State == 1)
@@ -391,7 +391,7 @@ void UpdateTalkboxes()
 	int i;
 	TBEGIN
 	static int LastTime = GetMilliseconds(); // 0x71eff0, guard 0x71eff4
-	int DiffTime = GetMilliseconds() - LastTime;
+	const int DiffTime = GetMilliseconds() - LastTime;
 	for (i = 0; i < TALKBOXES; i++)
 		if (Talkboxes[i].State != 0 && (Talkboxes[i].RemainingTime -= DiffTime) < 1)
 			RemoveTalkbox(i);
@@ -552,7 +552,7 @@ void ClearBuddyIgnore()
 void AddBuddyIgnore(const char *Addressee, bool Permanent)
 {
 	TBEGIN
-	int Filter = FindTalkFilter(0, Addressee, -1, BuddyExemptionList);
+	const int Filter = FindTalkFilter(0, Addressee, -1, BuddyExemptionList);
 	if (Filter != -1) {
 		free(BuddyExemptionList(Filter));
 		BuddyExemptionList(Filter) = nullptr;
@@ -564,7 +564,7 @@ void AddBuddyIgnore(const char *Addressee, bool Permanent)
 bool IsPermanentBuddyIgnore(const char *Addressee)
 {
 	TBEGIN
-	int Filter = FindTalkFilter(0, Addressee, -1, BuddyExemptionList);
+	const int Filter = FindTalkFilter(0, Addressee, -1, BuddyExemptionList);
 	return Filter != -1 ? BuddyExemptionList(Filter)->Permanent : false;
 	TEND(816)
 }
@@ -585,7 +585,7 @@ void ClearTemporaryIgnore()
 void AddTemporaryIgnore(const char *Addressee)
 {
 	TBEGIN
-	int Filter = FindTalkFilter(0, Addressee, -1, TemporaryIgnoreList);
+	const int Filter = FindTalkFilter(0, Addressee, -1, TemporaryIgnoreList);
 	if (Filter != -1) {
 		free(TemporaryIgnoreList(Filter));
 		TemporaryIgnoreList(Filter) = nullptr;
@@ -597,7 +597,7 @@ void AddTemporaryIgnore(const char *Addressee)
 void RemoveTemporaryIgnore(const char *Addressee)
 {
 	TBEGIN
-	int Filter = FindTalkFilter(0, Addressee, -1, TemporaryIgnoreList);
+	const int Filter = FindTalkFilter(0, Addressee, -1, TemporaryIgnoreList);
 	if (Filter != -1) {
 		free(TemporaryIgnoreList(Filter));
 		TemporaryIgnoreList(Filter) = nullptr;
@@ -650,7 +650,7 @@ void ClearIgnoreList()
 void AddIgnoreFilter(int Mode, const char *Addressee, bool Permanent)
 {
 	TBEGIN
-	int Filter = FindTalkFilter(Mode, Addressee, -1, IgnoreList);
+	const int Filter = FindTalkFilter(Mode, Addressee, -1, IgnoreList);
 	if (Filter != -1) {
 		free(IgnoreList(Filter));
 		IgnoreList(Filter) = nullptr;
@@ -676,7 +676,7 @@ void IgnoreName(const char *Addressee, bool Permanent)
 bool IsPermanentIgnore(const char *Addressee)
 {
 	TBEGIN
-	int Filter = FindTalkFilter(0, Addressee, -1, IgnoreList);
+	const int Filter = FindTalkFilter(0, Addressee, -1, IgnoreList);
 	return Filter != -1 ? IgnoreList(Filter)->Permanent : false;
 	TEND(1036)
 }
@@ -684,7 +684,7 @@ bool IsPermanentIgnore(const char *Addressee)
 void RemoveIgnoreFilter(int Mode, const char *Addressee)
 {
 	TBEGIN
-	int Filter = FindTalkFilter(Mode, Addressee, -1, IgnoreList);
+	const int Filter = FindTalkFilter(Mode, Addressee, -1, IgnoreList);
 	if (Filter != -1) {
 		free(IgnoreList(Filter));
 		IgnoreList(Filter) = nullptr;
@@ -757,7 +757,7 @@ void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const ch
 			Name = nullptr;
 		for (int i = ConsoleFilterList.min; i <= ConsoleFilterList.max; i++) {
 			TTalkFilter *Filter = ConsoleFilterList(i);
-			int Mode = TalkMode == 10 || TalkMode == 14 || TalkMode == 12 ? 5 : TalkMode;
+			const int Mode = TalkMode == 10 || TalkMode == 14 || TalkMode == 12 ? 5 : TalkMode;
 			if (Filter != nullptr && Filter->Matches(Mode, Name, Channel))
 				TargetBuffer = Filter->TextBuffer;
 		}
@@ -771,7 +771,7 @@ void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const ch
 		TASSERT(1245, TargetBuffer!=NULL);
 		AddTextBufferLine(TargetBuffer, StatementID, Text, TalkMode, Name, Time);
 		for (int i = ConsoleFilterList.min; i <= ConsoleFilterList.max; i++) {
-			TTalkFilter *Filter = ConsoleFilterList(i);
+			const TTalkFilter *Filter = ConsoleFilterList(i);
 			if (Filter != nullptr) {
 				TargetBuffer = Filter->TextBuffer;
 				TASSERT(1252, TargetBuffer!=NULL);
@@ -818,7 +818,7 @@ void ClearTextBuffer(TTalkBuffer *TextBuffer)
 TTalkBuffer *GetTextBuffer(int Mode, const char *Name, int Channel)
 {
 	TBEGIN
-	int Filter = FindTalkFilter(Mode, Name, Channel, ConsoleFilterList);
+	const int Filter = FindTalkFilter(Mode, Name, Channel, ConsoleFilterList);
 	if (Filter == -1)
 		return nullptr;
 	TASSERT1(1315, ConsoleFilterList(Filter)!=NULL, Filter);
@@ -860,7 +860,7 @@ void DeleteTextBuffer(TTalkBuffer *TextBuffer)
 {
 	TBEGIN
 	if (TextBuffer != DefaultTextBuffer) {
-		int Filter = FindTextBuffer(TextBuffer, ConsoleFilterList);
+		const int Filter = FindTextBuffer(TextBuffer, ConsoleFilterList);
 		TASSERT(1377, Filter!=-1);
 		free(ConsoleFilterList(Filter));
 		ConsoleFilterList(Filter) = nullptr;
@@ -946,7 +946,7 @@ void TTalkBuffer::Remove(TTalkLine *line)
 		last = line->Previous;
 		last->Next = nullptr;
 	} else {
-		TTalkLine *Search = first;
+		const TTalkLine *Search = first;
 		for (;;) {
 			TASSERT(1569, Search!=NULL);
 			if (Search == line)
@@ -974,7 +974,8 @@ void TTalkBuffer::Remove(TTalkLine *line)
 void TTalkBuffer::Remove(int lineNumber)
 {
 	TASSERT(1597, first!=NULL);
-	int i = 0;
+	// Not const (issue #39): as a constant the compiler folds i away; the binary keeps it in a stack slot.
+	int i = 0; // NOLINT(misc-const-correctness)
 	TBEGIN
 	TTalkLine *Search = first;
 	while (i != lineNumber) {
@@ -1013,12 +1014,12 @@ TTalkLine *TTalkBuffer::GetNext()
 	return cursor;
 }
 // 0x503a70, lines 1672-1682. bytes is the original catch name for F's slot.
-int TTalkBuffer::Write(FILE *F)
+int TTalkBuffer::Write(FILE *F) const
 {
 	TASSERT(1672, F!=NULL);
-	INT_PTR bytes = (INT_PTR)F;
+	const INT_PTR bytes = (INT_PTR)F;
 	TBEGIN
-	for (TTalkLine *Line = first; Line != nullptr; Line = Line->Next)
+	for (const TTalkLine *Line = first; Line != nullptr; Line = Line->Next)
 		fprintf(F, "%s\n", Line->GetText());
 	return 0;
 	TEND1(1682, bytes)
@@ -1079,7 +1080,7 @@ TRuleViolationChannel::TRuleViolationChannel(int TalkMode, int _ChannelID) : TTa
 void TRuleViolationChannel::Remove(TTalkLine *line)
 {
 	TBEGIN
-	bool OldChanged = Changed;
+	const bool OldChanged = Changed;
 	TTalkBuffer::Remove(line);
 	Changed = OldChanged;
 	if (first == nullptr)
@@ -1090,7 +1091,7 @@ void TRuleViolationChannel::Remove(TTalkLine *line)
 void TRuleViolationChannel::Remove(int lineNumber)
 {
 	TBEGIN
-	bool OldChanged = Changed;
+	const bool OldChanged = Changed;
 	TTalkBuffer::Remove(lineNumber);
 	Changed = OldChanged;
 	if (first == nullptr)
@@ -1122,7 +1123,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int Diff
 	Mode = _Mode;
 	StatementID = _StatementID;
 	Time = PATELLA_TIME32(nullptr) + DiffTime;
-	tm *LocalTime = _localtime32(&Time);
+	const tm *LocalTime = _localtime32(&Time);
 	char Stamp[8];
 	sprintf(Stamp, "%02d:%02d ", LocalTime->tm_hour, LocalTime->tm_min);
 	Addressee[0] = 0;
@@ -1142,7 +1143,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, con
 	Mode = _Mode;
 	StatementID = _StatementID;
 	Time = PATELLA_TIME32(nullptr) + DiffTime;
-	tm *LocalTime = _localtime32(&Time);
+	const tm *LocalTime = _localtime32(&Time);
 	char Stamp[8];
 	sprintf(Stamp, "%02d:%02d ", LocalTime->tm_hour, LocalTime->tm_min);
 	CopyString(Addressee, _Addressee, 30);

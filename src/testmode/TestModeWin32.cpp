@@ -220,7 +220,7 @@ void WriteLog(TState &State, const std::string &Line)
 
 [[noreturn]] void Fail(TState &State, const std::string &Message)
 {
-	std::string Line = "testmode: " + Message;
+	const std::string Line = "testmode: " + Message;
 	WriteLog(State, Line);
 	std::fputs((Line + "\n").c_str(), stderr);
 	std::fflush(stderr);
@@ -230,7 +230,7 @@ void WriteLog(TState &State, const std::string &Line)
 
 std::string Narrow(const std::wstring &Text)
 {
-	int Length = ::WideCharToMultiByte(CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()), nullptr, 0, nullptr, nullptr);
+	const int Length = ::WideCharToMultiByte(CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()), nullptr, 0, nullptr, nullptr);
 	std::string Result(static_cast<std::size_t>(Length > 0 ? Length : 0), '\0');
 	if (Length > 0)
 		::WideCharToMultiByte(CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()), Result.data(), Length, nullptr, nullptr);
@@ -275,7 +275,7 @@ void OpenOut(TState &State, const std::wstring &Folder)
 	State.Out = Folder;
 	std::error_code Error;
 	std::filesystem::create_directories(State.Out, Error);
-	std::filesystem::path Log = State.Out / L"packets.log";
+	const std::filesystem::path Log = State.Out / L"packets.log";
 	if (_wfopen_s(&State.Packets, Log.c_str(), L"wb") != 0 || State.Packets == nullptr)
 		Fail(State, "cannot write " + Narrow(Log.wstring()));
 	std::fputs((std::string(PacketLogHeader) + "\n").c_str(), State.Packets);
@@ -297,7 +297,7 @@ void OpenReplay(TState &State, const std::wstring &Path)
 	std::ifstream In(Path, std::ios::binary);
 	if (!In)
 		Fail(State, "cannot read the replay " + Narrow(Path));
-	std::string Text((std::istreambuf_iterator<char>(In)), std::istreambuf_iterator<char>());
+	const std::string Text((std::istreambuf_iterator<char>(In)), std::istreambuf_iterator<char>());
 	TReplayParseResult Parsed = ParseReplay(Text);
 	if (!Parsed.Ok)
 		Fail(State, Narrow(Path) + ":" + std::to_string(Parsed.ErrorLine) + ": " + Parsed.Error);
@@ -307,7 +307,7 @@ void OpenReplay(TState &State, const std::wstring &Path)
 	if (::WSAStartup(MAKEWORD(2, 2), &Data) != 0)
 		Fail(State, "replay: WSAStartup failed");
 	for (const TReplayListen &Listen : Parsed.File.Listen) {
-		SOCKET Socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		const SOCKET Socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		sockaddr_in Address = {};
 		Address.sin_family = AF_INET;
 		Address.sin_port = ::htons(static_cast<u_short>(Listen.Port));
@@ -326,7 +326,7 @@ void OpenReplay(TState &State, const std::wstring &Path)
 
 void Initialize(TState &State)
 {
-	TArguments Arguments = ReadArguments();
+	const TArguments Arguments = ReadArguments();
 	if (!Arguments.Log.empty()) {
 		if (_wfopen_s(&State.Log, Arguments.Log.c_str(), L"w") != 0)
 			State.Log = nullptr;
@@ -343,7 +343,7 @@ void Initialize(TState &State)
 	std::ifstream In(ScriptPath, std::ios::binary);
 	if (!In)
 		Fail(State, "cannot read the script " + Narrow(ScriptPath));
-	std::string Text((std::istreambuf_iterator<char>(In)), std::istreambuf_iterator<char>());
+	const std::string Text((std::istreambuf_iterator<char>(In)), std::istreambuf_iterator<char>());
 	TParseResult Parsed = ParseScript(Text);
 	if (!Parsed.Ok)
 		Fail(State, Narrow(ScriptPath) + ":" + std::to_string(Parsed.ErrorLine) + ": " + Parsed.Error);
@@ -439,7 +439,7 @@ void WriteStateDump(TState &State, const TInputEvent &Event)
 	Dump.Line = Event.Line;
 	Dump.State = ReadClientState();
 	Dump.Gui = ReadGui();
-	std::string Name = Numbered("state", Dump.Step, ".json");
+	const std::string Name = Numbered("state", Dump.Step, ".json");
 	std::string Json = StateDumpJson(Dump);
 	if (!SaveFile(State.Out / Name, Json))
 		WriteLog(State, "testmode: cannot write " + Name);
@@ -457,7 +457,7 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 	WriteLog(State, Describe(Event));
 	RECT Client = {};
 	::GetClientRect(Window, &Client);
-	POINT Point = {Event.X.Resolve(Client.right), Event.Y.Resolve(Client.bottom)};
+	const POINT Point = {Event.X.Resolve(Client.right), Event.Y.Resolve(Client.bottom)};
 	WPARAM MouseFlags = 0;
 	if ((Event.Buttons & ButtonLeft) != 0)
 		MouseFlags |= MK_LBUTTON;
@@ -467,15 +467,15 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 		MouseFlags |= MK_SHIFT;
 	if ((Event.Modifiers & ModifierControl) != 0)
 		MouseFlags |= MK_CONTROL;
-	LPARAM PointParam = MAKELPARAM(Point.x, Point.y);
-	bool Alt = (Event.Modifiers & ModifierAlt) != 0 || Event.Key == VK_MENU;
+	const LPARAM PointParam = MAKELPARAM(Point.x, Point.y);
+	const bool Alt = (Event.Modifiers & ModifierAlt) != 0 || Event.Key == VK_MENU;
 	switch (Event.Kind) {
 	case TEventKind::KeyDown:
 	case TEventKind::KeyUp: {
-		bool Up = Event.Kind == TEventKind::KeyUp;
+		const bool Up = Event.Kind == TEventKind::KeyUp;
 		// With Alt held, and for Alt and F10 themselves, Windows sends the system key messages.
-		bool System = Alt || Event.Key == VK_F10;
-		UINT Message = Up ? (System ? WM_SYSKEYUP : WM_KEYUP) : (System ? WM_SYSKEYDOWN : WM_KEYDOWN);
+		const bool System = Alt || Event.Key == VK_F10;
+		const UINT Message = Up ? (System ? WM_SYSKEYUP : WM_KEYUP) : (System ? WM_SYSKEYDOWN : WM_KEYDOWN);
 		Dispatch(State, Window, Message, Event.Key, KeyLParam(Event, Up, Alt));
 		break;
 	}
@@ -507,7 +507,7 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 		break;
 	case TEventKind::Wheel: {
 		// WM_MOUSEWHEEL: the flags and the distance (120 per notch) in wParam, the screen point.
-		POINT Screen = ScreenCursor(State, Window);
+		const POINT Screen = ScreenCursor(State, Window);
 		auto Distance = static_cast<WORD>(static_cast<short>(Event.Delta * WHEEL_DELTA));
 		Dispatch(State, Window, WM_MOUSEWHEEL, MAKEWPARAM(static_cast<WORD>(MouseFlags), Distance),
 			MAKELPARAM(Screen.x, Screen.y));
@@ -537,7 +537,7 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 		Dispatch(State, Window, Event.Key, static_cast<WPARAM>(Event.WParam), static_cast<LPARAM>(Event.LParam));
 		break;
 	case TEventKind::Save: {
-		std::string Name = Numbered("saved", ++State.Saves, ("-" + Event.Name).c_str());
+		const std::string Name = Numbered("saved", ++State.Saves, ("-" + Event.Name).c_str());
 		std::error_code Error;
 		std::filesystem::copy_file(Event.Name, State.Out / Name, std::filesystem::copy_options::overwrite_existing, Error);
 		if (Error)
@@ -572,7 +572,7 @@ void CloseReplaySocket(TState &State, TReplaySocket &Socket, const char *Why)
 void FlushReplaySocket(TState &State, TReplaySocket &Socket)
 {
 	while (!Socket.Out.empty() && !Socket.Closed) {
-		int Count = ::send(Socket.Socket, reinterpret_cast<const char *>(Socket.Out.data()),
+		const int Count = ::send(Socket.Socket, reinterpret_cast<const char *>(Socket.Out.data()),
 			static_cast<int>((std::min)(Socket.Out.size(), static_cast<std::size_t>(0x10000))), 0);
 		if (Count == SOCKET_ERROR) {
 			if (::WSAGetLastError() != WSAEWOULDBLOCK)
@@ -589,7 +589,7 @@ void PumpReplay(TState &State)
 	TReplayState &Replay = State.Replay;
 	for (const auto &[Listener, Kind] : Replay.Listeners) {
 		while (true) {
-			SOCKET Client = ::accept(Listener, nullptr, nullptr);
+			const SOCKET Client = ::accept(Listener, nullptr, nullptr);
 			if (Client == INVALID_SOCKET)
 				break;
 			u_long NonBlocking = 1;
@@ -607,7 +607,7 @@ void PumpReplay(TState &State)
 	for (TReplaySocket &Socket : Replay.Sockets) {
 		while (!Socket.Closed) {
 			std::array<char, 0x4000> Buffer{};
-			int Count = ::recv(Socket.Socket, Buffer.data(), static_cast<int>(Buffer.size()), 0);
+			const int Count = ::recv(Socket.Socket, Buffer.data(), static_cast<int>(Buffer.size()), 0);
 			if (Count == SOCKET_ERROR && ::WSAGetLastError() == WSAEWOULDBLOCK)
 				break;
 			if (Count <= 0) {
@@ -643,8 +643,8 @@ std::string ReplayBusy(TState &State)
 {
 	TReplayState &Replay = State.Replay;
 	const int *Connection = ViewConnectionState();
-	int Value = Connection != nullptr ? *Connection : 0;
-	bool Connecting = Value == 1 || Value == 2 || Value == 5;
+	const int Value = Connection != nullptr ? *Connection : 0;
+	const bool Connecting = Value == 1 || Value == 2 || Value == 5;
 	if (!Connecting)
 		Replay.IgnoreConnecting = false;
 	if (Connecting && !Replay.IgnoreConnecting)
@@ -667,7 +667,7 @@ std::string ReplayBusy(TState &State)
 bool ReplayHold(TState &State)
 {
 	TReplayState &Replay = State.Replay;
-	std::string Reason = ReplayBusy(State);
+	const std::string Reason = ReplayBusy(State);
 	auto Now = std::chrono::steady_clock::now();
 	if (Reason.empty()) {
 		if (Replay.Holding)
@@ -735,7 +735,7 @@ bool ReplayDeliver(TState &State, std::uint32_t Elapsed)
 bool ReplayNextTime(TState &State, std::uint32_t *Time)
 {
 	bool Found = false;
-	for (TReplaySocket &Socket : State.Replay.Sockets) {
+	for (const TReplaySocket &Socket : State.Replay.Sockets) {
 		std::uint32_t Next = 0;
 		if (Socket.Closed || Socket.ServerClosing || !State.Replay.Schedule.NextTime(Socket.Index, &Next))
 			continue;
@@ -776,7 +776,7 @@ void FrameSleep(DWORD Milliseconds)
 
 BOOL GetCursorPosition(LPPOINT Point)
 {
-	TState &Current = State();
+	const TState &Current = State();
 	if (!Current.Scripted)
 		return ::GetCursorPos(Point);
 	if (Current.Scheduler.FixedCursor()) {
@@ -798,10 +798,10 @@ UINT_PTR SetMainTimer(HWND Window, UINT_PTR Id, UINT Elapse, TIMERPROC Function)
 
 bool DropInput(const MSG *Message)
 {
-	TState &Current = State();
+	const TState &Current = State();
 	if (!Current.Scripted)
 		return false;
-	UINT Kind = Message->message;
+	const UINT Kind = Message->message;
 	if ((Kind >= WM_KEYFIRST && Kind <= WM_KEYLAST) || (Kind >= WM_MOUSEFIRST && Kind <= WM_MOUSELAST))
 		return true;
 	return Kind == WM_TIMER && Message->wParam == 1 && Message->hwnd == MainWindow();
@@ -919,7 +919,7 @@ void PacketSent(const unsigned char *Data, int Size, int Padded)
 	if (Current.Packets == nullptr || Size < 0)
 		return;
 	// SendData: [u16][u16 Size][payload][padding, up to Padded + 2 bytes].
-	std::span<const unsigned char> Payload(Data + 4, static_cast<std::size_t>(Size));
+	const std::span<const unsigned char> Payload(Data + 4, static_cast<std::size_t>(Size));
 	if (Padded == 0) {
 		std::vector<unsigned char> Plain(Payload.begin(), Payload.end());
 		if (Current.HasRsa && Plain.size() >= RsaBlockSize)
@@ -929,7 +929,7 @@ void PacketSent(const unsigned char *Data, int Size, int Padded)
 		return;
 	}
 	std::size_t Padding = Padded >= Size + 2 ? static_cast<std::size_t>(Padded - Size - 2) : 0;
-	std::span<const unsigned char> Pad(Data + 4 + Size, Padding);
+	const std::span<const unsigned char> Pad(Data + 4 + Size, Padding);
 	WritePacket(Current, Current.Connections.Sent(PacketTime(Current), false, Payload, Pad));
 }
 
@@ -948,9 +948,9 @@ void PacketReceived(const unsigned char *Data, int PacketSize)
 	if (Current.Packets == nullptr || PacketSize < 2)
 		return;
 	// ReceiveData: [u16 PacketSize][u16 length][payload][padding, up to PacketSize + 2 bytes].
-	int Length = (std::min)(Data[2] | (Data[3] << 8), PacketSize - 2);
-	std::span<const unsigned char> Payload(Data + 4, static_cast<std::size_t>(Length));
-	std::span<const unsigned char> Padding(Data + 4 + Length, static_cast<std::size_t>(PacketSize - 2 - Length));
+	const int Length = (std::min)(Data[2] | (Data[3] << 8), PacketSize - 2);
+	const std::span<const unsigned char> Payload(Data + 4, static_cast<std::size_t>(Length));
+	const std::span<const unsigned char> Padding(Data + 4 + Length, static_cast<std::size_t>(PacketSize - 2 - Length));
 	WritePacket(Current, Current.Connections.Received(PacketTime(Current), Payload, Padding));
 }
 
@@ -981,10 +981,10 @@ void __cdecl FramePixels(const void *Bits, int Pitch, int Width, int Height)
 	TState &Current = State();
 	if (Current.PendingFrames.empty())
 		return;
-	TPendingFrame Frame = Current.PendingFrames.front();
+	const TPendingFrame Frame = Current.PendingFrames.front();
 	Current.PendingFrames.pop_front();
 	std::vector<std::uint8_t> Rgb = BgrxToRgb(static_cast<const std::uint8_t *>(Bits), static_cast<std::size_t>(Pitch), Width, Height);
-	std::string Name = Numbered("frame", Frame.Step, ".png");
+	const std::string Name = Numbered("frame", Frame.Step, ".png");
 	bool Ok = SaveFile(Current.Out / Name, Bytes(EncodePngRgb(Width, Height, Rgb)));
 	long long Filtered = -1;
 	if (Current.MaskWidth == Width && Current.MaskHeight == Height && !Current.Mask.empty()) {
@@ -1015,13 +1015,13 @@ int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type
 		return ::MessageBoxA(Window, Text, Caption, Type);
 	// A test run never opens a modal dialog: the box's caption and text are written down instead, and
 	// it counts as answered with OK.
-	std::string Caption8 = Caption != nullptr ? Caption : "";
-	std::string Text8 = Text != nullptr ? Text : "";
+	const std::string Caption8 = Caption != nullptr ? Caption : "";
+	const std::string Text8 = Text != nullptr ? Text : "";
 	WriteLog(Current, "testmode: message box \"" + Caption8 + "\": " + Text8);
 	if (!Current.Out.empty()) {
 		std::FILE *File = nullptr;
 		if (_wfopen_s(&File, (Current.Out / L"messages.txt").c_str(), L"ab") == 0 && File != nullptr) {
-			std::string Line = "{\"step\":" + std::to_string(++Current.Messages) + ",\"time\":" + std::to_string(Current.Virtual.Elapsed())
+			const std::string Line = "{\"step\":" + std::to_string(++Current.Messages) + ",\"time\":" + std::to_string(Current.Virtual.Elapsed())
 				+ ",\"caption\":" + JsonString(Caption8) + ",\"text\":" + JsonString(Text8) + ",\"type\":" + std::to_string(Type) + "}\n";
 			std::fputs(Line.c_str(), File);
 			std::fclose(File);
@@ -1069,7 +1069,7 @@ int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type
 void FrameObservers(HMODULE Patcap, int(__cdecl **Frame)(int, int), void(__cdecl **Pixels)(const void *, int, int, int),
 	void(__cdecl **Mask)(const unsigned char *, int, int))
 {
-	TState &Current = State();
+	const TState &Current = State();
 	if (Patcap != nullptr || !Current.FramesWanted)
 		return;
 	*Frame = FrameWanted;

@@ -45,17 +45,17 @@ public:
 	void KeyPress(int Key) override;               // +0x6c, 0x4aea50, line 203
 	void HandleEvent(int Event) override;          // +0x70, 0x4aed10, lines 308-339
 	void ChangeMode(bool InGame);                  // 0x4af5e0, line 463
-	void ResizeConsole(int ConsoleHeight);         // 0x4ac610, line 475
-	int GetConsoleWindowHeight();                  // 0x4ac7c0
+	void ResizeConsole(int ConsoleHeight) const;   // 0x4ac610, line 475
+	int GetConsoleWindowHeight() const;            // 0x4ac7c0
 	void Walk(int dx, int dy, bool Diagonal);      // 0x4ac7f0, line 503
-	void OpenContainer(int Container);             // 0x4ac9e0, lines 511-539
-	void CloseContainer(int Container);            // 0x4acdb0, line 552
-	void OpenTrade();                              // 0x4afec0, lines 560-565
-	void UpdateTrade();                            // 0x4acf60, lines 576-579
-	void CloseTrade();                             // 0x4b0230, line 590
-	void OpenContentWindow(int Identifier);        // 0x4ad1e0, lines 606-610
-	void CloseContentWindow(int Identifier);       // 0x4ad4a0, line 621
-	void SetConsoleActive(bool Active);            // 0x4ad650, line 632
+	void OpenContainer(int Container) const;       // 0x4ac9e0, lines 511-539
+	void CloseContainer(int Container) const;      // 0x4acdb0, line 552
+	void OpenTrade() const;                        // 0x4afec0, lines 560-565
+	void UpdateTrade() const;                      // 0x4acf60, lines 576-579
+	void CloseTrade() const;                       // 0x4b0230, line 590
+	void OpenContentWindow(int Identifier) const;  // 0x4ad1e0, lines 606-610
+	void CloseContentWindow(int Identifier) const; // 0x4ad4a0, line 621
+	void SetConsoleActive(bool Active) const;      // 0x4ad650, line 632
 
 	// The children; all NULL in the mode that does not use them.
 	TMapFrame *MapFrame;         // +0x2c

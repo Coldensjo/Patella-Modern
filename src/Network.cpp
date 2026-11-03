@@ -145,7 +145,7 @@ bool GetCurrentServer(TServer **Server)
 	TBEGIN
 	if (GetTestServerLogin()) {
 		*Server = &TestServer;
-		bool Available = TestServer.Available;
+		const bool Available = TestServer.Available;
 		for (int i = 0; i < NUMBEROFSERVER; i++)
 			Servers[i].Available = true;
 		TestServer.Available = true;
@@ -239,7 +239,7 @@ void SendCommand(bool Encrypt)
 	TBEGIN
 	if (Socket == nullptr)
 		return;
-	int Size = SendBuffer.Position - 4;
+	const int Size = SendBuffer.Position - 4;
 	if (!Encrypt) {
 		SendBuffer.Position = 0;
 		SendBuffer.PutWord(0);
@@ -282,7 +282,7 @@ void PrepareNextPacket()
 	if (ReceivePacketEnd > 0) {
 		ReceiveBuffer.Size = 4;
 		ReceiveBuffer.Position = 0;
-		int PacketSize = ReceiveBuffer.GetWord();
+		const int PacketSize = ReceiveBuffer.GetWord();
 		if (PacketSize % 8 != 0)
 			TERROR1(391, "packet size does not fit to symmetric encryption", PacketSize);
 		try {
@@ -499,7 +499,7 @@ int CreateSocket()
 		Disconnect(false);
 	Socket = new TSocket;
 	if (!Socket->Create(0, SOCK_STREAM, FD_READ | FD_WRITE | FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE, nullptr)) {
-		int Error = WSAGetLastError();
+		const int Error = WSAGetLastError();
 		delete Socket;
 		Socket = nullptr;
 		SetConnectionState(0);
@@ -516,7 +516,7 @@ int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
 	TBEGIN
 	if (!Socket->Connect(IPAddress, Port)) {
 		if (WSAGetLastError() != WSAEWOULDBLOCK) {
-			int Error = WSAGetLastError();
+			const int Error = WSAGetLastError();
 			delete Socket;
 			Socket = nullptr;
 			SetConnectionState(0);
@@ -611,7 +611,7 @@ void ConnectToGameServer()
 {
 	TBEGIN
 	SetConnectionState(5);
-	int Character = GetActiveCharacter();
+	const int Character = GetActiveCharacter();
 	const char *IPAddress = GetCharacterIPAddress(Character);
 	GetCharacterPort(Character); // result unused in the binary
 	int Error = CreateSocket();
@@ -669,14 +669,14 @@ void TSocket::OnReceive(int ErrorCode)
 	TBEGIN
 	if (ErrorCode != 0)
 		return;
-	int Count = Receive(&ReceiveData[ReceiveDataSize], sizeof(ReceiveData) - ReceiveDataSize, 0);
+	const int Count = Receive(&ReceiveData[ReceiveDataSize], sizeof(ReceiveData) - ReceiveDataSize, 0);
 	if (Count == 0 || Count == SOCKET_ERROR)
 		return;
 	ReceiveDataSize += Count;
 	bool Complete = false;
 	while (ReceivePacketEnd + 2 <= ReceiveDataSize) {
 		TReadBuffer Header(&ReceiveData[ReceivePacketEnd], 2);
-		int Length = Header.GetWord() + 2;
+		const int Length = Header.GetWord() + 2;
 		if (ReceiveDataSize - ReceivePacketEnd < Length)
 			break;
 		Complete = true;

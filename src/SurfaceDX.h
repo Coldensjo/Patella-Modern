@@ -92,12 +92,12 @@ public:
 	// Not virtual.
 	uint32 GetPixelColor(IDirectDrawSurface4 *DDSurface, TRGBColor Color); // 0x4eaeb0
 	bool CreateOffscreenSurface(IDirectDrawSurface4 **Result, int Width, int Height,
-		bool VideoMemoryOnly); // 0x4ec3a0
+		bool VideoMemoryOnly) const; // 0x4ec3a0
 	bool Create3DSurface(IDirectDrawSurface4 **Result, int Width, int Height,
-		bool VideoMemoryOnly); // 0x4ec470
+		bool VideoMemoryOnly) const; // 0x4ec470
 	void ShadeRectangle(int Surface, TRect Rect, TRGBColor TopLeft, TRGBColor TopRight,
-		TRGBColor BottomLeft, TRGBColor BottomRight); // 0x4eca80
-	bool TestShading(int Surface);                    // 0x4ecdd0
+		TRGBColor BottomLeft, TRGBColor BottomRight) const; // 0x4eca80
+	bool TestShading(int Surface);                          // 0x4ecdd0
 
 	bool Recreated;                                   // +0x70, set by CreateSurfaces, cleared by Init
 	IDirectDraw4 *DirectDraw;                         // +0x74

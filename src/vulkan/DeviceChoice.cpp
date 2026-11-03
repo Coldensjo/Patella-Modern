@@ -13,10 +13,10 @@ namespace {
 
 std::string Normalized(std::string_view Text)
 {
-	size_t First = Text.find_first_not_of(" \t\r\n");
+	const size_t First = Text.find_first_not_of(" \t\r\n");
 	if (First == std::string_view::npos)
 		return {};
-	size_t Last = Text.find_last_not_of(" \t\r\n");
+	const size_t Last = Text.find_last_not_of(" \t\r\n");
 	std::string Result(Text.substr(First, Last - First + 1));
 	for (char &c : Result) {
 		if (c >= 'A' && c <= 'Z')
@@ -29,7 +29,7 @@ std::string Normalized(std::string_view Text)
 
 std::optional<TDeviceChoice> ParseDeviceChoice(std::string_view Text)
 {
-	std::string Value = Normalized(Text);
+	const std::string Value = Normalized(Text);
 	if (Value == "auto")
 		return TDeviceChoice{TDeviceKind::Automatic, -1};
 	if (Value == "cpu")
@@ -45,7 +45,7 @@ std::optional<TDeviceChoice> ParseDeviceChoice(std::string_view Text)
 	if (Number.empty() || Number.size() > 4)
 		return std::nullopt;
 	int Index = 0;
-	for (char c : Number) {
+	for (const char c : Number) {
 		if (c < '0' || c > '9')
 			return std::nullopt;
 		Index = Index * 10 + (c - '0');

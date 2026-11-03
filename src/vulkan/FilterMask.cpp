@@ -84,7 +84,7 @@ void TFilterMasks::Upload(int Image, int x, int y, int Width, int Height, const 
 		for (int j = 0; j < Width; j++) {
 			if (x + j < 0 || y + i < 0 || x + j >= Mask->Width || y + i >= Mask->Height)
 				continue;
-			uint32_t Pixel = Pixels[static_cast<size_t>(i) * static_cast<size_t>(Width) + static_cast<size_t>(j)];
+			const uint32_t Pixel = Pixels[static_cast<size_t>(i) * static_cast<size_t>(Width) + static_cast<size_t>(j)];
 			Mask->Pixels[static_cast<size_t>(y + i) * static_cast<size_t>(Mask->Width) + static_cast<size_t>(x + j)] = (Pixel >> 24) == 0 ? Transparent : 0;
 		}
 	}
@@ -103,32 +103,32 @@ void TFilterMasks::Draw(int Target, int Texture, TFilter Filter, const TQuad *Qu
 		Copy = FromMask->Pixels;
 		From = Copy.data();
 	}
-	int TextureWidth = FromMask->Width;
-	int TextureHeight = FromMask->Height;
+	const int TextureWidth = FromMask->Width;
+	const int TextureHeight = FromMask->Height;
 	for (size_t i = 0; i < Count; i++) {
 		const TQuad &Q = Quads[i];
-		int Left = Q.Left < 0 ? 0 : Q.Left;
-		int Top = Q.Top < 0 ? 0 : Q.Top;
-		int Right = Q.Right > To->Width ? To->Width : Q.Right;
-		int Bottom = Q.Bottom > To->Height ? To->Height : Q.Bottom;
+		const int Left = Q.Left < 0 ? 0 : Q.Left;
+		const int Top = Q.Top < 0 ? 0 : Q.Top;
+		const int Right = Q.Right > To->Width ? To->Width : Q.Right;
+		const int Bottom = Q.Bottom > To->Height ? To->Height : Q.Bottom;
 		if (Left >= Right || Top >= Bottom)
 			continue;
-		TQuadVertices Converted = ConvertQuad(Q, TextureWidth, TextureHeight, Filter);
+		const TQuadVertices Converted = ConvertQuad(Q, TextureWidth, TextureHeight, Filter);
 		if (!Converted.Nearest) {
 			for (int y = Top; y < Bottom; y++)
 				std::memset(&To->Pixels[static_cast<size_t>(y) * static_cast<size_t>(To->Width) + static_cast<size_t>(Left)],
 					Filtered, static_cast<size_t>(Right - Left));
 			continue;
 		}
-		TAxis Horizontal = MapAxis(Q.Left, Q.Right, Q.LeftU, Q.RightU, TextureWidth, Filter);
-		TAxis Vertical = MapAxis(Q.Top, Q.Bottom, Q.TopV, Q.BottomV, TextureHeight, Filter);
+		const TAxis Horizontal = MapAxis(Q.Left, Q.Right, Q.LeftU, Q.RightU, TextureWidth, Filter);
+		const TAxis Vertical = MapAxis(Q.Top, Q.Bottom, Q.TopV, Q.BottomV, TextureHeight, Filter);
 		for (int y = Top; y < Bottom; y++) {
 			int ty = Vertical.CopyStart + (y - Q.Top);
 			ty = Converted.Clamp ? Clamp(ty, TextureHeight) : Wrap(ty, TextureHeight);
 			for (int x = Left; x < Right; x++) {
 				int tx = Horizontal.CopyStart + (x - Q.Left);
 				tx = Converted.Clamp ? Clamp(tx, TextureWidth) : Wrap(tx, TextureWidth);
-				uint8_t Source = From[static_cast<size_t>(ty) * static_cast<size_t>(TextureWidth) + static_cast<size_t>(tx)];
+				const uint8_t Source = From[static_cast<size_t>(ty) * static_cast<size_t>(TextureWidth) + static_cast<size_t>(tx)];
 				if ((Source & Transparent) == 0)
 					To->Pixels[static_cast<size_t>(y) * static_cast<size_t>(To->Width) + static_cast<size_t>(x)] = Source;
 			}

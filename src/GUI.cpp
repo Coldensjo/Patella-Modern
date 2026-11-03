@@ -35,13 +35,13 @@ static vector<THotkey> Hotkeys(0, 50, 10);        // 0x5ce4f0, initialiser 0x559
 // --- Functions without exception frame (no line evidence) ------------------
 
 // 0x496000
-int TTimer::GetTime()
+int TTimer::GetTime() const
 {
 	return Remaining / 100;
 }
 
 // 0x496020
-bool TTimer::IsExpired()
+bool TTimer::IsExpired() const
 {
 	return !(Active && Remaining != 0);
 }
@@ -74,7 +74,7 @@ TWindow::TWindow()
 // 0x4960b0
 bool TWindow::IsChild(TComponent *Child)
 {
-	for (TComponent *Search = FirstChild; Search != nullptr; Search = Search->Next) {
+	for (const TComponent *Search = FirstChild; Search != nullptr; Search = Search->Next) {
 		if (Search == Child)
 			return true;
 	}
@@ -1617,7 +1617,7 @@ void UpdateTimers()
 	int i;
 	TBEGIN
 	static int LastTime = GetMilliseconds();
-	int elapsed = GetMilliseconds() - LastTime;
+	const int elapsed = GetMilliseconds() - LastTime;
 	LastTime = GetMilliseconds();
 	for (i = Timers.min; i <= Timers.max; i++) {
 		if (Timers(i) != nullptr && !Timers(i)->IsExpired())
@@ -1749,7 +1749,7 @@ void TComponent::Draw(int Surface, int x, int y)
 			continue;
 		TASSERT1(1118, DrawingList[i].skin<NumberOfSkins, DrawingList[i].skin);
 		if (DrawingList[i].width == 0 && DrawingList[i].height == 0) {
-			TSkin *Skin = &Skins[DrawingList[i].skin];
+			const TSkin *Skin = &Skins[DrawingList[i].skin];
 			DrawPicturePart(Surface, DrawingList[i].x + x, DrawingList[i].y + y, 4, Skin->x, Skin->y, Skin->width,
 				Skin->height);
 			continue;
@@ -2160,10 +2160,10 @@ void TWindow::FitToChild(TComponent *Child, TRect Area, bool Notify)
 	TBEGIN
 	int NewWidth = Child->Width + (Area.x > 0 ? Area.x : 0) + (Area.width < 0 ? -Area.width : 0);
 	int NewHeight = (Area.y > 0 ? Area.y : 0) + Child->Height + (Area.height < 0 ? -Area.height : 0);
-	int MinimumWidth = getMinimumWidth();
+	const int MinimumWidth = getMinimumWidth();
 	if (NewWidth < MinimumWidth)
 		NewWidth = MinimumWidth;
-	int MinimumHeight = getMinimumHeight();
+	const int MinimumHeight = getMinimumHeight();
 	if (NewHeight < MinimumHeight)
 		NewHeight = MinimumHeight;
 	if (Notify)
@@ -2201,16 +2201,16 @@ void TWindow::FitToChildren(TRect Margin, bool Notify)
 	TASSERT1(1773, Height>0, Height);
 	TASSERT1(1774, LeastX<INT_MAX, LeastX);
 	TASSERT1(1775, LeastY<INT_MAX, LeastY);
-	int dx = abs(Margin.x) - LeastX;
-	int dy = abs(Margin.y) - LeastY;
+	const int dx = abs(Margin.x) - LeastX;
+	const int dy = abs(Margin.y) - LeastY;
 	Width = Width + abs(Margin.width) + abs(Margin.x);
 	Height = Height + abs(Margin.height) + abs(Margin.y);
 	for (Child = FirstChild; Child != nullptr; Child = Child->GetNext())
 		Child->SetPosition(Child->OffsetX + dx, Child->OffsetY + dy);
-	int MinimumWidth = getMinimumWidth();
+	const int MinimumWidth = getMinimumWidth();
 	if (Width < MinimumWidth)
 		Width = MinimumWidth;
-	int MinimumHeight = getMinimumHeight();
+	const int MinimumHeight = getMinimumHeight();
 	if (Height < MinimumHeight)
 		Height = MinimumHeight;
 	if (Notify)
@@ -2234,8 +2234,8 @@ void TWindow::ClipChildren(bool Strict)
 			Next = Child->GetNext();
 			int x = Child->OffsetX;
 			int NewHeight = Child->Height;
-			int y = Child->OffsetY;
-			int OldWidth = Child->Width;
+			const int y = Child->OffsetY;
+			const int OldWidth = Child->Width;
 			bool Changed = x < 0;
 			int NewWidth = OldWidth;
 			if (Changed) {
@@ -2297,7 +2297,7 @@ void TElement::ReleaseCapture([[maybe_unused]] TComponent *Component)
 // --- TCallback --------------------------------------------------------------
 
 // 0x4a0f00, line 1931
-void TCallback::Send()
+void TCallback::Send() const
 {
 	TBEGIN
 	if (Receiver != nullptr)
