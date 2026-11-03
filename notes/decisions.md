@@ -5204,3 +5204,57 @@ Deleted: `Patella.sln`, `Patella.vcxproj`, `tools\build-patella.cmd`, `tools\com
   warnings, 8/8 tests each (on GCC the stand-in-only precondition scenario of tests_unit is skipped, as since #9).
   The server started and stopped twice with testserver.py (both ports listening, a clean "Server shut down
   successfully.", ports free and no process afterwards). Logs: build\logs\issue-10.
+
+## Clean run folders for the GUI comparisons (issue #12)
+
+Settled by Claude Opus 5.5, November 3, 2026 (Python 3.13). `tools/compare_traffic.py` (setup's `extra`,
+`clean_run_dir`), `tools/compare_files.py`, `tools/compare_network.py`, `tools/compare_rendering.py`,
+`tools/session_client.py`. No change to src/ or the build.
+
+- **One cleaning function** (high). `compare_traffic.clean_run_dir(name, keep=())` empties a run folder before
+  every run of every GUI comparison: everything but the data files, the patched client and `keep` goes, files and
+  subfolders alike; a data file whose sha256 differs from the root's (the patch scenario rewrites them) is copied
+  again; what is left is checked, and the removed names are logged. It replaces compare_files.py's own reset (which
+  deleted files only, kept a Tibia.exe in every folder and left folders alone); compare_traffic.py cleaned nothing
+  (only rewrote Tibia.cfg), so automap files of the live run went into the replays; compare_rendering.py cleaned
+  nothing either. Where it is called: compare_traffic.py's play() (live and replay runs) and the helper's
+  folder in live_run(); compare_files.py's prepare() (every scenario, the live recording too) and so
+  compare_network.py's run(); compare_rendering.py's run() with `keep=("patcap.dll",)`. Considered: a fresh copy
+  of the whole folder per run (the 15.9 MB Tibia.spr every time; the patched client would have to be made again).
+- **orig-repeat has its own folder** (high). The second Tibia.exe run (compare_files.py `orig-2`, now
+  `orig-repeat`; compare_rendering.py `orig-repeat`; compare_network.py's `<scenario>-repeat`) ran in the orig
+  folder. `setup(extra=["orig-repeat"])` makes `<folder>\orig-repeat` with its own patched Tibia.exe (the same
+  bytes as orig's), and the tools name a run by its folder (`client_of("orig-repeat")` is orig). Results stay
+  where they were (compare_files.py `<out>\repeat\<scenario>\orig`, compare_rendering.py `<engine>\orig-repeat`).
+- **Waits that explain the first-attempt failures** (medium until the live runs). Three first attempts on
+  November 3 failed in the GUI driving and passed on a rerun (build\logs\live-x64):
+  - traffic, Tibia.exe live: "no window of class TMapWindow" at "look north", right after "say". Driver.node read
+    the window tree once and gave up. The tree is read from the running client without a lock (gui() follows the
+    Next pointers while the client may be changing the list), so a single read can miss a window that is there.
+    Driver.node now reads again for up to 5 s (NODE_TIMEOUT) before the window counts as missing; a window that is
+    really absent still fails, 5 s later.
+  - replay into x86 Patella: "dropped its connection after 11 s". The log shows the proxy accepted the game
+    connection a second after the Return and the replay went on; session_client.login then found no established
+    connection in the client's TCP table for 10 s, raised, and the client was killed: the reset (WinError 10054)
+    was the kill, not the client. compare_files.py already worked around the same miss (issue #21: "missed an
+    established game connection twice"). login() now takes the proxy and counts its game login packet as well
+    (compare_traffic.py passes it through run_session; compare_files.py's game_login uses it); a failure lists
+    the client's TCP connections. Why the table misses the connection is open: GetExtendedTcpTable returned the
+    connection in 300 of 300 reads of a test connection of this process (build\logs\issue-12).
+  - files options, Tibia.exe: "no TAdvancedGraphicsDialog within 10 s" after the click on Advanced. wait_node
+    returned a dialog as soon as it was in the tree and the next click went to the place of the button read right
+    after it. wait_node now returns once the dialog's place has stopped changing (the same in two reads 0.2 s
+    apart), and the clicks that open a dialog (Options, its five buttons, Advanced) are repeated when nothing
+    opened within 4 s (`click_open`, at most three clicks, the button's place read again before each). A click
+    that opened the dialog later than 4 s would be repeated into the dialog; nothing in the logs takes that long
+    (the slowest, the graphics options with the engine switch, take 9 s for all their clicks).
+  Not settled without a live run: whether these were the causes (the leftovers in the run folders can explain
+  none of the three: the traffic folders kept automap files, which change no window, and compare_files.py cleaned
+  its files already).
+- **Gates** (high). py_compile and `python -I -W error -c "import ..."` of the five tools, `client_state.py
+  --self-test`; `build\scratch\check_runfolders.py` (in build\logs\issue-12): setup with orig-repeat on a scratch
+  folder set (patch_client.py on Tibia.exe and the oracle-x86 Patella.exe), leftovers planted in every folder
+  (automap file, error.txt, Default.txt, a screenshot, an old Tibia.cfg, Tibia.bak, a subfolder, a Tibia.spr with
+  another signature) and each tool's cleaning call: only the data files (equal to the root's), the client(s),
+  Tibia.cfg and the seed remain; the folders of orig, patella and orig-repeat differ. `check_waits.py`: node,
+  login, wait_node and click_open against fake clients. No client was started.

@@ -16,8 +16,9 @@ python -I tools/compare_network.py [--out build\network\result] [--only login,ga
 
 No server is needed (the test server stays stopped). The script copies issue #19's live recording of Tibia.exe
 (build\traffic\result\orig-live.jsonl of that issue's worktree; sha256 61103b95...825b) to
-build\network\orig-live.jsonl once; `--recording` takes another. It sets up build\network\orig and
-build\network\patella like tools/compare_traffic.py (copies of the data files, the clients patched by
+build\network\orig-live.jsonl once; `--recording` takes another. It sets up build\network\orig,
+build\network\patella and build\network\orig-repeat (the second Tibia.exe run's, Patella-Modern issue #12;
+each emptied before every run) like tools/compare_traffic.py (copies of the data files, the clients patched by
 tools/patch_client.py to log in at 127.0.0.1:7271 with tibia.pem's modulus) and runs each scenario with
 compare_files.py's prepare() (a fresh Tibia.cfg, no other files). `--only` takes name prefixes, `--list` lists the
 scenarios, `--repeat` runs Tibia.exe a second time where the clients differ (to tell the client's run-to-run
