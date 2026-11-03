@@ -21,6 +21,7 @@
 #pragma once
 
 #include "common.h"
+#include <type_traits>
 
 struct TObject; // Objects.h, passed to DrawObject
 
@@ -28,11 +29,13 @@ inline constexpr int PATH_MAX = 1024;
 inline constexpr int HASH_TABLE_SIZE = 100;
 
 // Text alignment (TFont::Alignment, the Alignment parameters).
-enum {
+enum : int {
 	LEFT_ALIGN = 0,
 	CENTER_ALIGN = 1,
 	RIGHT_ALIGN = 2,
 };
+static_assert(sizeof(decltype(LEFT_ALIGN)) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<decltype(LEFT_ALIGN)>, int>);
 
 // --- Graphics types -----------------------------------------------------------
 // The types of the drawing interface, used by every window file (GUI.h
@@ -94,11 +97,13 @@ struct TFont { // passed by value (20 bytes)
 };
 
 // Kinds of cache items. Pictures and font characters are both PICTURE_ITEM.
-enum {
+enum : int {
 	EMPTY_ITEM = 0,
 	SPRITE_ITEM = 1,
 	PICTURE_ITEM = 2,
 };
+static_assert(sizeof(decltype(EMPTY_ITEM)) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<decltype(EMPTY_ITEM)>, int>);
 
 // A sprite of Tibia.spr (0x10 bytes). Offset 0 is an empty sprite.
 struct TSprite {

@@ -80,9 +80,11 @@ inline void Limit(int *Value, int Min, int Max)
 // The client's second exception type: an error code thrown by value
 // (ThrowInfo 0x57b3c4, ".?AW4PROGRAM_ERROR@@"). The enumerator names are
 // unknown; values seen so far: 6 (AfxSocketInit failed, InitNetwork).
-enum PROGRAM_ERROR {
+enum PROGRAM_ERROR : int {
 	PROGRAM_ERROR_SOCKET_INIT = 6, // our name
 };
+static_assert(sizeof(PROGRAM_ERROR) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<PROGRAM_ERROR>, int>);
 
 // Every site names the original's source line as its first argument, the line
 // the binary pushes for that site: TASSERT(66, s!=NULL), TEND1(874, Obj).

@@ -71,6 +71,10 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
 - Constants are `inline constexpr int` in a header (`constexpr` in a .cpp), not `#define` (issue #36);
   a macro only where the preprocessor needs one (`#if`, configuration such as `DIRECT3D_VERSION`, the
   resource IDs of `src/res/resource.h`, an API's own macro names such as SurfaceGL.cpp's `WGL_*_ARB`).
+- Every enum has an explicit underlying type, followed by static_asserts of its size and of
+  `std::underlying_type_t` (issue #37); a new enum is an `enum class` unless its values are used as
+  ints (array indices, bit numbers, int fields, packets) or its enumerators appear in a TASSERT/TERROR/TEND
+  argument.
 - Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`, `TBEGIN`/`TEND*`) exactly where
   the binary has the corresponding blocks.
 - Behaviour must match the binary exactly, including odd behaviour (for example

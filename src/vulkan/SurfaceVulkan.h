@@ -20,10 +20,13 @@
 #include "vulkan/Renderer.h"
 #include <memory>
 #include <vector>
+#include <type_traits>
 
-enum {
+enum : int {
 	NUMBER_OF_SURFACES_VULKAN = 22
 };
+static_assert(sizeof(decltype(NUMBER_OF_SURFACES_VULKAN)) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<decltype(NUMBER_OF_SURFACES_VULKAN)>, int>);
 
 // The functions of a frame observer DLL (tools/capture/patcap.c, loaded by tools/compare_rendering.py):
 // told about the device, asked before each frame is shown whether it wants the frame's pixels.

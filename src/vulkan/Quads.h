@@ -22,6 +22,7 @@
 
 #include <array>
 #include <cstdint>
+#include <type_traits>
 
 namespace patella::vulkan {
 
@@ -35,10 +36,12 @@ struct TVertex {
 
 // The texture filter of the quad's draw (surfaceDX9.cpp's sampler state: linear, point for the
 // automap's upload).
-enum class TFilter {
+enum class TFilter : int {
 	Point,
 	Linear,
 };
+static_assert(sizeof(TFilter) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<TFilter>, int>);
 
 // A quad as surfaceDX9.cpp's AddQuad and AddShadeQuad take it: the corners on the target, the texture
 // coordinates of the left/right and top/bottom edges (Direct3D 9 gets them as floats), and the corner

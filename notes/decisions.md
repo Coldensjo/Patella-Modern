@@ -6581,3 +6581,69 @@ with the reason it stays a macro.
   main 93315c1 and from the branch at the same path, differ only in the link time stamps and the PDB record
   (pecompare: `.text`, `.rdata` and `.data` identical); macrocheck 93315c1 issue-36: 2,108 calls, 0 differences;
   the difftest counts are unchanged.
+
+## Enums with an explicit underlying type, then enum class (Patella-Modern issue #37)
+
+Settled by Claude Opus 5.5, November 3, 2026. The seventh change of M3 (plan section 7), by hand, in two commits that
+can be reviewed and reverted alone: every enum of src/ has an explicit underlying type, and the one that nothing uses
+as an int is an `enum class`.
+
+- **`: int`, the type MSVC gives them now** (high). The eleven enums of the reconstruction (common.h's PROGRAM_ERROR,
+  Script.h's TOKEN, Talk.h's TALK_MODE, and the unnamed ones of graphics.h (the alignments, the cache item kinds),
+  Objects.h (the Tibia.dat flags), Surface.h (the view modes, the surface indices), surfaceDX9.h, SurfaceGL.h and
+  Talk.h (TALKBOXES, STATUSMESSAGE_LENGTH)), SurfaceVulkan.h's unnamed NUMBER_OF_SURFACES_VULKAN and the three enum
+  classes of src/vulkan (TDeviceKind, TDeviceButton, TFilter, which were `int` by default) say `: int`. Each is
+  followed by `static_assert(sizeof(E) == 4)` and `static_assert(std::is_same_v<std::underlying_type_t<E>, int>)`
+  (`decltype` of an enumerator for the unnamed ones), in the header, so every preset that includes it checks them,
+  oracle-x86 included. TReadScriptFile::Token (+0x000) is the only structure member of one of these types; its 4
+  bytes are the asserted size. The test mode's four enum classes already said `std::uint8_t`.
+- **GCC and Clang: unsigned int before, int now** (high). MSVC gives an unscoped enum without a fixed type `int`;
+  GCC and Clang give it `unsigned int` when no enumerator is negative (checked with mingw-w64 GCC 16.2:
+  `std::underlying_type_t` of such an enum is `unsigned int`). The explicit type is MSVC's, the compiler of the
+  original and of the reference builds, so the asserts hold on every preset. Nothing observable changes on GCC and
+  Clang either: an unscoped enum promotes to `int` in both cases (its values fit in `int`), and every value of `int`
+  is now a valid value of the enum where before only those of its bit range were. The Linux presets compile only
+  common.h's PROGRAM_ERROR of these (patella_core), and no core source throws or catches it.
+- **Mangled names and RTTI unchanged** (high). MSVC encodes an enum as `W4<name>@@` for an `int` underlying type,
+  scoped or not, so PROGRAM_ERROR's catchable type `.?AW4PROGRAM_ERROR@@` (in .rdata; the difftest's imageeh.cpp
+  matches the original's by that name), HandleProgramError's decorated name and every other symbol keep their
+  spelling; the Itanium ABI does not encode the underlying type. tools/client_state.py, the test mode's state dump
+  and the comparison tools look up none of these enums or enumerators (they read classes, `int` and class template
+  instances from the PDB), so their output is unaffected.
+- **TOKEN becomes `enum class TOKEN : int`** (high). The second commit. TReadScriptFile's token kind is only assigned
+  (nextToken) and compared with `==`/`!=` (Script.cpp's getters and readers, Preferences.cpp's options parser); no
+  enumerator is in a TASSERT/TERROR/TEND argument (the errors are `error("identifier expected")` texts). The 39
+  uses are qualified (`TOKEN::SPECIAL`). Outside src/, the difftest's scripttest.cpp and errortest.cpp qualify them
+  too (7 uses), and scripttest.cpp's printf-style CHECK passes the two tokens as `(int)` (a scoped enumeration is not
+  promoted in a variadic call). Its `(TOKEN)0x55555555` cast stays as it is.
+- **The other ten stay unscoped** (high). Each is used as an int:
+  - PROGRAM_ERROR: Player.cpp's HandleProgramError streams it (`<< Error`, "Error Code 12") and passes it to
+    GetErrorText and GetErrorHint (int parameters); the difftest's imageeh.h stores it in an int Code. The throws
+    are casts from int (`throw (PROGRAM_ERROR)12`), which an enum class would allow, but the conversions back
+    would need explicit casts at those sites. It stays in the clang-tidy baseline (cppcoreguidelines-use-enum-class).
+  - TALK_MODE: its enumerators are in eight TASSERT1 arguments (Communication.cpp, Talk.cpp:
+    `Mode==TALK_SAY || ...`, `Mode>=0&&Mode<TALK_MODE_BEYONDLAST`), where `TALK_MODE::TALK_SAY` would change the
+    message text; C++20's `using enum` would keep the text, but the oracle compiles as C++17. Beyond M5 it is not
+    eligible either: the mode is an int everywhere (TTalkbox::Mode and TTalkLine::Mode, the packets' talk mode byte,
+    the int parameters of SendTalk, AddTextBufferLine and AddMessageTalkbox, `switch` over an int in
+    ConsoleWindow.cpp and MapWindow.cpp, the ordering comparison with TALK_MODE_BEYONDLAST, the difftest's int
+    tables).
+  - The eight unnamed ones (and SurfaceVulkan.h's): an unnamed enum has no name to scope its enumerators by; they
+    are int constants. LEFT_ALIGN and the others go into TFont's `int Alignment`; the item kinds into the cache
+    items' int Type; the Tibia.dat flags are bit numbers (GetObjectFlag(Type, CUMULATIVE)); the surface indices
+    index arrays (`Rect[PRIMARY_SURFACE]`, `Surface9[SPRITE_SURFACE]`) and are compared with int parameters; the
+    NUMBER_OF_SURFACES_* and TALKBOXES/STATUSMESSAGE_LENGTH are array bounds and loop limits. At least 53 lines
+    use them inside TASSERT/TERROR/TEND arguments (36 of them the surface indices). Turning them into `inline constexpr int` (issue #36's form) would be a
+    separate change; it is not part of this issue.
+  clang-tidy's cppcoreguidelines-use-enum-class (enabled in .clang-tidy) on the 11 targets' commands (as in issue
+  #32: oracle-x86's Patella, mfc_shim_check, difftest, communicationtest, sysinctest and vlongtest with
+  `--extra-arg=-m32`; windows-x64's Patella, PatellaTest, patella_core, patella_testmode and patella_render_vulkan)
+  reports exactly these eleven after the change (TOKEN gone; MainFrm.cpp's two clang-diagnostic errors of the MFC
+  message map, also on main, aside).
+- **No `using enum`** (high). It would let TOKEN's uses stay unqualified, but the oracle-x86 preset is C++17, and the
+  qualified names are what an enum class is for.
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built from
+  main c797628 and from each commit at the same path, differ only in the link time stamps and the PDB record
+  (pecompare: `.text`, `.rdata` apart from those, `.data`, `.pdata` and `.reloc` identical after each of the two
+  commits). macrocheck c797628 against each commit: the 2,108 calls unchanged. The difftest counts are unchanged; the
+  clang-tidy baseline is unchanged (14; PROGRAM_ERROR's use-enum-class entry stays).

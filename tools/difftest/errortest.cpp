@@ -958,7 +958,7 @@ static void TestScript()
 			for (int i = 0; i < 100; i++) {
 				TThrown A = Both2("TReadScriptFile::nextToken", [&] { Ours.nextToken(); },
 					[&] { At<ScriptFn>(0x4dfb60)(Original, NULL); });
-				if (A.Kind != TThrown::NOTHING || Ours.Token == ENDOFFILE)
+				if (A.Kind != TThrown::NOTHING || Ours.Token == TOKEN::ENDOFFILE)
 					break;
 				int Getter = (int)(ErRandom() % 6);
 				if (Getter == 0)

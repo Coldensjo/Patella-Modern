@@ -3,10 +3,11 @@
 #include "Container.h"
 #include "Preferences.h"
 #include <ctime>
+#include <type_traits>
 
 struct TRGBColor;
 
-enum TALK_MODE {
+enum TALK_MODE : int {
 	TALK_SAY = 1,
 	TALK_WHISPER = 2,
 	TALK_YELL = 3,
@@ -28,8 +29,14 @@ enum TALK_MODE {
 	TALK_INFO_MESSAGE = 22,
 	TALK_MODE_BEYONDLAST = 27
 };
-enum { TALKBOXES = 10,
-	STATUSMESSAGE_LENGTH = 512 };
+static_assert(sizeof(TALK_MODE) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<TALK_MODE>, int>);
+enum : int {
+	TALKBOXES = 10,
+	STATUSMESSAGE_LENGTH = 512,
+};
+static_assert(sizeof(decltype(TALKBOXES)) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<decltype(TALKBOXES)>, int>);
 struct TTalkbox {
 	int State, Order, RemainingTime, Mode;
 	int x, y, z, Lines;

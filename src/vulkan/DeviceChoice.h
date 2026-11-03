@@ -12,15 +12,18 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 namespace patella::vulkan {
 
 // The device the engine runs on.
-enum class TDeviceKind {
+enum class TDeviceKind : int {
 	Automatic, // the best GPU with Vulkan 1.3, the CPU driver when there is none
 	Gpu,       // a GPU only (GpuIndex: the n-th, -1 the best)
 	Cpu,       // the CPU driver only
 };
+static_assert(sizeof(TDeviceKind) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<TDeviceKind>, int>);
 
 struct TDeviceChoice {
 	TDeviceKind Kind = TDeviceKind::Automatic;
@@ -30,11 +33,13 @@ struct TDeviceChoice {
 
 // The advanced options' buttons, in the skin's three places (the original's DirectX5, DirectX9 and
 // OpenGL buttons).
-enum class TDeviceButton {
+enum class TDeviceButton : int {
 	Automatic,
 	Gpu,
 	Cpu,
 };
+static_assert(sizeof(TDeviceButton) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<TDeviceButton>, int>);
 
 // "auto", "gpu", "gpu1", "gpu:1", "cpu", without regard to ASCII case or the spaces around it; nothing
 // for anything else (an empty text included).

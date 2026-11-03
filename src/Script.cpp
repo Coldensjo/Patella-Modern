@@ -68,7 +68,7 @@ void TReadScriptFile::nextToken()
 		case 0:
 			c = getc(File);
 			if (c == EOF) {
-				Token = ENDOFFILE;
+				Token = TOKEN::ENDOFFILE;
 				return;
 			}
 			if (c == '\n') {
@@ -101,7 +101,7 @@ void TReadScriptFile::nextToken()
 		case 1: // comment
 			c = getc(File);
 			if (c == EOF) {
-				Token = ENDOFFILE;
+				Token = TOKEN::ENDOFFILE;
 				return;
 			}
 			if (c == '\n') {
@@ -114,12 +114,12 @@ void TReadScriptFile::nextToken()
 			if (Size == MAX_IDENT_LENGTH)
 				error("identifier too long");
 			if (c == EOF) {
-				Token = IDENTIFIER;
+				Token = TOKEN::IDENTIFIER;
 				return;
 			}
 			if (!IsAlpha(c) && !IsDigit(c) && c != '_') {
 				ungetc(c, File);
-				Token = IDENTIFIER;
+				Token = TOKEN::IDENTIFIER;
 				return;
 			}
 			String[Size++] = (char)c;
@@ -127,7 +127,7 @@ void TReadScriptFile::nextToken()
 		case 3: // number
 			c = getc(File);
 			if (c == EOF) {
-				Token = NUMBER;
+				Token = TOKEN::NUMBER;
 				return;
 			}
 			if (IsDigit(c)) {
@@ -137,7 +137,7 @@ void TReadScriptFile::nextToken()
 				State = 4;
 			} else {
 				ungetc(c, File);
-				Token = NUMBER;
+				Token = TOKEN::NUMBER;
 				return;
 			}
 			break;
@@ -154,7 +154,7 @@ void TReadScriptFile::nextToken()
 			c = getc(File);
 			if (c == EOF) {
 				Bytes[Size] = (uint8)Number;
-				Token = BYTES;
+				Token = TOKEN::BYTES;
 				return;
 			}
 			if (IsDigit(c)) {
@@ -165,7 +165,7 @@ void TReadScriptFile::nextToken()
 			} else {
 				ungetc(c, File);
 				Bytes[Size] = (uint8)Number;
-				Token = BYTES;
+				Token = TOKEN::BYTES;
 				return;
 			}
 			break;
@@ -194,21 +194,21 @@ void TReadScriptFile::nextToken()
 			State = 6;
 			break;
 		case 8:
-			Token = STRING;
+			Token = TOKEN::STRING;
 			return;
 		case 10:
-			Token = SPECIAL;
+			Token = TOKEN::SPECIAL;
 			return;
 		case 11: // coordinate
 			c = getc(File);
 			Special = '[';
 			if (c == EOF) {
-				Token = SPECIAL;
+				Token = TOKEN::SPECIAL;
 				return;
 			}
 			if (!IsDigit(c)) {
 				ungetc(c, File);
-				Token = SPECIAL;
+				Token = TOKEN::SPECIAL;
 				return;
 			}
 			Number = c - '0';
@@ -272,13 +272,13 @@ void TReadScriptFile::nextToken()
 			}
 			break;
 		case 17:
-			Token = COORDINATE;
+			Token = TOKEN::COORDINATE;
 			return;
 		case 22: // '<', "<=", "<>"
 			c = getc(File);
 			Special = '<';
 			if (c == EOF) {
-				Token = SPECIAL;
+				Token = TOKEN::SPECIAL;
 				return;
 			}
 			if (c == '=') {
@@ -287,53 +287,53 @@ void TReadScriptFile::nextToken()
 				State = 24;
 			} else {
 				ungetc(c, File);
-				Token = SPECIAL;
+				Token = TOKEN::SPECIAL;
 				return;
 			}
 			break;
 		case 23:
 			Special = 'L';
-			Token = SPECIAL;
+			Token = TOKEN::SPECIAL;
 			return;
 		case 24:
 			Special = 'N';
-			Token = SPECIAL;
+			Token = TOKEN::SPECIAL;
 			return;
 		case 25: // '>', ">="
 			c = getc(File);
 			Special = '>';
 			if (c == EOF) {
-				Token = SPECIAL;
+				Token = TOKEN::SPECIAL;
 				return;
 			}
 			if (c != '=') {
 				ungetc(c, File);
-				Token = SPECIAL;
+				Token = TOKEN::SPECIAL;
 				return;
 			}
 			State = 26;
 			break;
 		case 26:
 			Special = 'G';
-			Token = SPECIAL;
+			Token = TOKEN::SPECIAL;
 			return;
 		case 27: // '-', "->"
 			c = getc(File);
 			Special = '-';
 			if (c == EOF) {
-				Token = SPECIAL;
+				Token = TOKEN::SPECIAL;
 				return;
 			}
 			if (c != '>') {
 				ungetc(c, File);
-				Token = SPECIAL;
+				Token = TOKEN::SPECIAL;
 				return;
 			}
 			State = 28;
 			break;
 		case 28:
 			Special = 'I';
-			Token = SPECIAL;
+			Token = TOKEN::SPECIAL;
 			return;
 		default:
 			TERROR1(230, "invalid state", State);
@@ -348,7 +348,7 @@ void TReadScriptFile::nextToken()
 // 0x4e0420
 char *TReadScriptFile::getIdentifier()
 {
-	if (Token != IDENTIFIER)
+	if (Token != TOKEN::IDENTIFIER)
 		error("identifier expected");
 	LowerString(String);
 	return String;
@@ -357,7 +357,7 @@ char *TReadScriptFile::getIdentifier()
 // 0x4e0450
 int TReadScriptFile::getNumber()
 {
-	if (Token != NUMBER)
+	if (Token != TOKEN::NUMBER)
 		error("number expected");
 	return Number;
 }
@@ -365,7 +365,7 @@ int TReadScriptFile::getNumber()
 // 0x4e0470
 char *TReadScriptFile::getString()
 {
-	if (Token != STRING)
+	if (Token != TOKEN::STRING)
 		error("string expected");
 	return String;
 }
@@ -373,7 +373,7 @@ char *TReadScriptFile::getString()
 // 0x4e0490
 char TReadScriptFile::getSpecial()
 {
-	if (Token != SPECIAL)
+	if (Token != TOKEN::SPECIAL)
 		error("special-char expected");
 	return Special;
 }
@@ -734,7 +734,7 @@ int TReadScriptFile::readNumber()
 {
 	int Sign = 1;
 	nextToken();
-	if (Token == SPECIAL && Special == '-') {
+	if (Token == TOKEN::SPECIAL && Special == '-') {
 		Sign = -1;
 		nextToken();
 	}
@@ -752,7 +752,7 @@ char *TReadScriptFile::readString()
 void TReadScriptFile::readSymbol(char Symbol)
 {
 	nextToken();
-	if (Token != SPECIAL)
+	if (Token != TOKEN::SPECIAL)
 		error("special-char expected");
 	if (Special != Symbol)
 		error("special-char expected");

@@ -161,6 +161,13 @@ assertions stringize their parameter unexpanded, so the messages keep their text
 as macros: those read by `#if` or by a header's own preprocessor checks, SurfaceGL.cpp's GL/WGL API names, the
 resource IDs. The oracle Patella.exe and the x64 Patella.exe and PatellaTest.exe unchanged (pecompare); the
 clang-tidy baseline unchanged (14). notes/decisions.md, "Constant #defines to constexpr (Patella-Modern issue #36)".
+Enums (Patella-Modern issue #37, November 3, 2026; M3's seventh change, by hand, two commits): every enum of src/
+says `: int` (MSVC's type for them; GCC and Clang had `unsigned int`, which promotes alike), with static_asserts of
+its size and underlying type in every preset; Script.h's TOKEN, only assigned and compared, is an `enum class`. The
+other ten stay unscoped: PROGRAM_ERROR and TALK_MODE are used as ints (TALK_MODE also in TASSERT texts), the unnamed
+ones are int constants. The oracle Patella.exe and the x64 Patella.exe and PatellaTest.exe unchanged after each
+commit (pecompare); macrocheck 0 differences; the clang-tidy baseline unchanged (14). notes/decisions.md, "Enums
+with an explicit underlying type, then enum class (Patella-Modern issue #37)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -181,6 +188,12 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #37 (branch issue-37, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after the explicit enum types and TOKEN as an enum class (two commits): 16,848,752 + 67 + 1,134,513
+checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe
+and PatellaTest.exe built from main (c797628) and from each commit at the same path: `.text`, `.data` and `.pdata`
+identical, 0 unexpected differences (pecompare); macrocheck c797628 issue-37: 2,108 calls, 0 differences.
 
 Patella-Modern issue #36 (branch issue-36, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after the constant #defines to constexpr: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks,
