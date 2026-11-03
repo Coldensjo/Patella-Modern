@@ -828,9 +828,7 @@ void TSurfaceGL::ExitSurfaces()
 }
 
 // 0x4fb670. Surface.cpp's GetSurface creates it with new.
-TSurfaceGL::TSurfaceGL()
-{
-}
+TSurfaceGL::TSurfaceGL() = default;
 
 // 0x4fb700. Rect[PRIMARY_SURFACE] is not set.
 void TSurfaceGL::InitSurfaces()

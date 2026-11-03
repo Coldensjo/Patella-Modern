@@ -85,6 +85,8 @@ struct TLineFormat {
 // (SelectionEndLine, SelectionEndOffset) in either order; -1 is none.
 class TTextWindow : public TElement {
 public:
+	TTextWindow(const TTextWindow &) = delete;
+	TTextWindow &operator=(const TTextWindow &) = delete;
 	TTextWindow(); // 0x418520
 	// Inline (0x4179f0, deleting destructor 0x417a80); Lines frees its entries.
 	~TTextWindow() override
@@ -170,6 +172,8 @@ public:
 // lights up when its buffer gets new lines (Unread), blinking for 10 actions.
 class TTab : public TElement {
 public:
+	TTab(const TTab &) = delete;
+	TTab &operator=(const TTab &) = delete;
 	TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback Callback); // 0x41a870, lines 806-831
 	~TTab() override;                                                         // +0x00, 0x41acd0, lines 849-866 (deleting 0x421b10)
 	// Inline (0x417700, folded with TTabBar's): the tab height.
@@ -211,6 +215,8 @@ public:
 // (GetContainer); Moved is the tab being dragged, drawn last.
 class TTabBar : public TWindow {
 public:
+	TTabBar(const TTabBar &) = delete;
+	TTabBar &operator=(const TTabBar &) = delete;
 	TTabBar(); // 0x421b30, line 1016
 	// Inline (0x417610, deleting destructor 0x417a60).
 	~TTabBar() override
@@ -253,6 +259,8 @@ public:
 // lines (HistoryPosition -1 is the edit line itself).
 class TConsoleWindow : public TWindow {
 public:
+	TConsoleWindow(const TConsoleWindow &) = delete;
+	TConsoleWindow &operator=(const TConsoleWindow &) = delete;
 	TConsoleWindow();                             // 0x422410, line 1516
 	~TConsoleWindow() override;                   // +0x00, 0x41dbe0, line 1543 (deleting 0x422aa0)
 	void SetSize(int Width, int Height) override; // +0x34, 0x41de80, line 1571

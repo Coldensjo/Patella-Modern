@@ -18,9 +18,7 @@ static std::string GetFileName(const std::string &Path)
 }
 
 // 0x508300
-TMyException::~TMyException()
-{
-}
+TMyException::~TMyException() = default;
 
 // 0x508400
 TMyException::TMyException(const std::string &File, int Line, const std::string &Kind,

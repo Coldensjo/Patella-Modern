@@ -20,6 +20,8 @@ inline constexpr int KEY_ALT = 0x800;
 
 class CMainFrame : public CFrameWnd {
 public:
+	CMainFrame(const CMainFrame &) = delete;
+	CMainFrame &operator=(const CMainFrame &) = delete;
 	CMainFrame(bool Gamemaster);
 	~CMainFrame() override;
 	BOOL PreCreateWindow(CREATESTRUCT &cs) override;

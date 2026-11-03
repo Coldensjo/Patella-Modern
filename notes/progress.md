@@ -189,6 +189,12 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #34 (branch issue-34, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after = default / = delete and the non-copyable owning classes (three commits): 16,848,752 + 67 +
+1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release
+Patella.exe and PatellaTest.exe built from main (b123283) and from each commit at the same path: `.text`, `.data` and
+`.pdata` identical, 0 unexpected differences (pecompare); macrocheck b123283 issue-34: 2,108 calls, 0 differences.
+
 Patella-Modern issue #37 (branch issue-37, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after the explicit enum types and TOKEN as an enum class (two commits): 16,848,752 + 67 + 1,134,513
 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe

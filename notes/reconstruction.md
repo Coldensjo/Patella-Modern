@@ -75,6 +75,11 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
   `std::underlying_type_t` (issue #37); a new enum is an `enum class` unless its values are used as
   ints (array indices, bit numbers, int fields, packets) or its enumerators appear in a TASSERT/TERROR/TEND
   argument.
+- A class whose destructor frees what it holds (memory, a FILE *, a descriptor, its children) declares its
+  copy constructor and copy assignment `= delete`, or defines them where the code copies it (vlong's shared
+  value) (issue #34). An empty special member is `= default` when it is defined outside the class (it stays
+  user-provided); inside the class only where that changes neither the image nor value-initialization
+  (`TSurfaceDX() {}` and TXTEA's destructor keep their bodies, with a NOLINT; notes/decisions.md).
 - Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`, `TBEGIN`/`TEND*`) exactly where
   the binary has the corresponding blocks.
 - Behaviour must match the binary exactly, including odd behaviour (for example

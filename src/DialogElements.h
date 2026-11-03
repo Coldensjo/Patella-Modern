@@ -113,6 +113,8 @@ public:
 // without an area size the label to the text. Mouse events go through it.
 class TLabel : public TElement {
 public:
+	TLabel(const TLabel &) = delete;
+	TLabel &operator=(const TLabel &) = delete;
 	TLabel(int x, int y, int Width, int Height, TFont _Font, const char *_Text, bool Shorten); // 0x465510, lines 337-348
 	TLabel(int x, int y, TFont _Font, const char *_Text);                                      // 0x465810, lines 355-369
 	TLabel(TFont _Font, const char *_Text);                                                    // 0x465b40, lines 376-389
@@ -148,6 +150,8 @@ public:
 // large as the text".
 class TFormattedText : public TWindow {
 public:
+	TFormattedText(const TFormattedText &) = delete;
+	TFormattedText &operator=(const TFormattedText &) = delete;
 	TFormattedText(const char *_Text); // 0x465e60, line 508
 	// Inline (out-of-line copy 0x452630, deleting destructor 0x452d70).
 	~TFormattedText() override
@@ -174,6 +178,8 @@ class TTextButton;
 // 0x3c bytes): the dialogs' links to the web site.
 class TLink : public TWindow {
 public:
+	TLink(const TLink &) = delete;
+	TLink &operator=(const TLink &) = delete;
 	TLink(const char *_Text, const char *ButtonText, const char *_Destination, void (*_OpenURL)(const char *URL),
 		TFont Font); // 0x46b030, lines 785-796
 	// Inline (out-of-line copy 0x452670, deleting destructor 0x452d90).
@@ -398,6 +404,8 @@ public:
 // the first state's skins and callback, then those of the other states.
 class TMultiStateButton : public TSkinButton {
 public:
+	TMultiStateButton(const TMultiStateButton &) = delete;
+	TMultiStateButton &operator=(const TMultiStateButton &) = delete;
 	TMultiStateButton(int x, int y, const char *_Tooltip, int _States, int _ButtonUp, int _ButtonDown,
 		TCallback _Callback, ...); // 0x4672d0
 	// Inline (out-of-line copy 0x452740, deleting destructor 0x452db0).
@@ -458,6 +466,8 @@ class TFocusGroup;
 // and selecting; a disabled one (Disabled) shows no text and takes no input.
 class TEditLine : public TWindow {
 public:
+	TEditLine(const TEditLine &) = delete;
+	TEditLine &operator=(const TEditLine &) = delete;
 	TEditLine(TRect Area, int _MaxLength, bool _ReadOnly); // 0x467b50, lines 1878-1900
 	TEditLine(int _MaxLength, bool _ReadOnly);             // 0x45a4c0, lines 1908-1927
 	// Inline (out-of-line copy 0x4527e0, deleting destructor 0x452dd0).
@@ -539,6 +549,8 @@ inline int TEditLine::GetPosition(int x, int y)
 // An edit line that shows stars (vtable 0x560f60, 0x6c bytes). It only pastes.
 class TPasswordEditLine : public TEditLine {
 public:
+	TPasswordEditLine(const TPasswordEditLine &) = delete;
+	TPasswordEditLine &operator=(const TPasswordEditLine &) = delete;
 	TPasswordEditLine(int _MaxLength); // 0x45cb50
 	// Inline (out-of-line copy 0x452980, deleting destructor 0x452df0).
 	~TPasswordEditLine() override { delete[] Stars; }
@@ -726,6 +738,8 @@ inline int TEditText::getMinimumHeight()
 // line in EditLine (a double click starts, Return or another line ends).
 class TListBox : public TWindow {
 public:
+	TListBox(const TListBox &) = delete;
+	TListBox &operator=(const TListBox &) = delete;
 	TListBox(TCallback _SelectCallback, TCallback _ActionCallback); // 0x469e70, line 3596
 	// Inline (out-of-line copy 0x452e10, deleting destructor 0x453230).
 	~TListBox() override
@@ -788,6 +802,8 @@ struct TListBoxLine {
 // It keeps its lines in FontLines; the base's LineText stays empty.
 class TFontListBox : public TListBox {
 public:
+	TFontListBox(const TFontListBox &) = delete;
+	TFontListBox &operator=(const TFontListBox &) = delete;
 	TFontListBox(TCallback _SelectCallback, TCallback _ActionCallback); // 0x46afc0
 	// Inline (out-of-line copy 0x453250, deleting destructor 0x4532e0).
 	~TFontListBox() override

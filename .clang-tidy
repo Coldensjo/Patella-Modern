@@ -7,7 +7,8 @@
 # The checks follow the coding standard of plan section 8: owning raw pointers and new/delete
 # (cppcoreguidelines-owning-memory, -no-malloc), C string and formatting functions
 # (bugprone-unsafe-functions, cppcoreguidelines-pro-type-vararg, modernize-use-std-print), nullptr,
-# override, enum class and [[nodiscard]], using instead of typedef (issue #35), the <c...> forms of the C
+# override, enum class and [[nodiscard]], using instead of typedef (issue #35), = default / = delete for the
+# special members (issue #34), the <c...> forms of the C
 # headers and each file including what it uses (issue #40), and the bug-prone
 # patterns. The checks that are noise for a reconstruction (its parameter lists and integer types are
 # the original's) are off.
@@ -24,6 +25,8 @@ Checks: >
   cppcoreguidelines-use-enum-class,
   misc-include-cleaner,
   modernize-deprecated-headers,
+  modernize-use-equals-default,
+  modernize-use-equals-delete,
   modernize-use-nodiscard,
   modernize-use-nullptr,
   modernize-use-override,

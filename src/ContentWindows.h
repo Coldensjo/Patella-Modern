@@ -173,6 +173,8 @@ public:
 // large one (IsLarge).
 class TCombatControls : public TWindow {
 public:
+	TCombatControls(const TCombatControls &) = delete;
+	TCombatControls &operator=(const TCombatControls &) = delete;
 	TCombatControls(TMainWindow *Receiver, bool Large); // 0x42b4d0, line 1425
 	// Inline (0x425e00, deleting destructor 0x425e50).
 	~TCombatControls() override
@@ -400,6 +402,8 @@ public:
 // The VIP list (Creatures.cpp's buddies) with icon, name and online state.
 class TBuddylistWindowBody : public TSubWindowBody {
 public:
+	TBuddylistWindowBody(const TBuddylistWindowBody &) = delete;
+	TBuddylistWindowBody &operator=(const TBuddylistWindowBody &) = delete;
 	TBuddylistWindowBody(); // 0x43bd40, line 3150
 	// Inline (0x425ad0, deleting destructor 0x425de0).
 	~TBuddylistWindowBody() override

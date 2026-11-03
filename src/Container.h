@@ -64,6 +64,8 @@
 //   array<TMapPoint>    constructor 0x4b0bc0, operator() 0x4b5900 (Map.cpp)
 template <class T> class array {
 public:
+	array(const array &) = delete;
+	array &operator=(const array &) = delete;
 	array(int min, int max);
 	// Inlined into Objects.cpp's ReleaseObjects (delete[] entry, then
 	// operator delete on the array itself).
@@ -111,6 +113,8 @@ template <class T> T &array<T>::operator()(int i)
 //   matrix3d<int>      constructor 0x4b0d70, operator() 0x4b5b40
 template <class T> class matrix {
 public:
+	matrix(const matrix &) = delete;
+	matrix &operator=(const matrix &) = delete;
 	matrix(int xmin, int xmax, int ymin, int ymax);
 	~matrix() { delete[] entry; }
 	T &operator()(int x, int y);
@@ -151,6 +155,8 @@ template <class T> T &matrix<T>::operator()(int x, int y)
 
 template <class T> class matrix3d {
 public:
+	matrix3d(const matrix3d &) = delete;
+	matrix3d &operator=(const matrix3d &) = delete;
 	matrix3d(int xmin, int xmax, int ymin, int ymax, int zmin, int zmax);
 	~matrix3d() { delete[] entry; }
 	T &operator()(int x, int y, int z);
@@ -199,6 +205,8 @@ template <class T> T &matrix3d<T>::operator()(int x, int y, int z)
 
 template <class T> class vector {
 public:
+	vector(const vector &) = delete;
+	vector &operator=(const vector &) = delete;
 	vector(int min, int max, int block, T init);
 	vector(int min, int max, int block);
 	// Inlined everywhere: the atexit thunks of the static vectors

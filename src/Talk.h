@@ -53,6 +53,8 @@ struct TTalkLine {
 	__time32_t Time;
 	TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int DiffTime);
 	TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, const char *_Line, int DiffTime);
+	TTalkLine(const TTalkLine &) = delete;
+	TTalkLine &operator=(const TTalkLine &) = delete;
 	// 0x4fd6c0, Talk.h inline.
 	[[nodiscard]] const char *GetText() const { return GetTimeStamps() ? Line : WithoutTime; }
 };
@@ -60,6 +62,8 @@ class TTalkBuffer;
 extern TTalkBuffer *DefaultTextBuffer;
 class TTalkBuffer {
 public:
+	TTalkBuffer(const TTalkBuffer &) = delete;
+	TTalkBuffer &operator=(const TTalkBuffer &) = delete;
 	// 0x4fd5a0, Talk.h inline; Closed is deliberately not initialized.
 	TTalkBuffer(int TalkMode) : ReceiveTalkMode(TalkMode), SendTalkMode(TalkMode),
 								Changed(true), first(nullptr), last(nullptr), cursor(nullptr), lines(0), limit(1000),
