@@ -47,8 +47,8 @@ std::vector<std::uint8_t> Unstore(const std::vector<std::uint8_t> &Stream)
 		REQUIRE(At + 5 <= Stream.size());
 		Last = (Stream[At] & 1U) != 0;
 		CHECK((Stream[At] & 6U) == 0); // BTYPE 00: stored
-		std::size_t Length = Stream[At + 1] | (Stream[At + 2] << 8U);
-		std::size_t Complement = Stream[At + 3] | (Stream[At + 4] << 8U);
+		auto Length = static_cast<std::size_t>(Stream[At + 1]) | (static_cast<std::size_t>(Stream[At + 2]) << 8U);
+		auto Complement = static_cast<std::size_t>(Stream[At + 3]) | (static_cast<std::size_t>(Stream[At + 4]) << 8U);
 		CHECK(Length == (~Complement & 0xffffU));
 		At += 5;
 		REQUIRE(At + Length <= Stream.size());

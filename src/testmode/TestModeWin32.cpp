@@ -485,7 +485,14 @@ void Idle()
 		WriteLog(Current, "testmode: the driver starts");
 	}
 	std::uint32_t Elapsed = Current.Virtual.Elapsed();
-	if (const TInputEvent *Event = Current.Scheduler.TakeDue(Elapsed)) {
+	// A state dump takes no idle call of its own: with or without dumps the client gets the same events in
+	// the same idle calls. (A frame dump waits for the next frame, so it is an event in its turn.)
+	const TInputEvent *Event = Current.Scheduler.TakeDue(Elapsed);
+	while (Event != nullptr && Event->Kind == TEventKind::StateDump) {
+		Deliver(Current, Window, *Event);
+		Event = Current.Scheduler.TakeDue(Elapsed);
+	}
+	if (Event != nullptr) {
 		Deliver(Current, Window, *Event);
 		return;
 	}
@@ -494,8 +501,10 @@ void Idle()
 		WriteLog(Current, "testmode: the script ends at " + std::to_string(Elapsed) + " ms; the clock goes on");
 	}
 	std::uint32_t Stop = Current.Scheduler.NextStop(Elapsed);
+	// Now again: a state dump's wait for the checker moved RealStart.
+	Now = std::chrono::steady_clock::now();
 	auto Real = std::chrono::duration_cast<std::chrono::milliseconds>(Now - Current.RealStart).count();
-	if (static_cast<std::uint64_t>(Real) < Current.Scheduler.RealDeadline(Stop))
+	if (Real < 0 || static_cast<std::uint64_t>(Real) < Current.Scheduler.RealDeadline(Stop))
 		return;
 	Current.Virtual.AdvanceTo(Stop);
 	if (TScheduler::IsTick(Stop))

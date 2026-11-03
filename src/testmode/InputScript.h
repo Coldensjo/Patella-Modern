@@ -38,7 +38,7 @@
 //
 // Every event after the script's last one: none; the clock goes on, the client runs on until it
 // exits. dump and frame are events of their own (TEventKind::StateDump, FrameDump): the driver
-// handles them in their turn, one per idle call, like the input.
+// handles a dump in the idle call of the next event, a frame in an idle call of its own.
 
 #pragma once
 

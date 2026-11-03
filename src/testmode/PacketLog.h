@@ -77,7 +77,7 @@ public:
 		std::span<const std::uint8_t> Padding);
 
 private:
-	TPacketRecord Make(std::uint32_t Time, TPacketDirection Direction, std::span<const std::uint8_t> Payload,
+	[[nodiscard]] TPacketRecord Make(std::uint32_t Time, TPacketDirection Direction, std::span<const std::uint8_t> Payload,
 		std::span<const std::uint8_t> Padding) const;
 
 	std::string Kind = "other";
