@@ -34,7 +34,7 @@ class TSplitter;
 // The dialog window's identifier of the trade window ("hasContentWindow(
 // TRADE_WINDOW)"). The skill, battle and VIP windows are 6, 7 and 9, a
 // container's window is 0x40 plus the container number.
-#define TRADE_WINDOW 8
+inline constexpr int TRADE_WINDOW = 8;
 
 class TMainWindow : public TWindow {
 public:

@@ -6,11 +6,11 @@
 
 #include "common.h"
 
-#define NUMBEROFSERVER 4
+inline constexpr int NUMBEROFSERVER = 4;
 
 // Error codes besides the WinSock ones.
-#define ERROR_LOGINSERVER_OVERLOADED 200001
-#define ERROR_DISCONNECTED 200002
+inline constexpr int ERROR_LOGINSERVER_OVERLOADED = 200001;
+inline constexpr int ERROR_DISCONNECTED = 200002;
 
 struct TServer {
 	char Address[100]; // +0x00

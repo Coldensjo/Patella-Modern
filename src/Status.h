@@ -12,13 +12,13 @@
 #include "Objects.h" // TObject
 
 // "In(rightid,0,RIGHT_ANY-1)"; CheckRight treats RIGHT_ANY as "any right".
-#define RIGHT_ANY 50
+inline constexpr int RIGHT_ANY = 50;
 
 // "In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER)". Other values seen: 1 shows
 // a message box (Param1 title, Param2 text, which the queue owns), 10 with
 // Param1 300 follows a failed game server connection.
-#define MESSAGE_NONE 0
-#define MESSAGE_STARTPATCHER 72
+inline constexpr int MESSAGE_NONE = 0;
+inline constexpr int MESSAGE_STARTPATCHER = 72;
 
 // One queued message (12 bytes). Type is named in the assertions.
 struct TMessage {
@@ -63,7 +63,7 @@ void IncrementActionNumber();
 // button down, 2 right button down, 3 both down, 4 and 5 one of both
 // released, 7 and 8 set by events 0x2c and 0x2d, 9 help mode, 10 dialog
 // open, 11 context menu open).
-#define ACTIONSTATE_NONE 0
+inline constexpr int ACTIONSTATE_NONE = 0;
 void SetActionState(int State);
 int GetActionState();
 void SetMousePosition(int x, int y);

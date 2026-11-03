@@ -18,11 +18,11 @@
 #include "graphics.h"    // TRGBColor
 #include "Objects.h"     // TObject
 
-#define CREATURES 150 // slots in the creature table (loops up to 0x96)
-#define BUDDIES 200   // "NumberOfBuddies<BUDDIES"
+inline constexpr int CREATURES = 150; // slots in the creature table (loops up to 0x96)
+inline constexpr int BUDDIES = 200;   // "NumberOfBuddies<BUDDIES"
 
 // TCreature::NextOpponent of a creature that is not in the battle list.
-#define NOT_AN_OPPONENT 0x7fffffff
+inline constexpr int NOT_AN_OPPONENT = 0x7fffffff;
 
 // One entry of the creature table (0x9c bytes).
 class TCreature {

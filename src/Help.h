@@ -6,7 +6,7 @@
 
 #include "common.h"
 
-#define EVENTHELPS 14 // "In(Number,1,EVENTHELPS)", "In(Hint,1,EVENTHELPS)" (MapWindow.cpp)
+inline constexpr int EVENTHELPS = 14; // "In(Number,1,EVENTHELPS)", "In(Hint,1,EVENTHELPS)" (MapWindow.cpp)
 
 void SetHelpPosition(int x, int y);
 void MoveHelpPosition(int dx, int dy);

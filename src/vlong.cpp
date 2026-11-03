@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#define BPU (8 * sizeof(unsigned)) // bits per unit
+constexpr auto BPU = 8 * sizeof(unsigned); // bits per unit (size_t, as the macro was)
 #define lo(x) ((x) & ((1 << (BPU / 2)) - 1))
 #define hi(x) ((x) >> (BPU / 2))
 #define lh(x) ((x) << (BPU / 2))

@@ -24,8 +24,8 @@
 
 struct TObject; // Objects.h, passed to DrawObject
 
-#define PATH_MAX 1024
-#define HASH_TABLE_SIZE 100
+inline constexpr int PATH_MAX = 1024;
+inline constexpr int HASH_TABLE_SIZE = 100;
 
 // Text alignment (TFont::Alignment, the Alignment parameters).
 enum {

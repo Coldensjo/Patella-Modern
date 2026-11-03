@@ -154,6 +154,13 @@ the baseline files included (MSVC /w34100 /w34189 /w34505; -Wunused -Wunused-par
 -Wunused-but-set-parameter). The oracle Patella.exe and the x64 Patella.exe and PatellaTest.exe unchanged after
 each commit (pecompare); macrocheck 0 differences; the clang-tidy baseline 21 to 14 (the use-nodiscard entries).
 notes/decisions.md, "[[nodiscard]], [[fallthrough]] and [[maybe_unused]] (Patella-Modern issue #38)".
+Constants (Patella-Modern issue #36, November 3, 2026; M3's sixth change, by hand): the 38 constant `#define`s of
+src/ become `inline constexpr int` in their headers (`constexpr int` in Map.cpp; vlong.cpp's BPU `constexpr auto`, a
+size_t as before), with the macros' literals, so their types stay. The 26 used inside TASSERT arguments too: the
+assertions stringize their parameter unexpanded, so the messages keep their text (macrocheck 0 differences). Left
+as macros: those read by `#if` or by a header's own preprocessor checks, SurfaceGL.cpp's GL/WGL API names, the
+resource IDs. The oracle Patella.exe and the x64 Patella.exe and PatellaTest.exe unchanged (pecompare); the
+clang-tidy baseline unchanged (14). notes/decisions.md, "Constant #defines to constexpr (Patella-Modern issue #36)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -174,6 +181,12 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #36 (branch issue-36, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after the constant #defines to constexpr: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks,
+0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe built from
+main (93315c1) and from the branch at the same path: `.text`, `.rdata` and `.data` identical, 0 unexpected differences
+(pecompare); macrocheck 93315c1 issue-36: 2,108 calls, 0 differences.
 
 Patella-Modern issue #38 (branch issue-38, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after [[nodiscard]], [[fallthrough]] and [[maybe_unused]] (three commits): 16,848,752 + 67 +

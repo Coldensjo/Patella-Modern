@@ -5,7 +5,7 @@
 #include "common.h"
 
 // Number of skin entries; the terminator of the table in InitSkins.
-#define LASTSKIN 262
+inline constexpr int LASTSKIN = 262;
 
 // One rectangle in the GUI picture. width and height are named in GUI.cpp's
 // assertions; x and y are ours.

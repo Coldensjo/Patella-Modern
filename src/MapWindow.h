@@ -25,8 +25,8 @@
 #include "Creatures.h"
 
 // The map surface in fields ("getWidth()<=MAP_WIDTH*32"): 480x352 pixels.
-#define MAP_WIDTH 15
-#define MAP_HEIGHT 11
+inline constexpr int MAP_WIDTH = 15;
+inline constexpr int MAP_HEIGHT = 11;
 
 // A creature whose name and health bar are drawn above it (12 bytes).
 struct TCreatureName {

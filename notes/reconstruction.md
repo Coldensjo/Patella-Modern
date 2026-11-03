@@ -68,6 +68,9 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
 - Data defined in a header with internal linkage has one copy per including object in the binary:
   the text table (`src/Text.h`, every .cpp that reads a text includes it; Dialogs.h too, for its
   inline code) and graphics.h's DefaultFontColor. An object's code reads only its own copy.
+- Constants are `inline constexpr int` in a header (`constexpr` in a .cpp), not `#define` (issue #36);
+  a macro only where the preprocessor needs one (`#if`, configuration such as `DIRECT3D_VERSION`, the
+  resource IDs of `src/res/resource.h`, an API's own macro names such as SurfaceGL.cpp's `WGL_*_ARB`).
 - Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`, `TBEGIN`/`TEND*`) exactly where
   the binary has the corresponding blocks.
 - Behaviour must match the binary exactly, including odd behaviour (for example
