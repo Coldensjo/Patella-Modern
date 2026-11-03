@@ -16,10 +16,17 @@ e02adfa): `decomp/`, `rea-out/`, `names.tsv`, `symbols.tsv`, `file-ranges.tsv`, 
 `simplify.py`, `callcheck.py`, `ehinfo.py`, `ehcompare.py`, `xctable.py`, `lines.py`, `listing.cmd`). It is kept,
 gitignored, in `decompilation/` with the same relative paths. Before analysis work run
 `powershell -NoProfile -ExecutionPolicy Bypass -File tools\decompilation.ps1 -Restore` (back to the paths
-above, still ignored); `-Stash` puts it away again. The build and the tests (`tools\build-patella.cmd`,
-`tools\compile-check.cmd`, `tools\difftest\build.cmd`, `cmake --workflow --preset oracle-x86` from an x86
-developer prompt, the x64 client and the unit tests with `cmake --workflow --preset windows-x64` from an x64 developer prompt and
-`cmake --workflow --preset windows-x64-gcc`, the compare scripts) do not need it.
+above, still ignored); `-Stash` puts it away again. The build and the tests do not need it.
+
+## Building
+
+CMake presets, run from any shell through `python -I tools/build.py <workflow preset>` (it sets up MSVC with
+vcvarsall.bat for the MSVC presets, then runs `cmake --workflow`): `oracle-x86` (the 32-bit oracle Patella.exe,
+the four differential tests through CTest), `windows-x64` / `windows-x64-debug` (the x64 client and the unit
+tests), `windows-x64-gcc` (the unit tests with mingw-w64 GCC). `python -I tools/build.py --env <preset>
+<command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. The
+test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/reconstruction.md`, "Building",
+"Test server", "Checking".
 
 ## Code style
 

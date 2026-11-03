@@ -10,7 +10,7 @@ WinSock and message loop.
 ## Running it
 
 ```
-tools\build-patella.cmd
+python -I tools/build.py oracle-x86
 python -I tools/compare_network.py [--out build\network\result] [--only login,game-cut] [--list] [--repeat]
 ```
 

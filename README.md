@@ -27,46 +27,30 @@ gitignored.
 
 ## Building
 
-**Today (until milestone M1 is done)**, the build is the one inherited from Patella. It is Windows only and
-produces a 32-bit `Patella.exe`. It needs Visual Studio 2026 with the C++ workload and the MFC component,
-Python on PATH, and `Tibia.exe` in the root (the resource pictures are extracted from it):
+The build is CMake (3.30 or newer) with Ninja, one workflow preset per platform. On Windows it needs Visual
+Studio 2026 with the C++ workload and the MFC component, Python 3.13 on PATH, and `Tibia.exe` in the root
+(the resource pictures are extracted from it). The MSVC presets need the compiler set up (`vcvarsall.bat`);
+`tools/build.py` does that and runs the workflow from any shell (a developer prompt is not needed):
 
 ```
-tools\build-patella.cmd [Release|Debug]
+python -I tools/build.py windows-x64         # configure, build Release, run the unit tests
+python -I tools/build.py windows-x64-debug   # the same for Debug
+python -I tools/build.py windows-x64-gcc     # the unit tests with mingw-w64 GCC 16
+python -I tools/build.py oracle-x86          # the 32-bit oracle and the differential tests
 ```
 
-The output is `build\<Configuration>\Patella.exe`. Run it from a folder that holds copies of the data files
-(for example `build\run`), never from the root, because the client rewrites `Tibia.cfg` on exit. See
-"Building" in [notes/reconstruction.md](notes/reconstruction.md) for the details and for the tests.
+From a developer prompt (or for the GCC preset from any shell) `cmake --workflow --preset <name>` does the
+same; `python -I tools/build.py --env <preset> <command>` runs any other command (`cmake --build`, `ctest`)
+with that preset's compiler set up.
 
-The same 32-bit build, with the differential tests, also runs with CMake (issue #4), from a developer
-prompt set up for x86 (`vcvarsall.bat x86`):
+The 64-bit client is `build\windows-x64\<Configuration>\Patella.exe` with its PDB. `oracle-x86` builds today's
+32-bit `Patella.exe` (`build\oracle-x86\<Configuration>`) with the original's flags and runs the differential
+tests; it is a test instrument until milestone M6, not a product. Run either client from a folder that holds
+copies of the data files (for example `build\run`), never from the root, because the client rewrites
+`Tibia.cfg` on exit. See "Building" in [notes/reconstruction.md](notes/reconstruction.md) for the details and
+for the tests.
 
-```
-cmake --workflow --preset oracle-x86       # configure, build, test (output in build\oracle-x86)
-```
-
-`oracle-x86` is a test instrument until milestone M6, not a product.
-
-The 64-bit Windows client (issue #5) builds from a developer prompt set up for x64 (`vcvarsall.bat x64`),
-with Tibia.exe in the root for its resource pictures:
-
-```
-cmake --workflow --preset windows-x64      # configure, build Release, run the unit tests
-cmake --build --preset windows-x64-debug   # the Debug build
-```
-
-The output is `build\windows-x64\<Configuration>\Patella.exe` with its PDB; the same rule applies: run it from a
-folder with copies of the data files.
-
-**After M1**, there will be one CMake command per platform (CMake 3.30 or newer, Ninja):
-
-```
-cmake --workflow --preset windows-x64      # configure, build, test (Windows)
-cmake --workflow --preset linux-x64-gcc    # the same on Linux
-```
-
-At that point `Patella.sln`, `Patella.vcxproj` and the `.cmd` build scripts will be removed.
+The Linux presets come with issue #7 (`cmake --workflow --preset linux-x64-gcc`).
 
 ## Documents
 

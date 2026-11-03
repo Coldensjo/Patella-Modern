@@ -6,21 +6,24 @@ IDs and languages, and the compiled `.res` is byte-identical to the original ent
 
 ## Building and checking
 
+The CMake presets do all three steps (issue #10; before, `tools\build-resources.cmd [path\to\Tibia.exe]`):
+
 ```
-tools\build-resources.cmd [path\to\Tibia.exe]
+python -I tools/build.py oracle-x86
 ```
 
-1. `python -I tools/extract_resources.py Tibia.exe build/res` writes the pictures from the local
-   Tibia.exe to `build/res` (gitignored): `cursor_<id>.cur` (RT_GROUP_CURSOR + its RT_CURSOR
+1. At configure time `python -I tools/extract_resources.py Tibia.exe build/<preset>/res` (cmake/Resources.cmake)
+   writes the pictures from the local Tibia.exe (the cache variable PATELLA_TIBIA_EXE, default the root's) to
+   `build/<preset>/res` (gitignored): `cursor_<id>.cur` (RT_GROUP_CURSOR + its RT_CURSOR
    images), `icon_128.ico` (RT_GROUP_ICON + RT_ICON), `bitmap_<id>.bmp` (RT_BITMAP with a
    BITMAPFILEHEADER) and `resources.tsv` (every entry with type, name, language, code page, size
    and RVA). Any other binary type would go to `<type>_<id>.bin`; Tibia.exe has none.
    `--list` prints the table only.
-2. `rc /I build\res /fo build\res\Patella.res src\res\Patella.rc` (rc.exe of the Windows SDK,
-   10.0.26100.0 x86 here, through vcvarsall like `tools\compile-check.cmd`).
-3. `python -I tools/compare_resources.py Tibia.exe build\res\Patella.res` compares the set of
-   (type, name, language) and the data of every entry; it also reads a linked PE image, so it
-   is the final check for Patella.exe (#16).
+2. rc.exe of the Windows SDK (10.0.26100.0 x86 here) compiles `src\res\Patella.rc` with that folder on the
+   include path (`/l0x0409`), as part of Patella.exe.
+3. After the link, `python -I tools/compare_resources.py Tibia.exe build\oracle-x86\<Configuration>\Patella.exe`
+   (a step of the oracle-x86 build; a difference fails the build) compares the set of (type, name, language)
+   and the data of every entry. It also reads a compiled `.res` (the result below was Patella.res's).
 
 Result (November 2, 2026): 55 entries in the original, 55 in Patella.res, 0 differences, on the
 first compile; no padding or format difference of rc.exe had to be worked around. A negative

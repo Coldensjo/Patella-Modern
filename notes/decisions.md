@@ -5137,3 +5137,70 @@ Settled by Claude Opus 5.5, November 3, 2026 (Python 3.13 x64, System32 dbghelp.
 - **Not checked yet** (form). Nothing has run the x64 client: the live compare_traffic.py and compare_files.py
   runs with `--patella build\windows-x64\Release\Patella.exe` show whether the patched x64 copy logs in through
   the proxy and whether the dialogs' controls are found.
+
+## Removing the Visual Studio project and the scripts (issue #10)
+
+Settled by Claude Opus 5.5, November 3, 2026 (CMake 4.1.2, Ninja 1.13.2, MSVC 14.51, GCC 16.2, Python 3.13).
+Deleted: `Patella.sln`, `Patella.vcxproj`, `tools\build-patella.cmd`, `tools\compile-check.cmd`,
+`tools\build-resources.cmd`, `tools\build-capture.cmd`, `tools\difftest\build.cmd`, `tools\run-testserver.ps1`,
+`tools\stop-testserver.ps1`. `tools\decompilation.ps1` stays (upstream's analysis workspace). No change to src/.
+
+- **The entry point** (form). The MSVC presets mark architecture and toolset `external`, so CMake does not set up
+  the compiler (the comment from #4). `tools/build.py` (Python, no package) takes the place of the scripts'
+  `call vcvarsall.bat`: `python -I tools/build.py <workflow preset> [cmake --workflow options]` reads the preset
+  from CMakePresets.json, and for a preset whose compiler is cl with an external architecture runs vcvarsall.bat
+  with that architecture (x86 for oracle-x86, x64 for windows-x64; host_target when the toolset's host differs)
+  and runs `cmake --workflow` in the environment it leaves; other presets (mingw-w64 GCC, Linux) run in the shell's
+  own environment. vcvarsall.bat is found through vswhere (the newest Visual Studio with the C++ tools), else at
+  the path the scripts used; a shell that is already a developer prompt for that target and host is used as it is.
+  `--env <preset> <command>` runs any other command (cmake --build, ctest) the same way. Considered: a .cmd
+  wrapper (the kind of script the issue removes), CMake toolchain files that call vcvarsall (CMake cannot import an
+  environment at configure time; the build and test steps would not have it). New workflow presets
+  windows-x64-debug and windows-x64-gcc-debug make Debug one command too.
+- **What each script did, and where it is now** (high).
+  - build-patella.cmd: the oracle-x86 Patella target (same options as the vcxproj since #4) and, new, a
+    POST_BUILD step that runs compare_resources.py against PATELLA_TIBIA_EXE after every link; a difference fails
+    the build, as it failed the script. The image is unchanged (a step after the link): the Release Patella.exe of
+    this branch and main's differ only in the link timestamps and the PDB GUID (.text, .data, .rsrc, .reloc
+    identical), compare_imports.py's output is unchanged.
+    Not carried over: MSBuild's -warnAsError, which made a warning fail the script. The oracle keeps the
+    vcxproj's /WX- (the preset keeps its flags until M6), so a warning in the oracle build shows in the log but
+    does not stop it; the gates count warnings in the log (0).
+  - compile-check.cmd: with real MFC its compile is a subset of the Patella target's (the same sources, the same
+    standard, warning level and conformance switches); the shim mode (TIBIA_MFC_SHIM, the check for machines
+    without the MFC component, used as a gate up to #37) is the new OBJECT target mfc_shim_check with the script's
+    options, built with the preset (0 warnings). One file alone: its object file as the build target.
+  - build-resources.cmd: extract_resources.py at configure time (cmake/Resources.cmake), rc.exe in the Patella
+    target, compare_resources.py after the link. Only the separate build\res\Patella.res is not produced any more.
+  - build-capture.cmd: the patcap target (since #4, same options). compare_rendering.py now uses
+    build\oracle-x86\Release\patcap.dll and builds the target (configuring the preset first if needed, through
+    tools/build.py's environment) when the DLL is missing or older than patcap.c, as it ran the script before; the
+    branch's DLL and main's differ only in the link timestamp.
+  - difftest\build.cmd: the four CTest tests (since #4). Not carried over: the script deleted each test program
+    before linking it and stopped a copy of this checkout that still ran; with Ninja the link of a locked program
+    fails and the copy must be stopped by hand (difftest's job object makes such copies rare).
+- **The test server in Python** (high). `tools/testserver.py start|stop` does what the .ps1 scripts did: start
+  runs tibia-server.exe from the server folder (default C:\Tibia\gameserver, `--server-dir`) in a new console
+  that is hidden (`--window`: minimised), stdin from NUL, stdout/stderr to build\testserver\server.log/.err,
+  the PID to server.pid, refuses when a server from that folder runs or 7171/7172 has a listener, clears the
+  inherited "ignore Ctrl+C" flag first, and waits (`--timeout`, 300 s) until that process listens on both ports;
+  stop sends Ctrl+C from a copy of the script started with DETACHED_PROCESS (FreeConsole, AttachConsole,
+  SetConsoleCtrlHandler(NULL, TRUE), GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0)), waits (`--timeout`, 60 s),
+  `--force` kills. The same exit codes and the same "listening on <address>:<port>, ..." line (compare_traffic.py
+  looks for 0.0.0.0:7171 in it). The ports come from GetExtendedTcpTable (owner PIDs, IPv4 and IPv6), the
+  processes from K32EnumProcesses and QueryFullProcessImageNameW, all through ctypes; on Linux from /proc and
+  SIGINT. One deliberate difference: stop-testserver.ps1 fell back to any tibia-server.exe from the folder when
+  server.pid was missing or stale; the test server may be the user's own instance, so stop now touches only the
+  process in server.pid, and only if its image path and its creation time (the second line of server.pid) are
+  still the ones start recorded. Any other server makes stop report its PID and exit 1. compare_traffic.py's
+  server_running() (refuse to run while any server from the folder runs) uses the same process list instead of a
+  PowerShell call.
+- **The comparisons' default Patella.exe** (form). build\Release\Patella.exe was the MSBuild output; nothing writes
+  it any more. compare_traffic.py, compare_files.py and the scripts that take their set-up (compare_rendering.py,
+  compare_network.py) default to build\oracle-x86\Release\Patella.exe, the same image.
+- **Gates** (high). From Git Bash, no developer prompt: `python -I tools/build.py oracle-x86 --fresh`: 0 warnings,
+  4/4 tests, 16,848,752 / 67 / 1,134,513 / 3,201 checks, 0 failures, resources 0 differences.
+  windows-x64 Release and Debug (Patella.exe and the unit tests, every source compiled) and windows-x64-gcc: 0
+  warnings, 8/8 tests each (on GCC the stand-in-only precondition scenario of tests_unit is skipped, as since #9).
+  The server started and stopped twice with testserver.py (both ports listening, a clean "Server shut down
+  successfully.", ports free and no process afterwards). Logs: build\logs\issue-10.

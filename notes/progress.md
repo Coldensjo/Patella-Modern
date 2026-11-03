@@ -100,6 +100,9 @@ None.
 
 ## Last difftest
 
+Issue #10 (branch issue-10, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` from Git Bash (no
+developer prompt; CTest, 0 warnings) after the scripts were removed: the same counts as below.
+
 Issue #5 (branch issue-5, November 3, 2026): `cmake --workflow --preset oracle-x86 --fresh` (CTest, 0 warnings)
 after the x64 fixes of src/: the same counts as below.
 

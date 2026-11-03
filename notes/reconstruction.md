@@ -77,43 +77,49 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
 
 ## Building
 
-Patella.exe, the reconstructed client, builds from `Patella.sln` / `Patella.vcxproj` in the root (issue #16):
+The build is CMake (3.30 or newer) with Ninja: `CMakeLists.txt`, `CMakePresets.json`, `cmake/*.cmake`. The
+MSBuild project (`Patella.sln`, `Patella.vcxproj`) and the .cmd/.ps1 scripts are gone since issue #10; every
+step they did is a CMake target, a CTest test or a Python tool now (notes/decisions.md, "Removing the Visual
+Studio project and the scripts (issue #10)"). The MSVC presets mark their architecture and toolset
+`external`: CMake does not set up the compiler. `tools/build.py` does it (vcvarsall.bat for the preset's
+architecture, found through vswhere) and runs the workflow, from any shell:
 
 ```
-tools\build-patella.cmd [Release|Debug] [MSBuild options, e.g. -t:Rebuild]
+python -I tools/build.py oracle-x86              # configure, build Release, run the four tests through CTest
+python -I tools/build.py windows-x64             # the x64 client and the unit tests, Release
+python -I tools/build.py windows-x64-debug       # the same, Debug
+python -I tools/build.py windows-x64-gcc         # the unit tests with mingw-w64 GCC 16 (-debug: Debug)
+python -I tools/build.py --list                  # the workflow presets
+python -I tools/build.py oracle-x86 --fresh      # extra options go to cmake --workflow
+python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86-debug   # any command, in the
+python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R vlongtest    # preset's environment
 ```
 
-or `msbuild Patella.vcxproj -p:Configuration=Release -p:Platform=Win32` from a VS 2026 developer prompt, or
-the solution in Visual Studio. It needs Visual Studio 2026 with the C++ workload and the MFC component
-(MSVC 14.51, toolset v145), Python on PATH and Tibia.exe in the root: the resource pictures are extracted
-from it into build\res before the resources compile (notes/resources.md). It builds every `src/*.cpp`,
-`src/Extern/regexp/*.c` and `src/res/Patella.rc` for x86 with static MFC (nafxcw.lib) and the static CRT
-(`/MT`), with compile-check's flags, links Tibia.exe's system libraries with oleacc.dll delay-loaded and no
-manifest, and writes `build\<Configuration>\Patella.exe` (intermediates in build\obj). build-patella.cmd
-fails on any compiler or linker warning (-warnAsError) and then checks the resources against Tibia.exe
-(`tools/compare_resources.py`, 0 differences). `python -I tools/compare_imports.py Tibia.exe
-build\Release\Patella.exe` compares the import tables. Details: notes/decisions.md, "Building Patella.exe
-(issue #16)".
+From a developer prompt for the right architecture (`vcvarsall.bat x86` or `x64`) the plain CMake commands do
+the same: `cmake --workflow --preset <name>`, or step by step `cmake --preset oracle-x86`, `cmake --build
+--preset oracle-x86` (oracle-x86-debug: Debug), `ctest --preset oracle-x86`. Everything needs Visual Studio
+2026 with the C++ workload and the MFC component (MSVC 14.51), Python 3.13 on PATH and Tibia.exe in the root
+(or the cache variable PATELLA_TIBIA_EXE): the resource pictures are extracted from it at configure time
+(cmake/Resources.cmake, notes/resources.md).
 
-Since issue #4 the same build also runs with CMake (3.30 or newer, Ninja; `CMakeLists.txt`,
-`CMakePresets.json`, `cmake/OracleX86.cmake`), as the preset `oracle-x86`, a test instrument until M6. From
-a developer prompt set up for x86 (`vcvarsall.bat x86`; the .cmd scripts call it themselves):
+The preset `oracle-x86` (issue #4; `cmake/OracleX86.cmake`) is a test instrument until M6. It writes
+build\oracle-x86\<Configuration>:
 
-```
-cmake --workflow --preset oracle-x86    # configure, build Release, run the four tests through CTest
-cmake --preset oracle-x86               # or step by step: configure,
-cmake --build --preset oracle-x86       # build Release (oracle-x86-debug: Debug),
-ctest --preset oracle-x86               # run difftest, sysinctest, communicationtest and vlongtest
-```
-
-It writes build\oracle-x86\<Configuration>: Patella.exe with exactly Patella.vcxproj's compiler, resource
-compiler and linker options (compare_imports.py and compare_resources.py give the same results as for
-build\Release\Patella.exe), the four test programs with exactly tools\difftest\build.cmd's options (the same in
-every configuration), and patcap.dll with tools\build-capture.cmd's. The resource pictures are extracted from
-Tibia.exe into build\oracle-x86\res at configure time. The tests get Tibia.exe as their argument (the cache
-variable PATELLA_TIBIA_EXE, default the root's copy) and a private TEMP each (build\oracle-x86\tmp\<test>).
-Details: notes/decisions.md, "CMake: the oracle-x86 preset (issue #4)". The MSBuild project and the .cmd
-scripts stay until issue #10 removes them.
+- Patella.exe, the reconstructed client, with exactly the compiler, resource compiler and linker options of
+  the former Patella.vcxproj (issue #16): every `src/*.cpp`, `src/Extern/regexp/*.c` and `src/res/Patella.rc`
+  for x86 with static MFC (nafxcw.lib) and the static CRT (`/MT`), Tibia.exe's system libraries with
+  oleacc.dll delay-loaded, no manifest; a PDB in both configurations. After every link the build checks the
+  resources against Tibia.exe (`tools/compare_resources.py`, 0 differences; a difference fails the build).
+  `python -I tools/compare_imports.py Tibia.exe build\oracle-x86\Release\Patella.exe` compares the import
+  tables. Details: notes/decisions.md, "Building Patella.exe (issue #16)" and "CMake: the oracle-x86 preset
+  (issue #4)".
+- The four test programs difftest, sysinctest, communicationtest and vlongtest with the options of the former
+  tools\difftest\build.cmd (the same in every configuration), which `ctest --preset oracle-x86` runs ("Checking"
+  below). The tests get Tibia.exe as their argument and a private TEMP each (build\oracle-x86\tmp\<test>).
+- patcap.dll, the capture DLL of tools/compare_rendering.py (which builds the target itself when the DLL is
+  missing or older than tools/capture/patcap.c).
+- mfc_shim_check: every source of Patella.exe compiled, not linked, against `src/compat/mfc_shim.h` instead of
+  MFC (the former `compile-check.cmd` with TIBIA_MFC_SHIM set; "Checking" below).
 
 The product presets (windows-x64, issue #5; linux-x64-gcc and linux-x64-clang, issue #7) give their targets
 the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8), which the oracle never uses:
@@ -129,14 +135,13 @@ the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8), w
   `_FORTIFY_SOURCE=3` (optimised builds), `_GLIBCXX_ASSERTIONS` (Debug), PIE and, on Linux, full RELRO.
 
 The unit tests (`tests/unit/`, doctest 2.5.3: an installed one through find_package, otherwise downloaded once
-by FetchContent and checked against its SHA256; issue #9) build with the presets windows-x64 (MSVC x64, from a
-`vcvarsall.bat x64` prompt; it builds the client too, below) and windows-x64-gcc (mingw-w64 GCC 16 on PATH,
-which builds nothing else):
+by FetchContent and checked against its SHA256; issue #9) build with the presets windows-x64 (MSVC x64; it
+builds the client too, below) and windows-x64-gcc (mingw-w64 GCC 16 on PATH, which builds nothing else):
 
 ```
-cmake --workflow --preset windows-x64       # configure, build Release, run the unit tests through CTest
-cmake --workflow --preset windows-x64-gcc
-ctest --preset windows-x64-debug            # after cmake --build --preset windows-x64-debug
+python -I tools/build.py windows-x64         # configure, build Release, run the unit tests through CTest
+python -I tools/build.py windows-x64-debug   # the same for Debug
+python -I tools/build.py windows-x64-gcc     # (and windows-x64-gcc-debug); cmake --workflow --preset works too
 ```
 
 Both write build\<preset>\tests\unit\<Configuration>: `tests_unit` (src/compat/cxx26.h as the compiler selects
@@ -151,8 +156,8 @@ Since issue #5 the preset windows-x64 also builds the client for x64 (`cmake/Win
 with static x64 MFC and the original engines (DirectDraw, Direct3D 9, OpenGL), the oracle's sources,
 definitions, import libraries and linker options (no manifest, oleacc.dll delay-loaded), with the product
 settings of Warnings.cmake and Hardening.cmake, 0 warnings with /WX in Release and Debug.
-`cmake --workflow --preset windows-x64` builds Release and runs the unit tests; `cmake --build --preset
-windows-x64-debug` builds Debug. The result is `build\windows-x64\<Configuration>\Patella.exe` with its
+`python -I tools/build.py windows-x64` builds Release and runs the unit tests; `python -I tools/build.py
+windows-x64-debug` does the same for Debug. The result is `build\windows-x64\<Configuration>\Patella.exe` with its
 `Patella.pdb` (a PDB in both configurations, which client_state.py's PDB offsets need). Its resource pictures are
 extracted from Tibia.exe into build\windows-x64\res at configure time, as for the oracle
 (cmake/Resources.cmake, shared); without Tibia.exe the configure stops, and `-DPATELLA_CLIENT=OFF` builds only the unit tests. The
@@ -167,7 +172,8 @@ may be the user's own.
 ## Test server
 
 A local 7.72 server (C:\Tibia\gameserver, not in the repository) that both clients log into (issue #18):
-`tools\run-testserver.ps1` / `tools\stop-testserver.ps1` start and stop it, `tools/patch_client.py`
+`python -I tools/testserver.py start` / `stop` start and stop it (only a server it started is stopped),
+`tools/patch_client.py`
 points copies of Tibia.exe and Patella.exe at 127.0.0.1 with the server's RSA key, and
 `tools/login_client.py` logs a client in (account 772001, password patella), enters the game and logs
 out, from build\run-orig or build\run-patella. Everything, including the server's configuration and
@@ -210,19 +216,24 @@ with time made virtual so both clients draw the same moment: notes/rendering.md.
   TASSERT*/TERROR*/TEND* arguments with a count per check and counts the ones inside apart (they wait for
   M5); with `--fix` it reverts, character by character, every fix clang-tidy made inside such an argument,
   in the file and in the headers it changed (plan 4.2). Never run `clang-tidy --fix` directly.
-- `tools\compile-check.cmd` compiles every `src/*.cpp` with MSVC 14.51 for x86 (`/W3`, no
-  warnings expected) against real MFC. Without the Visual Studio MFC component, or with the environment
-  variable `TIBIA_MFC_SHIM` set, it compiles against `src/compat/mfc_shim.h` (the difftest always does).
-- `tools/difftest/build.cmd` runs the differential tests (`ctest --preset oracle-x86` runs the same four
-  programs, built by CMake with the same options, with the same counts). `difftest.cpp` copies Tibia.exe into a
+- Compile checks: the oracle-x86 build compiles every `src/*.cpp` and `src/Extern/regexp/*.c` with MSVC 14.51
+  for x86 (`/W3`, no warnings expected) twice: against real MFC (the Patella target) and against
+  `src/compat/mfc_shim.h` (the mfc_shim_check target, the former `compile-check.cmd` with `TIBIA_MFC_SHIM`
+  set; the difftest always uses the shim). One file alone: `python -I tools/build.py --env oracle-x86 cmake
+  --build --preset oracle-x86 --target CMakeFiles/mfc_shim_check.dir/Release/src/<File>.cpp.obj` (or
+  `Patella.dir` for real MFC).
+- `python -I tools/build.py oracle-x86` builds and runs the differential tests through CTest (difftest,
+  sysinctest, communicationtest, vlongtest; the output with the check counts is in the log, verbosity verbose).
+  One test: `python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R <test>`; with
+  `DIFFTEST_ONLY=<name>` in the environment difftest runs only those tests. `difftest.cpp` copies Tibia.exe into a
   child process at its base address 0x400000 (no loader, imports or entry point) and calls the
   original functions next to the reconstructed ones on the same inputs. Only functions that do
   not touch imports can be called this way. `statustest.cpp` patches the image's `malloc` and
   `free` (and a few helpers that would reach Windows) to jump to the test's own code, so
   allocating functions can be compared too; reuse its `PatchImage`.
-- How build.cmd reports failures and crashes (issue #23): every step that fails stops the script
-  with exit code 1 and a message (the compiler's output, `build.cmd: <step> failed (exit code N)`,
-  or difftest.exe's report); a passing run ends with `build.cmd: all tests passed`. Before each
+- How the tests report failures and crashes (issue #23): a test program that fails ends with a
+  non-zero exit code and its report, and CTest lists the test as failed (a build step that fails stops
+  the build with the compiler's output); a passing run ends with `100% tests passed`. Before each
   test the child writes the test's name into memory shared with the parent (the `#define
   TestX(...)` lines before `main` in difftest.cpp: a new test needs one) and runs `_heapchk()` after
   it. A crash prints `crash:` lines in the child where it can (access violations, stack overflow,
@@ -232,9 +243,9 @@ with time made virtual so both clients draw the same moment: notes/rendering.md.
   0x... (name) in TestX` (or "in the heap check after TestX"), also for `__fastfail`, which nothing
   in the child can catch. The child runs in a job that dies with the parent (no orphan keeps
   difftest.exe locked) and never waits on Windows Error Reporting; DIFFTEST_TIMEOUT=<seconds>
-  (default 1800, 0 none) stops a hung child. build.cmd deletes each test program before linking
-  it and stops a copy of this checkout that still runs (by its full path). From Git Bash run
-  `cmd //c 'tools\difftest\build.cmd'`: `cmd /c` becomes `cmd C:/` there and runs nothing.
+  (default 1800, 0 none; CTest stops difftest and communicationtest after 7,200 s) stops a hung child.
+  A copy of a test program that still runs (an interrupted run) keeps the linker from replacing it:
+  the former build.cmd stopped such copies itself, the CMake build does not, so stop it first.
 - Error paths (issue #22): `errortest.cpp` (DIFFTEST_ONLY=Errors) calls the original and the reconstructed
   functions with inputs that fail their assertions, TERRORs and PROGRAM_ERROR throws and compares what each
   side throws: the type, a PROGRAM_ERROR's value, a TMyException's whole message with every TEND level and its
@@ -245,15 +256,15 @@ with time made virtual so both clients draw the same moment: notes/rendering.md.
   refuses outside a mapped image, are called through a SafeSEH-registered trampoline (`imageehseh.asm`, built
   with ml.exe). It also compares TMyException's constructors and the report HandleException writes to
   error.txt. Another test can use it: EnableImageExceptions, ImageThrow/OurThrow, DisableImageExceptions.
-- Communication.cpp and Control.cpp (issue #36) are compared in `communicationtest.exe`, which build.cmd builds
-  after sysinctest.exe (difftest.exe's other tests define fakes under their functions' names): every function they
+- Communication.cpp and Control.cpp (issue #36) are compared in `communicationtest.exe`, a test program of its
+  own (difftest.exe's other tests define fakes under their functions' names): every function they
   call is a fake on both sides (`commworld.cpp`), the comparison is the calls with their arguments, what each side
   threw and the fakes' worlds; DIFFTEST_ONLY=Communication or Control. notes/decisions.md "Communication.cpp and
   Control.cpp tests (issue #36)".
 - `scripttest.cpp` also
   redirects the image's stdio functions (fopen, getc, fputc, fread, ...) to the test's CRT, so
-  file-based code can be compared on real files. build.cmd gives the tests a private TEMP
-  (build\difftest\tmp): several tests write fixed directories there, and runs in other worktrees at
+  file-based code can be compared on real files. CTest gives each test a private TEMP
+  (build\oracle-x86\tmp\<test>): several tests write fixed directories there, and runs in other worktrees at
   the same time made each other crash. A test's result must not depend on where the heap is: the
   environment block (other shell, other TEMP) moves it. `vlongtest.cpp` and
   `vlongcheck.py` check the big-number code and RSA against Python's exact integers. Add a test
@@ -304,8 +315,8 @@ with time made virtual so both clients draw the same moment: notes/rendering.md.
 | ContentWindows.cpp | Reconstructed (Claude Opus 5.5, issue #6) with its part of the ConsoleWindow/ContentWindows gap (the inline header copies at the start of the object, settled in issue #5): the side-bar windows (the inventory and the small inventory with the combat controls and the player's states, the automap with its view and compass rose, the status bars, the buttons window) and the bodies of the dialog column's sub-windows (containers, skills, battle list, VIP list, trade with its offers, names and buttons) with their base TSubWindowBody, and the creators of those windows. EH tables checked for every function; the nine jump tables checked. Every function differentially tested except the error paths (contentwindowstest.cpp: the ten kinds of windows from the image's and our code inside real columns, the DialogElements classes shared fakes that report every object, every other callee a logging fake answering from a random world, logs and full dumps compared after random sizes, drawing, mouse events, events, member calls and world changes). 81 callcheck differences, all explained (notes/decisions.md). Side changes: SkinProperties' Style288, PlayerStates, the combat control blocks and four colours retyped; three TSurface slots named; common.h's Limit; external.h sketches of the DialogElements members used here; the tests of DialogWindow.cpp, MainWindow.cpp and ContextMenus.cpp use the real classes or fakes of them. Its error paths since issue #34 (172 of 192 sites compared, the others not reachable; three fixes, notes/decisions.md). |
 | DialogElements.cpp | Reconstructed (Claude Opus 5.5, issue #7) with its leading run of header code (0x4524e0-0x4532ff, settled earlier; now every function named) and the DialogElements/Dialogs gap, which is Dialogs.obj's leading run (file-ranges.tsv): the dialog controls (separators, resizers, frames, labels, the formatted text, links, outfit/skin/object icons, nine kinds of buttons with radio groups, check boxes, the edit line with its password and multi-line forms and the focus groups, horizontal and vertical scroll bars with their ranges, list boxes with plain and font lines, the progress bar). EH tables checked for every function; the four jump tables checked. Every function differentially tested, the error paths since issue #34 (177 of 218 sites compared, the others not reachable; three fixes, notes/decisions.md) (dialogelementstest.cpp: 27 kinds of controls from the image's constructors and ours under random sizes, drawing, mouse, keys, events and members, logs of every callee and dumps of every member compared; a mutation check of twenty changes). callcheck differences all explained (notes/decisions.md). Side changes: GUI.h's getMinimumWidth/Height renamed (assertion text), SkinProperties.CheckBox.Data08 retyped, the surface slot +0x1c named, external.h's sketches replaced by DialogElements.h; the window tests keep their fakes as mirror classes (tools/difftest/elementfakes.h). |
 | Dialogs.cpp | Reconstructed (Claude Opus 5.5, issue #8) with its leading run of header code (0x46b790-0x46c0cf, settled in issue #7; now every function named: the inline constructors and destructors of Dialogs.h, a qsort comparator, Container.h's vector<TIgnoreEntry>): every dialog of the client and its creator: the frame TDialog (caption, OK, Cancel and extra buttons, dragging) around 31 bodies (messages, connecting, waiting and the reconnect countdown, questions, logout, info, login, character list, moving objects, outfit, texts, house lists, ignore and white lists, bug reports, channels and private channel invitations, rule violation requests and reports, the VIP list, updates, help, hints, automap marks, the options with their general, graphics, advanced graphics, console, network and hotkey dialogs, error reports). EH tables checked for every function; the one jump table checked. Every function differentially tested, the error paths since issue #34 (158 of 165 sites compared, the others not reachable; one fix, notes/decisions.md), the image's error report constructor only in the error round (dialogstest.cpp: every dialog from the image's creator and ours, the DialogElements controls real on both sides, logging fakes for every callee with an effect, logs and dumps of the whole tree compared after random drawing, keys, clicks, events and members; the image's iostreams cannot run in the child, so the error report body runs our constructor with the image's vtable; a mutation check of 22 changes). callcheck differences all explained (notes/decisions.md). Side changes: TObject's Data (assertion text), SkinProperties blocks retyped by offset (GUI.cpp's stores rewritten), TBorder frames a TComponent, TListBox::GetNumberOfLines, TSurface's +0x8c/+0xac and GetAvailableEngines, external.h's placeholders replaced by Dialogs.h and Control.cpp's calls renamed. |
-| Resources | Rebuilt (issue #17): src/res/Patella.rc and resource.h give all 55 entries of Tibia.exe's .rsrc (the client's icon 128, cursors 0x84 and 0x89, version information 7.7.2.0, and MFC 7.1's afxres.rc part: context help and wheel cursors, the "New" dialog, two bitmaps, the string tables) with the original types, IDs and languages. The pictures are extracted from the local Tibia.exe (tools/extract_resources.py), not committed; tools\build-resources.cmd compiles the script with rc.exe and tools/compare_resources.py finds the .res byte-identical, entry for entry. Every ID the client and the MFC code ask for is accounted for (notes/resources.md). Linked into Patella.exe (issue #16): its .rsrc has the same 55 entries, 0 differences. |
-| Patella.exe (the build) | Builds (issue #16): Patella.sln/Patella.vcxproj and tools\build-patella.cmd compile every source file with real MFC 14 (static, x86, /MT) and link Tibia.exe's system libraries (oleacc.dll delay-loaded, no manifest); no compiler or linker warnings in Release or Debug. The game code's imports are Tibia.exe's (the other differences of the import tables are MSVC 14's CRT and MFC 14, notes/decisions.md); the resources are identical. It starts from a folder with copies of the data files and shows the start screen (OpenGL engine); logging in was not tried. Five small source changes for real MFC (notes/decisions.md, "Building Patella.exe (issue #16)"). |
+| Resources | Rebuilt (issue #17): src/res/Patella.rc and resource.h give all 55 entries of Tibia.exe's .rsrc (the client's icon 128, cursors 0x84 and 0x89, version information 7.7.2.0, and MFC 7.1's afxres.rc part: context help and wheel cursors, the "New" dialog, two bitmaps, the string tables) with the original types, IDs and languages. The pictures are extracted from the local Tibia.exe (tools/extract_resources.py), not committed; the build compiles the script with rc.exe (then tools\build-resources.cmd, since issue #10 the oracle-x86 preset) and tools/compare_resources.py finds the resources byte-identical, entry for entry. Every ID the client and the MFC code ask for is accounted for (notes/resources.md). Linked into Patella.exe (issue #16): its .rsrc has the same 55 entries, 0 differences. |
+| Patella.exe (the build) | Builds (issue #16; since issue #10 only with CMake, the oracle-x86 preset with the same options): the build compiles every source file with real MFC 14 (static, x86, /MT) and link Tibia.exe's system libraries (oleacc.dll delay-loaded, no manifest); no compiler or linker warnings in Release or Debug. The game code's imports are Tibia.exe's (the other differences of the import tables are MSVC 14's CRT and MFC 14, notes/decisions.md); the resources are identical. It starts from a folder with copies of the data files and shows the start screen (OpenGL engine); logging in was not tried. Five small source changes for real MFC (notes/decisions.md, "Building Patella.exe (issue #16)"). |
 | Container.h | Complete for the image (issue #13, Claude Opus 5.5): vector<T> (both constructors, operator(), the destructor), array<T>, matrix<T> and matrix3d<T>, each written once; every instance in the image (13 vectors, two arrays, a matrix and a matrix3d, listed at the top of the header with their addresses) compiles from it, checked against the disassembly and exception tables (the four initialized constructors are the same code; eleven EH states where the element has a constructor). Tested through the users (a temporary coverage build found every image instance reached except the out-of-line destructors) and directly in containertest.cpp (DIFFTEST_ONLY=Container: every image instance next to ours, objects and whole arrays compared after each call, pattern-filled new[] memory; 192,832 checks; a mutation check of eight changes, all detected). Not run: the assertion and index-error paths (the image cannot throw in the child). |
 | Header inlines | GUI.h (GetFirstChild/GetLastChild 0x417de0/0x417f00), ConsoleWindow.h (TLineFormat 0x418020), Utils.h (TBuffer::SetSize 0x4ca300) and Talk.h (0x4fd5a0, 0x4fd6c0, 0x507060, 0x5075c0) are in their headers; issue #13 checked them again and tests TLineFormat, SetSize and GetChannelID in containertest.cpp (the others are covered by the Talk and ConsoleWindow tests or only throw). notes/source-map.md's header table lists only glh_extensions.h's 0x4f9260 (#11). |
 | Extern/regexp (regexp.c, regexp.h, regmagic.h) | Third-party (issue #15): Henry Spencer's regexp of 1986 (0x50eb00-0x50fbb8, regcomp and regexec for Status.cpp's link check), the original text written from memory and checked function by function against the assembly (all 19 messages, MAGIC 0234, the 1986 struct and jump tables); the client's changes marked: regerror calls a hook the client never sets (0x71f034, our regerrorhandler), ANSI headers, prototypes with extern "C"; no regsub/regerror files. Compiled as C (compile-check compiles src/Extern/regexp/*.c). Differentially tested (regexptest.cpp: both regcomps' programs byte for byte, both regexecs with all startp/endp, own and cross, corrupted programs, LinkPattern; 229,958 checks; a mutation check of 44 changes, three equivalent survivors). |
