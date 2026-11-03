@@ -215,7 +215,7 @@ public:
 	TSubWindowBody() { Minimized = false; }
 	// +0x58: a double click on the body is taken (it does not minimize the
 	// window); the folded true-returning 0x425a00 (the VIP body overrides it).
-	bool LeftButtonDoubleClick(int x, int y, int Flags) override { return true; }
+	bool LeftButtonDoubleClick([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return true; }
 	virtual void Minimize() { Minimized = true; }      // +0xa0, 0x4259c0, TSubWindow::Minimize
 	virtual void Maximize() { Minimized = false; }     // +0xa4, 0x4259d0, TSubWindow::Maximize
 	virtual bool IsMinimized() { return Minimized; }   // +0xa8, 0x4259e0

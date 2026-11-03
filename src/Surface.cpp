@@ -125,22 +125,22 @@ uint8 TSurface::GetAvailableEngines()
 }
 
 // 0x4eabf0
-void TSurface::SetSurfaceRect(int Surface, int x, int y, int Width, int Height)
+void TSurface::SetSurfaceRect([[maybe_unused]] int Surface, [[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Width, [[maybe_unused]] int Height)
 {
 }
 
 // 0x4eac00: SelectSurface and SetTextureFilter share this copy (identical
 // code). Only SurfaceGL.cpp overrides them.
-void TSurface::SelectSurface(int Surface)
+void TSurface::SelectSurface([[maybe_unused]] int Surface)
 {
 }
 
-void TSurface::SetTextureFilter(int Filter)
+void TSurface::SetTextureFilter([[maybe_unused]] int Filter)
 {
 }
 
 // 0x4eac10. Only SurfaceGL.cpp overrides it.
-void TSurface::AddDirtyRect(TRect Rect)
+void TSurface::AddDirtyRect([[maybe_unused]] TRect Rect)
 {
 }
 

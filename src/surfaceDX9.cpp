@@ -512,7 +512,7 @@ void TSurfaceDX9::ResetDisplay(int VMode, TFullscreenMode *GMode)
 // 0x4f11f0. Odd behaviour kept: a device that can be reset is reset, then
 // released (ExitDisplay) and the surface is set back to its start state
 // (InitSurfaces); Unavailable stays set. The parameters are not used.
-void TSurfaceDX9::RestoreSurfaces(int ViewMode, TFullscreenMode *Resolution)
+void TSurfaceDX9::RestoreSurfaces([[maybe_unused]] int ViewMode, [[maybe_unused]] TFullscreenMode *Resolution)
 {
 	if (Device->TestCooperativeLevel() == D3DERR_DEVICENOTRESET) {
 		Unavailable = true;
@@ -621,7 +621,7 @@ void TSurfaceDX9::SetSurfaceRect(int Surface, int x, int y, int Width, int Heigh
 }
 
 // 0x4f13e0 (shared with SurfaceDX.cpp)
-bool TSurfaceDX9::SurfaceRecreated(int Surface)
+bool TSurfaceDX9::SurfaceRecreated([[maybe_unused]] int Surface)
 {
 	return Ready;
 }
@@ -686,7 +686,7 @@ void TSurfaceDX9::AddQuad(int Left, int Top, int Right, int Bottom, double Left_
 // 0x4f18d0. StretchBlit without clipping; an unscaled one is a Blit. The
 // colours are not used for a scaled one.
 void TSurfaceDX9::StretchBlitUnclipped(int ToSurface, TRect ToRect, int FromSurface, TRect FromRect,
-	TRGBColor ColorKey, TRGBColor Highlight)
+	TRGBColor ColorKey, [[maybe_unused]] TRGBColor Highlight)
 {
 	if (ToRect.width == FromRect.width && ToRect.height == FromRect.height) {
 		Blit(ToSurface, ToRect.x, ToRect.y, FromSurface, FromRect, ColorKey);
@@ -1173,7 +1173,7 @@ void TSurfaceDX9::DrawFrame(int Surface, TRect Rect, int LineWidth, TRGBColor Co
 }
 
 // +0x3c (0x4fab70). The colour key is not used.
-void TSurfaceDX9::BlitClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey,
+void TSurfaceDX9::BlitClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, [[maybe_unused]] TRGBColor ColorKey,
 	TRect Clip)
 {
 	BlitRectClipped(ToSurface, x, y, FromSurface, FromRect, Clip);

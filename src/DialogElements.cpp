@@ -116,7 +116,7 @@ bool TResizer::MouseMove(int x, int y)
 }
 
 // 0x4542a0, lines 129-137
-bool TResizer::LeftButtonDown(int x, int y, int Flags)
+bool TResizer::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
 	TASSERT(129, ToResize!=NULL);
 	TBEGIN
@@ -129,7 +129,7 @@ bool TResizer::LeftButtonDown(int x, int y, int Flags)
 }
 
 // 0x454530, lines 144-154
-bool TResizer::LeftButtonUp(int x, int y, int Flags)
+bool TResizer::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TASSERT(144, ToResize!=NULL);
 	TBEGIN
@@ -348,7 +348,7 @@ void TLabel::Draw(int Surface, int x, int y)
 }
 
 // 0x455ca0, line 423
-void TLabel::MouseHover(int x, int y)
+void TLabel::MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	if (Shortened)
@@ -873,7 +873,7 @@ bool TSkinButton::MouseMove(int x, int y)
 }
 
 // 0x458540, line 1155
-bool TSkinButton::LeftButtonDown(int x, int y, int Flags)
+bool TSkinButton::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (Enabled) {
@@ -886,7 +886,7 @@ bool TSkinButton::LeftButtonDown(int x, int y, int Flags)
 }
 
 // 0x458710, line 1174
-bool TSkinButton::LeftButtonUp(int x, int y, int Flags)
+bool TSkinButton::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (Pressed) {
@@ -904,7 +904,7 @@ bool TSkinButton::LeftButtonUp(int x, int y, int Flags)
 }
 
 // 0x4588f0, line 1192. Code 6 comes while the left button is held.
-bool TSkinButton::MouseWheel(int x, int y, int Code)
+bool TSkinButton::MouseWheel([[maybe_unused]] int x, [[maybe_unused]] int y, int Code)
 {
 	TBEGIN
 	if (Code != 6)
@@ -1057,7 +1057,7 @@ TToggleButton::TToggleButton(int x, int y, int _ButtonUp, int _ButtonDown, TCall
 }
 
 // 0x459940, line 1454. The release does not check the position again.
-bool TToggleButton::LeftButtonUp(int x, int y, int Flags)
+bool TToggleButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (Pressed) {
@@ -1097,7 +1097,7 @@ TTextToggleButton::TTextToggleButton(int x, int y, const char *_Text, int _Butto
 }
 
 // 0x459b70, line 1511
-bool TTextToggleButton::LeftButtonUp(int x, int y, int Flags)
+bool TTextToggleButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (Pressed) {
@@ -1151,7 +1151,7 @@ TMultiStateButton::TMultiStateButton(int x, int y, const char *_Tooltip, int _St
 }
 
 // 0x459da0, line 1609. Sends the callback of the state it leaves.
-bool TMultiStateButton::LeftButtonUp(int x, int y, int Flags)
+bool TMultiStateButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (Pressed) {
@@ -2185,7 +2185,7 @@ void THorizontalScrollBarRange::Arrange()
 }
 
 // 0x45f3d0, line 3039
-bool THorizontalScrollBarRange::MouseMove(int x, int y)
+bool THorizontalScrollBarRange::MouseMove(int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	if (Enabled && Dragging) {
@@ -2199,7 +2199,7 @@ bool THorizontalScrollBarRange::MouseMove(int x, int y)
 }
 
 // 0x45f5c0, line 3057
-bool THorizontalScrollBarRange::LeftButtonDown(int x, int y, int Flags)
+bool THorizontalScrollBarRange::LeftButtonDown(int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (!Enabled)
@@ -2216,7 +2216,7 @@ bool THorizontalScrollBarRange::LeftButtonDown(int x, int y, int Flags)
 
 // 0x45f790, line 3081. A click beside the slider moves by one, or by a page
 // (Visible-1) with PageScroll.
-bool THorizontalScrollBarRange::LeftButtonUp(int x, int y, int Flags)
+bool THorizontalScrollBarRange::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (Pressed)
@@ -2453,7 +2453,7 @@ void TScrollBarRange::Arrange()
 }
 
 // 0x460cc0, line 3367
-bool TScrollBarRange::MouseMove(int x, int y)
+bool TScrollBarRange::MouseMove([[maybe_unused]] int x, int y)
 {
 	TBEGIN
 	if (Enabled && Dragging) {
@@ -2466,7 +2466,7 @@ bool TScrollBarRange::MouseMove(int x, int y)
 }
 
 // 0x460eb0, line 3385
-bool TScrollBarRange::LeftButtonDown(int x, int y, int Flags)
+bool TScrollBarRange::LeftButtonDown([[maybe_unused]] int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (!Enabled)
@@ -2482,7 +2482,7 @@ bool TScrollBarRange::LeftButtonDown(int x, int y, int Flags)
 }
 
 // 0x461080, line 3408
-bool TScrollBarRange::LeftButtonUp(int x, int y, int Flags)
+bool TScrollBarRange::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (Pressed)
@@ -2874,7 +2874,7 @@ void TListBox::Clear()
 }
 
 // 0x462e70, line 3938. The visible line at y (-1 for none).
-int TListBox::GetLineAt(int x, int y)
+int TListBox::GetLineAt([[maybe_unused]] int x, int y)
 {
 	TBEGIN
 	int LineHeight = GetFontLineHeight(SkinProperties.Style9A0.Data0C.FontNumber);

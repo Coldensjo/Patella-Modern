@@ -199,7 +199,7 @@ bool TTextWindow::MouseMove(int x, int y)
 }
 
 // 0x418790, line 179.
-bool TTextWindow::LeftButtonUp(int x, int y, int Flags)
+bool TTextWindow::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (Selecting) {
@@ -211,7 +211,7 @@ bool TTextWindow::LeftButtonUp(int x, int y, int Flags)
 }
 
 // 0x418930, line 195. Starts a selection at the position.
-bool TTextWindow::LeftButtonDown(int x, int y, int Flags)
+bool TTextWindow::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	Selecting = true;
@@ -229,7 +229,7 @@ bool TTextWindow::LeftButtonDown(int x, int y, int Flags)
 
 // 0x420d70, line 218. Selects the word at the position. The second loop
 // tests the character before the line length.
-bool TTextWindow::LeftButtonDoubleClick(int x, int y, int Flags)
+bool TTextWindow::LeftButtonDoubleClick(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	int Length = 0;
@@ -254,7 +254,7 @@ bool TTextWindow::LeftButtonDoubleClick(int x, int y, int Flags)
 // 0x420f90, line 240. Opens the line's context menu (Control.cpp's
 // message 0x37); in the rule violation channel a line with a speaker
 // opens the request menu (message 0x39).
-bool TTextWindow::RightButtonUp(int x, int y, int Flags)
+bool TTextWindow::RightButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	int Line, Offset, Length;
@@ -793,7 +793,7 @@ void TTab::SetActive(bool _Active)
 }
 
 // 0x41b190, line 898. Drags the tab along the bar.
-bool TTab::MouseMove(int x, int y)
+bool TTab::MouseMove(int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	if (Dragging) {
@@ -811,7 +811,7 @@ bool TTab::MouseMove(int x, int y)
 }
 
 // 0x424200, line 916. Makes the tab current and starts dragging it.
-bool TTab::LeftButtonDown(int x, int y, int Flags)
+bool TTab::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	Dragging = 1;
@@ -826,7 +826,7 @@ bool TTab::LeftButtonDown(int x, int y, int Flags)
 }
 
 // 0x41b370, line 931.
-bool TTab::LeftButtonUp(int x, int y, int Flags)
+bool TTab::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (Dragging) {
@@ -839,7 +839,7 @@ bool TTab::LeftButtonUp(int x, int y, int Flags)
 
 // 0x4243d0, line 945. Makes the tab current and opens the channel menu
 // (Control.cpp's message 0x38).
-bool TTab::RightButtonUp(int x, int y, int Flags)
+bool TTab::RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN((TTabBar *)GetParent())
 	->SetCurrentTab(this);
@@ -850,7 +850,7 @@ bool TTab::RightButtonUp(int x, int y, int Flags)
 }
 
 // 0x41b520, line 956. A shortened caption shows the full one.
-void TTab::MouseHover(int x, int y)
+void TTab::MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	if (Shortened)
@@ -1063,7 +1063,7 @@ TWindow *TTabBar::GetContainer(TComponent *Child)
 
 // 0x41cda0, lines 1215-1220. The help of the console (handle 23) for the
 // whole parent.
-bool TTabBar::HelpMouseMove(int x, int y)
+bool TTabBar::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(23);

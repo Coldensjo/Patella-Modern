@@ -1174,7 +1174,7 @@ void TSurfaceDX::ResetFrameTimer()
 }
 
 // surfaceDX9.cpp's 0x4f13e0
-bool TSurfaceDX::SurfaceRecreated(int Surface)
+bool TSurfaceDX::SurfaceRecreated([[maybe_unused]] int Surface)
 {
 	return Recreated;
 }

@@ -90,8 +90,8 @@ public:
 	virtual bool MouseWheel(int x, int y, int Direction) = 0;           // +0x60, 1 up, 2 down, 6 left button held
 	virtual void MouseHover(int x, int y) = 0;                          // +0x64
 	virtual bool HelpMouseMove(int x, int y) = 0;                       // +0x68, action state 9
-	virtual void KeyPress(int Key) {}                                   // +0x6c, empty (0x4eac00)
-	virtual void HandleEvent(int Event) {}                              // +0x70, empty (0x4eac00); see TCallback
+	virtual void KeyPress([[maybe_unused]] int Key) {}                  // +0x6c, empty (0x4eac00)
+	virtual void HandleEvent([[maybe_unused]] int Event) {}             // +0x70, empty (0x4eac00); see TCallback
 	virtual void PositionChanged() {}                                   // +0x74, empty (0x496160); the parent moved
 	virtual void SetCapture(TComponent *Component) = 0;                 // +0x78
 	virtual void ReleaseCapture(TComponent *Component) = 0;             // +0x7c
@@ -118,17 +118,17 @@ class TElement : public TComponent {
 public:
 	TElement(); // 0x496100
 	// The destructor is the implicit one (deleting destructor 0x496550).
-	bool MouseMove(int x, int y) override { return true; }                                               // +0x4c, 0x4259f0
-	bool LeftButtonDown(int x, int y, int Flags) override { return true; }                               // +0x50, 0x425a00
-	bool LeftButtonUp(int x, int y, int Flags) override { return true; }                                 // +0x54, 0x425a00
-	bool LeftButtonDoubleClick(int x, int y, int Flags) override { return LeftButtonDown(x, y, Flags); } // +0x58, 0x41acb0
-	bool RightButtonUp(int x, int y, int Flags) override { return true; }                                // +0x5c, 0x425a00
-	bool MouseWheel(int x, int y, int Direction) override { return true; }                               // +0x60, 0x425a00
-	void MouseHover(int x, int y) override {}                                                            // +0x64, 0x417a30
-	bool HelpMouseMove(int x, int y) override;                                                           // +0x68, 0x417a40 (inline, below)
-	void SetCapture(TComponent *Component) override;                                                     // +0x78, 0x4a0bc0, line 1893
-	void ReleaseCapture(TComponent *Component) override;                                                 // +0x7c, 0x4a0d60, line 1905
-	void StopDragging() override {}                                                                      // +0x80, empty (0x496160)
+	bool MouseMove([[maybe_unused]] int x, [[maybe_unused]] int y) override { return true; }                                  // +0x4c, 0x4259f0
+	bool LeftButtonDown([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return true; } // +0x50, 0x425a00
+	bool LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return true; }   // +0x54, 0x425a00
+	bool LeftButtonDoubleClick(int x, int y, int Flags) override { return LeftButtonDown(x, y, Flags); }                      // +0x58, 0x41acb0
+	bool RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return true; }  // +0x5c, 0x425a00
+	bool MouseWheel([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Direction) override { return true; } // +0x60, 0x425a00
+	void MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y) override {}                                               // +0x64, 0x417a30
+	bool HelpMouseMove(int x, int y) override;                                                                                // +0x68, 0x417a40 (inline, below)
+	void SetCapture(TComponent *Component) override;                                                                          // +0x78, 0x4a0bc0, line 1893
+	void ReleaseCapture(TComponent *Component) override;                                                                      // +0x7c, 0x4a0d60, line 1905
+	void StopDragging() override {}                                                                                           // +0x80, empty (0x496160)
 };
 
 // A component with children (vtable 0x564528, 0x2c bytes); the base of the
@@ -813,7 +813,7 @@ void InitSkinProperties(); // 0x498160
 // TElement::HelpMouseMove needs Help.h's SetHelpHandle.
 #include "Help.h"
 
-inline bool TElement::HelpMouseMove(int x, int y)
+inline bool TElement::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	SetHelpHandle(0);
 	return false;

@@ -743,7 +743,7 @@ bool TDialog::LeftButtonUp(int x, int y, int Flags)
 
 // 0x46d9f0, line 891. Events 1 and 2 (the default callbacks) close the
 // dialog, and so does every other.
-void TDialog::HandleEvent(int Event)
+void TDialog::HandleEvent([[maybe_unused]] int Event)
 {
 	TBEGIN
 	SetActionState(0);

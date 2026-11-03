@@ -73,11 +73,7 @@ public:
 	}
 	virtual void Close() { Closed = true; }
 	virtual bool CanWrite() { return true; }
-	virtual bool SetWriteEnabled(bool Value)
-	{
-		(void)Value;
-		return true;
-	}
+	virtual bool SetWriteEnabled([[maybe_unused]] bool Value) { return true; }
 	virtual void Append(TTalkLine *line);
 	virtual void AddText(int Mode, const char *text, int DiffTime);
 	// The binary's vtable (0x573738) has Remove(int) at +0x1c and
@@ -158,11 +154,8 @@ public:
 	int ChannelID;
 	void Append(TTalkLine *line) override;
 	// 0x5075c0, Talk.h line 321.
-	void AddText(int Mode, const char *text, int DiffTime) override
+	void AddText([[maybe_unused]] int Mode, [[maybe_unused]] const char *text, [[maybe_unused]] int DiffTime) override
 	{
-		(void)Mode;
-		(void)text;
-		(void)DiffTime;
 		TERROR(321, "not possible");
 	}
 	void Remove(int lineNumber) override;

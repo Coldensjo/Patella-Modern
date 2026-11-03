@@ -243,7 +243,7 @@ void TButtonsWindow::Draw(int Surface, int x, int y)
 }
 
 // 0x426aa0, line 334
-bool TButtonsWindow::HelpMouseMove(int x, int y)
+bool TButtonsWindow::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(16);
@@ -325,7 +325,7 @@ TAutomapWindow::~TAutomapWindow()
 #pragma warning(pop)
 
 // 0x426e40, line 418
-bool TAutomapWindow::HelpMouseMove(int x, int y)
+bool TAutomapWindow::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(10);
@@ -564,7 +564,7 @@ void TAutomapView::Draw(int Surface, int x, int y)
 
 // 0x427e40, line 696. A click walks to the mark under the mouse, else to the
 // point clicked.
-bool TAutomapView::LeftButtonUp(int x, int y, int Flags)
+bool TAutomapView::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	TAutomapWindow *Window = (TAutomapWindow *)GetParent();
@@ -586,7 +586,7 @@ bool TAutomapView::LeftButtonUp(int x, int y, int Flags)
 
 // 0x428080, line 732. The mark menu (Control.cpp's message 59) gets the
 // point clicked and the mark under the mouse.
-bool TAutomapView::RightButtonUp(int x, int y, int Flags)
+bool TAutomapView::RightButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	TMarkMenuData *Data = new TMarkMenuData;
@@ -654,7 +654,7 @@ void TCompassRose::Draw(int Surface, int x, int y)
 
 // 0x4289c0, line 825. The middle (10x10 pixels) centres the view, the four
 // arms scroll it (Scroll's directions); the later tests win.
-bool TCompassRose::LeftButtonUp(int x, int y, int Flags)
+bool TCompassRose::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	int Direction = -1;
@@ -675,7 +675,7 @@ bool TCompassRose::LeftButtonUp(int x, int y, int Flags)
 }
 
 // 0x428cb0, line 836
-void TCompassRose::MouseHover(int x, int y)
+void TCompassRose::MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetMouseOverText(TextScrollAutomap);
@@ -1195,7 +1195,7 @@ bool TInventoryView::RightButtonUp(int x, int y, int Flags)
 }
 
 // 0x42b1b0, lines 1339-1344
-bool TInventoryView::HelpMouseMove(int x, int y)
+bool TInventoryView::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(12);
@@ -1315,7 +1315,7 @@ void TCombatControls::Draw(int Surface, int x, int y)
 }
 
 // 0x42bd30, lines 1461-1466
-bool TCombatControls::HelpMouseMove(int x, int y)
+bool TCombatControls::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	if (!IsLarge)
@@ -1412,7 +1412,7 @@ void TStatusWindow::Draw(int Surface, int x, int y)
 }
 
 // 0x42c830, line 1571
-bool TStatusWindow::HelpMouseMove(int x, int y)
+bool TStatusWindow::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(11);
@@ -1687,7 +1687,7 @@ bool TContainerWindowBody::MouseWheel(int x, int y, int Code)
 }
 
 // 0x42de80, lines 1885-1890
-bool TContainerWindowBody::HelpMouseMove(int x, int y)
+bool TContainerWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(20);
@@ -1877,7 +1877,7 @@ bool TSkillsWindowBody::MouseWheel(int x, int y, int Code)
 }
 
 // 0x42e8d0, lines 2086-2091
-bool TSkillsWindowBody::HelpMouseMove(int x, int y)
+bool TSkillsWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(17);
@@ -1932,7 +1932,7 @@ void TSkillsWindowBody::MouseHover(int x, int y)
 }
 
 // 0x42eb70, line 2144. Opens the skill menu (Control.cpp's message 60).
-bool TSkillsWindowBody::RightButtonUp(int x, int y, int Flags)
+bool TSkillsWindowBody::RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	AddMessage(60, (INT_PTR)this, 0);
@@ -2398,7 +2398,7 @@ bool TBattleWindowBody::MouseWheel(int x, int y, int Code)
 }
 
 // 0x430450, lines 2616-2621
-bool TBattleWindowBody::HelpMouseMove(int x, int y)
+bool TBattleWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(18);
@@ -2845,7 +2845,7 @@ void TTradeWindowBody::SetSize(int Width, int Height)
 }
 
 // 0x4342b0, lines 3076-3081
-bool TTradeWindowBody::HelpMouseMove(int x, int y)
+bool TTradeWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(21);
@@ -3042,7 +3042,7 @@ void TBuddylistWindowBody::MouseHover(int x, int y)
 }
 
 // 0x435760, lines 3322-3327
-bool TBuddylistWindowBody::HelpMouseMove(int x, int y)
+bool TBuddylistWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	SetHelpHandle(19);

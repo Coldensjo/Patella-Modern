@@ -18,10 +18,6 @@
 
 #include "common.h"
 
-// The client's headers name parameters their inline functions do not use (C4100 at /W4; their own
-// sources are on PATELLA_WARNING_BASELINE_MSVC, /W3).
-#pragma warning(push)
-#pragma warning(disable : 4100)
 #include "Container.h"
 #include "ContextMenus.h"
 #include "Creatures.h"
@@ -33,7 +29,6 @@
 #include "Objects.h"
 #include "Preferences.h"
 #include "Talk.h"
-#pragma warning(pop)
 #include "testmode/ClientStateWin32.h"
 #include "testmode/StateDump.h"
 
