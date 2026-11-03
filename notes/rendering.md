@@ -11,9 +11,16 @@ driver, the memory reader) and the run folders of issues #18 and #21.
 
 ```
 python -I tools/build.py oracle-x86
+python -I tools/build.py windows-x64                # only for --patella with the x64 client
 python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl]
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
+	[--patella build\windows-x64\Release\Patella.exe]
 ```
+
+- `--patella <exe>` (Patella-Modern issue #18): the Patella.exe compared with Tibia.exe, x86 or x64, with its
+  PDB next to it (client_state.py reads its fields through it); default the oracle's
+  build\oracle-x86\Release\Patella.exe. The x64 client (cmake/WindowsX64.cmake) has the original engines too, so
+  the same three engines run.
 
 - No server: every game scene comes from a recorded session replayed by tools/proxy.py, so both clients
   get the same server bytes. The recording is issue #19's live session of Tibia.exe
@@ -21,9 +28,14 @@ python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,
   "Patella Second", logout); copy it to `build\render\session.jsonl` or pass `--recording`. A new one:
   `python -I tools/compare_traffic.py --out <dir>` (starts and stops the test server itself), then use
   `<dir>\orig-live.jsonl`.
-- The capture helper `build\oracle-x86\Release\patcap.dll` is the patcap target of the oracle-x86 preset
-  (built with the preset; the script builds the target itself when the DLL is missing or older than
-  tools/capture/patcap.c; before issue #10 tools\build-capture.cmd built build\capture\patcap.dll).
+- The capture helper is loaded into the client, so it has the client's bitness (`cmake/Capture.cmake`):
+  `build\oracle-x86\Release\patcap.dll`, the patcap target of the oracle-x86 preset, for Tibia.exe and a
+  32-bit Patella.exe; `build\windows-x64\Release\patcap.dll`, the patcap target of the windows-x64 preset
+  (Patella-Modern issue #18), for an x64 Patella.exe. The script picks one per client by the PE machine field,
+  and builds the target itself when the DLL is missing or older than tools/capture/patcap.c (configuring the
+  preset first if needed). The same source serves both: the import thunks are pointer-sized, the COM vtable
+  indices and the shared memory's layout are the same. Before issue #10 tools\build-capture.cmd built
+  build\capture\patcap.dll.
 - Run folders `build\render\orig`, `build\render\patella` and `build\render\orig-repeat` (the
   second Tibia.exe run's own since Patella-Modern issue #12; before, it ran in build\render\orig)
   (compare_traffic.py's set-up through its set_folder: copies of the data files, the clients patched by
@@ -77,7 +89,9 @@ widened, the display is 32-bit); the script stores PNGs.
 **Loading the DLL**: the run folders' copies of the clients get one more import descriptor (patcap.dll,
 by name `PatcapLoaded`) in a new last section `.patcap` (compare_rendering.add_import: the old
 descriptors unchanged, the data directory pointed at the new table, the bound import directory cleared;
-it checks that no other byte changed). The Windows loader then loads the DLL with the client's other
+it checks that no other byte changed). It takes PE32 and, since Patella-Modern issue #18, PE32+ images:
+the data directories start 16 bytes later in a PE32+ optional header, and the new lookup and address
+tables have 64-bit thunks, 8-byte aligned; for a PE32 image the output is byte for byte what it was. The Windows loader then loads the DLL with the client's other
 dependencies and runs its DllMain before the client's entry point, so the hooks are in place before the
 first static initialiser. A first version started the client suspended and loaded the DLL with a remote
 thread (CreateRemoteThread on LoadLibraryA); Windows Defender's behaviour monitoring stopped that injector

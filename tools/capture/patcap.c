@@ -27,7 +27,11 @@ exactly the calls the client makes, and the same calls in both clients:
 
 The controller (tools/compare_rendering.py) talks to it through a named file mapping
 "Local\PatellaCapture-<pid>" (layout: struct Shared). Nothing here depends on which client it
-is in. Build: the patcap target of the oracle-x86 preset (32-bit, MSVC; cmake/OracleX86.cmake). */
+is in. It has the client's bitness (cmake/Capture.cmake): the patcap target of the oracle-x86 preset
+(32-bit, for Tibia.exe and the 32-bit Patella.exe) and of the windows-x64 preset (64-bit, for the x64
+Patella.exe; issue #18). The same source serves both: the import thunks are pointer-sized
+(IMAGE_THUNK_DATA), the COM vtable indices and the shared layout (LONGs) are the same, and the timer
+window's handle is stored truncated to 32 bits (only informational; window handles fit). */
 
 #define WIN32_LEAN_AND_MEAN
 #define COBJMACROS

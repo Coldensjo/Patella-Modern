@@ -10,8 +10,9 @@
 #   as tools\build-patella.cmd did.
 # - difftest, sysinctest, communicationtest and vlongtest with exactly the command lines of the former
 #   tools\difftest\build.cmd (the same in every configuration), run as CTest tests against
-#   PATELLA_TIBIA_EXE, each with a private TEMP; the capture DLL patcap.dll of the former
-#   tools\build-capture.cmd (tools/compare_rendering.py uses build\oracle-x86\Release\patcap.dll); and
+#   PATELLA_TIBIA_EXE, each with a private TEMP; the 32-bit capture DLL patcap.dll of the former
+#   tools\build-capture.cmd (cmake/Capture.cmake; tools/compare_rendering.py uses
+#   build\oracle-x86\Release\patcap.dll for the 32-bit clients); and
 #   mfc_shim_check, every source compiled against src/compat/mfc_shim.h with the options of the former
 #   tools\compile-check.cmd.
 #
@@ -250,17 +251,10 @@ add_executable(vlongtest "${DIFFTEST_DIR}/vlongtest.cpp" "${PROJECT_SOURCE_DIR}/
 	"${PROJECT_SOURCE_DIR}/src/TRSA.cpp" "${PROJECT_SOURCE_DIR}/src/TMyException.cpp")
 oracle_test_target(vlongtest /EHsc)
 
-# The capture DLL of the rendering comparison, with the options of the former tools\build-capture.cmd:
-# tools/compare_rendering.py builds this target when build\oracle-x86\Release\patcap.dll is missing or
-# older than patcap.c, and copies it into its run folders.
-add_library(patcap SHARED "${PROJECT_SOURCE_DIR}/tools/capture/patcap.c")
-set_target_properties(patcap PROPERTIES
-	MSVC_RUNTIME_LIBRARY MultiThreaded
-	MSVC_DEBUG_INFORMATION_FORMAT ""
-	DEFINE_SYMBOL "")
-target_compile_options(patcap PRIVATE /O2 /W4 /WX)
-target_link_libraries(patcap PRIVATE user32 gdi32 winmm ddraw opengl32)
-target_link_options(patcap PRIVATE /MANIFEST:NO)
+# The capture DLL of the rendering comparison, 32-bit (cmake/Capture.cmake): tools/compare_rendering.py
+# builds this target when build\oracle-x86\Release\patcap.dll is missing or older than patcap.c, and
+# copies it into its run folders.
+include("${PROJECT_SOURCE_DIR}/cmake/Capture.cmake")
 
 enable_testing()
 

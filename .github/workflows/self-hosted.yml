@@ -4,7 +4,7 @@
 #   communicationtest, vlongtest) through CTest.
 # - windows-x64: the x64 client (with its resources from Tibia.exe) and the unit tests.
 # - comparisons: compare_traffic.py and compare_files.py against the test server for the x64 client,
-#   compare_rendering.py (windowed) from compare_traffic.py's recording.
+#   compare_rendering.py (windowed) for the x64 client (issue #18) from compare_traffic.py's recording.
 # - linux-docker: the Linux presets through tools/build.py in the local Docker image, the place of the
 #   Linux replay tests (M2, M8).
 #
@@ -117,8 +117,8 @@ jobs:
       - name: compare_files.py (x64 client)
         run: python -I tools/compare_files.py --patella build\windows-x64\Release\Patella.exe
       # The fullscreen runs need a 1024x768x32 desktop (notes/reconstruction.md, "Test server").
-      - name: compare_rendering.py (windowed)
-        run: python -I tools/compare_rendering.py --modes windowed --recording build\traffic\result\orig-live.jsonl
+      - name: compare_rendering.py (windowed, x64 client)
+        run: python -I tools/compare_rendering.py --modes windowed --recording build\traffic\result\orig-live.jsonl --patella build\windows-x64\Release\Patella.exe
       - name: Stop the test server
         if: always()
         run: python -I tools/testserver.py stop --force
