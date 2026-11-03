@@ -34,12 +34,18 @@ patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`). `python -I tools/
 test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/reconstruction.md`, "Building",
 "Test server", "Checking".
 
+The golden corpus (issue #24): `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86
+--target golden_corpus` records it into `build/golden` (derived from Tibia.exe: local only, never committed,
+pushed or uploaded); windows-x64's `golden_runner` (CTest test `golden`, skipped without a corpus) replays it
+without Tibia.exe. Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
+
 ## Code style
 
 `.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by
 `.clang-format-ignore`), `.editorconfig` the editor settings. Check with Visual Studio's clang-format
 (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/testmode/*.cpp
-src/testmode/*.h src/res/resource.h tests/unit/*.cpp`.
+src/testmode/*.h src/res/resource.h tests/unit/*.cpp
+tests/golden/*.cpp tests/golden/*.h`.
 Run clang-tidy only through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>`,
 never `clang-tidy --fix` directly: until M5 no change may touch the arguments of TASSERT*, TERROR* or TEND*
 (stringized into the messages difftest compares), and the wrapper reverts every fix inside them. The product

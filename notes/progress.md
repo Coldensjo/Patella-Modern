@@ -105,6 +105,13 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #24 (branch issue-24, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh`
+(CTest, 0 warnings) after the first tests moved to tests/golden as golden-corpus tests: the same counts as below;
+and with recording on (`golden_corpus`): 16,848,752 + 67 + 1,134,513 checks, 0 failures, every per-test count as
+in the run without it. The x64 golden_runner replays 373,518 of difftest's checks (XTEA 6,000, Characters 4,500,
+Colors 20,145, Strings 30,000, FormatNumber 2,000, Buffers 80,652, Skins 263, Regexp 229,958) and sysinctest's
+67, 0 failures; not yet ported: difftest's 16,475,234 other checks and communicationtest's 1,134,513.
+
 Patella-Modern issue #21 (branch issue-21, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest, 0
 warnings) after the test mode's hooks in src/ (src/TestHooks.h, the system calls themselves outside the test
 build): the same counts as below; the oracle Patella.exe is identical to main's apart from the link time
