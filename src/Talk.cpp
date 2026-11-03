@@ -26,6 +26,7 @@ static vector<TTalkFilter *> IgnoreList(0, 9, 10, NULL);          // 0x71efb0, 0
 static vector<TTalkFilter *> ConsoleFilterList(0, 4, 5, NULL);    // 0x71efd0, 0x55a1a0
 
 static_assert(sizeof(TTalkbox) == 0x1c0, "talkbox layout");
+#if PATELLA_ORIGINAL_LAYOUT
 static_assert(sizeof(TTalkLine) == 0x40, "statement layout");
 static_assert(sizeof(TTalkBuffer) == 0x2c, "text buffer layout");
 static_assert(sizeof(TPrivateTalkBuffer) == 0x4c, "private buffer layout");
@@ -35,6 +36,7 @@ static_assert(sizeof(TRuleViolationChannel) == 0x30, "rule violation channel lay
 static_assert(sizeof(TPrivateChannel) == 0x34, "private channel layout");
 static_assert(sizeof(TTalkFilter) == 0x30, "filter layout");
 static_assert(offsetof(TTalkLine, WithoutTime) == 0x34, "statement text");
+#endif
 
 // 0x4fd440, no line evidence; leading Talk.cpp helpers remain in link order.
 bool GetTalkChanged()
@@ -370,7 +372,13 @@ void SetTalkboxRectangle(int Number, int x, int y, int Width, int Height)
 	Box->Height = Height;
 	TEND1(490, Number)
 }
-// 0x4ff130, line 517
+// 0x4ff130, line 517. When GetMilliseconds throws before the loop, the original reports i
+// uninitialised: MSVC's unoptimised build warns (C4701, a code generation warning, which a pragma
+// turns off only outside the function); initialising i would change the oracle's code.
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4701)
+#endif
 void UpdateTalkboxes()
 {
 	int i;
@@ -383,6 +391,9 @@ void UpdateTalkboxes()
 	LastTime = GetMilliseconds();
 	TEND1(517, i)
 }
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 // 0x4ff330, line 536
 void RemoveOldestTalkbox()
 {

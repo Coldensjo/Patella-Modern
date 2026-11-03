@@ -24,6 +24,16 @@ typedef unsigned char uint8;
 typedef unsigned short uint16;
 typedef unsigned int uint32;
 
+// The original's structure layouts (its sizes and offsets, the static_asserts that check them) hold
+// in the 32-bit build, where the oracle-x86 preset freezes them until M6; the x64 build has its
+// natural layout, in which pointers and size_t are 8 bytes (notes/modernization-plan.md, 1.2 and
+// section 2, rule 4).
+#if defined(_M_IX86)
+#define PATELLA_ORIGINAL_LAYOUT 1
+#else
+#define PATELLA_ORIGINAL_LAYOUT 0
+#endif
+
 // Range check used in many assertions, e.g. "In(CommandType,0,255)".
 inline bool In(int Value, int Min, int Max)
 {

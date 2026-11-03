@@ -23,7 +23,9 @@
 	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr " " Bug)
 
 // The factory allocates 0x250 bytes.
+#if PATELLA_ORIGINAL_LAYOUT
 static_assert(sizeof(TSurfaceDX) == 0x250, "TSurfaceDX's size");
+#endif
 
 // Data, in .data and .bss order.
 static const GUID *DeviceGUID = &IID_IDirect3DHALDevice; // 0x5c2570, the Direct3D device created

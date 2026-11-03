@@ -495,12 +495,12 @@ public:
 	void SetCursor(int Position)
 	{
 		Cursor = Position;
-		Limit(&Cursor, 0, strlen(Text));
+		Limit(&Cursor, 0, (int)strlen(Text));
 	}
-	void LimitCursor() { Limit(&Cursor, 0, strlen(Text)); }
+	void LimitCursor() { Limit(&Cursor, 0, (int)strlen(Text)); }
 	void SetSelection(int Position)
 	{
-		Limit(&Position, 0, strlen(Text));
+		Limit(&Position, 0, (int)strlen(Text));
 		SelectionLength = 0;
 		SelectionStart = Position;
 	}
@@ -529,10 +529,10 @@ inline int TEditLine::GetPosition(int x, int y)
 	if (x < 0 || y < 0)
 		return FirstVisible;
 	if (x > Width - 2 * SkinProperties.Data99C || y > Height - 2 * SkinProperties.Data99C)
-		return strlen(Text);
+		return (int)strlen(Text);
 	int Position = GetFittingTextLength(Font.FontNumber, Text + FirstVisible, x) + FirstVisible;
 	if (Position > (int)strlen(Text))
-		return strlen(Text);
+		return (int)strlen(Text);
 	return Position;
 }
 

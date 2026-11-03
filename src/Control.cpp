@@ -1065,11 +1065,11 @@ void ProcessEvents()
 			delete[] (char *)Param2;
 			break;
 		case 0x30:
-			MainWindow->Console->OpenChannel(5, 5, NULL, Param1, (const char *)Param2);
+			MainWindow->Console->OpenChannel(5, 5, NULL, (int)Param1, (const char *)Param2);
 			delete[] (char *)Param2;
 			break;
 		case 0x31:
-			MainWindow->Console->OpenChannel(5, 5, NULL, Param1, (const char *)Param2)->SetSelected(true);
+			MainWindow->Console->OpenChannel(5, 5, NULL, (int)Param1, (const char *)Param2)->SetSelected(true);
 			delete[] (char *)Param2;
 			break;
 		case 0x32:
@@ -1085,15 +1085,15 @@ void ProcessEvents()
 				MainWindow->Height);
 			break;
 		case 0x35:
-			ModalWindow = new TCreatureContextMenu(Param1, GetMouseX(), GetMouseY(),
+			ModalWindow = new TCreatureContextMenu((uint32)Param1, GetMouseX(), GetMouseY(),
 				MainWindow->Width, MainWindow->Height);
 			break;
 		case 0x36:
-			ModalWindow = new TBuddyContextMenu(Param1, GetMouseX(), GetMouseY(),
+			ModalWindow = new TBuddyContextMenu((uint32)Param1, GetMouseX(), GetMouseY(),
 				MainWindow->Width, MainWindow->Height);
 			break;
 		case 0x37:
-			ModalWindow = new TTextContextMenu(MainWindow->Console->CurrentConsole->TextWindow, Param1,
+			ModalWindow = new TTextContextMenu(MainWindow->Console->CurrentConsole->TextWindow, (int)Param1,
 				GetMouseX(), GetMouseY(), MainWindow->Width, MainWindow->Height);
 			break;
 		case 0x38:
@@ -1101,7 +1101,7 @@ void ProcessEvents()
 				MainWindow->Width, MainWindow->Height);
 			break;
 		case 0x39:
-			ModalWindow = new TRequestContextMenu(MainWindow->Console, Param1, GetMouseX(),
+			ModalWindow = new TRequestContextMenu(MainWindow->Console, (int)Param1, GetMouseX(),
 				GetMouseY(), MainWindow->Width, MainWindow->Height);
 			break;
 		case 0x3a:

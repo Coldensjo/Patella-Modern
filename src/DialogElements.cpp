@@ -371,7 +371,7 @@ void TLabel::SetText(const char *_Text, bool Shorten)
 		Line = NULL;
 	}
 	Shortened = false;
-	int Length = strlen(_Text);
+	int Length = (int)strlen(_Text);
 	Text = new char[Length + 2];
 	FullText = new char[Length + 2];
 	strcpy(FullText, _Text);
@@ -1350,7 +1350,7 @@ bool TEditLine::MouseMove(int x, int y)
 	if (Selecting) {
 		int Position = GetPosition(x, y);
 		int End = Position;
-		Limit(&End, 0, strlen(Text));
+		Limit(&End, 0, (int)strlen(Text));
 		SelectionLength = End - SelectionStart;
 		SetCursor(Position);
 	}
@@ -1405,7 +1405,7 @@ bool TEditLine::LeftButtonDoubleClick(int x, int y, int Flags)
 			Length++;
 		SetSelection(Start);
 		int End = Start + Length;
-		Limit(&End, 0, strlen(Text));
+		Limit(&End, 0, (int)strlen(Text));
 		SelectionLength = End - SelectionStart;
 		SetCursor(Start + Length);
 	}
@@ -1454,7 +1454,7 @@ void TEditLine::KeyPress(int Key)
 			SelectionLength = 0;
 		}
 		if (Code == 0x113) {
-			SetCursor(strlen(Text));
+			SetCursor((int)strlen(Text));
 			SelectionLength = 0;
 		}
 		if (!ReadOnly) {
@@ -1541,9 +1541,9 @@ void TEditLine::HandleEvent(int Event)
 			SelectionLength = 0;
 		}
 		if (!SingleLine)
-			SetCursor(Cursor + InsertText(Cursor, Clipboard, strlen(Clipboard)));
+			SetCursor(Cursor + InsertText(Cursor, Clipboard, (int)strlen(Clipboard)));
 		else
-			SetCursor(Cursor + InsertText(Cursor, Clipboard, strcspn(Clipboard, "\n")));
+			SetCursor(Cursor + InsertText(Cursor, Clipboard, (int)strcspn(Clipboard, "\n")));
 		return;
 	}
 	case 19: {
@@ -1559,7 +1559,7 @@ void TEditLine::HandleEvent(int Event)
 	case 20:
 		// The cursor goes to max(length, 0) (the binary keeps the test).
 		SelectionStart = 0;
-		SelectionLength = strlen(Text);
+		SelectionLength = (int)strlen(Text);
 		SetCursor(SelectionLength < 0 ? 0 : SelectionLength);
 		return;
 	default:
@@ -1596,7 +1596,7 @@ void TEditLine::SetText(const char *_Text)
 	TBEGIN
 	strncpy(Text, _Text, MaxLength);
 	Text[MaxLength] = 0;
-	SetCursor(strlen(Text));
+	SetCursor((int)strlen(Text));
 	FirstVisible = 0;
 	SelectionLength = 0;
 	Arrange();
@@ -1610,7 +1610,7 @@ int TEditLine::InsertText(int Position, const char *String, int insertlength)
 {
 	TASSERT2(2263, Position <= (int)strlen(Text), Position, strlen(Text));
 	TBEGIN
-	int appendlength = strlen(Text) - Position;
+	int appendlength = (int)strlen(Text) - Position;
 	if ((int)strlen(Text) + insertlength <= MaxLength) {
 		TASSERT1(2270, Cursor+insertlength+appendlength<=MaxLength, Cursor+insertlength+appendlength);
 		memmove(Text + Cursor + insertlength, Text + Cursor, appendlength + 1);
@@ -1652,7 +1652,7 @@ void TEditLine::InsertChar(int Position, char c)
 void TEditLine::DeleteText(int start, int length)
 {
 	TBEGIN
-	int Length = strlen(Text);
+	int Length = (int)strlen(Text);
 	if (start >= Length)
 		start = Length;
 	if (start + length > Length)
@@ -1888,7 +1888,7 @@ void TEditText::KeyPress(int Key)
 			break;
 		case 0x113:
 			if (Line == Lines - 1) {
-				Cursor = strlen(Text);
+				Cursor = (int)strlen(Text);
 			} else {
 				Next = LineStart(Line + 1);
 				Cursor = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
@@ -1942,7 +1942,7 @@ void TEditText::SetText(const char *_Text, bool KeepPosition)
 	TASSERT(2711, _Text!=NULL);
 	TEditLine::SetText(_Text);
 	if (!KeepPosition)
-		SetCursor(strlen(Text));
+		SetCursor((int)strlen(Text));
 	SelectionLength = 0;
 	Arrange();
 	if (!KeepPosition)
@@ -1976,7 +1976,7 @@ int TEditText::GetPosition(int x, int y)
 		int Start = LineStart(Line);
 		int Length;
 		if (Line == Lines)
-			Length = strlen(Text) - Start;
+			Length = (int)strlen(Text) - Start;
 		else
 			Length = LineStart(Line + 1) - Start;
 		int Fitting = GetFittingTextLength(Font.FontNumber, Text + Start, x);
@@ -1984,13 +1984,13 @@ int TEditText::GetPosition(int x, int y)
 			Length = Fitting;
 		int Position = Length + Start;
 		if (Position > (int)strlen(Text))
-			Position = strlen(Text);
-		Limit(&Position, 0, strlen(Text));
+			Position = (int)strlen(Text);
+		Limit(&Position, 0, (int)strlen(Text));
 		return Position;
 	} else {
 		Line = VisibleLines + ScrollBar->Range->Value;
 		if (Line == Lines)
-			return strlen(Text);
+			return (int)strlen(Text);
 	}
 	if (Line > Lines)
 		Line = Lines - 1;
@@ -2007,7 +2007,7 @@ void TEditText::FormatText()
 	TBEGIN
 	int Position = 0;
 	Lines = 0;
-	int Length = strlen(Text);
+	int Length = (int)strlen(Text);
 	while (Position <= Length) {
 		LineStart(Lines) = Position;
 		Lines++;
@@ -3049,8 +3049,8 @@ void TFontListBox::StartEdit()
 		SetChildArea(EditLine, TRect(0, (Selected - ScrollBar->Range->Value) * LineHeight, EditWidth, 16));
 		EditLine->SetActive(true);
 		EditLine->SetSelection(0);
-		int End = strlen(Edited);
-		Limit(&End, 0, strlen(EditLine->Text));
+		int End = (int)strlen(Edited);
+		Limit(&End, 0, (int)strlen(EditLine->Text));
 		EditLine->SelectionLength = End - EditLine->SelectionStart;
 		EditScroll = ScrollBar->Range->Value;
 	}

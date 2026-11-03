@@ -158,7 +158,7 @@ char *GetClipboardText()
 		return NULL;
 	HANDLE Memory = GetClipboardData(CF_TEXT);
 	SIZE_T Size = GlobalSize(Memory);
-	ResizeClipboardBuffer(Size);
+	ResizeClipboardBuffer((unsigned int)Size);
 	char *Data = (char *)GlobalLock(Memory);
 	if (Data == NULL) {
 		ClipboardBuffer[0] = 0;

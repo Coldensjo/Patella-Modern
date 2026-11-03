@@ -402,7 +402,7 @@ LRESULT CMainFrame::OnNcHitTest(CPoint point)
 }
 
 // 0x4a9b00, line 454
-void CMainFrame::OnTimer(UINT nIDEvent)
+void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 {
 	TBEGIN
 	Default();
