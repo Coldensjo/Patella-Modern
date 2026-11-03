@@ -23,8 +23,12 @@
 #include "Preferences.h"
 #include "Status.h"
 #include "Surface.h"
-#include "Text.h"
+#include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
+#include "common.h"
 #include <ostream>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 // Data, in .bss order.
 uint8 PacketHeader[16];         // 0x5d1644, written by Network.cpp

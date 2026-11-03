@@ -2,7 +2,10 @@
 
 #include "vulkan/DeviceChoice.h"
 
+#include <cstddef>
+#include <optional>
 #include <string>
+#include <string_view>
 
 namespace patella::vulkan {
 

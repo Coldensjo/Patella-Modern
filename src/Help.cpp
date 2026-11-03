@@ -12,7 +12,10 @@
 #include "Help.h"
 #include "Container.h"
 #include "Preferences.h"
-#include "Text.h"
+#include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
+#include "common.h"
+#include <cstddef>
+#include <cstring>
 
 
 // Data, in .bss order.

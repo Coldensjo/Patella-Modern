@@ -52,7 +52,7 @@
 
 #include <ctime>
 
-#include "testmode/ClientView.h"
+#include "testmode/ClientView.h" // IWYU pragma: export
 
 namespace patella::testmode {
 DWORD TimeGetTime();

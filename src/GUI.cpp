@@ -12,11 +12,18 @@
 
 #include "GUI.h"
 #include "Skins.h"
-#include "Status.h" // uses nothing from it, but GUI.obj has its LinkPattern copy (0x5c1704)
-#include "Text.h"
+#include "Status.h" // IWYU pragma: keep (uses nothing from it, but GUI.obj has its LinkPattern copy, 0x5c1704)
+#include "Text.h"   // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "sysinc.h"
+#include "Container.h"
+#include "Help.h"
+#include "common.h"
+#include "graphics.h"
 
 #include <sstream>
+#include <climits>
+#include <cstddef>
+#include <cstdlib>
 
 // Data, in .bss order.
 static int NumberOfHotkeys;                       // 0x5ccf98, used entries of Hotkeys

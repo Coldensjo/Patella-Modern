@@ -27,6 +27,17 @@
 #include "Text.h"
 #include "Utils.h"
 #include "graphics.h"
+#include "Container.h"
+#include "DialogElements.h"
+#include "DialogWindow.h"
+#include "GUI.h"
+#include "Help.h"
+#include "Talk.h"
+#include "common.h"
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 // An assertion whose text carries a bug number (Map.cpp's macro).
 #define TASSERTB2(Line, Expr, V1, V2, Bug) \

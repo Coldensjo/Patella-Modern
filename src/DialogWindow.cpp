@@ -26,8 +26,10 @@
 #include "Preferences.h"
 #include "Skins.h"
 #include "Surface.h"
-#include "Text.h"
-#include "Utils.h"
+#include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
+#include "GUI.h"
+#include "common.h"
+#include <cstddef>
 
 // At 0x5cc428, constructed by the static initialiser 0x559e20 as
 // TCallback(NULL, 0) and never used (MainWindow.cpp and MapWindow.cpp have

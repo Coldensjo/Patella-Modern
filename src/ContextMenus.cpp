@@ -33,10 +33,15 @@
 #include "Status.h"
 #include "Surface.h"
 #include "Talk.h"
-#include "Text.h"
+#include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "Utils.h"
 #include "graphics.h"
 #include "sysinc.h"
+#include "GUI.h"
+#include "common.h"
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
 
 // At 0x5c4508, constructed by the static initialiser 0x559de0 as
 // TCallback(NULL, 0) and never used (the other window files have one too);

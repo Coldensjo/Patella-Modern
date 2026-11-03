@@ -17,6 +17,11 @@
 #include "SurfaceDX.h"
 #include "Preferences.h"
 #include <mmsystem.h>
+#include "Surface.h"
+#include "common.h"
+#include "graphics.h"
+#include <cstddef>
+#include <cstring>
 
 // The image's assertions with a bug number append it to the expression text.
 #define TASSERTB1(Line, Expr, V1, Bug) \

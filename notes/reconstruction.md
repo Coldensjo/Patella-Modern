@@ -354,6 +354,12 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   M5); with `--fix` it reverts, character by character, every fix clang-tidy made inside such an argument,
   in the file and in the headers it changed (plan 4.2). Never run `clang-tidy --fix` directly.
   `--all` takes every source of compile_commands.json under src/ (not src/Extern).
+  misc-include-cleaner (issue #40) checks the includes of the main files: a new symbol of another header gets
+  that header's include, after the file's own includes (never before common.h, `#define DIRECT3D_VERSION` or
+  `#define GLH_EXT_SINGLE_FILE`), inside the `#if` of the code that uses it; write it by hand, its `--fix` puts
+  includes first. The Windows SDK, MFC and compat/mfc_shim.h are not checked (IgnoreHeaders); an include that
+  is there for the image keeps `// IWYU pragma: keep` (Text.h, Status.h). Check every target's commands, one
+  run each (notes/decisions.md, issue #40).
 - No new clang-tidy findings (issue #11; plan 4.1): `tools/tidy-baseline.tsv` lists the findings outside the
   macro arguments, counted by file, check and message (not by line, so moved code keeps its entry), for the
   compile commands of linux-x64-clang (patella_core's sources and the headers of src/ they include; the rest of

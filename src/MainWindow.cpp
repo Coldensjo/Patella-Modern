@@ -35,8 +35,11 @@
 #include "Talk.h"
 #include "Text.h"
 #include "graphics.h"
+#include "DialogWindow.h"
+#include "GUI.h"
+#include "common.h"
 
-#include <stdlib.h>
+#include <cstdlib>
 
 // Data, in .bss order.
 static void (*OpenURLCallback)(const char *URL); // 0x5d16a0

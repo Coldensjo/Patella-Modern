@@ -12,16 +12,24 @@
 #include "vulkan/SurfaceVulkan.h"
 #include "vulkan/DeviceSettings.h"
 #include "Preferences.h"
+#include "Surface.h"
+#include "graphics.h"
+#include "vulkan/DeviceChoice.h"
+#include "vulkan/Quads.h"
+#include "vulkan/Renderer.h"
 #include <mmsystem.h>
 
 #include <volk.h>
 
+#include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_win32.h>
 
-#include <cctype>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
+#include <vector>
 
 // GUI.cpp (GUI.h is not warning-free at the full level; the engine needs only this).
 void DrawSkin(int Surface, int x, int y, int width, int height, int skin, int srcx, int srcy);

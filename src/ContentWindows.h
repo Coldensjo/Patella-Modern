@@ -26,7 +26,7 @@
 #pragma once
 
 #include "common.h"
-#include <limits.h>
+#include <climits>
 #include "Container.h"
 #include "GUI.h"
 #include "Creatures.h" // SetHighlightID

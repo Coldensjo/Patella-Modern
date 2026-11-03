@@ -13,6 +13,7 @@
 #include "Dialogs.h"
 #if defined(PATELLA_VULKAN)
 #include "vulkan/DeviceSettings.h"
+#include "vulkan/DeviceChoice.h"
 
 // The x64 client's graphics device choice in the advanced options (issue #31): the line above the
 // buttons before a device exists, and the buttons' help texts.
@@ -21,9 +22,9 @@ static const char *TextUseAutomaticDevice = "Use the best graphics device: a GPU
 static const char *TextUseGpuDevice = "Use the graphics card (GPU); with several, each click takes the next";
 static const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics card";
 #endif
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <sstream>
 #include "Communication.h"
 #include "Control.h"
@@ -38,6 +39,12 @@ static const char *TextUseCpuDevice = "CPU (compatibility): draw without the gra
 #include "Text.h"
 #include "Utils.h"
 #include "sysinc.h"
+#include "DialogElements.h"
+#include "GUI.h"
+#include "Skins.h"
+#include "common.h"
+#include "graphics.h"
+#include <ostream>
 
 // Data. Dialogs.obj's only static is NoCallback (static initialiser
 // 0x559e10). Its copy of the text table (0x5c123c-0x5c1484, then its

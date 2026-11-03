@@ -6347,3 +6347,103 @@ clean on src/ (outside src/Extern), and common.h's `uint8`, `uint16` and `uint32
   from main c57b39c and from the branch at the same path, differ only in the link time stamps and the PDB record
   (pecompare: `.text`, `.data` and the rest identical); the difftest counts are unchanged; the clang-tidy
   baseline is unchanged (21).
+
+## The <c...> forms of the C headers; each file includes what it uses (Patella-Modern issue #40)
+
+Settled by Claude Opus 5.5, November 3, 2026. The fourth change of M3 (plan section 7), in two commits that can be
+reviewed and reverted alone: first `modernize-deprecated-headers`, then the include check, which the user chose
+to be clang-tidy's `misc-include-cleaner` through tools/tidy.py (no include-what-you-use: no new dependency).
+
+- **modernize-deprecated-headers through tools/tidy.py on every configuration that compiles src/** (high). As in
+  issues #32, #33 and #35: `python -I tools/tidy.py -p <dir> --checks=-*,modernize-deprecated-headers --fix --all`
+  once per target, on compile_commands.json files holding one target's Release commands each (oracle-x86's
+  Patella, mfc_shim_check, difftest, communicationtest, sysinctest and vlongtest with `--extra-arg=-m32`;
+  windows-x64's Patella, PatellaTest, patella_core, patella_testmode and patella_render_vulkan). 19 includes in
+  12 files: common.h's `<string.h>`, `<stdio.h>`, `<stdlib.h>`, ContentWindows.h's `<limits.h>`, Talk.h's
+  `<time.h>`, and ConsoleWindow.cpp, Creatures.cpp, DialogElements.cpp, Dialogs.cpp, MainWindow.cpp, Map.cpp,
+  MapWindow.cpp, Player.cpp and Talk.cpp. The second run of every target reports none (MainFrm.cpp's two
+  clang-diagnostic errors, the MFC message map's ON_MESSAGE, also on main, aside). No fix was inside a
+  TASSERT/TERROR/TEND argument (macrocheck: the 2,108 calls unchanged).
+- **The headers too: CheckHeaderFile** (high). The check looks only at the main file's own includes unless
+  `modernize-deprecated-headers.CheckHeaderFile` is true; without it the first run missed common.h,
+  ContentWindows.h and Talk.h. .clang-tidy enables the check with that option, so the hosted CI's baseline check
+  fails a new `<string.h>` in src/ (outside src/Extern); the check is clean, so the baseline keeps its 21 entries.
+- **Names stay unqualified** (high). `<cstring>` and the others declare `std::strlen` and so on; the code calls
+  `strlen`, `sprintf`, `abs`. MSVC's, mingw-w64's and libstdc++'s `<c...>` headers include the C header and so
+  declare the global names as well, which is all the code needs; qualifying the calls (`std::`) is not part of
+  this issue (it would touch macro arguments too, which wait for M5).
+- **No overload changes** (high). `<cmath>` instead of `<math.h>` (Map.cpp, MapWindow.cpp) can make float
+  overloads visible: MapWindow.cpp's `floor(ViewWidth * (11.0f / 15.0f))` takes a float, and the UCRT's
+  `<math.h>` declares only `double floor(double)`. They were visible before too: common.h's `<string>` reaches
+  `<cmath>` through `<istream>` and `<xlocnum>` before either file's own include (cl /showIncludes on main's
+  MapWindow.cpp, oracle-x86), so every call resolves as before; `abs` is called with ints only, `sqrt` with
+  doubles. The images confirm it.
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built from
+  main e089936 and from the commit at the same path, differ only in the link time stamps and the PDB record
+  (pecompare: `.text`, `.data` and the rest identical).
+- **misc-include-cleaner: the translation units of every target** (high). The second commit. The check reports,
+  for the main file of each compile command, every symbol whose header the file does not include itself
+  ("no header providing X is directly included") and every include it uses nothing from. Run once per target
+  as above (`--checks=-*,misc-include-cleaner`), first without a configuration: 5,146 findings, nearly all
+  for the Windows SDK's internal headers (minwindef.h, winuser.h, basetsd.h, corecrt_io.h) and MFC's (afxstr.h).
+  After the configuration below: 196 includes added in 47 files and two removed, then 0 findings on all 11
+  targets, inside the TASSERT/TERROR/TEND arguments too (MainFrm.cpp's two clang-diagnostic errors aside: in
+  the targets with real MFC the message map does not parse, so MainFrm.cpp is checked by mfc_shim_check's
+  commands, where it compiles).
+- **The fixes placed by hand, not by `--fix`** (high). clang-tidy's own insertions (tried, then reverted) put
+  includes at the top of the include block: before `#define DIRECT3D_VERSION 0x0700` (SurfaceDX.cpp, which
+  then failed to compile on d3dvec.inl), before `#define GLH_EXT_SINGLE_FILE` (SurfaceGL.cpp), before
+  common.h (surfaceDX9.cpp), outside the `#if defined(PATELLA_VULKAN)` blocks (Surface.cpp), and each target
+  removed what another target needs (vulkan/DeviceChoice.h, used only by x64 code). So the fixes of every
+  target were collected (`--fix` in a scratch state, the diff recorded, the state restored), merged per file
+  with the targets that want each include, and written by a script: every new include after the file's
+  existing ones, so it comes after the include that brought it in before (no header is included earlier than
+  before, so no macro such as `_CRT_SECURE_NO_WARNINGS`, `DIRECT3D_VERSION`, `GLH_EXT_SINGLE_FILE` or
+  `WIN32_LEAN_AND_MEAN` changes); an include only x64 code uses goes into that code's `#if defined(PATELLA_VULKAN)`
+  block (DeviceChoice.h in Control.cpp, Dialogs.cpp and Surface.cpp). cl /showIncludes on every changed file
+  (x64 Patella's commands, against the first commit): the same headers in the same first-inclusion order,
+  except the new `<ostream>` (below) and DialogWindow.cpp's Utils.h.
+- **IgnoreHeaders: the platform** (high). `misc-include-cleaner.IgnoreHeaders` in .clang-tidy names the Windows
+  SDK and the UCRT (`Windows Kits`), MFC (`atlmfc`) and the MFC shim that stands for it in mfc_shim_check
+  (`compat/mfc_shim.h`). Their symbols are declared in internal headers that the SDK and MFC mean to be reached
+  through windows.h, io.h and afxwin.h (common.h includes MFC first, before anything of Windows, which MFC
+  requires); include-cleaner knows no umbrella headers for them, so it would ask for winuser.h or afxstr.h. The
+  standard library is checked by its names (`<cstring>` for strcpy, `<ostream>` for std::endl), as is the
+  Vulkan SDK (`<vulkan/vulkan_core.h>` next to volk.h in Renderer.cpp and SurfaceVulkan.cpp).
+- **Pragmas where the include is the point** (high). `// IWYU pragma: keep` on the includes that are there for
+  the image, not for a symbol: Text.h in the seven objects that read none of its texts but carry their own copy
+  of the table (ContextMenus, Creatures, DialogElements, DialogWindow, GUI, Help, MainFrm; Text.h's list) and
+  Status.h in GUI.cpp (GUI.obj's LinkPattern copy, 0x5c1704); removing them changes .data. `<typeinfo>` in
+  ClientStateWin32.cpp too: `typeid` needs it, and include-cleaner does not see that use. `// IWYU pragma:
+  export` on common.h's TestHooks.h and TMyException.h and on TestHooks.h's testmode/ClientView.h: they are
+  part of common.h's interface (TBEGIN/TEND throw TMyException, the PATELLA_* hooks replace system calls), so a
+  file that includes common.h has them.
+- **Removed** (high). DialogWindow.cpp's Utils.h (nothing of it used; no data in it) and SurfaceVulkan.cpp's
+  `<cctype>` (no character test left in it).
+- **The new `<ostream>` moves a table on x64** (high). Communication.cpp, Dialogs.cpp and Player.cpp use
+  `std::endl` and had it through `<sstream>`; with MSVC 14.51 in C++23 `<ostream>` itself also brings in
+  `<format>` and `<print>`, so these three objects now carry the 200-byte digit-pair table `"000102...99"` of
+  `<charconv>` as a COMDAT, and the linker places the one copy it keeps at another .rdata address (0x357460
+  for 0x355940 in the x64 Patella.exe; the strings between move up by 200 bytes). Section sizes and `.pdata`
+  are identical; `.rdata` in the range differs only by that move (the same bytes in another order); the
+  instructions are identical once addresses and displacements are normalised (dumpbin /disasm of both images:
+  917,676 and 956,657 lines, Patella.exe and PatellaTest.exe, 0 differing). No behaviour depends on where a
+  constant table is. The oracle Patella.exe is unchanged (C++17: `<ostream>` brings nothing new).
+- **Headers: not done** (high). clang-tidy checks a file's includes only when it is the main file, so the run
+  over the compile commands covers the .cpp files. Checked on their own (each header of src/ as the main file,
+  with the commands clang-tidy interpolates from each target), the headers have about 50 findings per target:
+  missing includes that the .cpp files supply before them (uint8 in SurfaceDX.h, FILE in Script.h and
+  Talk.h, size_t in vulkan/Renderer.h), and includes the header itself does not use, which the .cpp files
+  rely on (Communication.h's Talk.h and `<sstream>`, Dialogs.h's Text.h). Removing those changes which objects
+  get Text.h's and Status.h's internal-linkage tables, i.e. .data, header by header; and the interpolated
+  commands parse some headers wrongly (as C, or without the Windows headers). That is its own change, with
+  each removal measured on the images; not done here.
+- **.clang-tidy enables misc-include-cleaner** (medium). On linux-x64-clang's commands (patella_core) it is
+  clean with libstdc++ as well, so the hosted CI's baseline check fails a new missing include there; the
+  baseline keeps its 21 entries (0 new, 0 gone). The Windows targets are checked by running tidy.py on their
+  commands as above (not in the hosted CI, which has no MFC).
+- **Proof** (high). Second commit against the first, built at the same path: the oracle Patella.exe differs only
+  in the link time stamps and the PDB record (pecompare: `.text` and `.data` identical); the x64 Patella.exe and
+  PatellaTest.exe differ by the table move above (pecompare: 7,073 and 7,112 differing ranges, all of them
+  addresses; disassembly identical after normalisation). macrocheck: the 2,108 calls unchanged. The difftest
+  counts are unchanged.

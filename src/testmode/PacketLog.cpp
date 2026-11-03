@@ -4,6 +4,7 @@
 #include "PacketLog.h"
 
 #include <charconv>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>

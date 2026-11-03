@@ -14,6 +14,12 @@
 #include "Utils.h"
 #include "sysinc.h"
 #include "Extern/regexp/regexp.h"
+#include "Container.h"
+#include "Objects.h"
+#include "common.h"
+#include <cstddef>
+#include <cstdlib>
+#include <cstring>
 
 // Data, in .bss order. Status.obj's only .data, LinkPattern (0x5c2560), is
 // its copy of Status.h's.

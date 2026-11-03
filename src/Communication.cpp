@@ -19,7 +19,13 @@
 #include "Status.h"
 #include "Talk.h"
 #include "Text.h"
+#include "common.h"
 #include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ostream>
+#include <sstream>
 
 static int SkipFields;      // 0x5c4340
 static uint8 *PatchData;    // 0x5c4344, cleared by InitCommunication

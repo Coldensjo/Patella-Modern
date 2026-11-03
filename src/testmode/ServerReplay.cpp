@@ -3,8 +3,11 @@
 #include "ServerReplay.h"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <system_error>

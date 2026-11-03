@@ -37,9 +37,15 @@
 #include "Talk.h"
 #include "Text.h"
 #include "sysinc.h"
+#include "GUI.h"
+#include "common.h"
 #include <ostream>
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
 #if defined(PATELLA_VULKAN)
 #include "vulkan/DeviceSettings.h"
+#include "vulkan/DeviceChoice.h"
 #endif
 
 // Data, in .data/.bss order. 0x5c4540-0x5c4553 is not used by any code.

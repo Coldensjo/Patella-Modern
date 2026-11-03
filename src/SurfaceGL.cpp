@@ -22,12 +22,16 @@
 #include "common.h"
 #define GLH_EXT_SINGLE_FILE
 #include "Extern/glh/glh_extensions.h"
+#include "Extern/glh/glh_genext.h"
 #include "SurfaceGL.h"
 #include "GUI.h"
 #include "MainFrm.h"
 #include "Preferences.h"
+#include "Surface.h"
+#include "graphics.h"
 #include <GL/glu.h>
 #include <mmsystem.h>
+#include <cstring>
 
 // Not in the Windows SDK's OpenGL 1.1 headers (glext.h, wglext.h).
 #define GL_CLAMP_TO_EDGE 0x812F

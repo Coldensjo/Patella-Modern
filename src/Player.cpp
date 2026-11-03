@@ -29,13 +29,19 @@
 #include "Utils.h"
 #include "sysinc.h"
 #include "compat/crt71.h"
+#include "common.h"
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <new>
 #include <stdexcept>
-#include <time.h>
+#include <ctime>
 #include <process.h>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <ios>
+#include <ostream>
 
 // The window title and class name are stored XOR-encoded. The key of each
 // string is in this object's .rdata (0x56dd98, 0x56ddb8); the other half,

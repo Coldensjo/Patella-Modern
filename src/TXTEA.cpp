@@ -3,6 +3,7 @@
 // iteration. Blocks are two little-endian 32-bit words.
 
 #include "TXTEA.h"
+#include "common.h"
 
 static const uint32 DELTA = 0x9e3779b9;
 

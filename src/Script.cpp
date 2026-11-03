@@ -15,6 +15,9 @@
 #include <io.h>
 #include "Utils.h"
 #include "sysinc.h"
+#include "common.h"
+#include <cstdio>
+#include <cstring>
 
 // 0x4df6d0, lines 48-50
 void TReadScriptFile::open(const char *FileName)

@@ -1,6 +1,7 @@
 // Clock.cpp: the virtual clock of the test mode (Clock.h; issue #21).
 
 #include "Clock.h"
+#include <cstdint>
 
 namespace patella::testmode {
 

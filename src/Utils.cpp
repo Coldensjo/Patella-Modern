@@ -6,6 +6,10 @@
 // blocks.
 
 #include "Utils.h"
+#include "common.h"
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
 
 // 0x508fa0
 int IsSpace(int c)

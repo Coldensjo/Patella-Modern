@@ -21,12 +21,12 @@
 #include <cstdint>
 #include <string>
 #include <type_traits>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
 #if !defined(PATELLA_CORE)
 // The test mode's hooks (issue #21): the system calls themselves outside the test build.
-#include "TestHooks.h"
+#include "TestHooks.h" // IWYU pragma: export
 #endif
 
 // The original's unsigned integer types, as aliases of the std types (Patella-Modern issue #35). They
@@ -75,7 +75,7 @@ inline void Limit(int *Value, int Min, int Max)
 }
 
 // Thrown by value (ThrowInfo at 0x57b3b4).
-#include "TMyException.h"
+#include "TMyException.h" // IWYU pragma: export
 
 // The client's second exception type: an error code thrown by value
 // (ThrowInfo 0x57b3c4, ".?AW4PROGRAM_ERROR@@"). The enumerator names are
