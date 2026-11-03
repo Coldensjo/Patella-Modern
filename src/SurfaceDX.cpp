@@ -119,7 +119,7 @@ void TSurfaceDX::WaitForNextFrame()
 {
 	static uint32 Frames;     // 0x71d150
 	static double LastSecond; // 0x71d158
-	double Now = timeGetTime();
+	double Now = PATELLA_TIME_GET_TIME();
 	Frames++;
 	if (Now - LastSecond > 1000.0) {
 		FPS = (double)(Frames * 1000) / (Now - LastSecond);
@@ -128,7 +128,7 @@ void TSurfaceDX::WaitForNextFrame()
 	}
 	NextFrame += FrameTime;
 	if (NextFrame > Now)
-		Sleep((DWORD)(NextFrame - Now));
+		PATELLA_FRAME_SLEEP((DWORD)(NextFrame - Now));
 	else if (Now - NextFrame > 1.0)
 		NextFrame = Now - 1.0;
 }
@@ -1160,7 +1160,7 @@ bool TSurfaceDX::ClipRect(TRect Clip, RECT *Destination, RECT *Source)
 // surfaceDX9.cpp's 0x4f04d0. FrameTime is 1000.0 / 0xffff.
 void TSurfaceDX::ResetFrameTimer()
 {
-	double Now = timeGetTime();
+	double Now = PATELLA_TIME_GET_TIME();
 	StartTime = Now;
 	Framerate = 0xffff;
 	NextFrame = Now;

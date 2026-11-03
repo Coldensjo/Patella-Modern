@@ -209,7 +209,7 @@ bool TSurfaceDX9::ClipRect(TRect Clip, RECT *Rect, RECT *Source)
 // 0x4f04d0 (shared with the other engines)
 void TSurfaceDX9::ResetFrameTimer()
 {
-	double Now = timeGetTime();
+	double Now = PATELLA_TIME_GET_TIME();
 	StartTime = Now;
 	Framerate = 0xffff;
 	NextFrame = Now;
@@ -221,7 +221,7 @@ void TSurfaceDX9::ResetFrameTimer()
 // frame is due; a frame more than a millisecond late moves the schedule.
 void TSurfaceDX9::WaitForNextFrame()
 {
-	double Now = timeGetTime();
+	double Now = PATELLA_TIME_GET_TIME();
 	FrameCount++;
 	if (Now - LastFPSTime > 1000.0) {
 		FPS = (FrameCount * 1000) / (Now - LastFPSTime);
@@ -230,7 +230,7 @@ void TSurfaceDX9::WaitForNextFrame()
 	}
 	NextFrame += FrameTime;
 	if (NextFrame > Now)
-		Sleep((int)(NextFrame - Now));
+		PATELLA_FRAME_SLEEP((int)(NextFrame - Now));
 	else if (Now - NextFrame > 1.0)
 		NextFrame = Now - 1.0;
 }

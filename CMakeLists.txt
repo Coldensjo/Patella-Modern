@@ -16,7 +16,8 @@
 # windows-x64-gcc (mingw-w64 GCC 16, plan D6) builds patella_core and the unit tests;
 # linux-x64-gcc (GCC 16) and linux-x64-clang (Clang, with AddressSanitizer and UBSan) the same on
 # Linux (issue #7; on Windows tools/build.py runs them in the Docker image of docker/linux-x64).
-# Every product preset builds patella_core (cmake/Core.cmake), the portable code. Their targets take
+# Every product preset builds patella_core (cmake/Core.cmake), the portable code, and patella_testmode
+# (cmake/TestMode.cmake), the portable part of the test mode (issue #21). Their targets take
 # the language, warning and hardening settings of cmake/Warnings.cmake and cmake/Hardening.cmake
 # (issue #8), which the oracle never uses.
 
@@ -34,6 +35,7 @@ if(PATELLA_ORACLE)
 else()
 	enable_testing()
 	include(cmake/Core.cmake)
+	include(cmake/TestMode.cmake)
 	add_subdirectory(tests/unit)
 	if(PATELLA_CLIENT AND MSVC)
 		include(cmake/WindowsX64.cmake)

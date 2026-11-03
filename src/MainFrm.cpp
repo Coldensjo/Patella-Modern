@@ -268,7 +268,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		MoveWindow(x, y, Width, Height, TRUE);
 	else
 		SetDefaultWindowPosition();
-	::SetTimer(m_hWnd, 1, 100, NULL);
+	PATELLA_SET_MAIN_TIMER(m_hWnd, 1, 100, NULL);
 	return 0;
 	TEND(273)
 }
@@ -490,7 +490,7 @@ BOOL CMainFrame::OnSetCursor(CWnd *pWnd, UINT nHitTest, UINT message)
 		::ClientToScreen(m_hWnd, (POINT *)&Client.left);
 		::ClientToScreen(m_hWnd, (POINT *)&Client.right);
 		POINT Cursor;
-		GetCursorPos(&Cursor);
+		PATELLA_GET_CURSOR_POS(&Cursor);
 		if (!PtInRect(&Client, Cursor))
 			return CFrameWnd::OnSetCursor(pWnd, nHitTest, message);
 	}
@@ -593,7 +593,7 @@ void CMainFrame::OnCaptureChanged(CWnd *pWnd)
 {
 	TBEGIN
 	POINT Point;
-	GetCursorPos(&Point);
+	PATELLA_GET_CURSOR_POS(&Point);
 	if (GetViewMode() == 1)
 		::ScreenToClient(m_hWnd, &Point);
 	if (LeftButtonPressed) {

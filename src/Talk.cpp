@@ -1114,7 +1114,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int Diff
 	TBEGIN
 	Mode = _Mode;
 	StatementID = _StatementID;
-	Time = _time32(NULL) + DiffTime;
+	Time = PATELLA_TIME32(NULL) + DiffTime;
 	tm *LocalTime = _localtime32(&Time);
 	char Stamp[8];
 	sprintf(Stamp, "%02d:%02d ", LocalTime->tm_hour, LocalTime->tm_min);
@@ -1134,7 +1134,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, con
 	TBEGIN
 	Mode = _Mode;
 	StatementID = _StatementID;
-	Time = _time32(NULL) + DiffTime;
+	Time = PATELLA_TIME32(NULL) + DiffTime;
 	tm *LocalTime = _localtime32(&Time);
 	char Stamp[8];
 	sprintf(Stamp, "%02d:%02d ", LocalTime->tm_hour, LocalTime->tm_min);

@@ -22,6 +22,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#if !defined(PATELLA_CORE)
+// The test mode's hooks (issue #21): the system calls themselves outside the test build.
+#include "TestHooks.h"
+#endif
 
 typedef unsigned char uint8;
 typedef unsigned short uint16;

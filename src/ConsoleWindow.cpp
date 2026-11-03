@@ -2008,7 +2008,7 @@ bool TConsoleWindow::SaveChannel()
 		return false;
 	TTalkBuffer *TextBuffer = GetTextBuffer();
 	TASSERT(2324, TextBuffer!=NULL);
-	__time32_t Now = _time32(NULL);
+	__time32_t Now = PATELLA_TIME32(NULL);
 	fprintf(File, "\nChannel saved at %s", CRT71Time(_ctime32(&Now))); // the day as MSVC 7.1 writes it
 	TextBuffer->Write(File);
 	fclose(File);
