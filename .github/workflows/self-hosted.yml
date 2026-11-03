@@ -4,7 +4,8 @@
 #   communicationtest, vlongtest) through CTest.
 # - windows-x64: the x64 client (with its resources from Tibia.exe) and the unit tests.
 # - comparisons: compare_traffic.py and compare_files.py against the test server for the x64 client,
-#   compare_rendering.py (windowed) for the x64 client (issue #18) from compare_traffic.py's recording.
+#   compare_rendering.py (windowed) for the x64 client (issue #18) from compare_traffic.py's recording:
+#   its Vulkan engine on a GPU and on the CPU driver (the default engines of an x64 client, issue #20).
 # - golden: the golden corpus (issue #24): recorded from the oracle-x86 difftest into build\golden of the
 #   job's checkout, then replayed by the windows-x64 golden_runner (CTest test golden, which fails without
 #   a corpus here: PATELLA_GOLDEN_REQUIRE=ON). The corpus is derived from Tibia.exe: it stays in the

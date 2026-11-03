@@ -5873,3 +5873,60 @@ tests/golden/ (golden.h has the format), cmake/OracleX86.cmake (golden_corpus), 
   original's object state recorded by field), which is the bulk of the work the plan gives until M6. The runner
   lists them with their counts in every run. The Linux runner is later (plan M2: x64 Windows first): the runner's
   CMake returns on anything but MSVC x64.
+
+## The original engines removed from windows-x64 (Patella-Modern issue #20)
+
+Settled by Claude Opus 5.5, November 3, 2026 (MSVC 14.51, CMake 4.1.2). cmake/WindowsX64.cmake, cmake/Vulkan.cmake
+(comments), src/Surface.cpp, src/Control.cpp, src/vulkan/SurfaceVulkan.h and .cpp, tools/compare_rendering.py,
+.github/workflows/self-hosted.yml (comment). notes/vulkan.md, "Choosing the engine", describes the result.
+
+- **Out of the x64 build** (high). windows-x64's glob drops SurfaceDX.cpp, SurfaceGL.cpp and surfaceDX9.cpp; ddraw,
+  dxguid, opengl32 and glu32 are not linked; the Vulkan engine is no longer an option (`PATELLA_VULKAN` the CMake
+  option is gone; the definition stays, set for the client). Patella.exe and PatellaTest.exe import 15 DLLs
+  (none of ddraw.dll, d3d9.dll, opengl32.dll, glu32.dll; no string naming them either). The files stay in src/ for
+  the oracle, whose Patella.exe is unchanged (pecompare against main d624a34 at the same path: 0 unexpected
+  differences; macrocheck: 2,108 calls, 0 differences; the reconstructed files' changes are x64-only branches
+  behind `#if defined(PATELLA_VULKAN)`, the oracle's text in them unchanged).
+- **curEngine is always 2 in the x64 client** (high). graphics.cpp sets the video cache's colour keys only for
+  engines 1 and 2, the FPS line and error.txt name the engine: the Vulkan engine reproduces DirectX 9's frames, so
+  every such question gets DirectX 9's answer, as Tibia.exe's on this machine (error.txt's "Graphic Engine: 2",
+  "DX9"). Considered: curEngine following Tibia.cfg's number with the Vulkan surface for every number (engine 0
+  would draw sprites without their colour keys).
+- **Tibia.cfg's Engine keeps the original's number** (high; plan 6.3 "Tibia.cfg keeps an engine number in the
+  original's range, so it stays valid for Tibia.exe"). A number 0-2 from Tibia.cfg or the command line's `engine
+  N` is stored as it is, none or one out of range becomes 2; the advanced options' buttons store their number
+  (Control.cpp ChangeEngine), as the original stores it after a switch. That is exactly what Tibia.exe writes on a
+  machine where its engines work: compare_files.py's options session clicks the OpenGL button, and both clients
+  then write `Engine = 1`. Considered: always 2 (compare_files.py would differ, and a Tibia.cfg shared with
+  Tibia.exe would lose the user's choice there); the buttons doing nothing (the same difference).
+- **The dialog stays as it is, for now** (needs the user; below). Plan 6.3 replaces the engine buttons with a
+  device choice stored in the fork's settings file (D12). The settings file does not exist yet, the skin has three
+  button places where 6.3 asks for "Automatic", one entry per GPU and "CPU (compatibility)", and the dialog's
+  texts and help texts are not given; all of it is user-visible. Until the user decides, the advanced options look
+  as Tibia.exe's on a machine with Direct3D 9 and OpenGL (AvailableEngines 3 when the Vulkan test passes, so
+  compare_rendering.py's advanced-options scene stays identical), "DirectX9" is selected and every button draws
+  with Vulkan. Considered: disabling DirectX5 and OpenGL (a visible difference that is neither the original nor
+  6.3).
+- **No fallback without Vulkan** (high, for the code; "Found, not done" for shipping). The original falls back to
+  DirectX 5; the x64 client has no other engine, so without a Vulkan loader (vulkan-1.dll) or device the start
+  fails with PROGRAM_ERROR 12. The shipped CPU driver covers machines without a Vulkan GPU, not machines without
+  any Vulkan driver (the loader comes with every GPU driver that has Vulkan; the plan names no loader to ship).
+- **The display modes from EnumDisplaySettings** (high on this machine). DirectDraw 4 was still used by the Vulkan
+  engine for the mode list, the desktop's depth and the stretch capabilities. DirectDraw's EnumDisplayModes
+  without DDEDM_REFRESHRATES gives each size and depth once in the order the display lists them;
+  EnumDisplaySettings lists every refresh rate. A probe that asks both (build\logs\issue-20, no window) gives
+  the same 24 modes in the same order here once the refresh rates are folded; the client's callback set the
+  frequency to 0 always (it tests DDSD_REFRESHRATE among the pixel format's flags). CanStretch is true: Vulkan
+  stretches on every device, and DirectDraw reports the four flags here. Risk: a display whose DirectDraw lists
+  emulated 16-bit modes or another order would show another list (only on other machines).
+- **PATELLA_VULKAN chooses only the device** (form). `off`, `0`, `no`, `dx9` gave engine 2 back to Direct3D 9;
+  they are automatic now. The variable stays until 6.3's device choice and D12's settings file replace it.
+- **compare_rendering.py** (high). The original engines need the oracle's Patella.exe; for an x64 one the script
+  refuses them (not with --compare-only), and the default engines follow --patella (dx5,dx9,gl for the oracle's,
+  vulkan,vulkan-cpu for an x64 one), so the self-hosted workflow's command runs the Vulkan engine on both devices.
+  patcap.c is unchanged: Tibia.exe's runs need its DirectDraw, Direct3D 9 and OpenGL hooks; in the x64 client it
+  finds seven of its hooks (the clock, the timer, the cursor, PeekMessageA, GetProcAddress) and the engine's own
+  calls. Offline: --compare-only on issue #19's GPU and CPU results gives "all scenes identical" with the x64
+  Patella.exe of this branch.
+- **Not checked yet** (form). No client window was opened: compare_traffic.py, compare_files.py and
+  compare_rendering.py (vulkan, vulkan-cpu) on the x64 client are the orchestrator's live check.

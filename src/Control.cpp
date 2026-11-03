@@ -128,6 +128,12 @@ void CheckSurface(bool Force)
 // block in the binary (the try state is set after the comparison).
 void ChangeEngine(int engine)
 {
+#if defined(PATELLA_VULKAN)
+	// The x64 client (Patella-Modern issue #20; Surface.cpp SurfaceInitInstance): one engine, so the
+	// advanced options' engine buttons store only Tibia.cfg's number for Tibia.exe, as the original stores
+	// it after a successful switch. curEngine stays 2.
+	SetEngine(engine);
+#else
 	if (engine == curEngine)
 		return;
 	TBEGIN
@@ -175,6 +181,7 @@ void ChangeEngine(int engine)
 	}
 	SetEngine(curEngine);
 	TEND1(201, engine)
+#endif
 }
 
 // 0x449210, lines 218-366. Draws the windows, the tooltip, the frame rate and

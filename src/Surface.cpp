@@ -6,6 +6,17 @@
 // inferred (see Surface.h). No function has line evidence, so they are in
 // binary order. The DirectDraw surface code after 0x4eae70 is SurfaceDX.cpp's.
 
+// The Windows x64 client (PATELLA_VULKAN, cmake/WindowsX64.cmake) has one engine since Patella-Modern
+// issue #20: the Vulkan engine (src/vulkan/SurfaceVulkan.h) as engine 2, without SurfaceDX.cpp,
+// SurfaceGL.cpp and surfaceDX9.cpp; GetSurface and SurfaceInitInstance have their own versions for it
+// below. The oracle compiles the original's.
+#if defined(PATELLA_VULKAN)
+#include "Surface.h"
+#include "graphics.h"
+#include "Preferences.h"
+bool IsVulkanInstalled();
+TSurface *CreateSurfaceVulkan();
+#else
 // SurfaceDX.h's d3d.h must declare the DirectX 6/7 interfaces: real MFC's afxwin.h (common.h)
 // includes d3d9types.h, which would set DIRECT3D_VERSION to 0x0900 first (issue #16).
 #define DIRECT3D_VERSION 0x0700
@@ -13,19 +24,6 @@
 #include "SurfaceDX.h"
 #include "SurfaceGL.h"
 #include "Preferences.h"
-
-// Engine 2: in the Windows x64 client the Vulkan engine (Patella-Modern issue #19; src/vulkan/SurfaceVulkan.h),
-// surfaceDX9.cpp only when the environment variable PATELLA_VULKAN is off (for comparisons, until issue
-// #20). Only that client defines PATELLA_VULKAN; elsewhere (the oracle) the macros are surfaceDX9.cpp's calls.
-#if defined(PATELLA_VULKAN)
-bool VulkanEngineRequested();
-bool IsVulkanInstalled();
-TSurface *CreateSurfaceVulkan();
-#define PATELLA_ENGINE2_INSTALLED() (VulkanEngineRequested() ? IsVulkanInstalled() : IsDirect3D9Installed())
-#define PATELLA_CREATE_ENGINE2() (VulkanEngineRequested() ? CreateSurfaceVulkan() : CreateSurfaceDX9())
-#else
-#define PATELLA_ENGINE2_INSTALLED() IsDirect3D9Installed()
-#define PATELLA_CREATE_ENGINE2() CreateSurfaceDX9()
 #endif
 
 // Data, in .data and .bss order. The shared data the engines use (Surface.h)
@@ -55,6 +53,15 @@ int GetCurrentEngine()
 	return curEngine;
 }
 
+#if defined(PATELLA_VULKAN)
+// The x64 client: curEngine is always 2, the Vulkan engine (SurfaceInitInstance).
+TSurface *GetSurface()
+{
+	if (curEngine == 2 && Surface == NULL)
+		Surface = CreateSurfaceVulkan();
+	return Surface;
+}
+#else
 // 0x4eaa90. Creates the surface of the current engine on first use.
 TSurface *GetSurface()
 {
@@ -63,12 +70,13 @@ TSurface *GetSurface()
 			Surface = new TSurfaceGL;
 	} else if (curEngine == 2) {
 		if (Surface == NULL)
-			Surface = PATELLA_CREATE_ENGINE2();
+			Surface = CreateSurfaceDX9();
 	} else if (curEngine == 0 && Surface == NULL) {
 		Surface = CreateSurfaceDX();
 	}
 	return Surface;
 }
+#endif
 
 // 0x4eab60
 void SurfaceExitInstance()
@@ -138,6 +146,44 @@ void TSurface::AttachWindow()
 {
 }
 
+#if defined(PATELLA_VULKAN)
+// The x64 client (issue #20): the Vulkan engine is the only engine, so curEngine is 2 whatever Tibia.cfg
+// or the command line says, and everything that asks for the engine (graphics.cpp's colour keys, the
+// frame rate line, error.txt's "Graphic Engine") sees the original's DirectX 9. Tibia.cfg's Engine keeps
+// the original's number for Tibia.exe (plan 6.3): the command line's "engine N" (0-2) and a number 0-2 from
+// Tibia.cfg are stored as they are, as the original stores them when the engine is available, and no
+// number (-1) or one out of range becomes 2, the original's choice on a machine with Direct3D 9. As in
+// the original, the command line skips the test. When the engine's test passes, AvailableEngines enables
+// the advanced options' DirectX 9 and OpenGL buttons, as the original's on a machine with both; the
+// buttons choose only the number then (Control.cpp ChangeEngine). Without a Vulkan device there
+// is no engine to fall back to: curEngine stays 2 and the engine's InitSurfaces or CreateSurfaces fails
+// with PROGRAM_ERROR 12, as the original's Direct3D 9 device would.
+void SurfaceInitInstance(HWND *Window)
+{
+	SurfaceWindow = *Window;
+	curEngine = 2;
+	if (CommandLineEngine >= 0 && CommandLineEngine < 3) {
+		SetEngine(CommandLineEngine);
+		return;
+	}
+	int Engine = GetEngine();
+	if (Engine < 0 || Engine >= 3)
+		Engine = 2;
+	try {
+		if (IsVulkanInstalled()) {
+			GetSurface()->hWindow = *Window;
+			if (GetSurface()->TestEngine())
+				AvailableEngines |= 3;
+			if (Surface != NULL)
+				delete Surface;
+			Surface = NULL;
+		}
+	} catch (...) {
+		throw (PROGRAM_ERROR)12;
+	}
+	SetEngine(Engine);
+}
+#else
 // 0x4eac20. Chooses the engine at start-up and stores it (Preferences).
 // An "engine N" on the command line (0-2) is taken as it is, without
 // detection. Otherwise the engine from Tibia.cfg counts if it is 0-2 and
@@ -160,7 +206,7 @@ void SurfaceInitInstance(HWND *Window)
 	if (Engine >= 0 && Engine < 3)
 		Chosen = true;
 	try {
-		if (PATELLA_ENGINE2_INSTALLED()) {
+		if (IsDirect3D9Installed()) {
 			curEngine = 2;
 			GetSurface()->hWindow = *Window;
 			if (GetSurface()->TestEngine()) {
@@ -219,3 +265,4 @@ void SurfaceInitInstance(HWND *Window)
 		curEngine = 0;
 	SetEngine(curEngine);
 }
+#endif

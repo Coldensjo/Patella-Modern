@@ -9,7 +9,7 @@ their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)
 
 | File | What |
 | :--- | :--- |
-| `src/vulkan/SurfaceVulkan.h`, `.cpp` | `TSurfaceVulkan`, the `TSurface` of the client: surfaceDX9.cpp's logic with the Direct3D 9 calls replaced; the engine choice (`PATELLA_VULKAN`); the Win32 surface |
+| `src/vulkan/SurfaceVulkan.h`, `.cpp` | `TSurfaceVulkan`, the `TSurface` of the client: surfaceDX9.cpp's logic with the Direct3D 9 calls replaced; the device choice (`PATELLA_VULKAN`); the Win32 surface; the display modes |
 | `src/vulkan/Renderer.h`, `.cpp` | `patella::vulkan::TRenderer`, the back end: no window system, no MFC (portable C++23 with volk, vk-bootstrap and VMA) |
 | `src/vulkan/Quads.h`, `.cpp` | how Direct3D 9's quads become Vulkan vertices; no Vulkan at all (tests_render on every preset) |
 | `src/vulkan/FilterMask.h`, `.cpp` | `TFilterMasks`: which pixels come from the device's filter (the comparison's tolerance); no Vulkan (tests_render) |
@@ -19,31 +19,48 @@ their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)
 | `tests/vulkan/render_test.cpp` | `tests_vulkan`: the back end headless against a model of Direct3D 9's pixels |
 | `tests/unit/render_quads_test.cpp`, `render_filtermask_test.cpp` | `tests_render`: Quads.cpp and FilterMask.cpp |
 
-None of it is in the oracle-x86 build: its glob is `src/*.cpp`, and the only change to a reconstructed file is
-Surface.cpp's choice of engine 2 behind two macros that are surfaceDX9.cpp's calls without `PATELLA_VULKAN`
-(pecompare: the oracle's Patella.exe is unchanged).
+None of it is in the oracle-x86 build: its glob is `src/*.cpp`, and the only changes to reconstructed files are
+the x64 client's own GetSurface and SurfaceInitInstance (Surface.cpp) and ChangeEngine (Control.cpp), behind
+`#if defined(PATELLA_VULKAN)`, which only the x64 client defines (pecompare: the oracle's Patella.exe is
+unchanged).
 
 ## Choosing the engine
 
-Since the user's decision of November 3, 2026, **engine 2 of the Windows x64 client is the Vulkan engine**
-(Surface.cpp's `PATELLA_ENGINE2_INSTALLED` and `PATELLA_CREATE_ENGINE2`, which are surfaceDX9.cpp's calls in the
-oracle): Tibia.cfg's `Engine = 2`, or no engine chosen when Vulkan is available, or "DirectX 9" in the advanced
-graphics options. Tibia.cfg, its format and the dialog are unchanged; the FPS line (Ctrl+F's overlay) still says
-"DX9". Until issue #20 removes the original engines and brings plan 6.3's device choice (the engine buttons
-becoming "Automatic", one entry per GPU and "CPU (compatibility)", stored in the fork's settings file, D12), the
-environment variable `PATELLA_VULKAN` chooses the device, or gives engine 2 back to Direct3D 9 for comparisons:
+Since issue #20 **the Vulkan engine is the Windows x64 client's only engine**: SurfaceDX.cpp (DirectDraw),
+surfaceDX9.cpp (Direct3D 9) and SurfaceGL.cpp (OpenGL) are not compiled into it, and it imports neither ddraw.dll
+nor opengl32.dll nor glu32.dll (nor loads d3d9.dll). The oracle-x86 build keeps the three until M6. The x64 client
+has its own GetSurface and SurfaceInitInstance (Surface.cpp) and ChangeEngine (Control.cpp):
 
-| `PATELLA_VULKAN` | Engine 2 |
+- **curEngine is always 2**, the number of the original's DirectX 9, the engine whose frames the Vulkan engine
+  reproduces: everything that asks for the engine (graphics.cpp's colour keys, the FPS line of Ctrl+F, which says
+  "DX9", error.txt's "Graphic Engine: 2") behaves as the original's DirectX 9.
+- **Tibia.cfg's `Engine` keeps the original's number for Tibia.exe** (plan 6.3: "Tibia.cfg keeps an engine number
+  in the original's range"). A number 0-2 from Tibia.cfg, or the command line's `engine N` (0-2), is stored as it
+  is; none (-1) or one out of range becomes 2. That is what Tibia.exe writes on a machine where its engines work
+  (this one: DirectX 9 and OpenGL), so compare_files.py sees the same Tibia.cfg.
+- **The advanced graphics options are unchanged** (the same three buttons, enabled as Tibia.exe's on a machine
+  with Direct3D 9 and OpenGL, "DirectX9" selected), so the frames stay Tibia.exe's. A button stores only its
+  number (DirectX5 0, DirectX9 2, OpenGL 1) in Tibia.cfg, as the original stores it after a switch; the drawing
+  stays Vulkan and the selection stays on "DirectX9". As in the original, a command-line engine skips the test
+  and leaves the DirectX9 and OpenGL buttons disabled.
+- **Without a Vulkan loader** (vulkan-1.dll, which every GPU driver with Vulkan installs) or any device there is
+  no engine to fall back to: the start fails with PROGRAM_ERROR 12 ("Video surface allocation failed"), as the
+  original's when its device could not be created.
+
+Plan 6.3's device choice in the dialog ("Automatic", one entry per GPU, "CPU (compatibility)", stored in the
+fork's settings file, D12) is not built yet (its layout, texts and the settings file need the user's decision;
+notes/decisions.md, issue #20). Until then the environment variable `PATELLA_VULKAN` chooses the device:
+
+| `PATELLA_VULKAN` | Device |
 | :--- | :--- |
-| unset, empty, `auto` (also `1`, `on`, anything not below) | Vulkan: the best GPU with Vulkan 1.3 (discrete, integrated, virtual, other), else the CPU driver |
-| `gpu`, `gpu0`, `gpu1` ... (`gpu:1`) | Vulkan on a GPU only: the best one, or the n-th in the loader's order |
-| `cpu` | Vulkan on the CPU driver only |
-| `off` (also `0`, `no`, `dx9`) | surfaceDX9.cpp's Direct3D 9, as in the original (comparisons, until issue #20) |
+| unset, empty, `auto` (anything not below) | the best GPU with Vulkan 1.3 (discrete, integrated, virtual, other), else the CPU driver |
+| `gpu`, `gpu0`, `gpu1` ... (`gpu:1`) | a GPU only: the best one, or the n-th in the loader's order |
+| `cpu` | the CPU driver only |
 
-A machine without a Vulkan loader (vulkan-1.dll) has no engine 2 then: the client's own selection falls back to
-OpenGL or DirectX 5, as it did without Direct3D 9. `PATELLA_VULKAN_VALIDATION=1` asks for the validation layers
-(they come with the LunarG Vulkan SDK, which this machine does not have; without them the request is ignored).
-`TDeviceRequest` (Renderer.h) already has plan 6.3's three kinds.
+`off` (with `0`, `no`, `dx9`), which gave engine 2 back to Direct3D 9 until issue #20, is automatic now.
+`PATELLA_VULKAN_VALIDATION=1` asks for the validation layers (they come with the LunarG Vulkan SDK, which this
+machine does not have; without them the request is ignored). `TDeviceRequest` (Renderer.h) already has plan
+6.3's three kinds.
 
 ## How it works
 
@@ -82,8 +99,17 @@ client's), MAILBOX or FIFO where IMMEDIATE is missing; vsync by default (D13) co
 swapchain is created again when the client area's size changes or Vulkan reports it out of date; a minimised
 window shows nothing. Fullscreen mode sets the display mode with ChangeDisplaySettings (Direct3D 9's fullscreen
 device does that itself) and sets it back when the device goes; the window is the client's topmost popup
-(MainFrm.cpp SetDisplayMode). DirectDraw 4 still lists the display modes and tells the stretch capabilities, as in
-surfaceDX9.cpp, so the graphics options show the same resolution list.
+(MainFrm.cpp SetDisplayMode).
+
+**Display modes** (issue #20): surfaceDX9.cpp listed them with DirectDraw 4 (`EnumDisplayModes(0)`, no refresh
+rates) and its callback (at least 640x480 and 16 bits; the frequency always 0, as the callback tests the refresh
+rate's flag among the pixel format's flags). The engine lists EnumDisplaySettings' modes in their order, each
+width, height and depth once, with the same filter and frequency 0: on this machine (RTX 5080, November 3, 2026)
+both lists are the same 24 modes in the same order (a probe that asks both, build\logs\issue-20\display-modes-probe.log),
+so the graphics options show the same list and compare_files.py's next resolution is the same. The desktop's depth
+check (DirectDraw's GetDisplayMode, PROGRAM_ERROR 8 below 16 bits) is EnumDisplaySettings' current mode.
+CanStretch (DirectDraw's four stretch and shrink capabilities, which set the default of "Don't stretch/shrink
+the Map") is true: Vulkan stretches on every device, and DirectDraw reports all four here too.
 
 **Read-back**: `TRenderer::ReadBack(image, rectangle)` submits what is recorded, waits, and copies the pixels
 (D3DCOLOR, rows top-down); `TSurfaceVulkan::ReadScreen` reads the rectangle the next frame shows. That is the
@@ -189,8 +215,10 @@ frame is shown (patcap counts the frame, API 5, and answers whether it wants it)
 `PatcapVulkanMask` (the frame's device-filtered pixels, a byte each, written raw to the capture's path with
 `.mask` appended) and `PatcapVulkanPixels` with SCREEN_SURFACE's rectangle read back, the picture Present shows.
 Shared memory version 3 (`MaskPixels` at 1016: the marked pixels of the last mask). Without patcap.dll the engine
-looks it up once per device, calls nothing and keeps no masks. With the original engines (issue #20) these
-calls go; the test mode's frame dump (issue #22) reads the same canvas.
+looks it up once per device, calls nothing and keeps no masks. These calls stay until the test mode's frame
+dump (issue #22) replaces them; patcap's hooks of the original engines (DirectDrawCreate, Direct3DCreate9,
+wglMakeCurrent, SwapBuffers) stay for Tibia.exe and the oracle. Since issue #20 the x64 client imports none of
+those (patcap reports the seven others as hooked); compare_rendering.py needs none of them for it.
 
 ## Checks
 

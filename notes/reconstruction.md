@@ -221,15 +221,16 @@ themselves in Patella.exe and the oracle, whose images are unchanged by them (pe
 <file>` plays a script of keyboard, mouse and text events on a virtual clock; without it, it is the client on
 the system clock. notes/testmode.md.
 
-Since Patella-Modern issue #19 both carry the Vulkan engine (notes/vulkan.md; option `PATELLA_VULKAN`, default
-ON; `cmake/Vulkan.cmake`): src/vulkan/SurfaceVulkan.cpp on the back end `patella_render_vulkan`
+Since Patella-Modern issue #19 both carry the Vulkan engine (notes/vulkan.md; `cmake/Vulkan.cmake`), since
+issue #20 as their only engine (SurfaceDX.cpp, surfaceDX9.cpp and SurfaceGL.cpp are not compiled, ddraw, dxguid,
+opengl32 and glu32 not linked; the oracle-x86 build keeps them): src/vulkan/SurfaceVulkan.cpp on the back end `patella_render_vulkan`
 (src/vulkan/Renderer.cpp and Quads.cpp) and the libraries' `patella_vulkan_deps` (volk, vk-bootstrap, VMA), the
 shaders compiled by a glslang built in the tree; Vulkan-Headers, volk, VMA, vk-bootstrap, glslang and the CPU
 driver (Mesa 26.2.5's lavapipe) are pinned by URL and SHA256 and downloaded on the first configure of a build
 tree (about 85 MB). The CPU driver's `vulkan_lvp.dll` and `lvp_icd.x86_64.json` are copied next to Patella.exe,
-PatellaTest.exe and `tests_vulkan.exe`. The engine is the x64 client's engine 2 (in place of DirectX 9; the user's
-decision of November 3, 2026): the environment variable `PATELLA_VULKAN` chooses the device (`gpu`, `cpu`; unset:
-automatic) or gives engine 2 back to DirectX 9 (`off`, for comparisons until issue #20). The preset's CTest
+PatellaTest.exe and `tests_vulkan.exe`. The engine is the x64 client's engine 2 (curEngine is always 2; Tibia.cfg's
+`Engine` keeps the original's number for Tibia.exe; notes/vulkan.md, "Choosing the engine"): the environment
+variable `PATELLA_VULKAN` chooses the device (`gpu`, `gpuN`, `cpu`; unset: automatic). The preset's CTest
 has two more tests: `tests_render` (src/vulkan/Quads.cpp and FilterMask.cpp, on every product preset) and `tests_vulkan` (the back
 end headless on the CPU driver and the GPU, no window; skipped without a Vulkan loader). `-DPATELLA_CLIENT=OFF`
 (the hosted CI) builds none of the engine and downloads nothing.

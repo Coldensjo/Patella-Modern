@@ -4,18 +4,17 @@
 // the frames (plan D7): the same surfaces and sizes, the same batching of quads (drawn when the
 // texture or the target changes, when 9,600 vertices are queued, and at the end of the frame), the
 // same colour fills, uploads, colour key and light, and the same statistics. Instead of Direct3D 9 it
-// drives the Vulkan back end (Renderer.h); DirectDraw 4 still lists the display modes and the
-// stretch capabilities, as in surfaceDX9.cpp. Windows x64 client only (cmake/Vulkan.cmake); the
-// oracle-x86 build never compiles it.
+// drives the Vulkan back end (Renderer.h); the display modes come from EnumDisplaySettings, in the order
+// and with the filter DirectDraw 4 gave surfaceDX9.cpp (issue #20). Windows x64 client only
+// (cmake/Vulkan.cmake); the oracle-x86 build never compiles it.
 //
-// The engine is curEngine 2 of the x64 client (DirectX 9 in the original and in the oracle; Surface.cpp;
-// notes/vulkan.md, "Choosing the engine"). Until issue #20 brings plan 6.3's device choice, the
-// environment variable PATELLA_VULKAN chooses the device, or switches the engine off for comparisons:
+// The engine is the x64 client's only engine, curEngine 2 (DirectX 9 in the original and in the oracle;
+// Surface.cpp; notes/vulkan.md, "Choosing the engine"). Until plan 6.3's device choice is in the options
+// dialog and the settings file (D12), the environment variable PATELLA_VULKAN chooses the device:
 //
-//	unset, auto             the best GPU with Vulkan 1.3, else the CPU driver (also 1, on, yes)
+//	unset, auto             the best GPU with Vulkan 1.3, else the CPU driver (anything not below)
 //	PATELLA_VULKAN=gpu      a GPU only; gpu0, gpu1 ...: the n-th GPU
 //	PATELLA_VULKAN=cpu      the CPU driver only (lavapipe, next to the executable)
-//	PATELLA_VULKAN=off      surfaceDX9.cpp's Direct3D 9 as engine 2 (also 0, no, dx9), until issue #20
 
 #pragma once
 
@@ -23,7 +22,6 @@
 #include "graphics.h"
 #include "vulkan/FilterMask.h"
 #include "vulkan/Renderer.h"
-#include <ddraw.h>
 #include <memory>
 #include <vector>
 
@@ -119,7 +117,7 @@ private:
 	RECT Rect[NUMBER_OF_SURFACES_VULKAN];                 // the surfaces' rectangles, as surfaceDX9.cpp's
 	RECT WindowRect;                                      // the client area on the screen
 	RECT SurfaceArea;                                     // SetSurfaceRect
-	IDirectDraw4 *DirectDraw;                             // the display modes and the stretch capabilities
+	bool Initialized;                                     // between InitSurfaces and ExitSurfaces (surfaceDX9.cpp: DirectDraw exists)
 	std::unique_ptr<patella::vulkan::TRenderer> Renderer; // surfaceDX9.cpp's Direct3D and Device
 	int Image[NUMBER_OF_SURFACES_VULKAN];                 // the renderer's images (SCREEN_SURFACE: the canvas)
 	int ScreenTexture;                                    // the 106x106 texture of SCREEN_SURFACE
@@ -137,7 +135,6 @@ private:
 	patella::vulkan::TFilterMasks Masks; // the device-filtered pixels, while an observer watches
 };
 
-// Surface.cpp's engine selection (PATELLA_VULKAN).
-bool VulkanEngineRequested();
+// Surface.cpp's engine selection.
 bool IsVulkanInstalled();
 TSurface *CreateSurfaceVulkan();

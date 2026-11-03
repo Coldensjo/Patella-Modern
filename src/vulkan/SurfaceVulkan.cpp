@@ -50,8 +50,9 @@ static uint32 Xrgb(int R, int G, int B)
 
 // --- the engine choice (Surface.cpp) ---
 
-// PATELLA_VULKAN: 0 off (surfaceDX9.cpp, for the comparisons until issue #20), 1 automatic (unset: the
-// default), 2 a GPU, 3 the CPU driver; the GPU's index for 2 (-1 the best).
+// PATELLA_VULKAN, the device until plan 6.3's choice comes (notes/vulkan.md): 1 automatic (unset, and
+// any value not below), 2 a GPU, 3 the CPU driver; the GPU's index for 2 (-1 the best). Since issue #20
+// there is no other engine, so "off" (which gave engine 2 back to Direct3D 9) is automatic too.
 static int RequestedKind(int *GpuIndex)
 {
 	*GpuIndex = -1;
@@ -61,8 +62,6 @@ static int RequestedKind(int *GpuIndex)
 		return 1;
 	for (char *c = Value; *c != 0; c++)
 		*c = (char)tolower((unsigned char)*c);
-	if (strcmp(Value, "0") == 0 || strcmp(Value, "off") == 0 || strcmp(Value, "no") == 0 || strcmp(Value, "dx9") == 0)
-		return 0;
 	if (strcmp(Value, "cpu") == 0)
 		return 3;
 	if (strncmp(Value, "gpu", 3) == 0) {
@@ -72,12 +71,6 @@ static int RequestedKind(int *GpuIndex)
 		return 2;
 	}
 	return 1;
-}
-
-bool VulkanEngineRequested()
-{
-	int GpuIndex;
-	return RequestedKind(&GpuIndex) != 0;
 }
 
 bool IsVulkanInstalled()
@@ -519,11 +512,12 @@ bool TSurfaceVulkan::ReadScreen(std::vector<uint32_t> &Pixels, int &ShownWidth, 
 	return true;
 }
 
-// ExitDisplay: releases the device and its surfaces (only while DirectDraw exists); a fullscreen
-// display mode goes back to the desktop's, as when Direct3D 9 releases a fullscreen device.
+// ExitDisplay: releases the device and its surfaces (only after InitSurfaces, as surfaceDX9.cpp's only
+// while DirectDraw exists); a fullscreen display mode goes back to the desktop's, as when Direct3D 9
+// releases a fullscreen device.
 void TSurfaceVulkan::ExitDisplay()
 {
-	if (DirectDraw == NULL)
+	if (!Initialized)
 		return;
 	Vertices.clear();
 	Shade.clear();
@@ -606,43 +600,42 @@ bool TSurfaceVulkan::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, 
 	return true;
 }
 
-// The display mode callback of EnumDisplayModes, as surfaceDX9.cpp's (SurfaceDX.obj's copy 0x4ec810).
-static HRESULT WINAPI EnumModesCallback(DDSURFACEDESC2 *Description, void *Context)
-{
-	TFullscreenMode **Modes = (TFullscreenMode **)Context;
-	if (*Modes == NULL)
-		GetSurface()->NumberOfModes = 0;
-	int Width = (Description->dwFlags & DDSD_WIDTH) ? Description->dwWidth : 0;
-	int Height = (Description->dwFlags & DDSD_HEIGHT) ? Description->dwHeight : 0;
-	int Depth = (Description->ddpfPixelFormat.dwFlags & DDPF_RGB) ? Description->ddpfPixelFormat.dwRGBBitCount : 0;
-	int Frequency = (Description->ddpfPixelFormat.dwFlags & DDSD_REFRESHRATE) ? Description->dwRefreshRate : 0;
-	if (Width >= 640 && Height >= 480 && Depth >= 16) {
-		TFullscreenMode *NewModes = new TFullscreenMode[GetSurface()->NumberOfModes + 1];
-		TFullscreenMode *OldModes = *Modes;
-		if (OldModes != NULL) {
-			for (int i = 0; i < GetSurface()->NumberOfModes; i++)
-				NewModes[i] = OldModes[i];
-			delete[] OldModes;
-		}
-		NewModes[GetSurface()->NumberOfModes].Width = Width;
-		NewModes[GetSurface()->NumberOfModes].Height = Height;
-		NewModes[GetSurface()->NumberOfModes].Depth = Depth;
-		NewModes[GetSurface()->NumberOfModes].Frequency = Frequency;
-		GetSurface()->NumberOfModes++;
-		*Modes = NewModes;
-	}
-	return DDENUMRET_OK;
-}
-
+// The display modes as surfaceDX9.cpp's DirectDraw 4 EnumDisplayModes(0) and its callback (SurfaceDX.obj's
+// copy 0x4ec810) gave them (issue #20): the display's modes in the order EnumDisplaySettings lists them,
+// each size and depth once (without DDEDM_REFRESHRATES DirectDraw folds the refresh rates), at least
+// 640x480 and 16 bits. Frequency is 0: DirectDraw then reports none, and the callback tested the refresh
+// rate's flag in the pixel format's flags, where it is never set. On the machine of issue #20 both lists
+// are the same 24 modes in the same order (notes/vulkan.md).
 int TSurfaceVulkan::GetFullscreenModes(TFullscreenMode **Modes)
 {
 	*Modes = NULL;
-	if (DirectDraw != NULL && DirectDraw->EnumDisplayModes(0, NULL, Modes, EnumModesCallback) == DD_OK)
-		return NumberOfModes;
-	if (*Modes != NULL)
-		delete[] *Modes;
-	*Modes = NULL;
-	return 0;
+	if (!Initialized)
+		return 0;
+	std::vector<TFullscreenMode> Found;
+	DEVMODEA Mode;
+	memset(&Mode, 0, sizeof(Mode));
+	Mode.dmSize = sizeof(DEVMODEA);
+	for (DWORD Index = 0; EnumDisplaySettingsA(NULL, Index, &Mode); Index++) {
+		TFullscreenMode Listed;
+		Listed.Width = (int)Mode.dmPelsWidth;
+		Listed.Height = (int)Mode.dmPelsHeight;
+		Listed.Depth = (int)Mode.dmBitsPerPel;
+		Listed.Frequency = 0;
+		if (Listed.Width < 640 || Listed.Height < 480 || Listed.Depth < 16)
+			continue;
+		bool Known = false;
+		for (const TFullscreenMode &Other : Found)
+			Known = Known || (Other.Width == Listed.Width && Other.Height == Listed.Height && Other.Depth == Listed.Depth);
+		if (!Known)
+			Found.push_back(Listed);
+	}
+	NumberOfModes = (int)Found.size();
+	if (Found.empty())
+		return 0;
+	*Modes = new TFullscreenMode[Found.size()];
+	for (size_t i = 0; i < Found.size(); i++)
+		(*Modes)[i] = Found[i];
+	return NumberOfModes;
 }
 
 // SetSurfaceRect: SurfaceArea.left is set only for surface 0, its other members always.
@@ -673,10 +666,7 @@ bool TSurfaceVulkan::CanShadeRectangles()
 void TSurfaceVulkan::ExitSurfaces()
 {
 	ExitDisplay();
-	if (DirectDraw != NULL) {
-		DirectDraw->Release();
-		DirectDraw = NULL;
-	}
+	Initialized = false;
 }
 
 TSurfaceVulkan::TSurfaceVulkan()
@@ -685,7 +675,7 @@ TSurfaceVulkan::TSurfaceVulkan()
 	memset(Rect, 0, sizeof(Rect));
 	memset(&WindowRect, 0, sizeof(WindowRect));
 	memset(&SurfaceArea, 0, sizeof(SurfaceArea));
-	DirectDraw = NULL;
+	Initialized = false;
 	for (int i = 0; i < NUMBER_OF_SURFACES_VULKAN; i++)
 		Image[i] = -1;
 	ScreenTexture = -1;
@@ -769,13 +759,15 @@ void TSurfaceVulkan::BlitRectClipped(int ToSurface, int x, int y, int FromSurfac
 	}
 }
 
-// InitSurfaces: the start state; DirectDraw 4 for the modes and the stretch capabilities, as
-// surfaceDX9.cpp (its first DirectDraw object is never released either).
+// InitSurfaces: the start state. surfaceDX9.cpp creates DirectDraw 4 here for the modes and the stretch
+// capabilities; the modes come from EnumDisplaySettings now (GetFullscreenModes), and Vulkan stretches on
+// every device, so CanStretch is set (surfaceDX9.cpp: DirectDraw's four stretch and shrink flags, which
+// the machine of issue #20 reports too).
 void TSurfaceVulkan::InitSurfaces()
 {
 	hWindow = NULL;
 	ViewMode = 0;
-	DirectDraw = NULL;
+	Initialized = false;
 	Renderer.reset();
 	CacheSurfaceWidth = 512;
 	CacheSurfaceHeight = 512;
@@ -795,25 +787,8 @@ void TSurfaceVulkan::InitSurfaces()
 		Rect[i].right = CacheSurfaceWidth;
 		Rect[i].bottom = CacheSurfaceHeight;
 	}
-	IDirectDraw *DirectDraw1;
-	if (DirectDrawCreate(NULL, &DirectDraw1, NULL) != DD_OK)
-		throw (PROGRAM_ERROR)7;
-	if (DirectDraw1->QueryInterface(IID_IDirectDraw4, (void **)&DirectDraw) != DD_OK)
-		throw (PROGRAM_ERROR)7;
-	DDCAPS DriverCaps, EmulationCaps;
-	memset(&DriverCaps, 0, sizeof(DriverCaps));
-	DriverCaps.dwSize = sizeof(DDCAPS);
-	memset(&EmulationCaps, 0, sizeof(EmulationCaps));
-	EmulationCaps.dwSize = sizeof(DDCAPS);
-	if (DirectDraw->GetCaps(&DriverCaps, &EmulationCaps) == DD_OK) {
-		if ((DriverCaps.dwFXCaps & DDFXCAPS_BLTSHRINKX) && (DriverCaps.dwFXCaps & DDFXCAPS_BLTSTRETCHX)
-			&& (DriverCaps.dwFXCaps & DDFXCAPS_BLTSHRINKY) && (DriverCaps.dwFXCaps & DDFXCAPS_BLTSTRETCHY))
-			CanStretch = true;
-		else
-			CanStretch = false;
-	} else {
-		CanStretch = false;
-	}
+	Initialized = true;
+	CanStretch = true;
 	SetDefaultNoStretching(CanStretch == false);
 	ResetFrameTimer();
 	SetFramerateLimit(GetConfineFramerate());
@@ -932,7 +907,7 @@ void TSurfaceVulkan::BlitRect(int ToSurface, int x, int y, int FromSurface, TRec
 	BlitRectClipped(ToSurface, x, y, FromSurface, FromRect, Clip);
 }
 
-// InitDisplay: fullscreen mode takes GMode's size if DirectDraw lists it, otherwise the last mode
+// InitDisplay: fullscreen mode takes GMode's size if GetFullscreenModes lists it, otherwise the last mode
 // listed (written back into GMode, without its frequency).
 void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 {
@@ -973,12 +948,13 @@ void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 void TSurfaceVulkan::CreateSurfaces()
 {
 	NumberOfSurfaces = 0;
-	DDSURFACEDESC2 Description;
-	memset(&Description, 0, sizeof(Description));
-	Description.dwSize = sizeof(DDSURFACEDESC2);
-	if (DirectDraw != NULL)
-		DirectDraw->GetDisplayMode(&Description);
-	if (Description.ddpfPixelFormat.dwRGBBitCount < 16)
+	// surfaceDX9.cpp: DirectDraw's GetDisplayMode, the desktop's depth (0 before InitSurfaces).
+	DEVMODEA Desktop;
+	memset(&Desktop, 0, sizeof(Desktop));
+	Desktop.dmSize = sizeof(DEVMODEA);
+	if (!Initialized || !EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &Desktop))
+		Desktop.dmBitsPerPel = 0;
+	if (Desktop.dmBitsPerPel < 16)
 		throw (PROGRAM_ERROR)8;
 	if (ViewMode == FULLSCREEN_MODE) {
 		// Direct3D 9's fullscreen device sets the display mode; the window is already a popup over the

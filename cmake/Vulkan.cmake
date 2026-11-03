@@ -1,5 +1,5 @@
 # The Vulkan engine of the Windows x64 client (issue #19; notes/vulkan.md; notes/modernization-plan.md,
-# 6.2 and M2). Included by cmake/WindowsX64.cmake when PATELLA_VULKAN is on:
+# 6.2 and M2), the client's only engine since issue #20. Included by cmake/WindowsX64.cmake:
 #
 #	patella_vulkan_deps     the libraries' sources: volk, vk-bootstrap, VMA (src/vulkan/Vma.cpp), without
 #	                        the product's warning settings (they are not ours)
@@ -11,10 +11,10 @@
 #	                        every executable that uses the engine (patella_vulkan_cpu_driver)
 #
 # The client adds src/vulkan/SurfaceVulkan.cpp (TSurfaceVulkan, the TSurface on the MFC window) and
-# PATELLA_VULKAN (Surface.cpp chooses the engine with it). The libraries and the client link the static
-# CRT, as the client does. Every dependency is pinned by URL and SHA256 (notes/vulkan.md,
-# "Dependencies"); the first configure downloads them (about 85 MB, most of it Mesa's archive), later
-# ones reuse build/<preset>/_deps.
+# PATELLA_VULKAN (Surface.cpp's and Control.cpp's engine selection of the x64 client). The libraries
+# and the client link the static CRT, as the client does. Every dependency is pinned by URL and SHA256
+# (notes/vulkan.md, "Dependencies"); the first configure downloads them (about 85 MB, most of it Mesa's
+# archive), later ones reuse build/<preset>/_deps.
 
 include_guard(GLOBAL)
 include(FetchContent)
