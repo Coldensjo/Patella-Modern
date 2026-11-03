@@ -50,7 +50,7 @@ class CWnd : public CCmdTarget {
 public:
 	BOOL ShowWindow(int nCmdShow);
 	void UpdateWindow() { ::UpdateWindow(m_hWnd); }
-	HWND GetSafeHwnd() const { return this == nullptr ? nullptr : m_hWnd; }
+	[[nodiscard]] HWND GetSafeHwnd() const { return this == nullptr ? nullptr : m_hWnd; }
 	LRESULT Default();
 	BOOL ModifyStyle(DWORD dwRemove, DWORD dwAdd, UINT nFlags = 0);
 	BOOL ModifyStyleEx(DWORD dwRemove, DWORD dwAdd, UINT nFlags = 0);

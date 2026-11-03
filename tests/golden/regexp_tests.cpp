@@ -165,11 +165,10 @@ void RxImageMessages()
 }
 
 // The original's regcomp; the runner rebuilds its program from the recorded fields.
-regexp *RxImageCompile(char *Pattern)
+regexp *RxImageCompile([[maybe_unused]] char *Pattern)
 {
 	regexp *Program = NULL;
 	ORIGINAL(Program = ImageRegcomp(Pattern));
-	(void)Pattern;
 	RxImageMessages();
 	uint8 Compiled = Program != NULL;
 	golden::Output("compiled", Compiled);

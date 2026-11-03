@@ -81,7 +81,7 @@ END_MESSAGE_MAP()
 // 0x4a8210. A virtual key to the client's key code: the modifiers, the
 // cursor block (bit 8 of nFlags: the extended keys, not the number pad),
 // F1-F12 (0x100-0x10b) and, with Alt held, Return (Alt+Return).
-int CMainFrame::TranslateKey(UINT nChar, UINT nRepCnt, UINT nFlags)
+int CMainFrame::TranslateKey(UINT nChar, [[maybe_unused]] UINT nRepCnt, UINT nFlags)
 {
 	bool Extended = (nFlags & 0x100) == 0x100;
 	switch (nChar) {
@@ -279,7 +279,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 // 0x4abe40, line 295. A screen smaller than the window in windowed mode
 // moves it back to the default position.
-LRESULT CMainFrame::OnDisplayChange(WPARAM wParam, LPARAM lParam)
+LRESULT CMainFrame::OnDisplayChange([[maybe_unused]] WPARAM wParam, LPARAM lParam)
 {
 	TBEGIN
 	if (GetViewMode() == 1) {
@@ -295,7 +295,7 @@ LRESULT CMainFrame::OnDisplayChange(WPARAM wParam, LPARAM lParam)
 
 // 0x4a90e0, line 335. WSAAsyncGetHostByName finished (Network.cpp gives the
 // window to it): connect to the resolved address, or report the error.
-LRESULT CMainFrame::OnHostResolved(WPARAM wParam, LPARAM lParam)
+LRESULT CMainFrame::OnHostResolved([[maybe_unused]] WPARAM wParam, LPARAM lParam)
 {
 	TBEGIN
 	if (WSAGETASYNCERROR(lParam) == 0) {
@@ -323,7 +323,7 @@ LRESULT CMainFrame::OnHostResolved(WPARAM wParam, LPARAM lParam)
 
 // 0x4a9310, line 356. Forgets the held modifiers and leaves fullscreen mode
 // whenever the activation changes (both ways).
-void CMainFrame::OnActivateApp(BOOL bActive, DWORD dwThreadID)
+void CMainFrame::OnActivateApp([[maybe_unused]] BOOL bActive, [[maybe_unused]] DWORD dwThreadID)
 {
 	TBEGIN
 	KeyFlags = 0;
@@ -396,7 +396,7 @@ void CMainFrame::OnGetMinMaxInfo(MINMAXINFO *lpMMI)
 }
 
 // 0x4a9950, line 441. In fullscreen mode everything is client area.
-LRESULT CMainFrame::OnNcHitTest(CPoint point)
+LRESULT CMainFrame::OnNcHitTest([[maybe_unused]] CPoint point)
 {
 	TBEGIN
 	if (GetViewMode() == 2)
@@ -504,7 +504,7 @@ BOOL CMainFrame::OnSetCursor(CWnd *pWnd, UINT nHitTest, UINT message)
 }
 
 // 0x4aa5d0, line 568. In fullscreen mode the points are screen points.
-void CMainFrame::OnLButtonDown(UINT nFlags, CPoint point)
+void CMainFrame::OnLButtonDown([[maybe_unused]] UINT nFlags, CPoint point)
 {
 	TBEGIN
 	Default();
@@ -518,7 +518,7 @@ void CMainFrame::OnLButtonDown(UINT nFlags, CPoint point)
 }
 
 // 0x4aa7b0, line 588
-void CMainFrame::OnLButtonUp(UINT nFlags, CPoint point)
+void CMainFrame::OnLButtonUp([[maybe_unused]] UINT nFlags, CPoint point)
 {
 	TBEGIN
 	Default();
@@ -534,7 +534,7 @@ void CMainFrame::OnLButtonUp(UINT nFlags, CPoint point)
 }
 
 // 0x4aa990, line 606
-void CMainFrame::OnLButtonDblClk(UINT nFlags, CPoint point)
+void CMainFrame::OnLButtonDblClk([[maybe_unused]] UINT nFlags, CPoint point)
 {
 	TBEGIN
 	Default();
@@ -548,7 +548,7 @@ void CMainFrame::OnLButtonDblClk(UINT nFlags, CPoint point)
 }
 
 // 0x4aab70, line 624
-void CMainFrame::OnRButtonDown(UINT nFlags, CPoint point)
+void CMainFrame::OnRButtonDown([[maybe_unused]] UINT nFlags, CPoint point)
 {
 	TBEGIN
 	Default();
@@ -562,7 +562,7 @@ void CMainFrame::OnRButtonDown(UINT nFlags, CPoint point)
 }
 
 // 0x4aad50, line 644
-void CMainFrame::OnRButtonUp(UINT nFlags, CPoint point)
+void CMainFrame::OnRButtonUp([[maybe_unused]] UINT nFlags, CPoint point)
 {
 	TBEGIN
 	Default();
@@ -578,7 +578,7 @@ void CMainFrame::OnRButtonUp(UINT nFlags, CPoint point)
 }
 
 // 0x4aaf30, line 662. The same as a single click.
-void CMainFrame::OnRButtonDblClk(UINT nFlags, CPoint point)
+void CMainFrame::OnRButtonDblClk([[maybe_unused]] UINT nFlags, CPoint point)
 {
 	TBEGIN
 	Default();
@@ -593,7 +593,7 @@ void CMainFrame::OnRButtonDblClk(UINT nFlags, CPoint point)
 
 // 0x4ab110, line 686. Another window took the mouse: releases the held
 // buttons at the cursor position.
-void CMainFrame::OnCaptureChanged(CWnd *pWnd)
+void CMainFrame::OnCaptureChanged([[maybe_unused]] CWnd *pWnd)
 {
 	TBEGIN
 	POINT Point;
@@ -615,7 +615,7 @@ void CMainFrame::OnCaptureChanged(CWnd *pWnd)
 // 0x4ab310, line 704. One MouseWheel call per notch (120); direction 1 is
 // up, 2 down. The catch block names point.x/point.y although the binary
 // passes the mouse position from Status.cpp.
-BOOL CMainFrame::OnMouseWheel(UINT nFlags, short zDelta, CPoint point)
+BOOL CMainFrame::OnMouseWheel([[maybe_unused]] UINT nFlags, short zDelta, CPoint point)
 {
 	TBEGIN
 	Default();
@@ -689,7 +689,7 @@ void CMainFrame::OnSysKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 // 0x4ab7e0, line 871. Characters up to 255; with Control (and not Alt) the
 // control characters 1-26 become the letters 'a'-'z'.
-void CMainFrame::OnChar(UINT nChar, UINT nRepCnt, UINT nFlags)
+void CMainFrame::OnChar(UINT nChar, [[maybe_unused]] UINT nRepCnt, UINT nFlags)
 {
 	TBEGIN
 	Default();

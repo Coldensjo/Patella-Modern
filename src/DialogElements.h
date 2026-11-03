@@ -126,13 +126,13 @@ public:
 		if (Line != nullptr)
 			delete[] Line;
 	}
-	void Draw(int Surface, int x, int y) override;                          // +0x44, 0x455a50, line 413
-	bool MouseMove(int x, int y) override { return false; }                 // +0x4c, 0x452620
-	bool LeftButtonDown(int x, int y, int Flags) override { return false; } // +0x50, 0x457700 (folded)
-	bool LeftButtonUp(int x, int y, int Flags) override { return false; }   // +0x54, 0x457700
-	bool RightButtonUp(int x, int y, int Flags) override { return false; }  // +0x5c, 0x457700
-	void MouseHover(int x, int y) override;                                 // +0x64, 0x455ca0, line 423
-	virtual void SetText(const char *_Text, bool Shorten);                  // +0x84, 0x455e40, lines 431-472
+	void Draw(int Surface, int x, int y) override;                                                                             // +0x44, 0x455a50, line 413
+	bool MouseMove([[maybe_unused]] int x, [[maybe_unused]] int y) override { return false; }                                  // +0x4c, 0x452620
+	bool LeftButtonDown([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; } // +0x50, 0x457700 (folded)
+	bool LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; }   // +0x54, 0x457700
+	bool RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; }  // +0x5c, 0x457700
+	void MouseHover(int x, int y) override;                                                                                    // +0x64, 0x455ca0, line 423
+	virtual void SetText(const char *_Text, bool Shorten);                                                                     // +0x84, 0x455e40, lines 431-472
 
 	char *Text;     // +0x24, the lines, each terminated
 	char *FullText; // +0x28, the text as given (the tooltip of a shortened text)
@@ -197,11 +197,11 @@ class TOutfitIcon : public TElement {
 public:
 	TOutfitIcon(int _Outfit, int _Direction, int *ColorData, const TRGBColor *_Highlight); // 0x4666a0, line 899
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void Draw(int Surface, int x, int y) override;                          // +0x44, 0x457140, lines 908-911
-	bool MouseMove(int x, int y) override { return false; }                 // +0x4c, 0x452620
-	bool LeftButtonDown(int x, int y, int Flags) override { return false; } // +0x50, 0x457700
-	bool LeftButtonUp(int x, int y, int Flags) override { return false; }   // +0x54, 0x457700
-	bool RightButtonUp(int x, int y, int Flags) override { return false; }  // +0x5c, 0x457700
+	void Draw(int Surface, int x, int y) override;                                                                             // +0x44, 0x457140, lines 908-911
+	bool MouseMove([[maybe_unused]] int x, [[maybe_unused]] int y) override { return false; }                                  // +0x4c, 0x452620
+	bool LeftButtonDown([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; } // +0x50, 0x457700
+	bool LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; }   // +0x54, 0x457700
+	bool RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; }  // +0x5c, 0x457700
 	// Inline (out-of-line copy 0x4526b0, called by Dialogs.cpp).
 	void SetOutfit(int _Outfit) { Outfit = _Outfit; }
 	void SetColor(int Mask, int Color); // 0x457440, line 934
@@ -218,12 +218,12 @@ class TSkinIcon : public TElement {
 public:
 	TSkinIcon(int _Skin); // 0x457710, line 1002
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void Draw(int Surface, int x, int y) override;                          // +0x44, 0x4578c0, lines 1009-1014
-	bool MouseMove(int x, int y) override { return false; }                 // +0x4c, 0x452620
-	bool LeftButtonDown(int x, int y, int Flags) override { return false; } // +0x50, 0x457700
-	bool LeftButtonUp(int x, int y, int Flags) override { return false; }   // +0x54, 0x457700
-	bool RightButtonUp(int x, int y, int Flags) override { return false; }  // +0x5c, 0x457700
-	bool MouseWheel(int x, int y, int Direction) override { return false; } // +0x60, 0x457700
+	void Draw(int Surface, int x, int y) override;                                                                             // +0x44, 0x4578c0, lines 1009-1014
+	bool MouseMove([[maybe_unused]] int x, [[maybe_unused]] int y) override { return false; }                                  // +0x4c, 0x452620
+	bool LeftButtonDown([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; } // +0x50, 0x457700
+	bool LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; }   // +0x54, 0x457700
+	bool RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; }  // +0x5c, 0x457700
+	bool MouseWheel([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Direction) override { return false; } // +0x60, 0x457700
 
 	int Skin; // +0x24
 };
@@ -234,11 +234,11 @@ public:
 	// Inline (out-of-line copy 0x4526c0).
 	TObjectIcon(TObject _Obj, const TRGBColor *_Highlight, bool _Framed);
 	// The destructor is the implicit one (deleting destructor 0x429590).
-	void Draw(int Surface, int x, int y) override;                          // +0x44, 0x457c40, lines 1052-1063
-	bool MouseMove(int x, int y) override { return false; }                 // +0x4c, 0x452620
-	bool LeftButtonDown(int x, int y, int Flags) override { return false; } // +0x50, 0x457700
-	bool LeftButtonUp(int x, int y, int Flags) override { return false; }   // +0x54, 0x457700
-	bool RightButtonUp(int x, int y, int Flags) override { return false; }  // +0x5c, 0x457700
+	void Draw(int Surface, int x, int y) override;                                                                             // +0x44, 0x457c40, lines 1052-1063
+	bool MouseMove([[maybe_unused]] int x, [[maybe_unused]] int y) override { return false; }                                  // +0x4c, 0x452620
+	bool LeftButtonDown([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; } // +0x50, 0x457700
+	bool LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; }   // +0x54, 0x457700
+	bool RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; }  // +0x5c, 0x457700
 
 	TRect Unused24;      // +0x24, cleared, never read
 	bool Framed;         // +0x34
@@ -259,13 +259,13 @@ public:
 	TSkinButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback _Callback, const char *_Tooltip,
 		bool _Repeat); // 0x466860, line 1113
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void Draw(int Surface, int x, int y) override;                        // +0x44, 0x458150, lines 1122-1127
-	bool MouseMove(int x, int y) override;                                // +0x4c, 0x4584e0
-	bool LeftButtonDown(int x, int y, int Flags) override;                // +0x50, 0x458540, line 1155
-	bool LeftButtonUp(int x, int y, int Flags) override;                  // +0x54, 0x458710, line 1174
-	bool MouseWheel(int x, int y, int Code) override;                     // +0x60, 0x4588f0, line 1192
-	void MouseHover(int x, int y) override { SetMouseOverText(Tooltip); } // +0x64, 0x452780
-	void ReleaseCapture(TComponent *Component) override                   // +0x7c, 0x452770
+	void Draw(int Surface, int x, int y) override;                                                          // +0x44, 0x458150, lines 1122-1127
+	bool MouseMove(int x, int y) override;                                                                  // +0x4c, 0x4584e0
+	bool LeftButtonDown(int x, int y, int Flags) override;                                                  // +0x50, 0x458540, line 1155
+	bool LeftButtonUp(int x, int y, int Flags) override;                                                    // +0x54, 0x458710, line 1174
+	bool MouseWheel(int x, int y, int Code) override;                                                       // +0x60, 0x4588f0, line 1192
+	void MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y) override { SetMouseOverText(Tooltip); } // +0x64, 0x452780
+	void ReleaseCapture(TComponent *Component) override                                                     // +0x7c, 0x452770
 	{
 		Pressed = false;
 		TElement::ReleaseCapture(Component);
@@ -368,10 +368,10 @@ inline int TLink::getMinimumHeight()
 class TToggleButton : public TSkinButton {
 public:
 	TToggleButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback _Callback, const char *_Tooltip1,
-		const char *_Tooltip2, bool _State);                                                  // 0x4671e0
-	bool LeftButtonUp(int x, int y, int Flags) override;                                      // +0x54, 0x459940, line 1454
-	void MouseHover(int x, int y) override { SetMouseOverText(State ? Tooltip2 : Tooltip1); } // +0x64, 0x4671b0
-	bool IsPressed() override;                                                                // +0x84, 0x459b00
+		const char *_Tooltip2, bool _State);                                                                                    // 0x4671e0
+	bool LeftButtonUp(int x, int y, int Flags) override;                                                                        // +0x54, 0x459940, line 1454
+	void MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y) override { SetMouseOverText(State ? Tooltip2 : Tooltip1); } // +0x64, 0x4671b0
+	bool IsPressed() override;                                                                                                  // +0x84, 0x459b00
 
 	bool State;           // +0x44
 	const char *Tooltip1; // +0x48
@@ -383,10 +383,10 @@ public:
 class TTextToggleButton : public TTextButton {
 public:
 	TTextToggleButton(int x, int y, const char *_Text, int _ButtonUp, int _ButtonDown, TCallback _Callback,
-		const char *_Tooltip1, const char *_Tooltip2, bool _State);                           // 0x467230
-	bool LeftButtonUp(int x, int y, int Flags) override;                                      // +0x54, 0x459b70, line 1511
-	void MouseHover(int x, int y) override { SetMouseOverText(State ? Tooltip2 : Tooltip1); } // +0x64, 0x467290
-	bool IsPressed() override;                                                                // +0x84, 0x459d30
+		const char *_Tooltip1, const char *_Tooltip2, bool _State);                                                             // 0x467230
+	bool LeftButtonUp(int x, int y, int Flags) override;                                                                        // +0x54, 0x459b70, line 1511
+	void MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y) override { SetMouseOverText(State ? Tooltip2 : Tooltip1); } // +0x64, 0x467290
+	bool IsPressed() override;                                                                                                  // +0x84, 0x459d30
 
 	bool State;           // +0x78
 	const char *Tooltip1; // +0x7c
@@ -431,9 +431,9 @@ class TCheckBox : public TWindow {
 public:
 	TCheckBox(const char *_Text); // 0x467440, lines 1686-1699
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void Draw(int Surface, int x, int y) override;      // +0x44, 0x459f90, lines 1711-1716
-	void Arrange() override;                            // +0x48, 0x45a360
-	bool LeftButtonUp(int x, int y, int Flags) override // +0x54, 0x4527c0
+	void Draw(int Surface, int x, int y) override;                                                         // +0x44, 0x459f90, lines 1711-1716
+	void Arrange() override;                                                                               // +0x48, 0x45a360
+	bool LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override // +0x54, 0x4527c0
 	{
 		if (Enabled)
 			Checked = !Checked;

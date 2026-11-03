@@ -286,7 +286,7 @@ void TContextMenuEntry::Draw(int Surface, int x, int y)
 }
 
 // 0x43e4d0, line 349
-bool TContextMenuEntry::LeftButtonUp(int x, int y, int Flags)
+bool TContextMenuEntry::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	Callback.Send();
@@ -347,7 +347,7 @@ bool TContextMenu::LeftButtonUp(int x, int y, int Flags)
 }
 
 // 0x43eea0, line 449
-bool TContextMenu::RightButtonUp(int x, int y, int Flags)
+bool TContextMenu::RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	SetActionState(0);

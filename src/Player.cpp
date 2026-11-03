@@ -108,7 +108,7 @@ void GetWindowClassName(char *Text)
 
 // 0x4d9420 (missed by Ghidra). EnumWindows callback: counts the windows
 // whose title or class matches the client's (caseless), this one included.
-static BOOL CALLBACK CountTibiaWindows(HWND Window, LPARAM Parameter)
+static BOOL CALLBACK CountTibiaWindows(HWND Window, [[maybe_unused]] LPARAM Parameter)
 {
 	char Title[32];
 	char WindowText[32];

@@ -558,7 +558,7 @@ bool TSurfaceVulkan::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, 
 		switch (ViewMode) {
 		case FULLSCREEN_MODE:
 			ExitDisplay();
-			// fall through
+			[[fallthrough]];
 		case 0:
 			hWindow = *Window;
 			ResetDisplay(WINDOWED_MODE, nullptr);

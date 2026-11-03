@@ -626,7 +626,7 @@ struct TRenderer::TState {
 		Image.Allocation = nullptr;
 	}
 
-	bool ImageTooSmall(int Id, int Width, int Height) const
+	[[nodiscard]] bool ImageTooSmall(int Id, int Width, int Height) const
 	{
 		const TImage &Image = Images[static_cast<size_t>(Id)];
 		return Image.Width < Width || Image.Height < Height;

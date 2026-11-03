@@ -126,13 +126,31 @@ function(patella_target_warnings target)
 		set(baseline_list ${PATELLA_WARNING_BASELINE_MSVC})
 		target_compile_options(${target} PRIVATE
 			$<$<COMPILE_LANGUAGE:C,CXX>:/external:anglebrackets /external:W0>)
+		# The unused-entity warnings on every C++ source, the baseline files included (issue #38): an
+		# unreferenced parameter (C4100), a local that is initialised but not used (C4189) and a removed
+		# unreferenced function with internal linkage (C4505) are level 4; /w3 makes them level 3, so
+		# the /W3 files get them too (C4101, an unreferenced local, is level 3 already). What is unused
+		# on purpose says so with [[maybe_unused]].
+		target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/w34100 /w34189 /w34505>)
 	elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 		set(full -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 		set(baseline -Wall)
+		# A switch case that falls through says so with [[fallthrough]] (issue #38), on every C++ source,
+		# the baseline files included. GCC's -Wextra takes a "fall through" comment as well (level 3);
+		# level 5 takes only the attribute. Clang's -Wextra does not include the warning at all. MSVC has
+		# no compiler warning for it (only the code analysis's C26819, /analyze). Not for C: the
+		# regexp (src/Extern) is third-party code in C17, which has no [[fallthrough]].
+		# The unused-entity warnings likewise (issue #38): -Wall has -Wunused (variables, functions, labels,
+		# typedefs), -Wextra adds the parameters; the baseline files (-Wall) get those too. What is
+		# unused on purpose says so with [[maybe_unused]]. Not for C, which has no [[maybe_unused]] in C17.
+		target_compile_options(${target} PRIVATE
+			$<$<COMPILE_LANGUAGE:CXX>:-Wunused -Wunused-parameter -Wunused-but-set-parameter>)
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 			set(baseline_list ${PATELLA_WARNING_BASELINE_GCC})
+			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wimplicit-fallthrough=5>)
 		else()
 			set(baseline_list ${PATELLA_WARNING_BASELINE_CLANG})
+			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wimplicit-fallthrough>)
 			# Clang warns about K&R function definitions in every C standard, at any level; they are
 			# valid C17, the regexp's (src/Extern) form, kept until M6.
 			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wno-deprecated-non-prototype>)

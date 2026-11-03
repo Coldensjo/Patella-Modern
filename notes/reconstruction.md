@@ -149,7 +149,12 @@ the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8), w
   --compile-no-warning-as-error` turns it off to measure). Headers in angle brackets are external to MSVC
   (`/external:anglebrackets /external:W0`). Clang's warning about K&R definitions
   (`-Wdeprecated-non-prototype`, on at every level) is off for C. A file leaves a list when it builds clean at
-  the full level; the lists only shrink.
+  the full level; the lists only shrink. On every C++ source, the baseline files included (issue #38): the
+  unused-entity warnings (MSVC `/w34100 /w34189 /w34505`, GCC and Clang `-Wunused -Wunused-parameter
+  -Wunused-but-set-parameter`) and the implicit-fallthrough warning (GCC `-Wimplicit-fallthrough=5`, which
+  takes only the attribute, not a comment; Clang `-Wimplicit-fallthrough`; MSVC has none). A parameter that is
+  unused on purpose says `[[maybe_unused]]`, a case that falls through on purpose `[[fallthrough]];` (no casts
+  to void, no pragmas).
 - `patella_target_hardening(<target>)`: `/guard:cf /CETCOMPAT`; `-fstack-protector-strong`,
   `_FORTIFY_SOURCE=3` (optimised builds), `_GLIBCXX_ASSERTIONS` (Debug), PIE and, on Linux, full RELRO; with
   the cache variable `PATELLA_SANITIZE` (GCC and Clang; linux-x64-clang sets `address,undefined`)
@@ -375,7 +380,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 
   (build.py works on a copy in the container, so the list is written into the mounted build\linux-x64-clang;
   copy it to tools\tidy-baseline.tsv). On Linux the same tidy.py commands run directly after `cmake --preset
-  linux-x64-clang`. 21 findings in 21 entries on November 3, 2026 (issue #32 removed the ten use-nullptr ones), and 16 more
+  linux-x64-clang`. 14 findings in 14 entries on November 3, 2026 (issue #32 removed the ten use-nullptr ones, issue #38 the seven use-nodiscard ones), and 16 more
   inside macro arguments.
 - CI (issue #11; plan 4.7): `.github/workflows/hosted.yml` runs on GitHub's runners for every push and pull
   request (and by hand, workflow_dispatch), reads no CipSoft file and uses no secret: windows-latest with MSVC

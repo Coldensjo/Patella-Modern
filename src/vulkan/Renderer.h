@@ -92,15 +92,15 @@ public:
 	// pipelines and the first frame. Throws TVulkanError.
 	void Create(const TDeviceRequest &Request);
 	void Destroy();
-	bool Created() const;
-	const TDeviceInfo &Device() const;
+	[[nodiscard]] bool Created() const;
+	[[nodiscard]] const TDeviceInfo &Device() const;
 
 	// An image of Width x Height, cleared to 0 (transparent black). Ids from 0 on.
 	int CreateImage(int Width, int Height);
 	// A new size; the contents are cleared.
 	void ResizeImage(int Image, int Width, int Height);
-	int ImageWidth(int Image) const;
-	int ImageHeight(int Image) const;
+	[[nodiscard]] int ImageWidth(int Image) const;
+	[[nodiscard]] int ImageHeight(int Image) const;
 
 	// Direct3D 9's ColorFill: the rectangle set to Color (D3DCOLOR_XRGB: alpha 1), no blending.
 	void Fill(int Target, int Left, int Top, int Right, int Bottom, uint32_t Color);
@@ -122,7 +122,7 @@ public:
 	void Finish();
 
 	// The present mode of the swapchain (0 before the first Present).
-	VkPresentModeKHR PresentMode() const;
+	[[nodiscard]] VkPresentModeKHR PresentMode() const;
 
 private:
 	struct TState;

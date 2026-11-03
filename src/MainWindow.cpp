@@ -193,7 +193,7 @@ void TMainWindow::HandleEvent(int Event)
 	switch (Event) {
 	case 0x21:
 		CopyTaintedClipboardText();
-		// fall through
+		[[fallthrough]];
 	case 2:
 		SetActionState(0);
 		break;
@@ -736,7 +736,7 @@ void TSplitter::Arrange()
 // 0x4ae530, line 780. Mouse cursor 2 is the vertical size arrow. While
 // dragging, the console follows the mouse; the global MainWindow is used,
 // not the parent. x has no name in the catch block.
-bool TSplitter::MouseMove(int x, int y)
+bool TSplitter::MouseMove([[maybe_unused]] int x, int y)
 {
 	TBEGIN
 	SetMouseCursor(2);
@@ -749,7 +749,7 @@ bool TSplitter::MouseMove(int x, int y)
 }
 
 // 0x4ae700, line 795
-bool TSplitter::LeftButtonDown(int x, int y, int Flags)
+bool TSplitter::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	SetCapture(nullptr);
@@ -761,7 +761,7 @@ bool TSplitter::LeftButtonDown(int x, int y, int Flags)
 }
 
 // 0x4ae8b0, line 807. ReleaseCapture clears Dragging.
-bool TSplitter::LeftButtonUp(int x, int y, int Flags)
+bool TSplitter::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
 	TBEGIN
 	if (Dragging)

@@ -25,7 +25,7 @@ public:
 	}
 	~flex_unit();
 	void clear() { n = 0; }
-	unsigned get(unsigned i) const
+	[[nodiscard]] unsigned get(unsigned i) const
 	{
 		if (i >= n) return 0;
 		return a[i];
@@ -40,9 +40,9 @@ public:
 	unsigned share; // +0xc, number of extra vlongs sharing this value
 
 	vlong_value() { share = 0; }
-	int is_zero() const { return n == 0; }
-	int test(unsigned i) const;
-	unsigned bits() const;
+	[[nodiscard]] int is_zero() const { return n == 0; }
+	[[nodiscard]] int test(unsigned i) const;
+	[[nodiscard]] unsigned bits() const;
 	int cf(vlong_value &x) const;
 	void shl();
 	void shr();
@@ -90,7 +90,7 @@ public:
 private:
 	vlong_value *value; // +0x4
 	int negative;       // +0x8
-	int cf(const vlong x) const;
+	[[nodiscard]] int cf(const vlong x) const;
 	void docopy();
 	friend class monty;
 	friend void ByteArrayToVlong(const uint8 *pData, uint16 Size, vlong &Number);

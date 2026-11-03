@@ -408,7 +408,7 @@ void TSurfaceGL::DrawFrameClipped(int Surface, TRect Rect, int LineWidth, TRGBCo
 // drawn scaled with linear filtering. Odd behaviour kept: the scaled path
 // ignores both colours.
 void TSurfaceGL::StretchBlitUnclipped(int ToSurface, TRect ToRect, int FromSurface, TRect FromRect,
-	TRGBColor ColorKey, TRGBColor Highlight)
+	TRGBColor ColorKey, [[maybe_unused]] TRGBColor Highlight)
 {
 	if (ToRect.width == FromRect.width && ToRect.height == FromRect.height) {
 		Blit(ToSurface, ToRect.x, ToRect.y, FromSurface, FromRect, ColorKey);
@@ -509,7 +509,7 @@ void TSurfaceGL::StretchBlit(int ToSurface, TRect ToRect, int FromSurface, TRect
 
 // 0x4fab70 (the DirectX engines' vtables use it too). The colour key is not
 // used.
-void TSurfaceGL::BlitClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey,
+void TSurfaceGL::BlitClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, [[maybe_unused]] TRGBColor ColorKey,
 	TRect Clip)
 {
 	BlitRectClipped(ToSurface, x, y, FromSurface, FromRect, Clip);
@@ -713,7 +713,7 @@ void TSurfaceGL::ResetDisplay(int VMode, TFullscreenMode *GMode)
 }
 
 // 0x4fb280. The arguments are not used.
-void TSurfaceGL::RestoreSurfaces(int ViewMode, TFullscreenMode *Mode)
+void TSurfaceGL::RestoreSurfaces([[maybe_unused]] int ViewMode, [[maybe_unused]] TFullscreenMode *Mode)
 {
 	Unavailable = false;
 	try {

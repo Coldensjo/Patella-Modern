@@ -6447,3 +6447,72 @@ to be clang-tidy's `misc-include-cleaner` through tools/tidy.py (no include-what
   PatellaTest.exe differ by the table move above (pecompare: 7,073 and 7,112 differing ranges, all of them
   addresses; disassembly identical after normalisation). macrocheck: the 2,108 calls unchanged. The difftest
   counts are unchanged.
+
+## [[nodiscard]], [[fallthrough]] and [[maybe_unused]] (Patella-Modern issue #38)
+
+Settled by Claude Opus 5.5, November 3, 2026. The fifth change of M3 (plan section 7), in three commits that can be
+reviewed and reverted alone, one per pattern: `modernize-use-nodiscard` is clean on src/, every case that falls
+through says `[[fallthrough]]`, and no unused parameter is hidden by a cast to void or a pragma.
+
+- **modernize-use-nodiscard through tools/tidy.py on every configuration that compiles src/** (high). As in issues
+  #32, #33, #35 and #40: `python -I tools/tidy.py -p <dir> --checks=-*,modernize-use-nodiscard --fix --all` once per
+  target, on compile_commands.json files holding one target's Release commands each (oracle-x86's Patella,
+  mfc_shim_check, difftest, communicationtest, sysinctest and vlongtest with `--extra-arg=-m32`; windows-x64's
+  Patella, PatellaTest, patella_core, patella_testmode and patella_render_vulkan). 17 const member functions in 7
+  files: TMyException.h's GetMessage and GetOrigin, Talk.h's TTalkLine::GetText, compat/mfc_shim.h's GetSafeHwnd,
+  vlong.h's get, is_zero, test, bits and cf, vulkan/Renderer.h's Created, Device, ImageWidth, ImageHeight and
+  PresentMode, Renderer.cpp's TState::ImageTooSmall and SurfaceVulkan.h's DeviceName. No caller discards one of
+  their results, so no function was left out and no caller changed (MSVC's C4834 would fail the build). The check
+  marks only const member functions with a result and no non-const reference parameter, so this is what it finds;
+  the coding standard's "[[nodiscard]] by default" for new code stays a review rule. The second run of every
+  target reports none (MainFrm.cpp's two clang-diagnostic errors, also on main, aside). No fix inside a
+  TASSERT/TERROR/TEND argument. The clang-tidy baseline loses its seven use-nodiscard entries (21 to 14).
+- **The six cases that fall through are the original's** (high). Clang's implicit-fallthrough warning, through
+  clang-tidy (`clang-diagnostic-implicit-fallthrough` with `--extra-arg=-Wimplicit-fallthrough`) on the same 11
+  targets, finds six, each already commented "fall through" by the reconstruction: TConsoleWindow::HandleEvent
+  (0x424b10) 202 into 201 and 210 into 203, Control.cpp's MouseMove (0x4469b0) action state 1 into default,
+  TMainWindow::HandleEvent (0x4aed10) 0x21 into 2, TSurfaceDX9::Init (0x4f1240) FULLSCREEN_MODE into 0, and
+  SurfaceVulkan.cpp's Init, which follows TSurfaceDX9::Init. difftest calls the first four against the image
+  (consolewindowtest's HandleEvent with 202 and 210, controltest's MouseMove, mainwindowtest's HandleEvent,
+  surfacedx9test's Init), so the fall-through is the binary's behaviour, not a reconstruction bug; nothing was
+  changed but the comment, which became `[[fallthrough]];`. No unmarked fall-through was found, so none is listed
+  as a possible bug.
+- **The fall-through warning on GCC and Clang only** (high). cmake/Warnings.cmake adds it for the C++ sources of
+  every product target, the baseline files included: GCC `-Wimplicit-fallthrough=5` (GCC's -Wextra has level 3,
+  which also accepts a "fall through" comment; level 5 accepts only the attribute; an explicit level holds
+  whatever the order of -Wextra), Clang `-Wimplicit-fallthrough` (not in -Wextra). MSVC has no compiler warning
+  for it, only the code analysis's C26819 (/analyze), which no preset runs; the client's sources are checked by
+  Clang through clang-tidy as above. Not for C: the regexp (src/Extern) is third-party C17, which has no
+  attribute. The oracle-x86 preset never uses cmake/Warnings.cmake.
+- **[[maybe_unused]] on every unused parameter** (high). The suppressions in src/ and tests/: Talk.h's four casts
+  to void (TTalkBuffer::SetWriteEnabled, TRuleViolationChannel::AddText), testmode/ClientStateWin32.cpp's
+  `#pragma warning(disable : 4100)` around the client's headers, and tests/golden/regexp_tests.cpp's cast of
+  `Pattern` (used only when the runner calls the original). They become `[[maybe_unused]]` on the parameter. The
+  pragma covered the parameters of the headers' inline functions (GUI.h's TElement handlers, DialogElements.h,
+  ContentWindows.h, ContextMenus.h), which the /W3 baseline files never reported; so the unused warnings are now
+  on for every C++ source of the product targets, the baseline files included: MSVC `/w34100 /w34189 /w34505`
+  (unreferenced parameter, initialised but unused local, removed internal function: level 4, now level 3; C4101
+  is level 3 already), GCC and Clang `-Wunused -Wunused-parameter -Wunused-but-set-parameter`. Measured with
+  clang-tidy on the 11 targets (`clang-diagnostic-unused-*` with `-Wunused -Wunused-parameter` and the other
+  unused groups): 212 unused parameters in 18 files of src/, nothing else (no unused variable, function, typedef
+  or exception parameter). They are the original's signatures: TComponent's virtual handlers that a subclass
+  ignores (x, y, Flags), the MFC message handlers, TSurface's engine-specific virtuals. A script put
+  `[[maybe_unused]]` before each such parameter's declaration (at its definition, where the warning is), and
+  `clang-format -i` realigned the trailing comments of the changed lines (whitespace only). The second run reports
+  none; the MSVC builds (x64 Release and Debug, with the new flags) and GCC and Clang report none.
+- **Not names dropped, not unnamed parameters** (medium). An unnamed parameter would also silence the warning,
+  but the names are the reconstruction's reading of the original (x, y, Flags at the vtable slot's offsets) and
+  the issue asks for the attribute. The two places where the reconstruction dropped a name to avoid a warning
+  stay as they are: InitObjects's `catch (TMyException &)` in Objects.cpp (an unnamed handler declares no
+  variable, so there is nothing to mark; naming it only to mark it unused adds nothing), and ContextMenus.cpp's
+  extra argument the binary passes to "Invite to Party" (a format argument, not an unused entity).
+- **tools/ is outside** (medium). The difftest's sources (tools/difftest: creaturestest.cpp's and errortest.cpp's
+  casts to void, networktest.cpp's unused Command, the `#pragma warning(disable: 4100)` of mainfrmtest.cpp,
+  networktest.cpp, surfacedx9test.cpp and surfacegltest.cpp) are the oracle's test instrument, built with the
+  oracle's /W3 (where C4100 is off, so the pragmas do nothing) and never with cmake/Warnings.cmake; they retire
+  with the oracle in M6. The `(void)Vector.at(3)` of tests/unit/cxx26_static_vector_test.cpp discards a
+  [[nodiscard]] result on purpose inside CHECK_THROWS_AS; it is not an unused entity.
+- **Attributes change no code** (high). Built at the same path, the oracle Patella.exe and the windows-x64 Release
+  Patella.exe and PatellaTest.exe differ from main 2ee58c9's, and from each commit's predecessor, only in the link
+  time stamps and the PDB record (pecompare: `.text` and `.data` identical after each of the three commits).
+  macrocheck 2ee58c9 against each commit: the 2,108 calls unchanged.

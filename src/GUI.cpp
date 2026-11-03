@@ -1673,31 +1673,31 @@ void TTimer::Update(int elapsed)
 // --- TComponent -------------------------------------------------------------
 
 // 0x49b450, line 993
-void TComponent::InsertChild(TComponent *Child)
+void TComponent::InsertChild([[maybe_unused]] TComponent *Child)
 {
 	TERROR(993, "not possible");
 }
 
 // 0x49b570, line 1001
-void TComponent::AppendChild(TComponent *Child)
+void TComponent::AppendChild([[maybe_unused]] TComponent *Child)
 {
 	TERROR(1001, "not possible");
 }
 
 // 0x49b690, line 1009
-void TComponent::RemoveChild(TComponent *Child)
+void TComponent::RemoveChild([[maybe_unused]] TComponent *Child)
 {
 	TERROR(1009, "not possible");
 }
 
 // 0x49b7b0, line 1017
-void TComponent::DeleteChild(TComponent *Child)
+void TComponent::DeleteChild([[maybe_unused]] TComponent *Child)
 {
 	TERROR(1017, "not possible");
 }
 
 // 0x49b8d0, line 1025
-void TComponent::InsertChildAfter(TComponent *Previous, TComponent *Child)
+void TComponent::InsertChildAfter([[maybe_unused]] TComponent *Previous, [[maybe_unused]] TComponent *Child)
 {
 	TERROR(1025, "not possible");
 }
@@ -1705,13 +1705,13 @@ void TComponent::InsertChildAfter(TComponent *Previous, TComponent *Child)
 // Line 1033 has no function in the binary (removed by the linker).
 
 // 0x49b9f0, line 1041
-void TComponent::SwapChildren(TComponent *Child1, TComponent *Child2)
+void TComponent::SwapChildren([[maybe_unused]] TComponent *Child1, [[maybe_unused]] TComponent *Child2)
 {
 	TERROR(1041, "not possible");
 }
 
 // 0x49bb10, line 1049
-bool TComponent::IsChild(TComponent *Child)
+bool TComponent::IsChild([[maybe_unused]] TComponent *Child)
 {
 	TERROR(1049, "not possible");
 }
@@ -2279,7 +2279,7 @@ void TWindow::ClipChildren(bool Strict)
 
 // 0x4a0bc0, line 1893. Captures this element in the parent; the argument is
 // not used.
-void TElement::SetCapture(TComponent *Component)
+void TElement::SetCapture([[maybe_unused]] TComponent *Component)
 {
 	TBEGIN
 	if (GetParent() != nullptr)
@@ -2288,7 +2288,7 @@ void TElement::SetCapture(TComponent *Component)
 }
 
 // 0x4a0d60, line 1905
-void TElement::ReleaseCapture(TComponent *Component)
+void TElement::ReleaseCapture([[maybe_unused]] TComponent *Component)
 {
 	TBEGIN
 	if (GetParent() != nullptr)
