@@ -130,8 +130,8 @@ the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8), w
 
 The unit tests (`tests/unit/`, doctest 2.5.3: an installed one through find_package, otherwise downloaded once
 by FetchContent and checked against its SHA256; issue #9) build with the presets windows-x64 (MSVC x64, from a
-`vcvarsall.bat x64` prompt) and windows-x64-gcc (mingw-w64 GCC 16 on PATH), which build nothing else yet (the
-client comes with issue #5):
+`vcvarsall.bat x64` prompt; it builds the client too, below) and windows-x64-gcc (mingw-w64 GCC 16 on PATH,
+which builds nothing else):
 
 ```
 cmake --workflow --preset windows-x64       # configure, build Release, run the unit tests through CTest
@@ -147,7 +147,20 @@ src/compat/cxx26.h is the only way to C++26 features (plan section 8): `CONTRACT
 `patella::TStaticVector<T, N>` so far; its comment lists what the stand-ins do not reproduce. Details:
 notes/decisions.md, "src/compat/cxx26.h and the unit tests (issue #9)".
 
-Run it only from a folder with copies of the data files (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg; for
+Since issue #5 the preset windows-x64 also builds the client for x64 (`cmake/WindowsX64.cmake`): today's code
+with static x64 MFC and the original engines (DirectDraw, Direct3D 9, OpenGL), the oracle's sources,
+definitions, import libraries and linker options (no manifest, oleacc.dll delay-loaded), with the product
+settings of Warnings.cmake and Hardening.cmake, 0 warnings with /WX in Release and Debug.
+`cmake --workflow --preset windows-x64` builds Release and runs the unit tests; `cmake --build --preset
+windows-x64-debug` builds Debug. The result is `build\windows-x64\<Configuration>\Patella.exe` with its
+`Patella.pdb` (a PDB in both configurations, which client_state.py's PDB offsets need). Its resource pictures are
+extracted from Tibia.exe into build\windows-x64\res at configure time, as for the oracle
+(cmake/Resources.cmake, shared); without Tibia.exe the configure stops, and `-DPATELLA_CLIENT=OFF` builds only the unit tests. The
+original's structure layouts hold only in the 32-bit build: the static_asserts that check a size or offset which
+pointers change are inside `#if PATELLA_ORIGINAL_LAYOUT` (common.h, x86 only). Details: notes/decisions.md,
+"Windows x64 build (issue #5)".
+
+Run either Patella.exe only from a folder with copies of the data files (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg; for
 example build\run), never from the root: the client rewrites Tibia.cfg on exit, and the root's data files
 may be the user's own.
 

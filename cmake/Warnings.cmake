@@ -20,8 +20,9 @@ cmake_path(GET CMAKE_CURRENT_LIST_DIR PARENT_PATH PATELLA_ROOT_DIR)
 # one level lower (MSVC /W3; GCC and Clang -Wall), still with warnings as errors, so the build never
 # stops being green. A file leaves the list when it builds clean at the full level, and the list only
 # shrinks; no file is added. Measured with MSVC 14.51 (cl 19.51) for x86 against static MFC
-# (notes/decisions.md, "Compiler settings, warnings and code style (issue #8)"); issue #5 measures it
-# again for x64 and issue #7 for GCC and Clang. Paths are relative to the repository root.
+# (notes/decisions.md, "Compiler settings, warnings and code style (issue #8)") and again for x64 (the
+# same 24 files and 1,234 warnings once the x64 conversions were fixed; "Windows x64 build (issue #5)");
+# issue #7 measures it for GCC and Clang. Paths are relative to the repository root.
 set(PATELLA_WARNING_BASELINE
 	src/Communication.cpp
 	src/ConsoleWindow.cpp
