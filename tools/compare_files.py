@@ -61,7 +61,6 @@ import compare_traffic as ct  # noqa: E402
 import proxy as px  # noqa: E402
 import session_client as sc  # noqa: E402
 import login_client as lc  # noqa: E402
-import client_state  # noqa: E402
 
 ROOT = ct.ROOT
 FILES = os.path.join(ROOT, "build", "files")
@@ -415,11 +414,9 @@ STEP = {"N": (0, -1, sc.VK_UP), "E": (1, 0, sc.VK_RIGHT), "S": (0, 1, VK_DOWN), 
 def player_position(driver):
 	"""The player's creature's position (Creatures.cpp's table, as client_state reads it)."""
 	player = driver.mem.var("PlayerID")
-	size = client_state.CREATURE_SIZE
-	data = driver.mem.read(driver.mem.addr["Creatures"], client_state.CREATURES * size)
-	for i in range(client_state.CREATURES):
-		if player != 0 and struct.unpack_from("<I", data, i * size)[0] == player:
-			return tuple(struct.unpack_from("<3i", data, i * size + 0x24))
+	for creature in driver.mem.creatures():
+		if player != 0 and creature["id"] == player:
+			return tuple(creature["pos"])
 	return None
 
 

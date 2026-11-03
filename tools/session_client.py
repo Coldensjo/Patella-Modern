@@ -22,7 +22,6 @@ player is on field 8,6) and of the body slots (3: the container slot):
 
 import ctypes
 import os
-import struct
 import subprocess
 import sys
 import time
@@ -190,26 +189,31 @@ class Driver:
 
 	def body_slot_point(self, slot):
 		view = self.node("TInventoryView")
-		x, y, w, h = self.mem.skin_rects(0x288 + 0x60, 10)[slot - 1]
+		x, y, w, h = self.mem.skin_rects("Style288.Data60", 10)[slot - 1]
 		return view["x"] + x + w // 2, view["y"] + y + h // 2
 
 	def container_slot_point(self, position, body_index=0):
 		body = self.node("TContainerWindowBody", body_index)
-		columns = self.mem.skin_int(0x62c)
-		ox, oy = self.mem.skin_int(0x630), self.mem.skin_int(0x634)
-		sw, sh = self.mem.skin_int(0x638 + 8), self.mem.skin_int(0x638 + 12)
-		pitch_x, pitch_y = self.mem.skin_int(0x648), self.mem.skin_int(0x64c)
+		columns = self.mem.skin_int("Data62C")
+		ox, oy = self.mem.skin_int("Data630.x"), self.mem.skin_int("Data630.y")
+		sw, sh = self.mem.skin_int("Data638.width"), self.mem.skin_int("Data638.height")
+		pitch_x, pitch_y = self.mem.skin_int("Data648"), self.mem.skin_int("Data64C")
 		column, row = position % columns, position // columns
 		return body["x"] + ox + column * pitch_x + sw // 2, body["y"] + oy + row * pitch_y + sh // 2
 
 	def creature_point(self, creature_id):
 		"""Where GetCreatureAt finds the creature: its name position plus half a field down."""
 		m = self.map_window()
+		mem = self.mem
+		names = m["ptr"] + mem.off("TMapWindow.Names")
+		size = mem.layout.size("TCreatureName")
 		# the map window refills Names in every Draw: a read can come while it is empty
 		for attempt in range(40):
-			count = self.mem.i32(m["ptr"] + 0x2c)
-			for i in range(max(0, min(count, 150))):
-				cid, nx, ny = struct.unpack("<Iii", self.mem.read(m["ptr"] + 0x30 + 12 * i, 12))
+			count = mem.i32(m["ptr"] + mem.off("TMapWindow.NumberOfNames"))
+			for i in range(max(0, min(count, mem.layout.count("TMapWindow.Names")))):
+				name = mem.read(names + size * i, size)
+				cid = mem.field_u32(name, 0, "TCreatureName.CreatureID")
+				nx, ny = mem.field_i32(name, 0, "TCreatureName.x"), mem.field_i32(name, 0, "TCreatureName.y")
 				if cid == creature_id:
 					return (m["x"] + nx * m["w"] // 480, m["y"] + ny * m["h"] // 352 + (m["h"] // 11) // 2)
 			time.sleep(0.05)
@@ -224,9 +228,9 @@ class Driver:
 
 	def offer_slot_point(self, side, position):
 		offers = self.node("TTradeOffers")
-		x, y, w, h = self.mem.skin_rects(0x6fc + (0x68 if side == 0 else 0x78), 1)[0]
-		row_pitch, column_pitch, columns = (self.mem.skin_int(0x6fc + 0x9c), self.mem.skin_int(0x6fc + 0xa0),
-			self.mem.skin_int(0x6fc + 0xa4))
+		x, y, w, h = self.mem.skin_rects("Style6FC.Data68" if side == 0 else "Style6FC.Data78", 1)[0]
+		row_pitch, column_pitch, columns = (self.mem.skin_int("Style6FC.Data9C"), self.mem.skin_int("Style6FC.DataA0"),
+			self.mem.skin_int("Style6FC.DataA4"))
 		column, row = position % columns, position // columns
 		return offers["x"] + x + column * column_pitch + w // 2, offers["y"] + y + row * row_pitch + h // 2
 
@@ -312,12 +316,12 @@ def run_session(driver, wait, checkpoint, until=None, with_login=True):
 	step("trade request", lambda: driver.click(*driver.creature_point(driver.creature_id(TRADE_PARTNER))))
 	step("look at offer", lambda: driver.click(*driver.offer_slot_point(0, 0), right=True, modifier=VK_SHIFT))
 	step("cancel trade", lambda: driver.click(*driver.component_point(
-		driver.mem.u32(driver.node("TTradeButtons")["ptr"] + 0x34))))
+		driver.mem.ptr(driver.node("TTradeButtons")["ptr"] + driver.mem.off("TTradeButtons.CancelButton")))))
 
 	def close_container():
 		body = driver.node("TContainerWindowBody")
-		window = driver.mem.u32(body["ptr"] + 0x0c)
-		driver.click(*driver.component_point(driver.mem.u32(window + 0x54)))
+		window = driver.mem.ptr(body["ptr"] + driver.mem.off("TComponent.Parent"))
+		driver.click(*driver.component_point(driver.mem.ptr(window + driver.mem.off("TSubWindow.CloseButton"))))
 
 	step("close container", close_container)
 	step("logout", lambda: logout(driver), snapshot=False)
