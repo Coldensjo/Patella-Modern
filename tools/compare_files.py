@@ -2,11 +2,14 @@ r"""Compare the files Patella.exe and the original Tibia.exe write (issue #21).
 
 Usage (from the repository or a worktree; python -I tools/build.py oracle-x86 first; the test server of
 issue #18 must be stopped, the script starts and stops it for the one live recording):
-  python -I tools/compare_files.py [--out build\files\result] [--only a,b] [--skip-live] [--patella EXE]
+  python -I tools/compare_files.py [--out build\files\result] [--only a,b] [--skip-live] [--repeat]
+                                   [--walk ladder|stairs] [--patella EXE]
+  python -I tools/compare_files.py --check-route [--walk NAME] [--server-dir C:\Tibia\gameserver]
 
 Both clients play the same sessions in run folders with copies of the data files
-(build\files\orig, build\files\patella, made like tools/compare_traffic.py's); the files each
-client creates, changes or deletes in its folder are collected and compared byte for byte.
+(build\files\orig, build\files\patella, build\files\orig-repeat, made like tools/compare_traffic.py's,
+emptied before every run); the files each client creates, changes or deletes in its folder are
+collected and compared byte for byte.
 Scenarios (--only takes their names):
 
   options  No server. The start window's Options: every check box of the general, console and
@@ -14,9 +17,11 @@ Scenarios (--only takes their names):
            check boxes, the frame rate limit, the OpenGL engine), four hotkeys (two sent
            automatically). Tibia.cfg after the options dialog closes and after the exit.
   walk     A live session (Tibia.exe through tools/proxy.py against the test server) is
-           recorded once and replayed to both clients: login, automap marks set, edited and
-           deleted, the automap zoomed, 111 steps over floors 7, 6, 8 and into a second automap
-           block, the default channel saved, logout. The *.map files, Default.txt and Tibia.cfg.
+           recorded once; that run is Tibia.exe's, and Patella.exe replays it (with --skip-live
+           Tibia.exe replays it too): login, automap marks set, edited and deleted, the automap
+           zoomed, the walk (WALKS: 19 actions from a ladder in Rookgaard over floors 7, 6, 8 into
+           a second automap block), the default channel saved, logout. The *.map files,
+           Default.txt and Tibia.cfg. --check-route checks the walks against the server's map.
   error    The walk recording up to the game login and the first packets, then a server packet
            with the unknown type 0xff: HandleException writes error.txt and shows the critical
            error box, which is closed (exit code 1). error.txt and Tibia.cfg.
@@ -36,7 +41,8 @@ Scenarios (--only takes their names):
            run patch.exe, which is not there). Patella's folder has a copy of the patched
            Tibia.exe as the patch's input, so both patch the same file.
 
-Masked, after two runs of Tibia.exe showed that they differ from run to run: the time in
+Masked, after two runs of Tibia.exe showed that they differ from run to run (--repeat runs
+Tibia.exe a second time for walk, error and error-login to show it again): the time in
 error.txt (ctime of the crash) and in Default.txt ("Channel saved at"). Everything else is
 compared byte for byte, error.txt's "<file> <line>" too: every error site of our sources names
 the original's line (issue #35, tools/lines.py). Report: <out>\report.txt; exit code 0 when
@@ -402,24 +408,70 @@ def run_options(run, out):
 
 # --- scenario: walk ----------------------------------------------------------------------
 
-# From the Rookgaard temple (32097,32219,7), where the test character starts: north to the
-# wooden stairs up (floor 6), one step back down through the hole next to them, to the stairs
-# down (floor 8), back up, then south until the map shows y 32256 and more (the second automap
-# block, 125/126/7); the shortest way south goes up the wooden stairs and down the hole once
-# more. Planned on the server's map (gameserver\data\map, objects.srv and moveuse.dat's
-# MoveTopRel rules; notes/written-files.md). FLOOR_CHANGES: the field a step goes onto -> where
-# the player ends up.
-ROUTE = ("N" * 29 + "E" + "S" + "WNW" + "N"
-	+ "ESESSSSSSSSSSSESSSSSSSSSSEEEEEEESEESSSSSSSSSSSSSSSSSSSSSSSSSSSSSSWSWSSESSSEEESSSS")
-FLOOR_CHANGES = {
-	(32098, 32190, 7): (32098, 32189, 6),  # wooden stairs up
-	(32098, 32190, 6): (32098, 32191, 7),  # the hole next to them
-	(32096, 32190, 7): (32096, 32191, 8),  # stairs down
-	(32096, 32190, 8): (32096, 32189, 7),  # stairs up
+# What the walk is for (Patella-Modern issue #16 shortened issue #21's 116 steps from the temple):
+# the client writes the automap blocks 125/125 on floors 6, 7 and 8 and 125/126 on floor 7
+# (WALK_BLOCKS: 12512506.map, 12512507.map with the marks, 12512508.map, 12512607.map) and no
+# other. The client records the fields of its map on the player's floor only (Map.cpp
+# UpdateAutomap, from ReadField and the field updates with rz == GetMapLevel()), x-8..x+9 and
+# y-6..y+7 around the player, so the player must stand on floors 6 and 8 with y <= 32248 and on
+# floor 7 with y >= 32249 (y+7 in block 126). The marks (MARKS: automap pixels from the player,
+# one field each at Tibia.cfg's AutomapZoom 2) must lie in block 125/125/7. Each walk is planned
+# on the server's map (gameserver\data: the sector files, objects.srv's flags, moveuse.dat's
+# rules) and checked against it by check_route (`--check-route`, no client). The test character
+# starts where the walk begins: record_walk writes the start into its player file (CurrentPosition)
+# and puts the file back afterwards.
+#
+# Actions: N, E, S, W are arrow keys (steps, 0x65-0x68); U uses the ladder the player stands on
+# (Ctrl+right click on its own field; GetTopUseObject takes the FORCEUSE ladder under the player;
+# moveuse.dat `Use, IsType (Obj1,1948) -> MoveRel(User,Obj1,[0,1,-1])`; packet 0x82).
+# floor_changes: the field a step goes onto -> where the player ends up (moveuse.dat's
+# `Collision, IsType (Obj1,T) -> MoveTopRel(Obj1,[dx,dy,dz])`).
+WALKS = {
+	# 19 actions. A house in the south of the town: up the ladder (32109,32244,7) to floor 6, down
+	# its trapdoor (32109,32244,6) back onto the ladder's field, the stairs down (32110,32245,7) to
+	# floor 8 and up again (32110,32245,8), out of the house and south to (32107,32249,7).
+	"ladder": {
+		"start": (32109, 32244, 7),
+		"route": "UNESN" + "NNWWWSWSSESSSS",
+		"floor_changes": {
+			(32109, 32244, 6): (32109, 32244, 7),  # trapdoor (411)
+			(32110, 32245, 7): (32110, 32246, 8),  # stairs down (428)
+			(32110, 32245, 8): (32110, 32244, 7),  # stairs up (1947)
+		},
+		"end": (32107, 32249, 7),
+	},
+	# 44 steps, no use: the ramp west of the town (32093,32235,7) up to floor 6 and its stairs down
+	# (32093,32235,6), east to the house of "ladder" and its stairs down and up, then south. The
+	# fallback if the ladder ever does not work (--walk stairs).
+	"stairs": {
+		"start": (32095, 32235, 7),
+		"route": "WWE" + "E" * 11 + "SEEEEESSSSSSSSSNNNWWWSWSSESSSS",
+		"floor_changes": {
+			(32093, 32235, 7): (32092, 32235, 6),  # ramp up (1952)
+			(32093, 32235, 6): (32094, 32235, 7),  # stairs down (467)
+			(32110, 32245, 7): (32110, 32246, 8),  # stairs down (428)
+			(32110, 32245, 8): (32110, 32244, 7),  # stairs up (1947)
+		},
+		"end": (32107, 32249, 7),
+	},
 }
-START = (32097, 32219, 7)
-END = (32110, 32252, 7)
+DEFAULT_WALK = "ladder"
+WALK_BLOCKS = {(125, 125, 6), (125, 125, 7), (125, 125, 8), (125, 126, 7)}
+MARKS = ((20, 0), (-12, 10), (0, -15))  # set (and the first edited), set, set and deleted
 STEP = {"N": (0, -1, sc.VK_UP), "E": (1, 0, sc.VK_RIGHT), "S": (0, 1, VK_DOWN), "W": (-1, 0, sc.VK_LEFT)}
+LADDER = (0, 1, -1)  # MoveRel(User,Obj1,[0,1,-1]): where the ladder takes the player
+# Seconds per action, measured on November 3, 2026 (116 steps: 148 s live, 168 s in a replay)
+LIVE_ACTION_S, REPLAY_ACTION_S = 1.28, 1.45
+
+
+def next_position(walk, position, action):
+	"""Where an action takes the player."""
+	x, y, z = position
+	if action == "U":
+		return (x + LADDER[0], y + LADDER[1], z + LADDER[2])
+	dx, dy, _ = STEP[action]
+	target = (x + dx, y + dy, z)
+	return walk["floor_changes"].get(target, target)
 
 
 def player_position(driver):
@@ -466,13 +518,20 @@ def delete_mark(driver, dx, dy):
 	time.sleep(0.5)
 
 
-def key_sent(driver, proxy, vk, timeout):
-	"""Presses an arrow key; True when the client sent a packet within timeout. A client sends no
-	step while a creature stands on the field (it knows the field is taken), and when that
-	creature moves away depends on the time the key comes, so a press without a packet is not
-	part of the session."""
+def press(driver, action):
+	if action == "U":
+		driver.click(*driver.field_point(8, 6), right=True, modifier=sc.VK_CONTROL)  # the player's own field
+	else:
+		driver.key(STEP[action][2])
+
+
+def action_sent(driver, proxy, action, timeout):
+	"""Presses an arrow key (or uses the ladder); True when the client sent a packet within timeout.
+	A client sends no step while a creature stands on the field (it knows the field is taken), and
+	when that creature moves away depends on the time the key comes, so a press without a packet
+	is not part of the session."""
 	count = proxy.c2s_count
-	driver.key(vk)
+	press(driver, action)
 	deadline = time.time() + timeout
 	while time.time() < deadline:
 		if proxy.c2s_count != count:
@@ -481,37 +540,35 @@ def key_sent(driver, proxy, vk, timeout):
 	return False
 
 
-def walk_session(driver, wait, proxy, actions=None):
-	"""Login, automap marks and zoom, the ROUTE, the default channel saved, logout. Live
-	(actions None): every arrow key is repeated until the player moved (a creature may stand in
-	the way); the keys that made the client send a step are recorded and returned. Replay: each
-	recorded key, repeated until the client sends its step."""
+def walk_session(driver, wait, proxy, walk, actions=None):
+	"""Login, automap marks and zoom, the walk's route, the default channel saved, logout. Live
+	(actions None): every action is repeated until the player moved (a creature may stand in the
+	way); the actions that made the client send a packet are recorded and returned. Replay: each
+	recorded action, repeated until the client sends its packet."""
 	game_login(driver, wait, proxy)
 	wait("login")
 	time.sleep(2)
 	position = player_position(driver)
-	if position != START:
-		raise RunError("the player starts at %s, not %s" % (position, START))
+	if position != walk["start"]:
+		raise RunError("the player starts at %s, not %s" % (position, walk["start"]))
 	log("walk: automap marks")
-	set_mark(driver, 20, 0, "Patella one", 3)
-	set_mark(driver, -12, 10, "second mark", 9)
-	set_mark(driver, 0, -15, "to be deleted", None)
-	set_mark(driver, 20, 0, " edited", 5, entry="Edit Mark")
-	delete_mark(driver, 0, -15)
+	set_mark(driver, *MARKS[0], "Patella one", 3)
+	set_mark(driver, *MARKS[1], "second mark", 9)
+	set_mark(driver, *MARKS[2], "to be deleted", None)
+	set_mark(driver, *MARKS[0], " edited", 5, entry="Edit Mark")
+	delete_mark(driver, *MARKS[2])
 	automap = wait_node(driver, "TAutomapWindow")
 	click_ptr(driver, member(driver, automap["ptr"], "TAutomapWindow.ZoomInButton"))  # zoom in: 4
 	for _ in range(2):
 		click_ptr(driver, member(driver, automap["ptr"], "TAutomapWindow.ZoomOutButton"))  # zoom out: 2, 1
-	log("walk: the route")
+	log("walk: the route, %d actions" % len(walk["route"]))
 	keys = []
 	if actions is None:
-		position = START
-		for d in ROUTE:
-			dx, dy, vk = STEP[d]
-			expected = (position[0] + dx, position[1] + dy, position[2])
-			expected = FLOOR_CHANGES.get(expected, expected)
+		position = walk["start"]
+		for d in walk["route"]:
+			expected = next_position(walk, position, d)
 			for attempt in range(12):
-				if not key_sent(driver, proxy, vk, 1.0):
+				if not action_sent(driver, proxy, d, 1.0):
 					log("walk: %s from %s: the client sent nothing, again" % (d, position))
 					time.sleep(1.0)
 					continue
@@ -528,28 +585,28 @@ def walk_session(driver, wait, proxy, actions=None):
 				if now == expected:
 					break
 				if now != position:
-					raise RunError("step %s from %s went to %s, expected %s" % (d, position, now, expected))
+					raise RunError("%s from %s went to %s, expected %s" % (d, position, now, expected))
 				log("walk: %s from %s blocked, again" % (d, position))
 				time.sleep(1.5)
 			else:
-				raise RunError("cannot step %s from %s" % (d, position))
+				raise RunError("cannot do %s from %s" % (d, position))
 			position = expected
 			time.sleep(0.8)
 	else:
 		for d in actions:
 			for attempt in range(20):
-				if key_sent(driver, proxy, STEP[d][2], 1.0):
+				if action_sent(driver, proxy, d, 1.0):
 					break
 				log("walk: %s: the client sent nothing, again" % d)
 			else:
-				raise RunError("the client sends no step %s" % d)
+				raise RunError("the client sends nothing for %s" % d)
 			keys.append(d)
 			wait("step")
 			time.sleep(0.4)
 	position = player_position(driver)
-	log("walk: the player is at %s after %d keys" % (position, len(keys)))
-	if position != END:
-		raise RunError("the walk ended at %s, not %s" % (position, END))
+	log("walk: the player is at %s after %d actions" % (position, len(keys)))
+	if position != walk["end"]:
+		raise RunError("the walk ended at %s, not %s" % (position, walk["end"]))
 	log("walk: save the default channel")
 	tab = wait_node(driver, "TTab")
 	click_node(driver, tab, right=True)
@@ -561,8 +618,30 @@ def walk_session(driver, wait, proxy, actions=None):
 	return keys
 
 
-def record_walk(out):
-	"""The live session with Tibia.exe through the recording proxy: <out>\\walk-live.jsonl."""
+def set_start(players, position):
+	"""Writes position as the test character's CurrentPosition into its player file: the snapshot's
+	text with that one value changed (the server logs the character in there). restore_players puts
+	the snapshot back."""
+	data = players.get(sc.CHARACTER)
+	if data is None:
+		raise RunError("%s has no player file yet (%s): log the character in once (tools/login_client.py)"
+			% (sc.CHARACTER, ct.PLAYER_FILES[sc.CHARACTER]))
+	text = data.decode("latin-1")
+	new, count = re.subn(r"(?m)^(CurrentPosition\s*=\s*)\[\d+,\d+,\d+\]",
+		lambda m: m.group(1) + "[%d,%d,%d]" % position, text)
+	if count != 1:
+		raise RunError("%s: %d CurrentPosition lines" % (ct.PLAYER_FILES[sc.CHARACTER], count))
+	with open(ct.PLAYER_FILES[sc.CHARACTER], "wb") as f:
+		f.write(new.encode("latin-1"))
+	log("player file of %s: CurrentPosition [%d,%d,%d]" % ((sc.CHARACTER,) + tuple(position)))
+
+
+def record_walk(out, walk_name):
+	"""The live session with Tibia.exe through the recording proxy: <out>\\walk-live.jsonl (and the
+	walk's name in walk-live.walk). Returns the run's result, which is Tibia.exe's walk run of the
+	comparison (issue #16: the replay of the recording into Tibia.exe gave the same files, so only
+	Patella.exe walks again)."""
+	walk = WALKS[walk_name]
 	path = os.path.join(out, "walk-live.jsonl")
 	if ct.server_running():
 		raise RunError("the test server is running: stop it first (python -I tools/testserver.py stop)")
@@ -571,11 +650,12 @@ def record_walk(out):
 	driver = None
 	try:
 		ct.restore_players(players)
+		set_start(players, walk["start"])
 		ct.start_server()
 		proxy = px.Proxy(path, px.load_private_key(ct.PEM), log=log)
 		with proxy:
 			driver = start("orig")
-			keys = walk_session(driver, lambda name: time.sleep(ct.LIVE_SETTLE), proxy)
+			keys = walk_session(driver, lambda name: time.sleep(ct.LIVE_SETTLE), proxy, walk)
 			close(driver)
 		if proxy.errors:
 			raise RunError("proxy errors: %s" % proxy.errors)
@@ -587,18 +667,250 @@ def record_walk(out):
 		finally:
 			ct.restore_players(players)
 			log("player files of the test characters restored")
-	collect("orig", before, os.path.join(out, "walk-live", "orig"))
+	with open(os.path.join(out, "walk-live.walk"), "w", encoding="ascii", newline="\n") as f:
+		f.write(walk_name + "\n")
+	result = collect("orig", before, os.path.join(out, "walk-live", "orig"))
 	if walk_keys(px.load_events(path)) != keys:
-		raise RunError("the recording's steps are not the keys the session pressed")
-	return path
+		raise RunError("the recording's actions are not the ones the session took")
+	result["events"] = proxy.events
+	result["problems"] = proxy.mismatches + proxy.errors
+	return result
 
 
 def walk_keys(events):
-	"""The directions of the steps (0x65-0x68) the client sent in a recording: the keys a replay
-	presses."""
-	directions = {"65": "N", "66": "E", "67": "S", "68": "W"}
-	return [directions[e["plain"][:2]] for e in events
-		if e["kind"] == "game" and e["dir"] == "c2s" and e["plain"][:2] in directions]
+	"""The actions the client sent in a recording, the ones a replay takes: the steps (0x65-0x68)
+	and the ladder's use (0x82, the only use in the session)."""
+	actions = {"65": "N", "66": "E", "67": "S", "68": "W", "82": "U"}
+	return [actions[e["plain"][:2]] for e in events
+		if e["kind"] == "game" and e["dir"] == "c2s" and e["plain"][:2] in actions]
+
+
+# --- the route against the server's map (--check-route) ------------------------------------
+
+def object_flags(server_dir):
+	"""{type: flags} from objects.srv."""
+	flags = {}
+	current = None
+	with open(os.path.join(server_dir, "data", "dat", "objects.srv"), encoding="latin-1") as f:
+		for line in f:
+			m = re.match(r"\s*TypeID\s*=\s*(\d+)", line)
+			if m:
+				current = int(m.group(1))
+				flags[current] = set()
+				continue
+			m = re.match(r"\s*Flags\s*=\s*\{(.*)\}", line)
+			if m and current is not None:
+				flags[current] = {x.strip() for x in m.group(1).split(",") if x.strip()}
+	return flags
+
+
+def move_rules(server_dir):
+	"""moveuse.dat: ({type: (dx, dy, dz)} of the plain `Collision, IsType (Obj1,T) ->
+	MoveTopRel(Obj1,[dx,dy,dz])` rules, {type: delta} of the plain `Use, IsType (Obj1,T) ->
+	MoveRel(User,Obj1,[dx,dy,dz])` rules, the other types a Collision or Separation rule names)."""
+	collision, use, other = {}, {}, set()
+	with open(os.path.join(server_dir, "data", "dat", "moveuse.dat"), encoding="latin-1") as f:
+		for line in f:
+			line = line.strip()
+			m = re.fullmatch(r"Collision, IsType \(Obj1,(\d+)\) -> MoveTopRel\(Obj1,\[(-?\d+),(-?\d+),(-?\d+)\]\)", line)
+			if m:
+				collision[int(m.group(1))] = tuple(int(m.group(i)) for i in (2, 3, 4))
+				continue
+			m = re.fullmatch(r"Use, IsType \(Obj1,(\d+)\) -> MoveRel\(User,Obj1,\[(-?\d+),(-?\d+),(-?\d+)\]\)", line)
+			if m:
+				use[int(m.group(1))] = tuple(int(m.group(i)) for i in (2, 3, 4))
+				continue
+			if line.startswith(("Collision", "Separation")):
+				other |= {int(t) for t in re.findall(r"IsType \(Obj[12],(\d+)\)", line)}
+	return collision, use, other - set(collision)
+
+
+def content_types(content):
+	"""The type numbers at the first level of a sector file's Content={...}."""
+	items = []
+	depth = 0
+	quoted = expect = False
+	i = 0
+	while i < len(content):
+		ch = content[i]
+		if quoted:
+			if ch == "\\":
+				i += 1
+			elif ch == '"':
+				quoted = False
+		elif ch == '"':
+			quoted = True
+		elif ch == "{":
+			depth += 1
+			expect = depth == 1
+		elif ch == "}":
+			depth -= 1
+		elif ch == ",":
+			expect = depth == 1
+		elif ch.isdigit() and expect:
+			j = i
+			while j < len(content) and content[j].isdigit():
+				j += 1
+			items.append(int(content[i:j]))
+			expect = False
+			i = j
+			continue
+		elif not ch.isspace():
+			expect = False
+		i += 1
+	return items
+
+
+class ServerMap:
+	"""The fields of the server's map (read-only): what a character can stand on, where a floor
+	change takes it."""
+
+	def __init__(self, server_dir):
+		self.server_dir = server_dir
+		self.flags = object_flags(server_dir)
+		self.collision, self.use, self.other = move_rules(server_dir)
+		with open(os.path.join(server_dir, "data", "dat", "houses.dat"), encoding="latin-1") as f:
+			self.houses = {tuple(int(v) for v in p) for p in re.findall(r"\[(\d+),(\d+),(\d+)\]", f.read())}
+		self.sectors = {}
+
+	def field(self, p):
+		x, y, z = p
+		key = (x // 32, y // 32, z)
+		if key not in self.sectors:
+			fields = {}
+			path = os.path.join(self.server_dir, "data", "map", "%04d-%04d-%02d.sec" % key)
+			if os.path.isfile(path):
+				with open(path, encoding="latin-1") as f:
+					for line in f:
+						m = re.match(r"(\d+)-(\d+):\s*(.*)", line)
+						if m:
+							rest = m.group(3)
+							k = rest.find("Content=")
+							fields[(key[0] * 32 + int(m.group(1)), key[1] * 32 + int(m.group(2)), z)] = (
+								content_types(rest[k + len("Content="):]) if k >= 0 else [])
+			self.sectors[key] = fields
+		return self.sectors[key].get(p)
+
+	def classify(self, p):
+		"""("plain", None): a field to stand on; ("change", delta): one that moves the creature on;
+		("blocked", why)."""
+		items = self.field(p)
+		if items is None:
+			return "blocked", "no field"
+		if p in self.houses:
+			return "blocked", "a house"
+		if not any("Bank" in self.flags.get(t, ()) for t in items):
+			return "blocked", "no ground"
+		change = None
+		heights = 0
+		for t in items:
+			f = self.flags.get(t, set())
+			if "Unpass" in f:
+				return "blocked", "unpassable %d" % t
+			if t in self.collision:
+				if change is not None:
+					return "blocked", "two floor changes"
+				change = self.collision[t]
+			elif t in self.other or "CollisionEvent" in f or "SeparationEvent" in f:
+				return "blocked", "event object %d" % t
+			elif "Avoid" in f:
+				return "blocked", "avoid %d" % t
+			elif "Height" in f:
+				heights += 1
+		if heights > (0 if change else 1):
+			# one object with an elevation and no event (the upper half of a ramp) can be stepped on
+			return "blocked", "%d objects with a height" % heights
+		return ("change", change) if change else ("plain", None)
+
+	def ladder(self, p):
+		"""The delta of the use rule of an object on field p (a ladder), or None."""
+		for t in self.field(p) or []:
+			if t in self.use:
+				return self.use[t]
+		return None
+
+
+def view_blocks(p):
+	"""The automap blocks the client's map touches at p: x-8..x+9, y-6..y+7, the player's floor."""
+	x, y, z = p
+	return {(bx, by, z) for bx in {(x - 8) // 256, (x + 9) // 256} for by in {(y - 6) // 256, (y + 7) // 256}}
+
+
+def check_route(walk_name, server_dir=ct.SERVER_DIR, say=print):
+	"""Walks the route on the server's map: every target field one to stand on or a floor change
+	that floor_changes names with the map's delta, every floor_changes entry used, the end, the
+	automap blocks (WALK_BLOCKS, no more), the marks in block 125/125/7. Returns the problems."""
+	walk = WALKS[walk_name]
+	m = ServerMap(server_dir)
+	problems = []
+	position = walk["start"]
+	say("walk %s: start %s, %d actions: %s" % (walk_name, position, len(walk["route"]), walk["route"]))
+	kind, detail = m.classify(position)
+	if kind != "plain" or position[2] != 7:
+		problems.append("the start %s is %s %s" % (position, kind, detail or ""))
+	blocks = set(view_blocks(position))
+	floors = []
+	used = set()
+	for i, d in enumerate(walk["route"], 1):
+		if d == "U":
+			delta = m.ladder(position)
+			target = position
+			if delta is None:
+				problems.append("action %d: U on %s, which has no ladder" % (i, position))
+				break
+			land = (position[0] + delta[0], position[1] + delta[1], position[2] + delta[2])
+			note = "use the ladder"
+			if delta != LADDER:
+				problems.append("action %d: the ladder's rule moves by %s, the script expects %s" % (i, delta, LADDER))
+		else:
+			dx, dy, _ = STEP[d]
+			target = (position[0] + dx, position[1] + dy, position[2])
+			kind, detail = m.classify(target)
+			if kind == "blocked":
+				problems.append("action %d: %s from %s onto %s: %s" % (i, d, position, target, detail))
+				break
+			if kind == "change":
+				land = (target[0] + detail[0], target[1] + detail[1], target[2] + detail[2])
+				note = "floor change %s" % (detail,)
+				used.add(target)
+				if walk["floor_changes"].get(target) != land:
+					problems.append("action %d: %s onto %s takes the player to %s, floor_changes says %s"
+						% (i, d, target, land, walk["floor_changes"].get(target)))
+			else:
+				land = target
+				note = ""
+				if target in walk["floor_changes"]:
+					problems.append("action %d: floor_changes names %s, the map has no floor change there" % (i, target))
+		kind, detail = m.classify(land)
+		if kind != "plain":
+			problems.append("action %d: the player ends up on %s, which is %s %s" % (i, land, kind, detail))
+		if land[2] != position[2]:
+			floors.append(land[2])
+		if next_position(walk, position, d) != land:
+			problems.append("action %d: the script expects %s, the map gives %s" % (i, next_position(walk, position, d), land))
+		say("  %2d %s %s -> %s %s" % (i, d, target, land, note))
+		position = land
+		blocks |= view_blocks(position)
+	unused = sorted(set(walk["floor_changes"]) - used)
+	if unused:
+		problems.append("floor_changes not used by the route: %s" % unused)
+	if position != walk["end"]:
+		problems.append("the route ends at %s, not %s" % (position, walk["end"]))
+	marks = [(walk["start"][0] + dx, walk["start"][1] + dy, 7) for dx, dy in MARKS]
+	for mark in marks:
+		if (mark[0] // 256, mark[1] // 256, 7) != (125, 125, 7):
+			problems.append("the mark at %s is outside block 125/125/7" % (mark,))
+	names = sorted("%03d%03d%02d.map" % b for b in blocks)
+	say("  floors after the start: %s; end %s; automap blocks %s; marks at %s" % (floors, position, names, marks))
+	if blocks != WALK_BLOCKS:
+		problems.append("the route touches the automap blocks %s, not %s" % (names,
+			sorted("%03d%03d%02d.map" % b for b in WALK_BLOCKS)))
+	say("  %d actions: about %.0f s live, %.0f s in a replay (%.2f and %.2f s per action)" % (len(walk["route"]),
+		len(walk["route"]) * LIVE_ACTION_S, len(walk["route"]) * REPLAY_ACTION_S, LIVE_ACTION_S, REPLAY_ACTION_S))
+	for p in problems:
+		say("  PROBLEM: " + p)
+	say("  %s" % ("ok" if not problems else "%d problems" % len(problems)))
+	return problems
 
 
 def replay(run, source_events, out_prefix, session, seed=None):
@@ -623,9 +935,9 @@ def replay(run, source_events, out_prefix, session, seed=None):
 	return result
 
 
-def run_walk(run, out, recording, keys):
+def run_walk(run, out, recording, keys, walk):
 	def session(driver, wait, proxy):
-		walk_session(driver, wait, proxy, keys)
+		walk_session(driver, wait, proxy, walk, keys)
 		close(driver)
 
 	return replay(run, recording, os.path.join(out, "walk", ct.client_of(run)), session)
@@ -1047,7 +1359,7 @@ def compare_packets(say, results):
 # --- main ----------------------------------------------------------------------------------
 
 SCENARIOS = ["options", "walk", "error", "error-login", "report", "patch", "patch-exe"]
-REPEATED = {"walk", "error", "error-login"}  # the scenarios with masked files: Tibia.exe runs twice
+REPEATED = {"walk", "error", "error-login"}  # the scenarios with masked files: Tibia.exe runs twice with --repeat
 
 
 def main():
@@ -1056,11 +1368,28 @@ def main():
 	parser.add_argument("--out", default=os.path.join(FILES, "result"))
 	parser.add_argument("--only", default=",".join(SCENARIOS), help="scenarios, comma-separated: " + ", ".join(SCENARIOS))
 	parser.add_argument("--skip-live", action="store_true",
-		help="reuse --out's walk-live.jsonl (no server needed)")
-	parser.add_argument("--no-repeat", action="store_true", help="run Tibia.exe once only (no evidence for the masks)")
+		help="reuse --out's walk-live.jsonl (no server needed; Tibia.exe then replays it for the walk)")
+	parser.add_argument("--repeat", action="store_true", help="run Tibia.exe a second time for %s (the evidence "
+		"for the masks)" % ", ".join(sorted(REPEATED)))
+	parser.add_argument("--no-repeat", action="store_true", help="the default since issue #16 (kept for old "
+		"command lines)")
+	parser.add_argument("--walk", choices=sorted(WALKS), default=None, help="the walk of the live recording "
+		"(default %s; with --skip-live the recording's own, walk-live.walk)" % DEFAULT_WALK)
+	parser.add_argument("--check-route", action="store_true", help="check the walks against the server's map "
+		"(read-only, no client, no server) and exit")
+	parser.add_argument("--server-dir", default=ct.SERVER_DIR, help="the test server's folder for --check-route")
 	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
 		"it (default build/oracle-x86/Release/Patella.exe; as tools/compare_traffic.py's --patella)")
 	args = parser.parse_args()
+	if args.check_route:
+		problems = []
+		for name in ([args.walk] if args.walk else sorted(WALKS)):
+			problems += check_route(name, args.server_dir)
+			print()
+		print("check-route: %s" % ("ok" if not problems else "%d problems" % len(problems)))
+		return 1 if problems else 0
+	if args.repeat and args.no_repeat:
+		raise RunError("--repeat and --no-repeat")
 	if args.patella:
 		CLIENTS["patella"]["source"] = CLIENTS["patella"]["pdb"] = os.path.abspath(args.patella)
 	out = os.path.abspath(args.out)
@@ -1080,16 +1409,27 @@ def main():
 		report.append(text)
 
 	recording = os.path.join(out, "walk-live.jsonl")
+	walk_name = args.walk or DEFAULT_WALK
+	live = None  # the live recording's run: Tibia.exe's walk run when it is made here (issue #16)
 	if any(name != "options" for name in only):
 		if not (args.skip_live and os.path.isfile(recording)):
-			log("=== live recording (Tibia.exe against the test server)")
-			record_walk(out)
+			log("=== live recording (Tibia.exe against the test server), walk %s" % walk_name)
+			live = record_walk(out, walk_name)
+		else:
+			path = os.path.join(out, "walk-live.walk")
+			if os.path.isfile(path):
+				with open(path, encoding="ascii") as f:
+					recorded = f.read().strip()
+				if args.walk and args.walk != recorded:
+					raise RunError("%s was recorded with the walk %s, not %s" % (recording, recorded, args.walk))
+				walk_name = recorded
+			log("reusing %s (walk %s)" % (recording, walk_name))
 		events = px.load_events(recording)
 		keys = walk_keys(events)
 	results = {}
 	errors = {}
 	for name in only:
-		runs = ["orig", "patella"] + ([REPEAT_RUN] if name in REPEATED and not args.no_repeat else [])
+		runs = ["orig", "patella"] + ([REPEAT_RUN] if name in REPEATED and args.repeat else [])
 		results[name] = {}
 		for run in runs:
 			log("=== %s: %s" % (name, run))
@@ -1097,8 +1437,11 @@ def main():
 				target = os.path.join(out, "repeat") if run == REPEAT_RUN else out  # <target>\<scenario>\<client>
 				if name == "options":
 					result = run_options(run, target)
+				elif name == "walk" and run == "orig" and live is not None:
+					log("the live recording's run is Tibia.exe's (%s)" % os.path.join(out, "walk-live", "orig"))
+					result = live
 				elif name == "walk":
-					result = run_walk(run, target, events, keys)
+					result = run_walk(run, target, events, keys, WALKS[walk_name])
 				elif name in ("error", "error-login"):
 					result = run_error(run, target, events, name)
 				elif name == "report":
@@ -1127,6 +1470,9 @@ def main():
 			failed = True
 			continue
 		r = results[name]
+		if name == "walk":
+			say("    walk %s, %d actions; Tibia.exe: %s" % (walk_name, len(WALKS[walk_name]["route"]),
+				"the live recording's run" if live is not None else "a replay of the recording"))
 		failed |= compare_files(say, name, r, r.get(REPEAT_RUN))
 		for key in ("exit", "box"):
 			if key in r["orig"] or key in r["patella"]:
