@@ -38,6 +38,23 @@
 //   Vulkan engine shows and its device-filtered pixels (src/testmode/Png.h), through the engine's frame
 //   observer (the one patcap.dll otherwise is); frames.txt lists them.
 //
+// Issue #23, the reference recordings (notes/testmode.md, "Reference recordings"):
+//
+// - --test-replay <file> (src/testmode/ServerReplay.h): the server side of a recording, without a
+//   server. The driver listens on the file's ports on 127.0.0.1, takes each connection's XTEA key from
+//   the client's RSA block, and sends the recorded server packets and closes when they are due (their
+//   virtual time has come and the client packets recorded before them have come). It holds the clock
+//   and the script while the network is busy: while the client resolves or connects (connection state
+//   1, 2, 5), while a client packet has not reached the replay, while a server packet has not been
+//   decrypted by the client, while a server close has not been answered by the client's close (each
+//   at most HoldLimit real milliseconds). So every packet comes at the same point of the script in
+//   every run, whatever the real time;
+// - the scripts' clock manual, advance, cursor and post (src/testmode/InputScript.h): the time course
+//   of tools/capture/patcap.c, under which Tibia.exe made the recording;
+// - with a script, the client's message boxes (FatalError's and the start's, Player.cpp) are not
+//   shown: their caption and text go to messages.txt in --test-out (and the log), and the box counts
+//   as answered with OK.
+//
 // --test-sync <name> (tools/testmode_check.py): after writing a state dump the client sets the event
 // <name>-ready and waits for <name>-continue (both made by the checker), so that client_state.py reads
 // the same moment from outside; the wait does not count for the pace (the virtual clock does not see
@@ -54,6 +71,7 @@
 #include "testmode/InputScript.h"
 #include "testmode/PacketLog.h"
 #include "testmode/Png.h"
+#include "testmode/ServerReplay.h"
 #include "testmode/StateDump.h"
 
 #include <mmsystem.h>
@@ -99,6 +117,49 @@ void RealYield()
 // How long a state dump waits for the checker's <name>-continue.
 constexpr DWORD SyncTimeout = 300000;
 
+// The modal loop of a message box that is not shown (ShowMessageBox): it ends after this many real
+// milliseconds without a message or a replay event, or after BoxMilliseconds.
+constexpr long long BoxQuietMilliseconds = 500;
+constexpr long long BoxMilliseconds = 5000;
+
+// Idle calls after every input event and network action of a script with a manual clock (issue #23).
+constexpr int QuietPasses = 10;
+
+// How long the replay holds the clock for one network event before it gives up waiting (issue #23).
+constexpr long long HoldLimit = 10000;
+
+// A connection of the client to the server replay (issue #23).
+struct TReplaySocket {
+	SOCKET Socket = INVALID_SOCKET;
+	std::string Kind;
+	int Index = -1; // the recorded connection (TServerReplay), -1: none
+	std::array<std::uint8_t, 16> Key{};
+	bool HasKey = false;
+	std::vector<std::uint8_t> In;  // bytes from the client, not yet a whole frame
+	std::vector<std::uint8_t> Out; // bytes to the client, not yet sent
+	int Unread = 0;                // frames sent that the client has not decrypted yet
+	bool ServerClosing = false;    // shut down for sending; the client's close is awaited
+	bool Closed = false;           // closed by the client (or failed)
+	int Frames = 0;                // client frames read
+};
+
+struct TReplayState {
+	bool Active = false;
+	TServerReplay Schedule;
+	std::vector<std::pair<SOCKET, std::string>> Listeners;
+	std::vector<TReplaySocket> Sockets;
+	std::array<std::uint8_t, 16> PendingKey{};
+	bool HasPendingKey = false;
+	std::uint64_t ClientSent = 0; // frames the client sent (the hook)
+	std::uint64_t ReplayRead = 0; // frames the replay read
+	bool Holding = false;
+	bool IgnoreConnecting = false;
+	std::chrono::steady_clock::time_point HoldStart;
+	std::string HoldReason;
+	int Sent = 0;
+	int GivenUp = 0;
+};
+
 // A frame dump asked for by the script, not yet shown.
 struct TPendingFrame {
 	int Step = 0;
@@ -135,6 +196,12 @@ struct TState {
 	int MaskHeight = 0;
 	HANDLE SyncReady = nullptr;
 	HANDLE SyncContinue = nullptr;
+
+	// Issue #23.
+	TReplayState Replay;
+	int Messages = 0;
+	int Saves = 0;
+	int Quiet = 0; // idle calls still to wait (manual clock)
 };
 
 void WriteLog(TState &State, const std::string &Line)
@@ -170,6 +237,7 @@ struct TArguments {
 	std::wstring Log;
 	std::wstring Out;
 	std::wstring Sync;
+	std::wstring Replay;
 };
 
 // The arguments --test-script, --test-log, --test-out and --test-sync of the command line.
@@ -189,6 +257,8 @@ TArguments ReadArguments()
 			Result.Out = Arguments[i + 1];
 		else if (wcscmp(Arguments[i], L"--test-sync") == 0)
 			Result.Sync = Arguments[i + 1];
+		else if (wcscmp(Arguments[i], L"--test-replay") == 0)
+			Result.Replay = Arguments[i + 1];
 	}
 	::LocalFree(Arguments);
 	return Result;
@@ -216,6 +286,39 @@ void OpenSync(TState &State, const std::wstring &Name)
 		Fail(State, "--test-sync " + Narrow(Name) + ": the events " + Narrow(Name) + "-ready and -continue do not exist");
 }
 
+// The server replay (--test-replay): the file and the listening sockets.
+void OpenReplay(TState &State, const std::wstring &Path)
+{
+	std::ifstream In(Path, std::ios::binary);
+	if (!In)
+		Fail(State, "cannot read the replay " + Narrow(Path));
+	std::string Text((std::istreambuf_iterator<char>(In)), std::istreambuf_iterator<char>());
+	TReplayParseResult Parsed = ParseReplay(Text);
+	if (!Parsed.Ok)
+		Fail(State, Narrow(Path) + ":" + std::to_string(Parsed.ErrorLine) + ": " + Parsed.Error);
+	if (Parsed.File.Listen.empty())
+		Fail(State, Narrow(Path) + ": no listen lines");
+	WSADATA Data = {};
+	if (::WSAStartup(MAKEWORD(2, 2), &Data) != 0)
+		Fail(State, "replay: WSAStartup failed");
+	for (const TReplayListen &Listen : Parsed.File.Listen) {
+		SOCKET Socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		sockaddr_in Address = {};
+		Address.sin_family = AF_INET;
+		Address.sin_port = ::htons(static_cast<u_short>(Listen.Port));
+		Address.sin_addr.s_addr = ::htonl(INADDR_LOOPBACK);
+		u_long NonBlocking = 1;
+		if (Socket == INVALID_SOCKET || ::bind(Socket, reinterpret_cast<const sockaddr *>(&Address), sizeof(Address)) != 0
+			|| ::listen(Socket, 4) != 0 || ::ioctlsocket(Socket, FIONBIO, &NonBlocking) != 0)
+			Fail(State, "replay: cannot listen on 127.0.0.1:" + std::to_string(Listen.Port) + " (error " + std::to_string(::WSAGetLastError()) + ")");
+		State.Replay.Listeners.emplace_back(Socket, Listen.Kind);
+	}
+	std::size_t Connections = Parsed.File.Connections.size();
+	State.Replay.Schedule = TServerReplay(std::move(Parsed.File.Connections));
+	State.Replay.Active = true;
+	WriteLog(State, "testmode: replay " + Narrow(Path) + ", " + std::to_string(Connections) + " connections");
+}
+
 void Initialize(TState &State)
 {
 	TArguments Arguments = ReadArguments();
@@ -227,6 +330,8 @@ void Initialize(TState &State)
 		OpenOut(State, Arguments.Out);
 	if (!Arguments.Sync.empty())
 		OpenSync(State, Arguments.Sync);
+	if (!Arguments.Replay.empty())
+		OpenReplay(State, Arguments.Replay);
 	const std::wstring &ScriptPath = Arguments.Script;
 	if (ScriptPath.empty())
 		return;
@@ -240,7 +345,7 @@ void Initialize(TState &State)
 	WriteLog(State, "testmode: script " + Narrow(ScriptPath) + ", " + std::to_string(Parsed.Script.Events.size()) + " events, pace " + std::to_string(Parsed.Script.RealPerTick) + " ms per 100 ms");
 	bool Dumps = false;
 	for (const TInputEvent &Event : Parsed.Script.Events) {
-		if (Event.Kind == TEventKind::StateDump || Event.Kind == TEventKind::FrameDump)
+		if (Event.Kind == TEventKind::StateDump || Event.Kind == TEventKind::FrameDump || Event.Kind == TEventKind::Save)
 			Dumps = true;
 		if (Event.Kind == TEventKind::FrameDump)
 			State.FramesWanted = true;
@@ -271,6 +376,8 @@ HWND MainWindow()
 
 POINT ScreenCursor(const TState &State, HWND Window)
 {
+	if (State.Scheduler.FixedCursor())
+		return POINT{State.Scheduler.CursorX(), State.Scheduler.CursorY()};
 	POINT Point = State.Cursor;
 	if (Window != nullptr)
 		::ClientToScreen(Window, &Point);
@@ -410,7 +517,228 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 	case TEventKind::FrameDump:
 		State.PendingFrames.push_back(TPendingFrame{++State.FrameSteps, Event.Line, State.Virtual.Elapsed()});
 		break;
+	case TEventKind::Advance: {
+		// tools/capture/patcap.c Advance: every tick moves the clock and is sent at once, in this one
+		// idle call.
+		std::uint32_t Step = Event.Ticks > 0 ? Event.Duration / Event.Ticks : 0;
+		for (std::uint32_t i = 0; i < Event.Ticks; i++) {
+			State.Virtual.AdvanceTo(State.Virtual.Elapsed() + Step);
+			::SendMessageA(Window, WM_TIMER, 1, 0);
+		}
+		State.Virtual.AdvanceTo(State.Virtual.Elapsed() + (Event.Duration - Step * Event.Ticks));
+		break;
 	}
+	case TEventKind::Post:
+		Dispatch(State, Window, Event.Key, static_cast<WPARAM>(Event.WParam), static_cast<LPARAM>(Event.LParam));
+		break;
+	case TEventKind::Save: {
+		std::string Name = Numbered("saved", ++State.Saves, ("-" + Event.Name).c_str());
+		std::error_code Error;
+		std::filesystem::copy_file(Event.Name, State.Out / Name, std::filesystem::copy_options::overwrite_existing, Error);
+		if (Error)
+			WriteLog(State, "testmode: cannot save " + Event.Name + ": " + Error.message());
+		break;
+	}
+	}
+}
+
+// --- the server replay (issue #23) ---
+
+std::string ReplayName(const TReplaySocket &Socket)
+{
+	if (Socket.Index < 0)
+		return Socket.Kind + " connection (not recorded)";
+	return Socket.Kind + " connection " + std::to_string(Socket.Index + 1);
+}
+
+void CloseReplaySocket(TState &State, TReplaySocket &Socket, const char *Why)
+{
+	if (Socket.Closed)
+		return;
+	Socket.Closed = true;
+	Socket.Unread = 0;
+	Socket.Out.clear();
+	::closesocket(Socket.Socket);
+	Socket.Socket = INVALID_SOCKET;
+	State.Replay.Schedule.ClientClosed(Socket.Index);
+	WriteLog(State, "testmode: replay: " + ReplayName(Socket) + " closed by the client (" + Why + ")");
+}
+
+void FlushReplaySocket(TState &State, TReplaySocket &Socket)
+{
+	while (!Socket.Out.empty() && !Socket.Closed) {
+		int Count = ::send(Socket.Socket, reinterpret_cast<const char *>(Socket.Out.data()),
+			static_cast<int>((std::min)(Socket.Out.size(), static_cast<std::size_t>(0x10000))), 0);
+		if (Count == SOCKET_ERROR) {
+			if (::WSAGetLastError() != WSAEWOULDBLOCK)
+				CloseReplaySocket(State, Socket, "send failed");
+			return;
+		}
+		Socket.Out.erase(Socket.Out.begin(), Socket.Out.begin() + Count);
+	}
+}
+
+// New connections, the client's bytes and closes, the bytes still to send.
+void PumpReplay(TState &State)
+{
+	TReplayState &Replay = State.Replay;
+	for (const auto &[Listener, Kind] : Replay.Listeners) {
+		while (true) {
+			SOCKET Client = ::accept(Listener, nullptr, nullptr);
+			if (Client == INVALID_SOCKET)
+				break;
+			u_long NonBlocking = 1;
+			::ioctlsocket(Client, FIONBIO, &NonBlocking);
+			BOOL NoDelay = TRUE;
+			::setsockopt(Client, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char *>(&NoDelay), sizeof(NoDelay));
+			TReplaySocket Socket;
+			Socket.Socket = Client;
+			Socket.Kind = Kind;
+			Socket.Index = Replay.Schedule.Open(Kind);
+			Replay.Sockets.push_back(std::move(Socket));
+			WriteLog(State, "testmode: replay: " + ReplayName(Replay.Sockets.back()) + " opened at " + std::to_string(State.Virtual.Elapsed()) + " ms");
+		}
+	}
+	for (TReplaySocket &Socket : Replay.Sockets) {
+		while (!Socket.Closed) {
+			std::array<char, 0x4000> Buffer{};
+			int Count = ::recv(Socket.Socket, Buffer.data(), static_cast<int>(Buffer.size()), 0);
+			if (Count == SOCKET_ERROR && ::WSAGetLastError() == WSAEWOULDBLOCK)
+				break;
+			if (Count <= 0) {
+				CloseReplaySocket(State, Socket, Count == 0 ? "end of stream" : "receive failed");
+				break;
+			}
+			Socket.In.insert(Socket.In.end(), Buffer.begin(), Buffer.begin() + Count);
+		}
+		while (Socket.In.size() >= 2) {
+			std::size_t Size = Socket.In[0] | (static_cast<std::size_t>(Socket.In[1]) << 8U);
+			if (Socket.In.size() < Size + 2)
+				break;
+			if (Socket.Frames == 0) {
+				if (Replay.HasPendingKey) {
+					Socket.Key = Replay.PendingKey;
+					Socket.HasKey = true;
+					Replay.HasPendingKey = false;
+				} else {
+					WriteLog(State, "testmode: replay: " + ReplayName(Socket) + ": no RSA block seen for its first packet");
+				}
+			}
+			Socket.In.erase(Socket.In.begin(), Socket.In.begin() + static_cast<std::ptrdiff_t>(Size + 2));
+			Socket.Frames++;
+			Replay.ReplayRead++;
+			Replay.Schedule.ClientPacket(Socket.Index);
+		}
+		FlushReplaySocket(State, Socket);
+	}
+}
+
+// Why the clock and the script wait for the network, or empty.
+std::string ReplayBusy(TState &State)
+{
+	TReplayState &Replay = State.Replay;
+	const int *Connection = ViewConnectionState();
+	int Value = Connection != nullptr ? *Connection : 0;
+	bool Connecting = Value == 1 || Value == 2 || Value == 5;
+	if (!Connecting)
+		Replay.IgnoreConnecting = false;
+	if (Connecting && !Replay.IgnoreConnecting)
+		return "the client connects (connection state " + std::to_string(Value) + ")";
+	if (Replay.ClientSent > Replay.ReplayRead)
+		return "a client packet is on its way";
+	for (const TReplaySocket &Socket : Replay.Sockets) {
+		if (Socket.Closed)
+			continue;
+		if (Socket.Unread > 0 || !Socket.Out.empty())
+			return ReplayName(Socket) + ": a server packet is on its way";
+		if (Socket.ServerClosing)
+			return ReplayName(Socket) + ": the client's close is awaited";
+	}
+	return {};
+}
+
+// True while the network is busy (the driver then does nothing else); after HoldLimit real
+// milliseconds of the same wait it gives up on it.
+bool ReplayHold(TState &State)
+{
+	TReplayState &Replay = State.Replay;
+	std::string Reason = ReplayBusy(State);
+	auto Now = std::chrono::steady_clock::now();
+	if (Reason.empty()) {
+		if (Replay.Holding)
+			State.RealStart += Now - Replay.HoldStart; // the wait does not count for the pace
+		Replay.Holding = false;
+		return false;
+	}
+	if (!Replay.Holding || Reason != Replay.HoldReason) {
+		if (Replay.Holding)
+			State.RealStart += Now - Replay.HoldStart;
+		Replay.Holding = true;
+		Replay.HoldStart = Now;
+		Replay.HoldReason = Reason;
+		return true;
+	}
+	if (std::chrono::duration_cast<std::chrono::milliseconds>(Now - Replay.HoldStart).count() < HoldLimit)
+		return true;
+	Replay.GivenUp++;
+	WriteLog(State, "testmode: replay: gave up waiting after " + std::to_string(HoldLimit) + " ms at " + std::to_string(State.Virtual.Elapsed()) + " ms: " + Reason);
+	Replay.IgnoreConnecting = true;
+	Replay.ClientSent = Replay.ReplayRead;
+	for (TReplaySocket &Socket : Replay.Sockets) {
+		Socket.Unread = 0;
+		if (Socket.ServerClosing && !Socket.Closed)
+			CloseReplaySocket(State, Socket, "no answer to the server's close");
+	}
+	State.RealStart += Now - Replay.HoldStart;
+	Replay.Holding = false;
+	return false;
+}
+
+// Sends the next server packet or close that is due; true when it did.
+bool ReplayDeliver(TState &State, std::uint32_t Elapsed)
+{
+	TReplayState &Replay = State.Replay;
+	for (TReplaySocket &Socket : Replay.Sockets) {
+		if (Socket.Closed || Socket.ServerClosing || Socket.Index < 0)
+			continue;
+		const TReplayEvent *Event = Replay.Schedule.Due(Socket.Index, Elapsed);
+		if (Event == nullptr)
+			continue;
+		if (Event->Kind == TReplayKind::ServerClose) {
+			WriteLog(State, std::to_string(Elapsed) + " ms, replay line " + std::to_string(Event->Line) + ": " + ReplayName(Socket) + " closed by the server");
+			::shutdown(Socket.Socket, SD_SEND);
+			Socket.ServerClosing = true;
+			Replay.Schedule.Take(Socket.Index);
+			return true;
+		}
+		if (!Socket.HasKey)
+			WriteLog(State, "testmode: replay: " + ReplayName(Socket) + ": no XTEA key, the packet goes out with a zero key");
+		std::vector<std::uint8_t> Frame = EncryptFrame(Event->Payload, Socket.Key);
+		WriteLog(State, std::to_string(Elapsed) + " ms, replay line " + std::to_string(Event->Line) + ": " + ReplayName(Socket) + " server packet, " + std::to_string(Event->Payload.size()) + " bytes");
+		Socket.Out.insert(Socket.Out.end(), Frame.begin(), Frame.end());
+		Socket.Unread++;
+		Replay.Sent++;
+		Replay.Schedule.Take(Socket.Index);
+		FlushReplaySocket(State, Socket);
+		return true;
+	}
+	return false;
+}
+
+// The next time a server packet or close of an open connection is due (an automatic clock stops
+// there); false: none.
+bool ReplayNextTime(TState &State, std::uint32_t *Time)
+{
+	bool Found = false;
+	for (TReplaySocket &Socket : State.Replay.Sockets) {
+		std::uint32_t Next = 0;
+		if (Socket.Closed || Socket.ServerClosing || !State.Replay.Schedule.NextTime(Socket.Index, &Next))
+			continue;
+		if (!Found || Next < *Time)
+			*Time = Next;
+		Found = true;
+	}
+	return Found;
 }
 
 } // namespace
@@ -446,6 +774,10 @@ BOOL GetCursorPosition(LPPOINT Point)
 	TState &Current = State();
 	if (!Current.Scripted)
 		return ::GetCursorPos(Point);
+	if (Current.Scheduler.FixedCursor()) {
+		*Point = POINT{Current.Scheduler.CursorX(), Current.Scheduler.CursorY()};
+		return TRUE;
+	}
 	*Point = ScreenCursor(Current, MainWindow());
 	return TRUE;
 }
@@ -485,22 +817,46 @@ void Idle()
 		WriteLog(Current, "testmode: the driver starts");
 	}
 	std::uint32_t Elapsed = Current.Virtual.Elapsed();
+	// Issue #23: the network first. While it is busy nothing else happens; a due server packet or
+	// close is an idle call of its own, as an input event is.
+	if (Current.Replay.Active) {
+		PumpReplay(Current);
+		if (ReplayHold(Current))
+			return;
+	}
+	// With a manual clock the client gets QuietPasses idle calls (each with its ProcessEvents) after
+	// every input event and network action before the next one, as Tibia.exe gets many between the
+	// record step's messages: the dialogs the last one opens are there before the next one comes.
+	if (Current.Quiet > 0) {
+		Current.Quiet--;
+		return;
+	}
+	if (Current.Replay.Active && ReplayDeliver(Current, Elapsed)) {
+		Current.Quiet = Current.Scheduler.ManualClock() ? QuietPasses : 0;
+		return;
+	}
 	// A state dump takes no idle call of its own: with or without dumps the client gets the same events in
 	// the same idle calls. (A frame dump waits for the next frame, so it is an event in its turn.)
 	const TInputEvent *Event = Current.Scheduler.TakeDue(Elapsed);
-	while (Event != nullptr && Event->Kind == TEventKind::StateDump) {
+	while (Event != nullptr && (Event->Kind == TEventKind::StateDump || Event->Kind == TEventKind::Save)) {
 		Deliver(Current, Window, *Event);
 		Event = Current.Scheduler.TakeDue(Elapsed);
 	}
 	if (Event != nullptr) {
 		Deliver(Current, Window, *Event);
+		Current.Quiet = Current.Scheduler.ManualClock() ? QuietPasses : 0;
 		return;
 	}
 	if (Current.Scheduler.Finished() && !Current.FinishReported) {
 		Current.FinishReported = true;
 		WriteLog(Current, "testmode: the script ends at " + std::to_string(Elapsed) + " ms; the clock goes on");
 	}
+	if (Current.Scheduler.ManualClock())
+		return;
 	std::uint32_t Stop = Current.Scheduler.NextStop(Elapsed);
+	std::uint32_t ReplayTime = 0;
+	if (Current.Replay.Active && ReplayNextTime(Current, &ReplayTime) && ReplayTime > Elapsed && ReplayTime < Stop)
+		Stop = ReplayTime;
 	// Now again: a state dump's wait for the checker moved RealStart.
 	Now = std::chrono::steady_clock::now();
 	auto Real = std::chrono::duration_cast<std::chrono::milliseconds>(Now - Current.RealStart).count();
@@ -539,6 +895,11 @@ void WritePacket(TState &State, const TPacketRecord &Record)
 void RsaBlock(const unsigned char *Block)
 {
 	TState &Current = State();
+	if (Current.Replay.Active) {
+		// [0][the XTEA key][fields][random bytes]: the key of the connection whose first packet follows.
+		std::copy_n(Block + 1, Current.Replay.PendingKey.size(), Current.Replay.PendingKey.begin());
+		Current.Replay.HasPendingKey = true;
+	}
 	if (Current.Packets == nullptr)
 		return;
 	std::copy_n(Block, RsaBlockSize, Current.Rsa.begin());
@@ -548,6 +909,8 @@ void RsaBlock(const unsigned char *Block)
 void PacketSent(const unsigned char *Data, int Size, int Padded)
 {
 	TState &Current = State();
+	if (Current.Replay.Active)
+		Current.Replay.ClientSent++;
 	if (Current.Packets == nullptr || Size < 0)
 		return;
 	// SendData: [u16][u16 Size][payload][padding, up to Padded + 2 bytes].
@@ -568,6 +931,15 @@ void PacketSent(const unsigned char *Data, int Size, int Padded)
 void PacketReceived(const unsigned char *Data, int PacketSize)
 {
 	TState &Current = State();
+	if (Current.Replay.Active) {
+		// The client reads only its newest connection.
+		for (auto Socket = Current.Replay.Sockets.rbegin(); Socket != Current.Replay.Sockets.rend(); ++Socket) {
+			if (Socket->Unread > 0) {
+				Socket->Unread--;
+				break;
+			}
+		}
+	}
 	if (Current.Packets == nullptr || PacketSize < 2)
 		return;
 	// ReceiveData: [u16 PacketSize][u16 length][payload][padding, up to PacketSize + 2 bytes].
@@ -630,6 +1002,64 @@ void __cdecl FramePixels(const void *Bits, int Pitch, int Width, int Height)
 }
 
 } // namespace
+
+int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type)
+{
+	TState &Current = State();
+	if (!Current.Scripted)
+		return ::MessageBoxA(Window, Text, Caption, Type);
+	// A test run never opens a modal dialog: the box's caption and text are written down instead, and
+	// it counts as answered with OK.
+	std::string Caption8 = Caption != nullptr ? Caption : "";
+	std::string Text8 = Text != nullptr ? Text : "";
+	WriteLog(Current, "testmode: message box \"" + Caption8 + "\": " + Text8);
+	if (!Current.Out.empty()) {
+		std::FILE *File = nullptr;
+		if (_wfopen_s(&File, (Current.Out / L"messages.txt").c_str(), L"ab") == 0 && File != nullptr) {
+			std::string Line = "{\"step\":" + std::to_string(++Current.Messages) + ",\"time\":" + std::to_string(Current.Virtual.Elapsed())
+				+ ",\"caption\":" + JsonString(Caption8) + ",\"text\":" + JsonString(Text8) + ",\"type\":" + std::to_string(Type) + "}\n";
+			std::fputs(Line.c_str(), File);
+			std::fclose(File);
+		}
+	}
+	// While a real box is open its modal loop dispatches the thread's messages (FatalError's
+	// ShutdownConnection: the server's close comes, the client leaves the game and saves Tibia.cfg).
+	// The same here, until the queue and the replay have been quiet for BoxQuietMilliseconds (at most
+	// BoxMilliseconds).
+	auto Start = std::chrono::steady_clock::now();
+	auto LastActivity = Start;
+	while (true) {
+		auto Now = std::chrono::steady_clock::now();
+		if (Now - LastActivity > std::chrono::milliseconds(BoxQuietMilliseconds) || Now - Start > std::chrono::milliseconds(BoxMilliseconds))
+			break;
+		bool Activity = false;
+		if (Current.Replay.Active) {
+			std::size_t Closed = 0;
+			for (const TReplaySocket &Socket : Current.Replay.Sockets)
+				Closed += Socket.Closed ? 1 : 0;
+			PumpReplay(Current);
+			for (const TReplaySocket &Socket : Current.Replay.Sockets)
+				Closed -= Socket.Closed ? 1 : 0;
+			Activity = Closed != 0;
+		}
+		MSG Message = {};
+		while (::PeekMessageA(&Message, nullptr, 0, 0, PM_REMOVE)) {
+			if (Message.message == WM_QUIT) {
+				::PostQuitMessage(static_cast<int>(Message.wParam));
+				return IDOK;
+			}
+			if (DropInput(&Message))
+				continue;
+			::TranslateMessage(&Message);
+			::DispatchMessageA(&Message);
+			Activity = true;
+		}
+		if (Activity)
+			LastActivity = std::chrono::steady_clock::now();
+		::Sleep(1);
+	}
+	return IDOK;
+}
 
 void FrameObservers(HMODULE Patcap, int(__cdecl **Frame)(int, int), void(__cdecl **Pixels)(const void *, int, int, int),
 	void(__cdecl **Mask)(const unsigned char *, int, int))

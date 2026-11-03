@@ -120,6 +120,7 @@ private:
 	bool Line(std::string_view Text);
 	bool Split(std::string_view Text, std::vector<TWord> *Words);
 	bool Number(std::string_view Word, std::int64_t Min, std::int64_t Max, std::int64_t *Value);
+	bool Unsigned(std::string_view Word, std::uint64_t Max, std::uint64_t *Value);
 	bool Coordinate(std::string_view Word, char Anchor, TCoordinate *Value);
 	bool Combo(std::string_view Word, std::vector<TKeyInfo> *Held, TKeyInfo *Key);
 	bool Mods(const std::vector<TWord> &Words, std::size_t Index, std::vector<TKeyInfo> *Held);
@@ -220,6 +221,25 @@ bool TParser::Number(std::string_view Word, std::int64_t Min, std::int64_t Max, 
 		return Fail("not a number: " + std::string(Word));
 	if (Parsed < Min || Parsed > Max)
 		return Fail(std::string(Word) + " is not between " + std::to_string(Min) + " and " + std::to_string(Max));
+	*Value = Parsed;
+	return true;
+}
+
+// A number of post: decimal, or hexadecimal after 0x.
+bool TParser::Unsigned(std::string_view Word, std::uint64_t Max, std::uint64_t *Value)
+{
+	int Base = 10;
+	std::string_view Digits = Word;
+	if (Digits.size() > 2 && Digits[0] == '0' && Lower(Digits[1]) == 'x') {
+		Base = 16;
+		Digits.remove_prefix(2);
+	}
+	std::uint64_t Parsed = 0;
+	auto [End, Error] = std::from_chars(Digits.data(), Digits.data() + Digits.size(), Parsed, Base);
+	if (Error != std::errc() || End != Digits.data() + Digits.size() || Digits.empty())
+		return Fail("not a number: " + std::string(Word));
+	if (Parsed > Max)
+		return Fail(std::string(Word) + " is larger than " + std::to_string(Max));
 	*Value = Parsed;
 	return true;
 }
@@ -411,10 +431,77 @@ bool TParser::Line(std::string_view Text)
 		Result.Script.RealPerTick = static_cast<std::uint32_t>(Value);
 		return true;
 	}
+	if (Command == "clock") {
+		if (!Expect(Words, 1, 1))
+			return false;
+		if (!Result.Script.Events.empty())
+			return Fail("clock comes before the first event");
+		if (SameCaseless(Words[1].Text, "manual"))
+			Result.Script.ManualClock = true;
+		else if (SameCaseless(Words[1].Text, "auto"))
+			Result.Script.ManualClock = false;
+		else
+			return Fail("clock takes manual or auto, not " + std::string(Words[1].Text));
+		return true;
+	}
+	if (Command == "cursor") {
+		std::int64_t CursorX = 0;
+		std::int64_t CursorY = 0;
+		if (!Expect(Words, 2, 2) || !Number(Words[1].Text, -MaxCoordinate, MaxCoordinate, &CursorX)
+			|| !Number(Words[2].Text, -MaxCoordinate, MaxCoordinate, &CursorY))
+			return false;
+		if (!Result.Script.Events.empty())
+			return Fail("cursor comes before the first event");
+		Result.Script.FixedCursor = true;
+		Result.Script.CursorX = static_cast<int>(CursorX);
+		Result.Script.CursorY = static_cast<int>(CursorY);
+		return true;
+	}
+	if (Command == "advance") {
+		std::int64_t Duration = 0;
+		std::int64_t Ticks = 0;
+		if (!Expect(Words, 2, 2) || !Number(Words[1].Text, 0, 1000000, &Duration) || !Number(Words[2].Text, 0, 10000, &Ticks))
+			return false;
+		if (!Result.Script.ManualClock)
+			return Fail("advance needs clock manual");
+		if (Time + static_cast<std::uint64_t>(Duration) > MaxTime)
+			return Fail("the script's time passes " + std::to_string(MaxTime) + " ms");
+		Add(TEventKind::Advance);
+		Result.Script.Events.back().Duration = static_cast<std::uint32_t>(Duration);
+		Result.Script.Events.back().Ticks = static_cast<std::uint32_t>(Ticks);
+		Time += static_cast<std::uint64_t>(Duration);
+		return true;
+	}
+	if (Command == "post") {
+		std::uint64_t Message = 0;
+		std::uint64_t WParam = 0;
+		std::uint64_t LParam = 0;
+		if (!Expect(Words, 3, 3) || !Unsigned(Words[1].Text, 0xffff, &Message)
+			|| !Unsigned(Words[2].Text, UINT64_MAX, &WParam) || !Unsigned(Words[3].Text, UINT64_MAX, &LParam))
+			return false;
+		Add(TEventKind::Post);
+		TInputEvent &Event = Result.Script.Events.back();
+		Event.Key = static_cast<std::uint32_t>(Message);
+		Event.WParam = WParam;
+		Event.LParam = LParam;
+		return true;
+	}
+	if (Command == "save") {
+		if (!Expect(Words, 1, 1))
+			return false;
+		std::string_view File = Words[1].Text;
+		if (File.find_first_of("/\\:\"") != std::string_view::npos || File == "." || File == "..")
+			return Fail("save takes a file name without a path: " + std::string(File));
+		Add(TEventKind::Save);
+		Result.Script.Events.back().Name = std::string(File);
+		return true;
+	}
 	if (Command == "wait" || Command == "at") {
 		std::int64_t Value = 0;
 		if (!Expect(Words, 1, 1) || !Number(Words[1].Text, 0, static_cast<std::int64_t>(MaxTime), &Value))
 			return false;
+		if (Result.Script.ManualClock)
+			return Fail(std::string(Words[0].Text) + " with clock manual: the time moves only by advance");
 		std::uint64_t Target = Command == "wait" ? Time + static_cast<std::uint64_t>(Value) : static_cast<std::uint64_t>(Value);
 		if (Target < Time)
 			return Fail("at " + std::to_string(Value) + " is earlier than the script's time " + std::to_string(Time));
@@ -593,6 +680,11 @@ std::string Describe(const TInputEvent &Event)
 		std::string Text = Error == std::errc() ? std::string(Digits.data(), End) : std::string("?");
 		return (Text.size() < 2 ? "0x0" : "0x") + Text;
 	};
+	auto Hex64 = [](std::uint64_t Value) {
+		std::array<char, 24> Digits{};
+		auto [End, Error] = std::to_chars(Digits.data(), Digits.data() + Digits.size(), Value, 16);
+		return "0x" + (Error == std::errc() ? std::string(Digits.data(), End) : std::string("?"));
+	};
 	auto Point = [&Event] {
 		return std::string(Event.X.FromEnd ? "R-" : "") + std::to_string(Event.X.Value) + " "
 			+ (Event.Y.FromEnd ? "B-" : "") + std::to_string(Event.Y.Value);
@@ -616,6 +708,11 @@ std::string Describe(const TInputEvent &Event)
 	case TEventKind::Quit: Text += "quit"; break;
 	case TEventKind::StateDump: Text += "dump"; break;
 	case TEventKind::FrameDump: Text += "frame"; break;
+	case TEventKind::Advance:
+		Text += "advance " + std::to_string(Event.Duration) + " ms, " + std::to_string(Event.Ticks) + " ticks";
+		break;
+	case TEventKind::Save: Text += "save " + Event.Name; break;
+	case TEventKind::Post: Text += "post " + Hex64(Event.Key) + " " + Hex64(Event.WParam) + " " + Hex64(Event.LParam); break;
 	}
 	if (Event.Modifiers != 0)
 		Text += " modifiers " + std::to_string(Event.Modifiers);
@@ -639,6 +736,8 @@ const TInputEvent *TScheduler::TakeDue(std::uint32_t Elapsed)
 
 std::uint32_t TScheduler::NextStop(std::uint32_t Elapsed) const
 {
+	if (Script.ManualClock)
+		return Elapsed;
 	std::uint64_t Tick = (static_cast<std::uint64_t>(Elapsed) / TickMilliseconds + 1) * TickMilliseconds;
 	std::uint64_t Stop = Tick;
 	if (!Finished())

@@ -33,6 +33,11 @@ may also say how its frame is made and delivered:
       connection (a disconnect inside or between frames).
 Proxy(..., refuse=("login",)) does not listen on that port (connection refused).
 
+Virtual time (issue #23, tools/reference.py): Proxy(..., vclock=f) calls f() whenever it sends a
+replayed server packet or closes a replayed connection and stores the result as the event's "vt"
+(the client's virtual milliseconds then: patcap's clock, which stands still while the packet is on its
+way); the server close events of a replay also get "replayed", the index of the recorded event.
+
 The recording is a JSON-lines file, one object per event:
   {"t": seconds since the proxy started, "conn": connection number (from 1), "kind":
    "login"/"game", "dir": "c2s"/"s2c"/"close", "raw": the frame as it went over the wire
@@ -318,8 +323,9 @@ class Proxy:
 	"""Live recording (replay=None) or replay of a recorded session (replay=list of events)."""
 
 	def __init__(self, record_path, rsa_key=None, replay=None, login_port=PROXY_LOGIN_PORT,
-			game_port=PROXY_GAME_PORT, log=None, refuse=()):
+			game_port=PROXY_GAME_PORT, log=None, refuse=(), vclock=None):
 		self.record_path = record_path
+		self.vclock = vclock
 		self.refuse = refuse
 		self.rsa_key = rsa_key or load_private_key()
 		self.replay = replay
@@ -517,13 +523,13 @@ class Proxy:
 				self.error("connection %d (server side): %s" % (conn.number, e))
 				self.close_conn(conn, "error")
 
-	def close_conn(self, conn, side):
+	def close_conn(self, conn, side, extra=None):
 		with conn.lock:
 			if conn.closed:
 				return
 			conn.closed = True
-		self.record({"t": self.now(), "conn": conn.number, "kind": conn.kind,
-			"conn_ordinal": getattr(conn, "ordinal", 0), "dir": "close", "side": side})
+		self.record(dict({"t": self.now(), "conn": conn.number, "kind": conn.kind,
+			"conn_ordinal": getattr(conn, "ordinal", 0), "dir": "close", "side": side}, **(extra or {})))
 		for sock in (conn.client, conn.server):
 			if sock is not None:
 				try:
@@ -575,9 +581,12 @@ class Proxy:
 					if delay > 0:
 						time.sleep(delay)
 					frame = self.build_frame(conn, recorded)
-					self.record({"t": self.now(), "conn": conn.number, "kind": conn.kind,
+					event = {"t": self.now(), "conn": conn.number, "kind": conn.kind,
 						"conn_ordinal": conn.ordinal, "dir": "s2c", "raw": frame.hex(), "plain": recorded.get("plain", ""),
-						"pad": "", "replayed": index})
+						"pad": "", "replayed": index}
+					if self.vclock is not None:
+						event["vt"] = self.vclock()
+					self.record(event)
 					self.deliver(conn, frame, recorded)
 					self.last_s2c = time.time()
 					index += 1
@@ -600,7 +609,10 @@ class Proxy:
 						delay = (recorded["t"] - trigger_time) - (time.time() - trigger_real)
 						if delay > 0:
 							time.sleep(delay)
-						self.close_conn(conn, "server")
+						extra = {"replayed": index}
+						if self.vclock is not None:
+							extra["vt"] = self.vclock()
+						self.close_conn(conn, "server", extra)
 					else:
 						self.set_busy(conn, False)
 						got = self.wait_received(conn, received, 60)

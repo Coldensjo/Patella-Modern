@@ -78,7 +78,7 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 		AfxGetMainWnd()->ShowWindow(SW_HIDE);
 	} catch (...) {
 	}
-	MessageBoxA(NULL, Text, Caption, MB_ICONHAND);
+	PATELLA_MESSAGE_BOX(NULL, Text, Caption, MB_ICONHAND);
 	exit(1);
 }
 
@@ -328,12 +328,12 @@ BOOL CPlayerApp::InitInstance()
 				NumberOfTibiaWindows = 0;
 				EnumWindows(CountTibiaWindows, 0);
 				if (NumberOfTibiaWindows == 0) {
-					MessageBoxA(NULL, "Application is corrupted! Please re-install Tibia.", "Tibia - Error", MB_ICONEXCLAMATION);
+					PATELLA_MESSAGE_BOX(NULL, "Application is corrupted! Please re-install Tibia.", "Tibia - Error", MB_ICONEXCLAMATION);
 					ExitProgram();
 					return FALSE;
 				}
 				if (NumberOfTibiaWindows > 1) {
-					MessageBoxA(NULL, "A Tibia client is already running!", "Tibia - Error", MB_ICONEXCLAMATION);
+					PATELLA_MESSAGE_BOX(NULL, "A Tibia client is already running!", "Tibia - Error", MB_ICONEXCLAMATION);
 					ExitProgram();
 					return FALSE;
 				}

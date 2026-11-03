@@ -33,6 +33,21 @@
 //	frame                      the frame dump (issue #22, Png.h): the next frame the Vulkan engine shows,
 //	                           and its device-filtered pixels
 //
+// Issue #23, for the scripts the record step writes from a reference run of Tibia.exe under
+// tools/capture/patcap.c (notes/testmode.md, "Reference recordings"):
+//
+//	clock manual               the clock stands still and moves only by advance (patcap's clock): no
+//	                           wait or at, no automatic ticks of the main timer; before the first event
+//	advance <ms> <ticks>       patcap's ADVANCE: <ticks> times the clock moves by <ms>/<ticks> and the
+//	                           main timer ticks (WM_TIMER sent), all in one idle call, then the rest of
+//	                           <ms>; the later commands happen <ms> later; manual clock only
+//	cursor <x> <y>             GetCursorPos returns this screen point whatever the mouse does (patcap's
+//	                           1020 760); before the first event
+//	post <msg> <wparam> <lparam>  one window message as the record step posted it to Tibia.exe (decimal
+//	                           or 0x hexadecimal numbers), dispatched to the main window
+//	save <file>                copies the file of the client's folder (a name without a path) to
+//	                           saved-<NNN>-<file> in --test-out, after every earlier event was handled
+//
 // A coordinate is a number of pixels from the left or top edge of the client area, or R-<n> / B-<n>
 // for <n> pixels from its right or bottom edge (resolved when the event is delivered).
 //
@@ -74,6 +89,9 @@ enum class TEventKind : std::uint8_t {
 	Quit,
 	StateDump, // issue #22: the state dump
 	FrameDump, // issue #22: the next frame shown
+	Advance,   // issue #23: Duration, Ticks (patcap's ADVANCE)
+	Post,      // issue #23: Key: the message; WParam, LParam
+	Save,      // issue #23: Name: the file
 };
 
 // A coordinate of the client area: Value pixels from the left or top edge, or (FromEnd) from the
@@ -97,7 +115,12 @@ struct TInputEvent {
 	std::uint32_t Buttons = 0;   // ButtonLeft/Right held at this event (after a button went down)
 	TCoordinate X, Y;
 	int Delta = 0;
-	int Line = 0; // the script line it comes from
+	std::uint32_t Duration = 0; // Advance: virtual milliseconds
+	std::uint32_t Ticks = 0;    // Advance: ticks of the main timer
+	std::uint64_t WParam = 0;   // Post
+	std::uint64_t LParam = 0;   // Post: the bits of lParam
+	std::string Name;           // Save: the file
+	int Line = 0;               // the script line it comes from
 
 	friend bool operator==(const TInputEvent &, const TInputEvent &) = default;
 };
@@ -122,6 +145,10 @@ bool FindKey(std::string_view Name, TKeyInfo *Info);
 struct TScript {
 	std::vector<TInputEvent> Events; // in time order, then script order
 	std::uint32_t RealPerTick = 100; // pace: real milliseconds per TickMilliseconds of virtual time
+	bool ManualClock = false;        // clock manual: the clock moves only by Advance events
+	bool FixedCursor = false;        // cursor: GetCursorPos returns CursorX, CursorY (screen)
+	int CursorX = 0;
+	int CursorY = 0;
 };
 
 struct TParseResult {
@@ -145,8 +172,13 @@ public:
 	// client handles each (a mouse move is polled in OnIdle) before the next.
 	const TInputEvent *TakeDue(std::uint32_t Elapsed);
 	// Where the virtual clock goes from Elapsed when no event is due: the next tick of the main
-	// timer (a multiple of TickMilliseconds) or the next event, whichever comes first.
+	// timer (a multiple of TickMilliseconds) or the next event, whichever comes first; with a manual
+	// clock nowhere (Elapsed: only Advance events move it).
 	[[nodiscard]] std::uint32_t NextStop(std::uint32_t Elapsed) const;
+	[[nodiscard]] bool ManualClock() const { return Script.ManualClock; }
+	[[nodiscard]] bool FixedCursor() const { return Script.FixedCursor; }
+	[[nodiscard]] int CursorX() const { return Script.CursorX; }
+	[[nodiscard]] int CursorY() const { return Script.CursorY; }
 	// The real milliseconds after the driver's start at which the clock may reach Elapsed.
 	[[nodiscard]] std::uint64_t RealDeadline(std::uint32_t Elapsed) const;
 	// Every event handed out.
