@@ -39,6 +39,7 @@ Exit code 0 when a-d found no difference, 1 otherwise (or on a failed run).
 
 import argparse
 import ctypes
+import hashlib
 import json
 import os
 import shutil
@@ -130,18 +131,33 @@ def run_dir(name):
 	return os.path.join(TRAFFIC, name)
 
 
-def setup():
+DATA_FILES = ("Tibia.dat", "Tibia.spr", "Tibia.pic")
+RUN_EXES = {}  # run folder -> the client's file name in it, filled by setup()
+ROOT_DATA = {}  # data file -> sha256 of the repository root's copy
+
+
+def client_of(name):
+	"""The client a run folder is for: "orig" for orig, orig-repeat, orig-2; "patella"; "helper"."""
+	return name.split("-")[0]
+
+
+def setup(extra=()):
 	"""Run folders with copies of the data files and the patched clients (tools/patch_client.py):
-	the clients under test log in through the proxy's port, the helper straight to the server."""
-	for name, info, port in (("orig", CLIENTS["orig"], px.PROXY_LOGIN_PORT),
-			("patella", CLIENTS["patella"], px.PROXY_LOGIN_PORT), ("helper", HELPER, None)):
+	the clients under test log in through the proxy's port, the helper straight to the server.
+	extra: more run folders for the clients under test (orig-repeat: a second run of Tibia.exe gets
+	a folder of its own, issue #12)."""
+	runs = [("orig", CLIENTS["orig"], px.PROXY_LOGIN_PORT), ("patella", CLIENTS["patella"], px.PROXY_LOGIN_PORT),
+		("helper", HELPER, None)]
+	runs += [(name, CLIENTS[client_of(name)], px.PROXY_LOGIN_PORT) for name in extra]
+	for name, info, port in runs:
 		folder = run_dir(name)
 		os.makedirs(folder, exist_ok=True)
-		for data in ("Tibia.dat", "Tibia.spr", "Tibia.pic"):
+		for data in DATA_FILES:
 			target = os.path.join(folder, data)
 			source = os.path.join(ROOT, data)
 			if not os.path.isfile(target) or os.path.getsize(target) != os.path.getsize(source):
 				shutil.copyfile(source, target)
+		RUN_EXES[name] = info["exe"]
 		exe = os.path.join(folder, info["exe"])
 		if not os.path.isfile(info["source"]):
 			raise RunError("%s not found (build it with python -I tools/build.py oracle-x86)" % info["source"])
@@ -154,6 +170,54 @@ def setup():
 		result = subprocess.run(command, capture_output=True, text=True)
 		if result.returncode != 0:
 			raise RunError("patch_client.py failed for %s: %s" % (name, result.stderr.strip()))
+
+
+def file_sha(path):
+	digest = hashlib.sha256()
+	with open(path, "rb") as f:
+		for chunk in iter(lambda: f.read(1 << 20), b""):
+			digest.update(chunk)
+	return digest.hexdigest()
+
+
+def clean_run_dir(name, keep=()):
+	"""Empties the run folder before a run (issue #12): everything but the data files, the patched
+	client and the names in keep is deleted, files and folders alike (the automap's *.map files,
+	error.txt, Tibia.cfg, channel files, what an earlier failed run or a stray click left), and a data
+	file that differs from the repository root's (a patch scenario rewrites them) is copied again.
+	The caller writes Tibia.cfg afterwards. Returns the names it removed (and the data files it
+	copied again)."""
+	if name not in RUN_EXES:
+		raise RunError("run folder %s was not set up (setup(extra=...))" % name)
+	folder = run_dir(name)
+	exe = RUN_EXES[name]
+	if not os.path.isfile(os.path.join(folder, exe)):
+		raise RunError("%s has no %s (setup() makes it)" % (folder, exe))
+	stay = set(DATA_FILES) | {exe} | set(keep)
+	removed = []
+	for entry in sorted(os.listdir(folder)):
+		if entry in stay:
+			continue
+		path = os.path.join(folder, entry)
+		if os.path.isdir(path) and not os.path.islink(path):
+			shutil.rmtree(path)
+		else:
+			os.remove(path)
+		removed.append(entry)
+	for data in DATA_FILES:
+		source = os.path.join(ROOT, data)
+		if data not in ROOT_DATA:
+			ROOT_DATA[data] = file_sha(source)
+		target = os.path.join(folder, data)
+		if not os.path.isfile(target) or file_sha(target) != ROOT_DATA[data]:
+			shutil.copyfile(source, target)
+			removed.append(data + " (copied again)")
+	left = sorted(set(os.listdir(folder)) - stay)
+	if left:
+		raise RunError("%s still holds %s after cleaning" % (folder, left))
+	if removed:
+		log("run folder %s: removed %s" % (name, ", ".join(removed)))
+	return removed
 
 
 def reset_cfg(name):
@@ -239,6 +303,7 @@ def gui_summary(nodes):
 def play(client, proxy, wait, out_prefix, helper=None):
 	"""One session of `client` through `proxy`. Returns [{"step", "state", "gui"}] in step order."""
 	info = CLIENTS[client]
+	clean_run_dir(client)
 	reset_cfg(client)
 	driver = sc.Driver(run_dir(client), info["exe"], info["pdb"])
 	checkpoints = []
@@ -250,7 +315,7 @@ def play(client, proxy, wait, out_prefix, helper=None):
 		driver.start()
 		if helper is not None:
 			helper()
-		sc.run_session(driver, wait, checkpoint)
+		sc.run_session(driver, wait, checkpoint, proxy=proxy)
 		time.sleep(1)
 		code = driver.close()
 		if code != 0:
@@ -268,6 +333,7 @@ def live_run(client, out, players):
 	restore_players(players)
 	start_server()
 	helper = sc.Driver(run_dir("helper"), HELPER["exe"], None, game_port=px.SERVER_GAME_PORT)
+	clean_run_dir("helper")
 	reset_cfg("helper")
 	prefix = os.path.join(out, "%s-live" % client)
 	try:

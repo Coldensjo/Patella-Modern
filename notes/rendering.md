@@ -24,10 +24,13 @@ python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,
 - The capture helper `build\oracle-x86\Release\patcap.dll` is the patcap target of the oracle-x86 preset
   (built with the preset; the script builds the target itself when the DLL is missing or older than
   tools/capture/patcap.c; before issue #10 tools\build-capture.cmd built build\capture\patcap.dll).
-- Run folders `build\render\orig` and `build\render\patella` (compare_traffic.py's set-up through its
-  set_folder: copies of the data files, the clients patched by patch_client.py; then the import of
-  patcap.dll, below). Tibia.cfg is compare_traffic.py's with `Engine = N` (and `FullscreenMode` for the
-  fullscreen runs).
+- Run folders `build\render\orig`, `build\render\patella` and `build\render\orig-repeat` (the
+  second Tibia.exe run's own since Patella-Modern issue #12; before, it ran in build\render\orig)
+  (compare_traffic.py's set-up through its set_folder: copies of the data files, the clients patched by
+  patch_client.py; then the import of patcap.dll, below). Before every run the folder is emptied but for
+  the data files, the client and patcap.dll (compare_traffic.clean_run_dir: the automap files and
+  error.txt of an earlier run went into the next before #12). Tibia.cfg is compare_traffic.py's with
+  `Engine = N` (and `FullscreenMode` for the fullscreen runs).
 - Per engine and mode: Tibia.exe, Patella.exe, then Tibia.exe again (`orig-repeat`, the evidence that
   what differs between two runs of the same client is masked; `--no-repeat` skips it). About
   26 minutes for all 18 runs (three engines, two modes, three runs each);

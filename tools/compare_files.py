@@ -76,73 +76,60 @@ log = ct.log
 
 # --- run folders -------------------------------------------------------------------------
 
-def folder(client):
-	return ct.run_dir(client)
+# A run is named after its run folder: "orig", "patella", and "orig-repeat", the second run of
+# Tibia.exe (--repeat), which has a folder of its own (issue #12).
+REPEAT_RUN = "orig-repeat"
 
 
-def client_exe(client):
-	return CLIENTS[client]["exe"]
+def folder(run):
+	return ct.run_dir(run)
+
+
+def client_exe(run):
+	return CLIENTS[ct.client_of(run)]["exe"]
 
 
 def sha(data):
 	return hashlib.sha256(data).hexdigest()
 
 
-def snapshot(client):
-	"""{name: sha256} of the files in the client's folder, without the client itself."""
+def snapshot(run):
+	"""{name: sha256} of the files in the run's folder, without the client itself."""
 	out = {}
-	path = folder(client)
+	path = folder(run)
 	for name in sorted(os.listdir(path)):
 		full = os.path.join(path, name)
-		if os.path.isfile(full) and name != client_exe(client):
+		if os.path.isfile(full) and name != client_exe(run):
 			with open(full, "rb") as f:
 				out[name] = sha(f.read())
 	return out
 
 
-ROOT_DATA = {}
-
-
-def prepare(client, seed=None, cfg=None):
-	"""The folder as every scenario starts: the data files as in the root, the patched client,
-	Tibia.exe (in Patella's folder the patched Tibia.exe, the input of the Tibia.exe patch),
-	Tibia.cfg (compare_traffic's), the files in seed ({name: bytes}), nothing else."""
-	path = folder(client)
-	keep = set(DATA_FILES) | {client_exe(client), "Tibia.exe", "Tibia.cfg"}
-	for name in os.listdir(path):
-		full = os.path.join(path, name)
-		if os.path.isfile(full) and name not in keep:
-			os.remove(full)
-	for data in DATA_FILES:
-		source = os.path.join(ROOT, data)
-		if data not in ROOT_DATA:
-			with open(source, "rb") as f:
-				ROOT_DATA[data] = sha(f.read())
-		target = os.path.join(path, data)
-		current = None
-		if os.path.isfile(target):
-			with open(target, "rb") as f:
-				current = sha(f.read())
-		if current != ROOT_DATA[data]:
-			shutil.copyfile(source, target)
-	if client == "patella":
+def prepare(run, seed=None, cfg=None):
+	"""The folder as every scenario starts (compare_traffic.clean_run_dir: emptied, the data files as
+	in the root, the patched client), then Tibia.exe (in Patella's folder the patched Tibia.exe, the
+	input of the Tibia.exe patch), Tibia.cfg (compare_traffic's), the files in seed ({name: bytes}),
+	nothing else."""
+	path = folder(run)
+	ct.clean_run_dir(run)
+	if ct.client_of(run) == "patella":
 		shutil.copyfile(os.path.join(folder("orig"), "Tibia.exe"), os.path.join(path, "Tibia.exe"))
 	with open(os.path.join(path, "Tibia.cfg"), "w", encoding="ascii", newline="\r\n") as f:
 		f.write(cfg or ct.TIBIA_CFG)
 	for name, data in (seed or {}).items():
 		with open(os.path.join(path, name), "wb") as f:
 			f.write(data)
-	return snapshot(client)
+	return snapshot(run)
 
 
-def collect(client, before, target):
+def collect(run, before, target):
 	"""The files the run created or changed (copied to target) and the ones it deleted."""
-	after = snapshot(client)
+	after = snapshot(run)
 	os.makedirs(target, exist_ok=True)
 	written = {}
 	for name, digest in after.items():
 		if before.get(name) != digest:
-			with open(os.path.join(folder(client), name), "rb") as f:
+			with open(os.path.join(folder(run), name), "rb") as f:
 				written[name] = f.read()
 			with open(os.path.join(target, name), "wb") as f:
 				f.write(written[name])
@@ -152,9 +139,9 @@ def collect(client, before, target):
 
 # --- the client --------------------------------------------------------------------------
 
-def start(client, arguments=()):
-	info = CLIENTS[client]
-	driver = sc.Driver(folder(client), info["exe"], info["pdb"])
+def start(run, arguments=()):
+	info = CLIENTS[ct.client_of(run)]
+	driver = sc.Driver(folder(run), info["exe"], info["pdb"])
 	driver.start(arguments)
 	return driver
 
@@ -232,14 +219,8 @@ def close_error_box(driver, timeout=60):
 def game_login(driver, wait, proxy):
 	"""sc.login (start screen to the game); its check of the client's TCP table for the game
 	connection missed an established connection twice (the proxy had accepted it), so the proxy's
-	own events count as well."""
-	try:
-		sc.login(driver, wait, sc.CHARACTER)
-	except sc.SessionError as e:
-		if "no game connection" not in str(e) or not any(x["kind"] == "game" and "fields_end" in x
-				for x in proxy.events):
-			raise
-		log("login: the TCP table shows no game connection, the proxy has one")
+	own events count as well (sc.login's proxy, issue #12)."""
+	sc.login(driver, wait, sc.CHARACTER, proxy)
 
 
 def nodes(driver, cls):
@@ -247,13 +228,40 @@ def nodes(driver, cls):
 
 
 def wait_node(driver, cls, timeout=10):
+	"""The first window of class cls, once it is there and its place has stopped changing (a dialog
+	appears in the tree before it is moved to its place: a click on one of its buttons at the first
+	place read can miss)."""
 	deadline = time.time() + timeout
 	while time.time() < deadline:
 		found = nodes(driver, cls)
 		if found:
-			return found[0]
+			node = found[0]
+			while time.time() < deadline:
+				time.sleep(0.2)
+				again = [n for n in nodes(driver, cls) if n["ptr"] == node["ptr"]]
+				if not again:
+					break
+				if (again[0]["x"], again[0]["y"], again[0]["w"], again[0]["h"]) == (node["x"], node["y"], node["w"], node["h"]):
+					return again[0]
+				node = again[0]
+			continue
 		time.sleep(0.2)
 	raise RunError("no window of class %s after %d s" % (cls, timeout))
+
+
+def click_open(driver, find, cls, wait=4, attempts=3):
+	"""Clicks the button find() returns (read again before every click) until a window of class cls
+	is open: a click that opened nothing (issue #12: no TAdvancedGraphicsDialog within 10 s in a
+	first attempt) is repeated, at most `attempts` times, each after `wait` seconds without the
+	window."""
+	for attempt in range(1, attempts + 1):
+		click_node(driver, find())
+		try:
+			return wait_node(driver, cls, wait)
+		except RunError:
+			if attempt == attempts:
+				raise RunError("no window of class %s after %d clicks, %g s each" % (cls, attempts, wait))
+			log("no %s after the click: once more" % cls)
 
 
 def wait_gone(driver, cls, timeout=10):
@@ -306,12 +314,10 @@ def toggle(driver, box):
 def options_session(driver, collect_cfg):
 	"""The start window's Options and every option dialog; collect_cfg(name) keeps Tibia.cfg."""
 	def open_options():
-		click_node(driver, button(driver, "Options"))
-		return wait_node(driver, "TOptionsDialog")
+		return click_open(driver, lambda: button(driver, "Options"), "TOptionsDialog")
 
 	def choose(text, cls):
-		click_node(driver, button(driver, text))
-		return wait_node(driver, cls)
+		return click_open(driver, lambda: button(driver, text), cls)
 
 	def ok(cls):
 		driver.char(13)
@@ -340,8 +346,7 @@ def options_session(driver, collect_cfg):
 	choose("Graphics", "TGraphicsOptionsDialog")
 	driver.key(VK_DOWN)  # the next fullscreen resolution
 	time.sleep(0.3)
-	click_node(driver, button(driver, "Advanced"))
-	body = wait_node(driver, "TAdvancedGraphicsDialog")
+	body = click_open(driver, lambda: button(driver, "Advanced"), "TAdvancedGraphicsDialog")
 	for name in ("LightEffects", "NoStretching", "WindowsMousepointer"):
 		toggle(driver, member(driver, body["ptr"], "TAdvancedGraphicsDialog." + name))
 	scroll = member(driver, body["ptr"], "TAdvancedGraphicsDialog.Framerate")  # three clicks on its left button
@@ -379,20 +384,20 @@ def options_session(driver, collect_cfg):
 OPTIONS_ENGINE_SWITCH = True  # the advanced options' OpenGL button: a live engine switch
 
 
-def run_options(client, out):
-	before = prepare(client)
-	driver = start(client)
-	target = os.path.join(out, "options", client)
+def run_options(run, out):
+	before = prepare(run)
+	driver = start(run)
+	target = os.path.join(out, "options", ct.client_of(run))
 	os.makedirs(target, exist_ok=True)
 	try:
 		def keep(name):
-			shutil.copyfile(os.path.join(folder(client), "Tibia.cfg"), os.path.join(target, "%s.Tibia.cfg" % name))
+			shutil.copyfile(os.path.join(folder(run), "Tibia.cfg"), os.path.join(target, "%s.Tibia.cfg" % name))
 
 		options_session(driver, keep)
 		close(driver)
 	finally:
 		driver.kill()
-	return collect(client, before, target)
+	return collect(run, before, target)
 
 
 # --- scenario: walk ----------------------------------------------------------------------
@@ -596,34 +601,34 @@ def walk_keys(events):
 		if e["kind"] == "game" and e["dir"] == "c2s" and e["plain"][:2] in directions]
 
 
-def replay(client, source_events, out_prefix, session, seed=None):
+def replay(run, source_events, out_prefix, session, seed=None):
 	"""Runs session(driver, wait, proxy) against a replay of source_events. Returns (collected files,
 	the replay's events, proxy problems)."""
-	before = prepare(client, seed=seed)
+	before = prepare(run, seed=seed)
 	os.makedirs(os.path.dirname(out_prefix), exist_ok=True)
 	proxy = px.Proxy(out_prefix + ".jsonl", px.load_private_key(ct.PEM), replay=source_events, log=log)
 	driver = None
 	extra = {}
 	try:
 		with proxy:
-			driver = start(client)
+			driver = start(run)
 			extra = session(driver, lambda name: proxy.wait_idle(0.5, 60), proxy) or {}
 	finally:
 		if driver is not None:
 			driver.kill()
-	result = collect(client, before, out_prefix)
+	result = collect(run, before, out_prefix)
 	result.update(extra)
 	result["events"] = proxy.events
 	result["problems"] = proxy.mismatches + proxy.errors
 	return result
 
 
-def run_walk(client, out, recording, keys):
+def run_walk(run, out, recording, keys):
 	def session(driver, wait, proxy):
 		walk_session(driver, wait, proxy, keys)
 		close(driver)
 
-	return replay(client, recording, os.path.join(out, "walk", client), session)
+	return replay(run, recording, os.path.join(out, "walk", ct.client_of(run)), session)
 
 
 # --- crafted replays ---------------------------------------------------------------------
@@ -749,7 +754,7 @@ EARLIER_REPORT = (
 	"----------------------------------------------------------------").encode("ascii")
 
 
-def run_error(client, out, events, name="error"):
+def run_error(run, out, events, name="error"):
 	"""name "error": the crash in the game, no error.txt before; "error-login": the crash at the
 	login, with an earlier report in error.txt. That report opens the error report dialog at the
 	start (Player.cpp InitInstance, message 0x2a): Send keeps the file (the client would send the
@@ -769,10 +774,10 @@ def run_error(client, out, events, name="error"):
 		caption, text, code = close_error_box(driver)
 		return {"box": [caption, text], "exit": code}
 
-	return replay(client, crafted, os.path.join(out, name, client), session, seed=seed)
+	return replay(run, crafted, os.path.join(out, name, ct.client_of(run)), session, seed=seed)
 
 
-def run_report(client, out, events, error_txt):
+def run_report(run, out, events, error_txt):
 	def session(driver, wait, proxy):
 		wait_node(driver, "TErrorReportDialog")
 		driver.type(REPORT_COMMENT)
@@ -780,7 +785,7 @@ def run_report(client, out, events, error_txt):
 		wait_gone(driver, "TErrorReportDialog")
 		game_login(driver, wait, proxy)
 		deadline = time.time() + 20
-		while os.path.isfile(os.path.join(folder(client), "error.txt")) and time.time() < deadline:
+		while os.path.isfile(os.path.join(folder(run), "error.txt")) and time.time() < deadline:
 			time.sleep(0.2)
 		time.sleep(1)
 		sc.logout(driver)
@@ -788,7 +793,7 @@ def run_report(client, out, events, error_txt):
 		close(driver)
 		return {}
 
-	return replay(client, craft_report(events, error_txt), os.path.join(out, "report", client), session,
+	return replay(run, craft_report(events, error_txt), os.path.join(out, "report", ct.client_of(run)), session,
 		seed={"error.txt": error_txt})
 
 
@@ -908,7 +913,7 @@ def logins_done(proxy, count, timeout):
 	return False
 
 
-def run_patch(client, out, events, name="patch"):
+def run_patch(run, out, events, name="patch"):
 	if name == "patch":
 		crafted, expected = craft_patch(events)
 		connections = 4
@@ -939,7 +944,7 @@ def run_patch(client, out, events, name="patch"):
 			driver.mem = None
 		return {"exit": code}
 
-	result = replay(client, crafted, os.path.join(out, name, client), session)
+	result = replay(run, crafted, os.path.join(out, name, ct.client_of(run)), session)
 	result["expected"] = expected
 	return result
 
@@ -1066,7 +1071,7 @@ def main():
 			raise RunError("unknown scenario %s" % name)
 	ct.set_folder(FILES)
 	os.makedirs(FILES, exist_ok=True)
-	ct.setup()
+	ct.setup(extra=[REPEAT_RUN])
 	report = []
 	failed = False
 
@@ -1084,32 +1089,31 @@ def main():
 	results = {}
 	errors = {}
 	for name in only:
-		runs = ["orig", "patella"] + (["orig-2"] if name in REPEATED and not args.no_repeat else [])
+		runs = ["orig", "patella"] + ([REPEAT_RUN] if name in REPEATED and not args.no_repeat else [])
 		results[name] = {}
 		for run in runs:
-			client = run.split("-")[0]
 			log("=== %s: %s" % (name, run))
 			try:
-				target = os.path.join(out, "repeat") if run == "orig-2" else out  # <target>\<scenario>\<client>
+				target = os.path.join(out, "repeat") if run == REPEAT_RUN else out  # <target>\<scenario>\<client>
 				if name == "options":
-					result = run_options(client, target)
+					result = run_options(run, target)
 				elif name == "walk":
-					result = run_walk(client, target, events, keys)
+					result = run_walk(run, target, events, keys)
 				elif name in ("error", "error-login"):
-					result = run_error(client, target, events, name)
+					result = run_error(run, target, events, name)
 				elif name == "report":
 					path = os.path.join(out, "error", "orig", "error.txt")
 					if not os.path.isfile(path):
 						raise RunError("report needs Tibia.exe's error.txt of the scenario error (%s)" % path)
 					with open(path, "rb") as f:
-						result = run_report(client, target, events, f.read())
+						result = run_report(run, target, events, f.read())
 				else:
-					result = run_patch(client, target, events, name)
+					result = run_patch(run, target, events, name)
 				results[name][run] = result
 			except Exception as e:  # noqa: BLE001 - one failed run must not stop the others
 				traceback.print_exc()
 				errors.setdefault(name, []).append("%s: %s" % (run, e))
-				for leftover in ("orig", "patella"):
+				for leftover in ("orig", "patella", REPEAT_RUN):
 					kill_client(leftover)
 
 	say("Written files comparison, %s" % time.strftime("%Y-%m-%d %H:%M"))
@@ -1123,7 +1127,7 @@ def main():
 			failed = True
 			continue
 		r = results[name]
-		failed |= compare_files(say, name, r, r.get("orig-2"))
+		failed |= compare_files(say, name, r, r.get(REPEAT_RUN))
 		for key in ("exit", "box"):
 			if key in r["orig"] or key in r["patella"]:
 				same = r["orig"].get(key) == r["patella"].get(key)
@@ -1146,9 +1150,9 @@ def main():
 	return 1 if failed else 0
 
 
-def kill_client(client):
+def kill_client(run):
 	"""Ends a client of ours left running after a failed run: only the exe in its run folder."""
-	path = os.path.join(folder(client), client_exe(client)).lower()
+	path = os.path.join(folder(run), client_exe(run)).lower()
 	result = subprocess.run(["powershell", "-NoProfile", "-Command",
 		"Get-Process | Where-Object { $_.Path -and $_.Path.ToLower() -eq '%s' } | Stop-Process -Force" % path.replace("'", "''")],
 		capture_output=True, text=True)

@@ -53,6 +53,9 @@ class SessionError(Exception):
 	pass
 
 
+NODE_TIMEOUT = 5.0  # seconds Driver.node reads the window tree again before a window counts as missing
+
+
 def key_lparam(vk, up):
 	scan = SCAN.get(vk, 0)
 	value = 1 | ((scan & 0xff) << 16)
@@ -167,11 +170,19 @@ class Driver:
 
 	# places, from the client's memory
 
-	def node(self, cls, index=0):
-		nodes = [n for n in self.mem.gui() if n["class"] == cls]
-		if len(nodes) <= index:
-			raise SessionError("no window of class %s (#%d)" % (cls, index))
-		return nodes[index]
+	def node(self, cls, index=0, timeout=NODE_TIMEOUT):
+		"""The index-th window of class cls. The tree is read from the running client without any
+		lock, so one read can miss a window that is there (a traffic run found no TMapWindow after
+		"say", issue #12): it is read again for up to timeout seconds before the window counts as
+		missing."""
+		deadline = time.time() + timeout
+		while True:
+			nodes = [n for n in self.mem.gui() if n["class"] == cls]
+			if len(nodes) > index:
+				return nodes[index]
+			if time.time() >= deadline:
+				raise SessionError("no window of class %s (#%d) within %.0f s" % (cls, index, timeout))
+			time.sleep(0.2)
 
 	def node_by_ptr(self, ptr):
 		for n in self.mem.gui():
@@ -252,9 +263,18 @@ CHARACTER = "Patella Tester"
 TRADE_PARTNER = "Patella Second"
 
 
-def login(driver, wait, character):
+def game_connections(proxy):
+	"""The number of game connections whose first packet the proxy has seen."""
+	return sum(1 for e in list(proxy.events) if e["kind"] == "game" and "fields_end" in e)
+
+
+def login(driver, wait, character, proxy=None):
 	"""Start screen to the game: Enter Game, account, password, the character named `character`
-	in the list (Down until it is highlighted: the list comes in the server's order)."""
+	in the list (Down until it is highlighted: the list comes in the server's order). The game
+	connection counts as made when the client's TCP table shows it established or, with a proxy,
+	when the proxy got the client's game login packet: the TCP table check alone missed a connection
+	the proxy had (issue #21; the replay into x86 Patella of issue #12's first attempts, where the
+	connection "dropped" when the client was killed after that check)."""
 	_, _, width, height = lc.client_offset(driver.hwnd)
 	driver.click(113, height - 220)
 	time.sleep(1.5)
@@ -270,9 +290,19 @@ def login(driver, wait, character):
 		raise SessionError("%s is not in the character list %s" % (character, names))
 	for _ in range(names.index(character)):
 		driver.key(VK_DOWN)
+	before = game_connections(proxy) if proxy is not None else 0
 	driver.char(13)
-	if not driver.wait_connected(driver.game_port, True, 10):
-		raise SessionError("no game connection (port %d)" % driver.game_port)
+	deadline = time.time() + 10
+	while time.time() < deadline:
+		if driver.connected(driver.game_port):
+			return
+		if proxy is not None and game_connections(proxy) > before:
+			driver.log("login: the proxy has the game connection (the TCP table shows %s)"
+				% lc.tcp_connections(driver.proc.pid))
+			return
+		time.sleep(0.2)
+	raise SessionError("no game connection (port %d) within 10 s; the client's TCP connections: %s"
+		% (driver.game_port, lc.tcp_connections(driver.proc.pid)))
 
 
 def logout(driver):
@@ -285,10 +315,11 @@ class StopSession(Exception):
 	pass
 
 
-def run_session(driver, wait, checkpoint, until=None, with_login=True):
+def run_session(driver, wait, checkpoint, until=None, with_login=True, proxy=None):
 	"""The scripted session. wait(name): until the server side is quiet; checkpoint(name): record
 	the client state. Returns the list of step names. until: stop before this step (testing).
-	with_login False: the caller has logged in already (tools/compare_rendering.py, issue #20)."""
+	with_login False: the caller has logged in already (tools/compare_rendering.py, issue #20).
+	proxy: the proxy the client goes through (login's check of the game connection)."""
 	steps = []
 
 	def step(name, action, snapshot=True):
@@ -302,7 +333,7 @@ def run_session(driver, wait, checkpoint, until=None, with_login=True):
 			checkpoint(name)
 
 	if with_login:
-		step("login", lambda: login(driver, wait, CHARACTER))
+		step("login", lambda: login(driver, wait, CHARACTER, proxy))
 	for name, vk in (("walk north", VK_UP), ("walk east", VK_RIGHT), ("walk south", VK_DOWN), ("walk west", VK_LEFT)):
 		step(name, lambda vk=vk: (driver.key(vk), time.sleep(1.0)))
 	step("turn south", lambda: driver.key(VK_DOWN, VK_CONTROL))

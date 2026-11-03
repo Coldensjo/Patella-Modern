@@ -42,10 +42,12 @@ else runs against tools/proxy.py's replay, without a server. About 18 minutes fo
 when nothing differs. `--skip-live` reuses `--out`'s walk-live.jsonl (no server); `--no-repeat` skips the
 second run of Tibia.exe that shows what the masks hide.
 
-The run folders are build\files\orig and build\files\patella (compare_traffic.py's set-up, via its new
-set_folder: copies of the data files and the patched clients). Before each run the folder is reset: the
-data files as in the root, compare_traffic.py's Tibia.cfg, nothing else but the client (and in Patella's
-folder a copy of the patched Tibia.exe, the input of the Tibia.exe patch). Results in `--out`:
+The run folders are build\files\orig, build\files\patella and build\files\orig-repeat, the second
+Tibia.exe run's own (Patella-Modern issue #12; before, it ran in build\files\orig) (compare_traffic.py's
+set-up, via its set_folder: copies of the data files and the patched clients). Before each run the folder
+is emptied (compare_traffic.clean_run_dir, files and subfolders), then: the data files as in the root,
+compare_traffic.py's Tibia.cfg, nothing else but the client (and in Patella's folder a copy of the patched
+Tibia.exe, the input of the Tibia.exe patch). Results in `--out`:
 `<scenario>\<client>\` (the files the run wrote), `<scenario>\<client>.jsonl` (the replay's packets),
 `repeat\<scenario>\orig\` (the second Tibia.exe run), walk-live.jsonl and walk-live\orig\ (the live
 recording and its files) and report.txt.

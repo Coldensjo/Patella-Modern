@@ -25,7 +25,11 @@ What it leaves in `--out`: `<client>-live.jsonl` (the recordings), `<client>-rep
 `*.states.json` (the client state and window tree after every step), `*.Tibia.cfg` (as each client wrote
 it on exit) and `report.txt`. The run folders are build\traffic\orig, build\traffic\patella and
 build\traffic\helper (copies of the data files and the patched clients, made by the script from the root's
-Tibia.exe and the Patella.exe under test).
+Tibia.exe and the Patella.exe under test). Before every run (live, replay, the helper's) the folder is
+emptied (Patella-Modern issue #12, compare_traffic.clean_run_dir): everything but the data files and the
+patched client goes, files and folders (the automap's `*.map` files, error.txt, Tibia.cfg, channel files),
+and a data file that differs from the root's is copied again; then Tibia.cfg is written. Before #12 the
+automap files of one run stayed for the next, so a later run read the automap an earlier one wrote.
 
 ## The pieces
 

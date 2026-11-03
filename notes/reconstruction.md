@@ -211,6 +211,10 @@ replayed with each engine (DirectX 5, DirectX 9, OpenGL), windowed and fullscree
 engine's own surfaces by a DLL the run folders' copies import (tools/capture/patcap.c, no display needed),
 with time made virtual so both clients draw the same moment: notes/rendering.md.
 
+Every GUI comparison (traffic, files, rendering, network) empties its run folders before each run, down to the
+data files and the patched client, and a second Tibia.exe run (orig-repeat) has a folder of its own
+(Patella-Modern issue #12; notes/decisions.md "Clean run folders for the GUI comparisons (issue #12)").
+
 ## Checking
 
 - Code style (issue #8): `.clang-format` describes the style of src/ (tabs of four columns, function bodies
