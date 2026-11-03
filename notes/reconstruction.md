@@ -95,6 +95,15 @@ python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86-debu
 python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R vlongtest    # preset's environment
 ```
 
+No warnings on any preset (plan section 4.1): the product presets build with /WX or -Werror, and the oracle,
+which keeps the former Patella.vcxproj's /WX-, is failed by `tools/build.py` instead (issue #17). It passes
+cmake's output through and scans it, up to the test step, for compiler, resource compiler, assembler and linker
+warnings (MSVC's `warning C4101`, `warning LNK4075`, `warning RC4005`, `warning A4018`, `Command line warning
+D9025`; GCC's and Clang's `file:line:col: warning:`); after a run that warned it lists them again (`build.py: 1
+warning in the build ...`) and exits 1, even when cmake succeeded. That holds for every workflow and for `--env
+<preset> cmake ...`. Ninja compiles only what changed, so an up-to-date build shows no warnings; `--fresh`
+checks every file. Plain `cmake --workflow` from a developer prompt does not check.
+
 From a developer prompt for the right architecture (`vcvarsall.bat x86` or `x64`) the plain CMake commands do
 the same: `cmake --workflow --preset <name>`, or step by step `cmake --preset oracle-x86`, `cmake --build
 --preset oracle-x86` (oracle-x86-debug: Debug), `ctest --preset oracle-x86`. Everything needs Visual Studio
@@ -217,7 +226,7 @@ with time made virtual so both clients draw the same moment: notes/rendering.md.
   M5); with `--fix` it reverts, character by character, every fix clang-tidy made inside such an argument,
   in the file and in the headers it changed (plan 4.2). Never run `clang-tidy --fix` directly.
 - Compile checks: the oracle-x86 build compiles every `src/*.cpp` and `src/Extern/regexp/*.c` with MSVC 14.51
-  for x86 (`/W3`, no warnings expected) twice: against real MFC (the Patella target) and against
+  for x86 (`/W3`; a warning fails `tools/build.py`, "Building" above) twice: against real MFC (the Patella target) and against
   `src/compat/mfc_shim.h` (the mfc_shim_check target, the former `compile-check.cmd` with `TIBIA_MFC_SHIM`
   set; the difftest always uses the shim). One file alone: `python -I tools/build.py --env oracle-x86 cmake
   --build --preset oracle-x86 --target CMakeFiles/mfc_shim_check.dir/Release/src/<File>.cpp.obj` (or

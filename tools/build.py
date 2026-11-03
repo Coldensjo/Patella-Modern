@@ -19,11 +19,22 @@ newest Visual Studio with the C++ tools) and runs CMake in the environment it se
 already a developer prompt for that architecture is used as it is. The other presets (mingw-w64 GCC,
 later Linux) run CMake in the shell's own environment.
 
-Exit code: the command's.
+Warnings (issue #17): every cmake run (the first form, and the second when the command is cmake) is
+checked for compiler, resource compiler, assembler and linker warnings (MSVC's "warning C4101",
+"warning LNK4075", "warning RC4005", "warning A4018", "Command line warning D9025" ...; GCC's and Clang's
+"file:line:col: warning:"). The output is passed through unchanged; the scan stops where the test step
+begins, so the tests' output is not scanned. A warning makes the script exit 1 after the command ends
+(when the command itself succeeded), with the warnings listed again. The product presets build with
+/WX or -Werror already; this is what makes a warning fail oracle-x86, which keeps the former
+Patella.vcxproj's /WX- until M6 (plan section 4.1: no warnings on any preset). Ninja recompiles only
+what changed, so a build that is up to date shows no warnings: --fresh checks every file.
+
+Exit code: the command's, or 1 when it succeeded but warned.
 """
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -33,6 +44,14 @@ PRESETS = os.path.join(ROOT, "CMakePresets.json")
 VCVARSALL = r"VC\Auxiliary\Build\vcvarsall.bat"
 # where the .cmd scripts found it before issue #10; vswhere's answer comes first
 DEFAULT_VS = r"C:\Program Files\Microsoft Visual Studio\18\Community"
+
+
+# A warning of a tool of the build: MSVC's cl, link, lib, rc, cvtres and ml print "warning <code>" with a
+# letter prefix and four or five digits (cl's command line warnings "Command line warning D9025");
+# GCC and Clang "<file>:<line>[:<column>]: warning:".
+WARNING = re.compile(r"\bwarning\s+[A-Z]{1,3}\d{4,5}\b|:\d+(?::\d+)?: warning: ")
+# cmake --workflow's line before the test step; ctest's output after it is not the build's.
+TEST_STEP = re.compile(r"^Executing workflow step \d+ of \d+: test preset ")
 
 
 class BuildError(Exception):
@@ -166,12 +185,49 @@ def environment(name):
 	return developer_environment(argument)
 
 
-def run(command, env):
+def run(command, env, check_warnings=False):
 	executable = shutil.which(command[0], path=env.get("PATH") or env.get("Path"))
 	if executable is None:
 		raise BuildError("%s not found on PATH" % command[0])
 	print("build.py: %s" % subprocess.list2cmdline(command), flush=True)
-	return subprocess.call([executable] + command[1:], env=env, cwd=ROOT)
+	if not check_warnings:
+		return subprocess.call([executable] + command[1:], env=env, cwd=ROOT)
+	return run_checked([executable] + command[1:], env)
+
+
+def run_checked(command, env):
+	"""Runs the command with its output passed through byte for byte and scanned for warnings (up to
+	the test step); exit 1 when the command succeeded but warned."""
+	sys.stdout.flush()
+	out = sys.stdout.buffer
+	warnings = []
+	scanning = True
+	process = subprocess.Popen(command, env=env, cwd=ROOT, stdout=subprocess.PIPE,
+		stderr=subprocess.STDOUT)
+	try:
+		for raw in process.stdout:
+			out.write(raw)
+			out.flush()
+			if not scanning:
+				continue
+			# the tools write the console's code page; ASCII is all the patterns need
+			line = raw.decode("latin-1").rstrip("\r\n")
+			if TEST_STEP.match(line):
+				scanning = False
+			elif WARNING.search(line):
+				warnings.append(line)
+	finally:
+		process.stdout.close()
+		code = process.wait()
+	if warnings:
+		print("build.py: %d warning%s in the build (any compiler or linker warning fails the build; "
+			"issue #17):" % (len(warnings), "" if len(warnings) == 1 else "s"), file=sys.stderr)
+		for line in warnings:
+			print("build.py:   %s" % line, file=sys.stderr)
+		sys.stderr.flush()
+		if code == 0:
+			return 1
+	return code
 
 
 def main(argv):
@@ -186,11 +242,13 @@ def main(argv):
 		if len(argv) < 3:
 			print("build.py: --env <preset> <command> [arguments ...]", file=sys.stderr)
 			return 2
-		return run(argv[2:], environment(argv[1]))
+		command = argv[2:]
+		is_cmake = os.path.splitext(os.path.basename(command[0]))[0].lower() == "cmake"
+		return run(command, environment(argv[1]), check_warnings=is_cmake)
 	name = argv[0]
 	if name not in [p["name"] for p in load_presets().get("workflowPresets", [])]:
 		raise BuildError("no workflow preset %r (python -I tools/build.py --list)" % name)
-	return run(["cmake", "--workflow", "--preset", name] + argv[1:], environment(name))
+	return run(["cmake", "--workflow", "--preset", name] + argv[1:], environment(name), check_warnings=True)
 
 
 if __name__ == "__main__":

@@ -5165,7 +5165,7 @@ Deleted: `Patella.sln`, `Patella.vcxproj`, `tools\build-patella.cmd`, `tools\com
     identical), compare_imports.py's output is unchanged.
     Not carried over: MSBuild's -warnAsError, which made a warning fail the script. The oracle keeps the
     vcxproj's /WX- (the preset keeps its flags until M6), so a warning in the oracle build shows in the log but
-    does not stop it; the gates count warnings in the log (0).
+    does not stop it; the gates count warnings in the log (0). Issue #17 makes tools/build.py fail on them (below).
   - compile-check.cmd: with real MFC its compile is a subset of the Patella target's (the same sources, the same
     standard, warning level and conformance switches); the shim mode (TIBIA_MFC_SHIM, the check for machines
     without the MFC component, used as a gate up to #37) is the new OBJECT target mfc_shim_check with the script's
@@ -5204,3 +5204,36 @@ Deleted: `Patella.sln`, `Patella.vcxproj`, `tools\build-patella.cmd`, `tools\com
   warnings, 8/8 tests each (on GCC the stand-in-only precondition scenario of tests_unit is skipped, as since #9).
   The server started and stopped twice with testserver.py (both ports listening, a clean "Server shut down
   successfully.", ports free and no process afterwards). Logs: build\logs\issue-10.
+
+## Warnings fail the oracle build (issue #17)
+
+Settled by Claude Opus 5.5, November 3, 2026 (CMake 4.1.2, Ninja 1.13.2, MSVC 14.51, Python 3.13). `tools/build.py`;
+comments in `src/compat/mfc_shim.h` and `src/res/Patella.rc`.
+
+- **Where the check is** (form). The oracle keeps the former Patella.vcxproj's /WX- until M6, so the failure cannot
+  come from a compiler flag. `tools/build.py`, the Windows entry point since #10, runs cmake with its output
+  piped, writes every byte through unchanged and scans each line, up to cmake --workflow's "Executing workflow
+  step N of M: test preset" line, for `warning <letters><4-5 digits>` (cl's C and D, link's LNK, rc's RC, ml's A,
+  cvtres's CVT, lib's LNK) and GCC's and Clang's `<file>:<line>[:<col>]: warning: `. After the command ends it lists
+  the warnings again on stderr and exits 1 when the command itself succeeded (otherwise the command's exit code).
+  Every workflow preset and `--env <preset> cmake ...` are checked; the product presets fail earlier already
+  (/WX, -Werror), so for them it changes nothing. The tests' output is not scanned: test programs print what
+  they like. Considered: a CTest test that reads the build log (Ninja keeps no log of the compilers' output; the
+  test would need the build to write one), a compiler launcher (CMAKE_<LANG>_COMPILER_LAUNCHER and
+  _LINKER_LAUNCHER: a Python process per compile and link, and the launcher would be part of every command line
+  of the oracle), MSBuild-style `/WX` on the link only (changes the oracle's linker flags). Limits: Ninja
+  rebuilds only what changed, so an up-to-date tree reports nothing (`--fresh` checks every file, as the gates
+  do), and plain `cmake --workflow` from a developer prompt does not check (as before). With its output piped,
+  Ninja prints each `[n/N]` line instead of updating one line in a console.
+- **Comments** (form). mfc_shim.h named tools\compile-check.cmd (and its rule "afxwin.h missing or TIBIA_MFC_SHIM
+  set", which no build has any more) and Patella.vcxproj; it now names the mfc_shim_check target and the Patella
+  target, in the same six lines. Patella.rc named tools/build-resources.cmd; it now says CMake extracts the
+  pictures into build/<preset>/res and compiles with it, in the same one line. No other file of src/ names a
+  removed script (the cmake/ comments call them "former").
+- **Gates** (high). `python -I tools/build.py oracle-x86` with an unused local variable appended to MainFrm.cpp
+  (C4101 three times: Patella, mfc_shim_check and difftest, whose mainfrmtest.cpp includes MainFrm.cpp; reverted):
+  exit 1 with the three warnings listed, after the tests ran and passed; on the reverted tree exit 0. `python -I tools/build.py oracle-x86 --fresh`: 0 warnings, 4/4
+  tests, 16,848,752 / 67 / 1,134,513 / 3,201 checks, 0 failures, resources 0 differences. windows-x64 and
+  windows-x64-gcc: 0 warnings, the tests pass. Patella.exe (Release) against main's (build\issue-10\main-oracle):
+  .text, .data, .fptable, .rsrc and .reloc identical, .rdata and the headers differ only in the link timestamps
+  and one byte of the PDB GUID. Logs: build\logs\issue-17.

@@ -1,9 +1,9 @@
 // Minimal stand-in for the MFC declarations the reconstruction uses, for
-// compile checks on machines without MFC (tools\compile-check.cmd defines
-// TIBIA_MFC_SHIM when afxwin.h is missing or the environment variable
-// TIBIA_MFC_SHIM is set) and for the difftest. Declarations only: it is not
-// linkable and does not reproduce MFC's layout beyond m_hSocket. Patella.exe
-// builds with real MFC (Patella.vcxproj).
+// compile checks without MFC (the mfc_shim_check target of the oracle-x86
+// preset, cmake/OracleX86.cmake, compiles every source with TIBIA_MFC_SHIM
+// defined) and for the difftest. Declarations only: it is not linkable and
+// does not reproduce MFC's layout beyond m_hSocket. Patella.exe builds with
+// real MFC (the Patella target).
 
 #pragma once
 
