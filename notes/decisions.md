@@ -6516,3 +6516,68 @@ through says `[[fallthrough]]`, and no unused parameter is hidden by a cast to v
   Patella.exe and PatellaTest.exe differ from main 2ee58c9's, and from each commit's predecessor, only in the link
   time stamps and the PDB record (pecompare: `.text` and `.data` identical after each of the three commits).
   macrocheck 2ee58c9 against each commit: the 2,108 calls unchanged.
+
+## Constant #defines to constexpr (Patella-Modern issue #36)
+
+Settled by Claude Opus 5.5, November 3, 2026. The sixth change of M3 (plan section 7), by hand, one commit: no
+constant `#define` is left in src/ (outside src/Extern and the resource IDs) except the ones listed below, each
+with the reason it stays a macro.
+
+- **38 constants, by a script on the exact definition lines** (high). Creatures.h's CREATURES, BUDDIES and
+  NOT_AN_OPPONENT; graphics.h's PATH_MAX and HASH_TABLE_SIZE; Help.h's EVENTHELPS; Inventory.h's BODY_POSITIONS,
+  OPEN_CONTAINERS, CONTAINER_OBJECTS and OBJECTS_PER_OFFER; MainFrm.h's KEY_SHIFT, KEY_CONTROL and KEY_ALT;
+  MainWindow.h's TRADE_WINDOW; Map.h's MAPSIZE_X, MAPSIZE_Y, MAPSIZE_Z, OBJECTS_PER_POINT and EFFECTS; Map.cpp's
+  AUTOMAP_BLOCKS; MapWindow.h's MAP_WIDTH and MAP_HEIGHT; Network.h's NUMBEROFSERVER, ERROR_LOGINSERVER_OVERLOADED
+  and ERROR_DISCONNECTED; Objects.h's CREATURE; Preferences.h's HOTKEYS, HOTKEY_LENGTH, BUDDYDESCRIPTION_LENGTH and
+  SKILLS; Script.h's MAX_IDENT_LENGTH and MAX_STRING_LENGTH; Skins.h's LASTSKIN; Status.h's RIGHT_ANY,
+  MESSAGE_NONE, MESSAGE_STARTPATCHER and ACTIONSTATE_NONE; vlong.cpp's BPU. The plan's "79" was a rougher count
+  (it took in configuration macros); these are all the object-like macros of src/ whose body is a value.
+- **The macro's type, kept** (high). Every one but BPU was a decimal or hexadecimal literal that fits in `int`
+  (the largest is NOT_AN_OPPONENT, 0x7fffffff), so its type was `int`; each becomes `inline constexpr int NAME =
+  <the same literal>;` in its header (one entity for the program, no copy per object; C++17, which the oracle's
+  options have) and `constexpr int` in Map.cpp. BPU was `(8 * sizeof(unsigned))`, a `size_t`; it becomes
+  `constexpr auto BPU = 8 * sizeof(unsigned);`, the same expression and so the same type, which vlong.cpp's
+  arithmetic (`n * BPU`, `x %= BPU`) and its lo/hi/lh macros rely on. A literal is one token, so no use depends
+  on the parentheses or the precedence of an expansion; signed/unsigned comparisons (`strlen(FileName)<PATH_MAX`,
+  `Random() % CREATURES`) convert the same `int` as before.
+- **constexpr, not enumerators** (medium). The only defines that look like sets (the KEY_* modifier flags, the two
+  MESSAGE_* bounds, the two ERROR_* codes) are used as plain ints: or-ed into and tested against `int KeyFlags`,
+  passed to `In(int, int, int)`, compared with an int error code. An unscoped enumerator has its enumeration's
+  type, which changes overload resolution, template deduction and what a variadic call sees; `constexpr int`
+  keeps the type exactly, and enum class (issue #37) is a separate step.
+- **The ones inside TASSERT arguments too** (high). 26 of the names appear 128 times in asserted expressions
+  (`In(Container,0,OPEN_CONTAINERS-1)`, `getWidth()<=MAP_WIDTH*32`, `SrcObj.Type!=CREATURE`). The issue had them
+  wait for M5, for fear that the message text would change. It does not: every assertion macro (common.h's
+  TASSERT, TASSERT1, TASSERT2, and the local TASSERTB*, TASSERT*_BUG of Map.cpp, ContentWindows.cpp,
+  Creatures.cpp, graphics.cpp, SurfaceDX.cpp and surfaceDX9.cpp) stringizes its own parameter (`#Expr`), and a
+  parameter preceded by `#` is not macro-expanded before it is stringized; none passes Expr on to another macro
+  that stringizes it. So `"In(Container,0,OPEN_CONTAINERS-1)"` was the message text with the macro and is the
+  same with the constant, and the argument text is unchanged (macrocheck: 2,108 calls, 0 differences). None of
+  the names is used in `#if`, in token pasting or in a string concatenation, and the values pass through
+  `In(int, int, int)` and int comparisons as before. The images prove it: the message strings are in .rdata,
+  and .rdata is identical.
+- **What stays a macro** (high). Read by the preprocessor or by a header's own `#if`/`#ifdef`: common.h's
+  `_CRT_SECURE_NO_WARNINGS`, `_WINSOCK_DEPRECATED_NO_WARNINGS` and PATELLA_ORIGINAL_LAYOUT; compat/cxx26.h's
+  PATELLA_HAS_CONTRACTS and PATELLA_HAS_INPLACE_VECTOR; Surface.cpp's and SurfaceDX.cpp's DIRECT3D_VERSION;
+  SurfaceDX.h's D3D_OVERLOADS; SurfaceGL.cpp's GLH_EXT_SINGLE_FILE; vulkan/DeviceSettings.cpp's
+  WIN32_LEAN_AND_MEAN; vulkan/Renderer.h's VK_NO_PROTOTYPES; vulkan/Vma.cpp's VMA_IMPLEMENTATION,
+  VMA_STATIC_VULKAN_FUNCTIONS and VMA_DYNAMIC_VULKAN_FUNCTIONS. API names: SurfaceGL.cpp's GL_CLAMP_TO_EDGE and
+  WGL_DRAW_TO_PBUFFER_ARB, WGL_SUPPORT_OPENGL_ARB, WGL_DOUBLE_BUFFER_ARB, WGL_ACCELERATION_ARB,
+  WGL_FULL_ACCELERATION_ARB, WGL_COLOR_BITS_ARB and WGL_ALPHA_BITS_ARB stand in for the Khronos glext.h and
+  wglext.h, which define the same names as macros; a variable of that name breaks as soon as such a header is
+  included, and the code is the oracle's only (OpenGL is not in the x64 client), retiring in M6. The resource IDs
+  of src/res/resource.h (the resource compiler reads them). Not constants: the error macros and their local
+  variants, CONTRACT_ASSERT, the MFC shim's message-map macros, TestHooks.h's PATELLA_* hooks and vlong.cpp's
+  lo, hi and lh. Outside src/ (not in the issue): tests/golden/golden.h's GOLDEN_ORACLE (`#if`) and
+  tools/difftest/difftest.cpp's STATUS_HEAP_CORRUPTION (an NTSTATUS, which the SDK spells as a macro).
+- **No new clang-tidy check** (medium). modernize-macro-to-enum would ask for enumerators, which this change
+  chose not to use, and cppcoreguidelines-macro-usage reports every function-like macro (the error macros
+  above all); neither fits as a CI guard. The baseline is unchanged (14).
+- **PATH_MAX on Linux** (medium). POSIX's `<limits.h>` defines PATH_MAX as a macro (4096; mingw-w64's as 260);
+  graphics.cpp is not in patella_core, so no preset that compiles it sees one today. When the client is built on
+  Linux (M8) the name collides, as the macro did (a redefinition); the name is the original's, in two assertion
+  texts, so renaming it waits until those texts may change (M5).
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built from
+  main 93315c1 and from the branch at the same path, differ only in the link time stamps and the PDB record
+  (pecompare: `.text`, `.rdata` and `.data` identical); macrocheck 93315c1 issue-36: 2,108 calls, 0 differences;
+  the difftest counts are unchanged.
