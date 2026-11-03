@@ -43,7 +43,7 @@ public:
 
 	// The value of the first line with Key (ASCII case-insensitive), without the spaces around it;
 	// nothing when no line has it.
-	std::optional<std::string> Get(std::string_view Key) const;
+	[[nodiscard]] std::optional<std::string> Get(std::string_view Key) const;
 
 	// Sets the first line with Key to "Key=Value", or appends that line. False (and nothing changed)
 	// for a key that is empty, has spaces around it, starts with '#' or ';' or holds '=', or a key or
@@ -51,12 +51,12 @@ public:
 	bool Set(std::string_view Key, std::string_view Value);
 
 	// The contents to write: every line as it was read but the ones Set changed or appended.
-	std::string Text() const;
+	[[nodiscard]] std::string Text() const;
 
 	// The lines (1 on) that are neither blank, a comment nor `key=value`: kept, never read.
-	std::vector<int> BadLines() const;
+	[[nodiscard]] std::vector<int> BadLines() const;
 
-	const std::string &Newline() const { return LineEnd; }
+	[[nodiscard]] const std::string &Newline() const { return LineEnd; }
 
 private:
 	struct TLine {
