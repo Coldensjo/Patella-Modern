@@ -75,7 +75,7 @@ static TCreature Creatures[CREATURES];  // 0x5c68b0
 // At 0x5cc418, constructed by the static initialiser 0x559e00 as
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // the end of Creatures.obj's .bss, before Dialogs.obj's NoCallback 0x5cc420.
-static TCallback NoCallback(NULL, 0);
+static TCallback NoCallback(nullptr, 0);
 
 static_assert(sizeof(TCreature) == 0x9c, "TCreature is 0x9c bytes");
 static_assert(sizeof(TBuddyEntry) == 0x2c, "TBuddyEntry is 0x2c bytes");
@@ -125,7 +125,7 @@ bool TCreature::IsMarked()
 void TCreature::SetSkull(int Skull, bool Delay)
 {
 	if (Delay && this->PKFlag != 0 && Skull == 0) {
-		SkullTime = PATELLA_TIME32(NULL);
+		SkullTime = PATELLA_TIME32(nullptr);
 		return;
 	}
 	SkullTime = 0;
@@ -536,7 +536,7 @@ void DoPlayerStep()
 	if (NewPlayerDestination || PlayerHealth == 0)
 		return;
 	TCreature *Player = GetCreature(GetPlayerID());
-	if (Player == NULL)
+	if (Player == nullptr)
 		return;
 	if (PlayerStepDX != 0 || PlayerStepDY != 0) {
 		Player->Moving = true;
@@ -590,7 +590,7 @@ int FindPlayerPath()
 		return 0;
 	if (abs(PlayerStepDY) + abs(PlayerStepDX) > 1) {
 		TCreature *Player = GetCreature(GetPlayerID());
-		if (Player != NULL)
+		if (Player != nullptr)
 			Player->Moving = true;
 		return 0;
 	}
@@ -674,7 +674,7 @@ void StopPlayer()
 	PlayerStepDX = 0;
 	PlayerStepDY = 0;
 	TCreature *Player = GetCreature(GetPlayerID());
-	if (Player != NULL) {
+	if (Player != nullptr) {
 		Player->MoveDirection = Player->Direction;
 		Player->Moving = false;
 		Player->DeltaX = 0;
@@ -690,7 +690,7 @@ bool CancelPlayerWalk(int NewDirection)
 	TBEGIN
 	NumberOfPlayerSteps = 0;
 	TCreature *Player = GetCreature(GetPlayerID());
-	if (Player == NULL) {
+	if (Player == nullptr) {
 		PlayerStepDX = 0;
 		PlayerStepDY = 0;
 	} else {
@@ -743,7 +743,7 @@ TCreature *GetCreature(uint32 CreatureID)
 		if (Creatures[i].CreatureID == CreatureID)
 			return &Creatures[i];
 	}
-	return NULL;
+	return nullptr;
 }
 
 // 0x44c860. Removes the skulls that SetSkull kept. Like AddCreature the
@@ -751,7 +751,7 @@ TCreature *GetCreature(uint32 CreatureID)
 void UpdateSkulls()
 {
 	TBEGIN
-	__time32_t Now = PATELLA_TIME32(NULL);
+	__time32_t Now = PATELLA_TIME32(nullptr);
 	for (int i = 0; i < CREATURES; i++) {
 		TCreature *Creature = &Creatures[i];
 		if (Creature->SkullTime != 0 && (Now < Creature->SkullTime || Now > Creature->SkullTime + 4)) {
@@ -767,7 +767,7 @@ void HideCreature(int CreatureID)
 {
 	TBEGIN
 	TCreature *Creature = GetCreature(CreatureID);
-	if (Creature != NULL)
+	if (Creature != nullptr)
 		Creature->Visible = false;
 	TEND1(517, CreatureID)
 }
@@ -823,7 +823,7 @@ void CheckMonsterHint(TCreature *Creature)
 	if (!Creature->Visible)
 		return;
 	TCreature *Player = GetCreature(GetPlayerID());
-	if (Player != NULL && Creature->CreatureID == Player->CreatureID) {
+	if (Player != nullptr && Creature->CreatureID == Player->CreatureID) {
 		int Number = GetNumberOfOpponents();
 		for (int i = 0; i < Number; i++) {
 			TCreature *Opponent = GetOpponent(i);
@@ -1001,7 +1001,7 @@ TCreature *GetOpponent(int Number)
 		Number--;
 	}
 	if (i == -1)
-		return NULL;
+		return nullptr;
 	return &Creatures[i];
 }
 

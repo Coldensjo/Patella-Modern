@@ -44,7 +44,7 @@ struct TLineFormat {
 	// Inline in Container.h's vector constructor (0x417aa0) and in
 	// FormatLines: the colour is cleared by its own constructor first.
 	TLineFormat()
-		: LineText(NULL), LineLength(0), OriginalOffset(0), Indent(0), FontNumber(4), TextLine(NULL),
+		: LineText(nullptr), LineLength(0), OriginalOffset(0), Indent(0), FontNumber(4), TextLine(nullptr),
 		  LineEnd(true)
 	{
 		Color = DefaultFontColor;
@@ -89,7 +89,7 @@ public:
 	// Inline (0x4179f0, deleting destructor 0x417a80); Lines frees its entries.
 	~TTextWindow()
 	{
-		if (SelectedText != NULL)
+		if (SelectedText != nullptr)
 			delete[] SelectedText;
 	}
 	void Draw(int Surface, int x, int y);                // +0x44, 0x420550, lines 84-119
@@ -123,7 +123,7 @@ public:
 	// of at least one character exists.
 	bool HasSelection()
 	{
-		if (TextBuffer == NULL)
+		if (TextBuffer == nullptr)
 			return false;
 		if (!TextBuffer->Complete) {
 			TextBuffer->LinesChanged = false;

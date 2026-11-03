@@ -58,7 +58,7 @@ int GetCurrentEngine()
 // The x64 client: curEngine is always 2, the Vulkan engine (SurfaceInitInstance).
 TSurface *GetSurface()
 {
-	if (curEngine == 2 && Surface == NULL)
+	if (curEngine == 2 && Surface == nullptr)
 		Surface = CreateSurfaceVulkan();
 	return Surface;
 }
@@ -67,12 +67,12 @@ TSurface *GetSurface()
 TSurface *GetSurface()
 {
 	if (curEngine == 1) {
-		if (Surface == NULL)
+		if (Surface == nullptr)
 			Surface = new TSurfaceGL;
 	} else if (curEngine == 2) {
-		if (Surface == NULL)
+		if (Surface == nullptr)
 			Surface = CreateSurfaceDX9();
-	} else if (curEngine == 0 && Surface == NULL) {
+	} else if (curEngine == 0 && Surface == nullptr) {
 		Surface = CreateSurfaceDX();
 	}
 	return Surface;
@@ -82,9 +82,9 @@ TSurface *GetSurface()
 // 0x4eab60
 void SurfaceExitInstance()
 {
-	if (Surface != NULL)
+	if (Surface != nullptr)
 		delete Surface;
-	Surface = NULL;
+	Surface = nullptr;
 }
 
 // 0x4eab80. The default test only takes the main window.
@@ -184,9 +184,9 @@ void SurfaceInitInstance(HWND *Window)
 			}
 			if (Works)
 				AvailableEngines |= 3;
-			if (Surface != NULL)
+			if (Surface != nullptr)
 				delete Surface;
-			Surface = NULL;
+			Surface = nullptr;
 		}
 	} catch (...) {
 		throw (PROGRAM_ERROR)12;
@@ -220,10 +220,10 @@ void SurfaceInitInstance(HWND *Window)
 			curEngine = 2;
 			GetSurface()->hWindow = *Window;
 			if (GetSurface()->TestEngine()) {
-				if (Surface != NULL)
+				if (Surface != nullptr)
 					delete Surface;
 				AvailableEngines |= 2;
-				Surface = NULL;
+				Surface = nullptr;
 				if (!Chosen) {
 					curEngine = 2;
 					Chosen = true;
@@ -231,9 +231,9 @@ void SurfaceInitInstance(HWND *Window)
 					curEngine = Engine;
 				}
 			} else {
-				if (Surface != NULL)
+				if (Surface != nullptr)
 					delete Surface;
-				Surface = NULL;
+				Surface = nullptr;
 				Chosen = false;
 				curEngine = Engine;
 			}

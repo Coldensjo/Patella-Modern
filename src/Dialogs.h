@@ -169,7 +169,7 @@ public:
 		: TLabel(SkinProperties.StyleB08.Data64, Text)
 	{
 		ClearOnAbort = _ClearOnAbort;
-		Timer = NULL;
+		Timer = nullptr;
 		CloseOnMessage = _CloseOnMessage;
 	}
 	// Inline (out-of-line copy 0x46b950, deleting destructor 0x46be20).
@@ -240,7 +240,7 @@ public:
 	~TCharacterListDialog()
 	{
 		delete Timer;
-		Timer = NULL;
+		Timer = nullptr;
 	}
 	bool LeftButtonDown(int x, int y, int Flags); // +0x50, 0x46fa10, line 1274
 	bool RightButtonUp(int x, int y, int Flags);  // +0x5c, 0x46fbc0, line 1286

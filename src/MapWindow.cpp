@@ -38,7 +38,7 @@
 // At 0x7152e8, constructed by the static initialiser 0x559fc0 as
 // TCallback(NULL, 0) and never used; the only datum of MapWindow.obj besides its copy of the
 // text table (Text.h).
-static TCallback NoCallback(NULL, 0);
+static TCallback NoCallback(nullptr, 0);
 
 // Limits Value to the range between Bound1 and Bound2, which may come in
 // either order. The binary has no copy: it is inlined everywhere (with
@@ -70,7 +70,7 @@ static inline void Limit(int &Value, int Bound1, int Bound2)
 TMapWindow::TMapWindow()
 {
 	TBEGIN
-	HintButton = NULL;
+	HintButton = nullptr;
 	MaxLevel = 0;
 	AddHotkey(0x44e, TCallback(this, 600));
 	AddHotkey(0x457, TCallback(this, 601));
@@ -99,7 +99,7 @@ void TMapWindow::SetSize(int Width, int Height)
 void TMapWindow::Arrange()
 {
 	TBEGIN
-	if (HintButton != NULL)
+	if (HintButton != nullptr)
 		SetChildArea(HintButton, SkinProperties.Data140);
 	TEND(164)
 }
@@ -315,7 +315,7 @@ void TMapWindow::HandleEvent(int Event)
 		RemoveOldestTalkbox();
 	if (Event == 27) {
 		DeleteChild(HintButton);
-		HintButton = NULL;
+		HintButton = nullptr;
 		int Hint = PopEventHelp();
 		TASSERT1(382, In(Hint,1,EVENTHELPS), Hint);
 		char *Text = new char[strlen(GetEventHelpText(Hint)) + 1];
@@ -553,7 +553,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	if (CreatureInfo != 0) {
 		for (int i = 0; i < NumberOfNames; i++) {
 			TCreature *Creature = GetCreature(Names[i].CreatureID);
-			if (Creature == NULL)
+			if (Creature == nullptr)
 				continue;
 			int cx = Creature->RealX, cy = Creature->RealY, cz = Creature->RealZ;
 			AbsoluteToRelative(&cx, &cy, &cz);
@@ -700,7 +700,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 			PrintTextClipped(Surface, tx + x, Line * GetFontLineHeight(2) + ty + y, 2, Color,
 				GetTalkboxLine(Talkbox, Line), Alignment, TRect(x, y, ScreenWidth, ScreenHeight));
 	}
-	if (GetStatusMessage() != NULL) {
+	if (GetStatusMessage() != nullptr) {
 		int MessageWidth = Width, MessageHeight = Height;
 		int Length = GetFittingTextLength(2, GetStatusMessage(), MessageWidth);
 		PrintTextPart(Surface, MessageWidth / 2 + x, MessageHeight - GetFontHeight(2) + y, 2,
@@ -749,15 +749,15 @@ void TMapWindow::Draw(int Surface, int x, int y)
 
 	// The hint button while there is an event help to show.
 	TBEGIN
-	if (GetShowNewHints() && GetEventHelp() != 0 && HintButton == NULL) {
+	if (GetShowNewHints() && GetEventHelp() != 0 && HintButton == nullptr) {
 		HintButton = new TBlinkingButton(0, 0, 61, 62, 63, 64, TCallback(this, 27), TextReceiveHint);
 		InsertChild(HintButton);
 		Arrange();
 		if (GetEventHelp() == 1)
 			HandleEvent(27);
-	} else if (!GetShowNewHints() && HintButton != NULL) {
+	} else if (!GetShowNewHints() && HintButton != nullptr) {
 		DeleteChild(HintButton);
-		HintButton = NULL;
+		HintButton = nullptr;
 	}
 	TEND(830)
 	TWindow::Draw(Surface, x, y);
@@ -779,7 +779,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 	RelativeToAbsolute(&x, &y, &z);
 	TObject Obj = GetFirstObject(FieldX, FieldY, FieldZ);
 	if (Obj.Type == 0 && FieldZ == 0 && Mode == 0 && IsFieldVisible(FieldX, FieldY, 0))
-		DrawFieldSprite(posx, posy, 0, false, 0, 0, NULL);
+		DrawFieldSprite(posx, posy, 0, false, 0, 0, nullptr);
 	bool Lying = false;
 	int Elevation = 0;
 	TObject TopObject;
@@ -831,7 +831,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 				if (Obj.Type != CREATURE || NumberOfCreatures == 10)
 					continue;
 				TCreature *Creature = GetCreature(Obj.Data);
-				if (Creature == NULL)
+				if (Creature == nullptr)
 					continue;
 				int sx = 0, sy = 0;
 				if (Creature->OutfitType != 0) {
@@ -962,7 +962,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 			std::stringstream s;
 			s << "EffectNumber: " << EffectNumber << " X: " << FieldX << " Y: " << FieldY << " Z: " << FieldZ;
 			TCreature *Player = GetCreature(GetPlayerID());
-			if (Player != NULL)
+			if (Player != nullptr)
 				s << " PlayerX: " << Player->RealX << " PlayerY: " << Player->RealY << " PlayerZ: " << Player->RealZ;
 			throw TMYEXCEPTION(1008, "effect number out of range [bug0000913]", "", 0, "", 0, s.str());
 		}
@@ -976,7 +976,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 							int SpriteNumber = GetEffectSpriteNumber(Type, X, Y, Layer, Phase);
 							if (SpriteNumber > 0)
 								DrawFieldSprite(posx - X * 32 - Elevation + 32, posy - Y * 32 - Elevation + 32, FieldZ,
-									false, SpriteNumber, 0, NULL);
+									false, SpriteNumber, 0, nullptr);
 						}
 					}
 				}
@@ -1018,7 +1018,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 							if (SpriteNumber > 0)
 								DrawFieldSprite(GetMissileEffectX(EffectNumber) - X * 32 - Elevation + posx + 32,
 									GetMissileEffectY(EffectNumber) - Y * 32 - Elevation + posy + 32, FieldZ, true,
-									SpriteNumber, 0, NULL);
+									SpriteNumber, 0, nullptr);
 						}
 					}
 				}
@@ -1065,7 +1065,7 @@ void TMapWindow::DrawObject(int posx, int posy, int Level, TObject Obj, int x, i
 				int SpriteNumber = GetObjectSpriteNumber(Obj.Type, X, Y, Layer, PatternX, PatternY, PatternZ, Phase);
 				if (SpriteNumber > 0)
 					DrawFieldSprite(posx - X * 32 - ShiftX + 32, posy - Y * 32 - ShiftY + 32, Level,
-						GetObjectPhases(Obj.Type) > 1, SpriteNumber, 0, NULL);
+						GetObjectPhases(Obj.Type) > 1, SpriteNumber, 0, nullptr);
 			}
 		}
 	}
@@ -1376,7 +1376,7 @@ void TMapWindow::ArrangeTalkboxes()
 		BoxHeight[Talkbox - 1] = GetFontLineHeight(2) * Lines;
 	}
 	int StatusHeight;
-	if (GetStatusMessage() == NULL)
+	if (GetStatusMessage() == nullptr)
 		StatusHeight = 0;
 	else
 		StatusHeight = GetFontHeight(2) + 10;
@@ -1571,7 +1571,7 @@ uint32 TMapWindow::GetCreatureAt(int x, int y)
 	TBEGIN
 	for (int i = 0; i < NumberOfNames; i++) {
 		TCreature *Creature = GetCreature(Names[i].CreatureID);
-		if (Creature == NULL)
+		if (Creature == nullptr)
 			continue;
 		int cx = Creature->RealX, cy = Creature->RealY, cz = Creature->RealZ;
 		AbsoluteToRelative(&cx, &cy, &cz);

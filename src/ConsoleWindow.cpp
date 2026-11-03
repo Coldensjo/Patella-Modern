@@ -46,7 +46,7 @@
 // (0x5c4340-0x5c438f; 0x5c4388 and 0x5c438c are used by its STL code) and
 // before ContentWindows.obj's (0x5c4398; its NoCallback 0x5c4500,
 // initialiser 0x559dd0).
-static TCallback NoCallback(NULL, 0);
+static TCallback NoCallback(nullptr, 0);
 
 // ParseInput's error names its value "(Word) MessageSeparator": the char
 // converted to an unsigned 16-bit value (movsx, movzx).
@@ -62,11 +62,11 @@ TTextWindow::TTextWindow() : Lines(0, 0, 100)
 	SelectionStartOffset = -1;
 	SelectionEndLine = -1;
 	SelectionEndOffset = -1;
-	TextBuffer = NULL;
+	TextBuffer = nullptr;
 	CurrentLineNumber = 0;
 	InvisibleLines = 0;
 	Selecting = false;
-	SelectedText = NULL;
+	SelectedText = nullptr;
 	AtEnd = true;
 }
 
@@ -78,16 +78,16 @@ TTextWindow::TTextWindow() : Lines(0, 0, 100)
 void TTextWindow::Draw(int Surface, int x, int y)
 {
 	TBEGIN
-	if (TextBuffer == NULL || TextBuffer->first == NULL || !TextBuffer->Complete) {
-		if (TextBuffer != NULL && TextBuffer->first != NULL)
+	if (TextBuffer == nullptr || TextBuffer->first == nullptr || !TextBuffer->Complete) {
+		if (TextBuffer != nullptr && TextBuffer->first != nullptr)
 			TextBuffer->LinesChanged = false;
-		if (TextBuffer != NULL) {
+		if (TextBuffer != nullptr) {
 			bool LinesChanged = TextBuffer->LinesChanged;
 			TextBuffer->LinesChanged = false;
 			if (LinesChanged)
 				Arrange();
 		}
-		if (TextBuffer == NULL || TextBuffer->first == NULL)
+		if (TextBuffer == nullptr || TextBuffer->first == nullptr)
 			return;
 		if (!TextBuffer->Complete) {
 			TextBuffer->LinesChanged = false;
@@ -163,7 +163,7 @@ void TTextWindow::Arrange()
 	int CurrentLine = LastLineNumber;
 	while (CurrentLine >= getFirstLineNumber()) {
 		TLineFormat *Format = GetLineFormat(CurrentLine);
-		if (Format != NULL) {
+		if (Format != nullptr) {
 			CurrentLine--;
 			if (First) {
 				Rest -= GetFontHeight(Format->FontNumber);
@@ -200,7 +200,7 @@ bool TTextWindow::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (Selecting) {
-		ReleaseCapture(NULL);
+		ReleaseCapture(nullptr);
 		Selecting = false;
 	}
 	return true;
@@ -212,7 +212,7 @@ bool TTextWindow::LeftButtonDown(int x, int y, int Flags)
 {
 	TBEGIN
 	Selecting = true;
-	SetCapture(NULL);
+	SetCapture(nullptr);
 	int Line, Offset, Length;
 	if (GetPosition(x, y, &Line, &Offset, &Length)) {
 		SelectionStartLine = Line;
@@ -233,7 +233,7 @@ bool TTextWindow::LeftButtonDoubleClick(int x, int y, int Flags)
 	int Line, Offset, LineLength;
 	if (GetPosition(x, y, &Line, &Offset, &LineLength)) {
 		TLineFormat *Format = GetLineFormat(Line);
-		if (Format != NULL) {
+		if (Format != nullptr) {
 			while (Offset > 0 && !IsSpace(Format->LineText[Offset - 1]))
 				Offset--;
 			while (!IsSpace(Format->LineText[Length + Offset]) && Length + Offset < Format->LineLength)
@@ -262,7 +262,7 @@ bool TTextWindow::RightButtonUp(int x, int y, int Flags)
 		Message = 0x37;
 	} else {
 		TTalkLine *TextLine = GetTalkLine(Line);
-		if (TextLine == NULL)
+		if (TextLine == nullptr)
 			return true;
 		if (strlen(TextLine->Addressee) == 0)
 			return true;
@@ -282,7 +282,7 @@ void TTextWindow::HandleEvent(int Event)
 	switch (Event) {
 	case 16: {
 		const char *Text = GetSelectedText();
-		if (Text != NULL)
+		if (Text != nullptr)
 			CopyToClipboard(Text);
 		break;
 	}
@@ -319,9 +319,9 @@ void TTextWindow::FormatLines()
 	TBEGIN
 	int TextWidth = Width;
 	int Count = 0;
-	if (TextBuffer != NULL) {
+	if (TextBuffer != nullptr) {
 		TTalkLine *TextLine = TextBuffer->GetFirst();
-		while (TextLine != NULL) {
+		while (TextLine != nullptr) {
 			TRGBColor Color;
 			GetTalkColor(&Color, TextLine->Mode);
 			int NextIndent = 10;
@@ -376,16 +376,16 @@ void TTextWindow::FormatLines()
 TTalkLine *TTextWindow::GetTalkLine(int LineNumber)
 {
 	TBEGIN
-	if (TextBuffer != NULL && TextBuffer->first != NULL) {
+	if (TextBuffer != nullptr && TextBuffer->first != nullptr) {
 		if (!TextBuffer->Complete) {
 			TextBuffer->LinesChanged = false;
 		} else if (LineNumber <= Lines.max && LineNumber >= Lines.min) {
 			TLineFormat *Format = &Lines(LineNumber);
-			if (Format != NULL)
+			if (Format != nullptr)
 				return Format->TextLine;
 		}
 	}
-	return NULL;
+	return nullptr;
 	TEND1(411, LineNumber)
 }
 
@@ -393,13 +393,13 @@ TTalkLine *TTextWindow::GetTalkLine(int LineNumber)
 TLineFormat *TTextWindow::GetLineFormat(int LineNumber)
 {
 	TBEGIN
-	if (TextBuffer != NULL && TextBuffer->first != NULL) {
+	if (TextBuffer != nullptr && TextBuffer->first != nullptr) {
 		if (!TextBuffer->Complete)
 			TextBuffer->LinesChanged = false;
 		else if (LineNumber <= Lines.max && LineNumber >= Lines.min)
 			return &Lines(LineNumber);
 	}
-	return NULL;
+	return nullptr;
 	TEND1(425, LineNumber)
 }
 
@@ -428,7 +428,7 @@ bool TTextWindow::GetSelectionStart(int *Line, int *Offset)
 			StartOffset = EndOffset;
 		}
 		TLineFormat *Format = GetLineFormat(StartLine);
-		if (Format != NULL && StartOffset <= Format->LineLength) {
+		if (Format != nullptr && StartOffset <= Format->LineLength) {
 			*Line = StartLine;
 			*Offset = StartOffset;
 			return true;
@@ -456,7 +456,7 @@ bool TTextWindow::GetSelectionEnd(int *Line, int *Offset)
 			StartOffset = EndOffset;
 		}
 		TLineFormat *Format = GetLineFormat(StartLine);
-		if (Format != NULL && StartOffset <= Format->LineLength) {
+		if (Format != nullptr && StartOffset <= Format->LineLength) {
 			*Line = StartLine;
 			*Offset = StartOffset;
 			return true;
@@ -474,13 +474,13 @@ bool TTextWindow::GetSelectionEnd(int *Line, int *Offset)
 bool TTextWindow::SelectAll()
 {
 	TBEGIN
-	if (TextBuffer != NULL) {
+	if (TextBuffer != nullptr) {
 		if (TextBuffer->Complete) {
 			SelectionStartLine = 0;
 			SelectionStartOffset = 0;
 			SelectionEndLine = LastLineNumber;
 			TLineFormat *Format = GetLineFormat(LastLineNumber);
-			if (Format != NULL)
+			if (Format != nullptr)
 				SelectionEndOffset = Format->LineLength;
 			else
 				SelectionEndOffset = 0;
@@ -499,15 +499,15 @@ const char *TTextWindow::GetSelectedText()
 {
 	TBEGIN
 	if (HasSelection()) {
-		if (SelectedText != NULL)
+		if (SelectedText != nullptr)
 			delete[] SelectedText;
-		SelectedText = NULL;
+		SelectedText = nullptr;
 		int StartLine, StartOffset, EndLine, EndOffset;
 		if (GetSelectionStart(&StartLine, &StartOffset) && GetSelectionEnd(&EndLine, &EndOffset)) {
 			uint32 Size = 1;
 			for (int i = StartLine; i <= EndLine; i++) {
 				TLineFormat *Format = GetLineFormat(i);
-				if (Format != NULL && Format->LineText != NULL)
+				if (Format != nullptr && Format->LineText != nullptr)
 					Size += 1 + Format->LineLength;
 			}
 			if (Size != 1) {
@@ -515,13 +515,13 @@ const char *TTextWindow::GetSelectedText()
 				SelectedText[0] = 0;
 				if (StartLine == EndLine) {
 					TLineFormat *Format = GetLineFormat(StartLine);
-					if (Format == NULL || Format->LineText != NULL)
+					if (Format == nullptr || Format->LineText != nullptr)
 						CopyString(SelectedText, Format->LineText + StartOffset, EndOffset - StartOffset + 1);
 					return SelectedText;
 				}
 				for (int i = StartLine; i <= EndLine; i++) {
 					TLineFormat *Format = GetLineFormat(i);
-					if (Format == NULL || Format->LineText == NULL)
+					if (Format == nullptr || Format->LineText == nullptr)
 						continue;
 					if (i == EndLine) {
 						CopyString(SelectedText + strlen(SelectedText), Format->LineText, EndOffset + 1);
@@ -540,7 +540,7 @@ const char *TTextWindow::GetSelectedText()
 			}
 		}
 	}
-	return NULL;
+	return nullptr;
 	TEND(626)
 }
 
@@ -552,7 +552,7 @@ const char *TTextWindow::GetSelectedText()
 bool TTextWindow::GetPosition(int x, int y, int *Line, int *Offset, int *Length)
 {
 	TBEGIN
-	if (TextBuffer != NULL && TextBuffer->first != NULL) {
+	if (TextBuffer != nullptr && TextBuffer->first != nullptr) {
 		if (!TextBuffer->Complete) {
 			TextBuffer->LinesChanged = false;
 		} else {
@@ -569,14 +569,14 @@ bool TTextWindow::GetPosition(int x, int y, int *Line, int *Offset, int *Length)
 			bool Found = false;
 			int CurrentLine = CurrentLineNumber;
 			int LineNumber = 0;
-			TLineFormat *Format = NULL;
+			TLineFormat *Format = nullptr;
 			while (!Found) {
 				LineNumber = CurrentLine;
 				if (LineNumber < getFirstLineNumber())
 					break;
 				Format = GetLineFormat(LineNumber);
 				CurrentLine = LineNumber - 1;
-				if (Format == NULL || Format->LineText == NULL)
+				if (Format == nullptr || Format->LineText == nullptr)
 					continue;
 				int LineHeight = GetFontLineHeight(Format->FontNumber);
 				if (First) {
@@ -594,7 +594,7 @@ bool TTextWindow::GetPosition(int x, int y, int *Line, int *Offset, int *Length)
 			if (!Found) {
 				LineNumber = getFirstLineNumber();
 				Format = GetLineFormat(LineNumber);
-				if (Format == NULL || Format->LineText == NULL)
+				if (Format == nullptr || Format->LineText == nullptr)
 					return false;
 				x = 0;
 			}
@@ -756,7 +756,7 @@ TTab::~TTab()
 {
 	TBEGIN
 	delete[] Caption;
-	if (FullCaption != NULL)
+	if (FullCaption != nullptr)
 		delete[] FullCaption;
 	if (TextBuffer->IsRuleViolation() && TextBuffer->GetReceiveTalkMode() == TALK_GAMEMASTER_ANSWER) {
 		SendCancelRuleViolation();
@@ -773,7 +773,7 @@ TTab::~TTab()
 			SendLeaveChannel(TextBuffer->GetChannelID());
 	}
 	DeleteTextBuffer(TextBuffer);
-	TextBuffer = NULL;
+	TextBuffer = nullptr;
 	TEND(866)
 }
 #pragma warning(pop)
@@ -812,7 +812,7 @@ bool TTab::LeftButtonDown(int x, int y, int Flags)
 {
 	TBEGIN
 	Dragging = 1;
-	SetCapture(NULL);
+	SetCapture(nullptr);
 	DragX = x;
 	DragRight = Width - OffsetX + x;
 	DragY = y;
@@ -827,8 +827,8 @@ bool TTab::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (Dragging) {
-		ReleaseCapture(NULL);
-		((TTabBar *)GetParent())->Rearrange(NULL);
+		ReleaseCapture(nullptr);
+		((TTabBar *)GetParent())->Rearrange(nullptr);
 	}
 	return true;
 	TEND(931)
@@ -905,8 +905,8 @@ void TTab::Draw(int Surface, int x, int y)
 TTabBar::TTabBar()
 {
 	TBEGIN
-	Moved = NULL;
-	CurrentTab = NULL;
+	Moved = nullptr;
+	CurrentTab = nullptr;
 	LeftTabs = new TWindow;
 	RightTabs = new TWindow;
 	Arrange();
@@ -919,11 +919,11 @@ void TTabBar::Draw(int Surface, int x, int y)
 {
 	TBEGIN
 	TComponent::Draw(Surface, x, y);
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext()) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if (Child != Moved)
 			Child->Draw(Surface, Child->OffsetX + x, Child->OffsetY + y);
 	}
-	if (Moved != NULL)
+	if (Moved != nullptr)
 		Moved->Draw(Surface, Moved->OffsetX + x, Moved->OffsetY + y);
 	TEND1(1043, Surface)
 }
@@ -933,7 +933,7 @@ void TTabBar::SetSize(int Width, int Height)
 {
 	TBEGIN
 	TComponent::SetSize(Width, Height);
-	Rearrange(NULL);
+	Rearrange(nullptr);
 	Changed = true;
 	TEND2(1055, Width, Height)
 }
@@ -945,7 +945,7 @@ void TTabBar::Arrange()
 	TWindow::Arrange();
 	RightTabs->Arrange();
 	LeftTabs->Arrange();
-	Rearrange(NULL);
+	Rearrange(nullptr);
 	TEND(1068)
 }
 
@@ -958,7 +958,7 @@ void TTabBar::SetCurrentTab(TTab *Tab)
 	TWindow *Container = GetContainer(Tab);
 	TASSERT(1078, Container!=NULL);
 	Changed = true;
-	if (CurrentTab != NULL)
+	if (CurrentTab != nullptr)
 		CurrentTab->SetActive(false);
 	Tab->SetActive(true);
 	CurrentTab = Tab;
@@ -972,7 +972,7 @@ void TTabBar::InsertChild(TComponent *Child)
 	TBEGIN
 	TWindow::InsertChild(Child);
 	Changed = true;
-	Rearrange(NULL);
+	Rearrange(nullptr);
 	Child->Arrange();
 	TEND(1098)
 }
@@ -983,7 +983,7 @@ void TTabBar::AppendChild(TComponent *Child)
 	TBEGIN
 	TWindow::AppendChild(Child);
 	Changed = true;
-	Rearrange(NULL);
+	Rearrange(nullptr);
 	Child->Arrange();
 	TEND(1111)
 }
@@ -997,7 +997,7 @@ void TTabBar::DeleteChild(TComponent *Child)
 		TWindow::DeleteChild(Child);
 	else
 		Container->DeleteChild(Child);
-	Rearrange(NULL);
+	Rearrange(nullptr);
 	Changed = true;
 	TEND(1125)
 }
@@ -1007,7 +1007,7 @@ void TTabBar::InsertChildAfter(TComponent *Previous, TComponent *Child)
 {
 	TBEGIN
 	TWindow::InsertChildAfter(Previous, Child);
-	Rearrange(NULL);
+	Rearrange(nullptr);
 	Child->Arrange();
 	Changed = true;
 	TEND(1139)
@@ -1031,7 +1031,7 @@ void TTabBar::RemoveChild(TComponent *Child)
 		TWindow::RemoveChild(Child);
 	else
 		Container->RemoveChild(Child);
-	Rearrange(NULL);
+	Rearrange(nullptr);
 	Changed = true;
 	TEND(1177)
 }
@@ -1079,29 +1079,29 @@ void TTabBar::HandleEvent(int Event)
 {
 	TBEGIN
 	if (Event == 6) {
-		if (RightTabs->GetFirstChild() == NULL)
+		if (RightTabs->GetFirstChild() == nullptr)
 			return;
 		TComponent *Tab = GetFirstChild();
-		if (Tab == NULL)
+		if (Tab == nullptr)
 			return;
 		TWindow::RemoveChild(Tab);
 		LeftTabs->AppendChild(Tab);
 		Changed = true;
 	} else if (Event == 5) {
 		TComponent *Tab = LeftTabs->GetLastChild();
-		if (Tab == NULL)
+		if (Tab == nullptr)
 			return;
 		LeftTabs->RemoveChild(Tab);
 		InsertChild(Tab);
 		Changed = true;
 	} else if (Event == 25) {
-		while (LeftTabs->GetFirstChild() != NULL)
+		while (LeftTabs->GetFirstChild() != nullptr)
 			HandleEvent(5);
 	} else if (Event == 26) {
-		while (RightTabs->GetFirstChild() != NULL)
+		while (RightTabs->GetFirstChild() != nullptr)
 			HandleEvent(6);
 	}
-	Rearrange(NULL);
+	Rearrange(nullptr);
 	TEND1(1258, Event)
 }
 
@@ -1109,19 +1109,19 @@ void TTabBar::HandleEvent(int Event)
 TTab *TTabBar::FindTab(TTalkBuffer *TextBuffer)
 {
 	TBEGIN
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext()) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if (((TTab *)Child)->TextBuffer == TextBuffer)
 			return (TTab *)Child;
 	}
-	for (TComponent *Child = LeftTabs->GetFirstChild(); Child != NULL; Child = Child->GetNext()) {
+	for (TComponent *Child = LeftTabs->GetFirstChild(); Child != nullptr; Child = Child->GetNext()) {
 		if (((TTab *)Child)->TextBuffer == TextBuffer)
 			return (TTab *)Child;
 	}
-	for (TComponent *Child = RightTabs->GetFirstChild(); Child != NULL; Child = Child->GetNext()) {
+	for (TComponent *Child = RightTabs->GetFirstChild(); Child != nullptr; Child = Child->GetNext()) {
 		if (((TTab *)Child)->TextBuffer == TextBuffer)
 			return (TTab *)Child;
 	}
-	return NULL;
+	return nullptr;
 	TEND(1290)
 }
 
@@ -1135,7 +1135,7 @@ void TTabBar::ShowTab(TTab *Tab)
 		TComponent *Last = GetLastChild();
 		TWindow::AppendChild(Tab);
 		SwapChildren(Tab, Last);
-		Rearrange(NULL);
+		Rearrange(nullptr);
 		Changed = true;
 	}
 	TEND(1309)
@@ -1156,11 +1156,11 @@ void TTabBar::StoreOpenChannels()
 		else
 			Container = this;
 		TComponent *Child = Container->GetFirstChild();
-		while (Child != NULL) {
+		while (Child != nullptr) {
 			TComponent *Next = Child->GetNext();
 			TTalkBuffer *TextBuffer = ((TTab *)Child)->TextBuffer;
 			Child = Next;
-			if (TextBuffer != NULL && TextBuffer->GetChannelID() != -1 && !TextBuffer->IsPrivateChannel())
+			if (TextBuffer != nullptr && TextBuffer->GetChannelID() != -1 && !TextBuffer->IsPrivateChannel())
 				AddOpenChannel(TextBuffer->GetChannelID());
 		}
 	}
@@ -1178,8 +1178,8 @@ void TTabBar::Rearrange(TTab *_Moved)
 	if (!Busy) {
 		Busy = true;
 		Moved = _Moved;
-		if (_Moved != NULL) {
-			TComponent *Previous = NULL;
+		if (_Moved != nullptr) {
+			TComponent *Previous = nullptr;
 			TComponent *Search = FirstChild;
 			TComponent *Next;
 			for (;;) {
@@ -1190,14 +1190,14 @@ void TTabBar::Rearrange(TTab *_Moved)
 				Previous = Search;
 				Search = Next;
 			}
-			if (Previous != NULL && Moved->OffsetX < Previous->Width / 2 + Previous->OffsetX)
+			if (Previous != nullptr && Moved->OffsetX < Previous->Width / 2 + Previous->OffsetX)
 				SwapChildren(Previous, Moved);
-			if (Next != NULL && Next->Width / 2 + Next->OffsetX < Moved->Width + Moved->OffsetX)
+			if (Next != nullptr && Next->Width / 2 + Next->OffsetX < Moved->Width + Moved->OffsetX)
 				SwapChildren(Next, Moved);
 		}
 		int x = 0;
 		TComponent *Child = FirstChild;
-		while (Child != NULL) {
+		while (Child != nullptr) {
 			TComponent *Next = Child->GetNext();
 			if (Moved != Child)
 				Child->SetPosition(x, Child->OffsetY);
@@ -1209,7 +1209,7 @@ void TTabBar::Rearrange(TTab *_Moved)
 			Child = Next;
 		}
 		Child = RightTabs->GetFirstChild();
-		while (Child != NULL) {
+		while (Child != nullptr) {
 			TComponent *Next = Child->GetNext();
 			if (Child->Width + x <= Width) {
 				RightTabs->RemoveChild(Child);
@@ -1220,7 +1220,7 @@ void TTabBar::Rearrange(TTab *_Moved)
 			Child = Next;
 		}
 		Child = LeftTabs->GetLastChild();
-		if (Child != NULL && x == 0) {
+		if (Child != nullptr && x == 0) {
 			LeftTabs->RemoveChild(Child);
 			InsertChild(Child);
 			Child->SetPosition(0, Child->OffsetY);
@@ -1243,7 +1243,7 @@ TConsoleWindow::TConsoleWindow()
 	DrawingListLength = 9;
 	DrawingList = new TDrawing[9];
 	TalkMode = 1;
-	DefaultTab = NULL;
+	DefaultTab = nullptr;
 	HistoryPosition = -1;
 	History = new TTalkBuffer(0);
 	Input = new TEditLine(TRect(0, 0, 0, 0), 255, false);
@@ -1292,15 +1292,15 @@ TConsoleWindow::~TConsoleWindow()
 	TabBar->StoreOpenChannels();
 	SetConsoleHeight(Height);
 	delete History;
-	if (!IsChild(VolumeButton) && VolumeButton != NULL)
+	if (!IsChild(VolumeButton) && VolumeButton != nullptr)
 		delete VolumeButton;
-	if (!IsChild(CloseButton) && CloseButton != NULL)
+	if (!IsChild(CloseButton) && CloseButton != nullptr)
 		delete CloseButton;
-	if (!IsChild(ServerMessagesButton) && ServerMessagesButton != NULL)
+	if (!IsChild(ServerMessagesButton) && ServerMessagesButton != nullptr)
 		delete ServerMessagesButton;
-	if (!IsChild(MoveRightButton) && MoveRightButton != NULL)
+	if (!IsChild(MoveRightButton) && MoveRightButton != nullptr)
 		delete MoveRightButton;
-	if (!IsChild(MoveLeftButton) && MoveLeftButton != NULL)
+	if (!IsChild(MoveLeftButton) && MoveLeftButton != nullptr)
 		delete MoveLeftButton;
 	RemoveHotkey(0x449);
 	RemoveHotkey(0x44f);
@@ -1328,9 +1328,9 @@ void TConsoleWindow::SetSize(int Width, int Height)
 		SetChildPosition(CloseButton, SkinProperties.Style9E8.Data6C.x, SkinProperties.Style9E8.Data6C.y);
 	if (IsChild(ServerMessagesButton))
 		SetChildPosition(ServerMessagesButton, SkinProperties.Style9E8.Data74.x, SkinProperties.Style9E8.Data74.y);
-	if (MoveRightButton != NULL && IsChild(MoveRightButton))
+	if (MoveRightButton != nullptr && IsChild(MoveRightButton))
 		SetChildPosition(MoveRightButton, SkinProperties.Style9E8.Data54.x, SkinProperties.Style9E8.Data54.y);
-	if (MoveLeftButton != NULL && IsChild(MoveLeftButton))
+	if (MoveLeftButton != nullptr && IsChild(MoveLeftButton))
 		SetChildPosition(MoveLeftButton, SkinProperties.Style9E8.Data5C.x, SkinProperties.Style9E8.Data5C.y);
 	Arrange();
 	TEND2(1571, Width, Height)
@@ -1428,7 +1428,7 @@ void TConsoleWindow::KeyPress(int Key)
 	if (CurrentConsole->TextWindow->HasSelection())
 		Selection = CurrentConsole->TextWindow;
 	else
-		Selection = Input->HasSelection() ? Input : NULL;
+		Selection = Input->HasSelection() ? Input : nullptr;
 	if (Key == 0x461) {
 		TTextWindow *TextWindow = CurrentConsole->TextWindow;
 		TextWindow->SelectionStartLine = -1;
@@ -1442,7 +1442,7 @@ void TConsoleWindow::KeyPress(int Key)
 		Target->HandleEvent(20);
 		return;
 	}
-	if (Selection != NULL) {
+	if (Selection != nullptr) {
 		bool Done = false;
 		if (Key == 0x510 || Key == 0x463) {
 			Selection->HandleEvent(16);
@@ -1493,7 +1493,7 @@ void TConsoleWindow::KeyPress(int Key)
 			return;
 		if (HistoryPosition >= 0) {
 			TTalkLine *Line = History->GetLine(History->lines - HistoryPosition - 1);
-			if (Line == NULL)
+			if (Line == nullptr)
 				return;
 			Input->SetText(Line->Text);
 			return;
@@ -1513,7 +1513,7 @@ void TConsoleWindow::KeyPress(int Key)
 		Number += 24;
 	bool AutoSend;
 	const char *Text = GetHotkey(Number, &AutoSend);
-	if (Text != NULL) {
+	if (Text != nullptr) {
 		Input->SetText(Text);
 		if (AutoSend)
 			SendInput();
@@ -1570,10 +1570,10 @@ void TConsoleWindow::HandleEvent(int Event)
 		break;
 	case 212: {
 		TTab *Tab = TabBar->CurrentTab;
-		if (Tab->GetNext() == NULL)
+		if (Tab->GetNext() == nullptr)
 			TabBar->HandleEvent(6);
 		TComponent *NewTab = Tab->GetNext();
-		if (NewTab == NULL) {
+		if (NewTab == nullptr) {
 			TabBar->HandleEvent(25);
 			NewTab = TabBar->GetFirstChild();
 		}
@@ -1583,10 +1583,10 @@ void TConsoleWindow::HandleEvent(int Event)
 	}
 	case 213: {
 		TTab *Tab = TabBar->CurrentTab;
-		if (Tab->GetPrevious() == NULL)
+		if (Tab->GetPrevious() == nullptr)
 			TabBar->HandleEvent(5);
 		TComponent *NewTab = Tab->GetPrevious();
-		if (NewTab == NULL) {
+		if (NewTab == nullptr) {
 			TabBar->HandleEvent(26);
 			NewTab = TabBar->GetLastChild();
 		}
@@ -1635,15 +1635,15 @@ void TConsoleWindow::UpdateButtons()
 		RemoveChild(CloseButton);
 	if (IsChild(ServerMessagesButton))
 		RemoveChild(ServerMessagesButton);
-	if (IsChild(MoveRightButton) && TabBar->LeftTabs->GetFirstChild() == NULL)
+	if (IsChild(MoveRightButton) && TabBar->LeftTabs->GetFirstChild() == nullptr)
 		RemoveChild(MoveRightButton);
-	if (!IsChild(MoveRightButton) && TabBar->LeftTabs->GetFirstChild() != NULL) {
+	if (!IsChild(MoveRightButton) && TabBar->LeftTabs->GetFirstChild() != nullptr) {
 		InsertChild(MoveRightButton);
 		SetChildPosition(MoveRightButton, SkinProperties.Style9E8.Data54.x, SkinProperties.Style9E8.Data54.y);
 	}
-	if (IsChild(MoveLeftButton) && TabBar->RightTabs->GetFirstChild() == NULL)
+	if (IsChild(MoveLeftButton) && TabBar->RightTabs->GetFirstChild() == nullptr)
 		RemoveChild(MoveLeftButton);
-	if (!IsChild(MoveLeftButton) && TabBar->RightTabs->GetFirstChild() != NULL) {
+	if (!IsChild(MoveLeftButton) && TabBar->RightTabs->GetFirstChild() != nullptr) {
 		InsertChild(MoveLeftButton);
 		SetChildPosition(MoveLeftButton, SkinProperties.Style9E8.Data5C.x, SkinProperties.Style9E8.Data5C.y);
 	}
@@ -1684,7 +1684,7 @@ TTalkBuffer *TConsoleWindow::OpenChannel(int RecvMode, int SendMode, const char 
 {
 	TBEGIN
 	TTalkBuffer *TextBuffer = CreateTextBuffer(RecvMode, SendMode, Name, Channel);
-	if (TextBuffer == NULL) {
+	if (TextBuffer == nullptr) {
 		TextBuffer = ::GetTextBuffer(RecvMode, Name, Channel);
 		TASSERT(1965, TextBuffer!=NULL);
 	}
@@ -1703,11 +1703,11 @@ void TConsoleWindow::AddChannel(TTalkBuffer *TextBuffer, const char *Caption)
 	TASSERT(1977, TextBuffer!=NULL);
 	TBEGIN
 	TTab *NewTab = TabBar->FindTab(TextBuffer);
-	if (NewTab == NULL) {
+	if (NewTab == nullptr) {
 		NewTab = new TTab(Caption, TextBuffer, TCallback(this, 201));
 		TabBar->AppendChild(NewTab);
 		if (TextBuffer->GetChannelID() == 7) {
-			AddTextBufferLine(TextBuffer, 0, TextHelpChannelWelcome, TALK_ADMIN_MESSAGE, NULL, 0);
+			AddTextBufferLine(TextBuffer, 0, TextHelpChannelWelcome, TALK_ADMIN_MESSAGE, nullptr, 0);
 			TextBuffer->Close();
 		}
 		TASSERT(1988, NewTab!=NULL);
@@ -1717,7 +1717,7 @@ void TConsoleWindow::AddChannel(TTalkBuffer *TextBuffer, const char *Caption)
 	if (GetActionNumber() >= SwitchTime) {
 		TabBar->SetCurrentTab(NewTab);
 		HandleEvent(201);
-	} else if (CurrentTab != NULL) {
+	} else if (CurrentTab != nullptr) {
 		NewTab->SetActive(false);
 	}
 	TEND(1998)
@@ -1733,11 +1733,11 @@ void TConsoleWindow::CloseChannel()
 	if (DefaultTab != CurrentTab) {
 		TASSERT(2009, DefaultTab!=NULL);
 		TComponent *NewTab = CurrentTab->GetNext();
-		if (NewTab == NULL)
+		if (NewTab == nullptr)
 			NewTab = CurrentTab->GetPrevious();
 		CurrentTab->TextBuffer->SetLocked(true);
 		TabBar->RemoveChild(CurrentTab);
-		if (NewTab == NULL) {
+		if (NewTab == nullptr) {
 			NewTab = TabBar->GetFirstChild();
 			TASSERT(2015, NewTab!=NULL);
 		}
@@ -1754,8 +1754,8 @@ void TConsoleWindow::CloseChannel()
 void TConsoleWindow::ReportRuleViolation(const char *Question)
 {
 	TBEGIN
-	TTalkBuffer *TextBuffer = ::GetTextBuffer(TALK_GAMEMASTER_ANSWER, NULL, -1);
-	if (TextBuffer != NULL) {
+	TTalkBuffer *TextBuffer = ::GetTextBuffer(TALK_GAMEMASTER_ANSWER, nullptr, -1);
+	if (TextBuffer != nullptr) {
 		TTab *NewTab = TabBar->FindTab(TextBuffer);
 		TASSERT(2033, NewTab!=NULL);
 		TabBar->SetCurrentTab(NewTab);
@@ -1764,12 +1764,12 @@ void TConsoleWindow::ReportRuleViolation(const char *Question)
 	}
 	TASSERT(2039, Question!=NULL);
 	TASSERT(2040, strlen(Question)>0);
-	OpenChannel(TALK_GAMEMASTER_ANSWER, TALK_PLAYER_ANSWER, NULL, -1, TextReportRuleViolation);
-	TextBuffer = ::GetTextBuffer(TALK_GAMEMASTER_ANSWER, NULL, -1);
+	OpenChannel(TALK_GAMEMASTER_ANSWER, TALK_PLAYER_ANSWER, nullptr, -1, TextReportRuleViolation);
+	TextBuffer = ::GetTextBuffer(TALK_GAMEMASTER_ANSWER, nullptr, -1);
 	TASSERT(2043, TextBuffer!=NULL);
 	TASSERT1(2044, GetCreature(GetPlayerID()), GetPlayerID());
 	AddTextBufferLine(TextBuffer, 0, Question, TALK_PLAYER_ANSWER, GetCreature(GetPlayerID())->Name, 0);
-	AddTextBufferLine(TextBuffer, 0, TextWaitForGamemaster, TALK_ADMIN_MESSAGE, NULL, 0);
+	AddTextBufferLine(TextBuffer, 0, TextWaitForGamemaster, TALK_ADMIN_MESSAGE, nullptr, 0);
 	SendTalk(TALK_GAMEMASTER_REQUEST, Question);
 	TextBuffer->SetWriteEnabled(false);
 	TEND(2051)
@@ -1824,7 +1824,7 @@ void TConsoleWindow::SendInput()
 		Addressee = (char *)TextBuffer->GetAddressee();
 	} else {
 		TalkMode = this->TalkMode;
-		Addressee = NULL;
+		Addressee = nullptr;
 		VolumeButton->Reset();
 		this->TalkMode = 1;
 	}
@@ -1835,15 +1835,15 @@ void TConsoleWindow::SendInput()
 	ParseInput(&Text, &Addressee, &TalkMode, &MessageSeparator);
 	if (ChannelID == -1 && (TalkMode == TALK_GAMEMASTER_CHANNELCALL || TalkMode == TALK_ANONYMOUS_CHANNELCALL)) {
 		SetStatusMessage("This is not a chat channel.", false);
-		Text = NULL;
+		Text = nullptr;
 	}
-	if (HasOwnPrivateChannel() && Text != NULL && strlen(Text) != 0) {
+	if (HasOwnPrivateChannel() && Text != nullptr && strlen(Text) != 0) {
 		if (MessageSeparator == 'I')
 			SendInviteToPrivateChannel(Text);
 		if (MessageSeparator == 'X')
 			SendExcludeFromPrivateChannel(Text);
 	}
-	if (Text != NULL) {
+	if (Text != nullptr) {
 		switch (TalkMode) {
 		case 0:
 			break;
@@ -1885,8 +1885,8 @@ void TConsoleWindow::SendInput()
 		}
 	}
 	Input->Clear();
-	if (TalkMode == TALK_PRIVATE_MESSAGE && Addressee != NULL) {
-		if (CurrentConsole->getTextBuffer()->GetAddressee() != NULL
+	if (TalkMode == TALK_PRIVATE_MESSAGE && Addressee != nullptr) {
+		if (CurrentConsole->getTextBuffer()->GetAddressee() != nullptr
 			&& CompareStrings(CurrentConsole->getTextBuffer()->GetAddressee(), Addressee, -1) == 0)
 			return;
 		if (strlen(Addressee) > 29)
@@ -1905,7 +1905,7 @@ void TConsoleWindow::AddToHistory()
 	TBEGIN
 	char *Text = Input->Text;
 	if (strlen(Text) != 0) {
-		if (History->GetLast() == NULL || strcmp(History->GetLast()->Text, Text) != 0)
+		if (History->GetLast() == nullptr || strcmp(History->GetLast()->Text, Text) != 0)
 			History->Append(new TTalkLine(0, TALK_SAY, Text, 0));
 	}
 	HistoryPosition = -1;
@@ -1924,7 +1924,7 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 {
 	TBEGIN
 	int i = 0;
-	*Text = NULL;
+	*Text = nullptr;
 	char *Line = Input->Text;
 	*Separator = 0;
 	while (IsSpace(Line[i]))
@@ -1957,12 +1957,12 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 		while (Line[i] != 0 && Line[i] != MessageSeparator)
 			i++;
 		if (Line[i] == 0) {
-			*Addressee = NULL;
+			*Addressee = nullptr;
 			return;
 		}
 		Line[i] = 0;
 		if (strlen(*Addressee) == 0) {
-			*Addressee = NULL;
+			*Addressee = nullptr;
 			return;
 		}
 		i++;
@@ -1977,10 +1977,10 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 			*TalkMode = TALK_GAMEMASTER_MESSAGE;
 		}
 	}
-	if (strstr(Line + i, GetAccountNumberString()) != NULL
-		|| (strstr(Line + i, GetAccountPassword()) != NULL && strlen(GetAccountPassword()) != 0)) {
-		*Text = NULL;
-		*Addressee = NULL;
+	if (strstr(Line + i, GetAccountNumberString()) != nullptr
+		|| (strstr(Line + i, GetAccountPassword()) != nullptr && strlen(GetAccountPassword()) != 0)) {
+		*Text = nullptr;
+		*Addressee = nullptr;
 		*TalkMode = 0;
 		*Separator = 0;
 		AddMessage(0xc, (INT_PTR) "Account Data Warning", 0);
@@ -2004,11 +2004,11 @@ bool TConsoleWindow::SaveChannel()
 	char FileName[1024];
 	sprintf(FileName, "%s.txt", CurrentTab->getCaption());
 	FILE *File = fopen(FileName, "at");
-	if (File == NULL)
+	if (File == nullptr)
 		return false;
 	TTalkBuffer *TextBuffer = GetTextBuffer();
 	TASSERT(2324, TextBuffer!=NULL);
-	__time32_t Now = PATELLA_TIME32(NULL);
+	__time32_t Now = PATELLA_TIME32(nullptr);
 	fprintf(File, "\nChannel saved at %s", CRT71Time(_ctime32(&Now))); // the day as MSVC 7.1 writes it
 	TextBuffer->Write(File);
 	fclose(File);

@@ -33,7 +33,7 @@ public:
 	// 0x4df550. Token is not set.
 	TReadScriptFile()
 	{
-		File = NULL;
+		File = nullptr;
 		memset(Filename, 0, sizeof(Filename));
 		Line = 0;
 		memset(String, 0, sizeof(String));
@@ -48,17 +48,17 @@ public:
 	// 0x4df5b0
 	~TReadScriptFile()
 	{
-		if (File != NULL)
+		if (File != nullptr)
 			fclose(File);
-		File = NULL;
+		File = nullptr;
 	}
 
 	// 0x4df5d0. Resets everything but Token, like the constructor.
 	void close()
 	{
-		if (File != NULL)
+		if (File != nullptr)
 			fclose(File);
-		File = NULL;
+		File = nullptr;
 		memset(Filename, 0, sizeof(Filename));
 		Line = 0;
 		memset(String, 0, sizeof(String));
@@ -101,7 +101,7 @@ public:
 	// 0x4df640
 	TWriteScriptFile()
 	{
-		File = NULL;
+		File = nullptr;
 		memset(Filename, 0, sizeof(Filename));
 		Line = 0;
 	}
@@ -111,17 +111,17 @@ public:
 	// this destructor).
 	~TWriteScriptFile()
 	{
-		if (File != NULL)
+		if (File != nullptr)
 			fclose(File);
-		File = NULL;
+		File = nullptr;
 	}
 
 	// 0x4df660
 	void close()
 	{
-		if (File != NULL)
+		if (File != nullptr)
 			fclose(File);
-		File = NULL;
+		File = nullptr;
 		memset(Filename, 0, sizeof(Filename));
 		Line = 0;
 	}
@@ -144,7 +144,7 @@ class TReadBinaryFile {
 public:
 	TReadBinaryFile()
 	{
-		File = NULL;
+		File = nullptr;
 		memset(Filename, 0, sizeof(Filename));
 	}
 
@@ -155,9 +155,9 @@ public:
 
 	void close()
 	{
-		if (File != NULL)
+		if (File != nullptr)
 			fclose(File);
-		File = NULL;
+		File = nullptr;
 	}
 
 	void open(const char *FileName);
@@ -177,7 +177,7 @@ class TWriteBinaryFile {
 public:
 	TWriteBinaryFile()
 	{
-		File = NULL;
+		File = nullptr;
 		memset(Filename, 0, sizeof(Filename));
 	}
 
@@ -188,9 +188,9 @@ public:
 
 	void close()
 	{
-		if (File != NULL)
+		if (File != nullptr)
 			fclose(File);
-		File = NULL;
+		File = nullptr;
 	}
 
 	void open(const char *FileName);

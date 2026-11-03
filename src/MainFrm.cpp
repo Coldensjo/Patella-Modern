@@ -40,7 +40,7 @@ static bool Closing;            // 0x5d166f, CloseRequest is not asked any more
 bool DisplayChanged;            // 0x5d1670, set by OnDisplayChange; SurfaceGL.cpp's Init reads and clears it
 // At 0x5d1674, constructed by the static initialiser 0x559f20 as TCallback(NULL, 0) (no atexit) and
 // never used, like the window files' (issue #24).
-static TCallback NoCallback(NULL, 0);
+static TCallback NoCallback(nullptr, 0);
 static char ClassName[32]; // 0x5d167c
 static int WheelDelta;     // 0x5d169c, the remainder below one notch (120)
 
@@ -136,7 +136,7 @@ void CMainFrame::OutputErrorInformations(std::ostream &Out)
 	if (GetPlayerID() != 0) {
 		try {
 			TCreature *Player = GetCreature(GetPlayerID());
-			if (Player != NULL)
+			if (Player != nullptr)
 				Out << "Player Position: [" << Player->RealX << "," << Player->RealY << "," << Player->RealZ << "]"
 					<< std::endl;
 		} catch (...) {
@@ -152,9 +152,9 @@ CMainFrame::CMainFrame(bool Gamemaster)
 	KeyFlags = 0;
 	memset(KeyStates, 0, sizeof(KeyStates));
 	memset(PacketHeader, 0, sizeof(PacketHeader));
-	ArrowCursor = LoadCursorA(NULL, IDC_ARROW);
-	SizeCursor = LoadCursorA(NULL, IDC_SIZENS);
-	WaitCursor = LoadCursorA(NULL, IDC_WAIT);
+	ArrowCursor = LoadCursorA(nullptr, IDC_ARROW);
+	SizeCursor = LoadCursorA(nullptr, IDC_SIZENS);
+	WaitCursor = LoadCursorA(nullptr, IDC_WAIT);
 	DefaultCursor = LoadCursorA(AfxGetInstanceHandle(), MAKEINTRESOURCEA(0x84));
 	HandCursor = LoadCursorA(AfxGetInstanceHandle(), MAKEINTRESOURCEA(0x89));
 	SetWindowedMode(-1, -1, 0, 0, false);
@@ -194,7 +194,7 @@ void CloseProgram()
 {
 	TBEGIN
 	CPlayerApp *App = (CPlayerApp *)AfxGetApp();
-	if (App != NULL)
+	if (App != nullptr)
 		App->RunPatch = true;
 	Closing = true;
 	PostMessageA(MainFrame->m_hWnd, WM_CLOSE, 0, 0);
@@ -233,7 +233,7 @@ void OpenURL(const char *URL)
 	TBEGIN
 	if (GetViewMode() == 2)
 		SetDisplayMode(1);
-	ShellExecuteA(NULL, NULL, URL, NULL, NULL, SW_SHOWNORMAL);
+	ShellExecuteA(nullptr, nullptr, URL, nullptr, nullptr, SW_SHOWNORMAL);
 	TEND(193)
 }
 
@@ -268,7 +268,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		MoveWindow(x, y, Width, Height, TRUE);
 	else
 		SetDefaultWindowPosition();
-	PATELLA_SET_MAIN_TIMER(m_hWnd, 1, 100, NULL);
+	PATELLA_SET_MAIN_TIMER(m_hWnd, 1, 100, nullptr);
 	return 0;
 	TEND(273)
 }
@@ -453,7 +453,7 @@ void UpdateMouseCursor()
 	TBEGIN
 	HCURSOR Cursor;
 	if (!GetWindowsMousepointer()) {
-		Cursor = NULL;
+		Cursor = nullptr;
 	} else {
 		Cursor = DefaultCursor;
 		switch (GetMouseCursor()) {

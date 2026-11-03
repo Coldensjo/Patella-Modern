@@ -44,7 +44,7 @@ std::optional<std::string> Environment(const char *Name)
 std::string FindCpuDriverManifest()
 {
 	char Path[MAX_PATH];
-	DWORD Length = GetModuleFileNameA(NULL, Path, MAX_PATH);
+	DWORD Length = GetModuleFileNameA(nullptr, Path, MAX_PATH);
 	if (Length == 0 || Length >= MAX_PATH)
 		return {};
 	std::string Manifest(Path, Length);

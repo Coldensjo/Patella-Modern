@@ -47,10 +47,10 @@ static double LastFPSTime;                         // 0x71d288
 bool IsDirect3D9Installed()
 {
 	HMODULE Module = LoadLibraryA("d3d9.dll");
-	if (Module == NULL)
+	if (Module == nullptr)
 		return false;
 	Direct3DCreate9Function = (TDirect3DCreate9)GetProcAddress(Module, "Direct3DCreate9");
-	return Direct3DCreate9Function != NULL;
+	return Direct3DCreate9Function != nullptr;
 }
 
 // 0x4efd40. Creates a windowed device on the default adapter and releases it
@@ -59,13 +59,13 @@ bool IsDirect3D9Installed()
 bool TSurfaceDX9::TestEngine()
 {
 	TSurface::TestEngine();
-	if (Direct3DCreate9Function == NULL) {
+	if (Direct3DCreate9Function == nullptr) {
 		IsDirect3D9Installed();
-		if (Direct3DCreate9Function == NULL)
+		if (Direct3DCreate9Function == nullptr)
 			return false;
 	}
 	Direct3D = Direct3DCreate9Function(D3D_SDK_VERSION);
-	if (Direct3D == NULL)
+	if (Direct3D == nullptr)
 		return false;
 	D3DPRESENT_PARAMETERS Parameters;
 	memset(&Parameters, 0, sizeof(Parameters));
@@ -85,18 +85,18 @@ bool TSurfaceDX9::TestEngine()
 	if (Direct3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWindow,
 			D3DCREATE_HARDWARE_VERTEXPROCESSING, &Parameters, &Device)
 			== D3D_OK
-		&& Device != NULL) {
+		&& Device != nullptr) {
 		Device->Release();
-		Device = NULL;
-		if (Direct3D != NULL) {
+		Device = nullptr;
+		if (Direct3D != nullptr) {
 			Direct3D->Release();
-			Direct3D = NULL;
+			Direct3D = nullptr;
 		}
 		return true;
 	}
-	if (Direct3D != NULL) {
+	if (Direct3D != nullptr) {
 		Direct3D->Release();
-		Direct3D = NULL;
+		Direct3D = nullptr;
 	}
 	return false;
 }
@@ -377,7 +377,7 @@ void TSurfaceDX9::ApplyColorKey(int Surface, TRGBColor ColorKey)
 		}
 	}
 	TempSurface->UnlockRect();
-	Device->UpdateSurface(TempSurface, &this->Rect[Surface], RenderTarget[STRETCH_SURFACE], NULL);
+	Device->UpdateSurface(TempSurface, &this->Rect[Surface], RenderTarget[STRETCH_SURFACE], nullptr);
 }
 
 // 0x4f0d50. Copies TEMP_SURFACE to PRIMARY_SURFACE and draws the shaded
@@ -400,7 +400,7 @@ void TSurfaceDX9::FlushShade()
 // are top left, top right, bottom left, bottom right.
 void TSurfaceDX9::ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor *Colors)
 {
-	if (Surface == TEMP_SURFACE && Direct3D != NULL) {
+	if (Surface == TEMP_SURFACE && Direct3D != nullptr) {
 		ShadeBuffer->Lock(0, 0, (void **)&ShadeVertices, D3DLOCK_DISCARD);
 		for (int i = 0; i < Count; i++) {
 			TRect *R = &Rects[i];
@@ -429,7 +429,7 @@ void TSurfaceDX9::FinishFrame()
 		BlitCount = 0;
 		BlitPixels = 0;
 		FlushVertices();
-		Device->Present(&Rect[SCREEN_SURFACE], NULL, NULL, NULL);
+		Device->Present(&Rect[SCREEN_SURFACE], nullptr, nullptr, nullptr);
 		BlitCount++;
 		BlitPixels += (WindowRect.bottom - WindowRect.top) * (WindowRect.right - WindowRect.left);
 	}
@@ -439,52 +439,52 @@ void TSurfaceDX9::FinishFrame()
 // exists). SCREEN_SURFACE's texture slot is released before the loop.
 void TSurfaceDX9::ExitDisplay()
 {
-	if (DirectDraw == NULL)
+	if (DirectDraw == nullptr)
 		return;
-	if (TempSurface != NULL) {
+	if (TempSurface != nullptr) {
 		TempSurface->Release();
-		TempSurface = NULL;
+		TempSurface = nullptr;
 	}
-	if (ScreenTexture != NULL) {
+	if (ScreenTexture != nullptr) {
 		ScreenTexture->Release();
-		ScreenTexture = NULL;
+		ScreenTexture = nullptr;
 	}
-	if (VertexBuffer != NULL) {
+	if (VertexBuffer != nullptr) {
 		VertexBuffer->Release();
-		VertexBuffer = NULL;
+		VertexBuffer = nullptr;
 	}
-	if (ShadeBuffer != NULL) {
+	if (ShadeBuffer != nullptr) {
 		ShadeBuffer->Release();
-		ShadeBuffer = NULL;
+		ShadeBuffer = nullptr;
 	}
-	if (Surface9[SCREEN_SURFACE] != NULL) {
+	if (Surface9[SCREEN_SURFACE] != nullptr) {
 		Surface9[SCREEN_SURFACE]->Release();
-		Surface9[SCREEN_SURFACE] = NULL;
+		Surface9[SCREEN_SURFACE] = nullptr;
 	}
 	for (int i = 0; i < NUMBER_OF_SURFACES_DX9; i++) {
-		if (Surface9[i] != NULL) {
+		if (Surface9[i] != nullptr) {
 			Surface9[i]->Release();
-			Surface9[i] = NULL;
+			Surface9[i] = nullptr;
 			SurfaceCreated[i] = 0;
 		}
-		if (RenderTarget[i] != NULL) {
+		if (RenderTarget[i] != nullptr) {
 			RenderTarget[i]->Release();
-			RenderTarget[i] = NULL;
+			RenderTarget[i] = nullptr;
 		}
 	}
 	CacheSurfaces = 0;
-	if (Device != NULL) {
+	if (Device != nullptr) {
 		Device->Release();
-		Device = NULL;
+		Device = nullptr;
 	}
-	if (Direct3D != NULL) {
+	if (Direct3D != nullptr) {
 		Direct3D->Release();
-		Direct3D = NULL;
+		Direct3D = nullptr;
 	}
-	if (Direct3D9Module != NULL) {
+	if (Direct3D9Module != nullptr) {
 		FreeLibrary(Direct3D9Module);
-		Direct3D9Module = NULL;
-		Direct3DCreate9Function = NULL;
+		Direct3D9Module = nullptr;
+		Direct3DCreate9Function = nullptr;
 	}
 	ViewMode = 0;
 }
@@ -536,7 +536,7 @@ bool TSurfaceDX9::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, boo
 			// fall through
 		case 0:
 			hWindow = *Window;
-			ResetDisplay(WINDOWED_MODE, NULL);
+			ResetDisplay(WINDOWED_MODE, nullptr);
 			break;
 		case WINDOWED_MODE:
 			if (hWindow != *Window)
@@ -564,7 +564,7 @@ bool TSurfaceDX9::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, boo
 static HRESULT WINAPI EnumModesCallback(DDSURFACEDESC2 *Description, void *Context)
 {
 	TFullscreenMode **Modes = (TFullscreenMode **)Context;
-	if (*Modes == NULL)
+	if (*Modes == nullptr)
 		GetSurface()->NumberOfModes = 0;
 	int Width = (Description->dwFlags & DDSD_WIDTH) ? Description->dwWidth : 0;
 	int Height = (Description->dwFlags & DDSD_HEIGHT) ? Description->dwHeight : 0;
@@ -573,7 +573,7 @@ static HRESULT WINAPI EnumModesCallback(DDSURFACEDESC2 *Description, void *Conte
 	if (Width >= 640 && Height >= 480 && Depth >= 16) {
 		TFullscreenMode *NewModes = new TFullscreenMode[GetSurface()->NumberOfModes + 1];
 		TFullscreenMode *OldModes = *Modes;
-		if (OldModes != NULL) {
+		if (OldModes != nullptr) {
 			for (int i = 0; i < GetSurface()->NumberOfModes; i++)
 				NewModes[i] = OldModes[i];
 			delete[] OldModes;
@@ -591,12 +591,12 @@ static HRESULT WINAPI EnumModesCallback(DDSURFACEDESC2 *Description, void *Conte
 // 0x4f1320. The caller deletes the array.
 int TSurfaceDX9::GetFullscreenModes(TFullscreenMode **Modes)
 {
-	*Modes = NULL;
-	if (DirectDraw->EnumDisplayModes(0, NULL, Modes, EnumModesCallback) == DD_OK)
+	*Modes = nullptr;
+	if (DirectDraw->EnumDisplayModes(0, nullptr, Modes, EnumModesCallback) == DD_OK)
 		return NumberOfModes;
-	if (*Modes != NULL)
+	if (*Modes != nullptr)
 		delete[] *Modes;
-	*Modes = NULL;
+	*Modes = nullptr;
 	return 0;
 }
 
@@ -625,27 +625,27 @@ bool TSurfaceDX9::SurfaceRecreated(int Surface)
 // 0x4f13f0
 bool TSurfaceDX9::CanShadeRectangles()
 {
-	return Direct3D != NULL;
+	return Direct3D != nullptr;
 }
 
 // 0x4f1400
 void TSurfaceDX9::ExitSurfaces()
 {
 	ExitDisplay();
-	if (DirectDraw != NULL) {
+	if (DirectDraw != nullptr) {
 		DirectDraw->Release();
-		DirectDraw = NULL;
+		DirectDraw = nullptr;
 	}
 }
 
 // Inline (CreateSurfaceDX9 has its code).
 TSurfaceDX9::TSurfaceDX9()
 {
-	VertexBuffer = NULL;
-	ShadeBuffer = NULL;
-	Direct3D = NULL;
-	Device = NULL;
-	ScreenTexture = NULL;
+	VertexBuffer = nullptr;
+	ShadeBuffer = nullptr;
+	Direct3D = nullptr;
+	Device = nullptr;
+	ScreenTexture = nullptr;
 }
 
 // 0x4f1430. GetSurface creates the DirectX 9 surface with it.
@@ -745,17 +745,17 @@ void TSurfaceDX9::BlitRectClipped(int ToSurface, int x, int y, int FromSurface, 
 // behaviour kept: the first DirectDraw object is never released.
 void TSurfaceDX9::InitSurfaces()
 {
-	hWindow = NULL;
+	hWindow = nullptr;
 	ViewMode = 0;
-	DirectDraw = NULL;
-	Direct3D = NULL;
-	Device = NULL;
+	DirectDraw = nullptr;
+	Direct3D = nullptr;
+	Device = nullptr;
 	CacheSurfaceWidth = 512;
 	CacheSurfaceHeight = 512;
-	CurrentTarget = NULL;
+	CurrentTarget = nullptr;
 	for (int i = 0; i < NUMBER_OF_SURFACES_DX9; i++) {
-		Surface9[i] = NULL;
-		RenderTarget[i] = NULL;
+		Surface9[i] = nullptr;
+		RenderTarget[i] = nullptr;
 		SurfaceCreated[i] = 0;
 		ColorKey[i] = 0;
 	}
@@ -770,7 +770,7 @@ void TSurfaceDX9::InitSurfaces()
 		Rect[i].bottom = CacheSurfaceHeight;
 	}
 	IDirectDraw *DirectDraw1;
-	if (DirectDrawCreate(NULL, &DirectDraw1, NULL) != DD_OK)
+	if (DirectDrawCreate(nullptr, &DirectDraw1, nullptr) != DD_OK)
 		throw (PROGRAM_ERROR)7;
 	if (DirectDraw1->QueryInterface(IID_IDirectDraw4, (void **)&DirectDraw) != DD_OK)
 		throw (PROGRAM_ERROR)7;
@@ -816,7 +816,7 @@ void TSurfaceDX9::WriteMaskedImage(int ToSurface, int x, int y, int Width, int H
 	for (int i = 0; i < Size; i++) {
 		uint8 *From = &Data[i * 3];
 		int Index;
-		if (Mask != NULL) {
+		if (Mask != nullptr) {
 			uint8 *M = &Mask[i * 3];
 			if (M[0] == 0xff) {
 				if (M[1] == 0xff) {
@@ -955,7 +955,7 @@ void TSurfaceDX9::InitDisplay(int VMode, TFullscreenMode *GMode)
 			GMode->Height = Modes[Number - 1].Height;
 			GMode->Depth = Modes[Number - 1].Depth;
 		}
-		if (Modes != NULL)
+		if (Modes != nullptr)
 			delete[] Modes;
 		Width = GMode->Width;
 		Height = GMode->Height;
@@ -992,14 +992,14 @@ void TSurfaceDX9::CreateSurfaces()
 	DirectDraw->GetDisplayMode(&Description);
 	if (Description.ddpfPixelFormat.dwRGBBitCount < 16)
 		throw (PROGRAM_ERROR)8;
-	if (Direct3DCreate9Function == NULL) {
+	if (Direct3DCreate9Function == nullptr) {
 		IsDirect3D9Installed();
-		if (Direct3DCreate9Function == NULL)
+		if (Direct3DCreate9Function == nullptr)
 			throw (PROGRAM_ERROR)12;
 	}
 	Direct3D = Direct3DCreate9Function(D3D_SDK_VERSION);
-	if (Direct3D == NULL) {
-		Direct3D = NULL;
+	if (Direct3D == nullptr) {
+		Direct3D = nullptr;
 		InitStep = 1;
 		throw (PROGRAM_ERROR)12;
 	}
@@ -1036,7 +1036,7 @@ void TSurfaceDX9::CreateSurfaces()
 	if (Direct3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWindow, D3DCREATE_HARDWARE_VERTEXPROCESSING,
 			&PresentParameters, &Device)
 			!= D3D_OK
-		|| Device == NULL)
+		|| Device == nullptr)
 		throw (PROGRAM_ERROR)12;
 	Device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &RenderTarget[SCREEN_SURFACE]);
 	Device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
@@ -1054,48 +1054,48 @@ void TSurfaceDX9::CreateSurfaces()
 	Device->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
 	Device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 	Device->CreateVertexBuffer(9600 * sizeof(TVertexDX9), D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY,
-		D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1, D3DPOOL_DEFAULT, &VertexBuffer, NULL);
+		D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1, D3DPOOL_DEFAULT, &VertexBuffer, nullptr);
 	Device->CreateVertexBuffer(9600 * sizeof(TVertexDX9), D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY,
-		D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1, D3DPOOL_DEFAULT, &ShadeBuffer, NULL);
-	Device->CreateOffscreenPlainSurface(64, 64, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &TempSurface, NULL);
+		D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1, D3DPOOL_DEFAULT, &ShadeBuffer, nullptr);
+	Device->CreateOffscreenPlainSurface(64, 64, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &TempSurface, nullptr);
 
 	if (Device->CreateTexture(Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom, 1, D3DUSAGE_RENDERTARGET,
-			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[PRIMARY_SURFACE], NULL)
+			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[PRIMARY_SURFACE], nullptr)
 		!= D3D_OK)
 		throw (PROGRAM_ERROR)14;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 	Surface9[PRIMARY_SURFACE]->GetSurfaceLevel(0, &RenderTarget[PRIMARY_SURFACE]);
-	Device->ColorFill(RenderTarget[PRIMARY_SURFACE], NULL, 0xffff0000);
+	Device->ColorFill(RenderTarget[PRIMARY_SURFACE], nullptr, 0xffff0000);
 
 	if (Device->CreateTexture(106, 106, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &ScreenTexture,
-			NULL)
+			nullptr)
 		!= D3D_OK)
 		throw (PROGRAM_ERROR)14;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 
 	if (Device->CreateTexture(Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom, 1, D3DUSAGE_RENDERTARGET,
-			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[TEMP_SURFACE], NULL)
+			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[TEMP_SURFACE], nullptr)
 		!= D3D_OK)
 		throw (PROGRAM_ERROR)14;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 	Surface9[TEMP_SURFACE]->GetSurfaceLevel(0, &RenderTarget[TEMP_SURFACE]);
 
 	if (Device->CreateTexture(Rect[STRETCH_SURFACE].right, Rect[STRETCH_SURFACE].bottom, 1, D3DUSAGE_RENDERTARGET,
-			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[STRETCH_SURFACE], NULL)
+			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[STRETCH_SURFACE], nullptr)
 		!= D3D_OK)
 		throw (PROGRAM_ERROR)15;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 	Surface9[STRETCH_SURFACE]->GetSurfaceLevel(0, &RenderTarget[STRETCH_SURFACE]);
 
 	if (Device->CreateTexture(Rect[CACHE_SURFACE].right, Rect[CACHE_SURFACE].bottom, 1, D3DUSAGE_RENDERTARGET,
-			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[CACHE_SURFACE], NULL)
+			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[CACHE_SURFACE], nullptr)
 		!= D3D_OK)
 		throw (PROGRAM_ERROR)16;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
 	Surface9[CACHE_SURFACE]->GetSurfaceLevel(0, &RenderTarget[CACHE_SURFACE]);
 
 	if (Device->CreateTexture(Rect[AUTOMAP_SURFACE].right, Rect[AUTOMAP_SURFACE].bottom, 1, D3DUSAGE_RENDERTARGET,
-			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[AUTOMAP_SURFACE], NULL)
+			D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[AUTOMAP_SURFACE], nullptr)
 		!= D3D_OK)
 		throw (PROGRAM_ERROR)17;
 	SurfaceCreated[NumberOfSurfaces++] = 1;
@@ -1104,7 +1104,7 @@ void TSurfaceDX9::CreateSurfaces()
 	for (int i = 0; i < 16; i++) {
 		int Surface = SPRITE_SURFACE + i;
 		if (Device->CreateTexture(Rect[Surface].right, Rect[Surface].bottom, 1, D3DUSAGE_DYNAMIC,
-				D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[Surface], NULL)
+				D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[Surface], nullptr)
 			!= D3D_OK) {
 			if (i < 24)
 				throw (PROGRAM_ERROR)18;

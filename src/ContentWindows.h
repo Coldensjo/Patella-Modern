@@ -404,9 +404,9 @@ public:
 	// Inline (0x425ad0, deleting destructor 0x425de0).
 	~TBuddylistWindowBody()
 	{
-		if (MouseOverText != NULL)
+		if (MouseOverText != nullptr)
 			delete[] MouseOverText;
-		MouseOverText = NULL;
+		MouseOverText = nullptr;
 	}
 	void Draw(int Surface, int x, int y);                // +0x44, 0x434bf0, lines 3176-3214
 	void SetSize(int Width, int Height);                 // +0x34, 0x4352e0, lines 3225-3232

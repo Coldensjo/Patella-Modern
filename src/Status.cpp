@@ -344,9 +344,9 @@ const char *GetAccountPassword()
 void SetAccountCharacters(int Number)
 {
 	AccountCharacters = Number;
-	if (Characters != NULL)
+	if (Characters != nullptr)
 		delete[] Characters;
-	Characters = NULL;
+	Characters = nullptr;
 	if (Number > 0)
 		Characters = new TCharacter[Number];
 }
@@ -496,13 +496,13 @@ void ClearMessages()
 			break;
 		case 18:
 			delete[] (char *)Param1;
-			if (Param2 != NULL)
+			if (Param2 != nullptr)
 				delete[] (char *)Param2;
 			break;
 		case 28:
-			if (Param1 != NULL)
+			if (Param1 != nullptr)
 				delete[] (char *)Param1;
-			if (Param2 != NULL)
+			if (Param2 != nullptr)
 				delete[] (char *)Param2;
 			break;
 		}
@@ -627,12 +627,12 @@ const char *GetErrorReportComment(int Number)
 void ExitStatus()
 {
 	ClearErrorReports();
-	if (Characters != NULL)
+	if (Characters != nullptr)
 		delete[] Characters;
-	Characters = NULL;
-	if (TaintedClipboardText != NULL)
+	Characters = nullptr;
+	if (TaintedClipboardText != nullptr)
 		delete[] TaintedClipboardText;
-	if (LinkRegexp != NULL)
+	if (LinkRegexp != nullptr)
 		free(LinkRegexp);
 }
 
@@ -807,7 +807,7 @@ int GetCharacterPort(int Number)
 void CheckClipboardText(const char *Text, int Length)
 {
 	TBEGIN
-	if (TaintedClipboardText != NULL)
+	if (TaintedClipboardText != nullptr)
 		delete[] TaintedClipboardText;
 	TaintedClipboardText = new char[Length + 1];
 	memcpy(TaintedClipboardText, Text, Length);
@@ -845,8 +845,8 @@ void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 {
 	TASSERT(1051, linkwarningeventhandler!=NULL);
 	LinkWarningEventHandler = linkwarningeventhandler;
-	TaintedClipboardText = NULL;
-	LinkRegexp = NULL;
+	TaintedClipboardText = nullptr;
+	LinkRegexp = nullptr;
 	LinkRegexp = regcomp((char *)LinkPattern);
 	::Gamemaster = Gamemaster;
 	ClearRights();
@@ -866,11 +866,11 @@ void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 	AccountNumber = 0;
 	AccountPassword[0] = 0;
 	AccountCharacters = 0;
-	Characters = NULL;
+	Characters = nullptr;
 	PremiumDays = 0;
 	ActiveCharacter = 0;
 	ActionState = 0;
-	MouseOverText = NULL;
+	MouseOverText = nullptr;
 	PendingActionState = 0;
 	PendingActionNumber = 0;
 	Progress = -1;

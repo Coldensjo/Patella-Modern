@@ -59,7 +59,7 @@ static bool ShowFPS;                          // 0x5c4554, toggled by key 0x907
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // the end of Control.obj's .bss, after ShowFPS and before Creatures.obj's
 // BuddySortMethods (0x5c4560).
-static TCallback NoCallback(NULL, 0);
+static TCallback NoCallback(nullptr, 0);
 
 // 0x445900. For error.txt (Player.cpp's HandleException): the last ten
 // packet types, newest first.
@@ -91,17 +91,17 @@ void Resize(int Width, int Height)
 		Height = Mode->Height;
 	}
 	MainWindow->SetSize(Width, Height);
-	if (ModalWindow != NULL) {
+	if (ModalWindow != nullptr) {
 		if (GetActionState() == 11) {
 			delete ModalWindow;
-			ModalWindow = NULL;
+			ModalWindow = nullptr;
 			SetActionState(0);
 			MainWindow->SetConsoleActive(true);
 		}
-		if (ModalWindow != NULL && GetActionState() == 10)
+		if (ModalWindow != nullptr && GetActionState() == 10)
 			ModalWindow->SetPosition(MainWindow->Width / 2 - ModalWindow->Width / 2,
 				MainWindow->Height / 2 - ModalWindow->Height / 2);
-		if (ModalWindow != NULL && GetActionState() == 9)
+		if (ModalWindow != nullptr && GetActionState() == 9)
 			((THelpBubble *)ModalWindow)->Place(MainWindow);
 	}
 	TEND2(93, Width, Height)
@@ -227,11 +227,11 @@ void Redraw(bool Force)
 		return;
 	}
 	MainWindow->Draw(1, 0, 0);
-	if (ModalWindow != NULL)
+	if (ModalWindow != nullptr)
 		ModalWindow->Draw(1, ModalWindow->OffsetX, ModalWindow->OffsetY);
 	UpdateBlinkState();
 	const char *Tooltip = GetMouseOverText();
-	if (Tooltip != NULL) {
+	if (Tooltip != nullptr) {
 		int x, y;
 		GetMouseOverTextPosition(&x, &y);
 		int Width = GetTextWidth(SkinProperties.TooltipFont.FontNumber, Tooltip) + SkinProperties.TooltipBorder * 2;
@@ -349,7 +349,7 @@ void EnterGame()
 {
 	TBEGIN
 	MainWindow->ChangeMode(true);
-	if (ModalWindow == NULL) {
+	if (ModalWindow == nullptr) {
 		SetActionState(0);
 		MainWindow->SetConsoleActive(true);
 	}
@@ -367,9 +367,9 @@ void LeaveGame()
 {
 	TBEGIN
 	MainWindow->ChangeMode(false);
-	if (ModalWindow != NULL) {
+	if (ModalWindow != nullptr) {
 		delete ModalWindow;
-		ModalWindow = NULL;
+		ModalWindow = nullptr;
 		MainWindow->SetConsoleActive(true);
 	}
 	SetActionState(0);
@@ -408,18 +408,18 @@ void MouseMove(int x, int y)
 		THelpBubble *Bubble = (THelpBubble *)ModalWindow;
 		if (GetHelpHandleChanged()) {
 			delete Bubble;
-			Bubble = NULL;
+			Bubble = nullptr;
 			if (GetHelpHandle() != 0)
 				Bubble = new THelpBubble(GetCurrentHelpText());
 		}
-		if (Bubble != NULL)
+		if (Bubble != nullptr)
 			Bubble->Place(MainWindow);
 		ModalWindow = Bubble;
 		break;
 	}
 	}
 	LastMouseMove = GetActionNumber();
-	SetMouseOverText(NULL);
+	SetMouseOverText(nullptr);
 	TEND1(483, GetActionState())
 }
 
@@ -445,7 +445,7 @@ void LeftButtonDown(int x, int y, int Flags)
 	}
 	SetPendingAction(6, GetActionNumber());
 	LastMouseMove = 0;
-	SetMouseOverText(NULL);
+	SetMouseOverText(nullptr);
 	TEND2(511, x, y)
 }
 
@@ -456,7 +456,7 @@ void LeftButtonUp(int x, int y, int Flags)
 	TBEGIN
 	switch (GetActionState()) {
 	case 0:
-		if (MainWindow->GetCapture() != NULL) {
+		if (MainWindow->GetCapture() != nullptr) {
 			MainWindow->LeftButtonUp(x, y, Flags);
 			MainWindow->StopDragging();
 		}
@@ -481,19 +481,19 @@ void LeftButtonUp(int x, int y, int Flags)
 		ModalWindow->LeftButtonUp(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0 || GetActionState() == 7 || GetActionState() == 8) {
 			delete ModalWindow;
-			ModalWindow = NULL;
+			ModalWindow = nullptr;
 			MainWindow->SetConsoleActive(true);
 		}
 		break;
 	case 9:
 		delete ModalWindow;
-		ModalWindow = NULL;
+		ModalWindow = nullptr;
 		SetActionState(0);
 		break;
 	}
 	SetPendingAction(0, 0);
 	LastMouseMove = 0;
-	SetMouseOverText(NULL);
+	SetMouseOverText(nullptr);
 	TEND2(566, x, y)
 }
 
@@ -517,14 +517,14 @@ void LeftButtonDoubleClick(int x, int y, int Flags)
 		ModalWindow->LeftButtonDoubleClick(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0 || GetActionState() == 7 || GetActionState() == 8) {
 			delete ModalWindow;
-			ModalWindow = NULL;
+			ModalWindow = nullptr;
 			MainWindow->SetConsoleActive(true);
 		}
 		break;
 	}
 	SetPendingAction(6, GetActionNumber());
 	LastMouseMove = 0;
-	SetMouseOverText(NULL);
+	SetMouseOverText(nullptr);
 	TEND2(599, x, y)
 }
 
@@ -543,7 +543,7 @@ void RightButtonDown(int x, int y, int Flags)
 		break;
 	}
 	LastMouseMove = 0;
-	SetMouseOverText(NULL);
+	SetMouseOverText(nullptr);
 	TEND(619)
 }
 
@@ -554,7 +554,7 @@ void RightButtonUp(int x, int y, int Flags)
 	TBEGIN
 	switch (GetActionState()) {
 	case 0:
-		if (MainWindow->GetCapture() != NULL)
+		if (MainWindow->GetCapture() != nullptr)
 			MainWindow->StopDragging();
 		break;
 	case 2:
@@ -574,13 +574,13 @@ void RightButtonUp(int x, int y, int Flags)
 		ModalWindow->RightButtonUp(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0) {
 			delete ModalWindow;
-			ModalWindow = NULL;
+			ModalWindow = nullptr;
 			MainWindow->SetConsoleActive(true);
 		}
 		break;
 	case 9:
 		delete ModalWindow;
-		ModalWindow = NULL;
+		ModalWindow = nullptr;
 		SetActionState(0);
 		break;
 	case 7:
@@ -589,7 +589,7 @@ void RightButtonUp(int x, int y, int Flags)
 		break;
 	}
 	LastMouseMove = 0;
-	SetMouseOverText(NULL);
+	SetMouseOverText(nullptr);
 	TEND2(669, x, y)
 }
 
@@ -610,7 +610,7 @@ void MouseWheel(int x, int y, int Direction)
 		break;
 	}
 	LastMouseMove = 0;
-	SetMouseOverText(NULL);
+	SetMouseOverText(nullptr);
 	TEND2(692, x, y)
 }
 
@@ -624,18 +624,18 @@ void KeyPress(int Key)
 	}
 	if (GetActionState() == 9)
 		SetActionState(0);
-	if (ModalWindow != NULL) {
+	if (ModalWindow != nullptr) {
 		ModalWindow->KeyPress(Key);
 		if (GetActionState() == 0) {
 			delete ModalWindow;
-			ModalWindow = NULL;
+			ModalWindow = nullptr;
 			MainWindow->SetConsoleActive(true);
 		}
 	} else if (!CheckHotkey(Key)) {
 		MainWindow->KeyPress(Key);
 	}
 	LastMouseMove = 0;
-	SetMouseOverText(NULL);
+	SetMouseOverText(nullptr);
 	TEND1(1086, Key)
 }
 
@@ -646,7 +646,7 @@ bool CloseRequest()
 {
 	TBEGIN
 	if (GetConnectionState() == 8) {
-		if (ModalWindow == NULL) {
+		if (ModalWindow == nullptr) {
 			INT_PTR *Data = new INT_PTR[4];
 			Data[0] = (INT_PTR) "Warning";
 			Data[1] = (INT_PTR) "If you shut down the program, your character might stay in the game.\n"
@@ -874,11 +874,11 @@ void TimerEvent()
 	TBEGIN
 	IncrementActionNumber();
 	if (LastMouseMove != 0 && LastMouseMove == GetActionNumber() - 10) {
-		if (ModalWindow != NULL)
+		if (ModalWindow != nullptr)
 			ModalWindow->MouseHover(GetMouseX() - ModalWindow->OffsetX, GetMouseY() - ModalWindow->OffsetY);
 		else
 			MainWindow->MouseHover(GetMouseX(), GetMouseY());
-		if (GetMouseOverText() != NULL)
+		if (GetMouseOverText() != nullptr)
 			SetMouseOverTextPosition(GetMouseX(), GetMouseY());
 	}
 	UpdateTalkboxes();
@@ -890,7 +890,7 @@ void TimerEvent()
 		if (GetActionNumber() - GetPendingActionNumber() < 7)
 			return;
 		if (GetPendingActionState() == 6) {
-			if (ModalWindow != NULL)
+			if (ModalWindow != nullptr)
 				ModalWindow->MouseWheel(GetMouseX() - ModalWindow->OffsetX, GetMouseY() - ModalWindow->OffsetY, 6);
 			else
 				MainWindow->MouseWheel(GetMouseX(), GetMouseY(), 6);
@@ -913,14 +913,14 @@ void ProcessEvents()
 {
 	int Type = 0;
 	TBEGIN
-	if (ModalWindow != NULL && GetActionState() == 0) {
+	if (ModalWindow != nullptr && GetActionState() == 0) {
 		delete ModalWindow;
-		ModalWindow = NULL;
+		ModalWindow = nullptr;
 		SetActionState(0);
 		MainWindow->SetConsoleActive(true);
 		Redraw(false);
 	}
-	while (MainWindow->GetCapture() == NULL && ModalWindow == NULL && PeekMessageType() != 0) {
+	while (MainWindow->GetCapture() == nullptr && ModalWindow == nullptr && PeekMessageType() != 0) {
 		INT_PTR Param1, Param2;
 		FetchMessage(&Type, &Param1, &Param2);
 		switch (Type) {
@@ -1040,7 +1040,7 @@ void ProcessEvents()
 				delete[] (char *)Param2;
 			break;
 		case 0x1d:
-			ModalWindow = CreateEditMarkDialog((TCoordinate *)Param1, NULL);
+			ModalWindow = CreateEditMarkDialog((TCoordinate *)Param1, nullptr);
 			break;
 		case 0x1e:
 			ModalWindow = CreateEditMarkDialog((TCoordinate *)Param1, (TMark *)Param2);
@@ -1100,11 +1100,11 @@ void ProcessEvents()
 			delete[] (char *)Param2;
 			break;
 		case 0x30:
-			MainWindow->Console->OpenChannel(5, 5, NULL, (int)Param1, (const char *)Param2);
+			MainWindow->Console->OpenChannel(5, 5, nullptr, (int)Param1, (const char *)Param2);
 			delete[] (char *)Param2;
 			break;
 		case 0x31:
-			MainWindow->Console->OpenChannel(5, 5, NULL, (int)Param1, (const char *)Param2)->SetSelected(true);
+			MainWindow->Console->OpenChannel(5, 5, nullptr, (int)Param1, (const char *)Param2)->SetSelected(true);
 			delete[] (char *)Param2;
 			break;
 		case 0x32:
@@ -1201,7 +1201,7 @@ void ProcessEvents()
 		default:
 			TERROR1(1541, "unknown message type", Type);
 		}
-		if (ModalWindow != NULL) {
+		if (ModalWindow != nullptr) {
 			if (Type < 0x34) {
 				ModalWindow->SetPosition(MainWindow->Width / 2 - ModalWindow->Width / 2,
 					MainWindow->Height / 2 - ModalWindow->Height / 2);

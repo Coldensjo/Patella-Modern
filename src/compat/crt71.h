@@ -12,7 +12,7 @@
 // The text ctime/asctime returned, in MSVC 7.1's form (changed in place; NULL stays NULL).
 inline char *CRT71Time(char *Text)
 {
-	if (Text != NULL && Text[8] == ' ')
+	if (Text != nullptr && Text[8] == ' ')
 		Text[8] = '0';
 	return Text;
 }

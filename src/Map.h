@@ -118,8 +118,8 @@ struct TPathNode {
 	{
 		Cost = -1;
 		Estimate = -1;
-		Predecessor = NULL;
-		Next = NULL;
+		Predecessor = nullptr;
+		Next = nullptr;
 	}
 
 	int x;                  // +0x00, relative to the start

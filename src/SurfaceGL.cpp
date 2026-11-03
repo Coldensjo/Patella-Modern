@@ -59,16 +59,16 @@ static double LastFPSTime;                        // 0x71dbb8
 // before they are called.
 static void ReleasePbuffer()
 {
-	if (Pbuffer != NULL) {
-		if (wglGetCurrentContext != NULL && wglGetCurrentContext() == PbufferContext)
+	if (Pbuffer != nullptr) {
+		if (wglGetCurrentContext != nullptr && wglGetCurrentContext() == PbufferContext)
 			wglMakeCurrent(MainDC, MainContext);
-		if (wglDeleteContext != NULL)
+		if (wglDeleteContext != nullptr)
 			wglDeleteContext(PbufferContext);
-		if (wglReleasePbufferDCARB != NULL)
+		if (wglReleasePbufferDCARB != nullptr)
 			wglReleasePbufferDCARB(Pbuffer, PbufferDC);
-		if (wglDestroyPbufferARB != NULL)
+		if (wglDestroyPbufferARB != nullptr)
 			wglDestroyPbufferARB(Pbuffer);
-		Pbuffer = NULL;
+		Pbuffer = nullptr;
 	}
 }
 
@@ -78,7 +78,7 @@ static void ReleasePbuffer()
 // new context.
 static bool CreatePbuffer()
 {
-	Pbuffer = NULL;
+	Pbuffer = nullptr;
 	PbufferWidth = 640;
 	PbufferHeight = 480;
 	// clang-format off
@@ -94,15 +94,15 @@ static bool CreatePbuffer()
 	// clang-format on
 	int Format;
 	UINT Count = 0;
-	if (wglChoosePixelFormatARB != NULL) {
-		wglChoosePixelFormatARB(MainDC, Attributes, NULL, 1, &Format, &Count);
-		if (Count != 0 && wglCreatePbufferARB != NULL) {
-			Pbuffer = wglCreatePbufferARB(MainDC, Format, PbufferWidth, PbufferHeight, NULL);
-			if (Pbuffer != NULL && wglGetPbufferDCARB != NULL) {
+	if (wglChoosePixelFormatARB != nullptr) {
+		wglChoosePixelFormatARB(MainDC, Attributes, nullptr, 1, &Format, &Count);
+		if (Count != 0 && wglCreatePbufferARB != nullptr) {
+			Pbuffer = wglCreatePbufferARB(MainDC, Format, PbufferWidth, PbufferHeight, nullptr);
+			if (Pbuffer != nullptr && wglGetPbufferDCARB != nullptr) {
 				PbufferDC = wglGetPbufferDCARB(Pbuffer);
-				if (PbufferDC != NULL && wglCreateContext != NULL) {
+				if (PbufferDC != nullptr && wglCreateContext != nullptr) {
 					PbufferContext = wglCreateContext(PbufferDC);
-					if (Pbuffer != NULL && wglShareLists != NULL)
+					if (Pbuffer != nullptr && wglShareLists != nullptr)
 						return wglShareLists(MainContext, PbufferContext) != FALSE;
 				}
 			}
@@ -140,9 +140,9 @@ bool IsOpenGLWorking(HDC Context)
 			ReleasePbuffer();
 			Works = true;
 		}
-		wglMakeCurrent(NULL, NULL);
+		wglMakeCurrent(nullptr, nullptr);
 		wglDeleteContext(MainContext);
-		MainDC = NULL;
+		MainDC = nullptr;
 		glh_shutdown_extensions();
 		return Works;
 	} catch (...) {
@@ -285,7 +285,7 @@ void TSurfaceGL::UpdateWindowRect()
 	GetClientRect(hWindow, &ScreenRect);
 	ClientToScreen(hWindow, (POINT *)&ScreenRect.left);
 	ClientToScreen(hWindow, (POINT *)&ScreenRect.right);
-	if (Context != NULL) {
+	if (Context != nullptr) {
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
 		glViewport(0, 0, Rect[SCREEN_SURFACE].right, Rect[SCREEN_SURFACE].bottom);
@@ -569,8 +569,8 @@ void TSurfaceGL::InitDisplay(int VMode, TFullscreenMode *GMode)
 	memset(&Mode, 0, sizeof(Mode));
 	Mode.dmSize = sizeof(DEVMODEA);
 	if (VMode == WINDOWED_MODE) {
-		if (ChangeDisplaySettingsA(NULL, 0) == DISP_CHANGE_SUCCESSFUL) {
-			EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &Mode);
+		if (ChangeDisplaySettingsA(nullptr, 0) == DISP_CHANGE_SUCCESSFUL) {
+			EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS, &Mode);
 			Height = Mode.dmPelsHeight;
 			Width = Mode.dmPelsWidth;
 			Depth = Mode.dmBitsPerPel;
@@ -582,7 +582,7 @@ void TSurfaceGL::InitDisplay(int VMode, TFullscreenMode *GMode)
 		Mode.dmBitsPerPel = GMode->Depth;
 		Mode.dmPelsWidth = GMode->Width;
 		Mode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
-		TFullscreenMode *Modes = NULL;
+		TFullscreenMode *Modes = nullptr;
 		int Number = GetFullscreenModes(&Modes);
 		int i;
 		for (i = 0; i < Number; i++) {
@@ -597,7 +597,7 @@ void TSurfaceGL::InitDisplay(int VMode, TFullscreenMode *GMode)
 			GMode->Width = Modes[Number - 1].Width;
 			GMode->Height = Modes[Number - 1].Height;
 		}
-		if (Modes != NULL)
+		if (Modes != nullptr)
 			delete[] Modes;
 		if (ChangeDisplaySettingsA(&Mode, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL)
 			return;
@@ -735,14 +735,14 @@ bool TSurfaceGL::Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, b
 		DisplayChanged = false;
 		Recreated[2] = true;
 	}
-	if (Context != NULL && !Force && ViewMode == this->ViewMode)
+	if (Context != nullptr && !Force && ViewMode == this->ViewMode)
 		return true;
 	ExitDisplay();
-	if (Context != NULL && DeviceContext != NULL)
-		wglMakeCurrent(DeviceContext, NULL);
-	if (Context != NULL)
+	if (Context != nullptr && DeviceContext != nullptr)
+		wglMakeCurrent(DeviceContext, nullptr);
+	if (Context != nullptr)
 		wglDeleteContext(Context);
-	if (hWindow != NULL && DeviceContext != NULL)
+	if (hWindow != nullptr && DeviceContext != nullptr)
 		ReleaseDC(hWindow, DeviceContext);
 	ResetDisplay(ViewMode, Resolution);
 	hWindow = *Window;
@@ -782,12 +782,12 @@ int TSurfaceGL::GetFullscreenModes(TFullscreenMode **Modes)
 	DEVMODEA Mode;
 	int Number = 0;
 	int Count = 0;
-	EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &Mode);
+	EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS, &Mode);
 	DWORD DesktopDepth = Mode.dmBitsPerPel;
-	while (EnumDisplaySettingsA(NULL, Count, &Mode))
+	while (EnumDisplaySettingsA(nullptr, Count, &Mode))
 		Count++;
 	*Modes = new TFullscreenMode[Count];
-	for (int i = 0; EnumDisplaySettingsA(NULL, i, &Mode); i++) {
+	for (int i = 0; EnumDisplaySettingsA(nullptr, i, &Mode); i++) {
 		if (Mode.dmBitsPerPel == DesktopDepth && Mode.dmPelsWidth >= 550) {
 			(*Modes)[Number].Width = Mode.dmPelsWidth;
 			(*Modes)[Number].Height = Mode.dmPelsHeight;
@@ -816,8 +816,8 @@ bool TSurfaceGL::IsUnavailable()
 void TSurfaceGL::ExitSurfaces()
 {
 	ExitDisplay();
-	if (Context != NULL && DeviceContext != NULL && hWindow != NULL) {
-		wglMakeCurrent(DeviceContext, NULL);
+	if (Context != nullptr && DeviceContext != nullptr && hWindow != nullptr) {
+		wglMakeCurrent(DeviceContext, nullptr);
 		wglDeleteContext(Context);
 	}
 	glh_shutdown_extensions();
@@ -831,10 +831,10 @@ TSurfaceGL::TSurfaceGL()
 // 0x4fb700. Rect[PRIMARY_SURFACE] is not set.
 void TSurfaceGL::InitSurfaces()
 {
-	hWindow = NULL;
+	hWindow = nullptr;
 	ViewMode = 0;
-	Context = NULL;
-	DeviceContext = NULL;
+	Context = nullptr;
+	DeviceContext = nullptr;
 	CacheSurfaceWidth = 256;
 	CacheSurfaceHeight = 256;
 	SetRect(&Rect[SCREEN_SURFACE], 0, 0, 0, 0);
@@ -902,7 +902,7 @@ void TSurfaceGL::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 	for (int i = 0; i < Size; i++) {
 		uint8 *From = &Data[i * 3];
 		int Index;
-		if (Mask != NULL) {
+		if (Mask != nullptr) {
 			uint8 *M = &Mask[i * 3];
 			if (M[0] == 0xff) {
 				if (M[1] == 0xff) {

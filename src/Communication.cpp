@@ -59,7 +59,7 @@ static_assert(offsetof(TTalkLine, Addressee) == 0x14, "statement addressee");
 // InitControl.
 void InitCommunication()
 {
-	PatchData = NULL;
+	PatchData = nullptr;
 }
 
 // 0x413780, lines 41-96
@@ -948,7 +948,7 @@ void ReceivePatchBlock()
 	else
 		Success = ApplyFullPatch(Name, PatchData, PatchDataSize);
 	delete[] PatchData;
-	PatchData = NULL;
+	PatchData = nullptr;
 	if (!Success) {
 		char *Text = new char[100];
 		sprintf(Text, "Cannot patch file %s.", Name);
@@ -1003,9 +1003,9 @@ void ReceiveCharacterList()
 void CancelPatch()
 {
 	TBEGIN
-	if (PatchData != NULL) {
+	if (PatchData != nullptr) {
 		delete[] PatchData;
-		PatchData = NULL;
+		PatchData = nullptr;
 		SetConnectionState(0);
 		Disconnect(false);
 		ClearMessages();
@@ -1127,7 +1127,7 @@ uint32 ReadCreature(int Type, int x, int y, int z)
 	} else if (Type == 0x62) {
 		CreatureID = GetQuad();
 		Creature = GetCreature(CreatureID);
-		if (Creature == NULL) {
+		if (Creature == nullptr) {
 			GetByte();
 			GetByte();
 			if (GetByte() == 0) {
@@ -1169,12 +1169,12 @@ uint32 ReadCreature(int Type, int x, int y, int z)
 			return 0;
 		CreatureID = GetQuad();
 		Creature = GetCreature(CreatureID);
-		if (Creature == NULL)
+		if (Creature == nullptr)
 			GetByte();
 		else
 			Creature->Direction = GetByte();
 	}
-	if (Creature != NULL) {
+	if (Creature != nullptr) {
 		RelativeToAbsolute(&x, &y, &z);
 		Creature->SetPosition(x, y, z);
 		Creature->Visible = true;
@@ -1419,7 +1419,7 @@ void ReceiveChangeObject()
 	} else {
 		if (OldObject.Type == 0x63) {
 			TCreature *Creature = GetCreature(OldObject.Data);
-			if (Creature != NULL)
+			if (Creature != nullptr)
 				Creature->Visible = false;
 		}
 		int Type = GetWord();
@@ -1465,7 +1465,7 @@ void ReceiveDeleteObject()
 	} else {
 		if (Object.Type == 0x63) {
 			TCreature *Creature = GetCreature(Object.Data);
-			if (Creature != NULL)
+			if (Creature != nullptr)
 				Creature->Visible = false;
 		}
 		bool Refresh = DeleteObject(rx, ry, rz, Position);
@@ -1504,7 +1504,7 @@ void ReceiveMoveCreature()
 	AbsoluteToRelative(&zx, &zy, &zz);
 	TObject Object = GetMapObject(sx, sy, sz, Position);
 	std::string Error;
-	TCreature *Creature = NULL;
+	TCreature *Creature = nullptr;
 	if (Object.Type == NoObject.Type || Object.Type != 0x63) {
 		if (FieldRefreshRequested(sx, sy, sz)) {
 			RelativeToAbsolute(&zx, &zy, &zz);
@@ -1527,7 +1527,7 @@ void ReceiveMoveCreature()
 		Error = Text.str();
 	} else {
 		Creature = GetCreature(Object.Data);
-		if (Creature != NULL) {
+		if (Creature != nullptr) {
 			if (Teleport) {
 				if (Creature->CreatureID == GetPlayerID())
 					StopPlayer();
@@ -1599,7 +1599,7 @@ void ReceiveMoveCreature()
 				 << "Exception during cylinder looping: " << std::endl
 				 << Exception.GetMessage();
 		}
-		if (Creature != NULL) {
+		if (Creature != nullptr) {
 			Text << std::endl
 				 << " ID: " << Creature->CreatureID << " Name: " << Creature->Name;
 			Text << std::endl
@@ -1871,7 +1871,7 @@ void ReceiveCreatureMark()
 	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
-	if (Creature != NULL) {
+	if (Creature != nullptr) {
 		int Value = GetByte();
 		Creature->SetMark(Value);
 		return;
@@ -1887,7 +1887,7 @@ void ReceiveCreatureHealth()
 	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
-	if (Creature != NULL) {
+	if (Creature != nullptr) {
 		int Value = GetByte();
 		Creature->Health = Value;
 		return;
@@ -1903,7 +1903,7 @@ void ReceiveCreatureLight()
 	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
-	if (Creature != NULL) {
+	if (Creature != nullptr) {
 		Creature->LightStrength = GetByte();
 		Creature->LightColor = GetByte();
 		return;
@@ -1921,7 +1921,7 @@ void ReceiveCreatureOutfit()
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	int Type = GetWord();
-	if (Creature == NULL) {
+	if (Creature == nullptr) {
 		if (Type != 0) {
 			GetByte();
 			GetByte();
@@ -1951,7 +1951,7 @@ void ReceiveCreatureSpeed()
 	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
-	if (Creature != NULL) {
+	if (Creature != nullptr) {
 		int Value = GetWord();
 		Creature->Speed = Value;
 		return;
@@ -1967,7 +1967,7 @@ void ReceiveCreatureSkull()
 	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
-	if (Creature != NULL) {
+	if (Creature != nullptr) {
 		int Skull = GetByte();
 		Creature->SetSkull(Skull, true);
 		NotifySkull(Creature->PKFlag);
@@ -1984,7 +1984,7 @@ void ReceiveCreatureShield()
 	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
-	if (Creature != NULL) {
+	if (Creature != nullptr) {
 		int Value = GetByte();
 		Creature->PARTYFlag = Value;
 		return;
@@ -2161,7 +2161,7 @@ void ReceiveChannelList()
 	TBEGIN
 	Count = GetByte();
 	int *Channels = new int[Count + 1];
-	char *Names = NULL;
+	char *Names = nullptr;
 	if (Count != 0)
 		Names = new char[Count * 30];
 	Channels[0] = Count;
@@ -2201,9 +2201,9 @@ void ReceiveRuleViolationChannel()
 	int ChannelID = 0;
 	TBEGIN
 	ChannelID = GetWord();
-	TTalkBuffer *Channel = CreateTextBuffer(6, 1, NULL, ChannelID);
-	if (Channel == NULL)
-		Channel = GetTextBuffer(6, NULL, -1);
+	TTalkBuffer *Channel = CreateTextBuffer(6, 1, nullptr, ChannelID);
+	if (Channel == nullptr)
+		Channel = GetTextBuffer(6, nullptr, -1);
 	AddMessage(0x32, (INT_PTR)Channel, 0);
 	TEND1(2530, ChannelID)
 }
@@ -2214,11 +2214,11 @@ void ReceiveRemoveRuleViolation()
 	TBEGIN
 	char Name[44];
 	GetString(Name, 30);
-	TTalkBuffer *Channel = GetTextBuffer(6, NULL, -1);
-	if (Channel != NULL) {
+	TTalkBuffer *Channel = GetTextBuffer(6, nullptr, -1);
+	if (Channel != nullptr) {
 		Channel->cursor = Channel->first;
 		TTalkLine *Statement = Channel->first;
-		while (Statement != NULL) {
+		while (Statement != nullptr) {
 			TTalkLine *Current = Statement;
 			Statement = Channel->GetNext();
 			if (CompareStrings(Current->Addressee, Name, -1) == 0) {
@@ -2237,10 +2237,10 @@ void ReceiveCancelRuleViolation()
 	char Name[44];
 	GetString(Name, 30);
 	TTalkBuffer *Channel = GetTextBuffer(8, Name, -1);
-	if (Channel != NULL) {
+	if (Channel != nullptr) {
 		char Text[444];
 		sprintf(Text, "%s has finished the request.", Name);
-		AddTextBufferLine(Channel, 0, Text, 18, NULL, 0);
+		AddTextBufferLine(Channel, 0, Text, 18, nullptr, 0);
 		Channel->SetWriteEnabled(false);
 	}
 	TEND(2569)
@@ -2250,10 +2250,10 @@ void ReceiveCancelRuleViolation()
 void ReceiveLockRuleViolation()
 {
 	TBEGIN
-	TTalkBuffer *Channel = GetTextBuffer(7, NULL, -1);
-	if (Channel != NULL) {
+	TTalkBuffer *Channel = GetTextBuffer(7, nullptr, -1);
+	if (Channel != nullptr) {
 		const char *Text = TextRequestClosed;
-		AddTextBufferLine(Channel, 0, Text, 18, NULL, 0);
+		AddTextBufferLine(Channel, 0, Text, 18, nullptr, 0);
 		Channel->SetWriteEnabled(false);
 	}
 	TEND(2584)
@@ -2277,10 +2277,10 @@ void ReceiveCloseChannel()
 	int ChannelID = 0;
 	TBEGIN
 	ChannelID = GetWord();
-	TTalkBuffer *Channel = GetTextBuffer(5, NULL, ChannelID);
-	if (Channel != NULL) {
+	TTalkBuffer *Channel = GetTextBuffer(5, nullptr, ChannelID);
+	if (Channel != nullptr) {
 		const char *Text = TextChannelClosed;
-		AddTextBufferLine(Channel, 0, Text, 18, NULL, 0);
+		AddTextBufferLine(Channel, 0, Text, 18, nullptr, 0);
 		Channel->SetWriteEnabled(false);
 	}
 	TEND1(2623, ChannelID)
@@ -2300,7 +2300,7 @@ void ReceiveTextMessage()
 	if (Mode == 23 || Mode == 21 || Mode == 20)
 		SetStatusMessage(Text, false);
 	if (Mode != 23)
-		AddConsoleText(0, Text, Mode, NULL, -1, 0);
+		AddConsoleText(0, Text, Mode, nullptr, -1, 0);
 	TEND1(2641, Mode)
 }
 

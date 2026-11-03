@@ -30,11 +30,11 @@ class TComponent;
 // A receiver and an event number (8 bytes, passed by value): Send() calls
 // Receiver->HandleEvent(Event). Buttons, timers and hotkeys keep one.
 struct TCallback {
-	TCallback() : Receiver(NULL), Event(0) {}   // inlined (vector<THotkey>, TTimer)
-	TCallback(TComponent *Receiver, int Event); // 0x496130
-	void Send();                                // 0x4a0f00, line 1931
-	TComponent *Receiver;                       // +0x00
-	int Event;                                  // +0x04
+	TCallback() : Receiver(nullptr), Event(0) {} // inlined (vector<THotkey>, TTimer)
+	TCallback(TComponent *Receiver, int Event);  // 0x496130
+	void Send();                                 // 0x4a0f00, line 1931
+	TComponent *Receiver;                        // +0x00
+	int Event;                                   // +0x04
 };
 
 // One entry of a component's drawing list (0x1c bytes): a skin drawn at an
@@ -60,7 +60,7 @@ struct TDrawing {
 class TComponent {
 public:
 	// Inlined into the constructors of TWindow and TElement.
-	TComponent() : DrawingList(NULL), DrawingListLength(0), Parent(NULL), Next(NULL), OffsetX(0),
+	TComponent() : DrawingList(nullptr), DrawingListLength(0), Parent(nullptr), Next(nullptr), OffsetX(0),
 				   OffsetY(0), Width(0), Height(0) {}
 	virtual ~TComponent() noexcept(false);                                  // +0x00, 0x496040 (deleting 0x496520)
 	virtual void InsertChild(TComponent *Child);                            // +0x04, 0x49b450, line 993

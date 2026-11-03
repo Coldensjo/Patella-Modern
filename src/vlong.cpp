@@ -268,7 +268,7 @@ vlong &vlong::operator=(const vlong &x)
 // 0x50c660. The first byte is the most significant.
 void ByteArrayToVlong(const uint8 *pData, uint16 Size, vlong &Number)
 {
-	if (pData == NULL)
+	if (pData == nullptr)
 		throw "pData pointer is NULL";
 	int Length = Size;
 	Number.value->n = 0;
@@ -429,7 +429,7 @@ public:
 // 0x50d530. Fills Size bytes, most significant first.
 void VlongToByteArray(vlong Number, uint8 *pData, uint16 Size)
 {
-	if (pData == NULL)
+	if (pData == nullptr)
 		throw "pData pointer is NULL";
 	int Length = Size;
 	memset(pData, 0, Length);
@@ -495,7 +495,7 @@ vlong modinv(const vlong &a, const vlong &m)
 // 0x50e360. Non-digit characters count as 0 (atoi), as in the binary.
 void DecimalToVlong(const char *pDecimal, vlong &Number)
 {
-	if (pDecimal == NULL)
+	if (pDecimal == nullptr)
 		throw "pDecimal pointer is NULL";
 	char Digit[2];
 	Digit[0] = 0;
