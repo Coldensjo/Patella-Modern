@@ -2,7 +2,8 @@
 # headless, on the CPU driver next to the executable and, when the machine has one, on a GPU. Known
 # primitives (fills, copies, the automap's point-sampled copy, stretches, the colour key, the light)
 # are drawn off screen, read back and compared with a model of Direct3D 9's pixel rules: exact, except
-# the filtered stretch and the light (at most 1 per channel). No window is opened. Exit code 77 (a
+# the filtered stretch and the light (at most 1 per channel). No window is shown: one test (the client's
+# start-up order, issue-31-fix) presents to a window that is created hidden and never shown. Exit code 77 (a
 # skipped CTest test) when the machine has no Vulkan loader. Built with the client
 # (cmake/Vulkan.cmake), with the static CRT as the back end.
 

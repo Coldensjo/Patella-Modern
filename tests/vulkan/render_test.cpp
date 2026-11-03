@@ -14,9 +14,13 @@
 
 #include "vulkan/Renderer.h"
 
+#include <volk.h>
+
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+
+#include <vulkan/vulkan_win32.h>
 
 #include <algorithm>
 #include <cmath>
@@ -327,6 +331,58 @@ TEST_CASE("the device choice: GPUs, the best one, the CPU driver")
 		CHECK_THROWS_AS(Renderer.Create(Request), pv::TVulkanError);
 		CHECK_FALSE(Renderer.Created());
 	}
+}
+
+// The client's start-up order (issue #31's crash, fixed in issue-31-fix): headless instances first (the
+// device list, and every test above), then a device for a window, whose selection asks whether the
+// device can present to the window's surface. vk-bootstrap loads its instance functions once, from the
+// first instance the process creates; when that one had no surface extension, the surface functions were
+// null and the selection crashed (an access violation in get_present_queue_index). The window is never
+// shown (no WS_VISIBLE, no ShowWindow) and is destroyed at the end; nothing appears on the desktop.
+TEST_CASE("a device for a window after headless instances (the start-up order)")
+{
+	REQUIRE_NOTHROW(pv::ListGpus());
+	REQUIRE_NOTHROW(pv::CpuDriverDevice(CpuManifest()));
+	HINSTANCE Module = GetModuleHandleA(nullptr);
+	WNDCLASSA Class = {};
+	Class.lpfnWndProc = DefWindowProcA;
+	Class.hInstance = Module;
+	Class.lpszClassName = "PatellaTestsVulkanHidden";
+	RegisterClassA(&Class);
+	HWND Window = CreateWindowExA(0, Class.lpszClassName, "tests_vulkan", WS_OVERLAPPEDWINDOW, 0, 0, 160, 120, nullptr,
+		nullptr, Module, nullptr);
+	REQUIRE(Window != nullptr);
+	CHECK_FALSE(IsWindowVisible(Window));
+	for (TDevice &Device : Devices) {
+		CAPTURE(Device.Label);
+		pv::TDeviceRequest Request = Device.Request;
+		Request.SurfaceExtension = "VK_KHR_win32_surface";
+		Request.CreateSurface = [Window, Module](VkInstance Instance) {
+			auto Create = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(
+				vkGetInstanceProcAddr(Instance, "vkCreateWin32SurfaceKHR"));
+			VkWin32SurfaceCreateInfoKHR Info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
+			Info.hinstance = Module;
+			Info.hwnd = Window;
+			VkSurfaceKHR Surface = VK_NULL_HANDLE;
+			if (Create == nullptr || Create(Instance, &Info, nullptr, &Surface) != VK_SUCCESS)
+				throw pv::TVulkanError("vkCreateWin32SurfaceKHR failed");
+			return Surface;
+		};
+		pv::TRenderer Renderer;
+		REQUIRE_NOTHROW(Renderer.Create(Request));
+		std::printf("%s: a device for a hidden window: %s\n", Device.Label.c_str(), Renderer.Device().Name.c_str());
+		// The swapchain (vk-bootstrap's surface format and present mode queries) on the first frame.
+		int Image = Renderer.CreateImage(160, 120);
+		Renderer.Fill(Image, 0, 0, 160, 120, 0xff204060u);
+		RECT Client;
+		GetClientRect(Window, &Client);
+		CHECK_NOTHROW(Renderer.Present(Image, 0, 0, 160, 120, static_cast<uint32_t>(Client.right),
+			static_cast<uint32_t>(Client.bottom)));
+		Renderer.Finish();
+	}
+	CHECK_FALSE(IsWindowVisible(Window));
+	DestroyWindow(Window);
+	UnregisterClassA(Class.lpszClassName, Module);
 }
 
 TEST_CASE("colour fills are exact (ColorFill)")

@@ -111,6 +111,13 @@ same index means the same GPU with or without a window; whether it can present t
 device is created (otherwise the switch or the start-up test fails). "The best GPU" is the first of the best kind
 (discrete, integrated, virtual, other), as before.
 
+**Every instance enables the same instance extensions** (issue-31-fix; Renderer.cpp NewInstanceBuilder):
+VK_KHR_surface, VK_KHR_win32_surface and VK_EXT_debug_utils where the loader offers them, with or without a
+window. vk-bootstrap loads the instance functions it calls itself once per process, from the first instance it
+builds; the GPU list's headless instance, first at start-up since issue #31, had left its surface functions null
+and the window's device selection crashed (0xC0000409 at start-up, on main 26ac7b7). tests_vulkan's test "a device
+for a window after headless instances" covers that order with a window that is never shown.
+
 **At start-up**, when the chosen device fails the engine test (a GPU that is gone, an index out of range, the CPU
 driver missing), the client runs on the automatic choice, as the original falls back to another engine;
 Patella.ini keeps the choice (the dialog shows Automatic). The command line's `engine N` skips the test, as in the
@@ -310,7 +317,9 @@ those (patcap reports the seven others as hooked); compare_rendering.py needs no
   lists (issue #31): ListGpus' GPUs (none a CPU), BestGpu, the CPU driver's device (llvmpipe) and none for a
   missing manifest, `auto` opening the best GPU, `gpu` and every `gpuN` opening the GPU of that index, an index
   beyond the list opening nothing. On November 3, 2026: gpu0 NVIDIA GeForce RTX 5080 (discrete, the best), gpu1
-  AMD Radeon(TM) Graphics (integrated), cpu llvmpipe (LLVM 23.1.4, 256 bits); 10 test cases, 79 assertions. Fills, 400 random
+  AMD Radeon(TM) Graphics (integrated), cpu llvmpipe (LLVM 23.1.4, 256 bits); and (issue-31-fix) the client's
+  start-up order: headless instances first, then a renderer on each device for a window that is never shown (no
+  WS_VISIBLE, no ShowWindow; destroyed at the end) and one frame presented. 11 test cases, 88 assertions. Fills, 400 random
   unscaled copies of a texture with transparent texels, the automap's upload (a texture of texel coordinates:
   every pixel must show texel max(k - 1, 0)), stretches, the colour key pass, the light, a draw that samples its
   target, six frames of 4.8 MB uploads and a resized image, each read back and compared with a model of Direct3D

@@ -68,8 +68,9 @@ bool LoaderAvailable();
 // The GPUs the engine can use (Vulkan 1.3 with dynamic rendering and synchronization2, and
 // VK_KHR_swapchain), in the loader's order: the list TDeviceRequest::GpuIndex and the advanced options'
 // GPU button count in (issue #31). Headless: an instance of its own, without a window, gone again on
-// return; the system's drivers only (no CPU driver). Throws TVulkanError without a loader. Call it while
-// no TRenderer exists (vk-bootstrap keeps the functions of the last instance it made).
+// return; the system's drivers only (no CPU driver). Throws TVulkanError without a loader. Its instance
+// enables the same instance extensions as every other (Renderer.cpp NewInstanceBuilder: vk-bootstrap
+// keeps the functions of the first instance of the process).
 std::vector<TDeviceInfo> ListGpus();
 
 // The index in ListGpus' list of the GPU "the best GPU" means (TDeviceRequest::GpuIndex -1): the first
