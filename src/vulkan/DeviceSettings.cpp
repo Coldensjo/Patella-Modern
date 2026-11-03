@@ -93,6 +93,9 @@ bool SaveDeviceChoice()
 	std::optional<patella::settings::TSettingsFile> File = patella::settings::Load(patella::settings::FileName,
 		NewFileNewline);
 	if (!File) {
+		// A file that is there but cannot be read (or is too large to be a settings file) is left alone.
+		if (GetFileAttributesA(patella::settings::FileName) != INVALID_FILE_ATTRIBUTES)
+			return false;
 		File = patella::settings::TSettingsFile::Parse(std::string(NewFileComment) + NewFileNewline, NewFileNewline);
 	}
 	if (!File->Set(DeviceKey, patella::vulkan::FormatDeviceChoice(Choice)))

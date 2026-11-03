@@ -24,7 +24,8 @@ patella::vulkan::TDeviceChoice GetDeviceChoice();
 void SetDeviceChoice(const patella::vulkan::TDeviceChoice &Choice);
 
 // Writes the choice as Patella.ini's Device; the file's other lines stay as they are, a new file gets a
-// comment line first. False when the file cannot be written (the choice still holds for this run).
+// comment line first. False when the file cannot be written, or is there but cannot be read (it is then left
+// alone); the choice still holds for this run.
 bool SaveDeviceChoice();
 
 // The GPUs found at start-up (ListGpus' order, the one GpuIndex counts in), the one "the best GPU" is,
