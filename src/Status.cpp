@@ -470,8 +470,8 @@ void ClearMessages()
 {
 	for (int i = 0; i < NumberOfMessages; i++) {
 		const int Type = Messages(i).Type;
-		void *Param1 = (void *)Messages(i).Param1;
-		void *Param2 = (void *)Messages(i).Param2;
+		void *Param1 = reinterpret_cast<void *>(Messages(i).Param1);
+		void *Param2 = reinterpret_cast<void *>(Messages(i).Param2);
 		switch (Type) {
 		case 1:
 		case 2:
@@ -479,7 +479,7 @@ void ClearMessages()
 		case 48:
 		case 49:
 		case 50:
-			delete[] (char *)Param2;
+			delete[] static_cast<char *>(Param2);
 			break;
 		case 5:
 		case 6:
@@ -488,28 +488,28 @@ void ClearMessages()
 		case 25:
 		case 26:
 		case 51:
-			delete[] (char *)Param1;
+			delete[] static_cast<char *>(Param1);
 			break;
 		case 14:
-			delete[] (char *)Param1;
-			delete[] ((char **)Param2)[0];
-			delete[] ((char **)Param2)[1];
-			delete[] (char *)Param2;
+			delete[] static_cast<char *>(Param1);
+			delete[] (static_cast<char **>(Param2))[0];
+			delete[] (static_cast<char **>(Param2))[1];
+			delete[] static_cast<char *>(Param2);
 			break;
 		case 15:
-			delete[] (char *)Param1;
-			delete[] (char *)Param2;
+			delete[] static_cast<char *>(Param1);
+			delete[] static_cast<char *>(Param2);
 			break;
 		case 18:
-			delete[] (char *)Param1;
+			delete[] static_cast<char *>(Param1);
 			if (Param2 != nullptr)
-				delete[] (char *)Param2;
+				delete[] static_cast<char *>(Param2);
 			break;
 		case 28:
 			if (Param1 != nullptr)
-				delete[] (char *)Param1;
+				delete[] static_cast<char *>(Param1);
 			if (Param2 != nullptr)
-				delete[] (char *)Param2;
+				delete[] static_cast<char *>(Param2);
 			break;
 		}
 	}
@@ -764,7 +764,7 @@ void SetCharacter(int Number, const char *Name, const char *World, const uint8 *
 	TCharacter *Character = &Characters[Number];
 	strcpy(Character->Name, Name);
 	strcpy(Character->World, World);
-	Character->IP = *(const uint32 *)Address;
+	Character->IP = *reinterpret_cast<const uint32 *>(Address);
 	_snprintf(Character->IPAddress, sizeof(Character->IPAddress), "%d.%d.%d.%d",
 		Address[0], Address[1], Address[2], Address[3]);
 	Character->IPAddress[15] = 0;
@@ -853,7 +853,7 @@ void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 	LinkWarningEventHandler = linkwarningeventhandler;
 	TaintedClipboardText = nullptr;
 	LinkRegexp = nullptr;
-	LinkRegexp = regcomp((char *)LinkPattern);
+	LinkRegexp = regcomp(const_cast<char *>(LinkPattern));
 	::Gamemaster = Gamemaster;
 	ClearRights();
 	NumberOfMessages = 0;

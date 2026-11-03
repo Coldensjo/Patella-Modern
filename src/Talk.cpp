@@ -1017,7 +1017,7 @@ TTalkLine *TTalkBuffer::GetNext()
 int TTalkBuffer::Write(FILE *F) const
 {
 	TASSERT(1672, F!=NULL);
-	const INT_PTR bytes = (INT_PTR)F;
+	const INT_PTR bytes = reinterpret_cast<INT_PTR>(F);
 	TBEGIN
 	for (const TTalkLine *Line = first; Line != nullptr; Line = Line->Next)
 		fprintf(F, "%s\n", Line->GetText());

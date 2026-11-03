@@ -44,7 +44,7 @@ public:
 		memset(Filename, 0, sizeof(Filename));
 		Line = 0;
 		memset(String, 0, sizeof(String));
-		Bytes = (uint8 *)String;
+		Bytes = reinterpret_cast<uint8 *>(String);
 		Number = 0;
 		CoordX = 0;
 		CoordY = 0;
@@ -73,7 +73,7 @@ public:
 		CoordX = 0;
 		CoordY = 0;
 		CoordZ = 0;
-		Bytes = (uint8 *)String;
+		Bytes = reinterpret_cast<uint8 *>(String);
 		Special = '#';
 	}
 

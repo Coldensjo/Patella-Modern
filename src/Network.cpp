@@ -472,7 +472,7 @@ bool ResolveHostname(const char *Hostname)
 	if (HostnameRequest == nullptr) {
 		char *Message = new char[1024];
 		GetErrorMessage(Message, WSAGetLastError(), 1);
-		AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Message);
+		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		SetConnectionState(0);
 		return false;
 	}
@@ -487,7 +487,7 @@ const char *GetResolvedIPAddress()
 {
 	TBEGIN
 	TASSERT(634, HostnameResolveBuffer!=NULL);
-	return inet_ntoa(*(in_addr *)((HOSTENT *)HostnameResolveBuffer)->h_addr_list[0]);
+	return inet_ntoa(*reinterpret_cast<in_addr *>(reinterpret_cast<HOSTENT *>(HostnameResolveBuffer)->h_addr_list[0]));
 	TEND(640)
 }
 
@@ -582,7 +582,7 @@ void ConnectToLoginServer()
 	if (!GetCurrentServer(&Server)) {
 		char *Message = new char[1024];
 		GetErrorMessage(Message, GetServerErrorCode(), 1);
-		AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Message);
+		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		for (int i = 0; i < NUMBEROFSERVER; i++)
 			Servers[i].Available = true;
 		TestServer.Available = true;
@@ -618,14 +618,14 @@ void ConnectToGameServer()
 	if (Error != 0) {
 		char *Message = new char[1024];
 		GetErrorMessage(Message, Error, 2);
-		AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Message);
+		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		AddMessage(10, 300, 0);
 	}
 	Error = ConnectSocket(IPAddress, GetCharacterPort(Character), false);
 	if (Error != 0) {
 		char *Message = new char[1024];
 		GetErrorMessage(Message, Error, 2);
-		AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Message);
+		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		AddMessage(10, 300, 0);
 	}
 	TEND(802)
@@ -655,7 +655,7 @@ void TSocket::OnConnect(int ErrorCode)
 	}
 	char *Message = new char[1024];
 	GetErrorMessage(Message, ErrorCode, 2);
-	AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Message);
+	AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 	AddMessage(10, 300, 0);
 	Disconnect(false);
 	SetConnectionState(0);
@@ -719,7 +719,7 @@ void InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*Clos
 	ReceiveDataSize = 0;
 	Socket = nullptr;
 	HostnameResolveBuffer = nullptr;
-	HostnameResolveBuffer = (char *)malloc(HostnameResolveBufferSize);
+	HostnameResolveBuffer = static_cast<char *>(malloc(HostnameResolveBufferSize));
 	InitServerList();
 }
 

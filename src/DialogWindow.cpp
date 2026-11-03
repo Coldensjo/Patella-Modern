@@ -252,8 +252,8 @@ TContentWindow *TDialogWindow::GetContentWindow(int Identifier)
 {
 	TBEGIN
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
-		if (((TContentWindow *)Child)->Identifier == Identifier)
-			return (TContentWindow *)Child;
+		if ((static_cast<TContentWindow *>(Child))->Identifier == Identifier)
+			return static_cast<TContentWindow *>(Child);
 	}
 	return nullptr;
 	TEND1(233, Identifier)
@@ -265,8 +265,8 @@ void TDialogWindow::StoreOpenDialogs()
 {
 	TBEGIN
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
-		if (((TContentWindow *)Child)->Identifier < 0x40)
-			AddOpenDialog(((TContentWindow *)Child)->Identifier);
+		if ((static_cast<TContentWindow *>(Child))->Identifier < 0x40)
+			AddOpenDialog((static_cast<TContentWindow *>(Child))->Identifier);
 	}
 	TEND(247)
 }
@@ -537,7 +537,7 @@ bool TContentWindow::MouseMove(int x, int y)
 {
 	TBEGIN
 	if (Dragging) {
-		TDialogWindow *Column = (TDialogWindow *)GetParent();
+		TDialogWindow *Column = static_cast<TDialogWindow *>(GetParent());
 		int NewY = OffsetY - DragY + y;
 		if (NewY < 0)
 			NewY = 0;
@@ -573,7 +573,7 @@ bool TContentWindow::LeftButtonUp(int x, int y, int Flags)
 	TBEGIN
 	if (Dragging) {
 		ReleaseCapture(nullptr);
-		((TDialogWindow *)GetParent())->Rearrange(1, nullptr);
+		(static_cast<TDialogWindow *>(GetParent()))->Rearrange(1, nullptr);
 		return true;
 	}
 	return TWindow::LeftButtonUp(x, y, Flags);
@@ -621,7 +621,7 @@ TSubWindow::TSubWindow(int _Identifier, TSubWindowBody *_Body, bool _Resizable, 
 void TSubWindow::SetSize(int Width, int Height)
 {
 	TBEGIN
-	TDialogWindow *Column = (TDialogWindow *)GetParent();
+	TDialogWindow *Column = static_cast<TDialogWindow *>(GetParent());
 	int Change = 0;
 	if (IsMinimized) {
 		TWindow::SetSize(Width, SkinProperties.Style194.Data4C);
@@ -669,7 +669,7 @@ void TSubWindow::Arrange()
 	TContentWindow::Arrange();
 	if (Identifier >= 0x40) {
 		TASSERT(891, Body!=NULL);
-		((TContainerWindowBody *)Body)->UpdateUpButton();
+		(static_cast<TContainerWindowBody *>(Body))->UpdateUpButton();
 	}
 	DrawingList[0] = TDrawing(128, 0, 0, 0, 0, 0, 0);
 	DrawingList[1] = TDrawing(132, Skins[128].width, 0, Width - Skins[129].width - Skins[128].width,

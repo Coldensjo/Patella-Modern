@@ -324,7 +324,7 @@ void TMapWindow::HandleEvent(int Event)
 		TASSERT1(382, In(Hint,1,EVENTHELPS), Hint);
 		char *Text = new char[strlen(GetEventHelpText(Hint)) + 1];
 		strcpy(Text, GetEventHelpText(Hint));
-		AddMessage(2, (INT_PTR)GetEventHelpTitle(Hint), (INT_PTR)Text);
+		AddMessage(2, reinterpret_cast<INT_PTR>(GetEventHelpTitle(Hint)), reinterpret_cast<INT_PTR>(Text));
 	}
 	TEND1(388, Event)
 }

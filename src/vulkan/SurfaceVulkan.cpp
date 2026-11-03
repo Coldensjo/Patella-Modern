@@ -98,7 +98,7 @@ TDeviceRequest TSurfaceVulkan::Request()
 	if (Window != nullptr) {
 		Result.SurfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
 		Result.CreateSurface = [Window](VkInstance Instance) {
-			PFN_vkCreateWin32SurfaceKHR Create = (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(Instance, "vkCreateWin32SurfaceKHR");
+			PFN_vkCreateWin32SurfaceKHR Create = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(vkGetInstanceProcAddr(Instance, "vkCreateWin32SurfaceKHR"));
 			VkWin32SurfaceCreateInfoKHR Info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
 			Info.hinstance = GetModuleHandleA(nullptr);
 			Info.hwnd = Window;
@@ -270,8 +270,8 @@ void TSurfaceVulkan::UpdateWindowRect()
 		GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
 		GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
 		GetClientRect(hWindow, &WindowRect);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.left);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.right);
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.left));
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.right));
 		if (Renderer != nullptr && Image[SCREEN_SURFACE] >= 0) {
 			const int Canvas = Image[SCREEN_SURFACE];
 			const int CanvasWidth = Renderer->ImageWidth(Canvas);
@@ -896,8 +896,8 @@ void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 		GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
 		GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
 		GetClientRect(hWindow, &WindowRect);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.left);
-		ClientToScreen(hWindow, (POINT *)&WindowRect.right);
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.left));
+		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.right));
 	} else {
 		TFullscreenMode *Modes;
 		const int Number = GetFullscreenModes(&Modes);
@@ -955,10 +955,10 @@ void TSurfaceVulkan::CreateSurfaces()
 	}
 	HMODULE Observer = GetModuleHandleA("patcap.dll");
 	if (Observer != nullptr) {
-		DeviceObserver = (TVulkanDeviceObserver)(void *)GetProcAddress(Observer, "PatcapVulkanDevice");
-		FrameObserver = (TVulkanFrameObserver)(void *)GetProcAddress(Observer, "PatcapVulkanFrame");
-		PixelsObserver = (TVulkanPixelsObserver)(void *)GetProcAddress(Observer, "PatcapVulkanPixels");
-		MaskObserver = (TVulkanMaskObserver)(void *)GetProcAddress(Observer, "PatcapVulkanMask");
+		DeviceObserver = reinterpret_cast<TVulkanDeviceObserver>(reinterpret_cast<void *>(GetProcAddress(Observer, "PatcapVulkanDevice")));
+		FrameObserver = reinterpret_cast<TVulkanFrameObserver>(reinterpret_cast<void *>(GetProcAddress(Observer, "PatcapVulkanFrame")));
+		PixelsObserver = reinterpret_cast<TVulkanPixelsObserver>(reinterpret_cast<void *>(GetProcAddress(Observer, "PatcapVulkanPixels")));
+		MaskObserver = reinterpret_cast<TVulkanMaskObserver>(reinterpret_cast<void *>(GetProcAddress(Observer, "PatcapVulkanMask")));
 	}
 	PATELLA_TEST_FRAME_OBSERVERS(Observer, FrameObserver, PixelsObserver, MaskObserver)
 	try {

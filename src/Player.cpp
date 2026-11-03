@@ -203,7 +203,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 		}
 		if (m_pMainWnd != nullptr) {
 			try {
-				((CMainFrame *)m_pMainWnd)->OutputErrorInformations(Out);
+				(static_cast<CMainFrame *>(m_pMainWnd))->OutputErrorInformations(Out);
 			} catch (...) {
 				Out << "OutputErrorInformations: (exception)" << std::endl;
 			}
@@ -348,7 +348,7 @@ BOOL CPlayerApp::InitInstance()
 			Redraw(false);
 			TEND(296)
 			SendMessageA(MainFrame->m_hWnd, WM_SETICON, ICON_BIG,
-				(LPARAM)::LoadIconA(AfxGetResourceHandle(), MAKEINTRESOURCEA(128)));
+				reinterpret_cast<LPARAM>(::LoadIconA(AfxGetResourceHandle(), MAKEINTRESOURCEA(128))));
 			m_pMainWnd = MainFrame;
 			int x, y, Width, Height;
 			bool Maximized;

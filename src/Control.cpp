@@ -108,7 +108,7 @@ void Resize(int Width, int Height)
 			ModalWindow->SetPosition(MainWindow->Width / 2 - ModalWindow->Width / 2,
 				MainWindow->Height / 2 - ModalWindow->Height / 2);
 		if (ModalWindow != nullptr && GetActionState() == 9)
-			((THelpBubble *)ModalWindow)->Place(MainWindow);
+			(static_cast<THelpBubble *>(ModalWindow))->Place(MainWindow);
 	}
 	TEND2(93, Width, Height)
 }
@@ -411,7 +411,7 @@ void MouseMove(int x, int y)
 		// The bubble is kept in a local: ModalWindow is read after
 		// HelpMouseMove and written only after Place (0x446b2a, 0x446b8f), so
 		// an exception before that leaves it as it was (issue #36).
-		THelpBubble *Bubble = (THelpBubble *)ModalWindow;
+		THelpBubble *Bubble = static_cast<THelpBubble *>(ModalWindow);
 		if (GetHelpHandleChanged()) {
 			delete Bubble;
 			Bubble = nullptr;
@@ -654,13 +654,13 @@ bool CloseRequest()
 	if (GetConnectionState() == 8) {
 		if (ModalWindow == nullptr) {
 			INT_PTR *Data = new INT_PTR[4];
-			Data[0] = (INT_PTR) "Warning";
-			Data[1] = (INT_PTR) "If you shut down the program, your character might stay in the game.\n"
-								"Click on \"Logout\" to ensure that your character leaves the game properly.\n"
-								"Click on \"Exit\" if you want to exit the program without logging out your character.";
+			Data[0] = reinterpret_cast<INT_PTR>("Warning");
+			Data[1] = reinterpret_cast<INT_PTR>("If you shut down the program, your character might stay in the game.\n"
+												"Click on \"Logout\" to ensure that your character leaves the game properly.\n"
+												"Click on \"Exit\" if you want to exit the program without logging out your character.");
 			Data[2] = 0;
 			Data[3] = 0;
-			AddMessage(7, (INT_PTR)Data, 0);
+			AddMessage(7, reinterpret_cast<INT_PTR>(Data), 0);
 		}
 		return false;
 	}
@@ -681,7 +681,7 @@ void LinkCopyWarning()
 {
 	TBEGIN
 	SetActionState(0);
-	AddMessage(11, (INT_PTR) "Link Copy Warning", 0);
+	AddMessage(11, reinterpret_cast<INT_PTR>("Link Copy Warning"), 0);
 	TEND(1155)
 }
 
@@ -847,12 +847,12 @@ void ConnectionClosed()
 	} else if (GetConnectionState() == 6) {
 		char *Message = new char[1024];
 		GetErrorMessage(Message, ERROR_DISCONNECTED, 2);
-		AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Message);
+		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		AddMessage(10, 300, 0);
 	} else if (GetConnectionState() == 3) {
 		char *Message = new char[1024];
 		GetErrorMessage(Message, ERROR_DISCONNECTED, 1);
-		AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Message);
+		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 	}
 	SetConnectionState(0);
 	if (Reconnect) {
@@ -931,12 +931,12 @@ void ProcessEvents()
 		FetchMessage(&Type, &Param1, &Param2);
 		switch (Type) {
 		case 0x01:
-			ModalWindow = CreateMessageDialog((const char *)Param1, (const char *)Param2);
-			delete[] (char *)Param2;
+			ModalWindow = CreateMessageDialog(reinterpret_cast<const char *>(Param1), reinterpret_cast<const char *>(Param2));
+			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x02:
-			ModalWindow = CreateFormattedMessageDialog((const char *)Param1, (const char *)Param2);
-			delete[] (char *)Param2;
+			ModalWindow = CreateFormattedMessageDialog(reinterpret_cast<const char *>(Param1), reinterpret_cast<const char *>(Param2));
+			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x03:
 			ModalWindow = CreateConnectingDialog("Connecting", TextCharacterListLoading, MainWindow);
@@ -945,19 +945,19 @@ void ProcessEvents()
 			ModalWindow = CreateConnectingDialog("Connecting", TextConnectingGameWorld, MainWindow);
 			break;
 		case 0x05:
-			ModalWindow = CreateReconnectDialog("Please wait", (const char *)Param1, (int)Param2);
-			delete[] (char *)Param1;
+			ModalWindow = CreateReconnectDialog("Please wait", reinterpret_cast<const char *>(Param1), (int)Param2);
+			delete[] reinterpret_cast<char *>(Param1);
 			break;
 		case 0x06: {
-			const INT_PTR *Data = (INT_PTR *)Param1;
-			ModalWindow = CreateQuestionDialog((const char *)Data[0], (const char *)Data[1], (TWindow *)Data[2],
+			const INT_PTR *Data = reinterpret_cast<INT_PTR *>(Param1);
+			ModalWindow = CreateQuestionDialog(reinterpret_cast<const char *>(Data[0]), reinterpret_cast<const char *>(Data[1]), reinterpret_cast<TWindow *>(Data[2]),
 				(int)Data[3], 2);
 			delete[] Data;
 			break;
 		}
 		case 0x07: {
-			const INT_PTR *Data = (INT_PTR *)Param1;
-			ModalWindow = CreateLogoutDialog((const char *)Data[0], (const char *)Data[1], MainWindow);
+			const INT_PTR *Data = reinterpret_cast<INT_PTR *>(Param1);
+			ModalWindow = CreateLogoutDialog(reinterpret_cast<const char *>(Data[0]), reinterpret_cast<const char *>(Data[1]), MainWindow);
 			delete[] Data;
 			break;
 		}
@@ -971,42 +971,42 @@ void ProcessEvents()
 			ModalWindow = CreateCharacterListDialog((int)Param1);
 			break;
 		case 0x0b:
-			ModalWindow = CreateQuestionDialog((const char *)Param1, TextLinkCopyWarning, MainWindow, 0x21, 2);
+			ModalWindow = CreateQuestionDialog(reinterpret_cast<const char *>(Param1), TextLinkCopyWarning, MainWindow, 0x21, 2);
 			break;
 		case 0x0c:
-			ModalWindow = CreateMessageDialog((const char *)Param1, TextNeverGiveAccount);
+			ModalWindow = CreateMessageDialog(reinterpret_cast<const char *>(Param1), TextNeverGiveAccount);
 			break;
 		case 0x0d:
 			ModalWindow = CreateMoveObjectsDialog();
 			break;
 		case 0x0e: {
-			const INT_PTR *Texts = (INT_PTR *)Param2;
-			ModalWindow = CreateTextDialog((int *)Param1, (const char *)Texts[0], (const char *)Texts[1]);
-			delete[] (char *)Param1;
-			delete[] (char *)Texts[0];
-			delete[] (char *)Texts[1];
+			const INT_PTR *Texts = reinterpret_cast<INT_PTR *>(Param2);
+			ModalWindow = CreateTextDialog(reinterpret_cast<int *>(Param1), reinterpret_cast<const char *>(Texts[0]), reinterpret_cast<const char *>(Texts[1]));
+			delete[] reinterpret_cast<char *>(Param1);
+			delete[] reinterpret_cast<char *>(Texts[0]);
+			delete[] reinterpret_cast<char *>(Texts[1]);
 			delete[] Texts;
 			break;
 		}
 		case 0x0f:
-			ModalWindow = CreateEditListDialog((int *)Param1, (const char *)Param2);
-			delete[] (char *)Param1;
-			delete[] (char *)Param2;
+			ModalWindow = CreateEditListDialog(reinterpret_cast<int *>(Param1), reinterpret_cast<const char *>(Param2));
+			delete[] reinterpret_cast<char *>(Param1);
+			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x10:
 			OutfitRequested = false;
-			ModalWindow = CreateOutfitDialog((int *)Param1);
-			delete[] (char *)Param1;
+			ModalWindow = CreateOutfitDialog(reinterpret_cast<int *>(Param1));
+			delete[] reinterpret_cast<char *>(Param1);
 			break;
 		case 0x11:
 			ModalWindow = CreateBugReportDialog();
 			break;
 		case 0x12: {
-			INT_PTR *Data = (INT_PTR *)Param1;
-			ModalWindow = CreateNewChannelDialog((int)Data[0], (int *)&Data[1], (const char (*)[30])Param2);
+			INT_PTR *Data = reinterpret_cast<INT_PTR *>(Param1);
+			ModalWindow = CreateNewChannelDialog((int)Data[0], reinterpret_cast<int *>(&Data[1]), reinterpret_cast<const char (*)[30]>(Param2));
 			delete[] Data;
 			if (Param2 != 0)
-				delete[] (char *)Param2;
+				delete[] reinterpret_cast<char *>(Param2);
 			break;
 		}
 		case 0x13:
@@ -1028,28 +1028,28 @@ void ProcessEvents()
 			ModalWindow = CreateEditBuddyDialog((int)Param1);
 			break;
 		case 0x19:
-			AddTemporaryIgnore((const char *)Param1);
-			delete[] (char *)Param1;
+			AddTemporaryIgnore(reinterpret_cast<const char *>(Param1));
+			delete[] reinterpret_cast<char *>(Param1);
 			break;
 		case 0x1a:
-			RemoveTemporaryIgnore((const char *)Param1);
-			delete[] (char *)Param1;
+			RemoveTemporaryIgnore(reinterpret_cast<const char *>(Param1));
+			delete[] reinterpret_cast<char *>(Param1);
 			break;
 		case 0x1b:
 			ModalWindow = CreateInfoDialog(URLCallback);
 			break;
 		case 0x1c:
-			ModalWindow = CreateRuleViolationDialog((const char *)Param1, (TTalkLine *)Param2);
+			ModalWindow = CreateRuleViolationDialog(reinterpret_cast<const char *>(Param1), reinterpret_cast<TTalkLine *>(Param2));
 			if (Param1 != 0)
-				delete[] (char *)Param1;
+				delete[] reinterpret_cast<char *>(Param1);
 			if (Param2 != 0)
-				delete[] (char *)Param2;
+				delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x1d:
-			ModalWindow = CreateEditMarkDialog((TCoordinate *)Param1, nullptr);
+			ModalWindow = CreateEditMarkDialog(reinterpret_cast<TCoordinate *>(Param1), nullptr);
 			break;
 		case 0x1e:
-			ModalWindow = CreateEditMarkDialog((TCoordinate *)Param1, (TMark *)Param2);
+			ModalWindow = CreateEditMarkDialog(reinterpret_cast<TCoordinate *>(Param1), reinterpret_cast<TMark *>(Param2));
 			break;
 		case 0x1f:
 			ModalWindow = CreateHelpDialog(URLCallback);
@@ -1067,7 +1067,7 @@ void ProcessEvents()
 			ModalWindow = CreateGraphicsOptionsDialog(URLCallback, DisplayModeCallback, MainWindow);
 			break;
 		case 0x24:
-			ModalWindow = CreateAdvancedGraphicsDialog(URLCallback, (TComponent *)Param1);
+			ModalWindow = CreateAdvancedGraphicsDialog(URLCallback, reinterpret_cast<TComponent *>(Param1));
 			break;
 		case 0x25:
 			ModalWindow = CreateConsoleOptionsDialog(URLCallback);
@@ -1082,7 +1082,7 @@ void ProcessEvents()
 			ModalWindow = CreateMessageDialog("Message of the Day", GetMotD());
 			break;
 		case 0x29:
-			ModalWindow = CreateUpdateDialog((const char *)Param1, (int)Param2);
+			ModalWindow = CreateUpdateDialog(reinterpret_cast<const char *>(Param1), (int)Param2);
 			break;
 		case 0x2a:
 			if (GetNumberOfErrorReports() > 0)
@@ -1102,24 +1102,24 @@ void ProcessEvents()
 			SetHelpHandle(0);
 			break;
 		case 0x2f:
-			MainWindow->Console->OpenChannel(4, 4, (const char *)Param2, -1, (const char *)Param2);
-			delete[] (char *)Param2;
+			MainWindow->Console->OpenChannel(4, 4, reinterpret_cast<const char *>(Param2), -1, reinterpret_cast<const char *>(Param2));
+			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x30:
-			MainWindow->Console->OpenChannel(5, 5, nullptr, (int)Param1, (const char *)Param2);
-			delete[] (char *)Param2;
+			MainWindow->Console->OpenChannel(5, 5, nullptr, (int)Param1, reinterpret_cast<const char *>(Param2));
+			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x31:
-			MainWindow->Console->OpenChannel(5, 5, nullptr, (int)Param1, (const char *)Param2)->SetSelected(true);
-			delete[] (char *)Param2;
+			MainWindow->Console->OpenChannel(5, 5, nullptr, (int)Param1, reinterpret_cast<const char *>(Param2))->SetSelected(true);
+			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x32:
-			MainWindow->Console->AddChannel((TTalkBuffer *)Param1, TextRuleViolations);
-			delete[] (char *)Param2;
+			MainWindow->Console->AddChannel(reinterpret_cast<TTalkBuffer *>(Param1), TextRuleViolations);
+			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x33:
-			MainWindow->Console->ReportRuleViolation((const char *)Param1);
-			delete[] (char *)Param1;
+			MainWindow->Console->ReportRuleViolation(reinterpret_cast<const char *>(Param1));
+			delete[] reinterpret_cast<char *>(Param1);
 			break;
 		case 0x34:
 			ModalWindow = new TObjectContextMenu(GetMouseX(), GetMouseY(), MainWindow->Width,
@@ -1146,15 +1146,15 @@ void ProcessEvents()
 				GetMouseY(), MainWindow->Width, MainWindow->Height);
 			break;
 		case 0x3a:
-			ModalWindow = new TEditContextMenu((TEditLine *)Param1, GetMouseX(), GetMouseY(),
+			ModalWindow = new TEditContextMenu(reinterpret_cast<TEditLine *>(Param1), GetMouseX(), GetMouseY(),
 				MainWindow->Width, MainWindow->Height);
 			break;
 		case 0x3b:
-			ModalWindow = new TMarkContextMenu((TMarkMenuData *)Param1, GetMouseX(), GetMouseY(),
+			ModalWindow = new TMarkContextMenu(reinterpret_cast<TMarkMenuData *>(Param1), GetMouseX(), GetMouseY(),
 				MainWindow->Width, MainWindow->Height);
 			break;
 		case 0x3c:
-			ModalWindow = new TSkillContextMenu((TSkillsWindowBody *)Param1, GetMouseX(), GetMouseY(),
+			ModalWindow = new TSkillContextMenu(reinterpret_cast<TSkillsWindowBody *>(Param1), GetMouseX(), GetMouseY(),
 				MainWindow->Width, MainWindow->Height);
 			break;
 		case 0x3d:

@@ -405,7 +405,7 @@ public:
 // function: its address is taken).
 inline int CompareNames(const void *Name1, const void *Name2)
 {
-	return _stricmp(*(const char **)Name1, *(const char **)Name2);
+	return _stricmp(*static_cast<const char *const *>(Name1), *static_cast<const char *const *>(Name2));
 }
 
 // --- Bug report and channels ----------------------------------------------------

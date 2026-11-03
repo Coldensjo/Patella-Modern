@@ -284,11 +284,11 @@ void TMainWindow::HandleEvent(int Event)
 	case 0x1fb: {
 		// A question with an answer event; message 6 deletes the block.
 		INT_PTR *Data = new INT_PTR[4];
-		Data[0] = (INT_PTR) "Warning";
-		Data[1] = (INT_PTR) "Are you sure you want to leave Tibia?";
-		Data[2] = (INT_PTR)this;
+		Data[0] = reinterpret_cast<INT_PTR>("Warning");
+		Data[1] = reinterpret_cast<INT_PTR>("Are you sure you want to leave Tibia?");
+		Data[2] = reinterpret_cast<INT_PTR>(this);
 		Data[3] = 0x1fa;
-		AddMessage(6, (INT_PTR)Data, 0);
+		AddMessage(6, reinterpret_cast<INT_PTR>(Data), 0);
 		break;
 	}
 	case 0x1fd:
@@ -523,13 +523,13 @@ void TMainWindow::OpenContainer(int Container) const
 {
 	TASSERT(511, DialogWindow!=NULL);
 	TBEGIN
-	TSubWindow *Window = (TSubWindow *)DialogWindow->GetContentWindow(Container + 0x40);
+	TSubWindow *Window = static_cast<TSubWindow *>(DialogWindow->GetContentWindow(Container + 0x40));
 	if (Window == nullptr) {
 		DialogWindow->Rearrange(16, CreateContainerWindow(Container));
 		return;
 	}
 	Window->Arrange();
-	TContainerWindowBody *Body = (TContainerWindowBody *)Window->Body;
+	TContainerWindowBody *Body = static_cast<TContainerWindowBody *>(Window->Body);
 	Body->Update();
 	if (Body->IsMinimized()) {
 		Window->SetTitle(new TLabel(SkinProperties.Style194.Data38, GetContainerName(Container)));
@@ -569,7 +569,7 @@ void TMainWindow::OpenTrade() const
 void TMainWindow::UpdateTrade() const
 {
 	TBEGIN
-	const TSubWindow *Window = (TSubWindow *)DialogWindow->GetContentWindow(TRADE_WINDOW);
+	const TSubWindow *Window = static_cast<TSubWindow *>(DialogWindow->GetContentWindow(TRADE_WINDOW));
 	if (Window != nullptr) {
 		TASSERT(576, Window->getBody()!=NULL);
 		Window->getBody()->HandleEvent(0x15);

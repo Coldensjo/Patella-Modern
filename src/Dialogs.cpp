@@ -1919,7 +1919,7 @@ void TReportDialog::HandleEvent(int Event)
 	if (Event == 1 && strlen(TextEdit->Text) != 0) {
 		char *Text = new char[strlen(TextEdit->Text) + 1];
 		strcpy(Text, TextEdit->Text);
-		AddMessage(0x33, (INT_PTR)Text, 0);
+		AddMessage(0x33, reinterpret_cast<INT_PTR>(Text), 0);
 	}
 	SetActionState(0);
 	TEND1(2580, Event)
@@ -2256,7 +2256,7 @@ void THintsDialog::HandleEvent(int Event)
 		char *Text = new char[strlen(HelpText) + 1];
 		strcpy(Text, HelpText);
 		AddMessageFirst(0x20, 0, 0);
-		AddMessageFirst(2, (INT_PTR)GetEventHelpTitle(Number), (INT_PTR)Text);
+		AddMessageFirst(2, reinterpret_cast<INT_PTR>(GetEventHelpTitle(Number)), reinterpret_cast<INT_PTR>(Text));
 	}
 	SetActionState(0);
 	TEND1(2983, Event)
@@ -2778,7 +2778,7 @@ void TGraphicsOptionsDialog::HandleEvent(int Event)
 			Resize(0, 0);
 	} else if (Event == 407) {
 		AddMessageFirst(0x23, 0, 0);
-		AddMessageFirst(0x24, (INT_PTR)Parent, 0);
+		AddMessageFirst(0x24, reinterpret_cast<INT_PTR>(Parent), 0);
 	} else if (Event == 701) {
 		OpenURL(TextGraphicsOptionsURL);
 		return;

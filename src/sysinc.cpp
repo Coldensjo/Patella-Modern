@@ -163,7 +163,7 @@ char *GetClipboardText()
 	HANDLE Memory = GetClipboardData(CF_TEXT);
 	const SIZE_T Size = GlobalSize(Memory);
 	ResizeClipboardBuffer((unsigned int)Size);
-	const char *Data = (char *)GlobalLock(Memory);
+	const char *Data = static_cast<char *>(GlobalLock(Memory));
 	if (Data == nullptr) {
 		ClipboardBuffer[0] = 0;
 	} else {
@@ -191,7 +191,7 @@ bool SetClipboardText(const char *Text)
 		return false;
 	HGLOBAL Memory;
 	if (EmptyClipboard() && (Memory = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, Length + 1)) != nullptr) {
-		char *textdata = (char *)GlobalLock(Memory);
+		char *textdata = static_cast<char *>(GlobalLock(Memory));
 		TASSERT(139, textdata!=NULL);
 		memcpy(textdata, Text, Length);
 		textdata[Length] = 0;

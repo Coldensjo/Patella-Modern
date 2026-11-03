@@ -287,8 +287,8 @@ void TSurfaceGL::UpdateWindowRect()
 	GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
 	GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
 	GetClientRect(hWindow, &ScreenRect);
-	ClientToScreen(hWindow, (POINT *)&ScreenRect.left);
-	ClientToScreen(hWindow, (POINT *)&ScreenRect.right);
+	ClientToScreen(hWindow, reinterpret_cast<POINT *>(&ScreenRect.left));
+	ClientToScreen(hWindow, reinterpret_cast<POINT *>(&ScreenRect.right));
 	if (Context != nullptr) {
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
