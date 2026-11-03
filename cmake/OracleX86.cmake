@@ -65,17 +65,8 @@ set(ORACLE_TMP_DIR "${PROJECT_BINARY_DIR}/tmp")
 # project's ExtractResources target does the same before the resources compile.
 
 set(PATELLA_RES_DIR "${PROJECT_BINARY_DIR}/res")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-	"${PATELLA_TIBIA_EXE}" "${PROJECT_SOURCE_DIR}/tools/extract_resources.py")
-execute_process(
-	COMMAND "${Python3_EXECUTABLE}" -I "${PROJECT_SOURCE_DIR}/tools/extract_resources.py"
-		"${PATELLA_TIBIA_EXE}" "${PATELLA_RES_DIR}"
-	RESULT_VARIABLE extract_result
-	OUTPUT_VARIABLE extract_output
-	ERROR_VARIABLE extract_output)
-if(NOT extract_result EQUAL 0)
-	message(FATAL_ERROR "tools/extract_resources.py failed (${extract_result}):\n${extract_output}")
-endif()
+include("${PROJECT_SOURCE_DIR}/cmake/Resources.cmake")
+patella_extract_resources("${PATELLA_TIBIA_EXE}" "${PATELLA_RES_DIR}")
 
 # ---------------------------------------------------------------------------------------------------
 # Patella.exe: Patella.vcxproj's command lines (build\Release\build.log), in their order. /Oy- must

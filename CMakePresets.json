@@ -49,8 +49,8 @@
 		},
 		{
 			"name": "windows-x64",
-			"displayName": "windows-x64: the Windows product (MSVC x64); so far the unit tests (issue #9), the client with issue #5",
-			"description": "Run from an x64 developer prompt (vcvarsall.bat x64).",
+			"displayName": "windows-x64: the Windows product (MSVC x64, static x64 MFC): the client and the unit tests",
+			"description": "Run from an x64 developer prompt (vcvarsall.bat x64). Needs Tibia.exe in the root (or PATELLA_TIBIA_EXE) for the client's resources, and Python; PATELLA_CLIENT=OFF builds only the unit tests.",
 			"inherits": "windows-base",
 			"architecture": {
 				"value": "x64",

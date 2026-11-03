@@ -9,7 +9,9 @@
 # Never for the oracle-x86 targets: cmake/OracleX86.cmake keeps exactly the flags of Patella.vcxproj
 # and tools\difftest\build.cmd (/std:c++17 /W3 /Zc:strictStrings- ...) until M6.
 
-include_guard(GLOBAL)
+# DIRECTORY, not GLOBAL: the variables below are directory-scoped, and a directory that includes the
+# file after another one did (the client after tests/unit) must get them too.
+include_guard(DIRECTORY)
 
 # The repository root: the baseline below names its files relative to it.
 cmake_path(GET CMAKE_CURRENT_LIST_DIR PARENT_PATH PATELLA_ROOT_DIR)
