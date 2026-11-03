@@ -42,9 +42,10 @@ the wall clock) and the main timer's ticks (WM_TIMER, ActionNumber) move only wh
 says so, by the same amounts in both clients. The game scenes come from a recorded session
 replayed by tools/proxy.py (both clients get the same server bytes); no server is needed.
 
-Exit code 0 when every scene of every engine is pixel-identical outside the masks (one: the
-measured frame rate in the advanced graphics options, notes/rendering.md), 1 on a difference, 2
-when a run failed.
+Exit code 0 when every scene of every engine is pixel-identical outside the masks (the measured frame
+rate in the advanced graphics options, notes/rendering.md; for vulkan and vulkan-cpu also the graphics
+device choice there, Patella-Modern issue #31: device_choice_mask), 1 on a difference, 2 when a run
+failed.
 """
 
 import argparse
@@ -595,10 +596,11 @@ def switch_fullscreen(driver):
 	time.sleep(1)
 
 
-def session(driver, proxy, shot, fullscreen=False):
+def session(driver, proxy, shot, fullscreen=False, device_choice=False):
 	"""The scenes: the start screen, the option dialogs, the login, then the replayed game session
 	(session_client.run_session) with an automap zoom; shot(name) captures. fullscreen: switch to
-	fullscreen mode first, then the same scenes without the option dialogs."""
+	fullscreen mode first, then the same scenes without the option dialogs. device_choice: the advanced
+	options' engine buttons and the line above them are masked too (device_choice_mask)."""
 	def settle(name=None):
 		if proxy is not None:
 			proxy.wait_idle(0.5, 60)
@@ -627,7 +629,10 @@ def session(driver, proxy, shot, fullscreen=False):
 		click_node(driver, button(driver, "Advanced"))
 		dialog = wait_node(driver, "TAdvancedGraphicsDialog")
 		settle()
-		shot("advanced-options", masks=[framerate_mask(driver, dialog)])
+		masks = [framerate_mask(driver, dialog)]
+		if device_choice:
+			masks.append(device_choice_mask(driver, dialog))
+		shot("advanced-options", masks=masks)
 		for dialog in ("TAdvancedGraphicsDialog", "TGraphicsOptionsDialog", "TOptionsDialog"):
 			texts = [n.get("text") for n in driver.mem.gui() if n["class"] == "TTextButton"]
 			click_node(driver, button(driver, "Cancel" if "Cancel" in texts else "Ok"))
@@ -722,6 +727,25 @@ def framerate_mask(driver, dialog):
 	return [x, y, x + FRAMERATE_WIDTH, y + FRAMERATE_HEIGHT]
 
 
+# The recorded exception to tier A of Patella-Modern issue #31 (plan 6.3): in the x64 client the advanced
+# options' three engine buttons are the graphics device choice ("Automatic", "GPU", "CPU", the selected
+# one the device choice's) and the line above them names the device ("Device: <name>", Dialogs.cpp
+# TAdvancedGraphicsDialog), where Tibia.exe shows "Select graphics engine:" and DirectX5, DirectX9,
+# OpenGL. For the Vulkan engines that area is masked in both runs: from the label's corner
+# (SkinProperties.Style1394.Data08) to the dialog's width (Data00) and the buttons' bottom (Data10.y plus
+# the 20 pixels of the button skin 16). The rest of the dialog stays exact against Tibia.exe; the
+# oracle's engines (dx5, dx9, gl) keep the original dialog, unmasked.
+DEVICE_BUTTON_HEIGHT = 20
+
+
+def device_choice_mask(driver, dialog):
+	x = dialog["x"] + driver.mem.skin_int("Style1394.Data08.x")
+	y = dialog["y"] + driver.mem.skin_int("Style1394.Data08.y")
+	right = dialog["x"] + driver.mem.skin_int("Style1394.Data00")
+	bottom = dialog["y"] + driver.mem.skin_int("Style1394.Data10.y") + DEVICE_BUTTON_HEIGHT
+	return [x, y, right, bottom]
+
+
 def run(engine, client, out, recording, label=None, fullscreen=False):
 	"""One client with one engine through all scenes; the pictures go to out\\<engine>\\<label>
 	(out\\<engine>-fullscreen\\<label> in fullscreen mode). The client runs in the run folder named
@@ -771,7 +795,7 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 	try:
 		with proxy:
 			driver.start()
-			session(driver, proxy, shot, fullscreen)
+			session(driver, proxy, shot, fullscreen, "vulkan" in ENGINES[engine])
 			time.sleep(0.5)
 			code = driver.close()
 			if code != 0:

@@ -14,6 +14,7 @@
 #include "Surface.h"
 #include "graphics.h"
 #include "Preferences.h"
+#include "vulkan/DeviceSettings.h"
 bool IsVulkanInstalled();
 TSurface *CreateSurfaceVulkan();
 #else
@@ -153,15 +154,19 @@ void TSurface::AttachWindow()
 // the original's number for Tibia.exe (plan 6.3): the command line's "engine N" (0-2) and a number 0-2 from
 // Tibia.cfg are stored as they are, as the original stores them when the engine is available, and no
 // number (-1) or one out of range becomes 2, the original's choice on a machine with Direct3D 9. As in
-// the original, the command line skips the test. When the engine's test passes, AvailableEngines enables
-// the advanced options' DirectX 9 and OpenGL buttons, as the original's on a machine with both; the
-// buttons choose only the number then (Control.cpp ChangeEngine). Without a Vulkan device there
-// is no engine to fall back to: curEngine stays 2 and the engine's InitSurfaces or CreateSurfaces fails
-// with PROGRAM_ERROR 12, as the original's Direct3D 9 device would.
+// the original, the command line skips the test. The engine's device is the graphics device choice
+// (issue #31; vulkan/DeviceSettings.h: PATELLA_VULKAN, else Patella.ini, else automatic), read first;
+// the advanced options' buttons choose it (Control.cpp ChangeEngine). When the chosen device fails the
+// test (a GPU that is gone, a CPU driver that is missing), the engine runs on the automatic choice, as
+// the original falls back to another engine; Patella.ini keeps the choice. AvailableEngines is set as
+// the original's on a machine with Direct3D 9 and OpenGL when the test passes. Without a Vulkan device
+// there is no engine to fall back to: curEngine stays 2 and the engine's InitSurfaces or CreateSurfaces
+// fails with PROGRAM_ERROR 12, as the original's Direct3D 9 device would.
 void SurfaceInitInstance(HWND *Window)
 {
 	SurfaceWindow = *Window;
 	curEngine = 2;
+	LoadDeviceChoice();
 	if (CommandLineEngine >= 0 && CommandLineEngine < 3) {
 		SetEngine(CommandLineEngine);
 		return;
@@ -172,7 +177,12 @@ void SurfaceInitInstance(HWND *Window)
 	try {
 		if (IsVulkanInstalled()) {
 			GetSurface()->hWindow = *Window;
-			if (GetSurface()->TestEngine())
+			bool Works = GetSurface()->TestEngine();
+			if (!Works && GetDeviceChoice().Kind != patella::vulkan::TDeviceKind::Automatic) {
+				SetDeviceChoice(patella::vulkan::TDeviceChoice{});
+				Works = GetSurface()->TestEngine();
+			}
+			if (Works)
 				AvailableEngines |= 3;
 			if (Surface != NULL)
 				delete Surface;

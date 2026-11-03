@@ -95,6 +95,15 @@ def client_exe(run):
 	return CLIENTS[ct.client_of(run)]["exe"]
 
 
+# Patella-Modern issue #31: the x64 client's own settings file, which Tibia.exe does not have. It is
+# reported, not compared (the options scenario's CPU button writes Device=cpu into it).
+PATELLA_INI = "Patella.ini"
+# The x64 client's CPU driver (cmake/Vulkan.cmake), copied next to it in its run folder, so that the
+# advanced options' CPU button, in the OpenGL button's place, is enabled and switches as Tibia.exe's
+# OpenGL button does (both write Engine = 1).
+CPU_DRIVER_FILES = ("vulkan_lvp.dll", "lvp_icd.x86_64.json")
+
+
 def sha(data):
 	return hashlib.sha256(data).hexdigest()
 
@@ -114,12 +123,16 @@ def snapshot(run):
 def prepare(run, seed=None, cfg=None):
 	"""The folder as every scenario starts (compare_traffic.clean_run_dir: emptied, the data files as
 	in the root, the patched client), then Tibia.exe (in Patella's folder the patched Tibia.exe, the
-	input of the Tibia.exe patch), Tibia.cfg (compare_traffic's), the files in seed ({name: bytes}),
-	nothing else."""
+	input of the Tibia.exe patch, and the x64 client's CPU driver: CPU_DRIVER_FILES), Tibia.cfg
+	(compare_traffic's), the files in seed ({name: bytes}), nothing else."""
 	path = folder(run)
 	ct.clean_run_dir(run)
 	if ct.client_of(run) == "patella":
 		shutil.copyfile(os.path.join(folder("orig"), "Tibia.exe"), os.path.join(path, "Tibia.exe"))
+		source_dir = os.path.dirname(CLIENTS["patella"]["source"])
+		for name in CPU_DRIVER_FILES:
+			if os.path.isfile(os.path.join(source_dir, name)):
+				shutil.copyfile(os.path.join(source_dir, name), os.path.join(path, name))
 	with open(os.path.join(path, "Tibia.cfg"), "w", encoding="ascii", newline="\r\n") as f:
 		f.write(cfg or ct.TIBIA_CFG)
 	for name, data in (seed or {}).items():
@@ -1294,7 +1307,10 @@ def client_packets(events):
 def compare_files(say, name, results, repeat=None):
 	"""Both clients' written and removed files; masked files of two runs of Tibia.exe (repeat)."""
 	failed = False
-	o, p = results["orig"], results["patella"]
+	o, p = results["orig"], dict(results["patella"])
+	p["written"] = dict(p["written"])
+	if PATELLA_INI in p["written"]:
+		say("    %s (Patella.exe's own, not compared): %r" % (PATELLA_INI, p["written"].pop(PATELLA_INI)))
 	if sorted(o["written"]) != sorted(p["written"]) or o["removed"] != p["removed"]:
 		say("    written: %s / %s, removed: %s / %s: DIFFERENT" % (sorted(o["written"]), sorted(p["written"]),
 			o["removed"], p["removed"]))

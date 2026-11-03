@@ -10,6 +10,7 @@
 
 #include "common.h"
 #include "vulkan/SurfaceVulkan.h"
+#include "vulkan/DeviceSettings.h"
 #include "Preferences.h"
 #include <mmsystem.h>
 
@@ -50,29 +51,6 @@ static uint32 Xrgb(int R, int G, int B)
 
 // --- the engine choice (Surface.cpp) ---
 
-// PATELLA_VULKAN, the device until plan 6.3's choice comes (notes/vulkan.md): 1 automatic (unset, and
-// any value not below), 2 a GPU, 3 the CPU driver; the GPU's index for 2 (-1 the best). Since issue #20
-// there is no other engine, so "off" (which gave engine 2 back to Direct3D 9) is automatic too.
-static int RequestedKind(int *GpuIndex)
-{
-	*GpuIndex = -1;
-	char Value[32] = "";
-	size_t Length = 0;
-	if (getenv_s(&Length, Value, sizeof(Value), "PATELLA_VULKAN") != 0 || Length == 0)
-		return 1;
-	for (char *c = Value; *c != 0; c++)
-		*c = (char)tolower((unsigned char)*c);
-	if (strcmp(Value, "cpu") == 0)
-		return 3;
-	if (strncmp(Value, "gpu", 3) == 0) {
-		const char *Number = Value[3] == ':' ? Value + 4 : Value + 3;
-		if (*Number != 0)
-			*GpuIndex = atoi(Number);
-		return 2;
-	}
-	return 1;
-}
-
 bool IsVulkanInstalled()
 {
 	return patella::vulkan::LoaderAvailable();
@@ -83,32 +61,27 @@ TSurface *CreateSurfaceVulkan()
 	return new TSurfaceVulkan;
 }
 
-// The device request: PATELLA_VULKAN's choice, the CPU driver next to the executable, the window.
+// The name of the device the engine runs on (DeviceSettings.h; the advanced options show it).
+const char *GetDeviceName()
+{
+	TSurfaceVulkan *Engine = static_cast<TSurfaceVulkan *>(GetSurface());
+	return Engine != NULL ? Engine->DeviceName() : "";
+}
+
+const char *TSurfaceVulkan::DeviceName() const
+{
+	return Renderer != nullptr && Renderer->Created() ? Renderer->Device().Name.c_str() : "";
+}
+
+// The device request: the graphics device choice (DeviceSettings.h: the advanced options' buttons,
+// Patella.ini, PATELLA_VULKAN; issue #31), the CPU driver next to the executable, the window.
 TDeviceRequest TSurfaceVulkan::Request()
 {
 	TDeviceRequest Result;
-	int GpuIndex;
-	switch (RequestedKind(&GpuIndex)) {
-	case 2:
-		Result.Kind = TDeviceKind::Gpu;
-		Result.GpuIndex = GpuIndex;
-		break;
-	case 3:
-		Result.Kind = TDeviceKind::Cpu;
-		break;
-	default:
-		Result.Kind = TDeviceKind::Automatic;
-		break;
-	}
-	char Path[MAX_PATH];
-	DWORD Length = GetModuleFileNameA(NULL, Path, MAX_PATH);
-	if (Length > 0 && Length < MAX_PATH) {
-		std::string Manifest(Path, Length);
-		size_t Slash = Manifest.find_last_of("\\/");
-		Manifest = Manifest.substr(0, Slash + 1) + "lvp_icd.x86_64.json";
-		if (GetFileAttributesA(Manifest.c_str()) != INVALID_FILE_ATTRIBUTES)
-			Result.CpuDriverManifest = Manifest;
-	}
+	patella::vulkan::TDeviceChoice Choice = GetDeviceChoice();
+	Result.Kind = Choice.Kind;
+	Result.GpuIndex = Choice.Kind == TDeviceKind::Gpu ? Choice.GpuIndex : -1;
+	Result.CpuDriverManifest = GetCpuDriverManifest();
 	char Validation[8] = "";
 	size_t ValidationLength = 0;
 	Result.Validation = getenv_s(&ValidationLength, Validation, sizeof(Validation), "PATELLA_VULKAN_VALIDATION") == 0

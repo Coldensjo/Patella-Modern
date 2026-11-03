@@ -6,7 +6,8 @@
 // with wrapping, the texture times the vertex colour, source-alpha blending, ColorFill). Copies, fills
 // and the colour key must be exact; a filtered stretch and the light may differ by 1 per channel (the
 // hardware's filter weights and rounding). Every test runs on the CPU driver next to the executable
-// and on the machine's best GPU, if it has one.
+// and on the machine's best GPU, if it has one. One more lists the graphics device choice's devices
+// (issue #31).
 
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest/doctest.h>
@@ -21,6 +22,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -261,6 +263,69 @@ TEST_CASE("the device")
 		int Id = Renderer.CreateImage(13, 7);
 		std::vector<uint32_t> Pixels = Read(Renderer, Id);
 		CHECK(std::count(Pixels.begin(), Pixels.end(), 0u) == 13 * 7);
+	}
+}
+
+// The graphics device choice's lists (issue #31): the GPUs the advanced options' GPU button goes through
+// (ListGpus, the order GpuIndex counts in), the one "the best GPU" and "Automatic" mean, and the CPU
+// driver's device; each listed GPU opens as its index, headless.
+TEST_CASE("the device choice: GPUs, the best one, the CPU driver")
+{
+	std::vector<pv::TDeviceInfo> Gpus = pv::ListGpus();
+	int Best = pv::BestGpu(Gpus);
+	std::printf("device choice: %zu GPU(s), the best %d\n", Gpus.size(), Best);
+	for (size_t i = 0; i < Gpus.size(); i++) {
+		std::printf("device choice: gpu%zu %s (type %d)\n", i, Gpus[i].Name.c_str(), static_cast<int>(Gpus[i].Type));
+		CHECK(Gpus[i].Type != VK_PHYSICAL_DEVICE_TYPE_CPU);
+		CHECK_FALSE(Gpus[i].CpuDriver);
+	}
+	bool HasGpu = std::any_of(Devices.begin(), Devices.end(),
+		[](const TDevice &Device) { return Device.Request.Kind == pv::TDeviceKind::Gpu; });
+	CHECK(HasGpu == !Gpus.empty());
+	CHECK((Best >= 0) == !Gpus.empty());
+
+	std::optional<pv::TDeviceInfo> Cpu = pv::CpuDriverDevice(CpuManifest());
+	REQUIRE(Cpu.has_value());
+	std::printf("device choice: cpu %s\n", Cpu->Name.c_str());
+	CHECK(Cpu->CpuDriver);
+	CHECK(Cpu->Type == VK_PHYSICAL_DEVICE_TYPE_CPU);
+	CHECK(Cpu->Name.find("llvmpipe") != std::string::npos);
+	CHECK_FALSE(pv::CpuDriverDevice("").has_value());
+	CHECK_FALSE(pv::CpuDriverDevice(CpuManifest() + ".missing").has_value());
+
+	// Automatic: the best GPU, else the CPU driver.
+	{
+		pv::TDeviceRequest Request;
+		Request.Kind = pv::TDeviceKind::Automatic;
+		Request.CpuDriverManifest = CpuManifest();
+		pv::TRenderer Renderer;
+		Renderer.Create(Request);
+		std::printf("device choice: auto opens %s\n", Renderer.Device().Name.c_str());
+		if (Gpus.empty())
+			CHECK(Renderer.Device().CpuDriver);
+		else
+			CHECK(Renderer.Device().Name == Gpus[static_cast<size_t>(Best)].Name);
+	}
+	// gpu (the best) and every gpuN.
+	for (int Index = Gpus.empty() ? 0 : -1; Index < static_cast<int>(Gpus.size()); Index++) {
+		CAPTURE(Index);
+		pv::TDeviceRequest Request;
+		Request.Kind = pv::TDeviceKind::Gpu;
+		Request.GpuIndex = Index;
+		pv::TRenderer Renderer;
+		Renderer.Create(Request);
+		size_t Expected = static_cast<size_t>(Index >= 0 ? Index : Best);
+		CHECK(Renderer.Device().Name == Gpus[Expected].Name);
+		CHECK_FALSE(Renderer.Device().CpuDriver);
+	}
+	// A GPU index beyond the list opens nothing (the client then falls back to Automatic).
+	{
+		pv::TDeviceRequest Request;
+		Request.Kind = pv::TDeviceKind::Gpu;
+		Request.GpuIndex = static_cast<int>(Gpus.size());
+		pv::TRenderer Renderer;
+		CHECK_THROWS_AS(Renderer.Create(Request), pv::TVulkanError);
+		CHECK_FALSE(Renderer.Created());
 	}
 }
 
