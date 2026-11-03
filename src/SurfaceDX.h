@@ -36,7 +36,10 @@
 // codecvt::do_always_noconv (0x4d7d40). They are defined in SurfaceDX.cpp.
 class TSurfaceDX : public TSurface {
 public:
-	TSurfaceDX() {}
+	// User-provided on purpose (issue #34): "= default" here would make TSurfaceDX() and TSurfaceDX{}
+	// zero the 0x250 bytes before the constructors run (value-initialization of a class whose default
+	// constructor is not user-provided).
+	TSurfaceDX() {}         // NOLINT(modernize-use-equals-default)
 	~TSurfaceDX() override; // 0x4eae90 (deleting 0x4eca60)
 
 	void SetPixel(int Surface, int x, int y, TRGBColor Color) override;                                  // 0x4eb160

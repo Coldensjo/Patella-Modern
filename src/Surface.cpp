@@ -113,9 +113,7 @@ void TSurface::SetColorKey(int Surface, TRGBColor ColorKey)
 }
 
 // 0x4eabd0
-TSurface::~TSurface()
-{
-}
+TSurface::~TSurface() = default;
 
 // 0x4eabe0. A member (Dialogs.cpp calls it on GetSurface()) that reads only the
 // global.

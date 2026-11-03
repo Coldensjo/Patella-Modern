@@ -14,9 +14,7 @@ TRSA::TRSA() : m_ModulusM(0)
 }
 
 // 0x5089c0
-TRSA::~TRSA()
-{
-}
+TRSA::~TRSA() = default;
 
 // 0x5089f0
 void TRSA::SetPublicKey(const char *ModulusM)

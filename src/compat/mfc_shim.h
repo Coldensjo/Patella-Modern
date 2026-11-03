@@ -12,7 +12,7 @@
 
 class CObject {
 public:
-	virtual ~CObject() {}
+	virtual ~CObject() = default;
 };
 
 class CAsyncSocket : public CObject {

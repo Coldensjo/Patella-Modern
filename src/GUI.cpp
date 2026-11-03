@@ -93,9 +93,7 @@ TComponent *TWindow::GetLastChild()
 }
 
 // 0x496100
-TElement::TElement()
-{
-}
+TElement::TElement() = default;
 
 // 0x496130. Identical code to any two-member constructor, so the linker may
 // have folded others into it.
