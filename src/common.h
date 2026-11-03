@@ -9,7 +9,10 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
-#ifdef TIBIA_MFC_SHIM
+// PATELLA_CORE: the portable code of the patella_core library (cmake/Core.cmake, issue #7), built
+// without MFC and the Windows headers (notes/modernization-plan.md, section 8).
+#if defined(PATELLA_CORE)
+#elif defined(TIBIA_MFC_SHIM)
 #include "compat/mfc_shim.h"
 #else
 #include <afxwin.h>

@@ -84,10 +84,11 @@ void flex_unit::fast_mul(flex_unit &x, flex_unit &y, unsigned keep)
 			j += 1;
 		}
 	}
-	// eliminate unwanted bits
+	// eliminate unwanted bits (1u: with keep 31 the int (1 << keep) - 1 overflowed, which UBSan
+	// reports; the mask has the same bits; issue #7)
 	keep %= BPU;
 	if (keep)
-		a[limit - 1] &= (1 << keep) - 1;
+		a[limit - 1] &= (1u << keep) - 1;
 	// calculate n
 	while (limit && a[limit - 1] == 0)
 		limit -= 1;

@@ -9,6 +9,9 @@
 # - GCC and Clang: -fstack-protector-strong; _FORTIFY_SOURCE=3 where the code is optimised (it needs
 #   optimisation and warns without it; any level the compiler predefines is replaced);
 #   _GLIBCXX_ASSERTIONS in Debug; position-independent executables; on Linux full RELRO.
+# - PATELLA_SANITIZE (GCC and Clang; the preset linux-x64-clang sets it to address,undefined, plan
+#   section 5): -fsanitize=<list> for compiling and linking, every finding fatal
+#   (-fno-sanitize-recover=all), frame pointers kept for the reports.
 #
 # Never for the oracle-x86 targets: cmake/OracleX86.cmake keeps exactly the former Patella.vcxproj's
 # options.
@@ -17,8 +20,14 @@ include_guard(GLOBAL)
 
 include(CheckPIESupported)
 
+set(PATELLA_SANITIZE "" CACHE STRING
+	"GCC and Clang: the sanitizers of the product targets, as for -fsanitize= (e.g. address,undefined)")
+
 function(patella_target_hardening target)
 	get_target_property(type ${target} TYPE)
+	if(PATELLA_SANITIZE AND NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+		message(FATAL_ERROR "PATELLA_SANITIZE: only for GCC and Clang so far")
+	endif()
 	if(MSVC)
 		target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:/guard:cf>)
 		if(type STREQUAL "EXECUTABLE" OR type STREQUAL "SHARED_LIBRARY" OR type STREQUAL "MODULE_LIBRARY")
@@ -34,6 +43,12 @@ function(patella_target_hardening target)
 		if(CMAKE_SYSTEM_NAME STREQUAL "Linux"
 				AND (type STREQUAL "EXECUTABLE" OR type STREQUAL "SHARED_LIBRARY" OR type STREQUAL "MODULE_LIBRARY"))
 			target_link_options(${target} PRIVATE LINKER:-z,relro LINKER:-z,now)
+		endif()
+		if(PATELLA_SANITIZE)
+			set(sanitize -fsanitize=${PATELLA_SANITIZE} -fno-sanitize-recover=all)
+			target_compile_options(${target} PRIVATE
+				$<$<COMPILE_LANGUAGE:C,CXX>:${sanitize} -fno-omit-frame-pointer>)
+			target_link_options(${target} PRIVATE ${sanitize})
 		endif()
 	else()
 		message(FATAL_ERROR "patella_target_hardening: no settings for ${CMAKE_CXX_COMPILER_ID}")

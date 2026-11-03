@@ -395,8 +395,7 @@ public:
 	constexpr void pop_back()
 	{
 		CONTRACT_ASSERT(Length > 0);
-		--Length;
-		std::destroy_at(data() + Length);
+		DestroyFrom(Length - 1);
 	}
 
 	template <class... Arguments>
@@ -556,12 +555,18 @@ private:
 		return *Element;
 	}
 
-	// Destroys the elements from Count on.
+	// Destroys the elements from Count on. During constant evaluation the slot of a trivial T gets
+	// a value again (as in Init): Clang does not copy an array with a destroyed element (the trivial
+	// copy constructor of a TStaticVector<int, N>; issue #7).
 	constexpr void DestroyFrom(size_type Count) noexcept
 	{
 		while (Length > Count) {
 			--Length;
 			std::destroy_at(data() + Length);
+			if consteval {
+				if constexpr (std::is_trivially_default_constructible_v<T> && std::is_trivially_copyable_v<T>)
+					std::construct_at(data() + Length);
+			}
 		}
 	}
 

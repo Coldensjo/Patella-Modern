@@ -16,14 +16,16 @@ include_guard(DIRECTORY)
 # The repository root: the baseline below names its files relative to it.
 cmake_path(GET CMAKE_CURRENT_LIST_DIR PARENT_PATH PATELLA_ROOT_DIR)
 
-# The warning baseline: the sources that do not build warning-free at the full level yet. They build
-# one level lower (MSVC /W3; GCC and Clang -Wall), still with warnings as errors, so the build never
-# stops being green. A file leaves the list when it builds clean at the full level, and the list only
-# shrinks; no file is added. Measured with MSVC 14.51 (cl 19.51) for x86 against static MFC
-# (notes/decisions.md, "Compiler settings, warnings and code style (issue #8)") and again for x64 (the
-# same 24 files and 1,234 warnings once the x64 conversions were fixed; "Windows x64 build (issue #5)");
-# issue #7 measures it for GCC and Clang. Paths are relative to the repository root.
-set(PATELLA_WARNING_BASELINE
+# The warning baselines, one per compiler: the sources that do not build warning-free at the full
+# level yet. They build one level lower (MSVC /W3; GCC and Clang -Wall), still with warnings as
+# errors, so the build never stops being green. A file leaves a list when it builds clean at the full
+# level, and a list only shrinks; no file is added. A file is on a list when its translation unit
+# warns, wherever the warning is (a header included). Paths are relative to the repository root.
+#
+# MSVC: measured with MSVC 14.51 (cl 19.51) for x86 against static MFC (notes/decisions.md, "Compiler
+# settings, warnings and code style (issue #8)") and again for x64 (the same 24 files and 1,234
+# warnings once the x64 conversions were fixed; "Windows x64 build (issue #5)").
+set(PATELLA_WARNING_BASELINE_MSVC
 	src/Communication.cpp
 	src/ConsoleWindow.cpp
 	src/ContentWindows.cpp
@@ -49,6 +51,25 @@ set(PATELLA_WARNING_BASELINE
 	src/surfaceDX9.cpp
 	src/vlong.cpp
 )
+# GCC and Clang: measured for what builds with them, patella_core (cmake/Core.cmake) and the unit
+# tests, with GCC 16.2 and Clang 22.1 on Linux x64 and mingw-w64 GCC 16.2 on Windows x64
+# (notes/decisions.md, "The Linux presets and patella_core (issue #7)"). The other sources do not
+# compile there yet; each is measured when it joins patella_core.
+set(PATELLA_WARNING_BASELINE_GCC
+	src/Extern/regexp/regexp.c
+	src/TXTEA.cpp
+	src/Utils.cpp
+	src/vlong.cpp
+	tests/unit/core_container_test.cpp
+)
+set(PATELLA_WARNING_BASELINE_CLANG
+	src/Extern/regexp/regexp.c
+	src/Skins.cpp
+	src/TXTEA.cpp
+	src/Utils.cpp
+	src/vlong.cpp
+	tests/unit/core_container_test.cpp
+)
 
 # C++23 with the conformance switches. MSVC has no /std:c++23 yet, so /std:c++latest; GCC and Clang
 # compile as C++26, whose features the code reaches only through src/compat/cxx26.h (issue #9). The
@@ -59,7 +80,9 @@ function(patella_target_language target)
 			$<$<COMPILE_LANGUAGE:CXX>:/std:c++latest /permissive- /Zc:__cplusplus>
 			$<$<COMPILE_LANGUAGE:C,CXX>:/utf-8 /Zc:preprocessor /Zc:inline>)
 	elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-		target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-std=c++26>)
+		# C17 for the C sources: the regexp's K&R function definitions are not C23, GCC 16's default.
+		target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-std=c++26>
+			$<$<COMPILE_LANGUAGE:C>:-std=c17>)
 		# GCC 16 keeps the default contract violation handler, which contract_assert calls
 		# (src/compat/cxx26.h), in libstdc++exp.
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16)
@@ -90,25 +113,35 @@ function(patella_target_language target)
 	endif()
 endfunction()
 
-# The full warning level for every source of the target, the baseline level for the files on
-# PATELLA_WARNING_BASELINE, and warnings as errors (COMPILE_WARNING_AS_ERROR: /WX or -Werror;
-# `cmake --compile-no-warning-as-error` turns it off to measure). The level is set per source, so no
-# command line has two levels. Headers included with angle brackets (Windows SDK, MFC, the standard
-# library) are external to MSVC and give no warnings (/external:anglebrackets /external:W0).
+# The full warning level for every source of the target, the baseline level for the files on the
+# compiler's PATELLA_WARNING_BASELINE_<MSVC|GCC|CLANG>, and warnings as errors
+# (COMPILE_WARNING_AS_ERROR: /WX or -Werror; `cmake --compile-no-warning-as-error` turns it off to
+# measure). The level is set per source, so no command line has two levels. Headers included with
+# angle brackets (Windows SDK, MFC, the standard library) are external to MSVC and give no warnings
+# (/external:anglebrackets /external:W0).
 function(patella_target_warnings target)
 	if(MSVC)
 		set(full /W4)
 		set(baseline /W3)
+		set(baseline_list ${PATELLA_WARNING_BASELINE_MSVC})
 		target_compile_options(${target} PRIVATE
 			$<$<COMPILE_LANGUAGE:C,CXX>:/external:anglebrackets /external:W0>)
 	elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 		set(full -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 		set(baseline -Wall)
+		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+			set(baseline_list ${PATELLA_WARNING_BASELINE_GCC})
+		else()
+			set(baseline_list ${PATELLA_WARNING_BASELINE_CLANG})
+			# Clang warns about K&R function definitions in every C standard, at any level; they are
+			# valid C17, the regexp's (src/Extern) form, kept until M6.
+			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wno-deprecated-non-prototype>)
+		endif()
 	else()
 		message(FATAL_ERROR "patella_target_warnings: no settings for ${CMAKE_CXX_COMPILER_ID}")
 	endif()
 	set(baseline_files "")
-	foreach(file IN LISTS PATELLA_WARNING_BASELINE)
+	foreach(file IN LISTS baseline_list)
 		cmake_path(ABSOLUTE_PATH file BASE_DIRECTORY "${PATELLA_ROOT_DIR}" NORMALIZE OUTPUT_VARIABLE path)
 		list(APPEND baseline_files "${path}")
 	endforeach()

@@ -89,6 +89,8 @@ python -I tools/build.py oracle-x86              # configure, build Release, run
 python -I tools/build.py windows-x64             # the x64 client and the unit tests, Release
 python -I tools/build.py windows-x64-debug       # the same, Debug
 python -I tools/build.py windows-x64-gcc         # the unit tests with mingw-w64 GCC 16 (-debug: Debug)
+python -I tools/build.py linux-x64-gcc           # patella_core and the unit tests, GCC 16 (Docker on Windows)
+python -I tools/build.py linux-x64-clang         # the same, Clang 22 with ASan and UBSan (-debug: Debug)
 python -I tools/build.py --list                  # the workflow presets
 python -I tools/build.py oracle-x86 --fresh      # extra options go to cmake --workflow
 python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86-debug   # any command, in the
@@ -137,18 +139,44 @@ The product presets (windows-x64, issue #5; linux-x64-gcc and linux-x64-clang, i
 the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8), which the oracle never uses:
 
 - `patella_target_language(<target>)`: C++23 (`/std:c++latest` on MSVC, `-std=c++26` on GCC and Clang),
-  `/permissive- /Zc:__cplusplus /utf-8 /Zc:preprocessor /Zc:inline`, no `/Zc:strictStrings-`.
+  `/permissive- /Zc:__cplusplus /utf-8 /Zc:preprocessor /Zc:inline`, no `/Zc:strictStrings-`; C17 for the C
+  sources on GCC and Clang (the regexp's K&R definitions are not C23, GCC 16's default).
 - `patella_target_warnings(<target>)`: `/W4` (GCC and Clang `-Wall -Wextra -Wpedantic -Wconversion
-  -Wshadow`) per source, `/W3` (`-Wall`) for the files on the baseline list `PATELLA_WARNING_BASELINE` in
-  Warnings.cmake, and warnings as errors (`COMPILE_WARNING_AS_ERROR`; `cmake --compile-no-warning-as-error`
-  turns it off to measure). Headers in angle brackets are external to MSVC (`/external:anglebrackets
-  /external:W0`). A file leaves the list when it builds clean at /W4; the list only shrinks.
+  -Wshadow`) per source, `/W3` (`-Wall`) for the files on the compiler's baseline list in Warnings.cmake
+  (`PATELLA_WARNING_BASELINE_MSVC`, `_GCC`, `_CLANG`; a file is on a list when its translation unit warns,
+  wherever the warning is), and warnings as errors (`COMPILE_WARNING_AS_ERROR`; `cmake
+  --compile-no-warning-as-error` turns it off to measure). Headers in angle brackets are external to MSVC
+  (`/external:anglebrackets /external:W0`). Clang's warning about K&R definitions
+  (`-Wdeprecated-non-prototype`, on at every level) is off for C. A file leaves a list when it builds clean at
+  the full level; the lists only shrink.
 - `patella_target_hardening(<target>)`: `/guard:cf /CETCOMPAT`; `-fstack-protector-strong`,
-  `_FORTIFY_SOURCE=3` (optimised builds), `_GLIBCXX_ASSERTIONS` (Debug), PIE and, on Linux, full RELRO.
+  `_FORTIFY_SOURCE=3` (optimised builds), `_GLIBCXX_ASSERTIONS` (Debug), PIE and, on Linux, full RELRO; with
+  the cache variable `PATELLA_SANITIZE` (GCC and Clang; linux-x64-clang sets `address,undefined`)
+  `-fsanitize=<list> -fno-sanitize-recover=all -fno-omit-frame-pointer`, so every finding fails the test.
+
+`patella_core` (`cmake/Core.cmake`, issue #7) is the static library of the code that is already portable,
+built by every product preset: vlong.cpp, TRSA.cpp, TXTEA.cpp, TMyException.cpp, Utils.cpp, Skins.cpp,
+src/Extern/regexp/regexp.c and the header-only Container.h. It defines `PATELLA_CORE`, which keeps MFC and the
+Windows headers out of common.h, so no core source can use them. The client and the oracle still compile these
+sources themselves, with MFC. Its tests are `tests_core` (tests/unit/core_*.cpp; the expected values that are
+not the code's own come from `tests/unit/core_expected.py`, Python's exact integers and doubles).
+
+The Linux presets `linux-x64-gcc` (GCC 16) and `linux-x64-clang` (Clang, with AddressSanitizer and UBSan),
+each with a `-debug` workflow, build patella_core and the unit tests, not the client (PATELLA_CLIENT is OFF; the
+client needs Tibia.exe for its resources, and MFC). On Linux: `cmake --workflow --preset linux-x64-gcc`. On
+Windows, `python -I tools/build.py linux-x64-gcc` (and `--env linux-x64-gcc <command>`) runs them in the Docker
+image `patella-modern/linux-x64:gcc16.2-clang22.1` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
+pinned by digest, Debian's Clang 22.1.8, CMake 3.31.6 and Ninja 1.12.1 pinned by version; build it once with
+`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`, about half a minute). build.py
+mounts the repository read-only, copies the files git knows (tracked, and untracked ones that are not ignored:
+never the CipSoft files) with their times to the container's case-sensitive /work and runs there;
+build\<preset> is mounted as /work/build/<preset>, so the build tree and doctest stay. Details:
+notes/decisions.md, "The Linux presets and patella_core (issue #7)".
 
 The unit tests (`tests/unit/`, doctest 2.5.3: an installed one through find_package, otherwise downloaded once
 by FetchContent and checked against its SHA256; issue #9) build with the presets windows-x64 (MSVC x64; it
-builds the client too, below) and windows-x64-gcc (mingw-w64 GCC 16 on PATH, which builds nothing else):
+builds the client too, below), windows-x64-gcc (mingw-w64 GCC 16 on PATH, which builds nothing else) and the
+Linux presets (above):
 
 ```
 python -I tools/build.py windows-x64         # configure, build Release, run the unit tests through CTest
@@ -156,10 +184,10 @@ python -I tools/build.py windows-x64-debug   # the same for Debug
 python -I tools/build.py windows-x64-gcc     # (and windows-x64-gcc-debug); cmake --workflow --preset works too
 ```
 
-Both write build\<preset>\tests\unit\<Configuration>: `tests_unit` (src/compat/cxx26.h as the compiler selects
-it: the stand-ins on MSVC, contract_assert and std::inplace_vector on GCC 16) and `tests_unit_cxx26_standin` (the
-same tests with PATELLA_CXX26_STANDIN), each a CTest test, plus one per contract violation scenario
-(RunContractViolation.cmake). The mingw executables get the compiler's runtime DLLs copied next to them.
+They write build\<preset>\tests\unit\<Configuration>: `tests_unit` (src/compat/cxx26.h as the compiler selects
+it: the stand-ins on MSVC and on Clang 22 with libstdc++ 14, contract_assert and std::inplace_vector on GCC 16)
+and `tests_unit_cxx26_standin` (the same tests with PATELLA_CXX26_STANDIN), each a CTest test, plus one per
+contract violation scenario (RunContractViolation.cmake), and `tests_core`. The mingw executables get the compiler's runtime DLLs copied next to them.
 src/compat/cxx26.h is the only way to C++26 features (plan section 8): `CONTRACT_ASSERT(Predicate)` and
 `patella::TStaticVector<T, N>` so far; its comment lists what the stand-ins do not reproduce. Details:
 notes/decisions.md, "src/compat/cxx26.h and the unit tests (issue #9)".

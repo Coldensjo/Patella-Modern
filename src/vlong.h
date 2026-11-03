@@ -76,10 +76,11 @@ public:
 	friend inline int operator>(const vlong &x, const vlong &y) { return x.cf(y) > 0; }
 	friend inline int operator<(const vlong &x, const vlong &y) { return x.cf(y) < 0; }
 
-	// CipSoft additions; the binary has out-of-line copies (0x50d660, 0x50d750, 0x50d840).
-	friend vlong operator+(const vlong &x, const long &y) { return x + vlong(y); }
-	friend vlong operator*(const vlong &x, const long &y) { return x * vlong(y); }
-	friend int operator<(const vlong &x, const long &y) { return x.cf(vlong(y)) < 0; }
+	// CipSoft additions; the binary has out-of-line copies (0x50d660, 0x50d750, 0x50d840). The
+	// casts are the conversions the 32-bit build does implicitly; long has 8 bytes on Linux (issue #7).
+	friend vlong operator+(const vlong &x, const long &y) { return x + vlong((unsigned)y); }
+	friend vlong operator*(const vlong &x, const long &y) { return x * vlong((unsigned)y); }
+	friend int operator<(const vlong &x, const long &y) { return x.cf(vlong((unsigned)y)) < 0; }
 
 	vlong(unsigned x = 0);
 	vlong(const vlong &x);

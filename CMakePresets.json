@@ -79,6 +79,41 @@
 				"CMAKE_CXX_COMPILER": "g++",
 				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
 			}
+		},
+		{
+			"name": "linux-base",
+			"hidden": true,
+			"inherits": "base",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Linux"
+			},
+			"cacheVariables": {
+				"PATELLA_CLIENT": "OFF",
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+			}
+		},
+		{
+			"name": "linux-x64-gcc",
+			"displayName": "linux-x64-gcc: GCC 16 on Linux x64: patella_core and the unit tests (issue #7)",
+			"description": "Needs GCC 16 (gcc, g++) on PATH; the Docker image of docker/linux-x64 has it. On Windows: python -I tools/build.py linux-x64-gcc runs it in that image.",
+			"inherits": "linux-base",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "gcc",
+				"CMAKE_CXX_COMPILER": "g++"
+			}
+		},
+		{
+			"name": "linux-x64-clang",
+			"displayName": "linux-x64-clang: Clang on Linux x64 with AddressSanitizer and UBSan: patella_core and the unit tests (issue #7)",
+			"description": "Needs Clang (clang, clang++) with compiler-rt on PATH; the Docker image of docker/linux-x64 has Clang 22. On Windows: python -I tools/build.py linux-x64-clang runs it in that image.",
+			"inherits": "linux-base",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "clang",
+				"CMAKE_CXX_COMPILER": "clang++",
+				"PATELLA_SANITIZE": "address,undefined"
+			}
 		}
 	],
 	"buildPresets": [
@@ -110,6 +145,26 @@
 		{
 			"name": "windows-x64-gcc-debug",
 			"configurePreset": "windows-x64-gcc",
+			"configuration": "Debug"
+		},
+		{
+			"name": "linux-x64-gcc",
+			"configurePreset": "linux-x64-gcc",
+			"configuration": "Release"
+		},
+		{
+			"name": "linux-x64-gcc-debug",
+			"configurePreset": "linux-x64-gcc",
+			"configuration": "Debug"
+		},
+		{
+			"name": "linux-x64-clang",
+			"configurePreset": "linux-x64-clang",
+			"configuration": "Release"
+		},
+		{
+			"name": "linux-x64-clang-debug",
+			"configurePreset": "linux-x64-clang",
 			"configuration": "Debug"
 		}
 	],
@@ -172,6 +227,62 @@
 			},
 			"execution": {
 				"noTestsAction": "error"
+			}
+		},
+		{
+			"name": "linux-x64-gcc",
+			"configurePreset": "linux-x64-gcc",
+			"configuration": "Release",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			}
+		},
+		{
+			"name": "linux-x64-gcc-debug",
+			"configurePreset": "linux-x64-gcc",
+			"configuration": "Debug",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			}
+		},
+		{
+			"name": "linux-x64-clang",
+			"configurePreset": "linux-x64-clang",
+			"configuration": "Release",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			},
+			"environment": {
+				"ASAN_OPTIONS": "detect_leaks=1",
+				"UBSAN_OPTIONS": "print_stacktrace=1"
+			}
+		},
+		{
+			"name": "linux-x64-clang-debug",
+			"configurePreset": "linux-x64-clang",
+			"configuration": "Debug",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			},
+			"environment": {
+				"ASAN_OPTIONS": "detect_leaks=1",
+				"UBSAN_OPTIONS": "print_stacktrace=1"
 			}
 		}
 	],
@@ -263,6 +374,78 @@
 				{
 					"type": "test",
 					"name": "windows-x64-gcc-debug"
+				}
+			]
+		},
+		{
+			"name": "linux-x64-gcc",
+			"displayName": "linux-x64-gcc: configure, build Release, run the unit tests",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "linux-x64-gcc"
+				},
+				{
+					"type": "build",
+					"name": "linux-x64-gcc"
+				},
+				{
+					"type": "test",
+					"name": "linux-x64-gcc"
+				}
+			]
+		},
+		{
+			"name": "linux-x64-gcc-debug",
+			"displayName": "linux-x64-gcc-debug: configure, build Debug, run the unit tests",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "linux-x64-gcc"
+				},
+				{
+					"type": "build",
+					"name": "linux-x64-gcc-debug"
+				},
+				{
+					"type": "test",
+					"name": "linux-x64-gcc-debug"
+				}
+			]
+		},
+		{
+			"name": "linux-x64-clang",
+			"displayName": "linux-x64-clang: configure, build Release, run the unit tests",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "linux-x64-clang"
+				},
+				{
+					"type": "build",
+					"name": "linux-x64-clang"
+				},
+				{
+					"type": "test",
+					"name": "linux-x64-clang"
+				}
+			]
+		},
+		{
+			"name": "linux-x64-clang-debug",
+			"displayName": "linux-x64-clang-debug: configure, build Debug, run the unit tests",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "linux-x64-clang"
+				},
+				{
+					"type": "build",
+					"name": "linux-x64-clang-debug"
+				},
+				{
+					"type": "test",
+					"name": "linux-x64-clang-debug"
 				}
 			]
 		}

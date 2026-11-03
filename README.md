@@ -36,6 +36,8 @@ Studio 2026 with the C++ workload and the MFC component, Python 3.13 on PATH, an
 python -I tools/build.py windows-x64         # configure, build Release, run the unit tests
 python -I tools/build.py windows-x64-debug   # the same for Debug
 python -I tools/build.py windows-x64-gcc     # the unit tests with mingw-w64 GCC 16
+python -I tools/build.py linux-x64-gcc       # the portable library and its tests on Linux, GCC 16
+python -I tools/build.py linux-x64-clang     # the same with Clang, AddressSanitizer and UBSan
 python -I tools/build.py oracle-x86          # the 32-bit oracle and the differential tests
 ```
 
@@ -50,7 +52,16 @@ copies of the data files (for example `build\run`), never from the root, because
 `Tibia.cfg` on exit. See "Building" in [notes/reconstruction.md](notes/reconstruction.md) for the details and
 for the tests.
 
-The Linux presets come with issue #7 (`cmake --workflow --preset linux-x64-gcc`).
+On Linux there is no client yet: the presets `linux-x64-gcc` and `linux-x64-clang` build `patella_core`, the
+library of the code that is already portable (big numbers and RSA, XTEA, the string helpers and packet
+buffers, the regexp, the container templates), and run its unit tests. They need no CipSoft file. On Linux,
+`cmake --workflow --preset linux-x64-gcc` (GCC 16, CMake 3.30+, Ninja); on Windows, `tools/build.py` runs them
+in a Docker image with GCC 16.2, Clang 22, CMake and Ninja, which you build once from
+[docker/linux-x64/Dockerfile](docker/linux-x64/Dockerfile):
+
+```
+docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64
+```
 
 ## Documents
 
