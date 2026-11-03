@@ -1,6 +1,6 @@
 """Compare the import tables of two PE images (issue #16).
 
-Usage: python -I tools/compare_imports.py Tibia.exe build/Release/Patella.exe [--all]
+Usage: python -I tools/compare_imports.py Tibia.exe build/oracle-x86/Release/Patella.exe [--all]
 
 Reads the import directory and the delay-load import directory of both images (by name or
 ordinal per DLL, DLL names compared without case) and prints the DLLs of each in table order,

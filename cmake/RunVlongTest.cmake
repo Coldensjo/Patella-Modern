@@ -1,4 +1,4 @@
-# The vlongtest CTest test (cmake/OracleX86.cmake), as tools\difftest\build.cmd runs it:
+# The vlongtest CTest test (cmake/OracleX86.cmake), as the former tools\difftest\build.cmd ran it:
 #	vlongtest.exe > vlong.txt, then python -I tools/difftest/vlongcheck.py vlong.txt
 # Arguments: -DVLONGTEST=<vlongtest.exe> -DPYTHON=<python> -DCHECK=<vlongcheck.py> -DOUTPUT=<vlong.txt>
 

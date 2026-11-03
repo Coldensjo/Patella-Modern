@@ -35,9 +35,9 @@ rea-out/
 
 build/
 
-# Visual Studio state and per-user project settings (Patella.sln, issue #16)
+# Visual Studio state (it opens the CMake folder; issue #10 removed Patella.sln)
 .vs/
-*.vcxproj.user
+CMakeUserPresets.json
 
 # Python bytecode of the tools
 __pycache__/

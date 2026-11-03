@@ -10,7 +10,8 @@
 #   optimisation and warns without it; any level the compiler predefines is replaced);
 #   _GLIBCXX_ASSERTIONS in Debug; position-independent executables; on Linux full RELRO.
 #
-# Never for the oracle-x86 targets: cmake/OracleX86.cmake keeps exactly Patella.vcxproj's options.
+# Never for the oracle-x86 targets: cmake/OracleX86.cmake keeps exactly the former Patella.vcxproj's
+# options.
 
 include_guard(GLOBAL)
 

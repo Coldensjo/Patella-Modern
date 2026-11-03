@@ -6,11 +6,12 @@ it is shown and the pictures are compared pixel by pixel. notes/rendering.md des
 method and the results; notes/decisions.md "Rendering comparison (issue #20)" the choices.
 
 Usage:
-  tools\build-patella.cmd
+  python -I tools/build.py oracle-x86
   python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl]
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
 
-The capture (tools/capture/patcap.c, built by tools\build-capture.cmd) is a DLL the run folders'
+The capture (tools/capture/patcap.c; build\oracle-x86\Release\patcap.dll, the preset's patcap
+target, which this script builds when the DLL is missing or older than its source) is a DLL the run folders'
 copies of the clients import (add_import), so it is loaded before the client's entry point. It
 reads the composed frame from the engine's own surfaces (DirectDraw Blt/Flip, Direct3D 9 Present,
 SwapBuffers), so no display is needed, and it makes time deterministic: the clock (timeGetTime,
@@ -44,10 +45,13 @@ import proxy as px  # noqa: E402
 import session_client as sc  # noqa: E402
 import login_client as lc  # noqa: E402
 import client_state  # noqa: E402
+import build  # noqa: E402
 
 ROOT = ct.ROOT
 RENDER = os.path.join(ROOT, "build", "render")
-CAPTURE = os.path.join(ROOT, "build", "capture")
+# the patcap target of the oracle-x86 preset (cmake/OracleX86.cmake), 32-bit like the clients
+CAPTURE_PRESET = "oracle-x86"
+CAPTURE = os.path.join(ROOT, "build", CAPTURE_PRESET, "Release")
 DLL = os.path.join(CAPTURE, "patcap.dll")
 CLIENTS = ct.CLIENTS
 RunError = ct.RunError
@@ -123,11 +127,18 @@ def build_capture():
 	source = os.path.join(ROOT, "tools", "capture", "patcap.c")
 	if os.path.isfile(DLL) and os.path.getmtime(DLL) >= os.path.getmtime(source):
 		return
-	log("building the capture helper (tools\\build-capture.cmd)")
-	result = subprocess.run(["cmd", "/c", os.path.join(ROOT, "tools", "build-capture.cmd")], capture_output=True,
-		text=True)
-	if result.returncode != 0:
-		raise RunError("build-capture.cmd failed:\n%s%s" % (result.stdout, result.stderr))
+	log("building the capture helper (the patcap target of the %s preset)" % CAPTURE_PRESET)
+	try:
+		env = build.environment(CAPTURE_PRESET)
+	except build.BuildError as e:
+		raise RunError("cannot build patcap.dll: %s" % e)
+	commands = [["cmake", "--build", "--preset", CAPTURE_PRESET, "--target", "patcap"]]
+	if not os.path.isfile(os.path.join(ROOT, "build", CAPTURE_PRESET, "CMakeCache.txt")):
+		commands.insert(0, ["cmake", "--preset", CAPTURE_PRESET])
+	for command in commands:
+		result = subprocess.run(command, capture_output=True, text=True, env=env, cwd=ROOT)
+		if result.returncode != 0:
+			raise RunError("%s failed:\n%s%s" % (" ".join(command), result.stdout, result.stderr))
 
 
 # --- the import of patcap.dll ------------------------------------------------------------

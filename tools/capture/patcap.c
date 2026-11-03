@@ -27,7 +27,7 @@ exactly the calls the client makes, and the same calls in both clients:
 
 The controller (tools/compare_rendering.py) talks to it through a named file mapping
 "Local\PatellaCapture-<pid>" (layout: struct Shared). Nothing here depends on which client it
-is in. Build: tools\build-capture.cmd (32-bit, MSVC). */
+is in. Build: the patcap target of the oracle-x86 preset (32-bit, MSVC; cmake/OracleX86.cmake). */
 
 #define WIN32_LEAN_AND_MEAN
 #define COBJMACROS

@@ -8,15 +8,16 @@ state after every step and their Tibia.cfg are compared. Choices and their reaso
 ## Running it
 
 ```
-tools\build-patella.cmd
+python -I tools/build.py oracle-x86
 python -I tools/compare_traffic.py [--out build\traffic\result] [--skip-live] [--no-cross] [--patella EXE]
 ```
 
-`--patella` names the Patella.exe to test (default build\Release\Patella.exe), x86 or x64, with its PDB next to
-it: `build\oracle-x86\Release\Patella.exe`, `build\windows-x64\Release\Patella.exe` (issue #6).
+`--patella` names the Patella.exe to test (default build\oracle-x86\Release\Patella.exe; build\Release\Patella.exe, the
+MSBuild output, before issue #10), x86 or x64, with its PDB next to it, e.g. `build\windows-x64\Release\Patella.exe`
+(issue #6).
 
-The test server must be stopped (the script starts and stops it itself, with tools\run-testserver.ps1 and
-tools\stop-testserver.ps1). About 9 minutes: two live sessions (server start, session, server stop with its
+The test server must be stopped (the script starts and stops it itself, with `python -I tools/testserver.py
+start` and `stop`). About 9 minutes: two live sessions (server start, session, server stop with its
 save) and four replays. Exit code 0 when nothing differs. `--skip-live` replays and compares the live
 recordings already in `--out` (no server needed); `--no-cross` replays only Tibia.exe's recording.
 
@@ -24,7 +25,7 @@ What it leaves in `--out`: `<client>-live.jsonl` (the recordings), `<client>-rep
 `*.states.json` (the client state and window tree after every step), `*.Tibia.cfg` (as each client wrote
 it on exit) and `report.txt`. The run folders are build\traffic\orig, build\traffic\patella and
 build\traffic\helper (copies of the data files and the patched clients, made by the script from the root's
-Tibia.exe and build\Release\Patella.exe).
+Tibia.exe and the Patella.exe under test).
 
 ## The pieces
 

@@ -13,27 +13,32 @@ server (port 7172); the accounts and characters are in SQLite (`tibia.db`), the 
 `gameserver\data` (dat, map, mon, npc, usr, ...). Its README.md documents config.cfg, the database and the
 accounts; its sources are in `gameserver\src`.
 
-- **Start**: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\run-testserver.ps1` (from the
-  repository or a worktree). Runs tibia-server.exe from `C:\Tibia\gameserver` (it finds config.cfg,
-  tibia.db and tibia.pem relative to its working directory) in a hidden console of its own, writes its
-  output to `build\testserver\server.log` (overwritten at each start; stderr: server.err) and its PID to
-  `build\testserver\server.pid`, and returns when both ports listen (about 5 s: the map, 9,873 sectors and
-  8.9 million objects, loads in 3.3 s). `-Window` shows the console minimised instead; `-ServerDir` for
-  another copy. Refuses to start a second server or to start when 7171/7172 is taken.
-- **Stop**: `powershell -NoProfile -ExecutionPolicy Bypass -File tools\stop-testserver.ps1`. Sends Ctrl+C
-  to the server's console, the shutdown the server documents ("Press Ctrl+C to shutdown the server": stops
-  the login server, logs everyone out and saves, closes the database), and waits for the exit. The Ctrl+C
-  comes from a separate hidden PowerShell that detaches from its own console, attaches to the server's and
-  ignores the event itself. Only a process whose path is `C:\Tibia\gameserver\tibia-server.exe` is touched;
-  `-Force` kills it after `-TimeoutSeconds` (60) without saving.
+- **Start**: `python -I tools/testserver.py start` (from the repository or a worktree; Python since issue #10,
+  before it tools\run-testserver.ps1, which did the same). Runs tibia-server.exe from `C:\Tibia\gameserver`
+  (it finds config.cfg, tibia.db and tibia.pem relative to its working directory) in a hidden console of its
+  own, writes its output to `build\testserver\server.log` (overwritten at each start; stderr: server.err) and
+  its PID (and the process's creation time) to `build\testserver\server.pid`, and returns when both ports
+  listen (about 5 s: the map, 9,873 sectors and 8.9 million objects, loads in 3.3 s), printing
+  `listening on 127.0.0.1:7171, 127.0.0.1:7172`. `--window` shows the console minimised instead;
+  `--server-dir` for another copy, `--timeout` (300 s) for the wait. Refuses to start a second server or to
+  start when 7171/7172 is taken. Exit code 0 when the server is up.
+- **Stop**: `python -I tools/testserver.py stop`. Sends Ctrl+C to the server's console, the shutdown the
+  server documents ("Press Ctrl+C to shutdown the server": stops the login server, logs everyone out and
+  saves, closes the database), and waits for the exit. The Ctrl+C comes from a separate copy of the script
+  started without a console, which attaches to the server's and ignores the event itself. Only the server
+  `start` started is touched: the process in server.pid, if it is still `C:\Tibia\gameserver\tibia-server.exe`
+  with the same creation time. A server the tools did not start (one started by hand) is never stopped: stop
+  names its PID and exits with 1 (the former stop-testserver.ps1 also stopped a tibia-server.exe from that
+  folder it found by name). `--force` kills the server after `--timeout` (60 s) without saving.
 - **Ctrl+C must not be ignored by the server**: a process that ignores Ctrl+C (SetConsoleCtrlHandler(NULL,
   TRUE)) passes that to its children. A server started from Git Bash (whose processes ignore it) did not
   react to stop-testserver.ps1 at all; it was re-enabled with a remote thread calling
   SetConsoleCtrlHandler(NULL, FALSE) in it (build\scratch\enable_ctrlc.py) and then stopped cleanly.
-  run-testserver.ps1 now clears the flag in its own process before starting the server; started from Git
-  Bash and from PowerShell, the stop works.
-- Both scripts look for a listening socket by remote port 0: on this Windows build (26300)
-  Get-NetTCPConnection returns no State, so `-State Listen` matches nothing.
+  `start` clears the flag in its own process before starting the server (on Linux it resets SIGINT to its
+  default), so the stop works from Git Bash and from PowerShell.
+- The listening sockets come from GetExtendedTcpTable (the owner PID of each listening socket, IPv4 and IPv6;
+  on Linux /proc/net/tcp and tcp6), the processes from their image paths: no PowerShell and no pip package.
+  On Linux the executable is `tibia-server` in `--server-dir`, stopped with SIGINT.
 
 ### Configuration
 
@@ -115,7 +120,7 @@ this server's game port. So the clients are patched like an "IP changer", on cop
 
 ```
 python -I tools/patch_client.py Tibia.exe build/run-orig/Tibia.exe --host 127.0.0.1 --rsa C:\Tibia\gameserver\tibia.pem
-python -I tools/patch_client.py build/Release/Patella.exe build/run-patella/Patella.exe --host 127.0.0.1 --rsa C:\Tibia\gameserver\tibia.pem
+python -I tools/patch_client.py build/oracle-x86/Release/Patella.exe build/run-patella/Patella.exe --host 127.0.0.1 --rsa C:\Tibia\gameserver\tibia.pem
 ```
 
 - The four server names are replaced in place by 127.0.0.1, NUL-padded to their own length (both clients
@@ -162,7 +167,7 @@ never run a client from the repository root or C:\Tibia). Set up:
 ```
 mkdir build\run-orig build\run-patella
 copy Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg into both
-tools\build-patella.cmd, then the two patch_client.py lines above
+python -I tools/build.py oracle-x86, then the two patch_client.py lines above
 ```
 
 `WindowedMode` in the copied Tibia.cfg was set to (200,200,800,600,no); with the monitor off (below) the

@@ -10,7 +10,7 @@ driver, the memory reader) and the run folders of issues #18 and #21.
 ## Running it
 
 ```
-tools\build-patella.cmd
+python -I tools/build.py oracle-x86
 python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl]
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
 ```
@@ -21,8 +21,9 @@ python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,
   "Patella Second", logout); copy it to `build\render\session.jsonl` or pass `--recording`. A new one:
   `python -I tools/compare_traffic.py --out <dir>` (starts and stops the test server itself), then use
   `<dir>\orig-live.jsonl`.
-- The capture helper `build\capture\patcap.dll` is built by `tools\build-capture.cmd` (the script runs it
-  when the DLL is missing or older than tools/capture/patcap.c).
+- The capture helper `build\oracle-x86\Release\patcap.dll` is the patcap target of the oracle-x86 preset
+  (built with the preset; the script builds the target itself when the DLL is missing or older than
+  tools/capture/patcap.c; before issue #10 tools\build-capture.cmd built build\capture\patcap.dll).
 - Run folders `build\render\orig` and `build\render\patella` (compare_traffic.py's set-up through its
   set_folder: copies of the data files, the clients patched by patch_client.py; then the import of
   patcap.dll, below). Tibia.cfg is compare_traffic.py's with `Engine = N` (and `FullscreenMode` for the
