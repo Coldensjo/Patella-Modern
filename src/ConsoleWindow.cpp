@@ -50,7 +50,7 @@ static TCallback NoCallback(nullptr, 0);
 
 // ParseInput's error names its value "(Word) MessageSeparator": the char
 // converted to an unsigned 16-bit value (movsx, movzx).
-typedef uint16 Word;
+using Word = uint16;
 
 // --- TTextWindow -----------------------------------------------------------------------------
 
