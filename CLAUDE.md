@@ -35,8 +35,11 @@ patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`). `python -I tools/
 test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/reconstruction.md`, "Building",
 "Test server", "Checking".
 The x64 client's only engine is the Vulkan engine, as engine 2 (issues #19, #20, `notes/vulkan.md`; DirectDraw,
-Direct3D 9 and OpenGL only in oracle-x86); `PATELLA_VULKAN=gpu|gpuN|cpu` in its environment chooses the device; its
-pinned libraries and the CPU driver (Mesa's lavapipe, copied next to
+Direct3D 9 and OpenGL only in oracle-x86); its device is the advanced graphics options' choice (issue #31: "Automatic",
+"GPU", "CPU" in the engine buttons' places), stored as `Device` in `Patella.ini` next to Tibia.cfg (the fork's own
+settings file, `src/settings/`), and `PATELLA_VULKAN=auto|gpu|gpuN|cpu` in its environment overrides it at start-up
+(the comparisons' and tests' choice; `notes/vulkan.md`, "Choosing the device"); its pinned libraries and the CPU
+driver (Mesa's lavapipe, copied next to
 the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it
 headless.
 
@@ -50,7 +53,7 @@ without Tibia.exe. Details: `notes/reconstruction.md`, "Checking", "The golden c
 `.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by
 `.clang-format-ignore`), `.editorconfig` the editor settings. Check with Visual Studio's clang-format
 (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/testmode/*.cpp
-src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp
+src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp
 tests/golden/*.cpp tests/golden/*.h`.
 Run clang-tidy only through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>`,
 never `clang-tidy --fix` directly: until M5 no change may touch the arguments of TASSERT*, TERROR* or TEND*

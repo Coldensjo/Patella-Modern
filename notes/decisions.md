@@ -6009,3 +6009,96 @@ Settled by Claude Opus 5.5, November 3, 2026 (MSVC 14.51, CMake 4.1.2). cmake/Wi
   Patella.exe of this branch.
 - **Not checked yet** (form). No client window was opened: compare_traffic.py, compare_files.py and
   compare_rendering.py (vulkan, vulkan-cpu) on the x64 client are the orchestrator's live check.
+
+## The graphics device choice and Patella.ini (Patella-Modern issue #31)
+
+Settled by Claude Opus 5.5, November 3, 2026, after the user's decisions of the same day (layout: three buttons
+in the skin's three places, "Automatic", "GPU" cycling through the GPUs and showing the chosen one's name, "CPU
+(compatibility)"; applied at once as the original's engine change, in fullscreen as the original; `Patella.ini`,
+plain `key=value`, a parser of our own, next to Tibia.cfg, only the device key for now). notes/vulkan.md,
+"Choosing the device", describes the result; src/settings/, src/vulkan/DeviceChoice.*, src/vulkan/DeviceSettings.*,
+src/vulkan/Renderer.* (ListGpus), src/Dialogs.cpp and .h, src/Control.cpp, src/Surface.cpp (x64 branches),
+tools/compare_files.py, tools/compare_rendering.py, tools/client_state.py.
+
+- **The buttons keep the original's places, events and Tibia.cfg numbers** (high). "Automatic" in DirectX5's place
+  (event 800, Engine 0), "GPU" in DirectX9's (801, 2), "CPU" in OpenGL's (802, 1), in the user's order from the
+  left. Each click stores its place's number, as the original's button there stores it after a switch (a failed
+  switch stores nothing, as there), so Tibia.cfg is what Tibia.exe writes after the same clicks, for any sequence
+  of clicks on any machine where Tibia.exe's engines work, not only compare_files.py's one click on OpenGL's
+  place (both write `Engine = 1`). Considered: numbers chosen for meaning (Automatic and GPU 2, Tibia.exe's own
+  choice with Direct3D 9; CPU 1): Tibia.exe would start in DirectX 9 after "Automatic" instead of DirectX 5, but a
+  scenario clicking the first place would differ from Tibia.exe's file; Tibia.cfg's number not changed by the
+  buttons at all (compare_files.py's options scenario would differ: 2 against 1). The cost: with a Tibia.cfg
+  shared with Tibia.exe, "Automatic" makes Tibia.exe start with DirectX 5. The member names (DirectX5Button,
+  DirectX9Button, OpenGLButton) stay: compare_files.py reads OpenGLButton through the PDB.
+- **"CPU", not "CPU (compatibility)", on the button; the device's name above the buttons** (form; the user's texts
+  as far as the skin allows). The buttons are 58 pixels wide (skin 16) and their font draws "Automatic" in 45,
+  "CPU (compatibility)" in 87 and a GPU's name ("NVIDIA GeForce RTX 5080") in 115 pixels (measured from
+  Tibia.pic's font 3), so neither fits; a longer text would run over the next button (TTextButton draws it
+  unclipped). The CPU button's help text begins "CPU (compatibility)". The chosen GPU's name (the user's "showing
+  the chosen GPU's name") goes into the line above the buttons, the original's "Select graphics engine:" (font 4),
+  as `Device: <name>` over the dialog's width (200 pixels; `Device: NVIDIA GeForce RTX 5080` is exactly 200), with
+  TLabel's own shortening ("...") and the whole text as its help text when longer. It names the device in use for
+  every choice (Automatic's and CPU's too). Considered: a line of the small font in the 16-pixel gap between the
+  buttons and the light check box (not a place the skin has); the name only in the GPU button's help text (not
+  shown unless the pointer rests there). Help texts: "Use the best graphics device: a GPU, else the CPU", "Use the
+  graphics card (GPU); with several, each click takes the next", "CPU (compatibility): draw without the graphics
+  card".
+- **GPU: the best first, then the next round** (high). From Automatic or CPU the GPU button chooses `gpu`, the best
+  GPU (the device Automatic takes), stored without an index so that it survives a change of the loader's order;
+  every further click on a machine with several GPUs takes the next of the list (`gpuN`), round; with one GPU it
+  changes nothing. Considered: starting at gpu0 (on a laptop whose integrated GPU comes first, the first click
+  would leave the faster GPU).
+- **The GPU list does not depend on the window** (high). `gpuN` counted in vk-bootstrap's list with the window's
+  surface as a requirement, which only a device with a window can ask; the dialog's list and Patella.ini's index
+  must be the same list at start-up, in the dialog and with or without a window (tests_vulkan, headless). So
+  ListGpus and an indexed device both select without the surface but with VK_KHR_swapchain required, and an
+  indexed device's presentation support is checked when it is created (vkGetPhysicalDeviceSurfaceSupportKHR, as
+  before); the swapchain is built with the window's surface given explicitly. Automatic and `gpu` select as before
+  (with the surface). The list is read once at start-up, before any device exists: vk-bootstrap keeps the
+  functions of the last instance it built in a global table, so a second instance while the engine runs would
+  re-point it (no GPU comes or goes while the client runs, in practice).
+- **Applied as the original's switch** (high; the user's decision). ChangeEngine's x64 branch does what the
+  original's does with a device instead of an engine: ExitSurfaces, SurfaceExitInstance, TestEngine on a new
+  surface, the old choice back when it fails, InitSurfaces; the next CheckSurface creates the surfaces and resets
+  the video cache. In fullscreen mode the dialog disables the buttons, as the original's. No TASSERT, TERROR or
+  TEND in the new code (form; macrocheck).
+- **Patella.ini: written when a click changes the choice** (high). Not with SavePreferences (Preferences.cpp is
+  reconstructed code, and Tibia.cfg's saving must stay the original's); the original's engine switch takes effect
+  at once too and is not undone by Cancel. Only the `Device` line changes; every other line and the file's line
+  ends stay (Settings.h), so a later D12 key, a comment or a key from a newer client survive. A new file gets one
+  comment line and CRLF (Tibia.cfg's line ends). Read once at start-up from the working directory, as Tibia.cfg.
+  Considered: writing at the exit (a crash would lose the choice), a fixed file rewritten whole (unknown keys lost).
+- **Parser rules** (form). `key=value` split at the first `=`; spaces and tabs around both dropped; `#` or `;`
+  first: a comment; keys compared without regard to ASCII case; the first line with a key counts; a line without
+  a key is kept and never read; a UTF-8 byte order mark is kept; the line end is the first line's (CRLF or LF);
+  Set refuses what would not read back the same (an empty key, `=`, a comment mark or line ends in the key, line
+  ends, NUL or edge spaces in the value); a file over 1 MiB is not read. In patella_core (portable, tests_core on
+  every preset); the x64 client compiles the source itself (the static CRT), as it does the other core sources.
+- **PATELLA_VULKAN: the comparisons' override** (high). It stays for compare_rendering.py (gpu, cpu),
+  testmode_check.py (cpu) and the tests: set and not empty, it is the start-up choice instead of Patella.ini's and
+  is never written; a value it does not know is `auto`, as before (`off`, `dx9`). The dialog still switches and
+  writes Patella.ini while it is set. Considered: removing it (the comparisons would have to write Patella.ini into
+  every run folder, which compare_files.py then would have to tell from the client's own writing).
+- **A stored device that is gone: Automatic** (high). At start-up a choice whose test fails is replaced by
+  Automatic for the run and tested again, as the original falls back to another engine; Patella.ini keeps it.
+  Without that a Patella.ini copied from another machine (`gpu1`) or a missing CPU driver would end the start with
+  PROGRAM_ERROR 12. The command line's `engine N` skips the test, as in the original (a broken choice then fails
+  at the first CheckSurface).
+- **Enabled buttons** (form). GPU with at least one GPU in the list, CPU with the CPU driver's manifest next to the
+  executable, Automatic always, all three disabled in fullscreen. The original's AvailableEngines (set as before)
+  no longer decides them, so the command line's `engine N` no longer disables two of them (a device choice has
+  nothing to do with the original's engine test).
+- **The tier A exception and the comparisons** (high). compare_rendering.py masks, for the Vulkan engines, the
+  dialog's top 35 rows (the line and the buttons) in both runs of the advanced-options scene; the rest stays exact
+  against Tibia.exe, and the oracle's engines keep the original dialog unmasked. Considered: an expected-frame
+  mechanism (a recorded Patella frame of the area as the reference): it would depend on the device (the name in the
+  line, the selected button differ between `vulkan` and `vulkan-cpu`) and belongs to the reference recordings of
+  issue #23, which another task is building now. compare_files.py copies the CPU driver next to the x64 client in
+  its run folder (otherwise the CPU button is disabled there and the click in OpenGL's place does nothing) and
+  reports Patella.ini without comparing it (Tibia.exe writes none). client_state.py names the four skin fields the
+  mask reads (raw offsets are refused on the x64 layout).
+- **Not built** (the user's scope): vsync (D13), the implicit-layer switch (D12/D16), the other D12 keys.
+- **Not checked yet** (form). No client window was opened (another task used the test server and the desktop):
+  compare_files.py, compare_rendering.py (vulkan, vulkan-cpu) and compare_traffic.py on the x64 client are the
+  orchestrator's live check; the dialog's new look has not been seen.
