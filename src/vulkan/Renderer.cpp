@@ -155,7 +155,99 @@ int TypeRank(VkPhysicalDeviceType Type)
 	}
 }
 
+// The devices of one side (the CPU driver's or the system's GPUs) the engine can use: Vulkan 1.3 with
+// dynamic rendering and synchronization2, in the loader's order (vk-bootstrap's select_devices).
+// Listed: the list a GPU index counts in (ListGpus, issue #31), the same with or without a window, so
+// any surface is left out and VK_KHR_swapchain is required instead. Otherwise, with a surface, the
+// devices that can present to it.
+std::vector<vkb::PhysicalDevice> FindDevices(const vkb::Instance &Instance, VkSurfaceKHR Surface, bool Cpu, bool Listed)
+{
+	VkPhysicalDeviceVulkan13Features Features13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+	Features13.dynamicRendering = VK_TRUE;
+	Features13.synchronization2 = VK_TRUE;
+	vkb::PhysicalDeviceSelector Selector(Instance);
+	Selector.set_minimum_version(1, 3).set_required_features_13(Features13).allow_any_gpu_device_type(true);
+	if (Listed)
+		Selector.defer_surface_initialization().add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	else if (Surface != VK_NULL_HANDLE)
+		Selector.set_surface(Surface);
+	else
+		Selector.defer_surface_initialization();
+	auto Found = Selector.select_devices();
+	std::vector<vkb::PhysicalDevice> Devices;
+	if (Found) {
+		for (vkb::PhysicalDevice &Physical : Found.value()) {
+			bool IsCpu = Physical.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
+			if (IsCpu == Cpu)
+				Devices.push_back(Physical);
+		}
+	}
+	return Devices;
+}
+
+TDeviceInfo InfoOf(const vkb::PhysicalDevice &Physical, bool Cpu)
+{
+	TDeviceInfo Info;
+	Info.Name = Physical.properties.deviceName;
+	Info.Type = Physical.properties.deviceType;
+	Info.VendorId = Physical.properties.vendorID;
+	Info.DeviceId = Physical.properties.deviceID;
+	Info.ApiVersion = Physical.properties.apiVersion;
+	Info.DriverVersion = Physical.properties.driverVersion;
+	Info.CpuDriver = Cpu;
+	return Info;
+}
+
+// A headless instance just for a device list.
+std::vector<TDeviceInfo> ListDevices(bool Cpu)
+{
+	if (volkInitialize() != VK_SUCCESS)
+		throw TVulkanError("no Vulkan loader (vulkan-1.dll)");
+	vkb::InstanceBuilder Builder(vkGetInstanceProcAddr);
+	Builder.set_app_name("Patella").set_engine_name("Patella").require_api_version(1, 3, 0).set_headless(true);
+	auto Built = Builder.build();
+	std::vector<TDeviceInfo> Result;
+	if (!Built)
+		return Result; // no driver offers Vulkan 1.3
+	vkb::Instance Instance = Built.value();
+	try {
+		for (const vkb::PhysicalDevice &Physical : FindDevices(Instance, VK_NULL_HANDLE, Cpu, true))
+			Result.push_back(InfoOf(Physical, Cpu));
+	} catch (...) {
+		vkb::destroy_instance(Instance);
+		throw;
+	}
+	vkb::destroy_instance(Instance);
+	return Result;
+}
+
 } // namespace
+
+std::vector<TDeviceInfo> ListGpus()
+{
+	return ListDevices(false);
+}
+
+int BestGpu(const std::vector<TDeviceInfo> &Gpus)
+{
+	int Best = -1;
+	for (size_t i = 0; i < Gpus.size(); i++) {
+		if (Best < 0 || TypeRank(Gpus[i].Type) < TypeRank(Gpus[static_cast<size_t>(Best)].Type))
+			Best = static_cast<int>(i);
+	}
+	return Best;
+}
+
+std::optional<TDeviceInfo> CpuDriverDevice(const std::string &Manifest)
+{
+	if (Manifest.empty())
+		return std::nullopt;
+	TDriverFiles Driver(Manifest);
+	std::vector<TDeviceInfo> Devices = ListDevices(true);
+	if (Devices.empty())
+		return std::nullopt;
+	return Devices.front();
+}
 
 bool LoaderAvailable()
 {
@@ -674,7 +766,8 @@ struct TRenderer::TState {
 		if (Capabilities.currentExtent.width == 0 || Capabilities.currentExtent.height == 0)
 			return false;
 		Check(vkDeviceWaitIdle(Device.device), "vkDeviceWaitIdle");
-		vkb::SwapchainBuilder Builder(Device);
+		// The window's surface given here: a device chosen by its index was selected without it (FindDevices).
+		vkb::SwapchainBuilder Builder(Device, Surface);
 		// The original engines show frames without waiting for the display (D3DPRESENT_INTERVAL_IMMEDIATE);
 		// MAILBOX and FIFO only where IMMEDIATE is missing. D13's vsync comes with the settings file (D12).
 		Builder.set_desired_format({VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
@@ -722,28 +815,13 @@ struct TRenderer::TState {
 		if (Request.CreateSurface)
 			Surface = Request.CreateSurface(Instance.instance);
 
-		VkPhysicalDeviceVulkan13Features Features13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-		Features13.dynamicRendering = VK_TRUE;
-		Features13.synchronization2 = VK_TRUE;
-		vkb::PhysicalDeviceSelector Selector(Instance);
-		Selector.set_minimum_version(1, 3).set_required_features_13(Features13).allow_any_gpu_device_type(true);
-		if (Surface != VK_NULL_HANDLE)
-			Selector.set_surface(Surface);
-		else
-			Selector.defer_surface_initialization();
-		auto Found = Selector.select_devices();
-		std::vector<vkb::PhysicalDevice> Candidates;
-		if (Found) {
-			for (vkb::PhysicalDevice &Physical : Found.value()) {
-				bool IsCpu = Physical.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
-				if (IsCpu == Cpu)
-					Candidates.push_back(Physical);
-			}
-		}
+		// The n-th GPU counts in ListGpus' list (the advanced options' GPU button, issue #31), which does
+		// not depend on the window; whether it can present to it is checked below.
+		bool Indexed = !Cpu && GpuIndex >= 0;
+		std::vector<vkb::PhysicalDevice> Candidates = FindDevices(Instance, Surface, Cpu, Indexed);
 		const vkb::PhysicalDevice *Chosen = nullptr;
 		if (!Candidates.empty()) {
-			if (!Cpu && GpuIndex >= 0) {
-				// The n-th GPU in the loader's order (the list a device choice would show).
+			if (Indexed) {
 				if (static_cast<size_t>(GpuIndex) < Candidates.size())
 					Chosen = &Candidates[static_cast<size_t>(GpuIndex)];
 			} else {
@@ -775,13 +853,7 @@ struct TRenderer::TState {
 			if (!Supported)
 				throw TVulkanError("the graphics queue of " + Chosen->name + " cannot present to the window");
 		}
-		DeviceInfo.Name = Chosen->properties.deviceName;
-		DeviceInfo.Type = Chosen->properties.deviceType;
-		DeviceInfo.VendorId = Chosen->properties.vendorID;
-		DeviceInfo.DeviceId = Chosen->properties.deviceID;
-		DeviceInfo.ApiVersion = Chosen->properties.apiVersion;
-		DeviceInfo.DriverVersion = Chosen->properties.driverVersion;
-		DeviceInfo.CpuDriver = Cpu;
+		DeviceInfo = InfoOf(*Chosen, Cpu);
 		return true;
 	}
 

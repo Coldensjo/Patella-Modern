@@ -9,7 +9,10 @@ their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)
 
 | File | What |
 | :--- | :--- |
-| `src/vulkan/SurfaceVulkan.h`, `.cpp` | `TSurfaceVulkan`, the `TSurface` of the client: surfaceDX9.cpp's logic with the Direct3D 9 calls replaced; the device choice (`PATELLA_VULKAN`); the Win32 surface; the display modes |
+| `src/vulkan/SurfaceVulkan.h`, `.cpp` | `TSurfaceVulkan`, the `TSurface` of the client: surfaceDX9.cpp's logic with the Direct3D 9 calls replaced; the device request; the Win32 surface; the display modes |
+| `src/vulkan/DeviceSettings.h`, `.cpp` | the client's graphics device choice (issue #31): `PATELLA_VULKAN`, Patella.ini's `Device`, the GPU list, the CPU driver's manifest |
+| `src/vulkan/DeviceChoice.h`, `.cpp` | the choice's words (`auto`, `gpu`, `gpuN`, `cpu`) and what each button chooses; no Vulkan (tests_render on every preset) |
+| `src/settings/Settings.h`, `.cpp` | Patella.ini's parser and writer (D12), in patella_core (tests_core on every preset) |
 | `src/vulkan/Renderer.h`, `.cpp` | `patella::vulkan::TRenderer`, the back end: no window system, no MFC (portable C++23 with volk, vk-bootstrap and VMA) |
 | `src/vulkan/Quads.h`, `.cpp` | how Direct3D 9's quads become Vulkan vertices; no Vulkan at all (tests_render on every preset) |
 | `src/vulkan/FilterMask.h`, `.cpp` | `TFilterMasks`: which pixels come from the device's filter (the comparison's tolerance); no Vulkan (tests_render) |
@@ -17,10 +20,12 @@ their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)
 | `src/vulkan/shaders/*` | `Quad.vert` (every pipeline), `Quad.frag` (texture times vertex colour), `Fill.frag`, `ColorKey.frag`, `Constants.glsl` (the push constants) |
 | `cmake/Vulkan.cmake` | the pinned dependencies, the shaders (glslang), `patella_vulkan_deps`, `patella_render_vulkan`, the CPU driver, tests/vulkan |
 | `tests/vulkan/render_test.cpp` | `tests_vulkan`: the back end headless against a model of Direct3D 9's pixels |
-| `tests/unit/render_quads_test.cpp`, `render_filtermask_test.cpp` | `tests_render`: Quads.cpp and FilterMask.cpp |
+| `tests/unit/render_quads_test.cpp`, `render_filtermask_test.cpp`, `render_device_choice_test.cpp` | `tests_render`: Quads.cpp, FilterMask.cpp and DeviceChoice.cpp |
+| `tests/unit/core_settings_test.cpp` | `tests_core`: Patella.ini's parser and writer |
 
 None of it is in the oracle-x86 build: its glob is `src/*.cpp`, and the only changes to reconstructed files are
-the x64 client's own GetSurface and SurfaceInitInstance (Surface.cpp) and ChangeEngine (Control.cpp), behind
+the x64 client's own GetSurface and SurfaceInitInstance (Surface.cpp), ChangeEngine (Control.cpp) and the advanced
+graphics options' device choice (Dialogs.cpp, Dialogs.h: TAdvancedGraphicsDialog), behind
 `#if defined(PATELLA_VULKAN)`, which only the x64 client defines (pecompare: the oracle's Patella.exe is
 unchanged).
 
@@ -38,29 +43,95 @@ has its own GetSurface and SurfaceInitInstance (Surface.cpp) and ChangeEngine (C
   in the original's range"). A number 0-2 from Tibia.cfg, or the command line's `engine N` (0-2), is stored as it
   is; none (-1) or one out of range becomes 2. That is what Tibia.exe writes on a machine where its engines work
   (this one: DirectX 9 and OpenGL), so compare_files.py sees the same Tibia.cfg.
-- **The advanced graphics options are unchanged** (the same three buttons, enabled as Tibia.exe's on a machine
-  with Direct3D 9 and OpenGL, "DirectX9" selected), so the frames stay Tibia.exe's. A button stores only its
-  number (DirectX5 0, DirectX9 2, OpenGL 1) in Tibia.cfg, as the original stores it after a switch; the drawing
-  stays Vulkan and the selection stays on "DirectX9". As in the original, a command-line engine skips the test
-  and leaves the DirectX9 and OpenGL buttons disabled.
+- **The advanced graphics options' three engine buttons choose the device** (issue #31, below): they keep the
+  original's places, events and Tibia.cfg numbers (DirectX5's place 0, DirectX9's 2, OpenGL's 1).
 - **Without a Vulkan loader** (vulkan-1.dll, which every GPU driver with Vulkan installs) or any device there is
   no engine to fall back to: the start fails with PROGRAM_ERROR 12 ("Video surface allocation failed"), as the
   original's when its device could not be created.
 
-Plan 6.3's device choice in the dialog ("Automatic", one entry per GPU, "CPU (compatibility)", stored in the
-fork's settings file, D12) is not built yet (its layout, texts and the settings file need the user's decision;
-notes/decisions.md, issue #20). Until then the environment variable `PATELLA_VULKAN` chooses the device:
+## Choosing the device (issue #31)
 
-| `PATELLA_VULKAN` | Device |
+Plan 6.3 with the user's decisions of November 3, 2026: in the x64 client the advanced graphics options' three
+engine buttons are a **graphics device choice**, the choice is stored in **Patella.ini** (D12), and it is
+applied at once. A recorded exception to tier A (plan 3, 6.3): the dialog looks different from Tibia.exe's
+there, nothing else does.
+
+**The dialog** (Dialogs.cpp TAdvancedGraphicsDialog, x64 branches). The skin's three button places (58x20
+pixels, skin 16) hold, from the left:
+
+| Place (original) | Label | Help text | Chooses | Tibia.cfg `Engine` | Enabled |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| DirectX5 (event 800) | Automatic | Use the best graphics device: a GPU, else the CPU | `auto` | 0 | always |
+| DirectX9 (event 801) | GPU | Use the graphics card (GPU); with several, each click takes the next | `gpu`, then `gpu1`, `gpu0` ... | 2 | with a GPU |
+| OpenGL (event 802) | CPU | CPU (compatibility): draw without the graphics card | `cpu` | 1 | with the CPU driver next to the executable |
+
+"CPU (compatibility)" (87 pixels in the buttons' font) does not fit the 58-pixel button, so the button says "CPU"
+and its help text the rest. The line above the buttons (the original's "Select graphics engine:", now as wide as
+the dialog) names the device in use, `Device: NVIDIA GeForce RTX 5080` (exactly the 200 pixels here); a longer
+name is shortened with "..." and shown whole as the line's help text; before a device exists it says "Select
+graphics device:". The button of the current choice is selected. In fullscreen mode the three are disabled, as
+the original's engine buttons. **GPU** chooses the best GPU first (the one Automatic takes); on a machine with
+several GPUs every further click takes the next one in the list, round; with one GPU a further click changes
+nothing. This machine (November 3, 2026) has two: gpu0 NVIDIA GeForce RTX 5080 (discrete, the best) and gpu1 AMD
+Radeon(TM) Graphics (integrated).
+
+**Applying** (Control.cpp ChangeEngine, x64 branch): a click that changes the choice is applied as the original's
+engine switch: the surface's device is released (ExitSurfaces, SurfaceExitInstance), the new device tested on a
+new surface (TestEngine) and the surfaces created on it at the next CheckSurface (the video cache is rebuilt
+there, as after the original's switch). When the test fails, the old choice stays, as the original keeps the old
+engine. A click that changes nothing (Automatic again, GPU with one GPU) only stores the number.
+
+**Tibia.cfg**: every button stores the engine number of its place (0, 2, 1), as the original's button there
+stores it after a switch, so Tibia.cfg stays what Tibia.exe writes after the same clicks on a machine where its
+engines work; compare_files.py's options session clicks the third place (OpenGL's, now CPU), and both clients
+write `Engine = 1`. A failed switch stores nothing, as the original's. Tibia.cfg's `Engine` does not choose the
+device; at start-up it is kept as #20 keeps it (0-2 as it is, else 2).
+
+**Patella.ini** (src/settings/Settings.h): the fork's own settings file, in the working directory next to
+Tibia.cfg, plain `key=value`, a parser of our own. Only one key so far:
+
+```
+# Patella-Modern's own settings (Tibia.cfg stays the original client's)
+Device=gpu1
+```
+
+`Device` is `auto`, `gpu` (the best GPU), `gpuN` (the n-th GPU from 0 in the list below; `gpu:N` is read too) or
+`cpu`, without regard to case; anything else (or no file) is `auto`. The client reads it once at start-up
+(SurfaceInitInstance) and writes it when a click changes the choice and the new device works: the key's line is
+replaced or appended, every other line (comments, blank lines, unknown keys, lines without `=`) and the file's
+line ends stay as they are; a new file gets the comment line above and CRLF, as Tibia.cfg. Keys are compared
+without regard to ASCII case, the first line with a key counts. Patella.ini is never compared with Tibia.exe's
+files (Tibia.exe has none). The other D12 keys (servers, scale, vsync, data folder, log level) come with their
+issues.
+
+**The GPU list** (TRenderer's `ListGpus`, read once at start-up): the system's Vulkan devices that are not CPUs and
+have Vulkan 1.3 with dynamic rendering and synchronization2 and VK_KHR_swapchain, in the loader's order
+(vk-bootstrap's select_devices), from an instance of its own without a window. `gpuN` counts in that list, so the
+same index means the same GPU with or without a window; whether it can present to the window is checked when its
+device is created (otherwise the switch or the start-up test fails). "The best GPU" is the first of the best kind
+(discrete, integrated, virtual, other), as before.
+
+**At start-up**, when the chosen device fails the engine test (a GPU that is gone, an index out of range, the CPU
+driver missing), the client runs on the automatic choice, as the original falls back to another engine;
+Patella.ini keeps the choice (the dialog shows Automatic). The command line's `engine N` skips the test, as in the
+original.
+
+**`PATELLA_VULKAN`** stays, as an **override of Patella.ini for the comparisons and the tests**: when it is set and
+not empty, its value (the same words; one it does not know, such as `off`, is `auto`) is the choice at start-up
+instead of Patella.ini's, and it is never written. A click in the dialog still switches and writes Patella.ini.
+compare_rendering.py (`gpu`, `cpu`) and testmode_check.py (`cpu`) set it; compare_files.py and
+compare_traffic.py do not, so their clients start with Patella.ini's choice (none in their clean run folders:
+`auto`).
+
+| `PATELLA_VULKAN` (else Patella.ini's `Device`) | Device |
 | :--- | :--- |
-| unset, empty, `auto` (anything not below) | the best GPU with Vulkan 1.3 (discrete, integrated, virtual, other), else the CPU driver |
-| `gpu`, `gpu0`, `gpu1` ... (`gpu:1`) | a GPU only: the best one, or the n-th in the loader's order |
+| unset or empty: Patella.ini's `Device`; no file or no key: `auto` | |
+| `auto` (and any value not below) | the best GPU with Vulkan 1.3 (discrete, integrated, virtual, other), else the CPU driver |
+| `gpu`, `gpu0`, `gpu1` ... (`gpu:1`) | a GPU only: the best one, or the n-th of the GPU list |
 | `cpu` | the CPU driver only |
 
-`off` (with `0`, `no`, `dx9`), which gave engine 2 back to Direct3D 9 until issue #20, is automatic now.
 `PATELLA_VULKAN_VALIDATION=1` asks for the validation layers (they come with the LunarG Vulkan SDK, which this
-machine does not have; without them the request is ignored). `TDeviceRequest` (Renderer.h) already has plan
-6.3's three kinds.
+machine does not have; without them the request is ignored).
 
 ## How it works
 
@@ -222,19 +293,38 @@ those (patcap reports the seven others as hooked); compare_rendering.py needs no
 
 ## Checks
 
-- `tests_render` (every product preset, tests/unit): Quads.cpp and FilterMask.cpp, 12 test cases, 289
-  assertions: when a quad is a copy or an Edge copy, the texel-centred coordinates at Vulkan's pixel centres,
-  Direct3D 9's coordinates and colours at the pixel centres for the rest; the masks of fills, uploads,
-  stretches, copies through transparent texels, the light, the automap's Edge copy and a self-draw.
+- `tests_render` (every product preset, tests/unit): Quads.cpp, FilterMask.cpp and DeviceChoice.cpp, 14 test
+  cases, 359 assertions (12 and 289 before issue #31): when a quad is a copy or an Edge copy, the texel-centred
+  coordinates at Vulkan's pixel centres, Direct3D 9's coordinates and colours at the pixel centres for the rest;
+  the masks of fills, uploads, stretches, copies through transparent texels, the light, the automap's Edge copy
+  and a self-draw; the device choice's words (every form, the refused ones, the round trip) and what each button
+  chooses (the GPU button's round through several GPUs, from the best, an index beyond the list).
+- `tests_core` (every product preset): Patella.ini's parser and writer (src/settings/Settings.cpp, issue #31),
+  8 of its 25 test cases: keys without regard to case, values trimmed, `=` in a value, the first line counting, the
+  round trip with unknown keys, comments and blank lines kept, CRLF and LF line ends (from the first line; a
+  stray CR; no end at the end; an empty file), lines that are no `key=value` kept and never read, a byte order
+  mark, the keys and values Set refuses, Load and Save (a missing file, a file too large, a folder that does not
+  exist).
 - `tests_vulkan` (windows-x64 with the client; CTest, exit 77 = skipped without a loader): the back end
-  headless, never a window, on the CPU driver next to it and on the machine's best GPU. Fills, 400 random
+  headless, never a window, on the CPU driver next to it and on the machine's best GPU; and the device choice's
+  lists (issue #31): ListGpus' GPUs (none a CPU), BestGpu, the CPU driver's device (llvmpipe) and none for a
+  missing manifest, `auto` opening the best GPU, `gpu` and every `gpuN` opening the GPU of that index, an index
+  beyond the list opening nothing. On November 3, 2026: gpu0 NVIDIA GeForce RTX 5080 (discrete, the best), gpu1
+  AMD Radeon(TM) Graphics (integrated), cpu llvmpipe (LLVM 23.1.4, 256 bits); 10 test cases, 79 assertions. Fills, 400 random
   unscaled copies of a texture with transparent texels, the automap's upload (a texture of texel coordinates:
   every pixel must show texel max(k - 1, 0)), stretches, the colour key pass, the light, a draw that samples its
   target, six frames of 4.8 MB uploads and a resized image, each read back and compared with a model of Direct3D
-  9's pixels (tests/vulkan/render_test.cpp `ModelDraw`). On November 3, 2026: 9 test cases, 58 assertions; on
+  9's pixels (tests/vulkan/render_test.cpp `ModelDraw`). On November 3, 2026, before issue #31: 9 test cases, 58 assertions; on
   llvmpipe (Mesa 26.2.5, LLVM 23.1.4) and on the NVIDIA GeForce RTX 5080 (Vulkan 1.4.357): fills, copies, the
   automap upload and the colour key 0 pixels differ; stretches, the automap quad sampled linearly and the light at
   most 1 per channel from the model (CPU driver: 1,251, 11,155 and 996 pixels; GPU: 932, 11,040 and 27,944).
+- The advanced options' device choice (issue #31) in compare_rendering.py: for `vulkan` and `vulkan-cpu` the
+  advanced-options scene masks the device choice's area in both runs (`device_choice_mask`: from the label's
+  corner, SkinProperties.Style1394.Data08, to the dialog's width, Data00, and the buttons' bottom, Data10.y plus 20:
+  the dialog's top 35 rows), next to the frame-rate mask; the rest of the dialog stays exact against Tibia.exe. The
+  oracle's engines (dx5, dx9, gl) keep the original dialog, unmasked. The x64 client's frame of that area is the
+  re-recorded reference (plan 6.3): compare_rendering.py keeps it as `<out>\vulkan\patella\advanced-options.png`
+  (and vulkan-cpu's), to be looked at once by the user; it differs from Tibia.exe's only inside the mask.
 - The live comparison against Tibia.exe (the orchestrator's, November 3, 2026, before the Edge copy):
   `python -I tools/compare_rendering.py --engines vulkan --modes windowed --no-repeat --patella
   build\windows-x64\Release\Patella.exe --recording build\traffic\result-x64\orig-live.jsonl`: on the RTX 5080

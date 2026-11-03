@@ -160,7 +160,7 @@ this order, each captured after its step and the advance:
 | Scene | What is on the screen |
 | :--- | :--- |
 | start | the start screen (background picture, the five buttons) |
-| options, graphics-options, advanced-options | the option dialogs over the start screen: the resolution list, the engine buttons with the current one selected, check boxes, the frame rate slider |
+| options, graphics-options, advanced-options | the option dialogs over the start screen: the resolution list, the engine buttons with the current one selected (in the x64 client the graphics device choice, masked for vulkan and vulkan-cpu: notes/vulkan.md, "Checks", issue #31), check boxes, the frame rate slider |
 | login | the login dialog with the account typed and the password as stars, the edit cursor |
 | charlist | the character list from the replayed login server answer |
 | game | the game view after entering: map, light, creatures with names and health bars, side bar (minimap, health/mana, inventory, combat controls, buttons), console with the "last visit" text |

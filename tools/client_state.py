@@ -217,6 +217,10 @@ LAYOUT_FIELDS = [
 	("TAutomapWindow.ZoomOutButton", 0x58, "ptr"),
 	("TSkinProperties.Data60C", 0x60c, "TRect"),
 	("TSkinProperties.Data61C", 0x61c, "TRect"),
+	("TSkinProperties.Style1394.Data00", 0x1394 + 0x00, "int"),  # the advanced options' width (issue #31)
+	("TSkinProperties.Style1394.Data08.x", 0x1394 + 0x08, "int"),
+	("TSkinProperties.Style1394.Data08.y", 0x1394 + 0x0c, "int"),
+	("TSkinProperties.Style1394.Data10.y", 0x1394 + 0x14, "int"),
 	("TSkinProperties.Style1394.Data70.x", 0x1394 + 0x70, "int"),
 	("TSkinProperties.Style1394.Data70.y", 0x1394 + 0x74, "int"),
 ]

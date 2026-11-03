@@ -38,6 +38,9 @@
 #include "Text.h"
 #include "sysinc.h"
 #include <ostream>
+#if defined(PATELLA_VULKAN)
+#include "vulkan/DeviceSettings.h"
+#endif
 
 // Data, in .data/.bss order. 0x5c4540-0x5c4553 is not used by any code.
 static int LastPacketType = -1;               // 0x5c0d8c, only written (ReceivePackets)
@@ -129,10 +132,35 @@ void CheckSurface(bool Force)
 void ChangeEngine(int engine)
 {
 #if defined(PATELLA_VULKAN)
-	// The x64 client (Patella-Modern issue #20; Surface.cpp SurfaceInitInstance): one engine, so the
-	// advanced options' engine buttons store only Tibia.cfg's number for Tibia.exe, as the original stores
-	// it after a successful switch. curEngine stays 2.
-	SetEngine(engine);
+	// The x64 client (Patella-Modern issues #20 and #31; Surface.cpp SurfaceInitInstance): one engine, and
+	// the advanced options' three buttons choose its graphics device (plan 6.3; vulkan/DeviceSettings.h).
+	// They are in the original's places and send its numbers: DirectX5's (0) "Automatic", DirectX9's (2)
+	// "GPU", OpenGL's (1) "CPU". Each stores its number in Tibia.cfg for Tibia.exe, as the original's button
+	// there stores it after a switch, so Tibia.cfg stays what Tibia.exe writes after the same clicks. A new
+	// choice is applied at once as the original's switch is: the surface is released and the new device
+	// tested on a new one (the next CheckSurface creates its surfaces); when the test fails, the old
+	// choice and Tibia.cfg's number stay, as the original keeps the old engine. Patella.ini gets the new
+	// choice. In fullscreen mode the dialog disables the buttons, as the original's. curEngine stays 2.
+	patella::vulkan::TDeviceChoice OldChoice = GetDeviceChoice();
+	patella::vulkan::TDeviceChoice NewChoice = patella::vulkan::ChoiceAfterButton(OldChoice,
+		DeviceButtonOfEngine(engine), GetNumberOfGpus(), GetBestGpu());
+	if (NewChoice == OldChoice) {
+		SetEngine(engine);
+		return;
+	}
+	SetDeviceChoice(NewChoice);
+	GetSurface()->ExitSurfaces();
+	SurfaceExitInstance();
+	bool Success = GetSurface()->TestEngine();
+	if (!Success) {
+		SetDeviceChoice(OldChoice);
+		SurfaceExitInstance();
+	}
+	GetSurface()->InitSurfaces();
+	if (Success) {
+		SetEngine(engine);
+		SaveDeviceChoice();
+	}
 #else
 	if (engine == curEngine)
 		return;

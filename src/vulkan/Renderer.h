@@ -12,11 +12,13 @@
 
 #pragma once
 
+#include "vulkan/DeviceChoice.h"
 #include "vulkan/Quads.h"
 
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -34,16 +36,11 @@ public:
 	explicit TVulkanError(const std::string &Message) : std::runtime_error(Message) {}
 };
 
-// The device the engine runs on (plan 6.3: "Automatic", a GPU, "CPU (compatibility)").
-enum class TDeviceKind {
-	Automatic, // the best GPU with Vulkan 1.3, the CPU driver when there is none
-	Gpu,       // a GPU only (GpuIndex: the n-th, -1 the best)
-	Cpu,       // the CPU driver only
-};
-
+// The device the engine runs on (plan 6.3: "Automatic", a GPU, "CPU (compatibility)"; TDeviceKind is
+// DeviceChoice.h's).
 struct TDeviceRequest {
 	TDeviceKind Kind = TDeviceKind::Automatic;
-	int GpuIndex = -1;
+	int GpuIndex = -1; // the n-th of ListGpus, -1 the best
 	// The CPU driver's manifest (lvp_icd.x86_64.json next to the executable). The loader is told
 	// about it through its driver setting VK_DRIVER_FILES in this process only, and only when the CPU
 	// driver is wanted; empty: no CPU driver.
@@ -67,6 +64,21 @@ struct TDeviceInfo {
 
 // True when the Vulkan loader can be loaded (vulkan-1.dll, libvulkan.so.1).
 bool LoaderAvailable();
+
+// The GPUs the engine can use (Vulkan 1.3 with dynamic rendering and synchronization2, and
+// VK_KHR_swapchain), in the loader's order: the list TDeviceRequest::GpuIndex and the advanced options'
+// GPU button count in (issue #31). Headless: an instance of its own, without a window, gone again on
+// return; the system's drivers only (no CPU driver). Throws TVulkanError without a loader. Call it while
+// no TRenderer exists (vk-bootstrap keeps the functions of the last instance it made).
+std::vector<TDeviceInfo> ListGpus();
+
+// The index in ListGpus' list of the GPU "the best GPU" means (TDeviceRequest::GpuIndex -1): the first
+// of the best kind (discrete, integrated, virtual, other); -1 for an empty list.
+int BestGpu(const std::vector<TDeviceInfo> &Gpus);
+
+// The CPU driver's device from its manifest (TDeviceRequest::CpuDriverManifest), headless as ListGpus;
+// nothing when it offers none. Throws TVulkanError without a loader.
+std::optional<TDeviceInfo> CpuDriverDevice(const std::string &Manifest);
 
 class TRenderer {
 public:

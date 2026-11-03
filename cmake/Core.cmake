@@ -8,6 +8,7 @@
 #	TMyException.cpp      the exception type of the TASSERT/TERROR/TEND macros (common.h)
 #	Utils.cpp             the Latin-1 string helpers, outfit colours and packet buffers
 #	Skins.cpp             the rectangles of the GUI graphics in Tibia.pic
+#	settings/Settings.cpp Patella.ini, the fork's own settings file (issue #31, plan D12)
 #	Extern/regexp         Henry Spencer's regexp (K&R C, compiled as C17)
 #	Container.h           the container templates (header only)
 #
@@ -25,6 +26,7 @@ set(patella_core_sources
 	src/TMyException.cpp
 	src/Utils.cpp
 	src/Skins.cpp
+	src/settings/Settings.cpp
 	src/Extern/regexp/regexp.c)
 list(TRANSFORM patella_core_sources PREPEND "${PROJECT_SOURCE_DIR}/")
 

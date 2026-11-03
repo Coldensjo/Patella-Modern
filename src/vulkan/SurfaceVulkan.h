@@ -9,12 +9,8 @@
 // (cmake/Vulkan.cmake); the oracle-x86 build never compiles it.
 //
 // The engine is the x64 client's only engine, curEngine 2 (DirectX 9 in the original and in the oracle;
-// Surface.cpp; notes/vulkan.md, "Choosing the engine"). Until plan 6.3's device choice is in the options
-// dialog and the settings file (D12), the environment variable PATELLA_VULKAN chooses the device:
-//
-//	unset, auto             the best GPU with Vulkan 1.3, else the CPU driver (anything not below)
-//	PATELLA_VULKAN=gpu      a GPU only; gpu0, gpu1 ...: the n-th GPU
-//	PATELLA_VULKAN=cpu      the CPU driver only (lavapipe, next to the executable)
+// Surface.cpp; notes/vulkan.md, "Choosing the engine"). Its device is the graphics device choice of
+// DeviceSettings.h (issue #31): the advanced options' buttons, Patella.ini's Device, PATELLA_VULKAN.
 
 #pragma once
 
@@ -94,6 +90,9 @@ public:
 	// rectangle as the next FinishFrame would show them (D3DCOLOR, rows top-down). False without a
 	// device.
 	bool ReadScreen(std::vector<uint32_t> &Pixels, int &Width, int &Height);
+
+	// The device's name ("" without one; DeviceSettings.h GetDeviceName).
+	const char *DeviceName() const;
 
 private:
 	void AddShadeQuad(int Left, int Top, int Right, int Bottom, uint32 TopLeft, uint32 TopRight, uint32 BottomRight,
