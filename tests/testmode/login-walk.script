@@ -5,12 +5,18 @@
 #
 # Times are virtual milliseconds; at pace 100 (real time) the server gets as much real time to answer
 # as the script waits.
+#
+# The dumps (issue #22): dump writes the client's state (state-<NNN>.json, which testmode_check.py
+# compares with client_state.py's reading of the same moment), frame the next frame of the Vulkan engine
+# (frame-<NNN>.png); both need --test-out, which testmode_check.py passes.
 
 pace 100
 
 # The start screen: "Enter Game" (tools/login_client.py: the middle of the button is at
 # (113, height - 220) of the client area).
 wait 2000
+dump
+frame
 click 113 B-220
 
 # The login dialog: account, Tab, password, Return.
@@ -18,6 +24,7 @@ wait 1500
 text "772001"
 key Tab
 text "patella"
+dump
 key Return
 
 # The message of the day (the run's Tibia.cfg has LastMotD = 0), then the character list: Return takes
@@ -29,6 +36,8 @@ key Return
 
 # In the game; Return again closes a "First Login" hint, or goes to the empty console line.
 wait 4000
+dump
+frame
 key Return
 
 # A square: north, east, south, west, back where the character started.
@@ -41,13 +50,17 @@ key Down
 wait 1500
 key Left
 wait 1500
+dump
 
 # Say something (Cipfried, the temple's NPC, answers "hello").
 text "hello world"
 key Return
 wait 2000
+dump
+frame
 
 # Log out (Ctrl+L), then close the client at the start screen.
 key Ctrl+L
 wait 4000
+dump
 quit

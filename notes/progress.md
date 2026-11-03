@@ -84,6 +84,14 @@ client, sends timeGetTime, the wall clock and the frame timer through one IClock
 keyboard, mouse and text events on a virtual clock (src/testmode, src/TestHooks.h); Patella.exe and the oracle
 are unchanged by it (pecompare against main: 0 unexpected differences). tools/testmode_check.py is the
 determinism check against the test server. notes/testmode.md.
+Test mode, second part (Patella-Modern issue #22, November 3, 2026): PatellaTest.exe --test-out writes the
+packet log (every packet before encryption and after decryption, the first packets with the RSA block in
+plain), the state dump at a script's `dump` (client_state.py's state() and gui() as JSON, read in the process)
+and the frame dump at a script's `frame` (the Vulkan engine's frame and its device-filtered pixels as PNG).
+tools/testmode_check.py compares, in every run, the state dumps with client_state.py's reading of the same
+moment and the packet log with the proxy's decrypted recording; offline: the formats' unit tests, the
+checker's self-test on made-up data, the dump's keys against client_state.py's. Patella.exe and the oracle
+unchanged (pecompare: 0 unexpected differences). notes/testmode.md, "The dumps".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -109,6 +117,14 @@ Patella-Modern issue #20 (branch issue-20, November 3, 2026): `python -I tools/b
 warnings) after the original engines left windows-x64 (x64-only branches in Surface.cpp and Control.cpp): the same
 counts as below; the oracle Patella.exe built from main d624a34 and from the branch at the same path: 0 unexpected
 differences (pecompare); macrocheck 2,108 calls, 0 differences.
+
+Patella-Modern issue #22 (branch issue-22, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest 4/4, 0
+warnings) after the test mode's dump hooks in src/ (statement macros that are nothing outside the test build in
+Network.cpp, Communication.cpp and vulkan/SurfaceVulkan.cpp; View functions inside `#if
+defined(PATELLA_TEST_MODE)` at the ends of Creatures.cpp, Inventory.cpp, Map.cpp, Status.cpp): 16,848,752 +
+67 + 1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64
+Release Patella.exe built from main (d624a34) and from the branch at the same path: 0 unexpected differences
+(pecompare); macrocheck main issue-22: 2,108 calls, 0 differences.
 
 Patella-Modern issue #19, second part (branch issue-19 after merging main 193dee3, November 3, 2026): `python -I
 tools/build.py oracle-x86` (CTest, 0 warnings) after the Edge copy, the device-filtered masks and engine 2 as the

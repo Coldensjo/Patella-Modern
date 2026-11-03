@@ -191,7 +191,8 @@ They write build\<preset>\tests\unit\<Configuration>: `tests_unit` (src/compat/c
 it: the stand-ins on MSVC and on Clang 22 with libstdc++ 14, contract_assert and std::inplace_vector on GCC 16)
 and `tests_unit_cxx26_standin` (the same tests with PATELLA_CXX26_STANDIN), each a CTest test, plus one per
 contract violation scenario (RunContractViolation.cmake), `tests_core` and, since Patella-Modern issue #21,
-`tests_testmode` (the test mode's clock, script parser and scheduler; below). The mingw executables get the
+`tests_testmode` (the test mode's clock, script parser and scheduler; since issue #22 also the dumps' formats:
+the state dump's JSON, the packet log's lines, the frame dump's PNG pictures; below). The mingw executables get the
 compiler's runtime DLLs copied next to them.
 src/compat/cxx26.h is the only way to C++26 features (plan section 8): `CONTRACT_ASSERT(Predicate)` and
 `patella::TStaticVector<T, N>` so far; its comment lists what the stand-ins do not reproduce. Details:
@@ -219,7 +220,10 @@ and tested by `tests_testmode`). The hooks it needs in the client (src/TestHooks
 themselves in Patella.exe and the oracle, whose images are unchanged by them (pecompare; notes/decisions.md,
 "Test mode: virtual clock and scripted input (Patella-Modern issue #21)"). `PatellaTest.exe --test-script
 <file>` plays a script of keyboard, mouse and text events on a virtual clock; without it, it is the client on
-the system clock. notes/testmode.md.
+the system clock. Since issue #22 `--test-out <folder>` writes the test mode's dumps: the packet log (every
+packet before encryption and after decryption), the state dump at a script's `dump` (client_state.py's state()
+and gui() as JSON) and the frame dump at a script's `frame` (the Vulkan engine's frame and its device-filtered
+pixels as PNG). notes/testmode.md.
 
 Since Patella-Modern issue #19 both carry the Vulkan engine (notes/vulkan.md; `cmake/Vulkan.cmake`), since
 issue #20 as their only engine (SurfaceDX.cpp, surfaceDX9.cpp and SurfaceGL.cpp are not compiled, ddraw, dxguid,
@@ -277,7 +281,11 @@ patches PE32 and PE32+ images.
 `python -I tools/testmode_check.py` (Patella-Modern issue #21) runs the test build, PatellaTest.exe, twice with
 the same input script (tests/testmode/login-walk.script: login, a square walk, a said line, logout) against that
 server through tools/proxy.py and compares the runs' client packets, raw frames, driver logs and Tibia.cfg;
-nothing drives the window from outside, and the client drops the desktop's own input: notes/testmode.md.
+nothing drives the window from outside, and the client drops the desktop's own input. Since issue #22 it also
+checks the test mode's dumps in every run: each state dump against client_state.py's reading of the same
+moment (the client waits for it), the packet log against the proxy's decrypted recording, the frame dumps, and
+statically the dump's keys against client_state.py's; `--self-test` runs those comparisons on made-up data
+without a server or a client: notes/testmode.md.
 
 Every GUI comparison (traffic, files, rendering, network) empties its run folders before each run, down to the
 data files and the patched client, and a second Tibia.exe run (orig-repeat) has a folder of its own

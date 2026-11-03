@@ -99,6 +99,7 @@ patella_client(Patella)
 option(PATELLA_TEST_BUILD "Build PatellaTest.exe, the client with the test mode (issue #21)" ON)
 if(PATELLA_TEST_BUILD)
 	get_target_property(patella_testmode_sources patella_testmode SOURCES)
-	patella_client(PatellaTest "${PROJECT_SOURCE_DIR}/src/testmode/TestModeWin32.cpp" ${patella_testmode_sources})
+	patella_client(PatellaTest "${PROJECT_SOURCE_DIR}/src/testmode/TestModeWin32.cpp"
+		"${PROJECT_SOURCE_DIR}/src/testmode/ClientStateWin32.cpp" ${patella_testmode_sources})
 	target_compile_definitions(PatellaTest PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:PATELLA_TEST_MODE>)
 endif()

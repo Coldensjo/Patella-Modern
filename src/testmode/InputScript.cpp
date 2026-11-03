@@ -516,6 +516,12 @@ bool TParser::Line(std::string_view Text)
 		Add(TEventKind::Quit);
 		return true;
 	}
+	if (Command == "dump" || Command == "frame") {
+		if (!Expect(Words, 0, 0))
+			return false;
+		Add(Command == "dump" ? TEventKind::StateDump : TEventKind::FrameDump);
+		return true;
+	}
 	return Fail("unknown command: " + std::string(Words[0].Text));
 }
 
@@ -608,6 +614,8 @@ std::string Describe(const TInputEvent &Event)
 	case TEventKind::RightDouble: Text += "right double " + Point(); break;
 	case TEventKind::Wheel: Text += "wheel " + std::to_string(Event.Delta); break;
 	case TEventKind::Quit: Text += "quit"; break;
+	case TEventKind::StateDump: Text += "dump"; break;
+	case TEventKind::FrameDump: Text += "frame"; break;
 	}
 	if (Event.Modifiers != 0)
 		Text += " modifiers " + std::to_string(Event.Modifiers);

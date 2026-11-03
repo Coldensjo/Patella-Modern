@@ -5702,6 +5702,85 @@ tests/testmode/login-walk.script, tools/testmode_check.py.
   tools/testmode_check.py, for the orchestrator or the self-hosted workflow (not added to it here). The state
   dump, packet log and frame dump are issue #22; the session scripts and reference recordings issue #23.
 
+## Test mode: the dumps (Patella-Modern issue #22)
+
+Settled by Claude Opus 5.5, November 3, 2026. notes/testmode.md, "The dumps", describes the result;
+src/testmode/StateDump.*, PacketLog.*, Png.*, ClientStateWin32.cpp, ClientView.h, TestModeWin32.cpp,
+src/TestHooks.h, the View functions at the ends of Creatures.cpp, Inventory.cpp, Map.cpp and Status.cpp, the
+hooks in Network.cpp, Communication.cpp and vulkan/SurfaceVulkan.cpp, tests/unit/testmode_dump_test.cpp,
+tests/testmode/login-walk.script, tools/testmode_check.py, tools/testmode_dumps.py.
+
+- **The state dump is client_state.py's reading, made inside** (high; the issue's criterion). The same keys in
+  the same order, the same integer forms (4-byte values signed, a creature's ID unsigned, the bools as their
+  byte), the same text limits (char[N] to the first NUL, the console's C strings to 512 bytes, a label's to 256)
+  and the same clamps; gui()'s walk (siblings through Next, 500 at most; children of a TWindow; the RTTI class
+  name from the decorated `.?AV<name>@@`), with this process's addresses as "ptr" and "vtable". So the dump and
+  the outside reading of the same moment can be compared with `==`, and #23 can compare a test client's dumps
+  with Tibia.exe's readings after dropping the addresses. A component is a window when it is a TWindow
+  (dynamic_cast); client_state.py tests whether its GetFirstChild is TWindow's code, the only override of
+  TComponent's throwing one, which gives the same answer. Considered: a dump of our own design (more fields,
+  times); it could not be checked against the existing reading, which is the issue's criterion, and #23's
+  references come from that reading.
+- **How the dump reaches file-local data** (high). Most of what client_state.py reads is static in its file
+  (Creatures.cpp's Player* and Creatures, Inventory.cpp, Map.cpp's Fields, Status.cpp's ConnectionState). Each
+  of those files ends with a View function inside `#if defined(PATELLA_TEST_MODE)` that hands out const
+  pointers (src/testmode/ClientView.h, included through src/TestHooks.h only in the test build). At the end of
+  the file no line of the product's code moves, and outside the test build the preprocessor removes it.
+  Considered: the existing getters (GetPlayerHealth ...): not one for every field, some with TBEGIN/TEND, and
+  calling client code is a change of what the client does; extern declarations instead of static: a change of
+  the oracle's sources and linkage.
+- **The same moment, from outside** (high). The check needs client_state.py to read the moment the client
+  dumps. `--test-sync <name>`: after writing a dump the client sets `<name>-ready` and waits for
+  `<name>-continue` (events the checker makes; at most 300 s), on the client's own thread at the driver's step in
+  OnIdle, so nothing of the client runs meanwhile (the network's notifications are window messages on that
+  thread). The wait is taken out of the pace (the driver's real start moves by it), so the virtual clock, the
+  events and the packets the client sends do not see it; what can see it is the server, which waits too (its
+  pings, as before, depend on real time). Considered: suspending the process from outside at a time the
+  checker guesses (not the same moment); reading only after the run (the state has moved on).
+- **A dump takes no idle call of its own** (high). The driver delivers one input event per idle call (issue
+  #21); a `dump` is done in the call that then delivers the next event or moves the clock, so a script with
+  dumps gives the client the same events in the same idle calls as without. A `frame` does take a call, as an
+  input event does: it waits for the next frame drawn, and a frame drawn after the next event would show that
+  event's effect.
+- **The packet log at the encryption, both ways** (high). SendCommand writes the packet into SendData and then
+  encrypts it in place, so the hook sits between (the payload, the padding the client's rand() made, before
+  XTEA); for the unencrypted first packets the RSA block is already encrypted there, so a second hook in
+  SendLogin/SendGameLogin keeps the block before RSA.Encrypt and the log writes the first packet with it: that is
+  exactly proxy.py's "plain" of a first packet (it decrypts the block with the server's key). The received
+  packets are logged where PrepareNextPacket has decrypted them: the client's view, which the proxy's decrypted
+  capture must equal. Considered: logging only the sent packets (the plan says "a packet log", and #23's replay
+  is about the server side, so both directions are useful). The connections are numbered as proxy.py numbers
+  them (kind from the first packet's opcode, ordinal per kind), so the two can be matched without times.
+- **The line format** (form). Text, one packet per line, seven space-separated fields, hex payloads: diffable,
+  readable in an editor, as simple to parse in Python as in C++ (both are: PacketLog.cpp's parser, the unit
+  tests, testmode_dumps.py). Considered: JSON lines like proxy.py's recordings (heavier, and the plan asked for a
+  line format). Time stamps are the virtual clock's, so a log can be compared across runs, but the comparison
+  with the proxy does not use them.
+- **The frame dump through the engine's frame observer** (high). TSurfaceVulkan already calls patcap.dll's
+  observer before each Present with the frame's mask and the canvas read back (issue #19); without patcap.dll
+  the test build installs its own observer there (one statement-macro hook in InitDisplay), so a `frame` gets
+  the frame as it is shown and its device-filtered pixels, the same data compare_rendering.py gets. The engine
+  keeps masks only while an observer exists, so the test mode observes only when the script has `frame`
+  commands. Considered: TSurfaceVulkan::ReadScreen from the driver's step (any moment's canvas, not the shown
+  frame, and no mask).
+- **PNG with stored deflate blocks** (form; no new dependency). 8-bit RGB, filter 0, the image data as zlib
+  stored blocks with CRC-32 and Adler-32 written in Png.cpp (about 150 lines, unit-tested against known values
+  and by inflating the stream back); larger than compressed PNG (an 800x600 frame about 1.4 MB) but readable by
+  every tool, compare_rendering.py's read_png included. The mask as a second PNG, white where filtered, as
+  compare_rendering.py's `<scene>.filtered.png`, so #23 applies the same tolerance with the same code.
+- **The portable part in patella_testmode** (high). The JSON writer and the dump's data (StateDump), the line
+  format and the connections (PacketLog) and the PNG encoder (Png) are portable and tested on every product
+  preset (tests_testmode: 9 new test cases, 243 assertions); only the reading of the client and the files are in
+  the Windows side.
+- **The proofs without a client** (high). The unit tests; `tools/testmode_check.py --self-test` (the
+  comparisons on made-up runs: equal data passes, each kind of difference fails and is named); the static
+  comparison of the dump's key lists (StateDump.h) with client_state.py's (its source read with ast); and
+  client_state.py's `--layout` on PatellaTest.exe (every entry resolved in its PDB). Patella.exe and the
+  oracle-x86 Patella.exe built from main and from the branch at the same path: 0 unexpected differences
+  (pecompare); neither they nor their PDBs contain a test-mode name of #22 (ViewCreatures, PacketSent,
+  StateDumpJson, FrameObservers, patella-state, ...). The live check (e, f against the test server) is for the
+  orchestrator: it needs the server and a client window.
+
 ## The Vulkan engine (Patella-Modern issue #19)
 
 Settled by Claude Opus 5.5, November 3, 2026 (MSVC 14.51, CMake 4.1.2, Vulkan loader 1.4.357). notes/vulkan.md

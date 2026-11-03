@@ -39,6 +39,8 @@ std::string Short(const TInputEvent &Event)
 	case TEventKind::RightDouble: Text += "rdouble " + Point(); break;
 	case TEventKind::Wheel: Text += "wheel " + std::to_string(Event.Delta); break;
 	case TEventKind::Quit: Text += "quit"; break;
+	case TEventKind::StateDump: Text += "dump"; break;
+	case TEventKind::FrameDump: Text += "frame"; break;
 	}
 	if (Event.Modifiers != 0)
 		Text += " m" + std::to_string(Event.Modifiers);

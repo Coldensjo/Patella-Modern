@@ -1332,3 +1332,29 @@ void ResetCreatures()
 void ExitCreatures()
 {
 }
+
+#if defined(PATELLA_TEST_MODE)
+// The test mode's state dump (issue #22; src/testmode/ClientView.h) reads this file's data; it writes
+// nothing. Test build only.
+void patella::testmode::ViewCreatures(TCreaturesView *View)
+{
+	View->PlayerState = &PlayerState;
+	View->PlayerSkillProgress = PlayerSkillProgress;
+	View->PlayerSkillValue = PlayerSkillValue;
+	View->FollowID = &FollowID;
+	View->AttackID = &AttackID;
+	View->PlayerCapacity = &PlayerCapacity;
+	View->PlayerSoul = &PlayerSoul;
+	View->PlayerMaxMana = &PlayerMaxMana;
+	View->PlayerMana = &PlayerMana;
+	View->PlayerMagicLevelProgress = &PlayerMagicLevelProgress;
+	View->PlayerLevelProgress = &PlayerLevelProgress;
+	View->PlayerMagicLevel = &PlayerMagicLevel;
+	View->PlayerLevel = &PlayerLevel;
+	View->PlayerExperience = &PlayerExperience;
+	View->PlayerMaxHealth = &PlayerMaxHealth;
+	View->PlayerHealth = &PlayerHealth;
+	View->PlayerID = &PlayerID;
+	View->Creatures = Creatures;
+}
+#endif

@@ -59,8 +59,10 @@ automatic tests compare the new program with the original 2006 one:
 
 A special test version of the client can also play a written script of key presses, mouse clicks and typed
 text on a clock of its own, which moves only when the script says so. Run twice, it does exactly the same
-thing both times, so a test does not depend on how fast the computer is or on someone touching the mouse. The
-normal client contains none of this.
+thing both times, so a test does not depend on how fast the computer is or on someone touching the mouse. At
+the points the script names, it writes down what it knows (the character, the map, the windows on screen), every
+message it sends to or gets from the server, and the picture it shows, so the tests can check all of it
+without peeking into the program from outside. The normal client contains none of this.
 
 If any of these differ, the step is not accepted. The original program acts as an answer key that the new one
 must keep matching.
