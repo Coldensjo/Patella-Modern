@@ -6055,9 +6055,9 @@ tools/compare_files.py, tools/compare_rendering.py, tools/client_state.py.
   ListGpus and an indexed device both select without the surface but with VK_KHR_swapchain required, and an
   indexed device's presentation support is checked when it is created (vkGetPhysicalDeviceSurfaceSupportKHR, as
   before); the swapchain is built with the window's surface given explicitly. Automatic and `gpu` select as before
-  (with the surface). The list is read once at start-up, before any device exists: vk-bootstrap keeps the
-  functions of the last instance it built in a global table, so a second instance while the engine runs would
-  re-point it (no GPU comes or goes while the client runs, in practice).
+  (with the surface). The list is read once at start-up, before any device exists (no GPU comes or goes while
+  the client runs, in practice). (Corrected in issue-31-fix: this point first said that vk-bootstrap keeps the
+  functions of the *last* instance; it keeps those of the *first*, which is what crashed the start; below.)
 - **Applied as the original's switch** (high; the user's decision). ChangeEngine's x64 branch does what the
   original's does with a device instead of an engine: ExitSurfaces, SurfaceExitInstance, TestEngine on a new
   surface, the old choice back when it fails, InitSurfaces; the next CheckSurface creates the surfaces and resets
@@ -6102,3 +6102,41 @@ tools/compare_files.py, tools/compare_rendering.py, tools/client_state.py.
 - **Not checked yet** (form). No client window was opened (another task used the test server and the desktop):
   compare_files.py, compare_rendering.py (vulkan, vulkan-cpu) and compare_traffic.py on the x64 client are the
   orchestrator's live check; the dialog's new look has not been seen.
+
+### The start-up crash (issue-31-fix, November 3, 2026)
+
+Found by the issue #23 agent on main 26ac7b7: Patella.exe and PatellaTest.exe (x64) ended at start-up with
+0xC0000409 (fail-fast 10, a Control Flow Guard check), with or without the CPU driver, PATELLA_VULKAN or a
+Tibia.cfg; the stack: an access violation in vk-bootstrap's get_present_queue_index, from
+PhysicalDeviceSelector::is_device_suitable, select_devices, FindDevices, TRenderer's Open, TSurfaceVulkan::TestEngine.
+
+- **The cause** (high; VkBootstrap.cpp of vk-bootstrap v1.4.363 read, and reproduced). vk-bootstrap keeps the
+  instance-level functions it calls itself (the surface queries of the device selection and the swapchain,
+  vkDestroySurfaceKHR, the debug messenger's) in one table per process, filled by `init_instance_funcs` from the
+  first instance it builds and never again (`if (instance_functions_initialized) return;`). The loader returns
+  an extension's function only for an instance with that extension enabled. Before #31 the first instance of the
+  client was the start-up test's, with VK_KHR_surface and VK_KHR_win32_surface. Issue #31's device list
+  (ListDevices, headless, no surface extension) came first, so the table's vkGetPhysicalDeviceSurfaceSupportKHR
+  and the other surface functions were null, and the window's device selection called a null pointer. #23's guess
+  (a pointer stale from the destroyed headless instance) is close: the table does come from that instance, but the
+  failing pointers were null, not stale; the others are the loader's trampolines, which serve every instance, so
+  they keep working after their instance is gone (as they did before #31, when the test's instance was destroyed
+  before the engine's). tests_vulkan never saw it: all its devices were headless.
+- **The fix: every instance enables the same instance extensions** (high). Renderer.cpp NewInstanceBuilder builds
+  every instance of the back end (ListDevices' and Open's): VK_KHR_surface, the platform's surface extension
+  (VK_KHR_win32_surface) and VK_EXT_debug_utils, each where the loader offers it, and the one a request names. So
+  whichever instance comes first fills the whole table. Considered: resetting vk-bootstrap's table before each
+  instance (it is a file-static of VkBootstrap.cpp with no public reset; patching a pinned dependency); listing
+  the devices without vk-bootstrap (the list must be exactly vk-bootstrap's select_devices with the same criteria,
+  so GpuIndex means the same device); listing them on the engine's own instance (there is no engine instance at
+  start-up before the test, and the dialog's list must not depend on one). The same rule closes the same trap for
+  the debug messenger: a first instance without VK_EXT_debug_utils would have left its functions null for a later
+  PATELLA_VULKAN_VALIDATION=1 instance.
+- **The regression test** (high). tests_vulkan "a device for a window after headless instances (the start-up
+  order)": the device list and the CPU driver's (headless instances, after the headless tests before it), then a
+  renderer on each device (CPU driver, GPU) for a window that is never shown (no WS_VISIBLE, no ShowWindow,
+  destroyed at the end), and one frame presented (the swapchain's surface queries). On 26ac7b7 it ends the program
+  with 0xC0000409, as the client (build\logs\issue-31\fix-regression-before.log; every other test passes without
+  it); with the fix 11 test cases, 88 assertions pass (fix-regression-after.log).
+- **Not checked yet** (form). The client's start itself: it always shows its main window (Player.cpp
+  ShowWindow), so it was not started here; the orchestrator runs the start-up check.

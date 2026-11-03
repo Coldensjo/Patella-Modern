@@ -198,13 +198,52 @@ TDeviceInfo InfoOf(const vkb::PhysicalDevice &Physical, bool Cpu)
 	return Info;
 }
 
+// The window system's surface extension of the platform (the one the client's TDeviceRequest names).
+#if defined(_WIN32)
+constexpr const char *PlatformSurfaceExtension = "VK_KHR_win32_surface";
+#else
+constexpr const char *PlatformSurfaceExtension = nullptr;
+#endif
+
+// The builder of every instance the back end creates (issue-31-fix). vk-bootstrap loads its instance
+// functions (the surface queries of the device selection and the swapchain, the debug messenger's) into a
+// table of its own once per process, from the first instance it builds (VkBootstrap.cpp
+// init_instance_funcs), and keeps them for every later instance. The loader gives such a function only
+// for an instance with its extension enabled, so the first instance decides for the whole process: the
+// device list's headless instance, the first at the client's start since issue #31, left the surface
+// functions null, and the window's device selection then called a null pointer (get_present_queue_index;
+// the start-up crash 0xC0000409). So every instance enables the same instance extensions, whatever it is
+// for: VK_KHR_surface with the platform's surface extension, and VK_EXT_debug_utils, each where the loader
+// offers it (they cost nothing without a window or a messenger), and the one a request names. The functions
+// the loader gives are its trampolines, the same for every instance, so the table stays valid after its
+// instance is destroyed (as it did before issue #31: the start-up test's instance was destroyed too).
+vkb::InstanceBuilder NewInstanceBuilder(const std::string &SurfaceExtension)
+{
+	vkb::InstanceBuilder Builder(vkGetInstanceProcAddr);
+	Builder.set_app_name("Patella").set_engine_name("Patella").require_api_version(1, 3, 0).set_headless(true);
+	auto System = vkb::SystemInfo::get_system_info(vkGetInstanceProcAddr);
+	const char *Wanted[] = {VK_KHR_SURFACE_EXTENSION_NAME, PlatformSurfaceExtension, VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
+	for (const char *Extension : Wanted) {
+		if (Extension != nullptr && System && System.value().is_extension_available(Extension)
+			&& SurfaceExtension != Extension)
+			Builder.enable_extension(Extension);
+	}
+	// A surface the request needs: asked for even when the loader does not list it (the build fails then,
+	// as before).
+	if (!SurfaceExtension.empty()) {
+		if (!System || !System.value().is_extension_available(VK_KHR_SURFACE_EXTENSION_NAME))
+			Builder.enable_extension(VK_KHR_SURFACE_EXTENSION_NAME);
+		Builder.enable_extension(SurfaceExtension);
+	}
+	return Builder;
+}
+
 // A headless instance just for a device list.
 std::vector<TDeviceInfo> ListDevices(bool Cpu)
 {
 	if (volkInitialize() != VK_SUCCESS)
 		throw TVulkanError("no Vulkan loader (vulkan-1.dll)");
-	vkb::InstanceBuilder Builder(vkGetInstanceProcAddr);
-	Builder.set_app_name("Patella").set_engine_name("Patella").require_api_version(1, 3, 0).set_headless(true);
+	vkb::InstanceBuilder Builder = NewInstanceBuilder({});
 	auto Built = Builder.build();
 	std::vector<TDeviceInfo> Result;
 	if (!Built)
@@ -804,10 +843,7 @@ struct TRenderer::TState {
 	// again then).
 	bool Open(const TDeviceRequest &Request, bool Cpu, int GpuIndex)
 	{
-		vkb::InstanceBuilder Builder(vkGetInstanceProcAddr);
-		Builder.set_app_name("Patella").set_engine_name("Patella").require_api_version(1, 3, 0).set_headless(true);
-		if (!Request.SurfaceExtension.empty())
-			Builder.enable_extension(VK_KHR_SURFACE_EXTENSION_NAME).enable_extension(Request.SurfaceExtension);
+		vkb::InstanceBuilder Builder = NewInstanceBuilder(Request.SurfaceExtension);
 		if (Request.Validation)
 			Builder.request_validation_layers(true).use_default_debug_messenger();
 		Instance = Value(Builder.build(), "creating the Vulkan instance");
