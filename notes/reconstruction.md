@@ -86,6 +86,11 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
   where clang-tidy's fix writes it after the type. A local stays non-const, with a NOLINT and the reason, where
   const changes the oracle image (a constant the compiler then folds, as in TTalkBuffer::Remove): compare the
   images. A virtual function becomes const only together with all its overriders.
+- A cast that is not a plain arithmetic conversion or upcast is a named cast (issue #41;
+  cppcoreguidelines-pro-type-cstyle-cast in .clang-tidy), the one the C cast would have been: static_cast for a
+  downcast and for `void *` to `T *`, const_cast to drop const, reinterpret_cast for integers to pointers and back
+  (`INT_PTR` message parameters), unrelated pointers and function pointers. A downcast whose static_cast does not
+  compile (an incomplete class) would be a reinterpret_cast as a C cast: check, do not guess.
 - Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`, `TBEGIN`/`TEND*`) exactly where
   the binary has the corresponding blocks.
 - Behaviour must match the binary exactly, including odd behaviour (for example
@@ -388,6 +393,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   move it by hand on ALL-CAPS types (`RECT`, `SOCKET`), which clang-format takes for macros. It does not fix a
   declaration with several declarators. A const local or member function can let the other check find more:
   apply both until neither reports anything.
+  cppcoreguidelines-pro-type-cstyle-cast (issue #41) offers no fixes: write the named cast by hand, the one the C
+  cast meant ("Writing the source"; notes/decisions.md, issue #41). It reports `void *` to `T *` as "unrelated
+  types", but that C cast is a static_cast.
 - No new clang-tidy findings (issue #11; plan 4.1): `tools/tidy-baseline.tsv` lists the findings outside the
   macro arguments, counted by file, check and message (not by line, so moved code keeps its entry), for the
   compile commands of linux-x64-clang (patella_core's sources and the headers of src/ they include; the rest of

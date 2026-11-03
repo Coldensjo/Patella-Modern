@@ -6821,3 +6821,63 @@ reviewed and reverted alone, one per check, and a third with what CI's clang-tid
   record (pecompare: 0 unexpected differences; `.text`, `.rdata`, `.data`, `.pdata` and `.reloc` identical).
   macrocheck 762f81b against each commit: the 2,108 calls unchanged. The difftest counts are unchanged; the
   clang-tidy baseline is unchanged (14 findings, 0 new, 0 gone).
+
+## Named casts instead of C-style casts (Patella-Modern issue #41)
+
+Settled by Claude Opus 5.5, November 4, 2026. The tenth change of M3 (plan section 7), in two commits that can be
+reviewed and reverted alone: `cppcoreguidelines-pro-type-cstyle-cast` is clean on src/ outside the error macros, and
+enabled in .clang-tidy.
+
+- **clang-tidy through tools/tidy.py on every configuration that compiles src/** (high). As in issues #32 to #39:
+  one run per target on compile_commands.json files holding one target's Release commands each (oracle-x86's
+  Patella, mfc_shim_check, difftest, communicationtest, sysinctest and vlongtest with `--extra-arg=-m32`, the
+  preset configured once with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`; windows-x64's Patella, PatellaTest,
+  patella_core, patella_testmode and patella_render_vulkan), then CI's clang-tidy 22.1.8 in the Docker image on
+  linux-x64-clang's commands. Measured on main: 243 distinct findings over the 11 targets (204 "convert between
+  unrelated types", 37 downcasts, 2 that cast away const) in 25 files, and one more inside a TASSERT argument
+  (Objects.cpp's `TASSERT1(67, ..., *(int*)Entry.Flags)`, left for M5; macrocheck 0). After the change the check
+  reports nothing on any target (MainFrm.cpp's two clang-diagnostic errors of the MFC message map, also on main,
+  aside); patella_core's six (TXTEA.cpp) are gone in 22.1.8's run too.
+- **What the check reports, and what it does not** (high). Not every C cast: the check reports a C cast that is not
+  a plain conversion, i.e. one clang classifies as a bit cast (pointer to unrelated pointer, integer to pointer and
+  back, function pointers, and also `void *` to `T *`), a downcast, or one that drops const. Arithmetic casts
+  (`(int)Param2`, `(uint16)Length`, `(PROGRAM_ERROR)12`) and upcasts are static_casts it accepts as they are; the
+  plan's "about 228" counted all of them by eye. They stay C casts in this issue (a later style change could make
+  them functional or static_casts; none changes meaning).
+- **Each named cast is the one the C cast meant** (high). A C cast is the first of const_cast, static_cast,
+  static_cast+const_cast, reinterpret_cast, reinterpret_cast+const_cast that compiles. The check offers no fixes;
+  a script (build/logs/issue-41/rewrite.py, not committed) rewrote each reported cast from its column, rightmost
+  first, and the rest was read one by one:
+  - the 37 downcasts (`(TTab *)Child`, `(TAutomapWindow *)GetParent()`, `(CPlayerApp *)AfxGetApp()`,
+    `(CMainFrame *)m_pMainWnd`...) become static_cast: clang classified them as downcasts, so both classes are
+    complete there and related, and static_cast applies the same base offset, if any, that the C cast did. A
+    static_cast that would not compile (unrelated or incomplete classes) is the case where the C cast falls back to
+    reinterpret_cast; none failed on MSVC x86, MSVC x64 or clang.
+  - `void *` to a typed pointer (malloc, GlobalLock, `DDSURFACEDESC2::lpSurface`, `D3DLOCKED_RECT::pBits`, the
+    EnumDisplayModes context, ClearMessages's two `void *` parameters: 25) is a static_cast for the C cast too, though
+    the check calls it "unrelated types";
+  - the rest are reinterpret_casts: the message queue's `INT_PTR` parameters to and from pointers (string literals,
+    `new` objects, `this`; Control.cpp, Status.cpp, Communication.cpp and the windows that post messages), `RECT`
+    halves as `POINT *` for ClientToScreen, `T **` as `void **` for QueryInterface and Lock, byte buffers as `uint32 *`
+    (TXTEA's key and blocks, SetCharacter's address), `char *` as `uint8 *` (Script), the resolver's buffer as
+    `HOSTENT *`, `HICON` as `LPARAM`, `FILE *` as `INT_PTR` (TTalkBuffer::Write's catch slot), and the function
+    pointers of GetProcAddress and vkGetInstanceProcAddr. SurfaceVulkan.cpp's patcap observers keep their step
+    through `void *` (`reinterpret_cast<T>(reinterpret_cast<void *>(GetProcAddress(...)))`): 181 reinterpret_casts.
+  - The two that drop const are const_casts: ConsoleWindow.cpp's `TextBuffer->GetAddressee()` and Status.cpp's
+    `regcomp(LinkPattern)` (src/Extern/regexp's regcomp takes `char *`).
+  - One by choice: Dialogs.h's qsort comparison CompareNames read `*(const char **)Name1` from a `const void *`,
+    a static_cast+const_cast for the C cast. It now reads through `static_cast<const char *const *>(Name1)`: the
+    same load of the same `const char *`, without dropping a const nobody writes through.
+  No integer-pointer cast among them changes size: every integer side is `INT_PTR` or `LPARAM` (pointer-sized on
+  both targets since M1); the casts that narrow `INT_PTR` to `int` (`(int)Param2`, `(int)Data[0]`) are arithmetic,
+  not reported, and unchanged.
+- **TBEGIN and a cast** (high). ConsoleWindow.cpp's TTab::RightButtonUp read `TBEGIN((TTabBar *)GetParent())` with
+  `->SetCurrentTab(this);` on the next line: clang-format (issue #8) took the parenthesized cast after the statement
+  macro for its argument list. With the named cast it is `TBEGIN` and a statement again, on the same two lines. No
+  file's line count changes (the line numbers in comments and the binary's line table stay where they were).
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built from main
+  ac12de2 and from each commit at the same path (the second after `--fresh` builds of every preset), differ only in
+  the link time stamps and the PDB record (pecompare: `.text`, `.data` and `.reloc` identical, `.rdata` apart from
+  those, 0 unexpected differences). macrocheck ac12de2 against the branch: the 2,108 calls unchanged. The difftest counts are
+  unchanged; the clang-tidy baseline is unchanged (14 findings, 0 new, 0 gone; it held none of this check).
+- **Not in this issue** (medium). tests/ and tools/ keep their C casts (as in #35 and #40: src/ only).
