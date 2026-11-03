@@ -59,6 +59,8 @@ public:
 // the skill, battle, VIP and trade windows).
 class TSubWindow : public TContentWindow {
 public:
+	TSubWindow(const TSubWindow &) = delete;
+	TSubWindow &operator=(const TSubWindow &) = delete;
 	TSubWindow(int _Identifier, TSubWindowBody *_Body, bool _Resizable, bool _Background); // 0x487e80, lines 791-804
 	~TSubWindow() override;                                                                // +0x00, 0x485500 (deleting 0x485790)
 	void SetSize(int Width, int Height) override;                                          // +0x34, 0x4881f0, line 861

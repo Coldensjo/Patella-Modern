@@ -35,6 +35,8 @@ static_assert(std::is_same_v<std::underlying_type_t<TOKEN>, int>);
 // 0x80c bytes.
 class TReadScriptFile {
 public:
+	TReadScriptFile(const TReadScriptFile &) = delete;
+	TReadScriptFile &operator=(const TReadScriptFile &) = delete;
 	// 0x4df550. Token is not set.
 	TReadScriptFile()
 	{
@@ -103,6 +105,8 @@ public:
 // 0x408 bytes.
 class TWriteScriptFile {
 public:
+	TWriteScriptFile(const TWriteScriptFile &) = delete;
+	TWriteScriptFile &operator=(const TWriteScriptFile &) = delete;
 	// 0x4df640
 	TWriteScriptFile()
 	{
@@ -147,6 +151,8 @@ public:
 // destructor is close().
 class TReadBinaryFile {
 public:
+	TReadBinaryFile(const TReadBinaryFile &) = delete;
+	TReadBinaryFile &operator=(const TReadBinaryFile &) = delete;
 	TReadBinaryFile()
 	{
 		File = nullptr;
@@ -180,6 +186,8 @@ public:
 
 class TWriteBinaryFile {
 public:
+	TWriteBinaryFile(const TWriteBinaryFile &) = delete;
+	TWriteBinaryFile &operator=(const TWriteBinaryFile &) = delete;
 	TWriteBinaryFile()
 	{
 		File = nullptr;

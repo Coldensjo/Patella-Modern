@@ -164,6 +164,8 @@ public:
 // set). With CloseOnMessage, the next queued message closes it.
 class TWaitLabel : public TLabel {
 public:
+	TWaitLabel(const TWaitLabel &) = delete;
+	TWaitLabel &operator=(const TWaitLabel &) = delete;
 	// Inline (out-of-line copy 0x46b8f0).
 	TWaitLabel(const char *Text, bool _CloseOnMessage, bool _ClearOnAbort)
 		: TLabel(SkinProperties.StyleB08.Data64, Text)
@@ -189,6 +191,8 @@ public:
 // bar and the time left. When the timer runs out it connects again.
 class TReconnectWindow : public TWindow {
 public:
+	TReconnectWindow(const TReconnectWindow &) = delete;
+	TReconnectWindow &operator=(const TReconnectWindow &) = delete;
 	TReconnectWindow(const char *Text, int timeout); // 0x46e470, line 1052
 	// Inline (out-of-line copy 0x46b9b0, deleting destructor 0x46be40).
 	~TReconnectWindow() override { delete Timer; }
@@ -219,6 +223,8 @@ public:
 // both shown as stars, and a link to the account creation.
 class TLoginDialog : public TWindow {
 public:
+	TLoginDialog(const TLoginDialog &) = delete;
+	TLoginDialog &operator=(const TLoginDialog &) = delete;
 	TLoginDialog(void (*OpenURL)(const char *URL)); // 0x46ecf0, line 1162
 	// Inline (out-of-line copy 0x46bf90, deleting destructor 0x46c090).
 	~TLoginDialog() override { delete FocusGroup; }
@@ -235,6 +241,8 @@ public:
 // timer runs out; every key and click starts it again.
 class TCharacterListDialog : public TWindow {
 public:
+	TCharacterListDialog(const TCharacterListDialog &) = delete;
+	TCharacterListDialog &operator=(const TCharacterListDialog &) = delete;
 	TCharacterListDialog(); // 0x46f5c0, line 1262
 	// Inline (out-of-line copy 0x46baa0, deleting destructor 0x46be60).
 	~TCharacterListDialog() override
@@ -288,6 +296,8 @@ public:
 // the first and last outfit the player may choose.
 class TOutfitDialog : public TWindow {
 public:
+	TOutfitDialog(const TOutfitDialog &) = delete;
+	TOutfitDialog &operator=(const TOutfitDialog &) = delete;
 	TOutfitDialog(int *Data); // 0x47cf70, lines 1488-1542
 	// Inline (out-of-line copy 0x46bfc0, deleting destructor 0x46c0b0).
 	~TOutfitDialog() override
@@ -417,6 +427,8 @@ public:
 // conversation.
 class TNewChannelDialog : public TWindow {
 public:
+	TNewChannelDialog(const TNewChannelDialog &) = delete;
+	TNewChannelDialog &operator=(const TNewChannelDialog &) = delete;
 	TNewChannelDialog(int _NumberOfChannels, int *_ChannelIDs, const char (*ChannelNames)[30]); // 0x4733a0, lines 2265-2297
 	// Inline (out-of-line copy 0x46bb20, deleting destructor 0x46be80).
 	~TNewChannelDialog() override { delete[] ChannelIDs; }
@@ -473,6 +485,8 @@ public:
 // description and the login notification of a VIP.
 class TEditBuddyDialog : public TWindow {
 public:
+	TEditBuddyDialog(const TEditBuddyDialog &) = delete;
+	TEditBuddyDialog &operator=(const TEditBuddyDialog &) = delete;
 	TEditBuddyDialog(int _CharacterID); // 0x475160, lines 2652-2696
 	// Inline (out-of-line copy 0x46bec0, deleting destructor 0x46c010).
 	~TEditBuddyDialog() override { delete IconGroup; }
@@ -537,6 +551,8 @@ public:
 // selected reason allows.
 class TRuleViolationDialog : public TWindow {
 public:
+	TRuleViolationDialog(const TRuleViolationDialog &) = delete;
+	TRuleViolationDialog &operator=(const TRuleViolationDialog &) = delete;
 	TRuleViolationDialog(const char *Name, TTalkLine *Statement); // 0x484620, line 3056
 	// Inline (out-of-line copy 0x46bf00, deleting destructor 0x46c030).
 	~TRuleViolationDialog() override { delete FocusGroup; }
@@ -564,6 +580,8 @@ public:
 // them.
 class TEditMarkDialog : public TWindow {
 public:
+	TEditMarkDialog(const TEditMarkDialog &) = delete;
+	TEditMarkDialog &operator=(const TEditMarkDialog &) = delete;
 	TEditMarkDialog(TCoordinate *_Coordinate, TMark *_Mark); // 0x477c80, lines 3207-3242
 	// Inline (out-of-line copy 0x46bf30, deleting destructor 0x46c050).
 	~TEditMarkDialog() override { delete TypeGroup; }
@@ -608,6 +626,8 @@ public:
 // resolution; Advanced (407) opens the advanced options.
 class TGraphicsOptionsDialog : public TWindow {
 public:
+	TGraphicsOptionsDialog(const TGraphicsOptionsDialog &) = delete;
+	TGraphicsOptionsDialog &operator=(const TGraphicsOptionsDialog &) = delete;
 	TGraphicsOptionsDialog(void (*_OpenURL)(const char *URL), void (*_SetDisplayMode)(int Mode),
 		TWindow *_Parent); // 0x479a30, line 3549
 	// Inline (out-of-line copy 0x46bb40, deleting destructor 0x46bea0).
@@ -630,6 +650,8 @@ public:
 // engine buttons send 800-802 to Receiver (the main window).
 class TAdvancedGraphicsDialog : public TWindow {
 public:
+	TAdvancedGraphicsDialog(const TAdvancedGraphicsDialog &) = delete;
+	TAdvancedGraphicsDialog &operator=(const TAdvancedGraphicsDialog &) = delete;
 	TAdvancedGraphicsDialog(void (*_OpenURL)(const char *URL), TComponent *_Receiver); // 0x47a3d0, line 3689
 	// Inline (out-of-line copy 0x46bf60, deleting destructor 0x46c070).
 	~TAdvancedGraphicsDialog() override { delete EngineGroup; }

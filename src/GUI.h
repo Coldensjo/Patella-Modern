@@ -59,6 +59,8 @@ struct TDrawing {
 // possible" (only TWindow has children).
 class TComponent {
 public:
+	TComponent(const TComponent &) = delete;
+	TComponent &operator=(const TComponent &) = delete;
 	// Inlined into the constructors of TWindow and TElement.
 	TComponent() : DrawingList(nullptr), DrawingListLength(0), Parent(nullptr), Next(nullptr), OffsetX(0),
 				   OffsetY(0), Width(0), Height(0) {}
@@ -137,6 +139,8 @@ public:
 // event while it is set (a drag).
 class TWindow : public TComponent {
 public:
+	TWindow(const TWindow &) = delete;
+	TWindow &operator=(const TWindow &) = delete;
 	TWindow();                                                               // 0x496080
 	~TWindow() override;                                                     // +0x00, 0x4a2590 (deleting 0x4a29e0)
 	void InsertChild(TComponent *Child) override;                            // +0x04, 0x49c190, lines 1193-1194

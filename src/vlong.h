@@ -24,6 +24,8 @@ public:
 		n = 0;
 	}
 	~flex_unit();
+	flex_unit(const flex_unit &) = delete;
+	flex_unit &operator=(const flex_unit &) = delete;
 	void clear() { n = 0; }
 	[[nodiscard]] unsigned get(unsigned i) const
 	{
