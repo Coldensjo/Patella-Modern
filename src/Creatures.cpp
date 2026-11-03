@@ -25,7 +25,7 @@
 #include "Talk.h"
 #include "Text.h"
 #include "sysinc.h"
-#include <stdlib.h>
+#include <cstdlib>
 
 // Assertions whose text carries a bug number after the expression.
 #define TASSERT1_BUG(Line, Expr, Bug, V1) \

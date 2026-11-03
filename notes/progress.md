@@ -131,6 +131,12 @@ static_assert of its size and type (unsigned char, short, int: the same types as
 .clang-tidy enables the check. The oracle Patella.exe and the x64 Patella.exe and PatellaTest.exe unchanged
 (pecompare); macrocheck 0 differences; the clang-tidy baseline unchanged (21). notes/decisions.md, "using instead
 of typedef; uint8/16/32 as the std types (Patella-Modern issue #35)".
+C headers (Patella-Modern issue #40, November 3, 2026; M3's fourth change, first part): modernize-deprecated-headers
+through tools/tidy.py on every target that compiles src/, 19 includes in 12 files (`<cstring>` for `<string.h>`
+and so on, common.h's included; .clang-tidy enables the check with CheckHeaderFile). The oracle Patella.exe and
+the x64 Patella.exe and PatellaTest.exe unchanged (pecompare); macrocheck 0 differences; the clang-tidy baseline
+unchanged (21). notes/decisions.md, "The <c...> forms of the C headers; each file includes what it uses
+(Patella-Modern issue #40)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)

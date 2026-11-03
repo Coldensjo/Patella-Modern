@@ -14,9 +14,9 @@
 // vector<TListBoxLine>) is in DialogElements.h and Container.h.
 
 #include "DialogElements.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdarg>
 #include "Status.h"
 #include "Surface.h"
 #include "Utils.h"

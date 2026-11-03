@@ -21,9 +21,9 @@ static const char *TextUseAutomaticDevice = "Use the best graphics device: a GPU
 static const char *TextUseGpuDevice = "Use the graphics card (GPU); with several, each click takes the next";
 static const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics card";
 #endif
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <sstream>
 #include "Communication.h"
 #include "Control.h"

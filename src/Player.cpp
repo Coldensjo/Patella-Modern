@@ -34,7 +34,7 @@
 #include <string>
 #include <new>
 #include <stdexcept>
-#include <time.h>
+#include <ctime>
 #include <process.h>
 
 // The window title and class name are stored XOR-encoded. The key of each

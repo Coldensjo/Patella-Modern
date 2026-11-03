@@ -21,9 +21,9 @@
 #include <cstdint>
 #include <string>
 #include <type_traits>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
 #if !defined(PATELLA_CORE)
 // The test mode's hooks (issue #21): the system calls themselves outside the test build.
 #include "TestHooks.h"

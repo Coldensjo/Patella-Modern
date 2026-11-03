@@ -6347,3 +6347,37 @@ clean on src/ (outside src/Extern), and common.h's `uint8`, `uint16` and `uint32
   from main c57b39c and from the branch at the same path, differ only in the link time stamps and the PDB record
   (pecompare: `.text`, `.data` and the rest identical); the difftest counts are unchanged; the clang-tidy
   baseline is unchanged (21).
+
+## The <c...> forms of the C headers; each file includes what it uses (Patella-Modern issue #40)
+
+Settled by Claude Opus 5.5, November 3, 2026. The fourth change of M3 (plan section 7), in two commits that can be
+reviewed and reverted alone: first `modernize-deprecated-headers`, then the include check, which the user chose
+to be clang-tidy's `misc-include-cleaner` through tools/tidy.py (no include-what-you-use: no new dependency).
+
+- **modernize-deprecated-headers through tools/tidy.py on every configuration that compiles src/** (high). As in
+  issues #32, #33 and #35: `python -I tools/tidy.py -p <dir> --checks=-*,modernize-deprecated-headers --fix --all`
+  once per target, on compile_commands.json files holding one target's Release commands each (oracle-x86's
+  Patella, mfc_shim_check, difftest, communicationtest, sysinctest and vlongtest with `--extra-arg=-m32`;
+  windows-x64's Patella, PatellaTest, patella_core, patella_testmode and patella_render_vulkan). 19 includes in
+  12 files: common.h's `<string.h>`, `<stdio.h>`, `<stdlib.h>`, ContentWindows.h's `<limits.h>`, Talk.h's
+  `<time.h>`, and ConsoleWindow.cpp, Creatures.cpp, DialogElements.cpp, Dialogs.cpp, MainWindow.cpp, Map.cpp,
+  MapWindow.cpp, Player.cpp and Talk.cpp. The second run of every target reports none (MainFrm.cpp's two
+  clang-diagnostic errors, the MFC message map's ON_MESSAGE, also on main, aside). No fix was inside a
+  TASSERT/TERROR/TEND argument (macrocheck: the 2,108 calls unchanged).
+- **The headers too: CheckHeaderFile** (high). The check looks only at the main file's own includes unless
+  `modernize-deprecated-headers.CheckHeaderFile` is true; without it the first run missed common.h,
+  ContentWindows.h and Talk.h. .clang-tidy enables the check with that option, so the hosted CI's baseline check
+  fails a new `<string.h>` in src/ (outside src/Extern); the check is clean, so the baseline keeps its 21 entries.
+- **Names stay unqualified** (high). `<cstring>` and the others declare `std::strlen` and so on; the code calls
+  `strlen`, `sprintf`, `abs`. MSVC's, mingw-w64's and libstdc++'s `<c...>` headers include the C header and so
+  declare the global names as well, which is all the code needs; qualifying the calls (`std::`) is not part of
+  this issue (it would touch macro arguments too, which wait for M5).
+- **No overload changes** (high). `<cmath>` instead of `<math.h>` (Map.cpp, MapWindow.cpp) can make float
+  overloads visible: MapWindow.cpp's `floor(ViewWidth * (11.0f / 15.0f))` takes a float, and the UCRT's
+  `<math.h>` declares only `double floor(double)`. They were visible before too: common.h's `<string>` reaches
+  `<cmath>` through `<istream>` and `<xlocnum>` before either file's own include (cl /showIncludes on main's
+  MapWindow.cpp, oracle-x86), so every call resolves as before; `abs` is called with ints only, `sqrt` with
+  doubles. The images confirm it.
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built from
+  main e089936 and from the commit at the same path, differ only in the link time stamps and the PDB record
+  (pecompare: `.text`, `.data` and the rest identical).

@@ -7,7 +7,8 @@
 # The checks follow the coding standard of plan section 8: owning raw pointers and new/delete
 # (cppcoreguidelines-owning-memory, -no-malloc), C string and formatting functions
 # (bugprone-unsafe-functions, cppcoreguidelines-pro-type-vararg, modernize-use-std-print), nullptr,
-# override, enum class and [[nodiscard]], using instead of typedef (issue #35), and the bug-prone
+# override, enum class and [[nodiscard]], using instead of typedef (issue #35), the <c...> forms of the C
+# headers (issue #40), and the bug-prone
 # patterns. The checks that are noise for a reconstruction (its parameter lists and integer types are
 # the original's) are off.
 Checks: >
@@ -21,6 +22,7 @@ Checks: >
   cppcoreguidelines-owning-memory,
   cppcoreguidelines-pro-type-vararg,
   cppcoreguidelines-use-enum-class,
+  modernize-deprecated-headers,
   modernize-use-nodiscard,
   modernize-use-nullptr,
   modernize-use-override,
@@ -33,3 +35,6 @@ ExcludeHeaderFilterRegex: '.*[/\\]Extern[/\\].*'
 FormatStyle: file
 CheckOptions:
   bugprone-unsafe-functions.ReportMoreUnsafeFunctions: true
+  # The C headers that the headers of src/ include (common.h, ContentWindows.h, Talk.h) too, not only the
+  # main files' (issue #40).
+  modernize-deprecated-headers.CheckHeaderFile: true

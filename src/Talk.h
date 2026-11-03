@@ -2,7 +2,7 @@
 #include "common.h"
 #include "Container.h"
 #include "Preferences.h"
-#include <time.h>
+#include <ctime>
 
 struct TRGBColor;
 

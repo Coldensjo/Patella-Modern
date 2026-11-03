@@ -37,8 +37,8 @@
 #include "graphics.h"
 #include "compat/crt71.h"
 #include <sstream>
-#include <string.h>
-#include <time.h>
+#include <cstring>
+#include <ctime>
 
 // At 0x5c4390, constructed by the static initialiser 0x559dc0 as
 // TCallback(NULL, 0) and never used (the other window files have one too);

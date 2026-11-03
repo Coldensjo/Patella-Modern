@@ -32,7 +32,7 @@
 #include "Utils.h"
 #include "graphics.h"
 
-#include <math.h>
+#include <cmath>
 #include <sstream>
 
 // At 0x7152e8, constructed by the static initialiser 0x559fc0 as

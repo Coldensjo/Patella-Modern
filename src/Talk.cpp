@@ -6,7 +6,7 @@
 #include "Utils.h"
 #include "graphics.h"
 #include "sysinc.h"
-#include <stddef.h>
+#include <cstddef>
 #include <new>
 
 static bool IgnoreListEnabled;                                       // 0x71dbd0
