@@ -48,6 +48,17 @@ cmake --workflow --preset oracle-x86       # configure, build, test (output in b
 
 `oracle-x86` is a test instrument until milestone M6, not a product.
 
+The 64-bit Windows client (issue #5) builds from a developer prompt set up for x64 (`vcvarsall.bat x64`),
+with Tibia.exe in the root for its resource pictures:
+
+```
+cmake --workflow --preset windows-x64      # configure, build Release, run the unit tests
+cmake --build --preset windows-x64-debug   # the Debug build
+```
+
+The output is `build\windows-x64\<Configuration>\Patella.exe` with its PDB; the same rule applies: run it from a
+folder with copies of the data files.
+
 **After M1**, there will be one CMake command per platform (CMake 3.30 or newer, Ninja):
 
 ```

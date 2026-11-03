@@ -45,7 +45,7 @@ protected:
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnGetMinMaxInfo(MINMAXINFO *lpMMI);
 	afx_msg LRESULT OnNcHitTest(CPoint point);
-	afx_msg void OnTimer(UINT nIDEvent);
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnClose();
 	afx_msg void OnDestroy();
 	afx_msg BOOL OnSetCursor(CWnd *pWnd, UINT nHitTest, UINT message);

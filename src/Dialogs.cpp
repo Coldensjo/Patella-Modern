@@ -1392,7 +1392,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 	IgnorePrivate->SetChecked(IsModeIgnored(4));
 	char *Text = GetIgnoreListText();
 	if (Text != NULL) {
-		int Length = strlen(Text);
+		int Length = (int)strlen(Text);
 		int AllocationNumber = 0;
 		for (int i = 0; i < Length; i++) {
 			if (Text[i] == '\n')
@@ -1457,7 +1457,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 	AllowBuddies->SetChecked(GetBuddyIgnore());
 	Text = GetBuddyIgnoreText();
 	if (Text != NULL) {
-		int Length = strlen(Text);
+		int Length = (int)strlen(Text);
 		int AllocationNumber = 0;
 		for (int i = 0; i < Length; i++) {
 			if (Text[i] == '\n')
@@ -2290,7 +2290,7 @@ TRuleViolationDialog::TRuleViolationDialog(const char *Name, TTalkLine *Statemen
 	Label = new TLabel(SkinProperties.StyleB08.Data64, "Statement");
 	InsertChild(Label);
 	SetChildArea(Label, SkinProperties.Style1114.Data88);
-	StatementEdit = new TEditLine(Statement != NULL ? strlen(Statement->Text) : 0, true);
+	StatementEdit = new TEditLine(Statement != NULL ? (int)strlen(Statement->Text) : 0, true);
 	if (Statement != NULL)
 		StatementEdit->SetText(Statement->Text);
 	StatementEdit->SetFocusGroup(FocusGroup);

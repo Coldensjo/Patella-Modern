@@ -1071,7 +1071,7 @@ void PrintTextClipped(int Surface, int x, int y, int FontNumber, TRGBColor Color
 		"[bug0000845]");
 	TBEGIN
 	TFontInfo &Font = Fonts[FontNumber - 1];
-	int Length = strlen(Text);
+	int Length = (int)strlen(Text);
 	if (Alignment != LEFT_ALIGN) {
 		int Width = GetTextPartWidth(FontNumber, Text, Length);
 		if (Alignment == CENTER_ALIGN)
@@ -1114,7 +1114,7 @@ void PrintText(int Surface, int x, int y, int FontNumber, TRGBColor Color, const
 	TASSERTB1(1284, Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment,
 		"[bug0000845]");
 	TBEGIN
-	PrintTextPart(Surface, x, y, FontNumber, Color, Text, strlen(Text), Alignment);
+	PrintTextPart(Surface, x, y, FontNumber, Color, Text, (int)strlen(Text), Alignment);
 	TEND2(1288, Surface, FontNumber)
 }
 
@@ -1159,7 +1159,7 @@ int GetTextHeight(int FontNumber, const char *Text)
 	TASSERT2(1352, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	TASSERT(1353, Text!=NULL);
 	TBEGIN
-	int Length = strlen(Text);
+	int Length = (int)strlen(Text);
 	int Height = 0;
 	for (int i = 0; i < Length; i++) {
 		char c = Text[i];
@@ -1185,7 +1185,7 @@ int GetTextWidth(int FontNumber, const char *Text)
 	TASSERT2(1373, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	TASSERT(1374, Text!=NULL);
 	TBEGIN
-	return GetTextPartWidth(FontNumber, Text, strlen(Text));
+	return GetTextPartWidth(FontNumber, Text, (int)strlen(Text));
 	TEND1(1378, FontNumber)
 }
 
@@ -1231,7 +1231,7 @@ int GetFittingTextLength(int FontNumber, const char *Text, int Width)
 	TBEGIN
 	TFontInfo &Font = Fonts[FontNumber - 1];
 	int Position = -Font.Spacing;
-	int Length = strlen(Text);
+	int Length = (int)strlen(Text);
 	for (int i = 0; i < Length; i++) {
 		char c = Text[i];
 		int Index;

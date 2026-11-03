@@ -18,7 +18,7 @@ gitignored, in `decompilation/` with the same relative paths. Before analysis wo
 `powershell -NoProfile -ExecutionPolicy Bypass -File tools\decompilation.ps1 -Restore` (back to the paths
 above, still ignored); `-Stash` puts it away again. The build and the tests (`tools\build-patella.cmd`,
 `tools\compile-check.cmd`, `tools\difftest\build.cmd`, `cmake --workflow --preset oracle-x86` from an x86
-developer prompt, the unit tests with `cmake --workflow --preset windows-x64` from an x64 developer prompt and
+developer prompt, the x64 client and the unit tests with `cmake --workflow --preset windows-x64` from an x64 developer prompt and
 `cmake --workflow --preset windows-x64-gcc`, the compare scripts) do not need it.
 
 ## Code style

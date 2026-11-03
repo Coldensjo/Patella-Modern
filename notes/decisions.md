@@ -4999,3 +4999,66 @@ cxx26_static_vector_test.cpp, RunContractViolation.cmake), the presets windows-x
   CTest tests, 0 failures, 0 warnings; doctest 18 test cases, 158 assertions (tests_unit) and 160
   (tests_unit_cxx26_standin, two more path checks), Release and Debug. The oracle-x86 preset configures and builds
   with 0 warnings; its tests were not run (nothing it builds changed).
+
+## Windows x64 build (issue #5)
+
+Settled by Claude Opus 5.5, November 3, 2026 (MSVC 14.51 / cl 19.51 x64 and x86, static MFC, CMake 4.1.2, Ninja
+1.13.2). `cmake/WindowsX64.cmake`, `cmake/Resources.cmake`, the windows-x64 preset's description, a fix in
+`cmake/Warnings.cmake`, and the x64 fixes in src/. Not done here: the live checks of the issue (start, log in,
+compare_traffic.py, compare_files.py), which need client_state.py's PDB offsets (#6) and are run afterwards.
+
+- **The client in windows-x64** (form). `PATELLA_CLIENT` (default ON) adds Patella.exe to the preset when the
+  compiler is MSVC (windows-x64-gcc still builds only the unit tests; the client under mingw is not part of M1).
+  It has the oracle's sources (src\*.cpp sorted without case, then regexp.c), definitions (`_WIN32_WINNT=0x0601`,
+  NDEBUG/_DEBUG; WIN32 and _WINDOWS from CMake's defaults), import libraries in the same order and linker options:
+  static x64 MFC (nafxcw.lib through the MFC headers) and the static CRT, oleacc.dll delay-loaded, wsock32.lib
+  excluded, **no manifest**: a manifest would select common controls 6 and change the DPI handling, which the user
+  sees. Otherwise the product settings: patella_target_language, _warnings and _hardening, CMake's default
+  optimisation flags, a PDB in both configurations (/Zi, /DEBUG; /OPT:REF /OPT:ICF /INCREMENTAL:NO in Release,
+  which /DEBUG would turn off). The oracle's /Oy-, /Gy, /sdl-, /Zc:strictStrings- ... are not taken over.
+- **Resources** (form). The configure-time extraction of the pictures from Tibia.exe is a function now
+  (`patella_extract_resources`, cmake/Resources.cmake) that the oracle and windows-x64 call (same command for the
+  oracle). Without Tibia.exe the windows-x64 configure stops with a message naming PATELLA_TIBIA_EXE and
+  `-DPATELLA_CLIENT=OFF` (for machines and hosted CI without CipSoft files).
+- **Warnings.cmake: include_guard(DIRECTORY)** (high). With GLOBAL, the second directory that included the file
+  (the top level for the client, after tests/unit) skipped it and had no PATELLA_WARNING_BASELINE or
+  PATELLA_ROOT_DIR, which are directory variables: every file of the client compiled at /W4. The functions are
+  defined again per directory, which is harmless.
+- **Layout static_asserts** (high). The asserts of the original's sizes and offsets that pointers change
+  (Communication.cpp: TTalkBuffer's first and cursor, TTalkLine's Addressee; Talk.cpp: TTalkLine, TTalkBuffer and
+  the buffer, channel and filter classes; SurfaceDX.cpp: TSurfaceDX) are inside `#if PATELLA_ORIGINAL_LAYOUT`,
+  which common.h defines as 1 on x86 (`_M_IX86`) only, so they stay active in the oracle build (rule 4 of the
+  plan); the ones that hold on x64 too (TCreature, TBuddyEntry, TTalkbox) stay unconditional. No structure member
+  changed its type.
+- **x64 fixes** (high). The first x64 build: 15 errors and, at the baseline levels, 45 warnings, none of them
+  C4311/C4312/C4302 (the message queue already carries INT_PTR, from upstream). Fixed: `CMainFrame::OnTimer` takes
+  UINT_PTR (x64 MFC's ON_WM_TIMER does not convert; on x86 UINT_PTR is unsigned int, the same type and mangled
+  name); 36 C4267 (`(int)strlen(...)`, `(int)strcspn(...)` in DialogElements.cpp/.h, Dialogs.cpp, graphics.cpp and
+  regexp.c), 9 C4244: regexp.c's two pointer differences `(int)(scan - val)`, sysinc.cpp's clipboard size
+  `(unsigned int)Size`, and Control.cpp's six message parameters that carry an ID or line number (`(int)Param1`,
+  `(uint32)Param1`; the producers put an int or uint32 there). Each is the conversion the x86 code did implicitly,
+  between types of the same width there, so the x86 code is the same (below). No TASSERT/TERROR/TEND argument
+  changed (`build\issue-8\tools\macrocheck.py main issue-5`: 2,108 calls, 0 files differ).
+- **C4701 in Talk.cpp** (medium). Debug x64 (unoptimised) warns that UpdateTalkboxes' `i` may be used
+  uninitialised: TEND1(517, i) reports it when GetMilliseconds throws before the loop, as the original does.
+  Initialising it would add a store to the oracle's code, so the warning is turned off around that function
+  (`#pragma warning(push/disable : 4701/pop)` under `_MSC_VER`; a code generation warning ignores a pragma inside
+  the function). The x86 Release measurement of #8 did not see it.
+- **x64 warning baseline** (high). Measured like #8 (every source at /W4, `--compile-no-warning-as-error`,
+  build\issue-5\measure, Release): 1,234 warnings in the same 24 translation units, with the same codes (931
+  C4100, 159 C4458, 99 C4244, 17 C4459, 16 C4131, 7 C4310, 4 C4456, 1 C4701), so PATELLA_WARNING_BASELINE is
+  unchanged and no x64-specific warning is baselined. Before the fixes above, x64 added 36 C4267 and 9 C4244
+  (INT_PTR, SIZE_T, __int64), now 0.
+- **Result** (high). windows-x64 (`cmake --workflow --preset windows-x64 --fresh`, then the Debug build and
+  tests): Patella.exe and the unit tests with 0 warnings and 0 errors under /WX in Release and Debug; 8 CTest
+  tests, 0 failures, in both. The Release exe is x64 with High Entropy VA, ASLR, DEP, Control Flow Guard and CET
+  compatibility. windows-x64-gcc unchanged (8 tests, 0 failures, Release and Debug). oracle-x86 (`--fresh`): 0
+  warnings, CTest 4/4 with main's counts (notes/progress.md, "Last difftest"). oracle-x86 Release Patella.exe of
+  main (822f7df) and of the branch: the same section sizes; .text, .data, .fptable, .rsrc and .reloc identical;
+  the headers and .rdata differ only in the link timestamps and one byte of the CodeView record (the PDB GUID);
+  compare_imports.py and compare_resources.py against Tibia.exe print the same as for main (55 resources, 0
+  differences).
+- **Not checked yet** (form). Nothing has run the x64 client. Two things only a run shows: DirectDraw's
+  Direct3D 7 device (SurfaceDX.cpp, IID_IDirect3DHALDevice) in a 64-bit process, and any place that depends on
+  layout without the compiler seeing it; the live checks of the issue (compare_traffic.py, compare_files.py,
+  with client_state.py's PDB offsets from #6) cover the second.

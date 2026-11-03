@@ -100,6 +100,9 @@ None.
 
 ## Last difftest
 
+Issue #5 (branch issue-5, November 3, 2026): `cmake --workflow --preset oracle-x86 --fresh` (CTest, 0 warnings)
+after the x64 fixes of src/: the same counts as below.
+
 Issue #8 (branch issue-8, November 3, 2026): `cmake --workflow --preset oracle-x86` (CTest, from an empty build
 directory, 0 warnings) after the LinkPattern change and the reformat of src/: the same counts as below.
 
