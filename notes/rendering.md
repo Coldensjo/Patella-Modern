@@ -12,7 +12,7 @@ driver, the memory reader) and the run folders of issues #18 and #21.
 ```
 python -I tools/build.py oracle-x86
 python -I tools/build.py windows-x64                # only for --patella with the x64 client
-python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl]
+python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl | vulkan,vulkan-cpu]
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
 	[--patella build\windows-x64\Release\Patella.exe] [--tolerance N]
 ```
@@ -21,10 +21,13 @@ python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,
   Vulkan engine (src/vulkan/SurfaceVulkan.cpp, its engine 2) on a GPU (`PATELLA_VULKAN=gpu` in its environment) or
   on the CPU driver next to it (`PATELLA_VULKAN=cpu`; setup() copies vulkan_lvp.dll and lvp_icd.x86_64.json from
   the `--patella` executable's folder into the run folder), Tibia.exe its DirectX 9 engine, the reference (plan
-  D7); both get `Engine = 2`. With the original engines (`dx9`, `dx5`, `gl`) Patella.exe gets `PATELLA_VULKAN=off`,
-  so the x64 client's engine 2 is surfaceDX9.cpp again (until issue #20). A Patella.exe run must show every frame through the Vulkan engine (API "Vulkan") on the
-  kind of device asked for, else the run reports a problem; run.json's facts name the device. Only the x64
+  D7); both get `Engine = 2`. A Patella.exe run must show every frame through the Vulkan engine (API "Vulkan") on
+  the kind of device asked for, else the run reports a problem; run.json's facts name the device. Only the x64
   Patella.exe has the engine, so these engines need `--patella build\windows-x64\Release\Patella.exe`.
+- Since Patella-Modern issue #20 the x64 client has only the Vulkan engine: the original engines (`dx5`, `dx9`,
+  `gl`) need the oracle's Patella.exe, and the script refuses them for an x64 one (except with `--compare-only`).
+  The default `--engines` follows `--patella`: `dx5,dx9,gl` for the oracle's, `vulkan,vulkan-cpu` for an x64
+  one. Tibia.exe's runs are the same as before.
 - `--region-tolerance N` (default 2; the user's decision of November 3, 2026): on the pixels the Vulkan engine
   marks as device-filtered for each captured frame (the light and the bilinear stretches: the start screen, the
   stretched map view, scaled item pictures, and exact copies of them; notes/vulkan.md, "Pixels"), a pixel whose

@@ -93,10 +93,11 @@ must keep matching.
 - **CMake:** the tool that tells the compiler what to build and how, the same way on every system.
 - **Renderer / graphics engine:** the part of the program that draws pictures on the screen.
 - **Vulkan:** a modern, open standard for talking to graphics cards, supported on Windows and Linux (and, through
-  a translation layer, on Macs). Since November 2026 the 64-bit Windows client draws with Vulkan where the old
-  client used DirectX 9, and the pictures are the same. The graphics options still show the three old engine
-  buttons ("DirectX 9" now means Vulkan) until the old engines are retired; then the buttons become a choice of
-  graphics card ("Automatic", each card, or "CPU").
+  a translation layer, on Macs). Since November 2026 the 64-bit Windows client draws only with Vulkan (the old
+  DirectX and OpenGL engines are gone from it), and the pictures are the same as the old client's DirectX 9 ones.
+  The graphics options still show the three old engine buttons for now: they only remember a choice for the
+  original program, and the drawing stays Vulkan. Later the buttons become a choice of graphics card
+  ("Automatic", each card, or "CPU").
 - **CPU driver (lavapipe):** a version of Vulkan that runs on the main processor instead of the graphics card. It
   comes with the client as one file next to the program and is used only by the client, only when no graphics
   card with Vulkan is found (or when asked for); nothing is installed on the computer. The tests use it, so the
