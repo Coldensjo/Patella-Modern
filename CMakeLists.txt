@@ -12,7 +12,8 @@
 # Patella.vcxproj, and the differential tests of the former tools\difftest\build.cmd as CTest tests; a
 # test instrument until M6.
 # windows-x64 (MSVC x64) builds the unit tests of tests/unit (issue #9) and the client, a 64-bit
-# Patella.exe with x64 MFC and the original engines (cmake/WindowsX64.cmake, issue #5);
+# Patella.exe with x64 MFC and the original engines (cmake/WindowsX64.cmake, issue #5), and the 64-bit
+# patcap.dll of tools/compare_rendering.py (cmake/Capture.cmake, issue #18);
 # windows-x64-gcc (mingw-w64 GCC 16, plan D6) builds patella_core and the unit tests;
 # linux-x64-gcc (GCC 16) and linux-x64-clang (Clang, with AddressSanitizer and UBSan) the same on
 # Linux (issue #7; on Windows tools/build.py runs them in the Docker image of docker/linux-x64).
@@ -37,5 +38,9 @@ else()
 	add_subdirectory(tests/unit)
 	if(PATELLA_CLIENT AND MSVC)
 		include(cmake/WindowsX64.cmake)
+	endif()
+	# The 64-bit capture DLL of the rendering comparison (issue #18), with or without the client.
+	if(MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+		include(cmake/Capture.cmake)
 	endif()
 endif()

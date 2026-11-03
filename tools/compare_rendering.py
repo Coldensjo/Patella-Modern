@@ -9,10 +9,17 @@ Usage:
   python -I tools/build.py oracle-x86
   python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl]
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
+	[--patella build\windows-x64\Release\Patella.exe]
 
-The capture (tools/capture/patcap.c; build\oracle-x86\Release\patcap.dll, the preset's patcap
-target, which this script builds when the DLL is missing or older than its source) is a DLL the run folders'
-copies of the clients import (add_import), so it is loaded before the client's entry point. It
+--patella: the Patella.exe to compare, x86 or x64 (Patella-Modern issue #18), with its PDB next to it
+(default the oracle's, build\oracle-x86\Release\Patella.exe); an x64 one: python -I tools/build.py
+windows-x64 first.
+
+The capture (tools/capture/patcap.c) is a DLL of the client's bitness (cmake/Capture.cmake):
+build\oracle-x86\Release\patcap.dll for the 32-bit clients (Tibia.exe, the oracle's Patella.exe),
+build\windows-x64\Release\patcap.dll for the x64 Patella.exe; each is its preset's patcap target, which
+this script builds when the DLL is missing or older than its source. The run folders' copies of the
+clients import it (add_import, PE32 and PE32+), so it is loaded before the client's entry point. It
 reads the composed frame from the engine's own surfaces (DirectDraw Blt/Flip, Direct3D 9 Present,
 SwapBuffers), so no display is needed, and it makes time deterministic: the clock (timeGetTime,
 the wall clock) and the main timer's ticks (WM_TIMER, ActionNumber) move only when this script
@@ -49,10 +56,23 @@ import build  # noqa: E402
 
 ROOT = ct.ROOT
 RENDER = os.path.join(ROOT, "build", "render")
-# the patcap target of the oracle-x86 preset (cmake/OracleX86.cmake), 32-bit like the clients
-CAPTURE_PRESET = "oracle-x86"
-CAPTURE = os.path.join(ROOT, "build", CAPTURE_PRESET, "Release")
-DLL = os.path.join(CAPTURE, "patcap.dll")
+# patcap.dll has the bitness of the client it is loaded into (cmake/Capture.cmake): the patcap target
+# of the oracle-x86 preset for the 32-bit clients (Tibia.exe, the oracle's Patella.exe), of the
+# windows-x64 preset for the x64 Patella.exe (issue #18). By the client's PE machine field:
+CAPTURE_PRESETS = {client_state.IMAGE_FILE_MACHINE_I386: "oracle-x86",
+	client_state.IMAGE_FILE_MACHINE_AMD64: "windows-x64"}
+
+
+def capture_preset(exe):
+	"""The preset whose patcap.dll fits the client `exe`."""
+	machine = client_state.pe_machine(exe)
+	if machine not in CAPTURE_PRESETS:
+		raise RunError("%s: machine 0x%x, neither x86 nor x64" % (exe, machine))
+	return CAPTURE_PRESETS[machine]
+
+
+def capture_dll(preset):
+	return os.path.join(ROOT, "build", preset, "Release", "patcap.dll")
 CLIENTS = ct.CLIENTS
 RunError = ct.RunError
 log = ct.log
@@ -123,18 +143,20 @@ class Capture:
 		return self.get("Width"), self.get("Height"), API_NAMES.get(self.get("Api"), "?")
 
 
-def build_capture():
+def build_capture(preset):
+	"""Builds the patcap target of `preset` when its DLL is missing or older than patcap.c."""
+	dll = capture_dll(preset)
 	source = os.path.join(ROOT, "tools", "capture", "patcap.c")
-	if os.path.isfile(DLL) and os.path.getmtime(DLL) >= os.path.getmtime(source):
+	if os.path.isfile(dll) and os.path.getmtime(dll) >= os.path.getmtime(source):
 		return
-	log("building the capture helper (the patcap target of the %s preset)" % CAPTURE_PRESET)
+	log("building the capture helper (the patcap target of the %s preset)" % preset)
 	try:
-		env = build.environment(CAPTURE_PRESET)
+		env = build.environment(preset)
 	except build.BuildError as e:
 		raise RunError("cannot build patcap.dll: %s" % e)
-	commands = [["cmake", "--build", "--preset", CAPTURE_PRESET, "--target", "patcap"]]
-	if not os.path.isfile(os.path.join(ROOT, "build", CAPTURE_PRESET, "CMakeCache.txt")):
-		commands.insert(0, ["cmake", "--preset", CAPTURE_PRESET])
+	commands = [["cmake", "--build", "--preset", preset, "--target", "patcap"]]
+	if not os.path.isfile(os.path.join(ROOT, "build", preset, "CMakeCache.txt")):
+		commands.insert(0, ["cmake", "--preset", preset])
 	for command in commands:
 		result = subprocess.run(command, capture_output=True, text=True, env=env, cwd=ROOT)
 		if result.returncode != 0:
@@ -144,10 +166,10 @@ def build_capture():
 # --- the import of patcap.dll ------------------------------------------------------------
 
 def add_import(source, target, dll="patcap.dll", function="PatcapLoaded"):
-	"""Copies the PE image `source` to `target` with one more import descriptor: `dll`, by name
-	`function`. A new last section (.patcap, initialised read/write data) holds the new import
-	directory (the old descriptors, unchanged, then the new one), its lookup and address tables
-	and the names; the import data directory points at it, the bound import directory (stale once
+	"""Copies the PE image `source` (PE32 or PE32+, x86 or x64) to `target` with one more import
+	descriptor: `dll`, by name `function`. A new last section (.patcap, initialised read/write
+	data) holds the new import directory (the old descriptors, unchanged, then the new one), its
+	lookup and address tables (thunks of the image's pointer size) and the names; the import data directory points at it, the bound import directory (stale once
 	the directory moved) is cleared. The loader then loads the DLL with the client's other
 	dependencies, before the client's entry point. Nothing else changes: afterwards the bytes
 	outside the headers and the new section are compared with the source."""
@@ -159,11 +181,15 @@ def add_import(source, target, dll="patcap.dll", function="PatcapLoaded"):
 	sections, = struct.unpack_from("<H", data, pe + 6)
 	optsize, = struct.unpack_from("<H", data, pe + 20)
 	opt = pe + 24
-	if struct.unpack_from("<H", data, opt)[0] != 0x10b:
-		raise RunError("%s: not PE32" % source)
+	magic, = struct.unpack_from("<H", data, opt)
+	if magic not in (0x10b, 0x20b):
+		raise RunError("%s: neither PE32 nor PE32+ (optional header magic 0x%x)" % (source, magic))
+	thunk = 4 if magic == 0x10b else 8  # PE32: 32-bit thunks; PE32+ (x64): 64-bit thunks
 	section_align, file_align = struct.unpack_from("<II", data, opt + 32)
 	size_of_image, size_of_headers = struct.unpack_from("<II", data, opt + 56)
-	dirs = opt + 96
+	dirs = opt + (96 if magic == 0x10b else 112)  # PE32+ has a 64-bit ImageBase and 64-bit stack/heap sizes
+	if struct.unpack_from("<I", data, dirs - 4)[0] < 12:
+		raise RunError("%s: fewer than 12 data directories" % source)
 	import_rva, import_size = struct.unpack_from("<II", data, dirs + 8)
 	table = opt + optsize
 	new_header = table + 40 * sections
@@ -188,11 +214,12 @@ def add_import(source, target, dll="patcap.dll", function="PatcapLoaded"):
 	last_va, last_vsize = max(struct.unpack_from("<II", data, table + 40 * i + 8)[::-1] for i in range(sections))
 	va =(last_va + last_vsize + section_align - 1) // section_align * section_align
 	raw = (len(data) + file_align - 1) // file_align * file_align
-	# layout of the new section
+	# layout of the new section: the descriptors and a zero one, then the lookup and address tables
+	# (one thunk and a zero one each, thunk-aligned), the hint/name entry and the DLL's name
 	directory = 0
-	lookup = 20 * (len(old) + 2)
-	address = lookup + 8
-	hint_name = address + 8
+	lookup = (20 * (len(old) + 2) + thunk - 1) // thunk * thunk
+	address = lookup + 2 * thunk
+	hint_name = address + 2 * thunk
 	dll_name = hint_name + 2 + len(function) + 1
 	dll_name += dll_name & 1
 	end = dll_name + len(dll) + 1
@@ -200,8 +227,9 @@ def add_import(source, target, dll="patcap.dll", function="PatcapLoaded"):
 	for i, descriptor in enumerate(old):
 		body[20 * i:20 * i + 20] = descriptor
 	struct.pack_into("<IIIII", body, 20 * len(old), va + lookup, 0, 0, va + dll_name, va + address)
-	struct.pack_into("<I", body, lookup, va + hint_name)
-	struct.pack_into("<I", body, address, va + hint_name)
+	thunk_format = "<I" if thunk == 4 else "<Q"  # an RVA of a hint/name entry (not by ordinal)
+	struct.pack_into(thunk_format, body, lookup, va + hint_name)
+	struct.pack_into(thunk_format, body, address, va + hint_name)
 	body[hint_name + 2:hint_name + 2 + len(function)] = function.encode("ascii")
 	body[dll_name:dll_name + len(dll)] = dll.encode("ascii")
 	raw_size = (len(body) + file_align - 1) // file_align * file_align
@@ -435,15 +463,16 @@ RUNS = ("orig", "patella", "orig-repeat")  # run folders; the second Tibia.exe r
 def setup():
 	"""Run folders build\\render\\orig, build\\render\\patella and build\\render\\orig-repeat:
 	compare_traffic's set-up (copies of the data files, the clients patched by patch_client.py),
-	then the import of patcap.dll."""
-	build_capture()
+	then the import of patcap.dll, the one of the client's bitness."""
 	ct.set_folder(RENDER)
 	ct.setup(extra=["orig-repeat"])
 	for run in RUNS:
 		exe = os.path.join(ct.run_dir(run), CLIENTS[ct.client_of(run)]["exe"])
+		preset = capture_preset(exe)
+		build_capture(preset)
 		count = add_import(exe, exe)
-		shutil.copyfile(DLL, os.path.join(ct.run_dir(run), "patcap.dll"))
-		log("%s: patcap.dll added to its %d imports" % (exe, count))
+		shutil.copyfile(capture_dll(preset), os.path.join(ct.run_dir(run), "patcap.dll"))
+		log("%s: patcap.dll of %s added to its %d imports" % (exe, preset, count))
 
 
 def button(driver, text):
@@ -738,7 +767,14 @@ def main():
 		help="a live recording of session_client's session (compare_traffic.py's <client>-live.jsonl)")
 	parser.add_argument("--no-repeat", action="store_true", help="skip the second run of Tibia.exe")
 	parser.add_argument("--compare-only", action="store_true", help="compare the pictures already in --out")
+	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
+		"it (default build/oracle-x86/Release/Patella.exe; e.g. build/windows-x64/Release/Patella.exe; as "
+		"tools/compare_traffic.py's --patella)")
 	args = parser.parse_args()
+	if args.patella:
+		CLIENTS["patella"]["source"] = CLIENTS["patella"]["pdb"] = os.path.abspath(args.patella)
+		if not os.path.isfile(CLIENTS["patella"]["source"]):
+			raise SystemExit("no %s" % CLIENTS["patella"]["source"])
 	args.out = os.path.abspath(args.out)  # the DLL writes the pictures from the client's folder
 	args.recording = os.path.abspath(args.recording)
 	engines = [e for e in args.engines.split(",") if e]
@@ -779,6 +815,8 @@ def main():
 	say("Rendering comparison (issue #20), %s" % time.strftime("%Y-%m-%d %H:%M"))
 	say("recording %s; every step: %d ms and %d ticks of virtual time, capture after %d frames"
 		% (args.recording, ADVANCE_MS, ADVANCE_TICKS, SKIP_FRAMES))
+	patella = CLIENTS["patella"]["source"]
+	say("patella: %s (%s)" % (patella, capture_preset(patella) if os.path.isfile(patella) else "missing"))
 	differences = 0
 	for engine, fullscreen in passes:
 		say("")
