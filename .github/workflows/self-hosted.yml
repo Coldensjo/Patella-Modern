@@ -5,7 +5,9 @@
 # - windows-x64: the x64 client (with its resources from Tibia.exe) and the unit tests.
 # - comparisons: compare_traffic.py and compare_files.py against the test server for the x64 client,
 #   compare_rendering.py (windowed) for the x64 client (issue #18) from compare_traffic.py's recording:
-#   its Vulkan engine on a GPU and on the CPU driver (the default engines of an x64 client, issue #20).
+#   its Vulkan engine on a GPU and on the CPU driver (the default engines of an x64 client, issue #20);
+#   testmode_check.py (issue #25) for the test build PatellaTest.exe: two runs of the same script against
+#   the test server, compared (determinism), and the client's dumps against what the tools see.
 # - golden: the golden corpus (issue #24): recorded from the oracle-x86 difftest into build\golden of the
 #   job's checkout, then replayed by the windows-x64 golden_runner (CTest test golden, which fails without
 #   a corpus here: PATELLA_GOLDEN_REQUIRE=ON). The corpus is derived from Tibia.exe: it stays in the
@@ -124,6 +126,10 @@ jobs:
       # The fullscreen runs need a 1024x768x32 desktop (notes/reconstruction.md, "Test server").
       - name: compare_rendering.py (windowed, x64 client)
         run: python -I tools/compare_rendering.py --modes windowed --recording build\traffic\result\orig-live.jsonl --patella build\windows-x64\Release\Patella.exe
+      # The test mode's determinism check (issues #21, #22, #25): starts and stops the test server
+      # itself, which must be stopped before it starts.
+      - name: testmode_check.py (test build)
+        run: python -I tools/testmode_check.py --exe build\windows-x64\Release\PatellaTest.exe
       - name: Stop the test server
         if: always()
         run: python -I tools/testserver.py stop --force
