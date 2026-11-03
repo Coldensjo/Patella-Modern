@@ -5395,3 +5395,131 @@ read). `tools/compare_files.py`. No change to src/ or the build.
   (check_old_new.py); check_walk_helpers.py (set_start on a copy of the player file changes only
   CurrentPosition, walk_keys maps 0x82 to U, next_position follows both walks to their end); the issue #12
   run-folder check again. Logs: build\logs\issue-16. Not run: `compare_files.py --skip-live` (it starts clients).
+
+## The Linux presets and patella_core (issue #7)
+
+Settled by Claude Opus 5.5, November 3, 2026 (Docker 29.6.2 with its Linux engine; in the image GCC 16.2.0,
+Clang 22.1.8, CMake 3.31.6, Ninja 1.12.1; on Windows MSVC 14.51, mingw-w64 GCC 16.2, CMake 4.1.2, Ninja 1.13.2).
+`docker/linux-x64/Dockerfile`, `cmake/Core.cmake`, the presets linux-x64-gcc and linux-x64-clang,
+`cmake/Warnings.cmake` (per-compiler baselines, C17), `cmake/Hardening.cmake` (PATELLA_SANITIZE), `tools/build.py`
+(Docker), `tests/unit/core_*` and `core_expected.py`; in src/ common.h, vlong.h, vlong.cpp, regexp.c and
+compat/cxx26.h, each value-preserving (below).
+
+- **The image** (high). Docker Hub has a GCC 16 Linux image: the official `gcc:16.2.0-trixie` (Debian 13, GCC built
+  from source by the Docker library into /usr/local, with libstdc++exp.a, which contract_assert needs; /usr/local/lib64
+  first in ld.so.conf), so GCC is not built here. `docker/linux-x64/Dockerfile` takes it pinned by its index digest
+  (`sha256:07280eb2e744f1b7a2d8d4a3894c089ea07266c109758afc388a634bd098e4eb`) and adds Debian trixie's packages pinned
+  by version: clang-22 and libclang-rt-22-dev `1:22.1.8-1~deb13u4` (compiler-rt: the sanitizers), cmake and
+  cmake-data `3.31.6-2`, ninja-build `1.12.1-1`; `clang`/`clang++` link to the -22 binaries. Built with
+  `docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64` in 24 s (the base image pulled
+  before); local image ID `sha256:048574ca92a594c10fc337fe2341540855918b22b02e495e5b1a2bce71cdcf32` (not pushed to a
+  registry, so it has no repository digest). When Debian replaces a pinned version in a point release the build
+  stops at apt-get install; the Dockerfile says how to move the pin (the new version, or snapshot.debian.org).
+  Clang uses Debian's GCC 14 installation (its default), so its C++ library is libstdc++ 14 and cxx26.h takes the
+  stand-ins there; at run time the loader finds GCC 16's newer libstdc++.so.6 first, which is compatible.
+  Considered: Clang on GCC 16's libstdc++ (`--gcc-install-dir`): untested pairing, and the plan allows either
+  library; Debian's Clang 19: Clang 22 is in trixie as a stable update and is current.
+- **Presets** (form). A hidden `linux-base` (condition: a Linux host; PATELLA_CLIENT OFF, compile_commands.json),
+  `linux-x64-gcc` (gcc, g++) and `linux-x64-clang` (clang, clang++, `PATELLA_SANITIZE=address,undefined`), each with
+  Release and Debug build and test presets and the workflows linux-x64-gcc, -gcc-debug, -clang, -clang-debug. The
+  clang test presets set `ASAN_OPTIONS=detect_leaks=1` and `UBSAN_OPTIONS=print_stacktrace=1`. PATELLA_CLIENT was
+  already MSVC-only in CMakeLists.txt; OFF says so on Linux. Nothing in the Linux configure reads Tibia.exe.
+- **build.py in Docker** (form). On Windows, a preset whose condition asks for a Linux host runs in the image, in both
+  forms of the script (`python -I tools/build.py linux-x64-gcc`, `--env linux-x64-gcc <command>`; the image name can
+  be overridden with PATELLA_DOCKER_IMAGE). The repository is mounted read-only at /src; the files `git ls-files
+  --cached --others --exclude-standard` names (so never the gitignored CipSoft files or build/) are copied with tar,
+  with their times, to /work on the container's own file system, and the command runs there; build\<preset> is
+  mounted as /work/build/<preset> (the build tree and the downloaded doctest stay; with the times kept, Ninja
+  rebuilds only what changed). The output goes through the same warning scan. Considered: building on the bind
+  mount itself (Docker Desktop's Windows mounts are case-insensitive, so an include in the wrong case would pass,
+  one of the issue's checks), a separate shell script (another entry point next to build.py).
+- **patella_core** (high). `cmake/Core.cmake`, a static library built by every product preset (windows-x64,
+  windows-x64-gcc and the Linux ones; not the oracle): vlong.cpp, TRSA.cpp, TXTEA.cpp, TMyException.cpp (the type
+  the TASSERT/TERROR/TEND macros throw), Utils.cpp, Skins.cpp, src/Extern/regexp/regexp.c, and Container.h (header
+  only). They compile without a platform header: the target defines `PATELLA_CORE`, which leaves MFC and the
+  Windows headers out of common.h, so a core source that used them would not compile (plan section 8). Left out:
+  Script.cpp (io.h, sysinc.h), Objects.cpp and Inventory.cpp (they compile with PATELLA_CORE but call Script.cpp,
+  graphics and the GUI), and the rest of src/ (errors without windows.h: Status.cpp 28, Creatures.cpp 25, Talk.cpp 11,
+  Map.cpp 5, Preferences.cpp 2, Help.cpp 1, measured with GCC 16 -fsyntax-only). The client and the oracle still
+  compile these sources themselves with MFC (the oracle's object order is fixed); linking the client with the
+  library is for later.
+- **The issue's portability list** (high). `char`: signed on x86 and x64 with MSVC, GCC and Clang; Utils.cpp's
+  IsAlpha compares with `(char)0xe4` and the like, so the unsigned value 0xe4 is no letter where char is signed;
+  tests_core asserts `std::is_signed_v<char>` (and int and unsigned 32-bit, little-endian) and checks both. `wchar_t`:
+  no core source uses it. `long` (8 bytes on Linux): vlong.h's three CipSoft overloads `operator+(const vlong &,
+  const long &)`, `operator*` and `operator<` converted the long to unsigned implicitly, which -Wconversion reports
+  on Linux; they cast now (the same conversion; on Windows x86 and x64 long is 4 bytes, so the code is the same);
+  regexp.c's `static long regsize` holds sizes below 32767 on any width. File names: every include of the core
+  matches the file's case, and the Linux builds run on a case-sensitive file system. `_snprintf`, `_stricmp` and
+  calling-convention keywords: none in the core (for later: `_snprintf` in ContentWindows, ContextMenus, Control,
+  Dialogs.cpp/.h, Help, Map, Preferences, Script, Status; `_stricmp` in Creatures, Dialogs.h, Player; `__cdecl` in
+  DialogElements.cpp; `WINAPI`/`CALLBACK` in SurfaceDX, surfaceDX9, Player; Dialogs.cpp opens "tibia.pic",
+  "tibia.dat" and "tibia.spr" in lower case, where Control.cpp and Communication.cpp write "Tibia.*").
+- **C17** (high). GCC 16's default C is C23, in which regexp.c's K&R definitions do not compile.
+  patella_target_language gives C sources `-std=c17` on GCC and Clang. Clang warns about K&R definitions in every C
+  standard and at every level (`-Wdeprecated-non-prototype`, 97 warnings in regexp.c), so patella_target_warnings turns that
+  one off for C on Clang: the K&R form is the oracle's code until M6. MSVC's C is unchanged.
+- **src/ changes** (high). Each is value-preserving, and the oracle shows it (below).
+  - common.h: `#if defined(PATELLA_CORE)` before the MFC/shim choice. Without PATELLA_CORE the preprocessed text is
+    the same; only the lines after it move (no code of src/ uses __LINE__ outside src/Extern).
+  - vlong.h: the three casts (above).
+  - vlong.cpp (fast_mul): `a[limit - 1] &= (1 << keep) - 1` overflowed int when keep was 31 (INT_MIN - 1), which
+    UBSan reported in tests_core (linux-x64-clang). `(1u << keep) - 1` has the same bits for every keep 1..31, which
+    is what MSVC computed (.text is identical).
+  - regexp.c: `#pragma warning(disable: 4018)` only under `_MSC_VER` (GCC and Clang warn about an unknown pragma at
+    -Wall); `-Wmaybe-uninitialized` off around reg() for GCC: parno is set and read only when paren is, which GCC's
+    optimiser (Release, -Wall) does not see, and initialising it would add a store to the oracle's code, the reason
+    Talk.cpp's C4701 is turned off the same way (issue #5). Both marked "Patella-Modern change", as the file's
+    licence asks of altered versions.
+  - compat/cxx26.h (no source of the client includes it): in constant evaluation, the stand-in TStaticVector now
+    gives a destroyed slot of a trivial T a value again, and pop_back goes through DestroyFrom. Clang 22 refused to
+    evaluate the trivial copy constructor of a TStaticVector<int, 8> after an erase ("subobject 'Slots' is not
+    initialized": an array element whose lifetime had ended), which GCC and MSVC accept. Outside constant evaluation
+    nothing changes.
+  - tests/unit/cxx26_static_vector_test.cpp: TLessOnly's unused defaulted operator== is `[[maybe_unused]]` (Clang's
+    -Wunneeded-internal-declaration).
+- **Warning baselines** (high). The list of #8 is `PATELLA_WARNING_BASELINE_MSVC` now, unchanged (patella_core's and
+  tests_core's new translation units build clean at /W4: TRSA, TMyException and Skins without MFC, and the tests);
+  `PATELLA_WARNING_BASELINE_GCC` and `_CLANG` are new, in the same form (the full level, else -Wall, per translation
+  unit). Measured for what builds there, patella_core and the unit tests, with every source at the full level and
+  `--compile-no-warning-as-error`, Release and Debug (build\logs\issue-7\measure-*.log; counts per configuration):
+  - GCC 16.2 on Linux (and the same files with mingw-w64 GCC 16.2): vlong.cpp (1 -Wconversion size_t to unsigned in
+    fast_mul, 1 -Wshadow `min`), TXTEA.cpp (1 -Wshadow `Key`), Utils.cpp (3 -Wshadow `Data`), regexp.c (2
+    -Wconversion, 2 -Wsign-conversion, 1 -Wsign-compare), tests/unit/core_container_test.cpp (13 -Wshadow:
+    Container.h's constructor parameters hide its members).
+  - Clang 22.1: vlong.cpp (1 -Wshadow, 6 -Wsign-conversion), TXTEA.cpp (1 -Wshadow), Utils.cpp (11
+    -Wsign-conversion), Skins.cpp (1 -Wsign-conversion), regexp.c (2 -Wsign-conversion, 1 -Wsign-compare, 13
+    -Wstrict-prototypes), core_container_test.cpp (7 -Wsign-conversion: Container.h's int sizes for new[]). Clang's
+    -Wconversion includes -Wsign-conversion, GCC's does not for C++.
+  - TRSA.cpp, TMyException.cpp, and on GCC Skins.cpp build at the full level; so do the other test sources. The test
+    file is on the GCC and Clang lists because of Container.h, a warning fix for M3 like the others.
+- **Sanitizers** (form). `PATELLA_SANITIZE` (a cache variable; Hardening.cmake): `-fsanitize=<list>
+  -fno-sanitize-recover=all -fno-omit-frame-pointer` on compile and link of the product targets, GCC and Clang only
+  (the configure stops on MSVC; windows-x64-asan is later). Every finding ends the test; LeakSanitizer runs
+  (detect_leaks=1) and found nothing; UBSan found the vlong overflow above.
+- **tests_core** (form). One executable (tests/unit), doctest's own main: the platform assumptions; vlong and TRSA
+  with tools/difftest/vlongtest.cpp's 3,201 cases (the same generator) digested with FNV-1a against the digest
+  `tests/unit/core_expected.py` computes with Python's exact integers, the way vlongcheck.py checks vlongtest.exe, plus
+  small cases, RSA of 1 and 2 and TRSA's error texts; TXTEA against XTEA written from the algorithm (the all-zero
+  vector is the published dee9d4d8 f7131ed9); Utils (character classes by signed char, the string helpers, the
+  outfit colours against Python's doubles, the packet buffers, TMyException's messages and origin); Skins; the
+  regexp (subexpressions, Latin-1 classes, the error texts through regerrorhandler, Status.h's LinkPattern); and
+  Container.h's four templates with their error messages. 17 test cases, 139 assertions, the same on all four
+  compilers.
+- **Gates** (high). In the image (`python -I tools/build.py <preset> --fresh` from Windows): linux-x64-gcc 9/9 CTest
+  tests (the real path's precondition scenario skipped, as on mingw since #9), tests_unit 18 test cases / 158
+  assertions (cxx26.h: contracts and inplace_vector real), tests_unit_cxx26_standin 18 / 160, tests_core 17 / 139;
+  linux-x64-clang (ASan, UBSan) 9/9, tests_unit 18 / 156 (stand-ins), standin 18 / 160, tests_core 17 / 139; the
+  -debug workflows the same; 0 warnings. windows-x64 and windows-x64-gcc `--fresh` (and windows-x64-gcc-debug): 9/9,
+  0 warnings, tests_core 17 / 139. oracle-x86 `--fresh`: 0 warnings, CTest 4/4, 16,848,752 / 67 / 1,134,513 / 3,201 checks, 0 failures,
+  resources 0 differences. The oracle's Release Patella.exe against
+  main's (e740ddb, built in build\mainoracle, a binary directory of the same length as build\oracle-x86, so the PDB
+  path in .rdata has the same length): .text, .data, .fptable, .rsrc and .reloc identical; the headers and .rdata
+  differ only in the link timestamps and the CodeView record (PDB GUID and the directory name);
+  `build\issue-8\tools\macrocheck.py main issue-7`: 2,108 calls, 0 files differ. Logs: build\logs\issue-7.
+- **For CI (#11)** (form). The hosted Linux job can run the image: build it from docker/linux-x64 in the job (about
+  half a minute on top of pulling gcc:16.2.0-trixie) or push it to a registry (GHCR) and pin the digest, then
+  `cmake --workflow --preset linux-x64-gcc` and `linux-x64-clang` in the checkout (a Linux runner checks out with
+  case-sensitive names, so build.py's copy is not needed there). Nothing in these presets reads a CipSoft file;
+  FetchContent downloads doctest once per build tree (cache build/<preset>/_deps). The windows-x64 job needs
+  `-DPATELLA_CLIENT=OFF` without Tibia.exe and then builds patella_core and the unit tests.
