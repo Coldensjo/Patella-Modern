@@ -12,6 +12,7 @@
 #pragma once
 
 #include "common.h"
+#include <type_traits>
 struct TRect;
 struct TRGBColor;
 struct TFullscreenMode;
@@ -21,10 +22,12 @@ struct TFullscreenMode;
 extern int curEngine; // 0x71d0c4
 
 // View modes (TSurface::ViewMode, Init); 0 is none (not initialised).
-enum {
+enum : int {
 	WINDOWED_MODE = 1,
 	FULLSCREEN_MODE = 2,
 };
+static_assert(sizeof(decltype(WINDOWED_MODE)) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<decltype(WINDOWED_MODE)>, int>);
 
 // The surfaces of an engine, by index (the int Surface/ToSurface/FromSurface
 // arguments of the drawing slots). SPRITE_SURFACE is the first of the video
@@ -32,7 +35,7 @@ enum {
 // assertions of SurfaceDX.cpp and surfaceDX9.cpp ("Surface9[SPRITE_SURFACE]");
 // NUMBER_OF_SURFACES is SurfaceDX.cpp's count (surfaceDX9.cpp has its own
 // NUMBER_OF_SURFACES_DX9).
-enum {
+enum : int {
 	PRIMARY_SURFACE = 0,
 	SCREEN_SURFACE = 1,
 	TEMP_SURFACE = 2,
@@ -42,6 +45,8 @@ enum {
 	SPRITE_SURFACE = 6,
 	NUMBER_OF_SURFACES = 22,
 };
+static_assert(sizeof(decltype(PRIMARY_SURFACE)) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<decltype(PRIMARY_SURFACE)>, int>);
 
 // The vtable is at 0x56ef78. Slots with _purecall in the binary are pure;
 // the others have the default bodies in Surface.cpp. Slot names and

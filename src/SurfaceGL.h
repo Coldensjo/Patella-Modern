@@ -20,15 +20,18 @@
 #include "Surface.h"
 #include "graphics.h"
 #include <GL/gl.h>
+#include <type_traits>
 
 // The surfaces (Textures[] and Rect[] are indexed with them) are Surface.h's
 // PRIMARY_SURFACE (no texture), SCREEN_SURFACE (the back buffer, the
 // window's client area), TEMP_SURFACE (640x480), STRETCH_SURFACE (64x64),
 // CACHE_SURFACE (512x384), AUTOMAP_SURFACE (106x106) and SPRITE_SURFACE
 // (6-21: the video cache surfaces, CacheSurfaceWidth x CacheSurfaceHeight).
-enum {
+enum : int {
 	NUMBER_OF_SURFACES_GL = 22
 };
+static_assert(sizeof(decltype(NUMBER_OF_SURFACES_GL)) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<decltype(NUMBER_OF_SURFACES_GL)>, int>);
 
 // The texture of one surface (0x20 bytes; the constructor is inline in
 // TSurfaceGL's).

@@ -13,6 +13,7 @@
 
 #include "common.h"
 #include "Container.h"
+#include <type_traits>
 
 // A reference to an object (12 bytes, passed by value). Type is named in
 // MapWindow.cpp's "SrcObj.Type!=CREATURE" (CREATURE is 99), Data in
@@ -36,7 +37,7 @@ inline constexpr int CREATURE = 99;
 // Tibia.dat flags: the bit numbers in TProperties::Flags. The names of
 // 1-20 follow CipSoft's game server (medium confidence); 22, 23, 26 and 27
 // are ours (low).
-enum {
+enum : int {
 	BANK = 0, // ground; reads Waypoints
 	CLIP = 1,
 	BOTTOM = 2,
@@ -69,6 +70,8 @@ enum {
 	LENSHELP = 29, // reads LensHelp
 	FULLBANK = 30, // ours: a ground that covers the whole field; MapWindow.cpp hides the levels below
 };
+static_assert(sizeof(decltype(BANK)) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<decltype(BANK)>, int>);
 
 // One Tibia.dat entry (0x4c bytes); the same layout serves objects, outfits,
 // effects and missiles.

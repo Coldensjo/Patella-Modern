@@ -17,6 +17,7 @@
 #include "graphics.h"
 #include <d3d9.h>
 #include <ddraw.h>
+#include <type_traits>
 
 // The surfaces (Surface9[] and Rect[] are indexed with them) are Surface.h's
 // PRIMARY_SURFACE (the main render target, Rect[TEMP_SURFACE]'s size),
@@ -25,9 +26,11 @@
 // AUTOMAP_SURFACE (106x106) and SPRITE_SURFACE (6-21: the video cache
 // surfaces, CacheSurfaceWidth x CacheSurfaceHeight); the values follow from
 // this file's comparisons (ToSurface!=SCREEN_SURFACE compares with 1).
-enum {
+enum : int {
 	NUMBER_OF_SURFACES_DX9 = 22
 };
+static_assert(sizeof(decltype(NUMBER_OF_SURFACES_DX9)) == 4);
+static_assert(std::is_same_v<std::underlying_type_t<decltype(NUMBER_OF_SURFACES_DX9)>, int>);
 
 // One vertex of the vertex buffers (D3DFVF_XYZRHW | D3DFVF_DIFFUSE |
 // D3DFVF_TEX1, 0x1c bytes).
