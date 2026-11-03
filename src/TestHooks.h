@@ -15,7 +15,8 @@
 //	PATELLA_GET_CURSOR_POS(Point)      GetCursorPos: the mouse, polled in OnIdle (Player.cpp, MainFrm.cpp)
 //	PATELLA_SET_MAIN_TIMER(...)        the main frame's 100 ms timer (MainFrm.cpp OnCreate); with a script
 //	                                   the driver makes its ticks
-//	PATELLA_TEST_IDLE()                the driver's step, at the start of CPlayerApp::OnIdle
+//	PATELLA_TEST_IDLE                  the driver's step, at the start of CPlayerApp::OnIdle (a statement
+//	                                   without a semicolon, like TBEGIN; empty outside the test build)
 //
 // With a script, CPlayerApp::PreTranslateMessage (test build only) drops the keyboard and mouse input
 // that comes from Windows, so the desktop's own mouse and keyboard cannot reach the client.
@@ -44,7 +45,7 @@ bool DropInput(const MSG *Message);
 #define PATELLA_FRAME_SLEEP(Milliseconds) patella::testmode::FrameSleep(Milliseconds)
 #define PATELLA_GET_CURSOR_POS(Point) patella::testmode::GetCursorPosition(Point)
 #define PATELLA_SET_MAIN_TIMER(Window, Id, Elapse, Function) patella::testmode::SetMainTimer(Window, Id, Elapse, Function)
-#define PATELLA_TEST_IDLE() patella::testmode::Idle()
+#define PATELLA_TEST_IDLE patella::testmode::Idle();
 
 #else
 
@@ -54,6 +55,8 @@ bool DropInput(const MSG *Message);
 #define PATELLA_FRAME_SLEEP(Milliseconds) Sleep(Milliseconds)
 #define PATELLA_GET_CURSOR_POS(Point) GetCursorPos(Point)
 #define PATELLA_SET_MAIN_TIMER(Window, Id, Elapse, Function) ::SetTimer(Window, Id, Elapse, Function)
-#define PATELLA_TEST_IDLE() ((void)0)
+// No statement at all: an empty one is a nop in an unoptimised MSVC build (Debug), which would move
+// the code after it.
+#define PATELLA_TEST_IDLE
 
 #endif

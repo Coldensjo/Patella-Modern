@@ -411,7 +411,7 @@ int CPlayerApp::Run()
 // handles the event queue (Control.cpp).
 BOOL CPlayerApp::OnIdle(LONG lCount)
 {
-	PATELLA_TEST_IDLE();
+	PATELLA_TEST_IDLE
 	TBEGIN
 	CWinApp::OnIdle(lCount);
 	POINT Point;

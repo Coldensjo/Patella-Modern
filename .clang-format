@@ -58,9 +58,11 @@ KeepEmptyLines:
   AtStartOfBlock: true
   AtStartOfFile: true
 
-# TBEGIN opens the try block that the TEND macros close.
+# TBEGIN opens the try block that the TEND macros close; PATELLA_TEST_IDLE (src/TestHooks.h) is the test
+# mode's driver call, nothing at all outside the test build.
 StatementMacros:
   - TBEGIN
+  - PATELLA_TEST_IDLE
 WhitespaceSensitiveMacros:
   - TASSERT
   - TASSERT1
