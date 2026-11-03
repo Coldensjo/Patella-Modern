@@ -488,9 +488,11 @@ void TSurfaceVulkan::ExitDisplay()
 	Shade.clear();
 	Renderer.reset();
 	for (int i = 0; i < NUMBER_OF_SURFACES_VULKAN; i++) {
+		// surfaceDX9.cpp clears SurfaceCreated[i] where Surface9[i] exists, which SCREEN_SURFACE's never does.
 		if (Image[i] >= 0) {
 			Image[i] = -1;
-			SurfaceCreated[i] = 0;
+			if (i != SCREEN_SURFACE)
+				SurfaceCreated[i] = 0;
 		}
 	}
 	ScreenTexture = -1;
