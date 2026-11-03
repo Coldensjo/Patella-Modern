@@ -13,6 +13,7 @@
 #include "../../src/Utils.h"
 #include "../../src/TXTEA.h"
 #include "../../src/TMyException.h"
+#include "../../tests/golden/golden_test.h"
 #include <exception>
 #include <intrin.h>
 #include <malloc.h>
@@ -36,28 +37,6 @@ uint32 Random()
 uint32 GetRandomSeed() { return Seed; }
 void SetRandomSeed(uint32 Value) { Seed = Value; }
 
-// Original functions.
-typedef void (__cdecl *XTEAFn)(uint32 *Block, const uint32 *Key);
-typedef int (__cdecl *CharFn)(int c);
-typedef void (__cdecl *HSVFn)(double H, double S, double V, int *R, int *G, int *B);
-typedef void (__cdecl *OutfitFn)(int Color, int *R, int *G, int *B);
-typedef void (__cdecl *StrFn)(char *s);
-typedef int (__cdecl *CompareFn)(const char *s1, const char *s2, int Count);
-typedef void (__cdecl *CopyFn)(char *Destination, const char *Source, int Size);
-typedef void (__cdecl *TrimFn)(char *Destination, const char *Source);
-typedef bool (__cdecl *ShortenFn)(char *Text, int MaxLength);
-typedef void (__cdecl *FormatFn)(int Number, char *Buffer);
-// thiscall members through __fastcall: ECX = this, EDX unused, rest on the stack.
-typedef void (__fastcall *BufInitFn)(void *This, void *, uint8 *Data, int Size);
-typedef uint32 (__fastcall *BufGetFn)(void *This, void *);
-typedef void (__fastcall *BufGetStringFn)(void *This, void *, char *Buffer, int MaxLength);
-typedef void (__fastcall *BufGetBytesFn)(void *This, void *, uint8 *Buffer, int Count);
-typedef void (__fastcall *BufPutFn)(void *This, void *, uint32 Data);
-typedef void (__fastcall *BufPutStringFn)(void *This, void *, const char *s);
-typedef void (__fastcall *BufPutBytesFn)(void *This, void *, const uint8 *Buffer, int Count);
-typedef void (__fastcall *XTEAKeyFn)(void *This, void *, const uint8 *Key);
-typedef void (__fastcall *XTEABlockFn)(void *This, void *, uint8 *Block);
-
 void RandomText(char *Text, int Length)
 {
 	static const char Chars[] = "aAzZ09 \t\n\r\f\v.,-_\xe4\xf6\xfc\xc4\xd6\xdc\xdf\xe9\xc9\xff\xc0\xde\xdf\xe0";
@@ -66,217 +45,8 @@ void RandomText(char *Text, int Length)
 	Text[Length] = 0;
 }
 
-static void TestXTEA()
-{
-	XTEAFn Encrypt = At<XTEAFn>(0x508cd0);
-	XTEAFn Decrypt = At<XTEAFn>(0x508e00);
-	XTEAKeyFn SetKey = At<XTEAKeyFn>(0x508ca0);
-	XTEABlockFn EncryptBlock = At<XTEABlockFn>(0x508f60);
-	XTEABlockFn DecryptBlock = At<XTEABlockFn>(0x508f80);
-	for (int t = 0; t < 2000; t++) {
-		uint8 Key[16];
-		for (int i = 0; i < 16; i++)
-			Key[i] = (uint8)Random();
-		uint32 Plain[2] = {Random() ^ (Random() << 16), Random() ^ (Random() << 16)};
-
-		uint32 Original[2] = {Plain[0], Plain[1]};
-		Encrypt(Original, (const uint32 *)Key);
-		TXTEA Cipher;
-		Cipher.SetKey(Key);
-		uint32 Ours[2] = {Plain[0], Plain[1]};
-		Cipher.EncryptBlock((uint8 *)Ours);
-		CHECK(Ours[0] == Original[0] && Ours[1] == Original[1], "XTEA encrypt differs");
-
-		// The original object: vtable, then the key.
-		uint32 Object[5] = {0, 0, 0, 0, 0};
-		SetKey(Object, 0, Key);
-		uint32 Wrapped[2] = {Plain[0], Plain[1]};
-		EncryptBlock(Object, 0, (uint8 *)Wrapped);
-		CHECK(Wrapped[0] == Original[0] && Wrapped[1] == Original[1], "TXTEA::EncryptBlock differs");
-
-		Decrypt(Original, (const uint32 *)Key);
-		Cipher.DecryptBlock((uint8 *)Ours);
-		DecryptBlock(Object, 0, (uint8 *)Wrapped);
-		CHECK(Original[0] == Plain[0] && Ours[0] == Plain[0] && Ours[1] == Plain[1] && Wrapped[0] == Plain[0],
-			"XTEA decrypt differs");
-	}
-}
-
-static void TestCharacters()
-{
-	struct { uint32 Address; int (*Ours)(int); const char *Name; } Functions[] = {
-		{0x508fa0, IsSpace, "IsSpace"}, {0x508fd0, IsAlpha, "IsAlpha"}, {0x509020, IsDigit, "IsDigit"},
-		{0x509040, ToLower, "ToLower"}, {0x509060, ToUpper, "ToUpper"},
-	};
-	for (auto &F : Functions) {
-		CharFn Original = At<CharFn>(F.Address);
-		for (int c = -300; c < 600; c++)
-			CHECK(F.Ours(c) == Original(c), "%s(%d): %d, original %d", F.Name, c, F.Ours(c), Original(c));
-	}
-}
-
-static void TestColors()
-{
-	HSVFn HSV = At<HSVFn>(0x509080);
-	OutfitFn Outfit = At<OutfitFn>(0x509280);
-	for (int Color = -5; Color < 140; Color++) {
-		int r1, g1, b1, r2, g2, b2;
-		GetOutfitColor(Color, &r1, &g1, &b1);
-		Outfit(Color, &r2, &g2, &b2);
-		CHECK(r1 == r2 && g1 == g2 && b1 == b2, "GetOutfitColor(%d): %d,%d,%d original %d,%d,%d",
-			Color, r1, g1, b1, r2, g2, b2);
-	}
-	for (int t = 0; t < 20000; t++) {
-		double H = (Random() % 1001) / 1000.0, S = (Random() % 1001) / 1000.0, V = (Random() % 1001) / 1000.0;
-		if (t % 7 == 0) S = 0.0;
-		if (t % 11 == 0) V = 0.0;
-		int r1, g1, b1, r2, g2, b2;
-		HSVToRGB(H, S, V, &r1, &g1, &b1);
-		HSV(H, S, V, &r2, &g2, &b2);
-		CHECK(r1 == r2 && g1 == g2 && b1 == b2, "HSVToRGB(%g,%g,%g): %d,%d,%d original %d,%d,%d",
-			H, S, V, r1, g1, b1, r2, g2, b2);
-	}
-}
-
-static void TestStrings()
-{
-	StrFn Lower = At<StrFn>(0x5093d0);
-	StrFn Capitalize = At<StrFn>(0x509540);
-	CompareFn Compare = At<CompareFn>(0x509710);
-	CopyFn Copy = At<CopyFn>(0x509a60);
-	TrimFn Trim = At<TrimFn>(0x509d10);
-	ShortenFn Shorten = At<ShortenFn>(0x50a040);
-	for (int t = 0; t < 5000; t++) {
-		char A[64], B[64], C[64], D[64];
-		int Length = Random() % 40;
-		RandomText(A, Length);
-		strcpy(B, A);
-		LowerString(A);
-		Lower(B);
-		CHECK(strcmp(A, B) == 0, "LowerString differs");
-
-		RandomText(A, Length);
-		strcpy(B, A);
-		CapitalizeString(A);
-		Capitalize(B);
-		CHECK(strcmp(A, B) == 0, "CapitalizeString differs");
-
-		RandomText(A, Length);
-		strcpy(B, A);
-		if (Random() % 3 == 0)
-			for (int i = 0; B[i]; i++)
-				if (Random() % 4 == 0) B[i] = (char)ToUpper(B[i]);
-		if (Random() % 4 == 0 && Length > 0)
-			B[Random() % Length] = (char)Random();
-		int Count = Random() % 45;
-		CHECK(CompareStrings(A, B, Count) == Compare(A, B, Count), "CompareStrings differs");
-
-		int Size = 1 + Random() % 50;
-		memset(C, 'x', sizeof(C));
-		memset(D, 'x', sizeof(D));
-		CopyString(C, A, Size);
-		Copy(D, A, Size);
-		CHECK(memcmp(C, D, sizeof(C)) == 0, "CopyString differs");
-
-		memset(C, 'x', sizeof(C));
-		memset(D, 'x', sizeof(D));
-		TrimString(C, A);
-		Trim(D, A);
-		CHECK(memcmp(C, D, sizeof(C)) == 0, "TrimString differs");
-
-		strcpy(C, A);
-		strcpy(D, A);
-		int MaxLength = Random() % 45;
-		bool r1 = ShortenString(C, MaxLength);
-		bool r2 = Shorten(D, MaxLength);
-		CHECK(r1 == r2 && strcmp(C, D) == 0, "ShortenString(\"%s\", %d) differs", A, MaxLength);
-	}
-}
-
-static void TestFormatNumber()
-{
-	FormatFn Format = At<FormatFn>(0x50bce0);
-	__try {
-		char Probe[32];
-		Format(1234567, Probe);
-	} __except (EXCEPTION_EXECUTE_HANDLER) {
-		printf("skip FormatNumber: the original sprintf needs the original CRT\n");
-		return;
-	}
-	for (int t = 0; t < 2000; t++) {
-		int Number = t < 1000 ? t * t * 37 : (int)(Random() & 0x7fffffff);
-		char A[32], B[32];
-		FormatNumber(Number, A);
-		Format(Number, B);
-		CHECK(strcmp(A, B) == 0, "FormatNumber(%d): \"%s\" original \"%s\"", Number, A, B);
-	}
-}
-
-static void TestBuffers()
-{
-	BufInitFn ReadInit = At<BufInitFn>(0x50a200);
-	BufGetFn GetByte = At<BufGetFn>(0x50a4b0), GetWord = At<BufGetFn>(0x50a610), GetQuad = At<BufGetFn>(0x50a780);
-	BufGetStringFn GetStr = At<BufGetStringFn>(0x50a900);
-	BufGetBytesFn GetBytes = At<BufGetBytesFn>(0x50ad50);
-	BufInitFn WriteInit = At<BufInitFn>(0x50b030);
-	BufPutFn PutByte = At<BufPutFn>(0x50b2e0), PutWord = At<BufPutFn>(0x50b450), PutQuad = At<BufPutFn>(0x50b5e0);
-	BufPutStringFn PutStr = At<BufPutStringFn>(0x50b780);
-	BufPutBytesFn PutBytes = At<BufPutBytesFn>(0x50ba00);
-
-	for (int t = 0; t < 2000; t++) {
-		uint8 Ours[1024], Original[1024];
-		memset(Ours, 0xcd, sizeof(Ours));
-		memset(Original, 0xcd, sizeof(Original));
-		TWriteBuffer W(Ours, sizeof(Ours));
-		uint32 WO[3];
-		WriteInit(WO, 0, Original, sizeof(Original));
-		// Random sequence of writes, at most ~800 bytes.
-		uint32 Ops[40], Values[40];
-		char Texts[40][32];
-		int OpCount = Random() % 40;
-		for (int i = 0; i < OpCount; i++) {
-			Ops[i] = Random() % 5;
-			Values[i] = Random() ^ (Random() << 16);
-			RandomText(Texts[i], Random() % 20);
-			switch (Ops[i]) {
-			case 0: W.PutByte((uint8)Values[i]); PutByte(WO, 0, (uint8)Values[i]); break;
-			case 1: W.PutWord((uint16)Values[i]); PutWord(WO, 0, (uint16)Values[i]); break;
-			case 2: W.PutQuad(Values[i]); PutQuad(WO, 0, Values[i]); break;
-			case 3: W.PutString(Texts[i]); PutStr(WO, 0, Texts[i]); break;
-			case 4: W.PutBytes((const uint8 *)Texts[i], 7); PutBytes(WO, 0, (const uint8 *)Texts[i], 7); break;
-			}
-		}
-		CHECK(memcmp(Ours, Original, sizeof(Ours)) == 0 && W.Position == (int)WO[2], "TWriteBuffer differs");
-
-		TReadBuffer R(Ours, W.Position);
-		uint32 RO[3];
-		ReadInit(RO, 0, Original, WO[2]);
-		for (int i = 0; i < OpCount; i++) {
-			char A[32], B[32];
-			uint8 X[8], Y[8];
-			int MaxLength = (int)(Random() % 24) - 2;
-			if (MaxLength == 0) MaxLength = -1;
-			switch (Ops[i]) {
-			case 0: CHECK(R.GetByte() == (uint8)GetByte(RO, 0), "GetByte differs"); break;
-			case 1: CHECK(R.GetWord() == (uint16)GetWord(RO, 0), "GetWord differs"); break;
-			case 2: CHECK(R.GetQuad() == GetQuad(RO, 0), "GetQuad differs"); break;
-			case 3:
-				memset(A, 'x', sizeof(A));
-				memset(B, 'x', sizeof(B));
-				R.GetString(A, MaxLength);
-				GetStr(RO, 0, B, MaxLength);
-				CHECK(memcmp(A, B, sizeof(A)) == 0, "GetString(MaxLength %d) differs", MaxLength);
-				break;
-			case 4:
-				R.GetBytes(X, 7);
-				GetBytes(RO, 0, Y, 7);
-				CHECK(memcmp(X, Y, 7) == 0, "GetBytes differs");
-				break;
-			}
-			CHECK(R.Position == (int)RO[2], "read position differs");
-		}
-	}
-}
+// TestXTEA, TestCharacters, TestColors, TestStrings, TestFormatNumber and TestBuffers are golden-corpus
+// tests (tests/golden/core_tests.cpp, issue #24).
 
 // Tibia.exe has no relocations, so it must sit at its base 0x400000, but a
 // running 32-bit process already has heaps and code-page tables there. So the
@@ -599,13 +369,17 @@ static void InstallCrashReports(const char *StatusHandle)
 // not expanded again in its own expansion, so TestXTEA() calls the function.
 // A new test needs a line here, else a crash in it is reported as after the
 // test before it.
+// With DIFFTEST_RECORD set (the golden corpus, tests/golden/golden.h, issue #24) each test is a
+// recording of its own; the tests of tests/golden write their records into it.
 static void BeginTest(const char *Name)
 {
 	strncpy(Status->Test, Name, sizeof(Status->Test) - 1);
 	Status->State = CHILD_IN_TEST;
+	golden::BeginTest(Name, GetRandomSeed(), Checks);
 }
 static void EndTest()
 {
+	golden::EndTest(Checks);
 	Status->State = CHILD_HEAP_CHECK;
 	int Heap = _heapchk();
 	if (Heap != _HEAPOK && Heap != _HEAPEMPTY) {
@@ -685,6 +459,14 @@ int main(int argc, char **argv)
 	InstallCrashReports(argc > 3 ? argv[3] : NULL);
 	if (!MapImage(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe"))
 		return 2;
+	// DIFFTEST_RECORD=<directory>: record the golden corpus of the full run (tests/golden/golden.h).
+#ifdef DIFFTEST_SYSINC
+	golden::StartRecording("sysinctest", argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+#elif defined(DIFFTEST_COMMUNICATION)
+	golden::StartRecording("communicationtest", argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+#else
+	golden::StartRecording("difftest", argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+#endif
 #ifdef DIFFTEST_SYSINC
 	TestSysinc();
 #elif defined(DIFFTEST_COMMUNICATION)
@@ -833,6 +615,7 @@ int main(int argc, char **argv)
 	TestMapWindow(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
 	TestMainWindow();
 #endif
+	golden::FinishRecording(Checks, Failures);
 	printf("%d checks, %d failures\n", Checks, Failures);
 	return Failures == 0 ? 0 : 1;
 }

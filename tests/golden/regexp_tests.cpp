@@ -25,25 +25,40 @@
 // (the image's 0x5c2560, used by Status.cpp) with URL-like texts, and the
 // size limit (32767). RX_ROUNDS sets the number of rounds, RX_TRACE=1 prints
 // the coverage counters. DIFFTEST_ONLY=Regexp runs this test alone.
+//
+// A golden-corpus test (golden.h; moved here from tools/difftest/regexptest.cpp, issue #24): the
+// original's regcomp and regexec run in the oracle only (RxImageCompile, RxImageExecute), which records
+// their results by value: the result, the messages, the program's fields, its size (the allocation
+// less the header, sizeof(regexp) of x86) and its bytes, and regexec's startp/endp as offsets into the
+// string. The runner rebuilds the original's program from them in its own layout (a malloc of
+// sizeof(regexp) + the program's size, as regcomp allocates), so the comparisons, the cross runs
+// (ours on the original's program) and the allocation sizes (_msize less sizeof(regexp): the program's
+// size on either side) are the same code on both sides.
 
-#include "difftest.h"
-#include "../../src/Extern/regexp/regexp.h"
+#include "golden_test.h"
+
+#include "Extern/regexp/regexp.h"
+
 #include <malloc.h>
 #include <stdlib.h>
+#include <string.h>
 #include <string>
 
 namespace {
 
-enum { RX_OURS = 0, RX_ORIGINAL = 1 };
+enum { RX_OURS = 0,
+	RX_ORIGINAL = 1 };
 
+#if GOLDEN_ORACLE
 typedef regexp *(__cdecl *RxCompileFn)(char *Pattern);
-typedef int (__cdecl *RxExecuteFn)(regexp *Program, char *Text);
-typedef void (__cdecl *RxErrorFn)(char *Message);
+typedef int(__cdecl *RxExecuteFn)(regexp *Program, char *Text);
+typedef void(__cdecl *RxErrorFn)(char *Message);
 
 RxCompileFn const ImageRegcomp = (RxCompileFn)(uintptr_t)0x50fa40;
 RxExecuteFn const ImageRegexec = (RxExecuteFn)(uintptr_t)0x50f360;
 const uint32 RX_IMAGE_HANDLER = 0x71f034;
 const uint32 RX_IMAGE_LINKPATTERN = 0x5c2560;
+#endif
 
 uint32 RxSeed = 15;
 uint32 RxRandom()
@@ -79,12 +94,14 @@ void RxCount(const char *Message)
 	RxCoverage.Messages[RX_MESSAGES]++;
 }
 
+#if GOLDEN_ORACLE
 void __cdecl RxImageError(char *Message)
 {
 	RxLog[RX_ORIGINAL] += "E:";
 	RxLog[RX_ORIGINAL] += Message;
 	RxLog[RX_ORIGINAL] += ";";
 }
+#endif
 
 void RxOurError(char *Message)
 {
@@ -96,7 +113,7 @@ void RxOurError(char *Message)
 
 void RxSetHandlers(bool On)
 {
-	Global<RxErrorFn>(RX_IMAGE_HANDLER) = On ? RxImageError : NULL;
+	ORIGINAL(Global<RxErrorFn>(RX_IMAGE_HANDLER) = On ? RxImageError : NULL);
 	regerrorhandler = On ? RxOurError : NULL;
 }
 
@@ -127,13 +144,95 @@ std::string RxShow(const char *Text, size_t Max = 60)
 // The program of a compiled expression; regsize = allocation - sizeof(regexp).
 size_t RxProgramSize(regexp *Program) { return _msize(Program) - sizeof(regexp); }
 
+char *const RX_UNTOUCHED = (char *)(uintptr_t)1;
+
+long RxOffset(char *p, char *Text)
+{
+	if (p == NULL)
+		return -1;
+	if (p == RX_UNTOUCHED)
+		return -2;
+	return (long)(p - Text);
+}
+
+// --- The original's side ---------------------------------------------------
+
+// The original's messages of the call (RxLog[RX_ORIGINAL] since RxClearLogs).
+void RxImageMessages()
+{
+	std::string Log = golden::OutputText("messages", RxLog[RX_ORIGINAL].c_str());
+	RxLog[RX_ORIGINAL] = Log;
+}
+
+// The original's regcomp; the runner rebuilds its program from the recorded fields.
+regexp *RxImageCompile(char *Pattern)
+{
+	regexp *Program = NULL;
+	ORIGINAL(Program = ImageRegcomp(Pattern));
+	(void)Pattern;
+	RxImageMessages();
+	uint8 Compiled = Program != NULL;
+	golden::Output("compiled", Compiled);
+	if (Compiled == 0)
+		return NULL;
+	// The program's size, its fields (regmust as an offset into the program) and its bytes.
+	int32_t Fields[4] = {};
+#if GOLDEN_ORACLE
+	Fields[0] = (int32_t)RxProgramSize(Program);
+	Fields[1] = Program->regstart;
+	Fields[2] = Program->reganch;
+	Fields[3] = Program->regmlen;
+#endif
+	golden::Output("program fields", Fields);
+	int32_t Must = ORIGINAL_OR(Program->regmust != NULL ? (int32_t)(Program->regmust - Program->program) : -1, 0);
+	golden::Output("regmust", Must);
+#if !GOLDEN_ORACLE
+	Program = (regexp *)malloc(sizeof(regexp) + (size_t)Fields[0]);
+	if (Program == NULL)
+		return NULL;
+	memset(Program, 0, sizeof(regexp));
+	Program->regstart = (char)Fields[1];
+	Program->reganch = (char)Fields[2];
+	Program->regmlen = Fields[3];
+	Program->regmust = Must >= 0 ? Program->program + Must : NULL;
+#endif
+	golden::OutputBytes("program", Program->program, (size_t)Fields[0]);
+	return Program;
+}
+
+// The original's regexec; the runner sets startp/endp of Program as the original left them.
+int RxImageExecute(regexp *Program, char *Text)
+{
+	int Result = 0;
+	ORIGINAL(Result = ImageRegexec(Program, Text));
+	golden::Output("matched", Result);
+	RxImageMessages();
+	if (Program != NULL && Text != NULL) {
+		int32_t Offsets[2 * NSUBEXP];
+		for (int i = 0; i < NSUBEXP; i++) {
+			Offsets[i] = (int32_t)RxOffset(Program->startp[i], Text);
+			Offsets[NSUBEXP + i] = (int32_t)RxOffset(Program->endp[i], Text);
+		}
+		golden::Output("startp endp", Offsets);
+		for (int i = 0; i < 2 * NSUBEXP; i++) {
+			char *p = Offsets[i] == -1 ? NULL : Offsets[i] == -2 ? RX_UNTOUCHED
+																 : Text + Offsets[i];
+			if (i < NSUBEXP)
+				Program->startp[i] = p;
+			else
+				Program->endp[i - NSUBEXP] = p;
+		}
+	}
+	return Result;
+}
+
 // Compiles Pattern on both sides and compares the results; the programs are
 // returned (NULL where compilation failed) for regexec.
 void RxCompileBoth(char *Pattern, regexp **Ours, regexp **Original)
 {
 	RxClearLogs();
 	regexp *A = regcomp(Pattern);
-	regexp *B = ImageRegcomp(Pattern);
+	regexp *B = RxImageCompile(Pattern);
 	*Ours = A;
 	*Original = B;
 	std::string Shown = RxShow(Pattern);
@@ -175,17 +274,6 @@ void RxCompileBoth(char *Pattern, regexp **Ours, regexp **Original)
 		RxCoverage.RegStart++;
 }
 
-char *const RX_UNTOUCHED = (char *)(uintptr_t)1;
-
-long RxOffset(char *p, char *Text)
-{
-	if (p == NULL)
-		return -1;
-	if (p == RX_UNTOUCHED)
-		return -2;
-	return (long)(p - Text);
-}
-
 std::string RxSubexpressions(regexp *Program, char *Text)
 {
 	std::string Out;
@@ -212,7 +300,7 @@ void RxExecuteBoth(regexp *Ours, regexp *Original, char *Text, const char *What)
 	RxMarkUntouched(Original);
 	RxClearLogs();
 	int A = regexec(Ours, Text);
-	int B = ImageRegexec(Original, Text);
+	int B = RxImageExecute(Original, Text);
 	std::string Shown = RxShow(Text != NULL ? Text : "(null)");
 	CHECK(A == B, "%s regexec(\"%s\"): ours %d, original %d", What, Shown.c_str(), A, B);
 	CHECK(RxLog[RX_OURS] == RxLog[RX_ORIGINAL], "%s regexec(\"%s\") messages: ours \"%s\", original \"%s\"", What,
@@ -234,7 +322,7 @@ void RxExecuteAll(regexp *Ours, regexp *Original, char *Text)
 {
 	RxExecuteBoth(Ours, Original, Text, "own");
 	if (Ours != NULL && Original != NULL && _msize(Ours) == _msize(Original)
-	 && memcmp(Ours->program, Original->program, RxProgramSize(Ours)) == 0)
+		&& memcmp(Ours->program, Original->program, RxProgramSize(Ours)) == 0)
 		RxExecuteBoth(Original, Ours, Text, "cross");
 }
 
@@ -254,7 +342,7 @@ void RxRandomPattern(char *Out, int MaxLength)
 	for (int i = 0; i < Length; i++) {
 		int r = RxBelow(40);
 		if (r == 0)
-			Out[i] = (char)0xe4;
+			Out[i] = '\xe4';
 		else if (r == 1)
 			Out[i] = 'x';
 		else
@@ -393,23 +481,26 @@ regexp *RxMakeProgram(const uint8 *Code, int Length, int Magic)
 void RxHandMadePrograms()
 {
 	// Each is executed on the same bytes by both sides.
-	struct TProgram { uint8 Code[16]; int Length; };
+	struct TProgram {
+		uint8 Code[16];
+		int Length;
+	};
 	const TProgram Programs[] = {
-		{{9, 0, 0}, 3},                                        // NOTHING without a next node: "corrupted pointers"
-		{{8, 0, 0, 'a', 0}, 5},                                // EXACTLY "a", then no next node
-		{{10, 0, 6, 6, 0, 0, 0, 0, 0}, 9},                     // STAR of a BRANCH: "internal foulup", then END
-		{{11, 0, 6, 6, 0, 0, 0, 0, 0}, 9},                     // PLUS of a BRANCH: "internal foulup", fails
-		{{10, 0, 6, 7, 0, 0, 0, 0, 0}, 9},                     // STAR of a BACK
-		{{6, 0, 3, 7, 0, 0}, 6},                               // BRANCH to a BACK without a next node
-		{{12, 0, 0}, 3},                                       // opcode 12: "memory corruption"
-		{{19, 0, 0}, 3},                                       // opcode 19
-		{{20, 0, 3, 0, 0, 0}, 6},                              // OPEN+0 (not a case): "memory corruption"
-		{{30, 0, 3, 0, 0, 0}, 6},                              // CLOSE+0
-		{{40, 0, 0}, 3},                                       // past CLOSE+9
-		{{0x80, 0, 0}, 3},                                     // a negative opcode
+		{{9, 0, 0}, 3},                    // NOTHING without a next node: "corrupted pointers"
+		{{8, 0, 0, 'a', 0}, 5},            // EXACTLY "a", then no next node
+		{{10, 0, 6, 6, 0, 0, 0, 0, 0}, 9}, // STAR of a BRANCH: "internal foulup", then END
+		{{11, 0, 6, 6, 0, 0, 0, 0, 0}, 9}, // PLUS of a BRANCH: "internal foulup", fails
+		{{10, 0, 6, 7, 0, 0, 0, 0, 0}, 9}, // STAR of a BACK
+		{{6, 0, 3, 7, 0, 0}, 6},           // BRANCH to a BACK without a next node
+		{{12, 0, 0}, 3},                   // opcode 12: "memory corruption"
+		{{19, 0, 0}, 3},                   // opcode 19
+		{{20, 0, 3, 0, 0, 0}, 6},          // OPEN+0 (not a case): "memory corruption"
+		{{30, 0, 3, 0, 0, 0}, 6},          // CLOSE+0
+		{{40, 0, 0}, 3},                   // past CLOSE+9
+		{{0x80, 0, 0}, 3},                 // a negative opcode
 		{{0xff, 0, 0}, 3},
-		{{21, 0, 3, 31, 0, 3, 0, 0, 0}, 9},                    // OPEN1 CLOSE1 END
-		{{1, 0, 3, 2, 0, 3, 0, 0, 0}, 9},                      // BOL EOL END
+		{{21, 0, 3, 31, 0, 3, 0, 0, 0}, 9}, // OPEN1 CLOSE1 END
+		{{1, 0, 3, 2, 0, 3, 0, 0, 0}, 9},   // BOL EOL END
 	};
 	const char *Texts[] = {"", "a", "ab", "ba", "aaa", "\xe4"};
 	for (const TProgram &P : Programs) {
@@ -427,11 +518,11 @@ void RxHandMadePrograms()
 	RxCompileBoth((char *)"abc", &A, &B);
 	if (A != NULL && B != NULL) {
 		char Text[] = "xabcx";
-		A->program[0] = B->program[0] = (char)0x9d;
+		A->program[0] = B->program[0] = '\x9d';
 		RxExecuteBoth(A, B, Text, "magic 0x9d");
 		A->program[0] = B->program[0] = 0;
 		RxExecuteBoth(A, B, Text, "magic 0");
-		A->program[0] = B->program[0] = (char)0x9c;
+		A->program[0] = B->program[0] = '\x9c';
 		RxExecuteBoth(A, B, NULL, "NULL text");
 	}
 	RxFree(A, B);
@@ -441,7 +532,7 @@ void RxHandMadePrograms()
 	// regcomp(NULL)
 	RxClearLogs();
 	regexp *P = regcomp(NULL);
-	regexp *Q = ImageRegcomp(NULL);
+	regexp *Q = RxImageCompile(NULL);
 	CHECK(P == NULL && Q == NULL, "regcomp(NULL): ours %p, original %p", (void *)P, (void *)Q);
 	CHECK(RxLog[RX_OURS] == RxLog[RX_ORIGINAL], "regcomp(NULL) messages: ours \"%s\", original \"%s\"",
 		RxLog[RX_OURS].c_str(), RxLog[RX_ORIGINAL].c_str());
@@ -497,7 +588,9 @@ void RxSizeLimit()
 
 void RxLinkPattern(int Rounds)
 {
-	char *Pattern = Global<char *>(RX_IMAGE_LINKPATTERN);
+	// The original's LinkPattern (Status.cpp's is ours).
+	std::string Link = golden::OutputText("link pattern", ORIGINAL_OR(Global<char *>(RX_IMAGE_LINKPATTERN), ""));
+	char *Pattern = &Link[0];
 	regexp *A, *B;
 	RxCompileBoth(Pattern, &A, &B);
 	CHECK(A != NULL && B != NULL, "LinkPattern does not compile");
@@ -525,10 +618,12 @@ void RxLinkPattern(int Rounds)
 void TestRegexp()
 {
 	int Before = Checks;
-	PatchImage();
+	ORIGINAL(PatchImage());
 	if (getenv("RX_SEED") != NULL)
 		RxSeed = (uint32)strtoul(getenv("RX_SEED"), NULL, 0);
 	int Rounds = getenv("RX_ROUNDS") != NULL ? atoi(getenv("RX_ROUNDS")) : 4000;
+	golden::Input("seed", RxSeed);
+	golden::Input("rounds", Rounds);
 	RxTrace = getenv("RX_TRACE") != NULL;
 	memset(&RxCoverage, 0, sizeof(RxCoverage));
 

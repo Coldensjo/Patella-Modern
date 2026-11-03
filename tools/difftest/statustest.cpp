@@ -69,29 +69,7 @@ void PatchImage()
 
 // --- Skins.cpp -----------------------------------------------------------
 
-void TestSkins()
-{
-	PatchImage();
-	At<void (__cdecl *)()>(0x4e3cb0)();
-	InitSkins();
-	int &OriginalCount = Global<int>(0x71c450);
-	TSkin *&OriginalSkins = Global<TSkin *>(0x71c454);
-	CHECK(NumberOfSkins == OriginalCount, "NumberOfSkins %d, original %d", NumberOfSkins, OriginalCount);
-	for (int i = 0; i < NumberOfSkins && i < OriginalCount; i++) {
-		if (i == 152)
-			continue; // left uninitialised by both
-		Checks++;
-		if (memcmp(&Skins[i], &OriginalSkins[i], sizeof(TSkin)) != 0) {
-			Failures++;
-			printf("FAIL Skins[%d]: %d,%d,%d,%d original %d,%d,%d,%d\n", i, Skins[i].x, Skins[i].y,
-				Skins[i].width, Skins[i].height, OriginalSkins[i].x, OriginalSkins[i].y,
-				OriginalSkins[i].width, OriginalSkins[i].height);
-		}
-	}
-	At<void (__cdecl *)()>(0x4e6da0)();
-	ExitSkins();
-	CHECK(Skins == NULL && OriginalSkins == NULL, "ExitSkins leaves a pointer");
-}
+// TestSkins is a golden-corpus test (tests/golden/core_tests.cpp, issue #24).
 
 // --- Status.cpp ----------------------------------------------------------
 

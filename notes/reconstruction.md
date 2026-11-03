@@ -308,7 +308,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   `.editorconfig` sets tabs, LF and UTF-8 for every editor. With Visual Studio's clang-format 22
   (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h
   src/testmode/*.cpp src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/res/resource.h tests/unit/*.cpp
-  tests/vulkan/*.cpp` reports nothing; `clang-format -i` on a changed file formats it. Hand-laid tables (case
+  tests/vulkan/*.cpp tests/golden/*.cpp tests/golden/*.h` reports nothing; `clang-format -i` on a changed file
+  formats it. Hand-laid tables (case
   tables, vertex and pixel format lists) and the macros clang-format cannot parse sit between
   `// clang-format off` and `// clang-format on`.
 - clang-tidy (issue #8): `.clang-tidy` has the checks of the coding standard (notes/modernization-plan.md,
@@ -345,7 +346,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   commit; `permissions: contents: read`.
   `.github/workflows/self-hosted.yml` runs on this machine (runner labels `self-hosted, Windows, X64, patella`):
   oracle-x86 and the difftest, the windows-x64 client (Release and Debug), compare_traffic.py and
-  compare_files.py for the x64 client and compare_rendering.py `--modes windowed` for the x64 client (issue #18), and the Linux presets through
+  compare_files.py for the x64 client and compare_rendering.py `--modes windowed` for the x64 client (issue #18),
+  the golden corpus recorded and replayed in one job (issue #24, below), and the Linux presets through
   build.py in Docker. It triggers only on `push` to this repository's branches and on `workflow_dispatch`, never
   on `pull_request` or `pull_request_target`, every job checks the repository's name and the event, and every
   job is skipped (not queued) unless the repository variable `PATELLA_SELF_HOSTED` is `true`. The CipSoft files
@@ -418,6 +420,33 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   environment block (other shell, other TEMP) moves it. `vlongtest.cpp` and
   `vlongcheck.py` check the big-number code and RSA against Python's exact integers. Add a test
   for every new pure function.
+- The golden corpus (Patella-Modern issue #24; plan 4.3): difftest's comparisons as data, replayed without
+  Tibia.exe. A ported test lives in `tests/golden/*_tests.cpp` and is compiled into the oracle's test program
+  (GOLDEN_ORACLE: the original's code runs inside `ORIGINAL(...)` / `#if GOLDEN_ORACLE`) and into
+  `golden_runner` (windows-x64, MSVC x64), where the original's results come from the corpus. Each result of
+  the original passes through `golden::Output` (a number, an array of numbers, bytes, `OutputText`), each
+  generated input through `golden::Input`; the CHECKs are the same code on both sides, so the counts are equal.
+  Ported so far: difftest's XTEA, Characters, Colors, Strings, FormatNumber, Buffers, Skins and Regexp (373,518
+  checks) and sysinctest's Sysinc (67); the runner lists the rest with their counts (difftest's other 28 tests,
+  16,475,234 checks; communicationtest's 1,134,513).
+  - Record: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
+    golden_corpus` runs difftest, sysinctest and communicationtest in full with `DIFFTEST_RECORD=<dir>` (default
+    build\golden, the cache variable PATELLA_GOLDEN_DIR; about five minutes, 17 MB). Recording changes no check
+    count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. The corpus is derived from Tibia.exe: it stays on
+    the machine (build/ is ignored by git) and is never committed, pushed or uploaded, not even as a CI artifact.
+  - Replay: `build\windows-x64\tests\golden\Release\golden_runner.exe [--require] [<dir>]`, or the CTest test
+    `golden` of every windows-x64 build. It prints each replayed test's checks next to the oracle's and fails
+    (exit 1) on a failure, a different count or a stale corpus; without a corpus it says so and exits 77, which
+    CTest reports as skipped (hosted CI); `-DPATELLA_GOLDEN_REQUIRE=ON` (the self-hosted job) makes that a failure.
+  - Staleness: every file carries the format version (golden::GOLDEN_FORMAT) and the SHA-256 of the Tibia.exe it
+    was recorded from, which must be the 7.72 client's; every value carries its name and role, and the
+    runner checks each against what the test asks for, each input against the one it generated, and the test's
+    check and value counts at its end. A changed test therefore stops with "the test changed since the
+    recording" instead of comparing wrong data: record again.
+  - Porting a test: move it to tests/golden, put the original's calls under ORIGINAL, pass every value the
+    comparison takes from the original through golden::Output (by value: fields and offsets, never a memory
+    image or a pointer), add it to golden_test.h, runner.cpp's table and both CMake lists. notes/decisions.md,
+    "The golden corpus (Patella-Modern issue #24)".
 - Before finishing a file, compare each function against its pseudocode once more: every
   branch, constant, call and side effect.
 - Static objects and removed try blocks (issue #24): `tools\listing.cmd File.cpp` writes our

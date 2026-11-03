@@ -38,12 +38,18 @@ environment runs it in place of DirectX 9; its pinned libraries and the CPU driv
 the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it
 headless.
 
+The golden corpus (issue #24): `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86
+--target golden_corpus` records it into `build/golden` (derived from Tibia.exe: local only, never committed,
+pushed or uploaded); windows-x64's `golden_runner` (CTest test `golden`, skipped without a corpus) replays it
+without Tibia.exe. Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
+
 ## Code style
 
 `.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by
 `.clang-format-ignore`), `.editorconfig` the editor settings. Check with Visual Studio's clang-format
 (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/testmode/*.cpp
-src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp`.
+src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp
+tests/golden/*.cpp tests/golden/*.h`.
 Run clang-tidy only through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>`,
 never `clang-tidy --fix` directly: until M5 no change may touch the arguments of TASSERT*, TERROR* or TEND*
 (stringized into the messages difftest compares), and the wrapper reverts every fix inside them. The product

@@ -33,6 +33,8 @@ rea-out/
 /tools/lines.py
 /tools/listing.cmd
 
+# The build trees, and build/golden: the golden corpus (tests/golden, issue #24), derived from Tibia.exe,
+# never committed
 build/
 
 # Visual Studio state (it opens the CMake folder; issue #10 removed Patella.sln)
