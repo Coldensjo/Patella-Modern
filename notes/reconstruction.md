@@ -117,11 +117,14 @@ build\oracle-x86\<Configuration>:
 - Patella.exe, the reconstructed client, with exactly the compiler, resource compiler and linker options of
   the former Patella.vcxproj (issue #16): every `src/*.cpp`, `src/Extern/regexp/*.c` and `src/res/Patella.rc`
   for x86 with static MFC (nafxcw.lib) and the static CRT (`/MT`), Tibia.exe's system libraries with
-  oleacc.dll delay-loaded, no manifest; a PDB in both configurations. After every link the build checks the
+  oleacc.dll delay-loaded, no manifest; a PDB in both configurations. One exception: SurfaceGL.cpp compiles
+  without `/FC`, which would make the name in glh_extensions.h's `#line 173 "Extern\\glh/glh_extensions.h"`
+  absolute, so the malloc-failure message prints the original's `Extern\glh/glh_extensions.h` (issue #14; the
+  x64 build and the test programs have no /FC at all). After every link the build checks the
   resources against Tibia.exe (`tools/compare_resources.py`, 0 differences; a difference fails the build).
   `python -I tools/compare_imports.py Tibia.exe build\oracle-x86\Release\Patella.exe` compares the import
-  tables. Details: notes/decisions.md, "Building Patella.exe (issue #16)" and "CMake: the oracle-x86 preset
-  (issue #4)".
+  tables. Details: notes/decisions.md, "Building Patella.exe (issue #16)", "CMake: the oracle-x86 preset
+  (issue #4)" and "/FC and the glh_extensions.h #line name (issue #14)".
 - The four test programs difftest, sysinctest, communicationtest and vlongtest with the options of the former
   tools\difftest\build.cmd (the same in every configuration), which `ctest --preset oracle-x86` runs ("Checking"
   below). The tests get Tibia.exe as their argument and a private TEMP each (build\oracle-x86\tmp\<test>).
