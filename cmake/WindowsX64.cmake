@@ -17,10 +17,11 @@
 # it). Without Tibia.exe (PATELLA_TIBIA_EXE) the configure stops; PATELLA_CLIENT=OFF builds only the
 # unit tests, for machines without it.
 #
-# PATELLA_CLIENT_COMPILE_ONLY=ON (issue #25; hosted CI, which has no Tibia.exe): no Patella.exe and no
-# PatellaTest.exe, only the object library PatellaTest_compile, the test build's C and C++ sources
-# with the test build's definitions, warnings and hardening, compiled and never linked. Without the
-# resource script (its pictures come from Tibia.exe) nothing reads a CipSoft file.
+# PATELLA_CLIENT_COMPILE_ONLY=ON (issues #25, #46; hosted CI, which has no Tibia.exe): no Patella.exe and
+# no PatellaTest.exe, only two object libraries, compiled and never linked: Patella_compile, Patella.exe's
+# C and C++ sources with its definitions, warnings and hardening, and PatellaTest_compile, the test
+# build's with the test build's. Without the resource script (its pictures come from Tibia.exe) nothing
+# reads a CipSoft file.
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
 	message(FATAL_ERROR "windows-x64 needs MSVC's x64 compiler: run python -I tools/build.py windows-x64, or "
@@ -34,7 +35,7 @@ enable_language(RC)
 set(Python3_FIND_REGISTRY LAST)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-option(PATELLA_CLIENT_COMPILE_ONLY "Compile the test build's sources without Tibia.exe (object library PatellaTest_compile; no resources, no link, no executables; hosted CI, issue #25)" OFF)
+option(PATELLA_CLIENT_COMPILE_ONLY "Compile the client's and the test build's sources without Tibia.exe (object libraries Patella_compile and PatellaTest_compile; no resources, no link, no executables; hosted CI, issues #25, #46)" OFF)
 
 set(PATELLA_RES_DIR "${PROJECT_BINARY_DIR}/res")
 if(NOT PATELLA_CLIENT_COMPILE_ONLY)
@@ -78,7 +79,8 @@ set(patella_vulkan_client_sources "${PROJECT_SOURCE_DIR}/src/vulkan/SurfaceVulka
 # src/testmode/TestModeWin32.cpp and patella_testmode's sources (cmake/TestMode.cmake), compiled here
 # again because the client links the static CRT and the library the DLL one. Patella.exe compiles
 # none of them. The client's sources are compiled once per target: the definition changes every one.
-# patella_client_compile_settings: what the compiler sees, shared with PatellaTest_compile.
+# patella_client_compile_settings: what the compiler sees, shared with Patella_compile and
+# PatellaTest_compile.
 function(patella_client_compile_settings target)
 	set_target_properties(${target} PROPERTIES
 		MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
@@ -115,7 +117,11 @@ set(patella_test_build_sources "${PROJECT_SOURCE_DIR}/src/testmode/TestModeWin32
 	"${PROJECT_SOURCE_DIR}/src/testmode/ClientStateWin32.cpp" ${patella_testmode_sources})
 
 if(PATELLA_CLIENT_COMPILE_ONLY)
-	# The test build's sources without the resource script, compiled as PatellaTest.exe compiles them.
+	# Each executable's sources without the resource script, compiled as Patella.exe and PatellaTest.exe
+	# compile them.
+	add_library(Patella_compile OBJECT ${patella_cpp_sources} ${patella_c_sources}
+		${patella_vulkan_client_sources})
+	patella_client_compile_settings(Patella_compile)
 	add_library(PatellaTest_compile OBJECT ${patella_cpp_sources} ${patella_c_sources}
 		${patella_vulkan_client_sources} ${patella_test_build_sources})
 	patella_client_compile_settings(PatellaTest_compile)
