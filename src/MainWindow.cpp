@@ -193,7 +193,7 @@ void TMainWindow::HandleEvent(int Event)
 	switch (Event) {
 	case 0x21:
 		CopyTaintedClipboardText();
-		// fall through
+		[[fallthrough]];
 	case 2:
 		SetActionState(0);
 		break;

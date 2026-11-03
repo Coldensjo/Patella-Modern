@@ -395,7 +395,7 @@ void MouseMove(int x, int y)
 	switch (GetActionState()) {
 	case 1:
 		CheckDragStart(x, y);
-		// fall through
+		[[fallthrough]];
 	default:
 		MainWindow->MouseMove(x, y);
 		break;

@@ -1537,7 +1537,7 @@ void TConsoleWindow::HandleEvent(int Event)
 	switch (Event) {
 	case 202:
 		CloseChannel();
-		// fall through
+		[[fallthrough]];
 	case 201:
 		CurrentConsole->TextWindow->SetTextBuffer(TabBar->CurrentTab->TextBuffer);
 		CurrentConsole->ScrollToEnd = true;
@@ -1548,7 +1548,7 @@ void TConsoleWindow::HandleEvent(int Event)
 		break;
 	case 210:
 		ServerMessagesButton->State = !ServerMessagesButton->State;
-		// fall through
+		[[fallthrough]];
 	case 203:
 		CurrentConsole->getTextBuffer()->ShowMessages = ServerMessagesButton->State;
 		break;

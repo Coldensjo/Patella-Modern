@@ -129,10 +129,17 @@ function(patella_target_warnings target)
 	elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 		set(full -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 		set(baseline -Wall)
+		# A switch case that falls through says so with [[fallthrough]] (issue #38), on every C++ source,
+		# the baseline files included. GCC's -Wextra takes a "fall through" comment as well (level 3);
+		# level 5 takes only the attribute. Clang's -Wextra does not include the warning at all. MSVC has
+		# no compiler warning for it (only the code analysis's C26819, /analyze). Not for C: the
+		# regexp (src/Extern) is third-party code in C17, which has no [[fallthrough]].
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 			set(baseline_list ${PATELLA_WARNING_BASELINE_GCC})
+			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wimplicit-fallthrough=5>)
 		else()
 			set(baseline_list ${PATELLA_WARNING_BASELINE_CLANG})
+			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wimplicit-fallthrough>)
 			# Clang warns about K&R function definitions in every C standard, at any level; they are
 			# valid C17, the regexp's (src/Extern) form, kept until M6.
 			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wno-deprecated-non-prototype>)
