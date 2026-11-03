@@ -590,29 +590,29 @@ void GetHangPattern(TObject &Obj, int *PatternX, int *PatternY)
 void ReleaseObjects()
 {
 	TBEGIN
-	if (ObjectProperties != NULL) {
+	if (ObjectProperties != nullptr) {
 		for (int i = ObjectProperties->low(); i <= ObjectProperties->high(); i++)
 			delete[] (*ObjectProperties)(i).Sprites;
 		delete ObjectProperties;
-		ObjectProperties = NULL;
+		ObjectProperties = nullptr;
 	}
-	if (OutfitProperties != NULL) {
+	if (OutfitProperties != nullptr) {
 		for (int i = OutfitProperties->low(); i <= OutfitProperties->high(); i++)
 			delete[] (*OutfitProperties)(i).Sprites;
 		delete OutfitProperties;
-		OutfitProperties = NULL;
+		OutfitProperties = nullptr;
 	}
-	if (EffectProperties != NULL) {
+	if (EffectProperties != nullptr) {
 		for (int i = EffectProperties->low(); i <= EffectProperties->high(); i++)
 			delete[] (*EffectProperties)(i).Sprites;
 		delete EffectProperties;
-		EffectProperties = NULL;
+		EffectProperties = nullptr;
 	}
-	if (MissileProperties != NULL) {
+	if (MissileProperties != nullptr) {
 		for (int i = MissileProperties->low(); i <= MissileProperties->high(); i++)
 			delete[] (*MissileProperties)(i).Sprites;
 		delete MissileProperties;
-		MissileProperties = NULL;
+		MissileProperties = nullptr;
 	}
 	TEND(888)
 }
@@ -728,10 +728,10 @@ void LoadObjects(const char *FileName)
 void InitObjects()
 {
 	TBEGIN
-	ObjectProperties = NULL;
-	OutfitProperties = NULL;
-	EffectProperties = NULL;
-	MissileProperties = NULL;
+	ObjectProperties = nullptr;
+	OutfitProperties = nullptr;
+	EffectProperties = nullptr;
+	MissileProperties = nullptr;
 	try {
 		LoadObjects("Tibia.dat");
 	} catch (TMyException &) {

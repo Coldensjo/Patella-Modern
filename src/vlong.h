@@ -20,7 +20,7 @@ public:
 	flex_unit()
 	{
 		z = 0;
-		a = 0;
+		a = nullptr;
 		n = 0;
 	}
 	~flex_unit();

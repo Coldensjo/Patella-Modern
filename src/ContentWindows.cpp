@@ -39,7 +39,7 @@ static char SkillMouseOverText[256];   // 0x5c4400, "You have %d percent to go"
 // At 0x5c4500, constructed by the static initialiser 0x559dd0 as
 // TCallback(NULL, 0) like the other window files' (ConsoleWindow.obj's is at
 // 0x5c4390, initialiser 0x559dc0); here TTradeButtons' constructor copies it.
-static TCallback NoCallback(NULL, 0);
+static TCallback NoCallback(nullptr, 0);
 
 // --- The creators -----------------------------------------------------------------
 
@@ -1552,7 +1552,7 @@ void TContainerWindowBody::Arrange()
 		ContentHeight = Height;
 	ScrollBar->Range->SetRange(0, ContentHeight - Height, ScrollBar->Range->Value, Height);
 	TSubWindow *Window = (TSubWindow *)GetParent();
-	if (Window != NULL) {
+	if (Window != nullptr) {
 		TObjectIcon *Icon = new TObjectIcon(GetContainerObject(Container), &SkinProperties.Style194.Data80, false);
 		TLabel *Title = new TLabel(SkinProperties.Style194.Data38, GetContainerName(Container));
 		Window->SetIcon(Icon);
@@ -1740,11 +1740,11 @@ void TContainerWindowBody::UpdateUpButton()
 	TSubWindow *Window = (TSubWindow *)GetParent();
 	if (GetContainerHasParent(Container)) {
 		HasParent = true;
-		if (Window != NULL)
+		if (Window != nullptr)
 			Window->ShowUpButton();
 	} else {
 		HasParent = false;
-		if (Window != NULL)
+		if (Window != nullptr)
 			Window->HideUpButton();
 	}
 	TEND(1960)
@@ -1757,7 +1757,7 @@ void TContainerWindowBody::UpdateUpButton()
 TSkillsWindowBody::TSkillsWindowBody()
 {
 	TBEGIN
-	ContextMenu = NULL;
+	ContextMenu = nullptr;
 	ScrollBar = new TScrollBar(TRect(0, 0, SkinProperties.Data870, SkinProperties.Data874), 0, 0, 0, 0,
 		GetFontLineHeight(SkinProperties.Data654.FontNumber) / 2);
 	InsertChild(ScrollBar);
@@ -1773,8 +1773,8 @@ TSkillsWindowBody::TSkillsWindowBody()
 TSkillsWindowBody::~TSkillsWindowBody()
 {
 	TBEGIN
-	if (ContextMenu != NULL)
-		ContextMenu->SkillsWindow = NULL;
+	if (ContextMenu != nullptr)
+		ContextMenu->SkillsWindow = nullptr;
 	TEND(1990)
 }
 #pragma warning(pop)
@@ -2212,7 +2212,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 					goto NoSkull;
 				}
 				if (Creature->SkullTime < 1
-					|| !In((int)PATELLA_TIME32(NULL), (int)Creature->SkullTime, (int)Creature->SkullTime + 4)
+					|| !In((int)PATELLA_TIME32(nullptr), (int)Creature->SkullTime, (int)Creature->SkullTime + 4)
 					|| GetBlinkState())
 					DrawSkinClipped(Surface, SkinProperties.Style688.Data14.x + Offset + x,
 						SkinProperties.Style688.Data14.y + RowY + y, Skins[Skin].width, Skins[Skin].height, Skin, x,
@@ -2298,7 +2298,7 @@ bool TBattleWindowBody::LeftButtonUp(int x, int y, int Flags)
 		int Position = GetOpponentAt(x, y);
 		if (Position != -1) {
 			TCreature *Creature = GetOpponent(Position);
-			if (Creature != NULL) {
+			if (Creature != nullptr) {
 				if (GetActionState() == 7) {
 					int SrcIndex, SrcX, SrcY, SrcZ;
 					TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
@@ -2340,7 +2340,7 @@ bool TBattleWindowBody::RightButtonUp(int x, int y, int Flags)
 		int Position = GetOpponentAt(x, y);
 		if (Position != -1) {
 			TCreature *Creature = GetOpponent(Position);
-			if (Creature != NULL) {
+			if (Creature != nullptr) {
 				if ((Flags & 0x800) != 0) {
 					uint32 AttackID = GetAttackID();
 					SetAttackID(Creature->CreatureID == AttackID ? 0 : Creature->CreatureID);
@@ -2364,7 +2364,7 @@ void TBattleWindowBody::MouseHover(int x, int y)
 	int Position = GetOpponentAt(x, y);
 	if (Position != -1) {
 		TCreature *Creature = GetOpponent(Position);
-		if (Creature != NULL) {
+		if (Creature != nullptr) {
 			int MaxLength = GetFittingTextLength(SkinProperties.Style688.Data54.FontNumber, Creature->Name,
 				SkinProperties.Style688.Data14.width);
 			if (MaxLength < (int)strlen(Creature->Name)) {
@@ -2688,13 +2688,13 @@ void TTradeNames::Arrange()
 // 0x432f00, line 2947. The try block starts after the base class (and the
 // callback member). Until the partner offers, a text asks to wait.
 TTradeButtons::TTradeButtons()
-	: Callback(NULL, 0)
+	: Callback(nullptr, 0)
 {
 	TBEGIN
 	Callback = NoCallback;
-	CancelButton = NULL;
-	WaitLabel = NULL;
-	AcceptButton = NULL;
+	CancelButton = nullptr;
+	WaitLabel = nullptr;
+	AcceptButton = nullptr;
 	WaitLabel = new TLabel(SkinProperties.Style6FC.DataF8, TextWaitForCounterOffer);
 	InsertChild(WaitLabel);
 	Separator = new TSeparator(true);
@@ -2719,11 +2719,11 @@ void TTradeButtons::SetSize(int Width, int Height)
 	TBEGIN
 	TWindow::SetSize(Width, Height);
 	SetChildArea(Separator, SkinProperties.Style6FC.DataE8);
-	if (CancelButton != NULL)
+	if (CancelButton != nullptr)
 		SetChildPosition(CancelButton, SkinProperties.Style6FC.DataC8.width, SkinProperties.Style6FC.DataC8.height);
-	if (WaitLabel != NULL)
+	if (WaitLabel != nullptr)
 		SetChildArea(WaitLabel, SkinProperties.Style6FC.DataD8);
-	if (AcceptButton != NULL)
+	if (AcceptButton != nullptr)
 		SetChildPosition(AcceptButton, SkinProperties.Style6FC.DataC8.x, SkinProperties.Style6FC.DataC8.y);
 	TEND2(2974, Width, Height)
 }
@@ -2733,7 +2733,7 @@ void TTradeButtons::SetSize(int Width, int Height)
 void TTradeButtons::SetCancelButton(bool Cancel)
 {
 	TBEGIN
-	if (CancelButton != NULL)
+	if (CancelButton != nullptr)
 		DeleteChild(CancelButton);
 	if (!Cancel)
 		CancelButton = new TTextButton(0, 0, "Reject", Callback, TextRejectOffer);
@@ -2753,7 +2753,7 @@ void TTradeButtons::ShowAcceptButton(TComponent *EventComponent)
 	TBEGIN
 	SetCancelButton(false);
 	DeleteChild(WaitLabel);
-	WaitLabel = NULL;
+	WaitLabel = nullptr;
 	AcceptButton = new TTextButton(0, 0, "Accept", TCallback(EventComponent, 1), TextAcceptOffer);
 	InsertChild(AcceptButton);
 	SetSize(Width, Height);
@@ -2767,7 +2767,7 @@ void TTradeButtons::Wait()
 {
 	TBEGIN
 	DeleteChild(AcceptButton);
-	AcceptButton = NULL;
+	AcceptButton = nullptr;
 	WaitLabel = new TLabel(SkinProperties.Style6FC.DataF8, TextWaitForPartner);
 	InsertChild(WaitLabel);
 	SetSize(Width, Height);
@@ -2898,7 +2898,7 @@ TBuddylistWindowBody::TBuddylistWindowBody()
 	ScrollBar = new TScrollBar(TRect(0, 0, SkinProperties.Data870, SkinProperties.Data874), 0, 0, 0, 0,
 		SkinProperties.BuddylistWindow.Data04 / 2);
 	InsertChild(ScrollBar);
-	MouseOverText = NULL;
+	MouseOverText = nullptr;
 	NumberOfBuddies = -1;
 	Arrange();
 	TEND(3150)
@@ -3018,9 +3018,9 @@ void TBuddylistWindowBody::MouseHover(int x, int y)
 		int MaxLength = GetFittingTextLength(SkinProperties.BuddylistWindow.Data28.FontNumber, Name,
 			SkinProperties.BuddylistWindow.Data18.width);
 		if (MaxLength < (int)strlen(Name)) {
-			if (MouseOverText != NULL)
+			if (MouseOverText != nullptr)
 				delete[] MouseOverText;
-			MouseOverText = NULL;
+			MouseOverText = nullptr;
 			MouseOverText = new char[36];
 			MouseOverText[0] = 0;
 			sprintf(MouseOverText + strlen(MouseOverText), "%s", Name);

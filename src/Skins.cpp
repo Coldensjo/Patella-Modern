@@ -299,5 +299,5 @@ void InitSkins()
 void ExitSkins()
 {
 	delete[] Skins;
-	Skins = NULL;
+	Skins = nullptr;
 }

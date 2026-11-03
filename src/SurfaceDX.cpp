@@ -155,8 +155,8 @@ void TSurfaceDX::SetPixel(int Surface, int x, int y, TRGBColor Color)
 	memset(&Desc, 0, sizeof(Desc));
 	Desc.dwSize = sizeof(DDSURFACEDESC);
 	HRESULT Result;
-	while ((Result = this->Surface[Surface]->Lock(NULL, &Desc,
-				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL))
+	while ((Result = this->Surface[Surface]->Lock(nullptr, &Desc,
+				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, nullptr))
 		!= DD_OK) {
 		if (Result != DDERR_SURFACEBUSY)
 			return;
@@ -167,7 +167,7 @@ void TSurfaceDX::SetPixel(int Surface, int x, int y, TRGBColor Color)
 	Format.dwSize = sizeof(Format);
 	this->Surface[Surface]->GetPixelFormat(&Format);
 	if (Format.dwRGBBitCount < 16) {
-		this->Surface[Surface]->Unlock(NULL);
+		this->Surface[Surface]->Unlock(nullptr);
 		return;
 	}
 	int BytesPerPixel = Format.dwRGBBitCount >> 3;
@@ -180,7 +180,7 @@ void TSurfaceDX::SetPixel(int Surface, int x, int y, TRGBColor Color)
 	uint8 *Destination = (uint8 *)Desc.lpSurface + y * Desc.lPitch + x * BytesPerPixel;
 	for (int LoopIndex = 3; LoopIndex >= 4 - BytesPerPixel; LoopIndex--)
 		*Destination++ = Bytes[LoopIndex];
-	this->Surface[Surface]->Unlock(NULL);
+	this->Surface[Surface]->Unlock(nullptr);
 }
 
 // 0x4eb2f0. Every blit is retried while the surface is busy and counted in
@@ -191,11 +191,11 @@ void TSurfaceDX::FillRectangle(int Surface, TRect Rect, TRGBColor Color)
 	DDBLTFX Effects;
 	Effects.dwSize = sizeof(DDBLTFX);
 	Effects.dwFillColor = GetPixelColor(this->Surface[Surface], Color);
-	HRESULT Result = this->Surface[Surface]->Blt(&Area, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT,
+	HRESULT Result = this->Surface[Surface]->Blt(&Area, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT,
 		&Effects);
 	while (Result == DDERR_SURFACEBUSY) {
 		Sleep(0);
-		Result = this->Surface[Surface]->Blt(&Area, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT,
+		Result = this->Surface[Surface]->Blt(&Area, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT,
 			&Effects);
 	}
 	BlitCount++;
@@ -212,11 +212,11 @@ void TSurfaceDX::FillRectangleClipped(int Surface, TRect Rect, TRGBColor Color, 
 	DDBLTFX Effects;
 	Effects.dwSize = sizeof(DDBLTFX);
 	Effects.dwFillColor = GetPixelColor(this->Surface[Surface], Color);
-	HRESULT Result = this->Surface[Surface]->Blt(&Area, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT,
+	HRESULT Result = this->Surface[Surface]->Blt(&Area, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT,
 		&Effects);
 	while (Result == DDERR_SURFACEBUSY) {
 		Sleep(0);
-		Result = this->Surface[Surface]->Blt(&Area, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT,
+		Result = this->Surface[Surface]->Blt(&Area, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT,
 			&Effects);
 	}
 	BlitCount++;
@@ -230,11 +230,11 @@ void TSurfaceDX::DrawHorizontalLine(int Surface, int x, int y, int Width, TRGBCo
 	DDBLTFX Effects;
 	Effects.dwSize = sizeof(DDBLTFX);
 	Effects.dwFillColor = GetPixelColor(this->Surface[Surface], Color);
-	HRESULT Result = this->Surface[Surface]->Blt(&Area, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT,
+	HRESULT Result = this->Surface[Surface]->Blt(&Area, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT,
 		&Effects);
 	while (Result == DDERR_SURFACEBUSY) {
 		Sleep(0);
-		Result = this->Surface[Surface]->Blt(&Area, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT,
+		Result = this->Surface[Surface]->Blt(&Area, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT,
 			&Effects);
 	}
 	BlitCount++;
@@ -248,11 +248,11 @@ void TSurfaceDX::DrawVerticalLine(int Surface, int x, int y, int Height, TRGBCol
 	DDBLTFX Effects;
 	Effects.dwSize = sizeof(DDBLTFX);
 	Effects.dwFillColor = GetPixelColor(this->Surface[Surface], Color);
-	HRESULT Result = this->Surface[Surface]->Blt(&Area, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT,
+	HRESULT Result = this->Surface[Surface]->Blt(&Area, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT,
 		&Effects);
 	while (Result == DDERR_SURFACEBUSY) {
 		Sleep(0);
-		Result = this->Surface[Surface]->Blt(&Area, NULL, NULL, DDBLT_COLORFILL | DDBLT_WAIT,
+		Result = this->Surface[Surface]->Blt(&Area, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT,
 			&Effects);
 	}
 	BlitCount++;
@@ -267,8 +267,8 @@ void TSurfaceDX::WriteImage(int ToSurface, int x, int y, int Width, int Height, 
 	memset(&Desc, 0, sizeof(Desc));
 	Desc.dwSize = sizeof(DDSURFACEDESC);
 	HRESULT Result;
-	while ((Result = Surface[ToSurface]->Lock(NULL, &Desc,
-				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL))
+	while ((Result = Surface[ToSurface]->Lock(nullptr, &Desc,
+				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, nullptr))
 		!= DD_OK) {
 		if (Result != DDERR_SURFACEBUSY)
 			return;
@@ -296,7 +296,7 @@ void TSurfaceDX::WriteImage(int ToSurface, int x, int y, int Width, int Height, 
 				Pixels[Offset++] = Bytes[LoopIndex];
 		}
 	}
-	Surface[ToSurface]->Unlock(NULL);
+	Surface[ToSurface]->Unlock(nullptr);
 }
 
 // 0x4eb900. The outfit colouring: with a mask, the mask's yellow, red, green
@@ -311,8 +311,8 @@ void TSurfaceDX::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 	memset(&Desc, 0, sizeof(Desc));
 	Desc.dwSize = sizeof(DDSURFACEDESC);
 	HRESULT Result;
-	while ((Result = Surface[ToSurface]->Lock(NULL, &Desc,
-				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL))
+	while ((Result = Surface[ToSurface]->Lock(nullptr, &Desc,
+				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, nullptr))
 		!= DD_OK) {
 		if (Result != DDERR_SURFACEBUSY)
 			return;
@@ -334,7 +334,7 @@ void TSurfaceDX::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 			int Blue = Data[2];
 			Data += 3;
 			int Index = -1;
-			if (Mask != NULL) {
+			if (Mask != nullptr) {
 				int MaskR = Mask[0];
 				int MaskG = Mask[1];
 				int MaskB = Mask[2];
@@ -366,7 +366,7 @@ void TSurfaceDX::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 				Pixels[Offset++] = Bytes[LoopIndex];
 		}
 	}
-	Surface[ToSurface]->Unlock(NULL);
+	Surface[ToSurface]->Unlock(nullptr);
 }
 
 // 0x4ebc30. Not clipped, no colour key; DirectDraw stretches when the
@@ -376,10 +376,10 @@ void TSurfaceDX::StretchBlitRect(int ToSurface, TRect Destination, int FromSurfa
 	RECT To = {Destination.x, Destination.y, Destination.x + Destination.width,
 		Destination.y + Destination.height};
 	RECT From = {Source.x, Source.y, Source.x + Source.width, Source.y + Source.height};
-	HRESULT Result = Surface[ToSurface]->Blt(&To, Surface[FromSurface], &From, DDBLT_WAIT, NULL);
+	HRESULT Result = Surface[ToSurface]->Blt(&To, Surface[FromSurface], &From, DDBLT_WAIT, nullptr);
 	while (Result == DDERR_SURFACEBUSY) {
 		Sleep(0);
-		Result = Surface[ToSurface]->Blt(&To, Surface[FromSurface], &From, DDBLT_WAIT, NULL);
+		Result = Surface[ToSurface]->Blt(&To, Surface[FromSurface], &From, DDBLT_WAIT, nullptr);
 	}
 	BlitCount++;
 	BlitPixels += Destination.width * Destination.height;
@@ -395,11 +395,11 @@ void TSurfaceDX::BlitClipped(int ToSurface, int x, int y, int FromSurface, TRect
 		return;
 	SetSourceColorKey(FromSurface, ColorKey);
 	HRESULT Result = Surface[ToSurface]->Blt(&To, Surface[FromSurface], &From,
-		DDBLT_WAIT | DDBLT_KEYSRC, NULL);
+		DDBLT_WAIT | DDBLT_KEYSRC, nullptr);
 	while (Result == DDERR_SURFACEBUSY) {
 		Sleep(0);
 		Result = Surface[ToSurface]->Blt(&To, Surface[FromSurface], &From, DDBLT_WAIT | DDBLT_KEYSRC,
-			NULL);
+			nullptr);
 	}
 	BlitCount++;
 	BlitPixels += FromRect.width * FromRect.height;
@@ -412,10 +412,10 @@ void TSurfaceDX::BlitRectClipped(int ToSurface, int x, int y, int FromSurface, T
 	RECT From = {FromRect.x, FromRect.y, FromRect.x + FromRect.width, FromRect.y + FromRect.height};
 	if (!ClipRect(Clip, &To, &From))
 		return;
-	HRESULT Result = Surface[ToSurface]->Blt(&To, Surface[FromSurface], &From, DDBLT_WAIT, NULL);
+	HRESULT Result = Surface[ToSurface]->Blt(&To, Surface[FromSurface], &From, DDBLT_WAIT, nullptr);
 	while (Result == DDERR_SURFACEBUSY) {
 		Sleep(0);
-		Result = Surface[ToSurface]->Blt(&To, Surface[FromSurface], &From, DDBLT_WAIT, NULL);
+		Result = Surface[ToSurface]->Blt(&To, Surface[FromSurface], &From, DDBLT_WAIT, nullptr);
 	}
 	BlitCount++;
 	BlitPixels += FromRect.width * FromRect.height;
@@ -427,7 +427,7 @@ void TSurfaceDX::BlitRectClipped(int ToSurface, int x, int y, int FromSurface, T
 // is drawn when BeginScene fails.
 void TSurfaceDX::ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor *Colors)
 {
-	if (Surface != TEMP_SURFACE || Direct3D == NULL)
+	if (Surface != TEMP_SURFACE || Direct3D == nullptr)
 		return;
 	D3DTLVERTEX Vertices[4];
 	if (Device->BeginScene() != D3D_OK)
@@ -470,16 +470,16 @@ void TSurfaceDX::FinishFrame()
 		while (Surface[PRIMARY_SURFACE]->GetBltStatus(DDGBS_ISBLTDONE) == DDERR_WASSTILLDRAWING)
 			Sleep(0);
 		HRESULT Result = Surface[PRIMARY_SURFACE]->Blt(&WindowRect, Surface[SCREEN_SURFACE],
-			&Rect[SCREEN_SURFACE], DDBLT_WAIT, NULL);
+			&Rect[SCREEN_SURFACE], DDBLT_WAIT, nullptr);
 		while (Result == DDERR_SURFACEBUSY) {
 			Sleep(0);
 			Result = Surface[PRIMARY_SURFACE]->Blt(&WindowRect, Surface[SCREEN_SURFACE],
-				&Rect[SCREEN_SURFACE], DDBLT_WAIT, NULL);
+				&Rect[SCREEN_SURFACE], DDBLT_WAIT, nullptr);
 		}
 		BlitCount++;
 		BlitPixels += (WindowRect.bottom - WindowRect.top) * (WindowRect.right - WindowRect.left);
 	} else {
-		while (Surface[PRIMARY_SURFACE]->Flip(NULL, 0) == DDERR_WASSTILLDRAWING)
+		while (Surface[PRIMARY_SURFACE]->Flip(nullptr, 0) == DDERR_WASSTILLDRAWING)
 			Sleep(0);
 	}
 }
@@ -496,7 +496,7 @@ bool TSurfaceDX::CreateOffscreenSurface(IDirectDrawSurface4 **Result, int Width,
 	Desc.dwHeight = Height;
 	Desc.dwWidth = Width;
 	Desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY;
-	if (DirectDraw->CreateSurface(&Desc, Result, NULL) == DD_OK) {
+	if (DirectDraw->CreateSurface(&Desc, Result, nullptr) == DD_OK) {
 		SurfaceMemory[NumberOfSurfaces] = 1;
 		NumberOfSurfaces++;
 		return true;
@@ -504,7 +504,7 @@ bool TSurfaceDX::CreateOffscreenSurface(IDirectDrawSurface4 **Result, int Width,
 	if (VideoMemoryOnly)
 		return false;
 	Desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
-	if (DirectDraw->CreateSurface(&Desc, Result, NULL) != DD_OK)
+	if (DirectDraw->CreateSurface(&Desc, Result, nullptr) != DD_OK)
 		return false;
 	SurfaceMemory[NumberOfSurfaces] = 2;
 	NumberOfSurfaces++;
@@ -522,7 +522,7 @@ bool TSurfaceDX::Create3DSurface(IDirectDrawSurface4 **Result, int Width, int He
 	Desc.dwHeight = Height;
 	Desc.dwWidth = Width;
 	Desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY;
-	if (DirectDraw->CreateSurface(&Desc, Result, NULL) == DD_OK) {
+	if (DirectDraw->CreateSurface(&Desc, Result, nullptr) == DD_OK) {
 		SurfaceMemory[NumberOfSurfaces] = 1;
 		NumberOfSurfaces++;
 		return true;
@@ -530,7 +530,7 @@ bool TSurfaceDX::Create3DSurface(IDirectDrawSurface4 **Result, int Width, int He
 	if (VideoMemoryOnly)
 		return false;
 	Desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_3DDEVICE;
-	if (DirectDraw->CreateSurface(&Desc, Result, NULL) != DD_OK)
+	if (DirectDraw->CreateSurface(&Desc, Result, nullptr) != DD_OK)
 		return false;
 	SurfaceMemory[NumberOfSurfaces] = 2;
 	NumberOfSurfaces++;
@@ -542,33 +542,33 @@ bool TSurfaceDX::Create3DSurface(IDirectDrawSurface4 **Result, int Width, int He
 // released first (in fullscreen mode it is the primary's back buffer).
 void TSurfaceDX::ExitDisplay()
 {
-	if (DirectDraw == NULL)
+	if (DirectDraw == nullptr)
 		return;
 	if (ViewMode == FULLSCREEN_MODE)
 		DirectDraw->SetCooperativeLevel(hWindow, DDSCL_NORMAL);
-	if (Surface[SCREEN_SURFACE] != NULL) {
+	if (Surface[SCREEN_SURFACE] != nullptr) {
 		Surface[SCREEN_SURFACE]->Release();
-		Surface[SCREEN_SURFACE] = NULL;
+		Surface[SCREEN_SURFACE] = nullptr;
 	}
 	for (int LoopIndex = 0; LoopIndex < NUMBER_OF_SURFACES; LoopIndex++) {
-		if (Surface[LoopIndex] != NULL) {
+		if (Surface[LoopIndex] != nullptr) {
 			Surface[LoopIndex]->Release();
-			Surface[LoopIndex] = NULL;
+			Surface[LoopIndex] = nullptr;
 			SurfaceMemory[LoopIndex] = 0;
 		}
 	}
 	CacheSurfaces = 0;
-	if (Viewport != NULL) {
+	if (Viewport != nullptr) {
 		Viewport->Release();
-		Viewport = NULL;
+		Viewport = nullptr;
 	}
-	if (Device != NULL) {
+	if (Device != nullptr) {
 		Device->Release();
-		Device = NULL;
+		Device = nullptr;
 	}
-	if (Direct3D != NULL) {
+	if (Direct3D != nullptr) {
 		Direct3D->Release();
-		Direct3D = NULL;
+		Direct3D = nullptr;
 	}
 	ViewMode = 0;
 }
@@ -598,7 +598,7 @@ void TSurfaceDX::RestoreSurfaces(int ViewMode, TFullscreenMode *Mode)
 	}
 	Unavailable = false;
 	for (int LoopIndex = 0; LoopIndex < NUMBER_OF_SURFACES; LoopIndex++) {
-		if (Surface[LoopIndex] != NULL && Surface[LoopIndex]->IsLost() == DDERR_SURFACELOST) {
+		if (Surface[LoopIndex] != nullptr && Surface[LoopIndex]->IsLost() == DDERR_SURFACELOST) {
 			ExitDisplay();
 			ResetDisplay(ViewMode, Mode);
 			return;
@@ -620,7 +620,7 @@ bool TSurfaceDX::Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, b
 		switch (this->ViewMode) {
 		case 0:
 			hWindow = *Window;
-			ResetDisplay(WINDOWED_MODE, NULL);
+			ResetDisplay(WINDOWED_MODE, nullptr);
 			break;
 		case WINDOWED_MODE:
 			if (hWindow != *Window) {
@@ -632,7 +632,7 @@ bool TSurfaceDX::Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, b
 		case FULLSCREEN_MODE:
 			ExitDisplay();
 			hWindow = *Window;
-			ResetDisplay(WINDOWED_MODE, NULL);
+			ResetDisplay(WINDOWED_MODE, nullptr);
 			break;
 		}
 	} else if (ViewMode == FULLSCREEN_MODE) {
@@ -655,7 +655,7 @@ bool TSurfaceDX::Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, b
 static HRESULT WINAPI AddFullscreenMode(DDSURFACEDESC2 *Desc, void *Context)
 {
 	TFullscreenMode **Modes = (TFullscreenMode **)Context;
-	if (*Modes == NULL)
+	if (*Modes == nullptr)
 		GetSurface()->NumberOfModes = 0;
 	int Width = (Desc->dwFlags & DDSD_WIDTH) ? Desc->dwWidth : 0;
 	int Height = (Desc->dwFlags & DDSD_HEIGHT) ? Desc->dwHeight : 0;
@@ -663,7 +663,7 @@ static HRESULT WINAPI AddFullscreenMode(DDSURFACEDESC2 *Desc, void *Context)
 	int Frequency = (Desc->ddpfPixelFormat.dwFlags & DDSD_REFRESHRATE) ? Desc->dwRefreshRate : 0;
 	if (Width >= 640 && Height >= 480 && Depth >= 16) {
 		TFullscreenMode *List = new TFullscreenMode[GetSurface()->NumberOfModes + 1];
-		if (*Modes != NULL) {
+		if (*Modes != nullptr) {
 			for (int LoopIndex = 0; LoopIndex < GetSurface()->NumberOfModes; LoopIndex++)
 				List[LoopIndex] = (*Modes)[LoopIndex];
 			delete[] *Modes;
@@ -681,28 +681,28 @@ static HRESULT WINAPI AddFullscreenMode(DDSURFACEDESC2 *Desc, void *Context)
 // 0x4ec980
 int TSurfaceDX::GetFullscreenModes(TFullscreenMode **Modes)
 {
-	*Modes = NULL;
-	if (DirectDraw->EnumDisplayModes(0, NULL, Modes, AddFullscreenMode) == DD_OK)
+	*Modes = nullptr;
+	if (DirectDraw->EnumDisplayModes(0, nullptr, Modes, AddFullscreenMode) == DD_OK)
 		return NumberOfModes;
-	if (*Modes != NULL)
+	if (*Modes != nullptr)
 		delete[] *Modes;
-	*Modes = NULL;
+	*Modes = nullptr;
 	return 0;
 }
 
 // 0x4ec9d0
 bool TSurfaceDX::CanShadeRectangles()
 {
-	return Direct3D != NULL;
+	return Direct3D != nullptr;
 }
 
 // 0x4ec9e0
 void TSurfaceDX::ExitSurfaces()
 {
 	ExitDisplay();
-	if (DirectDraw != NULL) {
+	if (DirectDraw != nullptr) {
 		DirectDraw->Release();
-		DirectDraw = NULL;
+		DirectDraw = nullptr;
 	}
 }
 
@@ -718,7 +718,7 @@ TSurface *CreateSurfaceDX()
 void TSurfaceDX::ShadeRectangle(int Surface, TRect Rect, TRGBColor TopLeft, TRGBColor TopRight,
 	TRGBColor BottomLeft, TRGBColor BottomRight)
 {
-	if (Surface != TEMP_SURFACE || Direct3D == NULL)
+	if (Surface != TEMP_SURFACE || Direct3D == nullptr)
 		return;
 	D3DTLVERTEX Vertices[4];
 	if (Device->BeginScene() != D3D_OK)
@@ -744,7 +744,7 @@ void TSurfaceDX::ShadeRectangle(int Surface, TRect Rect, TRGBColor TopLeft, TRGB
 // SetPixel.
 bool TSurfaceDX::TestShading(int Surface)
 {
-	if (Surface != TEMP_SURFACE || Direct3D == NULL)
+	if (Surface != TEMP_SURFACE || Direct3D == nullptr)
 		return false;
 	FillRectangle(Surface, TRect(0, 0, 32, 32), TRGBColor(255, 255, 255));
 	ShadeRectangle(Surface, TRect(0, 0, 32, 32), TRGBColor(0, 0, 0), TRGBColor(0, 0, 0),
@@ -753,8 +753,8 @@ bool TSurfaceDX::TestShading(int Surface)
 	memset(&Desc, 0, sizeof(Desc));
 	Desc.dwSize = sizeof(DDSURFACEDESC);
 	HRESULT Result;
-	while ((Result = this->Surface[Surface]->Lock(NULL, &Desc,
-				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, NULL))
+	while ((Result = this->Surface[Surface]->Lock(nullptr, &Desc,
+				DDLOCK_WAIT | DDLOCK_NOSYSLOCK, nullptr))
 		!= DD_OK) {
 		if (Result != DDERR_SURFACEBUSY)
 			return false;
@@ -766,18 +766,18 @@ bool TSurfaceDX::TestShading(int Surface)
 	Format.dwSize = sizeof(Format);
 	this->Surface[Surface]->GetPixelFormat(&Format);
 	if (Format.dwRGBBitCount < 16) {
-		this->Surface[Surface]->Unlock(NULL);
+		this->Surface[Surface]->Unlock(nullptr);
 		return false;
 	}
 	int BytesPerPixel = Format.dwRGBBitCount >> 3;
 	uint8 *Pixel = Pixels + 16 * (Desc.lPitch + BytesPerPixel);
 	for (int LoopIndex = 3; LoopIndex >= 4 - BytesPerPixel; LoopIndex--) {
 		if (*Pixel++ != 0) {
-			this->Surface[Surface]->Unlock(NULL);
+			this->Surface[Surface]->Unlock(nullptr);
 			return false;
 		}
 	}
-	this->Surface[Surface]->Unlock(NULL);
+	this->Surface[Surface]->Unlock(nullptr);
 	return true;
 }
 
@@ -789,16 +789,16 @@ bool TSurfaceDX::TestShading(int Surface)
 // interface from DirectDrawCreate is never released.
 void TSurfaceDX::InitSurfaces()
 {
-	hWindow = NULL;
+	hWindow = nullptr;
 	ViewMode = 0;
-	DirectDraw = NULL;
-	Direct3D = NULL;
-	Device = NULL;
-	Viewport = NULL;
+	DirectDraw = nullptr;
+	Direct3D = nullptr;
+	Device = nullptr;
+	Viewport = nullptr;
 	CacheSurfaceWidth = 320;
 	CacheSurfaceHeight = 320;
 	for (int LoopIndex = 0; LoopIndex < NUMBER_OF_SURFACES; LoopIndex++) {
-		Surface[LoopIndex] = NULL;
+		Surface[LoopIndex] = nullptr;
 		SurfaceMemory[LoopIndex] = 0;
 	}
 	SetRect(&Rect[TEMP_SURFACE], 0, 0, 640, 480);
@@ -812,7 +812,7 @@ void TSurfaceDX::InitSurfaces()
 		Rect[LoopIndex].bottom = CacheSurfaceHeight;
 	}
 	IDirectDraw *DirectDraw1;
-	if (DirectDrawCreate(NULL, &DirectDraw1, NULL) != DD_OK)
+	if (DirectDrawCreate(nullptr, &DirectDraw1, nullptr) != DD_OK)
 		throw (PROGRAM_ERROR)7;
 	if (DirectDraw1->QueryInterface(IID_IDirectDraw4, (void **)&DirectDraw) != DD_OK)
 		throw (PROGRAM_ERROR)7;
@@ -843,7 +843,7 @@ void TSurfaceDX::AttachWindow()
 	TASSERT(268, hWindow!=NULL);
 	TASSERT(269, Surface[PRIMARY_SURFACE]!=NULL);
 	IDirectDrawClipper *Clipper;
-	if (DirectDraw->CreateClipper(0, &Clipper, NULL) != DD_OK)
+	if (DirectDraw->CreateClipper(0, &Clipper, nullptr) != DD_OK)
 		throw (PROGRAM_ERROR)9;
 	Clipper->SetHWnd(0, hWindow);
 	Surface[PRIMARY_SURFACE]->SetClipper(Clipper);
@@ -978,7 +978,7 @@ void TSurfaceDX::CreateSurfaces()
 		Desc.dwSize = sizeof(Desc);
 		Desc.dwFlags = DDSD_CAPS;
 		Desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
-		if (DirectDraw->CreateSurface(&Desc, &Surface[PRIMARY_SURFACE], NULL) != DD_OK)
+		if (DirectDraw->CreateSurface(&Desc, &Surface[PRIMARY_SURFACE], nullptr) != DD_OK)
 			throw (PROGRAM_ERROR)12;
 		AttachWindow();
 		SurfaceMemory[PRIMARY_SURFACE] = 1;
@@ -992,7 +992,7 @@ void TSurfaceDX::CreateSurfaces()
 		Desc.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
 		Desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_FLIP | DDSCAPS_COMPLEX;
 		Desc.dwBackBufferCount = 1;
-		if (DirectDraw->CreateSurface(&Desc, &Surface[PRIMARY_SURFACE], NULL) != DD_OK)
+		if (DirectDraw->CreateSurface(&Desc, &Surface[PRIMARY_SURFACE], nullptr) != DD_OK)
 			throw (PROGRAM_ERROR)12;
 		SurfaceMemory[PRIMARY_SURFACE] = 1;
 		DDSCAPS2 Caps;
@@ -1012,9 +1012,9 @@ void TSurfaceDX::CreateSurfaces()
 	ViewportData.dvMaxX = 1.0f;
 	ViewportData.dvMaxY = 1.0f;
 	if (DirectDraw->QueryInterface(IID_IDirect3D3, (void **)&Direct3D) != DD_OK)
-		Direct3D = NULL;
+		Direct3D = nullptr;
 	InitStep = 2;
-	if (Direct3D != NULL) {
+	if (Direct3D != nullptr) {
 		D3DDEVICEDESC HardwareDesc;
 		memset(&HardwareDesc, 0, sizeof(HardwareDesc));
 		D3DDEVICEDESC SoftwareDesc;
@@ -1024,9 +1024,9 @@ void TSurfaceDX::CreateSurfaces()
 		if (Create3DSurface(&Surface[TEMP_SURFACE], Rect[TEMP_SURFACE].right,
 				Rect[TEMP_SURFACE].bottom, false)
 			&& ++InitStep
-			&& Direct3D->CreateDevice(*DeviceGUID, Surface[TEMP_SURFACE], &Device, NULL) == D3D_OK
+			&& Direct3D->CreateDevice(*DeviceGUID, Surface[TEMP_SURFACE], &Device, nullptr) == D3D_OK
 			&& ++InitStep
-			&& Direct3D->CreateViewport(&Viewport, NULL) == D3D_OK && ++InitStep
+			&& Direct3D->CreateViewport(&Viewport, nullptr) == D3D_OK && ++InitStep
 			&& Device->AddViewport(Viewport) == D3D_OK && ++InitStep
 			&& Viewport->SetViewport(&ViewportData) == D3D_OK && ++InitStep
 			&& Device->GetCaps(&HardwareDesc, &SoftwareDesc) == D3D_OK && ++InitStep
@@ -1042,10 +1042,10 @@ void TSurfaceDX::CreateSurfaces()
 		} else {
 			NumberOfSurfaces--;
 			Direct3D->Release();
-			Direct3D = NULL;
+			Direct3D = nullptr;
 		}
 	}
-	if (Direct3D == NULL
+	if (Direct3D == nullptr
 		&& !CreateOffscreenSurface(&Surface[TEMP_SURFACE], Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom,
 			false))
 		throw (PROGRAM_ERROR)14;

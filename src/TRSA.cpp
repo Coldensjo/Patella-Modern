@@ -18,7 +18,7 @@ TRSA::~TRSA()
 // 0x5089f0
 void TRSA::SetPublicKey(const char *ModulusM)
 {
-	if (ModulusM == NULL)
+	if (ModulusM == nullptr)
 		throw "ModulusM pointer is NULL";
 	try {
 		DecimalToVlong(ModulusM, m_ModulusM);
@@ -32,7 +32,7 @@ void TRSA::SetPublicKey(const char *ModulusM)
 // 0x508aa0
 void TRSA::Encrypt(uint8 *Data)
 {
-	if (Data == NULL)
+	if (Data == nullptr)
 		throw "Data pointer is NULL";
 	if (m_ModulusM == vlong(0))
 		throw "m_ModulusM is null";

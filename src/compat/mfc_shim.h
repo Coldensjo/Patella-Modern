@@ -21,7 +21,7 @@ public:
 	virtual ~CAsyncSocket();
 	BOOL Create(UINT nSocketPort = 0, int nSocketType = SOCK_STREAM,
 		long lEvent = FD_READ | FD_WRITE | FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE,
-		LPCTSTR lpszSocketAddress = NULL);
+		LPCTSTR lpszSocketAddress = nullptr);
 	BOOL Connect(LPCTSTR lpszHostAddress, UINT nHostPort);
 	virtual void Close();
 	virtual int Receive(void *lpBuf, int nBufLen, int nFlags = 0);
@@ -36,7 +36,7 @@ public:
 	SOCKET m_hSocket;
 };
 
-BOOL AfxSocketInit(WSADATA *lpwsaData = NULL);
+BOOL AfxSocketInit(WSADATA *lpwsaData = nullptr);
 
 // --- added for Player.cpp: the application and frame window classes ---
 
@@ -50,7 +50,7 @@ class CWnd : public CCmdTarget {
 public:
 	BOOL ShowWindow(int nCmdShow);
 	void UpdateWindow() { ::UpdateWindow(m_hWnd); }
-	HWND GetSafeHwnd() const { return this == NULL ? NULL : m_hWnd; }
+	HWND GetSafeHwnd() const { return this == nullptr ? nullptr : m_hWnd; }
 	LRESULT Default();
 	BOOL ModifyStyle(DWORD dwRemove, DWORD dwAdd, UINT nFlags = 0);
 	BOOL ModifyStyleEx(DWORD dwRemove, DWORD dwAdd, UINT nFlags = 0);
@@ -82,8 +82,8 @@ public:
 	virtual ~CFrameWnd();
 	static const RECT rectDefault;
 	virtual BOOL Create(LPCTSTR lpszClassName, LPCTSTR lpszWindowName, DWORD dwStyle = WS_OVERLAPPEDWINDOW,
-		const RECT &rect = rectDefault, CWnd *pParentWnd = NULL, LPCTSTR lpszMenuName = NULL,
-		DWORD dwExStyle = 0, CCreateContext *pContext = NULL);
+		const RECT &rect = rectDefault, CWnd *pParentWnd = nullptr, LPCTSTR lpszMenuName = nullptr,
+		DWORD dwExStyle = 0, CCreateContext *pContext = nullptr);
 };
 
 class CWinThread : public CCmdTarget {
@@ -97,7 +97,7 @@ public:
 
 class CWinApp : public CWinThread {
 public:
-	CWinApp(LPCTSTR lpszAppName = NULL);
+	CWinApp(LPCTSTR lpszAppName = nullptr);
 
 	LPTSTR m_lpCmdLine;
 };

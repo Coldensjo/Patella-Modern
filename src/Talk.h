@@ -55,7 +55,7 @@ class TTalkBuffer {
 public:
 	// 0x4fd5a0, Talk.h inline; Closed is deliberately not initialized.
 	TTalkBuffer(int TalkMode) : ReceiveTalkMode(TalkMode), SendTalkMode(TalkMode),
-								Changed(true), first(NULL), last(NULL), cursor(NULL), lines(0), limit(1000),
+								Changed(true), first(nullptr), last(nullptr), cursor(nullptr), lines(0), limit(1000),
 								ShowMessages(false), Enabled(true), Complete(true), LinesChanged(true), Locked(false), Selected(false) {}
 	~TTalkBuffer() noexcept(false);
 	// 0x4fd5f0-0x4fd6b7, Talk.h inlines, in vtable order.
@@ -98,7 +98,7 @@ public:
 	virtual bool GetLocked() { return Locked; }
 	virtual int GetReceiveTalkMode() { return ReceiveTalkMode; }
 	virtual int GetSendTalkMode() { return SendTalkMode; }
-	virtual const char *GetAddressee() { return NULL; }
+	virtual const char *GetAddressee() { return nullptr; }
 	virtual int GetChannelID() { return -1; }
 	TTalkLine *GetLine(int lineNumber);
 	TTalkLine *GetNext();

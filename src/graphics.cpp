@@ -87,19 +87,19 @@ void ClearMemoryCache()
 void ExitGraphics()
 {
 	delete[] VideoCache;
-	VideoCache = NULL;
+	VideoCache = nullptr;
 	delete[] MemoryCacheData;
-	MemoryCacheData = NULL;
+	MemoryCacheData = nullptr;
 	delete[] MemoryCache;
-	MemoryCache = NULL;
+	MemoryCache = nullptr;
 	delete[] Fonts;
-	Fonts = NULL;
+	Fonts = nullptr;
 	for (int i = 0; i < NumberOfPictures; i++)
 		delete[] Pictures[i].Offsets;
 	delete[] Pictures;
-	Pictures = NULL;
+	Pictures = nullptr;
 	delete[] Sprites;
-	Sprites = NULL;
+	Sprites = nullptr;
 }
 
 // --- Files ---------------------------------------------------------------------
@@ -490,7 +490,7 @@ void InitVideoCache()
 	TBEGIN
 	int Surfaces = GetSurface()->GetCacheSurfaces();
 	if (Surfaces == 0) {
-		VideoCache = NULL;
+		VideoCache = nullptr;
 		return;
 	}
 	TRect Rect = {0, 0, 0, 0};
@@ -757,7 +757,7 @@ TVideoCacheItem *GetVideoFontChar(int FontNumber, int TileX, int TileY, TRGBColo
 			TRGBColor(0, 0, 0)};
 		if (curEngine == 1 || curEngine == 2)
 			GetSurface()->SetColorKey(Item.Surface + 6, Pictures[PictureNumber - 1].ColorKey);
-		GetSurface()->WriteMaskedImage(Item.Surface + 6, Item.x, Item.y, 32, 32, Tile->Data, NULL,
+		GetSurface()->WriteMaskedImage(Item.Surface + 6, Item.x, Item.y, 32, 32, Tile->Data, nullptr,
 			Colors);
 		Item.TileX = TileX;
 		Item.TileY = TileY;
@@ -1276,14 +1276,14 @@ void GetTextPosition(int *TextX, int *TextY, int x, int y, int Width, int Height
 void ResetVideoCache()
 {
 	TBEGIN
-	if (VideoCache != NULL) {
+	if (VideoCache != nullptr) {
 		for (int i = 0; i < VideoCacheSize; i++)
 			VideoCache[i].Type = EMPTY_ITEM;
 		for (int i = 0; i < HASH_TABLE_SIZE; i++)
 			VideoHashTable[i] = -1;
-		if (VideoCache != NULL)
+		if (VideoCache != nullptr)
 			delete[] VideoCache;
-		VideoCache = NULL;
+		VideoCache = nullptr;
 	}
 	InitVideoCache();
 	TEND(1474)
@@ -1296,7 +1296,7 @@ void ReloadSprites()
 	ResetVideoCache();
 	ClearMemoryCache();
 	delete[] Sprites;
-	Sprites = NULL;
+	Sprites = nullptr;
 	LoadSprites("Tibia.spr");
 	TEND(1498)
 }
@@ -1308,11 +1308,11 @@ void ReloadPictures()
 	ResetVideoCache();
 	ClearMemoryCache();
 	delete[] Fonts;
-	Fonts = NULL;
+	Fonts = nullptr;
 	for (int i = 0; i < NumberOfPictures; i++)
 		delete[] Pictures[i].Offsets;
 	delete[] Pictures;
-	Pictures = NULL;
+	Pictures = nullptr;
 	LoadPictures("Tibia.pic");
 	InitFonts();
 	TEND(1517)

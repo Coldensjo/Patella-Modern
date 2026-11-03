@@ -117,7 +117,7 @@ bool TResizer::LeftButtonDown(int x, int y, int Flags)
 	TASSERT(129, ToResize!=NULL);
 	TBEGIN
 	Dragging = true;
-	SetCapture(NULL);
+	SetCapture(nullptr);
 	StartX = x;
 	StartY = y;
 	return true;
@@ -137,7 +137,7 @@ bool TResizer::LeftButtonUp(int x, int y, int Flags)
 		if (ResizeHeight)
 			NewHeight = ToResize->Height - StartY + y;
 		ToResize->SetSize(NewWidth, NewHeight);
-		ReleaseCapture(NULL);
+		ReleaseCapture(nullptr);
 	}
 	return true;
 	TEND2(154, x, y)
@@ -276,9 +276,9 @@ TLabel::TLabel(int x, int y, int Width, int Height, TFont _Font, const char *_Te
 	TASSERT(337, _Text!=NULL);
 	TBEGIN
 	Font = _Font;
-	Text = NULL;
-	FullText = NULL;
-	Line = NULL;
+	Text = nullptr;
+	FullText = nullptr;
+	Line = nullptr;
 	Shortened = false;
 	TComponent::SetPosition(x, y);
 	TComponent::SetSize(Width, Height);
@@ -292,9 +292,9 @@ TLabel::TLabel(int x, int y, TFont _Font, const char *_Text)
 	TASSERT(355, _Text!=NULL);
 	TBEGIN
 	Font = _Font;
-	Text = NULL;
-	FullText = NULL;
-	Line = NULL;
+	Text = nullptr;
+	FullText = nullptr;
+	Line = nullptr;
 	Shortened = false;
 	SetText(_Text, false);
 	int MaxWidth = 0;
@@ -314,9 +314,9 @@ TLabel::TLabel(TFont _Font, const char *_Text)
 	TASSERT(376, _Text!=NULL);
 	TBEGIN
 	Font = _Font;
-	Text = NULL;
-	FullText = NULL;
-	Line = NULL;
+	Text = nullptr;
+	FullText = nullptr;
+	Line = nullptr;
 	Shortened = false;
 	SetText(_Text, false);
 	int MaxWidth = 0;
@@ -358,17 +358,17 @@ void TLabel::SetText(const char *_Text, bool Shorten)
 {
 	TASSERT(431, _Text!=NULL);
 	TBEGIN
-	if (Text != NULL) {
+	if (Text != nullptr) {
 		delete[] Text;
-		Text = NULL;
+		Text = nullptr;
 	}
-	if (FullText != NULL) {
+	if (FullText != nullptr) {
 		delete[] FullText;
-		FullText = NULL;
+		FullText = nullptr;
 	}
-	if (Line != NULL) {
+	if (Line != nullptr) {
 		delete[] Line;
-		Line = NULL;
+		Line = nullptr;
 	}
 	Shortened = false;
 	int Length = (int)strlen(_Text);
@@ -409,8 +409,8 @@ TFormattedText::TFormattedText(const char *_Text)
 	AutoWidth = true;
 	AutoHeight = true;
 	TBEGIN
-	Text = NULL;
-	Line = NULL;
+	Text = nullptr;
+	Line = nullptr;
 	SetText(_Text, false);
 	TEND(508)
 }
@@ -538,7 +538,7 @@ int TFormattedText::GetToken(const char *Text, int &TokenType, int &TokenData)
 void TFormattedText::Arrange()
 {
 	TBEGIN
-	while (FirstChild != NULL)
+	while (FirstChild != nullptr)
 		DeleteChild(FirstChild);
 	TRGBColor Color(224, 224, 224);
 	int FontNumber = 2;
@@ -595,7 +595,7 @@ void TFormattedText::Arrange()
 		}
 		if (LineBreak && LastSpace > 0)
 			Position = LastSpace;
-		TComponent *Element = NULL;
+		TComponent *Element = nullptr;
 		switch (TokenType) {
 		case 0: {
 			CopyString(Line, Piece, Position + 1);
@@ -649,7 +649,7 @@ void TFormattedText::Arrange()
 		default:
 			TERROR1(684, "unknown token type", TokenType);
 		}
-		if (Element != NULL) {
+		if (Element != nullptr) {
 			InsertChild(Element);
 			Element->SetPosition(X, Y);
 		}
@@ -657,7 +657,7 @@ void TFormattedText::Arrange()
 			Y += GetFontLineHeight(FontNumber);
 			X = Indent;
 		} else {
-			X += Element != NULL ? Element->Width : 0;
+			X += Element != nullptr ? Element->Width : 0;
 			if (X < Indent)
 				X = Indent;
 		}
@@ -671,12 +671,12 @@ void TFormattedText::SetText(const char *_Text, bool Rearrange)
 {
 	TASSERT(723, _Text!=NULL);
 	TBEGIN
-	if (Text != NULL)
+	if (Text != nullptr)
 		delete[] Text;
-	if (Line != NULL)
+	if (Line != nullptr)
 		delete[] Line;
-	Text = NULL;
-	Line = NULL;
+	Text = nullptr;
+	Line = nullptr;
 	Text = new char[strlen(_Text) + 1];
 	Line = new char[strlen(_Text) + 1];
 	strcpy(Text, _Text);
@@ -833,7 +833,7 @@ void TObjectIcon::Draw(int Surface, int x, int y)
 
 // 0x466860, line 1113
 TSkinButton::TSkinButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback _Callback, const char *_Tooltip,
-	bool _Repeat) : Callback(NULL, 0)
+	bool _Repeat) : Callback(nullptr, 0)
 {
 	TBEGIN
 	TComponent::SetPosition(x, y);
@@ -844,7 +844,7 @@ TSkinButton::TSkinButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback
 	Repeat = _Repeat;
 	Pressed = false;
 	MouseInside = false;
-	RadioButtonGroup = NULL;
+	RadioButtonGroup = nullptr;
 	Enabled = true;
 	TEND(1113)
 }
@@ -875,7 +875,7 @@ bool TSkinButton::LeftButtonDown(int x, int y, int Flags)
 	if (Enabled) {
 		Pressed = true;
 		MouseInside = x >= 0 && x <= Width - 1 && y >= 0 && y <= Height - 1;
-		SetCapture(NULL);
+		SetCapture(nullptr);
 	}
 	return true;
 	TEND2(1155, x, y)
@@ -886,11 +886,11 @@ bool TSkinButton::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (Pressed) {
-		ReleaseCapture(NULL);
+		ReleaseCapture(nullptr);
 		Pressed = false;
 		MouseInside = x >= 0 && x <= Width - 1 && y >= 0 && y <= Height - 1;
 		if (MouseInside) {
-			if (RadioButtonGroup != NULL)
+			if (RadioButtonGroup != nullptr)
 				RadioButtonGroup->Selected = this;
 			Callback.Send();
 		}
@@ -915,7 +915,7 @@ bool TSkinButton::MouseWheel(int x, int y, int Code)
 bool TSkinButton::IsPressed()
 {
 	TBEGIN
-	if (RadioButtonGroup != NULL && RadioButtonGroup->Selected == this)
+	if (RadioButtonGroup != nullptr && RadioButtonGroup->Selected == this)
 		return true;
 	return Pressed && MouseInside;
 	TEND(1213)
@@ -1057,10 +1057,10 @@ bool TToggleButton::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (Pressed) {
-		ReleaseCapture(NULL);
+		ReleaseCapture(nullptr);
 		Pressed = false;
 		if (MouseInside) {
-			if (RadioButtonGroup != NULL)
+			if (RadioButtonGroup != nullptr)
 				RadioButtonGroup->Selected = this;
 			State = !State;
 			Callback.Send();
@@ -1074,7 +1074,7 @@ bool TToggleButton::LeftButtonUp(int x, int y, int Flags)
 bool TToggleButton::IsPressed()
 {
 	TBEGIN
-	if (RadioButtonGroup != NULL && RadioButtonGroup->Selected == this)
+	if (RadioButtonGroup != nullptr && RadioButtonGroup->Selected == this)
 		return true;
 	if (State)
 		return true;
@@ -1097,10 +1097,10 @@ bool TTextToggleButton::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (Pressed) {
-		ReleaseCapture(NULL);
+		ReleaseCapture(nullptr);
 		Pressed = false;
 		if (MouseInside) {
-			if (RadioButtonGroup != NULL)
+			if (RadioButtonGroup != nullptr)
 				RadioButtonGroup->Selected = this;
 			State = !State;
 			Callback.Send();
@@ -1114,7 +1114,7 @@ bool TTextToggleButton::LeftButtonUp(int x, int y, int Flags)
 bool TTextToggleButton::IsPressed()
 {
 	TBEGIN
-	if (RadioButtonGroup != NULL && RadioButtonGroup->Selected == this)
+	if (RadioButtonGroup != nullptr && RadioButtonGroup->Selected == this)
 		return true;
 	if (State)
 		return true;
@@ -1151,10 +1151,10 @@ bool TMultiStateButton::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (Pressed) {
-		ReleaseCapture(NULL);
+		ReleaseCapture(nullptr);
 		Pressed = false;
 		if (MouseInside) {
-			if (RadioButtonGroup != NULL)
+			if (RadioButtonGroup != nullptr)
 				RadioButtonGroup->Selected = this;
 			Callbacks[State].Send();
 			State++;
@@ -1248,7 +1248,7 @@ TEditLine::TEditLine(TRect Area, int _MaxLength, bool _ReadOnly)
 	Active = false;
 	SingleLine = true;
 	Disabled = false;
-	FocusGroup = NULL;
+	FocusGroup = nullptr;
 	Font = _ReadOnly ? SkinProperties.Style944.Data38 : SkinProperties.Style944.Data24;
 	MaxLength = _MaxLength;
 	DrawingListLength = 4;
@@ -1275,7 +1275,7 @@ TEditLine::TEditLine(int _MaxLength, bool _ReadOnly)
 	Active = false;
 	SingleLine = true;
 	Disabled = false;
-	FocusGroup = NULL;
+	FocusGroup = nullptr;
 	Font = _ReadOnly ? SkinProperties.Style944.Data38 : SkinProperties.Style944.Data24;
 	MaxLength = _MaxLength;
 	DrawingListLength = 4;
@@ -1363,7 +1363,7 @@ bool TEditLine::LeftButtonDown(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::LeftButtonDown(x, y, Flags) && !IsDisabled()) {
-		if (FocusGroup == NULL)
+		if (FocusGroup == nullptr)
 			SetActive(true);
 		else
 			FocusGroup->SetActive(this);
@@ -1371,7 +1371,7 @@ bool TEditLine::LeftButtonDown(int x, int y, int Flags)
 		SetSelection(Position);
 		SetCursor(Position);
 		Selecting = true;
-		SetCapture(NULL);
+		SetCapture(nullptr);
 	}
 	return true;
 	TEND2(2037, x, y)
@@ -1383,7 +1383,7 @@ bool TEditLine::LeftButtonUp(int x, int y, int Flags)
 	TBEGIN
 	TWindow::LeftButtonUp(x, y, Flags);
 	if (Selecting) {
-		ReleaseCapture(NULL);
+		ReleaseCapture(nullptr);
 		Selecting = false;
 	}
 	return true;
@@ -1433,7 +1433,7 @@ bool TEditLine::RightButtonUp(int x, int y, int Flags)
 void TEditLine::KeyPress(int Key)
 {
 	TBEGIN
-	if (FocusGroup != NULL) {
+	if (FocusGroup != nullptr) {
 		if (Key == 9)
 			FocusGroup->Next();
 		if (Key == 0x209)
@@ -1531,7 +1531,7 @@ void TEditLine::HandleEvent(int Event)
 		if (ReadOnly || IsClipboardEmpty())
 			return;
 		char *Clipboard = GetClipboardText();
-		if (Clipboard == NULL)
+		if (Clipboard == nullptr)
 			return;
 		if (HasSelection()) {
 			SetCursor(SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart);
@@ -2037,17 +2037,17 @@ void TEditText::FormatText()
 // --- TFocusGroup ------------------------------------------------------------------
 
 // 0x45ddf0. No EH frame.
-TFocusGroup::TFocusGroup() : MemberList(0, 2, 2, NULL)
+TFocusGroup::TFocusGroup() : MemberList(0, 2, 2, nullptr)
 {
 	Members = 0;
-	Active = NULL;
+	Active = nullptr;
 }
 
 // 0x45de20, line 2828
 void TFocusGroup::SetActive(TEditLine *Member)
 {
 	TBEGIN
-	if (Active != NULL)
+	if (Active != nullptr)
 		Active->SetActive(false);
 	Active = Member;
 	Active->SetActive(true);
@@ -2107,7 +2107,7 @@ void TFocusGroup::Previous()
 
 // 0x45e9e0, lines 2925-2944
 THorizontalScrollBarRange::THorizontalScrollBarRange(int _Min, int _Max, int _Value, int _Visible,
-	TCallback _Callback) : Callback(NULL, 0)
+	TCallback _Callback) : Callback(nullptr, 0)
 {
 	TASSERT2(2925, _Min<=_Max, _Min, _Max);
 	TASSERT2(2926, In(_Value,_Min,_Max), _Value, _Max);
@@ -2201,7 +2201,7 @@ bool THorizontalScrollBarRange::LeftButtonDown(int x, int y, int Flags)
 	if (!Enabled)
 		return true;
 	Pressed = true;
-	SetCapture(NULL);
+	SetCapture(nullptr);
 	if (SliderPosition <= x && x <= SliderWidth + SliderPosition) {
 		DragOffset = x - SliderPosition;
 		Dragging = true;
@@ -2216,7 +2216,7 @@ bool THorizontalScrollBarRange::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (Pressed)
-		ReleaseCapture(NULL);
+		ReleaseCapture(nullptr);
 	Pressed = false;
 	if (!Enabled)
 		return true;
@@ -2302,8 +2302,8 @@ THorizontalScrollBar::THorizontalScrollBar(int Min, int Max, int _Value, int _Vi
 {
 	TASSERT1(3158, _ButtonRange>0, _ButtonRange);
 	TBEGIN
-	LeftButton = new TSkinButton(0, 0, 165, 166, TCallback(this, 5), NULL, true);
-	RightButton = new TSkinButton(0, 0, 167, 168, TCallback(this, 6), NULL, true);
+	LeftButton = new TSkinButton(0, 0, 165, 166, TCallback(this, 5), nullptr, true);
+	RightButton = new TSkinButton(0, 0, 167, 168, TCallback(this, 6), nullptr, true);
 	TWindow::InsertChild(LeftButton);
 	TWindow::InsertChild(RightButton);
 	Range = new THorizontalScrollBarRange(Min, Max, _Value, _Visible, _Callback);
@@ -2468,7 +2468,7 @@ bool TScrollBarRange::LeftButtonDown(int x, int y, int Flags)
 	if (!Enabled)
 		return true;
 	Pressed = true;
-	SetCapture(NULL);
+	SetCapture(nullptr);
 	if (SliderPosition <= y && y <= SliderHeight + SliderPosition) {
 		DragOffset = y - SliderPosition;
 		Dragging = true;
@@ -2482,7 +2482,7 @@ bool TScrollBarRange::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (Pressed)
-		ReleaseCapture(NULL);
+		ReleaseCapture(nullptr);
 	Pressed = false;
 	if (!Enabled)
 		return true;
@@ -2561,8 +2561,8 @@ TScrollBar::TScrollBar(TRect Area, int Min, int Max, int _Value, int _Visible, i
 {
 	TASSERT1(3462, _ButtonRange>0, _ButtonRange);
 	TBEGIN
-	UpButton = new TSkinButton(0, 0, 157, 158, TCallback(this, 3), NULL, true);
-	DownButton = new TSkinButton(0, 0, 159, 160, TCallback(this, 4), NULL, true);
+	UpButton = new TSkinButton(0, 0, 157, 158, TCallback(this, 3), nullptr, true);
+	DownButton = new TSkinButton(0, 0, 159, 160, TCallback(this, 4), nullptr, true);
 	TWindow::InsertChild(UpButton);
 	TWindow::InsertChild(DownButton);
 	Range = new TScrollBarRange(0, 0, Area.width, Area.height - DownButton->Height - UpButton->Height, Min, Max,
@@ -2617,7 +2617,7 @@ void TScrollBar::HandleEvent(int Event)
 
 // 0x469e70, line 3596. The edit line is a child only while a line is edited.
 TListBox::TListBox(TCallback _SelectCallback, TCallback _ActionCallback)
-	: LineText(0, 9, 10, NULL), SelectCallback(NULL, 0), ActionCallback(NULL, 0)
+	: LineText(0, 9, 10, nullptr), SelectCallback(nullptr, 0), ActionCallback(nullptr, 0)
 {
 	TBEGIN
 	ScrollBar = new TScrollBar(TRect(0, 0, SkinProperties.Data878, SkinProperties.Data874), 0, 0, 0, 0, 1);
@@ -2744,7 +2744,7 @@ void TListBox::MouseHover(int x, int y)
 	int Line = GetLineAt(x, y);
 	if (Line != -1) {
 		int Fitting = GetFittingTextLength(SkinProperties.Style9A0.Data0C.FontNumber, LineText(Line), TextWidth);
-		if (LineText(Line) != NULL && Fitting < (int)strlen(LineText(Line)))
+		if (LineText(Line) != nullptr && Fitting < (int)strlen(LineText(Line)))
 			SetMouseOverText(LineText(Line));
 	}
 	TEND2(3734, x, y)
@@ -2779,7 +2779,7 @@ void TListBox::KeyPress(int _Key)
 		if ((Code > 0x60 && Code < 0x7b) || (Code > 0x40 && Code < 0x5b)) {
 			char c = ToLower(Code);
 			for (int i = LineText.min; i <= LineText.max; i++) {
-				if (LineText(i) != NULL && (char)ToLower(*LineText(i)) >= c) {
+				if (LineText(i) != nullptr && (char)ToLower(*LineText(i)) >= c) {
 					Selected = i;
 					break;
 				}
@@ -2820,7 +2820,7 @@ void TListBox::SetLine(int Number, const char *Text)
 	TASSERT(3831, Text!=NULL);
 	TASSERT2(3832, In(Number,0,Lines-1), Number, Lines);
 	TBEGIN
-	if (LineText(Number) != NULL)
+	if (LineText(Number) != nullptr)
 		delete[] LineText(Number);
 	LineText(Number) = new char[strlen(Text) + 1];
 	strcpy(LineText(Number), Text);
@@ -2860,9 +2860,9 @@ void TListBox::Clear()
 	TBEGIN
 	StopEdit();
 	for (int i = 0; i < Lines; i++) {
-		if (LineText(i) != NULL)
+		if (LineText(i) != nullptr)
 			delete[] LineText(i);
-		LineText(i) = NULL;
+		LineText(i) = nullptr;
 	}
 	Lines = 0;
 	Arrange();
@@ -2990,7 +2990,7 @@ void TFontListBox::SetLine(int Number, const char *Text, TFont Font)
 	TASSERT(4082, Text!=NULL);
 	TASSERT2(4083, In(Number,0,Lines-1), Number, Lines-1);
 	TBEGIN
-	if (FontLines(Number).Text != NULL)
+	if (FontLines(Number).Text != nullptr)
 		delete[] FontLines(Number).Text;
 	FontLines(Number).Text = new char[strlen(Text) + 1];
 	strcpy(FontLines(Number).Text, Text);
@@ -3028,7 +3028,7 @@ void TFontListBox::MouseHover(int x, int y)
 	int Line = GetLineAt(x, y);
 	if (Line != -1) {
 		int Fitting = GetFittingTextLength(SkinProperties.Style9A0.Data0C.FontNumber, FontLines(Line).Text, TextWidth);
-		if (FontLines(Line).Text != NULL && Fitting < (int)strlen(FontLines(Line).Text))
+		if (FontLines(Line).Text != nullptr && Fitting < (int)strlen(FontLines(Line).Text))
 			SetMouseOverText(FontLines(Line).Text);
 	}
 	TEND2(4133, x, y)

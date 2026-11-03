@@ -19,10 +19,10 @@
 // 0x4df6d0, lines 48-50
 void TReadScriptFile::open(const char *FileName)
 {
-	if (File != NULL)
+	if (File != nullptr)
 		TERROR_REASON(48, "file still open", Filename);
 	File = fopen(FileName, "rb");
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR_REASON(50, "failed to open file", FileName);
 	Line = 1;
 	strcpy(Filename, FileName);
@@ -35,11 +35,11 @@ void TReadScriptFile::error(const char *Text)
 {
 	char Message[1056];
 	char Unknown[] = "(unknown)";
-	if (File != NULL)
+	if (File != nullptr)
 		fclose(File);
-	File = NULL;
+	File = nullptr;
 	_snprintf(Message, 1054, "error in script file '%s' in line %d", Filename, Line);
-	if (Text == NULL)
+	if (Text == nullptr)
 		Text = Unknown;
 	throw TMYEXCEPTION(84, Message, "", 0, "", 0, Text);
 }
@@ -53,7 +53,7 @@ void TReadScriptFile::error(const char *Text)
 // below; states 9 and 18-21 do not exist and go to the default.
 void TReadScriptFile::nextToken()
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(93, "no file open");
 	int State = 0;
 	int Size = 0;
@@ -378,10 +378,10 @@ char TReadScriptFile::getSpecial()
 // 0x4e04b0, lines 403-405. Line is reset but never counted.
 void TWriteScriptFile::open(const char *FileName)
 {
-	if (File != NULL)
+	if (File != nullptr)
 		TERROR_REASON(403, "file still open", Filename);
 	File = fopen(FileName, "wb");
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR_REASON(405, "failed to open file", FileName);
 	Line = 0;
 	strcpy(Filename, FileName);
@@ -390,7 +390,7 @@ void TWriteScriptFile::open(const char *FileName)
 // 0x4e0790, line 441. The file is binary, so the line ends in CR LF.
 void TWriteScriptFile::writeLn()
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(441, "no file open");
 	fputc('\r', File);
 	fputc('\n', File);
@@ -399,9 +399,9 @@ void TWriteScriptFile::writeLn()
 // 0x4e08f0, lines 451-452
 void TWriteScriptFile::writeText(const char *Text)
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(451, "no file open");
-	if (Text == NULL)
+	if (Text == nullptr)
 		TERROR(452, "no text");
 	while (*Text != 0) {
 		fputc(*Text, File);
@@ -413,9 +413,9 @@ void TWriteScriptFile::writeText(const char *Text)
 // line break as "\n".
 void TWriteScriptFile::writeString(const char *Text)
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(462, "no file open");
-	if (Text == NULL)
+	if (Text == nullptr)
 		TERROR(463, "no text");
 	fputc('"', File);
 	while (*Text != 0) {
@@ -435,7 +435,7 @@ void TWriteScriptFile::writeString(const char *Text)
 // 0x4e0ec0, line 481
 void TWriteScriptFile::writeNumber(int Number)
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(481, "no file open");
 	char Help[20];
 	sprintf(Help, "%d", Number);
@@ -445,10 +445,10 @@ void TWriteScriptFile::writeNumber(int Number)
 // 0x4e1040, lines 552-554
 void TReadBinaryFile::open(const char *FileName)
 {
-	if (File != NULL)
+	if (File != nullptr)
 		TERROR_REASON(552, "file still open", Filename);
 	File = fopen(FileName, "rb");
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR_REASON(554, "failed to open file", FileName);
 	strncpy(Filename, FileName, sizeof(Filename));
 }
@@ -456,7 +456,7 @@ void TReadBinaryFile::open(const char *FileName)
 // 0x4e1320, lines 572-573
 void TReadBinaryFile::seek(int Offset)
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(572, "no file open");
 	if (Offset < 0)
 		TERROR1_REASON(573, "negative offset", Offset, Filename);
@@ -466,7 +466,7 @@ void TReadBinaryFile::seek(int Offset)
 // 0x4e15e0, line 582
 bool TReadBinaryFile::eof()
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(582, "no file open");
 	return _eof(_fileno(File)) != 0;
 }
@@ -474,7 +474,7 @@ bool TReadBinaryFile::eof()
 // 0x4e1740, lines 603-605
 uint8 TReadBinaryFile::readByte()
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(603, "no file open");
 	uint8 Byte;
 	if (fread(&Byte, 1, 1, File) == 0)
@@ -496,7 +496,7 @@ uint16 TReadBinaryFile::readWord()
 // 0x4e1ba0, lines 627-635
 int TReadBinaryFile::readQuad()
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(627, "no file open");
 	TBEGIN
 	uint8 Byte0 = readByte();
@@ -510,7 +510,7 @@ int TReadBinaryFile::readQuad()
 // 0x4e3a10, lines 644-653. The caller frees the string with delete[].
 char *TReadBinaryFile::readString()
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(644, "no file open");
 	TBEGIN
 	int Length = readWord() & 0xffff;
@@ -525,9 +525,9 @@ char *TReadBinaryFile::readString()
 // 0x4e1e50, lines 661-664
 void TReadBinaryFile::readBytes(uint8 *Buffer, int Count)
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(661, "no file open");
-	if (Buffer == NULL)
+	if (Buffer == nullptr)
 		TERROR(662, "Buffer==NULL");
 	if ((int)fread(Buffer, 1, Count, File) != Count)
 		TERROR1_REASON(664, "out of data", Count, Filename);
@@ -536,10 +536,10 @@ void TReadBinaryFile::readBytes(uint8 *Buffer, int Count)
 // 0x4e21a0, lines 706-708
 void TWriteBinaryFile::open(const char *FileName)
 {
-	if (File != NULL)
+	if (File != nullptr)
 		TERROR_REASON(706, "file still open", Filename);
 	File = fopen(FileName, "wb");
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR_REASON(708, "failed to open file", FileName);
 	strncpy(Filename, FileName, sizeof(Filename));
 }
@@ -547,7 +547,7 @@ void TWriteBinaryFile::open(const char *FileName)
 // 0x4e2480, lines 727-729
 void TWriteBinaryFile::writeByte(uint8 Byte)
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(727, "no file open");
 	if (fwrite(&Byte, 1, 1, File) != 1)
 		TERROR_REASON(729, "failed to write file", Filename);
@@ -556,7 +556,7 @@ void TWriteBinaryFile::writeByte(uint8 Byte)
 // 0x4e2750, lines 737-742
 void TWriteBinaryFile::writeWord(uint16 Word)
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(737, "no file open");
 	TBEGIN
 	writeByte((uint8)Word);
@@ -567,7 +567,7 @@ void TWriteBinaryFile::writeWord(uint16 Word)
 // 0x4e29e0, lines 750-757
 void TWriteBinaryFile::writeQuad(uint32 Quad)
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(750, "no file open");
 	TBEGIN
 	writeByte((uint8)Quad);
@@ -581,7 +581,7 @@ void TWriteBinaryFile::writeQuad(uint32 Quad)
 // (writeString does not call it for an empty string).
 void TWriteBinaryFile::writeBytes(const uint8 *Buffer, int Count)
 {
-	if (File == NULL)
+	if (File == nullptr)
 		TERROR(765, "no file open");
 	if (fwrite(Buffer, Count, 1, File) != 1)
 		TERROR1_REASON(766, "failed to write file", Count, Filename);
@@ -708,7 +708,7 @@ bool ApplyFullPatch(const char *FileName, const uint8 *Data, int Size)
 // patch functions write (the client lets Patch.exe handle that case).
 void InstallPatch(const char *FileName)
 {
-	if (FileName == NULL)
+	if (FileName == nullptr)
 		TERROR(879, "no file name");
 	char Name[1024];
 	strcpy(Name, FileName);

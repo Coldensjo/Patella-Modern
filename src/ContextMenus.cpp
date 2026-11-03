@@ -43,15 +43,15 @@
 // ContextMenus.obj's only datum, right after ContentWindows.obj's
 // NoCallback (0x5c4500, initialiser 0x559dd0) and before Control.obj's .bss
 // (0x5c4510).
-static TCallback NoCallback(NULL, 0);
+static TCallback NoCallback(nullptr, 0);
 
 // --- Functions without line evidence at the start ------------------------------
 
 // 0x43d6f0 (deleting destructor 0x43d710). The skill window forgets the menu.
 TSkillContextMenu::~TSkillContextMenu()
 {
-	if (SkillsWindow != NULL)
-		SkillsWindow->ContextMenu = NULL;
+	if (SkillsWindow != nullptr)
+		SkillsWindow->ContextMenu = nullptr;
 }
 
 // --- THelpBubble ---------------------------------------------------------------
@@ -241,11 +241,11 @@ bool THelpBubble::FitsIn(int &x, int &y, int &Width, int &Height, TWindow *Windo
 // 0x43dfe0, line 316. As wide as the text, the gap and the shortcut, and
 // as high as a line of the font, plus the space around both.
 TContextMenuEntry::TContextMenuEntry(const char *_Text, const char *_Shortcut, TCallback _Callback)
-	: Callback(NULL, 0)
+	: Callback(nullptr, 0)
 {
 	TBEGIN
 	CopyString(Text, _Text, 50);
-	if (_Shortcut == NULL)
+	if (_Shortcut == nullptr)
 		Shortcut[0] = 0;
 	else
 		CopyString(Shortcut, _Shortcut, 20);
@@ -367,13 +367,13 @@ void TContextMenu::Show(int x, int y, int ParentWidth, int ParentHeight)
 {
 	TBEGIN
 	int Position = 0;
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext()) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		Child->SetSize(EntryWidth, Child->Height);
 		Child->SetPosition(0, Position);
 		Position += Child->Height;
 	}
-	if (GetLastChild() == NULL)
-		AddEntry(0, "", NULL);
+	if (GetLastChild() == nullptr)
+		AddEntry(0, "", nullptr);
 	TContextMenuEntry *LastEntry = (TContextMenuEntry *)GetLastChild();
 	TASSERT(486, LastEntry!=NULL);
 	LastEntry->SetLast();
@@ -435,54 +435,54 @@ TObjectContextMenu::TObjectContextMenu(int x, int y, int ParentWidth, int Parent
 	CreatureID = GetTradeInfo();
 	TASSERT(560, LookedObject!=0);
 	bool ClassicControl = GetClassicControl();
-	AddEntry(10001, "Look", ClassicControl ? NULL : "(Shift)");
+	AddEntry(10001, "Look", ClassicControl ? nullptr : "(Shift)");
 	if (UsedObject != 0) {
 		if (GetObjectFlag(UsedObject, CONTAINER)) {
 			if (UsedObjectX == 0xFFFF && UsedObjectY >= 64) {
-				AddEntry(10011, "Open", ClassicControl ? NULL : "(Ctrl)");
-				AddEntry(10012, "Open in new window", NULL);
+				AddEntry(10011, "Open", ClassicControl ? nullptr : "(Ctrl)");
+				AddEntry(10012, "Open in new window", nullptr);
 			} else {
-				AddEntry(10012, "Open", ClassicControl ? NULL : "(Ctrl)");
+				AddEntry(10012, "Open", ClassicControl ? nullptr : "(Ctrl)");
 			}
 		} else if (GetObjectFlag(UsedObject, MULTIUSE)) {
-			AddEntry(10003, "Use with ...", ClassicControl ? NULL : "(Ctrl)");
+			AddEntry(10003, "Use with ...", ClassicControl ? nullptr : "(Ctrl)");
 		} else {
-			AddEntry(10002, "Use", ClassicControl ? NULL : "(Ctrl)");
+			AddEntry(10002, "Use", ClassicControl ? nullptr : "(Ctrl)");
 		}
 	}
 	if (GetObjectFlag(UsedObject, ROTATE))
-		AddEntry(10014, "Rotate", NULL);
+		AddEntry(10014, "Rotate", nullptr);
 	Separator = true;
 	if (LookedObject != CREATURE && !GetObjectFlag(LookedObject, UNMOVE) && GetObjectFlag(LookedObject, TAKE))
-		AddEntry(10013, "Trade with ...", NULL);
+		AddEntry(10013, "Trade with ...", nullptr);
 	if (LookedObjectX == 0xFFFF && LookedObjectY >= 64 && GetContainerHasParent(LookedObjectY - 64))
-		AddEntry(10010, "Move up", NULL);
+		AddEntry(10010, "Move up", nullptr);
 	if (CreatureID != 0) {
 		if (CreatureID == GetPlayerID()) {
-			AddEntry(10008, "Set Outfit", NULL);
+			AddEntry(10008, "Set Outfit", nullptr);
 			if (IsPlayerInParty() && !IsPlayerInFight())
-				AddEntry(10020, "Leave Party", NULL);
+				AddEntry(10020, "Leave Party", nullptr);
 		} else {
 			if (CreatureID == GetAttackID())
-				AddEntry(10005, "Stop Attack", ClassicControl ? NULL : "(Alt)");
+				AddEntry(10005, "Stop Attack", ClassicControl ? nullptr : "(Alt)");
 			else
-				AddEntry(10004, "Attack", ClassicControl ? NULL : "(Alt)");
+				AddEntry(10004, "Attack", ClassicControl ? nullptr : "(Alt)");
 			if (CreatureID == GetFollowID())
-				AddEntry(10007, "Stop Follow", NULL);
+				AddEntry(10007, "Stop Follow", nullptr);
 			else
-				AddEntry(10006, "Follow", NULL);
+				AddEntry(10006, "Follow", nullptr);
 			Separator = true;
 			TCreature *Creature = GetCreature(CreatureID);
-			if (Creature != NULL && IsPlayer(CreatureID)) {
+			if (Creature != nullptr && IsPlayer(CreatureID)) {
 				char Text[50];
 				sprintf(Text, "Message to %s", Creature->Name);
-				AddEntry(10100, Text, NULL);
+				AddEntry(10100, Text, nullptr);
 				if (HasOwnPrivateChannel())
-					AddEntry(10016, "Invite to private chat", NULL);
+					AddEntry(10016, "Invite to private chat", nullptr);
 				if (!IsBuddy(Creature->Name))
-					AddEntry(10015, "Add to VIP list", NULL);
+					AddEntry(10015, "Add to VIP list", nullptr);
 				sprintf(Text, IsTalkIgnored(0, Creature->Name, -1) ? "Unignore %s" : "Ignore %s", Creature->Name);
-				AddEntry(10101, Text, NULL);
+				AddEntry(10101, Text, nullptr);
 				// The binary passes the name to "Invite to Party" as well
 				// (unused; left out here, the compiler warns about it).
 				switch (GetPlayerPartyFlag()) {
@@ -490,16 +490,16 @@ TObjectContextMenu::TObjectContextMenu(int x, int y, int ParentWidth, int Parent
 				case 2:
 					if (Creature->PARTYFlag == 1) {
 						sprintf(Text, "Join %s's Party", Creature->Name);
-						AddEntry(10019, Text, NULL);
+						AddEntry(10019, Text, nullptr);
 					} else {
 						sprintf(Text, "Invite to Party");
-						AddEntry(10018, Text, NULL);
+						AddEntry(10018, Text, nullptr);
 					}
 					break;
 				case 1:
 					if (Creature->PARTYFlag == 2) {
 						sprintf(Text, "Revoke %s's Invitation", Creature->Name);
-						AddEntry(10021, Text, NULL);
+						AddEntry(10021, Text, nullptr);
 					}
 					break;
 				case 3:
@@ -507,13 +507,13 @@ TObjectContextMenu::TObjectContextMenu(int x, int y, int ParentWidth, int Parent
 				case 4:
 					if (Creature->PARTYFlag == 2) {
 						sprintf(Text, "Revoke %s's Invitation", Creature->Name);
-						AddEntry(10021, Text, NULL);
+						AddEntry(10021, Text, nullptr);
 					} else if (Creature->PARTYFlag == 3) {
 						sprintf(Text, "Pass Leadership to %s", Creature->Name);
-						AddEntry(10022, Text, NULL);
+						AddEntry(10022, Text, nullptr);
 					} else {
 						sprintf(Text, "Invite to Party");
-						AddEntry(10018, Text, NULL);
+						AddEntry(10018, Text, nullptr);
 					}
 					break;
 				default:
@@ -522,10 +522,10 @@ TObjectContextMenu::TObjectContextMenu(int x, int y, int ParentWidth, int Parent
 			}
 		}
 		Separator = true;
-		AddEntry(10203, "Copy Name", NULL);
+		AddEntry(10203, "Copy Name", nullptr);
 		if (IsPlayer(CreatureID) && CreatureID != GetPlayerID() && CheckAnyRight()) {
 			Separator = true;
-			AddEntry(10023, "Rule Violation", NULL);
+			AddEntry(10023, "Rule Violation", nullptr);
 			Separator = true;
 		}
 	}
@@ -591,25 +591,25 @@ void TObjectContextMenu::HandleEvent(int Event)
 		break;
 	case 10015: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendAddBuddy(Creature->Name);
 		break;
 	}
 	case 10016: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendInviteToPrivateChannel(Creature->Name);
 		break;
 	}
 	case 10100: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendOpenPrivateConversation(Creature->Name);
 		break;
 	}
 	case 10101: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL) {
+		if (Creature != nullptr) {
 			if (IsTalkIgnored(0, Creature->Name, -1))
 				UnignoreName(Creature->Name);
 			else
@@ -619,31 +619,31 @@ void TObjectContextMenu::HandleEvent(int Event)
 	}
 	case 10203: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			CopyToClipboard(Creature->Name);
 		break;
 	}
 	case 10018: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendInviteToParty(Creature->CreatureID);
 		break;
 	}
 	case 10019: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendJoinParty(Creature->CreatureID);
 		break;
 	}
 	case 10021: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendRevokePartyInvitation(Creature->CreatureID);
 		break;
 	}
 	case 10022: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendPassPartyLeadership(Creature->CreatureID);
 		break;
 	}
@@ -654,7 +654,7 @@ void TObjectContextMenu::HandleEvent(int Event)
 		// The rule violation dialog gets a copy of the name (Control.cpp
 		// deletes it).
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL && CheckAnyRight()) {
+		if (Creature != nullptr && CheckAnyRight()) {
 			char *Name = new char[30];
 			strcpy(Name, Creature->Name);
 			AddMessage(0x1c, (INT_PTR)Name, 0);
@@ -676,40 +676,40 @@ TCreatureContextMenu::TCreatureContextMenu(uint32 CreatureID, int x, int y, int 
 	TBEGIN
 	this->CreatureID = CreatureID;
 	if (this->CreatureID == GetAttackID())
-		AddEntry(10005, "Stop Attack", NULL);
+		AddEntry(10005, "Stop Attack", nullptr);
 	else
-		AddEntry(10004, "Attack", NULL);
+		AddEntry(10004, "Attack", nullptr);
 	if (this->CreatureID == GetFollowID())
-		AddEntry(10007, "Stop Follow", NULL);
+		AddEntry(10007, "Stop Follow", nullptr);
 	else
-		AddEntry(10006, "Follow", NULL);
+		AddEntry(10006, "Follow", nullptr);
 	Separator = true;
 	TCreature *Creature = GetCreature(this->CreatureID);
-	if (Creature != NULL && IsPlayer(this->CreatureID)) {
+	if (Creature != nullptr && IsPlayer(this->CreatureID)) {
 		char Text[50];
 		sprintf(Text, "Message to %s", Creature->Name);
-		AddEntry(10100, Text, NULL);
+		AddEntry(10100, Text, nullptr);
 		if (HasOwnPrivateChannel())
-			AddEntry(10016, "Invite to private chat", NULL);
+			AddEntry(10016, "Invite to private chat", nullptr);
 		if (!IsBuddy(Creature->Name))
-			AddEntry(10015, "Add to VIP list", NULL);
+			AddEntry(10015, "Add to VIP list", nullptr);
 		sprintf(Text, IsTalkIgnored(0, Creature->Name, -1) ? "Unignore %s" : "Ignore %s", Creature->Name);
-		AddEntry(10101, Text, NULL);
+		AddEntry(10101, Text, nullptr);
 		switch (GetPlayerPartyFlag()) {
 		case 0:
 		case 2:
 			if (Creature->PARTYFlag == 1) {
 				sprintf(Text, "Join %s's Party", Creature->Name);
-				AddEntry(10019, Text, NULL);
+				AddEntry(10019, Text, nullptr);
 			} else {
 				sprintf(Text, "Invite to Party");
-				AddEntry(10018, Text, NULL);
+				AddEntry(10018, Text, nullptr);
 			}
 			break;
 		case 1:
 			if (Creature->PARTYFlag == 2) {
 				sprintf(Text, "Revoke %s's Invitation", Creature->Name);
-				AddEntry(10021, Text, NULL);
+				AddEntry(10021, Text, nullptr);
 			}
 			break;
 		case 3:
@@ -717,13 +717,13 @@ TCreatureContextMenu::TCreatureContextMenu(uint32 CreatureID, int x, int y, int 
 		case 4:
 			if (Creature->PARTYFlag == 2) {
 				sprintf(Text, "Revoke %s's Invitation", Creature->Name);
-				AddEntry(10021, Text, NULL);
+				AddEntry(10021, Text, nullptr);
 			} else if (Creature->PARTYFlag == 3) {
 				sprintf(Text, "Pass Leadership to %s", Creature->Name);
-				AddEntry(10022, Text, NULL);
+				AddEntry(10022, Text, nullptr);
 			} else {
 				sprintf(Text, "Invite to Party");
-				AddEntry(10018, Text, NULL);
+				AddEntry(10018, Text, nullptr);
 			}
 			break;
 		default:
@@ -731,10 +731,10 @@ TCreatureContextMenu::TCreatureContextMenu(uint32 CreatureID, int x, int y, int 
 		}
 		Separator = true;
 	}
-	AddEntry(10203, "Copy Name", NULL);
-	if (Creature != NULL && IsPlayer(this->CreatureID) && CheckAnyRight()) {
+	AddEntry(10203, "Copy Name", nullptr);
+	if (Creature != nullptr && IsPlayer(this->CreatureID) && CheckAnyRight()) {
 		Separator = true;
-		AddEntry(10023, "Rule Violation", NULL);
+		AddEntry(10023, "Rule Violation", nullptr);
 		Separator = true;
 	}
 	Show(x, y, ParentWidth, ParentHeight);
@@ -765,25 +765,25 @@ void TCreatureContextMenu::HandleEvent(int Event)
 		break;
 	case 10015: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendAddBuddy(Creature->Name);
 		break;
 	}
 	case 10016: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendInviteToPrivateChannel(Creature->Name);
 		break;
 	}
 	case 10100: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendOpenPrivateConversation(Creature->Name);
 		break;
 	}
 	case 10101: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL) {
+		if (Creature != nullptr) {
 			if (!IsTalkIgnored(0, Creature->Name, -1))
 				IgnoreName(Creature->Name, false);
 			else
@@ -793,37 +793,37 @@ void TCreatureContextMenu::HandleEvent(int Event)
 	}
 	case 10203: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			CopyToClipboard(Creature->Name);
 		break;
 	}
 	case 10018: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendInviteToParty(Creature->CreatureID);
 		break;
 	}
 	case 10019: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendJoinParty(Creature->CreatureID);
 		break;
 	}
 	case 10021: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendRevokePartyInvitation(Creature->CreatureID);
 		break;
 	}
 	case 10022: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL)
+		if (Creature != nullptr)
 			SendPassPartyLeadership(Creature->CreatureID);
 		break;
 	}
 	case 10023: {
 		TCreature *Creature = GetCreature(CreatureID);
-		if (Creature != NULL && CheckAnyRight()) {
+		if (Creature != nullptr && CheckAnyRight()) {
 			char *Name = new char[30];
 			strcpy(Name, Creature->Name);
 			AddMessage(0x1c, (INT_PTR)Name, 0);
@@ -849,29 +849,29 @@ TBuddyContextMenu::TBuddyContextMenu(uint32 _CharacterID, int x, int y, int Pare
 	if (Position != -1) {
 		char Text[50];
 		sprintf(Text, "Edit %s", GetBuddyListName(Position));
-		AddEntry(10302, Text, NULL);
+		AddEntry(10302, Text, nullptr);
 		sprintf(Text, "Remove %s", GetBuddyListName(Position));
-		AddEntry(10301, Text, NULL);
+		AddEntry(10301, Text, nullptr);
 		if (CharacterID != GetPlayerID() && GetBuddyListOnline(Position)) {
 			sprintf(Text, "Message to %s", GetBuddyListName(Position));
-			AddEntry(10303, Text, NULL);
+			AddEntry(10303, Text, nullptr);
 		}
 		if (HasOwnPrivateChannel())
-			AddEntry(10016, "Invite to private chat", NULL);
+			AddEntry(10016, "Invite to private chat", nullptr);
 		Separator = true;
 	}
-	AddEntry(10300, "Add new VIP", NULL);
-	AddEntry(10304, "Sort by name", NULL);
-	AddEntry(10305, "Sort by type", NULL);
+	AddEntry(10300, "Add new VIP", nullptr);
+	AddEntry(10304, "Sort by name", nullptr);
+	AddEntry(10305, "Sort by type", nullptr);
 	if (!GetBuddyHideOffline())
-		AddEntry(10306, "Sort by status", NULL);
-	AddEntry(10307, GetBuddyHideOffline() ? "Show offline VIPs" : "Hide offline VIPs", NULL);
+		AddEntry(10306, "Sort by status", nullptr);
+	AddEntry(10307, GetBuddyHideOffline() ? "Show offline VIPs" : "Hide offline VIPs", nullptr);
 	Separator = true;
 	if (Position != -1) {
-		AddEntry(10204, "Copy Name", NULL);
+		AddEntry(10204, "Copy Name", nullptr);
 		if (CheckAnyRight()) {
 			Separator = true;
-			AddEntry(10023, "Rule Violation", NULL);
+			AddEntry(10023, "Rule Violation", nullptr);
 			Separator = true;
 		}
 	}
@@ -957,9 +957,9 @@ TTextContextMenu::TTextContextMenu(TTextWindow *_TextWindow, int _LineNumber, in
 	TTalkLine *Line = TextWindow->GetTalkLine(_LineNumber);
 	bool OtherSpeaker = false;
 	bool HasSpeaker = false;
-	if (Line != NULL) {
+	if (Line != nullptr) {
 		const char *Speaker = Line->Addressee;
-		if (Speaker != NULL && strlen(Speaker) != 0) {
+		if (Speaker != nullptr && strlen(Speaker) != 0) {
 			HasSpeaker = true;
 			if (strcmp(GetCreature(GetPlayerID())->Name, Speaker) != 0)
 				OtherSpeaker = true;
@@ -969,31 +969,31 @@ TTextContextMenu::TTextContextMenu(TTextWindow *_TextWindow, int _LineNumber, in
 		} else if (OtherSpeaker) {
 			char Text[50];
 			sprintf(Text, "Message to %s", Speaker);
-			AddEntry(10100, Text, NULL);
+			AddEntry(10100, Text, nullptr);
 			if (TextWindow->TextBuffer->GetSelected() && TextWindow->TextBuffer->IsPrivateChannel()) {
 				if (HasOwnPrivateChannel())
-					AddEntry(10017, "Exclude from private chat", NULL);
+					AddEntry(10017, "Exclude from private chat", nullptr);
 			} else if (HasOwnPrivateChannel()) {
-				AddEntry(10016, "Invite to private chat", NULL);
+				AddEntry(10016, "Invite to private chat", nullptr);
 			}
 			if (!IsBuddy(Speaker))
-				AddEntry(10015, "Add to VIP list", NULL);
+				AddEntry(10015, "Add to VIP list", nullptr);
 			sprintf(Text, IsTalkIgnored(0, Speaker, -1) ? "Unignore %s" : "Ignore %s", Speaker);
-			AddEntry(10101, Text, NULL);
+			AddEntry(10101, Text, nullptr);
 			Separator = true;
 		}
 	}
 	if (TextWindow->HasSelection())
-		AddEntry(10203, "Copy", NULL);
+		AddEntry(10203, "Copy", nullptr);
 	if (HasSpeaker)
-		AddEntry(10204, "Copy Name", NULL);
-	if (Line != NULL)
-		AddEntry(10205, "Copy Message", NULL);
+		AddEntry(10204, "Copy Name", nullptr);
+	if (Line != nullptr)
+		AddEntry(10205, "Copy Message", nullptr);
 	Separator = true;
-	AddEntry(10206, "Select all", NULL);
+	AddEntry(10206, "Select all", nullptr);
 	if (HasSpeaker && CheckAnyRight()) {
 		Separator = true;
-		AddEntry(10023, "Rule Violation", NULL);
+		AddEntry(10023, "Rule Violation", nullptr);
 		Separator = true;
 	}
 	Show(x, y, ParentWidth, ParentHeight);
@@ -1006,16 +1006,16 @@ void TTextContextMenu::HandleEvent(int Event)
 {
 	TBEGIN
 	TTalkLine *Line = TextWindow->GetTalkLine(LineNumber);
-	const char *Speaker = NULL;
-	if (Line != NULL)
+	const char *Speaker = nullptr;
+	if (Line != nullptr)
 		Speaker = Line->Addressee;
 	switch (Event) {
 	case 10100:
-		if (Speaker != NULL)
+		if (Speaker != nullptr)
 			SendOpenPrivateConversation(Speaker);
 		break;
 	case 10101:
-		if (Speaker != NULL) {
+		if (Speaker != nullptr) {
 			char Text[200];
 			const char *Format;
 			if (!IsTalkIgnored(0, Speaker, -1)) {
@@ -1026,32 +1026,32 @@ void TTextContextMenu::HandleEvent(int Event)
 				Format = "You are no longer ignoring player %s.";
 			}
 			_snprintf(Text, 200, Format, Speaker);
-			AddConsoleText(0, Text, 21, NULL, 0, 0);
+			AddConsoleText(0, Text, 21, nullptr, 0, 0);
 		}
 		break;
 	case 10016:
-		if (Speaker != NULL)
+		if (Speaker != nullptr)
 			SendInviteToPrivateChannel(Speaker);
 		break;
 	case 10017:
-		if (Speaker != NULL)
+		if (Speaker != nullptr)
 			SendExcludeFromPrivateChannel(Speaker);
 		break;
 	case 10015:
-		if (Speaker != NULL)
+		if (Speaker != nullptr)
 			SendAddBuddy(Speaker);
 		break;
 	case 10204:
-		if (Speaker != NULL)
+		if (Speaker != nullptr)
 			CopyToClipboard(Speaker);
 		break;
 	case 10205:
-		if (Line != NULL)
+		if (Line != nullptr)
 			CopyToClipboard(Line->GetText());
 		break;
 	case 10203: {
 		const char *Selection = TextWindow->GetSelectedText();
-		if (Selection != NULL)
+		if (Selection != nullptr)
 			CopyToClipboard(Selection);
 		break;
 	}
@@ -1060,7 +1060,7 @@ void TTextContextMenu::HandleEvent(int Event)
 		break;
 	case 10023:
 		if (CheckAnyRight()) {
-			if (Line == NULL) {
+			if (Line == nullptr) {
 				AddMessage(0x1c, 0, 0);
 			} else {
 				AddMessage(0x1c, 0,
@@ -1084,15 +1084,15 @@ TRequestContextMenu::TRequestContextMenu(TConsoleWindow *_ConsoleWindow, int _Li
 	ConsoleWindow = _ConsoleWindow;
 	LineNumber = _LineNumber;
 	TTalkLine *Line = ConsoleWindow->CurrentConsole->TextWindow->GetTalkLine(_LineNumber);
-	if (Line != NULL && Line->Addressee != NULL && strlen(Line->Addressee) != 0) {
+	if (Line != nullptr && Line->Addressee != nullptr && strlen(Line->Addressee) != 0) {
 		char Text[50];
 		sprintf(Text, "Process %s", Line->Addressee);
-		AddEntry(10106, Text, NULL);
+		AddEntry(10106, Text, nullptr);
 		sprintf(Text, "Remove %s", Line->Addressee);
-		AddEntry(10107, Text, NULL);
+		AddEntry(10107, Text, nullptr);
 		Separator = true;
-		AddEntry(10204, "Copy Name", NULL);
-		AddEntry(10205, "Copy Message", NULL);
+		AddEntry(10204, "Copy Name", nullptr);
+		AddEntry(10205, "Copy Message", nullptr);
 	}
 	Show(x, y, ParentWidth, ParentHeight);
 	TEND1(1203, _LineNumber)
@@ -1104,7 +1104,7 @@ void TRequestContextMenu::HandleEvent(int Event)
 {
 	TBEGIN
 	TTalkLine *Line = ConsoleWindow->CurrentConsole->TextWindow->GetTalkLine(LineNumber);
-	if (Line != NULL && Line->Addressee != NULL && strlen(Line->Addressee) != 0) {
+	if (Line != nullptr && Line->Addressee != nullptr && strlen(Line->Addressee) != 0) {
 		const char *Name = Line->Addressee;
 		switch (Event) {
 		case 10106: {
@@ -1153,19 +1153,19 @@ TChannelContextMenu::TChannelContextMenu(TConsoleWindow *_ConsoleWindow, int x, 
 	TASSERT(1253, TextBuffer!=NULL);
 	if (!TextBuffer->isDefault()) {
 		if (TextBuffer->GetSelected() && TextBuffer->IsPrivateChannel()) {
-			AddEntry(10016, "Invite player", NULL);
-			AddEntry(10017, "Exclude player", NULL);
+			AddEntry(10016, "Invite player", nullptr);
+			AddEntry(10017, "Exclude player", nullptr);
 			Separator = true;
 		}
-		AddEntry(10103, "Close", NULL);
+		AddEntry(10103, "Close", nullptr);
 		bool Shown = ConsoleWindow->GetServerMessages();
 		ShowServerMessages = !Shown;
-		AddEntry(10100, Shown ? "Hide server messages" : "Show server messages", NULL);
+		AddEntry(10100, Shown ? "Hide server messages" : "Show server messages", nullptr);
 		Separator = true;
 	}
-	AddEntry(10102, "Save Window", NULL);
+	AddEntry(10102, "Save Window", nullptr);
 	if (!TextBuffer->IsRuleViolationChannel())
-		AddEntry(10105, "Clear Window", NULL);
+		AddEntry(10105, "Clear Window", nullptr);
 	Show(x, y, ParentWidth, ParentHeight);
 	TEND2(1275, x, y)
 }
@@ -1213,17 +1213,17 @@ TEditContextMenu::TEditContextMenu(TEditLine *_Edit, int x, int y, int ParentWid
 	Edit = _Edit;
 	if (_Edit->SelectionStart != -1 && _Edit->SelectionLength != 0) {
 		if (!_Edit->ReadOnly)
-			AddEntry(10201, "Cut", NULL);
-		AddEntry(10203, "Copy", NULL);
+			AddEntry(10201, "Cut", nullptr);
+		AddEntry(10203, "Copy", nullptr);
 	}
 	if (!IsClipboardEmpty() && !Edit->ReadOnly)
-		AddEntry(10200, "Paste", NULL);
+		AddEntry(10200, "Paste", nullptr);
 	Separator = true;
 	if (Edit->SelectionStart != -1 && Edit->SelectionLength != 0 && !Edit->ReadOnly) {
-		AddEntry(10202, "Delete", NULL);
+		AddEntry(10202, "Delete", nullptr);
 		Separator = true;
 	}
-	AddEntry(10206, "Select All", NULL);
+	AddEntry(10206, "Select All", nullptr);
 	Show(x, y, ParentWidth, ParentHeight);
 	TEND2(1349, x, y)
 }
@@ -1265,10 +1265,10 @@ TMarkContextMenu::TMarkContextMenu(TMarkMenuData *_Data, int x, int y, int Paren
 	TBEGIN
 	Data = *_Data;
 	if (Data.Mark.x == 0 && Data.Mark.y == 0) {
-		AddEntry(10400, "Set Mark", NULL);
+		AddEntry(10400, "Set Mark", nullptr);
 	} else {
-		AddEntry(10401, "Edit Mark", NULL);
-		AddEntry(10403, "Delete Mark", NULL);
+		AddEntry(10401, "Edit Mark", nullptr);
+		AddEntry(10403, "Delete Mark", nullptr);
 	}
 	Show(x, y, ParentWidth, ParentHeight);
 	delete _Data;
@@ -1320,18 +1320,18 @@ TSkillContextMenu::TSkillContextMenu(TSkillsWindowBody *_SkillsWindow, int x, in
 	TBEGIN
 	SkillsWindow = _SkillsWindow;
 	_SkillsWindow->ContextMenu = this;
-	AddEntry(10500, GetLevelBar() ? "Hide Level" : "Show Level", NULL);
-	AddEntry(10501, GetMagLevelBar() ? "Hide Magic Level" : "Show Magic Level", NULL);
-	AddEntry(10502, GetSkillBar(0) ? "Hide Fist Fighting" : "Show Fist Fighting", NULL);
-	AddEntry(10503, GetSkillBar(1) ? "Hide Club Fighting" : "Show Club Fighting", NULL);
-	AddEntry(10504, GetSkillBar(2) ? "Hide Sword Fighting" : "Show Sword Fighting", NULL);
-	AddEntry(10505, GetSkillBar(3) ? "Hide Axe Fighting" : "Show Axe Fighting", NULL);
-	AddEntry(10506, GetSkillBar(4) ? "Hide Distance Fighting" : "Show Distance Fighting", NULL);
-	AddEntry(10507, GetSkillBar(5) ? "Hide Shielding" : "Show Shielding", NULL);
-	AddEntry(10508, GetSkillBar(6) ? "Hide Fishing" : "Show Fishing", NULL);
+	AddEntry(10500, GetLevelBar() ? "Hide Level" : "Show Level", nullptr);
+	AddEntry(10501, GetMagLevelBar() ? "Hide Magic Level" : "Show Magic Level", nullptr);
+	AddEntry(10502, GetSkillBar(0) ? "Hide Fist Fighting" : "Show Fist Fighting", nullptr);
+	AddEntry(10503, GetSkillBar(1) ? "Hide Club Fighting" : "Show Club Fighting", nullptr);
+	AddEntry(10504, GetSkillBar(2) ? "Hide Sword Fighting" : "Show Sword Fighting", nullptr);
+	AddEntry(10505, GetSkillBar(3) ? "Hide Axe Fighting" : "Show Axe Fighting", nullptr);
+	AddEntry(10506, GetSkillBar(4) ? "Hide Distance Fighting" : "Show Distance Fighting", nullptr);
+	AddEntry(10507, GetSkillBar(5) ? "Hide Shielding" : "Show Shielding", nullptr);
+	AddEntry(10508, GetSkillBar(6) ? "Hide Fishing" : "Show Fishing", nullptr);
 	AddSeparator();
-	AddEntry(10509, "Show all Skill Bars", NULL);
-	AddEntry(10510, "Hide all Skill Bars", NULL);
+	AddEntry(10509, "Show all Skill Bars", nullptr);
+	AddEntry(10510, "Hide all Skill Bars", nullptr);
 	Show(x, y, ParentWidth, ParentHeight);
 	TEND2(1465, x, y)
 }
@@ -1372,7 +1372,7 @@ void TSkillContextMenu::HandleEvent(int Event)
 	default:
 		TERROR1(1525, "unknown event", Event);
 	}
-	if (SkillsWindow != NULL)
+	if (SkillsWindow != nullptr)
 		SkillsWindow->Arrange();
 	TEND1(1530, Event)
 }

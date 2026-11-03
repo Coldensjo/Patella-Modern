@@ -55,7 +55,7 @@ END_MESSAGE_MAP()
 
 // 0x4d7cf0
 CPlayerApp::CPlayerApp()
-	: CWinApp(NULL)
+	: CWinApp(nullptr)
 {
 	Terminating = false;
 	RunPatch = false;
@@ -78,7 +78,7 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 		AfxGetMainWnd()->ShowWindow(SW_HIDE);
 	} catch (...) {
 	}
-	PATELLA_MESSAGE_BOX(NULL, Text, Caption, MB_ICONHAND);
+	PATELLA_MESSAGE_BOX(nullptr, Text, Caption, MB_ICONHAND);
 	exit(1);
 }
 
@@ -148,7 +148,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 		Out << std::endl
 			<< "+---------------------------------------------------------------" << std::endl
 			<< "Debug Assertion " << "7.72" << " " << Exception.GetOrigin();
-		time_t Now = PATELLA_TIME(NULL);
+		time_t Now = PATELLA_TIME(nullptr);
 		Out << std::endl
 			<< CRT71Time(ctime(&Now)); // the day as MSVC 7.1 writes it
 		OSVERSIONINFOA Version;
@@ -195,7 +195,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 		} catch (...) {
 			Out << "OutputControlErrorInformations: (exception)" << std::endl;
 		}
-		if (m_pMainWnd != NULL) {
+		if (m_pMainWnd != nullptr) {
 			try {
 				((CMainFrame *)m_pMainWnd)->OutputErrorInformations(Out);
 			} catch (...) {
@@ -281,7 +281,7 @@ BOOL CPlayerApp::InitInstance()
 			bool Gamemaster = false;
 			SetTestServerAddress("test.cipsoft.com");
 			SetTestServerPort(7172);
-			while (Token != NULL) {
+			while (Token != nullptr) {
 				if (_stricmp(Token, "gamemaster") == 0) {
 					Gamemaster = true;
 				} else if (_stricmp(Token, "host") == 0) {
@@ -304,7 +304,7 @@ BOOL CPlayerApp::InitInstance()
 						break;
 					}
 				}
-				Token = strtok(NULL, " \t\n");
+				Token = strtok(nullptr, " \t\n");
 			}
 
 			CMainFrame *MainFrame;
@@ -313,7 +313,7 @@ BOOL CPlayerApp::InitInstance()
 			TEND(255)
 			char Title[56];
 			GetWindowTitle(Title);
-			if (!MainFrame->Create(NULL, Title, WS_OVERLAPPEDWINDOW, CFrameWnd::rectDefault, NULL, NULL, 0, NULL)) {
+			if (!MainFrame->Create(nullptr, Title, WS_OVERLAPPEDWINDOW, CFrameWnd::rectDefault, nullptr, nullptr, 0, nullptr)) {
 				delete MainFrame;
 				return FALSE;
 			}
@@ -328,12 +328,12 @@ BOOL CPlayerApp::InitInstance()
 				NumberOfTibiaWindows = 0;
 				EnumWindows(CountTibiaWindows, 0);
 				if (NumberOfTibiaWindows == 0) {
-					PATELLA_MESSAGE_BOX(NULL, "Application is corrupted! Please re-install Tibia.", "Tibia - Error", MB_ICONEXCLAMATION);
+					PATELLA_MESSAGE_BOX(nullptr, "Application is corrupted! Please re-install Tibia.", "Tibia - Error", MB_ICONEXCLAMATION);
 					ExitProgram();
 					return FALSE;
 				}
 				if (NumberOfTibiaWindows > 1) {
-					PATELLA_MESSAGE_BOX(NULL, "A Tibia client is already running!", "Tibia - Error", MB_ICONEXCLAMATION);
+					PATELLA_MESSAGE_BOX(nullptr, "A Tibia client is already running!", "Tibia - Error", MB_ICONEXCLAMATION);
 					ExitProgram();
 					return FALSE;
 				}
@@ -385,7 +385,7 @@ int CPlayerApp::Run()
 		try {
 			Result = CWinApp::Run();
 			if (RunPatch)
-				_execl("patch.exe", "patch.exe", NULL);
+				_execl("patch.exe", "patch.exe", nullptr);
 		} catch (PROGRAM_ERROR Error) {
 			HandleProgramError(Error);
 		} catch (TMyException &Exception_) {

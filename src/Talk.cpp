@@ -9,21 +9,21 @@
 #include <stddef.h>
 #include <new>
 
-static bool IgnoreListEnabled;                                    // 0x71dbd0
-static bool BuddyIgnore;                                          // 0x71dbd1
-static bool IgnoreEnabled;                                        // 0x71dbd2
-static bool ConsoleChanged;                                       // 0x71dbd3
-static int StatusMessageTime;                                     // 0x71dbdc
-static char StatusMessage[STATUSMESSAGE_LENGTH];                  // 0x71dbe0
-static int TalkOrder;                                             // 0x71dde0
-static bool TalkChanged;                                          // 0x71dde4
-static TTalkbox Talkboxes[TALKBOXES];                             // 0x71dde8
-TTalkBuffer *DefaultTextBuffer;                                   // 0x71ef68
-static int TalkThrottle;                                          // 0x71ef6c
-static vector<TTalkFilter *> BuddyExemptionList(0, 9, 10, NULL);  // 0x71ef70, 0x55a140
-static vector<TTalkFilter *> TemporaryIgnoreList(0, 9, 10, NULL); // 0x71ef90, 0x55a160
-static vector<TTalkFilter *> IgnoreList(0, 9, 10, NULL);          // 0x71efb0, 0x55a180
-static vector<TTalkFilter *> ConsoleFilterList(0, 4, 5, NULL);    // 0x71efd0, 0x55a1a0
+static bool IgnoreListEnabled;                                       // 0x71dbd0
+static bool BuddyIgnore;                                             // 0x71dbd1
+static bool IgnoreEnabled;                                           // 0x71dbd2
+static bool ConsoleChanged;                                          // 0x71dbd3
+static int StatusMessageTime;                                        // 0x71dbdc
+static char StatusMessage[STATUSMESSAGE_LENGTH];                     // 0x71dbe0
+static int TalkOrder;                                                // 0x71dde0
+static bool TalkChanged;                                             // 0x71dde4
+static TTalkbox Talkboxes[TALKBOXES];                                // 0x71dde8
+TTalkBuffer *DefaultTextBuffer;                                      // 0x71ef68
+static int TalkThrottle;                                             // 0x71ef6c
+static vector<TTalkFilter *> BuddyExemptionList(0, 9, 10, nullptr);  // 0x71ef70, 0x55a140
+static vector<TTalkFilter *> TemporaryIgnoreList(0, 9, 10, nullptr); // 0x71ef90, 0x55a160
+static vector<TTalkFilter *> IgnoreList(0, 9, 10, nullptr);          // 0x71efb0, 0x55a180
+static vector<TTalkFilter *> ConsoleFilterList(0, 4, 5, nullptr);    // 0x71efd0, 0x55a1a0
 
 static_assert(sizeof(TTalkbox) == 0x1c0, "talkbox layout");
 #if PATELLA_ORIGINAL_LAYOUT
@@ -57,7 +57,7 @@ int GetNumberOfTalkboxes()
 // 0x4fd4c0
 void SetTalkChanged() { TalkChanged = true; }
 // 0x4fd4d0
-const char *GetStatusMessage() { return StatusMessageTime != 0 ? StatusMessage : NULL; }
+const char *GetStatusMessage() { return StatusMessageTime != 0 ? StatusMessage : nullptr; }
 // 0x4fd4e0
 void SetIgnoreEnabled(bool Value) { IgnoreEnabled = Value; }
 // 0x4fd4f0
@@ -275,7 +275,7 @@ void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *
 	Box.z = z;
 	Box.Lines = 0;
 	Box.RemainingTime = ((int)(strlen(Text) >> 1) + 30) * 100;
-	const char *Format = NULL;
+	const char *Format = nullptr;
 	switch (Mode) {
 	case 1: Format = "%s says:"; break;
 	case 2: Format = "%s whispers:"; break;
@@ -284,7 +284,7 @@ void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *
 	case 9:
 	case 11: Format = "%s:"; break;
 	}
-	if (Format != NULL) {
+	if (Format != nullptr) {
 		Box.Lines = 1;
 		sprintf(Box.Text[0], Format, Speaker);
 	}
@@ -413,7 +413,7 @@ void SetStatusMessage(const char *Message, bool Permanent)
 {
 	TBEGIN
 	TalkChanged = true;
-	if (Message == NULL) {
+	if (Message == nullptr) {
 		StatusMessageTime = 0;
 		return;
 	}
@@ -435,7 +435,7 @@ bool TTalkFilter::Matches(int _Mode, const char *_Addressee, int _Channel)
 		return false;
 	if ((Mode != _Mode && Mode != 0) || (Channel != _Channel && Channel != -1))
 		return false;
-	if (strlen(Addressee) != 0 && _Addressee == NULL)
+	if (strlen(Addressee) != 0 && _Addressee == nullptr)
 		return false;
 	if (strlen(Addressee) == 0)
 		return true;
@@ -447,7 +447,7 @@ int FindTalkFilter(int Mode, const char *Addressee, int Channel, vector<TTalkFil
 {
 	TBEGIN
 	for (int i = List.min; i <= List.max; i++)
-		if (List(i) != NULL && List(i)->Matches(Mode, Addressee, Channel))
+		if (List(i) != nullptr && List(i)->Matches(Mode, Addressee, Channel))
 			return i;
 	return -1;
 	TEND1(652, Channel)
@@ -459,7 +459,7 @@ int FindTextBuffer(TTalkBuffer *TextBuffer, vector<TTalkFilter *> &List)
 	int i;
 	TBEGIN
 	for (i = List.min; i <= List.max; i++)
-		if (List(i) != NULL && List(i)->TextBuffer == TextBuffer)
+		if (List(i) != nullptr && List(i)->TextBuffer == TextBuffer)
 			return i;
 	return -1;
 	TEND1(672, i)
@@ -470,13 +470,13 @@ void AddTalkFilter(int Mode, const char *Addressee, int Channel, TTalkBuffer *Te
 {
 	TBEGIN
 	int i = List.min;
-	while (i <= List.max && List(i) != NULL)
+	while (i <= List.max && List(i) != nullptr)
 		i++;
 	TTalkFilter *Filter = new (std::nothrow) TTalkFilter;
-	if (Filter != NULL) {
+	if (Filter != nullptr) {
 		Filter->TextBuffer = TextBuffer;
 		Filter->Mode = Mode;
-		if (Addressee == NULL)
+		if (Addressee == nullptr)
 			Filter->Addressee[0] = 0;
 		else
 			CopyString(Filter->Addressee, Addressee, 30);
@@ -493,15 +493,15 @@ bool IsTalkIgnored(int Mode, const char *Name, int Channel)
 	if (IgnoreEnabled) {
 		if (BuddyIgnore)
 			for (int i = TemporaryIgnoreList.min; i <= TemporaryIgnoreList.max; i++)
-				if (TemporaryIgnoreList(i) != NULL && TemporaryIgnoreList(i)->Matches(Mode, Name, Channel))
+				if (TemporaryIgnoreList(i) != nullptr && TemporaryIgnoreList(i)->Matches(Mode, Name, Channel))
 					return false;
 		for (int i = BuddyExemptionList.min; i <= BuddyExemptionList.max; i++)
-			if (BuddyExemptionList(i) != NULL && BuddyExemptionList(i)->Matches(Mode, Name, Channel))
+			if (BuddyExemptionList(i) != nullptr && BuddyExemptionList(i)->Matches(Mode, Name, Channel))
 				return false;
 	}
 	if (IgnoreListEnabled)
 		for (int i = IgnoreList.min; i <= IgnoreList.max; i++)
-			if (IgnoreList(i) != NULL && IgnoreList(i)->Matches(Mode, Name, Channel))
+			if (IgnoreList(i) != nullptr && IgnoreList(i)->Matches(Mode, Name, Channel))
 				return true;
 	return false;
 	TEND2(731, Mode, Channel)
@@ -513,15 +513,15 @@ char *GetBuddyIgnoreText()
 	TBEGIN
 	int Length = 0;
 	for (int i = BuddyExemptionList.min; i <= BuddyExemptionList.max; i++)
-		if (BuddyExemptionList(i) != NULL)
+		if (BuddyExemptionList(i) != nullptr)
 			Length += (int)strlen(BuddyExemptionList(i)->Addressee) + 1;
 	if (Length == 0)
-		return NULL;
+		return nullptr;
 	char *Text = new (std::nothrow) char[Length + 1];
 	Text[0] = 0;
 	Length = 0;
 	for (int i = BuddyExemptionList.min; i <= BuddyExemptionList.max; i++)
-		if (BuddyExemptionList(i) != NULL && strlen(BuddyExemptionList(i)->Addressee) != 0) {
+		if (BuddyExemptionList(i) != nullptr && strlen(BuddyExemptionList(i)->Addressee) != 0) {
 			sprintf(Text + Length, "%s\n", BuddyExemptionList(i)->Addressee);
 			Length += (int)strlen(BuddyExemptionList(i)->Addressee) + 1;
 		}
@@ -534,9 +534,9 @@ void ClearBuddyIgnore()
 {
 	TBEGIN
 	for (int i = BuddyExemptionList.min; i <= BuddyExemptionList.max; i++)
-		if (BuddyExemptionList(i) != NULL) {
+		if (BuddyExemptionList(i) != nullptr) {
 			free(BuddyExemptionList(i));
-			BuddyExemptionList(i) = NULL;
+			BuddyExemptionList(i) = nullptr;
 		}
 	TEND(782)
 }
@@ -548,9 +548,9 @@ void AddBuddyIgnore(const char *Addressee, bool Permanent)
 	int Filter = FindTalkFilter(0, Addressee, -1, BuddyExemptionList);
 	if (Filter != -1) {
 		free(BuddyExemptionList(Filter));
-		BuddyExemptionList(Filter) = NULL;
+		BuddyExemptionList(Filter) = nullptr;
 	}
-	AddTalkFilter(0, Addressee, -1, NULL, BuddyExemptionList, Permanent);
+	AddTalkFilter(0, Addressee, -1, nullptr, BuddyExemptionList, Permanent);
 	TEND(802)
 }
 // 0x5008d0, line 816
@@ -567,9 +567,9 @@ void ClearTemporaryIgnore()
 {
 	TBEGIN
 	for (int i = TemporaryIgnoreList.min; i <= TemporaryIgnoreList.max; i++)
-		if (TemporaryIgnoreList(i) != NULL) {
+		if (TemporaryIgnoreList(i) != nullptr) {
 			free(TemporaryIgnoreList(i));
-			TemporaryIgnoreList(i) = NULL;
+			TemporaryIgnoreList(i) = nullptr;
 		}
 	TEND(867)
 }
@@ -581,9 +581,9 @@ void AddTemporaryIgnore(const char *Addressee)
 	int Filter = FindTalkFilter(0, Addressee, -1, TemporaryIgnoreList);
 	if (Filter != -1) {
 		free(TemporaryIgnoreList(Filter));
-		TemporaryIgnoreList(Filter) = NULL;
+		TemporaryIgnoreList(Filter) = nullptr;
 	}
-	AddTalkFilter(0, Addressee, -1, NULL, TemporaryIgnoreList, false);
+	AddTalkFilter(0, Addressee, -1, nullptr, TemporaryIgnoreList, false);
 	TEND(887)
 }
 // 0x500e40, line 903
@@ -593,7 +593,7 @@ void RemoveTemporaryIgnore(const char *Addressee)
 	int Filter = FindTalkFilter(0, Addressee, -1, TemporaryIgnoreList);
 	if (Filter != -1) {
 		free(TemporaryIgnoreList(Filter));
-		TemporaryIgnoreList(Filter) = NULL;
+		TemporaryIgnoreList(Filter) = nullptr;
 	}
 	TEND(903)
 }
@@ -603,15 +603,15 @@ char *GetIgnoreListText()
 	TBEGIN
 	int Length = 0;
 	for (int i = IgnoreList.min; i <= IgnoreList.max; i++)
-		if (IgnoreList(i) != NULL)
+		if (IgnoreList(i) != nullptr)
 			Length += (int)strlen(IgnoreList(i)->Addressee) + 1;
 	if (Length == 0)
-		return NULL;
+		return nullptr;
 	char *Text = new (std::nothrow) char[Length + 1];
 	Text[0] = 0;
 	Length = 0;
 	for (int i = IgnoreList.min; i <= IgnoreList.max; i++)
-		if (IgnoreList(i) != NULL && strlen(IgnoreList(i)->Addressee) != 0) {
+		if (IgnoreList(i) != nullptr && strlen(IgnoreList(i)->Addressee) != 0) {
 			sprintf(Text + Length, "%s\n", IgnoreList(i)->Addressee);
 			Length += (int)strlen(IgnoreList(i)->Addressee) + 1;
 		}
@@ -623,7 +623,7 @@ char *GetIgnoreListText()
 bool IsModeIgnored(int Mode)
 {
 	TBEGIN
-	return FindTalkFilter(Mode, NULL, -1, IgnoreList) != -1;
+	return FindTalkFilter(Mode, nullptr, -1, IgnoreList) != -1;
 	TEND(966)
 }
 
@@ -632,9 +632,9 @@ void ClearIgnoreList()
 {
 	TBEGIN
 	for (int i = IgnoreList.min; i <= IgnoreList.max; i++)
-		if (IgnoreList(i) != NULL) {
+		if (IgnoreList(i) != nullptr) {
 			free(IgnoreList(i));
-			IgnoreList(i) = NULL;
+			IgnoreList(i) = nullptr;
 		}
 	TEND(982)
 }
@@ -646,16 +646,16 @@ void AddIgnoreFilter(int Mode, const char *Addressee, bool Permanent)
 	int Filter = FindTalkFilter(Mode, Addressee, -1, IgnoreList);
 	if (Filter != -1) {
 		free(IgnoreList(Filter));
-		IgnoreList(Filter) = NULL;
+		IgnoreList(Filter) = nullptr;
 	}
-	AddTalkFilter(Mode, Addressee, -1, NULL, IgnoreList, Permanent);
+	AddTalkFilter(Mode, Addressee, -1, nullptr, IgnoreList, Permanent);
 	TEND(1002)
 }
 // 0x5017b0, line 1012
 void IgnoreMode(int Mode)
 {
 	TBEGIN
-	AddIgnoreFilter(Mode, NULL, false);
+	AddIgnoreFilter(Mode, nullptr, false);
 	TEND(1012)
 }
 // 0x501940, line 1022
@@ -680,7 +680,7 @@ void RemoveIgnoreFilter(int Mode, const char *Addressee)
 	int Filter = FindTalkFilter(Mode, Addressee, -1, IgnoreList);
 	if (Filter != -1) {
 		free(IgnoreList(Filter));
-		IgnoreList(Filter) = NULL;
+		IgnoreList(Filter) = nullptr;
 	}
 	TEND1(1052, Mode)
 }
@@ -688,7 +688,7 @@ void RemoveIgnoreFilter(int Mode, const char *Addressee)
 void UnignoreMode(int Mode)
 {
 	TBEGIN
-	RemoveIgnoreFilter(Mode, NULL);
+	RemoveIgnoreFilter(Mode, nullptr);
 	TEND1(1062, Mode)
 }
 // 0x502010, line 1072
@@ -704,11 +704,11 @@ void ShowPermanentIgnoreWarning()
 	int o, Counter = 0;
 	TBEGIN
 	for (o = IgnoreList.min; o <= IgnoreList.max; o++)
-		if (IgnoreList(o) != NULL && strlen(IgnoreList(o)->Addressee) != 0 && IgnoreList(o)->Permanent)
+		if (IgnoreList(o) != nullptr && strlen(IgnoreList(o)->Addressee) != 0 && IgnoreList(o)->Permanent)
 			Counter++;
 	if (Counter > 0) {
 		TASSERT(1144, DefaultTextBuffer!=NULL);
-		AddTextBufferLine(DefaultTextBuffer, 0, TextPermanentlyIgnoring, 20, NULL, 0);
+		AddTextBufferLine(DefaultTextBuffer, 0, TextPermanentlyIgnoring, 20, nullptr, 0);
 		ConsoleChanged = true;
 	}
 	TEND2(1149, o, Counter)
@@ -720,7 +720,7 @@ void AddTextBufferLine(TTalkBuffer *TargetBuffer, uint32 StatementID, const char
 	TASSERT(1179, TargetBuffer!=NULL);
 	TBEGIN
 	TTalkLine *Line;
-	if (Name == NULL)
+	if (Name == nullptr)
 		Line = new (std::nothrow) TTalkLine(StatementID, TalkMode, Text, 0);
 	else
 		Line = new (std::nothrow) TTalkLine(StatementID, TalkMode, Name, Text, Time);
@@ -745,16 +745,16 @@ void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const ch
 		TTalkBuffer *TargetBuffer = DefaultTextBuffer;
 		if (TalkMode == 5 || TalkMode == 6 || TalkMode == 7 || TalkMode == 8
 			|| TalkMode == 10 || TalkMode == 14 || TalkMode == 12)
-			TargetBuffer = NULL;
+			TargetBuffer = nullptr;
 		if (TalkMode == 14)
-			Name = NULL;
+			Name = nullptr;
 		for (int i = ConsoleFilterList.min; i <= ConsoleFilterList.max; i++) {
 			TTalkFilter *Filter = ConsoleFilterList(i);
 			int Mode = TalkMode == 10 || TalkMode == 14 || TalkMode == 12 ? 5 : TalkMode;
-			if (Filter != NULL && Filter->Matches(Mode, Name, Channel))
+			if (Filter != nullptr && Filter->Matches(Mode, Name, Channel))
 				TargetBuffer = Filter->TextBuffer;
 		}
-		if (TargetBuffer != NULL)
+		if (TargetBuffer != nullptr)
 			AddTextBufferLine(TargetBuffer, StatementID, Text, TalkMode, Name, Time);
 		return;
 	}
@@ -765,7 +765,7 @@ void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const ch
 		AddTextBufferLine(TargetBuffer, StatementID, Text, TalkMode, Name, Time);
 		for (int i = ConsoleFilterList.min; i <= ConsoleFilterList.max; i++) {
 			TTalkFilter *Filter = ConsoleFilterList(i);
-			if (Filter != NULL) {
+			if (Filter != nullptr) {
 				TargetBuffer = Filter->TextBuffer;
 				TASSERT(1252, TargetBuffer!=NULL);
 				if (TargetBuffer->ShowMessages && !TargetBuffer->IsRuleViolationChannel())
@@ -779,13 +779,13 @@ void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const ch
 void AddChannelNotice(const char *Addressee, const char *Text, int Mode, const char *Name, int Channel)
 {
 	TBEGIN
-	TTalkBuffer *TargetBuffer = Mode == 5 ? NULL : DefaultTextBuffer;
+	TTalkBuffer *TargetBuffer = Mode == 5 ? nullptr : DefaultTextBuffer;
 	for (int i = ConsoleFilterList.min; i <= ConsoleFilterList.max; i++) {
 		TTalkFilter *Filter = ConsoleFilterList(i);
-		if (Filter != NULL && Filter->Matches(Mode, Name, Channel))
+		if (Filter != nullptr && Filter->Matches(Mode, Name, Channel))
 			TargetBuffer = Filter->TextBuffer;
 	}
-	if (TargetBuffer != NULL)
+	if (TargetBuffer != nullptr)
 		AddTextBufferLine(TargetBuffer, 0, Text, 24, Addressee, 0);
 	TEND1(1279, Channel)
 }
@@ -793,7 +793,7 @@ void AddChannelNotice(const char *Addressee, const char *Text, int Mode, const c
 void ClearDefaultTextBuffer()
 {
 	TBEGIN
-	if (DefaultTextBuffer != NULL)
+	if (DefaultTextBuffer != nullptr)
 		DefaultTextBuffer->Clear();
 	ConsoleChanged = true;
 	TEND(1291)
@@ -813,7 +813,7 @@ TTalkBuffer *GetTextBuffer(int Mode, const char *Name, int Channel)
 	TBEGIN
 	int Filter = FindTalkFilter(Mode, Name, Channel, ConsoleFilterList);
 	if (Filter == -1)
-		return NULL;
+		return nullptr;
 	TASSERT1(1315, ConsoleFilterList(Filter)!=NULL, Filter);
 	return ConsoleFilterList(Filter)->TextBuffer;
 	TEND2(1318, Mode, Channel)
@@ -823,24 +823,24 @@ TTalkBuffer *CreateTextBuffer(int ReceiveTalkMode, int SendTalkMode, const char 
 {
 	TBEGIN
 	if (FindTalkFilter(ReceiveTalkMode, Name, Channel, ConsoleFilterList) != -1)
-		return NULL;
+		return nullptr;
 	TTalkBuffer *TextBuffer;
-	if (Name == NULL && Channel == -1 && ReceiveTalkMode == SendTalkMode)
+	if (Name == nullptr && Channel == -1 && ReceiveTalkMode == SendTalkMode)
 		TextBuffer = new (std::nothrow) TTalkBuffer(ReceiveTalkMode);
-	else if (Name == NULL && Channel != -1 && ReceiveTalkMode == SendTalkMode) {
+	else if (Name == nullptr && Channel != -1 && ReceiveTalkMode == SendTalkMode) {
 		if (Channel < 8)
 			TextBuffer = new (std::nothrow) TChannelTalkBuffer(ReceiveTalkMode, Channel);
 		else
 			TextBuffer = new (std::nothrow) TPrivateChannel(ReceiveTalkMode, Channel);
-	} else if (Name != NULL && Channel == -1 && ReceiveTalkMode == SendTalkMode)
+	} else if (Name != nullptr && Channel == -1 && ReceiveTalkMode == SendTalkMode)
 		TextBuffer = new (std::nothrow) TPrivateTalkBuffer(ReceiveTalkMode, Name);
 	else if (ReceiveTalkMode == 7 || ReceiveTalkMode == 8)
 		TextBuffer = new (std::nothrow) TRuleViolationTalkBuffer(ReceiveTalkMode, SendTalkMode, Name);
 	else {
-		if (Name != NULL || Channel == -1 || ReceiveTalkMode != 6)
+		if (Name != nullptr || Channel == -1 || ReceiveTalkMode != 6)
 			TERROR(1361, "can't create text buffer");
-		if (FindTalkFilter(6, NULL, -1, ConsoleFilterList) != -1)
-			return NULL;
+		if (FindTalkFilter(6, nullptr, -1, ConsoleFilterList) != -1)
+			return nullptr;
 		TextBuffer = new (std::nothrow) TRuleViolationChannel(6, Channel);
 		Channel = -1;
 	}
@@ -856,8 +856,8 @@ void DeleteTextBuffer(TTalkBuffer *TextBuffer)
 		int Filter = FindTextBuffer(TextBuffer, ConsoleFilterList);
 		TASSERT(1377, Filter!=-1);
 		free(ConsoleFilterList(Filter));
-		ConsoleFilterList(Filter) = NULL;
-		if (TextBuffer != NULL) {
+		ConsoleFilterList(Filter) = nullptr;
+		if (TextBuffer != nullptr) {
 			TextBuffer->~TTalkBuffer();
 			free(TextBuffer);
 		}
@@ -872,7 +872,7 @@ bool HasOwnPrivateChannel()
 	TBEGIN
 	for (i = ConsoleFilterList.min; i <= ConsoleFilterList.max; i++) {
 		TTalkFilter *Filter = ConsoleFilterList(i);
-		if (Filter != NULL && Filter->TextBuffer != NULL
+		if (Filter != nullptr && Filter->TextBuffer != nullptr
 			&& Filter->TextBuffer->GetSelected() && Filter->TextBuffer->IsPrivateChannel())
 			return true;
 	}
@@ -885,7 +885,7 @@ TTalkBuffer::~TTalkBuffer() noexcept(false) { Clear(); }
 void TTalkBuffer::Clear()
 {
 	TBEGIN
-	while (first != NULL)
+	while (first != nullptr)
 		Remove(first);
 	TEND(1476)
 }
@@ -904,19 +904,19 @@ void TTalkBuffer::Append(TTalkLine *line)
 {
 	TBEGIN
 	if (!Enabled) {
-		if (line != NULL) {
-			if (line->Line != NULL)
+		if (line != nullptr) {
+			if (line->Line != nullptr)
 				free(line->Line);
 			free(line);
 		}
 		return;
 	}
 	TASSERT(1516, line!=NULL);
-	if (last == NULL && first == NULL) {
+	if (last == nullptr && first == nullptr) {
 		last = first = line;
-		line->Next = line->Previous = NULL;
+		line->Next = line->Previous = nullptr;
 	} else {
-		line->Next = NULL;
+		line->Next = nullptr;
 		line->Previous = last;
 		last->Next = line;
 		last = line;
@@ -931,13 +931,13 @@ void TTalkBuffer::Remove(TTalkLine *line)
 {
 	TBEGIN
 	if (line == first && line == last)
-		first = last = NULL;
+		first = last = nullptr;
 	else if (line == first) {
 		first = line->Next;
-		first->Previous = NULL;
+		first->Previous = nullptr;
 	} else if (line == last) {
 		last = line->Previous;
-		last->Next = NULL;
+		last->Next = nullptr;
 	} else {
 		TTalkLine *Search = first;
 		for (;;) {
@@ -951,13 +951,13 @@ void TTalkBuffer::Remove(TTalkLine *line)
 	}
 	if (cursor == line)
 		cursor = line->Next;
-	if (line != NULL) {
-		if (line->Line != NULL)
+	if (line != nullptr) {
+		if (line->Line != nullptr)
 			free(line->Line);
 		free(line);
 	}
 	lines--;
-	if (cursor == NULL)
+	if (cursor == nullptr)
 		cursor = first;
 	Complete = false;
 	Changed = LinesChanged = true;
@@ -985,9 +985,9 @@ TTalkLine *TTalkBuffer::GetLine(int lineNumber)
 	int i = 0;
 	TBEGIN
 	TTalkLine *Search = first;
-	if (Search == NULL) {
-		cursor = NULL;
-		return NULL;
+	if (Search == nullptr) {
+		cursor = nullptr;
+		return nullptr;
 	}
 	while (i != lineNumber) {
 		Search = Search->Next;
@@ -1011,7 +1011,7 @@ int TTalkBuffer::Write(FILE *F)
 	TASSERT(1672, F!=NULL);
 	INT_PTR bytes = (INT_PTR)F;
 	TBEGIN
-	for (TTalkLine *Line = first; Line != NULL; Line = Line->Next)
+	for (TTalkLine *Line = first; Line != nullptr; Line = Line->Next)
 		fprintf(F, "%s\n", Line->GetText());
 	return 0;
 	TEND1(1682, bytes)
@@ -1037,7 +1037,7 @@ TRuleViolationTalkBuffer::TRuleViolationTalkBuffer(int ReceiveTalkMode, int Send
 	this->SendTalkMode = SendTalkMode;
 	Closed = false;
 	TBEGIN
-	if (_Addressee == NULL)
+	if (_Addressee == nullptr)
 		Addressee[0] = 0;
 	else
 		CopyString(Addressee, _Addressee, 30);
@@ -1075,7 +1075,7 @@ void TRuleViolationChannel::Remove(TTalkLine *line)
 	bool OldChanged = Changed;
 	TTalkBuffer::Remove(line);
 	Changed = OldChanged;
-	if (first == NULL)
+	if (first == nullptr)
 		Closed = true;
 	TEND(1773)
 }
@@ -1086,7 +1086,7 @@ void TRuleViolationChannel::Remove(int lineNumber)
 	bool OldChanged = Changed;
 	TTalkBuffer::Remove(lineNumber);
 	Changed = OldChanged;
-	if (first == NULL)
+	if (first == nullptr)
 		Closed = true;
 	TEND(1787)
 }
@@ -1097,7 +1097,7 @@ void TRuleViolationChannel::Append(TTalkLine *line)
 	TBEGIN
 	cursor = first;
 	TTalkLine *Search = first;
-	while (Search != NULL) {
+	while (Search != nullptr) {
 		TTalkLine *Next = GetNext();
 		if (CompareStrings(line->Addressee, Search->Addressee, -1) == 0)
 			Remove(Search);
@@ -1114,7 +1114,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int Diff
 	TBEGIN
 	Mode = _Mode;
 	StatementID = _StatementID;
-	Time = PATELLA_TIME32(NULL) + DiffTime;
+	Time = PATELLA_TIME32(nullptr) + DiffTime;
 	tm *LocalTime = _localtime32(&Time);
 	char Stamp[8];
 	sprintf(Stamp, "%02d:%02d ", LocalTime->tm_hour, LocalTime->tm_min);
@@ -1134,7 +1134,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, con
 	TBEGIN
 	Mode = _Mode;
 	StatementID = _StatementID;
-	Time = PATELLA_TIME32(NULL) + DiffTime;
+	Time = PATELLA_TIME32(nullptr) + DiffTime;
 	tm *LocalTime = _localtime32(&Time);
 	char Stamp[8];
 	sprintf(Stamp, "%02d:%02d ", LocalTime->tm_hour, LocalTime->tm_min);
@@ -1155,7 +1155,7 @@ void ResetTalk()
 		Talkboxes[Position].State = 0;
 	TalkChanged = true;
 	TalkOrder = 0;
-	SetStatusMessage(NULL, false);
+	SetStatusMessage(nullptr, false);
 	ClearDefaultTextBuffer();
 	TEND(1922)
 }
@@ -1182,10 +1182,10 @@ void ExitTalk()
 	ClearBuddyIgnore();
 	ClearTemporaryIgnore();
 	ClearIgnoreList();
-	if (DefaultTextBuffer != NULL) {
+	if (DefaultTextBuffer != nullptr) {
 		DefaultTextBuffer->~TTalkBuffer();
 		free(DefaultTextBuffer);
 	}
-	DefaultTextBuffer = NULL;
+	DefaultTextBuffer = nullptr;
 	TEND(1952)
 }

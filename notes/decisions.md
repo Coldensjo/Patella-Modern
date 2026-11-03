@@ -6226,3 +6226,36 @@ PatellaTest_compile), .github/workflows/hosted.yml (job windows-test-build), .gi
   what the wait cannot see. A game login that the server answers is never retried: a real failure after the
   login still fails the check. An active probe of the game port would need a game login, which changes the
   player files and the server's state the runs compare.
+
+## NULL to nullptr outside the error macros (Patella-Modern issue #32)
+
+Settled by Claude Opus 5.5, November 3, 2026. The first change of M3 (plan section 7): `modernize-use-nullptr`
+is clean on src/ outside the arguments of TASSERT*, TERROR* and TEND*.
+
+- **clang-tidy through tools/tidy.py on every configuration that compiles src/** (high). `python -I tools/tidy.py
+  -p <dir> --checks=-*,modernize-use-nullptr --fix --all` on compile_commands.json files that hold one target's
+  Release commands each: windows-x64's Patella, PatellaTest (PATELLA_TEST_MODE), patella_core,
+  patella_testmode and patella_render_vulkan, and oracle-x86's Patella, mfc_shim_check, difftest,
+  communicationtest, sysinctest and vlongtest (`--extra-arg=-m32`; the oracle preset does not export compile
+  commands, so it was configured once with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`). One run per target, because
+  tidy.py takes each file once and the targets' definitions select different code (the x86 engines, the test
+  hooks, the MFC shim). 1,223 replacements: 1,222 `NULL`, one `0` (vlong.h's flex_unit). tidy.py reverted
+  every fix inside a macro argument; the 262 `NULL`s there wait for M5 (macrocheck: the 2,108 calls unchanged).
+- **The 40 the check does not report, by hand** (high). modernize-use-nullptr leaves a null constant alone when
+  its target type is a template parameter: Container.h's `vector<T *>` with T a pointer, its `init` argument
+  (`vector<TTalkFilter *> IgnoreList(0, 9, 10, NULL)`) and the `T &` that operator() returns (`List(i) !=
+  NULL`, `Timers(i) = NULL`; Talk.cpp, GUI.cpp, DialogElements.cpp and .h); and a variadic argument
+  (Player.cpp's `_execl("patch.exe", "patch.exe", NULL)`, a null pointer by _execl's contract). They are the same
+  replacement, made at the positions of the remaining `NULL` tokens outside macro arguments, comments and
+  strings, so the issue's title holds too: no `NULL` is left in src/ outside those. The images show that it is
+  the same code: on x86 a null pointer and the int 0 are the same 32 bits, and on x64 MSVC zeroes the variadic
+  slot alike (pecompare of the x64 Patella.exe: `.text` identical).
+- **Comments and strings keep NULL** (high). The 41 in comments (`TCallback(NULL, 0)` as the original's
+  initialiser was read, notes on the binary) describe the original; none is in a string.
+- **clang-format realigns the trailing comments next to a changed line** (high). clang-tidy formats its fixes
+  with the repository's .clang-format; after the hand replacements `clang-format -i` on GUI.h, GUI.cpp and
+  Talk.cpp aligned the comment columns again. Whitespace only, no macro argument touched.
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built
+  from main 3249d6b and from the branch at the same path, differ only in the link time stamps and the PDB
+  record (pecompare); the difftest counts are unchanged; the clang-tidy baseline lost its ten use-nullptr
+  entries (patella_core's Skins.cpp, TRSA.cpp, TXTEA.cpp, vlong.cpp, vlong.h).

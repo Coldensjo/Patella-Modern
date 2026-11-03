@@ -106,6 +106,13 @@ sources without Tibia.exe (PATELLA_CLIENT_COMPILE_ONLY: the object library Patel
 link), self-hosted.yml runs tools/testmode_check.py, and testmode_check.py waits for the server's "Server
 Online!" after each start and runs a run once more whose game login got no answer (issue #21's cold start).
 notes/testmode.md, "The cold start (issue #25)".
+
+NULL to nullptr (Patella-Modern issue #32, November 3, 2026; M3's first change): modernize-use-nullptr through
+tools/tidy.py on every target that compiles src/ (windows-x64 and oracle-x86), 1,223 replacements, plus 40 by hand
+where the check does not look (Container.h's template parameter, _execl's sentinel); the 262 NULLs inside
+TASSERT/TERROR/TEND arguments wait for M5 (macrocheck: 0 differences). The oracle Patella.exe and the x64
+Patella.exe and PatellaTest.exe unchanged (pecompare); the clang-tidy baseline 31 to 21 findings.
+notes/decisions.md, "NULL to nullptr outside the error macros (Patella-Modern issue #32)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -126,6 +133,12 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #32 (branch issue-32, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after NULL to nullptr outside the error macros (45 files of src/): 16,848,752 + 67 + 1,134,513
+checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe
+and PatellaTest.exe built from main (3249d6b) and from the branch at the same path: `.text` identical, 0 unexpected
+differences (pecompare); macrocheck 3249d6b issue-32: 2,108 calls, 0 differences.
 
 Patella-Modern issue #31 (branch issue-31, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest 4/4, 0
 warnings) after the graphics device choice and Patella.ini (x64-only branches in Surface.cpp, Control.cpp,

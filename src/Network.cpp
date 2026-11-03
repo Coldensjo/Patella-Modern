@@ -232,7 +232,7 @@ void SendBytes(const uint8 *Buffer, int Count)
 void SendCommand(bool Encrypt)
 {
 	TBEGIN
-	if (Socket == NULL)
+	if (Socket == nullptr)
 		return;
 	int Size = SendBuffer.Position - 4;
 	if (!Encrypt) {
@@ -464,7 +464,7 @@ bool ResolveHostname(const char *Hostname)
 	TBEGIN
 	HostnameRequest = WSAAsyncGetHostByName(NetworkWindow, WM_USER + 1, Hostname,
 		HostnameResolveBuffer, HostnameResolveBufferSize);
-	if (HostnameRequest == NULL) {
+	if (HostnameRequest == nullptr) {
 		char *Message = new char[1024];
 		GetErrorMessage(Message, WSAGetLastError(), 1);
 		AddMessage(1, (INT_PTR) "Connection failed", (INT_PTR)Message);
@@ -490,13 +490,13 @@ const char *GetResolvedIPAddress()
 int CreateSocket()
 {
 	TBEGIN
-	if (Socket != NULL)
+	if (Socket != nullptr)
 		Disconnect(false);
 	Socket = new TSocket;
-	if (!Socket->Create(0, SOCK_STREAM, FD_READ | FD_WRITE | FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE, NULL)) {
+	if (!Socket->Create(0, SOCK_STREAM, FD_READ | FD_WRITE | FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE, nullptr)) {
 		int Error = WSAGetLastError();
 		delete Socket;
-		Socket = NULL;
+		Socket = nullptr;
 		SetConnectionState(0);
 		return Error;
 	}
@@ -513,7 +513,7 @@ int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
 		if (WSAGetLastError() != WSAEWOULDBLOCK) {
 			int Error = WSAGetLastError();
 			delete Socket;
-			Socket = NULL;
+			Socket = nullptr;
 			SetConnectionState(0);
 			return Error;
 		}
@@ -545,9 +545,9 @@ void Disconnect(bool force)
 	TBEGIN
 	if (force || GetConnectionState() == 1) {
 		WSACancelAsyncRequest(HostnameRequest);
-		HostnameRequest = NULL;
+		HostnameRequest = nullptr;
 	}
-	if (Socket != NULL) {
+	if (Socket != nullptr) {
 		shutdown(Socket->m_hSocket, SD_SEND);
 		char Buffer[256];
 		int Count;
@@ -559,7 +559,7 @@ void Disconnect(bool force)
 		shutdown(Socket->m_hSocket, SD_BOTH);
 		Socket->Close();
 		delete Socket;
-		Socket = NULL;
+		Socket = nullptr;
 		TimeoutLimit = 0;
 		TimeoutCounter = 0;
 	}
@@ -694,14 +694,14 @@ void TSocket::OnClose(int /*ErrorCode*/)
 // 0x4ce8f0
 void ShutdownConnection()
 {
-	if (Socket != NULL)
+	if (Socket != nullptr)
 		shutdown(Socket->m_hSocket, SD_BOTH);
 }
 
 // 0x4ce930, lines 932-934
 void InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*CloseHandler)())
 {
-	if (!AfxSocketInit(NULL))
+	if (!AfxSocketInit(nullptr))
 		throw PROGRAM_ERROR_SOCKET_INIT;
 	TASSERT(932, ConnectHandler!=NULL);
 	TASSERT(933, ReceiveHandler!=NULL);
@@ -712,8 +712,8 @@ void InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*Clos
 	ReceiveRead = 0;
 	ReceivePacketEnd = 0;
 	ReceiveDataSize = 0;
-	Socket = NULL;
-	HostnameResolveBuffer = NULL;
+	Socket = nullptr;
+	HostnameResolveBuffer = nullptr;
 	HostnameResolveBuffer = (char *)malloc(HostnameResolveBufferSize);
 	InitServerList();
 }
@@ -723,9 +723,9 @@ void ExitNetwork()
 {
 	TBEGIN
 	delete Socket;
-	Socket = NULL;
-	if (HostnameResolveBuffer != NULL)
+	Socket = nullptr;
+	if (HostnameResolveBuffer != nullptr)
 		free(HostnameResolveBuffer);
-	HostnameResolveBuffer = NULL;
+	HostnameResolveBuffer = nullptr;
 	TEND(961)
 }

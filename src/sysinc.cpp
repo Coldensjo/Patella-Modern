@@ -132,7 +132,7 @@ void InitSysinc()
 void ExitSysinc()
 {
 	free(ClipboardBuffer);
-	ClipboardBuffer = NULL;
+	ClipboardBuffer = nullptr;
 }
 
 // 0x4fce50, line 63. Grows the buffer, keeping its contents.
@@ -154,13 +154,13 @@ void ResizeClipboardBuffer(unsigned int Size)
 // past the clipboard data.
 char *GetClipboardText()
 {
-	if (!OpenClipboard(NULL))
-		return NULL;
+	if (!OpenClipboard(nullptr))
+		return nullptr;
 	HANDLE Memory = GetClipboardData(CF_TEXT);
 	SIZE_T Size = GlobalSize(Memory);
 	ResizeClipboardBuffer((unsigned int)Size);
 	char *Data = (char *)GlobalLock(Memory);
-	if (Data == NULL) {
+	if (Data == nullptr) {
 		ClipboardBuffer[0] = 0;
 	} else {
 		memcpy(ClipboardBuffer, Data, Size);
@@ -183,17 +183,17 @@ char *GetClipboardText()
 bool SetClipboardText(const char *Text)
 {
 	size_t Length = strlen(Text);
-	if (!OpenClipboard(NULL))
+	if (!OpenClipboard(nullptr))
 		return false;
 	HGLOBAL Memory;
-	if (EmptyClipboard() && (Memory = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, Length + 1)) != NULL) {
+	if (EmptyClipboard() && (Memory = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, Length + 1)) != nullptr) {
 		char *textdata = (char *)GlobalLock(Memory);
 		TASSERT(139, textdata!=NULL);
 		memcpy(textdata, Text, Length);
 		textdata[Length] = 0;
 		BOOL result = GlobalUnlock(Memory);
 		TASSERT2(143, result==0 || GetLastError()==NO_ERROR, result, GetLastError());
-		if (SetClipboardData(CF_TEXT, Memory) != NULL) {
+		if (SetClipboardData(CF_TEXT, Memory) != nullptr) {
 			CloseClipboard();
 			return true;
 		}

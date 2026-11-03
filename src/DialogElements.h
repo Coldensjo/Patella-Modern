@@ -119,11 +119,11 @@ public:
 	// Inline (out-of-line copy 0x4525d0, deleting destructor 0x452d50).
 	~TLabel()
 	{
-		if (Text != NULL)
+		if (Text != nullptr)
 			delete[] Text;
-		if (FullText != NULL)
+		if (FullText != nullptr)
 			delete[] FullText;
-		if (Line != NULL)
+		if (Line != nullptr)
 			delete[] Line;
 	}
 	void Draw(int Surface, int x, int y);                          // +0x44, 0x455a50, line 413
@@ -152,9 +152,9 @@ public:
 	// Inline (out-of-line copy 0x452630, deleting destructor 0x452d70).
 	~TFormattedText()
 	{
-		if (Text != NULL)
+		if (Text != nullptr)
 			delete[] Text;
-		if (Line != NULL)
+		if (Line != nullptr)
 			delete[] Line;
 	}
 	void SetSize(int Width, int Height);                            // +0x34, 0x456200, line 531
@@ -292,7 +292,7 @@ public:
 // TCombatControls; the out-of-line vector constructor is 0x425e70); Selected
 // is left uninitialised.
 struct TRadioButtonGroup {
-	TRadioButtonGroup() : Buttons(0, 0, 10, NULL) { Count = 0; }
+	TRadioButtonGroup() : Buttons(0, 0, 10, nullptr) { Count = 0; }
 	TSkinButton *Selected;         // +0x00
 	vector<TSkinButton *> Buttons; // +0x04
 	int Count;                     // +0x24
@@ -732,7 +732,7 @@ public:
 	{
 		for (int i = 0; i < Lines; i++)
 			delete[] LineText(i);
-		if (!Editing && EditLine != NULL)
+		if (!Editing && EditLine != nullptr)
 			delete EditLine;
 	}
 	void SetSize(int Width, int Height);                 // +0x34, 0x4620e0, line 3646

@@ -301,8 +301,8 @@ static void SortObjects(int rx, int ry, int rz)
 	}
 	for (int i = Point.ObjectCount - 1; i >= 0 && n != Point.ObjectCount; i--)
 		Point.Order[n++] = i;
-	TObject *Hanging = NULL;
-	TObject *Hook = NULL;
+	TObject *Hanging = nullptr;
+	TObject *Hook = nullptr;
 	for (int i = Point.ObjectCount - 1; i >= 0; i--) {
 		TObject &Obj = Point.Objects[i];
 		if (GetObjectFlag(Obj.Type, HANG))
@@ -310,7 +310,7 @@ static void SortObjects(int rx, int ry, int rz)
 		if (GetObjectFlag(Obj.Type, HOOKSOUTH) || GetObjectFlag(Obj.Type, HOOKEAST))
 			Hook = &Obj;
 	}
-	if (Hanging != NULL && Hook != NULL)
+	if (Hanging != nullptr && Hook != nullptr)
 		Hanging->Data2 = GetObjectFlag(Hook->Type, HOOKSOUTH) ? HOOKSOUTH : HOOKEAST;
 	TEND(341)
 }
@@ -1123,7 +1123,7 @@ static void LoadAutomapBlock(int Position, int bx, int by, int bz)
 					int Type = File.readQuad();
 					Block.Marks(i).Type = Type;
 					char *Text = File.readString();
-					if (Text != NULL) {
+					if (Text != nullptr) {
 						CopyString(Block.Marks(i).Text, Text, 100);
 						delete[] Text;
 					}
@@ -1143,10 +1143,10 @@ static void LoadAutomapBlock(int Position, int bx, int by, int bz)
 			for (int i = Block.Marks.min; i <= Block.Marks.max; i++)
 				Block.Marks(i) = TMark();
 			Block.MarkCount = 0;
-			if (DefaultTextBuffer != NULL) {
+			if (DefaultTextBuffer != nullptr) {
 				char Message[256];
 				_snprintf(Message, 256, "Map file '%s' was corrupted!", FileName);
-				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, NULL, 0);
+				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 				SetConsoleChanged();
 			}
 		}
@@ -1209,17 +1209,17 @@ static void SaveAutomapBlock(int Position)
 			File.close();
 		} catch (TMyException &) {
 			File.close();
-			if (DefaultTextBuffer != NULL) {
+			if (DefaultTextBuffer != nullptr) {
 				char Message[256];
 				_snprintf(Message, 256, "Error while saving file '%s'!", FileName);
-				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, NULL, 0);
+				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 				SetConsoleChanged();
 			}
 		}
-	} else if (DefaultTextBuffer != NULL) {
+	} else if (DefaultTextBuffer != nullptr) {
 		char Message[256];
 		_snprintf(Message, 256, "Could not save file '%s'!", FileName);
-		AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, NULL, 0);
+		AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 		SetConsoleChanged();
 	}
 	Block.Changed = false;
@@ -1435,8 +1435,8 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 					MinSpeed = Nodes(x, y).Speed;
 				Nodes(x, y).x = x;
 				Nodes(x, y).y = y;
-				Nodes(x, y).Predecessor = NULL;
-				Nodes(x, y).Next = NULL;
+				Nodes(x, y).Predecessor = nullptr;
+				Nodes(x, y).Next = nullptr;
 				Nodes(x, y).Cost = 0x7fffffff;
 				Nodes(x, y).Estimate = 0x7fffffff;
 			}
@@ -1451,7 +1451,7 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 		}
 		Nodes(DestX - StartX, DestY - StartY).Cost = 0;
 		TPathNode *Open = &Nodes(DestX - StartX, DestY - StartY);
-		while (Open != NULL) {
+		while (Open != nullptr) {
 			TPathNode *Current = Open;
 			Open = Current->Next;
 			int Cost = Current->Speed + Current->Cost;
@@ -1478,18 +1478,18 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 							Open = Node->Next;
 						} else {
 							TPathNode *Help = Open;
-							while (Help->Next != NULL && Help->Next != Node)
+							while (Help->Next != nullptr && Help->Next != Node)
 								Help = Help->Next;
 							Help->Next = Node->Next;
 						}
 					}
 					Node->Estimate = (abs(Node->y) + abs(Node->x) - 1) * MinSpeed + Node->Speed + NewCost;
-					if (Open == NULL || Node->Estimate <= Open->Estimate) {
+					if (Open == nullptr || Node->Estimate <= Open->Estimate) {
 						Node->Next = Open;
 						Open = Node;
 					} else {
 						TPathNode *Help = Open;
-						while (Help->Next != NULL && Help->Next->Estimate < Node->Estimate)
+						while (Help->Next != nullptr && Help->Next->Estimate < Node->Estimate)
 							Help = Help->Next;
 						Node->Next = Help->Next;
 						Help->Next = Node;
@@ -1503,10 +1503,10 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 		int LastX = 0;
 		int LastY = 0;
 		TPathNode *Node = &Nodes(0, 0);
-		while (Node != NULL) {
+		while (Node != nullptr) {
 			if (!MustReach && Node->x == DestX - StartX && Node->y == DestY - StartY
 				&& IsAutomapBlocked(DestX, DestY, DestZ)) {
-				Node = NULL;
+				Node = nullptr;
 				break;
 			}
 			if (Count >= 0) {
@@ -1531,13 +1531,13 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 			LastY = Node->y;
 			Node = Node->Predecessor;
 			Count++;
-			if (Count >= 10 || Node == NULL || abs(Node->x) >= 9 || abs(Node->y) >= 7)
+			if (Count >= 10 || Node == nullptr || abs(Node->x) >= 9 || abs(Node->y) >= 7)
 				break;
 		}
 		*Steps = Count;
 		if (Count == 0)
 			return 0;
-		if (Node == NULL)
+		if (Node == nullptr)
 			return 1;
 		return 2;
 	} catch (TMyException &Exception) {

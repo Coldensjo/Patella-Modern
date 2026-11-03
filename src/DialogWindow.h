@@ -115,7 +115,7 @@ public:
 	TContentWindow *GetContentWindow(int Identifier);       // 0x486400, line 233
 	void StoreOpenDialogs();                                // 0x4865b0, line 247
 	// Inline ("!DialogWindow->hasContentWindow(TRADE_WINDOW)", MainWindow.cpp).
-	bool hasContentWindow(int Identifier) { return GetContentWindow(Identifier) != NULL; }
+	bool hasContentWindow(int Identifier) { return GetContentWindow(Identifier) != nullptr; }
 	void PositionChildren(bool SkipDragged); // 0x486760, line 317
 	void FitChildren();                      // 0x486930, line 353
 	bool Shrink();                           // 0x48a990, lines 377-394

@@ -274,7 +274,7 @@ void ClearOpenDialogs()
 // 0x4db560
 const char *GetMotD()
 {
-	if (MotD == NULL)
+	if (MotD == nullptr)
 		return "No current information.";
 	return MotD;
 }
@@ -467,7 +467,7 @@ void SetDefaultPreferences()
 	BuddyHideOffline = false;
 	NumberOfOpenDialogs = 0;
 	LastMotD = 0;
-	MotD = NULL;
+	MotD = nullptr;
 	InfoMessages = false;
 	EventMessages = true;
 	StatusMessages = false;
@@ -592,12 +592,12 @@ bool SetMotD(const char *Text)
 {
 	TASSERT(425, Text != NULL);
 	const char *Break = strchr(Text, '\n');
-	if (Break == NULL)
+	if (Break == nullptr)
 		return false;
 	int Number = atoi(Text);
 	bool New = Number != LastMotD;
 	LastMotD = Number;
-	if (MotD != NULL)
+	if (MotD != nullptr)
 		delete[] MotD;
 	MotD = new char[strlen(Break + 1) + 1];
 	strcpy(MotD, Break + 1);
@@ -664,7 +664,7 @@ const char *GetBuddyDescription(int CharacterID)
 	TASSERT1(733, CharacterID!=0, CharacterID);
 	int Number = FindBuddy(CharacterID);
 	if (Number == -1)
-		return NULL;
+		return nullptr;
 	return Buddies(Number).Description;
 }
 
@@ -1086,9 +1086,9 @@ void SavePreferences()
 		}
 		char *List = GetBuddyIgnoreText();
 		Script.writeText("White = {");
-		if (List != NULL) {
+		if (List != nullptr) {
 			char *Name = List;
-			while ((Name = strtok(Name, "\n")) != NULL) {
+			while ((Name = strtok(Name, "\n")) != nullptr) {
 				int Length = (int)strlen(Name);
 				if (Length != 0 && IsPermanentBuddyIgnore(Name)) {
 					if (i > 0)
@@ -1096,7 +1096,7 @@ void SavePreferences()
 					Script.writeString(Name);
 					i++;
 				}
-				Name = NULL;
+				Name = nullptr;
 			}
 			free(List);
 		}
@@ -1105,9 +1105,9 @@ void SavePreferences()
 		List = GetIgnoreListText();
 		i = 0;
 		Script.writeText("Ignore = {");
-		if (List != NULL) {
+		if (List != nullptr) {
 			char *Name = List;
-			while ((Name = strtok(Name, "\n")) != NULL) {
+			while ((Name = strtok(Name, "\n")) != nullptr) {
 				int Length = (int)strlen(Name);
 				if (Length != 0 && IsPermanentIgnore(Name)) {
 					if (i > 0)
@@ -1115,7 +1115,7 @@ void SavePreferences()
 					Script.writeString(Name);
 					i++;
 				}
-				Name = NULL;
+				Name = nullptr;
 			}
 			free(List);
 		}
@@ -1159,8 +1159,8 @@ void SavePreferences()
 // 0x4df520. Frees the message of the day and saves Tibia.cfg.
 void ExitPreferences()
 {
-	if (MotD != NULL)
+	if (MotD != nullptr)
 		free(MotD);
-	MotD = NULL;
+	MotD = nullptr;
 	SavePreferences();
 }

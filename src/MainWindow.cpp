@@ -46,7 +46,7 @@ TWindow *ModalWindow;                            // 0x5d16ac
 TMainWindow *MainWindow;                         // 0x5d16b0
 // At 0x5d16b4, constructed by the static initialiser 0x559f30 as
 // TCallback(NULL, 0) and never used (MapWindow.cpp has one too).
-static TCallback NoCallback(NULL, 0);
+static TCallback NoCallback(nullptr, 0);
 
 // --- TMainWindow -----------------------------------------------------------
 
@@ -67,11 +67,11 @@ TMainWindow::TMainWindow(int Width, int Height)
 // code.
 TMainWindow::~TMainWindow()
 {
-	if (FirstChild != NULL && InGame) {
+	if (FirstChild != nullptr && InGame) {
 		ClearOpenDialogs();
-		if (SidePanel != NULL)
+		if (SidePanel != nullptr)
 			SidePanel->StoreOpenDialogs();
-		if (DialogWindow != NULL)
+		if (DialogWindow != nullptr)
 			DialogWindow->StoreOpenDialogs();
 	}
 }
@@ -80,12 +80,12 @@ TMainWindow::~TMainWindow()
 void ExitMainWindow()
 {
 	delete MainWindow;
-	MainWindow = NULL;
-	if (ModalWindow != NULL) {
+	MainWindow = nullptr;
+	if (ModalWindow != nullptr) {
 		delete ModalWindow;
 		SetActionState(0);
 	}
-	ModalWindow = NULL;
+	ModalWindow = nullptr;
 }
 
 // 0x4ac0f0, line 127. Out of the game an error while drawing the start
@@ -204,19 +204,19 @@ void TMainWindow::HandleEvent(int Event)
 		SetSize(Width, Height);
 		break;
 	case 0xe:
-		if (DialogWindow->GetContentWindow(6) != NULL)
+		if (DialogWindow->GetContentWindow(6) != nullptr)
 			CloseContentWindow(6);
 		else
 			OpenContentWindow(6);
 		break;
 	case 0xf:
-		if (DialogWindow->GetContentWindow(7) != NULL)
+		if (DialogWindow->GetContentWindow(7) != nullptr)
 			CloseContentWindow(7);
 		else
 			OpenContentWindow(7);
 		break;
 	case 0x16:
-		if (DialogWindow->GetContentWindow(9) != NULL)
+		if (DialogWindow->GetContentWindow(9) != nullptr)
 			CloseContentWindow(9);
 		else
 			OpenContentWindow(9);
@@ -226,7 +226,7 @@ void TMainWindow::HandleEvent(int Event)
 		TASSERT(308, OldWindow!=NULL);
 		SidePanel->InsertChildAfter(OldWindow, CreateSmallInventoryWindow(this));
 		SidePanel->DeleteChild(OldWindow);
-		SidePanel->Rearrange(32, NULL);
+		SidePanel->Rearrange(32, nullptr);
 		SideBar->SetSize(SkinProperties.Data184, SidePanel->getMinimumHeight() + SideBar->getMinimumHeight());
 		SetSize(Width, Height);
 		break;
@@ -236,7 +236,7 @@ void TMainWindow::HandleEvent(int Event)
 		TASSERT(317, OldWindow!=NULL);
 		SidePanel->InsertChildAfter(OldWindow, CreateInventoryWindow(this));
 		SidePanel->DeleteChild(OldWindow);
-		SidePanel->Rearrange(32, NULL);
+		SidePanel->Rearrange(32, nullptr);
 		SideBar->SetSize(SkinProperties.Data184, SidePanel->getMinimumHeight() + SideBar->getMinimumHeight());
 		SetSize(Width, Height);
 		break;
@@ -270,7 +270,7 @@ void TMainWindow::HandleEvent(int Event)
 	case 0x1f9:
 		if (!CheckRight(40, -1)) {
 			SetStatusMessage(TextNoBugReportRight, false);
-		} else if (GetConnectionState() == 8 && ModalWindow == NULL) {
+		} else if (GetConnectionState() == 8 && ModalWindow == nullptr) {
 			AddMessage(0x11, 0, 0);
 		}
 		break;
@@ -332,21 +332,21 @@ void TMainWindow::HandleEvent(int Event)
 void TMainWindow::ChangeMode(bool InGame)
 {
 	TBEGIN
-	if (FirstChild != NULL && this->InGame) {
+	if (FirstChild != nullptr && this->InGame) {
 		ClearOpenDialogs();
-		if (SidePanel != NULL)
+		if (SidePanel != nullptr)
 			SidePanel->StoreOpenDialogs();
-		if (DialogWindow != NULL)
+		if (DialogWindow != nullptr)
 			DialogWindow->StoreOpenDialogs();
 	}
-	while (FirstChild != NULL)
+	while (FirstChild != nullptr)
 		DeleteChild(FirstChild);
-	MapFrame = NULL;
-	Console = NULL;
-	DialogWindow = NULL;
-	SidePanel = NULL;
-	Splitter = NULL;
-	StartWindow = NULL;
+	MapFrame = nullptr;
+	Console = nullptr;
+	DialogWindow = nullptr;
+	SidePanel = nullptr;
+	Splitter = nullptr;
+	StartWindow = nullptr;
 	this->InGame = InGame;
 	if (InGame) {
 		MapFrame = new TMapFrame;
@@ -431,7 +431,7 @@ void TMainWindow::ChangeMode(bool InGame)
 		}
 		if (Count > 0) {
 			free(Dialogs);
-			Dialogs = NULL;
+			Dialogs = nullptr;
 		}
 		// Ctrl+L and Ctrl+Q log out, Ctrl+G asks for another character,
 		// Ctrl+S, Ctrl+B and Ctrl+P toggle the skill, battle and VIP windows,
@@ -467,7 +467,7 @@ void TMainWindow::ChangeMode(bool InGame)
 		RemoveHotkey(0x1b);
 	}
 	SetSize(Width, Height);
-	SetConsoleActive(ModalWindow == NULL);
+	SetConsoleActive(ModalWindow == nullptr);
 	TEND(463)
 }
 
@@ -521,7 +521,7 @@ void TMainWindow::OpenContainer(int Container)
 	TASSERT(511, DialogWindow!=NULL);
 	TBEGIN
 	TSubWindow *Window = (TSubWindow *)DialogWindow->GetContentWindow(Container + 0x40);
-	if (Window == NULL) {
+	if (Window == nullptr) {
 		DialogWindow->Rearrange(16, CreateContainerWindow(Container));
 		return;
 	}
@@ -543,9 +543,9 @@ void TMainWindow::OpenContainer(int Container)
 void TMainWindow::CloseContainer(int Container)
 {
 	TBEGIN
-	if (DialogWindow != NULL) {
+	if (DialogWindow != nullptr) {
 		TContentWindow *Window = DialogWindow->GetContentWindow(Container + 0x40);
-		if (Window != NULL)
+		if (Window != nullptr)
 			DialogWindow->DeleteChild(Window);
 	}
 	TEND1(552, Container)
@@ -567,7 +567,7 @@ void TMainWindow::UpdateTrade()
 {
 	TBEGIN
 	TSubWindow *Window = (TSubWindow *)DialogWindow->GetContentWindow(TRADE_WINDOW);
-	if (Window != NULL) {
+	if (Window != nullptr) {
 		TASSERT(576, Window->getBody()!=NULL);
 		Window->getBody()->HandleEvent(0x15);
 	}
@@ -586,7 +586,7 @@ void TMainWindow::CloseTrade()
 void TMainWindow::OpenContentWindow(int Identifier)
 {
 	TBEGIN
-	if (DialogWindow->GetContentWindow(Identifier) == NULL) {
+	if (DialogWindow->GetContentWindow(Identifier) == nullptr) {
 		TWindow *Window;
 		switch (Identifier) {
 		case 6:
@@ -614,7 +614,7 @@ void TMainWindow::CloseContentWindow(int Identifier)
 {
 	TBEGIN
 	TContentWindow *Window = DialogWindow->GetContentWindow(Identifier);
-	if (Window != NULL)
+	if (Window != nullptr)
 		DialogWindow->DeleteChild(Window);
 	TEND1(621, Identifier)
 }
@@ -624,7 +624,7 @@ void TMainWindow::CloseContentWindow(int Identifier)
 void TMainWindow::SetConsoleActive(bool Active)
 {
 	TBEGIN
-	if (Console != NULL)
+	if (Console != nullptr)
 		Console->SetActive(Active);
 	TEND(632)
 }
@@ -638,19 +638,19 @@ TStartWindow::TStartWindow()
 	TBEGIN
 	TWindow *Panel = new TWindow;
 	Panel->SetSize(SkinProperties.Style0D8.Data00, SkinProperties.Style0D8.Data04);
-	TComponent *Button = new TTextButton(0, 0, "Enter Game", 0x12, 0x13, TCallback(this, 0x1f5), NULL);
+	TComponent *Button = new TTextButton(0, 0, "Enter Game", 0x12, 0x13, TCallback(this, 0x1f5), nullptr);
 	Panel->InsertChild(Button);
 	Panel->SetChildPosition(Button, SkinProperties.Style0D8.Data10.x, SkinProperties.Style0D8.Data10.y);
-	Button = new TTextButton(0, 0, "Options", 0x12, 0x13, TCallback(this, 0x1f7), NULL);
+	Button = new TTextButton(0, 0, "Options", 0x12, 0x13, TCallback(this, 0x1f7), nullptr);
 	Panel->InsertChild(Button);
 	Panel->SetChildPosition(Button, SkinProperties.Style0D8.Data18.x, SkinProperties.Style0D8.Data18.y);
-	Button = new TTextButton(0, 0, "Info", 0x12, 0x13, TCallback(this, 0x1f6), NULL);
+	Button = new TTextButton(0, 0, "Info", 0x12, 0x13, TCallback(this, 0x1f6), nullptr);
 	Panel->InsertChild(Button);
 	Panel->SetChildPosition(Button, SkinProperties.Style0D8.Data20.x, SkinProperties.Style0D8.Data20.y);
-	Button = new TTextButton(0, 0, "Exit Game", 0x12, 0x13, TCallback(this, 7), NULL);
+	Button = new TTextButton(0, 0, "Exit Game", 0x12, 0x13, TCallback(this, 7), nullptr);
 	Panel->InsertChild(Button);
 	Panel->SetChildPosition(Button, SkinProperties.Style0D8.Data28.x, SkinProperties.Style0D8.Data28.y);
-	Button = new TTextButton(0, 0, "Access Account", 0x12, 0x13, TCallback(this, 0x1fc), NULL);
+	Button = new TTextButton(0, 0, "Access Account", 0x12, 0x13, TCallback(this, 0x1fc), nullptr);
 	Panel->InsertChild(Button);
 	Panel->SetChildPosition(Button, SkinProperties.Style0D8.Data30.x, SkinProperties.Style0D8.Data30.y);
 	Frame = new TBorder(Panel, 0x34, 0x3a, 0x35, 0x38, 0x39, 0x36, 0x3b, 0x37, 0x3c, SkinProperties.Data134);
@@ -749,7 +749,7 @@ bool TSplitter::MouseMove(int x, int y)
 bool TSplitter::LeftButtonDown(int x, int y, int Flags)
 {
 	TBEGIN
-	SetCapture(NULL);
+	SetCapture(nullptr);
 	DragX = x;
 	Dragging = true;
 	DragY = y;
@@ -762,7 +762,7 @@ bool TSplitter::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (Dragging)
-		ReleaseCapture(NULL);
+		ReleaseCapture(nullptr);
 	return true;
 	TEND(807)
 }
@@ -777,7 +777,7 @@ void InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisp
 	MainWindow = new TMainWindow(Width, Height);
 	TASSERT1(822, GetActionState()==ACTIONSTATE_NONE, GetActionState());
 	ExitProgramCallback = ExitProgram;
-	ModalWindow = NULL;
+	ModalWindow = nullptr;
 	SetDisplayModeCallback = SetDisplayMode;
 	OpenURLCallback = OpenURL;
 	TEND2(828, Width, Height)

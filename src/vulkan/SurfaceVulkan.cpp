@@ -65,7 +65,7 @@ TSurface *CreateSurfaceVulkan()
 const char *GetDeviceName()
 {
 	TSurfaceVulkan *Engine = static_cast<TSurfaceVulkan *>(GetSurface());
-	return Engine != NULL ? Engine->DeviceName() : "";
+	return Engine != nullptr ? Engine->DeviceName() : "";
 }
 
 const char *TSurfaceVulkan::DeviceName() const
@@ -87,15 +87,15 @@ TDeviceRequest TSurfaceVulkan::Request()
 	Result.Validation = getenv_s(&ValidationLength, Validation, sizeof(Validation), "PATELLA_VULKAN_VALIDATION") == 0
 		&& ValidationLength > 0 && Validation[0] == '1';
 	HWND Window = hWindow;
-	if (Window != NULL) {
+	if (Window != nullptr) {
 		Result.SurfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
 		Result.CreateSurface = [Window](VkInstance Instance) {
 			PFN_vkCreateWin32SurfaceKHR Create = (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(Instance, "vkCreateWin32SurfaceKHR");
 			VkWin32SurfaceCreateInfoKHR Info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-			Info.hinstance = GetModuleHandleA(NULL);
+			Info.hinstance = GetModuleHandleA(nullptr);
 			Info.hwnd = Window;
 			VkSurfaceKHR Surface = VK_NULL_HANDLE;
-			if (Create == NULL || Create(Instance, &Info, NULL, &Surface) != VK_SUCCESS)
+			if (Create == nullptr || Create(Instance, &Info, nullptr, &Surface) != VK_SUCCESS)
 				throw TVulkanError("vkCreateWin32SurfaceKHR failed");
 			return Surface;
 		};
@@ -146,7 +146,7 @@ void TSurfaceVulkan::AddShadeQuad(int Left, int Top, int Right, int Bottom, uint
 // True when the masks are kept; makes Target's mask exist with the image's size.
 bool TSurfaceVulkan::Masked(int Target)
 {
-	if (FrameObserver == NULL || Renderer == nullptr || Target < 0)
+	if (FrameObserver == nullptr || Renderer == nullptr || Target < 0)
 		return false;
 	Masks.Ensure(Target, Renderer->ImageWidth(Target), Renderer->ImageHeight(Target));
 	return true;
@@ -448,8 +448,8 @@ void TSurfaceVulkan::FinishFrame()
 			int ShownWidth = Rect[SCREEN_SURFACE].right - x;
 			int ShownHeight = Rect[SCREEN_SURFACE].bottom - y;
 			try {
-				if (FrameObserver != NULL && FrameObserver(ShownWidth, ShownHeight) && PixelsObserver != NULL) {
-					if (MaskObserver != NULL && Masked(Image[SCREEN_SURFACE])) {
+				if (FrameObserver != nullptr && FrameObserver(ShownWidth, ShownHeight) && PixelsObserver != nullptr) {
+					if (MaskObserver != nullptr && Masked(Image[SCREEN_SURFACE])) {
 						// The picture's device-filtered pixels: 1, the others 0.
 						std::vector<uint8> Shown((size_t)ShownWidth * (size_t)ShownHeight);
 						for (int i = 0; i < ShownHeight; i++)
@@ -511,7 +511,7 @@ void TSurfaceVulkan::ExitDisplay()
 	CurrentTarget = -1;
 	CacheSurfaces = 0;
 	if (DisplayModeSet) {
-		ChangeDisplaySettingsA(NULL, 0);
+		ChangeDisplaySettingsA(nullptr, 0);
 		DisplayModeSet = false;
 	}
 	ViewMode = 0;
@@ -553,7 +553,7 @@ bool TSurfaceVulkan::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, 
 			// fall through
 		case 0:
 			hWindow = *Window;
-			ResetDisplay(WINDOWED_MODE, NULL);
+			ResetDisplay(WINDOWED_MODE, nullptr);
 			break;
 		case WINDOWED_MODE:
 			if (hWindow != *Window)
@@ -581,14 +581,14 @@ bool TSurfaceVulkan::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, 
 // are the same 24 modes in the same order (notes/vulkan.md).
 int TSurfaceVulkan::GetFullscreenModes(TFullscreenMode **Modes)
 {
-	*Modes = NULL;
+	*Modes = nullptr;
 	if (!Initialized)
 		return 0;
 	std::vector<TFullscreenMode> Found;
 	DEVMODEA Mode;
 	memset(&Mode, 0, sizeof(Mode));
 	Mode.dmSize = sizeof(DEVMODEA);
-	for (DWORD Index = 0; EnumDisplaySettingsA(NULL, Index, &Mode); Index++) {
+	for (DWORD Index = 0; EnumDisplaySettingsA(nullptr, Index, &Mode); Index++) {
 		TFullscreenMode Listed;
 		Listed.Width = (int)Mode.dmPelsWidth;
 		Listed.Height = (int)Mode.dmPelsHeight;
@@ -658,10 +658,10 @@ TSurfaceVulkan::TSurfaceVulkan()
 	CurrentTarget = -1;
 	Filter = TFilter::Linear;
 	DisplayModeSet = false;
-	DeviceObserver = NULL;
-	FrameObserver = NULL;
-	PixelsObserver = NULL;
-	MaskObserver = NULL;
+	DeviceObserver = nullptr;
+	FrameObserver = nullptr;
+	PixelsObserver = nullptr;
+	MaskObserver = nullptr;
 }
 
 // AddQuad: six vertices of a textured quad; a full buffer is drawn.
@@ -738,7 +738,7 @@ void TSurfaceVulkan::BlitRectClipped(int ToSurface, int x, int y, int FromSurfac
 // the machine of issue #20 reports too).
 void TSurfaceVulkan::InitSurfaces()
 {
-	hWindow = NULL;
+	hWindow = nullptr;
 	ViewMode = 0;
 	Initialized = false;
 	Renderer.reset();
@@ -786,7 +786,7 @@ void TSurfaceVulkan::WriteMaskedImage(int ToSurface, int x, int y, int PartWidth
 		uint8 *From = &Data[i * 3];
 		int Index = 0;
 		uint8 R = 0, G = 0, B = 0, A = 0;
-		if (Mask != NULL) {
+		if (Mask != nullptr) {
 			uint8 *M = &Mask[i * 3];
 			if (M[0] == 0xff) {
 				if (M[1] == 0xff) {
@@ -903,7 +903,7 @@ void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 			GMode->Height = Modes[Number - 1].Height;
 			GMode->Depth = Modes[Number - 1].Depth;
 		}
-		if (Modes != NULL)
+		if (Modes != nullptr)
 			delete[] Modes;
 		Width = GMode->Width;
 		Height = GMode->Height;
@@ -925,7 +925,7 @@ void TSurfaceVulkan::CreateSurfaces()
 	DEVMODEA Desktop;
 	memset(&Desktop, 0, sizeof(Desktop));
 	Desktop.dmSize = sizeof(DEVMODEA);
-	if (!Initialized || !EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &Desktop))
+	if (!Initialized || !EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS, &Desktop))
 		Desktop.dmBitsPerPel = 0;
 	if (Desktop.dmBitsPerPel < 16)
 		throw (PROGRAM_ERROR)8;
@@ -946,7 +946,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		DisplayModeSet = true;
 	}
 	HMODULE Observer = GetModuleHandleA("patcap.dll");
-	if (Observer != NULL) {
+	if (Observer != nullptr) {
 		DeviceObserver = (TVulkanDeviceObserver)(void *)GetProcAddress(Observer, "PatcapVulkanDevice");
 		FrameObserver = (TVulkanFrameObserver)(void *)GetProcAddress(Observer, "PatcapVulkanFrame");
 		PixelsObserver = (TVulkanPixelsObserver)(void *)GetProcAddress(Observer, "PatcapVulkanPixels");
@@ -1007,7 +1007,7 @@ void TSurfaceVulkan::CreateSurfaces()
 	DeviceTarget = Image[SCREEN_SURFACE];
 	DeviceTexture = -1;
 	Filter = TFilter::Linear;
-	if (DeviceObserver != NULL)
+	if (DeviceObserver != nullptr)
 		DeviceObserver(Renderer->Device().Name.c_str(), (int)Renderer->Device().Type, Renderer->Device().CpuDriver);
 	Unavailable = false;
 	Ready = true;

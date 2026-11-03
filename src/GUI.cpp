@@ -19,10 +19,10 @@
 #include <sstream>
 
 // Data, in .bss order.
-static int NumberOfHotkeys;                    // 0x5ccf98, used entries of Hotkeys
-static vector<TTimer *> Timers(0, 0, 2, NULL); // 0x5ccfa4, initialiser 0x559e30 (constructor 0x4973f0, operator() 0x452ac0)
-TSkinProperties SkinProperties;                // 0x5ccfc8, initialiser 0x559e50 (constructor 0x496800)
-static vector<THotkey> Hotkeys(0, 50, 10);     // 0x5ce4f0, initialiser 0x559e60 (constructor 0x4976f0, operator() 0x496570)
+static int NumberOfHotkeys;                       // 0x5ccf98, used entries of Hotkeys
+static vector<TTimer *> Timers(0, 0, 2, nullptr); // 0x5ccfa4, initialiser 0x559e30 (constructor 0x4973f0, operator() 0x452ac0)
+TSkinProperties SkinProperties;                   // 0x5ccfc8, initialiser 0x559e50 (constructor 0x496800)
+static vector<THotkey> Hotkeys(0, 50, 10);        // 0x5ce4f0, initialiser 0x559e60 (constructor 0x4976f0, operator() 0x496570)
 // UpdateTimers' static LastTime is at 0x5ce518 (guard 0x5ce51c).
 
 // --- Functions without exception frame (no line evidence) ------------------
@@ -46,7 +46,7 @@ bool TTimer::IsExpired()
 // TComponent inherits it, as TTalkBuffer's destructor in Talk.cpp).
 TComponent::~TComponent() noexcept(false)
 {
-	if (DrawingList != NULL)
+	if (DrawingList != nullptr)
 		delete[] DrawingList;
 }
 
@@ -60,14 +60,14 @@ void TComponent::SetPosition(int _OffsetX, int _OffsetY)
 // 0x496080
 TWindow::TWindow()
 {
-	FirstChild = NULL;
-	Capture = NULL;
+	FirstChild = nullptr;
+	Capture = nullptr;
 }
 
 // 0x4960b0
 bool TWindow::IsChild(TComponent *Child)
 {
-	for (TComponent *Search = FirstChild; Search != NULL; Search = Search->Next) {
+	for (TComponent *Search = FirstChild; Search != nullptr; Search = Search->Next) {
 		if (Search == Child)
 			return true;
 	}
@@ -77,10 +77,10 @@ bool TWindow::IsChild(TComponent *Child)
 // 0x4960e0
 TComponent *TWindow::GetLastChild()
 {
-	if (FirstChild == NULL)
-		return NULL;
+	if (FirstChild == nullptr)
+		return nullptr;
 	TComponent *Search = FirstChild;
-	while (Search->Next != NULL)
+	while (Search->Next != nullptr)
 		Search = Search->Next;
 	return Search;
 }
@@ -1585,7 +1585,7 @@ void AddTimer(TTimer *Timer)
 {
 	TBEGIN
 	int i = 0;
-	while (Timers(i) != NULL)
+	while (Timers(i) != nullptr)
 		i++;
 	Timers(i) = Timer;
 	TEND(851)
@@ -1598,7 +1598,7 @@ void RemoveTimer(TTimer *Timer)
 	TBEGIN
 	for (i = Timers.min; i <= Timers.max; i++) {
 		if (Timers(i) == Timer) {
-			Timers(i) = NULL;
+			Timers(i) = nullptr;
 			return;
 		}
 	}
@@ -1615,7 +1615,7 @@ void UpdateTimers()
 	int elapsed = GetMilliseconds() - LastTime;
 	LastTime = GetMilliseconds();
 	for (i = Timers.min; i <= Timers.max; i++) {
-		if (Timers(i) != NULL && !Timers(i)->IsExpired())
+		if (Timers(i) != nullptr && !Timers(i)->IsExpired())
 			Timers(i)->Update(elapsed);
 	}
 	TEND1(887, i)
@@ -1715,12 +1715,12 @@ TComponent *TComponent::GetPrevious()
 	TASSERT(1057, Parent!=NULL);
 	TBEGIN
 	TComponent *Search = Parent->GetFirstChild();
-	while (Search != NULL) {
+	while (Search != nullptr) {
 		if (Search->GetNext() == this)
 			return Search;
 		Search = Search->GetNext();
 	}
-	return NULL;
+	return nullptr;
 	TEND(1066)
 }
 
@@ -1786,14 +1786,14 @@ void TWindow::AppendChild(TComponent *Child)
 {
 	TASSERT(1206, Child!=NULL);
 	TASSERT(1207, Child->Parent==NULL);
-	if (FirstChild == NULL) {
+	if (FirstChild == nullptr) {
 		FirstChild = Child;
 	} else {
 		TComponent *Search = FirstChild;
-		while (Search->Next != NULL)
+		while (Search->Next != nullptr)
 			Search = Search->Next;
 		Search->Next = Child;
-		Child->Next = NULL;
+		Child->Next = nullptr;
 	}
 	Child->Parent = this;
 }
@@ -1817,7 +1817,7 @@ void TWindow::RemoveChild(TComponent *Child)
 	TBEGIN
 	if (Child == Capture) {
 		Child->StopDragging();
-		Child->ReleaseCapture(NULL);
+		Child->ReleaseCapture(nullptr);
 	}
 	if (Child == FirstChild) {
 		FirstChild = Child->Next;
@@ -1831,8 +1831,8 @@ void TWindow::RemoveChild(TComponent *Child)
 		}
 		Search->Next = Child->Next;
 	}
-	Child->Parent = NULL;
-	Child->Next = NULL;
+	Child->Parent = nullptr;
+	Child->Next = nullptr;
 	TEND(1260)
 }
 
@@ -1843,13 +1843,13 @@ void TWindow::InsertChildAfter(TComponent *Previous, TComponent *Child)
 	TASSERT(1269, Child!=NULL);
 	TASSERT(1270, Child->Parent==NULL);
 	TBEGIN
-	if (Previous == NULL) {
+	if (Previous == nullptr) {
 		InsertChild(Child);
 		return;
 	}
 	TComponent *Search = FirstChild;
 	TASSERT(1280, Search!=NULL);
-	while (Search != NULL && Search != Previous)
+	while (Search != nullptr && Search != Previous)
 		Search = Search->Next;
 	TASSERT(1282, Search!=NULL);
 	Child->Parent = this;
@@ -1870,16 +1870,16 @@ void TWindow::SwapChildren(TComponent *Child1, TComponent *Child2)
 	TASSERT(1298, Child2->Parent==this);
 	TASSERT(1299, FirstChild!=NULL);
 	TBEGIN
-	TComponent *Before1 = NULL;
+	TComponent *Before1 = nullptr;
 	TComponent *Search1 = FirstChild;
-	while (Search1 != NULL && Search1 != Child1) {
+	while (Search1 != nullptr && Search1 != Child1) {
 		Before1 = Search1;
 		Search1 = Search1->Next;
 	}
 	TASSERT(1310, Search1!=NULL);
-	TComponent *Before2 = NULL;
+	TComponent *Before2 = nullptr;
 	TComponent *Search2 = FirstChild;
-	while (Search2 != NULL && Search2 != Child2) {
+	while (Search2 != nullptr && Search2 != Child2) {
 		Before2 = Search2;
 		Search2 = Search2->Next;
 	}
@@ -1916,7 +1916,7 @@ void TWindow::SetPosition(int _OffsetX, int _OffsetY)
 	TBEGIN
 	OffsetX = _OffsetX;
 	OffsetY = _OffsetY;
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next)
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next)
 		Child->PositionChanged();
 	TEND2(1389, _OffsetX, _OffsetY)
 }
@@ -1924,7 +1924,7 @@ void TWindow::SetPosition(int _OffsetX, int _OffsetY)
 // 0x4a2590. Deletes the children. The deleting destructor is 0x4a29e0.
 TWindow::~TWindow()
 {
-	while (FirstChild != NULL)
+	while (FirstChild != nullptr)
 		DeleteChild(FirstChild);
 }
 
@@ -1933,7 +1933,7 @@ void TWindow::Draw(int Surface, int x, int y)
 {
 	TBEGIN
 	TComponent::Draw(Surface, x, y);
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next)
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next)
 		Child->Draw(Surface, Child->OffsetX + x, Child->OffsetY + y);
 	TEND1(1408, Surface)
 }
@@ -1942,7 +1942,7 @@ void TWindow::Draw(int Surface, int x, int y)
 void TWindow::Arrange()
 {
 	TBEGIN
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next)
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next)
 		Child->Arrange();
 	TEND(1424)
 }
@@ -1953,9 +1953,9 @@ void TWindow::Arrange()
 bool TWindow::MouseMove(int x, int y)
 {
 	TBEGIN
-	if (Capture != NULL)
+	if (Capture != nullptr)
 		return Capture->MouseMove(x - Capture->OffsetX, y - Capture->OffsetY);
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
 			&& Child->MouseMove(x - Child->OffsetX, y - Child->OffsetY))
 			return true;
@@ -1968,9 +1968,9 @@ bool TWindow::MouseMove(int x, int y)
 bool TWindow::LeftButtonDown(int x, int y, int Flags)
 {
 	TBEGIN
-	if (Capture != NULL)
+	if (Capture != nullptr)
 		return Capture->LeftButtonDown(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
 			&& Child->LeftButtonDown(x - Child->OffsetX, y - Child->OffsetY, Flags))
 			return true;
@@ -1983,9 +1983,9 @@ bool TWindow::LeftButtonDown(int x, int y, int Flags)
 bool TWindow::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
-	if (Capture != NULL)
+	if (Capture != nullptr)
 		return Capture->LeftButtonUp(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
 			&& Child->LeftButtonUp(x - Child->OffsetX, y - Child->OffsetY, Flags))
 			return true;
@@ -1998,9 +1998,9 @@ bool TWindow::LeftButtonUp(int x, int y, int Flags)
 bool TWindow::LeftButtonDoubleClick(int x, int y, int Flags)
 {
 	TBEGIN
-	if (Capture != NULL)
+	if (Capture != nullptr)
 		return Capture->LeftButtonDoubleClick(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
 			&& Child->LeftButtonDoubleClick(x - Child->OffsetX, y - Child->OffsetY, Flags))
 			return true;
@@ -2013,9 +2013,9 @@ bool TWindow::LeftButtonDoubleClick(int x, int y, int Flags)
 bool TWindow::RightButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
-	if (Capture != NULL)
+	if (Capture != nullptr)
 		return Capture->RightButtonUp(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
 			&& Child->RightButtonUp(x - Child->OffsetX, y - Child->OffsetY, Flags))
 			return true;
@@ -2028,9 +2028,9 @@ bool TWindow::RightButtonUp(int x, int y, int Flags)
 bool TWindow::MouseWheel(int x, int y, int Direction)
 {
 	TBEGIN
-	if (Capture != NULL)
+	if (Capture != nullptr)
 		return Capture->MouseWheel(x - Capture->OffsetX, y - Capture->OffsetY, Direction);
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
 			&& Child->MouseWheel(x - Child->OffsetX, y - Child->OffsetY, Direction))
 			return true;
@@ -2044,7 +2044,7 @@ bool TWindow::MouseWheel(int x, int y, int Direction)
 void TWindow::MouseHover(int x, int y)
 {
 	TBEGIN
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)) {
 			Child->MouseHover(x - Child->OffsetX, y - Child->OffsetY);
 			return;
@@ -2058,7 +2058,7 @@ void TWindow::MouseHover(int x, int y)
 bool TWindow::HelpMouseMove(int x, int y)
 {
 	TBEGIN
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->Next) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
 			&& Child->HelpMouseMove(x - Child->OffsetX, y - Child->OffsetY)) {
 			MoveHelpPosition(Child->OffsetX, Child->OffsetY);
@@ -2077,7 +2077,7 @@ void TWindow::SetCapture(TComponent *Component)
 	TASSERT(1633, Capture==NULL);
 	TBEGIN
 	Capture = Component;
-	if (Parent != NULL)
+	if (Parent != nullptr)
 		Parent->SetCapture(this);
 	TEND(1638)
 }
@@ -2087,8 +2087,8 @@ void TWindow::ReleaseCapture(TComponent *Component)
 {
 	TASSERT(1648, Capture==Component);
 	TBEGIN
-	Capture = NULL;
-	if (Parent != NULL)
+	Capture = nullptr;
+	if (Parent != nullptr)
 		Parent->ReleaseCapture(this);
 	TEND(1653)
 }
@@ -2097,9 +2097,9 @@ void TWindow::ReleaseCapture(TComponent *Component)
 void TWindow::StopDragging()
 {
 	TBEGIN
-	if (Capture != NULL) {
+	if (Capture != nullptr) {
 		Capture->StopDragging();
-		Capture = NULL;
+		Capture = nullptr;
 	}
 	TEND(1668)
 }
@@ -2175,14 +2175,14 @@ void TWindow::FitToChild(TComponent *Child, TRect Area, bool Notify)
 void TWindow::FitToChildren(TRect Margin, bool Notify)
 {
 	TBEGIN
-	if (FirstChild == NULL)
+	if (FirstChild == nullptr)
 		return;
 	int LeastX = INT_MAX;
 	int LeastY = INT_MAX;
 	int Width = 0;
 	int Height = 0;
 	TComponent *Child;
-	for (Child = FirstChild; Child != NULL; Child = Child->GetNext()) {
+	for (Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if (Child->OffsetX <= LeastX)
 			LeastX = Child->OffsetX;
 		if (Child->OffsetY <= LeastY)
@@ -2200,7 +2200,7 @@ void TWindow::FitToChildren(TRect Margin, bool Notify)
 	int dy = abs(Margin.y) - LeastY;
 	Width = Width + abs(Margin.width) + abs(Margin.x);
 	Height = Height + abs(Margin.height) + abs(Margin.y);
-	for (Child = FirstChild; Child != NULL; Child = Child->GetNext())
+	for (Child = FirstChild; Child != nullptr; Child = Child->GetNext())
 		Child->SetPosition(Child->OffsetX + dx, Child->OffsetY + dy);
 	int MinimumWidth = getMinimumWidth();
 	if (Width < MinimumWidth)
@@ -2222,9 +2222,9 @@ void TWindow::FitToChildren(TRect Margin, bool Notify)
 void TWindow::ClipChildren(bool Strict)
 {
 	TBEGIN
-	if (FirstChild != NULL) {
+	if (FirstChild != nullptr) {
 		TComponent *Next = FirstChild;
-		while (Next != NULL) {
+		while (Next != nullptr) {
 			TComponent *Child = Next;
 			Next = Child->GetNext();
 			int x = Child->OffsetX;
@@ -2275,7 +2275,7 @@ void TWindow::ClipChildren(bool Strict)
 void TElement::SetCapture(TComponent *Component)
 {
 	TBEGIN
-	if (GetParent() != NULL)
+	if (GetParent() != nullptr)
 		GetParent()->SetCapture(this);
 	TEND(1893)
 }
@@ -2284,7 +2284,7 @@ void TElement::SetCapture(TComponent *Component)
 void TElement::ReleaseCapture(TComponent *Component)
 {
 	TBEGIN
-	if (GetParent() != NULL)
+	if (GetParent() != nullptr)
 		GetParent()->ReleaseCapture(this);
 	TEND(1905)
 }
@@ -2295,7 +2295,7 @@ void TElement::ReleaseCapture(TComponent *Component)
 void TCallback::Send()
 {
 	TBEGIN
-	if (Receiver != NULL)
+	if (Receiver != nullptr)
 		Receiver->HandleEvent(Event);
 	TEND(1931)
 }

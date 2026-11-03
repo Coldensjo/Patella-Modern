@@ -33,7 +33,7 @@
 // TCallback(NULL, 0) and never used (MainWindow.cpp and MapWindow.cpp have
 // one too); Dialogs.cpp's is the one before it (0x5cc420, initialiser
 // 0x559e10).
-static TCallback NoCallback(NULL, 0);
+static TCallback NoCallback(nullptr, 0);
 
 // --- Functions without line evidence ---------------------------------------
 
@@ -63,21 +63,21 @@ TSubWindow::~TSubWindow()
 {
 	if (Identifier == 6 || Identifier == 7 || Identifier == 9)
 		SetContentWindowSize(Identifier, Body->Height);
-	if (UpButton != NULL && !IsChild(UpButton))
+	if (UpButton != nullptr && !IsChild(UpButton))
 		delete UpButton;
-	if (CloseButton != NULL && !IsChild(CloseButton))
+	if (CloseButton != nullptr && !IsChild(CloseButton))
 		delete CloseButton;
-	if (MinimizeButton != NULL && !IsChild(MinimizeButton))
+	if (MinimizeButton != nullptr && !IsChild(MinimizeButton))
 		delete MinimizeButton;
-	if (Icon != NULL && !IsChild(Icon))
+	if (Icon != nullptr && !IsChild(Icon))
 		delete Icon;
-	if (Title != NULL && !IsChild(Title))
+	if (Title != nullptr && !IsChild(Title))
 		delete Title;
-	if (Body != NULL && !IsChild(Body))
+	if (Body != nullptr && !IsChild(Body))
 		delete Body;
-	if (Resizer1 != NULL && !IsChild(Resizer1))
+	if (Resizer1 != nullptr && !IsChild(Resizer1))
 		delete Resizer1;
-	if (Resizer2 != NULL && !IsChild(Resizer2))
+	if (Resizer2 != nullptr && !IsChild(Resizer2))
 		delete Resizer2;
 }
 
@@ -91,7 +91,7 @@ int TSubWindow::GetFrameHeight()
 int TSubWindow::getMinimumHeight()
 {
 	int Result = GetFrameHeight();
-	if (Body != NULL && !IsMinimized)
+	if (Body != nullptr && !IsMinimized)
 		Result += Body->getMinimumHeight();
 	return Result;
 }
@@ -100,7 +100,7 @@ int TSubWindow::getMinimumHeight()
 TDialogWindow::TDialogWindow()
 {
 	Area = TRect(0, 0, 0, 0);
-	Dragged = NULL;
+	Dragged = nullptr;
 	Busy = false;
 	FreeHeight = 0;
 	UpdateFreeHeight = true;
@@ -117,9 +117,9 @@ void TDialogWindow::SetSize(int Width, int Height)
 	TWindow::SetSize(Width, Height);
 	Area.height = Height;
 	Area.width = Width;
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext())
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext())
 		Child->SetSize(Width, Child->Height);
-	Rearrange(8, NULL);
+	Rearrange(8, nullptr);
 	TEND(63)
 }
 
@@ -128,7 +128,7 @@ int TDialogWindow::getMinimumHeight()
 {
 	TBEGIN
 	int Result = 0;
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext())
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext())
 		Result += Child->Height;
 	return Result;
 	TEND(86)
@@ -140,7 +140,7 @@ void TDialogWindow::Draw(int Surface, int x, int y)
 {
 	TBEGIN
 	int Position = 0;
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext()) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if (Child == Dragged) {
 			GetSurface()->FillRectangle(Surface, TRect(x, Position + y, Width, Dragged->Height),
 				SkinProperties.Data188);
@@ -150,7 +150,7 @@ void TDialogWindow::Draw(int Surface, int x, int y)
 		Position += Child->Height;
 	}
 	TComponent::Draw(Surface, x, y);
-	if (Dragged != NULL)
+	if (Dragged != nullptr)
 		Dragged->Draw(Surface, Dragged->OffsetX + x, Dragged->OffsetY + y);
 	TEND1(109, Surface)
 }
@@ -230,9 +230,9 @@ void TDialogWindow::DeleteChild(TComponent *Child)
 {
 	TBEGIN
 	if (Dragged == Child)
-		Dragged = NULL;
+		Dragged = nullptr;
 	TWindow::DeleteChild(Child);
-	Rearrange(32, NULL);
+	Rearrange(32, nullptr);
 	TEND(205)
 }
 
@@ -249,11 +249,11 @@ void TDialogWindow::InsertChildAfter(TComponent *Previous, TComponent *Child)
 TContentWindow *TDialogWindow::GetContentWindow(int Identifier)
 {
 	TBEGIN
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext()) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if (((TContentWindow *)Child)->Identifier == Identifier)
 			return (TContentWindow *)Child;
 	}
-	return NULL;
+	return nullptr;
 	TEND1(233, Identifier)
 }
 
@@ -262,7 +262,7 @@ TContentWindow *TDialogWindow::GetContentWindow(int Identifier)
 void TDialogWindow::StoreOpenDialogs()
 {
 	TBEGIN
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext()) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if (((TContentWindow *)Child)->Identifier < 0x40)
 			AddOpenDialog(((TContentWindow *)Child)->Identifier);
 	}
@@ -323,7 +323,7 @@ void TDialogWindow::PositionChildren(bool SkipDragged)
 	TBEGIN
 	int x = Area.x;
 	int y = Area.y;
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext()) {
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if (Child != Dragged || !SkipDragged)
 			Child->SetPosition(x, y);
 		y += Child->Height;
@@ -340,9 +340,9 @@ void TDialogWindow::FitChildren()
 	TBEGIN
 	int Space = Area.height;
 	TComponent *Child = FirstChild;
-	while (Child != NULL) {
+	while (Child != nullptr) {
 		if (Space < Child->Height) {
-			TComponent *Delete = NULL;
+			TComponent *Delete = nullptr;
 			if (Space < Child->getMinimumHeight()) {
 				Delete = Child;
 			} else if (Space < Child->Height) {
@@ -354,7 +354,7 @@ void TDialogWindow::FitChildren()
 					Space -= Child->Height;
 			}
 			Child = Child->GetNext();
-			if (Delete != NULL)
+			if (Delete != nullptr)
 				DeleteChild(Delete);
 		} else {
 			Space -= Child->Height;
@@ -380,7 +380,7 @@ bool TDialogWindow::Shrink()
 			break;
 		TComponent *Shrinking;
 		do {
-			if (Child == NULL)
+			if (Child == nullptr)
 				return false;
 			Shrinking = Child;
 			Child = Child->GetPrevious();
@@ -390,7 +390,7 @@ bool TDialogWindow::Shrink()
 			DeltaHeight = Missing;
 		TASSERT1(377, DeltaHeight>0, DeltaHeight);
 		Shrinking->SetSize(Shrinking->Width, Shrinking->Height - DeltaHeight);
-		for (TComponent *Next = Shrinking->GetNext(); Next != NULL; Next = Next->GetNext())
+		for (TComponent *Next = Shrinking->GetNext(); Next != nullptr; Next = Next->GetNext())
 			Next->SetPosition(Next->OffsetX, Next->OffsetY - DeltaHeight);
 	}
 	return true;
@@ -404,8 +404,8 @@ void TDialogWindow::DragChild(TComponent *Work)
 {
 	TBEGIN
 	Dragged = Work;
-	if (Dragged != NULL) {
-		TComponent *Previous = NULL;
+	if (Dragged != nullptr) {
+		TComponent *Previous = nullptr;
 		TComponent *Search = FirstChild;
 		TComponent *Next;
 		for (;;) {
@@ -416,9 +416,9 @@ void TDialogWindow::DragChild(TComponent *Work)
 			Previous = Search;
 			Search = Next;
 		}
-		if (Previous != NULL && Dragged->OffsetY < Previous->Height / 2 + Previous->OffsetY)
+		if (Previous != nullptr && Dragged->OffsetY < Previous->Height / 2 + Previous->OffsetY)
 			SwapChildren(Previous, Dragged);
-		if (Next != NULL && Dragged->Height + Dragged->OffsetY > Next->Height / 2 + Next->OffsetY)
+		if (Next != nullptr && Dragged->Height + Dragged->OffsetY > Next->Height / 2 + Next->OffsetY)
 			SwapChildren(Next, Dragged);
 	}
 	TEND(429)
@@ -432,14 +432,14 @@ void TDialogWindow::MakeRoom(TComponent *Work)
 {
 	TBEGIN
 	int Space = Area.height;
-	for (TComponent *Child = GetFirstChild(); Child != NULL; Child = Child->GetNext())
+	for (TComponent *Child = GetFirstChild(); Child != nullptr; Child = Child->GetNext())
 		Space -= Child->Height;
 	if (Space < Work->Height) {
 		int Needed = Work->getMinimumHeight();
 		if (Space > Needed)
 			Needed = Space;
 		TComponent *Child = GetLastChild();
-		while (Child != NULL && Space < Needed) {
+		while (Child != nullptr && Space < Needed) {
 			TComponent *Previous = Child->GetPrevious();
 			int OldHeight = Child->Height;
 			Child->SetSize(Child->Width, OldHeight - Needed + Space);
@@ -469,7 +469,7 @@ void TDialogWindow::Grow(TComponent *Work)
 		int Free = GetFreeHeight();
 		if (Free > FreeHeight) {
 			int Delta = Free - FreeHeight;
-			for (; Child != NULL && Delta > 0 && Child != Work; Child = Child->GetPrevious()) {
+			for (; Child != nullptr && Delta > 0 && Child != Work; Child = Child->GetPrevious()) {
 				int OldHeight = Child->Height;
 				Child->SetSize(Child->Width, OldHeight + Delta);
 				Delta += OldHeight - Child->Height;
@@ -485,7 +485,7 @@ int TDialogWindow::GetFreeHeight()
 	TBEGIN
 	int Available = Area.height;
 	int Used = 0;
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext())
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext())
 		Used += Child->Height;
 	if (UpdateFreeHeight)
 		FreeHeight = Available - Used;
@@ -506,7 +506,7 @@ void TContentWindow::Draw(int Surface, int x, int y)
 		DrawSkin(Surface, x, y, Width, Height, 7, 0, BackgroundY);
 	}
 	TComponent::Draw(Surface, x, y);
-	for (TComponent *Child = FirstChild; Child != NULL; Child = Child->GetNext())
+	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext())
 		Child->Draw(Surface, Child->OffsetX + x, Child->OffsetY + y);
 	TEND1(692, Surface)
 }
@@ -556,7 +556,7 @@ bool TContentWindow::LeftButtonDown(int x, int y, int Flags)
 	TBEGIN
 	if (!TWindow::LeftButtonDown(x, y, Flags)) {
 		Dragging = true;
-		SetCapture(NULL);
+		SetCapture(nullptr);
 		DragX = x;
 		DragY = y;
 		DragBottom = Height + OffsetY - y;
@@ -570,8 +570,8 @@ bool TContentWindow::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (Dragging) {
-		ReleaseCapture(NULL);
-		((TDialogWindow *)GetParent())->Rearrange(1, NULL);
+		ReleaseCapture(nullptr);
+		((TDialogWindow *)GetParent())->Rearrange(1, nullptr);
 		return true;
 	}
 	return TWindow::LeftButtonUp(x, y, Flags);
@@ -592,11 +592,11 @@ TSubWindow::TSubWindow(int _Identifier, TSubWindowBody *_Body, bool _Resizable, 
 	Data68 = 0;
 	DrawingListLength = 8;
 	DrawingList = new TDrawing[8];
-	UpButton = NULL;
-	CloseButton = NULL;
-	MinimizeButton = NULL;
-	Icon = NULL;
-	Title = NULL;
+	UpButton = nullptr;
+	CloseButton = nullptr;
+	MinimizeButton = nullptr;
+	Icon = nullptr;
+	Title = nullptr;
 	TASSERT(791, _Body!=NULL);
 	Body = _Body;
 	TWindow::InsertChild(Body);
@@ -606,8 +606,8 @@ TSubWindow::TSubWindow(int _Identifier, TSubWindowBody *_Body, bool _Resizable, 
 		TWindow::AppendChild(Resizer1);
 		TWindow::AppendChild(Resizer2);
 	} else {
-		Resizer1 = NULL;
-		Resizer2 = NULL;
+		Resizer1 = nullptr;
+		Resizer2 = nullptr;
 	}
 	TEND1(804, _Identifier)
 }
@@ -633,25 +633,25 @@ void TSubWindow::SetSize(int Width, int Height)
 		TWindow::SetSize(Width, Height);
 		SetChildArea(Body, SkinProperties.Style194.Data50);
 		FitToChild(Body, SkinProperties.Style194.Data50, false);
-		if (Resizer1 != NULL)
+		if (Resizer1 != nullptr)
 			SetChildArea(Resizer1, SkinProperties.Style194.Data60);
-		if (Resizer2 != NULL)
+		if (Resizer2 != nullptr)
 			SetChildArea(Resizer2, SkinProperties.Style194.Data70);
 	}
 	Arrange();
-	if (Column != NULL) {
+	if (Column != nullptr) {
 		switch (Change) {
 		case -1:
 			Column->Rearrange(4, this);
 			break;
 		case 0:
-			Column->Rearrange(32, NULL);
+			Column->Rearrange(32, nullptr);
 			break;
 		case 1:
 			Column->Rearrange(2, this);
 			break;
 		}
-		Column->Rearrange(8, NULL);
+		Column->Rearrange(8, nullptr);
 	}
 	TEND2(861, Width, Height)
 }
@@ -689,11 +689,11 @@ void TSubWindow::Arrange()
 bool TSubWindow::LeftButtonDown(int x, int y, int Flags)
 {
 	TBEGIN
-	if (!IsMinimized && Resizer1 != NULL && In(x - Resizer1->OffsetX, 0, Resizer1->Width - 1)
+	if (!IsMinimized && Resizer1 != nullptr && In(x - Resizer1->OffsetX, 0, Resizer1->Width - 1)
 		&& In(y - Resizer1->OffsetY, 0, Resizer1->Height - 1)
 		&& Resizer1->LeftButtonDown(x - Resizer1->OffsetX, y - Resizer1->OffsetY, Flags))
 		return true;
-	if (!IsMinimized && Resizer2 != NULL && In(x - Resizer2->OffsetX, 0, Resizer2->Width - 1)
+	if (!IsMinimized && Resizer2 != nullptr && In(x - Resizer2->OffsetX, 0, Resizer2->Width - 1)
 		&& In(y - Resizer2->OffsetY, 0, Resizer2->Height - 1)
 		&& Resizer2->LeftButtonDown(x - Resizer2->OffsetX, y - Resizer2->OffsetY, Flags))
 		return true;
@@ -705,11 +705,11 @@ bool TSubWindow::LeftButtonDown(int x, int y, int Flags)
 bool TSubWindow::MouseMove(int x, int y)
 {
 	TBEGIN
-	if (!IsMinimized && Resizer1 != NULL && In(x - Resizer1->OffsetX, 0, Resizer1->Width - 1)
+	if (!IsMinimized && Resizer1 != nullptr && In(x - Resizer1->OffsetX, 0, Resizer1->Width - 1)
 		&& In(y - Resizer1->OffsetY, 0, Resizer1->Height - 1)
 		&& Resizer1->MouseMove(x - Resizer1->OffsetX, y - Resizer1->OffsetY))
 		return true;
-	if (!IsMinimized && Resizer2 != NULL && In(x - Resizer2->OffsetX, 0, Resizer2->Width - 1)
+	if (!IsMinimized && Resizer2 != nullptr && In(x - Resizer2->OffsetX, 0, Resizer2->Width - 1)
 		&& In(y - Resizer2->OffsetY, 0, Resizer2->Height - 1)
 		&& Resizer2->MouseMove(x - Resizer2->OffsetX, y - Resizer2->OffsetY))
 		return true;
@@ -753,13 +753,13 @@ void TSubWindow::Minimize()
 	IsMinimized = true;
 	RestoreHeight = Height;
 	Body->Minimize();
-	if (Resizer1 != NULL)
+	if (Resizer1 != nullptr)
 		RemoveChild(Resizer1);
-	if (Resizer2 != NULL)
+	if (Resizer2 != nullptr)
 		RemoveChild(Resizer2);
-	if (Body != NULL)
+	if (Body != nullptr)
 		RemoveChild(Body);
-	if (MinimizeButton != NULL)
+	if (MinimizeButton != nullptr)
 		MinimizeButton->SetSkins(140, 141);
 	SetSize(Width, SkinProperties.Style194.Data4C);
 	TEND(1020)
@@ -772,13 +772,13 @@ void TSubWindow::Maximize()
 	TBEGIN
 	IsMinimized = false;
 	Body->Maximize();
-	if (Body != NULL)
+	if (Body != nullptr)
 		AppendChild(Body);
-	if (Resizer1 != NULL)
+	if (Resizer1 != nullptr)
 		AppendChild(Resizer1);
-	if (Resizer2 != NULL)
+	if (Resizer2 != nullptr)
 		AppendChild(Resizer2);
-	if (MinimizeButton != NULL)
+	if (MinimizeButton != nullptr)
 		MinimizeButton->SetSkins(138, 139);
 	SetSize(Width, RestoreHeight);
 	TEND(1037)
@@ -788,7 +788,7 @@ void TSubWindow::Maximize()
 void TSubWindow::ShowUpButton()
 {
 	TBEGIN
-	if (UpButton != NULL && !IsChild(UpButton))
+	if (UpButton != nullptr && !IsChild(UpButton))
 		InsertChild(UpButton);
 	TEND(1049)
 }
@@ -798,7 +798,7 @@ void TSubWindow::ShowUpButton()
 void TSubWindow::HideUpButton()
 {
 	TBEGIN
-	if (UpButton != NULL && IsChild(UpButton) == true)
+	if (UpButton != nullptr && IsChild(UpButton) == true)
 		RemoveChild(UpButton);
 	TEND(1061)
 }
@@ -807,7 +807,7 @@ void TSubWindow::HideUpButton()
 void TSubWindow::SetUpButton(TComponent *Button)
 {
 	TBEGIN
-	if (UpButton != NULL) {
+	if (UpButton != nullptr) {
 		if (IsChild(UpButton))
 			DeleteChild(UpButton);
 		else
@@ -823,7 +823,7 @@ void TSubWindow::SetUpButton(TComponent *Button)
 void TSubWindow::SetCloseButton(TComponent *Button)
 {
 	TBEGIN
-	if (CloseButton != NULL) {
+	if (CloseButton != nullptr) {
 		if (IsChild(CloseButton))
 			DeleteChild(CloseButton);
 		else
@@ -839,7 +839,7 @@ void TSubWindow::SetCloseButton(TComponent *Button)
 void TSubWindow::SetMinimizeButton(TSkinButton *Button)
 {
 	TBEGIN
-	if (MinimizeButton != NULL) {
+	if (MinimizeButton != nullptr) {
 		if (IsChild(MinimizeButton))
 			DeleteChild(MinimizeButton);
 		else
@@ -855,7 +855,7 @@ void TSubWindow::SetMinimizeButton(TSkinButton *Button)
 void TSubWindow::SetIcon(TComponent *_Icon)
 {
 	TBEGIN
-	if (Icon != NULL) {
+	if (Icon != nullptr) {
 		if (IsChild(Icon))
 			DeleteChild(Icon);
 		else
@@ -871,7 +871,7 @@ void TSubWindow::SetIcon(TComponent *_Icon)
 void TSubWindow::SetTitle(TComponent *_Title)
 {
 	TBEGIN
-	if (Title != NULL) {
+	if (Title != nullptr) {
 		if (IsChild(Title))
 			DeleteChild(Title);
 		else

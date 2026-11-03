@@ -48,7 +48,7 @@ TXTEA::TXTEA()
 // 0x508ca0
 void TXTEA::SetKey(const uint8 *Key)
 {
-	if (Key != NULL) {
+	if (Key != nullptr) {
 		this->Key[0] = ((const uint32 *)Key)[0];
 		this->Key[1] = ((const uint32 *)Key)[1];
 		this->Key[2] = ((const uint32 *)Key)[2];
@@ -59,13 +59,13 @@ void TXTEA::SetKey(const uint8 *Key)
 // 0x508f60
 void TXTEA::EncryptBlock(uint8 *Block)
 {
-	if (Block != NULL)
+	if (Block != nullptr)
 		EncryptXTEA((uint32 *)Block, Key);
 }
 
 // 0x508f80
 void TXTEA::DecryptBlock(uint8 *Block)
 {
-	if (Block != NULL)
+	if (Block != nullptr)
 		DecryptXTEA((uint32 *)Block, Key);
 }
