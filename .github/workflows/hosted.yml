@@ -85,7 +85,7 @@ jobs:
       - name: clang-format --dry-run --Werror
         run: >-
           docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" bash -c
-          'clang-format --version && clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/testmode/*.cpp src/testmode/*.h src/res/resource.h tests/unit/*.cpp'
+          'clang-format --version && clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/testmode/*.cpp src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp'
 
   clang-tidy:
     name: clang-tidy (no new findings)

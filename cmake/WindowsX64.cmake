@@ -1,6 +1,7 @@
 # The client of the preset windows-x64 (issue #5; notes/modernization-plan.md, section 7, M1): today's
 # code as a 64-bit Patella.exe with MSVC x64, static x64 MFC and the original engines (DirectDraw,
-# Direct3D 9, OpenGL).
+# Direct3D 9, OpenGL), and since issue #19 the Vulkan engine (cmake/Vulkan.cmake, notes/vulkan.md), which
+# the environment variable PATELLA_VULKAN puts in place of Direct3D 9.
 #
 # - The sources, definitions, import libraries and linker options of the oracle's Patella.exe
 #   (cmake/OracleX86.cmake), so the program does what that one does: static MFC (nafxcw.lib, pulled
