@@ -163,7 +163,11 @@ backup: notes/testserver.md.
 `python -I tools/compare_traffic.py` (issue #19) plays a scripted session (walk, talk, look, containers,
 use, trade, logout) with both clients against that server through a recording proxy (tools/proxy.py,
 which decrypts with the server's key), replays each recording to both clients and compares their packets,
-their state in memory after every step and their Tibia.cfg: notes/traffic.md.
+their state in memory after every step and their Tibia.cfg: notes/traffic.md. `--patella <exe>` tests another
+Patella.exe (build\oracle-x86\Release or, from issue #5, build\windows-x64\Release). tools/client_state.py
+reads Patella.exe's globals and field offsets from its PDB by name (issue #6), x86 or x64;
+`python -I tools/client_state.py --layout <Patella.exe>` checks them without a client (for x86: every one
+equal to the original's).
 
 `python -I tools/compare_files.py` (issue #21) compares the files both clients write after the same sessions
 (Tibia.cfg after the option dialogs, the automap files after a walk over three floors, a saved channel,

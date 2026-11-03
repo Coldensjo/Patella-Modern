@@ -9,8 +9,11 @@ state after every step and their Tibia.cfg are compared. Choices and their reaso
 
 ```
 tools\build-patella.cmd
-python -I tools/compare_traffic.py [--out build\traffic\result] [--skip-live] [--no-cross]
+python -I tools/compare_traffic.py [--out build\traffic\result] [--skip-live] [--no-cross] [--patella EXE]
 ```
+
+`--patella` names the Patella.exe to test (default build\Release\Patella.exe), x86 or x64, with its PDB next to
+it: `build\oracle-x86\Release\Patella.exe`, `build\windows-x64\Release\Patella.exe` (issue #6).
 
 The test server must be stopped (the script starts and stops it itself, with tools\run-testserver.ps1 and
 tools\stop-testserver.ps1). About 9 minutes: two live sessions (server start, session, server stop with its
@@ -103,7 +106,7 @@ partner. Fifteen steps, each followed by the wait and a state snapshot:
 No screenshots are used (the display was off during this work; screenshots would be white): every click
 place is computed from the client's memory: the window tree (tools/client_state.py gui(): TComponent's
 Parent/Next/OffsetX/OffsetY/Width/Height, TWindow's FirstChild; a component is a window when its
-GetFirstChild slot is `mov eax, [ecx+24h]; ret`), the skin's slot areas (SkinProperties: Style288.Data60
+GetFirstChild slot is `mov eax, [ecx+24h]; ret`, on x64 `mov rax, [rcx+XXh]; ret`), the skin's slot areas (SkinProperties: Style288.Data60
 for the body slots, Data62C-Data64C for container slots, Style6FC for the trade offers), TMapWindow::GetField's
 field mapping, the map window's creature name positions (Names, as GetCreatureAt uses them) and the context
 menu entries' texts. Patella.exe's classes are named by its RTTI; Tibia.exe has no RTTI for its windows, so
@@ -122,9 +125,13 @@ the open containers (object, name, capacity, parent flag, objects); both trade o
 channel's lines (mode and text). Left out on purpose: times and animation state (step end and duration,
 mark time, effects), which follow the clock, not the packets. Also compared: the window tree (depth,
 place, size, label and menu texts; Tibia.exe's vtable names must pair one to one with Patella's classes).
-Tibia.exe's addresses are the ones in src/ comments; Patella.exe's come from its PDB (dbghelp) relative to
-its base. Both clients have the same structure layouts (static_asserts in src/), so the field offsets are
-shared.
+Tibia.exe's addresses and field offsets are the ones in src/ comments; Patella.exe's come from its PDB
+(dbghelp; issue #6): the globals relative to its base, and every field offset, structure size, array length
+and the GetFirstChild vtable slot by type and member name (client_state.LAYOUT_FIELDS, LAYOUT_SIZES,
+LAYOUT_VSLOTS), so the x64 build, whose layouts are its own, is read correctly too. The oracle-x86 build has
+the original layouts (static_asserts in src/); `python -I tools/client_state.py --layout <Patella.exe>`
+lists every entry and, for an x86 image, compares it with the original's constant (0 mismatches);
+`--self-test` checks the process side (bitness, module base, pointer reads) against the Python process.
 
 ### Live sessions and the server's state
 

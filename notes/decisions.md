@@ -4999,3 +4999,44 @@ cxx26_static_vector_test.cpp, RunContractViolation.cmake), the presets windows-x
   CTest tests, 0 failures, 0 warnings; doctest 18 test cases, 158 assertions (tests_unit) and 160
   (tests_unit_cxx26_standin, two more path checks), Release and Debug. The oracle-x86 preset configures and builds
   with 0 warnings; its tests were not run (nothing it builds changed).
+
+## client_state.py: field offsets from the PDB (issue #6)
+
+Settled by Claude Opus 5.5, November 3, 2026 (Python 3.13 x64, System32 dbghelp.dll, MSVC 14.51 x86 and x64).
+`tools/client_state.py`, `tools/session_client.py` (its offsets), `tools/compare_files.py` (player_position),
+`tools/compare_traffic.py` (`--patella`). No change to src/ or the CMake files: the oracle-x86 PDB has every type
+and member the tools read.
+
+- **One table** (high). Every offset the tools read is an entry of `LAYOUT_FIELDS` (`Type.Member[.Member]`, the
+  original's offset, the member's kind: int, bool, ptr, char[N], a type, T[N]); strides are `LAYOUT_SIZES`, the
+  GetFirstChild slot `LAYOUT_VSLOTS`, the globals `ORIGINAL_GLOBALS` (address and kind). Tibia.exe uses the
+  constants (`Layout.original()`); Patella.exe resolves every entry in its PDB (`Layout.from_pdb`: SymGetTypeInfo
+  for members, base classes included, lengths, array counts and vtable offsets; SymEnumSymbols for the globals, as
+  before) and refuses to run when an entry is missing or its kind differs (a field read as a 4-byte int that is
+  not one, a pointer that is not the image's pointer size). Array lengths (skills, creatures, body slots,
+  containers, objects per point/container/offer, name lengths) come from the kinds, so they follow the PDB too.
+  Fields' entry count stays the constant MAP_POINTS (a #define, not in the PDB).
+- **Equal for x86** (high). `python -I tools/client_state.py --layout build\oracle-x86\Release\Patella.exe`
+  lists every entry with the original's value and the PDB's: 33 globals (kind), 73 fields, 7 sizes, 1 vtable slot
+  and the GetFirstChild code, 0 mismatches. A one-off check (not in the repository) read the same fake process
+  memory with main's client_state.py and this one: state(), its parts, gui(), characters(), the skin reads with
+  main's literal offsets against the member paths, player_position, and main's pdb_symbols against the new
+  globals: no difference. The reads happen in the same order with the same sizes, so even a ReadError's text
+  is the same.
+- **64-bit** (medium until an x64 Patella has run). Pointers are read with the image's pointer size (`ptr`,
+  `var_ptr`); the process's bitness (IsWow64Process) must match the PDB's image (PE machine), and a 64-bit
+  process needs a 64-bit Python; EnumProcessModulesEx lists LIST_MODULES_64BIT or _32BIT modules accordingly.
+  RTTI: the complete object locator's pTypeDescriptor (+12) is an image-relative offset on x64, an address on
+  x86; the TypeDescriptor's name follows two pointers. A window's GetFirstChild is `48 8b 41 XX c3` on x64 with
+  XX = TWindow.FirstChild (from the PDB). The dbghelp search path starts with the exe's folder, so the PDB next to
+  the exe is found when the build folder moved (a PDB that does not match the image is not loaded). Verified
+  against a 64-bit MSVC test process with TComponent/TWindow-like classes and a PDB (offsets, slot 0x40,
+  bitness, module base, RTTI names, the pattern, gui() end to end); not yet against an x64 Patella.exe.
+- **Raw offsets** (form). `skin_rects`/`skin_int` take a member path of TSkinProperties; an int is still
+  accepted when the layout equals the original (`Layout.frozen`: Tibia.exe and the oracle build), so
+  compare_rendering.py's four raw skin offsets keep working on x86 and fail with a message on x64.
+  compare_files.py and compare_rendering.py still add literal offsets to component pointers and read pointers
+  with u32 (TCheckBox +0x30, the option dialogs' controls, TAutomapWindow's zoom buttons, ...): right on x86,
+  not on x64 until they name their fields here too.
+- **dbghelp** (form). System32's, loaded by full path: it reads MSVC 14.51's PDBs, x86 and x64; the Windows SDK
+  Debuggers copy is not needed.
