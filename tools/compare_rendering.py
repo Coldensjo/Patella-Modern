@@ -462,18 +462,18 @@ def wait_gone(driver, cls, timeout=10):
 
 
 def switch_fullscreen(driver):
-	"""Options, Graphics: the Fullscreen check box (TGraphicsOptionsDialog +0x2c; TCheckBox's Checked
-	+0x30) and OK: HandleEvent stores the selected mode (Tibia.cfg's FullscreenMode, the desktop's
-	own) and calls SetDisplayMode(2). Then the options dialog's Ok."""
+	"""Options, Graphics: the Fullscreen check box (TGraphicsOptionsDialog.Fullscreen, +0x2c in the
+	original; TCheckBox.Checked, +0x30) and OK: HandleEvent stores the selected mode (Tibia.cfg's
+	FullscreenMode, the desktop's own) and calls SetDisplayMode(2). Then the options dialog's Ok."""
 	click_node(driver, button(driver, "Options"))
 	wait_node(driver, "TOptionsDialog")
 	click_node(driver, button(driver, "Graphics"))
 	dialog = wait_node(driver, "TGraphicsOptionsDialog")
-	box = driver.mem.u32(dialog["ptr"] + 0x2c)
+	box = driver.mem.ptr(dialog["ptr"] + driver.mem.off("TGraphicsOptionsDialog.Fullscreen"))
 	node = driver.node_by_ptr(box)
 	driver.click(node["x"] + 6, node["y"] + node["h"] // 2)
 	time.sleep(0.3)
-	if driver.mem.read(box + 0x30, 1)[0] == 0:
+	if driver.mem.read(box + driver.mem.off("TCheckBox.Checked"), 1)[0] == 0:
 		raise RunError("the Fullscreen check box did not change")
 	driver.char(13)
 	wait_gone(driver, "TGraphicsOptionsDialog")
@@ -557,10 +557,12 @@ def session(driver, proxy, shot, fullscreen=False):
 	automap = wait_node(driver, "TAutomapWindow")
 
 	def zoom_in():
-		click_node(driver, driver.node_by_ptr(driver.mem.u32(automap["ptr"] + 0x54)))
+		click_node(driver, driver.node_by_ptr(driver.mem.ptr(automap["ptr"]
+			+ driver.mem.off("TAutomapWindow.ZoomInButton"))))
 
 	step("automap-zoom", zoom_in)
-	click_node(driver, driver.node_by_ptr(driver.mem.u32(automap["ptr"] + 0x58)))  # back to zoom 2
+	click_node(driver, driver.node_by_ptr(driver.mem.ptr(automap["ptr"]
+		+ driver.mem.off("TAutomapWindow.ZoomOutButton"))))  # back to zoom 2
 	settle()
 
 	def side_windows():
@@ -570,8 +572,8 @@ def session(driver, proxy, shot, fullscreen=False):
 		the places follow from the Logout button's node (Tibia.exe has no name for the
 		TTextToggleButton class)."""
 		logout = button(driver, "Logout")
-		x60c, y60c, w60c, h60c = driver.mem.skin_rects(0x60c, 1)[0]
-		x61c, y61c, w61c, h61c = driver.mem.skin_rects(0x61c, 1)[0]
+		x60c, y60c, w60c, h60c = driver.mem.skin_rects("Data60C", 1)[0]
+		x61c, y61c, w61c, h61c = driver.mem.skin_rects("Data61C", 1)[0]
 		left, top = logout["x"] - w61c, logout["y"] - h61c
 		for x, y in ((x60c, y60c), (w60c, h60c), (x61c, y61c)):
 			driver.click(left + x + logout["w"] // 2, top + y + logout["h"] // 2)
@@ -603,8 +605,8 @@ FRAMERATE_HEIGHT = 16
 
 
 def framerate_mask(driver, dialog):
-	x = dialog["x"] + driver.mem.skin_int(0x1394 + 0x70) + FRAMERATE_PREFIX
-	y = dialog["y"] + driver.mem.skin_int(0x1394 + 0x74)
+	x = dialog["x"] + driver.mem.skin_int("Style1394.Data70.x") + FRAMERATE_PREFIX
+	y = dialog["y"] + driver.mem.skin_int("Style1394.Data70.y")
 	return [x, y, x + FRAMERATE_WIDTH, y + FRAMERATE_HEIGHT]
 
 

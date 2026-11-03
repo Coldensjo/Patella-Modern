@@ -185,7 +185,8 @@ equal to the original's).
 `python -I tools/compare_files.py` (issue #21) compares the files both clients write after the same sessions
 (Tibia.cfg after the option dialogs, the automap files after a walk over three floors, a saved channel,
 error.txt after forced errors and the error report flow, the files a patch from the login server writes):
-notes/written-files.md.
+notes/written-files.md. It takes `--patella <exe>` too and reads the dialogs' controls through client_state.py's
+PDB table; tools/patch_client.py patches x86 and x64 images (Patella-Modern issue #15).
 
 `python -I tools/compare_rendering.py` (issue #20) compares what both clients draw: issue #19's session
 replayed with each engine (DirectX 5, DirectX 9, OpenGL), windowed and fullscreen, every frame read from the
