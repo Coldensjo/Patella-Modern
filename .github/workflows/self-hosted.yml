@@ -5,6 +5,10 @@
 # - windows-x64: the x64 client (with its resources from Tibia.exe) and the unit tests.
 # - comparisons: compare_traffic.py and compare_files.py against the test server for the x64 client,
 #   compare_rendering.py (windowed) for the x64 client (issue #18) from compare_traffic.py's recording.
+# - golden: the golden corpus (issue #24): recorded from the oracle-x86 difftest into build\golden of the
+#   job's checkout, then replayed by the windows-x64 golden_runner (CTest test golden, which fails without
+#   a corpus here: PATELLA_GOLDEN_REQUIRE=ON). The corpus is derived from Tibia.exe: it stays in the
+#   checkout, which the next run's git clean removes; it is never uploaded.
 # - linux-docker: the Linux presets through tools/build.py in the local Docker image, the place of the
 #   Linux replay tests (M2, M8).
 #
@@ -122,6 +126,35 @@ jobs:
       - name: Stop the test server
         if: always()
         run: python -I tools/testserver.py stop --force
+
+  golden:
+    name: golden corpus, recorded and replayed
+    if: github.repository == 'Coldensjo/Patella-Modern' && vars.PATELLA_SELF_HOSTED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: oracle-x86
+    runs-on: [self-hosted, Windows, X64, patella]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Copy the CipSoft files into the checkout
+        shell: pwsh
+        run: |
+          foreach ($name in 'Tibia.exe', 'Tibia.dat', 'Tibia.spr', 'Tibia.pic', 'Tibia.cfg') {
+            Copy-Item -LiteralPath (Join-Path $env:CIPSOFT_DIR $name) -Destination $name -ErrorAction Stop
+          }
+          $hash = (Get-FileHash -Algorithm SHA256 Tibia.exe).Hash.ToLowerInvariant()
+          if ($hash -ne $env:TIBIA_EXE_SHA256) { throw "Tibia.exe is not the 7.72 client (sha256 $hash)" }
+      - name: Configure oracle-x86
+        run: python -I tools/build.py --env oracle-x86 cmake --preset oracle-x86
+      - name: Record the corpus (golden_corpus)
+        run: python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target golden_corpus
+      - name: Configure windows-x64 (the runner only, the corpus required)
+        run: python -I tools/build.py --env windows-x64 cmake --preset windows-x64 -DPATELLA_CLIENT=OFF -DPATELLA_GOLDEN_REQUIRE=ON
+      - name: Build golden_runner
+        run: python -I tools/build.py --env windows-x64 cmake --build --preset windows-x64 --target golden_runner
+      - name: Replay the corpus (CTest test golden)
+        run: python -I tools/build.py --env windows-x64 ctest --preset windows-x64 -R '^golden$'
 
   linux-docker:
     name: Linux presets in Docker (tools/build.py)
