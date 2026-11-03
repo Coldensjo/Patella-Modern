@@ -21,9 +21,9 @@
 class CMainFrame : public CFrameWnd {
 public:
 	CMainFrame(bool Gamemaster);
-	virtual ~CMainFrame();
-	virtual BOOL PreCreateWindow(CREATESTRUCT &cs);
-	virtual BOOL DestroyWindow();
+	~CMainFrame() override;
+	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
+	BOOL DestroyWindow() override;
 
 	int TranslateKey(UINT nChar, UINT nRepCnt, UINT nFlags);
 	void OutputErrorInformations(std::ostream &Out);

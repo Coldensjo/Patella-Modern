@@ -65,21 +65,21 @@ public:
 	TMapWindow(); // 0x4bfa00, line 130
 	// 0x4bf860 (inline, out-of-line copy before the constructor; deleting
 	// destructor 0x4bf9e0).
-	~TMapWindow()
+	~TMapWindow() override
 	{
 		RemoveHotkey(0x44e);
 		RemoveHotkey(0x457);
 	}
-	void SetSize(int Width, int Height);          // +0x34, 0x4bfc30, line 152
-	int getMinimumWidth() { return 240; }         // +0x3c, 0x4bf8d0
-	int getMinimumHeight() { return 176; }        // +0x40, 0x4bf8e0
-	void Draw(int Surface, int x, int y);         // +0x44, 0x4c7580, lines 456-834
-	void Arrange();                               // +0x48, 0x4bfde0, line 164
-	bool LeftButtonDown(int x, int y, int Flags); // +0x50, 0x4c24d0, line 196
-	bool LeftButtonUp(int x, int y, int Flags);   // +0x54, 0x4c2710, lines 219-272
-	bool RightButtonUp(int x, int y, int Flags);  // +0x5c, 0x4c2e50, lines 335-368
-	bool HelpMouseMove(int x, int y);             // +0x68, 0x4c3520, lines 417-432
-	void HandleEvent(int Event);                  // +0x70, 0x4bffa0, lines 382-388
+	void SetSize(int Width, int Height) override;          // +0x34, 0x4bfc30, line 152
+	int getMinimumWidth() override { return 240; }         // +0x3c, 0x4bf8d0
+	int getMinimumHeight() override { return 176; }        // +0x40, 0x4bf8e0
+	void Draw(int Surface, int x, int y) override;         // +0x44, 0x4c7580, lines 456-834
+	void Arrange() override;                               // +0x48, 0x4bfde0, line 164
+	bool LeftButtonDown(int x, int y, int Flags) override; // +0x50, 0x4c24d0, line 196
+	bool LeftButtonUp(int x, int y, int Flags) override;   // +0x54, 0x4c2710, lines 219-272
+	bool RightButtonUp(int x, int y, int Flags) override;  // +0x5c, 0x4c2e50, lines 335-368
+	bool HelpMouseMove(int x, int y) override;             // +0x68, 0x4c3520, lines 417-432
+	void HandleEvent(int Event) override;                  // +0x70, 0x4bffa0, lines 382-388
 
 	void DrawField(int posx, int posy, int FieldX, int FieldY, int FieldZ, int Mode); // 0x4c5520, lines 874-1062
 	void DrawObject(int posx, int posy, int Level, TObject Obj, int x, int y, int z); // 0x4c4af0, lines 1071-1094
@@ -138,10 +138,10 @@ public:
 	TMapFrame(); // 0x4c1a40, line 1564
 	// The destructor is the implicit one (deleting destructor 0x4adc40 in
 	// MainWindow.obj).
-	void SetSize(int Width, int Height); // +0x34, 0x4c1c40, line 1584
-	int getMinimumWidth();               // +0x3c, 0x4c1ea0, line 1595
-	int getMinimumHeight();              // +0x40, 0x4c2040, line 1606
-	void Arrange();                      // +0x48, 0x4c21e0
+	void SetSize(int Width, int Height) override; // +0x34, 0x4c1c40, line 1584
+	int getMinimumWidth() override;               // +0x3c, 0x4c1ea0, line 1595
+	int getMinimumHeight() override;              // +0x40, 0x4c2040, line 1606
+	void Arrange() override;                      // +0x48, 0x4c21e0
 
 	TMapWindow *MapWindow; // +0x2c
 	int ViewY;             // +0x30, position of the map view

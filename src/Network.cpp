@@ -18,10 +18,10 @@
 
 class TSocket : public CAsyncSocket {
 public:
-	virtual void OnReceive(int ErrorCode);
-	virtual void OnSend(int /*ErrorCode*/) {} // 0x4eac00, an empty function shared by several vtables
-	virtual void OnConnect(int ErrorCode);
-	virtual void OnClose(int ErrorCode);
+	void OnReceive(int ErrorCode) override;
+	void OnSend(int /*ErrorCode*/) override {} // 0x4eac00, an empty function shared by several vtables
+	void OnConnect(int ErrorCode) override;
+	void OnClose(int ErrorCode) override;
 };
 
 // Data, in .data/.bss order.

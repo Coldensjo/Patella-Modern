@@ -37,54 +37,54 @@ typedef void(__cdecl *TVulkanMaskObserver)(const unsigned char *Mask, int Width,
 class TSurfaceVulkan : public TSurface {
 public:
 	TSurfaceVulkan();
-	~TSurfaceVulkan();
+	~TSurfaceVulkan() override;
 
-	void SetPixel(int Surface, int x, int y, TRGBColor Color);
-	void FillRectangleClipped(int Surface, TRect Rect, TRGBColor Color, TRect Clip);
-	void FillRectangle(int Surface, TRect Rect, TRGBColor Color);
-	void DrawHorizontalLine(int Surface, int x, int y, int Width, TRGBColor Color);
-	void DrawVerticalLine(int Surface, int x, int y, int Height, TRGBColor Color);
-	void DrawFrameClipped(int Surface, TRect Rect, int LineWidth, TRGBColor Color, TRect Clip);
-	void DrawFrame(int Surface, TRect Rect, int LineWidth, TRGBColor Color);
-	void WriteImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data);
+	void SetPixel(int Surface, int x, int y, TRGBColor Color) override;
+	void FillRectangleClipped(int Surface, TRect Rect, TRGBColor Color, TRect Clip) override;
+	void FillRectangle(int Surface, TRect Rect, TRGBColor Color) override;
+	void DrawHorizontalLine(int Surface, int x, int y, int Width, TRGBColor Color) override;
+	void DrawVerticalLine(int Surface, int x, int y, int Height, TRGBColor Color) override;
+	void DrawFrameClipped(int Surface, TRect Rect, int LineWidth, TRGBColor Color, TRect Clip) override;
+	void DrawFrame(int Surface, TRect Rect, int LineWidth, TRGBColor Color) override;
+	void WriteImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data) override;
 	void WriteMaskedImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data, uint8 *Mask,
-		TRGBColor *Colors);
-	void BlitRect(int ToSurface, int x, int y, int FromSurface, TRect FromRect);
-	void Blit(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey);
-	void BlitRectClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRect Clip);
+		TRGBColor *Colors) override;
+	void BlitRect(int ToSurface, int x, int y, int FromSurface, TRect FromRect) override;
+	void Blit(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey) override;
+	void BlitRectClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRect Clip) override;
 	void BlitClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey,
-		TRect Clip);
-	void StretchBlitRect(int ToSurface, TRect Destination, int FromSurface, TRect Source);
+		TRect Clip) override;
+	void StretchBlitRect(int ToSurface, TRect Destination, int FromSurface, TRect Source) override;
 	void StretchBlitUnclipped(int ToSurface, TRect ToRect, int FromSurface, TRect FromRect, TRGBColor ColorKey,
-		TRGBColor Highlight);
+		TRGBColor Highlight) override;
 	void StretchBlit(int ToSurface, TRect ToRect, int FromSurface, TRect FromRect, TRGBColor ColorKey,
-		TRGBColor Highlight, TRect Clip);
-	void ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor *Colors);
-	void SetSourceColorKey(int ToSurface, TRGBColor ColorKey);
-	bool ClipRect(TRect Clip, RECT *Rect, RECT *Source);
-	void ResetFrameTimer();
-	void WaitForNextFrame();
-	void UpdateWindowRect();
-	void InitDisplay(int VMode, TFullscreenMode *GMode);
-	void ExitDisplay();
-	void CreateSurfaces();
-	void ResetDisplay(int VMode, TFullscreenMode *GMode);
-	void RestoreSurfaces(int ViewMode, TFullscreenMode *Resolution);
-	void FinishFrame();
-	bool Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, bool Force);
-	int GetFullscreenModes(TFullscreenMode **Modes);
-	int GetCacheSurfaces();
-	void GetSurfaceRect(int Surface, TRect *Rect);
-	void SetSurfaceRect(int Surface, int x, int y, int Width, int Height);
-	bool SurfaceRecreated(int Surface);
-	bool IsUnavailable();
-	bool CanShadeRectangles();
-	int GetSurfaceMemory(int Surface);
-	void SetFramerateLimit(int Limit);
-	double GetFPS();
-	void InitSurfaces();
-	void ExitSurfaces();
-	bool TestEngine();
+		TRGBColor Highlight, TRect Clip) override;
+	void ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor *Colors) override;
+	void SetSourceColorKey(int ToSurface, TRGBColor ColorKey) override;
+	bool ClipRect(TRect Clip, RECT *Rect, RECT *Source) override;
+	void ResetFrameTimer() override;
+	void WaitForNextFrame() override;
+	void UpdateWindowRect() override;
+	void InitDisplay(int VMode, TFullscreenMode *GMode) override;
+	void ExitDisplay() override;
+	void CreateSurfaces() override;
+	void ResetDisplay(int VMode, TFullscreenMode *GMode) override;
+	void RestoreSurfaces(int ViewMode, TFullscreenMode *Resolution) override;
+	void FinishFrame() override;
+	bool Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, bool Force) override;
+	int GetFullscreenModes(TFullscreenMode **Modes) override;
+	int GetCacheSurfaces() override;
+	void GetSurfaceRect(int Surface, TRect *Rect) override;
+	void SetSurfaceRect(int Surface, int x, int y, int Width, int Height) override;
+	bool SurfaceRecreated(int Surface) override;
+	bool IsUnavailable() override;
+	bool CanShadeRectangles() override;
+	int GetSurfaceMemory(int Surface) override;
+	void SetFramerateLimit(int Limit) override;
+	double GetFPS() override;
+	void InitSurfaces() override;
+	void ExitSurfaces() override;
+	bool TestEngine() override;
 
 	// The read-back of the test mode (issue #22's frame dump): the pixels of SCREEN_SURFACE's
 	// rectangle as the next FinishFrame would show them (D3DCOLOR, rows top-down). False without a
