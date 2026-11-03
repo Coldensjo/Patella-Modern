@@ -4,7 +4,7 @@
 // the same bytes (tools/compare_resources.py; notes/resources.md lists the entries and
 // their users). The pictures (cursors, icon, bitmaps) are not in the repository: run
 //	python -I tools/extract_resources.py Tibia.exe build/res
-// and compile with build/res on the include path (tools/build-resources.cmd does both).
+// and compile with build/res on the include path (CMake does both, into build/<preset>/res).
 //
 // Order matters: rc.exe numbers the RT_CURSOR and RT_ICON images with one counter in the
 // order of this script, and the original's numbers (cursors 1-2, icons 3-4, cursors 5-20)
