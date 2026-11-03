@@ -5,8 +5,6 @@
 # are fixed (it only shrinks), or when a new one is accepted on purpose (say why in the commit).
 1	src/Skins.cpp	cppcoreguidelines-owning-memory	assigning newly created 'gsl::owner<>' to non-owner 'TSkin *'
 1	src/Skins.cpp	cppcoreguidelines-owning-memory	deleting a pointer through a type that is not marked 'gsl::owner<>'; consider using a smart pointer instead
-1	src/TMyException.h	modernize-use-nodiscard	function 'GetMessage' should be marked [[nodiscard]]
-1	src/TMyException.h	modernize-use-nodiscard	function 'GetOrigin' should be marked [[nodiscard]]
 1	src/TRSA.cpp	bugprone-throwing-static-initialization	initialization of 'PublicExponent' with static storage duration may throw an exception that cannot be caught
 1	src/TRSA.h	bugprone-throwing-static-initialization	initialization of 'HeaderExponent' with static storage duration may throw an exception that cannot be caught
 1	src/Utils.cpp	bugprone-integer-division	result of integer division used in a floating point context; possible loss of precision
@@ -19,8 +17,3 @@
 1	src/vlong.cpp	cppcoreguidelines-owning-memory	assigning newly created 'gsl::owner<>' to non-owner 'vlong_value *'
 1	src/vlong.cpp	cppcoreguidelines-owning-memory	initializing non-owner 'unsigned int *' with a newly created 'gsl::owner<>'
 1	src/vlong.cpp	cppcoreguidelines-owning-memory	initializing non-owner 'vlong_value *' with a newly created 'gsl::owner<>'
-1	src/vlong.h	modernize-use-nodiscard	function 'bits' should be marked [[nodiscard]]
-1	src/vlong.h	modernize-use-nodiscard	function 'cf' should be marked [[nodiscard]]
-1	src/vlong.h	modernize-use-nodiscard	function 'get' should be marked [[nodiscard]]
-1	src/vlong.h	modernize-use-nodiscard	function 'is_zero' should be marked [[nodiscard]]
-1	src/vlong.h	modernize-use-nodiscard	function 'test' should be marked [[nodiscard]]

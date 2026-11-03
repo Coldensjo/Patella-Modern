@@ -375,7 +375,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 
   (build.py works on a copy in the container, so the list is written into the mounted build\linux-x64-clang;
   copy it to tools\tidy-baseline.tsv). On Linux the same tidy.py commands run directly after `cmake --preset
-  linux-x64-clang`. 21 findings in 21 entries on November 3, 2026 (issue #32 removed the ten use-nullptr ones), and 16 more
+  linux-x64-clang`. 14 findings in 14 entries on November 3, 2026 (issue #32 removed the ten use-nullptr ones, issue #38 the seven use-nodiscard ones), and 16 more
   inside macro arguments.
 - CI (issue #11; plan 4.7): `.github/workflows/hosted.yml` runs on GitHub's runners for every push and pull
   request (and by hand, workflow_dispatch), reads no CipSoft file and uses no secret: windows-latest with MSVC

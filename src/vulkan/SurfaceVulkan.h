@@ -92,7 +92,7 @@ public:
 	bool ReadScreen(std::vector<uint32_t> &Pixels, int &Width, int &Height);
 
 	// The device's name ("" without one; DeviceSettings.h GetDeviceName).
-	const char *DeviceName() const;
+	[[nodiscard]] const char *DeviceName() const;
 
 private:
 	void AddShadeQuad(int Left, int Top, int Right, int Bottom, uint32 TopLeft, uint32 TopRight, uint32 BottomRight,

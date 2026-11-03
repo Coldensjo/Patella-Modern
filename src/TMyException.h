@@ -22,8 +22,8 @@ public:
 	virtual ~TMyException(); // 0x508300; scalar deleting destructor at 0x404570
 
 	// Inline; emitted at 0x4042f0 and 0x4d9110.
-	std::string GetMessage() const { return Message; }
-	std::string GetOrigin() const { return Origin; }
+	[[nodiscard]] std::string GetMessage() const { return Message; }
+	[[nodiscard]] std::string GetOrigin() const { return Origin; }
 
 private:
 	std::string Message; // +0x04
