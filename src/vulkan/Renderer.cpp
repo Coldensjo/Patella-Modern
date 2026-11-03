@@ -1005,7 +1005,12 @@ void TRenderer::Draw(int Target, int Texture, TFilter Filter, const TQuad *Quads
 	for (size_t i = 0; i < Count; i++) {
 		TQuadVertices Quad = ConvertQuad(Quads[i], Image.Width, Image.Height, Filter);
 		Vertices.insert(Vertices.end(), Quad.Vertices.begin(), Quad.Vertices.end());
-		Sampler.push_back(Quad.Clamp ? 2u : Quad.Nearest || Filter == TFilter::Point ? 0u : 1u);
+		uint32_t Set = 1; // linear
+		if (Quad.Clamp)
+			Set = 2;
+		else if (Quad.Nearest || Filter == TFilter::Point)
+			Set = 0;
+		Sampler.push_back(Set);
 	}
 	S.BeginPass(Target);
 	S.Bind(S.Textured, S.Constants(Target));

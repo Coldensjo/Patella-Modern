@@ -50,18 +50,18 @@ static uint32 Xrgb(int R, int G, int B)
 
 // --- the engine choice (Surface.cpp) ---
 
-// PATELLA_VULKAN: 0 not set (the original engines), 1 automatic, 2 a GPU, 3 the CPU driver; the GPU's
-// index for 2 (-1 the best).
+// PATELLA_VULKAN: 0 off (surfaceDX9.cpp, for the comparisons until issue #20), 1 automatic (unset: the
+// default), 2 a GPU, 3 the CPU driver; the GPU's index for 2 (-1 the best).
 static int RequestedKind(int *GpuIndex)
 {
 	*GpuIndex = -1;
 	char Value[32] = "";
 	size_t Length = 0;
 	if (getenv_s(&Length, Value, sizeof(Value), "PATELLA_VULKAN") != 0 || Length == 0)
-		return 0;
+		return 1;
 	for (char *c = Value; *c != 0; c++)
 		*c = (char)tolower((unsigned char)*c);
-	if (strcmp(Value, "0") == 0 || strcmp(Value, "off") == 0 || strcmp(Value, "no") == 0)
+	if (strcmp(Value, "0") == 0 || strcmp(Value, "off") == 0 || strcmp(Value, "no") == 0 || strcmp(Value, "dx9") == 0)
 		return 0;
 	if (strcmp(Value, "cpu") == 0)
 		return 3;
@@ -171,13 +171,36 @@ void TSurfaceVulkan::AddShadeQuad(int Left, int Top, int Right, int Bottom, uint
 		TopRight, BottomRight, BottomLeft});
 }
 
+// --- the device-filtered pixels (only while a frame observer watches) ---
+//
+// compare_rendering.py compares exactly, except the pixels whose values come from the device's filter
+// or interpolation (the user's decision of November 3, 2026: up to 2 per channel there). TFilterMasks
+// (FilterMask.h) follows the engine's fills, uploads and quads to know them.
+
+// True when the masks are kept; makes Target's mask exist with the image's size.
+bool TSurfaceVulkan::Masked(int Target)
+{
+	if (FrameObserver == NULL || Renderer == nullptr || Target < 0)
+		return false;
+	Masks.Ensure(Target, Renderer->ImageWidth(Target), Renderer->ImageHeight(Target));
+	return true;
+}
+
+void TSurfaceVulkan::Track(int Target, int Texture, const TQuad *Quads, size_t Count)
+{
+	if (Masked(Target) && Masked(Texture))
+		Masks.Draw(Target, Texture, Filter, Quads, Count);
+}
+
 // FlushVertices: the queued quads into the device's target with its texture and sampler.
 void TSurfaceVulkan::FlushVertices()
 {
 	if (!Vertices.empty()) {
-		if (Renderer != nullptr && DeviceTarget >= 0)
+		if (Renderer != nullptr && DeviceTarget >= 0) {
+			Track(DeviceTarget, DeviceTexture >= 0 ? DeviceTexture : WhiteTexture, Vertices.data(), Vertices.size());
 			Renderer->Draw(DeviceTarget, DeviceTexture >= 0 ? DeviceTexture : WhiteTexture, Filter, Vertices.data(),
 				Vertices.size());
+		}
 		Vertices.clear();
 	}
 }
@@ -297,6 +320,8 @@ void TSurfaceVulkan::ColorFill(int Target, const RECT *R, uint32 Color)
 	if (R->left < 0 || R->top < 0 || R->left >= R->right || R->top >= R->bottom
 		|| R->right > Renderer->ImageWidth(Target) || R->bottom > Renderer->ImageHeight(Target))
 		return;
+	if (Masked(Target))
+		Masks.Fill(Target, R->left, R->top, R->right, R->bottom);
 	Renderer->Fill(Target, R->left, R->top, R->right, R->bottom, Color);
 }
 
@@ -379,16 +404,22 @@ void TSurfaceVulkan::WriteImage(int ToSurface, int x, int y, int PartWidth, int 
 		}
 	}
 	if (ToSurface < SPRITE_SURFACE) {
-		if (Renderer != nullptr)
+		if (Renderer != nullptr) {
+			if (Masked(ScreenTexture))
+				Masks.Upload(ScreenTexture, x, y, PartWidth, PartHeight, Pixels.data());
 			Renderer->Upload(ScreenTexture, x, y, PartWidth, PartHeight, Pixels.data(), (size_t)PartWidth);
+		}
 		Filter = TFilter::Point;
 		BlitRect(AUTOMAP_SURFACE, 0, 0, SCREEN_SURFACE, TRect(0, 0, 106, 106));
 		FlushVertices();
 		Filter = TFilter::Linear;
 		return;
 	}
-	if (Renderer != nullptr && Image[ToSurface] >= 0)
+	if (Renderer != nullptr && Image[ToSurface] >= 0) {
+		if (Masked(Image[ToSurface]))
+			Masks.Upload(Image[ToSurface], x, y, PartWidth, PartHeight, Pixels.data());
 		Renderer->Upload(Image[ToSurface], x, y, PartWidth, PartHeight, Pixels.data(), (size_t)PartWidth);
+	}
 }
 
 // ApplyColorKey: the pixels of ColorKey in the top left 64x64 of Surface become transparent white
@@ -407,9 +438,11 @@ void TSurfaceVulkan::FlushShade()
 		TRect(0, 0, Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom));
 	SetTexture(PRIMARY_SURFACE);
 	SetRenderTarget(TEMP_SURFACE);
-	if (Renderer != nullptr && DeviceTarget >= 0)
+	if (Renderer != nullptr && DeviceTarget >= 0) {
+		Track(DeviceTarget, DeviceTexture >= 0 ? DeviceTexture : WhiteTexture, Shade.data(), Shade.size());
 		Renderer->Draw(DeviceTarget, DeviceTexture >= 0 ? DeviceTexture : WhiteTexture, Filter, Shade.data(),
 			Shade.size());
+	}
 	Shade.clear();
 }
 
@@ -450,6 +483,14 @@ void TSurfaceVulkan::FinishFrame()
 			int ShownHeight = Rect[SCREEN_SURFACE].bottom - y;
 			try {
 				if (FrameObserver != NULL && FrameObserver(ShownWidth, ShownHeight) && PixelsObserver != NULL) {
+					if (MaskObserver != NULL && Masked(Image[SCREEN_SURFACE])) {
+						// The picture's device-filtered pixels: 1, the others 0.
+						std::vector<uint8> Shown((size_t)ShownWidth * (size_t)ShownHeight);
+						for (int i = 0; i < ShownHeight; i++)
+							for (int j = 0; j < ShownWidth; j++)
+								Shown[(size_t)i * (size_t)ShownWidth + (size_t)j] = (uint8)(Masks.At(Image[SCREEN_SURFACE], x + j, y + i) & patella::vulkan::TFilterMasks::Filtered);
+						MaskObserver(Shown.data(), ShownWidth, ShownHeight);
+					}
 					std::vector<uint32_t> Pixels;
 					Renderer->ReadBack(Image[SCREEN_SURFACE], x, y, ShownWidth, ShownHeight, Pixels);
 					PixelsObserver(Pixels.data(), ShownWidth * 4, ShownWidth, ShownHeight);
@@ -486,6 +527,7 @@ void TSurfaceVulkan::ExitDisplay()
 		return;
 	Vertices.clear();
 	Shade.clear();
+	Masks.Clear();
 	Renderer.reset();
 	for (int i = 0; i < NUMBER_OF_SURFACES_VULKAN; i++) {
 		// surfaceDX9.cpp clears SurfaceCreated[i] where Surface9[i] exists, which SCREEN_SURFACE's never does.
@@ -656,6 +698,7 @@ TSurfaceVulkan::TSurfaceVulkan()
 	DeviceObserver = NULL;
 	FrameObserver = NULL;
 	PixelsObserver = NULL;
+	MaskObserver = NULL;
 }
 
 // AddQuad: six vertices of a textured quad; a full buffer is drawn.
@@ -842,8 +885,11 @@ void TSurfaceVulkan::WriteMaskedImage(int ToSurface, int x, int y, int PartWidth
 	Next:
 		Pixels[(size_t)i] = (uint32)A << 24 | (uint32)R << 16 | (uint32)G << 8 | B;
 	}
-	if (Renderer != nullptr && Image[ToSurface] >= 0)
+	if (Renderer != nullptr && Image[ToSurface] >= 0) {
+		if (Masked(Image[ToSurface]))
+			Masks.Upload(Image[ToSurface], x, y, PartWidth, PartHeight, Pixels.data());
 		Renderer->Upload(Image[ToSurface], x, y, PartWidth, PartHeight, Pixels.data(), (size_t)PartWidth);
+	}
 }
 
 // StretchBlit: a scaled blit goes through TEMP_SURFACE (the source with a one-pixel border of
@@ -950,6 +996,13 @@ void TSurfaceVulkan::CreateSurfaces()
 		}
 		DisplayModeSet = true;
 	}
+	HMODULE Observer = GetModuleHandleA("patcap.dll");
+	if (Observer != NULL) {
+		DeviceObserver = (TVulkanDeviceObserver)(void *)GetProcAddress(Observer, "PatcapVulkanDevice");
+		FrameObserver = (TVulkanFrameObserver)(void *)GetProcAddress(Observer, "PatcapVulkanFrame");
+		PixelsObserver = (TVulkanPixelsObserver)(void *)GetProcAddress(Observer, "PatcapVulkanPixels");
+		MaskObserver = (TVulkanMaskObserver)(void *)GetProcAddress(Observer, "PatcapVulkanMask");
+	}
 	try {
 		Renderer = std::make_unique<TRenderer>();
 		Renderer->Create(Request());
@@ -967,10 +1020,14 @@ void TSurfaceVulkan::CreateSurfaces()
 		}
 		Image[SCREEN_SURFACE] = Renderer->CreateImage(CanvasWidth, CanvasHeight);
 		WhiteTexture = Renderer->CreateImage(1, 1);
+		if (Masked(WhiteTexture))
+			Masks.Fill(WhiteTexture, 0, 0, 1, 1);
 		Renderer->Fill(WhiteTexture, 0, 0, 1, 1, 0xffffffffu);
 
 		Image[PRIMARY_SURFACE] = Renderer->CreateImage(Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom);
 		SurfaceCreated[NumberOfSurfaces++] = 1;
+		if (Masked(Image[PRIMARY_SURFACE]))
+			Masks.Fill(Image[PRIMARY_SURFACE], 0, 0, Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom);
 		Renderer->Fill(Image[PRIMARY_SURFACE], 0, 0, Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom, 0xffff0000u);
 
 		ScreenTexture = Renderer->CreateImage(106, 106);
@@ -1000,14 +1057,8 @@ void TSurfaceVulkan::CreateSurfaces()
 	DeviceTarget = Image[SCREEN_SURFACE];
 	DeviceTexture = -1;
 	Filter = TFilter::Linear;
-	HMODULE Observer = GetModuleHandleA("patcap.dll");
-	if (Observer != NULL) {
-		DeviceObserver = (TVulkanDeviceObserver)(void *)GetProcAddress(Observer, "PatcapVulkanDevice");
-		FrameObserver = (TVulkanFrameObserver)(void *)GetProcAddress(Observer, "PatcapVulkanFrame");
-		PixelsObserver = (TVulkanPixelsObserver)(void *)GetProcAddress(Observer, "PatcapVulkanPixels");
-		if (DeviceObserver != NULL)
-			DeviceObserver(Renderer->Device().Name.c_str(), (int)Renderer->Device().Type, Renderer->Device().CpuDriver);
-	}
+	if (DeviceObserver != NULL)
+		DeviceObserver(Renderer->Device().Name.c_str(), (int)Renderer->Device().Type, Renderer->Device().CpuDriver);
 	Unavailable = false;
 	Ready = true;
 }

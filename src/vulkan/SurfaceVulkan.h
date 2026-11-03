@@ -8,19 +8,20 @@
 // stretch capabilities, as in surfaceDX9.cpp. Windows x64 client only (cmake/Vulkan.cmake); the
 // oracle-x86 build never compiles it.
 //
-// The engine stands in for curEngine 2 (DirectX 9) when the environment variable PATELLA_VULKAN asks
-// for it (Surface.cpp; notes/vulkan.md, "Choosing the engine"):
+// The engine is curEngine 2 of the x64 client (DirectX 9 in the original and in the oracle; Surface.cpp;
+// notes/vulkan.md, "Choosing the engine"). Until issue #20 brings plan 6.3's device choice, the
+// environment variable PATELLA_VULKAN chooses the device, or switches the engine off for comparisons:
 //
-//	PATELLA_VULKAN=auto     the best GPU with Vulkan 1.3, else the CPU driver (also 1, on, yes)
+//	unset, auto             the best GPU with Vulkan 1.3, else the CPU driver (also 1, on, yes)
 //	PATELLA_VULKAN=gpu      a GPU only; gpu0, gpu1 ...: the n-th GPU
 //	PATELLA_VULKAN=cpu      the CPU driver only (lavapipe, next to the executable)
-//
-// Unset (or 0, off, no): the original engines, as before.
+//	PATELLA_VULKAN=off      surfaceDX9.cpp's Direct3D 9 as engine 2 (also 0, no, dx9), until issue #20
 
 #pragma once
 
 #include "Surface.h"
 #include "graphics.h"
+#include "vulkan/FilterMask.h"
 #include "vulkan/Renderer.h"
 #include <ddraw.h>
 #include <memory>
@@ -35,6 +36,9 @@ enum {
 typedef void(__cdecl *TVulkanDeviceObserver)(const char *Name, int Type, int CpuDriver);
 typedef int(__cdecl *TVulkanFrameObserver)(int Width, int Height);
 typedef void(__cdecl *TVulkanPixelsObserver)(const void *Bits, int Pitch, int Width, int Height);
+// Before the pixels: a byte per pixel of the picture, 1 where its value comes from the device's filter or
+// interpolation (the bilinear stretches, the light; notes/vulkan.md, "Pixels"), else 0.
+typedef void(__cdecl *TVulkanMaskObserver)(const unsigned char *Mask, int Width, int Height);
 
 class TSurfaceVulkan : public TSurface {
 public:
@@ -107,6 +111,8 @@ private:
 	int TextureWidth(int Surface);
 	int TextureHeight(int Surface);
 	patella::vulkan::TDeviceRequest Request();
+	bool Masked(int Target);
+	void Track(int Target, int Texture, const patella::vulkan::TQuad *Quads, size_t Count);
 	void Fail();
 
 	bool Ready;                                           // CreateSurfaces has finished (SurfaceRecreated)
@@ -127,6 +133,8 @@ private:
 	TVulkanDeviceObserver DeviceObserver;
 	TVulkanFrameObserver FrameObserver;
 	TVulkanPixelsObserver PixelsObserver;
+	TVulkanMaskObserver MaskObserver;
+	patella::vulkan::TFilterMasks Masks; // the device-filtered pixels, while an observer watches
 };
 
 // Surface.cpp's engine selection (PATELLA_VULKAN).
