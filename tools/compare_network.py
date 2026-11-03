@@ -309,8 +309,8 @@ def clean_gui(nodes):
 		for n in nodes]
 
 
-def read_file(client, name):
-	path = os.path.join(cf.folder(client), name)
+def read_file(run, name):
+	path = os.path.join(cf.folder(run), name)
 	if not os.path.isfile(path):
 		return None
 	with open(path, "rb") as f:
@@ -361,9 +361,13 @@ def finish(driver):
 	return result
 
 
-def run(client, name, scenario, out):
+def run(run_name, name, scenario, out):
+	"""One client in one scenario, in the run folder run_name (orig, patella, or orig-repeat: the second
+	run of Tibia.exe has a folder of its own, issue #12); every run starts from an emptied folder
+	(cf.prepare)."""
 	description, events, flow, refuse, variable = scenario
-	before = cf.prepare(client)
+	client = ct.client_of(run_name)
+	before = cf.prepare(run_name)
 	prefix = os.path.join(out, name, client)
 	os.makedirs(os.path.dirname(prefix), exist_ok=True)
 	proxy = px.Proxy(prefix + ".jsonl", px.load_private_key(ct.PEM), replay=events or [], log=log, refuse=refuse)
@@ -371,7 +375,7 @@ def run(client, name, scenario, out):
 	result = {}
 	try:
 		with proxy:
-			driver = cf.start(client)
+			driver = cf.start(run_name)
 			cf.enter_login(driver)
 			if flow == "login-refused":
 				time.sleep(20)  # four login servers (all this address), each refused
@@ -394,9 +398,9 @@ def run(client, name, scenario, out):
 			driver.kill()
 	result["packets"] = ct.client_packets(proxy.events)
 	result["problems"] = proxy.mismatches + proxy.errors
-	result["error.txt"] = mask_error_txt(read_file(client, "error.txt"))
-	result["Tibia.cfg"] = read_file(client, "Tibia.cfg")
-	files = cf.collect(client, before, prefix + "-files")
+	result["error.txt"] = mask_error_txt(read_file(run_name, "error.txt"))
+	result["Tibia.cfg"] = read_file(run_name, "Tibia.cfg")
+	files = cf.collect(run_name, before, prefix + "-files")
 	result["files"] = sorted(files["written"]) + ["-" + n for n in files["removed"]]
 	with open(prefix + ".json", "w", encoding="utf-8", newline="\n") as f:
 		json.dump(result, f, indent=1, sort_keys=True)
@@ -464,7 +468,7 @@ def main():
 		return 0
 	chosen = [n for n in all_scenarios if not args.only or any(n.startswith(o) for o in args.only.split(","))]
 	ct.set_folder(NETWORK)
-	ct.setup()
+	ct.setup(extra=[cf.REPEAT_RUN])
 	os.makedirs(args.out, exist_ok=True)
 	start = time.time()
 	lines = []
@@ -491,7 +495,7 @@ def main():
 		differences = compare(results["orig"], results["patella"])
 		varies = False
 		if differences and (args.repeat or scenario[4]):
-			again = run("orig", name + "-repeat", scenario, args.out)
+			again = run(cf.REPEAT_RUN, name + "-repeat", scenario, args.out)
 			varies = bool(compare(results["orig"], again))
 			if varies:
 				differences.append("(Tibia.exe's second run differs from its first as well: run-to-run variation)")

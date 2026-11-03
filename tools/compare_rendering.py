@@ -429,16 +429,20 @@ def cfg_for(engine, fullscreen=False):
 	return text
 
 
+RUNS = ("orig", "patella", "orig-repeat")  # run folders; the second Tibia.exe run has its own (issue #12)
+
+
 def setup():
-	"""Run folders build\\render\\orig and build\\render\\patella: compare_traffic's set-up (copies
-	of the data files, the clients patched by patch_client.py), then the import of patcap.dll."""
+	"""Run folders build\\render\\orig, build\\render\\patella and build\\render\\orig-repeat:
+	compare_traffic's set-up (copies of the data files, the clients patched by patch_client.py),
+	then the import of patcap.dll."""
 	build_capture()
 	ct.set_folder(RENDER)
-	ct.setup()
-	for client in ("orig", "patella"):
-		exe = os.path.join(ct.run_dir(client), CLIENTS[client]["exe"])
+	ct.setup(extra=["orig-repeat"])
+	for run in RUNS:
+		exe = os.path.join(ct.run_dir(run), CLIENTS[ct.client_of(run)]["exe"])
 		count = add_import(exe, exe)
-		shutil.copyfile(DLL, os.path.join(ct.run_dir(client), "patcap.dll"))
+		shutil.copyfile(DLL, os.path.join(ct.run_dir(run), "patcap.dll"))
 		log("%s: patcap.dll added to its %d imports" % (exe, count))
 
 
@@ -623,19 +627,24 @@ def framerate_mask(driver, dialog):
 
 def run(engine, client, out, recording, label=None, fullscreen=False):
 	"""One client with one engine through all scenes; the pictures go to out\\<engine>\\<label>
-	(out\\<engine>-fullscreen\\<label> in fullscreen mode). Returns {"scenes": {name: digest},
-	"facts": {...}, "problems": [...]}."""
+	(out\\<engine>-fullscreen\\<label> in fullscreen mode). The client runs in the run folder named
+	label (orig, patella, orig-repeat), emptied first (compare_traffic.clean_run_dir: the automap
+	files and error.txt of an earlier run go). Returns {"scenes": {name: digest}, "facts": {...},
+	"problems": [...]}."""
 	label = label or client
+	if ct.client_of(label) != client:
+		raise RunError("run folder %s is not %s's" % (label, client))
 	folder = os.path.join(out, engine + ("-fullscreen" if fullscreen else ""), label)
 	if os.path.isdir(folder):
 		shutil.rmtree(folder)
 	os.makedirs(folder)
 	log("=== %s, %s (%s)" % (engine, label, CLIENTS[client]["exe"]))
-	with open(os.path.join(ct.run_dir(client), "Tibia.cfg"), "w", encoding="ascii", newline="\r\n") as f:
+	ct.clean_run_dir(label, keep=("patcap.dll",))
+	with open(os.path.join(ct.run_dir(label), "Tibia.cfg"), "w", encoding="ascii", newline="\r\n") as f:
 		f.write(cfg_for(engine, fullscreen))
 	mode_before = display_mode()
 	info = CLIENTS[client]
-	driver = Driver(ct.run_dir(client), info["exe"], info["pdb"])
+	driver = Driver(ct.run_dir(label), info["exe"], info["pdb"])
 	scenes, apis, scene_masks = {}, set(), {}
 	proxy = px.Proxy(os.path.join(folder, "replay.jsonl"), px.load_private_key(ct.PEM),
 		replay=px.load_events(recording), log=log)
@@ -824,8 +833,8 @@ def main():
 
 def kill_clients():
 	"""Ends a client of this script's run folders left behind by a failed run (only those)."""
-	for client in ("orig", "patella"):
-		path = os.path.join(ct.run_dir(client), CLIENTS[client]["exe"]).lower()
+	for run in RUNS:
+		path = os.path.join(ct.run_dir(run), CLIENTS[ct.client_of(run)]["exe"]).lower()
 		result = subprocess.run(["powershell", "-NoProfile", "-Command",
 			"Get-Process | Where-Object { $_.Path -and $_.Path.ToLower() -eq '%s' } | Stop-Process -Force" % path],
 			capture_output=True, text=True)
