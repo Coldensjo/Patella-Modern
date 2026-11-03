@@ -323,17 +323,34 @@ TEST_CASE("the automap's whole-texture copy (point sampling, u 0 to 1)")
 		CAPTURE(Device.Label);
 		pv::TRenderer Renderer;
 		Renderer.Create(Device.Request);
-		TPicture Source = RandomPicture(106, 106, 4, false);
+		// Each texel holds its own coordinates (x in red, y in green), so the read-back tells which
+		// texel every pixel shows. The samples fall on the texel edges: Tibia.exe's DirectX 9 frames
+		// (NVIDIA, issue #19's live comparison) show texel k - 1 at pixel k; at pixel 0 the coordinate is
+		// the corner's own, texel 0. The engine gives every device that rule (an Edge copy, Quads.cpp).
+		TPicture Source(106, 106);
+		for (int y = 0; y < 106; y++)
+			for (int x = 0; x < 106; x++)
+				Source.At(x, y) = 0xff000000u | static_cast<uint32_t>(x) << 16 | static_cast<uint32_t>(y) << 8;
 		int Texture = Image(Renderer, Source);
 		pv::TQuad Q{0, 0, 106, 106, 0.0f, 1.0f, 0.0f, 1.0f, 0xffffffffu, 0xffffffffu, 0xffffffffu, 0xffffffffu};
 		int Target = Renderer.CreateImage(106, 106);
 		Renderer.Draw(Target, Texture, pv::TFilter::Point, &Q, 1);
-		TPicture Expected(106, 106);
-		ModelDraw(Expected, Source, pv::TFilter::Point, Q);
-		TDifference Difference = Compare(Expected, Read(Renderer, Target));
-		Report(Device.Label, "the automap copy", Difference);
-		CHECK(Difference.Pixels == 0);
-		CHECK(Expected.Pixels == Source.Pixels);
+		std::vector<uint32_t> Pixels = Read(Renderer, Target);
+		int Wrong = 0;
+		for (int y = 0; y < 106; y++)
+			for (int x = 0; x < 106; x++)
+				if (Pixels[static_cast<size_t>(y) * 106 + static_cast<size_t>(x)]
+					!= Source.At(std::max(x - 1, 0), std::max(y - 1, 0)))
+					Wrong++;
+		auto Texel = [&](int x, int y) {
+			uint32_t P = Pixels[static_cast<size_t>(y) * 106 + static_cast<size_t>(x)];
+			return std::to_string((P >> 16) & 0xff) + "," + std::to_string((P >> 8) & 0xff);
+		};
+		std::printf("%s: the automap upload: %d of 106x106 pixels not texel (max(x-1,0), max(y-1,0)); pixel (0,0) shows %s, (1,1) %s, "
+					"(105,105) %s\n",
+			Device.Label.c_str(), Wrong, Texel(0, 0).c_str(), Texel(1, 1).c_str(), Texel(105, 105).c_str());
+		CHECK(Wrong == 0);
+		TDifference Difference;
 		// The same quad with linear filtering reads between the texels (half of each, the first column
 		// wrapping to the last): within 1 of the model.
 		int Linear = Renderer.CreateImage(106, 106);

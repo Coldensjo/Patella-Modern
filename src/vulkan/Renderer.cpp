@@ -26,8 +26,9 @@ namespace {
 constexpr VkFormat ImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
 constexpr int FramesInFlight = 2;
 constexpr VkDeviceSize ChunkSize = VkDeviceSize{4} << 20;
-// The descriptor sets: two per image (nearest, linear sampler).
+// The descriptor sets: three per image (the samplers below).
 constexpr uint32_t MaxImages = 64;
+constexpr uint32_t Samplers = 3; // nearest, linear (both wrapping, D3DTADDRESS_WRAP), nearest clamped (Edge copies)
 
 void Check(VkResult Result, const char *What)
 {
@@ -66,7 +67,7 @@ struct TImage {
 	VkImageView View = VK_NULL_HANDLE;
 	int Width = 0;
 	int Height = 0;
-	VkDescriptorSet Sets[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE}; // nearest, linear
+	VkDescriptorSet Sets[Samplers] = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
 };
 
 struct TFrame {
@@ -179,7 +180,7 @@ struct TRenderer::TState {
 	VkPipeline Textured = VK_NULL_HANDLE;
 	VkPipeline Fill = VK_NULL_HANDLE;
 	VkPipeline ColorKey = VK_NULL_HANDLE;
-	VkSampler Samplers[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE}; // nearest, linear
+	VkSampler SamplerObjects[Samplers] = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
 	VkDescriptorPool DescriptorPool = VK_NULL_HANDLE;
 
 	std::vector<TImage> Images;
@@ -424,8 +425,8 @@ struct TRenderer::TState {
 
 	void WriteSets(TImage &Image)
 	{
-		for (int i = 0; i < 2; i++) {
-			VkDescriptorImageInfo Info{Samplers[i], Image.View, VK_IMAGE_LAYOUT_GENERAL};
+		for (uint32_t i = 0; i < Samplers; i++) {
+			VkDescriptorImageInfo Info{SamplerObjects[i], Image.View, VK_IMAGE_LAYOUT_GENERAL};
 			VkWriteDescriptorSet Write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 			Write.dstSet = Image.Sets[i];
 			Write.descriptorCount = 1;
@@ -495,10 +496,10 @@ struct TRenderer::TState {
 		if (Images.size() >= MaxImages)
 			throw TVulkanError("too many images");
 		TImage Image;
-		VkDescriptorSetLayout Layouts[2] = {SetLayout, SetLayout};
+		VkDescriptorSetLayout Layouts[Samplers] = {SetLayout, SetLayout, SetLayout};
 		VkDescriptorSetAllocateInfo Info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 		Info.descriptorPool = DescriptorPool;
-		Info.descriptorSetCount = 2;
+		Info.descriptorSetCount = Samplers;
 		Info.pSetLayouts = Layouts;
 		Check(vkAllocateDescriptorSets(Device.device, &Info, Image.Sets), "vkAllocateDescriptorSets");
 		Images.push_back(Image);
@@ -621,24 +622,25 @@ struct TRenderer::TState {
 		LayoutInfo.pPushConstantRanges = &Range;
 		Check(vkCreatePipelineLayout(Device.device, &LayoutInfo, nullptr, &Layout), "vkCreatePipelineLayout");
 
-		VkDescriptorPoolSize PoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * MaxImages};
+		VkDescriptorPoolSize PoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, Samplers * MaxImages};
 		VkDescriptorPoolCreateInfo PoolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-		PoolInfo.maxSets = 2 * MaxImages;
+		PoolInfo.maxSets = Samplers * MaxImages;
 		PoolInfo.poolSizeCount = 1;
 		PoolInfo.pPoolSizes = &PoolSize;
 		Check(vkCreateDescriptorPool(Device.device, &PoolInfo, nullptr, &DescriptorPool), "vkCreateDescriptorPool");
 
-		// Direct3D 9's samplers: no mipmaps, D3DTADDRESS_WRAP.
-		for (int i = 0; i < 2; i++) {
+		// Direct3D 9's samplers: no mipmaps, D3DTADDRESS_WRAP; the third clamps (Edge copies).
+		for (uint32_t i = 0; i < Samplers; i++) {
 			VkSamplerCreateInfo Info{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-			Info.magFilter = i == 0 ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
+			Info.magFilter = i == 1 ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 			Info.minFilter = Info.magFilter;
 			Info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-			Info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-			Info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-			Info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+			VkSamplerAddressMode Mode = i == 2 ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
+			Info.addressModeU = Mode;
+			Info.addressModeV = Mode;
+			Info.addressModeW = Mode;
 			Info.maxLod = 0.0f;
-			Check(vkCreateSampler(Device.device, &Info, nullptr, &Samplers[i]), "vkCreateSampler");
+			Check(vkCreateSampler(Device.device, &Info, nullptr, &SamplerObjects[i]), "vkCreateSampler");
 		}
 
 		VkShaderModule Vertex = Module(QuadVertSpirv, sizeof(QuadVertSpirv));
@@ -872,7 +874,7 @@ struct TRenderer::TState {
 					vkDestroyPipeline(Device.device, *P, nullptr);
 				*P = VK_NULL_HANDLE;
 			}
-			for (VkSampler &S : Samplers) {
+			for (VkSampler &S : SamplerObjects) {
 				if (S != VK_NULL_HANDLE)
 					vkDestroySampler(Device.device, S, nullptr);
 				S = VK_NULL_HANDLE;
@@ -997,13 +999,13 @@ void TRenderer::Draw(int Target, int Texture, TFilter Filter, const TQuad *Quads
 	}
 	const TImage &Image = S.Images[static_cast<size_t>(Source)];
 	std::vector<TVertex> Vertices;
-	std::vector<bool> Nearest;
+	std::vector<uint32_t> Sampler; // the descriptor set per quad
 	Vertices.reserve(Count * 6);
-	Nearest.reserve(Count);
+	Sampler.reserve(Count);
 	for (size_t i = 0; i < Count; i++) {
 		TQuadVertices Quad = ConvertQuad(Quads[i], Image.Width, Image.Height, Filter);
 		Vertices.insert(Vertices.end(), Quad.Vertices.begin(), Quad.Vertices.end());
-		Nearest.push_back(Quad.Nearest || Filter == TFilter::Point);
+		Sampler.push_back(Quad.Clamp ? 2u : Quad.Nearest || Filter == TFilter::Point ? 0u : 1u);
 	}
 	S.BeginPass(Target);
 	S.Bind(S.Textured, S.Constants(Target));
@@ -1011,9 +1013,9 @@ void TRenderer::Draw(int Target, int Texture, TFilter Filter, const TQuad *Quads
 	size_t First = 0;
 	while (First < Count) {
 		size_t Last = First + 1;
-		while (Last < Count && Nearest[Last] == Nearest[First])
+		while (Last < Count && Sampler[Last] == Sampler[First])
 			Last++;
-		S.BindSet(Image.Sets[Nearest[First] ? 0 : 1]);
+		S.BindSet(Image.Sets[Sampler[First]]);
 		S.DrawVertices(&Vertices[First * 6], (Last - First) * 6);
 		First = Last;
 	}

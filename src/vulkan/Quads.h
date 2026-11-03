@@ -50,10 +50,12 @@ struct TQuad {
 };
 
 // The two triangles of a quad in Direct3D 9's order (top left, top right, bottom right; bottom
-// right, bottom left, top left). Nearest: sample without filtering (an exact copy).
+// right, bottom left, top left). Nearest: sample without filtering (an exact copy); Clamp: with
+// coordinates clamped to the texture instead of wrapped (an Edge copy, TAxis).
 struct TQuadVertices {
 	std::array<TVertex, 6> Vertices;
 	bool Nearest;
+	bool Clamp;
 };
 
 // TextureWidth/Height: the size of the sampled texture (the u/v scale).
@@ -65,10 +67,13 @@ std::array<TVertex, 6> FillVertices(int Left, int Top, int Right, int Bottom, ui
 // The first texel a filter reads at the pixel centre Position on one axis, in texel units, as the
 // hardware sees it: Direct3D 9's coordinate s = u * Size (point) or u * Size - 0.5 (linear). An axis is
 // a copy when its scale is 1 and its start is a whole texel (within 1/512): CopyStart gives that texel.
+// Point sampling from texel edge 0 (the automap's upload) is an Edge copy: pixel k reads texel
+// max(k - 1, 0), as Direct3D 9 on the reference GPU does (Quads.cpp); CopyStart is -1, clamped.
 struct TAxis {
 	double Start; // s at the quad's first pixel
 	double Scale; // s per pixel
 	bool Copy;
+	bool Edge;
 	int CopyStart;
 };
 TAxis MapAxis(int From, int To, float FromCoordinate, float ToCoordinate, int Size, TFilter Filter);
