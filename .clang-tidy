@@ -9,9 +9,9 @@
 # (bugprone-unsafe-functions, cppcoreguidelines-pro-type-vararg, modernize-use-std-print), nullptr,
 # override, enum class and [[nodiscard]], using instead of typedef (issue #35), = default / = delete for the
 # special members (issue #34), the <c...> forms of the C headers and each file including what it uses
-# (issue #40), const locals and const member functions (issue #39), and the bug-prone patterns. The
-# checks that are noise for a reconstruction (its parameter lists and integer types are the original's)
-# are off.
+# (issue #40), const locals and const member functions (issue #39), named casts instead of C-style casts
+# (issue #41), and the bug-prone patterns. The checks that are noise for a reconstruction (its parameter
+# lists and integer types are the original's) are off.
 Checks: >
   -*,
   bugprone-*,
@@ -21,6 +21,7 @@ Checks: >
   -bugprone-reserved-identifier,
   cppcoreguidelines-no-malloc,
   cppcoreguidelines-owning-memory,
+  cppcoreguidelines-pro-type-cstyle-cast,
   cppcoreguidelines-pro-type-vararg,
   cppcoreguidelines-use-enum-class,
   misc-const-correctness,
