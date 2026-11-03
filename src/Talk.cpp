@@ -1014,7 +1014,7 @@ TTalkLine *TTalkBuffer::GetNext()
 	return cursor;
 }
 // 0x503a70, lines 1672-1682. bytes is the original catch name for F's slot.
-int TTalkBuffer::Write(FILE *F)
+int TTalkBuffer::Write(FILE *F) const
 {
 	TASSERT(1672, F!=NULL);
 	const INT_PTR bytes = (INT_PTR)F;

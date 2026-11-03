@@ -81,7 +81,7 @@ END_MESSAGE_MAP()
 // 0x4a8210. A virtual key to the client's key code: the modifiers, the
 // cursor block (bit 8 of nFlags: the extended keys, not the number pad),
 // F1-F12 (0x100-0x10b) and, with Alt held, Return (Alt+Return).
-int CMainFrame::TranslateKey(UINT nChar, [[maybe_unused]] UINT nRepCnt, UINT nFlags)
+int CMainFrame::TranslateKey(UINT nChar, [[maybe_unused]] UINT nRepCnt, UINT nFlags) const
 {
 	const bool Extended = (nFlags & 0x100) == 0x100;
 	switch (nChar) {

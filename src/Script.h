@@ -136,10 +136,10 @@ public:
 	}
 
 	void open(const char *FileName);
-	void writeLn();
-	void writeText(const char *Text);
-	void writeString(const char *Text);
-	void writeNumber(int Number);
+	void writeLn() const;
+	void writeText(const char *Text) const;
+	void writeString(const char *Text) const;
+	void writeNumber(int Number) const;
 
 	FILE *File;          // +0x000
 	char Filename[1024]; // +0x004
@@ -173,7 +173,7 @@ public:
 
 	void open(const char *FileName);
 	void seek(int Offset);
-	bool eof();
+	bool eof() const;
 	uint8 readByte();
 	uint16 readWord();
 	int readQuad();

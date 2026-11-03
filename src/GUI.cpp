@@ -35,13 +35,13 @@ static vector<THotkey> Hotkeys(0, 50, 10);        // 0x5ce4f0, initialiser 0x559
 // --- Functions without exception frame (no line evidence) ------------------
 
 // 0x496000
-int TTimer::GetTime()
+int TTimer::GetTime() const
 {
 	return Remaining / 100;
 }
 
 // 0x496020
-bool TTimer::IsExpired()
+bool TTimer::IsExpired() const
 {
 	return !(Active && Remaining != 0);
 }
@@ -2297,7 +2297,7 @@ void TElement::ReleaseCapture([[maybe_unused]] TComponent *Component)
 // --- TCallback --------------------------------------------------------------
 
 // 0x4a0f00, line 1931
-void TCallback::Send()
+void TCallback::Send() const
 {
 	TBEGIN
 	if (Receiver != nullptr)

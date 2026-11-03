@@ -32,7 +32,7 @@ class TComponent;
 struct TCallback {
 	TCallback() : Receiver(nullptr), Event(0) {} // inlined (vector<THotkey>, TTimer)
 	TCallback(TComponent *Receiver, int Event);  // 0x496130
-	void Send();                                 // 0x4a0f00, line 1931
+	void Send() const;                           // 0x4a0f00, line 1931
 	TComponent *Receiver;                        // +0x00
 	int Event;                                   // +0x04
 };
@@ -99,8 +99,8 @@ public:
 	virtual void ReleaseCapture(TComponent *Component) = 0;             // +0x7c
 	virtual void StopDragging() = 0;                                    // +0x80
 
-	int getWidth() { return Width; }   // "Child->getWidth()" (line 1725), inlined
-	int getHeight() { return Height; } // "Child->getHeight()" (line 1726), inlined
+	int getWidth() const { return Width; }   // "Child->getWidth()" (line 1725), inlined
+	int getHeight() const { return Height; } // "Child->getHeight()" (line 1726), inlined
 
 	TDrawing *DrawingList; // +0x04, allocated by the subclasses
 	int DrawingListLength; // +0x08
@@ -193,8 +193,8 @@ class TTimer {
 public:
 	TTimer(int Time, TCallback Callback); // 0x49b290, line 905; Time in tenths of a second
 	virtual ~TTimer();                    // +0x00, inlined into the deleting destructor 0x4a1dc0
-	int GetTime();                        // 0x496000, tenths of a second left
-	bool IsExpired();                     // 0x496020
+	int GetTime() const;                  // 0x496000, tenths of a second left
+	bool IsExpired() const;               // 0x496020
 	void Update(int elapsed);             // 0x4a1df0, line 947
 	int Remaining;                        // +0x04, milliseconds
 	bool Active;                          // +0x08

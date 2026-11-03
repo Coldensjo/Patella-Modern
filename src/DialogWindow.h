@@ -81,7 +81,7 @@ public:
 	void SetTitle(TComponent *_Title);                                                     // 0x48a2a0, line 1127
 	static int GetFrameHeight();                                                           // 0x485670, the title bar and the bottom edge
 	// Inline ("Window->getBody()!=NULL", MainWindow.cpp).
-	TSubWindowBody *getBody() { return Body; }
+	TSubWindowBody *getBody() const { return Body; }
 
 	TSubWindowBody *Body;        // +0x44
 	TResizer *Resizer1;          // +0x48, area Style194.Data60

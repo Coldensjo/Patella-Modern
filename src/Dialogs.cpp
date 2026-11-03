@@ -2434,7 +2434,7 @@ int TRuleViolationDialog::GetReason()
 }
 
 // 0x477860, line 3191. The action of the selected line, by its name.
-int TRuleViolationDialog::GetAction()
+int TRuleViolationDialog::GetAction() const
 {
 	TBEGIN
 	const int Selection = ActionList->GetSelection();

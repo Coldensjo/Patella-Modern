@@ -134,8 +134,8 @@ public:
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
 	void Draw(int Surface, int x, int y) override; // +0x44, 0x437210, lines 920-925
 	void MouseHover(int x, int y) override;        // +0x64, 0x437630, lines 973-976
-	int GetNumberOfIcons();                        // 0x4295b0, line 947
-	int GetIconAt(int x, int y);                   // 0x4297a0, line 995
+	int GetNumberOfIcons() const;                  // 0x4295b0, line 947
+	int GetIconAt(int x, int y) const;             // 0x4297a0, line 995
 	int GetIcon(int Position);                     // 0x429990, lines 1036-1070
 
 	bool IsLarge; // +0x24
@@ -246,7 +246,7 @@ public:
 	bool HelpMouseMove(int x, int y) override;             // +0x68, 0x42de80, lines 1885-1890
 	void HandleEvent(int Event) override;                  // +0x70, 0x42e120, line 1904
 	virtual void Update();                                 // +0xb8, 0x439100, line 1917
-	int GetSlotAt(int x, int y, bool Occupied);            // 0x42e2c0, line 1940
+	int GetSlotAt(int x, int y, bool Occupied) const;      // 0x42e2c0, line 1940
 	void UpdateUpButton();                                 // 0x42e4e0, line 1960
 	// Inline: emitted at the start of the object (0x425a10, 0x425a40).
 	// Odd, kept: the rows start at Data630.x (the left edge of the
@@ -275,20 +275,20 @@ public:
 // those whose bar is switched on.
 class TSkillsWindowBody : public TSubWindowBody {
 public:
-	TSkillsWindowBody();                                                   // 0x4392a0, line 1980
-	~TSkillsWindowBody() override;                                         // +0x00, 0x42e6b0 (deleting 0x4394b0)
-	void Draw(int Surface, int x, int y) override;                         // +0x44, 0x4394d0, lines 2003-2063
-	bool MouseWheel(int x, int y, int Code) override;                      // +0x60, 0x42e700, line 2076
-	bool HelpMouseMove(int x, int y) override;                             // +0x68, 0x42e8d0, lines 2086-2091
-	void MouseHover(int x, int y) override;                                // +0x64, 0x439c30, line 2133
-	bool RightButtonUp(int x, int y, int Flags) override;                  // +0x5c, 0x42eb70, line 2144
-	void SetSize(int Width, int Height) override;                          // +0x34, 0x42ed10, lines 2153-2160
-	void Arrange() override;                                               // +0x48, 0x42efd0, line 2173
-	int getMinimumHeight() override;                                       // +0x40, 0x42f190, line 2183
-	int GetInitialHeight() override;                                       // +0xac, 0x42f330, line 2196
-	int GetMaximumHeight() override;                                       // +0xb0, 0x42f500, line 2206
-	int GetContentHeight() override;                                       // +0xb4, 0x439ef0, line 2225
-	bool GetLine(int NumberOfLine, char *Text, int &Value, int &Progress); // 0x42f6a0, lines 2234-2280
+	TSkillsWindowBody();                                                         // 0x4392a0, line 1980
+	~TSkillsWindowBody() override;                                               // +0x00, 0x42e6b0 (deleting 0x4394b0)
+	void Draw(int Surface, int x, int y) override;                               // +0x44, 0x4394d0, lines 2003-2063
+	bool MouseWheel(int x, int y, int Code) override;                            // +0x60, 0x42e700, line 2076
+	bool HelpMouseMove(int x, int y) override;                                   // +0x68, 0x42e8d0, lines 2086-2091
+	void MouseHover(int x, int y) override;                                      // +0x64, 0x439c30, line 2133
+	bool RightButtonUp(int x, int y, int Flags) override;                        // +0x5c, 0x42eb70, line 2144
+	void SetSize(int Width, int Height) override;                                // +0x34, 0x42ed10, lines 2153-2160
+	void Arrange() override;                                                     // +0x48, 0x42efd0, line 2173
+	int getMinimumHeight() override;                                             // +0x40, 0x42f190, line 2183
+	int GetInitialHeight() override;                                             // +0xac, 0x42f330, line 2196
+	int GetMaximumHeight() override;                                             // +0xb0, 0x42f500, line 2206
+	int GetContentHeight() override;                                             // +0xb4, 0x439ef0, line 2225
+	bool GetLine(int NumberOfLine, char *Text, int &Value, int &Progress) const; // 0x42f6a0, lines 2234-2280
 
 	TSkillContextMenu *ContextMenu; // +0x30, while the skill menu (ContextMenus.cpp) is open
 	TScrollBar *ScrollBar;          // +0x34
@@ -327,16 +327,16 @@ class TTradeOffers : public TWindow {
 public:
 	TTradeOffers(); // 0x430dc0, line 2687
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void Draw(int Surface, int x, int y) override;           // +0x44, 0x430fd0, lines 2698-2730
-	void SetSize(int Width, int Height) override;            // +0x34, 0x4317b0, line 2745
-	int getMinimumHeight() override;                         // +0x40, 0x4319b0, line 2755
-	int GetContentHeight();                                  // 0x431b40, line 2769
-	void Arrange() override;                                 // +0x48, 0x431d10, line 2782
-	bool LeftButtonUp(int x, int y, int Flags) override;     // +0x54, 0x43b710, line 2801
-	bool LeftButtonDown(int x, int y, int Flags) override;   // +0x50, 0x431ec0, line 2812
-	bool RightButtonUp(int x, int y, int Flags) override;    // +0x5c, 0x43b900, line 2831
-	bool MouseWheel(int x, int y, int Code) override;        // +0x60, 0x432060, line 2844
-	void GetOfferAt(int x, int y, int *Side, int *Position); // 0x432230, line 2877
+	void Draw(int Surface, int x, int y) override;                 // +0x44, 0x430fd0, lines 2698-2730
+	void SetSize(int Width, int Height) override;                  // +0x34, 0x4317b0, line 2745
+	int getMinimumHeight() override;                               // +0x40, 0x4319b0, line 2755
+	int GetContentHeight();                                        // 0x431b40, line 2769
+	void Arrange() override;                                       // +0x48, 0x431d10, line 2782
+	bool LeftButtonUp(int x, int y, int Flags) override;           // +0x54, 0x43b710, line 2801
+	bool LeftButtonDown(int x, int y, int Flags) override;         // +0x50, 0x431ec0, line 2812
+	bool RightButtonUp(int x, int y, int Flags) override;          // +0x5c, 0x43b900, line 2831
+	bool MouseWheel(int x, int y, int Code) override;              // +0x60, 0x432060, line 2844
+	void GetOfferAt(int x, int y, int *Side, int *Position) const; // 0x432230, line 2877
 
 	TScrollBar *ScrollBar; // +0x2c
 	TSeparator *Separator; // +0x30

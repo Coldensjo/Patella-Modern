@@ -493,7 +493,7 @@ void TSurfaceDX::FinishFrame()
 // 0x4ec3a0. An offscreen surface in video memory, else (unless
 // VideoMemoryOnly) in system memory; the memory is recorded in SurfaceMemory.
 bool TSurfaceDX::CreateOffscreenSurface(IDirectDrawSurface4 **Result, int Width, int Height,
-	bool VideoMemoryOnly)
+	bool VideoMemoryOnly) const
 {
 	DDSURFACEDESC2 Desc;
 	memset(&Desc, 0, sizeof(Desc));
@@ -519,7 +519,7 @@ bool TSurfaceDX::CreateOffscreenSurface(IDirectDrawSurface4 **Result, int Width,
 
 // 0x4ec470. The same for a Direct3D render target.
 bool TSurfaceDX::Create3DSurface(IDirectDrawSurface4 **Result, int Width, int Height,
-	bool VideoMemoryOnly)
+	bool VideoMemoryOnly) const
 {
 	DDSURFACEDESC2 Desc;
 	memset(&Desc, 0, sizeof(Desc));
@@ -722,7 +722,7 @@ TSurface *CreateSurfaceDX()
 // arguments, converted with D3DRGB. Only TestShading uses it. The binary
 // multiplies by 1/255 (0x56f11c) in double precision; the casts keep that.
 void TSurfaceDX::ShadeRectangle(int Surface, TRect Rect, TRGBColor TopLeft, TRGBColor TopRight,
-	TRGBColor BottomLeft, TRGBColor BottomRight)
+	TRGBColor BottomLeft, TRGBColor BottomRight) const
 {
 	if (Surface != TEMP_SURFACE || Direct3D == nullptr)
 		return;

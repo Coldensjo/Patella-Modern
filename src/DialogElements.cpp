@@ -2874,7 +2874,7 @@ void TListBox::Clear()
 }
 
 // 0x462e70, line 3938. The visible line at y (-1 for none).
-int TListBox::GetLineAt([[maybe_unused]] int x, int y)
+int TListBox::GetLineAt([[maybe_unused]] int x, int y) const
 {
 	TBEGIN
 	const int LineHeight = GetFontLineHeight(SkinProperties.Style9A0.Data0C.FontNumber);

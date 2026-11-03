@@ -391,7 +391,7 @@ void TWriteScriptFile::open(const char *FileName)
 }
 
 // 0x4e0790, line 441. The file is binary, so the line ends in CR LF.
-void TWriteScriptFile::writeLn()
+void TWriteScriptFile::writeLn() const
 {
 	if (File == nullptr)
 		TERROR(441, "no file open");
@@ -400,7 +400,7 @@ void TWriteScriptFile::writeLn()
 }
 
 // 0x4e08f0, lines 451-452
-void TWriteScriptFile::writeText(const char *Text)
+void TWriteScriptFile::writeText(const char *Text) const
 {
 	if (File == nullptr)
 		TERROR(451, "no file open");
@@ -414,7 +414,7 @@ void TWriteScriptFile::writeText(const char *Text)
 
 // 0x4e0bb0, lines 462-463. Quotes, escaping '"' and '\\', and writes a
 // line break as "\n".
-void TWriteScriptFile::writeString(const char *Text)
+void TWriteScriptFile::writeString(const char *Text) const
 {
 	if (File == nullptr)
 		TERROR(462, "no file open");
@@ -436,7 +436,7 @@ void TWriteScriptFile::writeString(const char *Text)
 }
 
 // 0x4e0ec0, line 481
-void TWriteScriptFile::writeNumber(int Number)
+void TWriteScriptFile::writeNumber(int Number) const
 {
 	if (File == nullptr)
 		TERROR(481, "no file open");
@@ -467,7 +467,7 @@ void TReadBinaryFile::seek(int Offset)
 }
 
 // 0x4e15e0, line 582
-bool TReadBinaryFile::eof()
+bool TReadBinaryFile::eof() const
 {
 	if (File == nullptr)
 		TERROR(582, "no file open");

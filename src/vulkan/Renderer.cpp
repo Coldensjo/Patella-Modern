@@ -345,7 +345,7 @@ struct TRenderer::TState {
 
 	// --- buffers ---
 
-	TBuffer CreateBuffer(VkDeviceSize Size, VkBufferUsageFlags Usage, bool Readable)
+	TBuffer CreateBuffer(VkDeviceSize Size, VkBufferUsageFlags Usage, bool Readable) const
 	{
 		TBuffer Buffer;
 		VkBufferCreateInfo Info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -364,7 +364,7 @@ struct TRenderer::TState {
 		return Buffer;
 	}
 
-	void DestroyBuffer(TBuffer &Buffer)
+	void DestroyBuffer(TBuffer &Buffer) const
 	{
 		if (Buffer.Buffer != VK_NULL_HANDLE)
 			vmaDestroyBuffer(Allocator, Buffer.Buffer, Buffer.Allocation);
@@ -372,7 +372,7 @@ struct TRenderer::TState {
 	}
 
 	// Room for Size bytes (aligned to 16) in one of the frame's buffers of a kind.
-	TBuffer &Allocate(std::vector<TBuffer> &Chunks, VkDeviceSize Size, VkBufferUsageFlags Usage, VkDeviceSize &Offset)
+	TBuffer &Allocate(std::vector<TBuffer> &Chunks, VkDeviceSize Size, VkBufferUsageFlags Usage, VkDeviceSize &Offset) const
 	{
 		for (TBuffer &Chunk : Chunks) {
 			const VkDeviceSize Start = (Chunk.Used + 15) & ~VkDeviceSize{15};
@@ -615,7 +615,7 @@ struct TRenderer::TState {
 		Barrier();
 	}
 
-	void FreeImage(TImage &Image)
+	void FreeImage(TImage &Image) const
 	{
 		if (Image.View != VK_NULL_HANDLE)
 			vkDestroyImageView(Device.device, Image.View, nullptr);
@@ -663,7 +663,7 @@ struct TRenderer::TState {
 
 	// --- pipelines ---
 
-	VkShaderModule Module(const uint32_t *Code, size_t Size)
+	VkShaderModule Module(const uint32_t *Code, size_t Size) const
 	{
 		VkShaderModuleCreateInfo Info{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
 		Info.codeSize = Size;
@@ -673,7 +673,7 @@ struct TRenderer::TState {
 		return Result;
 	}
 
-	VkPipeline Pipeline(VkShaderModule Vertex, VkShaderModule Fragment, bool Blend)
+	VkPipeline Pipeline(VkShaderModule Vertex, VkShaderModule Fragment, bool Blend) const
 	{
 		VkPipelineShaderStageCreateInfo Stages[2]{};
 		Stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

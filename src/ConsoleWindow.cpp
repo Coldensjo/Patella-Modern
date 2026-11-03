@@ -1609,7 +1609,7 @@ void TConsoleWindow::HandleEvent(int Event)
 // 0x41e960, lines 1869-1875. Activates the edit line, never in a channel
 // the player may not write in; it is not deactivated while a context menu is
 // open (action state 11).
-void TConsoleWindow::SetActive(bool Active)
+void TConsoleWindow::SetActive(bool Active) const
 {
 	TBEGIN
 	TTalkBuffer *TextBuffer = CurrentConsole->getTextBuffer();
@@ -1779,7 +1779,7 @@ void TConsoleWindow::ReportRuleViolation(const char *Question)
 }
 
 // 0x41f1c0, lines 2060-2061. No try block (ContextMenus.cpp's channel menu).
-bool TConsoleWindow::GetServerMessages()
+bool TConsoleWindow::GetServerMessages() const
 {
 	TASSERT(2060, CurrentConsole->getTextBuffer()!=NULL);
 	TASSERT(2061, CurrentConsole->getTextBuffer()->isDefault()==false);
@@ -1799,7 +1799,7 @@ void TConsoleWindow::SetServerMessages(bool Show)
 }
 
 // 0x41f7f0, line 2085. No try block.
-TTalkBuffer *TConsoleWindow::GetTextBuffer()
+TTalkBuffer *TConsoleWindow::GetTextBuffer() const
 {
 	TASSERT(2085, CurrentConsole->getTextBuffer()!=NULL);
 	return CurrentConsole->getTextBuffer();
@@ -1923,7 +1923,7 @@ void TConsoleWindow::AddToHistory()
 // separator is cut out of the edit line). Text is the rest without leading
 // blanks, NULL if there is none or a separator is not closed. A text with
 // the account number or the password (if one is set) is not sent.
-void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, char *Separator)
+void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, char *Separator) const
 {
 	TBEGIN
 	int i = 0;
@@ -1998,7 +1998,7 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 
 // 0x420090, lines 2316-2335. "Save Window" of the channel menu: appends the
 // channel to "<caption>.txt" in the working directory.
-bool TConsoleWindow::SaveChannel()
+bool TConsoleWindow::SaveChannel() const
 {
 	TBEGIN
 	TTab *CurrentTab = TabBar->CurrentTab;
@@ -2009,7 +2009,7 @@ bool TConsoleWindow::SaveChannel()
 	FILE *File = fopen(FileName, "at");
 	if (File == nullptr)
 		return false;
-	TTalkBuffer *TextBuffer = GetTextBuffer();
+	const TTalkBuffer *TextBuffer = GetTextBuffer();
 	TASSERT(2324, TextBuffer!=NULL);
 	const __time32_t Now = PATELLA_TIME32(nullptr);
 	fprintf(File, "\nChannel saved at %s", CRT71Time(_ctime32(&Now))); // the day as MSVC 7.1 writes it

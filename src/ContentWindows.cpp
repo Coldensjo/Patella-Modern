@@ -762,7 +762,7 @@ void TPlayerStates::Draw(int Surface, int x, int y)
 }
 
 // 0x4295b0, line 947
-int TPlayerStates::GetNumberOfIcons()
+int TPlayerStates::GetNumberOfIcons() const
 {
 	TBEGIN
 	int Count = IsPlayerPoisoned() ? 1 : 0;
@@ -845,7 +845,7 @@ void TPlayerStates::MouseHover(int x, int y)
 
 // 0x4297a0, line 995. The icon under x, y; -1 for none. Each icon area is
 // one pixel larger than the distance.
-int TPlayerStates::GetIconAt(int x, int y)
+int TPlayerStates::GetIconAt(int x, int y) const
 {
 	TBEGIN
 	const int Icons = GetNumberOfIcons();
@@ -1724,7 +1724,7 @@ void TContainerWindowBody::Update()
 
 // 0x42e2c0, line 1940. The slot under x, y (counted over the whole
 // capacity); -1 for none, or, with Occupied, for an empty one.
-int TContainerWindowBody::GetSlotAt(int x, int y, bool Occupied)
+int TContainerWindowBody::GetSlotAt(int x, int y, bool Occupied) const
 {
 	TBEGIN
 	// x and y become positions in the slot grid in their own stack slots
@@ -2022,7 +2022,7 @@ int TSkillsWindowBody::GetContentHeight()
 // jump table 0x42fc44 has the lines 1-15: experience, level, hit points,
 // mana, soul points, capacity, magic level, a separator (false, without the
 // checks below) and the seven skills. Progress is -1 without a bar.
-bool TSkillsWindowBody::GetLine(int NumberOfLine, char *Text, int &Value, int &Progress)
+bool TSkillsWindowBody::GetLine(int NumberOfLine, char *Text, int &Value, int &Progress) const
 {
 	TASSERT2(2234, In(NumberOfLine,1,Lines), NumberOfLine, Lines);
 	TBEGIN
@@ -2613,7 +2613,7 @@ bool TTradeOffers::MouseWheel(int x, int y, int Code)
 
 // 0x432230, line 2877. The offer (0 own, 1 the partner's) and the position
 // under x, y; -1, -1 for none.
-void TTradeOffers::GetOfferAt(int x, int y, int *Side, int *Position)
+void TTradeOffers::GetOfferAt(int x, int y, int *Side, int *Position) const
 {
 	TBEGIN
 	*Position = -1;

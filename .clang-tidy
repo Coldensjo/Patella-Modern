@@ -8,10 +8,10 @@
 # (cppcoreguidelines-owning-memory, -no-malloc), C string and formatting functions
 # (bugprone-unsafe-functions, cppcoreguidelines-pro-type-vararg, modernize-use-std-print), nullptr,
 # override, enum class and [[nodiscard]], using instead of typedef (issue #35), = default / = delete for the
-# special members (issue #34), the <c...> forms of the C
-# headers and each file including what it uses (issue #40), const locals (issue #39), and the bug-prone
-# patterns. The checks that are noise for a reconstruction (its parameter lists and integer types are
-# the original's) are off.
+# special members (issue #34), the <c...> forms of the C headers and each file including what it uses
+# (issue #40), const locals and const member functions (issue #39), and the bug-prone patterns. The
+# checks that are noise for a reconstruction (its parameter lists and integer types are the original's)
+# are off.
 Checks: >
   -*,
   bugprone-*,
@@ -32,7 +32,8 @@ Checks: >
   modernize-use-nullptr,
   modernize-use-override,
   modernize-use-std-print,
-  modernize-use-using
+  modernize-use-using,
+  readability-make-member-function-const
 WarningsAsErrors: ''
 # The headers of src/, not those of src/Extern (third-party code in its own style).
 HeaderFilterRegex: '.*[/\\]src[/\\].*'

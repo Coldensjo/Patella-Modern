@@ -476,7 +476,7 @@ void TMainWindow::ChangeMode(bool InGame)
 
 // 0x4ac610, line 475. The console's new height, at least its minimum; the
 // caller lays out the window again.
-void TMainWindow::ResizeConsole(int ConsoleHeight)
+void TMainWindow::ResizeConsole(int ConsoleHeight) const
 {
 	TBEGIN
 	// One call of getMinimumHeight (0x4ac642; issue #34).
@@ -489,7 +489,7 @@ void TMainWindow::ResizeConsole(int ConsoleHeight)
 
 // 0x4ac7c0. The try block is gone (nothing in it can throw); the function
 // shares its exception tables with TSplitter::Arrange.
-int TMainWindow::GetConsoleWindowHeight()
+int TMainWindow::GetConsoleWindowHeight() const
 {
 	TBEGIN
 	return Console->Height;
@@ -519,7 +519,7 @@ void TMainWindow::Walk(int dx, int dy, bool Diagonal)
 // the top, its counts, icon, title and "up" button; ContentWindows.cpp) and,
 // while it is minimized, the window gets the name and the object of the
 // container and the "up" state of a container that has a parent here.
-void TMainWindow::OpenContainer(int Container)
+void TMainWindow::OpenContainer(int Container) const
 {
 	TASSERT(511, DialogWindow!=NULL);
 	TBEGIN
@@ -543,7 +543,7 @@ void TMainWindow::OpenContainer(int Container)
 }
 
 // 0x4acdb0, line 552
-void TMainWindow::CloseContainer(int Container)
+void TMainWindow::CloseContainer(int Container) const
 {
 	TBEGIN
 	if (DialogWindow != nullptr) {
@@ -555,7 +555,7 @@ void TMainWindow::CloseContainer(int Container)
 }
 
 // 0x4afec0, lines 560-565. Both assertions come before the try block.
-void TMainWindow::OpenTrade()
+void TMainWindow::OpenTrade() const
 {
 	TASSERT(560, DialogWindow!=NULL);
 	TASSERT(561, !DialogWindow->hasContentWindow(TRADE_WINDOW));
@@ -566,10 +566,10 @@ void TMainWindow::OpenTrade()
 
 // 0x4acf60, lines 576-579. The trade window's body gets event 0x15 (the
 // counter offer arrived).
-void TMainWindow::UpdateTrade()
+void TMainWindow::UpdateTrade() const
 {
 	TBEGIN
-	TSubWindow *Window = (TSubWindow *)DialogWindow->GetContentWindow(TRADE_WINDOW);
+	const TSubWindow *Window = (TSubWindow *)DialogWindow->GetContentWindow(TRADE_WINDOW);
 	if (Window != nullptr) {
 		TASSERT(576, Window->getBody()!=NULL);
 		Window->getBody()->HandleEvent(0x15);
@@ -578,7 +578,7 @@ void TMainWindow::UpdateTrade()
 }
 
 // 0x4b0230, line 590
-void TMainWindow::CloseTrade()
+void TMainWindow::CloseTrade() const
 {
 	TBEGIN
 	CloseContentWindow(TRADE_WINDOW);
@@ -586,7 +586,7 @@ void TMainWindow::CloseTrade()
 }
 
 // 0x4ad1e0, lines 606-610. The jump table 0x4ad48c has the four cases.
-void TMainWindow::OpenContentWindow(int Identifier)
+void TMainWindow::OpenContentWindow(int Identifier) const
 {
 	TBEGIN
 	if (DialogWindow->GetContentWindow(Identifier) == nullptr) {
@@ -613,7 +613,7 @@ void TMainWindow::OpenContentWindow(int Identifier)
 }
 
 // 0x4ad4a0, line 621
-void TMainWindow::CloseContentWindow(int Identifier)
+void TMainWindow::CloseContentWindow(int Identifier) const
 {
 	TBEGIN
 	TContentWindow *Window = DialogWindow->GetContentWindow(Identifier);
@@ -624,7 +624,7 @@ void TMainWindow::CloseContentWindow(int Identifier)
 
 // 0x4ad650, line 632. The console takes the keyboard while no modal window
 // is open (Control.cpp passes ModalWindow==NULL).
-void TMainWindow::SetConsoleActive(bool Active)
+void TMainWindow::SetConsoleActive(bool Active) const
 {
 	TBEGIN
 	if (Console != nullptr)

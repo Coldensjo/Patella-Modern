@@ -95,13 +95,13 @@ public:
 
 	void AddShadeQuad(int Left, int Top, int Right, int Bottom, D3DCOLOR TopLeft, D3DCOLOR TopRight,
 		D3DCOLOR BottomRight, D3DCOLOR BottomLeft);      // 0x4efe70
-	void FlushVertices();                                // 0x4f02a0
+	void FlushVertices() const;                          // 0x4f02a0
 	void SetTexture(int Surface);                        // 0x4f0330
 	void SetRenderTarget(int Surface);                   // 0x4f0380
 	void ApplyColorKey(int Surface, TRGBColor ColorKey); // 0x4f0c60
 	void FlushShade();                                   // 0x4f0d50
 	void AddQuad(int Left, int Top, int Right, int Bottom, double Left_u, double Right_u, double Top_v,
-		double Bottom_v, D3DCOLOR TopLeft, D3DCOLOR TopRight, D3DCOLOR BottomRight, D3DCOLOR BottomLeft); // 0x4f14c0
+		double Bottom_v, D3DCOLOR TopLeft, D3DCOLOR TopRight, D3DCOLOR BottomRight, D3DCOLOR BottomLeft) const; // 0x4f14c0
 
 	bool Ready;                                              // +0x70, set when CreateSurfaces has finished (SurfaceRecreated)
 	RECT Rect[NUMBER_OF_SURFACES_DX9];                       // +0x74

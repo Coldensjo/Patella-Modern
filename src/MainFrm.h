@@ -27,7 +27,7 @@ public:
 	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
 	BOOL DestroyWindow() override;
 
-	int TranslateKey(UINT nChar, UINT nRepCnt, UINT nFlags);
+	int TranslateKey(UINT nChar, UINT nRepCnt, UINT nFlags) const;
 	void OutputErrorInformations(std::ostream &Out);
 	void SetDefaultWindowPosition();
 	void AddFrameSize(int *Width, int *Height);

@@ -120,7 +120,7 @@ public:
 		cursor = last;
 		return cursor;
 	}
-	int Write(FILE *F);
+	int Write(FILE *F) const;
 	int ReceiveTalkMode, SendTalkMode;
 	bool Changed, Closed;
 	TTalkLine *first, *last, *cursor;

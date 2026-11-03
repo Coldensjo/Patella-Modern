@@ -27,16 +27,16 @@ inline constexpr int NOT_AN_OPPONENT = 0x7fffffff;
 // One entry of the creature table (0x9c bytes).
 class TCreature {
 public:
-	TRGBColor GetHealthColor();                        // 0x44b740
-	bool IsMarked();                                   // 0x44b800
+	TRGBColor GetHealthColor() const;                  // 0x44b740
+	bool IsMarked() const;                             // 0x44b800
 	void SetSkull(int Skull, bool Delay);              // 0x44b820
 	void SetPosition(int x, int y, int z);             // 0x452320, line 108
-	int GetDeltaX();                                   // 0x44bbf0
-	int GetDeltaY();                                   // 0x44bc10
-	int GetDrawDirection();                            // 0x44bc30
+	int GetDeltaX() const;                             // 0x44bbf0
+	int GetDeltaY() const;                             // 0x44bc10
+	int GetDrawDirection() const;                      // 0x44bc30
 	void StartMovement(int dx, int dy, int Waypoints); // 0x44bc70, line 142
 	void SetMark(int Mark);                            // 0x44bf20, line 154
-	int GetAnimationPhase(int AvailablePhases);        // 0x44c0d0, lines 163-169
+	int GetAnimationPhase(int AvailablePhases) const;  // 0x44c0d0, lines 163-169
 
 	uint32 CreatureID;    // +0x00, 0 marks a free slot; players have IDs below 0x40000000
 	char Name[32];        // +0x04

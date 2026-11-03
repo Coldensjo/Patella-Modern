@@ -86,7 +86,7 @@ static_assert(sizeof(TBuddyEntry) == 0x2c, "TBuddyEntry is 0x2c bytes");
 // --- Functions without exception frame (no line evidence) ------------------
 
 // 0x44b740. Health in percent.
-TRGBColor TCreature::GetHealthColor()
+TRGBColor TCreature::GetHealthColor() const
 {
 	TRGBColor Color;
 	if (In(Health, 0, 3)) {
@@ -118,7 +118,7 @@ TRGBColor TCreature::GetHealthColor()
 }
 
 // 0x44b800
-bool TCreature::IsMarked()
+bool TCreature::IsMarked() const
 {
 	return GetMilliseconds() <= MarkTime;
 }
@@ -420,7 +420,7 @@ void TCreature::SetPosition(int x, int y, int z)
 }
 
 // 0x44bbf0. For the player the step not confirmed yet is already drawn.
-int TCreature::GetDeltaX()
+int TCreature::GetDeltaX() const
 {
 	if (CreatureID == PlayerID)
 		return PlayerStepDX * 32 + DeltaX;
@@ -428,7 +428,7 @@ int TCreature::GetDeltaX()
 }
 
 // 0x44bc10
-int TCreature::GetDeltaY()
+int TCreature::GetDeltaY() const
 {
 	if (CreatureID == PlayerID)
 		return PlayerStepDY * 32 + DeltaY;
@@ -436,7 +436,7 @@ int TCreature::GetDeltaY()
 }
 
 // 0x44bc30
-int TCreature::GetDrawDirection()
+int TCreature::GetDrawDirection() const
 {
 	if (CreatureID == PlayerID && (PlayerStepDX != 0 || PlayerStepDY != 0))
 		return PlayerStepDirection;
@@ -504,7 +504,7 @@ void TCreature::SetMark(int Mark)
 
 // 0x44c0d0, lines 163-169. Phase 1 stands still; walking runs through
 // phases 2 to AvailablePhases, one every 8 pixels.
-int TCreature::GetAnimationPhase(int AvailablePhases)
+int TCreature::GetAnimationPhase(int AvailablePhases) const
 {
 	TASSERT1(163, AvailablePhases>=1, AvailablePhases);
 	TBEGIN

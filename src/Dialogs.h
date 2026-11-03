@@ -560,7 +560,7 @@ public:
 	void HandleEvent(int Event) override; // +0x70, 0x484e70, lines 3124-3128
 	void UpdateActions();                 // 0x47eae0, line 3158
 	int GetReason();                      // 0x4776b0, line 3171
-	int GetAction();                      // 0x477860, line 3191
+	int GetAction() const;                // 0x477860, line 3191
 
 	TFocusGroup *FocusGroup;  // +0x2c
 	TEditLine *NameEdit;      // +0x30

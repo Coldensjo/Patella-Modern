@@ -352,7 +352,7 @@ bool TMapWindow::HelpMouseMove(int x, int y)
 		Handle = 1002;
 	if (Handle == 0)
 		return false;
-	TCreature *Player = GetCreature(GetPlayerID());
+	const TCreature *Player = GetCreature(GetPlayerID());
 	TASSERT(417, Player!=NULL);
 	// The help position goes into x and y (the binary stores it in the
 	// parameters' stack slots, 0x4c372a/0x4c3751 and 0x4c3793/0x4c37bd), so
@@ -384,7 +384,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	const bool ShowTexts = GetTextualEffects();
 	const int CreatureInfo = GetCreatureInfo();
 	ProcessMissileEffects();
-	TCreature *Player = GetCreature(GetPlayerID());
+	const TCreature *Player = GetCreature(GetPlayerID());
 	TASSERT(456, Player!=NULL);
 	ScrollX = Player->GetDeltaX() + 32;
 	ScrollY = Player->GetDeltaY() + 32;
@@ -1543,7 +1543,7 @@ void TMapWindow::ArrangeTalkboxes()
 void TMapWindow::GetField(int x, int y, int *FieldX, int *FieldY, int *FieldZ)
 {
 	TBEGIN
-	TCreature *Player = GetCreature(GetPlayerID());
+	const TCreature *Player = GetCreature(GetPlayerID());
 	TASSERT(1480, Player!=NULL);
 	if (GetNoStretching()) {
 		*FieldX = ((480 - Width) / 2 + Player->GetDeltaX() + x) / 32 + 1;

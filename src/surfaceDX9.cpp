@@ -138,7 +138,7 @@ void TSurfaceDX9::AddShadeQuad(int Left, int Top, int Right, int Bottom, D3DCOLO
 }
 
 // 0x4f02a0. Draws the quads collected so far into the current target.
-void TSurfaceDX9::FlushVertices()
+void TSurfaceDX9::FlushVertices() const
 {
 	if (NumberOfVertices > 0) {
 		VertexBuffer->Unlock();
@@ -661,7 +661,7 @@ TSurface *CreateSurfaceDX9()
 // 0x4f14c0. Six vertices of a textured quad (white unless the colours say
 // otherwise); a full buffer is drawn.
 void TSurfaceDX9::AddQuad(int Left, int Top, int Right, int Bottom, double Left_u, double Right_u, double Top_v,
-	double Bottom_v, D3DCOLOR TopLeft, D3DCOLOR TopRight, D3DCOLOR BottomRight, D3DCOLOR BottomLeft)
+	double Bottom_v, D3DCOLOR TopLeft, D3DCOLOR TopRight, D3DCOLOR BottomRight, D3DCOLOR BottomLeft) const
 {
 	TVertexDX9 *V = &Vertices[NumberOfVertices];
 	// clang-format off
