@@ -15,6 +15,8 @@
 #include "graphics.h"
 #include "Preferences.h"
 #include "vulkan/DeviceSettings.h"
+#include "common.h"
+#include "vulkan/DeviceChoice.h"
 bool IsVulkanInstalled();
 TSurface *CreateSurfaceVulkan();
 #else
@@ -24,6 +26,7 @@ TSurface *CreateSurfaceVulkan();
 #include "Surface.h"
 #include "SurfaceDX.h"
 #include "SurfaceGL.h"
+#include "common.h"
 #include "Preferences.h"
 #endif
 

@@ -23,9 +23,12 @@
 #include "Preferences.h"
 #include "Status.h"
 #include "Talk.h"
-#include "Text.h"
+#include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "sysinc.h"
+#include "common.h"
 #include <cstdlib>
+#include <cstdio>
+#include <cstring>
 
 // Assertions whose text carries a bug number after the expression.
 #define TASSERT1_BUG(Line, Expr, Bug, V1) \

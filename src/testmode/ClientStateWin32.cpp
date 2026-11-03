@@ -35,6 +35,7 @@
 #include "Talk.h"
 #pragma warning(pop)
 #include "testmode/ClientStateWin32.h"
+#include "testmode/StateDump.h"
 
 #include <array>
 #include <cstdint>
@@ -42,7 +43,7 @@
 #include <cstring>
 #include <string>
 #include <string_view>
-#include <typeinfo>
+#include <typeinfo> // IWYU pragma: keep (typeid)
 #include <utility>
 #include <vector>
 

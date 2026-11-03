@@ -15,6 +15,11 @@
 #include "Script.h"
 #include "Talk.h"
 #include "Utils.h"
+#include "Container.h"
+#include "common.h"
+#include <cstddef>
+#include <cstdlib>
+#include <cstring>
 
 // Data, in .data/.bss order.
 static int WindowedWidth = 600;                             // 0x5c2558, "WindowedMode = (x,y,Width,Height,Maximized)"

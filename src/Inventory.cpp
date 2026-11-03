@@ -12,6 +12,9 @@
 #include "Inventory.h"
 #include "Objects.h"
 #include "Utils.h"
+#include "common.h"
+#include <cstddef>
+#include <cstring>
 
 // Data, in .bss order.
 static TObject Body[BODY_POSITIONS];           // 0x5ced60

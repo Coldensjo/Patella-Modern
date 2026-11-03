@@ -19,7 +19,11 @@
 #include "surfaceDX9.h"
 #include "GUI.h"
 #include "Preferences.h"
+#include "Surface.h"
+#include "graphics.h"
 #include <mmsystem.h>
+#include <cstddef>
+#include <cstring>
 
 #define TASSERTB1(Line, Expr, V1, Bug) \
 	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr " " Bug)

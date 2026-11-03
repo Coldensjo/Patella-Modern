@@ -15,6 +15,11 @@
 #include "TXTEA.h"
 #include "Preferences.h"
 #include "Status.h"
+#include "common.h"
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 class TSocket : public CAsyncSocket {
 public:

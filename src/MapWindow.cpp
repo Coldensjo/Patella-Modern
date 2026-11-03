@@ -31,9 +31,13 @@
 #include "Text.h"
 #include "Utils.h"
 #include "graphics.h"
+#include "GUI.h"
+#include "common.h"
 
 #include <cmath>
 #include <sstream>
+#include <cstddef>
+#include <cstring>
 
 // At 0x7152e8, constructed by the static initialiser 0x559fc0 as
 // TCallback(NULL, 0) and never used; the only datum of MapWindow.obj besides its copy of the

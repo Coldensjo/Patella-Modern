@@ -4,12 +4,14 @@
 
 #include "settings/Settings.h"
 #include "vulkan/Renderer.h"
+#include "vulkan/DeviceChoice.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 #include <cstdlib>
 #include <optional>
+#include <string>
 #include <vector>
 
 using patella::vulkan::TDeviceButton;

@@ -35,6 +35,9 @@
 #include "Talk.h"
 #include "Text.h"
 #include "graphics.h"
+#include "DialogWindow.h"
+#include "GUI.h"
+#include "common.h"
 
 #include <cstdlib>
 

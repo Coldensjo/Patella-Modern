@@ -20,8 +20,12 @@
 #include "Status.h"
 #include "Surface.h"
 #include "Utils.h"
-#include "Text.h"
+#include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "sysinc.h"
+#include "GUI.h"
+#include "Skins.h"
+#include "common.h"
+#include "graphics.h"
 
 // Data. DialogElements.obj has no statics and no static initialiser. It keeps
 // a copy of the text table (Text.h, 0x5c0fe0-0x5c122b, then its regular

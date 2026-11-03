@@ -135,8 +135,15 @@ C headers (Patella-Modern issue #40, November 3, 2026; M3's fourth change, first
 through tools/tidy.py on every target that compiles src/, 19 includes in 12 files (`<cstring>` for `<string.h>`
 and so on, common.h's included; .clang-tidy enables the check with CheckHeaderFile). The oracle Patella.exe and
 the x64 Patella.exe and PatellaTest.exe unchanged (pecompare); macrocheck 0 differences; the clang-tidy baseline
-unchanged (21). notes/decisions.md, "The <c...> forms of the C headers; each file includes what it uses
-(Patella-Modern issue #40)".
+unchanged (21). Second part: misc-include-cleaner, on the translation units of every target, 0 findings after
+196 includes added and two removed, placed by hand after each file's own includes (clang-tidy's insertions broke
+the DIRECT3D_VERSION and GLH_EXT_SINGLE_FILE order); .clang-tidy enables it, with IgnoreHeaders for the Windows
+SDK, MFC and the MFC shim, `IWYU pragma: keep` on the Text.h and Status.h includes that are there for the
+objects' table copies, and `IWYU pragma: export` on common.h's TestHooks.h and TMyException.h. The headers on
+their own are not done (their findings change Text.h's and Status.h's copies). Oracle unchanged; on x64 the new
+`<ostream>` moves `<charconv>`'s digit-pair table in .rdata (code identical after address normalisation).
+notes/decisions.md, "The <c...> forms of the C headers; each file includes what it uses (Patella-Modern issue
+#40)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -157,6 +164,14 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #40 (branch issue-40, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after the <c...> headers (first commit) and the includes of misc-include-cleaner (second commit):
+16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe built from
+main (e089936), the first commit and the second at the same path: `.text` identical, 0 unexpected differences
+(pecompare); the windows-x64 Release Patella.exe and PatellaTest.exe identical after the first commit and, after the
+second, different only in where <charconv>'s digit-pair table sits in .rdata (instructions identical after address
+normalisation); macrocheck e089936 issue-40: 2,108 calls, 0 differences.
 
 Patella-Modern issue #35 (branch issue-35, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after using instead of typedef (common.h, ConsoleWindow.cpp, surfaceDX9.cpp, SurfaceVulkan.h):

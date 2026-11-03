@@ -2,7 +2,9 @@
 
 #include "vulkan/Quads.h"
 
+#include <array>
 #include <cmath>
+#include <cstdint>
 
 namespace patella::vulkan {
 

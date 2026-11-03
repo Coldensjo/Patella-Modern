@@ -4,6 +4,9 @@
 // use (gcd, the unsigned conversion) are absent from the binary and left out.
 
 #include "vlong.h"
+#include "common.h"
+#include <cstdlib>
+#include <cstring>
 
 #define BPU (8 * sizeof(unsigned)) // bits per unit
 #define lo(x) ((x) & ((1 << (BPU / 2)) - 1))

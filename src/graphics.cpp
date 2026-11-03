@@ -24,6 +24,10 @@
 #include "Status.h"
 #include "Surface.h"
 #include "Utils.h"
+#include "common.h"
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
 
 // Assertions whose expression text carries a bug number (as in Map.cpp).
 #define TASSERTB1(Line, Expr, V1, Bug) \

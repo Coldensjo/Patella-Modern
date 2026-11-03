@@ -1,8 +1,11 @@
 // FilterMask.cpp: which pixels of the engine's images come from the device's filter (FilterMask.h).
 
 #include "vulkan/FilterMask.h"
+#include "vulkan/Quads.h"
 
+#include <cstdint>
 #include <cstring>
+#include <vector>
 
 namespace patella::vulkan {
 

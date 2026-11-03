@@ -8,7 +8,7 @@
 # (cppcoreguidelines-owning-memory, -no-malloc), C string and formatting functions
 # (bugprone-unsafe-functions, cppcoreguidelines-pro-type-vararg, modernize-use-std-print), nullptr,
 # override, enum class and [[nodiscard]], using instead of typedef (issue #35), the <c...> forms of the C
-# headers (issue #40), and the bug-prone
+# headers and each file including what it uses (issue #40), and the bug-prone
 # patterns. The checks that are noise for a reconstruction (its parameter lists and integer types are
 # the original's) are off.
 Checks: >
@@ -22,6 +22,7 @@ Checks: >
   cppcoreguidelines-owning-memory,
   cppcoreguidelines-pro-type-vararg,
   cppcoreguidelines-use-enum-class,
+  misc-include-cleaner,
   modernize-deprecated-headers,
   modernize-use-nodiscard,
   modernize-use-nullptr,
@@ -38,3 +39,10 @@ CheckOptions:
   # The C headers that the headers of src/ include (common.h, ContentWindows.h, Talk.h) too, not only the
   # main files' (issue #40).
   modernize-deprecated-headers.CheckHeaderFile: true
+  # Each file includes what it uses (issue #40), but not the platform's internal headers: a Windows SDK
+  # symbol is declared in winuser.h, minwindef.h, corecrt_io.h and the like, which the SDK means to be
+  # reached through windows.h, io.h and MFC's afxwin.h (common.h). The Windows SDK and the UCRT (Windows
+  # Kits), MFC (atlmfc) and the MFC shim that stands for it (compat/mfc_shim.h) are neither suggested nor
+  # reported unused; the C and C++ standard library is checked by name (<cstring>, <ostream>), not by path.
+  # (POSIX bracket expressions: [/\] is a slash or a backslash.)
+  misc-include-cleaner.IgnoreHeaders: '.*[/\]Windows Kits[/\].*;.*[/\]atlmfc[/\].*;.*[/\]compat[/\]mfc_shim\.h'

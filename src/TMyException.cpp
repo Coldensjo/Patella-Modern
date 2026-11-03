@@ -5,6 +5,8 @@
 
 #include "TMyException.h"
 #include <sstream>
+#include <ostream>
+#include <string>
 
 // 0x508390. The part of a path after the last '/' or '\'.
 static std::string GetFileName(const std::string &Path)

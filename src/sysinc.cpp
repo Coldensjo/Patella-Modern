@@ -12,6 +12,10 @@
 #include "sysinc.h"
 #include <io.h>
 #include <mmsystem.h>
+#include "common.h"
+#include <cstddef>
+#include <cstdlib>
+#include <cstring>
 
 #pragma comment(lib, "winmm.lib")
 

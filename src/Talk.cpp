@@ -6,8 +6,15 @@
 #include "Utils.h"
 #include "graphics.h"
 #include "sysinc.h"
+#include "Container.h"
+#include "Preferences.h"
+#include "common.h"
 #include <cstddef>
 #include <new>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 
 static bool IgnoreListEnabled;                                       // 0x71dbd0
 static bool BuddyIgnore;                                             // 0x71dbd1

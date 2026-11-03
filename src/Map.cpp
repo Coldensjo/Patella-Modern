@@ -19,7 +19,13 @@
 #include "Talk.h"
 #include "Utils.h"
 #include "sysinc.h"
+#include "Container.h"
+#include "common.h"
 #include <cmath>
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
+#include <sstream>
 
 // Assertions whose expression text carries a bug number.
 #define TASSERTB(Line, Expr, Bug) \

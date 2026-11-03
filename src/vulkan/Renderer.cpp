@@ -7,17 +7,28 @@
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
 
+#include <vulkan/vulkan_core.h>
+
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 // The SPIR-V of src/vulkan/shaders, compiled by glslang in the build (cmake/Vulkan.cmake).
 #include "ColorKeyFrag.h"
 #include "FillFrag.h"
 #include "QuadFrag.h"
 #include "QuadVert.h"
+
+#include "vulkan/DeviceChoice.h"
+#include "vulkan/Quads.h"
 
 namespace patella::vulkan {
 

@@ -2,7 +2,13 @@
 
 #include "settings/Settings.h"
 
+#include <cstddef>
 #include <fstream>
+#include <ios>
+#include <optional>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace patella::settings {
 

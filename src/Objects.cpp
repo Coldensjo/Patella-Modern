@@ -17,6 +17,9 @@
 
 #include "Objects.h"
 #include "Script.h"
+#include "Container.h"
+#include "common.h"
+#include <cstddef>
 
 // Data, in .bss order.
 array<TProperties> *MissileProperties; // 0x719d8c

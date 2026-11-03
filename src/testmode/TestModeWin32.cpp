@@ -80,14 +80,19 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <ctime>
+#include <cwchar>
 #include <deque>
 #include <filesystem>
 #include <fstream>
+#include <ios>
 #include <iterator>
 #include <span>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
