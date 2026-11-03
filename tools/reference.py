@@ -289,14 +289,21 @@ def compare_gui(orig, ours, mapping, rects=()):
 	"""Window trees (compare_traffic.py compare_gui): everything equal but for this run's addresses, a
 	vtable name of Tibia.exe's (vt_<address>, "(modal)") paired with the same class everywhere. rects:
 	the recorded masks of the checkpoint (the advanced options' device choice of issue #31, the frame
-	rate): the texts of the windows inside them are not compared."""
+	rate): the texts of the windows inside them are not compared, and a window that lies inside the same
+	rectangle in both clients may differ in place and size there (#31's device line is wider)."""
 	out = []
 	if len(orig) != len(ours):
 		out.append("%d windows against %d" % (len(ours), len(orig)))
+
+	def within(w, r):
+		x0, y0, x1, y1 = r
+		return x0 <= w["x"] and w["x"] + w["w"] <= x1 and y0 <= w["y"] and w["y"] + w["h"] <= y1
+
 	for i, (o, p) in enumerate(zip(orig, ours)):
-		inside = any(x0 <= o["x"] and o["x"] + o["w"] <= x1 and y0 <= o["y"] and o["y"] + o["h"] <= y1
-			for x0, y0, x1, y1 in rects)
-		for key in ("depth", "x", "y", "w", "h") + (() if inside else ("text",)):
+		inside = any(within(o, r) for r in rects)
+		both = any(within(o, r) and within(p, r) for r in rects)
+		keys = ("depth",) if both else ("depth", "x", "y", "w", "h")
+		for key in keys + (() if inside else ("text",)):
 			if o.get(key) != p.get(key):
 				out.append("window #%d (%s/%s): %s %r against %r" % (i, p["class"], o["class"], key, p.get(key), o.get(key)))
 		if o["class"].startswith("vt_") or o["class"] == "(modal)":
@@ -717,6 +724,13 @@ def self_test():
 	check("frames: inside a mask rectangle", diff_frames(a, b, None, [(1, 1, 2, 2)])[3] == 1)
 	check("gui: vtable names paired", compare_gui([{"depth": 0, "class": "vt_1", "x": 0, "y": 0, "w": 1, "h": 1}],
 		[{"depth": 0, "class": "TFoo", "x": 0, "y": 0, "w": 1, "h": 1}], {}) == [])
+	label = {"depth": 1, "class": "TLabel", "x": 10, "y": 10, "w": 131, "h": 12, "text": "Select graphics engine:"}
+	wider = dict(label, w=200, text="Device: GPU")
+	check("gui: a window inside a mask in both clients may change size and text",
+		compare_gui([label], [wider], {}, [(10, 10, 210, 30)]) == [])
+	check("gui: a window that leaves the mask is a difference",
+		len(compare_gui([label], [dict(wider, w=250)], {}, [(10, 10, 210, 30)])) == 1)
+	check("gui: outside a mask the size is compared", len(compare_gui([label], [wider], {})) == 2)
 	check("staleness: another format", any("format" in p for p in staleness({"format": "x"}, tempfile.gettempdir())))
 	print("self-test: %s" % ("passed" if not failures else "FAILED: %s" % failures))
 	return 1 if failures else 0
