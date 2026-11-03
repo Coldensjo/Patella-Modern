@@ -6647,3 +6647,74 @@ as an int is an `enum class`.
   (pecompare: `.text`, `.rdata` apart from those, `.data`, `.pdata` and `.reloc` identical after each of the two
   commits). macrocheck c797628 against each commit: the 2,108 calls unchanged. The difftest counts are unchanged; the
   clang-tidy baseline is unchanged (14; PROGRAM_ERROR's use-enum-class entry stays).
+
+## = default, = delete, and owning classes that cannot be copied (Patella-Modern issue #34)
+
+Settled by Claude Opus 5.5, November 3, 2026. The eighth change of M3 (plan section 7), in three commits that can be
+reviewed and reverted alone: `modernize-use-equals-default` and `modernize-use-equals-delete` are clean on src/ and
+enabled in .clang-tidy, and every class whose destructor frees what it holds cannot be copied.
+
+- **clang-tidy through tools/tidy.py on every configuration that compiles src/** (high). As in issue #32: one run per
+  target on compile_commands.json files holding one target's Release commands each (oracle-x86's Patella,
+  mfc_shim_check, difftest, communicationtest, sysinctest and vlongtest with `--extra-arg=-m32`, the preset configured
+  once with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`; windows-x64's Patella, PatellaTest, patella_core, patella_testmode
+  and patella_render_vulkan). use-equals-default found eight empty special members, use-equals-delete nothing; with
+  both checks' IgnoreMacros off the result is the same. MainFrm.cpp's two clang-diagnostic errors (the MFC message
+  map, also on main) aside, both checks report nothing after the change.
+- **Out of the class, `= default` keeps everything** (high). TElement::TElement, TSurface::~TSurface,
+  TSurfaceGL::TSurfaceGL, TMyException::~TMyException and TRSA::~TRSA are defined in their .cpp files. A function
+  defaulted after its first declaration is still user-provided: `T()` and `new T()` do not zero the object first, the
+  declaration's exception specification stays, and the definition stays in the same object. All five classes are
+  polymorphic, so none was trivial or an aggregate before or after. The images are identical.
+- **In the class, two keep their empty bodies** (high). Defaulted on its first declaration a special member is no
+  longer user-provided:
+  - `TSurfaceDX() {}`: as `= default`, `TSurfaceDX()` and `TSurfaceDX{}` would value-initialize, that is zero the
+    0x250 bytes before TSurface's constructor runs. The only creation today is CreateSurfaceDX's `new TSurfaceDX`
+    (default-initialization, unaffected), so the images would not show it; the body stays so that the class keeps
+    the original's "initialises nothing" for every form of creation.
+  - `virtual ~TXTEA() {}`: as `= default` the images change: the oracle Patella.exe's .text grows by 0x60 bytes and
+    the x64 Patella.exe's and PatellaTest.exe's code and RTTI (TXTEA's type descriptor in .data) move, 160,649 and
+    15,439 differing runs (pecompare, each of the eight changes built alone on main at the same path; the other
+    seven changed nothing). The body stays.
+  Both carry `// NOLINT(modernize-use-equals-default)` and a comment with the reason, so the check stays clean in
+  CI. The MFC shim's `virtual ~CObject() {}` (mfc_shim_check and the difftest only, not in a compared image)
+  becomes `= default`.
+- **use-equals-delete has nothing to do** (high). It turns a private, undefined copy constructor or assignment (the
+  pre-C++11 idiom) into `= delete`; src/ has none. Only vulkan/Renderer.h's TRenderer and Renderer.cpp's TDriverFiles
+  (new code) and testmode/Clock.h's IClock declare copy members, already deleted, and vlong defines its own.
+- **The owning classes, by hand** (high). A class owns a pointer when its destructor frees what it holds. The
+  destructors of src/ were scanned for delete, delete[], free, fclose, close and the functions that wrap them
+  (DeleteChild, DeleteTextBuffer, TTalkBuffer::Clear), then read one by one. 40 classes get `X(const X &) = delete;`
+  and `X &operator=(const X &) = delete;`, in their first public section (after the constructors in TTalkLine and
+  flex_unit, whose members come first):
+  GUI.h's TComponent (DrawingList) and TWindow (its children); ConsoleWindow.h's TTextWindow, TTabBar, TTab and
+  TConsoleWindow; ContentWindows.h's TCombatControls and TBuddylistWindowBody; DialogElements.h's TLabel,
+  TFormattedText, TLink, TMultiStateButton, TEditLine, TPasswordEditLine, TListBox and TFontListBox; Dialogs.h's
+  TWaitLabel, TReconnectWindow, TLoginDialog, TCharacterListDialog, TOutfitDialog, TNewChannelDialog,
+  TEditBuddyDialog, TRuleViolationDialog, TEditMarkDialog, TGraphicsOptionsDialog and TAdvancedGraphicsDialog;
+  DialogWindow.h's TSubWindow; MainFrm.h's CMainFrame (MFC's CObject already hides its copy; the shim's did not);
+  Container.h's array, matrix, matrix3d and vector; Script.h's TReadScriptFile, TWriteScriptFile (FILE *),
+  TReadBinaryFile and TWriteBinaryFile (descriptors); Talk.h's TTalkBuffer (its lines) and TTalkLine (Line, from its
+  constructor; TTalkBuffer frees it); vlong.h's flex_unit (vlong_value inherits it).
+  - Nothing copies any of them: every target of oracle-x86 (difftest and the MFC shim build included), windows-x64,
+    windows-x64-gcc and the Linux presets compiles unchanged, so no copy had to be defined.
+  - The classes that only allocate in their constructors (the windows and dialogs that create their child
+    components, 45 more by a scan of the constructors) hand what they allocate to TWindow, which frees it; their copy
+    is deleted through TComponent and TWindow. A scratch translation unit with `static_assert(!std::is_copy_constructible_v<X>
+    && !std::is_copy_assignable_v<X>)` for all of them, the 40 above, vlong_value and the four templates at `int`
+    compiled on windows-x64 (and failed, as it should, on TTalkbox, a plain struct).
+  - Not owners, left alone: TTimer (unregisters itself), the windows whose destructors only store state or clear
+    back pointers (TMainWindow, TMapWindow, TAutomapWindow, TContainerWindowBody, TSkillsWindowBody,
+    TTradeWindowBody, TBattleWindowBody, TSkillContextMenu), the surfaces (their COM objects and contexts are freed
+    by ExitSurfaces, not by the destructor; TSurfaceVulkan's TRenderer is a unique_ptr), the vulkan, settings and
+    testmode classes (standard library members).
+  - Deleted members add no code and no data, and change no size, alignment or vtable. The one class that was
+    trivially copyable, TTalkLine, no longer is; nothing passes it by value (it could not compile), and the images
+    are identical.
+- **Both checks in .clang-tidy** (medium). The second commit adds `modernize-use-equals-default` and
+  `modernize-use-equals-delete` to the checks, so CI's clang-tidy (linux-x64-clang, patella_core and the headers it
+  includes) keeps them clean. The baseline is unchanged (14 findings, 0 new, 0 gone).
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built from main
+  b123283 and from each of the three commits at the same path, differ only in the link time stamps and the PDB record
+  (pecompare: `.text`, `.data` and `.pdata` identical, 0 unexpected differences). macrocheck b123283 against each
+  commit: the 2,108 calls unchanged. The difftest counts are unchanged.
