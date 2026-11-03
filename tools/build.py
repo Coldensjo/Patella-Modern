@@ -6,9 +6,10 @@ Usage:
   python -I tools/build.py --list
 
 The first form runs `cmake --workflow --preset <workflow preset>` (CMakePresets.json: oracle-x86,
-windows-x64, windows-x64-debug, windows-x64-gcc, windows-x64-gcc-debug): configure, build, test. The
-second runs any command (cmake --build, ctest, ...) in the compiler environment of <preset> (a
-configure, build, test or workflow preset), e.g.
+windows-x64, windows-x64-debug, windows-x64-gcc, windows-x64-gcc-debug, linux-x64-gcc,
+linux-x64-clang and their -debug forms): configure, build, test. The second runs any command (cmake
+--build, ctest, ...) in the compiler environment of <preset> (a configure, build, test or workflow
+preset), e.g.
   python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86-debug
   python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R vlongtest
 
@@ -17,7 +18,16 @@ for them. This script does what a developer prompt does: it runs Visual Studio's
 the architecture of the preset (x86 for oracle-x86, x64 for windows-x64; found through vswhere, the
 newest Visual Studio with the C++ tools) and runs CMake in the environment it sets. A shell that is
 already a developer prompt for that architecture is used as it is. The other presets (mingw-w64 GCC,
-later Linux) run CMake in the shell's own environment.
+and the Linux presets on Linux) run CMake in the shell's own environment.
+
+Docker (issue #7): on Windows, a preset whose condition asks for a Linux host (linux-x64-gcc,
+linux-x64-clang) runs in the image patella-modern/linux-x64:gcc16.2-clang22.1 (PATELLA_DOCKER_IMAGE
+overrides it; `docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64` builds
+it), in both forms. The repository is mounted read-only at /src; the files git knows (tracked, and
+untracked ones that are not ignored: never Tibia.exe or the data files) are copied with their times
+to /work, on the container's own case-sensitive file system, and the command runs there.
+build/<preset> is mounted at /work/build/<preset>, so the build tree and the downloaded doctest stay
+between runs.
 
 Warnings (issue #17): every cmake run (the first form, and the second when the command is cmake) is
 checked for compiler, resource compiler, assembler and linker warnings (MSVC's "warning C4101",
@@ -38,12 +48,16 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PRESETS = os.path.join(ROOT, "CMakePresets.json")
 VCVARSALL = r"VC\Auxiliary\Build\vcvarsall.bat"
 # where the .cmd scripts found it before issue #10; vswhere's answer comes first
 DEFAULT_VS = r"C:\Program Files\Microsoft Visual Studio\18\Community"
+# The Linux build image (docker/linux-x64/Dockerfile).
+DOCKER_IMAGE = "patella-modern/linux-x64:gcc16.2-clang22.1"
+DOCKER_DIR = "docker/linux-x64"
 
 
 # A warning of a tool of the build: MSVC's cl, link, lib, rc, cvtres and ml print "warning <code>" with a
@@ -173,6 +187,48 @@ def developer_environment(argument):
 	return env
 
 
+def needs_linux(preset):
+	"""Whether the configure preset's condition asks for a Linux host."""
+	condition = preset.get("condition") or {}
+	return (condition.get("type") == "equals" and condition.get("lhs") == "${hostSystemName}"
+		and condition.get("rhs") == "Linux")
+
+
+def in_docker(name):
+	"""The configure preset behind `name` when it runs in the Docker image (a Linux preset on
+	Windows), else None."""
+	if os.name != "nt":
+		return None
+	presets = load_presets()
+	configure = configure_preset_of(presets, name)
+	return configure if needs_linux(resolved(presets, configure)) else None
+
+
+def docker_command(configure, command):
+	"""`docker run` for `command` in /work of the image, the repository's files copied there (module
+	comment), and the file that names them, which the caller passes on stdin and deletes."""
+	image = os.environ.get("PATELLA_DOCKER_IMAGE", DOCKER_IMAGE)
+	if shutil.which("docker") is None:
+		raise BuildError("docker not found on PATH (preset %s runs in the image %s)" % (configure, image))
+	if subprocess.run(["docker", "image", "inspect", image], capture_output=True).returncode != 0:
+		raise BuildError("Docker image %s not found; build it: docker build -t %s %s"
+			% (image, image, DOCKER_DIR))
+	listed = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+		cwd=ROOT, capture_output=True, check=True).stdout
+	# tracked files deleted in the working tree are not there to copy
+	names = [name for name in listed.split(b"\0")
+		if name and os.path.lexists(os.path.join(ROOT, os.fsdecode(name)))]
+	with tempfile.NamedTemporaryFile(prefix="build-docker-", suffix=".txt", delete=False) as listing:
+		listing.write(b"".join(name + b"\0" for name in names))
+	build_dir = os.path.join(ROOT, "build", configure)
+	os.makedirs(build_dir, exist_ok=True)
+	script = ('set -e; mkdir -p /work; (cd /src && tar --null -T - -cf -) | tar -x -C /work; '
+		'cd /work; exec "$@"')
+	return ["docker", "run", "--rm", "-i", "-v", "%s:/src:ro" % ROOT,
+		"-v", "%s:/work/build/%s" % (build_dir, configure),
+		image, "bash", "-c", script, "bash"] + command, listing.name
+
+
 def environment(name):
 	"""The environment to run CMake in for the preset `name`."""
 	presets = load_presets()
@@ -185,24 +241,36 @@ def environment(name):
 	return developer_environment(argument)
 
 
-def run(command, env, check_warnings=False):
-	executable = shutil.which(command[0], path=env.get("PATH") or env.get("Path"))
-	if executable is None:
-		raise BuildError("%s not found on PATH" % command[0])
-	print("build.py: %s" % subprocess.list2cmdline(command), flush=True)
-	if not check_warnings:
-		return subprocess.call([executable] + command[1:], env=env, cwd=ROOT)
-	return run_checked([executable] + command[1:], env)
+def run(command, env, check_warnings=False, docker=None):
+	"""Runs the command, in the Docker image when `docker` names the configure preset."""
+	stdin = listing = None
+	if docker is not None:
+		print("build.py: preset %s in the Docker image: %s" % (docker, subprocess.list2cmdline(command)),
+			flush=True)
+		command, listing = docker_command(docker, command)
+		stdin = open(listing, "rb")
+	try:
+		executable = shutil.which(command[0], path=env.get("PATH") or env.get("Path"))
+		if executable is None:
+			raise BuildError("%s not found on PATH" % command[0])
+		print("build.py: %s" % subprocess.list2cmdline(command), flush=True)
+		if not check_warnings:
+			return subprocess.call([executable] + command[1:], env=env, cwd=ROOT, stdin=stdin)
+		return run_checked([executable] + command[1:], env, stdin)
+	finally:
+		if stdin is not None:
+			stdin.close()
+			os.remove(listing)
 
 
-def run_checked(command, env):
+def run_checked(command, env, stdin=None):
 	"""Runs the command with its output passed through byte for byte and scanned for warnings (up to
 	the test step); exit 1 when the command succeeded but warned."""
 	sys.stdout.flush()
 	out = sys.stdout.buffer
 	warnings = []
 	scanning = True
-	process = subprocess.Popen(command, env=env, cwd=ROOT, stdout=subprocess.PIPE,
+	process = subprocess.Popen(command, env=env, cwd=ROOT, stdin=stdin, stdout=subprocess.PIPE,
 		stderr=subprocess.STDOUT)
 	try:
 		for raw in process.stdout:
@@ -244,11 +312,15 @@ def main(argv):
 			return 2
 		command = argv[2:]
 		is_cmake = os.path.splitext(os.path.basename(command[0]))[0].lower() == "cmake"
-		return run(command, environment(argv[1]), check_warnings=is_cmake)
+		docker = in_docker(argv[1])
+		env = dict(os.environ) if docker else environment(argv[1])
+		return run(command, env, check_warnings=is_cmake, docker=docker)
 	name = argv[0]
 	if name not in [p["name"] for p in load_presets().get("workflowPresets", [])]:
 		raise BuildError("no workflow preset %r (python -I tools/build.py --list)" % name)
-	return run(["cmake", "--workflow", "--preset", name] + argv[1:], environment(name), check_warnings=True)
+	docker = in_docker(name)
+	env = dict(os.environ) if docker else environment(name)
+	return run(["cmake", "--workflow", "--preset", name] + argv[1:], env, check_warnings=True, docker=docker)
 
 
 if __name__ == "__main__":

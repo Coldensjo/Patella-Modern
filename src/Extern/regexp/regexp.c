@@ -49,7 +49,10 @@
 #include "regmagic.h"
 
 /* strlen(OPERAND(scan)) >= len compares unsigned, as the binary does. */
+/* Patella-Modern change (issue #7): the pragma is MSVC's; GCC and Clang warn about it. */
+#ifdef _MSC_VER
 #pragma warning(disable: 4018)
+#endif
 
 /*
  * Client change: the error hook (0x71f034). Nothing in the client sets it.
@@ -313,6 +316,16 @@ char *exp;
  * is a trifle forced, but the need to tie the tails of the branches to what
  * follows makes it hard to avoid.
  */
+/*
+ * Patella-Modern change (issue #7): parno is set and read only when paren is
+ * set, which GCC's optimiser cannot see (-Wmaybe-uninitialized, in -Wall;
+ * MSVC's C4701 at /W4). Initialising it would change the oracle's code, so
+ * the warning is off for this function, as for Talk.cpp's C4701 (issue #5).
+ */
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 static char *
 reg(paren, flagp)
 int paren;			/* Parenthesized? */
@@ -379,6 +392,9 @@ int *flagp;
 
 	return(ret);
 }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 /*
  - regbranch - one alternative of an | operator

@@ -48,7 +48,7 @@ struct TTracked {
 // Ordered by < only: <=> of the container synthesises a weak ordering from it.
 struct TLessOnly {
 	int Value;
-	friend bool operator==(const TLessOnly &, const TLessOnly &) = default;
+	[[maybe_unused]] friend bool operator==(const TLessOnly &, const TLessOnly &) = default;
 	friend bool operator<(const TLessOnly &Left, const TLessOnly &Right) { return Left.Value < Right.Value; }
 };
 

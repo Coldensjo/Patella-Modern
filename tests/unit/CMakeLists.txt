@@ -6,7 +6,11 @@
 # - tests_unit_cxx26_standin: the same sources with PATELLA_CXX26_STANDIN, so on GCC 16 the
 #   stand-ins run the tests the real features pass.
 #
-# Both get the product settings of cmake/Warnings.cmake and cmake/Hardening.cmake.
+# - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
+#   TMyException's messages, Skins, the regexp and Container.h; the expected values that are not the
+#   code's own come from tests/unit/core_expected.py.
+#
+# All get the product settings of cmake/Warnings.cmake and cmake/Hardening.cmake.
 
 include(FetchContent)
 
@@ -72,3 +76,18 @@ endif()
 
 patella_unit_tests(tests_unit_cxx26_standin)
 target_compile_definitions(tests_unit_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN PATELLA_EXPECT_CXX26=0)
+
+add_executable(tests_core
+	core_main.cpp
+	core_platform_test.cpp
+	core_vlong_test.cpp
+	core_txtea_test.cpp
+	core_utils_test.cpp
+	core_skins_test.cpp
+	core_regexp_test.cpp
+	core_container_test.cpp)
+target_link_libraries(tests_core PRIVATE patella_core doctest::doctest)
+patella_target_language(tests_core)
+patella_target_warnings(tests_core)
+patella_target_hardening(tests_core)
+add_test(NAME tests_core COMMAND tests_core)

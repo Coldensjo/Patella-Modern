@@ -100,6 +100,9 @@ None.
 
 ## Last difftest
 
+Issue #7 (branch issue-7, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest, 0 warnings)
+after the portability changes of src/ (common.h, vlong.h, vlong.cpp, regexp.c): the same counts as below.
+
 Issue #10 (branch issue-10, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` from Git Bash (no
 developer prompt; CTest, 0 warnings) after the scripts were removed: the same counts as below.
 

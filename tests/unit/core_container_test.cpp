@@ -1,0 +1,80 @@
+// Container.h's templates: array, matrix, matrix3d and the growing vector, with their errors
+// (TMyException messages naming Container.h and the original's lines). On the GCC and Clang warning
+// baselines (cmake/Warnings.cmake): Container.h's constructor parameters hide its members (-Wshadow)
+// and its new[] sizes are int (-Wsign-conversion); a warning fix of M3.
+
+#include <doctest/doctest.h>
+
+#include "Container.h"
+
+#include <string>
+
+namespace {
+
+template <class F> std::string MessageOf(F Function)
+{
+	try {
+		Function();
+	} catch (const TMyException &Exception) {
+		return Exception.GetMessage();
+	}
+	return "no exception";
+}
+
+} // namespace
+
+TEST_CASE("Container.h: array")
+{
+	array<int> A(-2, 2);
+	CHECK(A.low() == -2);
+	CHECK(A.high() == 2);
+	A(-2) = 5;
+	A(2) = 7;
+	CHECK(A(-2) == 5);
+	CHECK(A(2) == 7);
+	CHECK(MessageOf([&] { A(3); })
+		== "Container.h 178: index out of range (original i: 3, i: 5, min: -2, d: 5)");
+	CHECK(MessageOf([] { array<int> Empty(1, 0); }) == "Container.h 152: assertion failed (d = 0), reason:\nd>0");
+}
+
+TEST_CASE("Container.h: matrix and matrix3d")
+{
+	matrix<int> M(0, 2, 10, 11);
+	M(2, 11) = 9;
+	CHECK(M(2, 11) == 9);
+	CHECK(M.entry[1 * 3 + 2] == 9);
+	CHECK(MessageOf([&] { M(0, 12); })
+		== "Container.h 253: index out of range (original x: 0, original y: 12, x: 0, y: 2, xmin: 0, ymin: 10, dx: 3, dy: 2)");
+	CHECK(MessageOf([] { matrix<int> Empty(0, 1, 5, 4); }) == "Container.h 218: assertion failed (dy = 0), reason:\ndy>0");
+
+	matrix3d<int> C(0, 1, 0, 1, -1, 0);
+	C(1, 0, 0) = 4;
+	CHECK(C.entry[(1 * 2 + 0) * 2 + 1] == 4);
+	CHECK(MessageOf([&] { C(0, 0, 1); })
+		== "Container.h 328: index out of range (original x: 0, original y: 0, original z: 1, x: 0, y: 0, z: 2, "
+		   "xmin: 0, ymin: 0, zmin: -1, dx: 2, dy: 2, dz: 2), reason:\n[bug0000013]");
+}
+
+TEST_CASE("Container.h: vector grows by block, or doubles")
+{
+	vector<int> V(0, 1, 0, -1);
+	CHECK(V(0) == -1);
+	V(1) = 1;
+	V(5) = 5; // doubles twice: space 2, 4, 8
+	CHECK(V.space == 8);
+	CHECK(V.max == 5);
+	CHECK(V(4) == -1);
+	CHECK(V(1) == 1);
+	V(-3) = -3; // grows below by the space, 8
+	CHECK(V.start == -8);
+	CHECK(V.min == -3);
+	CHECK(V(-1) == -1);
+	CHECK(V(1) == 1);
+	CHECK(V(5) == 5);
+
+	vector<int> W(10, 10, 4);
+	W(11) = 11;
+	CHECK(W.space == 5);
+	CHECK(W(11) == 11);
+	CHECK(MessageOf([] { vector<int> Bad(0, 0, -1); }) == "Container.h 370: assertion failed (block = -1), reason:\nblock>=0");
+}
