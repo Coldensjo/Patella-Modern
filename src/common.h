@@ -18,7 +18,9 @@
 #include <afxwin.h>
 #include <afxsock.h>
 #endif
+#include <cstdint>
 #include <string>
+#include <type_traits>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,9 +29,16 @@
 #include "TestHooks.h"
 #endif
 
-typedef unsigned char uint8;
-typedef unsigned short uint16;
-typedef unsigned int uint32;
+// The original's unsigned integer types, as aliases of the std types (Patella-Modern issue #35). They
+// are the same types as before, not only the same sizes: std::uint8_t, std::uint16_t and std::uint32_t
+// are unsigned char, unsigned short and unsigned int with MSVC (x86 and x64), mingw-w64 GCC, and GCC and
+// Clang on Linux, so mangled names, overloads and the PDB's type names stay as they were.
+using uint8 = std::uint8_t;
+using uint16 = std::uint16_t;
+using uint32 = std::uint32_t;
+static_assert(sizeof(uint8) == 1 && std::is_same_v<uint8, unsigned char>, "uint8 is unsigned char");
+static_assert(sizeof(uint16) == 2 && std::is_same_v<uint16, unsigned short>, "uint16 is unsigned short");
+static_assert(sizeof(uint32) == 4 && std::is_same_v<uint32, unsigned int>, "uint32 is unsigned int");
 
 // The original's structure layouts (its sizes and offsets, the static_asserts that check them) hold
 // in the 32-bit build, where the oracle-x86 preset freezes them until M6; the x64 build has its

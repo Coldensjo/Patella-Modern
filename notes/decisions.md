@@ -6312,3 +6312,38 @@ is clean on src/.
   from main 6a20d32 and from the branch at the same path, differ only in the link time stamps and the PDB record
   (pecompare: `.text` identical); the difftest counts are unchanged; the clang-tidy baseline did not hold a
   use-override entry and is unchanged (21).
+
+## using instead of typedef; uint8/16/32 as the std types (Patella-Modern issue #35)
+
+Settled by Claude Opus 5.5, November 3, 2026. The third change of M3 (plan section 7): `modernize-use-using` is
+clean on src/ (outside src/Extern), and common.h's `uint8`, `uint16` and `uint32` are aliases of
+`std::uint8_t`, `std::uint16_t` and `std::uint32_t`.
+
+- **clang-tidy through tools/tidy.py on every configuration that compiles src/** (high). As in issues #32 and
+  #33: `python -I tools/tidy.py -p <dir> --checks=-*,modernize-use-using --fix --all` once per target, on
+  compile_commands.json files holding one target's Release commands each (oracle-x86's Patella,
+  mfc_shim_check, difftest, communicationtest, sysinctest and vlongtest with `--extra-arg=-m32`; windows-x64's
+  Patella, PatellaTest, patella_core, patella_testmode and patella_render_vulkan). Six typedefs: ConsoleWindow.cpp's
+  `Word`, surfaceDX9.cpp's `TDirect3DCreate9` (oracle only) and SurfaceVulkan.h's four observer function
+  pointers (x64 only). The second run of every target reports no use-using finding (MainFrm.cpp's two
+  clang-diagnostic errors, also on main, aside). None was inside a TASSERT/TERROR/TEND argument (macrocheck:
+  the 2,108 calls unchanged).
+- **common.h's three by hand, as the std types** (high). The plan's "5 typedefs" in common.h were three
+  (`uint8`, `uint16`, `uint32`; src/ had nine in all). They become `using uint8 = std::uint8_t;` and so on, with
+  `<cstdint>` and `<type_traits>` included, each followed by a static_assert of its size and of its type.
+- **Same type, not only same size** (high). An alias whose type changed (`unsigned long` for `unsigned int`)
+  would change mangled names, overloads, template instantiations and the PDB's type names. It does not here:
+  `std::uint8_t`, `std::uint16_t` and `std::uint32_t` are `unsigned char`, `unsigned short` and `unsigned int`
+  in MSVC's stdint.h (x86 and x64), mingw-w64's, and glibc's (GCC and Clang on Linux, LP64: only `uint64_t` is
+  `unsigned long` there). The static_asserts check exactly that (`std::is_same_v<uint32, unsigned int>`) on
+  every preset, oracle-x86 included, so a library where it differs fails the build instead of changing code.
+  No tool reads these names from a PDB: tools/client_state.py looks up classes, `int` and template instances
+  of classes; the test mode and the comparison tools name no integer typedef.
+- **.clang-tidy enables modernize-use-using** (medium). The check is clean, so adding it costs no baseline
+  entry (still 21 findings, 0 new), and the hosted CI's baseline check fails a new `typedef` in src/.
+  tests/ and tools/ (difftest's function pointer typedefs, patcap.c) are outside the issue and outside
+  tidy.py's `--all`; they stay as they are.
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built
+  from main c57b39c and from the branch at the same path, differ only in the link time stamps and the PDB record
+  (pecompare: `.text`, `.data` and the rest identical); the difftest counts are unchanged; the clang-tidy
+  baseline is unchanged (21).

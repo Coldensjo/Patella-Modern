@@ -27,12 +27,12 @@ enum {
 
 // The functions of a frame observer DLL (tools/capture/patcap.c, loaded by tools/compare_rendering.py):
 // told about the device, asked before each frame is shown whether it wants the frame's pixels.
-typedef void(__cdecl *TVulkanDeviceObserver)(const char *Name, int Type, int CpuDriver);
-typedef int(__cdecl *TVulkanFrameObserver)(int Width, int Height);
-typedef void(__cdecl *TVulkanPixelsObserver)(const void *Bits, int Pitch, int Width, int Height);
+using TVulkanDeviceObserver = void(__cdecl *)(const char *Name, int Type, int CpuDriver);
+using TVulkanFrameObserver = int(__cdecl *)(int Width, int Height);
+using TVulkanPixelsObserver = void(__cdecl *)(const void *Bits, int Pitch, int Width, int Height);
 // Before the pixels: a byte per pixel of the picture, 1 where its value comes from the device's filter or
 // interpolation (the bilinear stretches, the light; notes/vulkan.md, "Pixels"), else 0.
-typedef void(__cdecl *TVulkanMaskObserver)(const unsigned char *Mask, int Width, int Height);
+using TVulkanMaskObserver = void(__cdecl *)(const unsigned char *Mask, int Width, int Height);
 
 class TSurfaceVulkan : public TSurface {
 public:

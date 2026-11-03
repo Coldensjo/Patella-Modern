@@ -24,7 +24,7 @@
 #define TASSERTB1(Line, Expr, V1, Bug) \
 	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr " " Bug)
 
-typedef IDirect3D9 *(WINAPI *TDirect3DCreate9)(UINT SDKVersion);
+using TDirect3DCreate9 = IDirect3D9 *(WINAPI *)(UINT SDKVersion);
 
 // Data, in address order (.data, then .bss).
 static int CurrentTargetNumber = -1;               // 0x5c2574
