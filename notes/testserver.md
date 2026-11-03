@@ -127,10 +127,14 @@ python -I tools/patch_client.py build/Release/Patella.exe build/run-patella/Pate
   `--rsa` takes the PEM (RSA private/public key, PKCS#1, PKCS#8 or X.509) or a decimal number and checks
   the exponent.
 - `--port N` changes the immediate 7171 in InitServerList (once in Tibia.exe, the loop's `mov ecx, 7171`;
-  four times in Patella.exe, whose compiler unrolled the loop); not needed here.
-- Everything is found by searching the file (no fixed offsets); the input is never written; afterwards the
-  output is compared with the input byte by byte and must differ only inside the patched ranges (else the
-  output is deleted and the script fails).
+  four times in Patella.exe, whose compiler unrolled the loop), found in the 0x200 bytes after the first code
+  reference to the server.tibia.com literal: on x86 its absolute address, on x64 (Patella-Modern issue #15) a
+  RIP-relative disp32 after a ModRM byte with mod 00, r/m 101 whose target is inside the literal; the four
+  stores are then `mov dword ptr [rip+disp32], 7171` (`c7 05 <disp32> 03 1c 00 00`). compare_traffic.py's
+  clients use `--port 7271` (the proxy).
+- Everything is found by searching the file (no fixed offsets); PE32 (x86) and PE32+ (x64) images alike; the
+  input is never written; afterwards the output is compared with the input byte by byte and must differ only
+  inside the patched ranges (else the output is deleted and the script fails).
 
 | | Tibia.exe (file offset, VA) | Patella.exe (file offset, VA) |
 | :--- | :--- | :--- |
@@ -143,6 +147,11 @@ python -I tools/patch_client.py build/Release/Patella.exe build/run-patella/Pate
 
 (Patella.exe's offsets are those of the build from 8ac8a06; it is ASLR-relocatable, the VAs are at its
 preferred base 0x400000.)
+
+The x64 build (build\windows-x64\Release\Patella.exe of 21a40b1, preferred base 0x140000000; issue #15): the
+names at file offsets 0x323d48, 0x323d60, 0x323d78, 0x323d90, the modulus at 0x30d7a0, the first reference to
+server.tibia.com at 0x84aa3 (`movups xmm0, [rip+29fea1h]`), the four port immediates at 0x84b20, 0x84b31,
+0x84b42, 0x84b53; 344 bytes changed without `--port`, 348 with it, as in the oracle-x86 build.
 
 ## Run folders
 

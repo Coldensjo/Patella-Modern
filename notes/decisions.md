@@ -5096,10 +5096,44 @@ and member the tools read.
   against a 64-bit MSVC test process with TComponent/TWindow-like classes and a PDB (offsets, slot 0x40,
   bitness, module base, RTTI names, the pattern, gui() end to end); not yet against an x64 Patella.exe.
 - **Raw offsets** (form). `skin_rects`/`skin_int` take a member path of TSkinProperties; an int is still
-  accepted when the layout equals the original (`Layout.frozen`: Tibia.exe and the oracle build), so
-  compare_rendering.py's four raw skin offsets keep working on x86 and fail with a message on x64.
-  compare_files.py and compare_rendering.py still add literal offsets to component pointers and read pointers
-  with u32 (TCheckBox +0x30, the option dialogs' controls, TAutomapWindow's zoom buttons, ...): right on x86,
-  not on x64 until they name their fields here too.
+  accepted when the layout equals the original (`Layout.frozen`: Tibia.exe and the oracle build).
+  compare_rendering.py's four raw skin offsets and compare_files.py's and compare_rendering.py's literal
+  component offsets (TCheckBox +0x30, the option dialogs' controls, TAutomapWindow's zoom buttons, ...) were
+  right on x86 only; Patella-Modern issue #15 (below) named them in the table.
 - **dbghelp** (form). System32's, loaded by full path: it reads MSVC 14.51's PDBs, x86 and x64; the Windows SDK
   Debuggers copy is not needed.
+
+## patch_client.py and the GUI comparisons on x64 (Patella-Modern issue #15)
+
+Settled by Claude Opus 5.5, November 3, 2026 (Python 3.13 x64, System32 dbghelp.dll; the builds of 21a40b1).
+`tools/patch_client.py`, `tools/client_state.py` (LAYOUT_FIELDS), `tools/compare_files.py` (and its
+`--patella`), `tools/compare_rendering.py`. No change to src/ or the CMake files.
+
+- **patch_client.py on PE32+** (high). It refused every image that was not PE32. It now reads the optional
+  header's magic (0x10b: ImageBase at +28, 4 bytes; 0x20b: at +24, 8 bytes). The names and the modulus were
+  found by searching the file already and need nothing else. The port's anchor, the first code reference to
+  the server.tibia.com literal, is on x86 the literal's absolute address (unchanged code path); on x64 a
+  RIP-relative disp32: a ModRM byte with mod 00, r/m 101 before it (`b & 0xc7 == 0x05`) and the target, the
+  address after the disp32 plus the disp32, inside the literal. That target rule holds for instructions
+  without an immediate after the disp32, which InitServerList's strcpy loads are (`movups xmm0,
+  [rip+disp32]`, `movzx eax, byte ptr [rip+disp32]`). In the x64 build the anchor is at file 0x84aa3, the four
+  stores `c7 05 <disp32> 03 1c 00 00` follow at 0x84b20/31/42/53 (one per server, unrolled like the x86
+  build's); the same nine ranges as on x86 are patched (348 bytes with `--port`, 344 without). On Tibia.exe and
+  the oracle-x86 build, main's and this version's outputs are byte for byte the same (three argument sets).
+- **The GUI comparisons' offsets** (high). Every literal offset compare_files.py and compare_rendering.py
+  added to a component pointer is a LAYOUT_FIELDS entry now (28 entries: TCheckBox.Checked, the general,
+  console, network, graphics and advanced options' controls, THorizontalScrollBar.LeftButton,
+  THotkeyDialog.AutoSendCheckBox and Selected, TEditMarkDialog.TypeButtons (kind `ptr[14]`; an array of
+  pointers must be count times the pointer size), TAutomapWindow's ZoomInButton/ZoomOutButton,
+  TSkinProperties.Data60C, Data61C, Style1394.Data70.x/.y); pointers are read with `ptr()` (4 or 8 bytes)
+  instead of `u32()`. On the oracle-x86 PDB all 44 former lookups (the 14 TypeButtons elements counted one by
+  one) give the old constant and read width, and so does Layout.original() for Tibia.exe; `--layout` on
+  oracle-x86: 101 fields, 0 mismatches, frozen; on windows-x64: 0 problems (e.g. TCheckBox.Checked 0x50,
+  THotkeyDialog.AutoSendCheckBox 0x2480, TAutomapWindow.ZoomInButton 0x80; the SkinProperties members keep
+  their offsets).
+- **compare_files.py --patella** (form). As compare_traffic.py's: the Patella.exe to test, x86 or x64, with
+  its PDB next to it. compare_rendering.py has none: its capture DLL (tools/capture/patcap.c) and the import it
+  adds (`add_import`) are 32-bit, so it cannot run an x64 client yet; its offsets are ready for it.
+- **Not checked yet** (form). Nothing has run the x64 client: the live compare_traffic.py and compare_files.py
+  runs with `--patella build\windows-x64\Release\Patella.exe` show whether the patched x64 copy logs in through
+  the proxy and whether the dialogs' controls are found.

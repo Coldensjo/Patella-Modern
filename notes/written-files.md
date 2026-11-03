@@ -30,8 +30,11 @@ just ends.
 
 ```
 tools\build-patella.cmd
-python -I tools/compare_files.py [--out build\files\result] [--only options,walk,...] [--skip-live] [--no-repeat]
+python -I tools/compare_files.py [--out build\files\result] [--only options,walk,...] [--skip-live] [--no-repeat] [--patella EXE]
 ```
+
+`--patella` names the Patella.exe to test, x86 or x64, with its PDB next to it (default build\Release\Patella.exe;
+as compare_traffic.py's; Patella-Modern issue #15).
 
 The test server must be stopped; the script starts it for the one live recording and stops it (a clean stop
 saves, as always) and puts the test characters' player files back, as compare_traffic.py does. Everything

@@ -38,7 +38,8 @@ Tibia.exe and build\Release\Patella.exe).
 ### Recording and decryption (tools/proxy.py)
 
 The clients under test are patched with `tools/patch_client.py --host 127.0.0.1 --port 7271 --rsa
-tibia.pem`, so they log in to the proxy. The proxy forwards the login connection to 127.0.0.1:7171 and
+tibia.pem`, so they log in to the proxy (x86 and, since Patella-Modern issue #15, x64 images: the port's
+immediates are found through the RIP-relative reference to server.tibia.com there; notes/testserver.md). The proxy forwards the login connection to 127.0.0.1:7171 and
 the game connection to 127.0.0.1:7172. The character list carries the game server's port (7172); the
 proxy decrypts the login server's reply, puts its own game port (7272) in, and encrypts it again with the
 same padding (the recording keeps the server's original as "orig"). Both clients get the same rewrite.
@@ -132,6 +133,10 @@ LAYOUT_VSLOTS), so the x64 build, whose layouts are its own, is read correctly t
 the original layouts (static_asserts in src/); `python -I tools/client_state.py --layout <Patella.exe>`
 lists every entry and, for an x86 image, compares it with the original's constant (0 mismatches);
 `--self-test` checks the process side (bitness, module base, pointer reads) against the Python process.
+compare_files.py and compare_rendering.py read their controls through the same table (issue #15): the
+option dialogs' check boxes and buttons, TCheckBox.Checked, the frame rate scroll bar's LeftButton, the
+hotkey dialog's AutoSendCheckBox and Selected, the mark dialog's TypeButtons, TAutomapWindow's zoom buttons
+and four SkinProperties members; pointers with the image's pointer size.
 
 ### Live sessions and the server's state
 
