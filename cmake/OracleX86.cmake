@@ -4,9 +4,10 @@
 # - Patella.exe with exactly the compiler, resource compiler and linker command lines of the former
 #   Patella.vcxproj (Release and Debug; the MSBuild project and the .cmd build scripts were removed in
 #   issue #10): /std:c++17 /W3, static MFC (nafxcw.lib, pulled in by the MFC headers), /MT, Tibia.exe's
-#   import libraries in their order, oleacc.dll delay-loaded, no manifest. The resource pictures are
-#   extracted from the local Tibia.exe at configure time; after every link tools/compare_resources.py
-#   checks the resources against Tibia.exe's, as tools\build-patella.cmd did.
+#   import libraries in their order, oleacc.dll delay-loaded, no manifest; SurfaceGL.cpp alone compiles
+#   without /FC (issue #14, below). The resource pictures are extracted from the local Tibia.exe at
+#   configure time; after every link tools/compare_resources.py checks the resources against Tibia.exe's,
+#   as tools\build-patella.cmd did.
 # - difftest, sysinctest, communicationtest and vlongtest with exactly the command lines of the former
 #   tools\difftest\build.cmd (the same in every configuration), run as CTest tests against
 #   PATELLA_TIBIA_EXE, each with a private TEMP; the capture DLL patcap.dll of the former
@@ -109,7 +110,25 @@ target_compile_options(Patella PRIVATE
 	$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Release>>:/Gy>
 	$<$<COMPILE_LANGUAGE:C,CXX>:/fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline>
 	$<$<COMPILE_LANGUAGE:CXX>:/std:c++17>
-	$<$<COMPILE_LANGUAGE:C,CXX>:/permissive- /external:W3 /Gd /analyze- /FC /Zc:strictStrings->)
+	$<$<COMPILE_LANGUAGE:C,CXX>:/permissive- /external:W3 /Gd /analyze->)
+# The vcxproj's last two options, /FC /Zc:strictStrings-, per source (a source's options follow the
+# target's, so every other command line stays the vcxproj's), and /FC not for SurfaceGL.cpp (issue #14): /FC
+# makes the name in glh_extensions.h's `#line 173 "Extern\glh/glh_extensions.h"` absolute from the
+# compiler's working directory, and the original's malloc-failure message prints it as written. Every
+# other name cl gets is absolute already, so /FC changes nothing else there. The genex keeps the
+# options off mfc_shim_check, which compiles the same sources (source properties are the directory's).
+set(patella_fc_sources ${patella_cpp_sources} ${patella_c_sources})
+list(LENGTH patella_fc_sources patella_source_count)
+list(REMOVE_ITEM patella_fc_sources "${PROJECT_SOURCE_DIR}/src/SurfaceGL.cpp")
+list(LENGTH patella_fc_sources patella_fc_count)
+math(EXPR patella_fc_count "${patella_fc_count} + 1")
+if(NOT patella_fc_count EQUAL patella_source_count)
+	message(FATAL_ERROR "src/SurfaceGL.cpp is not among Patella's sources (the /FC exception, issue #14)")
+endif()
+set_property(SOURCE ${patella_fc_sources} APPEND PROPERTY COMPILE_OPTIONS
+	"$<$<STREQUAL:$<TARGET_PROPERTY:NAME>,Patella>:/FC>")
+set_property(SOURCE ${patella_cpp_sources} ${patella_c_sources} APPEND PROPERTY COMPILE_OPTIONS
+	"$<$<STREQUAL:$<TARGET_PROPERTY:NAME>,Patella>:/Zc:strictStrings->")
 # Tibia.exe's import table in its order (notes/decisions.md, "Building Patella.exe (issue #16)");
 # Direct3D 9 is loaded at run time. MSBuild adds delayimp.lib for /DELAYLOAD.
 target_link_libraries(Patella PRIVATE

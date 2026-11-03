@@ -4830,7 +4830,8 @@ and runs the tests; the other presets of the plan (section 5) come with #5 and #
   debug directory, and the `#line 173 "Extern\glh/glh_extensions.h"` name in glh_extensions.h, which /FC makes
   absolute from the compiler's working directory (MSBuild's: C:\Patella-Modern\Extern\glh\glh_extensions.h;
   Ninja's: C:\Patella-Modern\build\oracle-x86\Extern\glh\glh_extensions.h; the original prints
-  "Extern\glh/glh_extensions.h" when malloc fails there, and so do the test programs, which build without /FC).
+  "Extern\glh/glh_extensions.h" when malloc fails there, and so do the test programs, which build without /FC;
+  issue #14 compiles SurfaceGL.cpp without /FC, "/FC and the glh_extensions.h #line name (issue #14)").
   No compiler or linker warning in either build. The CTest tests give exactly build.cmd's counts.
 - **Resources** (form). tools/extract_resources.py runs at configure time (as the plan has it for Linux, section
   5) into build\oracle-x86\res; Tibia.exe and the script are configure dependencies, so a new Tibia.exe
@@ -5237,3 +5238,46 @@ comments in `src/compat/mfc_shim.h` and `src/res/Patella.rc`.
   windows-x64-gcc: 0 warnings, the tests pass. Patella.exe (Release) against main's (build\issue-10\main-oracle):
   .text, .data, .fptable, .rsrc and .reloc identical, .rdata and the headers differ only in the link timestamps
   and one byte of the PDB GUID. Logs: build\logs\issue-17.
+
+## /FC and the glh_extensions.h #line name (issue #14)
+
+Settled by Claude Opus 5.5, November 3, 2026 (CMake 4.1.2, Ninja 1.13.2, MSVC 14.51). `cmake/OracleX86.cmake` only;
+src/ unchanged. The owner approved making the message match the original's (comment on #14).
+
+- **The cause** (high). glh_extensions.h gives its two CHECK_MEMORY printfs the original's file and line with
+  `#line 173 "Extern\\glh/glh_extensions.h"`. /FC (MSBuild's "use full paths", in the vcxproj's options) makes a
+  relative name absolute from the compiler's working directory, which for Ninja is build\oracle-x86: the oracle
+  printed `C:\Patella-Modern\build\oracle-x86\Extern\glh\glh_extensions.h`, the original
+  `Extern\glh/glh_extensions.h`. cl has no option that cancels /FC.
+- **The fix** (high). SurfaceGL.cpp, the one source that includes glh_extensions.h, compiles without /FC, in the
+  Patella target only. A target's options cannot leave out one source, so the vcxproj's last two options,
+  `/FC /Zc:strictStrings-`, moved from the target to the sources' COMPILE_OPTIONS (which CMake puts after the
+  target's): /FC on every source but SurfaceGL.cpp, then /Zc:strictStrings- on every source, each inside
+  `$<$<STREQUAL:$<TARGET_PROPERTY:NAME>,Patella>:...>`, because source properties belong to the directory and
+  mfc_shim_check compiles the same sources with its own options. The generated Ninja files (Release and Debug)
+  differ from before in one line each: SurfaceGL.cpp's flags in Patella without /FC; every other command line
+  is the same text. The configure stops if SurfaceGL.cpp is not among the sources. Considered: dropping /FC for
+  every file (one token, but 36 command lines change, and /FC also spells every `__FILE__` there, TMyException's
+  file names in .rdata, which only happen to be absolute already because Ninja passes absolute paths), and
+  changing the source (allowed only if no build-side fix works). Without /FC, SurfaceGL.cpp's own `__FILE__`
+  stays `C:\Patella-Modern\src\SurfaceGL.cpp`: a scratch compile with and without /FC gives the same string
+  symbol for it, and the #line name `Extern\glh/glh_extensions.h`.
+- **Result** (high). oracle-x86 Release Patella.exe against issue-17's (both built in build\oracle-x86): the string
+  at VA 0x6d5768 is now `Extern\glh/glh_extensions.h` (27 bytes, as Tibia.exe's at 0x5731d8) instead of the
+  62-byte path; its address and the two pushes of it (operands at 0x4f9653 and 0x4f9671) are unchanged. Because it is 35 bytes
+  shorter, the .rdata contents after it move down: by 36 bytes up to 0x6d59a0, by 32 up to the TLS directory,
+  by 64 from there (alignment of later items absorbs or doubles the shift); .rdata's virtual size 0xaec50 ->
+  0xaec10, its raw size and every section's address and raw size unchanged. Every other difference is an
+  address of a moved item: 11,361 pointers in .text, 825 in .data, 10,759 in .rdata (relocation sites); 1,328
+  RVAs (628 IAT entries and the 628 of the import lookup tables, 36 in the import directory, 3 in the delay
+  import directory, 6 in the debug directory, 27 more, among them the load config's volatile metadata header
+  and the delay import tables); the header's import, debug, TLS, load config and delay
+  import directory RVAs, the .rdata and .reloc virtual sizes and the relocation directory's size (the same
+  130,879 relocation sites, moved with their items; 16 bytes more of block headers); the POGO debug record's
+  size of the .rdata group (0x4f500 -> 0x4f4c0); and the link timestamps and PDB GUID. An uncommitted script
+  (build\issue-14\scratch\shiftcompare.py) accounts for every differing byte this way: 0 unexplained.
+  compare_imports.py prints the same as for issue-17's exe; compare_resources.py 0 differences. The windows-x64
+  Patella.exe never had /FC (cmake/WindowsX64.cmake) and already prints `Extern\glh/glh_extensions.h`.
+- **Gates** (high). `python -I tools/build.py oracle-x86`: 0 warnings, 4/4 tests, 16,848,752 / 67 / 1,134,513 /
+  3,201 checks, 0 failures. `python -I tools/build.py windows-x64 --fresh`: 0 warnings, 8/8 tests. The Debug
+  oracle exe was not compared (its command line changes the same way). Logs: build\logs\issue-14.
