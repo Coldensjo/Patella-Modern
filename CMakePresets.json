@@ -33,7 +33,7 @@
 		{
 			"name": "oracle-x86",
 			"displayName": "oracle-x86: today's 32-bit Patella.exe and the difftest (MSVC x86, static MFC; until M6)",
-			"description": "Run from an x86 developer prompt (vcvarsall.bat x86). Needs Tibia.exe in the root (or PATELLA_TIBIA_EXE) and Python.",
+			"description": "Needs MSVC for x86 set up (vcvarsall.bat x86): python -I tools/build.py oracle-x86 does it. Needs Tibia.exe in the root (or PATELLA_TIBIA_EXE) and Python.",
 			"inherits": "windows-base",
 			"architecture": {
 				"value": "x86",
@@ -50,7 +50,7 @@
 		{
 			"name": "windows-x64",
 			"displayName": "windows-x64: the Windows product (MSVC x64, static x64 MFC): the client and the unit tests",
-			"description": "Run from an x64 developer prompt (vcvarsall.bat x64). Needs Tibia.exe in the root (or PATELLA_TIBIA_EXE) for the client's resources, and Python; PATELLA_CLIENT=OFF builds only the unit tests.",
+			"description": "Needs MSVC for x64 set up (vcvarsall.bat x64): python -I tools/build.py windows-x64 does it. Needs Tibia.exe in the root (or PATELLA_TIBIA_EXE) for the client's resources, and Python; PATELLA_CLIENT=OFF builds only the unit tests.",
 			"inherits": "windows-base",
 			"architecture": {
 				"value": "x64",
@@ -213,6 +213,24 @@
 			]
 		},
 		{
+			"name": "windows-x64-debug",
+			"displayName": "windows-x64-debug: configure, build Debug, run the unit tests",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "windows-x64"
+				},
+				{
+					"type": "build",
+					"name": "windows-x64-debug"
+				},
+				{
+					"type": "test",
+					"name": "windows-x64-debug"
+				}
+			]
+		},
+		{
 			"name": "windows-x64-gcc",
 			"displayName": "windows-x64-gcc: configure, build Release, run the unit tests",
 			"steps": [
@@ -227,6 +245,24 @@
 				{
 					"type": "test",
 					"name": "windows-x64-gcc"
+				}
+			]
+		},
+		{
+			"name": "windows-x64-gcc-debug",
+			"displayName": "windows-x64-gcc-debug: configure, build Debug, run the unit tests",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "windows-x64-gcc"
+				},
+				{
+					"type": "build",
+					"name": "windows-x64-gcc-debug"
+				},
+				{
+					"type": "test",
+					"name": "windows-x64-gcc-debug"
 				}
 			]
 		}

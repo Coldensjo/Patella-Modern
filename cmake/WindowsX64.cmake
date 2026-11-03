@@ -11,12 +11,14 @@
 #   optimisation flags; a PDB in Release and Debug.
 # - The resource pictures are extracted from the local Tibia.exe at configure time, as for the oracle.
 #
-# Configure from an x64 developer prompt (vcvarsall.bat x64). Without Tibia.exe (PATELLA_TIBIA_EXE)
-# the configure stops; PATELLA_CLIENT=OFF builds only the unit tests, for machines without it.
+# Configure with MSVC for x64 set up (vcvarsall.bat x64; `python -I tools/build.py windows-x64` does
+# it). Without Tibia.exe (PATELLA_TIBIA_EXE) the configure stops; PATELLA_CLIENT=OFF builds only the
+# unit tests, for machines without it.
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-	message(FATAL_ERROR "windows-x64 needs MSVC's x64 compiler: configure from a developer prompt set up with "
-		"vcvarsall.bat x64 (found ${CMAKE_SIZEOF_VOID_P}-byte pointers)")
+	message(FATAL_ERROR "windows-x64 needs MSVC's x64 compiler: run python -I tools/build.py windows-x64, or "
+		"configure from a developer prompt set up with vcvarsall.bat x64 (found ${CMAKE_SIZEOF_VOID_P}-byte "
+		"pointers)")
 endif()
 
 enable_language(RC)

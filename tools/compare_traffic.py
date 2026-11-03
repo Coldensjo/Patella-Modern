@@ -7,7 +7,7 @@ Runs the scripted session of tools/session_client.py with both clients and compa
 
 1. Live: for each client (Tibia.exe first, then Patella.exe) the test characters' player
    files are restored to what they were when the script started, the server is started
-   (tools/run-testserver.ps1), the client under test is started, then the helper (a third
+   (tools/testserver.py start), the client under test is started, then the helper (a third
    copy of Tibia.exe, started with "gamemaster" so that it skips the one-client check; this
    server ignores the flag) logs "Patella Second" in, the trade partner. The client under test
    goes through tools/proxy.py (recording, decryption) and plays the session as "Patella
@@ -51,6 +51,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import proxy as px  # noqa: E402
 import session_client as sc  # noqa: E402
 import login_client as lc  # noqa: E402
+import testserver  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVER_DIR = r"C:\Tibia\gameserver"
@@ -62,8 +63,8 @@ PLAYER_FILES = {  # the test account's characters (notes/testserver.md)
 }
 CLIENTS = {
 	"orig": {"exe": "Tibia.exe", "source": os.path.join(ROOT, "Tibia.exe"), "pdb": None},
-	"patella": {"exe": "Patella.exe", "source": os.path.join(ROOT, "build", "Release", "Patella.exe"),
-		"pdb": os.path.join(ROOT, "build", "Release", "Patella.exe")},
+	"patella": {"exe": "Patella.exe", "source": os.path.join(ROOT, "build", "oracle-x86", "Release", "Patella.exe"),
+		"pdb": os.path.join(ROOT, "build", "oracle-x86", "Release", "Patella.exe")},
 }
 HELPER = {"exe": "Tibia.exe", "source": os.path.join(ROOT, "Tibia.exe")}
 TRAFFIC = os.path.join(ROOT, "build", "traffic")
@@ -143,7 +144,7 @@ def setup():
 				shutil.copyfile(source, target)
 		exe = os.path.join(folder, info["exe"])
 		if not os.path.isfile(info["source"]):
-			raise RunError("%s not found (build it with tools\\build-patella.cmd)" % info["source"])
+			raise RunError("%s not found (build it with python -I tools/build.py oracle-x86)" % info["source"])
 		if os.path.isfile(exe):
 			os.remove(exe)
 		command = [sys.executable, "-I", os.path.join(ROOT, "tools", "patch_client.py"), info["source"], exe,
@@ -168,34 +169,35 @@ def read_cfg(name):
 # --- the server --------------------------------------------------------------------------
 
 def server_running():
-	result = subprocess.run(["powershell", "-NoProfile", "-Command",
-		"Get-Process -Name tibia-server -ErrorAction SilentlyContinue | ForEach-Object { $_.Path }"],
-		capture_output=True, text=True)
-	return any(line.strip().lower() == SERVER_EXE.lower() for line in result.stdout.splitlines())
+	"""A tibia-server.exe from SERVER_DIR runs (started by these tools or not)."""
+	return bool(testserver.server_processes(testserver.server_exe(SERVER_DIR)))
 
 
 def start_server():
-	"""run-testserver.ps1; again if the login server listens on 0.0.0.0. The server's login
+	"""testserver.py start; again if the login server listens on 0.0.0.0. The server's login
 	thread reads its bind address from a global (GameAddress) that LoadWorldConfig overwrites
 	while the thread starts (src/main.cc, login/login_server.cc), so now and then it binds
 	0.0.0.0:7171 although config.cfg says 127.0.0.1."""
 	for attempt in range(1, 6):
-		output = server_script("run-testserver.ps1")
+		output = server_script("start")
 		if "0.0.0.0:7171" not in output:
 			return
 		log("the login server listens on 0.0.0.0:7171 (the server's start-up race): restarting it")
-		server_script("stop-testserver.ps1")
+		server_script("stop")
 	raise RunError("the login server listened on 0.0.0.0:7171 five times")
 
 
-def server_script(name):
-	# output to a file, not a pipe: the server inherits the handles, and a pipe would stay
-	# open (and subprocess wait for its end) as long as the server runs
+def server_script(command):
+	"""python -I tools/testserver.py <command> (start or stop): its output to server-scripts.log and
+	the log; returns the output."""
+	# output to a file, not a pipe: a pipe the server inherited would stay open (and subprocess
+	# wait for its end) as long as the server runs
 	path = os.path.join(TRAFFIC, "server-scripts.log")
+	name = "testserver.py " + command
 	with open(path, "a", encoding="utf-8") as f:
 		start = f.tell()
-		code = subprocess.call(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-			os.path.join(ROOT, "tools", name)], stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=ROOT)
+		code = subprocess.call([sys.executable, "-I", os.path.join(ROOT, "tools", "testserver.py"), command],
+			stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=ROOT)
 	with open(path, "r", encoding="utf-8", errors="replace") as f:
 		f.seek(start)
 		output = f.read()
@@ -284,7 +286,7 @@ def live_run(client, out, players):
 		helper_logout(helper)
 	finally:
 		helper.kill()
-		server_script("stop-testserver.ps1")
+		server_script("stop")
 	return prefix + ".jsonl"
 
 
@@ -391,8 +393,7 @@ def main():
 	parser.add_argument("--skip-live", action="store_true", help="reuse the live recordings in --out")
 	parser.add_argument("--no-cross", action="store_true", help="replay only Tibia.exe's live recording")
 	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
-		"it (default build/Release/Patella.exe; e.g. build/oracle-x86/Release/Patella.exe, "
-		"build/windows-x64/Release/Patella.exe)")
+		"it (default build/oracle-x86/Release/Patella.exe; e.g. build/windows-x64/Release/Patella.exe)")
 	args = parser.parse_args()
 	if args.patella:
 		CLIENTS["patella"]["source"] = CLIENTS["patella"]["pdb"] = os.path.abspath(args.patella)
@@ -409,7 +410,7 @@ def main():
 	live = {client: os.path.join(out, "%s-live.jsonl" % client) for client in CLIENTS}
 	if not args.skip_live:
 		if server_running():
-			raise RunError("the test server is running: stop it first (tools\\stop-testserver.ps1)")
+			raise RunError("the test server is running: stop it first (python -I tools/testserver.py stop)")
 		players = snapshot_players()
 		try:
 			for client in CLIENTS:

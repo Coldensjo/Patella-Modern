@@ -370,7 +370,7 @@ static int RunChild(int argc, char **argv)
 	snprintf(CommandLine, sizeof(CommandLine), "\"%s\" --child \"%s\" %lu", Self,
 		argc > 1 ? argv[1] : "C:\\Tibia\\Tibia.exe", (unsigned long)(uintptr_t)Shared);
 	// The child is killed with the parent (a job that dies with its handle):
-	// a child left running would keep build.cmd from linking difftest.exe
+	// a child left running would keep the build from linking difftest.exe
 	// again. The job also keeps Windows Error Reporting from holding a crashed
 	// child.
 	HANDLE Job = CreateJobObjectA(NULL, NULL);

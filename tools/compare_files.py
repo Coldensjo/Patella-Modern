@@ -1,6 +1,6 @@
 r"""Compare the files Patella.exe and the original Tibia.exe write (issue #21).
 
-Usage (from the repository or a worktree; tools\build-patella.cmd first; the test server of
+Usage (from the repository or a worktree; python -I tools/build.py oracle-x86 first; the test server of
 issue #18 must be stopped, the script starts and stops it for the one live recording):
   python -I tools/compare_files.py [--out build\files\result] [--only a,b] [--skip-live] [--patella EXE]
 
@@ -560,7 +560,7 @@ def record_walk(out):
 	"""The live session with Tibia.exe through the recording proxy: <out>\\walk-live.jsonl."""
 	path = os.path.join(out, "walk-live.jsonl")
 	if ct.server_running():
-		raise RunError("the test server is running: stop it first (tools\\stop-testserver.ps1)")
+		raise RunError("the test server is running: stop it first (python -I tools/testserver.py stop)")
 	players = ct.snapshot_players()
 	before = prepare("orig")
 	driver = None
@@ -578,7 +578,7 @@ def record_walk(out):
 		if driver is not None:
 			driver.kill()
 		try:
-			ct.server_script("stop-testserver.ps1")
+			ct.server_script("stop")
 		finally:
 			ct.restore_players(players)
 			log("player files of the test characters restored")
@@ -1054,7 +1054,7 @@ def main():
 		help="reuse --out's walk-live.jsonl (no server needed)")
 	parser.add_argument("--no-repeat", action="store_true", help="run Tibia.exe once only (no evidence for the masks)")
 	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
-		"it (default build/Release/Patella.exe; as tools/compare_traffic.py's --patella)")
+		"it (default build/oracle-x86/Release/Patella.exe; as tools/compare_traffic.py's --patella)")
 	args = parser.parse_args()
 	if args.patella:
 		CLIENTS["patella"]["source"] = CLIENTS["patella"]["pdb"] = os.path.abspath(args.patella)

@@ -1,6 +1,6 @@
 r"""Compare how Patella.exe and the original Tibia.exe take crafted and fuzzed server streams (issue #37).
 
-Usage (from the repository or a worktree; tools\build-patella.cmd first; no server is needed):
+Usage (from the repository or a worktree; python -I tools/build.py oracle-x86 first; no server is needed):
   python -I tools/compare_network.py [--out build\network\result] [--only a,b] [--list] [--repeat]
       [--recording build\network\orig-live.jsonl]
 

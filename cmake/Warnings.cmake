@@ -6,8 +6,8 @@
 #	patella_target_language(<target>)   C++23 and the conformance switches
 #	patella_target_warnings(<target>)   the warning level, file by file, and warnings as errors
 #
-# Never for the oracle-x86 targets: cmake/OracleX86.cmake keeps exactly the flags of Patella.vcxproj
-# and tools\difftest\build.cmd (/std:c++17 /W3 /Zc:strictStrings- ...) until M6.
+# Never for the oracle-x86 targets: cmake/OracleX86.cmake keeps exactly the flags of the former
+# Patella.vcxproj and tools\difftest\build.cmd (/std:c++17 /W3 /Zc:strictStrings- ...) until M6.
 
 # DIRECTORY, not GLOBAL: the variables below are directory-scoped, and a directory that includes the
 # file after another one did (the client after tests/unit) must get them too.

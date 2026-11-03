@@ -1,30 +1,34 @@
 # The oracle-x86 preset (issue #4; notes/modernization-plan.md, sections 5 and 7, M1): a test
 # instrument until M6, not a product.
 #
-# - Patella.exe with exactly the compiler, resource compiler and linker command lines of
-#   Patella.vcxproj (Release and Debug; tools\build-patella.cmd builds the same): /std:c++17 /W3,
-#   static MFC (nafxcw.lib, pulled in by the MFC headers), /MT, Tibia.exe's import libraries in
-#   their order, oleacc.dll delay-loaded, no manifest. The resource pictures are extracted from the
-#   local Tibia.exe at configure time.
-# - difftest, sysinctest, communicationtest and vlongtest with exactly the command lines of
+# - Patella.exe with exactly the compiler, resource compiler and linker command lines of the former
+#   Patella.vcxproj (Release and Debug; the MSBuild project and the .cmd build scripts were removed in
+#   issue #10): /std:c++17 /W3, static MFC (nafxcw.lib, pulled in by the MFC headers), /MT, Tibia.exe's
+#   import libraries in their order, oleacc.dll delay-loaded, no manifest. The resource pictures are
+#   extracted from the local Tibia.exe at configure time; after every link tools/compare_resources.py
+#   checks the resources against Tibia.exe's, as tools\build-patella.cmd did.
+# - difftest, sysinctest, communicationtest and vlongtest with exactly the command lines of the former
 #   tools\difftest\build.cmd (the same in every configuration), run as CTest tests against
-#   PATELLA_TIBIA_EXE, each with a private TEMP; and the capture DLL patcap.dll of
-#   tools\build-capture.cmd.
+#   PATELLA_TIBIA_EXE, each with a private TEMP; the capture DLL patcap.dll of the former
+#   tools\build-capture.cmd (tools/compare_rendering.py uses build\oracle-x86\Release\patcap.dll); and
+#   mfc_shim_check, every source compiled against src/compat/mfc_shim.h with the options of the former
+#   tools\compile-check.cmd.
 #
 # CMake's own default flags (/DWIN32 /D_WINDOWS /GR /EHsc, /Ob2, /machine, /INCREMENTAL, its
 # standard libraries) are cleared below, so every flag on the command lines is one written here.
-# Configure from an x86 developer prompt (vcvarsall.bat x86), as the .cmd scripts do.
+# Configure with MSVC for x86 set up (vcvarsall.bat x86): `python -I tools/build.py oracle-x86` does it.
 
 if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR NOT CMAKE_C_COMPILER_ID STREQUAL "MSVC"
 		OR NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
-	message(FATAL_ERROR "oracle-x86 needs MSVC's x86 compiler (cl.exe for x86): configure from a developer "
-		"prompt set up with vcvarsall.bat x86 (found ${CMAKE_CXX_COMPILER_ID}, ${CMAKE_SIZEOF_VOID_P}-byte pointers)")
+	message(FATAL_ERROR "oracle-x86 needs MSVC's x86 compiler (cl.exe for x86): run python -I tools/build.py "
+		"oracle-x86, or configure from a developer prompt set up with vcvarsall.bat x86 (found "
+		"${CMAKE_CXX_COMPILER_ID}, ${CMAKE_SIZEOF_VOID_P}-byte pointers)")
 endif()
 
 enable_language(RC)
 enable_language(ASM_MASM)
 
-# The Python on PATH, as the .cmd scripts run, before any registered elsewhere.
+# The Python on PATH, as the former .cmd scripts ran it, before any registered elsewhere.
 set(Python3_FIND_REGISTRY LAST)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
@@ -62,14 +66,14 @@ set(ORACLE_TMP_DIR "${PROJECT_BINARY_DIR}/tmp")
 
 # ---------------------------------------------------------------------------------------------------
 # The resource pictures (cursors, icon, bitmaps) of the local Tibia.exe, for src/res/Patella.rc; the
-# project's ExtractResources target does the same before the resources compile.
+# former MSBuild project's ExtractResources target did the same before the resources compiled.
 
 set(PATELLA_RES_DIR "${PROJECT_BINARY_DIR}/res")
 include("${PROJECT_SOURCE_DIR}/cmake/Resources.cmake")
 patella_extract_resources("${PATELLA_TIBIA_EXE}" "${PATELLA_RES_DIR}")
 
 # ---------------------------------------------------------------------------------------------------
-# Patella.exe: Patella.vcxproj's command lines (build\Release\build.log), in their order. /Oy- must
+# Patella.exe: the former Patella.vcxproj's command lines (its MSBuild log), in their order. /Oy- must
 # follow /O2, which turns frame pointer omission on.
 
 # MSBuild's order, in which the objects are linked: src\*.cpp sorted without case (the file system's
@@ -117,9 +121,31 @@ target_link_options(Patella PRIVATE
 	/INCREMENTAL:NO /NODEFAULTLIB:wsock32.lib /DELAYLOAD:oleacc.dll /MANIFEST:NO /DEBUG
 	$<$<CONFIG:Release>:/OPT:REF /OPT:ICF>
 	/TLBID:1 /DYNAMICBASE /NXCOMPAT /MACHINE:X86 /SAFESEH)
+# The resources against Tibia.exe's after every link, as tools\build-patella.cmd checked them: a
+# difference fails the build. A step after the link, so the image does not change.
+add_custom_command(TARGET Patella POST_BUILD
+	COMMAND "${Python3_EXECUTABLE}" -I "${PROJECT_SOURCE_DIR}/tools/compare_resources.py"
+		"${PATELLA_TIBIA_EXE_NATIVE}" "$<TARGET_FILE:Patella>"
+	VERBATIM)
 
 # ---------------------------------------------------------------------------------------------------
-# The tests of tools\difftest\build.cmd. Its flags in every configuration:
+# mfc_shim_check: every source of Patella.exe compiled, not linked, against src/compat/mfc_shim.h
+# instead of MFC, with the options of the former tools\compile-check.cmd when TIBIA_MFC_SHIM was set
+# (the same in every configuration, for the C files too, as cl got them):
+#	/std:c++17 /EHsc /MT /O2 /W3 /permissive- /Zc:strictStrings- /D_WIN32_WINNT=0x0601 /DTIBIA_MFC_SHIM
+# Patella.exe is the check against real MFC. One source alone: cmake --build --preset oracle-x86
+# --target CMakeFiles/mfc_shim_check.dir/Release/src/<File>.cpp.obj (or Patella.dir for real MFC).
+
+add_library(mfc_shim_check OBJECT ${patella_cpp_sources} ${patella_c_sources})
+set_target_properties(mfc_shim_check PROPERTIES
+	MSVC_RUNTIME_LIBRARY MultiThreaded
+	MSVC_DEBUG_INFORMATION_FORMAT "")
+target_include_directories(mfc_shim_check PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(mfc_shim_check PRIVATE _WIN32_WINNT=0x0601 TIBIA_MFC_SHIM)
+target_compile_options(mfc_shim_check PRIVATE /std:c++17 /EHsc /O2 /W3 /permissive- /Zc:strictStrings-)
+
+# ---------------------------------------------------------------------------------------------------
+# The tests of the former tools\difftest\build.cmd. Its flags in every configuration:
 #	/std:c++17 /MT /O2 /W3 /DTIBIA_MFC_SHIM /D_WIN32_WINNT=0x0601 /I src, and /EHa or /EHsc,
 # for the C file too, as cl gets them there; cl links with only the libraries and options given.
 
@@ -136,7 +162,7 @@ function(oracle_test_target target eh)
 	target_link_options(${target} PRIVATE /MANIFEST:NO)
 endfunction()
 
-# Each test gets a private TEMP, as build.cmd gives its run one: several tests write fixed
+# Each test gets a private TEMP, as build.cmd gave its run one: several tests write fixed
 # directories there.
 function(oracle_test_environment test)
 	file(MAKE_DIRECTORY "${ORACLE_TMP_DIR}/${test}")
@@ -144,7 +170,7 @@ function(oracle_test_environment test)
 	set_tests_properties(${test} PROPERTIES ENVIRONMENT "TEMP=${tmp};TMP=${tmp}")
 endfunction()
 
-# The base layer's sources in difftest.exe and communicationtest.exe, in build.cmd's order.
+# The base layer's sources in difftest.exe and communicationtest.exe, in the former build.cmd's order.
 set(difftest_game_sources
 	Script.cpp Talk.cpp Objects.cpp)
 list(TRANSFORM difftest_game_sources PREPEND "${PROJECT_SOURCE_DIR}/src/")
@@ -205,8 +231,9 @@ add_executable(vlongtest "${DIFFTEST_DIR}/vlongtest.cpp" "${PROJECT_SOURCE_DIR}/
 	"${PROJECT_SOURCE_DIR}/src/TRSA.cpp" "${PROJECT_SOURCE_DIR}/src/TMyException.cpp")
 oracle_test_target(vlongtest /EHsc)
 
-# The capture DLL of the rendering comparison (tools\build-capture.cmd; compare_rendering.py still
-# builds its own copy in build\capture).
+# The capture DLL of the rendering comparison, with the options of the former tools\build-capture.cmd:
+# tools/compare_rendering.py builds this target when build\oracle-x86\Release\patcap.dll is missing or
+# older than patcap.c, and copies it into its run folders.
 add_library(patcap SHARED "${PROJECT_SOURCE_DIR}/tools/capture/patcap.c")
 set_target_properties(patcap PROPERTIES
 	MSVC_RUNTIME_LIBRARY MultiThreaded
