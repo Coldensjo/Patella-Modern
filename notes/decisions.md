@@ -5781,7 +5781,7 @@ engine 2), tests/vulkan/, tests/unit/render_quads_test.cpp, tools/capture/patcap
   the device filters. The oracle's Patella.exe built from main (3655cdf) and from this branch at the same path
   compare with 0 unexpected differences (pecompare), macrocheck finds no difference (2,108 calls), and the
   difftest counts are unchanged.
-- **Needs the user: the filtered stretches** (open). The plan's contract (6.1, 4.5) is "exact outside the light"
+- **The filtered stretches** (decided by the user on November 3, 2026; below). The plan's contract (6.1, 4.5) is "exact outside the light"
   because it took every operation but the light for integer work. surfaceDX9.cpp stretches with Direct3D 9's
   bilinear filter (D3DTEXF_LINEAR): the start screen's picture over the whole window, the map view when it is
   stretched (the default when the hardware can stretch), the scaled item pictures. Those pixels come from the
@@ -5789,6 +5789,41 @@ engine 2), tests/vulkan/, tests/unit/render_quads_test.cpp, tools/capture/patcap
   gives it; on the CPU driver they can differ by 1 per channel. Either the light's tolerance extends to the
   bilinear stretches (compare_rendering.py `--tolerance 1`), or the engine filters them in its own integer
   arithmetic (the same on every device, but then exactly like no graphics card's Direct3D 9).
+
+### After the live comparison (November 3, 2026)
+
+The orchestrator ran `compare_rendering.py --engines vulkan` and `--engines vulkan-cpu` (windowed, `--no-repeat`,
+recording build\traffic\result-x64\orig-live.jsonl) against Tibia.exe's DirectX 9 frames. RTX 5080: all 26 scenes
+identical, the stretched map and start screen included, except the minimap; llvmpipe: the same minimap difference
+and the bilinear stretches at most 2 per channel (mean about 0.35). The user decided the open points.
+
+- **The minimap: an Edge copy** (high). The automap's upload (WriteImage below SPRITE_SURFACE) draws the 106x106
+  ScreenTexture to AUTOMAP_SURFACE with point sampling and u, v from 0 to 1, so every sample falls on a texel edge.
+  Quads.cpp took that for a copy of texel k at pixel k; Tibia.exe shows texel max(k - 1, 0) (the pictures shifted
+  by one pixel match but for the separately drawn cross). The hardware's interpolated coordinate lands a hair
+  below each edge except at the corner: tests_vulkan, drawing a texture of texel coordinates through that quad,
+  shows exactly that mapping on the RTX 5080 through Vulkan when the quad goes to the hardware as Direct3D 9 gives
+  it, and texel k on lavapipe. So the rule is the reference's, and the engine applies it on every device as a copy
+  (texel k - 1 through a nearest, clamp-to-edge sampler; the clamp gives pixel 0 texel 0): an Edge copy, only for
+  point sampling from edge 0. Considered: leaving such quads to the hardware (right on the GPU, wrong on lavapipe).
+- **The tolerance: ±2 on the device-filtered pixels only** (the user's decision; high for how it is applied). The
+  user allowed up to 2 per channel for the bilinear stretches and the light, everything else exact. Asked to apply
+  it as narrowly as possible, the engine marks those pixels itself instead of the comparison guessing regions:
+  TFilterMasks (src/vulkan/FilterMask.cpp) follows every fill, upload and quad with a byte per pixel and image
+  (filtered, transparent), kept only while patcap.dll watches; the captured frame's mask goes to patcap
+  (PatcapVulkanMask, `<capture>.mask`) and compare_rendering.py (`--region-tolerance`, default 2) applies the
+  tolerance on it alone, on every device, exact elsewhere. A first version kept rectangles per image; an exact copy
+  could not remove them (its transparent texels leave the target), so the dialogs over the stretched start screen
+  would have got the tolerance too. Considered: `--tolerance 2` for vulkan-cpu only (wider: every pixel of the
+  frame); per-scene regions in the script (would have to know the client's layout). Wider than needed in one place:
+  the transparent texels of a scaled item picture after ApplyColorKey (known only on the GPU) count as filtered.
+- **Engine 2 is the Vulkan engine** (the user's decision). In the x64 client, Tibia.cfg's engine 2 (and the
+  "DirectX 9" button) runs the Vulkan engine with no environment variable; `PATELLA_VULKAN=off` (0, no, dx9) gives
+  engine 2 back to surfaceDX9.cpp for comparisons until issue #20 removes it, and `gpu`, `gpuN`, `cpu` choose the
+  device until plan 6.3's choice comes. compare_rendering.py gives the x64 Patella.exe `PATELLA_VULKAN=off` for
+  `--engines dx9` (and the other original engines), the device for `vulkan` and `vulkan-cpu`. The oracle is
+  untouched: Surface.cpp's macros are still surfaceDX9.cpp's calls there (pecompare against main 193dee3: 0
+  unexpected differences).
 - **Not checked yet** (form). No client window has been opened: the live comparison against Tibia.exe on the GPU
   and on the CPU driver (`compare_rendering.py --engines vulkan,vulkan-cpu`) is the orchestrator's (notes/vulkan.md,
   "Checks"). Risks it may show: Vulkan presenting to a window that IsOpenGLWorking gave an OpenGL pixel format at

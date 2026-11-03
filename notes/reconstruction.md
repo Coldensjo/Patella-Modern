@@ -227,9 +227,10 @@ ON; `cmake/Vulkan.cmake`): src/vulkan/SurfaceVulkan.cpp on the back end `patella
 shaders compiled by a glslang built in the tree; Vulkan-Headers, volk, VMA, vk-bootstrap, glslang and the CPU
 driver (Mesa 26.2.5's lavapipe) are pinned by URL and SHA256 and downloaded on the first configure of a build
 tree (about 85 MB). The CPU driver's `vulkan_lvp.dll` and `lvp_icd.x86_64.json` are copied next to Patella.exe,
-PatellaTest.exe and `tests_vulkan.exe`. The engine runs only when the environment variable `PATELLA_VULKAN` is
-`auto`, `gpu` or `cpu`, in place of engine 2 (DirectX 9); otherwise the client is as before. The preset's CTest
-has two more tests: `tests_render` (src/vulkan/Quads.cpp, on every product preset) and `tests_vulkan` (the back
+PatellaTest.exe and `tests_vulkan.exe`. The engine is the x64 client's engine 2 (in place of DirectX 9; the user's
+decision of November 3, 2026): the environment variable `PATELLA_VULKAN` chooses the device (`gpu`, `cpu`; unset:
+automatic) or gives engine 2 back to DirectX 9 (`off`, for comparisons until issue #20). The preset's CTest
+has two more tests: `tests_render` (src/vulkan/Quads.cpp and FilterMask.cpp, on every product preset) and `tests_vulkan` (the back
 end headless on the CPU driver and the GPU, no window; skipped without a Vulkan loader). `-DPATELLA_CLIENT=OFF`
 (the hosted CI) builds none of the engine and downloads nothing.
 
