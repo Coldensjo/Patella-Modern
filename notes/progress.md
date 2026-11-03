@@ -105,6 +105,12 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #19 (branch issue-19, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest, 0
+warnings) after the Vulkan engine (src/vulkan, not in the oracle; Surface.cpp's choice of engine 2 behind macros
+that are surfaceDX9.cpp's calls in the oracle): the same counts as below; the oracle Patella.exe built from main
+(3655cdf) and from the branch at the same path differ only in the link time stamps and the PDB record (pecompare:
+0 unexpected differences).
+
 Patella-Modern issue #21 (branch issue-21, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest, 0
 warnings) after the test mode's hooks in src/ (src/TestHooks.h, the system calls themselves outside the test
 build): the same counts as below; the oracle Patella.exe is identical to main's apart from the link time

@@ -33,13 +33,17 @@ patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`). `python -I tools/
 <command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. The
 test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/reconstruction.md`, "Building",
 "Test server", "Checking".
+The x64 client has the Vulkan engine (issue #19, `notes/vulkan.md`): `PATELLA_VULKAN=auto|gpu|cpu` in its
+environment runs it in place of DirectX 9; its pinned libraries and the CPU driver (Mesa's lavapipe, copied next to
+the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it
+headless.
 
 ## Code style
 
 `.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by
 `.clang-format-ignore`), `.editorconfig` the editor settings. Check with Visual Studio's clang-format
 (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/testmode/*.cpp
-src/testmode/*.h src/res/resource.h tests/unit/*.cpp`.
+src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp`.
 Run clang-tidy only through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>`,
 never `clang-tidy --fix` directly: until M5 no change may touch the arguments of TASSERT*, TERROR* or TEND*
 (stringized into the messages difftest compares), and the wrapper reverts every fix inside them. The product

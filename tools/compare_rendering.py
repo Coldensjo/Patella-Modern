@@ -9,7 +9,15 @@ Usage:
   python -I tools/build.py oracle-x86
   python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl]
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
-	[--patella build\windows-x64\Release\Patella.exe]
+	[--patella build\windows-x64\Release\Patella.exe] [--tolerance N]
+
+--engines vulkan,vulkan-cpu (Patella-Modern issue #19): Patella.exe (the x64 client with the Vulkan
+engine) runs the Vulkan engine on a GPU (PATELLA_VULKAN=gpu) or on the CPU driver next to it
+(PATELLA_VULKAN=cpu), Tibia.exe its DirectX 9 engine, the reference (plan D7); both with Engine = 2.
+The run checks that Patella.exe's frames came from the Vulkan engine on that kind of device.
+--tolerance N: a pixel whose colour channels differ by at most N counts as equal (default 0); the
+report gives every scene's largest channel difference either way (the light and the bilinear
+stretches are filtered by the device: notes/vulkan.md, "Pixels").
 
 --patella: the Patella.exe to compare, x86 or x64 (Patella-Modern issue #18), with its PDB next to it
 (default the oracle's, build\oracle-x86\Release\Patella.exe); an x64 one: python -I tools/build.py
@@ -79,11 +87,16 @@ log = ct.log
 
 # patcap.c struct Shared
 CMD_ADVANCE, CMD_CAPTURE, CMD_REALTIME = 1, 2, 3
-API_NAMES = {0: "none", 1: "DirectDraw Blt", 2: "DirectDraw Flip", 3: "Direct3D 9 Present", 4: "OpenGL SwapBuffers"}
+API_NAMES = {0: "none", 1: "DirectDraw Blt", 2: "DirectDraw Flip", 3: "Direct3D 9 Present", 4: "OpenGL SwapBuffers",
+	5: "Vulkan"}
 OFF = {"Magic": 0, "Version": 4, "CmdSeq": 8, "DoneSeq": 12, "Cmd": 16, "Arg0": 20, "Arg1": 24, "Result": 28,
 	"Frames": 32, "Api": 36, "Now": 40, "Ticks": 44, "TimerWindow": 48, "TimerActive": 52, "Width": 56,
 	"Height": 60, "SourceBits": 64, "Hooks": 68, "Path": 72, "Message": 592, "ApiFrames": 848, "Realtime": 868,
-	"FirstCall": 872}
+	"FirstCall": 872, "VulkanFrames": 876, "VulkanType": 880, "VulkanCpuDriver": 884, "VulkanDevice": 888}
+# VkPhysicalDeviceType
+VULKAN_TYPES = {0: "other", 1: "integrated GPU", 2: "discrete GPU", 3: "virtual GPU", 4: "CPU"}
+# The CPU driver next to the x64 Patella.exe (cmake/Vulkan.cmake), copied into its run folder.
+CPU_DRIVER_FILES = ("vulkan_lvp.dll", "lvp_icd.x86_64.json")
 HOOK_NAMES = ["timeGetTime", "GetSystemTimeAsFileTime", "GetSystemTimePreciseAsFileTime", "GetProcAddress",
 	"SetTimer", "KillTimer", "GetCursorPos", "PeekMessageA", "SwapBuffers", "wglMakeCurrent", "DirectDrawCreate"]
 
@@ -141,6 +154,13 @@ class Capture:
 	def capture(self, path, skip=2, alive=None):
 		self.command(CMD_CAPTURE, skip, 0, path, alive=alive)
 		return self.get("Width"), self.get("Height"), API_NAMES.get(self.get("Api"), "?")
+
+	def vulkan_device(self):
+		"""The Vulkan engine's device as the engine reported it (None before, or for another engine)."""
+		if self.get("Version") < 2 or not self.text("VulkanDevice", 128):
+			return None
+		return {"name": self.text("VulkanDevice", 128), "type": VULKAN_TYPES.get(self.get("VulkanType"), "?"),
+			"cpu_driver": bool(self.get("VulkanCpuDriver"))}
 
 
 def build_capture(preset):
@@ -259,9 +279,13 @@ def add_import(source, target, dll="patcap.dll", function="PatcapLoaded"):
 class Driver(sc.Driver):
 	"""session_client's driver for a client whose copy imports patcap.dll (add_import)."""
 
+	def __init__(self, *args, env=None, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.env = env
+
 	def start(self, arguments=()):
 		path = os.path.join(self.run_dir, self.exe)
-		self.proc = subprocess.Popen([path] + list(arguments), cwd=self.run_dir)
+		self.proc = subprocess.Popen([path] + list(arguments), cwd=self.run_dir, env=self.env)
 		self.log("started %s, PID %d" % (path, self.proc.pid))
 		deadline = time.time() + 30
 		self.cap = None
@@ -359,14 +383,16 @@ def masked(x, y, masks):
 	return any(m[0] <= x < m[2] and m[1] <= y < m[3] for m in masks)
 
 
-def diff_pictures(a, b, masks=()):
+def diff_pictures(a, b, masks=(), tolerance=0):
 	"""Differing pixels of two pictures: (count, bounding box (x0, y0, x1, y1) or None, the
-	differing pixels inside the masks, which are not counted)."""
+	differing pixels inside the masks, which are not counted, the largest channel difference
+	outside the masks, the pixels that differ by at most `tolerance` per channel, which are not
+	counted either)."""
 	wa, ha, ra = a
 	wb, hb, rb = b
 	if (wa, ha) != (wb, hb):
-		return wa * ha, (0, 0, max(wa, wb), max(ha, hb)), 0
-	count, box, hidden = 0, None, 0
+		return wa * ha, (0, 0, max(wa, wb), max(ha, hb)), 0, 255, 0
+	count, box, hidden, largest, within = 0, None, 0, 0, 0
 	for y in range(ha):
 		if ra[y] == rb[y]:
 			continue
@@ -375,10 +401,15 @@ def diff_pictures(a, b, masks=()):
 				if masked(x, y, masks):
 					hidden += 1
 					continue
+				channel = max(abs(ra[y][3 * x + i] - rb[y][3 * x + i]) for i in range(3))
+				largest = max(largest, channel)
+				if channel <= tolerance:
+					within += 1
+					continue
 				count += 1
 				box = (x, y, x + 1, y + 1) if box is None else (min(box[0], x), min(box[1], y), max(box[2], x + 1),
 					max(box[3], y + 1))
-	return count, box, hidden
+	return count, box, hidden, largest, within
 
 
 def write_diff(path, a, b):
@@ -404,7 +435,23 @@ ENGINES = {
 	"dx5": {"engine": 0, "api": "DirectDraw Blt", "source": "SurfaceDX.cpp"},
 	"dx9": {"engine": 2, "api": "Direct3D 9 Present", "source": "surfaceDX9.cpp"},
 	"gl": {"engine": 1, "api": "OpenGL SwapBuffers", "source": "SurfaceGL.cpp"},
+	# The Vulkan engine in Patella.exe (PATELLA_VULKAN, Surface.cpp; issue #19) against Tibia.exe's
+	# DirectX 9 frames (plan D7); "vulkan" on a GPU, "vulkan-cpu" on the shipped CPU driver.
+	"vulkan": {"engine": 2, "api": "Direct3D 9 Present", "patella_api": "Vulkan", "vulkan": "gpu",
+		"source": "Patella.exe: src/vulkan/SurfaceVulkan.cpp on a GPU; Tibia.exe: surfaceDX9.cpp"},
+	"vulkan-cpu": {"engine": 2, "api": "Direct3D 9 Present", "patella_api": "Vulkan", "vulkan": "cpu",
+		"source": "Patella.exe: src/vulkan/SurfaceVulkan.cpp on the CPU driver; Tibia.exe: surfaceDX9.cpp"},
 }
+
+
+def client_env(engine, client):
+	"""The environment of a run: PATELLA_VULKAN only for Patella.exe with a Vulkan engine, and never
+	inherited from this script's environment otherwise."""
+	env = dict(os.environ)
+	env.pop("PATELLA_VULKAN", None)
+	if client == "patella" and "vulkan" in ENGINES[engine]:
+		env["PATELLA_VULKAN"] = ENGINES[engine]["vulkan"]
+	return env
 
 # Every step ends with this much virtual time and these many ticks of the main timer, the same
 # in every run: animations, steps, effects and talk boxes are then at the same point.
@@ -473,6 +520,11 @@ def setup():
 		count = add_import(exe, exe)
 		shutil.copyfile(capture_dll(preset), os.path.join(ct.run_dir(run), "patcap.dll"))
 		log("%s: patcap.dll of %s added to its %d imports" % (exe, preset, count))
+		# The Vulkan engine's CPU driver, when the client under test has one next to it.
+		source_dir = os.path.dirname(CLIENTS[ct.client_of(run)]["source"])
+		for name in CPU_DRIVER_FILES:
+			if os.path.isfile(os.path.join(source_dir, name)):
+				shutil.copyfile(os.path.join(source_dir, name), os.path.join(ct.run_dir(run), name))
 
 
 def button(driver, text):
@@ -668,12 +720,12 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 		shutil.rmtree(folder)
 	os.makedirs(folder)
 	log("=== %s, %s (%s)" % (engine, label, CLIENTS[client]["exe"]))
-	ct.clean_run_dir(label, keep=("patcap.dll",))
+	ct.clean_run_dir(label, keep=("patcap.dll",) + CPU_DRIVER_FILES)
 	with open(os.path.join(ct.run_dir(label), "Tibia.cfg"), "w", encoding="ascii", newline="\r\n") as f:
 		f.write(cfg_for(engine, fullscreen))
 	mode_before = display_mode()
 	info = CLIENTS[client]
-	driver = Driver(ct.run_dir(label), info["exe"], info["pdb"])
+	driver = Driver(ct.run_dir(label), info["exe"], info["pdb"], env=client_env(engine, client))
 	scenes, apis, scene_masks = {}, set(), {}
 	proxy = px.Proxy(os.path.join(folder, "replay.jsonl"), px.load_private_key(ct.PEM),
 		replay=px.load_events(recording), log=log)
@@ -703,13 +755,24 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 		facts_cap = None
 		if getattr(driver, "cap", None) is not None:
 			facts_cap = {"frames": driver.cap.get("Frames"), "ticks": driver.cap.get("Ticks"),
-				"virtual_ms": driver.cap.get("Now"), "hooks": driver.cap.hooks()}
+				"virtual_ms": driver.cap.get("Now"), "hooks": driver.cap.hooks(),
+				"vulkan_device": driver.cap.vulkan_device()}
 		driver.kill()
 	problems = proxy.mismatches + proxy.errors
 	api = "DirectDraw Flip" if fullscreen and engine == "dx5" else ENGINES[engine]["api"]
+	if client == "patella" and "patella_api" in ENGINES[engine]:
+		api = ENGINES[engine]["patella_api"]
 	if apis != {api}:
 		problems.append("the frames came from %s, not %s (the client chose another engine or mode)"
 			% (sorted(apis), api))
+	if client == "patella" and "vulkan" in ENGINES[engine]:
+		device = (facts_cap or {}).get("vulkan_device")
+		want_cpu = ENGINES[engine]["vulkan"] == "cpu"
+		if device is None:
+			problems.append("the Vulkan engine reported no device")
+		elif device["cpu_driver"] != want_cpu or (device["type"] == "CPU") != want_cpu:
+			problems.append("the Vulkan engine ran on %s (%s), not on %s" % (device["name"], device["type"],
+				"the CPU driver" if want_cpu else "a GPU"))
 	mode_after = display_mode()
 	if mode_after != mode_before:
 		problems.append("the display mode changed from %s to %s" % (mode_before, mode_after))
@@ -728,10 +791,11 @@ def run_masks(out, engine, label):
 		return json.load(f).get("masks", {})
 
 
-def compare_runs(out, engine, a, b, write_diffs=True, scenes=None):
+def compare_runs(out, engine, a, b, write_diffs=True, scenes=None, tolerance=0):
 	"""Scene by scene: (name, None when identical, "missing", ("masks", masks of a, masks of b)
 	when the runs masked different areas, else (count, box, diff file, masked pixels that
-	differ, masks)); count 0 means identical outside the masks."""
+	differ, masks, the largest channel difference, pixels within the tolerance)); count 0 means
+	identical outside the masks (up to the tolerance)."""
 	rows = []
 	masks_a, masks_b = run_masks(out, engine, a), run_masks(out, engine, b)
 	for name in scenes or SCENES:
@@ -748,12 +812,12 @@ def compare_runs(out, engine, a, b, write_diffs=True, scenes=None):
 		if picture_a == picture_b:
 			rows.append((name, None))
 			continue
-		count, box, hidden = diff_pictures(picture_a, picture_b, masks)
+		count, box, hidden, largest, within = diff_pictures(picture_a, picture_b, masks, tolerance)
 		diff = None
 		if write_diffs:
 			diff = os.path.join(out, engine, "diff-%s-%s" % (b, scene_file(name)))
 			write_diff(diff, picture_a, picture_b)
-		rows.append((name, (count, box, diff, hidden, masks)))
+		rows.append((name, (count, box, diff, hidden, masks, largest, within)))
 	return rows
 
 
@@ -767,6 +831,8 @@ def main():
 		help="a live recording of session_client's session (compare_traffic.py's <client>-live.jsonl)")
 	parser.add_argument("--no-repeat", action="store_true", help="skip the second run of Tibia.exe")
 	parser.add_argument("--compare-only", action="store_true", help="compare the pictures already in --out")
+	parser.add_argument("--tolerance", type=int, default=0, help="a pixel whose channels differ by at most this "
+		"much counts as equal (default 0: exact)")
 	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
 		"it (default build/oracle-x86/Release/Patella.exe; e.g. build/windows-x64/Release/Patella.exe; as "
 		"tools/compare_traffic.py's --patella)")
@@ -780,7 +846,7 @@ def main():
 	engines = [e for e in args.engines.split(",") if e]
 	for e in engines:
 		if e not in ENGINES:
-			raise SystemExit("unknown engine %r (dx5, dx9, gl)" % e)
+			raise SystemExit("unknown engine %r (%s)" % (e, ", ".join(ENGINES)))
 	modes = [m for m in args.modes.split(",") if m]
 	for m in modes:
 		if m not in ("windowed", "fullscreen"):
@@ -817,6 +883,8 @@ def main():
 		% (args.recording, ADVANCE_MS, ADVANCE_TICKS, SKIP_FRAMES))
 	patella = CLIENTS["patella"]["source"]
 	say("patella: %s (%s)" % (patella, capture_preset(patella) if os.path.isfile(patella) else "missing"))
+	if args.tolerance:
+		say("tolerance: pixels whose channels differ by at most %d count as equal" % args.tolerance)
 	differences = 0
 	for engine, fullscreen in passes:
 		say("")
@@ -837,7 +905,7 @@ def main():
 		for a, b in pairs:
 			say("  %s against %s:" % (b, a))
 			for name, result in compare_runs(args.out, folder, a, b,
-					scenes=FULLSCREEN_SCENES if fullscreen else SCENES):
+					scenes=FULLSCREEN_SCENES if fullscreen else SCENES, tolerance=args.tolerance):
 				if result is None:
 					say("    %-18s identical" % name)
 				elif result == "missing":
@@ -847,13 +915,16 @@ def main():
 					say("    %-18s the runs masked different areas: %s, %s" % (name, result[1], result[2]))
 					differences += 1
 				else:
-					count, box, diff, hidden, masks = result
+					count, box, diff, hidden, masks, largest, within = result
+					spread = "largest channel difference %d" % largest
+					if within:
+						spread += ", %d pixels within the tolerance" % within
 					if count == 0:
-						say("    %-18s identical outside the mask %s (%d pixels differ inside it); %s"
-							% (name, masks, hidden, os.path.relpath(diff, args.out)))
+						say("    %-18s identical outside the mask %s (%d pixels differ inside it; %s); %s"
+							% (name, masks, hidden, spread, os.path.relpath(diff, args.out)))
 					else:
-						say("    %-18s %d pixels differ, in %s (%d more inside the mask %s); %s"
-							% (name, count, box, hidden, masks, os.path.relpath(diff, args.out)))
+						say("    %-18s %d pixels differ, in %s (%d more inside the mask %s; %s); %s"
+							% (name, count, box, hidden, masks, spread, os.path.relpath(diff, args.out)))
 						differences += 1
 	if failed:
 		say("")

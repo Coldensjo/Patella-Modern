@@ -1,0 +1,135 @@
+// SurfaceVulkan.h: the Vulkan engine's surface on the MFC window (issue #19; notes/vulkan.md; plan 6.2).
+//
+// TSurfaceVulkan does what surfaceDX9.cpp's TSurfaceDX9 does, call for call, the reference engine of
+// the frames (plan D7): the same surfaces and sizes, the same batching of quads (drawn when the
+// texture or the target changes, when 9,600 vertices are queued, and at the end of the frame), the
+// same colour fills, uploads, colour key and light, and the same statistics. Instead of Direct3D 9 it
+// drives the Vulkan back end (Renderer.h); DirectDraw 4 still lists the display modes and the
+// stretch capabilities, as in surfaceDX9.cpp. Windows x64 client only (cmake/Vulkan.cmake); the
+// oracle-x86 build never compiles it.
+//
+// The engine stands in for curEngine 2 (DirectX 9) when the environment variable PATELLA_VULKAN asks
+// for it (Surface.cpp; notes/vulkan.md, "Choosing the engine"):
+//
+//	PATELLA_VULKAN=auto     the best GPU with Vulkan 1.3, else the CPU driver (also 1, on, yes)
+//	PATELLA_VULKAN=gpu      a GPU only; gpu0, gpu1 ...: the n-th GPU
+//	PATELLA_VULKAN=cpu      the CPU driver only (lavapipe, next to the executable)
+//
+// Unset (or 0, off, no): the original engines, as before.
+
+#pragma once
+
+#include "Surface.h"
+#include "graphics.h"
+#include "vulkan/Renderer.h"
+#include <ddraw.h>
+#include <memory>
+#include <vector>
+
+enum {
+	NUMBER_OF_SURFACES_VULKAN = 22
+};
+
+// The functions of a frame observer DLL (tools/capture/patcap.c, loaded by tools/compare_rendering.py):
+// told about the device, asked before each frame is shown whether it wants the frame's pixels.
+typedef void(__cdecl *TVulkanDeviceObserver)(const char *Name, int Type, int CpuDriver);
+typedef int(__cdecl *TVulkanFrameObserver)(int Width, int Height);
+typedef void(__cdecl *TVulkanPixelsObserver)(const void *Bits, int Pitch, int Width, int Height);
+
+class TSurfaceVulkan : public TSurface {
+public:
+	TSurfaceVulkan();
+	~TSurfaceVulkan();
+
+	void SetPixel(int Surface, int x, int y, TRGBColor Color);
+	void FillRectangleClipped(int Surface, TRect Rect, TRGBColor Color, TRect Clip);
+	void FillRectangle(int Surface, TRect Rect, TRGBColor Color);
+	void DrawHorizontalLine(int Surface, int x, int y, int Width, TRGBColor Color);
+	void DrawVerticalLine(int Surface, int x, int y, int Height, TRGBColor Color);
+	void DrawFrameClipped(int Surface, TRect Rect, int LineWidth, TRGBColor Color, TRect Clip);
+	void DrawFrame(int Surface, TRect Rect, int LineWidth, TRGBColor Color);
+	void WriteImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data);
+	void WriteMaskedImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data, uint8 *Mask,
+		TRGBColor *Colors);
+	void BlitRect(int ToSurface, int x, int y, int FromSurface, TRect FromRect);
+	void Blit(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey);
+	void BlitRectClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRect Clip);
+	void BlitClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey,
+		TRect Clip);
+	void StretchBlitRect(int ToSurface, TRect Destination, int FromSurface, TRect Source);
+	void StretchBlitUnclipped(int ToSurface, TRect ToRect, int FromSurface, TRect FromRect, TRGBColor ColorKey,
+		TRGBColor Highlight);
+	void StretchBlit(int ToSurface, TRect ToRect, int FromSurface, TRect FromRect, TRGBColor ColorKey,
+		TRGBColor Highlight, TRect Clip);
+	void ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor *Colors);
+	void SetSourceColorKey(int ToSurface, TRGBColor ColorKey);
+	bool ClipRect(TRect Clip, RECT *Rect, RECT *Source);
+	void ResetFrameTimer();
+	void WaitForNextFrame();
+	void UpdateWindowRect();
+	void InitDisplay(int VMode, TFullscreenMode *GMode);
+	void ExitDisplay();
+	void CreateSurfaces();
+	void ResetDisplay(int VMode, TFullscreenMode *GMode);
+	void RestoreSurfaces(int ViewMode, TFullscreenMode *Resolution);
+	void FinishFrame();
+	bool Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, bool Force);
+	int GetFullscreenModes(TFullscreenMode **Modes);
+	int GetCacheSurfaces();
+	void GetSurfaceRect(int Surface, TRect *Rect);
+	void SetSurfaceRect(int Surface, int x, int y, int Width, int Height);
+	bool SurfaceRecreated(int Surface);
+	bool IsUnavailable();
+	bool CanShadeRectangles();
+	int GetSurfaceMemory(int Surface);
+	void SetFramerateLimit(int Limit);
+	double GetFPS();
+	void InitSurfaces();
+	void ExitSurfaces();
+	bool TestEngine();
+
+	// The read-back of the test mode (issue #22's frame dump): the pixels of SCREEN_SURFACE's
+	// rectangle as the next FinishFrame would show them (D3DCOLOR, rows top-down). False without a
+	// device.
+	bool ReadScreen(std::vector<uint32_t> &Pixels, int &Width, int &Height);
+
+private:
+	void AddShadeQuad(int Left, int Top, int Right, int Bottom, uint32 TopLeft, uint32 TopRight, uint32 BottomRight,
+		uint32 BottomLeft);
+	void FlushVertices();
+	void SetTexture(int Surface);
+	void SetRenderTarget(int Surface);
+	void ApplyColorKey(int Surface, TRGBColor ColorKey);
+	void FlushShade();
+	void AddQuad(int Left, int Top, int Right, int Bottom, double Left_u, double Right_u, double Top_v,
+		double Bottom_v, uint32 TopLeft, uint32 TopRight, uint32 BottomRight, uint32 BottomLeft);
+	void ColorFill(int Image, const RECT *Rect, uint32 Color);
+	int TextureWidth(int Surface);
+	int TextureHeight(int Surface);
+	patella::vulkan::TDeviceRequest Request();
+	void Fail();
+
+	bool Ready;                                           // CreateSurfaces has finished (SurfaceRecreated)
+	RECT Rect[NUMBER_OF_SURFACES_VULKAN];                 // the surfaces' rectangles, as surfaceDX9.cpp's
+	RECT WindowRect;                                      // the client area on the screen
+	RECT SurfaceArea;                                     // SetSurfaceRect
+	IDirectDraw4 *DirectDraw;                             // the display modes and the stretch capabilities
+	std::unique_ptr<patella::vulkan::TRenderer> Renderer; // surfaceDX9.cpp's Direct3D and Device
+	int Image[NUMBER_OF_SURFACES_VULKAN];                 // the renderer's images (SCREEN_SURFACE: the canvas)
+	int ScreenTexture;                                    // the 106x106 texture of SCREEN_SURFACE
+	int WhiteTexture;                                     // Direct3D 9's stage without a texture: opaque white
+	int DeviceTarget;                                     // the image the device draws quads into
+	int DeviceTexture;                                    // the image the device samples (-1 none)
+	int CurrentTarget;                                    // surfaceDX9.cpp's CurrentTarget: ColorFill's image
+	patella::vulkan::TFilter Filter;                      // the sampler state (D3DSAMP_MAGFILTER/MINFILTER)
+	std::vector<patella::vulkan::TQuad> Shade;            // ShadeVertices
+	bool DisplayModeSet;                                  // fullscreen changed the display mode
+	TVulkanDeviceObserver DeviceObserver;
+	TVulkanFrameObserver FrameObserver;
+	TVulkanPixelsObserver PixelsObserver;
+};
+
+// Surface.cpp's engine selection (PATELLA_VULKAN).
+bool VulkanEngineRequested();
+bool IsVulkanInstalled();
+TSurface *CreateSurfaceVulkan();

@@ -221,6 +221,18 @@ themselves in Patella.exe and the oracle, whose images are unchanged by them (pe
 <file>` plays a script of keyboard, mouse and text events on a virtual clock; without it, it is the client on
 the system clock. notes/testmode.md.
 
+Since Patella-Modern issue #19 both carry the Vulkan engine (notes/vulkan.md; option `PATELLA_VULKAN`, default
+ON; `cmake/Vulkan.cmake`): src/vulkan/SurfaceVulkan.cpp on the back end `patella_render_vulkan`
+(src/vulkan/Renderer.cpp and Quads.cpp) and the libraries' `patella_vulkan_deps` (volk, vk-bootstrap, VMA), the
+shaders compiled by a glslang built in the tree; Vulkan-Headers, volk, VMA, vk-bootstrap, glslang and the CPU
+driver (Mesa 26.2.5's lavapipe) are pinned by URL and SHA256 and downloaded on the first configure of a build
+tree (about 85 MB). The CPU driver's `vulkan_lvp.dll` and `lvp_icd.x86_64.json` are copied next to Patella.exe,
+PatellaTest.exe and `tests_vulkan.exe`. The engine runs only when the environment variable `PATELLA_VULKAN` is
+`auto`, `gpu` or `cpu`, in place of engine 2 (DirectX 9); otherwise the client is as before. The preset's CTest
+has two more tests: `tests_render` (src/vulkan/Quads.cpp, on every product preset) and `tests_vulkan` (the back
+end headless on the CPU driver and the GPU, no window; skipped without a Vulkan loader). `-DPATELLA_CLIENT=OFF`
+(the hosted CI) builds none of the engine and downloads nothing.
+
 Run either Patella.exe (or PatellaTest.exe) only from a folder with copies of the data files (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg; for
 example build\run), never from the root: the client rewrites Tibia.cfg on exit, and the root's data files
 may be the user's own.
@@ -295,7 +307,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
   `.editorconfig` sets tabs, LF and UTF-8 for every editor. With Visual Studio's clang-format 22
   (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h
-  src/testmode/*.cpp src/testmode/*.h src/res/resource.h tests/unit/*.cpp` reports nothing; `clang-format -i` on a changed file formats it. Hand-laid tables (case
+  src/testmode/*.cpp src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/res/resource.h tests/unit/*.cpp
+  tests/vulkan/*.cpp` reports nothing; `clang-format -i` on a changed file formats it. Hand-laid tables (case
   tables, vertex and pixel format lists) and the macros clang-format cannot parse sit between
   `// clang-format off` and `// clang-format on`.
 - clang-tidy (issue #8): `.clang-tidy` has the checks of the coding standard (notes/modernization-plan.md,

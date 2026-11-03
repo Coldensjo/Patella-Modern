@@ -5701,3 +5701,95 @@ tests/testmode/login-walk.script, tools/testmode_check.py.
 - **Not here** (form). The live determinism check needs the test server and a client window; it is
   tools/testmode_check.py, for the orchestrator or the self-hosted workflow (not added to it here). The state
   dump, packet log and frame dump are issue #22; the session scripts and reference recordings issue #23.
+
+## The Vulkan engine (Patella-Modern issue #19)
+
+Settled by Claude Opus 5.5, November 3, 2026 (MSVC 14.51, CMake 4.1.2, Vulkan loader 1.4.357). notes/vulkan.md
+describes the result; src/vulkan/, cmake/Vulkan.cmake, cmake/WindowsX64.cmake, src/Surface.cpp (the choice of
+engine 2), tests/vulkan/, tests/unit/render_quads_test.cpp, tools/capture/patcap.c, tools/compare_rendering.py.
+
+- **surfaceDX9.cpp's counterpart, call for call** (high). The frames are compared with Tibia.exe's DirectX 9
+  frames (D7), so TSurfaceVulkan keeps surfaceDX9.cpp's logic and replaces only the Direct3D 9 calls: the same
+  surface sizes (the 512x512 video cache surfaces, not SurfaceGL.cpp's 256), the same queue of quads and when it
+  is drawn (a texture or target change, 9,600 vertices, the end of the frame), the sampler state applied when the
+  queue is drawn, the statistics, the odd behaviour (SetSurfaceRect's else, the automap upload whatever the
+  surface, StretchBlit through TEMP_SURFACE and STRETCH_SURFACE), and the file statics that outlive the surface
+  object. Considered: a fresh 2D compositor with a sprite atlas (plan 6.2's sketch); it would have to reproduce
+  the same order of operations to give the same pixels, which is what the counterpart does directly. The back end
+  below it (Renderer.cpp) is the small portable compositor the plan describes and the frame dump needs.
+- **Pixels** (high for the copies; "Needs the user" below for the stretches). Direct3D 9's pixel centres are on
+  whole coordinates; Quads.cpp makes a one-to-one, one-colour quad a nearest-sampled copy with whole corners (no
+  pixel centre on an edge, the texel edges on the pixel edges: the exact texels on every device), and gives every
+  other quad to the hardware as a Direct3D 9 driver does (corners + 0.5, attributes unchanged). A first version
+  kept whole corners for all quads and moved the attributes half a pixel back along their gradients instead;
+  tests_vulkan gave the same numbers, and the Direct3D 9 driver's form is the one more likely to give the same
+  bits on the same GPU. ColorFill refuses a rectangle that is not inside the surface, as Direct3D 9's runtime
+  does (D3DERR_INVALIDCALL; medium: from the documentation, not seen on a device). A stage without a texture
+  samples opaque white (low; only right after a device is created, before the first SetTexture).
+- **The CPU driver: Mesa's lavapipe** (high). The plan's two candidates: lavapipe (Mesa) and SwiftShader
+  (Google). lavapipe: prebuilt for Windows by the mesa-dist-win project for every Mesa release, MSVC-built, the
+  archive's SHA256 published by GitHub; one self-contained DLL (only system DLLs); Vulkan 1.4 conformant; the
+  same driver is the Linux distributions' `mesa-vulkan-drivers`, so the Docker image of the Linux tests (plan
+  4.7, M8) can run the same code; maintained with Mesa. SwiftShader: no prebuilt releases outside Chromium's
+  builds, so it would be built from source with its own LLVM (a long build in every fresh build tree, or a
+  second pinned binary we would have to produce and host); Vulkan 1.3. Pinned: Mesa 26.2.5 (October 30), not
+  26.2.6 (released the morning of this issue, November 3). Cost: 56 MB next to the executable, and llvmpipe
+  compiles its shaders with LLVM when the pipelines are created (tests_vulkan's device creations and tests take
+  about 3 s together).
+- **Loading it** (high). Only through the loader's driver setting in the client's own process:
+  `VK_DRIVER_FILES` (and `VK_ICD_FILENAMES` for older loaders) set to the manifest next to the executable for the
+  instance's and device's creation, then restored. No registry key, no system-wide install, no change to the
+  user's Vulkan configuration. `auto` asks the system's drivers first and loads the CPU driver only when they
+  offer no Vulkan 1.3 GPU (plan 6.2: "loaded only when no hardware device is found"). An elevated process ignores
+  the variables (the loader's rule); the engine then reports that the CPU driver offers no device.
+- **The choice of the engine for now: `PATELLA_VULKAN`** (form; plan 6.3 needs the user). Plan 6.3 turns the
+  engine buttons into a device choice stored in the fork's settings file (D12); both are user-visible and neither
+  exists yet, and the three engines stay in windows-x64 until issue #20. So the engine is chosen by an
+  environment variable that the user does not see, standing in for engine 2 (DirectX 9, the reference), with
+  `auto`, `gpu`, `gpuN`, `cpu`: Tibia.cfg, its engine numbers and the dialog are unchanged. Considered: an engine
+  number 3 (Tibia.cfg would get a number outside the original's range, which 6.3 rules out), a command-line
+  argument (Player.cpp's parser is reconstructed code, and compare_rendering.py's clients get no arguments).
+- **DirectDraw for the modes and the stretch capabilities** (high, for now). surfaceDX9.cpp lists the display
+  modes with DirectDraw 4 and sets the default of "no stretching" from its capabilities; the graphics options
+  show that list. The Vulkan engine does the same, so the dialog shows the same list as Tibia.exe's DirectX 9.
+  Issue #20 (the engines removed, DirectDraw with them) and D11 (borderless fullscreen; the resolution list becomes
+  a scale) replace it. Fullscreen sets the mode with ChangeDisplaySettings, as Direct3D 9's fullscreen device
+  does.
+- **Present mode IMMEDIATE** (high). The originals present without waiting (D3DPRESENT_INTERVAL_IMMEDIATE) and
+  pace with their own frame limiter. D13 (vsync by default) needs the settings file for its switch; until then
+  vsync would change what the user sees.
+- **The capture: the engine calls patcap.dll** (high). Reading a swapchain image from an injected DLL would need
+  the engine's device, queue, a transfer usage on the swapchain and a copy at vkQueuePresentKHR; the engine has
+  the canvas and a read-back anyway (the frame dump needs it). So when patcap.dll is loaded the engine reports its
+  device and offers each frame (PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanPixels); patcap's shared memory
+  grows by the Vulkan fields at its end (version 2; the earlier offsets unchanged, so compare_rendering.py's other
+  engines and the 32-bit DLL see the same layout). Product code names patcap.dll: three lookups per device,
+  removed with patcap's engine hooks when the frame dump replaces them (plan 6.2, issue #22).
+- **No TASSERT, TERROR or TEND in the new code** (form). Their texts are compared by macrocheck and difftest until
+  M5, and new ones in a new file would be differences of their own; the engine ignores an index out of range
+  instead of surfaceDX9.cpp's assertion (no caller passes one).
+- **Warnings** (form). TSurfaceVulkan builds at /W4 like every file outside the baseline list (the list does not
+  grow): it does not include GUI.h (not /W4-clean; one declaration of DrawSkin instead) and names its parameters
+  so that none hides a TSurface member. The libraries' sources (volk, vk-bootstrap, VMA) compile in
+  `patella_vulkan_deps` with `/W0`, glslang with its own CMakeLists and `/W0`: not our code, and their own
+  warning flags are not ours either.
+- **Shaders** (form). GLSL 450 in src/vulkan/shaders, compiled by the glslang executable of the same build into
+  headers of SPIR-V words per configuration (build/<preset>/shaders/<Config>); no Vulkan SDK.
+- **Proofs without a window** (high). tests_render (every preset) checks Quads.cpp; tests_vulkan renders known
+  primitives headless on the CPU driver and on the GPU and compares them with a model of Direct3D 9's pixels
+  (notes/vulkan.md, "Checks"): exact where the model says exact on both devices, at most 1 per channel where
+  the device filters. The oracle's Patella.exe built from main (3655cdf) and from this branch at the same path
+  compare with 0 unexpected differences (pecompare), macrocheck finds no difference (2,108 calls), and the
+  difftest counts are unchanged.
+- **Needs the user: the filtered stretches** (open). The plan's contract (6.1, 4.5) is "exact outside the light"
+  because it took every operation but the light for integer work. surfaceDX9.cpp stretches with Direct3D 9's
+  bilinear filter (D3DTEXF_LINEAR): the start screen's picture over the whole window, the map view when it is
+  stretched (the default when the hardware can stretch), the scaled item pictures. Those pixels come from the
+  device's filter in Tibia.exe too. On the GPU the Vulkan engine gives the hardware what a Direct3D 9 driver
+  gives it; on the CPU driver they can differ by 1 per channel. Either the light's tolerance extends to the
+  bilinear stretches (compare_rendering.py `--tolerance 1`), or the engine filters them in its own integer
+  arithmetic (the same on every device, but then exactly like no graphics card's Direct3D 9).
+- **Not checked yet** (form). No client window has been opened: the live comparison against Tibia.exe on the GPU
+  and on the CPU driver (`compare_rendering.py --engines vulkan,vulkan-cpu`) is the orchestrator's (notes/vulkan.md,
+  "Checks"). Risks it may show: Vulkan presenting to a window that IsOpenGLWorking gave an OpenGL pixel format at
+  start-up (SurfaceInitInstance tests OpenGL after the engine 2 test), and the bilinear stretches above.

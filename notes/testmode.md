@@ -140,7 +140,10 @@ pings). Issue #23 removes this: the client replays the server side of a recordin
 
 - #22 (state dump, packet log, frame dump): more script commands (the parser's table in InputScript.cpp; for
   example a dump at a step) and writers in the Windows side; the driver's log already names every event's
-  virtual time and line, the anchor for dumps.
+  virtual time and line, the anchor for dumps. The frame dump's source is the Vulkan engine's read-back
+  (issue #19, notes/vulkan.md): `TSurfaceVulkan::ReadScreen` gives the canvas's presented rectangle as the next
+  frame shows it (D3DCOLOR, rows top-down), on the GPU or on the CPU driver, with no window system involved
+  (`patella::vulkan::TRenderer::ReadBack` underneath).
 - #23 (session scripts, reference recordings): the sessions of compare_traffic.py and compare_files.py as
   scripts in tests/testmode; the server side of a recording delivered by the driver at virtual times (a second
   event source for TScheduler::NextStop), with `pace 0`.

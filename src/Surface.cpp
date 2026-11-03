@@ -14,6 +14,20 @@
 #include "SurfaceGL.h"
 #include "Preferences.h"
 
+// Engine 2 (DirectX 9) or, when the environment variable PATELLA_VULKAN asks for it, the Vulkan engine
+// in its place (Patella-Modern issue #19; src/vulkan/SurfaceVulkan.h). Only the Windows x64 client
+// defines PATELLA_VULKAN; elsewhere (the oracle) the macros are surfaceDX9.cpp's calls.
+#if defined(PATELLA_VULKAN)
+bool VulkanEngineRequested();
+bool IsVulkanInstalled();
+TSurface *CreateSurfaceVulkan();
+#define PATELLA_ENGINE2_INSTALLED() (VulkanEngineRequested() ? IsVulkanInstalled() : IsDirect3D9Installed())
+#define PATELLA_CREATE_ENGINE2() (VulkanEngineRequested() ? CreateSurfaceVulkan() : CreateSurfaceDX9())
+#else
+#define PATELLA_ENGINE2_INSTALLED() IsDirect3D9Installed()
+#define PATELLA_CREATE_ENGINE2() CreateSurfaceDX9()
+#endif
+
 // Data, in .data and .bss order. The shared data the engines use (Surface.h)
 // lies around this file's own; 0x71d0f8 and up are SurfaceDX.cpp's.
 int CommandLineEngine = -1;    // 0x5c2564, set by Player.cpp from "engine N"
@@ -49,7 +63,7 @@ TSurface *GetSurface()
 			Surface = new TSurfaceGL;
 	} else if (curEngine == 2) {
 		if (Surface == NULL)
-			Surface = CreateSurfaceDX9();
+			Surface = PATELLA_CREATE_ENGINE2();
 	} else if (curEngine == 0 && Surface == NULL) {
 		Surface = CreateSurfaceDX();
 	}
@@ -146,7 +160,7 @@ void SurfaceInitInstance(HWND *Window)
 	if (Engine >= 0 && Engine < 3)
 		Chosen = true;
 	try {
-		if (IsDirect3D9Installed()) {
+		if (PATELLA_ENGINE2_INSTALLED()) {
 			curEngine = 2;
 			GetSurface()->hWindow = *Window;
 			if (GetSurface()->TestEngine()) {

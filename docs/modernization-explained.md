@@ -93,7 +93,14 @@ must keep matching.
 - **CMake:** the tool that tells the compiler what to build and how, the same way on every system.
 - **Renderer / graphics engine:** the part of the program that draws pictures on the screen.
 - **Vulkan:** a modern, open standard for talking to graphics cards, supported on Windows and Linux (and, through
-  a translation layer, on Macs).
+  a translation layer, on Macs). Since November 2026 the 64-bit Windows client has a Vulkan engine that draws the
+  same pictures as the old DirectX 9 one. For now it is only switched on for testing (by a setting outside the
+  game, `PATELLA_VULKAN`); the graphics options still show the three old engines until they are retired, and
+  then the buttons become a choice of graphics card ("Automatic", each card, or "CPU").
+- **CPU driver (lavapipe):** a version of Vulkan that runs on the main processor instead of the graphics card. It
+  comes with the client as one file next to the program and is used only by the client, only when no graphics
+  card with Vulkan is found (or when asked for); nothing is installed on the computer. The tests use it, so the
+  pictures are the same on every machine.
 - **SDL3:** a free, widely used library that handles windows, keyboard and mouse on many systems, so the game
   does not need separate code for each one.
 - **64-bit:** the way all current computers and operating systems work; 32-bit programs are a leftover from

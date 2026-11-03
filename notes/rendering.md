@@ -14,8 +14,20 @@ python -I tools/build.py oracle-x86
 python -I tools/build.py windows-x64                # only for --patella with the x64 client
 python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl]
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
-	[--patella build\windows-x64\Release\Patella.exe]
+	[--patella build\windows-x64\Release\Patella.exe] [--tolerance N]
 ```
+
+- `--engines vulkan,vulkan-cpu` (Patella-Modern issue #19; notes/vulkan.md): Patella.exe, the x64 client, runs its
+  Vulkan engine (src/vulkan/SurfaceVulkan.cpp) on a GPU (`PATELLA_VULKAN=gpu` in its environment) or on the CPU
+  driver next to it (`PATELLA_VULKAN=cpu`; setup() copies vulkan_lvp.dll and lvp_icd.x86_64.json from the
+  `--patella` executable's folder into the run folder), Tibia.exe its DirectX 9 engine, the reference (plan D7);
+  both get `Engine = 2`. A Patella.exe run must show every frame through the Vulkan engine (API "Vulkan") on the
+  kind of device asked for, else the run reports a problem; run.json's facts name the device. Only the x64
+  Patella.exe has the engine, so these engines need `--patella build\windows-x64\Release\Patella.exe`.
+- `--tolerance N`: a pixel whose colour channels all differ by at most N counts as equal (default 0, exact).
+  Every report line of a differing scene gives the largest channel difference outside the masks either way. The
+  light and the bilinear stretches (the start screen, the stretched map view, scaled item pictures) are filtered
+  by the device in every engine, Tibia.exe's DirectX 9 included (notes/vulkan.md, "Pixels").
 
 - `--patella <exe>` (Patella-Modern issue #18): the Patella.exe compared with Tibia.exe, x86 or x64, with its
   PDB next to it (client_state.py reads its fields through it); default the oracle's
@@ -79,6 +91,7 @@ client's process that reads that surface at the moment the client shows it:
 | DirectX 5 (SurfaceDX.cpp FinishFrame) | windowed: `IDirectDrawSurface4::Blt` of SCREEN_SURFACE into the primary; fullscreen: `Flip` | the Blt's source surface and rectangle (Lock); for Flip the back buffer |
 | DirectX 9 (surfaceDX9.cpp FinishFrame) | `IDirect3DDevice9::Present(&Rect[SCREEN_SURFACE], ...)` | the back buffer through `GetRenderTargetData`, the Present's source rectangle |
 | OpenGL (SurfaceGL.cpp FinishFrame) | `SwapBuffers` | `glReadPixels` of the back buffer (the client area), in the window's context |
+| Vulkan (x64 only; src/vulkan/SurfaceVulkan.cpp FinishFrame, Patella-Modern issue #19) | `vkQueuePresentKHR` of a blit of the canvas | nothing is hooked: the engine calls patcap's exports `PatcapVulkanFrame` (counts the frame, says whether it is wanted) and `PatcapVulkanPixels` (the canvas's presented rectangle, read back by the engine), and `PatcapVulkanDevice` once per device |
 
 The DLL patches the vtable entries when the client creates the objects (DirectDrawCreate and
 IDirectDraw4::CreateSurface; GetProcAddress("Direct3DCreate9") and IDirect3D9::CreateDevice;

@@ -14,6 +14,8 @@
 #   script's parser and key table, the scheduler, the driver's loop on the virtual clock, and that the
 #   scripts in tests/testmode parse.
 #
+# - tests_render: src/vulkan/Quads.cpp, the Vulkan engine's Direct3D 9 quads (issue #19).
+#
 # All get the product settings of cmake/Warnings.cmake and cmake/Hardening.cmake.
 
 include(FetchContent)
@@ -106,3 +108,16 @@ patella_target_language(tests_testmode)
 patella_target_warnings(tests_testmode)
 patella_target_hardening(tests_testmode)
 add_test(NAME tests_testmode COMMAND tests_testmode)
+
+# tests_render (issue #19): the Vulkan engine's quads (src/vulkan/Quads.cpp, compiled here: the
+# portable part of the engine, without Vulkan), so every preset checks how Direct3D 9's quads become
+# Vulkan vertices. The engine itself is checked by tests/vulkan (Windows x64 with the client).
+add_executable(tests_render
+	render_quads_test.cpp
+	"${PROJECT_SOURCE_DIR}/src/vulkan/Quads.cpp")
+target_include_directories(tests_render PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(tests_render PRIVATE doctest::doctest)
+patella_target_language(tests_render)
+patella_target_warnings(tests_render)
+patella_target_hardening(tests_render)
+add_test(NAME tests_render COMMAND tests_render)
