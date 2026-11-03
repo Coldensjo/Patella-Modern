@@ -131,7 +131,8 @@ no total. Full build.cmd, November 2, 2026).
 
 - Rendering (issue #20): `python -I tools/compare_rendering.py` compares what both clients draw; a change to
   drawing code (GUI, dialogs, map window, the surfaces) can be checked with it (`--engines dx5 --modes windowed
-  --no-repeat` takes a few minutes). patcap.dll (tools/capture/patcap.c) also makes a client's time fully
+  --no-repeat` takes a few minutes; `--patella build\windows-x64\Release\Patella.exe` compares the x64 client,
+  Patella-Modern issue #18). patcap.dll (tools/capture/patcap.c) also makes a client's time fully
   virtual: useful for any comparison that must not depend on timing. Do not inject DLLs with a remote thread on
   this machine: Windows Defender stops the injector; an import entry in the run folder's copy (add_import) works.
 

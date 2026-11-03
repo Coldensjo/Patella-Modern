@@ -5589,3 +5589,35 @@ src/.
   vlong.h failed exactly the clang-format job (six violations at vlong.h:44) and the clang-tidy job ("new: 1 x
   src/vlong.h: function 'is_one' should be marked [[nodiscard]]", 32 against 31), the build jobs green. Logs:
   build\logs\issue-11.
+
+## compare_rendering.py on the x64 client (issue #18)
+
+Settled by Claude Opus 5.5, November 3, 2026 (MSVC 14.51, CMake 4.1.2, Python 3.13). `cmake/Capture.cmake` (new),
+`cmake/OracleX86.cmake`, `CMakeLists.txt`, `tools/compare_rendering.py`, `tools/capture/patcap.c` (comment only),
+`.github/workflows/self-hosted.yml`. No change to src/.
+
+- **One source, two DLLs** (high). patcap.dll is loaded into the client it captures, so it must have the client's
+  bitness; a run of the x64 client still needs the 32-bit one for Tibia.exe. patcap.c builds unchanged for x64:
+  `IMAGE_THUNK_DATA` is pointer-sized, the COM vtable indices (Blt 5, Flip 11, CreateSurface 6, CreateDevice 16,
+  Present 17) are the same, the shared memory holds only LONGs and characters (the timer window's handle is
+  stored truncated, for information), 0 warnings at /W4 /WX in Release and Debug. The target moved to
+  `cmake/Capture.cmake`, which the oracle includes where it defined it (its command lines are the same: `-MT /O2
+  /W4 /WX`, `/MANIFEST:NO`, compared in the generated ninja files of main's and this build) and CMakeLists.txt
+  includes for an MSVC 64-bit build, with or without the client, so the hosted windows-x64 job compiles it too.
+  The x64 build keeps CMake's default flags (Release `/O2 /Ob2 /DNDEBUG`, Debug `/Od /RTC1`; `/O2` in Debug would
+  contradict `/RTC1`). A test instrument: neither Warnings.cmake nor Hardening.cmake.
+- **Which DLL** (high). compare_rendering.py picks the preset by each run folder's client's PE machine field
+  (client_state.pe_machine: 0x14c oracle-x86, 0x8664 windows-x64) and builds that preset's patcap target when
+  `build\<preset>\Release\patcap.dll` is missing or older than patcap.c, as before for the oracle.
+- **add_import on PE32+** (high). The optional header's magic chooses the layout: PE32+ data directories start
+  at +112 (not +96), and the lookup and address tables get 64-bit thunks, aligned to 8 after the descriptors.
+  It refuses an image with fewer than 12 data directories (it writes the bound import entry). Checked offline on
+  copies in %TEMP%, never run (build\logs\issue-18\add-import-offline.log, dumpbin-x64.log): the x64 Patella.exe
+  keeps its 18 imports unchanged and gets patcap.dll!PatcapLoaded in a ninth section `.patcap`, which dumpbin
+  reads (bound imports 0, SizeOfImage covers it, CFG and CET flags untouched); on Tibia.exe the output is byte
+  for byte the previous add_import's. The x64 client imports ten of patcap's eleven hooks by name, as the x86
+  builds do; GetSystemTimePreciseAsFileTime comes through the hooked GetProcAddress.
+- **--patella** (form). As compare_traffic.py's and compare_files.py's: the Patella.exe to test, x86 or x64, with
+  its PDB next to it; the report names it. The self-hosted comparisons job passes the x64 client's.
+- **Not checked yet** (form). No client has run with the x64 patcap.dll here: the windowed run of the x64
+  client against Tibia.exe (the issue's last criterion) is the live check, to be run on the desktop.

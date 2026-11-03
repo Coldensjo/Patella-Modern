@@ -130,8 +130,9 @@ build\oracle-x86\<Configuration>:
 - The four test programs difftest, sysinctest, communicationtest and vlongtest with the options of the former
   tools\difftest\build.cmd (the same in every configuration), which `ctest --preset oracle-x86` runs ("Checking"
   below). The tests get Tibia.exe as their argument and a private TEMP each (build\oracle-x86\tmp\<test>).
-- patcap.dll, the capture DLL of tools/compare_rendering.py (which builds the target itself when the DLL is
-  missing or older than tools/capture/patcap.c).
+- patcap.dll, the 32-bit capture DLL of tools/compare_rendering.py for Tibia.exe and the oracle's Patella.exe
+  (`cmake/Capture.cmake`; the script builds the target itself when the DLL is missing or older than
+  tools/capture/patcap.c).
 - mfc_shim_check: every source of Patella.exe compiled, not linked, against `src/compat/mfc_shim.h` instead of
   MFC (the former `compile-check.cmd` with TIBIA_MFC_SHIM set; "Checking" below).
 
@@ -202,7 +203,9 @@ settings of Warnings.cmake and Hardening.cmake, 0 warnings with /WX in Release a
 windows-x64-debug` does the same for Debug. The result is `build\windows-x64\<Configuration>\Patella.exe` with its
 `Patella.pdb` (a PDB in both configurations, which client_state.py's PDB offsets need). Its resource pictures are
 extracted from Tibia.exe into build\windows-x64\res at configure time, as for the oracle
-(cmake/Resources.cmake, shared); without Tibia.exe the configure stops, and `-DPATELLA_CLIENT=OFF` builds only the unit tests. The
+(cmake/Resources.cmake, shared); without Tibia.exe the configure stops, and `-DPATELLA_CLIENT=OFF` builds only the unit tests
+and patcap.dll. The preset also builds the 64-bit patcap.dll, `build\windows-x64\<Configuration>\patcap.dll`, with or
+without the client (`cmake/Capture.cmake`, issue #18): compare_rendering.py loads it into the x64 Patella.exe. The
 original's structure layouts hold only in the 32-bit build: the static_asserts that check a size or offset which
 pointers change are inside `#if PATELLA_ORIGINAL_LAYOUT` (common.h, x86 only). Details: notes/decisions.md,
 "Windows x64 build (issue #5)".
@@ -241,7 +244,10 @@ PDB table; tools/patch_client.py patches x86 and x64 images (Patella-Modern issu
 `python -I tools/compare_rendering.py` (issue #20) compares what both clients draw: issue #19's session
 replayed with each engine (DirectX 5, DirectX 9, OpenGL), windowed and fullscreen, every frame read from the
 engine's own surfaces by a DLL the run folders' copies import (tools/capture/patcap.c, no display needed),
-with time made virtual so both clients draw the same moment: notes/rendering.md.
+with time made virtual so both clients draw the same moment: notes/rendering.md. It takes `--patella <exe>`
+too, x86 or x64 (Patella-Modern issue #18): the capture DLL has the client's bitness (build\oracle-x86\Release\patcap.dll
+for Tibia.exe and a 32-bit Patella.exe, build\windows-x64\Release\patcap.dll for the x64 one), and `add_import`
+patches PE32 and PE32+ images.
 
 Every GUI comparison (traffic, files, rendering, network) empties its run folders before each run, down to the
 data files and the patched client, and a second Tibia.exe run (orig-repeat) has a folder of its own
@@ -310,7 +316,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   commit; `permissions: contents: read`.
   `.github/workflows/self-hosted.yml` runs on this machine (runner labels `self-hosted, Windows, X64, patella`):
   oracle-x86 and the difftest, the windows-x64 client (Release and Debug), compare_traffic.py and
-  compare_files.py for the x64 client and compare_rendering.py `--modes windowed`, and the Linux presets through
+  compare_files.py for the x64 client and compare_rendering.py `--modes windowed` for the x64 client (issue #18), and the Linux presets through
   build.py in Docker. It triggers only on `push` to this repository's branches and on `workflow_dispatch`, never
   on `pull_request` or `pull_request_target`, every job checks the repository's name and the event, and every
   job is skipped (not queued) unless the repository variable `PATELLA_SELF_HOSTED` is `true`. The CipSoft files
