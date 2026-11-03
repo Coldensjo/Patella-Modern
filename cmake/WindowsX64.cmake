@@ -52,23 +52,39 @@ list(SORT patella_c_sources CASE INSENSITIVE)
 set(patella_rc "${PROJECT_SOURCE_DIR}/src/res/Patella.rc")
 set_source_files_properties("${patella_rc}" PROPERTIES OBJECT_DEPENDS "${PATELLA_RES_DIR}/resources.tsv")
 
-add_executable(Patella WIN32 ${patella_cpp_sources} ${patella_c_sources} "${patella_rc}")
-set_target_properties(Patella PROPERTIES
-	MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
-	MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)
-target_include_directories(Patella PRIVATE
-	"$<$<COMPILE_LANGUAGE:C,CXX>:${PROJECT_SOURCE_DIR}/src>"
-	"$<$<COMPILE_LANGUAGE:RC>:${PATELLA_RES_DIR}>")
-target_compile_definitions(Patella PRIVATE
-	$<$<CONFIG:Debug>:_DEBUG>
-	$<$<CONFIG:Release>:NDEBUG>
-	$<$<COMPILE_LANGUAGE:C,CXX>:_WIN32_WINNT=0x0601>)
-patella_target_language(Patella)
-patella_target_warnings(Patella)
-patella_target_hardening(Patella)
-target_link_libraries(Patella PRIVATE
-	glu32 opengl32 ddraw dxguid winmm kernel32 user32 gdi32 winspool advapi32 shell32 comctl32 shlwapi
-	oleaut32 ws2_32 delayimp)
-target_link_options(Patella PRIVATE
-	/NODEFAULTLIB:wsock32.lib /DELAYLOAD:oleacc.dll /MANIFEST:NO /DEBUG
-	$<$<CONFIG:Release>:/INCREMENTAL:NO /OPT:REF /OPT:ICF>)
+# The client: Patella.exe, the product; PatellaTest.exe, the test build (issue #21; plan 4.4), the
+# same sources with PATELLA_TEST_MODE, which turns the hooks of src/TestHooks.h into the test mode:
+# src/testmode/TestModeWin32.cpp and patella_testmode's sources (cmake/TestMode.cmake), compiled here
+# again because the client links the static CRT and the library the DLL one. Patella.exe compiles
+# none of them. The client's sources are compiled once per target: the definition changes every one.
+function(patella_client target)
+	add_executable(${target} WIN32 ${patella_cpp_sources} ${patella_c_sources} "${patella_rc}" ${ARGN})
+	set_target_properties(${target} PROPERTIES
+		MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+		MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)
+	target_include_directories(${target} PRIVATE
+		"$<$<COMPILE_LANGUAGE:C,CXX>:${PROJECT_SOURCE_DIR}/src>"
+		"$<$<COMPILE_LANGUAGE:RC>:${PATELLA_RES_DIR}>")
+	target_compile_definitions(${target} PRIVATE
+		$<$<CONFIG:Debug>:_DEBUG>
+		$<$<CONFIG:Release>:NDEBUG>
+		$<$<COMPILE_LANGUAGE:C,CXX>:_WIN32_WINNT=0x0601>)
+	patella_target_language(${target})
+	patella_target_warnings(${target})
+	patella_target_hardening(${target})
+	target_link_libraries(${target} PRIVATE
+		glu32 opengl32 ddraw dxguid winmm kernel32 user32 gdi32 winspool advapi32 shell32 comctl32 shlwapi
+		oleaut32 ws2_32 delayimp)
+	target_link_options(${target} PRIVATE
+		/NODEFAULTLIB:wsock32.lib /DELAYLOAD:oleacc.dll /MANIFEST:NO /DEBUG
+		$<$<CONFIG:Release>:/INCREMENTAL:NO /OPT:REF /OPT:ICF>)
+endfunction()
+
+patella_client(Patella)
+
+option(PATELLA_TEST_BUILD "Build PatellaTest.exe, the client with the test mode (issue #21)" ON)
+if(PATELLA_TEST_BUILD)
+	get_target_property(patella_testmode_sources patella_testmode SOURCES)
+	patella_client(PatellaTest "${PROJECT_SOURCE_DIR}/src/testmode/TestModeWin32.cpp" ${patella_testmode_sources})
+	target_compile_definitions(PatellaTest PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:PATELLA_TEST_MODE>)
+endif()

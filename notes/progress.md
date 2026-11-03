@@ -79,6 +79,11 @@ Tibia.exe and checks all 2,089 sites (2,053 matched, 36 explained, 0 mismatches)
 lines exactly (same check counts), tools/compare_files.py compares error.txt byte for byte except the time.
 Three reconstruction bugs fixed on the way (Talk.cpp IsTalkIgnored's TEND2, Map.cpp AppendObject's reason,
 Communication.cpp's "unknown talk mode" reason). notes/decisions.md "Original line numbers (issue #35)".
+Test mode, first part (Patella-Modern issue #21, November 3, 2026): PatellaTest.exe, the test build of the x64
+client, sends timeGetTime, the wall clock and the frame timer through one IClock and plays a script of
+keyboard, mouse and text events on a virtual clock (src/testmode, src/TestHooks.h); Patella.exe and the oracle
+are unchanged by it (pecompare against main: 0 unexpected differences). tools/testmode_check.py is the
+determinism check against the test server. notes/testmode.md.
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -99,6 +104,11 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #21 (branch issue-21, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest, 0
+warnings) after the test mode's hooks in src/ (src/TestHooks.h, the system calls themselves outside the test
+build): the same counts as below; the oracle Patella.exe is identical to main's apart from the link time
+stamps and the PDB record.
 
 Issue #7 (branch issue-7, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest, 0 warnings)
 after the portability changes of src/ (common.h, vlong.h, vlong.cpp, regexp.c): the same counts as below.

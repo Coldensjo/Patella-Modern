@@ -14,6 +14,10 @@ public:
 	virtual BOOL InitInstance();
 	virtual int Run();
 	virtual BOOL OnIdle(LONG lCount);
+#if defined(PATELLA_TEST_MODE)
+	// The test build only (src/TestHooks.h): drops the input from Windows while a script drives.
+	BOOL PreTranslateMessage(MSG *pMsg) override;
+#endif
 
 	void FatalError(const char *Text, const char *Caption);
 	void HandleProgramError(PROGRAM_ERROR Error);

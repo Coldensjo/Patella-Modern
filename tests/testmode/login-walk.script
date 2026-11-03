@@ -1,0 +1,53 @@
+# The determinism check of the test mode (issue #21; tools/testmode_check.py): log in, walk a square,
+# say something, log out, close. Written for the Tibia.cfg of tools/compare_traffic.py (an 800x600
+# window) and the test account of notes/testserver.md (772001 / patella); the client logs in through
+# tools/proxy.py, which records every packet.
+#
+# Times are virtual milliseconds; at pace 100 (real time) the server gets as much real time to answer
+# as the script waits.
+
+pace 100
+
+# The start screen: "Enter Game" (tools/login_client.py: the middle of the button is at
+# (113, height - 220) of the client area).
+wait 2000
+click 113 B-220
+
+# The login dialog: account, Tab, password, Return.
+wait 1500
+text "772001"
+key Tab
+text "patella"
+key Return
+
+# The message of the day (the run's Tibia.cfg has LastMotD = 0), then the character list: Return takes
+# the highlighted (first) character.
+wait 3000
+key Return
+wait 2000
+key Return
+
+# In the game; Return again closes a "First Login" hint, or goes to the empty console line.
+wait 4000
+key Return
+
+# A square: north, east, south, west, back where the character started.
+wait 1000
+key Up
+wait 1500
+key Right
+wait 1500
+key Down
+wait 1500
+key Left
+wait 1500
+
+# Say something (Cipfried, the temple's NPC, answers "hello").
+text "hello world"
+key Return
+wait 2000
+
+# Log out (Ctrl+L), then close the client at the start screen.
+key Ctrl+L
+wait 4000
+quit

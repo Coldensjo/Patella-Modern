@@ -2212,7 +2212,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 					goto NoSkull;
 				}
 				if (Creature->SkullTime < 1
-					|| !In((int)_time32(NULL), (int)Creature->SkullTime, (int)Creature->SkullTime + 4)
+					|| !In((int)PATELLA_TIME32(NULL), (int)Creature->SkullTime, (int)Creature->SkullTime + 4)
 					|| GetBlinkState())
 					DrawSkinClipped(Surface, SkinProperties.Style688.Data14.x + Offset + x,
 						SkinProperties.Style688.Data14.y + RowY + y, Skins[Skin].width, Skins[Skin].height, Skin, x,

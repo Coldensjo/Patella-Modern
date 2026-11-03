@@ -148,7 +148,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 		Out << std::endl
 			<< "+---------------------------------------------------------------" << std::endl
 			<< "Debug Assertion " << "7.72" << " " << Exception.GetOrigin();
-		time_t Now = time(NULL);
+		time_t Now = PATELLA_TIME(NULL);
 		Out << std::endl
 			<< CRT71Time(ctime(&Now)); // the day as MSVC 7.1 writes it
 		OSVERSIONINFOA Version;
@@ -349,7 +349,7 @@ BOOL CPlayerApp::InitInstance()
 			GetWindowedMode(&x, &y, &Width, &Height, &Maximized);
 			m_pMainWnd->ShowWindow(Maximized ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL);
 			m_pMainWnd->UpdateWindow();
-			GetCursorPos(&LastMousePosition);
+			PATELLA_GET_CURSOR_POS(&LastMousePosition);
 			if (GetViewMode() == 1)
 				ScreenToClient(m_pMainWnd->GetSafeHwnd(), &LastMousePosition);
 			MouseMove(LastMousePosition.x, LastMousePosition.y);
@@ -411,10 +411,11 @@ int CPlayerApp::Run()
 // handles the event queue (Control.cpp).
 BOOL CPlayerApp::OnIdle(LONG lCount)
 {
+	PATELLA_TEST_IDLE
 	TBEGIN
 	CWinApp::OnIdle(lCount);
 	POINT Point;
-	GetCursorPos(&Point);
+	PATELLA_GET_CURSOR_POS(&Point);
 	if (GetViewMode() == 1)
 		ScreenToClient(m_pMainWnd->GetSafeHwnd(), &Point);
 	if (LastMousePosition.x != Point.x || LastMousePosition.y != Point.y) {
@@ -431,3 +432,13 @@ BOOL CPlayerApp::OnIdle(LONG lCount)
 	return TRUE;
 	TEND(456)
 }
+
+#if defined(PATELLA_TEST_MODE)
+// The test build only (src/TestHooks.h, src/testmode/TestModeWin32.cpp).
+BOOL CPlayerApp::PreTranslateMessage(MSG *pMsg)
+{
+	if (patella::testmode::DropInput(pMsg))
+		return TRUE;
+	return CWinApp::PreTranslateMessage(pMsg);
+}
+#endif

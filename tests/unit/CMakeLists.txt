@@ -10,6 +10,10 @@
 #   TMyException's messages, Skins, the regexp and Container.h; the expected values that are not the
 #   code's own come from tests/unit/core_expected.py.
 #
+# - tests_testmode: patella_testmode (cmake/TestMode.cmake, issue #21): the virtual clock, the input
+#   script's parser and key table, the scheduler, the driver's loop on the virtual clock, and that the
+#   scripts in tests/testmode parse.
+#
 # All get the product settings of cmake/Warnings.cmake and cmake/Hardening.cmake.
 
 include(FetchContent)
@@ -91,3 +95,14 @@ patella_target_language(tests_core)
 patella_target_warnings(tests_core)
 patella_target_hardening(tests_core)
 add_test(NAME tests_core COMMAND tests_core)
+
+add_executable(tests_testmode
+	testmode_main.cpp
+	testmode_clock_test.cpp
+	testmode_script_test.cpp)
+target_link_libraries(tests_testmode PRIVATE patella_testmode doctest::doctest)
+target_compile_definitions(tests_testmode PRIVATE "PATELLA_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\"")
+patella_target_language(tests_testmode)
+patella_target_warnings(tests_testmode)
+patella_target_hardening(tests_testmode)
+add_test(NAME tests_testmode COMMAND tests_testmode)

@@ -125,7 +125,7 @@ bool TCreature::IsMarked()
 void TCreature::SetSkull(int Skull, bool Delay)
 {
 	if (Delay && this->PKFlag != 0 && Skull == 0) {
-		SkullTime = _time32(NULL);
+		SkullTime = PATELLA_TIME32(NULL);
 		return;
 	}
 	SkullTime = 0;
@@ -751,7 +751,7 @@ TCreature *GetCreature(uint32 CreatureID)
 void UpdateSkulls()
 {
 	TBEGIN
-	__time32_t Now = _time32(NULL);
+	__time32_t Now = PATELLA_TIME32(NULL);
 	for (int i = 0; i < CREATURES; i++) {
 		TCreature *Creature = &Creatures[i];
 		if (Creature->SkullTime != 0 && (Now < Creature->SkullTime || Now > Creature->SkullTime + 4)) {

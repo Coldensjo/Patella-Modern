@@ -5621,3 +5621,83 @@ Settled by Claude Opus 5.5, November 3, 2026 (MSVC 14.51, CMake 4.1.2, Python 3.
   its PDB next to it; the report names it. The self-hosted comparisons job passes the x64 client's.
 - **Not checked yet** (form). No client has run with the x64 patcap.dll here: the windowed run of the x64
   client against Tibia.exe (the issue's last criterion) is the live check, to be run on the desktop.
+
+## Test mode: virtual clock and scripted input (Patella-Modern issue #21)
+
+Settled by Claude Opus 5.5, November 3, 2026. notes/testmode.md describes the result; src/TestHooks.h,
+src/testmode/, cmake/TestMode.cmake, cmake/WindowsX64.cmake (PatellaTest), tests/unit/testmode_*.cpp,
+tests/testmode/login-walk.script, tools/testmode_check.py.
+
+- **A test build, not a switch in the product** (high; plan 4.4: "compiled only into test builds"). PatellaTest.exe
+  is a second target of the preset windows-x64, the client's sources compiled again with PATELLA_TEST_MODE
+  (option PATELLA_TEST_BUILD, default ON, so every windows-x64 build and the self-hosted CI build it).
+  Considered: a preset of its own (windows-x64-test: a third configure and build tree for one definition) and a
+  command-line switch in Patella.exe (the product would carry the test mode). The hooks in the client are macros
+  in src/TestHooks.h, included by common.h (not in PATELLA_CORE): outside the test build each is the system call
+  it replaces, token for token (timeGetTime(), _time32(Time), time(Time), Sleep(ms), GetCursorPos(Point),
+  ::SetTimer(...)), and the driver's call in OnIdle is a statement macro that is empty. Its first form, an empty
+  statement `((void)0);`, made MSVC's unoptimised Debug build emit a nop, which moved the code after it. The
+  class change of the test build (CPlayerApp::PreTranslateMessage) is inside `#if defined(PATELLA_TEST_MODE)`,
+  so the oracle's layouts and Patella.exe's are untouched.
+- **What goes through the clock** (high). The three clocks the client reads (notes/rendering.md, "Making time
+  equal"): timeGetTime (sysinc.cpp: StartTime, GetMilliseconds, srand; the engines' ResetFrameTimer and
+  WaitForNextFrame), the wall clock (_time32 in Talk.cpp, Creatures.cpp, ContentWindows.cpp, ConsoleWindow.cpp;
+  time in Player.cpp's error.txt) and the frame timer's Sleep; plus the two things patcap.dll fakes besides: the
+  100 ms main timer (not created; the driver makes its ticks) and GetCursorPos (a virtual cursor). One IClock
+  (Milliseconds, WallSeconds, FrameWait) with TSystemClock (timeGetTime, _time64, Sleep: the test build without a
+  script) and TVirtualClock. The other Sleep calls (the engines' surface polling, Redraw's Sleep(10) while the
+  surface is lost) and the network's own timing stay real. _localtime32 and ctime keep the machine's time zone.
+- **The virtual clock's start** (high). patcap.c's: timeGetTime 100000, the wall clock 2026-11-02 12:00:00 UTC
+  (1793620800, FILETIME_BASE in seconds; a unit test derives it from both). So srand gets 100000 in every run,
+  and the test build makes the same XTEA keys and RSA padding in every run. The clock moves only forward, only by
+  the driver; FrameWait does not move it (frames are not time) and sleeps a real millisecond, so the idle loop
+  (which redraws until the clock moves) does not spin.
+- **Script format** (form). Plain text, one command per line, times relative (`wait`) or absolute (`at`),
+  composite commands (`key Ctrl+L`, `click x y Shift`) expanded by the parser into primitive events, so the
+  driver dispatches only one kind of thing and the unit tests see exactly what the client will get. Considered:
+  JSON lines (verbose to write by hand; issue #23's recordings can still be converted into this form, or become
+  a second event source). `key` makes the character TranslateMessage would make, from a fixed US-layout table,
+  not ToAscii: the machine's keyboard layout must not change a run. `text` makes characters only, as
+  tools/login_client.py types. Key codes are Windows' virtual keys and set-1 scan codes as numbers, so the parser
+  stays portable (patella_testmode builds and is tested on every product preset, Linux included); the platform
+  layer of M8 maps them. Coordinates may be anchored to the right or bottom edge (`B-220`), because the client
+  area's size depends on the window frame's metrics; tools/login_client.py's Enter Game is (113, height - 220).
+- **The driver in OnIdle, one event per call** (high). MFC calls OnIdle whenever the queue is empty and the
+  client's OnIdle always returns TRUE, so a hook at its start runs between every two passes of the client's idle
+  work (the mouse poll, ProcessEvents, Redraw), on the client's own thread. Each call dispatches one due event (so
+  the client handles each, and polls a move before the button that follows, as with input at human speed), or
+  moves the clock to the next stop (the next multiple of 100 ms, a tick, or the next event). Events go to the main
+  frame through DispatchMessageA, as the message loop dispatches them (MFC's Default() and the handlers see the
+  same message); not SendMessage, and not PostMessage (posted input would meet the filter below and
+  TranslateMessage). Ticks are WM_TIMER 1, as the real timer's.
+- **The desktop's input is dropped** (high). With a script, CPlayerApp::PreTranslateMessage drops the keyboard
+  and mouse messages and the main timer's WM_TIMER from the queue, so a user's mouse over the window cannot
+  disturb a run (the limit in notes/reconstruction.md, "Test server", and the crash of November 2 there). Window
+  management, WM_CLOSE and the network's WM_USER+1 pass. WM_ACTIVATEAPP (sent, not queued) still clears the
+  client's modifier flags when the window loses the focus, so scripts hold modifiers only within one command.
+- **Pace** (high). Against a live server the virtual clock has to give the server real time: `pace` (real ms per
+  100 virtual ms, default 100) holds each stop until its real time has come; 0 runs as fast as the client does
+  (for issue #23's replays without a server). What still depends on the real time with a live server is when the
+  server's packets arrive; the check's script waits generously, and the check counts the server's pings (0x1e,
+  which the client answers).
+- **Errors** (form). A script that does not parse ends the program before the window opens with exit code 3 and
+  the message on stderr, in the log and through OutputDebugString: never a dialog (the runs are unattended).
+- **Static CRT** (form). The client links the static CRT, patella_testmode (like the unit tests) the DLL one;
+  PatellaTest compiles the two portable sources itself instead of linking the library (LNK2038 otherwise).
+- **Proofs without a client** (high). tests_testmode (15 test cases, 308 assertions on every product preset): the
+  clock, the parser (every command, error and escape), the key table, the scheduler, and the driver's loop
+  simulated on the virtual clock twice (identical, with the expected order of ticks and events). The oracle's
+  Patella.exe built from main (ec11f81) and from this branch at the same path (__FILE__ is in .rdata) compare with
+  0 unexpected differences (issue #8's pecompare: only the link time stamps and the PDB record differ), and the
+  difftest counts are unchanged; the same for windows-x64's Release Patella.exe. Its Debug Patella.exe is not
+  byte-identical: with the new header included, MSVC's unoptimised build emits some string literals of every
+  object in another order (dumpbin: the objects' code is the same apart from the literals' internal names), which
+  moves data. main with only common.h's include and src/TestHooks.h added (no other change) gives exactly this
+  branch's Debug image (0 unexpected differences), and main with four comment lines added to common.h gives
+  main's: the difference is the header's preprocessing alone. Neither Patella.exe (Release, Debug) nor its PDB
+  contains a test-mode name (testmode, TVirtualClock, TScheduler, ParseScript, --test-script, DropInput, ...);
+  the PDBs name src/TestHooks.h among the included headers, as the oracle's does. PatellaTest.exe and its PDB
+  contain them all.
+- **Not here** (form). The live determinism check needs the test server and a client window; it is
+  tools/testmode_check.py, for the orchestrator or the self-hosted workflow (not added to it here). The state
+  dump, packet log and frame dump are issue #22; the session scripts and reference recordings issue #23.

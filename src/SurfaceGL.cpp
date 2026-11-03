@@ -257,7 +257,7 @@ void TSurfaceGL::SetSourceColorKey(int Surface, TRGBColor ColorKey)
 // due; a frame more than a millisecond late moves the schedule.
 void TSurfaceGL::WaitForNextFrame()
 {
-	double Now = timeGetTime();
+	double Now = PATELLA_TIME_GET_TIME();
 	FrameCount++;
 	if (Now - LastFPSTime > 1000.0) {
 		FPS = (FrameCount * 1000) / (Now - LastFPSTime);
@@ -266,7 +266,7 @@ void TSurfaceGL::WaitForNextFrame()
 	}
 	NextFrame += FrameTime;
 	if (NextFrame > Now)
-		Sleep((int)(NextFrame - Now));
+		PATELLA_FRAME_SLEEP((int)(NextFrame - Now));
 	else if (Now - NextFrame > 1.0)
 		NextFrame = Now - 1.0;
 }
@@ -1063,7 +1063,7 @@ bool TSurfaceGL::ClipRect(TRect Clip, RECT *Rect, RECT *Source)
 // +0x5c (0x4f04d0)
 void TSurfaceGL::ResetFrameTimer()
 {
-	double Now = timeGetTime();
+	double Now = PATELLA_TIME_GET_TIME();
 	StartTime = Now;
 	Framerate = 0xffff;
 	NextFrame = Now;
