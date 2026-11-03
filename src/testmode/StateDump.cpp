@@ -271,7 +271,7 @@ std::string JsonString(std::string_view Latin1)
 {
 	static constexpr std::string_view Hex = "0123456789abcdef";
 	std::string Out = "\"";
-	for (char c : Latin1) {
+	for (const char c : Latin1) {
 		auto Byte = static_cast<unsigned char>(c);
 		switch (Byte) {
 		case '"': Out += "\\\""; break;

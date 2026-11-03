@@ -111,7 +111,7 @@ public:
 			Brightness = 0;
 		else if (Brightness > 255)
 			Brightness = 255;
-		TRGBColor Color = GetAmbientColor();
+		const TRGBColor Color = GetAmbientColor();
 		Light[FieldX][FieldY].R = Color.R * Brightness / 255;
 		Light[FieldX][FieldY].G = Color.G * Brightness / 255;
 		Light[FieldX][FieldY].B = Color.B * Brightness / 255;

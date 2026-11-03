@@ -46,11 +46,11 @@ std::optional<std::string> Environment(const char *Name)
 std::string FindCpuDriverManifest()
 {
 	char Path[MAX_PATH];
-	DWORD Length = GetModuleFileNameA(nullptr, Path, MAX_PATH);
+	const DWORD Length = GetModuleFileNameA(nullptr, Path, MAX_PATH);
 	if (Length == 0 || Length >= MAX_PATH)
 		return {};
 	std::string Manifest(Path, Length);
-	size_t Slash = Manifest.find_last_of("\\/");
+	const size_t Slash = Manifest.find_last_of("\\/");
 	Manifest = Manifest.substr(0, Slash + 1) + "lvp_icd.x86_64.json";
 	if (GetFileAttributesA(Manifest.c_str()) == INVALID_FILE_ATTRIBUTES)
 		return {};

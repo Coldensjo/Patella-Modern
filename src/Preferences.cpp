@@ -599,8 +599,8 @@ bool SetMotD(const char *Text)
 	const char *Break = strchr(Text, '\n');
 	if (Break == nullptr)
 		return false;
-	int Number = atoi(Text);
-	bool New = Number != LastMotD;
+	const int Number = atoi(Text);
+	const bool New = Number != LastMotD;
 	LastMotD = Number;
 	if (MotD != nullptr)
 		delete[] MotD;
@@ -648,7 +648,7 @@ void SetBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 void DeleteBuddy(int CharacterID)
 {
 	TASSERT1(711, CharacterID!=0, CharacterID);
-	int Number = FindBuddy(CharacterID);
+	const int Number = FindBuddy(CharacterID);
 	if (Number != -1)
 		Buddies(Number).CharacterID = 0;
 }
@@ -657,7 +657,7 @@ void DeleteBuddy(int CharacterID)
 int GetBuddyIcon(int CharacterID)
 {
 	TASSERT1(722, CharacterID!=0, CharacterID);
-	int Number = FindBuddy(CharacterID);
+	const int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		return 0;
 	return Buddies(Number).Icon;
@@ -667,7 +667,7 @@ int GetBuddyIcon(int CharacterID)
 const char *GetBuddyDescription(int CharacterID)
 {
 	TASSERT1(733, CharacterID!=0, CharacterID);
-	int Number = FindBuddy(CharacterID);
+	const int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		return nullptr;
 	return Buddies(Number).Description;
@@ -677,7 +677,7 @@ const char *GetBuddyDescription(int CharacterID)
 bool GetBuddyNotify(int CharacterID)
 {
 	TASSERT1(744, CharacterID!=0, CharacterID);
-	int Number = FindBuddy(CharacterID);
+	const int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		return false;
 	return Buddies(Number).Notify;
@@ -753,7 +753,7 @@ void InitPreferences()
 				// A trailing line break marks a hotkey that is sent at once;
 				// other line breaks become spaces.
 				Script.readSymbol('(');
-				int Number = Script.readNumber();
+				const int Number = Script.readNumber();
 				if (Number < 0 || Number > HOTKEYS - 1)
 					Script.error("Illegal number");
 				Script.readSymbol(',');
@@ -813,7 +813,7 @@ void InitPreferences()
 				// The duplicate check reads the vector's fields directly: from
 				// min to max-1 (not up to NumberOfOpenDialogs) and without the
 				// start offset that operator() subtracts.
-				int Dialog = Script.readNumber();
+				const int Dialog = Script.readNumber();
 				int i = OpenDialogs.min;
 				for (;;) {
 					if (i >= OpenDialogs.max) {
@@ -863,10 +863,10 @@ void InitPreferences()
 				Script.readSymbol(',');
 				Buddies(NumberOfBuddyEntries).Icon = Script.readNumber();
 				Script.readSymbol(',');
-				char *Description = Script.readString();
+				const char *Description = Script.readString();
 				strcpy(Buddies(NumberOfBuddyEntries).Description, Description);
 				Script.readSymbol(',');
-				char *Notify = Script.readIdentifier();
+				const char *Notify = Script.readIdentifier();
 				Buddies(NumberOfBuddyEntries).Notify = strcmp(Notify, "yes") == 0;
 				Script.readSymbol(')');
 				NumberOfBuddyEntries++;
@@ -1094,7 +1094,7 @@ void SavePreferences()
 		if (List != nullptr) {
 			char *Name = List;
 			while ((Name = strtok(Name, "\n")) != nullptr) {
-				int Length = (int)strlen(Name);
+				const int Length = (int)strlen(Name);
 				if (Length != 0 && IsPermanentBuddyIgnore(Name)) {
 					if (i > 0)
 						Script.writeText(",");
@@ -1113,7 +1113,7 @@ void SavePreferences()
 		if (List != nullptr) {
 			char *Name = List;
 			while ((Name = strtok(Name, "\n")) != nullptr) {
-				int Length = (int)strlen(Name);
+				const int Length = (int)strlen(Name);
 				if (Length != 0 && IsPermanentIgnore(Name)) {
 					if (i > 0)
 						Script.writeText(",");

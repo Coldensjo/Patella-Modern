@@ -49,8 +49,8 @@ bool ParseHex(std::string_view Text, std::vector<std::uint8_t> *Bytes)
 	if (Text.empty() || Text.size() % 2 != 0)
 		return false;
 	for (std::size_t i = 0; i < Text.size(); i += 2) {
-		int High = HexValue(Text[i]);
-		int Low = HexValue(Text[i + 1]);
+		const int High = HexValue(Text[i]);
+		const int Low = HexValue(Text[i + 1]);
 		if (High < 0 || Low < 0)
 			return false;
 		Bytes->push_back(static_cast<std::uint8_t>((High << 4) | Low));

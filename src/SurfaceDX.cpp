@@ -124,7 +124,7 @@ void TSurfaceDX::WaitForNextFrame()
 {
 	static uint32 Frames;     // 0x71d150
 	static double LastSecond; // 0x71d158
-	double Now = PATELLA_TIME_GET_TIME();
+	const double Now = PATELLA_TIME_GET_TIME();
 	Frames++;
 	if (Now - LastSecond > 1000.0) {
 		FPS = (double)(Frames * 1000) / (Now - LastSecond);
@@ -175,14 +175,15 @@ void TSurfaceDX::SetPixel(int Surface, int x, int y, TRGBColor Color)
 		this->Surface[Surface]->Unlock(nullptr);
 		return;
 	}
-	int BytesPerPixel = Format.dwRGBBitCount >> 3;
-	uint32 Pixel = GetPixelColor(this->Surface[Surface], Color);
+	const int BytesPerPixel = Format.dwRGBBitCount >> 3;
+	const uint32 Pixel = GetPixelColor(this->Surface[Surface], Color);
 	uint8 Bytes[4];
 	Bytes[3] = (uint8)Pixel;
 	Bytes[2] = (uint8)(Pixel >> 8);
 	Bytes[1] = (uint8)(Pixel >> 16);
 	Bytes[0] = (uint8)(Pixel >> 24);
-	uint8 *Destination = (uint8 *)Desc.lpSurface + y * Desc.lPitch + x * BytesPerPixel;
+	// Written through below (*Destination++ = ...); clang-tidy 22 takes the pointee for const (issue #39).
+	uint8 *Destination = (uint8 *)Desc.lpSurface + y * Desc.lPitch + x * BytesPerPixel; // NOLINT(misc-const-correctness)
 	for (int LoopIndex = 3; LoopIndex >= 4 - BytesPerPixel; LoopIndex--)
 		*Destination++ = Bytes[LoopIndex];
 	this->Surface[Surface]->Unlock(nullptr);
@@ -286,11 +287,11 @@ void TSurfaceDX::WriteImage(int ToSurface, int x, int y, int Width, int Height, 
 	Surface[ToSurface]->GetPixelFormat(&Format);
 	if (Format.dwRGBBitCount < 16)
 		return;
-	int BytesPerPixel = Format.dwRGBBitCount >> 3;
+	const int BytesPerPixel = Format.dwRGBBitCount >> 3;
 	for (int Row = 0; Row < Height; Row++) {
 		int Offset = (y + Row) * Desc.lPitch + x * BytesPerPixel;
 		for (int Column = 0; Column < Width; Column++) {
-			uint32 Pixel = GetPixelColor(Surface[ToSurface], TRGBColor(Data[0], Data[1], Data[2]));
+			const uint32 Pixel = GetPixelColor(Surface[ToSurface], TRGBColor(Data[0], Data[1], Data[2]));
 			Data += 3;
 			uint8 Bytes[4];
 			Bytes[3] = (uint8)Pixel;
@@ -330,7 +331,7 @@ void TSurfaceDX::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 	Surface[ToSurface]->GetPixelFormat(&Format);
 	if (Format.dwRGBBitCount < 16)
 		return;
-	int BytesPerPixel = Format.dwRGBBitCount >> 3;
+	const int BytesPerPixel = Format.dwRGBBitCount >> 3;
 	for (int Row = 0; Row < Height; Row++) {
 		int Offset = (y + Row) * Desc.lPitch + x * BytesPerPixel;
 		for (int Column = 0; Column < Width; Column++) {
@@ -340,9 +341,9 @@ void TSurfaceDX::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 			Data += 3;
 			int Index = -1;
 			if (Mask != nullptr) {
-				int MaskR = Mask[0];
-				int MaskG = Mask[1];
-				int MaskB = Mask[2];
+				const int MaskR = Mask[0];
+				const int MaskG = Mask[1];
+				const int MaskB = Mask[2];
 				Mask += 3;
 				if (MaskR == 255 && MaskG == 255 && MaskB == 0)
 					Index = 0;
@@ -356,12 +357,12 @@ void TSurfaceDX::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 				Index = 0;
 			}
 			if (Index != -1) {
-				int Gray = (Red * 30 + Green * 59 + Blue * 11) / 100;
+				const int Gray = (Red * 30 + Green * 59 + Blue * 11) / 100;
 				Red = Colors[Index].R * Gray / 256;
 				Green = Colors[Index].G * Gray / 256;
 				Blue = Colors[Index].B * Gray / 256;
 			}
-			uint32 Pixel = GetPixelColor(Surface[ToSurface], TRGBColor(Red, Green, Blue));
+			const uint32 Pixel = GetPixelColor(Surface[ToSurface], TRGBColor(Red, Green, Blue));
 			uint8 Bytes[4];
 			Bytes[3] = (uint8)Pixel;
 			Bytes[2] = (uint8)(Pixel >> 8);
@@ -438,8 +439,8 @@ void TSurfaceDX::ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor
 	if (Device->BeginScene() != D3D_OK)
 		return;
 	for (int LoopIndex = 0; LoopIndex < Count; LoopIndex++) {
-		TRect *Area = &Rects[LoopIndex];
-		TRGBColor *CornerColors = &Colors[LoopIndex * 4];
+		const TRect *Area = &Rects[LoopIndex];
+		const TRGBColor *CornerColors = &Colors[LoopIndex * 4];
 		Vertices[0] = D3DTLVERTEX(D3DVECTOR((float)Area->x, (float)Area->y, 0.0f), 1.0f,
 			RGB_MAKE(CornerColors[0].R, CornerColors[0].G, CornerColors[0].B), 0xff000000, 0.0f, 0.0f);
 		Vertices[1] = D3DTLVERTEX(D3DVECTOR((float)(Area->x + Area->width), (float)Area->y, 0.0f), 1.0f,
@@ -662,10 +663,10 @@ static HRESULT WINAPI AddFullscreenMode(DDSURFACEDESC2 *Desc, void *Context)
 	TFullscreenMode **Modes = (TFullscreenMode **)Context;
 	if (*Modes == nullptr)
 		GetSurface()->NumberOfModes = 0;
-	int Width = (Desc->dwFlags & DDSD_WIDTH) ? Desc->dwWidth : 0;
-	int Height = (Desc->dwFlags & DDSD_HEIGHT) ? Desc->dwHeight : 0;
-	int Depth = (Desc->ddpfPixelFormat.dwFlags & DDPF_RGB) ? Desc->ddpfPixelFormat.dwRGBBitCount : 0;
-	int Frequency = (Desc->ddpfPixelFormat.dwFlags & DDSD_REFRESHRATE) ? Desc->dwRefreshRate : 0;
+	const int Width = (Desc->dwFlags & DDSD_WIDTH) ? Desc->dwWidth : 0;
+	const int Height = (Desc->dwFlags & DDSD_HEIGHT) ? Desc->dwHeight : 0;
+	const int Depth = (Desc->ddpfPixelFormat.dwFlags & DDPF_RGB) ? Desc->ddpfPixelFormat.dwRGBBitCount : 0;
+	const int Frequency = (Desc->ddpfPixelFormat.dwFlags & DDSD_REFRESHRATE) ? Desc->dwRefreshRate : 0;
 	if (Width >= 640 && Height >= 480 && Depth >= 16) {
 		TFullscreenMode *List = new TFullscreenMode[GetSurface()->NumberOfModes + 1];
 		if (*Modes != nullptr) {
@@ -765,7 +766,7 @@ bool TSurfaceDX::TestShading(int Surface)
 			return false;
 		Sleep(0);
 	}
-	uint8 *Pixels = (uint8 *)Desc.lpSurface;
+	const uint8 *Pixels = (uint8 *)Desc.lpSurface;
 	DDPIXELFORMAT Format;
 	memset(&Format, 0, sizeof(Format));
 	Format.dwSize = sizeof(Format);
@@ -774,8 +775,8 @@ bool TSurfaceDX::TestShading(int Surface)
 		this->Surface[Surface]->Unlock(nullptr);
 		return false;
 	}
-	int BytesPerPixel = Format.dwRGBBitCount >> 3;
-	uint8 *Pixel = Pixels + 16 * (Desc.lPitch + BytesPerPixel);
+	const int BytesPerPixel = Format.dwRGBBitCount >> 3;
+	const uint8 *Pixel = Pixels + 16 * (Desc.lPitch + BytesPerPixel);
 	for (int LoopIndex = 3; LoopIndex >= 4 - BytesPerPixel; LoopIndex--) {
 		if (*Pixel++ != 0) {
 			this->Surface[Surface]->Unlock(nullptr);
@@ -1138,8 +1139,8 @@ void TSurfaceDX::DrawFrame(int Surface, TRect Rect, int LineWidth, TRGBColor Col
 // surfaceDX9.cpp's 0x4f0410
 bool TSurfaceDX::ClipRect(TRect Clip, RECT *Destination, RECT *Source)
 {
-	int Right = Clip.x + Clip.width;
-	int Bottom = Clip.y + Clip.height;
+	const int Right = Clip.x + Clip.width;
+	const int Bottom = Clip.y + Clip.height;
 	if (Destination->left >= Right || Destination->top >= Bottom || Destination->right <= Clip.x
 		|| Destination->bottom <= Clip.y)
 		return false;
@@ -1165,7 +1166,7 @@ bool TSurfaceDX::ClipRect(TRect Clip, RECT *Destination, RECT *Source)
 // surfaceDX9.cpp's 0x4f04d0. FrameTime is 1000.0 / 0xffff.
 void TSurfaceDX::ResetFrameTimer()
 {
-	double Now = PATELLA_TIME_GET_TIME();
+	const double Now = PATELLA_TIME_GET_TIME();
 	StartTime = Now;
 	Framerate = 0xffff;
 	NextFrame = Now;

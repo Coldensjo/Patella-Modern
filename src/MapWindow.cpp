@@ -117,7 +117,7 @@ bool TMapWindow::LeftButtonDown(int x, int y, int Flags)
 		int FieldX, FieldY, FieldZ;
 		GetField(x, y, &FieldX, &FieldY, &FieldZ);
 		int Position;
-		TObject Obj = GetTopMoveObject(FieldX, FieldY, FieldZ, Position);
+		const TObject Obj = GetTopMoveObject(FieldX, FieldY, FieldZ, Position);
 		if (Obj.Type != 0) {
 			int ax = FieldX, ay = FieldY, az = FieldZ;
 			RelativeToAbsolute(&ax, &ay, &az);
@@ -144,10 +144,10 @@ bool TMapWindow::LeftButtonUp(int x, int y, int Flags)
 	GetField(x, y, &FieldX, &FieldY, &FieldZ);
 	if (GetActionState() == 7) {
 		int Position;
-		TObject Obj = GetTopMultiUseObject(FieldX, FieldY, FieldZ, Position);
+		const TObject Obj = GetTopMultiUseObject(FieldX, FieldY, FieldZ, Position);
 		if (Obj.Type != 0) {
 			int SrcIndex, SrcX, SrcY, SrcZ;
-			TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
+			const TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
 			TASSERT(219, SrcObj!=0);
 			TASSERT(220, SrcObj.Type!=CREATURE);
 			if (Obj.Type == CREATURE && !IsPlayer(Obj.Data)) {
@@ -162,9 +162,9 @@ bool TMapWindow::LeftButtonUp(int x, int y, int Flags)
 		}
 	} else if (GetActionState() == 8) {
 		int TradeIndex, TradeX, TradeY, TradeZ;
-		TObject &TradeObject = *GetTradeObject(&TradeIndex, &TradeX, &TradeY, &TradeZ);
+		const TObject &TradeObject = *GetTradeObject(&TradeIndex, &TradeX, &TradeY, &TradeZ);
 		TASSERT(234, TradeObject!=0);
-		uint32 CreatureID = GetCreatureAt(x, y);
+		const uint32 CreatureID = GetCreatureAt(x, y);
 		if (CreatureID != 0 && CreatureID != GetPlayerID() && IsPlayer(CreatureID)) {
 			SendRequestTrade(TradeX, TradeY, TradeZ, TradeObject.Type, TradeIndex, CreatureID);
 			return true;
@@ -173,9 +173,9 @@ bool TMapWindow::LeftButtonUp(int x, int y, int Flags)
 		return true;
 	} else if (GetActionState() == 6) {
 		int DragIndex, DragX, DragY, DragZ;
-		TObject *DragObject = GetDragObject(&DragIndex, &DragX, &DragY, &DragZ);
-		int Type = DragObject->Type;
-		int Count = DragObject->Data;
+		const TObject *DragObject = GetDragObject(&DragIndex, &DragX, &DragY, &DragZ);
+		const int Type = DragObject->Type;
+		const int Count = DragObject->Data;
 		int DestX = FieldX, DestY = FieldY, DestZ = FieldZ;
 		RelativeToAbsolute(&DestX, &DestY, &DestZ);
 		if (DragX != DestX || DragY != DestY || DragZ != DestZ) {
@@ -243,13 +243,13 @@ bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 		RelativeToAbsolute(&ax, &ay, &az);
 		SetUseObject(Obj, Position, ax, ay, az);
 	}
-	uint32 CreatureID = GetCreatureAt(x, y);
+	const uint32 CreatureID = GetCreatureAt(x, y);
 	if (CreatureID != 0)
 		SetTradeInfo(CreatureID);
 	int Index, ox, oy, oz;
 	if (GetClassicControl()) {
 		if (Flags & 0x200) {
-			TObject *LookObj = GetTradeObject(&Index, &ox, &oy, &oz);
+			const TObject *LookObj = GetTradeObject(&Index, &ox, &oy, &oz);
 			if (LookObj->Type != 0)
 				SendLook(ox, oy, oz, LookObj->Type, Index);
 			return true;
@@ -258,7 +258,7 @@ bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 			AddMessage(0x34, 0, 0);
 			return true;
 		}
-		uint32 Target = GetTradeInfo();
+		const uint32 Target = GetTradeInfo();
 		TObject &Obj = *GetUseObject(&Index, &ox, &oy, &oz);
 		if (Target != 0 && Target != GetPlayerID() && Obj.Type != 0 && !GetObjectFlag(Obj, FORCEUSE)) {
 			SetAttackID(Target != GetAttackID() ? Target : 0);
@@ -276,7 +276,7 @@ bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 		return true;
 	} else {
 		if (Flags & 0x800) {
-			uint32 Target = GetTradeInfo();
+			const uint32 Target = GetTradeInfo();
 			if (Target == 0 || Target == GetPlayerID())
 				return true;
 			SetAttackID(Target != GetAttackID() ? Target : 0);
@@ -284,7 +284,7 @@ bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 			return true;
 		}
 		if (Flags & 0x200) {
-			TObject *LookObj = GetTradeObject(&Index, &ox, &oy, &oz);
+			const TObject *LookObj = GetTradeObject(&Index, &ox, &oy, &oz);
 			if (LookObj->Type != 0)
 				SendLook(ox, oy, oz, LookObj->Type, Index);
 			return true;
@@ -320,7 +320,7 @@ void TMapWindow::HandleEvent(int Event)
 	if (Event == 27) {
 		DeleteChild(HintButton);
 		HintButton = nullptr;
-		int Hint = PopEventHelp();
+		const int Hint = PopEventHelp();
 		TASSERT1(382, In(Hint,1,EVENTHELPS), Hint);
 		char *Text = new char[strlen(GetEventHelpText(Hint)) + 1];
 		strcpy(Text, GetEventHelpText(Hint));
@@ -380,15 +380,15 @@ bool TMapWindow::HelpMouseMove(int x, int y)
 void TMapWindow::Draw(int Surface, int x, int y)
 {
 	TBEGIN
-	bool LightEffects = GetLightEffects() && GetSurface()->CanShadeRectangles();
-	bool ShowTexts = GetTextualEffects();
-	int CreatureInfo = GetCreatureInfo();
+	const bool LightEffects = GetLightEffects() && GetSurface()->CanShadeRectangles();
+	const bool ShowTexts = GetTextualEffects();
+	const int CreatureInfo = GetCreatureInfo();
 	ProcessMissileEffects();
 	TCreature *Player = GetCreature(GetPlayerID());
 	TASSERT(456, Player!=NULL);
 	ScrollX = Player->GetDeltaX() + 32;
 	ScrollY = Player->GetDeltaY() + 32;
-	int Level = GetMapLevel();
+	const int Level = GetMapLevel();
 	MaxLevel = 7;
 
 	// The levels drawn end below the first ground above the player's cross
@@ -472,12 +472,12 @@ void TMapWindow::Draw(int Surface, int x, int y)
 				for (int FieldY = 0; FieldY < MAPSIZE_Y; FieldY++) {
 					Obj = GetFirstObject(FieldX, FieldY, z);
 					if (z == 0 || (Obj.Type != 0 && GetObjectFlag(Obj, BANK))) {
-						TRGBColor Old = Light[FieldX][FieldY];
+						const TRGBColor Old = Light[FieldX][FieldY];
 						SetLightColor(FieldX, FieldY, PositionZ <= 7 ? GetAmbientBrightness() : 0);
 						if (z > 0 && IsFieldTranslucent(FieldX, FieldY, z)) {
-							int B = Old.B * 4 / 5;
-							int G = Old.G * 4 / 5;
-							int R = Old.R * 4 / 5;
+							const int B = Old.B * 4 / 5;
+							const int G = Old.G * 4 / 5;
+							const int R = Old.R * 4 / 5;
 							TRGBColor &Color = Light[FieldX][FieldY];
 							Color.R = Color.R > R ? Color.R : R;
 							Color.G = Color.G > G ? Color.G : G;
@@ -509,7 +509,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 		TRGBColor Colors[(MAPSIZE_X + 1) * (MAPSIZE_Y + 1) * 4];
 		for (int FieldY = 0; FieldY <= MAPSIZE_Y; FieldY++) {
 			for (int FieldX = 0; FieldX <= MAPSIZE_X; FieldX++) {
-				int i = FieldY * (MAPSIZE_X + 1) + FieldX;
+				const int i = FieldY * (MAPSIZE_X + 1) + FieldX;
 				Rects[i] = TRect(FieldX * 32 - ScrollX - 16, FieldY * 32 - ScrollY - 16, 32, 32);
 				int Left = FieldX - 1, Right = FieldX, Top = FieldY - 1, Bottom = FieldY;
 				Limit(Left, 0, MAPSIZE_X - 1);
@@ -536,8 +536,8 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	// with the light on its field (the player's own light counts with at
 	// least 2). The field index is not checked for creatures outside the map
 	// (Light[][] is read out of range, as in the binary).
-	int ScreenWidth = Width;
-	int ScreenHeight = Height;
+	const int ScreenWidth = Width;
+	const int ScreenHeight = Height;
 	int BorderX = 0, BorderY = 0;
 	TBEGIN
 	if (GetNoStretching()) {
@@ -573,7 +573,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 					TEND1(599, Obj)
 				}
 			}
-			TRGBColor Color = Visible ? Creature->GetHealthColor() : TRGBColor(192, 192, 192);
+			const TRGBColor Color = Visible ? Creature->GetHealthColor() : TRGBColor(192, 192, 192);
 			int Brightness = Light[cx][cy].R;
 			if (Creature->CreatureID == GetPlayerID()) {
 				int Strength = Creature->LightStrength;
@@ -582,7 +582,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 					Brightness = Strength * 51;
 			}
 			Brightness = Brightness / 5;
-			TRGBColor NameColor(Color.R * Brightness / 51, Color.G * Brightness / 51, Color.B * Brightness / 51);
+			const TRGBColor NameColor(Color.R * Brightness / 51, Color.G * Brightness / 51, Color.B * Brightness / 51);
 			int nx = Names[i].x, ny = Names[i].y;
 			if (GetNoStretching()) {
 				nx -= BorderX;
@@ -594,11 +594,11 @@ void TMapWindow::Draw(int Surface, int x, int y)
 			int BarY = ny - 4;
 			if (CreatureInfo == 2) {
 				int BarX = nx - 14;
-				int TextWidth = GetTextWidth(2, Creature->Name);
+				const int TextWidth = GetTextWidth(2, Creature->Name);
 				Limit(BarX, 1, Width - 28);
 				Limit(BarY, GetFontHeight(2) + 1, Height - GetFontHeight(2) - 5);
 				int TextX = BarX - TextWidth / 2 + 14;
-				int TextY = BarY - GetFontHeight(2);
+				const int TextY = BarY - GetFontHeight(2);
 				Limit(TextX, 1, Width - TextWidth - 1);
 				GetSurface()->FillRectangle(Surface, TRect(BarX + x, BarY + y, 27, 4), TRGBColor(0, 0, 0));
 				GetSurface()->FillRectangle(Surface, TRect(BarX + x + 1, BarY + y + 1, Creature->Health / 4, 2),
@@ -663,7 +663,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 					Blink = GetBlinkState();
 			}
 			if (Icon1 != 0) {
-				TSkin *Skin = &Skins[Icon1];
+				const TSkin *Skin = &Skins[Icon1];
 				int IconX = nx - Skin->width + 20;
 				int IconY = ny + 1;
 				if (Icon2 != 0) {
@@ -689,7 +689,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	TBEGIN
 	if (GetTalkChanged())
 		ArrangeTalkboxes();
-	int Talkboxes = GetNumberOfTalkboxes();
+	const int Talkboxes = GetNumberOfTalkboxes();
 	for (int Talkbox = 1; Talkbox <= Talkboxes; Talkbox++) {
 		int tx, ty, Alignment, Fixed;
 		GetTalkboxRectangle(Talkbox, &tx, &ty, &Alignment, &Fixed);
@@ -697,7 +697,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 			tx -= GetNoStretching() ? Player->GetDeltaX() : Player->GetDeltaX() * Width / 480;
 		if ((Fixed & 2) == 0)
 			ty -= GetNoStretching() ? Player->GetDeltaY() : Player->GetDeltaY() * Height / 352;
-		int Lines = GetTalkboxLines(Talkbox);
+		const int Lines = GetTalkboxLines(Talkbox);
 		TRGBColor Color;
 		GetTalkboxColor(&Color, Talkbox);
 		for (int Line = 0; Line < Lines; Line++)
@@ -705,8 +705,8 @@ void TMapWindow::Draw(int Surface, int x, int y)
 				GetTalkboxLine(Talkbox, Line), Alignment, TRect(x, y, ScreenWidth, ScreenHeight));
 	}
 	if (GetStatusMessage() != nullptr) {
-		int MessageWidth = Width, MessageHeight = Height;
-		int Length = GetFittingTextLength(2, GetStatusMessage(), MessageWidth);
+		const int MessageWidth = Width, MessageHeight = Height;
+		const int Length = GetFittingTextLength(2, GetStatusMessage(), MessageWidth);
 		PrintTextPart(Surface, MessageWidth / 2 + x, MessageHeight - GetFontHeight(2) + y, 2,
 			TRGBColor(255, 255, 255), GetStatusMessage(), Length, 1);
 	}
@@ -718,7 +718,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 		TBEGIN
 		if (ShowTexts) {
 			for (int i = 0; i < NumberOfTextualEffects; i++) {
-				int FieldX = TextualEffects[i].FieldX, FieldY = TextualEffects[i].FieldY;
+				const int FieldX = TextualEffects[i].FieldX, FieldY = TextualEffects[i].FieldY;
 				int z = TextualEffects[i].FieldZ;
 				bool Visible = false;
 				if (In(FieldX, 0, MAPSIZE_X - 1) && In(FieldY, 0, MAPSIZE_Y - 1)) {
@@ -733,8 +733,8 @@ void TMapWindow::Draw(int Surface, int x, int y)
 				}
 				if (!Visible && TextualEffects[i].FieldZ != GetMapLevel())
 					continue;
-				int Color = GetTextualEffectColor(TextualEffects[i].EffectNumber);
-				char *Text = GetTextualEffectText(TextualEffects[i].EffectNumber);
+				const int Color = GetTextualEffectColor(TextualEffects[i].EffectNumber);
+				const char *Text = GetTextualEffectText(TextualEffects[i].EffectNumber);
 				int tx = TextualEffects[i].x, ty = TextualEffects[i].y;
 				if (GetNoStretching()) {
 					tx -= BorderX;
@@ -854,8 +854,8 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 				} else {
 					continue;
 				}
-				int dx = (i - FieldX) * 32 - sx + Creature->GetDeltaX();
-				int dy = (j - FieldY) * 32 - sy + Creature->GetDeltaY();
+				const int dx = (i - FieldX) * 32 - sx + Creature->GetDeltaX();
+				const int dy = (j - FieldY) * 32 - sy + Creature->GetDeltaY();
 				if (dx >= -31 && dx <= 0 && dy >= -31 && dy <= 0) {
 					Creatures[NumberOfCreatures] = Creature;
 					OffsetY[NumberOfCreatures] = dy;
@@ -901,9 +901,9 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 		if (Creatures[i]->CreatureID == GetFollowID())
 			Color = Creatures[i]->CreatureID == GetHighlightID() ? SkinProperties.HighlightedFollowColor
 																 : SkinProperties.FollowColor;
-		int ox = OffsetX[i], oy = OffsetY[i];
+		const int ox = OffsetX[i], oy = OffsetY[i];
 		if (Color != TRGBColor(0, 0, 0)) {
-			int cx = (ScrollX - Elevation + ox + posx) / 32, cy = (ScrollY - Elevation + oy + posy) / 32;
+			const int cx = (ScrollX - Elevation + ox + posx) / 32, cy = (ScrollY - Elevation + oy + posy) / 32;
 			FlushField(cx, cy);
 			FlushField(cx + 1, cy);
 			FlushField(cx, cy + 1);
@@ -912,24 +912,24 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 				Color, TRect(0, 0, 480, 352));
 		}
 		if (Creatures[i]->IsMarked()) {
-			int cx = (ScrollX - Elevation + ox + posx) / 32, cy = (ScrollY - Elevation + oy + posy) / 32;
+			const int cx = (ScrollX - Elevation + ox + posx) / 32, cy = (ScrollY - Elevation + oy + posy) / 32;
 			FlushField(cx, cy);
 			FlushField(cx + 1, cy);
 			FlushField(cx, cy + 1);
 			FlushField(cx + 1, cy + 1);
-			int Margin = Color == TRGBColor(0, 0, 0) ? 0 : 2;
+			const int Margin = Color == TRGBColor(0, 0, 0) ? 0 : 2;
 			GetSurface()->DrawFrameClipped(2,
 				TRect(Margin + ox - Elevation + posx, Margin - Elevation + oy + posy,
 					(16 - Margin) * 2, (16 - Margin) * 2),
 				2, TRGBColor(Creatures[i]->Mark), TRect(0, 0, 480, 352));
 		}
-		int OutfitType = Creatures[i]->OutfitType;
+		const int OutfitType = Creatures[i]->OutfitType;
 		if (OutfitType == 0) {
 			if (Creatures[i]->Colors[0] == 0) {
 				// An invisible creature: the sparkles of effect 13.
-				int SpriteNumber = GetEffectSpriteNumber(13, 1, 1, 1, GetActionNumber() / 3 % 3 + 2);
-				int sx = ox + ShiftX[i], sy = oy + ShiftY[i];
-				int cx = (ScrollX - Elevation + sx + posx - 8) / 32, cy = (ScrollY - Elevation + sy + posy - 8) / 32;
+				const int SpriteNumber = GetEffectSpriteNumber(13, 1, 1, 1, GetActionNumber() / 3 % 3 + 2);
+				const int sx = ox + ShiftX[i], sy = oy + ShiftY[i];
+				const int cx = (ScrollX - Elevation + sx + posx - 8) / 32, cy = (ScrollY - Elevation + sy + posy - 8) / 32;
 				FlushField(cx, cy);
 				FlushField(cx + 1, cy);
 				FlushField(cx, cy + 1);
@@ -937,7 +937,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 				DrawSprite(2, sx - Elevation + posx - 8, sy - Elevation + posy - 8, SpriteNumber);
 			} else {
 				// A creature shown as an object.
-				TObject Shape = {Creatures[i]->Colors[0], 0, 0};
+				const TObject Shape = {Creatures[i]->Colors[0], 0, 0};
 				DrawObject(ShiftX[i] - Elevation + ox + posx, ShiftY[i] - Elevation + oy + posy, FieldZ, Shape, 0, 0, 0);
 			}
 		} else {
@@ -950,7 +950,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 				Names[NumberOfNames].y = oy - Elevation + posy;
 				NumberOfNames++;
 			}
-			int lx = ox - Elevation + posx + 16, ly = oy - Elevation + posy + 16;
+			const int lx = ox - Elevation + posx + 16, ly = oy - Elevation + posy + 16;
 			AddLightSource(lx, ly, FieldZ, Creatures[i]->LightStrength, TRGBColor(Creatures[i]->LightColor));
 			if (OutfitType != 0 && GetOutfitFlag(OutfitType, LIGHT))
 				AddLightSource(lx, ly, FieldZ, GetOutfitBrightness(OutfitType), TRGBColor(GetOutfitLightColor(OutfitType)));
@@ -965,19 +965,19 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 		if (EffectNumber < 0 || EffectNumber > EFFECTS - 1) {
 			std::stringstream s;
 			s << "EffectNumber: " << EffectNumber << " X: " << FieldX << " Y: " << FieldY << " Z: " << FieldZ;
-			TCreature *Player = GetCreature(GetPlayerID());
+			const TCreature *Player = GetCreature(GetPlayerID());
 			if (Player != nullptr)
 				s << " PlayerX: " << Player->RealX << " PlayerY: " << Player->RealY << " PlayerZ: " << Player->RealZ;
 			throw TMYEXCEPTION(1008, "effect number out of range [bug0000913]", "", 0, "", 0, s.str());
 		}
 		if (GetEffectStatus(EffectNumber) == 1) {
-			int Type = GetGraphicalEffectType(EffectNumber);
+			const int Type = GetGraphicalEffectType(EffectNumber);
 			if (Type != -1) {
-				int Phase = GetGraphicalEffectPhase(EffectNumber);
+				const int Phase = GetGraphicalEffectPhase(EffectNumber);
 				for (int X = 1; X <= GetEffectWidth(Type); X++) {
 					for (int Y = 1; Y <= GetEffectHeight(Type); Y++) {
 						for (int Layer = 1; Layer <= GetEffectLayers(Type); Layer++) {
-							int SpriteNumber = GetEffectSpriteNumber(Type, X, Y, Layer, Phase);
+							const int SpriteNumber = GetEffectSpriteNumber(Type, X, Y, Layer, Phase);
 							if (SpriteNumber > 0)
 								DrawFieldSprite(posx - X * 32 - Elevation + 32, posy - Y * 32 - Elevation + 32, FieldZ,
 									false, SpriteNumber, 0, nullptr);
@@ -989,9 +989,9 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 				// brightness the wrong way round (the missile light below
 				// has them right): the level becomes the radius.
 				if (Mode == 0 && GetEffectFlag(Type, LIGHT)) {
-					int Rest = GetEffectPhases(Type) - Phase + 1;
+					const int Rest = GetEffectPhases(Type) - Phase + 1;
 					int Brightness = Phase < Rest ? Phase : Rest;
-					int Maximum = GetEffectBrightness(Type);
+					const int Maximum = GetEffectBrightness(Type);
 					if (Brightness >= Maximum)
 						Brightness = Maximum;
 					AddLightSource(posx - Elevation + 16, posy - Elevation + 16, Brightness, FieldZ,
@@ -1012,12 +1012,12 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 			NumberOfTextualEffects++;
 		}
 		if (GetEffectStatus(EffectNumber) == 3) {
-			int Type = GetMissileEffectType(EffectNumber);
+			const int Type = GetMissileEffectType(EffectNumber);
 			if (Type != -1) {
 				for (int X = 1; X <= GetMissileWidth(Type); X++) {
 					for (int Y = 1; Y <= GetMissileHeight(Type); Y++) {
 						for (int Layer = 1; Layer <= GetMissileLayers(Type); Layer++) {
-							int SpriteNumber = GetMissileSpriteNumber(Type, X, Y, Layer,
+							const int SpriteNumber = GetMissileSpriteNumber(Type, X, Y, Layer,
 								GetMissileEffectDirection(EffectNumber));
 							if (SpriteNumber > 0)
 								DrawFieldSprite(GetMissileEffectX(EffectNumber) - X * 32 - Elevation + posx + 32,
@@ -1050,8 +1050,8 @@ void TMapWindow::DrawObject(int posx, int posy, int Level, TObject Obj, int x, i
 	TBEGIN
 	int PatternX = x % GetObjectPatternWidth(Obj.Type) + 1;
 	int PatternY = y % GetObjectPatternHeight(Obj.Type) + 1;
-	int PatternZ = z % GetObjectPatternDepth(Obj.Type) + 1;
-	int Phase = GetActionNumber() / 5 % GetObjectPhases(Obj.Type) + 1;
+	const int PatternZ = z % GetObjectPatternDepth(Obj.Type) + 1;
+	const int Phase = GetActionNumber() / 5 % GetObjectPhases(Obj.Type) + 1;
 	if (GetObjectFlag(Obj, CUMULATIVE))
 		GetCumulativePattern(Obj, &PatternX, &PatternY);
 	if (GetObjectFlag(Obj, LIQUIDPOOL) || GetObjectFlag(Obj, LIQUIDCONTAINER))
@@ -1066,7 +1066,7 @@ void TMapWindow::DrawObject(int posx, int posy, int Level, TObject Obj, int x, i
 	for (int X = 1; X <= GetObjectWidth(Obj.Type); X++) {
 		for (int Y = 1; Y <= GetObjectHeight(Obj.Type); Y++) {
 			for (int Layer = 1; Layer <= GetObjectLayers(Obj.Type); Layer++) {
-				int SpriteNumber = GetObjectSpriteNumber(Obj.Type, X, Y, Layer, PatternX, PatternY, PatternZ, Phase);
+				const int SpriteNumber = GetObjectSpriteNumber(Obj.Type, X, Y, Layer, PatternX, PatternY, PatternZ, Phase);
 				if (SpriteNumber > 0)
 					DrawFieldSprite(posx - X * 32 - ShiftX + 32, posy - Y * 32 - ShiftY + 32, Level,
 						GetObjectPhases(Obj.Type) > 1, SpriteNumber, 0, nullptr);
@@ -1083,7 +1083,7 @@ void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature
 	TASSERT(1106, Creature!=NULL);
 	TASSERT(1107, Creature->OutfitType!=0);
 	TBEGIN
-	int OutfitType = Creature->OutfitType;
+	const int OutfitType = Creature->OutfitType;
 	TRGBColor Colors[4];
 	int R, G, B;
 	GetOutfitColor(Creature->Colors[0], &R, &G, &B);
@@ -1106,8 +1106,8 @@ void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature
 		Phase = Creature->GetAnimationPhase(GetOutfitPhases(OutfitType));
 	for (int X = 1; X <= GetOutfitWidth(OutfitType); X++) {
 		for (int Y = 1; Y <= GetOutfitHeight(OutfitType); Y++) {
-			int SpriteNumber = GetOutfitSpriteNumber(OutfitType, X, Y, 1, Creature->GetDrawDirection(), Phase);
-			int MaskNumber = GetOutfitLayers(OutfitType) == 2
+			const int SpriteNumber = GetOutfitSpriteNumber(OutfitType, X, Y, 1, Creature->GetDrawDirection(), Phase);
+			const int MaskNumber = GetOutfitLayers(OutfitType) == 2
 				? GetOutfitSpriteNumber(OutfitType, X, Y, 2, Creature->GetDrawDirection(), Phase)
 				: 0;
 			if (SpriteNumber > 0)
@@ -1140,14 +1140,14 @@ void TMapWindow::DrawLightMask(int posx, int posy, int Brightness)
 void TMapWindow::DrawFieldSprite(int x, int y, int Level, bool Animated, int SpriteNumber, int MaskNumber,
 	TRGBColor *Colors)
 {
-	int ax = ScrollX + x;
-	int ay = ScrollY + y;
-	int FieldX = (ax + 32) / 32 - 1;
-	int FieldY = (ay + 32) / 32 - 1;
+	const int ax = ScrollX + x;
+	const int ay = ScrollY + y;
+	const int FieldX = (ax + 32) / 32 - 1;
+	const int FieldY = (ay + 32) / 32 - 1;
 	TBEGIN
 	if (MaskNumber == 0 && !Animated) {
-		int dx = (ax + 32) % 32;
-		int dy = (ay + 32) % 32;
+		const int dx = (ax + 32) % 32;
+		const int dy = (ay + 32) % 32;
 		if (IsFieldVisible(FieldX, FieldY, Level))
 			CacheSprite(FieldX, FieldY, SpriteNumber, dx, dy);
 		if (ax % 32 != 0 && IsFieldVisible(FieldX + 1, FieldY, Level))
@@ -1195,10 +1195,10 @@ void TMapWindow::CacheSprite(int FieldX, int FieldY, int SpriteNumber, int dx, i
 	TBEGIN
 	if (!In(FieldX, 0, MAPSIZE_X - 1) || !In(FieldY, 0, MAPSIZE_Y - 1))
 		return;
-	int x = FieldX * 32 - ScrollX;
+	const int x = FieldX * 32 - ScrollX;
 	if (x <= -32)
 		return;
-	int y = FieldY * 32 - ScrollY;
+	const int y = FieldY * 32 - ScrollY;
 	if (y <= -32 || x >= 480 || y >= 352)
 		return;
 	TCacheField *Field = GetCacheField(FieldX, FieldY);
@@ -1263,9 +1263,9 @@ void TMapWindow::FlushField(int FieldX, int FieldY)
 {
 	TBEGIN
 	if (In(FieldX, 0, MAPSIZE_X - 1) && In(FieldY, 0, MAPSIZE_Y - 1)) {
-		int x = FieldX * 32 - ScrollX;
+		const int x = FieldX * 32 - ScrollX;
 		if (x > -32) {
-			int y = FieldY * 32 - ScrollY;
+			const int y = FieldY * 32 - ScrollY;
 			if (y > -32 && x < 480 && y < 352) {
 				TCacheField *Field = GetCacheField(FieldX, FieldY);
 				if (!Field->Copied) {
@@ -1319,9 +1319,9 @@ void TMapWindow::AddLightSource(int posx, int posy, int z, int Brightness, TRGBC
 		for (int y = posy / 32 - Brightness + 1; y < posy / 32 + Brightness; y++) {
 			if (y < 0 || y >= MAPSIZE_Y)
 				continue;
-			int dx = x * 32 - posx + 16;
-			int dy = y * 32 - posy + 16;
-			int Intensity = Brightness * 32 - (int)sqrt((double)dx * dx + dy * dy);
+			const int dx = x * 32 - posx + 16;
+			const int dy = y * 32 - posy + 16;
+			const int Intensity = Brightness * 32 - (int)sqrt((double)dx * dx + dy * dy);
 			int B = Color.B * Intensity / 160;
 			int G = Color.G * Intensity / 160;
 			int R = Color.R * Intensity / 160;
@@ -1369,12 +1369,12 @@ void TMapWindow::ArrangeTalkboxes()
 {
 	TBEGIN
 	int BoxWidth[TALKBOXES], BoxHeight[TALKBOXES];
-	int Talkboxes = GetNumberOfTalkboxes();
+	const int Talkboxes = GetNumberOfTalkboxes();
 	for (int Talkbox = 1; Talkbox <= Talkboxes; Talkbox++) {
 		BoxWidth[Talkbox - 1] = 0;
-		int Lines = GetTalkboxLines(Talkbox);
+		const int Lines = GetTalkboxLines(Talkbox);
 		for (int Line = 0; Line < Lines; Line++) {
-			int LineWidth = GetTextWidth(2, GetTalkboxLine(Talkbox, Line));
+			const int LineWidth = GetTextWidth(2, GetTalkboxLine(Talkbox, Line));
 			BoxWidth[Talkbox - 1] = BoxWidth[Talkbox - 1] > LineWidth ? BoxWidth[Talkbox - 1] : LineWidth;
 		}
 		BoxHeight[Talkbox - 1] = GetFontLineHeight(2) * Lines;
@@ -1384,15 +1384,15 @@ void TMapWindow::ArrangeTalkboxes()
 		StatusHeight = 0;
 	else
 		StatusHeight = GetFontHeight(2) + 10;
-	bool NoStretching = GetNoStretching();
-	int BorderX = (480 - Width) / 2;
-	int BorderY = (352 - Height) / 2;
+	const bool NoStretching = GetNoStretching();
+	const int BorderX = (480 - Width) / 2;
+	const int BorderY = (352 - Height) / 2;
 	int CentreX[TALKBOXES];
 	int PosX[TALKBOXES], PosY[TALKBOXES];
 	int MinX[TALKBOXES], MaxX[TALKBOXES], MinY[TALKBOXES], MaxY[TALKBOXES];
 	int Fixed[TALKBOXES];
 	for (int Talkbox = 1; Talkbox <= Talkboxes; Talkbox++) {
-		int i = Talkbox - 1;
+		const int i = Talkbox - 1;
 		int x, y, z;
 		GetTalkboxPosition(Talkbox, &x, &y, &z);
 		int CentreY;
@@ -1411,17 +1411,17 @@ void TMapWindow::ArrangeTalkboxes()
 				cy = (y - 1) * Height / 11;
 			cy -= GetTalkboxLines(Talkbox) * GetFontLineHeight(2) / 2;
 			CentreY = cy;
-			int HalfWidth = BoxWidth[i] / 2;
+			const int HalfWidth = BoxWidth[i] / 2;
 			MinX[i] = HalfWidth + 1 > cx - HalfWidth ? HalfWidth + 1 : cx - HalfWidth;
 			MaxX[i] = Width - HalfWidth < cx + HalfWidth ? Width - HalfWidth : cx + HalfWidth;
-			int HalfHeight = BoxHeight[i] / 2;
+			const int HalfHeight = BoxHeight[i] / 2;
 			MinY[i] = HalfHeight + 1 > cy ? HalfHeight + 1 : cy;
 			MaxY[i] = Height - HalfHeight - StatusHeight < cy + BoxHeight[i]
 				? Height - HalfHeight - StatusHeight
 				: cy + BoxHeight[i];
 			Fixed[i] = 0;
 		} else {
-			int cx = Width / 2;
+			const int cx = Width / 2;
 			CentreX[i] = cx;
 			int cy;
 			switch (GetTalkboxMode(Talkbox)) {
@@ -1441,10 +1441,10 @@ void TMapWindow::ArrangeTalkboxes()
 				TERROR1(1405, "unknown talk box mode", GetTalkboxMode(Talkbox));
 			}
 			CentreY = cy;
-			int HalfWidth = BoxWidth[i] / 2;
+			const int HalfWidth = BoxWidth[i] / 2;
 			MinX[i] = HalfWidth + 1 > cx - HalfWidth ? HalfWidth + 1 : cx - HalfWidth;
 			MaxX[i] = Width - HalfWidth < cx + HalfWidth ? Width - HalfWidth : cx + HalfWidth;
-			int HalfHeight = BoxHeight[i] / 2;
+			const int HalfHeight = BoxHeight[i] / 2;
 			MinY[i] = HalfHeight + 1 > cy - BoxHeight[i] ? HalfHeight + 1 : cy - BoxHeight[i];
 			MaxY[i] = Height - HalfHeight - StatusHeight < BoxHeight[i] + cy
 				? Height - HalfHeight - StatusHeight
@@ -1470,14 +1470,14 @@ void TMapWindow::ArrangeTalkboxes()
 			for (int j = 0; j < Talkboxes; j++) {
 				if (i == j)
 					continue;
-				int dx = PosX[j] - PosX[i];
-				int dy = PosY[j] - PosY[i];
-				int Distance = abs(dx);
-				int HalfWidth1 = BoxWidth[i] / 2, HalfWidth2 = BoxWidth[j] / 2;
+				const int dx = PosX[j] - PosX[i];
+				const int dy = PosY[j] - PosY[i];
+				const int Distance = abs(dx);
+				const int HalfWidth1 = BoxWidth[i] / 2, HalfWidth2 = BoxWidth[j] / 2;
 				if (Distance >= HalfWidth1 + HalfWidth2 + 10)
 					continue;
-				int DistanceY = abs(dy);
-				int HalfHeight1 = BoxHeight[i] / 2, HalfHeight2 = BoxHeight[j] / 2;
+				const int DistanceY = abs(dy);
+				const int HalfHeight1 = BoxHeight[i] / 2, HalfHeight2 = BoxHeight[j] / 2;
 				if (DistanceY >= HalfHeight1 + HalfHeight2 + 10)
 					continue;
 				int OverlapX, OverlapY;
@@ -1518,15 +1518,15 @@ void TMapWindow::ArrangeTalkboxes()
 		}
 	} while (Overlap < LastOverlap);
 	for (int Talkbox = 1; Talkbox <= Talkboxes; Talkbox++) {
-		int i = Talkbox - 1;
-		int HalfWidth = BoxWidth[i] / 2;
+		const int i = Talkbox - 1;
+		const int HalfWidth = BoxWidth[i] / 2;
 		if (PosX[i] == HalfWidth + 1 || PosX[i] == Width - HalfWidth)
 			Fixed[i] |= 1;
-		int HalfHeight = BoxHeight[i] / 2;
+		const int HalfHeight = BoxHeight[i] / 2;
 		if (PosY[i] == HalfHeight + 1 || PosY[i] == Height - HalfHeight - StatusHeight)
 			Fixed[i] |= 2;
-		int Quarter = BoxWidth[i] / 4;
-		int Top = PosY[i] - HalfHeight;
+		const int Quarter = BoxWidth[i] / 4;
+		const int Top = PosY[i] - HalfHeight;
 		if (PosX[i] < CentreX[i] - Quarter)
 			SetTalkboxRectangle(Talkbox, PosX[i] + HalfWidth, Top, 2, Fixed[i]);
 		else if (PosX[i] > CentreX[i] + Quarter)
@@ -1570,11 +1570,11 @@ void TMapWindow::GetField(int x, int y, int *FieldX, int *FieldY, int *FieldZ)
 // that no ground hides; 0 if there is none.
 uint32 TMapWindow::GetCreatureAt(int x, int y)
 {
-	int FieldWidth = Width / 15;
-	int FieldHeight = Height / 11;
+	const int FieldWidth = Width / 15;
+	const int FieldHeight = Height / 11;
 	TBEGIN
 	for (int i = 0; i < NumberOfNames; i++) {
-		TCreature *Creature = GetCreature(Names[i].CreatureID);
+		const TCreature *Creature = GetCreature(Names[i].CreatureID);
 		if (Creature == nullptr)
 			continue;
 		int cx = Creature->RealX, cy = Creature->RealY, cz = Creature->RealZ;
@@ -1590,13 +1590,13 @@ uint32 TMapWindow::GetCreatureAt(int x, int y)
 		if (!Visible)
 			continue;
 		if (GetNoStretching()) {
-			int dx = (480 - Width) / 2 - Names[i].x + x;
-			int dy = y - (Names[i].y - (352 - Height) / 2);
+			const int dx = (480 - Width) / 2 - Names[i].x + x;
+			const int dy = y - (Names[i].y - (352 - Height) / 2);
 			if (In(dx, -16, 16) && In(dy, 0, 32))
 				return Creature->CreatureID;
 		} else {
-			int dx = x - Names[i].x * Width / 480;
-			int dy = y - Names[i].y * Height / 352;
+			const int dx = x - Names[i].x * Width / 480;
+			const int dy = y - Names[i].y * Height / 352;
 			if (In(dx, -(FieldWidth / 2), FieldWidth / 2) && In(dy, 0, FieldHeight))
 				return Creature->CreatureID;
 		}
@@ -1625,8 +1625,8 @@ TMapFrame::TMapFrame()
 void TMapFrame::SetSize(int Width, int Height)
 {
 	TBEGIN
-	int Border = SkinProperties.Data13C;
-	int MaxWidth = (Height - Border * 2) * 15 / 11 + 2;
+	const int Border = SkinProperties.Data13C;
+	const int MaxWidth = (Height - Border * 2) * 15 / 11 + 2;
 	ViewWidth = Width - Border * 2 < MaxWidth ? Width - Border * 2 : MaxWidth;
 	if (GetNoStretching())
 		ViewWidth = ViewWidth < 480 ? ViewWidth : 480;
@@ -1665,11 +1665,11 @@ void TMapFrame::Arrange()
 	DrawingList[1] = TDrawing(11, ViewX - Skins[11].width, ViewY, Skins[11].width, Skins[8].height + ViewHeight, 0, 0);
 	DrawingList[2] = TDrawing(10, ViewX + ViewWidth, ViewY, Skins[10].width, Skins[8].height + ViewHeight, 0, 0);
 	DrawingList[3] = TDrawing(8, ViewX, ViewY + ViewHeight, ViewWidth, Skins[8].height, 0, 0);
-	int Top = ViewY - Skins[9].height;
-	int Left = ViewX - Skins[11].width;
-	int Right = Skins[10].width + ViewX + ViewWidth;
-	int RightWidth = Width - Right;
-	int Bottom = Skins[8].height + ViewY + ViewHeight;
+	const int Top = ViewY - Skins[9].height;
+	const int Left = ViewX - Skins[11].width;
+	const int Right = Skins[10].width + ViewX + ViewWidth;
+	const int RightWidth = Width - Right;
+	const int Bottom = Skins[8].height + ViewY + ViewHeight;
 	DrawingList[4] = TDrawing(7, 0, 0, Width, Top, 0, 0);
 	DrawingList[5] = TDrawing(7, 0, Top, Left, Height - Top, 0, Top % Skins[7].height);
 	DrawingList[6] = TDrawing(7, Right, Top, RightWidth, Height - Top, Right % Skins[7].width, Top % Skins[7].height);

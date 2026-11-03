@@ -230,7 +230,7 @@ void SendWalk()
 {
 	TBEGIN
 	PrepareMovement();
-	int Steps = GetNumberOfPlayerSteps();
+	const int Steps = GetNumberOfPlayerSteps();
 	TASSERT1(219, Steps>0, Steps);
 	if (Steps == 1) {
 		switch (GetPlayerStep(0)) {
@@ -841,7 +841,7 @@ void SendDebugReport(const char *Assertion, const char *Date, const char *Descri
 void ReceiveLoginError()
 {
 	TBEGIN
-	char *Text = GetString();
+	const char *Text = GetString();
 	AddMessage(1, (INT_PTR) "Sorry", (INT_PTR)Text);
 	Disconnect(false);
 	SetConnectionState(0);
@@ -852,7 +852,7 @@ void ReceiveLoginError()
 void ReceiveLoginMessage()
 {
 	TBEGIN
-	char *Text = GetString();
+	const char *Text = GetString();
 	AddMessage(1, (INT_PTR) "For Your Information", (INT_PTR)Text);
 	TEND(1006)
 }
@@ -861,7 +861,7 @@ void ReceiveLoginMessage()
 void ReceiveMessageOfTheDay()
 {
 	TBEGIN
-	char *Text = GetString();
+	const char *Text = GetString();
 	if (SetMotD(Text))
 		AddMessage(0x28, 0, 0);
 	delete[] Text;
@@ -897,9 +897,9 @@ void ReceivePatch()
 void ReceiveWholeFile()
 {
 	TBEGIN
-	int OldPatchDataSize = PatchDataSize;
-	int OldPatchFileNumber = PatchFileNumber;
-	int OldPatchDataCount = PatchDataCount;
+	const int OldPatchDataSize = PatchDataSize;
+	const int OldPatchFileNumber = PatchFileNumber;
+	const int OldPatchDataCount = PatchDataCount;
 	PatchFileNumber = GetByte();
 	PatchDataSize = GetQuad();
 	PatchDataCount = 0;
@@ -996,10 +996,10 @@ void ReceiveCharacterList()
 		GetString(World, 30);
 		for (int j = 0; j < 4; j++)
 			Address[j] = GetByte();
-		int Port = GetWord();
+		const int Port = GetWord();
 		SetCharacter(i, Name, World, Address, Port);
 	}
-	int PremiumDays = GetWord();
+	const int PremiumDays = GetWord();
 	SetPremiumDays(PremiumDays);
 	AddMessage(10, 300, 0);
 	TEND1(1162, Count)
@@ -1036,11 +1036,11 @@ void ReceiveGameLogin()
 {
 	TBEGIN
 	ClearRights();
-	uint32 CreatureID = GetQuad();
+	const uint32 CreatureID = GetQuad();
 	SetPlayerID(CreatureID);
-	int Beat = GetWord();
+	const int Beat = GetWord();
 	SetBeat(Beat);
-	uint8 value = GetByte();
+	const uint8 value = GetByte();
 	SetRight(40, value);
 	SetActionState(0);
 	TEND(1215)
@@ -1063,7 +1063,7 @@ void ReceiveGamemasterActions()
 void ReceiveGameError()
 {
 	TBEGIN
-	char *Text = GetString();
+	const char *Text = GetString();
 	AddMessage(1, (INT_PTR) "Sorry", (INT_PTR)Text);
 	Disconnect(false);
 	SetConnectionState(0);
@@ -1074,7 +1074,7 @@ void ReceiveGameError()
 void ReceiveGameMessage()
 {
 	TBEGIN
-	char *Text = GetString();
+	const char *Text = GetString();
 	AddMessage(1, (INT_PTR) "For Your Information", (INT_PTR)Text);
 	TEND(1258)
 }
@@ -1083,8 +1083,8 @@ void ReceiveGameMessage()
 void ReceiveLoginWait()
 {
 	TBEGIN
-	char *Text = GetString();
-	int Delay = GetByte();
+	const char *Text = GetString();
+	const int Delay = GetByte();
 	AddMessage(5, (INT_PTR)Text, Delay);
 	TEND(1271)
 }
@@ -1105,7 +1105,7 @@ uint32 ReadCreature(int Type, int x, int y, int z)
 	TBEGIN
 	TCreature *Creature;
 	if (Type == 0x61) {
-		uint32 RemoveID = GetQuad();
+		const uint32 RemoveID = GetQuad();
 		CreatureID = GetQuad();
 		Creature = AddCreature(RemoveID, CreatureID);
 		TASSERT1(1302, Creature!=NULL, CreatureID);
@@ -1126,7 +1126,7 @@ uint32 ReadCreature(int Type, int x, int y, int z)
 		Creature->LightStrength = GetByte();
 		Creature->LightColor = GetByte();
 		Creature->Speed = GetWord();
-		int Skull = GetByte();
+		const int Skull = GetByte();
 		Creature->SetSkull(Skull, false);
 		NotifySkull(Creature->PKFlag);
 		Creature->PARTYFlag = GetByte();
@@ -1165,7 +1165,7 @@ uint32 ReadCreature(int Type, int x, int y, int z)
 			Creature->LightStrength = GetByte();
 			Creature->LightColor = GetByte();
 			Creature->Speed = GetWord();
-			int Skull = GetByte();
+			const int Skull = GetByte();
 			Creature->SetSkull(Skull, false);
 			NotifySkull(Creature->PKFlag);
 			Creature->PARTYFlag = GetByte();
@@ -1209,7 +1209,7 @@ void ReadField(int rx, int ry, int rz)
 				TERROR(1401, Text.str().c_str());
 			}
 			if (Type == 0x61 || Type == 0x62 || Type == 0x63) {
-				uint32 CreatureID = ReadCreature(Type, rx, ry, rz);
+				const uint32 CreatureID = ReadCreature(Type, rx, ry, rz);
 				AppendObject(rx, ry, rz, TObject{0x63, (int)CreatureID, 0});
 			} else {
 				int Data = 0;
@@ -1270,7 +1270,7 @@ void ReceiveMap()
 	TBEGIN
 	PlayerX = GetWord();
 	PlayerY = GetWord();
-	int PlayerZ = GetByte();
+	const int PlayerZ = GetByte();
 	SetMapPosition(PlayerX, PlayerY, PlayerZ);
 	ClearMap();
 	HideAllCreatures();
@@ -1372,7 +1372,7 @@ void ReceiveAddObject()
 	ry = GetWord();
 	rz = GetByte();
 	AbsoluteToRelative(&rx, &ry, &rz);
-	int Type = GetWord();
+	const int Type = GetWord();
 	TObject Object;
 	if (Type == 0x61 || Type == 0x62 || Type == 0x63) {
 		Object.Type = 0x63;
@@ -1406,12 +1406,12 @@ void ReceiveChangeObject()
 	rx = GetWord();
 	ry = GetWord();
 	rz = GetByte();
-	int Position = GetByte(); // read before the conversion (0x40cff3)
+	const int Position = GetByte(); // read before the conversion (0x40cff3)
 	AbsoluteToRelative(&rx, &ry, &rz);
-	TObject OldObject = GetMapObject(rx, ry, rz, Position);
+	const TObject OldObject = GetMapObject(rx, ry, rz, Position);
 	if (OldObject.Type == NoObject.Type) {
 		TASSERT2(1594, FieldRefreshRequested(rx,ry,rz), rx, ry);
-		int Type = GetWord();
+		const int Type = GetWord();
 		if (Type == 0x61 || Type == 0x62 || Type == 0x63) {
 			ReadCreature(Type, rx, ry, rz);
 			return;
@@ -1428,7 +1428,7 @@ void ReceiveChangeObject()
 			if (Creature != nullptr)
 				Creature->Visible = false;
 		}
-		int Type = GetWord();
+		const int Type = GetWord();
 		TObject Object;
 		if (Type == 0x61 || Type == 0x62 || Type == 0x63) {
 			Object.Type = 0x63;
@@ -1463,9 +1463,9 @@ void ReceiveDeleteObject()
 	rx = GetWord();
 	ry = GetWord();
 	rz = GetByte();
-	int Position = GetByte();
+	const int Position = GetByte();
 	AbsoluteToRelative(&rx, &ry, &rz);
-	TObject Object = GetMapObject(rx, ry, rz, Position);
+	const TObject Object = GetMapObject(rx, ry, rz, Position);
 	if (Object.Type == NoObject.Type) {
 		TASSERT2(1649, FieldRefreshRequested(rx,ry,rz), rx, ry);
 	} else {
@@ -1474,7 +1474,7 @@ void ReceiveDeleteObject()
 			if (Creature != nullptr)
 				Creature->Visible = false;
 		}
-		bool Refresh = DeleteObject(rx, ry, rz, Position);
+		const bool Refresh = DeleteObject(rx, ry, rz, Position);
 		if (rz == GetMapLevel())
 			UpdateAutomap(rx, ry);
 		RelativeToAbsolute(&rx, &ry, &rz);
@@ -1492,23 +1492,23 @@ void ReceiveMoveCreature()
 	int sx = GetWord();
 	int sy = GetWord();
 	int sz = GetByte();
-	int Position = GetByte();
+	const int Position = GetByte();
 	int zx = GetWord();
 	int zy = GetWord();
 	int zz = GetByte();
-	int dx = zx - sx;
-	int dy = zy - sy;
-	int dz = zz - sz;
-	int abs_sx = sx;
-	int abs_sy = sy;
-	int abs_sz = sz;
-	int abs_zx = zx;
-	int abs_zy = zy;
-	int abs_zz = zz;
-	bool Teleport = dz != 0 || abs(dx) >= 2 || abs(dy) >= 2;
+	const int dx = zx - sx;
+	const int dy = zy - sy;
+	const int dz = zz - sz;
+	const int abs_sx = sx;
+	const int abs_sy = sy;
+	const int abs_sz = sz;
+	const int abs_zx = zx;
+	const int abs_zy = zy;
+	const int abs_zz = zz;
+	const bool Teleport = dz != 0 || abs(dx) >= 2 || abs(dy) >= 2;
 	AbsoluteToRelative(&sx, &sy, &sz);
 	AbsoluteToRelative(&zx, &zy, &zz);
-	TObject Object = GetMapObject(sx, sy, sz, Position);
+	const TObject Object = GetMapObject(sx, sy, sz, Position);
 	std::string Error;
 	TCreature *Creature = nullptr;
 	if (Object.Type == NoObject.Type || Object.Type != 0x63) {
@@ -1548,7 +1548,7 @@ void ReceiveMoveCreature()
 				if (Creature->CreatureID != GetPlayerID())
 					Creature->StartMovement(0, 0, 0);
 			} else {
-				TObject Bank = GetFirstObject(zx, zy, zz);
+				const TObject Bank = GetFirstObject(zx, zy, zz);
 				if (GetObjectFlag(Bank.Type, 0))
 					Creature->StartMovement(dx, dy, GetObjectWaypoints(Bank.Type));
 				else
@@ -1637,15 +1637,15 @@ void ReceiveOpenContainer(int &Container)
 	Container = GetByte();
 	if (IsContainerOpen(Container))
 		CloseContainer(Container);
-	int Type = GetWord();
+	const int Type = GetWord();
 	char Name[40];
 	GetString(Name, 30);
-	int Capacity = GetByte();
-	bool HasParent = GetByte() != 0;
+	const int Capacity = GetByte();
+	const bool HasParent = GetByte() != 0;
 	OpenContainer(Container, TObject{Type, 0, 0}, Name, Capacity, HasParent);
-	int Count = GetByte();
+	const int Count = GetByte();
 	for (int i = 0; i < Count; i++) {
-		int Type = GetWord();
+		const int Type = GetWord();
 		int Data = 0;
 		if (GetObjectFlag(Type, 5))
 			Data = GetByte();
@@ -1695,7 +1695,7 @@ void ReceiveContainerChangeObject()
 	int Type = 0;
 	TBEGIN
 	Container = GetByte();
-	int Position = GetByte();
+	const int Position = GetByte();
 	Type = GetWord();
 	int Data = 0;
 	if (GetObjectFlag(Type, 5))
@@ -1760,9 +1760,9 @@ void ReceiveOwnTrade()
 	char Name[40];
 	GetString(Name, 30);
 	SetOwnOffer(Name);
-	int Count = GetByte();
+	const int Count = GetByte();
 	for (int i = 0; i < Count; i++) {
-		int Type = GetWord();
+		const int Type = GetWord();
 		int Data = 0;
 		if (GetObjectFlag(Type, 5))
 			Data = GetByte();
@@ -1781,10 +1781,10 @@ void ReceiveCounterTrade()
 	TBEGIN
 	char Name[40];
 	GetString(Name, 30);
-	bool Open = SetCounterOffer(Name);
-	int Count = GetByte();
+	const bool Open = SetCounterOffer(Name);
+	const int Count = GetByte();
 	for (int i = 0; i < Count; i++) {
-		int Type = GetWord();
+		const int Type = GetWord();
 		int Data = 0;
 		if (GetObjectFlag(Type, 5))
 			Data = GetByte();
@@ -1810,8 +1810,8 @@ void ReceiveCloseTrade()
 void ReceiveWorldLight()
 {
 	TBEGIN
-	int Brightness = GetByte();
-	int Color = GetByte();
+	const int Brightness = GetByte();
+	const int Color = GetByte();
 	SetAmbientLight(Brightness, Color);
 	TEND(2092)
 }
@@ -1827,7 +1827,7 @@ void ReceiveMagicEffect()
 	ry = GetWord();
 	rz = GetByte();
 	AbsoluteToRelative(&rx, &ry, &rz);
-	int Effect = GetByte();
+	const int Effect = GetByte();
 	AddGraphicalEffect(rx, ry, rz, Effect);
 	TEND2(2111, rx, ry)
 }
@@ -1843,7 +1843,7 @@ void ReceiveAnimatedText()
 	ry = GetWord();
 	rz = GetByte();
 	AbsoluteToRelative(&rx, &ry, &rz);
-	int Color = GetByte();
+	const int Color = GetByte();
 	char Text[24];
 	GetString(Text, 10);
 	AddTextualEffect(rx, ry, rz, Color, Text);
@@ -1865,7 +1865,7 @@ void ReceiveDistanceEffect()
 	int dy = GetWord();
 	int dz = GetByte();
 	AbsoluteToRelative(&dx, &dy, &dz);
-	int Effect = GetByte();
+	const int Effect = GetByte();
 	AddMissileEffect(sx, sy, sz, dx, dy, dz, Effect);
 	TEND2(2155, sx, sy)
 }
@@ -1878,7 +1878,7 @@ void ReceiveCreatureMark()
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
-		int Value = GetByte();
+		const int Value = GetByte();
 		Creature->SetMark(Value);
 		return;
 	}
@@ -1894,7 +1894,7 @@ void ReceiveCreatureHealth()
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
-		int Value = GetByte();
+		const int Value = GetByte();
 		Creature->Health = Value;
 		return;
 	}
@@ -1926,7 +1926,7 @@ void ReceiveCreatureOutfit()
 	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
-	int Type = GetWord();
+	const int Type = GetWord();
 	if (Creature == nullptr) {
 		if (Type != 0) {
 			GetByte();
@@ -1958,7 +1958,7 @@ void ReceiveCreatureSpeed()
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
-		int Value = GetWord();
+		const int Value = GetWord();
 		Creature->Speed = Value;
 		return;
 	}
@@ -1974,7 +1974,7 @@ void ReceiveCreatureSkull()
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
-		int Skull = GetByte();
+		const int Skull = GetByte();
 		Creature->SetSkull(Skull, true);
 		NotifySkull(Creature->PKFlag);
 		return;
@@ -1991,7 +1991,7 @@ void ReceiveCreatureShield()
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
-		int Value = GetByte();
+		const int Value = GetByte();
 		Creature->PARTYFlag = Value;
 		return;
 	}
@@ -2023,7 +2023,7 @@ void ReceiveEditHouseText()
 	uint32 *Info = new uint32[2];
 	Info[0] = GetByte();
 	Info[1] = GetQuad();
-	char *Text = GetString();
+	const char *Text = GetString();
 	AddMessage(15, (INT_PTR)Info, (INT_PTR)Text);
 	TEND(2318)
 }
@@ -2032,17 +2032,17 @@ void ReceiveEditHouseText()
 void ReceivePlayerStats()
 {
 	TBEGIN
-	int Health = GetWord();
-	int MaxHealth = GetWord();
-	int Capacity = GetWord();
-	uint32 Experience = GetQuad();
-	int Level = GetWord();
-	int LevelPercent = GetByte();
-	int Mana = GetWord();
-	int MaxMana = GetWord();
-	int MagicLevel = GetByte();
-	int MagicLevelPercent = GetByte();
-	int Soul = GetByte();
+	const int Health = GetWord();
+	const int MaxHealth = GetWord();
+	const int Capacity = GetWord();
+	const uint32 Experience = GetQuad();
+	const int Level = GetWord();
+	const int LevelPercent = GetByte();
+	const int Mana = GetWord();
+	const int MaxMana = GetWord();
+	const int MagicLevel = GetByte();
+	const int MagicLevelPercent = GetByte();
+	const int Soul = GetByte();
 	SetPlayerHealth(Health, MaxHealth);
 	SetPlayerCapacity(Capacity);
 	SetPlayerMana(Mana, MaxMana);
@@ -2058,8 +2058,8 @@ void ReceivePlayerSkills()
 	int i;
 	TBEGIN
 	for (i = 0; i < 7; i++) {
-		int Level = GetByte();
-		int Percent = GetByte();
+		const int Level = GetByte();
+		const int Percent = GetByte();
 		SetPlayerSkill(i, Level, Percent);
 	}
 	TEND1(2363, i)
@@ -2069,7 +2069,7 @@ void ReceivePlayerSkills()
 void ReceivePlayerIcons()
 {
 	TBEGIN
-	int Icons = GetByte();
+	const int Icons = GetByte();
 	SetPlayerState(Icons);
 	TEND(2374)
 }
@@ -2088,7 +2088,7 @@ void ReceiveTalk()
 	int Mode = 1;
 	int Channel = 0;
 	TBEGIN
-	uint32 StatementID = GetQuad();
+	const uint32 StatementID = GetQuad();
 	char Name[36];
 	GetString(Name, 30);
 	Mode = GetByte();
@@ -2099,9 +2099,9 @@ void ReceiveTalk()
 	case 1:
 	case 2:
 	case 3: {
-		int x = GetWord();
-		int y = GetWord();
-		int z = GetByte();
+		const int x = GetWord();
+		const int y = GetWord();
+		const int z = GetByte();
 		GetString(Text, 512);
 		if (IsTalkIgnored(Mode, Name, -1)) {
 			SetTalkThrottle();
@@ -2142,9 +2142,9 @@ void ReceiveTalk()
 		break;
 	case 16:
 	case 17: {
-		int x = GetWord();
-		int y = GetWord();
-		int z = GetByte();
+		const int x = GetWord();
+		const int y = GetWord();
+		const int z = GetByte();
 		GetString(Text, 512);
 		if (!IsTalkIgnored(Mode, Name, -1)) {
 			AddTalkbox(Mode, Name, x, y, z, Text);
@@ -2207,7 +2207,7 @@ void ReceiveRuleViolationChannel()
 	int ChannelID = 0;
 	TBEGIN
 	ChannelID = GetWord();
-	TTalkBuffer *Channel = CreateTextBuffer(6, 1, nullptr, ChannelID);
+	const TTalkBuffer *Channel = CreateTextBuffer(6, 1, nullptr, ChannelID);
 	if (Channel == nullptr)
 		Channel = GetTextBuffer(6, nullptr, -1);
 	AddMessage(0x32, (INT_PTR)Channel, 0);
@@ -2314,7 +2314,7 @@ void ReceiveTextMessage()
 void ReceiveCancelWalk()
 {
 	TBEGIN
-	int Direction = GetByte();
+	const int Direction = GetByte();
 	int x;
 	int y;
 	int z;
@@ -2444,9 +2444,9 @@ void ReceiveBuddy()
 	CharacterID = GetQuad();
 	char Name[44];
 	GetString(Name, 30);
-	int State = GetByte();
+	const int State = GetByte();
 	AddBuddy(CharacterID, Name, State == 1);
-	char *Copy = _strdup(Name);
+	const char *Copy = _strdup(Name);
 	AddMessage(25, (INT_PTR)Copy, 0);
 	TEND1(2785, CharacterID)
 }

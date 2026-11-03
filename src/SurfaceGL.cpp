@@ -124,13 +124,13 @@ bool IsOpenGLWorking(HDC Context)
 	bool Works = false;
 	MainDC = Context;
 	// clang-format off
-	PIXELFORMATDESCRIPTOR Format = {
+	const PIXELFORMATDESCRIPTOR Format = {
 		sizeof(PIXELFORMATDESCRIPTOR), 1,
 		PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_DEPTH_DONTCARE,
 		PFD_TYPE_RGBA, 32,
 	};
 	// clang-format on
-	int Number = ChoosePixelFormat(Context, &Format);
+	const int Number = ChoosePixelFormat(Context, &Format);
 	if (Number == 0 || !SetPixelFormat(MainDC, Number, &Format))
 		return false;
 	MainContext = wglCreateContext(MainDC);
@@ -195,7 +195,7 @@ void TSurfaceGL::SelectSurface(int Surface)
 	} else {
 		if (wglGetCurrentContext() != PbufferContext)
 			wglMakeCurrent(PbufferDC, PbufferContext);
-		TTextureGL *Texture = &Textures[Surface];
+		const TTextureGL *Texture = &Textures[Surface];
 		if (Texture->TexWidth > Textures[CurrentSurface].TexWidth
 			|| Texture->TexHeight > Textures[CurrentSurface].TexHeight) {
 			glMatrixMode(GL_PROJECTION);
@@ -261,7 +261,7 @@ void TSurfaceGL::SetSourceColorKey(int Surface, TRGBColor ColorKey)
 // due; a frame more than a millisecond late moves the schedule.
 void TSurfaceGL::WaitForNextFrame()
 {
-	double Now = PATELLA_TIME_GET_TIME();
+	const double Now = PATELLA_TIME_GET_TIME();
 	FrameCount++;
 	if (Now - LastFPSTime > 1000.0) {
 		FPS = (FrameCount * 1000) / (Now - LastFPSTime);
@@ -414,11 +414,11 @@ void TSurfaceGL::StretchBlitUnclipped(int ToSurface, TRect ToRect, int FromSurfa
 		Blit(ToSurface, ToRect.x, ToRect.y, FromSurface, FromRect, ColorKey);
 		return;
 	}
-	TTextureGL *Texture = &Textures[FromSurface];
-	float Left = (float)((double)FromRect.x / Texture->TexWidth);
-	float Right = (float)((double)(FromRect.x + FromRect.width) / Texture->TexWidth);
-	float Top = (float)((double)FromRect.y / Texture->TexHeight);
-	float Bottom = (float)((double)(FromRect.y + FromRect.height) / Texture->TexHeight);
+	const TTextureGL *Texture = &Textures[FromSurface];
+	const float Left = (float)((double)FromRect.x / Texture->TexWidth);
+	const float Right = (float)((double)(FromRect.x + FromRect.width) / Texture->TexWidth);
+	const float Top = (float)((double)FromRect.y / Texture->TexHeight);
+	const float Bottom = (float)((double)(FromRect.y + FromRect.height) / Texture->TexHeight);
 	SelectSurface(ToSurface);
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, Texture->Texture);
@@ -442,11 +442,11 @@ void TSurfaceGL::StretchBlitUnclipped(int ToSurface, TRect ToRect, int FromSurfa
 // 0x4fa700. Scaled, with linear filtering.
 void TSurfaceGL::StretchBlitRect(int ToSurface, TRect Destination, int FromSurface, TRect Source)
 {
-	TTextureGL *Texture = &Textures[FromSurface];
-	double Left = (double)Source.x / Texture->TexWidth;
-	double Right = (double)(Source.x + Source.width) / Texture->TexWidth;
-	double Top = (double)Source.y / Texture->TexHeight;
-	double Bottom = (double)(Source.y + Source.height) / Texture->TexHeight;
+	const TTextureGL *Texture = &Textures[FromSurface];
+	const double Left = (double)Source.x / Texture->TexWidth;
+	const double Right = (double)(Source.x + Source.width) / Texture->TexWidth;
+	const double Top = (double)Source.y / Texture->TexHeight;
+	const double Bottom = (double)(Source.y + Source.height) / Texture->TexHeight;
 	SelectSurface(ToSurface);
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, Texture->Texture);
@@ -526,8 +526,8 @@ void TSurfaceGL::ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor
 	glDisable(GL_TEXTURE_2D);
 	glBegin(GL_QUADS);
 	for (int i = 0; i < Count; i++) {
-		TRect *R = &Rects[i];
-		TRGBColor *C = &Colors[4 * i];
+		const TRect *R = &Rects[i];
+		const TRGBColor *C = &Colors[4 * i];
 		glColor3ub(C[0].R, C[0].G, C[0].B);
 		glVertex2i(R->x, R->y);
 		glColor3ub(C[2].R, C[2].G, C[2].B);
@@ -587,7 +587,7 @@ void TSurfaceGL::InitDisplay(int VMode, TFullscreenMode *GMode)
 		Mode.dmPelsWidth = GMode->Width;
 		Mode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 		TFullscreenMode *Modes = nullptr;
-		int Number = GetFullscreenModes(&Modes);
+		const int Number = GetFullscreenModes(&Modes);
 		int i;
 		for (i = 0; i < Number; i++) {
 			if (GMode->Width == Modes[i].Width && GMode->Height == Modes[i].Height)
@@ -640,7 +640,7 @@ bool TSurfaceGL::CreateTexture(TTextureGL *Texture, int Width, int Height, bool 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		uint8 *Data = new uint8[Texture->TexWidth * Texture->TexHeight * 4];
+		const uint8 *Data = new uint8[Texture->TexWidth * Texture->TexHeight * 4];
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, Texture->TexWidth, Texture->TexHeight, 0, GL_RGBA,
 			GL_UNSIGNED_BYTE, Data);
 		delete Data;
@@ -681,7 +681,7 @@ void TSurfaceGL::CreateSurfaces()
 	if (!CreateTexture(&Textures[AUTOMAP_SURFACE], Rect[AUTOMAP_SURFACE].right, Rect[AUTOMAP_SURFACE].bottom, false))
 		throw (PROGRAM_ERROR)17;
 	for (int i = 0; i < 16; i++) {
-		int Surface = SPRITE_SURFACE + i;
+		const int Surface = SPRITE_SURFACE + i;
 		if (i < 24) {
 			if (!CreateTexture(&Textures[Surface], Rect[Surface].right, Rect[Surface].bottom, false))
 				throw (PROGRAM_ERROR)18;
@@ -752,13 +752,13 @@ bool TSurfaceGL::Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, b
 	hWindow = *Window;
 	DeviceContext = GetDC(hWindow);
 	// clang-format off
-	PIXELFORMATDESCRIPTOR Format = {
+	const PIXELFORMATDESCRIPTOR Format = {
 		sizeof(PIXELFORMATDESCRIPTOR), 1,
 		PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_DEPTH_DONTCARE,
 		PFD_TYPE_RGBA, (BYTE)Resolution->Depth,
 	};
 	// clang-format on
-	int Number = ChoosePixelFormat(DeviceContext, &Format);
+	const int Number = ChoosePixelFormat(DeviceContext, &Format);
 	if (Number == 0 || !SetPixelFormat(DeviceContext, Number, &Format))
 		return false;
 	Context = wglCreateContext(DeviceContext);
@@ -787,7 +787,7 @@ int TSurfaceGL::GetFullscreenModes(TFullscreenMode **Modes)
 	int Number = 0;
 	int Count = 0;
 	EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS, &Mode);
-	DWORD DesktopDepth = Mode.dmBitsPerPel;
+	const DWORD DesktopDepth = Mode.dmBitsPerPel;
 	while (EnumDisplaySettingsA(nullptr, Count, &Mode))
 		Count++;
 	*Modes = new TFullscreenMode[Count];
@@ -866,14 +866,14 @@ void TSurfaceGL::WriteImage(int ToSurface, int x, int y, int Width, int Height, 
 	TASSERT(768, x>=0 && y>=0 && Width>0 && Height>0);
 	if (ToSurface != AUTOMAP_SURFACE)
 		SelectSurface(ToSurface);
-	int Size = Width * Height;
+	const int Size = Width * Height;
 	uint8 *Image = new uint8[Size * 4];
 	uint8 *Pixel = Image;
 	for (int i = 0; i < Size; i++) {
 		Pixel[0] = Data[0];
 		Pixel[1] = Data[1];
 		Pixel[2] = Data[2];
-		TRGBColor *Key = &Textures[ToSurface].ColorKey;
+		const TRGBColor *Key = &Textures[ToSurface].ColorKey;
 		if (Data[0] == Key->R && Data[1] == Key->G && Data[2] == Key->B)
 			Pixel[3] = 0;
 		else
@@ -898,14 +898,14 @@ void TSurfaceGL::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 	TASSERT(802, ToSurface!=SCREEN_SURFACE);
 	TASSERT(803, x>=0 && y>=0 && Width>0 && Height>0);
 	SelectSurface(ToSurface);
-	int Size = Width * Height;
+	const int Size = Width * Height;
 	uint8 *Image = new uint8[Size * 4];
 	uint8 *Pixel = Image;
 	for (int i = 0; i < Size; i++) {
-		uint8 *From = &Data[i * 3];
+		const uint8 *From = &Data[i * 3];
 		int Index;
 		if (Mask != nullptr) {
-			uint8 *M = &Mask[i * 3];
+			const uint8 *M = &Mask[i * 3];
 			if (M[0] == 0xff) {
 				if (M[1] == 0xff) {
 					if (M[2] != 0)
@@ -935,8 +935,8 @@ void TSurfaceGL::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 			Index = 0;
 		}
 		{
-			int Grey = (From[1] * 59 + From[0] * 30 + From[2] * 11) / 100;
-			TRGBColor *C = &Colors[Index];
+			const int Grey = (From[1] * 59 + From[0] * 30 + From[2] * 11) / 100;
+			const TRGBColor *C = &Colors[Index];
 			Pixel[0] = (uint8)(C->R * Grey / 256);
 			Pixel[1] = (uint8)(C->G * Grey / 256);
 			Pixel[2] = (uint8)(C->B * Grey / 256);
@@ -966,11 +966,11 @@ void TSurfaceGL::BlitRectClipped(int ToSurface, int x, int y, int FromSurface, T
 	RECT Source = {FromRect.x, FromRect.y, FromRect.x + FromRect.width, FromRect.y + FromRect.height};
 	if (!ClipRect(Clip, &Destination, &Source))
 		return;
-	TTextureGL *Texture = &Textures[FromSurface];
-	double Left = (double)Source.left / Texture->TexWidth;
-	double Right = (double)Source.right / Texture->TexWidth;
-	double Top = (double)Source.top / Texture->TexHeight;
-	double Bottom = (double)Source.bottom / Texture->TexHeight;
+	const TTextureGL *Texture = &Textures[FromSurface];
+	const double Left = (double)Source.left / Texture->TexWidth;
+	const double Right = (double)Source.right / Texture->TexWidth;
+	const double Top = (double)Source.top / Texture->TexHeight;
+	const double Bottom = (double)Source.bottom / Texture->TexHeight;
 	SelectSurface(ToSurface);
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, Texture->Texture);
@@ -1025,7 +1025,7 @@ void TSurfaceGL::GetSurfaceRect(int Surface, TRect *Rect)
 bool TSurfaceGL::SurfaceRecreated(int Type)
 {
 	TASSERT(1555, Type>=0 && Type<3);
-	bool Result = Recreated[Type];
+	const bool Result = Recreated[Type];
 	Recreated[Type] = false;
 	return Result;
 }
@@ -1038,8 +1038,8 @@ bool TSurfaceGL::SurfaceRecreated(int Type)
 // much; false when nothing is left.
 bool TSurfaceGL::ClipRect(TRect Clip, RECT *Rect, RECT *Source)
 {
-	int ClipRight = Clip.x + Clip.width;
-	int ClipBottom = Clip.y + Clip.height;
+	const int ClipRight = Clip.x + Clip.width;
+	const int ClipBottom = Clip.y + Clip.height;
 	if (Rect->left < ClipRight && Rect->top < ClipBottom && Rect->right > Clip.x && Rect->bottom > Clip.y) {
 		if (Rect->left < Clip.x) {
 			Source->left += Clip.x - Rect->left;
@@ -1065,7 +1065,7 @@ bool TSurfaceGL::ClipRect(TRect Clip, RECT *Rect, RECT *Source)
 // +0x5c (0x4f04d0)
 void TSurfaceGL::ResetFrameTimer()
 {
-	double Now = PATELLA_TIME_GET_TIME();
+	const double Now = PATELLA_TIME_GET_TIME();
 	StartTime = Now;
 	Framerate = 0xffff;
 	NextFrame = Now;

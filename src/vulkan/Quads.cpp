@@ -36,8 +36,8 @@ TVertex MakeVertex(double x, double y, double u, double v, TColor Color)
 TAxis MapAxis(int From, int To, float FromCoordinate, float ToCoordinate, int Size, TFilter Filter)
 {
 	TAxis Axis{};
-	int Pixels = To - From;
-	double Offset = Filter == TFilter::Linear ? 0.5 : 0.0;
+	const int Pixels = To - From;
+	const double Offset = Filter == TFilter::Linear ? 0.5 : 0.0;
 	Axis.Start = static_cast<double>(FromCoordinate) * Size - Offset;
 	if (Pixels <= 0 || Size <= 0) {
 		Axis.Scale = 0.0;
@@ -48,8 +48,8 @@ TAxis MapAxis(int From, int To, float FromCoordinate, float ToCoordinate, int Si
 	}
 	Axis.Scale = (static_cast<double>(ToCoordinate) - static_cast<double>(FromCoordinate)) * Size / Pixels;
 	// The scale must be 1 to within half a sub-texel over the whole quad.
-	bool OneToOne = std::fabs(Axis.Scale - 1.0) * Pixels < 0.5 / SubTexel;
-	double Snapped = std::round(Axis.Start * SubTexel) / SubTexel;
+	const bool OneToOne = std::fabs(Axis.Scale - 1.0) * Pixels < 0.5 / SubTexel;
+	const double Snapped = std::round(Axis.Start * SubTexel) / SubTexel;
 	if (Filter == TFilter::Point) {
 		// Point sampling reads floor(s): a copy. When the samples fall on the texel edges (the
 		// automap's upload: u from 0 to 1 over 106 pixels, SurfaceVulkan.cpp WriteImage), the
@@ -59,7 +59,7 @@ TAxis MapAxis(int From, int To, float FromCoordinate, float ToCoordinate, int Si
 		// Vulkan, while lavapipe rounds to texel k). Starting at edge 0 that is an Edge copy: texel
 		// k - 1, clamped to the texture (the engine's nearest, clamp-to-edge sampler). An edge start
 		// elsewhere goes to the hardware as Direct3D 9 gives it.
-		bool OnEdge = Snapped == std::floor(Snapped);
+		const bool OnEdge = Snapped == std::floor(Snapped);
 		Axis.Edge = OneToOne && OnEdge && Snapped == 0.0;
 		Axis.Copy = OneToOne && (!OnEdge || Axis.Edge);
 		Axis.CopyStart = Axis.Edge ? -1 : static_cast<int>(std::floor(Snapped));
@@ -75,13 +75,13 @@ TAxis MapAxis(int From, int To, float FromCoordinate, float ToCoordinate, int Si
 TQuadVertices ConvertQuad(const TQuad &Quad, int TextureWidth, int TextureHeight, TFilter Filter)
 {
 	TQuadVertices Result{};
-	TAxis Horizontal = MapAxis(Quad.Left, Quad.Right, Quad.LeftU, Quad.RightU, TextureWidth, Filter);
-	TAxis Vertical = MapAxis(Quad.Top, Quad.Bottom, Quad.TopV, Quad.BottomV, TextureHeight, Filter);
-	bool OneColor = Quad.TopLeft == Quad.TopRight && Quad.TopLeft == Quad.BottomRight && Quad.TopLeft == Quad.BottomLeft;
-	TColor TopLeft = ColorOf(Quad.TopLeft);
-	TColor TopRight = ColorOf(Quad.TopRight);
-	TColor BottomRight = ColorOf(Quad.BottomRight);
-	TColor BottomLeft = ColorOf(Quad.BottomLeft);
+	const TAxis Horizontal = MapAxis(Quad.Left, Quad.Right, Quad.LeftU, Quad.RightU, TextureWidth, Filter);
+	const TAxis Vertical = MapAxis(Quad.Top, Quad.Bottom, Quad.TopV, Quad.BottomV, TextureHeight, Filter);
+	const bool OneColor = Quad.TopLeft == Quad.TopRight && Quad.TopLeft == Quad.BottomRight && Quad.TopLeft == Quad.BottomLeft;
+	const TColor TopLeft = ColorOf(Quad.TopLeft);
+	const TColor TopRight = ColorOf(Quad.TopRight);
+	const TColor BottomRight = ColorOf(Quad.BottomRight);
+	const TColor BottomLeft = ColorOf(Quad.BottomLeft);
 	double Left, Top, Right, Bottom, LeftU, RightU, TopV, BottomV;
 	if (Horizontal.Copy && Vertical.Copy && OneColor) {
 		// A copy: the corners on whole pixels (no pixel centre on an edge) and the texel edges on the
@@ -123,7 +123,7 @@ TQuadVertices ConvertQuad(const TQuad &Quad, int TextureWidth, int TextureHeight
 
 std::array<TVertex, 6> FillVertices(int Left, int Top, int Right, int Bottom, uint32_t Color)
 {
-	TColor C = ColorOf(Color | 0xff000000u);
+	const TColor C = ColorOf(Color | 0xff000000u);
 	return {MakeVertex(Left, Top, 0.0, 0.0, C), MakeVertex(Right, Top, 0.0, 0.0, C), MakeVertex(Right, Bottom, 0.0, 0.0, C),
 		MakeVertex(Right, Bottom, 0.0, 0.0, C), MakeVertex(Left, Bottom, 0.0, 0.0, C), MakeVertex(Left, Top, 0.0, 0.0, C)};
 }

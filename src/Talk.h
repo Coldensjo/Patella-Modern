@@ -72,13 +72,13 @@ public:
 	// 0x4fd5f0-0x4fd6b7, Talk.h inlines, in vtable order.
 	virtual bool GetChanged()
 	{
-		bool Result = Changed;
+		const bool Result = Changed;
 		Changed = false;
 		return Result;
 	}
 	virtual bool GetClosed()
 	{
-		bool Result = Closed;
+		const bool Result = Closed;
 		Closed = false;
 		return Result;
 	}

@@ -160,7 +160,7 @@ TParseResult TParser::Run(std::string_view Text)
 	while (!Text.empty()) {
 		LineNumber++;
 		std::size_t End = Text.find('\n');
-		std::string_view Current = Text.substr(0, End);
+		const std::string_view Current = Text.substr(0, End);
 		Text = End == std::string_view::npos ? std::string_view() : Text.substr(End + 1);
 		if (!Line(Current))
 			break;
@@ -264,7 +264,7 @@ bool TParser::Combo(std::string_view Word, std::vector<TKeyInfo> *Held, TKeyInfo
 {
 	while (true) {
 		std::size_t Plus = Word.find('+');
-		std::string_view Name = Word.substr(0, Plus);
+		const std::string_view Name = Word.substr(0, Plus);
 		TKeyInfo Info;
 		if (!FindKey(Name, &Info))
 			return Fail("unknown key: " + std::string(Name));
@@ -287,7 +287,7 @@ bool TParser::Mods(const std::vector<TWord> &Words, std::size_t Index, std::vect
 	std::string_view Word = Words[Index].Text;
 	while (true) {
 		std::size_t Plus = Word.find('+');
-		std::string_view Name = Word.substr(0, Plus);
+		const std::string_view Name = Word.substr(0, Plus);
 		TKeyInfo Info;
 		if (!FindKey(Name, &Info) || ModifierOf(Info.Key) == 0)
 			return Fail("not a modifier (Shift, Ctrl, Alt): " + std::string(Name));
@@ -310,7 +310,7 @@ bool TParser::String(std::string_view Word, std::string *Value)
 		if (Byte == '\\') {
 			if (i + 1 >= Word.size())
 				return Fail("the string ends with a backslash");
-			char Escaped = Word[i + 1];
+			const char Escaped = Word[i + 1];
 			if (Escaped == '"' || Escaped == '\\') {
 				Latin1 += Escaped;
 				i += 2;
@@ -332,7 +332,7 @@ bool TParser::String(std::string_view Word, std::string *Value)
 			i++;
 		} else if ((Byte & 0xe0U) == 0xc0U && i + 1 < Word.size()
 			&& (static_cast<unsigned char>(Word[i + 1]) & 0xc0U) == 0x80U) {
-			unsigned int Code = ((Byte & 0x1fU) << 6U) | (static_cast<unsigned char>(Word[i + 1]) & 0x3fU);
+			const unsigned int Code = ((Byte & 0x1fU) << 6U) | (static_cast<unsigned char>(Word[i + 1]) & 0x3fU);
 			if (Code < 0x80 || Code > 0xff)
 				return Fail("text holds a character that is not Latin-1");
 			Latin1 += static_cast<char>(Code);
@@ -490,7 +490,7 @@ bool TParser::Line(std::string_view Text)
 	if (Command == "save") {
 		if (!Expect(Words, 1, 1))
 			return false;
-		std::string_view File = Words[1].Text;
+		const std::string_view File = Words[1].Text;
 		if (File.find_first_of("/\\:\"") != std::string_view::npos || File == "." || File == "..")
 			return Fail("save takes a file name without a path: " + std::string(File));
 		Add(TEventKind::Save);
@@ -516,9 +516,9 @@ bool TParser::Line(std::string_view Text)
 		TKeyInfo Key;
 		if (!Expect(Words, 1, 1) || !Combo(Words[1].Text, &Wanted, &Key))
 			return false;
-		std::vector<TKeyInfo> Pressed = Press(Wanted);
+		const std::vector<TKeyInfo> Pressed = Press(Wanted);
 		AddKey(TEventKind::KeyDown, Key);
-		int Character = KeyCharacter(Key.Key, Modifiers);
+		const int Character = KeyCharacter(Key.Key, Modifiers);
 		if (Character >= 0)
 			AddChar(static_cast<std::uint32_t>(Character), Key.Scan, Key.Extended);
 		AddKey(TEventKind::KeyUp, Key);
@@ -545,7 +545,7 @@ bool TParser::Line(std::string_view Text)
 		std::string Value;
 		if (!Expect(Words, 1, 1) || !String(Words[1].Text, &Value))
 			return false;
-		for (char c : Value)
+		for (const char c : Value)
 			AddChar(static_cast<unsigned char>(c), 0, false);
 		return true;
 	}
@@ -580,7 +580,7 @@ bool TParser::Line(std::string_view Text)
 		if (!Expect(Words, 2, 3) || !Coordinate(Words[1].Text, 'R', &X) || !Coordinate(Words[2].Text, 'B', &Y)
 			|| !Mods(Words, 3, &Wanted))
 			return false;
-		std::vector<TKeyInfo> Pressed = Press(Wanted);
+		const std::vector<TKeyInfo> Pressed = Press(Wanted);
 		AddMouse(TEventKind::MouseMove);
 		for (std::size_t i = 0; i < Button.Count; i++)
 			AddMouse(Button.Kinds.at(i));
@@ -618,7 +618,7 @@ bool TParser::Line(std::string_view Text)
 bool FindKey(std::string_view Name, TKeyInfo *Info)
 {
 	if (Name.size() == 1) {
-		char c = Lower(Name[0]);
+		const char c = Lower(Name[0]);
 		if (c >= 'a' && c <= 'z') {
 			auto Index = static_cast<std::size_t>(c - 'a');
 			*Info = TKeyInfo{static_cast<std::uint32_t>('A' + Index), LetterScan.at(Index), false};
@@ -651,8 +651,8 @@ int KeyCharacter(std::uint32_t Key, std::uint32_t Modifiers)
 {
 	if ((Modifiers & ModifierAlt) != 0)
 		return -1;
-	bool Shift = (Modifiers & ModifierShift) != 0;
-	bool Control = (Modifiers & ModifierControl) != 0;
+	const bool Shift = (Modifiers & ModifierShift) != 0;
+	const bool Control = (Modifiers & ModifierControl) != 0;
 	if (Key >= 'A' && Key <= 'Z') {
 		if (Control)
 			return static_cast<int>(Key - 'A' + 1);
@@ -678,7 +678,7 @@ std::string Describe(const TInputEvent &Event)
 	auto Hex = [](std::uint32_t Value) {
 		std::array<char, 8> Digits{};
 		auto [End, Error] = std::to_chars(Digits.data(), Digits.data() + Digits.size(), Value, 16);
-		std::string Text = Error == std::errc() ? std::string(Digits.data(), End) : std::string("?");
+		const std::string Text = Error == std::errc() ? std::string(Digits.data(), End) : std::string("?");
 		return (Text.size() < 2 ? "0x0" : "0x") + Text;
 	};
 	auto Hex64 = [](std::uint64_t Value) {

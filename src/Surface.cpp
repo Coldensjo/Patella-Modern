@@ -213,7 +213,7 @@ void SurfaceInitInstance(HWND *Window)
 		SetEngine(curEngine);
 		return;
 	}
-	int Engine = curEngine = GetEngine();
+	const int Engine = curEngine = GetEngine();
 	if (Engine >= 0 && Engine < 3)
 		Chosen = true;
 	try {
@@ -255,7 +255,7 @@ void SurfaceInitInstance(HWND *Window)
 	// compiler assumes cannot throw, so it removed the catch (its body is
 	// unknown).
 	try {
-		int Number = ChoosePixelFormat(Context, &Format);
+		const int Number = ChoosePixelFormat(Context, &Format);
 		if (Number == 0)
 			return;
 		DescribePixelFormat(Context, Number, sizeof(PIXELFORMATDESCRIPTOR), &Format);

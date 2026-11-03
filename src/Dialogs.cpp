@@ -184,7 +184,7 @@ TDialog *CreateMoveObjectsDialog()
 {
 	TBEGIN
 	int Unused;
-	TObject *Obj = GetDragObject(&Unused, &Unused, &Unused, &Unused);
+	const TObject *Obj = GetDragObject(&Unused, &Unused, &Unused, &Unused);
 	if (*Obj != 0 && Obj->Data > 0 && Obj->Data < 101) {
 		TMoveObjectsDialog *Body = new TMoveObjectsDialog();
 		TDialog *Dialog = new TDialog("Move Objects", Body);
@@ -229,9 +229,9 @@ TDialog *CreateCharacterListDialog(int Timeout)
 TDialog *CreateTextDialog(int *ObjectData, const char *Author, const char *Text)
 {
 	TBEGIN
-	int ObjectNumber = ObjectData[0];
-	int Type = ObjectData[1];
-	int MaximumLength = ObjectData[2];
+	const int ObjectNumber = ObjectData[0];
+	const int Type = ObjectData[1];
+	const int MaximumLength = ObjectData[2];
 	char Description[500];
 	Description[0] = 0;
 	TTextDialog *Body;
@@ -832,14 +832,14 @@ TReconnectWindow::TReconnectWindow(const char *Text, int timeout)
 	FullWidth = FullWidth > TimeLabel->Width + GetTextWidth(SkinProperties.StyleB08.Data64.FontNumber, "8888")
 		? FullWidth
 		: TimeLabel->Width + GetTextWidth(SkinProperties.StyleB08.Data64.FontNumber, "8888");
-	int TextHeight = TextLabel->Height;
+	const int TextHeight = TextLabel->Height;
 	InsertChild(TextLabel);
-	int BarY = TextHeight + SkinProperties.DataBEC;
+	const int BarY = TextHeight + SkinProperties.DataBEC;
 	InsertChild(ProgressBar);
-	int BarHeight = ProgressBar->getMinimumHeight();
-	int TimeY = BarY + ProgressBar->getMinimumHeight() + SkinProperties.DataBEC;
+	const int BarHeight = ProgressBar->getMinimumHeight();
+	const int TimeY = BarY + ProgressBar->getMinimumHeight() + SkinProperties.DataBEC;
 	InsertChild(TimeLabel);
-	int TimeHeight = TimeLabel->Height;
+	const int TimeHeight = TimeLabel->Height;
 	TComponent::SetSize(FullWidth, TimeY + TimeHeight);
 	SetChildArea(TextLabel, TRect(0, 0, FullWidth, TextHeight));
 	SetChildArea(ProgressBar, TRect(0, BarY, FullWidth, BarHeight));
@@ -868,7 +868,7 @@ void TReconnectWindow::HandleEvent(int Event)
 	TBEGIN
 	if (Event == 31) {
 		if (!Timer->IsExpired()) {
-			int Time = Timer->GetTime();
+			const int Time = Timer->GetTime();
 			ProgressBar->SetCurrent(Timeout - Time);
 			SetTime(Time + 10);
 			TimeLabel->SetText(Text, false);
@@ -964,7 +964,7 @@ TCharacterListDialog::TCharacterListDialog()
 	ListBox = new TListBox(NoCallback, TCallback(this, 1));
 	InsertChild(ListBox);
 	SetChildArea(ListBox, SkinProperties.DataC08);
-	int Characters = GetAccountCharacters();
+	const int Characters = GetAccountCharacters();
 	for (int i = 0; i < Characters; i++) {
 		char Line[372];
 		Line[0] = 0;
@@ -976,7 +976,7 @@ TCharacterListDialog::TCharacterListDialog()
 	else
 		ListBox->SetSelection(0);
 	char Status[256];
-	int PremiumDays = GetPremiumDays();
+	const int PremiumDays = GetPremiumDays();
 	if (PremiumDays == 0) {
 		sprintf(Status, "<font=4><red=%d><green=%d><blue=%d>Account Status:\nFree Account",
 			SkinProperties.StyleB08.Data78.Color.R, SkinProperties.StyleB08.Data78.Color.G,
@@ -1063,7 +1063,7 @@ void TCharacterListDialog::HandleEvent(int Event)
 {
 	TBEGIN
 	if (Event == 1) {
-		int Selection = ListBox->GetSelection();
+		const int Selection = ListBox->GetSelection();
 		if (Selection >= 0) {
 			SetActiveCharacter(Selection);
 			if (GetConnectionState() == 8 || GetConnectionState() == 7) {
@@ -1166,7 +1166,7 @@ void TMoveObjectsDialog::HandleEvent(int Event)
 {
 	TBEGIN
 	if (Event == 1) {
-		int Count = ScrollBar->Range->Value;
+		const int Count = ScrollBar->Range->Value;
 		if (Count > 0)
 			SendMoveObject(SourceX, SourceY, SourceZ, DraggedObject.Type, SourceIndex, DestinationX, DestinationY,
 				DestinationZ, Count);
@@ -1291,7 +1291,7 @@ TTextDialog::TTextDialog(int MaximumLength, const char *Text, uint32 _ObjectNumb
 	ObjectNumber = _ObjectNumber;
 	Obj = _Obj;
 	TComponent::SetSize(SkinProperties.DataCC0, SkinProperties.DataCC4);
-	bool ReadOnly = !GetObjectFlag(Obj, WRITE) && !(GetObjectFlag(Obj, WRITEONCE) && strlen(Text) == 0);
+	const bool ReadOnly = !GetObjectFlag(Obj, WRITE) && !(GetObjectFlag(Obj, WRITEONCE) && strlen(Text) == 0);
 	EditText = new TEditText(MaximumLength, ReadOnly);
 	InsertChild(EditText);
 	SetChildArea(EditText, SkinProperties.DataCF4);
@@ -1409,7 +1409,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 	IgnorePrivate->SetChecked(IsModeIgnored(4));
 	char *Text = GetIgnoreListText();
 	if (Text != nullptr) {
-		int Length = (int)strlen(Text);
+		const int Length = (int)strlen(Text);
 		int AllocationNumber = 0;
 		for (int i = 0; i < Length; i++) {
 			if (Text[i] == '\n')
@@ -1474,7 +1474,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 	AllowBuddies->SetChecked(GetBuddyIgnore());
 	Text = GetBuddyIgnoreText();
 	if (Text != nullptr) {
-		int Length = (int)strlen(Text);
+		const int Length = (int)strlen(Text);
 		int AllocationNumber = 0;
 		for (int i = 0; i < Length; i++) {
 			if (Text[i] == '\n')
@@ -1540,7 +1540,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		ClearIgnoreList();
 		for (int i = 0; i < IgnoreList->GetNumberOfLines(); i++) {
 			TFont Font;
-			char *Name = IgnoreList->GetLine(i, &Font);
+			const char *Name = IgnoreList->GetLine(i, &Font);
 			if (strlen(Name) != 0 && strcmp(Name, "new entry") != 0)
 				IgnoreName(Name, IgnoreEntries(i).Permanent);
 		}
@@ -1557,7 +1557,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		ClearBuddyIgnore();
 		for (int i = 0; i < WhiteList->GetNumberOfLines(); i++) {
 			TFont Font;
-			char *Name = WhiteList->GetLine(i, &Font);
+			const char *Name = WhiteList->GetLine(i, &Font);
 			if (strlen(Name) != 0 && strcmp(Name, "new entry") != 0)
 				AddBuddyIgnore(Name, WhiteEntries(i).Permanent);
 		}
@@ -1567,14 +1567,14 @@ void TIgnoreListDialog::HandleEvent(int Event)
 	if (Event == 709) {
 		WhiteList->StopEdit();
 		IgnoreList->StopEdit();
-		int Selection = IgnoreList->GetSelection();
+		const int Selection = IgnoreList->GetSelection();
 		if (Selection > -1) {
 			TFont Font;
-			char *Name = IgnoreList->GetLine(Selection, &Font);
+			const char *Name = IgnoreList->GetLine(Selection, &Font);
 			strcpy(IgnoreEntries(Selection).Name, Name);
 			IgnoreEntries(Selection).Permanent = IgnorePermanently->IsChecked();
 		}
-		TFont Font;
+		const TFont Font;
 		TIgnoreEntry Entry;
 		CopyString(Entry.Name, "new entry", 30);
 		IgnoreEntries(IgnoreList->GetNumberOfLines()) = Entry;
@@ -1585,14 +1585,14 @@ void TIgnoreListDialog::HandleEvent(int Event)
 	} else if (Event == 712) {
 		IgnoreList->StopEdit();
 		WhiteList->StopEdit();
-		int Selection = WhiteList->GetSelection();
+		const int Selection = WhiteList->GetSelection();
 		if (Selection > -1) {
 			TFont Font;
-			char *Name = WhiteList->GetLine(Selection, &Font);
+			const char *Name = WhiteList->GetLine(Selection, &Font);
 			strcpy(WhiteEntries(Selection).Name, Name);
 			WhiteEntries(Selection).Permanent = AllowPermanently->IsChecked();
 		}
-		TFont Font;
+		const TFont Font;
 		TIgnoreEntry Entry;
 		CopyString(Entry.Name, "new entry", 30);
 		WhiteEntries(WhiteList->GetNumberOfLines()) = Entry;
@@ -1602,10 +1602,10 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		WhiteList->StartEdit();
 	} else if (Event == 710) {
 		IgnoreList->StopEdit();
-		int Selection = IgnoreList->GetSelection();
+		const int Selection = IgnoreList->GetSelection();
 		if (Selection > -1) {
 			TFont Font;
-			char *Name = IgnoreList->GetLine(Selection, &Font);
+			const char *Name = IgnoreList->GetLine(Selection, &Font);
 			strcpy(IgnoreEntries(Selection).Name, Name);
 			IgnoreEntries(Selection).Permanent = IgnorePermanently->IsChecked();
 			IgnoreList->Clear();
@@ -1627,10 +1627,10 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		IgnoreList->SetSelection(-1);
 	} else if (Event == 713) {
 		WhiteList->StopEdit();
-		int Selection = WhiteList->GetSelection();
+		const int Selection = WhiteList->GetSelection();
 		if (Selection > -1) {
 			TFont Font;
-			char *Name = WhiteList->GetLine(Selection, &Font);
+			const char *Name = WhiteList->GetLine(Selection, &Font);
 			strcpy(WhiteEntries(Selection).Name, Name);
 			WhiteEntries(Selection).Permanent = AllowPermanently->IsChecked();
 			WhiteList->Clear();
@@ -1672,7 +1672,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 bool TIgnoreListDialog::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
-	bool Result = TWindow::LeftButtonUp(x, y, Flags);
+	const bool Result = TWindow::LeftButtonUp(x, y, Flags);
 	int Selection = IgnoreList->GetSelection();
 	if (Result && Selection > -1 && IgnoreEntries(Selection).Permanent != IgnorePermanently->IsChecked()) {
 		TFont Font;
@@ -1818,9 +1818,9 @@ void TNewChannelDialog::HandleEvent(int Event)
 		}
 	}
 	if (Event == 301) {
-		int Selection = ListBox->GetSelection();
+		const int Selection = ListBox->GetSelection();
 		if (Selection != -1) {
-			int ChannelID = ChannelIDs[Selection];
+			const int ChannelID = ChannelIDs[Selection];
 			if (ChannelID == 0xffff)
 				SendOpenPrivateChannel();
 			else
@@ -1976,7 +1976,7 @@ TEditBuddyDialog::TEditBuddyDialog(int _CharacterID)
 {
 	TBEGIN
 	CharacterID = _CharacterID;
-	int Position = GetBuddyPosition(_CharacterID);
+	const int Position = GetBuddyPosition(_CharacterID);
 	TASSERT2(2652, Position >= 0, Position, CharacterID);
 	TComponent::SetSize(SkinProperties.StyleF8C.Data00, SkinProperties.StyleF8C.Data04);
 	TLabel *Label = new TLabel(SkinProperties.StyleB08.Data64, GetBuddyListName(Position));
@@ -2243,7 +2243,7 @@ void THintsDialog::HandleEvent(int Event)
 {
 	TBEGIN
 	if (Event == 1 && ListBox->GetSelection() != -1) {
-		char *Title = ListBox->GetLine(ListBox->GetSelection());
+		const char *Title = ListBox->GetLine(ListBox->GetSelection());
 		int Number = -1;
 		for (int i = 1; i < 15; i++) {
 			if (CompareStrings(Title, GetEventHelpTitle(i), -1) == 0) {
@@ -2354,8 +2354,8 @@ void TRuleViolationDialog::HandleEvent(int Event)
 	switch (Event) {
 	case 1: {
 		bool Valid = true;
-		int Reason = GetReason();
-		int Action = GetAction();
+		const int Reason = GetReason();
+		const int Action = GetAction();
 		if (strlen(NameEdit->Text) == 0) {
 			SetStatusMessage(TextNoPlayerName, false);
 			Valid = false;
@@ -2382,7 +2382,7 @@ void TRuleViolationDialog::HandleEvent(int Event)
 			}
 		}
 		if (Valid) {
-			uint32 ID = StatementEdit->IsDisabled() ? 0 : StatementID;
+			const uint32 ID = StatementEdit->IsDisabled() ? 0 : StatementID;
 			SendRuleViolationReport(NameEdit->Text, Reason, Action, CommentEdit->Text, ID,
 				IPBanishment->IsChecked());
 		}
@@ -2406,14 +2406,14 @@ void TRuleViolationDialog::HandleEvent(int Event)
 void TRuleViolationDialog::UpdateActions()
 {
 	TBEGIN
-	int Reason = GetReason();
+	const int Reason = GetReason();
 	if (Reason != -1) {
 		ActionList->Clear();
 		for (int i = 0; i < 7; i++) {
 			if (CheckRight(Reason, i))
 				ActionList->AddLine(GetActionName(i));
 		}
-		bool IPBanishmentAllowed = CheckRight(Reason, 7);
+		const bool IPBanishmentAllowed = CheckRight(Reason, 7);
 		IPBanishment->SetChecked(false);
 		IPBanishment->SetEnabled(IPBanishmentAllowed);
 		StatementEdit->SetDisabled(!(CheckRight(Reason, 0) || CheckRight(Reason, 2) || CheckRight(Reason, 6))
@@ -2426,7 +2426,7 @@ void TRuleViolationDialog::UpdateActions()
 int TRuleViolationDialog::GetReason()
 {
 	TBEGIN
-	int Selection = ReasonList->GetSelection();
+	const int Selection = ReasonList->GetSelection();
 	if (Selection == -1)
 		return -1;
 	return Reasons[Selection];
@@ -2437,7 +2437,7 @@ int TRuleViolationDialog::GetReason()
 int TRuleViolationDialog::GetAction()
 {
 	TBEGIN
-	int Selection = ActionList->GetSelection();
+	const int Selection = ActionList->GetSelection();
 	if (Selection == -1)
 		return -1;
 	for (int i = 0; i < 7; i++) {
@@ -2720,7 +2720,7 @@ TGraphicsOptionsDialog::TGraphicsOptionsDialog(void (*_OpenURL)(const char *URL)
 	SetChildPosition(AdvancedButton, SkinProperties.Data137C.x, SkinProperties.Data137C.y);
 	Fullscreen->SetChecked(GetViewMode() == 2);
 	NumberOfModes = GetSurface()->GetFullscreenModes(&Modes);
-	TFullscreenMode *Current = GetFullscreenMode();
+	const TFullscreenMode *Current = GetFullscreenMode();
 	for (int i = 0; i < NumberOfModes; i++) {
 		char Frequency[16];
 		sprintf(Frequency, ", %d Hz", Modes[i].Frequency);
@@ -2767,8 +2767,8 @@ void TGraphicsOptionsDialog::HandleEvent(int Event)
 {
 	TBEGIN
 	if (Event == 1) {
-		int ViewMode = GetViewMode();
-		bool FullscreenChecked = Fullscreen->IsChecked();
+		const int ViewMode = GetViewMode();
+		const bool FullscreenChecked = Fullscreen->IsChecked();
 		if (ResolutionList->GetSelection() != -1)
 			SetFullscreenMode(&Modes[ResolutionList->GetSelection()]);
 		if ((ViewMode == 2) != FullscreenChecked
@@ -2936,7 +2936,7 @@ void TAdvancedGraphicsDialog::Draw(int Surface, int x, int y)
 		sprintf(Text, "Adjust framerate limit: max");
 	PrintFormattedText(Surface, SkinProperties.Style1394.Data68.x + x, SkinProperties.Style1394.Data68.y + y,
 		SkinProperties.StyleB08.Data78, Text);
-	double FPS = GetSurface()->GetFPS();
+	const double FPS = GetSurface()->GetFPS();
 	sprintf(Text, "Current framerate: %2.2f", FPS);
 	PrintFormattedText(Surface, SkinProperties.Style1394.Data70.x + x, SkinProperties.Style1394.Data70.y + y,
 		SkinProperties.StyleB08.Data78, Text);
@@ -2964,7 +2964,7 @@ void TAdvancedGraphicsDialog::HandleEvent(int Event)
 {
 	TBEGIN
 	if (Event == 1) {
-		bool Rearrange = !GetNoStretching() && NoStretching->IsChecked();
+		const bool Rearrange = !GetNoStretching() && NoStretching->IsChecked();
 		SetNoStretching(NoStretching->IsChecked());
 		SetWindowsMousepointer(WindowsMousepointer->IsChecked());
 		SetLightEffects(LightEffects->IsChecked());
@@ -3195,7 +3195,7 @@ void THotkeyDialog::HandleEvent(int Event)
 bool THotkeyDialog::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
-	bool Result = TWindow::LeftButtonUp(x, y, Flags);
+	const bool Result = TWindow::LeftButtonUp(x, y, Flags);
 	if (Selected != -1) {
 		AutoSend[Selected] = AutoSendCheckBox->IsChecked();
 		UpdateLine(Selected);
@@ -3224,7 +3224,7 @@ TErrorReportDialog::TErrorReportDialog()
 	SetChildArea(ReportText, SkinProperties.Data14F8);
 	SetChildArea(CommentLabel, SkinProperties.Data1508);
 	SetChildArea(CommentEdit, SkinProperties.Data1518);
-	int Reports = GetNumberOfErrorReports();
+	const int Reports = GetNumberOfErrorReports();
 	std::stringstream Text;
 	for (int i = 0; i < Reports; i++) {
 		if (i != 0)

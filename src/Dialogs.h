@@ -202,7 +202,7 @@ public:
 	void SetTime(int Time)
 	{
 		if (Time > 600) {
-			int Minutes = Time / 600 + 1;
+			const int Minutes = Time / 600 + 1;
 			_snprintf(Text, sizeof(Text), TextTryingToReconnect, Minutes, Minutes < 2 ? "minute" : "minutes");
 		} else {
 			_snprintf(Text, sizeof(Text), TextTryingToReconnect, Time / 10,

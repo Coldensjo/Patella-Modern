@@ -342,7 +342,7 @@ void TAutomapWindow::MouseHover(int x, int y)
 	TBEGIN
 	TMark Mark = View->GetMark(x - View->OffsetX, y - View->OffsetY);
 	if (Mark.x != 0 && Mark.y != 0) {
-		int Length = (int)strlen(Mark.Text);
+		const int Length = (int)strlen(Mark.Text);
 		if (Length != 0) {
 			CopyString(AutomapMouseOverText, Mark.Text, 100);
 			SetMouseOverText(AutomapMouseOverText);
@@ -494,8 +494,8 @@ void TAutomapView::Draw(int Surface, int x, int y)
 					PosX = PosX / 2 * 2;
 					PosY = PosY / 2 * 2;
 				}
-				int Zoom = Window->Zoom;
-				TRGBColor Color = GetAutomapColor((Zoom * PosX + Zoom / 2 - 106 + i * 2) / Zoom,
+				const int Zoom = Window->Zoom;
+				const TRGBColor Color = GetAutomapColor((Zoom * PosX + Zoom / 2 - 106 + i * 2) / Zoom,
 					(Zoom * PosY + Zoom / 2 - 106 + j * 2) / Zoom, PosZ);
 				Pixels[(j * 106 + i) * 3] = (uint8)Color.R;
 				Pixels[(j * 106 + i) * 3 + 1] = (uint8)Color.G;
@@ -538,18 +538,18 @@ void TAutomapView::Draw(int Surface, int x, int y)
 			CentreX = Window->ViewX;
 			CentreY = Window->ViewY;
 		}
-		int Left = CentreX - 106 / Window->Zoom;
-		int Top = CentreY - 106 / Window->Zoom;
+		const int Left = CentreX - 106 / Window->Zoom;
+		const int Top = CentreY - 106 / Window->Zoom;
 		for (int BlockX = Left / 256; BlockX < Left / 256 + 2; BlockX++) {
 			for (int BlockY = Top / 256; BlockY < Top / 256 + 2; BlockY++) {
 				vector<TMark> Marks(0, 0, 10);
 				int Count;
 				GetAutomapMarks(BlockX, BlockY, PosZ, &Marks, &Count);
 				for (int i = 0; i < Count; i++) {
-					TMark Mark = Marks(i);
+					const TMark Mark = Marks(i);
 					if (Mark.x != 0 || Mark.y != 0) {
-						int MarkX = (Mark.x - Left) * Window->Zoom / 2;
-						int MarkY = (Mark.y - Top) * Window->Zoom / 2;
+						const int MarkX = (Mark.x - Left) * Window->Zoom / 2;
+						const int MarkY = (Mark.y - Top) * Window->Zoom / 2;
 						if (MarkX >= 0 && MarkY >= 0 && MarkX < 106 && MarkY < 106)
 							DrawSkinClipped(5, MarkX - 5, MarkY - 5, 11, 11, Mark.Type + 74, 0, 0, 106, 106, 0, 0);
 					}
@@ -575,7 +575,7 @@ bool TAutomapView::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 		Mark.x = (x - Width / 2) * 2 / Window->Zoom + Window->ViewX;
 		Mark.y = (y - Height / 2) * 2 / Window->Zoom + Window->ViewY;
 	}
-	int Result = SetPlayerDestination(Mark.x, Mark.y, Window->ViewZ, false, false);
+	const int Result = SetPlayerDestination(Mark.x, Mark.y, Window->ViewZ, false, false);
 	if (Result == 1)
 		SendWalk();
 	else if (Result == 2)
@@ -611,8 +611,8 @@ TMark TAutomapView::GetMark(int x, int y)
 	TAutomapWindow *Window = (TAutomapWindow *)GetParent();
 	if (Window->Centred)
 		GetMapPosition(&Window->ViewX, &Window->ViewY, &Window->ViewZ);
-	int Left = Window->ViewX - 106 / Window->Zoom;
-	int Top = Window->ViewY - 106 / Window->Zoom;
+	const int Left = Window->ViewX - 106 / Window->Zoom;
+	const int Top = Window->ViewY - 106 / Window->Zoom;
 	for (int BlockX = Left / 256; BlockX < Left / 256 + 2; BlockX++) {
 		for (int BlockY = Top / 256; BlockY < Top / 256 + 2; BlockY++) {
 			vector<TMark> Marks(0, 0, 10);
@@ -621,8 +621,8 @@ TMark TAutomapView::GetMark(int x, int y)
 			for (int i = Count - 1; i >= 0; i--) {
 				TMark Mark = Marks(i);
 				if (Mark.x != 0 || Mark.y != 0) {
-					int MarkX = (Mark.x - Left) * Window->Zoom / 2;
-					int MarkY = (Mark.y - Top) * Window->Zoom / 2;
+					const int MarkX = (Mark.x - Left) * Window->Zoom / 2;
+					const int MarkY = (Mark.y - Top) * Window->Zoom / 2;
 					if (MarkX >= 0 && MarkY >= 0 && MarkX < 106 && MarkY < 106 && abs(x - MarkX) < 6
 						&& abs(y - MarkY) < 6)
 						return Mark;
@@ -741,7 +741,7 @@ void TPlayerStates::Draw(int Surface, int x, int y)
 {
 	TBEGIN
 	TComponent::Draw(Surface, x, y);
-	int Icons = GetNumberOfIcons();
+	const int Icons = GetNumberOfIcons();
 	for (int i = 0; i < Icons; i++) {
 		int destx = SkinProperties.PlayerStates.Data24 * i;
 		int desty;
@@ -752,7 +752,7 @@ void TPlayerStates::Draw(int Surface, int x, int y)
 			destx += SkinProperties.PlayerStates.Data10.x;
 			desty = SkinProperties.PlayerStates.Data10.y;
 		}
-		int Skin = GetIcon(i);
+		const int Skin = GetIcon(i);
 		TASSERT1(920, x+destx>=0, x+destx);
 		TASSERT1(921, y+desty>=0, y+desty);
 		if (Skin != 0)
@@ -792,9 +792,9 @@ int TPlayerStates::GetNumberOfIcons()
 void TPlayerStates::MouseHover(int x, int y)
 {
 	TBEGIN
-	int Position = GetIconAt(x, y);
+	const int Position = GetIconAt(x, y);
 	if (Position != -1) {
-		int skin = GetIcon(Position);
+		const int skin = GetIcon(Position);
 		if (skin != 0) {
 			const char *Text;
 			switch (skin) {
@@ -848,7 +848,7 @@ void TPlayerStates::MouseHover(int x, int y)
 int TPlayerStates::GetIconAt(int x, int y)
 {
 	TBEGIN
-	int Icons = GetNumberOfIcons();
+	const int Icons = GetNumberOfIcons();
 	for (int i = 0; i < Icons; i++) {
 		int IconX = SkinProperties.PlayerStates.Data10.x;
 		int IconY = SkinProperties.PlayerStates.Data10.y;
@@ -994,11 +994,11 @@ void TSmallInventoryWindow::Draw(int Surface, int x, int y)
 bool TSmallInventoryWindow::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
-	bool Result = TContentWindow::LeftButtonUp(x, y, Flags);
+	const bool Result = TContentWindow::LeftButtonUp(x, y, Flags);
 	if (In(x - SkinProperties.Data590.x, 0, SkinProperties.Data590.width - 1)
 		&& In(y - SkinProperties.Data590.y, 0, SkinProperties.Data590.height - 1) && GetActionState() == 6) {
 		int Index, SrcX, SrcY, SrcZ;
-		TObject *Obj = GetDragObject(&Index, &SrcX, &SrcY, &SrcZ);
+		const TObject *Obj = GetDragObject(&Index, &SrcX, &SrcY, &SrcZ);
 		if (!GetObjectFlag(Obj->Type, CUMULATIVE) || Obj->Data < 2 || (Flags & 0x200) != 0) {
 			SendMoveObject(SrcX, SrcY, SrcZ, Obj->Type, Index, 0xffff, 0, 0, 1);
 		} else if ((Flags & 0x400) == 0) {
@@ -1069,13 +1069,13 @@ void TInventoryView::Draw(int Surface, int x, int y)
 		0, 0);
 	TWindow::Draw(Surface, x, y);
 	for (int i = 0; i < 10; i++) {
-		TObject Obj = *GetBodyObject(i + 1);
+		const TObject Obj = *GetBodyObject(i + 1);
 		DrawPicturePart(Surface, SkinProperties.Style288.Data60[i].x + x, SkinProperties.Style288.Data60[i].y + y, 4,
 			Skins[102].x, Skins[102].y, Skins[102].width, Skins[102].height);
-		int ObjX = SkinProperties.Style288.Data10[i].x + x;
-		int ObjY = SkinProperties.Style288.Data10[i].y + y;
+		const int ObjX = SkinProperties.Style288.Data10[i].x + x;
+		const int ObjY = SkinProperties.Style288.Data10[i].y + y;
 		if (Obj.Type == 0) {
-			int Empty = SkinProperties.Style288.Data100[i];
+			const int Empty = SkinProperties.Style288.Data100[i];
 			DrawPicturePart(Surface, ObjX, ObjY, 4, Skins[Empty].x, Skins[Empty].y, Skins[Empty].width,
 				Skins[Empty].height);
 		} else {
@@ -1093,10 +1093,10 @@ bool TInventoryView::LeftButtonDown(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::LeftButtonDown(x, y, Flags)) {
-		int Slot = GetSlotAt(x, y);
+		const int Slot = GetSlotAt(x, y);
 		if (Slot == 0)
 			return false;
-		TObject *Obj = GetBodyObject(Slot);
+		const TObject *Obj = GetBodyObject(Slot);
 		if (Obj->Type != 0)
 			SetDragObject(*Obj, 0, 0xffff, Slot, 0);
 	}
@@ -1112,14 +1112,14 @@ bool TInventoryView::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::LeftButtonUp(x, y, Flags)) {
-		int Slot = GetSlotAt(x, y);
+		const int Slot = GetSlotAt(x, y);
 		if (Slot == 0)
 			return false;
 		if (GetActionState() == 7) {
-			TObject *Obj = GetBodyObject(Slot);
+			const TObject *Obj = GetBodyObject(Slot);
 			if (Obj->Type != 0) {
 				int SrcIndex, SrcX, SrcY, SrcZ;
-				TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
+				const TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
 				TASSERT(1251, SrcObj!=0);
 				TASSERT(1252, SrcObj.Type!=CREATURE);
 				SendUseObjectWith(SrcX, SrcY, SrcZ, SrcObj.Type, SrcIndex, 0xffff, Slot, 0, Obj->Type, 0);
@@ -1130,7 +1130,7 @@ bool TInventoryView::LeftButtonUp(int x, int y, int Flags)
 			return true;
 		} else if (GetActionState() == 6) {
 			int DragIndex, DragX, DragY, DragZ;
-			TObject *DragObject = GetDragObject(&DragIndex, &DragX, &DragY, &DragZ);
+			const TObject *DragObject = GetDragObject(&DragIndex, &DragX, &DragY, &DragZ);
 			if (DragX != 0xffff || DragY != Slot) {
 				if (!GetObjectFlag(DragObject->Type, CUMULATIVE) || DragObject->Data < 2 || (Flags & 0x200) != 0) {
 					SendMoveObject(DragX, DragY, DragZ, DragObject->Type, DragIndex, 0xffff, Slot, 0, 1);
@@ -1159,13 +1159,13 @@ bool TInventoryView::RightButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::RightButtonUp(x, y, Flags)) {
-		int Slot = GetSlotAt(x, y);
+		const int Slot = GetSlotAt(x, y);
 		if (Slot == 0)
 			return false;
 		SetTradeObject(TObject(), 0, 0, 0, 0);
 		SetUseObject(TObject(), 0, 0, 0, 0);
 		SetTradeInfo(0);
-		TObject *Obj = GetBodyObject(Slot);
+		const TObject *Obj = GetBodyObject(Slot);
 		SetTradeObject(*Obj, 0, 0xffff, Slot, 0);
 		SetUseObject(*Obj, 0, 0xffff, Slot, 0);
 		if (Obj->Type != 0) {
@@ -1199,7 +1199,7 @@ bool TInventoryView::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int 
 {
 	TBEGIN
 	SetHelpHandle(12);
-	TComponent *Parent = GetParent();
+	const TComponent *Parent = GetParent();
 	TASSERT(1339, Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
@@ -1213,7 +1213,7 @@ int TInventoryView::GetSlotAt(int x, int y)
 {
 	TBEGIN
 	for (int i = 0; i < 10; i++) {
-		TRect &Area = SkinProperties.Style288.Data60[i];
+		const TRect &Area = SkinProperties.Style288.Data60[i];
 		if (x - Area.x >= 0 && x - Area.x <= Area.width && y - Area.y >= 0 && y - Area.y <= Area.height)
 			return i + 1;
 	}
@@ -1231,7 +1231,7 @@ TCombatControls::TCombatControls(TMainWindow *Receiver, bool Large)
 {
 	TBEGIN
 	IsLarge = Large;
-	TCombatControlsProperties Layout = Large ? SkinProperties.Style4AC : SkinProperties.Style4FC;
+	const TCombatControlsProperties Layout = Large ? SkinProperties.Style4AC : SkinProperties.Style4FC;
 	AttackModes = new TRadioButtonGroup;
 	ChaseModes = new TRadioButtonGroup;
 	SetSize(Layout.Width, Layout.Height);
@@ -1322,7 +1322,7 @@ bool TCombatControls::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int
 		SetHelpHandle(15);
 	else
 		SetHelpHandle(14);
-	TComponent *Parent = GetParent();
+	const TComponent *Parent = GetParent();
 	TASSERT(1461, Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
@@ -1383,10 +1383,10 @@ void TStatusWindow::Draw(int Surface, int x, int y)
 {
 	TBEGIN
 	TContentWindow::Draw(Surface, x, y);
-	int Health = GetPlayerHealth();
-	int MaxHealth = GetPlayerMaxHealth();
-	int Mana = GetPlayerMana();
-	int MaxMana = GetPlayerMaxMana();
+	const int Health = GetPlayerHealth();
+	const int MaxHealth = GetPlayerMaxHealth();
+	const int Mana = GetPlayerMana();
+	const int MaxMana = GetPlayerMaxMana();
 	char Text[16];
 	sprintf(Text, "%d", Health);
 	PrintFormattedText(Surface, SkinProperties.StatusWindow.Data34.x + x, SkinProperties.StatusWindow.Data34.y + y,
@@ -1477,15 +1477,15 @@ void TContainerWindowBody::Draw(int Surface, int x, int y)
 	if (!IsMinimized()) {
 		if (!Minimized)
 			TWindow::Draw(Surface, x, y);
-		int ScrollY = ScrollBar->Range->Value;
-		int Bottom = Height - 1;
+		const int ScrollY = ScrollBar->Range->Value;
+		const int Bottom = Height - 1;
 		TASSERT1(1644, x>=0, x);
 		TASSERT1(1645, y>=0, y);
 		DrawSkin(Surface, x, y, Width - ScrollBar->Width, Height, 7, 0, ScrollY % Skins[7].height);
 		if (IsContainerOpen(Container)) {
 			for (int i = 0; i < Capacity; i++) {
-				int SlotX = i % SkinProperties.Data62C * SkinProperties.Data648;
-				int SlotY = i / SkinProperties.Data62C * SkinProperties.Data64C - ScrollY;
+				const int SlotX = i % SkinProperties.Data62C * SkinProperties.Data648;
+				const int SlotY = i / SkinProperties.Data62C * SkinProperties.Data64C - ScrollY;
 				int Top = SlotY + SkinProperties.Data630.y;
 				int ClipHeight = SkinProperties.Data638.y;
 				if (Top + ClipHeight > 0 && Top <= Bottom) {
@@ -1495,9 +1495,9 @@ void TContainerWindowBody::Draw(int Surface, int x, int y)
 					}
 					if (ClipHeight + Top > Bottom)
 						ClipHeight = Bottom - Top + 1;
-					int ScreenX = SkinProperties.Data630.x + SlotX + x;
-					int ScreenY = Top + y;
-					int SlotWidth = SkinProperties.Data638.x;
+					const int ScreenX = SkinProperties.Data630.x + SlotX + x;
+					const int ScreenY = Top + y;
+					const int SlotWidth = SkinProperties.Data638.x;
 					DrawPicturePart(Surface, ScreenX, ScreenY, 4, Skins[125].x, Skins[125].y, SlotWidth, ClipHeight);
 					if (i < ObjectCount)
 						DrawObject(Surface, SkinProperties.Data638.width + SlotX + x,
@@ -1523,9 +1523,9 @@ void TContainerWindowBody::Draw(int Surface, int x, int y)
 void TContainerWindowBody::SetSize(int Width, int Height)
 {
 	TBEGIN
-	int ScrollbarX = Width - ScrollBar->Width;
+	const int ScrollbarX = Width - ScrollBar->Width;
 	TASSERT1(1675, ScrollbarX>0, ScrollbarX);
-	int Maximum = GetMaximumHeight();
+	const int Maximum = GetMaximumHeight();
 	if (Height > Maximum && this->Height < Height)
 		Height = (std::max)(this->Height, Maximum);
 	TWindow::SetSize(Width, Height);
@@ -1578,9 +1578,9 @@ bool TContainerWindowBody::LeftButtonDown(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::LeftButtonDown(x, y, Flags)) {
-		int Position = GetSlotAt(x, y, true);
+		const int Position = GetSlotAt(x, y, true);
 		if (Position != -1) {
-			TObject Obj = GetContainerContent(Container, Position);
+			const TObject Obj = GetContainerContent(Container, Position);
 			if (Obj.Type != 0)
 				SetDragObject(Obj, Position, 0xffff, Container + 0x40, Position);
 		}
@@ -1596,12 +1596,12 @@ bool TContainerWindowBody::LeftButtonUp(int x, int y, int Flags)
 	TBEGIN
 	if (!TWindow::LeftButtonUp(x, y, Flags)) {
 		if (GetActionState() == 7) {
-			int Position = GetSlotAt(x, y, true);
+			const int Position = GetSlotAt(x, y, true);
 			if (Position != -1) {
-				TObject Obj = GetContainerContent(Container, Position);
+				const TObject Obj = GetContainerContent(Container, Position);
 				if (Obj.Type != 0) {
 					int SrcIndex, SrcX, SrcY, SrcZ;
-					TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
+					const TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
 					TASSERT(1785, SrcObj!=0);
 					TASSERT(1786, SrcObj.Type!=CREATURE);
 					SendUseObjectWith(SrcX, SrcY, SrcZ, SrcObj.Type, SrcIndex, 0xffff, Container + 0x40, Position,
@@ -1611,9 +1611,9 @@ bool TContainerWindowBody::LeftButtonUp(int x, int y, int Flags)
 		} else if (GetActionState() == 8) {
 			SetStatusMessage("Select a player to trade with.", false);
 		} else if (GetActionState() == 6) {
-			int Position = GetSlotAt(x, y, false);
+			const int Position = GetSlotAt(x, y, false);
 			int DragIndex, DragX, DragY, DragZ;
-			TObject *DragObject = GetDragObject(&DragIndex, &DragX, &DragY, &DragZ);
+			const TObject *DragObject = GetDragObject(&DragIndex, &DragX, &DragY, &DragZ);
 			if (DragX != 0xffff || DragY != Container + 0x40 || DragZ != Position) {
 				if (!GetObjectFlag(DragObject->Type, CUMULATIVE) || DragObject->Data < 2 || (Flags & 0x200) != 0) {
 					SendMoveObject(DragX, DragY, DragZ, DragObject->Type, DragIndex, 0xffff, Container + 0x40, Position,
@@ -1641,13 +1641,13 @@ bool TContainerWindowBody::RightButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::RightButtonUp(x, y, Flags)) {
-		int Position = GetSlotAt(x, y, true);
+		const int Position = GetSlotAt(x, y, true);
 		if (Position == -1)
 			return true;
 		SetTradeObject(TObject(), 0, 0, 0, 0);
 		SetUseObject(TObject(), 0, 0, 0, 0);
 		SetTradeInfo(0);
-		TObject Obj = GetContainerContent(Container, Position);
+		const TObject Obj = GetContainerContent(Container, Position);
 		SetTradeObject(Obj, Position, 0xffff, Container + 0x40, Position);
 		SetUseObject(Obj, Position, 0xffff, Container + 0x40, Position);
 		if (Obj.Type == 0)
@@ -1691,7 +1691,7 @@ bool TContainerWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]
 {
 	TBEGIN
 	SetHelpHandle(20);
-	TComponent *Parent = GetParent();
+	const TComponent *Parent = GetParent();
 	TASSERT(1885, Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
@@ -1731,10 +1731,10 @@ int TContainerWindowBody::GetSlotAt(int x, int y, bool Occupied)
 	// (0x42e302, 0x42e30c): TEND2(x, y) prints them (issue #34).
 	x -= SkinProperties.Data630.x;
 	y += ScrollBar->Range->Value - SkinProperties.Data630.y;
-	int Column = x / SkinProperties.Data648;
+	const int Column = x / SkinProperties.Data648;
 	if (Column < SkinProperties.Data62C && x % SkinProperties.Data648 <= SkinProperties.Data638.x
 		&& y % SkinProperties.Data64C <= SkinProperties.Data638.y) {
-		int Position = SkinProperties.Data62C * (y / SkinProperties.Data64C) + Column;
+		const int Position = SkinProperties.Data62C * (y / SkinProperties.Data64C) + Column;
 		if (Occupied && GetContainerObjectCount(Container) <= Position)
 			return -1;
 		return Position;
@@ -1799,22 +1799,22 @@ void TSkillsWindowBody::Draw(int Surface, int x, int y)
 {
 	TBEGIN
 	if (!IsMinimized()) {
-		int ScrollY = ScrollBar->Range->Value;
-		int Bottom = Height - 1;
+		const int ScrollY = ScrollBar->Range->Value;
+		const int Bottom = Height - 1;
 		TASSERT1(2003, x>=0, x);
 		TASSERT1(2004, y>=0, y);
 		DrawSkin(Surface, x, y, Width - ScrollBar->Width, Height, 7, 0, ScrollY % Skins[7].height);
 		if (!Minimized)
 			TWindow::Draw(Surface, x, y);
-		int LineHeight = GetFontLineHeight(SkinProperties.Data654.FontNumber);
+		const int LineHeight = GetFontLineHeight(SkinProperties.Data654.FontNumber);
 		int LineY = -ScrollY;
-		int TextWidth = Width - SkinProperties.Data668 * 2 - ScrollBar->Width;
+		const int TextWidth = Width - SkinProperties.Data668 * 2 - ScrollBar->Width;
 		int Progress = -1;
-		int Margin = SkinProperties.Data668;
+		const int Margin = SkinProperties.Data668;
 		for (int i = 0; i < Lines; i++) {
 			char Text[100];
 			int Value;
-			bool HasValue = GetLine(i + 1, Text, Value, Progress);
+			const bool HasValue = GetLine(i + 1, Text, Value, Progress);
 			int ItemHeight = LineHeight;
 			if (Progress != -1)
 				ItemHeight = LineHeight + 10;
@@ -1829,9 +1829,9 @@ void TSkillsWindowBody::Draw(int Surface, int x, int y)
 				}
 				if (ClipHeight + Top > Bottom)
 					ClipHeight = Bottom - Top + 1;
-				int ClipX = SkinProperties.Data668 + x;
-				int ClipY = Top + y;
-				int LineMiddle = GetFontHeight(SkinProperties.Data654.FontNumber) / 2 + SkinProperties.Data66C - 1 + LineY;
+				const int ClipX = SkinProperties.Data668 + x;
+				const int ClipY = Top + y;
+				const int LineMiddle = GetFontHeight(SkinProperties.Data654.FontNumber) / 2 + SkinProperties.Data66C - 1 + LineY;
 				if (!HasValue) {
 					if (LineMiddle >= 0 && LineMiddle <= Bottom)
 						GetSurface()->DrawHorizontalLine(Surface, ClipX, LineMiddle + y, TextWidth,
@@ -1846,7 +1846,7 @@ void TSkillsWindowBody::Draw(int Surface, int x, int y)
 						SkinProperties.Data654.FontNumber, SkinProperties.Data654.Color, Number, 2,
 						TRect(ClipX, ClipY, TextWidth, ClipHeight));
 					if (Progress != -1) {
-						int BarHeight = 5;
+						const int BarHeight = 5;
 						GetSurface()->DrawFrameClipped(Surface,
 							TRect(Margin + x, LineHeight + 8 + LineY + y, TextWidth,
 								BarHeight),
@@ -1881,7 +1881,7 @@ bool TSkillsWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] i
 {
 	TBEGIN
 	SetHelpHandle(17);
-	TComponent *Parent = GetParent();
+	const TComponent *Parent = GetParent();
 	TASSERT(2086, Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
@@ -1894,10 +1894,10 @@ void TSkillsWindowBody::MouseHover(int x, int y)
 {
 	TBEGIN
 	if (!IsMinimized()) {
-		int ScrollY = ScrollBar->Range->Value;
-		int Bottom = Height - 1;
-		int LineHeight = GetFontLineHeight(SkinProperties.Data654.FontNumber);
-		int TextWidth = Width - SkinProperties.Data668 * 2 - ScrollBar->Width;
+		const int ScrollY = ScrollBar->Range->Value;
+		const int Bottom = Height - 1;
+		const int LineHeight = GetFontLineHeight(SkinProperties.Data654.FontNumber);
+		const int TextWidth = Width - SkinProperties.Data668 * 2 - ScrollBar->Width;
 		int LineY = -ScrollY;
 		int Progress = -1;
 		for (int i = 0; i < Lines;) {
@@ -1944,9 +1944,9 @@ bool TSkillsWindowBody::RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] i
 void TSkillsWindowBody::SetSize(int Width, int Height)
 {
 	TBEGIN
-	int ScrollbarX = Width - ScrollBar->Width;
+	const int ScrollbarX = Width - ScrollBar->Width;
 	TASSERT1(2153, ScrollbarX>0, ScrollbarX);
-	int Maximum = GetMaximumHeight();
+	const int Maximum = GetMaximumHeight();
 	if (Height >= Maximum)
 		Height = Maximum;
 	TWindow::SetSize(Width, Height);
@@ -1962,7 +1962,7 @@ void TSkillsWindowBody::Arrange()
 {
 	TBEGIN
 	int ContentHeight = GetContentHeight();
-	int Visible = Height - SkinProperties.Data66C * 2;
+	const int Visible = Height - SkinProperties.Data66C * 2;
 	if (ContentHeight <= Visible)
 		ContentHeight = Visible;
 	ScrollBar->Range->SetRange(0, ContentHeight - Visible, ScrollBar->Range->Value, Visible);
@@ -2003,7 +2003,7 @@ int TSkillsWindowBody::GetMaximumHeight()
 int TSkillsWindowBody::GetContentHeight()
 {
 	TBEGIN
-	int LineHeight = GetFontLineHeight(SkinProperties.Data654.FontNumber);
+	const int LineHeight = GetFontLineHeight(SkinProperties.Data654.FontNumber);
 	int Result = 0;
 	for (int i = 0; i < Lines;) {
 		i++;
@@ -2074,7 +2074,7 @@ bool TSkillsWindowBody::GetLine(int NumberOfLine, char *Text, int &Value, int &P
 	case 13:
 	case 14:
 	case 15: {
-		int SkillNumber = NumberOfLine - 9;
+		const int SkillNumber = NumberOfLine - 9;
 		sprintf(Text, "%s", GetSkillName(SkillNumber));
 		Value = GetPlayerSkillValue(SkillNumber);
 		if (GetSkillBar(SkillNumber))
@@ -2116,7 +2116,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 {
 	TBEGIN
 	SetHighlightID(0);
-	int Opponents = GetNumberOfOpponents();
+	const int Opponents = GetNumberOfOpponents();
 	if (NumberOfOpponents != Opponents) {
 		NumberOfOpponents = Opponents;
 		Arrange();
@@ -2124,15 +2124,15 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 	if (!IsMinimized()) {
 		if (!Minimized)
 			TWindow::Draw(Surface, x, y);
-		int ScrollY = ScrollBar->Range->Value;
-		int Bottom = Height - 1;
+		const int ScrollY = ScrollBar->Range->Value;
+		const int Bottom = Height - 1;
 		TASSERT1(2328, x>=0, x);
 		TASSERT1(2329, y>=0, y);
 		DrawSkin(Surface, x, y, Width - ScrollBar->Width, Height, 7, 0, ScrollY % Skins[7].height);
-		int ClipWidth = Width - ScrollBar->Width;
+		const int ClipWidth = Width - ScrollBar->Width;
 		for (int i = 0; i < Opponents; i++) {
 			TCreature *Creature = GetOpponent(i);
-			int RowY = SkinProperties.Style688.Data00 * i - ScrollY;
+			const int RowY = SkinProperties.Style688.Data00 * i - ScrollY;
 			int Offset = 0;
 			if (SkinProperties.Style688.Data00 + RowY <= 0)
 				continue;
@@ -2232,7 +2232,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 			}
 		NoSkull:
 			const char *Name = Creature->Name;
-			int MaxLength = GetFittingTextLength(SkinProperties.Style688.Data54.FontNumber, Name,
+			const int MaxLength = GetFittingTextLength(SkinProperties.Style688.Data54.FontNumber, Name,
 				SkinProperties.Style688.Data14.width);
 			char Shortened[32];
 			if (MaxLength < (int)strlen(Name)) {
@@ -2270,7 +2270,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 void TBattleWindowBody::SetSize(int Width, int Height)
 {
 	TBEGIN
-	int ScrollbarX = Width - ScrollBar->Width;
+	const int ScrollbarX = Width - ScrollBar->Width;
 	TASSERT1(2465, ScrollbarX>0, ScrollbarX);
 	TWindow::SetSize(Width, Height);
 	ScrollBar->SetPosition(ScrollbarX, 0);
@@ -2306,13 +2306,13 @@ bool TBattleWindowBody::LeftButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::LeftButtonUp(x, y, Flags)) {
-		int Position = GetOpponentAt(x, y);
+		const int Position = GetOpponentAt(x, y);
 		if (Position != -1) {
-			TCreature *Creature = GetOpponent(Position);
+			const TCreature *Creature = GetOpponent(Position);
 			if (Creature != nullptr) {
 				if (GetActionState() == 7) {
 					int SrcIndex, SrcX, SrcY, SrcZ;
-					TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
+					const TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
 					TASSERT(2521, SrcObj!=0);
 					TASSERT(2522, SrcObj.Type!=CREATURE);
 					if (!IsPlayer(Creature->CreatureID)) {
@@ -2322,7 +2322,7 @@ bool TBattleWindowBody::LeftButtonUp(int x, int y, int Flags)
 					SetStatusMessage("You are not allowed to shoot directly on players.", false);
 				} else if (GetActionState() == 8) {
 					int TradeIndex, TradeX, TradeY, TradeZ;
-					TObject &Obj = *GetTradeObject(&TradeIndex, &TradeX, &TradeY, &TradeZ);
+					const TObject &Obj = *GetTradeObject(&TradeIndex, &TradeX, &TradeY, &TradeZ);
 					TASSERT(2532, Obj!=0);
 					if (IsPlayer(Creature->CreatureID)) {
 						SendRequestTrade(TradeX, TradeY, TradeZ, Obj.Type, TradeIndex, Creature->CreatureID);
@@ -2348,12 +2348,12 @@ bool TBattleWindowBody::RightButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::RightButtonUp(x, y, Flags)) {
-		int Position = GetOpponentAt(x, y);
+		const int Position = GetOpponentAt(x, y);
 		if (Position != -1) {
-			TCreature *Creature = GetOpponent(Position);
+			const TCreature *Creature = GetOpponent(Position);
 			if (Creature != nullptr) {
 				if ((Flags & 0x800) != 0) {
-					uint32 AttackID = GetAttackID();
+					const uint32 AttackID = GetAttackID();
 					SetAttackID(Creature->CreatureID == AttackID ? 0 : Creature->CreatureID);
 					SendAttack(GetAttackID());
 				} else if ((Flags & 0x200) != 0) {
@@ -2372,11 +2372,11 @@ bool TBattleWindowBody::RightButtonUp(int x, int y, int Flags)
 void TBattleWindowBody::MouseHover(int x, int y)
 {
 	TBEGIN
-	int Position = GetOpponentAt(x, y);
+	const int Position = GetOpponentAt(x, y);
 	if (Position != -1) {
 		TCreature *Creature = GetOpponent(Position);
 		if (Creature != nullptr) {
-			int MaxLength = GetFittingTextLength(SkinProperties.Style688.Data54.FontNumber, Creature->Name,
+			const int MaxLength = GetFittingTextLength(SkinProperties.Style688.Data54.FontNumber, Creature->Name,
 				SkinProperties.Style688.Data14.width);
 			if (MaxLength < (int)strlen(Creature->Name)) {
 				strcpy(MouseOverText, Creature->Name);
@@ -2402,7 +2402,7 @@ bool TBattleWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] i
 {
 	TBEGIN
 	SetHelpHandle(18);
-	TComponent *Parent = GetParent();
+	const TComponent *Parent = GetParent();
 	TASSERT(2616, Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
@@ -2444,7 +2444,7 @@ int TBattleWindowBody::GetOpponentAt(int x, int y)
 {
 	TBEGIN
 	y += ScrollBar->Range->Value;
-	int Position = y / SkinProperties.Style688.Data00;
+	const int Position = y / SkinProperties.Style688.Data00;
 	if (y >= 0 && x >= 0 && x <= Width - ScrollBar->Width && Position < GetNumberOfOpponents())
 		return Position;
 	return -1;
@@ -2470,32 +2470,32 @@ TTradeOffers::TTradeOffers()
 void TTradeOffers::Draw(int Surface, int x, int y)
 {
 	TBEGIN
-	int ScrollY = ScrollBar->Range->Value;
-	int Bottom = Height - 1;
+	const int ScrollY = ScrollBar->Range->Value;
+	const int Bottom = Height - 1;
 	TASSERT1(2698, x>=0, x);
 	TASSERT1(2699, y>=0, y);
 	DrawSkin(Surface, x, y, Width - ScrollBar->Width, Height, 7, 0, ScrollY % Skins[7].height);
 	TWindow::Draw(Surface, x, y);
-	int ClipHeight = Height;
-	int ClipWidth = Width;
+	const int ClipHeight = Height;
+	const int ClipWidth = Width;
 	for (int Side = 0; Side < 2; Side++) {
-		TRect &Area = Side == 0 ? SkinProperties.Style6FC.Data68 : SkinProperties.Style6FC.Data78;
-		int AreaX = Area.x;
-		int AreaY = Area.y;
-		int AreaWidth = Area.width;
-		int AreaHeight = Area.height;
+		const TRect &Area = Side == 0 ? SkinProperties.Style6FC.Data68 : SkinProperties.Style6FC.Data78;
+		const int AreaX = Area.x;
+		const int AreaY = Area.y;
+		const int AreaWidth = Area.width;
+		const int AreaHeight = Area.height;
 		// Data88: the object's offset in a slot, x/y for the own offer,
 		// Width/Height for the partner's.
-		int *ObjectOffset = Side == 0 ? &SkinProperties.Style6FC.Data88.x : &SkinProperties.Style6FC.Data88.width;
-		int OffsetX = ObjectOffset[0];
-		int OffsetY = ObjectOffset[1];
-		int Count = Side == 0 ? GetOwnOfferCount() : GetCounterOfferCount();
+		const int *ObjectOffset = Side == 0 ? &SkinProperties.Style6FC.Data88.x : &SkinProperties.Style6FC.Data88.width;
+		const int OffsetX = ObjectOffset[0];
+		const int OffsetY = ObjectOffset[1];
+		const int Count = Side == 0 ? GetOwnOfferCount() : GetCounterOfferCount();
 		for (int i = 0; i < Count; i++) {
-			TObject Obj = Side == 0 ? GetOwnOfferObject(i) : GetCounterOfferObject(i);
-			int SlotX = i % SkinProperties.Style6FC.DataA4 * SkinProperties.Style6FC.DataA0;
-			int RowY = i / SkinProperties.Style6FC.DataA4 * SkinProperties.Style6FC.Data9C - ScrollY;
+			const TObject Obj = Side == 0 ? GetOwnOfferObject(i) : GetCounterOfferObject(i);
+			const int SlotX = i % SkinProperties.Style6FC.DataA4 * SkinProperties.Style6FC.DataA0;
+			const int RowY = i / SkinProperties.Style6FC.DataA4 * SkinProperties.Style6FC.Data9C - ScrollY;
 			if (AreaHeight + AreaY + RowY > 0 && AreaY + RowY <= Bottom) {
-				int DestX = SlotX + AreaX;
+				const int DestX = SlotX + AreaX;
 				int DestY = AreaY + RowY;
 				int SlotHeight = AreaHeight;
 				if (DestY < 0) {
@@ -2519,7 +2519,7 @@ void TTradeOffers::Draw(int Surface, int x, int y)
 void TTradeOffers::SetSize(int Width, int Height)
 {
 	TBEGIN
-	int ScrollBarWidth = ScrollBar->Width;
+	const int ScrollBarWidth = ScrollBar->Width;
 	TWindow::SetSize(Width, Height);
 	ScrollBar->SetPosition(Width - ScrollBarWidth, 0);
 	ScrollBar->SetSize(ScrollBar->Width, Height);
@@ -2541,10 +2541,10 @@ int TTradeOffers::getMinimumHeight()
 int TTradeOffers::GetContentHeight()
 {
 	TBEGIN
-	int CounterCount = GetCounterOfferCount();
-	int OwnCount = GetOwnOfferCount();
-	int Count = (std::max)(OwnCount, CounterCount);
-	int Result = SkinProperties.Style6FC.Data9C
+	const int CounterCount = GetCounterOfferCount();
+	const int OwnCount = GetOwnOfferCount();
+	const int Count = (std::max)(OwnCount, CounterCount);
+	const int Result = SkinProperties.Style6FC.Data9C
 			* (Count / SkinProperties.Style6FC.DataA4 + (Count % SkinProperties.Style6FC.DataA4 > 0))
 		+ 1 + SkinProperties.Style6FC.Data68.x;
 	return (std::max)(getMinimumHeight(), Result);
@@ -2619,17 +2619,17 @@ void TTradeOffers::GetOfferAt(int x, int y, int *Side, int *Position)
 	*Position = -1;
 	*Side = -1;
 	for (int i = 0; i <= 1; i++) {
-		TRect &Area = i == 0 ? SkinProperties.Style6FC.Data68 : SkinProperties.Style6FC.Data78;
-		int AreaWidth = Area.width;
-		int AreaX = Area.x;
-		int AreaY = Area.y;
-		int AreaHeight = Area.height;
-		int Count = i == 0 ? GetOwnOfferCount() : GetCounterOfferCount();
-		int RelativeY = ScrollBar->Range->Value - AreaY + y;
-		int Column = (x - AreaX) / SkinProperties.Style6FC.DataA0;
+		const TRect &Area = i == 0 ? SkinProperties.Style6FC.Data68 : SkinProperties.Style6FC.Data78;
+		const int AreaWidth = Area.width;
+		const int AreaX = Area.x;
+		const int AreaY = Area.y;
+		const int AreaHeight = Area.height;
+		const int Count = i == 0 ? GetOwnOfferCount() : GetCounterOfferCount();
+		const int RelativeY = ScrollBar->Range->Value - AreaY + y;
+		const int Column = (x - AreaX) / SkinProperties.Style6FC.DataA0;
 		if (Column < SkinProperties.Style6FC.DataA4 && (x - AreaX) % SkinProperties.Style6FC.DataA0 <= AreaWidth
 			&& RelativeY % SkinProperties.Style6FC.Data9C <= AreaHeight) {
-			int Found = RelativeY / SkinProperties.Style6FC.Data9C * SkinProperties.Style6FC.DataA4 + Column;
+			const int Found = RelativeY / SkinProperties.Style6FC.Data9C * SkinProperties.Style6FC.DataA4 + Column;
 			if (Found < Count) {
 				*Position = Found;
 				*Side = i;
@@ -2832,7 +2832,7 @@ void TTradeWindowBody::SetSize(int Width, int Height)
 	TBEGIN
 	int Maximum = GetMaximumHeight();
 	int Minimum = getMinimumHeight();
-	int Lower = (std::min)(Maximum, Minimum);
+	const int Lower = (std::min)(Maximum, Minimum);
 	Maximum = GetMaximumHeight();
 	Minimum = getMinimumHeight();
 	Limit(&Height, Lower, (std::max)(Maximum, Minimum));
@@ -2849,7 +2849,7 @@ bool TTradeWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] in
 {
 	TBEGIN
 	SetHelpHandle(21);
-	TComponent *Parent = GetParent();
+	const TComponent *Parent = GetParent();
 	TASSERT(3076, Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
@@ -2877,8 +2877,8 @@ int TTradeWindowBody::GetInitialHeight()
 int TTradeWindowBody::GetMaximumHeight()
 {
 	TBEGIN
-	int NamesHeight = Names->Height;
-	int ButtonsHeight = Buttons->Height;
+	const int NamesHeight = Names->Height;
+	const int ButtonsHeight = Buttons->Height;
 	return Offers->GetContentHeight() + ButtonsHeight + NamesHeight;
 	TEND(3112)
 }
@@ -2926,24 +2926,24 @@ void TBuddylistWindowBody::Draw(int Surface, int x, int y)
 		Arrange();
 	}
 	if (!IsMinimized()) {
-		int ScrollY = ScrollBar->Range->Value;
-		int Bottom = Height - 1;
+		const int ScrollY = ScrollBar->Range->Value;
+		const int Bottom = Height - 1;
 		TASSERT1(3176, x>=0, x);
 		TASSERT1(3177, y>=0, y);
 		DrawSkin(Surface, x, y, Width - ScrollBar->Width, Height, 7, 0, ScrollY % Skins[7].height);
 		if (!Minimized)
 			TWindow::Draw(Surface, x, y);
-		int ClipHeight = Height;
-		int ClipWidth = Width - ScrollBar->Width;
+		const int ClipHeight = Height;
+		const int ClipWidth = Width - ScrollBar->Width;
 		for (int i = 0; i < GetNumberOfBuddies(); i++) {
-			int ItemX = 0;
-			int ItemY = SkinProperties.BuddylistWindow.Data04 * i - ScrollY;
+			const int ItemX = 0;
+			const int ItemY = SkinProperties.BuddylistWindow.Data04 * i - ScrollY;
 			if (SkinProperties.BuddylistWindow.Data04 + ItemY <= 0)
 				continue;
 			if (ItemY > Bottom)
 				return;
 			if (GetBuddyListIcon(i) > 0) {
-				int Icon = GetBuddyListIcon(i);
+				const int Icon = GetBuddyListIcon(i);
 				TASSERT1(3192, x+ItemX+SkinProperties.BuddylistWindow.Logo.x>=0, x);
 				TASSERT1(3193, y+ItemY+SkinProperties.BuddylistWindow.Logo.y>=0, y);
 				DrawSkinClipped(Surface, SkinProperties.BuddylistWindow.Logo.x + x,
@@ -2955,7 +2955,7 @@ void TBuddylistWindowBody::Draw(int Surface, int x, int y)
 			if (GetBuddyListNew(i))
 				Color = SkinProperties.BuddylistWindow.Data54;
 			const char *Name = GetBuddyListName(i);
-			int MaxLength = GetFittingTextLength(SkinProperties.BuddylistWindow.Data28.FontNumber, Name,
+			const int MaxLength = GetFittingTextLength(SkinProperties.BuddylistWindow.Data28.FontNumber, Name,
 				SkinProperties.BuddylistWindow.Data18.width);
 			char Shortened[40];
 			if (MaxLength < (int)strlen(Name)) {
@@ -2975,7 +2975,7 @@ void TBuddylistWindowBody::Draw(int Surface, int x, int y)
 void TBuddylistWindowBody::SetSize(int Width, int Height)
 {
 	TBEGIN
-	int ScrollbarX = Width - ScrollBar->Width;
+	const int ScrollbarX = Width - ScrollBar->Width;
 	TASSERT1(3225, ScrollbarX>0, ScrollbarX);
 	TWindow::SetSize(Width, Height);
 	ScrollBar->SetPosition(ScrollbarX, 0);
@@ -2989,7 +2989,7 @@ bool TBuddylistWindowBody::RightButtonUp(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::RightButtonUp(x, y, Flags)) {
-		int Position = GetBuddyAt(x, y);
+		const int Position = GetBuddyAt(x, y);
 		AddMessage(54, Position == -1 ? 0 : GetBuddyListID(Position), 0);
 	}
 	return true;
@@ -3001,7 +3001,7 @@ bool TBuddylistWindowBody::LeftButtonDoubleClick(int x, int y, int Flags)
 {
 	TBEGIN
 	if (!TWindow::LeftButtonDoubleClick(x, y, Flags)) {
-		int Position = GetBuddyAt(x, y);
+		const int Position = GetBuddyAt(x, y);
 		if (Position != -1)
 			SendOpenPrivateConversation(GetBuddyListName(Position));
 	}
@@ -3023,10 +3023,10 @@ bool TBuddylistWindowBody::MouseWheel(int x, int y, int Code)
 void TBuddylistWindowBody::MouseHover(int x, int y)
 {
 	TBEGIN
-	int Position = GetBuddyAt(x, y);
+	const int Position = GetBuddyAt(x, y);
 	if (Position != -1) {
 		const char *Name = GetBuddyListName(Position);
-		int MaxLength = GetFittingTextLength(SkinProperties.BuddylistWindow.Data28.FontNumber, Name,
+		const int MaxLength = GetFittingTextLength(SkinProperties.BuddylistWindow.Data28.FontNumber, Name,
 			SkinProperties.BuddylistWindow.Data18.width);
 		if (MaxLength < (int)strlen(Name)) {
 			if (MouseOverText != nullptr)
@@ -3046,7 +3046,7 @@ bool TBuddylistWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]
 {
 	TBEGIN
 	SetHelpHandle(19);
-	TComponent *Parent = GetParent();
+	const TComponent *Parent = GetParent();
 	TASSERT(3322, Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
@@ -3102,7 +3102,7 @@ int TBuddylistWindowBody::GetBuddyAt(int x, int y)
 	TBEGIN
 	if (!IsMinimized()) {
 		y += ScrollBar->Range->Value;
-		int Position = y / SkinProperties.BuddylistWindow.Data04;
+		const int Position = y / SkinProperties.BuddylistWindow.Data04;
 		if (x >= 0 && x <= Width - ScrollBar->Width && Position < GetNumberOfBuddies())
 			return Position;
 	}

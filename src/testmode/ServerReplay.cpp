@@ -39,8 +39,8 @@ bool ParseHex(std::string_view Text, std::vector<std::uint8_t> *Bytes)
 		return false;
 	Bytes->reserve(Text.size() / 2);
 	for (std::size_t i = 0; i < Text.size(); i += 2) {
-		int High = HexValue(Text[i]);
-		int Low = HexValue(Text[i + 1]);
+		const int High = HexValue(Text[i]);
+		const int Low = HexValue(Text[i + 1]);
 		if (High < 0 || Low < 0)
 			return false;
 		Bytes->push_back(static_cast<std::uint8_t>((High << 4) | Low));
@@ -199,7 +199,7 @@ void TServerReplay::Settle(int Index)
 	auto i = static_cast<std::size_t>(Index);
 	const std::vector<TReplayEvent> &Events = Recorded[i].Events;
 	while (Next[i] < Events.size()) {
-		TReplayKind Kind = Events[Next[i]].Kind;
+		const TReplayKind Kind = Events[Next[i]].Kind;
 		if (Kind == TReplayKind::ClientPacket && Waiting[i] > 0) {
 			Waiting[i]--;
 			Next[i]++;

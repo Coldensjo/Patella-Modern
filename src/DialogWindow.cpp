@@ -165,11 +165,11 @@ void TDialogWindow::Draw(int Surface, int x, int y)
 void TDialogWindow::Arrange()
 {
 	TBEGIN
-	int Free = GetFreeHeight();
+	const int Free = GetFreeHeight();
 	for (int i = 0; i < DrawingListLength; i++)
 		DrawingList[i] = TDrawing();
 	if (Free != 0) {
-		int Top = Height - Free;
+		const int Top = Height - Free;
 		int h = Free < Skins[26].height ? Free : Skins[26].height;
 		if (h > 0)
 			DrawingList[0] = TDrawing(26, 0, Top, Skins[26].width, h, 0, 0);
@@ -323,7 +323,7 @@ void TDialogWindow::Rearrange(int Strategy, TComponent *Work)
 void TDialogWindow::PositionChildren(bool SkipDragged)
 {
 	TBEGIN
-	int x = Area.x;
+	const int x = Area.x;
 	int y = Area.y;
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if (Child != Dragged || !SkipDragged)
@@ -377,7 +377,7 @@ bool TDialogWindow::Shrink()
 	TBEGIN
 	while (GetFreeHeight() < 0) {
 		TComponent *Child = GetLastChild();
-		int Missing = -GetFreeHeight();
+		const int Missing = -GetFreeHeight();
 		if (Missing < 0)
 			break;
 		TComponent *Shrinking;
@@ -443,9 +443,9 @@ void TDialogWindow::MakeRoom(TComponent *Work)
 		TComponent *Child = GetLastChild();
 		while (Child != nullptr && Space < Needed) {
 			TComponent *Previous = Child->GetPrevious();
-			int OldHeight = Child->Height;
+			const int OldHeight = Child->Height;
 			Child->SetSize(Child->Width, OldHeight - Needed + Space);
-			int NewHeight = Child->Height;
+			const int NewHeight = Child->Height;
 			Space += OldHeight - NewHeight;
 			if (Space >= Needed)
 				break;
@@ -468,11 +468,11 @@ void TDialogWindow::Grow(TComponent *Work)
 	TBEGIN
 	TComponent *Child = GetLastChild();
 	if (Child != Work) {
-		int Free = GetFreeHeight();
+		const int Free = GetFreeHeight();
 		if (Free > FreeHeight) {
 			int Delta = Free - FreeHeight;
 			for (; Child != nullptr && Delta > 0 && Child != Work; Child = Child->GetPrevious()) {
-				int OldHeight = Child->Height;
+				const int OldHeight = Child->Height;
 				Child->SetSize(Child->Width, OldHeight + Delta);
 				Delta += OldHeight - Child->Height;
 			}
@@ -485,7 +485,7 @@ void TDialogWindow::Grow(TComponent *Work)
 int TDialogWindow::GetFreeHeight()
 {
 	TBEGIN
-	int Available = Area.height;
+	const int Available = Area.height;
 	int Used = 0;
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext())
 		Used += Child->Height;

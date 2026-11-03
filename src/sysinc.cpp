@@ -161,14 +161,14 @@ char *GetClipboardText()
 	if (!OpenClipboard(nullptr))
 		return nullptr;
 	HANDLE Memory = GetClipboardData(CF_TEXT);
-	SIZE_T Size = GlobalSize(Memory);
+	const SIZE_T Size = GlobalSize(Memory);
 	ResizeClipboardBuffer((unsigned int)Size);
-	char *Data = (char *)GlobalLock(Memory);
+	const char *Data = (char *)GlobalLock(Memory);
 	if (Data == nullptr) {
 		ClipboardBuffer[0] = 0;
 	} else {
 		memcpy(ClipboardBuffer, Data, Size);
-		BOOL result = GlobalUnlock(Memory);
+		const BOOL result = GlobalUnlock(Memory);
 		TASSERT(104, result!=0 || GetLastError()==NO_ERROR);
 	}
 	CloseClipboard();
@@ -186,7 +186,7 @@ char *GetClipboardText()
 // 0x4fd1b0, lines 139-143
 bool SetClipboardText(const char *Text)
 {
-	size_t Length = strlen(Text);
+	const size_t Length = strlen(Text);
 	if (!OpenClipboard(nullptr))
 		return false;
 	HGLOBAL Memory;
@@ -195,7 +195,7 @@ bool SetClipboardText(const char *Text)
 		TASSERT(139, textdata!=NULL);
 		memcpy(textdata, Text, Length);
 		textdata[Length] = 0;
-		BOOL result = GlobalUnlock(Memory);
+		const BOOL result = GlobalUnlock(Memory);
 		TASSERT2(143, result==0 || GetLastError()==NO_ERROR, result, GetLastError());
 		if (SetClipboardData(CF_TEXT, Memory) != nullptr) {
 			CloseClipboard();

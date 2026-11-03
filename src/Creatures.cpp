@@ -462,7 +462,7 @@ void TCreature::StartMovement(int dx, int dy, int Waypoints)
 	else if (dy > 0)
 		Direction = 2;
 	if (Waypoints != 0 && CreatureID == PlayerID) {
-		bool Predicted = PlayerStepDX == dx && PlayerStepDY == dy;
+		const bool Predicted = PlayerStepDX == dx && PlayerStepDY == dy;
 		PlayerStepDX = 0;
 		PlayerStepDY = 0;
 		if (Predicted)
@@ -559,12 +559,12 @@ void DoPlayerStep()
 	case 8: dx = 1; dy = 1; break;
 		// clang-format on
 	}
-	TObject Bank = GetFirstObject(dx + 8, dy + 6, GetMapLevel());
+	const TObject Bank = GetFirstObject(dx + 8, dy + 6, GetMapLevel());
 	if (Bank.Type == 0 || !GetObjectFlag(Bank.Type, BANK))
 		return;
 	if (!IsFieldPassable(dx + 8, dy + 6, GetMapLevel(), false))
 		return;
-	int Height = GetFieldHeight(8, 6, GetMapLevel());
+	const int Height = GetFieldHeight(8, 6, GetMapLevel());
 	if (GetFieldHeight(dx + 8, dy + 6, GetMapLevel()) > Height + 1)
 		return;
 	Player->StartMovement(dx, dy, GetObjectWaypoints(Bank.Type));
@@ -601,7 +601,7 @@ int FindPlayerPath()
 	GetMapPosition(&x, &y, &z);
 	x += PlayerStepDX;
 	y += PlayerStepDY;
-	int Result = FindPath(x, y, z, DestinationX, DestinationY, DestinationZ, DestinationExact,
+	const int Result = FindPath(x, y, z, DestinationX, DestinationY, DestinationZ, DestinationExact,
 		&NumberOfPlayerSteps, PlayerSteps, DestinationDiagonal);
 	if (Result != 2)
 		DestinationX = 0;
@@ -754,7 +754,7 @@ TCreature *GetCreature(uint32 CreatureID)
 void UpdateSkulls()
 {
 	TBEGIN
-	__time32_t Now = PATELLA_TIME32(nullptr);
+	const __time32_t Now = PATELLA_TIME32(nullptr);
 	for (int i = 0; i < CREATURES; i++) {
 		TCreature *Creature = &Creatures[i];
 		if (Creature->SkullTime != 0 && (Now < Creature->SkullTime || Now > Creature->SkullTime + 4)) {
@@ -781,7 +781,7 @@ bool MoveCreatures()
 {
 	TBEGIN
 	bool Result = false;
-	int Now = GetMilliseconds();
+	const int Now = GetMilliseconds();
 	for (int i = 0; i < CREATURES; i++) {
 		TCreature *Creature = &Creatures[i];
 		if (!Creature->Moving)
@@ -825,9 +825,9 @@ void CheckMonsterHint(TCreature *Creature)
 	TBEGIN
 	if (!Creature->Visible)
 		return;
-	TCreature *Player = GetCreature(GetPlayerID());
+	const TCreature *Player = GetCreature(GetPlayerID());
 	if (Player != nullptr && Creature->CreatureID == Player->CreatureID) {
-		int Number = GetNumberOfOpponents();
+		const int Number = GetNumberOfOpponents();
 		for (int i = 0; i < Number; i++) {
 			TCreature *Opponent = GetOpponent(i);
 			TASSERT(585, Opponent!=NULL);
@@ -926,7 +926,7 @@ bool HasPlayerSkull()
 // then.
 bool IsPlayerInParty()
 {
-	int Shield = GetCreature(GetPlayerID())->PARTYFlag;
+	const int Shield = GetCreature(GetPlayerID())->PARTYFlag;
 	return Shield == 4 || Shield == 3 || Shield == 1;
 }
 
@@ -950,7 +950,7 @@ bool IsOpponent(TCreature *Creature)
 		return false;
 	if (Creature->Health < 1)
 		return false;
-	TCreature *Player = GetCreature(GetPlayerID());
+	const TCreature *Player = GetCreature(GetPlayerID());
 	TASSERT(994, Player!=NULL);
 	if (Creature->RealZ != Player->RealZ || abs(Creature->RealX - Player->RealX) > 7)
 		return false;
@@ -1020,7 +1020,7 @@ bool CompareBuddies(int i, int j)
 	for (int k = 0; k < 3; k++) {
 		switch (BuddySortMethods[k]) {
 		case 0: {
-			int Result = strcmp(Buddies[i].Name, Buddies[j].Name);
+			const int Result = strcmp(Buddies[i].Name, Buddies[j].Name);
 			if (Result < 0)
 				return true;
 			if (Result > 0)
@@ -1050,7 +1050,7 @@ void SwapBuddies(int i, int j)
 	TASSERT1(1097, i!=j, i);
 	TASSERT2(1098, In(i,0,NumberOfBuddies-1), i, NumberOfBuddies-1);
 	TASSERT2(1099, In(j,0,NumberOfBuddies-1), j, NumberOfBuddies-1);
-	TBuddyEntry Help = Buddies[i];
+	const TBuddyEntry Help = Buddies[i];
 	Buddies[i] = Buddies[j];
 	Buddies[j] = Help;
 }
@@ -1117,7 +1117,7 @@ void AddBuddy(uint32 CharacterID, const char *Name, bool Online)
 void SetBuddyState(uint32 CharacterID, bool Online)
 {
 	TBEGIN
-	int Position = GetBuddyPosition(CharacterID);
+	const int Position = GetBuddyPosition(CharacterID);
 	if (Position == -1)
 		return;
 	TBuddyEntry *Buddy = &Buddies[Position];
@@ -1147,7 +1147,7 @@ void EditBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 		DeleteBuddy(CharacterID);
 	else
 		SetBuddy(CharacterID, Icon, Description, Notify);
-	int Position = GetBuddyPosition(CharacterID);
+	const int Position = GetBuddyPosition(CharacterID);
 	if (Position != -1) {
 		Buddies[Position].Icon = Icon;
 		SortBuddy(Position);
@@ -1159,7 +1159,7 @@ void EditBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 void RemoveBuddy(uint32 CharacterID)
 {
 	TBEGIN
-	int Position = GetBuddyPosition(CharacterID);
+	const int Position = GetBuddyPosition(CharacterID);
 	if (Position == -1)
 		return;
 	AddMessage(0x1a, (INT_PTR)_strdup(Buddies[Position].Name), 0);

@@ -122,18 +122,18 @@ void TMainWindow::SetSize(int Width, int Height)
 	TWindow::SetSize(Width, Height);
 	SetWindowSize(Width, Height);
 	if (InGame) {
-		int SplitterHeight = Splitter->Height;
+		const int SplitterHeight = Splitter->Height;
 		int MaxMapHeight = MapFrame->getMinimumHeight();
-		int Rest = Height - Console->getMinimumHeight() - SplitterHeight;
+		const int Rest = Height - Console->getMinimumHeight() - SplitterHeight;
 		if (Rest > MaxMapHeight)
 			MaxMapHeight = Rest;
-		int MinMapHeight = MapFrame->getMinimumHeight();
+		const int MinMapHeight = MapFrame->getMinimumHeight();
 		int MapHeight = Height - Console->Height - Splitter->Height;
 		if (MapHeight < MinMapHeight)
 			MapHeight = MinMapHeight;
 		if (MapHeight > MaxMapHeight)
 			MapHeight = MaxMapHeight;
-		int MapWidth = Width - SkinProperties.Data184;
+		const int MapWidth = Width - SkinProperties.Data184;
 		MapFrame->SetPosition(0, 0);
 		MapFrame->SetSize(MapWidth, MapHeight);
 		MapHeight = MapFrame->Height;
@@ -358,7 +358,7 @@ void TMainWindow::ChangeMode(bool InGame)
 		SidePanel = new TDialogWindow;
 		DialogWindow = new TDialogWindow;
 		int *Dialogs;
-		int Count = GetOpenDialogs(&Dialogs);
+		const int Count = GetOpenDialogs(&Dialogs);
 		bool HaveAutomap = false;
 		bool HaveStatus = false;
 		bool HaveInventory = false;
@@ -404,7 +404,7 @@ void TMainWindow::ChangeMode(bool InGame)
 		// The console keeps its stored height unless the map would get
 		// smaller than its minimum height; then it gets its own minimum.
 		int ConsoleHeight = Console->getMinimumHeight();
-		int StoredHeight = GetConsoleHeight();
+		const int StoredHeight = GetConsoleHeight();
 		if (StoredHeight > ConsoleHeight)
 			ConsoleHeight = StoredHeight;
 		int MapWidth = Width - SkinProperties.Data184;
@@ -428,7 +428,7 @@ void TMainWindow::ChangeMode(bool InGame)
 		DialogWindow->SetSize(SkinProperties.Data184, Height - SideBar->Height);
 		DialogWindow->SetPosition(MapWidth, SideBar->Height);
 		for (int i = 0; i < Count; i++) {
-			int Identifier = Dialogs[i];
+			const int Identifier = Dialogs[i];
 			if (Identifier >= 6 && (Identifier <= 7 || Identifier == 9))
 				OpenContentWindow(Identifier);
 		}
@@ -480,7 +480,7 @@ void TMainWindow::ResizeConsole(int ConsoleHeight)
 {
 	TBEGIN
 	// One call of getMinimumHeight (0x4ac642; issue #34).
-	int MinimumHeight = Console->getMinimumHeight();
+	const int MinimumHeight = Console->getMinimumHeight();
 	if (ConsoleHeight < MinimumHeight)
 		ConsoleHeight = MinimumHeight;
 	Console->SetSize(Console->Width, ConsoleHeight);

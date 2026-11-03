@@ -88,7 +88,7 @@ int GetMapLevel()
 // centre's is shifted by one field to the north-west.
 void RelativeToAbsolute(int *x, int *y, int *z)
 {
-	int dz = *z - GetMapLevel();
+	const int dz = *z - GetMapLevel();
 	*x += MapX - 8 + dz;
 	*y += MapY - 6 + dz;
 	*z = MapZ - dz;
@@ -97,7 +97,7 @@ void RelativeToAbsolute(int *x, int *y, int *z)
 // 0x4b0960
 void AbsoluteToRelative(int *x, int *y, int *z)
 {
-	int dz = MapZ - *z;
+	const int dz = MapZ - *z;
 	*x += 8 - MapX - dz;
 	*y += 6 - MapY - dz;
 	*z = GetMapLevel() + dz;
@@ -106,7 +106,7 @@ void AbsoluteToRelative(int *x, int *y, int *z)
 // 0x4b09d0
 bool GetAutomapChanged()
 {
-	bool Result = AutomapChanged;
+	const bool Result = AutomapChanged;
 	AutomapChanged = false;
 	return Result;
 }
@@ -115,7 +115,7 @@ bool GetAutomapChanged()
 // call takes effect at once instead of fading.
 void SetAmbientLight(int Brightness, int Color)
 {
-	bool Immediately = AmbienteBrightness == -1;
+	const bool Immediately = AmbienteBrightness == -1;
 	AmbienteBrightness = Brightness;
 	AmbienteColor = TRGBColor(Color);
 	if (Immediately) {
@@ -162,7 +162,7 @@ TObject GetFirstObject(int rx, int ry, int rz)
 	TASSERTB1(171, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
 	ObjectIteratorField = FieldNumber(rx, ry, rz);
 	ObjectIteratorCount = 0;
-	TMapPoint &Point = Fields(ObjectIteratorField);
+	const TMapPoint &Point = Fields(ObjectIteratorField);
 	if (Point.ObjectCount == 0)
 		return NoObject;
 	return Point.Objects[Point.Order[0]];
@@ -172,7 +172,7 @@ TObject GetFirstObject(int rx, int ry, int rz)
 TObject GetNextObject()
 {
 	ObjectIteratorCount++;
-	TMapPoint &Point = Fields(ObjectIteratorField);
+	const TMapPoint &Point = Fields(ObjectIteratorField);
 	if (ObjectIteratorCount >= Point.ObjectCount)
 		return NoObject;
 	return Point.Objects[Point.Order[ObjectIteratorCount]];
@@ -184,7 +184,7 @@ TObject GetMapObject(int rx, int ry, int rz, int Position)
 	TASSERTB1(197, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(198, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(199, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
+	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	TASSERT1(202, In(Position,0,OBJECTS_PER_POINT-1), Position);
 	if (Position < Point.ObjectCount)
 		return Point.Objects[Position];
@@ -200,10 +200,10 @@ TObject GetTopMoveObject(int rx, int ry, int rz, int &Position)
 	TASSERTB1(214, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(215, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
 	TBEGIN
-	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
+	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
-		TObject &Obj = Point.Objects[Position];
+		const TObject &Obj = Point.Objects[Position];
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
 			&& !GetObjectFlag(Obj.Type, TOP) && Obj.Type != CREATURE)
 			break;
@@ -223,10 +223,10 @@ TObject GetTopLookObject(int rx, int ry, int rz, int &Position)
 	TASSERTB1(238, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(239, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
 	TBEGIN
-	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
+	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
-		TObject &Obj = Point.Objects[Position];
+		const TObject &Obj = Point.Objects[Position];
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
 			&& !GetObjectFlag(Obj.Type, TOP))
 			break;
@@ -245,10 +245,10 @@ TObject GetTopUseObject(int rx, int ry, int rz, int &Position)
 	TASSERTB1(260, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(261, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
 	TBEGIN
-	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
+	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
-		TObject &Obj = Point.Objects[Position];
+		const TObject &Obj = Point.Objects[Position];
 		if (GetObjectFlag(Obj.Type, FORCEUSE))
 			return Obj;
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
@@ -271,10 +271,10 @@ TObject GetTopMultiUseObject(int rx, int ry, int rz, int &Position)
 	TASSERTB1(285, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(286, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
 	TBEGIN
-	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
+	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
-		TObject &Obj = Point.Objects[Position];
+		const TObject &Obj = Point.Objects[Position];
 		if (GetObjectFlag(Obj.Type, FORCEUSE))
 			return Obj;
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
@@ -308,7 +308,7 @@ static void SortObjects(int rx, int ry, int rz)
 	for (int i = Point.ObjectCount - 1; i >= 0 && n != Point.ObjectCount; i--)
 		Point.Order[n++] = i;
 	TObject *Hanging = nullptr;
-	TObject *Hook = nullptr;
+	const TObject *Hook = nullptr;
 	for (int i = Point.ObjectCount - 1; i >= 0; i--) {
 		TObject &Obj = Point.Objects[i];
 		if (GetObjectFlag(Obj.Type, HANG))
@@ -355,10 +355,10 @@ void AddObject(int rx, int ry, int rz, TObject Obj)
 	TASSERTB1(377, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(378, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
 	TBEGIN
-	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
+	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	int Position;
 	for (Position = 0; Position < Point.ObjectCount; Position++) {
-		TObject &Here = Point.Objects[Position];
+		const TObject &Here = Point.Objects[Position];
 		if (GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Here.Type, BANK))
 			break;
 		if (GetObjectFlag(Obj.Type, BANK) == GetObjectFlag(Here.Type, BANK)) {
@@ -389,7 +389,7 @@ void AppendObject(int rx, int ry, int rz, TObject Obj)
 	TASSERTB1(411, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(412, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
 	TBEGIN
-	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
+	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	if (!In(Point.ObjectCount, 0, OBJECTS_PER_POINT - 1)) {
 		std::stringstream s;
 		s << "ObjectCount: " << Point.ObjectCount << " rx: " << rx << " ry: " << ry << " rz: " << rz;
@@ -538,7 +538,7 @@ int GetMissileEffectX(int EffectNumber)
 {
 	TASSERT1(635, In(EffectNumber,0,EFFECTS-1), EffectNumber);
 	TASSERT1(636, Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
-	TEffect &Effect = Effects[EffectNumber];
+	const TEffect &Effect = Effects[EffectNumber];
 	return (Effect.DestX - Effect.x) * 32 + Effect.OffsetX;
 }
 
@@ -547,7 +547,7 @@ int GetMissileEffectY(int EffectNumber)
 {
 	TASSERT1(645, In(EffectNumber,0,EFFECTS-1), EffectNumber);
 	TASSERT1(646, Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
-	TEffect &Effect = Effects[EffectNumber];
+	const TEffect &Effect = Effects[EffectNumber];
 	return (Effect.DestY - Effect.y) * 32 + Effect.OffsetY;
 }
 
@@ -590,7 +590,7 @@ static int NewEffect(int Status, int rx, int ry, int rz)
 void AddGraphicalEffect(int rx, int ry, int rz, int Type)
 {
 	TBEGIN
-	int Number = NewEffect(1, rx, ry, rz);
+	const int Number = NewEffect(1, rx, ry, rz);
 	if (Number != -1) {
 		Effects[Number].Type = Type;
 		Effects[Number].Phase = 1;
@@ -604,7 +604,7 @@ void AddTextualEffect(int rx, int ry, int rz, int Color, const char *Text)
 	TASSERT(712, Text!=NULL);
 	TASSERT1(713, strlen(Text)<10, strlen(Text));
 	TBEGIN
-	int Number = NewEffect(2, rx, ry, rz);
+	const int Number = NewEffect(2, rx, ry, rz);
 	if (Number != -1) {
 		Effects[Number].Type = Color;
 		strcpy(Effects[Number].Text, Text);
@@ -625,7 +625,7 @@ void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type)
 		return;
 	if (dz != GetMapLevel())
 		return;
-	int Number = NewEffect(3, sx, sy, sz);
+	const int Number = NewEffect(3, sx, sy, sz);
 	if (Number == -1)
 		return;
 	TEffect &Effect = Effects[Number];
@@ -633,7 +633,7 @@ void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type)
 	if (dx == sx) {
 		Effect.Direction = dy <= sy ? 0 : 4;
 	} else if (dx > sx) {
-		int South = (dy - sy) * 256;
+		const int South = (dy - sy) * 256;
 		if (South > (dx - sx) * 618)
 			Effect.Direction = 4;
 		else if (South > (dx - sx) * 106)
@@ -643,7 +643,7 @@ void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type)
 		else
 			Effect.Direction = South > (sx - dx) * 618;
 	} else {
-		int South = (dy - sy) * 256;
+		const int South = (dy - sy) * 256;
 		if (South > (sx - dx) * 618)
 			Effect.Direction = 4;
 		else if (South > (sx - dx) * 106)
@@ -653,9 +653,9 @@ void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type)
 		else
 			Effect.Direction = South <= (dx - sx) * 618 ? 0 : 7;
 	}
-	int DeltaX = sx - dx;
-	int DeltaY = sy - dy;
-	int Steps = (int)sqrt(sqrt((double)DeltaX * DeltaX + DeltaY * DeltaY));
+	const int DeltaX = sx - dx;
+	const int DeltaY = sy - dy;
+	const int Steps = (int)sqrt(sqrt((double)DeltaX * DeltaX + DeltaY * DeltaY));
 	Effect.OffsetX = DeltaX * 32;
 	Effect.OffsetY = DeltaY * 32;
 	Effect.EndTime = GetMilliseconds() + Steps * 150;
@@ -725,7 +725,7 @@ void ProcessMissileEffects()
 {
 	int i = 0;
 	TBEGIN
-	int Now = GetMilliseconds();
+	const int Now = GetMilliseconds();
 	for (i = 0; i < EFFECTS; i++) {
 		TEffect &Effect = Effects[i];
 		if (Effect.Status != 3)
@@ -835,7 +835,7 @@ static void ShiftMapWest()
 	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
 		for (int y = 0; y < MAPSIZE_Y; y++) {
-			int Help = FieldNumber(0, y, z);
+			const int Help = FieldNumber(0, y, z);
 			for (int x = 0; x < MAPSIZE_X - 1; x++)
 				FieldNumber(x, y, z) = FieldNumber(x + 1, y, z);
 			FieldNumber(MAPSIZE_X - 1, y, z) = Help;
@@ -851,7 +851,7 @@ static void ShiftMapEast()
 	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
 		for (int y = 0; y < MAPSIZE_Y; y++) {
-			int Help = FieldNumber(MAPSIZE_X - 1, y, z);
+			const int Help = FieldNumber(MAPSIZE_X - 1, y, z);
 			for (int x = MAPSIZE_X - 1; x > 0; x--)
 				FieldNumber(x, y, z) = FieldNumber(x - 1, y, z);
 			FieldNumber(0, y, z) = Help;
@@ -867,7 +867,7 @@ static void ShiftMapNorth()
 	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
 		for (int x = 0; x < MAPSIZE_X; x++) {
-			int Help = FieldNumber(x, 0, z);
+			const int Help = FieldNumber(x, 0, z);
 			for (int y = 0; y < MAPSIZE_Y - 1; y++)
 				FieldNumber(x, y, z) = FieldNumber(x, y + 1, z);
 			FieldNumber(x, MAPSIZE_Y - 1, z) = Help;
@@ -883,7 +883,7 @@ static void ShiftMapSouth()
 	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
 		for (int x = 0; x < MAPSIZE_X; x++) {
-			int Help = FieldNumber(x, MAPSIZE_Y - 1, z);
+			const int Help = FieldNumber(x, MAPSIZE_Y - 1, z);
 			for (int y = MAPSIZE_Y - 1; y > 0; y--)
 				FieldNumber(x, y, z) = FieldNumber(x, y - 1, z);
 			FieldNumber(x, 0, z) = Help;
@@ -917,7 +917,7 @@ static void ShiftMapUp()
 	TBEGIN
 	for (int x = 0; x < MAPSIZE_X; x++) {
 		for (int y = 0; y < MAPSIZE_Y; y++) {
-			int Help = FieldNumber(x, y, MAPSIZE_Z - 1);
+			const int Help = FieldNumber(x, y, MAPSIZE_Z - 1);
 			for (int z = MAPSIZE_Z - 1; z > 0; z--)
 				FieldNumber(x, y, z) = FieldNumber(x, y, z - 1);
 			FieldNumber(x, y, 0) = Help;
@@ -933,7 +933,7 @@ static void ShiftMapDown()
 	TBEGIN
 	for (int x = 0; x < MAPSIZE_X; x++) {
 		for (int y = 0; y < MAPSIZE_Y; y++) {
-			int Help = FieldNumber(x, y, 0);
+			const int Help = FieldNumber(x, y, 0);
 			for (int z = 0; z < MAPSIZE_Z - 1; z++)
 				FieldNumber(x, y, z) = FieldNumber(x, y, z + 1);
 			FieldNumber(x, y, MAPSIZE_Z - 1) = Help;
@@ -948,7 +948,7 @@ static void ShiftMapDown()
 void ShiftMapLevel(int dz)
 {
 	TBEGIN
-	bool Up = dz > 0;
+	const bool Up = dz > 0;
 	for (; dz > 0; dz--)
 		ShiftMapUp();
 	for (; dz < 0; dz++)
@@ -993,7 +993,7 @@ bool IsFieldPassable(int rx, int ry, int rz, bool CheckHeight)
 	TBEGIN
 	if (CheckHeight) {
 		if (rz > 0 && rx < MAPSIZE_X - 1 && ry < MAPSIZE_Y - 1) {
-			TObject Bank = GetFirstObject(rx, ry, rz);
+			const TObject Bank = GetFirstObject(rx, ry, rz);
 			if ((Bank.Type == 0 || !GetObjectFlag(Bank.Type, BANK)) && GetFieldHeight(rx + 1, ry + 1, rz - 1) > 2)
 				return true;
 		}
@@ -1122,13 +1122,13 @@ static void LoadAutomapBlock(int Position, int bx, int by, int bz)
 				else
 					Block.MarkCount = File.readQuad();
 				for (int i = 0; i < Block.MarkCount; i++) {
-					int x = File.readQuad();
+					const int x = File.readQuad();
 					Block.Marks(i).x = x;
-					int y = File.readQuad();
+					const int y = File.readQuad();
 					Block.Marks(i).y = y;
-					int Type = File.readQuad();
+					const int Type = File.readQuad();
 					Block.Marks(i).Type = Type;
-					char *Text = File.readString();
+					const char *Text = File.readString();
 					if (Text != nullptr) {
 						CopyString(Block.Marks(i).Text, Text, 100);
 						delete[] Text;
@@ -1244,7 +1244,7 @@ static TAutomapBlock *GetAutomapBlock(int bx, int by, int bz)
 	int Position = MostRecentBlock;
 	TBEGIN
 	while (Position != -1) {
-		TAutomapBlock &Block = AutomapBlocks[Position];
+		const TAutomapBlock &Block = AutomapBlocks[Position];
 		if (Block.bx == bx && Block.by == by && Block.bz == bz)
 			break;
 		Position = Block.Next;
@@ -1292,7 +1292,7 @@ TRGBColor GetAutomapColor(int x, int y, int z)
 	TASSERT1(1473, In(z,0,15), z);
 	TBEGIN
 	if (x >= 0 && y >= 0) {
-		TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
+		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
 		return TRGBColor(Block->Color[x % 256][y % 256]);
 	}
 	return TRGBColor(0, 0, 0);
@@ -1320,7 +1320,7 @@ static bool IsAutomapBlocked(int x, int y, int z)
 	TASSERT1(1500, In(z,0,15), z);
 	TBEGIN
 	if (x >= 0 && y >= 0) {
-		TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
+		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
 		return Block->Speed[x % 256][y % 256] == 255;
 	}
 	return true;
@@ -1333,7 +1333,7 @@ static int GetAutomapSpeed(int x, int y, int z)
 	TASSERT1(1514, In(z,0,15), z);
 	TBEGIN
 	if (x >= 0 && y >= 0) {
-		TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
+		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
 		return Block->Speed[x % 256][y % 256];
 	}
 	return 1;
@@ -1399,10 +1399,10 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 			return -1;
 		if (DestZ > StartZ)
 			return -2;
-		int DistanceX = abs(DestX - StartX);
+		const int DistanceX = abs(DestX - StartX);
 		if (DistanceX > 110)
 			return -3;
-		int DistanceY = abs(DestY - StartY);
+		const int DistanceY = abs(DestY - StartY);
 		if (DistanceY > 110)
 			return -3;
 		if (DestX == StartX && DestY == StartY)
@@ -1460,7 +1460,7 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 		while (Open != nullptr) {
 			TPathNode *Current = Open;
 			Open = Current->Next;
-			int Cost = Current->Speed + Current->Cost;
+			const int Cost = Current->Speed + Current->Cost;
 			if (Cost >= Nodes(0, 0).Cost)
 				break;
 			for (int ox = -1; ox <= 1; ox++) {
@@ -1508,7 +1508,7 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 		int Count = -1;
 		int LastX = 0;
 		int LastY = 0;
-		TPathNode *Node = &Nodes(0, 0);
+		const TPathNode *Node = &Nodes(0, 0);
 		while (Node != nullptr) {
 			if (!MustReach && Node->x == DestX - StartX && Node->y == DestY - StartY
 				&& IsAutomapBlocked(DestX, DestY, DestZ)) {

@@ -9,7 +9,7 @@
 # (bugprone-unsafe-functions, cppcoreguidelines-pro-type-vararg, modernize-use-std-print), nullptr,
 # override, enum class and [[nodiscard]], using instead of typedef (issue #35), = default / = delete for the
 # special members (issue #34), the <c...> forms of the C
-# headers and each file including what it uses (issue #40), and the bug-prone
+# headers and each file including what it uses (issue #40), const locals (issue #39), and the bug-prone
 # patterns. The checks that are noise for a reconstruction (its parameter lists and integer types are
 # the original's) are off.
 Checks: >
@@ -23,6 +23,7 @@ Checks: >
   cppcoreguidelines-owning-memory,
   cppcoreguidelines-pro-type-vararg,
   cppcoreguidelines-use-enum-class,
+  misc-const-correctness,
   misc-include-cleaner,
   modernize-deprecated-headers,
   modernize-use-equals-default,
@@ -49,3 +50,14 @@ CheckOptions:
   # reported unused; the C and C++ standard library is checked by name (<cstring>, <ostream>), not by path.
   # (POSIX bracket expressions: [/\] is a slash or a backslash.)
   misc-include-cleaner.IgnoreHeaders: '.*[/\]Windows Kits[/\].*;.*[/\]atlmfc[/\].*;.*[/\]compat[/\]mfc_shim\.h'
+  # const locals (issue #39): the check's defaults, i.e. values, references and the pointees of pointers
+  # (AnalyzeValues, AnalyzeReferences, AnalyzePointers, WarnPointersAsPointers), not the pointers themselves
+  # (WarnPointersAsValues off: `T *const p` adds noise and no safety). Spelled out, so that a change of
+  # clang-tidy's defaults does not change what CI asks for. The check sees local variables only, not
+  # parameters or members. A local that stays non-const for the image carries a NOLINT with its reason
+  # (Skins.cpp's SkinTable, Talk.cpp's TTalkBuffer::Remove; notes/decisions.md, issue #39).
+  misc-const-correctness.AnalyzeValues: true
+  misc-const-correctness.AnalyzeReferences: true
+  misc-const-correctness.AnalyzePointers: true
+  misc-const-correctness.WarnPointersAsPointers: true
+  misc-const-correctness.WarnPointersAsValues: false

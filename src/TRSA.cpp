@@ -49,7 +49,7 @@ void TRSA::Encrypt(uint8 *Data)
 	}
 	if (Plain >= m_ModulusM)
 		throw "Plain is not smaller than m_ModulusM which violates the condition 'plain < m'";
-	vlong Cipher = modexp(Plain, PublicExponent, m_ModulusM);
+	const vlong Cipher = modexp(Plain, PublicExponent, m_ModulusM);
 	try {
 		VlongToByteArray(Cipher, Data, 128);
 	} catch (const char *Reason) {

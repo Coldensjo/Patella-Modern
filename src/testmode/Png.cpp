@@ -82,7 +82,7 @@ std::vector<std::uint8_t> ZlibStored(std::span<const std::uint8_t> Data)
 	std::size_t Position = 0;
 	do {
 		std::size_t Length = std::min(StoredBlock, Data.size() - Position);
-		bool Last = Position + Length == Data.size();
+		const bool Last = Position + Length == Data.size();
 		Out.push_back(Last ? 1 : 0); // BFINAL, BTYPE 00 (stored), aligned to the byte
 		Out.push_back(static_cast<std::uint8_t>(Length));
 		Out.push_back(static_cast<std::uint8_t>(Length >> 8U));
@@ -123,7 +123,7 @@ std::vector<std::uint8_t> BgrxToRgb(const std::uint8_t *Bits, std::size_t Pitch,
 	std::vector<std::uint8_t> Rgb;
 	Rgb.reserve(static_cast<std::size_t>(Width) * static_cast<std::size_t>(Height) * 3);
 	for (int y = 0; y < Height; y++) {
-		std::span<const std::uint8_t> Line(Bits + Pitch * static_cast<std::size_t>(y), static_cast<std::size_t>(Width) * 4);
+		const std::span<const std::uint8_t> Line(Bits + Pitch * static_cast<std::size_t>(y), static_cast<std::size_t>(Width) * 4);
 		for (std::size_t x = 0; x < static_cast<std::size_t>(Width); x++) {
 			Rgb.push_back(Line[x * 4 + 2]);
 			Rgb.push_back(Line[x * 4 + 1]);

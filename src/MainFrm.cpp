@@ -83,7 +83,7 @@ END_MESSAGE_MAP()
 // F1-F12 (0x100-0x10b) and, with Alt held, Return (Alt+Return).
 int CMainFrame::TranslateKey(UINT nChar, [[maybe_unused]] UINT nRepCnt, UINT nFlags)
 {
-	bool Extended = (nFlags & 0x100) == 0x100;
+	const bool Extended = (nFlags & 0x100) == 0x100;
 	switch (nChar) {
 	case VK_SHIFT:
 		return KEY_SHIFT;
@@ -139,7 +139,7 @@ void CMainFrame::OutputErrorInformations(std::ostream &Out)
 	}
 	if (GetPlayerID() != 0) {
 		try {
-			TCreature *Player = GetCreature(GetPlayerID());
+			const TCreature *Player = GetCreature(GetPlayerID());
 			if (Player != nullptr)
 				Out << "Player Position: [" << Player->RealX << "," << Player->RealY << "," << Player->RealZ << "]"
 					<< std::endl;
@@ -339,8 +339,8 @@ void CMainFrame::SetDefaultWindowPosition()
 	int Width = 600;
 	int Height = 450;
 	AddFrameSize(&Width, &Height);
-	int x = (GetSystemMetrics(SM_CXSCREEN) - Width) / 2;
-	int y = (GetSystemMetrics(SM_CYSCREEN) - Height) / 2;
+	const int x = (GetSystemMetrics(SM_CXSCREEN) - Width) / 2;
+	const int y = (GetSystemMetrics(SM_CYSCREEN) - Height) / 2;
 	SetWindowedMode(x, y, Width, Height, false);
 	MoveWindow(x, y, Width, Height, TRUE);
 	TEND(375)
@@ -373,8 +373,8 @@ void CMainFrame::OnSize(UINT nType, int cx, int cy)
 		::GetWindowRect(m_hWnd, &Rect);
 		MoveWindow(Rect.left, Rect.top, cx, cy, TRUE);
 	} else {
-		int Width = cx;
-		int Height = cy;
+		const int Width = cx;
+		const int Height = cy;
 		CFrameWnd::OnSize(nType, cx, cy);
 		if (!::IsIconic(m_hWnd))
 			Resize(Width, Height);
@@ -440,7 +440,7 @@ void CMainFrame::OnDestroy()
 	TBEGIN
 	if (GetViewMode() == 1)
 		GetWindowPlacement(&Placement);
-	RECT &Normal = Placement.rcNormalPosition;
+	const RECT &Normal = Placement.rcNormalPosition;
 	SetWindowedMode(Normal.left, Normal.top, Normal.right - Normal.left, Normal.bottom - Normal.top,
 		::IsZoomed(m_hWnd) != 0);
 	CFrameWnd::OnDestroy();
@@ -619,7 +619,7 @@ BOOL CMainFrame::OnMouseWheel([[maybe_unused]] UINT nFlags, short zDelta, CPoint
 {
 	TBEGIN
 	Default();
-	int Delta = WheelDelta + zDelta;
+	const int Delta = WheelDelta + zDelta;
 	WheelDelta = Delta % 120;
 	for (int i = 0; i < abs(Delta / 120); i++)
 		MouseWheel(GetMouseX(), GetMouseY(), Delta > 0 ? 1 : 2);
@@ -632,7 +632,7 @@ BOOL CMainFrame::OnMouseWheel([[maybe_unused]] UINT nFlags, short zDelta, CPoint
 void CMainFrame::KeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
 	TBEGIN
-	int Key = TranslateKey(nChar, nRepCnt, nFlags);
+	const int Key = TranslateKey(nChar, nRepCnt, nFlags);
 	if (Key == KEY_SHIFT) {
 		KeyFlags |= KEY_SHIFT;
 	} else if (Key == KEY_CONTROL) {
@@ -655,7 +655,7 @@ void CMainFrame::KeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 void CMainFrame::KeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
 	TBEGIN
-	int Key = TranslateKey(nChar, nRepCnt, nFlags);
+	const int Key = TranslateKey(nChar, nRepCnt, nFlags);
 	if (Key == KEY_SHIFT)
 		KeyFlags &= ~KEY_SHIFT;
 	else if (Key == KEY_CONTROL)

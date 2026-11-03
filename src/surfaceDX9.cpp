@@ -111,14 +111,14 @@ bool TSurfaceDX9::TestEngine()
 void TSurfaceDX9::AddShadeQuad(int Left, int Top, int Right, int Bottom, D3DCOLOR TopLeft, D3DCOLOR TopRight,
 	D3DCOLOR BottomRight, D3DCOLOR BottomLeft)
 {
-	double Left_u = (Left + 0.5) / Rect[TEMP_SURFACE].right;
-	double Right_u = (Right + 0.5) / Rect[TEMP_SURFACE].right;
-	double Top_v = (Top + 0.5) / Rect[TEMP_SURFACE].bottom;
-	double Bottom_v = (Bottom + 0.5) / Rect[TEMP_SURFACE].bottom;
-	float x1 = (float)Left;
-	float y1 = (float)Top;
-	float x2 = (float)Right;
-	float y2 = (float)Bottom;
+	const double Left_u = (Left + 0.5) / Rect[TEMP_SURFACE].right;
+	const double Right_u = (Right + 0.5) / Rect[TEMP_SURFACE].right;
+	const double Top_v = (Top + 0.5) / Rect[TEMP_SURFACE].bottom;
+	const double Bottom_v = (Bottom + 0.5) / Rect[TEMP_SURFACE].bottom;
+	const float x1 = (float)Left;
+	const float y1 = (float)Top;
+	const float x2 = (float)Right;
+	const float y2 = (float)Bottom;
 	TVertexDX9 *V = &ShadeVertices[NumberOfShadeVertices];
 	// clang-format off
 	V[0].x = x1; V[0].y = y1; V[0].z = 1.0f; V[0].rhw = 1.0f; V[0].Color = TopLeft;
@@ -186,8 +186,8 @@ TSurfaceDX9::~TSurfaceDX9()
 // 0x4f0410 (the same code in all three engines; this copy is kept).
 bool TSurfaceDX9::ClipRect(TRect Clip, RECT *Rect, RECT *Source)
 {
-	int ClipRight = Clip.x + Clip.width;
-	int ClipBottom = Clip.y + Clip.height;
+	const int ClipRight = Clip.x + Clip.width;
+	const int ClipBottom = Clip.y + Clip.height;
 	if (Rect->left < ClipRight && Rect->top < ClipBottom && Rect->right > Clip.x && Rect->bottom > Clip.y) {
 		if (Rect->left < Clip.x) {
 			Source->left += Clip.x - Rect->left;
@@ -213,7 +213,7 @@ bool TSurfaceDX9::ClipRect(TRect Clip, RECT *Rect, RECT *Source)
 // 0x4f04d0 (shared with the other engines)
 void TSurfaceDX9::ResetFrameTimer()
 {
-	double Now = PATELLA_TIME_GET_TIME();
+	const double Now = PATELLA_TIME_GET_TIME();
 	StartTime = Now;
 	Framerate = 0xffff;
 	NextFrame = Now;
@@ -225,7 +225,7 @@ void TSurfaceDX9::ResetFrameTimer()
 // frame is due; a frame more than a millisecond late moves the schedule.
 void TSurfaceDX9::WaitForNextFrame()
 {
-	double Now = PATELLA_TIME_GET_TIME();
+	const double Now = PATELLA_TIME_GET_TIME();
 	FrameCount++;
 	if (Now - LastFPSTime > 1000.0) {
 		FPS = (FrameCount * 1000) / (Now - LastFPSTime);
@@ -254,7 +254,7 @@ void TSurfaceDX9::UpdateWindowRect()
 // 0x4f0630
 void TSurfaceDX9::SetPixel(int Surface, int x, int y, TRGBColor Color)
 {
-	RECT R = {x, y, x + 1, y + 1};
+	const RECT R = {x, y, x + 1, y + 1};
 	SetRenderTarget(Surface);
 	FlushVertices();
 	Device->ColorFill(CurrentTarget, &R, D3DCOLOR_XRGB(Color.R, Color.G, Color.B));
@@ -263,7 +263,7 @@ void TSurfaceDX9::SetPixel(int Surface, int x, int y, TRGBColor Color)
 // 0x4f06b0
 void TSurfaceDX9::FillRectangle(int Surface, TRect Rect, TRGBColor Color)
 {
-	RECT R = {Rect.x, Rect.y, Rect.x + Rect.width, Rect.y + Rect.height};
+	const RECT R = {Rect.x, Rect.y, Rect.x + Rect.width, Rect.y + Rect.height};
 	if (R.top != R.bottom && R.left != R.right) {
 		SetRenderTarget(Surface);
 		FlushVertices();
@@ -280,7 +280,7 @@ void TSurfaceDX9::FillRectangleClipped(int Surface, TRect Rect, TRGBColor Color,
 {
 	RECT R = {Rect.x, Rect.y, Rect.x + Rect.width, Rect.y + Rect.height};
 	if (R.top != R.bottom && R.left != R.right) {
-		int Pixels = Rect.height * Rect.width;
+		const int Pixels = Rect.height * Rect.width;
 		if (ClipRect(Clip, &R, (RECT *)&Rect)) {
 			SetRenderTarget(Surface);
 			FlushVertices();
@@ -294,7 +294,7 @@ void TSurfaceDX9::FillRectangleClipped(int Surface, TRect Rect, TRGBColor Color,
 // 0x4f0870
 void TSurfaceDX9::DrawHorizontalLine(int Surface, int x, int y, int Width, TRGBColor Color)
 {
-	RECT R = {x, y, x + Width, y + 1};
+	const RECT R = {x, y, x + Width, y + 1};
 	if (R.top != R.bottom && R.left != R.right) {
 		SetRenderTarget(Surface);
 		FlushVertices();
@@ -307,7 +307,7 @@ void TSurfaceDX9::DrawHorizontalLine(int Surface, int x, int y, int Width, TRGBC
 // 0x4f0920
 void TSurfaceDX9::DrawVerticalLine(int Surface, int x, int y, int Height, TRGBColor Color)
 {
-	RECT R = {x, y, x + 1, y + Height};
+	const RECT R = {x, y, x + 1, y + Height};
 	if (R.top != R.bottom && R.left != R.right) {
 		SetRenderTarget(Surface);
 		FlushVertices();
@@ -369,11 +369,11 @@ void TSurfaceDX9::WriteImage(int ToSurface, int x, int y, int Width, int Height,
 void TSurfaceDX9::ApplyColorKey(int Surface, TRGBColor ColorKey)
 {
 	Device->GetRenderTargetData(RenderTarget[Surface], TempSurface);
-	RECT R = {0, 0, 64, 64};
+	const RECT R = {0, 0, 64, 64};
 	D3DLOCKED_RECT Locked;
 	TempSurface->LockRect(&Locked, &R, D3DLOCK_NOSYSLOCK);
 	D3DCOLOR *Bits = (D3DCOLOR *)Locked.pBits;
-	D3DCOLOR Key = D3DCOLOR_XRGB(ColorKey.R, ColorKey.G, ColorKey.B);
+	const D3DCOLOR Key = D3DCOLOR_XRGB(ColorKey.R, ColorKey.G, ColorKey.B);
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
 			if (Bits[Locked.Pitch / 4 * i + j] == Key)
@@ -407,8 +407,8 @@ void TSurfaceDX9::ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColo
 	if (Surface == TEMP_SURFACE && Direct3D != nullptr) {
 		ShadeBuffer->Lock(0, 0, (void **)&ShadeVertices, D3DLOCK_DISCARD);
 		for (int i = 0; i < Count; i++) {
-			TRect *R = &Rects[i];
-			TRGBColor *C = &Colors[i * 4];
+			const TRect *R = &Rects[i];
+			const TRGBColor *C = &Colors[i * 4];
 			AddShadeQuad(R->x, R->y, R->x + R->width, R->y + R->height,
 				D3DCOLOR_XRGB(C[0].R, C[0].G, C[0].B), D3DCOLOR_XRGB(C[1].R, C[1].G, C[1].B),
 				D3DCOLOR_XRGB(C[3].R, C[3].G, C[3].B), D3DCOLOR_XRGB(C[2].R, C[2].G, C[2].B));
@@ -570,13 +570,13 @@ static HRESULT WINAPI EnumModesCallback(DDSURFACEDESC2 *Description, void *Conte
 	TFullscreenMode **Modes = (TFullscreenMode **)Context;
 	if (*Modes == nullptr)
 		GetSurface()->NumberOfModes = 0;
-	int Width = (Description->dwFlags & DDSD_WIDTH) ? Description->dwWidth : 0;
-	int Height = (Description->dwFlags & DDSD_HEIGHT) ? Description->dwHeight : 0;
-	int Depth = (Description->ddpfPixelFormat.dwFlags & DDPF_RGB) ? Description->ddpfPixelFormat.dwRGBBitCount : 0;
-	int Frequency = (Description->ddpfPixelFormat.dwFlags & DDSD_REFRESHRATE) ? Description->dwRefreshRate : 0;
+	const int Width = (Description->dwFlags & DDSD_WIDTH) ? Description->dwWidth : 0;
+	const int Height = (Description->dwFlags & DDSD_HEIGHT) ? Description->dwHeight : 0;
+	const int Depth = (Description->ddpfPixelFormat.dwFlags & DDPF_RGB) ? Description->ddpfPixelFormat.dwRGBBitCount : 0;
+	const int Frequency = (Description->ddpfPixelFormat.dwFlags & DDSD_REFRESHRATE) ? Description->dwRefreshRate : 0;
 	if (Width >= 640 && Height >= 480 && Depth >= 16) {
 		TFullscreenMode *NewModes = new TFullscreenMode[GetSurface()->NumberOfModes + 1];
-		TFullscreenMode *OldModes = *Modes;
+		const TFullscreenMode *OldModes = *Modes;
 		if (OldModes != nullptr) {
 			for (int i = 0; i < GetSurface()->NumberOfModes; i++)
 				NewModes[i] = OldModes[i];
@@ -692,10 +692,10 @@ void TSurfaceDX9::StretchBlitUnclipped(int ToSurface, TRect ToRect, int FromSurf
 		Blit(ToSurface, ToRect.x, ToRect.y, FromSurface, FromRect, ColorKey);
 		return;
 	}
-	int Right = ToRect.x + ToRect.width;
-	int Bottom = ToRect.y + ToRect.height;
-	int FromRight = FromRect.x + FromRect.width;
-	int FromBottom = FromRect.y + FromRect.height;
+	const int Right = ToRect.x + ToRect.width;
+	const int Bottom = ToRect.y + ToRect.height;
+	const int FromRight = FromRect.x + FromRect.width;
+	const int FromBottom = FromRect.y + FromRect.height;
 	SetRenderTarget(ToSurface);
 	SetTexture(FromSurface);
 	AddQuad(ToRect.x, ToRect.y, Right, Bottom, (FromRect.x + 0.5) / Rect[FromSurface].right,
@@ -814,14 +814,14 @@ void TSurfaceDX9::WriteMaskedImage(int ToSurface, int x, int y, int Width, int H
 {
 	TASSERT(982, ToSurface!=SCREEN_SURFACE);
 	TASSERT(983, x>=0 && y>=0 && Width>0 && Height>0);
-	int Size = Width * Height;
+	const int Size = Width * Height;
 	uint8 *Image = new uint8[Size * 4];
 	uint8 *Pixel = Image;
 	for (int i = 0; i < Size; i++) {
-		uint8 *From = &Data[i * 3];
+		const uint8 *From = &Data[i * 3];
 		int Index;
 		if (Mask != nullptr) {
-			uint8 *M = &Mask[i * 3];
+			const uint8 *M = &Mask[i * 3];
 			if (M[0] == 0xff) {
 				if (M[1] == 0xff) {
 					if (M[2] != 0)
@@ -851,8 +851,8 @@ void TSurfaceDX9::WriteMaskedImage(int ToSurface, int x, int y, int Width, int H
 			Index = 0;
 		}
 		{
-			int Grey = (From[1] * 59 + From[0] * 30 + From[2] * 11) / 100;
-			TRGBColor *C = &Colors[Index];
+			const int Grey = (From[1] * 59 + From[0] * 30 + From[2] * 11) / 100;
+			const TRGBColor *C = &Colors[Index];
 			Pixel[0] = (uint8)(C->R * Grey / 256);
 			Pixel[1] = (uint8)(C->G * Grey / 256);
 			Pixel[2] = (uint8)(C->B * Grey / 256);
@@ -948,7 +948,7 @@ void TSurfaceDX9::InitDisplay(int VMode, TFullscreenMode *GMode)
 		ClientToScreen(hWindow, (POINT *)&WindowRect.right);
 	} else {
 		TFullscreenMode *Modes;
-		int Number = GetFullscreenModes(&Modes);
+		const int Number = GetFullscreenModes(&Modes);
 		int i;
 		for (i = 0; i < Number; i++) {
 			if (GMode->Width == Modes[i].Width && GMode->Height == Modes[i].Height)
@@ -1106,7 +1106,7 @@ void TSurfaceDX9::CreateSurfaces()
 	Surface9[AUTOMAP_SURFACE]->GetSurfaceLevel(0, &RenderTarget[AUTOMAP_SURFACE]);
 
 	for (int i = 0; i < 16; i++) {
-		int Surface = SPRITE_SURFACE + i;
+		const int Surface = SPRITE_SURFACE + i;
 		if (Device->CreateTexture(Rect[Surface].right, Rect[Surface].bottom, 1, D3DUSAGE_DYNAMIC,
 				D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &Surface9[Surface], nullptr)
 			!= D3D_OK) {

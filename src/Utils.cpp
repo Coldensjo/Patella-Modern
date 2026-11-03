@@ -187,10 +187,10 @@ void TrimString(char *Destination, const char *Source)
 bool ShortenString(char *Text, int MaxLength)
 {
 	TASSERT(179, Text!=NULL);
-	int Length = (int)strlen(Text);
+	const int Length = (int)strlen(Text);
 	if (Length <= MaxLength)
 		return false;
-	int Position = MaxLength < 3 ? 0 : MaxLength - 3;
+	const int Position = MaxLength < 3 ? 0 : MaxLength - 3;
 	memset(&Text[Position], '.', Length < 3 ? Length : 3);
 	Text[Position + 3] = 0;
 	return true;
@@ -217,7 +217,7 @@ uint8 TReadBuffer::GetByte()
 uint16 TReadBuffer::GetWord()
 {
 	TASSERT2(310, Position<=Size-2, Position, Size);
-	uint16 Result = (uint16)(Data[Position] + Data[Position + 1] * 0x100);
+	const uint16 Result = (uint16)(Data[Position] + Data[Position + 1] * 0x100);
 	Position += 2;
 	return Result;
 }
@@ -226,7 +226,7 @@ uint16 TReadBuffer::GetWord()
 uint32 TReadBuffer::GetQuad()
 {
 	TASSERT2(321, Position<=Size-4, Position, Size);
-	uint32 Result = Data[Position] | (Data[Position + 1] << 8) | (Data[Position + 2] << 16)
+	const uint32 Result = Data[Position] | (Data[Position + 1] << 8) | (Data[Position + 2] << 16)
 		| (Data[Position + 3] << 24);
 	Position += 4;
 	return Result;
@@ -236,7 +236,7 @@ uint32 TReadBuffer::GetQuad()
 void TReadBuffer::GetString(char *Buffer, int MaxLength)
 {
 	TASSERT(334, Buffer!=NULL);
-	int Length = GetWord();
+	const int Length = GetWord();
 	Buffer[0] = 0;
 	if (Length == 0)
 		return;
@@ -255,7 +255,7 @@ void TReadBuffer::GetString(char *Buffer, int MaxLength)
 // allocation, as in the binary.
 char *TReadBuffer::GetString()
 {
-	int Length = GetWord();
+	const int Length = GetWord();
 	char *Result = new char[Length + 1];
 	TASSERT2(359, Position<=Size-Length, Position, Size-Length);
 	memcpy(Result, &Data[Position], Length);
@@ -314,7 +314,7 @@ void TWriteBuffer::PutQuad(uint32 Data)
 void TWriteBuffer::PutString(const char *s)
 {
 	TASSERT(437, s!=NULL);
-	int Length = (int)strlen(s);
+	const int Length = (int)strlen(s);
 	PutWord((uint16)Length);
 	if (Length == 0)
 		return;

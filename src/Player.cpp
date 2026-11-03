@@ -114,8 +114,8 @@ static BOOL CALLBACK CountTibiaWindows(HWND Window, [[maybe_unused]] LPARAM Para
 	char WindowText[32];
 	char ClassName[32];
 	char WindowClass[32];
-	int TextLength = GetWindowTextA(Window, WindowText, 30);
-	int ClassLength = GetClassNameA(Window, WindowClass, 30);
+	const int TextLength = GetWindowTextA(Window, WindowText, 30);
+	const int ClassLength = GetClassNameA(Window, WindowClass, 30);
 	GetWindowTitle(Title);
 	GetWindowClassName(ClassName);
 	if ((TextLength > 0 && CompareStrings(WindowText, Title, -1) == 0)
@@ -154,7 +154,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 		Out << std::endl
 			<< "+---------------------------------------------------------------" << std::endl
 			<< "Debug Assertion " << "7.72" << " " << Exception.GetOrigin();
-		time_t Now = PATELLA_TIME(nullptr);
+		const time_t Now = PATELLA_TIME(nullptr);
 		Out << std::endl
 			<< CRT71Time(ctime(&Now)); // the day as MSVC 7.1 writes it
 		OSVERSIONINFOA Version;
@@ -176,7 +176,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 						if (Length > 30)
 							Length = 30;
 						for (unsigned int i = 0; i < Length; i++) {
-							char c = Version.szCSDVersion[i];
+							const char c = Version.szCSDVersion[i];
 							if (IsDigit(c) || IsAlpha(c) || c == ' ' || c == '.' || c == '-' || c == '_')
 								ServicePack[i] = c;
 							else
@@ -282,7 +282,7 @@ BOOL CPlayerApp::InitInstance()
 			char CommandLine[1024];
 			strncpy(CommandLine, m_lpCmdLine, sizeof(CommandLine));
 			CommandLine[sizeof(CommandLine) - 1] = 0;
-			char *Token = strtok(CommandLine, " \t\n");
+			const char *Token = strtok(CommandLine, " \t\n");
 			int Expected = 0;
 			bool Gamemaster = false;
 			SetTestServerAddress("test.cipsoft.com");
@@ -429,7 +429,7 @@ BOOL CPlayerApp::OnIdle(LONG lCount)
 		LastMousePosition.y = Point.y;
 		MouseMove(Point.x, Point.y);
 	}
-	int Cursor = GetMouseCursor();
+	const int Cursor = GetMouseCursor();
 	if (Cursor != LastMouseCursor) {
 		UpdateMouseCursor();
 		LastMouseCursor = Cursor;

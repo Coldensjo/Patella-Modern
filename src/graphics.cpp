@@ -164,12 +164,12 @@ void LoadSprite(int SpriteNumber, uint8 *Buffer)
 				Buffer[i * 3 + 1] = (uint8)Sprite.ColorKey.G;
 				Buffer[i * 3 + 2] = (uint8)Sprite.ColorKey.B;
 			}
-			int Size = File.readWord();
+			const int Size = File.readWord();
 			int Read = 0;
 			int Pixel = 0;
 			while (Read < Size) {
 				Pixel += File.readWord();
-				int Count = File.readWord();
+				const int Count = File.readWord();
 				Read += 4;
 				for (int i = 0; i < Count; i++) {
 					Buffer[Pixel * 3] = File.readByte();
@@ -208,7 +208,7 @@ void LoadPictures(const char *FileName)
 			Pictures[i].ColorKey.R = File.readByte();
 			Pictures[i].ColorKey.G = File.readByte();
 			Pictures[i].ColorKey.B = File.readByte();
-			int Tiles = Pictures[i].TilesY * Pictures[i].TilesX;
+			const int Tiles = Pictures[i].TilesY * Pictures[i].TilesX;
 			Pictures[i].Offsets = new int[Tiles];
 			for (int j = 0; j < Tiles; j++)
 				Pictures[i].Offsets[j] = File.readQuad();
@@ -228,7 +228,7 @@ void LoadPictureTile(int PictureNumber, int TileX, int TileY, uint8 *Buffer)
 	TASSERT2(280, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
 	TASSERT(281, Buffer!=NULL);
 	TBEGIN
-	TPicture &Picture = Pictures[PictureNumber - 1];
+	const TPicture &Picture = Pictures[PictureNumber - 1];
 	try {
 		TReadBinaryFile File;
 		File.open(PictureFileName);
@@ -240,12 +240,12 @@ void LoadPictureTile(int PictureNumber, int TileX, int TileY, uint8 *Buffer)
 			Buffer[i * 3 + 1] = (uint8)Picture.ColorKey.G;
 			Buffer[i * 3 + 2] = (uint8)Picture.ColorKey.B;
 		}
-		int Size = File.readWord();
+		const int Size = File.readWord();
 		int Read = 0;
 		int Pixel = 0;
 		while (Read < Size) {
 			Pixel += File.readWord();
-			int Count = File.readWord();
+			const int Count = File.readWord();
 			Read += 4;
 			for (int i = 0; i < Count; i++) {
 				Buffer[Pixel * 3] = File.readByte();
@@ -286,15 +286,15 @@ void InitFont(int FontName, int PictureNumber, int CharsPerLine, int CharWidth, 
 	Font.CharsPerLine = CharsPerLine;
 	Font.CharWidth = CharWidth;
 	Font.LineHeight = LineHeight;
-	TRGBColor &ColorKey = Pictures[PictureNumber - 1].ColorKey;
+	const TRGBColor &ColorKey = Pictures[PictureNumber - 1].ColorKey;
 	for (int c = 0; c < 224; c++) {
-		int y = c / CharsPerLine * CharHeight;
-		int x = c % CharsPerLine * CharWidth;
-		TMemoryCacheItem *Item = GetMemoryPicture(PictureNumber, x / 32, y / 32);
+		const int y = c / CharsPerLine * CharHeight;
+		const int x = c % CharsPerLine * CharWidth;
+		const TMemoryCacheItem *Item = GetMemoryPicture(PictureNumber, x / 32, y / 32);
 		int Right = -1;
 		for (int i = CharWidth - 1; i > 0 && Right == -1; i--) {
 			for (int j = 0; j < CharHeight && Right == -1; j++) {
-				uint8 *Pixel = &Item->Data[((x % 32) + ((y % 32) + j) * 32 + i) * 3];
+				const uint8 *Pixel = &Item->Data[((x % 32) + ((y % 32) + j) * 32 + i) * 3];
 				if (Pixel[0] != ColorKey.R || Pixel[1] != ColorKey.G || Pixel[2] != ColorKey.B)
 					Right = i + 1;
 			}
@@ -302,7 +302,7 @@ void InitFont(int FontName, int PictureNumber, int CharsPerLine, int CharWidth, 
 		int Bottom = -1;
 		for (int j = CharHeight - 1; j > 0 && Bottom == -1; j--) {
 			for (int i = 0; i < CharWidth && Bottom == -1; i++) {
-				uint8 *Pixel = &Item->Data[((x % 32) + ((y % 32) + j) * 32 + i) * 3];
+				const uint8 *Pixel = &Item->Data[((x % 32) + ((y % 32) + j) * 32 + i) * 3];
 				if (Pixel[0] != ColorKey.R || Pixel[1] != ColorKey.G || Pixel[2] != ColorKey.B)
 					Bottom = j + 1;
 			}
@@ -384,7 +384,7 @@ int FindMemorySprite(int SpriteNumber)
 	TBEGIN
 	int Position = MemoryHashTable[SpriteNumber % HASH_TABLE_SIZE];
 	while (Position != -1) {
-		TMemoryCacheItem &Item = MemoryCache[Position];
+		const TMemoryCacheItem &Item = MemoryCache[Position];
 		if (Item.Type == SPRITE_ITEM && Item.Number == SpriteNumber)
 			return Position;
 		Position = Item.HashNext;
@@ -399,7 +399,7 @@ int FindMemoryPicture(int PictureNumber, int TileX, int TileY)
 	TBEGIN
 	int Position = MemoryHashTable[(PictureNumber + TileX + TileY) % HASH_TABLE_SIZE];
 	while (Position != -1) {
-		TMemoryCacheItem &Item = MemoryCache[Position];
+		const TMemoryCacheItem &Item = MemoryCache[Position];
 		if (Item.Type == PICTURE_ITEM && Item.Number == PictureNumber && Item.TileX == TileX
 			&& Item.TileY == TileY)
 			return Position;
@@ -492,14 +492,14 @@ TMemoryCacheItem *GetMemoryPicture(int PictureNumber, int TileX, int TileY)
 void InitVideoCache()
 {
 	TBEGIN
-	int Surfaces = GetSurface()->GetCacheSurfaces();
+	const int Surfaces = GetSurface()->GetCacheSurfaces();
 	if (Surfaces == 0) {
 		VideoCache = nullptr;
 		return;
 	}
 	TRect Rect = {0, 0, 0, 0};
 	GetSurface()->GetSurfaceRect(6, &Rect);
-	int PerSurface = (Rect.height / 32) * (Rect.width / 32);
+	const int PerSurface = (Rect.height / 32) * (Rect.width / 32);
 	VideoCacheSize = PerSurface * Surfaces;
 	VideoCache = new TVideoCacheItem[VideoCacheSize];
 	for (int i = 0; i < VideoCacheSize; i++) {
@@ -550,7 +550,7 @@ int FindVideoSprite(int SpriteNumber)
 	int Position = VideoHashTable[SpriteNumber % HASH_TABLE_SIZE];
 	int Count = 0;
 	while (Position != -1) {
-		TVideoCacheItem &Item = VideoCache[Position];
+		const TVideoCacheItem &Item = VideoCache[Position];
 		if (Item.Type == SPRITE_ITEM && Item.Number == SpriteNumber && Item.MaskNumber == 0)
 			return Position;
 		Position = Item.HashNext;
@@ -569,7 +569,7 @@ int FindVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColor *Colors)
 	int Position = VideoHashTable[(MaskNumber + SpriteNumber) % HASH_TABLE_SIZE];
 	int Count = 0;
 	while (Position != -1) {
-		TVideoCacheItem &Item = VideoCache[Position];
+		const TVideoCacheItem &Item = VideoCache[Position];
 		if (Item.Type == SPRITE_ITEM && Item.Number == SpriteNumber && Item.MaskNumber == MaskNumber
 			&& Item.Colors[0] == Colors[0] && Item.Colors[1] == Colors[1]
 			&& Item.Colors[2] == Colors[2] && Item.Colors[3] == Colors[3])
@@ -589,7 +589,7 @@ int FindVideoPicture(int PictureNumber, int TileX, int TileY)
 	int Position = VideoHashTable[(TileX + PictureNumber + TileY) % HASH_TABLE_SIZE];
 	int Count = 0;
 	while (Position != -1) {
-		TVideoCacheItem &Item = VideoCache[Position];
+		const TVideoCacheItem &Item = VideoCache[Position];
 		if (Item.Type == PICTURE_ITEM && Item.Number == PictureNumber && Item.TileX == TileX
 			&& Item.TileY == TileY)
 			return Position;
@@ -608,7 +608,7 @@ int FindVideoFontChar(int PictureNumber, int TileX, int TileY, TRGBColor Color)
 	int Position = VideoHashTable[(TileX + PictureNumber + TileY) % HASH_TABLE_SIZE];
 	int Count = 0;
 	while (Position != -1) {
-		TVideoCacheItem &Item = VideoCache[Position];
+		const TVideoCacheItem &Item = VideoCache[Position];
 		if (Item.Type == PICTURE_ITEM && Item.Number == PictureNumber && Item.TileX == TileX
 			&& Item.TileY == TileY && Item.Color == Color)
 			return Position;
@@ -667,7 +667,7 @@ TVideoCacheItem *GetVideoSprite(int SpriteNumber)
 		RemoveVideoItem(LeastRecentVideoItem);
 		Position = LeastRecentVideoItem;
 		TVideoCacheItem &Item = VideoCache[LeastRecentVideoItem];
-		TMemoryCacheItem *Tile = GetMemorySprite(SpriteNumber);
+		const TMemoryCacheItem *Tile = GetMemorySprite(SpriteNumber);
 		if (curEngine == 1 || curEngine == 2)
 			GetSurface()->SetColorKey(Item.Surface + 6, Sprites[SpriteNumber - 1].ColorKey);
 		GetSurface()->WriteImage(Item.Surface + 6, Item.x, Item.y, 32, 32, Tile->Data);
@@ -692,8 +692,8 @@ TVideoCacheItem *GetVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColo
 		RemoveVideoItem(LeastRecentVideoItem);
 		Position = LeastRecentVideoItem;
 		TVideoCacheItem &Item = VideoCache[LeastRecentVideoItem];
-		TMemoryCacheItem *Tile = GetMemorySprite(SpriteNumber);
-		TMemoryCacheItem *Mask = GetMemorySprite(MaskNumber);
+		const TMemoryCacheItem *Tile = GetMemorySprite(SpriteNumber);
+		const TMemoryCacheItem *Mask = GetMemorySprite(MaskNumber);
 		if (curEngine == 1 || curEngine == 2)
 			GetSurface()->SetColorKey(Item.Surface + 6, Sprites[SpriteNumber - 1].ColorKey);
 		GetSurface()->WriteMaskedImage(Item.Surface + 6, Item.x, Item.y, 32, 32, Tile->Data, Mask->Data,
@@ -723,7 +723,7 @@ TVideoCacheItem *GetVideoPicture(int PictureNumber, int TileX, int TileY)
 		RemoveVideoItem(LeastRecentVideoItem);
 		Position = LeastRecentVideoItem;
 		TVideoCacheItem &Item = VideoCache[LeastRecentVideoItem];
-		TMemoryCacheItem *Tile = GetMemoryPicture(PictureNumber, TileX, TileY);
+		const TMemoryCacheItem *Tile = GetMemoryPicture(PictureNumber, TileX, TileY);
 		if (curEngine == 1 || curEngine == 2) {
 			if (Pictures[PictureNumber].ColorKey != TRGBColor(1, 1, 1))
 				GetSurface()->SetColorKey(Item.Surface + 6, Pictures[PictureNumber - 1].ColorKey);
@@ -750,13 +750,13 @@ TVideoCacheItem *GetVideoFontChar(int FontNumber, int TileX, int TileY, TRGBColo
 	TASSERT2(894, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	int Position = -1;
 	TBEGIN
-	int PictureNumber = Fonts[FontNumber - 1].PictureNumber;
+	const int PictureNumber = Fonts[FontNumber - 1].PictureNumber;
 	Position = FindVideoFontChar(PictureNumber, TileX, TileY, Color);
 	if (Position == -1) {
 		RemoveVideoItem(LeastRecentVideoItem);
 		Position = LeastRecentVideoItem;
 		TVideoCacheItem &Item = VideoCache[LeastRecentVideoItem];
-		TMemoryCacheItem *Tile = GetMemoryPicture(PictureNumber, TileX, TileY);
+		const TMemoryCacheItem *Tile = GetMemoryPicture(PictureNumber, TileX, TileY);
 		TRGBColor Colors[4] = {Color, Pictures[PictureNumber - 1].ColorKey, TRGBColor(0, 0, 0),
 			TRGBColor(0, 0, 0)};
 		if (curEngine == 1 || curEngine == 2)
@@ -783,7 +783,7 @@ void DrawSprite(int Surface, int x, int y, int SpriteNumber)
 	if (SpriteNumber == 0)
 		return;
 	TASSERT2(933, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
-	TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
+	const TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
 	GetSurface()->Blit(Surface, x, y, Item->Surface + 6, TRect(Item->x, Item->y, 32, 32),
 		Sprites[SpriteNumber - 1].ColorKey);
 }
@@ -795,7 +795,7 @@ void DrawSpriteClipped(int Surface, int x, int y, int SpriteNumber, TRect Clip)
 		return;
 	TASSERT2(948, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	TBEGIN
-	TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
+	const TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
 	GetSurface()->BlitClipped(Surface, x, y, Item->Surface + 6, TRect(Item->x, Item->y, 32, 32),
 		Sprites[SpriteNumber - 1].ColorKey, Clip);
 	TEND2(953, Surface, SpriteNumber)
@@ -809,7 +809,7 @@ void DrawSpriteScaled(int Surface, int x, int y, int Width, int Height, int Spri
 		return;
 	TASSERT2(979, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	TBEGIN
-	TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
+	const TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
 	GetSurface()->StretchBlit(Surface, TRect(x, y, Width, Height), Item->Surface + 6,
 		TRect(Item->x, Item->y, 32, 32), Sprites[SpriteNumber - 1].ColorKey, Highlight, Clip);
 	TEND2(984, Surface, SpriteNumber)
@@ -825,7 +825,7 @@ void DrawMaskedSprite(int Surface, int x, int y, int SpriteNumber, int MaskNumbe
 	}
 	TASSERT2(998, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	TASSERT2(999, In(MaskNumber,1,NumberOfSprites), MaskNumber, NumberOfSprites);
-	TVideoCacheItem *Item = GetVideoMaskedSprite(SpriteNumber, MaskNumber, Colors);
+	const TVideoCacheItem *Item = GetVideoMaskedSprite(SpriteNumber, MaskNumber, Colors);
 	GetSurface()->Blit(Surface, x, y, Item->Surface + 6, TRect(Item->x, Item->y, 32, 32),
 		Sprites[SpriteNumber - 1].ColorKey);
 	TEND2(1003, Surface, SpriteNumber)
@@ -842,7 +842,7 @@ void DrawMaskedSpriteScaled(int Surface, int x, int y, int Width, int Height, in
 	}
 	TASSERT2(1059, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	TASSERT2(1060, In(MaskNumber,1,NumberOfSprites), MaskNumber, NumberOfSprites);
-	TVideoCacheItem *Item = GetVideoMaskedSprite(SpriteNumber, MaskNumber, Colors);
+	const TVideoCacheItem *Item = GetVideoMaskedSprite(SpriteNumber, MaskNumber, Colors);
 	GetSurface()->StretchBlit(Surface, TRect(x, y, Width, Height), Item->Surface + 6,
 		TRect(Item->x, Item->y, 32, 32), Sprites[SpriteNumber - 1].ColorKey, Highlight, Clip);
 	TEND2(1064, Surface, SpriteNumber)
@@ -865,13 +865,13 @@ void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor High
 		GetCumulativePattern(Obj, &PatternX, &PatternY);
 	if (GetObjectFlag(Obj.Type, LIQUIDPOOL) || GetObjectFlag(Obj.Type, LIQUIDCONTAINER))
 		GetLiquidPattern(Obj, &PatternX, &PatternY);
-	int Action = GetActionNumber();
-	int Phase = Action / 5 % GetObjectPhases(Obj.Type) + 1;
-	int Scale = Size * 32 / GetObjectExactSize(Obj.Type);
+	const int Action = GetActionNumber();
+	const int Phase = Action / 5 % GetObjectPhases(Obj.Type) + 1;
+	const int Scale = Size * 32 / GetObjectExactSize(Obj.Type);
 	for (int Layer = 1; Layer <= GetObjectLayers(Obj.Type); Layer++) {
 		for (int px = 1; px <= GetObjectWidth(Obj.Type); px++) {
 			for (int py = 1; py <= GetObjectHeight(Obj.Type); py++) {
-				int SpriteNumber = GetObjectSpriteNumber(Obj.Type, px, py, Layer, PatternX, PatternY, 1,
+				const int SpriteNumber = GetObjectSpriteNumber(Obj.Type, px, py, Layer, PatternX, PatternY, 1,
 					Phase);
 				DrawSpriteScaled(Surface, x - px * Scale + Size, y - py * Scale + Size, Scale, Scale,
 					SpriteNumber, Highlight, Clip);
@@ -881,7 +881,7 @@ void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor High
 	if (GetObjectFlag(Obj.Type, CUMULATIVE) && (Obj.Data > 1 || ShowCount)) {
 		char Count[4];
 		sprintf(Count, "%d", Obj.Data);
-		int Height = GetTextHeight(Font.FontNumber, Count);
+		const int Height = GetTextHeight(Font.FontNumber, Count);
 		PrintFormattedTextClipped(Surface, x - 1 + Size, y - Height - 1 + Size, Font, Count, Clip);
 	}
 	TEND1(1100, Surface)
@@ -896,7 +896,7 @@ void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, int *Colo
 	TBEGIN
 	if (OutfitNumber == 0) {
 		if (Colors[0] != 0) {
-			TObject Obj = {Colors[0], 0, 0};
+			const TObject Obj = {Colors[0], 0, 0};
 			DrawObject(Surface, x, y, Size, Obj, Highlight, Clip, Font, false);
 		}
 		return;
@@ -911,10 +911,10 @@ void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, int *Colo
 	OutfitColors[2] = TRGBColor(R, G, B);
 	GetOutfitColor(Colors[3], &R, &G, &B);
 	OutfitColors[3] = TRGBColor(R, G, B);
-	int Scale = Size * 32 / GetOutfitExactSize(OutfitNumber);
+	const int Scale = Size * 32 / GetOutfitExactSize(OutfitNumber);
 	for (int px = 1; px <= GetOutfitWidth(OutfitNumber); px++) {
 		for (int py = 1; py <= GetOutfitHeight(OutfitNumber); py++) {
-			int SpriteNumber = GetOutfitSpriteNumber(OutfitNumber, px, py, 1, 2, 1);
+			const int SpriteNumber = GetOutfitSpriteNumber(OutfitNumber, px, py, 1, 2, 1);
 			int MaskNumber;
 			if (GetOutfitLayers(OutfitNumber) == 2)
 				MaskNumber = GetOutfitSpriteNumber(OutfitNumber, px, py, 2, 2, 1);
@@ -935,10 +935,10 @@ void DrawPicture(int Surface, int x, int y, int PictureNumber)
 {
 	TASSERT2(1145, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
 	TBEGIN
-	TPicture &Picture = Pictures[PictureNumber - 1];
+	const TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = 0; TileY < Picture.TilesY; TileY++) {
 		for (int TileX = 0; TileX < Picture.TilesX; TileX++) {
-			TVideoCacheItem *Item = GetVideoPicture(PictureNumber, TileX, TileY);
+			const TVideoCacheItem *Item = GetVideoPicture(PictureNumber, TileX, TileY);
 			GetSurface()->Blit(Surface, TileX * 32 + x, TileY * 32 + y, Item->Surface + 6,
 				TRect(Item->x, Item->y, 32, 32), Picture.ColorKey);
 		}
@@ -960,22 +960,22 @@ void DrawPicturePart(int Surface, int x, int y, int PictureNumber, int SourceX, 
 	TASSERT1(1166, Width>0, Width);
 	TASSERT1(1167, Height>0, Height);
 	TBEGIN
-	TPicture &Picture = Pictures[PictureNumber - 1];
+	const TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = (SourceY / 32 < 0 ? 0 : SourceY / 32);
 		TileY < ((SourceY + Height + 31) / 32 > Picture.TilesY ? Picture.TilesY : (SourceY + Height + 31) / 32);
 		TileY++) {
 		for (int TileX = (SourceX / 32 < 0 ? 0 : SourceX / 32);
 			TileX < ((SourceX + Width + 31) / 32 > Picture.TilesX ? Picture.TilesX : (SourceX + Width + 31) / 32);
 			TileX++) {
-			TVideoCacheItem *Item = GetVideoPicture(PictureNumber, TileX, TileY);
-			int OffsetY = SourceY - TileY * 32;
-			int PartHeight = (Height + OffsetY > 32 ? 32 : Height + OffsetY);
-			int OffsetX = SourceX - TileX * 32;
-			int PartWidth = (Width + OffsetX > 32 ? 32 : Width + OffsetX);
-			int LeftX = (OffsetX < 0 ? 0 : OffsetX);
-			int TopY = (OffsetY < 0 ? 0 : OffsetY);
-			int DestX = (TileX * 32 - SourceX < 0 ? 0 : TileX * 32 - SourceX);
-			int DestY = (TileY * 32 - SourceY < 0 ? 0 : TileY * 32 - SourceY);
+			const TVideoCacheItem *Item = GetVideoPicture(PictureNumber, TileX, TileY);
+			const int OffsetY = SourceY - TileY * 32;
+			const int PartHeight = (Height + OffsetY > 32 ? 32 : Height + OffsetY);
+			const int OffsetX = SourceX - TileX * 32;
+			const int PartWidth = (Width + OffsetX > 32 ? 32 : Width + OffsetX);
+			const int LeftX = (OffsetX < 0 ? 0 : OffsetX);
+			const int TopY = (OffsetY < 0 ? 0 : OffsetY);
+			const int DestX = (TileX * 32 - SourceX < 0 ? 0 : TileX * 32 - SourceX);
+			const int DestY = (TileY * 32 - SourceY < 0 ? 0 : TileY * 32 - SourceY);
 			GetSurface()->Blit(Surface, DestX + x, DestY + y, Item->Surface + 6,
 				TRect(Item->x + LeftX, Item->y + TopY, PartWidth - LeftX, PartHeight - TopY), Picture.ColorKey);
 		}
@@ -992,22 +992,22 @@ void DrawPicturePartClipped(int Surface, int x, int y, int PictureNumber, int So
 	TASSERT1(1192, Width>0, Width);
 	TASSERT1(1193, Height>0, Height);
 	TBEGIN
-	TPicture &Picture = Pictures[PictureNumber - 1];
+	const TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = (SourceY / 32 < 0 ? 0 : SourceY / 32);
 		TileY < ((SourceY + Height + 31) / 32 > Picture.TilesY ? Picture.TilesY : (SourceY + Height + 31) / 32);
 		TileY++) {
 		for (int TileX = (SourceX / 32 < 0 ? 0 : SourceX / 32);
 			TileX < ((SourceX + Width + 31) / 32 > Picture.TilesX ? Picture.TilesX : (SourceX + Width + 31) / 32);
 			TileX++) {
-			TVideoCacheItem *Item = GetVideoPicture(PictureNumber, TileX, TileY);
-			int OffsetY = SourceY - TileY * 32;
-			int PartHeight = (OffsetY + Height > 32 ? 32 : OffsetY + Height);
-			int OffsetX = SourceX - TileX * 32;
-			int PartWidth = (Width + OffsetX > 32 ? 32 : Width + OffsetX);
-			int LeftX = (OffsetX < 0 ? 0 : OffsetX);
-			int TopY = (OffsetY < 0 ? 0 : OffsetY);
-			int DestX = (TileX * 32 - SourceX < 0 ? 0 : TileX * 32 - SourceX);
-			int DestY = (TileY * 32 - SourceY < 0 ? 0 : TileY * 32 - SourceY);
+			const TVideoCacheItem *Item = GetVideoPicture(PictureNumber, TileX, TileY);
+			const int OffsetY = SourceY - TileY * 32;
+			const int PartHeight = (OffsetY + Height > 32 ? 32 : OffsetY + Height);
+			const int OffsetX = SourceX - TileX * 32;
+			const int PartWidth = (Width + OffsetX > 32 ? 32 : Width + OffsetX);
+			const int LeftX = (OffsetX < 0 ? 0 : OffsetX);
+			const int TopY = (OffsetY < 0 ? 0 : OffsetY);
+			const int DestX = (TileX * 32 - SourceX < 0 ? 0 : TileX * 32 - SourceX);
+			const int DestY = (TileY * 32 - SourceY < 0 ? 0 : TileY * 32 - SourceY);
 			GetSurface()->BlitClipped(Surface, DestX + x, DestY + y, Item->Surface + 6,
 				TRect(Item->x + LeftX, Item->y + TopY, PartWidth - LeftX, PartHeight - TopY), Picture.ColorKey,
 				Clip);
@@ -1031,16 +1031,16 @@ void PrintTextPart(int Surface, int x, int y, int FontNumber, TRGBColor Color, c
 	TASSERTB1(1218, Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment,
 		"[bug0000845]");
 	TBEGIN
-	TFontInfo &Font = Fonts[FontNumber - 1];
+	const TFontInfo &Font = Fonts[FontNumber - 1];
 	if (Alignment != LEFT_ALIGN) {
-		int Width = GetTextPartWidth(FontNumber, Text, Length);
+		const int Width = GetTextPartWidth(FontNumber, Text, Length);
 		if (Alignment == CENTER_ALIGN)
 			x -= Width / 2;
 		else if (Alignment == RIGHT_ALIGN)
 			x -= Width;
 	}
 	for (int i = 0; i < Length; i++) {
-		char c = Text[i];
+		const char c = Text[i];
 		int Index;
 		if (c > ' ')
 			Index = c - 32;
@@ -1054,9 +1054,9 @@ void PrintTextPart(int Surface, int x, int y, int FontNumber, TRGBColor Color, c
 			x += Font.Spacing + Font.Widths[12];
 			continue;
 		}
-		int SourceY = Font.CharHeight * (Index / Font.CharsPerLine);
-		int SourceX = Font.CharWidth * (Index % Font.CharsPerLine);
-		TVideoCacheItem *Item = GetVideoFontChar(FontNumber, SourceX / 32, SourceY / 32, Color);
+		const int SourceY = Font.CharHeight * (Index / Font.CharsPerLine);
+		const int SourceX = Font.CharWidth * (Index % Font.CharsPerLine);
+		const TVideoCacheItem *Item = GetVideoFontChar(FontNumber, SourceX / 32, SourceY / 32, Color);
 		GetSurface()->Blit(Surface, x, y, Item->Surface + 6,
 			TRect(Item->x + SourceX % 32, Item->y + SourceY % 32, Font.CharWidth, Font.CharHeight),
 			Pictures[Font.PictureNumber - 1].ColorKey);
@@ -1074,17 +1074,17 @@ void PrintTextClipped(int Surface, int x, int y, int FontNumber, TRGBColor Color
 	TASSERTB1(1251, Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment,
 		"[bug0000845]");
 	TBEGIN
-	TFontInfo &Font = Fonts[FontNumber - 1];
-	int Length = (int)strlen(Text);
+	const TFontInfo &Font = Fonts[FontNumber - 1];
+	const int Length = (int)strlen(Text);
 	if (Alignment != LEFT_ALIGN) {
-		int Width = GetTextPartWidth(FontNumber, Text, Length);
+		const int Width = GetTextPartWidth(FontNumber, Text, Length);
 		if (Alignment == CENTER_ALIGN)
 			x -= Width / 2;
 		else if (Alignment == RIGHT_ALIGN)
 			x -= Width;
 	}
 	for (int i = 0; i < Length; i++) {
-		char c = Text[i];
+		const char c = Text[i];
 		int Index;
 		if (c > ' ')
 			Index = c - 32;
@@ -1098,9 +1098,9 @@ void PrintTextClipped(int Surface, int x, int y, int FontNumber, TRGBColor Color
 			x += Font.Spacing + Font.Widths[12];
 			continue;
 		}
-		int SourceY = Font.CharHeight * (Index / Font.CharsPerLine);
-		int SourceX = Font.CharWidth * (Index % Font.CharsPerLine);
-		TVideoCacheItem *Item = GetVideoFontChar(FontNumber, SourceX / 32, SourceY / 32, Color);
+		const int SourceY = Font.CharHeight * (Index / Font.CharsPerLine);
+		const int SourceX = Font.CharWidth * (Index % Font.CharsPerLine);
+		const TVideoCacheItem *Item = GetVideoFontChar(FontNumber, SourceX / 32, SourceY / 32, Color);
 		GetSurface()->BlitClipped(Surface, x, y, Item->Surface + 6,
 			TRect(Item->x + SourceX % 32, Item->y + SourceY % 32, Font.CharWidth, Font.CharHeight),
 			Pictures[Font.PictureNumber - 1].ColorKey, Clip);
@@ -1163,10 +1163,10 @@ int GetTextHeight(int FontNumber, const char *Text)
 	TASSERT2(1352, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	TASSERT(1353, Text!=NULL);
 	TBEGIN
-	int Length = (int)strlen(Text);
+	const int Length = (int)strlen(Text);
 	int Height = 0;
 	for (int i = 0; i < Length; i++) {
-		char c = Text[i];
+		const char c = Text[i];
 		int Index;
 		if (c > ' ')
 			Index = c - 32;
@@ -1201,10 +1201,10 @@ int GetTextPartWidth(int FontNumber, const char *Text, int Length)
 	TASSERT(1387, Text!=NULL);
 	TASSERT1(1388, Length<=(int)strlen(Text), Length);
 	TBEGIN
-	TFontInfo &Font = Fonts[FontNumber - 1];
+	const TFontInfo &Font = Fonts[FontNumber - 1];
 	int Width = 0;
 	for (int i = 0; i < Length; i++) {
-		char c = Text[i];
+		const char c = Text[i];
 		int Index;
 		if (c > ' ')
 			Index = c - 32;
@@ -1233,11 +1233,11 @@ int GetFittingTextLength(int FontNumber, const char *Text, int Width)
 	TASSERT2(1410, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	TASSERT(1411, Text!=NULL);
 	TBEGIN
-	TFontInfo &Font = Fonts[FontNumber - 1];
+	const TFontInfo &Font = Fonts[FontNumber - 1];
 	int Position = -Font.Spacing;
-	int Length = (int)strlen(Text);
+	const int Length = (int)strlen(Text);
 	for (int i = 0; i < Length; i++) {
-		char c = Text[i];
+		const char c = Text[i];
 		int Index;
 		if (c > ' ')
 			Index = c - 32;

@@ -187,8 +187,8 @@ std::vector<vkb::PhysicalDevice> FindDevices(const vkb::Instance &Instance, VkSu
 	auto Found = Selector.select_devices();
 	std::vector<vkb::PhysicalDevice> Devices;
 	if (Found) {
-		for (vkb::PhysicalDevice &Physical : Found.value()) {
-			bool IsCpu = Physical.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
+		for (const vkb::PhysicalDevice &Physical : Found.value()) {
+			const bool IsCpu = Physical.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
 			if (IsCpu == Cpu)
 				Devices.push_back(Physical);
 		}
@@ -254,12 +254,12 @@ std::vector<TDeviceInfo> ListDevices(bool Cpu)
 {
 	if (volkInitialize() != VK_SUCCESS)
 		throw TVulkanError("no Vulkan loader (vulkan-1.dll)");
-	vkb::InstanceBuilder Builder = NewInstanceBuilder({});
+	const vkb::InstanceBuilder Builder = NewInstanceBuilder({});
 	auto Built = Builder.build();
 	std::vector<TDeviceInfo> Result;
 	if (!Built)
 		return Result; // no driver offers Vulkan 1.3
-	vkb::Instance Instance = Built.value();
+	const vkb::Instance Instance = Built.value();
 	try {
 		for (const vkb::PhysicalDevice &Physical : FindDevices(Instance, VK_NULL_HANDLE, Cpu, true))
 			Result.push_back(InfoOf(Physical, Cpu));
@@ -292,7 +292,7 @@ std::optional<TDeviceInfo> CpuDriverDevice(const std::string &Manifest)
 {
 	if (Manifest.empty())
 		return std::nullopt;
-	TDriverFiles Driver(Manifest);
+	const TDriverFiles Driver(Manifest);
 	std::vector<TDeviceInfo> Devices = ListDevices(true);
 	if (Devices.empty())
 		return std::nullopt;
@@ -375,7 +375,7 @@ struct TRenderer::TState {
 	TBuffer &Allocate(std::vector<TBuffer> &Chunks, VkDeviceSize Size, VkBufferUsageFlags Usage, VkDeviceSize &Offset)
 	{
 		for (TBuffer &Chunk : Chunks) {
-			VkDeviceSize Start = (Chunk.Used + 15) & ~VkDeviceSize{15};
+			const VkDeviceSize Start = (Chunk.Used + 15) & ~VkDeviceSize{15};
 			if (Start + Size <= Chunk.Size) {
 				Offset = Start;
 				Chunk.Used = Start + Size;
@@ -439,7 +439,7 @@ struct TRenderer::TState {
 		if (PassTarget == Target)
 			return;
 		EndPass();
-		TImage &Image = Images[static_cast<size_t>(Target)];
+		const TImage &Image = Images[static_cast<size_t>(Target)];
 		VkRenderingAttachmentInfo Attachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
 		Attachment.imageView = Image.View;
 		Attachment.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -451,9 +451,9 @@ struct TRenderer::TState {
 		Rendering.colorAttachmentCount = 1;
 		Rendering.pColorAttachments = &Attachment;
 		vkCmdBeginRendering(Commands(), &Rendering);
-		VkViewport Viewport{0.0f, 0.0f, static_cast<float>(Image.Width), static_cast<float>(Image.Height), 0.0f, 1.0f};
+		const VkViewport Viewport{0.0f, 0.0f, static_cast<float>(Image.Width), static_cast<float>(Image.Height), 0.0f, 1.0f};
 		vkCmdSetViewport(Commands(), 0, 1, &Viewport);
-		VkRect2D Scissor = Rendering.renderArea;
+		const VkRect2D Scissor = Rendering.renderArea;
 		vkCmdSetScissor(Commands(), 0, 1, &Scissor);
 		PassTarget = Target;
 		BoundPipeline = VK_NULL_HANDLE;
@@ -491,11 +491,11 @@ struct TRenderer::TState {
 	void DrawVertices(const TVertex *Vertices, size_t Count)
 	{
 		VkDeviceSize Offset = 0;
-		VkDeviceSize Size = Count * sizeof(TVertex);
-		TBuffer &Buffer = Allocate(Frame().Vertices, Size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, Offset);
+		const VkDeviceSize Size = Count * sizeof(TVertex);
+		const TBuffer &Buffer = Allocate(Frame().Vertices, Size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, Offset);
 		std::memcpy(Buffer.Mapped + Offset, Vertices, static_cast<size_t>(Size));
 		Check(vmaFlushAllocation(Allocator, Buffer.Allocation, Offset, Size), "vmaFlushAllocation");
-		VkDeviceSize Zero = 0;
+		const VkDeviceSize Zero = 0;
 		if (BoundVertices != Buffer.Buffer) {
 			vkCmdBindVertexBuffers(Commands(), 0, 1, &Buffer.Buffer, &Zero);
 			BoundVertices = Buffer.Buffer;
@@ -529,7 +529,7 @@ struct TRenderer::TState {
 	void Submit(VkSemaphore Wait, VkSemaphore Signal)
 	{
 		EndPass();
-		TFrame &F = Frame();
+		const TFrame &F = Frame();
 		Check(vkEndCommandBuffer(F.Commands), "vkEndCommandBuffer");
 		Recording = false;
 		VkCommandBufferSubmitInfo CommandInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
@@ -568,7 +568,7 @@ struct TRenderer::TState {
 	void WriteSets(TImage &Image)
 	{
 		for (uint32_t i = 0; i < Samplers; i++) {
-			VkDescriptorImageInfo Info{SamplerObjects[i], Image.View, VK_IMAGE_LAYOUT_GENERAL};
+			const VkDescriptorImageInfo Info{SamplerObjects[i], Image.View, VK_IMAGE_LAYOUT_GENERAL};
 			VkWriteDescriptorSet Write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 			Write.dstSet = Image.Sets[i];
 			Write.descriptorCount = 1;
@@ -609,8 +609,8 @@ struct TRenderer::TState {
 		EndPass();
 		ImageBarrier(Image.Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_2_NONE, 0,
 			VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
-		VkClearColorValue Zero{};
-		VkImageSubresourceRange Range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+		const VkClearColorValue Zero{};
+		const VkImageSubresourceRange Range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 		vkCmdClearColorImage(Commands(), Image.Image, VK_IMAGE_LAYOUT_GENERAL, &Zero, 1, &Range);
 		Barrier();
 	}
@@ -638,7 +638,7 @@ struct TRenderer::TState {
 		if (Images.size() >= MaxImages)
 			throw TVulkanError("too many images");
 		TImage Image;
-		VkDescriptorSetLayout Layouts[Samplers] = {SetLayout, SetLayout, SetLayout};
+		const VkDescriptorSetLayout Layouts[Samplers] = {SetLayout, SetLayout, SetLayout};
 		VkDescriptorSetAllocateInfo Info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 		Info.descriptorPool = DescriptorPool;
 		Info.descriptorSetCount = Samplers;
@@ -684,7 +684,7 @@ struct TRenderer::TState {
 		Stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 		Stages[1].module = Fragment;
 		Stages[1].pName = "main";
-		VkVertexInputBindingDescription Binding{0, sizeof(TVertex), VK_VERTEX_INPUT_RATE_VERTEX};
+		const VkVertexInputBindingDescription Binding{0, sizeof(TVertex), VK_VERTEX_INPUT_RATE_VERTEX};
 		VkVertexInputAttributeDescription Attributes[3] = {
 			{0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(TVertex, x)},
 			{1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(TVertex, u)},
@@ -726,7 +726,7 @@ struct TRenderer::TState {
 		VkPipelineDynamicStateCreateInfo Dynamic{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
 		Dynamic.dynamicStateCount = 2;
 		Dynamic.pDynamicStates = DynamicStates;
-		VkFormat Format = ImageFormat;
+		const VkFormat Format = ImageFormat;
 		VkPipelineRenderingCreateInfo Rendering{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
 		Rendering.colorAttachmentCount = 1;
 		Rendering.pColorAttachmentFormats = &Format;
@@ -750,13 +750,13 @@ struct TRenderer::TState {
 
 	void CreatePipelines()
 	{
-		VkDescriptorSetLayoutBinding Binding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+		const VkDescriptorSetLayoutBinding Binding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
 			VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
 		VkDescriptorSetLayoutCreateInfo SetInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
 		SetInfo.bindingCount = 1;
 		SetInfo.pBindings = &Binding;
 		Check(vkCreateDescriptorSetLayout(Device.device, &SetInfo, nullptr, &SetLayout), "vkCreateDescriptorSetLayout");
-		VkPushConstantRange Range{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(TPushConstants)};
+		const VkPushConstantRange Range{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(TPushConstants)};
 		VkPipelineLayoutCreateInfo LayoutInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
 		LayoutInfo.setLayoutCount = 1;
 		LayoutInfo.pSetLayouts = &SetLayout;
@@ -764,7 +764,7 @@ struct TRenderer::TState {
 		LayoutInfo.pPushConstantRanges = &Range;
 		Check(vkCreatePipelineLayout(Device.device, &LayoutInfo, nullptr, &Layout), "vkCreatePipelineLayout");
 
-		VkDescriptorPoolSize PoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, Samplers * MaxImages};
+		const VkDescriptorPoolSize PoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, Samplers * MaxImages};
 		VkDescriptorPoolCreateInfo PoolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
 		PoolInfo.maxSets = Samplers * MaxImages;
 		PoolInfo.poolSizeCount = 1;
@@ -777,7 +777,7 @@ struct TRenderer::TState {
 			Info.magFilter = i == 1 ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 			Info.minFilter = Info.magFilter;
 			Info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-			VkSamplerAddressMode Mode = i == 2 ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
+			const VkSamplerAddressMode Mode = i == 2 ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
 			Info.addressModeU = Mode;
 			Info.addressModeV = Mode;
 			Info.addressModeW = Mode;
@@ -828,7 +828,7 @@ struct TRenderer::TState {
 			.set_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
 			.set_desired_extent(Width, Height)
 			.set_old_swapchain(Swapchain);
-		vkb::Swapchain New = Value(Builder.build(), "creating the swapchain");
+		const vkb::Swapchain New = Value(Builder.build(), "creating the swapchain");
 		if (New.image_format != VK_FORMAT_B8G8R8A8_UNORM && New.image_format != VK_FORMAT_R8G8B8A8_UNORM) {
 			vkb::destroy_swapchain(New);
 			throw TVulkanError("the window offers no B8G8R8A8_UNORM or R8G8B8A8_UNORM swapchain format");
@@ -839,7 +839,7 @@ struct TRenderer::TState {
 		Swapchain = New;
 		SwapchainImages = Value(Swapchain.get_images(), "the swapchain's images");
 		for (size_t i = 0; i < SwapchainImages.size(); i++) {
-			VkSemaphoreCreateInfo Info{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+			const VkSemaphoreCreateInfo Info{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 			VkSemaphore Semaphore;
 			Check(vkCreateSemaphore(Device.device, &Info, nullptr, &Semaphore), "vkCreateSemaphore");
 			Rendered.push_back(Semaphore);
@@ -864,7 +864,7 @@ struct TRenderer::TState {
 
 		// The n-th GPU counts in ListGpus' list (the advanced options' GPU button, issue #31), which does
 		// not depend on the window; whether it can present to it is checked below.
-		bool Indexed = !Cpu && GpuIndex >= 0;
+		const bool Indexed = !Cpu && GpuIndex >= 0;
 		std::vector<vkb::PhysicalDevice> Candidates = FindDevices(Instance, Surface, Cpu, Indexed);
 		const vkb::PhysicalDevice *Chosen = nullptr;
 		if (!Candidates.empty()) {
@@ -888,10 +888,10 @@ struct TRenderer::TState {
 			Instance = vkb::Instance{};
 			return false;
 		}
-		vkb::DeviceBuilder DeviceBuilder(*Chosen);
+		const vkb::DeviceBuilder DeviceBuilder(*Chosen);
 		Device = Value(DeviceBuilder.build(), "creating the Vulkan device");
 		volkLoadDevice(Device.device);
-		uint32_t Family = Value(Device.get_queue_index(vkb::QueueType::graphics), "the graphics queue");
+		const uint32_t Family = Value(Device.get_queue_index(vkb::QueueType::graphics), "the graphics queue");
 		Queue = Value(Device.get_queue(vkb::QueueType::graphics), "the graphics queue");
 		if (Surface != VK_NULL_HANDLE) {
 			VkBool32 Supported = VK_FALSE;
@@ -914,7 +914,7 @@ struct TRenderer::TState {
 		if (!Opened && Request.Kind != TDeviceKind::Gpu) {
 			if (Request.CpuDriverManifest.empty())
 				throw TVulkanError("no GPU with Vulkan 1.3 and no CPU driver");
-			TDriverFiles Driver(Request.CpuDriverManifest);
+			const TDriverFiles Driver(Request.CpuDriverManifest);
 			Opened = Open(Request, true, -1);
 			if (!Opened)
 				throw TVulkanError("the CPU driver " + Request.CpuDriverManifest
@@ -949,7 +949,7 @@ struct TRenderer::TState {
 			VkFenceCreateInfo FenceInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
 			FenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 			Check(vkCreateFence(Device.device, &FenceInfo, nullptr, &F.Fence), "vkCreateFence");
-			VkSemaphoreCreateInfo SemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+			const VkSemaphoreCreateInfo SemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 			Check(vkCreateSemaphore(Device.device, &SemaphoreInfo, nullptr, &F.Acquired), "vkCreateSemaphore");
 		}
 		FrameIndex = 0;
@@ -1100,8 +1100,8 @@ void TRenderer::Draw(int Target, int Texture, TFilter Filter, const TQuad *Quads
 	if (Texture == Target) {
 		// A target cannot be sampled while it is drawn into: the draw reads a copy taken now.
 		S.EndPass();
-		int Width = S.Images[static_cast<size_t>(Texture)].Width;
-		int Height = S.Images[static_cast<size_t>(Texture)].Height;
+		const int Width = S.Images[static_cast<size_t>(Texture)].Width;
+		const int Height = S.Images[static_cast<size_t>(Texture)].Height;
 		if (S.Feedback < 0)
 			S.Feedback = S.NewImage(Width, Height);
 		else
@@ -1151,9 +1151,9 @@ void TRenderer::Upload(int Image, int x, int y, int Width, int Height, const uin
 	if (Width <= 0 || Height <= 0)
 		return;
 	S.EndPass();
-	VkDeviceSize Size = static_cast<VkDeviceSize>(Width) * static_cast<VkDeviceSize>(Height) * 4;
+	const VkDeviceSize Size = static_cast<VkDeviceSize>(Width) * static_cast<VkDeviceSize>(Height) * 4;
 	VkDeviceSize Offset = 0;
-	TBuffer &Buffer = S.Allocate(S.Frame().Staging, Size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, Offset);
+	const TBuffer &Buffer = S.Allocate(S.Frame().Staging, Size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, Offset);
 	for (int Row = 0; Row < Height; Row++)
 		std::memcpy(Buffer.Mapped + Offset + static_cast<size_t>(Row) * static_cast<size_t>(Width) * 4,
 			Pixels + static_cast<size_t>(Row) * Pitch, static_cast<size_t>(Width) * 4);
@@ -1212,7 +1212,7 @@ void TRenderer::ReadBack(int Image, int x, int y, int Width, int Height, std::ve
 	if (Width <= 0 || Height <= 0)
 		return;
 	S.EndPass();
-	VkDeviceSize Size = static_cast<VkDeviceSize>(Width) * static_cast<VkDeviceSize>(Height) * 4;
+	const VkDeviceSize Size = static_cast<VkDeviceSize>(Width) * static_cast<VkDeviceSize>(Height) * 4;
 	if (S.ReadBuffer.Size < Size) {
 		// Only ReadBack uses it, and it waits until the copy is done: nothing uses the old one now.
 		S.DestroyBuffer(S.ReadBuffer);
@@ -1257,7 +1257,7 @@ bool TRenderer::Present(int Image, int x, int y, int Width, int Height, uint32_t
 		}
 	}
 	uint32_t Index = 0;
-	VkResult Acquired = vkAcquireNextImageKHR(S.Device.device, S.Swapchain.swapchain, UINT64_MAX, S.Frame().Acquired,
+	const VkResult Acquired = vkAcquireNextImageKHR(S.Device.device, S.Swapchain.swapchain, UINT64_MAX, S.Frame().Acquired,
 		VK_NULL_HANDLE, &Index);
 	if (Acquired == VK_ERROR_OUT_OF_DATE_KHR) {
 		S.SwapchainStale = true;
@@ -1273,8 +1273,8 @@ bool TRenderer::Present(int Image, int x, int y, int Width, int Height, uint32_t
 	const TImage &From = S.Images[static_cast<size_t>(Image)];
 	S.ImageBarrier(Target, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT, 0, VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
-	int Right = std::min(x + Width, From.Width);
-	int Bottom = std::min(y + Height, From.Height);
+	const int Right = std::min(x + Width, From.Width);
+	const int Bottom = std::min(y + Height, From.Height);
 	VkImageBlit Region{};
 	Region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
 	Region.srcOffsets[0] = {x, y, 0};
@@ -1283,7 +1283,7 @@ bool TRenderer::Present(int Image, int x, int y, int Width, int Height, uint32_t
 	Region.dstOffsets[0] = {0, 0, 0};
 	Region.dstOffsets[1] = {static_cast<int32_t>(S.Swapchain.extent.width),
 		static_cast<int32_t>(S.Swapchain.extent.height), 1};
-	bool OneToOne = static_cast<uint32_t>(Right - x) == S.Swapchain.extent.width
+	const bool OneToOne = static_cast<uint32_t>(Right - x) == S.Swapchain.extent.width
 		&& static_cast<uint32_t>(Bottom - y) == S.Swapchain.extent.height;
 	vkCmdBlitImage(S.Commands(), From.Image, VK_IMAGE_LAYOUT_GENERAL, Target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
 		&Region, OneToOne ? VK_FILTER_NEAREST : VK_FILTER_LINEAR);
@@ -1298,7 +1298,7 @@ bool TRenderer::Present(int Image, int x, int y, int Width, int Height, uint32_t
 	Info.swapchainCount = 1;
 	Info.pSwapchains = &S.Swapchain.swapchain;
 	Info.pImageIndices = &Index;
-	VkResult Presented = vkQueuePresentKHR(S.Queue, &Info);
+	const VkResult Presented = vkQueuePresentKHR(S.Queue, &Info);
 	if (Presented == VK_ERROR_OUT_OF_DATE_KHR || Presented == VK_SUBOPTIMAL_KHR)
 		S.SwapchainStale = true;
 	else
