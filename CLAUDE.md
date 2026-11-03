@@ -71,12 +71,13 @@ the oracle-x86 preset never uses them. Details: `notes/reconstruction.md`, "Chec
 ## CI
 
 `.github/workflows/hosted.yml` (GitHub's runners, also on pull requests): windows-x64 with MSVC x64 and
-`-DPATELLA_CLIENT=OFF`, linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, and
+`-DPATELLA_CLIENT=OFF`, the test build's sources compiled without Tibia.exe (`-DPATELLA_CLIENT_COMPILE_ONLY=ON`,
+target `PatellaTest_compile`, issue #25), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, and
 clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings). A change that adds a finding
 fixes it or rewrites the baseline in the image: `python -I tools/build.py --env linux-x64-clang bash -c "cmake
 --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline
 build/linux-x64-clang/tidy-baseline.tsv"`, then copy it to `tools/`. `.github/workflows/self-hosted.yml` (oracle-x86,
-the comparisons; this machine) runs only on push and workflow_dispatch, and only when the repository variable
+the comparisons and testmode_check.py; this machine) runs only on push and workflow_dispatch, and only when the repository variable
 `PATELLA_SELF_HOSTED` is `true`. Details: `notes/reconstruction.md`, "Checking".
 
 ## REA
