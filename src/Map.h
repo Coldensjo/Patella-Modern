@@ -24,11 +24,11 @@
 #include "graphics.h" // TRGBColor
 #include "Objects.h"  // TObject
 
-#define MAPSIZE_X 18
-#define MAPSIZE_Y 14
-#define MAPSIZE_Z 8
-#define OBJECTS_PER_POINT 10
-#define EFFECTS 200
+inline constexpr int MAPSIZE_X = 18;
+inline constexpr int MAPSIZE_Y = 14;
+inline constexpr int MAPSIZE_Z = 8;
+inline constexpr int OBJECTS_PER_POINT = 10;
+inline constexpr int EFFECTS = 200;
 
 // A map point (0xac bytes); "Point" in the assertions.
 struct TMapPoint {

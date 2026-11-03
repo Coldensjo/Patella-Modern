@@ -10,10 +10,10 @@
 #include "Container.h"
 
 // From the assertions.
-#define HOTKEYS 36
-#define HOTKEY_LENGTH 256
-#define BUDDYDESCRIPTION_LENGTH 128
-#define SKILLS 7
+inline constexpr int HOTKEYS = 36;
+inline constexpr int HOTKEY_LENGTH = 256;
+inline constexpr int BUDDYDESCRIPTION_LENGTH = 128;
+inline constexpr int SKILLS = 7;
 
 // "FullscreenMode = (Width,Height,Depth)"; the fourth value is not saved.
 struct TFullscreenMode {

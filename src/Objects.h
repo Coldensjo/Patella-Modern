@@ -31,7 +31,7 @@ struct TObject {
 };
 
 // Object type of a creature on a map field ("SrcObj.Type!=CREATURE").
-#define CREATURE 99
+inline constexpr int CREATURE = 99;
 
 // Tibia.dat flags: the bit numbers in TProperties::Flags. The names of
 // 1-20 follow CipSoft's game server (medium confidence); 22, 23, 26 and 27

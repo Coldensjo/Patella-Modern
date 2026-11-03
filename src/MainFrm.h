@@ -14,9 +14,9 @@
 #include <iosfwd>
 
 // Key codes of the client (Control.cpp's KeyPress) for the modifier flags.
-#define KEY_SHIFT 0x200
-#define KEY_CONTROL 0x400
-#define KEY_ALT 0x800
+inline constexpr int KEY_SHIFT = 0x200;
+inline constexpr int KEY_CONTROL = 0x400;
+inline constexpr int KEY_ALT = 0x800;
 
 class CMainFrame : public CFrameWnd {
 public:

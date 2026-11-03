@@ -35,7 +35,7 @@
 #define TASSERTB2(Line, Expr, V1, V2, Bug) \
 	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, #V2, V2, #Expr " " Bug)
 
-#define AUTOMAP_BLOCKS 10
+constexpr int AUTOMAP_BLOCKS = 10;
 
 static void (*CreatureCallback)(int CreatureID);                                        // 0x5d16c0, called for every creature ClearField removes
 static int AmbienteActualBrightness;                                                    // 0x5d16c4, follows AmbienteBrightness step by step

@@ -10,10 +10,10 @@
 #include "common.h"
 #include "Objects.h" // TObject
 
-#define BODY_POSITIONS 10
-#define OPEN_CONTAINERS 16
-#define CONTAINER_OBJECTS 36 // our name
-#define OBJECTS_PER_OFFER 100
+inline constexpr int BODY_POSITIONS = 10;
+inline constexpr int OPEN_CONTAINERS = 16;
+inline constexpr int CONTAINER_OBJECTS = 36; // our name
+inline constexpr int OBJECTS_PER_OFFER = 100;
 
 // 0x1ec bytes.
 struct TContainer {
