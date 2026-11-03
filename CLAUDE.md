@@ -22,8 +22,10 @@ above, still ignored); `-Stash` puts it away again. The build and the tests do n
 
 CMake presets, run from any shell through `python -I tools/build.py <workflow preset>` (it sets up MSVC with
 vcvarsall.bat for the MSVC presets, then runs `cmake --workflow`): `oracle-x86` (the 32-bit oracle Patella.exe,
-the four differential tests through CTest), `windows-x64` / `windows-x64-debug` (the x64 client, the portable
-library patella_core and the unit tests), `windows-x64-gcc` (patella_core and the unit tests with mingw-w64 GCC),
+the four differential tests through CTest), `windows-x64` / `windows-x64-debug` (the x64 client Patella.exe, its
+test build PatellaTest.exe with the virtual clock and scripted input of `notes/testmode.md`, the portable
+libraries patella_core and patella_testmode, and the unit tests), `windows-x64-gcc` (patella_core and the unit
+tests with mingw-w64 GCC),
 `linux-x64-gcc` / `linux-x64-clang` (patella_core and the unit tests with GCC 16 / Clang 22, the latter with
 AddressSanitizer and UBSan; `-debug` for Debug). On Windows build.py runs the Linux presets in the Docker image
 `patella-modern/linux-x64:gcc16.2-clang22.1` (build it once: `docker build -t
@@ -36,8 +38,8 @@ test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/rec
 
 `.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by
 `.clang-format-ignore`), `.editorconfig` the editor settings. Check with Visual Studio's clang-format
-(`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/res/resource.h
-tests/unit/*.cpp`.
+(`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/testmode/*.cpp
+src/testmode/*.h src/res/resource.h tests/unit/*.cpp`.
 Run clang-tidy only through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>`,
 never `clang-tidy --fix` directly: until M5 no change may touch the arguments of TASSERT*, TERROR* or TEND*
 (stringized into the messages difftest compares), and the wrapper reverts every fix inside them. The product

@@ -57,6 +57,11 @@ automatic tests compare the new program with the original 2006 one:
   soft light around torches and spells, which the graphics card itself draws, so even the original never
   looked quite the same on two computers.
 
+A special test version of the client can also play a written script of key presses, mouse clicks and typed
+text on a clock of its own, which moves only when the script says so. Run twice, it does exactly the same
+thing both times, so a test does not depend on how fast the computer is or on someone touching the mouse. The
+normal client contains none of this.
+
 If any of these differ, the step is not accepted. The original program acts as an answer key that the new one
 must keep matching.
 

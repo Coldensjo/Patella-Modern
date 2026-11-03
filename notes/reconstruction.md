@@ -189,7 +189,9 @@ python -I tools/build.py windows-x64-gcc     # (and windows-x64-gcc-debug); cmak
 They write build\<preset>\tests\unit\<Configuration>: `tests_unit` (src/compat/cxx26.h as the compiler selects
 it: the stand-ins on MSVC and on Clang 22 with libstdc++ 14, contract_assert and std::inplace_vector on GCC 16)
 and `tests_unit_cxx26_standin` (the same tests with PATELLA_CXX26_STANDIN), each a CTest test, plus one per
-contract violation scenario (RunContractViolation.cmake), and `tests_core`. The mingw executables get the compiler's runtime DLLs copied next to them.
+contract violation scenario (RunContractViolation.cmake), `tests_core` and, since Patella-Modern issue #21,
+`tests_testmode` (the test mode's clock, script parser and scheduler; below). The mingw executables get the
+compiler's runtime DLLs copied next to them.
 src/compat/cxx26.h is the only way to C++26 features (plan section 8): `CONTRACT_ASSERT(Predicate)` and
 `patella::TStaticVector<T, N>` so far; its comment lists what the stand-ins do not reproduce. Details:
 notes/decisions.md, "src/compat/cxx26.h and the unit tests (issue #9)".
@@ -207,7 +209,16 @@ original's structure layouts hold only in the 32-bit build: the static_asserts t
 pointers change are inside `#if PATELLA_ORIGINAL_LAYOUT` (common.h, x86 only). Details: notes/decisions.md,
 "Windows x64 build (issue #5)".
 
-Run either Patella.exe only from a folder with copies of the data files (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg; for
+Next to it the preset builds `PatellaTest.exe` (Patella-Modern issue #21; option `PATELLA_TEST_BUILD`, default
+ON), the test build: the same sources with `PATELLA_TEST_MODE`, plus src/testmode (the virtual clock and the
+input script; cmake/TestMode.cmake's `patella_testmode` is their portable part, built by every product preset
+and tested by `tests_testmode`). The hooks it needs in the client (src/TestHooks.h) are the system calls
+themselves in Patella.exe and the oracle, whose images are unchanged by them (pecompare; notes/decisions.md,
+"Test mode: virtual clock and scripted input (Patella-Modern issue #21)"). `PatellaTest.exe --test-script
+<file>` plays a script of keyboard, mouse and text events on a virtual clock; without it, it is the client on
+the system clock. notes/testmode.md.
+
+Run either Patella.exe (or PatellaTest.exe) only from a folder with copies of the data files (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg; for
 example build\run), never from the root: the client rewrites Tibia.cfg on exit, and the root's data files
 may be the user's own.
 
@@ -243,6 +254,11 @@ replayed with each engine (DirectX 5, DirectX 9, OpenGL), windowed and fullscree
 engine's own surfaces by a DLL the run folders' copies import (tools/capture/patcap.c, no display needed),
 with time made virtual so both clients draw the same moment: notes/rendering.md.
 
+`python -I tools/testmode_check.py` (Patella-Modern issue #21) runs the test build, PatellaTest.exe, twice with
+the same input script (tests/testmode/login-walk.script: login, a square walk, a said line, logout) against that
+server through tools/proxy.py and compares the runs' client packets, raw frames, driver logs and Tibia.cfg;
+nothing drives the window from outside, and the client drops the desktop's own input: notes/testmode.md.
+
 Every GUI comparison (traffic, files, rendering, network) empties its run folders before each run, down to the
 data files and the patched client, and a second Tibia.exe run (orig-repeat) has a folder of its own
 (Patella-Modern issue #12; notes/decisions.md "Clean run folders for the GUI comparisons (issue #12)").
@@ -273,7 +289,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
   `.editorconfig` sets tabs, LF and UTF-8 for every editor. With Visual Studio's clang-format 22
   (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h
-  src/res/resource.h tests/unit/*.cpp` reports nothing; `clang-format -i` on a changed file formats it. Hand-laid tables (case
+  src/testmode/*.cpp src/testmode/*.h src/res/resource.h tests/unit/*.cpp` reports nothing; `clang-format -i` on a changed file formats it. Hand-laid tables (case
   tables, vertex and pixel format lists) and the macros clang-format cannot parse sit between
   `// clang-format off` and `// clang-format on`.
 - clang-tidy (issue #8): `.clang-tidy` has the checks of the coding standard (notes/modernization-plan.md,
