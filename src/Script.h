@@ -18,7 +18,9 @@
 inline constexpr int MAX_IDENT_LENGTH = 20;    // "identifier too long"
 inline constexpr int MAX_STRING_LENGTH = 1000; // "string too long" at 999 characters
 
-enum TOKEN : int {
+// The kind of the current token (TReadScriptFile::Token). Only assigned and
+// compared, so it is scoped (issue #37); int as before, the member's 4 bytes.
+enum class TOKEN : int {
 	ENDOFFILE,
 	IDENTIFIER,
 	NUMBER,

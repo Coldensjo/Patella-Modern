@@ -711,11 +711,11 @@ void InitPreferences()
 		Script.open("Tibia.cfg");
 		for (;;) {
 			Script.nextToken();
-			if (Script.Token == ENDOFFILE) {
+			if (Script.Token == TOKEN::ENDOFFILE) {
 				Script.close();
 				break;
 			}
-			if (Script.Token != IDENTIFIER)
+			if (Script.Token != TOKEN::IDENTIFIER)
 				Script.error("Identifier expected");
 			char Identifier[MAX_IDENT_LENGTH];
 			CopyString(Identifier, Script.getIdentifier(), MAX_IDENT_LENGTH);
@@ -875,9 +875,9 @@ void InitPreferences()
 				Script.readSymbol('{');
 				for (;;) {
 					Script.nextToken();
-					if (Script.Token == SPECIAL && Script.getSpecial() == '}')
+					if (Script.Token == TOKEN::SPECIAL && Script.getSpecial() == '}')
 						break;
-					if (Script.Token != SPECIAL || Script.getSpecial() != ',')
+					if (Script.Token != TOKEN::SPECIAL || Script.getSpecial() != ',')
 						AddBuddyIgnore(Script.getString(), true);
 				}
 			}
@@ -885,9 +885,9 @@ void InitPreferences()
 				Script.readSymbol('{');
 				for (;;) {
 					Script.nextToken();
-					if (Script.Token == SPECIAL && Script.getSpecial() == '}')
+					if (Script.Token == TOKEN::SPECIAL && Script.getSpecial() == '}')
 						break;
-					if (Script.Token != SPECIAL || Script.getSpecial() != ',')
+					if (Script.Token != TOKEN::SPECIAL || Script.getSpecial() != ',')
 						IgnoreName(Script.getString(), true);
 				}
 			}
@@ -895,9 +895,9 @@ void InitPreferences()
 				Script.readSymbol('{');
 				for (;;) {
 					Script.nextToken();
-					if (Script.Token == SPECIAL && Script.getSpecial() == '}')
+					if (Script.Token == TOKEN::SPECIAL && Script.getSpecial() == '}')
 						break;
-					if (Script.Token != SPECIAL || Script.getSpecial() != ',') {
+					if (Script.Token != TOKEN::SPECIAL || Script.getSpecial() != ',') {
 						KnownHints(NumberOfKnownHints) = Script.getNumber();
 						NumberOfKnownHints++;
 					}
@@ -915,9 +915,9 @@ void InitPreferences()
 				Script.readSymbol('{');
 				for (;;) {
 					Script.nextToken();
-					if (Script.Token == SPECIAL && Script.getSpecial() == '}')
+					if (Script.Token == TOKEN::SPECIAL && Script.getSpecial() == '}')
 						break;
-					if (Script.Token != SPECIAL || Script.getSpecial() != ',')
+					if (Script.Token != TOKEN::SPECIAL || Script.getSpecial() != ',')
 						SetSkillBar(Script.getNumber(), true);
 				}
 			}

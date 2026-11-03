@@ -193,8 +193,8 @@ static void CompareReader(const TReadScriptFile &Ours, const uint8 *Original, co
 		&& (Ours.File == NULL) == (O.File == NULL)
 		&& (uint8 *)Ours.Bytes - (uint8 *)&Ours == *(uint8 **)(Original + 0x7f4) - Original;
 	CHECK(Same, "%s, token %d: ours %d '%s' %d [%d,%d,%d] '%c' line %d, original %d '%s' %d [%d,%d,%d] '%c' line %d",
-		What, Index, Ours.Token, Ours.String, Ours.Number, Ours.CoordX, Ours.CoordY, Ours.CoordZ, Ours.Special, Ours.Line,
-		O.Token, O.String, O.Number, O.CoordX, O.CoordY, O.CoordZ, O.Special, O.Line);
+		What, Index, (int)Ours.Token, Ours.String, Ours.Number, Ours.CoordX, Ours.CoordY, Ours.CoordZ, Ours.Special, Ours.Line,
+		(int)O.Token, O.String, O.Number, O.CoordX, O.CoordY, O.CoordZ, O.Special, O.Line);
 }
 
 static void TestReader()
@@ -221,20 +221,20 @@ static void TestReader()
 			TReadScriptFile &O = *(TReadScriptFile *)Original;
 			if (Ours.Token != O.Token)
 				break;
-			if (Ours.Token == ENDOFFILE)
+			if (Ours.Token == TOKEN::ENDOFFILE)
 				break;
-			if (Ours.Token == IDENTIFIER) {
+			if (Ours.Token == TOKEN::IDENTIFIER) {
 				char *a = Ours.getIdentifier();
 				char *b = At<ThisRetStrFn>(0x4e0420)(Original, NULL);
 				CHECK(a - (char *)&Ours == b - (char *)Original && strcmp(a, b) == 0, "getIdentifier '%s' '%s'", a, b);
-			} else if (Ours.Token == NUMBER) {
+			} else if (Ours.Token == TOKEN::NUMBER) {
 				int a = Ours.getNumber(), b = At<ThisRetIntFn>(0x4e0450)(Original, NULL);
 				CHECK(a == b, "getNumber %d %d", a, b);
-			} else if (Ours.Token == STRING) {
+			} else if (Ours.Token == TOKEN::STRING) {
 				char *a = Ours.getString();
 				char *b = At<ThisRetStrFn>(0x4e0470)(Original, NULL);
 				CHECK(a - (char *)&Ours == b - (char *)Original, "getString");
-			} else if (Ours.Token == SPECIAL) {
+			} else if (Ours.Token == TOKEN::SPECIAL) {
 				char a = Ours.getSpecial(), b = At<ThisRetCharFn>(0x4e0490)(Original, NULL);
 				CHECK(a == b, "getSpecial %d %d", a, b);
 			}
@@ -625,7 +625,7 @@ static void TestLongTokens()
 			}
 			At<ThisFn>(0x4dfb60)(Original, NULL);
 			CompareReader(Ours, Original, "long tokens", i);
-			if (Ours.Token != ((TReadScriptFile *)Original)->Token || Ours.Token == ENDOFFILE)
+			if (Ours.Token != ((TReadScriptFile *)Original)->Token || Ours.Token == TOKEN::ENDOFFILE)
 				break;
 		}
 		Ours.close();
