@@ -6267,8 +6267,8 @@ Settled by Claude Opus 5.5, November 3, 2026. cmake/WindowsX64.cmake (Patella_co
 
 - **A second object library, Patella_compile, beside PatellaTest_compile** (high). Issue #25 compiled only the
   test build's preprocessing; Patella.exe's (the same sources without PATELLA_TEST_MODE, so the other branches of
-  src/TestHooks.h, Creatures.cpp, Inventory.cpp, Map.cpp, Player.cpp/.h and Status.cpp) was compiled only on the self-hosted runner. PATELLA_CLIENT_COMPILE_ONLY
-  now also builds `Patella_compile` (OBJECT) from Patella.exe's C and C++ sources (no resource script), with the
+  src/TestHooks.h, Creatures.cpp, Inventory.cpp, Map.cpp, Player.cpp/.h and Status.cpp) was compiled only on
+  the self-hosted runner. PATELLA_CLIENT_COMPILE_ONLY now also builds `Patella_compile` (OBJECT) from Patella.exe's C and C++ sources (no resource script), with the
   same shared function patella_client_compile_settings, so its flags cannot drift from Patella.exe's. Proof: the
   ninja files of the windows-x64 tree and of a compile-only tree give the same rule, FLAGS, DEFINES and INCLUDES
   for all 36 sources of Patella.exe (Release and Debug) and all 44 of PatellaTest.exe; Patella.exe's and
