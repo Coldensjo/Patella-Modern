@@ -80,6 +80,9 @@ LOGIN_PORT, GAME_PORT = 7271, 7272
 CPU_DRIVER_FILES = ("vulkan_lvp.dll", "lvp_icd.x86_64.json")
 # The time zone of both clients' local time (error.txt's ctime, Default.txt's "Channel saved at").
 TIME_ZONE = "UTC0"
+# The x64 client's own settings file (issue #31), which Tibia.exe does not have: listed, not compared
+# (compare_files.py PATELLA_INI).
+PATELLA_INI = "Patella.ini"
 REGION_TOLERANCE = 2
 # The sessions, in recording order ("report" needs "error"'s error.txt).
 SESSIONS = ["traffic", "options", "walk", "error", "error-login", "report", "patch", "patch-exe"]
@@ -88,6 +91,11 @@ SESSION_TOOLS = {"traffic": ("compare_traffic", "compare_rendering"), "options":
 	"walk": ("compare_files",), "error": ("compare_files",), "error-login": ("compare_files",),
 	"report": ("compare_files",), "patch": ("compare_files",), "patch-exe": ("compare_files",)}
 OPCODE_LOGIN = 0x01
+
+
+def tool_sessions(tool):
+	"""The sessions of a comparison tool (compare_traffic, compare_files, compare_rendering)."""
+	return [name for name in SESSIONS if tool in SESSION_TOOLS[name]]
 
 
 class ReferenceError_(Exception):
@@ -277,14 +285,18 @@ def compare_packets(records, events, limit=10):
 
 # --- states ---------------------------------------------------------------------------------------
 
-def compare_gui(orig, ours, mapping):
+def compare_gui(orig, ours, mapping, rects=()):
 	"""Window trees (compare_traffic.py compare_gui): everything equal but for this run's addresses, a
-	vtable name of Tibia.exe's (vt_<address>, "(modal)") paired with the same class everywhere."""
+	vtable name of Tibia.exe's (vt_<address>, "(modal)") paired with the same class everywhere. rects:
+	the recorded masks of the checkpoint (the advanced options' device choice of issue #31, the frame
+	rate): the texts of the windows inside them are not compared."""
 	out = []
 	if len(orig) != len(ours):
 		out.append("%d windows against %d" % (len(ours), len(orig)))
 	for i, (o, p) in enumerate(zip(orig, ours)):
-		for key in ("depth", "x", "y", "w", "h", "text"):
+		inside = any(x0 <= o["x"] and o["x"] + o["w"] <= x1 and y0 <= o["y"] and o["y"] + o["h"] <= y1
+			for x0, y0, x1, y1 in rects)
+		for key in ("depth", "x", "y", "w", "h") + (() if inside else ("text",)):
 			if o.get(key) != p.get(key):
 				out.append("window #%d (%s/%s): %s %r against %r" % (i, p["class"], o["class"], key, p.get(key), o.get(key)))
 		if o["class"].startswith("vt_") or o["class"] == "(modal)":
@@ -297,7 +309,7 @@ def compare_gui(orig, ours, mapping):
 	return out
 
 
-def compare_states(dumps_dir, states_dir, mapping, limit=20):
+def compare_states(dumps_dir, states_dir, mapping, masks=None, limit=20):
 	"""(differences, lines): the test client's state-<NNN>.json against Tibia.exe's."""
 	ours = td.numbered(dumps_dir, "state", ".json")
 	theirs = td.numbered(states_dir, "state", ".json")
@@ -307,7 +319,7 @@ def compare_states(dumps_dir, states_dir, mapping, limit=20):
 	for step in sorted(set(ours) & set(theirs)):
 		a, b = td.load_json(ours[step]), td.load_json(theirs[step])
 		found = td.diff_values(a["state"], b["state"], "state", None, limit)
-		found += compare_gui(b["gui"], a["gui"], mapping)
+		found += compare_gui(b["gui"], a["gui"], mapping, [tuple(r) for r in (masks or {}).get(str(step), [])])
 		lines.append("  state %3d %-20s %s" % (step, b.get("name", ""), "equal" if not found else "DIFFERENT"))
 		differences.extend("  state %d (%s): %s" % (step, b.get("name", ""), d) for d in found[:limit])
 	return differences, lines
@@ -386,6 +398,10 @@ def compare_files(written_dir, removed, meta, reference):
 	"""(differences, lines): the files the test client wrote and removed against Tibia.exe's."""
 	differences, lines = [], []
 	ours = sorted(os.listdir(written_dir)) if os.path.isdir(written_dir) else []
+	if PATELLA_INI in ours:
+		ours.remove(PATELLA_INI)
+		with open(os.path.join(written_dir, PATELLA_INI), "rb") as f:
+			lines.append("  %s (the x64 client's own, not compared): %r" % (PATELLA_INI, f.read()))
 	theirs = sorted(meta.get("written", []))
 	if ours != theirs:
 		differences.append("  files written: %s, the reference %s" % (ours, theirs))
@@ -546,7 +562,7 @@ def check_session(name, reference, out):
 	part("a. packets", (diffs, ["%d connections, %d client packets, %d server packets read" % (summary["connections"],
 		summary["c2s"], summary["s2c"])] + [n.strip() for n in notes]))
 	mapping = {}
-	part("b. states", compare_states(dumps, os.path.join(reference, "states"), mapping))
+	part("b. states", compare_states(dumps, os.path.join(reference, "states"), mapping, meta.get("state_masks", {})))
 	part("c. frames", compare_frames(dumps, os.path.join(reference, "frames"), meta.get("frame_masks", {})))
 	found = compare_files(os.path.join(base, "files"), result["removed"], meta, reference)
 	saved = compare_saved(dumps, reference)

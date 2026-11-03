@@ -65,6 +65,11 @@ the points the script names, it writes down what it knows (the character, the ma
 message it sends to or gets from the server, and the picture it shows, so the tests can check all of it
 without peeking into the program from outside. The normal client contains none of this.
 
+The original program has been recorded once playing every test session: what the server sent it, what it
+answered, what it showed and what files it wrote. The test version plays the same sessions against that
+recording, with no server at all and in a few seconds each, and must come out the same in every detail. A real
+server is only needed to make a new recording.
+
 If any of these differ, the step is not accepted. The original program acts as an answer key that the new one
 must keep matching.
 

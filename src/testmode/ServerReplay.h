@@ -115,10 +115,10 @@ private:
 	void Settle(int Index);
 
 	std::vector<TReplayConnection> Recorded;
-	std::vector<std::size_t> Next;   // per connection: the next event
-	std::vector<int> Waiting;        // per connection: client packets that came, not yet passed
+	std::vector<std::size_t> Next;    // per connection: the next event
+	std::vector<int> Waiting;         // per connection: client packets that came, not yet passed
 	std::vector<bool> ClosedByClient; // per connection
-	std::vector<int> Opened;         // per connection: opened by the client
+	std::vector<int> Opened;          // per connection: opened by the client
 	int Extra = 0;
 };
 

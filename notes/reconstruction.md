@@ -291,6 +291,16 @@ moment (the client waits for it), the packet log against the proxy's decrypted r
 statically the dump's keys against client_state.py's; `--self-test` runs those comparisons on made-up data
 without a server or a client: notes/testmode.md.
 
+`python -I tools/reference.py record` / `compare` (Patella-Modern issue #23; the same as the first word of
+compare_traffic.py, compare_files.py and compare_rendering.py) is the record/compare split of those three
+tools: record (Windows, Tibia.exe) needs the server only for the two live recordings (compare_traffic.py's
+session with the helper, compare_files.py's walk) and then plays every session (traffic, options, walk, error,
+error-login, report, patch, patch-exe) with Tibia.exe under patcap.dll against the replayed server side into the
+reference set (default build\reference; the orchestrator's C:\Patella-Modern\build\reference; local data, never
+committed); compare runs PatellaTest.exe on each session's script with the server side replayed inside the client
+(no server, PATELLA_VULKAN=cpu) and compares packets, states, frames, files and message boxes: notes/testmode.md,
+"Reference recordings".
+
 Every GUI comparison (traffic, files, rendering, network) empties its run folders before each run, down to the
 data files and the patched client, and a second Tibia.exe run (orig-repeat) has a folder of its own
 (Patella-Modern issue #12; notes/decisions.md "Clean run folders for the GUI comparisons (issue #12)").
@@ -462,6 +472,15 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     comparison takes from the original through golden::Output (by value: fields and offsets, never a memory
     image or a pointer), add it to golden_test.h, runner.cpp's table and both CMake lists. notes/decisions.md,
     "The golden corpus (Patella-Modern issue #24)".
+- The reference recordings (Patella-Modern issue #23; M2's exit): `python -I tools/reference.py compare
+  --reference C:\Patella-Modern\build\reference` runs the x64 test client (build\windows-x64\Release\PatellaTest.exe,
+  `--exe`) on every recorded session without the server and compares it with Tibia.exe's recording: the
+  packets (keys and padding included), the states and window trees at every checkpoint, the frames (exact,
+  ±2 on the device-filtered pixels, the recorded masks), the written files, the message boxes and the exit code;
+  report in build\reference-compare\report.txt, exit code 0 when every session matches. A stale session (another
+  format, another Tibia.exe or data files) is refused: `python -I tools/reference.py record` makes it again (the
+  test server for the live recordings, then Tibia.exe's reference runs). `--check-only` compares saved results
+  again on any platform; `--self-test` checks the comparisons on made-up data. notes/testmode.md.
 - Before finishing a file, compare each function against its pseudocode once more: every
   branch, constant, call and side effect.
 - Static objects and removed try blocks (issue #24): `tools\listing.cmd File.cpp` writes our

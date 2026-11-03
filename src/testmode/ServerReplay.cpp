@@ -170,9 +170,8 @@ TReplayParseResult ParseReplay(std::string_view Text)
 	return Result;
 }
 
-TServerReplay::TServerReplay(std::vector<TReplayConnection> Connections) :
-	Recorded(std::move(Connections)), Next(Recorded.size(), 0), Waiting(Recorded.size(), 0),
-	ClosedByClient(Recorded.size(), false), Opened(Recorded.size(), 0)
+TServerReplay::TServerReplay(std::vector<TReplayConnection> Connections) : Recorded(std::move(Connections)), Next(Recorded.size(), 0), Waiting(Recorded.size(), 0),
+																		   ClosedByClient(Recorded.size(), false), Opened(Recorded.size(), 0)
 {
 }
 

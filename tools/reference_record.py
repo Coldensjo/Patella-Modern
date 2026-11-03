@@ -134,6 +134,7 @@ class Recorder:
 		self.frames = 0
 		self.saves = 0
 		self.masks = {}
+		self.state_masks = {}
 		self.checkpoints = []
 		self.original_post = None
 		self.original_advance = None
@@ -207,6 +208,8 @@ class Recorder:
 		self.checkpoints.append(name)
 		log("checkpoint %s" % name)
 		self.dump(name)
+		if masks:
+			self.state_masks[str(self.dumps)] = [list(m) for m in masks]
 		if frame:
 			self.frame(name, masks)
 
@@ -243,7 +246,7 @@ def session_traffic(rec, driver, proxy):
 	"""compare_rendering.py's scenes (windowed): the start screen, the option dialogs, the login, the
 	game session of compare_traffic.py (session_client.run_session) with the automap zoom and the side
 	windows, the logout; a dump and a frame at every scene."""
-	cr.session(driver, proxy, lambda name, masks=None: rec.checkpoint(name, True, masks))
+	cr.session(driver, proxy, lambda name, masks=None: rec.checkpoint(name, True, masks), device_choice=True)
 	return {"exit": rec.close()}
 
 
@@ -418,7 +421,7 @@ def reference_run(reference, name, events, session, seed=None, comment=""):
 		"tibia_sha256": ct.file_sha(ct.CLIENTS["orig"]["source"]),
 		"data_sha256": {d: ct.file_sha(os.path.join(ROOT, d)) for d in ct.DATA_FILES},
 		"server": events is not None, "exit": result.get("exit", 0), "messages": result.get("messages", []),
-		"dumps": rec.dumps, "frames": rec.frames, "frame_masks": rec.masks, "checkpoints": rec.checkpoints,
+		"dumps": rec.dumps, "frames": rec.frames, "frame_masks": rec.masks, "state_masks": rec.state_masks, "checkpoints": rec.checkpoints,
 		"written": written, "removed": removed, "seed": sorted(seed or {}), "time_zone": ref.TIME_ZONE,
 		"proxy_problems": [str(p) for p in problems], "comment": comment}
 	ref.write_json(os.path.join(folder, "meta.json"), meta, indent=1)

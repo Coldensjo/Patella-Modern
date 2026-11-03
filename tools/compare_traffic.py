@@ -2,6 +2,8 @@ r"""Compare the network traffic of Patella.exe and the original Tibia.exe (issue
 
 Usage (from the repository or a worktree; the test server of issue #18 must be stopped):
   python -I tools/compare_traffic.py [--out build\traffic\result] [--skip-live] [--no-cross]
+  python -I tools/compare_traffic.py record|compare [tools/reference.py's options]   (issue #23: the
+      reference recordings of this tool's sessions; notes/testmode.md, "Reference recordings")
 
 Runs the scripted session of tools/session_client.py with both clients and compares:
 
@@ -453,6 +455,11 @@ def compare_gui(orig, patella, mapping):
 
 
 def main():
+	# The record/compare split (Patella-Modern issue #23): record or compare as the first word runs
+	# tools/reference.py with this tool's sessions (notes/testmode.md, "Reference recordings").
+	if len(sys.argv) > 1 and sys.argv[1] in ("record", "compare"):
+		import reference
+		return reference.main([sys.argv[1], "--sessions", ",".join(reference.tool_sessions("compare_traffic"))] + sys.argv[2:])
 	ctypes.windll.user32.SetProcessDPIAware()
 	parser = argparse.ArgumentParser(description="Compare the traffic of Patella.exe and Tibia.exe.")
 	parser.add_argument("--out", default=os.path.join(TRAFFIC, "result"))

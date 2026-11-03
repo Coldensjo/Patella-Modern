@@ -43,6 +43,13 @@ driver (Mesa's lavapipe, copied next to
 the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it
 headless.
 
+The reference recordings (issue #23, M2's exit; `notes/testmode.md`, "Reference recordings"): `python -I
+tools/reference.py record --reference C:\Patella-Modern\build\reference` (Windows, Tibia.exe under patcap.dll;
+the test server only for the two live recordings) and `python -I tools/reference.py compare --reference
+C:\Patella-Modern\build\reference` (PatellaTest.exe on each session, the server side replayed inside the client,
+no server, PATELLA_VULKAN=cpu; Python only). Also as `record`/`compare` first words of compare_traffic.py,
+compare_files.py and compare_rendering.py. Local CipSoft-derived data: never committed, pushed or uploaded.
+
 The golden corpus (issue #24): `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86
 --target golden_corpus` records it into `build/golden` (derived from Tibia.exe: local only, never committed,
 pushed or uploaded); windows-x64's `golden_runner` (CTest test `golden`, skipped without a corpus) replays it
