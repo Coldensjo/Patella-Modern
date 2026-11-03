@@ -124,6 +124,13 @@ tools/tidy.py on every target that compiles src/, 667 declarations in 16 headers
 differences). `final` left out: it devirtualizes calls and changes the oracle's code (it waits for M6). The
 oracle Patella.exe and the x64 Patella.exe and PatellaTest.exe unchanged (pecompare); the clang-tidy baseline
 unchanged (21). notes/decisions.md, "override on every overrider, and no final yet (Patella-Modern issue #33)".
+using (Patella-Modern issue #35, November 3, 2026; M3's third change): modernize-use-using through tools/tidy.py
+on every target that compiles src/ (six typedefs in ConsoleWindow.cpp, surfaceDX9.cpp and SurfaceVulkan.h), and
+common.h's uint8, uint16 and uint32 by hand as aliases of std::uint8_t, std::uint16_t and std::uint32_t, each with a
+static_assert of its size and type (unsigned char, short, int: the same types as before on every compiler);
+.clang-tidy enables the check. The oracle Patella.exe and the x64 Patella.exe and PatellaTest.exe unchanged
+(pecompare); macrocheck 0 differences; the clang-tidy baseline unchanged (21). notes/decisions.md, "using instead
+of typedef; uint8/16/32 as the std types (Patella-Modern issue #35)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -144,6 +151,12 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #35 (branch issue-35, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after using instead of typedef (common.h, ConsoleWindow.cpp, surfaceDX9.cpp, SurfaceVulkan.h):
+16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the
+windows-x64 Release Patella.exe and PatellaTest.exe built from main (c57b39c) and from the branch at the same path:
+`.text` identical, 0 unexpected differences (pecompare); macrocheck c57b39c issue-35: 2,108 calls, 0 differences.
 
 Patella-Modern issue #33 (branch issue-33, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after override on every overrider (17 files of src/): 16,848,752 + 67 + 1,134,513 checks and
