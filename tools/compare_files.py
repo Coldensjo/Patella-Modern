@@ -2,7 +2,7 @@ r"""Compare the files Patella.exe and the original Tibia.exe write (issue #21).
 
 Usage (from the repository or a worktree; tools\build-patella.cmd first; the test server of
 issue #18 must be stopped, the script starts and stops it for the one live recording):
-  python -I tools/compare_files.py [--out build\files\result] [--only a,b] [--skip-live]
+  python -I tools/compare_files.py [--out build\files\result] [--only a,b] [--skip-live] [--patella EXE]
 
 Both clients play the same sessions in run folders with copies of the data files
 (build\files\orig, build\files\patella, made like tools/compare_traffic.py's); the files each
@@ -281,9 +281,15 @@ def button(driver, text):
 	raise RunError("no button %r" % text)
 
 
+def member(driver, component, path):
+	"""The pointer member `path` (Type.Member, client_state.LAYOUT_FIELDS) of the component at
+	`component`: its offset from the layout (the PDB for Patella.exe), 4 or 8 bytes."""
+	return driver.mem.ptr(component + driver.mem.off(path))
+
+
 def checked(driver, box):
-	"""TCheckBox's Checked (+0x30, after the label pointer)."""
-	return driver.mem.read(box + 0x30, 1)[0] != 0
+	"""TCheckBox's Checked (+0x30 in the original, after the label pointer)."""
+	return driver.mem.read(box + driver.mem.off("TCheckBox.Checked"), 1)[0] != 0
 
 
 def toggle(driver, box):
@@ -315,19 +321,19 @@ def options_session(driver, collect_cfg):
 	open_options()
 	log("options: general")
 	body = choose("General", "TGeneralOptionsDialog")
-	for offset in (0x2c, 0x30, 0x34, 0x38, 0x3c):  # TextualEffects, CreatureNames, ShowHints, ClassicControl, AutoChaseOff
-		toggle(driver, driver.mem.u32(body["ptr"] + offset))
+	for name in ("TextualEffects", "CreatureNames", "ShowHints", "ClassicControl", "AutoChaseOff"):
+		toggle(driver, member(driver, body["ptr"], "TGeneralOptionsDialog." + name))
 	ok("TGeneralOptionsDialog")
 	wait_node(driver, "TOptionsDialog")
 	log("options: console")
 	body = choose("Console", "TConsoleOptionsDialog")
-	for offset in (0x2c, 0x30, 0x34, 0x38, 0x3c):
-		toggle(driver, driver.mem.u32(body["ptr"] + offset))
+	for name in ("InfoMessages", "EventMessages", "StatusMessages", "TimeStamps", "PrivateMessages"):
+		toggle(driver, member(driver, body["ptr"], "TConsoleOptionsDialog." + name))
 	ok("TConsoleOptionsDialog")
 	wait_node(driver, "TOptionsDialog")
 	log("options: network")
 	body = choose("Network", "TNetworkOptionsDialog")
-	toggle(driver, driver.mem.u32(body["ptr"] + 0x2c))
+	toggle(driver, member(driver, body["ptr"], "TNetworkOptionsDialog.TestServerLogin"))
 	ok("TNetworkOptionsDialog")
 	wait_node(driver, "TOptionsDialog")
 	log("options: graphics")
@@ -336,14 +342,14 @@ def options_session(driver, collect_cfg):
 	time.sleep(0.3)
 	click_node(driver, button(driver, "Advanced"))
 	body = wait_node(driver, "TAdvancedGraphicsDialog")
-	for offset in (0x30, 0x34, 0x38):  # LightEffects, NoStretching, WindowsMousepointer
-		toggle(driver, driver.mem.u32(body["ptr"] + offset))
-	scroll = driver.mem.u32(body["ptr"] + 0x3c)  # Framerate: three clicks on its left button
-	left = driver.mem.u32(scroll + 0x30)
+	for name in ("LightEffects", "NoStretching", "WindowsMousepointer"):
+		toggle(driver, member(driver, body["ptr"], "TAdvancedGraphicsDialog." + name))
+	scroll = member(driver, body["ptr"], "TAdvancedGraphicsDialog.Framerate")  # three clicks on its left button
+	left = member(driver, scroll, "THorizontalScrollBar.LeftButton")
 	for _ in range(3):
 		click_ptr(driver, left)
 	if OPTIONS_ENGINE_SWITCH:
-		click_ptr(driver, driver.mem.u32(body["ptr"] + 0x4c))  # OpenGL
+		click_ptr(driver, member(driver, body["ptr"], "TAdvancedGraphicsDialog.OpenGLButton"))
 		time.sleep(3)
 		body = wait_node(driver, "TAdvancedGraphicsDialog")
 	ok("TAdvancedGraphicsDialog")
@@ -352,12 +358,12 @@ def options_session(driver, collect_cfg):
 	wait_node(driver, "TOptionsDialog")
 	log("options: hotkeys")
 	body = choose("Hotkeys", "THotkeyDialog")
-	box = driver.mem.u32(body["ptr"] + 0x2458)
+	box = member(driver, body["ptr"], "THotkeyDialog.AutoSendCheckBox")
 	for number, (text, auto) in enumerate((("hello patella", False), ("exura", True), ("hi", True), ("", False),
 			("trade offer", False))):
 		driver.key(VK_DOWN)  # the next line: F1, F2, ...
 		time.sleep(0.2)
-		if driver.mem.i32(body["ptr"] + 0x245c) != number:
+		if driver.mem.i32(body["ptr"] + driver.mem.off("THotkeyDialog.Selected")) != number:
 			raise RunError("hotkey %d not selected" % number)
 		driver.type(text)
 		if auto:
@@ -441,7 +447,10 @@ def set_mark(driver, dx, dy, text, kind, entry="Set Mark"):
 	body = wait_node(driver, "TEditMarkDialog")
 	driver.type(text)
 	if kind is not None:
-		click_ptr(driver, driver.mem.u32(body["ptr"] + 0xb0 + 4 * kind))  # TypeButtons[kind]
+		if not 0 <= kind < driver.mem.layout.count("TEditMarkDialog.TypeButtons"):
+			raise RunError("mark symbol %d out of range" % kind)
+		click_ptr(driver, driver.mem.ptr(body["ptr"] + driver.mem.off("TEditMarkDialog.TypeButtons")
+			+ driver.mem.pointer_size * kind))  # TypeButtons[kind]
 	driver.char(13)
 	wait_gone(driver, "TEditMarkDialog")
 
@@ -485,9 +494,9 @@ def walk_session(driver, wait, proxy, actions=None):
 	set_mark(driver, 20, 0, " edited", 5, entry="Edit Mark")
 	delete_mark(driver, 0, -15)
 	automap = wait_node(driver, "TAutomapWindow")
-	click_ptr(driver, driver.mem.u32(automap["ptr"] + 0x54))  # zoom in: 4
+	click_ptr(driver, member(driver, automap["ptr"], "TAutomapWindow.ZoomInButton"))  # zoom in: 4
 	for _ in range(2):
-		click_ptr(driver, driver.mem.u32(automap["ptr"] + 0x58))  # zoom out: 2, 1
+		click_ptr(driver, member(driver, automap["ptr"], "TAutomapWindow.ZoomOutButton"))  # zoom out: 2, 1
 	log("walk: the route")
 	keys = []
 	if actions is None:
@@ -1044,7 +1053,11 @@ def main():
 	parser.add_argument("--skip-live", action="store_true",
 		help="reuse --out's walk-live.jsonl (no server needed)")
 	parser.add_argument("--no-repeat", action="store_true", help="run Tibia.exe once only (no evidence for the masks)")
+	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
+		"it (default build/Release/Patella.exe; as tools/compare_traffic.py's --patella)")
 	args = parser.parse_args()
+	if args.patella:
+		CLIENTS["patella"]["source"] = CLIENTS["patella"]["pdb"] = os.path.abspath(args.patella)
 	out = os.path.abspath(args.out)
 	os.makedirs(out, exist_ok=True)
 	only = [name.strip() for name in args.only.split(",") if name.strip()]

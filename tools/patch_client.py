@@ -2,8 +2,9 @@
 
 Usage: python -I tools/patch_client.py <in.exe> <out.exe> --host 127.0.0.1 [--port 7171] [--rsa <modulus|pem>]
 
-Works on Tibia.exe and on Patella.exe alike: everything is found by searching the file, no
-fixed offsets. The input is only read; the output must be a different file.
+Works on Tibia.exe and on Patella.exe alike, x86 (PE32) and x64 (PE32+; Patella-Modern issue #15):
+everything is found by searching the file, no fixed offsets. The input is only read; the output
+must be a different file.
 
 - The four login server names (server.tibia.com, server2.tibia.com, tibia1.cipsoft.com,
   tibia2.cipsoft.com: InitServerList in src/Network.cpp) are overwritten in place by --host,
@@ -13,8 +14,12 @@ fixed offsets. The input is only read; the output must be a different file.
 - --port changes the immediate 7171 that InitServerList stores in each server's port, found
   as `03 1c 00 00` in the 0x200 code bytes after the first reference to the server.tibia.com
   literal: once in Tibia.exe (the loop's `mov ecx, 7171`), four times in Patella.exe (its
-  compiler unrolls the loop); any other count is an error. Without --port, or with 7171,
-  nothing is changed.
+  compiler unrolls the loop: `mov dword ptr [Servers+i], 7171`, RIP-relative on x64); any
+  other count is an error. Without --port, or with 7171, nothing is changed. A reference is
+  the literal's absolute address on x86; on x64 it is a RIP-relative disp32 after a ModRM byte
+  with mod 00, r/m 101 (the strcpy's `movups xmm0, [rip+disp32]`), whose target, the address
+  after the disp32 plus the disp32, is inside the literal (an instruction with an immediate
+  after its disp32 would have another target; InitServerList's loads have none).
 - --rsa replaces the decimal text of CipSoft's RSA modulus (TRSA::SetPublicKey's argument
   in src/Communication.cpp, one literal used by both the login and the game connection).
   The argument is the decimal modulus or a PEM file (an RSA private or public key, PKCS#1 or
@@ -59,9 +64,15 @@ class Image:
 		count = struct.unpack_from("<H", data, pe + 6)[0]
 		optsize = struct.unpack_from("<H", data, pe + 20)[0]
 		opt = pe + 24
-		if struct.unpack_from("<H", data, opt)[0] != 0x10b:
-			raise PatchError("not a PE32 (x86) image")
-		self.base = struct.unpack_from("<I", data, opt + 28)[0]
+		magic = struct.unpack_from("<H", data, opt)[0]
+		if magic == 0x10b:  # PE32: x86
+			self.x64 = False
+			self.base = struct.unpack_from("<I", data, opt + 28)[0]
+		elif magic == 0x20b:  # PE32+: x64, a 64-bit ImageBase at +24
+			self.x64 = True
+			self.base = struct.unpack_from("<Q", data, opt + 24)[0]
+		else:
+			raise PatchError("optional header magic 0x%x: neither PE32 nor PE32+" % magic)
 		self.sections = []
 		for i in range(count):
 			o = opt + optsize + 40 * i
@@ -153,19 +164,30 @@ def find_unique(data, needle, what):
 	return hits[0]
 
 
+def first_reference(image, data, lo, hi):
+	"""The file offset of the first code reference to an address in [lo, hi]: x86 an absolute
+	address, x64 a RIP-relative disp32 (ModRM mod 00, r/m 101 before it) whose target is there."""
+	for start, end in image.code_ranges():
+		if not image.x64:
+			for pos in range(start, end - 3):
+				value = struct.unpack_from("<I", data, pos)[0]
+				if lo <= value <= hi:
+					return pos
+			continue
+		for pos in range(max(start, 1), end - 3):
+			if data[pos - 1] & 0xc7 != 0x05:
+				continue
+			target = image.offset_to_va(pos) + 4 + struct.unpack_from("<i", data, pos)[0]
+			if lo <= target <= hi:
+				return pos
+	return None
+
+
 def find_port(image, data, anchor_offset, anchor_len):
 	# the first code reference to an address inside the server.tibia.com literal
 	lo = image.offset_to_va(anchor_offset)
 	hi = lo + anchor_len
-	first = None
-	for start, end in image.code_ranges():
-		for pos in range(start, end - 3):
-			value = struct.unpack_from("<I", data, pos)[0]
-			if lo <= value <= hi:
-				first = pos
-				break
-		if first is not None:
-			break
+	first = first_reference(image, data, lo, hi)
 	if first is None:
 		raise PatchError("no code reference to server.tibia.com: InitServerList not found")
 	window = data[first:first + 0x200]

@@ -100,7 +100,8 @@ ORIGINAL_GLOBALS = [
 ]
 ORIGINAL = {name: address for name, address, kind in ORIGINAL_GLOBALS}
 
-# Every field offset the tools read (this module and tools/session_client.py), as Type.Member[.Member]
+# Every field offset the tools read (this module, tools/session_client.py, tools/compare_files.py and
+# tools/compare_rendering.py), as Type.Member[.Member]
 # with the original's offset and the member's kind: "int" (any 4-byte integer or enum), "bool", "ptr"
 # (a pointer: 4 or 8 bytes), "char[N]", a type name, or "Type[N]".
 LAYOUT_FIELDS = [
@@ -187,6 +188,37 @@ LAYOUT_FIELDS = [
 	("TMapWindow.Names", 0x30, "TCreatureName[150]"),
 	("TTradeButtons.CancelButton", 0x34, "ptr"),
 	("TSubWindow.CloseButton", 0x54, "ptr"),
+	# tools/compare_files.py, tools/compare_rendering.py (Patella-Modern issue #15): the option dialogs'
+	# controls (Dialogs.h, DialogElements.h), the mark dialog's symbol buttons, the automap's zoom buttons
+	# (ContentWindows.h), the side bar's button places and the frame rate text (GUI.h)
+	("TCheckBox.Checked", 0x30, "bool"),
+	("TGeneralOptionsDialog.TextualEffects", 0x2c, "ptr"),
+	("TGeneralOptionsDialog.CreatureNames", 0x30, "ptr"),
+	("TGeneralOptionsDialog.ShowHints", 0x34, "ptr"),
+	("TGeneralOptionsDialog.ClassicControl", 0x38, "ptr"),
+	("TGeneralOptionsDialog.AutoChaseOff", 0x3c, "ptr"),
+	("TConsoleOptionsDialog.InfoMessages", 0x2c, "ptr"),
+	("TConsoleOptionsDialog.EventMessages", 0x30, "ptr"),
+	("TConsoleOptionsDialog.StatusMessages", 0x34, "ptr"),
+	("TConsoleOptionsDialog.TimeStamps", 0x38, "ptr"),
+	("TConsoleOptionsDialog.PrivateMessages", 0x3c, "ptr"),
+	("TNetworkOptionsDialog.TestServerLogin", 0x2c, "ptr"),
+	("TGraphicsOptionsDialog.Fullscreen", 0x2c, "ptr"),
+	("TAdvancedGraphicsDialog.LightEffects", 0x30, "ptr"),
+	("TAdvancedGraphicsDialog.NoStretching", 0x34, "ptr"),
+	("TAdvancedGraphicsDialog.WindowsMousepointer", 0x38, "ptr"),
+	("TAdvancedGraphicsDialog.Framerate", 0x3c, "ptr"),
+	("TAdvancedGraphicsDialog.OpenGLButton", 0x4c, "ptr"),
+	("THorizontalScrollBar.LeftButton", 0x30, "ptr"),
+	("THotkeyDialog.AutoSendCheckBox", 0x2458, "ptr"),
+	("THotkeyDialog.Selected", 0x245c, "int"),
+	("TEditMarkDialog.TypeButtons", 0xb0, "ptr[14]"),
+	("TAutomapWindow.ZoomInButton", 0x54, "ptr"),
+	("TAutomapWindow.ZoomOutButton", 0x58, "ptr"),
+	("TSkinProperties.Data60C", 0x60c, "TRect"),
+	("TSkinProperties.Data61C", 0x61c, "TRect"),
+	("TSkinProperties.Style1394.Data70.x", 0x1394 + 0x70, "int"),
+	("TSkinProperties.Style1394.Data70.y", 0x1394 + 0x74, "int"),
 ]
 
 # The sizes the tools use as strides.
@@ -356,8 +388,9 @@ class Layout:
 def kind_matches(expected, actual, pdb, type_id, pointer_size):
 	if expected != actual:
 		return False
-	if expected == "ptr":
-		return pdb.length(type_id) == pointer_size
+	element, count = parse_kind(expected)
+	if element == "ptr":  # a pointer or an array of pointers: pointer_size bytes each
+		return pdb.length(type_id) == (1 if count is None else count) * pointer_size
 	return True
 
 
