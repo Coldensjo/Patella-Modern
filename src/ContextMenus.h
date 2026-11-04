@@ -30,6 +30,7 @@
 #include "Map.h"     // TCoordinate, TMark
 #include "Status.h"  // SetActionState
 #include "Objects.h" // TObject
+#include "types/FixedString.h"
 
 class TConsoleWindow;    // ConsoleWindow.h
 class TTextWindow;       // ConsoleWindow.h
@@ -63,9 +64,9 @@ public:
 	bool LeftButtonUp(int x, int y, int Flags) override; // +0x54, 0x43e4d0, line 349
 	void SetLast();                                      // 0x43e660, line 361
 
-	char Text[50];      // +0x24
-	char Shortcut[20];  // +0x56
-	TCallback Callback; // +0x6c
+	TFixedString<50> Text;     // +0x24
+	TFixedString<20> Shortcut; // +0x56
+	TCallback Callback;        // +0x6c
 };
 
 // The base class of the menus.

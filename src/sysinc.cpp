@@ -12,6 +12,7 @@
 #include "sysinc.h"
 #include "common.h"
 #include "compat/msvc_io.h"
+#include <array>
 #include <mmsystem.h>
 #include <cstddef>
 #include <cstdlib>
@@ -23,8 +24,8 @@
 // class name ("TibiaClient"); the keys are Player.cpp's. First in this
 // object's .rdata, before the PROGRAM_ERROR texts (owner: notes/decisions.md,
 // "Unknown-owner data (issue #12)"; low).
-const int TitleCode[8] = {68, 75, 129, 81, 98, 78, 96, 141};                         // 0x5733a4
-const int ClassNameCode[11] = {57, 193, 225, 58, 140, 118, 195, 214, 239, 244, 137}; // 0x5733c4
+const std::array<int, 8> TitleCode = {68, 75, 129, 81, 98, 78, 96, 141};                         // 0x5733a4
+const std::array<int, 11> ClassNameCode = {57, 193, 225, 58, 140, 118, 195, 214, 239, 244, 137}; // 0x5733c4
 
 namespace {
 

@@ -19,6 +19,7 @@
 #include "graphics.h"
 #include "vulkan/FilterMask.h"
 #include "vulkan/Renderer.h"
+#include <array>
 #include <memory>
 #include <vector>
 #include <type_traits>
@@ -121,12 +122,12 @@ private:
 	void Fail();
 
 	bool Ready;                                           // CreateSurfaces has finished (SurfaceRecreated)
-	RECT Rect[NUMBER_OF_SURFACES_VULKAN];                 // the surfaces' rectangles, as surfaceDX9.cpp's
+	std::array<RECT, NUMBER_OF_SURFACES_VULKAN> Rect;     // the surfaces' rectangles, as surfaceDX9.cpp's
 	RECT WindowRect;                                      // the client area on the screen
 	RECT SurfaceArea;                                     // SetSurfaceRect
 	bool Initialized;                                     // between InitSurfaces and ExitSurfaces (surfaceDX9.cpp: DirectDraw exists)
 	std::unique_ptr<patella::vulkan::TRenderer> Renderer; // surfaceDX9.cpp's Direct3D and Device
-	int Image[NUMBER_OF_SURFACES_VULKAN];                 // the renderer's images (SCREEN_SURFACE: the canvas)
+	std::array<int, NUMBER_OF_SURFACES_VULKAN> Image;     // the renderer's images (SCREEN_SURFACE: the canvas)
 	int ScreenTexture;                                    // the 106x106 texture of SCREEN_SURFACE
 	int WhiteTexture;                                     // Direct3D 9's stage without a texture: opaque white
 	int DeviceTarget;                                     // the image the device draws quads into

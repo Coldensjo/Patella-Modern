@@ -13,6 +13,7 @@
 
 #include "ContentWindows.h"
 #include <algorithm>
+#include <array>
 #include "Communication.h"
 #include "ContextMenus.h"
 #include "Creatures.h"
@@ -66,14 +67,17 @@ namespace {
 
 // Data, in .bss order. ContentWindows.obj's copy of the text table is
 // Text.h's (0x5c0678-0x5c08c3, then its copy of DefaultFontColor).
-char AutomapMouseOverText[100]; // 0x5c4398, a mark's text (TAutomapWindow::MouseHover)
-char SkillMouseOverText[256];   // 0x5c4400, "You have %d percent to go"
+TFixedString<100> AutomapMouseOverText; // 0x5c4398, a mark's text (TAutomapWindow::MouseHover)
+TFixedString<256> SkillMouseOverText;   // 0x5c4400, "You have %d percent to go"
 // At 0x5c4500, constructed by the static initialiser 0x559dd0 as
 // TCallback(NULL, 0) like the other window files' (ConsoleWindow.obj's is at
 // 0x5c4390, initialiser 0x559dc0); here TTradeButtons' constructor copies it.
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
+
+// The texts TFixedStrings (issue #60).
+static_assert(sizeof(AutomapMouseOverText) == 100 && sizeof(SkillMouseOverText) == 256, "the mouse-over texts");
 
 // --- The creators -----------------------------------------------------------------
 
@@ -511,7 +515,7 @@ void TAutomapView::Draw(int Surface, int x, int y)
 		}
 	}
 	if (GetAutomapChanged() || Window->Changed || GetSurface()->SurfaceRecreated(0)) {
-		uint8 Pixels[106 * 106 * 3];
+		std::array<uint8, 106 * 106 * 3> Pixels;
 		for (int i = 0; i < 106; i++) {
 			for (int j = 0; j < 106; j++) {
 				if (Window->Zoom == 1) {
@@ -526,7 +530,7 @@ void TAutomapView::Draw(int Surface, int x, int y)
 				Pixels[(j * 106 + i) * 3 + 2] = (uint8)Color.B;
 			}
 		}
-		GetSurface()->WriteImage(5, 0, 0, 106, 106, Pixels);
+		GetSurface()->WriteImage(5, 0, 0, 106, 106, Pixels.data());
 		int CrossX = 53;
 		int CrossY = 53;
 		bool SameLevel = true;
@@ -1836,7 +1840,7 @@ void TSkillsWindowBody::Draw(int Surface, int x, int y)
 		int Progress = -1;
 		const int Margin = SkinProperties.Data668;
 		for (int i = 0; i < Lines; i++) {
-			char Text[100];
+			TFixedString<100> Text;
 			int Value;
 			const bool HasValue = GetLine(i + 1, Text, Value, Progress);
 			int ItemHeight = LineHeight;
@@ -1861,7 +1865,7 @@ void TSkillsWindowBody::Draw(int Surface, int x, int y)
 						GetSurface()->DrawHorizontalLine(Surface, ClipX, LineMiddle + y, TextWidth,
 							SkinProperties.Data654.Color);
 				} else {
-					char Number[20];
+					TFixedString<20> Number;
 					FormatNumber(Value, Number);
 					PrintTextClipped(Surface, SkinProperties.Data668 + x, SkinProperties.Data66C + LineY + y,
 						SkinProperties.Data654.FontNumber, SkinProperties.Data654.Color, Text, 0,
@@ -1926,7 +1930,7 @@ void TSkillsWindowBody::MouseHover(int x, int y)
 		int Progress = -1;
 		for (int i = 0; i < Lines;) {
 			i++;
-			char Text[100];
+			TFixedString<100> Text;
 			int Value;
 			GetLine(i, Text, Value, Progress);
 			int ItemHeight = LineHeight;
@@ -2031,7 +2035,7 @@ int TSkillsWindowBody::GetContentHeight()
 	int Result = 0;
 	for (int i = 0; i < Lines;) {
 		i++;
-		char Text[100];
+		TFixedString<100> Text;
 		int Value, Progress;
 		GetLine(i, Text, Value, Progress);
 		if (Progress != -1)
@@ -2201,7 +2205,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 					1, Color, TRect(x, ClipY, ClipWidth, ClipHeight));
 			GetSurface()->Flag26 = true;
 			DrawOutfit(Surface, SkinProperties.Style688.Data04.x + x, SkinProperties.Style688.Data04.y + RowY + y,
-				SkinProperties.Style688.Data04.width, Creature->OutfitType, Creature->Colors,
+				SkinProperties.Style688.Data04.width, Creature->OutfitType, Creature->Colors.data(),
 				SkinProperties.Style688.Data68, TRect(x, ClipY, ClipWidth, ClipHeight), SkinProperties.Data498);
 			GetSurface()->Flag26 = false;
 			if (Creature->PARTYFlag > 0) {

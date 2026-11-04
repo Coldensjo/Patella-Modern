@@ -18,6 +18,7 @@
 #include "Container.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include <array>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -25,56 +26,61 @@
 namespace {
 
 // Data, in .data/.bss order.
-int WindowedWidth = 600;                             // 0x5c2558, "WindowedMode = (x,y,Width,Height,Maximized)"
-int WindowedHeight = 400;                            // 0x5c255c
-bool SkillBars[SKILLS];                              // 0x719e70, "SkillBars = {...}"
-bool MagLevelBar;                                    // 0x719e77
-bool LevelBar;                                       // 0x719e78
-bool ShowNewHints;                                   // 0x719e79
-int NumberOfKnownHints;                              // 0x719e7c, "KnownHints = {...}"
-int NumberOfBuddyEntries;                            // 0x719e80, "Buddy = (...)", deleted entries included
-bool SecureMode;                                     // 0x719e84
-int ChaseMode;                                       // 0x719e88
-int AttackMode;                                      // 0x719e8c
-bool AutoChaseOff;                                   // 0x719e90
-bool ClassicControl;                                 // 0x719e91
-int NumberOfOpenChannels;                            // 0x719e94, "OpenChannel = ..."
-bool PrivateMessages;                                // 0x719e98
-bool TimeStamps;                                     // 0x719e99
-bool StatusMessages;                                 // 0x719e9a
-bool EventMessages;                                  // 0x719e9b
-bool InfoMessages;                                   // 0x719e9c
-char *MotD;                                          // 0x719ea0, text of the message of the day
-int LastMotD;                                        // 0x719ea4, its number
-int NumberOfOpenDialogs;                             // 0x719ea8, "OpenDialogs = ..."
-bool BuddyHideOffline;                               // 0x719eac
-int BuddySortmethods[3];                             // 0x719eb0
-int NumberOfContentWindows;                          // 0x719ebc, "ContentWindow = (...)"
-int AutomapZoom;                                     // 0x719ec0
-int ConsoleHeight;                                   // 0x719ec4
-bool WindowedMaximized;                              // 0x719ec8
-bool HotkeyAutoSend[HOTKEYS];                        // 0x719ecc, saved as a '\n' after the text
-TFixedString<HOTKEY_LENGTH> Hotkeys[HOTKEYS];        // 0x719ef0, "Hotkey = (Number,Text)"
-int Engine;                                          // 0x71c2f0, -1 = not chosen
-int ConfineFramerate;                                // 0x71c2f4
-int NoStretching;                                    // 0x71c2f8, 0 or 1, 2 = not set yet
-int CreatureInfo;                                    // 0x71c2fc
-bool TextualEffects;                                 // 0x71c300
-bool LightEffects;                                   // 0x71c301
-bool WindowsMousepointer;                            // 0x71c302
-TFullscreenMode FullscreenMode;                      // 0x71c304, Width 0 = not set
-int ViewMode;                                        // 0x71c314, "ViewMode" in a MainFrm.cpp catch block
-bool TestServerLogin;                                // 0x71c318, "TestServer = yes"
-bool PreferencesLoaded;                              // 0x71c319, set by InitPreferences; SavePreferences writes only then
-int WindowedX;                                       // 0x71c31c
-int WindowedY;                                       // 0x71c320
-vector<TContentWindowSize> ContentWindows(0, 9, 10); // 0x71c324, initialiser at 0x55a050
-vector<int> OpenDialogs(0, 9, 10, -1);               // 0x71c348, initialiser at 0x55a070
-vector<int> OpenChannels(0, 9, 10);                  // 0x71c368, initialiser at 0x55a090
-vector<TBuddy> Buddies(0, 9, 10);                    // 0x71c388, initialiser at 0x55a0b0
-vector<int> KnownHints(0, 9, 10);                    // 0x71c430, initialiser at 0x55a0d0
+int WindowedWidth = 600;                                  // 0x5c2558, "WindowedMode = (x,y,Width,Height,Maximized)"
+int WindowedHeight = 400;                                 // 0x5c255c
+std::array<bool, SKILLS> SkillBars;                       // 0x719e70, "SkillBars = {...}"
+bool MagLevelBar;                                         // 0x719e77
+bool LevelBar;                                            // 0x719e78
+bool ShowNewHints;                                        // 0x719e79
+int NumberOfKnownHints;                                   // 0x719e7c, "KnownHints = {...}"
+int NumberOfBuddyEntries;                                 // 0x719e80, "Buddy = (...)", deleted entries included
+bool SecureMode;                                          // 0x719e84
+int ChaseMode;                                            // 0x719e88
+int AttackMode;                                           // 0x719e8c
+bool AutoChaseOff;                                        // 0x719e90
+bool ClassicControl;                                      // 0x719e91
+int NumberOfOpenChannels;                                 // 0x719e94, "OpenChannel = ..."
+bool PrivateMessages;                                     // 0x719e98
+bool TimeStamps;                                          // 0x719e99
+bool StatusMessages;                                      // 0x719e9a
+bool EventMessages;                                       // 0x719e9b
+bool InfoMessages;                                        // 0x719e9c
+char *MotD;                                               // 0x719ea0, text of the message of the day
+int LastMotD;                                             // 0x719ea4, its number
+int NumberOfOpenDialogs;                                  // 0x719ea8, "OpenDialogs = ..."
+bool BuddyHideOffline;                                    // 0x719eac
+std::array<int, 3> BuddySortmethods;                      // 0x719eb0
+int NumberOfContentWindows;                               // 0x719ebc, "ContentWindow = (...)"
+int AutomapZoom;                                          // 0x719ec0
+int ConsoleHeight;                                        // 0x719ec4
+bool WindowedMaximized;                                   // 0x719ec8
+std::array<bool, HOTKEYS> HotkeyAutoSend;                 // 0x719ecc, saved as a '\n' after the text
+std::array<TFixedString<HOTKEY_LENGTH>, HOTKEYS> Hotkeys; // 0x719ef0, "Hotkey = (Number,Text)"
+int Engine;                                               // 0x71c2f0, -1 = not chosen
+int ConfineFramerate;                                     // 0x71c2f4
+int NoStretching;                                         // 0x71c2f8, 0 or 1, 2 = not set yet
+int CreatureInfo;                                         // 0x71c2fc
+bool TextualEffects;                                      // 0x71c300
+bool LightEffects;                                        // 0x71c301
+bool WindowsMousepointer;                                 // 0x71c302
+TFullscreenMode FullscreenMode;                           // 0x71c304, Width 0 = not set
+int ViewMode;                                             // 0x71c314, "ViewMode" in a MainFrm.cpp catch block
+bool TestServerLogin;                                     // 0x71c318, "TestServer = yes"
+bool PreferencesLoaded;                                   // 0x71c319, set by InitPreferences; SavePreferences writes only then
+int WindowedX;                                            // 0x71c31c
+int WindowedY;                                            // 0x71c320
+vector<TContentWindowSize> ContentWindows(0, 9, 10);      // 0x71c324, initialiser at 0x55a050
+vector<int> OpenDialogs(0, 9, 10, -1);                    // 0x71c348, initialiser at 0x55a070
+vector<int> OpenChannels(0, 9, 10);                       // 0x71c368, initialiser at 0x55a090
+vector<TBuddy> Buddies(0, 9, 10);                         // 0x71c388, initialiser at 0x55a0b0
+vector<int> KnownHints(0, 9, 10);                         // 0x71c430, initialiser at 0x55a0d0
 
 } // namespace
+
+// The arrays std::arrays (issue #60).
+static_assert(sizeof(SkillBars) == SKILLS && sizeof(BuddySortmethods) == 3 * sizeof(int) && sizeof(HotkeyAutoSend) == HOTKEYS
+		&& sizeof(Hotkeys) == HOTKEYS * HOTKEY_LENGTH,
+	"Preferences.cpp's arrays");
 
 // 0x4db2a0
 bool GetTestServerLogin()
@@ -455,7 +461,7 @@ void SetMagLevelBar(bool Value)
 // past their first byte. MotD is cleared without being freed.
 void SetDefaultPreferences()
 {
-	memset(HotkeyAutoSend, 0, sizeof(HotkeyAutoSend));
+	memset(HotkeyAutoSend.data(), 0, sizeof(HotkeyAutoSend));
 	ViewMode = 1;
 	FullscreenMode.Width = 0;
 	WindowsMousepointer = true;
@@ -723,7 +729,7 @@ void InitPreferences()
 			}
 			if (Script.Token != TOKEN::IDENTIFIER)
 				Script.error("Identifier expected");
-			char Identifier[MAX_IDENT_LENGTH];
+			TFixedString<MAX_IDENT_LENGTH> Identifier;
 			CopyString(Identifier, Script.getIdentifier(), MAX_IDENT_LENGTH);
 			Script.readSymbol('=');
 			if (strcmp(Identifier, "testserver") == 0)

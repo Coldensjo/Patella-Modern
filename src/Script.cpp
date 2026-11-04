@@ -37,8 +37,8 @@ void TReadScriptFile::open(const char *FileName)
 // 1054 are used.
 void TReadScriptFile::error(const char *Text)
 {
-	char Message[1056];
-	char Unknown[] = "(unknown)";
+	char Message[1056]; // NOLINT(modernize-avoid-c-arrays): TMYEXCEPTION(84)'s argument, frozen until M5 (issue #60)
+	TFixedString<10> Unknown = {"(unknown)"};
 	File.Close();
 	MsvcSnprintf(Message, 1054, "error in script file '%s' in line %d", Filename, Line);
 	if (Text == nullptr)
@@ -711,7 +711,7 @@ void InstallPatch(const char *FileName)
 	if (FileName == nullptr)
 		TERROR(879, "no file name");
 	// Name stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
-	char Name[1024];
+	char Name[1024]; // NOLINT(modernize-avoid-c-arrays): the error of line 883 names it as its reason, frozen until M5 (issue #60)
 	TStringBuffer(Name, sizeof(Name)).Assign(FileName);
 	Name[strlen(Name) - 1] = '_';
 	if (!FileExists(Name))

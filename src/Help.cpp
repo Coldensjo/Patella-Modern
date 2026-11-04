@@ -30,9 +30,12 @@ int HelpWidth;                    // 0x5ce530
 int HelpY;                        // 0x5ce534
 int HelpX;                        // 0x5ce538
 vector<int> EventHelps(0, 9, 10); // 0x5ce53c, initialiser at 0x559e80
-char HelpText[2048];              // 0x5ce560
+TFixedString<2048> HelpText;      // 0x5ce560
 
 } // namespace
+
+// HelpText a TFixedString (issue #60).
+static_assert(sizeof(HelpText) == 2048, "HelpText");
 
 // 0x4a2a00
 void SetHelpPosition(int x, int y)

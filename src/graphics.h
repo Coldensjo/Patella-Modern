@@ -22,6 +22,7 @@
 
 #include "common.h"
 #include "types/FixedString.h"
+#include <array>
 #include <type_traits>
 
 struct TObject; // Objects.h, passed to DrawObject
@@ -123,15 +124,15 @@ struct TPicture {
 // A font cut from a picture (0x71c bytes). Characters 33-127 have the
 // indices 1-95, characters 128-255 the indices 96-223.
 struct TFontInfo {
-	int PictureNumber; // +0x000
-	int CharsPerLine;  // +0x004
-	int CharWidth;     // +0x008
-	int CharHeight;    // +0x00c
-	int Widths[224];   // +0x010, the visible width of each character
-	int Heights[224];  // +0x390, the visible height of each character
-	int Spacing;       // +0x710, added after every character
-	int Height;        // +0x714, the highest visible height
-	int LineHeight;    // +0x718
+	int PictureNumber;            // +0x000
+	int CharsPerLine;             // +0x004
+	int CharWidth;                // +0x008
+	int CharHeight;               // +0x00c
+	std::array<int, 224> Widths;  // +0x010, the visible width of each character
+	std::array<int, 224> Heights; // +0x390, the visible height of each character
+	int Spacing;                  // +0x710, added after every character
+	int Height;                   // +0x714, the highest visible height
+	int LineHeight;               // +0x718
 };
 
 // A decoded tile in the memory cache (0x28 bytes); "Item" in the assertions.
@@ -163,7 +164,7 @@ struct TVideoCacheItem {
 		int TileX;      // +0x14, pictures
 	};
 	union {
-		TRGBColor Colors[4]; // +0x18, masked sprites
+		std::array<TRGBColor, 4> Colors; // +0x18, masked sprites
 		struct {
 			int TileY;       // +0x18, pictures
 			TRGBColor Color; // +0x1c, font characters; 0,0,0 for pictures
@@ -178,27 +179,27 @@ struct TVideoCacheItem {
 
 // Data. Only graphics.cpp uses them except the two signatures (sent at login
 // and when patching); the others are declared for the differential tests.
-extern int MemoryHashTable[HASH_TABLE_SIZE];   // 0x5cc430
-extern int VideoHashTable[HASH_TABLE_SIZE];    // 0x5cc5c0
-extern int NumberOfFonts;                      // 0x5cc750
-extern int NumberOfPictures;                   // 0x5cc754
-extern uint32 PictureSignature;                // 0x5cc758
-extern TFixedString<PATH_MAX> PictureFileName; // 0x5cc760
-extern int NumberOfSprites;                    // 0x5ccb60
-extern uint32 SpriteSignature;                 // 0x5ccb64
-extern TFixedString<PATH_MAX> SpriteFileName;  // 0x5ccb68
-extern int LeastRecentMemoryItem;              // 0x5ccf68
-extern int MostRecentMemoryItem;               // 0x5ccf6c
-extern int MemoryCacheSize;                    // 0x5ccf70
-extern uint8 *MemoryCacheData;                 // 0x5ccf74
-extern int LeastRecentVideoItem;               // 0x5ccf78
-extern int MostRecentVideoItem;                // 0x5ccf7c
-extern int VideoCacheSize;                     // 0x5ccf80
-extern TVideoCacheItem *VideoCache;            // 0x5ccf84
-extern TMemoryCacheItem *MemoryCache;          // 0x5ccf88
-extern TSprite *Sprites;                       // 0x5ccf8c
-extern TPicture *Pictures;                     // 0x5ccf90
-extern TFontInfo *Fonts;                       // 0x5ccf94
+extern std::array<int, HASH_TABLE_SIZE> MemoryHashTable; // 0x5cc430
+extern std::array<int, HASH_TABLE_SIZE> VideoHashTable;  // 0x5cc5c0
+extern int NumberOfFonts;                                // 0x5cc750
+extern int NumberOfPictures;                             // 0x5cc754
+extern uint32 PictureSignature;                          // 0x5cc758
+extern TFixedString<PATH_MAX> PictureFileName;           // 0x5cc760
+extern int NumberOfSprites;                              // 0x5ccb60
+extern uint32 SpriteSignature;                           // 0x5ccb64
+extern TFixedString<PATH_MAX> SpriteFileName;            // 0x5ccb68
+extern int LeastRecentMemoryItem;                        // 0x5ccf68
+extern int MostRecentMemoryItem;                         // 0x5ccf6c
+extern int MemoryCacheSize;                              // 0x5ccf70
+extern uint8 *MemoryCacheData;                           // 0x5ccf74
+extern int LeastRecentVideoItem;                         // 0x5ccf78
+extern int MostRecentVideoItem;                          // 0x5ccf7c
+extern int VideoCacheSize;                               // 0x5ccf80
+extern TVideoCacheItem *VideoCache;                      // 0x5ccf84
+extern TMemoryCacheItem *MemoryCache;                    // 0x5ccf88
+extern TSprite *Sprites;                                 // 0x5ccf8c
+extern TPicture *Pictures;                               // 0x5ccf90
+extern TFontInfo *Fonts;                                 // 0x5ccf94
 
 // Start-up and shut-down.
 void InitGraphics(int MemoryCacheBytes);

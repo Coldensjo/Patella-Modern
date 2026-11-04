@@ -30,6 +30,8 @@
 #include "sysinc.h"
 #include "compat/crt71.h"
 #include "common.h"
+#include "types/FixedString.h"
+#include <array>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -48,8 +50,8 @@ namespace {
 // The window title and class name are stored XOR-encoded. The key of each
 // string is in this object's .rdata (0x56dd98, 0x56ddb8); the other half,
 // TitleCode and ClassNameCode, is sysinc.cpp's (0x5733a4, 0x5733c4).
-const int TitleKey[8] = {16, 34, 227, 56, 3, 110, 64, 173};                         // 0x56dd98
-const int ClassNameKey[11] = {109, 168, 131, 83, 237, 53, 175, 191, 138, 154, 253}; // 0x56ddb8
+const std::array<int, 8> TitleKey = {16, 34, 227, 56, 3, 110, 64, 173};                         // 0x56dd98
+const std::array<int, 11> ClassNameKey = {109, 168, 131, 83, 237, 53, 175, 191, 138, 154, 253}; // 0x56ddb8
 
 // Data, in .data/.bss order.
 int LastMouseCursor = 1;  // 0x5c2518
@@ -61,7 +63,7 @@ POINT LastMousePosition;  // 0x719db4
 CPlayerApp theApp; // 0x719dc0
 
 // 0x4d7cd0: CPlayerApp has no message handlers of its own.
-BEGIN_MESSAGE_MAP(CPlayerApp, CWinApp)
+BEGIN_MESSAGE_MAP(CPlayerApp, CWinApp) // NOLINT(modernize-avoid-c-arrays): MFC's macro declares the message table (issue #60)
 END_MESSAGE_MAP()
 
 // 0x4d7cf0
@@ -117,10 +119,10 @@ namespace {
 // whose title or class matches the client's (caseless), this one included.
 BOOL CALLBACK CountTibiaWindows(HWND Window, [[maybe_unused]] LPARAM Parameter)
 {
-	char Title[32];
-	char WindowText[32];
-	char ClassName[32];
-	char WindowClass[32];
+	TFixedString<32> Title;
+	TFixedString<32> WindowText;
+	TFixedString<32> ClassName;
+	TFixedString<32> WindowClass;
 	const int TextLength = GetWindowTextA(Window, WindowText, 30);
 	const int ClassLength = GetClassNameA(Window, WindowClass, 30);
 	GetWindowTitle(Title);
@@ -181,7 +183,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 				if (strlen(Version.szCSDVersion) != 0) {
 					// Characters other than letters, digits, ' ', '.', '-' and
 					// '_' become '*'.
-					char ServicePack[30] = {0};
+					TFixedString<30> ServicePack = {0};
 					try {
 						unsigned int Length = (unsigned int)strlen(Version.szCSDVersion);
 						if (Length > 30)
@@ -193,7 +195,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 							else
 								ServicePack[i] = '*';
 						}
-						Out << " with " << ServicePack;
+						Out << " with " << ServicePack.Chars;
 					} catch (...) {
 					}
 				}
@@ -280,7 +282,7 @@ BOOL CPlayerApp::InitInstance()
 	try {
 		try {
 			ReadErrorFile();
-			char ClassName[32];
+			TFixedString<32> ClassName;
 			GetWindowClassName(ClassName);
 			WNDCLASSA WindowClass = {0};
 			WindowClass.style = CS_OWNDC | CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW;
@@ -290,7 +292,7 @@ BOOL CPlayerApp::InitInstance()
 			WindowClass.hIcon = ::LoadIconA(AfxGetResourceHandle(), MAKEINTRESOURCEA(128));
 			AfxRegisterClass(&WindowClass);
 
-			char CommandLine[1024];
+			TFixedString<1024> CommandLine;
 			strncpy(CommandLine, m_lpCmdLine, sizeof(CommandLine));
 			CommandLine[sizeof(CommandLine) - 1] = 0;
 			const char *Token = strtok(CommandLine, " \t\n");
@@ -328,7 +330,7 @@ BOOL CPlayerApp::InitInstance()
 			TBEGIN
 			MainFrame = new CMainFrame(Gamemaster);
 			TEND(255)
-			char Title[56];
+			TFixedString<56> Title;
 			GetWindowTitle(Title);
 			if (!MainFrame->Create(nullptr, Title, WS_OVERLAPPEDWINDOW, CFrameWnd::rectDefault, nullptr, nullptr, 0, nullptr)) {
 				delete MainFrame;

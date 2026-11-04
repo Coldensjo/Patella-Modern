@@ -8802,3 +8802,76 @@ TXTEA's and TRSA's interfaces take spans, and no pointer and length pair is left
   (MaxLength) and FormatNumber's unsized buffer, Network.h's SetSymmetricKey (`const uint8 *`, 16 bytes;
   communicationtest fakes it by address with that signature) and GetErrorMessage's unsized buffer, Dialogs.h's
   CreateUpdateDialog/TUpdateDialog (a file name and a size, not a pair).
+
+## std::array for the C arrays, and spans for vlong and the packet hooks (Patella-Modern issue #60)
+
+Settled by Claude Opus 5.5, November 5, 2026. The seventh change of M4 (plan section 7, "C arrays in structures"): the
+client's arrays are `std::array` or `TFixedString`, and clang-tidy's modernize-avoid-c-arrays reports nothing on
+windows-x64's sources but the owners of #58 (`std::unique_ptr<T[]>`) and the arrays marked below.
+
+- **The rule** (high). A member, global or local `T X[N]` became `std::array<T, N>`, a `T X[A][B]`
+  `std::array<std::array<T, B>, A>` (TAutomapBlock's Color and Speed, TMapWindow's Light, CoverLevel and Cache), a
+  text `char X[N]` `TFixedString<N>` (#57's type: it converts to `char *` as the array decayed, so the C string
+  calls and the TASSERT texts that name it are unchanged). Uninitialised stays uninitialised (both are aggregates
+  default-initialised as the array was); `= {}`, `= {0}` and `= {"text"}` initialise as before. MSVC's
+  `std::array` is a struct whose only member is the array, so size, alignment and offsets are the array's; libstdc++
+  and libc++ likewise.
+- **The layouts** (high). Each converted structure asserts its size and the converted members' offsets, the values
+  read from main's (d9b3cfd) oracle PDB with tools/client_state.py's reader: unconditionally where the structure has
+  no pointers (the x64 PDB has the same values: TCreature, TMapPoint, TMark, TErrorReport, TTalkbox, TFontInfo,
+  TVideoCacheItem, TCacheField, the skins' TSkinProperties288, B08, F8C, TCombatControlsProperties and
+  TSkinProperties), under PATELLA_ORIGINAL_LAYOUT where it has pointers or a vtable (TContainer, TOffer,
+  TAutomapBlock, TXTEA, TTalkLine, the private and rule violation buffers, TTalkFilter, TReadScriptFile, TMapWindow,
+  TContextMenuEntry, TOutfitIcon, TReconnectWindow, TOutfitDialog, TEditBuddyDialog, TRuleViolationDialog,
+  TEditMarkDialog, THotkeyDialog). CMainFrame derives from CFrameWnd, whose size differs between MFC and the shim of
+  difftest and the golden tests: it asserts KeyStates' place among its own members (after Placement, 0x100 bytes
+  before KeyFlags). The globals assert their sizes. `client_state.py --layout` on the new oracle: 105 fields, 33
+  globals, 0 mismatches, equal to the original; on the new x64 image every field and size as main's.
+- **Where the array decayed** (high). Outside the macros, a pointer is `.data()` (memset, memcpy, CAsyncSocket::Send,
+  DrawOutfit's and SendOutfit's colours, TXTEA's key, FindPath's steps, ShadeRectangles, WriteImage,
+  WriteMaskedImage, the test mode's views) and a TFixedString's is `.Chars` where a conversion cannot reach it: a
+  `TSpan<char>` (GetString's 22 callers), snprintf's and the golden tests' varargs (`%s`: a TFixedString there would be
+  its N bytes; MSVC's C4477 found snprintf's and sprintf's, and every variadic call of src/, tests/golden and
+  tools/difftest with a converted name was read), and the two stream writes (MoveCreature's error text, the service
+  pack in error.txt: MSVC chose `operator<<(const char *)` for a TFixedString in both standards, tested, so the text
+  is the same; `.Chars` says so). No TASSERT/TERROR/TEND argument changed (macrocheck: 2,108 calls, 0 differences).
+- **The arrays that stay** (high), each with `NOLINT(modernize-avoid-c-arrays)` and its reason on the line: the four
+  Script.h `Filename` buffers and InstallPatch's `Name` (TERROR_REASON's reason is a `const std::string &`, which
+  neither type reaches in one conversion), TReadScriptFile::error's `Message` (TMYEXCEPTION(84)'s argument, the same),
+  TProperties::Flags (TASSERT1(67)'s value is `*(int*)Entry.Flags`), all until M5; TFixedString's own `Chars`; the
+  skin table (Skins.cpp: an unnamed type sized by its entries; std::to_array is C++20, the oracle C++17); MFC's
+  BEGIN_MESSAGE_MAP; CreateNewChannelDialog's and TNewChannelDialog's `const char (*)[30]` (the golden tests fake
+  CreateNewChannelDialog by address with that signature; a span would change it). Not marked: the 16 findings (15 lines) on
+  `std::unique_ptr<T[]>` (#58's owners of new[] and their static_asserts), which are not C arrays; and the
+  oracle-only engine sources (SurfaceDX.cpp's `uint8 Bytes[4]`), which windows-x64 does not compile.
+- **Count** (high). `python -I tools/tidy.py -p build/windows-x64 --all --checks='-*,modernize-avoid-c-arrays'`: 241 at
+  M3's exit, 202 on main d9b3cfd, 16 now (the unique_ptrs above). The check is not added to `.clang-tidy`: the
+  remaining unique_ptr findings would need a NOLINT each.
+- **Spans** (high). vlong.h's ByteArrayToVlong and VlongToByteArray take `TSpan<const uint8>` and `TSpan<uint8>`; the
+  bodies define the original's `pData` and `Size` (cut to uint16, as the original's parameter) from the span, so a
+  span without data throws "pData pointer is NULL" as before (new unit test). TestHooks.h (test build only):
+  RsaBlock takes `TSpan<const unsigned char, 128>`, PacketSent and PacketReceived the whole SendData and ReceiveData as
+  spans, the payload and padding are subspans. Not done (risky or larger than this change): Script.h's readBytes and
+  writeBytes, Status.h's CheckClipboardText, Utils.h's CopyString, CompareStrings, ShortenString and FormatNumber,
+  Network.h's GetErrorMessage (the golden core and error tests call them with the original's arguments, null pointers
+  and negative sizes included: each needs #59's OriginalSpan treatment) and SetSymmetricKey and
+  CreateNewChannelDialog (faked by address with their signatures).
+- **Tools and tests** (high). tools/client_state.py's Pdb.kind reads a `std::array<T, N>` (one data member `_Elems` at
+  offset 0, the same length) as `T[N]`; main's tool on the new x64 image reported Body, Containers, TMapPoint.Objects,
+  TCreature.Colors and five more as problems. tools/patch_client.py needs nothing (Servers' RVA, sizeof(TServer),
+  TServer::Port): it patches the new oracle and x64 images. tests/golden/runner.cpp: in an MSVC Debug build the
+  library's checks (a std::array index out of range) report to stderr and end the run with exit code 3 instead of the
+  CRT's message box. Forced test changes: `.data()`/`.Chars` in tests/golden (script, graphics, context menus,
+  MainFrm, content windows, map window, network, control), dialogs_tests.cpp's Numbers and Pointers for std::array
+  members, communication_tests.cpp's and tools/difftest/playertest.cpp's own definitions of PacketHeader,
+  TitleCode and ClassNameCode.
+- **Proof** (high). The images change (code only), so behaviour is the proof: difftest 16,848,752, sysinctest 67,
+  communicationtest 1,134,513, vlong 3,201, 0 failures (`oracle-x86 --fresh`, and again recording the branch's
+  corpus); golden_runner 16,461,713 replayed, 1,521,619 retired, 0 failures in windows-x64 and windows-x64-debug (the
+  Debug library checks each std::array index: none out of range). pecompare of d9b3cfd and issue-60 at the same path,
+  with the functions' sizes from both PDBs: the oracle resizes 83 functions (.text -0x950) and adds out-of-line
+  copies of four std::array::operator[] (ClearMap calls std::array<TEffect, 200>'s instead of unrolling its loop) and
+  the TFixedString Format instantiations that replace the char-array ones; x64 resizes 75 (.text +0x800), adds a
+  dynamic initialiser for Containers (std::array<TContainer, 16>: the same zeroed values before main) and the same
+  kind of instantiations; no string of .rdata changed. The x64 test mode's packet log and state dump are the live
+  checks (reference.py compare).

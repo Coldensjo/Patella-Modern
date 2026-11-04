@@ -32,6 +32,7 @@
 #include "Map.h"         // TCoordinate, TMark
 #include "Preferences.h" // TFullscreenMode, HOTKEYS
 #include "Text.h"        // TReconnectBody::SetTime reads TextTryingToReconnect
+#include <array>
 #include <cstddef>
 #include <memory>
 
@@ -59,7 +60,7 @@ TDialog *CreateTextDialog(const int *ObjectData, const char *Author, const char 
 TDialog *CreateEditListDialog(int *HouseData, const char *Text);                                        // 0x4817c0, line 294
 TDialog *CreateOutfitDialog(int *Data);                                                                 // 0x4819f0, line 307
 TDialog *CreateBugReportDialog();                                                                       // 0x481bf0, line 321
-TDialog *CreateNewChannelDialog(int NumberOfChannels, int *ChannelIDs, const char (*ChannelNames)[30]); // 0x481e00, line 334
+TDialog *CreateNewChannelDialog(int NumberOfChannels, int *ChannelIDs, const char (*ChannelNames)[30]); // 0x481e00, line 334; NOLINT(modernize-avoid-c-arrays): the tests fake it by address with this signature (issue #60)
 TDialog *CreateInviteDialog();                                                                          // 0x482010, line 347
 TDialog *CreateExcludeDialog();                                                                         // 0x482210, line 360
 TDialog *CreateIgnoreListDialog();                                                                      // 0x482410, line 375
@@ -214,7 +215,7 @@ public:
 	}
 
 	int Timeout;                   // +0x2c, tenths of a second
-	char Text[512];                // +0x30, the time left
+	TFixedString<512> Text;        // +0x30, the time left
 	std::unique_ptr<TTimer> Timer; // +0x230, event 31 (issue #58)
 	TProgressBar *ProgressBar;     // +0x234
 	TLabel *TimeLabel;             // +0x238
@@ -311,11 +312,11 @@ public:
 	void HandleEvent(int Event) override; // +0x70, 0x471250, line 1586
 
 	TOutfitIcon *OutfitIcon;                       // +0x2c
-	TTextButton *PartButtons[4];                   // +0x30, events 1000-1003
+	std::array<TTextButton *, 4> PartButtons;      // +0x30, events 1000-1003
 	std::unique_ptr<TRadioButtonGroup> PartGroup;  // +0x40 (issue #58)
-	TColorButton *ColorButtons[133];               // +0x44, events 2000-2132
+	std::array<TColorButton *, 133> ColorButtons;  // +0x44, events 2000-2132
 	std::unique_ptr<TRadioButtonGroup> ColorGroup; // +0x258 (issue #58)
-	int Colors[4];                                 // +0x25c
+	std::array<int, 4> Colors;                     // +0x25c
 	int Outfit;                                    // +0x26c
 	int FirstOutfit;                               // +0x270
 	int LastOutfit;                                // +0x274
@@ -434,7 +435,7 @@ class TNewChannelDialog : public TWindow {
 public:
 	TNewChannelDialog(const TNewChannelDialog &) = delete;
 	TNewChannelDialog &operator=(const TNewChannelDialog &) = delete;
-	TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30]); // 0x4733a0, lines 2265-2297
+	TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30]); // 0x4733a0, lines 2265-2297; NOLINT(modernize-avoid-c-arrays): as CreateNewChannelDialog (issue #60)
 	// Inline (out-of-line copy 0x46bb20, deleting destructor 0x46be80).
 	~TNewChannelDialog() override { ChannelIDs.reset(); }
 	void KeyPress(int Key) override;      // +0x6c, 0x473980, line 2321
@@ -503,7 +504,7 @@ public:
 	std::unique_ptr<TRadioButtonGroup> IconGroup; // +0x30 (issue #58)
 	TCheckBox *Notify;                            // +0x34
 	TEditText *Description;                       // +0x38
-	TIconButton *IconButtons[11];                 // +0x3c
+	std::array<TIconButton *, 11> IconButtons;    // +0x3c
 };
 
 // --- Updates, help and hints ----------------------------------------------------
@@ -575,7 +576,7 @@ public:
 	TEditLine *StatementEdit;                // +0x40
 	TCheckBox *IPBanishment;                 // +0x44
 	uint32 StatementID;                      // +0x48
-	int Reasons[50];                         // +0x4c, the right of each reason line, -1 after the last
+	std::array<int, 50> Reasons;             // +0x4c, the right of each reason line, -1 after the last
 };
 
 // --- Automap marks ---------------------------------------------------------------
@@ -597,7 +598,7 @@ public:
 	TMark Mark;                                   // +0x38
 	TEditLine *TextEdit;                          // +0xa8
 	std::unique_ptr<TRadioButtonGroup> TypeGroup; // +0xac (issue #58)
-	TIconButton *TypeButtons[14];                 // +0xb0
+	std::array<TIconButton *, 14> TypeButtons;    // +0xb0
 };
 
 // --- Options -----------------------------------------------------------------------
@@ -677,9 +678,9 @@ public:
 	// The x64 client (Patella-Modern issue #31, plan 6.3): the three buttons choose the graphics device
 	// ("Automatic", "GPU", "CPU" in the places of DirectX5Button, DirectX9Button, OpenGLButton), and the
 	// line above them names the device in use. Not in the oracle, whose layout stays the original's.
-	void ShowDevice();         // the selected button and the device's name
-	TLabel *DeviceLabel;       // the line above the buttons (the original's "Select graphics engine:")
-	char DeviceLabelName[128]; // the device the line names
+	void ShowDevice();                 // the selected button and the device's name
+	TLabel *DeviceLabel;               // the line above the buttons (the original's "Select graphics engine:")
+	TFixedString<128> DeviceLabelName; // the device the line names
 #endif
 };
 
@@ -720,13 +721,13 @@ public:
 	void HandleEvent(int Event) override;                // +0x70, 0x47c010, lines 3993-3996
 	void UpdateLine(int Number);                         // 0x47b9c0, lines 3914-3933
 
-	TFixedString<256> Texts[HOTKEYS]; // +0x2c
-	bool AutoSend[HOTKEYS];           // +0x242c
-	TFontListBox *ListBox;            // +0x2450, event 11
-	TEditLine *TextEdit;              // +0x2454
-	TCheckBox *AutoSendCheckBox;      // +0x2458
-	int Selected;                     // +0x245c, -1 for none
-	void (*OpenURL)(const char *URL); // +0x2460, kept, not used
+	std::array<TFixedString<256>, HOTKEYS> Texts; // +0x2c
+	std::array<bool, HOTKEYS> AutoSend;           // +0x242c
+	TFontListBox *ListBox;                        // +0x2450, event 11
+	TEditLine *TextEdit;                          // +0x2454
+	TCheckBox *AutoSendCheckBox;                  // +0x2458
+	int Selected;                                 // +0x245c, -1 for none
+	void (*OpenURL)(const char *URL);             // +0x2460, kept, not used
 };
 
 // "Error Report" (vtable 0x563b30, 0x30 bytes): the reports of the last

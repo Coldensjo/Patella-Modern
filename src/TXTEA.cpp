@@ -41,6 +41,11 @@ void DecryptXTEA(uint32 *Block, const uint32 *Key)
 
 } // namespace
 
+#if PATELLA_ORIGINAL_LAYOUT
+// Key a std::array (issue #60), after the vtable pointer.
+static_assert(sizeof(TXTEA) == 0x14, "TXTEA's layout");
+#endif
+
 // 0x508c70
 TXTEA::TXTEA()
 {
@@ -65,12 +70,12 @@ void TXTEA::SetKey(TKey Key)
 void TXTEA::EncryptBlock(TBlock Block)
 {
 	if (Block.data() != nullptr)
-		EncryptXTEA(reinterpret_cast<uint32 *>(Block.data()), Key);
+		EncryptXTEA(reinterpret_cast<uint32 *>(Block.data()), Key.data());
 }
 
 // 0x508f80
 void TXTEA::DecryptBlock(TBlock Block)
 {
 	if (Block.data() != nullptr)
-		DecryptXTEA(reinterpret_cast<uint32 *>(Block.data()), Key);
+		DecryptXTEA(reinterpret_cast<uint32 *>(Block.data()), Key.data());
 }

@@ -35,6 +35,7 @@
 #include "common.h"
 #include "types/FixedString.h"
 
+#include <array>
 #include <cmath>
 #include <sstream>
 #include <cstddef>
@@ -66,6 +67,17 @@ inline void Limit(int &Value, int Bound1, int Bound2)
 }
 
 } // namespace
+
+// The arrays std::arrays (issue #60). TCacheField has no pointers (the same on x64); TMapWindow has a vtable.
+static_assert(sizeof(TCacheField) == 0x8c && offsetof(TCacheField, Sprite) == 0x0c && offsetof(TCacheField, SpriteX) == 0x34
+		&& offsetof(TCacheField, SpriteY) == 0x5c,
+	"TCacheField's layout");
+#if PATELLA_ORIGINAL_LAYOUT
+static_assert(sizeof(TMapWindow) == 0x92d8 && offsetof(TMapWindow, Names) == 0x0030
+		&& offsetof(TMapWindow, TextualEffects) == 0x073c && offsetof(TMapWindow, Light) == 0x19fc
+		&& offsetof(TMapWindow, CoverLevel) == 0x25dc && offsetof(TMapWindow, Cache) == 0x29d4,
+	"TMapWindow's layout");
+#endif
 
 // A thrown error whose expression text is a bug number, like Map.cpp's
 // assertions ("unknown creature party flag", "[bug0001106]").
@@ -511,8 +523,8 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	// darkness tile per field.
 	TBEGIN
 	if (LightEffects) {
-		TRect Rects[(MAPSIZE_X + 1) * (MAPSIZE_Y + 1)];
-		TRGBColor Colors[(MAPSIZE_X + 1) * (MAPSIZE_Y + 1) * 4];
+		std::array<TRect, (MAPSIZE_X + 1) * (MAPSIZE_Y + 1)> Rects;
+		std::array<TRGBColor, (MAPSIZE_X + 1) * (MAPSIZE_Y + 1) * 4> Colors;
 		for (int FieldY = 0; FieldY <= MAPSIZE_Y; FieldY++) {
 			for (int FieldX = 0; FieldX <= MAPSIZE_X; FieldX++) {
 				const int i = FieldY * (MAPSIZE_X + 1) + FieldX;
@@ -528,7 +540,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 				Colors[i * 4 + 3] = Light[Right][Bottom];
 			}
 		}
-		GetSurface()->ShadeRectangles(2, (MAPSIZE_X + 1) * (MAPSIZE_Y + 1), Rects, Colors);
+		GetSurface()->ShadeRectangles(2, (MAPSIZE_X + 1) * (MAPSIZE_Y + 1), Rects.data(), Colors.data());
 	} else {
 		for (int FieldX = 0; FieldX < MAPSIZE_X; FieldX++) {
 			for (int FieldY = 0; FieldY < MAPSIZE_Y; FieldY++)
@@ -830,8 +842,11 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 	}
 	TEND(884)
 	int NumberOfCreatures = 0;
-	TCreature *Creatures[10];
-	int OffsetX[10], OffsetY[10], ShiftX[10], ShiftY[10];
+	std::array<TCreature *, 10> Creatures;
+	std::array<int, 10> OffsetX;
+	std::array<int, 10> OffsetY;
+	std::array<int, 10> ShiftX;
+	std::array<int, 10> ShiftY;
 	TBEGIN
 	for (int i = FieldX - 1; i <= FieldX + 1; i++) {
 		for (int j = FieldY - 1; j <= FieldY + 1; j++) {
@@ -1090,7 +1105,7 @@ void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature
 	TASSERT(1107, Creature->OutfitType!=0);
 	TBEGIN
 	const int OutfitType = Creature->OutfitType;
-	TRGBColor Colors[4];
+	std::array<TRGBColor, 4> Colors;
 	int R, G, B;
 	GetOutfitColor(Creature->Colors[0], &R, &G, &B);
 	Colors[0] = TRGBColor(R, G, B);
@@ -1118,7 +1133,7 @@ void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature
 				: 0;
 			if (SpriteNumber > 0)
 				DrawFieldSprite(posx - X * 32 - ShiftX + 32, posy - Y * 32 - ShiftY + 32, Level, true, SpriteNumber,
-					MaskNumber, Colors);
+					MaskNumber, Colors.data());
 		}
 	}
 	TEND2(1129, posx, posy)
@@ -1374,7 +1389,8 @@ void TMapWindow::AddLightSource(int posx, int posy, int z, int Brightness, TRGBC
 void TMapWindow::ArrangeTalkboxes()
 {
 	TBEGIN
-	int BoxWidth[TALKBOXES], BoxHeight[TALKBOXES];
+	std::array<int, TALKBOXES> BoxWidth;
+	std::array<int, TALKBOXES> BoxHeight;
 	const int Talkboxes = GetNumberOfTalkboxes();
 	for (int Talkbox = 1; Talkbox <= Talkboxes; Talkbox++) {
 		BoxWidth[Talkbox - 1] = 0;
@@ -1393,10 +1409,14 @@ void TMapWindow::ArrangeTalkboxes()
 	const bool NoStretching = GetNoStretching();
 	const int BorderX = (480 - Width) / 2;
 	const int BorderY = (352 - Height) / 2;
-	int CentreX[TALKBOXES];
-	int PosX[TALKBOXES], PosY[TALKBOXES];
-	int MinX[TALKBOXES], MaxX[TALKBOXES], MinY[TALKBOXES], MaxY[TALKBOXES];
-	int Fixed[TALKBOXES];
+	std::array<int, TALKBOXES> CentreX;
+	std::array<int, TALKBOXES> PosX;
+	std::array<int, TALKBOXES> PosY;
+	std::array<int, TALKBOXES> MinX;
+	std::array<int, TALKBOXES> MaxX;
+	std::array<int, TALKBOXES> MinY;
+	std::array<int, TALKBOXES> MaxY;
+	std::array<int, TALKBOXES> Fixed;
 	for (int Talkbox = 1; Talkbox <= Talkboxes; Talkbox++) {
 		const int i = Talkbox - 1;
 		int x, y, z;
@@ -1469,7 +1489,8 @@ void TMapWindow::ArrangeTalkboxes()
 	do {
 		LastOverlap = Overlap;
 		Overlap = 0;
-		int PushX[TALKBOXES], PushY[TALKBOXES];
+		std::array<int, TALKBOXES> PushX;
+		std::array<int, TALKBOXES> PushY;
 		for (int i = 0; i < Talkboxes; i++) {
 			PushX[i] = 0;
 			PushY[i] = 0;

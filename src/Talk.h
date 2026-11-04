@@ -5,6 +5,7 @@
 #include "types/Time32.h"
 #include "Container.h"
 #include "Preferences.h"
+#include <array>
 #include <type_traits>
 
 struct TRGBColor;
@@ -42,7 +43,7 @@ static_assert(std::is_same_v<std::underlying_type_t<decltype(TALKBOXES)>, int>);
 struct TTalkbox {
 	int State, Order, RemainingTime, Mode;
 	int x, y, z, Lines;
-	TFixedString<40> Text[10];
+	std::array<TFixedString<40>, 10> Text;
 	int Left, Top, Width, Height;
 };
 struct TTalkLine {
@@ -50,7 +51,7 @@ struct TTalkLine {
 	uint32 StatementID;
 	int Mode;
 	TTalkLine *Previous, *Next;
-	char Addressee[30];
+	TFixedString<30> Addressee;
 	char *WithoutTime, *Text;
 	Time32 Time; // the line's time (StoreTime32, types/Time32.h: the original's 32 bits of it; issue #62)
 	TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int DiffTime);
@@ -134,7 +135,7 @@ public:
 	TPrivateTalkBuffer(int TalkMode, const char *_Addressee);
 	// 0x506eb0, Talk.h inline.
 	const char *GetAddressee() override { return Addressee; }
-	char Addressee[30];
+	TFixedString<30> Addressee;
 };
 class TChannelTalkBuffer : public TTalkBuffer {
 public:
@@ -157,7 +158,7 @@ public:
 	void AddText(int Mode, const char *text, int DiffTime) override;
 	bool IsRuleViolation() override { return true; }
 	const char *GetAddressee() override { return Addressee; }
-	char Addressee[30];
+	TFixedString<30> Addressee;
 	bool WriteEnabled;
 };
 class TRuleViolationChannel : public TTalkBuffer {
@@ -192,7 +193,7 @@ public:
 };
 struct TTalkFilter {
 	TTalkBuffer *TextBuffer;
-	char Addressee[30];
+	TFixedString<30> Addressee;
 	int Mode, Channel;
 	bool Permanent;
 	bool Matches(int _Mode, const char *_Addressee, int _Channel);

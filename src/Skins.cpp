@@ -26,7 +26,7 @@ TSkin *Skins;      // 0x71c454
 // so Skins[152] stays uninitialised.
 void InitSkins()
 {
-	const struct {
+	const struct { // NOLINT(modernize-avoid-c-arrays): the binary's table of an unnamed type, sized by its entries (issue #60)
 		int skin;
 		TSkin Rect;
 	} SkinTable[] = {

@@ -17,6 +17,7 @@
 // The graphics types TRect, TRGBColor and TFont are graphics.h's; the window
 // classes and SkinProperties need them complete.
 #include "graphics.h"
+#include <array>
 
 void DrawSkin(int Surface, int x, int y, int width, int height, int skin, int srcx, int srcy); // 0x497a00
 void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin, int ClipX, int ClipY,
@@ -273,15 +274,15 @@ struct TSkinProperties194 {
 
 // GUIStyle+0x288 (0x5cd250); compiler-generated constructor 0x496180.
 struct TSkinProperties288 {
-	int Data00;           // +0x00
-	int Data04;           // +0x04
-	TGUIPoint Data08;     // +0x08
-	TGUIPoint Data10[10]; // +0x10, the objects of the ten body slots (ContentWindows.cpp)
-	TRect Data60[10];     // +0x60, the ten slot areas
-	int Data100[10];      // +0x100, the skins of the empty slots
-	TRect Data128;        // +0x128
-	TRect Data138;        // +0x138
-	TRect Data148;        // +0x148
+	int Data00;                       // +0x00
+	int Data04;                       // +0x04
+	TGUIPoint Data08;                 // +0x08
+	std::array<TGUIPoint, 10> Data10; // +0x10, the objects of the ten body slots (ContentWindows.cpp)
+	std::array<TRect, 10> Data60;     // +0x60, the ten slot areas
+	std::array<int, 10> Data100;      // +0x100, the skins of the empty slots
+	TRect Data128;                    // +0x128
+	TRect Data138;                    // +0x138
+	TRect Data148;                    // +0x148
 };
 
 // GUIStyle+0x3e0, +0x428 (0x5cd3a8, 0x5cd3f0); compiler-generated constructor 0x495590.
@@ -432,15 +433,15 @@ struct TSkinPropertiesAA4 {
 
 // GUIStyle+0xb08 (0x5cdad0); compiler-generated constructor 0x4962c0.
 struct TSkinPropertiesB08 {
-	int Data00;          // +0x00
-	int Data04;          // +0x04
-	TRect Data08;        // +0x08, the caption
-	TFont Data18;        // +0x18
-	TGUIPoint Data2C[3]; // +0x2c, the buttons from the right
-	TRect Data44;        // +0x44, the separator
-	TRect Data54;        // +0x54, the body (FitToChild takes it by value)
-	TFont Data64;        // +0x64
-	TFont Data78;        // +0x78
+	int Data00;                      // +0x00
+	int Data04;                      // +0x04
+	TRect Data08;                    // +0x08, the caption
+	TFont Data18;                    // +0x18
+	std::array<TGUIPoint, 3> Data2C; // +0x2c, the buttons from the right
+	TRect Data44;                    // +0x44, the separator
+	TRect Data54;                    // +0x54, the body (FitToChild takes it by value)
+	TFont Data64;                    // +0x64
+	TFont Data78;                    // +0x78
 };
 
 // GUIStyle+0xd3c (0x5cdd04); compiler-generated constructor 0x495d20.
@@ -481,15 +482,15 @@ struct TSkinPropertiesE68 {
 
 // GUIStyle+0xf8c (0x5cdf54); compiler-generated constructor 0x4963a0.
 struct TSkinPropertiesF8C {
-	int Data00;           // +0x00
-	int Data04;           // +0x04
-	TRect Data08;         // +0x08
-	TRect Data18;         // +0x18
-	TRect Data28;         // +0x28
-	TGUIPoint Data38[11]; // +0x38
-	TRect Data90;         // +0x90
-	TRect DataA0;         // +0xa0
-	TRect DataB0;         // +0xb0
+	int Data00;                       // +0x00
+	int Data04;                       // +0x04
+	TRect Data08;                     // +0x08
+	TRect Data18;                     // +0x18
+	TRect Data28;                     // +0x28
+	std::array<TGUIPoint, 11> Data38; // +0x38
+	TRect Data90;                     // +0x90
+	TRect DataA0;                     // +0xa0
+	TRect DataB0;                     // +0xb0
 };
 
 // GUIStyle+0x1084 (0x5ce04c); compiler-generated constructor 0x496430.
@@ -580,9 +581,9 @@ struct TPlayerStatesProperties {
 // balanced, defensive, stand, chase, secure, stop, options and help buttons.
 // The type and member names are ours.
 struct TCombatControlsProperties {
-	int Height;           // +0x00
-	int Width;            // +0x04
-	TGUIPoint Buttons[9]; // +0x08
+	int Height;                       // +0x00
+	int Width;                        // +0x04
+	std::array<TGUIPoint, 9> Buttons; // +0x08
 };
 
 struct TSkinProperties {
@@ -709,7 +710,7 @@ struct TSkinProperties {
 	int DataC70;                                // +0xc70
 	TRGBColor DataC74;                          // +0xc74
 	TGUIPoint DataC80;                          // +0xc80
-	TGUIPoint DataC88[4];                       // +0xc88, the outfit dialog's part buttons
+	std::array<TGUIPoint, 4> DataC88;           // +0xc88, the outfit dialog's part buttons
 	TGUIPoint DataCA8;                          // +0xca8
 	int DataCB0;                                // +0xcb0
 	int DataCB4;                                // +0xcb4
@@ -766,7 +767,7 @@ struct TSkinProperties {
 	TRect Data11D4;                             // +0x11d4, the mark dialog's labels and text
 	TRect Data11E4;                             // +0x11e4
 	TRect Data11F4;                             // +0x11f4
-	TGUIPoint Data1204[14];                     // +0x1204
+	std::array<TGUIPoint, 14> Data1204;         // +0x1204
 	TSkinProperties1274 Style1274;              // +0x1274, 0x78 bytes
 	int Data12EC;                               // +0x12ec
 	int Data12F0;                               // +0x12f0

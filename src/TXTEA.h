@@ -6,6 +6,7 @@
 
 #include "common.h"
 #include "compat/span.h"
+#include <array>
 
 // The destructor's empty body stays (issue #34): "= default" changes the image (the x86 .text grows by
 // 0x60 bytes; on x64 the RTTI and the code move), and the build must stay the same.
@@ -23,5 +24,5 @@ public:
 	void DecryptBlock(TBlock Block); // 0x508f80
 
 private:
-	uint32 Key[4]; // +0x4
+	std::array<uint32, 4> Key; // +0x4
 };

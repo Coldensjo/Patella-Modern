@@ -13,6 +13,7 @@
 #include "types/FixedString.h"
 #include "types/Time32.h"
 #include "compat/crt71.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <new>
@@ -31,7 +32,7 @@ int StatusMessageTime;                            // 0x71dbdc
 TFixedString<STATUSMESSAGE_LENGTH> StatusMessage; // 0x71dbe0
 int TalkOrder;                                    // 0x71dde0
 bool TalkChanged;                                 // 0x71dde4
-TTalkbox Talkboxes[TALKBOXES];                    // 0x71dde8
+std::array<TTalkbox, TALKBOXES> Talkboxes;        // 0x71dde8
 
 } // namespace
 
@@ -68,7 +69,15 @@ static_assert(sizeof(TPrivateChannel) == 0x34, "private channel layout");
 static_assert(sizeof(TTalkFilter) == 0x30, "filter layout");
 static_assert(offsetof(TTalkLine, WithoutTime) == 0x34, "statement text");
 static_assert(offsetof(TTalkLine, Time) == 0x3c, "statement time (Time32, issue #62)");
+// The addressees TFixedStrings (issue #60).
+static_assert(offsetof(TTalkLine, Addressee) == 0x14 && offsetof(TPrivateTalkBuffer, Addressee) == 0x2c
+		&& offsetof(TRuleViolationTalkBuffer, Addressee) == 0x2c && offsetof(TTalkFilter, Addressee) == 0x04,
+	"the addressees' offsets");
 #endif
+// No pointers: the same on x64. Text a std::array of TFixedStrings (issue #60).
+static_assert(sizeof(TTalkbox) == 0x1c0 && offsetof(TTalkbox, Text) == 0x20 && sizeof(TTalkbox::Text) == 0x190,
+	"TTalkbox's layout");
+static_assert(sizeof(Talkboxes) == TALKBOXES * sizeof(TTalkbox), "Talkboxes");
 static_assert(sizeof(TTalkLine::Time) == 4, "statement time: the original's 4 bytes (Time32, issue #62)");
 
 // 0x4fd440, no line evidence; leading Talk.cpp helpers remain in link order.

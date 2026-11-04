@@ -468,6 +468,10 @@ unit tests:
   `src/compat/print.h`'s PrintLine, not `std::print`, which throws where the write fails. The grep gate bans `FILE`
   and the fopen, fclose and printf families outside File.h.
 - **C arrays in structures** to `std::array` (same layout); array parameters to `std::span`.
+  Done in issue #60 (notes/decisions.md): members, globals and locals `std::array` (texts `TFixedString`), each frozen
+  structure's size and offsets asserted in the oracle build; vlong's byte arrays and the test mode's packet hooks take
+  spans. The arrays that stay (needed as such by a TASSERT/TERROR/TEND argument until M5, TFixedString's own, the
+  skin table, a parameter the tests fake by address) carry a NOLINT with the reason.
 - **`crt71.h`:** one `FormatCRT71Time` built on `std::chrono` and `std::format`, with the two-digit day, instead
   of patching `ctime`'s buffer; this also removes `ctime`, which behaves differently in glibc.
 - **Times:** 64-bit `time_t` everywhere (`SaveChannel` calls `_ctime32`, which ends in 2038).

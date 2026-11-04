@@ -31,6 +31,7 @@
 #include "compat/format.h"
 #include "types/FixedString.h" // IWYU pragma: keep (std::format's branch of Print: TFormatArgument)
 
+#include <array>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
@@ -97,11 +98,11 @@ public:
 		if (!Usable(Access, Content))
 			return false;
 		const char *Mode = ModeText(Access, Content);
-		wchar_t WideMode[4] = {};
+		std::array<wchar_t, 4> WideMode = {};
 		for (int i = 0; i < 3 && Mode[i] != 0; i++)
 			WideMode[i] = static_cast<wchar_t>(Mode[i]);
 		std::FILE *Opened = nullptr;
-		if (_wfopen_s(&Opened, Name, WideMode) != 0)
+		if (_wfopen_s(&Opened, Name, WideMode.data()) != 0)
 			Opened = nullptr;
 		Handle = Opened;
 		return Handle != nullptr;
@@ -254,11 +255,11 @@ private:
 	static ssize_t TextWrite(void *Cookie, const char *Bytes, std::size_t Count) noexcept
 	{
 		const int Descriptor = CookieDescriptor(Cookie);
-		char Translated[1024];
+		std::array<char, 1024> Translated;
 		std::size_t Used = 0;
 		for (std::size_t i = 0; i < Count; i++) {
 			if (Used + 2 > sizeof(Translated)) {
-				if (!WriteAll(Descriptor, Translated, Used))
+				if (!WriteAll(Descriptor, Translated.data(), Used))
 					return -1;
 				Used = 0;
 			}
@@ -266,7 +267,7 @@ private:
 				Translated[Used++] = '\r';
 			Translated[Used++] = Bytes[i];
 		}
-		if (!WriteAll(Descriptor, Translated, Used))
+		if (!WriteAll(Descriptor, Translated.data(), Used))
 			return -1;
 		return static_cast<ssize_t>(Count);
 	}

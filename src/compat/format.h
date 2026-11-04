@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <array>
 #include <charconv>
 #include <cstddef>
 #include <stdexcept>
@@ -282,15 +283,15 @@ inline void PutInteger(TOutput &Output, const TSpecification &Specification, boo
 		Base = 16;
 	else if (Specification.Type != 0 && Specification.Type != 'd')
 		throw TFormatError("a type the stand-in of std::format_to_n does not take for an integer");
-	char Digits[64] = {};
-	const std::to_chars_result Result = std::to_chars(Digits, Digits + sizeof(Digits), Magnitude, Base);
-	const auto Length = static_cast<std::size_t>(Result.ptr - Digits);
+	std::array<char, 64> Digits = {};
+	const std::to_chars_result Result = std::to_chars(Digits.data(), Digits.data() + Digits.size(), Magnitude, Base);
+	const auto Length = static_cast<std::size_t>(Result.ptr - Digits.data());
 	if (Specification.Type == 'X') {
 		for (std::size_t i = 0; i < Length; i++)
 			if (Digits[i] >= 'a' && Digits[i] <= 'f')
 				Digits[i] = static_cast<char>(Digits[i] - 'a' + 'A');
 	}
-	PutNumber(Output, Specification, SignOf(Negative, Specification.Sign), std::string_view(Digits, Length), true);
+	PutNumber(Output, Specification, SignOf(Negative, Specification.Sign), std::string_view(Digits.data(), Length), true);
 }
 
 template <typename Floating>
@@ -298,20 +299,20 @@ void PutFloating(TOutput &Output, const TSpecification &Specification, Floating 
 {
 	if (Specification.Type != 0 && Specification.Type != 'f')
 		throw TFormatError("a type the stand-in of std::format_to_n does not take for floating point");
-	char Digits[512] = {};
+	std::array<char, 512> Digits = {};
 	std::to_chars_result Result{};
 	if (Specification.Type == 'f') {
 		const int Precision = Specification.HasPrecision ? static_cast<int>(Specification.Precision) : 6;
-		Result = std::to_chars(Digits, Digits + sizeof(Digits), Value, std::chars_format::fixed, Precision);
+		Result = std::to_chars(Digits.data(), Digits.data() + Digits.size(), Value, std::chars_format::fixed, Precision);
 	} else if (Specification.HasPrecision) {
-		Result = std::to_chars(Digits, Digits + sizeof(Digits), Value, std::chars_format::general,
+		Result = std::to_chars(Digits.data(), Digits.data() + Digits.size(), Value, std::chars_format::general,
 			static_cast<int>(Specification.Precision));
 	} else {
-		Result = std::to_chars(Digits, Digits + sizeof(Digits), Value);
+		Result = std::to_chars(Digits.data(), Digits.data() + Digits.size(), Value);
 	}
 	if (Result.ec != std::errc())
 		throw TFormatError("a floating-point number longer than the stand-in's buffer");
-	std::string_view Text(Digits, static_cast<std::size_t>(Result.ptr - Digits));
+	std::string_view Text(Digits.data(), static_cast<std::size_t>(Result.ptr - Digits.data()));
 	const bool Negative = !Text.empty() && Text[0] == '-';
 	if (Negative)
 		Text.remove_prefix(1);
@@ -415,8 +416,8 @@ TFormatToNResult FormatToNStandIn(char *Out, std::ptrdiff_t Count, std::string_v
 	if constexpr (sizeof...(Arguments) == 0) {
 		return detail::FormatArguments(Out, Count, Format, nullptr, 0);
 	} else {
-		const detail::TArgument Converted[] = {detail::MakeArgument(Values)...};
-		return detail::FormatArguments(Out, Count, Format, Converted, sizeof...(Arguments));
+		const std::array<detail::TArgument, sizeof...(Arguments)> Converted = {detail::MakeArgument(Values)...};
+		return detail::FormatArguments(Out, Count, Format, Converted.data(), sizeof...(Arguments));
 	}
 }
 

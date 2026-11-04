@@ -40,6 +40,7 @@
 #include "GUI.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include <array>
 #include <ostream>
 #include <cstddef>
 #include <cstdio>
@@ -54,7 +55,7 @@ namespace {
 // Data, in .data/.bss order. 0x5c4540-0x5c4553 is not used by any code.
 int LastPacketType = -1;               // 0x5c0d8c, only written (ReceivePackets)
 int LastPacketIndex;                   // 0x5c4510, next slot in LastPacketTypes
-uint8 LastPacketTypes[10];             // 0x5c4514, the last ten packet types, a ring
+std::array<uint8, 10> LastPacketTypes; // 0x5c4514, the last ten packet types, a ring
 int ReconnectTimeout;                  // 0x5c4520, GetMilliseconds time
 bool Reconnect;                        // 0x5c4524, set by event 0x3f
 int LastMouseMove;                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
@@ -71,6 +72,9 @@ bool ShowFPS;                          // 0x5c4554, toggled by key 0x907
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
+
+// LastPacketTypes a std::array (issue #60).
+static_assert(sizeof(LastPacketTypes) == 10, "LastPacketTypes");
 
 // 0x445900. For error.txt (Player.cpp's HandleException): the last ten
 // packet types, newest first.
@@ -295,7 +299,7 @@ void Redraw(bool Force)
 			break;
 		}
 		const double FPS = GetSurface()->GetFPS();
-		char Text[64];
+		TFixedString<64> Text;
 		// Stays _snprintf: printf's %f and std::format's differ for NaN ("-nan(ind)"), and a rate with more
 		// than 10 digits fills the 20 characters (no NUL), which the type would cut (issue #64).
 		MsvcSnprintf(Text, 20, "%s %.02f fps", Engine.Chars, FPS);
@@ -1011,7 +1015,7 @@ void ProcessEvents()
 		case 0x12: {
 			// ReceiveChannelList's int[]: the count, then the channel IDs (Patella-Modern issue #30).
 			int *Data = reinterpret_cast<int *>(Param1);
-			ModalWindow = CreateNewChannelDialog(Data[0], &Data[1], reinterpret_cast<const char (*)[30]>(Param2));
+			ModalWindow = CreateNewChannelDialog(Data[0], &Data[1], reinterpret_cast<const char (*)[30]>(Param2)); // NOLINT(modernize-avoid-c-arrays): CreateNewChannelDialog's parameter (Dialogs.h)
 			delete[] Data;
 			if (Param2 != 0)
 				delete[] reinterpret_cast<char *>(Param2);
@@ -1245,7 +1249,7 @@ void InitWindow(HWND Window, void (*ExitProgram)(), void (*CloseProgram)(),
 	DisplayModeCallback = SetDisplayMode;
 	URLCallback = OpenURL;
 	SetMouseCursor(1);
-	memset(LastPacketTypes, 0, sizeof(LastPacketTypes));
+	memset(LastPacketTypes.data(), 0, sizeof(LastPacketTypes));
 	LastPacketIndex = 0;
 	Reconnect = false;
 	TEND(1585)

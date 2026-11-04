@@ -5,6 +5,8 @@
 
 #include "vlong.h"
 #include "common.h"
+#include "compat/span.h"
+#include <array>
 #include <cstdlib>
 #include <cstring>
 
@@ -268,9 +270,12 @@ vlong &vlong::operator=(const vlong &x)
 	return *this;
 }
 
-// 0x50c660. The first byte is the most significant.
-void ByteArrayToVlong(const uint8 *pData, uint16 Size, vlong &Number)
+// 0x50c660. The first byte is the most significant. The original's parameters from the span (issue #60): a null
+// pointer throws as before, and the size is cut to the uint16 the original took.
+void ByteArrayToVlong(patella::TSpan<const uint8> Data, vlong &Number)
 {
+	const uint8 *pData = Data.data();
+	const auto Size = static_cast<uint16>(Data.size());
 	if (pData == nullptr)
 		throw "pData pointer is NULL";
 	const int Length = Size;
@@ -429,9 +434,11 @@ public:
 	monty(const vlong &M);
 };
 
-// 0x50d530. Fills Size bytes, most significant first.
-void VlongToByteArray(vlong Number, uint8 *pData, uint16 Size)
+// 0x50d530. Fills Size bytes, most significant first; the parameters from the span as above (issue #60).
+void VlongToByteArray(vlong Number, patella::TSpan<uint8> Data)
 {
+	uint8 *pData = Data.data();
+	const auto Size = static_cast<uint16>(Data.size());
 	if (pData == nullptr)
 		throw "pData pointer is NULL";
 	const int Length = Size;
@@ -500,12 +507,12 @@ void DecimalToVlong(const char *pDecimal, vlong &Number)
 {
 	if (pDecimal == nullptr)
 		throw "pDecimal pointer is NULL";
-	char Digit[2];
+	std::array<char, 2> Digit;
 	Digit[0] = 0;
 	Digit[1] = 1; // as in the binary; atoi stops at it
 	Number = 0;
 	for (Digit[0] = *pDecimal; Digit[0] != 0; Digit[0] = *++pDecimal) {
-		const long Value = atoi(Digit);
+		const long Value = atoi(Digit.data());
 		if (Value < 0 || Value > 9)
 			throw "digit out of range";
 		Number = Number * 10L + Value;

@@ -108,7 +108,7 @@ BOOL AfxSocketInit(WSADATA *)
 
 // MainFrm.cpp's globals (MainFrm.cpp and Player.cpp are not linked: MFC's
 // frame window and application classes, which the shim only declares).
-uint8 PacketHeader[16];
+std::array<uint8, 16> PacketHeader;
 bool DisplayChanged;
 #endif
 

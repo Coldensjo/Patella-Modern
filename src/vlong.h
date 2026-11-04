@@ -9,6 +9,7 @@
 #pragma once
 
 #include "common.h"
+#include "compat/span.h"
 
 class flex_unit {
 public:
@@ -95,14 +96,14 @@ private:
 	[[nodiscard]] int cf(const vlong x) const;
 	void docopy();
 	friend class monty;
-	friend void ByteArrayToVlong(const uint8 *pData, uint16 Size, vlong &Number);
-	friend void VlongToByteArray(vlong Number, uint8 *pData, uint16 Size);
+	friend void ByteArrayToVlong(patella::TSpan<const uint8> Data, vlong &Number);
+	friend void VlongToByteArray(vlong Number, patella::TSpan<uint8> Data);
 };
 
 vlong modexp(const vlong &x, const vlong &e, const vlong &m); // m must be odd
 vlong modinv(const vlong &a, const vlong &m);
 
-// CipSoft additions. Byte arrays are big-endian.
-void ByteArrayToVlong(const uint8 *pData, uint16 Size, vlong &Number); // 0x50c660
-void VlongToByteArray(vlong Number, uint8 *pData, uint16 Size);        // 0x50d530
-void DecimalToVlong(const char *pDecimal, vlong &Number);              // 0x50e360
+// CipSoft additions. Byte arrays are big-endian. The original's pointer and uint16 size are a span (issue #60).
+void ByteArrayToVlong(patella::TSpan<const uint8> Data, vlong &Number); // 0x50c660
+void VlongToByteArray(vlong Number, patella::TSpan<uint8> Data);        // 0x50d530
+void DecimalToVlong(const char *pDecimal, vlong &Number);               // 0x50e360

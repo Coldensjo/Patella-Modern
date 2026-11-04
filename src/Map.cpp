@@ -22,6 +22,7 @@
 #include "Container.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -53,14 +54,29 @@ int ObjectIteratorField;                                                        
 int MapZ;                                                                        // 0x5d16e8, world position of the map's centre
 int MapY;                                                                        // 0x5d16ec
 int MapX;                                                                        // 0x5d16f0
-TEffect Effects[EFFECTS];                                                        // 0x5d16f8
+std::array<TEffect, EFFECTS> Effects;                                            // 0x5d16f8
 array<TMapPoint> Fields(0, MAPSIZE_X * MAPSIZE_Y * MAPSIZE_Z - 1);               // 0x5d4c18, initialiser at 0x559f40
 matrix3d<int> FieldNumber(0, MAPSIZE_X - 1, 0, MAPSIZE_Y - 1, 0, MAPSIZE_Z - 1); // 0x5d4c24, 0x559f60
-TAutomapBlock AutomapBlocks[AUTOMAP_BLOCKS];                                     // 0x5d4c40, initialiser at 0x559f90
+std::array<TAutomapBlock, AUTOMAP_BLOCKS> AutomapBlocks;                         // 0x5d4c40, initialiser at 0x559f90
 TRGBColor AmbienteColor;                                                         // 0x7152d0
 TRGBColor AmbienteActualColor;                                                   // 0x7152dc
 
 } // namespace
+
+// The arrays std::arrays and TMark::Text a TFixedString (issue #60). TMapPoint and TMark have no pointers: the same
+// on x64.
+static_assert(sizeof(TMapPoint) == 0xac && offsetof(TMapPoint, Objects) == 0x04 && offsetof(TMapPoint, Order) == 0x7c
+		&& sizeof(TMapPoint::Objects) == 0x78 && sizeof(TMapPoint::Order) == 0x28,
+	"TMapPoint's layout");
+static_assert(sizeof(TMark) == 0x70 && offsetof(TMark, Text) == 0x0c && sizeof(TMark::Text) == 100, "TMark's layout");
+#if PATELLA_ORIGINAL_LAYOUT
+static_assert(sizeof(TAutomapBlock) == 0x200a8 && offsetof(TAutomapBlock, Color) == 0x14
+		&& offsetof(TAutomapBlock, Speed) == 0x10014 && sizeof(TAutomapBlock::Color) == 0x10000
+		&& sizeof(TAutomapBlock::Speed) == 0x10000,
+	"TAutomapBlock's layout");
+#endif
+static_assert(sizeof(Effects) == EFFECTS * sizeof(TEffect) && sizeof(AutomapBlocks) == AUTOMAP_BLOCKS * sizeof(TAutomapBlock),
+	"Effects and AutomapBlocks");
 
 // --- Position (the MainWindow/Map gap) ------------------------------------
 
@@ -1124,8 +1140,8 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 	Block.bx = bx;
 	Block.by = by;
 	Block.bz = bz;
-	memset(Block.Color, 0, sizeof(Block.Color));
-	memset(Block.Speed, 250, sizeof(Block.Speed));
+	memset(Block.Color.data(), 0, sizeof(Block.Color));
+	memset(Block.Speed.data(), 250, sizeof(Block.Speed));
 	Block.Changed = false;
 	for (int i = Block.Marks.min; i <= Block.Marks.max; i++)
 		Block.Marks(i) = TMark();
@@ -1174,8 +1190,8 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 			Block.bx = bx;
 			Block.by = by;
 			Block.bz = bz;
-			memset(Block.Color, 0, sizeof(Block.Color));
-			memset(Block.Speed, 250, sizeof(Block.Speed));
+			memset(Block.Color.data(), 0, sizeof(Block.Color));
+			memset(Block.Speed.data(), 250, sizeof(Block.Speed));
 			Block.Changed = false;
 			for (int i = Block.Marks.min; i <= Block.Marks.max; i++)
 				Block.Marks(i) = TMark();

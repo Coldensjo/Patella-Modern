@@ -528,7 +528,7 @@ static void __cdecl FakeAddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 		}
 		if (Param2 != 0) {
 			TTalkLine *L = (TTalkLine *)Param2;
-			Logf(",line %u,%d,%s,%s", L->StatementID, L->Mode, L->Addressee, L->Text);
+			Logf(",line %u,%d,%s,%s", L->StatementID, L->Mode, L->Addressee.Chars, L->Text);
 			// The line's text was allocated by the side's operator new[] (the
 			// image's goes to the same CRT).
 			delete[] L->Line;
@@ -540,7 +540,7 @@ static void __cdecl FakeAddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 		delete C;
 		if (Param2 != 0) {
 			TMark *M = (TMark *)Param2;
-			Logf(",mark %d,%d,%d,%s", M->x, M->y, M->Type, M->Text);
+			Logf(",mark %d,%d,%d,%s", M->x, M->y, M->Type, M->Text.Chars);
 			delete M;
 		}
 	} else {
@@ -1221,7 +1221,7 @@ static std::string Dump(int s)
 			// The window pointer is a number of the test's (0x1000-0x1fff): printed as the x86 oracle's %p printed
 			// it, eight hex digits (x64's %p has sixteen).
 			sprintf(Text, " data %d,%d,%d %d,%d,%d,%s %08X", D.Coordinate.x, D.Coordinate.y, D.Coordinate.z, D.Mark.x,
-				D.Mark.y, D.Mark.Type, D.Mark.Text, (unsigned)(uintptr_t)D.Window);
+				D.Mark.y, D.Mark.Type, D.Mark.Text.Chars, (unsigned)(uintptr_t)D.Window);
 			break;
 		}
 		case KIND_SKILL: {
@@ -1242,7 +1242,7 @@ static std::string Dump(int s)
 		DumpGeometry(Out, C);
 		if (IsEntry) {
 			TContextMenuEntry *E = (TContextMenuEntry *)C;
-			sprintf(Text, " \"%s\" \"%s\" %d %d", E->Text, E->Shortcut, E->Callback.Event,
+			sprintf(Text, " \"%s\" \"%s\" %d %d", E->Text.Chars, E->Shortcut.Chars, E->Callback.Event,
 				E->Callback.Receiver == W ? 1 : 0);
 			Out += Text;
 		} else if (Kind != KIND_HELP) {

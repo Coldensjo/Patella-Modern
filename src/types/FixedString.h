@@ -176,7 +176,7 @@ struct TFixedString {
 	static_assert(N > 0, "a fixed string holds at least its terminating NUL");
 
 	// The original's array, the only member (public: the type is an aggregate, as the array was).
-	char Chars[N];
+	char Chars[N]; // NOLINT(modernize-avoid-c-arrays): the type is the array (issue #57); .Chars is the C string varargs need
 
 	// As the array decays: the code that reads the buffer as a C string is unchanged.
 	operator char *() noexcept { return Chars; }

@@ -33,6 +33,8 @@
 #if PATELLA_ORIGINAL_LAYOUT
 // The original's layout, with Text a TFixedString (issue #57).
 static_assert(sizeof(TTextButton) == 0x78 && offsetof(TTextButton, Text) == 0x44, "TTextButton's layout");
+// Colors a std::array (issue #60).
+static_assert(sizeof(TOutfitIcon) == 0x48 && offsetof(TOutfitIcon, Colors) == 0x28, "TOutfitIcon's layout");
 // The owning members as std::unique_ptr (issue #58): each a pointer at the original's offset.
 static_assert(sizeof(std::unique_ptr<char[]>) == sizeof(char *) && alignof(std::unique_ptr<char[]>) == alignof(char *)
 		&& sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *)
@@ -787,7 +789,7 @@ void TOutfitIcon::Draw(int Surface, int x, int y)
 	TBEGIN
 	const int Size = Width;
 	TASSERT1(908, getWidth()==getHeight(), getWidth()-getHeight());
-	DrawOutfit(Surface, x, y, Size, Outfit, Colors, Highlight, TRect(x, y, Size, Height), SkinProperties.Data498);
+	DrawOutfit(Surface, x, y, Size, Outfit, Colors.data(), Highlight, TRect(x, y, Size, Height), SkinProperties.Data498);
 	TEND1(911, Surface)
 }
 

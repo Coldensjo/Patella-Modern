@@ -70,6 +70,7 @@
 // message on stderr, in the log and through OutputDebugString (never a dialog).
 
 #include "common.h"
+#include "compat/span.h"
 
 #include "MainFrm.h"
 #include "testmode/ClientStateWin32.h"
@@ -954,21 +955,21 @@ void WritePacket(TState &State, const TPacketRecord &Record)
 
 } // namespace
 
-void RsaBlock(const unsigned char *Block)
+void RsaBlock(patella::TSpan<const unsigned char, 128> Block)
 {
 	TState &Current = State();
 	if (Current.Replay.Active) {
 		// [0][the XTEA key][fields][random bytes]: the key of the connection whose first packet follows.
-		std::copy_n(Block + 1, Current.Replay.PendingKey.size(), Current.Replay.PendingKey.begin());
+		std::copy_n(Block.begin() + 1, Current.Replay.PendingKey.size(), Current.Replay.PendingKey.begin());
 		Current.Replay.HasPendingKey = true;
 	}
 	if (Current.Packets == nullptr)
 		return;
-	std::copy_n(Block, RsaBlockSize, Current.Rsa.begin());
+	std::copy_n(Block.begin(), RsaBlockSize, Current.Rsa.begin());
 	Current.HasRsa = true;
 }
 
-void PacketSent(const unsigned char *Data, int Size, int Padded)
+void PacketSent(patella::TSpan<const unsigned char> Data, int Size, int Padded)
 {
 	TState &Current = State();
 	if (Current.Replay.Active)
@@ -976,7 +977,7 @@ void PacketSent(const unsigned char *Data, int Size, int Padded)
 	if (Current.Packets == nullptr || Size < 0)
 		return;
 	// SendData: [u16][u16 Size][payload][padding, up to Padded + 2 bytes].
-	const std::span<const unsigned char> Payload(Data + 4, static_cast<std::size_t>(Size));
+	const std::span<const unsigned char> Payload = Data.subspan(4, static_cast<std::size_t>(Size));
 	if (Padded == 0) {
 		std::vector<unsigned char> Plain(Payload.begin(), Payload.end());
 		if (Current.HasRsa && Plain.size() >= RsaBlockSize)
@@ -986,11 +987,11 @@ void PacketSent(const unsigned char *Data, int Size, int Padded)
 		return;
 	}
 	std::size_t Padding = Padded >= Size + 2 ? static_cast<std::size_t>(Padded - Size - 2) : 0;
-	const std::span<const unsigned char> Pad(Data + 4 + Size, Padding);
+	const std::span<const unsigned char> Pad = Data.subspan(4 + static_cast<std::size_t>(Size), Padding);
 	WritePacket(Current, Current.Connections.Sent(PacketTime(Current), false, Payload, Pad));
 }
 
-void PacketReceived(const unsigned char *Data, int PacketSize)
+void PacketReceived(patella::TSpan<const unsigned char> Data, int PacketSize)
 {
 	TState &Current = State();
 	if (Current.Replay.Active) {
@@ -1006,8 +1007,9 @@ void PacketReceived(const unsigned char *Data, int PacketSize)
 		return;
 	// ReceiveData: [u16 PacketSize][u16 length][payload][padding, up to PacketSize + 2 bytes].
 	const int Length = (std::min)(Data[2] | (Data[3] << 8), PacketSize - 2);
-	const std::span<const unsigned char> Payload(Data + 4, static_cast<std::size_t>(Length));
-	const std::span<const unsigned char> Padding(Data + 4 + Length, static_cast<std::size_t>(PacketSize - 2 - Length));
+	const std::span<const unsigned char> Payload = Data.subspan(4, static_cast<std::size_t>(Length));
+	const std::span<const unsigned char> Padding =
+		Data.subspan(4 + static_cast<std::size_t>(Length), static_cast<std::size_t>(PacketSize - 2 - Length));
 	WritePacket(Current, Current.Connections.Received(PacketTime(Current), Payload, Padding));
 }
 

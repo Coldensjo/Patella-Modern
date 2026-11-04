@@ -18,8 +18,12 @@
 
 #include "golden_test.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(_MSC_VER) && defined(_DEBUG)
+#include <crtdbg.h>
+#endif
 
 int Failures = 0;
 int Checks = 0;
@@ -115,6 +119,19 @@ const TPorted *FindPorted(const TExecutable &Executable, const std::string &Name
 int main(int argc, char **argv)
 {
 	setvbuf(stdout, nullptr, _IONBF, 0);
+#if defined(_MSC_VER) && defined(_DEBUG)
+	// The Debug library's checks (a std::array index out of range, issue #60) report to stderr and end the run with
+	// exit code 3, without the CRT's message box or Windows Error Reporting.
+	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+	_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+	_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+	_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+	_set_invalid_parameter_handler([](const wchar_t *, const wchar_t *, const wchar_t *, unsigned, uintptr_t) {
+		fputs("golden_runner: invalid parameter (a Debug library check)\n", stderr);
+		_exit(3);
+	});
+#endif
 	bool Require = false;
 	std::string Directory = GOLDEN_DEFAULT_DIR;
 	for (int i = 1; i < argc; i++) {

@@ -24,6 +24,7 @@
 #include "Container.h"
 #include "graphics.h" // TRGBColor
 #include "Objects.h"  // TObject
+#include <array>
 #include <cstddef>
 
 inline constexpr int MAPSIZE_X = 18;
@@ -34,11 +35,11 @@ inline constexpr int EFFECTS = 200;
 
 // A map point (0xac bytes); "Point" in the assertions.
 struct TMapPoint {
-	int ObjectCount;                    // +0x00
-	TObject Objects[OBJECTS_PER_POINT]; // +0x04, bottom to top
-	int Order[OBJECTS_PER_POINT];       // +0x7c, drawing order (SortObjects)
-	int EffectNumber;                   // +0xa4, first effect on the point, -1 none
-	bool RefreshRequested;              // +0xa8
+	int ObjectCount;                                // +0x00
+	std::array<TObject, OBJECTS_PER_POINT> Objects; // +0x04, bottom to top
+	std::array<int, OBJECTS_PER_POINT> Order;       // +0x7c, drawing order (SortObjects)
+	int EffectNumber;                               // +0xa4, first effect on the point, -1 none
+	bool RefreshRequested;                          // +0xa8
 };
 
 // An effect (0x44 bytes). Status 0 is a free entry, 1 a graphical effect, 2 an
@@ -87,10 +88,10 @@ struct TMark {
 		Text[0] = 0;
 	}
 
-	int x;          // +0x00, world coordinates; 0,0 is a deleted mark
-	int y;          // +0x04
-	int Type;       // +0x08, the mark symbol
-	char Text[100]; // +0x0c
+	int x;                  // +0x00, world coordinates; 0,0 is a deleted mark
+	int y;                  // +0x04
+	int Type;               // +0x08, the mark symbol
+	TFixedString<100> Text; // +0x0c
 };
 
 // A world position, as passed to AddAutomapMark ("Coordinate.x").
@@ -106,16 +107,16 @@ struct TCoordinate {
 struct TAutomapBlock {
 	TAutomapBlock() : Marks(0, 0, 10) { MarkCount = 0; }
 
-	int bx;                // +0x00, -1 for an unused block
-	int by;                // +0x04
-	int bz;                // +0x08
-	int Previous;          // +0x0c, the cache's LRU list, toward the most recent
-	int Next;              // +0x10, toward the least recent
-	uint8 Color[256][256]; // +0x14, [x][y], palette colour
-	uint8 Speed[256][256]; // +0x10014, [x][y], ground speed, 250 unknown, 255 blocked
-	bool Changed;          // +0x20014
-	vector<TMark> Marks;   // +0x20018
-	int MarkCount;         // +0x200a4
+	int bx;                                        // +0x00, -1 for an unused block
+	int by;                                        // +0x04
+	int bz;                                        // +0x08
+	int Previous;                                  // +0x0c, the cache's LRU list, toward the most recent
+	int Next;                                      // +0x10, toward the least recent
+	std::array<std::array<uint8, 256>, 256> Color; // +0x14, [x][y], palette colour
+	std::array<std::array<uint8, 256>, 256> Speed; // +0x10014, [x][y], ground speed, 250 unknown, 255 blocked
+	bool Changed;                                  // +0x20014
+	vector<TMark> Marks;                           // +0x20018
+	int MarkCount;                                 // +0x200a4
 };
 
 // A node of FindPath's search (0x20 bytes); constructor 0x4b0880.

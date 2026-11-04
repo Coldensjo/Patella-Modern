@@ -510,7 +510,7 @@ static void __cdecl FakeAddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 	if (Type == 59) {
 		TMarkMenuData *Data = (TMarkMenuData *)Param1;
 		Logf("Msg59,%d,%d,%d,%d,%d,%d,%s,%s;", Data->Coordinate.x, Data->Coordinate.y, Data->Coordinate.z, Data->Mark.x,
-			Data->Mark.y, Data->Mark.Type, Data->Mark.Text, Name(Data->Window).c_str());
+			Data->Mark.y, Data->Mark.Type, Data->Mark.Text.Chars, Name(Data->Window).c_str());
 		delete Data;
 	} else if (Type == 60) {
 		Logf("Msg60,%s,%d;", Name((void *)Param1).c_str(), (int)Param2);
@@ -2143,7 +2143,7 @@ static void Queries()
 				W->MouseHover(x + W->View->OffsetX, y + W->View->OffsetY);
 			} else if (Mark) {
 				TMark M = W->View->GetMark(x, y);
-				sprintf(Buffer, "%d,%d,%d,%s", M.x, M.y, M.Type, M.Text);
+				sprintf(Buffer, "%d,%d,%d,%s", M.x, M.y, M.Type, M.Text.Chars);
 				if (s == OURS && (M.x != 0 || M.y != 0))
 					MarksFound++;
 				Results[s] = Buffer;
