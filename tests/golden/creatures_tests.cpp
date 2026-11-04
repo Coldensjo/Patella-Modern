@@ -5,8 +5,9 @@
 // copies are patched to jump here, and so are ours (Map.cpp's and Help.cpp's, which the test links;
 // difftest.exe's PatchJump, the runner's golden::RedirectOwn). The fakes read a shared, randomly filled
 // screen; the help hints and the path finder calls are recorded per side and compared. The image's time,
-// sprintf, _stricmp, _strdup and stdio are redirected to the test's CRT, and the test CRT's _time32 to
-// the same fixed clock while the tests run (the runner's through its import slot of _time32, as Talk's).
+// sprintf, _stricmp, _strdup and stdio are redirected to the test's CRT, and the test CRT's _time64 (our
+// time(), issue #62) to the same fixed clock while the tests run (the runner's through its import slot of
+// _time64, as Talk's).
 // Objects come from the real Tibia.dat (both loaders; the runner's from the corpus), Preferences, Status
 // and Talk are the linked reconstructions against the image's own copies. As in difftest, our Map.cpp's
 // and Help.cpp's functions stay redirected after the test.
@@ -112,7 +113,16 @@ int __cdecl FakeFindPath(int x, int y, int z, int DestX, int DestY, int DestZ, b
 void __cdecl OurHint(int Value) { Hints[OURS].push_back(Value); }
 void __cdecl OurMonsterHint(const char *Name) { MonsterHints[OURS].push_back(Name); }
 
+#if GOLDEN_ORACLE
 __time32_t __cdecl ImageTime(__time32_t *Time)
+{
+	if (Time != nullptr)
+		*Time = FixedTime;
+	return FixedTime;
+}
+#endif
+// Our clock (issue #62: time(), the CRT's _time64): the same fixed time.
+__time64_t __cdecl OurTime(__time64_t *Time)
 {
 	if (Time != nullptr)
 		*Time = FixedTime;
@@ -167,7 +177,7 @@ void *ClockFunction;
 #else
 void PatchOwn(void *Function, void *Target) { golden::RedirectOwn(Function, Target); }
 
-// The runner's _time32 is ucrtbase's: its import slot points at the fake while the test runs.
+// The runner's _time64 is ucrtbase's: its import slot points at the fake while the test runs.
 void **ClockSlot;
 void *SavedSlot;
 #endif
@@ -178,13 +188,13 @@ void PatchClock(bool On)
 	DWORD Protection;
 	VirtualProtect(ClockFunction, 5, PAGE_EXECUTE_READWRITE, &Protection);
 	if (On)
-		PatchJump((uint32)(uintptr_t)ClockFunction, (void *)ImageTime);
+		PatchJump((uint32)(uintptr_t)ClockFunction, (void *)OurTime);
 	else
 		memcpy(ClockFunction, SavedClock, 5);
 	FlushInstructionCache(GetCurrentProcess(), ClockFunction, 5);
 	VirtualProtect(ClockFunction, 5, Protection, &Protection);
 #else
-	golden::SetImport(ClockSlot, On ? (void *)ImageTime : SavedSlot);
+	golden::SetImport(ClockSlot, On ? (void *)OurTime : SavedSlot);
 #endif
 }
 
@@ -219,12 +229,12 @@ void PatchCreatures()
 	PatchJump(0x51227f, (void *)ImageFopen);
 	PatchJump(0x512122, (void *)ImageFclose);
 	PatchJump(0x513a29, (void *)ImageFread);
-	ClockFunction = (void *)_time32;
+	ClockFunction = (void *)_time64;
 	memcpy(SavedClock, ClockFunction, 5);
 #else
-	ClockSlot = golden::FindImport("_time32");
+	ClockSlot = golden::FindImport("_time64");
 	if (ClockSlot == nullptr) {
-		printf("golden: Creatures: the runner imports no _time32\n");
+		printf("golden: Creatures: the runner imports no _time64\n");
 		exit(1);
 	}
 	SavedSlot = *ClockSlot;

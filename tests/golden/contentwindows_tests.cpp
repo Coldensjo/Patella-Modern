@@ -38,7 +38,8 @@
 // (text), its dump (text, by its changes since the last one, golden::OutputTextChanges), the results of its
 // calls, whether it has the parts the error round calls, how many logged fake calls its call made (the error
 // round draws the failing call from them) and what it threw. The runner redirects its own functions with
-// golden::RedirectOwn (operator new and new[] to the pattern too), our _time32 through its import slot and our
+// golden::RedirectOwn (operator new and new[] to the pattern too), our _time64 (time(), issue #62) through its
+// import slot and our
 // printf (the automap's MouseHover) through the import slot of __stdio_common_vfprintf while our side runs.
 
 #include "golden_test.h"
@@ -1007,6 +1008,13 @@ static __time32_t __cdecl FakeTime(__time32_t *Time)
 		*Time = 1700000000;
 	return 1700000000;
 }
+// Our clock (issue #62: time(), the CRT's _time64; before it _time32): the same fixed time.
+static __time64_t __cdecl FakeTime64(__time64_t *Time)
+{
+	if (Time != NULL)
+		*Time = 1700000000;
+	return 1700000000;
+}
 [[maybe_unused]] static int __cdecl ImagePrintf(const char *Format, ...) // unused (since before issue #28)
 {
 	char Buffer[512];
@@ -1080,7 +1088,7 @@ static void Redirect(void *Function, void *Target)
 	SavedCode.push_back(S);
 }
 #if !GOLDEN_ORACLE
-// Our _time32: the runner's import slot of ucrtbase's (Talk's test does the same).
+// Our _time64 (time(), issue #62): the runner's import slot of ucrtbase's (Talk's test does the same).
 static void **ClockSlot;
 static void *SavedClock;
 #endif
@@ -1241,7 +1249,7 @@ static void PatchCallees()
 		{0x414a10, (void *)SendStop, (void *)FakeSendStop},
 		// The CRT: the fixed clock, the printf (ours too), sprintf, _snprintf and
 		// operator new and new[] (the pattern).
-		{0x5121ea, ORIGINAL_OR((void *)_time32, NULL), (void *)FakeTime}, // the runner's: its import slot, below
+		{0x5121ea, NULL, (void *)FakeTime}, // ours: our CRT's _time64 below (the runner's: its import slot)
 		{0x512292, NULL, (void *)FakePrintf},
 		{0x511d6b, NULL, (void *)ImageSprintf},
 		{0x51233d, NULL, (void *)ImageSnprintf},
@@ -1258,14 +1266,15 @@ static void PatchCallees()
 		if (T.Ours != NULL)
 			Redirect(T.Ours, T.Fake);
 	}
+	ORIGINAL(Redirect((void *)_time64, (void *)FakeTime64));
 #if !GOLDEN_ORACLE
-	ClockSlot = golden::FindImport("_time32");
+	ClockSlot = golden::FindImport("_time64");
 	if (ClockSlot == nullptr) {
-		printf("golden: ContentWindows: the runner imports no _time32\n");
+		printf("golden: ContentWindows: the runner imports no _time64\n");
 		exit(1);
 	}
 	SavedClock = *ClockSlot;
-	golden::SetImport(ClockSlot, (void *)FakeTime);
+	golden::SetImport(ClockSlot, (void *)FakeTime64);
 #endif
 }
 

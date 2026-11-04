@@ -41,7 +41,8 @@
 // failing call is drawn from them) and in the error round what each call threw. The world, the buffers and
 // the operands are the test's, as before; the original's buffers exist in the oracle only. The DialogElements
 // fakes defined here (the edit line, the scroll bar, the buttons) are elementfakes.h's, with our x64 layout
-// in the runner. Our _time32 is the runner's import slot, as in Talk's test (golden::FindImport).
+// in the runner. Our clock (time(), the CRT's _time64 since issue #62) is the runner's import slot, as in Talk's
+// test (golden::FindImport).
 
 #include "golden_test.h"
 
@@ -818,6 +819,13 @@ static __time32_t __cdecl FakeTime(__time32_t *Time)
 		*Time = 1700000000;
 	return 1700000000;
 }
+// Our clock (issue #62: time(), the CRT's _time64; before it _time32): the same fixed time.
+static __time64_t __cdecl FakeTime64(__time64_t *Time)
+{
+	if (Time != NULL)
+		*Time = 1700000000;
+	return 1700000000;
+}
 #if GOLDEN_ORACLE
 static tm *__cdecl ImageLocaltime(const __time32_t *Time) { return _localtime32(Time); }
 static char *__cdecl ImageCtime(const __time32_t *Time) { return _ctime32(Time); }
@@ -865,7 +873,7 @@ static void Redirect(void *Function, void *Target)
 	SavedCode.push_back(S);
 }
 #if !GOLDEN_ORACLE
-// Our _time32: the runner's import slot of ucrtbase's (Talk's test does the same).
+// Our _time64 (time(), issue #62): the runner's import slot of ucrtbase's (Talk's test does the same).
 static void **ClockSlot;
 static void *SavedClock;
 #endif
@@ -952,22 +960,24 @@ static void PatchCallees()
 		{0x407b60, (void *)SendCloseRuleViolation, (void *)FakeSendCloseRuleViolation},
 		{0x408580, (void *)SendInviteToPrivateChannel, (void *)FakeSendInvite},
 		{0x408730, (void *)SendExcludeFromPrivateChannel, (void *)FakeSendExclude},
-		// The fixed clock (our CRT's as well, for SaveChannel and the history lines; the runner's below).
-		{0x5121ea, ORIGINAL_OR((void *)_time32, NULL), (void *)FakeTime},
+		// The fixed clock (ours below: our CRT's _time64, for SaveChannel and the history lines; the runner's
+		// import slot).
+		{0x5121ea, NULL, (void *)FakeTime},
 	};
 	for (auto &T : Table) {
 		ORIGINAL(Redirect((void *)(uintptr_t)T.Image, T.Fake));
 		if (T.Ours != NULL)
 			Redirect(T.Ours, T.Fake);
 	}
+	ORIGINAL(Redirect((void *)_time64, (void *)FakeTime64));
 #if !GOLDEN_ORACLE
-	ClockSlot = golden::FindImport("_time32");
+	ClockSlot = golden::FindImport("_time64");
 	if (ClockSlot == nullptr) {
-		printf("golden: ConsoleWindow: the runner imports no _time32\n");
+		printf("golden: ConsoleWindow: the runner imports no _time64\n");
 		exit(1);
 	}
 	SavedClock = *ClockSlot;
-	golden::SetImport(ClockSlot, (void *)FakeTime);
+	golden::SetImport(ClockSlot, (void *)FakeTime64);
 #endif
 	// DialogElements.cpp: both sides' constructors and members build and are the fakes
 	// (elementfakes.cpp); TMultiStateButton::Reset is inline and runs for real.

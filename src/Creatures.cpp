@@ -27,7 +27,9 @@
 #include "sysinc.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include "types/Time32.h"
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -87,6 +89,7 @@ TCallback NoCallback(nullptr, 0);
 } // namespace
 
 static_assert(sizeof(TCreature) == 0x9c, "TCreature is 0x9c bytes");
+static_assert(offsetof(TCreature, SkullTime) == 0x98 && sizeof(TCreature::SkullTime) == 4, "TCreature's 4-byte skull time (Time32, issue #62)");
 static_assert(sizeof(TBuddyEntry) == 0x2c, "TBuddyEntry is 0x2c bytes");
 // Name a TFixedString (issue #57): the original's offsets.
 static_assert(offsetof(TBuddyEntry, Name) == 0x04 && offsetof(TBuddyEntry, Online) == 0x22
@@ -138,7 +141,7 @@ bool TCreature::IsMarked() const
 void TCreature::SetSkull(int Skull, bool Delay)
 {
 	if (Delay && this->PKFlag != 0 && Skull == 0) {
-		SkullTime = PATELLA_TIME32(nullptr);
+		SkullTime = StoreTime32(PATELLA_TIME(nullptr));
 		return;
 	}
 	SkullTime = 0;
@@ -764,10 +767,10 @@ TCreature *GetCreature(uint32 CreatureID)
 void UpdateSkulls()
 {
 	TBEGIN
-	const Time32 Now = PATELLA_TIME32(nullptr);
+	const std::int64_t Now = PATELLA_TIME(nullptr);
 	for (int i = 0; i < CREATURES; i++) {
 		TCreature *Creature = &Creatures[i];
-		if (Creature->SkullTime != 0 && (Now < Creature->SkullTime || Now > Creature->SkullTime + 4)) {
+		if (Creature->SkullTime != 0 && !Creature->SkullKept(Now)) {
 			Creature->SkullTime = 0;
 			Creature->PKFlag = 0;
 		}

@@ -785,14 +785,6 @@ DWORD TimeGetTime()
 	return State().Clock->Milliseconds();
 }
 
-Time32 WallTime32(Time32 *Result)
-{
-	auto Now = static_cast<Time32>(State().Clock->WallSeconds());
-	if (Result != nullptr)
-		*Result = Now;
-	return Now;
-}
-
 time_t WallTime(time_t *Result)
 {
 	auto Now = static_cast<time_t>(State().Clock->WallSeconds());

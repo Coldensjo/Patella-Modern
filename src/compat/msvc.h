@@ -7,7 +7,7 @@
 // not snprintf. On Windows (MSVC, and mingw-w64, whose CRT is Microsoft's) each name is the Microsoft
 // function itself (a macro: below, "On Windows"), so the images do not change; elsewhere (Linux, M8) a
 // function with the same semantics from the C and POSIX libraries. The pure ones (formatting, comparison,
-// copy, the 32-bit time) are in compat/msvc_portable.h, which this header includes only off Windows and
+// copy) are in compat/msvc_portable.h, which this header includes only off Windows and
 // tests/unit/core_msvc_test.cpp on every platform, so that the test holds them against the Microsoft
 // functions on Windows and against the same expected values everywhere.
 //
@@ -31,7 +31,7 @@
 #include <cstdio>  // IWYU pragma: keep (on Windows the Msvc* macros' expansions need it)
 #include <cstdlib> // IWYU pragma: keep (on Windows the Msvc* macros' expansions need it)
 #include <cstring> // IWYU pragma: keep (on Windows the Msvc* macros' expansions need it)
-#include <ctime>   // IWYU pragma: keep (on Windows the Msvc* macros' expansions need it)
+#include <ctime>   // IWYU pragma: keep (PATELLA_TIME's expansion, TestHooks.h, needs it; here since issue #43)
 #if defined(_WIN32)
 #include <process.h>
 #endif
@@ -66,14 +66,8 @@
 
 // --- the CRT's semantics, portable ---
 
-// The 32-bit time of _time32, __time32_t: seconds since 1970-01-01 00:00 UTC in 32 bits (Creatures.h's skull
-// time and Talk.h's line time are 4-byte fields of the original's layout).
-#if defined(_WIN32)
-using Time32 = __time32_t;
-#else
-using Time32 = std::int32_t;
-#endif
-static_assert(sizeof(Time32) == 4);
+// No 32-bit time here since issue #62: the client's time is time()'s 64 bits, and the original's 4-byte time
+// fields convert at their boundary, types/Time32.h.
 
 #if defined(_WIN32)
 
@@ -88,8 +82,6 @@ static_assert(sizeof(Time32) == 4);
 #define MsvcVsnprintf _vsnprintf
 #define MsvcStricmp _stricmp
 #define MsvcStrdup _strdup
-#define MsvcTime32 _time32
-#define MsvcLocaltime32 _localtime32
 #define MsvcFileno _fileno
 #define MsvcExecl(Path, Argument) _execl(Path, Argument, nullptr)
 #define MsvcDupenv _dupenv_s
@@ -99,7 +91,7 @@ static_assert(sizeof(Time32) == 4);
 
 // The implementations of the other platforms (Linux, M8): compat/msvc_portable.h, the pure ones and, at its end,
 // the Msvc* names over them and POSIX. They are there since issue #49, so that msvc_portable.h compiles on its own:
-// it needs this header's spellings and Time32, which come first, and this header needs nothing after them.
+// it needs this header's spellings, which come first, and this header needs nothing after them.
 #include "compat/msvc_portable.h" // IWYU pragma: export
 
 #endif

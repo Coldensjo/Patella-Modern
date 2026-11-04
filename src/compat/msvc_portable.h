@@ -12,7 +12,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <ctime>
 #include <string>
 
 #if !defined(_WIN32)
@@ -24,13 +23,8 @@
 #include <unistd.h>
 #endif
 
-// PATELLA_PRINTF_FORMAT and Time32 (compat/msvc.h includes this header off Windows after them).
+// PATELLA_PRINTF_FORMAT (compat/msvc.h includes this header off Windows after it).
 #include "compat/msvc.h"
-
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4996) // localtime is "unsafe" to MSVC
-#endif
 
 namespace patella::compat {
 
@@ -107,29 +101,7 @@ inline char *PortableStrdup(const char *Text)
 	return Copy;
 }
 
-// _time32's value for a time: -1 after 2038-01-19 03:14:07 UTC, where 32 bits end (UCRT time/time.cpp
-// common_time), and for -1 (no time).
-inline Time32 PortableTime32(std::time_t Now)
-{
-	if (Now < 0 || Now > static_cast<std::time_t>(INT32_MAX))
-		return -1;
-	return static_cast<Time32>(Now);
-}
-
-// _localtime32: localtime of a 32-bit time, null for a time before 1970 (UCRT time/localtime.cpp).
-inline std::tm *PortableLocaltime32(const Time32 *Time)
-{
-	if (*Time < 0)
-		return nullptr;
-	const std::time_t Value = *Time;
-	return std::localtime(&Value); // _localtime32 returns its static tm too
-}
-
 } // namespace patella::compat
-
-#if defined(_MSC_VER)
-#pragma warning(pop)
-#endif
 
 #if !defined(_WIN32)
 
@@ -164,21 +136,6 @@ inline int MsvcStricmp(const char *Left, const char *Right)
 inline char *MsvcStrdup(const char *Text)
 {
 	return patella::compat::PortableStrdup(Text);
-}
-
-// _time32: the time now in 32 bits, also stored in *Time when Time is not null.
-inline Time32 MsvcTime32(Time32 *Time)
-{
-	const Time32 Now = patella::compat::PortableTime32(std::time(nullptr));
-	if (Time != nullptr)
-		*Time = Now;
-	return Now;
-}
-
-// _localtime32.
-inline std::tm *MsvcLocaltime32(const Time32 *Time)
-{
-	return patella::compat::PortableLocaltime32(Time);
 }
 
 // _fileno: the descriptor under a FILE.

@@ -665,7 +665,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 					Icon1 = Skull;
 					Icon2 = 0;
 				}
-				if (Creature->SkullTime > 0)
+				if (Creature->SkullTime != 0) // a kept skull (issue #62: its 32 bits are negative from 2038 to 2106)
 					Blink = GetBlinkState();
 			}
 			if (Icon1 != 0) {

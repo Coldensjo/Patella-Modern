@@ -2,10 +2,11 @@
 // Talk.h/Container.h COMDATs against the original, as a golden-corpus test (golden.h). Only mapped
 // functions run: no imports, entry point or original client loader.
 //
-// Both sides' wall clock is fixed: the oracle patches the image's _time32 and its own static CRT's; the
-// runner's CRT is the DLL's (ucrtbase), so the runner points the import slot of _time32 at the same
-// fake for the length of the test. Both sides use the process's _localtime32 (the same time zone at
-// the recording and the replay: one machine).
+// Both sides' wall clock is fixed: the oracle patches the image's _time32 and its own static CRT's _time64
+// (ours is time(), 64 bits, since issue #62); the runner's CRT is the DLL's (ucrtbase), so the runner points
+// the import slot of _time64 at the same fake for the length of the test. Both sides use the process's
+// localtime (the image's _localtime32, ours _localtime64_s: the same time zone at the recording and the
+// replay, one machine).
 //
 // The original's objects are recorded by value. A talk buffer (TTalkBuffer, 0x2c bytes in the
 // original, our oracle classes have its layout) is recorded as its fields, the indices of its cursor and
@@ -55,7 +56,16 @@ static_assert(sizeof(TTalkBuffer) == 0x2c, "TTalkBuffer: the original's layout i
 namespace {
 
 __time32_t FixedTime = 1700000000;
+#if GOLDEN_ORACLE
 __time32_t __cdecl ImageTime(__time32_t *Time)
+{
+	if (Time != nullptr)
+		*Time = FixedTime;
+	return FixedTime;
+}
+#endif
+// Our clock (issue #62: time(), the CRT's _time64): the same fixed time.
+__time64_t __cdecl OurTime(__time64_t *Time)
 {
 	if (Time != nullptr)
 		*Time = FixedTime;
@@ -83,7 +93,7 @@ int __cdecl ImageFprintf(FILE *File, const char *Format, ...)
 	return Result;
 }
 #else
-// The import slot of _time32 in the runner and what it held.
+// The import slot of _time64 in the runner and what it held.
 void **ClockSlot;
 void *SavedSlot;
 
@@ -102,11 +112,11 @@ void PatchTalk()
 	PatchJump(0x511d6b, (void *)ImageSprintf);
 	PatchJump(0x512173, (void *)ImageFprintf);
 	DWORD Protection;
-	void *ClockFunction = (void *)_time32;
+	void *ClockFunction = (void *)_time64;
 	TestClockFunction = ClockFunction;
 	memcpy(SavedClock, ClockFunction, 5);
 	CHECK(VirtualProtect(ClockFunction, 5, PAGE_EXECUTE_READWRITE, &Protection) != 0, "patch test CRT clock");
-	PatchJump((uint32)(uintptr_t)ClockFunction, (void *)ImageTime);
+	PatchJump((uint32)(uintptr_t)ClockFunction, (void *)OurTime);
 	FlushInstructionCache(GetCurrentProcess(), ClockFunction, 5);
 	VirtualProtect(ClockFunction, 5, Protection, &Protection);
 	for (uint32 Address : {0x71ef70u, 0x71ef90u, 0x71efb0u, 0x71efd0u})
@@ -114,14 +124,14 @@ void PatchTalk()
 			At<VectorFn>(0x4fd6e0)((void *)(uintptr_t)Address, NULL, 0, Address == 0x71efd0 ? 4 : 9,
 				Address == 0x71efd0 ? 5 : 10, NULL);
 #else
-	ClockSlot = golden::FindImport("_time32");
+	ClockSlot = golden::FindImport("_time64");
 	CHECK(ClockSlot != nullptr, "patch test CRT clock");
 	if (ClockSlot == nullptr) {
-		printf("golden: Talk: the runner imports no _time32\n");
+		printf("golden: Talk: the runner imports no _time64\n");
 		exit(1);
 	}
 	SavedSlot = *ClockSlot;
-	SetClockSlot((void *)ImageTime);
+	SetClockSlot((void *)OurTime);
 #endif
 }
 
