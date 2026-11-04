@@ -27,6 +27,7 @@
 #include "../../src/graphics.h"
 #include "../../src/Skins.h"
 #include "../../src/Help.h"
+#include "../../src/Container.h" // vector (GUI.h included it before issue #49)
 #include <map>
 #include <new>
 #include <string>
