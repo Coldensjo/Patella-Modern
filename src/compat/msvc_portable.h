@@ -15,10 +15,9 @@
 #include <string>
 
 #if !defined(_WIN32)
-// The Msvc* names at the end: errno values, and POSIX's fileno, setenv, unsetenv and execl, which the C headers
-// declare, not <cstdio> and <cstdlib>.
+// The Msvc* names at the end: errno values, and POSIX's setenv, unsetenv and execl, which the C headers declare,
+// not <cstdlib>.
 #include <cerrno>
-#include <stdio.h>  // NOLINT(modernize-deprecated-headers)
 #include <stdlib.h> // NOLINT(modernize-deprecated-headers)
 #include <unistd.h>
 #endif
@@ -136,12 +135,6 @@ inline int MsvcStricmp(const char *Left, const char *Right)
 inline char *MsvcStrdup(const char *Text)
 {
 	return patella::compat::PortableStrdup(Text);
-}
-
-// _fileno: the descriptor under a FILE.
-inline int MsvcFileno(std::FILE *File)
-{
-	return fileno(File);
 }
 
 // _execl with one argument: replaces the process with the program Path, which gets Argument as its argv[0]

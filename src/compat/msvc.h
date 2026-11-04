@@ -14,7 +14,8 @@
 // Not here, the Windows platform's own spellings, which stay where they are: the Windows API with its
 // calling conventions (WINAPI, CALLBACK, APIENTRY on callbacks and imports), the Windows SDK's and the
 // CRT's configuration macros (_CRT_SECURE_NO_WARNINGS, _WINSOCK_DEPRECATED_NO_WARNINGS, WIN32_LEAN_AND_MEAN),
-// the CRT's UTF-16 file names of the Windows-only test mode (_wfopen_s, src/testmode/TestModeWin32.cpp) and
+// the CRT's file functions behind types/File.h's TFile (fopen as _fsopen, _fileno, the test mode's UTF-16 names
+// with _wfopen_s; issue #64) and
 // sysinc.cpp's #pragma comment(lib, "winmm.lib") (Windows-only code: timeGetTime, the clipboard).
 //
 // The descriptor functions of <io.h> (_access, _eof) are in compat/msvc_io.h, which only the files that use
@@ -82,7 +83,6 @@
 #define MsvcVsnprintf _vsnprintf
 #define MsvcStricmp _stricmp
 #define MsvcStrdup _strdup
-#define MsvcFileno _fileno
 #define MsvcExecl(Path, Argument) _execl(Path, Argument, nullptr)
 #define MsvcDupenv _dupenv_s
 #define MsvcPutenv _putenv_s

@@ -334,6 +334,20 @@ recording on (`golden_corpus`, 886 MB) the same counts. The x64 golden_runner (w
 Communication's 856,366; retired 1,497,464 as before; not ported 278,147 (Control). src/ unchanged (no diff against
 8e76abc, main with issue #62); macrocheck 8e76abc issue-30b: 2,108 calls, 0 differences.
 
+Patella-Modern issue #64 (branch issue-64, November 4, 2026): TFile, PrintLine and the constant formats. `python -I
+tools/build.py oracle-x86 --fresh` (CTest 4/4, 0 warnings; Script.h's new static_asserts compile): 16,848,752 + 67 +
+1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on (`golden_corpus`, the branch's own build\golden,
+846 MB) the same counts. The first run had 403 ContentWindows failures ("logs differ"): the golden test logged our
+MouseHover output through a fake printf, which our side no longer calls; it fakes our stdout fwrite now (forced,
+notes/decisions.md). The x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13) replays 15,351,355 checks,
+1,497,464 retired, 0 failures. tests/unit: tests_unit 52/10,027 and tests_unit_cxx26_standin 52/10,029 on Windows and
+with mingw-w64 (file_test.cpp: 11 cases, 160 assertions), 51/10,009 (10,007 on Clang) and 51/10,011 on Linux;
+tests_core 32/313 (Linux 32/316), tests_testmode 35/709, tests_render 14/359, tests_vulkan 14/1,309 unchanged;
+windows-x64-gcc(-debug) and the four Linux presets (--fresh) 11/11, 0 warnings everywhere. macrocheck 8e76abc
+issue-64: 2,108 calls, 0 differences. tidy_ci: 13 findings, 0 new; Visual Studio's clang-tidy on windows-x64's
+commands of the changed files: modernize-use-std-print 4 to 0, nothing new. banned_calls: 0 (with the file
+functions). clang-format: clean.
+
 Patella-Modern issue #62 (branch issue-62, November 4, 2026): 64-bit time everywhere. `python -I tools/build.py
 oracle-x86 --fresh` (CTest 4/4, 0 warnings; the new static_asserts of SkullTime +0x98 and TTalkLine::Time +0x3c
 compile): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on (`golden_corpus`,

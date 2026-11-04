@@ -121,7 +121,8 @@ jobs:
         with:
           persist-credentials: false
       # Issue #57 (M4's exit): no strcpy, strcat, sprintf, vsprintf or gets in src/ (src/Extern aside); the
-      # buffers write through TFixedString and TStringBuffer (src/types/FixedString.h).
+      # buffers write through TFixedString and TStringBuffer (src/types/FixedString.h). Issue #64: no FILE and no
+      # fopen, fclose or printf family outside src/types/File.h (TFile).
       - name: tools/banned_calls.py
         run: python3 -I tools/banned_calls.py --self-test && python3 -I tools/banned_calls.py
 

@@ -19,6 +19,13 @@ From the sources (every fopen, ofstream, remove and rename in src/):
 | Patella.ini (the x64 client only, Patella-Modern issue #31) | src/vulkan/DeviceSettings.cpp SaveDeviceChoice | a click in the advanced graphics options that changes the graphics device (notes/vulkan.md, "Choosing the device") |
 | Tibia.dat, Tibia.spr, Tibia.pic, Patch.exe (replaced) | Script.cpp InstallPatch (remove, rename `_` to the name) | messages 0x41-0x44 after the patch, once the login connection is closed |
 
+Since Patella-Modern issue #64 each of these files except error.txt (a std::ofstream, Player.cpp) is a `TFile`
+(src/types/File.h): Tibia.cfg and the binary files (`.map`, the patch files) through Script.h's four classes
+("rb"/"wb", binary: Tibia.cfg's CR LF are written by writeLn itself), the saved channel through ConsoleWindow.cpp's
+SaveChannel in text mode ("at": every "\n" of the text becomes "\r\n", as the Microsoft C runtime wrote it, on
+Windows and on Linux alike). The test mode's dumps are TFiles too: packets.log, frames.txt and messages.txt binary, the
+`--test-log` text. The bytes are the same as before (tests/unit/file_test.cpp; notes/decisions.md, issue #64).
+
 The login server decides about patches: a 7.72 server can send them in answer to any login (the client's
 first packet carries the three files' signatures), so a crafted replay of the login connection triggers
 every one of them. A Tibia.exe patch is written to Tibia.bak; the client then shows "Updating", closes

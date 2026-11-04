@@ -1181,8 +1181,8 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 				Block.Marks(i) = TMark();
 			Block.MarkCount = 0;
 			if (DefaultTextBuffer != nullptr) {
-				char Message[256];
-				MsvcSnprintf(Message, 256, "Map file '%s' was corrupted!", FileName.Chars);
+				TFixedString<256> Message;
+				Message.Format("Map file '{}' was corrupted!", FileName);
 				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 				SetConsoleChanged();
 			}
@@ -1247,15 +1247,15 @@ void SaveAutomapBlock(int Position)
 		} catch (TMyException &) {
 			File.close();
 			if (DefaultTextBuffer != nullptr) {
-				char Message[256];
-				MsvcSnprintf(Message, 256, "Error while saving file '%s'!", FileName.Chars);
+				TFixedString<256> Message;
+				Message.Format("Error while saving file '{}'!", FileName);
 				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 				SetConsoleChanged();
 			}
 		}
 	} else if (DefaultTextBuffer != nullptr) {
-		char Message[256];
-		MsvcSnprintf(Message, 256, "Could not save file '%s'!", FileName.Chars);
+		TFixedString<256> Message;
+		Message.Format("Could not save file '{}'!", FileName);
 		AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 		SetConsoleChanged();
 	}

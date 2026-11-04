@@ -1,11 +1,11 @@
 #pragma once
 #include "common.h"
+#include "types/File.h"
 #include "types/FixedString.h"
 #include "types/Time32.h"
 #include "Container.h"
 #include "Preferences.h"
 #include <type_traits>
-#include <cstdio>
 
 struct TRGBColor;
 
@@ -122,7 +122,7 @@ public:
 		cursor = last;
 		return cursor;
 	}
-	int Write(FILE *F) const;
+	int Write(TFile &F) const;
 	int ReceiveTalkMode, SendTalkMode;
 	bool Changed, Closed;
 	TTalkLine *first, *last, *cursor;

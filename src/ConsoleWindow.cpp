@@ -38,6 +38,7 @@
 #include "compat/crt71.h"
 #include "GUI.h"
 #include "common.h"
+#include "types/File.h"
 #include "types/FixedString.h"
 #include <sstream>
 #include <cstddef>
@@ -2025,8 +2026,8 @@ bool TConsoleWindow::SaveChannel() const
 	TASSERT(2317, CurrentTab->getCaption()!=NULL);
 	TFixedString<1024> FileName;
 	FileName.Format("{}.txt", CurrentTab->getCaption());
-	FILE *File = fopen(FileName, "at");
-	if (File == nullptr)
+	TFile File;
+	if (!File.Open(FileName, TFile::TAccess::Append, TFile::TContent::Text))
 		return false;
 	const TTalkBuffer *TextBuffer = GetTextBuffer();
 	TASSERT(2324, TextBuffer!=NULL);
@@ -2035,9 +2036,9 @@ bool TConsoleWindow::SaveChannel() const
 	// original's 32-bit time had none); where there is none (before 1970), printf wrote "(null)"
 	TCRT71TimeText Stamp;
 	const char *Saved = FormatCRT71Time(Stamp, Now);
-	fprintf(File, "\nChannel saved at %s", Saved != nullptr ? Saved : "(null)");
+	File.Print("\nChannel saved at {}", Saved != nullptr ? Saved : "(null)");
 	TextBuffer->Write(File);
-	fclose(File);
+	File.Close();
 	TFixedString<100> Message;
 	Message.Format("Channel appended to {}", FileName);
 	SetStatusMessage(Message, false);

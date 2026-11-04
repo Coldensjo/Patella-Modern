@@ -80,6 +80,7 @@
 #include "testmode/Png.h"
 #include "testmode/ServerReplay.h"
 #include "testmode/StateDump.h"
+#include "types/File.h"
 
 #include <mmsystem.h>
 #include <shellapi.h>
@@ -186,14 +187,14 @@ struct TState {
 	bool Scripted = false;
 	TScheduler Scheduler;
 	POINT Cursor = {-1, -1}; // client coordinates
-	std::FILE *Log = nullptr;
+	TFile Log;               // --test-log, text: "\r\n" (never closed: TState lives until the process ends)
 	bool Started = false;
 	std::chrono::steady_clock::time_point RealStart;
 	bool FinishReported = false;
 
 	// Issue #22: the dumps.
 	std::filesystem::path Out; // --test-out; empty: no dumps
-	std::FILE *Packets = nullptr;
+	TFile Packets;
 	TConnections Connections;
 	std::array<unsigned char, RsaBlockSize> Rsa{};
 	bool HasRsa = false;
@@ -222,11 +223,11 @@ struct TState {
 
 void WriteLog(TState &State, const std::string &Line)
 {
-	if (State.Log == nullptr)
+	if (!State.Log.IsOpen())
 		return;
-	std::fputs(Line.c_str(), State.Log);
-	std::fputc('\n', State.Log);
-	std::fflush(State.Log);
+	State.Log.Write(Line);
+	State.Log.PutChar('\n');
+	State.Log.Flush();
 }
 
 [[noreturn]] void Fail(TState &State, const std::string &Message)
@@ -291,10 +292,10 @@ void OpenOut(TState &State, const std::wstring &Folder)
 	std::error_code Error;
 	std::filesystem::create_directories(State.Out, Error);
 	const std::filesystem::path Log = State.Out / L"packets.log";
-	if (_wfopen_s(&State.Packets, Log.c_str(), L"wb") != 0 || State.Packets == nullptr)
+	if (!State.Packets.Open(Log.c_str(), TFile::TAccess::Write))
 		Fail(State, "cannot write " + Narrow(Log.wstring()));
-	std::fputs((std::string(PacketLogHeader) + "\n").c_str(), State.Packets);
-	std::fflush(State.Packets);
+	State.Packets.Write(std::string(PacketLogHeader) + "\n");
+	State.Packets.Flush();
 }
 
 // The checker's two events (--test-sync).
@@ -357,10 +358,8 @@ void OpenDisplayModes(TState &State, const std::wstring &Path)
 void Initialize(TState &State)
 {
 	const TArguments Arguments = ReadArguments();
-	if (!Arguments.Log.empty()) {
-		if (_wfopen_s(&State.Log, Arguments.Log.c_str(), L"w") != 0)
-			State.Log = nullptr;
-	}
+	if (!Arguments.Log.empty())
+		State.Log.Open(Arguments.Log.c_str(), TFile::TAccess::Write, TFile::TContent::Text); // stays closed where it fails
 	if (!Arguments.Out.empty())
 		OpenOut(State, Arguments.Out);
 	if (!Arguments.Sync.empty())
@@ -949,8 +948,8 @@ std::uint32_t PacketTime(TState &State)
 
 void WritePacket(TState &State, const TPacketRecord &Record)
 {
-	std::fputs((PacketLogLine(Record) + "\n").c_str(), State.Packets);
-	std::fflush(State.Packets);
+	State.Packets.Write(PacketLogLine(Record) + "\n");
+	State.Packets.Flush();
 }
 
 } // namespace
@@ -1054,11 +1053,11 @@ void PATELLA_CDECL FramePixels(const void *Bits, int Pitch, int Width, int Heigh
 	Current.MaskWidth = 0;
 	Current.MaskHeight = 0;
 	// frames.txt: <step> <requested ms> <script line> <shown ms> <width> <height> <filtered pixels, -1: no mask>
-	std::FILE *Index = nullptr;
-	if (_wfopen_s(&Index, (Current.Out / L"frames.txt").c_str(), L"ab") == 0 && Index != nullptr) {
-		std::fprintf(Index, "%d %u %d %u %d %d %lld\n", Frame.Step, Frame.Requested, Frame.Line, Current.Virtual.Elapsed(),
-			Width, Height, Filtered);
-		std::fclose(Index);
+	TFile Index;
+	if (Index.Open((Current.Out / L"frames.txt").c_str(), TFile::TAccess::Append)) {
+		Index.Print("{} {} {} {} {} {} {}\n", Frame.Step, Frame.Requested, Frame.Line, Current.Virtual.Elapsed(), Width,
+			Height, Filtered);
+		Index.Close();
 	}
 	if (!Ok)
 		WriteLog(Current, "testmode: cannot write " + Name);
@@ -1077,12 +1076,12 @@ int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type
 	const std::string Text8 = Text != nullptr ? Text : "";
 	WriteLog(Current, "testmode: message box \"" + Caption8 + "\": " + Text8);
 	if (!Current.Out.empty()) {
-		std::FILE *File = nullptr;
-		if (_wfopen_s(&File, (Current.Out / L"messages.txt").c_str(), L"ab") == 0 && File != nullptr) {
+		TFile File;
+		if (File.Open((Current.Out / L"messages.txt").c_str(), TFile::TAccess::Append)) {
 			const std::string Line = "{\"step\":" + std::to_string(++Current.Messages) + ",\"time\":" + std::to_string(Current.Virtual.Elapsed())
 				+ ",\"caption\":" + JsonString(Caption8) + ",\"text\":" + JsonString(Text8) + ",\"type\":" + std::to_string(Type) + "}\n";
-			std::fputs(Line.c_str(), File);
-			std::fclose(File);
+			File.Write(Line);
+			File.Close();
 		}
 	}
 	// While a real box is open its modal loop dispatches the thread's messages (FatalError's

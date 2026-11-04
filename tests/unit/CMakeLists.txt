@@ -12,6 +12,9 @@
 #   TFixedString::Format: against texts computed apart, std::chrono's calendar and, on Windows, the UCRT's _ctime32.
 # - Both: Time32, StoreTime32 and LoadTime32 (src/types/Time32.h, issue #62), the original's 4-byte time fields and
 #   their conversion from and to the 64-bit time, held against the original's 32-bit arithmetic, past 2038 and 2106.
+# - Both: TFile (src/types/File.h, issue #64), the client's files: the bytes of each open mode (text: "\r\n" on every
+#   platform), fopen's and fclose's results, reads, seeks, _eof through Descriptor, Print through both paths of the
+#   format (std::format and the stand-in) against fprintf's text, and compat/print.h's FormatLine.
 #
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
 #   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31) and
@@ -62,7 +65,8 @@ function(patella_unit_tests target)
 		cxx26_static_vector_test.cpp
 		fixed_string_test.cpp
 		crt71_test.cpp
-		time32_test.cpp)
+		time32_test.cpp
+		file_test.cpp)
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
 	target_link_libraries(${target} PRIVATE doctest::doctest)
 	patella_target_language(${target})

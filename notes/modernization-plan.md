@@ -458,6 +458,10 @@ unit tests:
   `TRSA`).
 - **Formatting and I/O:** `std::format_to_n` into `TFixedString`, `std::print` for diagnostics, an RAII
   `TFile` instead of `FILE*`. The bytes written stay the same (`compare_files.py`).
+  Done in issue #64 (notes/decisions.md): `src/types/File.h`'s TFile (exactly a `FILE *`; text mode writes "\r\n" on
+  every platform), the constant `MsvcSnprintf` formats that always fit as `Format`; stdout's printf is
+  `src/compat/print.h`'s PrintLine, not `std::print`, which throws where the write fails. The grep gate bans `FILE`
+  and the fopen, fclose and printf families outside File.h.
 - **C arrays in structures** to `std::array` (same layout); array parameters to `std::span`.
 - **`crt71.h`:** one `FormatCRT71Time` built on `std::chrono` and `std::format`, with the two-digit day, instead
   of patching `ctime`'s buffer; this also removes `ctime`, which behaves differently in glibc.

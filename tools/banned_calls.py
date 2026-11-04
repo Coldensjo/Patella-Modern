@@ -3,6 +3,11 @@ sprintf, vsprintf or gets in src/ (src/Extern, Henry Spencer's regexp, keeps its
 buffers write through TFixedString and TStringBuffer (src/types/FixedString.h) instead; a bounded MsvcSnprintf
 (_snprintf's semantics, src/compat/msvc.h) and strncpy are not banned.
 
+Issue #64 added the files: no FILE (the type) and no call that opens or closes one (fopen, _fsopen, _wfopen,
+_wfopen_s, fopen_s, freopen, fdopen, tmpfile, tmpfile_s, fopencookie, fclose) or prints to one (printf, fprintf,
+vprintf, vfprintf) outside src/types/File.h, whose TFile owns the client's files (Print formats with std::format's
+language; compat/print.h's PrintLine is stdout's printf).
+
 Comments and string and character literals are skipped, so a comment may name the function it replaced. Each
 call found is printed as <file>:<line>: <function>; the exit code is 1 when there is one, 0 otherwise.
 
@@ -18,6 +23,12 @@ import sys
 
 BANNED = ('strcpy', 'strcat', 'sprintf', 'vsprintf', 'gets')
 CALL = re.compile(r'\b(' + '|'.join(BANNED) + r')\s*\(')
+# Issue #64: banned outside FILE_OWNER.
+FILE_BANNED = ('fopen', '_fsopen', '_wfopen', '_wfopen_s', 'fopen_s', 'freopen', 'fdopen', 'tmpfile', 'tmpfile_s',
+	'fopencookie', 'fclose', 'printf', 'fprintf', 'vprintf', 'vfprintf')
+FILE_CALL = re.compile(r'\b(' + '|'.join(FILE_BANNED) + r')\s*\(')
+FILE_TYPE = re.compile(r'\b(FILE)\b')
+FILE_OWNER = 'types/File.h'
 EXTENSIONS = {'.c', '.cpp', '.cc', '.h', '.hpp', '.inl', '.inc'}
 
 
@@ -58,10 +69,13 @@ def strip(text):
 	return ''.join(out)
 
 
-def calls(text):
-	"""(line, function) of every banned call in a source text."""
+def calls(text, file_owner=False):
+	"""(line, function) of every banned call in a source text; with file_owner, the file functions and FILE are
+	allowed (src/types/File.h)."""
 	code = strip(text)
-	return [(code.count('\n', 0, m.start()) + 1, m.group(1)) for m in CALL.finditer(code)]
+	patterns = [CALL] if file_owner else [CALL, FILE_CALL, FILE_TYPE]
+	found = [(code.count('\n', 0, m.start()) + 1, m.start(), m.group(1)) for p in patterns for m in p.finditer(code)]
+	return [(line, name) for line, _, name in sorted(found)]
 
 
 def self_test():
@@ -73,6 +87,12 @@ def self_test():
 	assert calls('auto s = R"x(strcpy(a, b))x"; strcat(a, b);') == [(1, 'strcat')]
 	assert calls('Text.Assign(Name); vsprintf(a, f, v);') == [(1, 'vsprintf')]
 	assert calls('/* unterminated') == []
+	assert calls('std::FILE *F = std::fopen(N, "rb");\nfclose(F); fprintf(F, "x"); printf("y");') == [
+		(1, 'FILE'), (1, 'fopen'), (2, 'fclose'), (2, 'fprintf'), (2, 'printf')]
+	assert calls('std::FILE *F = std::fopen(N, "rb"); fclose(F);', file_owner=True) == []
+	assert calls('File.Open(N); File.Print("{}", 1); TFile F; // FILE *, fopen(\nMsvcSnprintf(a, 2, "b");') == []
+	assert calls('_wfopen_s(&F, N, L"wb"); tmpfile(); fputs(T, stderr); fwrite(T, 1, 2, stdout);') == [
+		(1, '_wfopen_s'), (1, 'tmpfile')]
 	print('banned_calls.py: self-test passed')
 
 
@@ -92,10 +112,12 @@ def main():
 		if path.suffix not in EXTENSIONS or not path.is_file() or relative.parts[0] == 'Extern':
 			continue
 		files += 1
-		for line, function in calls(path.read_text(encoding='utf-8', errors='replace')):
+		owner = relative.as_posix() == FILE_OWNER
+		for line, function in calls(path.read_text(encoding='utf-8', errors='replace'), owner):
 			print(f'src/{relative.as_posix()}:{line}: {function}')
 			found += 1
-	print(f'banned_calls.py: {found} calls of {", ".join(BANNED)} in {files} files of src/ (src/Extern not checked)')
+	print(f'banned_calls.py: {found} calls of {", ".join(BANNED)}, and of FILE, {", ".join(FILE_BANNED)} outside '
+		f'src/{FILE_OWNER}, in {files} files of src/ (src/Extern not checked)')
 	return 1 if found else 0
 
 

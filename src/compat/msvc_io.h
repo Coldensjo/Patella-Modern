@@ -1,7 +1,7 @@
 // msvc_io.h: the descriptor functions of the Microsoft CRT's <io.h> that the client uses, behind portable names
 // (Patella-Modern issue #43; compat/msvc.h says why they are a header of their own; _fileno, a <cstdio>
-// function, is its MsvcFileno). Not part of the original source. On Windows the Microsoft functions
-// themselves, elsewhere the same semantics from POSIX.
+// function, is types/File.h's TFile::Descriptor since issue #64). Not part of the original source. On Windows
+// the Microsoft functions themselves, elsewhere the same semantics from POSIX.
 
 #pragma once
 
