@@ -108,7 +108,7 @@ static_assert(sizeof(Time32) == 4);
 PATELLA_PRINTF_FORMAT(3, 4)
 inline int MsvcSnprintf(char *Buffer, std::size_t Count, const char *Format, ...) // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
 {
-	std::va_list Values; // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
+	std::va_list Values;      // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
 	va_start(Values, Format); // NOLINT(cppcoreguidelines-pro-type-vararg)
 	const int Result = patella::compat::PortableVsnprintf(Buffer, Count, Format, Values);
 	va_end(Values); // NOLINT(cppcoreguidelines-pro-type-vararg)

@@ -55,7 +55,7 @@ inline int PortableVsnprintf(char *Buffer, std::size_t Count, const char *Format
 PATELLA_PRINTF_FORMAT(3, 4)
 inline int PortableSnprintf(char *Buffer, std::size_t Count, const char *Format, ...) // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
 {
-	std::va_list Arguments; // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
+	std::va_list Arguments;      // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
 	va_start(Arguments, Format); // NOLINT(cppcoreguidelines-pro-type-vararg)
 	const int Result = PortableVsnprintf(Buffer, Count, Format, Arguments);
 	va_end(Arguments); // NOLINT(cppcoreguidelines-pro-type-vararg)
