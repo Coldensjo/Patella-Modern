@@ -11,8 +11,9 @@
 // Per test executable of the oracle (difftest, sysinctest, communicationtest), the runner replays the
 // ported tests and checks that each makes exactly the checks the oracle made and passes them (a test's
 // retired parts, golden::RetiredBegin, are skipped: their checks are counted apart, and the replayed and the
-// retired ones together must be the oracle's); it lists
-// the oracle's tests that are not ported yet, with their checks. Exit code: 0 when every replayed test
+// retired ones together must be the oracle's); it lists the tests retired with the oracle as a whole
+// (RetiredTests: issue #29's engine tests), counted with the retired checks, and the oracle's tests that are
+// not ported yet, with their checks. Exit code: 0 when every replayed test
 // passed with the oracle's check count, 1 on a failure or a stale corpus, 77 without a corpus.
 
 #include "golden_test.h"
@@ -75,6 +76,29 @@ const TExecutable Executables[] = {
 	{"communicationtest", {}},
 };
 
+// The oracle's tests that are retired with it as a whole, by the user's decision (issue #29, closed "not
+// planned"; plan M6): the engine tests of the DirectDraw, Direct3D 9 and OpenGL engines, which the x64 client
+// does not have (its only engine is the Vulkan engine, issue #20). They are never replayed; their checks are
+// counted as retired, with the other retired checks, not as "not ported yet".
+struct TRetired {
+	const char *Executable;
+	const char *Name;
+	const char *Reason;
+};
+const TRetired RetiredTests[] = {
+	{"difftest", "SurfaceDX", "#29"},
+	{"difftest", "SurfaceDX9", "#29"},
+	{"difftest", "SurfaceGL", "#29"},
+};
+
+const TRetired *FindRetired(const TExecutable &Executable, const std::string &Name)
+{
+	for (const TRetired &Test : RetiredTests)
+		if (strcmp(Test.Executable, Executable.Name) == 0 && Name == Test.Name)
+			return &Test;
+	return nullptr;
+}
+
 const TPorted *FindPorted(const TExecutable &Executable, const std::string &Name)
 {
 	for (const TPorted &Test : Executable.Tests)
@@ -131,13 +155,13 @@ int main(int argc, char **argv)
 	}
 
 	bool Ok = true;
-	long long TotalReplayed = 0, TotalRetired = 0, TotalRecorded = 0;
+	long long TotalReplayed = 0, TotalRetired = 0, TotalMissing = 0, TotalRecorded = 0;
 	for (int e = 0; e < Count; e++) {
 		const TExecutable &Executable = Executables[e];
 		const golden::TManifest &Manifest = Manifests[e];
 		long long Replayed = 0, Retired = 0, Missing = 0;
 		int ReplayedTests = 0;
-		std::string NotPorted;
+		std::string NotPorted, RetiredWhole;
 		for (const TPorted &Test : Executable.Tests) {
 			if (Test.Name == nullptr)
 				continue;
@@ -153,6 +177,16 @@ int main(int argc, char **argv)
 		for (int t = 0; t < Manifest.NumberOfTests; t++) {
 			const golden::TTestEntry &Entry = Manifest.Tests[t];
 			const TPorted *Test = FindPorted(Executable, Entry.Name);
+			if (const TRetired *Whole = FindRetired(Executable, Entry.Name); Test == nullptr && Whole != nullptr) {
+				Retired += Entry.Checks;
+				char Item[96];
+				snprintf(Item, sizeof(Item), "%s%s %lld (%s)", RetiredWhole.empty() ? "" : ", ", Entry.Name.c_str(),
+					Entry.Checks, Whole->Reason);
+				RetiredWhole += Item;
+				printf("%s %s: %lld checks retired with the oracle (%s), not replayed\n", Executable.Name,
+					Entry.Name.c_str(), Entry.Checks, Whole->Reason);
+				continue;
+			}
 			if (Test == nullptr) {
 				Missing += Entry.Checks;
 				char Item[96];
@@ -198,14 +232,18 @@ int main(int argc, char **argv)
 			ReplayedTests);
 		if (Retired != 0)
 			printf(", %lld retired with the oracle", Retired);
+		if (!RetiredWhole.empty())
+			printf(" (whole tests: %s)", RetiredWhole.c_str());
 		if (!NotPorted.empty())
 			printf("; not ported yet: %lld checks (%s)", Missing, NotPorted.c_str());
 		printf("\n");
 		TotalReplayed += Replayed;
 		TotalRetired += Retired;
+		TotalMissing += Missing;
 		TotalRecorded += Manifest.Checks;
 	}
-	printf("golden: %lld of the oracle's %lld checks replayed, %lld retired with the oracle, %d failures\n",
-		TotalReplayed, TotalRecorded, TotalRetired, Failures);
+	printf("golden: %lld of the oracle's %lld checks replayed, %lld retired with the oracle, %lld not ported yet, %d "
+		   "failures\n",
+		TotalReplayed, TotalRecorded, TotalRetired, TotalMissing, Failures);
 	return Ok && Failures == 0 ? 0 : 1;
 }
