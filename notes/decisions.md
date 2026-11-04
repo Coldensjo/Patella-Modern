@@ -6881,3 +6881,80 @@ enabled in .clang-tidy.
   those, 0 unexpected differences). macrocheck ac12de2 against the branch: the 2,108 calls unchanged. The difftest counts are
   unchanged; the clang-tidy baseline is unchanged (14 findings, 0 new, 0 gone; it held none of this check).
 - **Not in this issue** (medium). tests/ and tools/ keep their C casts (as in #35 and #40: src/ only).
+
+## The gotos: restructured, and the one shared exit kept (Patella-Modern issue #42)
+
+Settled by Claude Opus 5.5, November 4, 2026. The eleventh change of M3 (plan section 7), by hand, one function per
+commit: src/ has one `goto` left, ProcessEvents' jump to the binary's shared exit block, with a NOLINT that names the
+block; `cppcoreguidelines-avoid-goto` is enabled in .clang-tidy.
+
+- **25 gotos in five functions, not 18** (high). The plan counted 18 before the Vulkan engine (issue #19) copied
+  DX9's WriteMaskedImage: TBattleWindowBody::Draw (0x43a2c0, ContentWindows.cpp, 3), ProcessEvents (0x4498a0,
+  Control.cpp, 1), TSurfaceGL::WriteMaskedImage (0x4fbbb0, 7), TSurfaceDX9::WriteMaskedImage (0x4f2040, 7) and
+  TSurfaceVulkan::WriteMaskedImage (x64 only, 7). src/Extern has none.
+- **What counts as the original's cleanup path** (high). Read from the decompiled listings (decompilation/decomp/
+  clean): a goto stays when the binary has one exit block that the end of a loop and a jump from inside the loop
+  both reach, and C++ has no other way to leave the loop from where the jump is. Only ProcessEvents qualifies: its
+  loop condition and case 0x40 (logout while connected, after AddMessageFirst(0x40)) both jump to 0x44a2f5, the
+  walk, Redraw and return before the catch. Inside a switch inside the loop, `break` leaves only the switch. A flag
+  (`bool LoggingOut`, tested in the loop condition) gives the same behaviour (ModalWindow is null on that path, so
+  the dialog placement after the switch is skipped), but MSVC compiles ProcessEvents differently with it (measured
+  on the object), so the goto stays: `goto Done; // NOLINT(cppcoreguidelines-avoid-goto): the binary's shared exit
+  block 0x44a2f5 (#42)`. Its code is unchanged.
+- **The rest jump to code that several branches share, not to an exit** (high). In Draw, case 1 of the party flag
+  inside a party and every unknown flag jump past the shield (switchD_0043a85b_default), and an unknown skull flag
+  past the skull; in the three WriteMaskedImage, every mask or colour test that fails jumps to the copy of an
+  untinted pixel (Copy), the tint jumps over it (Next). Restructured:
+  - Draw: `int Skin = 0;` means none (the skins are 240-251, never 0), each switch sets it or leaves it, and the
+    drawing (with the Offset update) runs `if (Skin != 0)`. Same calls in the same order.
+  - WriteMaskedImage (all three): the tests leave the tint's colour in `Index`, or -1 for a copy; each failing test
+    is the old `goto Copy` condition negated (De Morgan), and one if/else tints or copies. The pixel code is the
+    same text.
+  No form that keeps the generated code was found: the x86 code of Draw and of the GL and DX9 functions changes
+  (Draw 3,200 to 3,208 bytes, GL 1,063 to 1,061, DX9 1,225 to 1,199; block order and registers), so behaviour is
+  proved by difftest instead. On x64 MSVC emits the same code for the new Draw (the x64 images are identical).
+- **Coverage in difftest** (high). The counts of every gate are unchanged (16,848,752 / 67 / 1,134,513 / 3,201).
+  Which paths ran was measured once with temporary counters in the four files (not committed; the run's total was
+  again 16,848,752 checks, 0 failures): Draw (contentwindowstest.cpp, 52,506 checks plus 168,764 in its error part;
+  the creatures get random party and skull flags 0-5 and IsPlayerInParty is faked) drew 5,978 battle rows: party
+  flag 1 inside a party 167, flag 1 otherwise 145, flags 2-4 993, unknown flags 373; skull flags 1-4 1,335, unknown
+  301. TSurfaceGL::WriteMaskedImage (surfacegltest.cpp, case 21, 53,082 checks in SurfaceGL) and
+  TSurfaceDX9::WriteMaskedImage (surfacedx9test.cpp, 58,682 checks in SurfaceDX9), pixels per path, GL / DX9: with
+  a mask copied 137,334 / 136,601, tinted with colour 0-3 17,248 17,140 17,092 17,088 / 22,706 22,629 22,913
+  22,838; without a mask copied 48,760 / 78,403, tinted 114,289 / 182,733. Each test compares the textures (and
+  the thrown errors) with Tibia.exe's functions. ProcessEvents (controltest.cpp, every event type, against
+  0x4498a0) is unchanged code.
+- **TSurfaceVulkan::WriteMaskedImage: no difftest** (high). It is x64 only, and neither tests_vulkan nor the unit
+  tests call it. Its classification is the same text as GL's and DX9's; the old (goto) and the new classification,
+  copied verbatim into a scratch program (build/logs/issue-42/scripts/eq.cpp, not committed), give the same Index
+  for all 2^24 mask values (exactly one value per colour 0-3 is tinted) and for 2^24 unmasked colours against two
+  Colors[1] each: 50,331,648 cases, 0 differences. Its code grows from 807 to 885 bytes (and its unwind funclet's
+  frame offset changes). The reference compare and compare_rendering draw sprites through it (orchestrator's live
+  check).
+- **How the images were compared** (high). Every commit was built at the same path (oracle-x86 Patella.exe,
+  windows-x64 Release Patella.exe and PatellaTest.exe) and compared with the commit before it. pecompare reports
+  every shifted address after a function that changes size, so three uncommitted scripts (build/logs/issue-42/
+  scripts) took over: fndiff2.py lists the functions from the PDB (dbghelp) and compares each function's bytes,
+  allowing a difference only where a relocated or RIP-free address names the same function+offset in both images
+  or where the instruction (dumpbin) is the same once its addresses are written as function+offset; datacheck.py
+  does the same for every other section (pointers and RVAs in .rdata, .data, .pdata, .didat) and compares the
+  relocation sites as function+offset; stubcheck.py follows the pointers to the EH stubs and funclets that have no
+  symbol (x86 `__ehhandler$`, `.text$x`) and compares their code. Results, per commit:
+  - Draw: oracle, only TBattleWindowBody::Draw differs (of 11,427 functions); .rdata/.data: 47,001 pointers and
+    17,806 EH stub targets moved to equal code, and the POGO record's `.text$x` size (+0x20, Draw's funclets);
+    the relocations differ only inside Draw; headers: entry point, .text size, .reloc size. x64: identical.
+  - GL: oracle, only TSurfaceGL::WriteMaskedImage (alignment absorbs its 2 bytes; nothing else moves). x64:
+    unchanged (not built there).
+  - DX9: oracle, only TSurfaceDX9::WriteMaskedImage; 38 .rdata pointers to the same function+offset. x64: unchanged.
+  - Vulkan: oracle identical (not built there); x64 Patella.exe and PatellaTest.exe, only
+    TSurfaceVulkan::WriteMaskedImage and its unwind funclet (of 16,277 / 16,696 functions); every other difference
+    is a moved RVA or pointer to the same function+offset, apart from that function's own .pdata end and its FH4
+    EH information.
+  - The ProcessEvents comment and the NOLINT: all images identical apart from the link stamps and PDB record.
+  macrocheck f2b3374 against the branch: the 2,108 calls unchanged (no goto was inside a macro argument).
+- **cppcoreguidelines-avoid-goto in .clang-tidy** (medium). It reports the kept goto (the check accepts a jump out
+  of a loop, not out of a switch inside one), hence the NOLINT; nothing else on windows-x64's sources. The oracle's
+  own sources (SurfaceGL.cpp, surfaceDX9.cpp, the DirectDraw files) have no goto left. The clang-tidy baseline is
+  unchanged (14).
+- **Nothing odd found** (medium). The behaviour kept as it is: party flag 1 draws no shield while the player is in a
+  party, and a skull flag the switch does not know adds no offset.
