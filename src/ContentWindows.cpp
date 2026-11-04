@@ -2180,12 +2180,11 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 				SkinProperties.Style688.Data68, TRect(x, ClipY, ClipWidth, ClipHeight), SkinProperties.Data498);
 			GetSurface()->Flag26 = false;
 			if (Creature->PARTYFlag > 0) {
-				int Skin;
+				int Skin = 0; // none: no shield in the party (flag 1) or an unknown flag
 				switch (Creature->PARTYFlag) {
 				case 1:
-					if (IsPlayerInParty())
-						goto NoShield;
-					Skin = 248;
+					if (!IsPlayerInParty())
+						Skin = 248;
 					break;
 				case 2:
 					Skin = 249;
@@ -2197,15 +2196,16 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 					Skin = 251;
 					break;
 				default:
-					goto NoShield;
+					break;
 				}
-				DrawSkinClipped(Surface, SkinProperties.Style688.Data14.x + x, SkinProperties.Style688.Data14.y + RowY + y,
-					Skins[Skin].width, Skins[Skin].height, Skin, x, ClipY, ClipWidth, ClipHeight, 0, 0);
-				Offset = SkinProperties.Style688.Data24;
+				if (Skin != 0) {
+					DrawSkinClipped(Surface, SkinProperties.Style688.Data14.x + x, SkinProperties.Style688.Data14.y + RowY + y,
+						Skins[Skin].width, Skins[Skin].height, Skin, x, ClipY, ClipWidth, ClipHeight, 0, 0);
+					Offset = SkinProperties.Style688.Data24;
+				}
 			}
-		NoShield:
 			if (Creature->PKFlag > 0) {
-				int Skin;
+				int Skin = 0; // none: an unknown flag
 				switch (Creature->PKFlag) {
 				case 1:
 					Skin = 240;
@@ -2220,17 +2220,18 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 					Skin = 243;
 					break;
 				default:
-					goto NoSkull;
+					break;
 				}
-				if (Creature->SkullTime < 1
-					|| !In((int)PATELLA_TIME32(nullptr), (int)Creature->SkullTime, (int)Creature->SkullTime + 4)
-					|| GetBlinkState())
-					DrawSkinClipped(Surface, SkinProperties.Style688.Data14.x + Offset + x,
-						SkinProperties.Style688.Data14.y + RowY + y, Skins[Skin].width, Skins[Skin].height, Skin, x,
-						ClipY, ClipWidth, ClipHeight, 0, 0);
-				Offset += SkinProperties.Style688.Data24;
+				if (Skin != 0) {
+					if (Creature->SkullTime < 1
+						|| !In((int)PATELLA_TIME32(nullptr), (int)Creature->SkullTime, (int)Creature->SkullTime + 4)
+						|| GetBlinkState())
+						DrawSkinClipped(Surface, SkinProperties.Style688.Data14.x + Offset + x,
+							SkinProperties.Style688.Data14.y + RowY + y, Skins[Skin].width, Skins[Skin].height, Skin, x,
+							ClipY, ClipWidth, ClipHeight, 0, 0);
+					Offset += SkinProperties.Style688.Data24;
+				}
 			}
-		NoSkull:
 			const char *Name = Creature->Name;
 			const int MaxLength = GetFittingTextLength(SkinProperties.Style688.Data54.FontNumber, Name,
 				SkinProperties.Style688.Data14.width);

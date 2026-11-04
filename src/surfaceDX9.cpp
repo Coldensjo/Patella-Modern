@@ -819,52 +819,40 @@ void TSurfaceDX9::WriteMaskedImage(int ToSurface, int x, int y, int Width, int H
 	uint8 *Pixel = Image;
 	for (int i = 0; i < Size; i++) {
 		const uint8 *From = &Data[i * 3];
-		int Index;
+		int Index = -1; // the colour of the tint, or -1: the pixel is copied
 		if (Mask != nullptr) {
 			const uint8 *M = &Mask[i * 3];
 			if (M[0] == 0xff) {
 				if (M[1] == 0xff) {
-					if (M[2] != 0)
-						goto Copy;
-					Index = 0;
-				} else {
-					if (M[1] != 0 || M[2] != 0)
-						goto Copy;
+					if (M[2] == 0)
+						Index = 0;
+				} else if (M[1] == 0 && M[2] == 0) {
 					Index = 1;
 				}
-			} else {
-				if (M[0] != 0)
-					goto Copy;
+			} else if (M[0] == 0) {
 				if (M[1] == 0xff) {
-					if (M[2] != 0)
-						goto Copy;
-					Index = 2;
-				} else {
-					if (M[1] != 0 || M[2] != 0xff)
-						goto Copy;
+					if (M[2] == 0)
+						Index = 2;
+				} else if (M[1] == 0 && M[2] == 0xff) {
 					Index = 3;
 				}
 			}
-		} else {
-			if (From[0] == Colors[1].R && From[1] == Colors[1].G && From[2] == Colors[1].B)
-				goto Copy;
+		} else if (From[0] != Colors[1].R || From[1] != Colors[1].G || From[2] != Colors[1].B) {
 			Index = 0;
 		}
-		{
+		if (Index >= 0) {
 			const int Grey = (From[1] * 59 + From[0] * 30 + From[2] * 11) / 100;
 			const TRGBColor *C = &Colors[Index];
 			Pixel[0] = (uint8)(C->R * Grey / 256);
 			Pixel[1] = (uint8)(C->G * Grey / 256);
 			Pixel[2] = (uint8)(C->B * Grey / 256);
 			Pixel[3] = 0xff;
+		} else {
+			Pixel[0] = From[0];
+			Pixel[1] = From[1];
+			Pixel[2] = From[2];
+			Pixel[3] = D3DCOLOR_XRGB(From[0], From[1], From[2]) != ColorKey[ToSurface] ? 0xff : 0;
 		}
-		goto Next;
-	Copy:
-		Pixel[0] = From[0];
-		Pixel[1] = From[1];
-		Pixel[2] = From[2];
-		Pixel[3] = D3DCOLOR_XRGB(From[0], From[1], From[2]) != ColorKey[ToSurface] ? 0xff : 0;
-	Next:
 		Pixel += 4;
 	}
 	D3DLOCKED_RECT Locked;

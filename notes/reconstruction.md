@@ -91,6 +91,11 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
   downcast and for `void *` to `T *`, const_cast to drop const, reinterpret_cast for integers to pointers and back
   (`INT_PTR` message parameters), unrelated pointers and function pointers. A downcast whose static_cast does not
   compile (an incomplete class) would be a reinterpret_cast as a C cast: check, do not guess.
+- No `goto` (issue #42; cppcoreguidelines-avoid-goto in .clang-tidy), except where the binary has one shared exit
+  block that a loop's end and a jump from inside it both reach and C++ has no other way out (ProcessEvents' `goto
+  Done`, block 0x44a2f5): such a goto carries a NOLINT naming the block. Code the binary reaches from several
+  branches (a copy, a skipped draw) is written with a value that says which (a skin of 0, an Index of -1) and an
+  if; compare the images and run difftest, since the generated code usually changes.
 - Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`, `TBEGIN`/`TEND*`) exactly where
   the binary has the corresponding blocks.
 - Behaviour must match the binary exactly, including odd behaviour (for example
@@ -396,6 +401,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   cppcoreguidelines-pro-type-cstyle-cast (issue #41) offers no fixes: write the named cast by hand, the one the C
   cast meant ("Writing the source"; notes/decisions.md, issue #41). It reports `void *` to `T *` as "unrelated
   types", but that C cast is a static_cast.
+  cppcoreguidelines-avoid-goto (issue #42) has no fixes either; it accepts a jump out of a loop but not out of a
+  switch inside one, so ProcessEvents' kept goto carries a NOLINT with the binary's block ("Writing the source").
 - No new clang-tidy findings (issue #11; plan 4.1): `tools/tidy-baseline.tsv` lists the findings outside the
   macro arguments, counted by file, check and message (not by line, so moved code keeps its entry), for the
   compile commands of linux-x64-clang (patella_core's sources and the headers of src/ they include; the rest of

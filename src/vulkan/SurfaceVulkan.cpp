@@ -792,53 +792,41 @@ void TSurfaceVulkan::WriteMaskedImage(int ToSurface, int x, int y, int PartWidth
 	std::vector<uint32_t> Pixels((size_t)Size);
 	for (int i = 0; i < Size; i++) {
 		const uint8 *From = &Data[i * 3];
-		int Index = 0;
+		int Index = -1; // the colour of the tint, or -1: the pixel is copied
 		uint8 R = 0, G = 0, B = 0, A = 0;
 		if (Mask != nullptr) {
 			const uint8 *M = &Mask[i * 3];
 			if (M[0] == 0xff) {
 				if (M[1] == 0xff) {
-					if (M[2] != 0)
-						goto Copy;
-					Index = 0;
-				} else {
-					if (M[1] != 0 || M[2] != 0)
-						goto Copy;
+					if (M[2] == 0)
+						Index = 0;
+				} else if (M[1] == 0 && M[2] == 0) {
 					Index = 1;
 				}
-			} else {
-				if (M[0] != 0)
-					goto Copy;
+			} else if (M[0] == 0) {
 				if (M[1] == 0xff) {
-					if (M[2] != 0)
-						goto Copy;
-					Index = 2;
-				} else {
-					if (M[1] != 0 || M[2] != 0xff)
-						goto Copy;
+					if (M[2] == 0)
+						Index = 2;
+				} else if (M[1] == 0 && M[2] == 0xff) {
 					Index = 3;
 				}
 			}
-		} else {
-			if (From[0] == Colors[1].R && From[1] == Colors[1].G && From[2] == Colors[1].B)
-				goto Copy;
+		} else if (From[0] != Colors[1].R || From[1] != Colors[1].G || From[2] != Colors[1].B) {
 			Index = 0;
 		}
-		{
+		if (Index >= 0) {
 			const int Grey = (From[1] * 59 + From[0] * 30 + From[2] * 11) / 100;
 			const TRGBColor *C = &Colors[Index];
 			R = (uint8)(C->R * Grey / 256);
 			G = (uint8)(C->G * Grey / 256);
 			B = (uint8)(C->B * Grey / 256);
 			A = 0xff;
+		} else {
+			R = From[0];
+			G = From[1];
+			B = From[2];
+			A = Xrgb(From[0], From[1], From[2]) != SurfaceKeys[ToSurface] ? 0xff : 0;
 		}
-		goto Next;
-	Copy:
-		R = From[0];
-		G = From[1];
-		B = From[2];
-		A = Xrgb(From[0], From[1], From[2]) != SurfaceKeys[ToSurface] ? 0xff : 0;
-	Next:
 		Pixels[(size_t)i] = (uint32)A << 24 | (uint32)R << 16 | (uint32)G << 8 | B;
 	}
 	if (Renderer != nullptr && Image[ToSurface] >= 0) {

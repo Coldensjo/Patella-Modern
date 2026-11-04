@@ -168,6 +168,13 @@ other ten stay unscoped: PROGRAM_ERROR and TALK_MODE are used as ints (TALK_MODE
 ones are int constants. The oracle Patella.exe and the x64 Patella.exe and PatellaTest.exe unchanged after each
 commit (pecompare); macrocheck 0 differences; the clang-tidy baseline unchanged (14). notes/decisions.md, "Enums
 with an explicit underlying type, then enum class (Patella-Modern issue #37)".
+gotos (Patella-Modern issue #42, November 4, 2026; M3's eleventh change, by hand, one function per commit): 24 of the
+25 gotos restructured (TBattleWindowBody::Draw's skin of 0 for none; the three WriteMaskedImage with an Index of -1
+for a copy); ProcessEvents' jump to the binary's shared exit block 0x44a2f5 stays, with a NOLINT, and
+cppcoreguidelines-avoid-goto is enabled. The touched functions' code changes (oracle: Draw and the GL and DX9
+WriteMaskedImage; x64: TSurfaceVulkan::WriteMaskedImage only), nothing else does (function by function, every other
+difference a moved address); difftest runs every new path, the Vulkan one is checked exhaustively. notes/decisions.md,
+"The gotos: restructured, and the one shared exit kept (Patella-Modern issue #42)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -188,6 +195,14 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #42 (branch issue-42, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after the gotos (five commits and the check): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong
+checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe
+built from main (f2b3374) and from each commit at the same path: only the touched function's code differs per commit
+(TBattleWindowBody::Draw, TSurfaceGL::WriteMaskedImage, TSurfaceDX9::WriteMaskedImage on the oracle;
+TSurfaceVulkan::WriteMaskedImage on x64), every other difference a moved address (notes/decisions.md, issue #42);
+macrocheck f2b3374 issue-42: 2,108 calls, 0 differences.
 
 Patella-Modern issue #41 (branch issue-41, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after the C-style casts to named casts (two commits): 16,848,752 + 67 + 1,134,513 checks and 3,201
