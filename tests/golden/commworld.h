@@ -255,6 +255,32 @@ extern bool RecordComparisons;
 // nullptr (ORIGINAL_SIDE): the original's side comes from the corpus.
 template <class FO, class FI> bool Both(const char *What, FO Ours, FI Image);
 bool CompareRun(const char *What, const TThrown &O, TThrown I);
+
+// Control's comparisons that reach Control.cpp's ChangeEngine retire with the oracle (issue #30, the user's
+// decision of November 4, 2026): ChangeEngine is the x86 engine selection in the oracle and the graphics device
+// choice in the x64 client (PATELLA_VULKAN, issue #31). While RetireChangeEngine is set, the oracle records per
+// comparison, after both sides ran, whether it reached ChangeEngine (Step 11's call, ForceReach, or a
+// "Surface.Init(...)=0" in a log: CheckSurface then calls ChangeEngine(0)); the runner reads that first and, for
+// a reached one, neither runs our call nor compares: the comparison's checks are a retired part
+// (golden::RetiredBegin, "ChangeEngine"). After the part both sides pass the state the next comparisons read
+// through golden::Output (EndRetiredComparison: the counters of the error round, the rand() state, Random()'s
+// seed, and the test's own state through AfterRetired). A Step defers the part's end to after its own checks
+// on the comparison's results (DeferRetiredEnd); CompareStatics retires its checks after a retired comparison.
+extern bool RetireChangeEngine;
+extern bool ForceReach;        // the comparison calls ChangeEngine directly (Step 11)
+extern bool DeferRetiredEnd;   // a Step ends the retired part itself
+extern bool RetiredPending;    // a retired part has begun and not ended yet
+extern bool LastRetired;       // the last comparison was retired (CompareStatics retires its checks too)
+extern void (*AfterRetired)(); // the test's state after a retired part, through golden::Output
+// Whether the comparison is retired: the oracle records Reached (only while RetireChangeEngine is set); the
+// runner reads it before it runs our side.
+bool RetiredComparison(bool Reached);
+bool ReachesChangeEngine(); // the oracle, after both sides ran
+// The comparison's checks: CompareRun, or a retired part around it.
+bool CompareOrRetire(const char *What, const TThrown &O, const TThrown &I, bool Retired);
+void EndRetiredComparison();
+// True in the runner while a retired part's checks are skipped (a Step's checks after its comparison).
+bool SkippingRetired();
 // Fills the stack below the caller with one pattern before each side's call:
 // a local the code under test reads before it writes it (a catch block's
 // value of a variable not assigned yet) reads the same on both sides.
@@ -294,17 +320,24 @@ template <class FO, class FI> bool Both(const char *What, FO Ours, FI Image)
 		printf("calling %s\n", What);
 		fflush(stdout);
 	}
+	LastRetired = false;
+	// The runner knows from the corpus whether the comparison is retired, before it runs our side.
+	bool Retired = GOLDEN_ORACLE ? false : RetiredComparison(false);
 	Side = OURS;
-	FillStack();
-	TThrown O = OurThrow(Ours);
+	TThrown O;
+	if (!Retired) {
+		FillStack();
+		O = OurThrow(Ours);
+	}
 	TThrown I;
 #if GOLDEN_ORACLE
 	Side = IMAGE;
 	FillStack();
 	I = ImageThrow(Image);
+	Retired = RetiredComparison(ReachesChangeEngine());
 #else
 	static_cast<void>(Image);
 #endif
 	Side = OURS;
-	return CompareRun(What, O, I);
+	return CompareOrRetire(What, O, I, Retired);
 }

@@ -8656,3 +8656,68 @@ client's files have an owner, and src/ has no `FILE`, fopen, fclose or printf ou
   notes/progress.md, "Last difftest". The images change (TFile's and Format's inline code); no tier A, reference
   or compare_files.py run here (no client may be started by this change's worker): compare_files.py is the live
   check this change needs (Tibia.cfg, the `.map` files, the saved channel, the patch files).
+
+## The golden corpus: Control (Patella-Modern issue #30, third part)
+
+Settled by Claude Opus 5.5, November 4, 2026; the retirement decided by the user the same day. tests/golden/
+(control_tests.cpp moved from tools/difftest/controltest.cpp, commworld.h, commworld.cpp, runner.cpp, golden_test.h),
+tests/golden/comm/CMakeLists.txt, cmake/OracleX86.cmake. The section on the second part above describes the world
+and Communication's port; notes/reconstruction.md, "Checking", the use.
+
+- **Retired with the oracle** (decided by the user, November 4, 2026). Control.cpp's ChangeEngine is the x86 engine
+  selection in the oracle and the graphics device choice of issue #31 in the x64 client (PATELLA_VULKAN): **24,155
+  checks**, the 1,518 comparisons that reach it (21,979 checks: 14,249 in the main part, 7,730 in the error round;
+  Step 11's call, or CheckSurface's ChangeEngine(0) after the surface's Init returned false, which the original's
+  log shows as "Surface.Init(...)=0") and the 2,176 checks of Control.cpp's statics compared right after them.
+- **Per comparison** (high). Only the oracle knows after both sides ran whether a comparison reached ChangeEngine.
+  It records that flag first (no record is written while the sides run), then the comparison's checks and values
+  between golden::RetiredBegin("ChangeEngine") and RetiredEnd; the runner reads the flag before it runs our side and,
+  for a retired one, neither calls our code (which would reach the x64 ChangeEngine) nor compares. A Step ends the
+  part after its own checks on the comparison's results (CloseRequest's result, curEngine; DeferRetiredEnd); the
+  statics' checks right after a retired comparison are a retired part of their own.
+- **In step after a retired part** (high). The state later comparisons read goes through golden::Output after
+  RetiredEnd, the original's values in the oracle, set on our side in the runner: Control.cpp's statics
+  (LastPacketType, LastPacketIndex, LastPacketTypes, ReconnectTimeout, Reconnect, LastMouseMove, ShowFPS: the
+  image's at their addresses; ours by name, since the runner compiles Control.cpp into control_tests.cpp, as
+  network_tests.cpp compiles Network.cpp), curEngine, the error round's exception counters, Random()'s seed and the
+  rand() fake's state; the callbacks and the window handle only ever hold InitWindow's values and are compared by
+  name, not set. The texts recorded by their changes (log, buffer and world dumps) restart from empty on both
+  sides. Nothing else carries over: every scenario ends with FreeWorlds, and no Init, Exit or other comparison of a
+  scenario follows a retired one (InitControl and ExitControl never reach ChangeEngine). A runner-only change that
+  leaves the statics unset gave 2,131 more failures; a runner-only fake-log change 4 more (both reverted).
+- **The statics search** (high). FindStatics runs our code to find our statics by value; its ProcessEvents redraws and
+  can reach our ChangeEngine, compared nowhere (in the oracle it leaves only curEngine, which every scenario sets
+  again before a comparison reads it). The runner finds the statics by name after the same calls (so they leave the
+  same state) and stands ChangeEngine in for the search only (a logging fake, golden::SaveOwn/RestoreOwn).
+- **Replayed** (high). 253,992 + 24,155 retired = 278,147, the oracle's, Release and Debug; the error round's counts
+  (163,552 checks, 10,980 exceptions compared, 9,474 that threw) equal the oracle's. The runner replays 16,461,713 of
+  the oracle's 17,983,332 checks, retires 1,521,619, lists none as not ported.
+- **60 failures: an x64 defect of src/Control.cpp** (fixed in its own commit, below). ProcessEvents' event 0x12
+  reads its first parameter as `INT_PTR *` (Data[0] the count, &Data[1] the IDs), but Communication.cpp's
+  ReceiveChannelList builds an `int[]` (count, then the IDs). On x86 both are 4 bytes; on x64 the count is read from
+  8 bytes (its low half, so right) and the IDs start one entry late: the new-channel dialog of the x64 client shows
+  each channel with the next one's ID and reads one int past the array. All 60 failures (20 in the main part, 40 in
+  the error round, Release and Debug alike) are this call's log ("CreateNewChannelDialog(2,24:...,311:...)", the
+  original's "(2,88:...,24:...)").
+- **The fix** (high; the orchestrator's decision: it restores the original's behaviour on x64). Event 0x12 reads
+  Param1 as the `int *` ReceiveChannelList builds (`Data[0]` the count, `&Data[1]` the IDs). The oracle's Patella.exe
+  is unchanged (pecompare of 8d48db9's and the fix's, built at the same path: .text identical, 0 unexpected
+  differences: INT_PTR is int on x86); the runner replays Control with 0 failures in Release and Debug. The golden
+  test is the check that catches it on x64 (control_tests.cpp's BuildEvent builds event 0x12 as the client does).
+  The reference recordings do not open the channel list (no session sends Ctrl+O or the channels button), so the x64
+  client's dialog needs a live check: the "Open a channel" dialog's entries open the channel they name.
+- **The same class of defect, audited** (high). Every message of the event queue (Status.cpp's TMessage keeps both
+  parameters as INT_PTR; FetchMessage's only reader is Control.cpp's ProcessEvents; ClearMessages frees them) whose
+  producer builds a block and whose reader reads it, element type against element type: event 6 (MainWindow.cpp's
+  INT_PTR[4], read as INT_PTR[]), 7 (Control.cpp's CloseRequest, INT_PTR[4] / INT_PTR[]), 14 (Communication.cpp's
+  ReceiveEditText: uint32[3] / int *, char *[2] / INT_PTR[] and ClearMessages' char **), 15 (ReceiveEditHouseText:
+  uint32[2] / int *), 16 (ReceiveOutfit: int[7] / int *), 0x12 (ReceiveChannelList: int[] / INT_PTR[], the defect),
+  0x1c (ContextMenus.cpp's new TTalkLine / TTalkLine *), 0x1d and 0x1e (TCoordinate *, TMark *), 0x24, 0x3a, 0x3b,
+  0x3c (window and menu-data pointers / the same pointers), and every block of text (char * both sides). The scalar
+  parameters (counts, IDs, line numbers, the patch size; 5, 9, 10, 0x18, 0x29, 0x30, 0x31, 0x35, 0x36, 0x37,
+  0x39) are ints or uint32 widened to INT_PTR and narrowed back to the same type: no difference on x64. Outside the
+  queue: MainFrm.cpp's OnDisplayChange and OnHostResolved read LPARAM through LOWORD/HIWORD and WSAGETASYNCERROR
+  (WinSock's 32-bit packing, both sides Windows'), OnTimer's UINT_PTR is MFC's, Player.cpp's LPARAMs are Windows',
+  Talk.cpp's Write prints its FILE * through an INT_PTR (the original's catch value, a pointer). No other pair is a
+  defect; none was unclear.
+- **Commits** (form). Control's port, these notes, the fix of event 0x12, then its notes.

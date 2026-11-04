@@ -1,7 +1,8 @@
-# The golden corpus's Communication test (issue #30): tests/golden/communication_tests.cpp and its world
-# (commworld.cpp) with Communication.cpp and Control.cpp (Control.cpp's ReceivePackets is the dispatcher the test
-# feeds; the x64 client's Control.cpp, PATELLA_VULKAN as in golden_client), with golden_client's settings
-# (../CMakeLists.txt) but another exception model.
+# The golden corpus's Communication and Control tests (issue #30): tests/golden/communication_tests.cpp,
+# control_tests.cpp (which compiles Control.cpp in: the test reads and sets its statics by name; its ReceivePackets is
+# the dispatcher Communication feeds; the x64 client's Control.cpp, PATELLA_VULKAN as in golden_client) and their
+# world (commworld.cpp) with Communication.cpp, with golden_client's settings (../CMakeLists.txt) but another
+# exception model.
 #
 # The oracle (communicationtest.exe) builds with /EHa, and its error round raises structured exceptions that both
 # sides' catch (...) catch: a fake TRSA::Encrypt raises one, and a block of a zero-sized patch divides by zero in
@@ -20,7 +21,7 @@ string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
 add_library(golden_comm_tests OBJECT
 	../commworld.cpp
 	../communication_tests.cpp
-	"${PROJECT_SOURCE_DIR}/src/Communication.cpp"
-	"${PROJECT_SOURCE_DIR}/src/Control.cpp")
+	../control_tests.cpp
+	"${PROJECT_SOURCE_DIR}/src/Communication.cpp")
 golden_client_settings(golden_comm_tests)
 target_compile_definitions(golden_comm_tests PRIVATE PATELLA_VULKAN)

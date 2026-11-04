@@ -75,7 +75,8 @@ const TExecutable Executables[] = {
 			{"Network", TestNetwork}, {"MainFrm", TestMainFrm},
 			{"MapWindow", [] { TestMapWindow(nullptr); }}, {"MainWindow", TestMainWindow}}},
 	{"sysinctest", {{"Sysinc", TestSysinc}}},
-	{"communicationtest", {{"Communication", [] { TestCommunication(nullptr); }}}},
+	{"communicationtest",
+		{{"Communication", [] { TestCommunication(nullptr); }}, {"Control", [] { TestControl(nullptr); }, "#30"}}},
 };
 
 // The oracle's tests that are retired with it as a whole, by the user's decision (issue #29, closed "not

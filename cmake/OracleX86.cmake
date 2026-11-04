@@ -265,9 +265,9 @@ target_link_libraries(sysinctest PRIVATE user32)
 target_link_options(sysinctest PRIVATE /BASE:0x20000000 /DYNAMICBASE:NO /FIXED)
 
 # communicationtest.exe: Communication.cpp and Control.cpp with every callee faked (issue #36). Its world
-# (commworld.cpp) and Communication's test are golden-corpus sources since issue #30.
+# (commworld.cpp), Communication's and Control's tests are golden-corpus sources since issue #30.
 add_executable(communicationtest
-	"${DIFFTEST_DIR}/difftest.cpp" "${GOLDEN_DIR}/communication_tests.cpp" "${DIFFTEST_DIR}/controltest.cpp"
+	"${DIFFTEST_DIR}/difftest.cpp" "${GOLDEN_DIR}/communication_tests.cpp" "${GOLDEN_DIR}/control_tests.cpp"
 	"${GOLDEN_DIR}/commworld.cpp" "${DIFFTEST_DIR}/imageeh.cpp" "${DIFFTEST_DIR}/imageehseh.asm"
 	"${GOLDEN_DIR}/golden_eh.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Communication.cpp" "${PROJECT_SOURCE_DIR}/src/Control.cpp"

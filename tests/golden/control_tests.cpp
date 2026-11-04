@@ -1,4 +1,5 @@
-// Differential test of Control.cpp (issue #36), in communicationtest.exe.
+// Differential test of Control.cpp (issue #36), in communicationtest.exe (moved here from
+// tools/difftest/controltest.cpp, issue #30: a golden-corpus test, golden.h).
 //
 // Every function of Control.cpp runs on both sides (the image's and ours)
 // with every callee faked by commworld.cpp, Communication.cpp's functions
@@ -17,25 +18,50 @@
 // (a TMyException, a structured exception or a PROGRAM_ERROR) for every n.
 //
 // CT_TRACE=1 prints every comparison, CT_LOGS=<file> writes every compared
-// log, CT_ROUNDS=<n> the number of rounds (default 3000), CT_SEED=<n>.
+// log, CT_ROUNDS=<n> the number of rounds (default 3000), CT_SEED=<n> (not with a corpus).
+//
+// By value (issue #30): the oracle records the original's side of every comparison as Communication does
+// (commworld.cpp's CompareRun), the original's statics (their dump and OutputControlErrorInformations' text),
+// CloseRequest's result and curEngine. The runner runs our side alone; it compiles Control.cpp into this file
+// (as network_tests.cpp compiles Network.cpp), so it reads and sets our statics by name. The comparisons that reach
+// ChangeEngine retire with the oracle (the user's decision of November 4, 2026; commworld.h, RetireChangeEngine):
+// ChangeEngine is the x86 engine selection in the oracle and the graphics device choice of the x64 client
+// (PATELLA_VULKAN, issue #31); after each such part the original's statics and curEngine are set on our side
+// (AfterRetired), and the statics' checks right after it retire too.
 
-#include "../../tests/golden/commworld.h"
-#include "../../src/Communication.h"
-#include "../../src/Control.h"
-#include "../../src/MainWindow.h"
-#include "../../src/Surface.h"
+#include "commworld.h"
+
+#if GOLDEN_ORACLE
+#include "Control.h"
+#else
+// Control.cpp is compiled into this file (its statics are in an unnamed namespace), at its own warning level.
+#ifdef _MSC_VER
+#pragma warning(push, 3)
+#endif
+#include "../../src/Control.cpp"
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+#include "golden_patch.h"
+#endif
+#include "Communication.h"
+#include "MainWindow.h"
+#include "Surface.h"
 #include <functional>
 
-typedef void (__cdecl *TVoid)();
-typedef void (__cdecl *TIntFn)(int);
-typedef void (__cdecl *TInt2Fn)(int, int);
-typedef void (__cdecl *TInt3Fn)(int, int, int);
-typedef void (__cdecl *TBoolFn)(bool);
-typedef bool (__cdecl *TBoolResult)();
+#if GOLDEN_ORACLE
+typedef void(__cdecl *TVoid)();
+typedef void(__cdecl *TIntFn)(int);
+typedef void(__cdecl *TInt2Fn)(int, int);
+typedef void(__cdecl *TInt3Fn)(int, int, int);
+typedef void(__cdecl *TBoolFn)(bool);
+typedef bool(__cdecl *TBoolResult)();
+#endif
 
 // --- Fakes of Communication.cpp's functions -------------------------------------
 
-#define COMM_FAKE(Name) static void F_##Name() { Call(#Name "()"); }
+#define COMM_FAKE(Name) \
+	static void F_##Name() { Call(#Name "()"); }
 COMM_FAKE(InitCommunication)
 COMM_FAKE(SendFightModes)
 COMM_FAKE(SendWalk)
@@ -132,32 +158,81 @@ static void F_SendDebugReport(const char *Assertion, const char *Date, const cha
 
 #define CF(Name, Address) {#Name, Address, (void *)&::Name, (void *)F_##Name}
 static const TFake CommunicationFakes[] = {
-	CF(InitCommunication, 0x401000), CF(SendFightModes, 0x407eb0), CF(SendDebugReport, 0x40a2f0),
-	CF(ReceiveLoginError, 0x40a4c0), CF(ReceiveLoginMessage, 0x40a670), CF(ReceiveMessageOfTheDay, 0x40a810),
-	CF(ReceivePatch, 0x40a9c0), CF(ReceiveWholeFile, 0x40ae70), CF(ReceivePatchBlock, 0x40b290),
-	CF(ReceiveCharacterList, 0x40b8b0), CF(ReceiveLoginServerOverloaded, 0x40bc80), CF(ReceiveGameLogin, 0x40be30),
-	CF(ReceiveGamemasterActions, 0x40c000), CF(ReceiveGameError, 0x40c1b0), CF(ReceiveGameMessage, 0x40c360),
-	CF(ReceiveLoginWait, 0x40c500), CF(ReceivePing, 0x40c6a0), CF(ReceiveAddObject, 0x40cd10),
-	CF(ReceiveChangeObject, 0x40cfa0), CF(ReceiveDeleteObject, 0x40d440), CF(ReceiveOpenContainer, 0x40d7d0),
-	CF(ReceiveCloseContainer, 0x40da70), CF(ReceiveContainerAddObject, 0x40dc20),
-	CF(ReceiveContainerChangeObject, 0x40de40), CF(ReceiveContainerDeleteObject, 0x40e060),
-	CF(ReceiveInventoryObject, 0x40e230), CF(ReceiveDeleteInventoryObject, 0x40e440), CF(ReceiveOwnTrade, 0x40e5e0),
-	CF(ReceiveCounterTrade, 0x40e800), CF(ReceiveCloseTrade, 0x40ea30), CF(ReceiveWorldLight, 0x40ebc0),
-	CF(ReceiveMagicEffect, 0x40ed60), CF(ReceiveAnimatedText, 0x40ef50), CF(ReceiveDistanceEffect, 0x40f150),
-	CF(ReceiveCreatureMark, 0x40f380), CF(ReceiveCreatureHealth, 0x40f550), CF(ReceiveCreatureLight, 0x40f710),
-	CF(ReceiveCreatureOutfit, 0x40f8e0), CF(ReceiveCreatureSpeed, 0x40fb20), CF(ReceiveCreatureSkull, 0x40fce0),
-	CF(ReceiveCreatureShield, 0x40fec0), CF(ReceiveEditText, 0x410080), CF(ReceiveEditHouseText, 0x410260),
-	CF(ReceivePlayerStats, 0x410410), CF(ReceivePlayerSkills, 0x410660), CF(ReceivePlayerIcons, 0x410810),
-	CF(ReceiveCancelAttack, 0x4109b0), CF(ReceiveTalk, 0x410b40), CF(ReceiveChannelList, 0x411030),
-	CF(ReceiveOpenChannel, 0x411230), CF(ReceiveOpenPrivateConversation, 0x4113f0),
-	CF(ReceiveRuleViolationChannel, 0x4115a0), CF(ReceiveRemoveRuleViolation, 0x411760),
-	CF(ReceiveCancelRuleViolation, 0x411940), CF(ReceiveLockRuleViolation, 0x411b20), CF(ReceiveOwnChannel, 0x411ce0),
-	CF(ReceiveCloseChannel, 0x411ea0), CF(ReceiveTextMessage, 0x412060), CF(ReceiveOutfit, 0x412350),
-	CF(ReceiveBuddy, 0x412540), CF(ReceiveBuddyLogin, 0x412720), CF(ReceiveBuddyLogout, 0x4128c0),
-	CF(SendLogin, 0x413780), CF(SendGameLogin, 0x413de0), CF(SendWalk, 0x414700), CF(ReceiveMap, 0x415200),
-	CF(ReceiveMapNorth, 0x4153f0), CF(ReceiveMapEast, 0x4155c0), CF(ReceiveMapSouth, 0x415790),
-	CF(ReceiveMapWest, 0x415960), CF(ReceiveField, 0x415b30), CF(ReceiveMoveCreature, 0x415d40),
-	CF(ReceiveCancelWalk, 0x416c40), CF(ReceiveFloorUp, 0x417020), CF(ReceiveFloorDown, 0x417270),
+	CF(InitCommunication, 0x401000),
+	CF(SendFightModes, 0x407eb0),
+	CF(SendDebugReport, 0x40a2f0),
+	CF(ReceiveLoginError, 0x40a4c0),
+	CF(ReceiveLoginMessage, 0x40a670),
+	CF(ReceiveMessageOfTheDay, 0x40a810),
+	CF(ReceivePatch, 0x40a9c0),
+	CF(ReceiveWholeFile, 0x40ae70),
+	CF(ReceivePatchBlock, 0x40b290),
+	CF(ReceiveCharacterList, 0x40b8b0),
+	CF(ReceiveLoginServerOverloaded, 0x40bc80),
+	CF(ReceiveGameLogin, 0x40be30),
+	CF(ReceiveGamemasterActions, 0x40c000),
+	CF(ReceiveGameError, 0x40c1b0),
+	CF(ReceiveGameMessage, 0x40c360),
+	CF(ReceiveLoginWait, 0x40c500),
+	CF(ReceivePing, 0x40c6a0),
+	CF(ReceiveAddObject, 0x40cd10),
+	CF(ReceiveChangeObject, 0x40cfa0),
+	CF(ReceiveDeleteObject, 0x40d440),
+	CF(ReceiveOpenContainer, 0x40d7d0),
+	CF(ReceiveCloseContainer, 0x40da70),
+	CF(ReceiveContainerAddObject, 0x40dc20),
+	CF(ReceiveContainerChangeObject, 0x40de40),
+	CF(ReceiveContainerDeleteObject, 0x40e060),
+	CF(ReceiveInventoryObject, 0x40e230),
+	CF(ReceiveDeleteInventoryObject, 0x40e440),
+	CF(ReceiveOwnTrade, 0x40e5e0),
+	CF(ReceiveCounterTrade, 0x40e800),
+	CF(ReceiveCloseTrade, 0x40ea30),
+	CF(ReceiveWorldLight, 0x40ebc0),
+	CF(ReceiveMagicEffect, 0x40ed60),
+	CF(ReceiveAnimatedText, 0x40ef50),
+	CF(ReceiveDistanceEffect, 0x40f150),
+	CF(ReceiveCreatureMark, 0x40f380),
+	CF(ReceiveCreatureHealth, 0x40f550),
+	CF(ReceiveCreatureLight, 0x40f710),
+	CF(ReceiveCreatureOutfit, 0x40f8e0),
+	CF(ReceiveCreatureSpeed, 0x40fb20),
+	CF(ReceiveCreatureSkull, 0x40fce0),
+	CF(ReceiveCreatureShield, 0x40fec0),
+	CF(ReceiveEditText, 0x410080),
+	CF(ReceiveEditHouseText, 0x410260),
+	CF(ReceivePlayerStats, 0x410410),
+	CF(ReceivePlayerSkills, 0x410660),
+	CF(ReceivePlayerIcons, 0x410810),
+	CF(ReceiveCancelAttack, 0x4109b0),
+	CF(ReceiveTalk, 0x410b40),
+	CF(ReceiveChannelList, 0x411030),
+	CF(ReceiveOpenChannel, 0x411230),
+	CF(ReceiveOpenPrivateConversation, 0x4113f0),
+	CF(ReceiveRuleViolationChannel, 0x4115a0),
+	CF(ReceiveRemoveRuleViolation, 0x411760),
+	CF(ReceiveCancelRuleViolation, 0x411940),
+	CF(ReceiveLockRuleViolation, 0x411b20),
+	CF(ReceiveOwnChannel, 0x411ce0),
+	CF(ReceiveCloseChannel, 0x411ea0),
+	CF(ReceiveTextMessage, 0x412060),
+	CF(ReceiveOutfit, 0x412350),
+	CF(ReceiveBuddy, 0x412540),
+	CF(ReceiveBuddyLogin, 0x412720),
+	CF(ReceiveBuddyLogout, 0x4128c0),
+	CF(SendLogin, 0x413780),
+	CF(SendGameLogin, 0x413de0),
+	CF(SendWalk, 0x414700),
+	CF(ReceiveMap, 0x415200),
+	CF(ReceiveMapNorth, 0x4153f0),
+	CF(ReceiveMapEast, 0x4155c0),
+	CF(ReceiveMapSouth, 0x415790),
+	CF(ReceiveMapWest, 0x415960),
+	CF(ReceiveField, 0x415b30),
+	CF(ReceiveMoveCreature, 0x415d40),
+	CF(ReceiveCancelWalk, 0x416c40),
+	CF(ReceiveFloorUp, 0x417020),
+	CF(ReceiveFloorDown, 0x417270),
 };
 
 // --- The callbacks of InitWindow ---------------------------------------------------
@@ -180,8 +255,10 @@ static void ControlThrow()
 		RaiseException(0xe0436f6d, 0, 0, NULL);
 	} else if (FailKind == 2) {
 		ThrownError = 7 + Ticks[Side] % 11;
+#if GOLDEN_ORACLE
 		if (Side == IMAGE)
-			At<void (__stdcall *)(void *, void *)>(0x511d2b)(&ThrownError, (void *)(uintptr_t)0x57b3c4);
+			At<void(__stdcall *)(void *, void *)>(0x511d2b)(&ThrownError, (void *)(uintptr_t)0x57b3c4);
+#endif
 		throw (PROGRAM_ERROR)ThrownError;
 	}
 	SideThrow();
@@ -197,6 +274,7 @@ struct TControlStatics {
 };
 static TControlStatics Statics[2];
 
+#if GOLDEN_ORACLE
 // Our writable sections.
 static void OurWritable(uint8 **Start, uint8 **End)
 {
@@ -242,9 +320,32 @@ static void *FindOurStatic(const char *Name, std::function<void(uint32)> Set, ui
 	}
 	return Found;
 }
+#define OUR_STATIC(Name, Set, Value, Value2) FindOurStatic(#Name, Set, Value, Value2)
+#else
+// The runner: our statics by name (Control.cpp is this file's); the same calls as the oracle's search, which
+// leave the same state, and the same proof that the static holds the value.
+static void *NamedStatic(const char *Name, void *Static, std::function<void(uint32)> Set, uint32 Value, uint32 Value2)
+{
+	Set(Value);
+	const bool First = *(const uint32 *)Static == Value;
+	Set(Value2);
+	if (!First || *(const uint32 *)Static != Value2) {
+		printf("FAIL controltest: our %s does not hold the values the search sets\n", Name);
+		Failures++;
+		return nullptr;
+	}
+	return Static;
+}
+#define OUR_STATIC(Name, Set, Value, Value2) NamedStatic(#Name, (void *)&Name, Set, Value, Value2)
+#endif
+
+#if !GOLDEN_ORACLE
+static void SearchChangeEngine(int Engine) { Call("ChangeEngine(%d)", Engine); }
+#endif
 
 static void FindStatics()
 {
+#if GOLDEN_ORACLE
 	TControlStatics &I = Statics[IMAGE];
 	I.LastPacketType = (int *)(uintptr_t)0x5c0d8c;
 	I.ReconnectTimeout = (int *)(uintptr_t)0x5c4520;
@@ -254,44 +355,53 @@ static void FindStatics()
 	I.CloseCallback = (void **)(uintptr_t)0x5c4534;
 	I.ExitCallback = (void **)(uintptr_t)0x5c4538;
 	I.WindowHandle = (HWND *)(uintptr_t)0x5c453c;
+#endif
 	TControlStatics &O = Statics[OURS];
 	Side = OURS;
+#if !GOLDEN_ORACLE
+	// The search's ProcessEvents redraws, and a surface whose Init fails makes CheckSurface call ChangeEngine:
+	// in the oracle our x86 one, compared nowhere (it leaves only curEngine, which every scenario sets again
+	// before a comparison reads it); here the x64 client's device choice, which the runner does not have. For the
+	// search alone it is a stand-in that logs the call (the log is cleared below).
+	uint8 ChangeEngineStart[5];
+	golden::SaveOwn((const void *)&ChangeEngine, ChangeEngineStart);
+	golden::RedirectOwn((void *)&ChangeEngine, (void *)SearchChangeEngine);
+#endif
 	ResetWorlds();
 	auto Init = [](uint32 v) {
 		InitWindow((HWND)(uintptr_t)v, (void (*)())(uintptr_t)(v + 1), (void (*)())(uintptr_t)(v + 2),
 			(void (*)(int))(uintptr_t)(v + 3), (void (*)(const char *))(uintptr_t)(v + 4));
 	};
-	O.WindowHandle = (HWND *)FindOurStatic("WindowHandle", [&](uint32 v) { Init(v); }, 0x7a5b3c10, 0x7a5b3d20);
-	O.ExitCallback = (void **)FindOurStatic("ExitCallback", [&](uint32 v) { Init(v - 1); }, 0x7a5b3c11, 0x7a5b3d21);
-	O.CloseCallback = (void **)FindOurStatic("CloseCallback", [&](uint32 v) { Init(v - 2); }, 0x7a5b3c12, 0x7a5b3d22);
-	O.DisplayModeCallback = (void **)FindOurStatic("DisplayModeCallback", [&](uint32 v) { Init(v - 3); }, 0x7a5b3c13,
-		0x7a5b3d23);
-	O.URLCallback = (void **)FindOurStatic("URLCallback", [&](uint32 v) { Init(v - 4); }, 0x7a5b3c14, 0x7a5b3d24);
-	O.LastMouseMove = (int *)FindOurStatic("LastMouseMove", [](uint32 v) {
+	O.WindowHandle = (HWND *)OUR_STATIC(WindowHandle, [&](uint32 v) { Init(v); }, 0x7a5b3c10, 0x7a5b3d20);
+	O.ExitCallback = (void **)OUR_STATIC(ExitCallback, [&](uint32 v) { Init(v - 1); }, 0x7a5b3c11, 0x7a5b3d21);
+	O.CloseCallback = (void **)OUR_STATIC(CloseCallback, [&](uint32 v) { Init(v - 2); }, 0x7a5b3c12, 0x7a5b3d22);
+	O.DisplayModeCallback = (void **)OUR_STATIC(DisplayModeCallback, [&](uint32 v) { Init(v - 3); }, 0x7a5b3c13, 0x7a5b3d23);
+	O.URLCallback = (void **)OUR_STATIC(URLCallback, [&](uint32 v) { Init(v - 4); }, 0x7a5b3c14, 0x7a5b3d24);
+	O.LastMouseMove = (int *)OUR_STATIC(LastMouseMove, [](uint32 v) {
 		World[OURS].ActionState = 0;
 		World[OURS].ActionNumber = (int)v;
-		MouseMove(1, 1);
-	}, 0x6b5c4d30, 0x6b5c4d40);
-	O.ReconnectTimeout = (int *)FindOurStatic("ReconnectTimeout", [](uint32 v) {
+		MouseMove(1, 1); }, 0x6b5c4d30, 0x6b5c4d40);
+	O.ReconnectTimeout = (int *)OUR_STATIC(ReconnectTimeout, [](uint32 v) {
 		World[OURS].ConnectionState = 8;
 		World[OURS].Milliseconds = (int)v - 5000;
 		World[OURS].Events.clear();
 		World[OURS].Events.push_back(TQueuedEvent{0x3f, 0, 0});
 		World[OURS].Capture = NULL;
 		ModalWindow = NULL;
-		ProcessEvents();
-	}, 0x5c6d7e30, 0x5c6d7e40);
+		ProcessEvents(); }, 0x5c6d7e30, 0x5c6d7e40);
 	// LastPacketType: a type the dispatcher knows, read from a frame.
-	O.LastPacketType = (int *)FindOurStatic("LastPacketType", [](uint32 v) {
+	O.LastPacketType = (int *)OUR_STATIC(LastPacketType, [](uint32 v) {
 		World[OURS].ConnectionState = 8;
 		Frames.clear();
 		Frames.push_back(std::vector<uint8>{(uint8)v});
 		NextFrame[OURS] = 0;
 		SetReceiveData(OURS, NULL, 0);
-		ReceivePackets();
-	}, 0xd3, 0xd4);
+		ReceivePackets(); }, 0xd3, 0xd4);
 	Log[OURS].clear();
 	FreeWorlds();
+#if !GOLDEN_ORACLE
+	golden::RestoreOwn((void *)&ChangeEngine, ChangeEngineStart);
+#endif
 }
 
 static std::string DumpStatics(int S)
@@ -311,34 +421,90 @@ static std::string DumpStatics(int S)
 	return Buffer;
 }
 
+#if GOLDEN_ORACLE
 // OutputControlErrorInformations into the image's std::stringstream
 // (constructor 0x403a10, its ostream at +8, str() 0x412a60) and ours.
-typedef void (__fastcall *TStreamCtor)(void *This, void *, int Mode, int MostDerived);
+typedef void(__fastcall *TStreamCtor)(void *This, void *, int Mode, int MostDerived);
 typedef void *(__fastcall *TStreamStr)(void *This, void *, void *Result);
 static std::string ImageErrorInformations()
 {
 	static uint8 Stream[0x200];
 	memset(Stream, 0, sizeof(Stream));
 	At<TStreamCtor>(0x403a10)(Stream, NULL, 3, 1);
-	At<void (__cdecl *)(void *)>(0x445900)(Stream + 8);
+	At<void(__cdecl *)(void *)>(0x445900)(Stream + 8);
 	uint8 String[0x1c];
 	At<TStreamStr>(0x412a60)(Stream, NULL, String);
 	std::string Text = ImageString(String);
 	FreeImageString(String);
 	return Text;
 }
+#endif
 
 static void CompareStatics(const char *What)
 {
-	std::string A = DumpStatics(OURS), B = DumpStatics(IMAGE);
+	// After a retired comparison its statics' checks retire too (the user's decision; commworld.h).
+	const bool Retired = LastRetired;
+	LastRetired = false;
+	if (Retired && golden::RetiredBegin("statics after ChangeEngine", Checks)) {
+		golden::RetiredEnd(Checks);
+		return;
+	}
+	std::string A = DumpStatics(OURS);
+	std::string B = golden::OutputText("statics", ORIGINAL_OR(DumpStatics(IMAGE), std::string()).c_str());
 	CHECK(A == B, "%s: Control.cpp's statics\n    ours:     %s\n    original: %s", What, A.c_str(), B.c_str());
 	std::ostringstream Out;
 	OutputControlErrorInformations(Out);
-	std::string C = Out.str(), D = ImageErrorInformations();
+	std::string C = Out.str();
+	std::string D = golden::OutputText("error informations", ORIGINAL_OR(ImageErrorInformations(), std::string()).c_str());
 	for (std::string *T : {&C, &D}) // std::endl: "\n" in both
 		while (!T->empty() && (T->back() == '\n' || T->back() == '\r'))
 			T->pop_back();
 	CHECK(C == D, "%s: OutputControlErrorInformations \"%s\", original \"%s\"", What, C.c_str(), D.c_str());
+	if (Retired)
+		golden::RetiredEnd(Checks);
+}
+
+// What a retired comparison leaves for the next ones (commworld.h AfterRetired): the original's Control.cpp
+// statics after it (by value; the oracle's at their addresses, which our statics equal there: the retired checks
+// compared them) and curEngine; the runner sets ours. The callbacks and the window handle only ever hold the test's
+// values (InitWindow's); their names are compared, not set.
+static void ControlAfterRetired()
+{
+	int Numbers[7] = {};
+	uint8 Types[10] = {};
+	std::string Callbacks;
+#if GOLDEN_ORACLE
+	Numbers[0] = Global<int>(0x5c0d8c);                              // LastPacketType
+	Numbers[1] = Global<int>(0x5c4510);                              // LastPacketIndex
+	Numbers[2] = Global<int>(0x5c4520);                              // ReconnectTimeout
+	Numbers[3] = Global<bool>(0x5c4524) ? 1 : 0;                     // Reconnect
+	Numbers[4] = Global<int>(0x5c4528);                              // LastMouseMove
+	Numbers[5] = Global<bool>(0x5c4554) ? 1 : 0;                     // ShowFPS
+	Numbers[6] = Global<int>(0x71d0c4);                              // curEngine
+	memcpy(Types, (const void *)(uintptr_t)0x5c4514, sizeof(Types)); // LastPacketTypes
+	Callbacks = DumpStatics(IMAGE);
+	Callbacks = Callbacks.substr(Callbacks.find(" WindowHandle"));
+#endif
+	golden::Output("statics after ChangeEngine", Numbers);
+	golden::Output("packet types after ChangeEngine", Types);
+	Callbacks = golden::OutputText("callbacks after ChangeEngine", Callbacks.c_str());
+#if !GOLDEN_ORACLE
+	LastPacketType = Numbers[0];
+	LastPacketIndex = Numbers[1];
+	ReconnectTimeout = Numbers[2];
+	Reconnect = Numbers[3] != 0;
+	LastMouseMove = Numbers[4];
+	ShowFPS = Numbers[5] != 0;
+	curEngine = Numbers[6];
+	memcpy(LastPacketTypes, Types, sizeof(Types));
+	std::string Ours = DumpStatics(OURS);
+	Ours = Ours.substr(Ours.find(" WindowHandle"));
+	if (Ours != Callbacks) {
+		printf("FAIL controltest: after a retired comparison our callbacks are%s, the original's%s\n", Ours.c_str(),
+			Callbacks.c_str());
+		Failures++;
+	}
+#endif
 }
 
 // --- Scenarios -----------------------------------------------------------------------
@@ -372,7 +538,8 @@ static void ScriptWorld()
 	int Next = Random() % 3 == 0 ? (int)(Random() % 12) : -1;
 	for (int S = 0; S < 2; S++) {
 		World[S].NextActionState = Next;
-		curEngine = Global<int>(0x71d0c4) = Random() % 5 == 0 ? 3 : (int)(Random() % 3);
+		curEngine = Random() % 5 == 0 ? 3 : (int)(Random() % 3);
+		ORIGINAL(Global<int>(0x71d0c4) = curEngine);
 	}
 	if (Random() % 4 == 0) {
 		int State = Random() % 12;
@@ -389,35 +556,41 @@ static void Step(int Round)
 	bool Force = Random() % 2 == 0;
 	int Engine = Random() % 6 == 0 ? (int)(Random() % 7) - 2 : (int)(Random() % 3);
 	sprintf(What, "Control step %d (round %d)", Kind, Round);
+	// Step 11 calls ChangeEngine itself; a retired comparison's part ends after the step's checks (commworld.h).
+	ForceReach = Kind == 11;
+	DeferRetiredEnd = true;
 	switch (Kind) {
 	case 0:
-		Both(What, [&] { MouseMove(x, y); TimerEvent(); }, [&] { At<TInt2Fn>(0x4469b0)(x, y); At<TVoid>(0x4489a0)(); });
+		Both(What, [&] { MouseMove(x, y); TimerEvent(); }, ORIGINAL_SIDE(At<TInt2Fn>(0x4469b0)(x, y); At<TVoid>(0x4489a0)()));
 		break;
 	case 1:
-		Both(What, [&] { LeftButtonDown(x, y, Flags); }, [&] { At<TInt3Fn>(0x446d10)(x, y, Flags); });
+		Both(What, [&] { LeftButtonDown(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x446d10)(x, y, Flags)));
 		break;
 	case 2:
-		Both(What, [&] { LeftButtonUp(x, y, Flags); }, [&] { At<TInt3Fn>(0x447000)(x, y, Flags); });
+		Both(What, [&] { LeftButtonUp(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447000)(x, y, Flags)));
 		break;
 	case 3:
-		Both(What, [&] { LeftButtonDoubleClick(x, y, Flags); }, [&] { At<TInt3Fn>(0x447390)(x, y, Flags); });
+		Both(What, [&] { LeftButtonDoubleClick(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447390)(x, y, Flags)));
 		break;
 	case 4:
-		Both(What, [&] { RightButtonDown(x, y, Flags); }, [&] { At<TInt3Fn>(0x4476c0)(x, y, Flags); });
+		Both(What, [&] { RightButtonDown(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x4476c0)(x, y, Flags)));
 		break;
 	case 5:
-		Both(What, [&] { RightButtonUp(x, y, Flags); }, [&] { At<TInt3Fn>(0x447880)(x, y, Flags); });
+		Both(What, [&] { RightButtonUp(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447880)(x, y, Flags)));
 		break;
 	case 6:
-		Both(What, [&] { MouseWheel(x, y, Flags); }, [&] { At<TInt3Fn>(0x447bd0)(x, y, Flags); });
+		Both(What, [&] { MouseWheel(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447bd0)(x, y, Flags)));
 		break;
 	case 7:
-		Both(What, [&] { KeyPress(Key); Redraw(Force); }, [&] { At<TIntFn>(0x447e60)(Key); At<TBoolFn>(0x449210)(Force); });
+		Both(What, [&] { KeyPress(Key); Redraw(Force); }, ORIGINAL_SIDE(At<TIntFn>(0x447e60)(Key); At<TBoolFn>(0x449210)(Force)));
 		break;
 	case 8: {
 		bool Result[2] = {false, false};
-		Both(What, [&] { Result[0] = CloseRequest(); }, [&] { Result[1] = At<TBoolResult>(0x4480b0)(); });
-		CHECK(Result[0] == Result[1], "%s: CloseRequest %d, original %d", What, Result[0], Result[1]);
+		Both(What, [&] { Result[0] = CloseRequest(); }, ORIGINAL_SIDE(Result[1] = At<TBoolResult>(0x4480b0)()));
+		if (!SkippingRetired()) {
+			golden::Output("CloseRequest", Result[1]);
+			CHECK(Result[0] == Result[1], "%s: CloseRequest %d, original %d", What, Result[0], Result[1]);
+		}
 		break;
 	}
 	case 9:
@@ -429,34 +602,37 @@ static void Step(int Round)
 			x = World[OURS].Fullscreen.Width;
 			y = World[OURS].Fullscreen.Height;
 		}
-		Both(What, [&] { Resize(x, y); }, [&] { At<TInt2Fn>(0x4459b0)(x, y); });
+		Both(What, [&] { Resize(x, y); }, ORIGINAL_SIDE(At<TInt2Fn>(0x4459b0)(x, y)));
 		break;
 	case 10:
-		Both(What, [&] { CheckSurface(Force); }, [&] { At<TBoolFn>(0x449010)(Force); });
+		Both(What, [&] { CheckSurface(Force); }, ORIGINAL_SIDE(At<TBoolFn>(0x449010)(Force)));
 		break;
 	case 11:
-		Both(What, [&] { ChangeEngine(Engine); }, [&] { At<TIntFn>(0x445c20)(Engine); });
-		CHECK(curEngine == Global<int>(0x71d0c4), "%s: curEngine %d, original %d", What, curEngine, Global<int>(0x71d0c4));
+		Both(What, [&] { ChangeEngine(Engine); }, ORIGINAL_SIDE(At<TIntFn>(0x445c20)(Engine)));
+		if (!SkippingRetired()) {
+			const int Original = ORIGINAL_VALUE("curEngine", int, Global<int>(0x71d0c4));
+			CHECK(curEngine == Original, "%s: curEngine %d, original %d", What, curEngine, Original);
+		}
 		break;
 	case 12:
-		Both(What, [&] { Redraw(Force); }, [&] { At<TBoolFn>(0x449210)(Force); });
+		Both(What, [&] { Redraw(Force); }, ORIGINAL_SIDE(At<TBoolFn>(0x449210)(Force)));
 		break;
 	case 13:
-		Both(What, [&] { SendErrorReports(); }, [&] { At<TVoid>(0x4463f0)(); });
+		Both(What, [&] { SendErrorReports(); }, ORIGINAL_SIDE(At<TVoid>(0x4463f0)()));
 		break;
 	case 14:
-		Both(What, [&] { EnterGame(); }, [&] { At<TVoid>(0x4465f0)(); });
+		Both(What, [&] { EnterGame(); }, ORIGINAL_SIDE(At<TVoid>(0x4465f0)()));
 		break;
 	case 15:
-		Both(What, [&] { LeaveGame(); }, [&] { At<TVoid>(0x4467d0)(); });
+		Both(What, [&] { LeaveGame(); }, ORIGINAL_SIDE(At<TVoid>(0x4467d0)()));
 		break;
 	case 16:
-		Both(What, [&] { LinkCopyWarning(); }, [&] { At<TVoid>(0x448290)(); });
+		Both(What, [&] { LinkCopyWarning(); }, ORIGINAL_SIDE(At<TVoid>(0x448290)()));
 		break;
 	case 17: {
 		int State = Random() % 3 == 0 ? (int)(Random() % 9) : (Random() % 2 == 0 ? 2 : 5);
 		World[0].ConnectionState = World[1].ConnectionState = State;
-		Both(What, [&] { ConnectionEstablished(); }, [&] { At<TVoid>(0x448430)(); });
+		Both(What, [&] { ConnectionEstablished(); }, ORIGINAL_SIDE(At<TVoid>(0x448430)()));
 		break;
 	}
 	case 18: {
@@ -476,48 +652,32 @@ static void Step(int Round)
 				ProcessEvents();
 				Wd().Milliseconds += Delay;
 			}
-			ConnectionClosed();
-		}, [&] {
-			if (Pending) {
+			ConnectionClosed(); }, ORIGINAL_SIDE(if (Pending) {
 				Wd().Events.push_back(TQueuedEvent{0x3f, 0, 0});
 				At<TVoid>(0x4498a0)();
-				Wd().Milliseconds += Delay;
-			}
-			At<TVoid>(0x448720)();
-		});
+				Wd().Milliseconds += Delay; } At<TVoid>(0x448720)()));
 		break;
 	}
 	case 19:
-		Both(What, [&] { TimerEvent(); }, [&] { At<TVoid>(0x4489a0)(); });
+		Both(What, [&] { TimerEvent(); }, ORIGINAL_SIDE(At<TVoid>(0x4489a0)()));
 		break;
 	case 20:
-		Both(What, [&] { MouseMove(x, y); }, [&] { At<TInt2Fn>(0x4469b0)(x, y); });
+		Both(What, [&] { MouseMove(x, y); }, ORIGINAL_SIDE(At<TInt2Fn>(0x4469b0)(x, y)));
 		break;
 	case 21:
-		Both(What, [&] { HandleEvents(); }, [&] { At<TVoid>(0x44a770)(); });
+		Both(What, [&] { HandleEvents(); }, ORIGINAL_SIDE(At<TVoid>(0x44a770)()));
 		break;
 	case 22:
-		Both(What, [&] {
-			InitWindow(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL);
-		}, [&] {
-			At<void (__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(
-				TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL);
-		});
+		Both(What, [&] { InitWindow(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL); }, ORIGINAL_SIDE(At<void(__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL)));
 		break;
 	case 26: {
 		// Ten timer ticks after a mouse move: the window under the mouse is told (hover).
-		int Ticks = 9 + Random() % 3;
+		int TimerTicks = 9 + Random() % 3;
 		Both(What, [&] {
 			MouseMove(x, y);
-			for (int i = 0; i < Ticks; i++) {
+			for (int i = 0; i < TimerTicks; i++) {
 				TimerEvent();
-			}
-		}, [&] {
-			At<TInt2Fn>(0x4469b0)(x, y);
-			for (int i = 0; i < Ticks; i++) {
-				At<TVoid>(0x4489a0)();
-			}
-		});
+			} }, ORIGINAL_SIDE(At<TInt2Fn>(0x4469b0)(x, y); for (int i = 0; i < TimerTicks; i++) { At<TVoid>(0x4489a0)(); }));
 		break;
 	}
 	default: {
@@ -538,9 +698,12 @@ static void Step(int Round)
 			if (Height >= 0)
 				World[S].Main->Height = Height;
 		}
-		Both(What, [&] { Redraw(Force); }, [&] { At<TBoolFn>(0x449210)(Force); });
+		Both(What, [&] { Redraw(Force); }, ORIGINAL_SIDE(At<TBoolFn>(0x449210)(Force)));
 	}
 	}
+	ForceReach = false;
+	DeferRetiredEnd = false;
+	EndRetiredComparison();
 }
 
 // ProcessEvents with a queue: the parameters as their senders build them.
@@ -566,9 +729,17 @@ static TQueuedEvent BuildEvent(const TEventPlan &Plan)
 	char Text[64];
 	sprintf(Text, "text %u", Random() % 1000);
 	switch (Plan.Type) {
-	case 0x01: case 0x02: E.Param1 = (INT_PTR)Literals[Random() % 4]; E.Param2 = (INT_PTR)HeapText(Text); break;
-	case 0x05: E.Param1 = (INT_PTR)HeapText(Text); E.Param2 = Random() % 100; break;
-	case 0x06: case 0x07: {
+	case 0x01:
+	case 0x02:
+		E.Param1 = (INT_PTR)Literals[Random() % 4];
+		E.Param2 = (INT_PTR)HeapText(Text);
+		break;
+	case 0x05:
+		E.Param1 = (INT_PTR)HeapText(Text);
+		E.Param2 = Random() % 100;
+		break;
+	case 0x06:
+	case 0x07: {
 		INT_PTR *Data = new INT_PTR[4];
 		Data[0] = (INT_PTR)Literals[Random() % 4];
 		Data[1] = (INT_PTR)Literals[Random() % 4];
@@ -577,8 +748,11 @@ static TQueuedEvent BuildEvent(const TEventPlan &Plan)
 		E.Param1 = (INT_PTR)Data;
 		break;
 	}
-	case 0x09: case 0x0a: case 0x18: E.Param1 = Random() % 1000; break;
-	case 0x0b: case 0x0c: E.Param1 = (INT_PTR)Literals[Random() % 4]; break;
+	case 0x09:
+	case 0x0a:
+	case 0x18: E.Param1 = Random() % 1000; break;
+	case 0x0b:
+	case 0x0c: E.Param1 = (INT_PTR)Literals[Random() % 4]; break;
 	case 0x0e: {
 		uint32 *Info = new uint32[3];
 		Info[0] = Random();
@@ -619,7 +793,9 @@ static TQueuedEvent BuildEvent(const TEventPlan &Plan)
 		E.Param2 = (INT_PTR)Names;
 		break;
 	}
-	case 0x19: case 0x1a: case 0x33: E.Param1 = (INT_PTR)HeapText(Text); break;
+	case 0x19:
+	case 0x1a:
+	case 0x33: E.Param1 = (INT_PTR)HeapText(Text); break;
 	case 0x1c: {
 		E.Param1 = Random() % 3 == 0 ? 0 : (INT_PTR)HeapText(Text);
 		if (Random() % 3 != 0) {
@@ -630,15 +806,33 @@ static TQueuedEvent BuildEvent(const TEventPlan &Plan)
 		}
 		break;
 	}
-	case 0x1d: case 0x1e: case 0x24: case 0x3a: case 0x3b: case 0x3c:
+	case 0x1d:
+	case 0x1e:
+	case 0x24:
+	case 0x3a:
+	case 0x3b:
+	case 0x3c:
 		E.Param1 = (INT_PTR)Wd().TextWindow;
 		E.Param2 = Plan.Type == 0x1e ? (INT_PTR)Wd().CurrentConsole : 0;
 		break;
-	case 0x29: E.Param1 = (INT_PTR)Literals[Random() % 4]; E.Param2 = Random() % 5000; break;
+	case 0x29:
+		E.Param1 = (INT_PTR)Literals[Random() % 4];
+		E.Param2 = Random() % 5000;
+		break;
 	case 0x2f: E.Param2 = (INT_PTR)HeapText(Text); break;
-	case 0x30: case 0x31: E.Param1 = Random() % 100; E.Param2 = (INT_PTR)HeapText(Text); break;
-	case 0x32: E.Param1 = (INT_PTR)Wd().Buffers[Random() % WORLD_BUFFERS]; E.Param2 = Random() % 2 == 0 ? 0 : (INT_PTR)HeapText(Text); break;
-	case 0x35: case 0x36: case 0x37: case 0x39: E.Param1 = Random() % 100000; break;
+	case 0x30:
+	case 0x31:
+		E.Param1 = Random() % 100;
+		E.Param2 = (INT_PTR)HeapText(Text);
+		break;
+	case 0x32:
+		E.Param1 = (INT_PTR)Wd().Buffers[Random() % WORLD_BUFFERS];
+		E.Param2 = Random() % 2 == 0 ? 0 : (INT_PTR)HeapText(Text);
+		break;
+	case 0x35:
+	case 0x36:
+	case 0x37:
+	case 0x39: E.Param1 = Random() % 100000; break;
 	default:
 		if (Plan.Type > 0x48 || Plan.Type < 1) {
 			E.Param1 = Random() % 10;
@@ -679,7 +873,7 @@ static void EventRound(int Round, int Fail)
 	}
 	sprintf(What, "ProcessEvents of round %d", Round);
 	FailAt = Fail;
-	Both(What, [&] { ProcessEvents(); }, [&] { At<TVoid>(0x4498a0)(); });
+	Both(What, [&] { ProcessEvents(); }, ORIGINAL_SIDE(At<TVoid>(0x4498a0)()));
 	FailAt = 0;
 }
 
@@ -702,7 +896,7 @@ static void DispatchRound(int Round, int Fail)
 	SetReceiveData(IMAGE, NULL, 0);
 	sprintf(What, "ReceivePackets of round %d", Round);
 	FailAt = Fail;
-	Both(What, [&] { ReceivePackets(); }, [&] { At<TVoid>(0x44a900)(); });
+	Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
 	FailAt = 0;
 }
 
@@ -721,7 +915,7 @@ static void DispatchAll()
 			SetReceiveData(IMAGE, NULL, 0);
 			char What[64];
 			sprintf(What, "ReceivePackets type 0x%02x state %d", Type, State);
-			Both(What, [&] { ReceivePackets(); }, [&] { At<TVoid>(0x44a900)(); });
+			Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
 			CompareStatics(What);
 			FreeWorlds();
 		}
@@ -735,9 +929,9 @@ static void InitExitRound(const char *Name, int Fail)
 	bool Gamemaster = Random() % 2 == 0;
 	sprintf(What, "InitControl(%d) %s", Gamemaster ? 1 : 0, Name);
 	FailAt = Fail;
-	Both(What, [&] { InitControl(Gamemaster); }, [&] { At<TBoolFn>(0x44b510)(Gamemaster); });
+	Both(What, [&] { InitControl(Gamemaster); }, ORIGINAL_SIDE(At<TBoolFn>(0x44b510)(Gamemaster)));
 	sprintf(What, "ExitControl %s", Name);
-	Both(What, [&] { ExitControl(); }, [&] { At<TVoid>(0x448e30)(); });
+	Both(What, [&] { ExitControl(); }, ORIGINAL_SIDE(At<TVoid>(0x448e30)()));
 	FailAt = 0;
 }
 
@@ -786,6 +980,9 @@ void TestControl(const char *ExePath)
 	int Rounds = getenv("CT_ROUNDS") != NULL ? atoi(getenv("CT_ROUNDS")) : 3000;
 	if (getenv("CT_SEED") != NULL)
 		SetRandomSeed(strtoul(getenv("CT_SEED"), NULL, 10));
+	RecordComparisons = true; // a ported test: its comparisons go into the corpus
+	RetireChangeEngine = true;
+	AfterRetired = ControlAfterRetired;
 	LoadObjectFlags(ExePath);
 	BeginWorld();
 	InstallFakes(CommunicationFakes);
@@ -803,11 +1000,7 @@ void TestControl(const char *ExePath)
 	FindStatics();
 	// Both sides' statics from the same start.
 	ResetWorlds();
-	Both("InitWindow", [&] { InitWindow(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL); },
-		[&] {
-			At<void (__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(
-				TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL);
-		});
+	Both("InitWindow", [&] { InitWindow(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL); }, ORIGINAL_SIDE(At<void(__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL)));
 	FreeWorlds();
 	ResetWorlds();
 	for (int S = 0; S < 2; S++) {
@@ -847,6 +1040,10 @@ void TestControl(const char *ExePath)
 		Failures - BeforeFailures, Least);
 	ErrorRound(Rounds / 30);
 	FaultHandler = NULL;
+	EndWorld();
+	AfterRetired = nullptr;
+	RetireChangeEngine = false;
+	RecordComparisons = false;
 	if (LogFile != NULL)
 		fclose(LogFile);
 	LogFile = NULL;

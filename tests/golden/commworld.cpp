@@ -44,6 +44,12 @@ bool TraceBefore = false;
 bool LiveLog = false;
 FILE *LogFile = NULL;
 bool RecordComparisons = false;
+bool RetireChangeEngine = false;
+bool ForceReach = false;
+bool DeferRetiredEnd = false;
+bool RetiredPending = false;
+bool LastRetired = false;
+void (*AfterRetired)() = nullptr;
 
 // --- Logs ------------------------------------------------------------------------
 
@@ -2085,6 +2091,7 @@ uint32 CommRandState(int S, uint32 Seed)
 	RandState[S] = Seed;
 	return Seed;
 }
+uint32 CommRandOf(int S) { return RandState[S]; }
 static int __cdecl F_Rand()
 {
 	RandState[Side] = RandState[Side] * 214013 + 2531011;
@@ -2655,7 +2662,82 @@ static std::string DumpWorld(int S)
 // comparison, the creature records by their changed bytes. Empty at the start on both sides.
 static std::string LastLog, LastBuffer[WORLD_BUFFERS], LastWorld;
 static uint8 LastCreatures[sizeof(TCreature) * WORLD_CREATURES];
+static void ResetTextChanges()
+{
+	LastLog.clear();
+	for (std::string &B : LastBuffer)
+		B.clear();
+	LastWorld.clear();
+	memset(LastCreatures, 0, sizeof(LastCreatures));
+}
 static_assert(sizeof(TCreature) == 0x9c, "TCreature: the same 0x9c bytes on both targets (its records are compared by bytes)");
+
+// --- Control's retired comparisons (commworld.h) ----------------------------------------------------
+
+bool ReachesChangeEngine()
+{
+	if (ForceReach)
+		return true;
+	for (const std::string &L : Log) {
+		for (size_t p = L.find("Surface.Init("); p != std::string::npos; p = L.find("Surface.Init(", p + 1)) {
+			size_t End = L.find(';', p);
+			if (End != std::string::npos && End >= 2 && L.compare(End - 2, 2, "=0") == 0)
+				return true;
+		}
+	}
+	return false;
+}
+
+bool RetiredComparison(bool Reached)
+{
+	if (!RecordComparisons || !RetireChangeEngine)
+		return false;
+	uint8 Flag = Reached ? 1 : 0;
+	golden::Output("reaches ChangeEngine", Flag);
+	return Flag != 0;
+}
+
+bool CompareOrRetire(const char *What, const TThrown &O, const TThrown &I, bool Retired)
+{
+	if (!Retired)
+		return CompareRun(What, O, I);
+	RetiredPending = true;
+	if (!golden::RetiredBegin("ChangeEngine", Checks))
+		CompareRun(What, O, I); // the oracle: the part's checks and values
+	if (!DeferRetiredEnd)
+		EndRetiredComparison();
+	LastRetired = true;
+	return true;
+}
+
+bool SkippingRetired() { return RetiredPending && golden::Mode() == golden::TMode::Replay; }
+
+static void ResetTextChanges();
+uint32 CommRandState(int S, uint32 Seed);
+uint32 CommRandOf(int S);
+
+void EndRetiredComparison()
+{
+	if (!RetiredPending)
+		return;
+	RetiredPending = false;
+	golden::RetiredEnd(Checks);
+	// What the part changed that later comparisons read: the oracle's values; the runner takes them.
+	int Counters[2] = {ThrownCompared, ThrownThrew};
+	golden::Output("error round counters", Counters);
+	ThrownCompared = Counters[0];
+	ThrownThrew = Counters[1];
+	uint32 State[2] = {GetRandomSeed(), CommRandOf(IMAGE)};
+	golden::Output("random states", State);
+	if (golden::Mode() == golden::TMode::Replay) {
+		SetRandomSeed(State[0]);
+		CommRandState(OURS, State[1]);
+	}
+	if (AfterRetired != nullptr)
+		AfterRetired();
+	// The texts recorded by their changes start again from empty on both sides (the runner skipped the part's).
+	ResetTextChanges();
+}
 
 bool CompareRun(const char *What, const TThrown &O, TThrown I)
 {

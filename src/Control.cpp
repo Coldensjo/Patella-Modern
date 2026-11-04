@@ -1009,8 +1009,9 @@ void ProcessEvents()
 			ModalWindow = CreateBugReportDialog();
 			break;
 		case 0x12: {
-			INT_PTR *Data = reinterpret_cast<INT_PTR *>(Param1);
-			ModalWindow = CreateNewChannelDialog((int)Data[0], reinterpret_cast<int *>(&Data[1]), reinterpret_cast<const char (*)[30]>(Param2));
+			// ReceiveChannelList's int[]: the count, then the channel IDs (Patella-Modern issue #30).
+			int *Data = reinterpret_cast<int *>(Param1);
+			ModalWindow = CreateNewChannelDialog(Data[0], &Data[1], reinterpret_cast<const char (*)[30]>(Param2));
 			delete[] Data;
 			if (Param2 != 0)
 				delete[] reinterpret_cast<char *>(Param2);
