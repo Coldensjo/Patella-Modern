@@ -447,6 +447,9 @@ unit tests:
   `strcpy`/`strcat`/`sprintf` uses (about 180 call sites). The original's truncation and overflow behaviour
   is part of the contract: where the original asserts (`strlen(Address)<100`), the assertion stays; where it
   truncates (`_snprintf`), so does the type.
+  Done in issue #57 (notes/decisions.md): `src/types/FixedString.h` with `TStringBuffer` for the buffers known by a
+  pointer; the oracle's /std:c++17 formats through the stand-in of `src/compat/format.h`; the grep gate is
+  `tools/banned_calls.py` in the hosted CI.
 - **Ownership:** first an ownership map per subsystem (`notes/ownership.md`: who creates, who frees, what lives
   until exit; 608 `new` against 193 `delete`). Then `std::unique_ptr<T>` for owning members and globals
   (pointer-sized with the default deleter on all three compilers). Non-owning pointers stay raw, or become

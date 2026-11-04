@@ -259,6 +259,21 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #57 (branch issue-57, November 4, 2026): TFixedString<N> and TStringBuffer
+(src/types/FixedString.h) for the client's text buffers; no strcpy, strcat, sprintf, vsprintf or gets left in src/
+(tools/banned_calls.py, a job of the hosted CI). `python -I tools/build.py oracle-x86 --fresh` (CTest 4/4, 0
+warnings; compare_resources 0 differences): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures,
+after each of the three conversion commits too; with recording on (`golden_corpus`, a corpus of the branch in its
+own build\golden, 394 MB) the same counts. The x64 golden_runner (windows-x64 --fresh, CTest 13/13) replays
+12,858,032 of difftest's checks and sysinctest's 67, 0 failures; windows-x64-debug --fresh had 3 failures in the
+first run (golden's Script test: our reader saw an empty script file at the start of one round, then the replay
+lost its place), and its rerun replayed the same 12,858,099 with 0 failures (not reproduced). The images change
+(new code, moved data): pecompare is not the proof any more. tests/unit: tests_unit 28 cases / 9,691 assertions
+(18/158 before; 9,689 on Clang), tests_unit_cxx26_standin 28/9,693 (18/160), the 10 new cases 9,533 assertions in
+each; tests_core 33/340 (33/343 on Linux), tests_testmode 35/709, tests_render 14/359, tests_vulkan 14/1,309
+unchanged; windows-x64-gcc and the four Linux presets 11/11. macrocheck b061421 issue-57: 2,108 calls, 0
+differences. tidy_ci: 13 findings, 0 new (the baseline lost Utils.cpp's sprintf).
+
 Patella-Modern issue #28 (branch issue-28, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after Graphics and GUI moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong
 checks, 0 failures (Graphics 570,954; GUI 5,246,029 + its error round's 31,909, 2,750 calls compared, 2,154 that

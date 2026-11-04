@@ -79,7 +79,7 @@ the oracle-x86 preset never uses them. Details: `notes/reconstruction.md`, "Chec
 `.github/workflows/hosted.yml` (GitHub's runners, also on pull requests): windows-x64 with MSVC x64 and
 `-DPATELLA_CLIENT=OFF`, the client's and the test build's sources compiled without Tibia.exe
 (`-DPATELLA_CLIENT_COMPILE_ONLY=ON`, targets `Patella_compile` and `PatellaTest_compile`, issues #25, #46, and
-their headers alone, `header_check_client` and `header_check_test_build`, issue #49), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, and
+their headers alone, `header_check_client` and `header_check_test_build`, issue #49), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, the grep gate `python -I tools/banned_calls.py` (no strcpy, strcat, sprintf, vsprintf or gets in src/; the buffers are `TFixedString`/`TStringBuffer` of `src/types/FixedString.h`, issue #57), and
 clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings; `--all --headers`). `python -I tools/tidy_ci.py`
 runs that job locally (the commit's image, files and script; `--worktree` for uncommitted changes, `--hosted <run id>`
 compares with a hosted run) and reports exactly what it reports: run it before pushing. The per-target Windows runs

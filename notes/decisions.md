@@ -7837,3 +7837,117 @@ decision":
 | `modernize-use-std-print` | 4 | M4 ("Formatting and I/O"). |
 
 M3 is therefore done; the M4 issues follow the plan's M4 section.
+
+## TFixedString<N> for the fixed buffers (Patella-Modern issue #57)
+
+Settled by Claude Opus 5.5, November 4, 2026. The first change of M4 (plan section 7, "Safety inside the frozen
+layout"): the client's text buffers are written through a bounded type, and src/ has no strcpy, strcat, sprintf,
+vsprintf or gets any more (167 calls on main b061421, 0 now; a grep gate in the hosted CI keeps it so).
+
+- **The type** (high). `src/types/FixedString.h`: `TFixedString<N>`, a struct whose only member is the original's
+  `char Chars[N]`: size N, alignment 1, standard layout, trivially copyable, trivially default-constructible, an
+  aggregate (`IsFixedStringLayout<N>` asserts all of it; a local is as uninitialised as the array, `= {}` and
+  `= {"Text"}` work). It converts to `char *` and `const char *` as the array decayed, so every reader (strlen,
+  strcmp, MFC and Windows calls, indexing, and above all the TASSERT expressions whose text is frozen until M5,
+  `strlen(Address)<100`) is unchanged. Writes: `Assign` (strcpy), `Append` (strcat), `Format` (sprintf) and
+  `AppendFormat` (sprintf at the end), each returning the length; `Length`/`View` stop at the first NUL or at N;
+  `Capacity`. `TStringBuffer(Pointer, Size)` has the same writes for a buffer known only by a pointer (a
+  parameter, an allocation, a table row), with the size its callers allocate; `TFixedString::Buffer()` is its own.
+  The directory src/types/ is for the fork's M4 types (the next: TFile); it is on cmake/HeaderCheck.cmake's core
+  list and in the clang-format file list.
+- **The contract: the C functions' bytes, cut where they overflowed** (high). A write puts the text and its NUL
+  exactly where the C function did and touches nothing else, so the bytes after the NUL keep what they were (the
+  golden tests compare the talkboxes, the VIP list and TrimString's buffer with memcmp; a structure written whole to
+  a file stays byte-identical). Where the text does not fit, which in the original wrote past the buffer (undefined
+  behaviour), the first N - 1 characters and the NUL are kept: no new error path, no new message. Where the
+  original asserts a length (`strlen(Address)<100` and the 13 others below), the assertion stays in front of the
+  write, as it was. Where it truncated with `_snprintf`, the call stays `MsvcSnprintf` (#43) on the buffer:
+  `_snprintf`'s result and its missing NUL are kept exactly (a unit test holds this on a TFixedString), and those
+  formats are mostly the text table's runtime strings (Text.h, TextTryingToReconnect), which std::format cannot
+  take without rewriting the data. A null source faults as strcpy's did (no check added). A source inside the
+  buffer is allowed (memmove; TrimString may trim in place).
+- **std::format_to_n, and a stand-in for the oracle's C++17** (high). The plan asks for `Format` through
+  std::format_to_n, but the oracle-x86 preset compiles with /std:c++17 until M6 (plan section 5: "keeps exactly
+  today's flags"), and MSVC's <format> needs C++20. Raising the oracle's standard was not this issue's to decide.
+  So `src/compat/format.h` gives `PATELLA_HAS_FORMAT` (1 where `__cpp_lib_format` is there: every product preset)
+  and `patella::compat::FormatToNStandIn`, std::format_to_n for the part of the format language the client uses
+  (automatic fields, `{{`/`}}`, fill/align, sign, `0`, width, precision, the types d x X f s c; bool, char, the
+  integers with unsigned char and signed char as numbers, float, double, C strings, string_view, string and any
+  type with a View()), its digits from std::to_chars as in the standard libraries; anything else throws
+  `TFormatError`. The product presets take std::format_to_n with compile-time checked formats; the oracle the
+  stand-in, with the same call sites (`Text.Format("{:03} ", Value)`). The unit tests compare the two directly for
+  every count from 0 to past the length (integers to their limits, the client's float format `{:2.2f}` among 16
+  doubles and infinities, strings with widths, a char array with bytes after its NUL), and run every TFixedString
+  test once with each path (tests_unit and tests_unit_cxx26_standin, which gets `PATELLA_FORMAT_STANDIN`). So
+  difftest proves the call sites through the stand-in, and the unit tests prove the stand-in equal to
+  std::format_to_n. A TFixedString passed to Format is its View() (MSVC's std::format takes a class that converts
+  to `const char *` for a C string and rejects its own std::formatter, so Format maps the argument).
+- **What the formats became** (high). `%d`, `%u`, `%s`, `%c` are `{}`; `%03d`/`%03u`/`%02d` are `{:03}`/`{:02}`
+  (std::format pads negative numbers after the sign, as printf does); `%2.2f` is `{:2.2f}` (both exact). Arguments
+  that are `unsigned char` (the colours' R, G, B; uint8) format as numbers in both. The two runtime formats that
+  were literals chosen at run time became a format with the word as an argument: a talkbox's first line
+  (`"%s says:"` and the others: `"{}{}"` with " says:", " whispers:", " yells:", ":") and the context menus'
+  `"Unignore %s"`/`"Ignore %s"` (`"{} {}"`); the same text. A sprintf without arguments became Assign.
+- **Which members changed, and their layout** (high). The members written by the replaced calls became
+  TFixedStrings: TServer::Address, TBuddyEntry::Name, TContainer::Name, TOffer::Name, TCharacter::Name and World,
+  TBuddy::Description, the hotkeys (Preferences.cpp), TEffect::Text (inside its union), the sprite and picture
+  file names, the status message, TTalkbox::Text (`TFixedString<40> Text[10]`), TBattleWindowBody::MouseOverText,
+  TTextButton::Text, TDialog::Caption, TIgnoreEntry::Name and THotkeyDialog::Texts. Each structure asserts its size
+  and the changed offsets: unconditionally where it has no pointers (the same on x64: TServer 0x70, TBuddyEntry
+  0x2c, TCharacter 0x54, TBuddy 0x8c, TEffect 0x44, TTalkbox 0x1c0, TIgnoreEntry 0x1f), under
+  PATELLA_ORIGINAL_LAYOUT in the .cpp where it has pointers or a vtable (TContainer 0x1ec, TOffer 0x4d4,
+  TBattleWindowBody 0x58, TTextButton 0x78, TDialog's Caption 0x50, THotkeyDialog's Texts 0x2c). The members
+  nothing replaced writes stay arrays (TCreature::Name, TTalkLine::Addressee, TMark::Text, TCharacter::IPAddress,
+  the strncpy'd error reports): the exit criterion is the calls, and each conversion is a layout claim.
+- **Kept arrays** (high). Script.cpp's TReadScriptFile::Filename and TWriteScriptFile::Filename and
+  InstallPatch's Name stay `char[1024]`, written through `TStringBuffer(Filename, sizeof(Filename))`:
+  TERROR_REASON names them, and its reason is a `const std::string &`, which a TFixedString cannot reach in one
+  implicit conversion; the argument text is frozen until M5 (then `Filename.Chars`, or the member converts).
+- **The varargs trap** (high). A TFixedString passed through `...` is copied as its N bytes, not as a pointer,
+  and nothing warns (it is trivially copyable; MSVC's C4477 checks only literal printf formats). Every varargs call
+  of src/, tests/golden and tools/difftest with a converted member or local was looked at: src/'s three
+  MsvcSnprintf calls in Map.cpp pass `FileName.Chars`; tools/difftest/contentwindowstest.cpp passed the battle
+  list's MouseOverText to its `Add(Out, "...%.31s", ...)` and crashed difftest (reading 0x9f9f9f00, the empty
+  text and the fill bytes) until it passed `.Chars` (forced by the change; the only one). Also a stream: `Out <<
+  Fixed` would print the pointer (operator<<(const void *)), so the stream writes (Communication.cpp's RSA bytes,
+  Control.cpp's and MainFrm.cpp's packet types) use View().
+- **Truncation or assertion, case by case** (high, except where marked). Asserted before the write (unchanged):
+  SetTestServerAddress and SetServerIPAddress (<100), AddBuddy (<30), OpenContainer, SetOwnOffer, SetCounterOffer
+  (<30), SetCharacter's Name and World (<30), SetHotkey (<HOTKEY_LENGTH), AddBuddy's Description
+  (<BUDDYDESCRIPTION_LENGTH), AddTextualEffect (<10 into 12), LoadSprites and LoadPictures (<PATH_MAX),
+  SetStatusMessage (<STATUSMESSAGE_LENGTH), TTextButton (<50), TDialog (<100); the automap file names (In() on the
+  block coordinates: at most 12 characters in 16) and FormatNumber (Number>=0: at most 10 digits in 11). Sized by
+  their own allocation (no cut possible): the MotD, the talk lines and their time stamps, the console tabs'
+  captions, the labels', links' and list boxes' copies, the report and help texts, the patch messages, the
+  ignore and buddy-exemption texts (first pass), GetSelectedText, TrimString (the caller's buffer holds Source) and
+  GetErrorMessage (every caller passes new char[1024]; the longest message has about 300 characters). Bounded by
+  their data, never cut in practice: the context menus' and dialogs' lines (names of at most 29 characters, the
+  protocol's GetString(Name, 30)), the battle and VIP lists' copies, the talkbox's first line (29 + " whispers:"
+  fills the 40 exactly), the packet and number texts. Two that the original could overflow (medium): the buddy
+  descriptions read from Tibia.cfg ("copied without a length limit", so a hand-edited file with a description of
+  128 characters or more wrote past TBuddy; now cut at 127) and a name of exactly 30 characters typed into the
+  ignore or white list editor (its TEditLine allows 30; strcpy put the NUL into TIgnoreEntry::Permanent, which the
+  next statement overwrites, so the entry kept all 30 characters, followed by the Permanent byte; now 29). No
+  Tibia name has 30 characters (the client asserts strlen(Name)<30 everywhere else), and the list applies the
+  edit lines' texts, not the entries, so the stored lists are the same; the entry's own copy differs only in the
+  dialog after deleting another entry. difftest's PreferencesFile and Dialogs tests pass with unchanged counts, so
+  they do not reach either case (both overflowed in the original).
+- **Two test harness fixes forced by the moved data** (high). communicationtest's CheckRoom (tools/difftest/
+  commworld.cpp) scanned the first five bytes of a faked function for a ret byte (C3) and found one in the operand
+  of `mov eax,[0x2066c378]` once the globals moved (HelpHandle's new address): four Help.cpp functions "too short
+  for a jump", 8 failures. A function that starts on a 16-byte boundary (/Gy) has room up to the next one; the scan
+  now runs only for the others. And contentwindowstest.cpp's `.Chars` above.
+- **The grep gate** (high). `tools/banned_calls.py` lists every call of strcpy, strcat, sprintf, vsprintf and gets
+  in src/ outside src/Extern (Henry Spencer's regexp keeps its own code), skipping comments and string, character
+  and raw literals (so a comment may say what a line replaced), and fails on one; `--self-test` checks the scanner.
+  The hosted workflow runs both in the job "banned C string calls" (no Docker: python3 of the runner). On main it
+  finds the 167 calls, on the branch 0. Not banned: strncpy (its own semantics, the error reports), MsvcSnprintf
+  and snprintf (bounded), fprintf to files (M4's TFile).
+- **Proof** (high). The images change (new code, moved data), so pecompare is no longer the proof; behaviour is:
+  difftest 16,848,752, sysinctest 67, communicationtest 1,134,513, vlong 3,201 checks, 0 failures, after each of
+  the three conversion commits and on the final head (`--fresh`); golden_runner with a corpus recorded from the
+  branch; the unit tests above; compare_resources.py 0 differences (oracle build). macrocheck b061421 issue-57:
+  2,108 calls, 0 differences. clang-tidy: the image's baseline 13 (Utils.cpp's sprintf vararg gone, 0 new); Visual
+  Studio's on windows-x64's commands of the changed files against main's: one new finding (MainFrm.cpp's
+  `<cstdio>`, removed), the rest moved lines; `--headers` 0 on windows-x64 and oracle-x86. The x64 live checks
+  (compare_traffic.py, compare_files.py, the reference sessions, compare_rendering.py) are the orchestrator's.
