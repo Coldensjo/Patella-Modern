@@ -1177,7 +1177,7 @@ void ProcessEvents()
 		case 0x40:
 			if (GetConnectionState() != 0) {
 				AddMessageFirst(0x40, 0, 0);
-				goto Done; // kept (#42): the binary's shared exit block 0x44a2f5, as when the loop ends
+				goto Done; // NOLINT(cppcoreguidelines-avoid-goto): the binary's shared exit block 0x44a2f5 (#42)
 			}
 			break;
 		case 0x41:
