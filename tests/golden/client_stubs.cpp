@@ -10,7 +10,6 @@
 #include "Creatures.h"
 #include "GUI.h"
 #include "MainWindow.h"
-#include "Network.h"
 #include "Objects.h"
 #include "Surface.h"
 #include "graphics.h"
@@ -51,18 +50,6 @@ void Resize(int, int) { STUB(); }
 void RightButtonDown(int, int, int) { STUB(); }
 void RightButtonUp(int, int, int) { STUB(); }
 void TimerEvent() { STUB(); }
-
-// Network.cpp.
-void ConnectToLoginServer() { STUB(); }
-void Disconnect(bool) { STUB(); }
-void GetErrorMessage(char *, int, int) { STUB(); }
-const char *GetResolvedIPAddress() { STUB(); }
-void SetConnectionTimeout(int) { STUB(); }
-void SetServerError(int) { STUB(); }
-void SetServerIPAddress(const char *) { STUB(); }
-void SetTestServerAddress(const char *) { STUB(); }
-void SetTestServerPort(int) { STUB(); }
-void ShutdownConnection() { STUB(); }
 
 // GUI.cpp, MainWindow.cpp, graphics.cpp.
 // MainFrm.cpp's NoCallback is constructed at start-up: GUI.cpp's constructor (0x496130), which only

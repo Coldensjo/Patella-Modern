@@ -590,15 +590,17 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   373,518 checks), Status (565,809), Preferences (102,060), Script (458,232), PreferencesFile (112,155), Player
   (18,442), Help (70,631), Inventory (158,400), Talk (1,214,929) and Container (192,832) (issue #26, 2,893,490),
   Objects (327,886), Map (639,877) and Creatures (2,610,987) (issue #27, 3,578,750), MainFrm (49,576, of which
-  18,152 in its error round; issue #54), 6,895,334 in all, and sysinctest's Sysinc (67); the runner lists the rest
-  with their counts (difftest's other 15 tests, 9,953,418 checks, Errors' 40,408, MapWindow's 127,529 and
-  MainWindow's 57,314 among them; communicationtest's 1,134,513). The runner links the reconstructed files the ported tests call (golden_client:
+  18,152 in its error round; issue #54), Network (113,806, of which 38,878 in its error round; issue #30),
+  7,009,140 in all, and sysinctest's Sysinc (67); the runner lists the rest with their counts (difftest's other
+  14 tests, 9,839,612 checks, Errors' 40,408, MapWindow's 127,529 and MainWindow's 57,314 among them;
+  communicationtest's 1,134,513, its two tests Communication 856,366 and Control 278,147, the runner's group
+  "communicationtest"). The runner links the reconstructed files the ported tests call (golden_client:
   compiled against the MFC shim with the product settings) and aborting stubs of the others
   (tests/golden/client_stubs.cpp). Tibia.dat is in the corpus (golden::DataFile): the runner needs no data files.
   - Record: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
     golden_corpus` runs difftest, sysinctest and communicationtest in full with `DIFFTEST_RECORD=<dir>` (default
-    build\golden, the cache variable PATELLA_GOLDEN_DIR; about five minutes, 246 MB, of which Container 82 MB, Talk
-    46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB, MainFrm 3 MB). Recording changes no check
+    build\golden, the cache variable PATELLA_GOLDEN_DIR; about four minutes, 253 MB, of which Container 82 MB, Talk
+    46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB, Network 8 MB, MainFrm 3 MB). Recording changes no check
     count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. The corpus is derived from Tibia.exe: it stays on
     the machine (build/ is ignored by git) and is never committed, pushed or uploaded, not even as a CI artifact.
   - Replay: `build\windows-x64\tests\golden\Release\golden_runner.exe [--require] [<dir>]`, or the CTest test
@@ -627,10 +629,16 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     original's (the oracle runs it inside ImageThrow and records what it threw by value), TErrorRound's Compare
     and Finish as in difftest (Finish also records the round's counts, which the runner compares with its own);
     the runner throws our side's assertion of ThrowSideAssertion with OurSideAssertion (GUI.cpp's SetSize
-    assertion; the oracle checks it with VerifyOurSideAssertion before the round). notes/decisions.md, "The golden
-    corpus (Patella-Modern issue #24)", "The golden corpus: settings, scripts and player data (Patella-Modern issue
-    #26)", "The golden corpus: the game world (Patella-Modern issue #27)" and "The golden corpus: error rounds
-    (Patella-Modern issue #54)".
+    assertion; the oracle checks it with VerifyOurSideAssertion before the round). Issue #30's: a test whose
+    fakes make C functions throw (Network: WinSock and rand() in their import slots) compiles in a directory of
+    its own with /EHs instead of /EHsc (tests/golden/network/CMakeLists.txt), else our x64 code lets the
+    exception pass the TEND blocks; the WinSock functions reach the test's own slots through /alternatename of
+    their `__imp_` symbols (the runner links no ws2_32); a test may call Random() only once per expression (the
+    order of two calls is unspecified, and the runner's Debug build chose another order than the oracle's).
+    notes/decisions.md, "The golden corpus (Patella-Modern issue #24)", "The golden corpus: settings, scripts and player
+    data (Patella-Modern issue #26)", "The golden corpus: the game world (Patella-Modern issue #27)", "The golden
+    corpus: error rounds (Patella-Modern issue #54)" and "The golden corpus: Network (Patella-Modern issue
+    #30)".
 - The reference recordings (Patella-Modern issue #23; M2's exit): `python -I tools/reference.py compare
   --reference C:\Patella-Modern\build\reference` runs the x64 test client (build\windows-x64\Release\PatellaTest.exe,
   `--exe`) on every recorded session without the server and compares it with Tibia.exe's recording: the
@@ -652,7 +660,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 
 | File | State |
 |---|---|
-| Network.cpp | Reconstructed, compile-checked; catch types and try ranges checked against the exception tables. Every function differentially tested and its error paths (issue #37: networktest.cpp compiles the file in, fakes MFC's CAsyncSocket and AfxSocketInit at the calls into MFC, ws2_32 through both import tables, Status.cpp and rand() on both sides; random operations with server frames in pieces, coalesced, empty, with wrong inner lengths, failures of every socket call; logs, every static and both buffers compared; an error round over 50 of the 54 error sites, the other four not reachable; a mutation check of 15 changes, all detected). The real clients against crafted and fuzzed server streams: tools/compare_network.py (notes/network.md). No difference. |
+| Network.cpp | Reconstructed, compile-checked; catch types and try ranges checked against the exception tables. Every function differentially tested and its error paths (issue #37: networktest.cpp, tests/golden/network_tests.cpp since Patella-Modern issue #30, compiles the file in, fakes MFC's CAsyncSocket and AfxSocketInit at the calls into MFC, ws2_32 through both import tables, Status.cpp and rand() on both sides; random operations with server frames in pieces, coalesced, empty, with wrong inner lengths, failures of every socket call; logs, every static and both buffers compared; an error round over 50 of the 54 error sites, the other four not reachable; a mutation check of 15 changes, all detected). The real clients against crafted and fuzzed server streams: tools/compare_network.py (notes/network.md). No difference. |
 | Utils.cpp | Reconstructed; every function differentially tested against the original code, the assertions too (issue #22). |
 | TMyException.cpp | Reconstructed (name of the file inferred); message format from the assembly; both constructors differentially tested on random inputs (issue #22). |
 | TRSA.cpp | Reconstructed (name inferred); RSA output checked against Python. |

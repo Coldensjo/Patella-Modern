@@ -7647,3 +7647,73 @@ the earlier helpers.
   call, ORIGINAL_THROWN for the original's, TErrorRound::Compare, and VerifyOurSideAssertion in the oracle before the
   round when the test throws through ThrowSideAssertion.
 - **Size** (form). MainFrm.bin is 3 MB (88,304 records); the corpus 246 MB, local only, as before.
+
+## The golden corpus: Network (Patella-Modern issue #30)
+
+Settled by Claude Opus 5.5, November 4, 2026. tests/golden/ (network_tests.cpp, network/CMakeLists.txt,
+client_stubs.cpp, runner.cpp, golden_test.h), tests/golden/CMakeLists.txt, cmake/OracleX86.cmake.
+notes/reconstruction.md, "Checking", describes the use; the sections on issues #24, #26, #27 and #54 above the
+format and the earlier helpers.
+
+- **Network ported** (high). 113,806 checks, the oracle's count, 0 failures: 74,928 in its rounds and 38,878 in its
+  error round (7,393 calls compared, 556 in which the original threw, both equal to the oracle's). The runner now
+  replays 7,009,140 of difftest's 16,848,752 checks and sysinctest's 67. tools/difftest/networktest.cpp moved to
+  tests/golden/network_tests.cpp; every CHECK, random number and operation is the old one: the oracle's recording
+  of Network was byte for byte the same before and after the change below ("The order of Random()"). A runner-only
+  change of one fake's log text gave 239 failures (reverted).
+- **By value** (high; plan 4.3). Per comparison the corpus holds the original's log (text), its dump (the text of
+  the old Dump, in a 4,096-byte buffer by its runs of changed bytes, golden::OutputRuns), its ReceiveData (16 KB)
+  and SendData (2 KB), both by OutputRuns, and in the error round what its call threw (ORIGINAL_THROWN) and how many
+  fake calls it made (whether its n-th was reached, which ends a trial). Inputs: the seed of every round and every
+  error trial. The dump printed the three handlers InitNetwork stores with %p (the oracle's addresses, not the
+  runner's): it prints their names now (CallbackName, as MainFrm's), on both sides. Network.bin is 7.9 MB; the
+  corpus 253 MB, local only, as before.
+- **Our side on x64** (high). Network.cpp is compiled into the test, as in the oracle; its stubs left
+  client_stubs.cpp (MainFrm's redirects of its functions now reach the real ones, as in the oracle). What the old
+  test took to be the same on both sides is ours where it is: CAsyncSocket's m_hSocket (+4 in the image, the shim's
+  member in ours: +8 on x64), TXTEA's key (after the vtable pointer: +4, +8 on x64), and the HOSTENT the host
+  lookup's fake writes (the image's in the x86 layout as before, ours with 8-byte pointers on x64; in the oracle both
+  are the old x86 layout). WinSock: the runner links no ws2_32 (dumpbin: no import), its `__imp_` symbols are the
+  test's slots through /alternatename (undecorated on x64), as difftest.exe's; nothing reaches a network. rand(): the
+  runner's import slot of ucrtbase's (golden::FindImport/SetImport, restored at the end). Status.cpp's and
+  Preferences.cpp's functions: the test's rel32 Redirect (now with the reach check), restored at the end.
+- **/EHs for this test** (high). The error round makes the WinSock functions and rand() throw, as the oracle does.
+  Under the product's /EHsc the compiler assumes that a C function never throws, and our x64 code let such an
+  exception pass Network.cpp's TEND blocks where the original's catch it (21 failures in the first run, all "ours
+  TMyException ..., original Network.cpp <line>: exception occurred ..."). No C function throws in either client,
+  so only the fakes see it. network_tests.cpp compiles in tests/golden/network with /EHs (synchronous C++
+  exceptions, from C functions too): that directory replaces /EHsc in CMAKE_CXX_FLAGS for itself. Considered: the
+  source property /EHc- (D9025, "overriding '/EHc' with '/EHc-'", a warning, which fails the build); fakes that do
+  not throw (MainFrm's user32 fakes; here it would change the oracle's count); /EHa (the same override, and further
+  from the product's model).
+- **The order of Random()** (high). Five expressions of the old test called Random() twice or more without a
+  sequence point between them (RandomIP's snprintf arguments, RandomErrorCode's `Random() - (Random() << 8)`, the
+  XORs of SendOps, RandSeed and the error trials' seed). The order is unspecified: the x86 oracle and the x64
+  Release runner agreed, the x64 Debug runner evaluated RandomErrorCode's difference the other way (failures in
+  Debug only). Each is now its calls in the oracle's order (XOR: the left operand first; the difference: the right
+  one first; snprintf: its arguments right to left), proven by the oracle's unchanged recording and by the runner
+  in Release and Debug. Other ported tests have such expressions too (MainFrm's `Random() ^ (Random() << 16)`);
+  they pass in both builds, so their compilers agree today; not changed here.
+- **Communication and Control are not ported** (needs a later issue). communicationtest.exe's whole count is these
+  two tests: 1,134,513 = Communication 856,366 (364,041 + 492,325 in its error round) + Control 278,147 (114,595 +
+  163,552). The runner already reads its manifest as a group of its own ("communicationtest" in runner.cpp's table,
+  with the oracle's per-test counts) and lists both as not ported, so no check is unaccounted for. Recording them
+  by value would be simple (commworld.cpp's CompareRun compares texts: the logs, DumpCreature with TCreature's
+  bytes, 0x9c on both targets, DumpBuffer, DumpWorld, what was thrown). What blocks them is our side in the runner:
+  - their world's windows are our GUI.cpp classes: TCtlWindow derives from TWindow (static_assert 0x2c, the x86
+    size), TCtlMainWindow mirrors TMainWindow's x86 offsets (Console +0x3c, InGame +0x48), and the faked dialogs,
+    context menus and help bubble build such windows; GUI.cpp and the window files are not in the runner (#28,
+    #29, as for MapWindow and MainWindow);
+  - WorldFakes redirects about 280 of our functions in Network, Map, Creatures, Inventory, Help, Talk, Status,
+    Preferences, Objects, graphics, GUI, MainWindow, ConsoleWindow, ContextMenus, Dialogs, Skins, sysinc and Surface;
+    those not in golden_client need the real files or stubs to redirect;
+  - x86-only mechanics: 27 member-function fakes are `__fastcall (This, void *, ...)` stand-ins for thiscall (on
+    x64 the dummy parameter takes the first argument), constructors are found through x86-mangled /alternatename
+    names (`??0THelpBubble@@QAE@PBD@Z`), ThisOfFirstCall finds Network.cpp's buffers by decoding x86 code
+    (`mov ecx, imm32; call`), FollowJumps and CheckRoom read x86 thunks, FillStack's pattern stands for locals read
+    before they are written (x64 frames differ);
+  - communicationtest.cpp's own definitions collide with the runner's: CAsyncSocket's members (traps there,
+    network_tests.cpp's fakes here) and MainFrm.cpp's PacketHeader and DisplayChanged (defined there; the runner
+    has MainFrm.cpp). A port shares them with the runner's or builds a second runner executable for the group.
+- **Commits** (form). Network's port, then the order of its Random() calls, then these notes. Each test's corpus was
+  recorded and replayed after its port, in Release and Debug.

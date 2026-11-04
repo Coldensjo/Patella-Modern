@@ -218,7 +218,7 @@ set(difftest_tests
 	dialogwindowtest.cpp contextmenustest.cpp consolewindowtest.cpp contentwindowstest.cpp
 	dialogelementstest.cpp dialogstest.cpp surfacedx9test.cpp surfacegltest.cpp
 	surfacedxtest.cpp mapwindowtest.cpp mainwindowtest.cpp elementfakes.cpp errortest.cpp
-	networktest.cpp imageeh.cpp imageehseh.asm)
+	imageeh.cpp imageehseh.asm)
 list(TRANSFORM difftest_tests PREPEND "${DIFFTEST_DIR}/")
 # The first tests (XTEA ... Buffers, Skins) and Regexp are golden-corpus tests (issue #24), and so are
 # those of issue #26 (Status ...).
@@ -229,6 +229,8 @@ list(APPEND difftest_tests "${GOLDEN_DIR}/core_tests.cpp" "${GOLDEN_DIR}/regexp_
 	"${GOLDEN_DIR}/map_tests.cpp" "${GOLDEN_DIR}/creatures_tests.cpp")
 # Issue #54: the error rounds' comparison (golden_eh.cpp, imageeh.cpp's before) and MainFrm.
 list(APPEND difftest_tests "${GOLDEN_DIR}/golden_eh.cpp" "${GOLDEN_DIR}/mainfrm_tests.cpp")
+# Issue #30: Network (it includes Network.cpp).
+list(APPEND difftest_tests "${GOLDEN_DIR}/network_tests.cpp")
 set_source_files_properties("${DIFFTEST_DIR}/imageehseh.asm" PROPERTIES COMPILE_OPTIONS /safeseh)
 add_executable(difftest ${difftest_tests}
 	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"
