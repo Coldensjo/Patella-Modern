@@ -7238,7 +7238,8 @@ own main file, on every target's settings. The images are unchanged.
   nothing of it and compile alone without it. Two .cpp files relied on that: sysinc.cpp (its `<io.h>` and
   `<mmsystem.h>` came after sysinc.h's common.h; without it the Windows SDK's mciapi.h does not parse) includes
   common.h itself, moved from after `<mmsystem.h>` to before compat/msvc_io.h; Skins.cpp, whose only include was
-  Skins.h, includes common.h first (below). No removed include led to Text.h or Status.h, so no object gains or
+  Skins.h, includes common.h first (below). The difftest's guitest.cpp, which uses Container.h's vector template,
+  includes Container.h itself (GUI.h did). No removed include led to Text.h or Status.h, so no object gains or
   loses their per-object tables.
 - **Kept for the images, each measured** (high). Every changed file was bisected on the x64 Patella.exe and
   PatellaTest.exe (main's version of every changed file but one, built at the same path, pecompare; build/logs/issue-49,

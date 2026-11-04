@@ -196,6 +196,13 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #49 (branch issue-49, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings, the header checks header_check_oracle and header_check_oracle_shim built) after the headers' includes
+and the header checks (four commits): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures, as below;
+the oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe built from main (968ec47) and from
+the branch at the same path: 0 unexpected differences (pecompare); macrocheck 968ec47 issue-49: 2,108 calls, 0
+differences.
+
 Patella-Modern issue #44 (branch issue-44, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after the file-scope statics into anonymous namespaces (three commits): 16,848,752 + 67 + 1,134,513
 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and
