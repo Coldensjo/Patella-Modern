@@ -593,9 +593,11 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   18,152 in its error round; issue #54), Network (113,806, of which 38,878 in its error round; issue #30),
   Graphics (570,954) and GUI (5,277,938, of which 31,909 in its error round) (issue #28), DialogWindow (34,068),
   ContextMenus (41,660), ConsoleWindow (318,882), ContentWindows (221,270) and DialogElements (1,362,116) (issue
-  #28's second part, 1,977,996, of which 1,701,409 in their error rounds), 14,836,028 in all, and sysinctest's
-  Sysinc (67); the runner lists the rest with their counts (difftest's other 7 tests, 2,012,724 checks: Dialogs'
-  299,174, SurfaceDX's 1,368,981, DX9's 63,616, GL's 55,702, Errors' 40,408, MapWindow's 127,529, MainWindow's 57,314;
+  #28's second part, 1,977,996, of which 1,701,409 in their error rounds) and Dialogs (issue #28's third part: 290,045
+  of its 299,174 replayed, of which 194,419 in its error round; the 9,129 of the rounds that open the advanced graphics
+  dialog retired with the oracle, see below), 15,126,073 in all with 9,129 retired, and sysinctest's Sysinc (67); the
+  runner lists the rest with their counts (difftest's other 6 tests, 1,713,550 checks: SurfaceDX's 1,368,981, DX9's
+  63,616, GL's 55,702, Errors' 40,408, MapWindow's 127,529, MainWindow's 57,314;
   communicationtest's 1,134,513, its two tests Communication 856,366 and Control 278,147, the runner's group
   "communicationtest"). The runner links the reconstructed files the ported tests call (golden_client:
   compiled against the MFC shim with the product settings; since issue #28 graphics.cpp, GUI.cpp and every window
@@ -603,14 +605,16 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   Control.cpp, the Vulkan engine). Tibia.dat is in the corpus (golden::DataFile): the runner needs no data files.
   - Record: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
     golden_corpus` runs difftest, sysinctest and communicationtest in full with `DIFFTEST_RECORD=<dir>` (default
-    build\golden, the cache variable PATELLA_GOLDEN_DIR; about four minutes, 609 MB, of which DialogElements 96 MB,
-    Graphics 91 MB, Container 82 MB, ConsoleWindow 69 MB, GUI 56 MB, ContentWindows 48 MB, Talk 46 MB, Creatures
-    35 MB, Script 29 MB, Map 17 MB, Network 8 MB, DialogWindow 7 MB, ContextMenus 5 MB, MainFrm 3 MB).
+    build\golden, the cache variable PATELLA_GOLDEN_DIR; about four minutes, 660 MB, of which DialogElements 96 MB,
+    Graphics 91 MB, Container 82 MB, ConsoleWindow 69 MB, GUI 56 MB, Dialogs 52 MB, ContentWindows 48 MB, Talk
+    46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB, Network 8 MB, DialogWindow 7 MB, ContextMenus 5 MB, MainFrm
+    3 MB).
     Recording changes no check count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. The corpus is derived from Tibia.exe: it stays on
     the machine (build/ is ignored by git) and is never committed, pushed or uploaded, not even as a CI artifact.
   - Replay: `build\windows-x64\tests\golden\Release\golden_runner.exe [--require] [<dir>]`, or the CTest test
-    `golden` of every windows-x64 build. It prints each replayed test's checks next to the oracle's and fails
-    (exit 1) on a failure, a different count or a stale corpus; without a corpus it says so and exits 77, which
+    `golden` of every windows-x64 build. It prints each replayed test's checks next to the oracle's (with a test's
+    retired checks apart: "290045 checks replayed + 9129 retired with the oracle (#28/#31) = 299174") and fails
+    (exit 1) on a failure, a different count (the replayed and retired checks together) or a stale corpus; without a corpus it says so and exits 77, which
     CTest reports as skipped (hosted CI); `-DPATELLA_GOLDEN_REQUIRE=ON` (the self-hosted job) makes that a failure.
   - Staleness: every file carries the format version (golden::GOLDEN_FORMAT) and the SHA-256 of the Tibia.exe it
     was recorded from, which must be the 7.72 client's; every value carries its name and role, and the
@@ -653,11 +657,20 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     one; GOLDEN_ROUND_COMPARE (golden_eh.h) is ROUND_COMPARE by value; each test's definitions are in a namespace
     of their own (two files' classes of one name and two layouts broke difftest.exe); golden_runner links without
     incremental linking (an aliased constructor's own thunk would not reach its calls).
+    Issue #28's third part: a part of a test that the runner does not replay (Dialogs' rounds that open the
+    advanced graphics dialog, whose x64 version has the device buttons of issue #31; retired with the oracle, the
+    user's decision of November 4, 2026) goes between `golden::RetiredBegin(Name, Checks)` (true in the runner: the
+    part's values were skipped up to its end) and `golden::RetiredEnd(Checks)`; after it the test passes what the
+    later rounds read of the part through golden::Output (Random()'s seed, its counters, the original's last dump,
+    the clock of our last UpdateTimers call). The runner counts the part's checks as retired (golden::RetiredChecks)
+    apart from the replayed ones; their sum must be the oracle's. Dialogs' dump prints each member by its type (a
+    char array as its text and the bytes after it, a pointer by where it points), not the x86 object's words.
     notes/decisions.md, "The golden corpus (Patella-Modern issue #24)", "The golden corpus: settings, scripts and player
     data (Patella-Modern issue #26)", "The golden corpus: the game world (Patella-Modern issue #27)", "The golden
     corpus: error rounds (Patella-Modern issue #54)", "The golden corpus: Network (Patella-Modern issue
-    #30)", "The golden corpus: the GUI, graphics and the window files (Patella-Modern issue #28)" and "The golden
-    corpus: the window tests (Patella-Modern issue #28, second part)".
+    #30)", "The golden corpus: the GUI, graphics and the window files (Patella-Modern issue #28)", "The golden
+    corpus: the window tests (Patella-Modern issue #28, second part)" and "The golden corpus: Dialogs and retired
+    parts (Patella-Modern issue #28, third part)".
 - The reference recordings (Patella-Modern issue #23; M2's exit): `python -I tools/reference.py compare
   --reference C:\Patella-Modern\build\reference` runs the x64 test client (build\windows-x64\Release\PatellaTest.exe,
   `--exe`) on every recorded session without the server and compares it with Tibia.exe's recording: the
