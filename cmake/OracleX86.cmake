@@ -216,7 +216,7 @@ set(difftest_tests
 	difftest.cpp objectstest.cpp playertest.cpp
 	creaturestest.cpp maptest.cpp graphicstest.cpp guitest.cpp
 	dialogwindowtest.cpp contextmenustest.cpp consolewindowtest.cpp contentwindowstest.cpp
-	dialogelementstest.cpp dialogstest.cpp surfacedx9test.cpp surfacegltest.cpp containertest.cpp
+	dialogelementstest.cpp dialogstest.cpp surfacedx9test.cpp surfacegltest.cpp
 	surfacedxtest.cpp mapwindowtest.cpp mainwindowtest.cpp elementfakes.cpp errortest.cpp
 	networktest.cpp mainfrmtest.cpp imageeh.cpp imageehseh.asm)
 list(TRANSFORM difftest_tests PREPEND "${DIFFTEST_DIR}/")
@@ -225,7 +225,7 @@ list(TRANSFORM difftest_tests PREPEND "${DIFFTEST_DIR}/")
 list(APPEND difftest_tests "${GOLDEN_DIR}/core_tests.cpp" "${GOLDEN_DIR}/regexp_tests.cpp"
 	"${GOLDEN_DIR}/status_tests.cpp" "${GOLDEN_DIR}/preferences_tests.cpp" "${GOLDEN_DIR}/script_tests.cpp"
 	"${GOLDEN_DIR}/player_tests.cpp" "${GOLDEN_DIR}/help_tests.cpp" "${GOLDEN_DIR}/inventory_tests.cpp"
-	"${GOLDEN_DIR}/talk_tests.cpp")
+	"${GOLDEN_DIR}/talk_tests.cpp" "${GOLDEN_DIR}/container_tests.cpp")
 set_source_files_properties("${DIFFTEST_DIR}/imageehseh.asm" PROPERTIES COMPILE_OPTIONS /safeseh)
 add_executable(difftest ${difftest_tests}
 	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"

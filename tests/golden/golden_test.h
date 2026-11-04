@@ -60,3 +60,4 @@ void TestPlayer();
 void TestHelp();
 void TestInventory();
 void TestTalk();
+void TestContainer();

@@ -71,7 +71,8 @@ add_library(golden_client_tests OBJECT
 	player_tests.cpp
 	help_tests.cpp
 	inventory_tests.cpp
-	talk_tests.cpp)
+	talk_tests.cpp
+	container_tests.cpp)
 golden_client_settings(golden_client_tests)
 
 add_executable(golden_runner
