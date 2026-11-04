@@ -904,7 +904,8 @@ void TestLinesAndBuffers()
 	for (bool Stamps : {false, true}) {
 		SetTimeStamps(Stamps);
 		ORIGINAL(At<SetBoolFn>(0x4db5a0)(Stamps));
-		FILE *OurFile = tmpfile();
+		TFile OurFile; // TTalkBuffer::Write takes a TFile (issue #64); a tmpfile as before
+		OurFile.OpenTemporary();
 		ORIGINAL(FILE *OtherFile = tmpfile());
 		bool OtherOpen = ORIGINAL_VALUE("temporary console log", bool, OtherFile != NULL);
 		CHECK(OurFile != nullptr && OtherOpen, "temporary console logs");
@@ -912,16 +913,15 @@ void TestLinesAndBuffers()
 			int A = Ours->Write(OurFile);
 			int B = ORIGINAL_VALUE("Write result", int, At<int(__fastcall *)(void *, void *, FILE *)>(0x503a70)(Original, NULL, OtherFile));
 			CHECK(A == B, "Write result");
-			rewind(OurFile);
+			OurFile.Seek(0, SEEK_SET);
 			ORIGINAL(rewind(OtherFile));
 			char OurText[4096] = {}, OtherText[4096] = {};
-			fread(OurText, 1, 4095, OurFile);
+			OurFile.Read(OurText, 1, 4095);
 			ORIGINAL(fread(OtherText, 1, 4095, OtherFile));
 			std::string Other = golden::OutputText("console log output", OtherText);
 			CHECK(strcmp(OurText, Other.c_str()) == 0, "console log output");
 		}
-		if (OurFile != nullptr)
-			fclose(OurFile);
+		OurFile.Close();
 		ORIGINAL(if (OtherFile != NULL) fclose(OtherFile));
 	}
 	Ours->~TTalkBuffer();

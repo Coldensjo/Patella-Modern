@@ -87,6 +87,17 @@ struct TTemporaryFile {
 	std::string Path;
 };
 
+// _fileno (fileno): the client's is TFile::Descriptor (types/File.h, issue #64); here an unbuffered FILE, so that the
+// descriptor's position is the FILE's.
+int FileDescriptor(std::FILE *File)
+{
+#if defined(_WIN32)
+	return _fileno(File);
+#else
+	return fileno(File);
+#endif
+}
+
 } // namespace
 
 TEST_CASE("msvc: _snprintf writes the NUL only when it fits, and returns -1 when the text is longer")
@@ -210,7 +221,7 @@ TEST_CASE("msvc: _access and _eof")
 	std::FILE *File = std::fopen(Data.Path.c_str(), "rb");
 	REQUIRE(File != nullptr);
 	REQUIRE(std::setvbuf(File, nullptr, _IONBF, 0) == 0);
-	const int Descriptor = MsvcFileno(File);
+	const int Descriptor = FileDescriptor(File);
 	CHECK(Descriptor >= 0);
 	CHECK(MsvcEof(Descriptor) == 0);
 	char Bytes[4];
@@ -227,7 +238,7 @@ TEST_CASE("msvc: _access and _eof")
 	const TTemporaryFile Empty("patella_msvc_test_empty.bin", "");
 	File = std::fopen(Empty.Path.c_str(), "rb");
 	REQUIRE(File != nullptr);
-	CHECK(MsvcEof(MsvcFileno(File)) == 1);
+	CHECK(MsvcEof(FileDescriptor(File)) == 1);
 	std::fclose(File);
 }
 

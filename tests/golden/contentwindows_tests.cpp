@@ -40,7 +40,8 @@
 // round draws the failing call from them) and what it threw. The runner redirects its own functions with
 // golden::RedirectOwn (operator new and new[] to the pattern too), our _time64 (time(), issue #62) through its
 // import slot and our
-// printf (the automap's MouseHover) through the import slot of __stdio_common_vfprintf while our side runs.
+// stdout output (the automap's MouseHover: compat/print.h's PrintLine, fwrite on stdout since issue #64; printf
+// before) through the import slot of fwrite while our side runs.
 
 #include "golden_test.h"
 
@@ -1041,7 +1042,7 @@ static int __cdecl ImageSnprintf(char *Buffer, size_t Count, const char *Format,
 	va_end(Args);
 	return Result;
 }
-// Our printf on our side (the automap's MouseHover).
+// The printf of the image (the automap's MouseHover; ours is FakeOurFwrite below).
 static int __cdecl FakePrintf(const char *Format, ...)
 {
 	char Buffer[512];
@@ -1278,41 +1279,54 @@ static void PatchCallees()
 #endif
 }
 
-// Our printf is a fake only while our side runs (CHECK prints with it). The runner's printf is inline
-// (ucrtbase's __stdio_common_vfprintf through an import slot): the slot goes to a fake that logs as FakePrintf.
+// Our stdout output is a fake only while our side runs (CHECK prints with printf). Since issue #64 MouseHover's
+// printf("%s\n") is compat/print.h's PrintLine, the same text written with fwrite on stdout: the fake logs what goes
+// to stdout as FakePrintf logged the original's printf ("Printf" and the text) and passes every other stream on.
+// The oracle's fwrite (static CRT) gets a jump to the fake, which writes the others with _fwrite_nolock; the
+// runner's is ucrtbase's through its import slot.
 #if GOLDEN_ORACLE
-static uint8 PrintfBytes[5];
+static uint8 FwriteBytes[5];
+static size_t __cdecl FakeOurFwrite(const void *Buffer, size_t Size, size_t Count, FILE *Stream)
+{
+	if (Stream != stdout)
+		return _fwrite_nolock(Buffer, Size, Count, Stream);
+	Logf("Printf%.*s", (int)(Size * Count), (const char *)Buffer);
+	return Count;
+}
 static void FakeOurPrintf(bool On)
 {
-	void *Function = (void *)printf;
+	void *Function = (void *)fwrite;
 	DWORD Protection;
 	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
 	if (On) {
-		memcpy(PrintfBytes, Function, 5);
-		PatchJump((uint32)(uintptr_t)Function, (void *)FakePrintf);
+		memcpy(FwriteBytes, Function, 5);
+		PatchJump((uint32)(uintptr_t)Function, (void *)FakeOurFwrite);
 	} else {
-		memcpy(Function, PrintfBytes, 5);
+		memcpy(Function, FwriteBytes, 5);
 	}
 	VirtualProtect(Function, 5, Protection, &Protection);
 	FlushInstructionCache(GetCurrentProcess(), Function, 5);
 }
 #else
-static int __cdecl FakeCommonVfprintf(unsigned __int64, FILE *, const char *Format, _locale_t, va_list Args)
+using FwriteFn = size_t(__cdecl *)(const void *, size_t, size_t, FILE *);
+static FwriteFn SavedFwrite = nullptr;
+static size_t __cdecl FakeOurFwrite(const void *Buffer, size_t Size, size_t Count, FILE *Stream)
 {
-	char Buffer[512];
-	int Result = vsnprintf(Buffer, sizeof(Buffer), Format, Args);
-	Logf("Printf%s", Buffer);
-	return Result;
+	if (Stream != stdout)
+		return SavedFwrite(Buffer, Size, Count, Stream);
+	Logf("Printf%.*s", (int)(Size * Count), (const char *)Buffer);
+	return Count;
 }
 static void FakeOurPrintf(bool On)
 {
-	static void **Slot = golden::FindImport("__stdio_common_vfprintf");
-	static void *Saved = Slot != nullptr ? *Slot : nullptr;
+	static void **Slot = golden::FindImport("fwrite");
 	if (Slot == nullptr) {
-		printf("golden: ContentWindows: the runner imports no __stdio_common_vfprintf\n");
+		printf("golden: ContentWindows: the runner imports no fwrite\n");
 		exit(1);
 	}
-	golden::SetImport(Slot, On ? (void *)FakeCommonVfprintf : Saved);
+	if (SavedFwrite == nullptr)
+		SavedFwrite = (FwriteFn)*Slot;
+	golden::SetImport(Slot, On ? (void *)FakeOurFwrite : (void *)SavedFwrite);
 }
 #endif
 

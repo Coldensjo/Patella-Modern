@@ -34,6 +34,7 @@
 #include "Help.h"
 #include "Talk.h"
 #include "common.h"
+#include "compat/print.h"
 #include "types/FixedString.h"
 #include <cstddef>
 #include <cstdio>
@@ -358,7 +359,8 @@ bool TAutomapWindow::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int 
 
 // 0x426fe0, line 433. The text of the mark under the mouse. Odd, kept: a
 // mark is taken only when both of its coordinates are not 0, and the buffer
-// is printed to stdout every time (a debugging leftover).
+// is printed to stdout every time (a debugging leftover; printf("%s\n"), since
+// issue #64 compat/print.h's PrintLine, the same bytes).
 void TAutomapWindow::MouseHover(int x, int y)
 {
 	TBEGIN
@@ -370,7 +372,7 @@ void TAutomapWindow::MouseHover(int x, int y)
 			SetMouseOverText(AutomapMouseOverText);
 		}
 	}
-	printf("%s\n", AutomapMouseOverText);
+	patella::compat::PrintLine("{}", static_cast<const char *>(AutomapMouseOverText));
 	TEND2(433, x, y)
 }
 

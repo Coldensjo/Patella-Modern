@@ -25,8 +25,7 @@ void TReadScriptFile::open(const char *FileName)
 {
 	if (File != nullptr)
 		TERROR_REASON(48, "file still open", Filename);
-	File = fopen(FileName, "rb");
-	if (File == nullptr)
+	if (!File.Open(FileName, TFile::TAccess::Read))
 		TERROR_REASON(50, "failed to open file", FileName);
 	Line = 1;
 	// Filename stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
@@ -40,9 +39,7 @@ void TReadScriptFile::error(const char *Text)
 {
 	char Message[1056];
 	char Unknown[] = "(unknown)";
-	if (File != nullptr)
-		fclose(File);
-	File = nullptr;
+	File.Close();
 	MsvcSnprintf(Message, 1054, "error in script file '%s' in line %d", Filename, Line);
 	if (Text == nullptr)
 		Text = Unknown;
@@ -68,7 +65,7 @@ void TReadScriptFile::nextToken()
 		int c;
 		switch (State) {
 		case 0:
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF) {
 				Token = TOKEN::ENDOFFILE;
 				return;
@@ -101,7 +98,7 @@ void TReadScriptFile::nextToken()
 			}
 			break;
 		case 1: // comment
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF) {
 				Token = TOKEN::ENDOFFILE;
 				return;
@@ -112,7 +109,7 @@ void TReadScriptFile::nextToken()
 			}
 			break;
 		case 2: // identifier
-			c = getc(File);
+			c = File.GetChar();
 			if (Size == MAX_IDENT_LENGTH)
 				error("identifier too long");
 			if (c == EOF) {
@@ -120,14 +117,14 @@ void TReadScriptFile::nextToken()
 				return;
 			}
 			if (!IsAlpha(c) && !IsDigit(c) && c != '_') {
-				ungetc(c, File);
+				File.UngetChar(c);
 				Token = TOKEN::IDENTIFIER;
 				return;
 			}
 			String[Size++] = (char)c;
 			break;
 		case 3: // number
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF) {
 				Token = TOKEN::NUMBER;
 				return;
@@ -138,13 +135,13 @@ void TReadScriptFile::nextToken()
 				Bytes[Size++] = (uint8)Number;
 				State = 4;
 			} else {
-				ungetc(c, File);
+				File.UngetChar(c);
 				Token = TOKEN::NUMBER;
 				return;
 			}
 			break;
 		case 4: // byte sequence, after '-'
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF)
 				error("unexpected end of file");
 			if (!IsDigit(c))
@@ -153,7 +150,7 @@ void TReadScriptFile::nextToken()
 			State = 5;
 			break;
 		case 5:
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF) {
 				Bytes[Size] = (uint8)Number;
 				Token = TOKEN::BYTES;
@@ -165,14 +162,14 @@ void TReadScriptFile::nextToken()
 				Bytes[Size++] = (uint8)Number;
 				State = 4;
 			} else {
-				ungetc(c, File);
+				File.UngetChar(c);
 				Bytes[Size] = (uint8)Number;
 				Token = TOKEN::BYTES;
 				return;
 			}
 			break;
 		case 6: // string
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF)
 				error("unexpected end of file");
 			if (c == '"') {
@@ -186,7 +183,7 @@ void TReadScriptFile::nextToken()
 			}
 			break;
 		case 7: // escape
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF)
 				error("unexpected end of file");
 			if (c == 'n')
@@ -202,14 +199,14 @@ void TReadScriptFile::nextToken()
 			Token = TOKEN::SPECIAL;
 			return;
 		case 11: // coordinate
-			c = getc(File);
+			c = File.GetChar();
 			Special = '[';
 			if (c == EOF) {
 				Token = TOKEN::SPECIAL;
 				return;
 			}
 			if (!IsDigit(c)) {
-				ungetc(c, File);
+				File.UngetChar(c);
 				Token = TOKEN::SPECIAL;
 				return;
 			}
@@ -217,7 +214,7 @@ void TReadScriptFile::nextToken()
 			State = 12;
 			break;
 		case 12:
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF)
 				error("unexpected end of file");
 			if (IsDigit(c)) {
@@ -230,7 +227,7 @@ void TReadScriptFile::nextToken()
 			}
 			break;
 		case 13:
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF)
 				error("unexpected end of file");
 			if (!IsDigit(c))
@@ -239,7 +236,7 @@ void TReadScriptFile::nextToken()
 			State = 14;
 			break;
 		case 14:
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF)
 				error("unexpected end of file");
 			if (IsDigit(c)) {
@@ -252,7 +249,7 @@ void TReadScriptFile::nextToken()
 			}
 			break;
 		case 15:
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF)
 				error("unexpected end of file");
 			if (!IsDigit(c))
@@ -261,7 +258,7 @@ void TReadScriptFile::nextToken()
 			State = 16;
 			break;
 		case 16:
-			c = getc(File);
+			c = File.GetChar();
 			if (c == EOF)
 				error("unexpected end of file");
 			if (IsDigit(c)) {
@@ -277,7 +274,7 @@ void TReadScriptFile::nextToken()
 			Token = TOKEN::COORDINATE;
 			return;
 		case 22: // '<', "<=", "<>"
-			c = getc(File);
+			c = File.GetChar();
 			Special = '<';
 			if (c == EOF) {
 				Token = TOKEN::SPECIAL;
@@ -288,7 +285,7 @@ void TReadScriptFile::nextToken()
 			} else if (c == '>') {
 				State = 24;
 			} else {
-				ungetc(c, File);
+				File.UngetChar(c);
 				Token = TOKEN::SPECIAL;
 				return;
 			}
@@ -302,14 +299,14 @@ void TReadScriptFile::nextToken()
 			Token = TOKEN::SPECIAL;
 			return;
 		case 25: // '>', ">="
-			c = getc(File);
+			c = File.GetChar();
 			Special = '>';
 			if (c == EOF) {
 				Token = TOKEN::SPECIAL;
 				return;
 			}
 			if (c != '=') {
-				ungetc(c, File);
+				File.UngetChar(c);
 				Token = TOKEN::SPECIAL;
 				return;
 			}
@@ -320,14 +317,14 @@ void TReadScriptFile::nextToken()
 			Token = TOKEN::SPECIAL;
 			return;
 		case 27: // '-', "->"
-			c = getc(File);
+			c = File.GetChar();
 			Special = '-';
 			if (c == EOF) {
 				Token = TOKEN::SPECIAL;
 				return;
 			}
 			if (c != '>') {
-				ungetc(c, File);
+				File.UngetChar(c);
 				Token = TOKEN::SPECIAL;
 				return;
 			}
@@ -385,8 +382,7 @@ void TWriteScriptFile::open(const char *FileName)
 {
 	if (File != nullptr)
 		TERROR_REASON(403, "file still open", Filename);
-	File = fopen(FileName, "wb");
-	if (File == nullptr)
+	if (!File.Open(FileName, TFile::TAccess::Write))
 		TERROR_REASON(405, "failed to open file", FileName);
 	Line = 0;
 	// Filename stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
@@ -394,52 +390,52 @@ void TWriteScriptFile::open(const char *FileName)
 }
 
 // 0x4e0790, line 441. The file is binary, so the line ends in CR LF.
-void TWriteScriptFile::writeLn() const
+void TWriteScriptFile::writeLn()
 {
 	if (File == nullptr)
 		TERROR(441, "no file open");
-	fputc('\r', File);
-	fputc('\n', File);
+	File.PutChar('\r');
+	File.PutChar('\n');
 }
 
 // 0x4e08f0, lines 451-452
-void TWriteScriptFile::writeText(const char *Text) const
+void TWriteScriptFile::writeText(const char *Text)
 {
 	if (File == nullptr)
 		TERROR(451, "no file open");
 	if (Text == nullptr)
 		TERROR(452, "no text");
 	while (*Text != 0) {
-		fputc(*Text, File);
+		File.PutChar(*Text);
 		Text++;
 	}
 }
 
 // 0x4e0bb0, lines 462-463. Quotes, escaping '"' and '\\', and writes a
 // line break as "\n".
-void TWriteScriptFile::writeString(const char *Text) const
+void TWriteScriptFile::writeString(const char *Text)
 {
 	if (File == nullptr)
 		TERROR(462, "no file open");
 	if (Text == nullptr)
 		TERROR(463, "no text");
-	fputc('"', File);
+	File.PutChar('"');
 	while (*Text != 0) {
 		if (*Text == '"' || *Text == '\\')
-			fputc('\\', File);
+			File.PutChar('\\');
 		if (*Text == '\n') {
-			fputc('\\', File);
-			fputc('n', File);
+			File.PutChar('\\');
+			File.PutChar('n');
 		} else {
-			fputc(*Text, File);
+			File.PutChar(*Text);
 		}
 		Text++;
 	}
-	fputc('"', File);
+	File.PutChar('"');
 }
 
 // 0x4e0ec0, line 481
-void TWriteScriptFile::writeNumber(int Number) const
+void TWriteScriptFile::writeNumber(int Number)
 {
 	if (File == nullptr)
 		TERROR(481, "no file open");
@@ -453,8 +449,7 @@ void TReadBinaryFile::open(const char *FileName)
 {
 	if (File != nullptr)
 		TERROR_REASON(552, "file still open", Filename);
-	File = fopen(FileName, "rb");
-	if (File == nullptr)
+	if (!File.Open(FileName, TFile::TAccess::Read))
 		TERROR_REASON(554, "failed to open file", FileName);
 	strncpy(Filename, FileName, sizeof(Filename));
 }
@@ -466,7 +461,7 @@ void TReadBinaryFile::seek(int Offset)
 		TERROR(572, "no file open");
 	if (Offset < 0)
 		TERROR1_REASON(573, "negative offset", Offset, Filename);
-	fseek(File, Offset, SEEK_SET);
+	File.Seek(Offset, SEEK_SET);
 }
 
 // 0x4e15e0, line 582
@@ -474,7 +469,7 @@ bool TReadBinaryFile::eof() const
 {
 	if (File == nullptr)
 		TERROR(582, "no file open");
-	return MsvcEof(MsvcFileno(File)) != 0;
+	return MsvcEof(File.Descriptor()) != 0;
 }
 
 // 0x4e1740, lines 603-605
@@ -483,7 +478,7 @@ uint8 TReadBinaryFile::readByte()
 	if (File == nullptr)
 		TERROR(603, "no file open");
 	uint8 Byte;
-	if (fread(&Byte, 1, 1, File) == 0)
+	if (File.Read(&Byte, 1, 1) == 0)
 		TERROR_REASON(605, "out of data", Filename);
 	return Byte;
 }
@@ -535,7 +530,7 @@ void TReadBinaryFile::readBytes(uint8 *Buffer, int Count)
 		TERROR(661, "no file open");
 	if (Buffer == nullptr)
 		TERROR(662, "Buffer==NULL");
-	if ((int)fread(Buffer, 1, Count, File) != Count)
+	if ((int)File.Read(Buffer, 1, Count) != Count)
 		TERROR1_REASON(664, "out of data", Count, Filename);
 }
 
@@ -544,8 +539,7 @@ void TWriteBinaryFile::open(const char *FileName)
 {
 	if (File != nullptr)
 		TERROR_REASON(706, "file still open", Filename);
-	File = fopen(FileName, "wb");
-	if (File == nullptr)
+	if (!File.Open(FileName, TFile::TAccess::Write))
 		TERROR_REASON(708, "failed to open file", FileName);
 	strncpy(Filename, FileName, sizeof(Filename));
 }
@@ -555,7 +549,7 @@ void TWriteBinaryFile::writeByte(uint8 Byte)
 {
 	if (File == nullptr)
 		TERROR(727, "no file open");
-	if (fwrite(&Byte, 1, 1, File) != 1)
+	if (File.Write(&Byte, 1, 1) != 1)
 		TERROR_REASON(729, "failed to write file", Filename);
 }
 
@@ -589,7 +583,7 @@ void TWriteBinaryFile::writeBytes(const uint8 *Buffer, int Count)
 {
 	if (File == nullptr)
 		TERROR(765, "no file open");
-	if (fwrite(Buffer, Count, 1, File) != 1)
+	if (File.Write(Buffer, Count, 1) != 1)
 		TERROR1_REASON(766, "failed to write file", Count, Filename);
 }
 

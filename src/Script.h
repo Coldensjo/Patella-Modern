@@ -9,13 +9,16 @@
 // The constructors, destructors and close() functions are defined here. The
 // linker kept their out-of-line copies from Preferences.obj, the first object
 // that uses them (0x4df550-0x4df6c9, after the Tibia.cfg loader and saver).
+// The FILE * members are TFiles (types/File.h, Patella-Modern issue #64):
+// fopen, fclose and the reads and writes with an owner, the same bytes.
 
 #pragma once
 
 #include "common.h"
-#include <type_traits>
-#include <cstdio>
+#include "types/File.h"
+#include <cstddef>
 #include <cstring>
+#include <type_traits>
 
 inline constexpr int MAX_IDENT_LENGTH = 20;    // "identifier too long"
 inline constexpr int MAX_STRING_LENGTH = 1000; // "string too long" at 999 characters
@@ -42,7 +45,6 @@ public:
 	// 0x4df550. Token is not set.
 	TReadScriptFile()
 	{
-		File = nullptr;
 		memset(Filename, 0, sizeof(Filename));
 		Line = 0;
 		memset(String, 0, sizeof(String));
@@ -57,17 +59,13 @@ public:
 	// 0x4df5b0
 	~TReadScriptFile()
 	{
-		if (File != nullptr)
-			fclose(File);
-		File = nullptr;
+		File.Close();
 	}
 
 	// 0x4df5d0. Resets everything but Token, like the constructor.
 	void close()
 	{
-		if (File != nullptr)
-			fclose(File);
-		File = nullptr;
+		File.Close();
 		memset(Filename, 0, sizeof(Filename));
 		Line = 0;
 		memset(String, 0, sizeof(String));
@@ -92,7 +90,7 @@ public:
 	void readSymbol(char Symbol);
 
 	TOKEN Token;                    // +0x000
-	FILE *File;                     // +0x004
+	TFile File;                     // +0x004
 	char Filename[1024];            // +0x008
 	int Line;                       // +0x408
 	char String[MAX_STRING_LENGTH]; // +0x40c, identifier or string
@@ -112,7 +110,6 @@ public:
 	// 0x4df640
 	TWriteScriptFile()
 	{
-		File = nullptr;
 		memset(Filename, 0, sizeof(Filename));
 		Line = 0;
 	}
@@ -122,28 +119,24 @@ public:
 	// this destructor).
 	~TWriteScriptFile()
 	{
-		if (File != nullptr)
-			fclose(File);
-		File = nullptr;
+		File.Close();
 	}
 
 	// 0x4df660
 	void close()
 	{
-		if (File != nullptr)
-			fclose(File);
-		File = nullptr;
+		File.Close();
 		memset(Filename, 0, sizeof(Filename));
 		Line = 0;
 	}
 
 	void open(const char *FileName);
-	void writeLn() const;
-	void writeText(const char *Text) const;
-	void writeString(const char *Text) const;
-	void writeNumber(int Number) const;
+	void writeLn();
+	void writeText(const char *Text);
+	void writeString(const char *Text);
+	void writeNumber(int Number);
 
-	FILE *File;          // +0x000
+	TFile File;          // +0x000
 	char Filename[1024]; // +0x004
 	int Line;            // +0x404, set to 0 and never used
 };
@@ -157,7 +150,6 @@ public:
 	TReadBinaryFile &operator=(const TReadBinaryFile &) = delete;
 	TReadBinaryFile()
 	{
-		File = nullptr;
 		memset(Filename, 0, sizeof(Filename));
 	}
 
@@ -168,9 +160,7 @@ public:
 
 	void close()
 	{
-		if (File != nullptr)
-			fclose(File);
-		File = nullptr;
+		File.Close();
 	}
 
 	void open(const char *FileName);
@@ -182,7 +172,7 @@ public:
 	char *readString();
 	void readBytes(uint8 *Buffer, int Count);
 
-	FILE *File;          // +0x000
+	TFile File;          // +0x000
 	char Filename[1024]; // +0x004
 };
 
@@ -192,7 +182,6 @@ public:
 	TWriteBinaryFile &operator=(const TWriteBinaryFile &) = delete;
 	TWriteBinaryFile()
 	{
-		File = nullptr;
 		memset(Filename, 0, sizeof(Filename));
 	}
 
@@ -203,9 +192,7 @@ public:
 
 	void close()
 	{
-		if (File != nullptr)
-			fclose(File);
-		File = nullptr;
+		File.Close();
 	}
 
 	void open(const char *FileName);
@@ -215,9 +202,21 @@ public:
 	void writeBytes(const uint8 *Buffer, int Count);
 	void writeString(const char *Text);
 
-	FILE *File;          // +0x000
+	TFile File;          // +0x000
 	char Filename[1024]; // +0x004
 };
+
+// The FILE * members are TFiles (issue #64): the same 4 bytes in the original's layout.
+#if PATELLA_ORIGINAL_LAYOUT
+static_assert(sizeof(TReadScriptFile) == 0x80c && offsetof(TReadScriptFile, File) == 0x004
+	&& offsetof(TReadScriptFile, Filename) == 0x008 && offsetof(TReadScriptFile, Special) == 0x808);
+static_assert(sizeof(TWriteScriptFile) == 0x408 && offsetof(TWriteScriptFile, File) == 0x000
+	&& offsetof(TWriteScriptFile, Filename) == 0x004 && offsetof(TWriteScriptFile, Line) == 0x404);
+static_assert(sizeof(TReadBinaryFile) == 0x404 && offsetof(TReadBinaryFile, File) == 0x000
+	&& offsetof(TReadBinaryFile, Filename) == 0x004);
+static_assert(sizeof(TWriteBinaryFile) == 0x404 && offsetof(TWriteBinaryFile, File) == 0x000
+	&& offsetof(TWriteBinaryFile, Filename) == 0x004);
+#endif
 
 bool ApplyPatch(const char *FileName, const uint8 *Patch, int Size, uint32 Signature);
 bool ApplyFullPatch(const char *FileName, const uint8 *Data, int Size);

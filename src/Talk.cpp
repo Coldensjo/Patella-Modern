@@ -9,6 +9,7 @@
 #include "Container.h"
 #include "Preferences.h"
 #include "common.h"
+#include "types/File.h"
 #include "types/FixedString.h"
 #include "types/Time32.h"
 #include "compat/crt71.h"
@@ -1033,14 +1034,16 @@ TTalkLine *TTalkBuffer::GetNext()
 	cursor = cursor->Next;
 	return cursor;
 }
-// 0x503a70, lines 1672-1682. bytes is the original catch name for F's slot.
-int TTalkBuffer::Write(FILE *F) const
+// 0x503a70, lines 1672-1682. bytes is the original catch name for F's slot
+// (the FILE's address). One line each, in the file's mode: SaveChannel's text
+// file ends them in CR LF.
+int TTalkBuffer::Write(TFile &F) const
 {
 	TASSERT(1672, F!=NULL);
-	const INT_PTR bytes = reinterpret_cast<INT_PTR>(F);
+	const INT_PTR bytes = static_cast<INT_PTR>(F.Address());
 	TBEGIN
 	for (const TTalkLine *Line = first; Line != nullptr; Line = Line->Next)
-		fprintf(F, "%s\n", Line->GetText());
+		F.Print("{}\n", Line->GetText());
 	return 0;
 	TEND1(1682, bytes)
 }
