@@ -20,9 +20,11 @@
 #pragma once
 
 #include "common.h"
+#include "types/FixedString.h"
 #include "Container.h"
 #include "graphics.h" // TRGBColor
 #include "Objects.h"  // TObject
+#include <cstddef>
 
 inline constexpr int MAPSIZE_X = 18;
 inline constexpr int MAPSIZE_Y = 14;
@@ -45,10 +47,10 @@ struct TEffect {
 	int Status; // +0x00
 	int Type;   // +0x04, the colour of a text
 	union {
-		int Phase;         // +0x08, graphical effect
-		struct {           // animated text
-			char Text[12]; // +0x08, at most 9 characters
-			int TextPhase; // +0x14
+		int Phase;                 // +0x08, graphical effect
+		struct {                   // animated text
+			TFixedString<12> Text; // +0x08, at most 9 characters
+			int TextPhase;         // +0x14
 		};
 		struct {           // missile; world coordinates
 			int Direction; // +0x08, 0 north, clockwise, 4 south
@@ -69,6 +71,10 @@ struct TEffect {
 	int Previous; // +0x3c, effects of the same point
 	int Next;     // +0x40
 };
+// The original's layout (no pointers: the same on x64), with Text a TFixedString (issue #57).
+static_assert(sizeof(TEffect) == 0x44 && offsetof(TEffect, Text) == 0x08 && offsetof(TEffect, TextPhase) == 0x14
+		&& offsetof(TEffect, Field) == 0x38,
+	"TEffect's layout");
 
 // An automap mark (0x70 bytes). The constructor (inlined in the vector<TMark>
 // constructor 0x426170 and in LoadAutomapBlock) clears it.

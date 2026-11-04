@@ -39,6 +39,7 @@
 #include "sysinc.h"
 #include "GUI.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <ostream>
 #include <cstddef>
 #include <cstdio>
@@ -80,9 +81,9 @@ void OutputControlErrorInformations(std::ostream &Out)
 		int Index = LastPacketIndex + i;
 		if (Index > 9)
 			Index -= 10;
-		char Help[8];
-		sprintf(Help, " %03u", (unsigned int)LastPacketTypes[Index]);
-		Out << Help;
+		TFixedString<8> Help;
+		Help.Format(" {:03}", (unsigned int)LastPacketTypes[Index]);
+		Out << Help.View();
 	}
 	Out << std::endl;
 }

@@ -25,6 +25,7 @@
 #include "Surface.h"
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "common.h"
+#include "types/FixedString.h"
 #include <ostream>
 #include <cstdio>
 #include <cstdlib>
@@ -142,9 +143,9 @@ void CMainFrame::OutputErrorInformations(std::ostream &Out)
 	if (i < 16) {
 		Out << "Last Packet:";
 		for (i = 0; i < 16; i++) {
-			char Help[8];
-			sprintf(Help, " %03u", (unsigned int)PacketHeader[i]);
-			Out << Help;
+			TFixedString<8> Help;
+			Help.Format(" {:03}", (unsigned int)PacketHeader[i]);
+			Out << Help.View();
 		}
 		Out << std::endl;
 	}

@@ -7,8 +7,8 @@
 
 #include "Utils.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstddef>
-#include <cstdio>
 #include <cstring>
 
 // 0x508fa0
@@ -177,7 +177,9 @@ void TrimString(char *Destination, const char *Source)
 	int i = 0;
 	while (Source[i] != 0 && IsSpace(Source[i]))
 		i++;
-	strcpy(Destination, &Source[i]);
+	// strcpy: the caller's Destination holds Source (the console's caption, a talk line; it may be Source).
+	const char *Trimmed = &Source[i];
+	TStringBuffer(Destination, strlen(Trimmed) + 1).Assign(Trimmed);
 	for (int Length = (int)strlen(Destination); Length > 0 && IsSpace(Destination[Length - 1]); Length--)
 		Destination[Length - 1] = 0;
 }
@@ -337,7 +339,8 @@ void FormatNumber(int Number, char *Buffer)
 {
 	TASSERT(467, Buffer!=NULL);
 	TASSERT1(468, Number>=0, Number);
-	sprintf(Buffer, "%d", Number);
+	// A non-negative int has at most 10 digits; the caller's buffer holds the commas too.
+	TStringBuffer(Buffer, 11).Format("{}", Number);
 	for (int Digits = 3; Digits < (int)strlen(Buffer); Digits += 4) {
 		char *Position = &Buffer[strlen(Buffer) - Digits];
 		memmove(Position + 1, Position, Digits + 1);

@@ -25,6 +25,7 @@
 #include "Surface.h"
 #include "Utils.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -34,27 +35,27 @@
 	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr " " Bug)
 
 // Data, in .bss order. 0x5cc75c is not used.
-int MemoryHashTable[HASH_TABLE_SIZE]; // 0x5cc430
-int VideoHashTable[HASH_TABLE_SIZE];  // 0x5cc5c0
-int NumberOfFonts;                    // 0x5cc750
-int NumberOfPictures;                 // 0x5cc754
-uint32 PictureSignature;              // 0x5cc758
-char PictureFileName[PATH_MAX];       // 0x5cc760
-int NumberOfSprites;                  // 0x5ccb60
-uint32 SpriteSignature;               // 0x5ccb64
-char SpriteFileName[PATH_MAX];        // 0x5ccb68
-int LeastRecentMemoryItem;            // 0x5ccf68, tail of the memory cache's LRU list
-int MostRecentMemoryItem;             // 0x5ccf6c, head
-int MemoryCacheSize;                  // 0x5ccf70
-uint8 *MemoryCacheData;               // 0x5ccf74, MemoryCacheSize tiles of 32*32*3 bytes
-int LeastRecentVideoItem;             // 0x5ccf78
-int MostRecentVideoItem;              // 0x5ccf7c
-int VideoCacheSize;                   // 0x5ccf80
-TVideoCacheItem *VideoCache;          // 0x5ccf84
-TMemoryCacheItem *MemoryCache;        // 0x5ccf88
-TSprite *Sprites;                     // 0x5ccf8c
-TPicture *Pictures;                   // 0x5ccf90
-TFontInfo *Fonts;                     // 0x5ccf94
+int MemoryHashTable[HASH_TABLE_SIZE];   // 0x5cc430
+int VideoHashTable[HASH_TABLE_SIZE];    // 0x5cc5c0
+int NumberOfFonts;                      // 0x5cc750
+int NumberOfPictures;                   // 0x5cc754
+uint32 PictureSignature;                // 0x5cc758
+TFixedString<PATH_MAX> PictureFileName; // 0x5cc760
+int NumberOfSprites;                    // 0x5ccb60
+uint32 SpriteSignature;                 // 0x5ccb64
+TFixedString<PATH_MAX> SpriteFileName;  // 0x5ccb68
+int LeastRecentMemoryItem;              // 0x5ccf68, tail of the memory cache's LRU list
+int MostRecentMemoryItem;               // 0x5ccf6c, head
+int MemoryCacheSize;                    // 0x5ccf70
+uint8 *MemoryCacheData;                 // 0x5ccf74, MemoryCacheSize tiles of 32*32*3 bytes
+int LeastRecentVideoItem;               // 0x5ccf78
+int MostRecentVideoItem;                // 0x5ccf7c
+int VideoCacheSize;                     // 0x5ccf80
+TVideoCacheItem *VideoCache;            // 0x5ccf84
+TMemoryCacheItem *MemoryCache;          // 0x5ccf88
+TSprite *Sprites;                       // 0x5ccf8c
+TPicture *Pictures;                     // 0x5ccf90
+TFontInfo *Fonts;                       // 0x5ccf94
 
 // 0x48b3f0, passed to the eh vector constructor iterator by InitVideoCache.
 // It clears the four colours, then the font colour, which overlaps them
@@ -116,7 +117,7 @@ void LoadSprites(const char *FileName)
 	TASSERT(130, FileName!=NULL);
 	TASSERT(131, strlen(FileName)<PATH_MAX);
 	TBEGIN
-	strcpy(SpriteFileName, FileName);
+	SpriteFileName.Assign(FileName);
 	try {
 		TReadBinaryFile File;
 		File.open(FileName);
@@ -195,7 +196,7 @@ void LoadPictures(const char *FileName)
 	TASSERT(244, FileName!=NULL);
 	TASSERT(245, strlen(FileName)<PATH_MAX);
 	TBEGIN
-	strcpy(PictureFileName, FileName);
+	PictureFileName.Assign(FileName);
 	try {
 		TReadBinaryFile File;
 		File.open(FileName);
@@ -879,8 +880,8 @@ void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor High
 		}
 	}
 	if (GetObjectFlag(Obj.Type, CUMULATIVE) && (Obj.Data > 1 || ShowCount)) {
-		char Count[4];
-		sprintf(Count, "%d", Obj.Data);
+		TFixedString<4> Count; // the count, a byte of the server (three digits)
+		Count.Format("{}", Obj.Data);
 		const int Height = GetTextHeight(Font.FontNumber, Count);
 		PrintFormattedTextClipped(Surface, x - 1 + Size, y - Height - 1 + Size, Font, Count, Clip);
 	}

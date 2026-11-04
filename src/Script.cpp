@@ -16,6 +16,7 @@
 #include "Utils.h"
 #include "sysinc.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstdio>
 #include <cstring>
 
@@ -28,7 +29,8 @@ void TReadScriptFile::open(const char *FileName)
 	if (File == nullptr)
 		TERROR_REASON(50, "failed to open file", FileName);
 	Line = 1;
-	strcpy(Filename, FileName);
+	// Filename stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
+	TStringBuffer(Filename, sizeof(Filename)).Assign(FileName);
 }
 
 // 0x4df9b0, line 84. Closes the file and throws; the message names the file
@@ -387,7 +389,8 @@ void TWriteScriptFile::open(const char *FileName)
 	if (File == nullptr)
 		TERROR_REASON(405, "failed to open file", FileName);
 	Line = 0;
-	strcpy(Filename, FileName);
+	// Filename stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
+	TStringBuffer(Filename, sizeof(Filename)).Assign(FileName);
 }
 
 // 0x4e0790, line 441. The file is binary, so the line ends in CR LF.
@@ -440,8 +443,8 @@ void TWriteScriptFile::writeNumber(int Number) const
 {
 	if (File == nullptr)
 		TERROR(481, "no file open");
-	char Help[20];
-	sprintf(Help, "%d", Number);
+	TFixedString<20> Help;
+	Help.Format("{}", Number);
 	writeText(Help);
 }
 
@@ -627,13 +630,13 @@ bool ApplyPatch(const char *FileName, const uint8 *Patch, int Size, uint32 Signa
 			}
 			In.seek(0);
 		}
-		char Name[1024];
+		TFixedString<1024> Name;
 		const char *OutName;
 		if (strcmp(FileName, "Tibia.exe") == 0) {
 			OutName = "Tibia.bak";
 		} else {
-			strcpy(Name, FileName);
-			Name[strlen(FileName) - 1] = '_';
+			Name.Assign(FileName);
+			Name[Name.Length() - 1] = '_';
 			OutName = Name;
 		}
 		Out.open(OutName);
@@ -687,13 +690,13 @@ bool ApplyFullPatch(const char *FileName, const uint8 *Data, int Size)
 {
 	TWriteBinaryFile Out;
 	try {
-		char Name[1024];
+		TFixedString<1024> Name;
 		const char *OutName;
 		if (strcmp(FileName, "Tibia.exe") == 0) {
 			OutName = "Tibia.bak";
 		} else {
-			strcpy(Name, FileName);
-			Name[strlen(FileName) - 1] = '_';
+			Name.Assign(FileName);
+			Name[Name.Length() - 1] = '_';
 			OutName = Name;
 		}
 		Out.open(OutName);
@@ -713,9 +716,10 @@ void InstallPatch(const char *FileName)
 {
 	if (FileName == nullptr)
 		TERROR(879, "no file name");
+	// Name stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
 	char Name[1024];
-	strcpy(Name, FileName);
-	Name[strlen(FileName) - 1] = '_';
+	TStringBuffer(Name, sizeof(Name)).Assign(FileName);
+	Name[strlen(Name) - 1] = '_';
 	if (!FileExists(Name))
 		TERROR_REASON(883, "file does not exists", Name);
 	remove(FileName);

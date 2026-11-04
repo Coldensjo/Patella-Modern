@@ -20,6 +20,7 @@
 #include "Talk.h"
 #include "Text.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -106,9 +107,9 @@ void SendLogin(uint32 AccountID, const char *Password)
 		for (int i = 0; i < 128; i++) {
 			if (i % 16 == 0)
 				Text << std::endl;
-			char Byte[20];
-			sprintf(Byte, "%03d ", (unsigned)Data[i]);
-			Text << Byte;
+			TFixedString<20> Byte;
+			Byte.Format("{:03} ", (unsigned)Data[i]);
+			Text << Byte.View();
 		}
 		Text << std::endl;
 		throw TMYEXCEPTION(73, Text.str().c_str(), "", 0, "", 0, Error);
@@ -118,9 +119,9 @@ void SendLogin(uint32 AccountID, const char *Password)
 		for (int i = 0; i < 128; i++) {
 			if (i % 16 == 0)
 				Text << std::endl;
-			char Byte[20];
-			sprintf(Byte, "%03d ", (unsigned)Data[i]);
-			Text << Byte;
+			TFixedString<20> Byte;
+			Byte.Format("{:03} ", (unsigned)Data[i]);
+			Text << Byte.View();
 		}
 		// No std::endl after the bytes here, unlike the first catch block (the
 		// binary goes from the loop to str(), issue #36).
@@ -168,9 +169,9 @@ void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 		for (int i = 0; i < 128; i++) {
 			if (i % 16 == 0)
 				Text << std::endl;
-			char Byte[20];
-			sprintf(Byte, "%03d ", (unsigned)Data[i]);
-			Text << Byte;
+			TFixedString<20> Byte;
+			Byte.Format("{:03} ", (unsigned)Data[i]);
+			Text << Byte.View();
 		}
 		Text << std::endl;
 		throw TMYEXCEPTION(146, Text.str().c_str(), "", 0, "", 0, Error);
@@ -180,9 +181,9 @@ void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 		for (int i = 0; i < 128; i++) {
 			if (i % 16 == 0)
 				Text << std::endl;
-			char Byte[20];
-			sprintf(Byte, "%03d ", (unsigned)Data[i]);
-			Text << Byte;
+			TFixedString<20> Byte;
+			Byte.Format("{:03} ", (unsigned)Data[i]);
+			Text << Byte.View();
 		}
 		// No std::endl after the bytes here, unlike the first catch block (the
 		// binary goes from the loop to str(), issue #36).
@@ -967,14 +968,14 @@ void ReceivePatchBlock()
 	PatchData = nullptr;
 	if (!Success) {
 		char *Text = new char[100];
-		sprintf(Text, "Cannot patch file %s.", Name);
+		TStringBuffer(Text, 100).Format("Cannot patch file {}.", Name);
 		SetConnectionState(0);
 		Disconnect(false);
 		ClearMessages();
 		AddMessage(1, reinterpret_cast<INT_PTR>("Error"), reinterpret_cast<INT_PTR>(Text));
 	} else if (ReloadEvent == 0x48) {
 		char *Text = new char[200];
-		strcpy(Text, "Program will now shut down and run an external patching program.\nAfterwards it will restart. Please login again then.");
+		TStringBuffer(Text, 200).Assign("Program will now shut down and run an external patching program.\nAfterwards it will restart. Please login again then.");
 		AddMessageFirst(1, reinterpret_cast<INT_PTR>("Updating"), reinterpret_cast<INT_PTR>(Text));
 		AddMessageFirst(0x40, 0, 0);
 		AddMessage(0x48, 0, 0);
@@ -2254,8 +2255,8 @@ void ReceiveCancelRuleViolation()
 	GetString(Name, 30);
 	TTalkBuffer *Channel = GetTextBuffer(8, Name, -1);
 	if (Channel != nullptr) {
-		char Text[444];
-		sprintf(Text, "%s has finished the request.", Name);
+		TFixedString<444> Text;
+		Text.Format("{} has finished the request.", Name);
 		AddTextBufferLine(Channel, 0, Text, 18, nullptr, 0);
 		Channel->SetWriteEnabled(false);
 	}

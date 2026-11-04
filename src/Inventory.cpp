@@ -13,6 +13,7 @@
 #include "Objects.h"
 #include "Utils.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstddef>
 #include <cstring>
 
@@ -87,7 +88,7 @@ void OpenContainer(int Container, TObject Object, const char *Name, int Capacity
 	TASSERT1(105, strlen(Name)<30, strlen(Name));
 	Containers[Container].IsOpen = true;
 	Containers[Container].Object = Object;
-	strcpy(Containers[Container].Name, Name);
+	Containers[Container].Name.Assign(Name);
 	CapitalizeString(Containers[Container].Name);
 	Containers[Container].HasParent = HasParent;
 	Containers[Container].Count = 0;
@@ -225,7 +226,7 @@ bool SetOwnOffer(const char *Name)
 	TASSERT1(281, OwnOffer.Count==0, OwnOffer.Count);
 	TASSERT(282, Name!=NULL);
 	TASSERT1(283, strlen(Name)<30, strlen(Name));
-	strcpy(OwnOffer.Name, Name);
+	OwnOffer.Name.Assign(Name);
 	return true;
 }
 
@@ -236,7 +237,7 @@ bool SetCounterOffer(const char *Name)
 		return false;
 	TASSERT(296, Name!=NULL);
 	TASSERT1(297, strlen(Name)<30, strlen(Name));
-	strcpy(CounterOffer.Name, Name);
+	CounterOffer.Name.Assign(Name);
 	return true;
 }
 

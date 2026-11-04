@@ -16,6 +16,7 @@
 #include "Preferences.h"
 #include "Status.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -61,10 +62,10 @@ int RecursionProtection;                             // 0x719d88
 void InitServerList()
 {
 	memset(Servers, 0, sizeof(Servers));
-	strcpy(Servers[0].Address, "server.tibia.com");
-	strcpy(Servers[1].Address, "server2.tibia.com");
-	strcpy(Servers[2].Address, "tibia1.cipsoft.com");
-	strcpy(Servers[3].Address, "tibia2.cipsoft.com");
+	Servers[0].Address.Assign("server.tibia.com");
+	Servers[1].Address.Assign("server2.tibia.com");
+	Servers[2].Address.Assign("tibia1.cipsoft.com");
+	Servers[3].Address.Assign("tibia2.cipsoft.com");
 	TestServer.ErrorCode = 0;
 	TestServer.Resolved = false;
 	TestServer.Available = true;
@@ -109,7 +110,7 @@ void SetTestServerAddress(const char *Address)
 {
 	TASSERT(132, Address!=NULL);
 	TASSERT1(133, strlen(Address)<100, strlen(Address));
-	strcpy(TestServer.Address, Address);
+	TestServer.Address.Assign(Address);
 }
 
 // 0x4ca730, lines 152-164
@@ -134,11 +135,11 @@ void SetServerIPAddress(const char *ipaddress)
 	TASSERT(183, ipaddress!=NULL);
 	TASSERT1(184, strlen(ipaddress)<100, strlen(ipaddress));
 	if (GetTestServerLogin()) {
-		strcpy(TestServer.Address, ipaddress);
+		TestServer.Address.Assign(ipaddress);
 		TestServer.Resolved = true;
 		return;
 	}
-	strcpy(Servers[CurrentServer].Address, ipaddress);
+	Servers[CurrentServer].Address.Assign(ipaddress);
 	Servers[CurrentServer].Resolved = true;
 }
 
@@ -386,82 +387,84 @@ void GetErrorMessage(char *Message, int ErrorCode, int ErrorType)
 {
 	TASSERT(544, Message!=NULL);
 	TBEGIN
-	char Text[100];
+	TFixedString<100> Text;
 	bool Offline = false;
 	Message[0] = 0;
+	// Every caller passes new char[1024] (ERROR_MESSAGE_SIZE); the longest message has about 300 characters.
+	TStringBuffer Out(Message, ERROR_MESSAGE_SIZE);
 	switch (ErrorCode) {
 	case WSAEINVAL:
 	case WSAEADDRNOTAVAIL:
-		strcpy(Text, "Invalid server address.");
+		Text.Assign("Invalid server address.");
 		break;
 	case WSAEMSGSIZE:
-		strcpy(Text, "Connection error.");
+		Text.Assign("Connection error.");
 		break;
 	case WSAENETDOWN:
 	case WSAENETUNREACH:
-		strcpy(Text, "Network is unreachable.");
+		Text.Assign("Network is unreachable.");
 		break;
 	case WSAETIMEDOUT:
-		strcpy(Text, "Connection timeout.");
+		Text.Assign("Connection timeout.");
 		break;
 	case WSAECONNREFUSED:
-		strcpy(Text, "Connection refused.");
+		Text.Assign("Connection refused.");
 		Offline = true;
 		break;
 	case WSAEHOSTUNREACH:
-		strcpy(Text, "Server is unreachable.");
+		Text.Assign("Server is unreachable.");
 		break;
 	case WSAHOST_NOT_FOUND:
-		strcpy(Text, "Server name does not exist.");
+		Text.Assign("Server name does not exist.");
 		break;
 	case WSATRY_AGAIN:
-		strcpy(Text, "Could not resolve server name.");
+		Text.Assign("Could not resolve server name.");
 		break;
 	case WSANO_DATA:
-		strcpy(Text, "Error while resolving the server name.");
+		Text.Assign("Error while resolving the server name.");
 		break;
 	case ERROR_LOGINSERVER_OVERLOADED:
-		strcpy(Text, "Login server is overloaded. Please try again later.");
+		Text.Assign("Login server is overloaded. Please try again later.");
 		break;
 	case ERROR_DISCONNECTED:
-		strcpy(Text, "Disconnected from server.");
+		Text.Assign("Disconnected from server.");
 		break;
 	default:
-		sprintf(Text, "%d", ErrorCode);
+		Text.Format("{}", ErrorCode);
 		break;
 	}
 
 	if (GetTestServerLogin()) {
-		strcat(Message, "Cannot connect to the test server.\n\nError: ");
-		strcat(Message, Text);
+		Out.Append("Cannot connect to the test server.\n\nError: ");
+		Out.Append(Text);
 		if (Offline) {
-			strcat(Message, "\n\nThe test server is offline. Check www.tibia.com");
-			strcat(Message, "\nfor more information on any current test.");
+			Out.Append("\n\nThe test server is offline. Check www.tibia.com");
+			Out.Append("\nfor more information on any current test.");
 		} else {
-			strcat(Message, "\n\nCheck www.tibia.com for more information on ");
-			strcat(Message, "\nany current test.");
+			Out.Append("\n\nCheck www.tibia.com for more information on ");
+			Out.Append("\nany current test.");
 		}
-		strcat(Message, "\nIf you don't want to use the test server go to");
-		strcat(Message, "\nthe network option and uncheck \"Test Server Login\".");
+		Out.Append("\nIf you don't want to use the test server go to");
+		Out.Append("\nthe network option and uncheck \"Test Server Login\".");
 	} else if (ErrorType == 1) {
-		strcat(Message, "Cannot connect to a login server.\n\nError: ");
-		strcat(Message, Text);
+		Out.Append("Cannot connect to a login server.\n\nError: ");
+		Out.Append(Text);
 		if (Offline) {
-			strcat(Message, "\n\nAll login server are offline. Check www.tibia.com");
-			strcat(Message, "\nfor more information.");
+			Out.Append("\n\nAll login server are offline. Check www.tibia.com");
+			Out.Append("\nfor more information.");
 		}
 	} else {
 		if (ErrorType != 2)
 			TERROR1(597, "unknown error type", ErrorType);
-		strcat(Message, "Cannot connect to the game server.\n\nError: ");
-		strcat(Message, Text);
+		Out.Append("Cannot connect to the game server.\n\nError: ");
+		Out.Append(Text);
 		if (Offline) {
-			strcat(Message, "\n\nThe game server is offline. Check www.tibia.com");
-			strcat(Message, "\nfor more information.");
+			Out.Append("\n\nThe game server is offline. Check www.tibia.com");
+			Out.Append("\nfor more information.");
 		}
 	}
-	strcat(Message, "\n\nFor more information take a look at the FAQs in the ");
-	strcat(Message, "\nguide section at www.tibia.com.");
+	Out.Append("\n\nFor more information take a look at the FAQs in the ");
+	Out.Append("\nguide section at www.tibia.com.");
 	TEND1(602, ErrorCode)
 }
 

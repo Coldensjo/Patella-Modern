@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "common.h"
+#include "types/FixedString.h"
+#include <cstddef>
 
 // From the assertions.
 inline constexpr int HOTKEYS = 36;
@@ -32,9 +35,12 @@ struct TContentWindowSize {
 struct TBuddy {
 	int CharacterID;
 	int Icon;
-	char Description[BUDDYDESCRIPTION_LENGTH];
+	TFixedString<BUDDYDESCRIPTION_LENGTH> Description;
 	bool Notify;
 };
+// The original's layout (no pointers: the same on x64), with Description a TFixedString (issue #57).
+static_assert(sizeof(TBuddy) == 0x8c && offsetof(TBuddy, Description) == 0x08 && offsetof(TBuddy, Notify) == 0x88,
+	"TBuddy's layout");
 
 bool GetTestServerLogin();
 void SetTestServerLogin(bool Value);

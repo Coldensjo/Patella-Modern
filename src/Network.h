@@ -5,6 +5,8 @@
 #pragma once
 
 #include "common.h"
+#include "types/FixedString.h"
+#include <cstddef>
 
 inline constexpr int NUMBEROFSERVER = 4;
 
@@ -12,13 +14,23 @@ inline constexpr int NUMBEROFSERVER = 4;
 inline constexpr int ERROR_LOGINSERVER_OVERLOADED = 200001;
 inline constexpr int ERROR_DISCONNECTED = 200002;
 
+// The size of the buffer GetErrorMessage writes into: every caller passes new char[1024].
+inline constexpr std::size_t ERROR_MESSAGE_SIZE = 1024;
+
 struct TServer {
-	char Address[100]; // +0x00
-	int Port;          // +0x64
-	bool Available;    // +0x68, false after a failed attempt
-	bool Resolved;     // +0x69, Address is a numeric IP address
-	int ErrorCode;     // +0x6c, last error for this server
+	TFixedString<100> Address; // +0x00
+	int Port;                  // +0x64
+	bool Available;            // +0x68, false after a failed attempt
+	bool Resolved;             // +0x69, Address is a numeric IP address
+	int ErrorCode;             // +0x6c, last error for this server
 };
+// The original's layout (no pointers: the same on x64), with Address a TFixedString (issue #57).
+static_assert(IsFixedStringLayout<100>);
+static_assert(sizeof(TServer) == 0x70 && alignof(TServer) == 4, "TServer is 0x70 bytes");
+static_assert(offsetof(TServer, Address) == 0x00 && offsetof(TServer, Port) == 0x64
+		&& offsetof(TServer, Available) == 0x68 && offsetof(TServer, Resolved) == 0x69
+		&& offsetof(TServer, ErrorCode) == 0x6c,
+	"TServer's fields");
 
 void InitServerList();
 void SetTestServerPort(int Port);
