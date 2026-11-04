@@ -42,12 +42,19 @@
 
 // The original's side of a comparison: compiled into the oracle only.
 // ORIGINAL_OR(Value, Otherwise): the original's value in the oracle, Otherwise in the runner.
+// ORIGINAL_VALUE(Name, Type, Expression...): the original's value of Expression, recorded by the oracle
+// and read back by the runner (golden::Recorded); ORIGINAL_TEXT(Name, Expression...) the same for a text
+// that may be NULL (golden::TText).
 #if GOLDEN_ORACLE
 #define ORIGINAL(...) __VA_ARGS__
 #define ORIGINAL_OR(Value, Otherwise) (Value)
+#define ORIGINAL_VALUE(Name, Type, ...) golden::Recorded<Type>(Name, static_cast<Type>(__VA_ARGS__))
+#define ORIGINAL_TEXT(Name, ...) golden::RecordedText(Name, __VA_ARGS__)
 #else
 #define ORIGINAL(...) ((void)0)
 #define ORIGINAL_OR(Value, Otherwise) (Otherwise)
+#define ORIGINAL_VALUE(Name, Type, ...) golden::Recorded<Type>(Name, Type{})
+#define ORIGINAL_TEXT(Name, ...) golden::RecordedText(Name, nullptr)
 #endif
 
 namespace golden {
@@ -138,6 +145,40 @@ inline void OutputBytes(const char *Name, void *Data, size_t Size)
 }
 // A text the original returned (Text: the oracle's; ignored by the runner).
 std::string OutputText(const char *Name, const char *Text);
+// The same for Length bytes of Text (any bytes: a file's contents, a field that need not end in a 0).
+std::string OutputText(const char *Name, const char *Text, size_t Length);
+
+// The helpers of the ported tests (issue #26).
+//
+// The original's value: the oracle records Value, the runner returns the recorded one. ORIGINAL_VALUE
+// (Name, Type, Expression) evaluates Expression in the oracle only (the runner has no original to call):
+//	int B = ORIGINAL_VALUE("count", int, At<IntFn>(0x4a5bd0)(c));
+template <class T> T Recorded(const char *Name, T Value)
+{
+	Output(Name, Value);
+	return Value;
+}
+// A text of the original that may be NULL, by value: c_str() is NULL where the original's was.
+struct TText {
+	bool Null = true;
+	std::string Text;
+	const char *c_str() const { return Null ? nullptr : Text.c_str(); }
+};
+// Text (the oracle's; ignored by the runner), at most MaxLength characters (strnlen: for a field that
+// need not be terminated, or a comparison with strncmp).
+TText RecordedText(const char *Name, const char *Text, size_t MaxLength = (size_t)-1);
+// A buffer of the original that changes little from one record to the next (the 1,000-byte string of
+// a script reader): only the bytes that differ from Last, the buffer as recorded the time before, which
+// the caller keeps (Size bytes; the same start value on both sides). Last becomes the original's
+// buffer on both sides; Value is the oracle's (ignored by the runner).
+void OutputChanges(const char *Name, void *Last, const void *Value, size_t Size);
+// An array of the original whose length the runner knows from an earlier record (Count).
+template <class T> void OutputArray(const char *Name, T *Data, size_t Count)
+{
+	static_assert(std::is_arithmetic<T>::value, "the corpus stores numbers");
+	if (Mode() != TMode::Off)
+		Exchange(Name, 'O', TypeCode<T>(), sizeof(T), Count, Data);
+}
 
 // SHA-256 of a file, in hex; empty when it cannot be read.
 std::string FileSha256(const char *Path);

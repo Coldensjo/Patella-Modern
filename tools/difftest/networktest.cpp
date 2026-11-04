@@ -22,7 +22,7 @@
 //   functions jump to the fakes (ours restored at the end);
 // - rand(): the image's 0x511f33 and our CRT's, one MSVC generator per side
 //   from the same seed before every operation;
-// - the image's sprintf: scripttest.cpp's PatchScript.
+// - the image's sprintf: tests/golden/script_tests.cpp's PatchScript.
 // The three handlers InitNetwork takes are this file's functions: the
 // connect handler sends a scripted command, the receive handler reads the
 // packets with a scripted sequence of GetNextCommand, GetByte, GetWord,

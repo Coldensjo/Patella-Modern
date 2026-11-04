@@ -205,6 +205,14 @@ TOutfitDialog's and TNewChannelDialog's constructors, TOutfitIcon::SetColors); t
 fake of CreateTextDialog too, and the check is enabled. The oracle Patella.exe and the x64 Patella.exe and
 PatellaTest.exe unchanged (pecompare); macrocheck 0 differences; the clang-tidy baseline unchanged (14).
 notes/decisions.md, "const pointer parameters (Patella-Modern issue #50)".
+Golden corpus, settings, scripts and player data (Patella-Modern issue #26, November 4, 2026; M6): nine of the ten
+tests ported to tests/golden, one commit each (Preferences and PreferencesFile together): Status 565,809, Preferences
+102,060, Script 458,232, PreferencesFile 112,155, Player 18,442, Help 70,631, Inventory 158,400, Talk 1,214,929,
+Container 192,832, each with the oracle's count and 0 failures; the runner replays 3,267,008 of difftest's checks.
+Errors (40,408) is not ported: it needs our side's state from the not yet ported Objects, Map, Creatures, Graphics
+and GUI tests. The runner links the reconstructed files it compares (golden_client, MFC shim) and stubs of the rest;
+Container compares through a layout projection, Talk points the runner's _time32 import at the fixed clock. No src/
+change. notes/decisions.md, "The golden corpus: settings, scripts and player data (Patella-Modern issue #26)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -225,6 +233,15 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #26 (branch issue-26, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after nine tests moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0
+failures, every per-test count as below; with recording on (`golden_corpus`) the same counts. The x64 golden_runner
+(windows-x64 and -debug, CTest 13/13) replays 3,267,008 of difftest's checks and sysinctest's 67, 0 failures (issue
+#24's eight tests as before, Status 565,809, Preferences 102,060, Script 458,232, PreferencesFile 112,155, Player
+18,442, Help 70,631, Inventory 158,400, Talk 1,214,929, Container 192,832); not yet ported: difftest's 13,581,744
+other checks (Errors 40,408 among them) and communicationtest's 1,134,513. src/ unchanged; macrocheck 85eafb1
+issue-26: 2,108 calls, 0 differences.
 
 Patella-Modern issue #50 (branch issue-50, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after the four const pointer parameters (readability-non-const-parameter): 16,848,752 + 67 +

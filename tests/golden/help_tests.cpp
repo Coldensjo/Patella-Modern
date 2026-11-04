@@ -1,18 +1,22 @@
-// Differential tests of Help.cpp against the original code.
+// difftest.exe's Help test (moved here from tools/difftest/helptest.cpp, issue #26): Help.cpp against
+// the original, as a golden-corpus test (golden.h).
 //
-// Needs the Preferences state of preferencestest.cpp (the known hints) and
-// redirects the image's _snprintf. Error paths (unknown handles and hint
-// numbers) are not exercised.
+// Needs the Preferences state of preferences_tests.cpp (the known hints); the oracle redirects the
+// image's _snprintf. Error paths (unknown handles and hint numbers) are not exercised. The original's
+// event help queue is recorded by value: its length, then its entries.
 
-#include "difftest.h"
-#include "../../src/Help.h"
-#include "../../src/Preferences.h"
-#include <stdarg.h>
-#include <set>
-#include <string>
+#include "golden_test.h"
+
+#include "Help.h"
+#include "Preferences.h"
+
 #include <iterator>
+#include <set>
+#include <stdarg.h>
+#include <string>
 #include <vector>
 
+#if GOLDEN_ORACLE
 static int __cdecl HelpSnprintf(char *Buffer, size_t Count, const char *Format, ...)
 {
 	va_list Args;
@@ -23,70 +27,97 @@ static int __cdecl HelpSnprintf(char *Buffer, size_t Count, const char *Format, 
 }
 
 typedef const char *(__cdecl *TextFn)(int);
-typedef void (__fastcall *VectorCtorFn)(void *This, void *, int Min, int Max, int Block);
-typedef void (__cdecl *VoidFn)();
-typedef int (__cdecl *IntFn)();
-typedef void (__cdecl *Int2Fn)(int, int);
+typedef void(__fastcall *VectorCtorFn)(void *This, void *, int Min, int Max, int Block);
+typedef void(__cdecl *VoidFn)();
+typedef int(__cdecl *IntFn)();
+typedef void(__cdecl *Int2Fn)(int, int);
+#endif
 
-static void ResetBoth()
+namespace {
+
+void ResetBoth()
 {
 	SetDefaultPreferences();
-	At<VoidFn>(0x4db720)();
+	ORIGINAL(At<VoidFn>(0x4db720)());
 	InitHelp();
-	At<VoidFn>(0x4a2ae0)();
+	ORIGINAL(At<VoidFn>(0x4a2ae0)());
 }
 
-static void CompareQueues(const char *What, int x, int y, int z)
+void CompareQueues(const char *What, int x, int y, int z)
 {
 	std::vector<int> A, B;
-	CHECK(GetEventHelp() == At<IntFn>(0x4a2b00)(), "GetEventHelp after %s (%d,%d,%d)", What, x, y, z);
+	int Help = ORIGINAL_VALUE("GetEventHelp", int, At<IntFn>(0x4a2b00)());
+	CHECK(GetEventHelp() == Help, "GetEventHelp after %s (%d,%d,%d)", What, x, y, z);
 	for (int Number; (Number = PopEventHelp()) != 0;)
 		A.push_back(Number);
+#if GOLDEN_ORACLE
 	for (int Number; (Number = At<IntFn>(0x4a2b20)()) != 0;)
 		B.push_back(Number);
+#endif
+	int Count = golden::Recorded<int>("event help queue length", (int)B.size());
+	B.resize((size_t)Count);
+	if (Count > 0)
+		golden::OutputArray("event help queue", B.data(), B.size());
 	CHECK(A == B, "event help queue after %s (%d,%d,%d): %d and %d entries", What, x, y, z, (int)A.size(), (int)B.size());
 }
 
+} // namespace
+
 void TestHelp()
 {
-	PatchImage();
-	PatchJump(0x51233d, (void *)HelpSnprintf);
-	At<VectorCtorFn>(0x4a2b90)((void *)(uintptr_t)0x5ce53c, NULL, 0, 9, 10);
+	ORIGINAL(PatchImage());
+	ORIGINAL(PatchJump(0x51233d, (void *)HelpSnprintf));
+	ORIGINAL(At<VectorCtorFn>(0x4a2b90)((void *)(uintptr_t)0x5ce53c, NULL, 0, 9, 10));
 
 	// Help bubble texts.
 	static const int Handles[] = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 1000, 1001, 1002,
 		1100, 1101, 1102, 1103, 1104, 1105, 1106, 1107, 1108, 1109, 1110, 1111, 1112};
 	for (int Handle : Handles) {
 		std::string A = GetHelpText(Handle);
-		std::string B = At<TextFn>(0x4a2e70)(Handle);
+		std::string B = ORIGINAL_TEXT("GetHelpText", At<TextFn>(0x4a2e70)(Handle)).Text;
 		CHECK(A == B, "GetHelpText(%d): %d and %d characters", Handle, (int)A.size(), (int)B.size());
 	}
 	for (int Number = 1; Number <= 14; Number++) {
-		CHECK(strcmp(GetEventHelpTitle(Number), At<TextFn>(0x4a3b60)(Number)) == 0, "GetEventHelpTitle(%d)", Number);
-		CHECK(strcmp(GetEventHelpText(Number), At<TextFn>(0x4a3fd0)(Number)) == 0, "GetEventHelpText(%d)", Number);
+		golden::TText Title = ORIGINAL_TEXT("GetEventHelpTitle", At<TextFn>(0x4a3b60)(Number));
+		CHECK(strcmp(GetEventHelpTitle(Number), Title.c_str()) == 0, "GetEventHelpTitle(%d)", Number);
+		golden::TText Text = ORIGINAL_TEXT("GetEventHelpText", At<TextFn>(0x4a3fd0)(Number));
+		CHECK(strcmp(GetEventHelpText(Number), Text.c_str()) == 0, "GetEventHelpText(%d)", Number);
 	}
 
 	// The help area and handle.
 	for (int i = 0; i < 2000; i++) {
 		int a = (int)Random() - 0x800000, b = (int)Random() - 0x800000;
 		switch (Random() % 4) {
-		case 0: SetHelpPosition(a, b); At<Int2Fn>(0x4a2a00)(a, b); break;
-		case 1: MoveHelpPosition(a % 100, b % 100); At<Int2Fn>(0x4a2a20)(a % 100, b % 100); break;
-		case 2: SetHelpSize(a, b); At<Int2Fn>(0x4a2a50)(a, b); break;
+		case 0:
+			SetHelpPosition(a, b);
+			ORIGINAL(At<Int2Fn>(0x4a2a00)(a, b));
+			break;
+		case 1:
+			MoveHelpPosition(a % 100, b % 100);
+			ORIGINAL(At<Int2Fn>(0x4a2a20)(a % 100, b % 100));
+			break;
+		case 2:
+			SetHelpSize(a, b);
+			ORIGINAL(At<Int2Fn>(0x4a2a50)(a, b));
+			break;
 		default: {
 			int Handle = (int)(Random() % 5);
 			SetHelpHandle(Handle);
-			At<void (__cdecl *)(int)>(0x4a2a70)(Handle);
+			ORIGINAL(At<void(__cdecl *)(int)>(0x4a2a70)(Handle));
 			break;
 		}
 		}
-		int A[4], B[4];
+		int A[4], B[4] = {};
 		GetHelpArea(&A[0], &A[1], &A[2], &A[3]);
-		At<void (__cdecl *)(int *, int *, int *, int *)>(0x4a2a90)(&B[0], &B[1], &B[2], &B[3]);
+		ORIGINAL(At<void(__cdecl *)(int *, int *, int *, int *)>(0x4a2a90)(&B[0], &B[1], &B[2], &B[3]));
+		golden::Output("GetHelpArea", B);
 		CHECK(memcmp(A, B, sizeof(A)) == 0, "GetHelpArea");
-		CHECK(GetHelpHandle() == At<IntFn>(0x4a2ac0)(), "GetHelpHandle");
-		if (Random() % 3 == 0)
-			CHECK(GetHelpHandleChanged() == At<bool (__cdecl *)()>(0x4a2ad0)(), "GetHelpHandleChanged");
+		int Handle = ORIGINAL_VALUE("GetHelpHandle", int, At<IntFn>(0x4a2ac0)());
+		CHECK(GetHelpHandle() == Handle, "GetHelpHandle");
+		if (Random() % 3 == 0) {
+			bool Changed = ORIGINAL_VALUE("GetHelpHandleChanged", bool, At<bool(__cdecl *)()>(0x4a2ad0)());
+			CHECK(GetHelpHandleChanged() == Changed, "GetHelpHandleChanged");
+		}
 	}
 
 	// Event helps from NPC names.
@@ -98,7 +129,7 @@ void TestHelp()
 		for (int i = 0; i < n; i++) {
 			const char *Name = Names[Random() % (sizeof(Names) / sizeof(Names[0]))];
 			CheckEventHelpName(Name);
-			At<void (__cdecl *)(const char *)>(0x4a3460)(Name);
+			ORIGINAL(At<void(__cdecl *)(const char *)>(0x4a3460)(Name));
 		}
 		CompareQueues("CheckEventHelpName", n, 0, 0);
 	}
@@ -121,10 +152,16 @@ void TestHelp()
 			for (int z = 4; z <= 9; z++) {
 				ResetBoth();
 				CheckEventHelpPosition(x, y, z);
-				At<void (__cdecl *)(int, int, int)>(0x4a3690)(x, y, z);
+				ORIGINAL(At<void(__cdecl *)(int, int, int)>(0x4a3690)(x, y, z));
 				// Only compare when something was queued or on a sample, to
-				// keep the run short.
-				if (GetEventHelp() != 0 || At<IntFn>(0x4a2b00)() != 0 || Random() % 16 == 0)
+				// keep the run short (the original's queue is asked only when
+				// ours is empty, as before).
+				bool Compare = GetEventHelp() != 0;
+				if (!Compare) {
+					int Help = ORIGINAL_VALUE("GetEventHelp queued", int, At<IntFn>(0x4a2b00)());
+					Compare = Help != 0 || Random() % 16 == 0;
+				}
+				if (Compare)
 					CompareQueues("CheckEventHelpPosition", x, y, z);
 			}
 		}
@@ -141,7 +178,7 @@ void TestHelp()
 		int y = *It;
 		int z = 5 + (int)(Random() % 4);
 		CheckEventHelpPosition(x, y, z);
-		At<void (__cdecl *)(int, int, int)>(0x4a3690)(x, y, z);
+		ORIGINAL(At<void(__cdecl *)(int, int, int)>(0x4a3690)(x, y, z));
 	}
 	CompareQueues("a walk", 0, 0, 0);
 	ResetBoth();

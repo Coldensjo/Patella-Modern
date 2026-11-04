@@ -1,25 +1,49 @@
-// Differential tests of Preferences.cpp against the original code. Uses the
-// image patches of statustest.cpp (malloc/free redirected), Talk.cpp
-// for the real ignore-list reset, and the image's atol redirected to ours.
+// difftest.exe's Preferences and PreferencesFile tests (moved here from
+// tools/difftest/preferencestest.cpp, issue #26): Preferences.cpp against the original, as golden-corpus
+// tests (golden.h). In the oracle they use the image patches of status_tests.cpp (malloc/free
+// redirected), Talk.cpp for the real ignore-list reset, and the image's atol redirected to ours.
+//
+// The original's state is recorded by value at each check: its options, lists (their length, then
+// their entries), texts and the Tibia.cfg it writes (the file's bytes).
 
-#include "difftest.h"
-#include "../../src/Preferences.h"
-#include "../../src/Talk.h"
+#include "golden_test.h"
+
+#include "Preferences.h"
+#include "Talk.h"
+
+#include <stdarg.h>
+#include <string.h>
+#include <string>
+
+#if GOLDEN_ORACLE
 // The original atol needs the locale data of its uninitialised CRT.
 static long __cdecl ImageAtol(const char *Text) { return atol(Text); }
 
-typedef void (__fastcall *VectorCtorFn)(void *This, void *, int Min, int Max, int Block);
-typedef void (__fastcall *VectorInitCtorFn)(void *This, void *, int Min, int Max, int Block, int Init);
+typedef void(__fastcall *VectorCtorFn)(void *This, void *, int Min, int Max, int Block);
+typedef void(__fastcall *VectorInitCtorFn)(void *This, void *, int Min, int Max, int Block, int Init);
 
-typedef void (__cdecl *SetBoolFn)(bool);
-typedef bool (__cdecl *GetBoolFn)();
-typedef void (__cdecl *SetIntFn)(int);
-typedef int (__cdecl *GetIntFn)();
+typedef void(__cdecl *SetBoolFn)(bool);
+typedef bool(__cdecl *GetBoolFn)();
+typedef void(__cdecl *SetIntFn)(int);
+typedef int(__cdecl *GetIntFn)();
+#endif
 
-struct TBoolOption { uint32 Set, Get; void (*OurSet)(bool); bool (*OurGet)(); const char *Name; };
-struct TIntOption { uint32 Set, Get; void (*OurSet)(int); int (*OurGet)(); const char *Name; };
+namespace {
 
-static const TBoolOption BoolOptions[] = {
+struct TBoolOption {
+	uint32 Set, Get;
+	void (*OurSet)(bool);
+	bool (*OurGet)();
+	const char *Name;
+};
+struct TIntOption {
+	uint32 Set, Get;
+	void (*OurSet)(int);
+	int (*OurGet)();
+	const char *Name;
+};
+
+const TBoolOption BoolOptions[] = {
 	{0x4db2b0, 0x4db2a0, SetTestServerLogin, GetTestServerLogin, "TestServer"},
 	{0x4db300, 0x4db3c0, SetWindowsMousepointer, GetWindowsMousepointer, "WindowsMousepointer"},
 	{0x4db310, 0x4db3d0, SetLightEffects, GetLightEffects, "LightEffects"},
@@ -40,7 +64,7 @@ static const TBoolOption BoolOptions[] = {
 	{0x4db710, 0x4db6f0, SetMagLevelBar, GetMagLevelBar, "MagLevelBar"},
 };
 
-static const TIntOption IntOptions[] = {
+const TIntOption IntOptions[] = {
 	{0x4db2c0, 0x4db3a0, SetViewMode, GetViewMode, "ViewMode"},
 	{0x4db330, 0x4db3f0, SetCreatureInfo, GetCreatureInfo, "CreatureInfo"},
 	{0x4db380, 0x4db410, SetConfineFramerate, GetConfineFramerate, "ConfineFramerate"},
@@ -51,110 +75,152 @@ static const TIntOption IntOptions[] = {
 	{0x4db670, 0x4db6a0, SetChaseMode, GetChaseMode, "ChaseMode"},
 };
 
-static void CheckAllOptions(const char *When)
+void CheckAllOptions(const char *When)
 {
-	for (auto &O : BoolOptions)
-		CHECK(O.OurGet() == At<GetBoolFn>(O.Get)(), "%s after %s", O.Name, When);
-	for (auto &O : IntOptions)
-		CHECK(O.OurGet() == At<GetIntFn>(O.Get)(), "%s after %s", O.Name, When);
-	CHECK(memcmp(GetFullscreenMode(), At<TFullscreenMode *(__cdecl *)()>(0x4db3b0)(), sizeof(TFullscreenMode)) == 0,
-		"FullscreenMode after %s", When);
-	int A[5], B[5];
-	bool MA, MB;
+	for (auto &O : BoolOptions) {
+		bool Value = ORIGINAL_VALUE("bool option", bool, At<GetBoolFn>(O.Get)());
+		CHECK(O.OurGet() == Value, "%s after %s", O.Name, When);
+	}
+	for (auto &O : IntOptions) {
+		int Value = ORIGINAL_VALUE("int option", int, At<GetIntFn>(O.Get)());
+		CHECK(O.OurGet() == Value, "%s after %s", O.Name, When);
+	}
+	static_assert(sizeof(TFullscreenMode) == 16, "TFullscreenMode: four ints on both sides");
+	TFullscreenMode Fullscreen = {};
+	ORIGINAL(Fullscreen = *At<TFullscreenMode *(__cdecl *)()>(0x4db3b0)());
+	golden::OutputBytes("fullscreen mode", &Fullscreen, sizeof(Fullscreen));
+	CHECK(memcmp(GetFullscreenMode(), &Fullscreen, sizeof(TFullscreenMode)) == 0, "FullscreenMode after %s", When);
+	int A[5], B[5] = {};
+	bool MA, MB = false;
 	GetWindowedMode(&A[0], &A[1], &A[2], &A[3], &MA);
-	At<void (__cdecl *)(int *, int *, int *, int *, bool *)>(0x4db470)(&B[0], &B[1], &B[2], &B[3], &MB);
+	ORIGINAL(At<void(__cdecl *)(int *, int *, int *, int *, bool *)>(0x4db470)(&B[0], &B[1], &B[2], &B[3], &MB));
+	golden::OutputArray("windowed mode", B, 4);
+	golden::Output("windowed maximized", MB);
 	CHECK(memcmp(A, B, 4 * sizeof(int)) == 0 && MA == MB, "WindowedMode after %s", When);
 	GetBuddySortmethods(A);
-	At<void (__cdecl *)(int *)>(0x4db510)(B);
+	ORIGINAL(At<void(__cdecl *)(int *)>(0x4db510)(B));
+	golden::OutputArray("buddy sort methods", B, 3);
 	CHECK(memcmp(A, B, 3 * sizeof(int)) == 0, "BuddySortmethods after %s", When);
-	CHECK(strcmp(GetMotD(), At<const char *(__cdecl *)()>(0x4db560)()) == 0, "MotD after %s", When);
-	for (int i = 0; i < SKILLS; i++)
-		CHECK(GetSkillBar(i) == At<bool (__cdecl *)(int)>(0x4dd940)(i), "SkillBar %d after %s", i, When);
+	golden::TText MotD = ORIGINAL_TEXT("MotD", At<const char *(__cdecl *)()>(0x4db560)());
+	CHECK(strcmp(GetMotD(), MotD.c_str()) == 0, "MotD after %s", When);
+	for (int i = 0; i < SKILLS; i++) {
+		bool Bar = ORIGINAL_VALUE("skill bar", bool, At<bool(__cdecl *)(int)>(0x4dd940)(i));
+		CHECK(GetSkillBar(i) == Bar, "SkillBar %d after %s", i, When);
+	}
 	for (int i = 0; i < HOTKEYS; i++) {
 		bool AutoA = false, AutoB = false;
 		const char *TextA = GetHotkey(i, &AutoA);
-		const char *TextB = At<const char *(__cdecl *)(int, bool *)>(0x4dc7e0)(i, &AutoB);
-		CHECK(strcmp(TextA, TextB) == 0 && AutoA == AutoB, "hotkey %d after %s", i, When);
+		golden::TText TextB = ORIGINAL_TEXT("hotkey", At<const char *(__cdecl *)(int, bool *)>(0x4dc7e0)(i, &AutoB));
+		golden::Output("hotkey auto", AutoB);
+		CHECK(strcmp(TextA, TextB.c_str()) == 0 && AutoA == AutoB, "hotkey %d after %s", i, When);
 	}
 }
 
-static void CheckLists(const char *When)
+void CheckLists(const char *When)
 {
-	typedef int (__cdecl *ListFn)(int **);
-	struct { uint32 Original; int (*Ours)(int **); const char *Name; } Lists[] = {
-		{0x4dbd90, GetOpenDialogs, "OpenDialogs"}, {0x4dbde0, GetOpenChannels, "OpenChannels"},
+#if GOLDEN_ORACLE
+	typedef int(__cdecl * ListFn)(int **);
+#endif
+	struct {
+		uint32 Original;
+		int (*Ours)(int **);
+		const char *Name;
+	} Lists[] = {
+		{0x4dbd90, GetOpenDialogs, "OpenDialogs"},
+		{0x4dbde0, GetOpenChannels, "OpenChannels"},
 	};
 	for (auto &L : Lists) {
-		int *A = NULL, *B = NULL;
+		int *A = nullptr;
 		int CountA = L.Ours(&A);
-		int CountB = At<ListFn>(L.Original)(&B);
-		CHECK(CountA == CountB && (CountA == 0 ? A == NULL && B == NULL : memcmp(A, B, CountA * sizeof(int)) == 0),
+		// The original's list: its length, whether it is NULL, then the entries.
+		[[maybe_unused]] int *Got = nullptr;
+		int CountB = ORIGINAL_VALUE("list length", int, At<ListFn>(L.Original)(&Got));
+		uint8 Null = ORIGINAL_VALUE("list null", uint8, Got == nullptr);
+		std::string Entries(CountB > 0 ? (size_t)CountB * sizeof(int) : 0, '\0');
+		ORIGINAL(if (Got != nullptr && CountB > 0) memcpy(&Entries[0], Got, Entries.size()));
+		if (CountB > 0)
+			golden::OutputArray("list entries", (int *)&Entries[0], (size_t)CountB);
+		const int *B = Null != 0 ? nullptr : CountB > 0 ? (const int *)Entries.data()
+														: (const int *)&CountB;
+		CHECK(CountA == CountB && (CountA == 0 ? A == nullptr && B == nullptr : memcmp(A, B, CountA * sizeof(int)) == 0),
 			"%s after %s", L.Name, When);
 		delete[] A;
-		free(B);
+		ORIGINAL(free(Got));
 	}
-	for (int Hint = 0; Hint < 40; Hint++)
-		CHECK(IsKnownHint(Hint) == At<bool (__cdecl *)(int)>(0x4dbe50)(Hint), "IsKnownHint(%d) after %s", Hint, When);
-	for (int ID = 0; ID < 20; ID++)
-		CHECK(GetContentWindowSize(ID) == At<int (__cdecl *)(int)>(0x4dbd50)(ID), "GetContentWindowSize(%d)", ID);
+	for (int Hint = 0; Hint < 40; Hint++) {
+		bool Known = ORIGINAL_VALUE("IsKnownHint", bool, At<bool(__cdecl *)(int)>(0x4dbe50)(Hint));
+		CHECK(IsKnownHint(Hint) == Known, "IsKnownHint(%d) after %s", Hint, When);
+	}
+	for (int ID = 0; ID < 20; ID++) {
+		int Size = ORIGINAL_VALUE("GetContentWindowSize", int, At<int(__cdecl *)(int)>(0x4dbd50)(ID));
+		CHECK(GetContentWindowSize(ID) == Size, "GetContentWindowSize(%d)", ID);
+	}
 	for (int ID = 1; ID < 30; ID++) {
-		CHECK(FindBuddy(ID) == At<int (__cdecl *)(int)>(0x4dce20)(ID), "FindBuddy(%d) after %s", ID, When);
-		CHECK(GetBuddyIcon(ID) == At<int (__cdecl *)(int)>(0x4dd4c0)(ID), "GetBuddyIcon(%d)", ID);
-		CHECK(GetBuddyNotify(ID) == At<bool (__cdecl *)(int)>(0x4dd7c0)(ID), "GetBuddyNotify(%d)", ID);
+		int Buddy = ORIGINAL_VALUE("FindBuddy", int, At<int(__cdecl *)(int)>(0x4dce20)(ID));
+		CHECK(FindBuddy(ID) == Buddy, "FindBuddy(%d) after %s", ID, When);
+		int Icon = ORIGINAL_VALUE("GetBuddyIcon", int, At<int(__cdecl *)(int)>(0x4dd4c0)(ID));
+		CHECK(GetBuddyIcon(ID) == Icon, "GetBuddyIcon(%d)", ID);
+		bool Notify = ORIGINAL_VALUE("GetBuddyNotify", bool, At<bool(__cdecl *)(int)>(0x4dd7c0)(ID));
+		CHECK(GetBuddyNotify(ID) == Notify, "GetBuddyNotify(%d)", ID);
 		const char *A = GetBuddyDescription(ID);
-		const char *B = At<const char *(__cdecl *)(int)>(0x4dd640)(ID);
-		CHECK((A == NULL) == (B == NULL) && (A == NULL || strcmp(A, B) == 0), "GetBuddyDescription(%d)", ID);
+		golden::TText Description = ORIGINAL_TEXT("GetBuddyDescription", At<const char *(__cdecl *)(int)>(0x4dd640)(ID));
+		const char *B = Description.c_str();
+		CHECK((A == nullptr) == (B == nullptr) && (A == nullptr || strcmp(A, B) == 0), "GetBuddyDescription(%d)", ID);
 	}
 }
+
+} // namespace
 
 void TestPreferences()
 {
-	PatchImage();
-	At<VectorInitCtorFn>(0x4fd6e0)((void *)(uintptr_t)0x71efb0, 0, 0, 9, 10, 0);
-	PatchJump(0x51262a, (void *)ImageAtol);
+	ORIGINAL(PatchImage());
+	ORIGINAL(At<VectorInitCtorFn>(0x4fd6e0)((void *)(uintptr_t)0x71efb0, 0, 0, 9, 10, 0));
+	ORIGINAL(PatchJump(0x51262a, (void *)ImageAtol));
 	// The original's static initialisers (0x55a050-0x55a0d0) did not run.
-	At<VectorCtorFn>(0x4dbe90)((void *)(uintptr_t)0x71c324, 0, 0, 9, 10);
-	At<VectorInitCtorFn>(0x453300)((void *)(uintptr_t)0x71c348, 0, 0, 9, 10, -1);
-	At<VectorCtorFn>(0x4a2b90)((void *)(uintptr_t)0x71c368, 0, 0, 9, 10);
-	At<VectorCtorFn>(0x4dc170)((void *)(uintptr_t)0x71c388, 0, 0, 9, 10);
-	At<VectorCtorFn>(0x4a2b90)((void *)(uintptr_t)0x71c430, 0, 0, 9, 10);
+	ORIGINAL(At<VectorCtorFn>(0x4dbe90)((void *)(uintptr_t)0x71c324, 0, 0, 9, 10));
+	ORIGINAL(At<VectorInitCtorFn>(0x453300)((void *)(uintptr_t)0x71c348, 0, 0, 9, 10, -1));
+	ORIGINAL(At<VectorCtorFn>(0x4a2b90)((void *)(uintptr_t)0x71c368, 0, 0, 9, 10));
+	ORIGINAL(At<VectorCtorFn>(0x4dc170)((void *)(uintptr_t)0x71c388, 0, 0, 9, 10));
+	ORIGINAL(At<VectorCtorFn>(0x4a2b90)((void *)(uintptr_t)0x71c430, 0, 0, 9, 10));
 
 	CheckAllOptions("start");
 	IgnoreName("reset probe", true);
-	At<void (__cdecl *)(const char *, bool)>(0x501940)("reset probe", true);
+	ORIGINAL(At<void(__cdecl *)(const char *, bool)>(0x501940)("reset probe", true));
 	SetDefaultPreferences();
-	At<void (__cdecl *)()>(0x4db720)();
-	CHECK(GetIgnoreListText() == NULL && At<char *(__cdecl *)()>(0x501010)() == NULL, "Talk list reset");
+	ORIGINAL(At<void(__cdecl *)()>(0x4db720)());
+	bool Reset = ORIGINAL_VALUE("Talk list reset", bool, At<char *(__cdecl *)()>(0x501010)() == nullptr);
+	CHECK(GetIgnoreListText() == nullptr && Reset, "Talk list reset");
 	CheckAllOptions("SetDefaultPreferences");
 
 	for (int t = 0; t < 20000; t++) {
 		char Text[300];
 		switch (Random() % 16) {
-		case 0: case 1: {
+		case 0:
+		case 1: {
 			const TBoolOption &O = BoolOptions[Random() % (sizeof(BoolOptions) / sizeof(BoolOptions[0]))];
 			bool Value = (Random() & 1) != 0;
 			O.OurSet(Value);
-			At<SetBoolFn>(O.Set)(Value);
+			ORIGINAL(At<SetBoolFn>(O.Set)(Value));
 			break;
 		}
 		case 2: {
 			const TIntOption &O = IntOptions[Random() % (sizeof(IntOptions) / sizeof(IntOptions[0]))];
 			int Value = (int)(Random() ^ (Random() << 16));
 			O.OurSet(Value);
-			At<SetIntFn>(O.Set)(Value);
+			ORIGINAL(At<SetIntFn>(O.Set)(Value));
 			break;
 		}
 		case 3: {
 			TFullscreenMode Mode = {(int)Random(), (int)Random(), (int)Random(), (int)Random()};
 			SetFullscreenMode(&Mode);
-			At<void (__cdecl *)(const TFullscreenMode *)>(0x4db2d0)(&Mode);
+			ORIGINAL(At<void(__cdecl *)(const TFullscreenMode *)>(0x4db2d0)(&Mode));
 			int x = (int)Random(), y = (int)Random(), w = (int)Random(), h = (int)Random();
 			bool Max = (Random() & 1) != 0;
 			SetWindowedMode(x, y, w, h, Max);
-			At<void (__cdecl *)(int, int, int, int, bool)>(0x4db430)(x, y, w, h, Max);
+			ORIGINAL(At<void(__cdecl *)(int, int, int, int, bool)>(0x4db430)(x, y, w, h, Max));
 			int Methods[3] = {(int)Random() % 3, (int)Random() % 3, (int)Random() % 3};
 			SetBuddySortmethods(Methods);
-			At<void (__cdecl *)(const int *)>(0x4db4f0)(Methods);
+			ORIGINAL(At<void(__cdecl *)(const int *)>(0x4db4f0)(Methods));
 			break;
 		}
 		case 4: {
@@ -162,54 +228,55 @@ void TestPreferences()
 			RandomText(Text, (int)(Random() % HOTKEY_LENGTH));
 			bool Auto = (Random() & 1) != 0;
 			SetHotkey(Number, Text, Auto);
-			At<void (__cdecl *)(int, const char *, bool)>(0x4dc450)(Number, Text, Auto);
+			ORIGINAL(At<void(__cdecl *)(int, const char *, bool)>(0x4dc450)(Number, Text, Auto));
 			break;
 		}
 		case 5: {
 			int Identifier = (int)(Random() % 50);
 			if (Random() & 1) {
 				AddOpenDialog(Identifier);
-				At<SetIntFn>(0x4dc950)(Identifier);
+				ORIGINAL(At<SetIntFn>(0x4dc950)(Identifier));
 			} else {
 				AddOpenChannel(Identifier);
-				At<SetIntFn>(0x4dccb0)(Identifier);
+				ORIGINAL(At<SetIntFn>(0x4dccb0)(Identifier));
 			}
 			break;
 		}
 		case 6:
 			if (Random() % 8 == 0) {
 				ClearOpenDialogs();
-				At<void (__cdecl *)()>(0x4db550)();
+				ORIGINAL(At<void(__cdecl *)()>(0x4db550)());
 			}
 			if (Random() % 8 == 0) {
 				ClearOpenChannels();
-				At<void (__cdecl *)()>(0x4db610)();
+				ORIGINAL(At<void(__cdecl *)()>(0x4db610)());
 			}
 			break;
 		case 7: {
 			int Hint = (int)(Random() % 40);
 			AddKnownHint(Hint);
-			At<SetIntFn>(0x4dbe30)(Hint);
+			ORIGINAL(At<SetIntFn>(0x4dbe30)(Hint));
 			break;
 		}
 		case 8: {
 			int ID = (int)(Random() % 20), Size = (int)Random();
 			SetContentWindowSize(ID, Size);
-			At<void (__cdecl *)(int, int)>(0x4dbcd0)(ID, Size);
+			ORIGINAL(At<void(__cdecl *)(int, int)>(0x4dbcd0)(ID, Size));
 			break;
 		}
-		case 9: case 10: {
+		case 9:
+		case 10: {
 			int ID = 1 + (int)(Random() % 29), Icon = (int)(Random() % 10);
 			RandomText(Text, (int)(Random() % BUDDYDESCRIPTION_LENGTH));
 			bool Notify = (Random() & 1) != 0;
 			SetBuddy(ID, Icon, Text, Notify);
-			At<void (__cdecl *)(int, int, const char *, bool)>(0x4dcfb0)(ID, Icon, Text, Notify);
+			ORIGINAL(At<void(__cdecl *)(int, int, const char *, bool)>(0x4dcfb0)(ID, Icon, Text, Notify));
 			break;
 		}
 		case 11: {
 			int ID = 1 + (int)(Random() % 29);
 			DeleteBuddy(ID);
-			At<SetIntFn>(0x4dd360)(ID);
+			ORIGINAL(At<SetIntFn>(0x4dd360)(ID));
 			break;
 		}
 		case 12: {
@@ -222,7 +289,7 @@ void TestPreferences()
 			default: snprintf(Text, sizeof(Text), "x\n%s", Body); break;
 			}
 			bool A = SetMotD(Text);
-			bool B = At<bool (__cdecl *)(const char *)>(0x4dcac0)(Text);
+			bool B = ORIGINAL_VALUE("SetMotD", bool, At<bool(__cdecl *)(const char *)>(0x4dcac0)(Text));
 			CHECK(A == B, "SetMotD(\"%s\")", Text);
 			break;
 		}
@@ -230,7 +297,7 @@ void TestPreferences()
 			int Skill = (int)(Random() % SKILLS);
 			bool Value = (Random() & 1) != 0;
 			SetSkillBar(Skill, Value);
-			At<void (__cdecl *)(int, bool)>(0x4ddaa0)(Skill, Value);
+			ORIGINAL(At<void(__cdecl *)(int, bool)>(0x4ddaa0)(Skill, Value));
 			break;
 		}
 		default:
@@ -250,9 +317,7 @@ void TestPreferences()
 // Runs after TestScript: uses its stdio redirection (PatchScript). Only valid
 // files are generated; a parse error would throw inside the original.
 
-#include <string>
-#include <stdarg.h>
-
+#if GOLDEN_ORACLE
 static void __cdecl ImageFree2(void *Block) { free(Block); }
 static char *__cdecl ImageStrtok(char *Text, const char *Delimiters) { return strtok(Text, Delimiters); }
 static int __cdecl ImageSnprintf(char *Buffer, size_t Count, const char *Format, ...)
@@ -263,13 +328,16 @@ static int __cdecl ImageSnprintf(char *Buffer, size_t Count, const char *Format,
 	va_end(Args);
 	return Result;
 }
+#endif
 
-static std::string ReadWholeFile(const char *Name, bool *Exists)
+namespace {
+
+std::string ReadWholeFile(const char *Name, bool *Exists)
 {
 	std::string Text;
 	FILE *File = fopen(Name, "rb");
-	*Exists = File != NULL;
-	if (File == NULL)
+	*Exists = File != nullptr;
+	if (File == nullptr)
 		return Text;
 	int c;
 	while ((c = getc(File)) != EOF)
@@ -278,7 +346,24 @@ static std::string ReadWholeFile(const char *Name, bool *Exists)
 	return Text;
 }
 
-static std::string CfgNumber(bool Negative = false)
+// The Tibia.cfg the original wrote (the oracle: Save, then read and removed), by value.
+std::string OriginalFile(const char *Name, bool *Exists, [[maybe_unused]] uint32 Save)
+{
+	std::string Text;
+	uint8 Have = 0;
+#if GOLDEN_ORACLE
+	At<void(__cdecl *)()>(Save)();
+	bool Found;
+	Text = ReadWholeFile("Tibia.cfg", &Found);
+	remove("Tibia.cfg");
+	Have = Found;
+#endif
+	golden::Output(Name, Have);
+	*Exists = Have != 0;
+	return golden::OutputText(Name, Text.data(), Text.size());
+}
+
+std::string CfgNumber(bool Negative = false)
 {
 	char Help[16];
 	int Value = (int)(Random() % 4 == 0 ? Random() % 100000 : Random() % 50);
@@ -288,7 +373,7 @@ static std::string CfgNumber(bool Negative = false)
 	return Help;
 }
 
-static std::string CfgYes()
+std::string CfgYes()
 {
 	switch (Random() % 4) {
 	case 0: return "no";
@@ -298,7 +383,7 @@ static std::string CfgYes()
 	}
 }
 
-static std::string CfgString(int MaxLength)
+std::string CfgString(int MaxLength)
 {
 	static const char Chars[] = "abc XYZ 019 .,:!?()=-#'";
 	std::string s = "\"";
@@ -314,7 +399,7 @@ static std::string CfgString(int MaxLength)
 	return s + "\"";
 }
 
-static std::string CfgName()
+std::string CfgName()
 {
 	std::string s = "\"";
 	int n = 1 + (int)(Random() % 12);
@@ -323,7 +408,7 @@ static std::string CfgName()
 	return s + "\"";
 }
 
-static std::string CfgList(std::string (*Item)())
+std::string CfgList(std::string (*Item)())
 {
 	std::string s = "{";
 	int n = (int)(Random() % 6);
@@ -335,10 +420,15 @@ static std::string CfgList(std::string (*Item)())
 	return s + "}";
 }
 
-static std::string CfgSkill() { char Help[4]; sprintf(Help, "%d", (int)(Random() % SKILLS)); return Help; }
-static std::string CfgHint() { return CfgNumber(); }
+std::string CfgSkill()
+{
+	char Help[4];
+	sprintf(Help, "%d", (int)(Random() % SKILLS));
+	return Help;
+}
+std::string CfgHint() { return CfgNumber(); }
 
-static std::string CfgLine()
+std::string CfgLine()
 {
 	switch (Random() % 41) {
 	case 0: return "TestServer = " + CfgYes();
@@ -352,7 +442,8 @@ static std::string CfgLine()
 	case 8: return "NoStretching = " + CfgYes();
 	case 9: return "ConfineFramerate = " + CfgNumber();
 	case 10: return "Engine = " + CfgNumber(true);
-	case 11: case 12: {
+	case 11:
+	case 12: {
 		char Help[8];
 		sprintf(Help, "%d", (int)(Random() % HOTKEYS));
 		std::string Text = CfgString(Random() % 4 ? 40 : 300);
@@ -366,7 +457,12 @@ static std::string CfgLine()
 	case 16: return "ContentWindow = (" + CfgNumber() + "," + CfgNumber() + ")";
 	case 17: return "BuddySortmethods = (" + CfgNumber() + "," + CfgNumber() + "," + CfgNumber() + ")";
 	case 18: return "BuddyHideOffline = " + CfgYes();
-	case 19: case 20: { char Help[8]; sprintf(Help, "%d", (int)(Random() % 12) - 1); return std::string("OpenDialogs = ") + Help; }
+	case 19:
+	case 20: {
+		char Help[8];
+		sprintf(Help, "%d", (int)(Random() % 12) - 1);
+		return std::string("OpenDialogs = ") + Help;
+	}
 	case 21: return "LastMotD = " + CfgNumber();
 	case 22: return "InfoMessages = " + CfgYes();
 	case 23: return "EventMessages = " + CfgYes();
@@ -378,9 +474,14 @@ static std::string CfgLine()
 	case 29: return "ClassicControl = " + CfgYes();
 	case 30: return "AutoChaseOff = " + CfgYes();
 	case 31: return "AttackMode = " + CfgNumber();
-	case 32: { char Help[4]; sprintf(Help, "%d", (int)(Random() % 4)); return std::string("ChaseMode = ") + Help; }
+	case 32: {
+		char Help[4];
+		sprintf(Help, "%d", (int)(Random() % 4));
+		return std::string("ChaseMode = ") + Help;
+	}
 	case 33: return "SecureMode = " + CfgNumber();
-	case 34: case 35: {
+	case 34:
+	case 35: {
 		char Help[8];
 		sprintf(Help, "%d", Random() % 5 == 0 ? 0 : (int)(1 + Random() % 30));
 		return std::string("Buddy = (") + Help + "," + CfgNumber() + "," + CfgString(60) + "," + CfgYes() + ")";
@@ -393,48 +494,57 @@ static std::string CfgLine()
 	}
 }
 
-static void CheckTalkLists(const char *When)
+void CheckTalkLists(const char *When)
 {
 	char *A = GetIgnoreListText();
-	char *B = At<char *(__cdecl *)()>(0x501010)();
-	CHECK((A == NULL) == (B == NULL) && (A == NULL || strcmp(A, B) == 0), "ignore list after %s", When);
+	golden::TText Ignore;
+	ORIGINAL(char *Got = At<char *(__cdecl *)()>(0x501010)());
+	Ignore = ORIGINAL_TEXT("ignore list", Got);
+	ORIGINAL(free(Got));
+	const char *B = Ignore.c_str();
+	CHECK((A == nullptr) == (B == nullptr) && (A == nullptr || strcmp(A, B) == 0), "ignore list after %s", When);
 	free(A);
-	free(B);
 	A = GetBuddyIgnoreText();
-	B = At<char *(__cdecl *)()>(0x5002d0)();
-	CHECK((A == NULL) == (B == NULL) && (A == NULL || strcmp(A, B) == 0), "white list after %s", When);
+	golden::TText White;
+	ORIGINAL(Got = At<char *(__cdecl *)()>(0x5002d0)());
+	White = ORIGINAL_TEXT("white list", Got);
+	ORIGINAL(free(Got));
+	B = White.c_str();
+	CHECK((A == nullptr) == (B == nullptr) && (A == nullptr || strcmp(A, B) == 0), "white list after %s", When);
 	free(A);
-	free(B);
 }
 
-static void CompareSaved(const char *When)
+void CompareSaved(const char *When)
 {
 	SavePreferences();
 	bool HaveA, HaveB;
 	std::string A = ReadWholeFile("Tibia.cfg", &HaveA);
 	remove("Tibia.cfg");
-	At<void (__cdecl *)()>(0x4de890)();
-	std::string B = ReadWholeFile("Tibia.cfg", &HaveB);
-	remove("Tibia.cfg");
-	CHECK(HaveA == HaveB && A == B, "Tibia.cfg written after %s differs (%d and %d bytes)", When, (int)A.size(), (int)B.size());
+	std::string B = OriginalFile("Tibia.cfg written", &HaveB, 0x4de890);
+	CHECK(HaveA == HaveB && A == B, "Tibia.cfg written after %s differs (%d and %d bytes)", When, (int)A.size(),
+		(int)B.size());
 }
+
+} // namespace
 
 void TestPreferencesFile()
 {
-	PatchScript();
-	PatchJump(0x523812, (void *)ImageFree2);
-	PatchJump(0x513544, (void *)ImageStrtok);
-	PatchJump(0x51233d, (void *)ImageSnprintf);
-	// The original's Talk filter lists (static initialisers, see talktest.cpp).
+	ORIGINAL(PatchScript());
+	ORIGINAL(PatchJump(0x523812, (void *)ImageFree2));
+	ORIGINAL(PatchJump(0x513544, (void *)ImageStrtok));
+	ORIGINAL(PatchJump(0x51233d, (void *)ImageSnprintf));
+	// The original's Talk filter lists (static initialisers, see talk_tests.cpp).
+#if GOLDEN_ORACLE
 	for (uint32 Address : {0x71ef70u, 0x71ef90u, 0x71efb0u, 0x71efd0u})
 		if (Global<void *>(Address + 28) == NULL)
 			At<VectorInitCtorFn>(0x4fd6e0)((void *)(uintptr_t)Address, NULL, 0, Address == 0x71efd0 ? 4 : 9,
 				Address == 0x71efd0 ? 5 : 10, 0);
+#endif
 	char OldDirectory[MAX_PATH], Help[MAX_PATH];
 	GetCurrentDirectoryA(MAX_PATH, OldDirectory);
 	GetTempPathA(MAX_PATH, Help);
 	std::string Directory = std::string(Help) + "tibia-difftest-cfg";
-	CreateDirectoryA(Directory.c_str(), NULL);
+	CreateDirectoryA(Directory.c_str(), nullptr);
 	SetCurrentDirectoryA(Directory.c_str());
 	remove("Tibia.cfg");
 
@@ -450,34 +560,40 @@ void TestPreferencesFile()
 			Text += CfgLine();
 			Text += Random() % 6 ? "\r\n" : " ";
 		}
+		golden::InputBytes("Tibia.cfg", Text.data(), Text.size());
 		FILE *File = fopen("Tibia.cfg", "wb");
 		fwrite(Text.data(), 1, Text.size(), File);
 		fclose(File);
-		if (getenv("DIFFTEST_TRACE") != NULL) {
+		if (getenv("DIFFTEST_TRACE") != nullptr) {
 			fprintf(stderr, "cfg round %d\n", Round);
 			FILE *Copy = fopen("last.cfg", "wb");
 			fwrite(Text.data(), 1, Text.size(), Copy);
 			fclose(Copy);
 		}
 		InitPreferences();
-		At<void (__cdecl *)()>(0x4ddc00)();
-		CHECK(Global<bool>(0x71c319), "PreferencesLoaded not set");
+		ORIGINAL(At<void(__cdecl *)()>(0x4ddc00)());
+		bool Loaded = ORIGINAL_VALUE("PreferencesLoaded", bool, Global<bool>(0x71c319));
+		CHECK(Loaded, "PreferencesLoaded not set");
 		CheckAllOptions("InitPreferences");
 		CheckLists("InitPreferences");
 		CheckTalkLists("InitPreferences");
 		CompareSaved("InitPreferences");
 		// Saving and loading again must give the same file.
 		if (Round % 10 == 0) {
-			bool Trace = getenv("DIFFTEST_TRACE") != NULL;
+			bool Trace = getenv("DIFFTEST_TRACE") != nullptr;
 			SavePreferences();
-			if (Trace) fprintf(stderr, "ours init\n");
+			if (Trace)
+				fprintf(stderr, "ours init\n");
 			InitPreferences();
 			remove("Tibia.cfg");
-			if (Trace) fprintf(stderr, "original save\n");
-			At<void (__cdecl *)()>(0x4de890)();
-			if (Trace) fprintf(stderr, "original init\n");
-			At<void (__cdecl *)()>(0x4ddc00)();
-			if (Trace) fprintf(stderr, "done\n");
+			if (Trace)
+				fprintf(stderr, "original save\n");
+			ORIGINAL(At<void(__cdecl *)()>(0x4de890)());
+			if (Trace)
+				fprintf(stderr, "original init\n");
+			ORIGINAL(At<void(__cdecl *)()>(0x4ddc00)());
+			if (Trace)
+				fprintf(stderr, "done\n");
 			CheckAllOptions("a second InitPreferences");
 			CheckLists("a second InitPreferences");
 			CompareSaved("a second InitPreferences");
@@ -486,14 +602,12 @@ void TestPreferencesFile()
 
 	// ExitPreferences frees the MotD and saves.
 	SetMotD("7\nToday's news");
-	At<bool (__cdecl *)(const char *)>(0x4dcac0)("7\nToday's news");
+	ORIGINAL(At<bool(__cdecl *)(const char *)>(0x4dcac0)("7\nToday's news"));
 	ExitPreferences();
 	bool HaveA, HaveB;
 	std::string A = ReadWholeFile("Tibia.cfg", &HaveA);
 	remove("Tibia.cfg");
-	At<void (__cdecl *)()>(0x4df520)();
-	std::string B = ReadWholeFile("Tibia.cfg", &HaveB);
-	remove("Tibia.cfg");
+	std::string B = OriginalFile("ExitPreferences output", &HaveB, 0x4df520);
 	CHECK(HaveA && HaveB && A == B, "ExitPreferences output differs");
 	CheckAllOptions("ExitPreferences");
 

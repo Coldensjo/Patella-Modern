@@ -48,7 +48,7 @@ struct TPorted {
 };
 struct TExecutable {
 	const char *Name;
-	TPorted Tests[16];
+	TPorted Tests[32];
 };
 
 // The ported tests per test executable of the oracle.
@@ -56,7 +56,10 @@ const TExecutable Executables[] = {
 	{"difftest",
 		{{"XTEA", TestXTEA}, {"Characters", TestCharacters}, {"Colors", TestColors}, {"Strings", TestStrings},
 			{"FormatNumber", TestFormatNumber}, {"Buffers", TestBuffers}, {"Skins", TestSkins},
-			{"Regexp", TestRegexp}}},
+			{"Regexp", TestRegexp}, {"Status", TestStatus},
+			{"Preferences", TestPreferences}, {"Script", TestScript}, {"PreferencesFile", TestPreferencesFile},
+			{"Player", TestPlayer}, {"Help", TestHelp}, {"Inventory", TestInventory},
+			{"Talk", TestTalk}, {"Container", TestContainer}}},
 	{"sysinctest", {{"Sysinc", TestSysinc}}},
 	{"communicationtest", {}},
 };

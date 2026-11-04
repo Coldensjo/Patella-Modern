@@ -4,7 +4,7 @@
 // Tibia.exe is copied to its base address (see RunChild and MapImage): no
 // imports are bound and no code runs except the functions called here. Only functions that do not
 // touch imports are called. The original C runtime is not initialised, so
-// statustest.cpp redirects the image's malloc and free to the test's own heap
+// tests/golden/status_tests.cpp redirects the image's malloc and free to the test's own heap
 // (PatchJump) before it calls functions that allocate.
 //
 // Usage: difftest.exe [path to Tibia.exe]
@@ -482,7 +482,7 @@ int main(int argc, char **argv)
 	// DIFFTEST_ONLY=MainWindow, MapWindow, DialogWindow, ContextMenus, ConsoleWindow,
 	// ContentWindows, DialogElements, Dialogs, SurfaceDX9 or Container runs only mainwindowtest.cpp,
 	// dialogwindowtest.cpp, contextmenustest.cpp, consolewindowtest.cpp,
-	// contentwindowstest.cpp, dialogelementstest.cpp, dialogstest.cpp, surfacedx9test.cpp or containertest.cpp
+	// contentwindowstest.cpp, dialogelementstest.cpp, dialogstest.cpp, surfacedx9test.cpp or tests/golden/container_tests.cpp
 	// (they need none of the earlier tests), for quick runs while working on
 	// them.
 	const char *Only = getenv("DIFFTEST_ONLY");

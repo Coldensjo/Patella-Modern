@@ -1,4 +1,6 @@
-// Differential tests of Player.cpp and Surface.cpp against the original code.
+// The link stubs of Player.cpp and MainFrm.cpp in difftest.exe. The Player test itself (Player.cpp,
+// Surface.cpp and MainFrm.cpp's TranslateKey against the original) is a golden-corpus test since
+// issue #26: tests/golden/player_tests.cpp.
 //
 // Only the two text decoders can run in the child; everything else in
 // Player.cpp needs MFC, the window system or the original's iostreams.
@@ -69,58 +71,3 @@ const int ClassNameCode[11] = {57, 193, 225, 58, 140, 118, 195, 214, 239, 244, 1
 void Redraw(bool) STUB
 void MouseMove(int, int) STUB
 void ProcessEvents() STUB
-
-typedef void (__cdecl *TextFn)(char *);
-
-// Surface.cpp's getters of curEngine and AvailableEngines (0x71d0c4, 0x71d0c8).
-static void TestSurface()
-{
-	for (int Engine = -2; Engine < 5; Engine++) {
-		curEngine = Engine;
-		Global<int>(0x71d0c4) = Engine;
-		CHECK(GetCurrentEngine() == At<int (__cdecl *)()>(0x4eaa80)(), "GetCurrentEngine %d", Engine);
-	}
-	// A member that does not read this (the binary passes the surface in ECX).
-	TSurface *Surface = NULL;
-	CHECK(Surface->GetAvailableEngines() == 0 && At<uint8 (__cdecl *)()>(0x4eabe0)() == 0, "GetAvailableEngines");
-}
-
-// MainFrm.cpp's TranslateKey: every virtual key, both extended flags and
-// every modifier state (KeyFlags at +0x200 in the original frame).
-static void TestTranslateKey()
-{
-	alignas(8) static uint8 Ours[sizeof(CMainFrame)];
-	static uint8 Original[0x204];
-	CMainFrame *Frame = (CMainFrame *)Ours;
-	typedef int (__fastcall *KeyFn)(void *, void *, UINT, UINT, UINT);
-	for (int Flags = 0; Flags < 8; Flags++) {
-		int KeyFlags = ((Flags & 1) ? KEY_SHIFT : 0) | ((Flags & 2) ? KEY_CONTROL : 0) | ((Flags & 4) ? KEY_ALT : 0);
-		Frame->KeyFlags = KeyFlags;
-		*(int *)(Original + 0x200) = KeyFlags;
-		for (UINT nChar = 0; nChar < 0x120; nChar++) {
-			for (UINT nFlags = 0; nFlags < 0x400; nFlags += 0x80) {
-				int A = Frame->TranslateKey(nChar, 1, nFlags);
-				int B = At<KeyFn>(0x4a8210)(Original, NULL, nChar, 1, nFlags);
-				CHECK(A == B, "TranslateKey(%u, %u) with %x: %x, original %x", nChar, nFlags, KeyFlags, A, B);
-			}
-		}
-	}
-}
-
-void TestPlayer()
-{
-	TestSurface();
-	TestTranslateKey();
-	struct { uint32 Original; void (*Ours)(char *); const char *Expected; } Decoders[] = {
-		{0x4d9140, GetWindowTitle, "Tibia   "},
-		{0x4d92b0, GetWindowClassName, "TibiaClient"},
-	};
-	for (auto &D : Decoders) {
-		char A[64], B[64];
-		memset(A, 0x55, sizeof(A));
-		memset(B, 0x55, sizeof(B));
-		D.Ours(A);
-		At<TextFn>(D.Original)(B);
-		CHECK(memcmp(A, B, sizeof(A)) == 0 && strcmp(A, D.Expected) == 0, "decoded text '%s', original '%s'", A, B);
-	}
-}

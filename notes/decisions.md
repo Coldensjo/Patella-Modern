@@ -7452,3 +7452,67 @@ and enabled in .clang-tidy. The images are unchanged.
   (pecompare: 0 unexpected differences; `.text`, `.data`, `.pdata` and `.reloc` identical). macrocheck a338fa8
   issue-50: the 2,108 calls unchanged. All 11 targets with the whole .clang-tidy: no finding of
   readability-non-const-parameter, misc-const-correctness or readability-make-member-function-const.
+
+## The golden corpus: settings, scripts and player data (Patella-Modern issue #26)
+
+Settled by Claude Opus 5.5, November 4, 2026. tests/golden/ (status_tests.cpp, preferences_tests.cpp,
+script_tests.cpp, player_tests.cpp, help_tests.cpp, inventory_tests.cpp, talk_tests.cpp, container_tests.cpp,
+client_stubs.cpp; golden.h's helpers), tests/golden/CMakeLists.txt, cmake/OracleX86.cmake. notes/reconstruction.md,
+"Checking", describes the use; the section on issue #24 above the format.
+
+- **Ported** (high). Nine of the issue's ten tests, each with the oracle's count and 0 failures: Status 565,809,
+  Preferences 102,060, Script 458,232, PreferencesFile 112,155, Player 18,442, Help 70,631, Inventory 158,400, Talk
+  1,214,929, Container 192,832 (2,893,490 checks). The runner now replays 3,267,008 of difftest's 16,848,752 checks
+  and sysinctest's 67. The old test files are gone from tools/difftest (playertest.cpp keeps difftest.exe's link
+  stubs of Player.cpp and MainFrm.cpp); every CHECK is the old one, every count and random number too.
+- **Errors is not ported** (needs a later issue). Its our side is Map.cpp, Creatures.cpp, Objects.cpp (Tibia.dat),
+  graphics.cpp and the engines' start-up besides this issue's files, and it runs after difftest's Objects, Map,
+  Creatures, Graphics and GUI tests, whose patches of our functions it reads: "250 comparisons skipped (functions
+  redirected by earlier tests)" is part of its count. The runner can replay it only together with those tests (#27,
+  #28) or after it is made independent of them.
+- **Our side in the runner** (high). The tests call the reconstructed files: golden_client compiles Status, Preferences,
+  Script, Talk, Player, MainFrm, Surface, Help and Inventory against the MFC shim with the product's settings
+  (cmake/Warnings.cmake, Hardening.cmake), as the oracle's difftest compiles them against the shim. MFC's own headers
+  switch C4201 (nameless struct, graphics.h) off for every includer (afx.h); the shim does not, so the runner's
+  client targets do (/wd4201). Surface.cpp is compiled with PATELLA_VULKAN, as Patella.exe's (its getters are the
+  same code either way). The functions of the files not linked are aborting stubs (client_stubs.cpp), except the two
+  constructed at start-up (CWinApp for Player.cpp's theApp, TCallback for MainFrm.cpp's NoCallback; the latter is
+  GUI.cpp's body). Considered: the real x64 MFC (the client's: static MBCS MFC needs the static CRT the runner and
+  patella_core do not use); every client file (the stubs then grow to the GUI's fakes of difftest).
+- **sysinc.cpp's four recorders** (high). difftest.exe keeps sysinc.cpp out because its tests define GetMilliseconds,
+  RemoveFile, SetClipboardText and FileExists as recorders; the runner has sysinctest's test and these in one
+  program, so its golden_sysinc compiles sysinc.cpp with those four renamed (preprocessor definitions; sysinc.cpp
+  unchanged). Considered: a second runner executable for sysinctest.
+- **By value, again** (high; plan 4.3). The original's objects never cross as memory images:
+  - numbers and texts through `ORIGINAL_VALUE` / `ORIGINAL_TEXT` (golden::TText keeps NULL apart from "");
+  - a pointer the original was given back (the mouse-over text, a message's parameters) or one into its own objects
+    (a talkbox, a buffer it created, a line) as which of the test's objects it is, which the runner turns into its
+    own pointer;
+  - an object with pointers field by field: Script's readers and writers (File as NULL or not, Bytes as an offset
+    from String), Talk's buffers (fields, the cursor and the last line as indices, the lines by identity: a line
+    recorded in full the first time its address holds it), Container's elements through a layout projection (next
+    point);
+  - a file name relative to the test's TEMP directory (TEMP differs between recording and replay);
+  - big buffers by their changes since the last record (golden::OutputChanges: a reader's 1,000-byte string, the
+    error reports, the talkboxes, Container's entries), which took Status from 110 MB to 8 MB.
+  A whole-object memcmp of the old test is the same comparison field by field where both objects keep NULL in their
+  pointers wherever they were compared (Script's constructors and close); Talk's base constructor check compares the
+  fields and the bytes no field covers (the layouts differ; with both sides untouched, 0x55).
+- **Container's layouts** (high). Container.h's test compares template instances byte for byte in the original's
+  layout, and seven of its element types (and vector<T>'s header, which holds `T init`) have pointers. Each type is
+  described field by field (int, pointer, bytes with an alignment; a type without pointers as its bytes), laid out
+  with 4-byte pointers and with the build's. Our objects are projected to the original's layout for the comparison
+  (each field and the padding after it, which our padding after the same field holds; a pointer's upper half has no
+  counterpart), the random entries go into ours the other way (a pointer zero-extended), and the random numbers are
+  drawn for the original's sizes. In the oracle both layouts are the original's, both mappings copy every byte and
+  the comparisons are the old memcmps; a layout that does not fit stops the test (the oracle checks the original's
+  size against its own classes). Our new[] memory gets the test's pattern through the runner's replacement
+  operator new[] while the test runs (the oracle patches its CRT's operator new[] as before). Considered: stand-in
+  element types of the original's sizes (the runner would not test the client's instances).
+- **Talk's clock** (high). Both sides' _time32 is fixed. The oracle patches its static CRT's code; the runner's CRT
+  is ucrtbase's, out of a rel32 jump's reach, so the runner points its own import slot of _time32 at the same fake
+  for the length of the test (our Talk.cpp calls _time32 through that slot). The time zone must be the recording's
+  (_localtime32 on both sides): the same machine.
+- **Size** (form). The corpus is 190 MB (Container 82 MB, Talk 46 MB, Script 29 MB); local only, as before.
+- **Commits** (form). One commit per test, Preferences and PreferencesFile together (one source, shared helpers); the
+  first has the runner's new infrastructure. Each commit's runner and difftest were built and its tests replayed.

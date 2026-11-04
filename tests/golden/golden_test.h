@@ -38,6 +38,9 @@ void SetRandomSeed(uint32 Value);
 void RandomText(char *Text, int Length);
 #endif
 
+// status_tests.cpp: the clock GetMilliseconds returns (both sides' in the oracle).
+void SetTestClock(int Value);
+
 // The ported tests (each in difftest's order).
 void TestXTEA();
 void TestCharacters();
@@ -48,3 +51,13 @@ void TestBuffers();
 void TestSkins();
 void TestRegexp();
 void TestSysinc();
+// Issue #26.
+void TestStatus();
+void TestPreferences();
+void TestScript();
+void TestPreferencesFile();
+void TestPlayer();
+void TestHelp();
+void TestInventory();
+void TestTalk();
+void TestContainer();
