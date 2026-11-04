@@ -249,6 +249,16 @@ whose advanced graphics dialog (9,069 of its checks) is the x64 device choice in
 decision. Found: TDialogWindow::SetSize reads a deleted child (as the original; the runner keeps freed memory while
 DialogWindow runs). No src/ change. notes/decisions.md, "The golden corpus: the window tests (Patella-Modern issue
 #28, second part)".
+Golden corpus, Dialogs (Patella-Modern issue #28, third part, branch issue-28c, November 4, 2026; M6): Dialogs
+ported to tests/golden: 290,045 of its 299,174 checks replayed with 0 failures in Release and Debug (194,419 in its
+error round, whose counts are the oracle's); the 9,129 checks of the parts that open the advanced graphics dialog
+(3,263 in its rounds, 5,806 in its error rounds, 60 in three direct calls in the assertions; the x64 dialog has the
+device buttons of #31) retire with the oracle, the user's decision. golden::RetiredBegin/RetiredEnd: the oracle records
+a part's end (its checks, its values), the runner skips to it and restores what the later rounds read (seed, counters,
+the last dump, the clock of our last UpdateTimers call), and the replayed and retired checks together must be the
+oracle's. The dump prints members by type (the x86 words could not be rebuilt on x64 and depended on the address
+space). The runner replays 15,126,073 of difftest's checks and retires 9,129. No src/ change. notes/decisions.md, "The
+golden corpus: Dialogs and retired parts (Patella-Modern issue #28, third part)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -270,15 +280,15 @@ None.
 
 ## Last difftest
 
-Patella-Modern issue #28, second part (branch issue-28b, November 4, 2026): `python -I tools/build.py oracle-x86
---fresh` (CTest 4/4, 0 warnings) after DialogWindow, ContextMenus, ConsoleWindow, ContentWindows and DialogElements
-moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on
-(`golden_corpus`) the same counts. The x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13) replays
-14,836,028 of difftest's checks and sysinctest's 67, 0 failures (the first part's 12,858,032 as before, DialogWindow
-34,068, ContextMenus 41,660, ConsoleWindow 318,882, ContentWindows 221,270, DialogElements 1,362,116, each error round
-with the oracle's counts); not yet ported: difftest's 2,012,724 other checks (Dialogs, SurfaceDX, DX9, GL, Errors,
-MapWindow, MainWindow) and communicationtest's 1,134,513. src/ unchanged (no diff against 0ab4d3c); macrocheck
-0ab4d3c issue-28b: 2,108 calls, 0 differences.
+Patella-Modern issue #28, third part (branch issue-28c, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh`
+(CTest 4/4, 0 warnings) after Dialogs moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong
+checks, 0 failures (Dialogs 98,889 + 200,285 in its error round, as before); with recording on (`golden_corpus`) the
+same counts. The x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13) replays 15,126,073 of difftest's
+checks and sysinctest's 67, 0 failures: the second part's 14,836,028 as before and Dialogs' 290,045, with its 9,129
+checks of the advanced graphics dialog retired with the oracle (replayed + retired = 299,174, the oracle's); not yet
+ported: difftest's 1,713,550 other checks (SurfaceDX, DX9, GL, Errors, MapWindow, MainWindow) and
+communicationtest's 1,134,513. src/ unchanged (no diff against ce3ed2b); macrocheck ce3ed2b issue-28c: 2,108 calls,
+0 differences.
 
 Patella-Modern issue #57 (branch issue-57, November 4, 2026): TFixedString<N> and TStringBuffer
 (src/types/FixedString.h) for the client's text buffers; no strcpy, strcat, sprintf, vsprintf or gets left in src/

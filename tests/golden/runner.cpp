@@ -9,7 +9,9 @@
 // the machine that recorded it); --require makes that a failure (exit 1).
 //
 // Per test executable of the oracle (difftest, sysinctest, communicationtest), the runner replays the
-// ported tests and checks that each makes exactly the checks the oracle made and passes them; it lists
+// ported tests and checks that each makes exactly the checks the oracle made and passes them (a test's
+// retired parts, golden::RetiredBegin, are skipped: their checks are counted apart, and the replayed and the
+// retired ones together must be the oracle's); it lists
 // the oracle's tests that are not ported yet, with their checks. Exit code: 0 when every replayed test
 // passed with the oracle's check count, 1 on a failure or a stale corpus, 77 without a corpus.
 
@@ -66,7 +68,7 @@ const TExecutable Executables[] = {
 			{"ContextMenus", TestContextMenus},
 			{"ConsoleWindow", TestConsoleWindow},
 			{"ContentWindows", TestContentWindows},
-			{"DialogElements", TestDialogElements},
+			{"DialogElements", TestDialogElements}, {"Dialogs", TestDialogs},
 			{"Network", TestNetwork}, {"MainFrm", TestMainFrm}}},
 	{"sysinctest", {{"Sysinc", TestSysinc}}},
 	{"communicationtest", {}},
@@ -128,11 +130,11 @@ int main(int argc, char **argv)
 	}
 
 	bool Ok = true;
-	long long TotalReplayed = 0, TotalRecorded = 0;
+	long long TotalReplayed = 0, TotalRetired = 0, TotalRecorded = 0;
 	for (int e = 0; e < Count; e++) {
 		const TExecutable &Executable = Executables[e];
 		const golden::TManifest &Manifest = Manifests[e];
-		long long Replayed = 0, Missing = 0;
+		long long Replayed = 0, Retired = 0, Missing = 0;
 		int ReplayedTests = 0;
 		std::string NotPorted;
 		for (const TPorted &Test : Executable.Tests) {
@@ -158,6 +160,7 @@ int main(int argc, char **argv)
 				continue;
 			}
 			int ChecksBefore = Checks, FailuresBefore = Failures;
+			const long long RetiredBefore = golden::RetiredChecks();
 			try {
 				SetRandomSeed(golden::BeginReplay(Directory, Executable.Name, Test->Name));
 				if (GetRandomSeed() != Entry.Seed)
@@ -170,21 +173,38 @@ int main(int argc, char **argv)
 				continue;
 			}
 			int TestChecks = Checks - ChecksBefore, TestFailures = Failures - FailuresBefore;
-			printf("%s %s: %d checks, %d failures (the oracle: %lld checks)\n", Executable.Name, Test->Name,
-				TestChecks, TestFailures, Entry.Checks);
-			if (TestFailures != 0 || TestChecks != Entry.Checks)
+			// The checks of the test's retired parts (golden::RetiredBegin, issue #28): the oracle's, skipped.
+			const long long TestRetired = golden::RetiredChecks() - RetiredBefore;
+			if (TestRetired == 0)
+				printf("%s %s: %d checks, %d failures (the oracle: %lld checks)\n", Executable.Name, Test->Name,
+					TestChecks, TestFailures, Entry.Checks);
+			else
+				printf("%s %s: %d checks replayed + %lld retired with the oracle (#28/#31) = %lld, %d failures (the "
+					   "oracle: %lld checks)\n",
+					Executable.Name, Test->Name, TestChecks, TestRetired, TestChecks + TestRetired, TestFailures,
+					Entry.Checks);
+			if (TestFailures != 0 || TestChecks + TestRetired != Entry.Checks) {
+				if (TestChecks + TestRetired != Entry.Checks)
+					printf("golden: %s %s: %d replayed + %lld retired checks, not the oracle's %lld\n", Executable.Name,
+						Test->Name, TestChecks, TestRetired, Entry.Checks);
 				Ok = false;
+			}
 			Replayed += TestChecks;
+			Retired += TestRetired;
 			ReplayedTests++;
 		}
 		printf("%s: %lld of the oracle's %lld checks replayed (%d tests)", Executable.Name, Replayed, Manifest.Checks,
 			ReplayedTests);
+		if (Retired != 0)
+			printf(", %lld retired with the oracle", Retired);
 		if (!NotPorted.empty())
 			printf("; not ported yet: %lld checks (%s)", Missing, NotPorted.c_str());
 		printf("\n");
 		TotalReplayed += Replayed;
+		TotalRetired += Retired;
 		TotalRecorded += Manifest.Checks;
 	}
-	printf("golden: %lld of the oracle's %lld checks replayed, %d failures\n", TotalReplayed, TotalRecorded, Failures);
+	printf("golden: %lld of the oracle's %lld checks replayed, %lld retired with the oracle, %d failures\n",
+		TotalReplayed, TotalRecorded, TotalRetired, Failures);
 	return Ok && Failures == 0 ? 0 : 1;
 }

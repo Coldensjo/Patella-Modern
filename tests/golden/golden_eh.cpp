@@ -162,7 +162,7 @@ void OurSideAssertion(int Value)
 // --- The round ---------------------------------------------------------------------------------------
 
 TErrorRound::TErrorRound(const char *_Test)
-	: Test(_Test), Checks0(Checks), Compared0(ThrownCompared), Threw0(ThrownThrew)
+	: Test(_Test), Checks0(Checks), Compared0(ThrownCompared), Threw0(ThrownThrew), Retired0(golden::RetiredChecks())
 {
 	Trace = getenv("EH_TRACE") != nullptr && atoi(getenv("EH_TRACE")) != 0;
 	Trace2 = Trace && atoi(getenv("EH_TRACE")) >= 2;
@@ -196,9 +196,15 @@ void TErrorRound::Finish()
 			for (auto &Line : File.second)
 				printf("%s errors line: %s %d -> %d\n", Test, File.first.c_str(), Line.first, Line.second);
 	}
-	int Counts[3] = {Checks - Checks0, ThrownCompared - Compared0, ThrownThrew - Threw0};
+	// The round's checks: those the runner skipped as retired (golden::RetiredBegin) count as the oracle's
+	// (the test restores ThrownCompared and ThrownThrew after a retired part).
+	const int Retired = (int)(golden::RetiredChecks() - Retired0);
+	int Counts[3] = {Checks - Checks0 + Retired, ThrownCompared - Compared0, ThrownThrew - Threw0};
 	printf("%s errors: %d checks, %d exceptions compared (%d calls that threw)\n", Test, Counts[0], Counts[1],
 		Counts[2]);
+	if (Retired != 0)
+		printf("%s errors: %d of the checks replayed, %d retired with the oracle\n", Test, Counts[0] - Retired,
+			Retired);
 	// The corpus: the oracle's counts; the runner's must be the same (not a check: the counts stay
 	// difftest's).
 	int Recorded[3] = {Counts[0], Counts[1], Counts[2]};

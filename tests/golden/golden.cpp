@@ -148,6 +148,10 @@ struct TRecorder {
 	FILE *File = nullptr;
 	std::map<std::string, uint32_t> Names;
 	long long Records = 0;
+	// A retired part that runs (RetiredBegin): the test's checks and records at its start.
+	bool InRetired = false;
+	int RetiredChecks = 0;
+	long long RetiredRecords = 0;
 };
 TRecorder *Recorder;
 
@@ -236,8 +240,10 @@ struct TReplay {
 	size_t Position = 0;
 	std::vector<std::string> Names;
 	long long Records = 0;
+	long long Retired = 0; // the checks of the test's retired parts (RetiredBegin)
 };
 TReplay *Replay;
+long long TotalRetired = 0;
 
 [[noreturn]] void Stale(const std::string &Message)
 {
@@ -549,13 +555,76 @@ void EndReplay(int Checks)
 	if (RecordedRecords != (uint64_t)Replay->Records)
 		Stale("the recording has " + std::to_string(RecordedRecords) + " values, the test used "
 			+ std::to_string(Replay->Records));
-	if (RecordedChecks != (uint64_t)Checks)
+	if (RecordedChecks != (uint64_t)(Checks + Replay->Retired))
 		Stale("the oracle made " + std::to_string(RecordedChecks) + " checks, the runner "
-			+ std::to_string(Checks));
+			+ std::to_string(Checks) + " and " + std::to_string(Replay->Retired) + " retired");
 	CurrentMode = TMode::Off;
 	delete Replay;
 	Replay = nullptr;
 }
+
+bool RetiredBegin(const char *Name, int Checks)
+{
+	InputBytes("retired", Name, strlen(Name));
+	if (CurrentMode == TMode::Record) {
+		if (Recorder->InRetired)
+			Fail(std::string("retired part \"") + Name + "\" inside another");
+		Recorder->InRetired = true;
+		Recorder->RetiredChecks = Checks;
+		Recorder->RetiredRecords = Recorder->Records;
+		return false;
+	}
+	if (CurrentMode != TMode::Replay)
+		return false;
+	// The part's values, up to its "retired end": skipped by their sizes (a value's name is checked, not
+	// its contents).
+	long long Skipped = 0;
+	for (;;) {
+		char Where[64];
+		snprintf(Where, sizeof(Where), " (record %lld)", Replay->Records);
+		if (NextTag() != TAG_VALUE)
+			Stale(std::string("the retired part \"") + Name + "\"" + Where + " has no end: the test changed since the recording");
+		uint64_t Id = GetVarint();
+		if (Id >= Replay->Names.size())
+			Stale("an undefined name");
+		const std::string &Recorded = Replay->Names[(size_t)Id];
+		char Role = (char)GetByte();
+		char Type = (char)GetByte();
+		size_t Size = GetByte();
+		uint64_t Count = GetVarint();
+		const uint8_t *Value = GetBlock((size_t)(Count * Size));
+		Replay->Records++;
+		if (Recorded == "retired")
+			Stale(std::string("a retired part inside the retired part \"") + Name + "\"" + Where);
+		if (Recorded != "retired end") {
+			Skipped++;
+			continue;
+		}
+		uint64_t End[2];
+		if (Role != 'O' || Type != 'i' || Size != sizeof(End[0]) || Count != 2)
+			Stale(std::string("\"retired end\"") + Where + ": recorded as another type or size");
+		memcpy(End, Value, sizeof(End));
+		if (End[1] != (uint64_t)Skipped)
+			Stale(std::string("the retired part \"") + Name + "\"" + Where + " has " + std::to_string(Skipped)
+				+ " values, its end says " + std::to_string(End[1]));
+		Replay->Retired += (long long)End[0];
+		TotalRetired += (long long)End[0];
+		return true;
+	}
+}
+
+void RetiredEnd(int Checks)
+{
+	if (CurrentMode != TMode::Record)
+		return; // the runner read the end in RetiredBegin
+	if (!Recorder->InRetired)
+		Fail("a retired part's end without its start");
+	Recorder->InRetired = false;
+	int64_t End[2] = {Checks - Recorder->RetiredChecks, Recorder->Records - Recorder->RetiredRecords};
+	Output("retired end", End);
+}
+
+long long RetiredChecks() { return TotalRetired; }
 
 void Exchange(const char *Name, char Role, char Type, size_t ElementSize, size_t Count, void *Data)
 {

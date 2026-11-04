@@ -102,7 +102,8 @@ add_library(golden_client_tests OBJECT
 	contextmenus_tests.cpp
 	consolewindow_tests.cpp
 	contentwindows_tests.cpp
-	dialogelements_tests.cpp)
+	dialogelements_tests.cpp
+	dialogs_tests.cpp)
 golden_client_settings(golden_client_tests)
 # Network (issue #30): network_tests.cpp in a directory of its own (network/CMakeLists.txt, its exception
 # model).

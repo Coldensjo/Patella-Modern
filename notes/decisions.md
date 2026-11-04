@@ -8071,3 +8071,71 @@ vsprintf or gets any more (167 calls on main b061421, 0 now; a grep gate in the 
   build; the globals moved). compare_rendering.py's add_import patches the new x64 images (patcap.dll and
   PatcapLoaded imported), compare_imports.py reports the new oracle as the old one, and the self-tests of
   reference.py, testmode_check.py and client_state.py pass. No client and no server were started.
+
+## The golden corpus: Dialogs and retired parts (Patella-Modern issue #28, third part)
+
+Settled by Claude Opus 5.5, November 4, 2026; the retirement decided by the user the same day. tests/golden/
+(dialogs_tests.cpp moved from tools/difftest/dialogstest.cpp, golden.h/.cpp's RetiredBegin and RetiredEnd,
+golden_eh's TErrorRound, runner.cpp), tests/golden/CMakeLists.txt, cmake/OracleX86.cmake. notes/reconstruction.md,
+"Checking", describes the use; the sections on issues #24, #26, #27, #54, #30 and #28 above the format and the earlier
+helpers.
+
+- **Retired with the oracle** (decided by the user, November 4, 2026). The rounds of Dialogs that open the advanced
+  graphics dialog compare the DirectX5, DirectX9 and OpenGL buttons, which the x64 Dialogs.cpp replaces by the device
+  buttons of issue #31 (its creator asks the Vulkan device queries, its tree has the device line). They are not
+  replayed: they retire with the oracle (M6), as issue #29's engine tests do. The device buttons are covered by the
+  Vulkan tests and the reference recordings.
+- **Retired parts** (high). golden::RetiredBegin(Name, Checks) and RetiredEnd(Checks) mark a part of a test that the
+  runner does not replay. The oracle runs it and records two ordinary values around it: the input "retired" (the
+  part's name) before, the output "retired end" (its checks and the number of values it recorded) after. The runner
+  skips the part's values by their sizes up to "retired end", checks that their number is the recorded one, and adds
+  the part's checks to golden::RetiredChecks(). EndReplay expects the oracle's checks of a test to be the replayed ones
+  plus the retired ones; TErrorRound::Finish counts a round's retired checks as the oracle does (its printed and
+  recorded counts stay the oracle's) and prints the replayed and retired ones apart; the runner prints each test's
+  replayed and retired checks and fails when their sum is not the oracle's. The format version stays 1 (no new tag).
+  Considered: a tag of its own with the part's length (the recorder writes sequentially; patching the length in
+  afterwards gains nothing over skipping by sizes).
+- **Staying in step** (high). After a retired part the test passes, as outputs of the original, what the later rounds
+  read of it: Random()'s seed, the operation counts (the summary line), the error round's fake-call counts (MaxTicks,
+  LastTicks: the failing calls of later rounds), the exceptions the part compared (ThrownCompared, ThrownThrew: the
+  error round's summary), the original's last dump (OutputTextChanges records the next dump against it; without it
+  2,603 checks failed after the first retired round) and the clock of our side's last UpdateTimers call (GUI.cpp's
+  function-local LastTime, from which the next call measures the elapsed time; without it 59 timer checks failed). The
+  runner calls UpdateTimers once at that clock: no timer is left between rounds, so the call updates none and only
+  sets LastTime. The world, the arguments and the clock are new in every round, and the table of blocks is empty
+  between rounds, so nothing else is needed; the passing replay shows it.
+- **The retired checks: 9,129, not 9,069** (high; reported to the user). The parts: the 41 main rounds that open the
+  dialog (3,263 checks), its 190 error-round rounds (5,806) and, found here, the three direct calls on a newly opened
+  advanced graphics dialog in the assertions' second loop ("remove a button" and an unknown event, 60 checks). The
+  second part's measurement (3,263 + 5,806, a temporary instrumentation) counted the first two; the third opens the
+  same dialog, whose x64 creator differs, so its checks cannot be replayed with the oracle's results either. The
+  runner replays 290,045 of Dialogs' 299,174 checks and retires 9,129.
+- **The dump by member** (high). The old dump printed every 32-bit word of each object from +0x0c to its x86 size and
+  named each word by where it would point: a tree component, a string, a timer, a block of the round
+  (`H<size>+<offset>`), a module (`S`), the stack (`K`), else a number. The runner's x64 objects have no such words,
+  and the words depended on the oracle's address space: text in char arrays (the hotkeys, the caption, a text
+  button's text) read as `S` where the bytes fell into a DLL, an object number or house identifier (Random()) as `S`
+  or `K`, block sizes in x86 bytes. Now each class's members are printed by their types, the same text from the
+  original's x86 objects (through our x86 classes, which have its layout), ours in the oracle and ours in the runner:
+  numbers as numbers, bools and bytes as their byte (an unset one shows the fill pattern), a char array as its text and
+  the bytes after it in runs (the old words compared those too), a pointer by where it points as before, with a block
+  as `H` or `D` and the offset when it is not the start (no x86 size), the fill pattern as `ab`; the radio and focus
+  groups, the vectors (fields and entries), a label's lines, a multi-state button's states, the graphics dialog's
+  modes and the channel IDs by their contents. Every member of every class the test builds is printed (DialogElements.h
+  and Dialogs.h's member lists). The oracle's counts are unchanged (Dialogs 299,174: 98,889 + 200,285 in its error
+  round, 61,097 exceptions compared, 4,786 calls that threw; difftest 16,848,752, 0 failures). Considered: projecting
+  our x64 objects onto the x86 words (it would need the oracle's module and heap ranges for every non-pointer word, and
+  the x86 sizes of every block).
+- **By value** (high; plan 4.3). Per comparison the corpus holds the original's log, its dump (by its changes), its
+  fake-call count, whether it has a frame (the runner's Frame[ORIGINAL] is a placeholder that is never read, or NULL)
+  and in the error round what it threw. The runner redirects its own functions to the fakes with golden::RedirectOwn,
+  among them operator new and new[] (to the pattern), operator delete and delete[] with their sized forms (to the
+  table of blocks), the Send functions and CancelPatch (client_stubs.cpp's; the oracle's are this file's, as before)
+  and IsClipboardEmpty and GetClipboardText (sysinc.cpp's).
+- **The order of Random()** (high; #55). RandomArguments' `sprintf(Caption, "%s %d", Random() % 2 ? ... : ...,
+  Random() % 100)` is two statements in the x86 oracle's order (the number first); the captions of all 1,733 creator
+  dumps of a full run are the old ones.
+- **Mutation check** (high). A runner-only change of one fake's log text (SetActionState's) gave 16,433 failures in
+  Dialogs (reverted).
+- **Size** (form). Dialogs.bin is 52 MB; the corpus is 660 MB, local only, as before.
+- **Commits** (form). The retired parts, then Dialogs with the runner's reporting, then these notes.

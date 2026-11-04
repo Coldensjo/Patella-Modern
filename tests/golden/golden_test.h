@@ -90,3 +90,5 @@ void TestContextMenus();
 void TestConsoleWindow();
 void TestContentWindows();
 void TestDialogElements();
+// Issue #28 (third part).
+void TestDialogs();
