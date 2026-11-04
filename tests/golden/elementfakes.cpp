@@ -359,12 +359,7 @@ TFakeLabel::TFakeLabel(TFont Font, const char *_Text)
 	ReportElement(this, "Label", "%d,%d,%d,%d,%d,%s", Font.FontNumber, Font.Color.R, Font.Color.G, Font.Color.B,
 		Font.Alignment, _Text);
 }
-// mapwindowtest.cpp's: the hint button is never made.
-TFakeBlinkingButton::TFakeBlinkingButton(int, int, int, int, int, int, TCallback, const char *)
-{
-	NotPorted("TFakeBlinkingButton");
-}
-// The other fakes: dialogwindow_tests.cpp, contextmenus_tests.cpp, consolewindow_tests.cpp and
-// contentwindows_tests.cpp, on both sides.
+// The other fakes: dialogwindow_tests.cpp, contextmenus_tests.cpp, consolewindow_tests.cpp,
+// contentwindows_tests.cpp and mapwindow_tests.cpp (the blinking button), on both sides.
 
 #endif

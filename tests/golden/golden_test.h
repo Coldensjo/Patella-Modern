@@ -42,12 +42,16 @@ void RandomText(char *Text, int Length);
 // #28): on x86 thiscall passes this in ECX, which a __fastcall function takes as its first parameter, with a
 // dummy second one for EDX; on x64 every member function takes this as its first argument, as a plain
 // function does. So: `R GOLDEN_THISCALL Fake(GOLDEN_THIS, the member's parameters...)` (this unnamed).
+// A fake that reads its object names this: `R GOLDEN_THISCALL Fake(GOLDEN_THIS_NAMED(TCreature *This), ...)`
+// (issue #27).
 #if GOLDEN_ORACLE
 #define GOLDEN_THISCALL __fastcall
 #define GOLDEN_THIS void *, void *
+#define GOLDEN_THIS_NAMED(Declaration) Declaration, void *
 #else
 #define GOLDEN_THISCALL
 #define GOLDEN_THIS void *
+#define GOLDEN_THIS_NAMED(Declaration) Declaration
 #endif
 
 // status_tests.cpp: the clock GetMilliseconds returns (both sides' in the oracle).
@@ -92,3 +96,5 @@ void TestContentWindows();
 void TestDialogElements();
 // Issue #28 (third part).
 void TestDialogs();
+// Issue #27 (second part; ExePath as TestObjects').
+void TestMapWindow(const char *ExePath);

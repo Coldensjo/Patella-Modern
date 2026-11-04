@@ -272,17 +272,6 @@ void TTestSurface::GetSurfaceRect(int Surface, TRect *Rect)
 	Rect->height = CacheHeight;
 }
 
-#if !GOLDEN_ORACLE
-// The slots mapwindowtest.cpp defines in the oracle (MapWindow is not ported yet): never called here.
-void TTestSurface::FillRectangle(int, TRect, TRGBColor) { abort(); }
-void TTestSurface::DrawFrameClipped(int, TRect, int, TRGBColor, TRect) { abort(); }
-void TTestSurface::BlitRect(int, int, int, int, TRect) { abort(); }
-void TTestSurface::StretchBlitRect(int, TRect, int, TRect) { abort(); }
-void TTestSurface::ShadeRectangles(int, int, TRect *, TRGBColor *) { abort(); }
-bool TTestSurface::SurfaceRecreated(int) { abort(); }
-bool TTestSurface::CanShadeRectangles() { abort(); }
-#endif
-
 namespace GraphicsTest {
 
 #if GOLDEN_ORACLE
