@@ -62,6 +62,8 @@ without Tibia.exe. Details: `notes/reconstruction.md`, "Checking", "The golden c
 (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/testmode/*.cpp
 src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp
 tests/golden/*.cpp tests/golden/*.h`.
+The Microsoft CRT's and compiler's own spellings (`_snprintf`, `_stricmp`, `__cdecl`, `#pragma warning`...) go
+through `src/compat/msvc.h` and `msvc_io.h` (issue #43), which keep their semantics on every platform.
 Run clang-tidy only through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>`,
 never `clang-tidy --fix` directly: until M5 no change may touch the arguments of TASSERT*, TERROR* or TEND*
 (stringized into the messages difftest compares), and the wrapper reverts every fix inside them. The product
