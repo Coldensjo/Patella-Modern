@@ -298,10 +298,10 @@ void *NewBlinkingButton(void *This, int x, int y, int S1, int S2, int S3, int S4
 	exit(1);
 }
 
-// consolewindowtest.cpp's in the oracle: the varargs constructor.
-void *NewMultiStateButton(void *, int, int, const char *, int, ...) { NotPorted("TFakeMultiStateButton"); }
-
 } // namespace
+
+// consolewindow_tests.cpp: the varargs constructor (both sides).
+void *NewMultiStateButton(void *This, int x, int y, const char *Tooltip, int States, ...);
 
 void PatchElementFakes(void (*Redirect)(void *Function, void *Target))
 {
@@ -342,11 +342,8 @@ void PatchElementFakes(void (*Redirect)(void *Function, void *Target))
 
 // --- The runner's definitions of the fakes whose test is not ported yet ---------------------------------
 //
-// A ported test reaches only what it needs of these, and only outside the tests that own them (whose flags,
-// consolewindowtest.cpp's Testing and contentwindowstest.cpp's ElementCreated, are off then):
-// TFakeSkinButton's constructor (DialogWindow's skin buttons) and TFakeEditLine's members (ContextMenus' edit
-// line), which do there what the oracle's do (the fields, the position and the size; no log, no report). The
-// rest stop the runner: a ported test that reaches one needs that test's fakes ported first.
+// A ported test reaches none of these while contentwindowstest.cpp's ElementCreated is off; they stop the
+// runner: a ported test that reaches one needs that test's fakes ported first.
 
 void (*ElementCreated)(void *Object, const char *Kind, const char *Arguments) = nullptr;
 void ReportElement(void *, const char *Kind, const char *, ...)
@@ -355,71 +352,10 @@ void ReportElement(void *, const char *Kind, const char *, ...)
 		NotPorted(Kind);
 }
 
-TFakeSkinButton::TFakeSkinButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback Callback, const char *,
-	int)
-{
-	ButtonUp = _ButtonUp;
-	ButtonDown = _ButtonDown;
-	memset(Data2C, 0, sizeof(Data2C));
-	memcpy(Data2C, &Callback, sizeof(Callback));
-	SetPosition(x, y);
-	SetSize(16, 16);
-}
+// TFakeSkinButton's, TFakeToggleButton's and TFakeMultiStateButton's constructors: consolewindow_tests.cpp.
 void TFakeSkinButton::SetRadioButtonGroup(TRadioButtonGroup *) { NotPorted("TFakeSkinButton::SetRadioButtonGroup"); }
-TFakeToggleButton::TFakeToggleButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback Callback,
-	const char *Tooltip1, const char *, int Param)
-	: TFakeSkinButton(x, y, _ButtonUp, _ButtonDown, Callback, Tooltip1, Param)
-{
-	NotPorted("TFakeToggleButton");
-}
-TFakeMultiStateButton::TFakeMultiStateButton(int x, int y, const char *Tooltip, int, ...)
-	: TFakeSkinButton(x, y, 0, 0, TCallback(), Tooltip, 0)
-{
-	NotPorted("TFakeMultiStateButton");
-}
-void TFakeScrollBarRange::SetRange(int, int, int, int) { NotPorted("TFakeScrollBarRange::SetRange"); }
 void TFakeScrollBarRange::SetValue(int) { NotPorted("TFakeScrollBarRange::SetValue"); }
-TFakeScrollBar::TFakeScrollBar(TRect, int, int, int, int, int) { NotPorted("TFakeScrollBar"); }
-// The edit line (ContextMenus' edit line derives from it): consolewindowtest.cpp's members as they are outside
-// ConsoleWindow's test, the fields only (their logs are off then); Active is the byte the oracle's sets in
-// Data30 (+0x58).
-TFakeEditLine::TFakeEditLine(TRect, int, int)
-{
-	Text = new char[256];
-	Text[0] = 0;
-	memset(Data30, 0, sizeof(Data30));
-	Data5C = -1;
-	Data60 = 0;
-	memset(Data64, 0, sizeof(Data64));
-	Data66 = false;
-	memset(Data67, 0, sizeof(Data67));
-}
-void TFakeEditLine::SetActive(bool Active)
-{
-	Data30[offsetof(TEditLine, Active) - offsetof(TEditLine, MaxLength)] = Active ? 1 : 0;
-	if (!Active)
-		Data60 = 0;
-}
-void TFakeEditLine::SetText(const char *_Text)
-{
-	strncpy(Text, _Text, 255);
-	Text[255] = 0;
-	Data5C = -1;
-	Data60 = 0;
-}
-void TFakeEditLine::Clear()
-{
-	Text[0] = 0;
-	Data5C = -1;
-	Data60 = 0;
-}
-void TFakeEditLine::UnknownA8() {}
-void TFakeEditLine::UnknownAC() {}
-void TFakeEditLine::UnknownB0() {}
-void TFakeEditLine::UnknownB4() {}
-void TFakeEditLine::SetDisabled(bool ReadOnly) { Data66 = ReadOnly; }
-void TFakeEditLine::UnknownBC() {}
-void TFakeEditLine::SetFont(TFont) {}
+// TFakeScrollBar's constructor, TFakeScrollBarRange::SetRange and TFakeEditLine's members: consolewindow_tests.cpp.
 // TFakeFormattedText: contextmenus_tests.cpp.
 TFakeBorder::TFakeBorder(TWindow *, int) { NotPorted("TFakeBorder"); }
 TFakeBorder::TFakeBorder(TWindow *, int, int, int, int, int, int, int, int, int, int) { NotPorted("TFakeBorder"); }

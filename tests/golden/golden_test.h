@@ -87,3 +87,4 @@ void TestGUI();
 // Issue #28 (second part).
 void TestDialogWindow();
 void TestContextMenus();
+void TestConsoleWindow();

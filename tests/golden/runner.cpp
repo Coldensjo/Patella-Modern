@@ -64,6 +64,7 @@ const TExecutable Executables[] = {
 			{"Creatures", [] { TestCreatures(nullptr); }},
 			{"Graphics", [] { TestGraphics(nullptr); }}, {"GUI", TestGUI}, {"DialogWindow", TestDialogWindow},
 			{"ContextMenus", TestContextMenus},
+			{"ConsoleWindow", TestConsoleWindow},
 			{"Network", TestNetwork}, {"MainFrm", TestMainFrm}}},
 	{"sysinctest", {{"Sysinc", TestSysinc}}},
 	{"communicationtest", {}},

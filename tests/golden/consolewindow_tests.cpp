@@ -1,4 +1,5 @@
-// Differential tests of ConsoleWindow.cpp against the original code.
+// difftest.exe's ConsoleWindow test (moved here from tools/difftest/consolewindowtest.cpp, issue #28):
+// ConsoleWindow.cpp against the original, as a golden-corpus test (golden.h).
 //
 // Every round builds two consoles, one from the image's constructor (0x422410)
 // and one from ours, in memory with the same contents, sizes them and opens
@@ -32,31 +33,52 @@
 // exercised: the inputs keep to what the game does (a channel to write in
 // has the data its talk mode needs, a dragged tab stays in the bar, Talk.cpp's
 // changes are followed by the console's change flag).
+//
+// By value (plan 4.3): the original's side exists in the oracle only (every use of it is inside ORIGINAL or
+// #if GOLDEN_ORACLE); the runner has our console alone. Per comparison the corpus holds the original's log
+// (text), its dump (text, by its changes since the last one, golden::OutputTextChanges), the results of its
+// calls (and the file its SaveChannel wrote), how many logged fake calls its call made (the error round's
+// failing call is drawn from them) and in the error round what each call threw. The world, the buffers and
+// the operands are the test's, as before; the original's buffers exist in the oracle only. The DialogElements
+// fakes defined here (the edit line, the scroll bar, the buttons) are elementfakes.h's, with our x64 layout
+// in the runner. Our _time32 is the runner's import slot, as in Talk's test (golden::FindImport).
 
-#include "difftest.h"
-#include "../../tests/golden/elementfakes.h"
-#include "imageeh.h"
-#include "../../src/ConsoleWindow.h"
-#include "../../src/Communication.h"
-#include "../../src/Creatures.h"
-#include "../../src/GUI.h"
-#include "../../src/Help.h"
-#include "../../src/Preferences.h"
-#include "../../src/Skins.h"
-#include "../../src/Status.h"
-#include "../../src/Surface.h"
-#include "../../tests/golden/testsurface.h"
-#include "../../src/Talk.h"
-#include "../../src/Utils.h"
-#include "../../src/graphics.h"
+#include "golden_test.h"
+
+#include "elementfakes.h"
+#include "golden_eh.h"
+#include "testsurface.h"
+#if GOLDEN_ORACLE
+#include "../../tools/difftest/imageeh.h"
+#else
+#include "golden_patch.h"
+#endif
+
+#include "Communication.h"
+#include "ConsoleWindow.h"
+#include "Creatures.h"
+#include "GUI.h"
+#include "Help.h"
+#include "Preferences.h"
+#include "Skins.h"
+#include "Status.h"
+#include "Surface.h"
+#include "Talk.h"
+#include "Utils.h"
+#include "graphics.h"
+
 #include <direct.h>
 #include <map>
 #include <new>
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <time.h>
 #include <vector>
 
+#if GOLDEN_ORACLE
 static_assert(sizeof(TLineFormat) == 0x28, "TLineFormat is 0x28 bytes");
 static_assert(offsetof(TLineFormat, FontNumber) == 0x1c && offsetof(TLineFormat, LineEnd) == 0x24, "TLineFormat layout");
 static_assert(sizeof(TTextWindow) == 0x94, "TTextWindow is 0x94 bytes");
@@ -69,7 +91,8 @@ static_assert(sizeof(TTab) == 0x58 && offsetof(TTab, Callback) == 0x4c && offset
 static_assert(sizeof(TTabBar) == 0x40 && offsetof(TTabBar, Busy) == 0x3c && offsetof(TTabBar, Changed) == 0x3d,
 	"TTabBar layout");
 static_assert(sizeof(TConsoleWindow) == 0x6c && offsetof(TConsoleWindow, History) == 0x48
-	&& offsetof(TConsoleWindow, TalkMode) == 0x68, "TConsoleWindow layout");
+		&& offsetof(TConsoleWindow, TalkMode) == 0x68,
+	"TConsoleWindow layout");
 static_assert(sizeof(TFakeEditLine) == 0x68 && offsetof(TFakeEditLine, Text) == 0x2c && offsetof(TFakeEditLine, Data60) == 0x60,
 	"TEditLine layout");
 static_assert(sizeof(TSkinButton) == 0x44 && sizeof(TToggleButton) == 0x50 && offsetof(TToggleButton, State) == 0x44,
@@ -77,10 +100,22 @@ static_assert(sizeof(TSkinButton) == 0x44 && sizeof(TToggleButton) == 0x50 && of
 static_assert(sizeof(TMultiStateButton) == 0x58, "TMultiStateButton is 0x58 bytes");
 static_assert(sizeof(TScrollBar) == 0x38 && offsetof(TScrollBar, Range) == 0x2c && offsetof(TScrollBarRange, Value) == 0x30,
 	"scroll bar layout");
+#endif
+
+// TFakeEditLine's Active (TEditLine::Active), a byte of Data30: +0x58 - 0x30 in the oracle.
+static const size_t EditActive = offsetof(TEditLine, Active) - offsetof(TEditLine, MaxLength);
+
+// The test's own definitions: in a namespace of their own (the other window tests, linked into the same
+// executable, define classes of the same names at global scope). The fakes' members (elementfakes.h's
+// classes) are global; they see the namespace through the using-directive below.
+namespace ConsoleWindowTest {
 
 // --- Logs and names ------------------------------------------------------------------
 
-enum { OURS = 0, ORIGINAL = 1 };
+enum { OURS = 0,
+	ORIGINAL = 1 };
+// The sides that have objects: both in the oracle, ours in the runner.
+static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
 static int Side;
 static bool Testing; // the DialogElements fakes log only while this test runs
 static std::string Log[2];
@@ -140,10 +175,18 @@ static void *FakeVtable(void *Ours, bool Window)
 {
 	if (ConsoleRound == NULL || Side != ORIGINAL)
 		return Ours;
+#if GOLDEN_ORACLE
 	void *Hybrid = ImageSideVtable(Ours, Window ? OurWindowVtable : OurElementVtable, Window ? 0x564528 : 0x5645c8);
 	Kinds[ORIGINAL][Hybrid] = Kinds[ORIGINAL][Ours];
 	return Hybrid;
+#else
+	(void)Window;
+	abort(); // the runner has no original side
+#endif
 }
+
+} // namespace ConsoleWindowTest
+using namespace ConsoleWindowTest;
 
 TFakeEditLine::TFakeEditLine(TRect Area, int MaxLength, int Param)
 {
@@ -164,7 +207,7 @@ TFakeEditLine::TFakeEditLine(TRect Area, int MaxLength, int Param)
 void TFakeEditLine::SetActive(bool Active)
 {
 	Logf("EActive%d;", Active ? 1 : 0);
-	Data30[0x58 - 0x30] = Active ? 1 : 0;
+	Data30[EditActive] = Active ? 1 : 0;
 	if (!Active)
 		Data60 = 0;
 }
@@ -197,6 +240,8 @@ void TFakeEditLine::SetFont(TFont Font)
 {
 	Logf("EFont%d,%d,%d,%d,%d;", Font.FontNumber, Font.Color.R, Font.Color.G, Font.Color.B, Font.Alignment);
 }
+namespace ConsoleWindowTest {
+
 // The console's edit line: typing appends printable characters, Backspace
 // deletes one.
 class TTestEditLine : public TFakeEditLine {
@@ -217,6 +262,8 @@ public:
 	}
 	void HandleEvent(int Event) { Logf("EEvent%d;", Event); }
 };
+
+} // namespace ConsoleWindowTest
 
 TFakeScrollBar::TFakeScrollBar(TRect Area, int Param2, int Param3, int Param4, int Param5, int Step)
 {
@@ -245,6 +292,8 @@ void TFakeScrollBarRange::SetRange(int Minimum, int Maximum, int _Value, int Vis
 		_Value = Minimum;
 	Value = _Value;
 }
+namespace ConsoleWindowTest {
+
 class TTestScrollBar : public TFakeScrollBar {
 public:
 	TTestScrollBar() : TFakeScrollBar(TRect(0, 0, 0, 0), 0, 0, 0, 0, 0) {}
@@ -261,6 +310,8 @@ public:
 		return true;
 	}
 };
+
+} // namespace ConsoleWindowTest
 
 // The button's callback is kept in Data2C (the test presses buttons).
 TFakeSkinButton::TFakeSkinButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback Callback, const char *Tooltip,
@@ -319,6 +370,8 @@ TFakeMultiStateButton::TFakeMultiStateButton(int x, int y, const char *Tooltip, 
 	if (Testing)
 		SetVtable(this, FakeVtable(TestMultiVtable, false));
 }
+namespace ConsoleWindowTest {
+
 class TTestSkinButtonC : public TFakeSkinButton {
 public:
 	TTestSkinButtonC() : TFakeSkinButton(0, 0, 0, 0, TCallback(), NULL, 0) {}
@@ -343,7 +396,10 @@ public:
 	void Draw(int Surface, int x, int y) { Logf("D%s,%d,%d,%d,%d;", Name(this).c_str(), Surface, x, y, State); }
 };
 
-// Both sides' 0x4672d0 (elementfakes.cpp): a varargs constructor, __cdecl with this as its first argument.
+} // namespace ConsoleWindowTest
+
+// Both sides' 0x4672d0 (elementfakes.cpp): a varargs constructor, __cdecl with this as its first argument (on
+// x64 a member function's this comes first as well).
 void *__cdecl NewMultiStateButton(void *This, int x, int y, const char *Tooltip, int States, ...)
 {
 	TFakeMultiStateButton *Button = new (This) TFakeMultiStateButton(x, y, Tooltip, 0);
@@ -355,6 +411,8 @@ void *__cdecl NewMultiStateButton(void *This, int x, int y, const char *Tooltip,
 	va_end(Arguments);
 	return Button;
 }
+
+namespace ConsoleWindowTest {
 
 // --- The text buffers ------------------------------------------------------------------
 
@@ -375,16 +433,53 @@ public:
 		Writable = _Spec.Writable;
 		Closed = false;
 	}
-	bool CanWrite() { Logf("B%d.Can;", Index); return Writable; }
-	bool SetWriteEnabled(bool Value) { Logf("B%d.SetW%d;", Index, Value ? 1 : 0); Writable = Value; return Value; }
-	bool isDefault() { Logf("B%d.Def;", Index); return Spec.Default; }
+	bool CanWrite()
+	{
+		Logf("B%d.Can;", Index);
+		return Writable;
+	}
+	bool SetWriteEnabled(bool Value)
+	{
+		Logf("B%d.SetW%d;", Index, Value ? 1 : 0);
+		Writable = Value;
+		return Value;
+	}
+	bool isDefault()
+	{
+		Logf("B%d.Def;", Index);
+		return Spec.Default;
+	}
 	// The default channel and the gamemasters' rule violation channel (TRuleViolationChannel).
-	bool AcceptMessages() { Logf("B%d.Acc;", Index); return Spec.Default || Spec.RuleViolationChannel; }
-	bool IsRuleViolation() { Logf("B%d.RV;", Index); return Spec.RuleViolation; }
-	bool IsRuleViolationChannel() { Logf("B%d.RVC;", Index); return Spec.RuleViolationChannel; }
-	bool IsPrivateChannel() { Logf("B%d.Priv;", Index); return Spec.PrivateChannel; }
-	const char *GetAddressee() { Logf("B%d.Addr;", Index); return Spec.Addressee; }
-	int GetChannelID() { Logf("B%d.Chan;", Index); return Spec.ChannelID; }
+	bool AcceptMessages()
+	{
+		Logf("B%d.Acc;", Index);
+		return Spec.Default || Spec.RuleViolationChannel;
+	}
+	bool IsRuleViolation()
+	{
+		Logf("B%d.RV;", Index);
+		return Spec.RuleViolation;
+	}
+	bool IsRuleViolationChannel()
+	{
+		Logf("B%d.RVC;", Index);
+		return Spec.RuleViolationChannel;
+	}
+	bool IsPrivateChannel()
+	{
+		Logf("B%d.Priv;", Index);
+		return Spec.PrivateChannel;
+	}
+	const char *GetAddressee()
+	{
+		Logf("B%d.Addr;", Index);
+		return Spec.Addressee;
+	}
+	int GetChannelID()
+	{
+		Logf("B%d.Chan;", Index);
+		return Spec.ChannelID;
+	}
 	int Index;
 	TBufferSpec Spec;
 	bool Writable;
@@ -416,7 +511,7 @@ static const char *const Texts[] = {"Hello", "a b c d e f g h i j k l m n o p q 
 	"Hello there, how are you doing today? Fine, thanks. And you?", "\xe4\xf6\xfc \xc4\xd6\xdc \xdf"};
 enum { NTEXTS = sizeof(Texts) / sizeof(Texts[0]) };
 
-static TTalkLine *CloneLine(const TTalkLine *Line)
+[[maybe_unused]] static TTalkLine *CloneLine(const TTalkLine *Line) // the oracle's original buffers
 {
 	TTalkLine *Copy = (TTalkLine *)malloc(sizeof(TTalkLine));
 	memcpy(Copy, Line, sizeof(TTalkLine));
@@ -434,7 +529,7 @@ static void AddRandomLines(int Index, int Count);
 static int NewBufferPair(int SpecIndex)
 {
 	int Index = (int)Buffers[0].size();
-	for (int s = 0; s < 2; s++) {
+	for (int s = 0; s < SIDES; s++) {
 		Buffers[s].push_back(new TConsoleBuffer(Index, Specs[SpecIndex]));
 		Deleted[s].push_back(false);
 	}
@@ -447,12 +542,18 @@ static void AddRandomLines(int Index, int Count)
 	for (int i = 0; i < Count; i++) {
 		int Mode = Modes[Random() % 11];
 		const char *Text = Texts[Random() % NTEXTS];
-		TTalkLine *Line = Random() % 2 == 0 ? new TTalkLine(Random() % 1000, Mode, Text, 0)
-			: new TTalkLine(Random() % 1000, Mode, Random() % 2 ? "Xa" : "Mr Very Long Name", Text, 0);
+		// The constructor's arguments in the order the x86 oracle evaluated them, right to left (#55).
+		TTalkLine *Line;
+		if (Random() % 2 == 0) {
+			Line = new TTalkLine(Random() % 1000, Mode, Text, 0);
+		} else {
+			const char *Speaker = Random() % 2 ? "Xa" : "Mr Very Long Name";
+			Line = new TTalkLine(Random() % 1000, Mode, Speaker, Text, 0);
+		}
 		bool Quiet = Testing;
 		Testing = false;
 		Buffers[OURS][Index]->Append(Line);
-		Buffers[ORIGINAL][Index]->Append(CloneLine(Line));
+		ORIGINAL(Buffers[ORIGINAL][Index]->Append(CloneLine(Line)));
 		Testing = Quiet;
 	}
 }
@@ -476,9 +577,9 @@ struct TConsoleWorld {
 	bool HotkeyAuto;
 	const char *HotkeyText;
 	int OpenChannels[3], OpenCount;
-	bool CreateFails;   // CreateTextBuffer returns NULL, GetTextBuffer an existing buffer
-	int PendingSpec;    // the spec of the next CreateTextBuffer
-	int Lookup;         // the buffer GetTextBuffer returns (-1 NULL)
+	bool CreateFails;                            // CreateTextBuffer returns NULL, GetTextBuffer an existing buffer
+	int PendingSpec;                             // the spec of the next CreateTextBuffer
+	int Lookup;                                  // the buffer GetTextBuffer returns (-1 NULL)
 	int LookupQueue[2], LookupCount, LookupNext; // answers before Lookup
 };
 static TConsoleWorld World;
@@ -503,8 +604,16 @@ static TRGBColor *__cdecl FakeGetTalkColor(TRGBColor *Color, int Mode)
 	Color->B = 200;
 	return Color;
 }
-static bool __cdecl FakeGetConsoleChanged() { Logf("ConsChanged;"); return World.ConsoleChanged; }
-static bool __cdecl FakeIsTalkThrottled() { Logf("Throttled;"); return World.Throttled; }
+static bool __cdecl FakeGetConsoleChanged()
+{
+	Logf("ConsChanged;");
+	return World.ConsoleChanged;
+}
+static bool __cdecl FakeIsTalkThrottled()
+{
+	Logf("Throttled;");
+	return World.Throttled;
+}
 static TTalkBuffer *__cdecl FakeCreateTextBuffer(int Recv, int Send, const char *Name, int Channel)
 {
 	Logf("Create%d,%d,%s,%d;", Recv, Send, Name == NULL ? "-" : Name, Channel);
@@ -535,7 +644,11 @@ static void __cdecl FakeAddTextBufferLine(TTalkBuffer *Target, uint32 ID, const 
 {
 	Logf("AddLine%d,%u,%s,%d,%s,%d;", BufferIndex(Target), ID, Text, Mode, Name == NULL ? "-" : Name, Time);
 }
-static bool __cdecl FakeHasOwnPrivateChannel() { Logf("OwnPriv;"); return World.OwnPrivate; }
+static bool __cdecl FakeHasOwnPrivateChannel()
+{
+	Logf("OwnPriv;");
+	return World.OwnPrivate;
+}
 static void __cdecl FakeAddChannelNotice(const char *Addressee, const char *Text, int Mode, const char *Name, int Channel)
 {
 	Logf("Notice%s,%s,%d,%s,%d;", Addressee, Text, Mode, Name == NULL ? "-" : Name, Channel);
@@ -562,8 +675,16 @@ static int __cdecl FakeGetTextPartWidth(int Font, const char *Text, int Length)
 		Sum += CharWidth(Text[i]);
 	return Sum;
 }
-static int __cdecl FakeGetFontHeight(int Font) { Logf("FontH%d;", Font); return 11 + Font % 2; }
-static int __cdecl FakeGetFontLineHeight(int Font) { Logf("LineH%d;", Font); return 13 + Font % 3; }
+static int __cdecl FakeGetFontHeight(int Font)
+{
+	Logf("FontH%d;", Font);
+	return 11 + Font % 2;
+}
+static int __cdecl FakeGetFontLineHeight(int Font)
+{
+	Logf("LineH%d;", Font);
+	return 13 + Font % 3;
+}
 static void __cdecl FakePrintTextPart(int Surface, int x, int y, int Font, TRGBColor Color, const char *Text, int Length,
 	int Alignment)
 {
@@ -582,7 +703,11 @@ static void __cdecl FakeDrawPicturePart(int Surface, int x, int y, int PictureNu
 	Logf("Part%d,%d,%d,%d,%d,%d,%d,%d;", Surface, x, y, PictureNumber, srcx, srcy, Width, Height);
 }
 static int __cdecl FakeGetActionNumber() { return World.ActionNumber; }
-static int __cdecl FakeGetActionState() { Logf("AState;"); return World.ActionState; }
+static int __cdecl FakeGetActionState()
+{
+	Logf("AState;");
+	return World.ActionState;
+}
 static void __cdecl FakeAddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 {
 	Logf("Msg%d", Type);
@@ -623,9 +748,21 @@ static int __cdecl FakeGetOpenChannels(int **List)
 static void __cdecl FakeClearOpenChannels() { Logf("ClearOpen;"); }
 static void __cdecl FakeAddOpenChannel(int Channel) { Logf("AddOpen%d;", Channel); }
 static void __cdecl FakeSetConsoleHeight(int Height) { Logf("SetCH%d;", Height); }
-static const char *__cdecl FakeGetAccountNumberString() { Logf("Acc;"); return World.Account; }
-static const char *__cdecl FakeGetAccountPassword() { Logf("Pw;"); return World.Password; }
-static uint32 __cdecl FakeGetPlayerID() { Logf("PID;"); return Player.CreatureID; }
+static const char *__cdecl FakeGetAccountNumberString()
+{
+	Logf("Acc;");
+	return World.Account;
+}
+static const char *__cdecl FakeGetAccountPassword()
+{
+	Logf("Pw;");
+	return World.Password;
+}
+static uint32 __cdecl FakeGetPlayerID()
+{
+	Logf("PID;");
+	return Player.CreatureID;
+}
 static bool NoPlayer; // the error round: the player is not in the table
 static TCreature *__cdecl FakeGetCreature(uint32 ID)
 {
@@ -649,14 +786,20 @@ static void HookSetSkins(TSkinButton *Button, int ButtonUp, int ButtonDown)
 	Button->ButtonDown = ButtonDown;
 }
 
+} // namespace ConsoleWindowTest
+
+#if GOLDEN_ORACLE
 // Communication.cpp is not in the test: our side's definitions of the Send
-// functions no other test defines.
+// functions no other test defines. The runner has them as stubs (client_stubs.cpp) and redirects those.
 void SendTalk(int Mode, const char *Text) { FakeSendTalk1(Mode, Text); }
 void SendTalk(int Mode, const char *Addressee, const char *Text) { FakeSendTalk2(Mode, Addressee, Text); }
 void SendTalk(int Mode, int ChannelID, const char *Text) { FakeSendTalk3(Mode, ChannelID, Text); }
 void SendLeaveChannel(int ChannelID) { FakeSendLeaveChannel(ChannelID); }
 void SendCancelRuleViolation() { FakeSendCancelRuleViolation(); }
 void SendRequestChannels() { FakeSendRequestChannels(); }
+#endif
+
+namespace ConsoleWindowTest {
 
 class TConsoleSurface : public TTestSurface {
 public:
@@ -665,8 +808,8 @@ public:
 		Logf("Fill%d,%d,%d,%d,%d,%d,%d,%d;", Surface, R.x, R.y, R.width, R.height, C.R, C.G, C.B);
 	}
 };
-static TConsoleSurface *Surface;
-static TSurface *__cdecl FakeGetSurface() { return Surface; }
+static TConsoleSurface *ConsoleSurface;
+static TSurface *__cdecl FakeGetSurface() { return ConsoleSurface; }
 
 // The clock (fixed on both sides), localtime, ctime and fprintf of the image.
 static __time32_t __cdecl FakeTime(__time32_t *Time)
@@ -675,6 +818,7 @@ static __time32_t __cdecl FakeTime(__time32_t *Time)
 		*Time = 1700000000;
 	return 1700000000;
 }
+#if GOLDEN_ORACLE
 static tm *__cdecl ImageLocaltime(const __time32_t *Time) { return _localtime32(Time); }
 static char *__cdecl ImageCtime(const __time32_t *Time) { return _ctime32(Time); }
 static int __cdecl ImageFprintf(FILE *File, const char *Format, ...)
@@ -693,6 +837,7 @@ static int __cdecl ImageSnprintf(char *Buffer, size_t Count, const char *Format,
 	va_end(Args);
 	return Result;
 }
+#endif
 
 // Patches that are undone at the end.
 struct TSaved {
@@ -700,33 +845,64 @@ struct TSaved {
 	uint8 Bytes[5];
 };
 static std::vector<TSaved> SavedCode;
+// The oracle patches the image and difftest.exe's code with PatchJump; the runner its own code with
+// golden::RedirectOwn (golden_patch.h), saved and restored the same way.
 static void Redirect(void *Function, void *Target)
 {
 	TSaved S;
 	S.Code = (uint8 *)Function;
+#if GOLDEN_ORACLE
 	DWORD Protection;
 	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
 	memcpy(S.Bytes, Function, 5);
 	PatchJump((uint32)(uintptr_t)Function, Target);
 	VirtualProtect(Function, 5, Protection, &Protection);
 	FlushInstructionCache(GetCurrentProcess(), Function, 5);
+#else
+	golden::SaveOwn(Function, S.Bytes);
+	golden::RedirectOwn(Function, Target);
+#endif
 	SavedCode.push_back(S);
 }
+#if !GOLDEN_ORACLE
+// Our _time32: the runner's import slot of ucrtbase's (Talk's test does the same).
+static void **ClockSlot;
+static void *SavedClock;
+#endif
 static void RestoreAll()
 {
 	for (size_t i = SavedCode.size(); i-- > 0;) {
+#if GOLDEN_ORACLE
 		DWORD Protection;
 		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
 		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
 		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
 		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
+#else
+		golden::RestoreOwn(SavedCode[i].Code, SavedCode[i].Bytes);
+#endif
 	}
 	SavedCode.clear();
+#if !GOLDEN_ORACLE
+	golden::SetImport(ClockSlot, SavedClock);
+#endif
 }
+
+// Ours of the functions the oracle's difftest.exe defines in this file (the Send functions): NULL there, the
+// runner's stubs (client_stubs.cpp) here.
+#if GOLDEN_ORACLE
+#define DEFINED_HERE(Function) NULL
+#else
+#define DEFINED_HERE(Function) ((void *)(Function))
+#endif
 
 static void PatchCallees()
 {
-	struct { uint32 Image; void *Ours; void *Fake; } Table[] = {
+	struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Table[] = {
 		{0x4fd9e0, (void *)GetTalkColor, (void *)FakeGetTalkColor},
 		{0x4fd580, (void *)GetConsoleChanged, (void *)FakeGetConsoleChanged},
 		{0x4fd550, (void *)IsTalkThrottled, (void *)FakeIsTalkThrottled},
@@ -766,47 +942,60 @@ static void PatchCallees()
 		{0x44b9c0, (void *)GetPlayerID, (void *)FakeGetPlayerID},
 		{0x44c6e0, (void *)GetCreature, (void *)FakeGetCreature},
 		// Communication.cpp: ours are this file's definitions (NULL) or other tests' (redirected).
-		{0x4067c0, NULL, (void *)FakeSendTalk1},
-		{0x406b40, NULL, (void *)FakeSendTalk2},
-		{0x406f90, NULL, (void *)FakeSendTalk3},
-		{0x407650, NULL, (void *)FakeSendLeaveChannel},
-		{0x407d10, NULL, (void *)FakeSendCancelRuleViolation},
-		{0x407300, NULL, (void *)FakeSendRequestChannels},
+		{0x4067c0, DEFINED_HERE((void (*)(int, const char *))SendTalk), (void *)FakeSendTalk1},
+		{0x406b40, DEFINED_HERE((void (*)(int, const char *, const char *))SendTalk), (void *)FakeSendTalk2},
+		{0x406f90, DEFINED_HERE((void (*)(int, int, const char *))SendTalk), (void *)FakeSendTalk3},
+		{0x407650, DEFINED_HERE(SendLeaveChannel), (void *)FakeSendLeaveChannel},
+		{0x407d10, DEFINED_HERE(SendCancelRuleViolation), (void *)FakeSendCancelRuleViolation},
+		{0x407300, DEFINED_HERE(SendRequestChannels), (void *)FakeSendRequestChannels},
 		{0x4074a0, (void *)SendJoinChannel, (void *)FakeSendJoinChannel},
 		{0x407b60, (void *)SendCloseRuleViolation, (void *)FakeSendCloseRuleViolation},
 		{0x408580, (void *)SendInviteToPrivateChannel, (void *)FakeSendInvite},
 		{0x408730, (void *)SendExcludeFromPrivateChannel, (void *)FakeSendExclude},
-		// The fixed clock (our CRT's as well, for SaveChannel and the history lines).
-		{0x5121ea, (void *)_time32, (void *)FakeTime},
+		// The fixed clock (our CRT's as well, for SaveChannel and the history lines; the runner's below).
+		{0x5121ea, ORIGINAL_OR((void *)_time32, NULL), (void *)FakeTime},
 	};
 	for (auto &T : Table) {
-		Redirect((void *)(uintptr_t)T.Image, T.Fake);
+		ORIGINAL(Redirect((void *)(uintptr_t)T.Image, T.Fake));
 		if (T.Ours != NULL)
 			Redirect(T.Ours, T.Fake);
 	}
+#if !GOLDEN_ORACLE
+	ClockSlot = golden::FindImport("_time32");
+	if (ClockSlot == nullptr) {
+		printf("golden: ConsoleWindow: the runner imports no _time32\n");
+		exit(1);
+	}
+	SavedClock = *ClockSlot;
+	golden::SetImport(ClockSlot, (void *)FakeTime);
+#endif
 	// DialogElements.cpp: both sides' constructors and members build and are the fakes
 	// (elementfakes.cpp); TMultiStateButton::Reset is inline and runs for real.
 	PatchElementFakes(Redirect);
 	// The image's CRT reaches Windows: localtime, ctime, fprintf and _snprintf.
-	Redirect((void *)(uintptr_t)0x513eb1, (void *)ImageLocaltime);
-	Redirect((void *)(uintptr_t)0x5121d1, (void *)ImageCtime);
-	Redirect((void *)(uintptr_t)0x512173, (void *)ImageFprintf);
-	Redirect((void *)(uintptr_t)0x51233d, (void *)ImageSnprintf);
+	ORIGINAL(Redirect((void *)(uintptr_t)0x513eb1, (void *)ImageLocaltime);
+		Redirect((void *)(uintptr_t)0x5121d1, (void *)ImageCtime);
+		Redirect((void *)(uintptr_t)0x512173, (void *)ImageFprintf);
+		Redirect((void *)(uintptr_t)0x51233d, (void *)ImageSnprintf));
 }
 
 // --- The consoles ------------------------------------------------------------------------
 
+#if GOLDEN_ORACLE
 typedef void *(__fastcall *CtorFn)(void *, void *);
-typedef void (__fastcall *VoidFn)(void *, void *);
-typedef bool (__fastcall *BoolFn)(void *, void *);
-typedef void (__fastcall *BoolArgFn)(void *, void *, bool);
-typedef void (__fastcall *BufferStringFn)(void *, void *, TTalkBuffer *, const char *);
+typedef void(__fastcall *VoidFn)(void *, void *);
+typedef bool(__fastcall *BoolFn)(void *, void *);
+typedef void(__fastcall *BoolArgFn)(void *, void *, bool);
+typedef void(__fastcall *BufferStringFn)(void *, void *, TTalkBuffer *, const char *);
 typedef TTalkBuffer *(__fastcall *OpenChannelFn)(void *, void *, int, int, const char *, int, const char *);
-typedef void (__fastcall *StringFn)(void *, void *, const char *);
+typedef void(__fastcall *StringFn)(void *, void *, const char *);
 typedef TTalkBuffer *(__fastcall *BufferFn)(void *, void *);
 typedef const char *(__fastcall *TextFn)(void *, void *);
 typedef TTalkLine *(__fastcall *TalkLineFn)(void *, void *, int);
-typedef void (__fastcall *PointerFn)(void *, void *, void *);
+typedef void(__fastcall *PointerFn)(void *, void *, void *);
+typedef void(__fastcall *TabFn)(void *, void *, void *);
+typedef void *(__fastcall *TabCtorFn)(void *, void *, const char *, TTalkBuffer *, TCallback);
+#endif
 
 static TConsoleWindow *Console[2];
 static TConsoleWindow *C(int s) { return Console[s]; }
@@ -887,7 +1076,8 @@ template <class F> static void Both(F Function)
 		ConsoleRound->Calling(What, "ours");
 		TThrown A = OurThrow([&] { Side = OURS; Ticks = 0; FailAt = Fail; Function(OURS); });
 		ConsoleRound->Calling(What, "the original");
-		TThrown B = ImageThrow([&] { Side = ORIGINAL; Ticks = 0; FailAt = Fail; Function(ORIGINAL); });
+		TThrown B = ORIGINAL_THROWN("thrown", Side = ORIGINAL; Ticks = 0; FailAt = Fail; Function(ORIGINAL));
+		Ticks = ORIGINAL_VALUE("ticks", int, Ticks); // the original's fake calls
 		FailAt = 0;
 		Side = OURS;
 		ConsoleRound->Compare(What, A, B);
@@ -900,7 +1090,7 @@ template <class F> static void Both(F Function)
 		}
 		return;
 	}
-	for (int s = 0; s < 2; s++) {
+	for (int s = 0; s < SIDES; s++) {
 		Ticks = 0;
 		Side = s;
 		if (s == OURS) {
@@ -920,6 +1110,7 @@ template <class F> static void Both(F Function)
 			Function(s);
 		}
 	}
+	Ticks = ORIGINAL_VALUE("ticks", int, Ticks); // the original's fake calls (it ran last)
 	if (Ticks > MaxTicks[CurrentAction])
 		MaxTicks[CurrentAction] = Ticks;
 	Side = OURS;
@@ -940,7 +1131,7 @@ static void Build()
 		if (s == OURS)
 			Console[s] = new (Memory) TConsoleWindow;
 		else
-			Console[s] = (TConsoleWindow *)At<CtorFn>(0x422410)(Memory, NULL);
+			ORIGINAL(Console[s] = (TConsoleWindow *)At<CtorFn>(0x422410)(Memory, NULL));
 		NameParts(s);
 	});
 }
@@ -1046,7 +1237,7 @@ static void DumpComponent(int s, std::string &Out, TComponent *Component, int De
 			T->Shortened ? 1 : 0);
 	} else if (Kind == "Edit") {
 		TFakeEditLine *E = (TFakeEditLine *)Component;
-		Add(Out, " '%s' %d,%d,%d,%d", E->Text, E->Data5C, E->Data60, E->Data66 ? 1 : 0, E->Data30[0x58 - 0x30]);
+		Add(Out, " '%s' %d,%d,%d,%d", E->Text, E->Data5C, E->Data60, E->Data66 ? 1 : 0, E->Data30[EditActive]);
 	} else if (Kind == "Button" || Kind == "Toggle" || Kind == "Multi") {
 		TSkinButton *B = (TSkinButton *)Component;
 		Add(Out, " skins %d,%d", B->ButtonUp, B->ButtonDown);
@@ -1062,10 +1253,31 @@ static std::string Dump(int s)
 	return Out;
 }
 
+// The original's log of a comparison: the oracle's, recorded; the runner's from the corpus.
+static void OutputOriginalLog()
+{
+	std::string Text = golden::OutputText("log", Log[ORIGINAL].data(), Log[ORIGINAL].size());
+	ORIGINAL_OR((void)0, Log[ORIGINAL] = Text);
+}
+
+// The original's dump: the oracle's, recorded by its changes since the last one; the runner's from the
+// corpus.
+static std::string LastDump;
+static std::string OriginalDump()
+{
+#if GOLDEN_ORACLE
+	std::string Text = Dump(ORIGINAL);
+#else
+	std::string Text;
+#endif
+	return golden::OutputTextChanges("dump", &LastDump, Text);
+}
+
 static const char *Stage = "";
 static void Compare(const char *What)
 {
-	std::string D0 = Threw ? "" : Dump(OURS), D1 = Threw ? "" : Dump(ORIGINAL);
+	std::string D0 = Threw ? "" : Dump(OURS), D1 = Threw ? "" : OriginalDump();
+	OutputOriginalLog();
 	CHECK(Log[OURS] == Log[ORIGINAL], "ConsoleWindow %s (%s): logs differ\n  ours: %s\n  orig: %s", What, Stage,
 		Log[OURS].c_str(), Log[ORIGINAL].c_str());
 	CHECK(D0 == D1, "ConsoleWindow %s (%s): windows differ\n  ours: %s\n  orig: %s", What, Stage, D0.c_str(), D1.c_str());
@@ -1182,7 +1394,7 @@ static void Open()
 		if (s == OURS)
 			C(s)->OpenChannel(Specs[Spec].Recv, Specs[Spec].Send, Name, Channel, Title);
 		else
-			At<OpenChannelFn>(0x425070)(C(s), NULL, Specs[Spec].Recv, Specs[Spec].Send, Name, Channel, Title);
+			ORIGINAL(At<OpenChannelFn>(0x425070)(C(s), NULL, Specs[Spec].Recv, Specs[Spec].Send, Name, Channel, Title));
 	});
 	// A new buffer gets lines on both sides.
 	if (!World.CreateFails)
@@ -1193,7 +1405,7 @@ static void AddExisting()
 {
 	// A buffer made directly (Control.cpp's message 0x32) or one with a tab.
 	int Index = Random() % 2 == 0 || Buffers[OURS].empty() ? NewBufferPair(1 + Random() % (NSPECS - 1))
-		: (int)(Random() % Buffers[OURS].size());
+														   : (int)(Random() % Buffers[OURS].size());
 	if (Deleted[OURS][Index])
 		return;
 	const char *Title = Buffers[OURS][Index]->Spec.Caption;
@@ -1201,7 +1413,7 @@ static void AddExisting()
 		if (s == OURS)
 			C(s)->AddChannel(Buffers[s][Index], Title);
 		else
-			At<BufferStringFn>(0x423060)(C(s), NULL, Buffers[s][Index], Title);
+			ORIGINAL(At<BufferStringFn>(0x423060)(C(s), NULL, Buffers[s][Index], Title));
 	});
 }
 
@@ -1211,7 +1423,7 @@ static void Close()
 		if (s == OURS)
 			C(s)->CloseChannel();
 		else
-			At<VoidFn>(0x4234b0)(C(s), NULL);
+			ORIGINAL(At<VoidFn>(0x4234b0)(C(s), NULL));
 	});
 }
 
@@ -1238,7 +1450,7 @@ static void Report()
 		if (s == OURS)
 			C(s)->ReportRuleViolation(Question);
 		else
-			At<StringFn>(0x425330)(C(s), NULL, Question);
+			ORIGINAL(At<StringFn>(0x425330)(C(s), NULL, Question));
 	});
 	World.LookupCount = 0;
 }
@@ -1248,10 +1460,11 @@ static void ServerMessages()
 	if (((TConsoleBuffer *)CurrentBuffer(OURS))->Spec.Default)
 		return;
 	if (Random() % 2 == 0) {
-		bool Results[2];
+		bool Results[2] = {false, false};
 		Both([&](int s) {
-			Results[s] = s == OURS ? C(s)->GetServerMessages() : At<BoolFn>(0x41f1c0)(C(s), NULL);
+			Results[s] = s == OURS ? C(s)->GetServerMessages() : ORIGINAL_OR(At<BoolFn>(0x41f1c0)(C(s), NULL), false);
 		});
+		golden::Output("GetServerMessages", Results[ORIGINAL]);
 		if (!Threw) // (the error round: a call that threw leaves no result)
 			CHECK(Results[OURS] == Results[ORIGINAL], "ConsoleWindow GetServerMessages %d, original %d", Results[OURS],
 				Results[ORIGINAL]);
@@ -1261,18 +1474,19 @@ static void ServerMessages()
 			if (s == OURS)
 				C(s)->SetServerMessages(Show);
 			else
-				At<BoolArgFn>(0x41f470)(C(s), NULL, Show);
+				ORIGINAL(At<BoolArgFn>(0x41f470)(C(s), NULL, Show));
 		});
 	}
 }
 
 static void TextBufferQuery()
 {
-	int Results[2];
+	int Results[2] = {0, 0};
 	Both([&](int s) {
-		TTalkBuffer *B = s == OURS ? C(s)->GetTextBuffer() : At<BufferFn>(0x41f7f0)(C(s), NULL);
+		TTalkBuffer *B = s == OURS ? C(s)->GetTextBuffer() : ORIGINAL_OR(At<BufferFn>(0x41f7f0)(C(s), NULL), nullptr);
 		Results[s] = BufferIndex(B);
 	});
+	golden::Output("GetTextBuffer", Results[ORIGINAL]);
 	if (!Threw)
 		CHECK(Results[OURS] == Results[ORIGINAL], "ConsoleWindow GetTextBuffer %d, original %d", Results[OURS],
 			Results[ORIGINAL]);
@@ -1300,14 +1514,16 @@ static void Save()
 	_getcwd(Old, sizeof(Old));
 	_chdir(TempDir.c_str());
 	std::string Contents[2];
-	bool Results[2];
+	bool Results[2] = {false, false};
 	Both([&](int s) {
 		remove(File.c_str());
-		Results[s] = s == OURS ? C(s)->SaveChannel() : At<BoolFn>(0x420090)(C(s), NULL);
+		Results[s] = s == OURS ? C(s)->SaveChannel() : ORIGINAL_OR(At<BoolFn>(0x420090)(C(s), NULL), false);
 		Contents[s] = ReadFile(File);
 		remove(File.c_str());
 	});
 	_chdir(Old);
+	golden::Output("SaveChannel", Results[ORIGINAL]);
+	Contents[ORIGINAL] = golden::OutputText("SaveChannel file", Contents[ORIGINAL].data(), Contents[ORIGINAL].size());
 	if (Threw)
 		return;
 	CHECK(Results[OURS] == Results[ORIGINAL], "ConsoleWindow SaveChannel %d, original %d", Results[OURS],
@@ -1323,7 +1539,7 @@ static void Active()
 		if (s == OURS)
 			C(s)->SetActive(A);
 		else
-			At<BoolArgFn>(0x41e960)(C(s), NULL, A);
+			ORIGINAL(At<BoolArgFn>(0x41e960)(C(s), NULL, A));
 	});
 }
 
@@ -1339,7 +1555,7 @@ static void TalkChanges()
 		int Line = Random() % Buffers[OURS][Index]->lines;
 		bool Quiet = Testing;
 		Testing = false;
-		for (int s = 0; s < 2; s++) {
+		for (int s = 0; s < SIDES; s++) {
 			TTalkLine *L = Buffers[s][Index]->first;
 			for (int i = 0; i < Line; i++)
 				L = L->Next;
@@ -1433,7 +1649,7 @@ static void Press()
 		if (s == OURS)
 			ButtonCallback(B).Send();
 		else
-			At<void (__fastcall *)(void *, void *)>(0x4a0f00)(&ButtonCallback(B), NULL);
+			ORIGINAL(At<void(__fastcall *)(void *, void *)>(0x4a0f00)(&ButtonCallback(B), NULL));
 	});
 }
 
@@ -1454,24 +1670,25 @@ static void TextQueries()
 		char Buffer[64];
 		switch (What) {
 		case 0: {
-			const char *Text = s == OURS ? T->GetSelectedText() : At<TextFn>(0x419bd0)(T, NULL);
+			const char *Text = s == OURS ? T->GetSelectedText() : ORIGINAL_OR(At<TextFn>(0x419bd0)(T, NULL), nullptr);
 			Results[s] = Text == NULL ? "(null)" : Text;
 			break;
 		}
 		case 1:
-			Results[s] = (s == OURS ? T->SelectAll() : At<BoolFn>(0x4199e0)(T, NULL)) ? "1" : "0";
+			Results[s] = (s == OURS ? T->SelectAll() : ORIGINAL_OR(At<BoolFn>(0x4199e0)(T, NULL), false)) ? "1" : "0";
 			break;
 		case 2: {
-			TTalkLine *L = s == OURS ? T->GetTalkLine(Line) : At<TalkLineFn>(0x419030)(T, NULL, Line);
+			TTalkLine *L = s == OURS ? T->GetTalkLine(Line) : ORIGINAL_OR(At<TalkLineFn>(0x419030)(T, NULL, Line), nullptr);
 			sprintf(Buffer, "%d", L == NULL ? -2 : LineIndex(T->TextBuffer, L));
 			Results[s] = Buffer;
 			break;
 		}
 		case 3:
-			Results[s] = (s == OURS ? T->HasSelection() : At<BoolFn>(0x417590)(T, NULL)) ? "1" : "0";
+			Results[s] = (s == OURS ? T->HasSelection() : ORIGINAL_OR(At<BoolFn>(0x417590)(T, NULL), false)) ? "1" : "0";
 			break;
 		}
 	});
+	Results[ORIGINAL] = golden::OutputText("text query", Results[ORIGINAL].data(), Results[ORIGINAL].size());
 	if (!Threw)
 		CHECK(Results[OURS] == Results[ORIGINAL], "ConsoleWindow text query %d: %s, original %s", What,
 			Results[OURS].c_str(), Results[ORIGINAL].c_str());
@@ -1493,26 +1710,91 @@ static void Action()
 	if (getenv("CW_TRACE") != NULL)
 		fprintf(stderr, "    kind %d\n", A);
 	switch (A) {
-	case 0: Size(); Stage = "size"; break;
-	case 1: Both([&](int s) { C(s)->Arrange(); }); Stage = "arrange"; break;
-	case 2: case 3: World.ConsoleChanged = Random() % 4 == 0; Draw(); World.ConsoleChanged = false; Stage = "draw"; break;
-	case 4: case 5: Key(); Stage = "key"; break;
-	case 6: SetInput(Inputs[Random() % NINPUTS]); Both([&](int s) { C(s)->KeyPress(13); }); Stage = "send"; break;
-	case 7: Event(); Stage = "event"; break;
-	case 8: if (TabCount(OURS) < 12) Open(); Stage = "open"; break;
-	case 9: if (TabCount(OURS) < 12) AddExisting(); Stage = "add"; break;
-	case 10: Close(); Stage = "close"; break;
-	case 11: Report(); Stage = "report"; break;
-	case 12: ServerMessages(); Stage = "server messages"; break;
-	case 13: TextBufferQuery(); Stage = "text buffer"; break;
-	case 14: Save(); Stage = "save"; break;
-	case 15: Active(); Stage = "active"; break;
-	case 16: TalkChanges(); Stage = "talk"; break;
-	case 17: Drag(); Stage = "drag"; break;
-	case 18: Click(); Stage = "click"; break;
-	case 19: Press(); Stage = "press"; break;
-	case 20: BarEvent(); Stage = "bar"; break;
-	case 21: TextQueries(); Stage = "text"; break;
+	case 0:
+		Size();
+		Stage = "size";
+		break;
+	case 1:
+		Both([&](int s) { C(s)->Arrange(); });
+		Stage = "arrange";
+		break;
+	case 2:
+	case 3:
+		World.ConsoleChanged = Random() % 4 == 0;
+		Draw();
+		World.ConsoleChanged = false;
+		Stage = "draw";
+		break;
+	case 4:
+	case 5:
+		Key();
+		Stage = "key";
+		break;
+	case 6:
+		SetInput(Inputs[Random() % NINPUTS]);
+		Both([&](int s) { C(s)->KeyPress(13); });
+		Stage = "send";
+		break;
+	case 7:
+		Event();
+		Stage = "event";
+		break;
+	case 8:
+		if (TabCount(OURS) < 12) Open();
+		Stage = "open";
+		break;
+	case 9:
+		if (TabCount(OURS) < 12) AddExisting();
+		Stage = "add";
+		break;
+	case 10:
+		Close();
+		Stage = "close";
+		break;
+	case 11:
+		Report();
+		Stage = "report";
+		break;
+	case 12:
+		ServerMessages();
+		Stage = "server messages";
+		break;
+	case 13:
+		TextBufferQuery();
+		Stage = "text buffer";
+		break;
+	case 14:
+		Save();
+		Stage = "save";
+		break;
+	case 15:
+		Active();
+		Stage = "active";
+		break;
+	case 16:
+		TalkChanges();
+		Stage = "talk";
+		break;
+	case 17:
+		Drag();
+		Stage = "drag";
+		break;
+	case 18:
+		Click();
+		Stage = "click";
+		break;
+	case 19:
+		Press();
+		Stage = "press";
+		break;
+	case 20:
+		BarEvent();
+		Stage = "bar";
+		break;
+	case 21:
+		TextQueries();
+		Stage = "text";
+		break;
 	}
 }
 
@@ -1549,7 +1831,7 @@ static bool NewConsoles()
 		if (s == OURS)
 			C(s)->OpenDefaultChannel(Buffers[s][Default], "Default");
 		else
-			At<BufferStringFn>(0x422e70)(C(s), NULL, Buffers[s][Default], "Default");
+			ORIGINAL(At<BufferStringFn>(0x422e70)(C(s), NULL, Buffers[s][Default], "Default"));
 	});
 	Compare("errors: default channel");
 	return !Threw;
@@ -1562,7 +1844,7 @@ template <class F> static void ConsoleCall(const char *What, F Call, bool Dump =
 	ConsoleRound->Calling(What, "ours");
 	TThrown A = OurThrow([&] { Side = OURS; Ticks = 0; FailAt = Fail; Call(OURS); });
 	ConsoleRound->Calling(What, "the original");
-	TThrown B = ImageThrow([&] { Side = ORIGINAL; Ticks = 0; FailAt = Fail; Call(ORIGINAL); });
+	TThrown B = ORIGINAL_THROWN("thrown", Side = ORIGINAL; Ticks = 0; FailAt = Fail; Call(ORIGINAL));
 	FailAt = 0;
 	Side = OURS;
 	ConsoleRound->Compare(What, A, B);
@@ -1595,6 +1877,7 @@ static void TestConsoleWindowErrors()
 			delete C(s);
 			Console[s] = NULL;
 		});
+		OutputOriginalLog();
 		CHECK(Log[OURS] == Log[ORIGINAL], "ConsoleWindow errors destructor: logs differ\n  ours: %s\n  orig: %s",
 			Log[OURS].c_str(), Log[ORIGINAL].c_str());
 		Log[OURS].clear();
@@ -1603,8 +1886,6 @@ static void TestConsoleWindowErrors()
 	TargetAction = -1;
 	// The assertions, on new consoles: each comes before any change (the
 	// members set for one are restored after it).
-	typedef void (__fastcall *TabFn)(void *, void *, void *);
-	typedef void *(__fastcall *TabCtorFn)(void *, void *, const char *, TTalkBuffer *, TCallback);
 	for (int Round = 0; Round < 40; Round++) {
 		TargetAction = -1;
 		if (!NewConsoles())
@@ -1621,43 +1902,42 @@ static void TestConsoleWindowErrors()
 		ConsoleCall("TTextWindow::SetCurrentLineNumber", [&](int s) {
 			TTextWindow *T = C(s)->CurrentConsole->TextWindow;
 			if (s == OURS) T->SetCurrentLineNumber(Bad);
-			else At<void (__fastcall *)(void *, void *, int)>(0x4193d0)(T, NULL, Bad); });
+			else ORIGINAL(At<void(__fastcall *)(void *, void *, int)>(0x4193d0)(T, NULL, Bad)); });
 		ConsoleCall("TConsoleWindow::HandleEvent unknown", [&](int s) { C(s)->HandleEvent(Bad); });
 		Threw = false;
 		// Tabs without a caption or a buffer, and one that is in no bar.
 		int Index = NewBufferPair(1 + Random() % (NSPECS - 1));
 		ConsoleCall("TTab::TTab without a caption", [&](int s) {
 			if (s == OURS) new TTab(NULL, Buffers[s][Index], TCallback());
-			else At<TabCtorFn>(0x41a870)(operator new(sizeof(TTab)), NULL, NULL, Buffers[s][Index], TCallback()); });
+			else ORIGINAL(At<TabCtorFn>(0x41a870)(operator new(sizeof(TTab)), NULL, NULL, Buffers[s][Index], TCallback())); });
 		ConsoleCall("TTab::TTab without a buffer", [&](int s) {
 			if (s == OURS) new TTab("x", NULL, TCallback());
-			else At<TabCtorFn>(0x41a870)(operator new(sizeof(TTab)), NULL, "x", NULL, TCallback()); });
+			else ORIGINAL(At<TabCtorFn>(0x41a870)(operator new(sizeof(TTab)), NULL, "x", NULL, TCallback())); });
 		Threw = false;
-		TTab *Stranger[2];
+		TTab *Stranger[2] = {NULL, NULL};
 		CurrentAction = 9;
 		Both([&](int s) {
 			if (s == OURS) Stranger[s] = new TTab("Stranger", Buffers[s][Index], TCallback());
-			else Stranger[s] = (TTab *)At<TabCtorFn>(0x41a870)(operator new(sizeof(TTab)), NULL, "Stranger",
-				Buffers[s][Index], TCallback());
+			else ORIGINAL(Stranger[s] = (TTab *)At<TabCtorFn>(0x41a870)(operator new(sizeof(TTab)), NULL, "Stranger",
+							  Buffers[s][Index], TCallback()));
 		});
 		Log[OURS].clear();
 		Log[ORIGINAL].clear();
 		ConsoleCall("TTabBar::SetCurrentTab NULL", [&](int s) {
-			if (s == OURS) C(s)->TabBar->SetCurrentTab(NULL); else At<TabFn>(0x421d10)(C(s)->TabBar, NULL, NULL); });
+			if (s == OURS) C(s)->TabBar->SetCurrentTab(NULL); else ORIGINAL(At<TabFn>(0x421d10)(C(s)->TabBar, NULL, NULL)); });
 		ConsoleCall("TTabBar::SetCurrentTab not in the bar", [&](int s) {
 			if (s == OURS) C(s)->TabBar->SetCurrentTab(Stranger[s]);
-			else At<TabFn>(0x421d10)(C(s)->TabBar, NULL, Stranger[s]); });
+			else ORIGINAL(At<TabFn>(0x421d10)(C(s)->TabBar, NULL, Stranger[s])); });
 		ConsoleCall("TTabBar::GetContainer not in the bar", [&](int s) {
 			if (s == OURS) C(s)->TabBar->GetContainer(Stranger[s]);
-			else At<TabFn>(0x41cb20)(C(s)->TabBar, NULL, Stranger[s]); });
+			else ORIGINAL(At<TabFn>(0x41cb20)(C(s)->TabBar, NULL, Stranger[s])); });
 		ConsoleCall("TTabBar::Rearrange not in the bar", [&](int s) {
 			if (s == OURS) C(s)->TabBar->Rearrange(Stranger[s]);
-			else At<TabFn>(0x41d810)(C(s)->TabBar, NULL, Stranger[s]); });
+			else ORIGINAL(At<TabFn>(0x41d810)(C(s)->TabBar, NULL, Stranger[s])); });
 		// The child functions with children TWindow's refuse (NULL, a stranger).
 		ConsoleCall("TTabBar::InsertChild NULL", [&](int s) { C(s)->TabBar->InsertChild(NULL); });
 		ConsoleCall("TTabBar::AppendChild NULL", [&](int s) { C(s)->TabBar->AppendChild(NULL); });
-		ConsoleCall("TTabBar::InsertChildAfter NULL", [&](int s) {
-			C(s)->TabBar->InsertChildAfter(C(s)->TabBar->CurrentTab, NULL); });
+		ConsoleCall("TTabBar::InsertChildAfter NULL", [&](int s) { C(s)->TabBar->InsertChildAfter(C(s)->TabBar->CurrentTab, NULL); });
 		ConsoleCall("TTabBar::DeleteChild stranger", [&](int s) { C(s)->TabBar->DeleteChild(Stranger[s]); });
 		ConsoleCall("TTabBar::RemoveChild stranger", [&](int s) { C(s)->TabBar->RemoveChild(Stranger[s]); });
 		ConsoleCall("TTabBar::SwapChildren NULL", [&](int s) { C(s)->TabBar->SwapChildren(NULL, Stranger[s]); });
@@ -1665,30 +1945,30 @@ static void TestConsoleWindowErrors()
 		Threw = false;
 		int Neg = -1 - (int)(Random() % 9);
 		bool NegX = Random() % 2 != 0;
-		ConsoleCall("TTab::Draw outside", [&](int s) {
-			C(s)->TabBar->CurrentTab->Draw(1, NegX ? Neg : 0, NegX ? 0 : Neg); });
+		ConsoleCall("TTab::Draw outside", [&](int s) { C(s)->TabBar->CurrentTab->Draw(1, NegX ? Neg : 0, NegX ? 0 : Neg); });
 		Threw = false;
 		{
-			decltype(C(OURS)->TabBar->Parent) Parent[2] = {C(OURS)->TabBar->Parent, C(ORIGINAL)->TabBar->Parent};
-			for (int s = 0; s < 2; s++)
+			decltype(C(OURS)->TabBar->Parent) Parent[2] = {C(OURS)->TabBar->Parent,
+				ORIGINAL_OR(C(ORIGINAL)->TabBar->Parent, nullptr)};
+			for (int s = 0; s < SIDES; s++)
 				C(s)->TabBar->Parent = NULL;
 			ConsoleCall("TTabBar::HelpMouseMove without a parent", [&](int s) { C(s)->TabBar->HelpMouseMove(3, 3); });
-			for (int s = 0; s < 2; s++)
+			for (int s = 0; s < SIDES; s++)
 				C(s)->TabBar->Parent = Parent[s];
 			Threw = false;
 		}
 		// The default channel's server messages.
 		ConsoleCall("TConsoleWindow::GetServerMessages default", [&](int s) {
-			if (s == OURS) C(s)->GetServerMessages(); else At<BoolFn>(0x41f1c0)(C(s), NULL); });
+			if (s == OURS) C(s)->GetServerMessages(); else ORIGINAL(At<BoolFn>(0x41f1c0)(C(s), NULL)); });
 		ConsoleCall("TConsoleWindow::SetServerMessages default", [&](int s) {
-			if (s == OURS) C(s)->SetServerMessages(true); else At<BoolArgFn>(0x41f470)(C(s), NULL, true); });
+			if (s == OURS) C(s)->SetServerMessages(true); else ORIGINAL(At<BoolArgFn>(0x41f470)(C(s), NULL, true)); });
 		ConsoleCall("TConsoleWindow::AddChannel NULL", [&](int s) {
 			if (s == OURS) C(s)->AddChannel(NULL, "x");
-			else At<BufferStringFn>(0x423060)(C(s), NULL, NULL, "x"); });
+			else ORIGINAL(At<BufferStringFn>(0x423060)(C(s), NULL, NULL, "x")); });
 		ConsoleCall("TConsoleWindow::ReportRuleViolation NULL", [&](int s) {
-			if (s == OURS) C(s)->ReportRuleViolation(NULL); else At<StringFn>(0x425330)(C(s), NULL, NULL); });
+			if (s == OURS) C(s)->ReportRuleViolation(NULL); else ORIGINAL(At<StringFn>(0x425330)(C(s), NULL, NULL)); });
 		ConsoleCall("TConsoleWindow::ReportRuleViolation empty", [&](int s) {
-			if (s == OURS) C(s)->ReportRuleViolation(""); else At<StringFn>(0x425330)(C(s), NULL, ""); });
+			if (s == OURS) C(s)->ReportRuleViolation(""); else ORIGINAL(At<StringFn>(0x425330)(C(s), NULL, "")); });
 		Threw = false;
 		// Without the text buffer, the view, the edit line, the default tab, the
 		// current tab or its caption.
@@ -1698,7 +1978,7 @@ static void TestConsoleWindowErrors()
 			decltype(C(OURS)->Input) SavedInput[2];
 			TTab *SavedDefault[2], *SavedCurrent[2];
 			char *SavedCaption[2];
-			for (int s = 0; s < 2; s++) {
+			for (int s = 0; s < SIDES; s++) {
 				SavedBuffer[s] = C(s)->CurrentConsole->TextWindow->TextBuffer;
 				SavedView[s] = C(s)->CurrentConsole;
 				SavedInput[s] = C(s)->Input;
@@ -1738,18 +2018,17 @@ static void TestConsoleWindowErrors()
 				switch (What) {
 				case 0: case 8: W->Draw(1, 0, 0); break;
 				case 1: W->KeyPress('a'); break;
-				case 2: case 9: if (s == OURS) W->SetActive(true); else At<BoolArgFn>(0x41e960)(W, NULL, true); break;
-				case 3: if (s == OURS) W->UpdateButtons(); else At<VoidFn>(0x41ed00)(W, NULL); break;
-				case 4: if (s == OURS) W->GetServerMessages(); else At<BoolFn>(0x41f1c0)(W, NULL); break;
-				case 5: if (s == OURS) W->SetServerMessages(true); else At<BoolArgFn>(0x41f470)(W, NULL, true); break;
-				case 6: if (s == OURS) W->GetTextBuffer(); else At<BufferFn>(0x41f7f0)(W, NULL); break;
-				case 10: if (s == OURS) W->CloseChannel(); else At<VoidFn>(0x4234b0)(W, NULL); break;
-				default: if (s == OURS) W->SaveChannel(); else At<BoolFn>(0x420090)(W, NULL); break;
-				}
-			}, false);
+				case 2: case 9: if (s == OURS) W->SetActive(true); else ORIGINAL(At<BoolArgFn>(0x41e960)(W, NULL, true)); break;
+				case 3: if (s == OURS) W->UpdateButtons(); else ORIGINAL(At<VoidFn>(0x41ed00)(W, NULL)); break;
+				case 4: if (s == OURS) W->GetServerMessages(); else ORIGINAL(At<BoolFn>(0x41f1c0)(W, NULL)); break;
+				case 5: if (s == OURS) W->SetServerMessages(true); else ORIGINAL(At<BoolArgFn>(0x41f470)(W, NULL, true)); break;
+				case 6: if (s == OURS) W->GetTextBuffer(); else ORIGINAL(At<BufferFn>(0x41f7f0)(W, NULL)); break;
+				case 10: if (s == OURS) W->CloseChannel(); else ORIGINAL(At<VoidFn>(0x4234b0)(W, NULL)); break;
+				default: if (s == OURS) W->SaveChannel(); else ORIGINAL(At<BoolFn>(0x420090)(W, NULL)); break;
+				} }, false);
 			_chdir(OldDir);
 			World.ConsoleChanged = false;
-			for (int s = 0; s < 2; s++) {
+			for (int s = 0; s < SIDES; s++) {
 				C(s)->CurrentConsole = SavedView[s];
 				C(s)->CurrentConsole->TextWindow->TextBuffer = SavedBuffer[s];
 				C(s)->Input = SavedInput[s];
@@ -1792,7 +2071,7 @@ static void TestConsoleWindowErrors()
 		ConsoleCall("TTabBar::SetSize negative", [&](int s) { C(s)->TabBar->SetSize(NegWidth, 20); });
 		ConsoleCall("TTabBar::ShowTab not in the bar", [&](int s) {
 			if (s == OURS) C(s)->TabBar->ShowTab(Stranger[s]);
-			else At<TabFn>(0x41d450)(C(s)->TabBar, NULL, Stranger[s]); });
+			else ORIGINAL(At<TabFn>(0x41d450)(C(s)->TabBar, NULL, Stranger[s])); });
 		Threw = false;
 		{
 			int Saved[2];
@@ -1800,9 +2079,8 @@ static void TestConsoleWindowErrors()
 				TTextWindow *T = C(s)->CurrentConsole->TextWindow;
 				Saved[s] = T->InvisibleLines;
 				T->InvisibleLines = T->getFirstLineNumber() - 1;
-				C(s)->CurrentConsole->Arrange();
-			}, false);
-			for (int s = 0; s < 2; s++)
+				C(s)->CurrentConsole->Arrange(); }, false);
+			for (int s = 0; s < SIDES; s++)
 				C(s)->CurrentConsole->TextWindow->InvisibleLines = Saved[s];
 			Threw = false;
 		}
@@ -1812,7 +2090,7 @@ static void TestConsoleWindowErrors()
 			World.Lookup = Tabless;
 			World.LookupCount = 0;
 			ConsoleCall("TConsoleWindow::ReportRuleViolation without a tab", [&](int s) {
-				if (s == OURS) C(s)->ReportRuleViolation("x"); else At<StringFn>(0x425330)(C(s), NULL, "x"); });
+				if (s == OURS) C(s)->ReportRuleViolation("x"); else ORIGINAL(At<StringFn>(0x425330)(C(s), NULL, "x")); });
 			World.Lookup = -1;
 			Threw = false;
 		}
@@ -1823,30 +2101,31 @@ static void TestConsoleWindowErrors()
 				World.LookupQueue[0] = World.LookupQueue[1] = -1;
 				World.LookupCount = 2;
 				World.LookupNext = 0;
-				if (s == OURS) C(s)->ReportRuleViolation("x"); else At<StringFn>(0x425330)(C(s), NULL, "x");
+				if (s == OURS) C(s)->ReportRuleViolation("x");
+				else ORIGINAL(At<StringFn>(0x425330)(C(s), NULL, "x"));
 			});
 			World.LookupCount = 0;
 			Threw = false; // (the new channel is open, the assertion follows)
 		}
 		// A gamemaster's answer without the player.
 		if (TabCount(OURS) < 10) {
-			int Index = NewBufferPair(9);
+			int AnswerIndex = NewBufferPair(9);
 			ConsoleCall("errors: answer channel", [&](int s) {
-				if (s == OURS) C(s)->AddChannel(Buffers[s][Index], "Answer");
-				else At<BufferStringFn>(0x423060)(C(s), NULL, Buffers[s][Index], "Answer"); });
+				if (s == OURS) C(s)->AddChannel(Buffers[s][AnswerIndex], "Answer");
+				else ORIGINAL(At<BufferStringFn>(0x423060)(C(s), NULL, Buffers[s][AnswerIndex], "Answer")); });
 			if (Threw)
 				continue;
 			ConsoleCall("errors: answer tab", [&](int s) {
-				TTab *Tab = s == OURS ? C(s)->TabBar->FindTab(Buffers[s][Index])
-					: At<TTab *(__fastcall *)(void *, void *, void *)>(0x41d270)(C(s)->TabBar, NULL, Buffers[s][Index]);
-				if (s == OURS) C(s)->TabBar->SetCurrentTab(Tab); else At<TabFn>(0x421d10)(C(s)->TabBar, NULL, Tab); });
+				TTab *Tab = s == OURS ? C(s)->TabBar->FindTab(Buffers[s][AnswerIndex])
+					: ORIGINAL_OR(At<TTab *(__fastcall *)(void *, void *, void *)>(0x41d270)(C(s)->TabBar, NULL, Buffers[s][AnswerIndex]), nullptr);
+				if (s == OURS) C(s)->TabBar->SetCurrentTab(Tab); else ORIGINAL(At<TabFn>(0x421d10)(C(s)->TabBar, NULL, Tab)); });
 			if (Threw)
 				continue;
 			// Its server messages, failing at the second fake call (the first in
 			// HandleEvent(203), after isDefault).
 			for (int Fail = 2; Fail <= 5; Fail++) {
 				ConsoleCall("TConsoleWindow::SetServerMessages", [&](int s) {
-					if (s == OURS) C(s)->SetServerMessages(true); else At<BoolArgFn>(0x41f470)(C(s), NULL, true); }, true, Fail);
+					if (s == OURS) C(s)->SetServerMessages(true); else ORIGINAL(At<BoolArgFn>(0x41f470)(C(s), NULL, true)); }, true, Fail);
 				Threw = false;
 			}
 			SetInput("an answer");
@@ -1858,13 +2137,13 @@ static void TestConsoleWindowErrors()
 		// The mouse over a shortened tab caption (the current tab's, marked so),
 		// failing at SetMouseOverText.
 		{
-			bool Saved[2] = {C(OURS)->TabBar->CurrentTab->Shortened, C(ORIGINAL)->TabBar->CurrentTab->Shortened};
+			bool Saved[2] = {C(OURS)->TabBar->CurrentTab->Shortened,
+				ORIGINAL_OR(C(ORIGINAL)->TabBar->CurrentTab->Shortened, false)};
 			ConsoleCall("TTab::MouseHover", [&](int s) {
 				TTab *Tab = C(s)->TabBar->CurrentTab;
 				Tab->Shortened = true;
-				Tab->MouseHover(1, 1);
-			}, false, 1);
-			for (int s = 0; s < 2; s++)
+				Tab->MouseHover(1, 1); }, false, 1);
+			for (int s = 0; s < SIDES; s++)
 				C(s)->TabBar->CurrentTab->Shortened = Saved[s];
 			Threw = false;
 		}
@@ -1875,9 +2154,9 @@ static void TestConsoleWindowErrors()
 		World.PendingSpec = 1;
 		ConsoleCall("TConsoleWindow::OpenChannel without a buffer", [&](int s) {
 			if (s == OURS) C(s)->OpenChannel(5, 5, NULL, 4, "Game-Chat");
-			else At<OpenChannelFn>(0x425070)(C(s), NULL, 5, 5, NULL, 4, "Game-Chat"); });
+			else ORIGINAL(At<OpenChannelFn>(0x425070)(C(s), NULL, 5, 5, NULL, 4, "Game-Chat")); });
 		ConsoleCall("TConsoleWindow::ReportRuleViolation without a buffer", [&](int s) {
-			if (s == OURS) C(s)->ReportRuleViolation("x"); else At<StringFn>(0x425330)(C(s), NULL, "x"); });
+			if (s == OURS) C(s)->ReportRuleViolation("x"); else ORIGINAL(At<StringFn>(0x425330)(C(s), NULL, "x")); });
 		World.CreateFails = false;
 		Threw = false;
 		if (TabCount(OURS) < 10) {
@@ -1891,7 +2170,8 @@ static void TestConsoleWindowErrors()
 				World.LookupQueue[1] = New;
 				World.LookupCount = 2;
 				World.LookupNext = 0;
-				if (s == OURS) C(s)->ReportRuleViolation("x"); else At<StringFn>(0x425330)(C(s), NULL, "x");
+				if (s == OURS) C(s)->ReportRuleViolation("x");
+				else ORIGINAL(At<StringFn>(0x425330)(C(s), NULL, "x"));
 			});
 			NoPlayer = false;
 			World.LookupCount = 0;
@@ -1901,14 +2181,14 @@ static void TestConsoleWindowErrors()
 		// A player's report without a name: its tab's destructor asserts.
 		if (Round % 4 == 0 && TabCount(OURS) < 10) {
 			static const TBufferSpec Nameless = {8, 7, false, true, false, false, true, -1, NULL, "Nameless Report"};
-			int Index = (int)Buffers[OURS].size();
-			for (int s = 0; s < 2; s++) {
-				Buffers[s].push_back(new TConsoleBuffer(Index, Nameless));
+			int ReportIndex = (int)Buffers[OURS].size();
+			for (int s = 0; s < SIDES; s++) {
+				Buffers[s].push_back(new TConsoleBuffer(ReportIndex, Nameless));
 				Deleted[s].push_back(false);
 			}
 			ConsoleCall("TConsoleWindow::AddChannel nameless report", [&](int s) {
 				if (s == OURS) C(s)->AddChannel(Buffers[s][Index], "Nameless");
-				else At<BufferStringFn>(0x423060)(C(s), NULL, Buffers[s][Index], "Nameless"); });
+				else ORIGINAL(At<BufferStringFn>(0x423060)(C(s), NULL, Buffers[s][Index], "Nameless")); });
 			if (Threw)
 				continue;
 			ConsoleCall("TConsoleWindow::~TConsoleWindow nameless report", [&](int s) { delete C(s); });
@@ -1923,18 +2203,18 @@ static void TestConsoleWindowErrors()
 		static const TBufferSpec Nameless = {8, 7, false, true, false, false, true, -1, NULL, "Nameless Report"};
 		int Index = Round % 2 == 0 ? NewBufferPair(1) : (int)Buffers[OURS].size();
 		if (Round % 2 != 0) {
-			for (int s = 0; s < 2; s++) {
+			for (int s = 0; s < SIDES; s++) {
 				Buffers[s].push_back(new TConsoleBuffer(Index, Nameless));
 				Deleted[s].push_back(false);
 			}
 		}
 		ConsoleCall("errors: channel", [&](int s) {
 			if (s == OURS) C(s)->AddChannel(Buffers[s][Index], "Channel");
-			else At<BufferStringFn>(0x423060)(C(s), NULL, Buffers[s][Index], "Channel");
+			else ORIGINAL(At<BufferStringFn>(0x423060)(C(s), NULL, Buffers[s][Index], "Channel"));
 			TTab *Tab = s == OURS ? C(s)->TabBar->FindTab(Buffers[s][Index])
-				: At<TTab *(__fastcall *)(void *, void *, void *)>(0x41d270)(C(s)->TabBar, NULL, Buffers[s][Index]);
+								  : ORIGINAL_OR(At<TTab *(__fastcall *)(void *, void *, void *)>(0x41d270)(C(s)->TabBar, NULL, Buffers[s][Index]), nullptr);
 			if (s == OURS) C(s)->TabBar->SetCurrentTab(Tab);
-			else At<void (__fastcall *)(void *, void *, void *)>(0x421d10)(C(s)->TabBar, NULL, Tab);
+			else ORIGINAL(At<void(__fastcall *)(void *, void *, void *)>(0x421d10)(C(s)->TabBar, NULL, Tab));
 		});
 		if (Threw)
 			continue;
@@ -1945,7 +2225,7 @@ static void TestConsoleWindowErrors()
 		for (int Fail = 2; Fail <= 6; Fail++) {
 			ConsoleCall("TConsoleWindow::SetServerMessages", [&](int s) {
 				if (s == OURS) C(s)->SetServerMessages(Fail % 2 == 0);
-				else At<BoolArgFn>(0x41f470)(C(s), NULL, Fail % 2 == 0); }, true, Fail);
+				else ORIGINAL(At<BoolArgFn>(0x41f470)(C(s), NULL, Fail % 2 == 0)); }, true, Fail);
 			Threw = false;
 		}
 	}
@@ -1955,19 +2235,21 @@ static void TestConsoleWindowErrors()
 	R.Finish();
 }
 
+} // namespace ConsoleWindowTest
+
 void TestConsoleWindow()
 {
+	using namespace ConsoleWindowTest;
 	int Before = Checks, BeforeFailures = Failures;
 	if (getenv("CW_TRACE") != NULL)
 		setvbuf(stdout, NULL, _IONBF, 0);
-	PatchImage();
-	PatchScript();
+	ORIGINAL(PatchImage(); PatchScript());
 	InitSkins();
-	Global<int>(0x71c450) = NumberOfSkins;
-	Global<TSkin *>(0x71c454) = Skins;
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
 	InitSkinProperties();
-	At<void (__cdecl *)()>(0x498160)();
-	Surface = new TConsoleSurface;
+	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
+	LastDump.clear();
+	ConsoleSurface = new TConsoleSurface;
 	TempDir = std::string(getenv("TEMP") != NULL ? getenv("TEMP") : ".") + "\\consolewindow";
 	_mkdir(TempDir.c_str());
 	Player.CreatureID = 0x10000001;
@@ -2005,12 +2287,12 @@ void TestConsoleWindow()
 		Kinds[s][TestToggleVtable] = "Toggle";
 		Kinds[s][TestMultiVtable] = "Multi";
 	}
-	Kinds[ORIGINAL][(void *)(uintptr_t)0x55e1a0] = "Console";
-	Kinds[ORIGINAL][(void *)(uintptr_t)0x55dcd8] = "Bar";
-	Kinds[ORIGINAL][(void *)(uintptr_t)0x55dd80] = "Text";
-	Kinds[ORIGINAL][(void *)(uintptr_t)0x55dfc0] = "View";
-	Kinds[ORIGINAL][(void *)(uintptr_t)0x55e098] = "Tab";
-	Kinds[ORIGINAL][(void *)(uintptr_t)0x564528] = "Window";
+	ORIGINAL(Kinds[ORIGINAL][(void *)(uintptr_t)0x55e1a0] = "Console";
+		Kinds[ORIGINAL][(void *)(uintptr_t)0x55dcd8] = "Bar";
+		Kinds[ORIGINAL][(void *)(uintptr_t)0x55dd80] = "Text";
+		Kinds[ORIGINAL][(void *)(uintptr_t)0x55dfc0] = "View";
+		Kinds[ORIGINAL][(void *)(uintptr_t)0x55e098] = "Tab";
+		Kinds[ORIGINAL][(void *)(uintptr_t)0x564528] = "Window");
 	PatchCallees();
 	DialogFakes.SetSkins = HookSetSkins;
 	{
@@ -2048,7 +2330,7 @@ void TestConsoleWindow()
 			if (s == OURS)
 				C(s)->OpenDefaultChannel(Buffers[s][Default], "Default");
 			else
-				At<BufferStringFn>(0x422e70)(C(s), NULL, Buffers[s][Default], "Default");
+				ORIGINAL(At<BufferStringFn>(0x422e70)(C(s), NULL, Buffers[s][Default], "Default"));
 		});
 		Stage = "default channel";
 		Compare("default channel");
@@ -2064,6 +2346,7 @@ void TestConsoleWindow()
 			delete C(s);
 			Console[s] = NULL;
 		});
+		OutputOriginalLog();
 		CHECK(Log[OURS] == Log[ORIGINAL], "ConsoleWindow destructor: logs differ\n  ours: %s\n  orig: %s",
 			Log[OURS].c_str(), Log[ORIGINAL].c_str());
 		Log[OURS].clear();
@@ -2093,9 +2376,9 @@ void TestConsoleWindow()
 	Testing = false;
 	DialogFakes.SetSkins = NULL;
 	RestoreAll();
-	delete Surface;
+	delete ConsoleSurface;
 	ExitSkins();
-	Global<TSkin *>(0x71c454) = NULL;
+	ORIGINAL(Global<TSkin *>(0x71c454) = NULL);
 	int Least = ActionCount[0];
 	for (int i = 1; i < 22; i++)
 		Least = ActionCount[i] < Least ? ActionCount[i] : Least;
