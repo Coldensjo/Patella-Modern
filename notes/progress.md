@@ -312,10 +312,10 @@ with the oracle (the user's decision: the 1,518 comparisons that reach ChangeEng
 statics' checks right after them), per comparison with the oracle's flag recorded first and the oracle's state set
 after each retired part. Every oracle test is now replayed or retired: 16,461,713 replayed + 1,521,619 retired =
 17,983,332. The replay found an x64 defect in src/Control.cpp (event 0x12 reads Communication's `int[]` channel list
-as INT_PTR[]: the new-channel dialog's IDs shift by one on x64): 60 failures until src/ is fixed (a one-line fix, tried
-locally: 0 failures; not made here, src/ unchanged). notes/decisions.md, "The golden corpus: Control (Patella-Modern
-issue #30, third part)".
-Next: the src/Control.cpp fix of event 0x12 (needs the user); the other open issues; see GitHub.
+as INT_PTR[]: the new-channel dialog's IDs shifted by one on x64), fixed in src/Control.cpp (the oracle's Patella.exe
+unchanged, pecompare); the queue's other messages audited, no other defect. Control replays with 0 failures.
+notes/decisions.md, "The golden corpus: Control (Patella-Modern issue #30, third part)".
+Next: the live check of the x64 client's "Open a channel" dialog; the other open issues; see GitHub.
 
 ## Resources (issue #17)
 
@@ -339,9 +339,10 @@ None.
 Patella-Modern issue #30, third part (branch issue-30c, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh`
 (CTest 4/4, 0 warnings) after Control moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong
 checks, 0 failures; with recording on (`golden_corpus`, 903 MB) the same counts. The x64 golden_runner (windows-x64 and
--debug) replays 16,461,713 of the oracle's 17,983,332 checks and retires 1,521,619 (Control's 24,155 new), with 60
-failures, all Control's event 0x12 (src/Control.cpp, above), so CTest's golden fails (12/13) until src/ is fixed.
-src/ unchanged (no diff against 8d48db9); macrocheck 8d48db9 issue-30c: 2,108 calls, 0 differences.
+-debug, --fresh, CTest 13/13) replays 16,461,713 of the oracle's 17,983,332 checks and retires 1,521,619 (Control's
+24,155 new), 0 failures, after src/Control.cpp's event 0x12 fix (before it: 60 failures, all that call). src/ against
+8d48db9: that fix only; pecompare of the oracle's Patella.exe (8d48db9 and the fix, at the same path): 0 unexpected
+differences; macrocheck 8d48db9 issue-30c: 2,108 calls, 0 differences.
 
 Patella-Modern issue #30, second part (branch issue-30b, November 4, 2026): `python -I tools/build.py oracle-x86
 --fresh` (CTest 4/4, 0 warnings) after Communication and its world moved to tests/golden: 16,848,752 + 67 + 1,134,513

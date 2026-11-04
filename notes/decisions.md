@@ -8591,12 +8591,32 @@ and Communication's port; notes/reconstruction.md, "Checking", the use.
 - **Replayed** (high). 253,992 + 24,155 retired = 278,147, the oracle's, Release and Debug; the error round's counts
   (163,552 checks, 10,980 exceptions compared, 9,474 that threw) equal the oracle's. The runner replays 16,461,713 of
   the oracle's 17,983,332 checks, retires 1,521,619, lists none as not ported.
-- **60 failures: an x64 defect of src/Control.cpp** (needs a src change; not made here). ProcessEvents' event 0x12
+- **60 failures: an x64 defect of src/Control.cpp** (fixed in its own commit, below). ProcessEvents' event 0x12
   reads its first parameter as `INT_PTR *` (Data[0] the count, &Data[1] the IDs), but Communication.cpp's
   ReceiveChannelList builds an `int[]` (count, then the IDs). On x86 both are 4 bytes; on x64 the count is read from
   8 bytes (its low half, so right) and the IDs start one entry late: the new-channel dialog of the x64 client shows
   each channel with the next one's ID and reads one int past the array. All 60 failures (20 in the main part, 40 in
   the error round, Release and Debug alike) are this call's log ("CreateNewChannelDialog(2,24:...,311:...)", the
-  original's "(2,88:...,24:...)"). Tried locally and reverted: `int *Data = reinterpret_cast<int *>(Param1);
-  CreateNewChannelDialog(Data[0], &Data[1], ...)` gives 0 failures (x86 code unchanged: INT_PTR is int there).
-- **Commits** (form). Control's port, then these notes.
+  original's "(2,88:...,24:...)").
+- **The fix** (high; the orchestrator's decision: it restores the original's behaviour on x64). Event 0x12 reads
+  Param1 as the `int *` ReceiveChannelList builds (`Data[0]` the count, `&Data[1]` the IDs). The oracle's Patella.exe
+  is unchanged (pecompare of 8d48db9's and the fix's, built at the same path: .text identical, 0 unexpected
+  differences: INT_PTR is int on x86); the runner replays Control with 0 failures in Release and Debug. The golden
+  test is the check that catches it on x64 (control_tests.cpp's BuildEvent builds event 0x12 as the client does).
+  The reference recordings do not open the channel list (no session sends Ctrl+O or the channels button), so the x64
+  client's dialog needs a live check: the "Open a channel" dialog's entries open the channel they name.
+- **The same class of defect, audited** (high). Every message of the event queue (Status.cpp's TMessage keeps both
+  parameters as INT_PTR; FetchMessage's only reader is Control.cpp's ProcessEvents; ClearMessages frees them) whose
+  producer builds a block and whose reader reads it, element type against element type: event 6 (MainWindow.cpp's
+  INT_PTR[4], read as INT_PTR[]), 7 (Control.cpp's CloseRequest, INT_PTR[4] / INT_PTR[]), 14 (Communication.cpp's
+  ReceiveEditText: uint32[3] / int *, char *[2] / INT_PTR[] and ClearMessages' char **), 15 (ReceiveEditHouseText:
+  uint32[2] / int *), 16 (ReceiveOutfit: int[7] / int *), 0x12 (ReceiveChannelList: int[] / INT_PTR[], the defect),
+  0x1c (ContextMenus.cpp's new TTalkLine / TTalkLine *), 0x1d and 0x1e (TCoordinate *, TMark *), 0x24, 0x3a, 0x3b,
+  0x3c (window and menu-data pointers / the same pointers), and every block of text (char * both sides). The scalar
+  parameters (counts, IDs, line numbers, the patch size; 5, 9, 10, 0x18, 0x29, 0x30, 0x31, 0x35, 0x36, 0x37,
+  0x39) are ints or uint32 widened to INT_PTR and narrowed back to the same type: no difference on x64. Outside the
+  queue: MainFrm.cpp's OnDisplayChange and OnHostResolved read LPARAM through LOWORD/HIWORD and WSAGETASYNCERROR
+  (WinSock's 32-bit packing, both sides Windows'), OnTimer's UINT_PTR is MFC's, Player.cpp's LPARAMs are Windows',
+  Talk.cpp's Write prints its FILE * through an INT_PTR (the original's catch value, a pointer). No other pair is a
+  defect; none was unclear.
+- **Commits** (form). Control's port, these notes, the fix of event 0x12, then its notes.

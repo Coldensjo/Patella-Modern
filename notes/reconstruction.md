@@ -646,8 +646,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   checks. Retired with the oracle, 1,521,619 checks: Dialogs' 9,129, Errors' 36, Control's 24,155 and issue #29's three
   engine tests as whole tests (the user's decision; the runner's RetiredTests, "#29"): SurfaceDX's 1,368,981, DX9's
   63,616, GL's 55,702. Every test is ported; replayed and retired add up to the oracle's totals, which the runner's
-  last line shows. Control's replay has 60 failures until src/Control.cpp's event 0x12 reads Communication's channel
-  list as the `int[]` it is (an x64 defect the replay found; notes/decisions.md, issue #30's third part). The runner links the reconstructed files the
+  last line shows. Control's replay found an x64 defect of src/Control.cpp (event 0x12 read Communication's channel
+  list, an `int[]`, as INT_PTR[]), fixed with it (notes/decisions.md, issue #30's third part). The runner links the reconstructed files the
   ported tests call (golden_client: compiled against the MFC shim with the product settings; since issue #28
   graphics.cpp, GUI.cpp and every window file too; since issue #30's second part Communication.cpp and Control.cpp, in
   tests/golden/comm) and aborting stubs of the others (tests/golden/client_stubs.cpp: the Vulkan engine and the
