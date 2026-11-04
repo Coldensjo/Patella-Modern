@@ -30,21 +30,25 @@
 
 using TDirect3DCreate9 = IDirect3D9 *(WINAPI *)(UINT SDKVersion);
 
+namespace {
+
 // Data, in address order (.data, then .bss).
-static int CurrentTargetNumber = -1;               // 0x5c2574
-static D3DPRESENT_PARAMETERS PresentParameters;    // 0x71d170
-static D3DCOLOR ColorKey[NUMBER_OF_SURFACES_DX9];  // 0x71d1a8, 0 when the surface has none
-static TVertexDX9 *ShadeVertices;                  // 0x71d200, ShadeBuffer while it is locked
-static TVertexDX9 *Vertices;                       // 0x71d204, VertexBuffer, locked between draws
-static int SurfaceCreated[NUMBER_OF_SURFACES_DX9]; // 0x71d208, indexed by NumberOfSurfaces
-static int CurrentTexture;                         // 0x71d260
-static int NumberOfVertices;                       // 0x71d26c
-static int NumberOfShadeVertices;                  // 0x71d270
-static IDirect3DSurface9 *TempSurface;             // 0x71d274, 64x64 in system memory (ApplyColorKey)
-static TDirect3DCreate9 Direct3DCreate9Function;   // 0x71d278
-static HMODULE Direct3D9Module;                    // 0x71d27c, never set (IsDirect3D9Installed does not keep the module)
-static uint32 FrameCount;                          // 0x71d280
-static double LastFPSTime;                         // 0x71d288
+int CurrentTargetNumber = -1;               // 0x5c2574
+D3DPRESENT_PARAMETERS PresentParameters;    // 0x71d170
+D3DCOLOR ColorKey[NUMBER_OF_SURFACES_DX9];  // 0x71d1a8, 0 when the surface has none
+TVertexDX9 *ShadeVertices;                  // 0x71d200, ShadeBuffer while it is locked
+TVertexDX9 *Vertices;                       // 0x71d204, VertexBuffer, locked between draws
+int SurfaceCreated[NUMBER_OF_SURFACES_DX9]; // 0x71d208, indexed by NumberOfSurfaces
+int CurrentTexture;                         // 0x71d260
+int NumberOfVertices;                       // 0x71d26c
+int NumberOfShadeVertices;                  // 0x71d270
+IDirect3DSurface9 *TempSurface;             // 0x71d274, 64x64 in system memory (ApplyColorKey)
+TDirect3DCreate9 Direct3DCreate9Function;   // 0x71d278
+HMODULE Direct3D9Module;                    // 0x71d27c, never set (IsDirect3D9Installed does not keep the module)
+uint32 FrameCount;                          // 0x71d280
+double LastFPSTime;                         // 0x71d288
+
+} // namespace
 
 // 0x4efd10. Surface.cpp's engine selection asks this before it tests the
 // engine. The module handle is not kept.
@@ -560,12 +564,14 @@ bool TSurfaceDX9::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, boo
 	return true;
 }
 
+namespace {
+
 // The display mode callback of EnumDisplayModes (folded into SurfaceDX.obj's
 // identical copy 0x4ec810): collects the modes of at least 640x480 and 16 bits
 // in a growing array, counted in the surface's NumberOfModes. Odd behaviour
 // kept: the refresh rate is taken when the pixel format's flags (not the
 // description's) have DDSD_REFRESHRATE.
-static HRESULT WINAPI EnumModesCallback(DDSURFACEDESC2 *Description, void *Context)
+HRESULT WINAPI EnumModesCallback(DDSURFACEDESC2 *Description, void *Context)
 {
 	TFullscreenMode **Modes = static_cast<TFullscreenMode **>(Context);
 	if (*Modes == nullptr)
@@ -591,6 +597,8 @@ static HRESULT WINAPI EnumModesCallback(DDSURFACEDESC2 *Description, void *Conte
 	}
 	return DDENUMRET_OK;
 }
+
+} // namespace
 
 // 0x4f1320. The caller deletes the array.
 int TSurfaceDX9::GetFullscreenModes(TFullscreenMode **Modes)

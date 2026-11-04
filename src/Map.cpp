@@ -37,25 +37,29 @@
 
 constexpr int AUTOMAP_BLOCKS = 10;
 
-static void (*CreatureCallback)(int CreatureID);                                        // 0x5d16c0, called for every creature ClearField removes
-static int AmbienteActualBrightness;                                                    // 0x5d16c4, follows AmbienteBrightness step by step
-static int AmbienteBrightness;                                                          // 0x5d16c8, -1: take the next value at once
-static bool AutomapChanged;                                                             // 0x5d16cc
-static int LeastRecentBlock;                                                            // 0x5d16d0, tail of the block cache's LRU list
-static int MostRecentBlock;                                                             // 0x5d16d4, head
-static int EffectIteratorCount;                                                         // 0x5d16d8
-static int EffectIteratorField;                                                         // 0x5d16dc
-static int ObjectIteratorCount;                                                         // 0x5d16e0
-static int ObjectIteratorField;                                                         // 0x5d16e4
-static int MapZ;                                                                        // 0x5d16e8, world position of the map's centre
-static int MapY;                                                                        // 0x5d16ec
-static int MapX;                                                                        // 0x5d16f0
-static TEffect Effects[EFFECTS];                                                        // 0x5d16f8
-static array<TMapPoint> Fields(0, MAPSIZE_X * MAPSIZE_Y * MAPSIZE_Z - 1);               // 0x5d4c18, initialiser at 0x559f40
-static matrix3d<int> FieldNumber(0, MAPSIZE_X - 1, 0, MAPSIZE_Y - 1, 0, MAPSIZE_Z - 1); // 0x5d4c24, 0x559f60
-static TAutomapBlock AutomapBlocks[AUTOMAP_BLOCKS];                                     // 0x5d4c40, initialiser at 0x559f90
-static TRGBColor AmbienteColor;                                                         // 0x7152d0
-static TRGBColor AmbienteActualColor;                                                   // 0x7152dc
+namespace {
+
+void (*CreatureCallback)(int CreatureID);                                        // 0x5d16c0, called for every creature ClearField removes
+int AmbienteActualBrightness;                                                    // 0x5d16c4, follows AmbienteBrightness step by step
+int AmbienteBrightness;                                                          // 0x5d16c8, -1: take the next value at once
+bool AutomapChanged;                                                             // 0x5d16cc
+int LeastRecentBlock;                                                            // 0x5d16d0, tail of the block cache's LRU list
+int MostRecentBlock;                                                             // 0x5d16d4, head
+int EffectIteratorCount;                                                         // 0x5d16d8
+int EffectIteratorField;                                                         // 0x5d16dc
+int ObjectIteratorCount;                                                         // 0x5d16e0
+int ObjectIteratorField;                                                         // 0x5d16e4
+int MapZ;                                                                        // 0x5d16e8, world position of the map's centre
+int MapY;                                                                        // 0x5d16ec
+int MapX;                                                                        // 0x5d16f0
+TEffect Effects[EFFECTS];                                                        // 0x5d16f8
+array<TMapPoint> Fields(0, MAPSIZE_X * MAPSIZE_Y * MAPSIZE_Z - 1);               // 0x5d4c18, initialiser at 0x559f40
+matrix3d<int> FieldNumber(0, MAPSIZE_X - 1, 0, MAPSIZE_Y - 1, 0, MAPSIZE_Z - 1); // 0x5d4c24, 0x559f60
+TAutomapBlock AutomapBlocks[AUTOMAP_BLOCKS];                                     // 0x5d4c40, initialiser at 0x559f90
+TRGBColor AmbienteColor;                                                         // 0x7152d0
+TRGBColor AmbienteActualColor;                                                   // 0x7152dc
+
+} // namespace
 
 // --- Position (the MainWindow/Map gap) ------------------------------------
 
@@ -288,10 +292,12 @@ TObject GetTopMultiUseObject(int rx, int ry, int rz, int &Position)
 	TEND1(299, Position)
 }
 
+namespace {
+
 // 0x4b7de0, lines 314-341. Computes the drawing order (the ground, border and
 // bottom objects from the bottom, then the rest from the top) and the side
 // of a hanging object from the hook it hangs on.
-static void SortObjects(int rx, int ry, int rz)
+void SortObjects(int rx, int ry, int rz)
 {
 	TASSERTB1(314, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(315, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
@@ -324,7 +330,7 @@ static void SortObjects(int rx, int ry, int rz)
 // 0x4b8310, lines 351-366. Inserts an object at a stack position; on a full
 // point the top object falls off. The try block starts only after the
 // assertions.
-static void InsertObject(int rx, int ry, int rz, int Position, TObject Obj)
+void InsertObject(int rx, int ry, int rz, int Position, TObject Obj)
 {
 	TASSERTB1(351, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(352, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
@@ -344,6 +350,8 @@ static void InsertObject(int rx, int ry, int rz, int Position, TObject Obj)
 	SortObjects(rx, ry, rz);
 	TEND1(366, Position)
 }
+
+} // namespace
 
 // 0x4b88f0, lines 376-401. Inserts an object where it belongs: ground
 // objects first, then borders, bottom objects, top objects, and new
@@ -433,9 +441,11 @@ void ChangeObject(int rx, int ry, int rz, int Position, TObject Obj)
 
 // --- Effects -----------------------------------------------------------------
 
+namespace {
+
 // 0x4b9e30, lines 508-516. The n-th effect of the iterated point, -1 after
 // the last.
-static int GetEffectIteratorNumber(int n)
+int GetEffectIteratorNumber(int n)
 {
 	TBEGIN
 	int EffectNumber = Fields(EffectIteratorField).EffectNumber;
@@ -447,6 +457,8 @@ static int GetEffectIteratorNumber(int n)
 	return EffectNumber;
 	TEND1(516, n)
 }
+
+} // namespace
 
 // 0x4ba100, lines 524-534
 int GetFirstEffect(int rx, int ry, int rz)
@@ -551,9 +563,11 @@ int GetMissileEffectY(int EffectNumber)
 	return (Effect.DestY - Effect.y) * 32 + Effect.OffsetY;
 }
 
+namespace {
+
 // 0x4ba6e0, lines 678-688. Takes a free entry (-1 if there is none) and puts
 // it first on the point; coordinates off the map mean point 0,0,0.
-static int NewEffect(int Status, int rx, int ry, int rz)
+int NewEffect(int Status, int rx, int ry, int rz)
 {
 	TBEGIN
 	int Number = -1;
@@ -585,6 +599,8 @@ static int NewEffect(int Status, int rx, int ry, int rz)
 	return Number;
 	TEND1(688, Status)
 }
+
+} // namespace
 
 // 0x4bab40, line 703
 void AddGraphicalEffect(int rx, int ry, int rz, int Type)
@@ -672,8 +688,10 @@ void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type)
 	TEND1(768, Type)
 }
 
+namespace {
+
 // 0x4bb520, lines 776-789. No try block.
-static void DeleteEffect(int Number)
+void DeleteEffect(int Number)
 {
 	TASSERT1(776, In(Number,0,EFFECTS-1), Number);
 	TEffect &Effect = Effects[Number];
@@ -692,6 +710,8 @@ static void DeleteEffect(int Number)
 		Effects[Effect.Next].Previous = Effect.Previous;
 	}
 }
+
+} // namespace
 
 // 0x4bba70, lines 807-817. One animation step of the graphical effects and
 // texts; a text lasts ten steps.
@@ -827,10 +847,12 @@ void ClearMap()
 		Effects[i].Status = 0;
 }
 
+namespace {
+
 // 0x4bcd20, line 945. The points move one field west (the centre moved
 // east); the column that comes in on the east is cleared. Ghidra splits
 // this and the five functions below at their loops (0x4bcd50 ...).
-static void ShiftMapWest()
+void ShiftMapWest()
 {
 	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
@@ -846,7 +868,7 @@ static void ShiftMapWest()
 }
 
 // 0x4bcf30, line 964
-static void ShiftMapEast()
+void ShiftMapEast()
 {
 	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
@@ -862,7 +884,7 @@ static void ShiftMapEast()
 }
 
 // 0x4bd140, line 983
-static void ShiftMapNorth()
+void ShiftMapNorth()
 {
 	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
@@ -878,7 +900,7 @@ static void ShiftMapNorth()
 }
 
 // 0x4bd350, line 1002
-static void ShiftMapSouth()
+void ShiftMapSouth()
 {
 	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
@@ -892,6 +914,8 @@ static void ShiftMapSouth()
 	}
 	TEND(1002)
 }
+
+} // namespace
 
 // 0x4bd560, line 1018. dx, dy: how far the points move (the centre moves the
 // other way).
@@ -911,8 +935,10 @@ void ShiftMap(int dx, int dy)
 	TEND2(1018, dx, dy)
 }
 
+namespace {
+
 // 0x4bd750, line 1037. The points move one level up; level 0 is cleared.
-static void ShiftMapUp()
+void ShiftMapUp()
 {
 	TBEGIN
 	for (int x = 0; x < MAPSIZE_X; x++) {
@@ -928,7 +954,7 @@ static void ShiftMapUp()
 }
 
 // 0x4bd960, line 1056
-static void ShiftMapDown()
+void ShiftMapDown()
 {
 	TBEGIN
 	for (int x = 0; x < MAPSIZE_X; x++) {
@@ -942,6 +968,8 @@ static void ShiftMapDown()
 	}
 	TEND(1056)
 }
+
+} // namespace
 
 // 0x4bdb70, line 1074. After moving up, the levels 5-7 are cleared as well
 // (the binary decides this on dz before the loops count it down).
@@ -1046,10 +1074,12 @@ bool FieldRefreshRequested(int rx, int ry, int rz)
 	TEND2(1164, rx, ry)
 }
 
+namespace {
+
 // 0x4be910, line 1191. The automap colour and speed of a point: the ground's
 // speed (at most 250), the last AUTOMAP colour, 255 for an empty or blocked
 // point.
-static void GetFieldAutomapInfo(int rx, int ry, int rz, uint8 *Color, uint8 *Speed)
+void GetFieldAutomapInfo(int rx, int ry, int rz, uint8 *Color, uint8 *Speed)
 {
 	*Color = 0;
 	*Speed = 250;
@@ -1083,7 +1113,7 @@ static void GetFieldAutomapInfo(int rx, int ry, int rz, uint8 *Color, uint8 *Spe
 // empties it again and reports that in the default console. The inner
 // message says "colors" where it reads the colours and speeds, "flags" for
 // the marks.
-static void LoadAutomapBlock(int Position, int bx, int by, int bz)
+void LoadAutomapBlock(int Position, int bx, int by, int bz)
 {
 	TASSERT1(1199, In(bx,0,999), bx);
 	TASSERT1(1200, In(by,0,999), by);
@@ -1163,7 +1193,7 @@ static void LoadAutomapBlock(int Position, int bx, int by, int bz)
 // 0x4b36e0, lines 1317-1411. Writes a changed block back; marks at 0,0 are
 // deleted ones and are skipped. A file that cannot be opened or written is
 // reported in the default console; the block counts as saved either way.
-static void SaveAutomapBlock(int Position)
+void SaveAutomapBlock(int Position)
 {
 	TBEGIN
 	TAutomapBlock &Block = AutomapBlocks[Position];
@@ -1236,7 +1266,7 @@ static void SaveAutomapBlock(int Position)
 // used entry if necessary, becomes the most recently used one. (The binary
 // keeps Position in bx's stack slot while the entry is replaced, the only
 // part that can fail; the catch block reads it from there.)
-static TAutomapBlock *GetAutomapBlock(int bx, int by, int bz)
+TAutomapBlock *GetAutomapBlock(int bx, int by, int bz)
 {
 	TASSERT1(1420, bx>=0, bx);
 	TASSERT1(1421, by>=0, by);
@@ -1270,6 +1300,8 @@ static TAutomapBlock *GetAutomapBlock(int bx, int by, int bz)
 	return &AutomapBlocks[Position];
 	TEND1(1446, Position)
 }
+
+} // namespace
 
 // 0x4beb90, line 1465. Records a point of the centre's level in the automap.
 void UpdateAutomap(int rx, int ry)
@@ -1314,8 +1346,10 @@ void GetAutomapMarks(int x, int y, int z, vector<TMark> *Marks, int *Count)
 	TEND2(1493, x, y)
 }
 
+namespace {
+
 // 0x4b4960, lines 1500-1506. Negative coordinates are blocked.
-static bool IsAutomapBlocked(int x, int y, int z)
+bool IsAutomapBlocked(int x, int y, int z)
 {
 	TASSERT1(1500, In(z,0,15), z);
 	TBEGIN
@@ -1328,7 +1362,7 @@ static bool IsAutomapBlocked(int x, int y, int z)
 }
 
 // 0x4b4c60, lines 1514-1520
-static int GetAutomapSpeed(int x, int y, int z)
+int GetAutomapSpeed(int x, int y, int z)
 {
 	TASSERT1(1514, In(z,0,15), z);
 	TBEGIN
@@ -1339,6 +1373,8 @@ static int GetAutomapSpeed(int x, int y, int z)
 	return 1;
 	TEND2(1520, x, y)
 }
+
+} // namespace
 
 // 0x4b4f60, lines 1538-1557
 void AddAutomapMark(TCoordinate &Coordinate, const char *Text, int Type)

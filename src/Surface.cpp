@@ -32,24 +32,36 @@ TSurface *CreateSurfaceVulkan();
 
 // Data, in .data and .bss order. The shared data the engines use (Surface.h)
 // lies around this file's own; 0x71d0f8 and up are SurfaceDX.cpp's.
-int CommandLineEngine = -1;    // 0x5c2564, set by Player.cpp from "engine N"
-int CacheSurfaceWidth = 256;   // 0x5c2568
-int CacheSurfaceHeight = 256;  // 0x5c256c
-int InitStep;                  // 0x71d0bc
-static HWND SurfaceWindow;     // 0x71d0c0, the main window, from SurfaceInitInstance
-int curEngine;                 // 0x71d0c4
-static uint8 AvailableEngines; // 0x71d0c8, bit 0 OpenGL works, bit 1 DirectX 9 passed TestEngine
-static TSurface *Surface;      // 0x71d0cc
-int BlitCount;                 // 0x71d0d0
-int BlitPixels;                // 0x71d0d4
-int Data71D0D8;                // 0x71d0d8
-int ScreenWidth;               // 0x71d0dc
-int ScreenHeight;              // 0x71d0e0
-int ScreenDepth;               // 0x71d0e4
-int LastBlitCount;             // 0x71d0e8
-int LastBlitPixels;            // 0x71d0ec
-int NumberOfSurfaces;          // 0x71d0f0
-int Data71D0F4;                // 0x71d0f4
+int CommandLineEngine = -1;   // 0x5c2564, set by Player.cpp from "engine N"
+int CacheSurfaceWidth = 256;  // 0x5c2568
+int CacheSurfaceHeight = 256; // 0x5c256c
+int InitStep;                 // 0x71d0bc
+
+namespace {
+
+HWND SurfaceWindow; // 0x71d0c0, the main window, from SurfaceInitInstance
+
+} // namespace
+
+int curEngine; // 0x71d0c4
+
+namespace {
+
+uint8 AvailableEngines; // 0x71d0c8, bit 0 OpenGL works, bit 1 DirectX 9 passed TestEngine
+TSurface *Surface;      // 0x71d0cc
+
+} // namespace
+
+int BlitCount;        // 0x71d0d0
+int BlitPixels;       // 0x71d0d4
+int Data71D0D8;       // 0x71d0d8
+int ScreenWidth;      // 0x71d0dc
+int ScreenHeight;     // 0x71d0e0
+int ScreenDepth;      // 0x71d0e4
+int LastBlitCount;    // 0x71d0e8
+int LastBlitPixels;   // 0x71d0ec
+int NumberOfSurfaces; // 0x71d0f0
+int Data71D0F4;       // 0x71d0f4
 
 // 0x4eaa80. Written to error.txt as "Graphic Engine".
 int GetCurrentEngine()

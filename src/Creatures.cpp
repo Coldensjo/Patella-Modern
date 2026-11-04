@@ -36,49 +36,53 @@
 #define TASSERT2_BUG(Line, Expr, Bug, V1, V2) \
 	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, #V2, V2, #Expr " [" #Bug "]")
 
+namespace {
+
 // Data, in .bss order. 0x5c456c and 0x5c68ac are not used by any code.
-static int BuddySortMethods[3];         // 0x5c4560, 0 name, 1 icon, 2 online; most significant first
-static TBuddyEntry Buddies[BUDDIES];    // 0x5c4570
-static int NumberOfOnlineBuddies;       // 0x5c67d0
-static int NumberOfBuddies;             // 0x5c67d4
-static int PlayerState;                 // 0x5c67d8, the state icons, one bit each
-static int PlayerSkillProgress[SKILLS]; // 0x5c67dc
-static int PlayerSkillValue[SKILLS];    // 0x5c67f8
-static uint32 HighlightID;              // 0x5c6814
-static uint32 FollowID;                 // 0x5c6818
-static uint32 AttackID;                 // 0x5c681c
-static int PlayerCapacity;              // 0x5c6820
-static int PlayerSoul;                  // 0x5c6824
-static int PlayerMaxMana;               // 0x5c6828
-static int PlayerMana;                  // 0x5c682c
-static int PlayerMagicLevelProgress;    // 0x5c6830
-static int PlayerLevelProgress;         // 0x5c6834
-static int PlayerMagicLevel;            // 0x5c6838
-static int PlayerLevel;                 // 0x5c683c
-static int PlayerExperience;            // 0x5c6840
-static int PlayerMaxHealth;             // 0x5c6844
-static int PlayerHealth;                // 0x5c6848
-static uint32 PlayerID;                 // 0x5c684c
-static bool NewPlayerDestination;       // 0x5c6850, a destination came while the old path was walked
-static int CurrentPlayerStep;           // 0x5c6854
-static int NumberOfPlayerSteps;         // 0x5c6858
-static int PlayerSteps[10];             // 0x5c685c, 1 east, 2 north-east, ..., 8 south-east; the path finder stops at 10
-static bool DestinationDiagonal;        // 0x5c6884, passed on to the path finder
-static bool DestinationExact;           // 0x5c6885, passed on to the path finder
-static int DestinationZ;                // 0x5c6888
-static int DestinationY;                // 0x5c688c
-static int DestinationX;                // 0x5c6890, 0: no destination
-static int PlayerStepDirection;         // 0x5c6894, Direction of the step not confirmed yet
-static int PlayerStepDY;                // 0x5c6898, the step sent but not confirmed by the server
-static int PlayerStepDX;                // 0x5c689c
-static int Beat;                        // 0x5c68a0, step durations are rounded up to a multiple
-static int LastOpponent;                // 0x5c68a4, battle list ends (slot numbers, -1: empty)
-static int FirstOpponent;               // 0x5c68a8
-static TCreature Creatures[CREATURES];  // 0x5c68b0
+int BuddySortMethods[3];         // 0x5c4560, 0 name, 1 icon, 2 online; most significant first
+TBuddyEntry Buddies[BUDDIES];    // 0x5c4570
+int NumberOfOnlineBuddies;       // 0x5c67d0
+int NumberOfBuddies;             // 0x5c67d4
+int PlayerState;                 // 0x5c67d8, the state icons, one bit each
+int PlayerSkillProgress[SKILLS]; // 0x5c67dc
+int PlayerSkillValue[SKILLS];    // 0x5c67f8
+uint32 HighlightID;              // 0x5c6814
+uint32 FollowID;                 // 0x5c6818
+uint32 AttackID;                 // 0x5c681c
+int PlayerCapacity;              // 0x5c6820
+int PlayerSoul;                  // 0x5c6824
+int PlayerMaxMana;               // 0x5c6828
+int PlayerMana;                  // 0x5c682c
+int PlayerMagicLevelProgress;    // 0x5c6830
+int PlayerLevelProgress;         // 0x5c6834
+int PlayerMagicLevel;            // 0x5c6838
+int PlayerLevel;                 // 0x5c683c
+int PlayerExperience;            // 0x5c6840
+int PlayerMaxHealth;             // 0x5c6844
+int PlayerHealth;                // 0x5c6848
+uint32 PlayerID;                 // 0x5c684c
+bool NewPlayerDestination;       // 0x5c6850, a destination came while the old path was walked
+int CurrentPlayerStep;           // 0x5c6854
+int NumberOfPlayerSteps;         // 0x5c6858
+int PlayerSteps[10];             // 0x5c685c, 1 east, 2 north-east, ..., 8 south-east; the path finder stops at 10
+bool DestinationDiagonal;        // 0x5c6884, passed on to the path finder
+bool DestinationExact;           // 0x5c6885, passed on to the path finder
+int DestinationZ;                // 0x5c6888
+int DestinationY;                // 0x5c688c
+int DestinationX;                // 0x5c6890, 0: no destination
+int PlayerStepDirection;         // 0x5c6894, Direction of the step not confirmed yet
+int PlayerStepDY;                // 0x5c6898, the step sent but not confirmed by the server
+int PlayerStepDX;                // 0x5c689c
+int Beat;                        // 0x5c68a0, step durations are rounded up to a multiple
+int LastOpponent;                // 0x5c68a4, battle list ends (slot numbers, -1: empty)
+int FirstOpponent;               // 0x5c68a8
+TCreature Creatures[CREATURES];  // 0x5c68b0
 // At 0x5cc418, constructed by the static initialiser 0x559e00 as
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // the end of Creatures.obj's .bss, before Dialogs.obj's NoCallback 0x5cc420.
-static TCallback NoCallback(nullptr, 0);
+TCallback NoCallback(nullptr, 0);
+
+} // namespace
 
 static_assert(sizeof(TCreature) == 0x9c, "TCreature is 0x9c bytes");
 static_assert(sizeof(TBuddyEntry) == 0x2c, "TBuddyEntry is 0x2c bytes");

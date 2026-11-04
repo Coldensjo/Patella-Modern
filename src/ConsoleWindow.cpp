@@ -43,13 +43,17 @@
 #include <ctime>
 #include <cstdio>
 
+namespace {
+
 // At 0x5c4390, constructed by the static initialiser 0x559dc0 as
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // ConsoleWindow.obj's only .bss datum, after Communication.obj's .bss
 // (0x5c4340-0x5c438f; 0x5c4388 and 0x5c438c are used by its STL code) and
 // before ContentWindows.obj's (0x5c4398; its NoCallback 0x5c4500,
 // initialiser 0x559dd0).
-static TCallback NoCallback(nullptr, 0);
+TCallback NoCallback(nullptr, 0);
+
+} // namespace
 
 // ParseInput's error names its value "(Word) MessageSeparator": the char
 // converted to an unsigned 16-bit value (movsx, movzx).

@@ -32,9 +32,13 @@
 static_assert(sizeof(TSurfaceDX) == 0x250, "TSurfaceDX's size");
 #endif
 
+namespace {
+
 // Data, in .data and .bss order.
-static const GUID *DeviceGUID = &IID_IDirect3DHALDevice; // 0x5c2570, the Direct3D device created
-static int SurfaceMemory[NUMBER_OF_SURFACES];            // 0x71d0f8, per created surface: 1 video memory, 2 system memory
+const GUID *DeviceGUID = &IID_IDirect3DHALDevice; // 0x5c2570, the Direct3D device created
+int SurfaceMemory[NUMBER_OF_SURFACES];            // 0x71d0f8, per created surface: 1 video memory, 2 system memory
+
+} // namespace
 
 // 0x4eae80. SurfaceMemory is filled in the order of creation (by
 // NumberOfSurfaces), but ExitDisplay clears it by surface index.
@@ -653,12 +657,14 @@ bool TSurfaceDX::Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, b
 	return true;
 }
 
+namespace {
+
 // 0x4ec810. EnumDisplayModes' callback: appends the modes of at least
 // 640x480 with 16 bits to the list (Context), counted in the surface
 // object's NumberOfModes (through GetSurface). The list grows by one entry
 // per mode. Odd behavior kept: the refresh-rate flag is tested in the
 // pixel format's flags, not the descriptor's flags (0x4ec869).
-static HRESULT WINAPI AddFullscreenMode(DDSURFACEDESC2 *Desc, void *Context)
+HRESULT WINAPI AddFullscreenMode(DDSURFACEDESC2 *Desc, void *Context)
 {
 	TFullscreenMode **Modes = static_cast<TFullscreenMode **>(Context);
 	if (*Modes == nullptr)
@@ -683,6 +689,8 @@ static HRESULT WINAPI AddFullscreenMode(DDSURFACEDESC2 *Desc, void *Context)
 	}
 	return DDENUMRET_OK;
 }
+
+} // namespace
 
 // 0x4ec980
 int TSurfaceDX::GetFullscreenModes(TFullscreenMode **Modes)

@@ -41,21 +41,25 @@ using patella::vulkan::TQuad;
 using patella::vulkan::TRenderer;
 using patella::vulkan::TVulkanError;
 
+namespace {
+
 // surfaceDX9.cpp's file data.
-static int CurrentTargetNumber = -1;
-static uint32 SurfaceKeys[NUMBER_OF_SURFACES_VULKAN]; // surfaceDX9.cpp ColorKey; 0 when the surface has none
-static std::vector<TQuad> Vertices;                   // the queued quads (6 vertices each)
-static int SurfaceCreated[NUMBER_OF_SURFACES_VULKAN];
-static int CurrentTexture;
-static uint32 FrameCount;
-static double LastFPSTime;
+int CurrentTargetNumber = -1;
+uint32 SurfaceKeys[NUMBER_OF_SURFACES_VULKAN]; // surfaceDX9.cpp ColorKey; 0 when the surface has none
+std::vector<TQuad> Vertices;                   // the queued quads (6 vertices each)
+int SurfaceCreated[NUMBER_OF_SURFACES_VULKAN];
+int CurrentTexture;
+uint32 FrameCount;
+double LastFPSTime;
 
-static const int VertexLimit = 9600; // surfaceDX9.cpp's vertex buffer
+const int VertexLimit = 9600; // surfaceDX9.cpp's vertex buffer
 
-static uint32 Xrgb(int R, int G, int B)
+uint32 Xrgb(int R, int G, int B)
 {
 	return 0xff000000u | (uint32)(R & 0xff) << 16 | (uint32)(G & 0xff) << 8 | (uint32)(B & 0xff);
 }
+
+} // namespace
 
 // --- the engine choice (Surface.cpp) ---
 

@@ -29,9 +29,11 @@ array<TProperties> *ObjectProperties;  // 0x719d98
 uint32 DatSignature;                   // 0x719d9c
 TObject NoObject;                      // 0x719da0, owner inferred from the address
 
+namespace {
+
 // Inlined everywhere: "GetEntryFlag(Entry,BANK)". Flag%8 and Flag/8 are
 // signed divisions in the binary.
-static inline bool GetEntryFlag(TProperties &Entry, int Flag)
+inline bool GetEntryFlag(TProperties &Entry, int Flag)
 {
 	return (Entry.Flags[Flag / 8] & (1 << (Flag % 8))) != 0;
 }
@@ -39,7 +41,7 @@ static inline bool GetEntryFlag(TProperties &Entry, int Flag)
 // --- Entry accessors -------------------------------------------------------
 
 // 0x4cfbb0, lines 67-70
-static int GetEntryWaypoints(TProperties &Entry)
+int GetEntryWaypoints(TProperties &Entry)
 {
 	TBEGIN
 	TASSERT1(67, GetEntryFlag(Entry,BANK), *(int*)Entry.Flags);
@@ -48,7 +50,7 @@ static int GetEntryWaypoints(TProperties &Entry)
 }
 
 // 0x4cfe20, lines 91-94
-static int GetEntryBrightness(TProperties &Entry)
+int GetEntryBrightness(TProperties &Entry)
 {
 	TBEGIN
 	TASSERT(91, GetEntryFlag(Entry,LIGHT));
@@ -57,7 +59,7 @@ static int GetEntryBrightness(TProperties &Entry)
 }
 
 // 0x4d0090, lines 103-106
-static int GetEntryLightColor(TProperties &Entry)
+int GetEntryLightColor(TProperties &Entry)
 {
 	TBEGIN
 	TASSERT(103, GetEntryFlag(Entry,LIGHT));
@@ -66,7 +68,7 @@ static int GetEntryLightColor(TProperties &Entry)
 }
 
 // 0x4d0300, lines 115-118
-static int GetEntryShiftX(TProperties &Entry)
+int GetEntryShiftX(TProperties &Entry)
 {
 	TBEGIN
 	TASSERT(115, GetEntryFlag(Entry,SHIFT));
@@ -75,7 +77,7 @@ static int GetEntryShiftX(TProperties &Entry)
 }
 
 // 0x4d0570, lines 127-130
-static int GetEntryShiftY(TProperties &Entry)
+int GetEntryShiftY(TProperties &Entry)
 {
 	TBEGIN
 	TASSERT(127, GetEntryFlag(Entry,SHIFT));
@@ -84,7 +86,7 @@ static int GetEntryShiftY(TProperties &Entry)
 }
 
 // 0x4d07e0, lines 139-142
-static int GetEntryElevation(TProperties &Entry)
+int GetEntryElevation(TProperties &Entry)
 {
 	TBEGIN
 	TASSERT(139, GetEntryFlag(Entry,HEIGHT));
@@ -93,7 +95,7 @@ static int GetEntryElevation(TProperties &Entry)
 }
 
 // 0x4d0a50, lines 151-154
-static int GetEntryAutomapColor(TProperties &Entry)
+int GetEntryAutomapColor(TProperties &Entry)
 {
 	TBEGIN
 	TASSERT(151, GetEntryFlag(Entry,AUTOMAP));
@@ -102,7 +104,7 @@ static int GetEntryAutomapColor(TProperties &Entry)
 }
 
 // 0x4d0cc0, lines 163-166
-static int GetEntryLensHelp(TProperties &Entry)
+int GetEntryLensHelp(TProperties &Entry)
 {
 	TBEGIN
 	TASSERT(163, GetEntryFlag(Entry,LENSHELP));
@@ -113,7 +115,7 @@ static int GetEntryLensHelp(TProperties &Entry)
 // 0x4d0f30, lines 238-244. No try block. The binary inlines In() for the
 // first five checks and calls its out-of-line copy (0x4174d0) for the last
 // two.
-static int GetEntrySpriteNumber(TProperties &Entry, int X, int Y, int Layer, int PatternX, int PatternY,
+int GetEntrySpriteNumber(TProperties &Entry, int X, int Y, int Layer, int PatternX, int PatternY,
 	int PatternZ, int Phase)
 {
 	TASSERT2(238, In(X,1,Entry.Width), X, Entry.Width);
@@ -134,6 +136,8 @@ static int GetEntrySpriteNumber(TProperties &Entry, int X, int Y, int Layer, int
 			* Entry.Width
 		+ X - 1];
 }
+
+} // namespace
 
 // --- Object types ------------------------------------------------------------
 
@@ -620,12 +624,14 @@ void ReleaseObjects()
 	TEND(888)
 }
 
+namespace {
+
 // 0x4d1650, line 939. Reads one entry: flags with their values up to 0xff,
 // then the sizes and the sprite numbers. Unknown flags are only recorded;
 // a flag above 31 (not in Tibia.dat) sets a bit in the fields after Flags,
 // up to offset 0x43, as in the binary. The binary stores Waypoints when the
 // BANK case jumps back into the zeroing code, which ends with that store.
-static void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
+void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 {
 	TBEGIN
 	for (int i = 0; i < 4; i++)
@@ -691,6 +697,8 @@ static void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 		Entry->Sprites[i] = File->readWord();
 	TEND(939)
 }
+
+} // namespace
 
 // 0x4d7380, lines 948-978. The assertion comes before the try block.
 // Header: signature, then the highest object type (types start at 100) and

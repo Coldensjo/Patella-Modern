@@ -6,7 +6,11 @@
 #include "vlong.h"
 #include <string>
 
-static vlong PublicExponent(65537); // 0x71f004, initialiser at 0x55a1e0
+namespace {
+
+vlong PublicExponent(65537); // 0x71f004, initialiser at 0x55a1e0
+
+} // namespace
 
 // 0x5089a0
 TRSA::TRSA() : m_ModulusM(0)

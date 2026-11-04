@@ -15,12 +15,17 @@
 #include "vulkan/DeviceSettings.h"
 #include "vulkan/DeviceChoice.h"
 
+namespace {
+
 // The x64 client's graphics device choice in the advanced options (issue #31): the line above the
 // buttons before a device exists, and the buttons' help texts.
-static const char *TextSelectDevice = "Select graphics device:";
-static const char *TextUseAutomaticDevice = "Use the best graphics device: a GPU, else the CPU";
-static const char *TextUseGpuDevice = "Use the graphics card (GPU); with several, each click takes the next";
-static const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics card";
+const char *TextSelectDevice = "Select graphics device:";
+const char *TextUseAutomaticDevice = "Use the best graphics device: a GPU, else the CPU";
+const char *TextUseGpuDevice = "Use the graphics card (GPU); with several, each click takes the next";
+const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics card";
+
+} // namespace
+
 #endif
 #include <cstdio>
 #include <cstdlib>
@@ -46,11 +51,15 @@ static const char *TextUseCpuDevice = "CPU (compatibility): draw without the gra
 #include "graphics.h"
 #include <ostream>
 
+namespace {
+
 // Data. Dialogs.obj's only static is NoCallback (static initialiser
 // 0x559e10). Its copy of the text table (0x5c123c-0x5c1484, then its
 // regular expression pointer 0x5c1488 and its copy of DefaultFontColor
 // 0x5c148c) is Text.h's (Dialogs.h includes it).
-static TCallback NoCallback(nullptr, 0); // 0x5cc420
+TCallback NoCallback(nullptr, 0); // 0x5cc420
+
+} // namespace
 
 // --- Creators ----------------------------------------------------------------------
 
@@ -1177,15 +1186,19 @@ void TMoveObjectsDialog::HandleEvent(int Event)
 
 // --- TOutfitDialog ------------------------------------------------------------------
 
+namespace {
+
 // The colour of an outfit colour button: GetOutfitColor runs inside the
 // new-expression (after the allocation), so the binary has it in the
 // argument list (inlined; the name is ours).
-static inline TRGBColor OutfitColor(int Color)
+inline TRGBColor OutfitColor(int Color)
 {
 	int R, G, B;
 	GetOutfitColor(Color, &R, &G, &B);
 	return TRGBColor(R, G, B);
 }
+
+} // namespace
 
 // 0x47cf70, lines 1488-1542. The colour buttons are laid out in rows of
 // 19 from SkinProperties.DataCA8; the head is the first part shown.

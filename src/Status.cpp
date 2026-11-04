@@ -21,60 +21,64 @@
 #include <cstdlib>
 #include <cstring>
 
+namespace {
+
 // Data, in .bss order. Status.obj's only .data, LinkPattern (0x5c2560), is
 // its copy of Status.h's.
-static regexp *LinkRegexp;                         // 0x71c458, LinkPattern compiled
-static char *TaintedClipboardText;                 // 0x71c45c, name from an assertion
-static void (*LinkWarningEventHandler)();          // 0x71c460, from "linkwarningeventhandler!=NULL"
-static bool BlinkState;                            // 0x71c464, toggled every 300 ms
-static int BlinkTime;                              // 0x71c468
-static int MouseOverTextY;                         // 0x71c46c
-static int MouseOverTextX;                         // 0x71c470
-static const char *MouseOverText;                  // 0x71c474
-static int Rights[RIGHT_ANY];                      // 0x71c478
-static bool Gamemaster;                            // 0x71c540, sent in the game login packet
-static int PremiumDays;                            // 0x71c544
-static int ActiveCharacter;                        // 0x71c548
-static TCharacter *Characters;                     // 0x71c54c
-static int AccountCharacters;                      // 0x71c550, name from an assertion
-static char AccountPassword[30];                   // 0x71c554
-static char AccountNumberString[12];               // 0x71c574
-static int AccountNumber;                          // 0x71c580
-static int Progress;                               // 0x71c584, -1 = none
-static int ConnectionState;                        // 0x71c588, see SetConnectionState
-static int TradeInfo;                              // 0x71c58c
-static int UseZ;                                   // 0x71c590
-static int UseY;                                   // 0x71c594
-static int UseX;                                   // 0x71c598
-static int UseIndex;                               // 0x71c59c
-static int TradeZ;                                 // 0x71c5a0
-static int TradeY;                                 // 0x71c5a4
-static int TradeX;                                 // 0x71c5a8
-static int TradeIndex;                             // 0x71c5ac
-static int DragTargetZ;                            // 0x71c5b0
-static int DragTargetY;                            // 0x71c5b4
-static int DragTargetX;                            // 0x71c5b8
-static int DragZ;                                  // 0x71c5bc
-static int DragY;                                  // 0x71c5c0
-static int DragX;                                  // 0x71c5c4
-static int DragIndex;                              // 0x71c5c8
-static int DragStartY;                             // 0x71c5cc
-static int DragStartX;                             // 0x71c5d0
-static int PendingActionNumber;                    // 0x71c5d4
-static int PendingActionState;                     // 0x71c5d8
-static int WindowHeight;                           // 0x71c5dc
-static int WindowWidth;                            // 0x71c5e0
-static int MouseCursor;                            // 0x71c5e4
-static int ActionState;                            // 0x71c5e8, from "GetActionState()" in Control.cpp
-static int ActionNumber;                           // 0x71c5ec
-static int NumberOfMessages;                       // 0x71c5f0
-static vector<TMessage> Messages(0, 9, 10);        // 0x71c5f4, initialiser at 0x55a0f0
-static int MouseX;                                 // 0x71c61c
-static int MouseY;                                 // 0x71c620
-static TObject DraggedObject;                      // 0x71c624
-static TObject TradeObject;                        // 0x71c630, from "TradeObject!=0" in MapWindow.cpp
-static TObject UseObject;                          // 0x71c63c, "SrcObj" in MapWindow.cpp
-static vector<TErrorReport> ErrorReports(0, 0, 1); // 0x71c648, initialiser at 0x55a110
+regexp *LinkRegexp;                         // 0x71c458, LinkPattern compiled
+char *TaintedClipboardText;                 // 0x71c45c, name from an assertion
+void (*LinkWarningEventHandler)();          // 0x71c460, from "linkwarningeventhandler!=NULL"
+bool BlinkState;                            // 0x71c464, toggled every 300 ms
+int BlinkTime;                              // 0x71c468
+int MouseOverTextY;                         // 0x71c46c
+int MouseOverTextX;                         // 0x71c470
+const char *MouseOverText;                  // 0x71c474
+int Rights[RIGHT_ANY];                      // 0x71c478
+bool Gamemaster;                            // 0x71c540, sent in the game login packet
+int PremiumDays;                            // 0x71c544
+int ActiveCharacter;                        // 0x71c548
+TCharacter *Characters;                     // 0x71c54c
+int AccountCharacters;                      // 0x71c550, name from an assertion
+char AccountPassword[30];                   // 0x71c554
+char AccountNumberString[12];               // 0x71c574
+int AccountNumber;                          // 0x71c580
+int Progress;                               // 0x71c584, -1 = none
+int ConnectionState;                        // 0x71c588, see SetConnectionState
+int TradeInfo;                              // 0x71c58c
+int UseZ;                                   // 0x71c590
+int UseY;                                   // 0x71c594
+int UseX;                                   // 0x71c598
+int UseIndex;                               // 0x71c59c
+int TradeZ;                                 // 0x71c5a0
+int TradeY;                                 // 0x71c5a4
+int TradeX;                                 // 0x71c5a8
+int TradeIndex;                             // 0x71c5ac
+int DragTargetZ;                            // 0x71c5b0
+int DragTargetY;                            // 0x71c5b4
+int DragTargetX;                            // 0x71c5b8
+int DragZ;                                  // 0x71c5bc
+int DragY;                                  // 0x71c5c0
+int DragX;                                  // 0x71c5c4
+int DragIndex;                              // 0x71c5c8
+int DragStartY;                             // 0x71c5cc
+int DragStartX;                             // 0x71c5d0
+int PendingActionNumber;                    // 0x71c5d4
+int PendingActionState;                     // 0x71c5d8
+int WindowHeight;                           // 0x71c5dc
+int WindowWidth;                            // 0x71c5e0
+int MouseCursor;                            // 0x71c5e4
+int ActionState;                            // 0x71c5e8, from "GetActionState()" in Control.cpp
+int ActionNumber;                           // 0x71c5ec
+int NumberOfMessages;                       // 0x71c5f0
+vector<TMessage> Messages(0, 9, 10);        // 0x71c5f4, initialiser at 0x55a0f0
+int MouseX;                                 // 0x71c61c
+int MouseY;                                 // 0x71c620
+TObject DraggedObject;                      // 0x71c624
+TObject TradeObject;                        // 0x71c630, from "TradeObject!=0" in MapWindow.cpp
+TObject UseObject;                          // 0x71c63c, "SrcObj" in MapWindow.cpp
+vector<TErrorReport> ErrorReports(0, 0, 1); // 0x71c648, initialiser at 0x55a110
+
+} // namespace
 
 // 0x4e6dc0. Inlined into CheckRight. Only the first 32 rights are checked
 // (the loop ends at 0x71c4f8), the ones GetRightName has names for; rights

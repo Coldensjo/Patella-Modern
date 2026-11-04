@@ -31,11 +31,15 @@
 #include "common.h"
 #include <cstddef>
 
+namespace {
+
 // At 0x5cc428, constructed by the static initialiser 0x559e20 as
 // TCallback(NULL, 0) and never used (MainWindow.cpp and MapWindow.cpp have
 // one too); Dialogs.cpp's is the one before it (0x5cc420, initialiser
 // 0x559e10).
-static TCallback NoCallback(nullptr, 0);
+TCallback NoCallback(nullptr, 0);
+
+} // namespace
 
 // --- Functions without line evidence ---------------------------------------
 

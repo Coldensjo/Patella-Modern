@@ -18,16 +18,20 @@
 #include <cstring>
 
 
+namespace {
+
 // Data, in .bss order.
-static int NumberOfEventHelps;           // 0x5ce520, queued in EventHelps
-static bool HelpHandleChanged;           // 0x5ce524
-static int HelpHandle;                   // 0x5ce528, what the help bubble explains
-static int HelpHeight;                   // 0x5ce52c
-static int HelpWidth;                    // 0x5ce530
-static int HelpY;                        // 0x5ce534
-static int HelpX;                        // 0x5ce538
-static vector<int> EventHelps(0, 9, 10); // 0x5ce53c, initialiser at 0x559e80
-static char HelpText[2048];              // 0x5ce560
+int NumberOfEventHelps;           // 0x5ce520, queued in EventHelps
+bool HelpHandleChanged;           // 0x5ce524
+int HelpHandle;                   // 0x5ce528, what the help bubble explains
+int HelpHeight;                   // 0x5ce52c
+int HelpWidth;                    // 0x5ce530
+int HelpY;                        // 0x5ce534
+int HelpX;                        // 0x5ce538
+vector<int> EventHelps(0, 9, 10); // 0x5ce53c, initialiser at 0x559e80
+char HelpText[2048];              // 0x5ce560
+
+} // namespace
 
 // 0x4a2a00
 void SetHelpPosition(int x, int y)

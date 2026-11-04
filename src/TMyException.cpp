@@ -8,14 +8,18 @@
 #include <ostream>
 #include <string>
 
+namespace {
+
 // 0x508390. The part of a path after the last '/' or '\'.
-static std::string GetFileName(const std::string &Path)
+std::string GetFileName(const std::string &Path)
 {
 	const std::string::size_type Separator = Path.find_last_of("/\\");
 	if (Separator != std::string::npos && Separator + 1 < Path.size())
 		return std::string(Path, Separator + 1, Path.size() - Separator);
 	return Path;
 }
+
+} // namespace
 
 // 0x508300
 TMyException::~TMyException() = default;
