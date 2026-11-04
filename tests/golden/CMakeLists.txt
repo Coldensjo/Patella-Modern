@@ -48,7 +48,10 @@ target_compile_definitions(golden_sysinc PRIVATE GetMilliseconds=SysincGetMillis
 # The reconstructed files the ported tests compare (difftest.exe links them all; these are the ones
 # the ported tests call, and the ones that are called from them on the paths the tests run), with
 # PATELLA_VULKAN as Patella.exe has it (only Surface.cpp differs: the Vulkan engine as its only engine);
-# client_stubs.cpp has the functions of the other files, which the tests never call. MainFrm.cpp and
+# client_stubs.cpp has the functions of the other files, which the tests never call. Since issue #28
+# graphics.cpp, GUI.cpp and every window file (the classes the window tests build and the files Errors,
+# MapWindow, MainWindow, Communication and Control reach) are here too, as in difftest.exe; the stubs are the
+# files below them (Communication.cpp's Send functions, Control.cpp, the Vulkan engine). MainFrm.cpp and
 # Network.cpp are compiled into their tests (mainfrm_tests.cpp, network_tests.cpp, as in the oracle: the
 # tests read their statics).
 add_library(golden_client OBJECT
@@ -62,7 +65,17 @@ add_library(golden_client OBJECT
 	"${PROJECT_SOURCE_DIR}/src/Inventory.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Objects.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Map.cpp"
-	"${PROJECT_SOURCE_DIR}/src/Creatures.cpp")
+	"${PROJECT_SOURCE_DIR}/src/Creatures.cpp"
+	"${PROJECT_SOURCE_DIR}/src/graphics.cpp"
+	"${PROJECT_SOURCE_DIR}/src/GUI.cpp"
+	"${PROJECT_SOURCE_DIR}/src/DialogWindow.cpp"
+	"${PROJECT_SOURCE_DIR}/src/ContextMenus.cpp"
+	"${PROJECT_SOURCE_DIR}/src/ConsoleWindow.cpp"
+	"${PROJECT_SOURCE_DIR}/src/ContentWindows.cpp"
+	"${PROJECT_SOURCE_DIR}/src/DialogElements.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Dialogs.cpp"
+	"${PROJECT_SOURCE_DIR}/src/MapWindow.cpp"
+	"${PROJECT_SOURCE_DIR}/src/MainWindow.cpp")
 golden_client_settings(golden_client)
 target_compile_definitions(golden_client PRIVATE PATELLA_VULKAN)
 
@@ -81,7 +94,8 @@ add_library(golden_client_tests OBJECT
 	map_tests.cpp
 	creatures_tests.cpp
 	golden_eh.cpp
-	mainfrm_tests.cpp)
+	mainfrm_tests.cpp
+	graphics_tests.cpp)
 golden_client_settings(golden_client_tests)
 # Network (issue #30): network_tests.cpp in a directory of its own (network/CMakeLists.txt, its exception
 # model).

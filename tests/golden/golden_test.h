@@ -69,3 +69,5 @@ void TestCreatures(const char *ExePath);
 void TestMainFrm();
 // Issue #30.
 void TestNetwork();
+// Issue #28 (ExePath as TestObjects').
+void TestGraphics(const char *ExePath);

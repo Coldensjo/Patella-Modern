@@ -34,7 +34,7 @@
 #include "../../src/Skins.h"
 #include "../../src/Status.h"
 #include "../../src/Surface.h"
-#include "testsurface.h"
+#include "../../tests/golden/testsurface.h"
 #include "imageeh.h"
 #include "../../src/Talk.h"
 #include <new>

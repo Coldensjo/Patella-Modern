@@ -27,7 +27,7 @@
 #include "../../src/Help.h"
 #include "../../src/graphics.h"
 #include "../../src/Script.h"
-#include "testsurface.h"
+#include "../../tests/golden/testsurface.h"
 #include <direct.h>
 #include <time.h>
 #include <map>

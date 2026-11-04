@@ -34,7 +34,7 @@
 #include "../../src/Preferences.h"
 #include "../../src/Skins.h"
 #include "../../src/Surface.h"
-#include "testsurface.h"
+#include "../../tests/golden/testsurface.h"
 #include "../../src/graphics.h"
 #include "imageeh.h"
 #include <map>

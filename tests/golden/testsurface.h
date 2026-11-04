@@ -11,13 +11,13 @@
 
 #pragma once
 
-#include "../../src/Surface.h"
-#include "../../src/graphics.h"
+#include "Surface.h"
+#include "graphics.h"
 #include <stdlib.h>
 
 class TTestSurface : public TSurface {
 public:
-	TTestSurface();                                                        // graphicstest.cpp
+	TTestSurface(); // graphicstest.cpp
 
 	// graphicstest.cpp
 	void WriteImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data);
