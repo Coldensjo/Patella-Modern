@@ -313,8 +313,8 @@ compile): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures;
 the branch's own build\golden, 843 MB) the same counts. The x64 golden_runner (windows-x64 and -debug, --fresh, CTest
 13/13) replays 15,310,983 checks, 1,497,428 retired, 0 failures, as on main (Talk, Creatures, ConsoleWindow and
 ContentWindows fake our _time64 now; the first Debug run had 753 failures in ConsoleWindow's SaveChannel file, ours
-not removed between calls and one fopen refused, while another session's cleanup was killing processes on the
-machine; its rerun, `ctest -R golden`, 0 failures). tests/unit: tests_unit 41/9,867 and tests_unit_cxx26_standin
+not removed between calls and one fopen refused: another worktree's golden_runner ran at the same time, and both
+write ConsoleWindow's channel file in the user's TEMP; its rerun alone, `ctest -R golden`, 0 failures). tests/unit: tests_unit 41/9,867 and tests_unit_cxx26_standin
 41/9,869 on Windows (time32_test.cpp: 6 cases, 81 assertions; also with mingw-w64), 40/9,858 (9,856 on Clang) and
 40/9,860 on Linux; tests_core 32/313 (32/316 on Linux: msvc's 32-bit time case, 19 assertions, went with it);
 tests_testmode 35/709, tests_render 14/359, tests_vulkan 14/1,309 unchanged; windows-x64-gcc(-debug) and the four
