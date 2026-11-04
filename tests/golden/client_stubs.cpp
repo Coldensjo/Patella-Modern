@@ -82,16 +82,14 @@ void LoadDeviceChoice() { STUB(); }
 patella::vulkan::TDeviceChoice GetDeviceChoice() { STUB(); }
 void SetDeviceChoice(const patella::vulkan::TDeviceChoice &) { STUB(); }
 
-// src/compat/mfc_shim.h's MFC members.
+// src/compat/mfc_shim.h's MFC members (those MainFrm.cpp calls are mainfrm_tests.cpp's fakes, issue #54).
 // Player.cpp's theApp is constructed at start-up (as in difftest.exe's playertest.cpp).
 CWinApp::CWinApp(LPCTSTR)
 {
 	m_pMainWnd = nullptr;
 	m_lpCmdLine = nullptr;
 }
-CWinApp *AfxGetApp() { STUB(); }
 CWnd *AfxGetMainWnd() { STUB(); }
-HINSTANCE AfxGetInstanceHandle() { STUB(); }
 HINSTANCE AfxGetResourceHandle() { STUB(); }
 WNDPROC AfxGetAfxWndProc() { STUB(); }
 BOOL AfxRegisterClass(WNDCLASS *) { STUB(); }
@@ -99,25 +97,5 @@ BOOL CWinThread::InitInstance() { STUB(); }
 BOOL CWinThread::OnIdle(LONG) { STUB(); }
 int CWinThread::Run() { STUB(); }
 const RECT CFrameWnd::rectDefault = {0, 0, 0, 0};
-CFrameWnd::CFrameWnd() { STUB(); }
-// A destructor that does not return warns (C4722): this one only reports.
-CFrameWnd::~CFrameWnd() { printf("golden: stub CFrameWnd::~CFrameWnd called\n"); }
 BOOL CFrameWnd::Create(LPCTSTR, LPCTSTR, DWORD, const RECT &, CWnd *, LPCTSTR, DWORD, CCreateContext *) { STUB(); }
-const CWnd CWnd::wndTopMost = CWnd();
-const CWnd CWnd::wndNoTopMost = CWnd();
-int CWnd::OnCreate(LPCREATESTRUCT) { STUB(); }
-BOOL CWnd::OnSetCursor(CWnd *, UINT, UINT) { STUB(); }
-void CWnd::OnClose() { STUB(); }
-void CWnd::OnDestroy() { STUB(); }
-void CWnd::OnSize(UINT, int, int) { STUB(); }
-LRESULT CWnd::Default() { STUB(); }
-BOOL CWnd::GetWindowPlacement(WINDOWPLACEMENT *) const { STUB(); }
-BOOL CWnd::SetWindowPlacement(const WINDOWPLACEMENT *) { STUB(); }
-BOOL CWnd::ModifyStyle(DWORD, DWORD, UINT) { STUB(); }
-BOOL CWnd::ModifyStyleEx(DWORD, DWORD, UINT) { STUB(); }
-BOOL CWnd::SetWindowPos(const CWnd *, int, int, int, int, UINT) { STUB(); }
 BOOL CWnd::ShowWindow(int) { STUB(); }
-CWnd *PASCAL CWnd::FromHandle(HWND) { STUB(); }
-BOOL CWnd::DestroyWindow() { STUB(); }
-BOOL CWnd::PreCreateWindow(CREATESTRUCT &) { STUB(); }
-void CWnd::MoveWindow(int, int, int, int, BOOL) { STUB(); }

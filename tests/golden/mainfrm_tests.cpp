@@ -51,21 +51,49 @@
 //
 // DIFFTEST_ONLY=MainFrm runs it alone (MF_TRACE=1 traces the operations,
 // MF_LOGS=<file> writes every compared log, MF_ROUNDS=<n>).
+//
+// A golden-corpus test (issue #54; tests/golden/golden.h, golden_eh.h): the
+// oracle runs both sides as above and records the original's side of every
+// comparison by value: its log, its state (the frame's members, the file's
+// statics and the world its fakes keep, golden::OutputRuns), in the error
+// round what its call threw (ORIGINAL_THROWN) and how many fake calls it made.
+// The runner runs our side alone, against the same fakes (our functions
+// redirected, user32's and shell32's import slots of the runner bound to
+// them, the MFC shim's members defined here), and compares with the recorded
+// original. MF_ROUNDS changes the inputs: not with a corpus.
 
-#include "difftest.h"
-#include "imageeh.h"
+// golden_test.h first (common.h: it sets _CRT_SECURE_NO_WARNINGS before any C runtime header).
+#include "golden_test.h"
+
+#include "golden_eh.h"
+#if GOLDEN_ORACLE
+#include "../../tools/difftest/imageeh.h"
+#else
+#include "golden_patch.h"
+#endif
+// MainFrm.cpp is compiled into this file (its statics are in an unnamed namespace), at its own warning
+// level (cmake/Warnings.cmake's baseline).
+#ifdef _MSC_VER
+#pragma warning(push, 3)
+#endif
 #include "../../src/MainFrm.cpp"
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 #include <new>
 #include <sstream>
 #include <string>
 #include <vector>
 #include <stdarg.h>
 
-#pragma warning(disable: 4100)
+#ifdef _MSC_VER
+#pragma warning(disable : 4100)
+#endif
 
 namespace {
 
-enum { IMAGE = 0, OURS = 1 };
+enum { IMAGE = 0,
+	OURS = 1 };
 int Side;
 std::string Log[2];
 bool Trace;
@@ -105,9 +133,15 @@ void Write(void *Address, const void *Data, size_t Size)
 }
 void Redirect(void *Function, void *Target)
 {
+	intptr_t Distance = (intptr_t)Target - ((intptr_t)Function + 5);
+	if (Distance != (int32_t)Distance) { // the runner (x64): both in its image, within reach
+		printf("FAIL MainFrm: cannot redirect %p to %p: out of a rel32 jump's reach\n", Function, Target);
+		exit(1);
+	}
 	uint8 Jump[5];
 	Jump[0] = 0xe9;
-	*(int32_t *)(Jump + 1) = (int32_t)((uintptr_t)Target - ((uintptr_t)Function + 5));
+	int32_t Offset = (int32_t)Distance;
+	memcpy(Jump + 1, &Offset, 4);
 	Write(Function, Jump, 5);
 }
 void RestoreAll()
@@ -121,6 +155,7 @@ void RestoreAll()
 	}
 	Saved.clear();
 }
+#if GOLDEN_ORACLE
 uint32 *ImageImport(const char *Dll, const char *Name)
 {
 	uint8 *Base = (uint8 *)(uintptr_t)0x400000;
@@ -154,8 +189,11 @@ void **OwnImport(const char *Dll, const char *Name)
 	}
 	return NULL;
 }
-void BindBoth(const char *Dll, const char *Name, void *Fake)
+#endif
+// The image's import slot and ours (the oracle), the runner's (by name, golden_patch.h).
+void BindBoth([[maybe_unused]] const char *Dll, const char *Name, void *Fake)
 {
+#if GOLDEN_ORACLE
 	uint32 *Slot = ImageImport(Dll, Name);
 	void **Own = OwnImport(Dll, Name);
 	if (Slot == NULL || Own == NULL) {
@@ -164,7 +202,15 @@ void BindBoth(const char *Dll, const char *Name, void *Fake)
 		return;
 	}
 	Write(Slot, &Fake, 4);
-	Write(Own, &Fake, 4);
+#else
+	void **Own = golden::FindImport(Name);
+	if (Own == nullptr) {
+		printf("FAIL MainFrm: no import slot for %s\n", Name);
+		Failures++;
+		return;
+	}
+#endif
+	Write(Own, &Fake, sizeof(Fake));
 }
 
 // --- The world the fakes answer from ---------------------------------------------------------
@@ -178,10 +224,10 @@ struct TScript {
 	BOOL DestroyWindow;
 	BOOL PreCreate;
 	bool Iconic, Zoomed;
-	RECT Client;       // GetClientRect's (left/top 0)
-	RECT Window;       // GetWindowRect's
-	POINT Origin;      // the client area's screen position
-	POINT Cursor;      // GetCursorPos's
+	RECT Client;  // GetClientRect's (left/top 0)
+	RECT Window;  // GetWindowRect's
+	POINT Origin; // the client area's screen position
+	POINT Cursor; // GetCursorPos's
 	int ScreenWidth, ScreenHeight;
 	WINDOWPLACEMENT Placement; // GetWindowPlacement's
 	bool HasApp;
@@ -226,14 +272,16 @@ uint8 *FrameOf(int S) { return S == IMAGE ? ImageFrame : OurFrame; }
 HWND FAKE_WINDOW = (HWND)(uintptr_t)0x10ab0;
 uint8 ImageApp[0x200];
 alignas(16) uint8 OurApp[sizeof(CPlayerApp) + 16];
+#if GOLDEN_ORACLE
 // The image's AFX_MODULE_STATE as the inline AfxGetApp and AfxGetInstanceHandle read it.
 struct TModuleState {
 	uint32 Unused;
-	void *App;        // +0x04 m_pCurrentWinApp
+	void *App;          // +0x04 m_pCurrentWinApp
 	HINSTANCE Instance; // +0x08 m_hCurrentInstanceHandle
 	uint8 Rest[0x40];
 };
 TModuleState ModuleState;
+#endif
 const HINSTANCE FAKE_INSTANCE = (HINSTANCE)(uintptr_t)0x770000;
 
 const char *Who(const void *Window)
@@ -248,11 +296,16 @@ const char *Who(const void *Window)
 		return "notopmost";
 	return "other";
 }
-const char *HwndName(HWND Window) { return Window == FAKE_WINDOW ? "hwnd" : Window == NULL ? "NULL" : "other"; }
+const char *HwndName(HWND Window) { return Window == FAKE_WINDOW ? "hwnd" : Window == NULL ? "NULL"
+																						   : "other"; }
 // The callbacks the frame hands out, by name.
 const char *CallbackName(const void *Function)
 {
-	struct { uint32 Image; const void *Ours; const char *Name; } Names[] = {
+	struct {
+		uint32 Image;
+		const void *Ours;
+		const char *Name;
+	} Names[] = {
 		{0x4a88f0, (const void *)ExitProgram, "ExitProgram"},
 		{0x4a8940, (const void *)CloseProgram, "CloseProgram"},
 		{0x4a8af0, (const void *)SetDisplayMode, "SetDisplayMode"},
@@ -315,7 +368,8 @@ BOOL WINAPI FakeKillTimer(HWND Window, UINT_PTR Id)
 }
 UINT_PTR WINAPI FakeSetTimer(HWND Window, UINT_PTR Id, UINT Elapse, TIMERPROC Function)
 {
-	Logf("SetTimer(%s,%u,%u,%p);", HwndName(Window), (unsigned)Id, Elapse, (void *)Function);
+	// The callback by name (a pointer printed with %p has another width on x64; issue #54).
+	Logf("SetTimer(%s,%u,%u,%s);", HwndName(Window), (unsigned)Id, Elapse, CallbackName((const void *)Function));
 	Win32Tick();
 	return Id;
 }
@@ -371,7 +425,8 @@ int WINAPI FakeGetSystemMetrics(int Index)
 {
 	Logf("Metrics(%d);", Index);
 	Win32Tick();
-	return Index == SM_CXSCREEN ? Script.ScreenWidth : Index == SM_CYSCREEN ? Script.ScreenHeight : 7;
+	return Index == SM_CXSCREEN ? Script.ScreenWidth : Index == SM_CYSCREEN ? Script.ScreenHeight
+																			: 7;
 }
 HCURSOR WINAPI FakeLoadCursorA(HINSTANCE Instance, LPCSTR Name)
 {
@@ -408,7 +463,7 @@ void FrameDestroyed(void *This) { Logf("~CFrameWnd(%s);", Who(This)); }
 BOOL GetPlacement(void *This, WINDOWPLACEMENT *Placement)
 {
 	bool Own = Side == IMAGE ? (uint8 *)Placement == (uint8 *)This + 0xd4
-		: Placement == &((CMainFrame *)This)->Placement;
+							 : Placement == &((CMainFrame *)This)->Placement;
 	Logf("GetWindowPlacement(%s,%s);", Who(This), Own ? "Placement" : "other");
 	Tick();
 	*Placement = Script.Placement;
@@ -417,7 +472,7 @@ BOOL GetPlacement(void *This, WINDOWPLACEMENT *Placement)
 BOOL SetPlacement(void *This, const WINDOWPLACEMENT *Placement)
 {
 	bool Own = Side == IMAGE ? (const uint8 *)Placement == (uint8 *)This + 0xd4
-		: Placement == &((CMainFrame *)This)->Placement;
+							 : Placement == &((CMainFrame *)This)->Placement;
 	Logf("SetWindowPlacement(%s,%s,", Who(This), Own ? "Placement" : "other");
 	for (size_t i = 0; i < sizeof(WINDOWPLACEMENT); i++)
 		Logf("%02x", ((const uint8 *)Placement)[i]);
@@ -500,6 +555,8 @@ void ModuleStateUsed()
 	Tick();
 }
 
+// The image's MFC (the oracle).
+#if GOLDEN_ORACLE
 void *__fastcall ImageFrameCtor(void *This, void *)
 {
 	FrameConstructed(This);
@@ -543,27 +600,76 @@ void *__cdecl ImageModuleState()
 	ModuleState.Instance = FAKE_INSTANCE;
 	return &ModuleState;
 }
+#endif
 
 // --- The fakes: the game files ---------------------------------------------------------------
 
-void __cdecl FakeLeftButtonDown(int x, int y, int Flags) { Logf("LDown(%d,%d,%x);", x, y, Flags); Tick(); }
-void __cdecl FakeLeftButtonUp(int x, int y, int Flags) { Logf("LUp(%d,%d,%x);", x, y, Flags); Tick(); }
-void __cdecl FakeLeftButtonDoubleClick(int x, int y, int Flags) { Logf("LDbl(%d,%d,%x);", x, y, Flags); Tick(); }
-void __cdecl FakeRightButtonDown(int x, int y, int Flags) { Logf("RDown(%d,%d,%x);", x, y, Flags); Tick(); }
-void __cdecl FakeRightButtonUp(int x, int y, int Flags) { Logf("RUp(%d,%d,%x);", x, y, Flags); Tick(); }
-void __cdecl FakeMouseWheel(int x, int y, int Direction) { Logf("Wheel(%d,%d,%d);", x, y, Direction); Tick(); }
-void __cdecl FakeKeyPress(int Key) { Logf("Key(%x);", Key); Tick(); }
-void __cdecl FakeTimerEvent() { Logf("TimerEvent;"); Tick(); }
+void __cdecl FakeLeftButtonDown(int x, int y, int Flags)
+{
+	Logf("LDown(%d,%d,%x);", x, y, Flags);
+	Tick();
+}
+void __cdecl FakeLeftButtonUp(int x, int y, int Flags)
+{
+	Logf("LUp(%d,%d,%x);", x, y, Flags);
+	Tick();
+}
+void __cdecl FakeLeftButtonDoubleClick(int x, int y, int Flags)
+{
+	Logf("LDbl(%d,%d,%x);", x, y, Flags);
+	Tick();
+}
+void __cdecl FakeRightButtonDown(int x, int y, int Flags)
+{
+	Logf("RDown(%d,%d,%x);", x, y, Flags);
+	Tick();
+}
+void __cdecl FakeRightButtonUp(int x, int y, int Flags)
+{
+	Logf("RUp(%d,%d,%x);", x, y, Flags);
+	Tick();
+}
+void __cdecl FakeMouseWheel(int x, int y, int Direction)
+{
+	Logf("Wheel(%d,%d,%d);", x, y, Direction);
+	Tick();
+}
+void __cdecl FakeKeyPress(int Key)
+{
+	Logf("Key(%x);", Key);
+	Tick();
+}
+void __cdecl FakeTimerEvent()
+{
+	Logf("TimerEvent;");
+	Tick();
+}
 bool __cdecl FakeCloseRequest()
 {
 	Logf("CloseRequest;");
 	Tick();
 	return Script.CloseRequest != FALSE;
 }
-void __cdecl FakeResize(int Width, int Height) { Logf("Resize(%d,%d);", Width, Height); Tick(); }
-void __cdecl FakeRedraw(bool Force) { Logf("Redraw(%d);", Force ? 1 : 0); Tick(); }
-void __cdecl FakeInitControl(bool Gamemaster) { Logf("InitControl(%d);", Gamemaster ? 1 : 0); Tick(); }
-void __cdecl FakeExitControl() { Logf("ExitControl;"); Tick(); }
+void __cdecl FakeResize(int Width, int Height)
+{
+	Logf("Resize(%d,%d);", Width, Height);
+	Tick();
+}
+void __cdecl FakeRedraw(bool Force)
+{
+	Logf("Redraw(%d);", Force ? 1 : 0);
+	Tick();
+}
+void __cdecl FakeInitControl(bool Gamemaster)
+{
+	Logf("InitControl(%d);", Gamemaster ? 1 : 0);
+	Tick();
+}
+void __cdecl FakeExitControl()
+{
+	Logf("ExitControl;");
+	Tick();
+}
 void __cdecl FakeInitWindow(HWND Window, void (*A)(), void (*B)(), void (*C)(int), void (*D)(const char *))
 {
 	Logf("InitWindow(%s,%s,%s,%s,%s);", HwndName(Window), CallbackName((void *)A), CallbackName((void *)B),
@@ -598,19 +704,48 @@ void __cdecl FakeGetWindowedMode(int *x, int *y, int *Width, int *Height, bool *
 	*Height = W.WindowedHeight;
 	*Maximized = W.WindowedMaximized;
 }
-void __cdecl FakeSetViewMode(int Mode) { Logf("SetViewMode(%d);", Mode); Tick(); World[Side].ViewMode = Mode; }
-int __cdecl FakeGetViewMode() { Tick(); return World[Side].ViewMode; }
-bool __cdecl FakeGetWindowsMousepointer() { Tick(); return World[Side].WindowsMousepointer; }
-int __cdecl FakeGetMouseCursor() { Tick(); return World[Side].MouseCursor; }
-int __cdecl FakeGetMouseX() { Tick(); return World[Side].MouseX; }
-int __cdecl FakeGetMouseY() { Tick(); return World[Side].MouseY; }
+void __cdecl FakeSetViewMode(int Mode)
+{
+	Logf("SetViewMode(%d);", Mode);
+	Tick();
+	World[Side].ViewMode = Mode;
+}
+int __cdecl FakeGetViewMode()
+{
+	Tick();
+	return World[Side].ViewMode;
+}
+bool __cdecl FakeGetWindowsMousepointer()
+{
+	Tick();
+	return World[Side].WindowsMousepointer;
+}
+int __cdecl FakeGetMouseCursor()
+{
+	Tick();
+	return World[Side].MouseCursor;
+}
+int __cdecl FakeGetMouseX()
+{
+	Tick();
+	return World[Side].MouseX;
+}
+int __cdecl FakeGetMouseY()
+{
+	Tick();
+	return World[Side].MouseY;
+}
 void __cdecl FakeSetConnectionState(int State)
 {
 	Logf("Conn%d;", State);
 	Tick();
 	World[Side].ConnectionState = State;
 }
-int __cdecl FakeGetConnectionState() { Tick(); return World[Side].ConnectionState; }
+int __cdecl FakeGetConnectionState()
+{
+	Tick();
+	return World[Side].ConnectionState;
+}
 void __cdecl FakeAddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 {
 	if (Type == 1)
@@ -625,24 +760,48 @@ void __cdecl FakeAddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 	}
 	Tick();
 }
-void __cdecl FakeSetConnectionTimeout(int Timeout) { Logf("SetConnectionTimeout(%d);", Timeout); Tick(); }
-void __cdecl FakeSetServerError(int Code) { Logf("SetServerError(%d);", Code); Tick(); }
-void __cdecl FakeConnectToLoginServer() { Logf("ConnectToLoginServer;"); Tick(); }
+void __cdecl FakeSetConnectionTimeout(int Timeout)
+{
+	Logf("SetConnectionTimeout(%d);", Timeout);
+	Tick();
+}
+void __cdecl FakeSetServerError(int Code)
+{
+	Logf("SetServerError(%d);", Code);
+	Tick();
+}
+void __cdecl FakeConnectToLoginServer()
+{
+	Logf("ConnectToLoginServer;");
+	Tick();
+}
 const char *__cdecl FakeGetResolvedIPAddress()
 {
 	Logf("GetResolvedIPAddress;");
 	Tick();
 	return Script.ResolvedIP;
 }
-void __cdecl FakeSetServerIPAddress(const char *Address) { Logf("SetServerIPAddress(%s);", Address); Tick(); }
-void __cdecl FakeDisconnect(bool Force) { Logf("Disconnect(%d);", Force ? 1 : 0); Tick(); }
+void __cdecl FakeSetServerIPAddress(const char *Address)
+{
+	Logf("SetServerIPAddress(%s);", Address);
+	Tick();
+}
+void __cdecl FakeDisconnect(bool Force)
+{
+	Logf("Disconnect(%d);", Force ? 1 : 0);
+	Tick();
+}
 void __cdecl FakeGetErrorMessage(char *Message, int Code, int Type)
 {
 	Logf("GetErrorMessage(%d,%d);", Code, Type);
 	Tick();
 	sprintf(Message, "error %d type %d", Code, Type);
 }
-uint32 __cdecl FakeGetPlayerID() { Tick(); return (uint32)Script.PlayerID; }
+uint32 __cdecl FakeGetPlayerID()
+{
+	Tick();
+	return (uint32)Script.PlayerID;
+}
 alignas(16) uint8 CreatureBuffer[2][sizeof(TCreature) + 16];
 TCreature *__cdecl FakeGetCreature(uint32 ID)
 {
@@ -657,6 +816,7 @@ TCreature *__cdecl FakeGetCreature(uint32 ID)
 	return C;
 }
 
+#if GOLDEN_ORACLE
 // The image's stream: OutputErrorInformations calls operator<<(ostream &,
 // const char *) 0x402630, operator<<(int) 0x402f00 and put 0x402c00, then
 // flushes inline (the stream's ios at the offset of its virtual base table,
@@ -747,6 +907,7 @@ void MakeImageStream()
 	StreamBufferVtable[0x2c / 4] = (void *)FakeSync;
 	*(void **)(ImageStream.Ios + 0x28) = &StreamBuffer; // the ios at +8, its rdbuf at ios + 0x28
 }
+#endif
 
 } // namespace
 
@@ -790,42 +951,52 @@ namespace {
 // The handlers are protected: a subclass makes them reachable.
 class TFrameAccess : public CMainFrame {
 public:
-	using CMainFrame::OnCreate;
-	using CMainFrame::OnDisplayChange;
-	using CMainFrame::OnHostResolved;
 	using CMainFrame::OnActivateApp;
-	using CMainFrame::OnSize;
-	using CMainFrame::OnGetMinMaxInfo;
-	using CMainFrame::OnNcHitTest;
-	using CMainFrame::OnTimer;
+	using CMainFrame::OnCaptureChanged;
+	using CMainFrame::OnChar;
 	using CMainFrame::OnClose;
+	using CMainFrame::OnCreate;
 	using CMainFrame::OnDestroy;
-	using CMainFrame::OnSetCursor;
+	using CMainFrame::OnDisplayChange;
+	using CMainFrame::OnGetMinMaxInfo;
+	using CMainFrame::OnHostResolved;
+	using CMainFrame::OnKeyDown;
+	using CMainFrame::OnKeyUp;
+	using CMainFrame::OnLButtonDblClk;
 	using CMainFrame::OnLButtonDown;
 	using CMainFrame::OnLButtonUp;
-	using CMainFrame::OnLButtonDblClk;
+	using CMainFrame::OnMouseWheel;
+	using CMainFrame::OnNcHitTest;
+	using CMainFrame::OnRButtonDblClk;
 	using CMainFrame::OnRButtonDown;
 	using CMainFrame::OnRButtonUp;
-	using CMainFrame::OnRButtonDblClk;
-	using CMainFrame::OnCaptureChanged;
-	using CMainFrame::OnMouseWheel;
-	using CMainFrame::OnKeyDown;
+	using CMainFrame::OnSetCursor;
+	using CMainFrame::OnSize;
 	using CMainFrame::OnSysKeyDown;
-	using CMainFrame::OnKeyUp;
 	using CMainFrame::OnSysKeyUp;
-	using CMainFrame::OnChar;
+	using CMainFrame::OnTimer;
 };
 TFrameAccess *Ours() { return (TFrameAccess *)OurFrame; }
 
-// The image's members, thiscall through __fastcall.
+// The image's members, thiscall through __fastcall. The runner has no image: its side never runs there.
+#if GOLDEN_ORACLE
 template <class R, class... A> R ImageMember(uint32 Address, A... Arguments)
 {
-	return ((R (__fastcall *)(void *, void *, A...))(uintptr_t)Address)(ImageFrame, NULL, Arguments...);
+	return ((R(__fastcall *)(void *, void *, A...))(uintptr_t)Address)(ImageFrame, NULL, Arguments...);
 }
 template <class R, class... A> R ImageFree(uint32 Address, A... Arguments)
 {
-	return ((R (__cdecl *)(A...))(uintptr_t)Address)(Arguments...);
+	return ((R(__cdecl *)(A...))(uintptr_t)Address)(Arguments...);
 }
+#else
+[[noreturn]] void NoImage()
+{
+	printf("golden: MainFrm called the original in the runner\n");
+	abort();
+}
+template <class R, class... A> R ImageMember(uint32, A...) { NoImage(); }
+template <class R, class... A> R ImageFree(uint32, A...) { NoImage(); }
+#endif
 
 // --- Comparison ------------------------------------------------------------------------------
 
@@ -849,9 +1020,21 @@ struct TStatics {
 	int *WheelDelta;
 };
 TStatics Statics[2];
+#if !GOLDEN_ORACLE
+// The runner: the test sets the original's statics as well (the inputs both sides get); nothing reads them.
+struct {
+	uint8 PacketHeader[16];
+	void *MainFrame;
+	HCURSOR Hand, Size, Wait, Arrow, Default;
+	bool LeftButtonPressed, RightButtonPressed, Closing, DisplayChanged;
+	char ClassName[32];
+	int WheelDelta;
+} ImageStatics;
+#endif
 void MakeStatics()
 {
 	TStatics &I = Statics[IMAGE];
+#if GOLDEN_ORACLE
 	I.PacketHeader = (uint8 *)0x5d1644;
 	I.MainFrame = (void **)0x5d1654;
 	I.Hand = (HCURSOR *)0x5d1658;
@@ -865,6 +1048,21 @@ void MakeStatics()
 	I.DisplayChanged = (bool *)0x5d1670;
 	I.ClassName = (char *)0x5d167c;
 	I.WheelDelta = (int *)0x5d169c;
+#else
+	I.PacketHeader = ImageStatics.PacketHeader;
+	I.MainFrame = &ImageStatics.MainFrame;
+	I.Hand = &ImageStatics.Hand;
+	I.Size = &ImageStatics.Size;
+	I.Wait = &ImageStatics.Wait;
+	I.Arrow = &ImageStatics.Arrow;
+	I.Default = &ImageStatics.Default;
+	I.LeftButtonPressed = &ImageStatics.LeftButtonPressed;
+	I.RightButtonPressed = &ImageStatics.RightButtonPressed;
+	I.Closing = &ImageStatics.Closing;
+	I.DisplayChanged = &ImageStatics.DisplayChanged;
+	I.ClassName = ImageStatics.ClassName;
+	I.WheelDelta = &ImageStatics.WheelDelta;
+#endif
 	TStatics &O = Statics[OURS];
 	O.PacketHeader = PacketHeader;
 	O.MainFrame = (void **)&MainFrame;
@@ -881,49 +1079,99 @@ void MakeStatics()
 	O.WheelDelta = &WheelDelta;
 }
 
-std::string Dump(int S)
+// One side's state after an operation, by value (the corpus records the original's; the same layout
+// on both targets, no padding): the frame's members, the file's statics and the world its fakes keep.
+struct TState {
+	uint32 Window;
+	int32_t MouseCursor;
+	int32_t KeyFlags;
+	int32_t MainFrame; // 0 NULL, 1 the side's frame, 2 another
+	uint32 Cursors[5]; // Hand, Size, Wait, Arrow, Default
+	int32_t WheelDelta;
+	int32_t ViewMode, WindowedX, WindowedY, WindowedWidth, WindowedHeight, ConnectionState;
+	uint8 Placement[sizeof(WINDOWPLACEMENT)];
+	uint8 KeyStates[0x100];
+	uint8 PacketHeader[16];
+	uint8 LeftButtonPressed, RightButtonPressed, Closing, DisplayChanged, WindowedMaximized, RunPatch, Unused[2];
+	char ClassName[32];
+};
+static_assert(sizeof(WINDOWPLACEMENT) == 44 && sizeof(TState) == 420, "TState: the same layout on both targets");
+
+TState Capture(int S)
 {
-	char Buffer[1024];
+	TState State;
+	memset(&State, 0, sizeof(State));
 	TStatics &T = Statics[S];
 	uint8 *F = FrameOf(S);
-	HWND Window;
-	int MouseCursor, KeyFlags;
-	const void *Placement, *KeyStates;
 	if (S == IMAGE) {
-		Window = *(HWND *)(F + 0x1c);
-		MouseCursor = *(int *)(F + 0xd0);
-		Placement = F + 0xd4;
-		KeyStates = F + 0x100;
-		KeyFlags = *(int *)(F + 0x200);
+		State.Window = (uint32)(uintptr_t)*(HWND *)(F + 0x1c);
+		State.MouseCursor = *(int *)(F + 0xd0);
+		memcpy(State.Placement, F + 0xd4, sizeof(State.Placement));
+		memcpy(State.KeyStates, F + 0x100, sizeof(State.KeyStates));
+		State.KeyFlags = *(int *)(F + 0x200);
+		State.RunPatch = ImageApp[0xa1] != 0;
 	} else {
 		CMainFrame *M = (CMainFrame *)F;
-		Window = M->m_hWnd;
-		MouseCursor = M->MouseCursor;
-		Placement = &M->Placement;
-		KeyStates = M->KeyStates;
-		KeyFlags = M->KeyFlags;
+		State.Window = (uint32)(uintptr_t)M->m_hWnd;
+		State.MouseCursor = M->MouseCursor;
+		memcpy(State.Placement, &M->Placement, sizeof(State.Placement));
+		memcpy(State.KeyStates, M->KeyStates, sizeof(State.KeyStates));
+		State.KeyFlags = M->KeyFlags;
+		State.RunPatch = ((CPlayerApp *)OurApp)->RunPatch;
 	}
-	bool RunPatch = S == IMAGE ? ImageApp[0xa1] != 0 : ((CPlayerApp *)OurApp)->RunPatch;
+	memcpy(State.PacketHeader, T.PacketHeader, sizeof(State.PacketHeader));
+	State.MainFrame = *T.MainFrame == (void *)F ? 1 : *T.MainFrame == NULL ? 0
+																		   : 2;
+	HCURSOR *Cursors[5] = {T.Hand, T.Size, T.Wait, T.Arrow, T.Default};
+	for (int i = 0; i < 5; i++)
+		State.Cursors[i] = (uint32)(uintptr_t)*Cursors[i];
+	// The flags as the bytes the bools hold (the dump printed them promoted to int).
+	State.LeftButtonPressed = *(const uint8 *)T.LeftButtonPressed;
+	State.RightButtonPressed = *(const uint8 *)T.RightButtonPressed;
+	State.Closing = *(const uint8 *)T.Closing;
+	State.DisplayChanged = *(const uint8 *)T.DisplayChanged;
+	memcpy(State.ClassName, T.ClassName, sizeof(State.ClassName));
+	State.WheelDelta = *T.WheelDelta;
+	TSideWorld &W = World[S];
+	State.ViewMode = W.ViewMode;
+	State.WindowedX = W.WindowedX;
+	State.WindowedY = W.WindowedY;
+	State.WindowedWidth = W.WindowedWidth;
+	State.WindowedHeight = W.WindowedHeight;
+	State.WindowedMaximized = W.WindowedMaximized;
+	State.ConnectionState = W.ConnectionState;
+	return State;
+}
+
+std::string Dump(const TState &State)
+{
+	char Buffer[1024];
 	snprintf(Buffer, sizeof(Buffer),
 		"frame %s hwnd %x cursor %d keys %x placement %s keystates %s\n"
-		"PacketHeader %s MainFrame %s cursors %x %x %x %x %x buttons %d %d Closing %d DisplayChanged %d ClassName %s "
+		"PacketHeader %s MainFrame %s cursors %x %x %x %x %x buttons %d %d Closing %d DisplayChanged %d ClassName %.32s "
 		"WheelDelta %d RunPatch %d\n",
-		Alive ? "alive" : "dead", (unsigned)(uintptr_t)Window, MouseCursor, KeyFlags,
-		Hex(Placement, sizeof(WINDOWPLACEMENT)).c_str(), Hex(KeyStates, 0x100).c_str(), Hex(T.PacketHeader, 16).c_str(),
-		*T.MainFrame == (void *)F ? "frame" : *T.MainFrame == NULL ? "NULL" : "other", (unsigned)(uintptr_t)*T.Hand,
-		(unsigned)(uintptr_t)*T.Size, (unsigned)(uintptr_t)*T.Wait, (unsigned)(uintptr_t)*T.Arrow,
-		(unsigned)(uintptr_t)*T.Default, *T.LeftButtonPressed, *T.RightButtonPressed, *T.Closing, *T.DisplayChanged,
-		T.ClassName, *T.WheelDelta, RunPatch);
+		Alive ? "alive" : "dead", State.Window, State.MouseCursor, State.KeyFlags,
+		Hex(State.Placement, sizeof(State.Placement)).c_str(), Hex(State.KeyStates, sizeof(State.KeyStates)).c_str(),
+		Hex(State.PacketHeader, 16).c_str(), State.MainFrame == 1 ? "frame" : State.MainFrame == 0 ? "NULL"
+																								   : "other",
+		State.Cursors[0], State.Cursors[1], State.Cursors[2], State.Cursors[3], State.Cursors[4],
+		State.LeftButtonPressed, State.RightButtonPressed, State.Closing, State.DisplayChanged, State.ClassName,
+		State.WheelDelta, State.RunPatch);
 	std::string Text = Buffer;
-	TSideWorld &W = World[S];
-	snprintf(Buffer, sizeof(Buffer), "world: view %d windowed %d,%d,%d,%d,%d connection %d\n", W.ViewMode, W.WindowedX,
-		W.WindowedY, W.WindowedWidth, W.WindowedHeight, W.WindowedMaximized, W.ConnectionState);
+	snprintf(Buffer, sizeof(Buffer), "world: view %d windowed %d,%d,%d,%d,%d connection %d\n", State.ViewMode,
+		State.WindowedX, State.WindowedY, State.WindowedWidth, State.WindowedHeight, State.WindowedMaximized,
+		State.ConnectionState);
 	return Text + Buffer;
 }
+
+// The original's state as last recorded (golden::OutputRuns records its changes).
+TState LastOriginal;
 
 void Compare(const char *Operation)
 {
 	Checks++;
+	// The runner gets the original's log from the corpus.
+	Log[IMAGE] = golden::OutputText("log", Log[IMAGE].c_str());
 	if (Log[IMAGE] != Log[OURS]) {
 		Failures++;
 		if (Failures <= FailuresPrinted)
@@ -933,7 +1181,13 @@ void Compare(const char *Operation)
 		fprintf(LogFile, "%s: %s\n", Operation, Log[OURS].c_str());
 	Log[IMAGE].clear();
 	Log[OURS].clear();
-	std::string A = Dump(OURS), B = Dump(IMAGE);
+#if GOLDEN_ORACLE
+	TState Original = Capture(IMAGE);
+	golden::OutputRuns("state", &LastOriginal, &Original, sizeof(TState));
+#else
+	golden::OutputRuns("state", &LastOriginal, nullptr, sizeof(TState));
+#endif
+	std::string A = Dump(Capture(OURS)), B = Dump(LastOriginal);
 	CHECK(A == B, "MainFrm %s (%s): state\n%s\noriginal\n%s", Operation, What, A.c_str(), B.c_str());
 }
 
@@ -946,8 +1200,10 @@ template <class F> void Both(const char *Name, F Call)
 	if (Trace)
 		printf("MainFrm: %s\n", Name);
 	if (Round == NULL) {
+#if GOLDEN_ORACLE
 		Side = IMAGE;
 		Call(IMAGE);
+#endif
 		Side = OURS;
 		Call(OURS);
 	} else {
@@ -955,9 +1211,10 @@ template <class F> void Both(const char *Name, F Call)
 		Side = OURS;
 		TThrown O = OurThrow([&] { Call(OURS); });
 		Round->Calling(Name, "the original");
-		Side = IMAGE;
-		TThrown I = ImageThrow([&] { Call(IMAGE); });
+		TThrown I = ORIGINAL_THROWN("thrown", Side = IMAGE; Call(IMAGE));
 		Round->Compare(Name, O, I);
+		// How many fake calls the original made (whether its n-th was reached).
+		golden::Output("original ticks", World[IMAGE].Ticks);
 	}
 	Compare(Name);
 }
@@ -982,7 +1239,7 @@ void RandomScript()
 	int Frame = Between(0, 12), Caption = Between(0, 30);
 	S.Window = {S.Origin.x - Frame, S.Origin.y - Frame - Caption, S.Origin.x + Width + Frame, S.Origin.y + Height + Frame};
 	S.Cursor = Chance(70) ? POINT{S.Origin.x + Between(-20, Width + 20), S.Origin.y + Between(-20, Height + 20)}
-		: POINT{Between(-100, 2000), Between(-100, 1500)};
+						  : POINT{Between(-100, 2000), Between(-100, 1500)};
 	S.ScreenWidth = Chance(80) ? 1024 : Between(640, 2560);
 	S.ScreenHeight = Chance(80) ? 768 : Between(480, 1600);
 	memset(&S.Placement, 0, sizeof(S.Placement));
@@ -1005,7 +1262,8 @@ void RandomScript()
 // The world both sides read (Preferences, Status), set alike.
 void RandomWorld()
 {
-	int View = Chance(45) ? 1 : Chance(80) ? 2 : Between(-1, 4);
+	int View = Chance(45) ? 1 : Chance(80) ? 2
+										   : Between(-1, 4);
 	bool Pointer = Chance(70);
 	int Cursor = Between(-1, 8), x = Between(-10, 800), y = Between(-10, 600), Engine = Between(-1, 3);
 	int State = Between(0, 6);
@@ -1018,7 +1276,7 @@ void RandomWorld()
 		World[s].ConnectionState = State;
 	}
 	curEngine = Engine;
-	Global<int>(0x71d0c4) = Engine;
+	ORIGINAL(Global<int>(0x71d0c4) = Engine);
 }
 
 UINT RandomKey()
@@ -1068,7 +1326,9 @@ void Operation(int Kind)
 {
 	RandomScript();
 	switch (Kind) {
-	case 0: case 1: case 2: {
+	case 0:
+	case 1:
+	case 2: {
 		UINT Key = RandomKey(), Repeat = Between(0, 3), Flags = (Chance(50) ? 0x100 : 0) | (Random() & 0x2ff & ~0x100);
 		static const char *Names[] = {"OnKeyDown", "OnSysKeyDown", "KeyDown"};
 		Both(Names[Kind], [&](int s) {
@@ -1083,7 +1343,9 @@ void Operation(int Kind)
 		});
 		break;
 	}
-	case 3: case 4: case 5: {
+	case 3:
+	case 4:
+	case 5: {
 		UINT Key = RandomKey(), Repeat = Between(0, 3), Flags = (Chance(50) ? 0x100 : 0) | (Random() & 0x2ff & ~0x100);
 		static const char *Names[] = {"OnKeyUp", "OnSysKeyUp", "KeyUp"};
 		Both(Names[Kind - 3], [&](int s) {
@@ -1099,7 +1361,8 @@ void Operation(int Kind)
 		break;
 	}
 	case 6: {
-		UINT Char = Chance(30) ? Between(0, 27) : Chance(80) ? Between(28, 255) : Between(256, 0x10000);
+		UINT Char = Chance(30) ? Between(0, 27) : Chance(80) ? Between(28, 255)
+															 : Between(256, 0x10000);
 		UINT Repeat = 1, Flags = Random() & 0xffff;
 		Both("OnChar", [&](int s) {
 			if (s == IMAGE)
@@ -1116,12 +1379,17 @@ void Operation(int Kind)
 		POINT Point = RandomPoint();
 		Both("OnMouseWheel", [&](int s) {
 			BOOL Result = s == IMAGE ? ImageMember<BOOL>(0x4ab310, Flags, (int)Delta, Point)
-				: Ours()->OnMouseWheel(Flags, Delta, *(CPoint *)&Point);
+									 : Ours()->OnMouseWheel(Flags, Delta, *(CPoint *)&Point);
 			Logf("=%d;", Result);
 		});
 		break;
 	}
-	case 8: case 9: case 10: case 11: case 12: case 13: {
+	case 8:
+	case 9:
+	case 10:
+	case 11:
+	case 12:
+	case 13: {
 		static const uint32 Image[] = {0x4aa5d0, 0x4aa7b0, 0x4aa990, 0x4aab70, 0x4aad50, 0x4aaf30};
 		static const char *Names[] = {"OnLButtonDown", "OnLButtonUp", "OnLButtonDblClk", "OnRButtonDown", "OnRButtonUp",
 			"OnRButtonDblClk"};
@@ -1190,8 +1458,10 @@ void Operation(int Kind)
 	case 19: {
 		UINT Type = Chance(70) ? SIZE_RESTORED : Random() % 5;
 		// The minimum 550x450 and its neighbours often.
-		int cx = Chance(30) ? Between(548, 552) : Chance(70) ? Between(500, 1300) : Between(-10, 600);
-		int cy = Chance(30) ? Between(448, 452) : Chance(70) ? Between(400, 1000) : Between(-10, 500);
+		int cx = Chance(30) ? Between(548, 552) : Chance(70) ? Between(500, 1300)
+															 : Between(-10, 600);
+		int cy = Chance(30) ? Between(448, 452) : Chance(70) ? Between(400, 1000)
+															 : Between(-10, 500);
 		Both("OnSize", [&](int s) {
 			if (s == IMAGE)
 				ImageMember<void>(0x4a9540, Type, cx, cy);
@@ -1225,7 +1495,7 @@ void Operation(int Kind)
 		Both("OnSetCursor", [&](int s) {
 			void *W = Window == NULL ? NULL : FrameOf(s);
 			BOOL Result = s == IMAGE ? ImageMember<BOOL>(0x4aa3c0, W, HitTest, Message)
-				: Ours()->OnSetCursor((CWnd *)W, HitTest, Message);
+									 : Ours()->OnSetCursor((CWnd *)W, HitTest, Message);
 			Logf("=%d;", Result);
 		});
 		break;
@@ -1282,7 +1552,8 @@ void Operation(int Kind)
 		// The new screen size: random, or the window's size and its neighbours.
 		int Width = Script.Window.right - Script.Window.left, Height = Script.Window.bottom - Script.Window.top;
 		LPARAM lParam = Chance(40) ? MAKELPARAM(Width + Between(-1, 1), Height + Between(-1, 1))
-			: Chance(70) ? MAKELPARAM(Between(500, 2000), Between(400, 1500)) : (LPARAM)Random();
+			: Chance(70)           ? MAKELPARAM(Between(500, 2000), Between(400, 1500))
+								   : (LPARAM)Random();
 		WPARAM wParam = Random() % 33;
 		Both("OnDisplayChange", [&](int s) {
 			LRESULT Result = s == IMAGE ? ImageMember<LRESULT>(0x4abe40, wParam, lParam) : Ours()->OnDisplayChange(wParam, lParam);
@@ -1291,7 +1562,8 @@ void Operation(int Kind)
 		break;
 	}
 	case 28: {
-		int Error = Chance(60) ? 0 : Chance(50) ? WSAHOST_NOT_FOUND : Between(1, 0xffff);
+		int Error = Chance(60) ? 0 : Chance(50) ? WSAHOST_NOT_FOUND
+												: Between(1, 0xffff);
 		LPARAM lParam = MAKELPARAM(Between(0, 2000), Error);
 		WPARAM wParam = Random() % 0x10000;
 		if (Chance(50)) // resolving, as ResolveHostname leaves it
@@ -1314,7 +1586,8 @@ void Operation(int Kind)
 		break;
 	}
 	case 30: {
-		int Mode = Chance(45) ? 1 : Chance(80) ? 2 : Between(-1, 4);
+		int Mode = Chance(45) ? 1 : Chance(80) ? 2
+											   : Between(-1, 4);
 		Both("SetDisplayMode", [&](int s) {
 			if (s == IMAGE)
 				ImageFree<void>(0x4a8af0, Mode);
@@ -1360,8 +1633,7 @@ void Operation(int Kind)
 			cs.lpszName = Name ? "Tibia" : NULL;
 			cs.lpszClass = "Before";
 			BOOL Result = s == IMAGE ? ImageMember<BOOL>(0x4a8f30, &cs) : Frame()->PreCreateWindow(cs);
-			Logf("=%d,%s;", Result, cs.lpszClass == (s == IMAGE ? (const char *)0x5d167c : ClassName) ? "ClassName"
-				: cs.lpszClass);
+			Logf("=%d,%s;", Result, cs.lpszClass == (s == IMAGE ? (const char *)0x5d167c : ClassName) ? "ClassName" : cs.lpszClass);
 		});
 		break;
 	}
@@ -1376,6 +1648,7 @@ void Operation(int Kind)
 			memcpy(Statics[s].PacketHeader, Header, 16);
 		Both("OutputErrorInformations", [&](int s) {
 			if (s == IMAGE) {
+#if GOLDEN_ORACLE
 				World[IMAGE].Stream.clear();
 				MakeImageStream();
 				HookStream(true);
@@ -1384,6 +1657,7 @@ void Operation(int Kind)
 				} Unhook;
 				ImageMember<void>(0x4a8360, (void *)&ImageStream);
 				Logf("out:%s;", World[IMAGE].Stream.c_str());
+#endif
 			} else {
 				std::ostringstream Out;
 				Frame()->OutputErrorInformations(Out);
@@ -1468,6 +1742,7 @@ void StartRound()
 
 void TestMainFrmErrors()
 {
+	ORIGINAL(VerifyOurSideAssertion("MainFrm"));
 	TErrorRound R("MainFrm");
 	Round = &R;
 	for (int Kind = 0; Kind <= OPERATIONS; Kind++) {
@@ -1478,6 +1753,7 @@ void TestMainFrmErrors()
 			int Length = Random() % 10;
 			for (int n = 1; n < 200; n++) {
 				SetRandomSeed(Seed);
+				golden::Input("error seed", Seed);
 				FailAt = 0;
 				ResetStatics();
 				RandomWorld();
@@ -1530,13 +1806,18 @@ void TestMainFrm()
 	// Random()'s state is put back at the end: the later tests (MapWindow, MainWindow) get
 	// the inputs they had before this test existed.
 	uint32 SavedSeed = GetRandomSeed();
-	PatchImage();
+	ORIGINAL(PatchImage());
+	memset(&LastOriginal, 0, sizeof(LastOriginal));
 	Trace = getenv("MF_TRACE") != NULL;
 	const char *LogName = getenv("MF_LOGS");
 	LogFile = LogName != NULL ? fopen(LogName, "w") : NULL;
 	MakeStatics();
 	// user32 and shell32 through both import tables.
-	struct { const char *Dll; const char *Name; void *Fake; } Imports[] = {
+	struct {
+		const char *Dll;
+		const char *Name;
+		void *Fake;
+	} Imports[] = {
 		{"USER32.dll", "PostMessageA", (void *)FakePostMessageA},
 		{"USER32.dll", "GetClientRect", (void *)FakeGetClientRect},
 		{"USER32.dll", "GetWindowRect", (void *)FakeGetWindowRect},
@@ -1558,8 +1839,12 @@ void TestMainFrm()
 	};
 	for (auto &I : Imports)
 		BindBoth(I.Dll, I.Name, I.Fake);
+#if GOLDEN_ORACLE
 	// The image's MFC.
-	struct { uint32 Address; void *Fake; } Mfc[] = {
+	struct {
+		uint32 Address;
+		void *Fake;
+	} Mfc[] = {
 		{0x52c0e6, (void *)ImageFrameCtor},
 		{0x52c1ab, (void *)ImageFrameDtor},
 		{0x5239d8, (void *)ImageGetPlacement},
@@ -1581,8 +1866,14 @@ void TestMainFrm()
 	};
 	for (auto &M : Mfc)
 		Redirect((void *)(uintptr_t)M.Address, M.Fake);
-	// The game files: one fake for both sides (ours of Control.cpp are playertest.cpp's stubs).
-	struct { uint32 Image; void *Ours; void *Fake; } Table[] = {
+#endif
+	// The game files: one fake for both sides (ours of Control.cpp and Network.cpp are playertest.cpp's and
+	// networktest.cpp's in the oracle, client_stubs.cpp's in the runner).
+	struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Table[] = {
 		{0x446d10, (void *)LeftButtonDown, (void *)FakeLeftButtonDown},
 		{0x447000, (void *)LeftButtonUp, (void *)FakeLeftButtonUp},
 		{0x447390, (void *)LeftButtonDoubleClick, (void *)FakeLeftButtonDoubleClick},
@@ -1620,16 +1911,18 @@ void TestMainFrm()
 		{0x44c6e0, (void *)GetCreature, (void *)FakeGetCreature},
 	};
 	for (auto &T : Table) {
-		Redirect((void *)(uintptr_t)T.Image, T.Fake);
+		ORIGINAL(Redirect((void *)(uintptr_t)T.Image, T.Fake));
 		Redirect(T.Ours, T.Fake);
 	}
-	int SavedEngine = curEngine, SavedImageEngine = Global<int>(0x71d0c4);
+	int SavedEngine = curEngine;
+	ORIGINAL(int SavedImageEngine = Global<int>(0x71d0c4));
 
 	int Before = Checks;
 	int Rounds = getenv("MF_ROUNDS") != NULL ? atoi(getenv("MF_ROUNDS")) : 400;
 	for (int r = 0; r < Rounds; r++) {
 		if (Trace)
 			printf("MainFrm: round %d\n", r);
+		golden::Input("round seed", GetRandomSeed());
 		StartRound();
 		int Count = 10 + Random() % 60;
 		for (int i = 0; i < Count; i++)
@@ -1640,7 +1933,7 @@ void TestMainFrm()
 	TestMainFrmErrors();
 	ResetStatics();
 	curEngine = SavedEngine;
-	Global<int>(0x71d0c4) = SavedImageEngine;
+	ORIGINAL(Global<int>(0x71d0c4) = SavedImageEngine);
 	RestoreAll();
 	SetRandomSeed(SavedSeed);
 	if (LogFile != NULL)

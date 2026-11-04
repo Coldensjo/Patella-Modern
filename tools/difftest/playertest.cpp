@@ -20,8 +20,8 @@
 // not part of the test build). None of them is called by the tests.
 
 // Each stub has a body of its own (the function's name): the linker folds
-// identical functions, and mainfrmtest.cpp redirects the Control.cpp stubs
-// one by one. The MFC members MainFrm.cpp calls are mainfrmtest.cpp's fakes,
+// identical functions, and tests/golden/mainfrm_tests.cpp redirects the
+// Control.cpp stubs one by one. The MFC members MainFrm.cpp calls are its fakes,
 // Network.cpp is compiled into networktest.cpp (issue #37).
 [[noreturn]] static void StubCalled(const char *Name)
 {
