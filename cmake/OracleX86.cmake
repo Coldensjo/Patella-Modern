@@ -223,7 +223,8 @@ list(TRANSFORM difftest_tests PREPEND "${DIFFTEST_DIR}/")
 # The first tests (XTEA ... Buffers, Skins) and Regexp are golden-corpus tests (issue #24), and so are
 # those of issue #26 (Status ...).
 list(APPEND difftest_tests "${GOLDEN_DIR}/core_tests.cpp" "${GOLDEN_DIR}/regexp_tests.cpp"
-	"${GOLDEN_DIR}/status_tests.cpp" "${GOLDEN_DIR}/preferences_tests.cpp" "${GOLDEN_DIR}/script_tests.cpp")
+	"${GOLDEN_DIR}/status_tests.cpp" "${GOLDEN_DIR}/preferences_tests.cpp" "${GOLDEN_DIR}/script_tests.cpp"
+	"${GOLDEN_DIR}/player_tests.cpp")
 set_source_files_properties("${DIFFTEST_DIR}/imageehseh.asm" PROPERTIES COMPILE_OPTIONS /safeseh)
 add_executable(difftest ${difftest_tests}
 	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"

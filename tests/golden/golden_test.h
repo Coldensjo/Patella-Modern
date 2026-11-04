@@ -56,3 +56,4 @@ void TestStatus();
 void TestPreferences();
 void TestScript();
 void TestPreferencesFile();
+void TestPlayer();
