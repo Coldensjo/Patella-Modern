@@ -2,7 +2,7 @@
 
 Patella.exe and the original Tibia.exe get the same crafted and fuzzed server streams, and what each does is
 compared: the packets it sends, the dialogs it shows, its state and how it ends. This is the second line of the
-comparison of Network.cpp and MainFrm.cpp; the first is the difftest (networktest.cpp, tests/golden/mainfrm_tests.cpp,
+comparison of Network.cpp and MainFrm.cpp; the first is the difftest (tests/golden/network_tests.cpp, tests/golden/mainfrm_tests.cpp,
 notes/decisions.md "Network.cpp and MainFrm.cpp (issue #37)"), which compares every function of both files in
 the child but stops at the calls into MFC and Windows. Here the real clients run, with their own MFC (7.1 and 14),
 WinSock and message loop.

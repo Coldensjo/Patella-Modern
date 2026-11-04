@@ -249,6 +249,16 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #30 (branch issue-30, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after Network moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0
+failures (Network 74,928 + its error round's 38,878, 7,393 calls compared, 556 that threw); with recording on
+(`golden_corpus`) the same counts. The x64 golden_runner (windows-x64 and -debug, CTest 13/13) replays 7,009,140 of
+difftest's checks and sysinctest's 67, 0 failures (issue #54's 6,895,334 as before, Network 113,806 with the
+oracle's error-round counts); not yet ported: difftest's 9,839,612 other checks (Errors 40,408, MapWindow 127,529,
+MainWindow 57,314 among them) and communicationtest's 1,134,513 (Communication 856,366, Control 278,147: they need
+GUI.cpp and the window files in the runner, notes/decisions.md, issue #30). src/ unchanged; macrocheck 7df9603
+issue-30: 2,108 calls, 0 differences.
+
 Patella-Modern issue #54 (branch issue-54, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after the error rounds' comparison moved to tests/golden/golden_eh and MainFrm to tests/golden:
 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures (MainFrm 31,424 + its error round's 18,152,
