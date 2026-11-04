@@ -120,7 +120,8 @@ jobs:
         run: docker build -t "$IMAGE" docker/linux-x64
       # The compile commands of linux-x64-clang (configure only): every source of src/ that builds on
       # Linux (patella_core), and the headers of src/ they include. Fails on a finding that is not in
-      # tools/tidy-baseline.tsv; checks only, never --fix.
+      # tools/tidy-baseline.tsv; checks only, never --fix. tools/tidy_ci.py runs this step locally: it reads the
+      # single-quoted bash -c script below (issue #51), so keep it one quoted argument.
       - name: tools/tidy.py --baseline
         run: >-
           docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" bash -c
