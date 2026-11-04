@@ -214,7 +214,7 @@ list(TRANSFORM difftest_window_sources PREPEND "${PROJECT_SOURCE_DIR}/src/")
 # exception handler trampoline must be in the SafeSEH table: only the assembler can put it there.
 set(difftest_tests
 	difftest.cpp talktest.cpp objectstest.cpp playertest.cpp
-	inventorytest.cpp creaturestest.cpp maptest.cpp graphicstest.cpp guitest.cpp
+	creaturestest.cpp maptest.cpp graphicstest.cpp guitest.cpp
 	dialogwindowtest.cpp contextmenustest.cpp consolewindowtest.cpp contentwindowstest.cpp
 	dialogelementstest.cpp dialogstest.cpp surfacedx9test.cpp surfacegltest.cpp containertest.cpp
 	surfacedxtest.cpp mapwindowtest.cpp mainwindowtest.cpp elementfakes.cpp errortest.cpp
@@ -224,7 +224,7 @@ list(TRANSFORM difftest_tests PREPEND "${DIFFTEST_DIR}/")
 # those of issue #26 (Status ...).
 list(APPEND difftest_tests "${GOLDEN_DIR}/core_tests.cpp" "${GOLDEN_DIR}/regexp_tests.cpp"
 	"${GOLDEN_DIR}/status_tests.cpp" "${GOLDEN_DIR}/preferences_tests.cpp" "${GOLDEN_DIR}/script_tests.cpp"
-	"${GOLDEN_DIR}/player_tests.cpp" "${GOLDEN_DIR}/help_tests.cpp")
+	"${GOLDEN_DIR}/player_tests.cpp" "${GOLDEN_DIR}/help_tests.cpp" "${GOLDEN_DIR}/inventory_tests.cpp")
 set_source_files_properties("${DIFFTEST_DIR}/imageehseh.asm" PROPERTIES COMPILE_OPTIONS /safeseh)
 add_executable(difftest ${difftest_tests}
 	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"

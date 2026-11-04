@@ -58,3 +58,4 @@ void TestScript();
 void TestPreferencesFile();
 void TestPlayer();
 void TestHelp();
+void TestInventory();
