@@ -44,7 +44,8 @@ compare (the test client, PatellaTest.exe; this file, Python only, no Windows-on
   --check-only compares the results already in --out again (any platform, no client run).
 
 The reference set is CipSoft-derived local data: never committed, pushed or uploaded. Default
-<repository>\build\reference (gitignored); the orchestrator's set is C:\Patella-Modern\build\reference.
+<repository>\build\reference (gitignored); the orchestrator's set is the main checkout's
+<repository>\build\reference (a worktree passes it with --reference).
 A session is stale when its format is not FORMAT, or its Tibia.exe or data files' SHA-256 are not
 the ones it was recorded with (compare refuses it; record it again). meta.json's display_modes (issue
 #48) is optional in format 1: the sessions recorded before it lack it and were all recorded on the

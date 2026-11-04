@@ -7,7 +7,9 @@
 // tests/golden/status_tests.cpp redirects the image's malloc and free to the test's own heap
 // (PatchJump) before it calls functions that allocate.
 //
-// Usage: difftest.exe [path to Tibia.exe]
+// Usage: difftest.exe <path to Tibia.exe> (as sysinctest.exe and communicationtest.exe). CTest and the
+// golden_corpus target pass the build's PATELLA_TIBIA_EXE (cmake/OracleX86.cmake); there is no default
+// path, so no folder of the machine is assumed.
 
 #include "difftest.h"
 #include "../../src/Utils.h"
@@ -126,6 +128,10 @@ static int ReportChild(DWORD ExitCode, bool TimedOut, DWORD Timeout)
 static int RunChild(int argc, char **argv)
 {
 	setvbuf(stdout, NULL, _IONBF, 0);
+	if (argc < 2) {
+		printf("usage: %s <path to Tibia.exe>\n", argc > 0 ? argv[0] : "difftest");
+		return 2;
+	}
 	SECURITY_ATTRIBUTES Inherit = {sizeof(Inherit), NULL, TRUE};
 	HANDLE Shared = CreateFileMappingA(INVALID_HANDLE_VALUE, &Inherit, PAGE_READWRITE, 0, sizeof(TChildStatus), NULL);
 	void *View = Shared != NULL ? MapViewOfFile(Shared, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(TChildStatus)) : NULL;
@@ -137,8 +143,8 @@ static int RunChild(int argc, char **argv)
 	char CommandLine[2 * MAX_PATH + 64];
 	char Self[MAX_PATH];
 	GetModuleFileNameA(NULL, Self, sizeof(Self));
-	snprintf(CommandLine, sizeof(CommandLine), "\"%s\" --child \"%s\" %lu", Self,
-		argc > 1 ? argv[1] : "C:\\Tibia\\Tibia.exe", (unsigned long)(uintptr_t)Shared);
+	snprintf(CommandLine, sizeof(CommandLine), "\"%s\" --child \"%s\" %lu", Self, argv[1],
+		(unsigned long)(uintptr_t)Shared);
 	// The child is killed with the parent (a job that dies with its handle):
 	// a child left running would keep the build from linking difftest.exe
 	// again. The job also keeps Windows Error Reporting from holding a crashed
@@ -456,16 +462,20 @@ int main(int argc, char **argv)
 {
 	if (argc < 2 || strcmp(argv[1], "--child") != 0)
 		return RunChild(argc, argv);
+	if (argc < 3)
+		return 2;
+	// The original to compare against: RunChild passes its own argument on.
+	const char *TibiaExe = argv[2];
 	InstallCrashReports(argc > 3 ? argv[3] : NULL);
-	if (!MapImage(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe"))
+	if (!MapImage(TibiaExe))
 		return 2;
 	// DIFFTEST_RECORD=<directory>: record the golden corpus of the full run (tests/golden/golden.h).
 #ifdef DIFFTEST_SYSINC
-	golden::StartRecording("sysinctest", argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+	golden::StartRecording("sysinctest", TibiaExe);
 #elif defined(DIFFTEST_COMMUNICATION)
-	golden::StartRecording("communicationtest", argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+	golden::StartRecording("communicationtest", TibiaExe);
 #else
-	golden::StartRecording("difftest", argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+	golden::StartRecording("difftest", TibiaExe);
 #endif
 #ifdef DIFFTEST_SYSINC
 	TestSysinc();
@@ -475,9 +485,9 @@ int main(int argc, char **argv)
 	if (getenv("DIFFTEST_FAILS") != NULL)
 		FailuresPrinted = atoi(getenv("DIFFTEST_FAILS"));
 	if (Only == NULL || strcmp(Only, "Communication") == 0)
-		TestCommunication(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+		TestCommunication(TibiaExe);
 	if (Only == NULL || strcmp(Only, "Control") == 0)
-		TestControl(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+		TestControl(TibiaExe);
 #else
 	// DIFFTEST_ONLY=MainWindow, MapWindow, DialogWindow, ContextMenus, ConsoleWindow,
 	// ContentWindows, DialogElements, Dialogs, SurfaceDX9 or Container runs only mainwindowtest.cpp,
@@ -549,7 +559,7 @@ int main(int argc, char **argv)
 		return Failures == 0 ? 0 : 1;
 	}
 	if (Only != NULL && strcmp(Only, "Errors") == 0) {
-		TestErrors(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+		TestErrors(TibiaExe);
 		printf("%d checks, %d failures\n", Checks, Failures);
 		return Failures == 0 ? 0 : 1;
 	}
@@ -564,7 +574,7 @@ int main(int argc, char **argv)
 		return Failures == 0 ? 0 : 1;
 	}
 	if (Only != NULL && strcmp(Only, "MapWindow") == 0) {
-		TestMapWindow(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+		TestMapWindow(TibiaExe);
 		printf("%d checks, %d failures\n", Checks, Failures);
 		return Failures == 0 ? 0 : 1;
 	}
@@ -593,10 +603,10 @@ int main(int argc, char **argv)
 	TestHelp();
 	TestInventory();
 	TestTalk();
-	TestObjects(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
-	TestMap(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
-	TestCreatures(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
-	TestGraphics(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+	TestObjects(TibiaExe);
+	TestMap(TibiaExe);
+	TestCreatures(TibiaExe);
+	TestGraphics(TibiaExe);
 	TestGUI();
 	TestDialogWindow();
 	TestContextMenus();
@@ -609,10 +619,10 @@ int main(int argc, char **argv)
 	TestSurfaceGL();
 	TestContainer();
 	TestRegexp();
-	TestErrors(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+	TestErrors(TibiaExe);
 	TestNetwork();
 	TestMainFrm();
-	TestMapWindow(argc > 2 ? argv[2] : "C:\\Tibia\\Tibia.exe");
+	TestMapWindow(TibiaExe);
 	TestMainWindow();
 #endif
 	golden::FinishRecording(Checks, Failures);

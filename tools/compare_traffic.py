@@ -57,7 +57,7 @@ import login_client as lc  # noqa: E402
 import testserver  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SERVER_DIR = r"C:\Tibia\gameserver"
+SERVER_DIR = testserver.SERVER_DIR  # PATELLA_TESTSERVER, else C:\Tibia\gameserver (testserver.py)
 PEM = os.path.join(SERVER_DIR, "tibia.pem")
 SERVER_EXE = os.path.join(SERVER_DIR, "tibia-server.exe")
 PLAYER_FILES = {  # the test account's characters (notes/testserver.md)

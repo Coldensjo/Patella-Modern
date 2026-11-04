@@ -6,7 +6,7 @@ issue #18 must be stopped, the script starts and stops it for the one live recor
   python -I tools/compare_files.py record|compare [tools/reference.py's options]   (issue #23: the
       reference recordings of this tool's sessions; notes/testmode.md, "Reference recordings")
                                    [--walk ladder|stairs] [--patella EXE]
-  python -I tools/compare_files.py --check-route [--walk NAME] [--server-dir C:\Tibia\gameserver]
+  python -I tools/compare_files.py --check-route [--walk NAME] [--server-dir DIR]
 
 Both clients play the same sessions in run folders with copies of the data files
 (build\files\orig, build\files\patella, build\files\orig-repeat, made like tools/compare_traffic.py's,
@@ -1400,7 +1400,8 @@ def main():
 		"(default %s; with --skip-live the recording's own, walk-live.walk)" % DEFAULT_WALK)
 	parser.add_argument("--check-route", action="store_true", help="check the walks against the server's map "
 		"(read-only, no client, no server) and exit")
-	parser.add_argument("--server-dir", default=ct.SERVER_DIR, help="the test server's folder for --check-route")
+	parser.add_argument("--server-dir", default=ct.SERVER_DIR, help="the test server's folder for --check-route "
+		"(default %(default)s: PATELLA_TESTSERVER, else C:\\Tibia\\gameserver, tools/testserver.py)")
 	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
 		"it (default build/oracle-x86/Release/Patella.exe; as tools/compare_traffic.py's --patella)")
 	args = parser.parse_args()
