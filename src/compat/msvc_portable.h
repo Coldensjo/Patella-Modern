@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <string>
 
 // PATELLA_PRINTF_FORMAT and Time32
 #include "compat/msvc.h"
@@ -32,21 +33,16 @@ namespace patella::compat {
 PATELLA_PRINTF_FORMAT(3, 0)
 inline int PortableVsnprintf(char *Buffer, std::size_t Count, const char *Format, std::va_list Arguments)
 {
-	std::va_list Again;
+	std::va_list Again; // NOLINT(cppcoreguidelines-pro-type-vararg): _vsnprintf's interface
 	va_copy(Again, Arguments);
 	const int Length = std::vsnprintf(Buffer, Count, Format, Arguments);
 	int Result = Length;
 	if (Length >= 0 && Buffer != nullptr && static_cast<std::size_t>(Length) >= Count) {
 		// vsnprintf ended the text with a NUL at Buffer[Count - 1]; _vsnprintf has a character there.
 		if (Count != 0) {
-			auto *Text = static_cast<char *>(std::malloc(static_cast<std::size_t>(Length) + 1)); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): no std::string here (below)
-			if (Text == nullptr) {
-				va_end(Again);
-				return -1;
-			}
-			std::vsnprintf(Text, static_cast<std::size_t>(Length) + 1, Format, Again);
-			std::memcpy(Buffer, Text, Count);
-			std::free(Text); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)
+			std::string Text(static_cast<std::size_t>(Length), '\0');
+			std::vsnprintf(Text.data(), Text.size() + 1, Format, Again); // its NUL goes to Text.data()[Length]
+			std::memcpy(Buffer, Text.data(), Count);
 		}
 		if (static_cast<std::size_t>(Length) != Count)
 			Result = -1;
@@ -59,7 +55,7 @@ inline int PortableVsnprintf(char *Buffer, std::size_t Count, const char *Format
 PATELLA_PRINTF_FORMAT(3, 4)
 inline int PortableSnprintf(char *Buffer, std::size_t Count, const char *Format, ...) // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
 {
-	std::va_list Arguments;
+	std::va_list Arguments; // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
 	va_start(Arguments, Format); // NOLINT(cppcoreguidelines-pro-type-vararg)
 	const int Result = PortableVsnprintf(Buffer, Count, Format, Arguments);
 	va_end(Arguments); // NOLINT(cppcoreguidelines-pro-type-vararg)
@@ -118,7 +114,7 @@ inline char *PortableCtime32(const Time32 *Time)
 	if (*Time < 0)
 		return nullptr;
 	const std::time_t Value = *Time;
-	return std::ctime(&Value); // NOLINT(concurrency-mt-unsafe,bugprone-unsafe-functions): _ctime32's static buffer
+	return std::ctime(&Value); // NOLINT(bugprone-unsafe-functions): _ctime32 returns its static buffer too
 }
 
 // _localtime32: localtime of a 32-bit time, null for a time before 1970 (UCRT time/localtime.cpp).
@@ -127,7 +123,7 @@ inline std::tm *PortableLocaltime32(const Time32 *Time)
 	if (*Time < 0)
 		return nullptr;
 	const std::time_t Value = *Time;
-	return std::localtime(&Value); // NOLINT(concurrency-mt-unsafe): _localtime32's static tm
+	return std::localtime(&Value); // _localtime32 returns its static tm too
 }
 
 } // namespace patella::compat

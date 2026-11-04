@@ -108,7 +108,7 @@ static_assert(sizeof(Time32) == 4);
 PATELLA_PRINTF_FORMAT(3, 4)
 inline int MsvcSnprintf(char *Buffer, std::size_t Count, const char *Format, ...) // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
 {
-	std::va_list Values;
+	std::va_list Values; // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
 	va_start(Values, Format); // NOLINT(cppcoreguidelines-pro-type-vararg)
 	const int Result = patella::compat::PortableVsnprintf(Buffer, Count, Format, Values);
 	va_end(Values); // NOLINT(cppcoreguidelines-pro-type-vararg)
@@ -178,7 +178,7 @@ inline int MsvcDupenv(char **Value, std::size_t *Length, const char *Name)
 	*Value = nullptr;
 	if (Length != nullptr)
 		*Length = 0;
-	const char *Text = std::getenv(Name); // NOLINT(concurrency-mt-unsafe): the client's one thread
+	const char *Text = std::getenv(Name);
 	if (Text == nullptr)
 		return 0;
 	*Value = patella::compat::PortableStrdup(Text);
@@ -195,7 +195,7 @@ inline int MsvcPutenv(const char *Name, const char *Value)
 {
 	if (Name == nullptr || Value == nullptr || *Name == 0 || std::strchr(Name, '=') != nullptr)
 		return EINVAL;
-	const int Result = *Value == 0 ? unsetenv(Name) : setenv(Name, Value, 1); // NOLINT(concurrency-mt-unsafe): the client's one thread
+	const int Result = *Value == 0 ? unsetenv(Name) : setenv(Name, Value, 1);
 	return Result == 0 ? 0 : errno;
 }
 
