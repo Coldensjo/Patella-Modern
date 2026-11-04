@@ -25,6 +25,9 @@
 //	                 signed, 'u' unsigned, 'f' floating, 'b' bytes), u8 element size, varint count,
 //	                 count * element size bytes
 //	        3 END    u64 the test's checks, u64 its VALUE records
+//	A retired part of a test (RetiredBegin, issue #28) is two VALUE records around the part's own: the input
+//	"retired" (bytes: the part's name) and the output "retired end" (two u64: the part's checks and its
+//	VALUE records); the test's checks and records at END count the part's.
 // A corpus is stale when its format version or its Tibia.exe differs from the runner's, or when a test
 // asks for another record than the next one (the test changed since the recording); the runner then
 // stops with a message instead of comparing.
@@ -98,7 +101,8 @@ struct TManifest {
 bool ReadManifest(const std::string &Directory, const char *Executable, TManifest *Manifest);
 // Opens <directory>/<executable>/<test>.bin; returns the seed the test started with.
 uint32_t BeginReplay(const std::string &Directory, const char *Executable, const char *Test);
-// Checks that every record was used and the test made the recorded number of checks.
+// Checks that every record was used and the test made the recorded number of checks (the ones it replayed,
+// Checks, and the ones it skipped as retired, RetiredBegin).
 void EndReplay(int Checks);
 
 // One value: its role, its type, the size of one element and their count.
@@ -187,6 +191,28 @@ template <class T> void OutputArray(const char *Name, T *Data, size_t Count)
 	if (Mode() != TMode::Off)
 		Exchange(Name, 'O', TypeCode<T>(), sizeof(T), Count, Data);
 }
+
+// A part of a test that the runner does not replay (issue #28: Dialogs' rounds of the advanced graphics
+// dialog, whose engine buttons the x64 client replaces by its device buttons, #31; they retire with the
+// oracle). The oracle runs the part and records two values around it: "retired" (an input, the part's
+// name) before it, "retired end" (the part's checks and the number of values recorded in it) after it.
+// The runner skips the part's values up to "retired end" and counts its checks as retired, apart from the
+// ones it replays (RetiredChecks). What keeps the replay in step after the part (Random()'s seed, the
+// test's own counters) the test passes through golden::Output after RetiredEnd, as any value of the
+// original:
+//	if (!golden::RetiredBegin("advanced graphics", Checks)) {
+//		... the part (the oracle only) ...
+//	}
+//	golden::RetiredEnd(Checks);
+//	uint32 Seed = GetRandomSeed();
+//	golden::Output("seed", Seed);
+//	SetRandomSeed(Seed);
+// RetiredBegin returns true in the runner (the part was skipped), false in the oracle (run it).
+bool RetiredBegin(const char *Name, int Checks);
+void RetiredEnd(int Checks);
+// The checks the runner skipped so far (all tests; 0 in the oracle). EndReplay expects the oracle's checks
+// of a test to be the replayed ones plus the test's retired ones.
+long long RetiredChecks();
 
 // A data file next to Tibia.exe that both sides load (Tibia.dat; issue #27). The oracle records whether
 // it exists and its contents, and returns its path (empty when it does not exist); the runner writes the

@@ -94,6 +94,7 @@ const TLineMap &ThrownLineMap(); // file -> our line -> the original's line (the
 struct TErrorRound {
 	const char *Test;
 	int Checks0, Compared0, Threw0;
+	long long Retired0; // golden::RetiredChecks() at the start (issue #28)
 	bool Trace, Trace2;
 	uint32_t SavedSeed;
 	explicit TErrorRound(const char *Test);
