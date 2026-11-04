@@ -639,21 +639,24 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   dialog retired with the oracle, see below), MapWindow (127,529, of which 12,359 in its error round) and MainWindow
   (57,314, of which 43,150 in its error round) (issue #27's second part) and Errors (issue #26's second part: 40,372
   of its 40,408 replayed, of which 8,460 in its Statics round; the 36 of its SurfaceInitInstance part retired with the
-  oracle, see below), 15,351,288 in all, and sysinctest's Sysinc (67): 15,351,355 of the oracle's 17,983,332 checks.
+  oracle, see below), 15,351,288 in all, sysinctest's Sysinc (67) and communicationtest's Communication (856,366, of
+  which 492,325 in its error round; issue #30's second part): 16,207,721 of the oracle's 17,983,332 checks.
   Retired with the oracle, 1,497,464 checks: Dialogs' 9,129, Errors' 36 and issue #29's three engine tests as whole
   tests (the user's decision; the runner's RetiredTests, "#29"): SurfaceDX's 1,368,981, DX9's 63,616, GL's 55,702.
-  The runner lists the rest with their counts as not ported yet, 1,134,513 checks: communicationtest's two tests
-  Communication 856,366 and Control 278,147 (the runner's group "communicationtest"); replayed, retired and not ported add up to
-  the oracle's totals, which the runner's last line shows. The runner links the reconstructed files the ported tests call (golden_client:
-  compiled against the MFC shim with the product settings; since issue #28 graphics.cpp, GUI.cpp and every window
-  file too) and aborting stubs of the others (tests/golden/client_stubs.cpp: Communication.cpp's Send functions,
-  Control.cpp, the Vulkan engine). Tibia.dat is in the corpus (golden::DataFile): the runner needs no data files.
+  The runner lists the rest with its count as not ported yet, 278,147 checks: communicationtest's Control (its
+  ChangeEngine is the x86 engine selection in the oracle and the device choice in the x64 client; 21,979 of its
+  checks reach it: the user's decision, notes/decisions.md, issue #30's second part); replayed, retired and not ported
+  add up to the oracle's totals, which the runner's last line shows. The runner links the reconstructed files the
+  ported tests call (golden_client: compiled against the MFC shim with the product settings; since issue #28
+  graphics.cpp, GUI.cpp and every window file too; since issue #30's second part Communication.cpp and Control.cpp, in
+  tests/golden/comm) and aborting stubs of the others (tests/golden/client_stubs.cpp: the Vulkan engine and the
+  device choice). Tibia.dat is in the corpus (golden::DataFile): the runner needs no data files.
   - Record: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
     golden_corpus` runs difftest, sysinctest and communicationtest in full with `DIFFTEST_RECORD=<dir>` (default
-    build\golden, the cache variable PATELLA_GOLDEN_DIR; about five minutes, 846 MB, of which MapWindow 182 MB,
+    build\golden, the cache variable PATELLA_GOLDEN_DIR; about five minutes, 886 MB, of which MapWindow 182 MB,
     DialogElements 96 MB, Graphics 91 MB, Container 82 MB, ConsoleWindow 69 MB, GUI 56 MB, Dialogs 52 MB, ContentWindows 48 MB, Talk
     46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB, MainWindow 9 MB, Network 8 MB, DialogWindow 7 MB, ContextMenus
-    5 MB, MainFrm 3 MB, Errors 3 MB).
+    5 MB, MainFrm 3 MB, Errors 3 MB, and communicationtest's Communication 41 MB).
     Recording changes no check count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. The corpus is derived from Tibia.exe: it stays on
     the machine (build/ is ignored by git) and is never committed, pushed or uploaded, not even as a CI artifact.
   - Replay: `build\windows-x64\tests\golden\Release\golden_runner.exe [--require] [<dir>]`, or the CTest test
@@ -725,13 +728,23 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     HandleException's reports written in TZ=UTC0 on both sides); a runner-side fake that must leave its caller for
     good throws a C++ exception of its own (FatalError; the oracle's raises an SEH exception through the image).
     runner.cpp's table names the issue of each test's retired parts.
+    Issue #30's second part (Communication): communicationtest's world (tests/golden/commworld.cpp) records the
+    original's side of each comparison by value (its log, buffer and world dumps by their changes, its creature
+    records' bytes, what it threw) and builds the original's world in the runner without running original code on it;
+    `ORIGINAL_SIDE(the original's call)` is a comparison's original lambda in the oracle, nullptr in the runner;
+    golden_patch.h's `RestoreAllOwn`/`RestoreAllImports` undo every RedirectOwn and SetImport so far (the group starts
+    unpatched as communicationtest.exe does, after difftest's tests left patches); network_tests.cpp gives Network.cpp's
+    buffers by name; tests/golden/comm compiles Communication.cpp, Control.cpp and the test with /EHa (structured
+    exceptions caught by catch (...), as in the oracle) and without /RTC1 in Debug (a local read before it is written
+    must read the stack pattern the test fills in).
     notes/decisions.md, "The golden corpus (Patella-Modern issue #24)", "The golden corpus: settings, scripts and player
     data (Patella-Modern issue #26)", "The golden corpus: the game world (Patella-Modern issue #27)", "The golden
     corpus: error rounds (Patella-Modern issue #54)", "The golden corpus: Network (Patella-Modern issue
     #30)", "The golden corpus: the GUI, graphics and the window files (Patella-Modern issue #28)", "The golden
     corpus: the window tests (Patella-Modern issue #28, second part)", "The golden corpus: Dialogs and retired
     parts (Patella-Modern issue #28, third part)", "The golden corpus: MapWindow, MainWindow and the retired engine
-    tests (Patella-Modern issue #27, second part)" and "The golden corpus: Errors (Patella-Modern issue #26, second
+    tests (Patella-Modern issue #27, second part)", "The golden corpus: Errors (Patella-Modern issue #26, second
+    part)" and "The golden corpus: Communication, and Control's engine change (Patella-Modern issue #30, second
     part)".
 - The reference recordings (Patella-Modern issue #23; M2's exit): `python -I tools/reference.py compare
   --reference C:\Patella-Modern\build\reference` runs the x64 test client (build\windows-x64\Release\PatellaTest.exe,

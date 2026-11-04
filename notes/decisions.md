@@ -8480,3 +8480,78 @@ their size (frozen until M6) and convert at one place each.
   call sites); the oracle's too (its code calls `_time64` and `_localtime64_s` now): no tier A or reference
   compare was run here (no client may be started by this change's worker); see the issue's report for the
   commands.
+
+## The golden corpus: Communication, and Control's engine change (Patella-Modern issue #30, second part)
+
+Settled by Claude Opus 5.5, November 4, 2026. tests/golden/ (communication_tests.cpp, commworld.h, commworld.cpp and
+commseeds.h moved from tools/difftest; golden_patch.h, network_tests.cpp, client_stubs.cpp, runner.cpp,
+golden_test.h), tests/golden/comm/CMakeLists.txt, tests/golden/CMakeLists.txt, cmake/OracleX86.cmake. The section on
+issue #30's first part above lists what blocked the group; notes/reconstruction.md, "Checking", describes the use.
+
+- **Communication ported** (high). 856,366/856,366 replayed (364,041 + 492,325 in its error round, 35,252 exceptions
+  compared, 8,008 calls that threw, printed next to the oracle's), 0 failures, Release and Debug. A runner-only change
+  of one fake's log (GetMapLevel's value) gave 5,295 failures (reverted). The runner replays 16,207,721 of the oracle's
+  17,983,332 checks, retires 1,497,464 (unchanged) and lists Control's 278,147 as not ported.
+- **By value** (high). commworld.cpp's CompareRun compares texts and creature bytes; the oracle records the original's
+  side of each comparison while a ported test records (RecordComparisons: Communication only, so Control's corpus stays
+  empty): what it threw (golden::OutputThrown), its log, each text buffer's dump and its world's dump
+  (OutputTextChanges: the error round runs one frame failing at each call in turn, so consecutive logs share most of
+  their text), and its six creature records as bytes (OutputRuns; TCreature is 0x9c bytes of ints and chars on both
+  targets, static_assert), which go into the runner's original world, so the creature checks are the old code. Also by
+  value: the readers' ReadCreature result, the first byte of the image's shared empty Exit (0x496160) and Tibia.dat's
+  flag and waypoint tables (LoadObjectFlags; the runner needs neither Tibia.dat nor Objects.cpp's state). The runner
+  builds the original's world as the oracle does (the test sets both), but no original code runs on it. The
+  communicationtest corpus is 41 MB (Communication.bin; Control.bin has no records).
+- **One runner** (high). The group's definitions that clash with the runner's are the oracle's only: PatchImage
+  (status_tests.cpp's), CAsyncSocket's members and AfxSocketInit (network_tests.cpp's fakes), PacketHeader and
+  DisplayChanged (mainfrm_tests.cpp compiles MainFrm.cpp). The world's own globals did not clash (the other tests keep
+  theirs in unnamed or test namespaces). A second executable would duplicate golden_client and the CTest test (13
+  tests stay 13) for no gain: the runner already runs the group after difftest's and sysinctest's tests, and what
+  those leave is undone (below).
+- **x86-only mechanics replaced** (high). The 27 `__fastcall (This, void *, ...)` fakes are `GOLDEN_THISCALL
+  (GOLDEN_THIS_NAMED(...), ...)` (25 in commworld.cpp, TRSA::Encrypt's in the test; the 26th and 27th, the image's
+  GetByte and vlong constructor, are the oracle's only); the ten in-place constructors (THelpBubble, the nine context
+  menus) are reached through their x64 decorated names (the oracle keeps the x86 ones); ThisOfFirstCall and
+  FollowJumps stay in the oracle, the runner gets Network.cpp's ReceiveBuffer and SendBuffer by name from
+  network_tests.cpp (which compiles Network.cpp) and resets them to their start state; our functions go to the fakes
+  with golden::RedirectOwn (CheckRoom's scan reads bytes, valid on x64 too; the runner has no incremental-link thunks),
+  rand() and Sleep() through the runner's import slots (the oracle patches its static CRT's rand); TCtlMainWindow's
+  members are static_asserted at TMainWindow's offsets on every target and TCtlWindow no larger than each class built
+  in place; the console's CurrentConsole and TextWindow are written at offsetof of our classes (0x34 and 0x2c in the
+  oracle, asserted there). FillStack is portable and kept.
+- **Nothing left patched** (high). golden_patch.h remembers the first bytes of every function RedirectOwn redirected
+  and the first value of every import slot SetImport bound; RestoreAllOwn and RestoreAllImports undo them all.
+  communicationtest.exe starts with nothing of ours patched; difftest's tests leave patches for good in the runner
+  (MapWindow, MainWindow), so BeginWorld undoes them first, and EndWorld undoes the test's own at its end, where the
+  oracle's DisableImageExceptions does.
+- **Communication.cpp and Control.cpp in the runner** (high). Communication needs Control.cpp: ReceivePackets is
+  Control.cpp's dispatcher (EnterGame and HandleEvents are faked). Both compile, the x64 client's (PATELLA_VULKAN), in
+  tests/golden/comm with the test and its world; their stubs left client_stubs.cpp; the device-choice functions of
+  Control.cpp's x64 ChangeEngine are aborting stubs (Communication never calls it).
+- **/EHa for tests/golden/comm** (high). The error round raises structured exceptions that both sides' catch (...)
+  catch: the failing TRSA::Encrypt's RaiseException, and ReceivePatchBlock's division by the size of a zero-sized
+  patch. VC7.1's catch (...) catches them; an x64 catch (...) does so only under /EHa. The oracle builds with /EHa;
+  the directory replaces CMake's /EHsc with /EHa (as tests/golden/network replaces it with /EHs). Note for the client:
+  under the product's /EHsc the x64 client does not catch that division by zero where the original logs it (a server
+  that sends a block of an empty patch); not changed here (src/).
+- **No /RTC1 in Debug for tests/golden/comm** (high). Control.cpp's ReceivePackets passes `int Container;`, not yet
+  assigned, to ReceiveOpenContainer and ReceiveCloseContainer, whose TEND prints it when their first GetByte throws.
+  The test fills the stack with 0x5a5a5a5a before each side's call, so the original and our Release build print
+  that; Debug's /RTCs filled the local with 0xcccccccc (4 failures; and the first-byte check of ExitCommunication saw a
+  Debug prologue). The directory drops /RTC1 from its Debug flags; Debug then passes like Release.
+- **Control not ported: its engine change is not the x64 client's** (needs the user). Control.cpp's ChangeEngine is
+  the x86 engine selection (DirectX 5, OpenGL, DirectX 9, curEngine 0 to 2) in the oracle and the device choice of
+  issue #31 under PATELLA_VULKAN (the x64 client's, which the runner compiles): different calls, different state, and
+  its callees are not in the runner. CheckSurface calls ChangeEngine(0) whenever the surface's Init returns false (a
+  quarter of the test's worlds), and Redraw, ProcessEvents and the event handlers call CheckSurface; Step 11 calls
+  ChangeEngine directly. Measured on the oracle's full run (a local instrumentation, not committed: a comparison
+  reaches ChangeEngine when it is Step 11 or its log has "Surface.Init(...)=0"): **1,518 of Control's comparisons
+  reach it, 21,979 checks** (1,088 comparisons with 14,249 checks in the main part, 430 with 7,730 in the error round),
+  and the Control.cpp statics compared right after them are 2,176 checks more (CompareStatics, main part). Options:
+  (a) retire the 21,979 with the oracle (RetiredBegin per comparison, decided by the oracle after both sides ran, with
+  Control.cpp's statics, curEngine and the random state recorded after each so the replay stays in step; the 2,176
+  replayed against the restored statics, or retired too: 24,155), port the other 256,168 (or 253,992); (b) replay all
+  278,147 against Control.cpp compiled without PATELLA_VULKAN in the runner (the x86 ChangeEngine on x64: code of src/
+  the x64 client does not have); (c) leave Control unported until M6 retires the oracle. Control is untouched until
+  the user decides (only its include of the moved commworld.h changed).
+- **Commits** (form). Communication's port, then these notes.

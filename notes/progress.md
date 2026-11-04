@@ -295,6 +295,16 @@ Unchanged up to 2038; after it the stamps, the saved channel's text and the kept
 original crashed on a talk line, wrote "(null)" and lost the skull's blinking). The golden tests of Talk,
 Creatures, ConsoleWindow and ContentWindows fake our clock through _time64 now (forced). notes/decisions.md, "64-bit
 time everywhere (Patella-Modern issue #62)".
+
+Patella-Modern issue #30, second part (branch issue-30b, November 4, 2026): communicationtest's Communication test
+and its fake world moved to tests/golden (communication_tests.cpp, commworld.cpp): 856,366 of its checks replayed, 0
+failures in Release and Debug, with the original's side of every comparison recorded by value. One runner: the
+group's clashing definitions are the oracle's only, golden_patch.h undoes what difftest's tests left patched before the
+group (RestoreAllOwn/RestoreAllImports); Communication.cpp and Control.cpp compile into the runner in tests/golden/comm
+with /EHa and without /RTC1 in Debug. The runner replays 16,207,721 of the oracle's 17,983,332 checks, retires
+1,497,464 and lists Control's 278,147 as not ported: 21,979 of its checks (1,518 comparisons) reach Control.cpp's
+ChangeEngine, whose x64 version is the device choice of issue #31 (the user's decision; notes/decisions.md, "The golden
+corpus: Communication, and Control's engine change (Patella-Modern issue #30, second part)"). No src/ change.
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -315,6 +325,14 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #30, second part (branch issue-30b, November 4, 2026): `python -I tools/build.py oracle-x86
+--fresh` (CTest 4/4, 0 warnings) after Communication and its world moved to tests/golden: 16,848,752 + 67 + 1,134,513
+checks (Communication 364,041 + 492,325, Control 114,595 + 163,552) and 3,201 vlong checks, 0 failures; with
+recording on (`golden_corpus`, 886 MB) the same counts. The x64 golden_runner (windows-x64 and -debug, --fresh, CTest
+13/13) replays 16,207,721 of the oracle's 17,983,332 checks, 0 failures: the earlier 15,351,355 as before and
+Communication's 856,366; retired 1,497,464 as before; not ported 278,147 (Control). src/ unchanged (no diff against
+8e76abc, main with issue #62); macrocheck 8e76abc issue-30b: 2,108 calls, 0 differences.
 
 Patella-Modern issue #62 (branch issue-62, November 4, 2026): 64-bit time everywhere. `python -I tools/build.py
 oracle-x86 --fresh` (CTest 4/4, 0 warnings; the new static_asserts of SkullTime +0x98 and TTalkLine::Time +0x3c
