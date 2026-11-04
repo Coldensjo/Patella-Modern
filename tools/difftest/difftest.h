@@ -65,7 +65,7 @@ void TestRegexp();                       // regexptest.cpp, before TestMapWindow
 void TestErrors(const char *ExePath);    // errortest.cpp, loads Tibia.dat;, the error paths (imageeh.cpp); before TestMapWindow (restores its patches; own random numbers)
 void TestNetwork();                      // tests/golden/network_tests.cpp (includes Network.cpp), before TestMapWindow (restores its patches)
 void TestMainFrm();                      // tests/golden/mainfrm_tests.cpp (includes MainFrm.cpp), before TestMapWindow (restores its patches)
-void TestMapWindow(const char *ExePath); // mapwindowtest.cpp, loads Tibia.dat
+void TestMapWindow(const char *ExePath); // tests/golden/mapwindow_tests.cpp, loads Tibia.dat
 // communicationtest.exe (issue #36, DIFFTEST_COMMUNICATION): Communication.cpp and Control.cpp with every
 // callee faked on both sides; in an executable of their own, because difftest.exe's other tests define
 // fakes under the names of their functions.
@@ -78,4 +78,4 @@ void TestControl(const char *ExePath);   // controltest.cpp: input, events, the 
 
 // The hooks the window tests share (DialogFakes, FakeUpdateUpButton, ElementCreated, ReportElement) are
 // declared in tests/golden/elementfakes.h (issue #28).
-void TestMainWindow();                   // mainwindowtest.cpp, after TestMapWindow (patches for good as well)
+void TestMainWindow();                   // tests/golden/mainwindow_tests.cpp, after TestMapWindow (patches for good as well)

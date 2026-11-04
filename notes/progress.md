@@ -259,6 +259,16 @@ the last dump, the clock of our last UpdateTimers call), and the replayed and re
 oracle's. The dump prints members by type (the x86 words could not be rebuilt on x64 and depended on the address
 space). The runner replays 15,126,073 of difftest's checks and retires 9,129. No src/ change. notes/decisions.md, "The
 golden corpus: Dialogs and retired parts (Patella-Modern issue #28, third part)".
+Golden corpus, MapWindow and MainWindow (Patella-Modern issue #27, second part, branch issue-27b, November 4, 2026;
+M6): both ported to tests/golden, one commit each: MapWindow 127,529 (12,359 in its error round) and MainWindow
+57,314 (43,150 in its error round), the oracle's counts with 0 failures in Release and Debug. TMapWindow's compared
+members have no pointers: recorded as their bytes in the x86 order, ours read by member (no layout projection).
+MainWindow's fakes have their real classes' sizes in the runner and our constructors are reached through their x64
+names; elementfakes.cpp has no "not ported" fake left. The runner reports #29's engine tests (SurfaceDX, DX9, GL,
+1,488,299 checks) as retired with the oracle (the user's decision); it replays 15,310,983 of the oracle's 17,983,332
+checks, retires 1,497,428 and lists 1,174,921 as not ported (Errors, Communication, Control). No src/ change.
+notes/decisions.md, "The golden corpus: MapWindow, MainWindow and the retired engine tests (Patella-Modern issue
+#27, second part)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -279,6 +289,16 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #27, second part (branch issue-27b, November 4, 2026): `python -I tools/build.py oracle-x86
+--fresh` (CTest 4/4, 0 warnings) after MapWindow and MainWindow moved to tests/golden: 16,848,752 + 67 + 1,134,513
+checks and 3,201 vlong checks, 0 failures (MapWindow 115,169 + 12,359 in its error round, 1,394 calls that threw;
+MainWindow 14,164 + 43,150, 229 threw; as before); with recording on (`golden_corpus`, 843 MB) the same counts. The
+x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13) replays 15,310,983 of the oracle's 17,983,332 checks,
+0 failures: the earlier 15,126,140 as before, MapWindow's 127,529 and MainWindow's 57,314; retired with the oracle
+1,497,428 (Dialogs' 9,129 and #29's SurfaceDX, DX9, GL, 1,488,299); not ported 1,174,921 (Errors 40,408,
+Communication 856,366, Control 278,147). src/ unchanged (no diff against 96b245b); macrocheck 96b245b issue-27b:
+2,108 calls, 0 differences.
 
 Patella-Modern issue #28, third part (branch issue-28c, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh`
 (CTest 4/4, 0 warnings) after Dialogs moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong

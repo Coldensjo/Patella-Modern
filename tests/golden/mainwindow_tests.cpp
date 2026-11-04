@@ -1,4 +1,5 @@
-// Differential tests of MainWindow.cpp against the original code.
+// difftest.exe's MainWindow test (moved here from tools/difftest/mainwindowtest.cpp, issue #27): MainWindow.cpp
+// against the original, as a golden-corpus test (golden.h).
 //
 // The windows MainWindow.cpp creates from files that are not reconstructed
 // yet (the console, the frames, buttons, labels, the side-bar windows and
@@ -22,31 +23,58 @@
 // trees (classes, positions, sizes, drawing lists, captures, the members of
 // TMainWindow, TSplitter, TStartWindow and the dialog windows and the fakes'
 // arguments) are compared. Failing assertions are not exercised.
+//
+// By value (plan 4.3): the original's side exists in the oracle only (every use of it is inside ORIGINAL or
+// #if GOLDEN_ORACLE); the runner has our main windows alone. The dump was text already (classes, geometry,
+// drawing lists, the members by name), so per comparison the corpus holds the original's log (text), its dump
+// (text, by its changes since the last one, golden::OutputTextChanges), the state its fakes keep (the action
+// and connection states, the open dialogs, the fullscreen mode), the results of its calls, whether it had a
+// trade window, how many fake calls its call made (the error round draws the failing call from them) and what
+// it threw. The fakes of this file (the console, the side-bar windows, the border, the first text button
+// constructor, the label's font constructor) have our x64 layout in the runner, as elementfakes.h's: each as
+// large as its real class; our constructors are redirected to them through their x64 decorated names. The
+// runner redirects our functions to the fakes with golden::RedirectOwn, for good, as the oracle does.
 
-#include "difftest.h"
-#include "../../tests/golden/elementfakes.h"
-#include "../../src/MainWindow.h"
-#include "../../src/ContentWindows.h"
-#include "../../src/MapWindow.h"
-#include "../../src/Communication.h"
-#include "../../src/ConsoleWindow.h"
-#include "../../src/Control.h"
-#include "../../src/Creatures.h"
-#include "../../src/Inventory.h"
-#include "../../src/Network.h"
-#include "../../src/Preferences.h"
-#include "../../src/Skins.h"
-#include "../../src/Status.h"
-#include "../../src/Surface.h"
-#include "../../tests/golden/testsurface.h"
-#include "imageeh.h"
-#include "../../src/Talk.h"
+#include "golden_test.h"
+
+#include "elementfakes.h"
+#include "golden_eh.h"
+#include "testsurface.h"
+#if GOLDEN_ORACLE
+#include "../../tools/difftest/imageeh.h"
+#else
+#include "golden_patch.h"
+#endif
+
+#include "Communication.h"
+#include "ConsoleWindow.h"
+#include "ContentWindows.h"
+#include "Control.h"
+#include "Creatures.h"
+#include "DialogWindow.h"
+#include "GUI.h"
+#include "Inventory.h"
+#include "MainWindow.h"
+#include "MapWindow.h"
+#include "Network.h"
+#include "Preferences.h"
+#include "Skins.h"
+#include "Status.h"
+#include "Surface.h"
+#include "Talk.h"
+#include "graphics.h"
+
 #include <map>
 #include <new>
 #include <stdarg.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <vector>
 
+#if GOLDEN_ORACLE
 static_assert(sizeof(TMainWindow) == 0x4c, "TMainWindow is 0x4c bytes");
 static_assert(sizeof(TStartWindow) == 0x30, "TStartWindow is 0x30 bytes");
 static_assert(sizeof(TSplitter) == 0x30, "TSplitter is 0x30 bytes");
@@ -60,8 +88,17 @@ static_assert(sizeof(TLabel) == 0x4c, "TLabel is 0x4c bytes");
 static_assert(sizeof(TObjectIcon) == 0x50, "TObjectIcon is 0x50 bytes");
 static_assert(sizeof(TAutomapWindow) == 0x80 && sizeof(TStatusWindow) == 0x4c && sizeof(TButtonsWindow) == 0x58,
 	"side-bar window sizes");
+#endif
 
-enum { OURS = 0, ORIGINAL = 1 };
+// The test's own definitions: in a namespace of their own (the other window tests, linked into the same
+// executable, define classes of the same names at global scope). The fakes' members (elementfakes.h's
+// classes) are global; they see the namespace through the using-directive below.
+namespace MainWindowTest {
+
+enum { OURS = 0,
+	ORIGINAL = 1 };
+// The sides that have objects: both in the oracle, ours in the runner.
+static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
 static int Side;
 static bool Quiet;
 static bool Running; // the shared fakes (TTextButton, TLabel, TObjectIcon) register only while this test runs
@@ -96,21 +133,34 @@ static void Logf(const char *Format, ...)
 	Log[Side] += Buffer;
 }
 
+// Our functions to the fakes, for good (the oracle patches difftest.exe's code with PatchJump, the runner its
+// own with golden::RedirectOwn).
 static void PatchOwn(void *Function, void *Target)
 {
+#if GOLDEN_ORACLE
 	DWORD Protection;
 	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
 	PatchJump((uint32)(uintptr_t)Function, Target);
 	VirtualProtect(Function, 5, Protection, &Protection);
 	FlushInstructionCache(GetCurrentProcess(), Function, 5);
+#else
+	golden::RedirectOwn(Function, Target);
+#endif
 }
 
 template <class T> static void *Member(T Function) { return *(void **)&Function; }
 static void *VtableOf(const void *Object) { return *(void **)Object; }
 static void SetVtable(void *Object, void *Vtable) { *(void **)Object = Vtable; }
 
+#if GOLDEN_ORACLE
 static TMainWindow *&OriginalMainWindow = Global<TMainWindow *>(0x5d16b0);
 static TWindow *&OriginalModalWindow = Global<TWindow *>(0x5d16ac);
+#else
+// The runner has no original: these are set as the oracle sets the image's globals, never read for the
+// original's side (which runs in the oracle only).
+static TMainWindow *OriginalMainWindow;
+static TWindow *OriginalModalWindow;
+#endif
 static TMainWindow *Main(int s) { return s == OURS ? MainWindow : OriginalMainWindow; }
 
 // --- Objects: names and serial numbers -----------------------------------------
@@ -154,7 +204,7 @@ static std::string NameOf(int s, const void *Object)
 	auto I = Info[s].find(Object);
 	if (I != Info[s].end() && I->second.Kind == Name) {
 		char Buffer[32];
-		sprintf(Buffer, "#%d/%d", I->second.Serial, I->second.Identifier);
+		snprintf(Buffer, sizeof(Buffer), "#%d/%d", I->second.Serial, I->second.Identifier);
 		Name += Buffer;
 	}
 	return Name;
@@ -173,18 +223,30 @@ static int ConsoleMinHeight, BodyMinHeight, BorderMinHeight, FrameMinHeight;
 class TFakeConsole : public TWindow {
 public:
 	TFakeConsole();
-	int getMinimumHeight() { Tick(); return ConsoleMinHeight; }
+	int getMinimumHeight()
+	{
+		Tick();
+		return ConsoleMinHeight;
+	}
 	void Draw(int Surface, int x, int y) { Logf("DCons%d,%d,%d;", Surface, x, y); }
 	void Arrange() { Logf("ACons;"); }
 	void KeyPress(int Key) { Logf("KCons%d;", Key); }
-	uint8 Data2C[0x6c - 0x2c];
+	uint8 Data2C[sizeof(TConsoleWindow) - sizeof(TWindow)]; // +0x2c on x86
 };
 static_assert(sizeof(TFakeConsole) == sizeof(TConsoleWindow), "the fake console has the console's size");
 class TMWTestBorder : public TFakeBorder {
 public:
 	TMWTestBorder(TWindow *Window) : TFakeBorder(Window, 0) {}
-	int getMinimumHeight() { Tick(); return BorderMinHeight; }
-	void SetPosition(int x, int y) { Tick(); TFakeBorder::SetPosition(x, y); }
+	int getMinimumHeight()
+	{
+		Tick();
+		return BorderMinHeight;
+	}
+	void SetPosition(int x, int y)
+	{
+		Tick();
+		TFakeBorder::SetPosition(x, y);
+	}
 	void Draw(int Surface, int x, int y) { Logf("D%s,%d,%d,%d;", Name(this).c_str(), Surface, x, y); }
 };
 class TMWTestButton : public TFakeTextButton {
@@ -206,19 +268,47 @@ public:
 		HookBody(this, "A8");
 		return BodyAccepts;
 	}
-	int GetInitialHeight() { Tick(); return BodyMinHeight; }
-	int GetContentHeight() { Tick(); return BodyMinHeight; }
-	int getMinimumHeight() { Tick(); return BodyMinHeight; }
-	void SetSize(int Width, int Height) { Tick(); TSubWindowBody::SetSize(Width, Height); }
-	void SetPosition(int x, int y) { Tick(); TSubWindowBody::SetPosition(x, y); }
+	int GetInitialHeight()
+	{
+		Tick();
+		return BodyMinHeight;
+	}
+	int GetContentHeight()
+	{
+		Tick();
+		return BodyMinHeight;
+	}
+	int getMinimumHeight()
+	{
+		Tick();
+		return BodyMinHeight;
+	}
+	void SetSize(int W, int H)
+	{
+		Tick();
+		TSubWindowBody::SetSize(W, H);
+	}
+	void SetPosition(int x, int y)
+	{
+		Tick();
+		TSubWindowBody::SetPosition(x, y);
+	}
 	void HandleEvent(int Event) { Logf("HBody%s,%d;", Name(this).c_str(), Event); }
 	void Draw(int Surface, int x, int y) { Logf("D%s,%d,%d,%d;", Name(this).c_str(), Surface, x, y); }
 };
 // The map frame after construction (vtable only; TMapFrame's layout).
 class TFakeMapFrame : public TWindow {
 public:
-	int getMinimumHeight() { Tick(); return FrameMinHeight; }
-	void SetSize(int Width, int Height) { Logf("SFrame%d,%d;", Width, Height); TWindow::SetSize(Width, Height - 3); }
+	int getMinimumHeight()
+	{
+		Tick();
+		return FrameMinHeight;
+	}
+	void SetSize(int W, int H)
+	{
+		Logf("SFrame%d,%d;", W, H);
+		TWindow::SetSize(W, H - 3);
+	}
 	void Draw(int Surface, int x, int y) { Logf("DFrame%d,%d,%d;", Surface, x, y); }
 	void Arrange() { Logf("AFrame;"); }
 };
@@ -231,15 +321,28 @@ TFakeConsole::TFakeConsole()
 	Logf("NCons;");
 	memset(Data2C, 0, sizeof(Data2C));
 }
-static void *__fastcall FakeConsoleNew(void *This, void *) { return new (This) TFakeConsole; }
-static void __fastcall FakeConsoleActive(void *, void *, bool Active) { Logf("CActive%d;", Active ? 1 : 0); }
-static void __fastcall FakeConsoleOpen(void *, void *, TTalkBuffer *TextBuffer, const char *Caption)
+// The constructor's and the members' stand-ins (GOLDEN_THISCALL: this in ECX on x86, first on x64).
+static void *GOLDEN_THISCALL FakeConsoleNew(GOLDEN_THIS_NAMED(void *This)) { return new (This) TFakeConsole; }
+static void GOLDEN_THISCALL FakeConsoleActive(GOLDEN_THIS, bool Active) { Logf("CActive%d;", Active ? 1 : 0); }
+// The text buffer (the test's 0x12340 on both sides) as the x86 oracle's %p printed it: eight hex digits.
+static void GOLDEN_THISCALL FakeConsoleOpen(GOLDEN_THIS, TTalkBuffer *TextBuffer, const char *Caption)
 {
-	Logf("COpen%p,%s;", (void *)TextBuffer, Caption);
+	Logf("COpen%08X,%s;", (unsigned)(uintptr_t)TextBuffer, Caption);
 }
-// Our TConsoleWindow::TConsoleWindow() (a constructor has no address in C++).
+
+} // namespace MainWindowTest
+using namespace MainWindowTest;
+
+// Our TConsoleWindow::TConsoleWindow() (a constructor has no address in C++), through its decorated name (x86
+// in the oracle, x64 in the runner, which is built with MSVC x64 only).
 extern "C" void OurConsoleConstructor();
+#if GOLDEN_ORACLE
 #pragma comment(linker, "/alternatename:_OurConsoleConstructor=??0TConsoleWindow@@QAE@XZ")
+#else
+#pragma comment(linker, "/alternatename:OurConsoleConstructor=??0TConsoleWindow@@QEAA@XZ")
+#endif
+
+namespace MainWindowTest {
 
 // The open dialogs of the preferences, per side (ClearOpenDialogs,
 // GetOpenDialogs and AddOpenDialog).
@@ -253,9 +356,11 @@ static void HookSetSkins(TSkinButton *Button, int ButtonUp, int ButtonDown)
 	Logf("Skins%s,%d,%d;", Name(Button).c_str(), ButtonUp, ButtonDown);
 }
 
+#if GOLDEN_ORACLE
 typedef void *(__fastcall *ContentCtorFn)(void *, void *, int, bool);
 typedef void *(__fastcall *SubCtorFn)(void *, void *, int, TSubWindowBody *, bool, bool);
 typedef TContentWindow *(__fastcall *FindFn)(void *, void *, int);
+#endif
 
 // A content window as the ContentWindows.cpp creators return them: the
 // image's or our class (per side), sized to the side bar. The inventory
@@ -268,8 +373,12 @@ static TWindow *NewSubWindow(int Identifier)
 		if (Side == OURS) {
 			Window = new TContentWindow(Identifier, true);
 		} else {
+#if GOLDEN_ORACLE
 			void *Memory = operator new(sizeof(TContentWindow));
 			Window = (TContentWindow *)At<ContentCtorFn>(0x4854c0)(Memory, NULL, Identifier, true);
+#else
+			abort(); // (the original's side: the oracle only)
+#endif
 		}
 		Register(Window, "CW", Identifier);
 		Window->SetSize(SkinProperties.Data184, Height);
@@ -282,8 +391,13 @@ static TWindow *NewSubWindow(int Identifier)
 	void *Memory = operator new(sizeof(TSubWindow));
 	if (Side == OURS)
 		Window = new (Memory) TSubWindow(Identifier, Body, false, Identifier % 2 != 0);
-	else
+	else {
+#if GOLDEN_ORACLE
 		Window = (TSubWindow *)At<SubCtorFn>(0x487e80)(Memory, NULL, Identifier, Body, false, Identifier % 2 != 0);
+#else
+		abort(); // (the original's side: the oracle only)
+#endif
+	}
 	Register(Window, "Sub", Identifier);
 	Window->SetSize(SkinProperties.Data184, Height);
 	Logf("NSub%s;", NameOf(Side, Window).c_str());
@@ -320,7 +434,7 @@ public:
 		Logf("N%s;", Name(this).c_str());
 		memset(Data44, 0, sizeof(Data44));
 	}
-	uint8 Data44[0x80 - 0x44];
+	uint8 Data44[sizeof(TAutomapWindow) - sizeof(TContentWindow)]; // +0x44 on x86
 };
 class TMainSide4 : public TContentWindow {
 public:
@@ -330,7 +444,7 @@ public:
 		Logf("N%s;", Name(this).c_str());
 		memset(Data44, 0, sizeof(Data44));
 	}
-	uint8 Data44[0x4c - 0x44];
+	uint8 Data44[sizeof(TStatusWindow) - sizeof(TContentWindow)]; // +0x44 on x86
 };
 class TMainSide5 : public TContentWindow {
 public:
@@ -340,22 +454,36 @@ public:
 		Logf("N%s,%s,%s;", Name(this).c_str(), Name(_CheckObject).c_str(), Name(Receiver).c_str());
 		memset(Data44, 0, sizeof(Data44));
 	}
-	uint8 Data44[0x58 - 0x44];
+	uint8 Data44[sizeof(TButtonsWindow) - sizeof(TContentWindow)]; // +0x44 on x86
 };
 static_assert(sizeof(TMainSide3) == sizeof(TAutomapWindow) && sizeof(TMainSide4) == sizeof(TStatusWindow)
-	&& sizeof(TMainSide5) == sizeof(TButtonsWindow), "the side-bar fakes have the real sizes");
+		&& sizeof(TMainSide5) == sizeof(TButtonsWindow),
+	"the side-bar fakes have the real sizes");
+
+} // namespace MainWindowTest
+using namespace MainWindowTest;
+
 extern "C" void OurAutomapConstructor();
 extern "C" void OurStatusConstructor();
 extern "C" void OurButtonsConstructor();
+#if GOLDEN_ORACLE
 #pragma comment(linker, "/alternatename:_OurAutomapConstructor=??0TAutomapWindow@@QAE@XZ")
 #pragma comment(linker, "/alternatename:_OurStatusConstructor=??0TStatusWindow@@QAE@XZ")
 #pragma comment(linker, "/alternatename:_OurButtonsConstructor=??0TButtonsWindow@@QAE@PAVTDialogWindow@@PAVTMainWindow@@@Z")
+#else
+#pragma comment(linker, "/alternatename:OurAutomapConstructor=??0TAutomapWindow@@QEAA@XZ")
+#pragma comment(linker, "/alternatename:OurStatusConstructor=??0TStatusWindow@@QEAA@XZ")
+#pragma comment(linker, "/alternatename:OurButtonsConstructor=??0TButtonsWindow@@QEAA@PEAVTDialogWindow@@PEAVTMainWindow@@@Z")
+#endif
+
+// elementfakes.h's fakes this test introduced (the border, the first text button constructor, the label's
+// font constructor), on both sides.
 
 TFakeBorder::TFakeBorder(TWindow *_Window, int Param)
 {
 	TInfo &I = Register(this, "Border");
 	char Buffer[128];
-	sprintf(Buffer, "%s,%d", Name(_Window).c_str(), Param);
+	snprintf(Buffer, sizeof(Buffer), "%s,%d", Name(_Window).c_str(), Param);
 	I.Detail = Buffer;
 	Logf("NBorder%s;", Buffer);
 	InsertChild(_Window);
@@ -367,7 +495,7 @@ TFakeBorder::TFakeBorder(TWindow *_Window, int Skin1, int Skin2, int Skin3, int 
 {
 	TInfo &I = Register(this, "Border");
 	char Buffer[160];
-	sprintf(Buffer, "%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", Name(_Window).c_str(), Skin1, Skin2, Skin3, Skin4, Skin5,
+	snprintf(Buffer, sizeof(Buffer), "%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", Name(_Window).c_str(), Skin1, Skin2, Skin3, Skin4, Skin5,
 		Skin6, Skin7, Skin8, Skin9, Border);
 	I.Detail = Buffer;
 	Logf("NBorder%s;", Buffer);
@@ -387,7 +515,7 @@ TFakeTextButton::TFakeTextButton(int x, int y, const char *_Text, int Skin1, int
 		return;
 	TInfo &I = Register(this, "Button");
 	char Buffer[160];
-	sprintf(Buffer, "%d,%d,%s,%d,%d,%s,%d,%d", x, y, _Text, Skin1, Skin2, Name(Callback.Receiver).c_str(),
+	snprintf(Buffer, sizeof(Buffer), "%d,%d,%s,%d,%d,%s,%d,%d", x, y, _Text, Skin1, Skin2, Name(Callback.Receiver).c_str(),
 		Callback.Event, Param);
 	I.Detail = Buffer;
 	Logf("NButton%s;", Buffer);
@@ -403,15 +531,18 @@ TFakeLabel::TFakeLabel(TFont Font, const char *_Text)
 		return;
 	TInfo &I = Register(this, "Label");
 	char Buffer[160];
-	sprintf(Buffer, "%d,%d,%d,%d,%d,%s", Font.FontNumber, Font.Color.R, Font.Color.G, Font.Color.B, Font.Alignment,
+	snprintf(Buffer, sizeof(Buffer), "%d,%d,%d,%d,%d,%s", Font.FontNumber, Font.Color.R, Font.Color.G, Font.Color.B, Font.Alignment,
 		_Text);
 	I.Detail = Buffer;
 	Logf("NLabel%s;", Buffer);
 }
+
+namespace MainWindowTest {
+
 // TObjectIcon's constructor is inline in DialogElements.h: the icons are real
 // on both sides; DrawObject is faked.
 static void __cdecl FakeDrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor Highlight, TRect Clip,
-	TFont Font, bool ShowCount)
+	TFont /* Font */, bool ShowCount)
 {
 	Logf("DObj%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d;", Surface, x, y, Size, Obj.Type, Obj.Data, Obj.Data2,
 		Highlight.R, Highlight.G, Highlight.B, Clip.x, Clip.y, Clip.width, Clip.height, ShowCount ? 1 : 0);
@@ -420,24 +551,44 @@ static void __cdecl FakeDrawObject(int Surface, int x, int y, int Size, TObject 
 // Both sides' DialogElements.cpp constructors and members build and are the
 // fakes (elementfakes.cpp), patched for good.
 static void PatchElement(void *Function, void *Target) { PatchOwn(Function, Target); }
-static void *__fastcall ImageSide3(void *This, void *) { return new (This) TMainSide3; }
-static void *__fastcall ImageSide4(void *This, void *) { return new (This) TMainSide4; }
-static void *__fastcall ImageSide5(void *This, void *, TDialogWindow *D, TMainWindow *M)
+// The side-bar constructors' stand-ins (the image's and ours; GOLDEN_THISCALL).
+static void *GOLDEN_THISCALL ImageSide3(GOLDEN_THIS_NAMED(void *This)) { return new (This) TMainSide3; }
+static void *GOLDEN_THISCALL ImageSide4(GOLDEN_THIS_NAMED(void *This)) { return new (This) TMainSide4; }
+static void *GOLDEN_THISCALL ImageSide5(GOLDEN_THIS_NAMED(void *This), TDialogWindow *D, TMainWindow *M)
 {
 	return new (This) TMainSide5(D, M);
 }
 
 // --- Fakes of the other callees -------------------------------------------------
 
-// Not part of the test build: defined here for our side.
-void SendTurnNorth() { Logf("TN;"); }
-void SendTurnEast() { Logf("TE;"); }
-void SendTurnSouth() { Logf("TS;"); }
-void SendTurnWest() { Logf("TW;"); }
-void SendCancel() { Logf("Cancel;"); }
-void SendLogout() { Logf("Logout;"); }
-void SendJoinChannel(int ChannelID) { Logf("Join%d;", ChannelID); }
-void ChangeEngine(int engine) { Logf("Engine%d;", engine); }
+// Not part of the test build (Communication.cpp's, Control.cpp's): in the oracle our side's definitions are
+// these fakes (below; the image's jump to them), in the runner client_stubs.cpp's stubs are redirected to
+// them.
+static void FakeSendTurnNorth() { Logf("TN;"); }
+static void FakeSendTurnEast() { Logf("TE;"); }
+static void FakeSendTurnSouth() { Logf("TS;"); }
+static void FakeSendTurnWest() { Logf("TW;"); }
+static void FakeSendCancel() { Logf("Cancel;"); }
+static void FakeSendLogout() { Logf("Logout;"); }
+static void FakeSendJoinChannel(int ChannelID) { Logf("Join%d;", ChannelID); }
+static void FakeChangeEngine(int engine) { Logf("Engine%d;", engine); }
+
+} // namespace MainWindowTest
+using namespace MainWindowTest;
+
+#if GOLDEN_ORACLE
+void SendTurnNorth() { FakeSendTurnNorth(); }
+void SendTurnEast() { FakeSendTurnEast(); }
+void SendTurnSouth() { FakeSendTurnSouth(); }
+void SendTurnWest() { FakeSendTurnWest(); }
+void SendCancel() { FakeSendCancel(); }
+void SendLogout() { FakeSendLogout(); }
+void SendJoinChannel(int ChannelID) { FakeSendJoinChannel(ChannelID); }
+void ChangeEngine(int engine) { FakeChangeEngine(engine); }
+#endif
+
+namespace MainWindowTest {
+
 static void __cdecl FakeSendWalk() { Logf("Walk;"); }
 static void __cdecl FakeSendStop() { Logf("Stop;"); }
 static void __cdecl FakeDisconnect(bool force) { Logf("Disc%d;", force ? 1 : 0); }
@@ -449,14 +600,23 @@ static int PlayerX = 1000, PlayerY = 1000, PlayerZ = 7, DestinationResult;
 
 // ~TMainWindow calls ClearOpenDialogs and AddOpenDialog, ~TSubWindow
 // SetContentWindowSize: they do not count for FailAt.
-static void __cdecl FakeClearOpenDialogs() { TNoTick NoTick; Logf("ClrDlg;"); OpenDialogs[Side].clear(); }
+static void __cdecl FakeClearOpenDialogs()
+{
+	TNoTick NoTick;
+	Logf("ClrDlg;");
+	OpenDialogs[Side].clear();
+}
 static void __cdecl FakeAddOpenDialog(int Identifier)
 {
 	TNoTick NoTick;
 	Logf("AddDlg%d;", Identifier);
 	OpenDialogs[Side].push_back(Identifier);
 }
-static void __cdecl FakeSetContentWindowSize(int ID, int Size) { TNoTick NoTick; Logf("CWSize%d,%d;", ID, Size); }
+static void __cdecl FakeSetContentWindowSize(int ID, int Size)
+{
+	TNoTick NoTick;
+	Logf("CWSize%d,%d;", ID, Size);
+}
 static int __cdecl FakeGetOpenDialogs(int **List)
 {
 	int Count = (int)OpenDialogs[Side].size();
@@ -466,18 +626,34 @@ static int __cdecl FakeGetOpenDialogs(int **List)
 		(*List)[i] = OpenDialogs[Side][i];
 	return Count;
 }
-static int __cdecl FakeGetConsoleHeight() { Logf("GetCH;"); return ConsoleHeightPref; }
-static TFullscreenMode *__cdecl FakeGetFullscreenMode() { Logf("GetFS;"); return &Fullscreen[Side]; }
+static int __cdecl FakeGetConsoleHeight()
+{
+	Logf("GetCH;");
+	return ConsoleHeightPref;
+}
+static TFullscreenMode *__cdecl FakeGetFullscreenMode()
+{
+	Logf("GetFS;");
+	return &Fullscreen[Side];
+}
 static void __cdecl FakeSetFullscreenMode(const TFullscreenMode *Mode)
 {
 	Logf("SetFS%d,%d,%d,%d;", Mode->Width, Mode->Height, Mode->Depth, Mode->Frequency);
 	Fullscreen[Side] = *Mode;
 }
 static int __cdecl FakeGetViewMode() { return ViewMode; }
-static void __cdecl FakeSetActionState(int State) { Logf("Act%d;", State); ActionState[Side] = State; }
+static void __cdecl FakeSetActionState(int State)
+{
+	Logf("Act%d;", State);
+	ActionState[Side] = State;
+}
 static int __cdecl FakeGetActionState() { return ActionState[Side]; }
 static int __cdecl FakeGetConnectionState() { return ConnectionState[Side]; }
-static void __cdecl FakeSetConnectionState(int State) { Logf("Conn%d;", State); ConnectionState[Side] = State; }
+static void __cdecl FakeSetConnectionState(int State)
+{
+	Logf("Conn%d;", State);
+	ConnectionState[Side] = State;
+}
 static void __cdecl FakeAddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 {
 	if (Type == 6) {
@@ -489,8 +665,16 @@ static void __cdecl FakeAddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 	}
 	Logf("Msg%d,%d,%d;", Type, (int)Param1, (int)Param2);
 }
-static bool __cdecl FakeCheckRight(int rightid, int Bit) { Logf("Right%d,%d;", rightid, Bit); return Right; }
-static bool __cdecl FakeCheckAnyRight() { Logf("AnyRight;"); return AnyRight; }
+static bool __cdecl FakeCheckRight(int rightid, int Bit)
+{
+	Logf("Right%d,%d;", rightid, Bit);
+	return Right;
+}
+static bool __cdecl FakeCheckAnyRight()
+{
+	Logf("AnyRight;");
+	return AnyRight;
+}
 static void __cdecl FakeSetMouseCursor(int Cursor) { Logf("Cursor%d;", Cursor); }
 static void __cdecl FakeSetWindowSize(int Width, int Height) { Logf("WinSize%d,%d;", Width, Height); }
 static void __cdecl FakeCopyTainted() { Logf("Clip;"); }
@@ -500,7 +684,12 @@ static void __cdecl FakeSetStatusMessage(const char *Message, bool Permanent)
 }
 static void __cdecl FakeSetTalkChanged() { Logf("TC;"); }
 static bool __cdecl FakeGetNoStretching() { return false; }
-static void __cdecl FakeGetPlayerPosition(int *x, int *y, int *z) { *x = PlayerX; *y = PlayerY; *z = PlayerZ; }
+static void __cdecl FakeGetPlayerPosition(int *x, int *y, int *z)
+{
+	*x = PlayerX;
+	*y = PlayerY;
+	*z = PlayerZ;
+}
 static int __cdecl FakeSetPlayerDestination(int x, int y, int z, bool Exact, bool Diagonal)
 {
 	Logf("Dest%d,%d,%d,%d,%d;", x, y, z, Exact ? 1 : 0, Diagonal ? 1 : 0);
@@ -523,7 +712,11 @@ static void __cdecl FakeAddHotkey(int Key, TCallback Callback)
 {
 	Logf("AddKey%d,%s,%d;", Key, Name(Callback.Receiver).c_str(), Callback.Event);
 }
-static void __cdecl FakeRemoveHotkey(int Key) { TNoTick NoTick; Logf("RemKey%d;", Key); }
+static void __cdecl FakeRemoveHotkey(int Key)
+{
+	TNoTick NoTick;
+	Logf("RemKey%d;", Key);
+}
 static void __cdecl FakeDrawPicture(int Surface, int x, int y, int PictureNumber)
 {
 	Logf("Pic%d,%d,%d,%d;", Surface, x, y, PictureNumber);
@@ -562,7 +755,11 @@ static void FakeOpenURL(const char *URL) { Logf("URL%s;", URL); }
 
 static void PatchCallees()
 {
-	struct { uint32 Image; void *Ours; void *Fake; } Table[] = {
+	struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Table[] = {
 		{0x4db550, (void *)ClearOpenDialogs, (void *)FakeClearOpenDialogs},
 		{0x4dbd90, (void *)GetOpenDialogs, (void *)FakeGetOpenDialogs},
 		{0x4dc950, (void *)AddOpenDialog, (void *)FakeAddOpenDialog},
@@ -603,22 +800,56 @@ static void PatchCallees()
 		{0x494ca0, (void *)DrawObject, (void *)FakeDrawObject},
 	};
 	for (auto &T : Table) {
-		PatchJump(T.Image, T.Fake);
+		ORIGINAL(PatchJump(T.Image, T.Fake));
 		PatchOwn(T.Ours, T.Fake);
 	}
-	// Image functions whose counterparts on our side are the definitions above.
-	static const struct { uint32 Image; void *Ours; } Images[] = {
-		{0x404730, (void *)SendTurnNorth}, {0x4048d0, (void *)SendTurnEast}, {0x404a70, (void *)SendTurnSouth},
-		{0x404c10, (void *)SendTurnWest}, {0x409140, (void *)SendCancel}, {0x404350, (void *)SendLogout},
-		{0x4074a0, (void *)SendJoinChannel}, {0x445c20, (void *)ChangeEngine},
-		{0x422410, (void *)FakeConsoleNew}, {0x41e960, (void *)FakeConsoleActive}, {0x422e70, (void *)FakeConsoleOpen},
+	// The functions difftest.exe does not link: the image's jump to our definitions above (the oracle); ours,
+	// client_stubs.cpp's in the runner, to the fakes.
+	static const struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Undefined[] = {
+		{0x404730, (void *)SendTurnNorth, (void *)FakeSendTurnNorth},
+		{0x4048d0, (void *)SendTurnEast, (void *)FakeSendTurnEast},
+		{0x404a70, (void *)SendTurnSouth, (void *)FakeSendTurnSouth},
+		{0x404c10, (void *)SendTurnWest, (void *)FakeSendTurnWest},
+		{0x409140, (void *)SendCancel, (void *)FakeSendCancel},
+		{0x404350, (void *)SendLogout, (void *)FakeSendLogout},
+		{0x4074a0, (void *)SendJoinChannel, (void *)FakeSendJoinChannel},
+		{0x445c20, (void *)ChangeEngine, (void *)FakeChangeEngine},
+	};
+	for (auto &U : Undefined) {
+#if GOLDEN_ORACLE
+		PatchJump(U.Image, U.Ours);
+		(void)U.Fake;
+#else
+		PatchOwn(U.Ours, U.Fake);
+#endif
+	}
+	// Image functions whose fakes are the stand-ins above (ours: the constructors and members below).
+#if GOLDEN_ORACLE
+	static const struct {
+		uint32 Image;
+		void *Fake;
+	} Images[] = {
+		{0x422410, (void *)FakeConsoleNew},
+		{0x41e960, (void *)FakeConsoleActive},
+		{0x422e70, (void *)FakeConsoleOpen},
 		{0x42e4e0, (void *)FakeUpdateUpButton},
-		{0x4368c0, (void *)ImageSide3}, {0x438310, (void *)ImageSide4}, {0x426480, (void *)ImageSide5},
+		{0x4368c0, (void *)ImageSide3},
+		{0x438310, (void *)ImageSide4},
+		{0x426480, (void *)ImageSide5},
 	};
 	for (auto &I : Images)
-		PatchJump(I.Image, I.Ours);
+		PatchJump(I.Image, I.Fake);
+#endif
 	// ContentWindows.cpp: the creators and the side-bar constructors, the image's and ours.
-	static const struct { uint32 Image; void *Ours; void *Fake; } Content[] = {
+	static const struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Content[] = {
 		{0x4362b0, (void *)CreateInventoryWindow, (void *)FakeCreateInventoryWindow},
 		{0x436510, (void *)CreateSmallInventoryWindow, (void *)FakeCreateSmallInventoryWindow},
 		{0x43c520, (void *)CreateContainerWindow, (void *)FakeCreateContainerWindow},
@@ -633,7 +864,7 @@ static void PatchCallees()
 	};
 	for (auto &C : Content) {
 		if (C.Image != 0)
-			PatchJump(C.Image, C.Fake);
+			ORIGINAL(PatchJump(C.Image, C.Fake));
 		PatchOwn(C.Ours, C.Fake);
 	}
 	PatchElementFakes(PatchElement);
@@ -663,11 +894,13 @@ static void FindFakeVtables()
 
 // --- The two main windows ------------------------------------------------------
 
-typedef void (__fastcall *MemberVoid)(void *, void *);
-typedef void (__fastcall *MemberInt)(void *, void *, int);
-typedef int (__fastcall *MemberGet)(void *, void *);
-typedef void (__fastcall *MemberWalk)(void *, void *, int, int, int);
-typedef void (__cdecl *InitFn)(int, int, void (*)(), void (*)(int), void (*)(const char *));
+#if GOLDEN_ORACLE
+typedef void(__fastcall *MemberVoid)(void *, void *);
+typedef void(__fastcall *MemberInt)(void *, void *, int);
+typedef int(__fastcall *MemberGet)(void *, void *);
+typedef void(__fastcall *MemberWalk)(void *, void *, int, int, int);
+typedef void(__cdecl *InitFn)(int, int, void (*)(), void (*)(int), void (*)(const char *));
+#endif
 
 static void NameOurVtables()
 {
@@ -682,7 +915,7 @@ static void NameOurVtables()
 // After a mode change the map frames get the logging vtable.
 static void SwapFrames()
 {
-	for (int s = 0; s < 2; s++) {
+	for (int s = 0; s < SIDES; s++) {
 		TMainWindow *M = Main(s);
 
 		if (M != NULL && M->InGame && M->MapFrame != NULL && VtableOf(M->MapFrame) != FakeMapFrameVtable) {
@@ -785,10 +1018,43 @@ static int Kind;
 static TErrorRound *MainRound;
 static bool Threw;
 
+// The original's log, dump and the state its fakes keep: the oracle's, recorded; the runner's from the
+// corpus.
+static std::string LastDump;
+static void OutputOriginal(std::string *Dumped)
+{
+	std::string Text = golden::OutputText("log", Log[ORIGINAL].data(), Log[ORIGINAL].size());
+	ORIGINAL_OR((void)0, Log[ORIGINAL] = Text);
+	if (Dumped != NULL) {
+#if GOLDEN_ORACLE
+		std::string Dump0 = Dump(ORIGINAL);
+#else
+		std::string Dump0;
+#endif
+		*Dumped = golden::OutputTextChanges("dump", &LastDump, Dump0);
+	}
+	golden::Output("action state", ActionState[ORIGINAL]);
+	golden::Output("connection state", ConnectionState[ORIGINAL]);
+	uint32 Dialogs = (uint32)OpenDialogs[ORIGINAL].size();
+	golden::Output("open dialogs", Dialogs);
+	OpenDialogs[ORIGINAL].resize(Dialogs);
+	if (Dialogs != 0)
+		golden::OutputArray("open dialogs", OpenDialogs[ORIGINAL].data(), Dialogs);
+	int Mode[4] = {Fullscreen[ORIGINAL].Width, Fullscreen[ORIGINAL].Height, Fullscreen[ORIGINAL].Depth,
+		Fullscreen[ORIGINAL].Frequency};
+	golden::Output("fullscreen", Mode);
+	Fullscreen[ORIGINAL].Width = Mode[0];
+	Fullscreen[ORIGINAL].Height = Mode[1];
+	Fullscreen[ORIGINAL].Depth = Mode[2];
+	Fullscreen[ORIGINAL].Frequency = Mode[3];
+}
+
 static void Compare(const char *What)
 {
 	if (!Threw)
 		SwapFrames();
+	std::string B;
+	OutputOriginal(Threw ? NULL : &B);
 	Checks++;
 	if (Log[OURS] != Log[ORIGINAL]) {
 		Failures++;
@@ -797,7 +1063,7 @@ static void Compare(const char *What)
 				Log[OURS].c_str(), Log[ORIGINAL].c_str());
 		}
 	}
-	std::string A = Threw ? "" : Dump(OURS), B = Threw ? "" : Dump(ORIGINAL);
+	std::string A = Threw ? "" : Dump(OURS);
 	Checks++;
 	if (A != B) {
 		Failures++;
@@ -806,8 +1072,8 @@ static void Compare(const char *What)
 				A.c_str(), B.c_str());
 	}
 	CHECK(ActionState[OURS] == ActionState[ORIGINAL] && ConnectionState[OURS] == ConnectionState[ORIGINAL]
-		&& OpenDialogs[OURS] == OpenDialogs[ORIGINAL]
-		&& memcmp(&Fullscreen[OURS], &Fullscreen[ORIGINAL], sizeof(TFullscreenMode)) == 0,
+			&& OpenDialogs[OURS] == OpenDialogs[ORIGINAL]
+			&& memcmp(&Fullscreen[OURS], &Fullscreen[ORIGINAL], sizeof(TFullscreenMode)) == 0,
 		"MainWindow %s (kind %d): state differs", What, Kind);
 	Log[OURS].clear();
 	Log[ORIGINAL].clear();
@@ -838,9 +1104,11 @@ template <class F> static void Both(F Call)
 		Side = OURS;
 		Ticks = 0;
 		Call(OURS);
+		// (Side is the original's afterwards on both sides: what our code logs between the calls goes where
+		// the oracle's goes.)
 		Side = ORIGINAL;
-		Ticks = 0;
-		Call(ORIGINAL);
+		ORIGINAL(Ticks = 0; Call(ORIGINAL));
+		Ticks = ORIGINAL_VALUE("ticks", int, Ticks); // the original's fake calls
 		MaxTicks[Kind] = Ticks > MaxTicks[Kind] ? Ticks : MaxTicks[Kind];
 		return;
 	}
@@ -850,7 +1118,9 @@ template <class F> static void Both(F Call)
 	MainRound->Calling(What, "ours");
 	TThrown A = OurThrow([&] { Side = OURS; Ticks = 0; FailAt = Fail; Call(OURS); });
 	MainRound->Calling(What, "the original");
-	TThrown B = ImageThrow([&] { Side = ORIGINAL; Ticks = 0; FailAt = Fail; Call(ORIGINAL); });
+	TThrown B = ORIGINAL_THROWN("thrown", Side = ORIGINAL; Ticks = 0; FailAt = Fail; Call(ORIGINAL));
+	Side = ORIGINAL;
+	Ticks = ORIGINAL_VALUE("ticks", int, Ticks); // the original's fake calls
 	FailAt = 0;
 	MainRound->Compare(What, A, B);
 	if (A.Kind != TThrown::NOTHING || B.Kind != TThrown::NOTHING)
@@ -863,29 +1133,57 @@ static TContentWindow *Find(int s, TDialogWindow *Dialog, int Identifier)
 {
 	if (s == OURS)
 		return Dialog->GetContentWindow(Identifier);
+#if GOLDEN_ORACLE
 	return At<FindFn>(0x486400)(Dialog, NULL, Identifier);
+#else
+	abort(); // (the original's side: the oracle only)
+#endif
 }
 
 static void RandomSkinProperties()
 {
-	TSkinProperties &O = Global<TSkinProperties>(0x5ccfc8);
 	int Width = 150 + Random() % 60, Splitter = Skins[9].height + Random() % 6, Border = Random() % 12;
-	SkinProperties.Data184 = O.Data184 = Width;
-	SkinProperties.Data138 = O.Data138 = Splitter;
-	SkinProperties.Data134 = O.Data134 = Border;
-	SkinProperties.Style0D8.Data00 = O.Style0D8.Data00 = 60 + Random() % 60;
-	SkinProperties.Style0D8.Data04 = O.Style0D8.Data04 = 100 + Random() % 80;
+	SkinProperties.Data184 = Width;
+	SkinProperties.Data138 = Splitter;
+	SkinProperties.Data134 = Border;
+	SkinProperties.Style0D8.Data00 = 60 + Random() % 60;
+	SkinProperties.Style0D8.Data04 = 100 + Random() % 80;
 	int x = (int)(Random() % 120) - 60, y = (int)(Random() % 400) - 300;
-	SkinProperties.Style0D8.Data08.x = O.Style0D8.Data08.x = x;
-	SkinProperties.Style0D8.Data08.y = O.Style0D8.Data08.y = y;
-	TGUIPoint *Ours = &SkinProperties.Style0D8.Data10, *Theirs = &O.Style0D8.Data10;
+	SkinProperties.Style0D8.Data08.x = x;
+	SkinProperties.Style0D8.Data08.y = y;
+	TGUIPoint *Ours = &SkinProperties.Style0D8.Data10;
 	for (int i = 0; i < 5; i++) {
-		Ours[i].x = Theirs[i].x = Random() % 20;
-		Ours[i].y = Theirs[i].y = Random() % 140;
+		Ours[i].x = Random() % 20;
+		Ours[i].y = Random() % 140;
 	}
-	SkinProperties.Style194.Data38.FontNumber = O.Style194.Data38.FontNumber = Random() % 5;
-	SkinProperties.Style194.Data38.Color = O.Style194.Data38.Color = TRGBColor(Random() % 256, Random() % 256, 7);
-	SkinProperties.Style194.Data80 = O.Style194.Data80 = TRGBColor(Random() % 256, 3, Random() % 256);
+	SkinProperties.Style194.Data38.FontNumber = Random() % 5;
+	// TRGBColor(Random() % 256, Random() % 256, 7) and TRGBColor(Random() % 256, 3, Random() % 256) with their
+	// calls in the x86 oracle's order (issue #55: the constructor's arguments right to left).
+	int G = (int)(Random() % 256);
+	int R = (int)(Random() % 256);
+	SkinProperties.Style194.Data38.Color = TRGBColor(R, G, 7);
+	int B = (int)(Random() % 256);
+	R = (int)(Random() % 256);
+	SkinProperties.Style194.Data80 = TRGBColor(R, 3, B);
+#if GOLDEN_ORACLE
+	// The image's skin properties get the same.
+	TSkinProperties &O = Global<TSkinProperties>(0x5ccfc8);
+	O.Data184 = SkinProperties.Data184;
+	O.Data138 = SkinProperties.Data138;
+	O.Data134 = SkinProperties.Data134;
+	O.Style0D8.Data00 = SkinProperties.Style0D8.Data00;
+	O.Style0D8.Data04 = SkinProperties.Style0D8.Data04;
+	O.Style0D8.Data08.x = SkinProperties.Style0D8.Data08.x;
+	O.Style0D8.Data08.y = SkinProperties.Style0D8.Data08.y;
+	TGUIPoint *Theirs = &O.Style0D8.Data10;
+	for (int i = 0; i < 5; i++) {
+		Theirs[i].x = Ours[i].x;
+		Theirs[i].y = Ours[i].y;
+	}
+	O.Style194.Data38.FontNumber = SkinProperties.Style194.Data38.FontNumber;
+	O.Style194.Data38.Color = SkinProperties.Style194.Data38.Color;
+	O.Style194.Data80 = SkinProperties.Style194.Data80;
+#endif
 }
 
 static void RandomWorld()
@@ -943,7 +1241,8 @@ static void Operation()
 	char What[64];
 	sprintf(What, "operation %d", Kind);
 	switch (Kind) {
-	case 0: case 1: {
+	case 0:
+	case 1: {
 		// The preferences may change between two games.
 		if (Random() % 2 == 0)
 			RandomOpenDialogs();
@@ -954,10 +1253,10 @@ static void Operation()
 			if (s == OURS)
 				MainWindow->ChangeMode(Game);
 			else
-				At<MemberInt>(0x4af5e0)(OriginalMainWindow, NULL, Game);
+				ORIGINAL(At<MemberInt>(0x4af5e0)(OriginalMainWindow, NULL, Game));
 		});
 		// The new splitters' drag position is left uninitialised on both sides.
-		for (int s = 0; s < 2 && Game && !Threw; s++)
+		for (int s = 0; s < SIDES && Game && !Threw; s++)
 			Main(s)->Splitter->DragX = Main(s)->Splitter->DragY = 0;
 		break;
 	}
@@ -968,8 +1267,8 @@ static void Operation()
 		break;
 	}
 	case 3: {
-		int Surface = Random() % 3, x = Random() % 40, y = Random() % 40;
-		Both([&](int s) { Main(s)->Draw(Surface, x, y); });
+		int Target = Random() % 3, x = Random() % 40, y = Random() % 40;
+		Both([&](int s) { Main(s)->Draw(Target, x, y); });
 		break;
 	}
 	case 4: {
@@ -981,7 +1280,8 @@ static void Operation()
 		Both([&](int s) { Main(s)->KeyPress(Key); });
 		break;
 	}
-	case 5: case 6: {
+	case 5:
+	case 6: {
 		int Event = AnyEvents[Random() % (sizeof(AnyEvents) / sizeof(AnyEvents[0]))];
 		ConnectionState[OURS] = ConnectionState[ORIGINAL] = Random() % 2 == 0 ? 8 : Random() % 9;
 		Fullscreen[OURS].Width = Fullscreen[ORIGINAL].Width = Random() % 4 == 0 ? 0 : 400 + Random() % 800;
@@ -1017,12 +1317,12 @@ static void Operation()
 			if (s == OURS)
 				MainWindow->ResizeConsole(Height);
 			else
-				At<MemberInt>(0x4ac610)(OriginalMainWindow, NULL, Height);
+				ORIGINAL(At<MemberInt>(0x4ac610)(OriginalMainWindow, NULL, Height));
 		});
 		if (Threw)
 			break;
 		int A = MainWindow->GetConsoleWindowHeight();
-		int B = At<MemberGet>(0x4ac7c0)(OriginalMainWindow, NULL);
+		int B = ORIGINAL_VALUE("console height", int, At<MemberGet>(0x4ac7c0)(OriginalMainWindow, NULL));
 		CHECK(A == B, "GetConsoleWindowHeight %d, original %d", A, B);
 		break;
 	}
@@ -1034,7 +1334,7 @@ static void Operation()
 			if (s == OURS)
 				MainWindow->Walk(dx, dy, Diagonal);
 			else
-				At<MemberWalk>(0x4ac7f0)(OriginalMainWindow, NULL, dx, dy, Diagonal);
+				ORIGINAL(At<MemberWalk>(0x4ac7f0)(OriginalMainWindow, NULL, dx, dy, Diagonal));
 		});
 		break;
 	}
@@ -1047,7 +1347,7 @@ static void Operation()
 			if (s == OURS)
 				MainWindow->OpenContainer(Container);
 			else
-				At<MemberInt>(0x4ac9e0)(OriginalMainWindow, NULL, Container);
+				ORIGINAL(At<MemberInt>(0x4ac9e0)(OriginalMainWindow, NULL, Container));
 		});
 		break;
 	}
@@ -1057,7 +1357,7 @@ static void Operation()
 			if (s == OURS)
 				MainWindow->CloseContainer(Container);
 			else
-				At<MemberInt>(0x4acdb0)(OriginalMainWindow, NULL, Container);
+				ORIGINAL(At<MemberInt>(0x4acdb0)(OriginalMainWindow, NULL, Container));
 		});
 		break;
 	}
@@ -1073,17 +1373,17 @@ static void Operation()
 				if (s == OURS)
 					MainWindow->OpenTrade();
 				else
-					At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL);
+					ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL));
 			} else if (What2 == 1) {
 				if (s == OURS)
 					MainWindow->UpdateTrade();
 				else
-					At<MemberVoid>(0x4acf60)(OriginalMainWindow, NULL);
+					ORIGINAL(At<MemberVoid>(0x4acf60)(OriginalMainWindow, NULL));
 			} else {
 				if (s == OURS)
 					MainWindow->CloseTrade();
 				else
-					At<MemberVoid>(0x4b0230)(OriginalMainWindow, NULL);
+					ORIGINAL(At<MemberVoid>(0x4b0230)(OriginalMainWindow, NULL));
 			}
 		});
 		break;
@@ -1099,12 +1399,12 @@ static void Operation()
 				if (s == OURS)
 					MainWindow->OpenContentWindow(Identifier);
 				else
-					At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Identifier);
+					ORIGINAL(At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Identifier));
 			} else {
 				if (s == OURS)
 					MainWindow->CloseContentWindow(Identifier);
 				else
-					At<MemberInt>(0x4ad4a0)(OriginalMainWindow, NULL, Identifier);
+					ORIGINAL(At<MemberInt>(0x4ad4a0)(OriginalMainWindow, NULL, Identifier));
 			}
 		});
 		break;
@@ -1115,11 +1415,13 @@ static void Operation()
 			if (s == OURS)
 				MainWindow->SetConsoleActive(Active);
 			else
-				At<MemberInt>(0x4ad650)(OriginalMainWindow, NULL, Active);
+				ORIGINAL(At<MemberInt>(0x4ad650)(OriginalMainWindow, NULL, Active));
 		});
 		break;
 	}
-	case 16: case 17: case 18: {
+	case 16:
+	case 17:
+	case 18: {
 		// The splitter: press, move, release (directly or through the main window).
 		if (!InGame)
 			return;
@@ -1186,6 +1488,9 @@ static void Operation()
 		RandomSize(Width, Height);
 		bool WithModal = Random() % 2 != 0;
 		ActionState[OURS] = ActionState[ORIGINAL] = 0;
+		// The original's check after its ExitMainWindow: not reached (-1, the call threw before it), failed (0)
+		// or passed (1); recorded, and checked on both sides after the calls.
+		int OriginalLeft = -1;
 		Both([&](int s) {
 			if (WithModal) {
 				TWindow *Modal = new TWindow;
@@ -1199,11 +1504,16 @@ static void Operation()
 				CHECK(MainWindow == NULL && ModalWindow == NULL, "ExitMainWindow leaves a window");
 				InitMainWindow(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
 			} else {
-				At<void (__cdecl *)()>(0x4ac090)();
-				CHECK(OriginalMainWindow == NULL && OriginalModalWindow == NULL, "0x4ac090 leaves a window");
+#if GOLDEN_ORACLE
+				At<void(__cdecl *)()>(0x4ac090)();
+				OriginalLeft = OriginalMainWindow == NULL && OriginalModalWindow == NULL ? 1 : 0;
 				At<InitFn>(0x4b05b0)(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
+#endif
 			}
 		});
+		OriginalLeft = ORIGINAL_VALUE("left", int, OriginalLeft);
+		if (OriginalLeft >= 0)
+			CHECK(OriginalLeft == 1, "0x4ac090 leaves a window");
 		if (!Threw)
 			NameOurVtables();
 		break;
@@ -1240,7 +1550,7 @@ static void NewMainWindows(int Fail)
 		if (s == OURS)
 			InitMainWindow(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
 		else
-			At<InitFn>(0x4b05b0)(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
+			ORIGINAL(At<InitFn>(0x4b05b0)(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL));
 	});
 	MainRound = Saved;
 	if (!Threw)
@@ -1255,7 +1565,9 @@ template <class F> static void MainCall(TErrorRound &R, const char *What, F Call
 	R.Calling(What, "ours");
 	TThrown A = OurThrow([&] { Side = OURS; Ticks = 0; FailAt = Fail; Call(OURS); });
 	R.Calling(What, "the original");
-	TThrown B = ImageThrow([&] { Side = ORIGINAL; Ticks = 0; FailAt = Fail; Call(ORIGINAL); });
+	TThrown B = ORIGINAL_THROWN("thrown", Side = ORIGINAL; Ticks = 0; FailAt = Fail; Call(ORIGINAL));
+	Side = ORIGINAL;
+	Ticks = ORIGINAL_VALUE("ticks", int, Ticks); // the original's fake calls
 	FailAt = 0;
 	R.Compare(What, A, B);
 	if (A.Kind != TThrown::NOTHING || B.Kind != TThrown::NOTHING)
@@ -1272,10 +1584,10 @@ static void ToGame(bool Game)
 		if (s == OURS)
 			MainWindow->ChangeMode(Game);
 		else
-			At<MemberInt>(0x4af5e0)(OriginalMainWindow, NULL, Game);
+			ORIGINAL(At<MemberInt>(0x4af5e0)(OriginalMainWindow, NULL, Game));
 	});
 	MainRound = Saved;
-	for (int s = 0; s < 2 && Game; s++)
+	for (int s = 0; s < SIDES && Game; s++)
 		Main(s)->Splitter->DragX = Main(s)->Splitter->DragY = 0;
 	Compare("errors: ChangeMode");
 }
@@ -1324,7 +1636,7 @@ static void TestMainWindowErrors()
 			if (s == OURS)
 				InitMainWindow(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
 			else
-				At<InitFn>(0x4b05b0)(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
+				ORIGINAL(At<InitFn>(0x4b05b0)(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL));
 		});
 		ActionState[OURS] = ActionState[ORIGINAL] = 0;
 		Threw = false;
@@ -1333,46 +1645,48 @@ static void TestMainWindowErrors()
 		int Container = Random() % 16;
 		MainCall(R, "TMainWindow::OpenContainer without a dialog window", [&](int s) {
 			if (s == OURS) MainWindow->OpenContainer(Container);
-			else At<MemberInt>(0x4ac9e0)(OriginalMainWindow, NULL, Container); });
+			else ORIGINAL(At<MemberInt>(0x4ac9e0)(OriginalMainWindow, NULL, Container)); });
 		MainCall(R, "TMainWindow::OpenTrade without a dialog window", [&](int s) {
-			if (s == OURS) MainWindow->OpenTrade(); else At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL); });
+			if (s == OURS) MainWindow->OpenTrade(); else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL)); });
 		Threw = false;
 		ToGame(true);
 		// The trade window twice, then without a body.
 		MainCall(R, "TMainWindow::OpenTrade", [&](int s) {
-			if (s == OURS) MainWindow->OpenTrade(); else At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL); });
+			if (s == OURS) MainWindow->OpenTrade(); else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL)); });
 		MainCall(R, "TMainWindow::OpenTrade again", [&](int s) {
-			if (s == OURS) MainWindow->OpenTrade(); else At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL); });
+			if (s == OURS) MainWindow->OpenTrade(); else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL)); });
 		Threw = false;
-		TSubWindow *Trade[2];
-		for (int s = 0; s < 2; s++)
+		TSubWindow *Trade[2] = {NULL, NULL};
+		for (int s = 0; s < SIDES; s++)
 			Trade[s] = (TSubWindow *)Find(s, Main(s)->DialogWindow, TRADE_WINDOW);
-		if (Trade[OURS] != NULL && Trade[ORIGINAL] != NULL) {
-			TSubWindowBody *Body[2] = {Trade[OURS]->Body, Trade[ORIGINAL]->Body};
-			Trade[OURS]->Body = Trade[ORIGINAL]->Body = NULL;
+		bool OriginalTrade = ORIGINAL_VALUE("trade window", bool, Trade[ORIGINAL] != NULL);
+		if (Trade[OURS] != NULL && OriginalTrade) {
+			TSubWindowBody *Body[2] = {Trade[OURS]->Body, NULL};
+			Trade[OURS]->Body = NULL;
+			ORIGINAL(Body[ORIGINAL] = Trade[ORIGINAL]->Body; Trade[ORIGINAL]->Body = NULL);
 			MainCall(R, "TMainWindow::UpdateTrade without a body", [&](int s) {
-				if (s == OURS) MainWindow->UpdateTrade(); else At<MemberVoid>(0x4acf60)(OriginalMainWindow, NULL); });
+				if (s == OURS) MainWindow->UpdateTrade(); else ORIGINAL(At<MemberVoid>(0x4acf60)(OriginalMainWindow, NULL)); });
 			Trade[OURS]->Body = Body[OURS];
-			Trade[ORIGINAL]->Body = Body[ORIGINAL];
+			ORIGINAL(Trade[ORIGINAL]->Body = Body[ORIGINAL]);
 			Threw = false;
 		}
 		// Identifiers OpenContentWindow does not know.
 		int Identifier = Random() % 2 ? 1 + (int)(Random() % 5) : 10 + (int)(Random() % 50);
 		MainCall(R, "TMainWindow::OpenContentWindow unknown", [&](int s) {
 			if (s == OURS) MainWindow->OpenContentWindow(Identifier);
-			else At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Identifier); });
+			else ORIGINAL(At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Identifier)); });
 		Threw = false; // (the error comes before any change)
 		// The splitter pressed while the main window has a capture, released
 		// while dragging without one.
-		for (int s = 0; s < 2; s++)
+		for (int s = 0; s < SIDES; s++)
 			Main(s)->Capture = Main(s)->Console;
 		MainCall(R, "TSplitter::LeftButtonDown with a capture", [&](int s) { Main(s)->Splitter->LeftButtonDown(5, 6, 0); });
-		for (int s = 0; s < 2; s++) {
+		for (int s = 0; s < SIDES; s++) {
 			Main(s)->Capture = NULL;
 			Main(s)->Splitter->Dragging = true;
 		}
 		MainCall(R, "TSplitter::LeftButtonUp without the capture", [&](int s) { Main(s)->Splitter->LeftButtonUp(5, 6, 0); });
-		for (int s = 0; s < 2; s++)
+		for (int s = 0; s < SIDES; s++)
 			Main(s)->Splitter->Dragging = false;
 		Threw = false;
 		// The inventory windows' swap without the window it replaces (half of
@@ -1393,36 +1707,38 @@ static void TestMainWindowErrors()
 		// the closing call fails at one of the fake calls it makes (the
 		// skills and battle windows stay: the column's rearrangement asks their
 		// bodies).
-		for (int Identifier = 6; Identifier <= 7; Identifier++) {
-			if (Find(OURS, MainWindow->DialogWindow, Identifier) == NULL)
+		for (int Id = 6; Id <= 7; Id++) {
+			if (Find(OURS, MainWindow->DialogWindow, Id) == NULL)
 				MainCall(R, "errors: open", [&](int s) {
-					if (s == OURS) MainWindow->OpenContentWindow(Identifier);
-					else At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Identifier); });
+					if (s == OURS) MainWindow->OpenContentWindow(Id);
+					else ORIGINAL(At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Id)); });
 		}
 		for (int What = 0; What < 3 && !Threw; What++) {
-			int Container = Random() % 16, Identifier = 9;
+			int Box = Random() % 16, Content = 9;
 			auto Open = [&](int s) {
 				if (What == 0) {
-					if (s == OURS) MainWindow->OpenContainer(Container);
-					else At<MemberInt>(0x4ac9e0)(OriginalMainWindow, NULL, Container);
+					if (s == OURS) MainWindow->OpenContainer(Box);
+					else ORIGINAL(At<MemberInt>(0x4ac9e0)(OriginalMainWindow, NULL, Box));
 				} else if (What == 1) {
 					if (Find(s, Main(s)->DialogWindow, TRADE_WINDOW) == NULL) {
-						if (s == OURS) MainWindow->OpenTrade(); else At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL);
+						if (s == OURS) MainWindow->OpenTrade();
+						else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL));
 					}
 				} else {
-					if (s == OURS) MainWindow->OpenContentWindow(Identifier);
-					else At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Identifier);
+					if (s == OURS) MainWindow->OpenContentWindow(Content);
+					else ORIGINAL(At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Content));
 				}
 			};
 			auto Close = [&](int s) {
 				if (What == 0) {
-					if (s == OURS) MainWindow->CloseContainer(Container);
-					else At<MemberInt>(0x4acdb0)(OriginalMainWindow, NULL, Container);
+					if (s == OURS) MainWindow->CloseContainer(Box);
+					else ORIGINAL(At<MemberInt>(0x4acdb0)(OriginalMainWindow, NULL, Box));
 				} else if (What == 1) {
-					if (s == OURS) MainWindow->CloseTrade(); else At<MemberVoid>(0x4b0230)(OriginalMainWindow, NULL);
+					if (s == OURS) MainWindow->CloseTrade();
+					else ORIGINAL(At<MemberVoid>(0x4b0230)(OriginalMainWindow, NULL));
 				} else {
-					if (s == OURS) MainWindow->CloseContentWindow(Identifier);
-					else At<MemberInt>(0x4ad4a0)(OriginalMainWindow, NULL, Identifier);
+					if (s == OURS) MainWindow->CloseContentWindow(Content);
+					else ORIGINAL(At<MemberInt>(0x4ad4a0)(OriginalMainWindow, NULL, Content));
 				}
 			};
 			static const char *const Names[] = {"TMainWindow::CloseContainer", "TMainWindow::CloseTrade",
@@ -1447,20 +1763,25 @@ static void TestMainWindowErrors()
 	R.Finish();
 }
 
+} // namespace MainWindowTest
+using namespace MainWindowTest;
+
 void TestMainWindow()
 {
 	int Before = Checks, BeforeFailures = Failures;
 	Running = true;
-	PatchImage();
+	ORIGINAL(PatchImage());
 	InitSkins();
-	Global<int>(0x71c450) = NumberOfSkins;
-	Global<TSkin *>(0x71c454) = Skins;
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
 	InitSkinProperties();
-	At<void (__cdecl *)()>(0x498160)();
+	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	TTalkBuffer *SavedBuffer = DefaultTextBuffer;
+#if GOLDEN_ORACLE
 	TTalkBuffer *&OriginalBuffer = Global<TTalkBuffer *>(0x71ef68);
 	TTalkBuffer *SavedOriginalBuffer = OriginalBuffer;
-	DefaultTextBuffer = OriginalBuffer = (TTalkBuffer *)(uintptr_t)0x12340;
+	OriginalBuffer = (TTalkBuffer *)(uintptr_t)0x12340;
+#endif
+	DefaultTextBuffer = (TTalkBuffer *)(uintptr_t)0x12340;
 	Surface = new TMainSurface;
 	FindFakeVtables();
 	PatchCallees();
@@ -1469,6 +1790,7 @@ void TestMainWindow()
 	DialogFakes.SetSkins = HookSetSkins;
 
 	// The image's classes, and ours that can be made directly.
+#if GOLDEN_ORACLE
 	NameVtable(ORIGINAL, (void *)(uintptr_t)0x56c498, "Main", true);
 	NameVtable(ORIGINAL, (void *)(uintptr_t)0x56c5c0, "Start", true);
 	NameVtable(ORIGINAL, (void *)(uintptr_t)0x56c660, "Splitter", false);
@@ -1478,13 +1800,20 @@ void TestMainWindow()
 	NameVtable(ORIGINAL, (void *)(uintptr_t)0x563f80, "Dialog", true);
 	NameVtable(ORIGINAL, (void *)(uintptr_t)0x563ed8, "Sub", true);
 	NameVtable(ORIGINAL, (void *)(uintptr_t)0x563e38, "CW", true);
+#endif
 	{
 		TWindow W;
 		NameVtable(OURS, VtableOf(&W), "Window", true);
 	}
-	struct { void *Vtable; const char *Name; bool Window; } Fakes[] = {
-		{FakeConsoleVtable, "Console", true}, {FakeMapFrameVtable, "Frame", true},
-		{FakeBorderVtable, "Border", true}, {FakeButtonVtable, "Button", false},
+	struct {
+		void *Vtable;
+		const char *Name;
+		bool Window;
+	} Fakes[] = {
+		{FakeConsoleVtable, "Console", true},
+		{FakeMapFrameVtable, "Frame", true},
+		{FakeBorderVtable, "Border", true},
+		{FakeButtonVtable, "Button", false},
 	};
 	for (auto &F : Fakes) {
 		NameVtable(OURS, F.Vtable, F.Name, F.Window);
@@ -1505,16 +1834,24 @@ void TestMainWindow()
 		TObject Obj;
 		TRGBColor Color;
 		TObjectIcon *Icon = new TObjectIcon(Obj, &Color, false);
-		struct { void *Object; const char *Name; bool Window; } List[] = {
-			{Body, "Body", true}, {S3, "Side3", true}, {S4, "Side4", true}, {S5, "Side5", true},
-			{Label, "Label", false}, {Icon, "Icon", false},
+		struct {
+			void *Object;
+			const char *Name;
+			bool Window;
+		} List[] = {
+			{Body, "Body", true},
+			{S3, "Side3", true},
+			{S4, "Side4", true},
+			{S5, "Side5", true},
+			{Label, "Label", false},
+			{Icon, "Icon", false},
 		};
 		for (auto &L : List) {
 			NameVtable(OURS, VtableOf(L.Object), L.Name, L.Window);
 			NameVtable(ORIGINAL, VtableOf(L.Object), L.Name, L.Window);
 		}
 		// The real icons of the image (TObjectIcon's constructor is inline).
-		NameVtable(ORIGINAL, (void *)(uintptr_t)0x560d88, "Icon", false);
+		ORIGINAL(NameVtable(ORIGINAL, (void *)(uintptr_t)0x560d88, "Icon", false));
 		NameVtable(OURS, VtableOf(Sub), "Sub", true);
 		NameVtable(OURS, VtableOf(Content), "CW", true);
 		NameVtable(OURS, VtableOf(Dialog), "Dialog", true);
@@ -1557,7 +1894,7 @@ void TestMainWindow()
 		if (s == OURS)
 			InitMainWindow(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
 		else
-			At<InitFn>(0x4b05b0)(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
+			ORIGINAL(At<InitFn>(0x4b05b0)(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL));
 	});
 	NameOurVtables();
 	Compare("InitMainWindow");
@@ -1573,7 +1910,7 @@ void TestMainWindow()
 		if (s == OURS)
 			ExitMainWindow();
 		else
-			At<void (__cdecl *)()>(0x4ac090)();
+			ORIGINAL(At<void(__cdecl *)()>(0x4ac090)());
 	});
 	Compare("ExitMainWindow");
 	// The error round (issue #34): its checks are reported apart.
@@ -1584,9 +1921,9 @@ void TestMainWindow()
 	RoundChecks = Checks - RoundChecks;
 
 	DefaultTextBuffer = SavedBuffer;
-	OriginalBuffer = SavedOriginalBuffer;
+	ORIGINAL(OriginalBuffer = SavedOriginalBuffer);
 	ExitSkins();
-	Global<TSkin *>(0x71c454) = NULL;
+	ORIGINAL(Global<TSkin *>(0x71c454) = NULL);
 	int Least = KindCount[0];
 	for (int i = 1; i < 24; i++)
 		Least = KindCount[i] < Least ? KindCount[i] : Least;

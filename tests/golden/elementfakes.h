@@ -1,7 +1,7 @@
 // The shared fakes of the DialogElements.cpp classes for the tests of the window
 // files (dialogwindow_tests.cpp, and tools/difftest's contextmenustest.cpp,
-// consolewindowtest.cpp, contentwindowstest.cpp, mapwindowtest.cpp,
-// mainwindowtest.cpp), and the hooks those tests share (difftest.h's before issue
+// consolewindowtest.cpp, contentwindowstest.cpp, mapwindow_tests.cpp,
+// mainwindow_tests.cpp), and the hooks those tests share (difftest.h's before issue
 // #28: DialogFakes, FakeUpdateUpButton, ElementCreated, ReportElement).
 //
 // Before DialogElements.cpp was reconstructed its classes were sketches, and
@@ -25,8 +25,7 @@
 // member it stands for, checked in elementfakes.cpp), so that our window code
 // reads them as it reads our classes. The members keep their names on both
 // sides (Data2C is the x86 offset's name). Each fake is defined in the test file
-// that introduced it; elementfakes.cpp has the runner's definitions of those
-// whose test is not ported yet.
+// that introduced it, on both sides (all of them are ported, issue #27).
 
 #pragma once
 

@@ -1,4 +1,5 @@
-// Differential tests of MapWindow.cpp against the original code.
+// difftest.exe's MapWindow test (moved here from tools/difftest/mapwindowtest.cpp, issue #27): MapWindow.cpp
+// against the original, as a golden-corpus test (golden.h).
 //
 // Both sides get one fake world: the map (objects and effects per field,
 // throwable and translucent fields, the map position and level), the
@@ -22,35 +23,83 @@
 // that the constructor leaves uninitialised cleared on both sides.
 // Failing assertions are not exercised, nor the hint button's creation (its
 // class, DialogElements.cpp's TBlinkingButton, is not reconstructed).
+//
+// By value (plan 4.3): the original's side exists in the oracle only (every use of it is inside ORIGINAL or
+// #if GOLDEN_ORACLE); the runner has our windows alone. The old comparison of the windows' bytes from +0x14
+// is a comparison of members: TComponent's OffsetX, OffsetY, Width and Height and every member of TMapWindow
+// up to HintButton, which have no pointers and the same bytes (padding included) on x86 and x64; only where
+// they start differs (TComponent's pointers before them). Per comparison the corpus holds the original's log
+// (text), those members of its window (by their runs of changed bytes, golden::OutputRuns), whether it has a
+// hint button, the results of its calls, how many fake calls its call made (the error round draws the
+// failing call from them) and what it threw (GOLDEN_ROUND_COMPARE); for TMapFrame its geometry and view,
+// its map view's members and its drawing list. Offsets the old test printed or compared (GetCacheField's
+// result, the first differing byte) are the x86 offsets on both sides. The runner redirects our functions to
+// the fakes with golden::RedirectOwn, for good, as the oracle does.
 
-#include "difftest.h"
-#include "../../tests/golden/elementfakes.h"
-#include "../../src/MapWindow.h"
-#include "../../src/Communication.h"
-#include "../../src/Help.h"
-#include "../../src/Inventory.h"
-#include "../../src/Objects.h"
-#include "../../src/Preferences.h"
-#include "../../src/Skins.h"
-#include "../../src/Status.h"
-#include "../../src/Surface.h"
-#include "../../tests/golden/testsurface.h"
-#include "imageeh.h"
-#include "../../src/Talk.h"
+#include "golden_test.h"
+
+#include "elementfakes.h"
+#include "golden_eh.h"
+#include "testsurface.h"
+#if GOLDEN_ORACLE
+#include "../../tools/difftest/imageeh.h"
+#else
+#include "golden_patch.h"
+#endif
+
+#include "Communication.h"
+#include "Creatures.h"
+#include "GUI.h"
+#include "Help.h"
+#include "Inventory.h"
+#include "Map.h"
+#include "MapWindow.h"
+#include "Objects.h"
+#include "Preferences.h"
+#include "Skins.h"
+#include "Status.h"
+#include "Surface.h"
+#include "Talk.h"
+#include "Utils.h"
+#include "graphics.h"
+
 #include <new>
 #include <stdarg.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <vector>
 
+#if GOLDEN_ORACLE
 static_assert(sizeof(TMapWindow) == 0x92d8, "TMapWindow is 0x92d8 bytes");
 static_assert(sizeof(TMapFrame) == 0x40, "TMapFrame is 0x40 bytes");
-static_assert(sizeof(TCacheField) == 0x8c, "TCacheField is 0x8c bytes");
 static_assert(offsetof(TMapWindow, Light) == 0x19fc, "TMapWindow::Light at +0x19fc");
 static_assert(offsetof(TMapWindow, CoverLevel) == 0x25dc, "TMapWindow::CoverLevel at +0x25dc");
 static_assert(offsetof(TMapWindow, Cache) == 0x29d4, "TMapWindow::Cache at +0x29d4");
 static_assert(offsetof(TMapWindow, HintButton) == 0x92d4, "TMapWindow::HintButton at +0x92d4");
+#endif
+static_assert(sizeof(TCacheField) == 0x8c, "TCacheField is 0x8c bytes");
+// TMapWindow's members up to HintButton have no pointers: the same bytes on both targets, at the same
+// distances from the first one.
+static_assert(offsetof(TMapWindow, HintButton) - offsetof(TMapWindow, NumberOfNames) == 0x92d4 - 0x2c,
+	"TMapWindow's members have their x86 layout");
+static_assert(offsetof(TMapWindow, Light) - offsetof(TMapWindow, NumberOfNames) == 0x19fc - 0x2c
+		&& offsetof(TMapWindow, PositionX) - offsetof(TMapWindow, NumberOfNames) == 0x25cc - 0x2c
+		&& offsetof(TMapWindow, Cache) - offsetof(TMapWindow, NumberOfNames) == 0x29d4 - 0x2c,
+	"TMapWindow's members at their x86 distances");
+static_assert(offsetof(TComponent, Height) - offsetof(TComponent, OffsetX) == 0xc, "TComponent's geometry");
+static_assert(offsetof(TMapFrame, ViewHeight) - offsetof(TMapFrame, ViewY) == 0xc, "TMapFrame's view");
 
-enum { OURS = 0, ORIGINAL = 1 };
+// The test's own definitions: in a namespace of their own (the other window tests, linked into the same
+// executable, define names of their own at global scope).
+namespace MapWindowTest {
+
+enum { OURS = 0,
+	ORIGINAL = 1 };
+// The sides that have objects: both in the oracle, ours in the runner.
+static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
 static int Side;
 static std::string Log[2];
 
@@ -76,20 +125,31 @@ static void Logf(const char *Format, ...)
 	Log[Side] += Buffer;
 }
 
+// Our functions to the fakes, for good (the oracle patches difftest.exe's code with PatchJump, the runner its
+// own with golden::RedirectOwn).
 static void PatchOwn(void *Function, void *Target)
 {
+#if GOLDEN_ORACLE
 	DWORD Protection;
 	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
 	PatchJump((uint32)(uintptr_t)Function, Target);
 	VirtualProtect(Function, 5, Protection, &Protection);
 	FlushInstructionCache(GetCurrentProcess(), Function, 5);
+#else
+	golden::RedirectOwn(Function, Target);
+#endif
 }
 
 template <class T> static void *Member(T Function) { return *(void **)&Function; }
 
+} // namespace MapWindowTest
+using namespace MapWindowTest;
+
 // DialogElements.cpp: never constructed here (GetShowNewHints is false
 // whenever the hint button could be created).
 TFakeBlinkingButton::TFakeBlinkingButton(int, int, int, int, int, int, TCallback, const char *) { abort(); }
+
+namespace MapWindowTest {
 
 // --- The fake world ----------------------------------------------------------
 
@@ -110,8 +170,8 @@ static TFakeField Fields[MAPSIZE_X][MAPSIZE_Y][MAPSIZE_Z];
 static int CenterX = 1000, CenterY = 1000, CenterZ = 7, Level = 7;
 static int AmbientBrightness = 200;
 static TRGBColor Ambient(200, 180, 160);
-static int IterX, IterY, IterZ, IterIndex;   // GetFirstObject/GetNextObject
-static int BadMapType, NullCreatureAt;       // the error round's inputs (0: none)
+static int IterX, IterY, IterZ, IterIndex; // GetFirstObject/GetNextObject
+static int BadMapType, NullCreatureAt;     // the error round's inputs (0: none)
 static int EffectX, EffectY, EffectZ, EffectIndex;
 
 struct TFakeEffect {
@@ -122,10 +182,25 @@ static TFakeEffect Effects[EFFECTS];
 
 static bool OnMap(int x, int y, int z) { return In(x, 0, MAPSIZE_X - 1) && In(y, 0, MAPSIZE_Y - 1) && In(z, 0, MAPSIZE_Z - 1); }
 
-static void __cdecl FakeGetMapPosition(int *x, int *y, int *z) { *x = CenterX; *y = CenterY; *z = CenterZ; }
+static void __cdecl FakeGetMapPosition(int *x, int *y, int *z)
+{
+	*x = CenterX;
+	*y = CenterY;
+	*z = CenterZ;
+}
 static int __cdecl FakeGetMapLevel() { return Level; }
-static void __cdecl FakeRelativeToAbsolute(int *x, int *y, int *z) { *x += CenterX - 8; *y += CenterY - 6; *z += 100; }
-static void __cdecl FakeAbsoluteToRelative(int *x, int *y, int *z) { *x -= CenterX - 8; *y -= CenterY - 6; *z -= 100; }
+static void __cdecl FakeRelativeToAbsolute(int *x, int *y, int *z)
+{
+	*x += CenterX - 8;
+	*y += CenterY - 6;
+	*z += 100;
+}
+static void __cdecl FakeAbsoluteToRelative(int *x, int *y, int *z)
+{
+	*x -= CenterX - 8;
+	*y -= CenterY - 6;
+	*z -= 100;
+}
 static TRGBColor __cdecl FakeGetAmbientColor() { return Ambient; }
 static int __cdecl FakeGetAmbientBrightness() { return AmbientBrightness; }
 static TObject __cdecl FakeGetFirstObject(int x, int y, int z)
@@ -150,7 +225,7 @@ static TObject __cdecl FakeGetNextObject()
 static TObject __cdecl FakeGetMapObject(int x, int y, int z, int Position)
 {
 	Logf("GM%d,%d,%d;", x, y, z); // AddLightSource's fields, in order
-	if (BadMapType != 0) { // the error round: a type Tibia.dat does not have
+	if (BadMapType != 0) {        // the error round: a type Tibia.dat does not have
 		TObject Bad = {BadMapType, 0, 0};
 		return Bad;
 	}
@@ -191,7 +266,11 @@ static TObject __cdecl FakeTopLook(int x, int y, int z, int &Position)
 }
 static TObject __cdecl FakeTopUse(int x, int y, int z, int &Position) { return TopObject(x, y, z, Position, 2); }
 static TObject __cdecl FakeTopMultiUse(int x, int y, int z, int &Position) { return TopObject(x, y, z, Position, 3); }
-static bool __cdecl FakeThrowable(int x, int y, int z) { Tick(); return OnMap(x, y, z) && Fields[x][y][z].Throwable; }
+static bool __cdecl FakeThrowable(int x, int y, int z)
+{
+	Tick();
+	return OnMap(x, y, z) && Fields[x][y][z].Throwable;
+}
 static bool __cdecl FakeTranslucent(int x, int y, int z) { return OnMap(x, y, z) && Fields[x][y][z].Translucent; }
 static void __cdecl FakeProcessMissileEffects() { Logf("M;"); }
 static int __cdecl FakeGetFirstEffect(int x, int y, int z)
@@ -254,9 +333,9 @@ static int __cdecl FakeSetPlayerDestination(int x, int y, int z, bool Exact, boo
 	Logf("PD%d,%d,%d,%d,%d;", x, y, z, Exact, Diagonal);
 	return Destination;
 }
-static int __fastcall FakeDeltaX(TCreature *This, void *) { return This->DeltaX; }
-static int __fastcall FakeDeltaY(TCreature *This, void *) { return This->DeltaY; }
-static int __fastcall FakeDrawDirection(TCreature *This, void *) { return This->Direction; }
+static int GOLDEN_THISCALL FakeDeltaX(GOLDEN_THIS_NAMED(TCreature *This)) { return This->DeltaX; }
+static int GOLDEN_THISCALL FakeDeltaY(GOLDEN_THIS_NAMED(TCreature *This)) { return This->DeltaY; }
+static int GOLDEN_THISCALL FakeDrawDirection(GOLDEN_THIS_NAMED(TCreature *This)) { return This->Direction; }
 
 // Status.cpp.
 static int ActionState, ActionNumber;
@@ -302,7 +381,11 @@ static int __cdecl FakeCreatureInfo() { return CreatureInfo; }
 static void __cdecl FakeSetCreatureInfo(int Value) { Logf("CI%d;", Value); }
 static bool __cdecl FakeNoStretching() { return NoStretching; }
 static bool __cdecl FakeClassicControl() { return ClassicControl; }
-static bool __cdecl FakeShowNewHints() { Tick(); return ShowNewHints; }
+static bool __cdecl FakeShowNewHints()
+{
+	Tick();
+	return ShowNewHints;
+}
 
 // Talk.cpp.
 struct TFakeTalkbox {
@@ -316,7 +399,11 @@ static int NumberOfTalkboxes;
 static const char *StatusMessage;
 static bool TalkChanged;
 static int __cdecl FakeNumberOfTalkboxes() { return NumberOfTalkboxes; }
-static int __cdecl FakeTalkboxLines(int n) { Tick(); return Talkboxes[n - 1].Lines; }
+static int __cdecl FakeTalkboxLines(int n)
+{
+	Tick();
+	return Talkboxes[n - 1].Lines;
+}
 static const char *__cdecl FakeTalkboxLine(int n, int Line) { return Talkboxes[n - 1].Line[Line]; }
 static int __cdecl FakeTalkboxMode(int n) { return Talkboxes[n - 1].Mode; }
 static void __cdecl FakeTalkboxPosition(int n, int *x, int *y, int *z)
@@ -352,8 +439,18 @@ static void __cdecl FakeAddMessageTalkbox(int Mode, const char *Text) { Logf("MT
 static int EventHelp, NextHint;
 static int __cdecl FakePopEventHelp() { return NextHint; }
 static int __cdecl FakeGetEventHelp() { return EventHelp; }
-static const char *__cdecl FakeEventHelpText(int n) { static char Text[32]; sprintf(Text, "text of hint %d", n); return Text; }
-static const char *__cdecl FakeEventHelpTitle(int n) { static char Title[32]; sprintf(Title, "title %d", n); return Title; }
+static const char *__cdecl FakeEventHelpText(int n)
+{
+	static char Text[32];
+	sprintf(Text, "text of hint %d", n);
+	return Text;
+}
+static const char *__cdecl FakeEventHelpTitle(int n)
+{
+	static char Title[32];
+	sprintf(Title, "title %d", n);
+	return Title;
+}
 static void __cdecl FakeMoveHelpPosition(int dx, int dy) { Logf("HP%d,%d;", dx, dy); }
 static void __cdecl FakeSetHelpSize(int Width, int Height) { Logf("HS%d,%d;", Width, Height); }
 static void __cdecl FakeSetHelpHandle(int Handle) { Logf("HH%d;", Handle); }
@@ -424,36 +521,70 @@ static void __cdecl FakeRemoveHotkey(int Key)
 }
 static int __cdecl FakeFreeContainer() { return FreeContainer; }
 
-// Communication.cpp: our side's definitions, also the image's.
-void SendWalk() { Logf("CW;"); }
-void SendStop() { Logf("CS;"); }
-void SendAttack(uint32 CreatureID) { Logf("CA%u;", CreatureID); }
-void SendLook(int x, int y, int z, int Type, int Position) { Logf("CL%d,%d,%d,%d,%d;", x, y, z, Type, Position); }
-void SendMoveObject(int x, int y, int z, int Type, int Position, int dx, int dy, int dz, int Count)
+// Communication.cpp: the fakes of the Send functions MapWindow.cpp calls. In the oracle they are our side's
+// definitions (difftest.exe has no Communication.cpp), which the image's jump to; in the runner our
+// definitions are client_stubs.cpp's, redirected to these.
+static void FakeSendWalk() { Logf("CW;"); }
+static void FakeSendStop() { Logf("CS;"); }
+static void FakeSendAttack(uint32 CreatureID) { Logf("CA%u;", CreatureID); }
+static void FakeSendLook(int x, int y, int z, int Type, int Position) { Logf("CL%d,%d,%d,%d,%d;", x, y, z, Type, Position); }
+static void FakeSendMoveObject(int x, int y, int z, int Type, int Position, int dx, int dy, int dz, int Count)
 {
 	Logf("CM%d,%d,%d,%d,%d,%d,%d,%d,%d;", x, y, z, Type, Position, dx, dy, dz, Count);
 }
-void SendRequestTrade(int x, int y, int z, int Type, int Position, uint32 CreatureID)
+static void FakeSendRequestTrade(int x, int y, int z, int Type, int Position, uint32 CreatureID)
 {
 	Logf("CT%d,%d,%d,%d,%d,%u;", x, y, z, Type, Position, CreatureID);
 }
-void SendUseObject(int x, int y, int z, int Type, int Position, int Container)
+static void FakeSendUseObject(int x, int y, int z, int Type, int Position, int Container)
 {
 	Logf("CU%d,%d,%d,%d,%d,%d;", x, y, z, Type, Position, Container);
 }
-void SendUseObjectWith(int x1, int y1, int z1, int Type1, int Position1, int x2, int y2, int z2, int Type2,
+static void FakeSendUseObjectWith(int x1, int y1, int z1, int Type1, int Position1, int x2, int y2, int z2, int Type2,
 	int Position2)
 {
 	Logf("CX%d,%d,%d,%d,%d,%d,%d,%d,%d,%d;", x1, y1, z1, Type1, Position1, x2, y2, z2, Type2, Position2);
 }
-void SendUseObjectOnCreature(int x, int y, int z, int Type, int Position, uint32 CreatureID)
+static void FakeSendUseObjectOnCreature(int x, int y, int z, int Type, int Position, uint32 CreatureID)
 {
 	Logf("CC%d,%d,%d,%d,%d,%u;", x, y, z, Type, Position, CreatureID);
 }
 
-// The surface slots MapWindow.cpp calls (the TTestSurface methods; the others
-// are graphicstest.cpp's recorders and playertest.cpp's stubs).
 static bool SurfaceLost, CanShade;
+
+} // namespace MapWindowTest
+using namespace MapWindowTest;
+
+#if GOLDEN_ORACLE
+void SendWalk() { FakeSendWalk(); }
+void SendStop() { FakeSendStop(); }
+void SendAttack(uint32 CreatureID) { FakeSendAttack(CreatureID); }
+void SendLook(int x, int y, int z, int Type, int Position) { FakeSendLook(x, y, z, Type, Position); }
+void SendMoveObject(int x, int y, int z, int Type, int Position, int dx, int dy, int dz, int Count)
+{
+	FakeSendMoveObject(x, y, z, Type, Position, dx, dy, dz, Count);
+}
+void SendRequestTrade(int x, int y, int z, int Type, int Position, uint32 CreatureID)
+{
+	FakeSendRequestTrade(x, y, z, Type, Position, CreatureID);
+}
+void SendUseObject(int x, int y, int z, int Type, int Position, int Container)
+{
+	FakeSendUseObject(x, y, z, Type, Position, Container);
+}
+void SendUseObjectWith(int x1, int y1, int z1, int Type1, int Position1, int x2, int y2, int z2, int Type2,
+	int Position2)
+{
+	FakeSendUseObjectWith(x1, y1, z1, Type1, Position1, x2, y2, z2, Type2, Position2);
+}
+void SendUseObjectOnCreature(int x, int y, int z, int Type, int Position, uint32 CreatureID)
+{
+	FakeSendUseObjectOnCreature(x, y, z, Type, Position, CreatureID);
+}
+#endif
+
+// The surface slots MapWindow.cpp calls (the TTestSurface methods; the others
+// are graphics_tests.cpp's recorders and playertest.cpp's stubs).
 void TTestSurface::FillRectangle(int Surface, TRect R, TRGBColor C)
 {
 	Logf("SF%d,%d,%d,%d,%d,%d/%d/%d;", Surface, R.x, R.y, R.width, R.height, C.R, C.G, C.B);
@@ -480,14 +611,25 @@ void TTestSurface::ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBCol
 		Logf(",%d/%d/%d", Colors[i].R, Colors[i].G, Colors[i].B);
 	Logf(";");
 }
-bool TTestSurface::SurfaceRecreated(int Surface) { Logf("S9%d;", Surface); return SurfaceLost; }
+bool TTestSurface::SurfaceRecreated(int Surface)
+{
+	Logf("S9%d;", Surface);
+	return SurfaceLost;
+}
 bool TTestSurface::CanShadeRectangles() { return CanShade; }
+
+namespace MapWindowTest {
+
 static TSurface *FakeSurface;
 static TSurface *__cdecl FakeGetSurface() { return FakeSurface; }
 
 static void PatchWorld()
 {
-	struct { uint32 Image; void *Ours; void *Fake; } Table[] = {
+	struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Table[] = {
 		{0x4b08c0, (void *)GetMapPosition, (void *)FakeGetMapPosition},
 		{0x4b08f0, (void *)GetMapLevel, (void *)FakeGetMapLevel},
 		{0x4b0910, (void *)RelativeToAbsolute, (void *)FakeRelativeToAbsolute},
@@ -589,24 +731,50 @@ static void PatchWorld()
 		{0x4eaa90, (void *)GetSurface, (void *)FakeGetSurface},
 	};
 	for (auto &T : Table) {
-		PatchJump(T.Image, T.Fake);
+		ORIGINAL(PatchJump(T.Image, T.Fake));
 		PatchOwn(T.Ours, T.Fake);
 	}
-	static const struct { uint32 Image; void *Ours; } Sends[] = {
-		{0x414700, (void *)SendWalk}, {0x414a10, (void *)SendStop}, {0x408080, (void *)SendAttack},
-		{0x4065e0, (void *)SendLook}, {0x404db0, (void *)SendMoveObject}, {0x405000, (void *)SendRequestTrade},
-		{0x4056f0, (void *)SendUseObject}, {0x4058f0, (void *)SendUseObjectWith},
-		{0x405b20, (void *)SendUseObjectOnCreature},
+	// The image's Send functions jump to ours (this file's, the oracle); the runner's (client_stubs.cpp's)
+	// to the fakes.
+	static const struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Sends[] = {
+		{0x414700, (void *)SendWalk, (void *)FakeSendWalk},
+		{0x414a10, (void *)SendStop, (void *)FakeSendStop},
+		{0x408080, (void *)SendAttack, (void *)FakeSendAttack},
+		{0x4065e0, (void *)SendLook, (void *)FakeSendLook},
+		{0x404db0, (void *)SendMoveObject, (void *)FakeSendMoveObject},
+		{0x405000, (void *)SendRequestTrade, (void *)FakeSendRequestTrade},
+		{0x4056f0, (void *)SendUseObject, (void *)FakeSendUseObject},
+		{0x4058f0, (void *)SendUseObjectWith, (void *)FakeSendUseObjectWith},
+		{0x405b20, (void *)SendUseObjectOnCreature, (void *)FakeSendUseObjectOnCreature},
 	};
-	for (auto &S : Sends)
+	for (auto &S : Sends) {
+#if GOLDEN_ORACLE
 		PatchJump(S.Image, S.Ours);
+		(void)S.Fake;
+#else
+		PatchOwn(S.Ours, S.Fake);
+#endif
+	}
 }
 
 // --- Random worlds -----------------------------------------------------------
 
 
-
 static int Pick(const std::vector<int> &List) { return List[Random() % List.size()]; }
+
+// TRGBColor(Random() % Max, Random() % Max, Random() % Max) with its calls in the x86 oracle's order (issue
+// #55: the constructor's arguments right to left).
+static TRGBColor RandomColor(uint32 Max)
+{
+	int B = (int)(Random() % Max);
+	int G = (int)(Random() % Max);
+	int R = (int)(Random() % Max);
+	return TRGBColor(R, G, B);
+}
 
 static void SortTypes()
 {
@@ -646,8 +814,11 @@ static void SortTypes()
 static TObject RandomObject()
 {
 	int r = Random() % 12;
-	const std::vector<int> &List = r == 0 ? Tops : r == 1 ? Lights : r == 2 ? Lyings : r == 3 ? Heights
-		: r == 4 && !FullBanks.empty() ? FullBanks : Plain;
+	const std::vector<int> &List = r == 0 ? Tops : r == 1 ? Lights
+		: r == 2                                          ? Lyings
+		: r == 3                                          ? Heights
+		: r == 4 && !FullBanks.empty()                    ? FullBanks
+														  : Plain;
 	TObject Obj = {Pick(List), (int)(Random() % 100), (int)(Random() % 3 == 0 ? HOOKSOUTH + Random() % 2 : Random() % 4)};
 	return Obj;
 }
@@ -694,7 +865,7 @@ static void RandomWorld()
 	CenterZ = Random() % 2 ? 7 : 3 + Random() % 9;
 	Level = Random() % 3 == 0 ? 5 + Random() % 3 : 7;
 	AmbientBrightness = Random() % 300 - 20;
-	Ambient = TRGBColor(Random() % 256, Random() % 256, Random() % 256);
+	Ambient = RandomColor(256);
 	int Density = 1 + Random() % 4;
 	for (int x = 0; x < MAPSIZE_X; x++) {
 		for (int y = 0; y < MAPSIZE_Y; y++) {
@@ -780,7 +951,7 @@ static void RandomTalkboxes()
 		T.Lines = 1 + Random() % 4;
 		for (int k = 0; k < T.Lines; k++)
 			RandomText(T.Line[k], Random() % 20);
-		T.Color = TRGBColor(Random() % 256, Random() % 256, Random() % 256);
+		T.Color = RandomColor(256);
 		T.RectX = Random() % 500 - 10;
 		T.RectY = Random() % 400 - 10;
 		T.Alignment = Random() % 3;
@@ -792,38 +963,38 @@ static void RandomTalkboxes()
 
 // --- The windows -------------------------------------------------------------
 
+#if GOLDEN_ORACLE
 typedef void *(__fastcall *CtorFn)(void *, void *);
 typedef void *(__fastcall *DeleteFn)(void *, void *, int);
-typedef void (__fastcall *VoidFn)(void *, void *);
-typedef int (__fastcall *IntFn)(void *, void *);
-typedef void (__fastcall *Int1Fn)(void *, void *, int);
-typedef void (__fastcall *Int2Fn)(void *, void *, int, int);
-typedef void (__fastcall *Int3Fn)(void *, void *, int, int, int);
-typedef void (__fastcall *Int5Fn)(void *, void *, int, int, int, int, int);
-typedef void (__fastcall *Int6Fn)(void *, void *, int, int, int, int, int, int);
-typedef bool (__fastcall *Bool2Fn)(void *, void *, int, int);
-typedef bool (__fastcall *Bool3Fn)(void *, void *, int, int, int);
-typedef uint32 (__fastcall *ID2Fn)(void *, void *, int, int);
+typedef void(__fastcall *VoidFn)(void *, void *);
+typedef int(__fastcall *IntFn)(void *, void *);
+typedef void(__fastcall *Int1Fn)(void *, void *, int);
+typedef void(__fastcall *Int2Fn)(void *, void *, int, int);
+typedef void(__fastcall *Int3Fn)(void *, void *, int, int, int);
+typedef void(__fastcall *Int5Fn)(void *, void *, int, int, int, int, int);
+typedef void(__fastcall *Int6Fn)(void *, void *, int, int, int, int, int, int);
+typedef bool(__fastcall *Bool2Fn)(void *, void *, int, int);
+typedef bool(__fastcall *Bool3Fn)(void *, void *, int, int, int);
+typedef uint32(__fastcall *ID2Fn)(void *, void *, int, int);
 typedef void *(__fastcall *CacheFn)(void *, void *, int, int);
-typedef void (__fastcall *FieldFn)(void *, void *, int, int, int *, int *, int *);
-typedef void (__fastcall *LightFn)(void *, void *, int, int, int, int, TRGBColor);
-typedef void (__fastcall *SpriteFn)(void *, void *, int, int, int, bool, int, int, TRGBColor *);
-typedef void (__fastcall *ObjectFn)(void *, void *, int, int, int, TObject, int, int, int);
-typedef void (__fastcall *CreatureFn)(void *, void *, int, int, int, TCreature *);
+typedef void(__fastcall *FieldFn)(void *, void *, int, int, int *, int *, int *);
+typedef void(__fastcall *LightFn)(void *, void *, int, int, int, int, TRGBColor);
+typedef void(__fastcall *SpriteFn)(void *, void *, int, int, int, bool, int, int, TRGBColor *);
+typedef void(__fastcall *ObjectFn)(void *, void *, int, int, int, TObject, int, int, int);
+typedef void(__fastcall *CreatureFn)(void *, void *, int, int, int, TCreature *);
+#endif
 
 static TMapWindow *Ours;
-static uint8 *Original;
+static uint8 *Original; // the oracle's (the runner has none)
 
 static void NewWindows()
 {
 	void *Memory = calloc(1, sizeof(TMapWindow));
-	Original = (uint8 *)calloc(1, sizeof(TMapWindow));
 	Window[OURS] = Memory;
-	Window[ORIGINAL] = Original;
 	Side = OURS;
 	Ours = new (Memory) TMapWindow;
-	Side = ORIGINAL;
-	At<CtorFn>(0x4bfa00)(Original, NULL);
+	ORIGINAL(Original = (uint8 *)calloc(1, sizeof(TMapWindow)); Window[ORIGINAL] = Original; Side = ORIGINAL;
+		At<CtorFn>(0x4bfa00)(Original, NULL));
 }
 
 static void DeleteWindows()
@@ -831,9 +1002,7 @@ static void DeleteWindows()
 	Side = OURS;
 	Ours->~TMapWindow();
 	free(Ours);
-	Side = ORIGINAL;
-	At<DeleteFn>(0x4bf9e0)(Original, NULL, 0);
-	free(Original);
+	ORIGINAL(Side = ORIGINAL; At<DeleteFn>(0x4bf9e0)(Original, NULL, 0); free(Original));
 }
 
 // Coverage: how often our side's logs held each kind of entry.
@@ -855,6 +1024,9 @@ static void CountKinds(const std::string &Text)
 
 static void CompareLogs(const char *What, int Arg = 0)
 {
+	// The original's log: the oracle's, recorded; the runner's from the corpus.
+	std::string Text = golden::OutputText("log", Log[ORIGINAL].data(), Log[ORIGINAL].size());
+	ORIGINAL_OR((void)0, Log[ORIGINAL] = Text);
 	CountKinds(Log[OURS]);
 	Checks++;
 	if (Log[OURS] != Log[ORIGINAL]) {
@@ -872,22 +1044,64 @@ static void CompareLogs(const char *What, int Arg = 0)
 	Log[ORIGINAL].clear();
 }
 
+// The compared members of a map view, in the order of the x86 bytes from +0x14 the old test compared
+// (TWindow's children at +0x24 left out): TComponent's OffsetX, OffsetY, Width and Height (+0x14), then
+// TMapWindow's members from NumberOfNames (+0x2c) up to HintButton (+0x92d4). None of them is a pointer;
+// their bytes (padding included) are the same on both targets.
+static const size_t GEOMETRY = 4 * sizeof(int);
+static const size_t MEMBERS = offsetof(TMapWindow, HintButton) - offsetof(TMapWindow, NumberOfNames);
+static const size_t STATE = GEOMETRY + MEMBERS;
+static int X86Offset(size_t i) { return (int)(i < GEOMETRY ? 0x14 + i : 0x2c + (i - GEOMETRY)); }
+static void StateOf(const TMapWindow *Map, uint8 *State)
+{
+	memcpy(State, &Map->OffsetX, GEOMETRY);
+	memcpy(State + GEOMETRY, &Map->NumberOfNames, MEMBERS);
+}
+#if GOLDEN_ORACLE
+// The original's map view, at the x86 offsets.
+static void OriginalStateOf(const uint8 *Map, uint8 *State)
+{
+	memcpy(State, Map + 0x14, GEOMETRY);
+	memcpy(State + GEOMETRY, Map + 0x2c, MEMBERS);
+}
+#endif
+// The original's members (Value, the oracle's; ignored by the runner) by their changes since the last
+// record into Last, which then holds the original's members on both sides (zeroed at first on both).
+static void OutputState(const char *Name, uint8 *Last, const uint8 *Value) { golden::OutputRuns(Name, Last, Value, STATE); }
+static std::vector<uint8> LastWindow(STATE);
+
 // The window from TComponent::OffsetX on; HintButton is compared as set or
 // not (the children are the two sides' own objects).
 static void Compare(const char *What, int Arg = 0)
 {
 	CompareLogs(What, Arg);
-	const uint8 *A = (const uint8 *)Ours, *B = Original;
-	int Differ = -1;
-	for (int i = 0x14; i < (int)offsetof(TMapWindow, HintButton) && Differ < 0; i++) {
-		if (i >= 0x24 && i < 0x2c)
-			continue; // TWindow's children
+	std::vector<uint8> A(STATE);
+	StateOf(Ours, A.data());
+#if GOLDEN_ORACLE
+	std::vector<uint8> Value(STATE);
+	OriginalStateOf(Original, Value.data());
+	OutputState("window", LastWindow.data(), Value.data());
+#else
+	OutputState("window", LastWindow.data(), nullptr);
+#endif
+	const uint8 *B = LastWindow.data();
+	size_t Differ = STATE;
+	for (size_t i = 0; i < STATE && Differ == STATE; i++) {
 		if (A[i] != B[i])
 			Differ = i;
 	}
-	CHECK(Differ < 0, "%s (%d): windows differ at +0x%x (%d, original %d)", What, Arg, Differ,
-		Differ < 0 ? 0 : *(int *)(A + (Differ & ~3)), Differ < 0 ? 0 : *(int *)(B + (Differ & ~3)));
-	CHECK((Ours->HintButton == NULL) == (*(void **)(Original + 0x92d4) == NULL), "%s (%d): hint button", What, Arg);
+	// The ints at the first difference: the 4-byte word of the x86 offset (the geometry and the members
+	// start at multiples of four).
+	int WordA = 0, WordB = 0;
+	if (Differ < STATE) {
+		size_t Word = Differ & ~(size_t)3;
+		memcpy(&WordA, A.data() + Word, sizeof(int));
+		memcpy(&WordB, B + Word, sizeof(int));
+	}
+	CHECK(Differ == STATE, "%s (%d): windows differ at +0x%x (%d, original %d)", What, Arg,
+		Differ < STATE ? X86Offset(Differ) : -1, WordA, WordB);
+	bool OriginalHint = ORIGINAL_VALUE("hint button", bool, *(void **)(Original + 0x92d4) != NULL);
+	CHECK((Ours->HintButton == NULL) == !OriginalHint, "%s (%d): hint button", What, Arg);
 }
 
 static void SetSizes()
@@ -902,21 +1116,20 @@ static void SetSizes()
 	}
 	Side = OURS;
 	Ours->SetSize(Width, Height);
-	Side = ORIGINAL;
-	At<Int2Fn>(0x4bfc30)(Original, NULL, Width, Height);
+	ORIGINAL(Side = ORIGINAL; At<Int2Fn>(0x4bfc30)(Original, NULL, Width, Height));
 	Compare("SetSize", Width);
 	int Ox = Random() % 50, Oy = Random() % 50;
 	Ours->OffsetX = Ox;
 	Ours->OffsetY = Oy;
-	*(int *)(Original + 0x14) = Ox;
-	*(int *)(Original + 0x18) = Oy;
+	ORIGINAL(*(int *)(Original + 0x14) = Ox; *(int *)(Original + 0x18) = Oy);
 }
 
-// Copies a random part of our window's state to the original one.
+// Copies a random part of our window's state to the original one (the oracle; our x86 layout is the
+// original's).
 static void Mirror()
 {
-	memcpy(Original + 0x14, (uint8 *)Ours + 0x14, 0x10);
-	memcpy(Original + 0x2c, (uint8 *)Ours + 0x2c, offsetof(TMapWindow, HintButton) - 0x2c);
+	ORIGINAL(memcpy(Original + 0x14, (uint8 *)Ours + 0x14, 0x10);
+		memcpy(Original + 0x2c, (uint8 *)Ours + 0x2c, offsetof(TMapWindow, HintButton) - 0x2c));
 }
 
 static void RandomState()
@@ -924,7 +1137,7 @@ static void RandomState()
 	for (int x = 0; x < MAPSIZE_X; x++) {
 		for (int y = 0; y < MAPSIZE_Y; y++) {
 			Ours->CoverLevel[x][y] = Random() % 3 == 0 ? Random() % 8 : 0;
-			Ours->Light[x][y] = TRGBColor(Random() % 256, Random() % 256, Random() % 256);
+			Ours->Light[x][y] = RandomColor(256);
 		}
 	}
 	Ours->ScrollX = Random() % 64;
@@ -951,6 +1164,13 @@ static void RandomState()
 
 static int Executed[24];
 
+// GetCacheField's result as an offset in the x86 window (the old test compared those): the tile's offset in
+// the cache plus the cache's x86 offset.
+static int CacheOffset(const TCacheField *Field)
+{
+	return (int)((const uint8 *)Field - (const uint8 *)&Ours->Cache[0][0]) + 0x29d4;
+}
+
 static void TestOperations(int Rounds)
 {
 	for (int t = 0; t < Rounds; t++) {
@@ -959,297 +1179,298 @@ static void TestOperations(int Rounds)
 		// Our side runs first; an error it raises (an input outside the
 		// original's assumptions) stops the test before the image is called.
 		try {
-		switch (Op) {
-		case 0: { // IsFieldVisible, SetLightColor (the image's out-of-line copies)
-			RandomState();
-			int x = Random() % 20 - 1, y = Random() % 16 - 1, z = Random() % 9;
-			Side = OURS;
-			bool A = Ours->IsFieldVisible(x, y, z);
-			Side = ORIGINAL;
-			bool B = At<Bool3Fn>(0x4bf8f0)(Original, NULL, x, y, z);
-			CHECK(A == B, "IsFieldVisible(%d,%d,%d)", x, y, z);
-			x = Random() % MAPSIZE_X;
-			y = Random() % MAPSIZE_Y;
-			int b = Random() % 400 - 70;
-			Side = OURS;
-			Ours->SetLightColor(x, y, b);
-			Side = ORIGINAL;
-			At<Int3Fn>(0x4bf930)(Original, NULL, x, y, b);
-			Compare("SetLightColor", b);
-			break;
-		}
-		case 1: { // GetCacheField
-			RandomState();
-			int x = Random() % MAPSIZE_X, y = Random() % MAPSIZE_Y;
-			Side = OURS;
-			int A = (int)((uint8 *)Ours->GetCacheField(x, y) - (uint8 *)Ours);
-			Side = ORIGINAL;
-			int B = (int)((uint8 *)At<CacheFn>(0x4c0590)(Original, NULL, x, y) - Original);
-			CHECK(A == B, "GetCacheField(%d,%d): +0x%x, original +0x%x", x, y, A, B);
-			break;
-		}
-		case 2: case 3: { // CacheSprite, FlushField
-			if (Random() % 4 == 0)
+			switch (Op) {
+			case 0: { // IsFieldVisible, SetLightColor (the image's out-of-line copies)
 				RandomState();
-			for (int k = 0; k < 20; k++) {
-				int x = Random() % 20 - 1, y = Random() % 16 - 1;
-				if (Op == 2) {
-					int Sprite = Random() % 4 == 0 ? 0 : 1 + Random() % 9, dx = Random() % 3 - 1, dy = Random() % 3 - 1;
-					Side = OURS;
-					Ours->CacheSprite(x, y, Sprite, dx, dy);
-					Side = ORIGINAL;
-					At<Int5Fn>(0x4c41e0)(Original, NULL, x, y, Sprite, dx, dy);
-				} else {
-					Side = OURS;
-					Ours->FlushField(x, y);
-					Side = ORIGINAL;
-					At<Int2Fn>(0x4c3980)(Original, NULL, x, y);
-				}
-				Compare(Op == 2 ? "CacheSprite" : "FlushField", x * 100 + y);
+				int x = Random() % 20 - 1, y = Random() % 16 - 1, z = Random() % 9;
+				Side = OURS;
+				bool A = Ours->IsFieldVisible(x, y, z);
+				bool B = ORIGINAL_VALUE("result", bool, (Side = ORIGINAL, At<Bool3Fn>(0x4bf8f0)(Original, NULL, x, y, z)));
+				CHECK(A == B, "IsFieldVisible(%d,%d,%d)", x, y, z);
+				x = Random() % MAPSIZE_X;
+				y = Random() % MAPSIZE_Y;
+				int b = Random() % 400 - 70;
+				Side = OURS;
+				Ours->SetLightColor(x, y, b);
+				ORIGINAL(Side = ORIGINAL; At<Int3Fn>(0x4bf930)(Original, NULL, x, y, b));
+				Compare("SetLightColor", b);
+				break;
 			}
-			break;
-		}
-		case 4: { // DrawFieldSprite
-			if (Random() % 4 == 0)
+			case 1: { // GetCacheField
 				RandomState();
-			TRGBColor Colors[4] = {TRGBColor(1, 2, 3), TRGBColor(4, 5, 6), TRGBColor(7, 8, 9), TRGBColor(10, 11, 12)};
-			for (int k = 0; k < 20; k++) {
-				int x = Random() % 560 - 64, y = Random() % 440 - 64, z = Random() % 8;
-				bool Animated = Random() % 3 == 0;
-				int Sprite = 1 + Random() % 9, Mask = Random() % 4 == 0 ? 1 + Random() % 5 : 0;
+				int x = Random() % MAPSIZE_X, y = Random() % MAPSIZE_Y;
 				Side = OURS;
-				Ours->DrawFieldSprite(x, y, z, Animated, Sprite, Mask, Colors);
-				Side = ORIGINAL;
-				At<SpriteFn>(0x4c46a0)(Original, NULL, x, y, z, Animated, Sprite, Mask, Colors);
-				Compare("DrawFieldSprite", x);
+				int A = CacheOffset(Ours->GetCacheField(x, y));
+				int B = ORIGINAL_VALUE("result", int,
+					(Side = ORIGINAL, (int)((uint8 *)At<CacheFn>(0x4c0590)(Original, NULL, x, y) - Original)));
+				CHECK(A == B, "GetCacheField(%d,%d): +0x%x, original +0x%x", x, y, A, B);
+				break;
 			}
-			break;
-		}
-		case 5: { // DrawLightMask, AddLightSource
-			RandomState();
-			for (int k = 0; k < 10; k++) {
-				int x = Random() % 600 - 60, y = Random() % 450 - 50, b = Random() % 256;
-				Side = OURS;
-				Ours->DrawLightMask(x, y, b);
-				Side = ORIGINAL;
-				At<Int3Fn>(0x4c02c0)(Original, NULL, x, y, b);
-				Compare("DrawLightMask", b);
-				int z = Random() % 8, Brightness = Random() % 9 - 1;
-				TRGBColor Color(Random() % 300, Random() % 300, Random() % 300);
-				Side = OURS;
-				Ours->AddLightSource(x, y, z, Brightness, Color);
-				Side = ORIGINAL;
-				At<LightFn>(0x4c3c80)(Original, NULL, x, y, z, Brightness, Color);
-				Compare("AddLightSource", Brightness);
-			}
-			break;
-		}
-		case 6: { // DrawObject
-			RandomState();
-			for (int k = 0; k < 10; k++) {
-				TObject Obj = RandomObject();
-				int x = Random() % 560 - 40, y = Random() % 420 - 40, z = Random() % 8;
-				int ax = Random() % 2000, ay = Random() % 2000, az = Random() % 16;
-				Side = OURS;
-				Ours->DrawObject(x, y, z, Obj, ax, ay, az);
-				Side = ORIGINAL;
-				At<ObjectFn>(0x4c4af0)(Original, NULL, x, y, z, Obj, ax, ay, az);
-				Compare("DrawObject", Obj.Type);
-			}
-			break;
-		}
-		case 7: { // DrawCreature
-			RandomState();
-			for (int k = 0; k < 10; k++) {
-				RandomCreature(11, 8, 6, Level);
-				if (World[11].OutfitType == 0)
-					World[11].OutfitType = Pick(Outfits);
-				int x = Random() % 560 - 40, y = Random() % 420 - 40, z = Random() % 8;
-				Side = OURS;
-				Ours->DrawCreature(x, y, z, &World[11]);
-				Side = ORIGINAL;
-				At<CreatureFn>(0x4c4f80)(Original, NULL, x, y, z, &World[11]);
-				Compare("DrawCreature", World[11].OutfitType);
-			}
-			break;
-		}
-		case 8: case 9: { // DrawField
-			RandomState();
-			Ours->NumberOfNames = Random() % 5;
-			Ours->NumberOfTextualEffects = Random() % 5;
-			Mirror();
-			for (int k = 0; k < 6; k++) {
-				int fx = Random() % MAPSIZE_X, fy = Random() % MAPSIZE_Y, fz = Random() % 2 ? Level : Random() % 8;
-				int Mode = Random() % 3 == 0 ? 1 : 0;
-				int x = fx * 32 - Ours->ScrollX, y = fy * 32 - Ours->ScrollY;
-				Side = OURS;
-				Ours->DrawField(x, y, fx, fy, fz, Mode);
-				Side = ORIGINAL;
-				At<Int6Fn>(0x4c5520)(Original, NULL, x, y, fx, fy, fz, Mode);
-				Compare("DrawField", fx * 100 + fy);
-			}
-			break;
-		}
-		case 10: case 11: case 12: { // Draw
-			if (Random() % 2)
-				SetSizes();
-			RandomTalkboxes();
-			int x = Random() % 100, y = Random() % 100;
-			Side = OURS;
-			Ours->Draw(1, x, y);
-			Side = ORIGINAL;
-			At<Int3Fn>(0x4c7580)(Original, NULL, 1, x, y);
-			Compare("Draw", t);
-			break;
-		}
-		case 13: { // ArrangeTalkboxes
-			RandomTalkboxes();
-			Side = OURS;
-			Ours->ArrangeTalkboxes();
-			Side = ORIGINAL;
-			At<VoidFn>(0x4c0880)(Original, NULL);
-			Compare("ArrangeTalkboxes", NumberOfTalkboxes);
-			break;
-		}
-		case 14: { // GetField, GetCreatureAt
-			for (int k = 0; k < 10; k++) {
-				int x = Random() % Ours->Width, y = Random() % Ours->Height;
-				int A[3], B[3];
-				Side = OURS;
-				Ours->GetField(x, y, &A[0], &A[1], &A[2]);
-				uint32 IDA = Ours->GetCreatureAt(x, y);
-				Side = ORIGINAL;
-				At<FieldFn>(0x4c12e0)(Original, NULL, x, y, &B[0], &B[1], &B[2]);
-				uint32 IDB = At<ID2Fn>(0x4c16b0)(Original, NULL, x, y);
-				CHECK(A[0] == B[0] && A[1] == B[1] && A[2] == B[2], "GetField(%d,%d): %d,%d,%d, original %d,%d,%d", x, y,
-					A[0], A[1], A[2], B[0], B[1], B[2]);
-				CHECK(IDA == IDB, "GetCreatureAt(%d,%d): %u, original %u", x, y, IDA, IDB);
-				Compare("GetField", x);
-			}
-			break;
-		}
-		case 15: case 16: case 17: case 18: { // mouse buttons and help
-			static const int States[] = {0, 6, 7, 8, 9};
-			ActionState = States[Random() % 5];
-			DraggedObject = RandomObject();
-			TradedObject = RandomObject();
-			UsedObject = RandomObject();
-			if (Random() % 3 == 0)
-				DraggedObject.Type = Pick(Movables);
-			else if (Random() % 2 == 0)
-				DraggedObject.Type = Pick(Cumulatives);
-			// Darkness away from the player: "You can't see anything".
-			if (Random() % 4 == 0) {
-				memset(Ours->Light, 0, sizeof(Ours->Light));
-				memset(Original + offsetof(TMapWindow, Light), 0, sizeof(Ours->Light));
-			}
-			for (int n = 0; n < 3; n++) {
-				SlotData[n][0] = Random() % 4;
-				SlotData[n][1] = CenterX - 8 + Random() % MAPSIZE_X;
-				SlotData[n][2] = CenterY - 6 + Random() % MAPSIZE_Y;
-				SlotData[n][3] = 100 + (Random() % 2 ? Level : Random() % 8);
-			}
-			TradeInfo = Random() % 2 ? World[Random() % WorldSize].CreatureID : Random() % 3 == 0 ? 0 : 0x7000000;
-			ClassicControl = Random() % 2 != 0;
-			Destination = Random() % 4;
-			FreeContainer = Random() % 16;
-			int x = Random() % Ours->Width, y = Random() % Ours->Height;
-			// Often on a creature's name position (GetCreatureAt finds it).
-			if (Ours->NumberOfNames > 0 && Random() % 2 == 0) {
-				TCreatureName &Name = Ours->Names[Random() % Ours->NumberOfNames];
-				if (NoStretching) {
-					x = Name.x - (480 - Ours->Width) / 2 + (int)(Random() % 9) - 4;
-					y = Name.y - (352 - Ours->Height) / 2 + (int)(Random() % 30);
-				} else {
-					x = Name.x * Ours->Width / 480 + (int)(Random() % 9) - 4;
-					y = Name.y * Ours->Height / 352 + (int)(Random() % 30);
+			case 2:
+			case 3: { // CacheSprite, FlushField
+				if (Random() % 4 == 0)
+					RandomState();
+				for (int k = 0; k < 20; k++) {
+					int x = Random() % 20 - 1, y = Random() % 16 - 1;
+					if (Op == 2) {
+						int Sprite = Random() % 4 == 0 ? 0 : 1 + Random() % 9, dx = Random() % 3 - 1, dy = Random() % 3 - 1;
+						Side = OURS;
+						Ours->CacheSprite(x, y, Sprite, dx, dy);
+						ORIGINAL(Side = ORIGINAL; At<Int5Fn>(0x4c41e0)(Original, NULL, x, y, Sprite, dx, dy));
+					} else {
+						Side = OURS;
+						Ours->FlushField(x, y);
+						ORIGINAL(Side = ORIGINAL; At<Int2Fn>(0x4c3980)(Original, NULL, x, y));
+					}
+					Compare(Op == 2 ? "CacheSprite" : "FlushField", x * 100 + y);
 				}
-				x = x < 0 ? 0 : x >= Ours->Width ? Ours->Width - 1 : x;
-				y = y < 0 ? 0 : y >= Ours->Height ? Ours->Height - 1 : y;
+				break;
 			}
-			static const int FlagSets[] = {0, 0x200, 0x400, 0x800, 0x600, 0x100};
-			int Flags = FlagSets[Random() % 6];
-			bool A, B;
-			Side = OURS;
-			if (Op == 15)
-				A = Ours->LeftButtonDown(x, y, Flags);
-			else if (Op == 16)
-				A = Ours->LeftButtonUp(x, y, Flags);
-			else if (Op == 17)
-				A = Ours->RightButtonUp(x, y, Flags);
-			else
-				A = Ours->HelpMouseMove(x, y);
-			Side = ORIGINAL;
-			if (Op == 15)
-				B = At<Bool3Fn>(0x4c24d0)(Original, NULL, x, y, Flags);
-			else if (Op == 16)
-				B = At<Bool3Fn>(0x4c2710)(Original, NULL, x, y, Flags);
-			else if (Op == 17)
-				B = At<Bool3Fn>(0x4c2e50)(Original, NULL, x, y, Flags);
-			else
-				B = At<Bool2Fn>(0x4c3520)(Original, NULL, x, y);
-			CHECK(A == B, "mouse operation %d at %d,%d (flags 0x%x): %d, original %d", Op, x, y, Flags, A, B);
-			Compare("mouse", Op);
-			break;
-		}
-		case 19: { // HandleEvent
-			static const int Events[] = {600, 601, 5}; // 27 needs the hint button (case 20)
-			int Event = Events[Random() % 3];
-			NextHint = 1 + Random() % EVENTHELPS;
-			Side = OURS;
-			Ours->HandleEvent(Event);
-			Side = ORIGINAL;
-			At<Int1Fn>(0x4bffa0)(Original, NULL, Event);
-			Compare("HandleEvent", Event);
-			break;
-		}
-		case 20: { // Arrange with a hint button, then HandleEvent(27) and Draw remove it
-			TElement *Element = new TElement;
-			void *OriginalElement = calloc(1, sizeof(TElement));
-			At<CtorFn>(0x496100)(OriginalElement, NULL);
-			Side = OURS;
-			Ours->InsertChild(Element);
-			Ours->HintButton = Element;
-			Ours->Arrange();
-			Side = ORIGINAL;
-			At<void (__fastcall *)(void *, void *, void *)>(0x49c190)(Original, NULL, OriginalElement);
-			*(void **)(Original + 0x92d4) = OriginalElement;
-			At<VoidFn>(0x4bfde0)(Original, NULL);
-			Compare("Arrange");
-			CHECK(Element->OffsetX == ((TComponent *)OriginalElement)->OffsetX && Element->Width
-				== ((TComponent *)OriginalElement)->Width, "Arrange: hint button area");
-			if (Random() % 2) {
-				NextHint = 1 + Random() % EVENTHELPS;
+			case 4: { // DrawFieldSprite
+				if (Random() % 4 == 0)
+					RandomState();
+				TRGBColor Colors[4] = {TRGBColor(1, 2, 3), TRGBColor(4, 5, 6), TRGBColor(7, 8, 9), TRGBColor(10, 11, 12)};
+				for (int k = 0; k < 20; k++) {
+					int x = Random() % 560 - 64, y = Random() % 440 - 64, z = Random() % 8;
+					bool Animated = Random() % 3 == 0;
+					int Sprite = 1 + Random() % 9, Mask = Random() % 4 == 0 ? 1 + Random() % 5 : 0;
+					Side = OURS;
+					Ours->DrawFieldSprite(x, y, z, Animated, Sprite, Mask, Colors);
+					ORIGINAL(Side = ORIGINAL; At<SpriteFn>(0x4c46a0)(Original, NULL, x, y, z, Animated, Sprite, Mask, Colors));
+					Compare("DrawFieldSprite", x);
+				}
+				break;
+			}
+			case 5: { // DrawLightMask, AddLightSource
+				RandomState();
+				for (int k = 0; k < 10; k++) {
+					int x = Random() % 600 - 60, y = Random() % 450 - 50, b = Random() % 256;
+					Side = OURS;
+					Ours->DrawLightMask(x, y, b);
+					ORIGINAL(Side = ORIGINAL; At<Int3Fn>(0x4c02c0)(Original, NULL, x, y, b));
+					Compare("DrawLightMask", b);
+					int z = Random() % 8, Brightness = Random() % 9 - 1;
+					TRGBColor Color = RandomColor(300);
+					Side = OURS;
+					Ours->AddLightSource(x, y, z, Brightness, Color);
+					ORIGINAL(Side = ORIGINAL; At<LightFn>(0x4c3c80)(Original, NULL, x, y, z, Brightness, Color));
+					Compare("AddLightSource", Brightness);
+				}
+				break;
+			}
+			case 6: { // DrawObject
+				RandomState();
+				for (int k = 0; k < 10; k++) {
+					TObject Obj = RandomObject();
+					int x = Random() % 560 - 40, y = Random() % 420 - 40, z = Random() % 8;
+					int ax = Random() % 2000, ay = Random() % 2000, az = Random() % 16;
+					Side = OURS;
+					Ours->DrawObject(x, y, z, Obj, ax, ay, az);
+					ORIGINAL(Side = ORIGINAL; At<ObjectFn>(0x4c4af0)(Original, NULL, x, y, z, Obj, ax, ay, az));
+					Compare("DrawObject", Obj.Type);
+				}
+				break;
+			}
+			case 7: { // DrawCreature
+				RandomState();
+				for (int k = 0; k < 10; k++) {
+					RandomCreature(11, 8, 6, Level);
+					if (World[11].OutfitType == 0)
+						World[11].OutfitType = Pick(Outfits);
+					int x = Random() % 560 - 40, y = Random() % 420 - 40, z = Random() % 8;
+					Side = OURS;
+					Ours->DrawCreature(x, y, z, &World[11]);
+					ORIGINAL(Side = ORIGINAL; At<CreatureFn>(0x4c4f80)(Original, NULL, x, y, z, &World[11]));
+					Compare("DrawCreature", World[11].OutfitType);
+				}
+				break;
+			}
+			case 8:
+			case 9: { // DrawField
+				RandomState();
+				Ours->NumberOfNames = Random() % 5;
+				Ours->NumberOfTextualEffects = Random() % 5;
+				Mirror();
+				for (int k = 0; k < 6; k++) {
+					int fx = Random() % MAPSIZE_X, fy = Random() % MAPSIZE_Y, fz = Random() % 2 ? Level : Random() % 8;
+					int Mode = Random() % 3 == 0 ? 1 : 0;
+					int x = fx * 32 - Ours->ScrollX, y = fy * 32 - Ours->ScrollY;
+					Side = OURS;
+					Ours->DrawField(x, y, fx, fy, fz, Mode);
+					ORIGINAL(Side = ORIGINAL; At<Int6Fn>(0x4c5520)(Original, NULL, x, y, fx, fy, fz, Mode));
+					Compare("DrawField", fx * 100 + fy);
+				}
+				break;
+			}
+			case 10:
+			case 11:
+			case 12: { // Draw
+				if (Random() % 2)
+					SetSizes();
+				RandomTalkboxes();
+				int x = Random() % 100, y = Random() % 100;
 				Side = OURS;
-				Ours->HandleEvent(27);
-				Side = ORIGINAL;
-				At<Int1Fn>(0x4bffa0)(Original, NULL, 27);
-				Compare("HandleEvent", 27);
-			} else {
+				Ours->Draw(1, x, y);
+				ORIGINAL(Side = ORIGINAL; At<Int3Fn>(0x4c7580)(Original, NULL, 1, x, y));
+				Compare("Draw", t);
+				break;
+			}
+			case 13: { // ArrangeTalkboxes
 				RandomTalkboxes();
 				Side = OURS;
-				Ours->Draw(1, 0, 0);
-				Side = ORIGINAL;
-				At<Int3Fn>(0x4c7580)(Original, NULL, 1, 0, 0);
-				Compare("Draw with a hint button");
+				Ours->ArrangeTalkboxes();
+				ORIGINAL(Side = ORIGINAL; At<VoidFn>(0x4c0880)(Original, NULL));
+				Compare("ArrangeTalkboxes", NumberOfTalkboxes);
+				break;
 			}
-			break;
-		}
-		case 21: { // the minimum size
-			Side = OURS;
-			int A = Ours->getMinimumWidth() * 1000 + Ours->getMinimumHeight();
-			Side = ORIGINAL;
-			int B = At<IntFn>(0x4bf8d0)(Original, NULL) * 1000 + At<IntFn>(0x4bf8e0)(Original, NULL);
-			CHECK(A == B, "minimum size %d, original %d", A, B);
-			break;
-		}
-		case 22: // a new world
-			RandomWorld();
-			break;
-		case 23:
-			SetSizes();
-			break;
-		}
+			case 14: { // GetField, GetCreatureAt
+				for (int k = 0; k < 10; k++) {
+					int x = Random() % Ours->Width, y = Random() % Ours->Height;
+					int A[3], B[3] = {0, 0, 0};
+					Side = OURS;
+					Ours->GetField(x, y, &A[0], &A[1], &A[2]);
+					uint32 IDA = Ours->GetCreatureAt(x, y);
+					ORIGINAL(Side = ORIGINAL; At<FieldFn>(0x4c12e0)(Original, NULL, x, y, &B[0], &B[1], &B[2]));
+					golden::Output("field", B);
+					uint32 IDB = ORIGINAL_VALUE("creature", uint32, At<ID2Fn>(0x4c16b0)(Original, NULL, x, y));
+					CHECK(A[0] == B[0] && A[1] == B[1] && A[2] == B[2], "GetField(%d,%d): %d,%d,%d, original %d,%d,%d", x, y,
+						A[0], A[1], A[2], B[0], B[1], B[2]);
+					CHECK(IDA == IDB, "GetCreatureAt(%d,%d): %u, original %u", x, y, IDA, IDB);
+					Compare("GetField", x);
+				}
+				break;
+			}
+			case 15:
+			case 16:
+			case 17:
+			case 18: { // mouse buttons and help
+				static const int States[] = {0, 6, 7, 8, 9};
+				ActionState = States[Random() % 5];
+				DraggedObject = RandomObject();
+				TradedObject = RandomObject();
+				UsedObject = RandomObject();
+				if (Random() % 3 == 0)
+					DraggedObject.Type = Pick(Movables);
+				else if (Random() % 2 == 0)
+					DraggedObject.Type = Pick(Cumulatives);
+				// Darkness away from the player: "You can't see anything".
+				if (Random() % 4 == 0) {
+					memset(Ours->Light, 0, sizeof(Ours->Light));
+					ORIGINAL(memset(Original + offsetof(TMapWindow, Light), 0, sizeof(Ours->Light)));
+				}
+				for (int n = 0; n < 3; n++) {
+					SlotData[n][0] = Random() % 4;
+					SlotData[n][1] = CenterX - 8 + Random() % MAPSIZE_X;
+					SlotData[n][2] = CenterY - 6 + Random() % MAPSIZE_Y;
+					SlotData[n][3] = 100 + (Random() % 2 ? Level : Random() % 8);
+				}
+				TradeInfo = Random() % 2 ? World[Random() % WorldSize].CreatureID : Random() % 3 == 0 ? 0
+																									  : 0x7000000;
+				ClassicControl = Random() % 2 != 0;
+				Destination = Random() % 4;
+				FreeContainer = Random() % 16;
+				int x = Random() % Ours->Width, y = Random() % Ours->Height;
+				// Often on a creature's name position (GetCreatureAt finds it).
+				if (Ours->NumberOfNames > 0 && Random() % 2 == 0) {
+					TCreatureName &Name = Ours->Names[Random() % Ours->NumberOfNames];
+					if (NoStretching) {
+						x = Name.x - (480 - Ours->Width) / 2 + (int)(Random() % 9) - 4;
+						y = Name.y - (352 - Ours->Height) / 2 + (int)(Random() % 30);
+					} else {
+						x = Name.x * Ours->Width / 480 + (int)(Random() % 9) - 4;
+						y = Name.y * Ours->Height / 352 + (int)(Random() % 30);
+					}
+					x = x < 0 ? 0 : x >= Ours->Width ? Ours->Width - 1
+													 : x;
+					y = y < 0 ? 0 : y >= Ours->Height ? Ours->Height - 1
+													  : y;
+				}
+				static const int FlagSets[] = {0, 0x200, 0x400, 0x800, 0x600, 0x100};
+				int Flags = FlagSets[Random() % 6];
+				bool A, B = false;
+				Side = OURS;
+				if (Op == 15)
+					A = Ours->LeftButtonDown(x, y, Flags);
+				else if (Op == 16)
+					A = Ours->LeftButtonUp(x, y, Flags);
+				else if (Op == 17)
+					A = Ours->RightButtonUp(x, y, Flags);
+				else
+					A = Ours->HelpMouseMove(x, y);
+#if GOLDEN_ORACLE
+				Side = ORIGINAL;
+				if (Op == 15)
+					B = At<Bool3Fn>(0x4c24d0)(Original, NULL, x, y, Flags);
+				else if (Op == 16)
+					B = At<Bool3Fn>(0x4c2710)(Original, NULL, x, y, Flags);
+				else if (Op == 17)
+					B = At<Bool3Fn>(0x4c2e50)(Original, NULL, x, y, Flags);
+				else
+					B = At<Bool2Fn>(0x4c3520)(Original, NULL, x, y);
+#endif
+				golden::Output("result", B);
+				CHECK(A == B, "mouse operation %d at %d,%d (flags 0x%x): %d, original %d", Op, x, y, Flags, A, B);
+				Compare("mouse", Op);
+				break;
+			}
+			case 19: {                                     // HandleEvent
+				static const int Events[] = {600, 601, 5}; // 27 needs the hint button (case 20)
+				int Event = Events[Random() % 3];
+				NextHint = 1 + Random() % EVENTHELPS;
+				Side = OURS;
+				Ours->HandleEvent(Event);
+				ORIGINAL(Side = ORIGINAL; At<Int1Fn>(0x4bffa0)(Original, NULL, Event));
+				Compare("HandleEvent", Event);
+				break;
+			}
+			case 20: { // Arrange with a hint button, then HandleEvent(27) and Draw remove it
+				TElement *Element = new TElement;
+#if GOLDEN_ORACLE
+				void *OriginalElement = calloc(1, sizeof(TElement));
+				At<CtorFn>(0x496100)(OriginalElement, NULL);
+#endif
+				Side = OURS;
+				Ours->InsertChild(Element);
+				Ours->HintButton = Element;
+				Ours->Arrange();
+				ORIGINAL(Side = ORIGINAL; At<void(__fastcall *)(void *, void *, void *)>(0x49c190)(Original, NULL, OriginalElement);
+					*(void **)(Original + 0x92d4) = OriginalElement; At<VoidFn>(0x4bfde0)(Original, NULL));
+				Compare("Arrange");
+				// The original button's offset and width (both recorded: the old && read the width only when the
+				// offsets agreed, a read without side effects).
+				int OriginalX = ORIGINAL_VALUE("button x", int, ((TComponent *)OriginalElement)->OffsetX);
+				int OriginalWidth = ORIGINAL_VALUE("button width", int, ((TComponent *)OriginalElement)->Width);
+				CHECK(Element->OffsetX == OriginalX && Element->Width == OriginalWidth, "Arrange: hint button area");
+				if (Random() % 2) {
+					NextHint = 1 + Random() % EVENTHELPS;
+					Side = OURS;
+					Ours->HandleEvent(27);
+					ORIGINAL(Side = ORIGINAL; At<Int1Fn>(0x4bffa0)(Original, NULL, 27));
+					Compare("HandleEvent", 27);
+				} else {
+					RandomTalkboxes();
+					Side = OURS;
+					Ours->Draw(1, 0, 0);
+					ORIGINAL(Side = ORIGINAL; At<Int3Fn>(0x4c7580)(Original, NULL, 1, 0, 0));
+					Compare("Draw with a hint button");
+				}
+				break;
+			}
+			case 21: { // the minimum size
+				Side = OURS;
+				int A = Ours->getMinimumWidth() * 1000 + Ours->getMinimumHeight();
+				int B = ORIGINAL_VALUE("result", int,
+					(Side = ORIGINAL, At<IntFn>(0x4bf8d0)(Original, NULL) * 1000 + At<IntFn>(0x4bf8e0)(Original, NULL)));
+				CHECK(A == B, "minimum size %d, original %d", A, B);
+				break;
+			}
+			case 22: // a new world
+				RandomWorld();
+				break;
+			case 23:
+				SetSizes();
+				break;
+			}
 		} catch (TMyException &Exception) {
 			printf("FAIL operation %d (%d): our side raised: %s\n", Op, t, Exception.GetMessage().c_str());
 			exit(3);
@@ -1259,31 +1480,56 @@ static void TestOperations(int Rounds)
 
 // --- TMapFrame ---------------------------------------------------------------
 
-// Clears what TMapWindow's constructor leaves uninitialised.
-static void ClearMapWindow(uint8 *Map)
+// Clears what TMapWindow's constructor leaves uninitialised (the old test's x86 ranges +0x2c..+0x19fc,
+// +0x25cc..+0x29d4 and each cache tile from +0xc, by member).
+static void ClearMapWindow(TMapWindow *Map)
+{
+	memset(&Map->NumberOfNames, 0, offsetof(TMapWindow, Light) - offsetof(TMapWindow, NumberOfNames));
+	memset(&Map->PositionX, 0, offsetof(TMapWindow, Cache) - offsetof(TMapWindow, PositionX));
+	for (int i = 0; i < 16; i++) {
+		for (int j = 0; j < 12; j++)
+			memset(&Map->Cache[i][j].CachedSprites, 0, sizeof(TCacheField) - offsetof(TCacheField, CachedSprites));
+	}
+}
+#if GOLDEN_ORACLE
+static void ClearOriginalMapWindow(uint8 *Map)
 {
 	memset(Map + 0x2c, 0, 0x19fc - 0x2c);
 	memset(Map + 0x25cc, 0, 0x29d4 - 0x25cc);
 	for (int i = 0; i < 16 * 12; i++)
 		memset(Map + 0x29d4 + i * 0x8c + 0xc, 0, 0x8c - 0xc);
 }
+#endif
+
+// A frame's compared members, in the order of the x86 bytes the old test compared: its OffsetX, OffsetY,
+// Width and Height (+0x14), its ViewY, ViewX, ViewWidth and ViewHeight (+0x30).
+static void FrameOf(const TMapFrame *Frame, int Members[8])
+{
+	memcpy(Members, &Frame->OffsetX, 4 * sizeof(int));
+	memcpy(Members + 4, &Frame->ViewY, 4 * sizeof(int));
+}
+static std::vector<uint8> LastFrameView(STATE);
 
 static void TestFrames(int Rounds)
 {
 	for (int t = 0; t < Rounds; t++) {
-		uint8 *A = (uint8 *)calloc(1, sizeof(TMapFrame)), *B = (uint8 *)calloc(1, sizeof(TMapFrame));
+		uint8 *A = (uint8 *)calloc(1, sizeof(TMapFrame));
 		// The map views do not exist yet: their hotkey callbacks count as foreign.
 		Window[OURS] = NULL;
 		Window[ORIGINAL] = NULL;
 		Side = OURS;
 		TMapFrame *Frame = new (A) TMapFrame;
+#if GOLDEN_ORACLE
+		uint8 *B = (uint8 *)calloc(1, sizeof(TMapFrame));
 		Side = ORIGINAL;
 		At<CtorFn>(0x4c1a40)(B, NULL);
-		uint8 *MapA = (uint8 *)Frame->MapWindow, *MapB = *(uint8 **)(B + 0x2c);
-		Window[OURS] = MapA;
+		uint8 *MapB = *(uint8 **)(B + 0x2c);
 		Window[ORIGINAL] = MapB;
+		ClearOriginalMapWindow(MapB);
+#endif
+		TMapWindow *MapA = Frame->MapWindow;
+		Window[OURS] = MapA;
 		ClearMapWindow(MapA);
-		ClearMapWindow(MapB);
 		CompareLogs("TMapFrame constructor");
 		for (int k = 0; k < 4; k++) {
 			NoStretching = Random() % 2 != 0;
@@ -1291,25 +1537,41 @@ static void TestFrames(int Rounds)
 			Side = OURS;
 			Frame->SetSize(Width, Height);
 			int MinA = Frame->getMinimumWidth() * 1000 + Frame->getMinimumHeight();
-			Side = ORIGINAL;
-			At<Int2Fn>(0x4c1c40)(B, NULL, Width, Height);
-			int MinB = At<IntFn>(0x4c1ea0)(B, NULL) * 1000 + At<IntFn>(0x4c2040)(B, NULL);
+			ORIGINAL(Side = ORIGINAL; At<Int2Fn>(0x4c1c40)(B, NULL, Width, Height));
+			int MinB = ORIGINAL_VALUE("minimum", int, At<IntFn>(0x4c1ea0)(B, NULL) * 1000 + At<IntFn>(0x4c2040)(B, NULL));
 			CHECK(MinA == MinB, "TMapFrame minimum size %d, original %d", MinA, MinB);
-			CHECK(memcmp(A + 0x14, B + 0x14, 0x10) == 0 && memcmp(A + 0x30, B + 0x30, 0x10) == 0,
+			int FrameA[8], FrameB[8] = {};
+			FrameOf(Frame, FrameA);
+			ORIGINAL(memcpy(FrameB, B + 0x14, 0x10); memcpy(FrameB + 4, B + 0x30, 0x10));
+			golden::Output("frame", FrameB);
+			CHECK(memcmp(FrameA, FrameB, 4 * sizeof(int)) == 0 && memcmp(FrameA + 4, FrameB + 4, 4 * sizeof(int)) == 0,
 				"TMapFrame::SetSize(%d,%d)", Width, Height);
-			CHECK(memcmp(MapA + 0x14, MapB + 0x14, 0x10) == 0 && memcmp(MapA + 0x2c, MapB + 0x2c, 0x92d4 - 0x2c) == 0,
+			std::vector<uint8> ViewA(STATE);
+			StateOf(MapA, ViewA.data());
+#if GOLDEN_ORACLE
+			std::vector<uint8> ViewB(STATE);
+			OriginalStateOf(MapB, ViewB.data());
+			OutputState("map view", LastFrameView.data(), ViewB.data());
+#else
+			OutputState("map view", LastFrameView.data(), nullptr);
+#endif
+			CHECK(memcmp(ViewA.data(), LastFrameView.data(), GEOMETRY) == 0
+					&& memcmp(ViewA.data() + GEOMETRY, LastFrameView.data() + GEOMETRY, MEMBERS) == 0,
 				"TMapFrame::SetSize(%d,%d): the map view", Width, Height);
-			int LengthB = *(int *)(B + 8);
-			CHECK(Frame->DrawingListLength == LengthB && memcmp(Frame->DrawingList, *(void **)(B + 4),
-				8 * sizeof(TDrawing)) == 0, "TMapFrame drawing list after SetSize(%d,%d)", Width, Height);
+			// The drawing list: eight TDrawing (seven ints, no pointers; the same bytes on both targets).
+			static_assert(sizeof(TDrawing) == 0x1c, "TDrawing is 0x1c bytes");
+			int LengthB = ORIGINAL_VALUE("drawing list length", int, *(int *)(B + 8));
+			uint8 ListB[8 * sizeof(TDrawing)] = {};
+			ORIGINAL(memcpy(ListB, *(void **)(B + 4), sizeof(ListB)));
+			golden::OutputBytes("drawing list", ListB, sizeof(ListB));
+			CHECK(Frame->DrawingListLength == LengthB && memcmp(Frame->DrawingList, ListB, 8 * sizeof(TDrawing)) == 0,
+				"TMapFrame drawing list after SetSize(%d,%d)", Width, Height);
 			CompareLogs("TMapFrame::SetSize", Width);
 		}
 		Side = OURS;
 		Frame->~TMapFrame();
 		free(A);
-		Side = ORIGINAL;
-		At<DeleteFn>(0x4adc40)(B, NULL, 0);
-		free(B);
+		ORIGINAL(Side = ORIGINAL; At<DeleteFn>(0x4adc40)(B, NULL, 0); free(B));
 		CompareLogs("TMapFrame destructor");
 	}
 }
@@ -1327,39 +1589,68 @@ public:
 		if (Armed)
 			ThrowSideAssertion(Owner == ORIGINAL, -77);
 	}
-	void SetSize(int w, int h)
+	void SetSize(int w, int h) override
 	{
 		Throw();
 		if (Owner == OURS)
 			TElement::SetSize(w, h);
 		else
-			At<Int2Fn>(0x49bee0)(this, NULL, w, h);
+			ImageSetSize(w, h);
 	}
-	void SetPosition(int x, int y)
+	void SetPosition(int x, int y) override
 	{
 		Throw();
 		if (Owner == OURS)
 			TElement::SetPosition(x, y);
 		else
-			At<Int2Fn>(0x496060)(this, NULL, x, y);
+			ImageSetPosition(x, y);
 	}
 	// TMapFrame's minimum size asks its map view (a thrower in its place).
-	int getMinimumWidth() { Throw(); return 240; }
-	int getMinimumHeight() { Throw(); return 176; }
+	int getMinimumWidth() override
+	{
+		Throw();
+		return 240;
+	}
+	int getMinimumHeight() override
+	{
+		Throw();
+		return 176;
+	}
 	int Owner;
 	bool Armed;
+
+private:
+	// The image's TComponent::SetSize and SetPosition (the oracle's image side only).
+	void ImageSetSize([[maybe_unused]] int w, [[maybe_unused]] int h)
+	{
+#if GOLDEN_ORACLE
+		At<Int2Fn>(0x49bee0)(this, NULL, w, h);
+#else
+		abort();
+#endif
+	}
+	void ImageSetPosition([[maybe_unused]] int x, [[maybe_unused]] int y)
+	{
+#if GOLDEN_ORACLE
+		At<Int2Fn>(0x496060)(this, NULL, x, y);
+#else
+		abort();
+#endif
+	}
 };
 
 static TErrorRound *MWRound;
 
 // One call on both sides: the Fail-th fake call throws (0: none), the
 // NullAt-th GetCreature finds nothing (0: none); then the windows and logs.
+// Ticks is the original's fake calls afterwards (it ran last), recorded.
 template <class F> static void MWCall(const char *What, int Fail, int NullAt, F Call)
 {
 	char Name[128];
 	snprintf(Name, sizeof(Name), "%s (fail at %d, no creature at %d)", What, Fail, NullAt);
-	ROUND_COMPARE(*MWRound, Name, (Side = OURS, Ticks = 0, FailAt = Fail, NullCreatureAt = NullAt, Call(OURS)),
+	GOLDEN_ROUND_COMPARE(*MWRound, Name, (Side = OURS, Ticks = 0, FailAt = Fail, NullCreatureAt = NullAt, Call(OURS)),
 		(Side = ORIGINAL, Ticks = 0, FailAt = Fail, NullCreatureAt = NullAt, Call(ORIGINAL)));
+	Ticks = ORIGINAL_VALUE("ticks", int, Ticks);
 	FailAt = 0;
 	NullCreatureAt = 0;
 	Compare(Name, Fail);
@@ -1379,19 +1670,27 @@ static int FailIndex(int Count)
 	return Count - (int)(Random() % Range);
 }
 
+// The windows' state the error round restores before each failing call: the old test's bytes from +0x14 up
+// to HintButton, which in our window are the members from OffsetX on (TWindow's children included, as
+// there).
+static uint8 *SavedFrom() { return (uint8 *)&Ours->OffsetX; }
+static size_t SavedSize() { return (size_t)((uint8 *)&Ours->HintButton - SavedFrom()); }
+
 // A call without failures (it counts the fake calls), then Tries calls that
 // fail at one of them, each from the windows' state before the first (a
 // second Draw makes fewer calls: the cache tiles hold the sprites).
 template <class F> static void MWFailing(const char *What, int Tries, F Call)
 {
+	std::vector<uint8> Saved(SavedFrom(), SavedFrom() + SavedSize());
+#if GOLDEN_ORACLE
 	const int From = 0x14, Size = (int)offsetof(TMapWindow, HintButton) - From;
-	std::vector<uint8> Saved[2] = {std::vector<uint8>((uint8 *)Ours + From, (uint8 *)Ours + From + Size),
-		std::vector<uint8>(Original + From, Original + From + Size)};
+	std::vector<uint8> SavedOriginal(Original + From, Original + From + Size);
+#endif
 	MWCall(What, 0, 0, Call);
 	int Count = Ticks;
 	for (int t = 0; t < Tries && Count > 0; t++) {
-		memcpy((uint8 *)Ours + From, Saved[OURS].data(), Size);
-		memcpy(Original + From, Saved[ORIGINAL].data(), Size);
+		memcpy(SavedFrom(), Saved.data(), Saved.size());
+		ORIGINAL(memcpy(Original + From, SavedOriginal.data(), Size));
 		MWCall(What, FailIndex(Count), 0, Call);
 	}
 }
@@ -1400,20 +1699,26 @@ static void SetWidth(int Width, int Height)
 {
 	Ours->Width = Width;
 	Ours->Height = Height;
-	*(int *)(Original + 0x1c) = Width;
-	*(int *)(Original + 0x20) = Height;
+	ORIGINAL(*(int *)(Original + 0x1c) = Width; *(int *)(Original + 0x20) = Height);
 }
 
 static void PlaceThrowers(TMapThrower *T[2])
 {
-	for (int s = 0; s < 2; s++)
+	T[ORIGINAL] = NULL;
+	for (int s = 0; s < SIDES; s++)
 		T[s] = new TMapThrower(s);
 	Side = OURS;
 	Ours->InsertChild(T[OURS]);
 	Ours->HintButton = T[OURS];
-	Side = ORIGINAL;
-	At<void (__fastcall *)(void *, void *, void *)>(0x49c190)(Original, NULL, T[ORIGINAL]);
-	*(void **)(Original + 0x92d4) = T[ORIGINAL];
+	ORIGINAL(Side = ORIGINAL; At<void(__fastcall *)(void *, void *, void *)>(0x49c190)(Original, NULL, T[ORIGINAL]);
+		*(void **)(Original + 0x92d4) = T[ORIGINAL]);
+}
+
+// Arms or disarms the throwers of both sides (the runner has ours only).
+static void Arm(TMapThrower *T[2], bool Armed)
+{
+	for (int s = 0; s < SIDES; s++)
+		T[s]->Armed = Armed;
 }
 
 // Every TASSERT/TERROR of MapWindow.cpp and the TEND blocks: the fakes throw
@@ -1441,21 +1746,23 @@ static void TestMapWindowErrors()
 		RandomTalkboxes();
 		int x = Random() % 100, y = Random() % 100;
 		MWFailing("TMapWindow::Draw", 8, [&](int s) {
-			if (s == OURS) Ours->Draw(1, x, y); else At<Int3Fn>(0x4c7580)(Original, NULL, 1, x, y); });
+			if (s == OURS) Ours->Draw(1, x, y); else ORIGINAL(At<Int3Fn>(0x4c7580)(Original, NULL, 1, x, y)); });
 		// Below the top level, with names: the names' visibility loop (a few
 		// hundred calls before the end).
 		if (Level < 7 && CreatureInfo != 0) {
+			std::vector<uint8> Saved(SavedFrom(), SavedFrom() + SavedSize());
+#if GOLDEN_ORACLE
 			const int From = 0x14, Size = (int)offsetof(TMapWindow, HintButton) - From;
-			std::vector<uint8> Saved[2] = {std::vector<uint8>((uint8 *)Ours + From, (uint8 *)Ours + From + Size),
-				std::vector<uint8>(Original + From, Original + From + Size)};
+			std::vector<uint8> SavedOriginal(Original + From, Original + From + Size);
+#endif
 			MWCall("TMapWindow::Draw below the top", 0, 0, [&](int s) {
-				if (s == OURS) Ours->Draw(1, x, y); else At<Int3Fn>(0x4c7580)(Original, NULL, 1, x, y); });
+				if (s == OURS) Ours->Draw(1, x, y); else ORIGINAL(At<Int3Fn>(0x4c7580)(Original, NULL, 1, x, y)); });
 			int Count = Ticks;
 			for (int t = 0; t < 12; t++) {
-				memcpy((uint8 *)Ours + From, Saved[OURS].data(), Size);
-				memcpy(Original + From, Saved[ORIGINAL].data(), Size);
+				memcpy(SavedFrom(), Saved.data(), Saved.size());
+				ORIGINAL(memcpy(Original + From, SavedOriginal.data(), Size));
 				MWCall("TMapWindow::Draw below the top", Count - (int)(Random() % (Count < 400 ? Count : 400)), 0,
-					[&](int s) { if (s == OURS) Ours->Draw(1, x, y); else At<Int3Fn>(0x4c7580)(Original, NULL, 1, x, y); });
+					[&](int s) { if (s == OURS) Ours->Draw(1, x, y); else ORIGINAL(At<Int3Fn>(0x4c7580)(Original, NULL, 1, x, y)); });
 			}
 		}
 		RandomState();
@@ -1469,7 +1776,7 @@ static void TestMapWindowErrors()
 			int Mode = Random() % 3 == 0 ? 1 : 0, px = fx * 32 - Ours->ScrollX, py = fy * 32 - Ours->ScrollY;
 			MWFailing("TMapWindow::DrawField", 8, [&](int s) {
 				if (s == OURS) Ours->DrawField(px, py, fx, fy, fz, Mode);
-				else At<Int6Fn>(0x4c5520)(Original, NULL, px, py, fx, fy, fz, Mode); });
+				else ORIGINAL(At<Int6Fn>(0x4c5520)(Original, NULL, px, py, fx, fy, fz, Mode)); });
 		}
 		{
 			TObject Obj = RandomObject();
@@ -1477,22 +1784,22 @@ static void TestMapWindowErrors()
 			int ax = Random() % 2000, ay = Random() % 2000, az = Random() % 16;
 			MWFailing("TMapWindow::DrawObject", 3, [&](int s) {
 				if (s == OURS) Ours->DrawObject(px, py, z, Obj, ax, ay, az);
-				else At<ObjectFn>(0x4c4af0)(Original, NULL, px, py, z, Obj, ax, ay, az); });
+				else ORIGINAL(At<ObjectFn>(0x4c4af0)(Original, NULL, px, py, z, Obj, ax, ay, az)); });
 			RandomCreature(11, 8, 6, Level);
 			if (World[11].OutfitType == 0)
 				World[11].OutfitType = Pick(Outfits);
 			MWFailing("TMapWindow::DrawCreature", 3, [&](int s) {
 				if (s == OURS) Ours->DrawCreature(px, py, z, &World[11]);
-				else At<CreatureFn>(0x4c4f80)(Original, NULL, px, py, z, &World[11]); });
+				else ORIGINAL(At<CreatureFn>(0x4c4f80)(Original, NULL, px, py, z, &World[11])); });
 			bool Animated = Random() % 3 == 0;
 			int Sprite = 1 + Random() % 9, Mask = Random() % 4 == 0 ? 1 + Random() % 5 : 0;
 			MWFailing("TMapWindow::DrawFieldSprite", 3, [&](int s) {
 				if (s == OURS) Ours->DrawFieldSprite(px, py, z, Animated, Sprite, Mask, Colors);
-				else At<SpriteFn>(0x4c46a0)(Original, NULL, px, py, z, Animated, Sprite, Mask, Colors); });
+				else ORIGINAL(At<SpriteFn>(0x4c46a0)(Original, NULL, px, py, z, Animated, Sprite, Mask, Colors)); });
 			int cx = Random() % MAPSIZE_X, cy = Random() % MAPSIZE_Y, dx = Random() % 3 - 1, dy = Random() % 3 - 1;
 			MWFailing("TMapWindow::CacheSprite", 2, [&](int s) {
 				if (s == OURS) Ours->CacheSprite(cx, cy, Sprite, dx, dy);
-				else At<Int5Fn>(0x4c41e0)(Original, NULL, cx, cy, Sprite, dx, dy); });
+				else ORIGINAL(At<Int5Fn>(0x4c41e0)(Original, NULL, cx, cy, Sprite, dx, dy)); });
 			// A tile with more sprites than this frame's (drawn again before the blit).
 			int fx = 1 + Random() % 13, fy = 1 + Random() % 9;
 			TCacheField *Tile = Ours->GetCacheField(fx, fy);
@@ -1501,35 +1808,35 @@ static void TestMapWindowErrors()
 			Tile->CachedSprites = Tile->Sprites + 1 + Random() % 4;
 			Mirror();
 			MWFailing("TMapWindow::FlushField", 3, [&](int s) {
-				if (s == OURS) Ours->FlushField(fx, fy); else At<Int2Fn>(0x4c3980)(Original, NULL, fx, fy); });
+				if (s == OURS) Ours->FlushField(fx, fy); else ORIGINAL(At<Int2Fn>(0x4c3980)(Original, NULL, fx, fy)); });
 			int b = Random() % 256;
 			MWFailing("TMapWindow::DrawLightMask", 1, [&](int s) {
-				if (s == OURS) Ours->DrawLightMask(px, py, b); else At<Int3Fn>(0x4c02c0)(Original, NULL, px, py, b); });
+				if (s == OURS) Ours->DrawLightMask(px, py, b); else ORIGINAL(At<Int3Fn>(0x4c02c0)(Original, NULL, px, py, b)); });
 			int Brightness = 1 + Random() % 7;
-			TRGBColor Color(Random() % 300, Random() % 300, Random() % 300);
+			TRGBColor Color = RandomColor(300);
 			MWFailing("TMapWindow::AddLightSource", 3, [&](int s) {
 				if (s == OURS) Ours->AddLightSource(px, py, z, Brightness, Color);
-				else At<LightFn>(0x4c3c80)(Original, NULL, px, py, z, Brightness, Color); });
+				else ORIGINAL(At<LightFn>(0x4c3c80)(Original, NULL, px, py, z, Brightness, Color)); });
 			// A ground type Tibia.dat does not have: GetObjectFlag's error, wrapped
 			// in AddLightSource's own catch block.
 			BadMapType = Random() % 2 ? 60000 + Random() % 100 : 1 + Random() % 98;
 			int lx = (Random() % MAPSIZE_X) * 32 + 16 - Ours->ScrollX, ly = (Random() % MAPSIZE_Y) * 32 + 16 - Ours->ScrollY;
 			MWCall("TMapWindow::AddLightSource bad type", 0, 0, [&](int s) {
 				if (s == OURS) Ours->AddLightSource(lx, ly, z, Brightness, Color);
-				else At<LightFn>(0x4c3c80)(Original, NULL, lx, ly, z, Brightness, Color); });
+				else ORIGINAL(At<LightFn>(0x4c3c80)(Original, NULL, lx, ly, z, Brightness, Color)); });
 			BadMapType = 0;
 		}
 		RandomTalkboxes();
 		MWFailing("TMapWindow::ArrangeTalkboxes", 3, [&](int s) {
-			if (s == OURS) Ours->ArrangeTalkboxes(); else At<VoidFn>(0x4c0880)(Original, NULL); });
+			if (s == OURS) Ours->ArrangeTalkboxes(); else ORIGINAL(At<VoidFn>(0x4c0880)(Original, NULL)); });
 		for (int k = 0; k < 3; k++) {
 			int mx = Random() % Ours->Width, my = Random() % Ours->Height;
 			MWFailing("TMapWindow::GetField", 2, [&](int s) {
 				int f[3];
 				if (s == OURS) Ours->GetField(mx, my, &f[0], &f[1], &f[2]);
-				else At<FieldFn>(0x4c12e0)(Original, NULL, mx, my, &f[0], &f[1], &f[2]); });
+				else ORIGINAL(At<FieldFn>(0x4c12e0)(Original, NULL, mx, my, &f[0], &f[1], &f[2])); });
 			MWFailing("TMapWindow::GetCreatureAt", 2, [&](int s) {
-				if (s == OURS) Ours->GetCreatureAt(mx, my); else At<ID2Fn>(0x4c16b0)(Original, NULL, mx, my); });
+				if (s == OURS) Ours->GetCreatureAt(mx, my); else ORIGINAL(At<ID2Fn>(0x4c16b0)(Original, NULL, mx, my)); });
 		}
 		// The mouse, with the inputs of the counted test.
 		for (int Op = 15; Op <= 18; Op++) {
@@ -1548,7 +1855,8 @@ static void TestMapWindowErrors()
 				SlotData[n][2] = CenterY - 6 + Random() % MAPSIZE_Y;
 				SlotData[n][3] = 100 + (Random() % 2 ? Level : Random() % 8);
 			}
-			TradeInfo = Random() % 2 ? World[Random() % WorldSize].CreatureID : Random() % 3 == 0 ? 0 : 0x7000000;
+			TradeInfo = Random() % 2 ? World[Random() % WorldSize].CreatureID : Random() % 3 == 0 ? 0
+																								  : 0x7000000;
 			ClassicControl = Random() % 2 != 0;
 			Destination = Random() % 4;
 			FreeContainer = Random() % 16;
@@ -1562,58 +1870,68 @@ static void TestMapWindowErrors()
 					else if (Op == 17) Ours->RightButtonUp(mx, my, Flags);
 					else Ours->HelpMouseMove(mx, my);
 				} else {
+#if GOLDEN_ORACLE
 					if (Op == 15) At<Bool3Fn>(0x4c24d0)(Original, NULL, mx, my, Flags);
 					else if (Op == 16) At<Bool3Fn>(0x4c2710)(Original, NULL, mx, my, Flags);
 					else if (Op == 17) At<Bool3Fn>(0x4c2e50)(Original, NULL, mx, my, Flags);
 					else At<Bool2Fn>(0x4c3520)(Original, NULL, mx, my);
+#endif
 				}
 			});
 		}
 		int Event = Random() % 2 ? 600 : 601;
 		MWFailing("TMapWindow::HandleEvent", 1, [&](int s) {
-			if (s == OURS) Ours->HandleEvent(Event); else At<Int1Fn>(0x4bffa0)(Original, NULL, Event); });
+			if (s == OURS) Ours->HandleEvent(Event); else ORIGINAL(At<Int1Fn>(0x4bffa0)(Original, NULL, Event)); });
 		int Wd = 240 + Random() % 600, Ht = 176 + Random() % 450;
 		MWFailing("TMapWindow::SetSize", 1, [&](int s) {
-			if (s == OURS) Ours->SetSize(Wd, Ht); else At<Int2Fn>(0x4bfc30)(Original, NULL, Wd, Ht); });
+			if (s == OURS) Ours->SetSize(Wd, Ht); else ORIGINAL(At<Int2Fn>(0x4bfc30)(Original, NULL, Wd, Ht)); });
 		SetSizes();
 
 		// The assertions.
-		int Bad = Random() % 2 ? -1 - (int)(Random() % 5) : (Random() % 2 ? MAPSIZE_X : MAPSIZE_Y) + (int)(Random() % 5);
+		int Bad;
+		if (Random() % 2)
+			Bad = -1 - (int)(Random() % 5);
+		else {
+			// (Random() % 2 ? MAPSIZE_X : MAPSIZE_Y) + (int)(Random() % 5) in the x86 oracle's order: the left
+			// operand first (a probe with the oracle's flags, and the oracle's unchanged counts, show it).
+			int Base = Random() % 2 ? MAPSIZE_X : MAPSIZE_Y;
+			Bad = Base + (int)(Random() % 5);
+		}
 		int Good = Random() % MAPSIZE_Y;
 		MWCall("TMapWindow::GetCacheField x", 0, 0, [&](int s) {
-			if (s == OURS) Ours->GetCacheField(Bad, Good); else At<CacheFn>(0x4c0590)(Original, NULL, Bad, Good); });
+			if (s == OURS) Ours->GetCacheField(Bad, Good); else ORIGINAL(At<CacheFn>(0x4c0590)(Original, NULL, Bad, Good)); });
 		MWCall("TMapWindow::GetCacheField y", 0, 0, [&](int s) {
 			if (s == OURS) Ours->GetCacheField(Good % MAPSIZE_X, Bad);
-			else At<CacheFn>(0x4c0590)(Original, NULL, Good % MAPSIZE_X, Bad); });
+			else ORIGINAL(At<CacheFn>(0x4c0590)(Original, NULL, Good % MAPSIZE_X, Bad)); });
 		int BadBrightness = Random() % 2 ? -1 - (int)(Random() % 300) : 256 + (int)(Random() % 300);
 		MWCall("TMapWindow::DrawLightMask brightness", 0, 0, [&](int s) {
 			if (s == OURS) Ours->DrawLightMask(10, 20, BadBrightness);
-			else At<Int3Fn>(0x4c02c0)(Original, NULL, 10, 20, BadBrightness); });
+			else ORIGINAL(At<Int3Fn>(0x4c02c0)(Original, NULL, 10, 20, BadBrightness)); });
 		{
 			TObject None;
 			MWCall("TMapWindow::DrawObject type 0", 0, 0, [&](int s) {
 				if (s == OURS) Ours->DrawObject(32, 32, 7, None, 1000, 1000, 7);
-				else At<ObjectFn>(0x4c4af0)(Original, NULL, 32, 32, 7, None, 1000, 1000, 7); });
+				else ORIGINAL(At<ObjectFn>(0x4c4af0)(Original, NULL, 32, 32, 7, None, 1000, 1000, 7)); });
 			MWCall("TMapWindow::DrawCreature NULL", 0, 0, [&](int s) {
 				if (s == OURS) Ours->DrawCreature(32, 32, 7, NULL);
-				else At<CreatureFn>(0x4c4f80)(Original, NULL, 32, 32, 7, NULL); });
+				else ORIGINAL(At<CreatureFn>(0x4c4f80)(Original, NULL, 32, 32, 7, NULL)); });
 			RandomCreature(11, 8, 6, Level);
 			World[11].OutfitType = 0;
 			MWCall("TMapWindow::DrawCreature no outfit", 0, 0, [&](int s) {
 				if (s == OURS) Ours->DrawCreature(32, 32, 7, &World[11]);
-				else At<CreatureFn>(0x4c4f80)(Original, NULL, 32, 32, 7, &World[11]); });
+				else ORIGINAL(At<CreatureFn>(0x4c4f80)(Original, NULL, 32, 32, 7, &World[11])); });
 		}
 		// No player: Draw's, GetField's and (its second GetCreature) HelpMouseMove's.
 		MWCall("TMapWindow::Draw without a player", 0, 1, [&](int s) {
-			if (s == OURS) Ours->Draw(1, 0, 0); else At<Int3Fn>(0x4c7580)(Original, NULL, 1, 0, 0); });
+			if (s == OURS) Ours->Draw(1, 0, 0); else ORIGINAL(At<Int3Fn>(0x4c7580)(Original, NULL, 1, 0, 0)); });
 		for (int k = 0; k < 6; k++) {
 			int mx = Random() % Ours->Width, my = Random() % Ours->Height;
 			MWCall("TMapWindow::GetField without a player", 0, 1, [&](int s) {
 				int f[3];
 				if (s == OURS) Ours->GetField(mx, my, &f[0], &f[1], &f[2]);
-				else At<FieldFn>(0x4c12e0)(Original, NULL, mx, my, &f[0], &f[1], &f[2]); });
+				else ORIGINAL(At<FieldFn>(0x4c12e0)(Original, NULL, mx, my, &f[0], &f[1], &f[2])); });
 			MWCall("TMapWindow::HelpMouseMove without a player", 0, 2, [&](int s) {
-				if (s == OURS) Ours->HelpMouseMove(mx, my); else At<Bool2Fn>(0x4c3520)(Original, NULL, mx, my); });
+				if (s == OURS) Ours->HelpMouseMove(mx, my); else ORIGINAL(At<Bool2Fn>(0x4c3520)(Original, NULL, mx, my)); });
 		}
 		// The map wider or higher than the map surface without stretching.
 		{
@@ -1621,9 +1939,12 @@ static void TestMapWindowErrors()
 			bool SavedStretching = NoStretching;
 			NoStretching = true;
 			bool Wide = Random() % 2 != 0;
-			SetWidth(Wide ? 481 + Random() % 100 : 200 + Random() % 280, Wide ? 200 : 353 + Random() % 100);
+			// SetWidth's two arguments in the x86 oracle's order: right to left.
+			int NewHeight = Wide ? 200 : 353 + Random() % 100;
+			int NewWidth = Wide ? 481 + Random() % 100 : 200 + Random() % 280;
+			SetWidth(NewWidth, NewHeight);
 			MWCall(Wide ? "TMapWindow::Draw too wide" : "TMapWindow::Draw too high", 0, 0, [&](int s) {
-				if (s == OURS) Ours->Draw(1, 0, 0); else At<Int3Fn>(0x4c7580)(Original, NULL, 1, 0, 0); });
+				if (s == OURS) Ours->Draw(1, 0, 0); else ORIGINAL(At<Int3Fn>(0x4c7580)(Original, NULL, 1, 0, 0)); });
 			SetWidth(SavedWidth, SavedHeight);
 			NoStretching = SavedStretching;
 		}
@@ -1640,7 +1961,7 @@ static void TestMapWindowErrors()
 					World[i].PKFlag = Flag;
 			}
 			MWCall(Party ? "TMapWindow::Draw party flag" : "TMapWindow::Draw skull flag", 0, 0, [&](int s) {
-				if (s == OURS) Ours->Draw(1, 0, 0); else At<Int3Fn>(0x4c7580)(Original, NULL, 1, 0, 0); });
+				if (s == OURS) Ours->Draw(1, 0, 0); else ORIGINAL(At<Int3Fn>(0x4c7580)(Original, NULL, 1, 0, 0)); });
 			for (int i = 0; i < WorldSize; i++)
 				World[i].PARTYFlag = World[i].PKFlag = 0;
 			CreatureInfo = SavedInfo;
@@ -1655,7 +1976,7 @@ static void TestMapWindowErrors()
 			int px = fx * 32 - Ours->ScrollX, py = fy * 32 - Ours->ScrollY;
 			MWCall("TMapWindow::DrawField effect number", 0, 0, [&](int s) {
 				if (s == OURS) Ours->DrawField(px, py, fx, fy, Level, 0);
-				else At<Int6Fn>(0x4c5520)(Original, NULL, px, py, fx, fy, Level, 0); });
+				else ORIGINAL(At<Int6Fn>(0x4c5520)(Original, NULL, px, py, fx, fy, Level, 0)); });
 			F.EffectCount = SavedCount;
 			F.Effects[0] = Saved0;
 		}
@@ -1670,12 +1991,13 @@ static void TestMapWindowErrors()
 			if (T.Lines == 0)
 				T.Lines = 1;
 			MWCall("TMapWindow::ArrangeTalkboxes mode", 0, 0, [&](int s) {
-				if (s == OURS) Ours->ArrangeTalkboxes(); else At<VoidFn>(0x4c0880)(Original, NULL); });
+				if (s == OURS) Ours->ArrangeTalkboxes(); else ORIGINAL(At<VoidFn>(0x4c0880)(Original, NULL)); });
 		}
 		// The use and trade objects the mouse asserts.
 		for (int k = 0; k < 8; k++) {
 			int Which = k % 4;
-			ActionState = Which == 0 ? 7 : Which == 1 ? 8 : 0;
+			ActionState = Which == 0 ? 7 : Which == 1 ? 8
+													  : 0;
 			ClassicControl = Which == 2;
 			TradeInfo = 0;
 			UsedObject = RandomObject();
@@ -1690,10 +2012,13 @@ static void TestMapWindowErrors()
 			int mx = Random() % Ours->Width, my = Random() % Ours->Height;
 			MWCall("TMapWindow mouse objects", 0, 0, [&](int s) {
 				if (s == OURS) {
-					if (Which <= 1) Ours->LeftButtonUp(mx, my, 0); else Ours->RightButtonUp(mx, my, Flags);
+					if (Which <= 1) Ours->LeftButtonUp(mx, my, 0);
+					else Ours->RightButtonUp(mx, my, Flags);
 				} else {
+#if GOLDEN_ORACLE
 					if (Which <= 1) At<Bool3Fn>(0x4c2710)(Original, NULL, mx, my, 0);
 					else At<Bool3Fn>(0x4c2e50)(Original, NULL, mx, my, Flags);
+#endif
 				}
 			});
 		}
@@ -1702,75 +2027,78 @@ static void TestMapWindowErrors()
 		{
 			TMapThrower *T[2];
 			PlaceThrowers(T);
-			T[OURS]->Armed = T[ORIGINAL]->Armed = true;
+			Arm(T, true);
 			MWCall("TMapWindow::Arrange", 0, 0, [&](int s) {
-				if (s == OURS) Ours->Arrange(); else At<VoidFn>(0x4bfde0)(Original, NULL); });
-			T[OURS]->Armed = T[ORIGINAL]->Armed = false;
-			NextHint = Random() % 3 == 0 ? 1 + Random() % EVENTHELPS : Random() % 2 ? 0 : EVENTHELPS + 1 + Random() % 5;
+				if (s == OURS) Ours->Arrange(); else ORIGINAL(At<VoidFn>(0x4bfde0)(Original, NULL)); });
+			Arm(T, false);
+			NextHint = Random() % 3 == 0 ? 1 + Random() % EVENTHELPS : Random() % 2 ? 0
+																					: EVENTHELPS + 1 + Random() % 5;
 			MWCall("TMapWindow::HandleEvent hint", 0, 0, [&](int s) {
-				if (s == OURS) Ours->HandleEvent(27); else At<Int1Fn>(0x4bffa0)(Original, NULL, 27); });
+				if (s == OURS) Ours->HandleEvent(27); else ORIGINAL(At<Int1Fn>(0x4bffa0)(Original, NULL, 27)); });
 		}
 	}
 	// The constructors: TMapWindow's hotkeys, TMapFrame's map view.
 	void *SavedWindows[2] = {Window[OURS], Window[ORIGINAL]};
 	for (int Fail = 1; Fail <= 2; Fail++) {
-		uint8 *A = (uint8 *)calloc(1, sizeof(TMapWindow)), *B = (uint8 *)calloc(1, sizeof(TMapWindow));
+		uint8 *A = (uint8 *)calloc(1, sizeof(TMapWindow));
 		Window[OURS] = A;
-		Window[ORIGINAL] = B;
-		ROUND_COMPARE(R, "TMapWindow::TMapWindow", (Side = OURS, Ticks = 0, FailAt = Fail, new (A) TMapWindow),
+		ORIGINAL(uint8 *B = (uint8 *)calloc(1, sizeof(TMapWindow)); Window[ORIGINAL] = B);
+		GOLDEN_ROUND_COMPARE(R, "TMapWindow::TMapWindow", (Side = OURS, Ticks = 0, FailAt = Fail, new (A) TMapWindow),
 			(Side = ORIGINAL, Ticks = 0, FailAt = Fail, At<CtorFn>(0x4bfa00)(B, NULL)));
 		FailAt = 0;
 		CompareLogs("TMapWindow::TMapWindow", Fail);
 		free(A);
-		free(B);
+		ORIGINAL(free(B));
 		A = (uint8 *)calloc(1, sizeof(TMapFrame));
-		B = (uint8 *)calloc(1, sizeof(TMapFrame));
+		ORIGINAL(B = (uint8 *)calloc(1, sizeof(TMapFrame)));
 		Window[OURS] = Window[ORIGINAL] = NULL;
-		ROUND_COMPARE(R, "TMapFrame::TMapFrame", (Side = OURS, Ticks = 0, FailAt = Fail, new (A) TMapFrame),
+		GOLDEN_ROUND_COMPARE(R, "TMapFrame::TMapFrame", (Side = OURS, Ticks = 0, FailAt = Fail, new (A) TMapFrame),
 			(Side = ORIGINAL, Ticks = 0, FailAt = Fail, At<CtorFn>(0x4c1a40)(B, NULL)));
 		FailAt = 0;
 		CompareLogs("TMapFrame::TMapFrame", Fail);
 		free(A);
-		free(B);
+		ORIGINAL(free(B));
 	}
 	// TMapFrame::SetSize through its map view's SetSize.
 	{
-		uint8 *A = (uint8 *)calloc(1, sizeof(TMapFrame)), *B = (uint8 *)calloc(1, sizeof(TMapFrame));
+		uint8 *A = (uint8 *)calloc(1, sizeof(TMapFrame));
 		Window[OURS] = Window[ORIGINAL] = NULL;
 		Side = OURS;
 		TMapFrame *Frame = new (A) TMapFrame;
+		ClearMapWindow(Frame->MapWindow);
+#if GOLDEN_ORACLE
+		uint8 *B = (uint8 *)calloc(1, sizeof(TMapFrame));
 		Side = ORIGINAL;
 		At<CtorFn>(0x4c1a40)(B, NULL);
-		ClearMapWindow((uint8 *)Frame->MapWindow);
-		ClearMapWindow(*(uint8 **)(B + 0x2c));
+		ClearOriginalMapWindow(*(uint8 **)(B + 0x2c));
+#endif
 		CompareLogs("TMapFrame errors: constructor");
 		for (int Fail = 0; Fail <= 4; Fail++) {
 			int Width = 260 + Random() % 700, Height = 200 + Random() % 500;
-			ROUND_COMPARE(R, "TMapFrame::SetSize", (Side = OURS, Ticks = 0, FailAt = Fail, Frame->SetSize(Width, Height)),
+			GOLDEN_ROUND_COMPARE(R, "TMapFrame::SetSize", (Side = OURS, Ticks = 0, FailAt = Fail, Frame->SetSize(Width, Height)),
 				(Side = ORIGINAL, Ticks = 0, FailAt = Fail, At<Int2Fn>(0x4c1c40)(B, NULL, Width, Height)));
 			FailAt = 0;
 			CompareLogs("TMapFrame::SetSize", Fail);
 		}
 		// The minimum size with a map view that throws.
-		void *Views[2] = {Frame->MapWindow, *(void **)(B + 0x2c)};
-		TMapThrower *T[2] = {new TMapThrower(OURS), new TMapThrower(ORIGINAL)};
-		T[OURS]->Armed = T[ORIGINAL]->Armed = true;
+		TMapWindow *View = Frame->MapWindow;
+		TMapThrower *T[2] = {new TMapThrower(OURS), NULL};
+		ORIGINAL(void *OriginalView = *(void **)(B + 0x2c); T[ORIGINAL] = new TMapThrower(ORIGINAL));
+		Arm(T, true);
 		Frame->MapWindow = (TMapWindow *)(TComponent *)T[OURS];
-		*(void **)(B + 0x2c) = T[ORIGINAL];
-		ROUND_COMPARE(R, "TMapFrame::getMinimumWidth", (Side = OURS, Frame->getMinimumWidth()),
+		ORIGINAL(*(void **)(B + 0x2c) = T[ORIGINAL]);
+		GOLDEN_ROUND_COMPARE(R, "TMapFrame::getMinimumWidth", (Side = OURS, Frame->getMinimumWidth()),
 			(Side = ORIGINAL, At<IntFn>(0x4c1ea0)(B, NULL)));
-		ROUND_COMPARE(R, "TMapFrame::getMinimumHeight", (Side = OURS, Frame->getMinimumHeight()),
+		GOLDEN_ROUND_COMPARE(R, "TMapFrame::getMinimumHeight", (Side = OURS, Frame->getMinimumHeight()),
 			(Side = ORIGINAL, At<IntFn>(0x4c2040)(B, NULL)));
-		Frame->MapWindow = (TMapWindow *)Views[OURS];
-		*(void **)(B + 0x2c) = Views[ORIGINAL];
+		Frame->MapWindow = View;
+		ORIGINAL(*(void **)(B + 0x2c) = OriginalView);
 		delete T[OURS];
-		delete T[ORIGINAL];
+		ORIGINAL(delete T[ORIGINAL]);
 		Side = OURS;
 		Frame->~TMapFrame();
 		free(A);
-		Side = ORIGINAL;
-		At<DeleteFn>(0x4adc40)(B, NULL, 0);
-		free(B);
+		ORIGINAL(Side = ORIGINAL; At<DeleteFn>(0x4adc40)(B, NULL, 0); free(B));
 		CompareLogs("TMapFrame errors: destructor");
 	}
 	Window[OURS] = SavedWindows[OURS];
@@ -1781,28 +2109,25 @@ static void TestMapWindowErrors()
 	MWRound = NULL;
 }
 
+} // namespace MapWindowTest
+using namespace MapWindowTest;
+
 void TestMapWindow(const char *ExePath)
 {
 	int Before = Checks, BeforeFailures = Failures;
-	PatchImage();
-	PatchScript();
-	std::string Dat = ExePath;
-	size_t Slash = Dat.find_last_of("\\/");
-	Dat = (Slash == std::string::npos ? std::string() : Dat.substr(0, Slash + 1)) + "Tibia.dat";
-	FILE *Probe = fopen(Dat.c_str(), "rb");
-	if (Probe == NULL) {
-		printf("note: %s not found, MapWindow tests skipped\n", Dat.c_str());
+	ORIGINAL(PatchImage(); PatchScript());
+	std::string Dat = golden::DataFile("Tibia.dat", ExePath);
+	if (Dat.empty()) {
+		printf("note: Tibia.dat not found next to %s, MapWindow tests skipped\n", ExePath != nullptr ? ExePath : "Tibia.exe");
 		return;
 	}
-	fclose(Probe);
 	LoadObjects(Dat.c_str());
-	At<void (__cdecl *)(const char *)>(0x4d7380)(Dat.c_str());
+	ORIGINAL(At<void(__cdecl *)(const char *)>(0x4d7380)(Dat.c_str()));
 	SortTypes();
 	InitSkins();
-	Global<int>(0x71c450) = NumberOfSkins;
-	Global<TSkin *>(0x71c454) = Skins;
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
 	InitSkinProperties();
-	At<void (__cdecl *)()>(0x498160)();
+	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	int SavedEngine = curEngine;
 	curEngine = 1;
 	FakeSurface = GetSurface();
@@ -1835,10 +2160,10 @@ void TestMapWindow(const char *ExePath)
 	RoundChecks = Checks - RoundChecks;
 
 	ExitSkins();
-	Global<TSkin *>(0x71c454) = NULL;
+	ORIGINAL(Global<TSkin *>(0x71c454) = NULL);
 	curEngine = SavedEngine;
 	ReleaseObjects();
-	At<void (__cdecl *)()>(0x4d70c0)();
+	ORIGINAL(At<void(__cdecl *)()>(0x4d70c0)());
 	int Least = Executed[0];
 	for (int i = 1; i < 24; i++)
 		Least = Executed[i] < Least ? Executed[i] : Least;
