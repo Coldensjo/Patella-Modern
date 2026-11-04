@@ -48,6 +48,7 @@ set(PATELLA_HEADERS_CXX26
 set(PATELLA_HEADERS_TESTMODE
 	testmode/ClientView.h
 	testmode/Clock.h
+	testmode/DisplayModes.h
 	testmode/InputScript.h
 	testmode/PacketLog.h
 	testmode/Png.h

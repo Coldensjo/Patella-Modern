@@ -190,6 +190,14 @@ Mesa's lp_rast.c), its `thrd_current` (1 per instance) and NVIDIA's driver (3 ev
 worked around (the pinned driver). tests_vulkan's new "switching to and from the CPU driver leaves no handles of
 ours" counts them apart and requires the rest flat. notes/vulkan.md, "Handles the drivers leave (issue #53)";
 notes/decisions.md, "Handles the drivers leave (Patella-Modern issue #53)".
+Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
+dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
+664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
+PATELLA_ENUM_DISPLAY_SETTINGS, src/testmode/DisplayModes.h); reference.py writes it from meta.json's new optional
+`display_modes` (the record step stores it), and the sessions of November 3 get the 24 modes of their recording
+(format still `patella-reference 1`, no new recording). tests_testmode "DisplayModes" (a made-up machine with
+1176x664), reference.py --self-test. Patella.exe and the oracle unchanged (pecompare). notes/testmode.md, "The
+display modes"; notes/decisions.md, "The display modes of a reference session (Patella-Modern issue #48)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
