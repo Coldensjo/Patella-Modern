@@ -1188,10 +1188,14 @@ std::string RandomAddress(int Length)
 		Text += Chars[Random() % (sizeof(Chars) - 1)];
 	return Text;
 }
+// The order of the calls of Random() in one expression is unspecified: each such expression of the old
+// test is written as the calls in the order the oracle's compiler made them (issue #30: the runner's
+// Debug build made another).
 std::string RandomIP()
 {
 	char Text[32];
-	snprintf(Text, sizeof(Text), "%u.%u.%u.%u", Random() % 256, Random() % 256, Random() % 256, Random() % 256);
+	uint32 D = Random() % 256, C = Random() % 256, B = Random() % 256, A = Random() % 256;
+	snprintf(Text, sizeof(Text), "%u.%u.%u.%u", A, B, C, D);
 	return Text;
 }
 int RandomErrorCode()
@@ -1199,8 +1203,11 @@ int RandomErrorCode()
 	static const int Codes[] = {WSAEINVAL, WSAEADDRNOTAVAIL, WSAEMSGSIZE, WSAENETDOWN, WSAENETUNREACH, WSAETIMEDOUT,
 		WSAECONNREFUSED, WSAEHOSTUNREACH, WSAHOST_NOT_FOUND, WSATRY_AGAIN, WSANO_DATA, ERROR_LOGINSERVER_OVERLOADED,
 		ERROR_DISCONNECTED, WSAEWOULDBLOCK, WSAECONNRESET, -1, 0, 1};
-	if (Chance(10))
-		return (int)Random() - (int)(Random() << 8);
+	if (Chance(10)) {
+		int High = (int)(Random() << 8);
+		int Low = (int)Random();
+		return Low - High;
+	}
 	return Codes[Random() % (sizeof(Codes) / sizeof(Codes[0]))];
 }
 
@@ -1242,9 +1249,17 @@ void RandomScript()
 	S.SendCount = Random() % 24;
 	for (int i = 0; i < S.SendCount; i++) {
 		S.SendOps[i][0] = Random() % 5;
-		S.SendOps[i][1] = (int)(Random() ^ (Random() << 12));
+		{
+			uint32 Low = Random();
+			uint32 High = Random() << 12;
+			S.SendOps[i][1] = (int)(Low ^ High);
+		}
 	}
-	S.RandSeed = Random() ^ (Random() << 16);
+	{
+		uint32 Low = Random();
+		uint32 High = Random() << 16;
+		S.RandSeed = Low ^ High;
+	}
 }
 
 // One server frame: [u16 size][XTEA([u16 length][payload][padding])], the
@@ -1762,7 +1777,12 @@ void TestNetworkErrors()
 		if (Kind == 28)
 			continue;
 		for (int Trial = 0; Trial < 8; Trial++) {
-			uint32 Seed = Random() ^ (Random() << 16);
+			uint32 Seed;
+			{
+				uint32 Low = Random();
+				uint32 High = Random() << 16;
+				Seed = Low ^ High;
+			}
 			int Length = Random() % 12;
 			for (int n = 1; n < 400; n++) {
 				SetRandomSeed(Seed);
