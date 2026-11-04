@@ -71,6 +71,10 @@ jobs:
         run: python -I tools/build.py --env windows-x64 cmake --build --preset windows-x64 --target Patella_compile
       - name: Compile the test build (PatellaTest_compile, Release)
         run: python -I tools/build.py --env windows-x64 cmake --build --preset windows-x64 --target PatellaTest_compile
+      # Each header of the client and the test build compiled on its own with their settings (issue #49,
+      # cmake/HeaderCheck.cmake); the other jobs build their presets' header checks with everything else.
+      - name: Compile the headers on their own (header_check_client, header_check_test_build, Release)
+        run: python -I tools/build.py --env windows-x64 cmake --build --preset windows-x64 --target header_check_client header_check_test_build
 
   linux:
     name: ${{ matrix.preset }} (Docker), unit tests
@@ -119,10 +123,11 @@ jobs:
       - name: Build the image (docker/linux-x64)
         run: docker build -t "$IMAGE" docker/linux-x64
       # The compile commands of linux-x64-clang (configure only): every source of src/ that builds on
-      # Linux (patella_core), and the headers of src/ they include. Fails on a finding that is not in
+      # Linux (patella_core), and the headers of src/ they include; with --headers, misc-include-cleaner
+      # on each header of the preset's header checks as its own main file (issue #49). Fails on a finding that is not in
       # tools/tidy-baseline.tsv; checks only, never --fix. tools/tidy_ci.py runs this step locally: it reads the
       # single-quoted bash -c script below (issue #51), so keep it one quoted argument.
       - name: tools/tidy.py --baseline
         run: >-
           docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" bash -c
-          'clang-tidy --version && cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --baseline tools/tidy-baseline.tsv'
+          'clang-tidy --version && cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --headers --baseline tools/tidy-baseline.tsv'

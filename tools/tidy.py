@@ -19,9 +19,21 @@ commands of the preset linux-x64-clang in the Docker image of docker/linux-x64 (
 
 tools/tidy_ci.py runs that job locally, with the same result on the same commit (issue #51).
 
+Headers (issue #49): clang-tidy checks the includes of the main file only (misc-include-cleaner), so a
+header is checked as the main file of its own command. --headers takes the commands of the header checks
+of cmake/HeaderCheck.cmake (the generated build/<preset>/header-check/<target>/<header>.cpp, one line
+`#include "<header>"`, compiled with the settings of a target that uses the header) and runs clang-tidy on
+each header itself with its source's command, in a compilation database of its own
+(<build dir>/header-check/<target>/compile_commands.json). A header that is in several checks of the
+build (another target's settings) is checked once per command. Only misc-include-cleaner runs on the
+headers as main files, whatever --checks says: the other checks see every header already through the
+sources that include it (HeaderFilterRegex), and on a header alone they would also report what no source
+of the build instantiates or includes (Container.h's templates, compat/cxx26.h), which is not the
+include check's business.
+
 Usage:
 	python -I tools/tidy.py [-p <build dir>] [--fix] [--checks <list>] [--extra-arg <arg>] [-v]
-		[--baseline <file> | --write-baseline <file>] (--all | <file> ...)
+		[--baseline <file> | --write-baseline <file>] (--all | --headers | <file> ...)
 	-p        the directory with compile_commands.json (CMAKE_EXPORT_COMPILE_COMMANDS; default
 	          build/windows-x64, the preset of issue #5)
 	--fix     apply the fixes outside the macro arguments
@@ -30,6 +42,8 @@ Usage:
 	          takes the target from its own default, x64, not from the compiler of the build
 	-v        also list the findings inside macro arguments
 	--all     every source of compile_commands.json under src/ (not src/Extern), besides the files named
+	--headers every header of the build's header checks (cmake/HeaderCheck.cmake) as a main file, with
+	          misc-include-cleaner only (above), besides the files named
 	--baseline        compare with this findings list: exit 1 only for findings that are not in it
 	--write-baseline  write the findings to this list (the form --baseline reads)
 clang-tidy: the environment variable CLANG_TIDY, else clang-tidy on PATH, else Visual Studio's
@@ -173,6 +187,55 @@ def compile_commands_files(build):
 	return sorted(files)
 
 
+HEADER_CHECK_INCLUDE = re.compile(r'^#include "([^"]+)"$', re.M)
+
+
+def header_commands(build):
+	"""The header checks' commands of compile_commands.json, each for the header itself: (database
+	directory, header) pairs, one database per check target, so that a header that several targets
+	check (with other settings) is checked with each target's command."""
+	with open(Path(build) / 'compile_commands.json', encoding='utf-8') as f:
+		entries = json.load(f)
+	databases = {}
+	for entry in entries:
+		source = Path(entry['directory'], entry['file'])
+		parts = source.parts
+		if 'header-check' not in parts or source.suffix != '.cpp':
+			continue
+		target = parts[parts.index('header-check') + 1]
+		m = HEADER_CHECK_INCLUDE.search(source.read_text(encoding='utf-8'))
+		if not m:
+			sys.exit(f'tidy.py: {source} is not a header check (no #include line)')
+		header = (SRC / m.group(1)).resolve()
+		if not header.exists():
+			sys.exit(f'tidy.py: {source} includes {m.group(1)}, which is not in src/')
+		command = entry.get('command')
+		if command is None:
+			command = ' '.join(entry['arguments'])
+		# The header in the source's place. MSVC's commands say /TP (C++) already; GCC's and Clang's get
+		# -x c++-header, so the driver does not take the .h for C. A command line names the source as
+		# written in the entry ("file"), absolute with CMake.
+		names = [n for n in (entry['file'], str(Path(entry['file']))) if command.count(n) == 1]
+		if not names:
+			sys.exit(f'tidy.py: the command of {source} does not name it once')
+		replacement = str(header) if ' /TP ' in command else '-x c++-header ' + str(header)
+		command = command.replace(names[0], replacement)
+		# Ninja Multi-Config lists every configuration: the Release command, as for the sources.
+		release = 'Release' in Path(entry.get('output', '')).parts
+		items = databases.setdefault(target, {})
+		if str(header) not in items or release:
+			items[str(header)] = {'directory': entry['directory'], 'file': str(header), 'command': command}
+	result = []
+	for target, by_header in sorted(databases.items()):
+		items = list(by_header.values())
+		directory = Path(build) / 'header-check' / target
+		directory.mkdir(parents=True, exist_ok=True)
+		with open(directory / 'compile_commands.json', 'w', encoding='utf-8') as f:
+			json.dump(items, f, indent=1)
+		result += [(str(directory), item['file']) for item in sorted(items, key=lambda e: e['file'])]
+	return result
+
+
 def relative_name(path):
 	"""The name of a finding's file in the baseline: relative to the repository, with slashes."""
 	try:
@@ -243,6 +306,7 @@ def main():
 	parser.add_argument('--extra-arg', action='append', default=[])
 	parser.add_argument('-v', action='store_true')
 	parser.add_argument('--all', action='store_true')
+	parser.add_argument('--headers', action='store_true')
 	baseline = parser.add_mutually_exclusive_group()
 	baseline.add_argument('--baseline')
 	baseline.add_argument('--write-baseline')
@@ -250,18 +314,22 @@ def main():
 	args = parser.parse_args()
 	if not (Path(args.build) / 'compile_commands.json').exists():
 		sys.exit(f'tidy.py: {Path(args.build) / "compile_commands.json"} is missing (configure with CMAKE_EXPORT_COMPILE_COMMANDS)')
+	# (database directory, file): the build's own database for the sources, the header checks' for headers.
+	runs = [(args.build, f, False) for f in args.files]
 	if args.all:
-		args.files += [str(p) for p in compile_commands_files(args.build)]
-	if not args.files:
-		parser.error('no files: name them, or --all')
+		runs += [(args.build, str(p), False) for p in compile_commands_files(args.build)]
+	if args.headers:
+		headers = header_commands(args.build)
+		if not headers:
+			sys.exit(f'tidy.py: {args.build} has no header checks (cmake/HeaderCheck.cmake)')
+		runs += [(database, header, True) for database, header in headers]
+	if not runs:
+		parser.error('no files: name them, or --all, or --headers')
 	if args.fix and (args.baseline or args.write_baseline):
 		parser.error('--fix changes the files: not with a baseline')
 	tidy = find_clang_tidy()
 	# MSVC's command lines: clang does not use some of their options, and /WX would make that an error.
-	command = [tidy, '-p', args.build, '--quiet', '--extra-arg=-Wno-unused-command-line-argument',
-		'--extra-arg=-Wno-error']
-	if args.checks:
-		command.append('--checks=' + args.checks)
+	command = ['--quiet', '--extra-arg=-Wno-unused-command-line-argument', '--extra-arg=-Wno-error']
 	command += ['--extra-arg=' + a for a in args.extra_arg]
 	if args.fix:
 		command.append('--fix')
@@ -269,10 +337,11 @@ def main():
 	in_macros = {}
 	failed = []
 	reverted = 0
-	for file in args.files:
+	for database, file, header in runs:
 		before = snapshot() if args.fix else None
-		run = subprocess.run(command + [str(Path(file).resolve())], capture_output=True, text=True,
-			encoding='utf-8', errors='replace')
+		checks = ['--checks=-*,misc-include-cleaner'] if header else ['--checks=' + args.checks] if args.checks else []
+		run = subprocess.run([tidy, '-p', database] + checks + command + [str(Path(file).resolve())],
+			capture_output=True, text=True, encoding='utf-8', errors='replace')
 		if 'Found compiler error' in run.stdout + run.stderr:
 			failed.append(file)
 		if args.fix:
