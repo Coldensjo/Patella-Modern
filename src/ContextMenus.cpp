@@ -43,12 +43,16 @@
 #include <cstdio>
 #include <cstring>
 
+namespace {
+
 // At 0x5c4508, constructed by the static initialiser 0x559de0 as
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // ContextMenus.obj's only datum, right after ContentWindows.obj's
 // NoCallback (0x5c4500, initialiser 0x559dd0) and before Control.obj's .bss
 // (0x5c4510).
-static TCallback NoCallback(nullptr, 0);
+TCallback NoCallback(nullptr, 0);
+
+} // namespace
 
 // --- Functions without line evidence at the start ------------------------------
 

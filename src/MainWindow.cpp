@@ -41,15 +41,25 @@
 
 #include <cstdlib>
 
+namespace {
+
 // Data, in .bss order.
-static void (*OpenURLCallback)(const char *URL); // 0x5d16a0
-static void (*SetDisplayModeCallback)(int Mode); // 0x5d16a4
-static void (*ExitProgramCallback)();            // 0x5d16a8
-TWindow *ModalWindow;                            // 0x5d16ac
-TMainWindow *MainWindow;                         // 0x5d16b0
+void (*OpenURLCallback)(const char *URL); // 0x5d16a0
+void (*SetDisplayModeCallback)(int Mode); // 0x5d16a4
+void (*ExitProgramCallback)();            // 0x5d16a8
+
+} // namespace
+
+TWindow *ModalWindow;    // 0x5d16ac
+TMainWindow *MainWindow; // 0x5d16b0
+
+namespace {
+
 // At 0x5d16b4, constructed by the static initialiser 0x559f30 as
 // TCallback(NULL, 0) and never used (MapWindow.cpp has one too).
-static TCallback NoCallback(nullptr, 0);
+TCallback NoCallback(nullptr, 0);
+
+} // namespace
 
 // --- TMainWindow -----------------------------------------------------------
 

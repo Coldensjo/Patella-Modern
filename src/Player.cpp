@@ -43,17 +43,22 @@
 #include <ios>
 #include <ostream>
 
+namespace {
+
 // The window title and class name are stored XOR-encoded. The key of each
 // string is in this object's .rdata (0x56dd98, 0x56ddb8); the other half,
 // TitleCode and ClassNameCode, is sysinc.cpp's (0x5733a4, 0x5733c4).
-static const int TitleKey[8] = {16, 34, 227, 56, 3, 110, 64, 173};                         // 0x56dd98
-static const int ClassNameKey[11] = {109, 168, 131, 83, 237, 53, 175, 191, 138, 154, 253}; // 0x56ddb8
+const int TitleKey[8] = {16, 34, 227, 56, 3, 110, 64, 173};                         // 0x56dd98
+const int ClassNameKey[11] = {109, 168, 131, 83, 237, 53, 175, 191, 138, 154, 253}; // 0x56ddb8
 
 // Data, in .data/.bss order.
-static int LastMouseCursor = 1;  // 0x5c2518
-static int NumberOfTibiaWindows; // 0x719db0, counted by CountTibiaWindows
-static POINT LastMousePosition;  // 0x719db4
-CPlayerApp theApp;               // 0x719dc0
+int LastMouseCursor = 1;  // 0x5c2518
+int NumberOfTibiaWindows; // 0x719db0, counted by CountTibiaWindows
+POINT LastMousePosition;  // 0x719db4
+
+} // namespace
+
+CPlayerApp theApp; // 0x719dc0
 
 // 0x4d7cd0: CPlayerApp has no message handlers of its own.
 BEGIN_MESSAGE_MAP(CPlayerApp, CWinApp)
@@ -106,9 +111,11 @@ void GetWindowClassName(char *Text)
 	Text[11] = 0;
 }
 
+namespace {
+
 // 0x4d9420 (missed by Ghidra). EnumWindows callback: counts the windows
 // whose title or class matches the client's (caseless), this one included.
-static BOOL CALLBACK CountTibiaWindows(HWND Window, [[maybe_unused]] LPARAM Parameter)
+BOOL CALLBACK CountTibiaWindows(HWND Window, [[maybe_unused]] LPARAM Parameter)
 {
 	char Title[32];
 	char WindowText[32];
@@ -123,6 +130,8 @@ static BOOL CALLBACK CountTibiaWindows(HWND Window, [[maybe_unused]] LPARAM Para
 		NumberOfTibiaWindows++;
 	return TRUE;
 }
+
+} // namespace
 
 // 0x4d9910. Shows the error code with its texts and ends the program. If
 // a fatal error is already being shown it only sets Terminating again.

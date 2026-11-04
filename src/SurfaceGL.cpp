@@ -43,25 +43,27 @@
 #define WGL_COLOR_BITS_ARB 0x2014
 #define WGL_ALPHA_BITS_ARB 0x201B
 
+namespace {
+
 // Data, in address order (.data, then .bss; the glh_extensions.h pointers
 // lie between 0x71d318 and 0x71dbb0).
-static int CurrentFilter = GL_LINEAR;             // 0x5c257c, the textures' filter (SetTextureFilter)
-static int CurrentSurface = SCREEN_SURFACE;       // 0x5c2580, the selected surface
-static RECT DirtyRect;                            // 0x71d290, drawn into CurrentSurface since it was selected
-static HPBUFFERARB Pbuffer;                       // 0x71d2a0
-static HDC PbufferDC;                             // 0x71d2a4
-static HGLRC PbufferContext;                      // 0x71d2a8
-static int PbufferWidth;                          // 0x71d2ac
-static int PbufferHeight;                         // 0x71d2b0
-static HGLRC MainContext;                         // 0x71d2b4, the window's context
-static HDC MainDC;                                // 0x71d2b8, the window's device context
-static int SurfaceCreated[NUMBER_OF_SURFACES_GL]; // 0x71d2c0, indexed by NumberOfSurfaces
-static uint32 FrameCount;                         // 0x71dbb4
-static double LastFPSTime;                        // 0x71dbb8
+int CurrentFilter = GL_LINEAR;             // 0x5c257c, the textures' filter (SetTextureFilter)
+int CurrentSurface = SCREEN_SURFACE;       // 0x5c2580, the selected surface
+RECT DirtyRect;                            // 0x71d290, drawn into CurrentSurface since it was selected
+HPBUFFERARB Pbuffer;                       // 0x71d2a0
+HDC PbufferDC;                             // 0x71d2a4
+HGLRC PbufferContext;                      // 0x71d2a8
+int PbufferWidth;                          // 0x71d2ac
+int PbufferHeight;                         // 0x71d2b0
+HGLRC MainContext;                         // 0x71d2b4, the window's context
+HDC MainDC;                                // 0x71d2b8, the window's device context
+int SurfaceCreated[NUMBER_OF_SURFACES_GL]; // 0x71d2c0, indexed by NumberOfSurfaces
+uint32 FrameCount;                         // 0x71dbb4
+double LastFPSTime;                        // 0x71dbb8
 
 // 0x4f9550. Odd behaviour kept: the imported functions are checked for NULL
 // before they are called.
-static void ReleasePbuffer()
+void ReleasePbuffer()
 {
 	if (Pbuffer != nullptr) {
 		if (wglGetCurrentContext != nullptr && wglGetCurrentContext() == PbufferContext)
@@ -80,7 +82,7 @@ static void ReleasePbuffer()
 // alpha, whose context shares the window context's textures. Odd behaviour
 // kept: after wglCreateContext the pbuffer is checked again instead of the
 // new context.
-static bool CreatePbuffer()
+bool CreatePbuffer()
 {
 	Pbuffer = nullptr;
 	PbufferWidth = 640;
@@ -114,6 +116,8 @@ static bool CreatePbuffer()
 	}
 	return false;
 }
+
+} // namespace
 
 // 0x4f9710. Sets a double-buffered RGBA pixel format on the context, needs
 // the pbuffer extensions and creates and releases a pbuffer. Odd behaviour

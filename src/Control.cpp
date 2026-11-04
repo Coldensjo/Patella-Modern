@@ -48,24 +48,28 @@
 #include "vulkan/DeviceChoice.h"
 #endif
 
+namespace {
+
 // Data, in .data/.bss order. 0x5c4540-0x5c4553 is not used by any code.
-static int LastPacketType = -1;               // 0x5c0d8c, only written (ReceivePackets)
-static int LastPacketIndex;                   // 0x5c4510, next slot in LastPacketTypes
-static uint8 LastPacketTypes[10];             // 0x5c4514, the last ten packet types, a ring
-static int ReconnectTimeout;                  // 0x5c4520, GetMilliseconds time
-static bool Reconnect;                        // 0x5c4524, set by event 0x3f
-static int LastMouseMove;                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
-static void (*URLCallback)(const char *URL);  // 0x5c452c
-static void (*DisplayModeCallback)(int Mode); // 0x5c4530
-static void (*CloseCallback)();               // 0x5c4534, called by event 0x48
-static void (*ExitCallback)();                // 0x5c4538, stored but not used here
-static HWND WindowHandle;                     // 0x5c453c
-static bool ShowFPS;                          // 0x5c4554, toggled by key 0x907
+int LastPacketType = -1;               // 0x5c0d8c, only written (ReceivePackets)
+int LastPacketIndex;                   // 0x5c4510, next slot in LastPacketTypes
+uint8 LastPacketTypes[10];             // 0x5c4514, the last ten packet types, a ring
+int ReconnectTimeout;                  // 0x5c4520, GetMilliseconds time
+bool Reconnect;                        // 0x5c4524, set by event 0x3f
+int LastMouseMove;                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
+void (*URLCallback)(const char *URL);  // 0x5c452c
+void (*DisplayModeCallback)(int Mode); // 0x5c4530
+void (*CloseCallback)();               // 0x5c4534, called by event 0x48
+void (*ExitCallback)();                // 0x5c4538, stored but not used here
+HWND WindowHandle;                     // 0x5c453c
+bool ShowFPS;                          // 0x5c4554, toggled by key 0x907
 // At 0x5c4558, constructed by the static initialiser 0x559df0 as
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // the end of Control.obj's .bss, after ShowFPS and before Creatures.obj's
 // BuddySortMethods (0x5c4560).
-static TCallback NoCallback(nullptr, 0);
+TCallback NoCallback(nullptr, 0);
+
+} // namespace
 
 // 0x445900. For error.txt (Player.cpp's HandleException): the last ten
 // packet types, newest first.

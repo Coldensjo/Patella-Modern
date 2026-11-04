@@ -5,10 +5,12 @@
 #include "TXTEA.h"
 #include "common.h"
 
-static const uint32 DELTA = 0x9e3779b9;
+namespace {
+
+const uint32 DELTA = 0x9e3779b9;
 
 // 0x508cd0
-static void EncryptXTEA(uint32 *Block, const uint32 *Key)
+void EncryptXTEA(uint32 *Block, const uint32 *Key)
 {
 	uint32 v0 = Block[0];
 	uint32 v1 = Block[1];
@@ -23,7 +25,7 @@ static void EncryptXTEA(uint32 *Block, const uint32 *Key)
 }
 
 // 0x508e00
-static void DecryptXTEA(uint32 *Block, const uint32 *Key)
+void DecryptXTEA(uint32 *Block, const uint32 *Key)
 {
 	uint32 v0 = Block[0];
 	uint32 v1 = Block[1];
@@ -36,6 +38,8 @@ static void DecryptXTEA(uint32 *Block, const uint32 *Key)
 	Block[0] = v0;
 	Block[1] = v1;
 }
+
+} // namespace
 
 // 0x508c70
 TXTEA::TXTEA()

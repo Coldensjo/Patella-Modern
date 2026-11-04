@@ -31,22 +31,33 @@
 #include <cstring>
 
 // Data, in .bss order.
-uint8 PacketHeader[16];         // 0x5d1644, written by Network.cpp
-CMainFrame *MainFrame;          // 0x5d1654
-static HCURSOR HandCursor;      // 0x5d1658, cursor resource 0x89 (mouse cursor 6)
-static HCURSOR SizeCursor;      // 0x5d165c, IDC_SIZENS (mouse cursor 2)
-static HCURSOR WaitCursor;      // 0x5d1660, IDC_WAIT (mouse cursor 3)
-static HCURSOR ArrowCursor;     // 0x5d1664, IDC_ARROW (mouse cursor 1)
-static HCURSOR DefaultCursor;   // 0x5d1668, cursor resource 0x84 (the others)
-static bool LeftButtonPressed;  // 0x5d166c
-static bool RightButtonPressed; // 0x5d166d
-static bool Closing;            // 0x5d166f, CloseRequest is not asked any more
-bool DisplayChanged;            // 0x5d1670, set by OnDisplayChange; SurfaceGL.cpp's Init reads and clears it
+uint8 PacketHeader[16]; // 0x5d1644, written by Network.cpp
+CMainFrame *MainFrame;  // 0x5d1654
+
+namespace {
+
+HCURSOR HandCursor;      // 0x5d1658, cursor resource 0x89 (mouse cursor 6)
+HCURSOR SizeCursor;      // 0x5d165c, IDC_SIZENS (mouse cursor 2)
+HCURSOR WaitCursor;      // 0x5d1660, IDC_WAIT (mouse cursor 3)
+HCURSOR ArrowCursor;     // 0x5d1664, IDC_ARROW (mouse cursor 1)
+HCURSOR DefaultCursor;   // 0x5d1668, cursor resource 0x84 (the others)
+bool LeftButtonPressed;  // 0x5d166c
+bool RightButtonPressed; // 0x5d166d
+bool Closing;            // 0x5d166f, CloseRequest is not asked any more
+
+} // namespace
+
+bool DisplayChanged; // 0x5d1670, set by OnDisplayChange; SurfaceGL.cpp's Init reads and clears it
+
+namespace {
+
 // At 0x5d1674, constructed by the static initialiser 0x559f20 as TCallback(NULL, 0) (no atexit) and
 // never used, like the window files' (issue #24).
-static TCallback NoCallback(nullptr, 0);
-static char ClassName[32]; // 0x5d167c
-static int WheelDelta;     // 0x5d169c, the remainder below one notch (120)
+TCallback NoCallback(nullptr, 0);
+char ClassName[32]; // 0x5d167c
+int WheelDelta;     // 0x5d169c, the remainder below one notch (120)
+
+} // namespace
 
 // 0x4a8200. The handlers that share an address in the table (OnKeyDown
 // and OnSysKeyDown, OnKeyUp and OnSysKeyUp) have identical code that the

@@ -27,17 +27,27 @@
 #include <ostream>
 #include <sstream>
 
-static int SkipFields;      // 0x5c4340
-static uint8 *PatchData;    // 0x5c4344, cleared by InitCommunication
-static bool PatchWholeFile; // 0x5c4348
-static int PatchDataCount;  // 0x5c434c
-static int PatchDataSize;   // 0x5c4350
-static int PatchFileNumber; // 0x5c4354
-bool OutfitRequested;       // 0x5c4358
-static int CancelCount;     // 0x5c4378
-static int LastCancelZ;     // 0x5c437c
-static int LastCancelY;     // 0x5c4380
-static int LastCancelX;     // 0x5c4384
+namespace {
+
+int SkipFields;      // 0x5c4340
+uint8 *PatchData;    // 0x5c4344, cleared by InitCommunication
+bool PatchWholeFile; // 0x5c4348
+int PatchDataCount;  // 0x5c434c
+int PatchDataSize;   // 0x5c4350
+int PatchFileNumber; // 0x5c4354
+
+} // namespace
+
+bool OutfitRequested; // 0x5c4358
+
+namespace {
+
+int CancelCount; // 0x5c4378
+int LastCancelZ; // 0x5c437c
+int LastCancelY; // 0x5c4380
+int LastCancelX; // 0x5c4384
+
+} // namespace
 
 static_assert(offsetof(TCreature, Direction) == 0x50, "creature direction");
 static_assert(offsetof(TCreature, OutfitType) == 0x60, "creature outfit");

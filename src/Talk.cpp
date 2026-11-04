@@ -16,21 +16,39 @@
 #include <cstring>
 #include <ctime>
 
-static bool IgnoreListEnabled;                                       // 0x71dbd0
-static bool BuddyIgnore;                                             // 0x71dbd1
-static bool IgnoreEnabled;                                           // 0x71dbd2
-static bool ConsoleChanged;                                          // 0x71dbd3
-static int StatusMessageTime;                                        // 0x71dbdc
-static char StatusMessage[STATUSMESSAGE_LENGTH];                     // 0x71dbe0
-static int TalkOrder;                                                // 0x71dde0
-static bool TalkChanged;                                             // 0x71dde4
-static TTalkbox Talkboxes[TALKBOXES];                                // 0x71dde8
-TTalkBuffer *DefaultTextBuffer;                                      // 0x71ef68
-static int TalkThrottle;                                             // 0x71ef6c
-static vector<TTalkFilter *> BuddyExemptionList(0, 9, 10, nullptr);  // 0x71ef70, 0x55a140
-static vector<TTalkFilter *> TemporaryIgnoreList(0, 9, 10, nullptr); // 0x71ef90, 0x55a160
-static vector<TTalkFilter *> IgnoreList(0, 9, 10, nullptr);          // 0x71efb0, 0x55a180
-static vector<TTalkFilter *> ConsoleFilterList(0, 4, 5, nullptr);    // 0x71efd0, 0x55a1a0
+namespace {
+
+bool IgnoreListEnabled;                   // 0x71dbd0
+bool BuddyIgnore;                         // 0x71dbd1
+bool IgnoreEnabled;                       // 0x71dbd2
+bool ConsoleChanged;                      // 0x71dbd3
+int StatusMessageTime;                    // 0x71dbdc
+char StatusMessage[STATUSMESSAGE_LENGTH]; // 0x71dbe0
+int TalkOrder;                            // 0x71dde0
+bool TalkChanged;                         // 0x71dde4
+TTalkbox Talkboxes[TALKBOXES];            // 0x71dde8
+
+} // namespace
+
+TTalkBuffer *DefaultTextBuffer; // 0x71ef68
+
+namespace {
+
+int TalkThrottle;                                            // 0x71ef6c
+vector<TTalkFilter *> BuddyExemptionList(0, 9, 10, nullptr); // 0x71ef70, 0x55a140
+
+} // namespace
+
+// These two stay static (issue #44): in an anonymous namespace MSVC swaps them in .bss (both the oracle and
+// x64).
+static vector<TTalkFilter *> TemporaryIgnoreList(0, 9, 10, nullptr); // NOLINT(misc-use-anonymous-namespace): 0x71ef90, 0x55a160
+static vector<TTalkFilter *> IgnoreList(0, 9, 10, nullptr);          // NOLINT(misc-use-anonymous-namespace): 0x71efb0, 0x55a180
+
+namespace {
+
+vector<TTalkFilter *> ConsoleFilterList(0, 4, 5, nullptr); // 0x71efd0, 0x55a1a0
+
+} // namespace
 
 static_assert(sizeof(TTalkbox) == 0x1c0, "talkbox layout");
 #if PATELLA_ORIGINAL_LAYOUT

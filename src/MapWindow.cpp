@@ -39,15 +39,17 @@
 #include <cstddef>
 #include <cstring>
 
+namespace {
+
 // At 0x7152e8, constructed by the static initialiser 0x559fc0 as
 // TCallback(NULL, 0) and never used; the only datum of MapWindow.obj besides its copy of the
 // text table (Text.h).
-static TCallback NoCallback(nullptr, 0);
+TCallback NoCallback(nullptr, 0);
 
 // Limits Value to the range between Bound1 and Bound2, which may come in
 // either order. The binary has no copy: it is inlined everywhere (with
 // constant bounds only the first branch is left).
-static inline void Limit(int &Value, int Bound1, int Bound2)
+inline void Limit(int &Value, int Bound1, int Bound2)
 {
 	if (Bound1 > Bound2) {
 		if (Value < Bound2)
@@ -61,6 +63,8 @@ static inline void Limit(int &Value, int Bound1, int Bound2)
 			Value = Bound2;
 	}
 }
+
+} // namespace
 
 // A thrown error whose expression text is a bug number, like Map.cpp's
 // assertions ("unknown creature party flag", "[bug0001106]").

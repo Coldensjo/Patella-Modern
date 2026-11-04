@@ -29,29 +29,33 @@ public:
 	void OnClose(int ErrorCode) override;
 };
 
+namespace {
+
 // Data, in .data/.bss order.
-static int HostnameResolveBufferSize = MAXGETHOSTSTRUCT;    // 0x5c22c4, initialised to 0x400
-static int CurrentServer;                                   // 0x7152f0
-static TServer TestServer;                                  // 0x7152f8
-static TServer Servers[NUMBEROFSERVER];                     // 0x715368
-static HANDLE HostnameRequest;                              // 0x715528
-static char *HostnameResolveBuffer;                         // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
-static int ReceiveDataSize;                                 // 0x715530, bytes in ReceiveData
-static int ReceivePacketEnd;                                // 0x715534, end of the complete packets
-static int ReceiveRead;                                     // 0x715538, start of the next unread packet
-static uint8 ReceiveData[0x4000];                           // 0x715540
-static uint8 SendData[0x800];                               // 0x719540
-static HWND NetworkWindow;                                  // 0x719d40, receives WM_USER+1 when a name is resolved
-static void (*CloseCallback)();                             // 0x719d44
-static void (*ReceiveCallback)();                           // 0x719d48
-static void (*ConnectCallback)();                           // 0x719d4c
-static TSocket *Socket;                                     // 0x719d50
-static int TimeoutCounter;                                  // 0x719d54
-static int TimeoutLimit;                                    // 0x719d58, in CheckConnectionTimeout calls
-static TWriteBuffer SendBuffer(SendData, sizeof(SendData)); // 0x719d5c, initialiser at 0x559fd0
-static TReadBuffer ReceiveBuffer(ReceiveData, 0);           // 0x719d68, initialiser at 0x559ff0
-static TXTEA SymmetricKey;                                  // 0x719d74, initialiser at 0x55a010
-static int RecursionProtection;                             // 0x719d88
+int HostnameResolveBufferSize = MAXGETHOSTSTRUCT;    // 0x5c22c4, initialised to 0x400
+int CurrentServer;                                   // 0x7152f0
+TServer TestServer;                                  // 0x7152f8
+TServer Servers[NUMBEROFSERVER];                     // 0x715368
+HANDLE HostnameRequest;                              // 0x715528
+char *HostnameResolveBuffer;                         // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
+int ReceiveDataSize;                                 // 0x715530, bytes in ReceiveData
+int ReceivePacketEnd;                                // 0x715534, end of the complete packets
+int ReceiveRead;                                     // 0x715538, start of the next unread packet
+uint8 ReceiveData[0x4000];                           // 0x715540
+uint8 SendData[0x800];                               // 0x719540
+HWND NetworkWindow;                                  // 0x719d40, receives WM_USER+1 when a name is resolved
+void (*CloseCallback)();                             // 0x719d44
+void (*ReceiveCallback)();                           // 0x719d48
+void (*ConnectCallback)();                           // 0x719d4c
+TSocket *Socket;                                     // 0x719d50
+int TimeoutCounter;                                  // 0x719d54
+int TimeoutLimit;                                    // 0x719d58, in CheckConnectionTimeout calls
+TWriteBuffer SendBuffer(SendData, sizeof(SendData)); // 0x719d5c, initialiser at 0x559fd0
+TReadBuffer ReceiveBuffer(ReceiveData, 0);           // 0x719d68, initialiser at 0x559ff0
+TXTEA SymmetricKey;                                  // 0x719d74, initialiser at 0x55a010
+int RecursionProtection;                             // 0x719d88
+
+} // namespace
 
 // 0x4ca0e0
 void InitServerList()
