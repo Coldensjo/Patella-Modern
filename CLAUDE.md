@@ -1,8 +1,13 @@
 # Tibia client reverse engineering
 
-Target: `C:\Tibia\Tibia.exe`, the Tibia 7.x client (PE32, x86, MSVC 7.1 linker, built 2006-06-08,
-sha256 `1a82fe97a39e536c29327d6d5dde316775f537dcc01506831429b1a0433b76f8`).
+Target: `C:\Tibia\Patella\Tibia.exe` (a copy in this repository's root), the Tibia 7.x client (PE32, x86,
+MSVC 7.1 linker, built 2006-06-08, sha256 `1a82fe97a39e536c29327d6d5dde316775f537dcc01506831429b1a0433b76f8`).
 Data files next to it: `Tibia.dat`, `Tibia.spr`, `Tibia.pic`, `Tibia.cfg`.
+
+The machine's folders (since November 4, 2026; `notes/reconstruction.md`, "The machine's folders"): this
+repository at `C:\Tibia\Patella-Modern`, the upstream Patella repository with the original files and its
+decompilation workspace at `C:\Tibia\Patella`, the test server at `C:\Tibia\gameserver` (`PATELLA_TESTSERVER`
+overrides it). No tool or build file assumes where this repository is.
 
 ## Reconstruction
 
@@ -46,9 +51,9 @@ the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cma
 headless.
 
 The reference recordings (issue #23, M2's exit; `notes/testmode.md`, "Reference recordings"): `python -I
-tools/reference.py record --reference C:\Patella-Modern\build\reference` (Windows, Tibia.exe under patcap.dll;
+tools/reference.py record --reference C:\Tibia\Patella-Modern\build\reference` (Windows, Tibia.exe under patcap.dll;
 the test server only for the two live recordings) and `python -I tools/reference.py compare --reference
-C:\Patella-Modern\build\reference` (PatellaTest.exe on each session, the server side replayed inside the client,
+C:\Tibia\Patella-Modern\build\reference` (PatellaTest.exe on each session, the server side replayed inside the client,
 no server, PATELLA_VULKAN=cpu; Python only). Also as `record`/`compare` first words of compare_traffic.py,
 compare_files.py and compare_rendering.py. Local CipSoft-derived data: never committed, pushed or uploaded.
 
@@ -94,7 +99,7 @@ the comparisons and testmode_check.py; this machine) runs only on push and workf
 ## REA
 
 The `rea` MCP server (https://github.com/morluto/rea) is registered at Claude Code local scope for this
-folder only, with the skill in `.claude/skills/reverse-engineer-anything`. Pass `C:\Tibia\Tibia.exe` as
+folder only, with the skill in `.claude/skills/reverse-engineer-anything`. Pass `C:\Tibia\Patella\Tibia.exe` as
 the target to its native analysis tools.
 
 - Package: `C:\Servers\Software\rea` (rea-agents 6.8.0), CLI: `rea` (`C:\Servers\Software\rea\rea.cmd`)
@@ -107,9 +112,9 @@ the target to its native analysis tools.
 CLI examples (`rea.cmd` sets `GHIDRA_INSTALL_DIR` and `JAVA_HOME` itself if they are unset):
 
 ```
-rea analyze C:\Tibia\Tibia.exe --provider ghidra --json
-rea search C:\Tibia\Tibia.exe "Tibia.spr" --provider ghidra --json
-rea decompile C:\Tibia\Tibia.exe 0x401000 --provider ghidra --json
+rea analyze C:\Tibia\Patella\Tibia.exe --provider ghidra --json
+rea search C:\Tibia\Patella\Tibia.exe "Tibia.spr" --provider ghidra --json
+rea decompile C:\Tibia\Patella\Tibia.exe 0x401000 --provider ghidra --json
 ```
 
 To update: `rea update` does not refresh the local-scope registration. Run

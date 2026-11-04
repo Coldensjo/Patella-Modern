@@ -28,9 +28,11 @@
 # and off again with --body false (or gh variable delete). notes/reconstruction.md, "Checking", and
 # notes/decisions.md, "CI (issue #11)".
 #
-# The CipSoft files come from the folder in the variable PATELLA_CIPSOFT_DIR (default C:\Tibia) and are
-# copied into the checkout's root, where .gitignore keeps them out of git; the checkout's git clean
-# removes them again before the next run. Nothing is uploaded: no artifact, no cache.
+# The CipSoft files come from the folder in the variable PATELLA_CIPSOFT_DIR (default C:\Tibia\Patella, the
+# upstream Patella checkout with the original Tibia.exe and data files since the folder layout of November 4,
+# 2026; notes/reconstruction.md, "The machine's folders") and are copied into the checkout's root, where
+# .gitignore keeps them out of git; the checkout's git clean removes them again before the next run.
+# Nothing is uploaded: no artifact, no cache.
 
 name: self-hosted
 
@@ -47,7 +49,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CIPSOFT_DIR: ${{ vars.PATELLA_CIPSOFT_DIR || 'C:\Tibia' }}
+  CIPSOFT_DIR: ${{ vars.PATELLA_CIPSOFT_DIR || 'C:\Tibia\Patella' }}
   # CLAUDE.md: the 7.72 client of 2006-06-08.
   TIBIA_EXE_SHA256: 1a82fe97a39e536c29327d6d5dde316775f537dcc01506831429b1a0433b76f8
 

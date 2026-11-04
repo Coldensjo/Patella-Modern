@@ -59,12 +59,15 @@ import sys
 import threading
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import testserver  # noqa: E402
+
 SERVER_HOST = "127.0.0.1"
 SERVER_LOGIN_PORT = 7171
 SERVER_GAME_PORT = 7172
 PROXY_LOGIN_PORT = 7271
 PROXY_GAME_PORT = 7272
-DEFAULT_PEM = r"C:\Tibia\gameserver\tibia.pem"
+DEFAULT_PEM = os.path.join(testserver.SERVER_DIR, "tibia.pem")  # the test server's (testserver.py, PATELLA_TESTSERVER)
 OPCODE_LOGIN = 0x01
 OPCODE_GAME = 0x0a
 OPCODE_PING = 0x1e
@@ -724,7 +727,7 @@ def main():
 	import argparse
 	parser = argparse.ArgumentParser(description="Record one live session through the proxy.")
 	parser.add_argument("output")
-	parser.add_argument("--pem", default=DEFAULT_PEM)
+	parser.add_argument("--pem", default=DEFAULT_PEM, help="the server's private key (default %(default)s)")
 	parser.add_argument("--replay", default=None, help="a recording to replay instead of a live server")
 	args = parser.parse_args()
 	replay = load_events(args.replay) if args.replay else None

@@ -4,8 +4,9 @@ Usage:
   python -I tools/testserver.py start [--server-dir DIR] [--timeout 300] [--window]
   python -I tools/testserver.py stop [--server-dir DIR] [--timeout 60] [--force]
 
-start runs tibia-server.exe (tibia-server elsewhere) from its own folder (default C:\Tibia\gameserver,
-where config.cfg, tibia.db and tibia.pem are found relative to the working directory) in a hidden
+start runs tibia-server.exe (tibia-server elsewhere) from its own folder (--server-dir; default the
+environment variable PATELLA_TESTSERVER, else C:\Tibia\gameserver, issue #2; where config.cfg, tibia.db
+and tibia.pem are found relative to the working directory) in a hidden
 console of its own (--window: minimised), writes its output to build\testserver\server.log (stderr:
 server.err; both overwritten at each start) and its PID to build\testserver\server.pid, and waits
 until it listens on the login port (7171) and the game port (7172). It refuses to start when a
@@ -43,10 +44,17 @@ STATE_DIR = os.path.join(ROOT, "build", "testserver")
 PID_FILE = os.path.join(STATE_DIR, "server.pid")
 LOG_FILE = os.path.join(STATE_DIR, "server.log")
 ERR_FILE = os.path.join(STATE_DIR, "server.err")
-SERVER_DIR = r"C:\Tibia\gameserver"
+# The test server's folder (issue #2): PATELLA_TESTSERVER, else C:\Tibia\gameserver. The one place of
+# that default: compare_traffic.py (and through it the other comparisons), proxy.py and compare_files.py
+# take SERVER_DIR from here.
+DEFAULT_SERVER_DIR = r"C:\Tibia\gameserver"
+SERVER_DIR = os.environ.get("PATELLA_TESTSERVER") or DEFAULT_SERVER_DIR
+SERVER_DIR_HELP = ("the server's folder (default %(default)s: PATELLA_TESTSERVER, else "
+	+ DEFAULT_SERVER_DIR.replace("%", "%%") + ")")
 EXE_NAME = "tibia-server.exe" if os.name == "nt" else "tibia-server"
 LOGIN_PORT, GAME_PORT = 7171, 7172
 WINDOWS = os.name == "nt"
+
 
 
 def server_exe(server_dir):
@@ -413,11 +421,11 @@ def main(argv):
 	parser = argparse.ArgumentParser(description="Start and stop the local test server (notes/testserver.md).")
 	commands = parser.add_subparsers(dest="command", required=True)
 	start_parser = commands.add_parser("start", help="start the server and wait until it listens")
-	start_parser.add_argument("--server-dir", default=SERVER_DIR)
+	start_parser.add_argument("--server-dir", default=SERVER_DIR, help=SERVER_DIR_HELP)
 	start_parser.add_argument("--timeout", type=int, default=300, help="seconds to wait for the ports")
 	start_parser.add_argument("--window", action="store_true", help="show the server's console, minimised")
 	stop_parser = commands.add_parser("stop", help="Ctrl+C to the server start started, and wait")
-	stop_parser.add_argument("--server-dir", default=SERVER_DIR)
+	stop_parser.add_argument("--server-dir", default=SERVER_DIR, help=SERVER_DIR_HELP)
 	stop_parser.add_argument("--timeout", type=int, default=60, help="seconds to wait for the exit")
 	stop_parser.add_argument("--force", action="store_true", help="kill it after --timeout")
 	args = parser.parse_args(argv)
