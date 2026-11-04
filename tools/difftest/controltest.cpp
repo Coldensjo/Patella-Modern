@@ -19,7 +19,7 @@
 // CT_TRACE=1 prints every comparison, CT_LOGS=<file> writes every compared
 // log, CT_ROUNDS=<n> the number of rounds (default 3000), CT_SEED=<n>.
 
-#include "commworld.h"
+#include "../../tests/golden/commworld.h"
 #include "../../src/Communication.h"
 #include "../../src/Control.h"
 #include "../../src/MainWindow.h"

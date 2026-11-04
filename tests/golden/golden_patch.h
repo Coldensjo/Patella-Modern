@@ -11,8 +11,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 
 namespace golden {
+
+// Every import slot SetImport bound and every function RedirectOwn redirected, with what was there first
+// (issue #30): RestoreAllImports and RestoreAllOwn undo them all. communicationtest.exe's tests start with
+// nothing of ours patched; the runner runs them after difftest's tests, which leave some patches for good.
+struct TFirstImport {
+	void **Slot;
+	void *Value;
+};
+struct TFirstCode {
+	void *Function;
+	uint8 Bytes[5];
+};
+inline std::vector<TFirstImport> &FirstImports()
+{
+	static std::vector<TFirstImport> List;
+	return List;
+}
+inline std::vector<TFirstCode> &FirstCodes()
+{
+	static std::vector<TFirstCode> List;
+	return List;
+}
 
 // The import slot of Function (by name) in the runner's executable, or nullptr.
 inline void **FindImport(const char *Function)
@@ -38,6 +61,11 @@ inline void **FindImport(const char *Function)
 
 inline void SetImport(void **Slot, void *Value)
 {
+	bool Known = false;
+	for (const TFirstImport &First : FirstImports())
+		Known = Known || First.Slot == Slot;
+	if (!Known)
+		FirstImports().push_back(TFirstImport{Slot, *Slot});
 	DWORD Protection;
 	VirtualProtect(Slot, sizeof(void *), PAGE_READWRITE, &Protection);
 	*Slot = Value;
@@ -53,6 +81,15 @@ inline void RedirectOwn(void *Function, void *Target)
 	if (Distance != (int32_t)Distance) {
 		printf("golden: cannot redirect %p to %p: out of a rel32 jump's reach\n", Function, Target);
 		exit(1);
+	}
+	bool Known = false;
+	for (const TFirstCode &First : FirstCodes())
+		Known = Known || First.Function == Function;
+	if (!Known) {
+		TFirstCode First;
+		First.Function = Function;
+		memcpy(First.Bytes, Function, 5);
+		FirstCodes().push_back(First);
 	}
 	uint8 Jump[5];
 	Jump[0] = 0xe9;
@@ -74,6 +111,24 @@ inline void RestoreOwn(void *Function, const uint8 *Saved)
 	memcpy(Function, Saved, 5);
 	VirtualProtect(Function, 5, Protection, &Protection);
 	FlushInstructionCache(GetCurrentProcess(), Function, 5);
+}
+
+// Every import slot SetImport bound gets its first value back.
+inline void RestoreAllImports()
+{
+	for (const TFirstImport &First : FirstImports()) {
+		DWORD Protection;
+		VirtualProtect(First.Slot, sizeof(void *), PAGE_READWRITE, &Protection);
+		*First.Slot = First.Value;
+		VirtualProtect(First.Slot, sizeof(void *), Protection, &Protection);
+	}
+}
+
+// Every function RedirectOwn redirected gets its first five bytes back.
+inline void RestoreAllOwn()
+{
+	for (const TFirstCode &First : FirstCodes())
+		RestoreOwn(First.Function, First.Bytes);
 }
 
 } // namespace golden

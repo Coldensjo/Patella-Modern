@@ -4,3 +4,5 @@
 src/Extern/**
 # The test and tool sources are not in the style check yet.
 tools/**
+# Generated data: the seeds of the Communication test (tools/difftest/commseeds.py, issue #30).
+tests/golden/commseeds.h
