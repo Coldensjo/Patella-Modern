@@ -172,6 +172,9 @@ TText RecordedText(const char *Name, const char *Text, size_t MaxLength = (size_
 // the caller keeps (Size bytes; the same start value on both sides). Last becomes the original's
 // buffer on both sides; Value is the oracle's (ignored by the runner).
 void OutputChanges(const char *Name, void *Last, const void *Value, size_t Size);
+// The same for a buffer that changes in several places at once (a table of the original, issue #27): the
+// runs of changed bytes (runs closer than 16 bytes are one run), each its offset, length and bytes.
+void OutputRuns(const char *Name, void *Last, const void *Value, size_t Size);
 // An array of the original whose length the runner knows from an earlier record (Count).
 template <class T> void OutputArray(const char *Name, T *Data, size_t Count)
 {

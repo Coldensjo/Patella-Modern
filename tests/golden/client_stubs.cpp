@@ -64,9 +64,7 @@ void SetTestServerAddress(const char *) { STUB(); }
 void SetTestServerPort(int) { STUB(); }
 void ShutdownConnection() { STUB(); }
 
-// Creatures.cpp, GUI.cpp, MainWindow.cpp, graphics.cpp.
-TCreature *GetCreature(uint32) { STUB(); }
-uint32 GetPlayerID() { STUB(); }
+// GUI.cpp, MainWindow.cpp, graphics.cpp.
 // MainFrm.cpp's NoCallback is constructed at start-up: GUI.cpp's constructor (0x496130), which only
 // stores its arguments.
 TCallback::TCallback(TComponent *Receiver, int Event)

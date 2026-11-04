@@ -60,7 +60,8 @@ add_library(golden_client OBJECT
 	"${PROJECT_SOURCE_DIR}/src/Help.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Inventory.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Objects.cpp"
-	"${PROJECT_SOURCE_DIR}/src/Map.cpp")
+	"${PROJECT_SOURCE_DIR}/src/Map.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Creatures.cpp")
 golden_client_settings(golden_client)
 target_compile_definitions(golden_client PRIVATE PATELLA_VULKAN)
 
@@ -76,7 +77,8 @@ add_library(golden_client_tests OBJECT
 	talk_tests.cpp
 	container_tests.cpp
 	objects_tests.cpp
-	map_tests.cpp)
+	map_tests.cpp
+	creatures_tests.cpp)
 golden_client_settings(golden_client_tests)
 
 add_executable(golden_runner
@@ -94,6 +96,9 @@ target_compile_definitions(golden_runner PRIVATE "GOLDEN_DEFAULT_DIR=\"${golden_
 patella_target_language(golden_runner)
 patella_target_warnings(golden_runner)
 patella_target_hardening(golden_runner)
+# The ported tests redirect some of our functions to their fakes (golden_patch.h): no function may share
+# its code with another.
+target_link_options(golden_runner PRIVATE /OPT:NOICF)
 
 if(PATELLA_GOLDEN_REQUIRE)
 	add_test(NAME golden COMMAND golden_runner --require "${PATELLA_GOLDEN_DIR}")

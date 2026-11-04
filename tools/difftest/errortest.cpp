@@ -503,7 +503,7 @@ static void TestUtils()
 
 // Calls our function and the image's at Address (cdecl) with the same
 // arguments, converted to our parameter types.
-// Earlier tests redirect some functions for good (creaturestest.cpp the
+// Earlier tests redirect some functions for good (creatures_tests.cpp the
 // image's and our GetFirstObject, CheckEventHelpName, ...): a function that
 // starts with a jump now is a test's fake. Such comparisons are skipped and
 // counted (the full run reports them; DIFFTEST_ONLY=Errors has none).
