@@ -1151,7 +1151,7 @@ static void LoadAutomapBlock(int Position, int bx, int by, int bz)
 			Block.MarkCount = 0;
 			if (DefaultTextBuffer != nullptr) {
 				char Message[256];
-				_snprintf(Message, 256, "Map file '%s' was corrupted!", FileName);
+				MsvcSnprintf(Message, 256, "Map file '%s' was corrupted!", FileName);
 				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 				SetConsoleChanged();
 			}
@@ -1217,14 +1217,14 @@ static void SaveAutomapBlock(int Position)
 			File.close();
 			if (DefaultTextBuffer != nullptr) {
 				char Message[256];
-				_snprintf(Message, 256, "Error while saving file '%s'!", FileName);
+				MsvcSnprintf(Message, 256, "Error while saving file '%s'!", FileName);
 				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 				SetConsoleChanged();
 			}
 		}
 	} else if (DefaultTextBuffer != nullptr) {
 		char Message[256];
-		_snprintf(Message, 256, "Could not save file '%s'!", FileName);
+		MsvcSnprintf(Message, 256, "Could not save file '%s'!", FileName);
 		AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 		SetConsoleChanged();
 	}

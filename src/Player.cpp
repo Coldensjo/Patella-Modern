@@ -36,7 +36,7 @@
 #include <new>
 #include <stdexcept>
 #include <ctime>
-#include <process.h>
+#include "compat/msvc.h"
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -161,7 +161,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 		memset(&Version, 0, sizeof(Version));
 		Version.dwOSVersionInfoSize = sizeof(Version);
 		try {
-#pragma warning(suppress : 4996) // deprecated in newer SDKs
+			PATELLA_MSVC_WARNING(suppress : 4996) // deprecated in newer SDKs
 			if (!GetVersionExA(&Version)) {
 				Out << "Windows Version: (error)" << std::endl;
 			} else {
@@ -288,13 +288,13 @@ BOOL CPlayerApp::InitInstance()
 			SetTestServerAddress("test.cipsoft.com");
 			SetTestServerPort(7172);
 			while (Token != nullptr) {
-				if (_stricmp(Token, "gamemaster") == 0) {
+				if (MsvcStricmp(Token, "gamemaster") == 0) {
 					Gamemaster = true;
-				} else if (_stricmp(Token, "host") == 0) {
+				} else if (MsvcStricmp(Token, "host") == 0) {
 					Expected = 1;
-				} else if (_stricmp(Token, "port") == 0) {
+				} else if (MsvcStricmp(Token, "port") == 0) {
 					Expected = 2;
-				} else if (_stricmp(Token, "engine") == 0) {
+				} else if (MsvcStricmp(Token, "engine") == 0) {
 					Expected = 3;
 				} else {
 					switch (Expected) {
@@ -391,7 +391,7 @@ int CPlayerApp::Run()
 		try {
 			Result = CWinApp::Run();
 			if (RunPatch)
-				_execl("patch.exe", "patch.exe", nullptr);
+				MsvcExecl("patch.exe", "patch.exe");
 		} catch (PROGRAM_ERROR Error) {
 			HandleProgramError(Error);
 		} catch (TMyException &Exception_) {

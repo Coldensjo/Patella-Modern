@@ -2446,7 +2446,7 @@ void ReceiveBuddy()
 	GetString(Name, 30);
 	const int State = GetByte();
 	AddBuddy(CharacterID, Name, State == 1);
-	const char *Copy = _strdup(Name);
+	const char *Copy = MsvcStrdup(Name);
 	AddMessage(25, reinterpret_cast<INT_PTR>(Copy), 0);
 	TEND1(2785, CharacterID)
 }

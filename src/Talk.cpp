@@ -382,10 +382,8 @@ void SetTalkboxRectangle(int Number, int x, int y, int Width, int Height)
 // 0x4ff130, line 517. When GetMilliseconds throws before the loop, the original reports i
 // uninitialised: MSVC's unoptimised build warns (C4701, a code generation warning, which a pragma
 // turns off only outside the function); initialising i would change the oracle's code.
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4701)
-#endif
+PATELLA_MSVC_WARNING(push)
+PATELLA_MSVC_WARNING(disable : 4701)
 void UpdateTalkboxes()
 {
 	int i;
@@ -398,9 +396,7 @@ void UpdateTalkboxes()
 	LastTime = GetMilliseconds();
 	TEND1(517, i)
 }
-#if defined(_MSC_VER)
-#pragma warning(pop)
-#endif
+PATELLA_MSVC_WARNING(pop)
 // 0x4ff330, line 536
 void RemoveOldestTalkbox()
 {
@@ -1123,7 +1119,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int Diff
 	Mode = _Mode;
 	StatementID = _StatementID;
 	Time = PATELLA_TIME32(nullptr) + DiffTime;
-	const tm *LocalTime = _localtime32(&Time);
+	const tm *LocalTime = MsvcLocaltime32(&Time);
 	char Stamp[8];
 	sprintf(Stamp, "%02d:%02d ", LocalTime->tm_hour, LocalTime->tm_min);
 	Addressee[0] = 0;
@@ -1143,7 +1139,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, con
 	Mode = _Mode;
 	StatementID = _StatementID;
 	Time = PATELLA_TIME32(nullptr) + DiffTime;
-	const tm *LocalTime = _localtime32(&Time);
+	const tm *LocalTime = MsvcLocaltime32(&Time);
 	char Stamp[8];
 	sprintf(Stamp, "%02d:%02d ", LocalTime->tm_hour, LocalTime->tm_min);
 	CopyString(Addressee, _Addressee, 30);

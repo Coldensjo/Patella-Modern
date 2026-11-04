@@ -988,7 +988,7 @@ void SavePreferences()
 			Script.writeNumber(i);
 			Script.writeText(",");
 			if (HotkeyAutoSend[i]) {
-				_snprintf(Help, HOTKEY_LENGTH + 1, "%s\n", Text);
+				MsvcSnprintf(Help, HOTKEY_LENGTH + 1, "%s\n", Text);
 				Text = Help;
 			}
 			Script.writeString(Text);

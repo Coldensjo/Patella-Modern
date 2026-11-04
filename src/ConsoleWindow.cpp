@@ -753,8 +753,8 @@ TTab::TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback _Callback)
 // the server (Locked) and private channels only when the player may write.
 // Then the buffer is deleted (Talk.cpp). The handlers rethrow out of the
 // destructor (MainFrm.cpp's pragma).
-#pragma warning(push)
-#pragma warning(disable : 4297)
+PATELLA_MSVC_WARNING(push)
+PATELLA_MSVC_WARNING(disable : 4297)
 TTab::~TTab()
 {
 	TBEGIN
@@ -779,7 +779,7 @@ TTab::~TTab()
 	TextBuffer = nullptr;
 	TEND(866)
 }
-#pragma warning(pop)
+PATELLA_MSVC_WARNING(pop)
 
 // 0x41afe0, line 880.
 void TTab::SetActive(bool _Active)
@@ -1287,8 +1287,8 @@ TConsoleWindow::TConsoleWindow()
 
 // 0x41dbe0, line 1543. Stores the open channels and the console height and
 // deletes the buttons that are not children.
-#pragma warning(push)
-#pragma warning(disable : 4297)
+PATELLA_MSVC_WARNING(push)
+PATELLA_MSVC_WARNING(disable : 4297)
 TConsoleWindow::~TConsoleWindow()
 {
 	TBEGIN
@@ -1313,7 +1313,7 @@ TConsoleWindow::~TConsoleWindow()
 	RemoveHotkey(0x444);
 	TEND(1543)
 }
-#pragma warning(pop)
+PATELLA_MSVC_WARNING(pop)
 
 // 0x41de80, line 1571.
 void TConsoleWindow::SetSize(int Width, int Height)
@@ -2011,8 +2011,8 @@ bool TConsoleWindow::SaveChannel() const
 		return false;
 	const TTalkBuffer *TextBuffer = GetTextBuffer();
 	TASSERT(2324, TextBuffer!=NULL);
-	const __time32_t Now = PATELLA_TIME32(nullptr);
-	fprintf(File, "\nChannel saved at %s", CRT71Time(_ctime32(&Now))); // the day as MSVC 7.1 writes it
+	const Time32 Now = PATELLA_TIME32(nullptr);
+	fprintf(File, "\nChannel saved at %s", CRT71Time(MsvcCtime32(&Now))); // the day as MSVC 7.1 writes it
 	TextBuffer->Write(File);
 	fclose(File);
 	char Message[100];

@@ -277,21 +277,21 @@ void Redraw(bool Force)
 		char Engine[4];
 		switch (curEngine) {
 		case 0:
-			_snprintf(Engine, 4, "DX5");
+			MsvcSnprintf(Engine, 4, "DX5");
 			break;
 		case 1:
-			_snprintf(Engine, 4, "OGL");
+			MsvcSnprintf(Engine, 4, "OGL");
 			break;
 		case 2:
-			_snprintf(Engine, 4, "DX9");
+			MsvcSnprintf(Engine, 4, "DX9");
 			break;
 		default:
-			_snprintf(Engine, 4, "<?>");
+			MsvcSnprintf(Engine, 4, "<?>");
 			break;
 		}
 		const double FPS = GetSurface()->GetFPS();
 		char Text[64];
-		_snprintf(Text, 20, "%s %.02f fps", Engine, FPS);
+		MsvcSnprintf(Text, 20, "%s %.02f fps", Engine, FPS);
 		const TRGBColor Color = {200, 200, 200};
 		PrintText(1, 4, 4, 2, Color, Text, 0);
 	}

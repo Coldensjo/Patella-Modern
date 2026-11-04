@@ -238,11 +238,11 @@ TDialog *CreateTextDialog(int *ObjectData, const char *Author, const char *Text)
 	TDialog *Dialog;
 	if (GetObjectFlag(Type, WRITE) || (GetObjectFlag(Type, WRITEONCE) && strlen(Text) == 0)) {
 		if (strlen(Text) == 0)
-			_snprintf(Description, 255, "%s\n%s", TextItIsCurrentlyEmpty, TextYouCanEnterNewText);
+			MsvcSnprintf(Description, 255, "%s\n%s", TextItIsCurrentlyEmpty, TextYouCanEnterNewText);
 		else if (strlen(Author) != 0)
-			_snprintf(Description, 255, "%s\n%s.\n%s", TextYouReadWrittenBy, Author, TextYouCanEnterNewText);
+			MsvcSnprintf(Description, 255, "%s\n%s.\n%s", TextYouReadWrittenBy, Author, TextYouCanEnterNewText);
 		else
-			_snprintf(Description, 255, "%s\n%s", TextYouReadTheFollowing, TextYouCanEnterNewText);
+			MsvcSnprintf(Description, 255, "%s\n%s", TextYouReadTheFollowing, TextYouCanEnterNewText);
 		TObject Obj;
 		Obj.Type = Type;
 		Body = new TTextDialog(MaximumLength, Text, ObjectNumber, Obj, Description);
@@ -250,11 +250,11 @@ TDialog *CreateTextDialog(int *ObjectData, const char *Author, const char *Text)
 		Dialog->SetOkButton("Ok", TCallback(Body, 1));
 	} else {
 		if (strlen(Text) == 0)
-			_snprintf(Description, 255, "%s", TextItIsEmpty);
+			MsvcSnprintf(Description, 255, "%s", TextItIsEmpty);
 		else if (strlen(Author) != 0)
-			_snprintf(Description, 255, "%s\n%s.", TextYouReadWrittenBy, Author);
+			MsvcSnprintf(Description, 255, "%s\n%s.", TextYouReadWrittenBy, Author);
 		else
-			_snprintf(Description, 255, "%s", TextYouReadTheFollowing);
+			MsvcSnprintf(Description, 255, "%s", TextYouReadTheFollowing);
 		TObject Obj;
 		Obj.Type = Type;
 		Body = new TTextDialog(MaximumLength, Text, ObjectNumber, Obj, Description);
