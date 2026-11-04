@@ -7812,3 +7812,28 @@ format and the earlier helpers.
   before.
 - **Commits** (form). The foundation with Graphics, then GUI, then these notes. Each test's corpus was recorded and
   replayed after its port; the first commit was not built on its own (the second's tree was, in Release and Debug).
+
+## M3's exit (Patella-Modern, November 4, 2026)
+
+Decided by the user, November 4, 2026; recorded by Claude Opus 5.5. The plan's M3 exit says "clang-tidy's
+`modernize-*` clean outside the error macros". After issues #32 to #44 and #49 to #51 every check M3's table names is
+clean on src/ and enabled in `.clang-tidy`, so CI keeps it clean. Running every `modernize-*` check on the windows-x64
+sources (`python -I tools/tidy.py -p build/windows-x64 --all --checks='-*,modernize-*'`, main 1363438) still reports
+3,289 findings, all in src/. The exit is read as "the named checks are clean, and each other `modernize-*` check has a
+decision":
+
+| Check | Findings | Decision |
+|---|---:|---|
+| `modernize-use-trailing-return-type` | 1,764 | Not adopted: style only; the code keeps the original's declarations. |
+| `modernize-use-designated-initializers` | 702 | Not adopted for the original's aggregates (their initialisers follow the binary's field order); new code may use them. |
+| `modernize-avoid-c-style-cast` | 249 | Later: the functional and arithmetic casts `cppcoreguidelines-pro-type-cstyle-cast` (#41) does not report; a separate pass when the arithmetic is reviewed (M7). |
+| `modernize-avoid-c-arrays` | 241 | M4 ("C arrays in structures to `std::array`", same layout). |
+| `modernize-use-auto` | 186 | Not adopted: style only. |
+| `modernize-loop-convert` | 39 | Later (M7): range-for over the original's index loops, where the index is not used otherwise. |
+| `modernize-use-integer-sign-comparison` | 34 | Not mechanical: `std::cmp_*` can change results where the original compares signed and unsigned; each case by hand with difftest, in M7 or not at all. |
+| `modernize-use-nodiscard` | 31 | Later: these are what the check reports with its default options; `.clang-tidy`'s configuration (#38) is clean. |
+| `modernize-use-default-member-init` | 24 | Later (M7), with the constructors. |
+| `modernize-use-ranges`, `modernize-return-braced-init-list`, `modernize-use-bool-literals`, `modernize-avoid-variadic-functions` | 12 | Later (M7). |
+| `modernize-use-std-print` | 4 | M4 ("Formatting and I/O"). |
+
+M3 is therefore done; the M4 issues follow the plan's M4 section.

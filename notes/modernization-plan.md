@@ -432,6 +432,10 @@ Each header includes what it uses too (issue #49, after #40's .cpp files): every
 (`tools/tidy.py --headers`, in the hosted job); the includes kept for the images say so (notes/decisions.md).
 
 Exit: clang-tidy's `modernize-*` clean outside the error macros; every gate green; difftest counts unchanged.
+Read as (the user's decision, November 4, 2026): the checks this table names are clean and enabled in CI; the other
+`modernize-*` checks each have a recorded decision (notes/decisions.md, "M3's exit"): `avoid-c-arrays` and
+`use-std-print` belong to M4, the rest are adopted later or not at all. Met on November 4, 2026 (issues #32 to #44,
+#49 to #51).
 
 ### M4. Safety inside the frozen layout (L)
 
@@ -497,6 +501,8 @@ Exit: no `TBEGIN`/`TEND`, no `error.txt`, no packet 0xE8; every gate green.
 ### M6. Oracle retirement and layout unfreeze (M): the point of no return
 
 1. The golden corpus is complete and green on x64 Windows and Linux.
+   The rendering engines' tests (SurfaceDX, SurfaceDX9, SurfaceGL: 1,488,299 checks) are not ported: they test
+   DirectDraw, Direct3D 9 and OpenGL, which leave the fork with the oracle (the user's decision, November 4, 2026; #29).
 2. The test mode's state dump and frame dump have replaced `client_state.py`'s memory reading and patcap for
    the modern client.
 3. `oracle-x86`, difftest, the x86 `static_assert`s, `compare_imports.py` and `compare_resources.py` leave the
