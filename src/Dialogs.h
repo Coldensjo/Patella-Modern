@@ -33,6 +33,7 @@
 #include "Preferences.h" // TFullscreenMode, HOTKEYS
 #include "Text.h"        // TReconnectBody::SetTime reads TextTryingToReconnect
 #include <cstddef>
+#include <memory>
 
 class TDialog;
 struct TTalkLine;
@@ -177,14 +178,14 @@ public:
 		CloseOnMessage = _CloseOnMessage;
 	}
 	// Inline (out-of-line copy 0x46b950, deleting destructor 0x46be20).
-	~TWaitLabel() override { delete Timer; }
+	~TWaitLabel() override { Timer.reset(); }
 	void Draw(int Surface, int x, int y) override;       // +0x44, 0x46e2b0, line 1011
 	void HandleEvent(int Event) override;                // +0x70, 0x46e0e0, line 1000
 	virtual void SetTimer(int Time, TCallback Callback); // +0x88, 0x46df20, line 985
 
-	TTimer *Timer;       // +0x4c
-	bool CloseOnMessage; // +0x50
-	bool ClearOnAbort;   // +0x51
+	std::unique_ptr<TTimer> Timer; // +0x4c (issue #58)
+	bool CloseOnMessage;           // +0x50
+	bool ClearOnAbort;             // +0x51
 };
 
 // --- Connecting -----------------------------------------------------------------
@@ -197,7 +198,7 @@ public:
 	TReconnectWindow &operator=(const TReconnectWindow &) = delete;
 	TReconnectWindow(const char *Text, int timeout); // 0x46e470, line 1052
 	// Inline (out-of-line copy 0x46b9b0, deleting destructor 0x46be40).
-	~TReconnectWindow() override { delete Timer; }
+	~TReconnectWindow() override { Timer.reset(); }
 	void Draw(int Surface, int x, int y) override; // +0x44, 0x46e8b0, line 1073
 	void HandleEvent(int Event) override;          // +0x70, 0x46ea60, line 1122
 	// Inline (out-of-line copy 0x46ba10): Time in tenths of a second.
@@ -212,11 +213,11 @@ public:
 		}
 	}
 
-	int Timeout;               // +0x2c, tenths of a second
-	char Text[512];            // +0x30, the time left
-	TTimer *Timer;             // +0x230, event 31
-	TProgressBar *ProgressBar; // +0x234
-	TLabel *TimeLabel;         // +0x238
+	int Timeout;                   // +0x2c, tenths of a second
+	char Text[512];                // +0x30, the time left
+	std::unique_ptr<TTimer> Timer; // +0x230, event 31 (issue #58)
+	TProgressBar *ProgressBar;     // +0x234
+	TLabel *TimeLabel;             // +0x238
 };
 
 // --- Login and character list ------------------------------------------------
@@ -229,13 +230,13 @@ public:
 	TLoginDialog &operator=(const TLoginDialog &) = delete;
 	TLoginDialog(void (*OpenURL)(const char *URL)); // 0x46ecf0, line 1162
 	// Inline (out-of-line copy 0x46bf90, deleting destructor 0x46c090).
-	~TLoginDialog() override { delete FocusGroup; }
+	~TLoginDialog() override { FocusGroup.reset(); }
 	void KeyPress(int Key) override;      // +0x6c, 0x46f160, lines 1183-1187
 	void HandleEvent(int Event) override; // +0x70, 0x46f3e0, line 1203
 
-	TPasswordEditLine *Account;  // +0x2c
-	TPasswordEditLine *Password; // +0x30
-	TFocusGroup *FocusGroup;     // +0x34
+	TPasswordEditLine *Account;              // +0x2c
+	TPasswordEditLine *Password;             // +0x30
+	std::unique_ptr<TFocusGroup> FocusGroup; // +0x34 (issue #58)
 };
 
 // "Select Character" (vtable 0x562370, 0x38 bytes): the account's characters
@@ -249,7 +250,7 @@ public:
 	// Inline (out-of-line copy 0x46baa0, deleting destructor 0x46be60).
 	~TCharacterListDialog() override
 	{
-		delete Timer;
+		Timer.reset();
 		Timer = nullptr;
 	}
 	bool LeftButtonDown(int x, int y, int Flags) override; // +0x50, 0x46fa10, line 1274
@@ -260,9 +261,9 @@ public:
 	void PositionChanged() override;                       // +0x74, 0x46ff20, line 1309
 	virtual void SetTimeout(int seconds);                  // +0xa0, 0x470490, line 1374
 
-	TListBox *ListBox; // +0x2c
-	TTimer *Timer;     // +0x30, event 31
-	int Seconds;       // +0x34
+	TListBox *ListBox;             // +0x2c
+	std::unique_ptr<TTimer> Timer; // +0x30, event 31 (issue #58)
+	int Seconds;                   // +0x34
 };
 
 // --- Moving objects -------------------------------------------------------------
@@ -304,21 +305,21 @@ public:
 	// Inline (out-of-line copy 0x46bfc0, deleting destructor 0x46c0b0).
 	~TOutfitDialog() override
 	{
-		delete ColorGroup;
-		delete PartGroup;
+		ColorGroup.reset();
+		PartGroup.reset();
 	}
 	void HandleEvent(int Event) override; // +0x70, 0x471250, line 1586
 
-	TOutfitIcon *OutfitIcon;         // +0x2c
-	TTextButton *PartButtons[4];     // +0x30, events 1000-1003
-	TRadioButtonGroup *PartGroup;    // +0x40
-	TColorButton *ColorButtons[133]; // +0x44, events 2000-2132
-	TRadioButtonGroup *ColorGroup;   // +0x258
-	int Colors[4];                   // +0x25c
-	int Outfit;                      // +0x26c
-	int FirstOutfit;                 // +0x270
-	int LastOutfit;                  // +0x274
-	int Part;                        // +0x278, the part whose colour the buttons show
+	TOutfitIcon *OutfitIcon;                       // +0x2c
+	TTextButton *PartButtons[4];                   // +0x30, events 1000-1003
+	std::unique_ptr<TRadioButtonGroup> PartGroup;  // +0x40 (issue #58)
+	TColorButton *ColorButtons[133];               // +0x44, events 2000-2132
+	std::unique_ptr<TRadioButtonGroup> ColorGroup; // +0x258 (issue #58)
+	int Colors[4];                                 // +0x25c
+	int Outfit;                                    // +0x26c
+	int FirstOutfit;                               // +0x270
+	int LastOutfit;                                // +0x274
+	int Part;                                      // +0x278, the part whose colour the buttons show
 };
 
 // --- Texts --------------------------------------------------------------------
@@ -435,16 +436,16 @@ public:
 	TNewChannelDialog &operator=(const TNewChannelDialog &) = delete;
 	TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30]); // 0x4733a0, lines 2265-2297
 	// Inline (out-of-line copy 0x46bb20, deleting destructor 0x46be80).
-	~TNewChannelDialog() override { delete[] ChannelIDs; }
+	~TNewChannelDialog() override { ChannelIDs.reset(); }
 	void KeyPress(int Key) override;      // +0x6c, 0x473980, line 2321
 	void HandleEvent(int Event) override; // +0x70, 0x473b80, lines 2333-2349
 
-	TListBox *ListBox;    // +0x2c, double click 301
-	TEditLine *NameEdit;  // +0x30
-	int Unused34;         // +0x34, never used
-	int Unused38;         // +0x38, never used
-	int NumberOfChannels; // +0x3c
-	int *ChannelIDs;      // +0x40
+	TListBox *ListBox;                 // +0x2c, double click 301
+	TEditLine *NameEdit;               // +0x30
+	int Unused34;                      // +0x34, never used
+	int Unused38;                      // +0x38, never used
+	int NumberOfChannels;              // +0x3c
+	std::unique_ptr<int[]> ChannelIDs; // +0x40 (issue #58)
 };
 
 // "Invite player to private chat channel" and "Exclude player from private
@@ -493,16 +494,16 @@ public:
 	TEditBuddyDialog &operator=(const TEditBuddyDialog &) = delete;
 	TEditBuddyDialog(int _CharacterID); // 0x475160, lines 2652-2696
 	// Inline (out-of-line copy 0x46bec0, deleting destructor 0x46c010).
-	~TEditBuddyDialog() override { delete IconGroup; }
+	~TEditBuddyDialog() override { IconGroup.reset(); }
 	// Inline (out-of-line copy 0x46bef0).
 	void KeyPress(int Key) override { Description->KeyPress(Key); } // +0x6c, 0x46bef0
 	void HandleEvent(int Event) override;                           // +0x70, 0x475820, line 2720
 
-	int CharacterID;              // +0x2c
-	TRadioButtonGroup *IconGroup; // +0x30
-	TCheckBox *Notify;            // +0x34
-	TEditText *Description;       // +0x38
-	TIconButton *IconButtons[11]; // +0x3c
+	int CharacterID;                              // +0x2c
+	std::unique_ptr<TRadioButtonGroup> IconGroup; // +0x30 (issue #58)
+	TCheckBox *Notify;                            // +0x34
+	TEditText *Description;                       // +0x38
+	TIconButton *IconButtons[11];                 // +0x3c
 };
 
 // --- Updates, help and hints ----------------------------------------------------
@@ -559,22 +560,22 @@ public:
 	TRuleViolationDialog &operator=(const TRuleViolationDialog &) = delete;
 	TRuleViolationDialog(const char *Name, TTalkLine *Statement); // 0x484620, line 3056
 	// Inline (out-of-line copy 0x46bf00, deleting destructor 0x46c030).
-	~TRuleViolationDialog() override { delete FocusGroup; }
+	~TRuleViolationDialog() override { FocusGroup.reset(); }
 	void KeyPress(int Key) override;      // +0x6c, 0x4774d0, line 3080
 	void HandleEvent(int Event) override; // +0x70, 0x484e70, lines 3124-3128
 	void UpdateActions();                 // 0x47eae0, line 3158
 	int GetReason();                      // 0x4776b0, line 3171
 	int GetAction() const;                // 0x477860, line 3191
 
-	TFocusGroup *FocusGroup;  // +0x2c
-	TEditLine *NameEdit;      // +0x30
-	TListBox *ReasonList;     // +0x34, event 21
-	TListBox *ActionList;     // +0x38
-	TEditLine *CommentEdit;   // +0x3c
-	TEditLine *StatementEdit; // +0x40
-	TCheckBox *IPBanishment;  // +0x44
-	uint32 StatementID;       // +0x48
-	int Reasons[50];          // +0x4c, the right of each reason line, -1 after the last
+	std::unique_ptr<TFocusGroup> FocusGroup; // +0x2c (issue #58)
+	TEditLine *NameEdit;                     // +0x30
+	TListBox *ReasonList;                    // +0x34, event 21
+	TListBox *ActionList;                    // +0x38
+	TEditLine *CommentEdit;                  // +0x3c
+	TEditLine *StatementEdit;                // +0x40
+	TCheckBox *IPBanishment;                 // +0x44
+	uint32 StatementID;                      // +0x48
+	int Reasons[50];                         // +0x4c, the right of each reason line, -1 after the last
 };
 
 // --- Automap marks ---------------------------------------------------------------
@@ -588,15 +589,15 @@ public:
 	TEditMarkDialog &operator=(const TEditMarkDialog &) = delete;
 	TEditMarkDialog(TCoordinate *_Coordinate, TMark *_Mark); // 0x477c80, lines 3207-3242
 	// Inline (out-of-line copy 0x46bf30, deleting destructor 0x46c050).
-	~TEditMarkDialog() override { delete TypeGroup; }
+	~TEditMarkDialog() override { TypeGroup.reset(); }
 	void KeyPress(int Key) override;      // +0x6c, 0x478200, line 3268
 	void HandleEvent(int Event) override; // +0x70, 0x4783d0, lines 3294-3298
 
-	TCoordinate Coordinate;       // +0x2c
-	TMark Mark;                   // +0x38
-	TEditLine *TextEdit;          // +0xa8
-	TRadioButtonGroup *TypeGroup; // +0xac
-	TIconButton *TypeButtons[14]; // +0xb0
+	TCoordinate Coordinate;                       // +0x2c
+	TMark Mark;                                   // +0x38
+	TEditLine *TextEdit;                          // +0xa8
+	std::unique_ptr<TRadioButtonGroup> TypeGroup; // +0xac (issue #58)
+	TIconButton *TypeButtons[14];                 // +0xb0
 };
 
 // --- Options -----------------------------------------------------------------------
@@ -658,20 +659,20 @@ public:
 	TAdvancedGraphicsDialog &operator=(const TAdvancedGraphicsDialog &) = delete;
 	TAdvancedGraphicsDialog(void (*_OpenURL)(const char *URL), TComponent *_Receiver); // 0x47a3d0, line 3689
 	// Inline (out-of-line copy 0x46bf60, deleting destructor 0x46c070).
-	~TAdvancedGraphicsDialog() override { delete EngineGroup; }
+	~TAdvancedGraphicsDialog() override { EngineGroup.reset(); }
 	void Draw(int Surface, int x, int y) override; // +0x44, 0x47aa30, line 3723
 	void HandleEvent(int Event) override;          // +0x70, 0x47ad10, line 3751
 
-	TComponent *Receiver;             // +0x2c
-	TCheckBox *LightEffects;          // +0x30
-	TCheckBox *NoStretching;          // +0x34
-	TCheckBox *WindowsMousepointer;   // +0x38
-	THorizontalScrollBar *Framerate;  // +0x3c, 10-201 (201 is no limit), event 30
-	void (*OpenURL)(const char *URL); // +0x40
-	TTextButton *DirectX5Button;      // +0x44
-	TTextButton *DirectX9Button;      // +0x48
-	TTextButton *OpenGLButton;        // +0x4c
-	TRadioButtonGroup *EngineGroup;   // +0x50
+	TComponent *Receiver;                           // +0x2c
+	TCheckBox *LightEffects;                        // +0x30
+	TCheckBox *NoStretching;                        // +0x34
+	TCheckBox *WindowsMousepointer;                 // +0x38
+	THorizontalScrollBar *Framerate;                // +0x3c, 10-201 (201 is no limit), event 30
+	void (*OpenURL)(const char *URL);               // +0x40
+	TTextButton *DirectX5Button;                    // +0x44
+	TTextButton *DirectX9Button;                    // +0x48
+	TTextButton *OpenGLButton;                      // +0x4c
+	std::unique_ptr<TRadioButtonGroup> EngineGroup; // +0x50 (issue #58)
 #if defined(PATELLA_VULKAN)
 	// The x64 client (Patella-Modern issue #31, plan 6.3): the three buttons choose the graphics device
 	// ("Automatic", "GPU", "CPU" in the places of DirectX5Button, DirectX9Button, OpenGLButton), and the

@@ -51,6 +51,7 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 #include "types/FixedString.h"
 #include "graphics.h"
 #include <cstddef>
+#include <memory>
 #include <ostream>
 
 #if PATELLA_ORIGINAL_LAYOUT
@@ -58,6 +59,30 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 static_assert(offsetof(TDialog, Caption) == 0x50 && offsetof(TDialog, OkCallback) == 0xb4, "TDialog's layout");
 static_assert(offsetof(THotkeyDialog, Texts) == 0x2c && offsetof(THotkeyDialog, AutoSend) == 0x242c,
 	"THotkeyDialog's layout");
+// The owning members as std::unique_ptr (issue #58): each a pointer at the original's offset.
+static_assert(sizeof(std::unique_ptr<TTimer>) == sizeof(TTimer *) && alignof(std::unique_ptr<TTimer>) == alignof(TTimer *)
+		&& sizeof(std::unique_ptr<TFocusGroup>) == sizeof(TFocusGroup *)
+		&& alignof(std::unique_ptr<TFocusGroup>) == alignof(TFocusGroup *)
+		&& sizeof(std::unique_ptr<TRadioButtonGroup>) == sizeof(TRadioButtonGroup *)
+		&& alignof(std::unique_ptr<TRadioButtonGroup>) == alignof(TRadioButtonGroup *)
+		&& sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *),
+	"std::unique_ptr is a pointer");
+static_assert(sizeof(TWaitLabel) == 0x54 && offsetof(TWaitLabel, Timer) == 0x4c, "TWaitLabel's layout");
+static_assert(sizeof(TReconnectWindow) == 0x23c && offsetof(TReconnectWindow, Timer) == 0x230, "TReconnectWindow's layout");
+static_assert(sizeof(TLoginDialog) == 0x38 && offsetof(TLoginDialog, FocusGroup) == 0x34, "TLoginDialog's layout");
+static_assert(sizeof(TCharacterListDialog) == 0x38 && offsetof(TCharacterListDialog, Timer) == 0x30,
+	"TCharacterListDialog's layout");
+static_assert(sizeof(TOutfitDialog) == 0x27c && offsetof(TOutfitDialog, PartGroup) == 0x40
+		&& offsetof(TOutfitDialog, ColorGroup) == 0x258,
+	"TOutfitDialog's layout");
+static_assert(sizeof(TNewChannelDialog) == 0x44 && offsetof(TNewChannelDialog, ChannelIDs) == 0x40,
+	"TNewChannelDialog's layout");
+static_assert(sizeof(TEditBuddyDialog) == 0x68 && offsetof(TEditBuddyDialog, IconGroup) == 0x30, "TEditBuddyDialog's layout");
+static_assert(sizeof(TRuleViolationDialog) == 0x114 && offsetof(TRuleViolationDialog, FocusGroup) == 0x2c,
+	"TRuleViolationDialog's layout");
+static_assert(sizeof(TEditMarkDialog) == 0xe8 && offsetof(TEditMarkDialog, TypeGroup) == 0xac, "TEditMarkDialog's layout");
+static_assert(sizeof(TAdvancedGraphicsDialog) == 0x54 && offsetof(TAdvancedGraphicsDialog, EngineGroup) == 0x50,
+	"TAdvancedGraphicsDialog's layout");
 #endif
 
 namespace {
@@ -802,8 +827,8 @@ void TLogoutLabel::KeyPress(int Key)
 void TWaitLabel::SetTimer(int Time, TCallback Callback)
 {
 	TBEGIN
-	delete Timer;
-	Timer = new TTimer(Time, Callback);
+	Timer.reset();
+	Timer.reset(new TTimer(Time, Callback));
 	TEND(985)
 }
 
@@ -840,7 +865,7 @@ TReconnectWindow::TReconnectWindow(const char *Text, int timeout)
 {
 	TBEGIN
 	Timeout = timeout * 10;
-	Timer = new TTimer(Timeout, TCallback(this, 31));
+	Timer.reset(new TTimer(Timeout, TCallback(this, 31)));
 	SetTime(Timeout + 10);
 	TLabel *TextLabel = new TLabel(SkinProperties.StyleB08.Data64, Text);
 	ProgressBar = new TProgressBar();
@@ -914,11 +939,11 @@ TLoginDialog::TLoginDialog(void (*OpenURL)(const char *URL))
 {
 	TBEGIN
 	TComponent::SetSize(SkinProperties.DataB94, SkinProperties.DataB98);
-	FocusGroup = new TFocusGroup();
+	FocusGroup.reset(new TFocusGroup());
 	Account = new TPasswordEditLine(8);
-	Account->SetFocusGroup(FocusGroup);
+	Account->SetFocusGroup(FocusGroup.get());
 	Password = new TPasswordEditLine(29);
-	Password->SetFocusGroup(FocusGroup);
+	Password->SetFocusGroup(FocusGroup.get());
 	TLink *Link = new TLink(TextNoAccountYet, "Create Account", "http://www.tibia.com/home/?subtopic=signup",
 		OpenURL, SkinProperties.StyleB08.Data78);
 	InsertChild(Account);
@@ -1067,7 +1092,7 @@ void TCharacterListDialog::KeyPress(int Key)
 	} else if (Key == 27) {
 		HandleEvent(2);
 	} else {
-		delete Timer;
+		Timer.reset();
 		Timer = nullptr;
 		ListBox->KeyPress(Key);
 	}
@@ -1103,8 +1128,8 @@ void TCharacterListDialog::HandleEvent(int Event)
 void TCharacterListDialog::SetTimeout(int seconds)
 {
 	TBEGIN
-	delete Timer;
-	Timer = new TTimer(seconds, TCallback(this, 31));
+	Timer.reset();
+	Timer.reset(new TTimer(seconds, TCallback(this, 31)));
 	Seconds = seconds;
 	TEND1(1374, seconds)
 }
@@ -1231,7 +1256,7 @@ TOutfitDialog::TOutfitDialog(const int *Data)
 	TTextButton *NextButton = new TTextButton(0, 0, "Next", TCallback(this, 6), nullptr);
 	InsertChild(NextButton);
 	SetChildPosition(NextButton, SkinProperties.DataC80.x, SkinProperties.DataC80.y);
-	PartGroup = new TRadioButtonGroup;
+	PartGroup.reset(new TRadioButtonGroup);
 	for (int i = 0; i < 4; i++) {
 		const char *PartName = "";
 		switch (i) {
@@ -1251,12 +1276,12 @@ TOutfitDialog::TOutfitDialog(const int *Data)
 		PartButtons[i] = new TTextButton(70, i * 25, PartName, TCallback(this, i + 1000), nullptr);
 		InsertChild(PartButtons[i]);
 		SetChildPosition(PartButtons[i], SkinProperties.DataC88[i].x, SkinProperties.DataC88[i].y);
-		PartButtons[i]->SetRadioButtonGroup(PartGroup);
+		PartButtons[i]->SetRadioButtonGroup(PartGroup.get());
 	}
-	ColorGroup = new TRadioButtonGroup;
+	ColorGroup.reset(new TRadioButtonGroup);
 	for (int i = 0; i < 133; i++) {
 		ColorButtons[i] = new TColorButton(0, 0, OutfitColor(i), 22, 23, TCallback(this, i + 2000), nullptr);
-		ColorButtons[i]->SetRadioButtonGroup(ColorGroup);
+		ColorButtons[i]->SetRadioButtonGroup(ColorGroup.get());
 		InsertChild(ColorButtons[i]);
 		SetChildPosition(ColorButtons[i], SkinProperties.DataCA8.x, SkinProperties.DataCA8.y);
 		ColorButtons[i]->SetPosition(i % 19 * SkinProperties.DataCB0 + ColorButtons[i]->OffsetX,
@@ -1791,7 +1816,7 @@ TNewChannelDialog::TNewChannelDialog(int _NumberOfChannels, const int *_ChannelI
 	SetChildArea(NameEdit, SkinProperties.DataF04);
 	SetChildArea(Label, SkinProperties.DataEF4);
 	NumberOfChannels = _NumberOfChannels;
-	ChannelIDs = new int[_NumberOfChannels];
+	ChannelIDs.reset(new int[_NumberOfChannels]);
 	for (int i = 0; i < NumberOfChannels; i++) {
 		ChannelIDs[i] = _ChannelIDs[i];
 		ListBox->AddLine(ChannelNames[i]);
@@ -2011,7 +2036,7 @@ TEditBuddyDialog::TEditBuddyDialog(int _CharacterID)
 	Label = new TLabel(SkinProperties.StyleB08.Data78, TextSelectType);
 	InsertChild(Label);
 	SetChildArea(Label, SkinProperties.StyleF8C.Data28);
-	IconGroup = new TRadioButtonGroup;
+	IconGroup.reset(new TRadioButtonGroup);
 	for (int i = 0; i < 11; i++) {
 		int Icon;
 		if (i == 0)
@@ -2020,7 +2045,7 @@ TEditBuddyDialog::TEditBuddyDialog(int _CharacterID)
 			Icon = i + 217;
 		IconButtons[i] = new TIconButton(0, 0, Icon, 24, 25, NoCallback, nullptr);
 		InsertChild(IconButtons[i]);
-		IconButtons[i]->SetRadioButtonGroup(IconGroup);
+		IconButtons[i]->SetRadioButtonGroup(IconGroup.get());
 		if (GetBuddyListIcon(Position) == i)
 			IconGroup->Selected = IconButtons[i];
 		SetChildPosition(IconButtons[i], SkinProperties.StyleF8C.Data38[i].x, SkinProperties.StyleF8C.Data38[i].y);
@@ -2297,7 +2322,7 @@ TRuleViolationDialog::TRuleViolationDialog(const char *Name, TTalkLine *Statemen
 		Reasons[i] = -1;
 	StatementID = Statement != nullptr ? Statement->StatementID : 0;
 	TComponent::SetSize(SkinProperties.Style1114.Data00, SkinProperties.Style1114.Data04);
-	FocusGroup = new TFocusGroup();
+	FocusGroup.reset(new TFocusGroup());
 	TLabel *Label = new TLabel(SkinProperties.StyleB08.Data78, "Name");
 	InsertChild(Label);
 	SetChildArea(Label, SkinProperties.Style1114.Data08);
@@ -2306,7 +2331,7 @@ TRuleViolationDialog::TRuleViolationDialog(const char *Name, TTalkLine *Statemen
 		NameEdit->SetText(Name);
 	if (Statement != nullptr)
 		NameEdit->SetText(Statement->Addressee);
-	NameEdit->SetFocusGroup(FocusGroup);
+	NameEdit->SetFocusGroup(FocusGroup.get());
 	InsertChild(NameEdit);
 	SetChildArea(NameEdit, SkinProperties.Style1114.Data18);
 	Label = new TLabel(SkinProperties.StyleB08.Data64, "Reason");
@@ -2325,7 +2350,7 @@ TRuleViolationDialog::TRuleViolationDialog(const char *Name, TTalkLine *Statemen
 	InsertChild(Label);
 	SetChildArea(Label, SkinProperties.Style1114.Data68);
 	CommentEdit = new TEditLine(100, false);
-	CommentEdit->SetFocusGroup(FocusGroup);
+	CommentEdit->SetFocusGroup(FocusGroup.get());
 	InsertChild(CommentEdit);
 	SetChildArea(CommentEdit, SkinProperties.Style1114.Data78);
 	Label = new TLabel(SkinProperties.StyleB08.Data64, "Statement");
@@ -2334,7 +2359,7 @@ TRuleViolationDialog::TRuleViolationDialog(const char *Name, TTalkLine *Statemen
 	StatementEdit = new TEditLine(Statement != nullptr ? (int)strlen(Statement->Text) : 0, true);
 	if (Statement != nullptr)
 		StatementEdit->SetText(Statement->Text);
-	StatementEdit->SetFocusGroup(FocusGroup);
+	StatementEdit->SetFocusGroup(FocusGroup.get());
 	InsertChild(StatementEdit);
 	SetChildArea(StatementEdit, SkinProperties.Style1114.Data98);
 	IPBanishment = new TCheckBox("IP Address Banishment");
@@ -2497,11 +2522,11 @@ TEditMarkDialog::TEditMarkDialog(TCoordinate *_Coordinate, TMark *_Mark)
 	Label = new TLabel(SkinProperties.StyleB08.Data78, TextSelectType2);
 	InsertChild(Label);
 	SetChildArea(Label, SkinProperties.Data11F4);
-	TypeGroup = new TRadioButtonGroup;
+	TypeGroup.reset(new TRadioButtonGroup);
 	for (int i = 0; i < 14; i++) {
 		TypeButtons[i] = new TIconButton(0, 0, i + 74, 24, 25, NoCallback, nullptr);
 		InsertChild(TypeButtons[i]);
-		TypeButtons[i]->SetRadioButtonGroup(TypeGroup);
+		TypeButtons[i]->SetRadioButtonGroup(TypeGroup.get());
 		if (Mark.Type == i)
 			TypeGroup->Selected = TypeButtons[i];
 		SetChildPosition(TypeButtons[i], SkinProperties.Data1204[i].x, SkinProperties.Data1204[i].y);
@@ -2821,7 +2846,7 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 	TBEGIN
 	OpenURL = _OpenURL;
 	Receiver = _Receiver;
-	EngineGroup = new TRadioButtonGroup;
+	EngineGroup.reset(new TRadioButtonGroup);
 	LightEffects = new TCheckBox("Show Light Effects");
 	NoStretching = new TCheckBox("Don't stretch/shrink the Map");
 	WindowsMousepointer = new TCheckBox("Windows Mouse Pointer");
@@ -2839,25 +2864,25 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 	TLabel *Label = DeviceLabel;
 	DirectX5Button = new TTextButton(SkinProperties.Style1394.Data10.x, SkinProperties.Style1394.Data10.y,
 		"Automatic", 16, 17, TCallback(_Receiver, 800), TextUseAutomaticDevice);
-	DirectX5Button->SetRadioButtonGroup(EngineGroup);
+	DirectX5Button->SetRadioButtonGroup(EngineGroup.get());
 	DirectX9Button = new TTextButton(SkinProperties.Style1394.Data18.x, SkinProperties.Style1394.Data18.y,
 		"GPU", 16, 17, TCallback(_Receiver, 801), TextUseGpuDevice);
-	DirectX9Button->SetRadioButtonGroup(EngineGroup);
+	DirectX9Button->SetRadioButtonGroup(EngineGroup.get());
 	OpenGLButton = new TTextButton(SkinProperties.Style1394.Data20.x, SkinProperties.Style1394.Data20.y,
 		"CPU", 16, 17, TCallback(_Receiver, 802), TextUseCpuDevice);
-	OpenGLButton->SetRadioButtonGroup(EngineGroup);
+	OpenGLButton->SetRadioButtonGroup(EngineGroup.get());
 #else
 	TLabel *Label = new TLabel(SkinProperties.Style1394.Data08.x, SkinProperties.Style1394.Data08.y,
 		SkinProperties.StyleB08.Data78, TextSelectEngine);
 	DirectX5Button = new TTextButton(SkinProperties.Style1394.Data10.x, SkinProperties.Style1394.Data10.y,
 		"DirectX5", 16, 17, TCallback(_Receiver, 800), TextSwitchToDirectX5);
-	DirectX5Button->SetRadioButtonGroup(EngineGroup);
+	DirectX5Button->SetRadioButtonGroup(EngineGroup.get());
 	DirectX9Button = new TTextButton(SkinProperties.Style1394.Data18.x, SkinProperties.Style1394.Data18.y,
 		"DirectX9", 16, 17, TCallback(_Receiver, 801), TextSwitchToDirectX9);
-	DirectX9Button->SetRadioButtonGroup(EngineGroup);
+	DirectX9Button->SetRadioButtonGroup(EngineGroup.get());
 	OpenGLButton = new TTextButton(SkinProperties.Style1394.Data20.x, SkinProperties.Style1394.Data20.y,
 		"OpenGL", 16, 17, TCallback(_Receiver, 802), TextSwitchToOpenGL);
-	OpenGLButton->SetRadioButtonGroup(EngineGroup);
+	OpenGLButton->SetRadioButtonGroup(EngineGroup.get());
 #endif
 	InsertChild(Label);
 	InsertChild(DirectX5Button);
