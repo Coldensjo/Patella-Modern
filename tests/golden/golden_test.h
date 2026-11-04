@@ -71,3 +71,4 @@ void TestMainFrm();
 void TestNetwork();
 // Issue #28 (ExePath as TestObjects').
 void TestGraphics(const char *ExePath);
+void TestGUI();

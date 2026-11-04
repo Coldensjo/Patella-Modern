@@ -95,7 +95,8 @@ add_library(golden_client_tests OBJECT
 	creatures_tests.cpp
 	golden_eh.cpp
 	mainfrm_tests.cpp
-	graphics_tests.cpp)
+	graphics_tests.cpp
+	gui_tests.cpp)
 golden_client_settings(golden_client_tests)
 # Network (issue #30): network_tests.cpp in a directory of its own (network/CMakeLists.txt, its exception
 # model).

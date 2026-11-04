@@ -214,7 +214,6 @@ list(TRANSFORM difftest_window_sources PREPEND "${PROJECT_SOURCE_DIR}/src/")
 # exception handler trampoline must be in the SafeSEH table: only the assembler can put it there.
 set(difftest_tests
 	difftest.cpp playertest.cpp
-	guitest.cpp
 	dialogwindowtest.cpp contextmenustest.cpp consolewindowtest.cpp contentwindowstest.cpp
 	dialogelementstest.cpp dialogstest.cpp surfacedx9test.cpp surfacegltest.cpp
 	surfacedxtest.cpp mapwindowtest.cpp mainwindowtest.cpp elementfakes.cpp errortest.cpp
@@ -231,8 +230,8 @@ list(APPEND difftest_tests "${GOLDEN_DIR}/core_tests.cpp" "${GOLDEN_DIR}/regexp_
 list(APPEND difftest_tests "${GOLDEN_DIR}/golden_eh.cpp" "${GOLDEN_DIR}/mainfrm_tests.cpp")
 # Issue #30: Network (it includes Network.cpp).
 list(APPEND difftest_tests "${GOLDEN_DIR}/network_tests.cpp")
-# Issue #28: Graphics.
-list(APPEND difftest_tests "${GOLDEN_DIR}/graphics_tests.cpp")
+# Issue #28: Graphics and GUI.
+list(APPEND difftest_tests "${GOLDEN_DIR}/graphics_tests.cpp" "${GOLDEN_DIR}/gui_tests.cpp")
 set_source_files_properties("${DIFFTEST_DIR}/imageehseh.asm" PROPERTIES COMPILE_OPTIONS /safeseh)
 add_executable(difftest ${difftest_tests}
 	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"

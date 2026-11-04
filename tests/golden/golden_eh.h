@@ -112,12 +112,13 @@ struct TErrorRound {
 // ours or the image's (0x49bee0), with Value (negative) as the printed
 // width. A test object on the image side must throw the image's exception:
 // ours would pass through the image's catch (TMyException &) and be read
-// with the image's layout. The oracle's is guitest.cpp's (our GUI.cpp's
-// TComponent::SetSize); the runner, which does not link GUI.cpp yet, throws
-// the same exception with OurSideAssertion.
+// with the image's layout. It is gui_tests.cpp's, our GUI.cpp's
+// TComponent::SetSize, in the oracle and (since issue #28, GUI.cpp in the
+// runner) in the runner; the runner aborts when asked for the image's side.
 void ThrowSideAssertion(bool Image, int Value);
 // What our TComponent::SetSize(Value, 0) throws for a negative Value: GUI.cpp's TASSERT1(1092,
-// _Width>=0, _Width), our TMyException with the same arguments.
+// _Width>=0, _Width), our TMyException with the same arguments. The runner's stand-in until issue #28;
+// the oracle still checks it against SetSize (VerifyOurSideAssertion).
 [[noreturn]] void OurSideAssertion(int Value);
 #if GOLDEN_ORACLE
 // The oracle, in a ported test that uses ThrowSideAssertion, before its error round: OurSideAssertion
