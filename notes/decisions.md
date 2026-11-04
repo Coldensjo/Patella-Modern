@@ -7221,5 +7221,15 @@ orchestrator's live inspection. notes/vulkan.md, "One window per device (issue #
   TPresentWindows on every device of the machine, including switches before the device exists. It cannot reproduce
   the stale picture (a hidden window is not composed); it checks what makes it impossible. The live check is the
   user's repro.
+- **The lost scripted click** (medium: the desktop event itself was not seen). The reference compare after the
+  change lost one scripted click (session traffic, "Graphics"). The device windows cannot take it: the test mode
+  dispatches to the main window, and a held click survives every window operation of the engine (tests_vulkan,
+  "scripted clicks reach the main window while device windows come and go": no WM_CAPTURECHANGED). The click is
+  lost when the main window loses the capture between press and release; the desktop does that (another window
+  activated; the run before had met the user's own client still running), and the test mode let it through, as
+  it is a sent message, not queued input. With a script the test mode now skips OnCaptureChanged
+  (PATELLA_TEST_CAPTURE_CHANGED; nothing in Patella.exe and the oracle, pecompare). Not taken: WS_DISABLED or
+  WS_EX_TRANSPARENT device windows (they change nothing for dispatched input), the test mode hit-testing (it does
+  not), forwarding messages from the device windows (they receive none).
 - **Not done** (medium). Each CPU-driver device leaves about 56 process handles (lavapipe's ended threads); its own
   issue.

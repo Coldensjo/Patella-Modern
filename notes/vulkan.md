@@ -190,6 +190,18 @@ device's first frame, the windows follow the main window's size and let hits thr
 The windows are never shown, so the test cannot show the stale picture itself: a hidden window is not composed. The
 live check is the user's repro.
 
+**Input** (the reference compare after the change, November 4, 2026: in the session `traffic` the scripted click
+on "Graphics" was lost, the state dumps 3 and 4 still on the Options dialog, the rest equal). The device windows do
+not take input: the test mode dispatches its clicks to the main window itself (no hit test), real clicks pass
+through them (HTTRANSPARENT), and tests_vulkan's "scripted clicks reach the main window while device windows come
+and go" holds a click (dispatched as the test mode does, the window taking the capture as CMainFrame does) across
+everything the engine does with its windows (a device and its window, frames on the CPU driver and on the GPU, a
+resize, a device switch with the old window destroyed, the device test's window): no WM_CAPTURECHANGED, the
+capture still the main window's at the release. A click is lost only when the main window loses the capture
+between press and release, which the desktop does (another window activated, the user's own clicks; the run before
+it had met the user's own client still running). With a script the test mode now ignores that loss
+(notes/testmode.md, PATELLA_TEST_CAPTURE_CHANGED), as it drops the desktop's queued input.
+
 **Found on the way.** Each device on the CPU driver leaves about 56 process handles (lavapipe's 49 threads end, their
 handles stay; tests_vulkan's harness: 442, 498, 554 handles after each RTX, CPU, RTX round), not fixed here.
 
@@ -373,8 +385,8 @@ those (patcap reports the seven others as hooked); compare_rendering.py needs no
   AMD Radeon(TM) Graphics (integrated), cpu llvmpipe (LLVM 23.1.4, 256 bits); and (issue-31-fix) the client's
   start-up order: headless instances first, then a renderer on each device for a window that is never shown (no
   WS_VISIBLE, no ShowWindow; destroyed at the end) and one frame presented; and (issue #52) quick device switches
-  through TPresentWindows on every device ("One window per device" above). 12 test cases, 1,057 assertions (11 and
-  88 before issue #52). Fills, 400 random
+  through TPresentWindows on every device and a held click across the device windows' changes ("One window per
+  device" above). 13 test cases, 1,081 assertions (11 and 88 before issue #52). Fills, 400 random
   unscaled copies of a texture with transparent texels, the automap's upload (a texture of texel coordinates:
   every pixel must show texel max(k - 1, 0)), stretches, the colour key pass, the light, a draw that samples its
   target, six frames of 4.8 MB uploads and a resized image, each read back and compared with a model of Direct3D
