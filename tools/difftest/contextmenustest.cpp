@@ -31,7 +31,7 @@
 
 #include "difftest.h"
 #include "imageeh.h"
-#include "elementfakes.h"
+#include "../../tests/golden/elementfakes.h"
 #include "../../src/ContextMenus.h"
 #include "../../src/ContentWindows.h"
 #include "../../src/Communication.h"

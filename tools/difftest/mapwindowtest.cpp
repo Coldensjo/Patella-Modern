@@ -24,7 +24,7 @@
 // class, DialogElements.cpp's TBlinkingButton, is not reconstructed).
 
 #include "difftest.h"
-#include "elementfakes.h"
+#include "../../tests/golden/elementfakes.h"
 #include "../../src/MapWindow.h"
 #include "../../src/Communication.h"
 #include "../../src/Help.h"

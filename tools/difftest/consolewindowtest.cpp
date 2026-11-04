@@ -34,7 +34,7 @@
 // changes are followed by the console's change flag).
 
 #include "difftest.h"
-#include "elementfakes.h"
+#include "../../tests/golden/elementfakes.h"
 #include "imageeh.h"
 #include "../../src/ConsoleWindow.h"
 #include "../../src/Communication.h"

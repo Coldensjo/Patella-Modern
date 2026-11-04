@@ -33,7 +33,7 @@
 // inside the windows).
 
 #include "difftest.h"
-#include "elementfakes.h"
+#include "../../tests/golden/elementfakes.h"
 #include "imageeh.h"
 #include "../../src/ContentWindows.h"
 #include "../../src/Communication.h"

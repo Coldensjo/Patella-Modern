@@ -658,6 +658,30 @@ void OutputRuns(const char *Name, void *Last, const void *Value, size_t Size)
 	}
 }
 
+std::string OutputTextChanges(const char *Name, std::string *Last, const std::string &Text)
+{
+	uint32_t Span[3] = {0, 0, 0};       // the bytes kept from Last's start, from its end, the new text's length
+	if (CurrentMode != TMode::Replay) { // the oracle, recording or not
+		size_t Shorter = Text.size() < Last->size() ? Text.size() : Last->size(), Start = 0, End = 0;
+		while (Start < Shorter && Text[Start] == (*Last)[Start])
+			Start++;
+		while (End < Shorter - Start && Text[Text.size() - 1 - End] == (*Last)[Last->size() - 1 - End])
+			End++;
+		Span[0] = (uint32_t)Start;
+		Span[1] = (uint32_t)End;
+		Span[2] = (uint32_t)Text.size();
+	}
+	Output(Name, Span);
+	if (Span[0] > Last->size() || Span[1] > Last->size() - Span[0] || Span[0] + Span[1] > Span[2])
+		throw TStale{std::string("\"") + Name + "\": a change outside the text"};
+	size_t Middle = Span[2] - Span[0] - Span[1];
+	std::string Bytes = OutputText(Name, CurrentMode != TMode::Replay ? Text.data() + Span[0] : nullptr, Middle);
+	if (Bytes.size() != Middle)
+		throw TStale{std::string("\"") + Name + "\": the changed bytes are not the recorded ones"};
+	*Last = Last->substr(0, Span[0]) + Bytes + Last->substr(Last->size() - Span[1]);
+	return *Last;
+}
+
 std::string DataFile(const char *Name, const char *ExePath)
 {
 	std::string Path, Contents;

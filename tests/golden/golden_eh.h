@@ -156,3 +156,15 @@ inline TThrown RecordedThrown(const char *Name, TThrown Thrown)
 #else
 #define ORIGINAL_THROWN(Name, ...) golden::RecordedThrown(Name, TThrown())
 #endif
+
+// imageeh.h's ROUND_COMPARE by value (issue #28; gui_tests.cpp's GUI_ROUND_COMPARE): our call, then the
+// original's (the oracle runs it inside ImageThrow and records what it threw; the runner gets the recorded
+// exception and has no ImageCall), then the round's comparison.
+#define GOLDEN_ROUND_COMPARE(Round, What, OurCall, ImageCall) \
+	do { \
+		(Round).Calling(What, "ours"); \
+		TThrown Ours_ = OurThrow([&] { OurCall; }); \
+		(Round).Calling(What, "the original"); \
+		TThrown Original_ = ORIGINAL_THROWN("thrown", ImageCall); \
+		(Round).Compare(What, Ours_, Original_); \
+	} while (0)

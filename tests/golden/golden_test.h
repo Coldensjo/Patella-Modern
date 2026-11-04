@@ -72,3 +72,5 @@ void TestNetwork();
 // Issue #28 (ExePath as TestObjects').
 void TestGraphics(const char *ExePath);
 void TestGUI();
+// Issue #28 (second part).
+void TestDialogWindow();

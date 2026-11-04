@@ -96,7 +96,9 @@ add_library(golden_client_tests OBJECT
 	golden_eh.cpp
 	mainfrm_tests.cpp
 	graphics_tests.cpp
-	gui_tests.cpp)
+	gui_tests.cpp
+	elementfakes.cpp
+	dialogwindow_tests.cpp)
 golden_client_settings(golden_client_tests)
 # Network (issue #30): network_tests.cpp in a directory of its own (network/CMakeLists.txt, its exception
 # model).
@@ -119,8 +121,11 @@ patella_target_language(golden_runner)
 patella_target_warnings(golden_runner)
 patella_target_hardening(golden_runner)
 # The ported tests redirect some of our functions to their fakes (golden_patch.h): no function may share
-# its code with another.
-target_link_options(golden_runner PRIVATE /OPT:NOICF)
+# its code with another. Nor may a function have two incremental-link thunks (issue #28): the element fakes
+# find our constructors through their decorated names (elementfakes.cpp), which an incremental link gives a
+# thunk of their own, so that patching it would not reach the calls; without incremental linking every
+# address is the function's code, in Debug as in Release.
+target_link_options(golden_runner PRIVATE /OPT:NOICF /INCREMENTAL:NO)
 
 if(PATELLA_GOLDEN_REQUIRE)
 	add_test(NAME golden COMMAND golden_runner --require "${PATELLA_GOLDEN_DIR}")
