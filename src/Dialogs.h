@@ -24,6 +24,7 @@
 #pragma once
 
 #include "common.h"
+#include "types/FixedString.h"
 #include "Container.h"
 #include "GUI.h"
 #include "graphics.h"
@@ -31,6 +32,7 @@
 #include "Map.h"         // TCoordinate, TMark
 #include "Preferences.h" // TFullscreenMode, HOTKEYS
 #include "Text.h"        // TReconnectBody::SetTime reads TextTryingToReconnect
+#include <cstddef>
 
 class TDialog;
 struct TTalkLine;
@@ -114,7 +116,7 @@ public:
 	bool Dragging;             // +0x44
 	int DragX;                 // +0x48, where the drag started
 	int DragY;                 // +0x4c
-	char Caption[100];         // +0x50
+	TFixedString<100> Caption; // +0x50
 	TCallback OkCallback;      // +0xb4, Return
 	TCallback CancelCallback;  // +0xbc, Escape
 };
@@ -367,9 +369,11 @@ struct TIgnoreEntry {
 		Name[0] = 0;
 		Permanent = false;
 	}
-	char Name[30];  // +0x00
-	bool Permanent; // +0x1e
+	TFixedString<30> Name; // +0x00
+	bool Permanent;        // +0x1e
 };
+// The original's layout (no pointers: the same on x64), with Name a TFixedString (issue #57).
+static_assert(sizeof(TIgnoreEntry) == 0x1f && offsetof(TIgnoreEntry, Permanent) == 0x1e, "TIgnoreEntry's layout");
 
 // "Edit Ignore List and White List" (vtable 0x5639d8, 0xd0 bytes): both lists
 // as editable font list boxes (permanent entries in their own colour), the
@@ -715,7 +719,7 @@ public:
 	void HandleEvent(int Event) override;                // +0x70, 0x47c010, lines 3993-3996
 	void UpdateLine(int Number);                         // 0x47b9c0, lines 3914-3933
 
-	char Texts[HOTKEYS][256];         // +0x2c
+	TFixedString<256> Texts[HOTKEYS]; // +0x2c
 	bool AutoSend[HOTKEYS];           // +0x242c
 	TFontListBox *ListBox;            // +0x2450, event 11
 	TEditLine *TextEdit;              // +0x2454

@@ -1325,7 +1325,7 @@ static void DumpComponent(int s, std::string &Out, TComponent *C, int Depth)
 	} else if (Kind == "BattleBody") {
 		TBattleWindowBody *B = (TBattleWindowBody *)C;
 		Add(Out, " minimized %d scroll %s opponents %d over '%.31s'", B->Minimized ? 1 : 0, Name(s, B->ScrollBar).c_str(),
-			B->NumberOfOpponents, B->MouseOverText);
+			B->NumberOfOpponents, B->MouseOverText.Chars); // a TFixedString since issue #57: its array through the varargs
 	} else if (Kind == "BuddyBody") {
 		TBuddylistWindowBody *B = (TBuddylistWindowBody *)C;
 		Add(Out, " minimized %d scroll %s buddies %d over '%s'", B->Minimized ? 1 : 0, Name(s, B->ScrollBar).c_str(),

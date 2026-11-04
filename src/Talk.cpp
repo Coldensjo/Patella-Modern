@@ -9,6 +9,7 @@
 #include "Container.h"
 #include "Preferences.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstddef>
 #include <new>
 #include <cstdio>
@@ -18,15 +19,15 @@
 
 namespace {
 
-bool IgnoreListEnabled;                   // 0x71dbd0
-bool BuddyIgnore;                         // 0x71dbd1
-bool IgnoreEnabled;                       // 0x71dbd2
-bool ConsoleChanged;                      // 0x71dbd3
-int StatusMessageTime;                    // 0x71dbdc
-char StatusMessage[STATUSMESSAGE_LENGTH]; // 0x71dbe0
-int TalkOrder;                            // 0x71dde0
-bool TalkChanged;                         // 0x71dde4
-TTalkbox Talkboxes[TALKBOXES];            // 0x71dde8
+bool IgnoreListEnabled;                           // 0x71dbd0
+bool BuddyIgnore;                                 // 0x71dbd1
+bool IgnoreEnabled;                               // 0x71dbd2
+bool ConsoleChanged;                              // 0x71dbd3
+int StatusMessageTime;                            // 0x71dbdc
+TFixedString<STATUSMESSAGE_LENGTH> StatusMessage; // 0x71dbe0
+int TalkOrder;                                    // 0x71dde0
+bool TalkChanged;                                 // 0x71dde4
+TTalkbox Talkboxes[TALKBOXES];                    // 0x71dde8
 
 } // namespace
 
@@ -51,6 +52,7 @@ vector<TTalkFilter *> ConsoleFilterList(0, 4, 5, nullptr); // 0x71efd0, 0x55a1a0
 } // namespace
 
 static_assert(sizeof(TTalkbox) == 0x1c0, "talkbox layout");
+static_assert(offsetof(TTalkbox, Text) == 0x20 && offsetof(TTalkbox, Left) == 0x1b0, "talkbox lines (TFixedString, issue #57)");
 #if PATELLA_ORIGINAL_LAYOUT
 static_assert(sizeof(TTalkLine) == 0x40, "statement layout");
 static_assert(sizeof(TTalkBuffer) == 0x2c, "text buffer layout");
@@ -82,7 +84,7 @@ int GetNumberOfTalkboxes()
 // 0x4fd4c0
 void SetTalkChanged() { TalkChanged = true; }
 // 0x4fd4d0
-const char *GetStatusMessage() { return StatusMessageTime != 0 ? StatusMessage : nullptr; }
+const char *GetStatusMessage() { return StatusMessageTime != 0 ? StatusMessage.Chars : nullptr; }
 // 0x4fd4e0
 void SetIgnoreEnabled(bool Value) { IgnoreEnabled = Value; }
 // 0x4fd4f0
@@ -300,18 +302,19 @@ void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *
 	Box.z = z;
 	Box.Lines = 0;
 	Box.RemainingTime = ((int)(strlen(Text) >> 1) + 30) * 100;
-	const char *Format = nullptr;
+	// The first line names the speaker: sprintf with "%s says:", "%s whispers:", "%s yells:" or "%s:".
+	const char *Verb = nullptr;
 	switch (Mode) {
-	case 1: Format = "%s says:"; break;
-	case 2: Format = "%s whispers:"; break;
-	case 3: Format = "%s yells:"; break;
+	case 1: Verb = " says:"; break;
+	case 2: Verb = " whispers:"; break;
+	case 3: Verb = " yells:"; break;
 	case 4:
 	case 9:
-	case 11: Format = "%s:"; break;
+	case 11: Verb = ":"; break;
 	}
-	if (Format != nullptr) {
+	if (Verb != nullptr) {
 		Box.Lines = 1;
-		sprintf(Box.Text[0], Format, Speaker);
+		Box.Text[0].Format("{}{}", Speaker, Verb);
 	}
 	WrapTalkbox(&Box, Text);
 	Box.State = 1;
@@ -324,14 +327,14 @@ void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *
 			&& strcmp(Other.Text[0], Box.Text[0]) == 0 && Other.x == x && Other.y == y && Other.z == z) {
 			for (int Line = 1; Line < Box.Lines; Line++)
 				if (Other.Lines < 10)
-					strcpy(Other.Text[Other.Lines++], Box.Text[Line]);
+					Other.Text[Other.Lines++].Assign(Box.Text[Line]);
 			Box.State = 2;
 		}
 		if ((Mode == 16 || Mode == 17) && (Other.Mode == 16 || Other.Mode == 17)
 			&& Other.x == x && Other.y == y && Other.z == z) {
 			for (int Line = 0; Line < Box.Lines; Line++)
 				if (Other.Lines < 10)
-					strcpy(Other.Text[Other.Lines++], Box.Text[Line]);
+					Other.Text[Other.Lines++].Assign(Box.Text[Line]);
 			Box.State = 2;
 		}
 		bool Match = (Mode == 9 || Mode == 11)
@@ -439,7 +442,7 @@ void SetStatusMessage(const char *Message, bool Permanent)
 		return;
 	}
 	TASSERT1(565, strlen(Message)<STATUSMESSAGE_LENGTH, strlen(Message));
-	strcpy(StatusMessage, Message);
+	StatusMessage.Assign(Message);
 	StatusMessageTime = Permanent ? -1 : 50;
 	TEND(570)
 }
@@ -540,12 +543,11 @@ char *GetBuddyIgnoreText()
 		return nullptr;
 	char *Text = new (std::nothrow) char[Length + 1];
 	Text[0] = 0;
-	Length = 0;
+	// The original wrote each name and its line break at Text + Length, the text's length so far.
+	TStringBuffer Buffer(Text, static_cast<std::size_t>(Length) + 1);
 	for (int i = BuddyExemptionList.min; i <= BuddyExemptionList.max; i++)
-		if (BuddyExemptionList(i) != nullptr && strlen(BuddyExemptionList(i)->Addressee) != 0) {
-			sprintf(Text + Length, "%s\n", BuddyExemptionList(i)->Addressee);
-			Length += (int)strlen(BuddyExemptionList(i)->Addressee) + 1;
-		}
+		if (BuddyExemptionList(i) != nullptr && strlen(BuddyExemptionList(i)->Addressee) != 0)
+			Buffer.AppendFormat("{}\n", BuddyExemptionList(i)->Addressee);
 	return Text;
 	TEND(766)
 }
@@ -630,12 +632,11 @@ char *GetIgnoreListText()
 		return nullptr;
 	char *Text = new (std::nothrow) char[Length + 1];
 	Text[0] = 0;
-	Length = 0;
+	// The original wrote each name and its line break at Text + Length, the text's length so far.
+	TStringBuffer Buffer(Text, static_cast<std::size_t>(Length) + 1);
 	for (int i = IgnoreList.min; i <= IgnoreList.max; i++)
-		if (IgnoreList(i) != nullptr && strlen(IgnoreList(i)->Addressee) != 0) {
-			sprintf(Text + Length, "%s\n", IgnoreList(i)->Addressee);
-			Length += (int)strlen(IgnoreList(i)->Addressee) + 1;
-		}
+		if (IgnoreList(i) != nullptr && strlen(IgnoreList(i)->Addressee) != 0)
+			Buffer.AppendFormat("{}\n", IgnoreList(i)->Addressee);
 	return Text;
 	TEND(954)
 }
@@ -1138,11 +1139,12 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int Diff
 	StatementID = _StatementID;
 	Time = PATELLA_TIME32(nullptr) + DiffTime;
 	const tm *LocalTime = MsvcLocaltime32(&Time);
-	char Stamp[8];
-	sprintf(Stamp, "%02d:%02d ", LocalTime->tm_hour, LocalTime->tm_min);
+	TFixedString<8> Stamp;
+	Stamp.Format("{:02}:{:02} ", LocalTime->tm_hour, LocalTime->tm_min);
 	Addressee[0] = 0;
-	Line = new (std::nothrow) char[strlen(Stamp) + strlen(_Line) + 1];
-	strcpy(Line, Stamp);
+	const std::size_t Size = strlen(Stamp) + strlen(_Line) + 1;
+	Line = new (std::nothrow) char[Size];
+	TStringBuffer(Line, Size).Assign(Stamp);
 	TrimString(Line + strlen(Stamp), _Line);
 	WithoutTime = Text = Line + strlen(Stamp);
 	TEND2(1847, _StatementID, _Mode)
@@ -1158,13 +1160,14 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, con
 	StatementID = _StatementID;
 	Time = PATELLA_TIME32(nullptr) + DiffTime;
 	const tm *LocalTime = MsvcLocaltime32(&Time);
-	char Stamp[8];
-	sprintf(Stamp, "%02d:%02d ", LocalTime->tm_hour, LocalTime->tm_min);
+	TFixedString<8> Stamp;
+	Stamp.Format("{:02}:{:02} ", LocalTime->tm_hour, LocalTime->tm_min);
 	CopyString(Addressee, _Addressee, 30);
-	Line = new (std::nothrow) char[strlen(Stamp) + strlen(Addressee) + strlen(_Line) + 3];
-	strcpy(Line, Stamp);
+	const std::size_t Size = strlen(Stamp) + strlen(Addressee) + strlen(_Line) + 3;
+	Line = new (std::nothrow) char[Size];
+	TStringBuffer(Line, Size).Assign(Stamp);
 	WithoutTime = Line + strlen(Stamp);
-	sprintf(WithoutTime, "%s: ", Addressee);
+	TStringBuffer(WithoutTime, Size - strlen(Stamp)).Format("{}: ", Addressee);
 	Text = WithoutTime + strlen(Addressee) + 2;
 	TrimString(Text, _Line);
 	TEND2(1889, _StatementID, _Mode)

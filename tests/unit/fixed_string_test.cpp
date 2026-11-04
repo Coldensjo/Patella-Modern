@@ -399,6 +399,15 @@ TEST_CASE("The std::format_to_n stand-in formats as std::format_to_n")
 		True);
 	CompareStandIn("{}", std::string_view("Latin-1 \xe4\xf6\xfc as bytes"));
 	CompareStandIn("{}{}{}", 1, "", 2);
+	// A char array (the original's members, Addressee[30]) is its text up to the NUL, not its N bytes.
+	char Array[12];
+	std::memset(Array, '#', sizeof(Array));
+	std::memcpy(Array, "Bubble", 7);
+	CompareStandIn("{}|{:>8}|", Array, Array);
+	CHECK(std::format("{}", Array) == "Bubble");
+	TFixedString<16> Formatted = Filled<16>();
+	CHECK(Formatted.Format("{}:", Array) == 7);
+	CHECK(Formatted.View() == "Bubble:");
 }
 
 TEST_CASE("The stand-in rejects what it does not format")

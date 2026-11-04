@@ -33,6 +33,7 @@
 #include "graphics.h"
 #include "GUI.h"
 #include "common.h"
+#include "types/FixedString.h"
 
 #include <cmath>
 #include <sstream>
@@ -326,8 +327,9 @@ void TMapWindow::HandleEvent(int Event)
 		HintButton = nullptr;
 		const int Hint = PopEventHelp();
 		TASSERT1(382, In(Hint,1,EVENTHELPS), Hint);
-		char *Text = new char[strlen(GetEventHelpText(Hint)) + 1];
-		strcpy(Text, GetEventHelpText(Hint));
+		const std::size_t Size = strlen(GetEventHelpText(Hint)) + 1;
+		char *Text = new char[Size];
+		TStringBuffer(Text, Size).Assign(GetEventHelpText(Hint));
 		AddMessage(2, reinterpret_cast<INT_PTR>(GetEventHelpTitle(Hint)), reinterpret_cast<INT_PTR>(Text));
 	}
 	TEND1(388, Event)

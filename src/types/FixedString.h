@@ -97,14 +97,14 @@ public:
 	}
 
 #if PATELLA_HAS_FORMAT
-	// sprintf(Chars, ...) with std::format's language. Returns the characters written.
+	// What sprintf wrote into Chars, with std::format's language. Returns the characters written.
 	template <typename... Arguments>
 	std::size_t Format(std::format_string<TFormatArgument<Arguments>...> Text, Arguments &&...Values)
 	{
 		return Terminate(0,
 			std::format_to_n(Chars, Limit(0), Text, PassFormatArgument(std::forward<Arguments>(Values))...).out);
 	}
-	// sprintf(Chars + strlen(Chars), ...). Returns the length afterwards.
+	// What sprintf wrote at Chars + strlen(Chars). Returns the length afterwards.
 	template <typename... Arguments>
 	std::size_t AppendFormat(std::format_string<TFormatArgument<Arguments>...> Text, Arguments &&...Values)
 	{

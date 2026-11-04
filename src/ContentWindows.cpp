@@ -34,6 +34,7 @@
 #include "Help.h"
 #include "Talk.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -692,10 +693,10 @@ void TCompassRose::MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y)
 void TCapacityLabel::Draw(int Surface, int x, int y)
 {
 	TBEGIN
-	char Text[20];
+	TFixedString<20> Text;
 	PrintFormattedText(Surface, SkinProperties.Style3E0.Data00.x + x, SkinProperties.Style3E0.Data00.y + y,
 		SkinProperties.Style3E0.Data10, "Cap:");
-	sprintf(Text, "%d", GetPlayerCapacity());
+	Text.Format("{}", GetPlayerCapacity());
 	PrintFormattedText(Surface, SkinProperties.Style3E0.Data24.x + x, SkinProperties.Style3E0.Data24.y + y,
 		SkinProperties.Style3E0.Data34, Text);
 	TEND1(858, Surface)
@@ -705,10 +706,10 @@ void TCapacityLabel::Draw(int Surface, int x, int y)
 void TSoulLabel::Draw(int Surface, int x, int y)
 {
 	TBEGIN
-	char Text[20];
+	TFixedString<20> Text;
 	PrintFormattedText(Surface, SkinProperties.Style428.Data00.x + x, SkinProperties.Style428.Data00.y + y,
 		SkinProperties.Style428.Data10, "Soul:");
-	sprintf(Text, "%d", GetPlayerSoul());
+	Text.Format("{}", GetPlayerSoul());
 	PrintFormattedText(Surface, SkinProperties.Style428.Data24.x + x, SkinProperties.Style428.Data24.y + y,
 		SkinProperties.Style428.Data34, Text);
 	TEND1(875, Surface)
@@ -1391,11 +1392,11 @@ void TStatusWindow::Draw(int Surface, int x, int y)
 	const int MaxHealth = GetPlayerMaxHealth();
 	const int Mana = GetPlayerMana();
 	const int MaxMana = GetPlayerMaxMana();
-	char Text[16];
-	sprintf(Text, "%d", Health);
+	TFixedString<16> Text;
+	Text.Format("{}", Health);
 	PrintFormattedText(Surface, SkinProperties.StatusWindow.Data34.x + x, SkinProperties.StatusWindow.Data34.y + y,
 		SkinProperties.StatusWindow.Data54, Text);
-	sprintf(Text, "%d", Mana);
+	Text.Format("{}", Mana);
 	PrintFormattedText(Surface, SkinProperties.StatusWindow.Data44.x + x, SkinProperties.StatusWindow.Data44.y + y,
 		SkinProperties.StatusWindow.Data54, Text);
 	int BarWidth = SkinProperties.StatusWindow.HitpointsBar.width;
@@ -2032,13 +2033,14 @@ bool TSkillsWindowBody::GetLine(int NumberOfLine, char *Text, int &Value, int &P
 	TBEGIN
 	Value = 0;
 	Progress = -1;
+	TStringBuffer Name(Text, 100); // every caller passes char[100]
 	switch (NumberOfLine) {
 	case 1:
-		sprintf(Text, "Experience");
+		Name.Assign("Experience");
 		Value = GetPlayerExperience();
 		break;
 	case 2:
-		sprintf(Text, "Level");
+		Name.Assign("Level");
 		Value = GetPlayerLevel();
 		if (GetLevelBar())
 			Progress = GetPlayerLevelProgress();
@@ -2046,23 +2048,23 @@ bool TSkillsWindowBody::GetLine(int NumberOfLine, char *Text, int &Value, int &P
 			Progress = -1;
 		break;
 	case 3:
-		sprintf(Text, "Hit Points");
+		Name.Assign("Hit Points");
 		Value = GetPlayerHealth();
 		break;
 	case 4:
-		sprintf(Text, "Mana");
+		Name.Assign("Mana");
 		Value = GetPlayerMana();
 		break;
 	case 5:
-		sprintf(Text, "Soul Points");
+		Name.Assign("Soul Points");
 		Value = GetPlayerSoul();
 		break;
 	case 6:
-		sprintf(Text, "Capacity");
+		Name.Assign("Capacity");
 		Value = GetPlayerCapacity();
 		break;
 	case 7:
-		sprintf(Text, "Magic Level");
+		Name.Assign("Magic Level");
 		Value = GetPlayerMagicLevel();
 		if (GetMagLevelBar())
 			Progress = GetPlayerMagicLevelProgress();
@@ -2079,7 +2081,7 @@ bool TSkillsWindowBody::GetLine(int NumberOfLine, char *Text, int &Value, int &P
 	case 14:
 	case 15: {
 		const int SkillNumber = NumberOfLine - 9;
-		sprintf(Text, "%s", GetSkillName(SkillNumber));
+		Name.Assign(GetSkillName(SkillNumber));
 		Value = GetPlayerSkillValue(SkillNumber);
 		if (GetSkillBar(SkillNumber))
 			Progress = GetPlayerSkillProgress(SkillNumber);
@@ -2239,9 +2241,9 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 			const char *Name = Creature->Name;
 			const int MaxLength = GetFittingTextLength(SkinProperties.Style688.Data54.FontNumber, Name,
 				SkinProperties.Style688.Data14.width);
-			char Shortened[32];
+			TFixedString<32> Shortened;
 			if (MaxLength < (int)strlen(Name)) {
-				strcpy(Shortened, Name);
+				Shortened.Assign(Name);
 				ShortenString(Shortened, MaxLength);
 				Name = Shortened;
 			}
@@ -2384,7 +2386,7 @@ void TBattleWindowBody::MouseHover(int x, int y)
 			const int MaxLength = GetFittingTextLength(SkinProperties.Style688.Data54.FontNumber, Creature->Name,
 				SkinProperties.Style688.Data14.width);
 			if (MaxLength < (int)strlen(Creature->Name)) {
-				strcpy(MouseOverText, Creature->Name);
+				MouseOverText.Assign(Creature->Name);
 				SetMouseOverText(MouseOverText);
 			}
 		}
@@ -2962,9 +2964,9 @@ void TBuddylistWindowBody::Draw(int Surface, int x, int y)
 			const char *Name = GetBuddyListName(i);
 			const int MaxLength = GetFittingTextLength(SkinProperties.BuddylistWindow.Data28.FontNumber, Name,
 				SkinProperties.BuddylistWindow.Data18.width);
-			char Shortened[40];
+			TFixedString<40> Shortened;
 			if (MaxLength < (int)strlen(Name)) {
-				strcpy(Shortened, Name);
+				Shortened.Assign(Name);
 				ShortenString(Shortened, MaxLength);
 				Name = Shortened;
 			}
@@ -3039,7 +3041,7 @@ void TBuddylistWindowBody::MouseHover(int x, int y)
 			MouseOverText = nullptr;
 			MouseOverText = new char[36];
 			MouseOverText[0] = 0;
-			sprintf(MouseOverText + strlen(MouseOverText), "%s", Name);
+			TStringBuffer(MouseOverText, 36).Append(Name);
 			SetMouseOverText(MouseOverText);
 		}
 	}
