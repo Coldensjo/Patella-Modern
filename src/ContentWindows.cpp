@@ -39,11 +39,22 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 #if PATELLA_ORIGINAL_LAYOUT
 // The original's layout, with MouseOverText a TFixedString (issue #57).
 static_assert(sizeof(TBattleWindowBody) == 0x58 && offsetof(TBattleWindowBody, MouseOverText) == 0x38,
 	"TBattleWindowBody's layout");
+// The owning members as std::unique_ptr (issue #58): each a pointer at the original's offset.
+static_assert(sizeof(std::unique_ptr<TRadioButtonGroup>) == sizeof(TRadioButtonGroup *)
+		&& alignof(std::unique_ptr<TRadioButtonGroup>) == alignof(TRadioButtonGroup *)
+		&& sizeof(std::unique_ptr<char[]>) == sizeof(char *) && alignof(std::unique_ptr<char[]>) == alignof(char *),
+	"std::unique_ptr is a pointer");
+static_assert(sizeof(TCombatControls) == 0x44 && offsetof(TCombatControls, AttackModes) == 0x30
+		&& offsetof(TCombatControls, ChaseModes) == 0x34,
+	"TCombatControls' layout");
+static_assert(sizeof(TBuddylistWindowBody) == 0x3c && offsetof(TBuddylistWindowBody, MouseOverText) == 0x38,
+	"TBuddylistWindowBody's layout");
 #endif
 
 // An assertion whose text carries a bug number (Map.cpp's macro).
@@ -1243,28 +1254,28 @@ TCombatControls::TCombatControls(TMainWindow *Receiver, bool Large)
 	TBEGIN
 	IsLarge = Large;
 	const TCombatControlsProperties Layout = Large ? SkinProperties.Style4AC : SkinProperties.Style4FC;
-	AttackModes = new TRadioButtonGroup;
-	ChaseModes = new TRadioButtonGroup;
+	AttackModes.reset(new TRadioButtonGroup);
+	ChaseModes.reset(new TRadioButtonGroup);
 	SetSize(Layout.Width, Layout.Height);
 	TSkinButton *Offensive = new TSkinButton(Layout.Buttons[0].x, Layout.Buttons[0].y, 103, 104, TCallback(this, 100),
 		TextOffensiveFighting, false);
-	Offensive->SetRadioButtonGroup(AttackModes);
+	Offensive->SetRadioButtonGroup(AttackModes.get());
 	InsertChild(Offensive);
 	TSkinButton *Balanced = new TSkinButton(Layout.Buttons[1].x, Layout.Buttons[1].y, 105, 106, TCallback(this, 101),
 		TextBalancedFighting, false);
-	Balanced->SetRadioButtonGroup(AttackModes);
+	Balanced->SetRadioButtonGroup(AttackModes.get());
 	InsertChild(Balanced);
 	TSkinButton *Defensive = new TSkinButton(Layout.Buttons[2].x, Layout.Buttons[2].y, 107, 108, TCallback(this, 102),
 		TextDefensiveFighting, false);
-	Defensive->SetRadioButtonGroup(AttackModes);
+	Defensive->SetRadioButtonGroup(AttackModes.get());
 	InsertChild(Defensive);
 	StandButton = new TSkinButton(Layout.Buttons[3].x, Layout.Buttons[3].y, 109, 110, TCallback(this, 103),
 		TextStandWhileFighting, false);
-	StandButton->SetRadioButtonGroup(ChaseModes);
+	StandButton->SetRadioButtonGroup(ChaseModes.get());
 	InsertChild(StandButton);
 	ChaseButton = new TSkinButton(Layout.Buttons[4].x, Layout.Buttons[4].y, 111, 112, TCallback(this, 104),
 		TextChaseOpponent, false);
-	ChaseButton->SetRadioButtonGroup(ChaseModes);
+	ChaseButton->SetRadioButtonGroup(ChaseModes.get());
 	InsertChild(ChaseButton);
 	SecureButton = new TToggleButton(Layout.Buttons[5].x, Layout.Buttons[5].y, 113, 114, TCallback(this, 105),
 		TextCannotAttackUnmarked, TextCanAttackAny, false);
@@ -3043,12 +3054,12 @@ void TBuddylistWindowBody::MouseHover(int x, int y)
 			SkinProperties.BuddylistWindow.Data18.width);
 		if (MaxLength < (int)strlen(Name)) {
 			if (MouseOverText != nullptr)
-				delete[] MouseOverText;
+				MouseOverText.reset();
 			MouseOverText = nullptr;
-			MouseOverText = new char[36];
+			MouseOverText.reset(new char[36]);
 			MouseOverText[0] = 0;
-			TStringBuffer(MouseOverText, 36).Append(Name);
-			SetMouseOverText(MouseOverText);
+			TStringBuffer(MouseOverText.get(), 36).Append(Name);
+			SetMouseOverText(MouseOverText.get());
 		}
 	}
 	TEND2(3312, x, y)

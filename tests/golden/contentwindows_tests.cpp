@@ -1615,8 +1615,8 @@ static void DumpComponent(int s, std::string &Out, TComponent *C, int Depth)
 	} else if (Kind == "Combat") {
 		TCombatControls *W = (TCombatControls *)C;
 		Add(Out, " large %d", W->IsLarge ? 1 : 0);
-		DumpGroup(s, Out, "attack", W->AttackModes);
-		DumpGroup(s, Out, "chase", W->ChaseModes);
+		DumpGroup(s, Out, "attack", W->AttackModes.get());
+		DumpGroup(s, Out, "chase", W->ChaseModes.get());
 		Add(Out, " stand %s chase %s secure %s", Name(s, W->StandButton).c_str(), Name(s, W->ChaseButton).c_str(),
 			Name(s, W->SecureButton).c_str());
 	} else if (Kind == "Status") {
@@ -1637,7 +1637,7 @@ static void DumpComponent(int s, std::string &Out, TComponent *C, int Depth)
 	} else if (Kind == "BuddyBody") {
 		TBuddylistWindowBody *B = (TBuddylistWindowBody *)C;
 		Add(Out, " minimized %d scroll %s buddies %d over '%s'", B->Minimized ? 1 : 0, Name(s, B->ScrollBar).c_str(),
-			B->NumberOfBuddies, B->MouseOverText == NULL ? "(null)" : B->MouseOverText);
+			B->NumberOfBuddies, B->MouseOverText == NULL ? "(null)" : B->MouseOverText.get());
 	} else if (Kind == "TradeBody") {
 		TTradeWindowBody *B = (TTradeWindowBody *)C;
 		Add(Out, " minimized %d parts %s %s %s", B->Minimized ? 1 : 0, Name(s, B->Buttons).c_str(),

@@ -33,6 +33,7 @@
 #include "Map.h" // TMark
 #include "DialogElements.h"
 #include "types/FixedString.h"
+#include <memory>
 
 class TMainWindow;       // MainWindow.h
 class TSkillContextMenu; // ContextMenus.h
@@ -178,19 +179,19 @@ public:
 	// Inline (0x425e00, deleting destructor 0x425e50).
 	~TCombatControls() override
 	{
-		delete AttackModes;
-		delete ChaseModes;
+		AttackModes.reset();
+		ChaseModes.reset();
 	}
 	void Draw(int Surface, int x, int y) override; // +0x44, 0x42bb70, line 1450
 	bool HelpMouseMove(int x, int y) override;     // +0x68, 0x42bd30, lines 1461-1466
 	void HandleEvent(int Event) override;          // +0x70, 0x42bff0, line 1502
 
-	bool IsLarge;                   // +0x2c
-	TRadioButtonGroup *AttackModes; // +0x30, offensive, balanced, defensive
-	TRadioButtonGroup *ChaseModes;  // +0x34, stand, chase
-	TSkinButton *StandButton;       // +0x38
-	TSkinButton *ChaseButton;       // +0x3c
-	TToggleButton *SecureButton;    // +0x40, State: attacks on unmarked players allowed
+	bool IsLarge;                                   // +0x2c
+	std::unique_ptr<TRadioButtonGroup> AttackModes; // +0x30, offensive, balanced, defensive (issue #58)
+	std::unique_ptr<TRadioButtonGroup> ChaseModes;  // +0x34, stand, chase
+	TSkinButton *StandButton;                       // +0x38
+	TSkinButton *ChaseButton;                       // +0x3c
+	TToggleButton *SecureButton;                    // +0x40, State: attacks on unmarked players allowed
 };
 
 // Identifier 4: the hit point and mana bars with their values.
@@ -407,7 +408,7 @@ public:
 	~TBuddylistWindowBody() override
 	{
 		if (MouseOverText != nullptr)
-			delete[] MouseOverText;
+			MouseOverText.reset();
 		MouseOverText = nullptr;
 	}
 	void Draw(int Surface, int x, int y) override;                // +0x44, 0x434bf0, lines 3176-3214
@@ -423,9 +424,9 @@ public:
 	int GetContentHeight() override;                              // +0xb4, 0x435f20, line 3374
 	int GetBuddyAt(int x, int y);                                 // 0x4360c0, line 3389
 
-	TScrollBar *ScrollBar; // +0x30
-	int NumberOfBuddies;   // +0x34, at the last Draw; -1 at first
-	char *MouseOverText;   // +0x38, a shortened name in full (new char[36])
+	TScrollBar *ScrollBar;                 // +0x30
+	int NumberOfBuddies;                   // +0x34, at the last Draw; -1 at first
+	std::unique_ptr<char[]> MouseOverText; // +0x38, a shortened name in full (new char[36]; issue #58)
 };
 
 // --- The creators ------------------------------------------------------------------
