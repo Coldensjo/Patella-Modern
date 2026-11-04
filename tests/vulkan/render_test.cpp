@@ -639,7 +639,157 @@ int ChildWindows(HWND Parent)
 	return Count;
 }
 
+// The main window of the input check below: as CMainFrame (MainFrm.cpp), a left button takes the mouse
+// (SetCapture) and gives it back on its release; a loss of the capture in between is what releases the
+// client's held buttons early (OnCaptureChanged), so it is counted.
+struct TInputLog {
+	int Downs = 0;
+	int Ups = 0;
+	int CaptureChanges = 0;
+	bool Held = false;
+};
+TInputLog InputLog;
+
+LRESULT CALLBACK InputWindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
+{
+	switch (Message) {
+	case WM_LBUTTONDOWN:
+		InputLog.Downs++;
+		InputLog.Held = true;
+		SetCapture(Window);
+		return 0;
+	case WM_LBUTTONUP:
+		InputLog.Ups++;
+		if (InputLog.Held) {
+			InputLog.Held = false;
+			ReleaseCapture();
+		}
+		return 0;
+	case WM_CAPTURECHANGED:
+		if (InputLog.Held)
+			InputLog.CaptureChanges++;
+		return 0;
+	default:
+		return DefWindowProcA(Window, Message, WParam, LParam);
+	}
+}
+
+// The test mode's Dispatch (src/testmode/TestModeWin32.cpp): the message as the message loop would hand it
+// to the main window.
+void DispatchToWindow(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
+{
+	MSG Msg = {};
+	Msg.hwnd = Window;
+	Msg.message = Message;
+	Msg.wParam = WParam;
+	Msg.lParam = LParam;
+	DispatchMessageA(&Msg);
+}
+
 } // namespace
+
+// Issue #52, the input: the scripted clicks of the test mode go to the main window (DispatchMessageA, the
+// test mode's Dispatch) and real ones through the window's hit test, which the device's window passes on
+// (HTTRANSPARENT). Between a button's press and its release, everything the engine does with its windows
+// (a new device's window, frames shown on the CPU driver and on a GPU, the window fitted after the main
+// window changed its size, a device switch with the old window destroyed after the new one's first frame,
+// the device test's hidden window) must leave the main window the mouse: no WM_CAPTURECHANGED, the capture
+// still the main window's when the release comes, and every press and release delivered. The windows are
+// never shown.
+TEST_CASE("scripted clicks reach the main window while device windows come and go (issue #52)")
+{
+	HINSTANCE Module = GetModuleHandleA(nullptr);
+	WNDCLASSA Class = {};
+	Class.lpfnWndProc = InputWindowProc;
+	Class.hInstance = Module;
+	Class.lpszClassName = "PatellaTestsVulkanInput";
+	RegisterClassA(&Class);
+	HWND Parent = CreateWindowExA(0, Class.lpszClassName, "tests_vulkan", WS_OVERLAPPEDWINDOW, 0, 0, 320, 240, nullptr,
+		nullptr, Module, nullptr);
+	REQUIRE(Parent != nullptr);
+	InputLog = TInputLog{};
+
+	auto OnWindow = [Module](pv::TDeviceRequest Request, HWND Window) {
+		Request.SurfaceExtension = "VK_KHR_win32_surface";
+		Request.CreateSurface = [Window, Module](VkInstance Instance) {
+			auto Create = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(
+				vkGetInstanceProcAddr(Instance, "vkCreateWin32SurfaceKHR"));
+			VkWin32SurfaceCreateInfoKHR Info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
+			Info.hinstance = Module;
+			Info.hwnd = Window;
+			VkSurfaceKHR Surface = VK_NULL_HANDLE;
+			if (Create == nullptr || Create(Instance, &Info, nullptr, &Surface) != VK_SUCCESS)
+				throw pv::TVulkanError("vkCreateWin32SurfaceKHR failed");
+			return Surface;
+		};
+		return Request;
+	};
+	auto Frames = [Parent](pv::TPresentWindows &Windows, pv::TRenderer &Engine, int Canvas, int Count) {
+		for (int Frame = 0; Frame < Count; Frame++) {
+			Windows.Fit();
+			RECT Client = {};
+			GetClientRect(Parent, &Client);
+			Engine.Fill(Canvas, 0, 0, 64, 64, 0xff204060u + static_cast<uint32_t>(Frame));
+			if (Engine.Present(Canvas, 0, 0, Client.right, Client.bottom, static_cast<uint32_t>(Client.right),
+					static_cast<uint32_t>(Client.bottom)))
+				Windows.Presented();
+		}
+	};
+
+	pv::TPresentWindows Windows;
+	int Clicks = 0;
+	for (size_t First = 0; First < Devices.size(); First++) {
+		const TDevice &From = Devices[First];
+		const TDevice &To = Devices[(First + 1) % Devices.size()];
+		CAPTURE(From.Label);
+		CAPTURE(To.Label);
+		// Press: the main window takes the mouse.
+		DispatchToWindow(Parent, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(40, 30));
+		REQUIRE(GetCapture() == Parent);
+		// A device and its window, frames, the main window resized.
+		auto Engine = std::make_unique<pv::TRenderer>();
+		HWND Window = Windows.Open(Parent);
+		REQUIRE(Window != nullptr);
+		REQUIRE_NOTHROW(Engine->Create(OnWindow(From.Request, Window)));
+		int Canvas = Engine->CreateImage(400, 300);
+		Frames(Windows, *Engine, Canvas, 3);
+		SetWindowPos(Parent, nullptr, 0, 0, 300 + static_cast<int>(First) * 10, 230, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+		Frames(Windows, *Engine, Canvas, 2);
+		CHECK(GetCapture() == Parent);
+		// A device switch while the button is held: the device goes, its window is retired, the next
+		// device is tested on a hidden window, then gets its own window, whose first frame destroys the old.
+		Engine.reset();
+		Windows.Retire();
+		{
+			const pv::TTestWindow Test(Parent);
+			pv::TRenderer Tested;
+			REQUIRE_NOTHROW(Tested.Create(OnWindow(To.Request, Test.Handle())));
+		}
+		Engine = std::make_unique<pv::TRenderer>();
+		Window = Windows.Open(Parent);
+		REQUIRE(Window != nullptr);
+		REQUIRE_NOTHROW(Engine->Create(OnWindow(To.Request, Window)));
+		Canvas = Engine->CreateImage(400, 300);
+		Frames(Windows, *Engine, Canvas, 3);
+		CHECK(Windows.Retired() == nullptr);
+		// Release: still the main window's mouse, and the release arrives.
+		CHECK(GetCapture() == Parent);
+		DispatchToWindow(Parent, WM_LBUTTONUP, 0, MAKELPARAM(40, 30));
+		Clicks++;
+		Engine.reset();
+		Windows.Retire();
+	}
+	Windows.Close();
+	CHECK(InputLog.Downs == Clicks);
+	CHECK(InputLog.Ups == Clicks);
+	CHECK(InputLog.CaptureChanges == 0);
+	CHECK(GetCapture() == nullptr);
+	std::printf("device windows and input: %d clicks, %d capture changes while held\n", Clicks,
+		InputLog.CaptureChanges);
+	CHECK_FALSE(IsWindowVisible(Parent));
+	DestroyWindow(Parent);
+	UnregisterClassA(Class.lpszClassName, Module);
+}
 
 // Issue #52: quick device switches (Automatic, GPU, GPU again, CPU, in any order) froze the client's
 // picture. After a switch away from the AMD Radeon iGPU, whose swapchain presents cross-adapter on this
