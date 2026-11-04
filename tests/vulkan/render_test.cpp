@@ -8,6 +8,7 @@
 // hardware's filter weights and rounding). Every test runs on the CPU driver next to the executable
 // and on the machine's best GPU, if it has one. One more lists the graphics device choice's devices
 // (issue #31).
+// Device switches (issue #52) and the handles they leave (issue #53) are checked at the end.
 
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest/doctest.h>
@@ -20,6 +21,10 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <psapi.h>
+#include <tlhelp32.h>
+#include <winternl.h>
+
 #include <vulkan/vulkan_win32.h>
 
 #include "vulkan/PresentWindow.h"
@@ -31,6 +36,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace pv = patella::vulkan;
@@ -943,6 +949,283 @@ TEST_CASE("quick device switches: one window per device, an old device's window 
 	CHECK_FALSE(IsWindowVisible(Parent));
 	DestroyWindow(Parent);
 	UnregisterClassA(Class.lpszClassName, Module);
+}
+
+namespace {
+
+// The process's own handles (issue #53): GetProcessHandleCount, and through ntdll's list of the system's
+// handles (NtQuerySystemInformation, SystemExtendedHandleInformation) each handle of this process with
+// its object type; for a thread handle also whether its thread has ended, where it started and which
+// thread it is.
+struct THandleEntry {
+	void *Object;
+	ULONG_PTR Process;
+	ULONG_PTR Handle;
+	ULONG Access;
+	USHORT BackTrace;
+	USHORT Type;
+	ULONG Attributes;
+	ULONG Reserved;
+};
+
+struct TThreadHandle {
+	ULONG_PTR Handle;
+	bool Ended;
+	uintptr_t Start; // the ended thread's start address
+	DWORD Thread;    // the live thread's id
+};
+
+struct TCensus {
+	DWORD Total = 0;
+	std::vector<std::pair<std::string, int>> Types; // object type, handles, by name
+	std::vector<TThreadHandle> Threads;
+	[[nodiscard]] int Of(const std::string &Type) const
+	{
+		for (const auto &Entry : Types)
+			if (Entry.first == Type)
+				return Entry.second;
+		return 0;
+	}
+	[[nodiscard]] int Ended() const
+	{
+		return static_cast<int>(
+			std::count_if(Threads.begin(), Threads.end(), [](const TThreadHandle &Thread) { return Thread.Ended; }));
+	}
+};
+
+using TNtQuerySystemInformation = LONG(WINAPI *)(ULONG, void *, ULONG, ULONG *);
+using TNtQueryObject = LONG(WINAPI *)(HANDLE, ULONG, void *, ULONG, ULONG *);
+using TNtQueryInformationThread = LONG(WINAPI *)(HANDLE, ULONG, void *, ULONG, ULONG *);
+
+template <typename T>
+T NtdllFunction(const char *Name)
+{
+	return reinterpret_cast<T>(GetProcAddress(GetModuleHandleA("ntdll.dll"), Name));
+}
+
+TCensus TakeCensus()
+{
+	TCensus Census;
+	GetProcessHandleCount(GetCurrentProcess(), &Census.Total);
+	const auto QuerySystem = NtdllFunction<TNtQuerySystemInformation>("NtQuerySystemInformation");
+	const auto QueryObject = NtdllFunction<TNtQueryObject>("NtQueryObject");
+	const auto QueryThread = NtdllFunction<TNtQueryInformationThread>("NtQueryInformationThread");
+	REQUIRE(QuerySystem != nullptr);
+	REQUIRE(QueryObject != nullptr);
+	REQUIRE(QueryThread != nullptr);
+	constexpr ULONG SystemExtendedHandleInformation = 64;
+	constexpr ULONG ObjectTypeInformation = 2;
+	constexpr ULONG ThreadQuerySetWin32StartAddress = 9;
+	constexpr LONG InfoLengthMismatch = static_cast<LONG>(0xC0000004);
+	std::vector<unsigned char> Buffer(static_cast<size_t>(1) << 20);
+	ULONG Needed = 0;
+	LONG Status = 0;
+	while ((Status = QuerySystem(SystemExtendedHandleInformation, Buffer.data(), static_cast<ULONG>(Buffer.size()), &Needed))
+		== InfoLengthMismatch)
+		Buffer.resize(std::max<size_t>(Buffer.size() * 2, static_cast<size_t>(Needed) + 65536));
+	REQUIRE(Status >= 0);
+	const size_t Count = *reinterpret_cast<const ULONG_PTR *>(Buffer.data());
+	const auto *Entries = reinterpret_cast<const THandleEntry *>(Buffer.data() + 2 * sizeof(ULONG_PTR));
+	const ULONG_PTR Self = GetCurrentProcessId();
+	std::vector<std::pair<USHORT, std::string>> Names; // type index, name
+	for (size_t i = 0; i < Count; i++) {
+		const THandleEntry &Entry = Entries[i];
+		if (Entry.Process != Self)
+			continue;
+		auto *const Handle = reinterpret_cast<HANDLE>(Entry.Handle);
+		auto Known = std::find_if(Names.begin(), Names.end(), [&Entry](const auto &Name) { return Name.first == Entry.Type; });
+		if (Known == Names.end()) {
+			alignas(8) unsigned char Info[1024];
+			std::string Name = "type " + std::to_string(Entry.Type);
+			if (QueryObject(Handle, ObjectTypeInformation, Info, sizeof Info, nullptr) >= 0) {
+				const auto *Text = reinterpret_cast<const UNICODE_STRING *>(Info);
+				Name.clear();
+				for (USHORT c = 0; c < Text->Length / 2; c++)
+					Name += static_cast<char>(Text->Buffer[c]);
+			}
+			Known = Names.emplace(Names.end(), Entry.Type, Name);
+		}
+		const std::string &TypeName = Known->second;
+		auto Type = std::find_if(
+			Census.Types.begin(), Census.Types.end(), [&TypeName](const auto &Counted) { return Counted.first == TypeName; });
+		if (Type == Census.Types.end())
+			Census.Types.emplace_back(TypeName, 1);
+		else
+			Type->second++;
+		if (TypeName == "Thread") {
+			TThreadHandle Thread{Entry.Handle, false, 0, 0};
+			DWORD Code = 0;
+			if (GetExitCodeThread(Handle, &Code) && Code != STILL_ACTIVE) {
+				Thread.Ended = true;
+				QueryThread(Handle, ThreadQuerySetWin32StartAddress, &Thread.Start, sizeof Thread.Start, nullptr);
+			} else {
+				Thread.Thread = GetThreadId(Handle);
+			}
+			Census.Threads.push_back(Thread);
+		}
+	}
+	std::sort(Census.Types.begin(), Census.Types.end());
+	return Census;
+}
+
+std::string Describe(const TCensus &Census)
+{
+	std::string Text = std::to_string(Census.Total) + " handles, " + std::to_string(Census.Threads.size())
+		+ " of threads (" + std::to_string(Census.Ended()) + " ended):";
+	for (const auto &Entry : Census.Types)
+		Text += " " + Entry.first + " " + std::to_string(Entry.second);
+	return Text;
+}
+
+// The handles of live threads, of this thread (Own) or of the others.
+int LiveThreadHandles(const TCensus &Census, bool Own)
+{
+	const DWORD Self = GetCurrentThreadId();
+	return static_cast<int>(std::count_if(Census.Threads.begin(), Census.Threads.end(),
+		[Own, Self](const TThreadHandle &Thread) { return !Thread.Ended && (Thread.Thread == Self) == Own; }));
+}
+
+} // namespace
+
+// Issue #53: switching to and from the CPU driver (and between it and every GPU, as the advanced options'
+// buttons do) leaves no handle of ours behind. What the drivers leave is known and bounded, and counted
+// apart (notes/vulkan.md, "Handles the drivers leave (issue #53)"):
+// - lavapipe (Mesa 26.2.5) never joins its rasterizer threads on Windows (lp_rast.c, lp_rast_destroy), so
+//   each device leaves the handles of that many ended threads, all started in vulkan_lvp.dll: the same
+//   number for every device, at most LP_MAX_THREADS (32; one per logical processor, or LP_NUM_THREADS);
+// - lavapipe's thrd_current (c11/impl/threads_win32.c) duplicates a handle of the calling thread, closed
+//   only when that thread ends, which it never sees once the driver is unloaded: at most one per instance;
+// - NVIDIA's driver leaves 3 events per device (the Radeon's and lavapipe's none).
+// Everything else must stay flat within Tolerance (justified at its definition) over Rounds rounds, so a
+// leak of ours of one handle per device or more fails. Headless: no window, no dialog.
+TEST_CASE("switching to and from the CPU driver leaves no handles of ours (issue #53)")
+{
+	// A round has at least one device (one CPU driver device and two per GPU: 5 on this machine).
+	constexpr int Rounds = 5;
+	// System objects that come and go on their own while the test runs: the census showed the process's
+	// ALPC ports changing by 2 with no device in between, and a driver holding an event while its device
+	// exists. Below Rounds: a leak of one handle per device exceeds it even without a GPU.
+	constexpr int Tolerance = 4;
+	static_assert(Tolerance < Rounds);
+	constexpr int MaxRasterizerThreads = 32; // Mesa's LP_MAX_THREADS (lp_limits.h)
+	constexpr int NvidiaEventsPerDevice = 3;
+	constexpr uint32_t Nvidia = 0x10de;
+
+	std::vector<pv::TDeviceRequest> Gpus;
+	const size_t NumberOfGpus = pv::ListGpus().size();
+	for (size_t i = 0; i < NumberOfGpus; i++) {
+		pv::TDeviceRequest Gpu;
+		Gpu.Kind = pv::TDeviceKind::Gpu;
+		Gpu.GpuIndex = static_cast<int>(i);
+		Gpus.push_back(Gpu);
+	}
+	pv::TDeviceRequest Cpu;
+	Cpu.Kind = pv::TDeviceKind::Cpu;
+	Cpu.CpuDriverManifest = CpuManifest();
+
+	std::vector<std::pair<uintptr_t, uintptr_t>> LavapipeImages; // where vulkan_lvp.dll was, each time
+	int CpuDevices = 0, NvidiaDevices = 0;
+	// One device as the client uses it: a frame drawn and read back, then the device destroyed.
+	auto Use = [&](const pv::TDeviceRequest &Request) {
+		pv::TRenderer Renderer;
+		REQUIRE_NOTHROW(Renderer.Create(Request));
+		if (Request.Kind == pv::TDeviceKind::Cpu) {
+			const HMODULE Lavapipe = GetModuleHandleA("vulkan_lvp.dll");
+			REQUIRE(Lavapipe != nullptr);
+			MODULEINFO Info = {};
+			REQUIRE(GetModuleInformation(GetCurrentProcess(), Lavapipe, &Info, sizeof Info));
+			const auto Base = reinterpret_cast<uintptr_t>(Info.lpBaseOfDll);
+			LavapipeImages.emplace_back(Base, Base + Info.SizeOfImage);
+			CpuDevices++;
+		} else if (Renderer.Device().VendorId == Nvidia) {
+			NvidiaDevices++;
+		}
+		const int Image = Renderer.CreateImage(64, 64);
+		Renderer.Fill(Image, 0, 0, 64, 64, 0xff204060u);
+		CHECK(Read(Renderer, Image)[0] == 0xff204060u);
+		Renderer.Finish();
+	};
+	// A round: the CPU driver, then each GPU and back to the CPU driver; the handles of ended threads
+	// each CPU driver device added.
+	std::vector<int> EndedPerDevice;
+	auto Round = [&]() {
+		int Ended = TakeCensus().Ended();
+		Use(Cpu);
+		const int First = TakeCensus().Ended();
+		EndedPerDevice.push_back(First - Ended);
+		Ended = First;
+		for (const pv::TDeviceRequest &Gpu : Gpus) {
+			Use(Gpu);
+			Use(Cpu);
+			const int Next = TakeCensus().Ended();
+			EndedPerDevice.push_back(Next - Ended);
+			Ended = Next;
+		}
+	};
+
+	// One round first: what a process creates once (the loader's, the drivers' and the system's objects).
+	Round();
+	CHECK(GetModuleHandleA("vulkan_lvp.dll") == nullptr); // the loader unloads the driver with its instance
+	const TCensus Before = TakeCensus();
+	const int CpuBefore = CpuDevices, NvidiaBefore = NvidiaDevices;
+	std::printf("handle census before: %s\n", Describe(Before).c_str());
+	for (int r = 0; r < Rounds; r++)
+		Round();
+	const TCensus After = TakeCensus();
+	std::printf("handle census after %d rounds: %s\n", Rounds, Describe(After).c_str());
+	const int CpuCreated = CpuDevices - CpuBefore, NvidiaCreated = NvidiaDevices - NvidiaBefore;
+
+	// lavapipe's rasterizer threads: every new handle of an ended thread is of a thread vulkan_lvp.dll
+	// started, the same number for every device, at most LP_MAX_THREADS.
+	int Rasterizers = 0, Elsewhere = 0;
+	for (const TThreadHandle &Thread : After.Threads) {
+		if (!Thread.Ended)
+			continue;
+		const bool Old = std::any_of(Before.Threads.begin(), Before.Threads.end(),
+			[&Thread](const TThreadHandle &Earlier) { return Earlier.Ended && Earlier.Handle == Thread.Handle; });
+		if (Old)
+			continue;
+		const bool InLavapipe = std::any_of(LavapipeImages.begin(), LavapipeImages.end(),
+			[&Thread](const auto &Image) { return Thread.Start >= Image.first && Thread.Start < Image.second; });
+		if (InLavapipe)
+			Rasterizers++;
+		else
+			Elsewhere++;
+	}
+	const int PerDevice = EndedPerDevice.front();
+	std::printf("handle census: %d CPU driver devices left %d handles of ended threads (%d each), %d started elsewhere\n",
+		CpuCreated, Rasterizers, PerDevice, Elsewhere);
+	CHECK(Elsewhere == 0);
+	CHECK(PerDevice <= MaxRasterizerThreads);
+	for (const int Count : EndedPerDevice)
+		CHECK(Count == PerDevice);
+	CHECK(Rasterizers == PerDevice * CpuCreated);
+
+	// lavapipe's thrd_current: handles of this thread, at most one per instance; none of other live threads.
+	const int OwnThread = LiveThreadHandles(After, true) - LiveThreadHandles(Before, true);
+	const int OtherThreads = LiveThreadHandles(After, false) - LiveThreadHandles(Before, false);
+	std::printf("handle census: %d handles of this thread more, %d of other live threads\n", OwnThread, OtherThreads);
+	CHECK(OwnThread >= 0);
+	CHECK(OwnThread <= CpuCreated);
+	CHECK(OtherThreads <= Tolerance);
+
+	// NVIDIA's events; every other kind of handle flat.
+	const int Events = After.Of("Event") - Before.Of("Event");
+	std::printf("handle census: %d events more after %d NVIDIA devices\n", Events, NvidiaCreated);
+	CHECK(Events <= NvidiaEventsPerDevice * NvidiaCreated + Tolerance);
+	int Others = 0;
+	for (const auto &Entry : After.Types)
+		if (Entry.first != "Thread" && Entry.first != "Event")
+			Others += Entry.second - Before.Of(Entry.first);
+	for (const auto &Entry : Before.Types)
+		if (Entry.first != "Thread" && Entry.first != "Event" && After.Of(Entry.first) == 0)
+			Others -= Entry.second;
+	std::printf("handle census: %d handles of other kinds more\n", Others);
+	CHECK(Others <= Tolerance);
+	const long Ours = static_cast<long>(After.Total) - static_cast<long>(Before.Total) - Rasterizers - OwnThread
+		- std::min(Events, NvidiaEventsPerDevice * NvidiaCreated);
+	std::printf("handle census: %ld handles more than the drivers' (tolerance %d)\n", Ours, Tolerance);
+	CHECK(Ours <= Tolerance);
 }
 
 int main(int argc, char **argv)

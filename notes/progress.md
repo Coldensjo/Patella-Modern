@@ -184,6 +184,12 @@ test mode now ignores the desktop's capture changes with a script (PATELLA_TEST_
 compare had lost a scripted click that way). The oracle unchanged (pecompare).
 notes/vulkan.md, "One window per device (issue #52)"; notes/decisions.md, "One presentation window per device
 (Patella-Modern issue #52)".
+Handles across device switches (Patella-Modern issue #53, November 4, 2026; M2): the 56 handles per RTX, CPU, RTX
+round are the drivers', none ours: lavapipe's rasterizer threads (24 per device here, never joined on Windows,
+Mesa's lp_rast.c), its `thrd_current` (1 per instance) and NVIDIA's driver (3 events per device). Documented, not
+worked around (the pinned driver). tests_vulkan's new "switching to and from the CPU driver leaves no handles of
+ours" counts them apart and requires the rest flat. notes/vulkan.md, "Handles the drivers leave (issue #53)";
+notes/decisions.md, "Handles the drivers leave (Patella-Modern issue #53)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
