@@ -214,7 +214,7 @@ list(TRANSFORM difftest_window_sources PREPEND "${PROJECT_SOURCE_DIR}/src/")
 # exception handler trampoline must be in the SafeSEH table: only the assembler can put it there.
 set(difftest_tests
 	difftest.cpp playertest.cpp
-	dialogstest.cpp surfacedx9test.cpp surfacegltest.cpp
+	surfacedx9test.cpp surfacegltest.cpp
 	surfacedxtest.cpp mapwindowtest.cpp mainwindowtest.cpp errortest.cpp
 	imageeh.cpp imageehseh.asm)
 list(TRANSFORM difftest_tests PREPEND "${DIFFTEST_DIR}/")
@@ -236,6 +236,8 @@ list(APPEND difftest_tests "${GOLDEN_DIR}/graphics_tests.cpp" "${GOLDEN_DIR}/gui
 list(APPEND difftest_tests "${GOLDEN_DIR}/elementfakes.cpp" "${GOLDEN_DIR}/dialogwindow_tests.cpp"
 	"${GOLDEN_DIR}/contextmenus_tests.cpp" "${GOLDEN_DIR}/consolewindow_tests.cpp"
 	"${GOLDEN_DIR}/contentwindows_tests.cpp" "${GOLDEN_DIR}/dialogelements_tests.cpp")
+# Issue #28 (third part): Dialogs (its advanced graphics rounds retired with the oracle, #31).
+list(APPEND difftest_tests "${GOLDEN_DIR}/dialogs_tests.cpp")
 set_source_files_properties("${DIFFTEST_DIR}/imageehseh.asm" PROPERTIES COMPILE_OPTIONS /safeseh)
 add_executable(difftest ${difftest_tests}
 	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"
