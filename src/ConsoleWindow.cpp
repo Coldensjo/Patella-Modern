@@ -2030,7 +2030,10 @@ bool TConsoleWindow::SaveChannel() const
 	const TTalkBuffer *TextBuffer = GetTextBuffer();
 	TASSERT(2324, TextBuffer!=NULL);
 	const Time32 Now = PATELLA_TIME32(nullptr);
-	fprintf(File, "\nChannel saved at %s", CRT71Time(MsvcCtime32(&Now))); // the day as MSVC 7.1 writes it
+	// ctime's text, the day as MSVC 7.1 writes it; after 2038 (_time32's -1) none, which printf wrote as "(null)"
+	TCRT71TimeText Stamp;
+	const char *Saved = FormatCRT71Time(Stamp, Now);
+	fprintf(File, "\nChannel saved at %s", Saved != nullptr ? Saved : "(null)");
 	TextBuffer->Write(File);
 	fclose(File);
 	TFixedString<100> Message;

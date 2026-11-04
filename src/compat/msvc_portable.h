@@ -29,7 +29,7 @@
 
 #if defined(_MSC_VER)
 #pragma warning(push)
-#pragma warning(disable : 4996) // ctime and localtime are "unsafe" to MSVC
+#pragma warning(disable : 4996) // localtime is "unsafe" to MSVC
 #endif
 
 namespace patella::compat {
@@ -116,16 +116,6 @@ inline Time32 PortableTime32(std::time_t Now)
 	return static_cast<Time32>(Now);
 }
 
-// _ctime32: ctime's text of a 32-bit time, null for a time before 1970 (UCRT time/ctime.cpp; ctime itself
-// would format it).
-inline char *PortableCtime32(const Time32 *Time)
-{
-	if (*Time < 0)
-		return nullptr;
-	const std::time_t Value = *Time;
-	return std::ctime(&Value); // NOLINT(bugprone-unsafe-functions): _ctime32 returns its static buffer too
-}
-
 // _localtime32: localtime of a 32-bit time, null for a time before 1970 (UCRT time/localtime.cpp).
 inline std::tm *PortableLocaltime32(const Time32 *Time)
 {
@@ -183,12 +173,6 @@ inline Time32 MsvcTime32(Time32 *Time)
 	if (Time != nullptr)
 		*Time = Now;
 	return Now;
-}
-
-// _ctime32.
-inline char *MsvcCtime32(const Time32 *Time)
-{
-	return patella::compat::PortableCtime32(Time);
 }
 
 // _localtime32.

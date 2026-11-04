@@ -265,7 +265,8 @@ src/compat/cxx26.h is the only way to C++26 features (plan section 8): `CONTRACT
 notes/decisions.md, "src/compat/cxx26.h and the unit tests (issue #9)".
 src/compat/msvc.h (issue #43, included by common.h) is the only way to the Microsoft CRT's and compiler's own
 spellings: `MsvcSnprintf` for `_snprintf` (with its semantics: no NUL when the text fills the buffer, -1 when it does
-not fit), `MsvcStricmp`, `MsvcStrdup`, `Time32` with `MsvcTime32`, `MsvcCtime32` and `MsvcLocaltime32`, `MsvcFileno`,
+not fit), `MsvcStricmp`, `MsvcStrdup`, `Time32` with `MsvcTime32` and `MsvcLocaltime32` (ctime's text is
+compat/crt71.h's `FormatCRT71Time` since issue #61), `MsvcFileno`,
 `MsvcExecl`, `MsvcDupenv`, `MsvcPutenv`, `PATELLA_CDECL` for `__cdecl` and `PATELLA_MSVC_WARNING(...)` for `#pragma
 warning`; `MsvcAccess` and `MsvcEof` are in compat/msvc_io.h, included only where `<io.h>` was. On Windows each name is
 the Microsoft function itself (a macro: forwarders change the images), elsewhere compat/msvc_portable.h's

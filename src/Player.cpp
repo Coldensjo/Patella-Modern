@@ -164,8 +164,10 @@ void CPlayerApp::HandleException(TMyException &Exception)
 			<< "+---------------------------------------------------------------" << std::endl
 			<< "Debug Assertion " << "7.72" << " " << Exception.GetOrigin();
 		const time_t Now = PATELLA_TIME(nullptr);
-		Out << std::endl
-			<< CRT71Time(ctime(&Now)); // the day as MSVC 7.1 writes it
+		TCRT71TimeText Stamp;
+		Out << std::endl;
+		if (FormatCRT71Time(Stamp, Now) != nullptr) // ctime's text, the day as MSVC 7.1 writes it
+			Out << Stamp.View();
 		OSVERSIONINFOA Version;
 		memset(&Version, 0, sizeof(Version));
 		Version.dwOSVersionInfoSize = sizeof(Version);

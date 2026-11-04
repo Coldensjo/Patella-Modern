@@ -269,6 +269,13 @@ names; elementfakes.cpp has no "not ported" fake left. The runner reports #29's 
 checks, retires 1,497,428 and lists 1,174,921 as not ported (Errors, Communication, Control). No src/ change.
 notes/decisions.md, "The golden corpus: MapWindow, MainWindow and the retired engine tests (Patella-Modern issue
 #27, second part)".
+
+ctime's text (Patella-Modern issue #61, branch issue-61, November 4, 2026; M4): src/compat/crt71.h's
+FormatCRT71Time writes MSVC 7.1's ctime text (every number in two digits, the day too) with TFixedString::Format
+(std::format_to_n; the oracle's stand-in) on the C library's local time (_localtime32_s/_localtime64_s, localtime_r),
+replacing CRT71Time's patch of ctime's buffer in HandleException and SaveChannel; MsvcCtime32 and PortableCtime32
+removed, no ctime/_ctime32 call in src/. Found: the UCRT's 32-bit localtime stops at 2038-01-18 23:59:59 UTC, 7.1's at
+INT32_MAX. notes/decisions.md, "ctime's text written by the client: FormatCRT71Time (Patella-Modern issue #61)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -299,6 +306,18 @@ x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13) replays 15,310,
 1,497,428 (Dialogs' 9,129 and #29's SurfaceDX, DX9, GL, 1,488,299); not ported 1,174,921 (Errors 40,408,
 Communication 856,366, Control 278,147). src/ unchanged (no diff against 96b245b); macrocheck 96b245b issue-27b:
 2,108 calls, 0 differences.
+
+Patella-Modern issue #61 (branch issue-61, November 4, 2026): FormatCRT71Time instead of ctime. `python -I tools/build.py
+oracle-x86 --fresh` (CTest 4/4, 0 warnings, compare_resources 0 differences): 16,848,752 + 67 + 1,134,513 checks and
+3,201 vlong checks, 0 failures (errortest's image ctime now the UCRT's _ctime32 of its clock in 7.1's form, forced);
+with recording on (`golden_corpus`, the branch's own build\golden, 661 MB) the same counts. The x64 golden_runner
+(windows-x64 and -debug, --fresh, CTest 13/13) replays 15,126,140 checks, 9,129 retired, 0 failures, as on main.
+tests/unit: tests_unit 35/9,786 and tests_unit_cxx26_standin 35/9,788 on Windows (crt71_test.cpp: 7 cases, 95
+assertions in each, the _ctime32 comparison among them; also with mingw-w64), 34/9,777 (9,775 on Clang) and 34/9,779
+on Linux (6 cases, 86); tests_core 33/332 (33/335 on Linux: MsvcCtime32's 8 assertions went with it), tests_testmode
+35/709, tests_render 14/359, tests_vulkan 14/1,309 unchanged; windows-x64-gcc(-debug) and the four Linux presets
+(--fresh) 11/11. macrocheck 9f8e5a9 issue-61: 2,108 calls, 0 differences. tidy_ci: 13 findings, 0 new.
+banned_calls: 0.
 
 Patella-Modern issue #28, third part (branch issue-28c, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh`
 (CTest 4/4, 0 warnings) after Dialogs moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong

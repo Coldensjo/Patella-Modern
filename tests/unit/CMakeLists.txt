@@ -8,6 +8,8 @@
 # - Both: TFixedString<N> (src/types/FixedString.h, issue #57), tests_unit with std::format_to_n and
 #   tests_unit_cxx26_standin with PATELLA_FORMAT_STANDIN, the C++17 stand-in of src/compat/format.h that the
 #   oracle-x86 build formats with; both compare the stand-in with std::format_to_n.
+# - Both: FormatCRT71Time (src/compat/crt71.h, issue #61), ctime's text as MSVC 7.1 wrote it, through both paths of
+#   TFixedString::Format: against texts computed apart, std::chrono's calendar and, on Windows, the UCRT's _ctime32.
 #
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
 #   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31) and
@@ -56,7 +58,8 @@ function(patella_unit_tests target)
 		main.cpp
 		cxx26_contracts_test.cpp
 		cxx26_static_vector_test.cpp
-		fixed_string_test.cpp)
+		fixed_string_test.cpp
+		crt71_test.cpp)
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
 	target_link_libraries(${target} PRIVATE doctest::doctest)
 	patella_target_language(${target})
