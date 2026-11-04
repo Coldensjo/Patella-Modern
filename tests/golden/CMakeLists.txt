@@ -48,14 +48,14 @@ target_compile_definitions(golden_sysinc PRIVATE GetMilliseconds=SysincGetMillis
 # The reconstructed files the ported tests compare (difftest.exe links them all; these are the ones
 # the ported tests call, and the ones that are called from them on the paths the tests run), with
 # PATELLA_VULKAN as Patella.exe has it (only Surface.cpp differs: the Vulkan engine as its only engine);
-# client_stubs.cpp has the functions of the other files, which the tests never call.
+# client_stubs.cpp has the functions of the other files, which the tests never call. MainFrm.cpp is
+# compiled into its test (mainfrm_tests.cpp, as in the oracle: the test reads its statics).
 add_library(golden_client OBJECT
 	"${PROJECT_SOURCE_DIR}/src/Status.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Preferences.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Script.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Talk.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Player.cpp"
-	"${PROJECT_SOURCE_DIR}/src/MainFrm.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Surface.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Help.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Inventory.cpp"
@@ -78,7 +78,9 @@ add_library(golden_client_tests OBJECT
 	container_tests.cpp
 	objects_tests.cpp
 	map_tests.cpp
-	creatures_tests.cpp)
+	creatures_tests.cpp
+	golden_eh.cpp
+	mainfrm_tests.cpp)
 golden_client_settings(golden_client_tests)
 
 add_executable(golden_runner

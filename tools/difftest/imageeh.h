@@ -11,25 +11,8 @@
 #pragma once
 
 #include "difftest.h"
-#include <map>
+#include "../../tests/golden/golden_eh.h" // TThrown, CompareThrown, TErrorRound, OurThrow (issue #54)
 #include <string>
-
-// What a call threw, comparable between both sides.
-struct TThrown {
-	enum TKind { NOTHING, MYEXCEPTION, PROGRAMERROR, OTHER } Kind;
-	std::string Type;    // the decorated name of the thrown type, ".?AVTMyException@@"
-	std::string Message; // TMyException::GetMessage()
-	std::string Origin;  // TMyException::GetOrigin()
-	int Code;            // the PROGRAM_ERROR value
-	TThrown() : Kind(NOTHING), Code(0) {}
-	bool operator==(const TThrown &Other) const
-	{
-		return Kind == Other.Kind && Type == Other.Type && Message == Other.Message && Origin == Other.Origin
-			&& Code == Other.Code;
-	}
-	bool operator!=(const TThrown &Other) const { return !(*this == Other); }
-	std::string Describe() const; // for failure reports
-};
 
 // Binds the imports the image's exception and iostream code calls, patches its
 // locks and per-thread data; DisableImageExceptions undoes every change.
@@ -55,43 +38,6 @@ TThrown ImageThrowCall(void (*Function)(void *), void *Context);
 template <class F> static void ThrowThunk(void *Context) { (*(F *)Context)(); }
 template <class F> TThrown ImageThrow(F Function) { return ImageThrowCall(ThrowThunk<F>, &Function); }
 
-// Compares what both sides threw (errortest.cpp's comparison, shared since
-// issue #34): kind, type, PROGRAM_ERROR value, message and origin exactly.
-// Every "<file> <line>: " that starts the message or follows ", reason:\n",
-// and the origin's, is compared with the line replaced, then each line pair
-// exactly (since issue #35 our sites name the original's lines; EH_LINEMAP=1
-// compares through one map for the whole run instead, as before). Failures
-// are reported as "<Test> <What>: ...". One check per call and one per line
-// pair; ThrownCompared and ThrownThrew count the calls and those in which the
-// original threw.
-void CompareThrown(const char *Test, const char *What, const TThrown &Ours, const TThrown &Original);
-extern int ThrownCompared, ThrownThrew;
-typedef std::map<std::string, std::map<int, int>> TLineMap;
-const TLineMap &ThrownLineMap(); // file -> our line -> the original's line (the lines seen)
-
-// The error round of a window or surface test (issue #34): the constructor
-// enables the image's exceptions, Compare compares one pair of calls,
-// Finish disables them again and prints "<Test> errors: N checks, M
-// exceptions compared (K calls that threw)". Its checks are counted in
-// Checks like every other, reported apart from the test's own count.
-// Random() runs from a seed of the round's own (EH_SEED=<n> changes it) and
-// gets its old state back in Finish: the round may use the test's random
-// world builders, and the later tests' inputs stay the same.
-// EH_TRACE=1 prints every comparison.
-struct TErrorRound {
-	const char *Test;
-	int Checks0, Compared0, Threw0;
-	bool Trace, Trace2;
-	uint32 SavedSeed;
-	explicit TErrorRound(const char *Test);
-	void Compare(const char *What, const TThrown &Ours, const TThrown &Original);
-	void Calling(const char *What, const char *Side)
-	{
-		if (Trace2)
-			printf("%s errors: calling %s %s\n", Test, Side, What);
-	}
-	void Finish();
-};
 // The two sides run one after the other (ours first); EH_TRACE=2 names each
 // call before it runs.
 #define ROUND_COMPARE(Round, What, OurCall, ImageCall) \
@@ -102,14 +48,6 @@ struct TErrorRound {
 		(Round).Compare(What, Ours_, ImageThrow([&] { ImageCall; })); \
 	} while (0)
 
-// Throws an assertion of one side's own code, for the test objects of the
-// window tests whose methods throw on demand (the callers' TEND blocks wrap
-// it): TComponent::SetSize's "_Width>=0" (GUI.cpp, no test redirects it),
-// ours or the image's (0x49bee0), with Value (negative) as the printed
-// width. A test object on the image side must throw the image's exception:
-// ours would pass through the image's catch (TMyException &) and be read
-// with the image's layout. Defined in guitest.cpp.
-void ThrowSideAssertion(bool Image, int Value);
 // The vtable of a test class's object on the image side in an error round:
 // our class's vtable (Slots entries) with every entry it inherits unchanged
 // from our base class (OurBase, BaseSlots entries) replaced by the image's
@@ -125,22 +63,3 @@ void *ImageSideVtable(const void *OurVtable, const void *OurBase, uint32 ImageBa
 // redirect some functions for good): such comparisons are skipped.
 bool Redirected(const void *Code);
 bool ImageRedirected(uint32 Address);
-
-// The same for our code: catches PROGRAM_ERROR, TMyException and the rest.
-TThrown ThrownOf(const TMyException &Exception);
-template <class F> TThrown OurThrow(F Function)
-{
-	TThrown Result;
-	try {
-		Function();
-	} catch (PROGRAM_ERROR Error) {
-		Result.Kind = TThrown::PROGRAMERROR;
-		Result.Type = ".?AW4PROGRAM_ERROR@@";
-		Result.Code = (int)Error;
-	} catch (TMyException &Exception) {
-		Result = ThrownOf(Exception);
-	} catch (...) {
-		Result.Kind = TThrown::OTHER;
-	}
-	return Result;
-}

@@ -7579,3 +7579,71 @@ earlier helpers.
   Objects 4 MB); local only, as before.
 - **Commits** (form). One commit per test; the first has DataFile, the third OutputRuns and golden_patch.h. Each
   test's corpus was recorded and replayed after its port; the intermediate commits were not built on their own.
+
+## The golden corpus: error rounds (Patella-Modern issue #54)
+
+Settled by Claude Opus 5.5, November 4, 2026. tests/golden/ (golden_eh.h, golden_eh.cpp, mainfrm_tests.cpp,
+client_stubs.cpp), tools/difftest/imageeh.h and imageeh.cpp, tests/golden/CMakeLists.txt, cmake/OracleX86.cmake.
+notes/reconstruction.md, "Checking", describes the use; the sections on issues #24, #26 and #27 above the format and
+the earlier helpers.
+
+- **One comparison for both sides** (high). difftest's error rounds (issue #34) compare what a call threw on our
+  side and on the original's. The portable part moved from imageeh.h/.cpp to tests/golden/golden_eh.h/.cpp
+  unchanged: TThrown, ThrownOf, OurThrow, CompareThrown with its line pairs (WithoutLines, CompareLines, the line
+  map), TErrorRound. The oracle (difftest.exe, communicationtest.exe) and the runner compile the same file, so the
+  checks (one per compared call, one per line pair of a call that matched otherwise) are the same code and the
+  counts cannot drift. imageeh keeps what needs the image: ImageThrow and its filter, Enable/DisableImageExceptions
+  (TErrorRound's constructor and Finish call them in the oracle only), ROUND_COMPARE, ImageSideVtable, Redirected.
+  ThrownOf names our type ".?AVTMyException@@" as a literal: what MSVC's typeid(...).raw_name() returned, the same
+  text on every compiler. Considered: a copy of the comparison for the runner (two copies to keep in step, which
+  issue #54 asked to avoid: "compares the same way").
+- **The original's exception by value** (high; plan 4.3). `TThrown Original = ORIGINAL_THROWN("thrown", the
+  original's call);` runs the call inside ImageThrow in the oracle and records its kind and PROGRAM_ERROR value
+  (two ints), type, message and origin (texts; golden::OutputThrown); the runner gets the recorded TThrown. That is
+  everything CompareThrown reads, so the line pairs (their number comes from the original's message) are counted
+  alike. TErrorRound::Finish records the round's three counts (checks, calls compared, calls in which the original
+  threw); the runner prints the oracle's next to its own and fails when they differ. That is a failure, not a CHECK:
+  the oracle's counts stay difftest's. Every error round of difftest records them, also the not yet ported tests'
+  (in their own .bin files; no count changes).
+- **Our side's assertion in the runner** (high). The fakes throw "an assertion of the calling side" through
+  ThrowSideAssertion, in the oracle our GUI.cpp's TComponent::SetSize (guitest.cpp), which the runner does not link
+  (GUI.cpp needs graphics.cpp and the window code, #28/#29). The runner's ThrowSideAssertion throws
+  OurSideAssertion(Value): our TMyException with SetSize's TASSERT1(1092, _Width>=0, _Width) arguments, what the
+  macro passes. The oracle checks before a round that uses it (VerifyOurSideAssertion, called by the ported test)
+  that it throws exactly what SetSize throws; a difference is a failure, again not a check. When GUI.cpp is in the
+  runner, ThrowSideAssertion can call the real SetSize there too. The runner's version aborts when asked for the
+  original's side (there is none). Considered: compiling GUI.cpp into golden_client now (its callees reach graphics,
+  the skins and every window class: #28/#29's work).
+- **MainFrm ported** (high). 49,576 checks, the oracle's count, 0 failures: 31,424 in its rounds and 18,152 in its
+  error round (5,504 calls compared, 535 in which the original threw, both equal to the oracle's). The test moved
+  from tools/difftest/mainfrmtest.cpp to tests/golden/mainfrm_tests.cpp; every CHECK, random number and operation
+  is the old one. What the corpus holds per comparison: the original's log (text), its state (TState: the frame's
+  members, the file's statics, the world its fakes keep, 420 bytes without pointers or padding, by their runs of
+  changed bytes, golden::OutputRuns; the dump is formatted from it on both sides), in the error round what its call
+  threw and how many fake calls it made (whether its n-th fake call was reached, which ends the trial). Inputs: the
+  seed of every round and every error trial. MainFrm.cpp left golden_client and is compiled into the test, as in
+  the oracle (its statics are in an unnamed namespace); the MFC shim's members it calls left client_stubs.cpp and are
+  the test's fakes, as in the oracle (AfxGetApp, AfxGetInstanceHandle, CFrameWnd's constructor and destructor, the
+  CWnd members, wndTopMost/wndNoTopMost). In the runner the user32 and shell32 fakes go into the runner's import
+  slots by name (golden::FindImport), our functions the file calls (client_stubs.cpp's Control.cpp and Network.cpp
+  stubs, Preferences.cpp's, Status.cpp's, Creatures.cpp's, AddMessage, InitMainWindow) are redirected with the
+  test's own rel32 jump (now with golden_patch.h's reach check), and all of it is undone at the end, as before.
+- **The logs on x64** (high). SetTimer's fake printed its callback with %p, eight hex digits on x86 and sixteen on
+  x64: it prints the callback's name now (CallbackName, as InitWindow's), on both sides. The dump prints ClassName
+  with %.32s (the 32-byte array, terminated or not); every other value of the logs and the dump was printed through
+  an unsigned or int already (HWND, HCURSOR, LPARAM, the hex of WINDOWPLACEMENT and MINMAXINFO, the same 44 and 40
+  bytes on both targets).
+- **/EHsc in the runner** (high). difftest builds with /EHa, the runner (golden_client) with the product's /EHsc,
+  as both real clients. MainFrm's comment explains why the user32 fakes never throw (Win32Tick does nothing): under
+  /EHsc the compiler drops the try blocks that call only C functions (AddFrameSize, ExitProgram). Every TEND the
+  round reaches is reached through the MFC and game fakes, C++ calls, which both models keep; the equal counts
+  show it.
+- **The layer catches a difference** (high). With OurSideAssertion's line set to 1093 for a run, the runner reported
+  1,070 failures in MainFrm's error round ("our GUI.cpp line 1093, the original's 1092"), its other checks passed;
+  reverted.
+- **Not ported** (needs later issues): Errors (40,408; #26) after the Graphics and GUI tests (#28, #29) and their
+  redirects; MapWindow (127,529, error round 12,359) and MainWindow (57,314) need a layout projection of TMapWindow
+  and TComponent and the GUI and graphics fakes. Their error rounds use this layer as MainFrm does: OurThrow for our
+  call, ORIGINAL_THROWN for the original's, TErrorRound::Compare, and VerifyOurSideAssertion in the oracle before the
+  round when the test throws through ThrowSideAssertion.
+- **Size** (form). MainFrm.bin is 3 MB (88,304 records); the corpus 246 MB, local only, as before.

@@ -221,6 +221,13 @@ Help.cpp functions to Creatures' fakes as difftest does (golden_patch.h). Not po
 127,529, MainWindow 57,314 (error rounds without a runner-side layer, MFC fakes, TMapWindow's layout, the GUI and
 graphics fakes of #28/#29). No src/ change. notes/decisions.md, "The golden corpus: the game world (Patella-Modern
 issue #27)".
+Golden corpus, error rounds (Patella-Modern issue #54, November 4, 2026; M6): the error rounds' comparison (TThrown,
+CompareThrown with its line pairs, TErrorRound) moved from tools/difftest/imageeh to tests/golden/golden_eh, the same
+code in the oracle and the runner; the oracle records the original's exception by value (ORIGINAL_THROWN), the
+runner throws our side's assertion with OurSideAssertion (GUI.cpp's SetSize assertion, checked against the real one
+in the oracle). MainFrm ported with it: 49,576 checks, the oracle's count, 0 failures (31,424 + its error round's
+18,152: 5,504 calls compared, 535 that threw, equal to the oracle's); the runner replays 6,895,334 of difftest's
+checks. No src/ change. notes/decisions.md, "The golden corpus: error rounds (Patella-Modern issue #54)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -241,6 +248,15 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #54 (branch issue-54, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after the error rounds' comparison moved to tests/golden/golden_eh and MainFrm to tests/golden:
+16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures (MainFrm 31,424 + its error round's 18,152,
+5,504 calls compared, 535 that threw); with recording on (`golden_corpus`) the same counts. The x64 golden_runner
+(windows-x64 and -debug, CTest 13/13) replays 6,895,334 of difftest's checks and sysinctest's 67, 0 failures
+(issue #27's 6,845,758 as before, MainFrm 49,576 with the oracle's error-round counts); not yet ported: difftest's
+9,953,418 other checks (Errors 40,408, MapWindow 127,529, MainWindow 57,314 among them) and communicationtest's
+1,134,513. src/ unchanged; macrocheck 839de10 issue-54: 2,108 calls, 0 differences.
 
 Patella-Modern issue #27 (branch issue-27, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after Objects, Map and Creatures moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201
@@ -754,7 +770,8 @@ no total. Full build.cmd, November 2, 2026).
   (ctime, localtime, ...) with the test's, so it cannot see such differences; tools/compare_files.py runs the
   real executables. Look for more when a session writes or sends text the CRT formats (asctime, strftime,
   printf's %g/%e, ...).
-- Network.cpp and MainFrm.cpp (issue #37): networktest.cpp and mainfrmtest.cpp `#include` the sources (build.cmd
+- Network.cpp and MainFrm.cpp (issue #37): networktest.cpp and mainfrmtest.cpp (tests/golden/mainfrm_tests.cpp since
+  Patella-Modern issue #54) `#include` the sources (build.cmd
   links neither file itself any more), so a test reaches their statics by name; DIFFTEST_ONLY=Network (NW_TRACE=1,
   2 prints every fake call, NW_LOGS=<file>, NW_ROUNDS=<n>) and DIFFTEST_ONLY=MainFrm (MF_TRACE, MF_LOGS, MF_ROUNDS).
   They fake MFC at the calls into it (the image's MFC functions jump to the fakes; the shim's declarations are the
