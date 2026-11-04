@@ -603,9 +603,11 @@ void CMainFrame::OnRButtonDblClk([[maybe_unused]] UINT nFlags, CPoint point)
 }
 
 // 0x4ab110, line 686. Another window took the mouse: releases the held
-// buttons at the cursor position.
+// buttons at the cursor position. The test build's scripted runs skip it
+// (TestHooks.h, Patella-Modern issue #52).
 void CMainFrame::OnCaptureChanged([[maybe_unused]] CWnd *pWnd)
 {
+	PATELLA_TEST_CAPTURE_CHANGED
 	TBEGIN
 	POINT Point;
 	PATELLA_GET_CURSOR_POS(&Point);

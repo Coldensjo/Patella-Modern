@@ -807,6 +807,17 @@ bool DropInput(const MSG *Message)
 	return Kind == WM_TIMER && Message->wParam == 1 && Message->hwnd == MainWindow();
 }
 
+// Issue #52: the main window's WM_CAPTURECHANGED (MainFrm.cpp OnCaptureChanged). With a script the
+// buttons are pressed and released only by the script's events, dispatched to the main window; the
+// window loses the Windows capture only through the desktop (another window activated, the user's own
+// clicks: a scripted run of the reference compare lost a click that way), which, as DropInput's input,
+// must not reach the client. The client's own ReleaseCapture comes after it has cleared its button flags,
+// when the handler does nothing.
+bool IgnoreCaptureChange()
+{
+	return State().Scripted;
+}
+
 void Idle()
 {
 	TState &Current = State();

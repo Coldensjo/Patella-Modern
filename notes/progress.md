@@ -175,6 +175,15 @@ cppcoreguidelines-avoid-goto is enabled. The touched functions' code changes (or
 WriteMaskedImage; x64: TSurfaceVulkan::WriteMaskedImage only), nothing else does (function by function, every other
 difference a moved address); difftest runs every new path, the Vulkan one is checked exhaustively. notes/decisions.md,
 "The gotos: restructured, and the one shared exit kept (Patella-Modern issue #42)".
+Device switches (Patella-Modern issue #52, November 4, 2026; M2): quick Automatic/GPU/CPU clicks froze the picture;
+the client went on drawing and presenting, but the compositor kept the AMD Radeon iGPU's last cross-adapter frame on
+the main window after that device was gone. Each device now presents in a child window of its own
+(src/vulkan/PresentWindow.h), destroyed after the next device's first frame; the device test uses a hidden one.
+tests_vulkan 13 test cases (quick switches on every device; a held click across the device windows' changes). The
+test mode now ignores the desktop's capture changes with a script (PATELLA_TEST_CAPTURE_CHANGED; a reference
+compare had lost a scripted click that way). The oracle unchanged (pecompare).
+notes/vulkan.md, "One window per device (issue #52)"; notes/decisions.md, "One presentation window per device
+(Patella-Modern issue #52)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)

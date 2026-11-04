@@ -13,6 +13,7 @@ their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)
 | `src/vulkan/DeviceSettings.h`, `.cpp` | the client's graphics device choice (issue #31): `PATELLA_VULKAN`, Patella.ini's `Device`, the GPU list, the CPU driver's manifest |
 | `src/vulkan/DeviceChoice.h`, `.cpp` | the choice's words (`auto`, `gpu`, `gpuN`, `cpu`) and what each button chooses; no Vulkan (tests_render on every preset) |
 | `src/settings/Settings.h`, `.cpp` | Patella.ini's parser and writer (D12), in patella_core (tests_core on every preset) |
+| `src/vulkan/PresentWindow.h`, `.cpp` | the windows the devices present in (issue #52): one child window of the main window per device, retired with its device, destroyed once the next device has shown a frame; the device test's hidden window |
 | `src/vulkan/Renderer.h`, `.cpp` | `patella::vulkan::TRenderer`, the back end: no window system, no MFC (portable C++23 with volk, vk-bootstrap and VMA) |
 | `src/vulkan/Quads.h`, `.cpp` | how Direct3D 9's quads become Vulkan vertices; no Vulkan at all (tests_render on every preset) |
 | `src/vulkan/FilterMask.h`, `.cpp` | `TFilterMasks`: which pixels come from the device's filter (the comparison's tolerance); no Vulkan (tests_render) |
@@ -139,6 +140,70 @@ compare_traffic.py do not, so their clients start with Patella.ini's choice (non
 
 `PATELLA_VULKAN_VALIDATION=1` asks for the validation layers (they come with the LunarG Vulkan SDK, which this
 machine does not have; without them the request is ignored).
+
+## One window per device (issue #52)
+
+**What happened.** The user, in game with the advanced options open, pressed Automatic, GPU and CPU quickly, 5 to
+10 times (November 4, 2026; `build\manual-test`, main f2b3374): the picture froze for good, the window's X did
+nothing. A full dump (Task Manager) and a live inspection showed the client alive and well: the main thread drawing
+about 1,000 frames a second (stack samples in different drawing functions, user time growing about 1 s per second),
+pumping its messages (IsHungAppWindow 0), one TSurfaceVulkan with one renderer on the RTX 5080, one swapchain of the
+window's client size (IMMEDIATE, 3 images, not stale), every `TRenderer::Present` returning true. Yet the screen
+showed an old frame: resizing the window stretched that one picture, even after the resize had recreated the
+swapchain. The frozen picture was the last frame of the AMD Radeon iGPU ("Device: AMD Radeon(TM) Graphics", "Current
+framerate: 157.98"), whose swapchain presents cross-adapter here (the machine's one monitor, 5120x1440, hangs on the
+RTX; the Radeon's frames go through NVIDIA's D3D driver, `nvwgf2umx.dll`, 31 threads while it runs). The X: in game
+with a dialog open, CloseRequest (Control.cpp) asks nothing and refuses, as the original does; Task Manager's End
+task then kills the process, which Windows reports as "Application Hang" (the AppHangB1 reports of that night).
+
+**The cause.** After the Radeon's device, swapchain, surface and instance were destroyed (in that order, after
+vkDeviceWaitIdle; nothing of them was left in the process, and no other presentation object: no second swapchain,
+no DirectComposition target, the driver threads as after a healthy device), its presentation stayed bound to the main
+window outside the process, and the compositor kept showing it over every later device's swapchain on the same
+window. Each device presented into the main window, so one device's leftover could cover all the others.
+
+**The change.** Each device the engine creates presents into a child window of its own (src/vulkan/PresentWindow.h,
+`TPresentWindows`), never into the main window:
+
+- CreateSurfaces opens a new window for the device, over the main window's client area and above the retired one;
+  it paints nothing and lets every mouse message through to the main window (WM_NCHITTEST: HTTRANSPARENT), so input,
+  the cursor and the client's own mouse pointer behave as before.
+- FinishFrame fits the window to the main window's client area (the size the main window's surface had) before each
+  Present; when a Present shows the frame, the window of the device before it is destroyed.
+- When the device goes (ExitDisplay: a switch, a change of the view mode, the end; a failed CreateSurfaces), the
+  device is destroyed first, then its window retired: kept, still showing the device's last frame, until the next
+  device's first frame, or destroyed at once when it never showed one. A retired window that showed a frame is kept
+  instead of one that did not; at most two device windows exist.
+- TestEngine creates its test device on a hidden child window of its own (`TTestWindow`), destroyed with the test.
+
+Destroying a window releases whatever the system or a driver keeps bound to it for presentation, so no device's
+leftover can outlive the next device's first frame, whichever driver keeps it. The windows outlive the surface object
+(SurfaceVulkan.cpp keeps them, as surfaceDX9.cpp's statics). Nothing else changes: the frames, the files and the
+packets are the same; on screen, a switch now keeps the old picture until the new device's first frame.
+
+**Checked.** tests_vulkan's "quick device switches" runs the client's sequence (ExitDisplay, TestEngine,
+CreateSurfaces, frames) through TPresentWindows on every device of the machine (Automatic, gpu0 RTX 5080, gpu1
+Radeon, the CPU driver), 48 switches in a fixed order, 21 of them before the switch's device existed, with the main
+window resized between frames: no device ever has a surface on the main window, every device presents in a new
+window, the test devices' windows are hidden and gone afterwards, an old device's window is gone with the next
+device's first frame, the windows follow the main window's size and let hits through (969 assertions, about 18 s).
+The windows are never shown, so the test cannot show the stale picture itself: a hidden window is not composed. The
+live check is the user's repro.
+
+**Input** (the reference compare after the change, November 4, 2026: in the session `traffic` the scripted click
+on "Graphics" was lost, the state dumps 3 and 4 still on the Options dialog, the rest equal). The device windows do
+not take input: the test mode dispatches its clicks to the main window itself (no hit test), real clicks pass
+through them (HTTRANSPARENT), and tests_vulkan's "scripted clicks reach the main window while device windows come
+and go" holds a click (dispatched as the test mode does, the window taking the capture as CMainFrame does) across
+everything the engine does with its windows (a device and its window, frames on the CPU driver and on the GPU, a
+resize, a device switch with the old window destroyed, the device test's window): no WM_CAPTURECHANGED, the
+capture still the main window's at the release. A click is lost only when the main window loses the capture
+between press and release, which the desktop does (another window activated, the user's own clicks; the run before
+it had met the user's own client still running). With a script the test mode now ignores that loss
+(notes/testmode.md, PATELLA_TEST_CAPTURE_CHANGED), as it drops the desktop's queued input.
+
+**Found on the way.** Each device on the CPU driver leaves about 56 process handles (lavapipe's 49 threads end, their
+handles stay; tests_vulkan's harness: 442, 498, 554 handles after each RTX, CPU, RTX round), not fixed here.
 
 ## How it works
 
@@ -319,7 +384,9 @@ those (patcap reports the seven others as hooked); compare_rendering.py needs no
   beyond the list opening nothing. On November 3, 2026: gpu0 NVIDIA GeForce RTX 5080 (discrete, the best), gpu1
   AMD Radeon(TM) Graphics (integrated), cpu llvmpipe (LLVM 23.1.4, 256 bits); and (issue-31-fix) the client's
   start-up order: headless instances first, then a renderer on each device for a window that is never shown (no
-  WS_VISIBLE, no ShowWindow; destroyed at the end) and one frame presented. 11 test cases, 88 assertions. Fills, 400 random
+  WS_VISIBLE, no ShowWindow; destroyed at the end) and one frame presented; and (issue #52) quick device switches
+  through TPresentWindows on every device and a held click across the device windows' changes ("One window per
+  device" above). 13 test cases, 1,081 assertions (11 and 88 before issue #52). Fills, 400 random
   unscaled copies of a texture with transparent texels, the automap's upload (a texture of texel coordinates:
   every pixel must show texel max(k - 1, 0)), stretches, the colour key pass, the light, a draw that samples its
   target, six frames of 4.8 MB uploads and a resized image, each read back and compared with a model of Direct3D

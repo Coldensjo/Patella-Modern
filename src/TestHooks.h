@@ -40,6 +40,14 @@
 //	                                   MessageBoxA: Player.cpp (FatalError, the start's two boxes); with a
 //	                                   script the box is not shown (written to messages.txt, answered OK)
 //
+// Issue #52 (a statement without a semicolon, nothing at all outside the test build):
+//
+//	PATELLA_TEST_CAPTURE_CHANGED       MainFrm.cpp OnCaptureChanged, before its body: with a script the
+//	                                   window's loss of the mouse capture is desktop input (another
+//	                                   window activated, the user's own clicks) and does not release the
+//	                                   script's held buttons; the client's own releases come after its
+//	                                   button flags are cleared, so the body would do nothing for them
+//
 // The state dump reads the client's data through the View functions at the end of Creatures.cpp,
 // Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h; test build only).
 //
@@ -70,6 +78,8 @@ void PacketReceived(const unsigned char *Data, int PacketSize);
 void FrameObservers(HMODULE Patcap, int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **Pixels)(const void *, int, int, int),
 	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int));
 int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type);
+// True: a WM_CAPTURECHANGED that the script's input does not know of (with a script: every one).
+bool IgnoreCaptureChange();
 } // namespace patella::testmode
 
 #define PATELLA_TIME_GET_TIME() patella::testmode::TimeGetTime()
@@ -84,6 +94,11 @@ int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type
 #define PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize) patella::testmode::PacketReceived(Data, PacketSize);
 #define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask) patella::testmode::FrameObservers(Patcap, &(Frame), &(Pixels), &(Mask));
 #define PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) patella::testmode::ShowMessageBox(Window, Text, Caption, Type)
+#define PATELLA_TEST_CAPTURE_CHANGED \
+	if (patella::testmode::IgnoreCaptureChange()) { \
+		Default(); \
+		return; \
+	}
 
 #else
 
@@ -101,5 +116,6 @@ int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type
 #define PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize)
 #define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask)
 #define PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) MessageBoxA(Window, Text, Caption, Type)
+#define PATELLA_TEST_CAPTURE_CHANGED
 
 #endif

@@ -108,6 +108,7 @@ run (one attempt, a retry with the first attempt kept, two unanswered attempts).
 | PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize) | nothing (#22) | Network.cpp PrepareNextPacket: the next packet decrypted |
 | PATELLA_TEST_FRAME_OBSERVERS(Patcap, ...) | nothing (#22) | vulkan/SurfaceVulkan.cpp InitDisplay: without patcap.dll, the frame dump observes the engine |
 | PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) | MessageBoxA (#23) | Player.cpp FatalError and the start's two boxes: with a script not shown ("Message boxes") |
+| PATELLA_TEST_CAPTURE_CHANGED | nothing (a statement macro, Patella-Modern #52) | MainFrm.cpp OnCaptureChanged, before its body: with a script skipped (below) |
 
 The state dump also reads the client's file-local data through four View functions at the ends of
 Creatures.cpp, Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h), inside `#if
@@ -119,6 +120,15 @@ defined(PATELLA_TEST_MODE)`): with a script it drops WM_KEYFIRST-WM_KEYLAST, WM_
 main timer's WM_TIMER from the queue. Every other message (window management, the host lookup's WM_USER+1,
 WM_CLOSE) goes through. The other Sleep calls (the engines' surface waits, Redraw's Sleep(10) while the surface
 is lost) stay real.
+
+The desktop also reaches the client through the mouse capture, which is not a queued message: when another
+window becomes active (or the user clicks elsewhere) while the main window holds the capture, Windows sends it
+WM_CAPTURECHANGED, and CMainFrame::OnCaptureChanged releases the held buttons at the cursor, which a script's
+`cursor` puts anywhere. A reference compare lost the click on "Graphics" that way (Patella-Modern issue #52,
+November 4, 2026: the state dumps 3 and 4 still on the Options dialog, every other one equal). So with a script
+PATELLA_TEST_CAPTURE_CHANGED skips the handler (TestModeWin32.cpp IgnoreCaptureChange): the buttons are pressed
+and released only by the script's events; the client's own ReleaseCapture comes after it has cleared its button
+flags, when the handler does nothing anyway. Without a script nothing changes.
 
 ### The clock (src/testmode/Clock.h)
 
