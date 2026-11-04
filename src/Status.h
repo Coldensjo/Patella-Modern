@@ -137,6 +137,8 @@ const char *GetCharacterWorld(int Number);
 const char *GetCharacterIPAddress(int Number);
 int GetCharacterPort(int Number);
 
+namespace {
+
 // The regular expression of a link (a domain or an IPv4 address), which
 // CheckClipboardText looks for in copied text; InitStatus compiles it.
 // Defined here with internal linkage: every object that includes this
@@ -157,7 +159,7 @@ int GetCharacterPort(int Number);
 // MainFrm.obj, MainWindow.obj and Player.obj medium (they use Status.cpp,
 // their neighbours do not), the others high. Only Status.cpp reads it. The
 // name is ours.
-static const char *LinkPattern =
+const char *LinkPattern =
 	"(^|[ .,:;/@<>|()\"\n\r%])(([a-z0-9-]+(\\.|\\%2e))+(ac|ad|ae|aero|af|ag|ai|al|am|an|ao|aq|a"
 	"r|arpa|as|at|au|aw|az|ba|bb|bd|be|bf|bg|bh|bi|biz|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|c"
 	"d|cf|cg|ch|ci|ck|cl|cm|cn|co|com|coop|cr|cu|cv|cx|cy|cz|de|dj|dk|dm|do|dz|ec|edu|ee|eg|er|"
@@ -170,6 +172,8 @@ static const char *LinkPattern =
 	"|uk|um|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\\.?|[0-9][0-9]?[0-9]?(\\.|\\"
 	"%2e)[0-9][0-9]?[0-9]?(\\.|\\%2e)[0-9][0-9]?[0-9]?(\\.|\\%2e)[0-9][0-9]?[0-9]?)([?#& .,:;/@"
 	"<>|()\"\r\n%]|$)";
+
+} // namespace
 
 void CheckClipboardText(const char *Text, int Length);
 void CopyToClipboard(const char *text);
