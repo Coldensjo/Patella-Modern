@@ -55,7 +55,7 @@ void TestDialogWindow();                 // tests/golden/dialogwindow_tests.cpp,
 void TestContextMenus();                 // tests/golden/contextmenus_tests.cpp, after TestDialogWindow (restores its patches)
 void TestConsoleWindow();                // tests/golden/consolewindow_tests.cpp, after TestContextMenus (restores its patches)
 void TestContentWindows();               // tests/golden/contentwindows_tests.cpp, after TestConsoleWindow (restores its patches)
-void TestDialogElements();               // dialogelementstest.cpp, after TestContentWindows (restores its patches)
+void TestDialogElements();               // tests/golden/dialogelements_tests.cpp, after TestContentWindows (restores its patches)
 void TestSurfaceDX();                    // surfacedxtest.cpp, fake DirectDraw COM objects; restores its patches
 void TestDialogs();                      // dialogstest.cpp, after TestDialogElements (restores its patches)
 void TestSurfaceDX9();                   // surfacedx9test.cpp, before TestMapWindow (restores its patches)

@@ -89,3 +89,4 @@ void TestDialogWindow();
 void TestContextMenus();
 void TestConsoleWindow();
 void TestContentWindows();
+void TestDialogElements();
