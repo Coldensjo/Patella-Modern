@@ -279,24 +279,26 @@ void Redraw(bool Force)
 			SkinProperties.TooltipFont, Tooltip);
 	}
 	if (ShowFPS) {
-		char Engine[4];
+		TFixedString<4> Engine; // _snprintf(Engine, 4, "DX5") until issue #64: three characters and the NUL
 		switch (curEngine) {
 		case 0:
-			MsvcSnprintf(Engine, 4, "DX5");
+			Engine.Assign("DX5");
 			break;
 		case 1:
-			MsvcSnprintf(Engine, 4, "OGL");
+			Engine.Assign("OGL");
 			break;
 		case 2:
-			MsvcSnprintf(Engine, 4, "DX9");
+			Engine.Assign("DX9");
 			break;
 		default:
-			MsvcSnprintf(Engine, 4, "<?>");
+			Engine.Assign("<?>");
 			break;
 		}
 		const double FPS = GetSurface()->GetFPS();
 		char Text[64];
-		MsvcSnprintf(Text, 20, "%s %.02f fps", Engine, FPS);
+		// Stays _snprintf: printf's %f and std::format's differ for NaN ("-nan(ind)"), and a rate with more
+		// than 10 digits fills the 20 characters (no NUL), which the type would cut (issue #64).
+		MsvcSnprintf(Text, 20, "%s %.02f fps", Engine.Chars, FPS);
 		const TRGBColor Color = {200, 200, 200};
 		PrintText(1, 4, 4, 2, Color, Text, 0);
 	}

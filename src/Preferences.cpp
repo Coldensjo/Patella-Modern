@@ -990,12 +990,12 @@ void SavePreferences()
 			const char *Text = Hotkeys[i];
 			if (Text[0] == 0)
 				continue;
-			char Help[HOTKEY_LENGTH + 1];
+			TFixedString<HOTKEY_LENGTH + 1> Help;
 			Script.writeText("Hotkey = (");
 			Script.writeNumber(i);
 			Script.writeText(",");
 			if (HotkeyAutoSend[i]) {
-				MsvcSnprintf(Help, HOTKEY_LENGTH + 1, "%s\n", Text);
+				Help.Format("{}\n", Text); // at most HOTKEY_LENGTH - 1 characters and "\n": they fit
 				Text = Help;
 			}
 			Script.writeString(Text);

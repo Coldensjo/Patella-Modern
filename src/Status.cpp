@@ -759,7 +759,7 @@ void SetAccount(int Number, const char *Password)
 	TASSERT(621, Password!=NULL);
 	TASSERT1(622, strlen(Password)<30, strlen(Password));
 	AccountNumber = Number;
-	MsvcSnprintf(AccountNumberString, sizeof(AccountNumberString), "%d", Number);
+	TStringBuffer(AccountNumberString, sizeof(AccountNumberString)).Format("{}", Number); // at most 11 characters
 	AccountNumberString[11] = 0;
 	strncpy(AccountPassword, Password, 30);
 }
@@ -776,8 +776,8 @@ void SetCharacter(int Number, const char *Name, const char *World, const uint8 *
 	Character->Name.Assign(Name);
 	Character->World.Assign(World);
 	Character->IP = *reinterpret_cast<const uint32 *>(Address);
-	MsvcSnprintf(Character->IPAddress, sizeof(Character->IPAddress), "%d.%d.%d.%d",
-		Address[0], Address[1], Address[2], Address[3]);
+	TStringBuffer(Character->IPAddress, sizeof(Character->IPAddress))
+		.Format("{}.{}.{}.{}", Address[0], Address[1], Address[2], Address[3]); // at most 15 characters
 	Character->IPAddress[15] = 0;
 	Character->Port = Port;
 }
