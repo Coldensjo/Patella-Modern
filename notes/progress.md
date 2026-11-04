@@ -228,6 +228,16 @@ runner throws our side's assertion with OurSideAssertion (GUI.cpp's SetSize asse
 in the oracle). MainFrm ported with it: 49,576 checks, the oracle's count, 0 failures (31,424 + its error round's
 18,152: 5,504 calls compared, 535 that threw, equal to the oracle's); the runner replays 6,895,334 of difftest's
 checks. No src/ change. notes/decisions.md, "The golden corpus: error rounds (Patella-Modern issue #54)".
+Golden corpus, the GUI, graphics and the window files (Patella-Modern issue #28, November 4, 2026; M6): the runner
+compiles graphics.cpp, GUI.cpp and every window file (golden_client; stubs of Communication.cpp's Send functions,
+Control.cpp and the Vulkan device queries below them). Two of the eight tests ported to tests/golden, one commit
+each: Graphics 570,954 (the tiles through a dictionary, Tibia.spr and Tibia.pic in the corpus) and GUI 5,277,938
+(31,909 in its error round; the original's tree recorded as node indices, our side's assertion the real SetSize in
+the runner too), each with the oracle's count and 0 failures; the runner replays 12,858,032 of difftest's checks.
+Not ported: DialogWindow, ContextMenus, ConsoleWindow, ContentWindows, DialogElements, Dialogs (2,277,170 checks;
+elementfakes.cpp's mirror classes with the x86 offsets, `__fastcall` stand-ins on our side, Dialogs.cpp's Vulkan
+variant). No src/ change. notes/decisions.md, "The golden corpus: the GUI, graphics and the window files
+(Patella-Modern issue #28)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -248,6 +258,16 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #28 (branch issue-28, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after Graphics and GUI moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong
+checks, 0 failures (Graphics 570,954; GUI 5,246,029 + its error round's 31,909, 2,750 calls compared, 2,154 that
+threw); with recording on (`golden_corpus`) the same counts. The x64 golden_runner (windows-x64 and -debug, --fresh,
+CTest 13/13) replays 12,858,032 of difftest's checks and sysinctest's 67, 0 failures (issue #30's 7,009,140 as
+before, Graphics 570,954, GUI 5,277,938 with the oracle's error-round counts); not yet ported: difftest's 3,990,720
+other checks (DialogWindow, ContextMenus, ConsoleWindow, ContentWindows, DialogElements, Dialogs, SurfaceDX, DX9, GL,
+Errors, MapWindow, MainWindow) and communicationtest's 1,134,513. src/ unchanged (pecompare of the oracle and the x64
+Patella.exe: 0 unexpected differences); macrocheck 6b40354 issue-28: 2,108 calls, 0 differences.
 
 Patella-Modern issue #30 (branch issue-30, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after Network moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0

@@ -46,7 +46,7 @@
 #include "../../src/Skins.h"
 #include "../../src/Status.h"
 #include "../../src/Surface.h"
-#include "testsurface.h"
+#include "../../tests/golden/testsurface.h"
 #include "../../src/Talk.h"
 #include "../../src/graphics.h"
 #include <map>

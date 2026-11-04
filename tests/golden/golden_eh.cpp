@@ -157,16 +157,7 @@ void OurSideAssertion(int Value)
 	throw TMyException("GUI.cpp", 1092, "assertion failed", "_Width", Value, "", 0, "_Width>=0");
 }
 
-#if !GOLDEN_ORACLE
-void ThrowSideAssertion(bool Image, int Value)
-{
-	if (Image) { // the runner has no original: its exceptions come from the corpus
-		printf("golden: ThrowSideAssertion for the original's side called in the runner\n");
-		abort();
-	}
-	OurSideAssertion(Value);
-}
-#endif
+// ThrowSideAssertion is gui_tests.cpp's, in the oracle and (issue #28) in the runner.
 
 // --- The round ---------------------------------------------------------------------------------------
 

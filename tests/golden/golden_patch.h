@@ -65,6 +65,17 @@ inline void RedirectOwn(void *Function, void *Target)
 	FlushInstructionCache(GetCurrentProcess(), Function, sizeof(Jump));
 }
 
+// The first five bytes of one of our functions, before RedirectOwn overwrites them, and back.
+inline void SaveOwn(const void *Function, uint8 *Saved) { memcpy(Saved, Function, 5); }
+inline void RestoreOwn(void *Function, const uint8 *Saved)
+{
+	DWORD Protection;
+	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
+	memcpy(Function, Saved, 5);
+	VirtualProtect(Function, 5, Protection, &Protection);
+	FlushInstructionCache(GetCurrentProcess(), Function, 5);
+}
+
 } // namespace golden
 
 #endif
