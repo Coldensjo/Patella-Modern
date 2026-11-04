@@ -46,7 +46,7 @@ void TRSA::Encrypt(patella::TSpan<uint8, 128> Data)
 		throw "first byte of data is larger than 127 which violates the condition 'plain < m'";
 	vlong Plain(0);
 	try {
-		ByteArrayToVlong(Data.data(), 128, Plain);
+		ByteArrayToVlong(Data, Plain);
 	} catch (const char *Reason) {
 		std::string Message("failed to convert byte array to large number, reason: ");
 		Message += Reason;
@@ -56,7 +56,7 @@ void TRSA::Encrypt(patella::TSpan<uint8, 128> Data)
 		throw "Plain is not smaller than m_ModulusM which violates the condition 'plain < m'";
 	const vlong Cipher = modexp(Plain, PublicExponent, m_ModulusM);
 	try {
-		VlongToByteArray(Cipher, Data.data(), 128);
+		VlongToByteArray(Cipher, Data);
 	} catch (const char *Reason) {
 		std::string Message("failed to convert large number to byte array, reason: ");
 		Message += Reason;

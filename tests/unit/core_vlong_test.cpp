@@ -84,8 +84,8 @@ TEST_CASE("vlong and TRSA: vlongtest's cases against Python's exact integers")
 		RandomBytes(Random, B, 64, (int)(1 + Random() % 64));
 		char Op = Ops[t % 5];
 		vlong x, y, r;
-		ByteArrayToVlong(A, 64, x);
-		ByteArrayToVlong(B, 64, y);
+		ByteArrayToVlong(A, x);
+		ByteArrayToVlong(B, y);
 		if (Op == '-' && x < y) {
 			vlong Swap = x;
 			x = y;
@@ -100,7 +100,7 @@ TEST_CASE("vlong and TRSA: vlongtest's cases against Python's exact integers")
 		case '/': r = x / y; break;
 		case '%': r = x % y; break;
 		}
-		VlongToByteArray(r, R, 128);
+		VlongToByteArray(r, R);
 		Digest.Update(R, 128);
 		Cases++;
 	}
@@ -108,7 +108,7 @@ TEST_CASE("vlong and TRSA: vlongtest's cases against Python's exact integers")
 	vlong Decimal;
 	DecimalToVlong("123456789012345678901234567890", Decimal);
 	uint8 D[16];
-	VlongToByteArray(Decimal, D, 16);
+	VlongToByteArray(Decimal, D);
 	Digest.Update(D, 16);
 	Cases++;
 
@@ -121,7 +121,7 @@ TEST_CASE("vlong: conversions and small numbers")
 	vlong Decimal;
 	DecimalToVlong("123456789012345678901234567890", Decimal);
 	uint8 D[16], Expected[16];
-	VlongToByteArray(Decimal, D, 16);
+	VlongToByteArray(Decimal, D);
 	FromHex("000000018ee90ff6c373e0ee4e3f0ad2", Expected);
 	CHECK(memcmp(D, Expected, 16) == 0);
 
@@ -137,6 +137,43 @@ TEST_CASE("vlong: conversions and small numbers")
 	DecimalToVlong("1x2", Decimal);
 	CHECK(Decimal == vlong(102));
 	CHECK_THROWS_AS(DecimalToVlong(NULL, Decimal), const char *);
+}
+
+TEST_CASE("vlong: the byte arrays as spans (issue #60)")
+{
+	// The original's null pointer: a span without data throws its message, whatever the size.
+	vlong Number(258);
+	const char *Reason = nullptr;
+	try {
+		ByteArrayToVlong(patella::TSpan<const uint8>(static_cast<const uint8 *>(nullptr), 16), Number);
+	} catch (const char *Thrown) {
+		Reason = Thrown;
+	}
+	REQUIRE(Reason != nullptr);
+	CHECK(std::string(Reason) == "pData pointer is NULL");
+	Reason = nullptr;
+	try {
+		VlongToByteArray(Number, patella::TSpan<uint8>(static_cast<uint8 *>(nullptr), 16));
+	} catch (const char *Thrown) {
+		Reason = Thrown;
+	}
+	REQUIRE(Reason != nullptr);
+	CHECK(std::string(Reason) == "pData pointer is NULL");
+
+	// A part of a buffer: the bytes around it are untouched, and it reads back.
+	uint8 Buffer[8] = {0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa};
+	VlongToByteArray(Number, patella::TSpan<uint8>(Buffer).subspan(2, 4));
+	const uint8 Expected[8] = {0xaa, 0xaa, 0x00, 0x00, 0x01, 0x02, 0xaa, 0xaa};
+	CHECK(memcmp(Buffer, Expected, 8) == 0);
+	vlong Back;
+	ByteArrayToVlong(patella::TSpan<const uint8>(Buffer).subspan(2, 4), Back);
+	CHECK(Back == vlong(258));
+
+	// An empty span: nothing written, the number 0.
+	VlongToByteArray(Number, patella::TSpan<uint8>(Buffer).first(0));
+	CHECK(memcmp(Buffer, Expected, 8) == 0);
+	ByteArrayToVlong(patella::TSpan<const uint8>(Buffer).first(0), Back);
+	CHECK(Back == vlong(0));
 }
 
 TEST_CASE("TRSA: encryption with exponent 65537")

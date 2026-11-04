@@ -57,8 +57,8 @@ int main()
 		RandomBytes(B, 64, 1 + Random() % 64);
 		char Op = Ops[t % 5];
 		vlong x, y, r;
-		ByteArrayToVlong(A, 64, x);
-		ByteArrayToVlong(B, 64, y);
+		ByteArrayToVlong(A, x);
+		ByteArrayToVlong(B, y);
 		if (Op == '-' && x < y) {
 			vlong Swap = x;
 			x = y;
@@ -77,7 +77,7 @@ int main()
 		case '/': r = x / y; break;
 		case '%': r = x % y; break;
 		}
-		VlongToByteArray(r, R, 128);
+		VlongToByteArray(r, R);
 		printf("%c ", Op);
 		PrintHex(A, 64);
 		printf(" ");
@@ -90,7 +90,7 @@ int main()
 	vlong Decimal;
 	DecimalToVlong("123456789012345678901234567890", Decimal);
 	uint8 D[16];
-	VlongToByteArray(Decimal, D, 16);
+	VlongToByteArray(Decimal, D);
 	printf("dec 123456789012345678901234567890 ");
 	PrintHex(D, 16);
 	printf("\n");

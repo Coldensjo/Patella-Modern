@@ -72,6 +72,7 @@
 #include <ctime>
 
 #include "compat/msvc.h"
+#include "compat/span.h"
 #include "testmode/ClientView.h" // IWYU pragma: export
 
 namespace patella::testmode {
@@ -83,9 +84,10 @@ UINT_PTR SetMainTimer(HWND Window, UINT_PTR Id, UINT Elapse, TIMERPROC Function)
 void Idle();
 // True: the message is input from Windows that the driver's script replaces (dropped).
 bool DropInput(const MSG *Message);
-void RsaBlock(const unsigned char *Block);
-void PacketSent(const unsigned char *Data, int Size, int Padded);
-void PacketReceived(const unsigned char *Data, int PacketSize);
+// The buffers as spans (issue #60): the RSA block, and the whole of SendData and ReceiveData.
+void RsaBlock(patella::TSpan<const unsigned char, 128> Block);
+void PacketSent(patella::TSpan<const unsigned char> Data, int Size, int Padded);
+void PacketReceived(patella::TSpan<const unsigned char> Data, int PacketSize);
 void FrameObservers(HMODULE Patcap, int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **Pixels)(const void *, int, int, int),
 	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int));
 int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type);
