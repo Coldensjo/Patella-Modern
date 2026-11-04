@@ -190,6 +190,12 @@ Mesa's lp_rast.c), its `thrd_current` (1 per instance) and NVIDIA's driver (3 ev
 worked around (the pinned driver). tests_vulkan's new "switching to and from the CPU driver leaves no handles of
 ours" counts them apart and requires the rest flat. notes/vulkan.md, "Handles the drivers leave (issue #53)";
 notes/decisions.md, "Handles the drivers leave (Patella-Modern issue #53)".
+const pointer parameters (Patella-Modern issue #50, November 4, 2026; M3): readability-non-const-parameter through
+tools/tidy.py on all 11 targets reported four `int *` parameters that are only read (CreateTextDialog,
+TOutfitDialog's and TNewChannelDialog's constructors, TOutfitIcon::SetColors); they are `const int *`, the difftest's
+fake of CreateTextDialog too, and the check is enabled. The oracle Patella.exe and the x64 Patella.exe and
+PatellaTest.exe unchanged (pecompare); macrocheck 0 differences; the clang-tidy baseline unchanged (14).
+notes/decisions.md, "const pointer parameters (Patella-Modern issue #50)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -210,6 +216,12 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #50 (branch issue-50, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after the four const pointer parameters (readability-non-const-parameter): 16,848,752 + 67 +
+1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release
+Patella.exe and PatellaTest.exe built from main (a338fa8) and from the branch at the same path: 0 unexpected
+differences (pecompare); macrocheck a338fa8 issue-50: 2,108 calls, 0 differences.
 
 Patella-Modern issue #49 (branch issue-49, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings, the header checks header_check_oracle and header_check_oracle_shim built) after the headers' includes

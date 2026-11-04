@@ -92,6 +92,11 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
   where clang-tidy's fix writes it after the type. A local stays non-const, with a NOLINT and the reason, where
   const changes the oracle image (a constant the compiler then folds, as in TTalkBuffer::Remove): compare the
   images. A virtual function becomes const only together with all its overriders.
+- A pointer parameter whose pointee the function only reads points to const (issue #50;
+  readability-non-const-parameter in .clang-tidy, which looks at pointers to integers and floating types). The
+  declaration in the header changes with the definition, and so does a difftest fake of the same image function
+  (tools/difftest/commworld.cpp's F_ functions). A callback whose type an API fixes (Windows, MFC, qsort, Vulkan)
+  and a virtual function without all its overriders keep their parameters.
 - A cast that is not a plain arithmetic conversion or upcast is a named cast (issue #41;
   cppcoreguidelines-pro-type-cstyle-cast in .clang-tidy), the one the C cast would have been: static_cast for a
   downcast and for `void *` to `T *`, const_cast to drop const, reinterpret_cast for integers to pointers and back
