@@ -265,7 +265,7 @@ src/compat/cxx26.h is the only way to C++26 features (plan section 8): `CONTRACT
 notes/decisions.md, "src/compat/cxx26.h and the unit tests (issue #9)".
 src/compat/msvc.h (issue #43, included by common.h) is the only way to the Microsoft CRT's and compiler's own
 spellings: `MsvcSnprintf` for `_snprintf` (with its semantics: no NUL when the text fills the buffer, -1 when it does
-not fit), `MsvcStricmp`, `MsvcStrdup`, `Time32` with `MsvcTime32` and `MsvcLocaltime32` (ctime's text is
+not fit), `MsvcStricmp`, `MsvcStrdup` (no 32-bit time since issue #62: below; ctime's text is
 compat/crt71.h's `FormatCRT71Time` since issue #61), `MsvcFileno`,
 `MsvcExecl`, `MsvcDupenv`, `MsvcPutenv`, `PATELLA_CDECL` for `__cdecl` and `PATELLA_MSVC_WARNING(...)` for `#pragma
 warning`; `MsvcAccess` and `MsvcEof` are in compat/msvc_io.h, included only where `<io.h>` was. On Windows each name is
@@ -273,6 +273,14 @@ the Microsoft function itself (a macro: forwarders change the images), elsewhere
 implementation; tests_core's core_msvc_test.cpp holds both against the same values. A new use of a Microsoft CRT
 function goes through it (or gets its name there first); the Windows API and the Windows-only test mode's `_wfopen_s`
 stay. notes/decisions.md, "MSVC-only spellings behind portable functions (Patella-Modern issue #43)".
+The client's time has 64 bits (issue #62): every wall clock read is `PATELLA_TIME(nullptr)` (TestHooks.h: `time()`,
+the CRT's `_time64` on Windows), and src/ calls no 32-bit time function. The original's two 4-byte time fields,
+`TCreature::SkullTime` and `TTalkLine::Time` (frozen until M6), are `Time32` of src/types/Time32.h: written only
+through `StoreTime32` (the low 32 bits, what the original's own `time()` returned: the time itself up to
+2038-01-19 03:14:07 UTC, then the original's wrapped value) and read only through `LoadTime32` (the time nearest
+now with those bits: the field itself up to 2038), so every comparison is the original's up to 2038 and goes on
+after it; the texts (talk stamps, saved channels, error.txt) come from the 64-bit time. notes/decisions.md, "64-bit
+time everywhere (Patella-Modern issue #62)".
 
 Since issue #5 the preset windows-x64 also builds the client for x64 (`cmake/WindowsX64.cmake`): today's code
 with static x64 MFC and the original engines (DirectDraw, Direct3D 9, OpenGL), the oracle's sources,
@@ -668,7 +676,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     (container_tests.cpp's TLayout). Issue #27's: `golden::DataFile` (a data file the oracle loads, Tibia.dat, in
     the corpus; the runner writes it to its TEMP), `golden::OutputRuns` (a table of the original by its runs of
     changed bytes), and golden_patch.h for the runner (`RedirectOwn`: a rel32 jump from one of our functions to a
-    fake, as the oracle's PatchJump on difftest.exe; `FindImport`/`SetImport`: an import slot such as _time32's).
+    fake, as the oracle's PatchJump on difftest.exe; `FindImport`/`SetImport`: an import slot such as _time64's, our clock since issue #62).
     Issue #54's error rounds (golden_eh.h, the comparison of tools/difftest/imageeh.h moved there, the same code on
     both sides): `OurThrow([&] { our call; })` for ours, `ORIGINAL_THROWN(Name, the original's call)` for the
     original's (the oracle runs it inside ImageThrow and records what it threw by value), TErrorRound's Compare

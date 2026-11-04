@@ -8345,3 +8345,76 @@ ctime's text itself, in MSVC 7.1's form, and src/ calls neither `ctime` nor `_ct
   already, so #62 changes only the callers. Found: compat/msvc_portable.h's `PortableTime32` returns -1 after
   INT32_MAX, the UCRT's `_time32` after 0x7fffd27f, 3 h 14 min 8 s earlier (#43's comment says INT32_MAX for both):
   the platforms disagree in that window; #62 removes it with the 32-bit time.
+
+## 64-bit time everywhere (Patella-Modern issue #62)
+
+Settled by Claude Opus 5.5, November 4, 2026. The fourth change of M4 (plan section 7, "Times"): the client reads the
+wall clock in 64 bits only, and src/ calls no 32-bit time function. The original's two 4-byte time fields keep
+their size (frozen until M6) and convert at one place each.
+
+- **What was there** (high). `PATELLA_TIME32` (TestHooks.h: `MsvcTime32`, i.e. `_time32` on Windows and
+  `PortableTime32` over `std::time` on Linux; the test build's `WallTime32`) in SetSkull and UpdateSkulls
+  (Creatures.cpp), the battle list's skull (ContentWindows.cpp), the two TTalkLine constructors (Talk.cpp, with
+  `MsvcLocaltime32` for the stamp) and SaveChannel (ConsoleWindow.cpp); `PATELLA_TIME` (`time()`, 64 bits) in
+  HandleException only; `CRT71LocalTime` (compat/crt71.h, #61) took `_localtime32_s` up to 0x7fffd27f.
+- **The original's time()** (high; decompiled with REA). Tibia.exe 0x5121ea (MSVC 7.1's `time`):
+  `GetSystemTimeAsFileTime`, minus the 1601-to-1970 bias, divided by 10^7 in 64 bits (`__aulldiv`), returned as its
+  low 32 bits. No -1 at 2038: the value wraps to negative at 2038-01-19 03:14:08 UTC. Neither the UCRT's `_time32`
+  (-1 after 0x7fffd27f, 2038-01-18 23:59:59 UTC) nor #43's Linux stand-in (-1 after INT32_MAX) was that; #43's
+  comment said INT32_MAX for both. **Resolved**: both are gone, and the one rule for a 4-byte field is the
+  original's own truncation, the same on every platform (src/types/Time32.h `StoreTime32`).
+- **src/types/Time32.h** (high). `Time32` = `std::int32_t` (4 bytes, alignment 4, static_assert; on Windows it was
+  `__time32_t`, `long`, same size and representation), `StoreTime32(int64)` = the low 32 bits as a signed number
+  (the time itself from 0 to INT32_MAX), `LoadTime32(Time32, Now)` = the time nearest Now with those 32 bits (from
+  Now - 2^31 to Now + 2^31 - 1): the field itself when field and Now are both from 0 to INT32_MAX, so a comparison
+  in 64 bits gives the original's 32-bit result up to 2038. Portable, constexpr, on HeaderCheck.cmake's core list.
+- **The boundary** (high). `TCreature::SkullTime` (+0x98, static_assert in Creatures.cpp, active in the oracle):
+  written only in SetSkull (`StoreTime32(PATELLA_TIME(nullptr))`), compared only in `TCreature::SkullKept(Now)`
+  (Creatures.h, ours: set, and Now from LoadTime32 of it to four seconds after), which UpdateSkulls and the battle
+  list call; MapWindow and the battle list test it against 0. `TTalkLine::Time` (+0x3c in the oracle,
+  static_asserts in Talk.cpp): written only in the two constructors (`StoreTime32(LineTime)`, LineTime =
+  `PATELLA_TIME(nullptr) + DiffTime` in 64 bits; StoreTime32 of the sum is the original's wrapping 32-bit sum),
+  never read by the client (the golden Talk test compares it). The stamp comes from LineTime through
+  `CRT71LocalTime`; SaveChannel formats its 64-bit time (FormatCRT71Time). Every read of the clock is
+  `PATELLA_TIME` (`time()`: `_time64` on Windows); `PATELLA_TIME32`, `WallTime32`, `MsvcTime32`,
+  `MsvcLocaltime32`, `PortableTime32` and `PortableLocaltime32` are removed (core_msvc_test.cpp's case with them).
+- **Before 2038: unchanged** (high). The fields hold the same values (StoreTime32 is the identity there), the skull
+  comparisons give the same results (time32_test.cpp holds `SkullKept` against the original's 32-bit check on every
+  pair near 1970, 2023 and 2038), and the texts are the same: `CRT71LocalTime` now takes `_localtime64_s` for every
+  time on Windows, which crt71_test.cpp's comparison with `_ctime32` (every hour of 1970 to 2038 and every 61st
+  second of the last four days, in UTC0, PST8PDT, IST-5:30 and the machine's zone) holds equal to `_localtime32_s`.
+  Two cases the original handled differently only with a clock before 1970 (impossible on Windows) or a server
+  offset that makes a talk line's time leave 1970..2038: there the original's localtime gave NULL and the
+  constructor crashed (a null read); now the stamp is the 64-bit time's, or "00:00" where the C library gives no
+  local time (before 1970, after 3000). And `SkullTime > 0` / `< 1` became `!= 0` / `== 0`, the same for every time
+  the clock gives after 1970.
+- **After 2038: works as before 2038; differs from the original** (decided here, the user may reverse it). The
+  original from 2038-01-19 03:14:08 UTC: a talk line crashed the client (localtime of a negative time is NULL);
+  SaveChannel wrote "Channel saved at (null)"; the kept skull did not blink (MapWindow's and the battle list's
+  `> 0` took the negative field for none) though it still went after four seconds; and in the last four seconds of
+  32 bits its `SkullTime + 4` wrapped, so a skull removed then went at once. Now: the stamps and the saved channel's
+  text are the real local time, and a kept skull blinks for four seconds, until the year 2106 and after it
+  (LoadTime32 reads across the wrap). The 4-byte fields still hold exactly the original's bits. The only places
+  the original's 32-bit value shows: at 2106-02-07 06:28:16 UTC (and 2^32 seconds later) StoreTime32 is 0, which
+  SkullTime reads as "no skull" (that second's removed skull goes at once, as in the original); and a field read
+  more than 68 years after it was written comes back 2^32 seconds off (no field lives that long). The fork's x64
+  client before this change: `_time32` returned -1 from 2038-01-19 00:00:00 UTC (Linux from 03:14:08), so its
+  talk line crashed too ("_localtime32(-1)" is NULL), its saved channel wrote "(null)", and its skull stayed
+  forever (-1 + 4 was never passed).
+- **Forced test change** (high). tests/golden's Talk, Creatures, ConsoleWindow and ContentWindows tests faked our
+  clock by patching our `_time32` (the oracle's static CRT) or the runner's import slot of `_time32`; ours is
+  `_time64` now, so they patch `_time64` (the oracle) and its import slot (the runner) with a 64-bit fake of the
+  same fixed time (1700000000). The image's side is unchanged (0x5121ea still goes to the 32-bit fake). The Errors
+  port (#26, tools/difftest/errortest.cpp) is not affected: errortest already fakes our `_time64` and the image's
+  `time` the same way.
+- **Unit tests** (high). tests/unit/time32_test.cpp, in tests_unit and tests_unit_cxx26_standin (portable, no
+  platform branch): the type, StoreTime32 against the original's truncation from 1970 to 2300 and against its
+  wrapping talk-line sum, the UCRT's and the old stand-in's end values, LoadTime32's identity on a grid of the
+  32-bit range and its round trip within 68 years past 2038 and 2106 with the window's ends, the skull check
+  against the original's on every pair near 1970, 2023 and 2038, and the skull kept four seconds at 2038's and
+  2106's wraps; also `static_assert(sizeof(std::time_t) == 8)`.
+- **Gates** (high). oracle-x86 difftest counts unchanged (16,848,752 / 67 / 1,134,513 / 3,201), golden_runner
+  15,310,983 replayed, 0 failures, unit tests as in notes/progress.md, "Last difftest". The x64 images change (the
+  call sites); the oracle's too (its code calls `_time64` and `_localtime64_s` now): no tier A or reference
+  compare was run here (no client may be started by this change's worker); see the issue's report for the
+  commands.
