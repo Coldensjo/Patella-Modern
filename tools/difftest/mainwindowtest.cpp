@@ -24,7 +24,7 @@
 // arguments) are compared. Failing assertions are not exercised.
 
 #include "difftest.h"
-#include "elementfakes.h"
+#include "../../tests/golden/elementfakes.h"
 #include "../../src/MainWindow.h"
 #include "../../src/ContentWindows.h"
 #include "../../src/MapWindow.h"

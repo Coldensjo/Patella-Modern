@@ -175,6 +175,11 @@ void OutputChanges(const char *Name, void *Last, const void *Value, size_t Size)
 // The same for a buffer that changes in several places at once (a table of the original, issue #27): the
 // runs of changed bytes (runs closer than 16 bytes are one run), each its offset, length and bytes.
 void OutputRuns(const char *Name, void *Last, const void *Value, size_t Size);
+// A text of the original that changes little from one record to the next (a window test's dump, issue #28):
+// what it keeps of Last's start and end, and the bytes between. Last, the text as recorded the time before,
+// which the caller keeps (empty at first on both sides), becomes the original's text on both sides and is
+// returned; Text is the oracle's (ignored by the runner).
+std::string OutputTextChanges(const char *Name, std::string *Last, const std::string &Text);
 // An array of the original whose length the runner knows from an earlier record (Count).
 template <class T> void OutputArray(const char *Name, T *Data, size_t Count)
 {

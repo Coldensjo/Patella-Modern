@@ -214,9 +214,8 @@ list(TRANSFORM difftest_window_sources PREPEND "${PROJECT_SOURCE_DIR}/src/")
 # exception handler trampoline must be in the SafeSEH table: only the assembler can put it there.
 set(difftest_tests
 	difftest.cpp playertest.cpp
-	dialogwindowtest.cpp contextmenustest.cpp consolewindowtest.cpp contentwindowstest.cpp
-	dialogelementstest.cpp dialogstest.cpp surfacedx9test.cpp surfacegltest.cpp
-	surfacedxtest.cpp mapwindowtest.cpp mainwindowtest.cpp elementfakes.cpp errortest.cpp
+	dialogstest.cpp surfacedx9test.cpp surfacegltest.cpp
+	surfacedxtest.cpp mapwindowtest.cpp mainwindowtest.cpp errortest.cpp
 	imageeh.cpp imageehseh.asm)
 list(TRANSFORM difftest_tests PREPEND "${DIFFTEST_DIR}/")
 # The first tests (XTEA ... Buffers, Skins) and Regexp are golden-corpus tests (issue #24), and so are
@@ -232,6 +231,11 @@ list(APPEND difftest_tests "${GOLDEN_DIR}/golden_eh.cpp" "${GOLDEN_DIR}/mainfrm_
 list(APPEND difftest_tests "${GOLDEN_DIR}/network_tests.cpp")
 # Issue #28: Graphics and GUI.
 list(APPEND difftest_tests "${GOLDEN_DIR}/graphics_tests.cpp" "${GOLDEN_DIR}/gui_tests.cpp")
+# Issue #28 (second part): the shared element fakes, DialogWindow, ContextMenus, ConsoleWindow,
+# ContentWindows and DialogElements.
+list(APPEND difftest_tests "${GOLDEN_DIR}/elementfakes.cpp" "${GOLDEN_DIR}/dialogwindow_tests.cpp"
+	"${GOLDEN_DIR}/contextmenus_tests.cpp" "${GOLDEN_DIR}/consolewindow_tests.cpp"
+	"${GOLDEN_DIR}/contentwindows_tests.cpp" "${GOLDEN_DIR}/dialogelements_tests.cpp")
 set_source_files_properties("${DIFFTEST_DIR}/imageehseh.asm" PROPERTIES COMPILE_OPTIONS /safeseh)
 add_executable(difftest ${difftest_tests}
 	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"

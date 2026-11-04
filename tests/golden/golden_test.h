@@ -38,6 +38,18 @@ void SetRandomSeed(uint32 Value);
 void RandomText(char *Text, int Length);
 #endif
 
+// A fake that stands in for a member function (its address goes where the member function's starts, issue
+// #28): on x86 thiscall passes this in ECX, which a __fastcall function takes as its first parameter, with a
+// dummy second one for EDX; on x64 every member function takes this as its first argument, as a plain
+// function does. So: `R GOLDEN_THISCALL Fake(GOLDEN_THIS, the member's parameters...)` (this unnamed).
+#if GOLDEN_ORACLE
+#define GOLDEN_THISCALL __fastcall
+#define GOLDEN_THIS void *, void *
+#else
+#define GOLDEN_THISCALL
+#define GOLDEN_THIS void *
+#endif
+
 // status_tests.cpp: the clock GetMilliseconds returns (both sides' in the oracle).
 void SetTestClock(int Value);
 
@@ -72,3 +84,9 @@ void TestNetwork();
 // Issue #28 (ExePath as TestObjects').
 void TestGraphics(const char *ExePath);
 void TestGUI();
+// Issue #28 (second part).
+void TestDialogWindow();
+void TestContextMenus();
+void TestConsoleWindow();
+void TestContentWindows();
+void TestDialogElements();

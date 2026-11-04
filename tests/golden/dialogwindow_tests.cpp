@@ -1,4 +1,5 @@
-// Differential tests of DialogWindow.cpp against the original code.
+// difftest.exe's DialogWindow test (moved here from tools/difftest/dialogwindowtest.cpp, issue #28):
+// DialogWindow.cpp against the original, as a golden-corpus test (golden.h).
 //
 // Two columns are built twice, from the image's classes (constructors
 // 0x4856c0, 0x4854c0 and 0x487e80) and from ours: column 0 holds sub-windows
@@ -25,24 +26,43 @@
 // The error paths have a round of their own (issue #34, TestDialogWindowErrors,
 // "DialogWindow errors: ..."): the bodies and elements throw on demand, the
 // assertions get bad arguments.
+//
+// By value (plan 4.3): the original's side exists in the oracle only (every use of it is inside ORIGINAL or
+// #if GOLDEN_ORACLE); the runner has our columns alone. Per comparison the corpus holds the original's log
+// (text), its dump (text, by its changes since the last one, golden::OutputTextChanges), the results of its
+// calls and in the error round what each call threw (GOLDEN_ROUND_COMPARE). The operands are chosen from
+// our side, as before. The fakes of the DialogElements.cpp classes are elementfakes.h's, with our x64
+// layout in the runner; our functions go to the fakes through golden::RedirectOwn (restored at the end).
 
-#include "difftest.h"
+#include "golden_test.h"
+
 #include "elementfakes.h"
-#include "../../src/DialogWindow.h"
-#include "../../src/ContentWindows.h"
-#include "../../src/GUI.h"
-#include "../../src/Preferences.h"
-#include "../../src/Skins.h"
-#include "../../src/Surface.h"
-#include "../../tests/golden/testsurface.h"
-#include "../../src/graphics.h"
-#include "imageeh.h"
+#include "golden_eh.h"
+#include "testsurface.h"
+#if GOLDEN_ORACLE
+#include "../../tools/difftest/imageeh.h"
+#else
+#include "golden_patch.h"
+#endif
+
+#include "ContentWindows.h"
+#include "DialogWindow.h"
+#include "GUI.h"
+#include "Preferences.h"
+#include "Skins.h"
+#include "Surface.h"
+#include "graphics.h"
+
 #include <map>
 #include <new>
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <vector>
 
+#if GOLDEN_ORACLE
 static_assert(sizeof(TContentWindow) == 0x44, "TContentWindow is 0x44 bytes");
 static_assert(sizeof(TSubWindow) == 0x70, "TSubWindow is 0x70 bytes");
 static_assert(sizeof(TDialogWindow) == 0x4c, "TDialogWindow is 0x4c bytes");
@@ -56,13 +76,18 @@ static_assert(offsetof(TDialogWindow, Area) == 0x2c, "TDialogWindow::Area at +0x
 static_assert(offsetof(TDialogWindow, Dragged) == 0x3c, "TDialogWindow::Dragged at +0x3c");
 static_assert(offsetof(TDialogWindow, UpdateFreeHeight) == 0x48, "TDialogWindow::UpdateFreeHeight at +0x48");
 static_assert(sizeof(TResizer) == 0x38, "TResizer is 0x38 bytes");
+#endif
 
 // --- Shared fakes (mainwindowtest.cpp uses them as well) ----------------------------
 
 TDialogFakes DialogFakes;
 
-// The container body's UpdateUpButton (the image's 0x42e4e0 and ours).
+// The container body's UpdateUpButton (the image's 0x42e4e0 and ours; elementfakes.h).
+#if GOLDEN_ORACLE
 void __fastcall FakeUpdateUpButton(void *Body, void *)
+#else
+void FakeUpdateUpButton(void *Body)
+#endif
 {
 	if (DialogFakes.Body != NULL)
 		DialogFakes.Body((TSubWindowBody *)Body, "Up");
@@ -81,9 +106,16 @@ void TFakeSkinButton::SetSkins(int _ButtonUp, int _ButtonDown)
 		DialogFakes.SetSkins((TSkinButton *)this, _ButtonUp, _ButtonDown);
 }
 
+// The test's own definitions: in a namespace of their own (mainwindowtest.cpp, linked into the same
+// difftest.exe, defines a struct TInfo of another layout at global scope).
+namespace DialogWindowTest {
+
 // --- Logs and names ----------------------------------------------------------------
 
-enum { OURS = 0, ORIGINAL = 1 };
+enum { OURS = 0,
+	ORIGINAL = 1 };
+// The sides that have objects: both in the oracle, ours in the runner.
+static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
 static int Side;
 static std::string Log[2];
 
@@ -131,7 +163,10 @@ static std::string NameOf(int s, const void *Object)
 static std::string Name(const void *Object) { return NameOf(Side, Object); }
 
 // The classes by vtable, per side.
-enum { CLASS_OTHER, CLASS_COLUMN, CLASS_CONTENT, CLASS_SUB };
+enum { CLASS_OTHER,
+	CLASS_COLUMN,
+	CLASS_CONTENT,
+	CLASS_SUB };
 static std::map<void *, int> ClassOf[2];
 static int Class(int s, const void *Object)
 {
@@ -157,11 +192,31 @@ static void MaybeThrow(int Bit)
 class TTestBody : public TSubWindowBody {
 public:
 	int MinHeight;
-	void Minimize() { if (DialogFakes.Body != NULL) DialogFakes.Body(this, "A0"); MaybeThrow(32); }
-	void Maximize() { if (DialogFakes.Body != NULL) DialogFakes.Body(this, "A4"); MaybeThrow(32); }
-	int GetInitialHeight() { MaybeThrow(16); return MinHeight; }
-	int GetContentHeight() { MaybeThrow(16); return MinHeight; }
-	int getMinimumHeight() { MaybeThrow(16); return MinHeight; }
+	void Minimize()
+	{
+		if (DialogFakes.Body != NULL) DialogFakes.Body(this, "A0");
+		MaybeThrow(32);
+	}
+	void Maximize()
+	{
+		if (DialogFakes.Body != NULL) DialogFakes.Body(this, "A4");
+		MaybeThrow(32);
+	}
+	int GetInitialHeight()
+	{
+		MaybeThrow(16);
+		return MinHeight;
+	}
+	int GetContentHeight()
+	{
+		MaybeThrow(16);
+		return MinHeight;
+	}
+	int getMinimumHeight()
+	{
+		MaybeThrow(16);
+		return MinHeight;
+	}
 	void Draw(int Surface, int x, int y)
 	{
 		Logf("DBody%s,%d,%d,%d;", Name(this).c_str(), Surface, x, y);
@@ -179,7 +234,7 @@ public:
 		MaybeThrow(4);
 		return false;
 	}
-	bool LeftButtonDoubleClick(int x, int y, int Flags)
+	bool LeftButtonDoubleClick(int x, int y, int)
 	{
 		Logf("WBody%s,%d,%d;", Name(this).c_str(), x, y);
 		MaybeThrow(8);
@@ -190,10 +245,10 @@ public:
 		MaybeThrow(64);
 		TSubWindowBody::SetPosition(x, y);
 	}
-	void SetSize(int Width, int Height)
+	void SetSize(int _Width, int _Height)
 	{
 		MaybeThrow(64);
-		TSubWindowBody::SetSize(Width, Height);
+		TSubWindowBody::SetSize(_Width, _Height);
 	}
 	void Arrange()
 	{
@@ -209,13 +264,13 @@ public:
 		Logf("DElem%s,%d,%d,%d;", Name(this).c_str(), Surface, x, y);
 		MaybeThrow(1);
 	}
-	bool LeftButtonDown(int x, int y, int Flags)
+	bool LeftButtonDown(int x, int y, int)
 	{
 		Logf("PElem%s,%d,%d;", Name(this).c_str(), x, y);
 		MaybeThrow(2);
 		return Answer(x, y, 2) != 0;
 	}
-	bool LeftButtonDoubleClick(int x, int y, int Flags)
+	bool LeftButtonDoubleClick(int x, int y, int)
 	{
 		Logf("WElem%s,%d,%d;", Name(this).c_str(), x, y);
 		MaybeThrow(8);
@@ -226,10 +281,10 @@ public:
 		MaybeThrow(64);
 		TElement::SetPosition(x, y);
 	}
-	void SetSize(int Width, int Height)
+	void SetSize(int _Width, int _Height)
 	{
 		MaybeThrow(64);
-		TElement::SetSize(Width, Height);
+		TElement::SetSize(_Width, _Height);
 	}
 	void Arrange()
 	{
@@ -247,7 +302,7 @@ class TTestSkinButton : public TFakeSkinButton {
 public:
 	TTestSkinButton() : TFakeSkinButton(0, 0, 0, 0, TCallback(), NULL, 0) {}
 	void Draw(int Surface, int x, int y) { Logf("DSkin%s,%d,%d,%d;", Name(this).c_str(), Surface, x, y); }
-	bool LeftButtonDown(int x, int y, int Flags)
+	bool LeftButtonDown(int x, int y, int)
 	{
 		Logf("PSkin%s,%d,%d;", Name(this).c_str(), x, y);
 		return Answer(x, y, 1) != 0;
@@ -259,7 +314,7 @@ class TDWTestResizer : public TFakeResizer {
 public:
 	TDWTestResizer() : TFakeResizer(NULL, false, false, false) {}
 	void Draw(int Surface, int x, int y) { Logf("DRes%s,%d,%d,%d;", Name(this).c_str(), Surface, x, y); }
-	bool LeftButtonDown(int x, int y, int Flags)
+	bool LeftButtonDown(int x, int y, int)
 	{
 		Logf("PRes%s,%d,%d;", Name(this).c_str(), x, y);
 		return Answer(x, y, Data24[0]) != 0;
@@ -314,8 +369,8 @@ public:
 		Logf("Fill%d,%d,%d,%d,%d,%d,%d,%d;", Surface, R.x, R.y, R.width, R.height, C.R, C.G, C.B);
 	}
 };
-static TDialogSurface *Surface;
-static TSurface *__cdecl FakeGetSurface() { return Surface; }
+static TDialogSurface *DialogSurface;
+static TSurface *__cdecl FakeGetSurface() { return DialogSurface; }
 
 // Patches that are undone at the end (later tests use these functions).
 struct TSaved {
@@ -324,34 +379,49 @@ struct TSaved {
 };
 static std::vector<TSaved> SavedCode;
 
+// The oracle patches the image and difftest.exe's code with PatchJump; the runner its own code with
+// golden::RedirectOwn (golden_patch.h), saved and restored the same way.
 static void Redirect(void *Function, void *Target)
 {
 	TSaved S;
 	S.Code = (uint8 *)Function;
+#if GOLDEN_ORACLE
 	DWORD Protection;
 	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
 	memcpy(S.Bytes, Function, 5);
 	PatchJump((uint32)(uintptr_t)Function, Target);
 	VirtualProtect(Function, 5, Protection, &Protection);
 	FlushInstructionCache(GetCurrentProcess(), Function, 5);
+#else
+	golden::SaveOwn(Function, S.Bytes);
+	golden::RedirectOwn(Function, Target);
+#endif
 	SavedCode.push_back(S);
 }
 
 static void RestoreAll()
 {
 	for (size_t i = SavedCode.size(); i-- > 0;) {
+#if GOLDEN_ORACLE
 		DWORD Protection;
 		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
 		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
 		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
 		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
+#else
+		golden::RestoreOwn(SavedCode[i].Code, SavedCode[i].Bytes);
+#endif
 	}
 	SavedCode.clear();
 }
 
 static void PatchCallees()
 {
-	struct { uint32 Image; void *Ours; void *Fake; } Table[] = {
+	struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Table[] = {
 		{0x497a00, (void *)DrawSkin, (void *)FakeDrawSkin},
 		{0x490c60, (void *)DrawPicturePart, (void *)FakeDrawPicturePart},
 		{0x4eaa90, (void *)GetSurface, (void *)FakeGetSurface},
@@ -359,24 +429,28 @@ static void PatchCallees()
 		{0x4dc950, (void *)AddOpenDialog, (void *)FakeAddOpenDialog},
 	};
 	for (auto &T : Table) {
-		Redirect((void *)(uintptr_t)T.Image, T.Fake);
+		ORIGINAL(Redirect((void *)(uintptr_t)T.Image, T.Fake));
 		Redirect(T.Ours, T.Fake);
 	}
 	// DialogElements.cpp: both sides build the fakes (elementfakes.cpp).
 	PatchElementFakes(Redirect);
-	Redirect((void *)(uintptr_t)0x42e4e0, (void *)FakeUpdateUpButton);
+	ORIGINAL(Redirect((void *)(uintptr_t)0x42e4e0, (void *)FakeUpdateUpButton));
 	Redirect(Member(&TContainerWindowBody::UpdateUpButton), (void *)FakeUpdateUpButton);
 }
 
 // --- The objects ----------------------------------------------------------------------
 
+#if GOLDEN_ORACLE
 typedef void *(__fastcall *ColumnCtorFn)(void *, void *);
 typedef void *(__fastcall *ContentCtorFn)(void *, void *, int, bool);
 typedef void *(__fastcall *SubCtorFn)(void *, void *, int, TSubWindowBody *, bool, bool);
 typedef TContentWindow *(__fastcall *FindFn)(void *, void *, int);
-typedef int (__fastcall *GetFn)(void *, void *);
-typedef void (__fastcall *VoidFn)(void *, void *);
-typedef void (__fastcall *SetFn)(void *, void *, TComponent *);
+typedef int(__fastcall *GetFn)(void *, void *);
+typedef void(__fastcall *VoidFn)(void *, void *);
+typedef void(__fastcall *SetFn)(void *, void *, TComponent *);
+typedef bool(__fastcall *BoolFn)(void *, void *);
+typedef void(__fastcall *PositionFn)(void *, void *, bool);
+#endif
 
 static TDialogWindow *Column[2][2]; // [side][column]
 
@@ -386,8 +460,12 @@ static TDialogWindow *NewColumn(int s)
 	if (s == OURS) {
 		C = new TDialogWindow;
 	} else {
+#if GOLDEN_ORACLE
 		void *Memory = operator new(sizeof(TDialogWindow));
 		C = (TDialogWindow *)At<ColumnCtorFn>(0x4856c0)(Memory, NULL);
+#else
+		abort(); // the runner has no original
+#endif
 	}
 	Register(C, "Col");
 	return C;
@@ -399,8 +477,12 @@ static TContentWindow *NewContent(int s, int Identifier, bool Background)
 	if (s == OURS) {
 		W = new TContentWindow(Identifier, Background);
 	} else {
+#if GOLDEN_ORACLE
 		void *Memory = operator new(sizeof(TContentWindow));
 		W = (TContentWindow *)At<ContentCtorFn>(0x4854c0)(Memory, NULL, Identifier, Background);
+#else
+		abort();
+#endif
 	}
 	Register(W, "CW");
 	return W;
@@ -419,10 +501,15 @@ static TSubWindow *NewSub(int s, int Identifier, TTestBody *Body, bool Resizable
 	TSubWindow *W;
 	void *Memory = operator new(sizeof(TSubWindow));
 	Register(Memory, "Sub"); // before the constructor: the resizers name it
+#if GOLDEN_ORACLE
 	if (s == OURS)
 		W = new (Memory) TSubWindow(Identifier, Body, Resizable, Background);
 	else
 		W = (TSubWindow *)At<SubCtorFn>(0x487e80)(Memory, NULL, Identifier, Body, Resizable, Background);
+#else
+	(void)s; // ours: the runner has no original
+	W = new (Memory) TSubWindow(Identifier, Body, Resizable, Background);
+#endif
 	return W;
 }
 
@@ -439,8 +526,7 @@ template <class F> static void Both(F Call)
 		printf("FAIL DialogWindow (kind %d): our side raised %s\n", Kind, E.GetMessage().c_str());
 		exit(1);
 	}
-	Side = ORIGINAL;
-	Call(ORIGINAL);
+	ORIGINAL(Side = ORIGINAL; Call(ORIGINAL));
 }
 
 // --- Dumps ------------------------------------------------------------------------------
@@ -516,8 +602,29 @@ static std::string Dump(int s)
 	return Out;
 }
 
+// The original's log of a comparison: the oracle's, recorded; the runner's from the corpus.
+static void OutputOriginalLog()
+{
+	std::string Text = golden::OutputText("log", Log[ORIGINAL].data(), Log[ORIGINAL].size());
+	ORIGINAL_OR((void)0, Log[ORIGINAL] = Text);
+}
+
+// The original's dump: the oracle's, recorded by its changes since the last one; the runner's from the
+// corpus.
+static std::string LastDump;
+static std::string OriginalDump()
+{
+#if GOLDEN_ORACLE
+	std::string Text = Dump(ORIGINAL);
+#else
+	std::string Text;
+#endif
+	return golden::OutputTextChanges("dump", &LastDump, Text);
+}
+
 static void Compare(const char *What)
 {
+	OutputOriginalLog();
 	Checks++;
 	if (Log[OURS] != Log[ORIGINAL]) {
 		Failures++;
@@ -526,7 +633,7 @@ static void Compare(const char *What)
 				Log[OURS].c_str(), Log[ORIGINAL].c_str());
 		}
 	}
-	std::string A = Dump(OURS), B = Dump(ORIGINAL);
+	std::string A = Dump(OURS), B = OriginalDump();
 	Checks++;
 	if (A != B) {
 		Failures++;
@@ -605,47 +712,56 @@ static TSubWindow *MakeSub(int s, int Identifier, int MinHeight, bool Resizable,
 		if (s == OURS)
 			W->SetCloseButton(Close);
 		else
-			At<SetFn>(0x489cf0)(W, NULL, Close);
+			ORIGINAL(At<SetFn>(0x489cf0)(W, NULL, Close));
 	}
 	if (Minimize != NULL) {
 		Register(Minimize, "Min");
 		if (s == OURS)
 			W->SetMinimizeButton((TSkinButton *)Minimize);
 		else
-			At<SetFn>(0x489ed0)(W, NULL, Minimize);
+			ORIGINAL(At<SetFn>(0x489ed0)(W, NULL, Minimize));
 	}
 	if (Up != NULL) {
 		Register(Up, "Up");
 		if (s == OURS)
 			W->SetUpButton(Up);
 		else
-			At<SetFn>(0x489b10)(W, NULL, Up);
+			ORIGINAL(At<SetFn>(0x489b10)(W, NULL, Up));
 	}
 	if (Icon != NULL) {
 		Register(Icon, "Icon");
 		if (s == OURS)
 			W->SetIcon(Icon);
 		else
-			At<SetFn>(0x48a0b0)(W, NULL, Icon);
+			ORIGINAL(At<SetFn>(0x48a0b0)(W, NULL, Icon));
 	}
 	if (Title != NULL) {
 		Register(Title, "Title");
 		if (s == OURS)
 			W->SetTitle(Title);
 		else
-			At<SetFn>(0x48a2a0)(W, NULL, Title);
+			ORIGINAL(At<SetFn>(0x48a2a0)(W, NULL, Title));
 	}
 	return W;
 }
 
+// The image's skin properties get the same values as ours (the oracle only). Each constructor's arguments
+// are drawn in the order the x86 oracle evaluated them, right to left (#55: the order of the calls in one
+// expression is unspecified; x64 MSVC may take another).
 static void RandomSkinProperties()
 {
-	TSkinProperties &O = Global<TSkinProperties>(0x5ccfc8);
 	TSkinProperties &M = SkinProperties;
+	TSkinProperties &O = ORIGINAL_OR(Global<TSkinProperties>(0x5ccfc8), M); // the runner: ours twice
 	M.Data184 = O.Data184 = 140 + Random() % 80;
-	M.Data188 = O.Data188 = TRGBColor(Random() % 256, Random() % 256, Random() % 256);
+	{
+		int Blue = Random() % 256, Green = Random() % 256, Red = Random() % 256;
+		M.Data188 = O.Data188 = TRGBColor(Red, Green, Blue);
+	}
 	TSkinProperties194 &A = M.Style194, &B = O.Style194;
-	A.Data00 = B.Data00 = TRect(Random() % 8, Random() % 4, 8 + Random() % 8, 8 + Random() % 8);
+	{
+		int Height = 8 + Random() % 8, Width = 8 + Random() % 8, y = Random() % 4, x = Random() % 8;
+		A.Data00 = B.Data00 = TRect(x, y, Width, Height);
+	}
 	A.Data10.x = B.Data10.x = -(int)(10 + Random() % 8);
 	A.Data10.y = B.Data10.y = Random() % 4;
 	A.Data18.x = B.Data18.x = -(int)(22 + Random() % 8);
@@ -660,8 +776,11 @@ static void RandomSkinProperties()
 	// fails its assertion; higher, it loops for ever, in both versions.
 	A.Data4C = B.Data4C = Skins[133].height + Skins[132].height;
 	// The body needs a height of at least 1 in the 19-pixel frame.
-	A.Data50 = B.Data50 = TRect(2 + Random() % 4, 13 + Random() % 3, -(int)(2 + Random() % 4),
-		-(int)(2 + Random() % 3));
+	{
+		int Height = -(int)(2 + Random() % 3), Width = -(int)(2 + Random() % 4), y = 13 + Random() % 3,
+			x = 2 + Random() % 4;
+		A.Data50 = B.Data50 = TRect(x, y, Width, Height);
+	}
 	A.Data60.x = B.Data60.x = Random() % 6;
 	A.Data60.y = B.Data60.y = -(int)(14 + Random() % 4);
 	A.Data60.width = B.Data60.width = 10 + Random() % 6;
@@ -684,7 +803,8 @@ static void Operation()
 	sprintf(What, "operation %d", Kind);
 	bool Busy = Captured();
 	switch (Kind) {
-	case 0: case 1: {
+	case 0:
+	case 1: {
 		// A new sub-window, appended by Rearrange(16) like MainWindow.cpp does.
 		if (Busy)
 			return;
@@ -738,8 +858,7 @@ static void Operation()
 		// The column's size (strategy 8 deletes the windows that do not fit).
 		if (Busy)
 			return;
-		int c = Random() % 2, Width = 70 + Random() % 180, Height = Random() % 3 == 0 ? (int)(Random() % 120)
-			: 100 + (int)(Random() % 600);
+		int c = Random() % 2, Width = 70 + Random() % 180, Height = Random() % 3 == 0 ? (int)(Random() % 120) : 100 + (int)(Random() % 600);
 		Both([&](int s) { Column[s][c]->SetSize(Width, Height); });
 		break;
 	}
@@ -751,7 +870,9 @@ static void Operation()
 		Both([&](int s) { Column[s][c]->Draw(Surface, x, y); });
 		break;
 	}
-	case 6: case 7: case 8: {
+	case 6:
+	case 7:
+	case 8: {
 		// Mouse events through a column: press, move, release.
 		int c = Random() % 2, Action = Kind - 6;
 		TDialogWindow *O = Column[OURS][c];
@@ -768,6 +889,7 @@ static void Operation()
 			else
 				Results[s] = D->LeftButtonUp(x, y, 0);
 		});
+		golden::Output("mouse result", Results[ORIGINAL]);
 		CHECK(Results[OURS] == Results[ORIGINAL], "DialogWindow mouse %d result %d, original %d", Action,
 			Results[OURS], Results[ORIGINAL]);
 		break;
@@ -780,6 +902,7 @@ static void Operation()
 		int x = Random() % (O->Width + 1), y = Random() % (O->Height + 1);
 		bool Results[2];
 		Both([&](int s) { Results[s] = Column[s][0]->LeftButtonDoubleClick(x, y, 0); });
+		golden::Output("double click result", Results[ORIGINAL]);
 		CHECK(Results[OURS] == Results[ORIGINAL], "DialogWindow double click result %d, original %d", Results[OURS],
 			Results[ORIGINAL]);
 		break;
@@ -853,12 +976,12 @@ static void Operation()
 		int Which = Random() % 5;
 		Both([&](int s) {
 			TSubWindow *W = (TSubWindow *)Counterpart(s, 0, Index);
-			static const uint32 Setters[] = {0x489b10, 0x489cf0, 0x489ed0, 0x48a0b0, 0x48a2a0};
+			ORIGINAL(static const uint32 Setters[] = {0x489b10, 0x489cf0, 0x489ed0, 0x48a0b0, 0x48a2a0});
 			static const char *Kinds[] = {"Up", "Close", "Min", "Icon", "Title"};
 			TComponent *Part = Which == 2 ? (TComponent *)new TTestSkinButton : (TComponent *)new TTestElement;
 			Register(Part, Kinds[Which]);
 			if (s == ORIGINAL) {
-				At<SetFn>(Setters[Which])(W, NULL, Part);
+				ORIGINAL(At<SetFn>(Setters[Which])(W, NULL, Part));
 			} else if (Which == 0) {
 				W->SetUpButton(Part);
 			} else if (Which == 1) {
@@ -889,7 +1012,7 @@ static void Operation()
 				else
 					W->HideUpButton();
 			} else {
-				At<VoidFn>(Show ? 0x4897d0 : 0x489970)(W, NULL);
+				ORIGINAL(At<VoidFn>(Show ? 0x4897d0 : 0x489970)(W, NULL));
 			}
 		});
 		break;
@@ -925,23 +1048,33 @@ static void Operation()
 				Free[s] = D->GetFreeHeight();
 				Frame[s] = TSubWindow::GetFrameHeight();
 			} else {
+#if GOLDEN_ORACLE
 				W = At<FindFn>(0x486400)(D, NULL, Identifier);
 				Free[s] = At<GetFn>(0x487060)(D, NULL);
-				Frame[s] = At<int (__cdecl *)()>(0x485670)();
+				Frame[s] = At<int(__cdecl *)()>(0x485670)();
+#else
+				abort();
+#endif
 			}
 			Ids[s] = W == NULL ? -1 : Info[s][W].Serial;
 			MinH[s] = D->getMinimumHeight();
 			MinW[s] = D->getMinimumWidth();
 		});
+		golden::Output("query id", Ids[ORIGINAL]);
+		golden::Output("query free height", Free[ORIGINAL]);
+		golden::Output("query minimum height", MinH[ORIGINAL]);
+		golden::Output("query minimum width", MinW[ORIGINAL]);
+		golden::Output("query frame height", Frame[ORIGINAL]);
 		CHECK(Ids[OURS] == Ids[ORIGINAL] && Free[OURS] == Free[ORIGINAL] && MinH[OURS] == MinH[ORIGINAL]
-			&& MinW[OURS] == MinW[ORIGINAL] && Frame[OURS] == Frame[ORIGINAL],
+				&& MinW[OURS] == MinW[ORIGINAL] && Frame[OURS] == Frame[ORIGINAL],
 			"DialogWindow queries: %d %d %d %d %d, original %d %d %d %d %d", Ids[OURS], Free[OURS], MinH[OURS],
 			MinW[OURS], Frame[OURS], Ids[ORIGINAL], Free[ORIGINAL], MinH[ORIGINAL], MinW[ORIGINAL], Frame[ORIGINAL]);
 		for (TComponent *Child = Column[OURS][0]->FirstChild; Child != NULL; Child = Child->Next) {
 			int Index = 0;
 			for (TComponent *C = Column[OURS][0]->FirstChild; C != Child; C = C->Next)
 				Index++;
-			int A = Child->getMinimumHeight(), B = Counterpart(ORIGINAL, 0, Index)->getMinimumHeight();
+			int A = Child->getMinimumHeight();
+			int B = ORIGINAL_VALUE("sub minimum height", int, Counterpart(ORIGINAL, 0, Index)->getMinimumHeight());
 			CHECK(A == B, "TSubWindow::getMinimumHeight %d, original %d", A, B);
 		}
 		break;
@@ -952,7 +1085,7 @@ static void Operation()
 			if (s == OURS)
 				Column[s][c]->StoreOpenDialogs();
 			else
-				At<VoidFn>(0x4865b0)(Column[s][c], NULL);
+				ORIGINAL(At<VoidFn>(0x4865b0)(Column[s][c], NULL));
 		});
 		break;
 	}
@@ -1008,6 +1141,7 @@ static void Operation()
 		int x = Random() % (O->Width + 1), y = Random() % (O->Height + 1);
 		bool Results[2];
 		Both([&](int s) { Results[s] = Column[s][0]->MouseMove(x, y); });
+		golden::Output("move result", Results[ORIGINAL]);
 		CHECK(Results[OURS] == Results[ORIGINAL], "DialogWindow move result %d, original %d", Results[OURS],
 			Results[ORIGINAL]);
 		break;
@@ -1038,8 +1172,8 @@ static void Operation()
 // Dragged dangling, and the next strategy 1 would call through freed memory).
 template <class F> static void ErrorCall(TErrorRound &R, const char *What, F Call)
 {
-	ROUND_COMPARE(R, What, (Side = OURS, Call(OURS)), (Side = ORIGINAL, Call(ORIGINAL)));
-	for (int s = 0; s < 2; s++)
+	GOLDEN_ROUND_COMPARE(R, What, (Side = OURS, Call(OURS)), (Side = ORIGINAL, Call(ORIGINAL)));
+	for (int s = 0; s < SIDES; s++)
 		for (int c = 0; c < 2; c++) {
 			Column[s][c]->Busy = false;
 			Column[s][c]->UpdateFreeHeight = true;
@@ -1048,9 +1182,6 @@ template <class F> static void ErrorCall(TErrorRound &R, const char *What, F Cal
 		}
 	Compare(What);
 }
-
-typedef bool (__fastcall *BoolFn)(void *, void *);
-typedef void (__fastcall *PositionFn)(void *, void *, bool);
 
 // Every TASSERT/TERROR of DialogWindow.cpp that the columns can reach, and
 // the TEND blocks: the bodies, elements and fakes throw (ThrowMask, one kind
@@ -1105,20 +1236,20 @@ static void TestDialogWindowErrors()
 			if (Index >= 0 && Strategy != 16)
 				ErrorCall(R, "TDialogWindow::Rearrange", [&](int s) { Column[s][c]->Rearrange(Strategy, Counterpart(s, c, Index)); });
 			ErrorCall(R, "TDialogWindow::StoreOpenDialogs", [&](int s) {
-				if (s == OURS) Column[s][c]->StoreOpenDialogs(); else At<VoidFn>(0x4865b0)(Column[s][c], NULL); });
+				if (s == OURS) Column[s][c]->StoreOpenDialogs(); else ORIGINAL(At<VoidFn>(0x4865b0)(Column[s][c], NULL)); });
 			ErrorCall(R, "TDialogWindow::GetFreeHeight", [&](int s) {
-				if (s == OURS) Column[s][c]->GetFreeHeight(); else At<GetFn>(0x487060)(Column[s][c], NULL); });
+				if (s == OURS) Column[s][c]->GetFreeHeight(); else ORIGINAL(At<GetFn>(0x487060)(Column[s][c], NULL)); });
 			ErrorCall(R, "TDialogWindow::PositionChildren", [&](int s) {
-				if (s == OURS) Column[s][c]->PositionChildren(false); else At<PositionFn>(0x486760)(Column[s][c], NULL, false); });
+				if (s == OURS) Column[s][c]->PositionChildren(false); else ORIGINAL(At<PositionFn>(0x486760)(Column[s][c], NULL, false)); });
 			ErrorCall(R, "TDialogWindow::FitChildren", [&](int s) {
-				if (s == OURS) Column[s][c]->FitChildren(); else At<VoidFn>(0x486930)(Column[s][c], NULL); });
+				if (s == OURS) Column[s][c]->FitChildren(); else ORIGINAL(At<VoidFn>(0x486930)(Column[s][c], NULL)); });
 			ErrorCall(R, "TDialogWindow::Shrink", [&](int s) {
-				if (s == OURS) Column[s][c]->Shrink(); else At<BoolFn>(0x48a990)(Column[s][c], NULL); });
+				if (s == OURS) Column[s][c]->Shrink(); else ORIGINAL(At<BoolFn>(0x48a990)(Column[s][c], NULL)); });
 			Index = RandomIndex(c);
 			if (Index >= 0) {
 				ErrorCall(R, "TDialogWindow::Grow", [&](int s) {
 					TComponent *W = Counterpart(s, c, Index);
-					if (s == OURS) Column[s][c]->Grow(W); else At<SetFn>(0x48acb0)(Column[s][c], NULL, W); });
+					if (s == OURS) Column[s][c]->Grow(W); else ORIGINAL(At<SetFn>(0x48acb0)(Column[s][c], NULL, W)); });
 				Index = RandomIndex(c);
 				ErrorCall(R, "TDialogWindow::DeleteChild", [&](int s) { Column[s][c]->DeleteChild(Counterpart(s, c, Index)); });
 			}
@@ -1157,7 +1288,10 @@ static void TestDialogWindowErrors()
 			if (Column[OURS][0]->Capture != NULL)
 				break;
 			auto Sub = [&](int s) { return (TSubWindow *)Counterpart(s, 0, i); };
-			auto Gone = [&]() { return Sub(OURS) == NULL || Sub(ORIGINAL) == NULL; };
+			// The original's answer is recorded (in the oracle each call of Gone evaluates it unless ours is gone).
+			auto Gone = [&]() {
+				return Sub(OURS) == NULL || ORIGINAL_VALUE("gone", bool, Sub(ORIGINAL) == NULL);
+			};
 			if (Gone())
 				break;
 			int x = Random() % (Sub(OURS)->Width + 1), y = Random() % (Sub(OURS)->Height + 1);
@@ -1193,30 +1327,33 @@ static void TestDialogWindowErrors()
 			if (Gone())
 				break;
 			ErrorCall(R, "TSubWindow::ShowUpButton", [&](int s) {
-				if (s == OURS) Sub(s)->ShowUpButton(); else At<VoidFn>(0x4897d0)(Sub(s), NULL); });
+				if (s == OURS) Sub(s)->ShowUpButton(); else ORIGINAL(At<VoidFn>(0x4897d0)(Sub(s), NULL)); });
 			if (Gone())
 				break;
 			ErrorCall(R, "TSubWindow::HideUpButton", [&](int s) {
-				if (s == OURS) Sub(s)->HideUpButton(); else At<VoidFn>(0x489970)(Sub(s), NULL); });
+				if (s == OURS) Sub(s)->HideUpButton(); else ORIGINAL(At<VoidFn>(0x489970)(Sub(s), NULL)); });
 			// The setters with a new part (the old one goes).
 			if (Gone())
 				break;
 			int Which = Random() % 5;
-			static const uint32 Setters[] = {0x489b10, 0x489cf0, 0x489ed0, 0x48a0b0, 0x48a2a0};
+			ORIGINAL(static const uint32 Setters[] = {0x489b10, 0x489cf0, 0x489ed0, 0x48a0b0, 0x48a2a0});
 			ThrowMask = 0;
 			TComponent *Part = Which == 2 ? (TComponent *)new TTestSkinButton : (TComponent *)new TTestElement;
 			Side = OURS;
 			Register(Part, "Part");
-			TComponent *Part2 = Which == 2 ? (TComponent *)new TTestSkinButton : (TComponent *)new TTestElement;
+			TComponent *Part2 = nullptr; // the original's part (the oracle only)
+#if GOLDEN_ORACLE
+			Part2 = Which == 2 ? (TComponent *)new TTestSkinButton : (TComponent *)new TTestElement;
 			Side = ORIGINAL;
 			Register(Part2, "Part");
+#endif
 			Part->SetSize(5, 5);
-			Part2->SetSize(5, 5);
+			ORIGINAL(Part2->SetSize(5, 5));
 			ThrowMask = Mask;
 			ErrorCall(R, "TSubWindow setter", [&](int s) {
 				TComponent *P = s == OURS ? Part : Part2;
 				if (s == ORIGINAL)
-					At<SetFn>(Setters[Which])(Sub(s), NULL, P);
+					ORIGINAL(At<SetFn>(Setters[Which])(Sub(s), NULL, P));
 				else if (Which == 0)
 					Sub(s)->SetUpButton(P);
 				else if (Which == 1)
@@ -1239,17 +1376,17 @@ static void TestDialogWindowErrors()
 				ErrorCall(R, What, [&](int s) { Column[s][c]->Rearrange(Strategy, NULL); });
 			// DragChild of a window that is not a child.
 			TTestElement *Stranger = new TTestElement;
-			for (Side = 0; Side < 2; Side++)
+			for (Side = 0; Side < SIDES; Side++)
 				Register(Stranger, "Stranger");
 			ErrorCall(R, "TDialogWindow::DragChild stranger", [&](int s) {
-				if (s == OURS) Column[s][c]->DragChild(Stranger); else At<SetFn>(0x486b30)(Column[s][c], NULL, Stranger); });
+				if (s == OURS) Column[s][c]->DragChild(Stranger); else ORIGINAL(At<SetFn>(0x486b30)(Column[s][c], NULL, Stranger)); });
 			delete Stranger;
 			// Shrink with a child below its minimum height and no room.
 			std::vector<TComponent *> Children = ChildrenOf(Column[OURS][c]);
 			if (!Children.empty()) {
 				int Index = (int)Children.size() - 1;
 				int SavedHeight[2], SavedColumn[2];
-				for (int s = 0; s < 2; s++) {
+				for (int s = 0; s < SIDES; s++) {
 					TComponent *W = Counterpart(s, c, Index);
 					SavedHeight[s] = W->Height;
 					SavedColumn[s] = Column[s][c]->Height;
@@ -1257,8 +1394,8 @@ static void TestDialogWindowErrors()
 					Column[s][c]->Height = 1;
 				}
 				ErrorCall(R, "TDialogWindow::Shrink below the minimum", [&](int s) {
-					if (s == OURS) Column[s][c]->Shrink(); else At<BoolFn>(0x48a990)(Column[s][c], NULL); });
-				for (int s = 0; s < 2; s++) {
+					if (s == OURS) Column[s][c]->Shrink(); else ORIGINAL(At<BoolFn>(0x48a990)(Column[s][c], NULL)); });
+				for (int s = 0; s < SIDES; s++) {
 					Counterpart(s, c, Index)->Height = SavedHeight[s];
 					Column[s][c]->Height = SavedColumn[s];
 				}
@@ -1277,25 +1414,26 @@ static void TestDialogWindowErrors()
 		if (!Subs.empty() && Column[OURS][0]->Capture == NULL) {
 			int i = (int)(Random() % Subs.size());
 			auto Sub = [&](int s) { return (TSubWindow *)Counterpart(s, 0, i); };
-			TSubWindowBody *Saved[2] = {Sub(OURS)->Body, Sub(ORIGINAL)->Body};
+			TSubWindowBody *Saved[2] = {Sub(OURS)->Body, ORIGINAL_OR(Sub(ORIGINAL)->Body, nullptr)};
 			ErrorCall(R, "TSubWindow::Arrange without a body", [&](int s) { Sub(s)->Body = NULL; Sub(s)->Arrange(); });
-			for (int s = 0; s < 2; s++)
+			for (int s = 0; s < SIDES; s++)
 				Sub(s)->Body = Saved[s];
 			// The state set directly (calling the other one first would
 			// rearrange the column): each assertion comes before the try block.
 			for (int Minimized = 0; Minimized < 2; Minimized++) {
-				bool Saved[2] = {Sub(OURS)->IsMinimized, Sub(ORIGINAL)->IsMinimized};
+				bool SavedMinimized[2] = {Sub(OURS)->IsMinimized, ORIGINAL_OR(Sub(ORIGINAL)->IsMinimized, false)};
 				ErrorCall(R, Minimized ? "TSubWindow::Minimize minimized" : "TSubWindow::Maximize not minimized",
 					[&](int s) {
 						Sub(s)->IsMinimized = Minimized != 0;
-						if (Minimized) Sub(s)->Minimize(); else Sub(s)->Maximize();
+						if (Minimized) Sub(s)->Minimize();
+						else Sub(s)->Maximize();
 					});
-				for (int s = 0; s < 2; s++)
-					Sub(s)->IsMinimized = Saved[s];
+				for (int s = 0; s < SIDES; s++)
+					Sub(s)->IsMinimized = SavedMinimized[s];
 			}
 		}
 		int Identifier = 0x40 + (int)(Random() % 16);
-		ROUND_COMPARE(R, "TSubWindow without a body", delete new TSubWindow(Identifier, NULL, false, false),
+		GOLDEN_ROUND_COMPARE(R, "TSubWindow without a body", delete new TSubWindow(Identifier, NULL, false, false),
 			At<SubCtorFn>(0x487e80)(operator new(sizeof(TSubWindow)), NULL, Identifier, NULL, false, false));
 		Log[OURS].clear();
 		Log[ORIGINAL].clear();
@@ -1318,16 +1456,65 @@ static void TestDialogWindowErrors()
 	R.Finish();
 }
 
+} // namespace DialogWindowTest
+
+#if !GOLDEN_ORACLE
+// The runner's operator delete: while the test runs, the memory it frees stays as it was until the end of the
+// test. Our TDialogWindow::SetSize (DialogWindow.cpp, as the original's 0x4857d0) sizes each child in a loop
+// that goes on through the child's Next; a sub-window's SetSize can rearrange the column and delete children,
+// the loop then reads a deleted child. The x86 oracle's heap leaves a freed object's members as they were, and
+// so does the x64 Release runner's, mostly; the Debug CRT fills freed memory. Keeping it makes the runner read
+// what the oracle read, in Release and Debug alike.
+// The list is malloc's own (a vector's reallocation would call this operator delete).
+namespace {
+bool KeepFreed = false;
+void **Freed = nullptr;
+size_t NumberOfFreed = 0, FreedCapacity = 0;
+void Free(void *Memory)
+{
+	if (!KeepFreed || Memory == nullptr) {
+		free(Memory);
+		return;
+	}
+	if (NumberOfFreed == FreedCapacity) {
+		FreedCapacity = FreedCapacity == 0 ? 4096 : 2 * FreedCapacity;
+		void **List = (void **)realloc(Freed, FreedCapacity * sizeof(void *));
+		if (List == nullptr) {
+			printf("golden: out of memory\n");
+			exit(1);
+		}
+		Freed = List;
+	}
+	Freed[NumberOfFreed++] = Memory;
+}
+void FreeKept()
+{
+	KeepFreed = false;
+	for (size_t i = 0; i < NumberOfFreed; i++)
+		free(Freed[i]);
+	free(Freed);
+	Freed = nullptr;
+	NumberOfFreed = FreedCapacity = 0;
+}
+} // namespace
+void operator delete(void *Memory) noexcept { Free(Memory); }
+void operator delete(void *Memory, size_t) noexcept { Free(Memory); }
+#endif
+
 void TestDialogWindow()
 {
+	using namespace DialogWindowTest;
 	int Before = Checks, BeforeFailures = Failures;
-	PatchImage();
+#if !GOLDEN_ORACLE
+	KeepFreed = true;
+#endif
+	ORIGINAL(PatchImage());
 	InitSkins();
-	Global<int>(0x71c450) = NumberOfSkins;
-	Global<TSkin *>(0x71c454) = Skins;
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
 	InitSkinProperties();
-	At<void (__cdecl *)()>(0x498160)();
-	Surface = new TDialogSurface;
+	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
+	LastDump.clear();
+	DialogSurface = new TDialogSurface;
 	PatchCallees();
 	DialogFakes.Body = HookBody;
 	DialogFakes.BodyAccepts = HookBodyAccepts;
@@ -1350,9 +1537,9 @@ void TestDialogWindow()
 		delete D;
 		delete C;
 		delete W;
-		ClassOf[ORIGINAL][(void *)(uintptr_t)0x563f80] = CLASS_COLUMN;
-		ClassOf[ORIGINAL][(void *)(uintptr_t)0x563e38] = CLASS_CONTENT;
-		ClassOf[ORIGINAL][(void *)(uintptr_t)0x563ed8] = CLASS_SUB;
+		ORIGINAL(ClassOf[ORIGINAL][(void *)(uintptr_t)0x563f80] = CLASS_COLUMN;
+			ClassOf[ORIGINAL][(void *)(uintptr_t)0x563e38] = CLASS_CONTENT;
+			ClassOf[ORIGINAL][(void *)(uintptr_t)0x563ed8] = CLASS_SUB);
 	}
 	Log[OURS].clear();
 	Log[ORIGINAL].clear();
@@ -1385,6 +1572,7 @@ void TestDialogWindow()
 				Column[s][c] = NULL;
 			}
 		});
+		OutputOriginalLog();
 		Checks++;
 		if (Log[OURS] != Log[ORIGINAL]) {
 			Failures++;
@@ -1406,9 +1594,12 @@ void TestDialogWindow()
 	RoundChecks = Checks - RoundChecks;
 	DialogFakes = TDialogFakes();
 	RestoreAll();
-	delete Surface;
+	delete DialogSurface;
 	ExitSkins();
-	Global<TSkin *>(0x71c454) = NULL;
+	ORIGINAL(Global<TSkin *>(0x71c454) = NULL);
+#if !GOLDEN_ORACLE
+	FreeKept();
+#endif
 	int Least = KindCount[0];
 	for (int i = 1; i < 24; i++)
 		Least = KindCount[i] < Least ? KindCount[i] : Least;

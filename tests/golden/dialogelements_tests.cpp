@@ -1,4 +1,5 @@
-// Differential tests of DialogElements.cpp against the original code.
+// difftest.exe's DialogElements test (moved here from tools/difftest/dialogelementstest.cpp, issue #28):
+// DialogElements.cpp against the original, as a golden-corpus test (golden.h).
 //
 // Every round builds one kind of control on both sides, the original from the
 // image's constructor (at its address, in pattern-filled memory) and ours with
@@ -28,41 +29,72 @@
 // lines and values, Tab only in an active focus group).
 // DIFFTEST_ONLY=DialogElements runs it alone; DE_TRACE=1 traces rounds and
 // operations, DE_LOGS=<file> writes every compared log and dump.
+//
+// By value (plan 4.3): the original's side exists in the oracle only (its calls inside ORIGINAL, #if
+// GOLDEN_ORACLE or CallI, which the runner never reaches); the runner has our controls alone. Per comparison
+// the corpus holds the original's log (text), its dump (text, by its changes since the last one,
+// golden::OutputTextChanges), how many logged fake calls its call made (the error round draws the failing call
+// from them) and what it threw. The runner redirects its own functions with golden::RedirectOwn (operator new
+// and new[] to the pattern too).
 
-#include "difftest.h"
-#include "imageeh.h"
-#include "../../src/DialogElements.h"
-#include "../../src/GUI.h"
-#include "../../src/Skins.h"
-#include "../../src/Status.h"
-#include "../../src/Surface.h"
-#include "../../tests/golden/testsurface.h"
-#include "../../src/Utils.h"
-#include "../../src/graphics.h"
-#include "../../src/sysinc.h"
+#include "golden_test.h"
+
+#include "golden_eh.h"
+#include "testsurface.h"
+#if GOLDEN_ORACLE
+#include "../../tools/difftest/imageeh.h"
+#else
+#include "golden_patch.h"
+#endif
+
+#include "DialogElements.h"
+#include "GUI.h"
+#include "Skins.h"
+#include "Status.h"
+#include "Surface.h"
+#include "Utils.h"
+#include "graphics.h"
+#include "sysinc.h"
+
 #include <map>
 #include <new>
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <vector>
 
+#if GOLDEN_ORACLE
 static_assert(sizeof(TSeparator) == 0x28 && sizeof(TResizer) == 0x38 && sizeof(TBorder) == 0x68
-	&& sizeof(TLabel) == 0x4c && sizeof(TFormattedText) == 0x38 && sizeof(TLink) == 0x3c
-	&& sizeof(TOutfitIcon) == 0x48 && sizeof(TSkinIcon) == 0x28 && sizeof(TObjectIcon) == 0x50, "sizes 1");
+		&& sizeof(TLabel) == 0x4c && sizeof(TFormattedText) == 0x38 && sizeof(TLink) == 0x3c
+		&& sizeof(TOutfitIcon) == 0x48 && sizeof(TSkinIcon) == 0x28 && sizeof(TObjectIcon) == 0x50,
+	"sizes 1");
 static_assert(sizeof(TSkinButton) == 0x44 && sizeof(TColorButton) == 0x50 && sizeof(TIconButton) == 0x48
-	&& sizeof(TBlinkingButton) == 0x5c && sizeof(TTextButton) == 0x78 && sizeof(TToggleButton) == 0x50
-	&& sizeof(TTextToggleButton) == 0x84 && sizeof(TMultiStateButton) == 0x58 && sizeof(TCheckBox) == 0x34, "sizes 2");
+		&& sizeof(TBlinkingButton) == 0x5c && sizeof(TTextButton) == 0x78 && sizeof(TToggleButton) == 0x50
+		&& sizeof(TTextToggleButton) == 0x84 && sizeof(TMultiStateButton) == 0x58 && sizeof(TCheckBox) == 0x34,
+	"sizes 2");
 static_assert(sizeof(TEditLine) == 0x68 && sizeof(TPasswordEditLine) == 0x6c && sizeof(TEditText) == 0x9c
-	&& sizeof(TFocusGroup) == 0x28 && sizeof(THorizontalScrollBarRange) == 0x54 && sizeof(THorizontalScrollBar) == 0x38
-	&& sizeof(TScrollBarRange) == 0x4c && sizeof(TScrollBar) == 0x38 && sizeof(TListBox) == 0x7c
-	&& sizeof(TFontListBox) == 0xb0 && sizeof(TProgressBar) == 0x2c && sizeof(TListBoxLine) == 0x18, "sizes 3");
+		&& sizeof(TFocusGroup) == 0x28 && sizeof(THorizontalScrollBarRange) == 0x54 && sizeof(THorizontalScrollBar) == 0x38
+		&& sizeof(TScrollBarRange) == 0x4c && sizeof(TScrollBar) == 0x38 && sizeof(TListBox) == 0x7c
+		&& sizeof(TFontListBox) == 0xb0 && sizeof(TProgressBar) == 0x2c && sizeof(TListBoxLine) == 0x18,
+	"sizes 3");
 static_assert(offsetof(TEditLine, ReadOnly) == 0x66 && offsetof(TEditText, VisibleLines) == 0x98
-	&& offsetof(TListBox, EditScroll) == 0x78 && offsetof(TFontListBox, FontLines) == 0x7c
-	&& offsetof(THorizontalScrollBarRange, Callback) == 0x4c && offsetof(TSkinButton, Enabled) == 0x40, "layouts");
+		&& offsetof(TListBox, EditScroll) == 0x78 && offsetof(TFontListBox, FontLines) == 0x7c
+		&& offsetof(THorizontalScrollBarRange, Callback) == 0x4c && offsetof(TSkinButton, Enabled) == 0x40,
+	"layouts");
+#endif
+
+// The test's own definitions: in a namespace of their own (the other tests, linked into the same executable,
+// define classes of the same names at global scope).
+namespace DialogElementsTest {
 
 // --- Logs and names --------------------------------------------------------------------
 
-enum { OURS = 0, ORIGINAL = 1 };
+enum { OURS = 0,
+	ORIGINAL = 1 };
+// The sides that have objects: both in the oracle, ours in the runner.
+static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
 static int Side;
 static bool Testing;
 static std::string Log[2];
@@ -103,11 +135,27 @@ static void Add(std::string &Out, const char *Format, ...)
 static void *VtableOf(const void *Object) { return *(void **)Object; }
 template <class T> static void *Member(T Function) { return *(void **)&Function; }
 
-// Image calls of members (thiscall through a fastcall pointer).
+// Image calls of members (thiscall through a fastcall pointer). The runner has no image: the original's
+// calls are never reached there (Both runs our side only); one that were would stop the runner.
+#if GOLDEN_ORACLE
 template <class R, class... A> static R CallI(uint32 Address, const void *This, A... Args)
 {
-	return ((R (__fastcall *)(const void *, void *, A...))(uintptr_t)Address)(This, NULL, Args...);
+	return ((R(__fastcall *)(const void *, void *, A...))(uintptr_t)Address)(This, NULL, Args...);
 }
+#else
+static void NoOriginal()
+{
+	printf("golden: DialogElements: a call of the original in the runner\n");
+	exit(1);
+}
+// (Called through a volatile pointer, so that the code after a call is not unreachable to the compiler, C4702.)
+static void (*volatile StopNoOriginal)() = NoOriginal;
+template <class R, class... A> static R CallI(uint32, const void *, A...)
+{
+	StopNoOriginal();
+	return R();
+}
+#endif
 
 static std::map<const void *, std::string> Roles[2];
 static std::map<void *, std::string> Kinds[2];
@@ -132,8 +180,11 @@ static std::string Str(const char *Text) { return Text == NULL ? "(null)" : std:
 static std::string Tip(const char *Text)
 {
 	char Buffer[16];
-	if ((uintptr_t)Text == 0xabababab) {
-		sprintf(Buffer, "%p", (void *)Text);
+	// (The pattern: 0xab in every byte; printed as the x86 oracle's %p printed it, eight hex digits.)
+	uintptr_t Pattern;
+	memset(&Pattern, 0xab, sizeof(Pattern));
+	if ((uintptr_t)Text == Pattern) {
+		snprintf(Buffer, sizeof(Buffer), "%08X", 0xababababu);
 		return Buffer;
 	}
 	return Str(Text);
@@ -158,7 +209,11 @@ static int __cdecl FakeGetTextPartWidth(int Font, const char *Text, int Length)
 		Width += CharWidth(Font, Text[i]);
 	return Width;
 }
-static int __cdecl FakeGetTextWidth(int Font, const char *Text) { Tick(); return FakeGetTextPartWidth(Font, Text, 1 << 30); }
+static int __cdecl FakeGetTextWidth(int Font, const char *Text)
+{
+	Tick();
+	return FakeGetTextPartWidth(Font, Text, 1 << 30);
+}
 static int __cdecl FakeGetFittingTextLength(int Font, const char *Text, int Width)
 {
 	Tick();
@@ -167,8 +222,16 @@ static int __cdecl FakeGetFittingTextLength(int Font, const char *Text, int Widt
 		Used += CharWidth(Font, Text[Length++]);
 	return Length;
 }
-static int __cdecl FakeGetFontHeight(int Font) { Tick(); return 8 + (Font & 3); }
-static int __cdecl FakeGetFontLineHeight(int Font) { Tick(); return 11 + (Font & 3); }
+static int __cdecl FakeGetFontHeight(int Font)
+{
+	Tick();
+	return 8 + (Font & 3);
+}
+static int __cdecl FakeGetFontLineHeight(int Font)
+{
+	Tick();
+	return 11 + (Font & 3);
+}
 static void __cdecl FakeGetTextPosition(int *TextX, int *TextY, int x, int y, int Width, int Height, TFont *Format)
 {
 	Tick();
@@ -211,8 +274,16 @@ static void __cdecl FakeDrawPicturePart(int Surface, int x, int y, int Picture, 
 }
 static void __cdecl FakeSetMouseOverText(const char *Text) { Logf("Over%s;", Text == NULL ? "-" : Text); }
 static void __cdecl FakeSetMouseCursor(int Cursor) { Logf("Cursor%d;", Cursor); }
-static int __cdecl FakeGetActionState() { Tick(); return World.ActionState; }
-static int __cdecl FakeGetActionNumber() { Tick(); return World.ActionNumber; }
+static int __cdecl FakeGetActionState()
+{
+	Tick();
+	return World.ActionState;
+}
+static int __cdecl FakeGetActionNumber()
+{
+	Tick();
+	return World.ActionNumber;
+}
 static void __cdecl FakeAddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 {
 	Logf("Msg%d,%s,%d;", Type, Name((void *)Param1).c_str(), (int)Param2);
@@ -221,10 +292,24 @@ static void __cdecl FakeCheckClipboardText(const char *Text, int Length)
 {
 	Logf("Clip%s,%d;", std::string(Text, Length > 0 ? Length : 0).c_str(), Length);
 }
-static bool __cdecl FakeIsClipboardEmpty() { Tick(); return World.ClipboardEmpty; }
-static char *__cdecl FakeGetClipboardText() { Tick(); return (char *)World.Clipboard; }
-// sysinc.cpp is not linked: our side's definition.
-char *GetClipboardText() { return FakeGetClipboardText(); }
+static bool __cdecl FakeIsClipboardEmpty()
+{
+	Tick();
+	return World.ClipboardEmpty;
+}
+static char *__cdecl FakeGetClipboardText()
+{
+	Tick();
+	return (char *)World.Clipboard;
+}
+} // namespace DialogElementsTest
+
+#if GOLDEN_ORACLE
+// sysinc.cpp is not linked: our side's definition (the runner has sysinc.cpp's, golden_sysinc, and redirects it).
+char *GetClipboardText() { return DialogElementsTest::FakeGetClipboardText(); }
+#endif
+
+namespace DialogElementsTest {
 
 // The surface: the two calls DialogElements.cpp makes.
 class TDESurface : public TTestSurface {
@@ -233,13 +318,17 @@ public:
 	{
 		Logf("Fill%d,%d,%d,%d,%d,%d,%d,%d;", Surface, R.x, R.y, R.width, R.height, C.R, C.G, C.B);
 	}
-	void DrawVerticalLine(int Surface, int x, int y, int Height, TRGBColor C)
+	void DrawVerticalLine(int Surface, int x, int y, int LineHeight, TRGBColor C)
 	{
-		Logf("VLine%d,%d,%d,%d,%d,%d,%d;", Surface, x, y, Height, C.R, C.G, C.B);
+		Logf("VLine%d,%d,%d,%d,%d,%d,%d;", Surface, x, y, LineHeight, C.R, C.G, C.B);
 	}
 };
-static TDESurface *Surface;
-static TSurface *__cdecl FakeGetSurface() { Tick(); return Surface; }
+static TDESurface *DESurface;
+static TSurface *__cdecl FakeGetSurface()
+{
+	Tick();
+	return DESurface;
+}
 
 static void __cdecl FakeOpenURL(const char *URL) { Logf("URL%s;", URL); }
 
@@ -287,33 +376,48 @@ struct TSaved {
 	uint8 Bytes[5];
 };
 static std::vector<TSaved> SavedCode;
+// The oracle patches the image and difftest.exe's code with PatchJump; the runner its own code with
+// golden::RedirectOwn (golden_patch.h), saved and restored the same way.
 static void Redirect(void *Function, void *Target)
 {
 	TSaved S;
 	S.Code = (uint8 *)Function;
+#if GOLDEN_ORACLE
 	DWORD Protection;
 	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
 	memcpy(S.Bytes, Function, 5);
 	PatchJump((uint32)(uintptr_t)Function, Target);
 	VirtualProtect(Function, 5, Protection, &Protection);
 	FlushInstructionCache(GetCurrentProcess(), Function, 5);
+#else
+	golden::SaveOwn(Function, S.Bytes);
+	golden::RedirectOwn(Function, Target);
+#endif
 	SavedCode.push_back(S);
 }
 static void RestoreAll()
 {
 	for (size_t i = SavedCode.size(); i-- > 0;) {
+#if GOLDEN_ORACLE
 		DWORD Protection;
 		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
 		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
 		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
 		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
+#else
+		golden::RestoreOwn(SavedCode[i].Code, SavedCode[i].Bytes);
+#endif
 	}
 	SavedCode.clear();
 }
 
 static void PatchCallees()
 {
-	struct { uint32 Image; void *Ours; void *Fake; } Table[] = {
+	struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Table[] = {
 		{0x491b80, (void *)GetTextPartWidth, (void *)FakeGetTextPartWidth},
 		{0x494570, (void *)GetTextWidth, (void *)FakeGetTextWidth},
 		{0x491f50, (void *)GetFittingTextLength, (void *)FakeGetFittingTextLength},
@@ -333,15 +437,16 @@ static void PatchCallees()
 		{0x4e6e00, (void *)GetActionNumber, (void *)FakeGetActionNumber},
 		{0x4e9020, (void *)AddMessage, (void *)FakeAddMessage},
 		{0x4ea370, (void *)CheckClipboardText, (void *)FakeCheckClipboardText},
-		// Ours of IsClipboardEmpty is contextmenustest.cpp's, of GetClipboardText this file's.
+		// Ours of IsClipboardEmpty is contextmenus_tests.cpp's, of GetClipboardText this file's (the runner's:
+		// sysinc.cpp's, golden_sysinc).
 		{0x4fcbe0, (void *)IsClipboardEmpty, (void *)FakeIsClipboardEmpty},
-		{0x4fcff0, NULL, (void *)FakeGetClipboardText},
+		{0x4fcff0, ORIGINAL_OR(NULL, (void *)GetClipboardText), (void *)FakeGetClipboardText},
 		{0x511d6b, NULL, (void *)ImageSprintf},
-		{0x5237e7, (void *)(void *(__cdecl *)(size_t))operator new, (void *)PatternNew},
-		{0x523817, (void *)(void *(__cdecl *)(size_t))operator new[], (void *)PatternNew},
+		{0x5237e7, (void *)(void *(__cdecl *)(size_t)) operator new, (void *)PatternNew},
+		{0x523817, (void *)(void *(__cdecl *)(size_t)) operator new[], (void *)PatternNew},
 	};
 	for (auto &T : Table) {
-		Redirect((void *)(uintptr_t)T.Image, T.Fake);
+		ORIGINAL(Redirect((void *)(uintptr_t)T.Image, T.Fake));
 		if (T.Ours != NULL)
 			Redirect(T.Ours, T.Fake);
 	}
@@ -350,9 +455,33 @@ static void PatchCallees()
 // --- The kinds of controls -----------------------------------------------------------------
 
 enum {
-	K_SEPARATOR, K_RESIZER, K_BORDER, K_LABEL, K_FORMATTED, K_LINK, K_OUTFIT, K_SKINICON, K_OBJECTICON,
-	K_SKINBUTTON, K_COLORBUTTON, K_ICONBUTTON, K_BLINKING, K_TEXTBUTTON, K_TOGGLE, K_TEXTTOGGLE, K_MULTI,
-	K_CHECKBOX, K_EDIT, K_EDITTEXT, K_HSCROLL, K_VSCROLL, K_HRANGE, K_VRANGE, K_LIST, K_FONTLIST, K_PROGRESS,
+	K_SEPARATOR,
+	K_RESIZER,
+	K_BORDER,
+	K_LABEL,
+	K_FORMATTED,
+	K_LINK,
+	K_OUTFIT,
+	K_SKINICON,
+	K_OBJECTICON,
+	K_SKINBUTTON,
+	K_COLORBUTTON,
+	K_ICONBUTTON,
+	K_BLINKING,
+	K_TEXTBUTTON,
+	K_TOGGLE,
+	K_TEXTTOGGLE,
+	K_MULTI,
+	K_CHECKBOX,
+	K_EDIT,
+	K_EDITTEXT,
+	K_HSCROLL,
+	K_VSCROLL,
+	K_HRANGE,
+	K_VRANGE,
+	K_LIST,
+	K_FONTLIST,
+	K_PROGRESS,
 	KINDS
 };
 static const char *const KindNames[KINDS] = {"separator", "resizer", "border", "label", "formatted text", "link",
@@ -360,32 +489,72 @@ static const char *const KindNames[KINDS] = {"separator", "resizer", "border", "
 	"text button", "toggle button", "text toggle button", "multi-state button", "check box", "edit lines",
 	"edit text", "horizontal scroll bar", "scroll bar", "horizontal range", "range", "list box", "font list box",
 	"progress bar"};
-static const struct { uint32 Vtable; const char *Kind; } ImageVtables[] = {
-	{0x560bb8, "Label"}, {0x560c40, "FormattedText"}, {0x560ce8, "Link"}, {0x560d88, "ObjectIcon"},
-	{0x560e10, "MultiState"}, {0x560e98, "EditLine"}, {0x560f60, "Password"}, {0x561028, "Progress"},
-	{0x5610b0, "Separator"}, {0x561138, "ListBox"}, {0x5611e0, "FontListBox"}, {0x5612b0, "Resizer"},
-	{0x561358, "Border"}, {0x5614f8, "SkinIcon"}, {0x5617e0, "HRange"}, {0x561868, "VRange"},
-	{0x561970, "OutfitIcon"}, {0x5619f8, "SkinButton"}, {0x561a80, "ColorButton"}, {0x561b08, "IconButton"},
-	{0x561b90, "Blinking"}, {0x561c40, "TextButton"}, {0x561cd0, "Toggle"}, {0x561d58, "TextToggle"},
-	{0x561de8, "CheckBox"}, {0x561ed0, "HScroll"}, {0x561f70, "VScroll"}, {0x562040, "EditText"},
+#if GOLDEN_ORACLE
+static const struct {
+	uint32 Vtable;
+	const char *Kind;
+} ImageVtables[] = {
+	{0x560bb8, "Label"},
+	{0x560c40, "FormattedText"},
+	{0x560ce8, "Link"},
+	{0x560d88, "ObjectIcon"},
+	{0x560e10, "MultiState"},
+	{0x560e98, "EditLine"},
+	{0x560f60, "Password"},
+	{0x561028, "Progress"},
+	{0x5610b0, "Separator"},
+	{0x561138, "ListBox"},
+	{0x5611e0, "FontListBox"},
+	{0x5612b0, "Resizer"},
+	{0x561358, "Border"},
+	{0x5614f8, "SkinIcon"},
+	{0x5617e0, "HRange"},
+	{0x561868, "VRange"},
+	{0x561970, "OutfitIcon"},
+	{0x5619f8, "SkinButton"},
+	{0x561a80, "ColorButton"},
+	{0x561b08, "IconButton"},
+	{0x561b90, "Blinking"},
+	{0x561c40, "TextButton"},
+	{0x561cd0, "Toggle"},
+	{0x561d58, "TextToggle"},
+	{0x561de8, "CheckBox"},
+	{0x561ed0, "HScroll"},
+	{0x561f70, "VScroll"},
+	{0x562040, "EditText"},
 	{0x564528, "Window"},
 };
+#endif
 
 static int Kind;
 static TWindow *Root[2];
 static TComponent *Control[2];
-static TComponent *Extra[2][2];        // the other edit lines of the focus group
+static TComponent *Extra[2][2]; // the other edit lines of the focus group
 static TFocusGroup *Group[2];
 static TRadioButtonGroup *Radio[2];
 static TDEReceiver *Receiver[2];
 static TDETarget *Target[2];
 
 static const char *const Texts[] = {
-	"Hello", "Hello world, this is a longer text", "two\nlines", "a\nb\nc", "", "x",
-	"Tibia rules the world of words and spaces", "<b>bold</b> and <n>normal", "<font=2>font two<br=5>break",
-	"<color=100>col <hspace=10> spaced <indent=20> indented\nnext line", "<skin=12>icon text", "<skin=999>bad skin",
-	"<red=200><green=10><blue=30>rgb <h>head", "bad <x token", "<font=x", "<b>", "word-word.word,word;word",
-	"Line one\nLine two is longer than the first\n\nfour", "<color=101>pink <color=17>blue",
+	"Hello",
+	"Hello world, this is a longer text",
+	"two\nlines",
+	"a\nb\nc",
+	"",
+	"x",
+	"Tibia rules the world of words and spaces",
+	"<b>bold</b> and <n>normal",
+	"<font=2>font two<br=5>break",
+	"<color=100>col <hspace=10> spaced <indent=20> indented\nnext line",
+	"<skin=12>icon text",
+	"<skin=999>bad skin",
+	"<red=200><green=10><blue=30>rgb <h>head",
+	"bad <x token",
+	"<font=x",
+	"<b>",
+	"word-word.word,word;word",
+	"Line one\nLine two is longer than the first\n\nfour",
+	"<color=101>pink <color=17>blue",
 	"averyveryverylongwordwithoutanyspacesinsideitatall",
 };
 static const char *RandomText() { return Texts[Random() % (sizeof(Texts) / sizeof(Texts[0]))]; }
@@ -395,16 +564,22 @@ static TFont RandomFont()
 {
 	TFont F;
 	F.FontNumber = Random() % 5;
-	F.Color = TRGBColor(Random() % 256, Random() % 256, Random() % 256);
+	{
+		// In the order the x86 oracle evaluated the arguments, right to left (#55).
+		int Blue = Random() % 256, Green = Random() % 256, Red = Random() % 256;
+		F.Color = TRGBColor(Red, Green, Blue);
+	}
 	F.Alignment = Random() % 3;
 	return F;
 }
-static int RandomSkin() { return Random() % 250; }
+[[maybe_unused]] static int RandomSkin() { return Random() % 250; }
 
 // --- Building ---------------------------------------------------------------------------
 
+#if GOLDEN_ORACLE
 typedef void *(__fastcall *CtorFn)(void *, void *);
 static void *ImageWindow() { return At<CtorFn>(0x496080)(PatternNew(sizeof(TWindow)), NULL); }
+#endif
 
 struct TArguments {
 	int Variant;
@@ -450,7 +625,11 @@ static TArguments RandomArguments()
 	A.Tooltip1 = RandomTooltip();
 	A.Tooltip2 = RandomTooltip();
 	A.Font = RandomFont();
-	A.Color = TRGBColor(Random() % 256, Random() % 256, Random() % 256);
+	{
+		// In the order the x86 oracle evaluated the arguments, right to left (#55).
+		int Blue = Random() % 256, Green = Random() % 256, Red = Random() % 256;
+		A.Color = TRGBColor(Red, Green, Blue);
+	}
 	for (int i = 0; i < 4; i++)
 		A.Colors[i] = Random() % 133;
 	A.Obj.Type = 100 + Random() % 3000;
@@ -471,125 +650,129 @@ static TComponent *Build(int s, const TArguments &A)
 	switch (Kind) {
 	case K_SEPARATOR:
 		return O ? (TComponent *)new TSeparator(A.Flag1)
-			: (TComponent *)CallI<void *>(0x452cb0, PatternNew(0x28), A.Flag1);
+				 : (TComponent *)CallI<void *>(0x452cb0, PatternNew(0x28), A.Flag1);
 	case K_RESIZER:
 		return O ? (TComponent *)new TResizer(Target[s], A.Flag1, A.Flag2, A.Flag3)
-			: (TComponent *)CallI<void *>(0x453be0, PatternNew(0x38), (TComponent *)Target[s], A.Flag1, A.Flag2, A.Flag3);
+				 : (TComponent *)CallI<void *>(0x453be0, PatternNew(0x38), (TComponent *)Target[s], A.Flag1, A.Flag2, A.Flag3);
 	case K_BORDER:
 		if (A.Variant == 0)
 			return O ? (TComponent *)new TBorder(Target[s], A.g)
-				: (TComponent *)CallI<void *>(0x4547f0, PatternNew(0x68), (TWindow *)Target[s], A.g);
+					 : (TComponent *)CallI<void *>(0x4547f0, PatternNew(0x68), (TWindow *)Target[s], A.g);
 		if (A.Variant == 1)
 			return O ? (TComponent *)new TBorder(Target[s], A.Skins[0], A.Skins[1], A.Skins[2], A.Skins[3], A.Skins[4],
-				A.Skins[5], A.Skins[6], A.Skins[7], A.g)
-				: (TComponent *)CallI<void *>(0x454b10, PatternNew(0x68), (TWindow *)Target[s], A.Skins[0], A.Skins[1],
-					A.Skins[2], A.Skins[3], A.Skins[4], A.Skins[5], A.Skins[6], A.Skins[7], A.g);
+						   A.Skins[5], A.Skins[6], A.Skins[7], A.g)
+					 : (TComponent *)CallI<void *>(0x454b10, PatternNew(0x68), (TWindow *)Target[s], A.Skins[0], A.Skins[1],
+						   A.Skins[2], A.Skins[3], A.Skins[4], A.Skins[5], A.Skins[6], A.Skins[7], A.g);
 		return O ? (TComponent *)new TBorder(Target[s], A.Skins[0], A.Skins[1], A.Skins[2], A.Skins[3], A.Skins[4],
-			A.Skins[5], A.Skins[6], A.Skins[7], A.Flag1 ? A.Skins[8] : 0, A.g)
-			: (TComponent *)CallI<void *>(0x454e30, PatternNew(0x68), (TWindow *)Target[s], A.Skins[0], A.Skins[1],
-				A.Skins[2], A.Skins[3], A.Skins[4], A.Skins[5], A.Skins[6], A.Skins[7], A.Flag1 ? A.Skins[8] : 0, A.g);
+					   A.Skins[5], A.Skins[6], A.Skins[7], A.Flag1 ? A.Skins[8] : 0, A.g)
+				 : (TComponent *)CallI<void *>(0x454e30, PatternNew(0x68), (TWindow *)Target[s], A.Skins[0], A.Skins[1],
+					   A.Skins[2], A.Skins[3], A.Skins[4], A.Skins[5], A.Skins[6], A.Skins[7], A.Flag1 ? A.Skins[8] : 0, A.g);
 	case K_LABEL:
 		if (A.Variant == 0)
 			return O ? (TComponent *)new TLabel(A.x, A.y, 30 + A.f, 10 + A.d, A.Font, A.Text, A.Flag1)
-				: (TComponent *)CallI<void *>(0x465510, PatternNew(0x4c), A.x, A.y, 30 + A.f, 10 + A.d, A.Font, A.Text,
-					A.Flag1);
+					 : (TComponent *)CallI<void *>(0x465510, PatternNew(0x4c), A.x, A.y, 30 + A.f, 10 + A.d, A.Font, A.Text,
+						   A.Flag1);
 		if (A.Variant == 1)
 			return O ? (TComponent *)new TLabel(A.x, A.y, A.Font, A.Text)
-				: (TComponent *)CallI<void *>(0x465810, PatternNew(0x4c), A.x, A.y, A.Font, A.Text);
+					 : (TComponent *)CallI<void *>(0x465810, PatternNew(0x4c), A.x, A.y, A.Font, A.Text);
 		return O ? (TComponent *)new TLabel(A.Font, A.Text)
-			: (TComponent *)CallI<void *>(0x465b40, PatternNew(0x4c), A.Font, A.Text);
+				 : (TComponent *)CallI<void *>(0x465b40, PatternNew(0x4c), A.Font, A.Text);
 	case K_FORMATTED:
 		return O ? (TComponent *)new TFormattedText(A.Text)
-			: (TComponent *)CallI<void *>(0x465e60, PatternNew(0x38), A.Text);
+				 : (TComponent *)CallI<void *>(0x465e60, PatternNew(0x38), A.Text);
 	case K_LINK:
 		return O ? (TComponent *)new TLink(A.Text, A.Text2, "http://www.tibia.com/", FakeOpenURL, A.Font)
-			: (TComponent *)CallI<void *>(0x46b030, PatternNew(0x3c), A.Text, A.Text2, "http://www.tibia.com/",
-				(void (*)(const char *))FakeOpenURL, A.Font);
+				 : (TComponent *)CallI<void *>(0x46b030, PatternNew(0x3c), A.Text, A.Text2, "http://www.tibia.com/",
+					   (void (*)(const char *))FakeOpenURL, A.Font);
 	case K_OUTFIT:
 		return O ? (TComponent *)new TOutfitIcon(A.a, A.i, (int *)A.Colors, &A.Color)
-			: (TComponent *)CallI<void *>(0x4666a0, PatternNew(0x48), A.a, A.i, (int *)A.Colors, &A.Color);
+				 : (TComponent *)CallI<void *>(0x4666a0, PatternNew(0x48), A.a, A.i, (int *)A.Colors, &A.Color);
 	case K_SKINICON:
 		return O ? (TComponent *)new TSkinIcon(A.Skins[0])
-			: (TComponent *)CallI<void *>(0x457710, PatternNew(0x28), A.Skins[0]);
+				 : (TComponent *)CallI<void *>(0x457710, PatternNew(0x28), A.Skins[0]);
 	case K_OBJECTICON:
 		return O ? (TComponent *)new TObjectIcon(A.Obj, &A.Color, A.Flag1)
-			: (TComponent *)CallI<void *>(0x4526c0, PatternNew(0x50), A.Obj, &A.Color, A.Flag1);
+				 : (TComponent *)CallI<void *>(0x4526c0, PatternNew(0x50), A.Obj, &A.Color, A.Flag1);
 	case K_SKINBUTTON:
 		return O ? (TComponent *)new TSkinButton(A.x, A.y, A.Skins[0], A.Skins[1], CB, A.Tooltip1, A.Flag1)
-			: (TComponent *)CallI<void *>(0x466860, PatternNew(0x44), A.x, A.y, A.Skins[0], A.Skins[1], CB, A.Tooltip1,
-				A.Flag1);
+				 : (TComponent *)CallI<void *>(0x466860, PatternNew(0x44), A.x, A.y, A.Skins[0], A.Skins[1], CB, A.Tooltip1,
+					   A.Flag1);
 	case K_COLORBUTTON:
 		return O ? (TComponent *)new TColorButton(A.x, A.y, A.Color, A.Skins[0], A.Skins[1], CB, A.Tooltip1)
-			: (TComponent *)CallI<void *>(0x466a60, PatternNew(0x50), A.x, A.y, A.Color, A.Skins[0], A.Skins[1], CB,
-				A.Tooltip1);
+				 : (TComponent *)CallI<void *>(0x466a60, PatternNew(0x50), A.x, A.y, A.Color, A.Skins[0], A.Skins[1], CB,
+					   A.Tooltip1);
 	case K_ICONBUTTON:
 		return O ? (TComponent *)new TIconButton(A.x, A.y, A.Skins[2], A.Skins[0], A.Skins[1], CB, A.Tooltip1)
-			: (TComponent *)CallI<void *>(0x466ad0, PatternNew(0x48), A.x, A.y, A.Skins[2], A.Skins[0], A.Skins[1], CB,
-				A.Tooltip1);
+				 : (TComponent *)CallI<void *>(0x466ad0, PatternNew(0x48), A.x, A.y, A.Skins[2], A.Skins[0], A.Skins[1], CB,
+					   A.Tooltip1);
 	case K_BLINKING:
 		return O ? (TComponent *)new TBlinkingButton(A.x, A.y, A.Skins[0], A.Skins[1], A.Skins[2], A.Skins[3], CB,
-			A.Tooltip1)
-			: (TComponent *)CallI<void *>(0x466b20, PatternNew(0x5c), A.x, A.y, A.Skins[0], A.Skins[1], A.Skins[2],
-				A.Skins[3], CB, A.Tooltip1);
+					   A.Tooltip1)
+				 : (TComponent *)CallI<void *>(0x466b20, PatternNew(0x5c), A.x, A.y, A.Skins[0], A.Skins[1], A.Skins[2],
+					   A.Skins[3], CB, A.Tooltip1);
 	case K_TEXTBUTTON:
 		if (A.Variant == 0)
 			return O ? (TComponent *)new TTextButton(A.x, A.y, ShortText(A.Text), A.Skins[0], A.Skins[1], CB, A.Tooltip1)
-				: (TComponent *)CallI<void *>(0x466bc0, PatternNew(0x78), A.x, A.y, ShortText(A.Text), A.Skins[0],
-					A.Skins[1], CB, A.Tooltip1);
+					 : (TComponent *)CallI<void *>(0x466bc0, PatternNew(0x78), A.x, A.y, ShortText(A.Text), A.Skins[0],
+						   A.Skins[1], CB, A.Tooltip1);
 		return O ? (TComponent *)new TTextButton(A.x, A.y, ShortText(A.Text), CB, A.Tooltip1)
-			: (TComponent *)CallI<void *>(0x466ed0, PatternNew(0x78), A.x, A.y, ShortText(A.Text), CB, A.Tooltip1);
+				 : (TComponent *)CallI<void *>(0x466ed0, PatternNew(0x78), A.x, A.y, ShortText(A.Text), CB, A.Tooltip1);
 	case K_TOGGLE:
 		return O ? (TComponent *)new TToggleButton(A.x, A.y, A.Skins[0], A.Skins[1], CB, A.Tooltip1, A.Tooltip2, A.Flag1)
-			: (TComponent *)CallI<void *>(0x4671e0, PatternNew(0x50), A.x, A.y, A.Skins[0], A.Skins[1], CB, A.Tooltip1,
-				A.Tooltip2, A.Flag1);
+				 : (TComponent *)CallI<void *>(0x4671e0, PatternNew(0x50), A.x, A.y, A.Skins[0], A.Skins[1], CB, A.Tooltip1,
+					   A.Tooltip2, A.Flag1);
 	case K_TEXTTOGGLE:
 		return O ? (TComponent *)new TTextToggleButton(A.x, A.y, ShortText(A.Text), A.Skins[0], A.Skins[1], CB,
-			A.Tooltip1, A.Tooltip2, A.Flag1)
-			: (TComponent *)CallI<void *>(0x467230, PatternNew(0x84), A.x, A.y, ShortText(A.Text), A.Skins[0], A.Skins[1],
-				CB, A.Tooltip1, A.Tooltip2, A.Flag1);
+					   A.Tooltip1, A.Tooltip2, A.Flag1)
+				 : (TComponent *)CallI<void *>(0x467230, PatternNew(0x84), A.x, A.y, ShortText(A.Text), A.Skins[0], A.Skins[1],
+					   CB, A.Tooltip1, A.Tooltip2, A.Flag1);
 	case K_MULTI: {
 		TCallback CB3(Receiver[s], 200 + A.h);
 		if (O)
 			return new TMultiStateButton(A.x, A.y, A.Tooltip1, 3, A.Skins[0], A.Skins[1], CB, A.Skins[2], A.Skins[3], CB2,
 				A.Skins[4], A.Skins[5], CB3);
-		typedef void *(__cdecl *MultiFn)(void *, int, int, const char *, int, int, int, TCallback, ...);
+#if GOLDEN_ORACLE
+		typedef void *(__cdecl * MultiFn)(void *, int, int, const char *, int, int, int, TCallback, ...);
 		return (TComponent *)At<MultiFn>(0x4672d0)(PatternNew(0x58), A.x, A.y, A.Tooltip1, 3, A.Skins[0], A.Skins[1], CB,
 			A.Skins[2], A.Skins[3], CB2, A.Skins[4], A.Skins[5], CB3);
+#else
+		return CallI<TComponent *>(0x4672d0, nullptr); // never reached (ours above)
+#endif
 	}
 	case K_CHECKBOX:
 		return O ? (TComponent *)new TCheckBox(BoxText(A.Text))
-			: (TComponent *)CallI<void *>(0x467440, PatternNew(0x34), BoxText(A.Text));
+				 : (TComponent *)CallI<void *>(0x467440, PatternNew(0x34), BoxText(A.Text));
 	case K_EDIT:
 		if (A.Variant == 0)
 			return O ? (TComponent *)new TEditLine(TRect(A.x, A.y, 60 + A.f, 16), A.f, A.Flag1)
-				: (TComponent *)CallI<void *>(0x467b50, PatternNew(0x68), TRect(A.x, A.y, 60 + A.f, 16), A.f, A.Flag1);
+					 : (TComponent *)CallI<void *>(0x467b50, PatternNew(0x68), TRect(A.x, A.y, 60 + A.f, 16), A.f, A.Flag1);
 		if (A.Variant == 1)
 			return O ? (TComponent *)new TEditLine(A.f, A.Flag1)
-				: (TComponent *)CallI<void *>(0x45a4c0, PatternNew(0x68), A.f, A.Flag1);
+					 : (TComponent *)CallI<void *>(0x45a4c0, PatternNew(0x68), A.f, A.Flag1);
 		return O ? (TComponent *)new TPasswordEditLine(A.f)
-			: (TComponent *)CallI<void *>(0x45cb50, PatternNew(0x6c), A.f);
+				 : (TComponent *)CallI<void *>(0x45cb50, PatternNew(0x6c), A.f);
 	case K_EDITTEXT:
 		return O ? (TComponent *)new TEditText(40 + A.f * 2, A.Flag1)
-			: (TComponent *)CallI<void *>(0x46b570, PatternNew(0x9c), 40 + A.f * 2, A.Flag1);
+				 : (TComponent *)CallI<void *>(0x46b570, PatternNew(0x9c), 40 + A.f * 2, A.Flag1);
 	case K_HSCROLL:
 		return O ? (TComponent *)new THorizontalScrollBar(A.a, A.b, A.c, A.d, A.e, CB)
-			: (TComponent *)CallI<void *>(0x4692d0, PatternNew(0x38), A.a, A.b, A.c, A.d, A.e, CB);
+				 : (TComponent *)CallI<void *>(0x4692d0, PatternNew(0x38), A.a, A.b, A.c, A.d, A.e, CB);
 	case K_VSCROLL:
 		return O ? (TComponent *)new TScrollBar(TRect(A.x, A.y, 12, 40 + A.f), A.a, A.b, A.c, A.d, A.e)
-			: (TComponent *)CallI<void *>(0x469a80, PatternNew(0x38), TRect(A.x, A.y, 12, 40 + A.f), A.a, A.b, A.c, A.d,
-				A.e);
+				 : (TComponent *)CallI<void *>(0x469a80, PatternNew(0x38), TRect(A.x, A.y, 12, 40 + A.f), A.a, A.b, A.c, A.d,
+					   A.e);
 	case K_HRANGE:
 		return O ? (TComponent *)new THorizontalScrollBarRange(A.a, A.b, A.c, A.d, CB)
-			: (TComponent *)CallI<void *>(0x45e9e0, PatternNew(0x54), A.a, A.b, A.c, A.d, CB);
+				 : (TComponent *)CallI<void *>(0x45e9e0, PatternNew(0x54), A.a, A.b, A.c, A.d, CB);
 	case K_VRANGE:
 		return O ? (TComponent *)new TScrollBarRange(A.x, A.y, 12, 30 + A.f, A.a, A.b, A.c, A.d)
-			: (TComponent *)CallI<void *>(0x469670, PatternNew(0x4c), A.x, A.y, 12, 30 + A.f, A.a, A.b, A.c, A.d);
+				 : (TComponent *)CallI<void *>(0x469670, PatternNew(0x4c), A.x, A.y, 12, 30 + A.f, A.a, A.b, A.c, A.d);
 	case K_LIST:
 		return O ? (TComponent *)new TListBox(CB, CB2)
-			: (TComponent *)CallI<void *>(0x469e70, PatternNew(0x7c), CB, CB2);
+				 : (TComponent *)CallI<void *>(0x469e70, PatternNew(0x7c), CB, CB2);
 	case K_FONTLIST:
 		return O ? (TComponent *)new TFontListBox(CB, CB2)
-			: (TComponent *)CallI<void *>(0x46afc0, PatternNew(0xb0), CB, CB2);
+				 : (TComponent *)CallI<void *>(0x46afc0, PatternNew(0xb0), CB, CB2);
 	case K_PROGRESS:
 		return O ? (TComponent *)new TProgressBar : (TComponent *)CallI<void *>(0x452a00, PatternNew(0x2c));
 	}
@@ -619,7 +802,7 @@ static void DumpButton(std::string &Out, int s, TSkinButton *B)
 		B->Pressed, B->MouseInside, B->Repeat, B->RadioButtonGroup != NULL ? 1 : 0, Tip(B->Tooltip).c_str(), B->Enabled);
 	DumpCallback(Out, s, B->Callback);
 }
-static void DumpEdit(std::string &Out, int s, TEditLine *E)
+static void DumpEdit(std::string &Out, int, TEditLine *E)
 {
 	Add(Out, " text %s max %d cursor %d single %d group %d first %d active %d sel %d,%d selecting %d dis %d ro %d",
 		Str(E->Text).c_str(), E->MaxLength, E->Cursor, E->SingleLine, E->FocusGroup != NULL ? 1 : 0, E->FirstVisible,
@@ -801,18 +984,42 @@ static const char *OperationName;
 // fake calls and the last count one call of each action made for each kind
 // of control, whether a call threw (the controls are then abandoned: members
 // may point to deleted parts, so only the logs are compared).
-enum { ACTION_CONSTRUCT = 22, ACTION_FIRSTSIZE = 23, ACTION_DESTRUCT = 24, ACTIONS = 25 };
+enum { ACTION_CONSTRUCT = 22,
+	ACTION_FIRSTSIZE = 23,
+	ACTION_DESTRUCT = 24,
+	ACTIONS = 25 };
 static TErrorRound *ElementsRound;
 static int CurrentAction, TargetAction = -1, MaxTicks[KINDS][ACTIONS], LastTicks[KINDS][ACTIONS];
 static bool Threw;
+
+// The original's log of a comparison: the oracle's, recorded; the runner's from the corpus.
+static void OutputOriginalLog()
+{
+	std::string Text = golden::OutputText("log", Log[ORIGINAL].data(), Log[ORIGINAL].size());
+	ORIGINAL_OR((void)0, Log[ORIGINAL] = Text);
+}
+
+// The original's dump: the oracle's, recorded by its changes since the last one; the runner's from the
+// corpus.
+static std::string LastDump;
+static std::string OriginalDump()
+{
+#if GOLDEN_ORACLE
+	std::string Text = DumpAll(ORIGINAL);
+#else
+	std::string Text;
+#endif
+	return golden::OutputTextChanges("dump", &LastDump, Text);
+}
 
 static void Compare()
 {
 	std::string D[2];
 	if (!Threw) {
 		D[OURS] = DumpAll(OURS);
-		D[ORIGINAL] = DumpAll(ORIGINAL);
+		D[ORIGINAL] = OriginalDump();
 	}
+	OutputOriginalLog();
 	if (LogFile != NULL)
 		fprintf(LogFile, "== %s %s\n%s\n%s\n", KindNames[Kind], OperationName, Log[OURS].c_str(), D[OURS].c_str());
 	CHECK(Log[OURS] == Log[ORIGINAL], "DialogElements %s (%s): logs differ\n  ours: %s\n  orig: %s", OperationName,
@@ -850,7 +1057,8 @@ template <class F> static void Both(F Function)
 		ElementsRound->Calling(What, "ours");
 		TThrown A = OurThrow([&] { Side = OURS; Ticks = 0; FailAt = Fail; Function(OURS); });
 		ElementsRound->Calling(What, "the original");
-		TThrown B = ImageThrow([&] { Side = ORIGINAL; Ticks = 0; FailAt = Fail; Function(ORIGINAL); });
+		TThrown B = ORIGINAL_THROWN("thrown", Side = ORIGINAL; Ticks = 0; FailAt = Fail; Function(ORIGINAL));
+		Ticks = ORIGINAL_VALUE("ticks", int, Ticks); // the original's fake calls
 		FailAt = 0;
 		Side = OURS;
 		ElementsRound->Compare(What, A, B);
@@ -863,7 +1071,7 @@ template <class F> static void Both(F Function)
 		}
 		return;
 	}
-	for (int s = 0; s < 2; s++) {
+	for (int s = 0; s < SIDES; s++) {
 		Side = s;
 		Ticks = 0;
 		if (s == OURS) {
@@ -879,6 +1087,7 @@ template <class F> static void Both(F Function)
 		}
 	}
 	// (the counts of the error round's failures)
+	Ticks = ORIGINAL_VALUE("ticks", int, Ticks); // the original's fake calls (it ran last)
 	if (Ticks > MaxTicks[Kind][CurrentAction])
 		MaxTicks[Kind][CurrentAction] = Ticks;
 	Side = OURS;
@@ -887,8 +1096,8 @@ template <class F> static void Both(F Function)
 // --- Operations ---------------------------------------------------------------------------
 
 static bool IsEditKind() { return Kind == K_EDIT || Kind == K_EDITTEXT; }
-static bool IsButtonKind() { return Kind >= K_SKINBUTTON && Kind <= K_MULTI; }
-static bool IsListKind() { return Kind == K_LIST || Kind == K_FONTLIST; }
+[[maybe_unused]] static bool IsButtonKind() { return Kind >= K_SKINBUTTON && Kind <= K_MULTI; }
+[[maybe_unused]] static bool IsListKind() { return Kind == K_LIST || Kind == K_FONTLIST; }
 
 // A valid size for the kind (the assertions and the endless loops of narrow
 // fields stay out of reach).
@@ -898,7 +1107,8 @@ static void RandomSize(int *Width, int *Height)
 	*Width = 30 + Random() % 120;
 	*Height = 20 + Random() % 50;
 	switch (Kind) {
-	case K_OUTFIT: case K_OBJECTICON:
+	case K_OUTFIT:
+	case K_OBJECTICON:
 		*Height = *Width = 10 + Random() % 40;
 		break;
 	case K_PROGRESS:
@@ -915,14 +1125,19 @@ static void RandomSize(int *Width, int *Height)
 	case K_FORMATTED:
 		*Width = Random() % 3 == 0 ? 0 : 300 + Random() % 100;
 		break;
-	case K_EDIT: case K_EDITTEXT:
+	case K_EDIT:
+	case K_EDITTEXT:
 		*Width = 40 + Random() % 120;
 		*Height = 20 + Random() % 80;
 		break;
-	case K_HRANGE: case K_HSCROLL:
+	case K_HRANGE:
+	case K_HSCROLL:
 		*Width = 60 + Random() % 120;
 		break;
-	case K_VRANGE: case K_VSCROLL: case K_LIST: case K_FONTLIST:
+	case K_VRANGE:
+	case K_VSCROLL:
+	case K_LIST:
+	case K_FONTLIST:
 		*Width = 40 + Random() % 100;
 		*Height = 60 + Random() % 120;
 		break;
@@ -993,8 +1208,14 @@ static void Special(int r1, int r2, int r3)
 		});
 		break;
 	}
-	case K_SKINBUTTON: case K_COLORBUTTON: case K_ICONBUTTON: case K_BLINKING: case K_TEXTBUTTON: case K_TOGGLE:
-	case K_TEXTTOGGLE: case K_MULTI: {
+	case K_SKINBUTTON:
+	case K_COLORBUTTON:
+	case K_ICONBUTTON:
+	case K_BLINKING:
+	case K_TEXTBUTTON:
+	case K_TOGGLE:
+	case K_TEXTTOGGLE:
+	case K_MULTI: {
 		int Up = 26 + r2 % 30, Down = 26 + r3 % 30;
 		bool Flag = r3 % 3 != 0;
 		bool Join = ((TSkinButton *)Control[OURS])->RadioButtonGroup == NULL;
@@ -1067,7 +1288,8 @@ static void Special(int r1, int r2, int r3)
 		});
 		break;
 	}
-	case K_EDIT: case K_EDITTEXT: {
+	case K_EDIT:
+	case K_EDITTEXT: {
 		int Length = EditLength();
 		int Position = Length == 0 ? 0 : r2 % (Length + 1);
 		int Cursor = Edit(OURS)->Cursor;
@@ -1089,7 +1311,7 @@ static void Special(int r1, int r2, int r3)
 			case 1: E->Clear(); break;
 			case 2: E->DeleteText(Position, Count); break;
 			case 3: E->DeleteChar(Position); break;
-			case 4: Logf("Inserted%d;", E->InsertText(Cursor, Text, strlen(Text))); break;
+			case 4: Logf("Inserted%d;", E->InsertText(Cursor, Text, (int)strlen(Text))); break;
 			case 5: E->InsertChar(Cursor, c); break;
 			case 6: E->SetDisabled(Flag); break;
 			case 7: Logf("Disabled%d;", E->IsDisabled() ? 1 : 0); break;
@@ -1161,12 +1383,13 @@ static void Special(int r1, int r2, int r3)
 		});
 		break;
 	}
-	case K_HSCROLL: case K_HRANGE: {
+	case K_HSCROLL:
+	case K_HRANGE: {
 		int Value = (int)(r2 % 100) - 20;
 		OperationName = "HRange::SetValue";
 		Both([&](int s) {
 			THorizontalScrollBarRange *R = Kind == K_HRANGE ? (THorizontalScrollBarRange *)Control[s]
-				: ((THorizontalScrollBar *)Control[s])->Range;
+															: ((THorizontalScrollBar *)Control[s])->Range;
 			if (s == OURS)
 				R->SetValue(Value);
 			else
@@ -1174,7 +1397,8 @@ static void Special(int r1, int r2, int r3)
 		});
 		break;
 	}
-	case K_VSCROLL: case K_VRANGE: {
+	case K_VSCROLL:
+	case K_VRANGE: {
 		int Value = (int)(r2 % 100) - 20, Min = r3 % 30, Max = Min + (r3 >> 8) % 40, Visible = r1 % 20;
 		OperationName = "Range";
 		Both([&](int s) {
@@ -1192,7 +1416,8 @@ static void Special(int r1, int r2, int r3)
 		});
 		break;
 	}
-	case K_LIST: case K_FONTLIST: {
+	case K_LIST:
+	case K_FONTLIST: {
 		TListBox *L0 = (TListBox *)Control[OURS];
 		int Lines = L0->Lines;
 		int Number = Lines == 0 ? 0 : r2 % Lines;
@@ -1210,7 +1435,8 @@ static void Special(int r1, int r2, int r3)
 			TListBox *L = (TListBox *)Control[s];
 			bool F = Kind == K_FONTLIST;
 			switch (Choice) {
-			case 0: case 1:
+			case 0:
+			case 1:
 				if (!F) {
 					if (s == OURS)
 						L->AddLine(Text);
@@ -1246,7 +1472,7 @@ static void Special(int r1, int r2, int r3)
 				} else {
 					TFont Got;
 					char *T = s == OURS ? ((TFontListBox *)L)->GetLine(Number, &Got)
-						: CallI<char *>(0x4643a0, L, Number, &Got);
+										: CallI<char *>(0x4643a0, L, Number, &Got);
 					Logf("Line%s,%d,%d;", T, Got.FontNumber, Got.Color.R);
 				}
 				break;
@@ -1280,7 +1506,8 @@ static void Special(int r1, int r2, int r3)
 			case 9:
 				Logf("Sel%d;", s == OURS ? L->GetSelection() : CallI<int>(0x4529d0, L));
 				break;
-			case 10: case 11:
+			case 10:
+			case 11:
 				if (s == OURS)
 					L->SetEditable(Flag);
 				else
@@ -1365,7 +1592,8 @@ static void Operation(int Forced = -1)
 		OperationName = "MouseMove";
 		Both([&](int s) { Logf("R%d;", Control[s]->MouseMove(x, y) ? 1 : 0); });
 		break;
-	case 4: case 5: {
+	case 4:
+	case 5: {
 		// A press, maybe a drag and held-button ticks, a release.
 		bool Drag = r1 % 2 != 0, Hold = r2 % 3 == 0;
 		int Flags = r3 % 4 == 0 ? 0x200 : 0;
@@ -1403,7 +1631,8 @@ static void Operation(int Forced = -1)
 		OperationName = "MouseHover";
 		Both([&](int s) { Control[s]->MouseHover(x, y); });
 		break;
-	case 10: case 11: {
+	case 10:
+	case 11: {
 		int K = Key();
 		if ((K == 9 || K == 0x209) && (Group[OURS] == NULL || Group[OURS]->Active == NULL))
 			K = 'k';
@@ -1454,8 +1683,10 @@ static const char *const ProbeNames[KINDS] = {"Separator", "Resizer", "Border", 
 // Our vtables, from objects made quietly.
 static void FindVtables()
 {
+#if GOLDEN_ORACLE
 	for (size_t i = 0; i < sizeof(ImageVtables) / sizeof(ImageVtables[0]); i++)
 		Kinds[ORIGINAL][(void *)(uintptr_t)ImageVtables[i].Vtable] = ImageVtables[i].Kind;
+#endif
 	Side = OURS;
 	Receiver[OURS] = new TDEReceiver;
 	TWindow *W = new TWindow;
@@ -1494,10 +1725,15 @@ static void ImageSide(int s, void *Object, bool Window)
 {
 	if (ElementsRound == NULL || s != ORIGINAL)
 		return;
+#if GOLDEN_ORACLE
 	void *Ours = VtableOf(Object);
 	void *Hybrid = ImageSideVtable(Ours, Window ? OurWindowVtable : OurElementVtable, Window ? 0x564528 : 0x5645c8);
 	Kinds[ORIGINAL][Hybrid] = Kinds[ORIGINAL][Ours];
 	*(void **)Object = Hybrid;
+#else
+	(void)Object;
+	(void)Window;
+#endif
 }
 
 static void Construct(const TArguments &A)
@@ -1510,7 +1746,7 @@ static void Construct(const TArguments &A)
 		ImageSide(s, Target[s], true);
 		Roles[s][Target[s]] = "Target";
 		Target[s]->TComponent::SetSize(100, 80);
-		Root[s] = s == OURS ? new TWindow : (TWindow *)ImageWindow();
+		Root[s] = s == OURS ? new TWindow : ORIGINAL_OR((TWindow *)ImageWindow(), nullptr);
 		Roles[s][Root[s]] = "Root";
 		Root[s]->SetSize(500, 500);
 		Radio[s] = new TRadioButtonGroup;
@@ -1520,11 +1756,12 @@ static void Construct(const TArguments &A)
 		Roles[s][Control[s]] = "C";
 		Root[s]->InsertChild(Control[s]);
 		if (Kind == K_EDIT && A.Flag2) {
-			Group[s] = s == OURS ? new TFocusGroup : (TFocusGroup *)At<CtorFn>(0x45ddf0)(PatternNew(0x28), NULL);
+			Group[s] = s == OURS ? new TFocusGroup
+								 : ORIGINAL_OR((TFocusGroup *)At<CtorFn>(0x45ddf0)(PatternNew(0x28), NULL), nullptr);
 			for (int i = 0; i < 2; i++) {
 				TRect Area(0, 20 + 20 * i, 80, 16);
 				Extra[s][i] = s == OURS ? (TComponent *)new TEditLine(Area, 20, false)
-					: (TComponent *)CallI<void *>(0x467b50, PatternNew(0x68), Area, 20, false);
+										: (TComponent *)CallI<void *>(0x467b50, PatternNew(0x68), Area, 20, false);
 				Roles[s][Extra[s][i]] = i == 0 ? "X1" : "X2";
 				Root[s]->InsertChild(Extra[s][i]);
 			}
@@ -1584,6 +1821,7 @@ static void EndControls()
 		OperationName = "destructor";
 		CurrentAction = ACTION_DESTRUCT;
 		Destruct();
+		OutputOriginalLog();
 		CHECK(Log[OURS] == Log[ORIGINAL], "DialogElements errors destructor (%s): logs differ\n  ours: %s\n  orig: %s",
 			KindNames[Kind], Log[OURS].c_str(), Log[ORIGINAL].c_str());
 	}
@@ -1607,7 +1845,7 @@ template <class F> static void ElementCall(const char *What, F Call, int Fail = 
 	ElementsRound->Calling(What, "ours");
 	TThrown A = OurThrow([&] { Side = OURS; Ticks = 0; FailAt = Fail; Call(OURS); });
 	ElementsRound->Calling(What, "the original");
-	TThrown B = ImageThrow([&] { Side = ORIGINAL; Ticks = 0; FailAt = Fail; Call(ORIGINAL); });
+	TThrown B = ORIGINAL_THROWN("thrown", Side = ORIGINAL; Ticks = 0; FailAt = Fail; Call(ORIGINAL));
 	FailAt = 0;
 	Side = OURS;
 	ElementsRound->Compare(What, A, B);
@@ -1784,8 +2022,10 @@ static void TestDialogElementsAssertions()
 		static const int DrawKinds[] = {K_SKINICON, K_OBJECTICON, K_SKINBUTTON, K_COLORBUTTON, K_ICONBUTTON, K_BLINKING,
 			K_TEXTBUTTON, K_TOGGLE, K_TEXTTOGGLE, K_MULTI, K_CHECKBOX};
 		for (int k : DrawKinds) {
-			int dx = k == K_ICONBUTTON ? SkinProperties.Buttons.Texture.x : k == K_CHECKBOX ? SkinProperties.CheckBox.Item.x : 0;
-			int dy = k == K_ICONBUTTON ? SkinProperties.Buttons.Texture.y : k == K_CHECKBOX ? SkinProperties.CheckBox.Item.y : 0;
+			int dx = k == K_ICONBUTTON ? SkinProperties.Buttons.Texture.x : k == K_CHECKBOX ? SkinProperties.CheckBox.Item.x
+																							: 0;
+			int dy = k == K_ICONBUTTON ? SkinProperties.Buttons.Texture.y : k == K_CHECKBOX ? SkinProperties.CheckBox.Item.y
+																							: 0;
 			int x = r % 2 == 0 ? -dx - 1 - r : 0, y = r % 2 == 0 ? 0 : -dy - 1 - r;
 			Direct(k, "Draw at a negative place", [&](int s) {
 				if (k == K_OBJECTICON)
@@ -1823,8 +2063,7 @@ static void TestDialogElementsAssertions()
 			else CallI<void>(0x468470, Control[s], (TFocusGroup *)NULL); });
 		Direct(K_EDIT, "TEditLine::SetText NULL", [&](int s) { Edit(s)->SetText(NULL); });
 		Direct(K_LABEL, "TLabel::SetText NULL", [&](int s) { ((TLabel *)Control[s])->SetText(NULL, r % 2 != 0); });
-		Direct(K_FORMATTED, "TFormattedText::SetText NULL", [&](int s) {
-			((TFormattedText *)Control[s])->SetText(NULL, r % 2 != 0); });
+		Direct(K_FORMATTED, "TFormattedText::SetText NULL", [&](int s) { ((TFormattedText *)Control[s])->SetText(NULL, r % 2 != 0); });
 		Direct(K_EDITTEXT, "TEditText::SetText NULL", [&](int s) { ((TEditText *)Control[s])->SetText(NULL, r % 2 != 0); });
 		Direct(r % 2 == 0 ? K_EDIT : K_EDITTEXT, "TEditLine::InsertText after the end", [&](int s) {
 			Edit(s)->SetText("abc");
@@ -1968,7 +2207,8 @@ static void TestDialogElementsAssertions()
 	// their fake calls.
 	for (int Round = 0; Round < 3; Round++) {
 		TFont F = RandomFont();
-		const char *Text = Round == 0 ? "Hello world, this is a longer text" : Round == 1 ? "two\nlines" : "x";
+		const char *Text = Round == 0 ? "Hello world, this is a longer text" : Round == 1 ? "two\nlines"
+																						  : "x";
 		Sweep(K_SEPARATOR, "TLabel::TLabel", [&](int s) {
 			if (s == OURS) new TLabel(1, 2, 40, 12, F, Text, Round != 1);
 			else CallI<void *>(0x465510, PatternNew(0x4c), 1, 2, 40, 12, F, Text, Round != 1); });
@@ -1978,21 +2218,24 @@ static void TestDialogElementsAssertions()
 	}
 }
 
+} // namespace DialogElementsTest
+
 void TestDialogElements()
 {
+	using namespace DialogElementsTest;
 	int Before = Checks, BeforeFailures = Failures;
 	bool Trace = getenv("DE_TRACE") != NULL;
 	if (Trace)
 		setvbuf(stdout, NULL, _IONBF, 0);
 	if (getenv("DE_LOGS") != NULL)
 		LogFile = fopen(getenv("DE_LOGS"), "w");
-	PatchImage();
+	ORIGINAL(PatchImage());
 	InitSkins();
-	Global<int>(0x71c450) = NumberOfSkins;
-	Global<TSkin *>(0x71c454) = Skins;
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
 	InitSkinProperties();
-	At<void (__cdecl *)()>(0x498160)();
-	Surface = new TDESurface;
+	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
+	LastDump.clear();
+	DESurface = new TDESurface;
 	PatchCallees();
 	FindVtables();
 
@@ -2023,6 +2266,7 @@ void TestDialogElements()
 		CurrentAction = ACTION_DESTRUCT;
 		Destruct();
 		OperationName = "destructor";
+		OutputOriginalLog();
 		CHECK(Log[OURS] == Log[ORIGINAL], "DialogElements destructor (%s): logs differ\n  ours: %s\n  orig: %s",
 			KindNames[Kind], Log[OURS].c_str(), Log[ORIGINAL].c_str());
 		Log[OURS].clear();

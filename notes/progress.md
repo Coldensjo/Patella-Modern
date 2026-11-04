@@ -238,6 +238,17 @@ Not ported: DialogWindow, ContextMenus, ConsoleWindow, ContentWindows, DialogEle
 elementfakes.cpp's mirror classes with the x86 offsets, `__fastcall` stand-ins on our side, Dialogs.cpp's Vulkan
 variant). No src/ change. notes/decisions.md, "The golden corpus: the GUI, graphics and the window files
 (Patella-Modern issue #28)".
+Golden corpus, the window tests (Patella-Modern issue #28, second part, branch issue-28b, November 4, 2026; M6): five
+of the six window tests ported to tests/golden, one commit each: DialogWindow 34,068, ContextMenus 41,660,
+ConsoleWindow 318,882, ContentWindows 221,270, DialogElements 1,362,116 (1,977,996 checks, 1,701,409 of them in their
+error rounds), each with the oracle's count and 0 failures in Release and Debug; the runner replays 14,836,028 of
+difftest's checks. The DialogElements fakes are compiled on both sides (tests/golden/elementfakes.h: the x86 layout in
+the oracle, ours in the runner, our constructors redirected through their x64 decorated names); member-function
+fakes are GOLDEN_THISCALL stand-ins; the dumps go through golden::OutputTextChanges. Not ported: Dialogs (299,174),
+whose advanced graphics dialog (9,069 of its checks) is the x64 device choice in the runner: needs the user's
+decision. Found: TDialogWindow::SetSize reads a deleted child (as the original; the runner keeps freed memory while
+DialogWindow runs). No src/ change. notes/decisions.md, "The golden corpus: the window tests (Patella-Modern issue
+#28, second part)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -259,217 +270,15 @@ None.
 
 ## Last difftest
 
-Patella-Modern issue #28 (branch issue-28, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after Graphics and GUI moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong
-checks, 0 failures (Graphics 570,954; GUI 5,246,029 + its error round's 31,909, 2,750 calls compared, 2,154 that
-threw); with recording on (`golden_corpus`) the same counts. The x64 golden_runner (windows-x64 and -debug, --fresh,
-CTest 13/13) replays 12,858,032 of difftest's checks and sysinctest's 67, 0 failures (issue #30's 7,009,140 as
-before, Graphics 570,954, GUI 5,277,938 with the oracle's error-round counts); not yet ported: difftest's 3,990,720
-other checks (DialogWindow, ContextMenus, ConsoleWindow, ContentWindows, DialogElements, Dialogs, SurfaceDX, DX9, GL,
-Errors, MapWindow, MainWindow) and communicationtest's 1,134,513. src/ unchanged (pecompare of the oracle and the x64
-Patella.exe: 0 unexpected differences); macrocheck 6b40354 issue-28: 2,108 calls, 0 differences.
-
-Patella-Modern issue #30 (branch issue-30, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after Network moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0
-failures (Network 74,928 + its error round's 38,878, 7,393 calls compared, 556 that threw); with recording on
-(`golden_corpus`) the same counts. The x64 golden_runner (windows-x64 and -debug, CTest 13/13) replays 7,009,140 of
-difftest's checks and sysinctest's 67, 0 failures (issue #54's 6,895,334 as before, Network 113,806 with the
-oracle's error-round counts); not yet ported: difftest's 9,839,612 other checks (Errors 40,408, MapWindow 127,529,
-MainWindow 57,314 among them) and communicationtest's 1,134,513 (Communication 856,366, Control 278,147: they need
-GUI.cpp and the window files in the runner, notes/decisions.md, issue #30). src/ unchanged; macrocheck 7df9603
-issue-30: 2,108 calls, 0 differences.
-
-Patella-Modern issue #54 (branch issue-54, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after the error rounds' comparison moved to tests/golden/golden_eh and MainFrm to tests/golden:
-16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures (MainFrm 31,424 + its error round's 18,152,
-5,504 calls compared, 535 that threw); with recording on (`golden_corpus`) the same counts. The x64 golden_runner
-(windows-x64 and -debug, CTest 13/13) replays 6,895,334 of difftest's checks and sysinctest's 67, 0 failures
-(issue #27's 6,845,758 as before, MainFrm 49,576 with the oracle's error-round counts); not yet ported: difftest's
-9,953,418 other checks (Errors 40,408, MapWindow 127,529, MainWindow 57,314 among them) and communicationtest's
-1,134,513. src/ unchanged; macrocheck 839de10 issue-54: 2,108 calls, 0 differences.
-
-Patella-Modern issue #27 (branch issue-27, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after Objects, Map and Creatures moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201
-vlong checks, 0 failures; with recording on (`golden_corpus`) the same counts. The x64 golden_runner (windows-x64 and
--debug, CTest 13/13) replays 6,845,758 of difftest's checks and sysinctest's 67, 0 failures (issue #26's 3,267,008 as
-before, Objects 327,886, Map 639,877, Creatures 2,610,987); not yet ported: difftest's 10,002,994 other checks (Errors
-40,408, MainFrm 49,576, MapWindow 127,529, MainWindow 57,314 among them) and communicationtest's 1,134,513. src/
-unchanged; macrocheck d34c304 issue-27: 2,108 calls, 0 differences.
-
-Patella-Modern issue #26 (branch issue-26, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after nine tests moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0
-failures, every per-test count as below; with recording on (`golden_corpus`) the same counts. The x64 golden_runner
-(windows-x64 and -debug, CTest 13/13) replays 3,267,008 of difftest's checks and sysinctest's 67, 0 failures (issue
-#24's eight tests as before, Status 565,809, Preferences 102,060, Script 458,232, PreferencesFile 112,155, Player
-18,442, Help 70,631, Inventory 158,400, Talk 1,214,929, Container 192,832); not yet ported: difftest's 13,581,744
-other checks (Errors 40,408 among them) and communicationtest's 1,134,513. src/ unchanged; macrocheck 85eafb1
-issue-26: 2,108 calls, 0 differences.
-
-Patella-Modern issue #50 (branch issue-50, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after the four const pointer parameters (readability-non-const-parameter): 16,848,752 + 67 +
-1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release
-Patella.exe and PatellaTest.exe built from main (a338fa8) and from the branch at the same path: 0 unexpected
-differences (pecompare); macrocheck a338fa8 issue-50: 2,108 calls, 0 differences.
-
-Patella-Modern issue #49 (branch issue-49, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings, the header checks header_check_oracle and header_check_oracle_shim built) after the headers' includes
-and the header checks (four commits): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures, as below;
-the oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe built from main (968ec47) and from
-the branch at the same path: 0 unexpected differences (pecompare); macrocheck 968ec47 issue-49: 2,108 calls, 0
-differences.
-
-Patella-Modern issue #44 (branch issue-44, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after the file-scope statics into anonymous namespaces (three commits): 16,848,752 + 67 + 1,134,513
-checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and
-PatellaTest.exe built from main (9312a61) and from the branch at the same path: 0 unexpected differences (pecompare;
-`.text` and `.data` identical, every symbol at the same address), `client_state.py --layout` unchanged; macrocheck
-9312a61 issue-44: 2,108 calls, 0 differences.
-
-Patella-Modern issue #43 (branch issue-43, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after the MSVC-only spellings behind compat/msvc.h (three commits): 16,848,752 + 67 + 1,134,513
-checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and
-PatellaTest.exe built from main (bc7417c) and from the branch at the same path: 0 unexpected differences (pecompare);
-macrocheck bc7417c issue-43: 2,108 calls, 0 differences.
-
-Patella-Modern issue #42 (branch issue-42, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after the gotos (five commits and the check): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong
-checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe
-built from main (f2b3374) and from each commit at the same path: only the touched function's code differs per commit
-(TBattleWindowBody::Draw, TSurfaceGL::WriteMaskedImage, TSurfaceDX9::WriteMaskedImage on the oracle;
-TSurfaceVulkan::WriteMaskedImage on x64), every other difference a moved address (notes/decisions.md, issue #42);
-macrocheck f2b3374 issue-42: 2,108 calls, 0 differences.
-
-Patella-Modern issue #41 (branch issue-41, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after the C-style casts to named casts (two commits): 16,848,752 + 67 + 1,134,513 checks and 3,201
-vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe
-built from main (ac12de2) and from each commit at the same path: `.text`, `.data` and `.reloc` identical, 0 unexpected
-differences (pecompare); macrocheck ac12de2 issue-41: 2,108 calls, 0 differences.
-
-Patella-Modern issue #39 (branch issue-39, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after the const locals and the const member functions (three commits): 16,848,752 + 67 + 1,134,513
-checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and
-PatellaTest.exe built from main (762f81b) and from each commit at the same path: 0 unexpected differences (pecompare);
-macrocheck 762f81b issue-39: 2,108 calls, 0 differences.
-
-Patella-Modern issue #34 (branch issue-34, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after = default / = delete and the non-copyable owning classes (three commits): 16,848,752 + 67 +
-1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release
-Patella.exe and PatellaTest.exe built from main (b123283) and from each commit at the same path: `.text`, `.data` and
-`.pdata` identical, 0 unexpected differences (pecompare); macrocheck b123283 issue-34: 2,108 calls, 0 differences.
-
-Patella-Modern issue #37 (branch issue-37, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after the explicit enum types and TOKEN as an enum class (two commits): 16,848,752 + 67 + 1,134,513
-checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe
-and PatellaTest.exe built from main (c797628) and from each commit at the same path: `.text`, `.data` and `.pdata`
-identical, 0 unexpected differences (pecompare); macrocheck c797628 issue-37: 2,108 calls, 0 differences.
-
-Patella-Modern issue #36 (branch issue-36, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after the constant #defines to constexpr: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks,
-0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe built from
-main (93315c1) and from the branch at the same path: `.text`, `.rdata` and `.data` identical, 0 unexpected differences
-(pecompare); macrocheck 93315c1 issue-36: 2,108 calls, 0 differences.
-
-Patella-Modern issue #38 (branch issue-38, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after [[nodiscard]], [[fallthrough]] and [[maybe_unused]] (three commits): 16,848,752 + 67 +
-1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release
-Patella.exe and PatellaTest.exe built from main (2ee58c9) and from each commit at the same path: `.text` and `.data`
-identical, 0 unexpected differences (pecompare); macrocheck 2ee58c9 issue-38: 2,108 calls, 0 differences.
-
-Patella-Modern issue #40 (branch issue-40, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after the <c...> headers (first commit) and the includes of misc-include-cleaner (second commit):
-16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe built from
-main (e089936), the first commit and the second at the same path: `.text` identical, 0 unexpected differences
-(pecompare); the windows-x64 Release Patella.exe and PatellaTest.exe identical after the first commit and, after the
-second, different only in where <charconv>'s digit-pair table sits in .rdata (instructions identical after address
-normalisation); macrocheck e089936 issue-40: 2,108 calls, 0 differences.
-
-Patella-Modern issue #35 (branch issue-35, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after using instead of typedef (common.h, ConsoleWindow.cpp, surfaceDX9.cpp, SurfaceVulkan.h):
-16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the
-windows-x64 Release Patella.exe and PatellaTest.exe built from main (c57b39c) and from the branch at the same path:
-`.text` identical, 0 unexpected differences (pecompare); macrocheck c57b39c issue-35: 2,108 calls, 0 differences.
-
-Patella-Modern issue #33 (branch issue-33, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after override on every overrider (17 files of src/): 16,848,752 + 67 + 1,134,513 checks and
-3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and
-PatellaTest.exe built from main (6a20d32) and from the branch at the same path: `.text` identical, 0 unexpected
-differences (pecompare); macrocheck 6a20d32 issue-33: 2,108 calls, 0 differences.
-
-Patella-Modern issue #32 (branch issue-32, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
-4/4, 0 warnings) after NULL to nullptr outside the error macros (45 files of src/): 16,848,752 + 67 + 1,134,513
-checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe
-and PatellaTest.exe built from main (3249d6b) and from the branch at the same path: `.text` identical, 0 unexpected
-differences (pecompare); macrocheck 3249d6b issue-32: 2,108 calls, 0 differences.
-
-Patella-Modern issue #31 (branch issue-31, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest 4/4, 0
-warnings) after the graphics device choice and Patella.ini (x64-only branches in Surface.cpp, Control.cpp,
-Dialogs.cpp and Dialogs.h; src/settings and the new src/vulkan files outside the oracle's glob): 16,848,752 + 67 +
-1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe built from main (a8d6b01) and
-from the branch at the same path: 0 unexpected differences (pecompare); macrocheck main issue-31: 2,108 calls, 0
-differences.
-
-Patella-Modern issue #20 (branch issue-20, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest, 0
-warnings) after the original engines left windows-x64 (x64-only branches in Surface.cpp and Control.cpp): the same
-counts as below; the oracle Patella.exe built from main d624a34 and from the branch at the same path: 0 unexpected
-differences (pecompare); macrocheck 2,108 calls, 0 differences.
-
-Patella-Modern issue #22 (branch issue-22, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest 4/4, 0
-warnings) after the test mode's dump hooks in src/ (statement macros that are nothing outside the test build in
-Network.cpp, Communication.cpp and vulkan/SurfaceVulkan.cpp; View functions inside `#if
-defined(PATELLA_TEST_MODE)` at the ends of Creatures.cpp, Inventory.cpp, Map.cpp, Status.cpp): 16,848,752 +
-67 + 1,134,513 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64
-Release Patella.exe built from main (d624a34) and from the branch at the same path: 0 unexpected differences
-(pecompare); macrocheck main issue-22: 2,108 calls, 0 differences.
-
-Patella-Modern issue #19, second part (branch issue-19 after merging main 193dee3, November 3, 2026): `python -I
-tools/build.py oracle-x86` (CTest, 0 warnings) after the Edge copy, the device-filtered masks and engine 2 as the
-Vulkan engine in the x64 client: the same counts as below; the oracle Patella.exe built from main 193dee3 and
-from the branch at the same path: 0 unexpected differences (pecompare).
-
-Patella-Modern issue #19 (branch issue-19, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest, 0
-warnings) after the Vulkan engine (src/vulkan, not in the oracle; Surface.cpp's choice of engine 2 behind macros
-that are surfaceDX9.cpp's calls in the oracle): the same counts as below; the oracle Patella.exe built from main
-(3655cdf) and from the branch at the same path differ only in the link time stamps and the PDB record (pecompare:
-0 unexpected differences).
-
-Patella-Modern issue #24 (branch issue-24, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh`
-(CTest, 0 warnings) after the first tests moved to tests/golden as golden-corpus tests: the same counts as below;
-and with recording on (`golden_corpus`): 16,848,752 + 67 + 1,134,513 checks, 0 failures, every per-test count as
-in the run without it. The x64 golden_runner replays 373,518 of difftest's checks (XTEA 6,000, Characters 4,500,
-Colors 20,145, Strings 30,000, FormatNumber 2,000, Buffers 80,652, Skins 263, Regexp 229,958) and sysinctest's
-67, 0 failures; not yet ported: difftest's 16,475,234 other checks and communicationtest's 1,134,513.
-
-Patella-Modern issue #21 (branch issue-21, November 3, 2026): `python -I tools/build.py oracle-x86` (CTest, 0
-warnings) after the test mode's hooks in src/ (src/TestHooks.h, the system calls themselves outside the test
-build): the same counts as below; the oracle Patella.exe is identical to main's apart from the link time
-stamps and the PDB record.
-
-Issue #7 (branch issue-7, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest, 0 warnings)
-after the portability changes of src/ (common.h, vlong.h, vlong.cpp, regexp.c): the same counts as below.
-
-Issue #10 (branch issue-10, November 3, 2026): `python -I tools/build.py oracle-x86 --fresh` from Git Bash (no
-developer prompt; CTest, 0 warnings) after the scripts were removed: the same counts as below.
-
-Issue #5 (branch issue-5, November 3, 2026): `cmake --workflow --preset oracle-x86 --fresh` (CTest, 0 warnings)
-after the x64 fixes of src/: the same counts as below.
-
-Issue #8 (branch issue-8, November 3, 2026): `cmake --workflow --preset oracle-x86` (CTest, from an empty build
-directory, 0 warnings) after the LinkPattern change and the reformat of src/: the same counts as below.
-
-Issue #4 (branch issue-4, November 3, 2026): `cmake --workflow --preset oracle-x86` (CTest) and the full build.cmd
-give the same counts as below, every per-test count included.
-
-16,848,752 checks against the original + 67 in sysinctest.exe + 1,134,513 in communicationtest.exe, 0 failures;
-3,201 vlong checks, 0 failures (main after merging #36 and #37, full build.cmd, November 2, 2026: #37 added
-Network 74,928 + 38,878 and MainFrm 31,424 + 18,152 to difftest.exe, every other count unchanged; #36 added
-communicationtest.exe. Before: issue #35, branch issue-35, full build.cmd, November 2, 2026: the line numbers of every compared exception
-now compared exactly; every count, the error rounds' too, is main's: the line pairs' checks became equality
-checks, one per pair as before. Main after merging #34's third part (issue-34c): the second part's 15,258,447 plus the error rounds of
-Dialogs 200,285 and DialogElements 1,226,638. The second part (issue-34b): the first part's 14,745,663 plus the error rounds of
-ConsoleWindow 287,934, ContentWindows 168,764, MapWindow 12,359 and MainWindow 43,150, statics now 8,496
-(NumberOfBuddies, SurfaceInitInstance); GUI 31,909, DialogWindow 9,501, ContextMenus 8,572, SurfaceDX 155,615,
-SurfaceDX9 4,934, SurfaceGL 2,620 as before; every per-test count as before; #21 (src/compat/crt71.h) changed
-no total. Full build.cmd, November 2, 2026).
+Patella-Modern issue #28, second part (branch issue-28b, November 4, 2026): `python -I tools/build.py oracle-x86
+--fresh` (CTest 4/4, 0 warnings) after DialogWindow, ContextMenus, ConsoleWindow, ContentWindows and DialogElements
+moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on
+(`golden_corpus`) the same counts. The x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13) replays
+14,836,028 of difftest's checks and sysinctest's 67, 0 failures (the first part's 12,858,032 as before, DialogWindow
+34,068, ContextMenus 41,660, ConsoleWindow 318,882, ContentWindows 221,270, DialogElements 1,362,116, each error round
+with the oracle's counts); not yet ported: difftest's 2,012,724 other checks (Dialogs, SurfaceDX, DX9, GL, Errors,
+MapWindow, MainWindow) and communicationtest's 1,134,513. src/ unchanged (no diff against 0ab4d3c); macrocheck
+0ab4d3c issue-28b: 2,108 calls, 0 differences.
 
 ## Notes for later files
 

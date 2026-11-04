@@ -1,4 +1,5 @@
-// Differential tests of ContentWindows.cpp against the original code.
+// difftest.exe's ContentWindows test (moved here from tools/difftest/contentwindowstest.cpp, issue #28):
+// ContentWindows.cpp against the original, as a golden-corpus test (golden.h).
 //
 // Every round builds one kind of window on both sides, from the image's code
 // and from ours: the inventory and the small inventory, the containers, the
@@ -31,37 +32,59 @@
 // assertions are not exercised: the inputs keep to what the game does (the
 // trade buttons get the counter offer only while they wait, positions are
 // inside the windows).
+//
+// By value (plan 4.3): the original's side exists in the oracle only (every use of it is inside ORIGINAL or
+// #if GOLDEN_ORACLE); the runner has our windows alone. Per comparison the corpus holds the original's log
+// (text), its dump (text, by its changes since the last one, golden::OutputTextChanges), the results of its
+// calls, whether it has the parts the error round calls, how many logged fake calls its call made (the error
+// round draws the failing call from them) and what it threw. The runner redirects its own functions with
+// golden::RedirectOwn (operator new and new[] to the pattern too), our _time32 through its import slot and our
+// printf (the automap's MouseHover) through the import slot of __stdio_common_vfprintf while our side runs.
 
-#include "difftest.h"
+#include "golden_test.h"
+
 #include "elementfakes.h"
-#include "imageeh.h"
-#include "../../src/ContentWindows.h"
-#include "../../src/Communication.h"
-#include "../../src/ContextMenus.h"
-#include "../../src/Creatures.h"
-#include "../../src/GUI.h"
-#include "../../src/Help.h"
-#include "../../src/Inventory.h"
-#include "../../src/Map.h"
-#include "../../src/Objects.h"
-#include "../../src/Preferences.h"
-#include "../../src/Skins.h"
-#include "../../src/Status.h"
-#include "../../src/Surface.h"
-#include "../../tests/golden/testsurface.h"
-#include "../../src/Talk.h"
-#include "../../src/Utils.h"
-#include "../../src/graphics.h"
+#include "golden_eh.h"
+#include "testsurface.h"
+#if GOLDEN_ORACLE
+#include "../../tools/difftest/imageeh.h"
+#else
+#include "golden_patch.h"
+#endif
+
+#include "Communication.h"
+#include "ContentWindows.h"
+#include "ContextMenus.h"
+#include "Creatures.h"
+#include "GUI.h"
+#include "Help.h"
+#include "Inventory.h"
+#include "Map.h"
+#include "Objects.h"
+#include "Preferences.h"
+#include "Skins.h"
+#include "Status.h"
+#include "Surface.h"
+#include "Talk.h"
+#include "Utils.h"
+#include "graphics.h"
+
 #include <map>
 #include <new>
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <string>
+#include <time.h>
 #include <vector>
 
+#if GOLDEN_ORACLE
 static_assert(sizeof(TButtonsWindow) == 0x58 && offsetof(TButtonsWindow, LogoutButton) == 0x54, "TButtonsWindow layout");
 static_assert(sizeof(TAutomapView) == 0x24 && sizeof(TCompassRose) == 0x28, "automap parts");
 static_assert(sizeof(TAutomapWindow) == 0x80 && offsetof(TAutomapWindow, Changed) == 0x60
-	&& offsetof(TAutomapWindow, ViewX) == 0x64 && offsetof(TAutomapWindow, Zoom) == 0x7c, "TAutomapWindow layout");
+		&& offsetof(TAutomapWindow, ViewX) == 0x64 && offsetof(TAutomapWindow, Zoom) == 0x7c,
+	"TAutomapWindow layout");
 static_assert(sizeof(TCapacityLabel) == 0x24 && sizeof(TSoulLabel) == 0x24, "labels");
 static_assert(sizeof(TPlayerStates) == 0x2c && offsetof(TPlayerStates, MaxIcons) == 0x28, "TPlayerStates layout");
 static_assert(sizeof(TSmallInventoryWindow) == 0x44 && sizeof(TInventoryView) == 0x2c, "inventory windows");
@@ -76,16 +99,26 @@ static_assert(sizeof(TBattleWindowBody) == 0x58 && offsetof(TBattleWindowBody, M
 static_assert(sizeof(TBuddylistWindowBody) == 0x3c && offsetof(TBuddylistWindowBody, MouseOverText) == 0x38,
 	"TBuddylistWindowBody layout");
 static_assert(sizeof(TTradeWindowBody) == 0x3c && sizeof(TTradeOffers) == 0x34 && sizeof(TTradeNames) == 0x38
-	&& sizeof(TTradeButtons) == 0x4c && offsetof(TTradeButtons, Callback) == 0x44, "trade layouts");
+		&& sizeof(TTradeButtons) == 0x4c && offsetof(TTradeButtons, Callback) == 0x44,
+	"trade layouts");
 static_assert(sizeof(TRadioButtonGroup) == 0x28 && offsetof(TRadioButtonGroup, Count) == 0x24, "TRadioButtonGroup layout");
 static_assert(offsetof(TSkinButton, RadioButtonGroup) == 0x38 && sizeof(TTextToggleButton) == 0x84
-	&& offsetof(TTextToggleButton, State) == 0x78 && sizeof(TLabel) == 0x4c && sizeof(TSkinIcon) == 0x28,
+		&& offsetof(TTextToggleButton, State) == 0x78 && sizeof(TLabel) == 0x4c && sizeof(TSkinIcon) == 0x28,
 	"DialogElements layouts");
 static_assert(sizeof(TMarkMenuData) == 0x80, "TMarkMenuData is 0x80 bytes");
+#endif
+
+// The test's own definitions: in a namespace of their own (the other window tests, linked into the same
+// executable, define classes of the same names at global scope). The fakes' members (elementfakes.h's
+// classes) and the hooks are global; they see the namespace through the using-directive below.
+namespace ContentWindowsTest {
 
 // --- Logs and names ------------------------------------------------------------------
 
-enum { OURS = 0, ORIGINAL = 1 };
+enum { OURS = 0,
+	ORIGINAL = 1 };
+// The sides that have objects: both in the oracle, ours in the runner.
+static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
 static int Side;
 static bool Testing; // the fakes log only while this test runs
 static std::string Log[2];
@@ -154,6 +187,9 @@ static std::string KindOf(int s, const void *Object)
 	auto K = Kinds[s].find(VtableOf(Object));
 	return K == Kinds[s].end() ? "?" : K->second;
 }
+
+} // namespace ContentWindowsTest
+using namespace ContentWindowsTest;
 
 // --- DialogElements.cpp: the shared fakes report here -------------------------------------
 
@@ -230,8 +266,15 @@ void TFakeScrollBarRange::SetValue(int _Value)
 	Value = _Value;
 }
 
-// Both sides' SetRange (the shared one logs only in consolewindowtest.cpp).
+namespace ContentWindowsTest {
+
+// Both sides' SetRange (the shared one logs only in consolewindow_tests.cpp); a member function's stand-in
+// (GOLDEN_THISCALL: this in ECX on x86, first on x64).
+#if GOLDEN_ORACLE
 static void __fastcall FakeSetRange(TFakeScrollBarRange *Range, void *, int Minimum, int Maximum, int Value, int Visible)
+#else
+static void FakeSetRange(TFakeScrollBarRange *Range, int Minimum, int Maximum, int Value, int Visible)
+#endif
 {
 	Logf("Range%d,%d,%d,%d;", Minimum, Maximum, Value, Visible);
 	((int *)Range->Data00)[0] = Minimum;
@@ -248,8 +291,16 @@ static int ScrollMinimumHeight;
 class TCWTestElement : public TElement {
 public:
 	void Draw(int Surface, int x, int y) { Logf("D%s,%d,%d,%d;", Name(this).c_str(), Surface, x, y); }
-	bool LeftButtonDown(int x, int y, int Flags) { Logf("P%s,%d,%d,%d;", Name(this).c_str(), x, y, Flags); return false; }
-	bool LeftButtonUp(int x, int y, int Flags) { Logf("U%s,%d,%d,%d;", Name(this).c_str(), x, y, Flags); return false; }
+	bool LeftButtonDown(int x, int y, int Flags)
+	{
+		Logf("P%s,%d,%d,%d;", Name(this).c_str(), x, y, Flags);
+		return false;
+	}
+	bool LeftButtonUp(int x, int y, int Flags)
+	{
+		Logf("U%s,%d,%d,%d;", Name(this).c_str(), x, y, Flags);
+		return false;
+	}
 };
 class TCWTestLabel : public TFakeLabel {
 public:
@@ -287,10 +338,14 @@ static void *TestVtable(void *Ours)
 {
 	if (ContentRound == NULL || Side != ORIGINAL)
 		return Ours;
+#if GOLDEN_ORACLE
 	bool Window = Ours == ScrollVtable;
 	void *Hybrid = ImageSideVtable(Ours, Window ? OurWindowBase : OurElementBase, Window ? 0x564528 : 0x5645c8);
 	Kinds[ORIGINAL][Hybrid] = Kinds[ORIGINAL][Ours];
 	return Hybrid;
+#else
+	abort(); // the runner has no original side
+#endif
 }
 // The scroll bar's press is TWindow's (the image's in the error round, as
 // ImageSideVtable gives the methods it does not override), after a tick:
@@ -299,7 +354,7 @@ bool TCWTestScrollBar::LeftButtonDown(int x, int y, int Flags)
 {
 	Tick();
 	if (ContentRound != NULL && Side == ORIGINAL)
-		return At<bool (__fastcall *)(void *, void *, int, int, int)>(0x49dff0)(this, NULL, x, y, Flags);
+		return ORIGINAL_OR(At<bool(__fastcall *)(void *, void *, int, int, int)>(0x49dff0)(this, NULL, x, y, Flags), false);
 	return TFakeScrollBar::LeftButtonDown(x, y, Flags);
 }
 
@@ -354,7 +409,9 @@ static void HookResizer(TResizer *Resizer, TComponent *ToResize, bool P2, bool P
 
 // --- The world and the fakes of the callees ----------------------------------------------
 
-enum { NCONTAINERS = 4, NBUDDIES = 12, NOPPONENTS = 12 };
+enum { NCONTAINERS = 4,
+	NBUDDIES = 12,
+	NOPPONENTS = 12 };
 struct TContentWorld {
 	int ActionState, MouseX, MouseY;
 	int Health, MaxHealth, Mana, MaxMana, Capacity, Soul, Experience, Level, LevelProgress, MagicLevel,
@@ -389,9 +446,21 @@ static const char *const BuddyNames[NBUDDIES] = {"Seymour", "Xa", "Mr Very Long 
 static const char *const OpponentNames[NOPPONENTS] = {"Rat", "Cave Rat", "A Very Long Monster Name", "Seymour",
 	"Troll", "Xa", "Demon", "Mr Very Long Name Indeed", "Orc", "Dragon Lord", "Bug", "Wolf"};
 
-static int __cdecl FakeGetActionState() { Logf("AState;"); return World.ActionState; }
-static int __cdecl FakeGetMouseX() { Logf("MX;"); return World.MouseX; }
-static int __cdecl FakeGetMouseY() { Logf("MY;"); return World.MouseY; }
+static int __cdecl FakeGetActionState()
+{
+	Logf("AState;");
+	return World.ActionState;
+}
+static int __cdecl FakeGetMouseX()
+{
+	Logf("MX;");
+	return World.MouseX;
+}
+static int __cdecl FakeGetMouseY()
+{
+	Logf("MY;");
+	return World.MouseY;
+}
 static TObject *__cdecl FakeGetDragObject(int *Index, int *x, int *y, int *z)
 {
 	Logf("GetDrag;");
@@ -448,11 +517,27 @@ static void __cdecl FakeAddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 	}
 }
 static void __cdecl FakeSetStatusMessage(const char *Message, bool Permanent) { Logf("Status%s,%d;", Message, Permanent ? 1 : 0); }
-static bool __cdecl FakeGetBlinkState() { Logf("Blink;"); return World.BlinkState; }
+static bool __cdecl FakeGetBlinkState()
+{
+	Logf("Blink;");
+	return World.BlinkState;
+}
 
-static TObject *__cdecl FakeGetBodyObject(int Position) { Logf("Body%d;", Position); return &World.Body[Position]; }
-static int __cdecl FakeGetContainerObjectCount(int Container) { Logf("CCount%d;", Container); return World.ObjectCount[Container]; }
-static int __cdecl FakeGetContainerCapacity(int Container) { Logf("CCap%d;", Container); return World.ContainerCapacity[Container]; }
+static TObject *__cdecl FakeGetBodyObject(int Position)
+{
+	Logf("Body%d;", Position);
+	return &World.Body[Position];
+}
+static int __cdecl FakeGetContainerObjectCount(int Container)
+{
+	Logf("CCount%d;", Container);
+	return World.ObjectCount[Container];
+}
+static int __cdecl FakeGetContainerCapacity(int Container)
+{
+	Logf("CCap%d;", Container);
+	return World.ContainerCapacity[Container];
+}
 static TObject *__cdecl FakeGetContainerContent(TObject *Result, int Container, int Position)
 {
 	Logf("CContent%d,%d;", Container, Position);
@@ -465,12 +550,36 @@ static TObject *__cdecl FakeGetContainerObject(TObject *Result, int Container)
 	*Result = World.ContainerObject[Container];
 	return Result;
 }
-static char *__cdecl FakeGetContainerName(int Container) { Logf("CName%d;", Container); return (char *)ContainerNames[Container]; }
-static bool __cdecl FakeGetContainerHasParent(int Container) { Logf("CParent%d;", Container); return World.HasParent[Container]; }
-static bool __cdecl FakeIsContainerOpen(int Container) { Logf("COpen%d;", Container); return World.ContainerOpen[Container]; }
-static int __cdecl FakeGetFreeContainer() { Logf("Free;"); return World.FreeContainer; }
-static int __cdecl FakeGetOwnOfferCount() { Logf("OwnCount;"); return World.OwnCount; }
-static int __cdecl FakeGetCounterOfferCount() { Logf("CounterCount;"); return World.CounterCount; }
+static char *__cdecl FakeGetContainerName(int Container)
+{
+	Logf("CName%d;", Container);
+	return (char *)ContainerNames[Container];
+}
+static bool __cdecl FakeGetContainerHasParent(int Container)
+{
+	Logf("CParent%d;", Container);
+	return World.HasParent[Container];
+}
+static bool __cdecl FakeIsContainerOpen(int Container)
+{
+	Logf("COpen%d;", Container);
+	return World.ContainerOpen[Container];
+}
+static int __cdecl FakeGetFreeContainer()
+{
+	Logf("Free;");
+	return World.FreeContainer;
+}
+static int __cdecl FakeGetOwnOfferCount()
+{
+	Logf("OwnCount;");
+	return World.OwnCount;
+}
+static int __cdecl FakeGetCounterOfferCount()
+{
+	Logf("CounterCount;");
+	return World.CounterCount;
+}
 static TObject *__cdecl FakeGetOwnOfferObject(TObject *Result, int Position)
 {
 	Logf("OwnObj%d;", Position);
@@ -483,35 +592,96 @@ static TObject *__cdecl FakeGetCounterOfferObject(TObject *Result, int Position)
 	*Result = World.Counter[Position % 12];
 	return Result;
 }
-static char *__cdecl FakeGetOwnOfferName() { Logf("OwnName;"); return (char *)"Tester"; }
-static char *__cdecl FakeGetCounterOfferName() { Logf("CounterName;"); return (char *)"Mr Very Long Name Indeed"; }
+static char *__cdecl FakeGetOwnOfferName()
+{
+	Logf("OwnName;");
+	return (char *)"Tester";
+}
+static char *__cdecl FakeGetCounterOfferName()
+{
+	Logf("CounterName;");
+	return (char *)"Mr Very Long Name Indeed";
+}
 static void __cdecl FakeClearOffers() { Logf("ClearOffers;"); }
 
-static int __cdecl FakeGetNumberOfOpponents() { Logf("Opponents;"); return World.Opponents; }
+static int __cdecl FakeGetNumberOfOpponents()
+{
+	Logf("Opponents;");
+	return World.Opponents;
+}
 static TCreature *__cdecl FakeGetOpponent(int Number)
 {
 	Logf("Opponent%d;", Number);
 	return Number >= 0 && Number < World.Opponents ? &OpponentList[Number] : NULL;
 }
-static uint32 __cdecl FakeGetAttackID() { Logf("AttackID;"); return World.AttackID[Side]; }
-static uint32 __cdecl FakeGetFollowID() { Logf("FollowID;"); return World.FollowID; }
+static uint32 __cdecl FakeGetAttackID()
+{
+	Logf("AttackID;");
+	return World.AttackID[Side];
+}
+static uint32 __cdecl FakeGetFollowID()
+{
+	Logf("FollowID;");
+	return World.FollowID;
+}
 static void __cdecl FakeSetAttackID(uint32 ID)
 {
 	Logf("SetAttack%u;", ID);
 	World.AttackID[Side] = ID;
 }
 static void __cdecl FakeSetHighlightID(uint32 ID) { Logf("Highlight%u;", ID); }
-static bool __cdecl FakeIsPlayerInParty() { Logf("InParty;"); return World.InParty; }
-static int __cdecl FakeGetNumberOfBuddies() { Logf("Buddies;"); return World.Buddies; }
-static int __cdecl FakeGetBuddyListIcon(int Position) { Logf("BIcon%d;", Position); return World.BuddyIcon[Position]; }
-static const char *__cdecl FakeGetBuddyListName(int Position) { Logf("BName%d;", Position); return BuddyNames[Position]; }
-static bool __cdecl FakeGetBuddyListOnline(int Position) { Logf("BOnline%d;", Position); return World.BuddyOnline[Position]; }
-static bool __cdecl FakeGetBuddyListNew(int Position) { Logf("BNew%d;", Position); return World.BuddyNew[Position]; }
-static uint32 __cdecl FakeGetBuddyListID(int Position) { Logf("BID%d;", Position); return 0x10000100 + Position; }
-static uint32 __cdecl FakeGetPlayerID() { Logf("PID;"); return Player.CreatureID; }
-static TCreature *__cdecl FakeGetCreature(uint32 ID) { Logf("Cr%u;", ID); return ID == Player.CreatureID ? &Player : NULL; }
+static bool __cdecl FakeIsPlayerInParty()
+{
+	Logf("InParty;");
+	return World.InParty;
+}
+static int __cdecl FakeGetNumberOfBuddies()
+{
+	Logf("Buddies;");
+	return World.Buddies;
+}
+static int __cdecl FakeGetBuddyListIcon(int Position)
+{
+	Logf("BIcon%d;", Position);
+	return World.BuddyIcon[Position];
+}
+static const char *__cdecl FakeGetBuddyListName(int Position)
+{
+	Logf("BName%d;", Position);
+	return BuddyNames[Position];
+}
+static bool __cdecl FakeGetBuddyListOnline(int Position)
+{
+	Logf("BOnline%d;", Position);
+	return World.BuddyOnline[Position];
+}
+static bool __cdecl FakeGetBuddyListNew(int Position)
+{
+	Logf("BNew%d;", Position);
+	return World.BuddyNew[Position];
+}
+static uint32 __cdecl FakeGetBuddyListID(int Position)
+{
+	Logf("BID%d;", Position);
+	return 0x10000100 + Position;
+}
+static uint32 __cdecl FakeGetPlayerID()
+{
+	Logf("PID;");
+	return Player.CreatureID;
+}
+static TCreature *__cdecl FakeGetCreature(uint32 ID)
+{
+	Logf("Cr%u;", ID);
+	return ID == Player.CreatureID ? &Player : NULL;
+}
 
-#define WORLD_INT(Fn, Field) static int __cdecl Fake##Fn() { Logf(#Fn ";"); return World.Field; }
+#define WORLD_INT(Fn, Field) \
+	static int __cdecl Fake##Fn() \
+	{ \
+		Logf(#Fn ";"); \
+		return World.Field; \
+	}
 WORLD_INT(GetPlayerHealth, Health)
 WORLD_INT(GetPlayerMaxHealth, MaxHealth)
 WORLD_INT(GetPlayerMana, Mana)
@@ -526,7 +696,12 @@ WORLD_INT(GetPlayerMagicLevelProgress, MagicProgress)
 WORLD_INT(GetAttackMode, AttackMode[Side])
 WORLD_INT(GetChaseMode, ChaseMode[Side])
 WORLD_INT(GetAutomapZoom, AutomapZoom)
-#define WORLD_STATE(Fn, i) static bool __cdecl Fake##Fn() { Logf(#Fn ";"); return World.States[i]; }
+#define WORLD_STATE(Fn, i) \
+	static bool __cdecl Fake##Fn() \
+	{ \
+		Logf(#Fn ";"); \
+		return World.States[i]; \
+	}
 WORLD_STATE(IsPlayerPoisoned, 0)
 WORLD_STATE(IsPlayerBurning, 1)
 WORLD_STATE(IsPlayerManaShielded, 2)
@@ -536,13 +711,41 @@ WORLD_STATE(IsPlayerInFight, 5)
 WORLD_STATE(IsPlayerDrunk, 6)
 WORLD_STATE(IsPlayerElectrified, 7)
 WORLD_STATE(IsPlayerHasted, 8)
-static int __cdecl FakeGetPlayerSkillValue(int Skill) { Logf("SkillV%d;", Skill); return World.SkillValue[Skill]; }
-static int __cdecl FakeGetPlayerSkillProgress(int Skill) { Logf("SkillP%d;", Skill); return World.SkillProgress[Skill]; }
-static bool __cdecl FakeGetLevelBar() { Logf("LevelBar;"); return World.LevelBar; }
-static bool __cdecl FakeGetMagLevelBar() { Logf("MagBar;"); return World.MagLevelBar; }
-static bool __cdecl FakeGetSkillBar(int Skill) { Logf("SkillBar%d;", Skill); return World.SkillBar[Skill]; }
-static bool __cdecl FakeGetClassicControl() { Logf("Classic;"); return World.ClassicControl; }
-static bool __cdecl FakeGetSecureMode() { Logf("GetSecure;"); return World.SecureMode[Side]; }
+static int __cdecl FakeGetPlayerSkillValue(int Skill)
+{
+	Logf("SkillV%d;", Skill);
+	return World.SkillValue[Skill];
+}
+static int __cdecl FakeGetPlayerSkillProgress(int Skill)
+{
+	Logf("SkillP%d;", Skill);
+	return World.SkillProgress[Skill];
+}
+static bool __cdecl FakeGetLevelBar()
+{
+	Logf("LevelBar;");
+	return World.LevelBar;
+}
+static bool __cdecl FakeGetMagLevelBar()
+{
+	Logf("MagBar;");
+	return World.MagLevelBar;
+}
+static bool __cdecl FakeGetSkillBar(int Skill)
+{
+	Logf("SkillBar%d;", Skill);
+	return World.SkillBar[Skill];
+}
+static bool __cdecl FakeGetClassicControl()
+{
+	Logf("Classic;");
+	return World.ClassicControl;
+}
+static bool __cdecl FakeGetSecureMode()
+{
+	Logf("GetSecure;");
+	return World.SecureMode[Side];
+}
 static void __cdecl FakeSetAttackMode(int Value)
 {
 	Logf("SetAttackMode%d;", Value);
@@ -559,7 +762,11 @@ static void __cdecl FakeSetSecureMode(bool Value)
 	World.SecureMode[Side] = Value;
 }
 static void __cdecl FakeSetAutomapZoom(int Value) { Logf("SetZoom%d;", Value); }
-static int __cdecl FakeGetContentWindowSize(int ID) { Logf("GetCWSize%d;", ID); return World.WindowSize[ID]; }
+static int __cdecl FakeGetContentWindowSize(int ID)
+{
+	Logf("GetCWSize%d;", ID);
+	return World.WindowSize[ID];
+}
 static void __cdecl FakeSetContentWindowSize(int ID, int Size) { Logf("SetCWSize%d,%d;", ID, Size); }
 
 static void __cdecl FakeGetMapPosition(int *x, int *y, int *z)
@@ -569,7 +776,11 @@ static void __cdecl FakeGetMapPosition(int *x, int *y, int *z)
 	*y = World.PlayerY;
 	*z = World.PlayerZ;
 }
-static bool __cdecl FakeGetAutomapChanged() { Logf("AMChanged;"); return World.AutomapChanged; }
+static bool __cdecl FakeGetAutomapChanged()
+{
+	Logf("AMChanged;");
+	return World.AutomapChanged;
+}
 // The automap's colours are a function of the point (not logged: 11236 calls a draw).
 static TRGBColor *__cdecl FakeGetAutomapColor(TRGBColor *Color, int x, int y, int z)
 {
@@ -680,8 +891,16 @@ static int __cdecl FakeGetFittingTextLength(int Font, const char *Text, int Widt
 		Sum += CharWidth(Text[i++]);
 	return i;
 }
-static int __cdecl FakeGetFontHeight(int Font) { Logf("FontH%d;", Font); return 11 + Font % 2; }
-static int __cdecl FakeGetFontLineHeight(int Font) { Logf("LineH%d;", Font); return 13 + Font % 3; }
+static int __cdecl FakeGetFontHeight(int Font)
+{
+	Logf("FontH%d;", Font);
+	return 11 + Font % 2;
+}
+static int __cdecl FakeGetFontLineHeight(int Font)
+{
+	Logf("LineH%d;", Font);
+	return 13 + Font % 3;
+}
 
 // Communication.cpp: the Send functions no other test defines (ours), and the
 // fakes both sides use.
@@ -720,12 +939,20 @@ static void __cdecl FakeSendAttack(uint32 ID) { Logf("SAttack%u;", ID); }
 static void __cdecl FakeSendOpenPrivateConversation(const char *Name_) { Logf("SPrivate%s;", Name_); }
 static void __cdecl FakeSendWalk() { Logf("SWalk;"); }
 static void __cdecl FakeSendStop() { Logf("SStop;"); }
+} // namespace ContentWindowsTest
+
+#if GOLDEN_ORACLE
+// Communication.cpp is not in the test: our side's definitions of the Send functions no other test defines.
+// The runner has them as stubs (client_stubs.cpp) and redirects those.
 void SendCloseContainer(int Container) { FakeSendCloseContainer(Container); }
 void SendContainerUp(int Container) { FakeSendContainerUp(Container); }
 void SendFightModes() { FakeSendFightModes(); }
 void SendInspectTrade(int Side_, int Position) { FakeSendInspectTrade(Side_, Position); }
 void SendAcceptTrade() { FakeSendAcceptTrade(); }
 void SendRejectTrade() { FakeSendRejectTrade(); }
+#endif
+
+namespace ContentWindowsTest {
 
 // The surface: every call ContentWindows.cpp makes is logged.
 class TContentSurface : public TTestSurface {
@@ -739,9 +966,9 @@ public:
 		Logf("FillC%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d;", Surface, R.x, R.y, R.width, R.height, C.R, C.G, C.B, Clip.x,
 			Clip.y, Clip.width, Clip.height);
 	}
-	void DrawHorizontalLine(int Surface, int x, int y, int Width, TRGBColor C)
+	void DrawHorizontalLine(int Surface, int x, int y, int LineWidth, TRGBColor C)
 	{
-		Logf("HLine%d,%d,%d,%d,%d,%d,%d;", Surface, x, y, Width, C.R, C.G, C.B);
+		Logf("HLine%d,%d,%d,%d,%d,%d,%d;", Surface, x, y, LineWidth, C.R, C.G, C.B);
 	}
 	void DrawFrame(int Surface, TRect R, int LineWidth, TRGBColor C)
 	{
@@ -752,12 +979,12 @@ public:
 		Logf("FrameC%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d;", Surface, R.x, R.y, R.width, R.height, LineWidth, C.R, C.G,
 			C.B, Clip.x, Clip.y, Clip.width, Clip.height);
 	}
-	void WriteImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data)
+	void WriteImage(int ToSurface, int x, int y, int ImageWidth, int ImageHeight, uint8 *Data)
 	{
 		uint32 Hash = 0;
-		for (int i = 0; i < Width * Height * 3; i++)
+		for (int i = 0; i < ImageWidth * ImageHeight * 3; i++)
 			Hash = Hash * 31 + Data[i];
-		Logf("Image%d,%d,%d,%d,%d,%08x;", ToSurface, x, y, Width, Height, Hash);
+		Logf("Image%d,%d,%d,%d,%d,%08x;", ToSurface, x, y, ImageWidth, ImageHeight, Hash);
 	}
 	void BlitRect(int ToSurface, int x, int y, int FromSurface, TRect S)
 	{
@@ -769,8 +996,8 @@ public:
 		return World.SurfaceLost;
 	}
 };
-static TContentSurface *Surface;
-static TSurface *__cdecl FakeGetSurface() { return Surface; }
+static TContentSurface *ContentSurface;
+static TSurface *__cdecl FakeGetSurface() { return ContentSurface; }
 
 // The clock (fixed), the image's printf (the automap's debugging output),
 // sprintf and _snprintf.
@@ -780,7 +1007,7 @@ static __time32_t __cdecl FakeTime(__time32_t *Time)
 		*Time = 1700000000;
 	return 1700000000;
 }
-static int __cdecl ImagePrintf(const char *Format, ...)
+[[maybe_unused]] static int __cdecl ImagePrintf(const char *Format, ...) // unused (since before issue #28)
 {
 	char Buffer[512];
 	va_list Args;
@@ -833,33 +1060,64 @@ struct TSaved {
 	uint8 Bytes[5];
 };
 static std::vector<TSaved> SavedCode;
+// The oracle patches the image and difftest.exe's code with PatchJump; the runner its own code with
+// golden::RedirectOwn (golden_patch.h), saved and restored the same way.
 static void Redirect(void *Function, void *Target)
 {
 	TSaved S;
 	S.Code = (uint8 *)Function;
+#if GOLDEN_ORACLE
 	DWORD Protection;
 	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
 	memcpy(S.Bytes, Function, 5);
 	PatchJump((uint32)(uintptr_t)Function, Target);
 	VirtualProtect(Function, 5, Protection, &Protection);
 	FlushInstructionCache(GetCurrentProcess(), Function, 5);
+#else
+	golden::SaveOwn(Function, S.Bytes);
+	golden::RedirectOwn(Function, Target);
+#endif
 	SavedCode.push_back(S);
 }
+#if !GOLDEN_ORACLE
+// Our _time32: the runner's import slot of ucrtbase's (Talk's test does the same).
+static void **ClockSlot;
+static void *SavedClock;
+#endif
 static void RestoreAll()
 {
 	for (size_t i = SavedCode.size(); i-- > 0;) {
+#if GOLDEN_ORACLE
 		DWORD Protection;
 		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
 		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
 		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
 		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
+#else
+		golden::RestoreOwn(SavedCode[i].Code, SavedCode[i].Bytes);
+#endif
 	}
 	SavedCode.clear();
+#if !GOLDEN_ORACLE
+	golden::SetImport(ClockSlot, SavedClock);
+#endif
 }
+
+// Ours of the functions the oracle's difftest.exe defines in this file (the Send functions): NULL there, the
+// runner's stubs (client_stubs.cpp) here.
+#if GOLDEN_ORACLE
+#define DEFINED_HERE(Function) NULL
+#else
+#define DEFINED_HERE(Function) ((void *)(Function))
+#endif
 
 static void PatchCallees()
 {
-	struct { uint32 Image; void *Ours; void *Fake; } Table[] = {
+	struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Table[] = {
 		{0x4e6e30, (void *)GetActionState, (void *)FakeGetActionState},
 		{0x4e6e60, (void *)GetMouseX, (void *)FakeGetMouseX},
 		{0x4e6e70, (void *)GetMouseY, (void *)FakeGetMouseY},
@@ -965,12 +1223,12 @@ static void PatchCallees()
 		{0x48b430, (void *)GetFontLineHeight, (void *)FakeGetFontLineHeight},
 		{0x4eaa90, (void *)GetSurface, (void *)FakeGetSurface},
 		// Communication.cpp: ours are this file's definitions (NULL) or other tests' (redirected).
-		{0x405ef0, NULL, (void *)FakeSendCloseContainer},
-		{0x4060a0, NULL, (void *)FakeSendContainerUp},
-		{0x407eb0, NULL, (void *)FakeSendFightModes},
-		{0x4051f0, NULL, (void *)FakeSendInspectTrade},
-		{0x4053b0, NULL, (void *)FakeSendAcceptTrade},
-		{0x405550, NULL, (void *)FakeSendRejectTrade},
+		{0x405ef0, DEFINED_HERE(SendCloseContainer), (void *)FakeSendCloseContainer},
+		{0x4060a0, DEFINED_HERE(SendContainerUp), (void *)FakeSendContainerUp},
+		{0x407eb0, DEFINED_HERE(SendFightModes), (void *)FakeSendFightModes},
+		{0x4051f0, DEFINED_HERE(SendInspectTrade), (void *)FakeSendInspectTrade},
+		{0x4053b0, DEFINED_HERE(SendAcceptTrade), (void *)FakeSendAcceptTrade},
+		{0x405550, DEFINED_HERE(SendRejectTrade), (void *)FakeSendRejectTrade},
 		{0x404db0, (void *)SendMoveObject, (void *)FakeSendMoveObject},
 		{0x4058f0, (void *)SendUseObjectWith, (void *)FakeSendUseObjectWith},
 		{0x4056f0, (void *)SendUseObject, (void *)FakeSendUseObject},
@@ -983,12 +1241,12 @@ static void PatchCallees()
 		{0x414a10, (void *)SendStop, (void *)FakeSendStop},
 		// The CRT: the fixed clock, the printf (ours too), sprintf, _snprintf and
 		// operator new and new[] (the pattern).
-		{0x5121ea, (void *)_time32, (void *)FakeTime},
+		{0x5121ea, ORIGINAL_OR((void *)_time32, NULL), (void *)FakeTime}, // the runner's: its import slot, below
 		{0x512292, NULL, (void *)FakePrintf},
 		{0x511d6b, NULL, (void *)ImageSprintf},
 		{0x51233d, NULL, (void *)ImageSnprintf},
-		{0x5237e7, (void *)(void *(__cdecl *)(size_t))operator new, (void *)PatternNew},
-		{0x523817, (void *)(void *(__cdecl *)(size_t))operator new[], (void *)PatternNew},
+		{0x5237e7, (void *)(void *(__cdecl *)(size_t)) operator new, (void *)PatternNew},
+		{0x523817, (void *)(void *(__cdecl *)(size_t)) operator new[], (void *)PatternNew},
 		{0x460450, Member(&TScrollBarRange::SetRange), (void *)FakeSetRange},
 	};
 	// DialogElements.cpp: both sides build the shared fakes (elementfakes.cpp; the
@@ -996,13 +1254,24 @@ static void PatchCallees()
 	// SetRange is this file's FakeSetRange (patched over the shared one).
 	PatchElementFakes(Redirect);
 	for (auto &T : Table) {
-		Redirect((void *)(uintptr_t)T.Image, T.Fake);
+		ORIGINAL(Redirect((void *)(uintptr_t)T.Image, T.Fake));
 		if (T.Ours != NULL)
 			Redirect(T.Ours, T.Fake);
 	}
+#if !GOLDEN_ORACLE
+	ClockSlot = golden::FindImport("_time32");
+	if (ClockSlot == nullptr) {
+		printf("golden: ContentWindows: the runner imports no _time32\n");
+		exit(1);
+	}
+	SavedClock = *ClockSlot;
+	golden::SetImport(ClockSlot, (void *)FakeTime);
+#endif
 }
 
-// Our printf is a fake only while our side runs (CHECK prints with it).
+// Our printf is a fake only while our side runs (CHECK prints with it). The runner's printf is inline
+// (ucrtbase's __stdio_common_vfprintf through an import slot): the slot goes to a fake that logs as FakePrintf.
+#if GOLDEN_ORACLE
 static uint8 PrintfBytes[5];
 static void FakeOurPrintf(bool On)
 {
@@ -1018,25 +1287,47 @@ static void FakeOurPrintf(bool On)
 	VirtualProtect(Function, 5, Protection, &Protection);
 	FlushInstructionCache(GetCurrentProcess(), Function, 5);
 }
+#else
+static int __cdecl FakeCommonVfprintf(unsigned __int64, FILE *, const char *Format, _locale_t, va_list Args)
+{
+	char Buffer[512];
+	int Result = vsnprintf(Buffer, sizeof(Buffer), Format, Args);
+	Logf("Printf%s", Buffer);
+	return Result;
+}
+static void FakeOurPrintf(bool On)
+{
+	static void **Slot = golden::FindImport("__stdio_common_vfprintf");
+	static void *Saved = Slot != nullptr ? *Slot : nullptr;
+	if (Slot == nullptr) {
+		printf("golden: ContentWindows: the runner imports no __stdio_common_vfprintf\n");
+		exit(1);
+	}
+	golden::SetImport(Slot, On ? (void *)FakeCommonVfprintf : Saved);
+}
+#endif
 
 // --- The windows ------------------------------------------------------------------------
 
+#if GOLDEN_ORACLE
 typedef void *(__fastcall *CtorFn)(void *, void *);
 typedef void *(__fastcall *ContentCtorFn)(void *, void *, int, bool);
 typedef void *(__fastcall *ButtonsCtorFn)(void *, void *, TDialogWindow *, TMainWindow *);
 typedef TWindow *(__cdecl *CreateFn)(TMainWindow *);
 typedef TWindow *(__cdecl *CreateIntFn)(int);
 typedef TWindow *(__cdecl *Create0Fn)();
-typedef int (__fastcall *IntFn)(void *, void *);
-typedef int (__fastcall *IntIntFn)(void *, void *, int);
-typedef int (__fastcall *XYFn)(void *, void *, int, int);
-typedef int (__fastcall *SlotFn)(void *, void *, int, int, bool);
-typedef void (__fastcall *VoidFn)(void *, void *);
-typedef void (__fastcall *BoolArgFn)(void *, void *, bool);
-typedef void (__fastcall *IntArgFn)(void *, void *, int);
-typedef void (__fastcall *PointerArgFn)(void *, void *, void *);
-typedef bool (__fastcall *LineFn)(void *, void *, int, char *, int *, int *);
-typedef void (__fastcall *OfferFn)(void *, void *, int, int, int *, int *);
+typedef int(__fastcall *IntFn)(void *, void *);
+typedef int(__fastcall *IntIntFn)(void *, void *, int);
+typedef int(__fastcall *XYFn)(void *, void *, int, int);
+typedef int(__fastcall *SlotFn)(void *, void *, int, int, bool);
+typedef void(__fastcall *VoidFn)(void *, void *);
+typedef void(__fastcall *BoolArgFn)(void *, void *, bool);
+typedef void(__fastcall *IntArgFn)(void *, void *, int);
+typedef void(__fastcall *PointerArgFn)(void *, void *, void *);
+typedef bool(__fastcall *LineFn)(void *, void *, int, char *, int *, int *);
+typedef void(__fastcall *OfferFn)(void *, void *, int, int, int *, int *);
+typedef void *(__fastcall *IntCtorFn)(void *, void *, int);
+#endif
 
 // The receiver of the windows' callbacks (the main window in the game).
 class TContentReceiver : public TWindow {
@@ -1045,7 +1336,17 @@ public:
 };
 static TContentReceiver *Receiver;
 
-enum { SC_INVENTORY, SC_SMALL_INVENTORY, SC_AUTOMAP, SC_STATUS, SC_BUTTONS, SC_CONTAINER, SC_SKILLS, SC_BATTLE, SC_TRADE, SC_BUDDIES, NSCENARIOS };
+enum { SC_INVENTORY,
+	SC_SMALL_INVENTORY,
+	SC_AUTOMAP,
+	SC_STATUS,
+	SC_BUTTONS,
+	SC_CONTAINER,
+	SC_SKILLS,
+	SC_BATTLE,
+	SC_TRADE,
+	SC_BUDDIES,
+	NSCENARIOS };
 static const char *const ScenarioNames[NSCENARIOS] = {"inventory", "small inventory", "automap", "status", "buttons",
 	"container", "skills", "battle", "trade", "buddies"};
 static int Scenario, ContainerNumber;
@@ -1085,7 +1386,8 @@ template <class F> static void Both(F Function)
 		TThrown A = OurThrow([&] { Side = OURS; Ticks = 0; FailAt = Fail; Function(OURS); });
 		FakeOurPrintf(false);
 		ContentRound->Calling(What, "the original");
-		TThrown B = ImageThrow([&] { Side = ORIGINAL; Ticks = 0; FailAt = Fail; Function(ORIGINAL); });
+		TThrown B = ORIGINAL_THROWN("thrown", Side = ORIGINAL; Ticks = 0; FailAt = Fail; Function(ORIGINAL));
+		Ticks = ORIGINAL_VALUE("ticks", int, Ticks); // the original's fake calls
 		FailAt = 0;
 		Side = OURS;
 		ContentRound->Compare(What, A, B);
@@ -1098,7 +1400,7 @@ template <class F> static void Both(F Function)
 		}
 		return;
 	}
-	for (int s = 0; s < 2; s++) {
+	for (int s = 0; s < SIDES; s++) {
 		Ticks = 0;
 		Side = s;
 		if (s == OURS) {
@@ -1122,6 +1424,7 @@ template <class F> static void Both(F Function)
 			Function(s);
 		}
 	}
+	Ticks = ORIGINAL_VALUE("ticks", int, Ticks); // the original's fake calls (it ran last)
 	if (Ticks > MaxTicks[CurrentAction])
 		MaxTicks[CurrentAction] = Ticks;
 	Side = OURS;
@@ -1131,41 +1434,46 @@ static TDialogWindow *NewColumn(int s)
 {
 	if (s == OURS)
 		return new TDialogWindow;
-	return (TDialogWindow *)At<CtorFn>(0x4856c0)(PatternNew(sizeof(TDialogWindow)), NULL);
+	return ORIGINAL_OR((TDialogWindow *)At<CtorFn>(0x4856c0)(PatternNew(sizeof(TDialogWindow)), NULL), nullptr);
 }
 static TContentWindow *NewContentWindow(int s, int Identifier)
 {
 	if (s == OURS)
 		return new TContentWindow(Identifier, false);
-	return (TContentWindow *)At<ContentCtorFn>(0x4854c0)(PatternNew(sizeof(TContentWindow)), NULL, Identifier, false);
+	return ORIGINAL_OR(
+		(TContentWindow *)At<ContentCtorFn>(0x4854c0)(PatternNew(sizeof(TContentWindow)), NULL, Identifier, false), nullptr);
 }
 
 static TContentWindow *Create(int s)
 {
 	TMainWindow *Main = (TMainWindow *)(TWindow *)Receiver;
 	bool Ours = s == OURS;
+#if !GOLDEN_ORACLE
+	if (!Ours)
+		return nullptr; // the runner has no original
+#endif
 	switch (Scenario) {
 	case SC_INVENTORY:
-		return Ours ? CreateInventoryWindow(Main) : (TContentWindow *)At<CreateFn>(0x4362b0)(Main);
+		return Ours ? CreateInventoryWindow(Main) : ORIGINAL_OR((TContentWindow *)At<CreateFn>(0x4362b0)(Main), nullptr);
 	case SC_SMALL_INVENTORY:
-		return Ours ? CreateSmallInventoryWindow(Main) : (TContentWindow *)At<CreateFn>(0x436510)(Main);
+		return Ours ? CreateSmallInventoryWindow(Main) : ORIGINAL_OR((TContentWindow *)At<CreateFn>(0x436510)(Main), nullptr);
 	case SC_AUTOMAP:
-		return Ours ? new TAutomapWindow : (TContentWindow *)At<CtorFn>(0x4368c0)(PatternNew(0x80), NULL);
+		return Ours ? new TAutomapWindow : ORIGINAL_OR((TContentWindow *)At<CtorFn>(0x4368c0)(PatternNew(0x80), NULL), nullptr);
 	case SC_STATUS:
-		return Ours ? new TStatusWindow : (TContentWindow *)At<CtorFn>(0x438310)(PatternNew(0x4c), NULL);
+		return Ours ? new TStatusWindow : ORIGINAL_OR((TContentWindow *)At<CtorFn>(0x438310)(PatternNew(0x4c), NULL), nullptr);
 	case SC_BUTTONS:
 		return Ours ? new TButtonsWindow(Checked[s], Main)
-			: (TContentWindow *)At<ButtonsCtorFn>(0x426480)(PatternNew(0x58), NULL, Checked[s], Main);
+					: ORIGINAL_OR((TContentWindow *)At<ButtonsCtorFn>(0x426480)(PatternNew(0x58), NULL, Checked[s], Main), nullptr);
 	case SC_CONTAINER:
-		return Ours ? CreateContainerWindow(ContainerNumber) : (TContentWindow *)At<CreateIntFn>(0x43c520)(ContainerNumber);
+		return Ours ? CreateContainerWindow(ContainerNumber) : ORIGINAL_OR((TContentWindow *)At<CreateIntFn>(0x43c520)(ContainerNumber), nullptr);
 	case SC_SKILLS:
-		return Ours ? CreateSkillsWindow() : (TContentWindow *)At<Create0Fn>(0x43c920)();
+		return Ours ? CreateSkillsWindow() : ORIGINAL_OR((TContentWindow *)At<Create0Fn>(0x43c920)(), nullptr);
 	case SC_BATTLE:
-		return Ours ? CreateBattleWindow() : (TContentWindow *)At<Create0Fn>(0x43cc90)();
+		return Ours ? CreateBattleWindow() : ORIGINAL_OR((TContentWindow *)At<Create0Fn>(0x43cc90)(), nullptr);
 	case SC_TRADE:
-		return Ours ? CreateTradeWindow() : (TContentWindow *)At<Create0Fn>(0x43d000)();
+		return Ours ? CreateTradeWindow() : ORIGINAL_OR((TContentWindow *)At<Create0Fn>(0x43d000)(), nullptr);
 	case SC_BUDDIES:
-		return Ours ? CreateBuddylistWindow() : (TContentWindow *)At<Create0Fn>(0x43d390)();
+		return Ours ? CreateBuddylistWindow() : ORIGINAL_OR((TContentWindow *)At<Create0Fn>(0x43d390)(), nullptr);
 	}
 	return NULL;
 }
@@ -1360,13 +1668,34 @@ static std::string Dump(int s)
 	return Out;
 }
 
+// The original's log of a comparison: the oracle's, recorded; the runner's from the corpus.
+static void OutputOriginalLog()
+{
+	std::string Text = golden::OutputText("log", Log[ORIGINAL].data(), Log[ORIGINAL].size());
+	ORIGINAL_OR((void)0, Log[ORIGINAL] = Text);
+}
+
+// The original's dump: the oracle's, recorded by its changes since the last one; the runner's from the
+// corpus.
+static std::string LastDump;
+static std::string OriginalDump()
+{
+#if GOLDEN_ORACLE
+	std::string Text = Dump(ORIGINAL);
+#else
+	std::string Text;
+#endif
+	return golden::OutputTextChanges("dump", &LastDump, Text);
+}
+
 static const char *Stage = "";
 static FILE *LogFile; // CT_LOGS=<file>: every compared log, for checking the coverage
 static void Compare(const char *What)
 {
 	if (LogFile != NULL)
 		fprintf(LogFile, "%s %s: %s\n", ScenarioNames[Scenario], Stage, Log[OURS].c_str());
-	std::string D0 = Threw ? "" : Dump(OURS), D1 = Threw ? "" : Dump(ORIGINAL);
+	std::string D0 = Threw ? "" : Dump(OURS), D1 = Threw ? "" : OriginalDump();
+	OutputOriginalLog();
 	CHECK(Log[OURS] == Log[ORIGINAL], "ContentWindows %s (%s, %s): logs differ\n  ours: %s\n  orig: %s", What,
 		ScenarioNames[Scenario], Stage, Log[OURS].c_str(), Log[ORIGINAL].c_str());
 	CHECK(D0 == D1, "ContentWindows %s (%s, %s): windows differ\n  ours: %s\n  orig: %s", What, ScenarioNames[Scenario],
@@ -1374,8 +1703,10 @@ static void Compare(const char *What)
 	Log[OURS].clear();
 	Log[ORIGINAL].clear();
 }
-static void CompareResults(const std::string *Results, const char *What)
+static void CompareResults(std::string *Results, const char *What)
 {
+	// The original's result (recorded whether or not a call threw: both sides record alike).
+	Results[ORIGINAL] = golden::OutputText("result", Results[ORIGINAL].data(), Results[ORIGINAL].size());
 	if (Threw) // (the error round: a call that threw leaves no result)
 		return;
 	CHECK(Results[OURS] == Results[ORIGINAL], "ContentWindows %s (%s): %s, original %s", What, ScenarioNames[Scenario],
@@ -1696,7 +2027,9 @@ static void Events()
 		if (B == NULL)
 			return;
 		// The counter offer while waiting, the accept while "Accept" is shown.
-		Event = Random() % 4 == 0 ? 7 : B->Buttons->WaitLabel != NULL ? 21 : B->Buttons->AcceptButton != NULL ? 1 : 7;
+		Event = Random() % 4 == 0 ? 7 : B->Buttons->WaitLabel != NULL ? 21
+			: B->Buttons->AcceptButton != NULL                        ? 1
+																	  : 7;
 		break;
 	}
 	case 4:
@@ -1722,7 +2055,7 @@ static void Queries()
 			RandomPoint(V, "InvView", x, y);
 			Both([&](int s) {
 				TInventoryView *View = (TInventoryView *)Find(s, "InvView");
-				sprintf(Buffer, "%d", s == OURS ? View->GetSlotAt(x, y) : At<XYFn>(0x42b450)(View, NULL, x, y));
+				sprintf(Buffer, "%d", s == OURS ? View->GetSlotAt(x, y) : ORIGINAL_OR(At<XYFn>(0x42b450)(View, NULL, x, y), 0));
 				Results[s] = Buffer;
 			});
 			CompareResults(Results, "GetSlotAt");
@@ -1754,11 +2087,11 @@ static void Queries()
 			TPlayerStates *States = (TPlayerStates *)Find(s, "States");
 			int Result;
 			if (What == 0)
-				Result = s == OURS ? States->GetNumberOfIcons() : At<IntFn>(0x4295b0)(States, NULL);
+				Result = s == OURS ? States->GetNumberOfIcons() : ORIGINAL_OR(At<IntFn>(0x4295b0)(States, NULL), 0);
 			else if (What == 1)
-				Result = s == OURS ? States->GetIconAt(x, y) : At<XYFn>(0x4297a0)(States, NULL, x, y);
+				Result = s == OURS ? States->GetIconAt(x, y) : ORIGINAL_OR(At<XYFn>(0x4297a0)(States, NULL, x, y), 0);
 			else
-				Result = s == OURS ? States->GetIcon(Position) : At<IntIntFn>(0x429990)(States, NULL, Position);
+				Result = s == OURS ? States->GetIcon(Position) : ORIGINAL_OR(At<IntIntFn>(0x429990)(States, NULL, Position), 0);
 			sprintf(Buffer, "%d", Result);
 			Results[s] = Buffer;
 		});
@@ -1794,7 +2127,7 @@ static void Queries()
 			} else if (s == OURS) {
 				W->Scroll(Direction);
 			} else {
-				At<IntArgFn>(0x4274c0)(W, NULL, Direction);
+				ORIGINAL(At<IntArgFn>(0x4274c0)(W, NULL, Direction));
 			}
 		});
 		CompareResults(Results, "automap");
@@ -1808,19 +2141,18 @@ static void Queries()
 		Both([&](int s) {
 			TContainerWindowBody *Body = (TContainerWindowBody *)Find(s, "ContainerBody");
 			if (What == 0) {
-				sprintf(Buffer, "%d", s == OURS ? Body->GetSlotAt(x, y, Occupied)
-					: At<SlotFn>(0x42e2c0)(Body, NULL, x, y, Occupied));
+				sprintf(Buffer, "%d", s == OURS ? Body->GetSlotAt(x, y, Occupied) : ORIGINAL_OR(At<SlotFn>(0x42e2c0)(Body, NULL, x, y, Occupied), 0));
 				Results[s] = Buffer;
 			} else if (What == 1) {
 				if (s == OURS)
 					Body->Update();
 				else
-					At<VoidFn>(0x439100)(Body, NULL);
+					ORIGINAL(At<VoidFn>(0x439100)(Body, NULL));
 			} else if (What == 2) {
 				if (s == OURS)
 					Body->UpdateUpButton();
 				else
-					At<VoidFn>(0x42e4e0)(Body, NULL);
+					ORIGINAL(At<VoidFn>(0x42e4e0)(Body, NULL));
 			} else {
 				sprintf(Buffer, "%d,%d,%d,%d", Body->GetInitialHeight(), Body->GetMaximumHeight(),
 					Body->GetContentHeight(), Body->IsMinimized() ? 1 : 0);
@@ -1844,7 +2176,7 @@ static void Queries()
 			char Text[100] = "";
 			int Value = -7, Progress = -7;
 			bool Result = s == OURS ? Body->GetLine(Line, Text, Value, Progress)
-				: At<LineFn>(0x42f6a0)(Body, NULL, Line, Text, &Value, &Progress);
+									: ORIGINAL_OR(At<LineFn>(0x42f6a0)(Body, NULL, Line, Text, &Value, &Progress), false);
 			sprintf(Buffer, "%d,%s,%d,%d", Result ? 1 : 0, Result ? Text : "", Value, Progress);
 			Results[s] = Buffer;
 		});
@@ -1864,11 +2196,9 @@ static void Queries()
 				sprintf(Buffer, "%d,%d,%d,%d", Body->GetInitialHeight(), Body->GetMaximumHeight(),
 					Body->GetContentHeight(), Body->getMinimumHeight());
 			} else if (Scenario == SC_BATTLE) {
-				sprintf(Buffer, "%d", s == OURS ? ((TBattleWindowBody *)Body)->GetOpponentAt(x, y)
-					: At<XYFn>(0x430be0)(Body, NULL, x, y));
+				sprintf(Buffer, "%d", s == OURS ? ((TBattleWindowBody *)Body)->GetOpponentAt(x, y) : ORIGINAL_OR(At<XYFn>(0x430be0)(Body, NULL, x, y), 0));
 			} else {
-				sprintf(Buffer, "%d", s == OURS ? ((TBuddylistWindowBody *)Body)->GetBuddyAt(x, y)
-					: At<XYFn>(0x4360c0)(Body, NULL, x, y));
+				sprintf(Buffer, "%d", s == OURS ? ((TBuddylistWindowBody *)Body)->GetBuddyAt(x, y) : ORIGINAL_OR(At<XYFn>(0x4360c0)(Body, NULL, x, y), 0));
 			}
 			Results[s] = Buffer;
 		});
@@ -1889,17 +2219,17 @@ static void Queries()
 				if (s == OURS)
 					Body->Offers->GetOfferAt(x, y, &Side_, &Position);
 				else
-					At<OfferFn>(0x432230)(Body->Offers, NULL, x, y, &Side_, &Position);
+					ORIGINAL(At<OfferFn>(0x432230)(Body->Offers, NULL, x, y, &Side_, &Position));
 				sprintf(Buffer, "%d,%d", Side_, Position);
 				Results[s] = Buffer;
 			} else if (What == 1) {
-				sprintf(Buffer, "%d", s == OURS ? Body->Offers->GetContentHeight() : At<IntFn>(0x431b40)(Body->Offers, NULL));
+				sprintf(Buffer, "%d", s == OURS ? Body->Offers->GetContentHeight() : ORIGINAL_OR(At<IntFn>(0x431b40)(Body->Offers, NULL), 0));
 				Results[s] = Buffer;
 			} else if (What == 2) {
 				if (s == OURS)
 					Body->Buttons->SetCancelButton(Cancel);
 				else
-					At<BoolArgFn>(0x433720)(Body->Buttons, NULL, Cancel);
+					ORIGINAL(At<BoolArgFn>(0x433720)(Body->Buttons, NULL, Cancel));
 			} else if (What == 3) {
 				sprintf(Buffer, "%d,%d,%d,%d", Body->GetInitialHeight(), Body->GetMaximumHeight(),
 					Body->GetContentHeight(), Body->getMinimumHeight());
@@ -1911,12 +2241,12 @@ static void Queries()
 					if (s == OURS)
 						B->ShowAcceptButton(Body);
 					else
-						At<PointerArgFn>(0x433940)(B, NULL, Body);
+						ORIGINAL(At<PointerArgFn>(0x433940)(B, NULL, Body));
 				} else if (Accepting) {
 					if (s == OURS)
 						B->Wait();
 					else
-						At<VoidFn>(0x433c40)(B, NULL);
+						ORIGINAL(At<VoidFn>(0x433c40)(B, NULL));
 				}
 			}
 		});
@@ -1938,14 +2268,43 @@ static void Action()
 	if (getenv("CT_TRACE") != NULL)
 		fprintf(stderr, "    kind %d\n", A);
 	switch (A) {
-	case 0: Size(); Stage = "size"; break;
-	case 1: Arrange(); Stage = "arrange"; break;
-	case 2: case 3: Draw(); Stage = "draw"; break;
-	case 4: MouseOnWindow(); Stage = "mouse on the window"; break;
-	case 5: case 6: case 7: MouseOnTarget(); Stage = "mouse on a part"; break;
-	case 8: Events(); Stage = "event"; break;
-	case 9: case 10: Queries(); Stage = "query"; break;
-	case 11: RandomWorld(true); Draw(); Stage = "new world"; break;
+	case 0:
+		Size();
+		Stage = "size";
+		break;
+	case 1:
+		Arrange();
+		Stage = "arrange";
+		break;
+	case 2:
+	case 3:
+		Draw();
+		Stage = "draw";
+		break;
+	case 4:
+		MouseOnWindow();
+		Stage = "mouse on the window";
+		break;
+	case 5:
+	case 6:
+	case 7:
+		MouseOnTarget();
+		Stage = "mouse on a part";
+		break;
+	case 8:
+		Events();
+		Stage = "event";
+		break;
+	case 9:
+	case 10:
+		Queries();
+		Stage = "query";
+		break;
+	case 11:
+		RandomWorld(true);
+		Draw();
+		Stage = "new world";
+		break;
 	}
 }
 
@@ -1991,7 +2350,7 @@ template <class F> static void ContentCall(const char *What, F Call, bool Dump =
 	TThrown A = OurThrow([&] { Side = OURS; Ticks = 0; FailAt = Fail; Call(OURS); });
 	FakeOurPrintf(false);
 	ContentRound->Calling(What, "the original");
-	TThrown B = ImageThrow([&] { Side = ORIGINAL; Ticks = 0; FailAt = Fail; Call(ORIGINAL); });
+	TThrown B = ORIGINAL_THROWN("thrown", Side = ORIGINAL; Ticks = 0; FailAt = Fail; Call(ORIGINAL));
 	FailAt = 0;
 	Side = OURS;
 	ContentRound->Compare(What, A, B);
@@ -2004,8 +2363,8 @@ template <class F> static void ContentCall(const char *What, F Call, bool Dump =
 static bool Parts(const char *Kind, TComponent **P)
 {
 	P[OURS] = Find(OURS, Kind);
-	P[ORIGINAL] = Find(ORIGINAL, Kind);
-	return P[OURS] != NULL && P[ORIGINAL] != NULL;
+	P[ORIGINAL] = Find(ORIGINAL, Kind); // (NULL in the runner)
+	return P[OURS] != NULL && ORIGINAL_VALUE("found", bool, P[ORIGINAL] != NULL);
 }
 static TScrollBar *ScrollOf(TComponent *C, const std::string &Kind)
 {
@@ -2025,7 +2384,6 @@ static TScrollBar *ScrollOf(TComponent *C, const std::string &Kind)
 // after them.
 static void DirectAssertions()
 {
-	typedef void *(__fastcall *IntCtorFn)(void *, void *, int);
 	TMainWindow *Main = (TMainWindow *)(TWindow *)Receiver;
 	TComponent *P[2];
 	char What[128];
@@ -2055,7 +2413,7 @@ static void DirectAssertions()
 		int Maximum = ((int *)((TFakeScrollBarRange *)Bar->Range)->Data00)[1];
 		if (Maximum > 0) {
 			int Value = 1 + (int)(Random() % Maximum);
-			for (int s = 0; s < 2; s++)
+			for (int s = 0; s < SIDES; s++)
 				ScrollOf(P[s], "BuddyBody")->Range->Value = Value;
 			sprintf(What, "errors: BuddyBody Draw scrolled by %d", Value);
 			ContentCall(What, [&](int s) { P[s]->Draw(1, 0, 0); });
@@ -2068,12 +2426,13 @@ static void DirectAssertions()
 	for (const char *Kind : Helped) {
 		if (!Parts(Kind, P))
 			continue;
-		TComponent *Parent[2] = {P[OURS]->Parent, P[ORIGINAL]->Parent};
-		P[OURS]->Parent = P[ORIGINAL]->Parent = NULL;
+		TComponent *Parent[2] = {P[OURS]->Parent, ORIGINAL_OR(P[ORIGINAL]->Parent, nullptr)};
+		P[OURS]->Parent = NULL;
+		ORIGINAL(P[ORIGINAL]->Parent = NULL);
 		sprintf(What, "errors: %s HelpMouseMove without a parent", Kind);
 		ContentCall(What, [&](int s) { P[s]->HelpMouseMove(3, 3); }, false);
 		P[OURS]->Parent = Parent[OURS];
-		P[ORIGINAL]->Parent = Parent[ORIGINAL];
+		ORIGINAL(P[ORIGINAL]->Parent = Parent[ORIGINAL]);
 		Threw = false;
 	}
 	// A width without room for the scroll bar.
@@ -2128,11 +2487,11 @@ static void DirectAssertions()
 	// The members' arguments.
 	if (Parts("States", P)) {
 		int Position = Random() % 2 == 0 ? -1 - (int)(Random() % 3)
-			: SkinProperties.PlayerStates.NumberOfIcons + (int)(Random() % 3);
+										 : SkinProperties.PlayerStates.NumberOfIcons + (int)(Random() % 3);
 		sprintf(What, "errors: TPlayerStates::GetIcon %d", Position);
 		ContentCall(What, [&](int s) {
 			if (s == OURS) ((TPlayerStates *)P[s])->GetIcon(Position);
-			else At<IntIntFn>(0x429990)(P[s], NULL, Position); });
+			else ORIGINAL(At<IntIntFn>(0x429990)(P[s], NULL, Position)); });
 		Threw = false;
 	}
 	if (Parts("SkillsBody", P)) {
@@ -2146,12 +2505,12 @@ static void DirectAssertions()
 			World.Experience = World.Health = World.Mana = World.Soul = World.Capacity = -1 - (int)(Random() % 50);
 			break;
 		case 1: // a progress out of range
-			Line = Random() % 2 == 0 ? 2 : Random() % 2 == 0 ? 7 : 9 + (int)(Random() % 7);
+			Line = Random() % 2 == 0 ? 2 : Random() % 2 == 0 ? 7
+															 : 9 + (int)(Random() % 7);
 			World.LevelBar = World.MagLevelBar = true;
 			for (int i = 0; i < 7; i++)
 				World.SkillBar[i] = true;
-			World.LevelProgress = World.MagicProgress = World.SkillProgress[Line < 9 ? 0 : Line - 9]
-				= Random() % 2 == 0 ? -2 - (int)(Random() % 5) : 101 + (int)(Random() % 5);
+			World.LevelProgress = World.MagicProgress = World.SkillProgress[Line < 9 ? 0 : Line - 9] = Random() % 2 == 0 ? -2 - (int)(Random() % 5) : 101 + (int)(Random() % 5);
 			break;
 		}
 		sprintf(What, "errors: TSkillsWindowBody::GetLine %d", Line);
@@ -2159,7 +2518,7 @@ static void DirectAssertions()
 			char Text[100] = "";
 			int Value = 0, Progress = 0;
 			if (s == OURS) ((TSkillsWindowBody *)P[s])->GetLine(Line, Text, Value, Progress);
-			else At<LineFn>(0x42f6a0)(P[s], NULL, Line, Text, &Value, &Progress); });
+			else ORIGINAL(At<LineFn>(0x42f6a0)(P[s], NULL, Line, Text, &Value, &Progress)); });
 		Threw = false;
 		World = Saved;
 	}
@@ -2176,18 +2535,18 @@ static void DirectAssertions()
 	if (Parts("TradeButtons", P)) {
 		ContentCall("errors: TTradeButtons::ShowAcceptButton NULL", [&](int s) {
 			if (s == OURS) ((TTradeButtons *)P[s])->ShowAcceptButton(NULL);
-			else At<PointerArgFn>(0x433940)(P[s], NULL, NULL); });
+			else ORIGINAL(At<PointerArgFn>(0x433940)(P[s], NULL, NULL)); });
 		Threw = false;
 	}
 	// The constructors' checks (the objects are left).
 	ContentCall("errors: TButtonsWindow::TButtonsWindow NULL", [&](int s) {
 		if (s == OURS) new TButtonsWindow(NULL, Main);
-		else At<ButtonsCtorFn>(0x426480)(PatternNew(0x58), NULL, NULL, Main); });
+		else ORIGINAL(At<ButtonsCtorFn>(0x426480)(PatternNew(0x58), NULL, NULL, Main)); });
 	Threw = false;
 	int Skin = NumberOfSkins + (int)(Random() % 3);
 	ContentCall("errors: TCompassRose::TCompassRose", [&](int s) {
 		if (s == OURS) new TCompassRose(Skin);
-		else At<IntCtorFn>(0x428680)(PatternNew(0x28), NULL, Skin); });
+		else ORIGINAL(At<IntCtorFn>(0x428680)(PatternNew(0x28), NULL, Skin)); });
 	Threw = false;
 }
 
@@ -2249,7 +2608,7 @@ static void DirectFailures()
 			break;
 		case 7:
 			if (Parts(Kind = "ContainerBody", P)) {
-				for (int s = 0; s < 2; s++)
+				for (int s = 0; s < SIDES; s++)
 					((TContainerWindowBody *)P[s])->HasParent = true;
 				ContentCall("errors: ContainerBody HandleEvent 3", [&](int s) { P[s]->HandleEvent(3); }, true, Fail);
 			}
@@ -2279,10 +2638,9 @@ static void DirectFailures()
 			break;
 		case 12: {
 			TComponent *Made[2] = {NULL, NULL};
-			ContentCall("errors: TTradeButtons::TTradeButtons", [&](int s) {
-				Made[s] = s == OURS ? (TComponent *)new TTradeButtons
-					: (TComponent *)At<CtorFn>(0x432f00)(PatternNew(0x4c), NULL); }, true, Fail);
-			if (!Threw && Made[OURS] != NULL && Made[ORIGINAL] != NULL)
+			ContentCall("errors: TTradeButtons::TTradeButtons", [&](int s) { Made[s] = s == OURS ? (TComponent *)new TTradeButtons
+																								 : ORIGINAL_OR((TComponent *)At<CtorFn>(0x432f00)(PatternNew(0x4c), NULL), nullptr); }, true, Fail);
+			if (!Threw && Made[OURS] != NULL && ORIGINAL_VALUE("made", bool, Made[ORIGINAL] != NULL))
 				ContentCall("errors: TTradeButtons deleted", [&](int s) { delete Made[s]; });
 			break;
 		}
@@ -2325,7 +2683,7 @@ static void DirectFailures()
 			if (Parts(Kind = "TradeButtons", P))
 				ContentCall("errors: TTradeButtons::Wait", [&](int s) {
 					if (s == OURS) ((TTradeButtons *)P[s])->Wait();
-					else At<VoidFn>(0x433c40)(P[s], NULL); }, true, Fail);
+					else ORIGINAL(At<VoidFn>(0x433c40)(P[s], NULL)); }, true, Fail);
 			break;
 		case 18:
 			if (Parts(Kind = "Combat", P)) {
@@ -2339,7 +2697,7 @@ static void DirectFailures()
 				bool Cancel = Random() % 2 == 0;
 				ContentCall("errors: TTradeButtons::SetCancelButton", [&](int s) {
 					if (s == OURS) ((TTradeButtons *)P[s])->SetCancelButton(Cancel);
-					else At<BoolArgFn>(0x433720)(P[s], NULL, Cancel); }, true, Fail);
+					else ORIGINAL(At<BoolArgFn>(0x433720)(P[s], NULL, Cancel)); }, true, Fail);
 			}
 			break;
 		case 20:
@@ -2397,6 +2755,7 @@ static void DeleteWindows()
 		delete Checked[s];
 		Column[s] = Checked[s] = NULL;
 	});
+	OutputOriginalLog();
 	CHECK(Log[OURS] == Log[ORIGINAL], "ContentWindows errors destructor (%s): logs differ\n  ours: %s\n  orig: %s",
 		ScenarioNames[Scenario], Log[OURS].c_str(), Log[ORIGINAL].c_str());
 	Log[OURS].clear();
@@ -2442,6 +2801,7 @@ static void TestContentWindowsErrors()
 			delete Checked[s];
 			Column[s] = Checked[s] = NULL;
 		});
+		OutputOriginalLog();
 		CHECK(Log[OURS] == Log[ORIGINAL], "ContentWindows errors destructor (%s): logs differ\n  ours: %s\n  orig: %s",
 			ScenarioNames[Scenario], Log[OURS].c_str(), Log[ORIGINAL].c_str());
 		Log[OURS].clear();
@@ -2471,18 +2831,21 @@ static void TestContentWindowsErrors()
 	R.Finish();
 }
 
+} // namespace ContentWindowsTest
+
 void TestContentWindows()
 {
+	using namespace ContentWindowsTest;
 	int Before = Checks, BeforeFailures = Failures;
 	if (getenv("CT_TRACE") != NULL)
 		setvbuf(stdout, NULL, _IONBF, 0);
-	PatchImage();
+	ORIGINAL(PatchImage());
 	InitSkins();
-	Global<int>(0x71c450) = NumberOfSkins;
-	Global<TSkin *>(0x71c454) = Skins;
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
 	InitSkinProperties();
-	At<void (__cdecl *)()>(0x498160)();
-	Surface = new TContentSurface;
+	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
+	LastDump.clear();
+	ContentSurface = new TContentSurface;
 	Receiver = new TContentReceiver;
 	Player.CreatureID = 0x10000001;
 	strcpy(Player.Name, "Tester");
@@ -2510,19 +2873,41 @@ void TestContentWindows()
 		Kinds[s][ScrollVtable] = "Scroll";
 		Kinds[s][LabelVtable] = "Element";
 	}
-	static const struct { uint32 Vtable; const char *Kind; } Images[] = {
-		{0x563e38, "CW"}, {0x563ed8, "Sub"}, {0x563f80, "Column"}, {0x564528, "Window"}, {0x55e968, "Buttons"},
-		{0x55ea08, "Automap"}, {0x55e688, "AutomapView"}, {0x55eaf0, "Rose"}, {0x55e578, "Capacity"},
-		{0x55e600, "Soul"}, {0x55eb98, "States"}, {0x55ec98, "SmallInv"}, {0x55ed38, "InvView"},
-		{0x55e880, "Combat"}, {0x55f500, "Status"}, {0x55eed0, "ContainerBody"}, {0x55efa8, "SkillsBody"},
-		{0x55e710, "BattleBody"}, {0x55e7c8, "BuddyBody"}, {0x55f370, "TradeBody"}, {0x55f138, "TradeOffers"},
-		{0x55f200, "TradeNames"}, {0x55f2a0, "TradeButtons"},
+#if GOLDEN_ORACLE
+	static const struct {
+		uint32 Vtable;
+		const char *Kind;
+	} Images[] = {
+		{0x563e38, "CW"},
+		{0x563ed8, "Sub"},
+		{0x563f80, "Column"},
+		{0x564528, "Window"},
+		{0x55e968, "Buttons"},
+		{0x55ea08, "Automap"},
+		{0x55e688, "AutomapView"},
+		{0x55eaf0, "Rose"},
+		{0x55e578, "Capacity"},
+		{0x55e600, "Soul"},
+		{0x55eb98, "States"},
+		{0x55ec98, "SmallInv"},
+		{0x55ed38, "InvView"},
+		{0x55e880, "Combat"},
+		{0x55f500, "Status"},
+		{0x55eed0, "ContainerBody"},
+		{0x55efa8, "SkillsBody"},
+		{0x55e710, "BattleBody"},
+		{0x55e7c8, "BuddyBody"},
+		{0x55f370, "TradeBody"},
+		{0x55f138, "TradeOffers"},
+		{0x55f200, "TradeNames"},
+		{0x55f2a0, "TradeButtons"},
 	};
 	for (auto &I : Images)
 		Kinds[ORIGINAL][(void *)(uintptr_t)I.Vtable] = I.Kind;
 	// The real separators and object icons (inline constructors).
 	Kinds[ORIGINAL][(void *)(uintptr_t)0x5610b0] = "Separator";
 	Kinds[ORIGINAL][(void *)(uintptr_t)0x560d88] = "ObjectIcon";
+#endif
 	{
 		TSeparator *Separator = new TSeparator(true);
 		TRGBColor Color;
@@ -2554,12 +2939,33 @@ void TestContentWindows()
 		TBattleWindowBody *BB = new TBattleWindowBody;
 		TBuddylistWindowBody *VB = new TBuddylistWindowBody;
 		TTradeWindowBody *TB = new TTradeWindowBody;
-		struct { void *Object; const char *Kind; } List[] = {
-			{D, "Column"}, {C, "CW"}, {W, "Window"}, {Sub, "Sub"}, {Sub->Body, "SkillsBody"}, {A, "Automap"},
-			{A->View, "AutomapView"}, {A->CompassRose, "Rose"}, {Cap, "Capacity"}, {Soul, "Soul"}, {P, "States"},
-			{Small, "SmallInv"}, {V, "InvView"}, {Combat, "Combat"}, {Status, "Status"}, {B, "Buttons"},
-			{CB, "ContainerBody"}, {BB, "BattleBody"}, {VB, "BuddyBody"}, {TB, "TradeBody"},
-			{TB->Offers, "TradeOffers"}, {TB->Names, "TradeNames"}, {TB->Buttons, "TradeButtons"},
+		struct {
+			void *Object;
+			const char *Kind;
+		} List[] = {
+			{D, "Column"},
+			{C, "CW"},
+			{W, "Window"},
+			{Sub, "Sub"},
+			{Sub->Body, "SkillsBody"},
+			{A, "Automap"},
+			{A->View, "AutomapView"},
+			{A->CompassRose, "Rose"},
+			{Cap, "Capacity"},
+			{Soul, "Soul"},
+			{P, "States"},
+			{Small, "SmallInv"},
+			{V, "InvView"},
+			{Combat, "Combat"},
+			{Status, "Status"},
+			{B, "Buttons"},
+			{CB, "ContainerBody"},
+			{BB, "BattleBody"},
+			{VB, "BuddyBody"},
+			{TB, "TradeBody"},
+			{TB->Offers, "TradeOffers"},
+			{TB->Names, "TradeNames"},
+			{TB->Buttons, "TradeButtons"},
 		};
 		for (auto &L : List)
 			Kinds[OURS][VtableOf(L.Object)] = L.Kind;
@@ -2610,6 +3016,7 @@ void TestContentWindows()
 			delete Checked[s];
 			Column[s] = Checked[s] = NULL;
 		});
+		OutputOriginalLog();
 		CHECK(Log[OURS] == Log[ORIGINAL], "ContentWindows destructor (%s): logs differ\n  ours: %s\n  orig: %s",
 			ScenarioNames[Scenario], Log[OURS].c_str(), Log[ORIGINAL].c_str());
 		Log[OURS].clear();
@@ -2650,9 +3057,9 @@ void TestContentWindows()
 	DialogFakes.NewResizer = NULL;
 	RestoreAll();
 	delete Receiver;
-	delete Surface;
+	delete ContentSurface;
 	ExitSkins();
-	Global<TSkin *>(0x71c454) = NULL;
+	ORIGINAL(Global<TSkin *>(0x71c454) = NULL);
 	int Least = ActionCount[0];
 	for (int i = 1; i < 12; i++)
 		Least = ActionCount[i] < Least ? ActionCount[i] : Least;
