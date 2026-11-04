@@ -51,21 +51,56 @@
 //
 // DIFFTEST_ONLY=Network runs it alone (NW_TRACE=1 traces the operations,
 // NW_LOGS=<file> writes every compared log, NW_ROUNDS=<n>).
+//
+// A golden-corpus test (issue #30; tests/golden/golden.h, golden_eh.h): the
+// oracle runs both sides as above and records the original's side of every
+// comparison by value: its log, its state (the dump's text, formatted
+// without pointers, golden::OutputRuns), both of its buffers (OutputRuns), in
+// the error round what its call threw (ORIGINAL_THROWN) and how many fake
+// calls it made. The runner runs our side alone, against the same fakes (our
+// functions redirected, rand()'s import slot of the runner bound to its fake,
+// the WinSock functions' __imp_ symbols this file's slots, the MFC shim's
+// CAsyncSocket defined here; nothing reaches ws2_32 or a network), and
+// compares with the recorded original. NW_ROUNDS changes the inputs: not with
+// a corpus. On x64 our CAsyncSocket's m_hSocket is at +8, our TXTEA's key at
+// +8 and our HOSTENT has 8-byte pointers: the fakes and the dump read and
+// write ours where they are (the image's at +4 and in the x86 layout, as
+// before).
 
-#include "difftest.h"
-#include "imageeh.h"
+// golden_test.h first (common.h: it sets _CRT_SECURE_NO_WARNINGS before any C runtime header).
+#include "golden_test.h"
+
+#include "golden_eh.h"
+#if GOLDEN_ORACLE
+#include "../../tools/difftest/imageeh.h"
+#else
+#include "golden_patch.h"
+#endif
+// Network.cpp is compiled into this file (its statics are in an unnamed namespace), at its own warning
+// level (cmake/Warnings.cmake's baseline).
+#ifdef _MSC_VER
+#pragma warning(push, 3)
+#endif
 #include "../../src/Network.cpp"
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 #include <string>
 #include <vector>
 #include <stdarg.h>
 
-#pragma warning(disable: 4100)
+#ifdef _MSC_VER
+#pragma warning(disable : 4100)
+#endif
 
 static_assert(sizeof(TServer) == 0x70, "TServer");
 
 namespace {
 
-enum { IMAGE = 0, OURS = 1 };
+enum { IMAGE = 0,
+	OURS = 1 };
+// The sides this build has: both in the oracle, ours in the runner (the original's comes from the corpus).
+const int FIRST_SIDE = GOLDEN_ORACLE ? IMAGE : OURS;
 int Side;
 std::string Log[2];
 bool Trace, Trace2;
@@ -107,9 +142,15 @@ void Write(void *Address, const void *Data, size_t Size)
 }
 void Redirect(void *Function, void *Target)
 {
+	intptr_t Distance = (intptr_t)Target - ((intptr_t)Function + 5);
+	if (Distance != (int32_t)Distance) { // the runner (x64): both in its image, within reach
+		printf("FAIL Network: cannot redirect %p to %p: out of a rel32 jump's reach\n", Function, Target);
+		exit(1);
+	}
 	uint8 Jump[5];
 	Jump[0] = 0xe9;
-	*(int32_t *)(Jump + 1) = (int32_t)((uintptr_t)Target - ((uintptr_t)Function + 5));
+	int32_t Offset = (int32_t)Distance;
+	memcpy(Jump + 1, &Offset, 4);
 	Write(Function, Jump, 5);
 }
 void RestoreAll()
@@ -124,6 +165,7 @@ void RestoreAll()
 	Saved.clear();
 }
 
+#if GOLDEN_ORACLE
 // The image's import slot of Dll's function Name, or of the ordinal (Name NULL).
 uint32 *ImageImport(const char *Dll, const char *Name, int Ordinal)
 {
@@ -137,7 +179,7 @@ uint32 *ImageImport(const char *Dll, const char *Name, int Ordinal)
 		uint32 *Slots = (uint32 *)(Base + D->FirstThunk);
 		for (int i = 0; Names[i] != 0; i++) {
 			if (Name == NULL ? (Names[i] & 0x80000000) != 0 && (int)(Names[i] & 0xffff) == Ordinal
-					: (Names[i] & 0x80000000) == 0 && strcmp((const char *)Base + Names[i] + 2, Name) == 0)
+							 : (Names[i] & 0x80000000) == 0 && strcmp((const char *)Base + Names[i] + 2, Name) == 0)
 				return &Slots[i];
 		}
 	}
@@ -151,6 +193,7 @@ void BindImage(const char *Dll, const char *Name, int Ordinal, void *Fake)
 	if (Slot != NULL)
 		Write(Slot, &Fake, 4);
 }
+#endif
 
 // --- The world the fakes answer from ---------------------------------------------------------
 
@@ -166,15 +209,15 @@ struct TScript {
 	bool HostOk[6];
 	int HostError[6];
 	uint8 HostIP[6][4];
-	int Chunk[8];         // Receive: >0 at most this many bytes, 0 closed, -1 an error
+	int Chunk[8]; // Receive: >0 at most this many bytes, 0 closed, -1 an error
 	int ReceiveError;
-	int SendResult;       // logged only: Network.cpp ignores Send's result
+	int SendResult; // logged only: Network.cpp ignores Send's result
 	int ShutdownResult;
 	// The receive handler: GetNextCommand at most Packets times, after each
 	// the reads Reads[(packet * 7 + i) % 32] for i = 0.. while they fit.
 	int Packets;
 	int Reads[32];
-	int ReadValue[32];    // string limit or byte count
+	int ReadValue[32]; // string limit or byte count
 	int ReadsPerPacket;
 	// The connect handler: a command to send (Command < 0: none).
 	int Command;
@@ -209,8 +252,8 @@ struct TSideWorld {
 	char Address[6][20];
 };
 TSideWorld World[2];
-int FailAt;           // 0: no failure injection
-bool NoTick;          // inside destructors (ours are noexcept)
+int FailAt;  // 0: no failure injection
+bool NoTick; // inside destructors (ours are noexcept)
 
 void Tick()
 {
@@ -231,10 +274,10 @@ int SocketIndex(void *Object)
 }
 int SocketIndexOf(int S, void *Object)
 {
-	int Saved = Side;
+	int SavedSide = Side;
 	Side = S;
 	int i = SocketIndex(Object);
-	Side = Saved;
+	Side = SavedSide;
 	return i;
 }
 
@@ -254,6 +297,7 @@ struct TView {
 	int *TimeoutCounter, *TimeoutLimit;
 	TBuffer *SendBuffer, *ReceiveBuffer;
 	uint8 *SymmetricKey; // the TXTEA object (vtable, then the key)
+	int KeyOffset;       // the key's offset in it: after the vtable pointer (4 in the image, 8 in ours on x64)
 	int *RecursionProtection, *HostnameResolveBufferSize;
 	uint8 *PacketHeader;
 };
@@ -261,6 +305,7 @@ TView View[2];
 
 void MakeViews()
 {
+#if GOLDEN_ORACLE
 	TView &I = View[IMAGE];
 	I.CurrentServer = (int *)0x7152f0;
 	I.TestServer = (TServer *)0x7152f8;
@@ -282,9 +327,11 @@ void MakeViews()
 	I.SendBuffer = (TBuffer *)0x719d5c;
 	I.ReceiveBuffer = (TBuffer *)0x719d68;
 	I.SymmetricKey = (uint8 *)0x719d74;
+	I.KeyOffset = 4;
 	I.RecursionProtection = (int *)0x719d88;
 	I.HostnameResolveBufferSize = (int *)0x5c22c4;
 	I.PacketHeader = (uint8 *)0x5d1644;
+#endif
 	TView &O = View[OURS];
 	O.CurrentServer = &CurrentServer;
 	O.TestServer = &TestServer;
@@ -306,6 +353,7 @@ void MakeViews()
 	O.SendBuffer = &SendBuffer;
 	O.ReceiveBuffer = &ReceiveBuffer;
 	O.SymmetricKey = (uint8 *)&SymmetricKey;
+	O.KeyOffset = (int)sizeof(void *); // TXTEA: a vtable pointer, then uint32 Key[4]
 	O.RecursionProtection = &RecursionProtection;
 	O.HostnameResolveBufferSize = &HostnameResolveBufferSize;
 	O.PacketHeader = PacketHeader;
@@ -378,7 +426,9 @@ HANDLE WINAPI FakeWSAAsyncGetHostByName(HWND Window, u_int Message, const char *
 	TSideWorld &W = World[Side];
 	char *OwnBuffer = *View[Side].HostnameResolveBuffer;
 	Logf("Resolve(%x,%x,%s,%s,%d);", (unsigned)(uintptr_t)Window, Message, Name,
-		Buffer == NULL ? "NULL" : Buffer == OwnBuffer ? "buffer" : "other", Length);
+		Buffer == NULL ? "NULL" : Buffer == OwnBuffer ? "buffer"
+													  : "other",
+		Length);
 	Tick();
 	int k = W.Hosts < 5 ? W.Hosts : 5;
 	W.Hosts++;
@@ -386,7 +436,7 @@ HANDLE WINAPI FakeWSAAsyncGetHostByName(HWND Window, u_int Message, const char *
 		W.LastError = Script.HostError[k];
 		return NULL;
 	}
-	if (Buffer != NULL && Length >= 0x50) {
+	if (Buffer != NULL && Length >= 0x50 && (Side == IMAGE || sizeof(void *) == 4)) {
 		// A HOSTENT as Windows writes it, pointers into the buffer.
 		memset(Buffer, 0, 0x50);
 		*(char **)(Buffer + 0x00) = Buffer + 0x40;
@@ -396,6 +446,21 @@ HANDLE WINAPI FakeWSAAsyncGetHostByName(HWND Window, u_int Message, const char *
 		*(char **)(Buffer + 0x0c) = Buffer + 0x10;
 		*(char **)(Buffer + 0x10) = Buffer + 0x18;
 		memcpy(Buffer + 0x18, Script.HostIP[k], 4);
+		strcpy(Buffer + 0x40, "resolved");
+		W.HostFilled = Buffer == OwnBuffer;
+	} else if (Buffer != NULL && Length >= 0x50) {
+		// Ours on x64 (the runner): the same HOSTENT with 8-byte pointers (0x20 bytes), the address list
+		// at +0x20, the aliases' end at +0x30, the address at +0x38, the name at +0x40.
+		memset(Buffer, 0, 0x50);
+		HOSTENT *Host = (HOSTENT *)Buffer;
+		char **Addresses = (char **)(Buffer + 0x20);
+		Host->h_name = Buffer + 0x40;
+		Host->h_aliases = (char **)(Buffer + 0x30);
+		Host->h_addrtype = AF_INET;
+		Host->h_length = 4;
+		Host->h_addr_list = Addresses;
+		Addresses[0] = Buffer + 0x38;
+		memcpy(Buffer + 0x38, Script.HostIP[k], 4);
 		strcpy(Buffer + 0x40, "resolved");
 		W.HostFilled = Buffer == OwnBuffer;
 	}
@@ -429,9 +494,18 @@ char *WINAPI FakeInetNtoa(in_addr Address)
 	return Text[Side];
 }
 
-// CAsyncSocket. Both sides' objects have the handle at +4 (MFC 7.1's
-// m_hSocket after the vtable; the shim's too).
-SOCKET &Handle(void *Object) { return *(SOCKET *)((uint8 *)Object + 4); }
+// CAsyncSocket. The image's objects have the handle at +4 (MFC 7.1's
+// m_hSocket after the vtable), ours at the shim's m_hSocket (+4 on x86, +8
+// on x64).
+SOCKET &Handle(int S, void *Object)
+{
+#if GOLDEN_ORACLE
+	if (S == IMAGE)
+		return *(SOCKET *)((uint8 *)Object + 4);
+#endif
+	return static_cast<CAsyncSocket *>(Object)->m_hSocket;
+}
+SOCKET &Handle(void *Object) { return Handle(Side, Object); }
 
 void SocketConstructed(void *Object)
 {
@@ -455,11 +529,11 @@ void SocketClose(void *Object)
 void SocketDestroyed(void *Object)
 {
 	Logf("delete%d;", SocketIndex(Object));
-	bool Saved = NoTick;
+	bool SavedNoTick = NoTick;
 	NoTick = true;
 	if (Handle(Object) != INVALID_SOCKET)
 		SocketClose(Object);
-	NoTick = Saved;
+	NoTick = SavedNoTick;
 	int i = SocketIndex(Object);
 	if (i >= 0)
 		World[Side].Sockets[i].Deleted = true;
@@ -544,6 +618,7 @@ int SocketSend(void *Object, const void *Buffer, int Length, int Flags)
 	return Script.SendResult;
 }
 
+#if GOLDEN_ORACLE
 // The image's MFC functions (thiscall through __fastcall).
 void *__fastcall ImageSocketCtor(void *This, void *)
 {
@@ -573,16 +648,19 @@ int __fastcall ImageSocketSend(void *This, void *, const void *Buffer, int Lengt
 {
 	return SocketSend(This, Buffer, Length, Flags);
 }
+#endif
 BOOL SocketInit()
 {
 	Logf("AfxSocketInit;");
 	Tick();
 	return Script.SocketInit;
 }
+#if GOLDEN_ORACLE
 BOOL __stdcall ImageAfxSocketInit(WSADATA *Data)
 {
 	return SocketInit();
 }
+#endif
 
 // The handlers InitNetwork gets.
 void RunSendProgram();
@@ -626,7 +704,7 @@ void CAsyncSocket::OnConnect(int) {}
 void CAsyncSocket::OnClose(int) {}
 BOOL AfxSocketInit(WSADATA *) { return SocketInit(); }
 
-// Ours: the import slots of the WinSock functions (difftest.exe does not link ws2_32).
+// Ours: the import slots of the WinSock functions (neither difftest.exe nor the runner links ws2_32).
 extern "C" {
 void *NWSlot_WSAAsyncGetHostByName = (void *)FakeWSAAsyncGetHostByName;
 void *NWSlot_WSAGetLastError = (void *)FakeWSAGetLastError;
@@ -634,17 +712,28 @@ void *NWSlot_WSACancelAsyncRequest = (void *)FakeWSACancelAsyncRequest;
 void *NWSlot_shutdown = (void *)FakeShutdown;
 void *NWSlot_inet_ntoa = (void *)FakeInetNtoa;
 }
+#if defined(_M_IX86)
 #pragma comment(linker, "/alternatename:__imp__WSAAsyncGetHostByName@20=_NWSlot_WSAAsyncGetHostByName")
 #pragma comment(linker, "/alternatename:__imp__WSAGetLastError@0=_NWSlot_WSAGetLastError")
 #pragma comment(linker, "/alternatename:__imp__WSACancelAsyncRequest@4=_NWSlot_WSACancelAsyncRequest")
 #pragma comment(linker, "/alternatename:__imp__shutdown@8=_NWSlot_shutdown")
 #pragma comment(linker, "/alternatename:__imp__inet_ntoa@4=_NWSlot_inet_ntoa")
+#else
+// x64 (the runner): no decoration.
+#pragma comment(linker, "/alternatename:__imp_WSAAsyncGetHostByName=NWSlot_WSAAsyncGetHostByName")
+#pragma comment(linker, "/alternatename:__imp_WSAGetLastError=NWSlot_WSAGetLastError")
+#pragma comment(linker, "/alternatename:__imp_WSACancelAsyncRequest=NWSlot_WSACancelAsyncRequest")
+#pragma comment(linker, "/alternatename:__imp_shutdown=NWSlot_shutdown")
+#pragma comment(linker, "/alternatename:__imp_inet_ntoa=NWSlot_inet_ntoa")
+#endif
 
 namespace {
 
 // --- Both sides' functions ---------------------------------------------------------------------
 
-typedef void (__fastcall *EventFn)(void *, void *, int);
+#if GOLDEN_ORACLE
+typedef void(__fastcall *EventFn)(void *, void *, int);
+#endif
 
 // The functions under test, by side: ours and the image's (all cdecl).
 struct TFunctions {
@@ -692,6 +781,7 @@ TFunctions Fn[2];
 template <class T> void SetFn(T &Slot, uint32 Address) { Slot = (T)(uintptr_t)Address; }
 void MakeFunctions()
 {
+#if GOLDEN_ORACLE
 	TFunctions &I = Fn[IMAGE];
 	SetFn(I.InitServerList, 0x4ca0e0);
 	SetFn(I.SetTestServerPort, 0x4ca260);
@@ -731,6 +821,7 @@ void MakeFunctions()
 	SetFn(I.ShutdownConnection, 0x4ce8f0);
 	SetFn(I.InitNetwork, 0x4ce930);
 	SetFn(I.ExitNetwork, 0x4cec70);
+#endif
 	TFunctions &O = Fn[OURS];
 	O.InitServerList = InitServerList;
 	O.SetTestServerPort = SetTestServerPort;
@@ -781,11 +872,13 @@ void FireEvent(int Slot, int ErrorCode)
 		Logf("no socket;");
 		return;
 	}
+#if GOLDEN_ORACLE
 	if (Side == IMAGE) {
 		EventFn F = (EventFn)(uintptr_t)(*(uint32 **)Object)[Slot / 4];
 		F(Object, NULL, ErrorCode);
 		return;
 	}
+#endif
 	TSocket *S = (TSocket *)Object;
 	switch (Slot) {
 	case 0x1c: S->OnReceive(ErrorCode); break;
@@ -882,6 +975,20 @@ std::string Hex(const void *Data, int Size)
 	return Text;
 }
 
+// The handlers InitNetwork stores, by name (their addresses differ between the oracle and the runner).
+const char *CallbackName(void (*Function)())
+{
+	if (Function == NULL)
+		return "NULL";
+	if (Function == ConnectHandler)
+		return "connect";
+	if (Function == ReceiveHandler)
+		return "receive";
+	if (Function == CloseHandler)
+		return "close";
+	return "other";
+}
+
 std::string Dump(int S)
 {
 	TView &V = View[S];
@@ -895,15 +1002,15 @@ std::string Dump(int S)
 	char *Resolve = *V.HostnameResolveBuffer;
 	snprintf(Buffer, sizeof(Buffer),
 		"HostnameRequest %x HostnameResolveBuffer %s ReceiveDataSize %d ReceivePacketEnd %d ReceiveRead %d\n"
-		"NetworkWindow %x Callbacks %p %p %p Socket %d TimeoutCounter %d TimeoutLimit %d\n"
+		"NetworkWindow %x Callbacks %s %s %s Socket %d TimeoutCounter %d TimeoutLimit %d\n"
 		"SendBuffer +%d %d %d ReceiveBuffer +%d %d %d Key %s RecursionProtection %d HostnameResolveBufferSize %d\n"
 		"PacketHeader %s\n",
 		(unsigned)(uintptr_t)*V.HostnameRequest, Resolve == NULL ? "NULL" : "set", *V.ReceiveDataSize,
-		*V.ReceivePacketEnd, *V.ReceiveRead, (unsigned)(uintptr_t)*V.NetworkWindow, (void *)*V.CloseCallback,
-		(void *)*V.ReceiveCallback, (void *)*V.ConnectCallback, SocketIndexOf(S, *V.Socket), *V.TimeoutCounter,
+		*V.ReceivePacketEnd, *V.ReceiveRead, (unsigned)(uintptr_t)*V.NetworkWindow, CallbackName(*V.CloseCallback),
+		CallbackName(*V.ReceiveCallback), CallbackName(*V.ConnectCallback), SocketIndexOf(S, *V.Socket), *V.TimeoutCounter,
 		*V.TimeoutLimit, (int)(V.SendBuffer->Data - V.SendData), V.SendBuffer->Size, V.SendBuffer->Position,
 		(int)(V.ReceiveBuffer->Data - V.ReceiveData), V.ReceiveBuffer->Size, V.ReceiveBuffer->Position,
-		Hex(V.SymmetricKey + 4, 16).c_str(), *V.RecursionProtection, *V.HostnameResolveBufferSize,
+		Hex(V.SymmetricKey + V.KeyOffset, 16).c_str(), *V.RecursionProtection, *V.HostnameResolveBufferSize,
 		Hex(V.PacketHeader, 16).c_str());
 	Text += Buffer;
 	TSideWorld &W = World[S];
@@ -911,7 +1018,7 @@ std::string Dump(int S)
 		W.LastError, (int)W.InPos, (int)W.Incoming.size());
 	Text += Buffer;
 	for (auto &K : W.Sockets) {
-		snprintf(Buffer, sizeof(Buffer), " %x%s%s", (unsigned)(K.Deleted ? 0 : Handle(K.Object)), K.Closed ? "c" : "",
+		snprintf(Buffer, sizeof(Buffer), " %x%s%s", (unsigned)(K.Deleted ? 0 : Handle(S, K.Object)), K.Closed ? "c" : "",
 			K.Deleted ? "d" : "");
 		Text += Buffer;
 	}
@@ -919,10 +1026,38 @@ std::string Dump(int S)
 	return Text;
 }
 
+// The original's side as last recorded (golden::OutputRuns records its changes): its dump's text (in a
+// buffer of a fixed size, zero after the text) and both of its buffers.
+const size_t DUMP_SIZE = 4096;
+char LastDump[DUMP_SIZE];
+uint8 LastReceiveData[0x4000];
+uint8 LastSendData[0x800];
+
+std::string OriginalDump()
+{
+#if GOLDEN_ORACLE
+	std::string Text = Dump(IMAGE);
+	char Current[DUMP_SIZE] = {};
+	if (Text.size() >= DUMP_SIZE) {
+		printf("FAIL Network: the original's dump has %u bytes, more than %u\n", (unsigned)Text.size(),
+			(unsigned)DUMP_SIZE - 1);
+		Failures++;
+		Text.resize(DUMP_SIZE - 1);
+	}
+	memcpy(Current, Text.data(), Text.size());
+	golden::OutputRuns("state", LastDump, Current, DUMP_SIZE);
+#else
+	golden::OutputRuns("state", LastDump, nullptr, DUMP_SIZE);
+#endif
+	return std::string(LastDump, strnlen(LastDump, DUMP_SIZE));
+}
+
 int Compared = 0;
 void Compare(const char *Operation)
 {
 	Checks++;
+	// The runner gets the original's log from the corpus.
+	Log[IMAGE] = golden::OutputText("log", Log[IMAGE].c_str());
 	if (Log[IMAGE] != Log[OURS]) {
 		Failures++;
 		if (Failures <= FailuresPrinted)
@@ -933,18 +1068,20 @@ void Compare(const char *Operation)
 		fprintf(LogFile, "%s: %s\n", Operation, Log[OURS].c_str());
 	Log[IMAGE].clear();
 	Log[OURS].clear();
-	std::string A = Dump(OURS), B = Dump(IMAGE);
+	std::string A = Dump(OURS), B = OriginalDump();
 	CHECK(A == B, "Network %s (%s): state\n%s\noriginal\n%s", Operation, What, A.c_str(), B.c_str());
+	golden::OutputRuns("receive data", LastReceiveData, ORIGINAL_OR(View[IMAGE].ReceiveData, nullptr), 0x4000);
+	golden::OutputRuns("send data", LastSendData, ORIGINAL_OR(View[IMAGE].SendData, nullptr), 0x800);
 	int Size = 0;
 	for (int i = 0; i < 0x4000; i++)
-		if (View[OURS].ReceiveData[i] != View[IMAGE].ReceiveData[i]) {
+		if (View[OURS].ReceiveData[i] != LastReceiveData[i]) {
 			Size = i + 1;
 			break;
 		}
 	CHECK(Size == 0, "Network %s (%s): ReceiveData differs at %d", Operation, What, Size - 1);
 	Size = 0;
 	for (int i = 0; i < 0x800; i++)
-		if (View[OURS].SendData[i] != View[IMAGE].SendData[i]) {
+		if (View[OURS].SendData[i] != LastSendData[i]) {
 			Size = i + 1;
 			break;
 		}
@@ -961,7 +1098,7 @@ uint8 TestKey[16];  // the key both sides have, for the server's frames
 // constructed once by TestNetwork).
 void ResetSides()
 {
-	for (int s = 0; s < 2; s++) {
+	for (int s = FIRST_SIDE; s < 2; s++) {
 		TView &V = View[s];
 		*V.CurrentServer = 0;
 		memset(V.TestServer, 0, sizeof(TServer));
@@ -989,10 +1126,12 @@ void ResetSides()
 		V.ReceiveBuffer->Data = V.ReceiveData;
 		V.ReceiveBuffer->Size = 0;
 		V.ReceiveBuffer->Position = 0;
-		memset(V.SymmetricKey + 4, 0, 16);
+		memset(V.SymmetricKey + V.KeyOffset, 0, 16);
 		*V.RecursionProtection = 0;
 		*V.HostnameResolveBufferSize = MAXGETHOSTSTRUCT;
 		memset(V.PacketHeader, 0, 16);
+	}
+	for (int s = 0; s < 2; s++) {
 		TSideWorld &W = World[s];
 		W.LastError = 0;
 		W.ConnectionState = 0;
@@ -1020,8 +1159,10 @@ template <class F> void Both(const char *Name, F Call)
 	if (Trace)
 		printf("Network: %s\n", Name);
 	if (Round == NULL) {
+#if GOLDEN_ORACLE
 		Side = IMAGE;
 		Call(IMAGE);
+#endif
 		Side = OURS;
 		Call(OURS);
 	} else {
@@ -1029,9 +1170,10 @@ template <class F> void Both(const char *Name, F Call)
 		Side = OURS;
 		TThrown Ours = OurThrow([&] { Call(OURS); });
 		Round->Calling(Name, "the original");
-		Side = IMAGE;
-		TThrown Original = ImageThrow([&] { Call(IMAGE); });
+		TThrown Original = ORIGINAL_THROWN("thrown", Side = IMAGE; Call(IMAGE));
 		Round->Compare(Name, Ours, Original);
+		// How many fake calls the original made (whether its n-th was reached).
+		golden::Output("original ticks", World[IMAGE].Ticks);
 	}
 	Compare(Name);
 }
@@ -1079,7 +1221,10 @@ void RandomScript()
 	}
 	for (int k = 0; k < 8; k++) {
 		int c = Random() % 10;
-		S.Chunk[k] = c == 0 ? 0 : c == 1 ? -1 : c < 5 ? 1 + Random() % 16 : c < 8 ? 1 + Random() % 300 : 0x4000;
+		S.Chunk[k] = c == 0 ? 0 : c == 1 ? -1
+			: c < 5                      ? 1 + Random() % 16
+			: c < 8                      ? 1 + Random() % 300
+										 : 0x4000;
 	}
 	S.ReceiveError = RandomErrorCode();
 	S.SendResult = Chance(80) ? 0 : SOCKET_ERROR;
@@ -1089,7 +1234,8 @@ void RandomScript()
 	for (int i = 0; i < 32; i++) {
 		S.Reads[i] = Random() % 6;
 		int v = Random() % 4;
-		S.ReadValue[i] = v == 0 ? -1 : v == 1 ? 1 + Random() % 4 : 1 + Random() % 40;
+		S.ReadValue[i] = v == 0 ? -1 : v == 1 ? 1 + Random() % 4
+											  : 1 + Random() % 40;
 	}
 	S.Command = Chance(60) ? (int)(Random() % 256) : -1;
 	S.CommandEncrypt = Chance(70);
@@ -1112,7 +1258,8 @@ std::string MakeFrame(int Mode)
 	std::string Plain(2, '\0');
 	for (int i = 0; i < Length; i++) {
 		int v = Random() % 6;
-		Plain += (char)(v == 0 ? 0 : v == 1 ? 1 + Random() % 6 : Random());
+		Plain += (char)(v == 0 ? 0 : v == 1 ? 1 + Random() % 6
+											: Random());
 	}
 	int Inner = Length;
 	if (Mode == 1)
@@ -1138,7 +1285,9 @@ void AddServerData(int Frames)
 	std::string Data;
 	for (int i = 0; i < Frames; i++) {
 		int m = Random() % 10;
-		Data += MakeFrame(m < 6 ? 0 : m < 8 ? 1 : m < 9 ? 2 : 3);
+		Data += MakeFrame(m < 6 ? 0 : m < 8 ? 1
+				: m < 9                     ? 2
+											: 3);
 	}
 	for (int s = 0; s < 2; s++)
 		World[s].Incoming += Data;
@@ -1408,6 +1557,7 @@ template <class F> void Call(const char *Name, F Function)
 
 void TestNetworkErrors()
 {
+	ORIGINAL(VerifyOurSideAssertion("Network"));
 	TErrorRound R("Network");
 	Round = &R;
 	// The assertions and errors with their arguments (each from a fresh round state).
@@ -1426,11 +1576,13 @@ void TestNetworkErrors()
 			break;
 		}
 		case 2:
-			*View[0].CurrentServer = *View[1].CurrentServer = BadServer;
+			for (int s = FIRST_SIDE; s < 2; s++)
+				*View[s].CurrentServer = BadServer;
 			Call("SetServerError(CurrentServer)", [&](int s) { Fn[s].SetServerError(17); });
 			break;
 		case 3:
-			*View[0].CurrentServer = *View[1].CurrentServer = BadServer;
+			for (int s = FIRST_SIDE; s < 2; s++)
+				*View[s].CurrentServer = BadServer;
 			Call("SetServerIPAddress(CurrentServer)", [&](int s) { Fn[s].SetServerIPAddress("1.2.3.4"); });
 			break;
 		case 4:
@@ -1442,7 +1594,8 @@ void TestNetworkErrors()
 			break;
 		}
 		case 6:
-			*View[0].CurrentServer = *View[1].CurrentServer = BadServer;
+			for (int s = FIRST_SIDE; s < 2; s++)
+				*View[s].CurrentServer = BadServer;
 			World[0].TestServerLogin = World[1].TestServerLogin = (t & 1) != 0;
 			Call("GetCurrentServer(CurrentServer)", [&](int s) {
 				TServer *Server;
@@ -1480,7 +1633,8 @@ void TestNetworkErrors()
 			Call("GetResolvedIPAddress(no buffer)", [&](int s) { Fn[s].GetResolvedIPAddress(); });
 			break;
 		case 12:
-			*View[0].RecursionProtection = *View[1].RecursionProtection = 5 + t / 20;
+			for (int s = FIRST_SIDE; s < 2; s++)
+				*View[s].RecursionProtection = 5 + t / 20;
 			Call("ConnectToLoginServer(recursion)", [&](int s) { Fn[s].ConnectToLoginServer(); });
 			break;
 		case 13: {
@@ -1498,7 +1652,7 @@ void TestNetworkErrors()
 		case 14: {
 			// Writes past the send buffer's end.
 			int Position = 0x800 - (int)(Random() % 4);
-			for (int s = 0; s < 2; s++)
+			for (int s = FIRST_SIDE; s < 2; s++)
 				View[s].SendBuffer->Position = Position;
 			Call("SendByte(full)", [&](int s) { Fn[s].SendByte(7); });
 			Call("SendWord(full)", [&](int s) { Fn[s].SendWord(0x1234); });
@@ -1508,7 +1662,7 @@ void TestNetworkErrors()
 			// BeginCommand's own writes (the header) need a buffer of 5 bytes: one
 			// that is smaller (set by the test; the client's is 0x800) reaches its TEND.
 			int Size = Random() % 5;
-			for (int s = 0; s < 2; s++)
+			for (int s = FIRST_SIDE; s < 2; s++)
 				View[s].SendBuffer->Size = Size;
 			Call("BeginCommand(small buffer)", [&](int s) { Fn[s].BeginCommand(0x0a); });
 			break;
@@ -1518,7 +1672,7 @@ void TestNetworkErrors()
 			Script.Create[0] = TRUE;
 			Call("CreateSocket", [&](int s) { Fn[s].CreateSocket(); });
 			int Position = 0x800 - 1 - (int)(Random() % 6);
-			for (int s = 0; s < 2; s++)
+			for (int s = FIRST_SIDE; s < 2; s++)
 				View[s].SendBuffer->Position = Position;
 			Call("SendCommand(full)", [&](int s) { Fn[s].SendCommand(true); });
 			break;
@@ -1528,7 +1682,7 @@ void TestNetworkErrors()
 			int Size = Random() % 12, Position = Size - (int)(Random() % 3);
 			if (Position < 0)
 				Position = 0;
-			for (int s = 0; s < 2; s++) {
+			for (int s = FIRST_SIDE; s < 2; s++) {
 				View[s].ReceiveBuffer->Size = Size;
 				View[s].ReceiveBuffer->Position = Position;
 				memset(View[s].ReceiveData, 0x07, 64);
@@ -1564,7 +1718,7 @@ void TestNetworkErrors()
 			Frame[0] = (char)Size;
 			Frame[1] = 0;
 			if (t % 20 == 17) {
-				for (int s = 0; s < 2; s++) {
+				for (int s = FIRST_SIDE; s < 2; s++) {
 					memcpy(View[s].ReceiveData, Frame.data(), Frame.size());
 					*View[s].ReceiveDataSize = *View[s].ReceivePacketEnd = (int)Frame.size();
 				}
@@ -1612,6 +1766,7 @@ void TestNetworkErrors()
 			int Length = Random() % 12;
 			for (int n = 1; n < 400; n++) {
 				SetRandomSeed(Seed);
+				golden::Input("error seed", Seed);
 				FailAt = 0;
 				StartRound();
 				for (int i = 0; i < Length; i++)
@@ -1649,8 +1804,11 @@ void TestNetwork()
 	// Random()'s state is put back at the end: the later tests (MapWindow, MainWindow) get
 	// the inputs they had before this test existed.
 	uint32 SavedSeed = GetRandomSeed();
-	PatchImage();
-	PatchScript(); // the image's sprintf
+	ORIGINAL(PatchImage());
+	ORIGINAL(PatchScript()); // the image's sprintf
+	memset(LastDump, 0, sizeof(LastDump));
+	memset(LastReceiveData, 0, sizeof(LastReceiveData));
+	memset(LastSendData, 0, sizeof(LastSendData));
 	Trace = getenv("NW_TRACE") != NULL;
 	Trace2 = Trace && atoi(getenv("NW_TRACE")) >= 2;
 	const char *LogName = getenv("NW_LOGS");
@@ -1658,8 +1816,9 @@ void TestNetwork()
 	MakeViews();
 	MakeFunctions();
 	Side = OURS;
+#if GOLDEN_ORACLE
 	{
-		CAsyncSocket Probe; // the handle at +4 on our side too (the fakes read it there)
+		CAsyncSocket Probe; // the handle at +4 on our side too (as the image's)
 		if ((uint8 *)&Probe.m_hSocket - (uint8 *)&Probe != 4) {
 			printf("FAIL Network: our m_hSocket is not at +4\n");
 			Failures++;
@@ -1670,11 +1829,11 @@ void TestNetwork()
 	// The image's static objects (its initialisers 0x559fd0, 0x559ff0, 0x55a010
 	// never ran; the last registers an atexit destructor, so the constructor is
 	// called alone).
-	At<void (__fastcall *)(void *, void *, uint8 *, int)>(0x50b030)((void *)(uintptr_t)0x719d5c, NULL,
+	At<void(__fastcall *)(void *, void *, uint8 *, int)>(0x50b030)((void *)(uintptr_t)0x719d5c, NULL,
 		(uint8 *)(uintptr_t)0x719540, 0x800);
-	At<void (__fastcall *)(void *, void *, uint8 *, int)>(0x50a200)((void *)(uintptr_t)0x719d68, NULL,
+	At<void(__fastcall *)(void *, void *, uint8 *, int)>(0x50a200)((void *)(uintptr_t)0x719d68, NULL,
 		(uint8 *)(uintptr_t)0x715540, 0);
-	At<void (__fastcall *)(void *, void *)>(0x508c70)((void *)(uintptr_t)0x719d74, NULL);
+	At<void(__fastcall *)(void *, void *)>(0x508c70)((void *)(uintptr_t)0x719d74, NULL);
 	// WinSock through the image's import slots (by ordinal, as Tibia.exe imports them).
 	BindImage("WS2_32.dll", NULL, 103, (void *)FakeWSAAsyncGetHostByName);
 	BindImage("WS2_32.dll", NULL, 111, (void *)FakeWSAGetLastError);
@@ -1690,9 +1849,27 @@ void TestNetwork()
 	Redirect((void *)(uintptr_t)0x52f228, (void *)ImageSocketReceive);
 	Redirect((void *)(uintptr_t)0x52f240, (void *)ImageSocketSend);
 	Redirect((void *)(uintptr_t)0x52f9d7, (void *)ImageAfxSocketInit);
-	// rand(), Status.cpp's and Preferences.cpp's functions: one fake for both sides.
-	struct { uint32 Image; void *Ours; void *Fake; } Table[] = {
-		{0x511f33, (void *)rand, (void *)FakeRand},
+	// rand(): the image's 0x511f33 and our static CRT's.
+	Redirect((void *)(uintptr_t)0x511f33, (void *)FakeRand);
+	Redirect((void *)rand, (void *)FakeRand);
+#else
+	// rand(): the runner's import slot of ucrtbase's (out of a rel32 jump's reach; Network.cpp calls it
+	// through the slot).
+	void **RandSlot = golden::FindImport("rand");
+	if (RandSlot == nullptr) {
+		printf("FAIL Network: no import slot for rand\n");
+		Failures++;
+		return;
+	}
+	void *SavedRand = *RandSlot;
+	golden::SetImport(RandSlot, (void *)FakeRand);
+#endif
+	// Status.cpp's and Preferences.cpp's functions: one fake for both sides.
+	struct {
+		uint32 Image;
+		void *Ours;
+		void *Fake;
+	} Table[] = {
 		{0x4e71e0, (void *)SetConnectionState, (void *)FakeSetConnectionState},
 		{0x4e71f0, (void *)GetConnectionState, (void *)FakeGetConnectionState},
 		{0x4e9020, (void *)AddMessage, (void *)FakeAddMessage},
@@ -1702,7 +1879,7 @@ void TestNetwork()
 		{0x4db2a0, (void *)GetTestServerLogin, (void *)FakeGetTestServerLogin},
 	};
 	for (auto &T : Table) {
-		Redirect((void *)(uintptr_t)T.Image, T.Fake);
+		ORIGINAL(Redirect((void *)(uintptr_t)T.Image, T.Fake));
 		Redirect(T.Ours, T.Fake);
 	}
 
@@ -1711,6 +1888,7 @@ void TestNetwork()
 	for (int r = 0; r < Rounds; r++) {
 		if (Trace)
 			printf("Network: round %d\n", r);
+		golden::Input("round seed", GetRandomSeed());
 		StartRound();
 		int Count = 20 + Random() % 80;
 		for (int i = 0; i < Count; i++)
@@ -1721,6 +1899,9 @@ void TestNetwork()
 	TestNetworkErrors();
 	ResetSides();
 	RestoreAll();
+#if !GOLDEN_ORACLE
+	golden::SetImport(RandSlot, SavedRand);
+#endif
 	SetRandomSeed(SavedSeed);
 	if (LogFile != NULL)
 		fclose(LogFile);

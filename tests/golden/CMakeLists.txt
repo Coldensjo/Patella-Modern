@@ -48,8 +48,9 @@ target_compile_definitions(golden_sysinc PRIVATE GetMilliseconds=SysincGetMillis
 # The reconstructed files the ported tests compare (difftest.exe links them all; these are the ones
 # the ported tests call, and the ones that are called from them on the paths the tests run), with
 # PATELLA_VULKAN as Patella.exe has it (only Surface.cpp differs: the Vulkan engine as its only engine);
-# client_stubs.cpp has the functions of the other files, which the tests never call. MainFrm.cpp is
-# compiled into its test (mainfrm_tests.cpp, as in the oracle: the test reads its statics).
+# client_stubs.cpp has the functions of the other files, which the tests never call. MainFrm.cpp and
+# Network.cpp are compiled into their tests (mainfrm_tests.cpp, network_tests.cpp, as in the oracle: the
+# tests read their statics).
 add_library(golden_client OBJECT
 	"${PROJECT_SOURCE_DIR}/src/Status.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Preferences.cpp"
@@ -82,6 +83,9 @@ add_library(golden_client_tests OBJECT
 	golden_eh.cpp
 	mainfrm_tests.cpp)
 golden_client_settings(golden_client_tests)
+# Network (issue #30): network_tests.cpp in a directory of its own (network/CMakeLists.txt, its exception
+# model).
+add_subdirectory(network)
 
 add_executable(golden_runner
 	runner.cpp
@@ -91,7 +95,8 @@ add_executable(golden_runner
 	sysinc_tests.cpp
 	$<TARGET_OBJECTS:golden_sysinc>
 	$<TARGET_OBJECTS:golden_client>
-	$<TARGET_OBJECTS:golden_client_tests>)
+	$<TARGET_OBJECTS:golden_client_tests>
+	$<TARGET_OBJECTS:golden_network_tests>)
 target_link_libraries(golden_runner PRIVATE patella_core winmm user32)
 file(TO_CMAKE_PATH "${PROJECT_SOURCE_DIR}/build/golden" golden_default_dir)
 target_compile_definitions(golden_runner PRIVATE "GOLDEN_DEFAULT_DIR=\"${golden_default_dir}\"")

@@ -1867,8 +1867,8 @@ void TestMainFrm()
 	for (auto &M : Mfc)
 		Redirect((void *)(uintptr_t)M.Address, M.Fake);
 #endif
-	// The game files: one fake for both sides (ours of Control.cpp and Network.cpp are playertest.cpp's and
-	// networktest.cpp's in the oracle, client_stubs.cpp's in the runner).
+	// The game files: one fake for both sides (ours of Control.cpp are playertest.cpp's in the oracle and
+	// client_stubs.cpp's in the runner, ours of Network.cpp network_tests.cpp's on both sides, issue #30).
 	struct {
 		uint32 Image;
 		void *Ours;
