@@ -344,9 +344,9 @@ void PatchElementFakes(void (*Redirect)(void *Function, void *Target))
 //
 // A ported test reaches only what it needs of these, and only outside the tests that own them (whose flags,
 // consolewindowtest.cpp's Testing and contentwindowstest.cpp's ElementCreated, are off then):
-// TFakeSkinButton's constructor (DialogWindow's skin buttons), which does there what the oracle's does (the
-// fields, the position and the size; no log, no report). The rest stop the runner: a ported test that reaches
-// one needs that test's fakes ported first.
+// TFakeSkinButton's constructor (DialogWindow's skin buttons) and TFakeEditLine's members (ContextMenus' edit
+// line), which do there what the oracle's do (the fields, the position and the size; no log, no report). The
+// rest stop the runner: a ported test that reaches one needs that test's fakes ported first.
 
 void (*ElementCreated)(void *Object, const char *Kind, const char *Arguments) = nullptr;
 void ReportElement(void *, const char *Kind, const char *, ...)
@@ -380,18 +380,47 @@ TFakeMultiStateButton::TFakeMultiStateButton(int x, int y, const char *Tooltip, 
 void TFakeScrollBarRange::SetRange(int, int, int, int) { NotPorted("TFakeScrollBarRange::SetRange"); }
 void TFakeScrollBarRange::SetValue(int) { NotPorted("TFakeScrollBarRange::SetValue"); }
 TFakeScrollBar::TFakeScrollBar(TRect, int, int, int, int, int) { NotPorted("TFakeScrollBar"); }
-TFakeEditLine::TFakeEditLine(TRect, int, int) { NotPorted("TFakeEditLine"); }
-void TFakeEditLine::SetActive(bool) { NotPorted("TFakeEditLine::SetActive"); }
-void TFakeEditLine::SetText(const char *) { NotPorted("TFakeEditLine::SetText"); }
-void TFakeEditLine::Clear() { NotPorted("TFakeEditLine::Clear"); }
-void TFakeEditLine::UnknownA8() { NotPorted("TFakeEditLine::UnknownA8"); }
-void TFakeEditLine::UnknownAC() { NotPorted("TFakeEditLine::UnknownAC"); }
-void TFakeEditLine::UnknownB0() { NotPorted("TFakeEditLine::UnknownB0"); }
-void TFakeEditLine::UnknownB4() { NotPorted("TFakeEditLine::UnknownB4"); }
-void TFakeEditLine::SetDisabled(bool) { NotPorted("TFakeEditLine::SetDisabled"); }
-void TFakeEditLine::UnknownBC() { NotPorted("TFakeEditLine::UnknownBC"); }
-void TFakeEditLine::SetFont(TFont) { NotPorted("TFakeEditLine::SetFont"); }
-TFakeFormattedText::TFakeFormattedText(const char *) { NotPorted("TFakeFormattedText"); }
+// The edit line (ContextMenus' edit line derives from it): consolewindowtest.cpp's members as they are outside
+// ConsoleWindow's test, the fields only (their logs are off then); Active is the byte the oracle's sets in
+// Data30 (+0x58).
+TFakeEditLine::TFakeEditLine(TRect, int, int)
+{
+	Text = new char[256];
+	Text[0] = 0;
+	memset(Data30, 0, sizeof(Data30));
+	Data5C = -1;
+	Data60 = 0;
+	memset(Data64, 0, sizeof(Data64));
+	Data66 = false;
+	memset(Data67, 0, sizeof(Data67));
+}
+void TFakeEditLine::SetActive(bool Active)
+{
+	Data30[offsetof(TEditLine, Active) - offsetof(TEditLine, MaxLength)] = Active ? 1 : 0;
+	if (!Active)
+		Data60 = 0;
+}
+void TFakeEditLine::SetText(const char *_Text)
+{
+	strncpy(Text, _Text, 255);
+	Text[255] = 0;
+	Data5C = -1;
+	Data60 = 0;
+}
+void TFakeEditLine::Clear()
+{
+	Text[0] = 0;
+	Data5C = -1;
+	Data60 = 0;
+}
+void TFakeEditLine::UnknownA8() {}
+void TFakeEditLine::UnknownAC() {}
+void TFakeEditLine::UnknownB0() {}
+void TFakeEditLine::UnknownB4() {}
+void TFakeEditLine::SetDisabled(bool ReadOnly) { Data66 = ReadOnly; }
+void TFakeEditLine::UnknownBC() {}
+void TFakeEditLine::SetFont(TFont) {}
+// TFakeFormattedText: contextmenus_tests.cpp.
 TFakeBorder::TFakeBorder(TWindow *, int) { NotPorted("TFakeBorder"); }
 TFakeBorder::TFakeBorder(TWindow *, int, int, int, int, int, int, int, int, int, int) { NotPorted("TFakeBorder"); }
 void TFakeBorder::FitToWindow() { NotPorted("TFakeBorder::FitToWindow"); }
