@@ -7232,4 +7232,41 @@ orchestrator's live inspection. notes/vulkan.md, "One window per device (issue #
   WS_EX_TRANSPARENT device windows (they change nothing for dispatched input), the test mode hit-testing (it does
   not), forwarding messages from the device windows (they receive none).
 - **Not done** (medium). Each CPU-driver device leaves about 56 process handles (lavapipe's ended threads); its own
-  issue.
+  issue (#53: lavapipe's and NVIDIA's, not ours; "Handles the drivers leave" below).
+
+## Handles the drivers leave (Patella-Modern issue #53)
+
+Settled by Claude Opus 5.5, November 4, 2026. notes/vulkan.md, "Handles the drivers leave (issue #53)" has the
+facts and the census.
+
+- **Whose** (high). None of ours: the census by object type shows only Thread handles growing with CPU-driver
+  devices and Event handles with NVIDIA devices; every other type stays flat over 25 devices. The Thread handles are
+  of ended threads that vulkan_lvp.dll started (their start address in its image, 24 per device, 4 with
+  `LP_NUM_THREADS=4`) and one handle of the calling thread per lavapipe instance (also when only listing its
+  device); Mesa 26.2.5's source shows why (lp_rast.c's `lp_rast_destroy` never joins its threads on Windows,
+  threads_win32.c's `thrd_current` duplicates a handle closed only at that thread's end). The NVIDIA driver's 3
+  events per device: our code is the same for every device, the Radeon and lavapipe leave none, and they stay with
+  the implicit layers disabled. A handle trace (cdb `!htrace -diff`) gave no stacks, only that all were opened on
+  the creating thread; the census is the evidence.
+- **Not worked around** (high). The cost is small (a handle and an ended thread's object, a few KB, per lavapipe
+  thread; 50 handles per switch to the CPU driver, far below the per-process limit) and every workaround changes
+  what the plan settles or is fragile:
+  - keeping one lavapipe instance and device alive across switches: TestEngine and the surfaces' device are two
+    devices (and the device test must test a new one); a kept device keeps its 49 threads and its memory while a GPU
+    is in use, and it would not end the device test's leak. It changes the switch's lifetime design (#31, #52);
+  - keeping vulkan_lvp.dll loaded (a LoadLibrary of our own): it would save only the one `thrd_current` handle per
+    instance (the thread-local state survives), not the rasterizers' 24;
+  - `LP_NUM_THREADS=0` (rasterizing on the calling thread): no rasterizer threads, but the CPU device becomes
+    many times slower; a behaviour change of the device the user chose;
+  - closing the ended threads' handles ourselves after the device is gone (those started in the unloaded
+    vulkan_lvp.dll): closing handles we do not own, found through ntdll's undocumented handle list;
+  - patching or upgrading the driver: the user's decision (the pin), and the fix belongs upstream (Mesa's
+    lp_rast.c: close the handle, e.g. `thrd_detach` after the wait, on Windows). Not reported upstream from here.
+- **The test** (high). tests_vulkan's "switching to and from the CPU driver leaves no handles of ours" (headless,
+  no window): 5 rounds of the CPU driver and each GPU and back, after one round of warm-up; the drivers' handles
+  are counted apart and bounded (the ended threads all lavapipe's and the same number per device, at most 32; at
+  most one handle of this thread per lavapipe instance; at most 3 events per NVIDIA device), everything else flat
+  within 4 (system objects such as ALPC ports varied by 2 with no device in between; below the 5 rounds, so one
+  handle of ours per device fails). Checked by injecting a leaked event per device: the test failed (25 more
+  than the drivers').
+- **Behaviour** (high). Nothing in src/ changed; the oracle-x86 build compiles nothing that changed.

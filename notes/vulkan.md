@@ -202,8 +202,8 @@ between press and release, which the desktop does (another window activated, the
 it had met the user's own client still running). With a script the test mode now ignores that loss
 (notes/testmode.md, PATELLA_TEST_CAPTURE_CHANGED), as it drops the desktop's queued input.
 
-**Found on the way.** Each device on the CPU driver leaves about 56 process handles (lavapipe's 49 threads end, their
-handles stay; tests_vulkan's harness: 442, 498, 554 handles after each RTX, CPU, RTX round), not fixed here.
+**Found on the way.** Each device on the CPU driver leaves about 25 process handles, a switch to it twice that
+(the device test and the device): lavapipe's own, see "Handles the drivers leave (issue #53)" below.
 
 ## How it works
 
@@ -328,6 +328,37 @@ without any Vulkan driver has no loader; the plan names no loader to ship (Vulka
 dependencies), so such a machine falls back to the original engines today (notes/decisions.md, "Found, not
 done").
 
+## Handles the drivers leave (issue #53)
+
+Found during #52: in a headless harness the process's handle count grew by about 56 per RTX, CPU, RTX round. None
+of the handles is ours; the engine destroys everything it creates (Renderer.cpp `TState::Destroy`: every image,
+buffer, fence, semaphore, command pool, pipeline, sampler, descriptor object, the allocator, the swapchain, the
+device, the surface and the instance; no pipeline cache, no debug messenger without validation, no thread of its
+own), and the loader unloads vulkan_lvp.dll with each instance. What stays, by object type (tests_vulkan's handle
+census, ntdll's handle list of the process; November 4, 2026, this machine: 24 logical processors):
+
+| Per | Handles | Whose | Evidence |
+| :--- | :--- | :--- | :--- |
+| CPU driver device | 24 Thread, of ended threads | lavapipe's rasterizer threads | all 24 started in vulkan_lvp.dll (one start address, the image's c11 thread routine, the DLL unloaded afterwards); `LP_NUM_THREADS=4` makes it 4 |
+| CPU driver instance | 1 Thread, of the calling thread | lavapipe's `thrd_current` | also when only listing the device (CpuDriverDevice), no device created |
+| NVIDIA device | 3 Event | NVIDIA's driver | the same code on the AMD Radeon and on lavapipe leaves none; the same with the implicit layers (OBS, Steam, EOS) disabled (`VK_LOADER_LAYERS_DISABLE=~implicit~`) |
+
+So a switch to the CPU driver (TestEngine's device, then the surfaces' device: two instances, two devices) leaves
+50 handles, a switch to the RTX 5080 6: #52's 56 per round. In Mesa 26.2.5's source: `lp_rast_destroy`
+(src/gallium/drivers/llvmpipe/lp_rast.c, lines 1334-1350) waits for each rasterizer thread to end on Windows but,
+unlike the other platforms, never calls `thrd_join`, the only place its handle (from `_beginthreadex`) would be
+closed (src/c11/impl/threads_win32.c, `thrd_join`, lines 350-369); their number is the screen's `num_threads`
+(lp_screen.c, lines 1072-1076: the logical processors, or `LP_NUM_THREADS`, at most `LP_MAX_THREADS`, 32). Of the
+49 threads a device starts here, the other 25 (the compute pool's 24 and one more) end with their handles closed. `thrd_current` (threads_win32.c, lines 294-324) duplicates a handle of
+the calling thread into lavapipe's thread-local state, closed only by the DLL's TLS callback when that thread ends
+(lines 256-264), which never runs once the DLL is unloaded.
+
+What it costs: a handle and an ended thread's kernel object each, a few KB; 1,000 switches to the CPU driver leave
+about 50,000 handles, far below the per-process limit (about 16 million). Not worked around (notes/decisions.md,
+"Handles the drivers leave (Patella-Modern issue #53)"): the driver is pinned and not patched; a fix belongs
+upstream. tests_vulkan's "switching to and from the CPU driver leaves no handles of ours" counts the drivers'
+handles apart (their type, their start in vulkan_lvp.dll, their bounds) and requires the rest flat.
+
 ## Dependencies
 
 FetchContent with URL and SHA256 (cmake/Vulkan.cmake), downloaded on the first configure of a build tree (about
@@ -386,7 +417,9 @@ those (patcap reports the seven others as hooked); compare_rendering.py needs no
   start-up order: headless instances first, then a renderer on each device for a window that is never shown (no
   WS_VISIBLE, no ShowWindow; destroyed at the end) and one frame presented; and (issue #52) quick device switches
   through TPresentWindows on every device and a held click across the device windows' changes ("One window per
-  device" above). 13 test cases, 1,081 assertions (11 and 88 before issue #52). Fills, 400 random
+  device" above); and (issue #53) switching to and from the CPU driver and each GPU leaves no handles of ours ("Handles
+  the drivers leave" above; 228 assertions, about 26 s: 18 devices on the CPU driver, 12 on GPUs). 14 test cases, 1,309
+  assertions (13 and 1,081 before issue #53, 11 and 88 before issue #52). Fills, 400 random
   unscaled copies of a texture with transparent texels, the automap's upload (a texture of texel coordinates:
   every pixel must show texel max(k - 1, 0)), stretches, the colour key pass, the light, a draw that samples its
   target, six frames of 4.8 MB uploads and a resized image, each read back and compared with a model of Direct3D
