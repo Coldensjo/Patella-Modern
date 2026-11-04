@@ -3,6 +3,7 @@
 
 #include "TRSA.h"
 #include "common.h"
+#include "compat/span.h"
 #include "vlong.h"
 #include <string>
 
@@ -35,9 +36,9 @@ void TRSA::SetPublicKey(const char *ModulusM)
 }
 
 // 0x508aa0
-void TRSA::Encrypt(uint8 *Data)
+void TRSA::Encrypt(patella::TSpan<uint8, 128> Data)
 {
-	if (Data == nullptr)
+	if (Data.data() == nullptr)
 		throw "Data pointer is NULL";
 	if (m_ModulusM == vlong(0))
 		throw "m_ModulusM is null";
@@ -45,7 +46,7 @@ void TRSA::Encrypt(uint8 *Data)
 		throw "first byte of data is larger than 127 which violates the condition 'plain < m'";
 	vlong Plain(0);
 	try {
-		ByteArrayToVlong(Data, 128, Plain);
+		ByteArrayToVlong(Data.data(), 128, Plain);
 	} catch (const char *Reason) {
 		std::string Message("failed to convert byte array to large number, reason: ");
 		Message += Reason;
@@ -55,7 +56,7 @@ void TRSA::Encrypt(uint8 *Data)
 		throw "Plain is not smaller than m_ModulusM which violates the condition 'plain < m'";
 	const vlong Cipher = modexp(Plain, PublicExponent, m_ModulusM);
 	try {
-		VlongToByteArray(Cipher, Data, 128);
+		VlongToByteArray(Cipher, Data.data(), 128);
 	} catch (const char *Reason) {
 		std::string Message("failed to convert large number to byte array, reason: ");
 		Message += Reason;

@@ -15,6 +15,9 @@
 # - Both: TFile (src/types/File.h, issue #64), the client's files: the bytes of each open mode (text: "\r\n" on every
 #   platform), fopen's and fclose's results, reads, seeks, _eof through Descriptor, Print through both paths of the
 #   format (std::format and the stand-in) against fprintf's text, and compat/print.h's FormatLine.
+# - Both: patella::TSpan (src/compat/span.h, issue #59), std::span in tests_unit and the C++17 stand-in that the
+#   oracle-x86 build passes the packet buffers', TXTEA's and TRSA's spans with in tests_unit_cxx26_standin
+#   (PATELLA_SPAN_STANDIN): the same construction, conversion, size and part tests for both.
 #
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
 #   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31) and
@@ -66,7 +69,8 @@ function(patella_unit_tests target)
 		fixed_string_test.cpp
 		crt71_test.cpp
 		time32_test.cpp
-		file_test.cpp)
+		file_test.cpp
+		span_test.cpp)
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
 	target_link_libraries(${target} PRIVATE doctest::doctest)
 	patella_target_language(${target})
@@ -101,7 +105,7 @@ endif()
 
 patella_unit_tests(tests_unit_cxx26_standin)
 target_compile_definitions(tests_unit_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN PATELLA_EXPECT_CXX26=0
-	PATELLA_FORMAT_STANDIN)
+	PATELLA_FORMAT_STANDIN PATELLA_SPAN_STANDIN)
 
 add_executable(tests_core
 	core_main.cpp

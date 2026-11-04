@@ -11,6 +11,18 @@
 #include "common.h"
 #endif
 #include "golden.h"
+#include "compat/span.h"
+
+#include <cstddef>
+
+// The original's (pointer, count) arguments as our span parameters (issue #59: the packet buffers, Network.cpp's
+// GetString, GetBytes and SendBytes), also those no valid span holds, which the error comparisons pass: a null
+// pointer with a count, and a negative count (as a std::size_t, which the functions read back as that int).
+template <typename T>
+patella::TSpan<T> OriginalSpan(T *Pointer, int Count)
+{
+	return patella::TSpan<T>(Pointer, static_cast<std::size_t>(Count));
+}
 
 #if !GOLDEN_ORACLE
 extern int Failures;

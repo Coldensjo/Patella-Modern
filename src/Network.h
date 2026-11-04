@@ -5,6 +5,7 @@
 #pragma once
 
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <cstddef>
 
@@ -48,7 +49,7 @@ void SendByte(uint8 Data);
 void SendWord(uint16 Data);
 void SendQuad(uint32 Data);
 void SendString(const char *Text);
-void SendBytes(const uint8 *Buffer, int Count);
+void SendBytes(patella::TSpan<const uint8> Bytes);
 void SendCommand(bool Encrypt);
 
 void PrepareNextPacket();
@@ -56,9 +57,9 @@ int GetNextCommand();
 uint8 GetByte();
 uint16 GetWord();
 uint32 GetQuad();
-void GetString(char *Buffer, int MaxLength);
+void GetString(patella::TSpan<char> Text); // at most Text.size() - 1 characters and the NUL
 char *GetString();
-void GetBytes(uint8 *Buffer, int Count);
+void GetBytes(patella::TSpan<uint8> Bytes);
 
 void CheckConnectionTimeout();
 void GetErrorMessage(char *Message, int ErrorCode, int ErrorType);

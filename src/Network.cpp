@@ -16,6 +16,7 @@
 #include "Preferences.h"
 #include "Status.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <cstddef>
 #include <cstdio>
@@ -33,28 +34,28 @@ public:
 namespace {
 
 // Data, in .data/.bss order.
-int HostnameResolveBufferSize = MAXGETHOSTSTRUCT;    // 0x5c22c4, initialised to 0x400
-int CurrentServer;                                   // 0x7152f0
-TServer TestServer;                                  // 0x7152f8
-TServer Servers[NUMBEROFSERVER];                     // 0x715368
-HANDLE HostnameRequest;                              // 0x715528
-char *HostnameResolveBuffer;                         // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
-int ReceiveDataSize;                                 // 0x715530, bytes in ReceiveData
-int ReceivePacketEnd;                                // 0x715534, end of the complete packets
-int ReceiveRead;                                     // 0x715538, start of the next unread packet
-uint8 ReceiveData[0x4000];                           // 0x715540
-uint8 SendData[0x800];                               // 0x719540
-HWND NetworkWindow;                                  // 0x719d40, receives WM_USER+1 when a name is resolved
-void (*CloseCallback)();                             // 0x719d44
-void (*ReceiveCallback)();                           // 0x719d48
-void (*ConnectCallback)();                           // 0x719d4c
-TSocket *Socket;                                     // 0x719d50
-int TimeoutCounter;                                  // 0x719d54
-int TimeoutLimit;                                    // 0x719d58, in CheckConnectionTimeout calls
-TWriteBuffer SendBuffer(SendData, sizeof(SendData)); // 0x719d5c, initialiser at 0x559fd0
-TReadBuffer ReceiveBuffer(ReceiveData, 0);           // 0x719d68, initialiser at 0x559ff0
-TXTEA SymmetricKey;                                  // 0x719d74, initialiser at 0x55a010
-int RecursionProtection;                             // 0x719d88
+int HostnameResolveBufferSize = MAXGETHOSTSTRUCT; // 0x5c22c4, initialised to 0x400
+int CurrentServer;                                // 0x7152f0
+TServer TestServer;                               // 0x7152f8
+TServer Servers[NUMBEROFSERVER];                  // 0x715368
+HANDLE HostnameRequest;                           // 0x715528
+char *HostnameResolveBuffer;                      // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
+int ReceiveDataSize;                              // 0x715530, bytes in ReceiveData
+int ReceivePacketEnd;                             // 0x715534, end of the complete packets
+int ReceiveRead;                                  // 0x715538, start of the next unread packet
+uint8 ReceiveData[0x4000];                        // 0x715540
+uint8 SendData[0x800];                            // 0x719540
+HWND NetworkWindow;                               // 0x719d40, receives WM_USER+1 when a name is resolved
+void (*CloseCallback)();                          // 0x719d44
+void (*ReceiveCallback)();                        // 0x719d48
+void (*ConnectCallback)();                        // 0x719d4c
+TSocket *Socket;                                  // 0x719d50
+int TimeoutCounter;                               // 0x719d54
+int TimeoutLimit;                                 // 0x719d58, in CheckConnectionTimeout calls
+TWriteBuffer SendBuffer(SendData);                // 0x719d5c, initialiser at 0x559fd0
+TReadBuffer ReceiveBuffer({ReceiveData, 0});      // 0x719d68, initialiser at 0x559ff0
+TXTEA SymmetricKey;                               // 0x719d74, initialiser at 0x55a010
+int RecursionProtection;                          // 0x719d88
 
 } // namespace
 
@@ -231,11 +232,12 @@ void SendString(const char *Text)
 	TEND(320)
 }
 
-// 0x4cbca0, line 328
-void SendBytes(const uint8 *Buffer, int Count)
+// 0x4cbca0, line 328. Buffer is the span's pointer, the name of the assertion's text (issue #59).
+void SendBytes(patella::TSpan<const uint8> Bytes)
 {
+	const uint8 *const Buffer = Bytes.data();
 	TASSERT(328, Buffer!=NULL);
-	SendBuffer.PutBytes(Buffer, Count);
+	SendBuffer.PutBytes(Bytes);
 }
 
 // 0x4cbe00, lines 355-367
@@ -264,7 +266,7 @@ void SendCommand(bool Encrypt)
 	PATELLA_TEST_PACKET_SENT(SendData, Size, Length)
 	try {
 		for (int i = 2; i < Length + 2; i += 8)
-			SymmetricKey.EncryptBlock(&SendData[i]);
+			SymmetricKey.EncryptBlock(TXTEA::TBlock(&SendData[i], 8));
 	} catch (...) {
 		TERROR(355, "Symmetric encryption failed with unknown exception");
 	}
@@ -292,7 +294,7 @@ void PrepareNextPacket()
 			TERROR1(391, "packet size does not fit to symmetric encryption", PacketSize);
 		try {
 			for (int i = 2; i < PacketSize + 2; i += 8)
-				SymmetricKey.DecryptBlock(&ReceiveData[i]);
+				SymmetricKey.DecryptBlock(TXTEA::TBlock(&ReceiveData[i], 8));
 		} catch (...) {
 			TERROR(398, "Symmetric decryption failed with unknown exception");
 		}
@@ -342,12 +344,15 @@ uint32 GetQuad()
 	TEND(456)
 }
 
-// 0x4ccbd0, lines 466-470
-void GetString(char *Buffer, int MaxLength)
+// 0x4ccbd0, lines 466-470. Buffer and MaxLength are the span's pointer and size, the names of the macros' text
+// (issue #59; TReadBuffer::GetString).
+void GetString(patella::TSpan<char> Text)
 {
+	const char *const Buffer = Text.data();
+	const int MaxLength = static_cast<int>(Text.size());
 	TASSERT(466, Buffer!=NULL);
 	TBEGIN
-	ReceiveBuffer.GetString(Buffer, MaxLength);
+	ReceiveBuffer.GetString(Text);
 	TEND1(470, MaxLength)
 }
 
@@ -360,10 +365,10 @@ char *GetString()
 }
 
 // 0x4ccfe0, line 493
-void GetBytes(uint8 *Buffer, int Count)
+void GetBytes(patella::TSpan<uint8> Bytes)
 {
 	TBEGIN
-	ReceiveBuffer.GetBytes(Buffer, Count);
+	ReceiveBuffer.GetBytes(Bytes);
 	TEND(493)
 }
 
@@ -545,7 +550,7 @@ int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
 void SetSymmetricKey(const uint8 *Key)
 {
 	try {
-		SymmetricKey.SetKey(Key);
+		SymmetricKey.SetKey(TXTEA::TKey(Key, 16));
 	} catch (const char *) {
 		TERROR(698, "Key initialization failed");
 	}
@@ -682,7 +687,7 @@ void TSocket::OnReceive(int ErrorCode)
 	ReceiveDataSize += Count;
 	bool Complete = false;
 	while (ReceivePacketEnd + 2 <= ReceiveDataSize) {
-		TReadBuffer Header(&ReceiveData[ReceivePacketEnd], 2);
+		TReadBuffer Header(patella::TSpan<uint8>(&ReceiveData[ReceivePacketEnd], 2));
 		const int Length = Header.GetWord() + 2;
 		if (ReceiveDataSize - ReceivePacketEnd < Length)
 			break;

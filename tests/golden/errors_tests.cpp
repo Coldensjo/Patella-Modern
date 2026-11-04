@@ -704,11 +704,11 @@ void TestUtils()
 		Data[i] = (uint8)ErRandom();
 		ORIGINAL(OriginalData[i] = Data[i]);
 	}
-	COMPARE("TReadBuffer(NULL)", TReadBuffer(nullptr, 4), uint32 O[3]; At<BufInitFn>(0x50a200)(O, NULL, NULL, 4));
-	COMPARE("TReadBuffer(size<0)", TReadBuffer(Data, -1), uint32 O[3];
+	COMPARE("TReadBuffer(NULL)", TReadBuffer(OriginalSpan<uint8>(nullptr, 4)), uint32 O[3]; At<BufInitFn>(0x50a200)(O, NULL, NULL, 4));
+	COMPARE("TReadBuffer(size<0)", TReadBuffer(OriginalSpan(Data, -1)), uint32 O[3];
 		At<BufInitFn>(0x50a200)(O, NULL, OriginalData, -1));
-	COMPARE("TWriteBuffer(NULL)", TWriteBuffer(nullptr, 4), uint32 O[3]; At<BufInitFn>(0x50b030)(O, NULL, NULL, 4));
-	COMPARE("TWriteBuffer(size<0)", TWriteBuffer(Data, -7), uint32 O[3];
+	COMPARE("TWriteBuffer(NULL)", TWriteBuffer(OriginalSpan<uint8>(nullptr, 4)), uint32 O[3]; At<BufInitFn>(0x50b030)(O, NULL, NULL, 4));
+	COMPARE("TWriteBuffer(size<0)", TWriteBuffer(OriginalSpan(Data, -7)), uint32 O[3];
 		At<BufInitFn>(0x50b030)(O, NULL, OriginalData, -7));
 	for (int t = 0; t < 400; t++) {
 		int Size = (int)(ErRandom() % 12);
@@ -721,8 +721,8 @@ void TestUtils()
 		Data[Position % 64] = (uint8)(ErRandom() % 12); // a string length
 		Data[(Position + 1) % 64] = 0;
 		ORIGINAL(OriginalData[Position % 64] = Data[Position % 64]; OriginalData[(Position + 1) % 64] = 0);
-		TReadBuffer R(Data, Size);
-		TWriteBuffer W(Data, Size);
+		TReadBuffer R(OriginalSpan(Data, Size));
+		TWriteBuffer W(OriginalSpan(Data, Size));
 		R.Position = W.Position = Position;
 		ORIGINAL(uint32 O[3] = {(uint32)(uintptr_t)OriginalData, (uint32)Size, (uint32)Position});
 		char Text[16];
@@ -737,12 +737,12 @@ void TestUtils()
 		case 1: COMPARE(What, R.GetWord(), At<BufGetFn>(0x50a610)(O, NULL)); break;
 		case 2: COMPARE(What, R.GetQuad(), At<BufGetFn>(0x50a780)(O, NULL)); break;
 		case 3:
-			COMPARE(What, R.GetString(Count < 0 ? nullptr : Text, MaxLength),
+			COMPARE(What, R.GetString(OriginalSpan<char>(Count < 0 ? nullptr : Text, MaxLength)),
 				At<BufGetStringFn>(0x50a900)(O, NULL, Count < 0 ? NULL : OriginalText, MaxLength));
 			break;
 		case 4: COMPARE(What, delete[] R.GetString(), At<BufNewStringFn>(0x50abb0)(O, NULL)); break;
 		case 5:
-			COMPARE(What, R.GetBytes(Count == 0 ? nullptr : Bytes, Count < 0 ? 3 : Count),
+			COMPARE(What, R.GetBytes(OriginalSpan<uint8>(Count == 0 ? nullptr : Bytes, Count < 0 ? 3 : Count)),
 				At<BufGetBytesFn>(0x50ad50)(O, NULL, Count == 0 ? NULL : OriginalBytes, Count < 0 ? 3 : Count));
 			break;
 		case 6: COMPARE(What, W.PutByte(1), At<BufPutFn>(0x50b2e0)(O, NULL, 1)); break;
@@ -750,7 +750,7 @@ void TestUtils()
 		case 8: COMPARE(What, W.PutQuad(3), At<BufPutFn>(0x50b5e0)(O, NULL, 3)); break;
 		case 9: COMPARE(What, W.PutString(Put), At<BufPutStringFn>(0x50b780)(O, NULL, Put)); break;
 		case 10:
-			COMPARE(What, W.PutBytes(Count == 0 ? nullptr : Bytes, Count < 0 ? 3 : Count),
+			COMPARE(What, W.PutBytes(OriginalSpan<const uint8>(Count == 0 ? nullptr : Bytes, Count < 0 ? 3 : Count)),
 				At<BufPutBytesFn>(0x50ba00)(O, NULL, Count == 0 ? NULL : OriginalBytes, Count < 0 ? 3 : Count));
 			break;
 		default: COMPARE(What, R.SetSize(Count), At<BufSetSizeFn>(0x4ca300)(O, NULL, Count)); break;
