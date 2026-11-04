@@ -31,7 +31,6 @@
 #include "Skins.h"   // Skins
 #include "Status.h"  // SetMouseOverText
 #include "Objects.h" // TObject
-#include <cstddef>
 #include <cstring>
 
 // --- Separator, resizer and frame -----------------------------------------------
@@ -354,11 +353,6 @@ public:
 
 	TFixedString<50> Text; // +0x44
 };
-#if PATELLA_ORIGINAL_LAYOUT
-// The original's layout, with Text a TFixedString (issue #57).
-static_assert(sizeof(TTextButton) == 0x78 && offsetof(TTextButton, Text) == 0x44, "TTextButton's layout");
-#endif
-
 inline TObjectIcon::TObjectIcon(TObject _Obj, const TRGBColor *_Highlight, bool _Framed)
 {
 	Obj = _Obj;

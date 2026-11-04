@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "common.h"
+#include "common.h" // IWYU pragma: keep (first: it configures the CRT for the C headers of types/FixedString.h)
 #include "types/FixedString.h"
 #include <cstddef>
 

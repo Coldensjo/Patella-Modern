@@ -27,7 +27,6 @@
 
 #include "common.h" // IWYU pragma: keep (first: it configures the CRT and MFC for the headers after it)
 #include <climits>
-#include <cstddef>
 #include "GUI.h"
 #include "Creatures.h" // SetHighlightID
 #include "DialogWindow.h"
@@ -320,12 +319,6 @@ public:
 	int NumberOfOpponents;          // +0x34, at the last Draw; -1 at first
 	TFixedString<32> MouseOverText; // +0x38, a shortened name in full
 };
-#if PATELLA_ORIGINAL_LAYOUT
-// The original's layout, with MouseOverText a TFixedString (issue #57).
-static_assert(sizeof(TBattleWindowBody) == 0x58 && offsetof(TBattleWindowBody, MouseOverText) == 0x38,
-	"TBattleWindowBody's layout");
-#endif
-
 // The parts of the trade body: the two offers (TTradeOffers), the names
 // above them (TTradeNames) and the buttons below (TTradeButtons).
 class TTradeOffers : public TWindow {

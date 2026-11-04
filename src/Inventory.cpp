@@ -17,6 +17,14 @@
 #include <cstddef>
 #include <cstring>
 
+#if PATELLA_ORIGINAL_LAYOUT
+// The original's layouts, with the names TFixedStrings (issue #57).
+static_assert(sizeof(TContainer) == 0x1ec && offsetof(TContainer, Name) == 0x10 && offsetof(TContainer, Capacity) == 0x30,
+	"TContainer's layout");
+static_assert(sizeof(TOffer) == 0x4d4 && offsetof(TOffer, Name) == 0x00 && offsetof(TOffer, Count) == 0x20,
+	"TOffer's layout");
+#endif
+
 namespace {
 
 // Data, in .bss order.

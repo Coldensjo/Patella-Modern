@@ -8,9 +8,7 @@
 #pragma once
 
 #include "Objects.h" // TObject
-#include "common.h"
 #include "types/FixedString.h"
-#include <cstddef>
 
 inline constexpr int BODY_POSITIONS = 10;
 inline constexpr int OPEN_CONTAINERS = 16;
@@ -35,14 +33,6 @@ struct TOffer {
 	int Count;                          // +0x20
 	TObject Objects[OBJECTS_PER_OFFER]; // +0x24
 };
-// The original's layouts, with the names TFixedStrings (issue #57).
-#if PATELLA_ORIGINAL_LAYOUT
-static_assert(sizeof(TContainer) == 0x1ec && offsetof(TContainer, Name) == 0x10 && offsetof(TContainer, Capacity) == 0x30,
-	"TContainer's layout");
-static_assert(sizeof(TOffer) == 0x4d4 && offsetof(TOffer, Name) == 0x00 && offsetof(TOffer, Count) == 0x20,
-	"TOffer's layout");
-#endif
-
 void ClearBody();
 void ClearOffers();
 int GetOwnOfferCount();

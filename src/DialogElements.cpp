@@ -27,6 +27,12 @@
 #include "common.h"
 #include "types/FixedString.h"
 #include "graphics.h"
+#include <cstddef>
+
+#if PATELLA_ORIGINAL_LAYOUT
+// The original's layout, with Text a TFixedString (issue #57).
+static_assert(sizeof(TTextButton) == 0x78 && offsetof(TTextButton, Text) == 0x44, "TTextButton's layout");
+#endif
 
 // Data. DialogElements.obj has no statics and no static initialiser. It keeps
 // a copy of the text table (Text.h, 0x5c0fe0-0x5c122b, then its regular

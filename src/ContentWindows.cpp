@@ -40,6 +40,12 @@
 #include <cstdlib>
 #include <cstring>
 
+#if PATELLA_ORIGINAL_LAYOUT
+// The original's layout, with MouseOverText a TFixedString (issue #57).
+static_assert(sizeof(TBattleWindowBody) == 0x58 && offsetof(TBattleWindowBody, MouseOverText) == 0x38,
+	"TBattleWindowBody's layout");
+#endif
+
 // An assertion whose text carries a bug number (Map.cpp's macro).
 #define TASSERTB2(Line, Expr, V1, V2, Bug) \
 	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, #V2, V2, #Expr " " Bug)
