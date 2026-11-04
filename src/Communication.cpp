@@ -82,7 +82,7 @@ static_assert(offsetof(TTalkLine, Addressee) == 0x14, "statement addressee");
 void InitCommunication()
 {
 	// Cleared, not freed, as the original does: a block still held is left as it was (issue #58).
-	static_cast<void>(PatchData.release());
+	static_cast<void>(PatchData.release()); // NOLINT(bugprone-unused-return-value): the leak is the original's
 }
 
 // 0x413780, lines 41-96

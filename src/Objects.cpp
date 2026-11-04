@@ -746,10 +746,10 @@ void InitObjects()
 {
 	TBEGIN
 	// Cleared, not freed, as the original does (issue #58: release, not reset).
-	static_cast<void>(ObjectProperties.release());
-	static_cast<void>(OutfitProperties.release());
-	static_cast<void>(EffectProperties.release());
-	static_cast<void>(MissileProperties.release());
+	static_cast<void>(ObjectProperties.release());  // NOLINT(bugprone-unused-return-value): the leak is the original's
+	static_cast<void>(OutfitProperties.release());  // NOLINT(bugprone-unused-return-value): the leak is the original's
+	static_cast<void>(EffectProperties.release());  // NOLINT(bugprone-unused-return-value): the leak is the original's
+	static_cast<void>(MissileProperties.release()); // NOLINT(bugprone-unused-return-value): the leak is the original's
 	try {
 		LoadObjects("Tibia.dat");
 	} catch (TMyException &) {
