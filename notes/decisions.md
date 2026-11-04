@@ -8203,3 +8203,72 @@ sections 3, 4 and 6).
   `reset()` only when it took it, objects_tests.cpp's OurTable returns the held pointer, tools/difftest/errortest.cpp's
   table list takes `.get()`. tests/golden's Dialogs port (the other #28 work) reads `Timer == NULL`, which compiles
   unchanged.
+
+## ctime's text written by the client: FormatCRT71Time (Patella-Modern issue #61)
+
+Settled by Claude Opus 5.5, November 4, 2026. The third change of M4 (plan section 7, "crt71.h"): the client writes
+ctime's text itself, in MSVC 7.1's form, and src/ calls neither `ctime` nor `_ctime32` any more (comments name them).
+
+- **What was there** (high). Two calls: Player.cpp HandleException `CRT71Time(ctime(&Now))` (the 64-bit time_t of
+  time(): `_ctime64` on x64 and in the oracle, glibc's ctime on Linux) and ConsoleWindow.cpp SaveChannel
+  `CRT71Time(MsvcCtime32(&Now))` (the Time32 of `_time32`). `CRT71Time` changed the 9th character of ctime's static
+  buffer from ' ' to '0' (issue #21). `MsvcCtime32` (#43: `_ctime32` on Windows, `PortableCtime32` over `std::ctime`
+  elsewhere) had no other caller.
+- **The function** (high). `src/compat/crt71.h`: `const char *FormatCRT71Time(TCRT71TimeText &Text, std::int64_t
+  Time)`, `TCRT71TimeText` = `TFixedString<26>` (25 characters and the NUL). It writes `"{} {} {:02}
+  {:02}:{:02}:{:02} {:02}{:02}\n"`: the day and month names, then every number in two digits, the year as `19 +
+  tm_year / 100` and `tm_year % 100`, exactly the fields of MSVC 7.1's asctime (0x517f6d, store_dt: `'0' + v / 10`,
+  `'0' + v % 10`), and returns Text. It formats through `TFixedString::Format`: `std::format_to_n` on the product
+  presets, the C++17 stand-in of compat/format.h in the oracle (#57), one call site for both. A Time32 converts to
+  the parameter unchanged, so neither caller's time type changed (#62).
+- **No text where 7.1's ctime gave none** (high). nullptr for a time before 1970: MSVC 7.1's localtime (Tibia.exe
+  0x513eb1, decompiled with REA) returns NULL only for a negative time, as `_ctime32` does. nullptr after 3000-12-31
+  23:59:59 UTC (`CRT71LastTime`, the UCRT's `_localtime64_s` limit), checked before the C library on every platform
+  so that Linux formats the same times. The callers: SaveChannel wrote `fprintf("%s", NULL)`, which MSVC 7.1's, the
+  UCRT's and glibc's printf all write as "(null)"; it now passes "(null)" itself (no null `%s`). HandleException
+  wrote `Out << (char *)NULL`, a crash in MSVC's STL (and in 7.1's); it now writes nothing. Neither is reachable
+  with a clock after 1970.
+- **Local time: the C library's localtime, not std::chrono's zones** (high). The original's fields are MSVC 7.1's
+  localtime: the zone of TZ or of Windows' GetTimeZoneInformation, with that rule applied to every year. The UCRT
+  does the same (with TZ, the United States' rules of before and after 2007 by year), and the client used it before
+  this change through `_ctime32`/`_ctime64`. `std::chrono::current_zone()` (on Windows ICU's zones, with their
+  history) ignores TZ and would give other hours for past years whose rules changed, and for every run that sets TZ:
+  the reference compare runs both clients with TZ=UTC0 (tools/reference.py TIME_ZONE), and difftest and the golden
+  ConsoleWindow test redirect the image's localtime and ctime to the UCRT's. So `patella::compat::CRT71LocalTime`
+  calls `_localtime32_s` on Windows for a time up to `UCRTLastTime32` (exactly what `_ctime32` used),
+  `_localtime64_s` after it, and `localtime_r` elsewhere (glibc: TZ, else /etc/localtime; on Linux the original's
+  CRT does not exist, the system's zone is the meaning). std::chrono's calendar is the unit tests' independent
+  reference instead (below); the oracle's C++17 has no chrono calendar either.
+- **The last 3 h 14 min of 32 bits** (high; found here). The UCRT's 32-bit localtime stops at 0x7fffd27f,
+  2038-01-18 23:59:59 UTC (`time_traits::max_time_t`, ucrt/inc/corecrt_internal_time.h), so `_ctime32` gave NULL up
+  to INT32_MAX, where MSVC 7.1's localtime converts every time up to INT32_MAX (it adjusts the tm itself in the first
+  and last three days). FormatCRT71Time takes `_localtime64_s` there and writes the original's text. On Windows
+  `_time32` itself returns -1 after 0x7fffd27f, so SaveChannel still writes "(null)" then (unchanged); only a
+  64-bit time (HandleException, or Linux) reaches the window. The three CRTs adjust near the ends in slightly
+  different places (whether daylight saving time is tested on UTC or on local standard time); that matters only at
+  a change of daylight saving time within those days (none in 15 to 19 January 2038 in the zones tested).
+- **Unit tests** (high). tests/unit/crt71_test.cpp in tests_unit and tests_unit_cxx26_standin (both format paths),
+  TZ set for each case and restored (compat/msvc.h's `MsvcDupenv`/`MsvcPutenv`, then `_tzset`/`tzset`): texts in UTC
+  computed apart with Python (every month and weekday, leap days, 1970, INT32_MAX, 2100, 2400, 3000); every day of a
+  month (the two-digit day); nullptr below 0 and above the year 3000; PST8PDT around 2026's changes and the first
+  second of 1970 (still 1969); std::chrono's `"{:%a %b %d %H:%M:%S %Y}"` (two-digit day too) for a prime step from
+  1970 to 3000 and every day of 2024 to 2028 in UTC, and in PST8PDT from `year_month_weekday` rules around both
+  changes of every year 2007 to 2037; on Windows the UCRT's `_ctime32` with its day made two-digit (the old
+  client's text, which compare_files.py and difftest held against Tibia.exe) for every hour of 1970 to 2038 and the
+  second before it, and every 61st second of the last four days, in UTC0, PST8PDT (the UCRT's rules of both eras),
+  IST-5:30 and the machine's own zone, with `_ctime64` in the last 3 h 14 min. Windows (MSVC): 7 cases, 95
+  assertions in each program; Linux (GCC 16, Clang 22 with ASan and UBSan): 6 cases, 86 (no `_ctime32`).
+  core_msvc_test.cpp lost its 8 `_ctime32` assertions with `MsvcCtime32`: tests_core 33/332 (33/335 on Linux).
+- **Forced test change** (high). tools/difftest/errortest.cpp gave the image's ctime (0x5121d1) and our `_ctime64`
+  one fixed UTC text, "Thu Jun 08 12:34:56 2006". Ours no longer calls `_ctime64`; it formats the faked clock
+  (1149770096) in local time. The image's ctime now returns the UCRT's `_ctime32` of its time with the day made
+  two-digit, which on 8 June is the two-digit-day case itself; the Errors counts are unchanged. tests/golden's
+  ConsoleWindow test keeps its ImageCtime (`_ctime32` unpatched: at its fixed clock, 1700000000, the day is 14 or
+  15 in every zone).
+- **Headers** (high). compat/crt71.h is portable now: on cmake/HeaderCheck.cmake's core list (it was on the client
+  list). It includes types/FixedString.h.
+- **For #62** (medium). The time types are untouched: SaveChannel's Time32 (`_time32`: -1 after 0x7fffd27f on
+  Windows), HandleException's time_t, Talk.h's and Creatures.h's 4-byte fields. FormatCRT71Time takes 64 bits
+  already, so #62 changes only the callers. Found: compat/msvc_portable.h's `PortableTime32` returns -1 after
+  INT32_MAX, the UCRT's `_time32` after 0x7fffd27f, 3 h 14 min 8 s earlier (#43's comment says INT32_MAX for both):
+  the platforms disagree in that window; #62 removes it with the 32-bit time.

@@ -168,7 +168,8 @@ saved at Mon Nov 02 12:14:46 2026" (Tibia.exe) and "Channel saved at Mon Nov  2 
 (Patella.exe): MSVC 7.1's asctime (0x517f6d) writes the day with two digits, the UCRT with a space. A first
 version of the mask accepted both forms and hid it; it was found reading the files. Fixed in src/
 (src/compat/crt71.h, used by Player.cpp HandleException and ConsoleWindow.cpp SaveChannel); the masks now
-accept only the two-digit form. notes/decisions.md "Written files (issue #21)".
+accept only the two-digit form. Since issue #61 the client writes the text itself (`FormatCRT71Time`, std::format
+on the C library's local time) instead of patching ctime's buffer. notes/decisions.md "Written files (issue #21)".
 
 Harness problems found on the way (no client difference): a 256-byte memory read of a label's text that
 crossed the end of a heap region (client_state.cstr now reads to the page end first); FatalError's box

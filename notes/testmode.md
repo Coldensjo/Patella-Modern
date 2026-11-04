@@ -141,7 +141,9 @@ of tools/capture/patcap.c's clock, so srand(timeGetTime()) gets 100000 in every 
 same XTEA keys and RSA padding as in the rendering comparison's runs. The time moves only by AdvanceTo (never
 backwards); FrameWait does not move it and sleeps a real millisecond (so that the idle loop, which redraws
 until the driver moves the clock, does not spin). The wall clock goes through the C library's local time for
-the talk stamps and error.txt (`_localtime32`, `ctime`), so the stamps follow the machine's time zone.
+the talk stamps, error.txt and the saved channels (`_localtime32`; FormatCRT71Time of src/compat/crt71.h, issue
+#61, which takes `_localtime32_s`/`_localtime64_s` on Windows, `localtime_r` on Linux), so the stamps follow the
+machine's time zone or TZ.
 
 ### The script (src/testmode/InputScript.h)
 
