@@ -10,7 +10,7 @@
 // part of the source; names.tsv lists it as kind stl.
 
 #include "sysinc.h"
-#include <io.h>
+#include "compat/msvc_io.h"
 #include <mmsystem.h>
 #include "common.h"
 #include <cstddef>
@@ -40,7 +40,7 @@ int GetMilliseconds()
 // 0x4fcba0
 bool FileExists(const char *FileName)
 {
-	return _access(FileName, 0) == 0;
+	return MsvcAccess(FileName, 0) == 0;
 }
 
 // 0x4fcbc0

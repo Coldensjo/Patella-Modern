@@ -118,123 +118,123 @@ const char *GetHelpText(int Handle)
 {
 	switch (Handle) {
 	case 10:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Automap<N>\n<br=5>The automap shows a bird\'s-eye view of your surroundings. Only those areas you have already explored are shown, while areas you have not been to yet are covered by dark fog. Your current position is marked by a white cross. To move your character simply click on any spot on the automap using the left mouse button. Your character will try to walk there automatically.\nIt is possible to mark individual spots on the automap by right-clicking onto them. You can choose from a number of different symbols and add comments.\nBy using the buttons next to the automap window you can scroll the automap in any direction:\n<SKIN=%d><INDENT=46>Click on the compass rose to scroll the map into the desired direction.<INDENT=0>\n\n<SKIN=%d><hspace=3><SKIN=%d><INDENT=46>Switch between floors, i.e. levels of the map.<INDENT=0>\n\n<SKIN=%d><hspace=3><SKIN=%d><INDENT=46>Zoom in or out. By using these buttons you can set the automap to the zoom level of your choice.<INDENT=0>\n<FONT=3>Centre<FONT=2><INDENT=46>A click on this button will centre the automap around your character.<INDENT=0>\nYour automap is saved locally in the files labelled as *.map on your computer. Your automap will not be available if you play on a different computer or if you re-install Tibia into a different directory.", 65, 70, 72, 66, 68);
 		break;
 	case 11:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Status Bars<N>\n<br=5>These two bars show the condition of your characters\' most important attributes: Their health (red) and their mana (blue), i.e. their magical energy. The bars show the current state of these attributes in relation to their respective maximums, while the numbers behind the bars show the actual amount of hit points and mana your character has.\n<br=5>There are different ways to regain health and mana: you can either eat something, drink special potions such as life or mana fluids, or use magic.");
 		break;
 	case 12:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Inventory<N>\n<br=5>The inventory shows your equipment. You can see a portrait of your character\'s body split up into a number of individual slots.\nThere are three slots in the left column. From top to bottom, these slots represent:\n<indent=10>Neck, right hand and fingers.<indent=0>\nThe central column contains four slots:\n<indent=10>Head, body, legs and feet.<indent=0>\nFinally, the column to the right comprises:\n<indent=10>Container, left hand, and belt.<indent=0>\n<br=5>Note that items will only be useful if placed in the slots they are designed for. E.g. weapons and shields must be placed in hand slots, while rings must be equipped in the finger slot.\n<br=5>In the bottom left corner you see the amount of soul points (Soul). These are needed to cast rune spells.\n<br=5>In the bottom right corner you see your capacity (Cap). Your character cannot pick up items whose weight exceeds his capacity.\n<br=5>The little field on the bottom shows special character conditions. Their nature is indicated by a corresponding icon. To get further information on these conditions, move the mouse over it and wait. A tooltip will pop up and explain the special condition.\n<br=5>You can minimise your inventory by clicking on the\n<SKIN=%d> button.", 138);
 		break;
 	case 13:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Minimised Inventory<N>\n<br=5>The little window to the left shows your character\'s remaining capacity (Cap), i.e., the amount of additional weight he can carry. You also see your remaining soul points (Soul). They are needed to cast rune spells. They regenerate for a certain time when you kill a monster that yields XP equal or above your XP level. Also, if your character is affected by a special condition a corresponding icon will be displayed here. Place the mouse-pointer on the icon and wait a second to get a tooltip that will explain the special condition\'s meaning.\n<br=5>Even though you cannot see your character\'s equipment as long as the inventory is minimised, you can still pick up items by dragging them onto this window. They will be placed in a suitable slot automatically.\n<br=5>To see your inventory, click on the <SKIN=%d> button.", 140);
 		break;
 	case 14:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Combat Controls and Other Buttons<N>\n<br=5>This area contains some buttons to control your combat tactics as well as two buttons with other functions.\n<br=5><SKIN=%d><hspace=3><SKIN=%d><hspace=3><SKIN=%d><INDENT=73>Offensive, balanced and defensive fighting. These buttons determine how aggressively a character engages in combat, which will affect their general performance on the battlefield. E.g. characters who take an offensive stance in combat will hit harder, but they will also suffer more damage.<INDENT=0>\n<SKIN=%d><hspace=3><SKIN=%d><INDENT=73>Stand still or chase your opponent. If you use a distance fighting weapon, you should probably select \'stand\'. If you prefer melee, \'chase\' may be the right choice.<INDENT=0>\n<SKIN=%d><hspace=3><SKIN=%d><INDENT=73>Secure/Normal mode. In secure mode you cannot attack unmarked characters. The flat hand indicates secure mode, while the fist indicates normal mode.<INDENT=0>\n<FONT=3>Stop<FONT=2><INDENT=73>Stop fighting, walking, or any object handling at all immediately.<INDENT=0>\n<FONT=3>Options<FONT=2><INDENT=73>This button opens a menu where you can set several options for the program\'s behaviour.<INDENT=0>\n<FONT=3>Help<FONT=2><INDENT=73>This button opens a menu where you can get help in several different ways.<INDENT=0>", 103, 105, 107, 109, 111, 113, 114);
 		break;
 	case 15:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Combat Controls and Other Buttons<N>\n<br=5>This area contains some buttons to control your combat tactics as well as two buttons with other functions.\n<br=5><SKIN=%d><hspace=3><SKIN=%d><hspace=3><SKIN=%d><INDENT=73>Offensive, balanced and defensive fighting. These buttons determine how aggressively a character engages in combat, which will affect their general performance on the battlefield. E.g. characters who take an offensive stance in combat will hit harder, but they will also suffer more damage.<INDENT=0>\n<SKIN=%d><hspace=3><SKIN=%d><INDENT=73>Stand still or chase your opponent. If you use a distance fighting weapon, you should probably select \'stand\'. If you prefer melee, \'chase\' may be the right choice.<INDENT=0>\n<SKIN=%d><hspace=3><SKIN=%d><INDENT=73>Secure/Normal mode. In secure mode you cannot attack unmarked characters. The flat hand indicates secure mode, while the fist indicates normal mode.<INDENT=0>\n<FONT=3>Stop<FONT=2><INDENT=73>Stop fighting, walking, or any object handling at all immediately.<INDENT=0>\n<SKIN=%d><INDENT=73>This button opens a menu where you can set several options for the program\'s behaviour.<INDENT=0>\n<SKIN=%d><INDENT=73>This button opens a menu where you can get help in several different ways.<INDENT=0>", 103, 105, 107, 109, 111, 113, 114, 115, 117);
 		break;
 	case 16:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Control Buttons<N>\n<br=5>This section of the screen contains three buttons that serve to open further subwindows as well as the \'Logout\' button. To get further information on any of these subwindows open it and move the magnifying glass onto it.\n<br=5><FONT=3>Skills<FONT=2><INDENT=50>In this subwindow you will find important character values such as experience and skill levels.<INDENT=0>\n<FONT=3>Battle<FONT=2><INDENT=50>The battle window contains a list of all characters and monsters that are currently within battle range. You can use this window to single out enemies for attack.<INDENT=0>\n<FONT=3>VIP<FONT=2><INDENT=50>The VIP list is an editable list of characters that are of special interest to you. Characters that are currently online are highlighted by green writing.<INDENT=0>\n<FONT=3>Logout<FONT=2><INDENT=50>Click on this button to logout. Note that it is not possible to logout in certain places or whenever the character is affected by a logout block.<INDENT=0>");
 		break;
 	case 17:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Skills<N>\n<br=5>This window shows important information about your character, such as your experience, level, hit points, mana, capacity and magic level. Also you can check the levels of your character\'s skills, like fishing, shielding and handling of various weapons. The skillbars show the percentages that are needed to the next advancement of each skill or to the next level. By right-clicking on this window you can turn on and off individual or all skill bars.");
 		break;
 	case 18:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Battle<N>\n<br=5>This window contains a list of all creatures that are currently within battle range. You can single out any creature on this list for attack by clicking on its name using the left mouse button. You can also choose to follow creatures or characters that are displayed on this list. To do so open a context menu by right-clicking on the respective name and select \'follow\'.\n<br=5>Creatures or characters that are attacked are marked by a red frame, while those who are followed are marked by a green frame. The creature you are aiming at using the mouse-pointer is marked by a white frame.");
 		break;
 	case 19:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>VIP<N>\n<br=5>This window contains an editable list of players that are of special interest to you. Character names listed here are highlighted by green writing whenever the respective player is online.\n<br=5>You can add players to your list by using the context menu on the map, in the battle window, or in the VIP window.\n<br=5>By selecting \'Edit ...\' you can add further information on characters. For example, you can sort names by various factors, add notes and icons, or arrange to be notified whenever the marked character logs in.\n<br=5>Context menus can also be used to select additonal actions such as sending private messages to players, to  remove players from the list or to sort the list by various criteria.");
 		break;
 	case 20:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Open Containers<N>\n<br=5>Whenever you open a container, its contents are displayed in this window. You can put items into containers or remove them by using drag & drop, i.e. you left-click at the item you want to move and drag it onto the container, keeping the mouse-button pressed. If the item is placed on a container that is stored within the open container, it will be placed in there; otherwise it will simply be moved to the first free slot of the current container.\n<br=5>If a container is stored within another container a <SKIN=%d>\nbutton will be displayed. Use this button to switch between containers. To move items from a subordinate to the main container open the context menu and select \'Move up\'.", 126);
 		break;
 	case 21:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Trade<N>\n<br=5>If you start a trade with another player, you will see both your own as well as your trading partner\'s offer displayed in this window, provided they have already been submitted.\n<br=5>You can now inspect the items on offer by clicking onto them with either mouse button. Any contents of containers will be extracted to make sure both trading partners can see exactly what they will get if they accept the trade.\n<br=5>If you agree with your partner\'s offer, click on <FONT=3> Accept <FONT=2>. <FONT=3> Reject <FONT=2> will abort the trade.\n<br=5>The trade will be completed if both partners accept, and if both of them possess enough capacity to carry the new items they are about to buy.");
 		break;
 	case 22:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Console<N>\n<br=5>This area is reserved for communication with other players. Communication is organised into several different channels. The default channel contains all public communication that is taking place in the immediate vicinity.\n<br=5>Any recent messages on the active channel are displayed in the large box in the centre. You can enter your own messages in the entry field at the bottom of the box. Simply type whatever you wish to say and confirm by pressing Return.\n<br=5>On the default channel, you can modify your character\'s speech volume by using the button in the bottom left corner:\n<SKIN=%d> say, <SKIN=%d> whisper, <SKIN=%d> yell.\n<br=7>Alternatively, you can modify the speech volume by placing #S, #W, or #Y to \'say\', \'whisper\', or \'yell\' in front of your message.\n<br=5>Placing *Name* in front of a message will cause it to be sent directly to the designated player regardless of which channel is active. It is possible to attach tildes (~) to incomplete names in order to have them completed automatically.\n<br=5>For a detailed description of communication in the game please take a look at the manual.", 197, 199, 201);
 		break;
 	case 23:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Console Channels<N>\n<br=5>This section of the screen is reserved for communication with other players. Communication is organised into several different channels. The default channel contains all public communication that is taking place in the immediate vicinity.\n<br=5>In addition to this channel you can open private channels to message other players or join public channels. To switch between channels click on the tab at the top of the respective channel or use the TAB key.\n<br=5>If you wish to open a new channel, click on the\n<SKIN=%d> button, then choose an existing channel in the following dialog or open a private channel by entering a character\'s name. \n<br=5>Clicking on the <SKIN=%d> button will open a dialog in which you can either ignore characters or allow them to message you while you are ignoring all other private messages.\n<br=5>To close channels click on the <SKIN=%d> button. You can also select whether server messages  should be displayed in each channel by clicking on the\n<SKIN=%d> button.\n<br=5>For a detailed description of communication please take a look at the manual.", 195, 192, 188, 190);
 		break;
 	case 1000:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Creatures<N>\n<br=5>There are three types of creatures: Player characters, NPCs, and monsters.\n<br=5>NPCs can help you by selling useful items to you or by sending you on exciting quests. To start a conversation with NPCs move close to them and say \'Hello\'.\n<br=5>Monsters are your enemies! Fight them! Whenever you defeat one you will get experience and possibly some loot. But watch out! Initially, many monsters will be much stronger than you!");
 		break;
 	case 1001:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Your Character<N>\n<br=5>This is your character. You can move around by using the cursor keys or by left-clicking on a spot in the game window or in the automap.\n<br=5>To change your outfit, right-click on your character and select \'Set outfit\' from the context menu.");
 		break;
 	case 1002:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Containers<N>\n<br=5>A container can hold other items. To check its contents right-click on a container and select \'Open\' from the context menu. A window will pop up in which the container\'s contents will be shown. You can move items into or out of the container by using drag & drop.");
 		break;
 	case 1100:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Ladders<N>\n<br=5>By using ladders you can climb up to the next floor. To climb a ladder right-click on the field that is directly in front of it and select \'Use\' from the context menu.");
 		break;
 	case 1101:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Sewer Grates<N>\n<br=5>It is possible to enter the sewers through sewer grates. To enter the sewers right-click on a sewer grate and select \'Use\' from the context menu. Watch out, though, for the sewers are teeming with rats! Also, make sure you have a light source such as a torch with you.");
 		break;
 	case 1102:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Dungeon Floor<N>\n<br=5>Spots like this one indicate that there is a hole in the ceiling. You can climb up through holes using a rope. To do so right-click on the rope, then move the cursor on the spot and click on the left mouse button.");
 		break;
 	case 1103:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Levers<N>\n<br=5>Levers typically trigger some event close to your character. To pull a lever right-click on it and select \'Use\' from the context menu.");
 		break;
 	case 1104:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Doors<N>\n<br=5>To open or close a door right-click on it and select \'Use\' from the context menu. Keep in mind that you need a key to open locked doors.");
 		break;
 	case 1105:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Special Doors<N>\n<br=5>This door belongs to a private house. Only house owners and characters who have their explicit permission are allowed to open private houses. Please see the manual on our website for further information on houses.");
 		break;
 	case 1106:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Stairs<N>\n<br=5>To climb stairs just move your character onto them.");
 		break;
 	case 1107:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Mailboxes<N>\n<br=5>You can use mailboxes to send letters or parcels to yourself or to any other player. To send a letter or parcel simply move it onto the mailbox. It will be sent to the addressee\'s depot immediately. You can buy letters and parcels in every city that has a depot.");
 		break;
 	case 1108:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Depot boxes<N>\n<br=5>Whenever you enter the field in front of a depot box, the contents of your personal depot are loaded into it. As a free player, you can store up to 1,000 objects in your box, regardless of their size and weight. Note that if you have a Premium Account, the amount of items you may store in depot boxes is 2000. Once you move away from the box, all contents are saved automatically, and no other player can get access to your depot.");
 		break;
 	case 1109:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Dustbins<N>\n<br=5>Dustbins can absorb unlimited amounts of waste. Be careful, though, because any item you move into a dustbin is lost forever.");
 		break;
 	case 1110:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Stone Piles<N>\n<br=5>It appears that there is some sort of opening underneath this pile of stones. In order to find out what is hidden underneath you need a shovel to remove the debris. Right-click on the shovel, then select \'use with...\' and click on the pile of stones with the left mouse button.");
 		break;
 	case 1111:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Signs<N>\n<br=5>To read a sign right-click on it and select \'Look\' from the context menu.");
 		break;
 	case 1112:
-		_snprintf(HelpText, sizeof(HelpText),
+		MsvcSnprintf(HelpText, sizeof(HelpText),
 			"<B>Books and Scrolls<N>\n<br=5>To read or edit a book right-click on it and select \'Use\' from the context menu.");
 		break;
 	default:

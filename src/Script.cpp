@@ -12,7 +12,7 @@
 // other members wrap the calls in TBEGIN/TEND.
 
 #include "Script.h"
-#include <io.h>
+#include "compat/msvc_io.h"
 #include "Utils.h"
 #include "sysinc.h"
 #include "common.h"
@@ -41,7 +41,7 @@ void TReadScriptFile::error(const char *Text)
 	if (File != nullptr)
 		fclose(File);
 	File = nullptr;
-	_snprintf(Message, 1054, "error in script file '%s' in line %d", Filename, Line);
+	MsvcSnprintf(Message, 1054, "error in script file '%s' in line %d", Filename, Line);
 	if (Text == nullptr)
 		Text = Unknown;
 	throw TMYEXCEPTION(84, Message, "", 0, "", 0, Text);
@@ -471,7 +471,7 @@ bool TReadBinaryFile::eof() const
 {
 	if (File == nullptr)
 		TERROR(582, "no file open");
-	return _eof(_fileno(File)) != 0;
+	return MsvcEof(MsvcFileno(File)) != 0;
 }
 
 // 0x4e1740, lines 603-605

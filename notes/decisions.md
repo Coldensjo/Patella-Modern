@@ -6958,3 +6958,112 @@ block; `cppcoreguidelines-avoid-goto` is enabled in .clang-tidy.
   unchanged (14).
 - **Nothing odd found** (medium). The behaviour kept as it is: party flag 1 draws no shield while the player is in a
   party, and a skull flag the switch does not know adds no offset.
+
+## MSVC-only spellings behind portable functions (Patella-Modern issue #43)
+
+Settled by Claude Opus 5.5, November 4, 2026. The twelfth change of M3 (plan section 7), by hand: src/ uses no
+spelling of the Microsoft CRT or compiler outside src/compat/ apart from the Windows platform's own (below). It
+prepares M8 (the client on Linux); nothing is ported here.
+
+- **What was there** (high). A scan of src/ (not src/Extern) for the Microsoft CRT's underscore functions and the
+  compiler's keywords, pragmas and macros: `_snprintf` 52 (Help.cpp 30, Dialogs.cpp/.h 8, Control.cpp 5, Map.cpp 3,
+  Status.cpp 2, ContentWindows, ContextMenus, Preferences, Script 1 each), `_stricmp` 6 (Player.cpp's command line,
+  Creatures.cpp's buddy lookup, Dialogs.h's qsort comparison), `_strdup` 2, `_access` (sysinc.cpp FileExists),
+  `_eof(_fileno())` (Script.cpp TReadBinaryFile::eof), `_execl` (Player.cpp, patch.exe), `__time32_t` 9 with
+  `_time32`, `_ctime32` and `_localtime32` (the 4-byte times of Creatures.h and Talk.h, TestHooks.h's
+  PATELLA_TIME32), `_time64` (the test mode's system clock), `_dupenv_s` 2 and `_putenv_s` (the Vulkan engine's
+  environment), `__cdecl` 13 (the patcap frame observers' types: SurfaceVulkan.h, TestHooks.h, TestModeWin32.cpp),
+  `#pragma warning` 25 (ConsoleWindow, ContentWindows, MainFrm, Player, Talk) and Talk.cpp's two `_MSC_VER` tests,
+  `<io.h>` and `<process.h>`. No `__int64`, `__forceinline`, `__declspec`, `_vsnprintf`, `_strnicmp` or `_itoa`.
+- **Where the line is: the Windows platform stays** (high). Not MSVC-only spellings but the Windows API and its
+  configuration, which M8 replaces with SDL3 rather than wraps: WINAPI/CALLBACK/APIENTRY on callbacks and imports
+  (their convention is part of the type on x86), `_CRT_SECURE_NO_WARNINGS` and `_WINSOCK_DEPRECATED_NO_WARNINGS`
+  in common.h (settings of the Windows SDK's headers, before MFC), `_M_IX86` (common.h's original-layout test),
+  sysinc.cpp's `#pragma comment(lib, "winmm.lib")` (a file of Windows calls: timeGetTime, the clipboard) and the
+  test mode's `_wfopen_s` (4 calls in TestModeWin32.cpp, the Windows half of the test mode: UTF-16 path names of
+  std::filesystem::path; the Linux test mode is its own file in M8). The comment in DialogElements.cpp that says
+  the binary's varargs constructor is __cdecl describes the binary; it is not a spelling in use.
+- **Three headers in src/compat/** (high). crt71.h is MSVC 7.1's CRT where the UCRT differs and mfc_shim.h a
+  stand-in for MFC; neither is this. `compat/msvc.h` (included by common.h, IWYU export) has the names,
+  `PATELLA_CDECL`, `PATELLA_MSVC_WARNING(...)` (`__pragma(warning(...))` on MSVC, nothing elsewhere; in
+  .clang-format's StatementMacros) and `Time32`; `compat/msvc_io.h` `MsvcAccess` and `MsvcEof` (below);
+  `compat/msvc_portable.h` the implementations with the C library in `patella::compat` (`PortableVsnprintf`,
+  `PortableSnprintf`, `PortableStricmp`, `PortableStrdup`, `PortableTime32`, `PortableCtime32`,
+  `PortableLocaltime32`), which msvc.h includes only off Windows. The names say whose semantics they keep:
+  `MsvcSnprintf`, `MsvcVsnprintf`, `MsvcStricmp`, `MsvcStrdup`, `MsvcTime32`, `MsvcCtime32`, `MsvcLocaltime32`,
+  `MsvcFileno`, `MsvcExecl(Path, Argument)`, `MsvcDupenv`, `MsvcPutenv`, `MsvcAccess`, `MsvcEof`. clang-format has
+  no column limit, so no call was rewrapped.
+- **The Microsoft semantics, not the standard ones** (high). From the UCRT's sources (Windows Kits 10.0.26100.0):
+  `_snprintf`/`_vsnprintf` (stdio/output.cpp with LEGACY_VSPRINTF_NULL_TERMINATION): a text shorter than the count
+  gets its NUL and returns its length; exactly the count, no NUL and the count; longer, the first count characters,
+  no NUL, -1; a null buffer with count 0 returns the length. `_stricmp` (string/stricmp.cpp, the "C" locale: the
+  client never calls setlocale): A-Z folded to lower case only when a pair differs, bytes compared unsigned, the
+  difference returned ("abc_" < "ABCD"; bytes from 0x80 not folded). `_strdup(NULL)` is NULL. `_time32` -1 after
+  2038-01-19 03:14:07; `_ctime32` and `_localtime32` NULL for a time before 1970. `_eof` compares the descriptor's
+  own position with lseek(SEEK_END), equal only, and puts it back (lowio/eof.cpp; not the FILE's position, which the
+  buffer may have read ahead). `_putenv_s` with an empty value removes the variable; `_dupenv_s` gives NULL and 0
+  for a variable that is not set. `_access`'s modes 0, 2, 4, 6 are POSIX's F_OK, W_OK, R_OK.
+- **On Windows each name is the Microsoft function's own: a macro** (high). The issue suggested forwarders that
+  inline away; measured, they do not keep the images:
+  - a variadic template forwarding to `_snprintf` changes the code even inlined: MSVC x64 copies SetCharacter's
+    four uint8 arguments before their promotion to int, 16 more bytes of Status.cpp code with the arguments by
+    value, 32 by reference. A C varargs function cannot pass its arguments on to `_snprintf` at all.
+  - plain inline forwarders inline away, but their declarations in every translation unit move data: MSVC emits a
+    translation unit's globals in an order that depends on the names it declares, and with the forwarders (or the
+    portable implementations) in common.h, Surface.cpp's globals came out rotated (its .bss in the oracle,
+    `curEngine` after `Data71D0D8`; its .data on x64, `CommandLineEngine` after `CacheSurfaceHeight`). Adding one
+    unrelated inline function to the header rotated them back: an artefact of the compiler's tables, not of the
+    code. Surface.cpp itself did not change.
+  So on Windows (MSVC and mingw-w64, whose CRT is Microsoft's) msvc.h defines `#define MsvcSnprintf _snprintf` and
+  so on (`MsvcExecl(Path, Argument)` adds the terminating nullptr): every call is the call it was, and the client's
+  translation units declare nothing new apart from the alias `Time32`. Off Windows the names are inline functions
+  over the portable implementations and POSIX.
+- **<io.h> only where it was** (high). With `<io.h>` included through common.h, MSVC x64 emitted the `<charconv>`
+  digit table (`std::_Digit_pairs<char>`, 200 bytes, a COMDAT in every object that includes `<string>`) first among
+  Communication.obj's constants instead of 154th, which moved it and every constant after it in the x64 images
+  (pecompare: about 104,000 differing ranges; issue #40's move of the same table, the other way round). So `_access`
+  and `_eof` are in `compat/msvc_io.h`, which includes `<io.h>` on Windows and is included by sysinc.cpp and
+  Script.cpp exactly where they included `<io.h>`. Player.cpp includes compat/msvc.h where `<process.h>` was. No
+  file's line count changed except Talk.cpp's, which lost its two `#if defined(_MSC_VER)` pairs.
+- **How it was found** (high). pecompare reported the differences; a byte-alignment scan of `.text` found where code
+  grew (the PDB named Status.cpp's neighbourhood), dbghelp named the moved globals, and single translation units
+  compiled by hand with the preset's command lines (`ninja -t commands`) against the bc7417c sources (`git archive`)
+  and variants of the header showed which part of the header moved what: the section order of
+  `std::_Digit_pairs<char>` in Communication.obj, the symbol offsets of Surface.obj's globals (scripts not committed).
+- **Calling conventions** (high). `PATELLA_CDECL` is `__cdecl` on MSVC x86 and nothing elsewhere (x64 and Linux
+  have one convention; a unit test asserts that the observer types are then the plain function pointer types). The
+  frame observers are called through GetProcAddress pointers of patcap.dll (x64 only today), so their type keeps the
+  DLL's convention wherever there is more than one. No qsort or atexit callback in src/ carried `__cdecl`
+  (Dialogs.h's CompareNames has the default convention, which is cdecl on x86).
+- **Renderer.cpp's environment without `#if defined(_WIN32)`** (medium). TDriverFiles::Get and Set had a Windows
+  branch (`_dupenv_s`, `_putenv_s`) and a POSIX one (getenv, setenv/unsetenv); with MsvcDupenv and MsvcPutenv both
+  are one. On Windows the code is the same text. Off Windows Set now removes a variable whose saved value was empty
+  (`_putenv_s`'s meaning, which the Windows client has), where the old POSIX branch set it empty; Renderer.cpp is
+  not built off Windows yet (patella_render_vulkan is Windows-only until M8).
+- **The test mode's system clock** (high). TestModeWin32.cpp's `_time64(nullptr)` is `std::time(nullptr)`: the
+  UCRT's `time` is an inline function calling `_time64` (64-bit time_t on x64), so PatellaTest.exe is unchanged.
+- **Unit tests: tests_core's core_msvc_test.cpp** (high). Eight cases: `_snprintf`'s outcomes (fits, exactly the
+  count, longer, count 0 with and without a text, a null buffer) and the client's own formats (Control.cpp's frame
+  rate with a float, Status.cpp's address, chars); `_vsnprintf` through a va_list; `_stricmp` against exact
+  differences (lower-case folding, '[' against 'a', Latin-1 0xC4 against 0xE4, 0x80); `_strdup` and NULL; the 32-bit
+  time (2038, before 1970, ctime's text and localtime's fields); `_access` and `_eof` on an unbuffered temporary
+  file (the position before, at and after the end, and kept); `_dupenv_s`/`_putenv_s` (set, read, removed by an
+  empty value); PATELLA_CDECL and PATELLA_MSVC_WARNING. On Windows every formatting, comparison, copy and time case
+  runs both the Microsoft function and the portable implementation against the same expected values, so the
+  portable code is held against the UCRT itself; on Linux (GCC, and Clang with ASan and UBSan) the Msvc* names are
+  the portable code, with three more EINVAL checks that the UCRT would send to its invalid parameter handler (no
+  case passes such an argument on Windows, so no dialog can open). `_execl` has no test (it replaces the process).
+  tests_core: 25 cases / 216 assertions before, 33 / 340 on Windows (MSVC and mingw-w64) and 33 / 343 on Linux.
+- **clang-tidy** (high). CI's clang-tidy (22.1.8 in the image, linux-x64-clang's commands, which compile the headers
+  through patella_core) reported the three `va_list` declarations of the portable formatting functions
+  (cppcoreguidelines-pro-type-vararg): NOLINT with the reason, `_snprintf`'s interface. The baseline is unchanged
+  (14 findings, 0 new, 0 gone). Visual Studio's clang-tidy on windows-x64's commands of the changed files reports no
+  include-cleaner finding; the `_snprintf` calls are vararg calls as before (the Windows targets are not in the
+  baseline).
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built from
+  main bc7417c and from the branch at the same path, differ only in the link time stamps and the PDB record
+  (pecompare: 0 unexpected differences, all three). macrocheck bc7417c issue-43: the 2,108 calls unchanged (no
+  spelling was inside a TASSERT/TERROR/TEND argument, so none waits for M5). The difftest counts are unchanged.
+- **Not done** (medium). tests/ and tools/ keep their own spellings (src/ only, as in #35 to #42). The format strings
+  that go through MsvcSnprintf use only `%s`, `%d`, `%c` and `%.02f`, which the UCRT and glibc format alike; the
+  test mode's `%lld` and `%llx` are standard.

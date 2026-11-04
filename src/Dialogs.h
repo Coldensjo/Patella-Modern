@@ -203,9 +203,9 @@ public:
 	{
 		if (Time > 600) {
 			const int Minutes = Time / 600 + 1;
-			_snprintf(Text, sizeof(Text), TextTryingToReconnect, Minutes, Minutes < 2 ? "minute" : "minutes");
+			MsvcSnprintf(Text, sizeof(Text), TextTryingToReconnect, Minutes, Minutes < 2 ? "minute" : "minutes");
 		} else {
-			_snprintf(Text, sizeof(Text), TextTryingToReconnect, Time / 10,
+			MsvcSnprintf(Text, sizeof(Text), TextTryingToReconnect, Time / 10,
 				Time / 10 < 2 ? "second" : "seconds");
 		}
 	}
@@ -405,7 +405,7 @@ public:
 // function: its address is taken).
 inline int CompareNames(const void *Name1, const void *Name2)
 {
-	return _stricmp(*static_cast<const char *const *>(Name1), *static_cast<const char *const *>(Name2));
+	return MsvcStricmp(*static_cast<const char *const *>(Name1), *static_cast<const char *const *>(Name2));
 }
 
 // --- Bug report and channels ----------------------------------------------------

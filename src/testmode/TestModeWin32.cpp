@@ -6,7 +6,7 @@
 //	                [the client's own words]
 //
 // Without --test-script the test build is the client on the system clock (TSystemClock: timeGetTime,
-// _time64, Sleep), through the same hooks. With a script (src/testmode/InputScript.h):
+// time, Sleep), through the same hooks. With a script (src/testmode/InputScript.h):
 //
 // - the clock is virtual (TVirtualClock, src/testmode/Clock.h): timeGetTime starts at 100000 and the
 //   wall clock at 2026-11-02 12:00:00 UTC, as tools/capture/patcap.c's, so srand(timeGetTime()) gets
@@ -110,7 +110,7 @@ constexpr UINT ScriptErrorExitCode = 3;
 class TSystemClock final : public IClock {
 public:
 	[[nodiscard]] std::uint32_t Milliseconds() override { return ::timeGetTime(); }
-	[[nodiscard]] std::int64_t WallSeconds() override { return _time64(nullptr); }
+	[[nodiscard]] std::int64_t WallSeconds() override { return std::time(nullptr); }
 	void FrameWait(std::uint32_t Duration) override { ::Sleep(Duration); }
 };
 
@@ -753,9 +753,9 @@ DWORD TimeGetTime()
 	return State().Clock->Milliseconds();
 }
 
-__time32_t WallTime32(__time32_t *Result)
+Time32 WallTime32(Time32 *Result)
 {
-	auto Now = static_cast<__time32_t>(State().Clock->WallSeconds());
+	auto Now = static_cast<Time32>(State().Clock->WallSeconds());
 	if (Result != nullptr)
 		*Result = Now;
 	return Now;
@@ -958,12 +958,12 @@ void PacketReceived(const unsigned char *Data, int PacketSize)
 
 namespace {
 
-int __cdecl FrameWanted(int /*Width*/, int /*Height*/)
+int PATELLA_CDECL FrameWanted(int /*Width*/, int /*Height*/)
 {
 	return State().PendingFrames.empty() ? 0 : 1;
 }
 
-void __cdecl FrameMask(const unsigned char *Mask, int Width, int Height)
+void PATELLA_CDECL FrameMask(const unsigned char *Mask, int Width, int Height)
 {
 	TState &Current = State();
 	Current.Mask.assign(Mask, Mask + static_cast<std::size_t>(Width) * static_cast<std::size_t>(Height));
@@ -976,7 +976,7 @@ std::span<const char> Bytes(const std::vector<std::uint8_t> &Data)
 	return {reinterpret_cast<const char *>(Data.data()), Data.size()};
 }
 
-void __cdecl FramePixels(const void *Bits, int Pitch, int Width, int Height)
+void PATELLA_CDECL FramePixels(const void *Bits, int Pitch, int Width, int Height)
 {
 	TState &Current = State();
 	if (Current.PendingFrames.empty())
@@ -1066,8 +1066,8 @@ int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type
 	return IDOK;
 }
 
-void FrameObservers(HMODULE Patcap, int(__cdecl **Frame)(int, int), void(__cdecl **Pixels)(const void *, int, int, int),
-	void(__cdecl **Mask)(const unsigned char *, int, int))
+void FrameObservers(HMODULE Patcap, int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **Pixels)(const void *, int, int, int),
+	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int))
 {
 	const TState &Current = State();
 	if (Patcap != nullptr || !Current.FramesWanted)

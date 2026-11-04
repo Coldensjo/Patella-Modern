@@ -196,6 +196,12 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #43 (branch issue-43, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after the MSVC-only spellings behind compat/msvc.h (three commits): 16,848,752 + 67 + 1,134,513
+checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and
+PatellaTest.exe built from main (bc7417c) and from the branch at the same path: 0 unexpected differences (pecompare);
+macrocheck bc7417c issue-43: 2,108 calls, 0 differences.
+
 Patella-Modern issue #42 (branch issue-42, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after the gotos (five commits and the check): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong
 checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe

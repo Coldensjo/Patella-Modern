@@ -748,7 +748,7 @@ void SetAccount(int Number, const char *Password)
 	TASSERT(621, Password!=NULL);
 	TASSERT1(622, strlen(Password)<30, strlen(Password));
 	AccountNumber = Number;
-	_snprintf(AccountNumberString, sizeof(AccountNumberString), "%d", Number);
+	MsvcSnprintf(AccountNumberString, sizeof(AccountNumberString), "%d", Number);
 	AccountNumberString[11] = 0;
 	strncpy(AccountPassword, Password, 30);
 }
@@ -765,7 +765,7 @@ void SetCharacter(int Number, const char *Name, const char *World, const uint8 *
 	strcpy(Character->Name, Name);
 	strcpy(Character->World, World);
 	Character->IP = *reinterpret_cast<const uint32 *>(Address);
-	_snprintf(Character->IPAddress, sizeof(Character->IPAddress), "%d.%d.%d.%d",
+	MsvcSnprintf(Character->IPAddress, sizeof(Character->IPAddress), "%d.%d.%d.%d",
 		Address[0], Address[1], Address[2], Address[3]);
 	Character->IPAddress[15] = 0;
 	Character->Port = Port;

@@ -50,7 +50,7 @@ struct TTalkLine {
 	TTalkLine *Previous, *Next;
 	char Addressee[30];
 	char *WithoutTime, *Text;
-	__time32_t Time;
+	Time32 Time;
 	TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int DiffTime);
 	TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, const char *_Line, int DiffTime);
 	TTalkLine(const TTalkLine &) = delete;

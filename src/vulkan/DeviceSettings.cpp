@@ -5,6 +5,7 @@
 #include "settings/Settings.h"
 #include "vulkan/Renderer.h"
 #include "vulkan/DeviceChoice.h"
+#include "compat/msvc.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -34,7 +35,7 @@ std::optional<std::string> Environment(const char *Name)
 {
 	char *Value = nullptr;
 	size_t Length = 0;
-	if (_dupenv_s(&Value, &Length, Name) != 0 || Value == nullptr)
+	if (MsvcDupenv(&Value, &Length, Name) != 0 || Value == nullptr)
 		return std::nullopt;
 	std::string Result(Value);
 	std::free(Value);

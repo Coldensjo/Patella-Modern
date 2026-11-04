@@ -8,7 +8,7 @@
 // (--test-script <file>), drives the client from src/testmode/InputScript.h:
 //
 //	PATELLA_TIME_GET_TIME()            timeGetTime: sysinc.cpp (GetMilliseconds, srand), the frame timers
-//	PATELLA_TIME32(Time)               _time32, the wall clock: Talk.cpp, Creatures.cpp, ContentWindows.cpp,
+//	PATELLA_TIME32(Time)               _time32 (MsvcTime32, compat/msvc.h), the wall clock: Talk.cpp, Creatures.cpp, ContentWindows.cpp,
 //	                                   ConsoleWindow.cpp
 //	PATELLA_TIME(Time)                 time, the wall clock: Player.cpp (error.txt)
 //	PATELLA_FRAME_SLEEP(Milliseconds)  the frame timer's Sleep (WaitForNextFrame of the three engines)
@@ -56,7 +56,7 @@
 
 namespace patella::testmode {
 DWORD TimeGetTime();
-__time32_t WallTime32(__time32_t *Result);
+Time32 WallTime32(Time32 *Result);
 time_t WallTime(time_t *Result);
 void FrameSleep(DWORD Milliseconds);
 BOOL GetCursorPosition(LPPOINT Point);
@@ -67,8 +67,8 @@ bool DropInput(const MSG *Message);
 void RsaBlock(const unsigned char *Block);
 void PacketSent(const unsigned char *Data, int Size, int Padded);
 void PacketReceived(const unsigned char *Data, int PacketSize);
-void FrameObservers(HMODULE Patcap, int(__cdecl **Frame)(int, int), void(__cdecl **Pixels)(const void *, int, int, int),
-	void(__cdecl **Mask)(const unsigned char *, int, int));
+void FrameObservers(HMODULE Patcap, int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **Pixels)(const void *, int, int, int),
+	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int));
 int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type);
 } // namespace patella::testmode
 
@@ -88,7 +88,7 @@ int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type
 #else
 
 #define PATELLA_TIME_GET_TIME() timeGetTime()
-#define PATELLA_TIME32(Time) _time32(Time)
+#define PATELLA_TIME32(Time) MsvcTime32(Time)
 #define PATELLA_TIME(Time) time(Time)
 #define PATELLA_FRAME_SLEEP(Milliseconds) Sleep(Milliseconds)
 #define PATELLA_GET_CURSOR_POS(Point) GetCursorPos(Point)

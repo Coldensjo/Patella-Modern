@@ -1030,7 +1030,7 @@ void TTextContextMenu::HandleEvent(int Event)
 				UnignoreName(Speaker);
 				Format = "You are no longer ignoring player %s.";
 			}
-			_snprintf(Text, 200, Format, Speaker);
+			MsvcSnprintf(Text, 200, Format, Speaker);
 			AddConsoleText(0, Text, 21, nullptr, 0, 0);
 		}
 		break;

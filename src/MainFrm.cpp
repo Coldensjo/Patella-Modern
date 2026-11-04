@@ -174,15 +174,15 @@ CMainFrame::CMainFrame(bool Gamemaster)
 // (MFC) is noexcept and an override may not throw more (C2694). An exception
 // from ExitControl ends the program here, where the original's goes on to
 // the caller of the destructor (issue #34).
-#pragma warning(push)
-#pragma warning(disable : 4297)
+PATELLA_MSVC_WARNING(push)
+PATELLA_MSVC_WARNING(disable : 4297)
 CMainFrame::~CMainFrame()
 {
 	TBEGIN
 	ExitControl();
 	TEND(123)
 }
-#pragma warning(pop)
+PATELLA_MSVC_WARNING(pop)
 
 // 0x4a88f0. Closes the client without asking (Control.cpp's exit callback).
 void ExitProgram()

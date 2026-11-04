@@ -15,6 +15,7 @@
 #pragma once
 
 #include "Surface.h"
+#include "compat/msvc.h"
 #include "graphics.h"
 #include "vulkan/FilterMask.h"
 #include "vulkan/Renderer.h"
@@ -30,12 +31,12 @@ static_assert(std::is_same_v<std::underlying_type_t<decltype(NUMBER_OF_SURFACES_
 
 // The functions of a frame observer DLL (tools/capture/patcap.c, loaded by tools/compare_rendering.py):
 // told about the device, asked before each frame is shown whether it wants the frame's pixels.
-using TVulkanDeviceObserver = void(__cdecl *)(const char *Name, int Type, int CpuDriver);
-using TVulkanFrameObserver = int(__cdecl *)(int Width, int Height);
-using TVulkanPixelsObserver = void(__cdecl *)(const void *Bits, int Pitch, int Width, int Height);
+using TVulkanDeviceObserver = void(PATELLA_CDECL *)(const char *Name, int Type, int CpuDriver);
+using TVulkanFrameObserver = int(PATELLA_CDECL *)(int Width, int Height);
+using TVulkanPixelsObserver = void(PATELLA_CDECL *)(const void *Bits, int Pitch, int Width, int Height);
 // Before the pixels: a byte per pixel of the picture, 1 where its value comes from the device's filter or
 // interpolation (the bilinear stretches, the light; notes/vulkan.md, "Pixels"), else 0.
-using TVulkanMaskObserver = void(__cdecl *)(const unsigned char *Mask, int Width, int Height);
+using TVulkanMaskObserver = void(PATELLA_CDECL *)(const unsigned char *Mask, int Width, int Height);
 
 class TSurfaceVulkan : public TSurface {
 public:

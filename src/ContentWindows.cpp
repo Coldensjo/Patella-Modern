@@ -304,8 +304,8 @@ TAutomapWindow::TAutomapWindow()
 	TEND(387)
 }
 
-#pragma warning(push)
-#pragma warning(disable : 4297) // the handlers rethrow out of the destructor
+PATELLA_MSVC_WARNING(push)
+PATELLA_MSVC_WARNING(disable : 4297) // the handlers rethrow out of the destructor
 // 0x426c40, line 406 (deleting destructor 0x436e80). The zoom goes back into
 // the preferences.
 TAutomapWindow::~TAutomapWindow()
@@ -322,7 +322,7 @@ TAutomapWindow::~TAutomapWindow()
 	RemoveHotkey(0x90f);
 	TEND(406)
 }
-#pragma warning(pop)
+PATELLA_MSVC_WARNING(pop)
 
 // 0x426e40, line 418
 bool TAutomapWindow::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
@@ -1452,8 +1452,8 @@ TContainerWindowBody::TContainerWindowBody(int _Container)
 	TEND1(1618, _Container)
 }
 
-#pragma warning(push)
-#pragma warning(disable : 4297) // the handlers rethrow out of the destructor
+PATELLA_MSVC_WARNING(push)
+PATELLA_MSVC_WARNING(disable : 4297) // the handlers rethrow out of the destructor
 // 0x42cc70, line 1628 (deleting destructor 0x438700). Closing the window
 // closes the container.
 TContainerWindowBody::~TContainerWindowBody()
@@ -1462,7 +1462,7 @@ TContainerWindowBody::~TContainerWindowBody()
 	SendCloseContainer(Container);
 	TEND(1628)
 }
-#pragma warning(pop)
+PATELLA_MSVC_WARNING(pop)
 
 // 0x42ce10, lines 1644-1666. The background (skin 7, scrolled with the
 // view), then the slots row by row, cut at the top and the bottom edge:
@@ -1777,8 +1777,8 @@ TSkillsWindowBody::TSkillsWindowBody()
 	TEND(1980)
 }
 
-#pragma warning(push)
-#pragma warning(disable : 4297) // the handlers rethrow out of the destructor
+PATELLA_MSVC_WARNING(push)
+PATELLA_MSVC_WARNING(disable : 4297) // the handlers rethrow out of the destructor
 // 0x42e6b0 (deleting destructor 0x4394b0). An open skill menu forgets the
 // window. The try block was dropped (nothing in it can throw).
 TSkillsWindowBody::~TSkillsWindowBody()
@@ -1788,7 +1788,7 @@ TSkillsWindowBody::~TSkillsWindowBody()
 		ContextMenu->SkillsWindow = nullptr;
 	TEND(1990)
 }
-#pragma warning(pop)
+PATELLA_MSVC_WARNING(pop)
 
 // 0x4394d0, lines 2003-2063. One line per skill: the name on the left, the
 // value on the right; a bar of the progress below it when the skill's bar
@@ -1921,7 +1921,7 @@ void TSkillsWindowBody::MouseHover(int x, int y)
 					ClipHeight = Bottom - Top + 1;
 				if (Top <= y && y <= ClipHeight + Top && SkinProperties.Data668 <= x
 					&& x <= SkinProperties.Data668 + TextWidth && Progress != -1) {
-					_snprintf(SkillMouseOverText, 256, TextPercentToGo, 100 - Progress);
+					MsvcSnprintf(SkillMouseOverText, 256, TextPercentToGo, 100 - Progress);
 					SetMouseOverText(SkillMouseOverText);
 				}
 			}
@@ -2803,8 +2803,8 @@ TTradeWindowBody::TTradeWindowBody()
 	TEND(3037)
 }
 
-#pragma warning(push)
-#pragma warning(disable : 4297) // the handlers rethrow out of the destructor
+PATELLA_MSVC_WARNING(push)
+PATELLA_MSVC_WARNING(disable : 4297) // the handlers rethrow out of the destructor
 // 0x433e60, line 3048 (deleting destructor 0x43bd20). Closing the window
 // rejects an open offer.
 TTradeWindowBody::~TTradeWindowBody()
@@ -2815,7 +2815,7 @@ TTradeWindowBody::~TTradeWindowBody()
 	ClearOffers();
 	TEND(3048)
 }
-#pragma warning(pop)
+PATELLA_MSVC_WARNING(pop)
 
 // 0x434000 (no frame)
 int TTradeWindowBody::GetContentHeight()

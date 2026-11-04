@@ -2,6 +2,8 @@
 
 #include "vulkan/Renderer.h"
 
+#include "compat/msvc.h"
+
 #include <volk.h>
 
 #include <VkBootstrap.h>
@@ -118,33 +120,19 @@ public:
 private:
 	static std::optional<std::string> Get(const char *Name)
 	{
-#if defined(_WIN32)
 		char *Value = nullptr;
 		size_t Length = 0;
-		if (_dupenv_s(&Value, &Length, Name) != 0 || Value == nullptr)
+		if (MsvcDupenv(&Value, &Length, Name) != 0 || Value == nullptr)
 			return std::nullopt;
 		std::string Result(Value);
 		std::free(Value);
 		return Result;
-#else
-		const char *Value = std::getenv(Name);
-		if (Value == nullptr)
-			return std::nullopt;
-		return std::string(Value);
-#endif
 	}
 	static void Set(const char *Name, const char *Value)
 	{
-#if defined(_WIN32)
-		// _putenv_s sets the process environment too (SetEnvironmentVariable), which the loader reads;
-		// an empty value removes the variable.
-		_putenv_s(Name, Value != nullptr ? Value : "");
-#else
-		if (Value != nullptr)
-			setenv(Name, Value, 1);
-		else
-			unsetenv(Name);
-#endif
+		// _putenv_s (MsvcPutenv) sets the process environment too (on Windows SetEnvironmentVariable), which
+		// the loader reads; an empty value removes the variable.
+		MsvcPutenv(Name, Value != nullptr ? Value : "");
 	}
 	static constexpr const char *Names[2] = {"VK_DRIVER_FILES", "VK_ICD_FILENAMES"};
 	std::optional<std::string> Saved[2];
