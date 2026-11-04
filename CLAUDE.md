@@ -28,7 +28,9 @@ test build PatellaTest.exe with the virtual clock, scripted input and dumps (sta
 libraries patella_core and patella_testmode, the unit tests and the 64-bit patcap.dll of compare_rendering.py),
 `windows-x64-gcc` (patella_core and the unit tests with mingw-w64 GCC),
 `linux-x64-gcc` / `linux-x64-clang` (patella_core and the unit tests with GCC 16 / Clang 22, the latter with
-AddressSanitizer and UBSan; `-debug` for Debug). On Windows build.py runs the Linux presets in the Docker image
+AddressSanitizer and UBSan; `-debug` for Debug). Every preset also compiles each header of src/ on its own
+(`cmake/HeaderCheck.cmake`, issue #49: the `header_check_*` object libraries, a generated one-line source per
+header with a target's settings; a new header goes on one of its lists, or the configure fails). On Windows build.py runs the Linux presets in the Docker image
 `patella-modern/linux-x64:gcc16.2-clang22.1` (build it once: `docker build -t
 patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`). `python -I tools/build.py --env <preset>
 <command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. The
@@ -66,7 +68,9 @@ The Microsoft CRT's and compiler's own spellings (`_snprintf`, `_stricmp`, `__cd
 through `src/compat/msvc.h` and `msvc_io.h` (issue #43), which keep their semantics on every platform.
 Run clang-tidy only through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>`,
 never `clang-tidy --fix` directly: until M5 no change may touch the arguments of TASSERT*, TERROR* or TEND*
-(stringized into the messages difftest compares), and the wrapper reverts every fix inside them. The product
+(stringized into the messages difftest compares), and the wrapper reverts every fix inside them. `--headers` runs
+misc-include-cleaner on each header of the build's header checks as its own main file (issue #49); an include kept
+for the images or that include-cleaner cannot see used says `// IWYU pragma: keep` with the reason. The product
 targets' compiler, warning and hardening settings are `cmake/Warnings.cmake` and `cmake/Hardening.cmake`;
 the oracle-x86 preset never uses them. Details: `notes/reconstruction.md`, "Checking".
 
@@ -74,8 +78,9 @@ the oracle-x86 preset never uses them. Details: `notes/reconstruction.md`, "Chec
 
 `.github/workflows/hosted.yml` (GitHub's runners, also on pull requests): windows-x64 with MSVC x64 and
 `-DPATELLA_CLIENT=OFF`, the client's and the test build's sources compiled without Tibia.exe
-(`-DPATELLA_CLIENT_COMPILE_ONLY=ON`, targets `Patella_compile` and `PatellaTest_compile`, issues #25, #46), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, and
-clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings). `python -I tools/tidy_ci.py`
+(`-DPATELLA_CLIENT_COMPILE_ONLY=ON`, targets `Patella_compile` and `PatellaTest_compile`, issues #25, #46, and
+their headers alone, `header_check_client` and `header_check_test_build`, issue #49), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, and
+clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings; `--all --headers`). `python -I tools/tidy_ci.py`
 runs that job locally (the commit's image, files and script; `--worktree` for uncommitted changes, `--hosted <run id>`
 compares with a hosted run) and reports exactly what it reports: run it before pushing. The per-target Windows runs
 (Visual Studio's clang-tidy) still check the code Linux does not compile, and miss findings the image reports

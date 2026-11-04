@@ -427,6 +427,9 @@ One clang-tidy check (or one hand pattern) per pull request, macro arguments exc
 File-scope `static` to anonymous namespaces waits until nothing looks up those names in the PDB (after M2). Done in
 issue #44: the PDB keeps the plain names of the data (client_state.py's lookups are unchanged); three statics stay
 for the images' .bss (notes/decisions.md).
+Each header includes what it uses too (issue #49, after #40's .cpp files): every header of src/ compiles on its own
+(cmake/HeaderCheck.cmake, in every preset's build) and misc-include-cleaner is clean on it as a main file
+(`tools/tidy.py --headers`, in the hosted job); the includes kept for the images say so (notes/decisions.md).
 
 Exit: clang-tidy's `modernize-*` clean outside the error macros; every gate green; difftest counts unchanged.
 
