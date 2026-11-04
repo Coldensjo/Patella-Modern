@@ -120,6 +120,15 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
   through `...` (MsvcSnprintf, a test's Logf): a TFixedString there is its N bytes, not a pointer. A bounded
   `MsvcSnprintf(Fixed.Chars, sizeof(Fixed), ...)` stays (_snprintf's result and missing NUL; the text table's
   runtime formats).
+- Who owns each heap object is in notes/ownership.md (issue #58): a new allocation gets its line there. An owning
+  pointer that is the only owner, released with the matching `delete`/`delete[]`, whose pointee's destructor cannot
+  throw, is a `std::unique_ptr<T>` (`<T[]>`) with the default deleter: the original's `delete` stays an explicit
+  `reset()` at the same place and in the same order, its `new` a `reset(new ...)` (not `make_unique`, which
+  value-initialises), a clear without a free a `release()` whose result is dropped; a frozen structure's member only
+  with static_asserts of its size and offset under PATELLA_ORIGINAL_LAYOUT, and the file asserts `sizeof`/`alignof` of
+  the `unique_ptr` against the raw pointer. Pass `.get()` where a raw pointer is needed (and through `...`, where a
+  `unique_ptr` must never go). Everything a window, the event queue or a container owns, everything whose destructor
+  may throw (`TComponent`, `TTalkBuffer`: `reset()` is `noexcept`), and the mismatched releases stay raw.
 - Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`, `TBEGIN`/`TEND*`) exactly where
   the binary has the corresponding blocks.
 - Behaviour must match the binary exactly, including odd behaviour (for example

@@ -8071,3 +8071,67 @@ vsprintf or gets any more (167 calls on main b061421, 0 now; a grep gate in the 
   build; the globals moved). compare_rendering.py's add_import patches the new x64 images (patcap.dll and
   PatcapLoaded imported), compare_imports.py reports the new oracle as the old one, and the self-tests of
   reference.py, testmode_check.py and client_state.py pass. No client and no server were started.
+
+## The ownership map, and std::unique_ptr for owning members and globals (Patella-Modern issue #58)
+
+Settled by Claude Opus 5.5, November 4, 2026. The second change of M4 (plan section 7, "Ownership"), in two parts: the
+map, notes/ownership.md (its own commit, no code), then `std::unique_ptr<T>` for the owning members and globals where
+that changes nothing the comparisons see, one subsystem per commit. The issue stays open for the rest (ownership.md,
+sections 3, 4 and 6).
+
+- **The map** (high). Every `new`, `new[]`, `new (std::nothrow)`, `malloc` and `MsvcStrdup` of src/ (546 sites; the
+  plan's 608 counted the word) and every `delete`, `delete[]` and `free` (212), listed by a scan that skips comments
+  and literals, then read where each goes. Kinds of owner: the child list (379 GUI components: `TWindow::~TWindow`
+  deletes its children through DeleteChild), members, conditional members (a child or the member's, by `IsChild`),
+  init/exit globals, the event queue (`INT_PTR` parameters freed by type in ProcessEvents and ClearMessages), the
+  caller, locals, until exit. It names the original's real leaks (message 0x1c's `TTalkLine::Line`; queued marks in
+  ClearMessages; ExitStatus' dangling `TaintedClipboardText` and `LinkRegexp`) and its mismatched releases (`free` of
+  `new` memory in Talk.cpp, Preferences.cpp, sysinc.cpp, MainWindow.cpp; `delete[]` of `TTalkLine` and `MsvcStrdup`
+  blocks; SurfaceGL.cpp's `delete` of arrays): all kept.
+- **The rule for a conversion** (high). A `T *` becomes `std::unique_ptr<T>` (`<T[]>` for arrays) when it is the only
+  owner, the pointee is released with the matching `delete`/`delete[]`, and:
+  - the pointee's destructor cannot throw. `unique_ptr::reset()` and its destructor are `noexcept`; every `TComponent`
+    (`noexcept(false)`, issue #34: the TBEGIN/TEND destructors rethrow) and `TTalkBuffer` would turn an exception
+    from their destructors into `std::terminate` instead of the original's error report. So `TTabBar::LeftTabs`,
+    `RightTabs`, `TConsoleWindow::History` and every component member stay raw, although they are exclusive owners.
+  - the original's release sites can be kept: each `delete` becomes an explicit `reset()` in the same place and order
+    (the destructors' bodies keep their order, Color before Part, Attack before Chase, the label's three buffers),
+    each `new` a `reset(new ...)` (the same new-expression: `make_unique` would value-initialise the arrays and the
+    `TRadioButtonGroup`s, whose `Selected` the original leaves uninitialised; `make_unique_for_overwrite` is C++20,
+    the oracle is C++17). Where the original deleted the old timer before creating the new one, `reset()` then
+    `reset(new TTimer(...))`: a single `reset(new ...)` would register the new timer before unregistering the old.
+    Where it cleared an owning global without freeing it (InitCommunication, InitObjects), `release()` keeps the
+    leak. Where it freed without clearing (ExitStatus' `TaintedClipboardText`), no conversion: the dangling value
+    cannot be kept.
+  - the layout stays: `std::unique_ptr` with the default deleter is one pointer on MSVC x86/x64, GCC and Clang (empty
+    base). Each converted class asserts its size and the member's offset under `PATELLA_ORIGINAL_LAYOUT` (the
+    original's values, read from main's oracle PDB with client_state.py's reader), each file asserts `sizeof` and
+    `alignof` of its `unique_ptr`s against the raw pointer. No converted class is copied bytewise, written to a file
+    or a packet, or compared by memcmp; the tests' fakes (tests/golden/elementfakes.h) keep their raw pointers at the
+    same offsets, and the inline TMultiStateButton::Reset reads a fake's raw `ButtonUps` through the `unique_ptr`
+    representation, which is the pointer.
+  - TASSERT/TERROR/TEND arguments: untouched. `PatchData==NULL` and `PatchData!=NULL` compile against a `unique_ptr`
+    as written (`NULL` is a null pointer constant); no converted pointer is a value argument (`(int)(V1)`).
+  - Globals: a `unique_ptr` global has a destructor; at a normal exit the Exit functions have reset it already, but
+    FatalError ends the client with `exit(1)` with everything still set, and the destructors then run. Only arrays and
+    Container.h tables whose destruction frees memory and nothing else were converted (`Characters`, `PatchData`, the
+    four object tables); `ModalWindow`, `MainWindow`, `Socket` (an MFC CAsyncSocket after MFC's module state) and
+    `Surface` stay raw.
+- **What was converted** (high). 28 owning pointers: 22 members of 17 classes (the console's selection and tab
+  captions, the combat groups and the VIP hover text, the dialogs' timers, focus and radio groups and channel IDs, the
+  label's full text, the link's destination, the multi-state button's arrays) and 6 globals (`Characters`,
+  `PatchData`, the four object tables); the table in ownership.md, section 6.
+- **Behaviour** (high, except where marked). Unchanged where the client keeps running. Two differences on paths that
+  end it (medium: no comparison reaches them, and both end in FatalError): a constructor that throws after allocating a
+  converted member frees it while unwinding (the original leaked it, and a TReconnectWindow's timer stayed
+  registered); a converted global still set at `exit(1)` is freed during static destruction.
+- **Tools and tests** (high). tools/client_state.py's layout check got `std::unique_ptr<char [0],std::default_delete<char
+  [0]> >` for TLabel.FullText (and the global Characters) from the PDB and reported a problem (`--layout` with the
+  tool of main on the new x64 Patella.exe: "PROBLEM field TLabel.FullText"); Pdb.kind reads a `std::unique_ptr` with the
+  default deleter as `ptr` (its length is still checked against the image's pointer size). The test mode's state dump
+  reads FullText through `.get()`. Forced test changes: `.get()` where tests/golden's dumps pass a converted pointer
+  through varargs or to a function (consolewindow_tests.cpp, contentwindows_tests.cpp, dialogelements_tests.cpp),
+  consolewindow_tests.cpp's SaveChannel error round takes the tab caption out with `release()` and puts it back with
+  `reset()` only when it took it, objects_tests.cpp's OurTable returns the held pointer, tools/difftest/errortest.cpp's
+  table list takes `.get()`. tests/golden's Dialogs port (the other #28 work) reads `Timer == NULL`, which compiles
+  unchanged.

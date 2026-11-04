@@ -253,7 +253,7 @@ time:
 A `T *` member or global may become `std::unique_ptr<T>` (`<T[]>` for arrays) when it is the only owner, its pointee is
 freed with the matching `delete`/`delete[]`, the original's free sites can be kept as explicit `reset()`s in the same
 order, and nothing reads it in a way the type change breaks (macro arguments cast to `int`, memcpy, the tools' PDB
-reader, the tests' raw assignments). The second part of the issue (section 6) records what was converted.
+reader, the tests' raw assignments). Section 6 records what issue #58 converted.
 
 Not converted, with the reason:
 
@@ -269,11 +269,21 @@ Not converted, with the reason:
   a global `unique_ptr` runs its destructor during static destruction, the original leaves the object. That is
   harmless for plain arrays (memory only) but not for objects whose destructors do things: `ModalWindow` and
   `MainWindow` (window trees, hotkeys, Tibia.cfg's open dialogs), `Socket` (MFC's CAsyncSocket after MFC's module
-  state), `Surface` (the engines' devices and windows), `ObjectProperties` and the other tables (Container.h arrays,
-  memory only, but the difftest assigns and reads them through Tibia.exe's addresses).
+  state), `Surface` (the engines' devices and windows). The arrays that were converted (section 6) free memory only.
+- A pointee whose destructor may throw: every `TComponent` (`virtual ~TComponent() noexcept(false)`: the window
+  destructors with TBEGIN/TEND rethrow to the caller, issue #34) and `TTalkBuffer` (`~TTalkBuffer() noexcept(false)`).
+  `std::unique_ptr`'s `reset()` and destructor are `noexcept`, so an exception from such a destructor would end in
+  `std::terminate` instead of reaching the original's handlers (error.txt and the error report): `TTabBar::LeftTabs`
+  and `RightTabs`, `TConsoleWindow::History`, `ModalWindow`, `MainWindow`, every component member. A deleter that
+  lets exceptions out is not the default deleter.
+- Ownership that moves between two members: `TEditLine::Text` and `TPasswordEditLine::Stars` (SetText swaps the two
+  blocks); `TLabel::Line` and `TFormattedText::Line` point into `Text` (their `Text` stays raw with them, being read
+  by the window files and the tests in many places; a later step).
+- Allocated through an out parameter: `TGraphicsOptionsDialog::Modes` (GetFullscreenModes(&Modes)).
 - Read through the tests' raw pointers in ways that need more than `.get()` (assigned from Tibia.exe's objects or
   compared with them by address): `Skins`, `Sprites` and the other graphics globals (tests/golden/graphics_tests.cpp,
-  core_tests.cpp's ExitSkins check, the window tests' `Global<TSkin *>(0x71c454) = Skins`), `DrawingList`.
+  core_tests.cpp's ExitSkins check, the window tests' `Global<TSkin *>(0x71c454) = Skins`), `DrawingList` (in every
+  window object; also each subclass's own `new TDrawing[n]`). Possible, with the tests changed; not in issue #58.
 
 ## 5. Leaks and mismatches the original has (kept)
 
@@ -292,7 +302,39 @@ Not converted, with the reason:
 
 ## 6. What issue #58 converted
 
-(Filled by the second part of the issue.)
+Each a `std::unique_ptr` with the default deleter at the original's offset (static_asserts on the class's size and
+the member's offset under `PATELLA_ORIGINAL_LAYOUT`, and on `sizeof`/`alignof` of the `unique_ptr` against the raw
+pointer), the original's `delete`/`delete[]` kept as explicit `reset()`s at the same places and in the same order, the
+allocations as `reset(new ...)` (the same form of `new`: default-initialised arrays, no `make_unique`):
+
+| Subsystem | Members and globals | Commit |
+|---|---|---|
+| Console (ConsoleWindow.h) | `TTextWindow::SelectedText`, `TTab::Caption`, `TTab::FullCaption` (`char[]`) | 91e9cd6 |
+| Content windows (ContentWindows.h) | `TCombatControls::AttackModes`, `ChaseModes` (`TRadioButtonGroup`), `TBuddylistWindowBody::MouseOverText` (`char[]`) | b37760b |
+| Dialogs (Dialogs.h) | `TWaitLabel::Timer`, `TReconnectWindow::Timer`, `TCharacterListDialog::Timer` (`TTimer`), `TLoginDialog::FocusGroup`, `TRuleViolationDialog::FocusGroup` (`TFocusGroup`), `TOutfitDialog::PartGroup`, `ColorGroup`, `TEditBuddyDialog::IconGroup`, `TEditMarkDialog::TypeGroup`, `TAdvancedGraphicsDialog::EngineGroup` (`TRadioButtonGroup`), `TNewChannelDialog::ChannelIDs` (`int[]`) | d1871b9 |
+| Dialog elements (DialogElements.h) | `TLabel::FullText`, `TLink::Destination` (`char[]`), `TMultiStateButton::ButtonUps`, `ButtonDowns` (`int[]`), `Callbacks` (`TCallback[]`) | dadff06 |
+| Status (Status.cpp) | `Characters` (`TCharacter[]`) | d3ab25e |
+| Communication (Communication.cpp) | `PatchData` (`uint8[]`) | 42b1b6d |
+| Objects (Objects.cpp, Objects.h) | `ObjectProperties`, `OutfitProperties`, `EffectProperties`, `MissileProperties` (`array<TProperties>`) | 52c1c63 |
+
+28 owning pointers in all: 22 members of 17 classes and 6 globals. Where the original cleared an owning global
+without freeing it (InitCommunication's `PatchData`, InitObjects' four tables), the code calls `release()` and drops
+the result, so a block still held is left as the original left it. Where it deleted the old object before making the
+new one (the timers' SetTimer and SetTimeout), `reset()` comes first and `reset(new ...)` after, so the timer list sees
+the same order. Each pointee's destructor is `noexcept` (arrays of scalars, `TCallback`, `TCharacter`; `TTimer`,
+`TFocusGroup`, `TRadioButtonGroup`, Container.h's `array`).
+
+Behaviour that differs only where the original's own behaviour ends the client: a constructor that throws after
+allocating a converted member now frees it during the unwinding (the members are destroyed), where the original
+leaked it (a TReconnectWindow's timer is then also unregistered); every such throw reaches FatalError. And a converted
+global that is still set when FatalError calls `exit(1)` is freed by its destructor during static destruction (memory
+only: the arrays and Container.h tables above have no destructors that act).
+
+Remaining (the issue stays open): the component and conditional members (section 3), the pointees with throwing
+destructors, the moving and inner pointers and the mismatched releases (section 4), `TaintedClipboardText`,
+`TGraphicsOptionsDialog::Modes`, the graphics and skin globals and `DrawingList` (tests to change first), `Socket`,
+`Surface`, `ModalWindow`, `MainWindow`, `DefaultTextBuffer`, Talk.cpp's buffers and lines, the event queue's blocks, and
+Container.h's `vector<T *>` of owned objects.
 
 ## Appendix: every allocation by file
 

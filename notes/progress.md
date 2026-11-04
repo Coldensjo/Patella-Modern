@@ -270,6 +270,19 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #58 (branch issue-58, November 4, 2026): notes/ownership.md (the ownership map), then
+std::unique_ptr for 22 owning members of 17 classes and 6 globals (ConsoleWindow, ContentWindows, Dialogs,
+DialogElements, Status, Communication, Objects; the original's deletes as explicit reset()s in place and order).
+`python -I tools/build.py oracle-x86 --fresh` (CTest 4/4, 0 warnings; the new static_asserts of the original's sizes and
+offsets compile): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures (also on b37760b, after the
+first two conversions); with recording on (`golden_corpus`, the branch's own build\golden, 609 MB) the same counts. The
+x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13) replays 14,836,028 of difftest's checks and
+sysinctest's 67, 0 failures. tests/unit unchanged: tests_unit 28/9,691 (9,689 on Clang), tests_unit_cxx26_standin
+28/9,693, tests_core 33/340 (33/343 on Linux), tests_testmode 35/709, tests_render 14/359, tests_vulkan 14/1,309;
+windows-x64-gcc and the four Linux presets (--fresh) 11/11. macrocheck c0a4fd8 issue-58: 2,108 calls, 0 differences.
+tidy_ci: 13 findings, 0 new. banned_calls: 0. client_state.py --layout: 0 problems on the new x64 Patella.exe and
+PatellaTest.exe, the new oracle equal to the original (main's tool reports the unique_ptr members as problems).
+
 Patella-Modern issue #28, second part (branch issue-28b, November 4, 2026): `python -I tools/build.py oracle-x86
 --fresh` (CTest 4/4, 0 warnings) after DialogWindow, ContextMenus, ConsoleWindow, ContentWindows and DialogElements
 moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on
