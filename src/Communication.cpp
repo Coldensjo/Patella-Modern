@@ -25,17 +25,22 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <ostream>
 #include <sstream>
 
+// PatchData owns the received file as a std::unique_ptr<uint8[]> (issue #58): a pointer, as the original's.
+static_assert(sizeof(std::unique_ptr<uint8[]>) == sizeof(uint8 *) && alignof(std::unique_ptr<uint8[]>) == alignof(uint8 *),
+	"std::unique_ptr<uint8[]> is a pointer");
+
 namespace {
 
-int SkipFields;      // 0x5c4340
-uint8 *PatchData;    // 0x5c4344, cleared by InitCommunication
-bool PatchWholeFile; // 0x5c4348
-int PatchDataCount;  // 0x5c434c
-int PatchDataSize;   // 0x5c4350
-int PatchFileNumber; // 0x5c4354
+int SkipFields;                     // 0x5c4340
+std::unique_ptr<uint8[]> PatchData; // 0x5c4344, cleared by InitCommunication (issue #58)
+bool PatchWholeFile;                // 0x5c4348
+int PatchDataCount;                 // 0x5c434c
+int PatchDataSize;                  // 0x5c4350
+int PatchFileNumber;                // 0x5c4354
 
 } // namespace
 
@@ -76,7 +81,8 @@ static_assert(offsetof(TTalkLine, Addressee) == 0x14, "statement addressee");
 // InitControl.
 void InitCommunication()
 {
-	PatchData = nullptr;
+	// Cleared, not freed, as the original does: a block still held is left as it was (issue #58).
+	static_cast<void>(PatchData.release());
 }
 
 // 0x413780, lines 41-96
@@ -888,7 +894,7 @@ void ReceivePatch()
 	PatchDataCount = 0;
 	PatchWholeFile = false;
 	TASSERT(1033, PatchData==NULL);
-	PatchData = new uint8[PatchDataSize];
+	PatchData.reset(new uint8[PatchDataSize]);
 	SetProgress(0);
 	const char *Name;
 	switch (PatchFileNumber) {
@@ -916,7 +922,7 @@ void ReceiveWholeFile()
 	PatchDataCount = 0;
 	PatchWholeFile = true;
 	TASSERT2(1061, PatchData==NULL, OldPatchFileNumber, OldPatchDataSize-OldPatchDataCount);
-	PatchData = new uint8[PatchDataSize];
+	PatchData.reset(new uint8[PatchDataSize]);
 	SetProgress(0);
 	const char *Name;
 	switch (PatchFileNumber) {
@@ -940,7 +946,7 @@ void ReceivePatchBlock()
 	TASSERT(1083, PatchData!=NULL);
 	BlockSize = GetWord();
 	TASSERT(1085, PatchDataCount+BlockSize<=PatchDataSize);
-	GetBytes(PatchData + PatchDataCount, BlockSize);
+	GetBytes(PatchData.get() + PatchDataCount, BlockSize);
 	PatchDataCount += BlockSize;
 	SetProgress((PatchDataCount * 100) / PatchDataSize);
 	if (PatchDataCount != PatchDataSize)
@@ -961,10 +967,10 @@ void ReceivePatchBlock()
 	}
 	bool Success;
 	if (!PatchWholeFile)
-		Success = ApplyPatch(Name, PatchData, PatchDataSize, Signature);
+		Success = ApplyPatch(Name, PatchData.get(), PatchDataSize, Signature);
 	else
-		Success = ApplyFullPatch(Name, PatchData, PatchDataSize);
-	delete[] PatchData;
+		Success = ApplyFullPatch(Name, PatchData.get(), PatchDataSize);
+	PatchData.reset();
 	PatchData = nullptr;
 	if (!Success) {
 		char *Text = new char[100];
@@ -1021,7 +1027,7 @@ void CancelPatch()
 {
 	TBEGIN
 	if (PatchData != nullptr) {
-		delete[] PatchData;
+		PatchData.reset();
 		PatchData = nullptr;
 		SetConnectionState(0);
 		Disconnect(false);
