@@ -134,7 +134,7 @@ void Walk(std::vector<TGuiNode> &Nodes, TComponent *Component, int Depth, std::i
 		Node.Ptr = reinterpret_cast<std::uintptr_t>(Component);
 		Node.Vtable = Vtable;
 		if (Node.Class == "TLabel") {
-			const char *Full = static_cast<const TLabel *>(Component)->FullText;
+			const char *Full = static_cast<const TLabel *>(Component)->FullText.get();
 			Node.TextKind = Full != nullptr ? TGuiText::Value : TGuiText::Null;
 			if (Full != nullptr)
 				Node.Text = Text(Full, LabelText);

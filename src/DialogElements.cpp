@@ -28,10 +28,22 @@
 #include "types/FixedString.h"
 #include "graphics.h"
 #include <cstddef>
+#include <memory>
 
 #if PATELLA_ORIGINAL_LAYOUT
 // The original's layout, with Text a TFixedString (issue #57).
 static_assert(sizeof(TTextButton) == 0x78 && offsetof(TTextButton, Text) == 0x44, "TTextButton's layout");
+// The owning members as std::unique_ptr (issue #58): each a pointer at the original's offset.
+static_assert(sizeof(std::unique_ptr<char[]>) == sizeof(char *) && alignof(std::unique_ptr<char[]>) == alignof(char *)
+		&& sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *)
+		&& sizeof(std::unique_ptr<TCallback[]>) == sizeof(TCallback *)
+		&& alignof(std::unique_ptr<TCallback[]>) == alignof(TCallback *),
+	"std::unique_ptr is a pointer");
+static_assert(sizeof(TLabel) == 0x4c && offsetof(TLabel, FullText) == 0x28, "TLabel's layout");
+static_assert(sizeof(TLink) == 0x3c && offsetof(TLink, Destination) == 0x30, "TLink's layout");
+static_assert(sizeof(TMultiStateButton) == 0x58 && offsetof(TMultiStateButton, ButtonUps) == 0x4c
+		&& offsetof(TMultiStateButton, ButtonDowns) == 0x50 && offsetof(TMultiStateButton, Callbacks) == 0x54,
+	"TMultiStateButton's layout");
 #endif
 
 // Data. DialogElements.obj has no statics and no static initialiser. It keeps
@@ -359,7 +371,7 @@ void TLabel::MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	if (Shortened)
-		SetMouseOverText(FullText);
+		SetMouseOverText(FullText.get());
 	TEND(423)
 }
 
@@ -374,7 +386,7 @@ void TLabel::SetText(const char *_Text, bool Shorten)
 		Text = nullptr;
 	}
 	if (FullText != nullptr) {
-		delete[] FullText;
+		FullText.reset();
 		FullText = nullptr;
 	}
 	if (Line != nullptr) {
@@ -384,8 +396,8 @@ void TLabel::SetText(const char *_Text, bool Shorten)
 	Shortened = false;
 	const int Length = (int)strlen(_Text);
 	Text = new char[Length + 2];
-	FullText = new char[Length + 2];
-	TStringBuffer(FullText, static_cast<std::size_t>(Length) + 2).Assign(_Text);
+	FullText.reset(new char[Length + 2]);
+	TStringBuffer(FullText.get(), static_cast<std::size_t>(Length) + 2).Assign(_Text);
 	TStringBuffer(Text, static_cast<std::size_t>(Length) + 2).Assign(_Text);
 	Lines = 1;
 	for (int i = 0; i < Length; i++) {
@@ -708,12 +720,12 @@ TLink::TLink(const char *_Text, const char *ButtonText, const char *_Destination
 	TASSERT(787, ButtonText!=NULL);
 	TBEGIN
 	const std::size_t Size = strlen(_Destination) + 1;
-	Destination = new char[Size];
-	TStringBuffer(Destination, Size).Assign(_Destination);
+	Destination.reset(new char[Size]);
+	TStringBuffer(Destination.get(), Size).Assign(_Destination);
 	OpenURL = _OpenURL;
 	Label = new TLabel(Font, _Text);
 	TWindow::InsertChild(Label);
-	Button = new TTextButton(0, 0, ButtonText, 18, 19, TCallback(this, 1), Destination);
+	Button = new TTextButton(0, 0, ButtonText, 18, 19, TCallback(this, 1), Destination.get());
 	TWindow::InsertChild(Button);
 	TEND(796)
 }
@@ -751,7 +763,7 @@ void TLink::HandleEvent(int Event)
 {
 	if (Event == 1) {
 		TBEGIN
-		OpenURL(Destination);
+		OpenURL(Destination.get());
 		TEND1(848, Event)
 	}
 }
@@ -1143,9 +1155,9 @@ TMultiStateButton::TMultiStateButton(int x, int y, const char *_Tooltip, int _St
 {
 	State = 0;
 	States = _States;
-	ButtonUps = new int[_States];
-	ButtonDowns = new int[States];
-	Callbacks = new TCallback[States];
+	ButtonUps.reset(new int[_States]);
+	ButtonDowns.reset(new int[States]);
+	Callbacks.reset(new TCallback[States]);
 	ButtonUps[0] = _ButtonUp;
 	ButtonDowns[0] = _ButtonDown;
 	Callbacks[0] = _Callback;

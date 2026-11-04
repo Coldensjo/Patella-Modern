@@ -513,6 +513,10 @@ class Pdb:
 			fixed = re.fullmatch(r"TFixedString<(\d+)>", name or "")
 			if fixed and self.length(type_id) == int(fixed.group(1)):
 				return "char[%s]" % fixed.group(1)
+			# std::unique_ptr<T> with the default deleter (issue #58) is exactly a T *: an owning member is read as
+			# the pointer it holds (kind_matches checks its length against the image's pointer size)
+			if re.fullmatch(r"std::unique_ptr<.*,std::default_delete<.*> >", name or ""):
+				return "ptr"
 			return name
 		if tag == self.SYMTAG_ENUM:
 			return "int" if self.length(type_id) == 4 else "enum%d" % self.length(type_id)
