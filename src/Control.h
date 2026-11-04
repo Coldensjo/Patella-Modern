@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "common.h"
+#include "common.h" // IWYU pragma: keep (HWND: MFC and the Windows headers, which include-cleaner does not check)
 #include <iosfwd>
 
 void OutputControlErrorInformations(std::ostream &Out);

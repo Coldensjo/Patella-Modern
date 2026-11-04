@@ -6,6 +6,7 @@
 #pragma once
 
 #include "vlong.h"
+#include "common.h"
 
 class TRSA {
 public:

@@ -18,6 +18,7 @@
 #include <d3d9.h>
 #include <ddraw.h>
 #include <type_traits>
+#include "common.h"
 
 // The surfaces (Surface9[] and Rect[] are indexed with them) are Surface.h's
 // PRIMARY_SURFACE (the main render target, Rect[TEMP_SURFACE]'s size),

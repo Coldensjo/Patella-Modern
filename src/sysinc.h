@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "common.h"
 
 int GetMilliseconds();
 bool FileExists(const char *FileName);

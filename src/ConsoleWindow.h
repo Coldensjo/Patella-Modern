@@ -28,6 +28,8 @@
 #include "Container.h"
 #include "GUI.h"
 #include "Talk.h"
+#include "graphics.h"
+#include <cstddef>
 
 class TEditLine;         // DialogElements.h
 class TScrollBar;        // DialogElements.h

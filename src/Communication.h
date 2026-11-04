@@ -4,8 +4,11 @@
 #pragma once
 
 #include "common.h"
-#include "Talk.h"
-#include <sstream>
+// Nothing of Talk.h is used here, but without it the objects that include this header declare its names
+// later, and MSVC, which orders an object's globals by the names its translation unit declares (issue #43),
+// emits Communication.obj's .bss in another order (OutfitRequested after the ATL statics): the images' .data
+// moves (measured on x64, issue #49).
+#include "Talk.h" // IWYU pragma: keep
 
 extern bool OutfitRequested; // 0x5c4358; also reset by Control.cpp
 

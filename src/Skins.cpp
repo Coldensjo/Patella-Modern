@@ -9,6 +9,10 @@
 // calls ExitSkins right after ExitNetwork), and InitStatus and ExitStatus
 // never touch its data.
 
+// common.h first, where Skins.h included it before (issue #49): Skins.cpp uses nothing of it, but in the
+// client's builds it brings MFC, whose per-object statics and initialisers Skins.obj has in the image (without
+// it Skins.obj loses its .data, .CRT$XCU and ATL sections, and the images' .data moves).
+#include "common.h" // IWYU pragma: keep
 #include "Skins.h"
 
 // Data, in .bss order.

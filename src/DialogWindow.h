@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "common.h"
 #include "GUI.h"
+#include "graphics.h"
 
 class TSubWindowBody; // ContentWindows.h
 class TResizer;       // DialogElements.h

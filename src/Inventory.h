@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include "common.h"
 #include "Objects.h" // TObject
 
 inline constexpr int BODY_POSITIONS = 10;

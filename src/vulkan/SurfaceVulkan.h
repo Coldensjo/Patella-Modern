@@ -22,6 +22,10 @@
 #include <memory>
 #include <vector>
 #include <type_traits>
+#include "common.h"
+#include "vulkan/Quads.h"
+#include <cstddef>
+#include <cstdint>
 
 enum : int {
 	NUMBER_OF_SURFACES_VULKAN = 22

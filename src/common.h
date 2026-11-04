@@ -18,12 +18,17 @@
 #include <afxwin.h>
 #include <afxsock.h>
 #endif
+// <string>, <cstring>, <cstdio> and <cstdlib>: nothing of them is used here, and every file that uses them
+// includes them itself (issue #40), but here they come before compat/msvc.h's C headers and TestHooks.h. Without
+// them every translation unit declares these names in another order, and MSVC, which orders an object's globals
+// by the names its translation unit declares (issue #43), places the test build's in another order (measured:
+// PatellaTest.exe's .data moves; issue #49).
 #include <cstdint>
-#include <string>
+#include <string> // IWYU pragma: keep
 #include <type_traits>
-#include <cstring>
-#include <cstdio>
-#include <cstdlib>
+#include <cstring> // IWYU pragma: keep
+#include <cstdio>  // IWYU pragma: keep
+#include <cstdlib> // IWYU pragma: keep
 // The Microsoft CRT's and compiler's spellings behind portable names (issue #43).
 #include "compat/msvc.h" // IWYU pragma: export
 #if !defined(PATELLA_CORE)

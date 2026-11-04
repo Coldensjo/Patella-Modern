@@ -11,7 +11,8 @@
 #include <io.h>
 #else
 #include <cerrno>
-#include <sys/types.h>
+#include <cstdio>
+#include <stdio.h> // NOLINT(modernize-deprecated-headers): off_t, which POSIX declares there, not <cstdio>
 #include <unistd.h>
 #endif
 

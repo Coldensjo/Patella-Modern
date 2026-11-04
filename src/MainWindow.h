@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include "common.h"
 #include "GUI.h"
 
 class TMapFrame;      // MapWindow.h

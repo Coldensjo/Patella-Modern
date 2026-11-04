@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include <version>
+#include <version> // IWYU pragma: keep (the feature-test macros of the #if lines)
 
 #if defined(__cpp_contracts) && __cpp_contracts >= 202502L && !defined(PATELLA_CXX26_STANDIN)
 #define PATELLA_HAS_CONTRACTS 1

@@ -8,8 +8,8 @@
 #pragma once
 
 #include "common.h"
-#include "Container.h"
 #include "Objects.h" // TObject
+#include <cstring>
 
 // "In(rightid,0,RIGHT_ANY-1)"; CheckRight treats RIGHT_ANY as "any right".
 inline constexpr int RIGHT_ANY = 50;

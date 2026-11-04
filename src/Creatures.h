@@ -14,9 +14,7 @@
 #pragma once
 
 #include "common.h"
-#include "Preferences.h" // SKILLS ("In(SkillNumber,0,SKILLS-1)")
-#include "graphics.h"    // TRGBColor
-#include "Objects.h"     // TObject
+#include "graphics.h" // TRGBColor
 
 inline constexpr int CREATURES = 150; // slots in the creature table (loops up to 0x96)
 inline constexpr int BUDDIES = 200;   // "NumberOfBuddies<BUDDIES"

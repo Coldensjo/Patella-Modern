@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <cstddef>
 
 #ifndef VK_NO_PROTOTYPES
 #define VK_NO_PROTOTYPES
