@@ -14,6 +14,7 @@
 #pragma once
 
 #include "common.h"
+#include "types/FixedString.h"
 #include "graphics.h" // TRGBColor
 
 inline constexpr int CREATURES = 150; // slots in the creature table (loops up to 0x96)
@@ -70,11 +71,11 @@ public:
 // A VIP list entry (0x2c bytes). Preferences.h has the stored data
 // (icon, description, notification) as TBuddy.
 struct TBuddyEntry {
-	uint32 CharacterID; // +0x00
-	char Name[30];      // +0x04, "strlen(Name)<30"
-	bool Online;        // +0x22
-	int LoginAction;    // +0x24, GetActionNumber() at the last change of Online
-	int Icon;           // +0x28
+	uint32 CharacterID;    // +0x00
+	TFixedString<30> Name; // +0x04, "strlen(Name)<30"
+	bool Online;           // +0x22
+	int LoginAction;       // +0x24, GetActionNumber() at the last change of Online
+	int Icon;              // +0x28
 };
 
 // The player's creature, steps and statistics.

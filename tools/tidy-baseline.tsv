@@ -10,7 +10,6 @@
 1	src/Utils.cpp	bugprone-integer-division	result of integer division used in a floating point context; possible loss of precision
 1	src/Utils.cpp	bugprone-switch-missing-default-case	switching on non-enum value without default case may not cover all cases
 1	src/Utils.cpp	cppcoreguidelines-owning-memory	initializing non-owner 'char *' with a newly created 'gsl::owner<>'
-1	src/Utils.cpp	cppcoreguidelines-pro-type-vararg	do not call c-style vararg functions
 1	src/common.h	cppcoreguidelines-use-enum-class	enum 'PROGRAM_ERROR' is unscoped, use 'enum class' instead
 1	src/vlong.cpp	bugprone-unchecked-string-to-number-conversion	'atoi' used to convert a string to an integer value, but function will not report conversion errors; consider using 'strtol' instead
 1	src/vlong.cpp	bugprone-unhandled-self-assignment	operator=() does not handle self-assignment properly

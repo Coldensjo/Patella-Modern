@@ -32,6 +32,7 @@
 #include "DialogWindow.h"
 #include "Map.h" // TMark
 #include "DialogElements.h"
+#include "types/FixedString.h"
 
 class TMainWindow;       // MainWindow.h
 class TSkillContextMenu; // ContextMenus.h
@@ -314,11 +315,10 @@ public:
 	int GetContentHeight() override;                       // +0xb4, 0x430a50, line 2654
 	int GetOpponentAt(int x, int y);                       // 0x430be0, line 2668
 
-	TScrollBar *ScrollBar;  // +0x30
-	int NumberOfOpponents;  // +0x34, at the last Draw; -1 at first
-	char MouseOverText[32]; // +0x38, a shortened name in full
+	TScrollBar *ScrollBar;          // +0x30
+	int NumberOfOpponents;          // +0x34, at the last Draw; -1 at first
+	TFixedString<32> MouseOverText; // +0x38, a shortened name in full
 };
-
 // The parts of the trade body: the two offers (TTradeOffers), the names
 // above them (TTradeNames) and the buttons below (TTradeButtons).
 class TTradeOffers : public TWindow {

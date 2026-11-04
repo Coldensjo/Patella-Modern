@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "types/FixedString.h"
 #include "Container.h"
 #include "Preferences.h"
 #include <type_traits>
@@ -40,7 +41,7 @@ static_assert(std::is_same_v<std::underlying_type_t<decltype(TALKBOXES)>, int>);
 struct TTalkbox {
 	int State, Order, RemainingTime, Mode;
 	int x, y, z, Lines;
-	char Text[10][40];
+	TFixedString<40> Text[10];
 	int Left, Top, Width, Height;
 };
 struct TTalkLine {

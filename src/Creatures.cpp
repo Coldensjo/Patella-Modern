@@ -26,6 +26,8 @@
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "sysinc.h"
 #include "common.h"
+#include "types/FixedString.h"
+#include <cstddef>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -86,6 +88,10 @@ TCallback NoCallback(nullptr, 0);
 
 static_assert(sizeof(TCreature) == 0x9c, "TCreature is 0x9c bytes");
 static_assert(sizeof(TBuddyEntry) == 0x2c, "TBuddyEntry is 0x2c bytes");
+// Name a TFixedString (issue #57): the original's offsets.
+static_assert(offsetof(TBuddyEntry, Name) == 0x04 && offsetof(TBuddyEntry, Online) == 0x22
+		&& offsetof(TBuddyEntry, LoginAction) == 0x24 && offsetof(TBuddyEntry, Icon) == 0x28,
+	"TBuddyEntry's fields");
 
 // --- Functions without exception frame (no line evidence) ------------------
 
@@ -1109,7 +1115,7 @@ void AddBuddy(uint32 CharacterID, const char *Name, bool Online)
 	}
 	TBuddyEntry *Buddy = &Buddies[Position];
 	Buddy->CharacterID = CharacterID;
-	strcpy(Buddy->Name, Name);
+	Buddy->Name.Assign(Name);
 	Buddy->Online = Online;
 	Buddy->LoginAction = 0;
 	Buddy->Icon = GetBuddyIcon(CharacterID);
@@ -1132,8 +1138,8 @@ void SetBuddyState(uint32 CharacterID, bool Online)
 		NumberOfOnlineBuddies++;
 	Buddy->LoginAction = GetActionNumber();
 	if (Online && GetBuddyNotify(CharacterID)) {
-		char Text[256];
-		sprintf(Text, "%s has logged in.", Buddy->Name);
+		TFixedString<256> Text;
+		Text.Format("{} has logged in.", Buddy->Name);
 		SetStatusMessage(Text, false);
 	}
 	SortBuddy(Position);

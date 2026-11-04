@@ -2318,10 +2318,15 @@ const TFake WorldFakes[] = {
 const int WorldFakeCount = sizeof(WorldFakes) / sizeof(WorldFakes[0]);
 
 // Our functions must have room for the jump: functions start 16-byte aligned
-// (/Gy), so a short one is followed by padding.
+// (/Gy), so a short one is followed by padding. One that starts on a 16-byte
+// boundary has the 16 bytes up to the next function's start: room enough. The
+// scan for a ret is for the others: it reads bytes, not instructions, and took
+// the operand of `mov eax,[0x2066c378]` for a ret once the data moved (issue #57).
 static void CheckRoom(const TFake &Fake, void *Code)
 {
 	uint8 *p = (uint8 *)Code;
+	if (((uintptr_t)Code & 15) == 0)
+		return;
 	for (int i = 0; i < 5; i++) {
 		if (p[i] == 0xc3 || p[i] == 0xc2) {
 			for (int j = i + (p[i] == 0xc3 ? 1 : 3); j < 5; j++) {

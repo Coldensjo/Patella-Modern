@@ -25,7 +25,14 @@
 #include "GUI.h"
 #include "Skins.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include "graphics.h"
+#include <cstddef>
+
+#if PATELLA_ORIGINAL_LAYOUT
+// The original's layout, with Text a TFixedString (issue #57).
+static_assert(sizeof(TTextButton) == 0x78 && offsetof(TTextButton, Text) == 0x44, "TTextButton's layout");
+#endif
 
 // Data. DialogElements.obj has no statics and no static initialiser. It keeps
 // a copy of the text table (Text.h, 0x5c0fe0-0x5c122b, then its regular
@@ -378,8 +385,8 @@ void TLabel::SetText(const char *_Text, bool Shorten)
 	const int Length = (int)strlen(_Text);
 	Text = new char[Length + 2];
 	FullText = new char[Length + 2];
-	strcpy(FullText, _Text);
-	strcpy(Text, _Text);
+	TStringBuffer(FullText, static_cast<std::size_t>(Length) + 2).Assign(_Text);
+	TStringBuffer(Text, static_cast<std::size_t>(Length) + 2).Assign(_Text);
 	Lines = 1;
 	for (int i = 0; i < Length; i++) {
 		if (Text[i] == '\n')
@@ -681,9 +688,10 @@ void TFormattedText::SetText(const char *_Text, bool Rearrange)
 		delete[] Line;
 	Text = nullptr;
 	Line = nullptr;
-	Text = new char[strlen(_Text) + 1];
-	Line = new char[strlen(_Text) + 1];
-	strcpy(Text, _Text);
+	const std::size_t Size = strlen(_Text) + 1;
+	Text = new char[Size];
+	Line = new char[Size];
+	TStringBuffer(Text, Size).Assign(_Text);
 	if (Rearrange)
 		Arrange();
 	TEND(734)
@@ -699,8 +707,9 @@ TLink::TLink(const char *_Text, const char *ButtonText, const char *_Destination
 	TASSERT(786, _Text!=NULL);
 	TASSERT(787, ButtonText!=NULL);
 	TBEGIN
-	Destination = new char[strlen(_Destination) + 1];
-	strcpy(Destination, _Destination);
+	const std::size_t Size = strlen(_Destination) + 1;
+	Destination = new char[Size];
+	TStringBuffer(Destination, Size).Assign(_Destination);
 	OpenURL = _OpenURL;
 	Label = new TLabel(Font, _Text);
 	TWindow::InsertChild(Label);
@@ -1020,7 +1029,7 @@ TTextButton::TTextButton(int x, int y, const char *_Text, int _ButtonUp, int _Bu
 {
 	TASSERT(1378, _Text!=NULL);
 	TASSERT1(1379, strlen(_Text)<50, strlen(_Text));
-	strcpy(Text, _Text);
+	Text.Assign(_Text);
 }
 
 // 0x466ed0, lines 1390-1391. No try block.
@@ -1029,7 +1038,7 @@ TTextButton::TTextButton(int x, int y, const char *_Text, TCallback _Callback, c
 {
 	TASSERT(1390, _Text!=NULL);
 	TASSERT1(1391, strlen(_Text)<50, strlen(_Text));
-	strcpy(Text, _Text);
+	Text.Assign(_Text);
 }
 
 // 0x4596d0, line 1410. The text moves by Buttons.Data28 while pressed.
@@ -1644,8 +1653,8 @@ void TEditLine::InsertChar(int Position, char c)
 {
 	TASSERT2(2302, Position<=(int)strlen(Text), Position, strlen(Text));
 	TBEGIN
-	char Help[2];
-	sprintf(Help, "%c", c);
+	TFixedString<2> Help;
+	Help.Format("{}", c);
 	Help[1] = 0;
 	InsertText(Position, Help, 1);
 	Arrange();
@@ -2811,8 +2820,9 @@ void TListBox::AddLine(const char *Text)
 {
 	TASSERT(3799, Text!=NULL);
 	TBEGIN
-	LineText(Lines) = new char[strlen(Text) + 1];
-	strcpy(LineText(Lines), Text);
+	const std::size_t Size = strlen(Text) + 1;
+	LineText(Lines) = new char[Size];
+	TStringBuffer(LineText(Lines), Size).Assign(Text);
 	Lines++;
 	Arrange();
 	TEND(3806)
@@ -2826,8 +2836,9 @@ void TListBox::SetLine(int Number, const char *Text)
 	TBEGIN
 	if (LineText(Number) != nullptr)
 		delete[] LineText(Number);
-	LineText(Number) = new char[strlen(Text) + 1];
-	strcpy(LineText(Number), Text);
+	const std::size_t Size = strlen(Text) + 1;
+	LineText(Number) = new char[Size];
+	TStringBuffer(LineText(Number), Size).Assign(Text);
 	Arrange();
 	TEND1(3839, Number)
 }
@@ -2967,8 +2978,9 @@ void TFontListBox::AddLine(const char *Text, TFont Font)
 {
 	TASSERT(4051, Text!=NULL);
 	TBEGIN
-	FontLines(Lines).Text = new char[strlen(Text) + 1];
-	strcpy(FontLines(Lines).Text, Text);
+	const std::size_t Size = strlen(Text) + 1;
+	FontLines(Lines).Text = new char[Size];
+	TStringBuffer(FontLines(Lines).Text, Size).Assign(Text);
 	FontLines(Lines).Font = Font;
 	Lines++;
 	Arrange();
@@ -2996,8 +3008,9 @@ void TFontListBox::SetLine(int Number, const char *Text, TFont Font)
 	TBEGIN
 	if (FontLines(Number).Text != nullptr)
 		delete[] FontLines(Number).Text;
-	FontLines(Number).Text = new char[strlen(Text) + 1];
-	strcpy(FontLines(Number).Text, Text);
+	const std::size_t Size = strlen(Text) + 1;
+	FontLines(Number).Text = new char[Size];
+	TStringBuffer(FontLines(Number).Text, Size).Assign(Text);
 	FontLines(Number).Font = Font;
 	Arrange();
 	TEND1(4091, Number)

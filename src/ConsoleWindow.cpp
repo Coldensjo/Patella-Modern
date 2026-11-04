@@ -38,6 +38,7 @@
 #include "compat/crt71.h"
 #include "GUI.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <sstream>
 #include <cstring>
 #include <ctime>
@@ -520,6 +521,7 @@ const char *TTextWindow::GetSelectedText()
 			if (Size != 1) {
 				SelectedText = new char[Size];
 				SelectedText[0] = 0;
+				TStringBuffer Selected(SelectedText, static_cast<std::size_t>(Size));
 				if (StartLine == EndLine) {
 					const TLineFormat *Format = GetLineFormat(StartLine);
 					if (Format == nullptr || Format->LineText != nullptr)
@@ -536,11 +538,11 @@ const char *TTextWindow::GetSelectedText()
 						CopyString(SelectedText + strlen(SelectedText), Format->LineText + StartOffset,
 							Format->LineLength - StartOffset + 1);
 						if (Format->LineEnd)
-							sprintf(SelectedText + strlen(SelectedText), "\n");
+							Selected.Append("\n");
 					} else {
 						CopyString(SelectedText + strlen(SelectedText), Format->LineText, Format->LineLength + 1);
 						if (Format->LineEnd)
-							sprintf(SelectedText + strlen(SelectedText), "\n");
+							Selected.Append("\n");
 					}
 				}
 				return SelectedText;
@@ -737,10 +739,11 @@ TTab::TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback _Callback)
 	DragY = 0;
 	DragRight = 0;
 	Unread = false;
-	Caption = new char[strlen(_Caption) + 1];
-	FullCaption = new char[strlen(_Caption) + 1];
+	const std::size_t Size = strlen(_Caption) + 1;
+	Caption = new char[Size];
+	FullCaption = new char[Size];
 	TrimString(Caption, _Caption);
-	strcpy(FullCaption, Caption);
+	TStringBuffer(FullCaption, Size).Assign(Caption);
 	Callback = _Callback;
 	Shortened = false;
 	const int Length = GetFittingTextLength(SkinProperties.StyleAA4.Data14.FontNumber, Caption,
@@ -1898,8 +1901,8 @@ void TConsoleWindow::SendInput()
 			return;
 		if (strlen(Addressee) > 29)
 			Addressee[29] = 0;
-		char Prefix[100];
-		sprintf(Prefix, "*%s* ", Addressee);
+		TFixedString<100> Prefix;
+		Prefix.Format("*{}* ", Addressee);
 		Input->SetText(Prefix);
 	}
 	TEND(2184)
@@ -2008,8 +2011,8 @@ bool TConsoleWindow::SaveChannel() const
 	TTab *CurrentTab = TabBar->CurrentTab;
 	TASSERT(2316, CurrentTab!=NULL);
 	TASSERT(2317, CurrentTab->getCaption()!=NULL);
-	char FileName[1024];
-	sprintf(FileName, "%s.txt", CurrentTab->getCaption());
+	TFixedString<1024> FileName;
+	FileName.Format("{}.txt", CurrentTab->getCaption());
 	FILE *File = fopen(FileName, "at");
 	if (File == nullptr)
 		return false;
@@ -2019,8 +2022,8 @@ bool TConsoleWindow::SaveChannel() const
 	fprintf(File, "\nChannel saved at %s", CRT71Time(MsvcCtime32(&Now))); // the day as MSVC 7.1 writes it
 	TextBuffer->Write(File);
 	fclose(File);
-	char Message[100];
-	sprintf(Message, "Channel appended to %s", FileName);
+	TFixedString<100> Message;
+	Message.Format("Channel appended to {}", FileName);
 	SetStatusMessage(Message, false);
 	return true;
 	TEND(2335)

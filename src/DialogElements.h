@@ -24,6 +24,7 @@
 #pragma once
 
 #include "common.h"
+#include "types/FixedString.h"
 #include "Container.h"
 #include "GUI.h"
 #include "graphics.h"
@@ -348,11 +349,10 @@ public:
 		const char *_Tooltip);                                                               // 0x466bc0, lines 1378-1379
 	TTextButton(int x, int y, const char *_Text, TCallback _Callback, const char *_Tooltip); // 0x466ed0, lines 1390-1391
 	void Draw(int Surface, int x, int y) override;                                           // +0x44, 0x4596d0, line 1410
-	virtual void SetText(const char *_Text) { strcpy(Text, _Text); }                         // +0x88, 0x466eb0
+	virtual void SetText(const char *_Text) { Text.Assign(_Text); }                          // +0x88, 0x466eb0
 
-	char Text[50]; // +0x44
+	TFixedString<50> Text; // +0x44
 };
-
 inline TObjectIcon::TObjectIcon(TObject _Obj, const TRGBColor *_Highlight, bool _Framed)
 {
 	Obj = _Obj;

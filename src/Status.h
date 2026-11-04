@@ -8,7 +8,9 @@
 #pragma once
 
 #include "common.h"
+#include "types/FixedString.h"
 #include "Objects.h" // TObject
+#include <cstddef>
 #include <cstring>
 
 // "In(rightid,0,RIGHT_ANY-1)"; CheckRight treats RIGHT_ANY as "any right".
@@ -30,12 +32,16 @@ struct TMessage {
 // One entry of the character list (0x54 bytes). The 30-byte limits come
 // from "strlen(Name)<30" and "strlen(World)<30".
 struct TCharacter {
-	char Name[30];      // +0x00
-	char World[30];     // +0x1e
-	uint32 IP;          // +0x3c, as received
-	char IPAddress[16]; // +0x40, dotted text
-	int Port;           // +0x50
+	TFixedString<30> Name;  // +0x00
+	TFixedString<30> World; // +0x1e
+	uint32 IP;              // +0x3c, as received
+	char IPAddress[16];     // +0x40, dotted text
+	int Port;               // +0x50
 };
+// The original's layout (no pointers: the same on x64), with the names TFixedStrings (issue #57).
+static_assert(sizeof(TCharacter) == 0x54 && offsetof(TCharacter, World) == 0x1e && offsetof(TCharacter, IP) == 0x3c
+		&& offsetof(TCharacter, IPAddress) == 0x40 && offsetof(TCharacter, Port) == 0x50,
+	"TCharacter's layout");
 
 // One error report from error.txt (0xa5a bytes, byte aligned). Date is
 // 26 bytes, the size of an asctime() string.

@@ -107,6 +107,19 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
   Done`, block 0x44a2f5): such a goto carries a NOLINT naming the block. Code the binary reaches from several
   branches (a copy, a skipped draw) is written with a value that says which (a skin of 0, an Index of -1) and an
   if; compare the images and run difftest, since the generated code usually changes.
+- No strcpy, strcat, sprintf, vsprintf or gets in src/ (issue #57; `tools/banned_calls.py`, a job of the hosted
+  CI). A text buffer of the original (`char Name[30]`) is a `TFixedString<30>` (src/types/FixedString.h: exactly
+  the array, converting to `char *` as it decayed) and is written with Assign, Append, Format and AppendFormat
+  (std::format's language; std::format_to_n on the product presets, the C++17 stand-in of src/compat/format.h in
+  the oracle); a buffer known only by a pointer is written through `TStringBuffer(Pointer, Size)`, with the size
+  its callers allocate (say where it comes from). The writes put the text and its NUL where the C function did and
+  nothing else; a text that does not fit (an overflow in the original) is cut at N - 1. A frozen structure's
+  member becomes a TFixedString only with static_asserts of its size and offsets (under PATELLA_ORIGINAL_LAYOUT,
+  in the .cpp, where it has pointers or a vtable). Keep the array where a TASSERT/TERROR/TEND argument needs it as
+  a `std::string` (TERROR_REASON's reason: Script.cpp's Filename, until M5), and pass `.Chars` where it goes
+  through `...` (MsvcSnprintf, a test's Logf): a TFixedString there is its N bytes, not a pointer. A bounded
+  `MsvcSnprintf(Fixed.Chars, sizeof(Fixed), ...)` stays (_snprintf's result and missing NUL; the text table's
+  runtime formats).
 - Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`, `TBEGIN`/`TEND*`) exactly where
   the binary has the corresponding blocks.
 - Behaviour must match the binary exactly, including odd behaviour (for example
@@ -311,7 +324,9 @@ may be the user's own.
 A local 7.72 server (C:\Tibia\gameserver, not in the repository) that both clients log into (issue #18):
 `python -I tools/testserver.py start` / `stop` start and stop it (only a server it started is stopped),
 `tools/patch_client.py`
-points copies of Tibia.exe and Patella.exe at 127.0.0.1 with the server's RSA key, and
+points copies of Tibia.exe and Patella.exe at 127.0.0.1 with the server's RSA key (the login port through
+Patella.exe's PDB since issue #57: the stores to `Servers[i].Port`; a search of the code in Tibia.exe; it reads
+the written file back and checks it; `--self-test`), and
 `tools/login_client.py` logs a client in (account 772001, password patella), enters the game and logs
 out, from build\run-orig or build\run-patella. Everything, including the server's configuration and
 backup: notes/testserver.md.
@@ -392,7 +407,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   on their own line, no column limit; the arguments of TASSERT*, TERROR* and TEND* are whitespace-sensitive,
   so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
   `.editorconfig` sets tabs, LF and UTF-8 for every editor. With Visual Studio's clang-format 22
-  (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h
+  (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/types/*.h
   src/testmode/*.cpp src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h
   src/res/resource.h tests/unit/*.cpp
   tests/vulkan/*.cpp tests/golden/*.cpp tests/golden/*.h` reports nothing; `clang-format -i` on a changed file
@@ -479,7 +494,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   `using ::size_t;` (libstdc++: a typedef), so a `std::size_t` local is reported on Linux's commands only
   (issue #39's 11 testmode findings). Expect such differences in either direction (the Windows targets see the
   Windows branches, the image sees libstdc++), and fix a finding of either. 14 findings in 14 entries on November 3, 2026 (issue #32 removed the ten use-nullptr ones, issue #38 the seven use-nodiscard ones), and 16 more
-  inside macro arguments.
+  inside macro arguments; 13 since issue #57 (Utils.cpp's sprintf, a vararg call, is gone).
 - CI (issue #11; plan 4.7): `.github/workflows/hosted.yml` runs on GitHub's runners for every push and pull
   request (and by hand, workflow_dispatch), reads no CipSoft file and uses no secret: windows-latest with MSVC
   x64 (`python -I tools/build.py --env windows-x64 cmake --preset windows-x64 -DPATELLA_CLIENT=OFF`, then the
@@ -489,8 +504,10 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   `--target PatellaTest_compile`; "Building" above), and on
   ubuntu-latest the image of docker/linux-x64, built from its pinned Dockerfile in each job: linux-x64-gcc and
   linux-x64-clang (Release and Debug, `python3 -I tools/build.py <preset>` in the container), clang-format (the
-  files above) and clang-tidy against the baseline (above; checks only, never --fix). Every action is pinned by
-  commit; `permissions: contents: read`.
+  files above), clang-tidy against the baseline (above; checks only, never --fix) and the grep gate of issue #57
+  (job "banned C string calls": `python3 -I tools/banned_calls.py --self-test && python3 -I tools/banned_calls.py`,
+  no call of strcpy, strcat, sprintf, vsprintf or gets in src/ outside src/Extern; comments and literals do not
+  count; run it locally the same way). Every action is pinned by commit; `permissions: contents: read`.
   `.github/workflows/self-hosted.yml` runs on this machine (runner labels `self-hosted, Windows, X64, patella`):
   oracle-x86 and the difftest, the windows-x64 client (Release and Debug), compare_traffic.py and
   compare_files.py for the x64 client and compare_rendering.py `--modes windowed` for the x64 client (issue #18),
@@ -520,6 +537,12 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   set; the difftest always uses the shim). One file alone: `python -I tools/build.py --env oracle-x86 cmake
   --build --preset oracle-x86 --target CMakeFiles/mfc_shim_check.dir/Release/src/<File>.cpp.obj` (or
   `Patella.dir` for real MFC).
+- TFixedString and the format stand-in (issue #57): tests/unit/fixed_string_test.cpp, in tests_unit (std::format_to_n)
+  and tests_unit_cxx26_standin (PATELLA_FORMAT_STANDIN: the C++17 stand-in of src/compat/format.h that the oracle
+  formats with), holds every write against strcpy, strcat and snprintf on a char[N] byte for byte, the truncation,
+  MsvcSnprintf's _snprintf results on a TFixedString, and the stand-in against std::format_to_n for every count;
+  the programs print which path they took. difftest checks the converted call sites against the original (the
+  oracle's stand-in path), the golden corpus the x64 std::format path where its tests are ported.
 - Each header compiles on its own (issue #49): `cmake/HeaderCheck.cmake` generates for every header of src/ (not
   src/Extern) a one-line source, `build/<preset>/header-check/<target>/<header>.cpp` with `#include "<header>"`,
   and compiles it, never linked, with the settings of a target that uses the header, once per target whose

@@ -17,6 +17,7 @@
 #include "Utils.h"
 #include "Container.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -53,7 +54,7 @@ int AutomapZoom;                                     // 0x719ec0
 int ConsoleHeight;                                   // 0x719ec4
 bool WindowedMaximized;                              // 0x719ec8
 bool HotkeyAutoSend[HOTKEYS];                        // 0x719ecc, saved as a '\n' after the text
-char Hotkeys[HOTKEYS][HOTKEY_LENGTH];                // 0x719ef0, "Hotkey = (Number,Text)"
+TFixedString<HOTKEY_LENGTH> Hotkeys[HOTKEYS];        // 0x719ef0, "Hotkey = (Number,Text)"
 int Engine;                                          // 0x71c2f0, -1 = not chosen
 int ConfineFramerate;                                // 0x71c2f4
 int NoStretching;                                    // 0x71c2f8, 0 or 1, 2 = not set yet
@@ -575,7 +576,7 @@ void SetHotkey(int Number, const char *Text, bool AutoSend)
 	TASSERT1(223, In(Number,0,HOTKEYS-1), Number);
 	TASSERT(224, Text!=NULL);
 	TASSERT1(225, strlen(Text)<HOTKEY_LENGTH, strlen(Text));
-	strcpy(Hotkeys[Number], Text);
+	Hotkeys[Number].Assign(Text);
 	HotkeyAutoSend[Number] = AutoSend;
 }
 
@@ -608,8 +609,9 @@ bool SetMotD(const char *Text)
 	LastMotD = Number;
 	if (MotD != nullptr)
 		delete[] MotD;
-	MotD = new char[strlen(Break + 1) + 1];
-	strcpy(MotD, Break + 1);
+	const std::size_t Size = strlen(Break + 1) + 1;
+	MotD = new char[Size];
+	TStringBuffer(MotD, Size).Assign(Break + 1);
 	return New;
 }
 
@@ -644,7 +646,7 @@ void SetBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 	TBuddy *Buddy = &Buddies(Number);
 	Buddy->CharacterID = CharacterID;
 	Buddy->Icon = Icon;
-	strcpy(Buddy->Description, Description);
+	Buddy->Description.Assign(Description);
 	Buddy->Notify = Notify;
 }
 
@@ -861,14 +863,15 @@ void InitPreferences()
 			if (strcmp(Identifier, "securemode") == 0)
 				SecureMode = Script.readNumber() == 1;
 			if (strcmp(Identifier, "buddy") == 0) {
-				// The description is copied without a length limit.
+				// The description is copied without a length limit: past the buffer in the original
+				// (undefined), cut to its BUDDYDESCRIPTION_LENGTH - 1 characters here (issue #57).
 				Script.readSymbol('(');
 				Buddies(NumberOfBuddyEntries).CharacterID = Script.readNumber();
 				Script.readSymbol(',');
 				Buddies(NumberOfBuddyEntries).Icon = Script.readNumber();
 				Script.readSymbol(',');
 				const char *Description = Script.readString();
-				strcpy(Buddies(NumberOfBuddyEntries).Description, Description);
+				Buddies(NumberOfBuddyEntries).Description.Assign(Description);
 				Script.readSymbol(',');
 				const char *Notify = Script.readIdentifier();
 				Buddies(NumberOfBuddyEntries).Notify = strcmp(Notify, "yes") == 0;

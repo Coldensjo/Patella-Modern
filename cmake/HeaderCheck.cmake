@@ -13,7 +13,8 @@
 # once per such target:
 #
 #	header_check_core            patella_core's settings (PATELLA_CORE)               every product preset
-#	header_check_cxx26_standin   tests_unit_cxx26_standin's (PATELLA_CXX26_STANDIN)   every product preset
+#	header_check_cxx26_standin   tests_unit_cxx26_standin's (PATELLA_CXX26_STANDIN,    every product preset
+#	                             PATELLA_FORMAT_STANDIN)
 #	header_check_testmode        patella_testmode's                                    every product preset
 #	header_check_render          tests_render's (the Vulkan engine's portable part)    every product preset
 #	header_check_client          Patella.exe's (PATELLA_VULKAN)                        windows-x64 (client)
@@ -30,6 +31,7 @@ include_guard(GLOBAL)
 # The portable code (patella_core, cmake/Core.cmake) and what it includes.
 set(PATELLA_HEADERS_CORE
 	common.h
+	compat/format.h
 	compat/msvc.h
 	compat/msvc_io.h
 	compat/msvc_portable.h
@@ -39,6 +41,7 @@ set(PATELLA_HEADERS_CORE
 	TMyException.h
 	TRSA.h
 	TXTEA.h
+	types/FixedString.h
 	Utils.h
 	vlong.h)
 # The C++26 features behind feature-test macros (issue #9): tests/unit, real or stand-ins.
@@ -172,8 +175,10 @@ function(patella_header_checks)
 		patella_target_language(header_check_core)
 		patella_target_warnings(header_check_core)
 		patella_target_hardening(header_check_core)
-		patella_header_check(header_check_cxx26_standin ${PATELLA_HEADERS_CXX26})
-		target_compile_definitions(header_check_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN)
+		# With the stand-ins of tests_unit_cxx26_standin: compat/format.h's (issue #57) too.
+		patella_header_check(header_check_cxx26_standin ${PATELLA_HEADERS_CXX26} compat/format.h
+			types/FixedString.h)
+		target_compile_definitions(header_check_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN PATELLA_FORMAT_STANDIN)
 		patella_target_language(header_check_cxx26_standin)
 		patella_target_warnings(header_check_cxx26_standin)
 		patella_target_hardening(header_check_cxx26_standin)
@@ -204,8 +209,9 @@ function(patella_header_checks)
 	endif()
 	# The oracle: Patella.exe's sources (src/*.cpp) and what they include, with real MFC and with the shim.
 	if(PATELLA_ORACLE)
-		set(headers common.h compat/msvc.h compat/msvc_io.h Container.h Skins.h TMyException.h TRSA.h
-			TXTEA.h Utils.h vlong.h ${PATELLA_HEADERS_CLIENT} ${PATELLA_HEADERS_ORACLE_ENGINES})
+		set(headers common.h compat/format.h compat/msvc.h compat/msvc_io.h Container.h Skins.h TMyException.h
+			TRSA.h TXTEA.h types/FixedString.h Utils.h vlong.h ${PATELLA_HEADERS_CLIENT}
+			${PATELLA_HEADERS_ORACLE_ENGINES})
 		patella_header_check(header_check_oracle ${headers})
 		patella_header_check_copy(header_check_oracle Patella)
 		target_compile_options(header_check_oracle PRIVATE /Zc:strictStrings-)

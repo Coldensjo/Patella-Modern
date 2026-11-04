@@ -508,7 +508,12 @@ class Pdb:
 		if tag == self.SYMTAG_ARRAY:
 			return "%s[%d]" % (self.kind(self.info(type_id, self.TI_GET_TYPEID)), self.info(type_id, self.TI_GET_COUNT))
 		if tag == self.SYMTAG_UDT:
-			return self.name(type_id)
+			name = self.name(type_id)
+			# TFixedString<N> (src/types/FixedString.h, issue #57) is exactly char[N]: its only member is the array
+			fixed = re.fullmatch(r"TFixedString<(\d+)>", name or "")
+			if fixed and self.length(type_id) == int(fixed.group(1)):
+				return "char[%s]" % fixed.group(1)
+			return name
 		if tag == self.SYMTAG_ENUM:
 			return "int" if self.length(type_id) == 4 else "enum%d" % self.length(type_id)
 		if tag == self.SYMTAG_BASETYPE:

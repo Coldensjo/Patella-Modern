@@ -17,6 +17,7 @@
 #include "Container.h"
 #include "Objects.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -766,8 +767,8 @@ void SetCharacter(int Number, const char *Name, const char *World, const uint8 *
 	TASSERT(672, World!=NULL);
 	TASSERT1(673, strlen(World)<30, strlen(World));
 	TCharacter *Character = &Characters[Number];
-	strcpy(Character->Name, Name);
-	strcpy(Character->World, World);
+	Character->Name.Assign(Name);
+	Character->World.Assign(World);
 	Character->IP = *reinterpret_cast<const uint32 *>(Address);
 	MsvcSnprintf(Character->IPAddress, sizeof(Character->IPAddress), "%d.%d.%d.%d",
 		Address[0], Address[1], Address[2], Address[3]);

@@ -39,6 +39,7 @@
 #include "sysinc.h"
 #include "GUI.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -483,14 +484,14 @@ TObjectContextMenu::TObjectContextMenu(int x, int y, int ParentWidth, int Parent
 			Separator = true;
 			TCreature *Creature = GetCreature(CreatureID);
 			if (Creature != nullptr && IsPlayer(CreatureID)) {
-				char Text[50];
-				sprintf(Text, "Message to %s", Creature->Name);
+				TFixedString<50> Text;
+				Text.Format("Message to {}", Creature->Name);
 				AddEntry(10100, Text, nullptr);
 				if (HasOwnPrivateChannel())
 					AddEntry(10016, "Invite to private chat", nullptr);
 				if (!IsBuddy(Creature->Name))
 					AddEntry(10015, "Add to VIP list", nullptr);
-				sprintf(Text, IsTalkIgnored(0, Creature->Name, -1) ? "Unignore %s" : "Ignore %s", Creature->Name);
+				Text.Format("{} {}", IsTalkIgnored(0, Creature->Name, -1) ? "Unignore" : "Ignore", Creature->Name);
 				AddEntry(10101, Text, nullptr);
 				// The binary passes the name to "Invite to Party" as well
 				// (unused; left out here, the compiler warns about it).
@@ -498,16 +499,16 @@ TObjectContextMenu::TObjectContextMenu(int x, int y, int ParentWidth, int Parent
 				case 0:
 				case 2:
 					if (Creature->PARTYFlag == 1) {
-						sprintf(Text, "Join %s's Party", Creature->Name);
+						Text.Format("Join {}'s Party", Creature->Name);
 						AddEntry(10019, Text, nullptr);
 					} else {
-						sprintf(Text, "Invite to Party");
+						Text.Assign("Invite to Party");
 						AddEntry(10018, Text, nullptr);
 					}
 					break;
 				case 1:
 					if (Creature->PARTYFlag == 2) {
-						sprintf(Text, "Revoke %s's Invitation", Creature->Name);
+						Text.Format("Revoke {}'s Invitation", Creature->Name);
 						AddEntry(10021, Text, nullptr);
 					}
 					break;
@@ -515,13 +516,13 @@ TObjectContextMenu::TObjectContextMenu(int x, int y, int ParentWidth, int Parent
 					break;
 				case 4:
 					if (Creature->PARTYFlag == 2) {
-						sprintf(Text, "Revoke %s's Invitation", Creature->Name);
+						Text.Format("Revoke {}'s Invitation", Creature->Name);
 						AddEntry(10021, Text, nullptr);
 					} else if (Creature->PARTYFlag == 3) {
-						sprintf(Text, "Pass Leadership to %s", Creature->Name);
+						Text.Format("Pass Leadership to {}", Creature->Name);
 						AddEntry(10022, Text, nullptr);
 					} else {
-						sprintf(Text, "Invite to Party");
+						Text.Assign("Invite to Party");
 						AddEntry(10018, Text, nullptr);
 					}
 					break;
@@ -665,7 +666,7 @@ void TObjectContextMenu::HandleEvent(int Event)
 		TCreature *Creature = GetCreature(CreatureID);
 		if (Creature != nullptr && CheckAnyRight()) {
 			char *Name = new char[30];
-			strcpy(Name, Creature->Name);
+			TStringBuffer(Name, 30).Assign(Creature->Name);
 			AddMessage(0x1c, reinterpret_cast<INT_PTR>(Name), 0);
 		}
 		break;
@@ -695,29 +696,29 @@ TCreatureContextMenu::TCreatureContextMenu(uint32 CreatureID, int x, int y, int 
 	Separator = true;
 	TCreature *Creature = GetCreature(this->CreatureID);
 	if (Creature != nullptr && IsPlayer(this->CreatureID)) {
-		char Text[50];
-		sprintf(Text, "Message to %s", Creature->Name);
+		TFixedString<50> Text;
+		Text.Format("Message to {}", Creature->Name);
 		AddEntry(10100, Text, nullptr);
 		if (HasOwnPrivateChannel())
 			AddEntry(10016, "Invite to private chat", nullptr);
 		if (!IsBuddy(Creature->Name))
 			AddEntry(10015, "Add to VIP list", nullptr);
-		sprintf(Text, IsTalkIgnored(0, Creature->Name, -1) ? "Unignore %s" : "Ignore %s", Creature->Name);
+		Text.Format("{} {}", IsTalkIgnored(0, Creature->Name, -1) ? "Unignore" : "Ignore", Creature->Name);
 		AddEntry(10101, Text, nullptr);
 		switch (GetPlayerPartyFlag()) {
 		case 0:
 		case 2:
 			if (Creature->PARTYFlag == 1) {
-				sprintf(Text, "Join %s's Party", Creature->Name);
+				Text.Format("Join {}'s Party", Creature->Name);
 				AddEntry(10019, Text, nullptr);
 			} else {
-				sprintf(Text, "Invite to Party");
+				Text.Assign("Invite to Party");
 				AddEntry(10018, Text, nullptr);
 			}
 			break;
 		case 1:
 			if (Creature->PARTYFlag == 2) {
-				sprintf(Text, "Revoke %s's Invitation", Creature->Name);
+				Text.Format("Revoke {}'s Invitation", Creature->Name);
 				AddEntry(10021, Text, nullptr);
 			}
 			break;
@@ -725,13 +726,13 @@ TCreatureContextMenu::TCreatureContextMenu(uint32 CreatureID, int x, int y, int 
 			break;
 		case 4:
 			if (Creature->PARTYFlag == 2) {
-				sprintf(Text, "Revoke %s's Invitation", Creature->Name);
+				Text.Format("Revoke {}'s Invitation", Creature->Name);
 				AddEntry(10021, Text, nullptr);
 			} else if (Creature->PARTYFlag == 3) {
-				sprintf(Text, "Pass Leadership to %s", Creature->Name);
+				Text.Format("Pass Leadership to {}", Creature->Name);
 				AddEntry(10022, Text, nullptr);
 			} else {
-				sprintf(Text, "Invite to Party");
+				Text.Assign("Invite to Party");
 				AddEntry(10018, Text, nullptr);
 			}
 			break;
@@ -834,7 +835,7 @@ void TCreatureContextMenu::HandleEvent(int Event)
 		TCreature *Creature = GetCreature(CreatureID);
 		if (Creature != nullptr && CheckAnyRight()) {
 			char *Name = new char[30];
-			strcpy(Name, Creature->Name);
+			TStringBuffer(Name, 30).Assign(Creature->Name);
 			AddMessage(0x1c, reinterpret_cast<INT_PTR>(Name), 0);
 		}
 		break;
@@ -856,13 +857,13 @@ TBuddyContextMenu::TBuddyContextMenu(uint32 _CharacterID, int x, int y, int Pare
 	CharacterID = _CharacterID;
 	const int Position = GetBuddyPosition(_CharacterID);
 	if (Position != -1) {
-		char Text[50];
-		sprintf(Text, "Edit %s", GetBuddyListName(Position));
+		TFixedString<50> Text;
+		Text.Format("Edit {}", GetBuddyListName(Position));
 		AddEntry(10302, Text, nullptr);
-		sprintf(Text, "Remove %s", GetBuddyListName(Position));
+		Text.Format("Remove {}", GetBuddyListName(Position));
 		AddEntry(10301, Text, nullptr);
 		if (CharacterID != GetPlayerID() && GetBuddyListOnline(Position)) {
-			sprintf(Text, "Message to %s", GetBuddyListName(Position));
+			Text.Format("Message to {}", GetBuddyListName(Position));
 			AddEntry(10303, Text, nullptr);
 		}
 		if (HasOwnPrivateChannel())
@@ -898,7 +899,7 @@ void TBuddyContextMenu::HandleEvent(int Event)
 		const int Position = GetBuddyPosition(CharacterID);
 		if (Position != -1 && CheckAnyRight()) {
 			char *Name = new char[30];
-			strcpy(Name, GetBuddyListName(Position));
+			TStringBuffer(Name, 30).Assign(GetBuddyListName(Position));
 			AddMessage(0x1c, reinterpret_cast<INT_PTR>(Name), 0);
 		}
 		break;
@@ -976,8 +977,8 @@ TTextContextMenu::TTextContextMenu(TTextWindow *_TextWindow, int _LineNumber, in
 		if (TextWindow->TextBuffer->IsRuleViolation() && Line->Mode == TALK_GAMEMASTER_ANSWER) {
 			HasSpeaker = false;
 		} else if (OtherSpeaker) {
-			char Text[50];
-			sprintf(Text, "Message to %s", Speaker);
+			TFixedString<50> Text;
+			Text.Format("Message to {}", Speaker);
 			AddEntry(10100, Text, nullptr);
 			if (TextWindow->TextBuffer->GetSelected() && TextWindow->TextBuffer->IsPrivateChannel()) {
 				if (HasOwnPrivateChannel())
@@ -987,7 +988,7 @@ TTextContextMenu::TTextContextMenu(TTextWindow *_TextWindow, int _LineNumber, in
 			}
 			if (!IsBuddy(Speaker))
 				AddEntry(10015, "Add to VIP list", nullptr);
-			sprintf(Text, IsTalkIgnored(0, Speaker, -1) ? "Unignore %s" : "Ignore %s", Speaker);
+			Text.Format("{} {}", IsTalkIgnored(0, Speaker, -1) ? "Unignore" : "Ignore", Speaker);
 			AddEntry(10101, Text, nullptr);
 			Separator = true;
 		}
@@ -1094,10 +1095,10 @@ TRequestContextMenu::TRequestContextMenu(TConsoleWindow *_ConsoleWindow, int _Li
 	LineNumber = _LineNumber;
 	TTalkLine *Line = ConsoleWindow->CurrentConsole->TextWindow->GetTalkLine(_LineNumber);
 	if (Line != nullptr && Line->Addressee != nullptr && strlen(Line->Addressee) != 0) {
-		char Text[50];
-		sprintf(Text, "Process %s", Line->Addressee);
+		TFixedString<50> Text;
+		Text.Format("Process {}", Line->Addressee);
 		AddEntry(10106, Text, nullptr);
-		sprintf(Text, "Remove %s", Line->Addressee);
+		Text.Format("Remove {}", Line->Addressee);
 		AddEntry(10107, Text, nullptr);
 		Separator = true;
 		AddEntry(10204, "Copy Name", nullptr);
@@ -1117,8 +1118,8 @@ void TRequestContextMenu::HandleEvent(int Event)
 		const char *Name = Line->Addressee;
 		switch (Event) {
 		case 10106: {
-			char Title[220];
-			sprintf(Title, "%s's Report", Name);
+			TFixedString<220> Title;
+			Title.Format("{}'s Report", Name);
 			ConsoleWindow->OpenChannel(TALK_PLAYER_ANSWER, TALK_GAMEMASTER_ANSWER, Name, -1, Title);
 			TTalkBuffer *TextBuffer = GetTextBuffer(TALK_PLAYER_ANSWER, Name, -1);
 			TASSERT(1221, TextBuffer!=NULL);

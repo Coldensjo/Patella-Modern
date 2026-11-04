@@ -21,6 +21,7 @@
 #include "sysinc.h"
 #include "Container.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -623,7 +624,7 @@ void AddTextualEffect(int rx, int ry, int rz, int Color, const char *Text)
 	const int Number = NewEffect(2, rx, ry, rz);
 	if (Number != -1) {
 		Effects[Number].Type = Color;
-		strcpy(Effects[Number].Text, Text);
+		Effects[Number].Text.Assign(Text);
 		Effects[Number].TextPhase = 0;
 	}
 	TEND(721)
@@ -1129,8 +1130,8 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 	for (int i = Block.Marks.min; i <= Block.Marks.max; i++)
 		Block.Marks(i) = TMark();
 	Block.MarkCount = 0;
-	char FileName[16];
-	sprintf(FileName, "%03d%03d%02d.map", bx, by, bz);
+	TFixedString<16> FileName;
+	FileName.Format("{:03}{:03}{:02}.map", bx, by, bz);
 	TReadBinaryFile File;
 	bool Opened = false;
 	try {
@@ -1181,7 +1182,7 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 			Block.MarkCount = 0;
 			if (DefaultTextBuffer != nullptr) {
 				char Message[256];
-				MsvcSnprintf(Message, 256, "Map file '%s' was corrupted!", FileName);
+				MsvcSnprintf(Message, 256, "Map file '%s' was corrupted!", FileName.Chars);
 				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 				SetConsoleChanged();
 			}
@@ -1202,8 +1203,8 @@ void SaveAutomapBlock(int Position)
 	TASSERT1(1317, In(Block.bx,0,999), Block.bx);
 	TASSERT1(1318, In(Block.by,0,999), Block.by);
 	TASSERT1(1319, In(Block.bz,0, 99), Block.bz);
-	char FileName[16];
-	sprintf(FileName, "%03d%03d%02d.map", Block.bx, Block.by, Block.bz);
+	TFixedString<16> FileName;
+	FileName.Format("{:03}{:03}{:02}.map", Block.bx, Block.by, Block.bz);
 	TWriteBinaryFile File;
 	bool Opened = false;
 	try {
@@ -1247,14 +1248,14 @@ void SaveAutomapBlock(int Position)
 			File.close();
 			if (DefaultTextBuffer != nullptr) {
 				char Message[256];
-				MsvcSnprintf(Message, 256, "Error while saving file '%s'!", FileName);
+				MsvcSnprintf(Message, 256, "Error while saving file '%s'!", FileName.Chars);
 				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 				SetConsoleChanged();
 			}
 		}
 	} else if (DefaultTextBuffer != nullptr) {
 		char Message[256];
-		MsvcSnprintf(Message, 256, "Could not save file '%s'!", FileName);
+		MsvcSnprintf(Message, 256, "Could not save file '%s'!", FileName.Chars);
 		AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 		SetConsoleChanged();
 	}

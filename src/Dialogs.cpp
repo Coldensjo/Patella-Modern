@@ -48,8 +48,17 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 #include "GUI.h"
 #include "Skins.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include "graphics.h"
+#include <cstddef>
 #include <ostream>
+
+#if PATELLA_ORIGINAL_LAYOUT
+// The original's layouts, with the texts TFixedStrings (issue #57).
+static_assert(offsetof(TDialog, Caption) == 0x50 && offsetof(TDialog, OkCallback) == 0xb4, "TDialog's layout");
+static_assert(offsetof(THotkeyDialog, Texts) == 0x2c && offsetof(THotkeyDialog, AutoSend) == 0x242c,
+	"THotkeyDialog's layout");
+#endif
 
 namespace {
 
@@ -568,7 +577,7 @@ TDialog::TDialog(const char *_Caption, TComponent *_Dialog)
 	TBEGIN
 	DrawingListLength = 9;
 	DrawingList = new TDrawing[9];
-	strcpy(Caption, _Caption);
+	Caption.Assign(_Caption);
 	Dragging = false;
 	OkCallback = NoCallback;
 	CancelCallback = NoCallback;
@@ -975,34 +984,34 @@ TCharacterListDialog::TCharacterListDialog()
 	SetChildArea(ListBox, SkinProperties.DataC08);
 	const int Characters = GetAccountCharacters();
 	for (int i = 0; i < Characters; i++) {
-		char Line[372];
+		TFixedString<372> Line;
 		Line[0] = 0;
-		sprintf(Line, "%s (%s)", GetCharacterName(i), GetCharacterWorld(i));
+		Line.Format("{} ({})", GetCharacterName(i), GetCharacterWorld(i));
 		ListBox->AddLine(Line);
 	}
 	if (GetConnectionState() == 8 && GetActiveCharacter() < Characters)
 		ListBox->SetSelection(GetActiveCharacter());
 	else
 		ListBox->SetSelection(0);
-	char Status[256];
+	TFixedString<256> Status;
 	const int PremiumDays = GetPremiumDays();
 	if (PremiumDays == 0) {
-		sprintf(Status, "<font=4><red=%d><green=%d><blue=%d>Account Status:\nFree Account",
+		Status.Format("<font=4><red={}><green={}><blue={}>Account Status:\nFree Account",
 			SkinProperties.StyleB08.Data78.Color.R, SkinProperties.StyleB08.Data78.Color.G,
 			SkinProperties.StyleB08.Data78.Color.B);
 	} else if (PremiumDays == 0xffff) {
-		sprintf(Status, "<font=4><red=%d><green=%d><blue=%d>Account Status:\nGratis Premium Account\n",
+		Status.Format("<font=4><red={}><green={}><blue={}>Account Status:\nGratis Premium Account\n",
 			SkinProperties.StyleB08.Data78.Color.R, SkinProperties.StyleB08.Data78.Color.G,
 			SkinProperties.StyleB08.Data78.Color.B);
 	} else if (PremiumDays < 14) {
-		sprintf(Status,
-			"<font=4><red=%d><green=%d><blue=%d>Account Status:\nPremium Account (<red=%d><green=%d><blue=%d>%d day%s left<red=%d><green=%d><blue=%d>)",
+		Status.Format(
+			"<font=4><red={}><green={}><blue={}>Account Status:\nPremium Account (<red={}><green={}><blue={}>{} day{} left<red={}><green={}><blue={}>)",
 			SkinProperties.StyleB08.Data78.Color.R, SkinProperties.StyleB08.Data78.Color.G,
 			SkinProperties.StyleB08.Data78.Color.B, 248, 96, 96, PremiumDays, PremiumDays < 2 ? "" : "s",
 			SkinProperties.StyleB08.Data78.Color.R, SkinProperties.StyleB08.Data78.Color.G,
 			SkinProperties.StyleB08.Data78.Color.B);
 	} else {
-		sprintf(Status, "<font=4><red=%d><green=%d><blue=%d>Account Status:\nPremium Account (%d day%s left)",
+		Status.Format("<font=4><red={}><green={}><blue={}>Account Status:\nPremium Account ({} day{} left)",
 			SkinProperties.StyleB08.Data78.Color.R, SkinProperties.StyleB08.Data78.Color.G,
 			SkinProperties.StyleB08.Data78.Color.B, PremiumDays, PremiumDays < 2 ? "" : "s");
 	}
@@ -1584,7 +1593,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		if (Selection > -1) {
 			TFont Font;
 			const char *Name = IgnoreList->GetLine(Selection, &Font);
-			strcpy(IgnoreEntries(Selection).Name, Name);
+			IgnoreEntries(Selection).Name.Assign(Name);
 			IgnoreEntries(Selection).Permanent = IgnorePermanently->IsChecked();
 		}
 		const TFont Font;
@@ -1602,7 +1611,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		if (Selection > -1) {
 			TFont Font;
 			const char *Name = WhiteList->GetLine(Selection, &Font);
-			strcpy(WhiteEntries(Selection).Name, Name);
+			WhiteEntries(Selection).Name.Assign(Name);
 			WhiteEntries(Selection).Permanent = AllowPermanently->IsChecked();
 		}
 		const TFont Font;
@@ -1619,7 +1628,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		if (Selection > -1) {
 			TFont Font;
 			const char *Name = IgnoreList->GetLine(Selection, &Font);
-			strcpy(IgnoreEntries(Selection).Name, Name);
+			IgnoreEntries(Selection).Name.Assign(Name);
 			IgnoreEntries(Selection).Permanent = IgnorePermanently->IsChecked();
 			IgnoreList->Clear();
 			int i;
@@ -1644,7 +1653,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		if (Selection > -1) {
 			TFont Font;
 			const char *Name = WhiteList->GetLine(Selection, &Font);
-			strcpy(WhiteEntries(Selection).Name, Name);
+			WhiteEntries(Selection).Name.Assign(Name);
 			WhiteEntries(Selection).Permanent = AllowPermanently->IsChecked();
 			WhiteList->Clear();
 			int i;
@@ -1930,8 +1939,9 @@ void TReportDialog::HandleEvent(int Event)
 {
 	TBEGIN
 	if (Event == 1 && strlen(TextEdit->Text) != 0) {
-		char *Text = new char[strlen(TextEdit->Text) + 1];
-		strcpy(Text, TextEdit->Text);
+		const std::size_t Size = strlen(TextEdit->Text) + 1;
+		char *Text = new char[Size];
+		TStringBuffer(Text, Size).Assign(TextEdit->Text);
 		AddMessage(0x33, reinterpret_cast<INT_PTR>(Text), 0);
 	}
 	SetActionState(0);
@@ -2061,7 +2071,7 @@ TUpdateDialog::TUpdateDialog(const char *FileName, int _DataSize)
 	StartTime = GetMilliseconds();
 	Progress = 0;
 	Done = false;
-	char Buffer[512];
+	TFixedString<512> Buffer;
 	const char *Text;
 	if (CompareStrings(FileName, "tibia.pic", -1) == 0) {
 		Text = TextDownloadingPictures;
@@ -2070,7 +2080,7 @@ TUpdateDialog::TUpdateDialog(const char *FileName, int _DataSize)
 	} else if (CompareStrings(FileName, "tibia.spr", -1) == 0) {
 		Text = TextDownloadingObjectGraphics;
 	} else {
-		sprintf(Buffer, "Downloading %s", FileName);
+		Buffer.Format("Downloading {}", FileName);
 		Text = Buffer;
 	}
 	TLabel *Label = new TLabel(SkinProperties.StyleB08.Data64, Text);
@@ -2266,8 +2276,9 @@ void THintsDialog::HandleEvent(int Event)
 		}
 		TASSERT(2974, Number!=-1);
 		const char *HelpText = GetEventHelpText(Number);
-		char *Text = new char[strlen(HelpText) + 1];
-		strcpy(Text, HelpText);
+		const std::size_t Size = strlen(HelpText) + 1;
+		char *Text = new char[Size];
+		TStringBuffer(Text, Size).Assign(HelpText);
 		AddMessageFirst(0x20, 0, 0);
 		AddMessageFirst(2, reinterpret_cast<INT_PTR>(GetEventHelpTitle(Number)), reinterpret_cast<INT_PTR>(Text));
 	}
@@ -2735,11 +2746,11 @@ TGraphicsOptionsDialog::TGraphicsOptionsDialog(void (*_OpenURL)(const char *URL)
 	NumberOfModes = GetSurface()->GetFullscreenModes(&Modes);
 	const TFullscreenMode *Current = GetFullscreenMode();
 	for (int i = 0; i < NumberOfModes; i++) {
-		char Frequency[16];
-		sprintf(Frequency, ", %d Hz", Modes[i].Frequency);
-		char Line[244];
-		sprintf(Line, "%d*%d, %d Bits%s", Modes[i].Width, Modes[i].Height, Modes[i].Depth,
-			Modes[i].Frequency != 0 ? Frequency : "");
+		TFixedString<16> Frequency;
+		Frequency.Format(", {} Hz", Modes[i].Frequency);
+		TFixedString<244> Line;
+		Line.Format("{}*{}, {} Bits{}", Modes[i].Width, Modes[i].Height, Modes[i].Depth,
+			Modes[i].Frequency != 0 ? Frequency.Chars : "");
 		ResolutionList->AddLine(Line);
 		if (i == 0
 			|| (Current->Width == Modes[i].Width && Current->Height == Modes[i].Height
@@ -2942,15 +2953,15 @@ void TAdvancedGraphicsDialog::Draw(int Surface, int x, int y)
 {
 	TBEGIN
 	TWindow::Draw(Surface, x, y);
-	char Text[612];
+	TFixedString<612> Text;
 	if (Framerate->Range->Value < 201)
-		sprintf(Text, "Adjust framerate limit: %d", Framerate->Range->Value);
+		Text.Format("Adjust framerate limit: {}", Framerate->Range->Value);
 	else
-		sprintf(Text, "Adjust framerate limit: max");
+		Text.Assign("Adjust framerate limit: max");
 	PrintFormattedText(Surface, SkinProperties.Style1394.Data68.x + x, SkinProperties.Style1394.Data68.y + y,
 		SkinProperties.StyleB08.Data78, Text);
 	const double FPS = GetSurface()->GetFPS();
-	sprintf(Text, "Current framerate: %2.2f", FPS);
+	Text.Format("Current framerate: {:2.2f}", FPS);
 	PrintFormattedText(Surface, SkinProperties.Style1394.Data70.x + x, SkinProperties.Style1394.Data70.y + y,
 		SkinProperties.StyleB08.Data78, Text);
 	switch (curEngine) {
@@ -3098,7 +3109,7 @@ THotkeyDialog::THotkeyDialog(void (*_OpenURL)(const char *URL))
 	InsertChild(ListBox);
 	SetChildArea(ListBox, SkinProperties.Data1484);
 	for (int i = 0; i < HOTKEYS; i++) {
-		strcpy(Texts[i], GetHotkey(i, &AutoSend[i]));
+		Texts[i].Assign(GetHotkey(i, &AutoSend[i]));
 		ListBox->AddLine(271);
 		UpdateLine(i);
 	}
@@ -3119,13 +3130,13 @@ void THotkeyDialog::UpdateLine(int Number)
 {
 	TASSERT1(3914, In(Number,0,HOTKEYS-1), Number);
 	TBEGIN
-	char Line[732];
+	TFixedString<732> Line;
 	if (Number < 12)
-		sprintf(Line, "F%d%s: %s", Number + 1, "", Texts[Number]);
+		Line.Format("F{}{}: {}", Number + 1, "", Texts[Number]);
 	if (Number >= 12 && Number <= 23)
-		sprintf(Line, "Shift+F%d%s: %s", Number - 11, "", Texts[Number]);
+		Line.Format("Shift+F{}{}: {}", Number - 11, "", Texts[Number]);
 	if (Number >= 24)
-		sprintf(Line, "Control+F%d%s: %s", Number - 23, "", Texts[Number]);
+		Line.Format("Control+F{}{}: {}", Number - 23, "", Texts[Number]);
 	TFont Font = SkinProperties.Style9A0.Data0C;
 	if (AutoSend[Number])
 		Font.Color = SkinProperties.Data14D4;
@@ -3154,7 +3165,7 @@ void THotkeyDialog::KeyPress(int Key)
 	default:
 		if (Selected != -1) {
 			TextEdit->KeyPress(Key);
-			strcpy(Texts[Selected], TextEdit->Text);
+			Texts[Selected].Assign(TextEdit->Text);
 			AutoSendCheckBox->SetEnabled(strlen(Texts[Selected]) != 0);
 			if (strlen(Texts[Selected]) == 0) {
 				AutoSend[Selected] = false;
