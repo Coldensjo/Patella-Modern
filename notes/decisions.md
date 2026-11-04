@@ -7951,3 +7951,26 @@ vsprintf or gets any more (167 calls on main b061421, 0 now; a grep gate in the 
   Studio's on windows-x64's commands of the changed files against main's: one new finding (MainFrm.cpp's
   `<cstdio>`, removed), the rest moved lines; `--headers` 0 on windows-x64 and oracle-x86. The x64 live checks
   (compare_traffic.py, compare_files.py, the reference sessions, compare_rendering.py) are the orchestrator's.
+- **The tools that read the images** (high; found by the first live `reference.py compare` after the merge, which
+  stopped before any client started). tools/patch_client.py found the login port's stores as the immediate
+  7171 in the 0x200 code bytes after the first reference to "server.tibia.com": with TServer::Address a
+  TFixedString the x64 InitServerList copies the four names (a bounded loop and memcpy each) before the four
+  stores, and the last store's immediate lay 6 bytes past the window ("expected 1 or 4 immediates, found 3"). It
+  now finds them structurally where the image has a PDB: the RVA of `Servers`, sizeof(TServer) and the offset of
+  TServer::Port (tools/client_state.py's dbghelp reader) give each server's Port field, and the code must hold
+  exactly one `mov dword ptr [field], 7171` per server (C7 05, the absolute address on x86 or a RIP-relative
+  disp32 on x64, the immediate), the four within 0x1000 bytes. Not InitServerList's symbol: the older builds
+  inline it into its caller, and their PDBs have none. Tibia.exe (no PDB) keeps the old search. After writing it
+  reads the file back as the client will (each name up to its NUL is --host, the four stores found again with
+  the new port, the RSA text), and `--self-test` checks the store matcher on made-up x86 and x64 code. On Tibia.exe,
+  the pre-#57 oracle and x64 Patella.exe and PatellaTest.exe (issue-28's build) and the new oracle it writes the
+  same bytes as before (cmp); on the new x64 Patella.exe and PatellaTest.exe dumpbin shows the four stores with the
+  new port at Servers + 0x70 i + 0x64. The names need nothing new: TFixedString::Assign copies up to the NUL, so
+  a NUL-padded host reads short as before. tools/client_state.py's layout check expected `char[30]` for
+  TContainer::Name and TCharacter::Name and got `TFixedString<30>` from the PDB, so every state reading of a new
+  image (compare_traffic, compare_files, the reference compare's dumps) would have failed: Pdb.kind reads a
+  `TFixedString<N>` of N bytes as `char[N]`. `--layout` passes on the new oracle (equal to the original, 0
+  mismatches) and the new x64 images (every field, size, vtable slot and code pattern the same as issue-28's x64
+  build; the globals moved). compare_rendering.py's add_import patches the new x64 images (patcap.dll and
+  PatcapLoaded imported), compare_imports.py reports the new oracle as the old one, and the self-tests of
+  reference.py, testmode_check.py and client_state.py pass. No client and no server were started.

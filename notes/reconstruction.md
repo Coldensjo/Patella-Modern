@@ -324,7 +324,9 @@ may be the user's own.
 A local 7.72 server (C:\Tibia\gameserver, not in the repository) that both clients log into (issue #18):
 `python -I tools/testserver.py start` / `stop` start and stop it (only a server it started is stopped),
 `tools/patch_client.py`
-points copies of Tibia.exe and Patella.exe at 127.0.0.1 with the server's RSA key, and
+points copies of Tibia.exe and Patella.exe at 127.0.0.1 with the server's RSA key (the login port through
+Patella.exe's PDB since issue #57: the stores to `Servers[i].Port`; a search of the code in Tibia.exe; it reads
+the written file back and checks it; `--self-test`), and
 `tools/login_client.py` logs a client in (account 772001, password patella), enters the game and logs
 out, from build\run-orig or build\run-patella. Everything, including the server's configuration and
 backup: notes/testserver.md.
