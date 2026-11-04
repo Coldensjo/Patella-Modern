@@ -11,8 +11,9 @@
 # special members (issue #34), the <c...> forms of the C headers and each file including what it uses
 # (issue #40), const locals and const member functions (issue #39), named casts instead of C-style casts
 # (issue #41), no goto but the original's shared exit paths (issue #42: a NOLINT names the binary's block),
-# and the bug-prone patterns. The checks that are noise for a reconstruction (its parameter lists and integer
-# types are the original's) are off.
+# anonymous namespaces instead of file-scope static (issue #44: the statics kept for the images' .bss carry a
+# NOLINT; the check leaves headers alone), and the bug-prone patterns. The checks that are noise for a
+# reconstruction (its parameter lists and integer types are the original's) are off.
 Checks: >
   -*,
   bugprone-*,
@@ -28,6 +29,7 @@ Checks: >
   cppcoreguidelines-use-enum-class,
   misc-const-correctness,
   misc-include-cleaner,
+  misc-use-anonymous-namespace,
   modernize-deprecated-headers,
   modernize-use-equals-default,
   modernize-use-equals-delete,
