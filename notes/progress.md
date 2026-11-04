@@ -336,6 +336,20 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #60 (branch issue-60, November 5, 2026): std::array and TFixedString for the C arrays (members,
+globals, locals), spans for vlong's byte arrays and the test mode's packet hooks. `python -I tools/build.py oracle-x86
+--fresh` (CTest 4/4, 0 warnings; the new static_asserts of the frozen layouts compile): 16,848,752 + 67 + 1,134,513
+checks and 3,201 vlong checks, 0 failures; with recording on (`golden_corpus`, the branch's own build\golden, 903 MB)
+the same counts. The x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13; the Debug build checks every
+std::array index) replays 16,461,713 checks, 1,521,619 retired, 0 not ported, 0 failures. tests/unit: tests_core 34/329
+to 35/337 on Windows and with mingw-w64, Linux 34/332 to 35/340 (vlong's span edge cases); tests_unit 57/10,080,
+tests_unit_cxx26_standin 57/10,082 (Linux 56/10,062, Clang 10,060, standin 56/10,064), tests_testmode 35/709,
+tests_render 14/359, tests_vulkan 14/1,309 unchanged; windows-x64-gcc and the Linux presets (--fresh) 11/11, 0 warnings
+everywhere. pecompare d9b3cfd and issue-60 at the same path: code only (the oracle resizes 83 functions, .text -0x950;
+x64 75, .text +0x800; out-of-line std::array::operator[] copies; no string of .rdata changed); `client_state.py
+--layout` on the new oracle equal to the original. macrocheck d9b3cfd issue-60: 2,108 calls, 0 differences. tidy_ci:
+13 findings, 0 new. banned_calls: 0. clang-format: clean.
+
 Patella-Modern issue #59 (branch issue-59, November 4, 2026): std::span parameters (src/compat/span.h's TSpan) for the
 packet buffers, Network.h's wrappers, TXTEA and TRSA. `python -I tools/build.py oracle-x86 --fresh` (CTest 4/4, 0
 warnings): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on (`golden_corpus`,

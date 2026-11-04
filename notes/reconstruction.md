@@ -148,6 +148,13 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   locals from the span (`uint8 *const data = Bytes.data(); const int size = static_cast<int>(Bytes.size());`), so
   the text stays and a null pointer or a size above INT_MAX fails as before. A C string whose null pointer an
   assertion reports, or whose end is its NUL, stays `const char *`.
+- No C arrays (issue #60): a member, global or local array is `std::array<T, N>` (nested for the original's
+  `T[X][Y]`: `std::array<std::array<T, Y>, X>`), a text `TFixedString<N>`. A frozen structure's array changes only
+  with static_asserts of the structure's size and the member's offset (the original's, from the oracle's PDB;
+  unconditional where the structure has no pointers, else under PATELLA_ORIGINAL_LAYOUT). Where the array decayed
+  to a pointer, `.data()` (a TFixedString: `.Chars`, also for `...` and for a span); an array a TASSERT/TERROR/TEND
+  argument needs as a pointer or a `std::string` stays until M5, with `NOLINT(modernize-avoid-c-arrays)` and the
+  reason on its line. tools/client_state.py reads a `std::array<T, N>` member as `T[N]`.
 - No `FILE` and no fopen, fclose or printf family in src/ outside src/types/File.h (issue #64; the same
   `tools/banned_calls.py`). A file is a `TFile`: exactly a `FILE *` (a frozen member keeps its 4 bytes; Script.h's
   four classes assert it), closed by its destructor, compared with nullptr and NULL as the pointer was (TASSERT
@@ -712,7 +719,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   - Replay: `build\windows-x64\tests\golden\Release\golden_runner.exe [--require] [<dir>]`, or the CTest test
     `golden` of every windows-x64 build. It prints each replayed test's checks next to the oracle's (with a test's
     retired checks apart: "290045 checks replayed + 9129 retired with the oracle (#28/#31) = 299174") and fails
-    (exit 1) on a failure, a different count (the replayed and retired checks together) or a stale corpus; without a corpus it says so and exits 77, which
+    (exit 1) on a failure, a different count (the replayed and retired checks together) or a stale corpus; a
+    check of MSVC's Debug library (a std::array index out of range) reports to stderr and ends it with exit code 3,
+    without a message box (issue #60); without a corpus it says so and exits 77, which
     CTest reports as skipped (hosted CI); `-DPATELLA_GOLDEN_REQUIRE=ON` (the self-hosted job) makes that a failure.
   - Staleness: every file carries the format version (golden::GOLDEN_FORMAT) and the SHA-256 of the Tibia.exe it
     was recorded from, which must be the 7.72 client's; every value carries its name and role, and the
