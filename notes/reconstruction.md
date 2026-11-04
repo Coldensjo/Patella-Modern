@@ -422,20 +422,46 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   switch inside one, so ProcessEvents' kept goto carries a NOLINT with the binary's block ("Writing the source").
 - No new clang-tidy findings (issue #11; plan 4.1): `tools/tidy-baseline.tsv` lists the findings outside the
   macro arguments, counted by file, check and message (not by line, so moved code keeps its entry), for the
-  compile commands of linux-x64-clang (patella_core's sources and the headers of src/ they include; the rest of
-  src/ needs the Windows headers and MFC) with clang-tidy 22.1.8 of the Docker image. `--baseline <file>` fails
+  compile commands of linux-x64-clang (the 16 sources of src/ that build on Linux: patella_core's, src/testmode's
+  and src/vulkan's portable ones, and the headers of src/ they include; the rest of src/ needs the Windows
+  headers and MFC) with clang-tidy 22.1.8 of the Docker image. `--baseline <file>` fails
   (exit 1) only on a finding that is not in the list, or one more of a kind, and reports the ones that are
-  gone; `--write-baseline <file>` writes the list. Check, and write it again after fixing findings or accepting
-  a new one on purpose (say why in the commit), from Windows:
+  gone; `--write-baseline <file>` writes the list.
+  The local check is `tools/tidy_ci.py` (issue #51): it runs the hosted clang-tidy job itself on this machine,
+  and reports exactly what the job reports on the same commit (the same clang-tidy version line, finding lines
+  and tidy.py summary, in the same order). It builds the image from the commit's docker/linux-x64 (cached:
+  seconds), streams the commit's files (`git archive`: no build tree of an earlier run, no untracked file) into
+  /work of the container, and runs the script it reads from the commit's hosted.yml; about 15 s.
 
   ```
-  python -I tools/build.py --env linux-x64-clang bash -c "cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --baseline tools/tidy-baseline.tsv"
+  python -I tools/tidy_ci.py                      # HEAD, as the hosted job checks it
+  python -I tools/tidy_ci.py --worktree           # the working tree (uncommitted changes), before committing
+  python -I tools/tidy_ci.py --rev <rev> --hosted <run id>   # and compare with that hosted run's job
+  ```
+
+  Write the baseline again after fixing findings or accepting a new one on purpose (say why in the commit),
+  from Windows:
+
+  ```
   python -I tools/build.py --env linux-x64-clang bash -c "cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline build/linux-x64-clang/tidy-baseline.tsv"
   ```
 
   (build.py works on a copy in the container, so the list is written into the mounted build\linux-x64-clang;
-  copy it to tools\tidy-baseline.tsv). On Linux the same tidy.py commands run directly after `cmake --preset
-  linux-x64-clang`. 14 findings in 14 entries on November 3, 2026 (issue #32 removed the ten use-nullptr ones, issue #38 the seven use-nodiscard ones), and 16 more
+  copy it to tools\tidy-baseline.tsv; it is run on the working tree, and build\linux-x64-clang keeps its
+  CMakeCache.txt from earlier runs, so check the result with tidy_ci.py). On Linux the same tidy.py commands
+  run directly after `cmake --preset linux-x64-clang`.
+  Which check a change must pass (issue #51; notes/decisions.md): both, for different files. The per-target
+  Windows runs (tidy.py with Visual Studio's clang-tidy on one target's compile_commands.json each: oracle-x86's
+  Patella, mfc_shim_check, difftest, communicationtest, sysinctest, vlongtest with `--extra-arg=-m32`;
+  windows-x64's Patella, PatellaTest, patella_core, patella_testmode, patella_render_vulkan) are the only check of
+  the code Linux does not compile (MFC, DirectX, OpenGL, Win32, the oracle) and of the `#ifdef _WIN32` parts of
+  the shared files; an M3 step runs them for its check. tidy_ci.py is the gate: what it reports is what CI
+  reports, and a change is not pushed until it passes. They disagree on the shared files because the compile
+  commands differ, not only the version: misc-const-correctness (22.1.3 and 22.1.8 alike) does not report a
+  local whose type is named through a using-declaration, and MSVC's `<cstddef>` declares `std::size_t` as
+  `using ::size_t;` (libstdc++: a typedef), so a `std::size_t` local is reported on Linux's commands only
+  (issue #39's 11 testmode findings). Expect such differences in either direction (the Windows targets see the
+  Windows branches, the image sees libstdc++), and fix a finding of either. 14 findings in 14 entries on November 3, 2026 (issue #32 removed the ten use-nullptr ones, issue #38 the seven use-nodiscard ones), and 16 more
   inside macro arguments.
 - CI (issue #11; plan 4.7): `.github/workflows/hosted.yml` runs on GitHub's runners for every push and pull
   request (and by hand, workflow_dispatch), reads no CipSoft file and uses no secret: windows-latest with MSVC

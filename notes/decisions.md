@@ -7141,3 +7141,46 @@ file-scope `static` of src/ (not src/Extern) is in an anonymous namespace, but t
   pointer); moving it out of the header is not this issue's. clang-tidy's
   misc-use-internal-linkage (not enabled) reports Network.cpp's TSocket class and Renderer.cpp's ListGpus and
   BestGpu, which have no `static` to move.
+
+## The local clang-tidy check that CI agrees with (Patella-Modern issue #51)
+
+Settled by Claude Opus 5.5, November 4, 2026. Issue #39 found that Visual Studio's clang-tidy 22.1.3 on the Windows
+targets' commands missed 11 misc-const-correctness findings in src/testmode that the hosted job (clang-tidy 22.1.8 of
+the Docker image, linux-x64-clang's commands) reported. tools/tidy_ci.py now runs the hosted job itself.
+
+- **The cause is the compile commands, not the version** (high). At 4fe3e83 (the commit before #39's fix) the image
+  reports the 11 (`std::size_t` locals in InputScript.cpp, PacketLog.cpp, Png.cpp, ServerReplay.cpp); 22.1.3 on
+  windows-x64's commands of the same four files reports none. A probe (build/logs/issue-51, not committed) run in
+  both: `std::size_t End = Text.find('\n');` is reported by 22.1.8 with libstdc++ and not by 22.1.3 with MSVC's
+  headers, while the same local as `unsigned long long` is reported by both. Without any header, a typedef brought
+  into a namespace by a using-declaration (`typedef unsigned long long G; namespace ns { using ::G; }`, a local
+  `ns::G End`) is reported by neither 22.1.3 nor 22.1.8, the same typedef declared in the namespace by both. MSVC's
+  `<cstddef>` has `using _CSTD size_t;` (`using ::size_t;`), libstdc++ `typedef __SIZE_TYPE__ size_t;` in namespace
+  std. So misc-const-correctness skips a local whose type is named through a using-declaration, in both versions,
+  and on MSVC's headers that is every `std::size_t` local. Other checks may differ the same way (the Windows targets
+  also see the `#ifdef _WIN32` branches the image never compiles); the version difference itself was not found to
+  matter.
+- **tools/tidy_ci.py, not the build.py command** (high). The documented `python -I tools/build.py --env
+  linux-x64-clang bash -c "cmake --preset linux-x64-clang && python3 -I tools/tidy.py ..."` ran the right clang-tidy
+  on the right commands, but not exactly the job: it checks the working tree (untracked files too), reuses
+  build\linux-x64-clang with its CMakeCache.txt from earlier runs, and uses the locally tagged image, which may
+  predate a change of the Dockerfile. tidy_ci.py does what the job does: it builds the image from the commit's
+  docker/linux-x64 (`git archive` of that directory as the context, untagged; Docker's cache makes it seconds),
+  streams `git archive <rev>` into /work of a new container (case-sensitive, no build tree, no CipSoft file) and
+  runs the script of the job's tidy.py step, read from the commit's hosted.yml, so the two cannot drift apart.
+  `--worktree` checks uncommitted changes the same way (a temporary index of the files git knows). `--hosted <run
+  id>` fetches the job's log (GitHub API, available as soon as the job is done) and compares the clang-tidy version
+  line, every finding line and every tidy.py summary line, in order; `--compare` does it on two saved outputs. No
+  new dependency: Docker and gh were already used. A pinned Windows clang-tidy 22.1.8 was not chosen: it would be a
+  new download, and it would still run on MSVC's headers, i.e. not report what the job reports.
+- **Both checks, for different files** (high). The per-target Windows runs (11 targets, Visual Studio's clang-tidy)
+  stay the only check of the code Linux does not compile (MFC, DirectX, OpenGL, Win32, the oracle) and of the Windows
+  branches of shared files; an M3 step runs them for its check and fixes what they report. tidy_ci.py is the gate a
+  change must pass before it is pushed: it is the hosted job. A finding of either is fixed (or, for the image, put in
+  the baseline on purpose).
+- **Proof** (high). On 4fe3e83 (pushed as issue-51-scratch, hosted run 41758724203, its clang-tidy job failed) and on
+  issue-51's head (hosted run below), `python -I tools/tidy_ci.py --rev <commit> --hosted <run>` reported "identical
+  to the hosted job": at 4fe3e83 58 lines (the 14 baseline findings and the 11 new ones, their repetition in the "new"
+  list, the summary: 25 findings, 11 new), at the head the 14 findings, 0 new, 0 gone. Comparing the head's output
+  with 4fe3e83's hosted log reports the difference (exit 3), so the comparison is not vacuous. Logs in
+  build/logs/issue-51 (not committed).

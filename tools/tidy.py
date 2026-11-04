@@ -17,6 +17,8 @@ commands of the preset linux-x64-clang in the Docker image of docker/linux-x64 (
 
 	python -I tools/tidy.py -p build/linux-x64-clang --all --baseline tools/tidy-baseline.tsv
 
+tools/tidy_ci.py runs that job locally, with the same result on the same commit (issue #51).
+
 Usage:
 	python -I tools/tidy.py [-p <build dir>] [--fix] [--checks <list>] [--extra-arg <arg>] [-v]
 		[--baseline <file> | --write-baseline <file>] (--all | <file> ...)
