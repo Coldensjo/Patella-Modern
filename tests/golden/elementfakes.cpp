@@ -336,48 +336,35 @@ void PatchElementFakes(void (*Redirect)(void *Function, void *Target))
 		Redirect(T.Ours, T.Fake);
 }
 
-// The stand-ins of the derived fakes stop in their base's constructor already, so their own code is
-// unreachable (C4702).
-#pragma warning(disable : 4702)
 
 // --- The runner's definitions of the fakes whose test is not ported yet ---------------------------------
 //
-// A ported test reaches none of these while contentwindowstest.cpp's ElementCreated is off; they stop the
-// runner: a ported test that reaches one needs that test's fakes ported first.
+// mainwindowtest.cpp's (MainWindow is not ported): the text button's first constructor and the label's font
+// constructor, which ContentWindows' fakes derive from, as they are outside MainWindow's test (its Running is
+// off then): they report the object (ContentWindows' ElementCreated) and do nothing else. The border's stop
+// the runner: a ported test that reaches one needs MainWindow's fakes ported first.
 
-void (*ElementCreated)(void *Object, const char *Kind, const char *Arguments) = nullptr;
-void ReportElement(void *, const char *Kind, const char *, ...)
-{
-	if (ElementCreated != nullptr)
-		NotPorted(Kind);
-}
-
-// TFakeSkinButton's, TFakeToggleButton's and TFakeMultiStateButton's constructors: consolewindow_tests.cpp.
-void TFakeSkinButton::SetRadioButtonGroup(TRadioButtonGroup *) { NotPorted("TFakeSkinButton::SetRadioButtonGroup"); }
-void TFakeScrollBarRange::SetValue(int) { NotPorted("TFakeScrollBarRange::SetValue"); }
-// TFakeScrollBar's constructor, TFakeScrollBarRange::SetRange and TFakeEditLine's members: consolewindow_tests.cpp.
-// TFakeFormattedText: contextmenus_tests.cpp.
 TFakeBorder::TFakeBorder(TWindow *, int) { NotPorted("TFakeBorder"); }
 TFakeBorder::TFakeBorder(TWindow *, int, int, int, int, int, int, int, int, int, int) { NotPorted("TFakeBorder"); }
 void TFakeBorder::FitToWindow() { NotPorted("TFakeBorder::FitToWindow"); }
-TFakeTextButton::TFakeTextButton(int, int, const char *, int, int, TCallback, const char *)
+TFakeTextButton::TFakeTextButton(int x, int y, const char *_Text, int Skin1, int Skin2, TCallback Callback,
+	const char *Tooltip)
 {
-	NotPorted("TFakeTextButton");
+	int Param = (int)(intptr_t)Tooltip;
+	ReportElement(this, "TextButton", "%d,%d,%s,%d,%d,@%p/%d,%d", x, y, _Text, Skin1, Skin2, (void *)Callback.Receiver,
+		Callback.Event, Param);
 }
-TFakeTextButton::TFakeTextButton(int, int, const char *, TCallback, const char *) { NotPorted("TFakeTextButton"); }
-TFakeTextToggleButton::TFakeTextToggleButton(int x, int y, const char *_Text, int, int, TCallback Callback,
-	const char *Tooltip1, const char *, bool)
-	: TFakeTextButton(x, y, _Text, Callback, Tooltip1)
+TFakeLabel::TFakeLabel(TFont Font, const char *_Text)
 {
-	NotPorted("TFakeTextToggleButton");
+	ReportElement(this, "Label", "%d,%d,%d,%d,%d,%s", Font.FontNumber, Font.Color.R, Font.Color.G, Font.Color.B,
+		Font.Alignment, _Text);
 }
-TFakeLabel::TFakeLabel(TFont, const char *) { NotPorted("TFakeLabel"); }
-TFakeLabel::TFakeLabel(int, int, int, int, TFont, const char *, bool) { NotPorted("TFakeLabel"); }
-void TFakeLabel::SetText(const char *, bool) { NotPorted("TFakeLabel::SetText"); }
-TFakeSkinIcon::TFakeSkinIcon(int) { NotPorted("TFakeSkinIcon"); }
+// mapwindowtest.cpp's: the hint button is never made.
 TFakeBlinkingButton::TFakeBlinkingButton(int, int, int, int, int, int, TCallback, const char *)
 {
 	NotPorted("TFakeBlinkingButton");
 }
+// The other fakes: dialogwindow_tests.cpp, contextmenus_tests.cpp, consolewindow_tests.cpp and
+// contentwindows_tests.cpp, on both sides.
 
 #endif
