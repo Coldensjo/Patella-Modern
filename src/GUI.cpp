@@ -34,6 +34,18 @@ vector<TTimer *> Timers(0, 0, 2, nullptr); // 0x5ccfa4, initialiser 0x559e30 (co
 } // namespace
 
 TSkinProperties SkinProperties; // 0x5ccfc8, initialiser 0x559e50 (constructor 0x496800)
+
+// The skins' arrays std::arrays (issue #60): the original's layouts (no pointers: the same on x64).
+static_assert(sizeof(TSkinProperties288) == 0x158 && offsetof(TSkinProperties288, Data10) == 0x10
+		&& offsetof(TSkinProperties288, Data60) == 0x60 && offsetof(TSkinProperties288, Data100) == 0x100,
+	"TSkinProperties288's layout");
+static_assert(sizeof(TSkinPropertiesB08) == 0x8c && offsetof(TSkinPropertiesB08, Data2C) == 0x2c, "TSkinPropertiesB08's layout");
+static_assert(sizeof(TSkinPropertiesF8C) == 0xc0 && offsetof(TSkinPropertiesF8C, Data38) == 0x38, "TSkinPropertiesF8C's layout");
+static_assert(sizeof(TCombatControlsProperties) == 0x50 && offsetof(TCombatControlsProperties, Buttons) == 0x08,
+	"TCombatControlsProperties' layout");
+static_assert(sizeof(TSkinProperties) == 0x1528 && offsetof(TSkinProperties, DataC88) == 0xc88
+		&& offsetof(TSkinProperties, Data1204) == 0x1204,
+	"TSkinProperties' layout");
 // Hotkeys stays static (issue #44): in an anonymous namespace MSVC puts it before SkinProperties in .bss
 // (both the oracle and x64), which moves both.
 static vector<THotkey> Hotkeys(0, 50, 10); // NOLINT(misc-use-anonymous-namespace): 0x5ce4f0, initialiser 0x559e60 (constructor 0x4976f0, operator() 0x496570)

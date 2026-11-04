@@ -18,6 +18,7 @@
 #include "vulkan/PresentWindow.h"
 #include "vulkan/Quads.h"
 #include "vulkan/Renderer.h"
+#include <array>
 #include <mmsystem.h>
 
 #include <volk.h>
@@ -46,9 +47,9 @@ namespace {
 
 // surfaceDX9.cpp's file data.
 int CurrentTargetNumber = -1;
-uint32 SurfaceKeys[NUMBER_OF_SURFACES_VULKAN]; // surfaceDX9.cpp ColorKey; 0 when the surface has none
-std::vector<TQuad> Vertices;                   // the queued quads (6 vertices each)
-int SurfaceCreated[NUMBER_OF_SURFACES_VULKAN];
+std::array<uint32, NUMBER_OF_SURFACES_VULKAN> SurfaceKeys; // surfaceDX9.cpp ColorKey; 0 when the surface has none
+std::vector<TQuad> Vertices;                               // the queued quads (6 vertices each)
+std::array<int, NUMBER_OF_SURFACES_VULKAN> SurfaceCreated;
 int CurrentTexture;
 uint32 FrameCount;
 double LastFPSTime;
@@ -677,7 +678,7 @@ void TSurfaceVulkan::ExitSurfaces()
 TSurfaceVulkan::TSurfaceVulkan()
 {
 	Ready = false;
-	memset(Rect, 0, sizeof(Rect));
+	memset(Rect.data(), 0, sizeof(Rect));
 	memset(&WindowRect, 0, sizeof(WindowRect));
 	memset(&SurfaceArea, 0, sizeof(SurfaceArea));
 	Initialized = false;

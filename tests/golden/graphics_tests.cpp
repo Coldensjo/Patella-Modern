@@ -457,7 +457,7 @@ void CompareMemoryCache(const char *What)
 	int Hash[HASH_TABLE_SIZE] = {};
 	ORIGINAL(memcpy(Hash, OMemoryHashTable, sizeof(Hash)));
 	golden::Output("memory hash table", Hash);
-	CHECK(memcmp(MemoryHashTable, Hash, sizeof(MemoryHashTable)) == 0, "%s: memory hash table", What);
+	CHECK(memcmp(MemoryHashTable.data(), Hash, sizeof(MemoryHashTable)) == 0, "%s: memory hash table", What);
 	bool Present = ORIGINAL_VALUE("memory cache table", bool, OMemoryCache != NULL);
 	if (MemoryCacheSize != Lists[0] || MemoryCache == nullptr || !Present)
 		return;
@@ -505,7 +505,7 @@ void CompareVideoCache(const char *What)
 	int Hash[HASH_TABLE_SIZE] = {};
 	ORIGINAL(memcpy(Hash, OVideoHashTable, sizeof(Hash)));
 	golden::Output("video hash table", Hash);
-	CHECK(memcmp(VideoHashTable, Hash, sizeof(VideoHashTable)) == 0, "%s: video hash table", What);
+	CHECK(memcmp(VideoHashTable.data(), Hash, sizeof(VideoHashTable)) == 0, "%s: video hash table", What);
 	if (VideoCache == nullptr || !Present || VideoCacheSize != Lists[0])
 		return;
 	size_t Size = (size_t)VideoCacheSize * sizeof(TVideoCacheItem);

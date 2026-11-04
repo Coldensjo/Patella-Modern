@@ -26,6 +26,7 @@
 #include "Utils.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include <array>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -35,27 +36,36 @@
 	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr " " Bug)
 
 // Data, in .bss order. 0x5cc75c is not used.
-int MemoryHashTable[HASH_TABLE_SIZE];   // 0x5cc430
-int VideoHashTable[HASH_TABLE_SIZE];    // 0x5cc5c0
-int NumberOfFonts;                      // 0x5cc750
-int NumberOfPictures;                   // 0x5cc754
-uint32 PictureSignature;                // 0x5cc758
-TFixedString<PATH_MAX> PictureFileName; // 0x5cc760
-int NumberOfSprites;                    // 0x5ccb60
-uint32 SpriteSignature;                 // 0x5ccb64
-TFixedString<PATH_MAX> SpriteFileName;  // 0x5ccb68
-int LeastRecentMemoryItem;              // 0x5ccf68, tail of the memory cache's LRU list
-int MostRecentMemoryItem;               // 0x5ccf6c, head
-int MemoryCacheSize;                    // 0x5ccf70
-uint8 *MemoryCacheData;                 // 0x5ccf74, MemoryCacheSize tiles of 32*32*3 bytes
-int LeastRecentVideoItem;               // 0x5ccf78
-int MostRecentVideoItem;                // 0x5ccf7c
-int VideoCacheSize;                     // 0x5ccf80
-TVideoCacheItem *VideoCache;            // 0x5ccf84
-TMemoryCacheItem *MemoryCache;          // 0x5ccf88
-TSprite *Sprites;                       // 0x5ccf8c
-TPicture *Pictures;                     // 0x5ccf90
-TFontInfo *Fonts;                       // 0x5ccf94
+std::array<int, HASH_TABLE_SIZE> MemoryHashTable; // 0x5cc430
+std::array<int, HASH_TABLE_SIZE> VideoHashTable;  // 0x5cc5c0
+int NumberOfFonts;                                // 0x5cc750
+int NumberOfPictures;                             // 0x5cc754
+uint32 PictureSignature;                          // 0x5cc758
+TFixedString<PATH_MAX> PictureFileName;           // 0x5cc760
+int NumberOfSprites;                              // 0x5ccb60
+uint32 SpriteSignature;                           // 0x5ccb64
+TFixedString<PATH_MAX> SpriteFileName;            // 0x5ccb68
+int LeastRecentMemoryItem;                        // 0x5ccf68, tail of the memory cache's LRU list
+int MostRecentMemoryItem;                         // 0x5ccf6c, head
+int MemoryCacheSize;                              // 0x5ccf70
+uint8 *MemoryCacheData;                           // 0x5ccf74, MemoryCacheSize tiles of 32*32*3 bytes
+int LeastRecentVideoItem;                         // 0x5ccf78
+int MostRecentVideoItem;                          // 0x5ccf7c
+int VideoCacheSize;                               // 0x5ccf80
+TVideoCacheItem *VideoCache;                      // 0x5ccf84
+TMemoryCacheItem *MemoryCache;                    // 0x5ccf88
+TSprite *Sprites;                                 // 0x5ccf8c
+TPicture *Pictures;                               // 0x5ccf90
+TFontInfo *Fonts;                                 // 0x5ccf94
+
+// The arrays std::arrays (issue #60): the original's layouts (no pointers: the same on x64).
+static_assert(sizeof(TFontInfo) == 0x71c && offsetof(TFontInfo, Widths) == 0x010 && offsetof(TFontInfo, Heights) == 0x390
+		&& sizeof(TFontInfo::Widths) == 0x380,
+	"TFontInfo's layout");
+static_assert(sizeof(TVideoCacheItem) == 0x5c && offsetof(TVideoCacheItem, Colors) == 0x18 && sizeof(TVideoCacheItem::Colors) == 0x30,
+	"TVideoCacheItem's layout");
+static_assert(sizeof(MemoryHashTable) == HASH_TABLE_SIZE * sizeof(int) && sizeof(VideoHashTable) == HASH_TABLE_SIZE * sizeof(int),
+	"the hash tables");
 
 // 0x48b3f0, passed to the eh vector constructor iterator by InitVideoCache.
 // It clears the four colours, then the font colour, which overlaps them

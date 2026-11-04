@@ -1242,7 +1242,7 @@ static std::string Dump(int s)
 		DumpGeometry(Out, C);
 		if (IsEntry) {
 			TContextMenuEntry *E = (TContextMenuEntry *)C;
-			sprintf(Text, " \"%s\" \"%s\" %d %d", E->Text, E->Shortcut, E->Callback.Event,
+			sprintf(Text, " \"%s\" \"%s\" %d %d", E->Text.Chars, E->Shortcut.Chars, E->Callback.Event,
 				E->Callback.Receiver == W ? 1 : 0);
 			Out += Text;
 		} else if (Kind != KIND_HELP) {

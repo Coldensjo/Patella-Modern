@@ -66,14 +66,17 @@ namespace {
 
 // Data, in .bss order. ContentWindows.obj's copy of the text table is
 // Text.h's (0x5c0678-0x5c08c3, then its copy of DefaultFontColor).
-char AutomapMouseOverText[100]; // 0x5c4398, a mark's text (TAutomapWindow::MouseHover)
-char SkillMouseOverText[256];   // 0x5c4400, "You have %d percent to go"
+TFixedString<100> AutomapMouseOverText; // 0x5c4398, a mark's text (TAutomapWindow::MouseHover)
+TFixedString<256> SkillMouseOverText;   // 0x5c4400, "You have %d percent to go"
 // At 0x5c4500, constructed by the static initialiser 0x559dd0 as
 // TCallback(NULL, 0) like the other window files' (ConsoleWindow.obj's is at
 // 0x5c4390, initialiser 0x559dc0); here TTradeButtons' constructor copies it.
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
+
+// The texts TFixedStrings (issue #60).
+static_assert(sizeof(AutomapMouseOverText) == 100 && sizeof(SkillMouseOverText) == 256, "the mouse-over texts");
 
 // --- The creators -----------------------------------------------------------------
 

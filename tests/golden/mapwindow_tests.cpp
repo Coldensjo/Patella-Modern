@@ -1355,7 +1355,7 @@ static void TestOperations(int Rounds)
 					DraggedObject.Type = Pick(Cumulatives);
 				// Darkness away from the player: "You can't see anything".
 				if (Random() % 4 == 0) {
-					memset(Ours->Light, 0, sizeof(Ours->Light));
+					memset(Ours->Light.data(), 0, sizeof(Ours->Light));
 					ORIGINAL(memset(Original + offsetof(TMapWindow, Light), 0, sizeof(Ours->Light)));
 				}
 				for (int n = 0; n < 3; n++) {

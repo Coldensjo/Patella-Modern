@@ -25,6 +25,7 @@
 #include "Creatures.h"
 #include "Objects.h"
 #include "graphics.h"
+#include <array>
 
 // The map surface in fields ("getWidth()<=MAP_WIDTH*32"): 480x352 pixels.
 inline constexpr int MAP_WIDTH = 15;
@@ -52,14 +53,14 @@ struct TTextualEffectPosition {
 // picture 7. Sprites counts the sprites of the current frame; while they are
 // the same as the first CachedSprites of the tile, nothing is drawn again.
 struct TCacheField {
-	int x;             // +0x00, position on surface 4
-	int y;             // +0x04
-	int CachedSprites; // +0x08, sprites in the tile
-	int Sprite[10];    // +0x0c
-	int SpriteX[10];   // +0x34
-	int SpriteY[10];   // +0x5c
-	int Sprites;       // +0x84
-	bool Copied;       // +0x88, blitted to the map surface in this frame
+	int x;                       // +0x00, position on surface 4
+	int y;                       // +0x04
+	int CachedSprites;           // +0x08, sprites in the tile
+	std::array<int, 10> Sprite;  // +0x0c
+	std::array<int, 10> SpriteX; // +0x34
+	std::array<int, 10> SpriteY; // +0x5c
+	int Sprites;                 // +0x84
+	bool Copied;                 // +0x88, blitted to the map surface in this frame
 };
 
 class TMapWindow : public TWindow {
@@ -119,20 +120,20 @@ public:
 		Light[FieldX][FieldY].B = Color.B * Brightness / 255;
 	}
 
-	int NumberOfNames;                              // +0x002c
-	TCreatureName Names[CREATURES];                 // +0x0030
-	int NumberOfTextualEffects;                     // +0x0738
-	TTextualEffectPosition TextualEffects[EFFECTS]; // +0x073c
-	TRGBColor Light[MAPSIZE_X][MAPSIZE_Y];          // +0x19fc, the light on each field
-	int PositionX;                                  // +0x25cc, GetMapPosition
-	int PositionY;                                  // +0x25d0
-	int PositionZ;                                  // +0x25d4
-	int MaxLevel;                                   // +0x25d8, the highest level drawn
-	int CoverLevel[MAPSIZE_X][MAPSIZE_Y];           // +0x25dc, the highest level with a full ground, 0 none
-	int ScrollX;                                    // +0x29cc, the player's walk offset + 32
-	int ScrollY;                                    // +0x29d0
-	TCacheField Cache[16][12];                      // +0x29d4
-	TComponent *HintButton;                         // +0x92d4, "Receive hint"
+	int NumberOfNames;                                             // +0x002c
+	std::array<TCreatureName, CREATURES> Names;                    // +0x0030
+	int NumberOfTextualEffects;                                    // +0x0738
+	std::array<TTextualEffectPosition, EFFECTS> TextualEffects;    // +0x073c
+	std::array<std::array<TRGBColor, MAPSIZE_Y>, MAPSIZE_X> Light; // +0x19fc, the light on each field
+	int PositionX;                                                 // +0x25cc, GetMapPosition
+	int PositionY;                                                 // +0x25d0
+	int PositionZ;                                                 // +0x25d4
+	int MaxLevel;                                                  // +0x25d8, the highest level drawn
+	std::array<std::array<int, MAPSIZE_Y>, MAPSIZE_X> CoverLevel;  // +0x25dc, the highest level with a full ground, 0 none
+	int ScrollX;                                                   // +0x29cc, the player's walk offset + 32
+	int ScrollY;                                                   // +0x29d0
+	std::array<std::array<TCacheField, 12>, 16> Cache;             // +0x29d4
+	TComponent *HintButton;                                        // +0x92d4, "Receive hint"
 };
 
 class TMapFrame : public TWindow {

@@ -78,6 +78,7 @@
 #include "graphics.h"
 #include "sysinc.h"
 
+#include <array>
 #include <initializer_list>
 #include <map>
 #include <new>
@@ -1806,6 +1807,17 @@ template <class T, size_t N> static void Pointers(std::string &Out, int s, T *co
 		Pointer(Out, s, Array[i]);
 }
 template <size_t N> static void Numbers(std::string &Out, const int (&Array)[N])
+{
+	for (size_t i = 0; i < N; i++)
+		Number(Out, Array[i]);
+}
+// The members that are std::arrays (issue #60), as the arrays they were.
+template <class T, size_t N> static void Pointers(std::string &Out, int s, const std::array<T *, N> &Array)
+{
+	for (size_t i = 0; i < N; i++)
+		Pointer(Out, s, Array[i]);
+}
+template <size_t N> static void Numbers(std::string &Out, const std::array<int, N> &Array)
 {
 	for (size_t i = 0; i < N; i++)
 		Number(Out, Array[i]);

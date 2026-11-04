@@ -31,6 +31,7 @@
 #include "Skins.h"   // Skins
 #include "Status.h"  // SetMouseOverText
 #include "Objects.h" // TObject
+#include <array>
 #include <cstring>
 #include <memory>
 
@@ -216,10 +217,10 @@ public:
 	void SetColor(int Mask, int Color);   // 0x457440, line 934
 	void SetColors(const int *ColorData); // 0x4575a0, line 942
 
-	int Outfit;          // +0x24
-	int Colors[4];       // +0x28, head, body, legs, feet
-	int Direction;       // +0x38, kept, not drawn
-	TRGBColor Highlight; // +0x3c
+	int Outfit;                // +0x24
+	std::array<int, 4> Colors; // +0x28, head, body, legs, feet
+	int Direction;             // +0x38, kept, not drawn
+	TRGBColor Highlight;       // +0x3c
 };
 
 // One skin, sized to it (vtable 0x5614f8, 0x28 bytes).

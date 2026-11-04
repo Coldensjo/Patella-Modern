@@ -59,6 +59,17 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 static_assert(offsetof(TDialog, Caption) == 0x50 && offsetof(TDialog, OkCallback) == 0xb4, "TDialog's layout");
 static_assert(offsetof(THotkeyDialog, Texts) == 0x2c && offsetof(THotkeyDialog, AutoSend) == 0x242c,
 	"THotkeyDialog's layout");
+// The arrays std::arrays and TFixedStrings (issue #60).
+static_assert(sizeof(THotkeyDialog) == 0x2464 && sizeof(THotkeyDialog::Texts) == 0x2400 && sizeof(THotkeyDialog::AutoSend) == 0x24,
+	"THotkeyDialog's size");
+static_assert(sizeof(TReconnectWindow) == 0x23c && offsetof(TReconnectWindow, Text) == 0x30, "TReconnectWindow's layout");
+static_assert(sizeof(TOutfitDialog) == 0x27c && offsetof(TOutfitDialog, PartButtons) == 0x30
+		&& offsetof(TOutfitDialog, ColorButtons) == 0x44 && offsetof(TOutfitDialog, Colors) == 0x25c,
+	"TOutfitDialog's layout");
+static_assert(sizeof(TEditBuddyDialog) == 0x68 && offsetof(TEditBuddyDialog, IconButtons) == 0x3c, "TEditBuddyDialog's layout");
+static_assert(sizeof(TRuleViolationDialog) == 0x114 && offsetof(TRuleViolationDialog, Reasons) == 0x4c,
+	"TRuleViolationDialog's layout");
+static_assert(sizeof(TEditMarkDialog) == 0xe8 && offsetof(TEditMarkDialog, TypeButtons) == 0xb0, "TEditMarkDialog's layout");
 // The owning members as std::unique_ptr (issue #58): each a pointer at the original's offset.
 static_assert(sizeof(std::unique_ptr<TTimer>) == sizeof(TTimer *) && alignof(std::unique_ptr<TTimer>) == alignof(TTimer *)
 		&& sizeof(std::unique_ptr<TFocusGroup>) == sizeof(TFocusGroup *)
@@ -1249,7 +1260,7 @@ TOutfitDialog::TOutfitDialog(const int *Data)
 	Colors[2] = Data[3];
 	Colors[3] = Data[4];
 	TComponent::SetSize(SkinProperties.DataC58, SkinProperties.DataC5C);
-	OutfitIcon = new TOutfitIcon(Outfit, 2, Colors, &SkinProperties.DataC74);
+	OutfitIcon = new TOutfitIcon(Outfit, 2, Colors.data(), &SkinProperties.DataC74);
 	TBorder *Border = new TBorder(OutfitIcon, 0, 9, 0, 11, 10, 0, 8, 0, SkinProperties.DataC70);
 	InsertChild(Border);
 	SetChildArea(Border, SkinProperties.DataC60);
@@ -1318,7 +1329,7 @@ void TOutfitDialog::HandleEvent(int Event)
 		OutfitIcon->SetOutfit(Outfit);
 		OutfitIcon->Arrange();
 	} else if (Event == 1) {
-		SendOutfit(Outfit, Colors);
+		SendOutfit(Outfit, Colors.data());
 		SetActionState(0);
 	} else if (Event == 2) {
 		SetActionState(0);
@@ -2965,7 +2976,7 @@ void TAdvancedGraphicsDialog::ShowDevice()
 	snprintf(DeviceLabelName, sizeof(DeviceLabelName), "%s", Name);
 	char Text[sizeof(DeviceLabelName) + 16];
 	if (DeviceLabelName[0] != 0)
-		snprintf(Text, sizeof(Text), "Device: %s", DeviceLabelName);
+		snprintf(Text, sizeof(Text), "Device: %s", DeviceLabelName.Chars);
 	else
 		snprintf(Text, sizeof(Text), "%s", TextSelectDevice);
 	DeviceLabel->SetText(Text, true);

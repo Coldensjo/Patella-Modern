@@ -55,6 +55,13 @@ TCallback NoCallback(nullptr, 0);
 
 } // namespace
 
+#if PATELLA_ORIGINAL_LAYOUT
+// The texts TFixedStrings (issue #60).
+static_assert(sizeof(TContextMenuEntry) == 0x74 && offsetof(TContextMenuEntry, Text) == 0x24
+		&& offsetof(TContextMenuEntry, Shortcut) == 0x56,
+	"TContextMenuEntry's layout");
+#endif
+
 // --- Functions without line evidence at the start ------------------------------
 
 // 0x43d6f0 (deleting destructor 0x43d710). The skill window forgets the menu.
