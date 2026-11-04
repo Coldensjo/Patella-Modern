@@ -5,6 +5,7 @@
 #include <doctest/doctest.h>
 
 #include "TRSA.h"
+#include "compat/span.h"
 
 #include <cstring>
 #include <string>
@@ -168,7 +169,7 @@ TEST_CASE("TRSA: encryption with exponent 65537")
 	CHECK(memcmp(Block, Expected, 128) == 0);
 
 	try {
-		Rsa.Encrypt(NULL);
+		Rsa.Encrypt(patella::TSpan<uint8, 128>(static_cast<uint8 *>(nullptr), 128)); // the original's NULL (issue #59)
 		FAIL("no exception");
 	} catch (const char *Reason) {
 		CHECK(Message(Reason) == "Data pointer is NULL");

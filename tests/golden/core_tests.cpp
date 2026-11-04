@@ -58,7 +58,7 @@ void TestXTEA()
 		TXTEA Cipher;
 		Cipher.SetKey(Key);
 		uint32 Ours[2] = {Plain[0], Plain[1]};
-		Cipher.EncryptBlock((uint8 *)Ours);
+		Cipher.EncryptBlock(TXTEA::TBlock((uint8 *)Ours, 8));
 		CHECK(Ours[0] == Original[0] && Ours[1] == Original[1], "XTEA encrypt differs");
 
 		// The original object: vtable, then the key.
@@ -73,7 +73,7 @@ void TestXTEA()
 
 		ORIGINAL(Decrypt(Original, (const uint32 *)Key));
 		golden::Output("decrypt", Original);
-		Cipher.DecryptBlock((uint8 *)Ours);
+		Cipher.DecryptBlock(TXTEA::TBlock((uint8 *)Ours, 8));
 		ORIGINAL(DecryptBlock(Object, 0, (uint8 *)Wrapped));
 		golden::Output("decrypt block", Wrapped);
 		CHECK(Original[0] == Plain[0] && Ours[0] == Plain[0] && Ours[1] == Plain[1] && Wrapped[0] == Plain[0],
@@ -273,7 +273,7 @@ void TestBuffers()
 		uint8 Ours[1024], Original[1024];
 		memset(Ours, 0xcd, sizeof(Ours));
 		memset(Original, 0xcd, sizeof(Original));
-		TWriteBuffer W(Ours, sizeof(Ours));
+		TWriteBuffer W(Ours);
 #if GOLDEN_ORACLE
 		uint32 WO[3];
 		WriteInit(WO, 0, Original, sizeof(Original));
@@ -311,7 +311,7 @@ void TestBuffers()
 				ORIGINAL(PutStr(WO, 0, Texts[i]));
 				break;
 			case 4:
-				W.PutBytes((const uint8 *)Texts[i], 7);
+				W.PutBytes(OriginalSpan((const uint8 *)Texts[i], 7));
 				ORIGINAL(PutBytes(WO, 0, (const uint8 *)Texts[i], 7));
 				break;
 			}
@@ -322,7 +322,7 @@ void TestBuffers()
 		golden::Output("write position", WrittenPosition);
 		CHECK(memcmp(Ours, Original, sizeof(Ours)) == 0 && W.Position == (int)WrittenPosition, "TWriteBuffer differs");
 
-		TReadBuffer R(Ours, W.Position);
+		TReadBuffer R(OriginalSpan(Ours, W.Position));
 #if GOLDEN_ORACLE
 		uint32 RO[3];
 		ReadInit(RO, 0, Original, WO[2]);
@@ -354,13 +354,13 @@ void TestBuffers()
 			case 3:
 				memset(A, 'x', sizeof(A));
 				memset(B, 'x', sizeof(B));
-				R.GetString(A, MaxLength);
+				R.GetString(OriginalSpan(A, MaxLength));
 				ORIGINAL(GetStr(RO, 0, B, MaxLength));
 				golden::Output("string", B);
 				CHECK(memcmp(A, B, sizeof(A)) == 0, "GetString(MaxLength %d) differs", MaxLength);
 				break;
 			case 4:
-				R.GetBytes(X, 7);
+				R.GetBytes(OriginalSpan(X, 7));
 				ORIGINAL(GetBytes(RO, 0, Y, 7));
 				golden::OutputBytes("bytes", Y, 7);
 				CHECK(memcmp(X, Y, 7) == 0, "GetBytes differs");

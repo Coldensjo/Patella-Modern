@@ -336,6 +336,21 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #59 (branch issue-59, November 4, 2026): std::span parameters (src/compat/span.h's TSpan) for the
+packet buffers, Network.h's wrappers, TXTEA and TRSA. `python -I tools/build.py oracle-x86 --fresh` (CTest 4/4, 0
+warnings): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on (`golden_corpus`,
+the branch's own build\golden, 903 MB) the same counts, and CTest again on the final head. The x64 golden_runner
+(windows-x64 and -debug, --fresh, CTest 13/13) replays 16,461,713 checks, 1,521,619 retired, 0 not ported, 0
+failures. tests/unit: tests_unit 52/10,027 to 57/10,080 and tests_unit_cxx26_standin 52/10,029 to 57/10,082 on
+Windows and with mingw-w64 (span_test.cpp: 5 cases, 53 assertions), Linux 51/10,009 to 56/10,062 (Clang 10,007 to
+10,060) and standin 51/10,011 to 56/10,064; tests_core 32/313 to 34/329 (Linux 32/316 to 34/332: the buffers' span
+edge cases and a TXTEA block inside a packet); tests_testmode 35/709, tests_render 14/359, tests_vulkan 14/1,309
+unchanged; windows-x64-gcc and the Linux presets (--fresh) 11/11, 0 warnings everywhere. pecompare db0e223 and
+issue-59 at the same path: the oracle resizes the 12 changed functions, x64 38 (notes/decisions.md); no string
+changed. macrocheck db0e223 issue-59: 2,108 calls, 0 differences. tidy_ci: 13 findings, 0 new; Visual Studio's
+clang-tidy on windows-x64's commands of the changed .cpp files: nothing new on a changed line. banned_calls: 0.
+clang-format: clean.
+
 Patella-Modern issue #30, third part (branch issue-30c, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh`
 (CTest 4/4, 0 warnings) after Control moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong
 checks, 0 failures; with recording on (`golden_corpus`, 903 MB) the same counts. The x64 golden_runner (windows-x64 and

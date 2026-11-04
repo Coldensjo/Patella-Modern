@@ -20,6 +20,7 @@
 #include "Talk.h"
 #include "Text.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <cstddef>
 #include <cstdio>
@@ -97,9 +98,9 @@ void SendLogin(uint32 AccountID, const char *Password)
 	uint8 Data[128];
 	for (int i = 0; i < 128; i++)
 		Data[i] = (uint8)rand();
-	TWriteBuffer Buffer(Data, 128);
+	TWriteBuffer Buffer(Data);
 	Buffer.PutByte(0);
-	Buffer.PutBytes(Key, 16);
+	Buffer.PutBytes(Key);
 	Buffer.PutQuad(AccountID);
 	Buffer.PutString(Password);
 	PATELLA_TEST_RSA_BLOCK(Data)
@@ -139,7 +140,7 @@ void SendLogin(uint32 AccountID, const char *Password)
 	SendQuad(DatSignature);
 	SendQuad(SpriteSignature);
 	SendQuad(PictureSignature);
-	SendBytes(Data, 128);
+	SendBytes(Data);
 	SendCommand(false);
 	TEND1(96, AccountID)
 }
@@ -157,9 +158,9 @@ void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 	uint8 Data[128];
 	for (int i = 0; i < 128; i++)
 		Data[i] = (uint8)rand();
-	TWriteBuffer Buffer(Data, 128);
+	TWriteBuffer Buffer(Data);
 	Buffer.PutByte(0);
-	Buffer.PutBytes(Key, 16);
+	Buffer.PutBytes(Key);
 	Buffer.PutByte(GetGamemaster() != 0);
 	Buffer.PutQuad(AccountID);
 	Buffer.PutString(Name);
@@ -198,7 +199,7 @@ void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 	BeginCommand(10);
 	SendWord(2);
 	SendWord(772);
-	SendBytes(Data, 128);
+	SendBytes(Data);
 	SendCommand(false);
 	TEND1(166, AccountID)
 }
@@ -946,7 +947,7 @@ void ReceivePatchBlock()
 	TASSERT(1083, PatchData!=NULL);
 	BlockSize = GetWord();
 	TASSERT(1085, PatchDataCount+BlockSize<=PatchDataSize);
-	GetBytes(PatchData.get() + PatchDataCount, BlockSize);
+	GetBytes(patella::TSpan<uint8>(PatchData.get() + PatchDataCount, static_cast<std::size_t>(BlockSize)));
 	PatchDataCount += BlockSize;
 	SetProgress((PatchDataCount * 100) / PatchDataSize);
 	if (PatchDataCount != PatchDataSize)
@@ -1009,8 +1010,8 @@ void ReceiveCharacterList()
 		char Name[40];
 		char World[32];
 		uint8 Address[8];
-		GetString(Name, 30);
-		GetString(World, 30);
+		GetString(patella::TSpan<char>(Name).first(30));
+		GetString(patella::TSpan<char>(World).first(30));
 		for (int j = 0; j < 4; j++)
 			Address[j] = GetByte();
 		const int Port = GetWord();
@@ -1126,7 +1127,7 @@ uint32 ReadCreature(int Type, int x, int y, int z)
 		CreatureID = GetQuad();
 		Creature = AddCreature(RemoveID, CreatureID);
 		TASSERT1(1302, Creature!=NULL, CreatureID);
-		GetString(Creature->Name, 30);
+		GetString(patella::TSpan<char>(Creature->Name).first(30));
 		if (!IsPlayer(CreatureID))
 			CapitalizeString(Creature->Name);
 		Creature->Health = GetByte();
@@ -1656,7 +1657,7 @@ void ReceiveOpenContainer(int &Container)
 		CloseContainer(Container);
 	const int Type = GetWord();
 	char Name[40];
-	GetString(Name, 30);
+	GetString(patella::TSpan<char>(Name).first(30));
 	const int Capacity = GetByte();
 	const bool HasParent = GetByte() != 0;
 	OpenContainer(Container, TObject{Type, 0, 0}, Name, Capacity, HasParent);
@@ -1775,7 +1776,7 @@ void ReceiveOwnTrade()
 {
 	TBEGIN
 	char Name[40];
-	GetString(Name, 30);
+	GetString(patella::TSpan<char>(Name).first(30));
 	SetOwnOffer(Name);
 	const int Count = GetByte();
 	for (int i = 0; i < Count; i++) {
@@ -1797,7 +1798,7 @@ void ReceiveCounterTrade()
 {
 	TBEGIN
 	char Name[40];
-	GetString(Name, 30);
+	GetString(patella::TSpan<char>(Name).first(30));
 	const bool Open = SetCounterOffer(Name);
 	const int Count = GetByte();
 	for (int i = 0; i < Count; i++) {
@@ -1862,7 +1863,7 @@ void ReceiveAnimatedText()
 	AbsoluteToRelative(&rx, &ry, &rz);
 	const int Color = GetByte();
 	char Text[24];
-	GetString(Text, 10);
+	GetString(patella::TSpan<char>(Text).first(10));
 	AddTextualEffect(rx, ry, rz, Color, Text);
 	TEND2(2132, rx, ry)
 }
@@ -2107,7 +2108,7 @@ void ReceiveTalk()
 	TBEGIN
 	const uint32 StatementID = GetQuad();
 	char Name[36];
-	GetString(Name, 30);
+	GetString(patella::TSpan<char>(Name).first(30));
 	Mode = GetByte();
 	char Text[632];
 	int Time = 0;
@@ -2119,7 +2120,7 @@ void ReceiveTalk()
 		const int x = GetWord();
 		const int y = GetWord();
 		const int z = GetByte();
-		GetString(Text, 512);
+		GetString(patella::TSpan<char>(Text).first(512));
 		if (IsTalkIgnored(Mode, Name, -1)) {
 			SetTalkThrottle();
 			return;
@@ -2130,7 +2131,7 @@ void ReceiveTalk()
 	case 4:
 	case 9:
 	case 11:
-		GetString(Text, 512);
+		GetString(patella::TSpan<char>(Text).first(512));
 		if (IsTalkIgnored(Mode, Name, -1)) {
 			SetTalkThrottle();
 			return;
@@ -2142,7 +2143,7 @@ void ReceiveTalk()
 	case 12:
 	case 14:
 		Channel = GetWord();
-		GetString(Text, 512);
+		GetString(patella::TSpan<char>(Text).first(512));
 		if (IsTalkIgnored(Mode, Name, -1)) {
 			SetTalkThrottle();
 			return;
@@ -2151,18 +2152,18 @@ void ReceiveTalk()
 		break;
 	case 6:
 		Time = -(int)GetQuad();
-		GetString(Text, 512);
+		GetString(patella::TSpan<char>(Text).first(512));
 		break;
 	case 7:
 	case 8:
-		GetString(Text, 512);
+		GetString(patella::TSpan<char>(Text).first(512));
 		break;
 	case 16:
 	case 17: {
 		const int x = GetWord();
 		const int y = GetWord();
 		const int z = GetByte();
-		GetString(Text, 512);
+		GetString(patella::TSpan<char>(Text).first(512));
 		if (!IsTalkIgnored(Mode, Name, -1)) {
 			AddTalkbox(Mode, Name, x, y, z, Text);
 			return;
@@ -2190,7 +2191,7 @@ void ReceiveChannelList()
 	Channels[0] = Count;
 	for (int i = 0; i < Count; i++) {
 		Channels[i + 1] = GetWord();
-		GetString(Names + i * 30, 30);
+		GetString(patella::TSpan<char>(Names + i * 30, 30));
 	}
 	AddMessage(0x12, reinterpret_cast<INT_PTR>(Channels), reinterpret_cast<INT_PTR>(Names));
 	TEND1(2487, Count)
@@ -2203,7 +2204,7 @@ void ReceiveOpenChannel()
 	TBEGIN
 	ChannelID = GetWord();
 	char *Name = new char[30];
-	GetString(Name, 30);
+	GetString(patella::TSpan<char>(Name, 30));
 	AddMessage(48, ChannelID, reinterpret_cast<INT_PTR>(Name));
 	TEND1(2502, ChannelID)
 }
@@ -2213,7 +2214,7 @@ void ReceiveOpenPrivateConversation()
 {
 	TBEGIN
 	char *Name = new char[30];
-	GetString(Name, 30);
+	GetString(patella::TSpan<char>(Name, 30));
 	AddMessage(0x2f, 0, reinterpret_cast<INT_PTR>(Name));
 	TEND(2515)
 }
@@ -2236,7 +2237,7 @@ void ReceiveRemoveRuleViolation()
 {
 	TBEGIN
 	char Name[44];
-	GetString(Name, 30);
+	GetString(patella::TSpan<char>(Name).first(30));
 	TTalkBuffer *Channel = GetTextBuffer(6, nullptr, -1);
 	if (Channel != nullptr) {
 		Channel->cursor = Channel->first;
@@ -2258,7 +2259,7 @@ void ReceiveCancelRuleViolation()
 {
 	TBEGIN
 	char Name[44];
-	GetString(Name, 30);
+	GetString(patella::TSpan<char>(Name).first(30));
 	TTalkBuffer *Channel = GetTextBuffer(8, Name, -1);
 	if (Channel != nullptr) {
 		TFixedString<444> Text;
@@ -2289,7 +2290,7 @@ void ReceiveOwnChannel()
 	TBEGIN
 	ChannelID = GetWord();
 	char *Name = new char[40];
-	GetString(Name, 40);
+	GetString(patella::TSpan<char>(Name, 40));
 	AddMessage(49, ChannelID, reinterpret_cast<INT_PTR>(Name));
 	TEND1(2606, ChannelID)
 }
@@ -2317,7 +2318,7 @@ void ReceiveTextMessage()
 	Mode = GetByte();
 	TASSERT1(2634, Mode>=0&&Mode<TALK_MODE_BEYONDLAST, Mode);
 	char Text[632];
-	GetString(Text, 512);
+	GetString(patella::TSpan<char>(Text).first(512));
 	if (Mode == 18 || Mode == 19 || Mode == 22)
 		AddMessageTalkbox(Mode, Text);
 	if (Mode == 23 || Mode == 21 || Mode == 20)
@@ -2460,7 +2461,7 @@ void ReceiveBuddy()
 	TBEGIN
 	CharacterID = GetQuad();
 	char Name[44];
-	GetString(Name, 30);
+	GetString(patella::TSpan<char>(Name).first(30));
 	const int State = GetByte();
 	AddBuddy(CharacterID, Name, State == 1);
 	const char *Copy = MsvcStrdup(Name);

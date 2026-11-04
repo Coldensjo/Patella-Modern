@@ -8731,3 +8731,74 @@ and Communication's port; notes/reconstruction.md, "Checking", the use.
   way to a required argument, the test server's folder became `PATELLA_TESTSERVER` (issue #2) and
   `PATELLA_CIPSOFT_DIR`'s default C:\Tibia\Patella (notes/reconstruction.md, "The machine's folders"). The
   paths in the entries above are as they were then.
+
+## std::span parameters: the packet buffers, TXTEA and TRSA (Patella-Modern issue #59)
+
+Settled by Claude Opus 5.5, November 4, 2026. The sixth change of M4 (plan section 7, "Views"): the packet buffers',
+TXTEA's and TRSA's interfaces take spans, and no pointer and length pair is left in their signatures.
+
+- **The type** (high). `src/compat/span.h`: `patella::TSpan<T, Extent>` is `std::span<T, Extent>` where the library has
+  it (`PATELLA_HAS_SPAN` 1: every product preset), and a C++17 stand-in in the oracle, which compiles with /std:c++17
+  until M6, as compat/format.h does for std::format_to_n (#57). The stand-in has the part of std::span's interface the
+  code uses (empty, pointer and count, arrays, std::array, the conversions to const and between extents with
+  std::span's explicitness, data/size/size_bytes/empty, operator[], front/back, begin/end, first/last with a count or a
+  fixed one, subspan) and, like std::span without a hardened library, checks no precondition. `IsSpanLayout` asserts the
+  size on both paths (a pointer for a fixed extent, a pointer and a std::size_t for the dynamic one; std::span's in
+  MSVC's, libstdc++'s and libc++'s library), the alignment and trivial copying; a TSpan is a parameter or a local,
+  never a member of a frozen structure. tests/unit/span_test.cpp (5 cases, compile-time checks of every conversion's
+  explicitness) runs in tests_unit with std::span and in tests_unit_cxx26_standin with the stand-in
+  (`PATELLA_SPAN_STANDIN`, also on header_check_cxx26_standin). The header is on cmake/HeaderCheck.cmake's core and
+  oracle lists.
+- **What takes spans** (high). Utils.h: `TReadBuffer(TSpan<uint8>)`, `TWriteBuffer(TSpan<uint8>)` (explicit),
+  `GetString(TSpan<char>)`, `GetBytes(TSpan<uint8>)`, `PutBytes(TSpan<const uint8>)`. TXTEA.h: `SetKey(TKey)` and
+  `EncryptBlock`/`DecryptBlock(TBlock)`, `TKey = TSpan<const uint8, 16>`, `TBlock = TSpan<uint8, 8>` (the sizes the
+  original's pointers implied). TRSA.h: `Encrypt(TSpan<uint8, 128>)`. And Network.h's wrappers of the packet buffers,
+  which Communication.cpp calls: `SendBytes(TSpan<const uint8>)`, `GetString(TSpan<char>)`, `GetBytes(TSpan<uint8>)`.
+- **The macros' text** (high). Each body defines the original's parameters as locals from the span, under the names
+  the assertions' text uses (`data`, `size`, `Buffer`, `MaxLength`, `Count`): the pointer is `data()`, the int is
+  `static_cast<int>(size())`. So `TASSERT(286, data!=NULL)`, `TASSERT2(372, Position<=Size-Count, ...)`,
+  `TEND1(470, MaxLength)` and the others are as written (macrocheck db0e223 issue-59: 2,108 calls, 0 differences),
+  and the int keeps the original's meaning: a span with a null pointer fails the same assertion; a size above INT_MAX
+  reads as the original's negative size (lines 287, 388) or negative MaxLength (no limit). No caller of the client
+  makes such a span; the tests do (below). TXTEA and TRSA keep their null checks on `data()` ("Data pointer is NULL").
+- **Kept as C strings** (high). `TWriteBuffer::PutString(const char *s)` and Network's `SendString(const char *Text)`:
+  their assertions (437, 316) report a null pointer, which a std::string_view cannot carry (constructing one from a
+  null C string faults before the assertion; difftest's error round passes one). `TRSA::SetPublicKey(const char *)`:
+  the digits end at the first NUL, and tools/patch_client.py's `--rsa` writes a shorter modulus into the literal's
+  place padded with NULs; a std::string_view's length would be the literal's 309, and DecimalToVlong would read the
+  padding (atoi of "" is 0, a digit). None of the three is a pointer and length pair; the issue's std::string_view
+  part has no clean target in these interfaces.
+- **The callers** (high). Communication.cpp's 22 `GetString(Name, 30)`: the limit is the protocol's and the arrays are
+  larger (Name[32] to Text[632]), so `GetString(patella::TSpan<char>(Name).first(30))`, and `TSpan<char>(Name, 30)`
+  where the buffer is a new[] of that size or a row of one (`Names + i * 30`). `TWriteBuffer Buffer(Data)`,
+  `PutBytes(Key)`, `SendBytes(Data)`: the arrays' sizes, 128, 16 and 128, the counts the original passed. The patch
+  block: `TSpan<uint8>(PatchData.get() + PatchDataCount, BlockSize)`. Network.cpp: `SendBuffer(SendData)` (sizeof, as
+  before), `ReceiveBuffer({ReceiveData, 0})`, the packet header `TSpan<uint8>(&ReceiveData[ReceivePacketEnd], 2)`, the
+  blocks `TXTEA::TBlock(&SendData[i], 8)`, SetSymmetricKey's key `TXTEA::TKey(Key, 16)`. Same pointers and counts as
+  before, so the same bytes; with a hardened library (Debug libstdc++, `_GLIBCXX_ASSERTIONS`) `first(30)` checks that
+  the array holds 30.
+- **The images** (high). They change: a span is passed by value (on x86 a dynamic span is the same two stack words as
+  the original's pointer and int, a fixed one a pointer; the x64 ABI passes a 16-byte span through a stack temporary,
+  so each caller stores the pointer and the count there). pecompare of db0e223 and issue-59, built at the same path,
+  with the functions' sizes from both PDBs: the oracle's Patella.exe resizes exactly 12 functions (GetBytes,
+  GetString, SendLogin, SendGameLogin, SetSymmetricKey, TRSA::Encrypt, TWriteBuffer::PutBytes, TXTEA's SetKey,
+  EncryptBlock and DecryptBlock, the dynamic initialisers of SendBuffer and ReceiveBuffer; .text +0xf0), the x64
+  Patella.exe 38 (those of them not inlined, Communication.cpp's 16 callers of GetString and GetBytes, the
+  TReadBuffer/TWriteBuffer constructors, TSocket::OnReceive and the callers' catch funclets; .text +0x2b0); no
+  function added or removed, no text of .rdata changed. The other byte differences are the moved code's addresses and relocations. The x64 Release callers'
+  `first(30)` has no check (the disassembly of ReceiveBuddy stores the array's address and 0x1e and calls
+  GetString).
+- **Tests** (high). Forced: tests/golden's core, errors and network tests and commworld.cpp call the new signatures;
+  golden_test.h's `OriginalSpan(Pointer, int Count)` makes the original's arguments a span, also those no valid span
+  holds that the error comparisons pass (a null pointer with a count, a negative count as a std::size_t). Such a span
+  is never read (the assertion fires first, or the size is only compared); Clang's UBSan run over the unit tests'
+  equivalents is clean. network_tests.cpp's table of our functions takes lambdas with the original's signatures for
+  SendBytes, GetString and GetBytes (the image's side unchanged). The unit tests' NULL cases became spans with a null
+  pointer. New: span_test.cpp, core_utils_test.cpp's "the original's pointer and length as spans" (null spans, sizes
+  above INT_MAX, MaxLength cut and no limit), core_txtea_test.cpp's block inside a packet.
+- **Not done** (found). Other pointer and length parameters, for later issues: vlong's ByteArrayToVlong and
+  VlongToByteArray (`uint8 *`, uint16), Script.h's readBytes and writeBytes, TestHooks.h's PacketSent and
+  PacketReceived, Status.h's CheckClipboardText, Utils.h's CopyString (Size), CompareStrings (Count) and ShortenString
+  (MaxLength) and FormatNumber's unsized buffer, Network.h's SetSymmetricKey (`const uint8 *`, 16 bytes;
+  communicationtest fakes it by address with that signature) and GetErrorMessage's unsized buffer, Dialogs.h's
+  CreateUpdateDialog/TUpdateDialog (a file name and a size, not a pair).

@@ -458,6 +458,9 @@ unit tests:
   references where never null. No `std::shared_ptr`.
 - **Views:** `std::string_view` and `std::span<const std::uint8_t>` parameters (the packet buffers, `TXTEA`,
   `TRSA`).
+  Done in issue #59 (notes/decisions.md): `src/compat/span.h`'s `patella::TSpan` (std::span; a C++17 stand-in in the
+  oracle) for the packet buffers, Network.h's wrappers, TXTEA's key and blocks and TRSA's block; the C strings with a
+  null assertion or a NUL-ended text (PutString, SendString, SetPublicKey) stay `const char *`.
 - **Formatting and I/O:** `std::format_to_n` into `TFixedString`, `std::print` for diagnostics, an RAII
   `TFile` instead of `FILE*`. The bytes written stay the same (`compare_files.py`).
   Done in issue #64 (notes/decisions.md): `src/types/File.h`'s TFile (exactly a `FILE *`; text mode writes "\r\n" on

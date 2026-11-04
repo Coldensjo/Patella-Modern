@@ -140,7 +140,7 @@ void SideThrow()
 		abort();
 #endif
 	} else {
-		TReadBuffer Empty(Data, 0);
+		TReadBuffer Empty(patella::TSpan<uint8>(Data).first(0));
 		Empty.GetByte();
 	}
 }

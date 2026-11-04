@@ -7,13 +7,17 @@
 
 #include "vlong.h"
 #include "common.h"
+#include "compat/span.h"
 
 class TRSA {
 public:
-	TRSA();                                  // 0x5089a0
-	virtual ~TRSA();                         // 0x5089c0; scalar deleting destructor 0x5089d0
-	void SetPublicKey(const char *ModulusM); // 0x5089f0, decimal text
-	void Encrypt(uint8 *Data);               // 0x508aa0, 128 bytes in place, exponent 65537
+	TRSA();          // 0x5089a0
+	virtual ~TRSA(); // 0x5089c0; scalar deleting destructor 0x5089d0
+	// 0x5089f0, decimal text up to its NUL. It stays a C string (issue #59): the digits end at the first NUL, which
+	// tools/patch_client.py relies on (a shorter modulus is padded with NULs in the literal's place), and a null
+	// pointer is its own error.
+	void SetPublicKey(const char *ModulusM);
+	void Encrypt(patella::TSpan<uint8, 128> Data); // 0x508aa0, in place, exponent 65537; a null pointer is an error
 
 private:
 	vlong m_ModulusM; // +0x4

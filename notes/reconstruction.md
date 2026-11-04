@@ -142,6 +142,12 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   runtime formats). A constant format whose text always fits is a Format (issue #64: Help.cpp's help texts, the
   map messages, the account number and the dotted address); one that can fill the buffer or formats a double
   (Control.cpp's frame rate: printf and std::format write NaN differently) stays MsvcSnprintf.
+- A pointer and its length go as one span (issue #59): `patella::TSpan<T>` or `TSpan<T, N>` of src/compat/span.h
+  (std::span on the product presets, a C++17 stand-in in the oracle; spell the type, there are no deduction guides in
+  the stand-in). Where a TASSERT/TERROR/TEND argument names the original's parameters, the body defines them as
+  locals from the span (`uint8 *const data = Bytes.data(); const int size = static_cast<int>(Bytes.size());`), so
+  the text stays and a null pointer or a size above INT_MAX fails as before. A C string whose null pointer an
+  assertion reports, or whose end is its NUL, stays `const char *`.
 - No `FILE` and no fopen, fclose or printf family in src/ outside src/types/File.h (issue #64; the same
   `tools/banned_calls.py`). A file is a `TFile`: exactly a `FILE *` (a frozen member keeps its 4 bytes; Script.h's
   four classes assert it), closed by its destructor, compared with nullptr and NULL as the pointer was (TASSERT
@@ -595,6 +601,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   MsvcSnprintf's _snprintf results on a TFixedString, and the stand-in against std::format_to_n for every count;
   the programs print which path they took. difftest checks the converted call sites against the original (the
   oracle's stand-in path), the golden corpus the x64 std::format path where its tests are ported.
+- TSpan (issue #59): tests/unit/span_test.cpp, in tests_unit (std::span) and tests_unit_cxx26_standin
+  (PATELLA_SPAN_STANDIN: the oracle's C++17 stand-in): construction, the conversions and their explicitness (checked
+  at compile time), sizes, first, last and subspan, the same for both.
 - TFile (issue #64): tests/unit/file_test.cpp, in tests_unit and tests_unit_cxx26_standin (Print through std::format
   and through the stand-in), on every platform: the bytes of each open mode against fixed expected bytes (text:
   "\r\n", also after a flush, and appended) and on Windows against the C runtime's fopen "wb", "wt", "w" and "at",

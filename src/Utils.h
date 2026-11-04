@@ -6,6 +6,7 @@
 #pragma once
 
 #include "common.h"
+#include "compat/span.h"
 
 // Characters are Latin-1; the letter tests include the German umlauts and ß.
 int IsSpace(int c);                                                  // 0x508fa0
@@ -41,21 +42,21 @@ public:
 // Little-endian reads; strings are a u16 length followed by the characters.
 class TReadBuffer : public TBuffer {
 public:
-	TReadBuffer(uint8 *data, int size);          // 0x50a200
-	uint8 GetByte();                             // 0x50a4b0
-	uint16 GetWord();                            // 0x50a610
-	uint32 GetQuad();                            // 0x50a780
-	void GetString(char *Buffer, int MaxLength); // 0x50a900, MaxLength < 0: no limit
-	char *GetString();                           // 0x50abb0, returns a new[] copy
-	void GetBytes(uint8 *Buffer, int Count);     // 0x50ad50
+	explicit TReadBuffer(patella::TSpan<uint8> Bytes); // 0x50a200 (data, size)
+	uint8 GetByte();                                   // 0x50a4b0
+	uint16 GetWord();                                  // 0x50a610
+	uint32 GetQuad();                                  // 0x50a780
+	void GetString(patella::TSpan<char> Text);         // 0x50a900 (Buffer, MaxLength); see Utils.cpp
+	char *GetString();                                 // 0x50abb0, returns a new[] copy
+	void GetBytes(patella::TSpan<uint8> Bytes);        // 0x50ad50 (Buffer, Count)
 };
 
 class TWriteBuffer : public TBuffer {
 public:
-	TWriteBuffer(uint8 *data, int size);           // 0x50b030
-	void PutByte(uint8 Data);                      // 0x50b2e0
-	void PutWord(uint16 Data);                     // 0x50b450
-	void PutQuad(uint32 Data);                     // 0x50b5e0
-	void PutString(const char *s);                 // 0x50b780
-	void PutBytes(const uint8 *Buffer, int Count); // 0x50ba00
+	explicit TWriteBuffer(patella::TSpan<uint8> Bytes); // 0x50b030 (data, size)
+	void PutByte(uint8 Data);                           // 0x50b2e0
+	void PutWord(uint16 Data);                          // 0x50b450
+	void PutQuad(uint32 Data);                          // 0x50b5e0
+	void PutString(const char *s);                      // 0x50b780, a C string (see Utils.cpp)
+	void PutBytes(patella::TSpan<const uint8> Bytes);   // 0x50ba00 (Buffer, Count)
 };

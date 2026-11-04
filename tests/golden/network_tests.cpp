@@ -838,16 +838,16 @@ void MakeFunctions()
 	O.SendWord = SendWord;
 	O.SendQuad = SendQuad;
 	O.SendString = SendString;
-	O.SendBytes = SendBytes;
+	O.SendBytes = [](const uint8 *Buffer, int Count) { SendBytes(OriginalSpan(Buffer, Count)); };
 	O.SendCommand = SendCommand;
 	O.PrepareNextPacket = PrepareNextPacket;
 	O.GetNextCommand = GetNextCommand;
 	O.GetByte = GetByte;
 	O.GetWord = GetWord;
 	O.GetQuad = GetQuad;
-	O.GetStringBuffer = (void (*)(char *, int))GetString;
+	O.GetStringBuffer = [](char *Buffer, int MaxLength) { GetString(OriginalSpan(Buffer, MaxLength)); };
 	O.GetStringNew = (char *(*)())GetString;
-	O.GetBytes = GetBytes;
+	O.GetBytes = [](uint8 *Buffer, int Count) { GetBytes(OriginalSpan(Buffer, Count)); };
 	O.CheckConnectionTimeout = CheckConnectionTimeout;
 	O.GetErrorMessage = GetErrorMessage;
 	O.ResolveHostname = ResolveHostname;
@@ -1289,7 +1289,7 @@ std::string MakeFrame(int Mode)
 	TXTEA Cipher;
 	Cipher.SetKey(TestKey);
 	for (size_t i = 0; i < Plain.size(); i += 8)
-		Cipher.EncryptBlock((uint8 *)&Plain[i]);
+		Cipher.EncryptBlock(TXTEA::TBlock((uint8 *)&Plain[i], 8));
 	std::string Frame(2, '\0');
 	Frame[0] = (char)Plain.size();
 	Frame[1] = (char)(Plain.size() >> 8);

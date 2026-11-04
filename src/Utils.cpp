@@ -7,6 +7,7 @@
 
 #include "Utils.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <cstddef>
 #include <cstring>
@@ -198,9 +199,13 @@ bool ShortenString(char *Text, int MaxLength)
 	return true;
 }
 
-// 0x50a200, lines 286-287
-TReadBuffer::TReadBuffer(uint8 *data, int size)
+// 0x50a200, lines 286-287. The original's parameters (data, size) are the span's pointer and its size as an int, the
+// names of the assertions' text: a null pointer, or a size above INT_MAX (the original's negative size), still fails
+// them (issue #59).
+TReadBuffer::TReadBuffer(patella::TSpan<uint8> Bytes)
 {
+	uint8 *const data = Bytes.data();
+	const int size = static_cast<int>(Bytes.size());
 	TASSERT(286, data!=NULL);
 	TASSERT(287, size>=0);
 	Size = size;
@@ -234,9 +239,13 @@ uint32 TReadBuffer::GetQuad()
 	return Result;
 }
 
-// 0x50a900, lines 334-340. Reads at most MaxLength-1 characters; skips the rest.
-void TReadBuffer::GetString(char *Buffer, int MaxLength)
+// 0x50a900, lines 334-340. Reads at most MaxLength-1 characters; skips the rest. Text is the original's (Buffer,
+// MaxLength): its size as an int is MaxLength, so a size above INT_MAX is the original's negative MaxLength, no
+// limit (only the tests pass one; issue #59).
+void TReadBuffer::GetString(patella::TSpan<char> Text)
 {
+	char *const Buffer = Text.data();
+	const int MaxLength = static_cast<int>(Text.size());
 	TASSERT(334, Buffer!=NULL);
 	const int Length = GetWord();
 	Buffer[0] = 0;
@@ -267,17 +276,21 @@ char *TReadBuffer::GetString()
 }
 
 // 0x50ad50, lines 371-372
-void TReadBuffer::GetBytes(uint8 *Buffer, int Count)
+void TReadBuffer::GetBytes(patella::TSpan<uint8> Bytes)
 {
+	uint8 *const Buffer = Bytes.data();
+	const int Count = static_cast<int>(Bytes.size());
 	TASSERT(371, Buffer!=NULL);
 	TASSERT2(372, Position<=Size-Count, Position, Size-Count);
 	memcpy(Buffer, &Data[Position], Count);
 	Position += Count;
 }
 
-// 0x50b030, lines 387-388
-TWriteBuffer::TWriteBuffer(uint8 *data, int size)
+// 0x50b030, lines 387-388; the parameters as in TReadBuffer's constructor.
+TWriteBuffer::TWriteBuffer(patella::TSpan<uint8> Bytes)
 {
+	uint8 *const data = Bytes.data();
+	const int size = static_cast<int>(Bytes.size());
 	TASSERT(387, data!=NULL);
 	TASSERT(388, size>=0);
 	Size = size;
@@ -312,7 +325,8 @@ void TWriteBuffer::PutQuad(uint32 Data)
 	Position += 4;
 }
 
-// 0x50b780, lines 437-441
+// 0x50b780, lines 437-441. It stays a C string (issue #59): a std::string_view could not carry the null pointer
+// that line 437 reports (its construction from a null C string faults before the assertion).
 void TWriteBuffer::PutString(const char *s)
 {
 	TASSERT(437, s!=NULL);
@@ -326,8 +340,10 @@ void TWriteBuffer::PutString(const char *s)
 }
 
 // 0x50ba00, lines 451-452
-void TWriteBuffer::PutBytes(const uint8 *Buffer, int Count)
+void TWriteBuffer::PutBytes(patella::TSpan<const uint8> Bytes)
 {
+	const uint8 *const Buffer = Bytes.data();
+	const int Count = static_cast<int>(Bytes.size());
 	TASSERT(451, Buffer!=NULL);
 	TASSERT2(452, Position<=Size-Count, Position, Size-Count);
 	for (int i = 0; i < Count; i++)
