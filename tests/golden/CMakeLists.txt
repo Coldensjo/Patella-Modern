@@ -68,7 +68,8 @@ add_library(golden_client_tests OBJECT
 	status_tests.cpp
 	preferences_tests.cpp
 	script_tests.cpp
-	player_tests.cpp)
+	player_tests.cpp
+	help_tests.cpp)
 golden_client_settings(golden_client_tests)
 
 add_executable(golden_runner
