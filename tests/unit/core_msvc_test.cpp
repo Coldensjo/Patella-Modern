@@ -14,11 +14,9 @@
 
 #include <cerrno>
 #include <cstdarg>
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <ctime>
 #include <filesystem>
 #include <string>
 #include <type_traits>
@@ -196,44 +194,6 @@ TEST_CASE("msvc: _strdup copies into memory from malloc, and a null text stays n
 	std::free(PortableCopy); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)
 	CHECK(MsvcStrdup(nullptr) == nullptr);
 	CHECK(patella::compat::PortableStrdup(nullptr) == nullptr);
-}
-
-TEST_CASE("msvc: the 32-bit time")
-{
-	static_assert(sizeof(Time32) == 4 && std::is_signed_v<Time32>);
-	CHECK(patella::compat::PortableTime32(0) == 0);
-	CHECK(patella::compat::PortableTime32(INT32_MAX) == INT32_MAX);
-	CHECK(patella::compat::PortableTime32(static_cast<std::time_t>(INT32_MAX) + 1) == -1);
-	CHECK(patella::compat::PortableTime32(-1) == -1);
-
-	Time32 Stored = 0;
-	const Time32 Now = MsvcTime32(&Stored);
-	CHECK(Now == Stored);
-	CHECK(Now > 1'700'000'000); // after November 2023
-	const std::time_t Wide = std::time(nullptr);
-	CHECK(Wide - Now >= 0);
-	CHECK(Wide - Now <= 2);
-	CHECK(MsvcTime32(nullptr) >= Now);
-
-	// before 1970: no tm (localtime itself would convert it); ctime's text is FormatCRT71Time's (compat/crt71.h,
-	// tests/unit/crt71_test.cpp)
-	const Time32 Before = -1;
-	CHECK(MsvcLocaltime32(&Before) == nullptr);
-	CHECK(patella::compat::PortableLocaltime32(&Before) == nullptr);
-
-	// otherwise localtime's result, the same for both
-	const Time32 Billion = 1'000'000'000;
-	const std::tm *Local = MsvcLocaltime32(&Billion);
-	REQUIRE(Local != nullptr);
-	const std::tm MsvcLocal = *Local;
-	const std::tm *PortableLocal = patella::compat::PortableLocaltime32(&Billion);
-	REQUIRE(PortableLocal != nullptr);
-	CHECK(MsvcLocal.tm_year == 101);
-	CHECK(PortableLocal->tm_year == MsvcLocal.tm_year);
-	CHECK(PortableLocal->tm_yday == MsvcLocal.tm_yday);
-	CHECK(PortableLocal->tm_hour == MsvcLocal.tm_hour);
-	CHECK(PortableLocal->tm_min == MsvcLocal.tm_min);
-	CHECK(PortableLocal->tm_sec == MsvcLocal.tm_sec);
 }
 
 TEST_CASE("msvc: _access and _eof")

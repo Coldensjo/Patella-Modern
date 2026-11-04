@@ -38,22 +38,13 @@ namespace patella::compat {
 // The same limit everywhere, so that every platform formats the same times.
 inline constexpr std::int64_t CRT71LastTime = 32'535'215'999;
 
-// The last time the UCRT's _localtime32_s converts: 2038-01-18 23:59:59 UTC, 3 h 14 min 8 s before 32 bits end
-// (time_traits::max_time_t, UCRT inc/corecrt_internal_time.h). MSVC 7.1's localtime (0x513eb1) converts every
-// time from 0 to INT32_MAX, adjusting the tm itself in the first and last three days.
-inline constexpr std::int64_t UCRTLastTime32 = 0x7fffd27f;
-
 // The local time of Time (seconds since 1970-01-01 00:00 UTC) as the C library's localtime gives it. False where
-// it gives none. On Windows a time up to UCRTLastTime32 goes through _localtime32_s (what _ctime32 gave the client
-// before issue #61), a later one through _localtime64_s (so the original's last 3 h 14 min of 32 bits have their
-// text too).
+// it gives none. On Windows _localtime64_s for every time (issue #62; from issue #61 to it, _localtime32_s up to
+// 2038-01-18 23:59:59 UTC, what _ctime32 gave the client before: tests/unit/crt71_test.cpp holds the two equal on
+// every hour of 32 bits and every 61st second of their last four days, in four zones), elsewhere localtime_r.
 inline bool CRT71LocalTime(std::int64_t Time, std::tm &Local)
 {
 #if defined(_WIN32)
-	if (Time >= 0 && Time <= UCRTLastTime32) {
-		const __time32_t Value = static_cast<__time32_t>(Time);
-		return _localtime32_s(&Local, &Value) == 0;
-	}
 	const __time64_t Value = Time;
 	return _localtime64_s(&Local, &Value) == 0;
 #else
@@ -66,7 +57,7 @@ inline bool CRT71LocalTime(std::int64_t Time, std::tm &Local)
 
 // ctime(&Time)'s text as MSVC 7.1 wrote it, into Text; returns Text, or nullptr where its ctime returned NULL:
 // for a time before 1970 (its time_t had 32 bits and its localtime rejected a negative one, as _ctime32 does) and
-// for a time after CRT71LastTime, which 32 bits never reached. A Time32 converts to the parameter unchanged.
+// for a time after CRT71LastTime, which 32 bits never reached.
 inline const char *FormatCRT71Time(TCRT71TimeText &Text, std::int64_t Time)
 {
 	static constexpr std::array<std::string_view, 7> DayNames = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};

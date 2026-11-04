@@ -15,7 +15,10 @@
 
 #include "common.h"
 #include "types/FixedString.h"
+#include "types/Time32.h"
 #include "graphics.h" // TRGBColor
+
+#include <cstdint>
 
 inline constexpr int CREATURES = 150; // slots in the creature table (loops up to 0x96)
 inline constexpr int BUDDIES = 200;   // "NumberOfBuddies<BUDDIES"
@@ -36,6 +39,17 @@ public:
 	void StartMovement(int dx, int dy, int Waypoints); // 0x44bc70, line 142
 	void SetMark(int Mark);                            // 0x44bf20, line 154
 	int GetAnimationPhase(int AvailablePhases) const;  // 0x44c0d0, lines 163-169
+	// Ours (issue #62): the skull SetSkull kept (Delay) is still shown at Now, the wall clock's 64-bit time:
+	// SkullTime is set, and Now is from it to four seconds after it. SkullTime holds the original's 4 bytes of the
+	// time (StoreTime32, types/Time32.h); the comparison is in 64 bits (LoadTime32), the original's 32-bit one up
+	// to 2038.
+	[[nodiscard]] bool SkullKept(std::int64_t Now) const
+	{
+		if (SkullTime == 0)
+			return false;
+		const std::int64_t Removed = LoadTime32(SkullTime, Now);
+		return Now >= Removed && Now <= Removed + 4;
+	}
 
 	uint32 CreatureID; // +0x00, 0 marks a free slot; players have IDs below 0x40000000
 	char Name[32];     // +0x04
@@ -65,7 +79,7 @@ public:
 	bool Visible;      // +0x8c
 	int PKFlag;        // +0x90, the skull; name from "Creature->PKFlag" (MapWindow.cpp)
 	int PARTYFlag;     // +0x94, the party shield; "Creature->PARTYFlag" (MapWindow.cpp)
-	Time32 SkullTime;  // +0x98, time a skull was removed; it stays four seconds longer
+	Time32 SkullTime;  // +0x98, time a skull was removed (StoreTime32, 0: none); it stays four seconds longer
 };
 
 // A VIP list entry (0x2c bytes). Preferences.h has the stored data

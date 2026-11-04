@@ -43,6 +43,7 @@ set(PATELLA_HEADERS_CORE
 	TRSA.h
 	TXTEA.h
 	types/FixedString.h
+	types/Time32.h
 	Utils.h
 	vlong.h)
 # The C++26 features behind feature-test macros (issue #9): tests/unit, real or stand-ins.

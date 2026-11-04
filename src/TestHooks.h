@@ -8,9 +8,9 @@
 // (--test-script <file>), drives the client from src/testmode/InputScript.h:
 //
 //	PATELLA_TIME_GET_TIME()            timeGetTime: sysinc.cpp (GetMilliseconds, srand), the frame timers
-//	PATELLA_TIME32(Time)               _time32 (MsvcTime32, compat/msvc.h), the wall clock: Talk.cpp, Creatures.cpp, ContentWindows.cpp,
-//	                                   ConsoleWindow.cpp
-//	PATELLA_TIME(Time)                 time, the wall clock: Player.cpp (error.txt)
+//	PATELLA_TIME(Time)                 time, the wall clock in 64 bits: Player.cpp (error.txt), Talk.cpp,
+//	                                   Creatures.cpp, ContentWindows.cpp, ConsoleWindow.cpp (issue #62: no
+//	                                   _time32 any more; the 4-byte fields convert through types/Time32.h)
 //	PATELLA_FRAME_SLEEP(Milliseconds)  the frame timer's Sleep (WaitForNextFrame of the three engines)
 //	PATELLA_GET_CURSOR_POS(Point)      GetCursorPos: the mouse, polled in OnIdle (Player.cpp, MainFrm.cpp)
 //	PATELLA_SET_MAIN_TIMER(...)        the main frame's 100 ms timer (MainFrm.cpp OnCreate); with a script
@@ -66,7 +66,7 @@
 #if defined(PATELLA_TEST_MODE)
 
 // The Windows types of the declarations: MFC, as common.h includes it (before anything of Windows, which
-// MFC requires; the test build has real MFC, never the shim). Time32 and PATELLA_CDECL: compat/msvc.h.
+// MFC requires; the test build has real MFC, never the shim). PATELLA_CDECL: compat/msvc.h.
 // In the client's sources common.h has included both already (issue #49).
 #include <afxwin.h>
 #include <ctime>
@@ -76,7 +76,6 @@
 
 namespace patella::testmode {
 DWORD TimeGetTime();
-Time32 WallTime32(Time32 *Result);
 time_t WallTime(time_t *Result);
 void FrameSleep(DWORD Milliseconds);
 BOOL GetCursorPosition(LPPOINT Point);
@@ -97,7 +96,6 @@ BOOL EnumDisplayMode(LPCSTR Device, DWORD Index, DEVMODEA *Mode);
 } // namespace patella::testmode
 
 #define PATELLA_TIME_GET_TIME() patella::testmode::TimeGetTime()
-#define PATELLA_TIME32(Time) patella::testmode::WallTime32(Time)
 #define PATELLA_TIME(Time) patella::testmode::WallTime(Time)
 #define PATELLA_FRAME_SLEEP(Milliseconds) patella::testmode::FrameSleep(Milliseconds)
 #define PATELLA_GET_CURSOR_POS(Point) patella::testmode::GetCursorPosition(Point)
@@ -118,7 +116,6 @@ BOOL EnumDisplayMode(LPCSTR Device, DWORD Index, DEVMODEA *Mode);
 #else
 
 #define PATELLA_TIME_GET_TIME() timeGetTime()
-#define PATELLA_TIME32(Time) MsvcTime32(Time)
 #define PATELLA_TIME(Time) time(Time)
 #define PATELLA_FRAME_SLEEP(Milliseconds) Sleep(Milliseconds)
 #define PATELLA_GET_CURSOR_POS(Point) GetCursorPos(Point)

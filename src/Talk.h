@@ -1,6 +1,7 @@
 #pragma once
 #include "common.h"
 #include "types/FixedString.h"
+#include "types/Time32.h"
 #include "Container.h"
 #include "Preferences.h"
 #include <type_traits>
@@ -51,7 +52,7 @@ struct TTalkLine {
 	TTalkLine *Previous, *Next;
 	char Addressee[30];
 	char *WithoutTime, *Text;
-	Time32 Time;
+	Time32 Time; // the line's time (StoreTime32, types/Time32.h: the original's 32 bits of it; issue #62)
 	TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int DiffTime);
 	TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, const char *_Line, int DiffTime);
 	TTalkLine(const TTalkLine &) = delete;

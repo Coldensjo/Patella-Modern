@@ -10,7 +10,10 @@
 #include "Preferences.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include "types/Time32.h"
+#include "compat/crt71.h"
 #include <cstddef>
+#include <cstdint>
 #include <new>
 #include <cstdio>
 #include <cstdlib>
@@ -63,7 +66,9 @@ static_assert(sizeof(TRuleViolationChannel) == 0x30, "rule violation channel lay
 static_assert(sizeof(TPrivateChannel) == 0x34, "private channel layout");
 static_assert(sizeof(TTalkFilter) == 0x30, "filter layout");
 static_assert(offsetof(TTalkLine, WithoutTime) == 0x34, "statement text");
+static_assert(offsetof(TTalkLine, Time) == 0x3c, "statement time (Time32, issue #62)");
 #endif
+static_assert(sizeof(TTalkLine::Time) == 4, "statement time: the original's 4 bytes (Time32, issue #62)");
 
 // 0x4fd440, no line evidence; leading Talk.cpp helpers remain in link order.
 bool GetTalkChanged()
@@ -1129,6 +1134,22 @@ void TRuleViolationChannel::Append(TTalkLine *line)
 	TTalkBuffer::Append(line);
 	TEND(1809)
 }
+namespace {
+
+// Ours (issue #62): the local time of a talk line's 64-bit time, for its stamp: the C library's localtime
+// (compat/crt71.h), which up to 2038 gives the fields _localtime32 gave. Where it gives none (before 1970 or after
+// 3000, which only a time offset from the server reaches) the original read localtime's NULL and crashed; here the
+// stamp is "00:00".
+std::tm LineLocalTime(std::int64_t Time)
+{
+	std::tm Local{};
+	if (!patella::compat::CRT71LocalTime(Time, Local))
+		Local = std::tm{};
+	return Local;
+}
+
+} // namespace
+
 // 0x5044b0, lines 1821-1847
 TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int DiffTime)
 {
@@ -1137,10 +1158,11 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int Diff
 	TBEGIN
 	Mode = _Mode;
 	StatementID = _StatementID;
-	Time = PATELLA_TIME32(nullptr) + DiffTime;
-	const tm *LocalTime = MsvcLocaltime32(&Time);
+	const std::int64_t LineTime = PATELLA_TIME(nullptr) + DiffTime;
+	Time = StoreTime32(LineTime);
+	const std::tm LocalTime = LineLocalTime(LineTime);
 	TFixedString<8> Stamp;
-	Stamp.Format("{:02}:{:02} ", LocalTime->tm_hour, LocalTime->tm_min);
+	Stamp.Format("{:02}:{:02} ", LocalTime.tm_hour, LocalTime.tm_min);
 	Addressee[0] = 0;
 	const std::size_t Size = strlen(Stamp) + strlen(_Line) + 1;
 	Line = new (std::nothrow) char[Size];
@@ -1158,10 +1180,11 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, con
 	TBEGIN
 	Mode = _Mode;
 	StatementID = _StatementID;
-	Time = PATELLA_TIME32(nullptr) + DiffTime;
-	const tm *LocalTime = MsvcLocaltime32(&Time);
+	const std::int64_t LineTime = PATELLA_TIME(nullptr) + DiffTime;
+	Time = StoreTime32(LineTime);
+	const std::tm LocalTime = LineLocalTime(LineTime);
 	TFixedString<8> Stamp;
-	Stamp.Format("{:02}:{:02} ", LocalTime->tm_hour, LocalTime->tm_min);
+	Stamp.Format("{:02}:{:02} ", LocalTime.tm_hour, LocalTime.tm_min);
 	CopyString(Addressee, _Addressee, 30);
 	const std::size_t Size = strlen(Stamp) + strlen(Addressee) + strlen(_Line) + 3;
 	Line = new (std::nothrow) char[Size];

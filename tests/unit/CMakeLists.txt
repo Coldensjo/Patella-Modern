@@ -10,10 +10,12 @@
 #   oracle-x86 build formats with; both compare the stand-in with std::format_to_n.
 # - Both: FormatCRT71Time (src/compat/crt71.h, issue #61), ctime's text as MSVC 7.1 wrote it, through both paths of
 #   TFixedString::Format: against texts computed apart, std::chrono's calendar and, on Windows, the UCRT's _ctime32.
+# - Both: Time32, StoreTime32 and LoadTime32 (src/types/Time32.h, issue #62), the original's 4-byte time fields and
+#   their conversion from and to the 64-bit time, held against the original's 32-bit arithmetic, past 2038 and 2106.
 #
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
 #   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31) and
-#   src/compat/msvc.h, the Microsoft CRT's semantics behind portable names (issue #43); the expected values that are not the code's own come from tests/unit/core_expected.py.
+#   src/compat/msvc.h, the Microsoft CRT's semantics behind portable names (issue #43; its 32-bit time went in #62); the expected values that are not the code's own come from tests/unit/core_expected.py.
 #
 # - tests_testmode: patella_testmode (cmake/TestMode.cmake, issue #21): the virtual clock, the input
 #   script's parser and key table, the scheduler, the driver's loop on the virtual clock, and that the
@@ -59,7 +61,8 @@ function(patella_unit_tests target)
 		cxx26_contracts_test.cpp
 		cxx26_static_vector_test.cpp
 		fixed_string_test.cpp
-		crt71_test.cpp)
+		crt71_test.cpp
+		time32_test.cpp)
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
 	target_link_libraries(${target} PRIVATE doctest::doctest)
 	patella_target_language(${target})

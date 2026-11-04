@@ -98,8 +98,7 @@ run (one attempt, a retry with the first attempt kept, two unanswered attempts).
 | Hook | Replaces | Where |
 | :--- | :--- | :--- |
 | PATELLA_TIME_GET_TIME() | timeGetTime() | sysinc.cpp (StartTime, GetMilliseconds, srand), the three engines' ResetFrameTimer and WaitForNextFrame |
-| PATELLA_TIME32(Time) | _time32(Time) | Talk.cpp (talk lines' stamps), Creatures.cpp (skull times), ContentWindows.cpp, ConsoleWindow.cpp (saved channels) |
-| PATELLA_TIME(Time) | time(Time) | Player.cpp (error.txt) |
+| PATELLA_TIME(Time) | time(Time) | Player.cpp (error.txt), Talk.cpp (talk lines' stamps), Creatures.cpp (skull times), ContentWindows.cpp, ConsoleWindow.cpp (saved channels); 64 bits (issue #62: PATELLA_TIME32 and _time32 went) |
 | PATELLA_FRAME_SLEEP(ms) | Sleep(ms) | WaitForNextFrame of the three engines |
 | PATELLA_GET_CURSOR_POS(Point) | GetCursorPos(Point) | Player.cpp (InitInstance, OnIdle), MainFrm.cpp (OnSetCursor, OnCaptureChanged) |
 | PATELLA_SET_MAIN_TIMER(...) | ::SetTimer(...) | MainFrm.cpp OnCreate (the 100 ms timer of ActionNumber) |
@@ -135,15 +134,14 @@ flags, when the handler does nothing anyway. Without a script nothing changes.
 ### The clock (src/testmode/Clock.h)
 
 IClock: `Milliseconds()` (timeGetTime), `WallSeconds()` (seconds since 1970, UTC), `FrameWait(ms)`.
-TSystemClock (TestModeWin32.cpp): timeGetTime, _time64, Sleep. TVirtualClock: timeGetTime 100000 + the elapsed
+TSystemClock (TestModeWin32.cpp): timeGetTime, _time64 (std::time), Sleep. TVirtualClock: timeGetTime 100000 + the elapsed
 virtual milliseconds, the wall clock 2026-11-02 12:00:00 UTC (1793620800) + the elapsed whole seconds: the start
 of tools/capture/patcap.c's clock, so srand(timeGetTime()) gets 100000 in every run and the client makes the
 same XTEA keys and RSA padding as in the rendering comparison's runs. The time moves only by AdvanceTo (never
 backwards); FrameWait does not move it and sleeps a real millisecond (so that the idle loop, which redraws
 until the driver moves the clock, does not spin). The wall clock goes through the C library's local time for
-the talk stamps, error.txt and the saved channels (`_localtime32`; FormatCRT71Time of src/compat/crt71.h, issue
-#61, which takes `_localtime32_s`/`_localtime64_s` on Windows, `localtime_r` on Linux), so the stamps follow the
-machine's time zone or TZ.
+the talk stamps, error.txt and the saved channels (compat/crt71.h's CRT71LocalTime, issues #61 and #62:
+`_localtime64_s` on Windows, `localtime_r` on Linux), so the stamps follow the machine's time zone or TZ.
 
 ### The script (src/testmode/InputScript.h)
 

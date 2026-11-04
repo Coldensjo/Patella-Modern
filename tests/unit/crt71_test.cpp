@@ -12,7 +12,8 @@
 //	- on Windows, the UCRT's own _ctime32 with its 9th character made MSVC 7.1's (what the client wrote before
 //	  issue #61, which tools/compare_files.py and difftest held against Tibia.exe), for every hour of 1970 to
 //	  2038 and the second before it, in UTC, in PST8PDT (the UCRT's rules of before and after 2007), east of UTC
-//	  with half an hour, and in the machine's own zone.
+//	  with half an hour, and in the machine's own zone; since issue #62 FormatCRT71Time takes _localtime64_s for
+//	  every time, so this also holds it equal to _localtime32_s over the whole 32-bit range.
 // The zone is set with TZ for the length of a case and restored after it.
 
 #include "compat/crt71.h"
@@ -199,6 +200,13 @@ std::string PacificChronoText(std::chrono::sys_seconds Time)
 #endif
 
 #if defined(_WIN32)
+// The last time the UCRT's _localtime32_s converts: 2038-01-18 23:59:59 UTC, 3 h 14 min 8 s before 32 bits end
+// (time_traits::max_time_t, UCRT inc/corecrt_internal_time.h). MSVC 7.1's localtime (0x513eb1) converts every
+// time from 0 to INT32_MAX, adjusting the tm itself in the first and last three days. (In compat/crt71.h from
+// issue #61 to #62, where CRT71LocalTime took _localtime32_s up to it; now _localtime64_s, held against _ctime32
+// below.)
+constexpr std::int64_t UCRTLastTime32 = 0x7fffd27f;
+
 // The UCRT's _ctime32 with the day as MSVC 7.1 wrote it (the 9th character: a space before a one-digit day). In
 // the last 3 h 14 min of 32 bits, where _ctime32 gives NULL and MSVC 7.1's ctime did not (its localtime, 0x513eb1,
 // takes every time up to INT32_MAX), the UCRT's _ctime64.
@@ -206,7 +214,7 @@ std::string CRT71Ctime32(std::int64_t Time)
 {
 	std::array<char, 26> Buffer = {};
 	errno_t Result = 0;
-	if (Time > patella::compat::UCRTLastTime32 && Time <= INT32_MAX) {
+	if (Time > UCRTLastTime32 && Time <= INT32_MAX) {
 		const __time64_t Value = Time;
 		Result = _ctime64_s(Buffer.data(), Buffer.size(), &Value);
 	} else {
@@ -375,10 +383,10 @@ TEST_CASE("crt71: the UCRT's _ctime32 in MSVC 7.1's form, every hour of 32 bits"
 	CHECK(Format(-1) == "(null)");
 	// _ctime32 itself stops at 2038-01-18 23:59:59 UTC; MSVC 7.1's text goes on
 	const TTimeZone Zone("UTC0");
-	const __time32_t After = patella::compat::UCRTLastTime32 + 1;
+	const __time32_t After = UCRTLastTime32 + 1;
 	std::array<char, 26> Buffer = {};
 	CHECK(_ctime32_s(Buffer.data(), Buffer.size(), &After) != 0);
-	CHECK(Format(patella::compat::UCRTLastTime32) == "Mon Jan 18 23:59:59 2038\n");
+	CHECK(Format(UCRTLastTime32) == "Mon Jan 18 23:59:59 2038\n");
 	CHECK(Format(After) == "Tue Jan 19 00:00:00 2038\n");
 }
 #endif

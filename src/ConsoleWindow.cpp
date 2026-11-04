@@ -41,6 +41,7 @@
 #include "types/FixedString.h"
 #include <sstream>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <cstdio>
@@ -2029,8 +2030,9 @@ bool TConsoleWindow::SaveChannel() const
 		return false;
 	const TTalkBuffer *TextBuffer = GetTextBuffer();
 	TASSERT(2324, TextBuffer!=NULL);
-	const Time32 Now = PATELLA_TIME32(nullptr);
-	// ctime's text, the day as MSVC 7.1 writes it; after 2038 (_time32's -1) none, which printf wrote as "(null)"
+	const std::int64_t Now = PATELLA_TIME(nullptr);
+	// ctime's text, the day as MSVC 7.1 writes it, of the 64-bit time (issue #62: after 2038 too, where the
+	// original's 32-bit time had none); where there is none (before 1970), printf wrote "(null)"
 	TCRT71TimeText Stamp;
 	const char *Saved = FormatCRT71Time(Stamp, Now);
 	fprintf(File, "\nChannel saved at %s", Saved != nullptr ? Saved : "(null)");

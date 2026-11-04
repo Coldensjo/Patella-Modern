@@ -284,6 +284,17 @@ comparison; our statics found through the getters' x64 code; HandleException's r
 script errors' paths TEMP-relative, so the corpus does not depend on the machine. The runner replays 15,351,355 of
 the oracle's 17,983,332 checks, retires 1,497,464 and lists 1,134,513 (Communication, Control) as not ported. No src/
 change. notes/decisions.md, "The golden corpus: Errors (Patella-Modern issue #26, second part)".
+
+
+64-bit time everywhere (Patella-Modern issue #62, branch issue-62, November 4, 2026; M4): every wall clock read is
+PATELLA_TIME (time(), 64 bits); PATELLA_TIME32, WallTime32, MsvcTime32, MsvcLocaltime32, PortableTime32 and
+PortableLocaltime32 removed, and CRT71LocalTime takes _localtime64_s only. The two frozen 4-byte fields
+(TCreature::SkullTime, TTalkLine::Time) are src/types/Time32.h's Time32, written with StoreTime32 (the original's
+low 32 bits) and read with LoadTime32 (relative to now); TCreature::SkullKept is the skull check in 64 bits.
+Unchanged up to 2038; after it the stamps, the saved channel's text and the kept skull work as before 2038 (the
+original crashed on a talk line, wrote "(null)" and lost the skull's blinking). The golden tests of Talk,
+Creatures, ConsoleWindow and ContentWindows fake our clock through _time64 now (forced). notes/decisions.md, "64-bit
+time everywhere (Patella-Modern issue #62)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -304,6 +315,20 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #62 (branch issue-62, November 4, 2026): 64-bit time everywhere. `python -I tools/build.py
+oracle-x86 --fresh` (CTest 4/4, 0 warnings; the new static_asserts of SkullTime +0x98 and TTalkLine::Time +0x3c
+compile): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on (`golden_corpus`,
+the branch's own build\golden, 843 MB) the same counts. The x64 golden_runner (windows-x64 and -debug, --fresh, CTest
+13/13) replays 15,310,983 checks, 1,497,428 retired, 0 failures, as on main (Talk, Creatures, ConsoleWindow and
+ContentWindows fake our _time64 now; the first Debug run had 753 failures in ConsoleWindow's SaveChannel file, ours
+not removed between calls and one fopen refused: another worktree's golden_runner ran at the same time, and both
+write ConsoleWindow's channel file in the user's TEMP; its rerun alone, `ctest -R golden`, 0 failures). tests/unit: tests_unit 41/9,867 and tests_unit_cxx26_standin
+41/9,869 on Windows (time32_test.cpp: 6 cases, 81 assertions; also with mingw-w64), 40/9,858 (9,856 on Clang) and
+40/9,860 on Linux; tests_core 32/313 (32/316 on Linux: msvc's 32-bit time case, 19 assertions, went with it);
+tests_testmode 35/709, tests_render 14/359, tests_vulkan 14/1,309 unchanged; windows-x64-gcc(-debug) and the four
+Linux presets (--fresh) 11/11. macrocheck 01feaf9 issue-62: 2,108 calls, 0 differences. tidy_ci: 13 findings, 0 new.
+banned_calls: 0. clang-format: clean.
 
 Patella-Modern issue #27, second part (branch issue-27b, November 4, 2026): `python -I tools/build.py oracle-x86
 --fresh` (CTest 4/4, 0 warnings) after MapWindow and MainWindow moved to tests/golden: 16,848,752 + 67 + 1,134,513
