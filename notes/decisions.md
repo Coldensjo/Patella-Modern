@@ -8721,3 +8721,13 @@ and Communication's port; notes/reconstruction.md, "Checking", the use.
   Talk.cpp's Write prints its FILE * through an INT_PTR (the original's catch value, a pointer). No other pair is a
   defect; none was unclear.
 - **Commits** (form). Control's port, these notes, the fix of event 0x12, then its notes.
+
+## The machine's folders (folder layout, November 4, 2026)
+
+- November 4, 2026, the user's decision: everything under C:\Tibia. This repository C:\Patella-Modern becomes
+  C:\Tibia\Patella-Modern, upstream Patella's C:\Tibia (the original Tibia.exe and data files, decompilation\)
+  becomes C:\Tibia\Patella, C:\remeres-map-editor-redux becomes C:\Tibia\remeres-map-editor-redux,
+  C:\Tibia\gameserver stays, C:\Tibia\Assets (D14) comes later; difftest's C:\Tibia\Tibia.exe fallbacks gave
+  way to a required argument, the test server's folder became `PATELLA_TESTSERVER` (issue #2) and
+  `PATELLA_CIPSOFT_DIR`'s default C:\Tibia\Patella (notes/reconstruction.md, "The machine's folders"). The
+  paths in the entries above are as they were then.

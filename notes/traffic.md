@@ -51,7 +51,7 @@ same padding (the recording keeps the server's original as "orig"). Both clients
 
 The first packet of each connection is unencrypted: `[u16 size][0x01 login | 0x0a game][u16 os][u16
 version]([u32 dat][u32 spr][u32 pic] for the login)[128-byte RSA block]`. The server's private key
-(C:\Tibia\gameserver\tibia.pem, read only; the patched clients encrypt with its public half) decrypts the
+(C:\Tibia\gameserver\tibia.pem, or `PATELLA_TESTSERVER`'s tibia.pem; read only; the patched clients encrypt with its public half) decrypts the
 RSA block: `[0][16-byte XTEA key][fields][random bytes]` (src/Communication.cpp SendLogin: account and
 password; SendGameLogin: gamemaster flag, account, character name, password). Every later packet, both
 ways, is `[u16 size][XTEA([u16 length][payload][padding to 8 bytes])]` (src/Network.cpp SendCommand and

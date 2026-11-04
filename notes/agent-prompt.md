@@ -1,13 +1,13 @@
 # Prompt: work one Patella issue
 
-Copy everything below the line into a new coding-agent session started in `C:\Tibia`.
+Copy everything below the line into a new coding-agent session started in `C:\Tibia\Patella`.
 Replace `<ISSUE>` with an issue number, or leave it as it is to let the agent pick
 the next one.
 
 ---
 
 You are working on **Patella**, a source reconstruction of the Tibia 7.72 client
-(`C:\Tibia\Tibia.exe`), in the repository at `C:\Tibia` (GitHub: `Coldensjo/Patella`,
+(`C:\Tibia\Patella\Tibia.exe`), in the repository at `C:\Tibia\Patella` (GitHub: `Coldensjo/Patella`,
 private). Work on exactly **one** GitHub issue, finish it completely, then stop.
 
 ## 1. Pick the issue

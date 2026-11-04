@@ -40,14 +40,34 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
   assertions that build the first states come **before** `TBEGIN`; a failure there is not wrapped
   with "exception occurred". Each assertion builds five strings, so five states.
 - Ghidra hides the `this` pointer of member calls (`in_ECX`). When it matters which object a
-  call uses, read the instructions: `rea instructions C:\Tibia\Tibia.exe <address> --provider
-  ghidra --snapshot C:\Tibia\rea-out\tibia.snapshot --json` and look for `MOV ECX, <address>`
+  call uses, read the instructions: `rea instructions C:\Tibia\Patella\Tibia.exe <address>
+  --provider ghidra --snapshot rea-out\tibia.snapshot --json` (after `-Restore`; upstream's is
+  C:\Tibia\Patella\rea-out) and look for `MOV ECX, <address>`
   or `LEA ECX, [EBP + ...]` before the call.
 - Return values of small wrappers are often dropped by Ghidra (`void FUN_...` that returns
   `EAX` from a callee). Check the callers.
 - Inlined string functions appear as copy loops (`strcpy`, `strcat`, `strlen`, `memset`).
 - Static constructors are not found by Ghidra. They sit near `0x559fc0`; disassemble them with
   `objdump -d -M intel --start-address=0x559fc0 --stop-address=0x55a400 Tibia.exe`.
+
+## The machine's folders
+
+Since November 4, 2026 (notes/decisions.md, "The machine's folders") everything of the project is under
+C:\Tibia:
+
+| Folder | What it is |
+|---|---|
+| `C:\Tibia\Patella-Modern` | This repository (before: C:\Patella-Modern). Its root has gitignored copies of Tibia.exe and the data files; the builds, the reference set (`build\reference`) and the golden corpus (`build\golden`) are under its `build\`. |
+| `C:\Tibia\Patella` | The upstream Patella repository (before: C:\Tibia itself): the original Tibia.exe, Tibia.cfg, Tibia.dat, .spr and .pic, and the decompilation workspace in `decompilation\`. The self-hosted workflow copies the CipSoft files from here (`PATELLA_CIPSOFT_DIR`'s default). |
+| `C:\Tibia\gameserver` | The 7.72 test server (unchanged). `tools/testserver.py`'s default; `PATELLA_TESTSERVER` names another folder (issue #2), for every tool. |
+| `C:\Tibia\remeres-map-editor-redux` | The map editor (before: C:\remeres-map-editor-redux); no tool uses it. |
+| `C:\Tibia\Assets` | Planned (plan D14), not used yet: the .dat, .spr and .pic of every client version. |
+
+Nothing in the repository depends on where it is checked out: the builds take Tibia.exe from the root
+(`PATELLA_TIBIA_EXE`), difftest, sysinctest and communicationtest take it as their required argument (CTest and
+the golden_corpus target pass `PATELLA_TIBIA_EXE`), the tools find the root from their own path. The only
+absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self-hosted workflow's
+`PATELLA_CIPSOFT_DIR`.
 
 ## Writing the source
 
@@ -351,7 +371,8 @@ may be the user's own.
 
 ## Test server
 
-A local 7.72 server (C:\Tibia\gameserver, not in the repository) that both clients log into (issue #18):
+A local 7.72 server (C:\Tibia\gameserver, or the folder in `PATELLA_TESTSERVER`; not in the repository) that
+both clients log into (issue #18):
 `python -I tools/testserver.py start` / `stop` start and stop it (only a server it started is stopped),
 `tools/patch_client.py`
 points copies of Tibia.exe and Patella.exe at 127.0.0.1 with the server's RSA key (the login port through
@@ -403,8 +424,8 @@ compare_traffic.py, compare_files.py and compare_rendering.py) is the record/com
 tools: record (Windows, Tibia.exe) needs the server only for the two live recordings (compare_traffic.py's
 session with the helper, compare_files.py's walk) and then plays every session (traffic, options, walk, error,
 error-login, report, patch, patch-exe) with Tibia.exe under patcap.dll against the replayed server side into the
-reference set (default build\reference; the orchestrator's C:\Patella-Modern\build\reference; local data, never
-committed); compare runs PatellaTest.exe on each session's script with the server side replayed inside the client
+reference set (default build\reference; the orchestrator's is the main checkout's,
+C:\Tibia\Patella-Modern\build\reference; local data, never committed); compare runs PatellaTest.exe on each session's script with the server side replayed inside the client
 (no server, PATELLA_VULKAN=cpu) and compares packets, states, frames, files and message boxes: notes/testmode.md,
 "Reference recordings".
 
@@ -546,8 +567,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   build.py in Docker. It triggers only on `push` to this repository's branches and on `workflow_dispatch`, never
   on `pull_request` or `pull_request_target`, every job checks the repository's name and the event, and every
   job is skipped (not queued) unless the repository variable `PATELLA_SELF_HOSTED` is `true`. The CipSoft files
-  come from `PATELLA_CIPSOFT_DIR` (a repository variable, default C:\Tibia) into the checkout's root (ignored by
-  git; Tibia.exe's sha256 is checked), and nothing is uploaded. To turn it on (issue #3's runner):
+  come from `PATELLA_CIPSOFT_DIR` (a repository variable, default C:\Tibia\Patella) into the checkout's root
+  (ignored by git; Tibia.exe's sha256 is checked), and nothing is uploaded. To turn it on (issue #3's runner):
   1. Create a separate, unprivileged Windows user for the runner; give it read access to the CipSoft folder and
      C:\Tibia\gameserver (the test server), Python 3.13 and Visual Studio on its PATH, and the docker-users
      group for the Linux job.
@@ -559,7 +580,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
      client windows and need a desktop (fast user switching keeps it apart from the user's own mouse and
      keyboard).
   4. `gh variable set PATELLA_SELF_HOSTED --body true --repo Coldensjo/Patella-Modern` (and
-     `PATELLA_CIPSOFT_DIR` if the files are not in C:\Tibia). `--body false` turns it off again; a
+     `PATELLA_CIPSOFT_DIR` if the files are not in C:\Tibia\Patella). `--body false` turns it off again; a
      `workflow_dispatch` run (`gh workflow run self-hosted.yml --ref <branch>`) checks it once.
   The logs of a public repository's runs are public: the tools print counts and summaries, not the data files.
 - Compile checks: the oracle-x86 build compiles every `src/*.cpp` and `src/Extern/regexp/*.c` with MSVC 14.51
@@ -772,7 +793,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     part)", "The golden corpus: Communication, and Control's engine change (Patella-Modern issue #30, second
     part)" and "The golden corpus: Control (Patella-Modern issue #30, third part)".
 - The reference recordings (Patella-Modern issue #23; M2's exit): `python -I tools/reference.py compare
-  --reference C:\Patella-Modern\build\reference` runs the x64 test client (build\windows-x64\Release\PatellaTest.exe,
+  --reference C:\Tibia\Patella-Modern\build\reference` runs the x64 test client (build\windows-x64\Release\PatellaTest.exe,
   `--exe`) on every recorded session without the server and compares it with Tibia.exe's recording: the
   packets (keys and padding included), the states and window trees at every checkpoint, the frames (exact,
   ±2 on the device-filtered pixels, the recorded masks), the written files, the message boxes and the exit code;

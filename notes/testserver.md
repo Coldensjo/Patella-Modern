@@ -6,7 +6,9 @@ their reasons: notes/decisions.md, "Test server (issue #18)".
 
 ## The server
 
-`C:\Tibia\gameserver` (gitignored, installed by the user, not part of the repository): `tibia-server.exe`,
+`C:\Tibia\gameserver` (installed by the user, not part of the repository; the environment variable
+`PATELLA_TESTSERVER` names another folder for every tool, issue #2: tools/testserver.py's `SERVER_DIR`, which
+compare_traffic.py, proxy.py, compare_files.py and the other comparisons take): `tibia-server.exe`,
 a standalone Windows port of the decompiled CipSoft 7.72 server (Nottinghster's "tibia-gameserver-unified",
 on Fusion32's decompilation; x64, MSVC 19.51). One process holds the login server (port 7171) and the game
 server (port 7172); the accounts and characters are in SQLite (`tibia.db`), the world data in
@@ -15,6 +17,7 @@ accounts; its sources are in `gameserver\src`.
 
 - **Start**: `python -I tools/testserver.py start` (from the repository or a worktree; Python since issue #10,
   before it tools\run-testserver.ps1, which did the same). Runs tibia-server.exe from `C:\Tibia\gameserver`
+  (`PATELLA_TESTSERVER`)
   (it finds config.cfg, tibia.db and tibia.pem relative to its working directory) in a hidden console of its
   own, writes its output to `build\testserver\server.log` (overwritten at each start; stderr: server.err) and
   its PID (and the process's creation time) to `build\testserver\server.pid`, and returns when both ports
@@ -162,7 +165,7 @@ server.tibia.com at 0x84aa3 (`movups xmm0, [rip+29fea1h]`), the four port immedi
 
 The clients run from `build\run-orig\` (patched Tibia.exe) and `build\run-patella\` (patched Patella.exe),
 each with copies of Tibia.dat, Tibia.spr, Tibia.pic and Tibia.cfg (the client rewrites Tibia.cfg on exit;
-never run a client from the repository root or C:\Tibia). Set up:
+never run a client from the repository root or C:\Tibia\Patella). Set up:
 
 ```
 mkdir build\run-orig build\run-patella

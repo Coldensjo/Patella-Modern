@@ -360,7 +360,8 @@ Each milestone ends when every gate passes and its exit criteria are met.
 
 - [x] Create `Coldensjo/Patella-Modern` (private until the cleanup below) with Patella's history; `upstream`
       remote set.
-- [x] Copy the client data files (gitignored) into `C:\Patella-Modern`.
+- [x] Copy the client data files (gitignored) into `C:\Patella-Modern` (since November 4, 2026
+      `C:\Tibia\Patella-Modern`; notes/reconstruction.md, "The machine's folders").
 - [x] README: what the fork is, the targets, a link to this plan, the upstream sync rule.
 - [x] Decisions D1 to D17 recorded in `notes/decisions.md` under "Modernization".
 - [ ] Go public (D17): a README and a notice on what the project is and that it contains no CipSoft files;
@@ -368,8 +369,9 @@ Each milestone ends when every gate passes and its exit criteria are met.
       published as it is (decision of November 2, 2026), including the analysis output that earlier commits
       contain (`rea-out/`, `names.tsv`, `symbols.tsv`).
 - [ ] One GitHub issue per M1 task, a `modernization` label, `main` protected (pull requests only).
-- [ ] The test server path (`C:\Tibia\gameserver`, hard-coded in `run-testserver.ps1`, `stop-testserver.ps1`,
-      `compare_traffic.py`, `proxy.py`) becomes one setting with that default.
+- [x] The test server path (`C:\Tibia\gameserver`, hard-coded in `run-testserver.ps1`, `stop-testserver.ps1`,
+      `compare_traffic.py`, `proxy.py`) becomes one setting with that default: `PATELLA_TESTSERVER`,
+      tools/testserver.py's `SERVER_DIR` (November 4, 2026, with the folder layout).
 
 ### M1. CMake, the presets and the first x64 build (M)
 

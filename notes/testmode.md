@@ -326,7 +326,7 @@ python -I tools/compare_traffic.py record|compare ...   (the same, with that too
 ```
 
 The reference set's default is `<repository>\build\reference` (gitignored); the orchestrator's set is
-`C:\Patella-Modern\build\reference` (pass `--reference`). Reference recordings are CipSoft-derived local data:
+the main checkout's, `C:\Tibia\Patella-Modern\build\reference` (pass `--reference`). Reference recordings are CipSoft-derived local data:
 never committed, pushed or uploaded.
 
 ### The sessions
