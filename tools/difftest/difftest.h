@@ -39,7 +39,7 @@ void TestSkins();
 void TestStatus();
 void TestPreferences();
 void TestScript();
-void PatchScript(); // scripttest.cpp: the image's stdio, remove, rename and sprintf
+void PatchScript(); // tests/golden/script_tests.cpp: the image's stdio, remove, rename and sprintf
 void TestPreferencesFile();
 void TestPlayer();
 void TestHelp();
@@ -60,7 +60,7 @@ void TestSurfaceDX();                    // surfacedxtest.cpp, fake DirectDraw C
 void TestDialogs();                      // dialogstest.cpp, after TestDialogElements (restores its patches)
 void TestSurfaceDX9();                   // surfacedx9test.cpp, before TestMapWindow (restores its patches)
 void TestSurfaceGL();                    // surfacegltest.cpp, before TestMapWindow (restores its patches; own random numbers)
-void TestContainer();                    // containertest.cpp, Container.h's instances; before TestMapWindow (restores its patches)
+void TestContainer();                    // tests/golden/container_tests.cpp, Container.h's instances; before TestMapWindow (restores its patches)
 void TestRegexp();                       // regexptest.cpp, before TestMapWindow (own random numbers)
 void TestErrors(const char *ExePath);    // errortest.cpp, loads Tibia.dat;, the error paths (imageeh.cpp); before TestMapWindow (restores its patches; own random numbers)
 void TestNetwork();                      // networktest.cpp (includes Network.cpp), before TestMapWindow (restores its patches)

@@ -572,7 +572,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   call is a fake on both sides (`commworld.cpp`), the comparison is the calls with their arguments, what each side
   threw and the fakes' worlds; DIFFTEST_ONLY=Communication or Control. notes/decisions.md "Communication.cpp and
   Control.cpp tests (issue #36)".
-- `scripttest.cpp` also
+- `tests/golden/script_tests.cpp` (issue #26; `scripttest.cpp` before) also
   redirects the image's stdio functions (fopen, getc, fputc, fread, ...) to the test's CRT, so
   file-based code can be compared on real files. CTest gives each test a private TEMP
   (build\oracle-x86\tmp\<test>): several tests write fixed directories there, and runs in other worktrees at
@@ -586,12 +586,17 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   `golden_runner` (windows-x64, MSVC x64), where the original's results come from the corpus. Each result of
   the original passes through `golden::Output` (a number, an array of numbers, bytes, `OutputText`), each
   generated input through `golden::Input`; the CHECKs are the same code on both sides, so the counts are equal.
-  Ported so far: difftest's XTEA, Characters, Colors, Strings, FormatNumber, Buffers, Skins and Regexp (373,518
-  checks) and sysinctest's Sysinc (67); the runner lists the rest with their counts (difftest's other 28 tests,
-  16,475,234 checks; communicationtest's 1,134,513).
+  Ported so far: difftest's XTEA, Characters, Colors, Strings, FormatNumber, Buffers, Skins and Regexp (issue #24,
+  373,518 checks), Status (565,809), Preferences (102,060), Script (458,232), PreferencesFile (112,155), Player
+  (18,442), Help (70,631), Inventory (158,400), Talk (1,214,929) and Container (192,832) (issue #26, 2,893,490),
+  3,267,008 in all, and sysinctest's Sysinc (67); the runner lists the rest with their counts (difftest's other
+  19 tests, 13,581,744 checks, Errors' 40,408 among them; communicationtest's 1,134,513). The runner links the
+  reconstructed files the ported tests call (golden_client: compiled against the MFC shim with the product
+  settings) and aborting stubs of the others (tests/golden/client_stubs.cpp).
   - Record: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
     golden_corpus` runs difftest, sysinctest and communicationtest in full with `DIFFTEST_RECORD=<dir>` (default
-    build\golden, the cache variable PATELLA_GOLDEN_DIR; about five minutes, 17 MB). Recording changes no check
+    build\golden, the cache variable PATELLA_GOLDEN_DIR; about five minutes, 190 MB, of which Container 82 MB, Talk
+    46 MB, Script 29 MB). Recording changes no check
     count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. The corpus is derived from Tibia.exe: it stays on
     the machine (build/ is ignored by git) and is never committed, pushed or uploaded, not even as a CI artifact.
   - Replay: `build\windows-x64\tests\golden\Release\golden_runner.exe [--require] [<dir>]`, or the CTest test
@@ -605,8 +610,14 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     recording" instead of comparing wrong data: record again.
   - Porting a test: move it to tests/golden, put the original's calls under ORIGINAL, pass every value the
     comparison takes from the original through golden::Output (by value: fields and offsets, never a memory
-    image or a pointer), add it to golden_test.h, runner.cpp's table and both CMake lists. notes/decisions.md,
-    "The golden corpus (Patella-Modern issue #24)".
+    image or a pointer), add it to golden_test.h, runner.cpp's table and both CMake lists. The helpers of issue
+    #26: `ORIGINAL_VALUE(Name, Type, Expression)` and `ORIGINAL_TEXT(Name, Expression)` (the original's value
+    or text, NULL kept), `golden::OutputArray` (a length recorded before), `golden::OutputChanges` (a big buffer
+    by its changes since the last record). An original object whose layout has pointers is recorded field by
+    field, a pointer into the original's own objects as which of them it is, a file name relative to the
+    test's TEMP directory; a whole-object memcmp becomes a projection of ours to the original's layout
+    (container_tests.cpp's TLayout). notes/decisions.md, "The golden corpus (Patella-Modern issue #24)" and
+    "The golden corpus: settings, scripts and player data (Patella-Modern issue #26)".
 - The reference recordings (Patella-Modern issue #23; M2's exit): `python -I tools/reference.py compare
   --reference C:\Patella-Modern\build\reference` runs the x64 test client (build\windows-x64\Release\PatellaTest.exe,
   `--exe`) on every recorded session without the server and compares it with Tibia.exe's recording: the

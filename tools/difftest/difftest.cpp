@@ -482,7 +482,7 @@ int main(int argc, char **argv)
 	// DIFFTEST_ONLY=MainWindow, MapWindow, DialogWindow, ContextMenus, ConsoleWindow,
 	// ContentWindows, DialogElements, Dialogs, SurfaceDX9 or Container runs only mainwindowtest.cpp,
 	// dialogwindowtest.cpp, contextmenustest.cpp, consolewindowtest.cpp,
-	// contentwindowstest.cpp, dialogelementstest.cpp, dialogstest.cpp, surfacedx9test.cpp or containertest.cpp
+	// contentwindowstest.cpp, dialogelementstest.cpp, dialogstest.cpp, surfacedx9test.cpp or tests/golden/container_tests.cpp
 	// (they need none of the earlier tests), for quick runs while working on
 	// them.
 	const char *Only = getenv("DIFFTEST_ONLY");

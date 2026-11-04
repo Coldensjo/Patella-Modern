@@ -251,7 +251,7 @@ static std::string ReadFile(const char *Name)
 
 // The image's ofstream (basic_filebuf) reads the buffer pointers of its FILE
 // directly (_ptr, _cnt, _base of VC7.1's FILE), so it cannot get one of our
-// CRT's FILEs as scripttest.cpp's PatchScript gives it: it gets a VC7.1 FILE
+// CRT's FILEs as script_tests.cpp's PatchScript gives it: it gets a VC7.1 FILE
 // without a buffer (_ptr and _cnt 0, so every character goes through fputc or
 // fwrite), which holds our FILE.
 struct TImageFile {
