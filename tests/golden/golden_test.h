@@ -61,3 +61,5 @@ void TestHelp();
 void TestInventory();
 void TestTalk();
 void TestContainer();
+// Issue #27 (ExePath: where the oracle finds Tibia.dat; the runner passes nullptr, golden::DataFile).
+void TestObjects(const char *ExePath);

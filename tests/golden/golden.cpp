@@ -613,6 +613,43 @@ void OutputChanges(const char *Name, void *Last, const void *Value, size_t Size)
 		memcpy(Previous + Span[0], Bytes.data(), Span[1]);
 }
 
+std::string DataFile(const char *Name, const char *ExePath)
+{
+	std::string Path, Contents;
+	uint8_t Found = 0;
+	if (CurrentMode != TMode::Replay) { // the oracle, recording or not
+		Path = ExePath != nullptr ? ExePath : "";
+		size_t Slash = Path.find_last_of("\\/");
+		Path = (Slash == std::string::npos ? std::string() : Path.substr(0, Slash + 1)) + Name;
+		if (FILE *File = fopen(Path.c_str(), "rb")) {
+			Found = 1;
+			if (CurrentMode == TMode::Record) {
+				char Buffer[1 << 16];
+				size_t Read;
+				while ((Read = fread(Buffer, 1, sizeof(Buffer), File)) != 0)
+					Contents.append(Buffer, Read);
+			}
+			fclose(File);
+		}
+	}
+	Output(Name, Found);
+	if (Found == 0)
+		return std::string();
+	if (CurrentMode == TMode::Off)
+		return Path;
+	Contents = OutputText(Name, Contents.data(), Contents.size());
+	if (CurrentMode == TMode::Record)
+		return Path;
+	std::error_code Error;
+	std::filesystem::path Directory = std::filesystem::temp_directory_path(Error) / "golden-data";
+	std::filesystem::create_directories(Directory, Error);
+	Path = (Directory / Name).string();
+	FILE *File = fopen(Path.c_str(), "wb");
+	if (File == nullptr || fwrite(Contents.data(), 1, Contents.size(), File) != Contents.size() || fclose(File) != 0)
+		throw TStale{"cannot write " + Path};
+	return Path;
+}
+
 TText RecordedText(const char *Name, const char *Text, size_t MaxLength)
 {
 	TText Result;

@@ -180,6 +180,12 @@ template <class T> void OutputArray(const char *Name, T *Data, size_t Count)
 		Exchange(Name, 'O', TypeCode<T>(), sizeof(T), Count, Data);
 }
 
+// A data file next to Tibia.exe that both sides load (Tibia.dat; issue #27). The oracle records whether
+// it exists and its contents, and returns its path (empty when it does not exist); the runner writes the
+// recorded contents to a directory of its TEMP and returns that path. So the runner needs no data files:
+// they are in the corpus, which is local like them (never committed, pushed or uploaded).
+std::string DataFile(const char *Name, const char *ExePath);
+
 // SHA-256 of a file, in hex; empty when it cannot be read.
 std::string FileSha256(const char *Path);
 

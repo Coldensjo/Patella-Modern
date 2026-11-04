@@ -33,9 +33,6 @@ namespace {
 
 #define STUB() StubCalled(__FUNCTION__)
 
-// Objects.cpp.
-TObject NoObject; // 0x719da0, never written
-
 // Control.cpp.
 bool CloseRequest() { STUB(); }
 void ExitControl() { STUB(); }
