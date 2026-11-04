@@ -24,6 +24,8 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+// The Microsoft CRT's and compiler's spellings behind portable names (issue #43).
+#include "compat/msvc.h" // IWYU pragma: export
 #if !defined(PATELLA_CORE)
 // The test mode's hooks (issue #21): the system calls themselves outside the test build.
 #include "TestHooks.h" // IWYU pragma: export

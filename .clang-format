@@ -62,6 +62,7 @@ KeepEmptyLines:
 # statements (src/TestHooks.h) are the test mode's calls, nothing at all outside the test build.
 StatementMacros:
   - TBEGIN
+  - PATELLA_MSVC_WARNING
   - PATELLA_TEST_IDLE
   - PATELLA_TEST_RSA_BLOCK
   - PATELLA_TEST_PACKET_SENT
