@@ -7812,3 +7812,100 @@ format and the earlier helpers.
   before.
 - **Commits** (form). The foundation with Graphics, then GUI, then these notes. Each test's corpus was recorded and
   replayed after its port; the first commit was not built on its own (the second's tree was, in Release and Debug).
+
+## The golden corpus: the window tests (Patella-Modern issue #28, second part)
+
+Settled by Claude Opus 5.5, November 4, 2026. tests/golden/ (dialogwindow_tests.cpp, contextmenus_tests.cpp,
+consolewindow_tests.cpp, contentwindows_tests.cpp, dialogelements_tests.cpp, elementfakes.{h,cpp} moved from
+tools/difftest, golden.h's OutputTextChanges, golden_eh.h's GOLDEN_ROUND_COMPARE, golden_test.h's GOLDEN_THISCALL and
+GOLDEN_THIS), tests/golden/CMakeLists.txt, cmake/OracleX86.cmake, tools/difftest/difftest.h. notes/reconstruction.md,
+"Checking", describes the use; the sections on issues #24, #26, #27, #54, #30 and #28 above the format and the
+earlier helpers.
+
+- **Ported** (high). Five of the six window tests left by the first part, each with the oracle's count and 0
+  failures in Release and Debug, its error round's counts equal to the oracle's: DialogWindow 34,068 (9,501 in its
+  error round), ContextMenus 41,660 (8,572), ConsoleWindow 318,882 (287,934), ContentWindows 221,270 (168,764),
+  DialogElements 1,362,116 (1,226,638): 1,977,996 checks. The runner replays 14,836,028 of difftest's 16,848,752
+  checks and sysinctest's 67. Every CHECK, random number and operation is the old one; the summary lines ("each of
+  the 24 operations at least 463 times", "each window at least 275 times, each action at least 91 times", "12 marks
+  found" ...) are the oracle's in the runner too. A runner-only change of one fake's log text gave 431 failures in
+  DialogWindow (reverted).
+- **The element fakes on both sides** (high). elementfakes.h/.cpp moved to tests/golden and are compiled into both.
+  The oracle keeps the mirror classes with the x86 offsets (the image's code and our x86 code read them alike); the
+  runner has the same classes with our x64 layout: each named member at the offset of the real member it stands for
+  and each fake as large as its real class (static_asserts against DialogElements.h's classes; TFakeEditLine's
+  Active byte is `Data30[EditActive]`, an offsetof difference, 0x28 on x86 as before). The runner redirects our
+  constructors through their x64 decorated names (/alternatename, as the oracle does with the x86 ones; the runner
+  is built with MSVC x64 only) to plain stand-ins: on x64 a constructor takes this as its first argument, as a plain
+  function does, so a stand-in has the constructor's own parameter types (bool where it has bool) with this first.
+  Each fake is defined in the ported test that introduced it, on both sides; elementfakes.cpp has the runner's
+  definitions of those whose test is not ported (mainwindowtest.cpp's text button and label constructors, which only
+  report the object outside MainWindow's test; the border and the blinking button stop the runner). Considered: the
+  real classes on our side with their state recorded by value (the fakes' logs and the test vtables they get are
+  part of the comparison; real classes would log nothing).
+- **Member-function stand-ins** (high). The `__fastcall (This, void *, ...)` fakes of member functions are
+  `R GOLDEN_THISCALL Fake(GOLDEN_THIS, ...)` (golden_test.h): __fastcall with the dummy for EDX in the oracle, a
+  plain function with this first in the runner. FakeUpdateUpButton is declared per side in elementfakes.h, with
+  the other hooks difftest.h had (DialogFakes, ElementCreated, ReportElement), so the ported tests and the oracle's
+  remaining ones share them. None of these fakes returns a structure by value (on x64 a member's hidden return
+  pointer comes after this, a function's before its first argument).
+- **By value** (high; plan 4.3). Per comparison the corpus holds the original's log (text), its dump (the old
+  Dump's text by its changes since the last one: golden::OutputTextChanges records the bytes kept from the last
+  text's start and end and those between, which keeps DialogElements' 1.2 million dumps at 96 MB), the results of
+  its calls, the original's answers where the old test read the original outside its calls (whether it has a
+  window or a part, the sub-window that is gone), the number of logged fake calls the original's call made (the
+  error rounds draw the failing call from it) and what it threw (GOLDEN_ROUND_COMPARE, ORIGINAL_THROWN). The
+  original's side (its constructors, members, text buffers, vtables) is inside ORIGINAL or `#if GOLDEN_ORACLE`;
+  DialogElements' 123 member calls go through its CallI, which in the runner is never reached (Both runs our side
+  only) and stops the runner if it were. Pointers printed into a compared text are printed as the x86 oracle printed
+  them (ContextMenus' mark window, a number of the test's; DialogElements' unset tooltip, the 0xab pattern), eight
+  hex digits on both sides.
+- **The runner's patches** (high). Our functions go to the fakes through golden::RedirectOwn and back through
+  RestoreOwn, as in the oracle; operator new and new[] to the tests' pattern the same way (the runner's operator new
+  is in its image); our _time32 through its import slot (as Talk's), and ContentWindows' printf (the automap's
+  MouseHover; inline on x64) through the import slot of __stdio_common_vfprintf while our side runs. The Send
+  functions and IsClipboardEmpty/GetClipboardText the oracle's tests define for our side are client_stubs.cpp's and
+  golden_sysinc's in the runner, redirected the same way.
+- **No incremental linking** (high). golden_runner links with /INCREMENTAL:NO: an /alternatename alias of a
+  constructor got an incremental-link thunk of its own in Debug, and patching it did not reach the calls (the
+  constructor stayed real). Without incremental linking every address is the function's code, in Debug as in
+  Release.
+- **A deleted child read in TDialogWindow::SetSize** (found, not changed). DialogWindow.cpp's SetSize (as the
+  original's 0x4857d0) sizes each child and follows the child's Next; a sub-window's SetSize can rearrange the
+  column and delete children, so the loop reads a deleted child. The x86 heap and the x64 Release heap leave the
+  freed object as it was; the Debug CRT fills it, and the Debug runner crashed. The runner's operator delete keeps
+  memory freed during DialogWindow's test until its end (dialogwindow_tests.cpp), so both builds read what the oracle
+  read. src/ is unchanged (the behaviour is the original's); the game may never reach it (the test drives sizes the
+  game does not); left for a later issue.
+- **The order of Random()** (high; #55). Expressions with two or more calls in one expression are now sequenced in
+  the x86 oracle's order, right to left: the TRGBColor and TRect constructors of RandomSkinProperties
+  (DialogWindow, ContextMenus) and DialogElements' colours, ContextMenus' NewLine(Random(), Modes[Random() % 6],
+  ...), ConsoleWindow's `new TTalkLine(Random() % 1000, Mode, Random() % 2 ? ... : ..., ...)`. A probe compiled with
+  the oracle's flags (/O2 /EHa, x86) gave the same values for the old and the sequenced forms.
+- **ODR** (high). The tests' own definitions are in a namespace per test (DialogWindowTest ...): with
+  dialogwindowtest.cpp moved, the linker kept mainwindowtest.cpp's `struct TInfo` destructor for both files (the
+  same name, another layout) and difftest crashed in DialogWindow; the old order had hidden it.
+- **Dialogs is not ported** (needs the user). The x64 Dialogs.cpp (PATELLA_VULKAN) has the graphics device buttons of
+  issue #31 in the advanced graphics dialog where the oracle compares the engine buttons; the runner's Dialogs.cpp
+  is that one (as Patella.exe's), and its device queries are client_stubs.cpp's aborting stubs. The dialog's checks,
+  counted with a temporary instrumentation of the oracle (not committed; the log is local): 3,263 in the rounds that
+  open it and 5,806 in its error rounds, 9,069 of Dialogs' 299,174. Porting the other 290,105 needs the runner to
+  skip those rounds and stay in step: a record marking each round's end with the seed after it, a reader that skips
+  to it, and the runner's count of the skipped checks next to the replayed ones. Options for the 9,069: replay them
+  against Dialogs.cpp compiled without PATELLA_VULKAN (the engine buttons, code the x64 client no longer has), or
+  retire them with the oracle (M6), the device buttons being covered by the Vulkan tests and the reference
+  recordings. Not decided here (the device buttons are a settled decision; what the corpus does with these checks
+  is the user's).
+- **What is possible now** (high). The element fakes, the member-function stand-ins and the hooks have a runner
+  form, so MapWindow and MainWindow (#27) need only their own parts: MainWindow's fakes (the border, the text
+  button's first constructor, the label's font constructor are the runner's report-only versions in
+  elementfakes.cpp today) and TMapWindow's projection for MapWindow's byte compare. Errors (#26) still waits for
+  Dialogs, SurfaceDX, DX9 and GL in difftest's order (its "250 comparisons skipped" counts their redirects) and a
+  portable Redirected. Communication and Control (#30): GOLDEN_THISCALL covers their 27 member-function fakes;
+  their x86-decorated constructors can use x64 names as elementfakes.cpp does; ThisOfFirstCall, FollowJumps,
+  CheckRoom and FillStack remain x86-only.
+- **Size** (form). The corpus is 609 MB (DialogElements 96 MB, Graphics 91 MB, Container 82 MB, ConsoleWindow 69 MB,
+  GUI 56 MB, ContentWindows 48 MB, Talk 46 MB); local only, as before. A full recording takes about four minutes.
+- **Commits** (form). The element fakes with DialogWindow, then one commit per test, then these notes. Each test's
+  corpus was recorded and replayed after its port in Release and Debug; the first commit's tree was built as part of
+  the second's.
