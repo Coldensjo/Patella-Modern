@@ -8345,3 +8345,65 @@ ctime's text itself, in MSVC 7.1's form, and src/ calls neither `ctime` nor `_ct
   already, so #62 changes only the callers. Found: compat/msvc_portable.h's `PortableTime32` returns -1 after
   INT32_MAX, the UCRT's `_time32` after 0x7fffd27f, 3 h 14 min 8 s earlier (#43's comment says INT32_MAX for both):
   the platforms disagree in that window; #62 removes it with the 32-bit time.
+
+## The golden corpus: Errors (Patella-Modern issue #26, second part)
+
+Settled by Claude Opus 5.5, November 4, 2026; the retirement decided by the user the same day. tests/golden/
+(errors_tests.cpp moved from tools/difftest/errortest.cpp, runner.cpp, golden_test.h), tests/golden/CMakeLists.txt,
+cmake/OracleX86.cmake. notes/reconstruction.md, "Checking", describes the use; the sections on issues #24, #26, #27,
+#54, #30 and #28 above the format and the earlier helpers.
+
+- **Retired with the oracle** (decided by the user, November 4, 2026). The Statics round's SurfaceInitInstance part
+  compares the x86 Surface.cpp's engine selection (IsDirect3D9Installed, CreateSurfaceDX9, GetEngine, curEngine 0 to
+  2), which the x64 Surface.cpp replaces by the Vulkan engine (curEngine always 2): it cannot be replayed against the
+  x64 client's code. The oracle runs and records it between golden::RetiredBegin and RetiredEnd ("SurfaceInitInstance");
+  the runner skips it: **36 checks** (12 calls, each a "did not throw" check, the exception comparison and the engine
+  check; every call throws PROGRAM_ERROR 12, so no line pairs). After it the test passes the exceptions the part
+  compared (the round's summary) and ErRandom()'s state through golden::Output, as Dialogs does.
+- **Ported** (high). Errors 40,408 = 40,372 replayed + 36 retired, 0 failures, Release and Debug: the main part 31,912
+  (9,020 exceptions compared, 7,795 calls that threw, 250 comparisons skipped) and the Statics round 8,496 (8,460
+  replayed; 2,832 compared, 2,832 threw), each printed with the oracle's next to it; the runner fails when they differ
+  (not a check). Every CHECK, random number and operation is the old one: an ER_TRACE=1 run of DIFFTEST_ONLY=Errors
+  (every compared exception with its message) is line for line the pre-port oracle's, except the report's date (UTC
+  now, below). The runner replays 15,351,355 of the oracle's 17,983,332 checks, retires 1,497,464 and lists 1,134,513
+  (Communication, Control) as not ported. A runner-only change of the error hint fake's text gave 277 failures
+  (reverted).
+- **The redirected functions by value** (high). Errors runs after tests that redirect the original's functions and ours
+  for good; it skips such a comparison ("250 comparisons skipped") by finding a jump at the function's start
+  (imageeh.cpp's Redirected, x86 code). That set includes what the engine tests (SurfaceDX, DX9, GL), which never run in
+  the runner, leave; and an x64 function may start with a jump of its own (a tail call). So the oracle's answer is
+  recorded per comparison ("redirected", one byte) and the runner skips exactly those; TestWrapping's three "the callee
+  is real" flags, the talkbox getters' redirect and the statics' getters are the same answer. The comparisons that are
+  not skipped call our functions in the runner; all pass, so our side's redirect state matches the oracle's where it
+  matters. Errors runs in the runner's table after Dialogs and before Network, MainFrm, MapWindow and MainWindow, as in
+  the oracle (MapWindow's and MainWindow's redirects are for good). Considered: a portable Redirected (an x64 jmp at
+  the start is not always a test's patch).
+- **What the engine tests leave** (high). Nothing Errors reads: TestPlayer sets curEngine before each report, the
+  graphics counts are set and restored by TestGraphics, GetSurface's redirect is the Graphics test's (in the runner
+  too), and the engine tests restore their patches. The original's talkbox count is recorded (ORIGINAL_VALUE), ours is
+  the runner's: equal, so the talkbox getters run in both.
+- **Our statics in the runner** (high). The Statics round sets NumberOfBuddies, NumberOfPlayerSteps,
+  AccountCharacters and the offers' counts, which are in unnamed namespaces. The oracle finds them by decoding the
+  getters' x86 code (FindStatic); the runner by the getters' x64 code: `mov r32, [rip+disp32]` (8b /r, mod 00, r/m
+  101, a REX prefix without W allowed), each candidate probed as the oracle's (the getter must see a change). Whether
+  the oracle found both sides' is recorded; a runner that cannot find ours fails.
+- **TestPlayer in the runner** (high). Our CPlayerApp::FatalError, OutputControlErrorInformations (client_stubs.cpp),
+  GetErrorText and GetErrorHint (sysinc.cpp) go to the fakes with golden::RedirectOwn (SaveOwn/RestoreOwn), _time64 and
+  GetVersionExA through the runner's import slots; all is undone where the oracle's DisableImageExceptions undoes its
+  patches (before the Statics round), so sysinctest's later replay sees sysinc.cpp's own functions. The fake
+  FatalError must not return: the oracle's raises an SEH exception (the image's frames are in the call too), the
+  runner's throws a C++ exception of its own type, caught around the call (under the runner's /EHsc an SEH exception
+  would skip our destructors). The original's error.txt, FatalError texts and Terminating are recorded by value.
+- **Machine-independent texts** (high). Since issue #61 the report's date is the C library's local time on both sides
+  (our FormatCRT71Time, the image's ctime fake through the UCRT's _ctime32), so the recorded error.txt depended on
+  the recording machine's time zone: TestPlayer now writes the reports with TZ=UTC0 on both sides (_putenv_s and
+  _tzset, the earlier TZ back afterwards), in the oracle and the runner alike. The script errors name their file in
+  %TEMP%\errortest, and TEMP differs between the recording and the replay: both sides' messages have the directory
+  replaced by "%TEMP%\errortest" before the comparison (in the oracle the same replacement on both, so the
+  comparison is the old one; the line pairs are not where a path is).
+- **The order of ErRandom()** (high; #55). Calls whose arguments called ErRandom() more than once (SetPlayerSkill,
+  SetHotkey, InsertMemoryItem, InsertVideoItem) are statements in the x86 oracle's order (arguments right to left);
+  RandomValue's `ErRandom() ^ (ErRandom() << 16)` the left operand first; the trace comparison above proves the order.
+  The old COMPARE's two sides were one call's arguments: ours runs first now (they share no state).
+- **Size** (form). Errors.bin is 2.7 MB; the corpus 846 MB, local only, as before.
+- **Commits** (form). The port with the runner's table, then these notes.
