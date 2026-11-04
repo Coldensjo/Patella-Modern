@@ -119,7 +119,19 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
   a `std::string` (TERROR_REASON's reason: Script.cpp's Filename, until M5), and pass `.Chars` where it goes
   through `...` (MsvcSnprintf, a test's Logf): a TFixedString there is its N bytes, not a pointer. A bounded
   `MsvcSnprintf(Fixed.Chars, sizeof(Fixed), ...)` stays (_snprintf's result and missing NUL; the text table's
-  runtime formats).
+  runtime formats). A constant format whose text always fits is a Format (issue #64: Help.cpp's help texts, the
+  map messages, the account number and the dotted address); one that can fill the buffer or formats a double
+  (Control.cpp's frame rate: printf and std::format write NaN differently) stays MsvcSnprintf.
+- No `FILE` and no fopen, fclose or printf family in src/ outside src/types/File.h (issue #64; the same
+  `tools/banned_calls.py`). A file is a `TFile`: exactly a `FILE *` (a frozen member keeps its 4 bytes; Script.h's
+  four classes assert it), closed by its destructor, compared with nullptr and NULL as the pointer was (TASSERT
+  texts); Open(Name, TAccess::Read/Write/Append, TContent::Binary/Text) is fopen with its result (false, errno),
+  and the reads and writes are the C functions' with their results: the callers raise their own errors, as before.
+  TContent::Text writes every '\n' as "\r\n" on every platform (the Microsoft C runtime's own text mode on
+  Windows, a translating stream elsewhere), so a file the original opened with "t" or no letter keeps its bytes;
+  Print is fprintf with std::format's language (check that each conversion gives the same characters). stdout's
+  printf is compat/print.h's `PrintLine`; not std::print, which throws where the write fails (a GUI program has no
+  stdout). The standard streams' own writes (the test mode's fputs to stderr) are not files and stay.
 - Who owns each heap object is in notes/ownership.md (issue #58): a new allocation gets its line there. An owning
   pointer that is the only owner, released with the matching `delete`/`delete[]`, whose pointee's destructor cannot
   throw, is a `std::unique_ptr<T>` (`<T[]>`) with the default deleter: the original's `delete` stays an explicit
@@ -524,8 +536,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   linux-x64-clang (Release and Debug, `python3 -I tools/build.py <preset>` in the container), clang-format (the
   files above), clang-tidy against the baseline (above; checks only, never --fix) and the grep gate of issue #57
   (job "banned C string calls": `python3 -I tools/banned_calls.py --self-test && python3 -I tools/banned_calls.py`,
-  no call of strcpy, strcat, sprintf, vsprintf or gets in src/ outside src/Extern; comments and literals do not
-  count; run it locally the same way). Every action is pinned by commit; `permissions: contents: read`.
+  no call of strcpy, strcat, sprintf, vsprintf or gets in src/ outside src/Extern, and since issue #64 no FILE and
+  no fopen, fclose or printf family outside src/types/File.h; comments and literals do not count; run it locally
+  the same way). Every action is pinned by commit; `permissions: contents: read`.
   `.github/workflows/self-hosted.yml` runs on this machine (runner labels `self-hosted, Windows, X64, patella`):
   oracle-x86 and the difftest, the windows-x64 client (Release and Debug), compare_traffic.py and
   compare_files.py for the x64 client and compare_rendering.py `--modes windowed` for the x64 client (issue #18),
@@ -561,6 +574,12 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   MsvcSnprintf's _snprintf results on a TFixedString, and the stand-in against std::format_to_n for every count;
   the programs print which path they took. difftest checks the converted call sites against the original (the
   oracle's stand-in path), the golden corpus the x64 std::format path where its tests are ported.
+- TFile (issue #64): tests/unit/file_test.cpp, in tests_unit and tests_unit_cxx26_standin (Print through std::format
+  and through the stand-in), on every platform: the bytes of each open mode against fixed expected bytes (text:
+  "\r\n", also after a flush, and appended) and on Windows against the C runtime's fopen "wb", "wt", "w" and "at",
+  fopen's failures (errno), getc/ungetc, fread's whole items, fseek, _eof through Descriptor (the buffer reads
+  ahead), moves, tmpfile, and Print's text against snprintf's for the client's three formats (strings, ctime's
+  text and "(null)", frames.txt's integers at their limits); compat/print.h's FormatLine against "%s\n".
 - Each header compiles on its own (issue #49): `cmake/HeaderCheck.cmake` generates for every header of src/ (not
   src/Extern) a one-line source, `build/<preset>/header-check/<target>/<header>.cpp` with `#include "<header>"`,
   and compiles it, never linked, with the settings of a target that uses the header, once per target whose

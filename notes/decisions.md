@@ -8480,3 +8480,104 @@ their size (frozen until M6) and convert at one place each.
   call sites); the oracle's too (its code calls `_time64` and `_localtime64_s` now): no tier A or reference
   compare was run here (no client may be started by this change's worker); see the issue's report for the
   commands.
+
+## TFile, std::format in the writes and the formats (Patella-Modern issue #64)
+
+Settled by Claude Opus 5.5, November 4, 2026. The fifth change of M4 (plan section 7, "Formatting and I/O"): the
+client's files have an owner, and src/ has no `FILE`, fopen, fclose or printf outside that owner (a grep gate).
+
+- **What was there** (high). Script.h's four classes (TReadScriptFile, TWriteScriptFile, TReadBinaryFile,
+  TWriteBinaryFile: Tibia.cfg, the `.map` files, the patch files) with a `FILE *File` member (frozen: +0x004 and
+  +0x000) and fopen "rb"/"wb", getc/ungetc, fputc, fread, fwrite, fseek and `_eof(_fileno())`; SaveChannel's
+  `fopen("<caption>.txt", "at")` and fprintf, TTalkBuffer::Write(FILE *) with fprintf "%s\n"; MouseHover's
+  `printf("%s\n")` on stdout; the test mode's packets.log ("wb"), `--test-log` ("w", text), frames.txt (fprintf) and
+  messages.txt ("ab") through `_wfopen_s`. error.txt is a std::ofstream/std::ifstream (Player.cpp) and stays one.
+  clang-tidy's modernize-use-std-print reported the four printf/fprintf calls (Windows-only files, so not in the
+  Linux image's baseline).
+- **The type** (high). `src/types/File.h`: `TFile`, whose only member is the `FILE *` (`IsFileLayout`: its size,
+  alignment and standard layout; Script.h asserts the four classes' sizes and offsets under
+  PATELLA_ORIGINAL_LAYOUT), closed by its destructor, movable, not copyable. Its functions are the C library's,
+  with their results: `Open(Name, TAccess::Read/Write/Append, TContent::Binary/Text)` is fopen (false where fopen
+  returned NULL, errno from the library; an open TFile is not opened again: EBUSY), `Close` is fclose, `Read`/`Write`
+  fread/fwrite (whole items; `Write(std::string_view)` for a text), `PutChar`/`GetChar`/`UngetChar`
+  fputc/getc/ungetc, `Seek` (also for rewind, which clang-tidy's bugprone-unsafe-functions rejects), `Flush`, `Descriptor` (_fileno: TReadBinaryFile::eof keeps
+  `_eof(descriptor)`, whose answer depends on what the FILE's buffer read ahead, as in the original),
+  `OpenTemporary` (tmpfile), `Address` (the FILE's address: TTalkBuffer::Write's catch value `bytes`, which the
+  original's report shows), and comparisons with nullptr, so `File == NULL` and TASSERT(1672, `F!=NULL`), whose text
+  is frozen, compile unchanged. Nothing throws or reports: the callers raise their TERRORs as before (the texts and
+  lines unchanged; macrocheck 0). Header-only (no new source in the oracle's or difftest's lists).
+- **Open modes and the bytes on both platforms** (high). Binary is "b": the bytes as written (Tibia.cfg is binary;
+  its CR LF come from writeLn). Text is the original's "t" (SaveChannel's "at"; the test mode's "w"): the Microsoft
+  C runtime writes every '\n' as "\r\n" and changes nothing else (a "\r\n" in the data becomes "\r\r\n"; "at" opens
+  write-only, so the runtime's Ctrl-Z trimming, which needs read-write, never runs). On Windows TFile uses the
+  runtime's own text mode, so the bytes are the original's by construction. POSIX has no text mode, and an "at" file
+  on Linux would have kept bare '\n'; there TFile opens the descriptor itself (O_APPEND or O_TRUNC, 0666 like
+  fopen) and gives a glibc `fopencookie` stream whose write function adds the '\r' before each '\n' and writes to
+  the descriptor. The translation is in the FILE, not in TFile's functions, so TFile stays one pointer, every write
+  (Write, PutChar, Print) and every flush point (a Flush puts the bytes into the file: the test mode's log) behave
+  as on Windows, and a TTalkBuffer::Write into a binary file (the golden test's tmpfile) still writes bare '\n'.
+  Reading in text mode is refused (EINVAL): the client reads only binary files. tests/unit/file_test.cpp checks
+  the same expected bytes on Windows, mingw-w64 and Linux, and on Windows the C runtime's own "wb", "wt", "w" and
+  "at" against them.
+- **Sharing and buffering** (high). fopen is `_fsopen(Name, Mode, _SH_DENYNO)` on Windows, which is what the UCRT's
+  and MSVC 7.1's fopen call (and it has no deprecation warning outside common.h's _CRT_SECURE_NO_WARNINGS); the
+  UTF-16 overload of the Windows-only test mode is `_wfopen_s`, not shared, as its four calls had. The buffering is
+  the C library's default, as before; the flush points are the callers' (the test mode flushes after each line;
+  SaveChannel closes before it reports).
+- **Print and fprintf** (high). `TFile::Print(Format, Values...)` formats with std::format's language (std::format
+  on the product presets; in the oracle compat/format.h's stand-in, measured and then written, as TFixedString's
+  Format) and writes the text with fwrite: fprintf's result (the characters) or -1, no exception for a failed write.
+  The three formats, proved character for character against snprintf in file_test.cpp: "%s\n" (TTalkBuffer::Write,
+  the line's text: never null), "\nChannel saved at %s" (FormatCRT71Time's text or the literal "(null)"), and
+  frames.txt's "%d %u %d %u %d %d %lld\n", whose arguments have exactly those types (int, std::uint32_t, int,
+  std::uint32_t, int, int, long long), so `{}` gives printf's digits (checked at INT_MIN, UINT32_MAX, LLONG_MIN).
+- **Not std::print** (high; a deviation from the plan's wording, "std::print for diagnostics"). std::print and
+  std::println throw std::system_error where the write fails (C++23 [print.fun]; MSVC checks fwrite's result), where
+  printf returns quietly. The client is a GUI program without a valid stdout unless redirected, so MouseHover's
+  printf leftover as std::println would throw on every mouse move over the automap, inside TBEGIN/TEND2(433): a
+  TMyException and error.txt. On Windows std::print also writes UTF-16 through WriteConsoleW to a console, where
+  printf wrote the bytes. So stdout's printf is `src/compat/print.h`'s `patella::compat::PrintLine("{}", ...)`
+  (std::format or the stand-in, then fwrite to stdout: printf's bytes and its silence), and the test mode's
+  diagnostics on stderr stay fputs and fflush (the standard streams are not files TFile owns; Fail ends the
+  process right after). compat/cxx26.h's existing std::print(stderr) in the contract-violation handler, which
+  terminates anyway, stays. modernize-use-std-print reports nothing now (no printf or fprintf is left to report).
+- **One difference on an error path** (medium). SaveChannel opened the file before TASSERT(2324, TextBuffer!=NULL)
+  and leaked the FILE when it threw (the golden test's comment says so: "leaves it open when it throws"); the
+  TFile is closed when the exception leaves the function. The file's bytes are the same (nothing was written before
+  the assertion, and the leaked FILE's empty buffer was all the runtime would have flushed at exit); only the
+  handle is gone, so the file can be removed and appended to as before. Likewise a TTalkBuffer::Write that threw
+  halfway would have left its lines in the leaked FILE's buffer, written at a normal exit; now at once (nothing in
+  Write can throw: the lines' text is never null).
+- **MsvcSnprintf with constant formats** (high). 52 calls on main; 44 converted where the text always fits, so
+  _snprintf wrote it and its NUL exactly as Format does: Help.cpp's 30 help texts (`TStringBuffer(HelpText,
+  sizeof(HelpText)).Format`; "%d" became "{}" in the 9 with arguments, all literal ints; a script checked that no
+  text has another conversion or a brace and that the longest formats to 1,297 characters of 2,048), Control.cpp's
+  engine names (`TFixedString<4>` and Assign: three characters), Dialogs.cpp's four descriptions without an author
+  (texts of the text table, at most 49 characters of 255), Map.cpp's three messages (the file name has at most 12
+  characters: TFixedString<256> and Format), Preferences.cpp's hotkey "%s\n" (a hotkey is a
+  TFixedString<HOTKEY_LENGTH>, so at most 256 characters with the '\n' in 257), Status.cpp's account number ("%d", at
+  most 11 characters in 12; the original's `[11] = 0` stays) and dotted address (four uint8, which std::format and
+  the stand-in print as numbers: at most 15 in 16). Kept, 8: the text table's runtime formats (TextPercentToGo,
+  the context menu's speaker formats, TextTryingToReconnect: 2 calls), Dialogs.cpp's two with the book's author (a
+  server string of any length: _snprintf leaves no NUL at 255 characters, the type would cut at 254), Script.cpp's
+  error message (a 1,023-character file name overflows the 1,054), and Control.cpp's frame rate ("%s %.02f fps":
+  printf writes NaN as "-nan(ind)" or "nan", std::format "nan", and 11 digits fill the 20 without a NUL).
+- **Removed** (high). compat/msvc.h's `MsvcFileno` (TFile::Descriptor is the only use; core_msvc_test.cpp's _eof
+  case takes the descriptor itself, unbuffered as before); `TWriteScriptFile`'s writers are no longer `const` (they
+  write through the member). Script.h, Talk.h and the test mode no longer include <cstdio> for FILE.
+- **The grep gate** (high). tools/banned_calls.py also bans, outside src/types/File.h, the type `FILE` and the calls
+  fopen, _fsopen, _wfopen, _wfopen_s, fopen_s, freopen, fdopen, tmpfile, tmpfile_s, fopencookie, fclose, printf,
+  fprintf, vprintf and vfprintf (self-test extended); 0 in src/. fputs/fwrite to the standard streams are allowed.
+- **Forced test change** (high). tests/golden/talk_tests.cpp passed a tmpfile's `FILE *` to TTalkBuffer::Write: our
+  side is now `TFile OurFile; OurFile.OpenTemporary()` with Seek/Read/Close (the image's side unchanged). And
+  tests/golden/contentwindows_tests.cpp logged our MouseHover output by faking our printf (the oracle's static CRT
+  function, the runner's import of __stdio_common_vfprintf) while our side runs: difftest's first run had 403
+  ContentWindows failures ("logs differ": the original's "PrintfMark 384 of block 0,0" missing on ours). It now
+  fakes our fwrite instead (the oracle's with a jump, other streams through _fwrite_nolock; the runner's import
+  slot "fwrite", other streams to the saved one) and logs what goes to stdout the same way, "Printf" and the
+  text; the image's side (0x512292, FakePrintf) is unchanged. Nothing in tools/difftest changes.
+- **Gates** (high). oracle-x86 difftest counts unchanged (16,848,752 / 67 / 1,134,513 / 3,201, 0 failures),
+  golden_runner 15,351,355 replayed and 1,497,464 retired, 0 failures, the unit tests and presets as in
+  notes/progress.md, "Last difftest". The images change (TFile's and Format's inline code); no tier A, reference
+  or compare_files.py run here (no client may be started by this change's worker): compare_files.py is the live
+  check this change needs (Tibia.cfg, the `.map` files, the saved channel, the patch files).
