@@ -29,7 +29,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <version>
+#include <version> // IWYU pragma: keep (the feature-test macros of the #if line)
 
 #if defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L && defined(__cpp_lib_format)
 #include <format>
@@ -162,7 +162,7 @@ std::string ChronoText(std::chrono::time_point<Clock, std::chrono::seconds> Time
 std::string PacificChronoText(std::chrono::sys_seconds Time)
 {
 	using namespace std::chrono;
-	const year Year = year_month_day(floor<days>(Time)).year();
+	const year Year = year_month_day(floor<days>(Time)).year(); // NOLINT(misc-include-cleaner): days is <chrono>'s (MSVC declares it in an internal header)
 	const sys_seconds Start = sys_days(Year / March / Sunday[2]) + hours(2 + 8);
 	const sys_seconds End = sys_days(Year / November / Sunday[1]) + hours(2 + 7);
 	const hours Offset = Time >= Start && Time < End ? hours(-7) : hours(-8);
