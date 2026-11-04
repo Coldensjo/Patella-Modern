@@ -44,44 +44,44 @@
 namespace {
 
 // Data, in .bss order. 0x5c456c and 0x5c68ac are not used by any code.
-int BuddySortMethods[3];         // 0x5c4560, 0 name, 1 icon, 2 online; most significant first
-TBuddyEntry Buddies[BUDDIES];    // 0x5c4570
-int NumberOfOnlineBuddies;       // 0x5c67d0
-int NumberOfBuddies;             // 0x5c67d4
-int PlayerState;                 // 0x5c67d8, the state icons, one bit each
-int PlayerSkillProgress[SKILLS]; // 0x5c67dc
-int PlayerSkillValue[SKILLS];    // 0x5c67f8
-uint32 HighlightID;              // 0x5c6814
-uint32 FollowID;                 // 0x5c6818
-uint32 AttackID;                 // 0x5c681c
-int PlayerCapacity;              // 0x5c6820
-int PlayerSoul;                  // 0x5c6824
-int PlayerMaxMana;               // 0x5c6828
-int PlayerMana;                  // 0x5c682c
-int PlayerMagicLevelProgress;    // 0x5c6830
-int PlayerLevelProgress;         // 0x5c6834
-int PlayerMagicLevel;            // 0x5c6838
-int PlayerLevel;                 // 0x5c683c
-int PlayerExperience;            // 0x5c6840
-int PlayerMaxHealth;             // 0x5c6844
-int PlayerHealth;                // 0x5c6848
-uint32 PlayerID;                 // 0x5c684c
-bool NewPlayerDestination;       // 0x5c6850, a destination came while the old path was walked
-int CurrentPlayerStep;           // 0x5c6854
-int NumberOfPlayerSteps;         // 0x5c6858
-int PlayerSteps[10];             // 0x5c685c, 1 east, 2 north-east, ..., 8 south-east; the path finder stops at 10
-bool DestinationDiagonal;        // 0x5c6884, passed on to the path finder
-bool DestinationExact;           // 0x5c6885, passed on to the path finder
-int DestinationZ;                // 0x5c6888
-int DestinationY;                // 0x5c688c
-int DestinationX;                // 0x5c6890, 0: no destination
-int PlayerStepDirection;         // 0x5c6894, Direction of the step not confirmed yet
-int PlayerStepDY;                // 0x5c6898, the step sent but not confirmed by the server
-int PlayerStepDX;                // 0x5c689c
-int Beat;                        // 0x5c68a0, step durations are rounded up to a multiple
-int LastOpponent;                // 0x5c68a4, battle list ends (slot numbers, -1: empty)
-int FirstOpponent;               // 0x5c68a8
-TCreature Creatures[CREATURES];  // 0x5c68b0
+std::array<int, 3> BuddySortMethods;         // 0x5c4560, 0 name, 1 icon, 2 online; most significant first
+std::array<TBuddyEntry, BUDDIES> Buddies;    // 0x5c4570
+int NumberOfOnlineBuddies;                   // 0x5c67d0
+int NumberOfBuddies;                         // 0x5c67d4
+int PlayerState;                             // 0x5c67d8, the state icons, one bit each
+std::array<int, SKILLS> PlayerSkillProgress; // 0x5c67dc
+std::array<int, SKILLS> PlayerSkillValue;    // 0x5c67f8
+uint32 HighlightID;                          // 0x5c6814
+uint32 FollowID;                             // 0x5c6818
+uint32 AttackID;                             // 0x5c681c
+int PlayerCapacity;                          // 0x5c6820
+int PlayerSoul;                              // 0x5c6824
+int PlayerMaxMana;                           // 0x5c6828
+int PlayerMana;                              // 0x5c682c
+int PlayerMagicLevelProgress;                // 0x5c6830
+int PlayerLevelProgress;                     // 0x5c6834
+int PlayerMagicLevel;                        // 0x5c6838
+int PlayerLevel;                             // 0x5c683c
+int PlayerExperience;                        // 0x5c6840
+int PlayerMaxHealth;                         // 0x5c6844
+int PlayerHealth;                            // 0x5c6848
+uint32 PlayerID;                             // 0x5c684c
+bool NewPlayerDestination;                   // 0x5c6850, a destination came while the old path was walked
+int CurrentPlayerStep;                       // 0x5c6854
+int NumberOfPlayerSteps;                     // 0x5c6858
+std::array<int, 10> PlayerSteps;             // 0x5c685c, 1 east, 2 north-east, ..., 8 south-east; the path finder stops at 10
+bool DestinationDiagonal;                    // 0x5c6884, passed on to the path finder
+bool DestinationExact;                       // 0x5c6885, passed on to the path finder
+int DestinationZ;                            // 0x5c6888
+int DestinationY;                            // 0x5c688c
+int DestinationX;                            // 0x5c6890, 0: no destination
+int PlayerStepDirection;                     // 0x5c6894, Direction of the step not confirmed yet
+int PlayerStepDY;                            // 0x5c6898, the step sent but not confirmed by the server
+int PlayerStepDX;                            // 0x5c689c
+int Beat;                                    // 0x5c68a0, step durations are rounded up to a multiple
+int LastOpponent;                            // 0x5c68a4, battle list ends (slot numbers, -1: empty)
+int FirstOpponent;                           // 0x5c68a8
+std::array<TCreature, CREATURES> Creatures;  // 0x5c68b0
 // At 0x5cc418, constructed by the static initialiser 0x559e00 as
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // the end of Creatures.obj's .bss, before Dialogs.obj's NoCallback 0x5cc420.
@@ -624,7 +624,7 @@ int FindPlayerPath()
 	x += PlayerStepDX;
 	y += PlayerStepDY;
 	const int Result = FindPath(x, y, z, DestinationX, DestinationY, DestinationZ, DestinationExact,
-		&NumberOfPlayerSteps, PlayerSteps, DestinationDiagonal);
+		&NumberOfPlayerSteps, PlayerSteps.data(), DestinationDiagonal);
 	if (Result != 2)
 		DestinationX = 0;
 	if (Result > 0) {
@@ -1308,7 +1308,7 @@ void InitCreatures()
 void ResetCreatures()
 {
 	TBEGIN
-	memset(Creatures, 0, sizeof(Creatures));
+	memset(Creatures.data(), 0, sizeof(Creatures));
 	for (int i = 0; i < CREATURES; i++)
 		Creatures[i].CreatureID = 0;
 	FirstOpponent = -1;
@@ -1364,8 +1364,8 @@ void ExitCreatures()
 void patella::testmode::ViewCreatures(TCreaturesView *View)
 {
 	View->PlayerState = &PlayerState;
-	View->PlayerSkillProgress = PlayerSkillProgress;
-	View->PlayerSkillValue = PlayerSkillValue;
+	View->PlayerSkillProgress = PlayerSkillProgress.data();
+	View->PlayerSkillValue = PlayerSkillValue.data();
 	View->FollowID = &FollowID;
 	View->AttackID = &AttackID;
 	View->PlayerCapacity = &PlayerCapacity;
@@ -1380,6 +1380,6 @@ void patella::testmode::ViewCreatures(TCreaturesView *View)
 	View->PlayerMaxHealth = &PlayerMaxHealth;
 	View->PlayerHealth = &PlayerHealth;
 	View->PlayerID = &PlayerID;
-	View->Creatures = Creatures;
+	View->Creatures = Creatures.data();
 }
 #endif

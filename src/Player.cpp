@@ -63,7 +63,7 @@ POINT LastMousePosition;  // 0x719db4
 CPlayerApp theApp; // 0x719dc0
 
 // 0x4d7cd0: CPlayerApp has no message handlers of its own.
-BEGIN_MESSAGE_MAP(CPlayerApp, CWinApp)
+BEGIN_MESSAGE_MAP(CPlayerApp, CWinApp) // NOLINT(modernize-avoid-c-arrays): MFC's macro declares the message table (issue #60)
 END_MESSAGE_MAP()
 
 // 0x4d7cf0
