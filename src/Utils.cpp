@@ -100,7 +100,8 @@ void GetOutfitColor(int Color, int *R, int *G, int *B)
 	if (Color >= 133)
 		Color = 0;
 	if (Color % 19 == 0) {
-		HSVToRGB(0.0, 0.0, 1.0 - (Color / 19) * (1.0 / 7), R, G, B);
+		// The row, Color / 19, is an integer on purpose (the binary's).
+		HSVToRGB(0.0, 0.0, 1.0 - (Color / 19) * (1.0 / 7), R, G, B); // NOLINT(bugprone-integer-division)
 		return;
 	}
 	double S = 1.0;
@@ -114,6 +115,7 @@ void GetOutfitColor(int Color, int *R, int *G, int *B)
 	case 4: S = 1.0; V = 1.0; break;
 	case 5: S = 1.0; V = 0.75; break;
 	case 6: S = 1.0; V = 0.5; break;
+	default: break; // a negative Color: S and V stay 1.0, as in the binary
 		// clang-format on
 	}
 	HSVToRGB((Color % 19) * (1.0 / 18), S, V, R, G, B);

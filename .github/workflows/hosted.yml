@@ -41,7 +41,9 @@ jobs:
           python --version
           cmake --version
       # tools/build.py sets up MSVC x64 (vcvarsall.bat) and fails on any compiler or linker warning.
-      # cmake --workflow takes no -D, so the steps one by one: without Tibia.exe, no client.
+      # cmake --workflow takes no -D, so the steps one by one: without Tibia.exe, no client. The builds
+      # compile patella_core with MSVC's code analysis, /analyze (issue #63, cmake/Core.cmake): a finding
+      # fails them like a warning.
       - name: Configure (PATELLA_CLIENT=OFF)
         run: python -I tools/build.py --env windows-x64 cmake --preset windows-x64 -DPATELLA_CLIENT=OFF
       - name: Build Release
@@ -90,7 +92,9 @@ jobs:
           persist-credentials: false
       - name: Build the image (docker/linux-x64)
         run: docker build -t "$IMAGE" docker/linux-x64
-      # On Linux tools/build.py runs cmake --workflow itself, with its warning check.
+      # On Linux tools/build.py runs cmake --workflow itself, with its warning check. linux-x64-gcc
+      # compiles patella_core with GCC's static analyzer, -fanalyzer (issue #63, cmake/Core.cmake): a
+      # finding fails the build like a warning.
       - name: Release
         run: docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" python3 -I tools/build.py ${{ matrix.preset }}
       - name: Debug
@@ -139,9 +143,10 @@ jobs:
       # The compile commands of linux-x64-clang (configure only): every source of src/ that builds on
       # Linux (patella_core), and the headers of src/ they include; with --headers, misc-include-cleaner
       # on each header of the preset's header checks as its own main file (issue #49). Fails on a finding that is not in
-      # tools/tidy-baseline.tsv; checks only, never --fix. tools/tidy_ci.py runs this step locally: it reads the
-      # single-quoted bash -c script below (issue #51), so keep it one quoted argument.
+      # tools/tidy-baseline.tsv; checks only, never --fix. --zero bugprone- (issue #63): any bugprone-* finding
+      # fails, whatever the baseline says (fixed, or a NOLINT with its reason). tools/tidy_ci.py runs this step
+      # locally: it reads the single-quoted bash -c script below (issue #51), so keep it one quoted argument.
       - name: tools/tidy.py --baseline
         run: >-
           docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" bash -c
-          'clang-tidy --version && cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --headers --baseline tools/tidy-baseline.tsv'
+          'clang-tidy --version && cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --headers --baseline tools/tidy-baseline.tsv --zero bugprone-'

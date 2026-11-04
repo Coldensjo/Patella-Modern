@@ -28,7 +28,10 @@ void flex_unit::reserve(unsigned x)
 	}
 }
 
-// 0x50c050
+// 0x50c050. GCC's analyzer (issue #63) follows vlong_value::copy into a reserve that keeps a null a, which needs
+// i + 1 to wrap to 0: i is below a source's n, which never reaches UINT_MAX (a false positive).
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-null-dereference\"")
 void flex_unit::set(unsigned i, unsigned x)
 {
 	if (i < n) {
@@ -44,6 +47,7 @@ void flex_unit::set(unsigned i, unsigned x)
 		n = i + 1;
 	}
 }
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 
 // 0x50c0d0. *this = (x*y) % 2**keep
 void flex_unit::fast_mul(flex_unit &x, flex_unit &y, unsigned keep)
@@ -58,11 +62,12 @@ void flex_unit::fast_mul(flex_unit &x, flex_unit &y, unsigned keep)
 	for (i = 0; i < min; i += 1) {
 		const unsigned m = x.a[i];
 		unsigned c = 0; // carry
-		unsigned min = i + y.n;
-		if (min > limit)
-			min = limit;
+		// jmin, not min, which hid the outer one (MSVC /analyze's C6246, issue #63).
+		unsigned jmin = i + y.n;
+		if (jmin > limit)
+			jmin = limit;
 		unsigned j;
-		for (j = i; j < min; j += 1) {
+		for (j = i; j < jmin; j += 1) {
 			// c:a[j] = a[j] + c + m*y.a[j-i];
 			unsigned w, v = a[j], p = y.a[j - i];
 			v += c;
@@ -257,8 +262,9 @@ void vlong::docopy()
 	}
 }
 
-// 0x50c610
-vlong &vlong::operator=(const vlong &x)
+// 0x50c610. Barwood's, as in the binary: a self-assignment of an unshared value deletes it before taking it
+// again (issue #63: kept until M6; nothing in the client assigns a vlong to itself).
+vlong &vlong::operator=(const vlong &x) // NOLINT(bugprone-unhandled-self-assignment): the binary's, above
 {
 	if (value->share)
 		value->share -= 1;
@@ -512,7 +518,7 @@ void DecimalToVlong(const char *pDecimal, vlong &Number)
 	Digit[1] = 1; // as in the binary; atoi stops at it
 	Number = 0;
 	for (Digit[0] = *pDecimal; Digit[0] != 0; Digit[0] = *++pDecimal) {
-		const long Value = atoi(Digit.data());
+		const long Value = atoi(Digit.data()); // NOLINT(bugprone-unchecked-string-to-number-conversion): the binary's
 		if (Value < 0 || Value > 9)
 			throw "digit out of range";
 		Number = Number * 10L + Value;

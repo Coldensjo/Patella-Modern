@@ -9,6 +9,7 @@
 
 namespace {
 
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's global (vlong allocates; issue #63)
 vlong PublicExponent(65537); // 0x71f004, initialiser at 0x55a1e0
 
 } // namespace
