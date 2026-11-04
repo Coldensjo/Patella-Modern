@@ -8555,3 +8555,48 @@ issue #30's first part above lists what blocked the group; notes/reconstruction.
   the x64 client does not have); (c) leave Control unported until M6 retires the oracle. Control is untouched until
   the user decides (only its include of the moved commworld.h changed).
 - **Commits** (form). Communication's port, then these notes.
+
+## The golden corpus: Control (Patella-Modern issue #30, third part)
+
+Settled by Claude Opus 5.5, November 4, 2026; the retirement decided by the user the same day. tests/golden/
+(control_tests.cpp moved from tools/difftest/controltest.cpp, commworld.h, commworld.cpp, runner.cpp, golden_test.h),
+tests/golden/comm/CMakeLists.txt, cmake/OracleX86.cmake. The section on the second part above describes the world
+and Communication's port; notes/reconstruction.md, "Checking", the use.
+
+- **Retired with the oracle** (decided by the user, November 4, 2026). Control.cpp's ChangeEngine is the x86 engine
+  selection in the oracle and the graphics device choice of issue #31 in the x64 client (PATELLA_VULKAN): **24,155
+  checks**, the 1,518 comparisons that reach it (21,979 checks: 14,249 in the main part, 7,730 in the error round;
+  Step 11's call, or CheckSurface's ChangeEngine(0) after the surface's Init returned false, which the original's
+  log shows as "Surface.Init(...)=0") and the 2,176 checks of Control.cpp's statics compared right after them.
+- **Per comparison** (high). Only the oracle knows after both sides ran whether a comparison reached ChangeEngine.
+  It records that flag first (no record is written while the sides run), then the comparison's checks and values
+  between golden::RetiredBegin("ChangeEngine") and RetiredEnd; the runner reads the flag before it runs our side and,
+  for a retired one, neither calls our code (which would reach the x64 ChangeEngine) nor compares. A Step ends the
+  part after its own checks on the comparison's results (CloseRequest's result, curEngine; DeferRetiredEnd); the
+  statics' checks right after a retired comparison are a retired part of their own.
+- **In step after a retired part** (high). The state later comparisons read goes through golden::Output after
+  RetiredEnd, the original's values in the oracle, set on our side in the runner: Control.cpp's statics
+  (LastPacketType, LastPacketIndex, LastPacketTypes, ReconnectTimeout, Reconnect, LastMouseMove, ShowFPS: the
+  image's at their addresses; ours by name, since the runner compiles Control.cpp into control_tests.cpp, as
+  network_tests.cpp compiles Network.cpp), curEngine, the error round's exception counters, Random()'s seed and the
+  rand() fake's state; the callbacks and the window handle only ever hold InitWindow's values and are compared by
+  name, not set. The texts recorded by their changes (log, buffer and world dumps) restart from empty on both
+  sides. Nothing else carries over: every scenario ends with FreeWorlds, and no Init, Exit or other comparison of a
+  scenario follows a retired one (InitControl and ExitControl never reach ChangeEngine). A runner-only change that
+  leaves the statics unset gave 2,131 more failures; a runner-only fake-log change 4 more (both reverted).
+- **The statics search** (high). FindStatics runs our code to find our statics by value; its ProcessEvents redraws and
+  can reach our ChangeEngine, compared nowhere (in the oracle it leaves only curEngine, which every scenario sets
+  again before a comparison reads it). The runner finds the statics by name after the same calls (so they leave the
+  same state) and stands ChangeEngine in for the search only (a logging fake, golden::SaveOwn/RestoreOwn).
+- **Replayed** (high). 253,992 + 24,155 retired = 278,147, the oracle's, Release and Debug; the error round's counts
+  (163,552 checks, 10,980 exceptions compared, 9,474 that threw) equal the oracle's. The runner replays 16,461,713 of
+  the oracle's 17,983,332 checks, retires 1,521,619, lists none as not ported.
+- **60 failures: an x64 defect of src/Control.cpp** (needs a src change; not made here). ProcessEvents' event 0x12
+  reads its first parameter as `INT_PTR *` (Data[0] the count, &Data[1] the IDs), but Communication.cpp's
+  ReceiveChannelList builds an `int[]` (count, then the IDs). On x86 both are 4 bytes; on x64 the count is read from
+  8 bytes (its low half, so right) and the IDs start one entry late: the new-channel dialog of the x64 client shows
+  each channel with the next one's ID and reads one int past the array. All 60 failures (20 in the main part, 40 in
+  the error round, Release and Debug alike) are this call's log ("CreateNewChannelDialog(2,24:...,311:...)", the
+  original's "(2,88:...,24:...)"). Tried locally and reverted: `int *Data = reinterpret_cast<int *>(Param1);
+  CreateNewChannelDialog(Data[0], &Data[1], ...)` gives 0 failures (x86 code unchanged: INT_PTR is int there).
+- **Commits** (form). Control's port, then these notes.
