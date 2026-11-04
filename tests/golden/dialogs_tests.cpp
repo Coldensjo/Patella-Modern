@@ -1849,7 +1849,7 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 	} else if (In(K, {"TLabel", "TQuestionLabel", "TLogoutLabel", "TWaitLabel"})) {
 		TLabel *L = (TLabel *)C;
 		String(Out, s, L->Text);
-		String(Out, s, L->FullText);
+		String(Out, s, L->FullText.get());
 		Font(Out, L->Font);
 		Number(Out, L->Lines);
 		Pointer(Out, s, L->Line);
@@ -1867,7 +1867,7 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 			Callback(Out, s, ((TLogoutLabel *)C)->ExitCallback);
 		} else if (K == "TWaitLabel") {
 			TWaitLabel *W = (TWaitLabel *)C;
-			Pointer(Out, s, W->Timer);
+			Pointer(Out, s, W->Timer.get());
 			Byte(Out, W->CloseOnMessage);
 			Byte(Out, W->ClearOnAbort);
 		}
@@ -1880,7 +1880,7 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 	} else if (K == "TLink") {
 		TLink *L = (TLink *)C;
 		Pointer(Out, s, (const void *)L->OpenURL);
-		String(Out, s, L->Destination);
+		String(Out, s, L->Destination.get());
 		Pointer(Out, s, L->Button);
 		Pointer(Out, s, L->Label);
 	} else if (K == "TOutfitIcon") {
@@ -1931,10 +1931,10 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		} else if (K == "TMultiStateButton") {
 			TMultiStateButton *M = (TMultiStateButton *)C;
 			Add(Out, " state %d of %d", M->State, M->States);
-			Pointer(Out, s, M->ButtonUps);
-			Pointer(Out, s, M->ButtonDowns);
-			Pointer(Out, s, M->Callbacks);
-			if (IsBlock(M->ButtonUps) && IsBlock(M->ButtonDowns) && IsBlock(M->Callbacks))
+			Pointer(Out, s, M->ButtonUps.get());
+			Pointer(Out, s, M->ButtonDowns.get());
+			Pointer(Out, s, M->Callbacks.get());
+			if (IsBlock(M->ButtonUps.get()) && IsBlock(M->ButtonDowns.get()) && IsBlock(M->Callbacks.get()))
 				for (int i = 0; i < M->States && i < 100; i++) {
 					Add(Out, " %d,%d", M->ButtonUps[i], M->ButtonDowns[i]);
 					Callback(Out, s, M->Callbacks[i]);
@@ -2033,18 +2033,18 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		TReconnectWindow *R = (TReconnectWindow *)C;
 		Number(Out, R->Timeout);
 		Chars(Out, R->Text, sizeof(R->Text));
-		Pointer(Out, s, R->Timer);
+		Pointer(Out, s, R->Timer.get());
 		Pointer(Out, s, R->ProgressBar);
 		Pointer(Out, s, R->TimeLabel);
 	} else if (K == "TLoginDialog") {
 		TLoginDialog *L = (TLoginDialog *)C;
 		Pointer(Out, s, L->Account);
 		Pointer(Out, s, L->Password);
-		Focus(Out, s, L->FocusGroup);
+		Focus(Out, s, L->FocusGroup.get());
 	} else if (K == "TCharacterListDialog") {
 		TCharacterListDialog *L = (TCharacterListDialog *)C;
 		Pointer(Out, s, L->ListBox);
-		Pointer(Out, s, L->Timer);
+		Pointer(Out, s, L->Timer.get());
 		Number(Out, L->Seconds);
 	} else if (K == "TMoveObjectsDialog") {
 		TMoveObjectsDialog *M = (TMoveObjectsDialog *)C;
@@ -2057,9 +2057,9 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		TOutfitDialog *O = (TOutfitDialog *)C;
 		Pointer(Out, s, O->OutfitIcon);
 		Pointers(Out, s, O->PartButtons);
-		Radio(Out, s, O->PartGroup);
+		Radio(Out, s, O->PartGroup.get());
 		Pointers(Out, s, O->ColorButtons);
-		Radio(Out, s, O->ColorGroup);
+		Radio(Out, s, O->ColorGroup.get());
 		Numbers(Out, O->Colors);
 		Add(Out, " %d,%d,%d,%d", O->Outfit, O->FirstOutfit, O->LastOutfit, O->Part);
 	} else if (K == "TTextDialog") {
@@ -2099,8 +2099,8 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Pointer(Out, s, N->ListBox);
 		Pointer(Out, s, N->NameEdit);
 		Add(Out, " %d,%d,%d", N->Unused34, N->Unused38, N->NumberOfChannels);
-		Pointer(Out, s, N->ChannelIDs);
-		if (IsBlock(N->ChannelIDs))
+		Pointer(Out, s, N->ChannelIDs.get());
+		if (IsBlock(N->ChannelIDs.get()))
 			for (int i = 0; i < N->NumberOfChannels && i < 100; i++)
 				Number(Out, N->ChannelIDs[i]);
 	} else if (K == "TPrivateChannelDialog") {
@@ -2114,7 +2114,7 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 	} else if (K == "TEditBuddyDialog") {
 		TEditBuddyDialog *E = (TEditBuddyDialog *)C;
 		Number(Out, E->CharacterID);
-		Radio(Out, s, E->IconGroup);
+		Radio(Out, s, E->IconGroup.get());
 		Pointer(Out, s, E->Notify);
 		Pointer(Out, s, E->Description);
 		Pointers(Out, s, E->IconButtons);
@@ -2130,7 +2130,7 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Pointer(Out, s, ((THintsDialog *)C)->ListBox);
 	} else if (K == "TRuleViolationDialog") {
 		TRuleViolationDialog *R = (TRuleViolationDialog *)C;
-		Focus(Out, s, R->FocusGroup);
+		Focus(Out, s, R->FocusGroup.get());
 		Pointer(Out, s, R->NameEdit);
 		Pointer(Out, s, R->ReasonList);
 		Pointer(Out, s, R->ActionList);
@@ -2145,7 +2145,7 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 			E->Mark.Type);
 		Chars(Out, E->Mark.Text, sizeof(E->Mark.Text));
 		Pointer(Out, s, E->TextEdit);
-		Radio(Out, s, E->TypeGroup);
+		Radio(Out, s, E->TypeGroup.get());
 		Pointers(Out, s, E->TypeButtons);
 	} else if (K == "TGeneralOptionsDialog") {
 		TGeneralOptionsDialog *G = (TGeneralOptionsDialog *)C;
@@ -2180,7 +2180,7 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Pointer(Out, s, A->DirectX5Button);
 		Pointer(Out, s, A->DirectX9Button);
 		Pointer(Out, s, A->OpenGLButton);
-		Radio(Out, s, A->EngineGroup);
+		Radio(Out, s, A->EngineGroup.get());
 	} else if (K == "TConsoleOptionsDialog") {
 		TConsoleOptionsDialog *O = (TConsoleOptionsDialog *)C;
 		Pointer(Out, s, O->InfoMessages);
