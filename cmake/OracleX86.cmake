@@ -215,7 +215,7 @@ list(TRANSFORM difftest_window_sources PREPEND "${PROJECT_SOURCE_DIR}/src/")
 set(difftest_tests
 	difftest.cpp playertest.cpp
 	surfacedx9test.cpp surfacegltest.cpp
-	surfacedxtest.cpp errortest.cpp
+	surfacedxtest.cpp
 	imageeh.cpp imageehseh.asm)
 list(TRANSFORM difftest_tests PREPEND "${DIFFTEST_DIR}/")
 # The first tests (XTEA ... Buffers, Skins) and Regexp are golden-corpus tests (issue #24), and so are
@@ -240,6 +240,8 @@ list(APPEND difftest_tests "${GOLDEN_DIR}/elementfakes.cpp" "${GOLDEN_DIR}/dialo
 list(APPEND difftest_tests "${GOLDEN_DIR}/dialogs_tests.cpp")
 # Issue #27 (second part): MapWindow and MainWindow.
 list(APPEND difftest_tests "${GOLDEN_DIR}/mapwindow_tests.cpp" "${GOLDEN_DIR}/mainwindow_tests.cpp")
+# Issue #26 (second part): Errors (its SurfaceInitInstance part retired with the oracle).
+list(APPEND difftest_tests "${GOLDEN_DIR}/errors_tests.cpp")
 set_source_files_properties("${DIFFTEST_DIR}/imageehseh.asm" PROPERTIES COMPILE_OPTIONS /safeseh)
 add_executable(difftest ${difftest_tests}
 	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"

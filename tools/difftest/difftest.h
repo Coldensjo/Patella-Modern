@@ -62,7 +62,7 @@ void TestSurfaceDX9();                   // surfacedx9test.cpp, before TestMapWi
 void TestSurfaceGL();                    // surfacegltest.cpp, before TestMapWindow (restores its patches; own random numbers)
 void TestContainer();                    // tests/golden/container_tests.cpp, Container.h's instances; before TestMapWindow (restores its patches)
 void TestRegexp();                       // regexptest.cpp, before TestMapWindow (own random numbers)
-void TestErrors(const char *ExePath);    // errortest.cpp, loads Tibia.dat;, the error paths (imageeh.cpp); before TestMapWindow (restores its patches; own random numbers)
+void TestErrors(const char *ExePath);    // tests/golden/errors_tests.cpp, loads Tibia.dat; the error paths (imageeh.cpp); before TestMapWindow (restores its patches; own random numbers)
 void TestNetwork();                      // tests/golden/network_tests.cpp (includes Network.cpp), before TestMapWindow (restores its patches)
 void TestMainFrm();                      // tests/golden/mainfrm_tests.cpp (includes MainFrm.cpp), before TestMapWindow (restores its patches)
 void TestMapWindow(const char *ExePath); // tests/golden/mapwindow_tests.cpp, loads Tibia.dat

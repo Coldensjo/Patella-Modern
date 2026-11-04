@@ -99,3 +99,5 @@ void TestDialogs();
 // Issue #27 (second part; ExePath as TestObjects').
 void TestMapWindow(const char *ExePath);
 void TestMainWindow();
+// Issue #26 (second part; ExePath as TestObjects').
+void TestErrors(const char *ExePath);

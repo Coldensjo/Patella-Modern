@@ -48,10 +48,11 @@ namespace {
 struct TPorted {
 	const char *Name; // the oracle's test name without "Test"
 	void (*Run)();
+	const char *Retired = nullptr; // the issue that retired parts of the test with the oracle (RetiredBegin)
 };
 struct TExecutable {
 	const char *Name;
-	TPorted Tests[32];
+	TPorted Tests[40];
 };
 
 // The ported tests per test executable of the oracle.
@@ -69,7 +70,8 @@ const TExecutable Executables[] = {
 			{"ContextMenus", TestContextMenus},
 			{"ConsoleWindow", TestConsoleWindow},
 			{"ContentWindows", TestContentWindows},
-			{"DialogElements", TestDialogElements}, {"Dialogs", TestDialogs},
+			{"DialogElements", TestDialogElements}, {"Dialogs", TestDialogs, "#28/#31"},
+			{"Errors", [] { TestErrors(nullptr); }, "#26"},
 			{"Network", TestNetwork}, {"MainFrm", TestMainFrm},
 			{"MapWindow", [] { TestMapWindow(nullptr); }}, {"MainWindow", TestMainWindow}}},
 	{"sysinctest", {{"Sysinc", TestSysinc}}},
@@ -214,10 +216,10 @@ int main(int argc, char **argv)
 				printf("%s %s: %d checks, %d failures (the oracle: %lld checks)\n", Executable.Name, Test->Name,
 					TestChecks, TestFailures, Entry.Checks);
 			else
-				printf("%s %s: %d checks replayed + %lld retired with the oracle (#28/#31) = %lld, %d failures (the "
+				printf("%s %s: %d checks replayed + %lld retired with the oracle (%s) = %lld, %d failures (the "
 					   "oracle: %lld checks)\n",
-					Executable.Name, Test->Name, TestChecks, TestRetired, TestChecks + TestRetired, TestFailures,
-					Entry.Checks);
+					Executable.Name, Test->Name, TestChecks, TestRetired, Test->Retired != nullptr ? Test->Retired : "?",
+					TestChecks + TestRetired, TestFailures, Entry.Checks);
 			if (TestFailures != 0 || TestChecks + TestRetired != Entry.Checks) {
 				if (TestChecks + TestRetired != Entry.Checks)
 					printf("golden: %s %s: %d replayed + %lld retired checks, not the oracle's %lld\n", Executable.Name,
