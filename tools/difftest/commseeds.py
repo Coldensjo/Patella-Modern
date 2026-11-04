@@ -1,5 +1,5 @@
-# Writes commseeds.h: the decrypted server frames (s2c payloads) of issue #19's
-# live recordings, the seeds of communicationtest.cpp's packets (issue #36).
+# Writes tests/golden/commseeds.h (tools/difftest/commseeds.h before issue #30): the decrypted server frames (s2c payloads) of issue #19's
+# live recordings, the seeds of communication_tests.cpp's packets (issue #36).
 #
 # Usage: python -I commseeds.py <recording.jsonl> ... > commseeds.h
 # (the recordings are tools/compare_traffic.py's <client>-live.jsonl).

@@ -1,27 +1,36 @@
-// The shared fake world of communicationtest.cpp and controltest.cpp
-// (issue #36); see commworld.h.
+// The shared fake world of communication_tests.cpp and tools/difftest/controltest.cpp
+// (issue #36; a golden-corpus world since issue #30); see commworld.h.
 
 #include "commworld.h"
-#include "../../src/Communication.h"
-#include "../../src/ConsoleWindow.h"
-#include "../../src/ContextMenus.h"
-#include "../../src/Control.h"
-#include "../../src/Dialogs.h"
-#include "../../src/Help.h"
-#include "../../src/Inventory.h"
-#include "../../src/MainWindow.h"
-#include "../../src/Map.h"
-#include "../../src/Network.h"
-#include "../../src/Preferences.h"
-#include "../../src/Script.h"
-#include "../../src/Skins.h"
-#include "../../src/Status.h"
-#include "../../src/graphics.h"
-#include "../../src/sysinc.h"
+#if !GOLDEN_ORACLE
+#include "golden_patch.h"
+#endif
+
+#include "Communication.h"
+#include "ConsoleWindow.h"
+#include "ContextMenus.h"
+#include "Control.h"
+#include "Dialogs.h"
+#include "Help.h"
+#include "Inventory.h"
+#include "MainWindow.h"
+#include "Map.h"
+#include "Network.h"
+#include "Preferences.h"
+#include "Script.h"
+#include "Skins.h"
+#include "Status.h"
+#include "TRSA.h"
+#include "graphics.h"
+#include "sysinc.h"
 #include <map>
 #include <new>
 #include <stdarg.h>
 #include <malloc.h>
+
+#ifdef _MSC_VER
+#pragma warning(disable : 4100 4702) // the fakes' unused parameters; the surface traps' returns after abort()
+#endif
 
 int Side = OURS;
 const char *TestName = "Communication";
@@ -34,6 +43,7 @@ bool TraceCalls = false;
 bool TraceBefore = false;
 bool LiveLog = false;
 FILE *LogFile = NULL;
+bool RecordComparisons = false;
 
 // --- Logs ------------------------------------------------------------------------
 
@@ -103,7 +113,9 @@ std::string Hex(const uint8 *Data, int Size)
 
 // --- Failure injection ---------------------------------------------------------------
 
-typedef uint8 (__fastcall *TBufferGetByte)(void *This, void *);
+#if GOLDEN_ORACLE
+typedef uint8(__fastcall *TBufferGetByte)(void *This, void *);
+#endif
 
 // The side's own assertion: TReadBuffer::GetByte on an empty buffer
 // (Utils.cpp line 299), the image's 0x50a4b0 or ours.
@@ -111,11 +123,16 @@ void SideThrow()
 {
 	static uint8 Data[4];
 	if (Side == IMAGE) {
+#if GOLDEN_ORACLE
 		TBuffer Empty;
 		Empty.Data = Data;
 		Empty.Size = 0;
 		Empty.Position = 0;
 		At<TBufferGetByte>(0x50a4b0)(&Empty, NULL);
+#else
+		printf("golden: communication: the original's side called in the runner\n");
+		abort();
+#endif
 	} else {
 		TReadBuffer Empty(Data, 0);
 		Empty.GetByte();
@@ -220,10 +237,32 @@ void TCommBuffer::SetSelected(bool Value)
 
 // --- Windows ---------------------------------------------------------------------------
 
+#if GOLDEN_ORACLE
 static_assert(sizeof(TWindow) == 0x2c, "TWindow");
 static_assert(sizeof(TCtlWindow) <= 0x30, "TCtlWindow fits a THelpBubble");
 static_assert(offsetof(TCtlMainWindow, Console) == 0x3c, "TMainWindow::Console");
 static_assert(offsetof(TCtlMainWindow, InGame) == 0x48, "TMainWindow::InGame");
+static_assert(offsetof(TConsoleWindow, CurrentConsole) == 0x34 && offsetof(TConsole, TextWindow) == 0x2c,
+	"the console members Control.cpp reads");
+#endif
+// On every target: TCtlMainWindow's members where our TMainWindow has them, and a TCtlWindow fits the memory
+// our code allocates for each window a faked constructor builds in place (ours: our layout, x64 in the runner).
+static_assert(offsetof(TCtlMainWindow, MapFrame) == offsetof(TMainWindow, MapFrame)
+		&& offsetof(TCtlMainWindow, Console) == offsetof(TMainWindow, Console)
+		&& offsetof(TCtlMainWindow, StartWindow) == offsetof(TMainWindow, StartWindow)
+		&& offsetof(TCtlMainWindow, InGame) == offsetof(TMainWindow, InGame),
+	"TCtlMainWindow's members are TMainWindow's");
+static_assert(sizeof(TCtlWindow) <= sizeof(THelpBubble) && sizeof(TCtlWindow) <= sizeof(TObjectContextMenu)
+		&& sizeof(TCtlWindow) <= sizeof(TCreatureContextMenu) && sizeof(TCtlWindow) <= sizeof(TBuddyContextMenu)
+		&& sizeof(TCtlWindow) <= sizeof(TTextContextMenu) && sizeof(TCtlWindow) <= sizeof(TChannelContextMenu)
+		&& sizeof(TCtlWindow) <= sizeof(TRequestContextMenu) && sizeof(TCtlWindow) <= sizeof(TEditContextMenu)
+		&& sizeof(TCtlWindow) <= sizeof(TMarkContextMenu) && sizeof(TCtlWindow) <= sizeof(TSkillContextMenu),
+	"a TCtlWindow fits each window built in place");
+// The console's members Control.cpp reads, in memory of this size (the oracle's as before).
+static constexpr size_t ConsoleSize = GOLDEN_ORACLE ? 0x80 : 0x100;
+static_assert(offsetof(TConsoleWindow, CurrentConsole) + sizeof(void *) <= ConsoleSize
+		&& offsetof(TConsole, TextWindow) + sizeof(void *) <= ConsoleSize,
+	"the console's members fit");
 
 static void ApplyNextActionState()
 {
@@ -372,7 +411,11 @@ public:
 	void StretchBlit(int, TRect, int, TRect, TRGBColor, TRGBColor, TRect) override { SurfaceTrap("StretchBlit"); }
 	void ShadeRectangles(int, int, TRect *, TRGBColor *) override { SurfaceTrap("ShadeRectangles"); }
 	void SetSourceColorKey(int, TRGBColor) override { SurfaceTrap("SetSourceColorKey"); }
-	bool ClipRect(TRect, RECT *, RECT *) override { SurfaceTrap("ClipRect"); return false; }
+	bool ClipRect(TRect, RECT *, RECT *) override
+	{
+		SurfaceTrap("ClipRect");
+		return false;
+	}
 	void ResetFrameTimer() override { SurfaceTrap("ResetFrameTimer"); }
 	void WaitForNextFrame() override { SurfaceTrap("WaitForNextFrame"); }
 	void UpdateWindowRect() override { SurfaceTrap("UpdateWindowRect"); }
@@ -382,14 +425,22 @@ public:
 	void ResetDisplay(int, TFullscreenMode *) override { SurfaceTrap("ResetDisplay"); }
 	void RestoreSurfaces(int, TFullscreenMode *) override { SurfaceTrap("RestoreSurfaces"); }
 	void FinishFrame() override { Call("Surface.FinishFrame()"); }
-	bool Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, bool Force) override
+	bool Init(HWND *Window, int Mode, TFullscreenMode *Resolution, bool Force) override
 	{
-		Call("Surface.Init(%s,%d,%s,%d)=%d", Window != NULL ? NameOf(*Window).c_str() : "NULL", ViewMode,
+		Call("Surface.Init(%s,%d,%s,%d)=%d", Window != NULL ? NameOf(*Window).c_str() : "NULL", Mode,
 			NameOf(Resolution).c_str(), Force ? 1 : 0, InitResult ? 1 : 0);
 		return InitResult;
 	}
-	int GetFullscreenModes(TFullscreenMode **) override { SurfaceTrap("GetFullscreenModes"); return 0; }
-	int GetCacheSurfaces() override { SurfaceTrap("GetCacheSurfaces"); return 0; }
+	int GetFullscreenModes(TFullscreenMode **) override
+	{
+		SurfaceTrap("GetFullscreenModes");
+		return 0;
+	}
+	int GetCacheSurfaces() override
+	{
+		SurfaceTrap("GetCacheSurfaces");
+		return 0;
+	}
 	void GetSurfaceRect(int, TRect *) override { SurfaceTrap("GetSurfaceRect"); }
 	bool SurfaceRecreated(int Surface) override
 	{
@@ -401,8 +452,16 @@ public:
 		Call("Surface.IsUnavailable()=%d", Unavailable ? 1 : 0);
 		return Unavailable;
 	}
-	bool CanShadeRectangles() override { SurfaceTrap("CanShadeRectangles"); return false; }
-	int GetSurfaceMemory(int) override { SurfaceTrap("GetSurfaceMemory"); return 0; }
+	bool CanShadeRectangles() override
+	{
+		SurfaceTrap("CanShadeRectangles");
+		return false;
+	}
+	int GetSurfaceMemory(int) override
+	{
+		SurfaceTrap("GetSurfaceMemory");
+		return 0;
+	}
 	void SetFramerateLimit(int) override { SurfaceTrap("SetFramerateLimit"); }
 	double GetFPS() override
 	{
@@ -523,13 +582,13 @@ static void BuildWorld(int S, uint32 Seed)
 	W.Main->MapFrame = W.Main->SideBar = W.Main->DialogWindow = W.Main->SidePanel = NULL;
 	W.Main->Splitter = W.Main->StartWindow = NULL;
 	W.Main->InGame = false;
-	// The console (TConsoleWindow, 0x6c bytes) and its current console
-	// (CurrentConsole +0x34, TextWindow +0x2c): only these members are read.
-	W.Console = calloc(1, 0x80);
-	W.CurrentConsole = calloc(1, 0x80);
-	W.TextWindow = calloc(1, 0x80);
-	*(void **)((uint8 *)W.Console + 0x34) = W.CurrentConsole;
-	*(void **)((uint8 *)W.CurrentConsole + 0x2c) = W.TextWindow;
+	// The console (TConsoleWindow, 0x6c bytes in the oracle) and its current console
+	// (CurrentConsole +0x34, TextWindow +0x2c there): only these members are read.
+	W.Console = calloc(1, ConsoleSize);
+	W.CurrentConsole = calloc(1, ConsoleSize);
+	W.TextWindow = calloc(1, ConsoleSize);
+	*(void **)((uint8 *)W.Console + offsetof(TConsoleWindow, CurrentConsole)) = W.CurrentConsole;
+	*(void **)((uint8 *)W.CurrentConsole + offsetof(TConsole, TextWindow)) = W.TextWindow;
 	W.Main->Console = W.Console;
 	NameObject(S, W.Console, "Console");
 	NameObject(S, W.CurrentConsole, "CurrentConsole");
@@ -698,14 +757,14 @@ void DescribeEvent(std::string &Out, const TQueuedEvent &E)
 	}
 	case 0x12: {
 		int *Channels = (int *)P1;
-		const char *Names = (const char *)P2;
+		const char *ChannelNames = (const char *)P2;
 		sprintf(Buffer, "%d", Channels[0]);
 		Out += Buffer;
 		for (int i = 0; i < Channels[0] && i < 300; i++) {
 			sprintf(Buffer, ",%d:", Channels[i + 1]);
-			Out += Buffer + Quote(Names + i * 30);
+			Out += Buffer + Quote(ChannelNames + i * 30);
 		}
-		if (Names == NULL)
+		if (ChannelNames == NULL)
 			Out += ",NULL";
 		break;
 	}
@@ -741,11 +800,13 @@ void DescribeEvent(std::string &Out, const TQueuedEvent &E)
 
 // --- Receive and send buffers ------------------------------------------------------------
 
-// Our ReceiveBuffer and SendBuffer are statics of Network.cpp: their
+// Our ReceiveBuffer and SendBuffer are statics of Network.cpp. In the oracle their
 // addresses are the "mov ecx, imm32" before the first call in our GetByte
-// (TReadBuffer::GetByte) and BeginCommand (TWriteBuffer::PutWord).
+// (TReadBuffer::GetByte) and BeginCommand (TWriteBuffer::PutWord); the runner
+// compiles Network.cpp into network_tests.cpp, which gives them by name.
 static TBuffer *OurReceiveBuffer, *OurSendBuffer;
 
+#if GOLDEN_ORACLE
 static void *FollowJumps(void *Code)
 {
 	uint8 *p = (uint8 *)Code;
@@ -771,6 +832,16 @@ static TBuffer *ThisOfFirstCall(void *Function)
 
 TBuffer *ReceiveBufferOf(int S) { return S == IMAGE ? &Global<TBuffer>(0x719d68) : OurReceiveBuffer; }
 TBuffer *SendBufferOf(int S) { return S == IMAGE ? &Global<TBuffer>(0x719d5c) : OurSendBuffer; }
+#else
+// network_tests.cpp: Network.cpp's buffers, back in the state of the program's start.
+TBuffer *GoldenNetworkReceiveBuffer();
+TBuffer *GoldenNetworkSendBuffer();
+void GoldenNetworkResetBuffers();
+// The original's buffers have no data in the runner; the test still sets them as the oracle does.
+static TBuffer ImageReceiveBuffer, ImageSendBuffer;
+TBuffer *ReceiveBufferOf(int S) { return S == IMAGE ? &ImageReceiveBuffer : OurReceiveBuffer; }
+TBuffer *SendBufferOf(int S) { return S == IMAGE ? &ImageSendBuffer : OurSendBuffer; }
+#endif
 
 static uint8 *ReceiveCopy[2];
 void SetReceiveData(int S, const uint8 *Data, int Size)
@@ -791,39 +862,56 @@ static std::vector<uint32> FlagTable; // per type from 100: the 32 flags
 static std::vector<int> WaypointTable;
 static int FirstType = 100;
 
+// The oracle loads Tibia.dat with our Objects.cpp; the tables go into the corpus by value (the runner
+// needs neither Tibia.dat nor Objects.cpp's state).
 void LoadObjectFlags(const char *ExePath)
 {
 	if (!FlagTable.empty())
 		return;
+#if GOLDEN_ORACLE
 	std::string Dat = ExePath;
 	size_t Slash = Dat.find_last_of("\\/");
 	Dat = (Slash == std::string::npos ? std::string() : Dat.substr(0, Slash + 1)) + "Tibia.dat";
 	FILE *Probe = fopen(Dat.c_str(), "rb");
 	if (Probe == NULL) {
 		printf("note: %s not found, object flags from hashes only\n", Dat.c_str());
-		return;
-	}
-	fclose(Probe);
-	LoadObjects(Dat.c_str());
-	FirstType = ObjectProperties->low();
-	for (int Type = FirstType; Type <= ObjectProperties->high(); Type++) {
-		uint32 Flags = 0;
-		for (int Flag = 0; Flag < 32; Flag++) {
+	} else {
+		fclose(Probe);
+		LoadObjects(Dat.c_str());
+		FirstType = ObjectProperties->low();
+		for (int Type = FirstType; Type <= ObjectProperties->high(); Type++) {
+			uint32 Flags = 0;
+			for (int Flag = 0; Flag < 32; Flag++) {
+				try {
+					if (GetObjectFlag(Type, Flag))
+						Flags |= 1u << Flag;
+				} catch (...) {
+				}
+			}
+			FlagTable.push_back(Flags);
+			int Waypoints = 0;
 			try {
-				if (GetObjectFlag(Type, Flag))
-					Flags |= 1u << Flag;
+				Waypoints = GetObjectWaypoints(Type);
 			} catch (...) {
 			}
+			WaypointTable.push_back(Waypoints);
 		}
-		FlagTable.push_back(Flags);
-		int Waypoints = 0;
-		try {
-			Waypoints = GetObjectWaypoints(Type);
-		} catch (...) {
-		}
-		WaypointTable.push_back(Waypoints);
+		ExitObjects();
 	}
-	ExitObjects();
+#else
+	static_cast<void>(ExePath);
+#endif
+	if (!RecordComparisons)
+		return;
+	int Sizes[2] = {FirstType, (int)FlagTable.size()};
+	golden::Output("object flags", Sizes);
+	FirstType = Sizes[0];
+	FlagTable.resize((size_t)Sizes[1]);
+	WaypointTable.resize((size_t)Sizes[1]);
+	if (Sizes[1] > 0) {
+		golden::OutputArray("flag table", FlagTable.data(), FlagTable.size());
+		golden::OutputArray("waypoint table", WaypointTable.data(), WaypointTable.size());
+	}
 }
 
 int MaxObjectType() { return FlagTable.empty() ? 3000 : FirstType + (int)FlagTable.size() - 1; }
@@ -1043,24 +1131,24 @@ static void F_ProcessEffects() { Call("ProcessEffects()"); }
 static void F_InitMap(void (*Callback)(int)) { Call("InitMap(%s)", NameOf((void *)Callback).c_str()); }
 
 // Creatures.cpp
-static void __fastcall F_SetSkull(TCreature *This, void *, int Skull, bool Delay)
+static void GOLDEN_THISCALL F_SetSkull(GOLDEN_THIS_NAMED(TCreature *This), int Skull, bool Delay)
 {
 	Call("%s.SetSkull(%d,%d)", NameOf(This).c_str(), Skull, Delay ? 1 : 0);
 	This->PKFlag = Skull ^ 0x10;
 }
-static void __fastcall F_SetMark(TCreature *This, void *, int Mark)
+static void GOLDEN_THISCALL F_SetMark(GOLDEN_THIS_NAMED(TCreature *This), int Mark)
 {
 	Call("%s.SetMark(%d)", NameOf(This).c_str(), Mark);
 	This->Mark = Mark;
 }
-static void __fastcall F_CreatureSetPosition(TCreature *This, void *, int x, int y, int z)
+static void GOLDEN_THISCALL F_CreatureSetPosition(GOLDEN_THIS_NAMED(TCreature *This), int x, int y, int z)
 {
 	Call("%s.SetPosition(%d,%d,%d)", NameOf(This).c_str(), x, y, z);
 	This->RealX = x;
 	This->RealY = y;
 	This->RealZ = z;
 }
-static void __fastcall F_StartMovement(TCreature *This, void *, int dx, int dy, int Waypoints)
+static void GOLDEN_THISCALL F_StartMovement(GOLDEN_THIS_NAMED(TCreature *This), int dx, int dy, int Waypoints)
 {
 	Call("%s.StartMovement(%d,%d,%d)", NameOf(This).c_str(), dx, dy, Waypoints);
 }
@@ -1412,9 +1500,9 @@ static void F_AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
 	Call("%s", Text.c_str());
 	Wd().Events.insert(Wd().Events.begin(), E);
 }
-static void F_SetCharacter(int Number, const char *Name, const char *World, const uint8 *Address, int Port)
+static void F_SetCharacter(int Number, const char *Name, const char *GameWorld, const uint8 *Address, int Port)
 {
-	Call("SetCharacter(%d,%s,%s,%s,%d)", Number, Quote(Name).c_str(), Quote(World).c_str(), Hex(Address, 4).c_str(), Port);
+	Call("SetCharacter(%d,%s,%s,%s,%d)", Number, Quote(Name).c_str(), Quote(GameWorld).c_str(), Hex(Address, 4).c_str(), Port);
 }
 static int F_GetActionNumber()
 {
@@ -1703,32 +1791,32 @@ static void F_UpdateTimers() { Call("UpdateTimers()"); }
 
 // MainWindow.cpp
 static void F_ExitMainWindow() { Call("ExitMainWindow()"); }
-static void __fastcall F_MainOpenContainer(TMainWindow *This, void *, int Container)
+static void GOLDEN_THISCALL F_MainOpenContainer(GOLDEN_THIS_NAMED(TMainWindow *This), int Container)
 {
 	Call("%s.OpenContainer(%d)", NameOf(This).c_str(), Container);
 }
-static void __fastcall F_MainCloseContainer(TMainWindow *This, void *, int Container)
+static void GOLDEN_THISCALL F_MainCloseContainer(GOLDEN_THIS_NAMED(TMainWindow *This), int Container)
 {
 	Call("%s.CloseContainer(%d)", NameOf(This).c_str(), Container);
 }
-static void __fastcall F_MainUpdateTrade(TMainWindow *This, void *) { Call("%s.UpdateTrade()", NameOf(This).c_str()); }
-static void __fastcall F_MainSetConsoleActive(TMainWindow *This, void *, bool Active)
+static void GOLDEN_THISCALL F_MainUpdateTrade(GOLDEN_THIS_NAMED(TMainWindow *This)) { Call("%s.UpdateTrade()", NameOf(This).c_str()); }
+static void GOLDEN_THISCALL F_MainSetConsoleActive(GOLDEN_THIS_NAMED(TMainWindow *This), bool Active)
 {
 	Call("%s.SetConsoleActive(%d)", NameOf(This).c_str(), Active ? 1 : 0);
 }
-static void __fastcall F_MainChangeMode(TMainWindow *This, void *, bool InGame)
+static void GOLDEN_THISCALL F_MainChangeMode(GOLDEN_THIS_NAMED(TMainWindow *This), bool InGame)
 {
 	Call("%s.ChangeMode(%d)", NameOf(This).c_str(), InGame ? 1 : 0);
 }
-static void __fastcall F_MainOpenTrade(TMainWindow *This, void *) { Call("%s.OpenTrade()", NameOf(This).c_str()); }
-static void __fastcall F_MainCloseTrade(TMainWindow *This, void *) { Call("%s.CloseTrade()", NameOf(This).c_str()); }
+static void GOLDEN_THISCALL F_MainOpenTrade(GOLDEN_THIS_NAMED(TMainWindow *This)) { Call("%s.OpenTrade()", NameOf(This).c_str()); }
+static void GOLDEN_THISCALL F_MainCloseTrade(GOLDEN_THIS_NAMED(TMainWindow *This)) { Call("%s.CloseTrade()", NameOf(This).c_str()); }
 
 // ConsoleWindow.cpp
-static void __fastcall F_AddChannel(TConsoleWindow *This, void *, TTalkBuffer *Buffer, const char *Caption)
+static void GOLDEN_THISCALL F_AddChannel(GOLDEN_THIS_NAMED(TConsoleWindow *This), TTalkBuffer *Buffer, const char *Caption)
 {
 	Call("%s.AddChannel(%s,%s)", NameOf(This).c_str(), NameOf(Buffer).c_str(), Quote(Caption).c_str());
 }
-static TTalkBuffer *__fastcall F_OpenChannel(TConsoleWindow *This, void *, int RecvMode, int SendMode, const char *Name,
+static TTalkBuffer *GOLDEN_THISCALL F_OpenChannel(GOLDEN_THIS_NAMED(TConsoleWindow *This), int RecvMode, int SendMode, const char *Name,
 	int Channel, const char *Caption)
 {
 	TTalkBuffer *Result = Wd().Buffers[Hash(80, RecvMode, Channel) % WORLD_BUFFERS];
@@ -1736,72 +1824,72 @@ static TTalkBuffer *__fastcall F_OpenChannel(TConsoleWindow *This, void *, int R
 		Quote(Caption).c_str(), NameOf(Result).c_str());
 	return Result;
 }
-static void __fastcall F_ReportRuleViolation(TConsoleWindow *This, void *, const char *Question)
+static void GOLDEN_THISCALL F_ReportRuleViolation(GOLDEN_THIS_NAMED(TConsoleWindow *This), const char *Question)
 {
 	Call("%s.ReportRuleViolation(%s)", NameOf(This).c_str(), Quote(Question).c_str());
 }
 
 // ContextMenus.cpp: the constructors build a TCtlWindow in the memory the
 // caller allocated (at least 0x30 bytes).
-static void *__fastcall F_NewHelpBubble(void *This, void *, const char *HelpText)
+static void *GOLDEN_THISCALL F_NewHelpBubble(GOLDEN_THIS_NAMED(void *This), const char *HelpText)
 {
 	TCtlWindow *W = NewWindow(This);
 	Call("new THelpBubble(%s)=%s", Quote(HelpText).c_str(), NameOf(W).c_str());
 	return This;
 }
-static void __fastcall F_HelpBubblePlace(void *This, void *, TWindow *Window)
+static void GOLDEN_THISCALL F_HelpBubblePlace(GOLDEN_THIS_NAMED(void *This), TWindow *Window)
 {
 	Call("%s.Place(%s)", NameOf(This).c_str(), NameOf(Window).c_str());
 }
-static void *__fastcall F_NewObjectMenu(void *This, void *, int x, int y, int PW, int PH)
+static void *GOLDEN_THISCALL F_NewObjectMenu(GOLDEN_THIS_NAMED(void *This), int x, int y, int PW, int PH)
 {
 	TCtlWindow *W = NewWindow(This);
 	Call("new TObjectContextMenu(%d,%d,%d,%d)=%s", x, y, PW, PH, NameOf(W).c_str());
 	return This;
 }
-static void *__fastcall F_NewCreatureMenu(void *This, void *, uint32 ID, int x, int y, int PW, int PH)
+static void *GOLDEN_THISCALL F_NewCreatureMenu(GOLDEN_THIS_NAMED(void *This), uint32 ID, int x, int y, int PW, int PH)
 {
 	TCtlWindow *W = NewWindow(This);
 	Call("new TCreatureContextMenu(%u,%d,%d,%d,%d)=%s", ID, x, y, PW, PH, NameOf(W).c_str());
 	return This;
 }
-static void *__fastcall F_NewBuddyMenu(void *This, void *, uint32 ID, int x, int y, int PW, int PH)
+static void *GOLDEN_THISCALL F_NewBuddyMenu(GOLDEN_THIS_NAMED(void *This), uint32 ID, int x, int y, int PW, int PH)
 {
 	TCtlWindow *W = NewWindow(This);
 	Call("new TBuddyContextMenu(%u,%d,%d,%d,%d)=%s", ID, x, y, PW, PH, NameOf(W).c_str());
 	return This;
 }
-static void *__fastcall F_NewTextMenu(void *This, void *, void *TextWindow, int Line, int x, int y, int PW, int PH)
+static void *GOLDEN_THISCALL F_NewTextMenu(GOLDEN_THIS_NAMED(void *This), void *TextWindow, int Line, int x, int y, int PW, int PH)
 {
 	TCtlWindow *W = NewWindow(This);
 	Call("new TTextContextMenu(%s,%d,%d,%d,%d,%d)=%s", NameOf(TextWindow).c_str(), Line, x, y, PW, PH, NameOf(W).c_str());
 	return This;
 }
-static void *__fastcall F_NewChannelMenu(void *This, void *, void *Console, int x, int y, int PW, int PH)
+static void *GOLDEN_THISCALL F_NewChannelMenu(GOLDEN_THIS_NAMED(void *This), void *Console, int x, int y, int PW, int PH)
 {
 	TCtlWindow *W = NewWindow(This);
 	Call("new TChannelContextMenu(%s,%d,%d,%d,%d)=%s", NameOf(Console).c_str(), x, y, PW, PH, NameOf(W).c_str());
 	return This;
 }
-static void *__fastcall F_NewRequestMenu(void *This, void *, void *Console, int Line, int x, int y, int PW, int PH)
+static void *GOLDEN_THISCALL F_NewRequestMenu(GOLDEN_THIS_NAMED(void *This), void *Console, int Line, int x, int y, int PW, int PH)
 {
 	TCtlWindow *W = NewWindow(This);
 	Call("new TRequestContextMenu(%s,%d,%d,%d,%d,%d)=%s", NameOf(Console).c_str(), Line, x, y, PW, PH, NameOf(W).c_str());
 	return This;
 }
-static void *__fastcall F_NewEditMenu(void *This, void *, void *Edit, int x, int y, int PW, int PH)
+static void *GOLDEN_THISCALL F_NewEditMenu(GOLDEN_THIS_NAMED(void *This), void *Edit, int x, int y, int PW, int PH)
 {
 	TCtlWindow *W = NewWindow(This);
 	Call("new TEditContextMenu(%s,%d,%d,%d,%d)=%s", NameOf(Edit).c_str(), x, y, PW, PH, NameOf(W).c_str());
 	return This;
 }
-static void *__fastcall F_NewMarkMenu(void *This, void *, void *Data, int x, int y, int PW, int PH)
+static void *GOLDEN_THISCALL F_NewMarkMenu(GOLDEN_THIS_NAMED(void *This), void *Data, int x, int y, int PW, int PH)
 {
 	TCtlWindow *W = NewWindow(This);
 	Call("new TMarkContextMenu(%s,%d,%d,%d,%d)=%s", NameOf(Data).c_str(), x, y, PW, PH, NameOf(W).c_str());
 	return This;
 }
-static void *__fastcall F_NewSkillMenu(void *This, void *, void *Skills, int x, int y, int PW, int PH)
+static void *GOLDEN_THISCALL F_NewSkillMenu(GOLDEN_THIS_NAMED(void *This), void *Skills, int x, int y, int PW, int PH)
 {
 	TCtlWindow *W = NewWindow(This);
 	Call("new TSkillContextMenu(%s,%d,%d,%d,%d)=%s", NameOf(Skills).c_str(), x, y, PW, PH, NameOf(W).c_str());
@@ -1817,6 +1905,8 @@ extern "C" void OurRequestMenuConstructor();
 extern "C" void OurEditMenuConstructor();
 extern "C" void OurMarkMenuConstructor();
 extern "C" void OurSkillMenuConstructor();
+// Our constructors through their decorated names: x86 (the oracle)...
+#if GOLDEN_ORACLE
 #pragma comment(linker, "/alternatename:_OurHelpBubbleConstructor=??0THelpBubble@@QAE@PBD@Z")
 #pragma comment(linker, "/alternatename:_OurObjectMenuConstructor=??0TObjectContextMenu@@QAE@HHHH@Z")
 #pragma comment(linker, "/alternatename:_OurCreatureMenuConstructor=??0TCreatureContextMenu@@QAE@IHHHH@Z")
@@ -1827,6 +1917,19 @@ extern "C" void OurSkillMenuConstructor();
 #pragma comment(linker, "/alternatename:_OurEditMenuConstructor=??0TEditContextMenu@@QAE@PAVTEditLine@@HHHH@Z")
 #pragma comment(linker, "/alternatename:_OurMarkMenuConstructor=??0TMarkContextMenu@@QAE@PAUTMarkMenuData@@HHHH@Z")
 #pragma comment(linker, "/alternatename:_OurSkillMenuConstructor=??0TSkillContextMenu@@QAE@PAVTSkillsWindowBody@@HHHH@Z")
+#else
+// x64 (the runner, MSVC only): the same constructors' x64 decorated names (as elementfakes.cpp's, issue #28).
+#pragma comment(linker, "/alternatename:OurHelpBubbleConstructor=??0THelpBubble@@QEAA@PEBD@Z")
+#pragma comment(linker, "/alternatename:OurObjectMenuConstructor=??0TObjectContextMenu@@QEAA@HHHH@Z")
+#pragma comment(linker, "/alternatename:OurCreatureMenuConstructor=??0TCreatureContextMenu@@QEAA@IHHHH@Z")
+#pragma comment(linker, "/alternatename:OurBuddyMenuConstructor=??0TBuddyContextMenu@@QEAA@IHHHH@Z")
+#pragma comment(linker, "/alternatename:OurTextMenuConstructor=??0TTextContextMenu@@QEAA@PEAVTTextWindow@@HHHHH@Z")
+#pragma comment(linker, "/alternatename:OurChannelMenuConstructor=??0TChannelContextMenu@@QEAA@PEAVTConsoleWindow@@HHHH@Z")
+#pragma comment(linker, "/alternatename:OurRequestMenuConstructor=??0TRequestContextMenu@@QEAA@PEAVTConsoleWindow@@HHHHH@Z")
+#pragma comment(linker, "/alternatename:OurEditMenuConstructor=??0TEditContextMenu@@QEAA@PEAVTEditLine@@HHHH@Z")
+#pragma comment(linker, "/alternatename:OurMarkMenuConstructor=??0TMarkContextMenu@@QEAA@PEAUTMarkMenuData@@HHHH@Z")
+#pragma comment(linker, "/alternatename:OurSkillMenuConstructor=??0TSkillContextMenu@@QEAA@PEAVTSkillsWindowBody@@HHHH@Z")
+#endif
 
 // Dialogs.cpp: every creator returns a new window of the side.
 #define DIALOG_RESULT(Text) \
@@ -1977,7 +2080,11 @@ static void F_ExitSysinc() { Call("ExitSysinc()"); }
 // The C library of both sides: rand from one sequence per side (the same),
 // the image's formatting functions as ours.
 static uint32 RandState[2];
-uint32 CommRandState(int S, uint32 Seed) { RandState[S] = Seed; return Seed; }
+uint32 CommRandState(int S, uint32 Seed)
+{
+	RandState[S] = Seed;
+	return Seed;
+}
 static int __cdecl F_Rand()
 {
 	RandState[Side] = RandState[Side] * 214013 + 2531011;
@@ -2203,7 +2310,7 @@ const TFake WorldFakes[] = {
 	F(SetConsoleChanged, 0x4fd590),
 	F(SetStatusMessage, 0x4ff500),
 	F(IsTalkIgnored, 0x500060),
-	FO("GetTextBuffer", 0x5025c0, (TTalkBuffer * (*)(int, const char *, int))&GetTextBuffer, F_GetTextBuffer),
+	FO("GetTextBuffer", 0x5025c0, (TTalkBuffer * (*)(int, const char *, int)) & GetTextBuffer, F_GetTextBuffer),
 	F(AddTalkbox, 0x5052e0),
 	F(AddMessageTalkbox, 0x505ac0),
 	F(AddTextBufferLine, 0x505f10),
@@ -2310,7 +2417,7 @@ const TFake WorldFakes[] = {
 	F(InitSysinc, 0x4fcd00),
 	F(ExitSysinc, 0x4fcd30),
 	// The C library
-	FO("rand", 0x511f33, &rand, F_Rand),
+	FO("rand", 0x511f33, ORIGINAL_OR(&rand, nullptr), F_Rand), // the runner: its import slot (BeginWorld)
 	FO("sprintf", 0x511d6b, NULL, F_ImageSprintf),
 	FO("_snprintf", 0x51233d, NULL, F_ImageSnprintf),
 	FO("_strdup", 0x51491c, NULL, F_ImageStrdup),
@@ -2345,6 +2452,7 @@ void InstallFakes(const TFake *Fakes, int Count)
 {
 	for (int i = 0; i < Count; i++) {
 		const TFake &Fake = Fakes[i];
+#if GOLDEN_ORACLE
 		if (Fake.Image != 0)
 			PatchImageJump(Fake.Image, Fake.Fake);
 		if (Fake.Ours != NULL) {
@@ -2352,14 +2460,22 @@ void InstallFakes(const TFake *Fakes, int Count)
 			CheckRoom(Fake, Code);
 			PatchOwnCode(Code, Fake.Fake);
 		}
+#else
+		// The runner is linked without incremental-link thunks: the address is the code.
+		if (Fake.Ours != nullptr) {
+			CheckRoom(Fake, Fake.Ours);
+			golden::RedirectOwn(Fake.Ours, Fake.Fake);
+		}
+#endif
 	}
 }
 
+#if GOLDEN_ORACLE
 TCtlMainWindow *&SideMainWindow(int S) { return S == IMAGE ? Global<TCtlMainWindow *>(0x5d16b0) : (TCtlMainWindow *&)MainWindow; }
 TWindow *&SideModalWindow(int S) { return S == IMAGE ? Global<TWindow *>(0x5d16ac) : ModalWindow; }
 
-typedef void (__fastcall *TVlongCtor)(void *This, void *, uint32 Value);
-typedef void (__cdecl *TVoidFn)();
+typedef void(__fastcall *TVlongCtor)(void *This, void *, uint32 Value);
+typedef void(__cdecl *TVoidFn)();
 
 void BeginWorld()
 {
@@ -2401,6 +2517,65 @@ void BeginWorld()
 	Global<TObject>(0x719da0) = TObject();
 }
 
+// DisableImageExceptions (the error round's Finish) undoes the oracle's patches.
+void EndWorld() {}
+#else
+// The original's MainWindow and ModalWindow: the test still sets them as the oracle does.
+static TCtlMainWindow *ImageMainWindow;
+static TWindow *ImageModalWindow;
+TCtlMainWindow *&SideMainWindow(int S) { return S == IMAGE ? ImageMainWindow : (TCtlMainWindow *&)MainWindow; }
+TWindow *&SideModalWindow(int S) { return S == IMAGE ? ImageModalWindow : ModalWindow; }
+
+// An import slot of the runner bound to a fake (golden_patch.h; EndWorld unbinds it).
+static void BindOwnImport(const char *Name, void *Fake)
+{
+	void **Slot = golden::FindImport(Name);
+	if (Slot == nullptr) {
+		printf("FAIL communication: the runner does not import %s\n", Name);
+		Failures++;
+		return;
+	}
+	golden::SetImport(Slot, Fake);
+}
+
+void BeginWorld()
+{
+	// communicationtest.exe runs the test with nothing of ours redirected: the earlier tests' redirections of
+	// our code and import slots are undone.
+	golden::RestoreAllOwn();
+	golden::RestoreAllImports();
+	static bool Constructed = false;
+	if (!Constructed) {
+		Constructed = true;
+		// The skins and SkinProperties Redraw reads (cursor hotspots, the
+		// tooltip): the real initialisers, before the fakes replace them.
+		InitSkins();
+		InitSkinProperties();
+		OurReceiveBuffer = GoldenNetworkReceiveBuffer();
+		OurSendBuffer = GoldenNetworkSendBuffer();
+		GoldenNetworkResetBuffers();
+		if (OurSendBuffer->Size != 0x800 || OurReceiveBuffer->Size != 0) {
+			printf("FAIL communication: Network.cpp's buffers are not in their start state\n");
+			Failures++;
+		}
+	}
+	InstallFakes(WorldFakes, WorldFakeCount);
+	BindOwnImport("Sleep", (void *)F_Sleep);
+	BindOwnImport("rand", (void *)F_Rand);
+	// The same signatures and the same empty object as the original's.
+	DatSignature = 0x4495fa2b;
+	SpriteSignature = 0x449a1c41;
+	PictureSignature = 0x43fc1d0c;
+	NoObject = TObject();
+}
+
+void EndWorld()
+{
+	golden::RestoreAllOwn();
+	golden::RestoreAllImports();
+}
+#endif
+
 // --- Comparison ------------------------------------------------------------------------
 
 __declspec(noinline) void FillStack()
@@ -2429,7 +2604,8 @@ static std::string DumpCreature(const TCreature &C)
 {
 	char Buffer[512];
 	sprintf(Buffer, "%u %s pos %d,%d,%d dir %d outfit %d %d,%d,%d,%d light %d,%d mark %d health %d speed %d visible %d "
-		"skull %d party %d", C.CreatureID, Quote(C.Name).c_str(), C.RealX, C.RealY, C.RealZ, C.Direction, C.OutfitType,
+					"skull %d party %d",
+		C.CreatureID, Quote(C.Name).c_str(), C.RealX, C.RealY, C.RealZ, C.Direction, C.OutfitType,
 		C.Colors[0], C.Colors[1], C.Colors[2], C.Colors[3], C.LightStrength, C.LightColor, C.Mark, C.Health, C.Speed,
 		C.Visible ? 1 : 0, C.PKFlag, C.PARTYFlag);
 	return Buffer;
@@ -2441,8 +2617,7 @@ static std::string DumpBuffer(int S, TCommBuffer *B)
 		return "no buffer";
 	int Saved = Side;
 	Side = S;
-	std::string Text = NameOf(B) + ": first " + NameOf(B->first) + " last " + NameOf(B->last) + " cursor " +
-		NameOf(B->cursor) + " lines";
+	std::string Text = NameOf(B) + ": first " + NameOf(B->first) + " last " + NameOf(B->last) + " cursor " + NameOf(B->cursor) + " lines";
 	for (TTalkLine *L = B->first; L != NULL; L = L->Next)
 		Text += " " + NameOf(L);
 	Text += B->Selected ? " selected" : "";
@@ -2457,7 +2632,7 @@ static std::string DumpWorld(int S)
 	TWorld &W = World[S];
 	char Buffer[1024];
 	sprintf(Buffer, "player %u attack %u follow %u map %d,%d,%d actionstate %d connection %d actionnumber %d mouse %d,%d "
-		"cursor %d pending %d,%d helphandle %d chase %d open %08x overtext %s",
+					"cursor %d pending %d,%d helphandle %d chase %d open %08x overtext %s",
 		W.PlayerID, W.AttackID, W.FollowID, W.MapX, W.MapY, W.MapZ, W.ActionState, W.ConnectionState, W.ActionNumber,
 		W.MouseX, W.MouseY, W.MouseCursor, W.PendingState, W.PendingNumber, W.HelpHandle, W.ChaseMode, W.OpenContainers,
 		Quote(W.MouseOverText).c_str());
@@ -2476,7 +2651,13 @@ static std::string DumpWorld(int S)
 	return Text;
 }
 
-bool CompareRun(const char *What, const TThrown &O, const TThrown &I)
+// The original's side of the comparisons by value (golden.h): each text by its changes since the last
+// comparison, the creature records by their changed bytes. Empty at the start on both sides.
+static std::string LastLog, LastBuffer[WORLD_BUFFERS], LastWorld;
+static uint8 LastCreatures[sizeof(TCreature) * WORLD_CREATURES];
+static_assert(sizeof(TCreature) == 0x9c, "TCreature: the same 0x9c bytes on both targets (its records are compared by bytes)");
+
+bool CompareRun(const char *What, const TThrown &O, TThrown I)
 {
 	int Failures0 = Failures;
 	static bool HeapCheck = getenv("CM_HEAPCHK") != NULL;
@@ -2487,6 +2668,28 @@ bool CompareRun(const char *What, const TThrown &O, const TThrown &I)
 			fflush(stdout);
 			abort();
 		}
+	}
+	// The original's side: the oracle's, recorded; the runner's, from the corpus. The creature records go into
+	// the original's world, so that they are compared as in the oracle; the dumps of its text buffers and of
+	// its world are texts.
+	std::string BufferDump[WORLD_BUFFERS], WorldDump;
+	if (RecordComparisons) {
+		golden::OutputThrown("thrown", &I);
+		Log[IMAGE] = golden::OutputTextChanges("log", &LastLog, Log[IMAGE]);
+		golden::OutputRuns("creatures", LastCreatures, World[IMAGE].Creatures, sizeof(LastCreatures));
+		memcpy(static_cast<void *>(World[IMAGE].Creatures), LastCreatures, sizeof(LastCreatures));
+		for (int b = 0; b < WORLD_BUFFERS; b++) {
+			static const char *const Records[WORLD_BUFFERS] = {"buffer 0", "buffer 1", "buffer 2", "buffer 3"};
+			BufferDump[b] = golden::OutputTextChanges(Records[b], &LastBuffer[b],
+				ORIGINAL_OR(DumpBuffer(IMAGE, World[IMAGE].Buffers[b]), std::string()));
+		}
+		WorldDump = golden::OutputTextChanges("world", &LastWorld, ORIGINAL_OR(DumpWorld(IMAGE), std::string()));
+	} else {
+#if GOLDEN_ORACLE
+		for (int b = 0; b < WORLD_BUFFERS; b++)
+			BufferDump[b] = DumpBuffer(IMAGE, World[IMAGE].Buffers[b]);
+		WorldDump = DumpWorld(IMAGE);
+#endif
 	}
 	CompareThrown(TestName, What, O, I);
 	Checks++;
@@ -2502,10 +2705,12 @@ bool CompareRun(const char *What, const TThrown &O, const TThrown &I)
 			"%s: creature %d: %s, original %s", What, i, A.c_str(), B.c_str());
 	}
 	for (int b = 0; b < WORLD_BUFFERS; b++) {
-		std::string A = DumpBuffer(OURS, World[OURS].Buffers[b]), B = DumpBuffer(IMAGE, World[IMAGE].Buffers[b]);
+		std::string A = DumpBuffer(OURS, World[OURS].Buffers[b]);
+		const std::string &B = BufferDump[b];
 		CHECK(A == B, "%s: %s, original %s", What, A.c_str(), B.c_str());
 	}
-	std::string A = DumpWorld(OURS), B = DumpWorld(IMAGE);
+	std::string A = DumpWorld(OURS);
+	const std::string &B = WorldDump;
 	CHECK(A == B, "%s: world\n    ours:     %s\n    original: %s\n    calls: %s", What, A.c_str(), B.c_str(),
 		Log[OURS].substr(0, 3000).c_str());
 	if (TraceCalls)

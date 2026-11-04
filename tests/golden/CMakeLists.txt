@@ -111,6 +111,9 @@ golden_client_settings(golden_client_tests)
 # Network (issue #30): network_tests.cpp in a directory of its own (network/CMakeLists.txt, its exception
 # model).
 add_subdirectory(network)
+# Communication (issue #30): its world, Communication.cpp and Control.cpp in a directory of their own
+# (comm/CMakeLists.txt, their exception model).
+add_subdirectory(comm)
 
 add_executable(golden_runner
 	runner.cpp
@@ -121,7 +124,8 @@ add_executable(golden_runner
 	$<TARGET_OBJECTS:golden_sysinc>
 	$<TARGET_OBJECTS:golden_client>
 	$<TARGET_OBJECTS:golden_client_tests>
-	$<TARGET_OBJECTS:golden_network_tests>)
+	$<TARGET_OBJECTS:golden_network_tests>
+	$<TARGET_OBJECTS:golden_comm_tests>)
 target_link_libraries(golden_runner PRIVATE patella_core winmm user32)
 file(TO_CMAKE_PATH "${PROJECT_SOURCE_DIR}/build/golden" golden_default_dir)
 target_compile_definitions(golden_runner PRIVATE "GOLDEN_DEFAULT_DIR=\"${golden_default_dir}\"")

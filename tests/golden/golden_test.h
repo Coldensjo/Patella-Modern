@@ -101,3 +101,5 @@ void TestMapWindow(const char *ExePath);
 void TestMainWindow();
 // Issue #26 (second part; ExePath as TestObjects').
 void TestErrors(const char *ExePath);
+// Issue #30 (second part; communicationtest.exe's, ExePath as TestObjects').
+void TestCommunication(const char *ExePath);

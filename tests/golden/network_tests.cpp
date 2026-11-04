@@ -1926,3 +1926,21 @@ void TestNetwork()
 	if (LogFile != NULL)
 		fclose(LogFile);
 }
+
+#if !GOLDEN_ORACLE
+// Network.cpp's buffers for the communication tests (tests/golden/commworld.cpp, issue #30): Communication.cpp
+// reads and builds packets in them. In the oracle communicationtest.exe links Network.cpp on its own (commworld.cpp
+// finds them in its code); here Network.cpp is this file's. Reset: their state at the program's start (the
+// Network test above leaves its last round's).
+TBuffer *GoldenNetworkReceiveBuffer() { return &ReceiveBuffer; }
+TBuffer *GoldenNetworkSendBuffer() { return &SendBuffer; }
+void GoldenNetworkResetBuffers()
+{
+	SendBuffer.Data = SendData;
+	SendBuffer.Size = sizeof(SendData);
+	SendBuffer.Position = 0;
+	ReceiveBuffer.Data = ReceiveData;
+	ReceiveBuffer.Size = 0;
+	ReceiveBuffer.Position = 0;
+}
+#endif

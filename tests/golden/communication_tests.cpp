@@ -1,4 +1,5 @@
-// Differential test of Communication.cpp (issue #36), in communicationtest.exe.
+// Differential test of Communication.cpp (issue #36), in communicationtest.exe (moved here from
+// tools/difftest/communicationtest.cpp, issue #30: a golden-corpus test, golden.h).
 //
 // Server packets of every type both dispatch tables of ReceivePackets know
 // (the login server's and the game server's), valid, truncated, with bytes
@@ -17,20 +18,36 @@
 //
 // CM_TRACE=1 prints every comparison, CM_LOGS=<file> writes every compared
 // log, CM_ROUNDS=<n> the number of generated frames (default 6000),
-// CM_SEED=<n> changes the inputs.
+// CM_SEED=<n> changes the inputs (not with a corpus).
+//
+// By value (issue #30): the oracle records the original's side of every comparison (commworld.cpp's
+// CompareRun: what it threw, its log, its creature records, its buffers' and world's dumps), the readers'
+// results, the first byte of the image's empty Exit function, and Tibia.dat's flag table (LoadObjectFlags).
+// The runner runs our side alone (every image call is inside ORIGINAL or ORIGINAL_SIDE) against the same
+// fakes, and compares with the recorded original. The error round's structured exceptions (the failing RSA's,
+// a block of a zero-sized patch dividing by zero) are caught by both sides' catch (...): the runner compiles
+// this file, commworld.cpp, Communication.cpp and Control.cpp with /EHa, as the oracle does
+// (tests/golden/comm/CMakeLists.txt).
 
 #include "commworld.h"
 #include "commseeds.h"
-#include "../../src/compat/mfc_shim.h"
-#include "../../src/Communication.h"
-#include "../../src/Control.h"
-#include "../../src/MainWindow.h"
-#include "../../src/Network.h"
-#include "../../src/Status.h"
-#include "../../src/TRSA.h"
+#if !GOLDEN_ORACLE
+#include "golden_patch.h"
+#endif
+
+#include "compat/mfc_shim.h"
+#include "Communication.h"
+#include "Control.h"
+#include "MainWindow.h"
+#include "Network.h"
+#include "Status.h"
+#include "TRSA.h"
 
 // --- What difftest.exe's other test files provide -------------------------
+// (The runner has them: status_tests.cpp's PatchImage, network_tests.cpp's CAsyncSocket and AfxSocketInit,
+// mainfrm_tests.cpp's MainFrm.cpp.)
 
+#if GOLDEN_ORACLE
 // imageeh.cpp's EnableImageExceptions calls it (tests/golden/status_tests.cpp's in difftest.exe):
 // the image's malloc and free are ours.
 static void *__cdecl CommImageMalloc(size_t Size) { return malloc(Size); }
@@ -56,23 +73,44 @@ static void SocketTrap(const char *Name)
 }
 CAsyncSocket::CAsyncSocket() { m_hSocket = INVALID_SOCKET; }
 CAsyncSocket::~CAsyncSocket() {}
-BOOL CAsyncSocket::Create(UINT, int, long, LPCTSTR) { SocketTrap("Create"); return FALSE; }
-BOOL CAsyncSocket::Connect(LPCTSTR, UINT) { SocketTrap("Connect"); return FALSE; }
+BOOL CAsyncSocket::Create(UINT, int, long, LPCTSTR)
+{
+	SocketTrap("Create");
+	return FALSE;
+}
+BOOL CAsyncSocket::Connect(LPCTSTR, UINT)
+{
+	SocketTrap("Connect");
+	return FALSE;
+}
 void CAsyncSocket::Close() { SocketTrap("Close"); }
-int CAsyncSocket::Receive(void *, int, int) { SocketTrap("Receive"); return 0; }
-int CAsyncSocket::Send(const void *, int, int) { SocketTrap("Send"); return 0; }
+int CAsyncSocket::Receive(void *, int, int)
+{
+	SocketTrap("Receive");
+	return 0;
+}
+int CAsyncSocket::Send(const void *, int, int)
+{
+	SocketTrap("Send");
+	return 0;
+}
 void CAsyncSocket::OnReceive(int) {}
 void CAsyncSocket::OnSend(int) {}
 void CAsyncSocket::OnOutOfBandData(int) {}
 void CAsyncSocket::OnAccept(int) {}
 void CAsyncSocket::OnConnect(int) {}
 void CAsyncSocket::OnClose(int) {}
-BOOL AfxSocketInit(WSADATA *) { SocketTrap("AfxSocketInit"); return FALSE; }
+BOOL AfxSocketInit(WSADATA *)
+{
+	SocketTrap("AfxSocketInit");
+	return FALSE;
+}
 
 // MainFrm.cpp's globals (MainFrm.cpp and Player.cpp are not linked: MFC's
 // frame window and application classes, which the shim only declares).
 uint8 PacketHeader[16];
 bool DisplayChanged;
+#endif
 
 // --- Control.cpp's functions that ReceivePackets calls -----------------------
 
@@ -119,7 +157,8 @@ static std::string PickText(int Long = 0)
 {
 	int Length;
 	switch (Random() % 20) {
-	case 0: case 1: Length = 0; break;
+	case 0:
+	case 1: Length = 0; break;
 	case 2: Length = 29 + Random() % 3; break;
 	case 3: Length = 30 + Random() % 40; break;
 	case 4: Length = Long ? 500 + Random() % 300 : Random() % 60; break;
@@ -145,14 +184,27 @@ static std::string PickText(int Long = 0)
 struct TPacket {
 	std::vector<uint8> Data;
 	void B(int v) { Data.push_back((uint8)v); }
-	void W(int v) { B(v); B(v >> 8); }
-	void Q(uint32 v) { W((int)(v & 0xffff)); W((int)(v >> 16)); }
+	void W(int v)
+	{
+		B(v);
+		B(v >> 8);
+	}
+	void Q(uint32 v)
+	{
+		W((int)(v & 0xffff));
+		W((int)(v >> 16));
+	}
 	void S(const std::string &Text)
 	{
 		W((int)Text.size());
 		Data.insert(Data.end(), Text.begin(), Text.end());
 	}
-	void Pos() { W(Pick16() % 3 == 0 ? Pick16() : 32000 + (int)(Random() % 100)); W(Pick16() % 3 == 0 ? Pick16() : 31000 + (int)(Random() % 100)); B(Random() % 4 == 0 ? Pick8() : (int)(Random() % 16)); }
+	void Pos()
+	{
+		W(Pick16() % 3 == 0 ? Pick16() : 32000 + (int)(Random() % 100));
+		W(Pick16() % 3 == 0 ? Pick16() : 31000 + (int)(Random() % 100));
+		B(Random() % 4 == 0 ? Pick8() : (int)(Random() % 16));
+	}
 };
 
 static int PickType()
@@ -246,10 +298,20 @@ static void GenGame(TPacket &P, int Type)
 {
 	P.B(Type);
 	switch (Type) {
-	case 0x0a: P.Q(PickID()); P.W(Pick16()); P.B(Pick8()); break;
-	case 0x0b: for (int i = 0; i < 32; i++) P.B(Random() % 4 == 0 ? Pick8() : (int)(Random() % 2)); break;
-	case 0x14: case 0x15: P.S(PickText(1)); break;
-	case 0x16: P.S(PickText(1)); P.B(Pick8()); break;
+	case 0x0a:
+		P.Q(PickID());
+		P.W(Pick16());
+		P.B(Pick8());
+		break;
+	case 0x0b:
+		for (int i = 0; i < 32; i++) P.B(Random() % 4 == 0 ? Pick8() : (int)(Random() % 2));
+		break;
+	case 0x14:
+	case 0x15: P.S(PickText(1)); break;
+	case 0x16:
+		P.S(PickText(1));
+		P.B(Pick8());
+		break;
 	case 0x1e: break;
 	case 0x64: {
 		P.W(32000 + Random() % 100);
@@ -260,24 +322,54 @@ static void GenGame(TPacket &P, int Type)
 		GenFields(P, Floors(z) * 18 * 14);
 		break;
 	}
-	case 0x65: case 0x67: GenFields(P, Floors(ModelZ) * 18); break;
-	case 0x66: case 0x68: GenFields(P, Floors(ModelZ) * 14); break;
-	case 0x69: P.Pos(); GenFields(P, 1); break;
-	case 0x6a: P.Pos(); GenObject(P, true); break;
-	case 0x6b: P.Pos(); P.B(Pick8() % 12); GenObject(P, true); break;
-	case 0x6c: P.Pos(); P.B(Pick8() % 12); break;
+	case 0x65:
+	case 0x67: GenFields(P, Floors(ModelZ) * 18); break;
+	case 0x66:
+	case 0x68: GenFields(P, Floors(ModelZ) * 14); break;
+	case 0x69:
+		P.Pos();
+		GenFields(P, 1);
+		break;
+	case 0x6a:
+		P.Pos();
+		GenObject(P, true);
+		break;
+	case 0x6b:
+		P.Pos();
+		P.B(Pick8() % 12);
+		GenObject(P, true);
+		break;
+	case 0x6c:
+		P.Pos();
+		P.B(Pick8() % 12);
+		break;
 	case 0x6d: {
 		int x = 32000 + Random() % 100, y = 31000 + Random() % 100, z = Random() % 16;
-		P.W(x); P.W(y); P.B(z); P.B(Pick8() % 12);
+		P.W(x);
+		P.W(y);
+		P.B(z);
+		P.B(Pick8() % 12);
 		switch (Random() % 4) {
 		case 0: P.Pos(); break;
-		case 1: P.W(x + (int)(Random() % 5) - 2); P.W(y + (int)(Random() % 5) - 2); P.B(z + (Random() % 5 == 0 ? 1 : 0)); break;
-		default: P.W(x + (int)(Random() % 3) - 1); P.W(y + (int)(Random() % 3) - 1); P.B(z); break;
+		case 1:
+			P.W(x + (int)(Random() % 5) - 2);
+			P.W(y + (int)(Random() % 5) - 2);
+			P.B(z + (Random() % 5 == 0 ? 1 : 0));
+			break;
+		default:
+			P.W(x + (int)(Random() % 3) - 1);
+			P.W(y + (int)(Random() % 3) - 1);
+			P.B(z);
+			break;
 		}
 		break;
 	}
 	case 0x6e: {
-		P.B(Pick8() % 20); P.W(PickType()); P.S(PickText()); P.B(Pick8()); P.B(Random() % 4 == 0 ? Pick8() : (int)(Random() % 2));
+		P.B(Pick8() % 20);
+		P.W(PickType());
+		P.S(PickText());
+		P.B(Pick8());
+		P.B(Random() % 4 == 0 ? Pick8() : (int)(Random() % 2));
 		int Count = Random() % 4 == 0 ? Pick8() % 40 : (int)(Random() % 8);
 		P.B(Count);
 		for (int i = 0; i < Count; i++)
@@ -285,12 +377,26 @@ static void GenGame(TPacket &P, int Type)
 		break;
 	}
 	case 0x6f: P.B(Pick8() % 20); break;
-	case 0x70: P.B(Pick8() % 20); GenObject(P, false); break;
-	case 0x71: P.B(Pick8() % 20); P.B(Pick8()); GenObject(P, false); break;
-	case 0x72: P.B(Pick8() % 20); P.B(Pick8()); break;
-	case 0x78: P.B(Pick8() % 12); GenObject(P, false); break;
+	case 0x70:
+		P.B(Pick8() % 20);
+		GenObject(P, false);
+		break;
+	case 0x71:
+		P.B(Pick8() % 20);
+		P.B(Pick8());
+		GenObject(P, false);
+		break;
+	case 0x72:
+		P.B(Pick8() % 20);
+		P.B(Pick8());
+		break;
+	case 0x78:
+		P.B(Pick8() % 12);
+		GenObject(P, false);
+		break;
 	case 0x79: P.B(Pick8() % 12); break;
-	case 0x7d: case 0x7e: {
+	case 0x7d:
+	case 0x7e: {
 		P.S(PickText());
 		int Count = Random() % 4 == 0 ? Pick8() % 40 : (int)(Random() % 8);
 		P.B(Count);
@@ -299,12 +405,36 @@ static void GenGame(TPacket &P, int Type)
 		break;
 	}
 	case 0x7f: break;
-	case 0x82: P.B(Pick8()); P.B(Pick8()); break;
-	case 0x83: P.Pos(); P.B(Pick8()); break;
-	case 0x84: P.Pos(); P.B(Pick8()); P.S(PickText()); break;
-	case 0x85: P.Pos(); P.Pos(); P.B(Pick8()); break;
-	case 0x86: case 0x8c: case 0x90: case 0x91: P.Q(PickID()); P.B(Pick8()); break;
-	case 0x8d: P.Q(PickID()); P.B(Pick8()); P.B(Pick8()); break;
+	case 0x82:
+		P.B(Pick8());
+		P.B(Pick8());
+		break;
+	case 0x83:
+		P.Pos();
+		P.B(Pick8());
+		break;
+	case 0x84:
+		P.Pos();
+		P.B(Pick8());
+		P.S(PickText());
+		break;
+	case 0x85:
+		P.Pos();
+		P.Pos();
+		P.B(Pick8());
+		break;
+	case 0x86:
+	case 0x8c:
+	case 0x90:
+	case 0x91:
+		P.Q(PickID());
+		P.B(Pick8());
+		break;
+	case 0x8d:
+		P.Q(PickID());
+		P.B(Pick8());
+		P.B(Pick8());
+		break;
 	case 0x8e: {
 		P.Q(PickID());
 		int Outfit = Random() % 3 == 0 ? 0 : Pick16();
@@ -316,14 +446,38 @@ static void GenGame(TPacket &P, int Type)
 				P.B(Pick8());
 		break;
 	}
-	case 0x8f: P.Q(PickID()); P.W(Pick16()); break;
-	case 0x96: P.Q(Pick32()); P.W(Pick16()); P.W(Pick16()); P.S(PickText(1)); P.S(PickText()); break;
-	case 0x97: P.B(Pick8()); P.Q(Pick32()); P.S(PickText(1)); break;
-	case 0xa0:
-		P.W(Pick16()); P.W(Pick16()); P.W(Pick16()); P.Q(Pick32()); P.W(Pick16()); P.B(Pick8());
-		P.W(Pick16()); P.W(Pick16()); P.B(Pick8()); P.B(Pick8()); P.B(Pick8());
+	case 0x8f:
+		P.Q(PickID());
+		P.W(Pick16());
 		break;
-	case 0xa1: for (int i = 0; i < 14; i++) P.B(Pick8()); break;
+	case 0x96:
+		P.Q(Pick32());
+		P.W(Pick16());
+		P.W(Pick16());
+		P.S(PickText(1));
+		P.S(PickText());
+		break;
+	case 0x97:
+		P.B(Pick8());
+		P.Q(Pick32());
+		P.S(PickText(1));
+		break;
+	case 0xa0:
+		P.W(Pick16());
+		P.W(Pick16());
+		P.W(Pick16());
+		P.Q(Pick32());
+		P.W(Pick16());
+		P.B(Pick8());
+		P.W(Pick16());
+		P.W(Pick16());
+		P.B(Pick8());
+		P.B(Pick8());
+		P.B(Pick8());
+		break;
+	case 0xa1:
+		for (int i = 0; i < 14; i++) P.B(Pick8());
+		break;
 	case 0xa2: P.B(Pick8()); break;
 	case 0xa3: break;
 	case 0xaa: {
@@ -332,8 +486,15 @@ static void GenGame(TPacket &P, int Type)
 		int Mode = Random() % 6 == 0 ? Pick8() : (int)(1 + Random() % 17);
 		P.B(Mode);
 		switch (Mode) {
-		case 1: case 2: case 3: case 16: case 17: P.Pos(); break;
-		case 5: case 10: case 12: case 14: P.W(Pick16()); break;
+		case 1:
+		case 2:
+		case 3:
+		case 16:
+		case 17: P.Pos(); break;
+		case 5:
+		case 10:
+		case 12:
+		case 14: P.W(Pick16()); break;
 		case 6: P.Q(Pick32()); break;
 		}
 		P.S(PickText(1));
@@ -348,11 +509,21 @@ static void GenGame(TPacket &P, int Type)
 		}
 		break;
 	}
-	case 0xac: case 0xb2: P.W(Pick16()); P.S(PickText()); break;
-	case 0xad: case 0xaf: case 0xb0: P.S(PickText()); break;
-	case 0xae: case 0xb3: P.W(Pick16()); break;
+	case 0xac:
+	case 0xb2:
+		P.W(Pick16());
+		P.S(PickText());
+		break;
+	case 0xad:
+	case 0xaf:
+	case 0xb0: P.S(PickText()); break;
+	case 0xae:
+	case 0xb3: P.W(Pick16()); break;
 	case 0xb1: break;
-	case 0xb4: P.B(Random() % 4 == 0 ? Pick8() : (int)(Random() % 26)); P.S(PickText(1)); break;
+	case 0xb4:
+		P.B(Random() % 4 == 0 ? Pick8() : (int)(Random() % 26));
+		P.S(PickText(1));
+		break;
 	case 0xb5: P.B(Pick8() % 9); break;
 	case 0xbe:
 		if (ModelZ - 1 == 7)
@@ -368,9 +539,19 @@ static void GenGame(TPacket &P, int Type)
 			GenFields(P, 18 * 14);
 		ModelZ++;
 		break;
-	case 0xc8: P.W(Pick16()); for (int i = 0; i < 4; i++) P.B(Pick8()); P.W(Pick16()); P.W(Pick16()); break;
-	case 0xd2: P.Q(PickID()); P.S(PickText()); P.B(Random() % 3 == 0 ? Pick8() : (int)(Random() % 2)); break;
-	case 0xd3: case 0xd4: P.Q(PickID()); break;
+	case 0xc8:
+		P.W(Pick16());
+		for (int i = 0; i < 4; i++) P.B(Pick8());
+		P.W(Pick16());
+		P.W(Pick16());
+		break;
+	case 0xd2:
+		P.Q(PickID());
+		P.S(PickText());
+		P.B(Random() % 3 == 0 ? Pick8() : (int)(Random() % 2));
+		break;
+	case 0xd3:
+	case 0xd4: P.Q(PickID()); break;
 	default: // an unknown type: random bytes
 		for (int i = Random() % 6; i > 0; i--)
 			P.B(Pick8());
@@ -381,8 +562,14 @@ static void GenLogin(TPacket &P, int Type)
 {
 	P.B(Type);
 	switch (Type) {
-	case 0x0a: case 0x0b: case 0x14: P.S(PickText(1)); break;
-	case 0x1e: case 0x1f: P.B(Random() % 4 == 0 ? Pick8() : (int)(Random() % 6)); P.Q(Random() % 6 == 0 ? 0 : Random() % 3000); break;
+	case 0x0a:
+	case 0x0b:
+	case 0x14: P.S(PickText(1)); break;
+	case 0x1e:
+	case 0x1f:
+		P.B(Random() % 4 == 0 ? Pick8() : (int)(Random() % 6));
+		P.Q(Random() % 6 == 0 ? 0 : Random() % 3000);
+		break;
 	case 0x20: {
 		int Size = Random() % 4 == 0 ? (int)(Random() % 3500) : (int)(Random() % 200);
 		P.W(Size);
@@ -456,7 +643,9 @@ static void Mutate(std::vector<uint8> &Frame, bool Login, bool Patch)
 
 // --- Rounds ------------------------------------------------------------------------
 
-typedef void (__cdecl *TVoid)();
+#if GOLDEN_ORACLE
+typedef void(__cdecl *TVoid)();
+#endif
 static int Covered[2][256]; // [login][type]: frames that started with the type
 
 // Runs the frames through both sides' ReceivePackets in a connection state.
@@ -474,7 +663,7 @@ static bool RunFrames(const char *What, int ConnectionState)
 			fflush(stdout);
 		}
 	}
-	return Both(What, [&] { ReceivePackets(); }, [&] { At<TVoid>(0x44a900)(); });
+	return Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
 }
 
 static void SetRand(uint32 Seed);
@@ -495,7 +684,7 @@ static void TestSeeds()
 		int State = Seed.Login ? 3 + Random() % 2 : 6 + Random() % 3;
 		RunFrames(What, State);
 		if (Seed.Login)
-			Both("CancelPatch after the frames", [&] { CancelPatch(); }, [&] { At<TVoid>(0x40bac0)(); });
+			Both("CancelPatch after the frames", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
 		FreeWorlds();
 	}
 }
@@ -540,7 +729,7 @@ static void TestGenerated(int Rounds)
 		int State = Login ? 3 + Random() % 2 : 6 + Random() % 3;
 		RunFrames(What, State);
 		if (Login)
-			Both("CancelPatch after the frames", [&] { CancelPatch(); }, [&] { At<TVoid>(0x40bac0)(); });
+			Both("CancelPatch after the frames", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
 		FreeWorlds();
 	}
 }
@@ -608,10 +797,10 @@ static void TestPatches(int Rounds)
 		// An exception ends ReceivePackets; the client calls it again for the next frames.
 		for (int Again = 0; NextFrame[OURS] < (int)Frames.size() && Again < 30; Again++) {
 			sprintf(What, "patch of round %d, call %d", Round, Again + 2);
-			Both(What, [&] { ReceivePackets(); }, [&] { At<TVoid>(0x44a900)(); });
+			Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
 		}
 		// What is left over (PatchData) is released the same way on both sides.
-		Both("CancelPatch after a patch", [&] { CancelPatch(); }, [&] { At<TVoid>(0x40bac0)(); });
+		Both("CancelPatch after a patch", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
 		FreeWorlds();
 	}
 }
@@ -625,25 +814,27 @@ static void SetRand(uint32 Seed)
 	CommRandState(IMAGE, Seed);
 }
 
-typedef void (__cdecl *TSendI)(int);
-typedef void (__cdecl *TSendU)(uint32);
-typedef void (__cdecl *TSendS)(const char *);
-typedef void (__cdecl *TSendIS)(int, const char *);
-typedef void (__cdecl *TSendISS)(int, const char *, const char *);
-typedef void (__cdecl *TSendIIS)(int, int, const char *);
-typedef void (__cdecl *TSendUS)(uint32, const char *);
-typedef void (__cdecl *TSendUSS)(uint32, const char *, const char *);
-typedef void (__cdecl *TSendIUS)(int, uint32, const char *);
-typedef void (__cdecl *TSendII)(int, int);
-typedef void (__cdecl *TSendIII)(int, int, int);
-typedef void (__cdecl *TSend5)(int, int, int, int, int);
-typedef void (__cdecl *TSend6)(int, int, int, int, int, int);
-typedef void (__cdecl *TSend6U)(int, int, int, int, int, uint32);
-typedef void (__cdecl *TSend9)(int, int, int, int, int, int, int, int, int);
-typedef void (__cdecl *TSend10)(int, int, int, int, int, int, int, int, int, int);
-typedef void (__cdecl *TSendOutfit)(int, const int *);
-typedef void (__cdecl *TSendReport)(const char *, uint8, uint8, const char *, uint32, bool);
-typedef void (__cdecl *TSendDebug)(const char *, const char *, const char *, const char *);
+#if GOLDEN_ORACLE
+typedef void(__cdecl *TSendI)(int);
+typedef void(__cdecl *TSendU)(uint32);
+typedef void(__cdecl *TSendS)(const char *);
+typedef void(__cdecl *TSendIS)(int, const char *);
+typedef void(__cdecl *TSendISS)(int, const char *, const char *);
+typedef void(__cdecl *TSendIIS)(int, int, const char *);
+typedef void(__cdecl *TSendUS)(uint32, const char *);
+typedef void(__cdecl *TSendUSS)(uint32, const char *, const char *);
+typedef void(__cdecl *TSendIUS)(int, uint32, const char *);
+typedef void(__cdecl *TSendII)(int, int);
+typedef void(__cdecl *TSendIII)(int, int, int);
+typedef void(__cdecl *TSend5)(int, int, int, int, int);
+typedef void(__cdecl *TSend6)(int, int, int, int, int, int);
+typedef void(__cdecl *TSend6U)(int, int, int, int, int, uint32);
+typedef void(__cdecl *TSend9)(int, int, int, int, int, int, int, int, int);
+typedef void(__cdecl *TSend10)(int, int, int, int, int, int, int, int, int, int);
+typedef void(__cdecl *TSendOutfit)(int, const int *);
+typedef void(__cdecl *TSendReport)(const char *, uint8, uint8, const char *, uint32, bool);
+typedef void(__cdecl *TSendDebug)(const char *, const char *, const char *, const char *);
+#endif
 
 static int Coordinate()
 {
@@ -672,7 +863,7 @@ static void CallSenders(const char *Round, bool Valid)
 	do { \
 		sprintf(What, "%s %s", #Fn, Round); \
 		SetRand(Random()); \
-		Both(What, [&] { OurCall; }, [&] { ImageCall; }); \
+		Both(What, [&] { OurCall; }, ORIGINAL_SIDE(ImageCall)); \
 		Senders[Index].Name = #Fn; \
 		Senders[Index].Count++; \
 		Index++; \
@@ -741,7 +932,8 @@ static void CallSenders(const char *Round, bool Valid)
 	SEND(SendRefreshField, SendRefreshField(x, y, z), At<TSendIII>(0x4092e0)(x, y, z));
 	SEND(SendRefreshContainer, SendRefreshContainer(Pos), At<TSendI>(0x4094d0)(Pos));
 	bool Requested = Random() % 2 == 0;
-	OutfitRequested = Global<bool>(0x5c4358) = Requested;
+	OutfitRequested = Requested;
+	ORIGINAL(Global<bool>(0x5c4358) = Requested);
 	SEND(SendRequestOutfit, SendRequestOutfit(), At<TVoid>(0x409680)());
 	int Colors[4] = {Small(), Small(), Small(), Small()};
 	const int *C = !Valid && Random() % 4 == 0 ? NULL : Colors;
@@ -762,10 +954,12 @@ static void CallSenders(const char *Round, bool Valid)
 
 // --- The readers -------------------------------------------------------------------
 
-typedef uint32 (__cdecl *TReadCreature)(int, int, int, int);
-typedef void (__cdecl *TReadField)(int, int, int);
-typedef void (__cdecl *TReadMap)(int, int, int, int);
-typedef void (__cdecl *TReadFloor)(int);
+#if GOLDEN_ORACLE
+typedef uint32(__cdecl *TReadCreature)(int, int, int, int);
+typedef void(__cdecl *TReadField)(int, int, int);
+typedef void(__cdecl *TReadMap)(int, int, int, int);
+typedef void(__cdecl *TReadFloor)(int);
+#endif
 
 static void TestReaders(int Rounds)
 {
@@ -790,20 +984,21 @@ static void TestReaders(int Rounds)
 		switch (Kind) {
 		case 0: {
 			uint32 Result[2] = {0, 0};
-			Both(What, [&] { Result[0] = ReadCreature(Type, x, y, z); }, [&] { Result[1] = At<TReadCreature>(0x40c830)(Type, x, y, z); });
+			Both(What, [&] { Result[0] = ReadCreature(Type, x, y, z); }, ORIGINAL_SIDE(Result[1] = At<TReadCreature>(0x40c830)(Type, x, y, z)));
+			golden::Output("ReadCreature", Result[1]);
 			CHECK(Result[0] == Result[1], "%s: ReadCreature returns %u, the original %u", What, Result[0], Result[1]);
 			break;
 		}
 		case 1:
-			Both(What, [&] { ReadField(x, y, z); }, [&] { At<TReadField>(0x414bb0)(x, y, z); });
+			Both(What, [&] { ReadField(x, y, z); }, ORIGINAL_SIDE(At<TReadField>(0x414bb0)(x, y, z)));
 			break;
 		case 2: {
 			int xmin = Random() % 18, ymin = Random() % 14, xmax = xmin + Random() % 3, ymax = ymin + Random() % 3;
-			Both(What, [&] { ReadMap(xmin, ymin, xmax, ymax); }, [&] { At<TReadMap>(0x414ff0)(xmin, ymin, xmax, ymax); });
+			Both(What, [&] { ReadMap(xmin, ymin, xmax, ymax); }, ORIGINAL_SIDE(At<TReadMap>(0x414ff0)(xmin, ymin, xmax, ymax)));
 			break;
 		}
 		default:
-			Both(What, [&] { ReadFloor(z); }, [&] { At<TReadFloor>(0x416e60)(z); });
+			Both(What, [&] { ReadFloor(z); }, ORIGINAL_SIDE(At<TReadFloor>(0x416e60)(z)));
 		}
 		FreeWorlds();
 	}
@@ -815,13 +1010,15 @@ static void TestReaders(int Rounds)
 // with its ThrowInfo 0x5bb5d0), 2 a structured exception.
 static int RsaFailure;
 static const char *RsaMessage = "RSA failure of the test";
-static void __fastcall F_Encrypt(void *, void *, uint8 *)
+static void GOLDEN_THISCALL F_Encrypt(GOLDEN_THIS, uint8 *)
 {
 	Call("TRSA::Encrypt()");
 	if (RsaFailure == 2)
 		RaiseException(0xe0525341, 0, 0, NULL);
+#if GOLDEN_ORACLE
 	if (Side == IMAGE)
-		At<void (__stdcall *)(void *, void *)>(0x511d2b)(&RsaMessage, (void *)(uintptr_t)0x5bb5d0);
+		At<void(__stdcall *)(void *, void *)>(0x511d2b)(&RsaMessage, (void *)(uintptr_t)0x5bb5d0);
+#endif
 	throw RsaMessage;
 }
 static const TFake RsaFakes[] = {
@@ -859,9 +1056,9 @@ static void ErrorRound()
 					Total = Ticks[OURS];
 				// PatchData of a patch that failed half-way; CancelPatch's calls fail too.
 				FailAt = Fail % 4;
-				Both("CancelPatch", [&] { CancelPatch(); }, [&] { At<TVoid>(0x40bac0)(); });
+				Both("CancelPatch", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
 				FailAt = 0;
-				Both("CancelPatch again", [&] { CancelPatch(); }, [&] { At<TVoid>(0x40bac0)(); });
+				Both("CancelPatch again", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
 				FreeWorlds();
 				if (Fail >= Total || Fail >= 300)
 					break;
@@ -893,7 +1090,7 @@ static void ErrorRound()
 			Frames.push_back(P.Data);
 			sprintf(What, "frame type 0x%02x cut after %d bytes", Type, Cut);
 			RunFrames(What, Login ? 4 : 8);
-			Both("CancelPatch after a cut frame", [&] { CancelPatch(); }, [&] { At<TVoid>(0x40bac0)(); });
+			Both("CancelPatch after a cut frame", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
 			FreeWorlds();
 		}
 	}
@@ -923,12 +1120,10 @@ static void ErrorRound()
 			std::string Name = PickText(), Password = PickText();
 			SetRand(Random());
 			sprintf(What, "SendLogin with a failing RSA (%d, %d)", Kind, i);
-			Both(What, [&] { SendLogin(Account, Password.c_str()); },
-				[&] { At<void (__cdecl *)(uint32, const char *)>(0x413780)(Account, Password.c_str()); });
+			Both(What, [&] { SendLogin(Account, Password.c_str()); }, ORIGINAL_SIDE(At<void(__cdecl *)(uint32, const char *)>(0x413780)(Account, Password.c_str())));
 			SetRand(Random());
 			sprintf(What, "SendGameLogin with a failing RSA (%d, %d)", Kind, i);
-			Both(What, [&] { SendGameLogin(Account, Name.c_str(), Password.c_str()); },
-				[&] { At<void (__cdecl *)(uint32, const char *, const char *)>(0x413de0)(Account, Name.c_str(), Password.c_str()); });
+			Both(What, [&] { SendGameLogin(Account, Name.c_str(), Password.c_str()); }, ORIGINAL_SIDE(At<void(__cdecl *)(uint32, const char *, const char *)>(0x413de0)(Account, Name.c_str(), Password.c_str())));
 			RsaFailure = 0;
 			FreeWorlds();
 		}
@@ -946,20 +1141,26 @@ void TestCommunication(const char *ExePath)
 	int Rounds = getenv("CM_ROUNDS") != NULL ? atoi(getenv("CM_ROUNDS")) : 6000;
 	if (getenv("CM_SEED") != NULL)
 		SetRandomSeed(strtoul(getenv("CM_SEED"), NULL, 10));
+	RecordComparisons = true; // a ported test: its comparisons go into the corpus
 	LoadObjectFlags(ExePath);
 	// ExitCommunication is empty: in the image one copy of five empty Exit
 	// functions (0x496160), which the fakes replace on both sides (ExitControl's
 	// calls are compared by controltest.cpp). Compared here by its code, a
 	// single ret, before the fakes are installed.
+	// The runner: on x64 too a single ret (C3; C2 00 00 is ret 0), as nothing of ours is redirected yet.
+#if !GOLDEN_ORACLE
+	golden::RestoreAllOwn();
+#endif
 	const uint8 *Ours = (const uint8 *)(void *)&ExitCommunication; // ret or ret 0
-	CHECK((Ours[0] == 0xc3 || (Ours[0] == 0xc2 && Ours[1] == 0 && Ours[2] == 0)) && *(const uint8 *)(uintptr_t)0x496160 == 0xc3,
+	const int Original = ORIGINAL_VALUE("0x496160", int, *(const uint8 *)(uintptr_t)0x496160);
+	CHECK((Ours[0] == 0xc3 || (Ours[0] == 0xc2 && Ours[1] == 0 && Ours[2] == 0)) && Original == 0xc3,
 		"ExitCommunication or 0x496160 is not a single ret: %02x, %02x", *(const uint8 *)(void *)&ExitCommunication,
-		*(const uint8 *)(uintptr_t)0x496160);
+		Original);
 	BeginWorld();
 	InstallFakes(ControlFakes);
-	ExpectDivideByZero = true; // a block of a zero-sized patch (ReceivePatchBlock divides by the size)
+	ORIGINAL(ExpectDivideByZero = true); // a block of a zero-sized patch (ReceivePatchBlock divides by the size)
 	ResetWorlds();
-	Both("InitCommunication", [&] { InitCommunication(); }, [&] { At<TVoid>(0x401000)(); });
+	Both("InitCommunication", [&] { InitCommunication(); }, ORIGINAL_SIDE(At<TVoid>(0x401000)()));
 	FreeWorlds();
 	TestSeeds();
 	TestGenerated(Rounds);
@@ -985,7 +1186,9 @@ void TestCommunication(const char *ExePath)
 	printf("Communication: %d checks, %d failures (each packet type at least %d times, %d senders)\n", Checks - Before,
 		Failures - BeforeFailures, Least, SenderCount);
 	ErrorRound();
-	ExpectDivideByZero = false;
+	ORIGINAL(ExpectDivideByZero = false);
+	EndWorld();
+	RecordComparisons = false;
 	if (LogFile != NULL)
 		fclose(LogFile);
 	LogFile = NULL;
