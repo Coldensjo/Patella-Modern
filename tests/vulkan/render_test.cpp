@@ -22,10 +22,13 @@
 
 #include <vulkan/vulkan_win32.h>
 
+#include "vulkan/PresentWindow.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -619,6 +622,177 @@ TEST_CASE("frames, large uploads and a resized image")
 		CHECK(std::count(Pixels.begin(), Pixels.end(), 0u) == 50 * 40);
 		Renderer.Finish();
 	}
+}
+
+namespace {
+
+int ChildWindows(HWND Parent)
+{
+	int Count = 0;
+	EnumChildWindows(
+		Parent,
+		[](HWND, LPARAM Data) -> BOOL {
+			++*reinterpret_cast<int *>(Data);
+			return TRUE;
+		},
+		reinterpret_cast<LPARAM>(&Count));
+	return Count;
+}
+
+} // namespace
+
+// Issue #52: quick device switches (Automatic, GPU, GPU again, CPU, in any order) froze the client's
+// picture. After a switch away from the AMD Radeon iGPU, whose swapchain presents cross-adapter on this
+// machine, the desktop compositor kept showing the Radeon's last frame over the window for good, while
+// every later device presented into the same window unseen. Nothing of it is left in the process (device,
+// swapchain, surface and instance are gone, in that order); a hidden window is not composed, so this test
+// cannot show the stale picture itself. It runs the client's switch sequence (SurfaceVulkan.cpp:
+// ExitDisplay, TestEngine, CreateSurfaces, FinishFrame) through PresentWindow.h on every device of the
+// machine, many times and in a fixed pseudo-random order, including switches requested before the new
+// device has shown a frame, and checks what makes the stale picture impossible: no device ever presents
+// in the main window, every device presents in a window no earlier device presented in, the device test
+// uses a hidden window of its own that is gone afterwards, and an old device's window is gone as soon as
+// the next device has shown a frame (until then it keeps the old picture). The windows are never shown.
+TEST_CASE("quick device switches: one window per device, an old device's window goes (issue #52)")
+{
+	HINSTANCE Module = GetModuleHandleA(nullptr);
+	WNDCLASSA Class = {};
+	Class.lpfnWndProc = DefWindowProcA;
+	Class.hInstance = Module;
+	Class.lpszClassName = "PatellaTestsVulkanSwitches";
+	RegisterClassA(&Class);
+	HWND Parent = CreateWindowExA(0, Class.lpszClassName, "tests_vulkan", WS_OVERLAPPEDWINDOW, 0, 0, 320, 240, nullptr,
+		nullptr, Module, nullptr);
+	REQUIRE(Parent != nullptr);
+
+	// The client's choices: Automatic, every listed GPU, the CPU driver.
+	std::vector<pv::TDeviceRequest> Choices;
+	pv::TDeviceRequest Automatic;
+	Automatic.Kind = pv::TDeviceKind::Automatic;
+	Automatic.CpuDriverManifest = CpuManifest();
+	Choices.push_back(Automatic);
+	const size_t NumberOfGpus = pv::ListGpus().size();
+	for (size_t i = 0; i < NumberOfGpus; i++) {
+		pv::TDeviceRequest Gpu = Automatic;
+		Gpu.Kind = pv::TDeviceKind::Gpu;
+		Gpu.GpuIndex = static_cast<int>(i);
+		Choices.push_back(Gpu);
+	}
+	pv::TDeviceRequest Cpu = Automatic;
+	Cpu.Kind = pv::TDeviceKind::Cpu;
+	Choices.push_back(Cpu);
+
+	std::vector<HWND> Surfaces; // every window a surface was created on, in order
+	auto OnWindow = [&Surfaces, Module](pv::TDeviceRequest Request, HWND Window) {
+		Request.SurfaceExtension = "VK_KHR_win32_surface";
+		Request.CreateSurface = [Window, Module, &Surfaces](VkInstance Instance) {
+			Surfaces.push_back(Window);
+			auto Create = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(
+				vkGetInstanceProcAddr(Instance, "vkCreateWin32SurfaceKHR"));
+			VkWin32SurfaceCreateInfoKHR Info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
+			Info.hinstance = Module;
+			Info.hwnd = Window;
+			VkSurfaceKHR Surface = VK_NULL_HANDLE;
+			if (Create == nullptr || Create(Instance, &Info, nullptr, &Surface) != VK_SUCCESS)
+				throw pv::TVulkanError("vkCreateWin32SurfaceKHR failed");
+			return Surface;
+		};
+		return Request;
+	};
+
+	pv::TPresentWindows Windows;
+	std::unique_ptr<pv::TRenderer> Engine;
+	std::vector<HWND> Presented; // the windows that showed a frame, in order
+	TRandom Random{52};
+	int Switches = 0, Shown = 0, Pending = 0;
+	std::vector<int> Opened(Choices.size(), 0);
+	for (int Step = 0; Step < 48; Step++) {
+		const size_t Choice = Random.Next() % Choices.size();
+		CAPTURE(Step);
+		CAPTURE(Choice);
+		// ChangeEngine: ExitSurfaces (the device goes, then its window is retired) ...
+		Engine.reset();
+		Windows.Retire();
+		CHECK(Windows.Current() == nullptr);
+		// ... the old device's window stays only when it showed a frame, and only until the next one does.
+		if (Windows.Retired() != nullptr) {
+			CHECK(IsWindow(Windows.Retired()));
+			CHECK(Windows.Retired() == Presented.back());
+		}
+		// ... TestEngine on a hidden window of its own, gone afterwards.
+		HWND TestWindow = nullptr;
+		{
+			const pv::TTestWindow Test(Parent);
+			TestWindow = Test.Handle();
+			REQUIRE(TestWindow != nullptr);
+			CHECK(GetParent(TestWindow) == Parent);
+			CHECK_FALSE((GetWindowLongA(TestWindow, GWL_STYLE) & WS_VISIBLE) != 0);
+			pv::TRenderer Tested;
+			REQUIRE_NOTHROW(Tested.Create(OnWindow(Choices[Choice], TestWindow)));
+		}
+		CHECK_FALSE(IsWindow(TestWindow));
+		Switches++;
+		// Another click before the next frame: the next switch comes before any device for this one.
+		if (Random.Next() % 3 == 0) {
+			Pending++;
+			continue;
+		}
+		// CheckSurface -> CreateSurfaces: a new window, above the old one, then the device.
+		HWND Window = Windows.Open(Parent);
+		REQUIRE(Window != nullptr);
+		CHECK(Window != Parent);
+		CHECK(GetParent(Window) == Parent);
+		CHECK(Window != Windows.Retired());
+		CHECK(std::find(Presented.begin(), Presented.end(), Window) == Presented.end());
+		CHECK(SendMessageA(Window, WM_NCHITTEST, 0, MAKELPARAM(10, 10)) == HTTRANSPARENT);
+		CHECK(ChildWindows(Parent) <= 2);
+		Engine = std::make_unique<pv::TRenderer>();
+		REQUIRE_NOTHROW(Engine->Create(OnWindow(Choices[Choice], Window)));
+		Opened[Choice]++;
+		const int Canvas = Engine->CreateImage(400, 300);
+		// Frames (FinishFrame): the window takes the main window's client area, then the picture is shown;
+		// the main window changes its size between some of them.
+		const int Frames = 1 + static_cast<int>(Random.Next() % 3);
+		for (int Frame = 0; Frame < Frames; Frame++) {
+			if (Random.Next() % 4 == 0)
+				SetWindowPos(Parent, nullptr, 0, 0, 280 + Frame * 20, 220 + Frame * 10, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+			Windows.Fit();
+			RECT Client = {}, Inside = {};
+			GetClientRect(Parent, &Client);
+			GetClientRect(Window, &Inside);
+			CHECK(Inside.right == Client.right);
+			CHECK(Inside.bottom == Client.bottom);
+			Engine->Fill(Canvas, 0, 0, 400, 300, 0xff000000u | (Random.Next() & 0xffffff));
+			bool Showed = false;
+			REQUIRE_NOTHROW(Showed = Engine->Present(Canvas, 0, 0, Client.right, Client.bottom,
+								static_cast<uint32_t>(Client.right), static_cast<uint32_t>(Client.bottom)));
+			CHECK(Showed);
+			if (Showed) {
+				Windows.Presented();
+				if (Presented.empty() || Presented.back() != Window)
+					Presented.push_back(Window);
+				Shown++;
+				// The old device's window is gone with the new device's first frame.
+				CHECK(Windows.Retired() == nullptr);
+				CHECK(ChildWindows(Parent) == 1);
+			}
+		}
+	}
+	Engine.reset();
+	Windows.Retire();
+	Windows.Close();
+	CHECK(ChildWindows(Parent) == 0);
+	for (HWND Window : Presented)
+		CHECK_FALSE(IsWindow(Window));
+	// No device ever had a surface on the main window.
+	CHECK(std::find(Surfaces.begin(), Surfaces.end(), Parent) == Surfaces.end());
+	for (size_t i = 0; i < Choices.size(); i++)
+		std::printf("device switches: choice %zu opened %d times\n", i, Opened[i]);
+	std::printf("device switches: %d switches, %d before a device existed, %d frames shown, %zu windows\n", Switches,
+		Pending, Shown, Presented.size());
+	CHECK_FALSE(IsWindowVisible(Parent));
+	DestroyWindow(Parent);
+	UnregisterClassA(Class.lpszClassName, Module);
 }
 
 int main(int argc, char **argv)

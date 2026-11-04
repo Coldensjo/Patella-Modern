@@ -15,6 +15,7 @@
 #include "Surface.h"
 #include "graphics.h"
 #include "vulkan/DeviceChoice.h"
+#include "vulkan/PresentWindow.h"
 #include "vulkan/Quads.h"
 #include "vulkan/Renderer.h"
 #include <mmsystem.h>
@@ -52,6 +53,11 @@ int CurrentTexture;
 uint32 FrameCount;
 double LastFPSTime;
 
+// The windows the devices present in (PresentWindow.h; issue #52): one per device, a child of the main
+// window. They outlive the surface object (a device switch deletes it), so the window of the device
+// before a switch keeps its last frame until the next device has shown one.
+patella::vulkan::TPresentWindows PresentWindows;
+
 const int VertexLimit = 9600; // surfaceDX9.cpp's vertex buffer
 
 uint32 Xrgb(int R, int G, int B)
@@ -86,8 +92,9 @@ const char *TSurfaceVulkan::DeviceName() const
 }
 
 // The device request: the graphics device choice (DeviceSettings.h: the advanced options' buttons,
-// Patella.ini, PATELLA_VULKAN; issue #31), the CPU driver next to the executable, the window.
-TDeviceRequest TSurfaceVulkan::Request()
+// Patella.ini, PATELLA_VULKAN; issue #31), the CPU driver next to the executable, the window the device
+// presents in (Window; nullptr: headless).
+TDeviceRequest TSurfaceVulkan::Request(HWND Window)
 {
 	TDeviceRequest Result;
 	const patella::vulkan::TDeviceChoice Choice = GetDeviceChoice();
@@ -98,7 +105,6 @@ TDeviceRequest TSurfaceVulkan::Request()
 	size_t ValidationLength = 0;
 	Result.Validation = getenv_s(&ValidationLength, Validation, sizeof(Validation), "PATELLA_VULKAN_VALIDATION") == 0
 		&& ValidationLength > 0 && Validation[0] == '1';
-	HWND Window = hWindow;
 	if (Window != nullptr) {
 		Result.SurfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
 		Result.CreateSurface = [Window](VkInstance Instance) {
@@ -120,15 +126,20 @@ void TSurfaceVulkan::Fail()
 	throw (PROGRAM_ERROR)12;
 }
 
-// surfaceDX9.cpp TestEngine: a device for the window, released again.
+// surfaceDX9.cpp TestEngine: a device for the window, released again. Its surface is on a hidden child
+// window of its own (PresentWindow.h, issue #52), so the test leaves nothing bound to the main window or
+// to a window that shows frames.
 bool TSurfaceVulkan::TestEngine()
 {
 	TSurface::TestEngine();
 	if (!IsVulkanInstalled())
 		return false;
 	try {
+		const patella::vulkan::TTestWindow Window(hWindow);
+		if (hWindow != nullptr && Window.Handle() == nullptr)
+			return false;
 		TRenderer Test;
-		Test.Create(Request());
+		Test.Create(Request(Window.Handle()));
 	} catch (const TVulkanError &) {
 		return false;
 	}
@@ -208,9 +219,12 @@ int TSurfaceVulkan::GetSurfaceMemory(int Surface)
 	return SurfaceCreated[Surface];
 }
 
+// The device goes before its window is retired (PresentWindow.h).
 TSurfaceVulkan::~TSurfaceVulkan()
 {
 	NumberOfSurfaces = 0;
+	Renderer.reset();
+	PresentWindows.Retire();
 }
 
 // The same code in all engines.
@@ -473,8 +487,12 @@ void TSurfaceVulkan::FinishFrame()
 					Renderer->ReadBack(Image[SCREEN_SURFACE], x, y, ShownWidth, ShownHeight, Pixels);
 					PixelsObserver(Pixels.data(), ShownWidth * 4, ShownWidth, ShownHeight);
 				}
-				Renderer->Present(Image[SCREEN_SURFACE], x, y, ShownWidth, ShownHeight,
-					(uint32_t)(WindowRect.right - WindowRect.left), (uint32_t)(WindowRect.bottom - WindowRect.top));
+				// The device's window covers the main window's client area, which the surface had before
+				// issue #52; once it shows a frame, the window of the device before it goes.
+				PresentWindows.Fit();
+				if (Renderer->Present(Image[SCREEN_SURFACE], x, y, ShownWidth, ShownHeight,
+						(uint32_t)(WindowRect.right - WindowRect.left), (uint32_t)(WindowRect.bottom - WindowRect.top)))
+					PresentWindows.Presented();
 			} catch (const TVulkanError &) {
 				Fail();
 			}
@@ -508,6 +526,7 @@ void TSurfaceVulkan::ExitDisplay()
 	Shade.clear();
 	Masks.Clear();
 	Renderer.reset();
+	PresentWindows.Retire();
 	for (int i = 0; i < NUMBER_OF_SURFACES_VULKAN; i++) {
 		// surfaceDX9.cpp clears SurfaceCreated[i] where Surface9[i] exists, which SCREEN_SURFACE's never does.
 		if (Image[i] >= 0) {
@@ -754,6 +773,7 @@ void TSurfaceVulkan::InitSurfaces()
 	ViewMode = 0;
 	Initialized = false;
 	Renderer.reset();
+	PresentWindows.Retire();
 	CacheSurfaceWidth = 512;
 	CacheSurfaceHeight = 512;
 	CurrentTarget = -1;
@@ -954,8 +974,15 @@ void TSurfaceVulkan::CreateSurfaces()
 	}
 	PATELLA_TEST_FRAME_OBSERVERS(Observer, FrameObserver, PixelsObserver, MaskObserver)
 	try {
+		// A window of its own for the new device (PresentWindow.h, issue #52).
+		HWND Window = nullptr;
+		if (hWindow != nullptr) {
+			Window = PresentWindows.Open(hWindow);
+			if (Window == nullptr)
+				throw TVulkanError("the device's window could not be created");
+		}
 		Renderer = std::make_unique<TRenderer>();
-		Renderer->Create(Request());
+		Renderer->Create(Request(Window));
 		int CanvasWidth, CanvasHeight;
 		if (ViewMode == WINDOWED_MODE) {
 			CanvasWidth = GetSystemMetrics(SM_CXSCREEN);
@@ -999,6 +1026,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		}
 	} catch (const TVulkanError &) {
 		Renderer.reset();
+		PresentWindows.Retire();
 		InitStep = 1;
 		throw (PROGRAM_ERROR)12;
 	}

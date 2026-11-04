@@ -111,7 +111,7 @@ private:
 	void ColorFill(int Image, const RECT *Rect, uint32 Color);
 	int TextureWidth(int Surface);
 	int TextureHeight(int Surface);
-	patella::vulkan::TDeviceRequest Request();
+	patella::vulkan::TDeviceRequest Request(HWND Window);
 	bool Masked(int Target);
 	void Track(int Target, int Texture, const patella::vulkan::TQuad *Quads, size_t Count);
 	void Fail();
