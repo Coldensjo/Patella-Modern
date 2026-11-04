@@ -590,7 +590,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   (default 1800, 0 none; CTest stops difftest and communicationtest after 7,200 s) stops a hung child.
   A copy of a test program that still runs (an interrupted run) keeps the linker from replacing it:
   the former build.cmd stopped such copies itself, the CMake build does not, so stop it first.
-- Error paths (issue #22): `errortest.cpp` (DIFFTEST_ONLY=Errors) calls the original and the reconstructed
+- Error paths (issue #22): `errortest.cpp` (tests/golden/errors_tests.cpp since Patella-Modern issue #26; DIFFTEST_ONLY=Errors) calls the original and the reconstructed
   functions with inputs that fail their assertions, TERRORs and PROGRAM_ERROR throws and compares what each
   side throws: the type, a PROGRAM_ERROR's value, a TMyException's whole message with every TEND level and its
   origin, the line numbers too (since issue #35 every site names the original's line; before, they were
@@ -629,22 +629,23 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   #28's second part, 1,977,996, of which 1,701,409 in their error rounds) and Dialogs (issue #28's third part: 290,045
   of its 299,174 replayed, of which 194,419 in its error round; the 9,129 of the rounds that open the advanced graphics
   dialog retired with the oracle, see below), MapWindow (127,529, of which 12,359 in its error round) and MainWindow
-  (57,314, of which 43,150 in its error round) (issue #27's second part), 15,310,916 in all, and sysinctest's Sysinc
-  (67): 15,310,983 of the oracle's 17,983,332 checks. Retired with the oracle, 1,497,428 checks: Dialogs' 9,129 and
-  issue #29's three engine tests as whole tests (the user's decision; the runner's RetiredTests, "#29"): SurfaceDX's
-  1,368,981, DX9's 63,616, GL's 55,702. The runner lists the rest with their counts as not ported yet, 1,174,921
-  checks: difftest's Errors (40,408; issue #26) and communicationtest's 1,134,513, its two tests Communication
-  856,366 and Control 278,147 (the runner's group "communicationtest"); replayed, retired and not ported add up to
+  (57,314, of which 43,150 in its error round) (issue #27's second part) and Errors (issue #26's second part: 40,372
+  of its 40,408 replayed, of which 8,460 in its Statics round; the 36 of its SurfaceInitInstance part retired with the
+  oracle, see below), 15,351,288 in all, and sysinctest's Sysinc (67): 15,351,355 of the oracle's 17,983,332 checks.
+  Retired with the oracle, 1,497,464 checks: Dialogs' 9,129, Errors' 36 and issue #29's three engine tests as whole
+  tests (the user's decision; the runner's RetiredTests, "#29"): SurfaceDX's 1,368,981, DX9's 63,616, GL's 55,702.
+  The runner lists the rest with their counts as not ported yet, 1,134,513 checks: communicationtest's two tests
+  Communication 856,366 and Control 278,147 (the runner's group "communicationtest"); replayed, retired and not ported add up to
   the oracle's totals, which the runner's last line shows. The runner links the reconstructed files the ported tests call (golden_client:
   compiled against the MFC shim with the product settings; since issue #28 graphics.cpp, GUI.cpp and every window
   file too) and aborting stubs of the others (tests/golden/client_stubs.cpp: Communication.cpp's Send functions,
   Control.cpp, the Vulkan engine). Tibia.dat is in the corpus (golden::DataFile): the runner needs no data files.
   - Record: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
     golden_corpus` runs difftest, sysinctest and communicationtest in full with `DIFFTEST_RECORD=<dir>` (default
-    build\golden, the cache variable PATELLA_GOLDEN_DIR; about five minutes, 843 MB, of which MapWindow 182 MB,
+    build\golden, the cache variable PATELLA_GOLDEN_DIR; about five minutes, 846 MB, of which MapWindow 182 MB,
     DialogElements 96 MB, Graphics 91 MB, Container 82 MB, ConsoleWindow 69 MB, GUI 56 MB, Dialogs 52 MB, ContentWindows 48 MB, Talk
     46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB, MainWindow 9 MB, Network 8 MB, DialogWindow 7 MB, ContextMenus
-    5 MB, MainFrm 3 MB).
+    5 MB, MainFrm 3 MB, Errors 3 MB).
     Recording changes no check count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. The corpus is derived from Tibia.exe: it stays on
     the machine (build/ is ignored by git) and is never committed, pushed or uploaded, not even as a CI artifact.
   - Replay: `build\windows-x64\tests\golden\Release\golden_runner.exe [--require] [<dir>]`, or the CTest test
@@ -707,13 +708,23 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     fake's named this; a test's fakes whose class the runner lacks (MainWindow's console and side-bar windows) take
     their real class's size (sizeof differences) and are reached through the x64 decorated constructor names. A
     whole test retired with the oracle (#29's engine tests) is in runner.cpp's RetiredTests.
+    Issue #26's second part (Errors): which comparisons an earlier test's redirects skip is the oracle's answer per
+    comparison (the x86 decoding of a jump stays in the oracle; the runner reads "redirected"), and the runner finds
+    our statics through its getters' x64 code (`mov r32, [rip+disp32]`, probed as the oracle's FindStatic); the
+    SurfaceInitInstance part of its Statics round (the x86 engine selection) is retired with the oracle (the user's
+    decision of November 4, 2026; RetiredBegin, its exceptions and random state restored after it); a test whose
+    texts hold a path or a local time makes them independent of the machine (the script errors' %TEMP%\errortest,
+    HandleException's reports written in TZ=UTC0 on both sides); a runner-side fake that must leave its caller for
+    good throws a C++ exception of its own (FatalError; the oracle's raises an SEH exception through the image).
+    runner.cpp's table names the issue of each test's retired parts.
     notes/decisions.md, "The golden corpus (Patella-Modern issue #24)", "The golden corpus: settings, scripts and player
     data (Patella-Modern issue #26)", "The golden corpus: the game world (Patella-Modern issue #27)", "The golden
     corpus: error rounds (Patella-Modern issue #54)", "The golden corpus: Network (Patella-Modern issue
     #30)", "The golden corpus: the GUI, graphics and the window files (Patella-Modern issue #28)", "The golden
     corpus: the window tests (Patella-Modern issue #28, second part)", "The golden corpus: Dialogs and retired
-    parts (Patella-Modern issue #28, third part)" and "The golden corpus: MapWindow, MainWindow and the retired engine
-    tests (Patella-Modern issue #27, second part)".
+    parts (Patella-Modern issue #28, third part)", "The golden corpus: MapWindow, MainWindow and the retired engine
+    tests (Patella-Modern issue #27, second part)" and "The golden corpus: Errors (Patella-Modern issue #26, second
+    part)".
 - The reference recordings (Patella-Modern issue #23; M2's exit): `python -I tools/reference.py compare
   --reference C:\Patella-Modern\build\reference` runs the x64 test client (build\windows-x64\Release\PatellaTest.exe,
   `--exe`) on every recorded session without the server and compares it with Tibia.exe's recording: the

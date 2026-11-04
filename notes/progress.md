@@ -276,6 +276,14 @@ FormatCRT71Time writes MSVC 7.1's ctime text (every number in two digits, the da
 replacing CRT71Time's patch of ctime's buffer in HandleException and SaveChannel; MsvcCtime32 and PortableCtime32
 removed, no ctime/_ctime32 call in src/. Found: the UCRT's 32-bit localtime stops at 2038-01-18 23:59:59 UTC, 7.1's at
 INT32_MAX. notes/decisions.md, "ctime's text written by the client: FormatCRT71Time (Patella-Modern issue #61)".
+Golden corpus, Errors (Patella-Modern issue #26, second part, branch issue-26b, November 4, 2026; M6): errortest.cpp
+moved to tests/golden/errors_tests.cpp: 40,372 of its 40,408 checks replayed, 0 failures in Release and Debug; the 36
+of its Statics round's SurfaceInitInstance part (the x86 engine selection) retired with the oracle, the user's
+decision. The comparisons skipped for functions earlier tests redirected are the oracle's answer, recorded per
+comparison; our statics found through the getters' x64 code; HandleException's reports written in TZ=UTC0 and the
+script errors' paths TEMP-relative, so the corpus does not depend on the machine. The runner replays 15,351,355 of
+the oracle's 17,983,332 checks, retires 1,497,464 and lists 1,134,513 (Communication, Control) as not ported. No src/
+change. notes/decisions.md, "The golden corpus: Errors (Patella-Modern issue #26, second part)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
