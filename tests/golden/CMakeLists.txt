@@ -65,7 +65,8 @@ target_compile_definitions(golden_client PRIVATE PATELLA_VULKAN)
 # The ported tests of the client's code and the stubs, with the same settings.
 add_library(golden_client_tests OBJECT
 	client_stubs.cpp
-	status_tests.cpp)
+	status_tests.cpp
+	preferences_tests.cpp)
 golden_client_settings(golden_client_tests)
 
 add_executable(golden_runner
