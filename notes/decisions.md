@@ -7717,3 +7717,98 @@ format and the earlier helpers.
     has MainFrm.cpp). A port shares them with the runner's or builds a second runner executable for the group.
 - **Commits** (form). Network's port, then the order of its Random() calls, then these notes. Each test's corpus was
   recorded and replayed after its port, in Release and Debug.
+
+## The golden corpus: the GUI, graphics and the window files (Patella-Modern issue #28)
+
+Settled by Claude Opus 5.5, November 4, 2026. tests/golden/ (graphics_tests.cpp, gui_tests.cpp, testsurface.h,
+client_stubs.cpp, golden_patch.h's SaveOwn/RestoreOwn, golden_eh), tests/golden/CMakeLists.txt, cmake/OracleX86.cmake.
+notes/reconstruction.md, "Checking", describes the use; the sections on issues #24, #26, #27, #54 and #30 above the
+format and the earlier helpers.
+
+- **The foundation** (high). golden_client compiles graphics.cpp, GUI.cpp and every window file (DialogWindow,
+  ContextMenus, ConsoleWindow, ContentWindows, DialogElements, Dialogs, MapWindow, MainWindow), as difftest.exe links
+  them. What they call below them and the runner does not link is in client_stubs.cpp, aborting (55 symbols the
+  linker asked for): Communication.cpp's Send functions, Control.cpp's ChangeEngine, CancelPatch, and the Vulkan
+  device queries of the advanced graphics dialog (GetNumberOfGpus, GetCpuDriverManifest, GetDeviceName, ButtonOf).
+  The runner's stand-ins of GUI.cpp (TCallback's constructor), MainWindow.cpp (InitMainWindow) and graphics.cpp
+  (InitVideoCache) left the stubs: the real ones are linked. A window test can build our window classes in the runner
+  and redirect what they call (golden::RedirectOwn works on a stub as on any of our functions). Considered: compiling
+  only graphics.cpp and GUI.cpp (each later window test would add its file and more stubs; with all of them the 55
+  stubs are the whole list now).
+- **The window objects' layouts** (high). The ported tests do not project the x86 objects: the original's objects
+  stay in the oracle, and what the comparisons read from them is recorded field by field: a component's parent, next
+  child, first child and capture as the test's node indices, its offsets and size; a TTimer's Remaining, Active and
+  getters. That is what the old comparisons read (GUI's CompareTrees, the timer checks), so no layout of TComponent or
+  TWindow enters the corpus. The runner has our objects alone; a node's original object is a placeholder pointer
+  there, never dereferenced (every use of the original's side is inside ORIGINAL), which CollectDeletions clears
+  when the original's recorded log reports the deletion, as it cleared the oracle's. The later window tests can do
+  the same where their dumps are texts (the original's dump is then recorded as a log is); where they memcmp objects
+  (MapWindow's TMapWindow from +0x14) they need Container's kind of projection.
+- **Graphics ported** (high). 570,954 checks, the oracle's count, 0 failures; the summary line (10,962 sprites and 567
+  picture tiles decoded, 115,306 tiles written to the video cache, 132,506 blits) is the oracle's, so the inputs are
+  too. tools/difftest/graphicstest.cpp moved to tests/golden/graphics_tests.cpp; every CHECK and random number is the
+  old one. By value: the sprite table (TSprite, no pointers) and the fonts (TFontInfo) as bytes, a picture as its
+  TilesX, TilesY, colour key and offsets array, a memory cache item as its Data's offset in the cache's data and its
+  nine ints (TMemoryCacheItem has a pointer; field by field is the old memcmp with Data cleared, which has no padding
+  on x86), the video cache (TVideoCacheItem, 0x5c bytes without pointers on both targets) by its changed bytes
+  (golden::OutputRuns), the hash tables and lists as ints, the file names relative to the data directory
+  ("<data>/Tibia.spr": the runner's directory differs). Tibia.spr and Tibia.pic come from the corpus, as Tibia.dat
+  does (golden::DataFile); the runner's ReloadSprites and InitGraphics read them in its copy's directory. Our
+  GetSurface is redirected to the recording surface for good (golden::RedirectOwn), as in the oracle (MapWindow takes
+  the same object from it).
+- **The tile dictionary** (high). The original's surface log held 115,306 tiles of 3,072 bytes (354 MB as they are),
+  the memory cache's data changes by whole tiles, and every decoded sprite and picture tile is a tile as well.
+  RecordTile records a tile as the index of an equal tile recorded before, or as its bytes (which get the next
+  index); both sides keep the same list. The log is recorded as its bytes without the tiles, where they were, and the
+  tiles through the dictionary; the runner puts it together again and compares it whole, as before. Graphics.bin is
+  91 MB (Tibia.spr 16 MB, the decoded sprites 34 MB). Considered: a hash of the log (a failure could no longer show
+  where the logs differ); the logs as they are (several hundred MB).
+- **The order of Random() in Graphics** (high). RandomColor's `TRGBColor(Range(...), Range(...), Range(...))` calls
+  in an unspecified order (#55): now three statements in the oracle's order (the constructor's arguments right to
+  left, as x86 MSVC evaluated them); the oracle's summary line and every check of the runner agree. The file's other
+  expressions were sequenced already (braced initialisers, one declarator per call).
+- **GUI ported** (high). 5,277,938 checks, the oracle's count, 0 failures: 5,246,029 in its rounds and 31,909 in its
+  error round (2,750 calls compared, 2,154 in which the original threw, both equal to the oracle's).
+  tools/difftest/guitest.cpp moved to tests/golden/gui_tests.cpp; every CHECK and random number is the old one, the
+  oracle's lines too ("each of the 30 window operations at least 236 times"). Per comparison the corpus holds the
+  original's log (text), its tree (eight ints per node, by its changes), its help state, the results of its calls
+  (queries, mouse events, element defaults, CheckHotkey), its timers' fields and the timer vector's min, its skin
+  properties (0x1528 bytes, twice; no pointers, and the test's own check of sizeof holds on x64), and in the error
+  round what each call threw (ORIGINAL_THROWN, through GUI_ROUND_COMPARE: imageeh.h's ROUND_COMPARE by value). Our
+  DrawPicturePart and DrawPicturePartClipped go to the test's recorders through golden::RedirectOwn while it runs and
+  come back through the new golden::SaveOwn and RestoreOwn. GUI.bin is 56 MB.
+- **Our side's assertion is the real one** (high). ThrowSideAssertion (golden_eh.h) is gui_tests.cpp's on both sides:
+  our TComponent::SetSize, which the runner links now. Issue #54's stand-in, OurSideAssertion, stays for the oracle's
+  VerifyOurSideAssertion (MainFrm, Network), which checks it against SetSize; MainFrm's and Network's error rounds in
+  the runner throw through SetSize and pass with the oracle's counts.
+- **x86-only mechanics** (high). These two tests call the original's member functions through `__fastcall (This,
+  void *, ...)` stand-ins for thiscall, copy the image's vtables and patch the image with PatchJump: all of that is
+  the original's side, inside ORIGINAL or `#if GOLDEN_ORACLE`, never compiled into the runner. The runner's side uses
+  portable means that were the runner's already: golden::RedirectOwn (our functions to the recorders, GetSurface),
+  golden::DataFile, golden::OutputRuns. No /alternatename, no decoding of x86 code, no FollowJumps, CheckRoom or
+  FillStack is involved.
+- **Not ported** (needs later issues). DialogWindow 34,068, ContextMenus 41,660, ConsoleWindow 318,882, ContentWindows
+  221,270, DialogElements 1,362,116, Dialogs 299,174 (2,277,170 checks). What blocks them is the shared fakes of the
+  DialogElements.cpp classes, tools/difftest/elementfakes.{h,cpp}: mirror classes with the real classes' x86 offsets
+  (`uint8 Data2C[0x38 - 0x2c]`, a TRadioButtonGroup pointer at +0x38, a tooltip at +0x3c) that both sides build,
+  because PatchElementFakes redirects the image's constructors and ours (through their x86-decorated names) to them;
+  our window code then reads them as our classes, which have other offsets on x64. A port needs fakes with our layout
+  for our side (the original's side keeps its own), so each test's fake world splits by side. Besides: `__fastcall`
+  stand-ins on our side too (FakeUpdateUpButton for TContainerWindowBody::UpdateUpButton, found with `Member(&...)`,
+  a member pointer read as a code address), the hooks of difftest.h (DialogFakes, ElementCreated, ReportElement) that
+  the tests define in each other's files, and for Dialogs the x64 variant of Dialogs.cpp (PATELLA_VULKAN: the device
+  buttons of issue #31 in the advanced graphics dialog, where the oracle compares the engine buttons).
+- **What is possible now** (high). The window classes are in the runner, which the later tests here, #27's MapWindow
+  and MainWindow, #26's Errors and #30's Communication and Control were waiting for. Errors (#26): Graphics and GUI
+  run before it in the runner in difftest's order (GUI's redirects undone, GetSurface's kept, as in the oracle) and
+  graphics.cpp is linked; still missing are the tests between GUI and Errors in difftest's order (the six above and
+  SurfaceDX, DX9, GL), whose redirects its "250 comparisons skipped" counts, and a portable form of its Redirected
+  (a function that starts with a jump, decoded as x86 code). MapWindow and MainWindow (#27): MapWindow.cpp,
+  MainWindow.cpp and the recording surface are in the runner; they need the element fakes above and TMapWindow's
+  projection. Communication and Control (#30): their world's windows (GUI.cpp's TWindow, the window files) link now;
+  the rest of #30's list (27 `__fastcall` stand-ins, x86-decorated /alternatename constructors, ThisOfFirstCall,
+  FollowJumps, CheckRoom, FillStack, the CAsyncSocket and MainFrm.cpp definitions) is unchanged.
+- **Size** (form). The corpus is 394 MB (Graphics 91 MB, Container 82 MB, GUI 56 MB, Talk 46 MB); local only, as
+  before.
+- **Commits** (form). The foundation with Graphics, then GUI, then these notes. Each test's corpus was recorded and
+  replayed after its port; the first commit was not built on its own (the second's tree was, in Release and Debug).

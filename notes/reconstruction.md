@@ -591,17 +591,19 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   (18,442), Help (70,631), Inventory (158,400), Talk (1,214,929) and Container (192,832) (issue #26, 2,893,490),
   Objects (327,886), Map (639,877) and Creatures (2,610,987) (issue #27, 3,578,750), MainFrm (49,576, of which
   18,152 in its error round; issue #54), Network (113,806, of which 38,878 in its error round; issue #30),
-  7,009,140 in all, and sysinctest's Sysinc (67); the runner lists the rest with their counts (difftest's other
-  14 tests, 9,839,612 checks, Errors' 40,408, MapWindow's 127,529 and MainWindow's 57,314 among them;
+  Graphics (570,954) and GUI (5,277,938, of which 31,909 in its error round) (issue #28), 12,858,032 in all, and
+  sysinctest's Sysinc (67); the runner lists the rest with their counts (difftest's other 12 tests, 3,990,720
+  checks, Errors' 40,408, MapWindow's 127,529, MainWindow's 57,314 and the six window tests of issue #28 among them;
   communicationtest's 1,134,513, its two tests Communication 856,366 and Control 278,147, the runner's group
   "communicationtest"). The runner links the reconstructed files the ported tests call (golden_client:
-  compiled against the MFC shim with the product settings) and aborting stubs of the others
-  (tests/golden/client_stubs.cpp). Tibia.dat is in the corpus (golden::DataFile): the runner needs no data files.
+  compiled against the MFC shim with the product settings; since issue #28 graphics.cpp, GUI.cpp and every window
+  file too) and aborting stubs of the others (tests/golden/client_stubs.cpp: Communication.cpp's Send functions,
+  Control.cpp, the Vulkan engine). Tibia.dat is in the corpus (golden::DataFile): the runner needs no data files.
   - Record: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
     golden_corpus` runs difftest, sysinctest and communicationtest in full with `DIFFTEST_RECORD=<dir>` (default
-    build\golden, the cache variable PATELLA_GOLDEN_DIR; about four minutes, 253 MB, of which Container 82 MB, Talk
-    46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB, Network 8 MB, MainFrm 3 MB). Recording changes no check
-    count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. The corpus is derived from Tibia.exe: it stays on
+    build\golden, the cache variable PATELLA_GOLDEN_DIR; about four minutes, 394 MB, of which Graphics 91 MB,
+    Container 82 MB, GUI 56 MB, Talk 46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB, Network 8 MB, MainFrm 3 MB).
+    Recording changes no check count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. The corpus is derived from Tibia.exe: it stays on
     the machine (build/ is ignored by git) and is never committed, pushed or uploaded, not even as a CI artifact.
   - Replay: `build\windows-x64\tests\golden\Release\golden_runner.exe [--require] [<dir>]`, or the CTest test
     `golden` of every windows-x64 build. It prints each replayed test's checks next to the oracle's and fails
@@ -635,10 +637,16 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     exception pass the TEND blocks; the WinSock functions reach the test's own slots through /alternatename of
     their `__imp_` symbols (the runner links no ws2_32); a test may call Random() only once per expression (the
     order of two calls is unspecified, and the runner's Debug build chose another order than the oracle's).
+    Issue #28's: the window tests keep the original's objects in the oracle and record what the comparisons read
+    from them field by field (gui_tests.cpp: a node's parent, children and capture as node indices; the runner's
+    node has a placeholder for the original's object, cleared when the recorded log reports its deletion); 32*32
+    tiles go through a dictionary of the tiles recorded so far (graphics_tests.cpp's RecordTile); Tibia.spr and
+    Tibia.pic are in the corpus too (golden::DataFile); `golden::SaveOwn`/`RestoreOwn` undo a RedirectOwn;
+    ThrowSideAssertion is our real TComponent::SetSize in the runner too.
     notes/decisions.md, "The golden corpus (Patella-Modern issue #24)", "The golden corpus: settings, scripts and player
     data (Patella-Modern issue #26)", "The golden corpus: the game world (Patella-Modern issue #27)", "The golden
-    corpus: error rounds (Patella-Modern issue #54)" and "The golden corpus: Network (Patella-Modern issue
-    #30)".
+    corpus: error rounds (Patella-Modern issue #54)", "The golden corpus: Network (Patella-Modern issue
+    #30)" and "The golden corpus: the GUI, graphics and the window files (Patella-Modern issue #28)".
 - The reference recordings (Patella-Modern issue #23; M2's exit): `python -I tools/reference.py compare
   --reference C:\Patella-Modern\build\reference` runs the x64 test client (build\windows-x64\Release\PatellaTest.exe,
   `--exe`) on every recorded session without the server and compares it with Tibia.exe's recording: the
