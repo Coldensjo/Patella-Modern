@@ -22,6 +22,7 @@ python -I tools/reference.py record [--reference DIR] [--sessions a,b] [--live D
 """
 
 import contextlib
+import ctypes
 import datetime
 import json
 import os
@@ -355,6 +356,33 @@ def patch_session(count, exe):
 	return session
 
 
+# --- the display modes (issue #48) ----------------------------------------------------------------
+
+class DEVMODEW(ctypes.Structure):
+	"""wingdi.h's DEVMODEW, the display members."""
+	_fields_ = [("dmDeviceName", ctypes.c_wchar * 32), ("dmSpecVersion", ctypes.c_ushort),
+		("dmDriverVersion", ctypes.c_ushort), ("dmSize", ctypes.c_ushort), ("dmDriverExtra", ctypes.c_ushort),
+		("dmFields", ctypes.c_ulong), ("dmPositionX", ctypes.c_long), ("dmPositionY", ctypes.c_long),
+		("dmDisplayOrientation", ctypes.c_ulong), ("dmDisplayFixedOutput", ctypes.c_ulong), ("dmColor", ctypes.c_short),
+		("dmDuplex", ctypes.c_short), ("dmYResolution", ctypes.c_short), ("dmTTOption", ctypes.c_short),
+		("dmCollate", ctypes.c_short), ("dmFormName", ctypes.c_wchar * 32), ("dmLogPixels", ctypes.c_ushort),
+		("dmBitsPerPel", ctypes.c_ulong), ("dmPelsWidth", ctypes.c_ulong), ("dmPelsHeight", ctypes.c_ulong),
+		("dmDisplayFlags", ctypes.c_ulong), ("dmDisplayFrequency", ctypes.c_ulong)]
+
+
+def machine_display_modes():
+	"""The display modes Tibia.exe's Graphics Options dialog lists on this machine (meta.json's
+	display_modes, tools/reference.py): EnumDisplaySettings' modes as the dialog filters them (DirectDraw's
+	EnumDisplayModes gives the same list here, issue #20; reference.listed_modes)."""
+	mode = DEVMODEW()
+	mode.dmSize = ctypes.sizeof(DEVMODEW)
+	found, index = [], 0
+	while ctypes.windll.user32.EnumDisplaySettingsW(None, index, ctypes.byref(mode)):
+		found.append([mode.dmPelsWidth, mode.dmPelsHeight, mode.dmBitsPerPel])
+		index += 1
+	return ref.listed_modes(found)
+
+
 # --- a reference run -------------------------------------------------------------------------------
 
 def reference_run(reference, name, events, session, seed=None, comment=""):
@@ -376,6 +404,7 @@ def reference_run(reference, name, events, session, seed=None, comment=""):
 			with open(os.path.join(folder, "seed", file), "wb") as f:
 				f.write(data)
 	before = ref.snapshot(ct.run_dir("orig"), skip=("Tibia.exe",))
+	modes = machine_display_modes()
 	env = dict(os.environ, TZ=ref.TIME_ZONE)
 	driver = cr.Driver(ct.run_dir("orig"), "Tibia.exe", None, env=env)
 	rec = Recorder(folder, name)
@@ -403,6 +432,8 @@ def reference_run(reference, name, events, session, seed=None, comment=""):
 		rec.detach()
 		driver.kill()
 	problems = (proxy.mismatches + proxy.errors) if proxy is not None else []
+	if machine_display_modes() != modes:
+		problems.append("the display modes changed during the run (issue #48)")
 	after = ref.snapshot(ct.run_dir("orig"), skip=("Tibia.exe",))
 	written = []
 	os.makedirs(os.path.join(folder, "files"))
@@ -422,7 +453,7 @@ def reference_run(reference, name, events, session, seed=None, comment=""):
 		"data_sha256": {d: ct.file_sha(os.path.join(ROOT, d)) for d in ct.DATA_FILES},
 		"server": events is not None, "exit": result.get("exit", 0), "messages": result.get("messages", []),
 		"dumps": rec.dumps, "frames": rec.frames, "frame_masks": rec.masks, "state_masks": rec.state_masks, "checkpoints": rec.checkpoints,
-		"written": written, "removed": removed, "seed": sorted(seed or {}), "time_zone": ref.TIME_ZONE,
+		"written": written, "removed": removed, "seed": sorted(seed or {}), "time_zone": ref.TIME_ZONE, "display_modes": modes,
 		"proxy_problems": [str(p) for p in problems], "comment": comment}
 	ref.write_json(os.path.join(folder, "meta.json"), meta, indent=1)
 	log("%s: exit %s, %d dumps, %d frames, written %s, removed %s, proxy problems %s" % (name, meta["exit"],

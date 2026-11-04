@@ -7270,3 +7270,45 @@ facts and the census.
   handle of ours per device fails). Checked by injecting a leaked event per device: the test failed (25 more
   than the drivers').
 - **Behaviour** (high). Nothing in src/ changed; the oracle-x86 build compiles nothing that changed.
+
+## The display modes of a reference session (Patella-Modern issue #48)
+
+Settled by Claude Opus 5.5, November 4, 2026. notes/testmode.md, "The display modes (Patella-Modern issue #48)"
+has the mechanism.
+
+- **Which list Tibia.exe saw** (high). Tibia.exe recorded every session with Engine = 2 (Tibia.cfg.start), so its
+  dialog listed DirectDraw's EnumDisplayModes, which on this machine is EnumDisplaySettings' list filtered as the
+  dialog filters it (issue #20's probe: the same 24 modes in the same order). The traffic session's frame 3 shows
+  the first seven of them; the options session wrote the first (FullscreenMode = (640,480,32)); on November 4 the
+  machine reports the same 24 again, without the 1176x664 mode of November 3. So the 24 are the recording's list,
+  certain for the seven shown and for the first, very likely for the rest (nothing in a recording shows them).
+- **A fixed list in the test build, from the session** (high). The comparison asks "does the client draw what
+  Tibia.exe drew"; the display modes are an input to that, like the server's packets, so the test client gets the
+  recording's input (`--test-display-modes`, the hook PATELLA_ENUM_DISPLAY_SETTINGS) and the frame stays exact.
+  Recording the list in the state dump and calling a difference an environment difference (the issue's other
+  option) would leave the frame and the options session's Tibia.cfg unchecked whenever the machine differs; it
+  would also change the state dump's form, which Tibia.exe's dumps (client_state.py) must share. A fixed set in
+  the test mode's code for every script: it would be wrong for a session recorded on another machine and would
+  hide the real list from the live checks (testmode_check.py) that never asked for one.
+- **Where the list lives** (high). In the session's meta.json (`display_modes`), written by the record step from
+  EnumDisplaySettings (read before and after the run; a change is a recording problem). The key is optional and
+  the sessions without it (the whole set of November 3) get FORMAT1_DISPLAY_MODES, the 24 modes above: no new
+  recording, and the format stays `patella-reference 1` (a new format would have made the set stale, and a
+  reader before #48 just ignores the key; the compare step is the only reader). The test mode reads a small text
+  file rather than meta.json: the client has no JSON reader, and the file is the option's whole contract.
+- **What the hook keeps** (high). Only EnumDisplaySettings(nullptr, Index) is answered from the file; the desktop's
+  mode (ENUM_CURRENT_SETTINGS, the fullscreen code) and other devices stay the machine's. Without the option the
+  test build calls EnumDisplaySettingsA as before, and Patella.exe and the oracle compile the call itself
+  (pecompare). The fields set are those GetFullscreenModes reads, plus the frequency (60) and dmFields.
+- **A client that ignores it** (high). PatellaTest.exe from before #48 would ignore the unknown option and list the
+  machine's modes; the compare step requires the driver's log line "testmode: display modes ..., N modes" when it
+  passed the option, and reports its absence or another count as a difference.
+- **compare_rendering.py and compare_traffic.py** (high). Their live modes run Tibia.exe and the x64 client on the
+  same machine at the same time, so both list the same modes: unchanged. Their `record`/`compare` words go
+  through tools/reference.py and get the list there.
+- **The test** (high). tests_testmode "DisplayModes: ...": the file's parser, and the dialog's loop
+  (GetFullscreenModes' filter) over EnumerateDisplayMode with a made-up machine that reports a 1176x664 mode, a
+  16-bit mode, a mode below 640x480 and duplicates: with the fixed list the dialog lists exactly the file and the
+  machine is never asked; without it the dialog lists the machine's modes. `reference.py --self-test`: the default
+  for sessions without the key (the traffic frame's seven first), meta.json's list winning, the file, malformed
+  lists refused, the driver-log check.

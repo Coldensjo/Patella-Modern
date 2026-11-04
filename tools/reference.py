@@ -19,14 +19,17 @@ record (Windows, Tibia.exe; tools/reference_record.py): every session of compare
   and a frame at every checkpoint), the server side for the test client (replay.txt), Tibia.exe's
   packets (reference.jsonl), its state at every checkpoint (states\), its frames (frames\), the
   files it wrote (files\), the files it started with (seed\) and meta.json (format, Tibia.exe's and
-  the data files' SHA-256, exit code, message boxes, frame masks). The live test server is needed only
-  here, for the live recordings.
+  the data files' SHA-256, exit code, message boxes, frame masks, the display modes the machine
+  reported: display_modes, issue #48). The live test server is needed only here, for the live
+  recordings.
 
 compare (the test client, PatellaTest.exe; this file, Python only, no Windows-only code): every
   session runs once in a fresh run folder (the data files, the client patched to 127.0.0.1:7271 by
   tools/patch_client.py, the session's Tibia.cfg and seed files, the CPU driver) with
   --test-script session.script --test-replay replay.txt (the server side, replayed inside the client:
-  no server) --test-out, PATELLA_VULKAN=cpu and TZ=UTC0 (as the record step's Tibia.exe); then compared:
+  no server) --test-display-modes (the recording machine's display modes, issue #48: the Graphics
+  Options dialog lists them, not this machine's) --test-out, PATELLA_VULKAN=cpu and TZ=UTC0 (as the
+  record step's Tibia.exe); then compared:
   a. the client's packets (packets.log) against Tibia.exe's, per connection, in order: the payloads,
      the XTEA padding and the first packets with their whole RSA block (key and random bytes: the
      virtual clock gives rand() the same seed); the server packets the client decrypted against those
@@ -43,7 +46,9 @@ compare (the test client, PatellaTest.exe; this file, Python only, no Windows-on
 The reference set is CipSoft-derived local data: never committed, pushed or uploaded. Default
 <repository>\build\reference (gitignored); the orchestrator's set is C:\Patella-Modern\build\reference.
 A session is stale when its format is not FORMAT, or its Tibia.exe or data files' SHA-256 are not
-the ones it was recorded with (compare refuses it; record it again).
+the ones it was recorded with (compare refuses it; record it again). meta.json's display_modes (issue
+#48) is optional in format 1: the sessions recorded before it lack it and were all recorded on the
+machine of FORMAT1_DISPLAY_MODES, which they get instead.
 
 Exit code 0 when every session matches, 1 on a difference or a stale session, 2 when a run failed.
 """
@@ -84,6 +89,19 @@ TIME_ZONE = "UTC0"
 # (compare_files.py PATELLA_INI).
 PATELLA_INI = "Patella.ini"
 REGION_TOLERANCE = 2
+# Issue #48: the display modes of a session that has no display_modes in its meta.json (format 1,
+# recorded before issue #48, November 3, 2026): the modes the recording machine reported then, as
+# Tibia.exe's Graphics Options dialog listed them (DirectDraw's EnumDisplayModes; the same list as
+# EnumDisplaySettings', at least 640x480 and 16 bits, each once: issue #20). The traffic session's frame
+# 3 shows the first seven; the machine reports the same 24 again on November 4 (the 1176x664 mode of
+# issue #48 has gone).
+FORMAT1_DISPLAY_MODES = [[640, 480, 32], [720, 480, 32], [720, 576, 32], [800, 600, 32], [1024, 768, 32],
+	[1152, 864, 32], [1280, 720, 32], [1280, 768, 32], [1280, 800, 32], [1280, 960, 32], [1280, 1024, 32],
+	[1360, 768, 32], [1366, 768, 32], [1440, 1080, 32], [1600, 900, 32], [1600, 1024, 32], [1600, 1200, 32],
+	[1680, 1050, 32], [1920, 1080, 32], [1920, 1200, 32], [1920, 1440, 32], [2048, 1536, 32], [2560, 1440, 32],
+	[2560, 1600, 32]]
+DISPLAY_MODES_HEADER = "# patella-display-modes 1"  # src/testmode/DisplayModes.h
+DISPLAY_MODES_FILE = "display-modes.txt"
 # The sessions, in recording order ("report" needs "error"'s error.txt).
 SESSIONS = ["traffic", "options", "walk", "error", "error-login", "report", "patch", "patch-exe"]
 # Which tool's session each one is (the record/compare split of the three tools).
@@ -158,6 +176,37 @@ def staleness(meta, data_dir=ROOT):
 	if not meta.get("data_sha256"):
 		problems.append("no data files' SHA-256 in meta.json")
 	return problems
+
+
+# --- the display modes (issue #48, src/testmode/DisplayModes.h) -----------------------------------
+
+def display_modes(meta):
+	"""(modes, source): the display modes a session's client lists, [width, height, bits per pixel] in
+	EnumDisplaySettings' order: meta.json's display_modes, or for a session recorded before issue #48
+	FORMAT1_DISPLAY_MODES."""
+	modes = meta.get("display_modes")
+	if modes is None:
+		return [list(m) for m in FORMAT1_DISPLAY_MODES], "the format 1 default (recorded before issue #48)"
+	if not isinstance(modes, list) or not modes or any(not isinstance(m, list) or len(m) != 3
+			or not all(isinstance(v, int) and v > 0 for v in m) for m in modes):
+		raise ReferenceError_("meta.json: display_modes is not a list of [width, height, bits per pixel]")
+	return [list(m) for m in modes], "meta.json"
+
+
+def display_modes_text(modes):
+	"""The --test-display-modes file of PatellaTest.exe (src/testmode/DisplayModes.h)."""
+	return "\n".join([DISPLAY_MODES_HEADER] + ["%d %d %d" % tuple(m) for m in modes]) + "\n"
+
+
+def listed_modes(modes):
+	"""The modes as both clients' dialogs list them (vulkan/SurfaceVulkan.cpp GetFullscreenModes, the
+	DirectDraw callback): at least 640x480 and 16 bits, each size and depth once, in order."""
+	out = []
+	for m in modes:
+		m = list(m)
+		if m[0] >= 640 and m[1] >= 480 and m[2] >= 16 and m not in out:
+			out.append(m)
+	return out
 
 
 # --- the server side for the test client (src/testmode/ServerReplay.h) ----------------------------
@@ -512,8 +561,11 @@ def run_session(name, reference, exe, out, vulkan, timeout, data_dir):
 	exe_name = os.path.basename(exe)
 	before = prepare_run(folder, exe, meta, reference, data_dir)
 	replay = os.path.join(reference, "replay.txt")
+	modes_path = os.path.join(base, DISPLAY_MODES_FILE)
+	with open(modes_path, "w", encoding="ascii", newline="\n") as f:
+		f.write(display_modes_text(display_modes(meta)[0]))
 	command = [os.path.join(folder, exe_name), "--test-script", os.path.join(reference, "session.script"),
-		"--test-out", dumps, "--test-log", os.path.join(dumps, "driver.log")]
+		"--test-out", dumps, "--test-log", os.path.join(dumps, "driver.log"), "--test-display-modes", modes_path]
 	if meta.get("server"):
 		busy = ports_free((LOGIN_PORT, GAME_PORT))
 		if busy:
@@ -558,8 +610,10 @@ def check_session(name, reference, out):
 		lines.extend(diffs)
 		differences.extend("%s, %s: %s" % (name, title, d.strip()) for d in diffs)
 
+	modes, source = display_modes(meta)
+	lines.append(" display modes: %d from %s" % (len(modes), source))
 	if result["exit"] != meta.get("exit", 0):
-		part("exit code", (["  %d, Tibia.exe's %d" % (result["exit"], meta.get("exit", 0))], []))
+		part("exit code",(["  %d, Tibia.exe's %d" % (result["exit"], meta.get("exit", 0))], []))
 	else:
 		part("exit code", ([], ["%d" % result["exit"]]))
 	reference_events = load_events(os.path.join(reference, "reference.jsonl")) if meta.get("server") else []
@@ -584,7 +638,21 @@ def check_session(name, reference, out):
 			given_up = [line.strip() for line in f if "gave up waiting" in line or "not recorded" in line]
 		if given_up:
 			part("replay", (["  " + g for g in given_up], []))
+		if "--test-display-modes" in result.get("command", []):
+			part("display modes", taken_modes(log_path, modes))
 	return differences, lines
+
+
+def taken_modes(log_path, modes):
+	"""(differences, lines): whether the client took the --test-display-modes list (the driver's log
+	line; a test client before issue #48 ignores the option and lists this machine's modes)."""
+	with open(log_path, encoding="utf-8", errors="replace") as f:
+		taken = [line.strip() for line in f if line.startswith("testmode: display modes ")]
+	if not taken:
+		return ["  the client did not take --test-display-modes (no \"testmode: display modes\" in its log)"], []
+	if not taken[0].endswith(", %d modes" % len(modes)):
+		return ["  the client took another list: %s" % taken[0]], []
+	return [], [taken[0]]
 
 
 def selected(argument):
@@ -635,7 +703,7 @@ def compare_main(args):
 				continue
 		try:
 			differences, lines = check_session(name, folder, out)
-		except (OSError, ValueError, td.DumpError) as e:
+		except (ReferenceError_, OSError, ValueError, td.DumpError) as e:
 			traceback.print_exc()
 			say("  CHECK FAILED: %s" % e)
 			failed_runs.append(name)
@@ -732,6 +800,40 @@ def self_test():
 		len(compare_gui([label], [dict(wider, w=250)], {}, [(10, 10, 210, 30)])) == 1)
 	check("gui: outside a mask the size is compared", len(compare_gui([label], [wider], {})) == 2)
 	check("staleness: another format", any("format" in p for p in staleness({"format": "x"}, tempfile.gettempdir())))
+	# Issue #48: the display modes. A made-up machine's list (a 1176x664 mode, as on November 3) is never
+	# the one the client gets: a session lists the modes it was recorded with.
+	machine = [[640, 480, 32], [1176, 664, 32], [1280, 720, 32]]
+	modes, source = display_modes({"format": FORMAT})
+	check("display modes: a session without them gets the format 1 default",
+		modes == FORMAT1_DISPLAY_MODES and "format 1" in source and [1176, 664, 32] not in modes)
+	check("display modes: the default lists the traffic session's frame 3", modes[:7] == [[640, 480, 32],
+		[720, 480, 32], [720, 576, 32], [800, 600, 32], [1024, 768, 32], [1152, 864, 32], [1280, 720, 32]])
+	check("display modes: the default is a dialog's list", listed_modes(modes) == modes and len(modes) == 24)
+	check("display modes: meta.json's list wins", display_modes({"display_modes": machine}) == (machine, "meta.json"))
+	check("display modes: the file", display_modes_text(FORMAT1_DISPLAY_MODES[:2])
+		== DISPLAY_MODES_HEADER + "\n640 480 32\n720 480 32\n")
+	check("display modes: the dialog's filter", listed_modes([[320, 200, 32], [640, 480, 8], [800, 600, 32],
+		[800, 600, 32], [800, 600, 16]]) == [[800, 600, 32], [800, 600, 16]])
+	for bad in ([[640, 480]], [], [[640, 480, 0]], "640 480 32"):
+		try:
+			display_modes({"display_modes": bad})
+			refused = False
+		except ReferenceError_:
+			refused = True
+		check("display modes: a malformed list is refused (%r)" % (bad,), refused)
+	folder = tempfile.mkdtemp(prefix="reference-self-test-")
+	try:
+		log_path = os.path.join(folder, "driver.log")
+		with open(log_path, "w", encoding="utf-8") as f:
+			f.write("testmode: script s, 3 events\ntestmode: display modes x/display-modes.txt, 24 modes\n")
+		check("display modes: the client took the list", taken_modes(log_path, FORMAT1_DISPLAY_MODES)[0] == [])
+		check("display modes: another length is a difference", len(taken_modes(log_path, machine)[0]) == 1)
+		with open(log_path, "w", encoding="utf-8") as f:
+			f.write("testmode: script s, 3 events\n")
+		check("display modes: a client that ignored the option is a difference",
+			len(taken_modes(log_path, FORMAT1_DISPLAY_MODES)[0]) == 1)
+	finally:
+		shutil.rmtree(folder, ignore_errors=True)
 	print("self-test: %s" % ("passed" if not failures else "FAILED: %s" % failures))
 	return 1 if failures else 0
 

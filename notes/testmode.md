@@ -14,7 +14,8 @@ below. Choices and their reasons: notes/decisions.md,
 ```
 python -I tools/build.py windows-x64            # builds Patella.exe and PatellaTest.exe (and the unit tests)
 build\windows-x64\Release\PatellaTest.exe --test-script <file> [--test-log <file>] [--test-out <folder>]
-                                          [--test-sync <name>] [the client's own words]
+                                          [--test-sync <name>] [--test-replay <file>]
+                                          [--test-display-modes <file>] [the client's own words]
 python -I tools/testmode_check.py               # the determinism and dump check against the test server
 python -I tools/testmode_check.py --self-test   # the check's comparisons on made-up data (no server, no client)
 ```
@@ -109,6 +110,7 @@ run (one attempt, a retry with the first attempt kept, two unanswered attempts).
 | PATELLA_TEST_FRAME_OBSERVERS(Patcap, ...) | nothing (#22) | vulkan/SurfaceVulkan.cpp InitDisplay: without patcap.dll, the frame dump observes the engine |
 | PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) | MessageBoxA (#23) | Player.cpp FatalError and the start's two boxes: with a script not shown ("Message boxes") |
 | PATELLA_TEST_CAPTURE_CHANGED | nothing (a statement macro, Patella-Modern #52) | MainFrm.cpp OnCaptureChanged, before its body: with a script skipped (below) |
+| PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode) | EnumDisplaySettingsA (Patella-Modern #48) | vulkan/SurfaceVulkan.cpp GetFullscreenModes (the Graphics Options dialog's list): with `--test-display-modes` the file's modes ("The display modes") |
 
 The state dump also reads the client's file-local data through four View functions at the ends of
 Creatures.cpp, Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h), inside `#if
@@ -365,7 +367,7 @@ comparison of two live runs, which the reference replaces by Tibia.exe's recordi
 
 | File | What |
 | :--- | :--- |
-| meta.json | format `patella-reference 1`, Tibia.exe's and the data files' SHA-256, the date, server yes/no, exit code, message boxes, checkpoints, written and removed files, the seed files, frame and state masks, the time zone |
+| meta.json | format `patella-reference 1`, Tibia.exe's and the data files' SHA-256, the date, server yes/no, exit code, message boxes, checkpoints, written and removed files, the seed files, frame and state masks, the time zone, the display modes (`display_modes`, optional: "The display modes") |
 | session.script | the test-mode script (below) |
 | replay.txt | the server side for the test client (src/testmode/ServerReplay.h) |
 | server.jsonl | what the proxy replayed (the live recording or the crafted one) |
@@ -440,13 +442,52 @@ dispatches the thread's messages (after FatalError's ShutdownConnection the serv
 leaves the game and saves Tibia.cfg); the hook does the same, with the replay pumped, until both have been quiet
 for 500 ms (at most 5 s).
 
+### The display modes (Patella-Modern issue #48)
+
+The Graphics Options dialog (the traffic session's frame and state 3; the options session selects its first
+mode, written to Tibia.cfg as FullscreenMode) lists the display modes Windows reports: EnumDisplaySettings in
+the x64 client (vulkan/SurfaceVulkan.cpp GetFullscreenModes), DirectDraw's EnumDisplayModes in Tibia.exe; the same
+list on this machine (issue #20), at least 640x480 and 16 bits, each size and depth once. They depend on the
+monitor, the driver and the scaling, which change between a recording and its comparison: on November 3, 2026 the
+display reported a 1176x664 mode it had not reported at the recording, and frame 3 differed in 664 pixels (the
+list moved down a line), though nothing in the client had changed.
+
+So a session's client lists the modes of the machine it was recorded on:
+
+- the record step stores them in meta.json as `display_modes`, `[[width, height, bits per pixel], ...]` in
+  EnumDisplaySettings' order, filtered as the dialog filters them (reference_record.py machine_display_modes,
+  read before and after the run: a change during the run is a recording problem);
+- `PatellaTest.exe --test-display-modes <file>` answers the client's `EnumDisplaySettings(nullptr, Index)` from
+  the file (the hook PATELLA_ENUM_DISPLAY_SETTINGS, TestModeWin32.cpp EnumDisplayMode; src/testmode/DisplayModes.h),
+  never asking the machine; the current and registry settings (the desktop's mode) and other devices stay the
+  machine's. A file that does not parse ends the program with exit code 3, like a script. The file:
+
+  ```
+  # patella-display-modes 1
+  640 480 32
+  720 480 32
+  ...
+  ```
+
+- the compare step writes `<out>\<session>\display-modes.txt` from meta.json and passes it; a session without
+  `display_modes` (all recorded before issue #48, on November 3, 2026) gets FORMAT1_DISPLAY_MODES, the 24 modes
+  this machine reported then (the frame shows the first seven; the machine reports the same 24 again). The report
+  names the list's source, and a client whose log lacks "testmode: display modes" (one before issue #48 ignores
+  the option) is a difference.
+
+The key is optional, so the format stays `patella-reference 1` and the recorded set needs no new recording. Without
+`--test-display-modes` the test build asks Windows, as Patella.exe does; the live modes of compare_traffic.py and
+compare_rendering.py run both clients on one machine at one time, so both list the same modes and need no fixed
+list.
+
 ### The compare step (tools/reference.py)
 
 Python only (no Windows-only code; the client run is a subprocess): per session a fresh run folder in
 `--out` (default build\reference-compare): the data files (their SHA-256 checked against meta.json), the test
 client patched by patch_client.py, the CPU driver next to it, Tibia.cfg.start, the seed files; then
 `PatellaTest.exe --test-script session.script --test-replay replay.txt --test-out dumps --test-log
-dumps\driver.log` with PATELLA_VULKAN=cpu (`--vulkan`) and TZ=UTC0. Compared:
+dumps\driver.log --test-display-modes display-modes.txt` with PATELLA_VULKAN=cpu (`--vulkan`) and TZ=UTC0.
+Compared:
 
 a. packets: the client's packet log against Tibia.exe's packets (reference.jsonl) per connection, in order:
    payload and XTEA padding, the first packets with their whole RSA block (XTEA key and random bytes: the virtual

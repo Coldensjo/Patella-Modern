@@ -48,6 +48,13 @@
 //	                                   script's held buttons; the client's own releases come after its
 //	                                   button flags are cleared, so the body would do nothing for them
 //
+// Issue #48:
+//
+//	PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode)
+//	                                   EnumDisplaySettingsA: vulkan/SurfaceVulkan.cpp GetFullscreenModes (the
+//	                                   Graphics Options dialog's list); with --test-display-modes <file> the
+//	                                   modes come from the file, not from the machine (src/testmode/DisplayModes.h)
+//
 // The state dump reads the client's data through the View functions at the end of Creatures.cpp,
 // Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h; test build only).
 //
@@ -80,6 +87,8 @@ void FrameObservers(HMODULE Patcap, int(PATELLA_CDECL **Frame)(int, int), void(P
 int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type);
 // True: a WM_CAPTURECHANGED that the script's input does not know of (with a script: every one).
 bool IgnoreCaptureChange();
+// EnumDisplaySettingsA, or the --test-display-modes list (Device null, Index a mode's number).
+BOOL EnumDisplayMode(LPCSTR Device, DWORD Index, DEVMODEA *Mode);
 } // namespace patella::testmode
 
 #define PATELLA_TIME_GET_TIME() patella::testmode::TimeGetTime()
@@ -99,6 +108,7 @@ bool IgnoreCaptureChange();
 		Default(); \
 		return; \
 	}
+#define PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode) patella::testmode::EnumDisplayMode(Device, Index, Mode)
 
 #else
 
@@ -117,5 +127,6 @@ bool IgnoreCaptureChange();
 #define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask)
 #define PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) MessageBoxA(Window, Text, Caption, Type)
 #define PATELLA_TEST_CAPTURE_CHANGED
+#define PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode) EnumDisplaySettingsA(Device, Index, Mode)
 
 #endif

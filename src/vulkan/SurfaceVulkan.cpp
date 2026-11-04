@@ -609,7 +609,8 @@ bool TSurfaceVulkan::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, 
 // each size and depth once (without DDEDM_REFRESHRATES DirectDraw folds the refresh rates), at least
 // 640x480 and 16 bits. Frequency is 0: DirectDraw then reports none, and the callback tested the refresh
 // rate's flag in the pixel format's flags, where it is never set. On the machine of issue #20 both lists
-// are the same 24 modes in the same order (notes/vulkan.md).
+// are the same 24 modes in the same order (notes/vulkan.md). The test build can fix the list
+// (PATELLA_ENUM_DISPLAY_SETTINGS, issue #48).
 int TSurfaceVulkan::GetFullscreenModes(TFullscreenMode **Modes)
 {
 	*Modes = nullptr;
@@ -619,7 +620,7 @@ int TSurfaceVulkan::GetFullscreenModes(TFullscreenMode **Modes)
 	DEVMODEA Mode;
 	memset(&Mode, 0, sizeof(Mode));
 	Mode.dmSize = sizeof(DEVMODEA);
-	for (DWORD Index = 0; EnumDisplaySettingsA(nullptr, Index, &Mode); Index++) {
+	for (DWORD Index = 0; PATELLA_ENUM_DISPLAY_SETTINGS(nullptr, Index, &Mode); Index++) {
 		TFullscreenMode Listed;
 		Listed.Width = (int)Mode.dmPelsWidth;
 		Listed.Height = (int)Mode.dmPelsHeight;

@@ -3,6 +3,7 @@
 // the oracle-x86 build contain none of it.
 //
 //	PatellaTest.exe [--test-script <file>] [--test-log <file>] [--test-out <folder>] [--test-sync <name>]
+//	                [--test-replay <file>] [--test-display-modes <file>]
 //	                [the client's own words]
 //
 // Without --test-script the test build is the client on the system clock (TSystemClock: timeGetTime,
@@ -55,6 +56,11 @@
 //   shown: their caption and text go to messages.txt in --test-out (and the log), and the box counts
 //   as answered with OK.
 //
+// Issue #48: --test-display-modes <file> (src/testmode/DisplayModes.h), with or without a script: the
+// client's EnumDisplaySettings(nullptr, Index) (the Graphics Options dialog's list, vulkan/SurfaceVulkan.cpp
+// GetFullscreenModes) answers from the file instead of the machine, so a reference session lists the
+// modes of the machine it was recorded on. Without it the test build asks Windows, as Patella.exe.
+//
 // --test-sync <name> (tools/testmode_check.py): after writing a state dump the client sets the event
 // <name>-ready and waits for <name>-continue (both made by the checker), so that client_state.py reads
 // the same moment from outside; the wait does not count for the pace (the virtual clock does not see
@@ -68,6 +74,7 @@
 #include "MainFrm.h"
 #include "testmode/ClientStateWin32.h"
 #include "testmode/Clock.h"
+#include "testmode/DisplayModes.h"
 #include "testmode/InputScript.h"
 #include "testmode/PacketLog.h"
 #include "testmode/Png.h"
@@ -207,6 +214,10 @@ struct TState {
 	int Messages = 0;
 	int Saves = 0;
 	int Quiet = 0; // idle calls still to wait (manual clock)
+
+	// Issue #48: --test-display-modes.
+	bool FixedDisplayModes = false;
+	std::vector<TDisplayMode> DisplayModes;
 };
 
 void WriteLog(TState &State, const std::string &Line)
@@ -243,9 +254,11 @@ struct TArguments {
 	std::wstring Out;
 	std::wstring Sync;
 	std::wstring Replay;
+	std::wstring DisplayModes;
 };
 
-// The arguments --test-script, --test-log, --test-out and --test-sync of the command line.
+// The arguments --test-script, --test-log, --test-out, --test-sync, --test-replay and --test-display-modes of
+// the command line.
 TArguments ReadArguments()
 {
 	TArguments Result;
@@ -264,6 +277,8 @@ TArguments ReadArguments()
 			Result.Sync = Arguments[i + 1];
 		else if (wcscmp(Arguments[i], L"--test-replay") == 0)
 			Result.Replay = Arguments[i + 1];
+		else if (wcscmp(Arguments[i], L"--test-display-modes") == 0)
+			Result.DisplayModes = Arguments[i + 1];
 	}
 	::LocalFree(Arguments);
 	return Result;
@@ -324,6 +339,21 @@ void OpenReplay(TState &State, const std::wstring &Path)
 	WriteLog(State, "testmode: replay " + Narrow(Path) + ", " + std::to_string(Connections) + " connections");
 }
 
+// The fixed display modes (--test-display-modes).
+void OpenDisplayModes(TState &State, const std::wstring &Path)
+{
+	std::ifstream In(Path, std::ios::binary);
+	if (!In)
+		Fail(State, "cannot read the display modes " + Narrow(Path));
+	const std::string Text((std::istreambuf_iterator<char>(In)), std::istreambuf_iterator<char>());
+	TDisplayModesParseResult Parsed = ParseDisplayModes(Text);
+	if (!Parsed.Ok)
+		Fail(State, Narrow(Path) + ":" + std::to_string(Parsed.ErrorLine) + ": " + Parsed.Error);
+	State.DisplayModes = std::move(Parsed.Modes);
+	State.FixedDisplayModes = true;
+	WriteLog(State, "testmode: display modes " + Narrow(Path) + ", " + std::to_string(State.DisplayModes.size()) + " modes");
+}
+
 void Initialize(TState &State)
 {
 	const TArguments Arguments = ReadArguments();
@@ -337,6 +367,8 @@ void Initialize(TState &State)
 		OpenSync(State, Arguments.Sync);
 	if (!Arguments.Replay.empty())
 		OpenReplay(State, Arguments.Replay);
+	if (!Arguments.DisplayModes.empty())
+		OpenDisplayModes(State, Arguments.DisplayModes);
 	const std::wstring &ScriptPath = Arguments.Script;
 	if (ScriptPath.empty())
 		return;
@@ -816,6 +848,29 @@ bool DropInput(const MSG *Message)
 bool IgnoreCaptureChange()
 {
 	return State().Scripted;
+}
+
+// Issue #48: the display modes of the Graphics Options dialog (vulkan/SurfaceVulkan.cpp
+// GetFullscreenModes). With --test-display-modes the Index-th mode of the file, with the fields
+// EnumDisplaySettings sets; the current and registry settings (ENUM_CURRENT_SETTINGS, the desktop's mode)
+// and another device stay the machine's.
+BOOL EnumDisplayMode(LPCSTR Device, DWORD Index, DEVMODEA *Mode)
+{
+	const TState &Current = State();
+	if (!Current.FixedDisplayModes || Device != nullptr || Index == ENUM_CURRENT_SETTINGS || Index == ENUM_REGISTRY_SETTINGS)
+		return ::EnumDisplaySettingsA(Device, Index, Mode);
+	TDisplayMode Found;
+	const bool Listed = EnumerateDisplayMode(&Current.DisplayModes, Index, &Found,
+		[](std::uint32_t, TDisplayMode *) { return false; });
+	if (!Listed)
+		return FALSE;
+	Mode->dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY | DM_DISPLAYFLAGS;
+	Mode->dmBitsPerPel = Found.Depth;
+	Mode->dmPelsWidth = Found.Width;
+	Mode->dmPelsHeight = Found.Height;
+	Mode->dmDisplayFlags = 0;
+	Mode->dmDisplayFrequency = 60;
+	return TRUE;
 }
 
 void Idle()
