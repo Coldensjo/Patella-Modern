@@ -98,3 +98,4 @@ void TestDialogElements();
 void TestDialogs();
 // Issue #27 (second part; ExePath as TestObjects').
 void TestMapWindow(const char *ExePath);
+void TestMainWindow();

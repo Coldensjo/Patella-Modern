@@ -1,6 +1,5 @@
 // The redirects of the DialogElements.cpp fakes (elementfakes.h): the oracle's (x86, the image's and our
-// constructors and members) and the runner's (x64, ours), and the runner's definitions of the fakes whose
-// test is not ported yet.
+// constructors and members) and the runner's (x64, ours).
 
 #include "golden_test.h"
 
@@ -292,12 +291,6 @@ void *NewBlinkingButton(void *This, int x, int y, int S1, int S2, int S3, int S4
 	return new (This) TFakeBlinkingButton(x, y, S1, S2, S3, S4, C, Tooltip);
 }
 
-[[noreturn]] void NotPorted(const char *Fake)
-{
-	printf("golden: %s is a fake of a test that is not ported yet (tests/golden/elementfakes.cpp)\n", Fake);
-	exit(1);
-}
-
 } // namespace
 
 // consolewindow_tests.cpp: the varargs constructor (both sides).
@@ -336,30 +329,8 @@ void PatchElementFakes(void (*Redirect)(void *Function, void *Target))
 		Redirect(T.Ours, T.Fake);
 }
 
-
-// --- The runner's definitions of the fakes whose test is not ported yet ---------------------------------
-//
-// mainwindowtest.cpp's (MainWindow is not ported): the text button's first constructor and the label's font
-// constructor, which ContentWindows' fakes derive from, as they are outside MainWindow's test (its Running is
-// off then): they report the object (ContentWindows' ElementCreated) and do nothing else. The border's stop
-// the runner: a ported test that reaches one needs MainWindow's fakes ported first.
-
-TFakeBorder::TFakeBorder(TWindow *, int) { NotPorted("TFakeBorder"); }
-TFakeBorder::TFakeBorder(TWindow *, int, int, int, int, int, int, int, int, int, int) { NotPorted("TFakeBorder"); }
-void TFakeBorder::FitToWindow() { NotPorted("TFakeBorder::FitToWindow"); }
-TFakeTextButton::TFakeTextButton(int x, int y, const char *_Text, int Skin1, int Skin2, TCallback Callback,
-	const char *Tooltip)
-{
-	int Param = (int)(intptr_t)Tooltip;
-	ReportElement(this, "TextButton", "%d,%d,%s,%d,%d,@%p/%d,%d", x, y, _Text, Skin1, Skin2, (void *)Callback.Receiver,
-		Callback.Event, Param);
-}
-TFakeLabel::TFakeLabel(TFont Font, const char *_Text)
-{
-	ReportElement(this, "Label", "%d,%d,%d,%d,%d,%s", Font.FontNumber, Font.Color.R, Font.Color.G, Font.Color.B,
-		Font.Alignment, _Text);
-}
-// The other fakes: dialogwindow_tests.cpp, contextmenus_tests.cpp, consolewindow_tests.cpp,
-// contentwindows_tests.cpp and mapwindow_tests.cpp (the blinking button), on both sides.
+// The fakes themselves: dialogwindow_tests.cpp, contextmenus_tests.cpp, consolewindow_tests.cpp,
+// contentwindows_tests.cpp, mapwindow_tests.cpp (the blinking button) and mainwindow_tests.cpp (the border, the
+// first text button constructor, the label's font constructor), on both sides.
 
 #endif
