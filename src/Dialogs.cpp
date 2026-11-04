@@ -235,7 +235,7 @@ TDialog *CreateCharacterListDialog(int Timeout)
 // object type and the maximum length. The text can be edited when the
 // object is writable, or writable once and still empty; Return does not
 // close either form (OkCallback is cleared).
-TDialog *CreateTextDialog(int *ObjectData, const char *Author, const char *Text)
+TDialog *CreateTextDialog(const int *ObjectData, const char *Author, const char *Text)
 {
 	TBEGIN
 	const int ObjectNumber = ObjectData[0];
@@ -1202,7 +1202,7 @@ inline TRGBColor OutfitColor(int Color)
 
 // 0x47cf70, lines 1488-1542. The colour buttons are laid out in rows of
 // 19 from SkinProperties.DataCA8; the head is the first part shown.
-TOutfitDialog::TOutfitDialog(int *Data)
+TOutfitDialog::TOutfitDialog(const int *Data)
 {
 	TASSERT(1488, Data!=NULL);
 	TBEGIN
@@ -1763,7 +1763,7 @@ void TBugReportDialog::HandleEvent(int Event)
 // --- TNewChannelDialog -----------------------------------------------------------
 
 // 0x4733a0, lines 2265-2297
-TNewChannelDialog::TNewChannelDialog(int _NumberOfChannels, int *_ChannelIDs, const char (*ChannelNames)[30])
+TNewChannelDialog::TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30])
 {
 	TASSERT(2265, _ChannelIDs!=NULL);
 	TASSERT1(2266, _NumberOfChannels>0, _NumberOfChannels);

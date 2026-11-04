@@ -418,7 +418,7 @@ One clang-tidy check (or one hand pattern) per pull request, macro arguments exc
 | Constant `#define`s to `constexpr` or enumerators (`MAPSIZE_X`, `EFFECTS`, ...) | 79; those inside asserted expressions wait for M5 | by hand |
 | Enums with an explicit underlying type, then `enum class` where nothing does arithmetic on them | 11 | by hand, `static_assert` sizes |
 | `[[nodiscard]]`, `[[fallthrough]]`, `[[maybe_unused]]` | | `modernize-use-nodiscard`, warnings |
-| `const`-correctness of parameters and member functions | | `misc-const-correctness`, `readability-make-member-function-const` |
+| `const`-correctness of locals, parameters and member functions | | `misc-const-correctness`, `readability-make-member-function-const`, `readability-non-const-parameter` (issue #50) |
 | `<cstring>`-style headers; each file includes what it uses | | `modernize-deprecated-headers`, include-what-you-use |
 | C-style casts to named casts | about 228 | `cppcoreguidelines-pro-type-cstyle-cast` |
 | The 18 `goto`s: keep the original's cleanup paths, restructure the rest | 18 | by hand |

@@ -12,7 +12,8 @@
 # (issue #40), const locals and const member functions (issue #39), named casts instead of C-style casts
 # (issue #41), no goto but the original's shared exit paths (issue #42: a NOLINT names the binary's block),
 # anonymous namespaces instead of file-scope static (issue #44: the statics kept for the images' .bss carry a
-# NOLINT; the check leaves headers alone), and the bug-prone patterns. The checks that are noise for a
+# NOLINT; the check leaves headers alone), pointer parameters to const when only their pointees are read
+# (issue #50: clang-tidy's check looks at pointers to integers and floating types), and the bug-prone patterns. The checks that are noise for a
 # reconstruction (its parameter lists and integer types are the original's) are off.
 Checks: >
   -*,
@@ -38,7 +39,8 @@ Checks: >
   modernize-use-override,
   modernize-use-std-print,
   modernize-use-using,
-  readability-make-member-function-const
+  readability-make-member-function-const,
+  readability-non-const-parameter
 WarningsAsErrors: ''
 # The headers of src/, not those of src/Extern (third-party code in its own style).
 HeaderFilterRegex: '.*[/\\]src[/\\].*'

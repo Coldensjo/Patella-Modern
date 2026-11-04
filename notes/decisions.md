@@ -7417,3 +7417,38 @@ has the mechanism.
   machine is never asked; without it the dialog lists the machine's modes. `reference.py --self-test`: the default
   for sessions without the key (the traffic frame's seven first), meta.json's list winning, the file, malformed
   lists refused, the driver-log check.
+
+## const pointer parameters (Patella-Modern issue #50)
+
+Settled by Claude Opus 5.5, November 4, 2026. Split from issue #39: `readability-non-const-parameter` is clean on src/
+and enabled in .clang-tidy. The images are unchanged.
+
+- **What the check reports: four parameters** (high). Run as #39 ran its checks: tools/tidy.py once per target on
+  that target's Release compile commands (oracle-x86's Patella, mfc_shim_check, difftest, communicationtest,
+  sysinctest and vlongtest with `--extra-arg=-m32`, the preset configured with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`;
+  windows-x64's Patella, PatellaTest, patella_core, patella_testmode and patella_render_vulkan). Each of the six
+  targets that compile Dialogs.cpp and DialogElements.cpp reported the same four, the other five nothing, and none
+  inside a TASSERT/TERROR/TEND argument: CreateTextDialog's `ObjectData` (0x481370), TOutfitDialog's `Data`
+  (0x47cf70), TNewChannelDialog's `_ChannelIDs` (0x4733a0) and TOutfitIcon::SetColors's `ColorData` (0x4575a0), all
+  `int *` read only. clang-tidy 22's check looks only at pointers to integer and floating types (not to classes or
+  pointers), and it takes a parameter passed on to another function or constructor as possibly written, so the
+  count is small. A second run after the fix (to catch a function that qualifies once its callee does) reported
+  nothing: CreateOutfitDialog and CreateNewChannelDialog, which only hand their `int *` to the two constructors,
+  are not reported (the check does not follow the argument into the constructor) and stay as they are.
+- **The fix: tidy.py --fix, then clang-format** (high). The check changes the definition and the header's
+  declaration together; clang-format re-aligned DialogElements.h's two trailing comments. No `int const` (the
+  check writes `const int *`). No virtual function and no API callback is among the four; none has an overload,
+  so no call resolves to another function. The parameters' type is not part of any layout.
+- **The difftest** (high). It binds image functions by address, not by type: the fake of CreateTextDialog
+  (commworld.cpp's `F_CreateTextDialog`, put in the image's place through `F(CreateTextDialog, 0x481370)`, which
+  takes both as `void *`) takes `const int *` too, so that it keeps the reconstructed function's type; the tests that
+  call the image's SetColors (`CallI<void>(0x4575a0, O, (int *)Colors)`) pass the same pointer as before. Its
+  `/alternatename`s name constructors none of the four is (THelpBubble, the context menus, the dialog elements).
+- **The decorated names change; nothing looks them up** (high). `PAH` becomes `PBH` in the x86 names (`PEAH` to
+  `PEBH` on x64), in the PDBs only. As in #39: client_state.py and the test mode take data by plain names and
+  classes by RTTI names, no tool reads a function's decorated name (tools/ has none but RTTI's `.?AV`).
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built from
+  main a338fa8 and from the branch at the same path, differ only in the link time stamps and the PDB record
+  (pecompare: 0 unexpected differences; `.text`, `.data`, `.pdata` and `.reloc` identical). macrocheck a338fa8
+  issue-50: the 2,108 calls unchanged. All 11 targets with the whole .clang-tidy: no finding of
+  readability-non-const-parameter, misc-const-correctness or readability-make-member-function-const.
