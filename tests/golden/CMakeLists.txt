@@ -66,7 +66,8 @@ target_compile_definitions(golden_client PRIVATE PATELLA_VULKAN)
 add_library(golden_client_tests OBJECT
 	client_stubs.cpp
 	status_tests.cpp
-	preferences_tests.cpp)
+	preferences_tests.cpp
+	script_tests.cpp)
 golden_client_settings(golden_client_tests)
 
 add_executable(golden_runner

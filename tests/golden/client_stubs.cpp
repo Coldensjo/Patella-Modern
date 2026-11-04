@@ -87,9 +87,6 @@ void LoadDeviceChoice() { STUB(); }
 patella::vulkan::TDeviceChoice GetDeviceChoice() { STUB(); }
 void SetDeviceChoice(const patella::vulkan::TDeviceChoice &) { STUB(); }
 
-// script_tests.cpp's recorder until Script is ported.
-bool FileExists(const char *) { STUB(); }
-
 // src/compat/mfc_shim.h's MFC members.
 // Player.cpp's theApp is constructed at start-up (as in difftest.exe's playertest.cpp).
 CWinApp::CWinApp(LPCTSTR)

@@ -54,4 +54,5 @@ void TestSysinc();
 // Issue #26.
 void TestStatus();
 void TestPreferences();
+void TestScript();
 void TestPreferencesFile();
