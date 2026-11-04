@@ -110,7 +110,20 @@ jobs:
       - name: clang-format --dry-run --Werror
         run: >-
           docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" bash -c
-          'clang-format --version && clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/testmode/*.cpp src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp tests/golden/*.cpp tests/golden/*.h'
+          'clang-format --version && clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/types/*.h src/testmode/*.cpp src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp tests/golden/*.cpp tests/golden/*.h'
+
+  banned-calls:
+    name: banned C string calls
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Issue #57 (M4's exit): no strcpy, strcat, sprintf, vsprintf or gets in src/ (src/Extern aside); the
+      # buffers write through TFixedString and TStringBuffer (src/types/FixedString.h).
+      - name: tools/banned_calls.py
+        run: python3 -I tools/banned_calls.py --self-test && python3 -I tools/banned_calls.py
 
   clang-tidy:
     name: clang-tidy (no new findings)
