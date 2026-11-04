@@ -533,7 +533,7 @@ void TestPreferencesFile()
 	ORIGINAL(PatchJump(0x523812, (void *)ImageFree2));
 	ORIGINAL(PatchJump(0x513544, (void *)ImageStrtok));
 	ORIGINAL(PatchJump(0x51233d, (void *)ImageSnprintf));
-	// The original's Talk filter lists (static initialisers, see talktest.cpp).
+	// The original's Talk filter lists (static initialisers, see talk_tests.cpp).
 #if GOLDEN_ORACLE
 	for (uint32 Address : {0x71ef70u, 0x71ef90u, 0x71efb0u, 0x71efd0u})
 		if (Global<void *>(Address + 28) == NULL)

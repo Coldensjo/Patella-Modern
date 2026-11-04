@@ -58,7 +58,8 @@ const TExecutable Executables[] = {
 			{"FormatNumber", TestFormatNumber}, {"Buffers", TestBuffers}, {"Skins", TestSkins},
 			{"Regexp", TestRegexp}, {"Status", TestStatus},
 			{"Preferences", TestPreferences}, {"Script", TestScript}, {"PreferencesFile", TestPreferencesFile},
-			{"Player", TestPlayer}, {"Help", TestHelp}, {"Inventory", TestInventory}}},
+			{"Player", TestPlayer}, {"Help", TestHelp}, {"Inventory", TestInventory},
+			{"Talk", TestTalk}}},
 	{"sysinctest", {{"Sysinc", TestSysinc}}},
 	{"communicationtest", {}},
 };
