@@ -18,6 +18,7 @@
 #include "common.h"
 #include "compat/span.h"
 #include "types/FixedString.h"
+#include <array>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -34,35 +35,39 @@ public:
 namespace {
 
 // Data, in .data/.bss order.
-int HostnameResolveBufferSize = MAXGETHOSTSTRUCT; // 0x5c22c4, initialised to 0x400
-int CurrentServer;                                // 0x7152f0
-TServer TestServer;                               // 0x7152f8
-TServer Servers[NUMBEROFSERVER];                  // 0x715368
-HANDLE HostnameRequest;                           // 0x715528
-char *HostnameResolveBuffer;                      // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
-int ReceiveDataSize;                              // 0x715530, bytes in ReceiveData
-int ReceivePacketEnd;                             // 0x715534, end of the complete packets
-int ReceiveRead;                                  // 0x715538, start of the next unread packet
-uint8 ReceiveData[0x4000];                        // 0x715540
-uint8 SendData[0x800];                            // 0x719540
-HWND NetworkWindow;                               // 0x719d40, receives WM_USER+1 when a name is resolved
-void (*CloseCallback)();                          // 0x719d44
-void (*ReceiveCallback)();                        // 0x719d48
-void (*ConnectCallback)();                        // 0x719d4c
-TSocket *Socket;                                  // 0x719d50
-int TimeoutCounter;                               // 0x719d54
-int TimeoutLimit;                                 // 0x719d58, in CheckConnectionTimeout calls
-TWriteBuffer SendBuffer(SendData);                // 0x719d5c, initialiser at 0x559fd0
-TReadBuffer ReceiveBuffer({ReceiveData, 0});      // 0x719d68, initialiser at 0x559ff0
-TXTEA SymmetricKey;                               // 0x719d74, initialiser at 0x55a010
-int RecursionProtection;                          // 0x719d88
+int HostnameResolveBufferSize = MAXGETHOSTSTRUCT;   // 0x5c22c4, initialised to 0x400
+int CurrentServer;                                  // 0x7152f0
+TServer TestServer;                                 // 0x7152f8
+std::array<TServer, NUMBEROFSERVER> Servers;        // 0x715368
+HANDLE HostnameRequest;                             // 0x715528
+char *HostnameResolveBuffer;                        // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
+int ReceiveDataSize;                                // 0x715530, bytes in ReceiveData
+int ReceivePacketEnd;                               // 0x715534, end of the complete packets
+int ReceiveRead;                                    // 0x715538, start of the next unread packet
+std::array<uint8, 0x4000> ReceiveData;              // 0x715540
+std::array<uint8, 0x800> SendData;                  // 0x719540
+HWND NetworkWindow;                                 // 0x719d40, receives WM_USER+1 when a name is resolved
+void (*CloseCallback)();                            // 0x719d44
+void (*ReceiveCallback)();                          // 0x719d48
+void (*ConnectCallback)();                          // 0x719d4c
+TSocket *Socket;                                    // 0x719d50
+int TimeoutCounter;                                 // 0x719d54
+int TimeoutLimit;                                   // 0x719d58, in CheckConnectionTimeout calls
+TWriteBuffer SendBuffer(SendData);                  // 0x719d5c, initialiser at 0x559fd0
+TReadBuffer ReceiveBuffer({ReceiveData.data(), 0}); // 0x719d68, initialiser at 0x559ff0
+TXTEA SymmetricKey;                                 // 0x719d74, initialiser at 0x55a010
+int RecursionProtection;                            // 0x719d88
 
 } // namespace
+
+// The arrays std::arrays (issue #60).
+static_assert(sizeof(Servers) == NUMBEROFSERVER * sizeof(TServer) && sizeof(ReceiveData) == 0x4000 && sizeof(SendData) == 0x800,
+	"Network.cpp's arrays");
 
 // 0x4ca0e0
 void InitServerList()
 {
-	memset(Servers, 0, sizeof(Servers));
+	memset(Servers.data(), 0, sizeof(Servers));
 	Servers[0].Address.Assign("server.tibia.com");
 	Servers[1].Address.Assign("server2.tibia.com");
 	Servers[2].Address.Assign("tibia1.cipsoft.com");
@@ -251,7 +256,7 @@ void SendCommand(bool Encrypt)
 		SendBuffer.Position = 0;
 		SendBuffer.PutWord(0);
 		SendBuffer.PutWord((uint16)Size);
-		PATELLA_TEST_PACKET_SENT(SendData, Size, 0)
+		PATELLA_TEST_PACKET_SENT(SendData.data(), Size, 0)
 		Socket->Send(&SendData[2], Size + 2, 0);
 		return;
 	}
@@ -263,14 +268,14 @@ void SendCommand(bool Encrypt)
 	SendBuffer.Position = 0;
 	SendBuffer.PutWord((uint16)Length);
 	SendBuffer.PutWord((uint16)Size);
-	PATELLA_TEST_PACKET_SENT(SendData, Size, Length)
+	PATELLA_TEST_PACKET_SENT(SendData.data(), Size, Length)
 	try {
 		for (int i = 2; i < Length + 2; i += 8)
 			SymmetricKey.EncryptBlock(TXTEA::TBlock(&SendData[i], 8));
 	} catch (...) {
 		TERROR(355, "Symmetric encryption failed with unknown exception");
 	}
-	Socket->Send(SendData, Length + 2, 0);
+	Socket->Send(SendData.data(), Length + 2, 0);
 	TEND(367)
 }
 
@@ -281,7 +286,7 @@ void PrepareNextPacket()
 	TBEGIN
 	if (ReceiveRead > 0) {
 		if (ReceiveRead < ReceiveDataSize)
-			memmove(ReceiveData, &ReceiveData[ReceiveRead], ReceiveDataSize - ReceiveRead);
+			memmove(ReceiveData.data(), &ReceiveData[ReceiveRead], ReceiveDataSize - ReceiveRead);
 		ReceiveDataSize -= ReceiveRead;
 		ReceivePacketEnd -= ReceiveRead;
 		ReceiveRead = 0;
@@ -299,10 +304,10 @@ void PrepareNextPacket()
 			TERROR(398, "Symmetric decryption failed with unknown exception");
 		}
 		ReceiveBuffer.SetSize(ReceiveBuffer.GetWord() + 4);
-		PATELLA_TEST_PACKET_RECEIVED(ReceiveData, PacketSize)
-		memset(PacketHeader, 0, sizeof(PacketHeader));
+		PATELLA_TEST_PACKET_RECEIVED(ReceiveData.data(), PacketSize)
+		memset(PacketHeader.data(), 0, sizeof(PacketHeader));
 		ReceiveRead = PacketSize + 2;
-		memcpy(PacketHeader, &ReceiveData[2], PacketSize < 16 ? PacketSize : 16);
+		memcpy(PacketHeader.data(), &ReceiveData[2], PacketSize < 16 ? PacketSize : 16);
 	}
 	TEND(410)
 }

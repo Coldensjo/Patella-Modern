@@ -66,8 +66,8 @@ const char *GetErrorHint(int) { printf("GetErrorHint stub\n"); abort(); }
 
 // sysinc.cpp's halves of the encoded window title and class name (sysinc.cpp is not
 // linked into difftest.exe).
-const int TitleCode[8] = {68, 75, 129, 81, 98, 78, 96, 141};
-const int ClassNameCode[11] = {57, 193, 225, 58, 140, 118, 195, 214, 239, 244, 137};
+const std::array<int, 8> TitleCode = {68, 75, 129, 81, 98, 78, 96, 141};
+const std::array<int, 11> ClassNameCode = {57, 193, 225, 58, 140, 118, 195, 214, 239, 244, 137};
 void Redraw(bool) STUB
 void MouseMove(int, int) STUB
 void ProcessEvents() STUB

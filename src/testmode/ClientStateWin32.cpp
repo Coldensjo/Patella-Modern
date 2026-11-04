@@ -98,7 +98,7 @@ TOfferValue Offer(const TOffer &Source)
 	TOfferValue Out;
 	Out.Name = Text(Source.Name, sizeof(Source.Name));
 	Out.Count = Clamp(Source.Count, OBJECTS_PER_OFFER);
-	Out.Objects = Values(Source.Objects, Out.Count);
+	Out.Objects = Values(Source.Objects.data(), Out.Count);
 	return Out;
 }
 
@@ -179,7 +179,7 @@ TClientState ReadClientState()
 	if (Map.Fields->d == MapPoints && Map.Fields->entry != nullptr) {
 		for (int i = 0; i < MapPoints; i++) {
 			const TMapPoint &Point = Map.Fields->entry[i];
-			State.Map.push_back(Values(Point.Objects, Clamp(Point.ObjectCount, OBJECTS_PER_POINT)));
+			State.Map.push_back(Values(Point.Objects.data(), Clamp(Point.ObjectCount, OBJECTS_PER_POINT)));
 		}
 	}
 
@@ -217,7 +217,7 @@ TClientState ReadClientState()
 		Container.Name = Text(Source.Name, sizeof(Source.Name));
 		Container.Capacity = Source.Capacity;
 		Container.HasParent = Byte(Source.HasParent);
-		Container.Objects = Values(Source.Objects, Clamp(Source.Count, CONTAINER_OBJECTS));
+		Container.Objects = Values(Source.Objects.data(), Clamp(Source.Count, CONTAINER_OBJECTS));
 		State.Containers.push_back(std::move(Container));
 	}
 	State.Trade = {Offer(*Inventory.OwnOffer), Offer(*Inventory.CounterOffer)};

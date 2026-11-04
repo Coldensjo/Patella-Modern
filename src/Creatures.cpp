@@ -95,6 +95,14 @@ static_assert(sizeof(TBuddyEntry) == 0x2c, "TBuddyEntry is 0x2c bytes");
 static_assert(offsetof(TBuddyEntry, Name) == 0x04 && offsetof(TBuddyEntry, Online) == 0x22
 		&& offsetof(TBuddyEntry, LoginAction) == 0x24 && offsetof(TBuddyEntry, Icon) == 0x28,
 	"TBuddyEntry's fields");
+// Name a TFixedString and Colors a std::array (issue #60); the globals std::arrays.
+static_assert(offsetof(TCreature, Name) == 0x04 && sizeof(TCreature::Name) == 32 && offsetof(TCreature, Colors) == 0x64
+		&& sizeof(TCreature::Colors) == 16,
+	"TCreature's arrays");
+static_assert(sizeof(BuddySortMethods) == 3 * sizeof(int) && sizeof(Buddies) == BUDDIES * sizeof(TBuddyEntry)
+		&& sizeof(PlayerSkillProgress) == SKILLS * sizeof(int) && sizeof(PlayerSkillValue) == SKILLS * sizeof(int)
+		&& sizeof(PlayerSteps) == 10 * sizeof(int) && sizeof(Creatures) == CREATURES * sizeof(TCreature),
+	"Creatures.cpp's arrays");
 
 // --- Functions without exception frame (no line evidence) ------------------
 

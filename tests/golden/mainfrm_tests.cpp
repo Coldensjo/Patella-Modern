@@ -1064,7 +1064,7 @@ void MakeStatics()
 	I.WheelDelta = &ImageStatics.WheelDelta;
 #endif
 	TStatics &O = Statics[OURS];
-	O.PacketHeader = PacketHeader;
+	O.PacketHeader = PacketHeader.data();
 	O.MainFrame = (void **)&MainFrame;
 	O.Hand = &HandCursor;
 	O.Size = &SizeCursor;
@@ -1115,7 +1115,7 @@ TState Capture(int S)
 		State.Window = (uint32)(uintptr_t)M->m_hWnd;
 		State.MouseCursor = M->MouseCursor;
 		memcpy(State.Placement, &M->Placement, sizeof(State.Placement));
-		memcpy(State.KeyStates, M->KeyStates, sizeof(State.KeyStates));
+		memcpy(State.KeyStates, M->KeyStates.data(), sizeof(State.KeyStates));
 		State.KeyFlags = M->KeyFlags;
 		State.RunPatch = ((CPlayerApp *)OurApp)->RunPatch;
 	}

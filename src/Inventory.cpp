@@ -14,6 +14,7 @@
 #include "Utils.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include <array>
 #include <cstddef>
 #include <cstring>
 
@@ -23,17 +24,25 @@ static_assert(sizeof(TContainer) == 0x1ec && offsetof(TContainer, Name) == 0x10 
 	"TContainer's layout");
 static_assert(sizeof(TOffer) == 0x4d4 && offsetof(TOffer, Name) == 0x00 && offsetof(TOffer, Count) == 0x20,
 	"TOffer's layout");
+// The object lists std::arrays (issue #60).
+static_assert(offsetof(TContainer, Objects) == 0x3c && sizeof(TContainer::Objects) == 0x1b0 && offsetof(TOffer, Objects) == 0x24
+		&& sizeof(TOffer::Objects) == 0x4b0,
+	"the object lists' layout");
 #endif
 
 namespace {
 
 // Data, in .bss order.
-TObject Body[BODY_POSITIONS];           // 0x5ced60
-TContainer Containers[OPEN_CONTAINERS]; // 0x5cedd8
-TOffer OwnOffer;                        // 0x5d0c98
-TOffer CounterOffer;                    // 0x5d1170 (4 bytes after OwnOffer's end)
+std::array<TObject, BODY_POSITIONS> Body;           // 0x5ced60
+std::array<TContainer, OPEN_CONTAINERS> Containers; // 0x5cedd8
+TOffer OwnOffer;                                    // 0x5d0c98
+TOffer CounterOffer;                                // 0x5d1170 (4 bytes after OwnOffer's end)
 
 } // namespace
+
+// The globals std::arrays (issue #60): the arrays' sizes.
+static_assert(sizeof(Body) == BODY_POSITIONS * sizeof(TObject) && sizeof(Containers) == OPEN_CONTAINERS * sizeof(TContainer),
+	"Body and Containers");
 
 // 0x4a4460
 void ClearBody()
@@ -323,8 +332,8 @@ void ExitInventory()
 // nothing. Test build only.
 void patella::testmode::ViewInventory(TInventoryView *View)
 {
-	View->Body = Body;
-	View->Containers = Containers;
+	View->Body = Body.data();
+	View->Containers = Containers.data();
 	View->OwnOffer = &OwnOffer;
 	View->CounterOffer = &CounterOffer;
 }

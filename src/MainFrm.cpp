@@ -26,13 +26,15 @@
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "common.h"
 #include "types/FixedString.h"
+#include <array>
+#include <cstddef>
 #include <ostream>
 #include <cstdlib>
 #include <cstring>
 
 // Data, in .bss order.
-uint8 PacketHeader[16]; // 0x5d1644, written by Network.cpp
-CMainFrame *MainFrame;  // 0x5d1654
+std::array<uint8, 16> PacketHeader; // 0x5d1644, written by Network.cpp
+CMainFrame *MainFrame;              // 0x5d1654
 
 namespace {
 
@@ -54,11 +56,20 @@ namespace {
 // At 0x5d1674, constructed by the static initialiser 0x559f20 as TCallback(NULL, 0) (no atexit) and
 // never used, like the window files' (issue #24).
 TCallback NoCallback(nullptr, 0);
-char ClassName[32]; // 0x5d167c
-int WheelDelta;     // 0x5d169c, the remainder below one notch (120)
+TFixedString<32> ClassName; // 0x5d167c
+int WheelDelta;             // 0x5d169c, the remainder below one notch (120)
 
 } // namespace
 
+
+// The arrays std::arrays and TFixedStrings (issue #60). CMainFrame derives from MFC's CFrameWnd, whose size is
+// the MFC's or the shim's (difftest, the golden tests): KeyStates' place among CMainFrame's own members.
+static_assert(sizeof(PacketHeader) == 16 && sizeof(ClassName) == 32, "PacketHeader and ClassName");
+#if PATELLA_ORIGINAL_LAYOUT
+static_assert(offsetof(CMainFrame, KeyStates) == offsetof(CMainFrame, Placement) + sizeof(WINDOWPLACEMENT)
+		&& offsetof(CMainFrame, KeyFlags) == offsetof(CMainFrame, KeyStates) + 0x100,
+	"CMainFrame's KeyStates");
+#endif
 // 0x4a8200. The handlers that share an address in the table (OnKeyDown
 // and OnSysKeyDown, OnKeyUp and OnSysKeyUp) have identical code that the
 // linker folded.
@@ -165,8 +176,8 @@ CMainFrame::CMainFrame(bool Gamemaster)
 	TBEGIN
 	MainFrame = this;
 	KeyFlags = 0;
-	memset(KeyStates, 0, sizeof(KeyStates));
-	memset(PacketHeader, 0, sizeof(PacketHeader));
+	memset(KeyStates.data(), 0, sizeof(KeyStates));
+	memset(PacketHeader.data(), 0, sizeof(PacketHeader));
 	ArrowCursor = LoadCursorA(nullptr, IDC_ARROW);
 	SizeCursor = LoadCursorA(nullptr, IDC_SIZENS);
 	WaitCursor = LoadCursorA(nullptr, IDC_WAIT);

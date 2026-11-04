@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "types/File.h"
+#include "types/FixedString.h"
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
@@ -48,7 +49,7 @@ public:
 		memset(Filename, 0, sizeof(Filename));
 		Line = 0;
 		memset(String, 0, sizeof(String));
-		Bytes = reinterpret_cast<uint8 *>(String);
+		Bytes = reinterpret_cast<uint8 *>(String.Chars);
 		Number = 0;
 		CoordX = 0;
 		CoordY = 0;
@@ -73,7 +74,7 @@ public:
 		CoordX = 0;
 		CoordY = 0;
 		CoordZ = 0;
-		Bytes = reinterpret_cast<uint8 *>(String);
+		Bytes = reinterpret_cast<uint8 *>(String.Chars);
 		Special = '#';
 	}
 
@@ -89,17 +90,17 @@ public:
 	char *readString();
 	void readSymbol(char Symbol);
 
-	TOKEN Token;                    // +0x000
-	TFile File;                     // +0x004
-	char Filename[1024];            // +0x008
-	int Line;                       // +0x408
-	char String[MAX_STRING_LENGTH]; // +0x40c, identifier or string
-	uint8 *Bytes;                   // +0x7f4, points to String
-	int Number;                     // +0x7f8
-	int CoordX;                     // +0x7fc
-	int CoordY;                     // +0x800
-	int CoordZ;                     // +0x804
-	char Special;                   // +0x808
+	TOKEN Token;                            // +0x000
+	TFile File;                             // +0x004
+	char Filename[1024];                    // +0x008
+	int Line;                               // +0x408
+	TFixedString<MAX_STRING_LENGTH> String; // +0x40c, identifier or string
+	uint8 *Bytes;                           // +0x7f4, points to String
+	int Number;                             // +0x7f8
+	int CoordX;                             // +0x7fc
+	int CoordY;                             // +0x800
+	int CoordZ;                             // +0x804
+	char Special;                           // +0x808
 };
 
 // 0x408 bytes.
@@ -210,6 +211,8 @@ public:
 #if PATELLA_ORIGINAL_LAYOUT
 static_assert(sizeof(TReadScriptFile) == 0x80c && offsetof(TReadScriptFile, File) == 0x004
 	&& offsetof(TReadScriptFile, Filename) == 0x008 && offsetof(TReadScriptFile, Special) == 0x808);
+// String a TFixedString (issue #60).
+static_assert(offsetof(TReadScriptFile, String) == 0x40c && sizeof(TReadScriptFile::String) == MAX_STRING_LENGTH);
 static_assert(sizeof(TWriteScriptFile) == 0x408 && offsetof(TWriteScriptFile, File) == 0x000
 	&& offsetof(TWriteScriptFile, Filename) == 0x004 && offsetof(TWriteScriptFile, Line) == 0x404);
 static_assert(sizeof(TReadBinaryFile) == 0x404 && offsetof(TReadBinaryFile, File) == 0x000

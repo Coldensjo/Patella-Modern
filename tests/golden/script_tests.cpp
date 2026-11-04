@@ -188,7 +188,7 @@ const TReaderState &OriginalReader()
 	Fields[5] = O.CoordZ;
 	Fields[6] = O.Special;
 	Fields[7] = O.File == NULL;
-	Fields[8] = (int)(O.Bytes - (const uint8 *)O.String);
+	Fields[8] = (int)(O.Bytes - (const uint8 *)O.String.Chars);
 #endif
 	golden::Output("reader", Fields);
 	Reader.Token = Fields[0];
@@ -333,9 +333,9 @@ void CompareReader(const TReadScriptFile &Ours, const char *What, int Index)
 		&& Ours.Special == (char)O.Special && memcmp(Ours.String, O.String, sizeof(Ours.String)) == 0
 		&& strcmp(Ours.Filename, O.Filename.Name) == 0
 		&& (Ours.File == nullptr) == (O.FileNull != 0)
-		&& (const uint8 *)Ours.Bytes - (const uint8 *)Ours.String == O.BytesFromString;
+		&& (const uint8 *)Ours.Bytes - (const uint8 *)Ours.String.Chars == O.BytesFromString;
 	CHECK(Same, "%s, token %d: ours %d '%s' %d [%d,%d,%d] '%c' line %d, original %d '%s' %d [%d,%d,%d] '%c' line %d",
-		What, Index, (int)Ours.Token, Ours.String, Ours.Number, Ours.CoordX, Ours.CoordY, Ours.CoordZ, Ours.Special, Ours.Line,
+		What, Index, (int)Ours.Token, Ours.String.Chars, Ours.Number, Ours.CoordX, Ours.CoordY, Ours.CoordZ, Ours.Special, Ours.Line,
 		O.Token, O.String, O.Number, O.CoordX, O.CoordY, O.CoordZ, (char)O.Special, O.Line);
 }
 

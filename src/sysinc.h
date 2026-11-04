@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <array>
 
 int GetMilliseconds();
 bool FileExists(const char *FileName);
@@ -21,5 +22,5 @@ bool SetClipboardText(const char *Text);
 
 // One half of the XOR-encoded window title and class name; Player.cpp has the
 // keys and decodes them.
-extern const int TitleCode[8];      // 0x5733a4
-extern const int ClassNameCode[11]; // 0x5733c4
+extern const std::array<int, 8> TitleCode;      // 0x5733a4
+extern const std::array<int, 11> ClassNameCode; // 0x5733c4

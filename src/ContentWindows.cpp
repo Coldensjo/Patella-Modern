@@ -2201,7 +2201,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 					1, Color, TRect(x, ClipY, ClipWidth, ClipHeight));
 			GetSurface()->Flag26 = true;
 			DrawOutfit(Surface, SkinProperties.Style688.Data04.x + x, SkinProperties.Style688.Data04.y + RowY + y,
-				SkinProperties.Style688.Data04.width, Creature->OutfitType, Creature->Colors,
+				SkinProperties.Style688.Data04.width, Creature->OutfitType, Creature->Colors.data(),
 				SkinProperties.Style688.Data68, TRect(x, ClipY, ClipWidth, ClipHeight), SkinProperties.Data498);
 			GetSurface()->Flag26 = false;
 			if (Creature->PARTYFlag > 0) {

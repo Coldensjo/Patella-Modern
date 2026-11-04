@@ -30,6 +30,7 @@
 #include "sysinc.h"
 #include "compat/crt71.h"
 #include "common.h"
+#include <array>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -48,8 +49,8 @@ namespace {
 // The window title and class name are stored XOR-encoded. The key of each
 // string is in this object's .rdata (0x56dd98, 0x56ddb8); the other half,
 // TitleCode and ClassNameCode, is sysinc.cpp's (0x5733a4, 0x5733c4).
-const int TitleKey[8] = {16, 34, 227, 56, 3, 110, 64, 173};                         // 0x56dd98
-const int ClassNameKey[11] = {109, 168, 131, 83, 237, 53, 175, 191, 138, 154, 253}; // 0x56ddb8
+const std::array<int, 8> TitleKey = {16, 34, 227, 56, 3, 110, 64, 173};                         // 0x56dd98
+const std::array<int, 11> ClassNameKey = {109, 168, 131, 83, 237, 53, 175, 191, 138, 154, 253}; // 0x56ddb8
 
 // Data, in .data/.bss order.
 int LastMouseCursor = 1;  // 0x5c2518

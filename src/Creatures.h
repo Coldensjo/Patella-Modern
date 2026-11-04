@@ -18,6 +18,7 @@
 #include "types/Time32.h"
 #include "graphics.h" // TRGBColor
 
+#include <array>
 #include <cstdint>
 
 inline constexpr int CREATURES = 150; // slots in the creature table (loops up to 0x96)
@@ -51,35 +52,35 @@ public:
 		return Now >= Removed && Now <= Removed + 4;
 	}
 
-	uint32 CreatureID; // +0x00, 0 marks a free slot; players have IDs below 0x40000000
-	char Name[32];     // +0x04
-	int RealX;         // +0x24, map position
-	int RealY;         // +0x28
-	int RealZ;         // +0x2c
-	int DeltaX;        // +0x30, pixel offset of the walk animation, counts down to 0
-	int DeltaY;        // +0x34
-	int StepEnd;       // +0x38, GetMilliseconds() time the step animation ends
-	int NextStep;      // +0x3c, time the next step may start (three steps' time after a diagonal one)
-	int StepX;         // +0x40, abs(dx)*32
-	int StepY;         // +0x44, abs(dy)*32
-	int StepDuration;  // +0x48, milliseconds, a multiple of Beat
-	bool Moving;       // +0x4c
-	int Direction;     // +0x50, 0 north, 1 east, 2 south, 3 west
-	int MoveDirection; // +0x54, Direction when the current step started
-	int PrevOpponent;  // +0x58, battle list links (slot numbers, -1 at the ends)
-	int NextOpponent;  // +0x5c, NOT_AN_OPPONENT when not in the list
-	int OutfitType;    // +0x60
-	int Colors[4];     // +0x64, head, body, legs, feet; Colors[0] is the object type when OutfitType is 0
-	int LightStrength; // +0x74
-	int LightColor;    // +0x78
-	int Mark;          // +0x7c, colour of the square around the creature
-	int MarkTime;      // +0x80, shown up to this GetMilliseconds() time
-	int Health;        // +0x84, percent
-	int Speed;         // +0x88
-	bool Visible;      // +0x8c
-	int PKFlag;        // +0x90, the skull; name from "Creature->PKFlag" (MapWindow.cpp)
-	int PARTYFlag;     // +0x94, the party shield; "Creature->PARTYFlag" (MapWindow.cpp)
-	Time32 SkullTime;  // +0x98, time a skull was removed (StoreTime32, 0: none); it stays four seconds longer
+	uint32 CreatureID;         // +0x00, 0 marks a free slot; players have IDs below 0x40000000
+	TFixedString<32> Name;     // +0x04
+	int RealX;                 // +0x24, map position
+	int RealY;                 // +0x28
+	int RealZ;                 // +0x2c
+	int DeltaX;                // +0x30, pixel offset of the walk animation, counts down to 0
+	int DeltaY;                // +0x34
+	int StepEnd;               // +0x38, GetMilliseconds() time the step animation ends
+	int NextStep;              // +0x3c, time the next step may start (three steps' time after a diagonal one)
+	int StepX;                 // +0x40, abs(dx)*32
+	int StepY;                 // +0x44, abs(dy)*32
+	int StepDuration;          // +0x48, milliseconds, a multiple of Beat
+	bool Moving;               // +0x4c
+	int Direction;             // +0x50, 0 north, 1 east, 2 south, 3 west
+	int MoveDirection;         // +0x54, Direction when the current step started
+	int PrevOpponent;          // +0x58, battle list links (slot numbers, -1 at the ends)
+	int NextOpponent;          // +0x5c, NOT_AN_OPPONENT when not in the list
+	int OutfitType;            // +0x60
+	std::array<int, 4> Colors; // +0x64, head, body, legs, feet; Colors[0] is the object type when OutfitType is 0
+	int LightStrength;         // +0x74
+	int LightColor;            // +0x78
+	int Mark;                  // +0x7c, colour of the square around the creature
+	int MarkTime;              // +0x80, shown up to this GetMilliseconds() time
+	int Health;                // +0x84, percent
+	int Speed;                 // +0x88
+	bool Visible;              // +0x8c
+	int PKFlag;                // +0x90, the skull; name from "Creature->PKFlag" (MapWindow.cpp)
+	int PARTYFlag;             // +0x94, the party shield; "Creature->PARTYFlag" (MapWindow.cpp)
+	Time32 SkullTime;          // +0x98, time a skull was removed (StoreTime32, 0: none); it stays four seconds longer
 };
 
 // A VIP list entry (0x2c bytes). Preferences.h has the stored data

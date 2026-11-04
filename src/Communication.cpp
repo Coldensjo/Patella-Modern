@@ -1127,7 +1127,7 @@ uint32 ReadCreature(int Type, int x, int y, int z)
 		CreatureID = GetQuad();
 		Creature = AddCreature(RemoveID, CreatureID);
 		TASSERT1(1302, Creature!=NULL, CreatureID);
-		GetString(patella::TSpan<char>(Creature->Name).first(30));
+		GetString(patella::TSpan<char>(Creature->Name.Chars).first(30));
 		if (!IsPlayer(CreatureID))
 			CapitalizeString(Creature->Name);
 		Creature->Health = GetByte();

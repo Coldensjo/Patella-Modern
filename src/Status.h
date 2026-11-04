@@ -32,11 +32,11 @@ struct TMessage {
 // One entry of the character list (0x54 bytes). The 30-byte limits come
 // from "strlen(Name)<30" and "strlen(World)<30".
 struct TCharacter {
-	TFixedString<30> Name;  // +0x00
-	TFixedString<30> World; // +0x1e
-	uint32 IP;              // +0x3c, as received
-	char IPAddress[16];     // +0x40, dotted text
-	int Port;               // +0x50
+	TFixedString<30> Name;      // +0x00
+	TFixedString<30> World;     // +0x1e
+	uint32 IP;                  // +0x3c, as received
+	TFixedString<16> IPAddress; // +0x40, dotted text
+	int Port;                   // +0x50
 };
 // The original's layout (no pointers: the same on x64), with the names TFixedStrings (issue #57).
 static_assert(sizeof(TCharacter) == 0x54 && offsetof(TCharacter, World) == 0x1e && offsetof(TCharacter, IP) == 0x3c
@@ -46,10 +46,10 @@ static_assert(sizeof(TCharacter) == 0x54 && offsetof(TCharacter, World) == 0x1e 
 // One error report from error.txt (0xa5a bytes, byte aligned). Date is
 // 26 bytes, the size of an asctime() string.
 struct TErrorReport {
-	char Title[64];    // +0x000
-	char Date[26];     // +0x040
-	char Text[2048];   // +0x05a, lines separated by '\n'
-	char Comment[512]; // +0x85a, "Comment: " and the player's text
+	TFixedString<64> Title;    // +0x000
+	TFixedString<26> Date;     // +0x040
+	TFixedString<2048> Text;   // +0x05a, lines separated by '\n'
+	TFixedString<512> Comment; // +0x85a, "Comment: " and the player's text
 
 	TErrorReport()
 	{
@@ -59,6 +59,10 @@ struct TErrorReport {
 		memset(Comment, 0, sizeof(Comment));
 	}
 };
+// The texts TFixedStrings (issue #60): the original's layout (no pointers: the same on x64).
+static_assert(sizeof(TErrorReport) == 0xa5a && offsetof(TErrorReport, Date) == 0x040 && offsetof(TErrorReport, Text) == 0x05a
+		&& offsetof(TErrorReport, Comment) == 0x85a,
+	"TErrorReport's layout");
 
 bool CheckAnyRight();
 void ClearRights();

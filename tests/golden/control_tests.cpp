@@ -496,7 +496,7 @@ static void ControlAfterRetired()
 	LastMouseMove = Numbers[4];
 	ShowFPS = Numbers[5] != 0;
 	curEngine = Numbers[6];
-	memcpy(LastPacketTypes, Types, sizeof(Types));
+	memcpy(LastPacketTypes.data(), Types, sizeof(Types));
 	std::string Ours = DumpStatics(OURS);
 	Ours = Ours.substr(Ours.find(" WindowHandle"));
 	if (Ours != Callbacks) {

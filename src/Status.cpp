@@ -18,6 +18,7 @@
 #include "Objects.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include <array>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -40,14 +41,14 @@ int BlinkTime;                              // 0x71c468
 int MouseOverTextY;                         // 0x71c46c
 int MouseOverTextX;                         // 0x71c470
 const char *MouseOverText;                  // 0x71c474
-int Rights[RIGHT_ANY];                      // 0x71c478
+std::array<int, RIGHT_ANY> Rights;          // 0x71c478
 bool Gamemaster;                            // 0x71c540, sent in the game login packet
 int PremiumDays;                            // 0x71c544
 int ActiveCharacter;                        // 0x71c548
 std::unique_ptr<TCharacter[]> Characters;   // 0x71c54c (issue #58)
 int AccountCharacters;                      // 0x71c550, name from an assertion
-char AccountPassword[30];                   // 0x71c554
-char AccountNumberString[12];               // 0x71c574
+TFixedString<30> AccountPassword;           // 0x71c554
+TFixedString<12> AccountNumberString;       // 0x71c574
 int AccountNumber;                          // 0x71c580
 int Progress;                               // 0x71c584, -1 = none
 int ConnectionState;                        // 0x71c588, see SetConnectionState
@@ -86,6 +87,10 @@ TObject UseObject;                          // 0x71c63c, "SrcObj" in MapWindow.c
 vector<TErrorReport> ErrorReports(0, 0, 1); // 0x71c648, initialiser at 0x55a110
 
 } // namespace
+
+// The arrays std::arrays and TFixedStrings (issue #60).
+static_assert(sizeof(Rights) == RIGHT_ANY * sizeof(int) && sizeof(AccountPassword) == 30 && sizeof(AccountNumberString) == 12,
+	"Status.cpp's arrays");
 
 // 0x4e6dc0. Inlined into CheckRight. Only the first 32 rights are checked
 // (the loop ends at 0x71c4f8), the ones GetRightName has names for; rights

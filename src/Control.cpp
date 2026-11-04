@@ -40,6 +40,7 @@
 #include "GUI.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include <array>
 #include <ostream>
 #include <cstddef>
 #include <cstdio>
@@ -54,7 +55,7 @@ namespace {
 // Data, in .data/.bss order. 0x5c4540-0x5c4553 is not used by any code.
 int LastPacketType = -1;               // 0x5c0d8c, only written (ReceivePackets)
 int LastPacketIndex;                   // 0x5c4510, next slot in LastPacketTypes
-uint8 LastPacketTypes[10];             // 0x5c4514, the last ten packet types, a ring
+std::array<uint8, 10> LastPacketTypes; // 0x5c4514, the last ten packet types, a ring
 int ReconnectTimeout;                  // 0x5c4520, GetMilliseconds time
 bool Reconnect;                        // 0x5c4524, set by event 0x3f
 int LastMouseMove;                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
@@ -71,6 +72,9 @@ bool ShowFPS;                          // 0x5c4554, toggled by key 0x907
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
+
+// LastPacketTypes a std::array (issue #60).
+static_assert(sizeof(LastPacketTypes) == 10, "LastPacketTypes");
 
 // 0x445900. For error.txt (Player.cpp's HandleException): the last ten
 // packet types, newest first.
@@ -1245,7 +1249,7 @@ void InitWindow(HWND Window, void (*ExitProgram)(), void (*CloseProgram)(),
 	DisplayModeCallback = SetDisplayMode;
 	URLCallback = OpenURL;
 	SetMouseCursor(1);
-	memset(LastPacketTypes, 0, sizeof(LastPacketTypes));
+	memset(LastPacketTypes.data(), 0, sizeof(LastPacketTypes));
 	LastPacketIndex = 0;
 	Reconnect = false;
 	TEND(1585)

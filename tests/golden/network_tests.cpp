@@ -335,14 +335,14 @@ void MakeViews()
 	TView &O = View[OURS];
 	O.CurrentServer = &CurrentServer;
 	O.TestServer = &TestServer;
-	O.Servers = Servers;
+	O.Servers = Servers.data();
 	O.HostnameRequest = &HostnameRequest;
 	O.HostnameResolveBuffer = &HostnameResolveBuffer;
 	O.ReceiveDataSize = &ReceiveDataSize;
 	O.ReceivePacketEnd = &ReceivePacketEnd;
 	O.ReceiveRead = &ReceiveRead;
-	O.ReceiveData = ReceiveData;
-	O.SendData = SendData;
+	O.ReceiveData = ReceiveData.data();
+	O.SendData = SendData.data();
 	O.NetworkWindow = &NetworkWindow;
 	O.CloseCallback = &CloseCallback;
 	O.ReceiveCallback = &ReceiveCallback;
@@ -356,7 +356,7 @@ void MakeViews()
 	O.KeyOffset = (int)sizeof(void *); // TXTEA: a vtable pointer, then uint32 Key[4]
 	O.RecursionProtection = &RecursionProtection;
 	O.HostnameResolveBufferSize = &HostnameResolveBufferSize;
-	O.PacketHeader = PacketHeader;
+	O.PacketHeader = PacketHeader.data();
 }
 
 // --- The fakes -------------------------------------------------------------------------------
@@ -1936,10 +1936,10 @@ TBuffer *GoldenNetworkReceiveBuffer() { return &ReceiveBuffer; }
 TBuffer *GoldenNetworkSendBuffer() { return &SendBuffer; }
 void GoldenNetworkResetBuffers()
 {
-	SendBuffer.Data = SendData;
+	SendBuffer.Data = SendData.data();
 	SendBuffer.Size = sizeof(SendData);
 	SendBuffer.Position = 0;
-	ReceiveBuffer.Data = ReceiveData;
+	ReceiveBuffer.Data = ReceiveData.data();
 	ReceiveBuffer.Size = 0;
 	ReceiveBuffer.Position = 0;
 }
