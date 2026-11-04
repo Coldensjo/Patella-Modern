@@ -7516,3 +7516,66 @@ client_stubs.cpp; golden.h's helpers), tests/golden/CMakeLists.txt, cmake/Oracle
 - **Size** (form). The corpus is 190 MB (Container 82 MB, Talk 46 MB, Script 29 MB); local only, as before.
 - **Commits** (form). One commit per test, Preferences and PreferencesFile together (one source, shared helpers); the
   first has the runner's new infrastructure. Each commit's runner and difftest were built and its tests replayed.
+
+## The golden corpus: the game world (Patella-Modern issue #27)
+
+Settled by Claude Opus 5.5, November 4, 2026. tests/golden/ (objects_tests.cpp, map_tests.cpp, creatures_tests.cpp,
+golden_patch.h; golden.h's DataFile and OutputRuns), tests/golden/CMakeLists.txt, cmake/OracleX86.cmake.
+notes/reconstruction.md, "Checking", describes the use; the sections on issues #24 and #26 above the format and the
+earlier helpers.
+
+- **Ported** (high). Three of the issue's six tests, each with the oracle's count and 0 failures: Objects 327,886, Map
+  639,877, Creatures 2,610,987 (3,578,750 checks). The runner now replays 6,845,758 of difftest's 16,848,752 checks
+  and sysinctest's 67. The old files are gone from tools/difftest; every CHECK is the old one, every count and random
+  number too. golden_client compiles Objects.cpp, Map.cpp and Creatures.cpp (no new stubs: their callees are linked
+  or were stubbed already; GetCreature and GetPlayerID left client_stubs.cpp, NoObject too).
+- **Not ported: MainFrm, MapWindow, MainWindow** (needs a later issue). What blocks them:
+  - their error rounds (TErrorRound, issue #34: MainFrm's 18,152 checks after its 31,424, MapWindow's 12,359): the
+    comparison (TThrown, CompareThrown with its line pairs) lives in imageeh.cpp next to the image's exception
+    machinery, and the fakes throw our side's assertion through GUI.cpp's TComponent::SetSize
+    (ThrowSideAssertion), which golden_client does not compile. The runner needs a portable error-round layer: the
+    comparison copied for the runner, the original's TThrown recorded by value (kind, type, message, origin, code),
+    our assertion thrown by the same code as in the oracle. Errors (#26), the window tests and the surface tests
+    (#28, #29) need the same layer;
+  - MainFrm compiles MainFrm.cpp into its test file and defines the MFC shim's members as its fakes; the runner
+    compiles MainFrm.cpp in golden_client and has those members as aborting stubs (client_stubs.cpp), so both move
+    with the port; its user32 and shell32 fakes go into the runner's import slots (golden::FindImport), and its logs
+    print a pointer with %p (SetTimer's), whose width differs on x64;
+  - MapWindow and MainWindow compare their windows byte for byte from +0x14 (TMapWindow is 0x92d8 bytes after
+    TComponent's pointers): a layout projection as Container's; their fakes are elementfakes.cpp's, testsurface.h's
+    and GUI.cpp's and graphics.cpp's classes, and they run after the Graphics, GUI and window tests (#28, #29),
+    whose redirects stay (MainWindow's after MapWindow's).
+- **Tibia.dat in the corpus** (high). golden::DataFile: the oracle records whether the file exists next to Tibia.exe
+  and its contents (176 KB, once per test that loads it); the runner writes them to %TEMP%\golden-data and loads that
+  copy. So the runner needs no data files, now and after M6, and a corpus is never replayed against another
+  Tibia.dat. The corpus is derived from CipSoft's files already: local only (build/ is ignored), never committed,
+  pushed or uploaded. Considered: the runner looking for Tibia.dat (a cache variable, the source tree as the oracle
+  does): one more local input to keep in step with the recording.
+- **By value, again** (high; plan 4.3).
+  - Objects: per table its presence and bounds, per entry its fields without the sprite pointer and the sprite numbers
+    it points to. TProperties has no padding in either layout, so the old memcmp with both pointers cleared is the same
+    comparison field by field.
+  - Map: objects (three ints), colours, the effect texts, automap marks (TMark: ints and a char array, 0x70 bytes on
+    both sides; compared byte for byte as before), FindPath's results, the creatures the original reported removed
+    (the new ones since the last record) and the automap files it wrote (their bytes).
+  - Creatures: the creature table and the VIP list (TCreature 0x9c and TBuddyEntry 0x2c bytes on both sides, no
+    pointers; static_assert) by their runs of changed bytes (golden::OutputRuns; the start is the original's tables
+    before the test), still compared byte for byte, padding included: our x64 code leaves the padding as the x86 code
+    does. A creature the original returns is its slot; the hints, monster hints and path finder calls its fakes
+    recorded, by value. Where the old test's && did not call the original's second getter (CheckPlayer's skill
+    progress), the runner reads no record either; the IDs' getters have no side effects and are all recorded.
+- **Our functions redirected** (high). Creatures redirects our Map.cpp's and Help.cpp's functions to its fakes for
+  good, as difftest does (Errors relies on it: "functions redirected by earlier tests"). golden::RedirectOwn writes
+  the oracle's 5-byte rel32 jump: the function and the fake are in the runner's image, within reach. golden_runner
+  links with /OPT:NOICF, so no function folded with a patched one shares its code; in the Debug build the
+  incremental-link thunk is patched, which every call goes through. The clock is _time32's import slot, as Talk's
+  (FindImport moved to golden_patch.h; Talk uses it). Considered: a 14-byte absolute jump (it would overwrite the next
+  function after a small one); link-time fakes (Map.cpp must be the real one for the Map test in the same runner).
+- **Errors (#26)** (needs a later issue). In place now: Objects, Map and Creatures run in the runner in difftest's
+  order with Creatures' redirects of our functions, golden_client has Objects.cpp, Map.cpp and Creatures.cpp, and
+  Tibia.dat comes from the corpus. Still blocking: the Graphics and GUI tests (#28, #29) and their redirects, which
+  are part of Errors' count; graphics.cpp and the engines' start-up in the runner; the error-round layer above.
+- **Size** (form). The corpus is 243 MB (Container 82 MB, Talk 46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB,
+  Objects 4 MB); local only, as before.
+- **Commits** (form). One commit per test; the first has DataFile, the third OutputRuns and golden_patch.h. Each
+  test's corpus was recorded and replayed after its port; the intermediate commits were not built on their own.

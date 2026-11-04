@@ -613,6 +613,88 @@ void OutputChanges(const char *Name, void *Last, const void *Value, size_t Size)
 		memcpy(Previous + Span[0], Bytes.data(), Span[1]);
 }
 
+void OutputRuns(const char *Name, void *Last, const void *Value, size_t Size)
+{
+	uint8_t *Previous = (uint8_t *)Last;
+	std::vector<uint32_t> Runs; // offset, length
+	std::string Bytes;
+	if (CurrentMode != TMode::Replay) { // the oracle, recording or not
+		const uint8_t *Current = (const uint8_t *)Value;
+		size_t i = 0;
+		while (i < Size) {
+			if (Previous[i] == Current[i]) {
+				i++;
+				continue;
+			}
+			size_t End = i + 1;
+			for (size_t j = i + 1; j < Size && j - End < 16; j++)
+				if (Previous[j] != Current[j])
+					End = j + 1;
+			Runs.push_back((uint32_t)i);
+			Runs.push_back((uint32_t)(End - i));
+			Bytes.append((const char *)Current + i, End - i);
+			i = End;
+		}
+	}
+	uint32_t Count = (uint32_t)(Runs.size() / 2);
+	Output(Name, Count);
+	if (Count == 0)
+		return;
+	Runs.resize((size_t)Count * 2);
+	OutputArray(Name, Runs.data(), Runs.size());
+	size_t Total = 0;
+	for (uint32_t r = 0; r < Count; r++) {
+		if (Runs[2 * r] > Size || Runs[2 * r + 1] > Size - Runs[2 * r])
+			throw TStale{std::string("\"") + Name + "\": a change outside the buffer"};
+		Total += Runs[2 * r + 1];
+	}
+	Bytes = OutputText(Name, Value != nullptr ? Bytes.data() : nullptr, Bytes.size());
+	if (Bytes.size() != Total)
+		throw TStale{std::string("\"") + Name + "\": the changed bytes are not the recorded ones"};
+	size_t Position = 0;
+	for (uint32_t r = 0; r < Count; r++) {
+		memcpy(Previous + Runs[2 * r], Bytes.data() + Position, Runs[2 * r + 1]);
+		Position += Runs[2 * r + 1];
+	}
+}
+
+std::string DataFile(const char *Name, const char *ExePath)
+{
+	std::string Path, Contents;
+	uint8_t Found = 0;
+	if (CurrentMode != TMode::Replay) { // the oracle, recording or not
+		Path = ExePath != nullptr ? ExePath : "";
+		size_t Slash = Path.find_last_of("\\/");
+		Path = (Slash == std::string::npos ? std::string() : Path.substr(0, Slash + 1)) + Name;
+		if (FILE *File = fopen(Path.c_str(), "rb")) {
+			Found = 1;
+			if (CurrentMode == TMode::Record) {
+				char Buffer[1 << 16];
+				size_t Read;
+				while ((Read = fread(Buffer, 1, sizeof(Buffer), File)) != 0)
+					Contents.append(Buffer, Read);
+			}
+			fclose(File);
+		}
+	}
+	Output(Name, Found);
+	if (Found == 0)
+		return std::string();
+	if (CurrentMode == TMode::Off)
+		return Path;
+	Contents = OutputText(Name, Contents.data(), Contents.size());
+	if (CurrentMode == TMode::Record)
+		return Path;
+	std::error_code Error;
+	std::filesystem::path Directory = std::filesystem::temp_directory_path(Error) / "golden-data";
+	std::filesystem::create_directories(Directory, Error);
+	Path = (Directory / Name).string();
+	FILE *File = fopen(Path.c_str(), "wb");
+	if (File == nullptr || fwrite(Contents.data(), 1, Contents.size(), File) != Contents.size() || fclose(File) != 0)
+		throw TStale{"cannot write " + Path};
+	return Path;
+}
+
 TText RecordedText(const char *Name, const char *Text, size_t MaxLength)
 {
 	TText Result;

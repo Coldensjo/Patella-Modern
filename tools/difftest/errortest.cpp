@@ -503,7 +503,7 @@ static void TestUtils()
 
 // Calls our function and the image's at Address (cdecl) with the same
 // arguments, converted to our parameter types.
-// Earlier tests redirect some functions for good (creaturestest.cpp the
+// Earlier tests redirect some functions for good (creatures_tests.cpp the
 // image's and our GetFirstObject, CheckEventHelpName, ...): a function that
 // starts with a jump now is a test's fake. Such comparisons are skipped and
 // counted (the full run reports them; DIFFTEST_ONLY=Errors has none).
@@ -774,7 +774,7 @@ static void TestWrapping(const char *ExePath)
 {
 	// Map.cpp: the field queries call GetFirstObject (and others), which
 	// asserts the coordinates; TEND2(rx, ry) wraps it. The image's field
-	// matrix and object vector need their constructors (as in maptest.cpp;
+	// matrix and object vector need their constructors (as in map_tests.cpp;
 	// a second construction leaks the first one's memory). IsFieldPassable
 	// only without CheckHeight, which reads the field (8, 6, GetMapLevel()).
 	static bool MapConstructed = false;

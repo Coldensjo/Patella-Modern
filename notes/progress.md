@@ -213,6 +213,14 @@ Errors (40,408) is not ported: it needs our side's state from the not yet ported
 and GUI tests. The runner links the reconstructed files it compares (golden_client, MFC shim) and stubs of the rest;
 Container compares through a layout projection, Talk points the runner's _time32 import at the fixed clock. No src/
 change. notes/decisions.md, "The golden corpus: settings, scripts and player data (Patella-Modern issue #26)".
+Golden corpus, the game world (Patella-Modern issue #27, November 4, 2026; M6): three of the six tests ported to
+tests/golden, one commit each: Objects 327,886, Map 639,877, Creatures 2,610,987, each with the oracle's count and 0
+failures; the runner replays 6,845,758 of difftest's checks. Tibia.dat is in the corpus (golden::DataFile), the
+creature tables are recorded by their changed bytes (golden::OutputRuns), and the runner redirects our Map.cpp and
+Help.cpp functions to Creatures' fakes as difftest does (golden_patch.h). Not ported: MainFrm 49,576, MapWindow
+127,529, MainWindow 57,314 (error rounds without a runner-side layer, MFC fakes, TMapWindow's layout, the GUI and
+graphics fakes of #28/#29). No src/ change. notes/decisions.md, "The golden corpus: the game world (Patella-Modern
+issue #27)".
 Next: the other open issues; see GitHub.
 
 ## Resources (issue #17)
@@ -233,6 +241,14 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #27 (branch issue-27, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after Objects, Map and Creatures moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201
+vlong checks, 0 failures; with recording on (`golden_corpus`) the same counts. The x64 golden_runner (windows-x64 and
+-debug, CTest 13/13) replays 6,845,758 of difftest's checks and sysinctest's 67, 0 failures (issue #26's 3,267,008 as
+before, Objects 327,886, Map 639,877, Creatures 2,610,987); not yet ported: difftest's 10,002,994 other checks (Errors
+40,408, MainFrm 49,576, MapWindow 127,529, MainWindow 57,314 among them) and communicationtest's 1,134,513. src/
+unchanged; macrocheck d34c304 issue-27: 2,108 calls, 0 differences.
 
 Patella-Modern issue #26 (branch issue-26, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after nine tests moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0

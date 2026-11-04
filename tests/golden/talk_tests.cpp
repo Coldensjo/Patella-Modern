@@ -15,6 +15,7 @@
 // their changes. A pointer the original returns into its own objects is recorded as which of them it is.
 
 #include "golden_test.h"
+#include "golden_patch.h"
 
 #include "Container.h"
 #include "Preferences.h"
@@ -86,33 +87,9 @@ int __cdecl ImageFprintf(FILE *File, const char *Format, ...)
 void **ClockSlot;
 void *SavedSlot;
 
-void **FindImport(const char *Function)
-{
-	uint8 *Base = (uint8 *)GetModuleHandleA(nullptr);
-	const IMAGE_DOS_HEADER *Dos = (const IMAGE_DOS_HEADER *)Base;
-	const IMAGE_NT_HEADERS *Nt = (const IMAGE_NT_HEADERS *)(Base + Dos->e_lfanew);
-	const IMAGE_DATA_DIRECTORY &Directory = Nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
-	for (const IMAGE_IMPORT_DESCRIPTOR *Import = (const IMAGE_IMPORT_DESCRIPTOR *)(Base + Directory.VirtualAddress);
-		Import->Name != 0; Import++) {
-		const IMAGE_THUNK_DATA *Names = (const IMAGE_THUNK_DATA *)(Base + Import->OriginalFirstThunk);
-		IMAGE_THUNK_DATA *Slots = (IMAGE_THUNK_DATA *)(Base + Import->FirstThunk);
-		for (; Names->u1.AddressOfData != 0; Names++, Slots++) {
-			if (IMAGE_SNAP_BY_ORDINAL(Names->u1.Ordinal))
-				continue;
-			const IMAGE_IMPORT_BY_NAME *Name = (const IMAGE_IMPORT_BY_NAME *)(Base + Names->u1.AddressOfData);
-			if (strcmp((const char *)Name->Name, Function) == 0)
-				return (void **)&Slots->u1.Function;
-		}
-	}
-	return nullptr;
-}
-
 void SetClockSlot(void *Value)
 {
-	DWORD Protection;
-	VirtualProtect(ClockSlot, sizeof(void *), PAGE_READWRITE, &Protection);
-	*ClockSlot = Value;
-	VirtualProtect(ClockSlot, sizeof(void *), Protection, &Protection);
+	golden::SetImport(ClockSlot, Value);
 }
 #endif
 
@@ -137,7 +114,7 @@ void PatchTalk()
 			At<VectorFn>(0x4fd6e0)((void *)(uintptr_t)Address, NULL, 0, Address == 0x71efd0 ? 4 : 9,
 				Address == 0x71efd0 ? 5 : 10, NULL);
 #else
-	ClockSlot = FindImport("_time32");
+	ClockSlot = golden::FindImport("_time32");
 	CHECK(ClockSlot != nullptr, "patch test CRT clock");
 	if (ClockSlot == nullptr) {
 		printf("golden: Talk: the runner imports no _time32\n");
