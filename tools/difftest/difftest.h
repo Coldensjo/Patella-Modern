@@ -30,7 +30,7 @@ inline void PatchJump(uint32 Address, void *Target)
 	*(int32_t *)(Code + 1) = (int32_t)((uintptr_t)Target - (Address + 5));
 }
 
-// statustest.cpp: redirects the image's malloc/free and the helpers that
+// tests/golden/status_tests.cpp: redirects the image's malloc/free and the helpers that
 // would reach Windows; safe to call more than once.
 void PatchImage();
 void SetTestClock(int Value);

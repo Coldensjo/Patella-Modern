@@ -56,7 +56,7 @@ const TExecutable Executables[] = {
 	{"difftest",
 		{{"XTEA", TestXTEA}, {"Characters", TestCharacters}, {"Colors", TestColors}, {"Strings", TestStrings},
 			{"FormatNumber", TestFormatNumber}, {"Buffers", TestBuffers}, {"Skins", TestSkins},
-			{"Regexp", TestRegexp}}},
+			{"Regexp", TestRegexp}, {"Status", TestStatus}}},
 	{"sysinctest", {{"Sysinc", TestSysinc}}},
 	{"communicationtest", {}},
 };

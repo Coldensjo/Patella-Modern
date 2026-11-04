@@ -2,7 +2,7 @@
 // 1986 as the client has it, issue #15) against the image's regcomp
 // (0x50fa40) and regexec (0x50f360).
 //
-// Both sides allocate from the test's heap: PatchImage (statustest.cpp)
+// Both sides allocate from the test's heap: PatchImage (status_tests.cpp)
 // redirects the image's malloc and free to ours, so _msize gives the size of
 // both programs. The image's other callees (strcspn 0x511ee0, strchr
 // 0x513620, strncmp 0x514250) are plain string functions without state.

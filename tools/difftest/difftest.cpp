@@ -4,7 +4,7 @@
 // Tibia.exe is copied to its base address (see RunChild and MapImage): no
 // imports are bound and no code runs except the functions called here. Only functions that do not
 // touch imports are called. The original C runtime is not initialised, so
-// statustest.cpp redirects the image's malloc and free to the test's own heap
+// tests/golden/status_tests.cpp redirects the image's malloc and free to the test's own heap
 // (PatchJump) before it calls functions that allocate.
 //
 // Usage: difftest.exe [path to Tibia.exe]

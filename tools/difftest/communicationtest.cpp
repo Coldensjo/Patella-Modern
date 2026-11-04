@@ -31,7 +31,7 @@
 
 // --- What difftest.exe's other test files provide -------------------------
 
-// imageeh.cpp's EnableImageExceptions calls it (statustest.cpp's in difftest.exe):
+// imageeh.cpp's EnableImageExceptions calls it (tests/golden/status_tests.cpp's in difftest.exe):
 // the image's malloc and free are ours.
 static void *__cdecl CommImageMalloc(size_t Size) { return malloc(Size); }
 static void __cdecl CommImageFree(void *Block) { free(Block); }

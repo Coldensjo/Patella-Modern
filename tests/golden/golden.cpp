@@ -577,4 +577,56 @@ std::string OutputText(const char *Name, const char *Text)
 	return Text != nullptr ? std::string(Text) : std::string();
 }
 
+std::string OutputText(const char *Name, const char *Text, size_t Length)
+{
+	if (CurrentMode == TMode::Record)
+		Record(Name, 'O', 'b', 1, Length, Text);
+	else if (CurrentMode == TMode::Replay) {
+		std::string Recorded;
+		Play(Name, 'O', 'b', 1, (size_t)-1, &Recorded);
+		return Recorded;
+	}
+	return Text != nullptr ? std::string(Text, Length) : std::string();
+}
+
+void OutputChanges(const char *Name, void *Last, const void *Value, size_t Size)
+{
+	uint8_t *Previous = (uint8_t *)Last;
+	uint32_t Span[2] = {0, 0};          // the first changed byte, the number of bytes from there to the last
+	if (CurrentMode != TMode::Replay) { // the oracle, recording or not
+		const uint8_t *Current = (const uint8_t *)Value;
+		size_t First = 0, End = Size;
+		while (First < Size && Previous[First] == Current[First])
+			First++;
+		while (End > First && Previous[End - 1] == Current[End - 1])
+			End--;
+		Span[0] = (uint32_t)First;
+		Span[1] = (uint32_t)(End - First);
+	}
+	Output(Name, Span);
+	if (Span[0] > Size || Span[1] > Size - Span[0])
+		throw TStale{std::string("\"") + Name + "\": a change outside the buffer"};
+	std::string Bytes = OutputText(Name, Value != nullptr ? (const char *)Value + Span[0] : nullptr, Span[1]);
+	if (CurrentMode == TMode::Replay && Bytes.size() != Span[1])
+		throw TStale{std::string("\"") + Name + "\": the changed bytes are not the recorded ones"};
+	if (Span[1] != 0)
+		memcpy(Previous + Span[0], Bytes.data(), Span[1]);
+}
+
+TText RecordedText(const char *Name, const char *Text, size_t MaxLength)
+{
+	TText Result;
+	uint8_t Null = Text == nullptr;
+	Output(Name, Null);
+	Result.Null = Null != 0;
+	if (!Result.Null) {
+		size_t Length = 0;
+		if (Text != nullptr)
+			while (Length < MaxLength && Text[Length] != 0)
+				Length++;
+		Result.Text = OutputText(Name, Text, Length);
+	}
+	return Result;
+}
+
 } // namespace golden
