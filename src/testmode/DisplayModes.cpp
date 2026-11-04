@@ -3,9 +3,13 @@
 #include "testmode/DisplayModes.h"
 
 #include <charconv>
+#include <cstdint>
 #include <cstddef>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 namespace patella::testmode {
 
