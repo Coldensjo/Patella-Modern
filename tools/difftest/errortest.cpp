@@ -180,7 +180,6 @@ template <class F> static void UntilFatalError(F Function)
 {
 	UntilFatalErrorCall(ThrowThunk<F>, &Function);
 }
-static const char *FixedDate = "Thu Jun 08 12:34:56 2006\n";
 static uint32 __cdecl FakeImageTime(uint32 *Time)
 {
 	if (Time != NULL)
@@ -193,7 +192,18 @@ static __time64_t __cdecl FakeTime64(__time64_t *Time)
 		*Time = 1149770096;
 	return 1149770096;
 }
-static char *__cdecl FakeCtime(const void *) { return (char *)FixedDate; }
+// The image's ctime: the UCRT's _ctime32 of its time (June 8, 2006: a one-digit day) in the form MSVC 7.1's asctime
+// wrote, the day with two digits (src/compat/crt71.h). Ours formats the same time itself (FormatCRT71Time, issue
+// #61) with the same local time.
+static char *__cdecl FakeCtime(const __time32_t *Time)
+{
+	static char Text[26];
+	if (_ctime32_s(Text, sizeof(Text), Time) != 0)
+		return NULL;
+	if (Text[8] == ' ')
+		Text[8] = '0';
+	return Text;
+}
 static OSVERSIONINFOA FakeVersion;
 static BOOL FakeVersionResult;
 static BOOL WINAPI FakeGetVersionEx(OSVERSIONINFOA *Version)
@@ -314,7 +324,6 @@ static void TestPlayer()
 	PatchImageJump(0x5121ea, (void *)FakeImageTime);
 	PatchOwnCode((void *)_time64, (void *)FakeTime64);
 	PatchImageJump(0x5121d1, (void *)FakeCtime);
-	PatchOwnCode((void *)_ctime64, (void *)FakeCtime);
 	PatchImageJump(0x445900, (void *)IgnoreStream); // OutputControlErrorInformations (Control.cpp)
 	PatchOwnCode((void *)(void (*)(std::ostream &))OutputControlErrorInformations, (void *)IgnoreStream);
 	PatchImageJump(0x4fcbf0, (void *)FakeErrorText);

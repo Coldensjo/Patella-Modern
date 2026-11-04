@@ -89,7 +89,6 @@ static_assert(sizeof(Time32) == 4);
 #define MsvcStricmp _stricmp
 #define MsvcStrdup _strdup
 #define MsvcTime32 _time32
-#define MsvcCtime32 _ctime32
 #define MsvcLocaltime32 _localtime32
 #define MsvcFileno _fileno
 #define MsvcExecl(Path, Argument) _execl(Path, Argument, nullptr)

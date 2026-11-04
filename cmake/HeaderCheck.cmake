@@ -31,6 +31,7 @@ include_guard(GLOBAL)
 # The portable code (patella_core, cmake/Core.cmake) and what it includes.
 set(PATELLA_HEADERS_CORE
 	common.h
+	compat/crt71.h
 	compat/format.h
 	compat/msvc.h
 	compat/msvc_io.h
@@ -92,7 +93,6 @@ set(PATELLA_HEADERS_CLIENT
 	Text.h
 	graphics.h
 	sysinc.h
-	compat/crt71.h
 	res/resource.h)
 # The original engines, compiled only in the oracle (DirectDraw, Direct3D 9, OpenGL; issue #20).
 set(PATELLA_HEADERS_ORACLE_ENGINES

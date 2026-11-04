@@ -215,24 +215,14 @@ TEST_CASE("msvc: the 32-bit time")
 	CHECK(Wide - Now <= 2);
 	CHECK(MsvcTime32(nullptr) >= Now);
 
-	// before 1970: no text and no tm (ctime and localtime themselves would convert it)
+	// before 1970: no tm (localtime itself would convert it); ctime's text is FormatCRT71Time's (compat/crt71.h,
+	// tests/unit/crt71_test.cpp)
 	const Time32 Before = -1;
-	CHECK(MsvcCtime32(&Before) == nullptr);
-	CHECK(patella::compat::PortableCtime32(&Before) == nullptr);
 	CHECK(MsvcLocaltime32(&Before) == nullptr);
 	CHECK(patella::compat::PortableLocaltime32(&Before) == nullptr);
 
-	// otherwise ctime's and localtime's results, the same for both
+	// otherwise localtime's result, the same for both
 	const Time32 Billion = 1'000'000'000;
-	const char *Text = MsvcCtime32(&Billion);
-	REQUIRE(Text != nullptr);
-	const std::string MsvcText(Text);
-	CHECK(MsvcText.size() == 25);
-	CHECK(MsvcText.back() == '\n');
-	CHECK(MsvcText.substr(20) == "2001\n");
-	const char *PortableText = patella::compat::PortableCtime32(&Billion);
-	REQUIRE(PortableText != nullptr);
-	CHECK(std::string(PortableText) == MsvcText);
 	const std::tm *Local = MsvcLocaltime32(&Billion);
 	REQUIRE(Local != nullptr);
 	const std::tm MsvcLocal = *Local;
