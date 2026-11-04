@@ -32,6 +32,7 @@
 #include "Status.h"  // SetMouseOverText
 #include "Objects.h" // TObject
 #include <cstring>
+#include <memory>
 
 // --- Separator, resizer and frame -----------------------------------------------
 
@@ -126,7 +127,7 @@ public:
 		if (Text != nullptr)
 			delete[] Text;
 		if (FullText != nullptr)
-			delete[] FullText;
+			FullText.reset();
 		if (Line != nullptr)
 			delete[] Line;
 	}
@@ -138,12 +139,12 @@ public:
 	void MouseHover(int x, int y) override;                                                                                    // +0x64, 0x455ca0, line 423
 	virtual void SetText(const char *_Text, bool Shorten);                                                                     // +0x84, 0x455e40, lines 431-472
 
-	char *Text;     // +0x24, the lines, each terminated
-	char *FullText; // +0x28, the text as given (the tooltip of a shortened text)
-	TFont Font;     // +0x2c
-	int Lines;      // +0x40
-	char **Line;    // +0x44, the start of each line in Text
-	bool Shortened; // +0x48, a line was cut to the width
+	char *Text;                       // +0x24, the lines, each terminated
+	std::unique_ptr<char[]> FullText; // +0x28, the text as given (the tooltip of a shortened text; issue #58)
+	TFont Font;                       // +0x2c
+	int Lines;                        // +0x40
+	char **Line;                      // +0x44, the start of each line in Text
+	bool Shortened;                   // +0x48, a line was cut to the width
 };
 
 // A text with formatting tokens (<br>, <p>, <hr>, <vspace=n>, <hspace=n>,
@@ -185,17 +186,17 @@ public:
 	TLink(const char *_Text, const char *ButtonText, const char *_Destination, void (*_OpenURL)(const char *URL),
 		TFont Font); // 0x46b030, lines 785-796
 	// Inline (out-of-line copy 0x452670, deleting destructor 0x452d90).
-	~TLink() override { delete[] Destination; }
+	~TLink() override { Destination.reset(); }
 	void SetSize(int Width, int Height) override; // +0x34, 0x456df0, line 838
 	int getMinimumWidth() override;               // +0x3c, 0x4526a0 (inline, below)
 	int getMinimumHeight() override;              // +0x40, 0x452690 (inline, below)
 	void Arrange() override;                      // +0x48, 0x456b00, lines 812-824
 	void HandleEvent(int Event) override;         // +0x70, 0x456fa0, line 848
 
-	void (*OpenURL)(const char *URL); // +0x2c
-	char *Destination;                // +0x30
-	TTextButton *Button;              // +0x34, event 1
-	TLabel *Label;                    // +0x38
+	void (*OpenURL)(const char *URL);    // +0x2c
+	std::unique_ptr<char[]> Destination; // +0x30 (issue #58)
+	TTextButton *Button;                 // +0x34, event 1
+	TLabel *Label;                       // +0x38
 };
 
 // --- Icons ------------------------------------------------------------------------
@@ -412,9 +413,9 @@ public:
 	// Inline (out-of-line copy 0x452740, deleting destructor 0x452db0).
 	~TMultiStateButton() override
 	{
-		delete[] ButtonUps;
-		delete[] ButtonDowns;
-		delete[] Callbacks;
+		ButtonUps.reset();
+		ButtonDowns.reset();
+		Callbacks.reset();
 	}
 	bool LeftButtonUp(int x, int y, int Flags) override; // +0x54, 0x459da0, line 1609
 	// Inline (out-of-line copy 0x452790): State is set past the last state,
@@ -428,11 +429,11 @@ public:
 		ButtonDown = ButtonDowns[State];
 	}
 
-	int State;            // +0x44
-	int States;           // +0x48
-	int *ButtonUps;       // +0x4c
-	int *ButtonDowns;     // +0x50
-	TCallback *Callbacks; // +0x54
+	int State;                              // +0x44
+	int States;                             // +0x48
+	std::unique_ptr<int[]> ButtonUps;       // +0x4c (issue #58)
+	std::unique_ptr<int[]> ButtonDowns;     // +0x50
+	std::unique_ptr<TCallback[]> Callbacks; // +0x54
 };
 
 // A check box with a text (vtable 0x561de8, 0x34 bytes).

@@ -65,10 +65,12 @@ array<TProperties> *&OriginalTable(int Kind)
 }
 #endif
 
-array<TProperties> *&OurTable(int Kind)
+// Our tables are std::unique_ptr since issue #58: the pointer they hold.
+array<TProperties> *OurTable(int Kind)
 {
-	array<TProperties> **Tables[4] = {&ObjectProperties, &OutfitProperties, &EffectProperties, &MissileProperties};
-	return *Tables[Kind];
+	const std::unique_ptr<array<TProperties>> *Tables[4] = {&ObjectProperties, &OutfitProperties, &EffectProperties,
+		&MissileProperties};
+	return Tables[Kind]->get();
 }
 
 const char *KindName[4] = {"object", "outfit", "effect", "missile"};

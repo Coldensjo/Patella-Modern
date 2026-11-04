@@ -290,6 +290,29 @@ ported: difftest's 1,713,550 other checks (SurfaceDX, DX9, GL, Errors, MapWindow
 communicationtest's 1,134,513. src/ unchanged (no diff against ce3ed2b); macrocheck ce3ed2b issue-28c: 2,108 calls,
 0 differences.
 
+Patella-Modern issue #58 (branch issue-58, November 4, 2026): notes/ownership.md (the ownership map), then
+std::unique_ptr for 22 owning members of 17 classes and 6 globals (ConsoleWindow, ContentWindows, Dialogs,
+DialogElements, Status, Communication, Objects; the original's deletes as explicit reset()s in place and order).
+`python -I tools/build.py oracle-x86 --fresh` (CTest 4/4, 0 warnings; the new static_asserts of the original's sizes and
+offsets compile): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures (also on b37760b, after the
+first two conversions); with recording on (`golden_corpus`, the branch's own build\golden, 609 MB) the same counts. The
+x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13) replays 14,836,028 of difftest's checks and
+sysinctest's 67, 0 failures. tests/unit unchanged: tests_unit 28/9,691 (9,689 on Clang), tests_unit_cxx26_standin
+28/9,693, tests_core 33/340 (33/343 on Linux), tests_testmode 35/709, tests_render 14/359, tests_vulkan 14/1,309;
+windows-x64-gcc and the four Linux presets (--fresh) 11/11. macrocheck c0a4fd8 issue-58: 2,108 calls, 0 differences.
+tidy_ci: 13 findings, 0 new. banned_calls: 0. client_state.py --layout: 0 problems on the new x64 Patella.exe and
+PatellaTest.exe, the new oracle equal to the original (main's tool reports the unique_ptr members as problems).
+
+Patella-Modern issue #28, second part (branch issue-28b, November 4, 2026): `python -I tools/build.py oracle-x86
+--fresh` (CTest 4/4, 0 warnings) after DialogWindow, ContextMenus, ConsoleWindow, ContentWindows and DialogElements
+moved to tests/golden: 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on
+(`golden_corpus`) the same counts. The x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13) replays
+14,836,028 of difftest's checks and sysinctest's 67, 0 failures (the first part's 12,858,032 as before, DialogWindow
+34,068, ContextMenus 41,660, ConsoleWindow 318,882, ContentWindows 221,270, DialogElements 1,362,116, each error round
+with the oracle's counts); not yet ported: difftest's 2,012,724 other checks (Dialogs, SurfaceDX, DX9, GL, Errors,
+MapWindow, MainWindow) and communicationtest's 1,134,513. src/ unchanged (no diff against 0ab4d3c); macrocheck
+0ab4d3c issue-28b: 2,108 calls, 0 differences.
+
 Patella-Modern issue #57 (branch issue-57, November 4, 2026): TFixedString<N> and TStringBuffer
 (src/types/FixedString.h) for the client's text buffers; no strcpy, strcat, sprintf, vsprintf or gets left in src/
 (tools/banned_calls.py, a job of the hosted CI). `python -I tools/build.py oracle-x86 --fresh` (CTest 4/4, 0

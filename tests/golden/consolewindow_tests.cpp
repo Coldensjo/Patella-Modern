@@ -1165,7 +1165,7 @@ static void DumpText(int s, std::string &Out, TTextWindow *T)
 	Add(Out, " buf %d min %d max %d cur %d inv %d last %d sel %d,%d-%d,%d %d atend %d text %s",
 		BufferIndex(T->TextBuffer), T->Lines.min, T->Lines.max, T->CurrentLineNumber, T->InvisibleLines,
 		T->LastLineNumber, T->SelectionStartLine, T->SelectionStartOffset, T->SelectionEndLine, T->SelectionEndOffset,
-		T->Selecting ? 1 : 0, T->AtEnd ? 1 : 0, T->SelectedText == NULL ? "-" : T->SelectedText);
+		T->Selecting ? 1 : 0, T->AtEnd ? 1 : 0, T->SelectedText == NULL ? "-" : T->SelectedText.get());
 	for (int i = T->Lines.min; i <= T->Lines.max; i++) {
 		TLineFormat &F = T->Lines.entry[i - T->Lines.start];
 		if (F.TextLine == NULL) {
@@ -1231,8 +1231,8 @@ static void DumpComponent(int s, std::string &Out, TComponent *Component, int De
 		DumpText(s, Out, (TTextWindow *)Component);
 	} else if (Kind == "Tab") {
 		TTab *T = (TTab *)Component;
-		Add(Out, " '%s' '%s' lines %d drag %d,%d,%d,%d active %d unread %d blink %d cb %s/%d short %d", T->Caption,
-			T->FullCaption, T->LineCount, T->Dragging, T->DragX, T->DragY, T->DragRight, T->Active ? 1 : 0,
+		Add(Out, " '%s' '%s' lines %d drag %d,%d,%d,%d active %d unread %d blink %d cb %s/%d short %d", T->Caption.get(),
+			T->FullCaption.get(), T->LineCount, T->Dragging, T->DragX, T->DragY, T->DragRight, T->Active ? 1 : 0,
 			T->Unread ? 1 : 0, T->BlinkEnd, Name(s, T->Callback.Receiver).c_str(), T->Callback.Event,
 			T->Shortened ? 1 : 0);
 	} else if (Kind == "Edit") {
@@ -1984,7 +1984,7 @@ static void TestConsoleWindowErrors()
 				SavedInput[s] = C(s)->Input;
 				SavedDefault[s] = C(s)->DefaultTab;
 				SavedCurrent[s] = C(s)->TabBar->CurrentTab;
-				SavedCaption[s] = SavedCurrent[s]->Caption;
+				SavedCaption[s] = SavedCurrent[s]->Caption.get();
 				World.ConsoleChanged = What == 0 || What == 8; // (Draw asserts only then)
 				if (What <= 7)
 					C(s)->CurrentConsole->TextWindow->TextBuffer = NULL;
@@ -1997,7 +1997,7 @@ static void TestConsoleWindowErrors()
 				else if (What == 11)
 					C(s)->TabBar->CurrentTab = NULL;
 				else
-					SavedCurrent[s]->Caption = NULL;
+					(void)SavedCurrent[s]->Caption.release(); // a std::unique_ptr since issue #58: taken out, not freed
 			}
 			static const char *const Names[] = {"Draw", "KeyPress", "SetActive", "UpdateButtons", "GetServerMessages",
 				"SetServerMessages", "GetTextBuffer", "SaveChannel", "Draw without a view", "SetActive without an edit line",
@@ -2034,7 +2034,8 @@ static void TestConsoleWindowErrors()
 				C(s)->Input = SavedInput[s];
 				C(s)->DefaultTab = SavedDefault[s];
 				C(s)->TabBar->CurrentTab = SavedCurrent[s];
-				SavedCurrent[s]->Caption = SavedCaption[s];
+				if (SavedCurrent[s]->Caption.get() != SavedCaption[s])
+					SavedCurrent[s]->Caption.reset(SavedCaption[s]);
 			}
 			Threw = false;
 		}

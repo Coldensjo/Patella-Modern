@@ -13,6 +13,7 @@
 
 #include "common.h"
 #include "Container.h"
+#include <memory>
 #include <type_traits>
 
 // A reference to an object (12 bytes, passed by value). Type is named in
@@ -97,12 +98,14 @@ struct TProperties {
 	int LensHelp;      // +0x48, LENSHELP
 };
 
-extern array<TProperties> *MissileProperties; // 0x719d8c
-extern array<TProperties> *EffectProperties;  // 0x719d90
-extern array<TProperties> *OutfitProperties;  // 0x719d94
-extern array<TProperties> *ObjectProperties;  // 0x719d98, from 100
-extern uint32 DatSignature;                   // 0x719d9c, sent at login and when patching
-extern TObject NoObject;                      // 0x719da0, never written
+// The four tables own their arrays (std::unique_ptr since issue #58; the entries' Sprites stay raw, freed by
+// ReleaseObjects).
+extern std::unique_ptr<array<TProperties>> MissileProperties; // 0x719d8c
+extern std::unique_ptr<array<TProperties>> EffectProperties;  // 0x719d90
+extern std::unique_ptr<array<TProperties>> OutfitProperties;  // 0x719d94
+extern std::unique_ptr<array<TProperties>> ObjectProperties;  // 0x719d98, from 100
+extern uint32 DatSignature;                                   // 0x719d9c, sent at login and when patching
+extern TObject NoObject;                                      // 0x719da0, never written
 
 // Object types. Type CREATURE has only UNPASS.
 bool GetObjectFlag(int Type, int Flag);

@@ -20,14 +20,20 @@
 #include "Container.h"
 #include "common.h"
 #include <cstddef>
+#include <memory>
+
+// The tables as std::unique_ptr (issue #58): each a pointer, as the original's.
+static_assert(sizeof(std::unique_ptr<array<TProperties>>) == sizeof(array<TProperties> *)
+		&& alignof(std::unique_ptr<array<TProperties>>) == alignof(array<TProperties> *),
+	"std::unique_ptr<array<TProperties>> is a pointer");
 
 // Data, in .bss order.
-array<TProperties> *MissileProperties; // 0x719d8c
-array<TProperties> *EffectProperties;  // 0x719d90
-array<TProperties> *OutfitProperties;  // 0x719d94
-array<TProperties> *ObjectProperties;  // 0x719d98
-uint32 DatSignature;                   // 0x719d9c
-TObject NoObject;                      // 0x719da0, owner inferred from the address
+std::unique_ptr<array<TProperties>> MissileProperties; // 0x719d8c
+std::unique_ptr<array<TProperties>> EffectProperties;  // 0x719d90
+std::unique_ptr<array<TProperties>> OutfitProperties;  // 0x719d94
+std::unique_ptr<array<TProperties>> ObjectProperties;  // 0x719d98
+uint32 DatSignature;                                   // 0x719d9c
+TObject NoObject;                                      // 0x719da0, owner inferred from the address
 
 namespace {
 
@@ -600,25 +606,25 @@ void ReleaseObjects()
 	if (ObjectProperties != nullptr) {
 		for (int i = ObjectProperties->low(); i <= ObjectProperties->high(); i++)
 			delete[] (*ObjectProperties)(i).Sprites;
-		delete ObjectProperties;
+		ObjectProperties.reset();
 		ObjectProperties = nullptr;
 	}
 	if (OutfitProperties != nullptr) {
 		for (int i = OutfitProperties->low(); i <= OutfitProperties->high(); i++)
 			delete[] (*OutfitProperties)(i).Sprites;
-		delete OutfitProperties;
+		OutfitProperties.reset();
 		OutfitProperties = nullptr;
 	}
 	if (EffectProperties != nullptr) {
 		for (int i = EffectProperties->low(); i <= EffectProperties->high(); i++)
 			delete[] (*EffectProperties)(i).Sprites;
-		delete EffectProperties;
+		EffectProperties.reset();
 		EffectProperties = nullptr;
 	}
 	if (MissileProperties != nullptr) {
 		for (int i = MissileProperties->low(); i <= MissileProperties->high(); i++)
 			delete[] (*MissileProperties)(i).Sprites;
-		delete MissileProperties;
+		MissileProperties.reset();
 		MissileProperties = nullptr;
 	}
 	TEND(888)
@@ -716,10 +722,10 @@ void LoadObjects(const char *FileName)
 	const int Outfits = File.readWord();
 	const int Effects = File.readWord();
 	const int Missiles = File.readWord();
-	ObjectProperties = new array<TProperties>(100, Objects);
-	OutfitProperties = new array<TProperties>(1, Outfits);
-	EffectProperties = new array<TProperties>(1, Effects);
-	MissileProperties = new array<TProperties>(1, Missiles);
+	ObjectProperties.reset(new array<TProperties>(100, Objects));
+	OutfitProperties.reset(new array<TProperties>(1, Outfits));
+	EffectProperties.reset(new array<TProperties>(1, Effects));
+	MissileProperties.reset(new array<TProperties>(1, Missiles));
 	for (int i = 100; i <= Objects; i++)
 		LoadProperties(&File, &(*ObjectProperties)(i));
 	for (int i = 1; i <= Outfits; i++)
@@ -739,10 +745,11 @@ void LoadObjects(const char *FileName)
 void InitObjects()
 {
 	TBEGIN
-	ObjectProperties = nullptr;
-	OutfitProperties = nullptr;
-	EffectProperties = nullptr;
-	MissileProperties = nullptr;
+	// Cleared, not freed, as the original does (issue #58: release, not reset).
+	static_cast<void>(ObjectProperties.release());  // NOLINT(bugprone-unused-return-value): the leak is the original's
+	static_cast<void>(OutfitProperties.release());  // NOLINT(bugprone-unused-return-value): the leak is the original's
+	static_cast<void>(EffectProperties.release());  // NOLINT(bugprone-unused-return-value): the leak is the original's
+	static_cast<void>(MissileProperties.release()); // NOLINT(bugprone-unused-return-value): the leak is the original's
 	try {
 		LoadObjects("Tibia.dat");
 	} catch (TMyException &) {

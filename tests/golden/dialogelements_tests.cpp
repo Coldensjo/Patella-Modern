@@ -847,7 +847,7 @@ static void Dump(std::string &Out, int s, TComponent *C, int Depth)
 			B->WindowArea.x, B->WindowArea.y, B->WindowArea.width, B->WindowArea.height, B->Border);
 	} else if (K == "Label") {
 		TLabel *L = (TLabel *)C;
-		Add(Out, " full %s lines %d short %d", Str(L->FullText).c_str(), L->Lines, L->Shortened);
+		Add(Out, " full %s lines %d short %d", Str(L->FullText.get()).c_str(), L->Lines, L->Shortened);
 		for (int i = 0; i < L->Lines; i++)
 			Add(Out, " [%d]%s", (int)(L->Line[i] - L->Text), Str(L->Line[i]).c_str());
 		DumpFont(Out, L->Font);
@@ -856,7 +856,7 @@ static void Dump(std::string &Out, int s, TComponent *C, int Depth)
 		Add(Out, " text %s auto %d,%d", Str(F->Text).c_str(), F->AutoWidth, F->AutoHeight);
 	} else if (K == "Link") {
 		TLink *L = (TLink *)C;
-		Add(Out, " dest %s url %d button %s label %s", Str(L->Destination).c_str(), L->OpenURL == FakeOpenURL ? 1 : 0,
+		Add(Out, " dest %s url %d button %s label %s", Str(L->Destination.get()).c_str(), L->OpenURL == FakeOpenURL ? 1 : 0,
 			Name(s, L->Button).c_str(), Name(s, L->Label).c_str());
 	} else if (K == "OutfitIcon") {
 		TOutfitIcon *O = (TOutfitIcon *)C;

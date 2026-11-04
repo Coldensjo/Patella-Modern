@@ -21,6 +21,12 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
+
+// Characters owns its array as a std::unique_ptr<TCharacter[]> (issue #58): a pointer, as the original's.
+static_assert(sizeof(std::unique_ptr<TCharacter[]>) == sizeof(TCharacter *)
+		&& alignof(std::unique_ptr<TCharacter[]>) == alignof(TCharacter *),
+	"std::unique_ptr<TCharacter[]> is a pointer");
 
 namespace {
 
@@ -38,7 +44,7 @@ int Rights[RIGHT_ANY];                      // 0x71c478
 bool Gamemaster;                            // 0x71c540, sent in the game login packet
 int PremiumDays;                            // 0x71c544
 int ActiveCharacter;                        // 0x71c548
-TCharacter *Characters;                     // 0x71c54c
+std::unique_ptr<TCharacter[]> Characters;   // 0x71c54c (issue #58)
 int AccountCharacters;                      // 0x71c550, name from an assertion
 char AccountPassword[30];                   // 0x71c554
 char AccountNumberString[12];               // 0x71c574
@@ -356,10 +362,10 @@ void SetAccountCharacters(int Number)
 {
 	AccountCharacters = Number;
 	if (Characters != nullptr)
-		delete[] Characters;
+		Characters.reset();
 	Characters = nullptr;
 	if (Number > 0)
-		Characters = new TCharacter[Number];
+		Characters.reset(new TCharacter[Number]);
 }
 
 // 0x4e7290
@@ -639,7 +645,7 @@ void ExitStatus()
 {
 	ClearErrorReports();
 	if (Characters != nullptr)
-		delete[] Characters;
+		Characters.reset();
 	Characters = nullptr;
 	if (TaintedClipboardText != nullptr)
 		delete[] TaintedClipboardText;

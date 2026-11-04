@@ -30,6 +30,7 @@
 #include "Talk.h"
 #include "graphics.h"
 #include <cstddef>
+#include <memory>
 
 class TEditLine;         // DialogElements.h
 class TScrollBar;        // DialogElements.h
@@ -94,7 +95,7 @@ public:
 	~TTextWindow() override
 	{
 		if (SelectedText != nullptr)
-			delete[] SelectedText;
+			SelectedText.reset();
 	}
 	void Draw(int Surface, int x, int y) override;                // +0x44, 0x420550, lines 84-119
 	void Arrange() override;                                      // +0x48, 0x420b80, line 148
@@ -138,18 +139,18 @@ public:
 			&& (SelectionStartLine != SelectionEndLine || SelectionStartOffset != SelectionEndOffset);
 	}
 
-	TTalkBuffer *TextBuffer;   // +0x24
-	vector<TLineFormat> Lines; // +0x28 (entry +0x68)
-	int CurrentLineNumber;     // +0x6c
-	int InvisibleLines;        // +0x70, lines above the window when the last one is at the bottom
-	int LastLineNumber;        // +0x74
-	int SelectionStartLine;    // +0x78
-	int SelectionStartOffset;  // +0x7c
-	int SelectionEndLine;      // +0x80
-	int SelectionEndOffset;    // +0x84
-	bool Selecting;            // +0x88, the left button is down
-	char *SelectedText;        // +0x8c, GetSelectedText's result
-	bool AtEnd;                // +0x90, the last line is shown
+	TTalkBuffer *TextBuffer;              // +0x24
+	vector<TLineFormat> Lines;            // +0x28 (entry +0x68)
+	int CurrentLineNumber;                // +0x6c
+	int InvisibleLines;                   // +0x70, lines above the window when the last one is at the bottom
+	int LastLineNumber;                   // +0x74
+	int SelectionStartLine;               // +0x78
+	int SelectionStartOffset;             // +0x7c
+	int SelectionEndLine;                 // +0x80
+	int SelectionEndOffset;               // +0x84
+	bool Selecting;                       // +0x88, the left button is down
+	std::unique_ptr<char[]> SelectedText; // +0x8c, GetSelectedText's result (issue #58)
+	bool AtEnd;                           // +0x90, the last line is shown
 };
 
 // The view of the current channel: the text window with a scroll bar on its
@@ -194,22 +195,22 @@ public:
 		TElement::ReleaseCapture(Component);
 	}
 	void SetActive(bool _Active); // 0x41afe0, line 880
-	const char *getCaption() { return Shortened ? FullCaption : Caption; }
+	const char *getCaption() { return Shortened ? FullCaption.get() : Caption.get(); }
 	TTalkBuffer *getTextBuffer() const { return TextBuffer; }
 
-	TTalkBuffer *TextBuffer; // +0x24
-	int LineCount;           // +0x28, the buffer's lines when the tab last looked
-	char *Caption;           // +0x2c
-	char *FullCaption;       // +0x30
-	int Dragging;            // +0x34
-	int DragX;               // +0x38
-	int DragY;               // +0x3c, set and never read
-	int DragRight;           // +0x40, set and never read
-	bool Active;             // +0x44
-	bool Unread;             // +0x45
-	int BlinkEnd;            // +0x48, action number; 0 = not blinking
-	TCallback Callback;      // +0x4c, sent when the tab is pressed
-	bool Shortened;          // +0x54
+	TTalkBuffer *TextBuffer;             // +0x24
+	int LineCount;                       // +0x28, the buffer's lines when the tab last looked
+	std::unique_ptr<char[]> Caption;     // +0x2c (issue #58)
+	std::unique_ptr<char[]> FullCaption; // +0x30
+	int Dragging;                        // +0x34
+	int DragX;                           // +0x38
+	int DragY;                           // +0x3c, set and never read
+	int DragRight;                       // +0x40, set and never read
+	bool Active;                         // +0x44
+	bool Unread;                         // +0x45
+	int BlinkEnd;                        // +0x48, action number; 0 = not blinking
+	TCallback Callback;                  // +0x4c, sent when the tab is pressed
+	bool Shortened;                      // +0x54
 };
 
 // The tab bar: its own tabs and the two hidden windows with the tabs that do

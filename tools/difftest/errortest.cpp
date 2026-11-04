@@ -875,7 +875,8 @@ static void TestWrapping(const char *ExePath)
 		{"GetMissileLightColor", 0x4d5de0, GetMissileLightColor, 3}, {"GetMissileWidth", 0x4d5f80, GetMissileWidth, 3},
 		{"GetMissileHeight", 0x4d6120, GetMissileHeight, 3}, {"GetMissileLayers", 0x4d62c0, GetMissileLayers, 3},
 	};
-	array<TProperties> *Tables[4] = {ObjectProperties, OutfitProperties, EffectProperties, MissileProperties};
+	array<TProperties> *Tables[4] = {ObjectProperties.get(), OutfitProperties.get(), EffectProperties.get(), // std::unique_ptr (issue #58)
+		MissileProperties.get()};
 	for (int t = 0; t < 400; t++) {
 		auto &G = Getters[ErRandom() % (sizeof(Getters) / sizeof(Getters[0]))];
 		array<TProperties> *Table = Tables[G.Kind];

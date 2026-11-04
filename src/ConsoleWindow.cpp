@@ -40,9 +40,20 @@
 #include "common.h"
 #include "types/FixedString.h"
 #include <sstream>
+#include <cstddef>
 #include <cstring>
 #include <ctime>
 #include <cstdio>
+#include <memory>
+
+#if PATELLA_ORIGINAL_LAYOUT
+// The original's layout, with the owning buffers as std::unique_ptr<char[]> (issue #58): a pointer.
+static_assert(sizeof(std::unique_ptr<char[]>) == sizeof(char *) && alignof(std::unique_ptr<char[]>) == alignof(char *),
+	"std::unique_ptr<char[]> is a pointer");
+static_assert(sizeof(TTextWindow) == 0x94 && offsetof(TTextWindow, SelectedText) == 0x8c, "TTextWindow's layout");
+static_assert(sizeof(TTab) == 0x58 && offsetof(TTab, Caption) == 0x2c && offsetof(TTab, FullCaption) == 0x30,
+	"TTab's layout");
+#endif
 
 namespace {
 
@@ -508,7 +519,7 @@ const char *TTextWindow::GetSelectedText()
 	TBEGIN
 	if (HasSelection()) {
 		if (SelectedText != nullptr)
-			delete[] SelectedText;
+			SelectedText.reset();
 		SelectedText = nullptr;
 		int StartLine, StartOffset, EndLine, EndOffset;
 		if (GetSelectionStart(&StartLine, &StartOffset) && GetSelectionEnd(&EndLine, &EndOffset)) {
@@ -519,33 +530,33 @@ const char *TTextWindow::GetSelectedText()
 					Size += 1 + Format->LineLength;
 			}
 			if (Size != 1) {
-				SelectedText = new char[Size];
+				SelectedText.reset(new char[Size]);
 				SelectedText[0] = 0;
-				TStringBuffer Selected(SelectedText, static_cast<std::size_t>(Size));
+				TStringBuffer Selected(SelectedText.get(), static_cast<std::size_t>(Size));
 				if (StartLine == EndLine) {
 					const TLineFormat *Format = GetLineFormat(StartLine);
 					if (Format == nullptr || Format->LineText != nullptr)
-						CopyString(SelectedText, Format->LineText + StartOffset, EndOffset - StartOffset + 1);
-					return SelectedText;
+						CopyString(SelectedText.get(), Format->LineText + StartOffset, EndOffset - StartOffset + 1);
+					return SelectedText.get();
 				}
 				for (int i = StartLine; i <= EndLine; i++) {
 					const TLineFormat *Format = GetLineFormat(i);
 					if (Format == nullptr || Format->LineText == nullptr)
 						continue;
 					if (i == EndLine) {
-						CopyString(SelectedText + strlen(SelectedText), Format->LineText, EndOffset + 1);
+						CopyString(SelectedText.get() + strlen(SelectedText.get()), Format->LineText, EndOffset + 1);
 					} else if (i == StartLine) {
-						CopyString(SelectedText + strlen(SelectedText), Format->LineText + StartOffset,
+						CopyString(SelectedText.get() + strlen(SelectedText.get()), Format->LineText + StartOffset,
 							Format->LineLength - StartOffset + 1);
 						if (Format->LineEnd)
 							Selected.Append("\n");
 					} else {
-						CopyString(SelectedText + strlen(SelectedText), Format->LineText, Format->LineLength + 1);
+						CopyString(SelectedText.get() + strlen(SelectedText.get()), Format->LineText, Format->LineLength + 1);
 						if (Format->LineEnd)
 							Selected.Append("\n");
 					}
 				}
-				return SelectedText;
+				return SelectedText.get();
 			}
 		}
 	}
@@ -740,15 +751,15 @@ TTab::TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback _Callback)
 	DragRight = 0;
 	Unread = false;
 	const std::size_t Size = strlen(_Caption) + 1;
-	Caption = new char[Size];
-	FullCaption = new char[Size];
-	TrimString(Caption, _Caption);
-	TStringBuffer(FullCaption, Size).Assign(Caption);
+	Caption.reset(new char[Size]);
+	FullCaption.reset(new char[Size]);
+	TrimString(Caption.get(), _Caption);
+	TStringBuffer(FullCaption.get(), Size).Assign(Caption.get());
 	Callback = _Callback;
 	Shortened = false;
-	const int Length = GetFittingTextLength(SkinProperties.StyleAA4.Data14.FontNumber, Caption,
+	const int Length = GetFittingTextLength(SkinProperties.StyleAA4.Data14.FontNumber, Caption.get(),
 		SkinProperties.StyleAA4.Data00 - SkinProperties.StyleAA4.Data10 * 2);
-	if (ShortenString(Caption, Length))
+	if (ShortenString(Caption.get(), Length))
 		Shortened = true;
 	SetSize(SkinProperties.StyleAA4.Data00, SkinProperties.StyleAA4.Data04);
 	TEND(831)
@@ -765,9 +776,9 @@ PATELLA_MSVC_WARNING(disable : 4297)
 TTab::~TTab()
 {
 	TBEGIN
-	delete[] Caption;
+	Caption.reset();
 	if (FullCaption != nullptr)
-		delete[] FullCaption;
+		FullCaption.reset();
 	if (TextBuffer->IsRuleViolation() && TextBuffer->GetReceiveTalkMode() == TALK_GAMEMASTER_ANSWER) {
 		SendCancelRuleViolation();
 	} else if (TextBuffer->IsRuleViolation() && TextBuffer->GetReceiveTalkMode() == TALK_PLAYER_ANSWER
@@ -861,7 +872,7 @@ void TTab::MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	TBEGIN
 	if (Shortened)
-		SetMouseOverText(FullCaption);
+		SetMouseOverText(FullCaption.get());
 	TEND(956)
 }
 
@@ -901,7 +912,7 @@ void TTab::Draw(int Surface, int x, int y)
 	else
 		Font = &SkinProperties.StyleAA4.Data28;
 	PrintFormattedText(Surface, SkinProperties.StyleAA4.Data08.x + x, SkinProperties.StyleAA4.Data08.y + y, *Font,
-		Caption);
+		Caption.get());
 	if (BlinkEnd != 0 && BlinkEnd < GetActionNumber())
 		BlinkEnd = 0;
 	TEND1(996, Surface)
