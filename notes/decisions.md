@@ -8139,3 +8139,67 @@ helpers.
   Dialogs (reverted).
 - **Size** (form). Dialogs.bin is 52 MB; the corpus is 660 MB, local only, as before.
 - **Commits** (form). The retired parts, then Dialogs with the runner's reporting, then these notes.
+
+## The golden corpus: MapWindow, MainWindow and the retired engine tests (Patella-Modern issue #27, second part)
+
+Settled by Claude Opus 5.5, November 4, 2026. tests/golden/ (mapwindow_tests.cpp and mainwindow_tests.cpp moved from
+tools/difftest, elementfakes.{h,cpp}, golden_test.h's GOLDEN_THIS_NAMED, runner.cpp's RetiredTests),
+tests/golden/CMakeLists.txt, cmake/OracleX86.cmake. notes/reconstruction.md, "Checking", describes the use; the
+sections on issues #24, #26, #27, #54, #30 and #28 above the format and the earlier helpers.
+
+- **Ported** (high). MapWindow 127,529 (12,359 in its error round: 1,776 exceptions compared, 1,394 calls that threw)
+  and MainWindow 57,314 (43,150 in its error round: 9,974 compared, 229 threw), each the oracle's count with 0
+  failures in Release and Debug; nothing retired. The runner replays 15,310,916 of difftest's checks and sysinctest's
+  67. Every CHECK, random number and operation is the old one; both summary lines ("each of the 24 operations at least
+  236 times; entries: ...", "at least 219 times") are the oracle's in the runner too. A runner-only change of one
+  fake's log text gave 19 failures in MapWindow and 2,767 in MainWindow (reverted).
+- **TMapWindow by member, no projection** (high; plan 4.3). The old test compared the windows' bytes from +0x14 to
+  HintButton without TWindow's children: TComponent's OffsetX, OffsetY, Width, Height and every member of
+  TMapWindow up to HintButton. None of those is a pointer, and their bytes, padding included, are the same on x86 and
+  x64 (static_asserts on the members' distances); only where they start differs (TComponent's and TWindow's
+  pointers before them). So the corpus holds those members as bytes in the x86 order, by their runs of changed
+  bytes (golden::OutputRuns), ours are read by member, and the comparison and its message (the first differing x86
+  offset, the ints there) are the old ones. The same for TMapFrame's geometry and view, its map view and its drawing
+  list (TDrawing: seven ints). GetCacheField's result is compared as the x86 offset (the tile's place in the cache
+  plus the cache's 0x29d4). The error round's save and restore of the window state copies our members from OffsetX
+  to HintButton, as the old 0x14..0x92d4. Considered: a layout projection as Container's (unneeded: no pointer among
+  the compared members).
+- **MainWindow's fakes** (high). The console and the side-bar windows are this file's classes as large as the real
+  ones (`sizeof(TConsoleWindow) - sizeof(TWindow)` instead of the x86 0x6c - 0x2c; static_asserts); our constructors
+  are redirected through their x64 decorated names; the constructor and member stand-ins are GOLDEN_THISCALL
+  (GOLDEN_THIS_NAMED where they read this). The border, the first text button constructor and the label's font
+  constructor (elementfakes.h) are this file's on both sides; elementfakes.cpp's runner versions (report-only and
+  stopping) are gone, and no fake is "not ported" any more. The dump was text already; it is recorded by its changes
+  (OutputTextChanges), the state of the original's fakes (action and connection state, open dialogs, fullscreen
+  mode) and whether it had a trade window by value. The check inside the original's call of case 23 ("0x4ac090
+  leaves a window") is recorded as not reached, failed or passed and made after the calls on both sides (the count
+  is the same; only its place among the round's checks moved). After the original's call Side is the original's in
+  the runner too, so what our code logs between the calls goes where it went in the oracle. The console's text
+  buffer was printed with %p (eight digits on x86, sixteen on x64): it is printed with %08X, the same text.
+- **The order of Random()** (high; #55). Expressions with two calls were sequenced in the x86 oracle's order, found
+  with a probe built with the oracle's flags (/std:c++17 /O2 /EHa, x86): the arguments of TRGBColor's constructor
+  (MapWindow's colours, MainWindow's skin properties) and of SetWidth right to left, but the sum
+  `(Random() % 2 ? MAPSIZE_X : MAPSIZE_Y) + (int)(Random() % 5)` left operand first. A first attempt with the sum
+  sequenced right first changed the error round (12,361 checks, 1,395 that threw): the oracle's counts caught it;
+  with the probe's order every count, summary and entry line is the old one.
+- **#29's engine tests are retired** (decided by the user, #29 closed "not planned"; plan M6). SurfaceDX (1,368,981),
+  SurfaceDX9 (63,616) and SurfaceGL (55,702) are whole tests retired with the oracle: runner.cpp's RetiredTests
+  names them with the reason "#29"; the runner prints them as retired, counts their checks with the retired ones
+  (1,497,428 with Dialogs' 9,129) and no longer as not ported. Its last line gives replayed, retired and not ported
+  checks: 15,310,983 + 1,497,428 + 1,174,921 = 17,983,332, the oracle's totals.
+- **Errors (#26)** (needs a later issue). In place now: every difftest test before Errors in difftest's order is
+  replayed or retired; MapWindow and MainWindow, which run after it, are ported. What that means for its port: the
+  engine tests will never run in the runner, so Errors cannot rely on what they leave behind; their patches are
+  restored, but its "250 comparisons skipped (functions redirected by earlier tests)" counts the redirects present
+  when it runs. Its port must record that set (or the skipped comparisons) by value in the oracle instead of finding
+  it in the runner (a portable Redirected; the x86 decoding of a jump stays the oracle's), record whatever state of
+  our side the engine tests leave that Errors reads (curEngine, the surface), and run in the runner's table before
+  Network, MainFrm, MapWindow and MainWindow, whose redirects (MapWindow's and MainWindow's for good) come after it
+  in the oracle. Still open: errortest.cpp's SurfaceInitInstance part (its "Statics" checks) compares the x86
+  Surface.cpp's engine selection (CreateSurfaceDX9, curEngine 0 to 2), which the x64 Surface.cpp replaces by the
+  Vulkan engine: as Dialogs' engine buttons, it can only be retired or replayed against code the x64 client does not
+  have, a decision for the user; and its skips are found with ImageRedirected/Redirected, which decode x86 jumps.
+- **Size** (form). MapWindow.bin is 182 MB (its logs: 5.7 million map-object calls), MainWindow.bin 9 MB; the corpus
+  is 843 MB, local only, as before.
+- **Commits** (form). MapWindow, MainWindow, the runner's summary, these notes. The MapWindow commit's tree was built
+  (oracle and x64) and replayed on its own, the MainWindow commit's too.
