@@ -424,7 +424,9 @@ One clang-tidy check (or one hand pattern) per pull request, macro arguments exc
 | The 18 `goto`s: keep the original's cleanup paths, restructure the rest | 18 | by hand |
 | MSVC-only spellings (`_snprintf`, `_stricmp`, `__cdecl`...) behind portable functions | | by hand |
 
-File-scope `static` to anonymous namespaces waits until nothing looks up those names in the PDB (after M2).
+File-scope `static` to anonymous namespaces waits until nothing looks up those names in the PDB (after M2). Done in
+issue #44: the PDB keeps the plain names of the data (client_state.py's lookups are unchanged); three statics stay
+for the images' .bss (notes/decisions.md).
 
 Exit: clang-tidy's `modernize-*` clean outside the error macros; every gate green; difftest counts unchanged.
 

@@ -196,6 +196,13 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #44 (branch issue-44, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
+4/4, 0 warnings) after the file-scope statics into anonymous namespaces (three commits): 16,848,752 + 67 + 1,134,513
+checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and
+PatellaTest.exe built from main (9312a61) and from the branch at the same path: 0 unexpected differences (pecompare;
+`.text` and `.data` identical, every symbol at the same address), `client_state.py --layout` unchanged; macrocheck
+9312a61 issue-44: 2,108 calls, 0 differences.
+
 Patella-Modern issue #43 (branch issue-43, November 4, 2026): `python -I tools/build.py oracle-x86 --fresh` (CTest
 4/4, 0 warnings) after the MSVC-only spellings behind compat/msvc.h (three commits): 16,848,752 + 67 + 1,134,513
 checks and 3,201 vlong checks, 0 failures, as below; the oracle Patella.exe and the windows-x64 Release Patella.exe and

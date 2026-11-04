@@ -59,7 +59,13 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
 - Names: keep every name the binary gives (parameter names from catch blocks, identifiers in
   assertion strings such as `CurrentServer`, `NUMBEROFSERVER`). Invent names only for the rest,
   in the original style: TitleCase free functions, `T`-prefixed classes, TitleCase members.
-- Globals: `static` unless another file uses them, ordered by address, each with its address.
+- Globals: in an anonymous namespace unless another file uses them (issue #44; misc-use-anonymous-namespace in
+  .clang-tidy), ordered by address, each with its address; a run of them between external globals gets a
+  `namespace {` of its own, so the order stays. A file-scope `static` stays only where the namespace moves the
+  images' data (MSVC orders a translation unit's globals by their decorated names): GUI.cpp's Hotkeys, Talk.cpp's
+  TemporaryIgnoreList and IgnoreList and TRSA.h's HeaderExponent, each with a NOLINT or comment saying so; compare
+  the images. The PDB names data in an anonymous namespace by its plain name (client_state.py finds it as before),
+  functions as `` `anonymous namespace'::Name ``.
 - Every file is reconstructed, so every declaration lives in the header of the file that defines
   it (`src/external.h` held the declarations of files not reconstructed yet; it was removed in
   issue #14). A new declaration goes into its owner's header with its address; a header includes
@@ -410,6 +416,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   cppcoreguidelines-pro-type-cstyle-cast (issue #41) offers no fixes: write the named cast by hand, the one the C
   cast meant ("Writing the source"; notes/decisions.md, issue #41). It reports `void *` to `T *` as "unrelated
   types", but that C cast is a static_cast.
+  misc-use-anonymous-namespace (issue #44) offers no fixes and does not look at headers (Text.h's and Status.h's
+  per-object data is in an anonymous namespace by hand, TRSA.h's HeaderExponent stays static).
   cppcoreguidelines-avoid-goto (issue #42) has no fixes either; it accepts a jump out of a loop but not out of a
   switch inside one, so ProcessEvents' kept goto carries a NOLINT with the binary's block ("Writing the source").
 - No new clang-tidy findings (issue #11; plan 4.1): `tools/tidy-baseline.tsv` lists the findings outside the

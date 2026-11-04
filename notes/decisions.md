@@ -7067,3 +7067,77 @@ prepares M8 (the client on Linux); nothing is ported here.
 - **Not done** (medium). tests/ and tools/ keep their own spellings (src/ only, as in #35 to #42). The format strings
   that go through MsvcSnprintf use only `%s`, `%d`, `%c` and `%.02f`, which the UCRT and glibc format alike; the
   test mode's `%lld` and `%llx` are standard.
+
+## File-scope static to anonymous namespaces (Patella-Modern issue #44)
+
+Settled by Claude Opus 5.5, November 4, 2026. The thirteenth change of M3 (plan section 7), one hand pattern: every
+file-scope `static` of src/ (not src/Extern) is in an anonymous namespace, but three, which keep the images' data.
+
+- **What was there** (high). 498 file-scope `static` declarations: 349 in 30 .cpp files (Status.cpp 52,
+  Preferences.cpp 48, Creatures.cpp 39, Map.cpp 36, Network.cpp 22, ...; 39 of them functions, the rest data, among
+  them the ten `TCallback NoCallback` of the window files) and 149 in headers (Text.h's 147 text pointers, Status.h's
+  LinkPattern, TRSA.h's HeaderExponent). The test mode, src/settings and src/vulkan's other files already used
+  anonymous namespaces; SurfaceVulkan.cpp had 9 statics. Static data members and function-local statics are not
+  file-scope statics and stay.
+- **Who looks the names up** (high). Checked before the change:
+  - tools/client_state.py: `ORIGINAL_GLOBALS` (lines 65-99) names 33 globals that `Pdb.global_symbol` (line 576)
+    finds with SymEnumSymbols by exact name; 30 of them were statics (Creatures.cpp's PlayerState ... PlayerID and
+    Creatures, Inventory.cpp's Body, Containers, OwnOffer, CounterOffer, Map.cpp's MapX/Y/Z and Fields, Status.cpp's
+    ConnectionState, Characters, AccountCharacters). compare_traffic.py, compare_files.py (line 494's
+    `mem.var("PlayerID")`), compare_rendering.py, compare_network.py, testmode_check.py and reference_record.py reach
+    them only through client_state.py.
+  - The test mode (src/testmode/ClientView.h, ClientStateWin32.cpp, the state dump) reads them through the View
+    functions at the end of Creatures.cpp, Inventory.cpp, Map.cpp and Status.cpp: C++ names in the same translation
+    unit, no lookup.
+  - tools/patch_client.py finds the server list by its bytes, not by a symbol; reference.py's compare reads the test
+    build's dumps; patcap.c resolves only its own exports.
+  - The difftest: no `extern` declaration and no `/alternatename` names a static (its alternatenames are the
+    constructors of classes); networktest.cpp and mainfrmtest.cpp `#include` Network.cpp and MainFrm.cpp and use
+    their statics by name in the same translation unit, which an anonymous namespace keeps visible. The typed calls
+    into the image use the image's addresses.
+  So nothing needed a static's decorated name, and nothing became an exception for a tool.
+- **The PDB keeps the data's names** (high). Contrary to the expectation in the issue, MSVC (14.51, x86 and x64)
+  writes a variable of an anonymous namespace into the PDB under its plain name (`PlayerState`, `Hotkeys`,
+  `TextPoisoned`, S_LDATA32 as before); only functions get `` `anonymous namespace'::Name ``. client_state.py's
+  lookups therefore find the same symbols, and `client_state.py --layout` prints the same table for the oracle
+  Patella.exe, the x64 Patella.exe and PatellaTest.exe as main's builds (33 globals, 105 fields, 0 problems). No
+  tool changed; a tool that one day looks up a static function by name has to add the prefix.
+- **How** (high). A script (not committed) took each `static` at column 0 to the end of its declaration or function
+  body, removed the keyword and put each run of such items, with the comment lines directly above it, into
+  `namespace {` ... `} // namespace`. A run ends at anything that is not a blank or comment line, so an external
+  global inside a data table (Talk.cpp's DefaultTextBuffer, GUI.cpp's SkinProperties) stays where it is, between
+  two namespace blocks, and every table keeps its order. `static inline` became `inline`. clang-format then
+  realigned the trailing comments. No TASSERT/TERROR/TEND argument contained a changed line.
+- **Three stay static: MSVC orders the globals by their names** (high). As issue #43 found, MSVC emits a translation
+  unit's globals in an order that depends on their decorated names, and the anonymous namespace changes those
+  (`?Name@?A0x<hash>@@...`). With everything converted the images differed in moved data only, the same in the
+  oracle and on x64, found by comparing every symbol's address in the two PDBs (dbghelp, script not committed):
+  - GUI.cpp: Hotkeys came before SkinProperties in .bss (on x64 NumberOfHotkeys moved with it);
+  - Talk.cpp: TemporaryIgnoreList and IgnoreList changed places;
+  - TRSA.h: TRSA.obj's HeaderExponent came before TRSA.cpp's PublicExponent (the image's order, but not the builds').
+  Each was tried apart: Hotkeys static (NumberOfHotkeys and Timers in the namespace), the two lists static
+  (TalkThrottle, BuddyExemptionList and ConsoleFilterList in the namespace) and HeaderExponent static give images
+  identical to main's. Rather than keep whole files static, only these keep the keyword, each with a comment and,
+  in the .cpp files, `NOLINT(misc-use-anonymous-namespace)`. Every other file, Text.h and Status.h included, moved
+  nothing.
+- **The headers** (high). Text.h's table and Status.h's LinkPattern are in an anonymous namespace: internal linkage
+  as before, so every object that includes them still has its own copy, in the same order, as the image has
+  (16 copies of the text table, 17 of LinkPattern). The ODR is as it was: Dialogs.h's inline TReconnectBody::SetTime
+  reads TextTryingToReconnect, a different object in every translation unit, with `static` as with the namespace
+  (below).
+- **clang-tidy** (high). `misc-use-anonymous-namespace` is in .clang-tidy, so a new file-scope static is reported. It
+  offers no fixes and does not look at headers. Visual Studio's clang-tidy on windows-x64's commands (`--all`, the
+  check alone) reports exactly the three kept statics before their NOLINTs; the oracle-only engines (SurfaceDX.cpp,
+  surfaceDX9.cpp, SurfaceGL.cpp) are not in any compile_commands.json and were checked by a scan for `static` at
+  file scope. CI's clang-tidy (22.1.8, the image): 14 findings, 0 new, 0 gone; the baseline is unchanged (its
+  bugprone-throwing-static-initialization entries name PublicExponent and HeaderExponent without their namespace).
+- **Proof** (high). The oracle Patella.exe and the windows-x64 Release Patella.exe and PatellaTest.exe, built from
+  main 9312a61 and from the branch at the same path, differ only in the link time stamps and the PDB record
+  (pecompare: 0 unexpected differences, all three; every symbol at the same address). macrocheck 9312a61 issue-44:
+  the 2,108 calls unchanged. The difftest counts are unchanged.
+- **Not done** (medium). tests/ and tools/ keep their statics (src/ only, as in #35 to #43). The inline
+  TReconnectBody::SetTime in Dialogs.h, which reads Text.h's per-object TextTryingToReconnect, refers to a different
+  object in every translation unit (an ODR violation since the reconstruction, harmless: all copies hold the same
+  pointer); moving it out of the header is not this issue's. clang-tidy's
+  misc-use-internal-linkage (not enabled) reports Network.cpp's TSocket class and Renderer.cpp's ListGpus and
+  BestGpu, which have no `static` to move.
