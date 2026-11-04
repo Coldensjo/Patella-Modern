@@ -1877,7 +1877,7 @@ static TDialog *F_CreateInfoDialog(void (*OpenURL)(const char *)) { DIALOG_RESUL
 static TDialog *F_CreateMoveObjectsDialog() { DIALOG_RESULT(Fmt("CreateMoveObjectsDialog()")); }
 static TDialog *F_CreateLoginDialog(void (*OpenURL)(const char *)) { DIALOG_RESULT(Fmt("CreateLoginDialog(%s)", Fn((void *)OpenURL).c_str())); }
 static TDialog *F_CreateCharacterListDialog(int Timeout) { DIALOG_RESULT(Fmt("CreateCharacterListDialog(%d)", Timeout)); }
-static TDialog *F_CreateTextDialog(int *ObjectData, const char *Author, const char *Text)
+static TDialog *F_CreateTextDialog(const int *ObjectData, const char *Author, const char *Text)
 {
 	DIALOG_RESULT(Fmt("CreateTextDialog(%d,%d,%d,%s,%s)", ObjectData[0], ObjectData[1], ObjectData[2], Quote(Author).c_str(),
 		Quote(Text).c_str()));

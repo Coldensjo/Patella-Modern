@@ -52,7 +52,7 @@ TDialog *CreateInfoDialog(void (*OpenURL)(const char *URL));                    
 TDialog *CreateMoveObjectsDialog();                                                                     // 0x480cd0, line 200
 TDialog *CreateLoginDialog(void (*OpenURL)(const char *URL));                                           // 0x480f40, line 214
 TDialog *CreateCharacterListDialog(int Timeout);                                                        // 0x481160, line 230
-TDialog *CreateTextDialog(int *ObjectData, const char *Author, const char *Text);                       // 0x481370, line 280
+TDialog *CreateTextDialog(const int *ObjectData, const char *Author, const char *Text);                 // 0x481370, line 280
 TDialog *CreateEditListDialog(int *HouseData, const char *Text);                                        // 0x4817c0, line 294
 TDialog *CreateOutfitDialog(int *Data);                                                                 // 0x4819f0, line 307
 TDialog *CreateBugReportDialog();                                                                       // 0x481bf0, line 321
@@ -298,7 +298,7 @@ class TOutfitDialog : public TWindow {
 public:
 	TOutfitDialog(const TOutfitDialog &) = delete;
 	TOutfitDialog &operator=(const TOutfitDialog &) = delete;
-	TOutfitDialog(int *Data); // 0x47cf70, lines 1488-1542
+	TOutfitDialog(const int *Data); // 0x47cf70, lines 1488-1542
 	// Inline (out-of-line copy 0x46bfc0, deleting destructor 0x46c0b0).
 	~TOutfitDialog() override
 	{
@@ -429,7 +429,7 @@ class TNewChannelDialog : public TWindow {
 public:
 	TNewChannelDialog(const TNewChannelDialog &) = delete;
 	TNewChannelDialog &operator=(const TNewChannelDialog &) = delete;
-	TNewChannelDialog(int _NumberOfChannels, int *_ChannelIDs, const char (*ChannelNames)[30]); // 0x4733a0, lines 2265-2297
+	TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30]); // 0x4733a0, lines 2265-2297
 	// Inline (out-of-line copy 0x46bb20, deleting destructor 0x46be80).
 	~TNewChannelDialog() override { delete[] ChannelIDs; }
 	void KeyPress(int Key) override;      // +0x6c, 0x473980, line 2321

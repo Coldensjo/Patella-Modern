@@ -211,8 +211,8 @@ public:
 	bool RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return false; }  // +0x5c, 0x457700
 	// Inline (out-of-line copy 0x4526b0, called by Dialogs.cpp).
 	void SetOutfit(int _Outfit) { Outfit = _Outfit; }
-	void SetColor(int Mask, int Color); // 0x457440, line 934
-	void SetColors(int *ColorData);     // 0x4575a0, line 942
+	void SetColor(int Mask, int Color);   // 0x457440, line 934
+	void SetColors(const int *ColorData); // 0x4575a0, line 942
 
 	int Outfit;          // +0x24
 	int Colors[4];       // +0x28, head, body, legs, feet

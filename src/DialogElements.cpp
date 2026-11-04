@@ -778,7 +778,7 @@ void TOutfitIcon::SetColor(int Mask, int Color)
 }
 
 // 0x4575a0, line 942. No try block.
-void TOutfitIcon::SetColors(int *ColorData)
+void TOutfitIcon::SetColors(const int *ColorData)
 {
 	TASSERT(942, ColorData!=NULL);
 	Colors[0] = ColorData[0];
