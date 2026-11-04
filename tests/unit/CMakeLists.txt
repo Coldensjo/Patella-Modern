@@ -5,6 +5,9 @@
 #   contract_assert and std::inplace_vector).
 # - tests_unit_cxx26_standin: the same sources with PATELLA_CXX26_STANDIN, so on GCC 16 the
 #   stand-ins run the tests the real features pass.
+# - Both: TFixedString<N> (src/types/FixedString.h, issue #57), tests_unit with std::format_to_n and
+#   tests_unit_cxx26_standin with PATELLA_FORMAT_STANDIN, the C++17 stand-in of src/compat/format.h that the
+#   oracle-x86 build formats with; both compare the stand-in with std::format_to_n.
 #
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
 #   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31) and
@@ -52,7 +55,8 @@ function(patella_unit_tests target)
 	add_executable(${target}
 		main.cpp
 		cxx26_contracts_test.cpp
-		cxx26_static_vector_test.cpp)
+		cxx26_static_vector_test.cpp
+		fixed_string_test.cpp)
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
 	target_link_libraries(${target} PRIVATE doctest::doctest)
 	patella_target_language(${target})
@@ -86,7 +90,8 @@ if(NOT PATELLA_EXPECT_CXX26 STREQUAL "")
 endif()
 
 patella_unit_tests(tests_unit_cxx26_standin)
-target_compile_definitions(tests_unit_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN PATELLA_EXPECT_CXX26=0)
+target_compile_definitions(tests_unit_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN PATELLA_EXPECT_CXX26=0
+	PATELLA_FORMAT_STANDIN)
 
 add_executable(tests_core
 	core_main.cpp

@@ -6,6 +6,7 @@
 #include <doctest/doctest.h>
 
 #include "compat/cxx26.h"
+#include "compat/format.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -24,8 +25,9 @@ int main(int argc, char **argv)
 	if (argc == 3 && std::string_view(argv[1]) == "--contract-violation")
 		return RunContractViolation(argv[2], argc - 3);
 
-	std::print("cxx26.h: contracts {}, inplace_vector {}\n", PATELLA_HAS_CONTRACTS ? "real" : "stand-in",
-		PATELLA_HAS_INPLACE_VECTOR ? "real" : "stand-in");
+	std::print("cxx26.h: contracts {}, inplace_vector {}; format.h: format_to_n {}\n",
+		PATELLA_HAS_CONTRACTS ? "real" : "stand-in", PATELLA_HAS_INPLACE_VECTOR ? "real" : "stand-in",
+		PATELLA_HAS_FORMAT ? "real" : "stand-in");
 	std::fflush(stdout);
 	doctest::Context Context(argc, argv);
 	return Context.run();
