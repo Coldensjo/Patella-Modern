@@ -513,6 +513,14 @@ class Pdb:
 			fixed = re.fullmatch(r"TFixedString<(\d+)>", name or "")
 			if fixed and self.length(type_id) == int(fixed.group(1)):
 				return "char[%s]" % fixed.group(1)
+			# std::array<T, N> (issue #60) is exactly T[N]: its only data member is the array _Elems (MSVC's
+			# library); read as that array
+			if (name or "").startswith("std::array<"):
+				members = self.members(type_id)
+				if len(members) == 1 and "_Elems" in members:
+					offset, element = members["_Elems"]
+					if offset == 0 and self.length(element) == self.length(type_id):
+						return self.kind(element)
 			# std::unique_ptr<T> with the default deleter (issue #58) is exactly a T *: an owning member is read as
 			# the pointer it holds (kind_matches checks its length against the image's pointer size)
 			if re.fullmatch(r"std::unique_ptr<.*,std::default_delete<.*> >", name or ""):
