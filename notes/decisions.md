@@ -8259,6 +8259,15 @@ ctime's text itself, in MSVC 7.1's form, and src/ calls neither `ctime` nor `_ct
   IST-5:30 and the machine's own zone, with `_ctime64` in the last 3 h 14 min. Windows (MSVC): 7 cases, 95
   assertions in each program; Linux (GCC 16, Clang 22 with ASan and UBSan): 6 cases, 86 (no `_ctime32`).
   core_msvc_test.cpp lost its 8 `_ctime32` assertions with `MsvcCtime32`: tests_core 33/332 (33/335 on Linux).
+- **The UCRT keeps the system's daylight bias under TZ** (high; found by the hosted CI). The first hosted run failed
+  6 PST8PDT checks and the chrono comparison on Windows: GitHub's runners are in UTC, and the UCRT's TZ parser
+  (ucrt/time/tzset.cpp, tzset_from_environment) sets `_daylight` and `_timezone` but keeps `_dstbias` from the last
+  reading of the system's zone, 0 there, so "PST8PDT" had a daylight saving time of 0 minutes (here, in a zone with
+  daylight saving time, -3600). The `_ctime32` comparison passed (both sides read the same state): it is the CRT's
+  state, which the client gets as before, not FormatCRT71Time's. The test's TTimeZone sets the one hour of a TZ value
+  through `__dstbias()` (the UCRT's `_set_dstbias` is not public) and restores the bias after, and the fixed-zone case
+  sets the bias to 0 first, as on the runner (without the fix it fails the same 6 checks here). The client does not
+  set TZ; the reference compare sets TZ=UTC0, which has no daylight saving time.
 - **Forced test change** (high). tools/difftest/errortest.cpp gave the image's ctime (0x5121d1) and our `_ctime64`
   one fixed UTC text, "Thu Jun 08 12:34:56 2006". Ours no longer calls `_ctime64`; it formats the faked clock
   (1149770096) in local time. The image's ctime now returns the UCRT's `_ctime32` of its time with the day made

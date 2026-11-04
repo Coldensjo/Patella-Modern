@@ -44,7 +44,21 @@
 
 namespace {
 
+#if defined(_WIN32)
+// The CRT's _dstbias (the UCRT's _set_dstbias is not public; __dstbias() is, deprecated as a global).
+void SetDaylightBias(long Bias)
+{
+	PATELLA_MSVC_WARNING(suppress : 4996)
+	*__dstbias() = Bias;
+}
+#endif
+
 // TZ set to Zone (or removed: nullptr) and the C library told, until the end of the scope.
+//
+// The UCRT's TZ parser (ucrt/time/tzset.cpp, tzset_from_environment) sets _daylight and _timezone but keeps
+// _dstbias from the last reading of the system's zone: on a machine whose zone has no daylight saving time (GitHub's
+// runners: UTC) "PST8PDT" then gets a daylight saving time of 0 minutes. That is the CRT's state, which the client
+// gets as before, not FormatCRT71Time's; so the zone sets the one hour of a TZ value and restores the bias after.
 class TTimeZone {
 public:
 	explicit TTimeZone(const char *Zone)
@@ -55,9 +69,18 @@ public:
 			Saved = Old;
 			std::free(Old); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): _dupenv_s's contract
 		}
+#if defined(_WIN32)
+		_get_dstbias(&SavedBias);
+#endif
 		Set(Zone);
 	}
-	~TTimeZone() { Set(Saved ? Saved->c_str() : nullptr); }
+	~TTimeZone()
+	{
+		Set(Saved ? Saved->c_str() : nullptr);
+#if defined(_WIN32)
+		SetDaylightBias(SavedBias);
+#endif
+	}
 	TTimeZone(const TTimeZone &) = delete;
 	TTimeZone &operator=(const TTimeZone &) = delete;
 	TTimeZone(TTimeZone &&) = delete;
@@ -65,12 +88,17 @@ public:
 
 private:
 	std::optional<std::string> Saved;
+#if defined(_WIN32)
+	long SavedBias = 0;
+#endif
 
 	static void Set(const char *Zone)
 	{
 		MsvcPutenv("TZ", Zone != nullptr ? Zone : ""); // an empty value removes it
 #if defined(_WIN32)
 		_tzset();
+		if (Zone != nullptr)
+			SetDaylightBias(-3600); // a TZ value's daylight saving time: one hour (UCRT: _dstbias's default)
 #else
 		tzset();
 #endif
@@ -262,13 +290,24 @@ TEST_CASE("crt71: no text where MSVC 7.1's ctime gave none")
 
 TEST_CASE("crt71: daylight saving time in a fixed zone")
 {
-	const TTimeZone Zone(PacificZone);
-	for (const TExpected &Each : PacificTexts) {
-		CAPTURE(Each.Time);
-		CHECK(Format(Each.Time) == Each.Text);
+#if defined(_WIN32)
+	// as on a machine whose own zone has no daylight saving time (TTimeZone's comment)
+	long MachineBias = 0;
+	_get_dstbias(&MachineBias);
+	SetDaylightBias(0);
+#endif
+	{
+		const TTimeZone Zone(PacificZone);
+		for (const TExpected &Each : PacificTexts) {
+			CAPTURE(Each.Time);
+			CHECK(Format(Each.Time) == Each.Text);
+		}
+		// the first second of 1970 is still 1969 eight hours behind UTC
+		CHECK(Format(0) == "Wed Dec 31 16:00:00 1969\n");
 	}
-	// the first second of 1970 is still 1969 eight hours behind UTC
-	CHECK(Format(0) == "Wed Dec 31 16:00:00 1969\n");
+#if defined(_WIN32)
+	SetDaylightBias(MachineBias);
+#endif
 }
 
 #if PATELLA_TEST_CHRONO_FORMAT
