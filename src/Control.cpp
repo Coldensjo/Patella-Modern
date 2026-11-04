@@ -299,7 +299,7 @@ void Redraw(bool Force)
 			break;
 		}
 		const double FPS = GetSurface()->GetFPS();
-		char Text[64];
+		TFixedString<64> Text;
 		// Stays _snprintf: printf's %f and std::format's differ for NaN ("-nan(ind)"), and a rate with more
 		// than 10 digits fills the 20 characters (no NUL), which the type would cut (issue #64).
 		MsvcSnprintf(Text, 20, "%s %.02f fps", Engine.Chars, FPS);
@@ -1015,7 +1015,7 @@ void ProcessEvents()
 		case 0x12: {
 			// ReceiveChannelList's int[]: the count, then the channel IDs (Patella-Modern issue #30).
 			int *Data = reinterpret_cast<int *>(Param1);
-			ModalWindow = CreateNewChannelDialog(Data[0], &Data[1], reinterpret_cast<const char (*)[30]>(Param2));
+			ModalWindow = CreateNewChannelDialog(Data[0], &Data[1], reinterpret_cast<const char (*)[30]>(Param2)); // NOLINT(modernize-avoid-c-arrays): CreateNewChannelDialog's parameter (Dialogs.h)
 			delete[] Data;
 			if (Param2 != 0)
 				delete[] reinterpret_cast<char *>(Param2);

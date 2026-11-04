@@ -768,12 +768,12 @@ TVideoCacheItem *GetVideoFontChar(int FontNumber, int TileX, int TileY, TRGBColo
 		Position = LeastRecentVideoItem;
 		TVideoCacheItem &Item = VideoCache[LeastRecentVideoItem];
 		const TMemoryCacheItem *Tile = GetMemoryPicture(PictureNumber, TileX, TileY);
-		TRGBColor Colors[4] = {Color, Pictures[PictureNumber - 1].ColorKey, TRGBColor(0, 0, 0),
+		std::array<TRGBColor, 4> Colors = {Color, Pictures[PictureNumber - 1].ColorKey, TRGBColor(0, 0, 0),
 			TRGBColor(0, 0, 0)};
 		if (curEngine == 1 || curEngine == 2)
 			GetSurface()->SetColorKey(Item.Surface + 6, Pictures[PictureNumber - 1].ColorKey);
 		GetSurface()->WriteMaskedImage(Item.Surface + 6, Item.x, Item.y, 32, 32, Tile->Data, nullptr,
-			Colors);
+			Colors.data());
 		Item.TileX = TileX;
 		Item.TileY = TileY;
 		Item.Type = PICTURE_ITEM;
@@ -912,7 +912,7 @@ void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, int *Colo
 		}
 		return;
 	}
-	TRGBColor OutfitColors[4]; // zeroed by the constructor (the binary's array loop)
+	std::array<TRGBColor, 4> OutfitColors; // zeroed by the constructor (the binary's array loop)
 	int R, G, B;
 	GetOutfitColor(Colors[0], &R, &G, &B);
 	OutfitColors[0] = TRGBColor(R, G, B);
@@ -932,7 +932,7 @@ void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, int *Colo
 			else
 				MaskNumber = 0;
 			DrawMaskedSpriteScaled(Surface, x - px * Scale + Size, y - py * Scale + Size, Scale, Scale,
-				SpriteNumber, MaskNumber, OutfitColors, Highlight, Clip);
+				SpriteNumber, MaskNumber, OutfitColors.data(), Highlight, Clip);
 		}
 	}
 	TEND1(1137, Surface)

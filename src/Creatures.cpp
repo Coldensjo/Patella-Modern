@@ -28,6 +28,7 @@
 #include "common.h"
 #include "types/FixedString.h"
 #include "types/Time32.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -1208,10 +1209,10 @@ void SetBuddySortMethod(int Method)
 		SortBuddies();
 	else
 		SetBuddySortMethod(2);
-	int Methods[3];
+	std::array<int, 3> Methods;
 	for (int i = 0; i < 3; i++)
 		Methods[i] = BuddySortMethods[i];
-	SetBuddySortmethods(Methods);
+	SetBuddySortmethods(Methods.data());
 	TEND1(1247, Method)
 }
 
@@ -1341,8 +1342,8 @@ void ResetCreatures()
 	BuddySortMethods[0] = 2;
 	BuddySortMethods[1] = 1;
 	BuddySortMethods[2] = 0;
-	int Methods[3];
-	GetBuddySortmethods(Methods);
+	std::array<int, 3> Methods;
+	GetBuddySortmethods(Methods.data());
 	for (int i = 0; i < 3; i++) {
 		if (In(Methods[i], 0, 2))
 			BuddySortMethods[i] = Methods[i];

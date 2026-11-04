@@ -2,6 +2,7 @@
 
 #include "settings/Settings.h"
 
+#include <array>
 #include <cstddef>
 #include <fstream>
 #include <ios>
@@ -156,9 +157,9 @@ std::optional<TSettingsFile> Load(const std::string &Path, std::string_view Newl
 	if (!File)
 		return std::nullopt;
 	std::string Text;
-	char Buffer[4096];
-	while (File.read(Buffer, sizeof(Buffer)) || File.gcount() > 0) {
-		Text.append(Buffer, static_cast<size_t>(File.gcount()));
+	std::array<char, 4096> Buffer;
+	while (File.read(Buffer.data(), Buffer.size()) || File.gcount() > 0) {
+		Text.append(Buffer.data(), static_cast<size_t>(File.gcount()));
 		if (Text.size() > MaxFileSize)
 			return std::nullopt;
 	}

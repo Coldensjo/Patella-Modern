@@ -92,7 +92,7 @@ public:
 
 	TOKEN Token;                            // +0x000
 	TFile File;                             // +0x004
-	char Filename[1024];                    // +0x008
+	char Filename[1024];                    // +0x008; NOLINT(modernize-avoid-c-arrays): the file errors' reason (a std::string), frozen until M5 (issue #60)
 	int Line;                               // +0x408
 	TFixedString<MAX_STRING_LENGTH> String; // +0x40c, identifier or string
 	uint8 *Bytes;                           // +0x7f4, points to String
@@ -138,7 +138,7 @@ public:
 	void writeNumber(int Number);
 
 	TFile File;          // +0x000
-	char Filename[1024]; // +0x004
+	char Filename[1024]; // +0x004; NOLINT(modernize-avoid-c-arrays): the file errors' reason, frozen until M5 (issue #60)
 	int Line;            // +0x404, set to 0 and never used
 };
 
@@ -174,7 +174,7 @@ public:
 	void readBytes(uint8 *Buffer, int Count);
 
 	TFile File;          // +0x000
-	char Filename[1024]; // +0x004
+	char Filename[1024]; // +0x004; NOLINT(modernize-avoid-c-arrays): the file errors' reason, frozen until M5 (issue #60)
 };
 
 class TWriteBinaryFile {
@@ -204,7 +204,7 @@ public:
 	void writeString(const char *Text);
 
 	TFile File;          // +0x000
-	char Filename[1024]; // +0x004
+	char Filename[1024]; // +0x004; NOLINT(modernize-avoid-c-arrays): the file errors' reason, frozen until M5 (issue #60)
 };
 
 // The FILE * members are TFiles (issue #64): the same 4 bytes in the original's layout.

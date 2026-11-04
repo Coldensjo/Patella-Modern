@@ -102,9 +102,9 @@ TDeviceRequest TSurfaceVulkan::Request(HWND Window)
 	Result.Kind = Choice.Kind;
 	Result.GpuIndex = Choice.Kind == TDeviceKind::Gpu ? Choice.GpuIndex : -1;
 	Result.CpuDriverManifest = GetCpuDriverManifest();
-	char Validation[8] = "";
+	std::array<char, 8> Validation = {};
 	size_t ValidationLength = 0;
-	Result.Validation = getenv_s(&ValidationLength, Validation, sizeof(Validation), "PATELLA_VULKAN_VALIDATION") == 0
+	Result.Validation = getenv_s(&ValidationLength, Validation.data(), Validation.size(), "PATELLA_VULKAN_VALIDATION") == 0
 		&& ValidationLength > 0 && Validation[0] == '1';
 	if (Window != nullptr) {
 		Result.SurfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;

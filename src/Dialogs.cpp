@@ -286,7 +286,7 @@ TDialog *CreateTextDialog(const int *ObjectData, const char *Author, const char 
 	const int ObjectNumber = ObjectData[0];
 	const int Type = ObjectData[1];
 	const int MaximumLength = ObjectData[2];
-	char Description[500];
+	TFixedString<500> Description;
 	Description[0] = 0;
 	TTextDialog *Body;
 	TDialog *Dialog;
@@ -357,7 +357,7 @@ TDialog *CreateBugReportDialog()
 }
 
 // 0x481e00, line 334
-TDialog *CreateNewChannelDialog(int NumberOfChannels, int *ChannelIDs, const char (*ChannelNames)[30])
+TDialog *CreateNewChannelDialog(int NumberOfChannels, int *ChannelIDs, const char (*ChannelNames)[30]) // NOLINT(modernize-avoid-c-arrays): Dialogs.h
 {
 	TBEGIN
 	TNewChannelDialog *Body = new TNewChannelDialog(NumberOfChannels, ChannelIDs, ChannelNames);
@@ -1735,7 +1735,7 @@ bool TIgnoreListDialog::LeftButtonUp(int x, int y, int Flags)
 	if (Result && Selection > -1 && IgnoreEntries(Selection).Permanent != IgnorePermanently->IsChecked()) {
 		TFont Font;
 		IgnoreList->StopEdit();
-		char Name[30];
+		TFixedString<30> Name;
 		CopyString(Name, IgnoreList->GetLine(Selection, &Font), 30);
 		TFont LineFont;
 		if (IgnorePermanently->IsChecked())
@@ -1750,7 +1750,7 @@ bool TIgnoreListDialog::LeftButtonUp(int x, int y, int Flags)
 	if (Result && Selection > -1 && WhiteEntries(Selection).Permanent != AllowPermanently->IsChecked()) {
 		TFont Font;
 		WhiteList->StopEdit();
-		char Name[30];
+		TFixedString<30> Name;
 		CopyString(Name, WhiteList->GetLine(Selection, &Font), 30);
 		TFont LineFont;
 		if (AllowPermanently->IsChecked())
@@ -1808,7 +1808,7 @@ void TBugReportDialog::HandleEvent(int Event)
 // --- TNewChannelDialog -----------------------------------------------------------
 
 // 0x4733a0, lines 2265-2297
-TNewChannelDialog::TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30])
+TNewChannelDialog::TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30]) // NOLINT(modernize-avoid-c-arrays): Dialogs.h
 {
 	TASSERT(2265, _ChannelIDs!=NULL);
 	TASSERT1(2266, _NumberOfChannels>0, _NumberOfChannels);
@@ -2974,7 +2974,7 @@ void TAdvancedGraphicsDialog::ShowDevice()
 	if (strncmp(Name, DeviceLabelName, sizeof(DeviceLabelName) - 1) == 0)
 		return;
 	snprintf(DeviceLabelName, sizeof(DeviceLabelName), "%s", Name);
-	char Text[sizeof(DeviceLabelName) + 16];
+	TFixedString<sizeof(DeviceLabelName) + 16> Text;
 	if (DeviceLabelName[0] != 0)
 		snprintf(Text, sizeof(Text), "Device: %s", DeviceLabelName.Chars);
 	else

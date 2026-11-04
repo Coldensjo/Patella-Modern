@@ -30,6 +30,7 @@
 #include "sysinc.h"
 #include "compat/crt71.h"
 #include "common.h"
+#include "types/FixedString.h"
 #include <array>
 #include <fstream>
 #include <sstream>
@@ -118,10 +119,10 @@ namespace {
 // whose title or class matches the client's (caseless), this one included.
 BOOL CALLBACK CountTibiaWindows(HWND Window, [[maybe_unused]] LPARAM Parameter)
 {
-	char Title[32];
-	char WindowText[32];
-	char ClassName[32];
-	char WindowClass[32];
+	TFixedString<32> Title;
+	TFixedString<32> WindowText;
+	TFixedString<32> ClassName;
+	TFixedString<32> WindowClass;
 	const int TextLength = GetWindowTextA(Window, WindowText, 30);
 	const int ClassLength = GetClassNameA(Window, WindowClass, 30);
 	GetWindowTitle(Title);
@@ -182,7 +183,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 				if (strlen(Version.szCSDVersion) != 0) {
 					// Characters other than letters, digits, ' ', '.', '-' and
 					// '_' become '*'.
-					char ServicePack[30] = {0};
+					TFixedString<30> ServicePack = {0};
 					try {
 						unsigned int Length = (unsigned int)strlen(Version.szCSDVersion);
 						if (Length > 30)
@@ -194,7 +195,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 							else
 								ServicePack[i] = '*';
 						}
-						Out << " with " << ServicePack;
+						Out << " with " << ServicePack.Chars;
 					} catch (...) {
 					}
 				}
@@ -281,7 +282,7 @@ BOOL CPlayerApp::InitInstance()
 	try {
 		try {
 			ReadErrorFile();
-			char ClassName[32];
+			TFixedString<32> ClassName;
 			GetWindowClassName(ClassName);
 			WNDCLASSA WindowClass = {0};
 			WindowClass.style = CS_OWNDC | CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW;
@@ -291,7 +292,7 @@ BOOL CPlayerApp::InitInstance()
 			WindowClass.hIcon = ::LoadIconA(AfxGetResourceHandle(), MAKEINTRESOURCEA(128));
 			AfxRegisterClass(&WindowClass);
 
-			char CommandLine[1024];
+			TFixedString<1024> CommandLine;
 			strncpy(CommandLine, m_lpCmdLine, sizeof(CommandLine));
 			CommandLine[sizeof(CommandLine) - 1] = 0;
 			const char *Token = strtok(CommandLine, " \t\n");
@@ -329,7 +330,7 @@ BOOL CPlayerApp::InitInstance()
 			TBEGIN
 			MainFrame = new CMainFrame(Gamemaster);
 			TEND(255)
-			char Title[56];
+			TFixedString<56> Title;
 			GetWindowTitle(Title);
 			if (!MainFrame->Create(nullptr, Title, WS_OVERLAPPEDWINDOW, CFrameWnd::rectDefault, nullptr, nullptr, 0, nullptr)) {
 				delete MainFrame;

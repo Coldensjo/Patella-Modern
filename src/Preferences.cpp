@@ -729,7 +729,7 @@ void InitPreferences()
 			}
 			if (Script.Token != TOKEN::IDENTIFIER)
 				Script.error("Identifier expected");
-			char Identifier[MAX_IDENT_LENGTH];
+			TFixedString<MAX_IDENT_LENGTH> Identifier;
 			CopyString(Identifier, Script.getIdentifier(), MAX_IDENT_LENGTH);
 			Script.readSymbol('=');
 			if (strcmp(Identifier, "testserver") == 0)

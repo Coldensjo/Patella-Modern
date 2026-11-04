@@ -571,7 +571,7 @@ void Disconnect(bool force)
 	}
 	if (Socket != nullptr) {
 		shutdown(Socket->m_hSocket, SD_SEND);
-		char Buffer[256];
+		TFixedString<256> Buffer;
 		int Count;
 		do {
 			Count = Socket->Receive(Buffer, sizeof(Buffer), 0);

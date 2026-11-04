@@ -22,6 +22,7 @@
 #include "common.h"
 #include "compat/span.h"
 #include "types/FixedString.h"
+#include <array>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -91,11 +92,11 @@ void SendLogin(uint32 AccountID, const char *Password)
 {
 	TASSERT(41, Password!=NULL);
 	TBEGIN
-	uint8 Key[16];
+	std::array<uint8, 16> Key;
 	for (int i = 0; i < 16; i++)
 		Key[i] = (uint8)rand();
-	SetSymmetricKey(Key);
-	uint8 Data[128];
+	SetSymmetricKey(Key.data());
+	std::array<uint8, 128> Data;
 	for (int i = 0; i < 128; i++)
 		Data[i] = (uint8)rand();
 	TWriteBuffer Buffer(Data);
@@ -103,7 +104,7 @@ void SendLogin(uint32 AccountID, const char *Password)
 	Buffer.PutBytes(Key);
 	Buffer.PutQuad(AccountID);
 	Buffer.PutString(Password);
-	PATELLA_TEST_RSA_BLOCK(Data)
+	PATELLA_TEST_RSA_BLOCK(Data.data())
 	try {
 		TRSA RSA;
 		RSA.SetPublicKey("124710459426827943004376449897985582167801707960697037164044904862948569380850421396904597686953877022394604239428185498284169068581802277612081027966724336319448537811441719076484340922854929273517308661370727105382899118999403808045846444647284499123164879035103627004668521005328367415259939915284902061793");
@@ -151,11 +152,11 @@ void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 	TASSERT(109, Name!=NULL);
 	TASSERT(110, Password!=NULL);
 	TBEGIN
-	uint8 Key[16];
+	std::array<uint8, 16> Key;
 	for (int i = 0; i < 16; i++)
 		Key[i] = (uint8)rand();
-	SetSymmetricKey(Key);
-	uint8 Data[128];
+	SetSymmetricKey(Key.data());
+	std::array<uint8, 128> Data;
 	for (int i = 0; i < 128; i++)
 		Data[i] = (uint8)rand();
 	TWriteBuffer Buffer(Data);
@@ -165,7 +166,7 @@ void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 	Buffer.PutQuad(AccountID);
 	Buffer.PutString(Name);
 	Buffer.PutString(Password);
-	PATELLA_TEST_RSA_BLOCK(Data)
+	PATELLA_TEST_RSA_BLOCK(Data.data())
 	try {
 		TRSA RSA;
 		RSA.SetPublicKey("124710459426827943004376449897985582167801707960697037164044904862948569380850421396904597686953877022394604239428185498284169068581802277612081027966724336319448537811441719076484340922854929273517308661370727105382899118999403808045846444647284499123164879035103627004668521005328367415259939915284902061793");
@@ -1007,15 +1008,15 @@ void ReceiveCharacterList()
 	Count = GetByte();
 	SetAccountCharacters(Count);
 	for (int i = 0; i < Count; i++) {
-		char Name[40];
-		char World[32];
-		uint8 Address[8];
-		GetString(patella::TSpan<char>(Name).first(30));
-		GetString(patella::TSpan<char>(World).first(30));
+		TFixedString<40> Name;
+		TFixedString<32> World;
+		std::array<uint8, 8> Address;
+		GetString(patella::TSpan<char>(Name.Chars).first(30));
+		GetString(patella::TSpan<char>(World.Chars).first(30));
 		for (int j = 0; j < 4; j++)
 			Address[j] = GetByte();
 		const int Port = GetWord();
-		SetCharacter(i, Name, World, Address, Port);
+		SetCharacter(i, Name, World, Address.data(), Port);
 	}
 	const int PremiumDays = GetWord();
 	SetPremiumDays(PremiumDays);
@@ -1625,7 +1626,7 @@ void ReceiveMoveCreature()
 		}
 		if (Creature != nullptr) {
 			Text << std::endl
-				 << " ID: " << Creature->CreatureID << " Name: " << Creature->Name;
+				 << " ID: " << Creature->CreatureID << " Name: " << Creature->Name.Chars;
 			Text << std::endl
 				 << " RealX: " << Creature->RealX << " RealY: " << Creature->RealY << " RealZ: " << Creature->RealZ;
 			Text << std::endl
@@ -1656,8 +1657,8 @@ void ReceiveOpenContainer(int &Container)
 	if (IsContainerOpen(Container))
 		CloseContainer(Container);
 	const int Type = GetWord();
-	char Name[40];
-	GetString(patella::TSpan<char>(Name).first(30));
+	TFixedString<40> Name;
+	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	const int Capacity = GetByte();
 	const bool HasParent = GetByte() != 0;
 	OpenContainer(Container, TObject{Type, 0, 0}, Name, Capacity, HasParent);
@@ -1775,8 +1776,8 @@ void ReceiveDeleteInventoryObject()
 void ReceiveOwnTrade()
 {
 	TBEGIN
-	char Name[40];
-	GetString(patella::TSpan<char>(Name).first(30));
+	TFixedString<40> Name;
+	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	SetOwnOffer(Name);
 	const int Count = GetByte();
 	for (int i = 0; i < Count; i++) {
@@ -1797,8 +1798,8 @@ void ReceiveOwnTrade()
 void ReceiveCounterTrade()
 {
 	TBEGIN
-	char Name[40];
-	GetString(patella::TSpan<char>(Name).first(30));
+	TFixedString<40> Name;
+	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	const bool Open = SetCounterOffer(Name);
 	const int Count = GetByte();
 	for (int i = 0; i < Count; i++) {
@@ -1862,8 +1863,8 @@ void ReceiveAnimatedText()
 	rz = GetByte();
 	AbsoluteToRelative(&rx, &ry, &rz);
 	const int Color = GetByte();
-	char Text[24];
-	GetString(patella::TSpan<char>(Text).first(10));
+	TFixedString<24> Text;
+	GetString(patella::TSpan<char>(Text.Chars).first(10));
 	AddTextualEffect(rx, ry, rz, Color, Text);
 	TEND2(2132, rx, ry)
 }
@@ -2107,10 +2108,10 @@ void ReceiveTalk()
 	int Channel = 0;
 	TBEGIN
 	const uint32 StatementID = GetQuad();
-	char Name[36];
-	GetString(patella::TSpan<char>(Name).first(30));
+	TFixedString<36> Name;
+	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	Mode = GetByte();
-	char Text[632];
+	TFixedString<632> Text;
 	int Time = 0;
 	int TargetChannel = -1;
 	switch (Mode) {
@@ -2120,7 +2121,7 @@ void ReceiveTalk()
 		const int x = GetWord();
 		const int y = GetWord();
 		const int z = GetByte();
-		GetString(patella::TSpan<char>(Text).first(512));
+		GetString(patella::TSpan<char>(Text.Chars).first(512));
 		if (IsTalkIgnored(Mode, Name, -1)) {
 			SetTalkThrottle();
 			return;
@@ -2131,7 +2132,7 @@ void ReceiveTalk()
 	case 4:
 	case 9:
 	case 11:
-		GetString(patella::TSpan<char>(Text).first(512));
+		GetString(patella::TSpan<char>(Text.Chars).first(512));
 		if (IsTalkIgnored(Mode, Name, -1)) {
 			SetTalkThrottle();
 			return;
@@ -2143,7 +2144,7 @@ void ReceiveTalk()
 	case 12:
 	case 14:
 		Channel = GetWord();
-		GetString(patella::TSpan<char>(Text).first(512));
+		GetString(patella::TSpan<char>(Text.Chars).first(512));
 		if (IsTalkIgnored(Mode, Name, -1)) {
 			SetTalkThrottle();
 			return;
@@ -2152,18 +2153,18 @@ void ReceiveTalk()
 		break;
 	case 6:
 		Time = -(int)GetQuad();
-		GetString(patella::TSpan<char>(Text).first(512));
+		GetString(patella::TSpan<char>(Text.Chars).first(512));
 		break;
 	case 7:
 	case 8:
-		GetString(patella::TSpan<char>(Text).first(512));
+		GetString(patella::TSpan<char>(Text.Chars).first(512));
 		break;
 	case 16:
 	case 17: {
 		const int x = GetWord();
 		const int y = GetWord();
 		const int z = GetByte();
-		GetString(patella::TSpan<char>(Text).first(512));
+		GetString(patella::TSpan<char>(Text.Chars).first(512));
 		if (!IsTalkIgnored(Mode, Name, -1)) {
 			AddTalkbox(Mode, Name, x, y, z, Text);
 			return;
@@ -2236,8 +2237,8 @@ void ReceiveRuleViolationChannel()
 void ReceiveRemoveRuleViolation()
 {
 	TBEGIN
-	char Name[44];
-	GetString(patella::TSpan<char>(Name).first(30));
+	TFixedString<44> Name;
+	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	TTalkBuffer *Channel = GetTextBuffer(6, nullptr, -1);
 	if (Channel != nullptr) {
 		Channel->cursor = Channel->first;
@@ -2258,8 +2259,8 @@ void ReceiveRemoveRuleViolation()
 void ReceiveCancelRuleViolation()
 {
 	TBEGIN
-	char Name[44];
-	GetString(patella::TSpan<char>(Name).first(30));
+	TFixedString<44> Name;
+	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	TTalkBuffer *Channel = GetTextBuffer(8, Name, -1);
 	if (Channel != nullptr) {
 		TFixedString<444> Text;
@@ -2317,8 +2318,8 @@ void ReceiveTextMessage()
 	TBEGIN
 	Mode = GetByte();
 	TASSERT1(2634, Mode>=0&&Mode<TALK_MODE_BEYONDLAST, Mode);
-	char Text[632];
-	GetString(patella::TSpan<char>(Text).first(512));
+	TFixedString<632> Text;
+	GetString(patella::TSpan<char>(Text.Chars).first(512));
 	if (Mode == 18 || Mode == 19 || Mode == 22)
 		AddMessageTalkbox(Mode, Text);
 	if (Mode == 23 || Mode == 21 || Mode == 20)
@@ -2460,8 +2461,8 @@ void ReceiveBuddy()
 	uint32 CharacterID = 0;
 	TBEGIN
 	CharacterID = GetQuad();
-	char Name[44];
-	GetString(patella::TSpan<char>(Name).first(30));
+	TFixedString<44> Name;
+	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	const int State = GetByte();
 	AddBuddy(CharacterID, Name, State == 1);
 	const char *Copy = MsvcStrdup(Name);

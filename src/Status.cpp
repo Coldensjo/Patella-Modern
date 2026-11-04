@@ -591,7 +591,7 @@ void SetErrorReportComment(const char *Comment)
 	while (i >= 0 && ErrorReports(i).Title[0] == 0)
 		i--;
 	if (i >= 0) {
-		char Prefix[] = "Comment: ";
+		TFixedString<10> Prefix = {"Comment: "};
 		const int Length = (int)strlen(Prefix);
 		strncpy(ErrorReports(i).Comment, Prefix, Length);
 		strncpy(ErrorReports(i).Comment + Length, Comment, 512 - Length);

@@ -86,7 +86,7 @@ struct TProperties {
 	int PatternDepth;  // +0x18
 	int Phases;        // +0x1c
 	uint16 *Sprites;   // +0x20, Width*Height*Layers*PatternWidth*PatternHeight*PatternDepth*Phases
-	uint8 Flags[4];    // +0x24, bit Flag%8 of Flags[Flag/8]
+	uint8 Flags[4];    // +0x24, bit Flag%8 of Flags[Flag/8]; NOLINT(modernize-avoid-c-arrays): the assertion of line 67 reads *(int*)Entry.Flags, frozen until M5 (issue #60)
 	int Waypoints;     // +0x28, BANK
 	int MaxLength;     // +0x2c, WRITE and WRITEONCE
 	int Brightness;    // +0x30, LIGHT

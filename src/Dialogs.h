@@ -60,7 +60,7 @@ TDialog *CreateTextDialog(const int *ObjectData, const char *Author, const char 
 TDialog *CreateEditListDialog(int *HouseData, const char *Text);                                        // 0x4817c0, line 294
 TDialog *CreateOutfitDialog(int *Data);                                                                 // 0x4819f0, line 307
 TDialog *CreateBugReportDialog();                                                                       // 0x481bf0, line 321
-TDialog *CreateNewChannelDialog(int NumberOfChannels, int *ChannelIDs, const char (*ChannelNames)[30]); // 0x481e00, line 334
+TDialog *CreateNewChannelDialog(int NumberOfChannels, int *ChannelIDs, const char (*ChannelNames)[30]); // 0x481e00, line 334; NOLINT(modernize-avoid-c-arrays): the tests fake it by address with this signature (issue #60)
 TDialog *CreateInviteDialog();                                                                          // 0x482010, line 347
 TDialog *CreateExcludeDialog();                                                                         // 0x482210, line 360
 TDialog *CreateIgnoreListDialog();                                                                      // 0x482410, line 375
@@ -435,7 +435,7 @@ class TNewChannelDialog : public TWindow {
 public:
 	TNewChannelDialog(const TNewChannelDialog &) = delete;
 	TNewChannelDialog &operator=(const TNewChannelDialog &) = delete;
-	TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30]); // 0x4733a0, lines 2265-2297
+	TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30]); // 0x4733a0, lines 2265-2297; NOLINT(modernize-avoid-c-arrays): as CreateNewChannelDialog (issue #60)
 	// Inline (out-of-line copy 0x46bb20, deleting destructor 0x46be80).
 	~TNewChannelDialog() override { ChannelIDs.reset(); }
 	void KeyPress(int Key) override;      // +0x6c, 0x473980, line 2321

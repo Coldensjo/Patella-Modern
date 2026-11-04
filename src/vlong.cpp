@@ -5,6 +5,7 @@
 
 #include "vlong.h"
 #include "common.h"
+#include <array>
 #include <cstdlib>
 #include <cstring>
 
@@ -500,12 +501,12 @@ void DecimalToVlong(const char *pDecimal, vlong &Number)
 {
 	if (pDecimal == nullptr)
 		throw "pDecimal pointer is NULL";
-	char Digit[2];
+	std::array<char, 2> Digit;
 	Digit[0] = 0;
 	Digit[1] = 1; // as in the binary; atoi stops at it
 	Number = 0;
 	for (Digit[0] = *pDecimal; Digit[0] != 0; Digit[0] = *++pDecimal) {
-		const long Value = atoi(Digit);
+		const long Value = atoi(Digit.data());
 		if (Value < 0 || Value > 9)
 			throw "digit out of range";
 		Number = Number * 10L + Value;

@@ -13,6 +13,7 @@
 
 #include "ContentWindows.h"
 #include <algorithm>
+#include <array>
 #include "Communication.h"
 #include "ContextMenus.h"
 #include "Creatures.h"
@@ -514,7 +515,7 @@ void TAutomapView::Draw(int Surface, int x, int y)
 		}
 	}
 	if (GetAutomapChanged() || Window->Changed || GetSurface()->SurfaceRecreated(0)) {
-		uint8 Pixels[106 * 106 * 3];
+		std::array<uint8, 106 * 106 * 3> Pixels;
 		for (int i = 0; i < 106; i++) {
 			for (int j = 0; j < 106; j++) {
 				if (Window->Zoom == 1) {
@@ -529,7 +530,7 @@ void TAutomapView::Draw(int Surface, int x, int y)
 				Pixels[(j * 106 + i) * 3 + 2] = (uint8)Color.B;
 			}
 		}
-		GetSurface()->WriteImage(5, 0, 0, 106, 106, Pixels);
+		GetSurface()->WriteImage(5, 0, 0, 106, 106, Pixels.data());
 		int CrossX = 53;
 		int CrossY = 53;
 		bool SameLevel = true;
@@ -1839,7 +1840,7 @@ void TSkillsWindowBody::Draw(int Surface, int x, int y)
 		int Progress = -1;
 		const int Margin = SkinProperties.Data668;
 		for (int i = 0; i < Lines; i++) {
-			char Text[100];
+			TFixedString<100> Text;
 			int Value;
 			const bool HasValue = GetLine(i + 1, Text, Value, Progress);
 			int ItemHeight = LineHeight;
@@ -1864,7 +1865,7 @@ void TSkillsWindowBody::Draw(int Surface, int x, int y)
 						GetSurface()->DrawHorizontalLine(Surface, ClipX, LineMiddle + y, TextWidth,
 							SkinProperties.Data654.Color);
 				} else {
-					char Number[20];
+					TFixedString<20> Number;
 					FormatNumber(Value, Number);
 					PrintTextClipped(Surface, SkinProperties.Data668 + x, SkinProperties.Data66C + LineY + y,
 						SkinProperties.Data654.FontNumber, SkinProperties.Data654.Color, Text, 0,
@@ -1929,7 +1930,7 @@ void TSkillsWindowBody::MouseHover(int x, int y)
 		int Progress = -1;
 		for (int i = 0; i < Lines;) {
 			i++;
-			char Text[100];
+			TFixedString<100> Text;
 			int Value;
 			GetLine(i, Text, Value, Progress);
 			int ItemHeight = LineHeight;
@@ -2034,7 +2035,7 @@ int TSkillsWindowBody::GetContentHeight()
 	int Result = 0;
 	for (int i = 0; i < Lines;) {
 		i++;
-		char Text[100];
+		TFixedString<100> Text;
 		int Value, Progress;
 		GetLine(i, Text, Value, Progress);
 		if (Progress != -1)

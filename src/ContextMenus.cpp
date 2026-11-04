@@ -1033,7 +1033,7 @@ void TTextContextMenu::HandleEvent(int Event)
 		break;
 	case 10101:
 		if (Speaker != nullptr) {
-			char Text[200];
+			TFixedString<200> Text;
 			const char *Format;
 			if (!IsTalkIgnored(0, Speaker, -1)) {
 				IgnoreName(Speaker, false);

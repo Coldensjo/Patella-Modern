@@ -59,10 +59,10 @@ T Value(vkb::Result<T> &&Result, const char *What)
 
 // The push constants of every pipeline (the same layout in both stages).
 struct TPushConstants {
-	float ScaleX, ScaleY;     // 2 / the target's size: pixels to normalised device coordinates
-	int32_t OffsetX, OffsetY; // the colour key pass: the rectangle's corner in the target
-	uint32_t Key[4];          // the colour key pass: the key, 0-255 (R, G, B, A)
-	float Replacement[4];     // the colour key pass: the replacement (R, G, B, A)
+	float ScaleX, ScaleY;             // 2 / the target's size: pixels to normalised device coordinates
+	int32_t OffsetX, OffsetY;         // the colour key pass: the rectangle's corner in the target
+	std::array<uint32_t, 4> Key;      // the colour key pass: the key, 0-255 (R, G, B, A)
+	std::array<float, 4> Replacement; // the colour key pass: the replacement (R, G, B, A)
 };
 static_assert(sizeof(TPushConstants) == 48);
 
@@ -80,7 +80,7 @@ struct TImage {
 	VkImageView View = VK_NULL_HANDLE;
 	int Width = 0;
 	int Height = 0;
-	VkDescriptorSet Sets[Samplers] = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
+	std::array<VkDescriptorSet, Samplers> Sets = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
 };
 
 struct TFrame {
@@ -134,8 +134,8 @@ private:
 		// the loader reads; an empty value removes the variable.
 		MsvcPutenv(Name, Value != nullptr ? Value : "");
 	}
-	static constexpr const char *Names[2] = {"VK_DRIVER_FILES", "VK_ICD_FILENAMES"};
-	std::optional<std::string> Saved[2];
+	static constexpr std::array<const char *, 2> Names = {"VK_DRIVER_FILES", "VK_ICD_FILENAMES"};
+	std::array<std::optional<std::string>, 2> Saved;
 };
 
 int TypeRank(VkPhysicalDeviceType Type)
@@ -221,7 +221,7 @@ vkb::InstanceBuilder NewInstanceBuilder(const std::string &SurfaceExtension)
 	vkb::InstanceBuilder Builder(vkGetInstanceProcAddr);
 	Builder.set_app_name("Patella").set_engine_name("Patella").require_api_version(1, 3, 0).set_headless(true);
 	auto System = vkb::SystemInfo::get_system_info(vkGetInstanceProcAddr);
-	const char *Wanted[] = {VK_KHR_SURFACE_EXTENSION_NAME, PlatformSurfaceExtension, VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
+	const std::array<const char *, 3> Wanted = {VK_KHR_SURFACE_EXTENSION_NAME, PlatformSurfaceExtension, VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 	for (const char *Extension : Wanted) {
 		if (Extension != nullptr && System && System.value().is_extension_available(Extension)
 			&& SurfaceExtension != Extension)
@@ -310,14 +310,14 @@ struct TRenderer::TState {
 	VkPipeline Textured = VK_NULL_HANDLE;
 	VkPipeline Fill = VK_NULL_HANDLE;
 	VkPipeline ColorKey = VK_NULL_HANDLE;
-	VkSampler SamplerObjects[Samplers] = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
+	std::array<VkSampler, Samplers> SamplerObjects = {VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE};
 	VkDescriptorPool DescriptorPool = VK_NULL_HANDLE;
 
 	std::vector<TImage> Images;
 	int KeyScratch = -1; // ReplaceColor's copy of the rectangle
 	int Feedback = -1;   // a copy of a target that a draw into it samples
 
-	TFrame Frames[FramesInFlight];
+	std::array<TFrame, FramesInFlight> Frames;
 	int FrameIndex = 0;
 	bool Recording = false;
 
@@ -626,12 +626,12 @@ struct TRenderer::TState {
 		if (Images.size() >= MaxImages)
 			throw TVulkanError("too many images");
 		TImage Image;
-		const VkDescriptorSetLayout Layouts[Samplers] = {SetLayout, SetLayout, SetLayout};
+		const std::array<VkDescriptorSetLayout, Samplers> Layouts = {SetLayout, SetLayout, SetLayout};
 		VkDescriptorSetAllocateInfo Info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 		Info.descriptorPool = DescriptorPool;
 		Info.descriptorSetCount = Samplers;
-		Info.pSetLayouts = Layouts;
-		Check(vkAllocateDescriptorSets(Device.device, &Info, Image.Sets), "vkAllocateDescriptorSets");
+		Info.pSetLayouts = Layouts.data();
+		Check(vkAllocateDescriptorSets(Device.device, &Info, Image.Sets.data()), "vkAllocateDescriptorSets");
 		Images.push_back(Image);
 		MakeImage(Images.back(), Width, Height);
 		return static_cast<int>(Images.size() - 1);
@@ -663,7 +663,7 @@ struct TRenderer::TState {
 
 	VkPipeline Pipeline(VkShaderModule Vertex, VkShaderModule Fragment, bool Blend) const
 	{
-		VkPipelineShaderStageCreateInfo Stages[2]{};
+		std::array<VkPipelineShaderStageCreateInfo, 2> Stages{};
 		Stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		Stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 		Stages[0].module = Vertex;
@@ -673,16 +673,16 @@ struct TRenderer::TState {
 		Stages[1].module = Fragment;
 		Stages[1].pName = "main";
 		const VkVertexInputBindingDescription Binding{0, sizeof(TVertex), VK_VERTEX_INPUT_RATE_VERTEX};
-		VkVertexInputAttributeDescription Attributes[3] = {
+		const std::array<VkVertexInputAttributeDescription, 3> Attributes = {{
 			{0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(TVertex, x)},
 			{1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(TVertex, u)},
 			{2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(TVertex, r)},
-		};
+		}};
 		VkPipelineVertexInputStateCreateInfo Input{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 		Input.vertexBindingDescriptionCount = 1;
 		Input.pVertexBindingDescriptions = &Binding;
 		Input.vertexAttributeDescriptionCount = 3;
-		Input.pVertexAttributeDescriptions = Attributes;
+		Input.pVertexAttributeDescriptions = Attributes.data();
 		VkPipelineInputAssemblyStateCreateInfo Assembly{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
 		Assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		VkPipelineViewportStateCreateInfo Viewport{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
@@ -710,10 +710,10 @@ struct TRenderer::TState {
 		VkPipelineColorBlendStateCreateInfo BlendState{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
 		BlendState.attachmentCount = 1;
 		BlendState.pAttachments = &Attachment;
-		VkDynamicState DynamicStates[2] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+		const std::array<VkDynamicState, 2> DynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 		VkPipelineDynamicStateCreateInfo Dynamic{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
 		Dynamic.dynamicStateCount = 2;
-		Dynamic.pDynamicStates = DynamicStates;
+		Dynamic.pDynamicStates = DynamicStates.data();
 		const VkFormat Format = ImageFormat;
 		VkPipelineRenderingCreateInfo Rendering{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
 		Rendering.colorAttachmentCount = 1;
@@ -721,7 +721,7 @@ struct TRenderer::TState {
 		VkGraphicsPipelineCreateInfo Info{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
 		Info.pNext = &Rendering;
 		Info.stageCount = 2;
-		Info.pStages = Stages;
+		Info.pStages = Stages.data();
 		Info.pVertexInputState = &Input;
 		Info.pInputAssemblyState = &Assembly;
 		Info.pViewportState = &Viewport;

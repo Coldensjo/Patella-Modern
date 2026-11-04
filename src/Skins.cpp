@@ -30,6 +30,7 @@ void InitSkins()
 		int skin;
 		TSkin Rect;
 	} SkinTable[] = {
+		// NOLINT(modernize-avoid-c-arrays): the binary's table of an unnamed type, sized by its entries (issue #60)
 		{0, {0, 0, 0, 0}},
 		{1, {290, 12, 11, 19}},
 		{2, {301, 12, 9, 20}},
