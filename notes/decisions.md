@@ -7141,3 +7141,42 @@ file-scope `static` of src/ (not src/Extern) is in an anonymous namespace, but t
   pointer); moving it out of the header is not this issue's. clang-tidy's
   misc-use-internal-linkage (not enabled) reports Network.cpp's TSocket class and Renderer.cpp's ListGpus and
   BestGpu, which have no `static` to move.
+
+## One presentation window per device (Patella-Modern issue #52)
+
+Settled by Claude Opus 5.5, November 4, 2026, after the user's repro, a full dump of the frozen client and the
+orchestrator's live inspection. notes/vulkan.md, "One window per device (issue #52)" has the facts.
+
+- **What froze** (high). Not the client: in the dump and live it drew about 1,000 frames a second, pumped its
+  messages and every Present succeeded on the one swapchain it had (the window's client size, not stale). The screen
+  kept the last frame of the AMD Radeon iGPU, whose swapchain presents cross-adapter on this machine; resizing the
+  window stretched that picture. "X does nothing" is the original's in-game refusal with a dialog open; the
+  "Application Hang" reports came from Task Manager's End task. My first two readings (a cross-process wait, then an
+  endless loop in the map drawing) were wrong: the hang reports' XProc key and the frozen FPS counters misled them.
+- **Why** (medium: the binding is outside the process and cannot be inspected from it). Every device presented into
+  the main window. The Radeon's device, swapchain, surface and instance were destroyed in order after
+  vkDeviceWaitIdle, and nothing of them was left in the process, but its presentation stayed bound to the window, and
+  the compositor showed it over every later device's swapchain there. No validation layers on this machine to check
+  the teardown with; the teardown order matches the specification.
+- **The change** (high). One child window per device, which the device's surface uses, never the main window
+  (src/vulkan/PresentWindow.h). Destroying a window releases every presentation bound to it, by whichever driver, so
+  this needs no knowledge of the AMD driver's leftover and holds for any device and any order of switches. The old
+  device's window is kept until the new device's first frame (its last picture stays on screen meanwhile, no blank),
+  then destroyed; a window that never showed a frame goes at once. The device test uses a hidden window of its own,
+  so it binds nothing to a window that shows frames. Mouse messages pass through (HTTRANSPARENT), so the client's
+  input is unchanged.
+- **Not taken** (high). A wait (DwmFlush or a sleep) between devices: it would bet on the compositor releasing in
+  time, and a hang must not be hidden by a timeout. Destroying and recreating the main window: MFC's frame, its
+  position, the client's input and the test mode hang on it. Keeping one device across clicks (only the last one
+  applied): the user's choice is applied at once (issue #31), and the Radeon's leftover would still cover a later
+  device. Present fences (VK_EXT_swapchain_maintenance1) before destroying the swapchain: the leftover is not ours to
+  wait for.
+- **Behaviour** (high). The frames, the files and the packets are unchanged (nothing reads the window but the
+  swapchain); a single switch draws the same frames; on screen, the old picture stays until the new device's first
+  frame. Not in the oracle-x86 build (src/vulkan): the oracle Patella.exe is unchanged (pecompare).
+- **The test** (high). tests_vulkan's "quick device switches" runs the client's switch sequence through
+  TPresentWindows on every device of the machine, including switches before the device exists. It cannot reproduce
+  the stale picture (a hidden window is not composed); it checks what makes it impossible. The live check is the
+  user's repro.
+- **Not done** (medium). Each CPU-driver device leaves about 56 process handles (lavapipe's ended threads); its own
+  issue.
