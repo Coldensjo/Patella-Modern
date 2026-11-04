@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "common.h"
 
 // Number of skin entries; the terminator of the table in InitSkins.
 inline constexpr int LASTSKIN = 262;

@@ -21,6 +21,7 @@
 #include "graphics.h"
 #include <GL/gl.h>
 #include <type_traits>
+#include "common.h"
 
 // The surfaces (Textures[] and Rect[] are indexed with them) are Surface.h's
 // PRIMARY_SURFACE (no texture), SCREEN_SURFACE (the back buffer, the

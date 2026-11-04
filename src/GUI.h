@@ -13,7 +13,6 @@
 #pragma once
 
 #include "common.h"
-#include "Container.h"
 
 // The graphics types TRect, TRGBColor and TFont are graphics.h's; the window
 // classes and SkinProperties need them complete.

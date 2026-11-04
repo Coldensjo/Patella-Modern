@@ -20,7 +20,8 @@
 # Every product preset builds patella_core (cmake/Core.cmake), the portable code, and patella_testmode
 # (cmake/TestMode.cmake), the portable part of the test mode (issue #21). Their targets take
 # the language, warning and hardening settings of cmake/Warnings.cmake and cmake/Hardening.cmake
-# (issue #8), which the oracle never uses.
+# (issue #8), which the oracle never uses. Every preset compiles each header of src/ on its own
+# (cmake/HeaderCheck.cmake, issue #49).
 
 cmake_minimum_required(VERSION 3.30)
 
@@ -47,3 +48,7 @@ else()
 		include(cmake/Capture.cmake)
 	endif()
 endif()
+
+# Each header of src/ compiled on its own, with the settings of the targets above that use it (issue #49).
+include(cmake/HeaderCheck.cmake)
+patella_header_checks()

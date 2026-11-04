@@ -23,6 +23,8 @@
 #include "GUI.h"
 #include "Map.h" // MAPSIZE_X, MAPSIZE_Y, EFFECTS, GetAmbientColor
 #include "Creatures.h"
+#include "Objects.h"
+#include "graphics.h"
 
 // The map surface in fields ("getWidth()<=MAP_WIDTH*32"): 480x352 pixels.
 inline constexpr int MAP_WIDTH = 15;

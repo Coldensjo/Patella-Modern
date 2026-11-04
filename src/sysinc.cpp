@@ -10,9 +10,9 @@
 // part of the source; names.tsv lists it as kind stl.
 
 #include "sysinc.h"
+#include "common.h"
 #include "compat/msvc_io.h"
 #include <mmsystem.h>
-#include "common.h"
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>

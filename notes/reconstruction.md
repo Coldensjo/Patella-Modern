@@ -408,6 +408,18 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   includes first. The Windows SDK, MFC and compat/mfc_shim.h are not checked (IgnoreHeaders); an include that
   is there for the image keeps `// IWYU pragma: keep` (Text.h, Status.h). Check every target's commands, one
   run each (notes/decisions.md, issue #40).
+  The headers (issue #49): `--headers` runs misc-include-cleaner (only that check) on every header of the build's
+  header checks ("Compile checks" below) as the main file, with its check source's command (a compilation
+  database per check target, `build/<preset>/header-check/<target>/compile_commands.json`, written by tidy.py).
+  `python -I tools/tidy.py -p build/windows-x64 --headers`, `-p build/oracle-x86 --headers --extra-arg=-m32`
+  (oracle-x86 configured with -DCMAKE_EXPORT_COMPILE_COMMANDS=ON); the hosted job runs `--all --headers` on
+  linux-x64-clang's. An include a header does not use goes, unless removing it moves the images' data: then it
+  stays with `// IWYU pragma: keep` and the reason (common.h's `<string>`, `<cstring>`, `<cstdio>`, `<cstdlib>`;
+  Communication.h's Talk.h; notes/decisions.md, issue #49). A .cpp that relied on a removed include includes it
+  itself, where the header included it (Skins.cpp's and sysinc.cpp's common.h). Includes that include-cleaner
+  cannot see used keep the pragma too: a header that uses MFC or Windows types only (Control.h's common.h), a
+  header that must come first (ContentWindows.h's common.h), macros whose expansions need the header
+  (compat/msvc.h on Windows), feature-test macros (compat/cxx26.h's `<version>`).
   misc-const-correctness (issue #39) writes its fix after the type (`int const x`); src/ puts `const` first, so
   re-format the changed lines with .clang-format plus `QualifierAlignment: Left` (`clang-format --lines`), and
   move it by hand on ALL-CAPS types (`RECT`, `SOCKET`), which clang-format takes for macros. It does not fix a
@@ -503,6 +515,19 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   set; the difftest always uses the shim). One file alone: `python -I tools/build.py --env oracle-x86 cmake
   --build --preset oracle-x86 --target CMakeFiles/mfc_shim_check.dir/Release/src/<File>.cpp.obj` (or
   `Patella.dir` for real MFC).
+- Each header compiles on its own (issue #49): `cmake/HeaderCheck.cmake` generates for every header of src/ (not
+  src/Extern) a one-line source, `build/<preset>/header-check/<target>/<header>.cpp` with `#include "<header>"`,
+  and compiles it, never linked, with the settings of a target that uses the header, once per target whose
+  definitions change the header (common.h: PATELLA_CORE, TIBIA_MFC_SHIM, PATELLA_VULKAN, PATELLA_TEST_MODE):
+  `header_check_core`, `header_check_cxx26_standin`, `header_check_testmode` and `header_check_render` on every
+  product preset, `header_check_client` and `header_check_test_build` on windows-x64 (with
+  PATELLA_CLIENT_COMPILE_ONLY too), `header_check_oracle` (real MFC) and `header_check_oracle_shim` on
+  oracle-x86. They are in the default build, so every workflow builds them (a header that needs what it does not
+  include fails the build, its warnings fail it as anything else's); the hosted CI builds the client's two by
+  name. The lists in HeaderCheck.cmake name every header by the targets that include it, and the configure fails
+  on a header that is on none: a new header goes on a list. No header is an exception today (the shaders' SPIR-V
+  headers are generated into the build tree, not src/). A header on a warning baseline (cmake/Warnings.cmake:
+  Container.h for GCC, `-Wshadow`) gives its check the baseline level.
 - `python -I tools/build.py oracle-x86` builds and runs the differential tests through CTest (difftest,
   sysinctest, communicationtest, vlongtest; the output with the check counts is in the log, verbosity verbose).
   One test: `python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R <test>`; with

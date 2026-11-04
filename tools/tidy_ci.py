@@ -2,7 +2,7 @@ r"""The hosted CI's clang-tidy job, run locally: the same findings on the same c
 
 The job "clang-tidy (no new findings)" of .github/workflows/hosted.yml builds the image of docker/linux-x64
 from the checkout's Dockerfile, mounts a fresh checkout of the commit at /work and runs its script there
-(clang-tidy --version, cmake --preset linux-x64-clang, tools/tidy.py --all --baseline on linux-x64-clang's
+(clang-tidy --version, cmake --preset linux-x64-clang, tools/tidy.py --all --headers --baseline on linux-x64-clang's
 compile commands). This script does the same on this machine (Docker Desktop):
 - the image is built from the Dockerfile of the checked revision (docker build of `git archive <rev>
   docker/linux-x64`; Docker's cache makes it a no-op when nothing changed; untagged, so build.py's image

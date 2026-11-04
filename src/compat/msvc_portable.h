@@ -15,7 +15,16 @@
 #include <ctime>
 #include <string>
 
-// PATELLA_PRINTF_FORMAT and Time32
+#if !defined(_WIN32)
+// The Msvc* names at the end: errno values, and POSIX's fileno, setenv, unsetenv and execl, which the C headers
+// declare, not <cstdio> and <cstdlib>.
+#include <cerrno>
+#include <stdio.h>  // NOLINT(modernize-deprecated-headers)
+#include <stdlib.h> // NOLINT(modernize-deprecated-headers)
+#include <unistd.h>
+#endif
+
+// PATELLA_PRINTF_FORMAT and Time32 (compat/msvc.h includes this header off Windows after them).
 #include "compat/msvc.h"
 
 #if defined(_MSC_VER)
@@ -130,4 +139,106 @@ inline std::tm *PortableLocaltime32(const Time32 *Time)
 
 #if defined(_MSC_VER)
 #pragma warning(pop)
+#endif
+
+#if !defined(_WIN32)
+
+// The Msvc* names of compat/msvc.h off Windows (on Windows they are the Microsoft functions themselves; issue
+// #49 moved them here from compat/msvc.h).
+
+// _snprintf: PortableVsnprintf's semantics.
+PATELLA_PRINTF_FORMAT(3, 4)
+inline int MsvcSnprintf(char *Buffer, std::size_t Count, const char *Format, ...) // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
+{
+	std::va_list Values;      // NOLINT(cppcoreguidelines-pro-type-vararg): _snprintf's interface
+	va_start(Values, Format); // NOLINT(cppcoreguidelines-pro-type-vararg)
+	const int Result = patella::compat::PortableVsnprintf(Buffer, Count, Format, Values);
+	va_end(Values); // NOLINT(cppcoreguidelines-pro-type-vararg)
+	return Result;
+}
+
+// _vsnprintf.
+PATELLA_PRINTF_FORMAT(3, 0)
+inline int MsvcVsnprintf(char *Buffer, std::size_t Count, const char *Format, std::va_list Values)
+{
+	return patella::compat::PortableVsnprintf(Buffer, Count, Format, Values);
+}
+
+// _stricmp.
+inline int MsvcStricmp(const char *Left, const char *Right)
+{
+	return patella::compat::PortableStricmp(Left, Right);
+}
+
+// _strdup.
+inline char *MsvcStrdup(const char *Text)
+{
+	return patella::compat::PortableStrdup(Text);
+}
+
+// _time32: the time now in 32 bits, also stored in *Time when Time is not null.
+inline Time32 MsvcTime32(Time32 *Time)
+{
+	const Time32 Now = patella::compat::PortableTime32(std::time(nullptr));
+	if (Time != nullptr)
+		*Time = Now;
+	return Now;
+}
+
+// _ctime32.
+inline char *MsvcCtime32(const Time32 *Time)
+{
+	return patella::compat::PortableCtime32(Time);
+}
+
+// _localtime32.
+inline std::tm *MsvcLocaltime32(const Time32 *Time)
+{
+	return patella::compat::PortableLocaltime32(Time);
+}
+
+// _fileno: the descriptor under a FILE.
+inline int MsvcFileno(std::FILE *File)
+{
+	return fileno(File);
+}
+
+// _execl with one argument: replaces the process with the program Path, which gets Argument as its argv[0]
+// (Player.cpp: patch.exe). Returns only when that fails (-1).
+inline std::intptr_t MsvcExecl(const char *Path, const char *Argument)
+{
+	return execl(Path, Argument, static_cast<char *>(nullptr)); // NOLINT(cppcoreguidelines-pro-type-vararg)
+}
+
+// _dupenv_s: *Value is a copy of the environment variable Name from malloc (the caller frees it) and *Length
+// its size with the NUL, or null and 0 when it is not set; returns 0, or an errno value (EINVAL without
+// Value or Name, ENOMEM).
+inline int MsvcDupenv(char **Value, std::size_t *Length, const char *Name)
+{
+	if (Value == nullptr || Name == nullptr)
+		return EINVAL;
+	*Value = nullptr;
+	if (Length != nullptr)
+		*Length = 0;
+	const char *Text = std::getenv(Name);
+	if (Text == nullptr)
+		return 0;
+	*Value = patella::compat::PortableStrdup(Text);
+	if (*Value == nullptr)
+		return ENOMEM;
+	if (Length != nullptr)
+		*Length = std::strlen(Text) + 1;
+	return 0;
+}
+
+// _putenv_s: sets the environment variable Name to Value; an empty Value removes it. Returns 0, or an errno
+// value (EINVAL: no Name or Value, an empty Name, or a Name with '=').
+inline int MsvcPutenv(const char *Name, const char *Value)
+{
+	if (Name == nullptr || Value == nullptr || *Name == 0 || std::strchr(Name, '=') != nullptr)
+		return EINVAL;
+	const int Result = *Value == 0 ? unsetenv(Name) : setenv(Name, Value, 1);
+	return Result == 0 ? 0 : errno;
+}
+
 #endif

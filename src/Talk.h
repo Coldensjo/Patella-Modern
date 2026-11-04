@@ -2,8 +2,8 @@
 #include "common.h"
 #include "Container.h"
 #include "Preferences.h"
-#include <ctime>
 #include <type_traits>
+#include <cstdio>
 
 struct TRGBColor;
 

@@ -25,15 +25,13 @@
 
 #pragma once
 
-#include "common.h"
+#include "common.h" // IWYU pragma: keep (first: it configures the CRT and MFC for the headers after it)
 #include <climits>
-#include "Container.h"
 #include "GUI.h"
 #include "Creatures.h" // SetHighlightID
 #include "DialogWindow.h"
 #include "Map.h" // TMark
 #include "DialogElements.h"
-#include "Objects.h" // TObject
 
 class TMainWindow;       // MainWindow.h
 class TSkillContextMenu; // ContextMenus.h

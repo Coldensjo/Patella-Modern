@@ -21,6 +21,8 @@ cmake_path(GET CMAKE_CURRENT_LIST_DIR PARENT_PATH PATELLA_ROOT_DIR)
 # errors, so the build never stops being green. A file leaves a list when it builds clean at the full
 # level, and a list only shrinks; no file is added. A file is on a list when its translation unit
 # warns, wherever the warning is (a header included). Paths are relative to the repository root.
+# A header on a list (issue #49) is one whose own warnings put its includers on it: its header check
+# (cmake/HeaderCheck.cmake), the header alone, builds at the baseline level.
 #
 # MSVC: measured with MSVC 14.51 (cl 19.51) for x86 against static MFC (notes/decisions.md, "Compiler
 # settings, warnings and code style (issue #8)") and again for x64 (the same 24 files and 1,234
@@ -56,6 +58,7 @@ set(PATELLA_WARNING_BASELINE_MSVC
 # (notes/decisions.md, "The Linux presets and patella_core (issue #7)"). The other sources do not
 # compile there yet; each is measured when it joins patella_core.
 set(PATELLA_WARNING_BASELINE_GCC
+	src/Container.h
 	src/Extern/regexp/regexp.c
 	src/TXTEA.cpp
 	src/Utils.cpp
@@ -172,7 +175,9 @@ function(patella_target_warnings target)
 		if(NOT extension MATCHES "^\\.(c|cc|cpp|cxx)$")
 			continue()
 		endif()
-		if(path IN_LIST baseline_files)
+		# A header check's source (cmake/HeaderCheck.cmake) has the level of its header.
+		get_property(header SOURCE "${source}" TARGET_DIRECTORY ${target} PROPERTY PATELLA_HEADER)
+		if(path IN_LIST baseline_files OR (header AND header IN_LIST baseline_files))
 			set(level ${baseline})
 		else()
 			set(level ${full})

@@ -30,6 +30,7 @@
 #include "Skins.h"   // Skins
 #include "Status.h"  // SetMouseOverText
 #include "Objects.h" // TObject
+#include <cstring>
 
 // --- Separator, resizer and frame -----------------------------------------------
 

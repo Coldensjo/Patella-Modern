@@ -58,8 +58,13 @@
 
 #if defined(PATELLA_TEST_MODE)
 
+// The Windows types of the declarations: MFC, as common.h includes it (before anything of Windows, which
+// MFC requires; the test build has real MFC, never the shim). Time32 and PATELLA_CDECL: compat/msvc.h.
+// In the client's sources common.h has included both already (issue #49).
+#include <afxwin.h>
 #include <ctime>
 
+#include "compat/msvc.h"
 #include "testmode/ClientView.h" // IWYU pragma: export
 
 namespace patella::testmode {

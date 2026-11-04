@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include "common.h"
 
 inline constexpr int EVENTHELPS = 14; // "In(Number,1,EVENTHELPS)", "In(Hint,1,EVENTHELPS)" (MapWindow.cpp)
 

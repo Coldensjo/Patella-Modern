@@ -14,6 +14,8 @@
 
 #include "common.h"
 #include <type_traits>
+#include <cstdio>
+#include <cstring>
 
 inline constexpr int MAX_IDENT_LENGTH = 20;    // "identifier too long"
 inline constexpr int MAX_STRING_LENGTH = 1000; // "string too long" at 999 characters
