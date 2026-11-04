@@ -59,7 +59,8 @@ add_library(golden_client OBJECT
 	"${PROJECT_SOURCE_DIR}/src/Surface.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Help.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Inventory.cpp"
-	"${PROJECT_SOURCE_DIR}/src/Objects.cpp")
+	"${PROJECT_SOURCE_DIR}/src/Objects.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Map.cpp")
 golden_client_settings(golden_client)
 target_compile_definitions(golden_client PRIVATE PATELLA_VULKAN)
 
@@ -74,7 +75,8 @@ add_library(golden_client_tests OBJECT
 	inventory_tests.cpp
 	talk_tests.cpp
 	container_tests.cpp
-	objects_tests.cpp)
+	objects_tests.cpp
+	map_tests.cpp)
 golden_client_settings(golden_client_tests)
 
 add_executable(golden_runner

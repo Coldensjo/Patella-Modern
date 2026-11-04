@@ -774,7 +774,7 @@ static void TestWrapping(const char *ExePath)
 {
 	// Map.cpp: the field queries call GetFirstObject (and others), which
 	// asserts the coordinates; TEND2(rx, ry) wraps it. The image's field
-	// matrix and object vector need their constructors (as in maptest.cpp;
+	// matrix and object vector need their constructors (as in map_tests.cpp;
 	// a second construction leaks the first one's memory). IsFieldPassable
 	// only without CheckHeight, which reads the field (8, 6, GetMapLevel()).
 	static bool MapConstructed = false;
