@@ -545,9 +545,9 @@ void TestFilters()
 		ORIGINAL(free(Original(Index)));
 	}
 	// vector<T>'s destructor deletes the entries again at the end of the function.
-	delete[] Ours.entry;
+	Ours.entry.reset();
 	Ours.entry = nullptr;
-	ORIGINAL(free(Original.entry));
+	ORIGINAL(free(Original.entry.get()));
 	const char *Names[] = {"Alice", "Bob", "alice", "Carol", "", "Daniel"};
 	for (int Round = 0; Round < 2500; Round++) {
 		const char *Name = Names[Random() % 6];

@@ -203,7 +203,7 @@ std::vector<int> GoodSkins;
 void PrepareSkins()
 {
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
 	GoodSkins.clear();
 	for (int i = 1; i < NumberOfSkins && i < LASTSKIN; i++) {
 		if (i != 152 && Skins[i].width > 0 && Skins[i].height > 0) // 152 is left uninitialised
@@ -477,8 +477,10 @@ void AddNode(int Kind)
 			E.srcx = E.srcy = 0;
 		}
 		for (int s = 0; s < SIDES; s++) {
-			N.Side[s]->DrawingList = new TDrawing[Length];
-			memcpy(N.Side[s]->DrawingList, Entries, sizeof(TDrawing) * Length);
+			// A new list over the old one, which leaks as before (TComponent::DrawingList is a std::unique_ptr, #58).
+			static_cast<void>(N.Side[s]->DrawingList.release());
+			N.Side[s]->DrawingList.reset(new TDrawing[Length]);
+			memcpy(N.Side[s]->DrawingList.get(), Entries, sizeof(TDrawing) * Length);
 			N.Side[s]->DrawingListLength = Length;
 		}
 	}
@@ -1002,7 +1004,7 @@ void TestComponentDraw()
 	for (int t = 0; t < 5000; t++) {
 		TElement P;
 		int Length = Random() % 6;
-		P.DrawingList = Length > 0 ? new TDrawing[Length] : nullptr;
+		P.DrawingList.reset(Length > 0 ? new TDrawing[Length] : nullptr);
 		P.DrawingListLength = Length;
 		for (int i = 0; i < Length; i++) {
 			TDrawing &E = P.DrawingList[i];
@@ -1607,7 +1609,8 @@ void TestGUIErrors()
 		// TComponent::Draw: a skin beyond the table, a drawing left of the origin.
 		int Length = 1 + (int)(Random() % 3);
 		for (int s = 0; s < SIDES; s++) {
-			P[s]->DrawingList = new TDrawing[Length];
+			static_cast<void>(P[s]->DrawingList.release()); // the old list leaks, as before (#58)
+			P[s]->DrawingList.reset(new TDrawing[Length]);
 			P[s]->DrawingListLength = Length;
 		}
 		for (int i = 0; i < Length; i++) {

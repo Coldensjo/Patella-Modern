@@ -111,7 +111,7 @@ TDialogWindow::TDialogWindow()
 	FreeHeight = 0;
 	UpdateFreeHeight = true;
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 }
 
 // --- TDialogWindow ---------------------------------------------------------
@@ -597,7 +597,7 @@ TSubWindow::TSubWindow(int _Identifier, TSubWindowBody *_Body, bool _Resizable, 
 	RestoreHeight = 0;
 	Data68 = 0;
 	DrawingListLength = 8;
-	DrawingList = new TDrawing[8];
+	DrawingList.reset(new TDrawing[8]);
 	UpButton = nullptr;
 	CloseButton = nullptr;
 	MinimizeButton = nullptr;

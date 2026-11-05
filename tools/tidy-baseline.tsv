@@ -3,10 +3,7 @@
 #	python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline tools/tidy-baseline.tsv
 # CI fails on a finding that is not here (notes/reconstruction.md, "Checking"). Write it again when findings
 # are fixed (it only shrinks), or when a new one is accepted on purpose (say why in the commit).
-1	src/Skins.cpp	cppcoreguidelines-owning-memory	assigning newly created 'gsl::owner<>' to non-owner 'TSkin *'
-1	src/Skins.cpp	cppcoreguidelines-owning-memory	deleting a pointer through a type that is not marked 'gsl::owner<>'; consider using a smart pointer instead
 1	src/Utils.cpp	cppcoreguidelines-owning-memory	initializing non-owner 'char *' with a newly created 'gsl::owner<>'
 1	src/common.h	cppcoreguidelines-use-enum-class	enum 'PROGRAM_ERROR' is unscoped, use 'enum class' instead
 1	src/vlong.cpp	cppcoreguidelines-owning-memory	assigning newly created 'gsl::owner<>' to non-owner 'vlong_value *'
-1	src/vlong.cpp	cppcoreguidelines-owning-memory	initializing non-owner 'unsigned int *' with a newly created 'gsl::owner<>'
 1	src/vlong.cpp	cppcoreguidelines-owning-memory	initializing non-owner 'vlong_value *' with a newly created 'gsl::owner<>'

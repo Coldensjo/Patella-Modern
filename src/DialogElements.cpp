@@ -40,9 +40,14 @@ static_assert(sizeof(TOutfitIcon) == 0x48 && offsetof(TOutfitIcon, Colors) == 0x
 static_assert(sizeof(std::unique_ptr<char[]>) == sizeof(char *) && alignof(std::unique_ptr<char[]>) == alignof(char *)
 		&& sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *)
 		&& sizeof(std::unique_ptr<TCallback[]>) == sizeof(TCallback *)
-		&& alignof(std::unique_ptr<TCallback[]>) == alignof(TCallback *),
+		&& alignof(std::unique_ptr<TCallback[]>) == alignof(TCallback *)
+		&& sizeof(std::unique_ptr<char *[]>) == sizeof(char **) && alignof(std::unique_ptr<char *[]>) == alignof(char **),
 	"std::unique_ptr is a pointer");
-static_assert(sizeof(TLabel) == 0x4c && offsetof(TLabel, FullText) == 0x28, "TLabel's layout");
+static_assert(sizeof(TLabel) == 0x4c && offsetof(TLabel, Text) == 0x24 && offsetof(TLabel, FullText) == 0x28
+		&& offsetof(TLabel, Line) == 0x44,
+	"TLabel's layout");
+static_assert(sizeof(TFormattedText) == 0x38 && offsetof(TFormattedText, Text) == 0x2c && offsetof(TFormattedText, Line) == 0x30,
+	"TFormattedText's layout");
 static_assert(sizeof(TLink) == 0x3c && offsetof(TLink, Destination) == 0x30, "TLink's layout");
 static_assert(sizeof(TMultiStateButton) == 0x58 && offsetof(TMultiStateButton, ButtonUps) == 0x4c
 		&& offsetof(TMultiStateButton, ButtonDowns) == 0x50 && offsetof(TMultiStateButton, Callbacks) == 0x54,
@@ -90,7 +95,7 @@ TResizer::TResizer(TComponent *_ToResize, bool _ResizeWidth, bool _ResizeHeight,
 	ToResize = _ToResize;
 	Invisible = _Invisible;
 	DrawingListLength = 1;
-	DrawingList = new TDrawing[1];
+	DrawingList.reset(new TDrawing[1]);
 	Dragging = false;
 	StartY = 0;
 	StartX = 0;
@@ -179,7 +184,7 @@ TBorder::TBorder(TComponent *_Window, int _Border)
 	TBEGIN
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	Border = _Border;
 	Window = _Window;
 	TWindow::InsertChild(_Window);
@@ -203,7 +208,7 @@ TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int
 	TBEGIN
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	Border = _Border;
 	Window = _Window;
 	TWindow::InsertChild(_Window);
@@ -227,7 +232,7 @@ TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int
 	TBEGIN
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	Border = _Border;
 	Window = _Window;
 	TWindow::InsertChild(_Window);
@@ -385,7 +390,7 @@ void TLabel::SetText(const char *_Text, bool Shorten)
 	TASSERT(431, _Text!=NULL);
 	TBEGIN
 	if (Text != nullptr) {
-		delete[] Text;
+		Text.reset();
 		Text = nullptr;
 	}
 	if (FullText != nullptr) {
@@ -393,26 +398,26 @@ void TLabel::SetText(const char *_Text, bool Shorten)
 		FullText = nullptr;
 	}
 	if (Line != nullptr) {
-		delete[] Line;
+		Line.reset();
 		Line = nullptr;
 	}
 	Shortened = false;
 	const int Length = (int)strlen(_Text);
-	Text = new char[Length + 2];
+	Text.reset(new char[Length + 2]);
 	FullText.reset(new char[Length + 2]);
 	TStringBuffer(FullText.get(), static_cast<std::size_t>(Length) + 2).Assign(_Text);
-	TStringBuffer(Text, static_cast<std::size_t>(Length) + 2).Assign(_Text);
+	TStringBuffer(Text.get(), static_cast<std::size_t>(Length) + 2).Assign(_Text);
 	Lines = 1;
 	for (int i = 0; i < Length; i++) {
 		if (Text[i] == '\n')
 			Lines++;
 	}
-	Line = new char *[Lines];
-	Line[0] = Text;
+	Line.reset(new char *[Lines]);
+	Line[0] = Text.get();
 	int Number = 1;
 	for (int i = 0; i < Length; i++) {
 		if (Text[i] == '\n') {
-			Line[Number] = Text + i + 1;
+			Line[Number] = Text.get() + i + 1;
 			Number++;
 			Text[i] = 0;
 		}
@@ -572,7 +577,7 @@ void TFormattedText::Arrange()
 	int X = 0;
 	int Y = 0;
 	const int MaxWidth = AutoWidth ? -1 : Width;
-	const char *Piece = Text;
+	const char *Piece = Text.get();
 	bool Finished = false;
 	for (;;) {
 		bool LineBreak = false;
@@ -624,12 +629,12 @@ void TFormattedText::Arrange()
 		TComponent *Element = nullptr;
 		switch (TokenType) {
 		case 0: {
-			CopyString(patella::TSpan<char>(Line, static_cast<std::size_t>(Position + 1)), Piece);
+			CopyString(patella::TSpan<char>(Line.get(), static_cast<std::size_t>(Position + 1)), Piece);
 			TFont Font;
 			Font.FontNumber = FontNumber;
 			Font.Color = Color;
 			Font.Alignment = LEFT_ALIGN;
-			Element = new TLabel(Font, Line);
+			Element = new TLabel(Font, Line.get());
 			break;
 		}
 		case 1:
@@ -698,15 +703,15 @@ void TFormattedText::SetText(const char *_Text, bool Rearrange)
 	TASSERT(723, _Text!=NULL);
 	TBEGIN
 	if (Text != nullptr)
-		delete[] Text;
+		Text.reset();
 	if (Line != nullptr)
-		delete[] Line;
+		Line.reset();
 	Text = nullptr;
 	Line = nullptr;
 	const std::size_t Size = strlen(_Text) + 1;
-	Text = new char[Size];
-	Line = new char[Size];
-	TStringBuffer(Text, Size).Assign(_Text);
+	Text.reset(new char[Size]);
+	Line.reset(new char[Size]);
+	TStringBuffer(Text.get(), Size).Assign(_Text);
 	if (Rearrange)
 		Arrange();
 	TEND(734)
@@ -1205,7 +1210,7 @@ TCheckBox::TCheckBox(const char *_Text)
 	TASSERT1(1687, strlen(_Text)<50, strlen(_Text));
 	TBEGIN
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	Checked = false;
 	Enabled = true;
 	Label = new TLabel(SkinProperties.CheckBox.Data18, _Text);
@@ -1250,7 +1255,7 @@ void TCheckBox::SetEnabled(bool _Enabled)
 	TBEGIN
 	Enabled = _Enabled;
 	const TFont Font = _Enabled ? SkinProperties.CheckBox.Data18 : SkinProperties.CheckBox.Data2C;
-	TLabel *NewLabel = new TLabel(Label->OffsetX, Label->OffsetY, Label->Width, Label->Height, Font, Label->Text,
+	TLabel *NewLabel = new TLabel(Label->OffsetX, Label->OffsetY, Label->Width, Label->Height, Font, Label->Text.get(),
 		false);
 	DeleteChild(Label);
 	Label = NewLabel;
@@ -1280,7 +1285,7 @@ TEditLine::TEditLine(TRect Area, int _MaxLength, bool _ReadOnly)
 	Font = _ReadOnly ? SkinProperties.Style944.Data38 : SkinProperties.Style944.Data24;
 	MaxLength = _MaxLength;
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	TWindow::SetPosition(Area.x, Area.y);
 	TEditLine::SetSize(Area.width, Area.height);
 	TEditLine::Arrange();
@@ -1307,7 +1312,7 @@ TEditLine::TEditLine(int _MaxLength, bool _ReadOnly)
 	Font = _ReadOnly ? SkinProperties.Style944.Data38 : SkinProperties.Style944.Data24;
 	MaxLength = _MaxLength;
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	TEND1(1927, _MaxLength)
 }
 
@@ -2141,7 +2146,7 @@ THorizontalScrollBarRange::THorizontalScrollBarRange(int _Min, int _Max, int _Va
 	TASSERT2(2926, In(_Value,_Min,_Max), _Value, _Max);
 	TBEGIN
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	Min = _Min;
 	Value = _Value;
 	Enabled = _Min != _Max;
@@ -2389,7 +2394,7 @@ TScrollBarRange::TScrollBarRange(int x, int y, int Width, int Height, int _Min, 
 	TASSERT2(3228, In(_Value,_Min,_Max), _Value, _Max);
 	TBEGIN
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	Min = _Min;
 	Enabled = _Min != _Max;
 	Value = _Value;
@@ -2654,7 +2659,7 @@ TListBox::TListBox(TCallback _SelectCallback, TCallback _ActionCallback)
 	TextWidth = 0;
 	Selected = -1;
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	SelectCallback = _SelectCallback;
 	ActionCallback = _ActionCallback;
 	Editable = false;

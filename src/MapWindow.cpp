@@ -1642,7 +1642,7 @@ TMapFrame::TMapFrame()
 	MapWindow = new TMapWindow;
 	InsertChild(MapWindow);
 	DrawingListLength = 8;
-	DrawingList = new TDrawing[8];
+	DrawingList.reset(new TDrawing[8]);
 	TEND(1564)
 }
 

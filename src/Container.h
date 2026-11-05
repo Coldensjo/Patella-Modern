@@ -54,7 +54,15 @@
 #pragma once
 
 #include "common.h"
+#include <memory>
 #include <sstream>
+
+// Each container owns its entries as a std::unique_ptr<T[]> (issue #58): a pointer at the original's offset, freed
+// with reset() where the original had delete[] (the destructors, vector's growth), allocated with reset(new T[n])
+// (the same new-expression: entries of a type without a constructor stay uninitialised). The element types'
+// destructors cannot throw (scalars, pointers and plain structures), so neither can the reset.
+static_assert(sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *),
+	"std::unique_ptr<T[]> is a pointer");
 
 // array<T> is a fixed array indexed from min to min+d-1 (lines 152-178;
 // it comes before vector in the original file). The class name is ours;
@@ -69,14 +77,14 @@ public:
 	array(int min, int max);
 	// Inlined into Objects.cpp's ReleaseObjects (delete[] entry, then
 	// operator delete on the array itself).
-	~array() { delete[] entry; }
+	~array() { entry.reset(); }
 	T &operator()(int i);
 	int low() { return min; }
 	int high() { return min + d - 1; }
 
-	int min;  // +0x00
-	int d;    // +0x04, number of entries
-	T *entry; // +0x08
+	int min;                    // +0x00
+	int d;                      // +0x04, number of entries
+	std::unique_ptr<T[]> entry; // +0x08
 };
 
 // Line 152. No try block; the assertion is the only EH state.
@@ -85,7 +93,7 @@ template <class T> array<T>::array(int min, int max)
 	this->min = min;
 	d = max - min + 1;
 	TASSERT1(152, d>0, d);
-	entry = new T[d];
+	entry.reset(new T[d]);
 }
 
 // Line 178. The error has no try block either; its message is built in a
@@ -116,14 +124,14 @@ public:
 	matrix(const matrix &) = delete;
 	matrix &operator=(const matrix &) = delete;
 	matrix(int xmin, int xmax, int ymin, int ymax);
-	~matrix() { delete[] entry; }
+	~matrix() { entry.reset(); }
 	T &operator()(int x, int y);
 
-	int xmin; // +0x00
-	int ymin; // +0x04
-	int dx;   // +0x08
-	int dy;   // +0x0c
-	T *entry; // +0x10
+	int xmin;                   // +0x00
+	int ymin;                   // +0x04
+	int dx;                     // +0x08
+	int dy;                     // +0x0c
+	std::unique_ptr<T[]> entry; // +0x10
 };
 
 // Lines 217-218. No try block; the assertions are the only EH states.
@@ -135,7 +143,7 @@ template <class T> matrix<T>::matrix(int xmin, int xmax, int ymin, int ymax)
 	dy = ymax - ymin + 1;
 	TASSERT1(217, dx>0, dx);
 	TASSERT1(218, dy>0, dy);
-	entry = new T[dx * dy];
+	entry.reset(new T[dx * dy]);
 }
 
 // Line 253.
@@ -158,16 +166,16 @@ public:
 	matrix3d(const matrix3d &) = delete;
 	matrix3d &operator=(const matrix3d &) = delete;
 	matrix3d(int xmin, int xmax, int ymin, int ymax, int zmin, int zmax);
-	~matrix3d() { delete[] entry; }
+	~matrix3d() { entry.reset(); }
 	T &operator()(int x, int y, int z);
 
-	int xmin; // +0x00
-	int ymin; // +0x04
-	int zmin; // +0x08
-	int dx;   // +0x0c
-	int dy;   // +0x10
-	int dz;   // +0x14
-	T *entry; // +0x18
+	int xmin;                   // +0x00
+	int ymin;                   // +0x04
+	int zmin;                   // +0x08
+	int dx;                     // +0x0c
+	int dy;                     // +0x10
+	int dz;                     // +0x14
+	std::unique_ptr<T[]> entry; // +0x18
 };
 
 // Lines 282-284.
@@ -182,7 +190,7 @@ template <class T> matrix3d<T>::matrix3d(int xmin, int xmax, int ymin, int ymax,
 	TASSERT1(282, dx>0, dx);
 	TASSERT1(283, dy>0, dy);
 	TASSERT1(284, dz>0, dz);
-	entry = new T[dx * dy * dz];
+	entry.reset(new T[dx * dy * dz]);
 }
 
 // Line 328. Unlike the other containers, the error names a bug number as its
@@ -212,7 +220,7 @@ public:
 	// Inlined everywhere: the atexit thunks of the static vectors
 	// (0x55a320-0x55a3c0) and Map.cpp's TAutomapBlock destructor 0x4b0b30
 	// free entry.
-	~vector() { delete[] entry; }
+	~vector() { entry.reset(); }
 	T &operator()(int i);
 
 	int min;          // +0x00, lowest index used so far
@@ -222,7 +230,7 @@ public:
 	int block;        // +0x10, growth step, 0 = double
 	bool initialized; // +0x14, fill new entries with init
 	T init;           // +0x15 or the next aligned offset
-	T *entry;
+	std::unique_ptr<T[]> entry;
 };
 
 // Lines 353-358 (0x453300, 0x425e70, 0x4973f0, 0x4fd6e0). Every entry starts
@@ -238,7 +246,7 @@ template <class T> vector<T>::vector(int min, int max, int block, T init)
 	this->init = init;
 	TASSERT1(355, space>0, space);
 	TASSERT1(356, block>=0, block);
-	entry = new T[space];
+	entry.reset(new T[space]);
 	for (int i = 0; i < space; i++)
 		entry[i] = init;
 }
@@ -256,7 +264,7 @@ template <class T> vector<T>::vector(int min, int max, int block)
 	initialized = false;
 	TASSERT1(369, space>0, space);
 	TASSERT1(370, block>=0, block);
-	entry = new T[space];
+	entry.reset(new T[space]);
 }
 
 // Grows the array until i is inside it and returns the entry. Existing
@@ -273,8 +281,8 @@ template <class T> T &vector<T>::operator()(int i)
 			help[j - start + b] = entry[j - start];
 			entry[j - start] = h;
 		}
-		delete[] entry;
-		entry = help;
+		entry.reset();
+		entry.reset(help);
 		start -= b;
 		space += b;
 	}
@@ -288,8 +296,8 @@ template <class T> T &vector<T>::operator()(int i)
 			help[j - start] = entry[j - start];
 			entry[j - start] = h;
 		}
-		delete[] entry;
-		entry = help;
+		entry.reset();
+		entry.reset(help);
 		space += b;
 	}
 	while (i < min) {

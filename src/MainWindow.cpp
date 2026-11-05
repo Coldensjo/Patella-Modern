@@ -726,7 +726,7 @@ TSplitter::TSplitter()
 	TBEGIN
 	Dragging = false;
 	DrawingListLength = 3;
-	DrawingList = new TDrawing[3];
+	DrawingList.reset(new TDrawing[3]);
 	for (int i = 0; i < DrawingListLength; i++)
 		DrawingList[i].skin = 0;
 	TEND(749)

@@ -8204,6 +8204,54 @@ sections 3, 4 and 6).
   table list takes `.get()`. tests/golden's Dialogs port (the other #28 work) reads `Timer == NULL`, which compiles
   unchanged.
 
+### The second part (issue-58b, November 5, 2026)
+
+Settled by Claude Opus 5.5, November 5, 2026, on main 3f6042a. Every owner that part 1 left raw was examined again
+against the code; what can be converted inside the frozen layout was, and every owner that stays raw is in
+notes/ownership.md's section 7 with its reason and the milestone that unblocks it, so the issue's "done when" holds.
+
+- **Converted** (high). 7 globals and 11 members, one subsystem per commit (ownership.md, section 6): `Skins`; the six
+  graphics tables (`Sprites`, `Pictures`, `Fonts`, `MemoryCacheData`, `MemoryCache`, `VideoCache`);
+  `TComponent::DrawingList` (all 27 allocations, in every window class); `TLabel::Text` and `Line` (the table of line
+  starts; its entries point into `Text` and are not owners), `TFormattedText::Text` and `Line` (part 1's map took
+  `Line` for a pointer into `Text`; it is a scratch buffer of the same size); `TGraphicsOptionsDialog::Modes`;
+  Container.h's `entry` in `array`, `matrix`, `matrix3d` and `vector` (every instance); vlong's `flex_unit::a`. The
+  pointees have trivial or `noexcept` destructors (arrays of plain structures and scalars, Container.h's element types).
+- **Tests first** (high). Part 1 deferred the graphics globals, Skins and DrawingList because the tests read them raw.
+  tests/unit's core_skins_test.cpp got two cases first (InitSkins over a table leaves the old one allocated and intact,
+  ExitSkins without a table), green on the raw global and after the conversion; then each conversion commit changed the
+  golden tests it forced: `.get()` where a raw pointer is passed, compared or subtracted (graphics_tests.cpp, the window
+  tests' `Global<TSkin *>(0x71c454) = Skins.get()`, the dumps of dialogs_tests.cpp and dialogelements_tests.cpp,
+  container_tests.cpp, talk_tests.cpp, mapwindow_tests.cpp), and gui_tests.cpp's three raw stores into DrawingList as
+  `release()` (the old list leaks, as the test's raw store left it) and `reset(new ...)`.
+- **The kept leaks** (high). The init functions of the skin and graphics tables store a new table without freeing one
+  still held (only the golden tests call them twice): `static_cast<void>(X.release())` before `X.reset(new ...)`, with
+  part 1's NOLINT(bugprone-unused-return-value) and its reason; InitVideoCache's clear without a free is a `release()`.
+  The new-expression now runs after the release: if it throws (`bad_alloc`, which ends the client through FatalError),
+  the global is null where the original kept the old pointer (medium: no comparison reaches it). Every other new site
+  stores into a null pointer (the constructors; DrawingList is each object's first list), so it is `reset(new ...)`.
+- **GetFullscreenModes' out parameter** (high). The dialog passes a local `TFullscreenMode *` (initialised to null) and
+  `reset()`s `Modes` with it; the original passed `&Modes`. Every engine (Vulkan; DirectDraw, Direct3D 9 and OpenGL in
+  the oracle) writes `*Modes` before anything else, so the value the dialog keeps is the same.
+- **Layouts** (high). Each converted class asserts its size and the member's offset under `PATELLA_ORIGINAL_LAYOUT`
+  (TComponent 0x24, DrawingList +0x04; TLabel 0x4c, Text +0x24, Line +0x44; TFormattedText 0x38, Text +0x2c, Line +0x30;
+  TGraphicsOptionsDialog 0x4c, Modes +0x38; flex_unit 0xc, its `a` private), and every file asserts `sizeof`/`alignof`
+  of its `unique_ptr`s against the raw pointer, unconditionally where part 1 did not need it in both builds.
+  tools/client_state.py needed no change (`--layout`: the oracle equal to the original, x64 0 problems).
+- **What stays raw** (high). ownership.md, section 7, by milestone: M5 for the pointees with `noexcept(false)`
+  destructors (every component member, `TConsoleWindow::History`, `ModalWindow`, `MainWindow`, the text buffers) and
+  for `TEditLine::Text` (its `strlen(Text)` in two TASSERT2s would need `.get()`) with `TPasswordEditLine::Stars`,
+  which swaps blocks with it; M6 for the oracle-only engines' blocks; M7 for the child list and the conditional members,
+  the event queue, the containers' owned pointers, the elements' pointers in owned tables (`TPicture::Offsets`,
+  `TProperties::Sprites`), the mismatched releases, `TaintedClipboardText`'s dangling pointer and the globals whose
+  destructors act at `exit(1)` (`Surface`; `ModalWindow` and `MainWindow` with M5); M8 for `Socket` (CAsyncSocket),
+  `CMainFrame` (MFC), `LinkRegexp` and `HostnameResolveBuffer` (`malloc`); never for `vlong_value` (shared with a
+  count, no `std::shared_ptr`) and the test mode's clock state (alive until exit on purpose).
+- **Behaviour** (high, except where marked). Unchanged where the client keeps running: the same allocations and frees
+  in the same order, the same leaks. On paths that end the client (medium): a throwing constructor of a converted class
+  frees or leaves null what the original leaked or left indeterminate; Skins and the graphics tables still set at
+  FatalError's `exit(1)` are freed during static destruction (memory only).
+
 ## The golden corpus: MapWindow, MainWindow and the retired engine tests (Patella-Modern issue #27, second part)
 
 Settled by Claude Opus 5.5, November 4, 2026. tests/golden/ (mapwindow_tests.cpp and mainwindow_tests.cpp moved from

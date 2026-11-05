@@ -290,7 +290,7 @@ TAutomapWindow::TAutomapWindow()
 {
 	TBEGIN
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	SetSize(SkinProperties.Data184, SkinProperties.Data220);
 	Changed = true;
 	Centred = true;
@@ -749,14 +749,14 @@ TPlayerStates::TPlayerStates(bool islarge)
 	if (!islarge) {
 		MaxIcons = 9;
 		DrawingListLength = 2;
-		DrawingList = new TDrawing[2];
+		DrawingList.reset(new TDrawing[2]);
 		DrawingList[0] = TDrawing(100, 0, 0, SkinProperties.Data580.width, SkinProperties.Data580.height, 0, 0);
 		DrawingList[1] = TDrawing(101, SkinProperties.Data580.width - 1, 0, Skins[101].width, Skins[101].height, 0,
 			0);
 	} else {
 		MaxIcons = 10;
 		DrawingListLength = 1;
-		DrawingList = new TDrawing[1];
+		DrawingList.reset(new TDrawing[1]);
 		DrawingList[0] = TDrawing(100, 0, 0, SkinProperties.Style288.Data148.width,
 			SkinProperties.Style288.Data148.height, 0, 0);
 	}
@@ -994,7 +994,7 @@ TSmallInventoryWindow::TSmallInventoryWindow()
 {
 	TBEGIN
 	DrawingListLength = 1;
-	DrawingList = new TDrawing[1];
+	DrawingList.reset(new TDrawing[1]);
 	DrawingList[0] = TDrawing(99, SkinProperties.Data590.x, SkinProperties.Data590.y, SkinProperties.Data590.width,
 		SkinProperties.Data590.height, 0, 0);
 	TEND(1083)
@@ -1397,7 +1397,7 @@ TStatusWindow::TStatusWindow()
 {
 	TBEGIN
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	Data44 = 100;
 	Data48 = 100;
 	SetSize(SkinProperties.Data184, SkinProperties.StatusWindow.Data00);

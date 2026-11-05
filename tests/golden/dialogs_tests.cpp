@@ -1777,7 +1777,7 @@ template <class T, class F> static void Vector(std::string &Out, int s, vector<T
 {
 	Add(Out, " vec %d,%d,%d,%d,%d", V.min, V.max, V.start, V.space, V.block);
 	Byte(Out, V.initialized);
-	Pointer(Out, s, V.entry);
+	Pointer(Out, s, V.entry.get());
 	if (V.entry == NULL)
 		return;
 	for (int i = First; i <= Last && i - First < 1000; i++) {
@@ -1866,14 +1866,14 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Number(Out, B->Border);
 	} else if (In(K, {"TLabel", "TQuestionLabel", "TLogoutLabel", "TWaitLabel"})) {
 		TLabel *L = (TLabel *)C;
-		String(Out, s, L->Text);
+		String(Out, s, L->Text.get());
 		String(Out, s, L->FullText.get());
 		Font(Out, L->Font);
 		Number(Out, L->Lines);
-		Pointer(Out, s, L->Line);
-		if (L->Line != NULL && IsBlock(L->Line) && L->Text != NULL)
+		Pointer(Out, s, L->Line.get());
+		if (L->Line != NULL && IsBlock(L->Line.get()) && L->Text != NULL)
 			for (int i = 0; i < L->Lines && i < 100; i++) {
-				Add(Out, " [%d]", (int)(L->Line[i] - L->Text));
+				Add(Out, " [%d]", (int)(L->Line[i] - L->Text.get()));
 				String(Out, s, L->Line[i]);
 			}
 		Byte(Out, L->Shortened);
@@ -1891,8 +1891,8 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		}
 	} else if (K == "TFormattedText") {
 		TFormattedText *F = (TFormattedText *)C;
-		String(Out, s, F->Text);
-		Pointer(Out, s, F->Line);
+		String(Out, s, F->Text.get());
+		Pointer(Out, s, F->Line.get());
 		Byte(Out, F->AutoWidth);
 		Byte(Out, F->AutoHeight);
 	} else if (K == "TLink") {
@@ -2178,8 +2178,8 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Pointer(Out, s, G->Fullscreen);
 		Pointer(Out, s, G->ResolutionList);
 		Number(Out, G->NumberOfModes);
-		Pointer(Out, s, G->Modes);
-		if (IsBlock(G->Modes))
+		Pointer(Out, s, G->Modes.get());
+		if (IsBlock(G->Modes.get()))
 			for (int i = 0; i < G->NumberOfModes && i < 100; i++)
 				Add(Out, " %dx%dx%d@%d", G->Modes[i].Width, G->Modes[i].Height, G->Modes[i].Depth, G->Modes[i].Frequency);
 		Pointer(Out, s, (const void *)G->SetDisplayMode);
@@ -3351,7 +3351,7 @@ void TestDialogs()
 	}
 	ORIGINAL(PatchImage());
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	InitClasses();

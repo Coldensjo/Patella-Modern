@@ -3,8 +3,9 @@
 Who creates every heap object of the client, who frees it, and which pointers to it own it. Written for M4's
 `std::unique_ptr` step (notes/modernization-plan.md, section 7, M4 "Ownership"): an owning member or global becomes a
 `std::unique_ptr<T>` where that changes nothing the comparisons see; everything else stays a raw pointer, and this
-file says why. Measured on main c0a4fd8 (November 4, 2026); the second part of the issue updates the "Converted"
-column (section 4).
+file says why. Measured on main c0a4fd8 (November 4, 2026); the second part of the issue (main 3f6042a, November 5,
+2026) converted the rest that can be converted inside the frozen layout and lists, in section 7, every owner that stays
+raw, with its reason and the milestone that unblocks it.
 
 ## 1. Method and totals
 
@@ -51,10 +52,11 @@ Kinds of owner used below:
 ### GUI core (GUI.cpp, GUI.h)
 
 - `TComponent::DrawingList` (+0x04), a `TDrawing[DrawingListLength]`: **member**. Every subclass allocates it in its
-  constructor (27 sites in 9 files), some replace it (ContentWindows.cpp 735/742, TPlayerStates), and
-  `TComponent::~TComponent` deletes it (`delete[]`, GUI.cpp 64). It is the base of every window object; the
-  difftest and the golden window tests build, read and compare it by offset in our objects and in the original's
-  (tests/golden/gui_tests.cpp, dialogelements_tests.cpp, ...). Not converted (section 4).
+  constructor (27 sites in 9 files; TPlayerStates' two are the branches of one constructor), each the first list of
+  its object (TComponent's constructor leaves it null and no class allocates over a base's), and
+  `TComponent::~TComponent` deletes it (`delete[]`, GUI.cpp). It is the base of every window object; the difftest
+  and the golden window tests build, read and compare it by offset in our objects and in the original's
+  (tests/golden/gui_tests.cpp, dialogelements_tests.cpp, ...). Converted in the second part (section 6).
 - `TWindow::FirstChild` and every `TComponent::Next`: the **child list**, an intrusive singly linked list; the parent
   owns the children (above). Not a pointer that one `unique_ptr` could own: ownership moves between lists
   (RemoveChild without delete, TTabBar's three lists) and is decided by `IsChild`.
@@ -83,8 +85,9 @@ Kinds of owner used below:
 - 15 components, all **child list** of the element that makes them: TLink's label and button, TCheckBox's label,
   the scroll bars' buttons and ranges, TFormattedText's lines and icons, TEditText's scroll bar, TListBox's scroll
   bar.
-- **member** buffers: `TLabel::Text`, `FullText`, `Line` (`char *[]`, the line starts), `TFormattedText::Text` and
-  `Line`, `TLink::Destination`, `TMultiStateButton::ButtonUps`, `ButtonDowns`, `Callbacks`, `TEditLine::Text`,
+- **member** buffers: `TLabel::Text`, `FullText`, `Line` (`char *[]`, the line starts: the table is the label's, its
+  entries point into `Text`), `TFormattedText::Text` and `Line` (a scratch buffer as large as `Text`, not a pointer
+  into it), `TLink::Destination`, `TMultiStateButton::ButtonUps`, `ButtonDowns`, `Callbacks`, `TEditLine::Text`,
   `TPasswordEditLine::Stars`; the list boxes' lines (`TListBox::LineText`, `TFontListBox::FontLines(i).Text`, entries
   of a Container.h `vector`, freed by SetLine, Clear and the destructors).
 - **conditional**: `TListBox::EditLine` is a child while the list box edits a line (`Editing`), else the list box
@@ -192,7 +195,10 @@ those as `~T()` plus `free`, which this map counts as frees.
   (`TFontInfo[4]`; InitFonts / ExitGraphics, ReloadPictures), `MemoryCacheData` and `MemoryCache`
   (InitMemoryCache / ExitGraphics), `VideoCache` (InitVideoCache / ExitGraphics, ResetVideoCache), `Skins`
   (`TSkin[]`; InitSkins / ExitSkins). ExitGraphics frees in the order VideoCache, MemoryCacheData, MemoryCache,
-  Fonts, the pictures' offsets, Pictures, Sprites.
+  Fonts, the pictures' offsets, Pictures, Sprites. The init functions store a new table over the old one without
+  freeing it (InitFonts, InitMemoryCache, LoadSprites, LoadPictures, InitVideoCache; InitVideoCache also clears
+  `VideoCache` unfreed when there are no cache surfaces): leaks only where they are called twice (the golden tests),
+  kept. Every table but the pictures' `Offsets` converted in the second part.
 
 ### Objects and the map (Objects.cpp, Map.cpp)
 
@@ -251,39 +257,48 @@ time:
 ## 4. Candidates for std::unique_ptr, and why not the others
 
 A `T *` member or global may become `std::unique_ptr<T>` (`<T[]>` for arrays) when it is the only owner, its pointee is
-freed with the matching `delete`/`delete[]`, the original's free sites can be kept as explicit `reset()`s in the same
-order, and nothing reads it in a way the type change breaks (macro arguments cast to `int`, memcpy, the tools' PDB
-reader, the tests' raw assignments). Section 6 records what issue #58 converted.
+freed with the matching `delete`/`delete[]` and its destructor cannot throw, the original's free sites can be kept as
+explicit `reset()`s in the same order, and nothing reads it in a way the type change breaks: a TASSERT/TERROR/TEND
+argument whose text would need `.get()` (until M5 the text may not change), memcpy of the object, the tools' PDB reader
+(client_state.py reads a `unique_ptr` with the default deleter as a pointer), the tests' raw assignments (changed to
+`reset()`/`.get()` where needed). Section 6 records what issue #58 converted, section 7 every owner that stays raw.
 
-Not converted, with the reason:
+The reasons an owner stays raw, in short (section 7 names each owner):
 
-- Mismatched release (the original freed `new` memory with `free`, or `new T` with `delete[]`): `MotD`,
-  `ClipboardBuffer`, the text buffers and lines of Talk.cpp, `DefaultTextBuffer` (destructor then `free`),
-  ChangeMode's and SavePreferences' lists, the queue's `TTalkLine` (0x1c) and `MsvcStrdup` (0x1a) blocks freed with
-  `delete[]` as `char`, SurfaceGL.cpp's `delete Pixels`/`Data`/`Image` (arrays freed with `delete`). A
-  `unique_ptr` with the default deleter would call another function; a custom deleter would make it larger than a
-  pointer on no compiler, but the plan allows only the default deleter.
-- Freed without being cleared: `TaintedClipboardText` (ExitStatus). A `unique_ptr` is null after its release; the
-  original leaves the old address, and a CheckClipboardText after ExitStatus deletes it a second time.
-- Destroyed at exit when the process ends through `exit(1)` (CPlayerApp::FatalError) with the pointer still set:
-  a global `unique_ptr` runs its destructor during static destruction, the original leaves the object. That is
-  harmless for plain arrays (memory only) but not for objects whose destructors do things: `ModalWindow` and
-  `MainWindow` (window trees, hotkeys, Tibia.cfg's open dialogs), `Socket` (MFC's CAsyncSocket after MFC's module
-  state), `Surface` (the engines' devices and windows). The arrays that were converted (section 6) free memory only.
-- A pointee whose destructor may throw: every `TComponent` (`virtual ~TComponent() noexcept(false)`: the window
+- **The pointee's destructor may throw.** Every `TComponent` (`virtual ~TComponent() noexcept(false)`: the window
   destructors with TBEGIN/TEND rethrow to the caller, issue #34) and `TTalkBuffer` (`~TTalkBuffer() noexcept(false)`).
   `std::unique_ptr`'s `reset()` and destructor are `noexcept`, so an exception from such a destructor would end in
-  `std::terminate` instead of reaching the original's handlers (error.txt and the error report): `TTabBar::LeftTabs`
-  and `RightTabs`, `TConsoleWindow::History`, `ModalWindow`, `MainWindow`, every component member. A deleter that
-  lets exceptions out is not the default deleter.
-- Ownership that moves between two members: `TEditLine::Text` and `TPasswordEditLine::Stars` (SetText swaps the two
-  blocks); `TLabel::Line` and `TFormattedText::Line` point into `Text` (their `Text` stays raw with them, being read
-  by the window files and the tests in many places; a later step).
-- Allocated through an out parameter: `TGraphicsOptionsDialog::Modes` (GetFullscreenModes(&Modes)).
-- Read through the tests' raw pointers in ways that need more than `.get()` (assigned from Tibia.exe's objects or
-  compared with them by address): `Skins`, `Sprites` and the other graphics globals (tests/golden/graphics_tests.cpp,
-  core_tests.cpp's ExitSkins check, the window tests' `Global<TSkin *>(0x71c454) = Skins`), `DrawingList` (in every
-  window object; also each subclass's own `new TDrawing[n]`). Possible, with the tests changed; not in issue #58.
+  `std::terminate` instead of reaching the original's handlers (error.txt and the error report). A deleter that lets
+  exceptions out is not the default deleter. M5 removes TBEGIN/TEND, and with them the reason for `noexcept(false)`.
+- **A TASSERT argument names it in a way a `unique_ptr` does not compile in.** `TEditLine::Text` is
+  `strlen(Text)` in two TASSERT2s (DialogElements.cpp, lines 2263 and 2302); `.get()` would change the message
+  difftest compares. M5 rewrites the assertions.
+- **Ownership moves between two members.** `TPasswordEditLine::Stars` swaps blocks with `TEditLine::Text` around every
+  Draw and SetText; it follows `Text`.
+- **Mismatched release** (the original freed `new` memory with `free`, `new T` with `delete[]`, or an array with
+  `delete`): a `unique_ptr` with the default deleter would call another function; a custom deleter is not allowed. M7
+  (or the Linux client, M8) gives each its matching release (section 5).
+- **`malloc`'s memory** (regcomp's, the resolver buffer): freed with `free`, not `delete`. M8 replaces both (the
+  regexp behind an RAII wrapper, the resolver with `getaddrinfo`).
+- **Freed without being cleared**: `TaintedClipboardText` (ExitStatus). A `unique_ptr` is null after its release; the
+  original leaves the old address, and a CheckClipboardText after ExitStatus deletes it a second time.
+- **Destroyed at exit when the process ends through `exit(1)`** (CPlayerApp::FatalError) with the pointer still set: a
+  global `unique_ptr` runs its destructor during static destruction, the original leaves the object. Harmless for
+  plain arrays (memory only), not for objects whose destructors act: `ModalWindow` and `MainWindow` (window trees,
+  timers, Tibia.cfg's open dialogs), `Socket` (MFC's CAsyncSocket after MFC's module state), `Surface` (the engine's
+  device and windows). M7 moves the globals into subsystems owned by one `TClient` with a defined end; M8 replaces
+  CAsyncSocket.
+- **Not one owner**: the child list, the conditional members, the event queue's blocks, the owned entries of
+  Container.h `vector<T *>`s, Talk.cpp's lines (section 3), and `vlong_value`, which copies of a vlong share with a
+  count (never a `unique_ptr`; no `std::shared_ptr` either, a settled decision). M7 redesigns the GUI's tree, the
+  queue and the containers.
+- **A pointer in each element of an owned array**: `TPicture::Offsets` (in `Pictures`) and `TProperties::Sprites`
+  (in the four object tables). A `unique_ptr` element would give the element type a constructor that clears it (the
+  original's `new TPicture[n]` and `array<TProperties>`'s `new T[d]` leave it indeterminate), and a destructor, so
+  every `delete[]` of the table would run one per element; the owners free them in their own loops first. M7 (the
+  tables as `std::vector`s of elements that own their arrays).
+- **Owned by MFC or by nothing**: `CMainFrame` (MFC deletes it in PostNcDestroy; M8 removes MFC), the test mode's
+  clock state (alive until exit on purpose).
 
 ## 5. Leaks and mismatches the original has (kept)
 
@@ -316,25 +331,70 @@ allocations as `reset(new ...)` (the same form of `new`: default-initialised arr
 | Status (Status.cpp) | `Characters` (`TCharacter[]`) | d3ab25e |
 | Communication (Communication.cpp) | `PatchData` (`uint8[]`) | 42b1b6d |
 | Objects (Objects.cpp, Objects.h) | `ObjectProperties`, `OutfitProperties`, `EffectProperties`, `MissileProperties` (`array<TProperties>`) | 52c1c63 |
+| Skins (Skins.cpp, Skins.h; second part) | `Skins` (`TSkin[]`) | 094a20a |
+| Graphics (graphics.cpp, graphics.h; second part) | `Sprites` (`TSprite[]`), `Pictures` (`TPicture[]`), `Fonts` (`TFontInfo[]`), `MemoryCacheData` (`uint8[]`), `MemoryCache` (`TMemoryCacheItem[]`), `VideoCache` (`TVideoCacheItem[]`) | 36bdbd7 |
+| GUI core (GUI.h; second part) | `TComponent::DrawingList` (`TDrawing[]`, in every window object) | a03affd |
+| Dialog elements (DialogElements.h; second part) | `TLabel::Text` (`char[]`), `TLabel::Line` (`char *[]`), `TFormattedText::Text`, `Line` (`char[]`) | 59f8650 |
+| Dialogs (Dialogs.h; second part) | `TGraphicsOptionsDialog::Modes` (`TFullscreenMode[]`) | c966428 |
+| Containers (Container.h; second part) | `array<T>::entry`, `matrix<T>::entry`, `matrix3d<T>::entry`, `vector<T>::entry` (`T[]`, every instance) | 209422c |
+| vlong (vlong.h; second part) | `flex_unit::a` (`unsigned[]`) | 92fd511 |
 
-28 owning pointers in all: 22 members of 17 classes and 6 globals. Where the original cleared an owning global
+28 owning pointers in the first part: 22 members of 17 classes and 6 globals. The second part: 7 globals (`Skins` and
+the six graphics tables) and 11 members (`DrawingList` of every window class, the label's and the formatted text's four
+buffers, the graphics options' mode list, the containers' entries in their four templates, vlong's units). Where the original cleared an owning global
 without freeing it (InitCommunication's `PatchData`, InitObjects' four tables), the code calls `release()` and drops
 the result, so a block still held is left as the original left it. Where it deleted the old object before making the
 new one (the timers' SetTimer and SetTimeout), `reset()` comes first and `reset(new ...)` after, so the timer list sees
 the same order. Each pointee's destructor is `noexcept` (arrays of scalars, `TCallback`, `TCharacter`; `TTimer`,
 `TFocusGroup`, `TRadioButtonGroup`, Container.h's `array`).
 
+The second part's rules where the original did more than delete and new: where it stored a new table over one it may
+still hold (InitSkins, InitFonts, InitMemoryCache, LoadSprites, LoadPictures, InitVideoCache: only the golden tests call
+them twice), `release()` drops the old one unfreed before the `reset(new ...)`, so the leak stays (core_skins_test.cpp
+checks that the old table is still allocated); InitVideoCache's clear without a free is a `release()`. The original
+passed `&Modes` to GetFullscreenModes; the dialog now passes a local and `reset()`s Modes with it, which changes
+nothing because every engine's GetFullscreenModes writes the pointer first. vector<T>'s growth keeps "free the old
+block, then store the new one" as `reset()`, `reset(help)`; flex_unit::reserve holds the new block in a `unique_ptr`
+local and moves it in after the `reset()` (GCC's analyzer took a raw one handed to `reset()` for a leak, in Debug). TPlayerStates allocates
+one of two lists by its branch, not one over the other (part 1's map said it replaced it).
+
 Behaviour that differs only where the original's own behaviour ends the client: a constructor that throws after
 allocating a converted member now frees it during the unwinding (the members are destroyed), where the original
 leaked it (a TReconnectWindow's timer is then also unregistered); every such throw reaches FatalError. And a converted
 global that is still set when FatalError calls `exit(1)` is freed by its destructor during static destruction (memory
-only: the arrays and Container.h tables above have no destructors that act).
+only: the arrays and Container.h tables above have no destructors that act). In the second part: Skins and the graphics
+tables are arrays of plain structures (a picture's `Offsets` stays raw, so `Pictures`' destructor frees only the
+table); in a constructor of the dialog elements, the containers or flex_unit that throws, the converted members are
+null or freed during the unwinding, where the original left an indeterminate pointer or leaked the block.
 
-Remaining (the issue stays open): the component and conditional members (section 3), the pointees with throwing
-destructors, the moving and inner pointers and the mismatched releases (section 4), `TaintedClipboardText`,
-`TGraphicsOptionsDialog::Modes`, the graphics and skin globals and `DrawingList` (tests to change first), `Socket`,
-`Surface`, `ModalWindow`, `MainWindow`, `DefaultTextBuffer`, Talk.cpp's buffers and lines, the event queue's blocks, and
-Container.h's `vector<T *>` of owned objects.
+## 7. The owners that stay raw, and the milestone that unblocks each
+
+After the second part every owning member and global of src/ is a `std::unique_ptr` or one of these (the reasons in
+section 4; locals, return values and the queue's parameters are not members or globals and keep their raw pointers
+with the owners below):
+
+| Owner | Why raw | Unblocked by |
+|---|---|---|
+| The component members that own a component: `TTabBar::LeftTabs`, `RightTabs` (`TWindow`); the conditional members (`TSubWindow`'s eight parts, `TConsoleWindow`'s five buttons, `TListBox::EditLine`) | the pointee's destructor may throw (`TComponent`, `noexcept(false)`); the conditional ones are also owned by the child list or the member, by `IsChild`/`Editing` | M5 (TBEGIN/TEND go, the destructors become `noexcept`) for the exclusive ones; M7 (the GUI tree) for the conditional ones |
+| `TConsoleWindow::History` (`TTalkBuffer`) | the pointee's destructor may throw (`~TTalkBuffer() noexcept(false)`) | M5 |
+| The child list: `TWindow::FirstChild`, `TComponent::Next` (379 allocation sites) | not one owner: an intrusive list, ownership moves between lists and is decided by `IsChild`; its destruction order is DeleteChild's | M7 (the GUI tree) |
+| `ModalWindow`, `MainWindow` (globals) | the pointee's destructor may throw; a global's destructor would run the window destructors during static destruction after FatalError's `exit(1)` | M5 (`noexcept` destructors) and M7 (owned by `TClient`) |
+| `Socket` (`TSocket`, a CAsyncSocket) | its destructor acts at `exit(1)`, after MFC's module state | M8 (CAsyncSocket replaced) |
+| `Surface` (the engine) | its destructor releases the device and the windows at `exit(1)` | M7 (owned by `TClient`) |
+| `TEditLine::Text` | the TASSERT2 arguments `strlen(Text)` (lines 2263, 2302) would need `.get()` | M5 (the assertions rewritten) |
+| `TPasswordEditLine::Stars` | swaps its block with `TEditLine::Text` (Draw, SetText) | M5, with `TEditLine::Text` |
+| `TPicture::Offsets`, `TProperties::Sprites` | a pointer in each element of an owned array: a `unique_ptr` would clear it in `new T[n]` and give the element a destructor | M7 (the tables as `std::vector`s) |
+| The list boxes' lines (`TListBox::LineText`, `TFontListBox::FontLines(i).Text`), Talk.cpp's filter lists (Container.h `vector<T *>` entries) | owned entries of a container of pointers; the filters are also freed with `free` | M7 (the containers) |
+| `DefaultTextBuffer`, the text buffers of CreateTextBuffer, a `TTalkBuffer`'s lines (`first` ... `last`, `TTalkLine::Line`) | mismatched release (the destructor then `free`, `free` of `new` text); the throwing `~TTalkBuffer`; the lines an intrusive list | M5 (`noexcept`) and M7 (matching releases, the list) |
+| `MotD` (Preferences.cpp), `ClipboardBuffer` (sysinc.cpp) | mismatched release (`free` of `new char[]`) | M7 |
+| `TaintedClipboardText` (Status.cpp) | freed without being cleared (ExitStatus); the second delete after it is the original's | M7 (a deliberate fix, recorded) |
+| `LinkRegexp` (Status.cpp) | regcomp's `malloc`, freed with `free` and not cleared | M8 (the regexp behind an RAII wrapper) |
+| `HostnameResolveBuffer` (Network.cpp) | `malloc`, freed with `free` | M8 (getaddrinfo) |
+| The event queue's blocks (`INT_PTR` parameters of AddMessage) | ownership travels with the message type; some are freed as another type (0x1a, 0x1c) | M7 |
+| `vlong_value` (vlong's shared value) | shared by copies, with a count | never a `unique_ptr` (and no `std::shared_ptr`, settled) |
+| `CMainFrame` | MFC deletes it (PostNcDestroy) | M8 (MFC removed) |
+| The DirectDraw, Direct3D 9 and OpenGL engines' mode lists and pixel blocks | oracle-x86 only | M6 (they leave with the oracle) |
+| The test mode's clock state (TestModeWin32.cpp) | alive until exit on purpose (read during static destruction) | stays |
 
 ## Appendix: every allocation by file
 

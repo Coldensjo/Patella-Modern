@@ -77,7 +77,9 @@ static_assert(sizeof(std::unique_ptr<TTimer>) == sizeof(TTimer *) && alignof(std
 		&& alignof(std::unique_ptr<TFocusGroup>) == alignof(TFocusGroup *)
 		&& sizeof(std::unique_ptr<TRadioButtonGroup>) == sizeof(TRadioButtonGroup *)
 		&& alignof(std::unique_ptr<TRadioButtonGroup>) == alignof(TRadioButtonGroup *)
-		&& sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *),
+		&& sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *)
+		&& sizeof(std::unique_ptr<TFullscreenMode[]>) == sizeof(TFullscreenMode *)
+		&& alignof(std::unique_ptr<TFullscreenMode[]>) == alignof(TFullscreenMode *),
 	"std::unique_ptr is a pointer");
 static_assert(sizeof(TWaitLabel) == 0x54 && offsetof(TWaitLabel, Timer) == 0x4c, "TWaitLabel's layout");
 static_assert(sizeof(TReconnectWindow) == 0x23c && offsetof(TReconnectWindow, Timer) == 0x230, "TReconnectWindow's layout");
@@ -87,6 +89,8 @@ static_assert(sizeof(TCharacterListDialog) == 0x38 && offsetof(TCharacterListDia
 static_assert(sizeof(TOutfitDialog) == 0x27c && offsetof(TOutfitDialog, PartGroup) == 0x40
 		&& offsetof(TOutfitDialog, ColorGroup) == 0x258,
 	"TOutfitDialog's layout");
+static_assert(sizeof(TGraphicsOptionsDialog) == 0x4c && offsetof(TGraphicsOptionsDialog, Modes) == 0x38,
+	"TGraphicsOptionsDialog's layout");
 static_assert(sizeof(TNewChannelDialog) == 0x44 && offsetof(TNewChannelDialog, ChannelIDs) == 0x40,
 	"TNewChannelDialog's layout");
 static_assert(sizeof(TEditBuddyDialog) == 0x68 && offsetof(TEditBuddyDialog, IconGroup) == 0x30, "TEditBuddyDialog's layout");
@@ -613,7 +617,7 @@ TDialog::TDialog(const char *_Caption, TComponent *_Dialog)
 	TASSERT(652, _Dialog!=NULL);
 	TBEGIN
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	Caption.Assign(_Caption);
 	Dragging = false;
 	OkCallback = NoCallback;
@@ -1396,7 +1400,7 @@ TEditListDialog::TEditListDialog(int MaxLength, const char *Text, int _Type, uin
 	EditText->SetActive(true);
 	EditText->SetText(Text, false);
 	DrawingListLength = 1;
-	DrawingList = new TDrawing[1];
+	DrawingList.reset(new TDrawing[1]);
 	if (Description != nullptr) {
 		TLabel *Label = new TLabel(SkinProperties.StyleB08.Data78, Description);
 		InsertChild(Label);
@@ -2780,7 +2784,11 @@ TGraphicsOptionsDialog::TGraphicsOptionsDialog(void (*_OpenURL)(const char *URL)
 	SetChildArea(AdvancedLabel, SkinProperties.Data1384);
 	SetChildPosition(AdvancedButton, SkinProperties.Data137C.x, SkinProperties.Data137C.y);
 	Fullscreen->SetChecked(GetViewMode() == 2);
-	NumberOfModes = GetSurface()->GetFullscreenModes(&Modes);
+	// GetFullscreenModes stores its new[] list (or NULL) through the pointer it is given; Modes takes it over (issue
+	// #58). Every engine writes the pointer before anything else.
+	TFullscreenMode *List = nullptr;
+	NumberOfModes = GetSurface()->GetFullscreenModes(&List);
+	Modes.reset(List);
 	const TFullscreenMode *Current = GetFullscreenMode();
 	for (int i = 0; i < NumberOfModes; i++) {
 		TFixedString<16> Frequency;

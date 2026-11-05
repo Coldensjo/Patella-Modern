@@ -46,7 +46,7 @@ public:
 	{
 		Horizontal = _Horizontal;
 		DrawingListLength = 2;
-		DrawingList = new TDrawing[2];
+		DrawingList.reset(new TDrawing[2]);
 	}
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
 	void SetSize(int Width, int Height) override; // +0x34, 0x453930, line 42
@@ -126,11 +126,11 @@ public:
 	~TLabel() override
 	{
 		if (Text != nullptr)
-			delete[] Text;
+			Text.reset();
 		if (FullText != nullptr)
 			FullText.reset();
 		if (Line != nullptr)
-			delete[] Line;
+			Line.reset();
 	}
 	void Draw(int Surface, int x, int y) override;                                                                             // +0x44, 0x455a50, line 413
 	bool MouseMove([[maybe_unused]] int x, [[maybe_unused]] int y) override { return false; }                                  // +0x4c, 0x452620
@@ -140,11 +140,11 @@ public:
 	void MouseHover(int x, int y) override;                                                                                    // +0x64, 0x455ca0, line 423
 	virtual void SetText(const char *_Text, bool Shorten);                                                                     // +0x84, 0x455e40, lines 431-472
 
-	char *Text;                       // +0x24, the lines, each terminated
+	std::unique_ptr<char[]> Text;     // +0x24, the lines, each terminated (issue #58)
 	std::unique_ptr<char[]> FullText; // +0x28, the text as given (the tooltip of a shortened text; issue #58)
 	TFont Font;                       // +0x2c
 	int Lines;                        // +0x40
-	char **Line;                      // +0x44, the start of each line in Text
+	std::unique_ptr<char *[]> Line;   // +0x44, the start of each line in Text (owns the table, not the lines; #58)
 	bool Shortened;                   // +0x48, a line was cut to the width
 };
 
@@ -161,19 +161,19 @@ public:
 	~TFormattedText() override
 	{
 		if (Text != nullptr)
-			delete[] Text;
+			Text.reset();
 		if (Line != nullptr)
-			delete[] Line;
+			Line.reset();
 	}
 	void SetSize(int Width, int Height) override;                   // +0x34, 0x456200, line 531
 	void Arrange() override;                                        // +0x48, 0x466010, lines 684-715
 	virtual void SetText(const char *_Text, bool Rearrange);        // +0xa0, 0x456810, lines 723-734
 	int GetToken(const char *Text, int &TokenType, int &TokenData); // 0x4563d0, line 577
 
-	char *Text;      // +0x2c
-	char *Line;      // +0x30, the piece being laid out
-	bool AutoWidth;  // +0x34
-	bool AutoHeight; // +0x35
+	std::unique_ptr<char[]> Text; // +0x2c (issue #58)
+	std::unique_ptr<char[]> Line; // +0x30, the piece being laid out, a buffer as large as Text (issue #58)
+	bool AutoWidth;               // +0x34
+	bool AutoHeight;              // +0x35
 };
 
 class TTextButton;
@@ -836,7 +836,7 @@ public:
 	TProgressBar()
 	{
 		DrawingListLength = 6;
-		DrawingList = new TDrawing[6];
+		DrawingList.reset(new TDrawing[6]);
 		Current = 0;
 		Maximum = 100;
 	}

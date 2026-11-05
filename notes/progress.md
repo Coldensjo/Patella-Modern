@@ -336,6 +336,24 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #58, second part (branch issue-58b, November 5, 2026): std::unique_ptr for 7 more globals
+(Skins, the six graphics tables) and 11 more members (TComponent::DrawingList, TLabel::Text and Line,
+TFormattedText::Text and Line, TGraphicsOptionsDialog::Modes, Container.h's entry in its four templates,
+flex_unit::a); every owner that stays raw is in notes/ownership.md's section 7 with the milestone that unblocks it.
+`python -I tools/build.py oracle-x86 --fresh` (CTest 4/4, 0 warnings; the new static_asserts of the original's sizes
+and offsets compile): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on
+(`golden_corpus`, the branch's own build\golden, 903 MB) the same counts. The x64 golden_runner (windows-x64 and
+-debug, --fresh, CTest 13/13) replays 16,461,713 checks, 1,521,619 retired, 0 not ported, 0 failures. tests/unit:
+tests_core 36/352 to 38/360 on Windows and with mingw-w64, Linux 36/355 to 38/363 (core_skins_test.cpp's two new
+cases); tests_unit 57/10,080, standin 57/10,082 (Linux 56/10,062, Clang 10,060, standin 56/10,064), tests_testmode
+35/709, tests_render 14/359, tests_vulkan 14/1,309 unchanged; windows-x64-gcc and the Linux presets (--fresh) 11/11, 0
+warnings, the analyzers clean (Clang's ASan/UBSan and LeakSanitizer too). pecompare 3f6042a and issue-58b at the same
+path: code only (the oracle resizes 194 functions, .text -0x600, adds the seven globals' initialisers and atexit
+destructors and the unique_ptrs' out-of-line destructors; x64 231, .text +0x1c00; no string of .rdata changed).
+macrocheck: 2,108 calls, 0 differences. tidy_ci: 4 findings (from 7: the raw Skins' two, reserve's raw block), 0 new, 0 bugprone; the
+baseline written again. banned_calls: 0. clang-format: clean. client_state.py --layout: the oracle equal to the
+original, x64 0 problems; its and patch_client.py's self-tests pass.
+
 Patella-Modern issue #69 (branch issue-69, November 5, 2026): the remaining pointer and length parameters to spans
 (readBytes/writeBytes, CheckClipboardText, CopyString, FormatNumber, GetErrorMessage, DrawOutfit; CompareStrings and
 ShortenString kept). `python -I tools/build.py oracle-x86 --fresh` (CTest 4/4, 0 warnings): 16,848,752 + 67 +
