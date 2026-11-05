@@ -248,6 +248,13 @@ loaders' file errors to PROGRAM_ERROR 2-5, MainWindow::Draw's start window to PR
 message. No kind change reaches another handler; one is recorded: with the heap exhausted, MFC's CMemoryException in
 a frame handler is now reported by MFC's window procedure instead of ending the client. difftest 16,459,337 / 67 /
 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822 retired, 0 failures.
+TBEGIN/TEND deleted, part 3 (Patella-Modern issue #78, branch issue-78c, November 6, 2026; M5): the 168 try blocks
+of Talk.cpp, ConsoleWindow.cpp and ContextMenus.cpp go (628 left in 7 files); none of the three files has a handler of
+its own, so no catch stays. No kind change reaches another handler; two are recorded, both only with the heap
+exhausted: a filter list's std::bad_alloc while InitPreferences reads Tibia.cfg now ends the client instead of
+setting the defaults, and under /EHa only (difftest) a nothrow null's access violation in SavePreferences' list texts
+is no longer ignored. difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822
+retired, 0 failures.
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
