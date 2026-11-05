@@ -12,6 +12,13 @@
 // later device's swapchain. Until the next device's first frame, the retired window keeps showing the old
 // device's last one, as the main window did before.
 //
+// The main window's client area that no device window covers is filled black whenever the main window
+// erases its background (issue #71): while Windows runs its modal size loop the client draws no frame, and
+// the device window keeps its size until the next one (Fit), so the part a larger window uncovers showed
+// whatever the compositor had left there, stripes of old pixels, until the mouse was released. The main
+// window's class has no background brush (Player.cpp InitInstance, as the original's); TPresentWindows
+// subclasses it from the first Open to Close or the main window's end.
+//
 // Windows only (the x64 client and tests_vulkan); everything runs on the window's thread.
 
 #pragma once
@@ -40,15 +47,24 @@ public:
 	// The current window's device is gone: the window is kept until the next one has shown a frame, or
 	// destroyed now when it never showed one (a retired window that did is then kept instead).
 	void Retire();
-	// Both windows destroyed.
+	// Both windows destroyed; the main window no longer subclassed.
 	void Close();
+	// Fills the subclassed main window's client area outside the device windows black in Context (its erase).
+	void FillUncovered(HDC Context) const;
 
 	[[nodiscard]] HWND Current() const { return CurrentWindow; }
 	[[nodiscard]] HWND Retired() const { return RetiredWindow; }
+	[[nodiscard]] HWND Subclassed() const { return SubclassedWindow; }
 
 private:
+	static LRESULT CALLBACK ParentProc(
+		HWND Window, UINT Message, WPARAM WParam, LPARAM LParam, UINT_PTR Id, DWORD_PTR Self);
+	void Subclass(HWND Window);
+	void Unsubclass();
+
 	HWND CurrentWindow = nullptr;
 	HWND RetiredWindow = nullptr;
+	HWND SubclassedWindow = nullptr; // the main window, subclassed (issue #71)
 	bool CurrentPresented = false;
 };
 

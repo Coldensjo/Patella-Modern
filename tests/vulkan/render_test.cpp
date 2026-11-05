@@ -694,6 +694,181 @@ void DispatchToWindow(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 
 } // namespace
 
+// Issue #71: while Windows runs its modal size loop the client draws no frame and the device's window keeps
+// its size (Fit comes with the next frame), so the part of the main window a larger window uncovers is the
+// main window's own, whose class has no background brush. Its erase (WM_ERASEBKGND, which the resize's
+// CS_HREDRAW/CS_VREDRAW invalidation brings) must fill that part black and leave the device windows' part
+// alone, from the first Open to Close or the main window's end. No device is needed: the windows are never
+// shown, and the erase is sent with a memory DC of the client area's size, white before each erase.
+TEST_CASE("the main window's area the device windows do not cover is filled black (issue #71)")
+{
+	HINSTANCE Module = GetModuleHandleA(nullptr);
+	WNDCLASSA Class = {};
+	Class.style = CS_OWNDC | CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW; // the main window's (Player.cpp InitInstance)
+	Class.lpfnWndProc = DefWindowProcA;
+	Class.hInstance = Module;
+	Class.lpszClassName = "PatellaTestsVulkanErase";
+	RegisterClassA(&Class);
+	auto NewParent = [&] {
+		return CreateWindowExA(0, Class.lpszClassName, "tests_vulkan", WS_OVERLAPPEDWINDOW, 0, 0, 320, 240, nullptr,
+			nullptr, Module, nullptr);
+	};
+	constexpr int Width = 640;
+	constexpr int Height = 480;
+	BITMAPINFO Info = {};
+	Info.bmiHeader.biSize = sizeof(Info.bmiHeader);
+	Info.bmiHeader.biWidth = Width;
+	Info.bmiHeader.biHeight = -Height;
+	Info.bmiHeader.biPlanes = 1;
+	Info.bmiHeader.biBitCount = 32;
+	Info.bmiHeader.biCompression = BI_RGB;
+	void *Bits = nullptr;
+	HDC Context = CreateCompatibleDC(nullptr);
+	HBITMAP Bitmap = CreateDIBSection(Context, &Info, DIB_RGB_COLORS, &Bits, nullptr, 0);
+	REQUIRE(Bitmap != nullptr);
+	HGDIOBJ Old = SelectObject(Context, Bitmap);
+	auto *Pixels = static_cast<uint32_t *>(Bits);
+	// The erase on a white picture: its result, and the pixels inside Covered (client coordinates) and
+	// outside it, up to the client area's size, that are not what they should be (white, black).
+	struct TErase {
+		LRESULT Result = 0;
+		int WrongInside = 0;
+		int WrongOutside = 0;
+	};
+	auto Erase = [&](HWND Parent, RECT Covered, uint32_t Outside) {
+		GdiFlush();
+		std::fill(Pixels, Pixels + Width * Height, 0x00ffffffu);
+		TErase Result;
+		Result.Result = SendMessageA(Parent, WM_ERASEBKGND, reinterpret_cast<WPARAM>(Context), 0);
+		GdiFlush();
+		RECT Client = {};
+		GetClientRect(Parent, &Client);
+		for (int y = 0; y < Client.bottom && y < Height; y++)
+			for (int x = 0; x < Client.right && x < Width; x++) {
+				const uint32_t Pixel = Pixels[y * Width + x] & 0x00ffffffu;
+				const POINT Point = {x, y};
+				if (PtInRect(&Covered, Point))
+					Result.WrongInside += Pixel != 0x00ffffffu ? 1 : 0;
+				else
+					Result.WrongOutside += Pixel != Outside ? 1 : 0;
+			}
+		return Result;
+	};
+	auto ChildRect = [](HWND Parent, HWND Window) {
+		RECT Rect = {};
+		GetWindowRect(Window, &Rect);
+		MapWindowPoints(nullptr, Parent, reinterpret_cast<POINT *>(&Rect), 2);
+		return Rect;
+	};
+	const RECT None = {0, 0, 0, 0};
+
+	HWND Parent = NewParent();
+	REQUIRE(Parent != nullptr);
+	// Before any device window the main window is its own: no subclass, the class's erase (no brush: nothing).
+	pv::TPresentWindows Windows;
+	CHECK(Windows.Subclassed() == nullptr);
+	const TErase Before = Erase(Parent, None, 0x00ffffffu);
+	CHECK(Before.Result == 0);
+	CHECK(Before.WrongOutside == 0);
+
+	// A device window over the client area.
+	HWND Window = Windows.Open(Parent);
+	REQUIRE(Window != nullptr);
+	CHECK(Windows.Subclassed() == Parent);
+	RECT Client = {};
+	GetClientRect(Parent, &Client);
+	const RECT First = ChildRect(Parent, Window);
+	CHECK(First.left == 0);
+	CHECK(First.top == 0);
+	CHECK(First.right == Client.right);
+	CHECK(First.bottom == Client.bottom);
+	const TErase Covered = Erase(Parent, First, 0);
+	CHECK(Covered.Result == 1);
+	CHECK(Covered.WrongInside == 0);
+	CHECK(Covered.WrongOutside == 0);
+
+	// The size loop: the main window grows in steps, no frame comes, the device window keeps its size, and
+	// each erase fills what the growth uncovered, and nothing of the device window's part.
+	int Steps = 0;
+	for (int Step = 1; Step <= 8; Step++) {
+		SetWindowPos(Parent, nullptr, 0, 0, 320 + Step * 30, 240 + Step * 20, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+		const RECT Now = ChildRect(Parent, Window);
+		CHECK(Now.right == First.right);
+		CHECK(Now.bottom == First.bottom);
+		const TErase Grown = Erase(Parent, Now, 0);
+		CHECK(Grown.Result == 1);
+		CHECK(Grown.WrongInside == 0);
+		CHECK(Grown.WrongOutside == 0);
+		Steps++;
+	}
+	GetClientRect(Parent, &Client);
+	CHECK(Client.right > First.right);
+	CHECK(Client.bottom > First.bottom);
+	// The mouse released, the next frame: Fit gives the device window the whole client area again.
+	Windows.Fit();
+	const RECT Fitted = ChildRect(Parent, Window);
+	CHECK(Fitted.right == Client.right);
+	CHECK(Fitted.bottom == Client.bottom);
+	CHECK(Erase(Parent, Fitted, 0).WrongInside == 0);
+
+	// A retired window that showed a frame still covers its part; the new device's window above it.
+	Windows.Presented();
+	Windows.Retire();
+	CHECK(Windows.Retired() == Window);
+	SetWindowPos(Parent, nullptr, 0, 0, 600, 450, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+	const RECT RetiredPart = ChildRect(Parent, Window);
+	const TErase Retired = Erase(Parent, RetiredPart, 0);
+	CHECK(Retired.WrongInside == 0);
+	CHECK(Retired.WrongOutside == 0);
+	HWND Next = Windows.Open(Parent);
+	REQUIRE(Next != nullptr);
+	CHECK(Windows.Subclassed() == Parent);
+	CHECK(Erase(Parent, ChildRect(Parent, Next), 0).WrongOutside == 0);
+	// Close: the main window is its own again.
+	Windows.Close();
+	CHECK(Windows.Subclassed() == nullptr);
+	const TErase Closed = Erase(Parent, None, 0x00ffffffu);
+	CHECK(Closed.Result == 0);
+	CHECK(Closed.WrongOutside == 0);
+
+	// The main window's end while subclassed takes the subclass (and the device windows) with it.
+	Window = Windows.Open(Parent);
+	REQUIRE(Window != nullptr);
+	CHECK(Windows.Subclassed() == Parent);
+	DestroyWindow(Parent);
+	CHECK(Windows.Subclassed() == nullptr);
+	CHECK_FALSE(IsWindow(Window));
+	Windows.Close();
+	CHECK(Windows.Current() == nullptr);
+
+	// Another main window afterwards (the same object, as SurfaceVulkan.cpp's static).
+	Parent = NewParent();
+	REQUIRE(Parent != nullptr);
+	Window = Windows.Open(Parent);
+	REQUIRE(Window != nullptr);
+	CHECK(Windows.Subclassed() == Parent);
+	CHECK(Erase(Parent, ChildRect(Parent, Window), 0).WrongOutside == 0);
+	// No device window at all (a device that never showed a frame is gone, CreateSurfaces failed): the whole
+	// client area is black.
+	Windows.Retire();
+	CHECK(Windows.Current() == nullptr);
+	CHECK(Windows.Retired() == nullptr);
+	CHECK(Windows.Subclassed() == Parent);
+	const TErase Empty = Erase(Parent, None, 0);
+	CHECK(Empty.Result == 1);
+	CHECK(Empty.WrongOutside == 0);
+	Windows.Close();
+	CHECK_FALSE(IsWindowVisible(Parent));
+	DestroyWindow(Parent);
+	std::printf("main window erase: %d size steps, the uncovered part black, the device windows' part untouched\n",
+		Steps);
+
+	SelectObject(Context, Old);
+	DeleteObject(Bitmap);
+	DeleteDC(Context);
+	UnregisterClassA(Class.lpszClassName, Module);
+}
+
 // Issue #52, the input: the scripted clicks of the test mode go to the main window (DispatchMessageA, the
 // test mode's Dispatch) and real ones through the window's hit test, which the device's window passes on
 // (HTTRANSPARENT). Between a button's press and its release, everything the engine does with its windows

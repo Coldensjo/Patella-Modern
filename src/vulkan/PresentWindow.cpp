@@ -2,11 +2,14 @@
 
 #include "vulkan/PresentWindow.h"
 
+#include <commctrl.h>
+
 namespace patella::vulkan {
 
 namespace {
 
 constexpr const char *ClassName = "PatellaVulkanPresent";
+constexpr UINT_PTR SubclassId = 71;
 
 // Mouse messages go to the window below (the main window, on the same thread); the window paints
 // nothing (the device's swapchain shows its pictures), and never erases its background.
@@ -55,7 +58,66 @@ void DestroyChild(HWND &Window)
 	Window = nullptr;
 }
 
+// A shown device window's rectangle taken out of Context's clipping region (Parent's client coordinates); its
+// own WS_VISIBLE, not IsWindowVisible, which a hidden main window (tests_vulkan's) would make false.
+void ExcludeChild(HDC Context, HWND Parent, HWND Window)
+{
+	if (Window == nullptr || !IsWindow(Window) || (GetWindowLongPtrA(Window, GWL_STYLE) & WS_VISIBLE) == 0)
+		return;
+	RECT Rect = {};
+	GetWindowRect(Window, &Rect);
+	MapWindowPoints(nullptr, Parent, reinterpret_cast<POINT *>(&Rect), 2);
+	ExcludeClipRect(Context, Rect.left, Rect.top, Rect.right, Rect.bottom);
+}
+
 } // namespace
+
+// The main window's erase fills what the device windows do not cover; its end takes the subclass away.
+LRESULT CALLBACK TPresentWindows::ParentProc(
+	HWND Window, UINT Message, WPARAM WParam, LPARAM LParam, [[maybe_unused]] UINT_PTR Id, DWORD_PTR Self)
+{
+	auto *Windows = reinterpret_cast<TPresentWindows *>(Self);
+	switch (Message) {
+	case WM_ERASEBKGND:
+		Windows->FillUncovered(reinterpret_cast<HDC>(WParam));
+		return 1;
+	case WM_NCDESTROY:
+		Windows->Unsubclass();
+		break;
+	default:
+		break;
+	}
+	return DefSubclassProc(Window, Message, WParam, LParam);
+}
+
+void TPresentWindows::Subclass(HWND Window)
+{
+	if (Window == SubclassedWindow)
+		return;
+	Unsubclass();
+	if (Window != nullptr && SetWindowSubclass(Window, ParentProc, SubclassId, reinterpret_cast<DWORD_PTR>(this)))
+		SubclassedWindow = Window;
+}
+
+void TPresentWindows::Unsubclass()
+{
+	if (SubclassedWindow != nullptr && IsWindow(SubclassedWindow))
+		RemoveWindowSubclass(SubclassedWindow, ParentProc, SubclassId);
+	SubclassedWindow = nullptr;
+}
+
+void TPresentWindows::FillUncovered(HDC Context) const
+{
+	if (SubclassedWindow == nullptr || Context == nullptr)
+		return;
+	RECT Client = {};
+	GetClientRect(SubclassedWindow, &Client);
+	const int Saved = SaveDC(Context);
+	ExcludeChild(Context, SubclassedWindow, CurrentWindow);
+	ExcludeChild(Context, SubclassedWindow, RetiredWindow);
+	FillRect(Context, &Client, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
+	RestoreDC(Context, Saved);
+}
 
 TPresentWindows::~TPresentWindows()
 {
@@ -65,6 +127,7 @@ TPresentWindows::~TPresentWindows()
 HWND TPresentWindows::Open(HWND Parent)
 {
 	Retire();
+	Subclass(Parent);
 	CurrentWindow = CreateChild(Parent, true);
 	CurrentPresented = false;
 	if (CurrentWindow != nullptr)
@@ -111,6 +174,7 @@ void TPresentWindows::Close()
 	DestroyChild(CurrentWindow);
 	DestroyChild(RetiredWindow);
 	CurrentPresented = false;
+	Unsubclass();
 }
 
 TTestWindow::TTestWindow(HWND Parent) : Window(CreateChild(Parent, false))
