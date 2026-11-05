@@ -58,7 +58,7 @@ TEST_CASE("Utils: strings")
 	CHECK(CompareStrings("abc", "abd", 3) == -1);
 	CHECK(CompareStrings("abd", "abc", 2) == 0);
 	CHECK(CompareStrings("b", "a", -1) == 1);
-	CopyString(Text, "abcdef", 4);
+	CopyString(patella::TSpan<char>(Text).first(4), "abcdef");
 	CHECK(std::string(Text) == "abc");
 	TrimString(Text, " \t two words \r\n");
 	CHECK(std::string(Text) == "two words");
@@ -75,6 +75,50 @@ TEST_CASE("Utils: strings")
 		char Buffer[16];
 		FormatNumber(-1, Buffer);
 	}) == "Utils.cpp 468: assertion failed (Number = -1), reason:\nNumber>=0");
+}
+
+TEST_CASE("Utils: strings, the original's buffer and size as spans")
+{
+	// Issue #69: CopyString's Destination and Size and FormatNumber's Buffer are the span's pointer and its size as an
+	// int. A null pointer still fails the assertions the original's text names.
+	CHECK(MessageOf([] { CopyString(patella::TSpan<char>(), "x"); })
+		== "Utils.cpp 124: assertion failed, reason:\nDestination!=NULL");
+	CHECK(MessageOf([] {
+		char Text[4];
+		CopyString(Text, nullptr);
+	}) == "Utils.cpp 125: assertion failed, reason:\nSource!=NULL");
+	CHECK(MessageOf([] { FormatNumber(5, patella::TSpan<char>()); })
+		== "Utils.cpp 467: assertion failed, reason:\nBuffer!=NULL");
+
+	// CopyString: strncpy's bytes up to the span's size (its NUL padding included), nothing after it.
+	char Text[8];
+	memset(Text, 'x', sizeof(Text));
+	CopyString(patella::TSpan<char>(Text).first(5), "ab");
+	CHECK(std::string(Text) == "ab");
+	CHECK(Text[2] == 0);
+	CHECK(Text[4] == 0);
+	CHECK(Text[5] == 'x');
+	memset(Text, 'x', sizeof(Text));
+	CopyString(patella::TSpan<char>(Text).first(4), "abcdef");
+	CHECK(std::string(Text) == "abc");
+	CHECK(Text[4] == 'x');
+
+	// FormatNumber: the original's bytes (nothing after the NUL); cut at the span's size where the original wrote past
+	// the buffer; an empty span is not written.
+	char Number[16];
+	memset(Number, 'x', sizeof(Number));
+	FormatNumber(2147483647, patella::TSpan<char>(Number).first(14));
+	CHECK(std::string(Number) == "2,147,483,647");
+	CHECK(Number[14] == 'x');
+	memset(Number, 'x', sizeof(Number));
+	FormatNumber(1234567, patella::TSpan<char>(Number).first(5));
+	CHECK(std::string(Number) == "1,23");
+	CHECK(Number[5] == 'x');
+	memset(Number, 'x', sizeof(Number));
+	FormatNumber(0, patella::TSpan<char>(Number).first(0));
+	CHECK(Number[0] == 'x');
+	FormatNumber(0, Number);
+	CHECK(std::string(Number) == "0");
 }
 
 TEST_CASE("Utils: outfit colours")

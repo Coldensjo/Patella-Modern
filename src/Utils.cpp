@@ -163,9 +163,13 @@ int CompareStrings(const char *s1, const char *s2, int Count)
 	return 0;
 }
 
-// 0x509a60, lines 124-125
-void CopyString(char *Destination, const char *Source, int Size)
+// 0x509a60, lines 124-125. The original's parameters (Destination, Size) are the span's pointer and its size as an int,
+// the names of the assertions' text: a null pointer still fails 124, a size above INT_MAX is the original's negative
+// Size (issue #69, as #59).
+void CopyString(patella::TSpan<char> DestinationBytes, const char *Source)
 {
+	char *const Destination = DestinationBytes.data();
+	const int Size = static_cast<int>(DestinationBytes.size());
 	TASSERT(124, Destination!=NULL);
 	TASSERT(125, Source!=NULL);
 	strncpy(Destination, Source, Size);
@@ -352,16 +356,22 @@ void TWriteBuffer::PutBytes(patella::TSpan<const uint8> Bytes)
 		PutByte(Buffer[i]);
 }
 
-// 0x50bce0, lines 467-468
-void FormatNumber(int Number, char *Buffer)
+// 0x50bce0, lines 467-468. Buffer is the span's pointer, the name of the assertion's text (issue #69). The text is
+// built where the original built it in the caller's buffer, in Text: at most 10 digits and 3 commas ("2,147,483,647")
+// and the NUL. Copied into the caller's buffer it is the original's bytes (it wrote nothing after the final NUL), cut
+// at the buffer's size where the original wrote past it (#57's contract; every caller's buffer holds 14).
+void FormatNumber(int Number, patella::TSpan<char> BufferBytes)
 {
+	char *const Buffer = BufferBytes.data();
 	TASSERT(467, Buffer!=NULL);
 	TASSERT1(468, Number>=0, Number);
-	// A non-negative int has at most 10 digits; the caller's buffer holds the commas too.
-	TStringBuffer(Buffer, 11).Format("{}", Number);
-	for (int Digits = 3; Digits < (int)strlen(Buffer); Digits += 4) {
-		char *Position = &Buffer[strlen(Buffer) - Digits];
+	TFixedString<14> Text;
+	Text.Format("{}", Number);
+	for (int Digits = 3; Digits < (int)strlen(Text); Digits += 4) {
+		char *Position = &Text[strlen(Text) - Digits];
 		memmove(Position + 1, Position, Digits + 1);
 		*Position = ',';
 	}
+	if (!BufferBytes.empty())
+		TStringBuffer(Buffer, BufferBytes.size()).Assign(Text.View());
 }

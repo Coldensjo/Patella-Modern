@@ -683,12 +683,12 @@ void TestUtils()
 	COMPARE("CapitalizeString(NULL)", CapitalizeString(nullptr), At<StrFn>(0x509540)(NULL));
 	COMPARE("CompareStrings(NULL, s)", CompareStrings(nullptr, A, 3), At<CompareFn>(0x509710)(NULL, B, 3));
 	COMPARE("CompareStrings(s, NULL)", CompareStrings(A, nullptr, 3), At<CompareFn>(0x509710)(B, NULL, 3));
-	COMPARE("CopyString(NULL, s)", CopyString(nullptr, A, 3), At<CopyFn>(0x509a60)(NULL, B, 3));
-	COMPARE("CopyString(s, NULL)", CopyString(A, nullptr, 3), At<CopyFn>(0x509a60)(B, NULL, 3));
+	COMPARE("CopyString(NULL, s)", CopyString(OriginalSpan<char>(nullptr, 3), A), At<CopyFn>(0x509a60)(NULL, B, 3));
+	COMPARE("CopyString(s, NULL)", CopyString(OriginalSpan<char>(A, 3), nullptr), At<CopyFn>(0x509a60)(B, NULL, 3));
 	COMPARE("TrimString(NULL, s)", TrimString(nullptr, A), At<TrimFn>(0x509d10)(NULL, B));
 	COMPARE("TrimString(s, NULL)", TrimString(A, nullptr), At<TrimFn>(0x509d10)(B, NULL));
 	COMPARE("ShortenString(NULL)", ShortenString(nullptr, 5), At<ShortenFn>(0x50a040)(NULL, 5));
-	COMPARE("FormatNumber(n, NULL)", FormatNumber(5, nullptr), At<FormatFn>(0x50bce0)(5, NULL));
+	COMPARE("FormatNumber(n, NULL)", FormatNumber(5, OriginalSpan<char>(nullptr, 0)), At<FormatFn>(0x50bce0)(5, NULL));
 	for (int t = 0; t < 50; t++) {
 		int Number = -(int)(ErRandom() % 100000) - 1;
 		if (t == 0)
@@ -1426,7 +1426,7 @@ void TestScript()
 				Both2("TReadBinaryFile::readQuad", [&] { OurReader.readQuad(); }, [&] { ORIGINAL(At<ScriptRetFn>(0x4e1ba0)(Reader, NULL)); });
 				break;
 			default:
-				Both2("TReadBinaryFile::readBytes", [&] { OurReader.readBytes(Count < 0 ? nullptr : Bytes, Count < 0 ? 2 : Count); }, [&] { ORIGINAL(At<ScriptBytesFn>(0x4e1e50)(Reader, NULL, Count < 0 ? NULL : Bytes, Count < 0 ? 2 : Count)); });
+				Both2("TReadBinaryFile::readBytes", [&] { OurReader.readBytes(OriginalSpan<uint8>(Count < 0 ? nullptr : Bytes, Count < 0 ? 2 : Count)); }, [&] { ORIGINAL(At<ScriptBytesFn>(0x4e1e50)(Reader, NULL, Count < 0 ? NULL : Bytes, Count < 0 ? 2 : Count)); });
 				break;
 			}
 		}
@@ -1447,7 +1447,7 @@ void TestScript()
 			Both2("TWriteBinaryFile::writeByte", [&] { OurBinary.writeByte(1); }, [&] { ORIGINAL(At<ScriptIntFn>(0x4e2480)(BinaryWriter, NULL, 1)); });
 			Both2("TWriteBinaryFile::writeWord", [&] { OurBinary.writeWord(1); }, [&] { ORIGINAL(At<ScriptIntFn>(0x4e2750)(BinaryWriter, NULL, 1)); });
 			Both2("TWriteBinaryFile::writeQuad", [&] { OurBinary.writeQuad(1); }, [&] { ORIGINAL(At<ScriptIntFn>(0x4e29e0)(BinaryWriter, NULL, 1)); });
-			Both2("TWriteBinaryFile::writeBytes", [&] { OurBinary.writeBytes(Bytes, 2); }, [&] { ORIGINAL(At<ScriptBytesFn>(0x4e2c80)(BinaryWriter, NULL, Bytes, 2)); });
+			Both2("TWriteBinaryFile::writeBytes", [&] { OurBinary.writeBytes(OriginalSpan<const uint8>(Bytes, 2)); }, [&] { ORIGINAL(At<ScriptBytesFn>(0x4e2c80)(BinaryWriter, NULL, Bytes, 2)); });
 		}
 		OurBinary.close();
 		ORIGINAL(At<ScriptFn>(0x4df6b0)(BinaryWriter, NULL));

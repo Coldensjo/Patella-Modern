@@ -16,6 +16,7 @@
 #include "Utils.h"
 #include "sysinc.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <cstdio>
 #include <cstring>
@@ -517,15 +518,18 @@ char *TReadBinaryFile::readString()
 	const int Length = readWord() & 0xffff;
 	char *Text = new char[Length + 1];
 	if (Length != 0)
-		readBytes(reinterpret_cast<uint8 *>(Text), Length);
+		readBytes(patella::TSpan<uint8>(reinterpret_cast<uint8 *>(Text), static_cast<std::size_t>(Length)));
 	Text[Length] = 0;
 	return Text;
 	TEND(653)
 }
 
-// 0x4e1e50, lines 661-664
-void TReadBinaryFile::readBytes(uint8 *Buffer, int Count)
+// 0x4e1e50, lines 661-664. The original's parameters (Buffer, Count) are the span's pointer and its size as an int, the
+// name the "out of data" error's text uses (issue #69, as #59).
+void TReadBinaryFile::readBytes(patella::TSpan<uint8> Bytes)
 {
+	uint8 *const Buffer = Bytes.data();
+	const int Count = static_cast<int>(Bytes.size());
 	if (File == nullptr)
 		TERROR(661, "no file open");
 	if (Buffer == nullptr)
@@ -578,9 +582,12 @@ void TWriteBinaryFile::writeQuad(uint32 Quad)
 }
 
 // 0x4e2c80, lines 765-766. Writes one item of Count bytes, so Count 0 fails
-// (writeString does not call it for an empty string).
-void TWriteBinaryFile::writeBytes(const uint8 *Buffer, int Count)
+// (writeString does not call it for an empty string). Buffer and Count are the span's pointer and its size as an int
+// (issue #69).
+void TWriteBinaryFile::writeBytes(patella::TSpan<const uint8> Bytes)
 {
+	const uint8 *const Buffer = Bytes.data();
+	const int Count = static_cast<int>(Bytes.size());
 	if (File == nullptr)
 		TERROR(765, "no file open");
 	if (File.Write(Buffer, Count, 1) != 1)
@@ -595,7 +602,7 @@ void TWriteBinaryFile::writeString(const char *Text)
 	const int Length = (int)strlen(Text);
 	writeWord((uint16)Length);
 	if ((uint16)Length != 0)
-		writeBytes(reinterpret_cast<const uint8 *>(Text), (uint16)Length);
+		writeBytes(patella::TSpan<const uint8>(reinterpret_cast<const uint8 *>(Text), (uint16)Length));
 	TEND(779)
 }
 

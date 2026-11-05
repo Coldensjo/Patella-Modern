@@ -17,13 +17,15 @@ int ToUpper(int c);                                                  // 0x509060
 void HSVToRGB(double H, double S, double V, int *R, int *G, int *B); // 0x509080
 void GetOutfitColor(int Color, int *R, int *G, int *B);              // 0x509280, Color 0..132
 
-void LowerString(char *s);                                        // 0x5093d0
-void CapitalizeString(char *s);                                   // 0x509540
-int CompareStrings(const char *s1, const char *s2, int Count);    // 0x509710, caseless
-void CopyString(char *Destination, const char *Source, int Size); // 0x509a60
-void TrimString(char *Destination, const char *Source);           // 0x509d10
-bool ShortenString(char *Text, int MaxLength);                    // 0x50a040
-void FormatNumber(int Number, char *Buffer);                      // 0x50bce0, "1,234,567"
+void LowerString(char *s);                                                  // 0x5093d0
+void CapitalizeString(char *s);                                             // 0x509540
+int CompareStrings(const char *s1, const char *s2, int Count);              // 0x509710, caseless
+void CopyString(patella::TSpan<char> DestinationBytes, const char *Source); // 0x509a60
+void TrimString(char *Destination, const char *Source);                     // 0x509d10
+bool ShortenString(char *Text, int MaxLength);                              // 0x50a040
+void FormatNumber(int Number, patella::TSpan<char> BufferBytes);            // 0x50bce0, "1,234,567"
+// CompareStrings and ShortenString keep the original's parameters: Count limits the comparison of two C strings (-1:
+// none) and MaxLength is the length Text is cut to, not the size of a buffer (issue #69).
 
 class TBuffer {
 public:

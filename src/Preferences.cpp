@@ -730,7 +730,7 @@ void InitPreferences()
 			if (Script.Token != TOKEN::IDENTIFIER)
 				Script.error("Identifier expected");
 			TFixedString<MAX_IDENT_LENGTH> Identifier;
-			CopyString(Identifier, Script.getIdentifier(), MAX_IDENT_LENGTH);
+			CopyString(Identifier.Chars, Script.getIdentifier());
 			Script.readSymbol('=');
 			if (strcmp(Identifier, "testserver") == 0)
 				TestServerLogin = strcmp(Script.readIdentifier(), "yes") == 0;
@@ -770,7 +770,7 @@ void InitPreferences()
 					Script.error("Illegal number");
 				Script.readSymbol(',');
 				char *Text = Hotkeys[Number];
-				CopyString(Text, Script.readString(), HOTKEY_LENGTH);
+				CopyString(Hotkeys[Number].Chars, Script.readString());
 				int Length = (int)strlen(Text);
 				if (Length != 0) {
 					if (Text[Length - 1] == '\n') {

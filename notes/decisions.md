@@ -8940,3 +8940,74 @@ they include) report nothing that is not suppressed in the code with its reason,
   build of the same tree in one function, `std::_Integer_to_chars<unsigned char>` (register widths, same address
   and size); two clean builds of bf3e6df made afterwards agree with each other and with issue-63, so the comparison
   is against those. macrocheck: 2,108 calls, 0 differences.
+
+## The remaining pointer and length parameters to spans (Patella-Modern issue #69)
+
+Settled by Claude Opus 5.5, November 5, 2026. These are the parameters #59 and #60 left (their "Not done" lists): the
+pointer and length pairs, and the buffers passed without a size, now take `patella::TSpan` (src/compat/span.h).
+Two parameters stay, and why is given below.
+
+- **What takes spans** (high). Script.h: `TReadBinaryFile::readBytes(TSpan<uint8>)`,
+  `TWriteBinaryFile::writeBytes(TSpan<const uint8>)`. Status.h: `CheckClipboardText(TSpan<const char>)` (the copied
+  characters, which need no NUL). Utils.h: `CopyString(TSpan<char> DestinationBytes, const char *Source)` (the
+  original's Destination and Size) and `FormatNumber(int, TSpan<char>)`. Network.h:
+  `GetErrorMessage(TSpan<char, ERROR_MESSAGE_SIZE>, int, int)`. graphics.h: `DrawOutfit(..., TSpan<const int, 4>
+  Colors, ...)` (TCreature's and TOutfitIcon's `std::array<int, 4>`; outfit 0 reads only Colors[0], as before).
+- **The macros' text** (high). As in #59, each body defines the original's parameters as locals from the span, under
+  the names the assertions' text uses: CopyString's `Destination` and `Size` (`TASSERT(124, Destination!=NULL)`),
+  FormatNumber's `Buffer` (467), GetErrorMessage's `Message` (544), readBytes' `Buffer` and `Count` (line 664's error
+  names Count), writeBytes' and CheckClipboardText's own. The int is `static_cast<int>(size())`, so a null span fails
+  the same assertion and a size above INT_MAX is the original's negative size. macrocheck 7ad3e31 issue-69: 2,108
+  calls, 0 differences.
+- **Fixed extents for the two that the golden tests fake by address** (high). GetErrorMessage (mainfrm_tests.cpp,
+  commworld.cpp) and DrawOutfit (the content windows, dialog elements and dialogs tests) are replaced, on our side and
+  in the image, by one fake with the original's signature (`char *`, `int *`). A fixed-extent span holds only the
+  pointer and is trivially copyable (`IsSpanLayout`, asserted next to each declaration), so MSVC x86 pushes it as the
+  pointer's stack word and MSVC x64 passes it in the pointer's register: the fakes need no change, and the sizes are
+  the ones the callers always had (new char[1024]; the four colours). A dynamic span is two words on x86 (the
+  pointer's and the int's places) but goes through a stack temporary on x64, so CheckClipboardText, also faked by
+  address (0x4ea370), gets a second fake for our side that takes the span and calls the first
+  (dialogelements_tests.cpp, dialogs_tests.cpp: `FakeOurCheckClipboardText`; the image keeps the old one, the logs
+  are the same). SetSymmetricKey and CreateNewChannelDialog keep their signatures (#59, #60).
+- **FormatNumber writes no further than its span** (high). The text is built in a local `TFixedString<14>` (10
+  digits, 3 commas, the NUL) and copied into the caller's buffer with `TStringBuffer::Assign`. The original wrote
+  nothing after the final NUL (the digits' NUL moves right with each comma), so the caller's bytes are the original's
+  wherever the result fits: every caller's buffer holds 14 (ContentWindows' `TFixedString<20>`, the tests' 16, 32 and
+  64). Where it does not, which overflowed in the original, the text is cut (#57's contract), and an empty span is
+  not written. New unit test: tests/unit/core_utils_test.cpp's "the original's buffer and size as spans".
+- **Kept** (high). `CompareStrings(const char *s1, const char *s2, int Count)`: Count limits a comparison of two C
+  strings and -1 means no limit; it is not the size of a buffer (the callers pass -1 or a token's length).
+  `ShortenString(char *Text, int MaxLength)`: MaxLength is the length the text is cut to (a font's fitting length),
+  and the buffer is the text's own (strlen(Text) + 1, longer than MaxLength). Neither is a pointer and length pair;
+  a span would describe a buffer neither function has (Utils.h says so). TrimString (`char *Destination`, no size)
+  was not in the issue: its callers' buffers hold Source (#57).
+- **The callers** (high). A TFixedString destination is `.Chars` (the array converts to the span with its N, which is
+  the count the original passed: 30, 50, 20, 100, MAX_IDENT_LENGTH, HOTKEY_LENGTH); the ignore and white lists' 29 is
+  `TSpan<char>(Name.Chars).first(29)`; a pointer and a computed count (the console's selected text, TFormattedText's
+  pieces, the clipboard's ranges, readString's and writeString's lengths, the automap block's two tables) is
+  `TSpan<T>(Pointer, static_cast<std::size_t>(Count))`; GetErrorMessage's seven callers wrap their new char[1024] in
+  `TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE)`. Same pointers and counts, so the same bytes.
+- **Tests** (high). Forced: tests/golden's core, errors and script tests pass the original's arguments through
+  golden_test.h's `OriginalSpan` (CopyString with a null pointer and 3, FormatNumber with a null pointer, readBytes
+  with a null pointer and 2); network_tests.cpp's table of our functions takes a lambda for GetErrorMessage (also
+  called with NULL); the CheckClipboardText fakes above. tests_core gains one case: 35/337 to 36/352 on Windows and
+  with mingw-w64, 35/340 to 36/355 on Linux; Clang's ASan and UBSan run is clean.
+- **The images** (high). pecompare of 7ad3e31 and issue-69, built at the same path, with the functions' sizes from
+  both PDBs: no function added or removed in either, no text of .rdata changed. The oracle resizes 20 functions,
+  .text +0x2b0: the callers that build the spans (CopyString's in AddAutomapMark, AddTalkFilter, InitPreferences,
+  TAutomapWindow::MouseHover, the context menu entry's constructor, TEditMarkDialog::HandleEvent, the ignore list
+  dialog's HandleEvent and LeftButtonUp, the talk buffers' and TTalkLine's constructors, GetSelectedText; readBytes'
+  and writeBytes' in LoadAutomapBlock and SaveAutomapBlock; CheckClipboardText's in TEditLine::HandleEvent;
+  FormatNumber's in TSkillsWindowBody::Draw; DrawOutfit's in TBattleWindowBody::Draw and TOutfitIcon::Draw),
+  FormatNumber's new body and DrawOutfit (the stand-in's operator[]). CopyString, readBytes, writeBytes,
+  CheckClipboardText and GetErrorMessage keep their sizes on x86 (a dynamic span is the pointer's and the int's
+  words, a fixed one the pointer's). x64 resizes 51 (.text +0x2c0, .rdata +0x1b0 of unwind and EH data): those
+  callers and their catch funclets, the bodies of CopyString, CheckClipboardText, readBytes, writeBytes, readString,
+  CopyToClipboard, GetErrorMessage and TFormattedText::Arrange (the span through a temporary), the ignore list
+  dialog's constructor and its unwind funclets (CopyString's first(29)), and FormatNumber, whose one unwind funclet
+  is renumbered (dtor$20 to dtor$10). GetErrorMessage's callers are unchanged on both (the fixed span is the
+  pointer).
+- **Proof** (high). difftest 16,848,752, sysinctest 67, communicationtest 1,134,513, vlong 3,201, 0 failures
+  (`oracle-x86 --fresh`, and again recording the branch's corpus); golden_runner 16,461,713 replayed, 1,521,619
+  retired, 0 not ported, 0 failures in windows-x64 and windows-x64-debug. tools/patch_client.py and
+  tools/client_state.py read nothing this changes (no structure, global or code pattern they use).

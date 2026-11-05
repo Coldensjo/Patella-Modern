@@ -25,6 +25,7 @@
 #include "Surface.h"
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
@@ -326,7 +327,7 @@ LRESULT CMainFrame::OnHostResolved([[maybe_unused]] WPARAM wParam, LPARAM lParam
 			SetConnectionState(0);
 			Disconnect(true);
 			char *Text = new char[1024];
-			GetErrorMessage(Text, -1, 1);
+			GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Text, ERROR_MESSAGE_SIZE), -1, 1);
 			AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Text));
 			return 0;
 		}

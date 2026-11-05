@@ -15,6 +15,7 @@
 #pragma once
 
 #include "common.h"
+#include "compat/span.h"
 #include "types/File.h"
 #include "types/FixedString.h"
 #include <cstddef>
@@ -171,7 +172,7 @@ public:
 	uint16 readWord();
 	int readQuad();
 	char *readString();
-	void readBytes(uint8 *Buffer, int Count);
+	void readBytes(patella::TSpan<uint8> Bytes);
 
 	TFile File;          // +0x000
 	char Filename[1024]; // +0x004; NOLINT(modernize-avoid-c-arrays): the file errors' reason, frozen until M5 (issue #60)
@@ -200,7 +201,7 @@ public:
 	void writeByte(uint8 Byte);
 	void writeWord(uint16 Word);
 	void writeQuad(uint32 Quad);
-	void writeBytes(const uint8 *Buffer, int Count);
+	void writeBytes(patella::TSpan<const uint8> Bytes);
 	void writeString(const char *Text);
 
 	TFile File;          // +0x000

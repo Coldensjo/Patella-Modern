@@ -48,6 +48,7 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 #include "GUI.h"
 #include "Skins.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include "graphics.h"
 #include <cstddef>
@@ -1490,7 +1491,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 		}
 		qsort(Names, Number, sizeof(char *), CompareNames);
 		for (int i = 0; i < Number; i++) {
-			CopyString(IgnoreEntries(i).Name, Names[i], 29);
+			CopyString(patella::TSpan<char>(IgnoreEntries(i).Name.Chars).first(29), Names[i]);
 			IgnoreEntries(i).Permanent = IsPermanentIgnore(Names[i]);
 			TFont Font;
 			if (IgnoreEntries(i).Permanent)
@@ -1555,7 +1556,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 		}
 		qsort(Names, Number, sizeof(char *), CompareNames);
 		for (int i = 0; i < Number; i++) {
-			CopyString(WhiteEntries(i).Name, Names[i], 29);
+			CopyString(patella::TSpan<char>(WhiteEntries(i).Name.Chars).first(29), Names[i]);
 			WhiteEntries(i).Permanent = IsPermanentBuddyIgnore(Names[i]);
 			TFont Font;
 			if (WhiteEntries(i).Permanent)
@@ -1634,7 +1635,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		}
 		const TFont Font;
 		TIgnoreEntry Entry;
-		CopyString(Entry.Name, "new entry", 30);
+		CopyString(Entry.Name.Chars, "new entry");
 		IgnoreEntries(IgnoreList->GetNumberOfLines()) = Entry;
 		IgnoreList->AddLine("new entry", Font);
 		IgnoreList->SetSelection(IgnoreList->GetNumberOfLines() - 1);
@@ -1652,7 +1653,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		}
 		const TFont Font;
 		TIgnoreEntry Entry;
-		CopyString(Entry.Name, "new entry", 30);
+		CopyString(Entry.Name.Chars, "new entry");
 		WhiteEntries(WhiteList->GetNumberOfLines()) = Entry;
 		WhiteList->AddLine("new entry", Font);
 		WhiteList->SetSelection(WhiteList->GetNumberOfLines() - 1);
@@ -1736,14 +1737,14 @@ bool TIgnoreListDialog::LeftButtonUp(int x, int y, int Flags)
 		TFont Font;
 		IgnoreList->StopEdit();
 		TFixedString<30> Name;
-		CopyString(Name, IgnoreList->GetLine(Selection, &Font), 30);
+		CopyString(Name.Chars, IgnoreList->GetLine(Selection, &Font));
 		TFont LineFont;
 		if (IgnorePermanently->IsChecked())
 			LineFont.Color = SkinProperties.StyleD3C.Data88;
 		IgnoreList->SetLine(Selection, Name, LineFont);
 		TIgnoreEntry Entry;
 		Entry.Permanent = IgnorePermanently->IsChecked();
-		CopyString(Entry.Name, Name, 30);
+		CopyString(Entry.Name.Chars, Name);
 		IgnoreEntries(Selection) = Entry;
 	}
 	Selection = WhiteList->GetSelection();
@@ -1751,14 +1752,14 @@ bool TIgnoreListDialog::LeftButtonUp(int x, int y, int Flags)
 		TFont Font;
 		WhiteList->StopEdit();
 		TFixedString<30> Name;
-		CopyString(Name, WhiteList->GetLine(Selection, &Font), 30);
+		CopyString(Name.Chars, WhiteList->GetLine(Selection, &Font));
 		TFont LineFont;
 		if (AllowPermanently->IsChecked())
 			LineFont.Color = SkinProperties.StyleD3C.Data88;
 		WhiteList->SetLine(Selection, Name, LineFont);
 		TIgnoreEntry Entry;
 		Entry.Permanent = AllowPermanently->IsChecked();
-		CopyString(Entry.Name, Name, 30);
+		CopyString(Entry.Name.Chars, Name);
 		WhiteEntries(Selection) = Entry;
 	}
 	return Result;
@@ -2569,7 +2570,7 @@ void TEditMarkDialog::HandleEvent(int Event)
 {
 	TBEGIN
 	if (Event == 1) {
-		CopyString(Mark.Text, TextEdit->Text, 100);
+		CopyString(Mark.Text.Chars, TextEdit->Text);
 		int Type = 0;
 		for (int i = 0; i < 14; i++) {
 			if (TypeGroup->Selected == TypeButtons[i]) {

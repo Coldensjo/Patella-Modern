@@ -21,6 +21,7 @@
 #include "sysinc.h"
 #include "Container.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cmath>
@@ -1158,8 +1159,8 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 	if (Opened) {
 		try {
 			try {
-				File.readBytes(&Block.Color[0][0], sizeof(Block.Color));
-				File.readBytes(&Block.Speed[0][0], sizeof(Block.Speed));
+				File.readBytes(patella::TSpan<uint8>(&Block.Color[0][0], sizeof(Block.Color)));
+				File.readBytes(patella::TSpan<uint8>(&Block.Speed[0][0], sizeof(Block.Speed)));
 			} catch (TMyException &Exception) {
 				throw TMYEXCEPTION(1244, "failed to write colors", "", 0, "", 0, Exception);
 			}
@@ -1177,7 +1178,7 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 					Block.Marks(i).Type = Type;
 					const char *Text = File.readString();
 					if (Text != nullptr) {
-						CopyString(Block.Marks(i).Text, Text, 100);
+						CopyString(Block.Marks(i).Text.Chars, Text);
 						delete[] Text;
 					}
 				}
@@ -1231,8 +1232,8 @@ void SaveAutomapBlock(int Position)
 	if (Opened) {
 		try {
 			try {
-				File.writeBytes(&Block.Color[0][0], sizeof(Block.Color));
-				File.writeBytes(&Block.Speed[0][0], sizeof(Block.Speed));
+				File.writeBytes(patella::TSpan<const uint8>(&Block.Color[0][0], sizeof(Block.Color)));
+				File.writeBytes(patella::TSpan<const uint8>(&Block.Speed[0][0], sizeof(Block.Speed)));
 			} catch (TMyException &Exception) {
 				throw TMYEXCEPTION(1346, "failed to write colors", "", 0, "", 0, Exception);
 			}
@@ -1405,7 +1406,7 @@ void AddAutomapMark(TCoordinate &Coordinate, const char *Text, int Type)
 	Mark.x = Coordinate.x;
 	Mark.y = Coordinate.y;
 	Mark.Type = Type;
-	CopyString(Mark.Text, Text, 100);
+	CopyString(Mark.Text.Chars, Text);
 	Block->Marks(Block->MarkCount) = Mark;
 	Block->MarkCount++;
 	Block->Changed = true;

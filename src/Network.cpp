@@ -393,15 +393,16 @@ void CheckConnectionTimeout()
 }
 
 // 0x4cd180, lines 544-602. ErrorType 1 is the login server, 2 the game server.
-void GetErrorMessage(char *Message, int ErrorCode, int ErrorType)
+void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int ErrorCode, int ErrorType)
 {
+	char *const Message = MessageBuffer.data();
 	TASSERT(544, Message!=NULL);
 	TBEGIN
 	TFixedString<100> Text;
 	bool Offline = false;
 	Message[0] = 0;
 	// Every caller passes new char[1024] (ERROR_MESSAGE_SIZE); the longest message has about 300 characters.
-	TStringBuffer Out(Message, ERROR_MESSAGE_SIZE);
+	TStringBuffer Out(Message, MessageBuffer.size());
 	switch (ErrorCode) {
 	case WSAEINVAL:
 	case WSAEADDRNOTAVAIL:
@@ -488,7 +489,7 @@ bool ResolveHostname(const char *Hostname)
 		HostnameResolveBuffer, HostnameResolveBufferSize);
 	if (HostnameRequest == nullptr) {
 		char *Message = new char[1024];
-		GetErrorMessage(Message, WSAGetLastError(), 1);
+		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), WSAGetLastError(), 1);
 		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		SetConnectionState(0);
 		return false;
@@ -598,7 +599,7 @@ void ConnectToLoginServer()
 	TServer *Server;
 	if (!GetCurrentServer(&Server)) {
 		char *Message = new char[1024];
-		GetErrorMessage(Message, GetServerErrorCode(), 1);
+		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), GetServerErrorCode(), 1);
 		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		for (int i = 0; i < NUMBEROFSERVER; i++)
 			Servers[i].Available = true;
@@ -634,14 +635,14 @@ void ConnectToGameServer()
 	int Error = CreateSocket();
 	if (Error != 0) {
 		char *Message = new char[1024];
-		GetErrorMessage(Message, Error, 2);
+		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), Error, 2);
 		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		AddMessage(10, 300, 0);
 	}
 	Error = ConnectSocket(IPAddress, GetCharacterPort(Character), false);
 	if (Error != 0) {
 		char *Message = new char[1024];
-		GetErrorMessage(Message, Error, 2);
+		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), Error, 2);
 		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		AddMessage(10, 300, 0);
 	}
@@ -671,7 +672,7 @@ void TSocket::OnConnect(int ErrorCode)
 		return;
 	}
 	char *Message = new char[1024];
-	GetErrorMessage(Message, ErrorCode, 2);
+	GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), ErrorCode, 2);
 	AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 	AddMessage(10, 300, 0);
 	Disconnect(false);

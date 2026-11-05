@@ -849,7 +849,9 @@ void MakeFunctions()
 	O.GetStringNew = (char *(*)())GetString;
 	O.GetBytes = [](uint8 *Buffer, int Count) { GetBytes(OriginalSpan(Buffer, Count)); };
 	O.CheckConnectionTimeout = CheckConnectionTimeout;
-	O.GetErrorMessage = GetErrorMessage;
+	O.GetErrorMessage = [](char *Message, int Code, int Type) {
+		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), Code, Type);
+	};
 	O.ResolveHostname = ResolveHostname;
 	O.GetResolvedIPAddress = GetResolvedIPAddress;
 	O.CreateSocket = CreateSocket;

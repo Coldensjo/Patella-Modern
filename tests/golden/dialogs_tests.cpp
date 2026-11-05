@@ -723,6 +723,11 @@ static void __cdecl FakeCheckClipboardText(const char *Text, int Length)
 {
 	Logf("Clip%s,%d;", std::string(Text, Length > 0 ? Length : 0).c_str(), Length);
 }
+// Ours takes a span (issue #69): on x64 a dynamic span is passed through a temporary, not as the pointer and the int.
+static void __cdecl FakeOurCheckClipboardText(patella::TSpan<const char> Characters)
+{
+	FakeCheckClipboardText(Characters.data(), static_cast<int>(Characters.size()));
+}
 static bool __cdecl FakeIsClipboardEmpty()
 {
 	Tick();
@@ -1176,7 +1181,8 @@ static void PatchCallees()
 		{0x4e7d60, (void *)SetErrorReportComment, F(SetErrorReportComment)},
 		{0x4e7bb0, (void *)ClearErrorReports, F(ClearErrorReports)},
 		{0x4e7380, (void *)DeleteErrorFile, F(DeleteErrorFile)},
-		{0x4ea370, (void *)CheckClipboardText, F(CheckClipboardText)},
+		{0x4ea370, NULL, F(CheckClipboardText)},
+		{0, (void *)CheckClipboardText, F(OurCheckClipboardText)},
 		// Ours of IsClipboardEmpty is contextmenus_tests.cpp's, of GetClipboardText dialogelements_tests.cpp's
 		// (the runner's: sysinc.cpp's, golden_sysinc).
 		{0x4fcbe0, (void *)IsClipboardEmpty, F(IsClipboardEmpty)},

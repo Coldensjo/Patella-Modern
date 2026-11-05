@@ -192,7 +192,7 @@ void TestStrings()
 		golden::Input("copy size", Size);
 		memset(C, 'x', sizeof(C));
 		memset(D, 'x', sizeof(D));
-		CopyString(C, A, Size);
+		CopyString(OriginalSpan(C, Size), A);
 		ORIGINAL(Copy(D, A, Size));
 		golden::Output("copy", D);
 		CHECK(memcmp(C, D, sizeof(C)) == 0, "CopyString differs");

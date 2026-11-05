@@ -518,7 +518,7 @@ void AddTalkFilter(int Mode, const char *Addressee, int Channel, TTalkBuffer *Te
 		if (Addressee == nullptr)
 			Filter->Addressee[0] = 0;
 		else
-			CopyString(Filter->Addressee, Addressee, 30);
+			CopyString(Filter->Addressee.Chars, Addressee);
 		Filter->Channel = Channel;
 		Filter->Permanent = Permanent;
 	}
@@ -1061,7 +1061,7 @@ TPrivateTalkBuffer::TPrivateTalkBuffer(int TalkMode, const char *_Addressee) : T
 {
 	TASSERT(1689, _Addressee!=NULL);
 	TBEGIN
-	CopyString(Addressee, _Addressee, 30);
+	CopyString(Addressee.Chars, _Addressee);
 	TEND1(1693, TalkMode)
 }
 // 0x506ec0, line 1700
@@ -1080,7 +1080,7 @@ TRuleViolationTalkBuffer::TRuleViolationTalkBuffer(int ReceiveTalkMode, int Send
 	if (_Addressee == nullptr)
 		Addressee[0] = 0;
 	else
-		CopyString(Addressee, _Addressee, 30);
+		CopyString(Addressee.Chars, _Addressee);
 	WriteEnabled = true;
 	TEND2(1729, ReceiveTalkMode, SendTalkMode)
 }
@@ -1197,7 +1197,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, con
 	const std::tm LocalTime = LineLocalTime(LineTime);
 	TFixedString<8> Stamp;
 	Stamp.Format("{:02}:{:02} ", LocalTime.tm_hour, LocalTime.tm_min);
-	CopyString(Addressee, _Addressee, 30);
+	CopyString(Addressee.Chars, _Addressee);
 	const std::size_t Size = strlen(Stamp) + strlen(Addressee) + strlen(_Line) + 3;
 	Line = new (std::nothrow) char[Size];
 	TStringBuffer(Line, Size).Assign(Stamp);

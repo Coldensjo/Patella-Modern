@@ -17,6 +17,7 @@
 #include "Container.h"
 #include "Objects.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
@@ -825,9 +826,11 @@ int GetCharacterPort(int Number)
 // 0x4ea370, line 869. Keeps a copy of the text; if its lower-case form
 // contains something like a web or IP address, the link warning handler is
 // called instead of copying (it can copy later with
-// CopyTaintedClipboardText).
-void CheckClipboardText(const char *Text, int Length)
+// CopyTaintedClipboardText). Text and Length are the span's pointer and its size as an int (issue #69).
+void CheckClipboardText(patella::TSpan<const char> Characters)
 {
+	const char *const Text = Characters.data();
+	const int Length = static_cast<int>(Characters.size());
 	TBEGIN
 	if (TaintedClipboardText != nullptr)
 		delete[] TaintedClipboardText;
@@ -851,7 +854,7 @@ void CheckClipboardText(const char *Text, int Length)
 void CopyToClipboard(const char *text)
 {
 	TASSERT(875, text);
-	CheckClipboardText(text, (int)strlen(text));
+	CheckClipboardText(patella::TSpan<const char>(text, strlen(text)));
 }
 
 // 0x4ea710, line 882
