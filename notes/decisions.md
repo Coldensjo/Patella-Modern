@@ -9760,3 +9760,50 @@ compare --reference C:\Tibia\Patella-Modernuild
 eference`: the four sessions match (error with #74's deliberate
 differences). tidy_ci 20 findings, 0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs:
 build\logs\issue-85.
+
+## Tests in parallel, golden_concurrent only in Release (Patella-Modern issue #84)
+
+Settled by Claude Opus 5.5, November 5, 2026. The owner asked to speed up the tests: CTest ran each preset's tests one
+after another, and in Debug and under ASan golden_concurrent (two runners at once, #66) was the longest test. Build and
+test configuration only (CMakePresets.json, tests/golden/CMakeLists.txt, cmake/OracleX86.cmake); no src/ change, no test
+checks anything else.
+
+- **CTest in parallel** (high). Every test preset has `execution.jobs` 16 (CMakePresets.json; an integer: presets have no
+  "all processors"). 16 starts all 14 tests of windows-x64 at once on this machine and only oversubscribes short unit
+  tests on a smaller one (hosted CI: no corpus, so golden and golden_concurrent are skipped there). golden and
+  golden_concurrent (COST 1000), difftest (1000) and communicationtest (500) start first while CTest has no timing
+  data of its own yet; golden_concurrent counts as two (PROCESSORS 2). Output: with verbosity verbose CTest prefixes
+  every line with the test's number, so each test's counts can still be found in the log. Considered: `jobs` per preset
+  (the presets have 4 to 14 tests; one value is enough); CTEST_PARALLEL_LEVEL in the environment (not the presets').
+- **Nothing shares a folder** (high). Checked every add_test. The oracle's four (difftest, sysinctest,
+  communicationtest, vlongtest) have a TEMP and TMP of their own since build.cmd (oracle_test_environment,
+  build\oracle-x86\tmp\<test>); every path their tests write is below TEMP or GetTempPath, or below a directory they
+  changed into there (errortest, consolewindow, golden-data, tibia-difftest-cfg, the map, objects and script folders;
+  Errors' error.txt in its work folder; Preferences' Tibia.cfg); vlongtest writes its vlong.txt below its own; the
+  clipboard (CopyToClipboard, IsClipboardEmpty) and DirectDraw's cooperative level are faked; each child process of
+  difftest's watchdog is its own, with an unnamed mapping. golden and golden_concurrent: a run folder per runner
+  (TRunFolder, #66), which is what golden_concurrent tests. The unit tests: core_msvc_test.cpp's fixed names below TEMP
+  and core_settings_test.cpp's core_settings_test.ini in the current directory are in tests_core alone, file_test.cpp's
+  names are random (#66), the contract violation tests write nothing. So no RESOURCE_LOCK or RUN_SERIAL. Not covered:
+  two CTest runs of one build tree at once (the oracle's fixed tmp folders, tests_core's names); that was so before.
+- **golden_concurrent only in Release without ASan** (high). It checks that two runners keep separate folders, the
+  runner's folder code, which is the same in Debug and under ASan; there it only added the longest test (Debug 378 s,
+  ASan 800 s). Registered with `CONFIGURATIONS Release` when PATELLA_SANITIZE is empty: windows-x64's Release has it
+  (14 tests), windows-x64-debug, windows-x64-asan and -asan-debug do not (13; CTest does not list it as not run).
+  golden itself stays in every configuration, and Debug and ASan still run it next to the other tests.
+- **Times** (high; this machine, 24 cores shared with other worktrees' builds, so noisy; each preset before and after
+  back to back in the same worktree, main 7764a95's code and corpus, after an up-to-date build; wall time is
+  `python -I tools/build.py <preset>`, which then only configures and tests):
+
+  | Preset | Tests | Test time before | after | Wall time before | after | In parallel now |
+  |---|---|---|---|---|---|---|
+  | windows-x64 | 14 | 228.6 s | 118.3 s | 233 s | 124 s | all 14; golden 117 s next to golden_concurrent 118 s |
+  | windows-x64-debug | 14 to 13 | 780.7 s | 266.6 s | 785 s | 270 s | all 13; golden 267 s |
+  | windows-x64-asan | 14 to 13 | 1,821.1 s | 775.8 s | 1,826 s | 780 s | all 13; golden 776 s |
+  | oracle-x86 | 4 | 230.0 s; 248.6 s | 263.5 s; 230.7 s | 234 s; 253 s | 274 s; 234 s | all 4; difftest 220 to 263 s |
+
+  oracle-x86 twice (the second pair after first): difftest alone is 95 % of it, so parallel saves only the other
+  three's 12 s, inside the noise of difftest. The counts are unchanged in every run: golden 15,802,944 replayed +
+  1,512,822 retired, 0 failures; difftest 16,459,078, sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0
+  failures; no ASan finding. The first measurements (pre-#75 code and corpus) gave the same picture: windows-x64 238.6 s
+  to 115.8 s, -debug 739.4 s to 285.3 s.

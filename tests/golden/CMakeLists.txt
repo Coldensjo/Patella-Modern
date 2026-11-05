@@ -144,17 +144,25 @@ if(PATELLA_GOLDEN_REQUIRE)
 else()
 	add_test(NAME golden COMMAND golden_runner "${PATELLA_GOLDEN_DIR}")
 endif()
-set_tests_properties(golden PROPERTIES SKIP_RETURN_CODE 77)
+# Issue #84: CTest runs the tests in parallel (CMakePresets.json, execution.jobs); the longest tests start first.
+set_tests_properties(golden PROPERTIES SKIP_RETURN_CODE 77 COST 1000)
 
 # Issue #66: two runners at once over the same corpus (concurrent.py), each in its temporary folder of its own
 # (runner.cpp, TRunFolder): 0 failures each, and neither folder left below TEMP. Skipped without a corpus.
-set(Python3_FIND_REGISTRY LAST)
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
-if(PATELLA_GOLDEN_REQUIRE)
-	set(golden_concurrent_require --require)
-else()
-	set(golden_concurrent_require)
+# Issue #84: only in the Release configuration of the presets without ASan (windows-x64). What it checks is the
+# runner's folder handling, which is the same code in Debug and under ASan; there it only doubled the longest test
+# (windows-x64-debug 360 s, windows-x64-asan 820 s). It runs next to `golden` (CTest in parallel), a third runner at
+# once, and holds two processors (PROCESSORS 2).
+if(PATELLA_SANITIZE STREQUAL "")
+	set(Python3_FIND_REGISTRY LAST)
+	find_package(Python3 REQUIRED COMPONENTS Interpreter)
+	if(PATELLA_GOLDEN_REQUIRE)
+		set(golden_concurrent_require --require)
+	else()
+		set(golden_concurrent_require)
+	endif()
+	add_test(NAME golden_concurrent CONFIGURATIONS Release COMMAND "${Python3_EXECUTABLE}" -I
+		"${CMAKE_CURRENT_SOURCE_DIR}/concurrent.py" $<TARGET_FILE:golden_runner> ${golden_concurrent_require}
+		"${PATELLA_GOLDEN_DIR}")
+	set_tests_properties(golden_concurrent PROPERTIES SKIP_RETURN_CODE 77 PROCESSORS 2 COST 1000)
 endif()
-add_test(NAME golden_concurrent COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/concurrent.py"
-	$<TARGET_FILE:golden_runner> ${golden_concurrent_require} "${PATELLA_GOLDEN_DIR}")
-set_tests_properties(golden_concurrent PROPERTIES SKIP_RETURN_CODE 77)

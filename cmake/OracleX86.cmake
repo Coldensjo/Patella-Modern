@@ -311,6 +311,11 @@ add_test(NAME vlongtest COMMAND "${CMAKE_COMMAND}"
 oracle_test_environment(vlongtest)
 # The full difftest runs for a long time; DIFFTEST_TIMEOUT (default 1800 s) stops a hung child.
 set_tests_properties(difftest communicationtest PROPERTIES TIMEOUT 7200)
+# Issue #84: CTest runs the four in parallel (CMakePresets.json, execution.jobs): each has its own TEMP and TMP
+# (oracle_test_environment), every file they write is below it, and nothing else is shared (their child processes,
+# window classes and the fakes are per process; the clipboard is faked). The longest start first.
+set_tests_properties(difftest PROPERTIES COST 1000)
+set_tests_properties(communicationtest PROPERTIES COST 500)
 
 # The golden corpus (tests/golden/golden.h, issue #24): cmake --build --preset oracle-x86 --target
 # golden_corpus runs difftest, sysinctest and communicationtest in full with DIFFTEST_RECORD set, each
