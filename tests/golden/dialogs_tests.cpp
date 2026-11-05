@@ -98,7 +98,7 @@ static_assert(sizeof(TDialog) == 0xc4 && sizeof(TQuestionLabel) == 0x5c && sizeo
 static_assert(sizeof(TTextDialog) == 0x44 && sizeof(TEditListDialog) == 0x38 && sizeof(TIgnoreEntry) == 0x1f
 		&& sizeof(TIgnoreListDialog) == 0xd0 && sizeof(TBugReportDialog) == 0x30 && sizeof(TNewChannelDialog) == 0x44
 		&& sizeof(TPrivateChannelDialog) == 0x34 && sizeof(TReportDialog) == 0x30 && sizeof(TAddBuddyDialog) == 0x30
-		&& sizeof(TEditBuddyDialog) == 0x68 && sizeof(TUpdateDialog) == 0x44 && sizeof(THelpDialog) == 0x30,
+		&& sizeof(TEditBuddyDialog) == 0x68 && sizeof(THelpDialog) == 0x30, // TUpdateDialog (0x44) gone: issue #75
 	"sizes 2");
 static_assert(sizeof(THintsDialog) == 0x30 && sizeof(TRuleViolationDialog) == 0x114 && sizeof(TEditMarkDialog) == 0xe8
 		&& sizeof(TOptionsDialog) == 0x2c && sizeof(TGeneralOptionsDialog) == 0x44 && sizeof(TGraphicsOptionsDialog) == 0x4c
@@ -945,7 +945,6 @@ static void __cdecl FakeSendRuleViolationReport(const char *Name, uint8 Reason, 
 	Logf("SendReport%s,%d,%d,%s,%u,%d;", Str(Name).c_str(), Reason, Action, Str(Comment).c_str(), StatementID,
 		IPBanishment ? 1 : 0);
 }
-static void __cdecl FakeCancelPatch() { Logf("CancelPatch;"); }
 
 } // namespace DialogsTest
 
@@ -965,7 +964,6 @@ void SendRuleViolationReport(const char *Name, uint8 Reason, uint8 Action, const
 {
 	DialogsTest::FakeSendRuleViolationReport(Name, Reason, Action, Comment, StatementID, IPBanishment);
 }
-void CancelPatch() { DialogsTest::FakeCancelPatch(); }
 #endif
 
 namespace DialogsTest {
@@ -1093,7 +1091,8 @@ static void RestoreAll()
 	SavedCode.clear();
 }
 
-// Ours of the functions the oracle's difftest.exe defines in this file (SendEditText ... CancelPatch): NULL
+// Ours of the functions the oracle's difftest.exe defines in this file (SendEditText ... SendRuleViolationReport;
+// CancelPatch until issue #75, when it went with the update dialog, its only caller): NULL
 // there (the image goes to the fakes directly), the runner's stubs (client_stubs.cpp) here.
 #if GOLDEN_ORACLE
 #define DEFINED_HERE(Function) NULL
@@ -1248,7 +1247,6 @@ static void PatchCallees()
 		{0x409830, DEFINED_HERE(SendOutfit), F(SendOutfit)},
 		{0x409f40, DEFINED_HERE(SendBugReport), F(SendBugReport)},
 		{0x40a0f0, DEFINED_HERE(SendRuleViolationReport), F(SendRuleViolationReport)},
-		{0x40bac0, DEFINED_HERE(CancelPatch), F(CancelPatch)},
 	// The CRT
 #if GOLDEN_ORACLE
 		{0x511d6b, NULL, (void *)ImageSprintf},
@@ -1306,6 +1304,8 @@ enum {
 	K_REPORT,
 	K_ADDBUDDY,
 	K_EDITBUDDY,
+	// The update dialog is gone with the patcher (Patella-Modern issue #75, decision D9). The kind stays, so that
+	// the kinds drawn and every other kind's rounds keep their inputs; its rounds are not run (SkipUpdateRound).
 	K_UPDATE,
 	K_HELP,
 	K_HINTS,
@@ -1322,7 +1322,7 @@ enum {
 };
 static const char *const KindNames[KINDS] = {"message", "formatted message", "connecting", "wait", "reconnect",
 	"question", "logout", "info", "move objects", "login", "character list", "text", "edit list", "outfit",
-	"bug report", "new channel", "invite", "exclude", "ignore list", "report", "add VIP", "edit VIP", "update", "help",
+	"bug report", "new channel", "invite", "exclude", "ignore list", "report", "add VIP", "edit VIP", "update (gone)", "help",
 	"hints", "rule violation", "edit mark", "options", "general options", "graphics options", "advanced graphics",
 	"console options", "network options", "hotkeys"};
 // The events each body handles (its own and those of its controls).
@@ -1480,6 +1480,7 @@ static void RandomArguments()
 		ChannelIDs[i] = Random() % 4 == 0 ? 0xffff : Random() % 20;
 		sprintf(ChannelNames[i], "Channel %d", Random() % 100);
 	}
+	// The update dialog's file and size (gone since issue #75): still drawn, so that the other kinds keep their inputs.
 	static const char *const Files[] = {"tibia.pic", "TIBIA.DAT", "tibia.spr", "update.exe"};
 	strcpy(FileName, Files[Random() % 4]);
 	HasName = Random() % 2 != 0;
@@ -1542,7 +1543,6 @@ static TDialog *Create(int s)
 	case K_REPORT: return CREATE(0x482640, CreateReportDialog);
 	case K_ADDBUDDY: return CREATE(0x482870, CreateAddBuddyDialog);
 	case K_EDITBUDDY: return CREATE(0x482a70, CreateEditBuddyDialog, CharacterID);
-	case K_UPDATE: return CREATE(0x482c80, CreateUpdateDialog, FileName, DataSize);
 	case K_HELP: return CREATE(0x482ea0, CreateHelpDialog, URL);
 	case K_HINTS: return CREATE(0x4830c0, CreateHintsDialog);
 	case K_RULEVIOLATION:
@@ -1626,7 +1626,6 @@ static const struct {
 	{0x562db8, "TPrivateChannelDialog"},
 	{0x562e58, "TReportDialog"},
 	{0x562ef8, "TAddBuddyDialog"},
-	{0x562ff0, "TUpdateDialog"},
 	{0x5630c0, "THelpDialog"},
 	{0x563160, "THintsDialog"},
 	{0x563258, "TOptionsDialog"},
@@ -2102,12 +2101,6 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Pointer(Out, s, E->Notify);
 		Pointer(Out, s, E->Description);
 		Pointers(Out, s, E->IconButtons);
-	} else if (K == "TUpdateDialog") {
-		TUpdateDialog *U = (TUpdateDialog *)C;
-		Number(Out, U->Unused2C);
-		Pointer(Out, s, U->ProgressBar);
-		Add(Out, " %d,%d,%d", U->StartTime, U->DataSize, U->Progress);
-		Byte(Out, U->Done);
 	} else if (K == "THelpDialog") {
 		Pointer(Out, s, (const void *)((THelpDialog *)C)->OpenURL);
 	} else if (K == "THintsDialog") {
@@ -2621,7 +2614,7 @@ static void Operation(int Forced = -1)
 	World.Engine = Random() % 3;
 	World.FPSHundredths = Random() % 10000;
 	SetEngine(World.Engine);
-	Clock += Kind == K_UPDATE ? Random() % 600 : Random() % 3000; // the update dialog closes 2 s after the end
+	Clock += Random() % 3000; // (600 for the update dialog until issue #75: it closed 2 s after the end)
 	SetTestClock(Clock);
 	// The hotkey list sends event 11 for a click beside its lines; without a
 	// selection the dialog then reads before its texts (garbage of each side).
@@ -2806,6 +2799,44 @@ static void SkipErrorReport()
 			Key();
 			Random(); // the event
 		}
+	}
+}
+
+// The update dialog is gone (Patella-Modern issue #75, decision D9), and its main rounds with it. Their random
+// numbers are still drawn, as MainRound and Operation drew them for it, so that the later rounds keep their inputs
+// and their counts: for this kind every draw's count follows from the drawn numbers alone (ChildPoint's, the
+// optional ones, Key's for a key press; its events, its members and the creator draw none).
+static void SkipUpdateRound()
+{
+	RandomWorld();
+	RandomArguments();
+	const int Operations = 20 + Random() % 40;
+	for (int i = 0; i < Operations; i++) {
+		const int Op = Random() % 16;
+		for (int Point = 0; Point < 2; Point++) { // ChildPoint, twice
+			Random();                             // the component
+			if (Random() % 2 == 0)
+				Random(); // x
+			if (Random() % 2 == 0)
+				Random(); // y
+		}
+		if (Random() % 4 == 0) {
+			Random(); // x
+			Random(); // y
+		}
+		Random(); // r1
+		Random(); // r2
+		Random(); // r3
+		Random(); // ActionNumber
+		if (Random() % 6 == 0)
+			Random(); // MessageType
+		if (Random() % 4 != 0)
+			Random(); // Progress
+		Random();     // Engine
+		Random();     // FPSHundredths
+		Random();     // Clock
+		if (Op == 1 || Op == 2)
+			Key();
 	}
 }
 
@@ -3099,6 +3130,8 @@ static void TestDialogsAssertions()
 		EndDialogs();
 	}
 	for (int Round = 0; Round < 3 * KINDS; Round++) {
+		if (Round % KINDS == K_UPDATE)
+			continue; // the update dialog is gone (issue #75)
 		// The advanced graphics dialog's calls retire with the oracle (#28/#31).
 		const bool Retired = Round % KINDS == K_ADVANCED;
 		if (!Retired || !RetiredBegin("advanced graphics: buttons and events"))
@@ -3233,6 +3266,10 @@ static void TestDialogsErrors()
 	for (int Round = 0; Round < 10 * KINDS * ACTIONS; Round++) {
 		Kind = Round % KINDS;
 		TargetAction = Round / KINDS % ACTIONS;
+		// The update dialog's error rounds are gone with it (issue #75; their random numbers follow from its calls,
+		// so the later rounds' inputs move).
+		if (Kind == K_UPDATE)
+			continue;
 		// The advanced graphics dialog's rounds retire with the oracle (#28/#31).
 		const bool Retired = Kind == K_ADVANCED;
 		if (!Retired || !RetiredBegin("advanced graphics: error round"))
@@ -3311,6 +3348,10 @@ void TestDialogs()
 		KindCount[Kind]++;
 		if (Trace)
 			fprintf(stderr, "round %d kind %s\n", Count, KindNames[Kind]);
+		if (Kind == K_UPDATE) {
+			SkipUpdateRound(); // gone (issue #75)
+			continue;
+		}
 		// The advanced graphics dialog's rounds retire with the oracle (#28/#31).
 		const bool Retired = Kind == K_ADVANCED;
 		if (!Retired || !RetiredBegin("advanced graphics: round"))
@@ -3341,7 +3382,8 @@ void TestDialogs()
 		fclose(LogFile);
 	int MinKind = 1 << 30, MinOperation = 1 << 30;
 	for (int k = 0; k < KINDS - 1; k++)
-		MinKind = KindCount[k] < MinKind ? KindCount[k] : MinKind;
+		if (k != K_UPDATE)
+			MinKind = KindCount[k] < MinKind ? KindCount[k] : MinKind;
 	for (int i = 0; i < 16; i++)
 		MinOperation = OperationCount[i] < MinOperation ? OperationCount[i] : MinOperation;
 	printf("Dialogs: %d checks, %d failures (each dialog at least %d times, each operation at least %d times)\n",

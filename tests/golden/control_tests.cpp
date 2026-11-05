@@ -71,6 +71,7 @@ COMM_FAKE(ReceiveMessageOfTheDay)
 COMM_FAKE(ReceivePatch)
 COMM_FAKE(ReceiveWholeFile)
 COMM_FAKE(ReceivePatchBlock)
+COMM_FAKE(ReceiveUpdateRequest)
 COMM_FAKE(ReceiveCharacterList)
 COMM_FAKE(ReceiveLoginServerOverloaded)
 COMM_FAKE(ReceiveGameLogin)
@@ -166,9 +167,13 @@ static const TFake CommunicationFakes[] = {
 	CF(ReceiveLoginError, 0x40a4c0),
 	CF(ReceiveLoginMessage, 0x40a670),
 	CF(ReceiveMessageOfTheDay, 0x40a810),
-	CF(ReceivePatch, 0x40a9c0),
-	CF(ReceiveWholeFile, 0x40ae70),
-	CF(ReceivePatchBlock, 0x40b290),
+	// The original's only (ours are gone, Patella-Modern issue #75): the patch packets are not dispatched to them any
+	// more (DispatchRound, DispatchAll: below), the fakes stay in case they are. Ours of the three, ReceiveUpdateRequest,
+	// has no original.
+	{"ReceivePatch", 0x40a9c0, nullptr, (void *)F_ReceivePatch},
+	{"ReceiveWholeFile", 0x40ae70, nullptr, (void *)F_ReceiveWholeFile},
+	{"ReceivePatchBlock", 0x40b290, nullptr, (void *)F_ReceivePatchBlock},
+	{"ReceiveUpdateRequest", 0, (void *)&::ReceiveUpdateRequest, (void *)F_ReceiveUpdateRequest},
 	CF(ReceiveCharacterList, 0x40b8b0),
 	CF(ReceiveLoginServerOverloaded, 0x40bc80),
 	CF(ReceiveGameLogin, 0x40be30),
@@ -240,6 +245,7 @@ static const TFake CommunicationFakes[] = {
 // --- The callbacks of InitWindow ---------------------------------------------------
 
 static void TestExitProgram() { Call("ExitProgram()"); }
+// The original's third callback, CloseProgram (event 0x48), is gone from ours (issue #75): the original still gets it.
 static void TestCloseProgram() { Call("CloseProgram()"); }
 static void TestSetDisplayMode(int Mode) { Call("SetDisplayMode(%d)", Mode); }
 static void TestOpenURL(const char *URL) { Call("OpenURL(%s)", Quote(URL).c_str()); }
@@ -268,11 +274,12 @@ static void ControlThrow()
 
 // --- The statics ---------------------------------------------------------------------
 
-// The image's statics (Control.cpp's .data/.bss) and ours, found by values.
+// The image's statics (Control.cpp's .data/.bss) and ours, found by values. The image's CloseCallback (0x5c4534) is
+// gone from ours with the patcher (issue #75) and not compared.
 struct TControlStatics {
 	int *LastPacketType, *ReconnectTimeout, *LastMouseMove;
 	HWND *WindowHandle;
-	void **ExitCallback, **CloseCallback, **DisplayModeCallback, **URLCallback;
+	void **ExitCallback, **DisplayModeCallback, **URLCallback;
 };
 static TControlStatics Statics[2];
 
@@ -354,7 +361,6 @@ static void FindStatics()
 	I.LastMouseMove = (int *)(uintptr_t)0x5c4528;
 	I.URLCallback = (void **)(uintptr_t)0x5c452c;
 	I.DisplayModeCallback = (void **)(uintptr_t)0x5c4530;
-	I.CloseCallback = (void **)(uintptr_t)0x5c4534;
 	I.ExitCallback = (void **)(uintptr_t)0x5c4538;
 	I.WindowHandle = (HWND *)(uintptr_t)0x5c453c;
 #endif
@@ -371,12 +377,11 @@ static void FindStatics()
 #endif
 	ResetWorlds();
 	auto Init = [](uint32 v) {
-		InitWindow((HWND)(uintptr_t)v, (void (*)())(uintptr_t)(v + 1), (void (*)())(uintptr_t)(v + 2),
-			(void (*)(int))(uintptr_t)(v + 3), (void (*)(const char *))(uintptr_t)(v + 4));
+		InitWindow((HWND)(uintptr_t)v, (void (*)())(uintptr_t)(v + 1), (void (*)(int))(uintptr_t)(v + 3),
+			(void (*)(const char *))(uintptr_t)(v + 4));
 	};
 	O.WindowHandle = (HWND *)OUR_STATIC(WindowHandle, [&](uint32 v) { Init(v); }, 0x7a5b3c10, 0x7a5b3d20);
 	O.ExitCallback = (void **)OUR_STATIC(ExitCallback, [&](uint32 v) { Init(v - 1); }, 0x7a5b3c11, 0x7a5b3d21);
-	O.CloseCallback = (void **)OUR_STATIC(CloseCallback, [&](uint32 v) { Init(v - 2); }, 0x7a5b3c12, 0x7a5b3d22);
 	O.DisplayModeCallback = (void **)OUR_STATIC(DisplayModeCallback, [&](uint32 v) { Init(v - 3); }, 0x7a5b3c13, 0x7a5b3d23);
 	O.URLCallback = (void **)OUR_STATIC(URLCallback, [&](uint32 v) { Init(v - 4); }, 0x7a5b3c14, 0x7a5b3d24);
 	O.LastMouseMove = (int *)OUR_STATIC(LastMouseMove, [](uint32 v) {
@@ -410,15 +415,14 @@ static std::string DumpStatics(int S)
 {
 	TControlStatics &T = Statics[S];
 	if (T.LastPacketType == NULL || T.ReconnectTimeout == NULL || T.LastMouseMove == NULL || T.WindowHandle == NULL
-		|| T.ExitCallback == NULL || T.CloseCallback == NULL || T.DisplayModeCallback == NULL || T.URLCallback == NULL)
+		|| T.ExitCallback == NULL || T.DisplayModeCallback == NULL || T.URLCallback == NULL)
 		return "statics not found";
 	int Saved = Side;
 	Side = S;
 	char Buffer[512];
-	sprintf(Buffer, "LastPacketType %d ReconnectTimeout %d LastMouseMove %d WindowHandle %s callbacks %s %s %s %s",
+	sprintf(Buffer, "LastPacketType %d ReconnectTimeout %d LastMouseMove %d WindowHandle %s callbacks %s %s %s",
 		*T.LastPacketType, *T.ReconnectTimeout, *T.LastMouseMove, NameOf(*T.WindowHandle).c_str(),
-		NameOf(*T.ExitCallback).c_str(), NameOf(*T.CloseCallback).c_str(), NameOf(*T.DisplayModeCallback).c_str(),
-		NameOf(*T.URLCallback).c_str());
+		NameOf(*T.ExitCallback).c_str(), NameOf(*T.DisplayModeCallback).c_str(), NameOf(*T.URLCallback).c_str());
 	Side = Saved;
 	return Buffer;
 }
@@ -646,7 +650,7 @@ static void Step(int Round)
 		Both(What, [&] { HandleEvents(); }, ORIGINAL_SIDE(At<TVoid>(0x44a770)()));
 		break;
 	case 22:
-		Both(What, [&] { InitWindow(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL); }, ORIGINAL_SIDE(At<void(__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL)));
+		Both(What, [&] { InitWindow(TestWindow, TestExitProgram, TestSetDisplayMode, TestOpenURL); }, ORIGINAL_SIDE(At<void(__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL)));
 		break;
 	case 26: {
 		// Ten timer ticks after a mouse move: the window under the mouse is told (hover).
@@ -842,6 +846,13 @@ static void EventRound(int Round, int Fail)
 		// (0x49, 0x4a), so the original's code for them is not run; the random numbers stay as they were.
 		if (P.Type == 0x2a || P.Type == 0x2b)
 			P.Type = 0x49 + (P.Type - 0x2a);
+		// The patcher's events are gone too (issue #75): 0x29 (the update dialog), 0x40 (wait for the login
+		// connection's end), 0x41-0x44 (InstallPatch), 0x45-0x47 (the data files reloaded) and 0x48 (CloseCallback,
+		// then patch.exe). In the same way each becomes a type neither side knows: 0x4b, and 0x4c-0x54.
+		if (P.Type == 0x29)
+			P.Type = 0x4b;
+		else if (P.Type >= 0x40 && P.Type <= 0x48)
+			P.Type = 0x4c + (P.Type - 0x40);
 		Plans.push_back(P);
 		EventCovered[P.Type < 0x49 ? P.Type : 0x49]++;
 	}
@@ -871,6 +882,13 @@ static void DispatchRound(int Round, int Fail)
 		std::vector<uint8> Frame;
 		for (int i = Random() % 5; i >= 0; i--)
 			Frame.push_back((uint8)Random());
+		// The login table's patch packets (0x1e, 0x1f, 0x20) go to ours' ReceiveUpdateRequest since issue #75, to the
+		// original's patcher in the image: in the login states each becomes a type neither table knows (0x21-0x23),
+		// as ProcessEvents' removed events do. The fakes read nothing, so every byte of a frame is a type.
+		if (State == 3 || State == 4)
+			for (uint8 &Byte : Frame)
+				if (Byte >= 0x1e && Byte <= 0x20)
+					Byte = (uint8)(0x21 + (Byte - 0x1e));
 		Frames.push_back(Frame);
 	}
 	World[0].ConnectionState = World[1].ConnectionState = State;
@@ -898,8 +916,12 @@ static void DispatchAll()
 			SetReceiveData(IMAGE, NULL, 0);
 			char What[64];
 			sprintf(What, "ReceivePackets type 0x%02x state %d", Type, State);
-			Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
-			CompareStatics(What);
+			// The patch packets of the login table: ours ends the login, the original patches (issue #75); not
+			// compared.
+			if (!Login || Type < 0x1e || Type > 0x20) {
+				Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
+				CompareStatics(What);
+			}
 			FreeWorlds();
 		}
 	}
@@ -983,7 +1005,7 @@ void TestControl(const char *ExePath)
 	FindStatics();
 	// Both sides' statics from the same start.
 	ResetWorlds();
-	Both("InitWindow", [&] { InitWindow(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL); }, ORIGINAL_SIDE(At<void(__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL)));
+	Both("InitWindow", [&] { InitWindow(TestWindow, TestExitProgram, TestSetDisplayMode, TestOpenURL); }, ORIGINAL_SIDE(At<void(__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL)));
 	FreeWorlds();
 	ResetWorlds();
 	for (int S = 0; S < 2; S++) {
@@ -1017,7 +1039,7 @@ void TestControl(const char *ExePath)
 	DispatchAll();
 	int Least = 1 << 30;
 	for (int Type = 1; Type <= 0x49; Type++)
-		if (Type != 0x2a && Type != 0x2b && EventCovered[Type] < Least)
+		if (Type != 0x29 && Type != 0x2a && Type != 0x2b && (Type < 0x40 || Type > 0x48) && EventCovered[Type] < Least)
 			Least = EventCovered[Type];
 	printf("Control: %d checks, %d failures (each event type at least %d times)\n", Checks - Before,
 		Failures - BeforeFailures, Least);

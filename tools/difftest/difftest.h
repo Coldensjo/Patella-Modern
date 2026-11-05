@@ -69,10 +69,6 @@ void TestMapWindow(const char *ExePath); // tests/golden/mapwindow_tests.cpp, lo
 // communicationtest.exe (issue #36, DIFFTEST_COMMUNICATION): Communication.cpp and Control.cpp with every
 // callee faked on both sides; in an executable of their own, because difftest.exe's other tests define
 // fakes under the names of their functions.
-// A test that divides by zero on purpose sets it (communicationtest.cpp: a patch
-// block of a zero-sized patch, caught by both sides' catch (...)): the crash
-// report then leaves such exceptions out.
-extern bool ExpectDivideByZero;
 void TestCommunication(const char *ExePath);// communicationtest.cpp: the server packets, the senders, ReceivePackets
 void TestControl(const char *ExePath);   // controltest.cpp: input, events, the timer, start-up and shutdown
 

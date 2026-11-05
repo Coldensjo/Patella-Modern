@@ -8,18 +8,16 @@
 
 #include <cstdarg>
 #include <cstddef>
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 
 #if !defined(_WIN32)
-// The Msvc* names at the end: errno values, and POSIX's setenv, unsetenv and execl, which the C headers declare,
-// not <cstdlib>.
+// The Msvc* names at the end: errno values, and POSIX's setenv and unsetenv, which the C header declares, not
+// <cstdlib>.
 #include <cerrno>
 #include <stdlib.h> // NOLINT(modernize-deprecated-headers)
-#include <unistd.h>
 #endif
 
 // PATELLA_PRINTF_FORMAT (compat/msvc.h includes this header off Windows after it).
@@ -135,13 +133,6 @@ inline int MsvcStricmp(const char *Left, const char *Right)
 inline char *MsvcStrdup(const char *Text)
 {
 	return patella::compat::PortableStrdup(Text);
-}
-
-// _execl with one argument: replaces the process with the program Path, which gets Argument as its argv[0]
-// (Player.cpp: patch.exe). Returns only when that fails (-1).
-inline std::intptr_t MsvcExecl(const char *Path, const char *Argument)
-{
-	return execl(Path, Argument, static_cast<char *>(nullptr)); // NOLINT(cppcoreguidelines-pro-type-vararg)
 }
 
 // _dupenv_s: *Value is a copy of the environment variable Name from malloc (the caller frees it) and *Length

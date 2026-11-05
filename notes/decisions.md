@@ -9414,6 +9414,9 @@ The comparison tools expect these from the fork's clients against Tibia.exe and 
 | #74 (D2) | No error report dialog at the start | event 0x2a with reports in error.txt |
 | #74 (D2) | No client packet 0xE8 | event 0x2b with reports |
 | #74 (D2) | The critical error box's text is the first sentence of Tibia.exe's | TextCriticalError names the error file |
+| #75 (D9) | A patch packet (0x1e, 0x1f, 0x20) ends the login: the login error dialog "Sorry" with "This server wants to update the client", the connection closed, the rest of what the server sent dropped | the update dialog, the transfer's blocks, the next login connections |
+| #75 (D9) | No patched file written, replaced or removed (Tibia.da_, Tibia.sp_, Tibia.pi_, Patch.ex_, Tibia.bak; Tibia.dat, Tibia.spr, Tibia.pic, Patch.exe) | ApplyPatch, ApplyFullPatch, InstallPatch (events 0x41-0x44) |
+| #75 (D9) | No data file reloaded, no program started, no "Updating" message | events 0x45-0x47 (ReloadObjects, ReloadSprites, ReloadPictures); "Updating", then event 0x48: CloseProgram and Run's `_execl("patch.exe")` |
 | #71 | The area a live resize uncovers is black | stripes of old pixels (not compared: no tool moves a border) |
 
 ### The tests
@@ -9564,3 +9567,118 @@ windows-x64, windows-x64-debug and windows-x64-asan: 14/14 each, golden and gold
 windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11; 0 warnings. pecompare (main's and the branch's x64 Release
 Patella.exe built at the same path): .text, .data, .pdata, .rsrc and .reloc identical, the link stamps and the PDB GUID
 only. tidy_ci 20 findings, 0 new, 0 bugprone; banned_calls 0; clang-format clean.
+
+## The built-in patcher removed: packets 0x1e, 0x1f, 0x20, Patch.exe (Patella-Modern issue #75, D9)
+
+Settled by Claude Opus 5.5, November 5, 2026; M5, decision D9 (notes/modernization-plan.md, 11). A login server could
+send a patch at any login (the client's first packet carries the data files' signatures): 0x1e (a difference patch of a
+file) or 0x1f (a whole file) with the file number and size, then 0x20 blocks. ReceivePatchBlock wrote the result next to
+the file (Script.cpp ApplyPatch, ApplyFullPatch: Tibia.da_, Tibia.sp_, Tibia.pi_, Patch.ex_, and Tibia.exe's as
+Tibia.bak), events 0x41-0x44 moved it into place (InstallPatch), 0x45-0x47 reloaded the data files, and after a
+Tibia.exe patch the client showed "Updating", closed (event 0x48, CloseProgram) and CPlayerApp::Run started patch.exe
+(`_execl`): any server could replace the client's files and have a program run. The test server sends no patch (its
+binary has no patch path; its sources are not on this machine).
+
+- **Removed** (high). Communication.cpp's ReceivePatch (0x40a9c0), ReceiveWholeFile (0x40ae70), ReceivePatchBlock
+  (0x40b290), CancelPatch (0x40bac0) and the transfer's state (PatchData, PatchWholeFile, PatchDataCount, PatchDataSize,
+  PatchFileNumber, 0x5c4344-0x5c4357); Script.cpp's ApplyPatch (0x4e3100), ApplyFullPatch (0x4e3500) and InstallPatch
+  (0x4e3610); Dialogs.cpp's TUpdateDialog (constructor, Draw, HandleEvent) and CreateUpdateDialog, and Text.h's texts
+  74-76 (its "Downloading ..." texts); Control.cpp's events 0x29 (the update dialog), 0x40 (wait for the login
+  connection's end; with it the goto to the shared exit block 0x44a2f5 that #42 kept), 0x41-0x48, CloseCallback
+  (0x5c4534) and InitWindow's CloseProgram parameter; MainFrm.cpp's CloseProgram (0x4a8940); Player.cpp's RunPatch and
+  Run's `_execl("patch.exe")`; compat/msvc.h's and msvc_portable.h's MsvcExecl (with <process.h> and <unistd.h>, which
+  only it needed). compare_files.py's sessions patch and patch-exe, their recording in reference_record.py and the
+  reference sessions patch and patch-exe of reference.py (a reference set may still hold them, unused, as error-login
+  and report since #74).
+- **The end of the login** (high). The three packets go to one new function, Communication.cpp's ReceiveUpdateRequest:
+  it reads and drops everything the server sent (GetNextCommand until it returns -1: the patch's header or block, the
+  packets after it in the frame and in the frames already received, so that none of it reaches the game server's table
+  once the connection state is 0), posts the login error dialog's event (event 1, "Sorry") with "This server wants to
+  update the client", disconnects and sets the connection state 0, as ReceiveLoginError does with the server's text. No
+  HandleEvents after it (the original's showed the update dialog during a transfer). Considered: a dialog of its own
+  ("Update refused"; new user interface the plan does not ask for); reading only the packet's own fields (the next
+  bytes of the frame would then be read as game packets in state 0 and a crafted frame could end the client with a
+  fatal error); the message in the message of the day's dialog (it is not an error).
+- **Kept, with no caller in the client now** (high). HandleEvents, ReloadObjects, ReloadSprites, ReloadPictures,
+  ClearMemoryCache, SetProgress and GetProgress, Network.cpp's GetBytes, TProgressBar::SetComplete and FileExists: their
+  tests stay, the linker drops them from the images (below); as #74 kept GetCurrentEngine. MESSAGE_STARTPATCHER (72,
+  Status.h: AddMessage's range check) stays the original's. SkinProperties keeps the update dialog's fields (Data104C,
+  Data1050, Data1054, Data1074), set by InitSkinProperties and unread. InitCommunication stays, empty (it only cleared
+  PatchData), so that InitControl's calls are the original's.
+- **The layouts** (high). CPlayerApp loses RunPatch (+0xa1): padding now, the size the original's (CWinApp and two
+  flags padded to 4); Player.h asserts `sizeof(CPlayerApp) == sizeof(CWinApp) + 4` in the oracle build
+  (PATELLA_ORIGINAL_LAYOUT). No other structure changes; TUpdateDialog was a class of its own. Text.h's copies shrink by
+  three pointers, as #74's did by two.
+- **#67** (high). The crash of #67 (a block of a zero-sized patch divided by zero in ReceivePatchBlock, which the x64
+  client's /EHsc catch (...) does not catch) is gone with the code: ReceiveUpdateRequest divides by nothing. Checked by
+  the golden corpus's TestUpdateRequests (51 rounds of a zero-sized patch and its empty block, in the oracle and the
+  three x64 runners) and by PatellaTest.exe on a crafted session (below). #67's second part, the list of other catch
+  (...) blocks that relied on catching hardware exceptions, is not done here; #67 stays open.
+
+### The tests
+
+The patch packets are deliberately not the original's any more, so the comparisons that ran them retire; where the
+inputs could stay, the random numbers are still drawn as they were (counted on main 53276b1 with temporary counters
+around each retired part: build\issue-75-scripts\instrument_base.py, never committed). Same-path oracle builds of main
+and the branch: difftest 16,471,911 to 16,459,078 (-12,833), communicationtest 1,044,013 to 856,621 (-187,392), sysinctest
+67 and vlongtest 3,201 unchanged; 0 failures, CTest 4/4.
+
+| Test | Main | Branch | By function |
+|---|---|---|---|
+| Communication | 347,375 | 310,721 | TestPatches' 300 transfers -16,549; the login rounds of TestGenerated with a patch packet -8,619; CancelPatch after each login round -13,130 and each login seed frame -156; TestUpdateRequests +1,800 (new, ours alone, below) |
+| Communication errors | 454,103 | 303,407 | CancelPatch twice after every error frame -137,566 and after every cut frame -11,817; the frames of 0x1e, 0x1f, 0x20 failing at each call -663 and cut -650 |
+| Control | 101,979 | 101,937 | ReceivePackets of the login table's 0x1e, 0x1f, 0x20 with its statics' check (DispatchAll) -42 |
+| Control errors | 140,556 | 140,556 | unchanged count; the events 0x29 and 0x40-0x48 (11,388 checks of the main rounds, 12,480 of the error round) are compared as types neither side knows (0x4b, 0x4c-0x54), as #74 did with 0x2a and 0x2b, and the login table's 0x1e, 0x1f, 0x20 in DispatchRound's frames as 0x21-0x23: the comparisons stay, ProcessEvents and ReceivePackets stop at their unknown type (calls that threw 9,364 to 9,372) |
+| Dialogs | 97,029 | 93,396 | the update dialog's main rounds -3,633; their random numbers are drawn as MainRound and Operation drew them (SkipUpdateRound: for this kind each draw's count follows from the drawn numbers alone), and K_UPDATE stays a kind, so every other round keeps its inputs |
+| Dialogs errors | 180,050 | 173,967 | the update dialog's error rounds -5,563 and its buttons-and-events calls -45; -475 more: those rounds' random numbers depend on the dialog's fake calls, so the later error rounds' inputs moved |
+| MainFrm | 30,586 | 29,988 | CloseProgram's comparisons (operation 33) -598 |
+| MainFrm errors | 15,918 | 15,633 | CloseProgram's comparisons in the error round -198; -87 the sweeps over the fake calls CloseProgram made (796 together, as counted) |
+| Errors | 14,320 | 14,220 | InstallPatch's 100 error rounds -100 |
+| Script | 458,232 | 456,098 | ApplyPatch, ApplyFullPatch and InstallPatch's 500 rounds -2,134 (SkipPatches draws their numbers) |
+
+Every other test's count is unchanged. The first oracle run of the branch removed the update dialog's kind outright
+(KINDS one smaller): the moved inputs then reached a difference that main's never did, 4 failures in TIgnoreListDialog
+(below, "Found"); SkipUpdateRound keeps main's inputs instead. TestUpdateRequests (communication_tests.cpp) runs ours
+alone, on its own random numbers (the seed saved and set again): 300 login frames as TestPatches makes them, 51 of them a
+zero-sized patch and its empty block, 1 in 7 a block alone, after login messages of the frame or not, with login
+messages after the patch packet; in state 3 or 4. Six checks each: nothing thrown; every frame read, the receive buffer
+at its end; the last event the login error dialog with the text, no other event than the messages before it; the
+message, Disconnect(0) and SetConnectionState(0) in that order; the state 0; no packet sent, no AddMessageFirst, no
+SetProgress.
+
+- **The golden corpus** (high). Recorded again: 15,802,944 replayed + 1,512,822 retired = 17,315,766, 0 failures, golden
+  and golden_concurrent pass on windows-x64, windows-x64-debug and windows-x64-asan (no ASan finding). Main: 16,001,985 +
+  1,514,006 = 17,515,991; -200,225, the oracle's -12,833 and -187,392. Retired: Dialogs 8,924 to 8,633 (-291: the
+  advanced graphics error rounds come after the update dialog's, their inputs moved), Control 20,867 to 19,974 (-893:
+  event rounds that reached ChangeEngine after a removed event now stop at its unknown type and are replayed).
+- **The images** (high). Function by function through the PDBs (build\issue-75-scripts\funcs.py, never committed; main
+  and the branch built at the same path). x64 Release Patella.exe: 318 gone (the 13 functions above and the update
+  dialog's 4 with their catch and unwind funclets and lambdas; with no caller left HandleEvents, ReloadObjects,
+  ReloadSprites, ReloadPictures, ClearMemoryCache, SetProgress, GetProgress, GetBytes, TReadBuffer::GetBytes,
+  TProgressBar::SetComplete and FileExists; TProgressBar's constructor, now inlined into TReconnectWindow's; the CRT's
+  _execl, spawn and command-line code, _access, remove and rename, and PatchData's initializer and destructor), 5 new
+  (ReceiveUpdateRequest and four funclets of TReconnectWindow's constructor), 9 resized (OnCreate, Run, InitCommunication,
+  InitWindow, ProcessEvents, ReceivePackets, TReconnectWindow's constructor and a funclet, theApp's initializer); the
+  rest moves (pecompare.py's byte comparison: everything after the first removed function). The oracle's Patella.exe: 64
+  gone (the same, and the CRT's environment code, _dupenv_s among it, which only _execl's spawn pulled in: the oracle has
+  no Vulkan code), ReceiveUpdateRequest new, the same 9 resized (memcpy_s one COMDAT copy fewer).
+- **Tier A** (high). `python -I tools/reference.py compare --reference C:\Tibia\Patella-Modern\build\reference`: the four
+  sessions match (error with #74's two deliberate differences). `python -I tools/compare_files.py --patella
+  build\windows-x64\Release\Patella.exe` (live walk): no differences, #74's two expected. `python -I
+  tools/compare_traffic.py --patella build\windows-x64\Release\Patella.exe` (live): no differences (the first run's
+  second server start missed the 300 s limit on a busy machine; the rerun passed). No session of them has a patch
+  packet; tools/deliberate.py lists the patcher's files and a patch packet in a session's server side as #75's
+  differences, should one appear.
+- **The end of the login in the client** (high). PatellaTest.exe (Release, PATELLA_VULKAN=cpu) on the recorded patch
+  session's script and server side (Tibia.exe's four patch connections) and on the same script with a crafted server
+  side, a zero-sized Tibia.dat patch and its empty block (#67): both exit 0 and write, replace and remove no file; one
+  login connection each (Tibia.exe made four); at the last checkpoint the "Sorry" dialog says "This server wants to
+  update the client" over the start screen (state and frame dumps in build\issue-75-patchcheck).
+- **Found, not done** (high). TIgnoreListDialog keeps a name of 30 characters (the most its edit line takes) as 29: since
+  #57 (5b98b20) `IgnoreEntries(Selection).Name.Assign(Name)` and the white list's three like it cut at 29 where the
+  original's strcpy wrote all 30 and its NUL into the next byte, Permanent, which the next statement sets again. Main's
+  corpus never reaches it; an input of the Dialogs test that does showed it ('a much longer pasted text for' against the
+  original's 'a much longer pasted text for '). Not changed here (outside D9); for its own issue.
+
+windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11; 0 warnings on every preset. tidy_ci (--worktree) 20 findings,
+0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs: build\logs\issue-75.

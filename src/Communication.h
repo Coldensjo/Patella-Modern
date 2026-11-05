@@ -72,11 +72,8 @@ void SendRuleViolationReport(const char *Name, uint8 Reason, uint8 Action, const
 void ReceiveLoginError();
 void ReceiveLoginMessage();
 void ReceiveMessageOfTheDay();
-void ReceivePatch();
-void ReceiveWholeFile();
-void ReceivePatchBlock();
+void ReceiveUpdateRequest(); // packets 0x1e, 0x1f and 0x20 (the patcher removed: issue #75)
 void ReceiveCharacterList();
-void CancelPatch();
 void ReceiveLoginServerOverloaded();
 void ReceiveGameLogin();
 void ReceiveGamemasterActions();

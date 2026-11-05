@@ -5,10 +5,10 @@
 # exception model.
 #
 # The oracle (communicationtest.exe) builds with /EHa, and its error round raises structured exceptions that both
-# sides' catch (...) catch: a fake TRSA::Encrypt raises one, and a block of a zero-sized patch divides by zero in
-# ReceivePatchBlock. The original (VC7.1) catches them in catch (...); under the product's /EHsc (or /EHs) an x64
-# catch (...) does not, and the runner would stop. This directory compiles with /EHa (CMake's default flags have
-# /EHsc; replaced here, for this directory only, as tests/golden/network replaces it with /EHs).
+# sides' catch (...) catch: a fake TRSA::Encrypt raises one (until issue #75 also a block of a zero-sized patch, which
+# divided by zero in ReceivePatchBlock). The original (VC7.1) catches them in catch (...); under the product's /EHsc
+# (or /EHs) an x64 catch (...) does not, and the runner would stop. This directory compiles with /EHa (CMake's
+# default flags have /EHsc; replaced here, for this directory only, as tests/golden/network replaces it with /EHs).
 
 string(REPLACE "/EHsc" "/EHa" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 # The Debug build's run-time checks fill every local with 0xcc (/RTCs, in CMake's /RTC1). The test fills the stack

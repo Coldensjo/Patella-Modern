@@ -15,12 +15,12 @@ From the sources (every fopen, ofstream, remove and rename in src/):
 | `<bx><by><bz>.map` (`%03d%03d%02d.map`, 256x256 fields of one floor) | Map.cpp SaveAutomapBlock | a changed automap block leaving the cache of blocks, the exit (ExitMap) |
 | error.txt | Tibia.exe only since Patella-Modern issue #74 (D2): its HandleException appends a report; deleted by its SendErrorReports on entering the game, or its error report dialog's Cancel. The fork's clients write, read and delete none (a deliberate difference, tools/deliberate.py) | a TMyException that reaches InitInstance or Run |
 | `<channel>.txt` | ConsoleWindow.cpp SaveChannel (appends) | "Save Window" in a console tab's menu |
-| Tibia.da_, Tibia.sp_, Tibia.pi_, Patch.ex_; Tibia.bak | Script.cpp ApplyPatch / ApplyFullPatch | a patch from the login server (0x1e difference patch, 0x1f whole file, 0x20 blocks; Communication.cpp ReceivePatch*) |
+| Tibia.da_, Tibia.sp_, Tibia.pi_, Patch.ex_; Tibia.bak | Tibia.exe only since Patella-Modern issue #75 (D9): its Script.cpp ApplyPatch / ApplyFullPatch. The fork's clients end the login at a patch packet and write none (a deliberate difference, tools/deliberate.py) | a patch from the login server (0x1e difference patch, 0x1f whole file, 0x20 blocks; Tibia.exe's Communication.cpp ReceivePatch*) |
 | Patella.ini (the x64 client only, Patella-Modern issue #31) | src/vulkan/DeviceSettings.cpp SaveDeviceChoice | a click in the advanced graphics options that changes the graphics device (notes/vulkan.md, "Choosing the device") |
-| Tibia.dat, Tibia.spr, Tibia.pic, Patch.exe (replaced) | Script.cpp InstallPatch (remove, rename `_` to the name) | messages 0x41-0x44 after the patch, once the login connection is closed |
+| Tibia.dat, Tibia.spr, Tibia.pic, Patch.exe (replaced) | Tibia.exe only since issue #75: its Script.cpp InstallPatch (remove, rename `_` to the name); then patch.exe after a Tibia.exe patch (Player.cpp Run, `_execl`) | messages 0x41-0x44 after the patch, once the login connection is closed |
 
 Since Patella-Modern issue #64 each of these files except error.txt (a std::ofstream, Player.cpp, until issue #74) is a `TFile`
-(src/types/File.h): Tibia.cfg and the binary files (`.map`, the patch files) through Script.h's four classes
+(src/types/File.h): Tibia.cfg and the binary files (`.map`, the patch files until issue #75) through Script.h's four classes
 ("rb"/"wb", binary: Tibia.cfg's CR LF are written by writeLn itself), the saved channel through ConsoleWindow.cpp's
 SaveChannel in text mode ("at": every "\n" of the text becomes "\r\n", as the Microsoft C runtime wrote it, on
 Windows and on Linux alike). The test mode's dumps are TFiles too: packets.log, frames.txt and messages.txt binary, the
@@ -28,11 +28,14 @@ Windows and on Linux alike). The test mode's dumps are TFiles too: packets.log, 
 
 The login server decides about patches: a 7.72 server can send them in answer to any login (the client's
 first packet carries the three files' signatures), so a crafted replay of the login connection triggers
-every one of them. A Tibia.exe patch is written to Tibia.bak; the client then shows "Updating", closes
+every one of them. A Tibia.exe patch is written to Tibia.bak; Tibia.exe then shows "Updating", closes
 and runs patch.exe (Player.cpp Run, `_execl`), which is CipSoft's separate patcher and not part of the
-client: what it does with Tibia.bak cannot be compared here (we do not have it, and running a program the
-session wrote is out of the question). The scenario leaves patch.exe out, so `_execl` fails and the client
-just ends.
+client. Since Patella-Modern issue #75 (decision D9) the fork's clients have no patcher: a patch packet (0x1e,
+0x1f or 0x20) ends the login in the login error dialog ("Sorry", "This server wants to update the client"),
+what the server sent is read and dropped, and no file is written, replaced or started (src/Communication.cpp
+ReceiveUpdateRequest; notes/decisions.md, "The built-in patcher removed"). The scenarios patch and patch-exe,
+which compared the patched files, went with it; the golden corpus's Communication test (TestUpdateRequests)
+checks the end of the login.
 
 ## Running it
 
@@ -67,8 +70,8 @@ The run folders are build\files\orig, build\files\patella and build\files\orig-r
 Tibia.exe run's own (Patella-Modern issue #12; before, it ran in build\files\orig) (compare_traffic.py's
 set-up, via its set_folder: copies of the data files and the patched clients). Before each run the folder
 is emptied (compare_traffic.clean_run_dir, files and subfolders), then: the data files as in the root,
-compare_traffic.py's Tibia.cfg, nothing else but the client (and in Patella's folder a copy of the patched
-Tibia.exe, the input of the Tibia.exe patch). Results in `--out`:
+compare_traffic.py's Tibia.cfg, nothing else but the client (and in Patella's folder the x64 client's CPU driver;
+until issue #75 also a copy of the patched Tibia.exe, the input of the Tibia.exe patch). Results in `--out`:
 `<scenario>\<client>\` (the files the run wrote), `<scenario>\<client>.jsonl` (the replay's packets),
 `repeat\<scenario>\orig\` (the second Tibia.exe run), walk-live.jsonl and walk-live\orig\ (the live
 recording and its files) and report.txt.
@@ -80,11 +83,12 @@ recording and its files) and report.txt.
 | options | start window: Options; General (all five check boxes), Console (all five), Network (Test Server Login), Graphics (the next fullscreen resolution), Advanced (light, stretching, mouse pointer, the frame rate limit three steps down, the OpenGL engine: a live engine switch), Hotkeys (F1-F5: two texts, two sent automatically, one empty); OK everywhere; Tibia.cfg after the options dialog and after the exit | none |
 | walk | login; automap: three marks set (types 3, 9, none), one edited (text and type), one deleted; zoom in once, out twice; 19 actions over floors 7, 6, 7, 8, 7 into a second automap block (116 steps over floors 7, 6, 8, 7, 6, 7 before issue #16); "Save Window" of the default channel; logout | the live recording (Tibia.exe against the test server); Patella.exe replays it |
 | error | login, then the server packet 0xff (unknown type in the game): HandleException, the critical error box (its OK is pressed), exit code 1; Tibia.exe also writes error.txt, and its box names that file (since issue #74 expected, the deliberate differences; error-login and report, the error report dialog and packet 0xe8, went with the report) | the recording's login and first game packets, then the crafted packet |
-| patch | login; four login connections in a row: a difference patch of Tibia.dat (all four operations copy/skip/insert/replace, all count forms: in the command byte, byte, word and quad), of Tibia.spr, the whole Tibia.pic and the whole Patch.exe; each installed, then the client reconnects by itself, with the new signatures in its login packet | crafted, from the recording's first login packet |
-| patch-exe | login; a difference patch of Tibia.exe (eight bytes of the DOS stub) to Tibia.bak; "Updating" (OK), the client closes | crafted |
-
-Every patch writes a new signature into its file (or eight bytes of Tibia.exe), so a patch that silently did
-nothing would be seen; the script also checks each patched file against the result it computes itself.
+Until issue #75 two more: patch (four login connections in a row: a difference patch of Tibia.dat with all four
+operations copy/skip/insert/replace and all count forms, of Tibia.spr, the whole Tibia.pic and the whole Patch.exe;
+each installed, then the client reconnected by itself with the new signatures in its login packet; crafted from the
+recording's first login packet) and patch-exe (a difference patch of Tibia.exe, eight bytes of the DOS stub, to
+Tibia.bak; "Updating", OK, the client closed). Every patch wrote a new signature into its file, so a patch that
+silently did nothing would have been seen. They went with the patcher (decision D9).
 
 Walking (tools/compare_files.py WALKS, Patella-Modern issue #16). What the walk is for: the client writes the
 automap blocks 125/125 on floors 6, 7 and 8 and 125/126 on floor 7 (12512506.map, 12512507.map with the marks,
@@ -158,8 +162,8 @@ Before issue #74; error, error-login and report then compared error.txt and the 
 | error | error.txt (657 / 654), Tibia.cfg | identical after masking the time and mapping four line numbers; the same message box, exit code 1 |
 | error-login | error.txt (999 / 996: the earlier report and the new one) | the same |
 | report | 12512507.map, Tibia.cfg; error.txt deleted by both | identical; the 0xe8 packet is the one computed from error.txt, the comment as "Comment: patella comment"; 5 client packets identical |
-| patch | Tibia.dat, Tibia.spr (15,877,515), Tibia.pic (1,360,102), Patch.exe (962) | identical and as computed; the reconnects' login packets carry the new signatures; no temporary `_` file left |
-| patch-exe | Tibia.bak (1,875,968) | identical and as computed; both close with exit code 0 |
+| patch (until #75) | Tibia.dat, Tibia.spr (15,877,515), Tibia.pic (1,360,102), Patch.exe (962) | identical and as computed; the reconnects' login packets carry the new signatures; no temporary `_` file left |
+| patch-exe (until #75) | Tibia.bak (1,875,968) | identical and as computed; both close with exit code 0 |
 
 The two runs of Tibia.exe (evidence for the masks): Default.txt's "Channel saved at Mon Nov 02 12:44:26 2026"
 against "... 12:51:26 2026", error.txt's "Mon Nov 02 12:51:42 2026" against "... 12:52:17 2026" (error-login
@@ -186,7 +190,7 @@ established game connection twice; the error report dialog at the start took the
 error.txt held a report.
 
 **Not compared**: what patch.exe does after a Tibia.exe patch (CipSoft's separate program, not available;
-above). The other option dialogs outside Options (VIP list, ignore and white lists, channels, the combat
+above; since issue #75 the fork's clients start no program). The other option dialogs outside Options (VIP list, ignore and white lists, channels, the combat
 controls) were not driven; their Tibia.cfg lines (Buddy, White, Ignore, OpenChannel, AttackMode, ChaseMode,
 SecureMode) are written unchanged in every scenario. Other channel files than Default.txt use the same code
 (the caption is the file name).

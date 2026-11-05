@@ -307,7 +307,6 @@ const char *CallbackName(const void *Function)
 		const char *Name;
 	} Names[] = {
 		{0x4a88f0, (const void *)ExitProgram, "ExitProgram"},
-		{0x4a8940, (const void *)CloseProgram, "CloseProgram"},
 		{0x4a8af0, (const void *)SetDisplayMode, "SetDisplayMode"},
 		{0x4a8d80, (const void *)OpenURL, "OpenURL"},
 		{0x4aa1d0, (const void *)UpdateMouseCursor, "UpdateMouseCursor"},
@@ -670,10 +669,18 @@ void __cdecl FakeExitControl()
 	Logf("ExitControl;");
 	Tick();
 }
-void __cdecl FakeInitWindow(HWND Window, void (*A)(), void (*B)(), void (*C)(int), void (*D)(const char *))
+// InitWindow: the original's third callback, CloseProgram, is gone from ours with the patcher (Patella-Modern issue
+// #75); each side's fake logs the other three.
+void __cdecl FakeInitWindow(HWND Window, void (*A)(), void (*)(), void (*C)(int), void (*D)(const char *))
 {
-	Logf("InitWindow(%s,%s,%s,%s,%s);", HwndName(Window), CallbackName((void *)A), CallbackName((void *)B),
-		CallbackName((void *)C), CallbackName((void *)D));
+	Logf("InitWindow(%s,%s,%s,%s);", HwndName(Window), CallbackName((void *)A), CallbackName((void *)C),
+		CallbackName((void *)D));
+	Tick();
+}
+void __cdecl FakeOurInitWindow(HWND Window, void (*A)(), void (*C)(int), void (*D)(const char *))
+{
+	Logf("InitWindow(%s,%s,%s,%s);", HwndName(Window), CallbackName((void *)A), CallbackName((void *)C),
+		CallbackName((void *)D));
 	Tick();
 }
 void __cdecl FakeInitMainWindow(int Width, int Height, void (*A)(), void (*B)(int), void (*C)(const char *))
@@ -982,7 +989,7 @@ struct TState {
 	uint8 Placement[sizeof(WINDOWPLACEMENT)];
 	uint8 KeyStates[0x100];
 	uint8 PacketHeader[16];
-	uint8 LeftButtonPressed, RightButtonPressed, Closing, DisplayChanged, WindowedMaximized, RunPatch, Unused[2];
+	uint8 LeftButtonPressed, RightButtonPressed, Closing, DisplayChanged, WindowedMaximized, Unused[3]; // RunPatch gone (#75)
 	char ClassName[32];
 };
 static_assert(sizeof(WINDOWPLACEMENT) == 44 && sizeof(TState) == 420, "TState: the same layout on both targets");
@@ -999,7 +1006,6 @@ TState Capture(int S)
 		memcpy(State.Placement, F + 0xd4, sizeof(State.Placement));
 		memcpy(State.KeyStates, F + 0x100, sizeof(State.KeyStates));
 		State.KeyFlags = *(int *)(F + 0x200);
-		State.RunPatch = ImageApp[0xa1] != 0;
 	} else {
 		CMainFrame *M = (CMainFrame *)F;
 		State.Window = (uint32)(uintptr_t)M->m_hWnd;
@@ -1007,7 +1013,6 @@ TState Capture(int S)
 		memcpy(State.Placement, &M->Placement, sizeof(State.Placement));
 		memcpy(State.KeyStates, M->KeyStates.data(), sizeof(State.KeyStates));
 		State.KeyFlags = M->KeyFlags;
-		State.RunPatch = ((CPlayerApp *)OurApp)->RunPatch;
 	}
 	memcpy(State.PacketHeader, T.PacketHeader, sizeof(State.PacketHeader));
 	State.MainFrame = *T.MainFrame == (void *)F ? 1 : *T.MainFrame == NULL ? 0
@@ -1039,14 +1044,14 @@ std::string Dump(const TState &State)
 	snprintf(Buffer, sizeof(Buffer),
 		"frame %s hwnd %x cursor %d keys %x placement %s keystates %s\n"
 		"PacketHeader %s MainFrame %s cursors %x %x %x %x %x buttons %d %d Closing %d DisplayChanged %d ClassName %.32s "
-		"WheelDelta %d RunPatch %d\n",
+		"WheelDelta %d\n",
 		Alive ? "alive" : "dead", State.Window, State.MouseCursor, State.KeyFlags,
 		Hex(State.Placement, sizeof(State.Placement)).c_str(), Hex(State.KeyStates, sizeof(State.KeyStates)).c_str(),
 		Hex(State.PacketHeader, 16).c_str(), State.MainFrame == 1 ? "frame" : State.MainFrame == 0 ? "NULL"
 																								   : "other",
 		State.Cursors[0], State.Cursors[1], State.Cursors[2], State.Cursors[3], State.Cursors[4],
 		State.LeftButtonPressed, State.RightButtonPressed, State.Closing, State.DisplayChanged, State.ClassName,
-		State.WheelDelta, State.RunPatch);
+		State.WheelDelta);
 	std::string Text = Buffer;
 	snprintf(Buffer, sizeof(Buffer), "world: view %d windowed %d,%d,%d,%d,%d connection %d\n", State.ViewMode,
 		State.WindowedX, State.WindowedY, State.WindowedWidth, State.WindowedHeight, State.WindowedMaximized,
@@ -1506,14 +1511,8 @@ void Operation(int Kind)
 		});
 		break;
 	case 33:
-		ImageApp[0xa1] = 0;
-		((CPlayerApp *)OurApp)->RunPatch = false;
-		Both("CloseProgram", [&](int s) {
-			if (s == IMAGE)
-				ImageFree<void>(0x4a8940);
-			else
-				CloseProgram();
-		});
+		// CloseProgram (the original's: ExitProgram, and RunPatch for patch.exe) is gone from ours with the patcher
+		// (Patella-Modern issue #75), and its comparison with it.
 		break;
 	case 34: {
 		bool Name = Chance(50);
@@ -1761,7 +1760,6 @@ void TestMainFrm()
 		{0x449210, (void *)Redraw, (void *)FakeRedraw},
 		{0x44b510, (void *)InitControl, (void *)FakeInitControl},
 		{0x448e30, (void *)ExitControl, (void *)FakeExitControl},
-		{0x448c50, (void *)InitWindow, (void *)FakeInitWindow},
 		{0x4b05b0, (void *)InitMainWindow, (void *)FakeInitMainWindow},
 		{0x4db430, (void *)SetWindowedMode, (void *)FakeSetWindowedMode},
 		{0x4db470, (void *)GetWindowedMode, (void *)FakeGetWindowedMode},
@@ -1786,6 +1784,8 @@ void TestMainFrm()
 		ORIGINAL(Redirect((void *)(uintptr_t)T.Image, T.Fake));
 		Redirect(T.Ours, T.Fake);
 	}
+	ORIGINAL(Redirect((void *)(uintptr_t)0x448c50, (void *)FakeInitWindow));
+	Redirect((void *)InitWindow, (void *)FakeOurInitWindow);
 	int SavedEngine = curEngine;
 	ORIGINAL(int SavedImageEngine = Global<int>(0x71d0c4));
 

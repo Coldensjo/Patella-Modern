@@ -32,7 +32,6 @@
 #include "graphics.h"
 #include "Preferences.h"
 #include "Skins.h"
-#include "Script.h"
 #include "Status.h"
 #include "Surface.h"
 #include "Talk.h"
@@ -63,10 +62,10 @@ bool Reconnect;                        // 0x5c4524, set by event 0x3f
 int LastMouseMove;                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
 void (*URLCallback)(const char *URL);  // 0x5c452c
 void (*DisplayModeCallback)(int Mode); // 0x5c4530
-void (*CloseCallback)();               // 0x5c4534, called by event 0x48
-void (*ExitCallback)();                // 0x5c4538, stored but not used here
-HWND WindowHandle;                     // 0x5c453c
-bool ShowFPS;                          // 0x5c4554, toggled by key 0x907
+// 0x5c4534, CloseCallback (event 0x48: CloseProgram, then patch.exe), is gone with the patcher (issue #75).
+void (*ExitCallback)(); // 0x5c4538, stored but not used here
+HWND WindowHandle;      // 0x5c453c
+bool ShowFPS;           // 0x5c4554, toggled by key 0x907
 // At 0x5c4558, constructed by the static initialiser 0x559df0 as
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // the end of Control.obj's .bss, after ShowFPS and before Creatures.obj's
@@ -711,11 +710,11 @@ void ReceivePackets()
 			case 0x14:
 				ReceiveMessageOfTheDay();
 				break;
-				// clang-format off
-			case 0x1e: ReceivePatch(); HandleEvents(); break;
-			case 0x1f: ReceiveWholeFile(); HandleEvents(); break;
-			case 0x20: ReceivePatchBlock(); HandleEvents(); break;
-			// clang-format on
+			// The patch packets (Tibia.exe: ReceivePatch, ReceiveWholeFile, ReceivePatchBlock, each followed by
+			// HandleEvents) end the login since Patella-Modern issue #75 (decision D9).
+			case 0x1e:
+			case 0x1f:
+			case 0x20: ReceiveUpdateRequest(); break;
 			case 0x28: ReceiveLoginServerOverloaded(); break;
 			case 0x64: ReceiveCharacterList(); break;
 			default:
@@ -1062,9 +1061,7 @@ void ProcessEvents()
 		case 0x28:
 			ModalWindow = CreateMessageDialog("Message of the Day", GetMotD());
 			break;
-		case 0x29:
-			ModalWindow = CreateUpdateDialog(reinterpret_cast<const char *>(Param1), (int)Param2);
-			break;
+		// 0x29, the update dialog (ReceivePatch and ReceiveWholeFile posted it), is gone since issue #75.
 		case 0x2c:
 			SetActionState(7);
 			break;
@@ -1148,36 +1145,10 @@ void ProcessEvents()
 				AddMessage(3, 0, 0);
 			}
 			break;
-		case 0x40:
-			if (GetConnectionState() != 0) {
-				AddMessageFirst(0x40, 0, 0);
-				goto Done; // NOLINT(cppcoreguidelines-avoid-goto): the binary's shared exit block 0x44a2f5 (#42)
-			}
-			break;
-		case 0x41:
-			InstallPatch("Tibia.dat");
-			break;
-		case 0x42:
-			InstallPatch("Tibia.spr");
-			break;
-		case 0x43:
-			InstallPatch("Tibia.pic");
-			break;
-		case 0x44:
-			InstallPatch("Patch.exe");
-			break;
-		case 0x45:
-			ReloadObjects();
-			break;
-		case 0x46:
-			ReloadSprites();
-			break;
-		case 0x47:
-			ReloadPictures();
-			break;
-		case 0x48:
-			CloseCallback();
-			return;
+		// 0x40 (wait until the login connection is closed), 0x41-0x44 (InstallPatch: Tibia.dat, .spr, .pic,
+		// Patch.exe), 0x45-0x47 (ReloadObjects, ReloadSprites, ReloadPictures after a patch) and 0x48 (CloseCallback:
+		// the client closes and runs patch.exe) were posted only by ReceivePatchBlock; they are gone with it since
+		// Patella-Modern issue #75 (decision D9), and with 0x40 the shared exit block 0x44a2f5 it jumped to (#42).
 		default:
 			TERROR1(1541, "unknown message type", Type);
 		}
@@ -1192,22 +1163,20 @@ void ProcessEvents()
 			MainWindow->SetConsoleActive(false);
 		}
 	}
-Done:
 	if (GetConnectionState() == 8 && MoveCreatures())
 		SendWalk();
 	Redraw(false);
 	TEND1(1560, Type)
 }
 
-// 0x448c50, line 1585. Called when the main frame window is created.
-void InitWindow(HWND Window, void (*ExitProgram)(), void (*CloseProgram)(),
-	void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL))
+// 0x448c50, line 1585. Called when the main frame window is created. Tibia.exe's third parameter, CloseProgram
+// (event 0x48's callback), is gone with the patcher since issue #75.
+void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL))
 {
 	TBEGIN
 	WindowHandle = Window;
 	SetNetworkWindow(Window);
 	ExitCallback = ExitProgram;
-	CloseCallback = CloseProgram;
 	DisplayModeCallback = SetDisplayMode;
 	URLCallback = OpenURL;
 	SetMouseCursor(1);

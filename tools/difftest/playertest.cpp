@@ -33,7 +33,7 @@
 bool CloseRequest() STUB
 void ExitControl() STUB
 void InitControl(bool) STUB
-void InitWindow(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *)) STUB
+void InitWindow(HWND, void (*)(), void (*)(int), void (*)(const char *)) STUB
 void KeyPress(int) STUB
 void LeftButtonDoubleClick(int, int, int) STUB
 void LeftButtonDown(int, int, int) STUB

@@ -712,63 +712,22 @@ std::string RandomPatch(int OldSize, std::string &Expected, const std::string &O
 	return Patch;
 }
 
-void TestPatches()
+// ApplyPatch, ApplyFullPatch and InstallPatch are gone with the patcher (Patella-Modern issue #75, decision D9), and
+// their 500 rounds with them. Their random numbers are still drawn, as they were, so that the later tests keep their
+// inputs.
+void SkipPatches()
 {
-#if GOLDEN_ORACLE
-	typedef bool(__cdecl * PatchFn)(const char *, const uint8 *, int, uint32);
-	typedef bool(__cdecl * FullPatchFn)(const char *, const uint8 *, int);
-	typedef void(__cdecl * InstallFn)(const char *);
-#endif
-	std::string NameOurs = TempPath("ours.dat"), NameOriginal = TempPath("original.dat");
-	std::string PatchedOurs = TempPath("ours.da_"), PatchedOriginal = TempPath("original.da_");
 	for (int Round = 0; Round < 500; Round++) {
 		std::string Old;
 		int OldSize = 4 + Random() % 3000;
 		for (int i = 0; i < OldSize; i++)
 			Old += (char)Random();
-		uint32 Signature = (uint8)Old[0] | ((uint8)Old[1] << 8) | ((uint8)Old[2] << 16) | ((uint32)(uint8)Old[3] << 24);
-		WriteFileText(NameOurs, Old);
-		ORIGINAL(WriteFileText(NameOriginal, Old));
 		std::string Expected;
-		std::string Patch = RandomPatch(OldSize, Expected, Old);
-		uint32 Check;
-		switch (Random() % 3) {
-		case 0: Check = 0; break;
-		case 1: Check = Signature; break;
-		default: Check = Random(); break;
-		}
-		bool a, b;
-		if (Random() % 4 == 0) {
-			a = ApplyFullPatch(NameOurs.c_str(), (const uint8 *)Patch.data(), (int)Patch.size());
-			b = ORIGINAL_VALUE("ApplyFullPatch", bool,
-				At<FullPatchFn>(0x4e3500)(NameOriginal.c_str(), (const uint8 *)Patch.data(), (int)Patch.size()));
-			Expected = Patch;
-		} else {
-			a = ApplyPatch(NameOurs.c_str(), (const uint8 *)Patch.data(), (int)Patch.size(), Check);
-			b = ORIGINAL_VALUE("ApplyPatch", bool,
-				At<PatchFn>(0x4e3100)(NameOriginal.c_str(), (const uint8 *)Patch.data(), (int)Patch.size(), Check));
-			if (Check != 0 && Check != Signature)
-				Expected = "";
-		}
-		CHECK(a == b, "patch result %d %d", a, b);
-		std::string A, B;
-		bool HaveA = ReadFileText(PatchedOurs, A), HaveB = OriginalFileText("patched file", PatchedOriginal, B);
-		CHECK(HaveA == HaveB && A == B, "patched files differ (%d and %d bytes)", (int)A.size(), (int)B.size());
-		if (a && b) {
-			CHECK(A == Expected, "patched file is not the expected one");
-			InstallPatch(NameOurs.c_str());
-			ORIGINAL(At<InstallFn>(0x4e3610)(NameOriginal.c_str()));
-			HaveA = ReadFileText(NameOurs, A);
-			HaveB = OriginalFileText("installed file", NameOriginal, B);
-			CHECK(HaveA && HaveB && A == B && A == Expected, "installed files differ");
-			bool Gone = ORIGINAL_VALUE("patched file removed", bool, _access(PatchedOriginal.c_str(), 0) != 0);
-			CHECK(_access(PatchedOurs.c_str(), 0) != 0 && Gone, "patched file left behind");
-		}
-		remove(PatchedOurs.c_str());
-		ORIGINAL(remove(PatchedOriginal.c_str()));
+		RandomPatch(OldSize, Expected, Old);
+		if (Random() % 3 == 2)
+			Random(); // the wrong signature
+		Random();     // the whole file or a difference patch
 	}
-	remove(NameOurs.c_str());
-	ORIGINAL(remove(NameOriginal.c_str()));
 }
 
 // --- Length limits (issue #24) ---------------------------------------------
@@ -883,7 +842,7 @@ void TestScript()
 	TestLongTokens();
 	TestWriter();
 	TestBinary();
-	TestPatches();
+	SkipPatches();
 	remove(TempPath("script.txt").c_str());
 	remove(TempPath("ours.txt").c_str());
 	remove(TempPath("original.txt").c_str());

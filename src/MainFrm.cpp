@@ -187,17 +187,8 @@ void ExitProgram()
 	TEND(135)
 }
 
-// 0x4a8940, line 149. Like ExitProgram, but Run starts patch.exe afterwards.
-void CloseProgram()
-{
-	TBEGIN
-	CPlayerApp *App = static_cast<CPlayerApp *>(AfxGetApp());
-	if (App != nullptr)
-		App->RunPatch = true;
-	Closing = true;
-	PostMessageA(MainFrame->m_hWnd, WM_CLOSE, 0, 0);
-	TEND(149)
-}
+// 0x4a8940, CloseProgram (line 149: ExitProgram, and CPlayerApp::Run starting patch.exe afterwards), is gone with
+// the patcher since Patella-Modern issue #75 (decision D9).
 
 // 0x4a8af0, line 181. View mode 2 is fullscreen: a topmost popup window over
 // the whole screen; 1 is a normal window at its old placement.
@@ -257,7 +248,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	RECT Client;
 	::GetClientRect(m_hWnd, &Client);
 	InitMainWindow(Client.right, Client.bottom, ExitProgram, SetDisplayMode, OpenURL);
-	InitWindow(m_hWnd, ExitProgram, CloseProgram, SetDisplayMode, OpenURL);
+	InitWindow(m_hWnd, ExitProgram, SetDisplayMode, OpenURL);
 	int x, y, Width, Height;
 	bool Maximized;
 	GetWindowedMode(&x, &y, &Width, &Height, &Maximized);

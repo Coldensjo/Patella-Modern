@@ -33,9 +33,6 @@
 #include <cstdlib> // IWYU pragma: keep (on Windows the Msvc* macros' expansions need it)
 #include <cstring> // IWYU pragma: keep (on Windows the Msvc* macros' expansions need it)
 #include <ctime>   // IWYU pragma: keep (PATELLA_TIME's expansion, TestHooks.h, needs it; here since issue #43)
-#if defined(_WIN32)
-#include <process.h>
-#endif
 
 
 // --- the compiler's spellings ---
@@ -112,7 +109,6 @@
 #define MsvcVsnprintf _vsnprintf
 #define MsvcStricmp _stricmp
 #define MsvcStrdup _strdup
-#define MsvcExecl(Path, Argument) _execl(Path, Argument, nullptr)
 #define MsvcDupenv _dupenv_s
 #define MsvcPutenv _putenv_s
 

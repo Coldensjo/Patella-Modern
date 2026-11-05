@@ -35,7 +35,6 @@ void ConnectionClosed();
 void TimerEvent();
 void ProcessEvents();
 
-void InitWindow(HWND Window, void (*ExitProgram)(), void (*CloseProgram)(),
-	void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL));
+void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL));
 void InitControl(bool Gamemaster);
 void ExitControl();

@@ -110,12 +110,13 @@ FORMAT1_DISPLAY_MODES = [[640, 480, 32], [720, 480, 32], [720, 576, 32], [800, 6
 DISPLAY_MODES_HEADER = "# patella-display-modes 1"  # src/testmode/DisplayModes.h
 DISPLAY_MODES_FILE = "display-modes.txt"
 # The sessions, in recording order. "error-login" and "report" (the error report dialog at the start, the reports
-# sent as packet 0xe8) went with the error report in issue #74: a reference set may still hold them, unused.
-SESSIONS = ["traffic", "options", "walk", "error", "patch", "patch-exe"]
+# sent as packet 0xe8) went with the error report in issue #74, "patch" and "patch-exe" (crafted login server answers
+# that patched the data files, Patch.exe and Tibia.exe) with the built-in patcher in issue #75 (the fork's client ends
+# the login at a patch packet: tools/deliberate.py): a reference set may still hold them, unused.
+SESSIONS = ["traffic", "options", "walk", "error"]
 # Which tool's session each one is (the record/compare split of the three tools).
 SESSION_TOOLS = {"traffic": ("compare_traffic", "compare_rendering"), "options": ("compare_files",),
-	"walk": ("compare_files",), "error": ("compare_files",), "patch": ("compare_files",),
-	"patch-exe": ("compare_files",)}
+	"walk": ("compare_files",), "error": ("compare_files",)}
 OPCODE_LOGIN = 0x01
 
 

@@ -15,7 +15,6 @@
 #include "Utils.h"
 #include "TRSA.h"
 #include "Preferences.h"
-#include "Script.h"
 #include "Status.h"
 #include "Talk.h"
 #include "Text.h"
@@ -27,22 +26,19 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
 #include <ostream>
 #include <sstream>
-
-// PatchData owns the received file as a std::unique_ptr<uint8[]> (issue #58): a pointer, as the original's.
-static_assert(sizeof(std::unique_ptr<uint8[]>) == sizeof(uint8 *) && alignof(std::unique_ptr<uint8[]>) == alignof(uint8 *),
-	"std::unique_ptr<uint8[]> is a pointer");
+#include <string_view>
 
 namespace {
 
-int SkipFields;                     // 0x5c4340
-std::unique_ptr<uint8[]> PatchData; // 0x5c4344, cleared by InitCommunication (issue #58)
-bool PatchWholeFile;                // 0x5c4348
-int PatchDataCount;                 // 0x5c434c
-int PatchDataSize;                  // 0x5c4350
-int PatchFileNumber;                // 0x5c4354
+int SkipFields; // 0x5c4340
+// 0x5c4344-0x5c4357, the patch transfer's state (PatchData, PatchWholeFile, PatchDataCount, PatchDataSize,
+// PatchFileNumber) is gone with the patcher since Patella-Modern issue #75 (decision D9).
+
+// The login server's request to update the client (issue #75): the patch packets end the login with this text in the
+// login error dialog.
+constexpr std::string_view TextUpdateRefused = "This server wants to update the client";
 
 } // namespace
 
@@ -80,11 +76,10 @@ static_assert(offsetof(TTalkLine, Addressee) == 0x14, "statement addressee");
 // (string, stringstream and locale code; names.tsv rows std_<address>).
 
 // 0x401000, the first function of the image (no line evidence). Called by
-// InitControl.
+// InitControl. The original cleared the patch transfer's buffer; since issue #75 (the patcher removed) there is
+// nothing left to set up.
 void InitCommunication()
 {
-	// Cleared, not freed, as the original does: a block still held is left as it was (issue #58).
-	static_cast<void>(PatchData.release()); // NOLINT(bugprone-unused-return-value): the leak is the original's
 }
 
 // 0x413780, lines 41-96
@@ -877,117 +872,23 @@ void ReceiveMessageOfTheDay()
 	TEND(1020)
 }
 
-// 0x40a9c0, lines 1033-1045
-void ReceivePatch()
+// 0x40a9c0 ReceivePatch (lines 1033-1045, packet 0x1e: a difference patch of a file), 0x40ae70 ReceiveWholeFile
+// (1061-1073, 0x1f: a whole file) and 0x40b290 ReceivePatchBlock (1083-1135, 0x20: a block of either) are gone since
+// Patella-Modern issue #75 (decision D9): with them a login server could rewrite Tibia.exe (as Tibia.bak), Tibia.dat,
+// Tibia.spr, Tibia.pic and Patch.exe, and have Patch.exe run. ReceiveUpdateRequest takes all three: the login ends as
+// a login error does, in the same dialog ("Sorry"), with TextUpdateRefused. The rest of what the server sent (the
+// patch's header or block, the packets after it in this frame and in the frames already received) is read and
+// dropped, so that nothing of it reaches the game server's table once the connection state is 0.
+void ReceiveUpdateRequest()
 {
-	TBEGIN
-	PatchFileNumber = GetByte();
-	PatchDataSize = GetQuad();
-	PatchDataCount = 0;
-	PatchWholeFile = false;
-	TASSERT(1033, PatchData==NULL);
-	PatchData.reset(new uint8[PatchDataSize]);
-	SetProgress(0);
-	const char *Name;
-	switch (PatchFileNumber) {
-	case 0: Name = "Tibia.exe"; break;
-	case 1: Name = "Tibia.dat"; break;
-	case 2: Name = "Tibia.spr"; break;
-	case 3: Name = "Tibia.pic"; break;
-	case 4: TERROR(1041, "no patch for patch.exe");
-	default: TERROR(1042, "unknown patch file number");
+	while (GetNextCommand() != -1) {
 	}
-	AddMessageFirst(0x29, reinterpret_cast<INT_PTR>(Name), PatchDataSize);
-	TEND(1045)
-}
-
-// 0x40ae70, lines 1061-1073
-// Patch metadata is overwritten before checking that no previous transfer exists.
-void ReceiveWholeFile()
-{
-	TBEGIN
-	const int OldPatchDataSize = PatchDataSize;
-	const int OldPatchFileNumber = PatchFileNumber;
-	const int OldPatchDataCount = PatchDataCount;
-	PatchFileNumber = GetByte();
-	PatchDataSize = GetQuad();
-	PatchDataCount = 0;
-	PatchWholeFile = true;
-	TASSERT2(1061, PatchData==NULL, OldPatchFileNumber, OldPatchDataSize-OldPatchDataCount);
-	PatchData.reset(new uint8[PatchDataSize]);
-	SetProgress(0);
-	const char *Name;
-	switch (PatchFileNumber) {
-	case 0: Name = "Tibia.exe"; break;
-	case 1: Name = "Tibia.dat"; break;
-	case 2: Name = "Tibia.spr"; break;
-	case 3: Name = "Tibia.pic"; break;
-	case 4: Name = "Patch.exe"; break;
-	default: TERROR(1070, "unknown patch file number");
-	}
-	AddMessageFirst(0x29, reinterpret_cast<INT_PTR>(Name), PatchDataSize);
-	TEND(1073)
-}
-
-// 0x40b290, lines 1083-1135
-// A zero-sized completed transfer still divides by PatchDataSize; no extra guard exists.
-void ReceivePatchBlock()
-{
-	int BlockSize = 0;
-	TBEGIN
-	TASSERT(1083, PatchData!=NULL);
-	BlockSize = GetWord();
-	TASSERT(1085, PatchDataCount+BlockSize<=PatchDataSize);
-	GetBytes(patella::TSpan<uint8>(PatchData.get() + PatchDataCount, static_cast<std::size_t>(BlockSize)));
-	PatchDataCount += BlockSize;
-	SetProgress((PatchDataCount * 100) / PatchDataSize);
-	if (PatchDataCount != PatchDataSize)
-		return;
-	const char *Name;
-	int ReloadEvent;
-	int CompleteEvent = 0;
-	uint32 Signature;
-	switch (PatchFileNumber) {
-		// clang-format off
-	case 0: Name = "Tibia.exe"; ReloadEvent = 0x48; Signature = 0; break;
-	case 1: Name = "Tibia.dat"; ReloadEvent = 0x41; CompleteEvent = 0x45; Signature = DatSignature; break;
-	case 2: Name = "Tibia.spr"; ReloadEvent = 0x42; CompleteEvent = 0x46; Signature = SpriteSignature; break;
-	case 3: Name = "Tibia.pic"; ReloadEvent = 0x43; CompleteEvent = 0x47; Signature = PictureSignature; break;
-	case 4: Name = "Patch.exe"; ReloadEvent = 0x44; Signature = 0; break;
-	// clang-format on
-	default: TERROR(1101, "unknown patch file number");
-	}
-	bool Success;
-	if (!PatchWholeFile)
-		Success = ApplyPatch(Name, PatchData.get(), PatchDataSize, Signature);
-	else
-		Success = ApplyFullPatch(Name, PatchData.get(), PatchDataSize);
-	PatchData.reset();
-	PatchData = nullptr;
-	if (!Success) {
-		char *Text = new char[100];
-		TStringBuffer(Text, 100).Format("Cannot patch file {}.", Name);
-		SetConnectionState(0);
-		Disconnect(false);
-		ClearMessages();
-		AddMessage(1, reinterpret_cast<INT_PTR>("Error"), reinterpret_cast<INT_PTR>(Text));
-	} else if (ReloadEvent == 0x48) {
-		char *Text = new char[200];
-		TStringBuffer(Text, 200).Assign("Program will now shut down and run an external patching program.\nAfterwards it will restart. Please login again then.");
-		AddMessageFirst(1, reinterpret_cast<INT_PTR>("Updating"), reinterpret_cast<INT_PTR>(Text));
-		AddMessageFirst(0x40, 0, 0);
-		AddMessage(0x48, 0, 0);
-	} else if (ReloadEvent == 0x44) {
-		AddMessageFirst(0x44, 0, 0);
-		AddMessageFirst(0x40, 0, 0);
-	} else {
-		AddMessageFirst(ReloadEvent, 0, 0);
-		AddMessageFirst(0x40, 0, 0);
-		AddMessage(CompleteEvent, 0, 0);
-		AddMessage(0x3f, 0, 0);
-	}
-	SetProgress(-1);
-	TEND1(1135, BlockSize)
+	char *Text = new char[TextUpdateRefused.size() + 1];
+	memcpy(Text, TextUpdateRefused.data(), TextUpdateRefused.size());
+	Text[TextUpdateRefused.size()] = 0;
+	AddMessage(1, reinterpret_cast<INT_PTR>("Sorry"), reinterpret_cast<INT_PTR>(Text));
+	Disconnect(false);
+	SetConnectionState(0);
 }
 
 // 0x40b8b0, lines 1162-1162
@@ -1014,19 +915,8 @@ void ReceiveCharacterList()
 	TEND1(1162, Count)
 }
 
-// 0x40bac0, lines 1178-1178
-void CancelPatch()
-{
-	TBEGIN
-	if (PatchData != nullptr) {
-		PatchData.reset();
-		PatchData = nullptr;
-		SetConnectionState(0);
-		Disconnect(false);
-		ClearMessages();
-	}
-	TEND(1178)
-}
+// 0x40bac0, CancelPatch (line 1178: the update dialog's Cancel, the transfer dropped and the connection closed), is
+// gone with the update dialog since Patella-Modern issue #75.
 
 // 0x40bc80, lines 1192-1192
 void ReceiveLoginServerOverloaded()

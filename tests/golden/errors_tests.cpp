@@ -1491,10 +1491,8 @@ void TestScript()
 		}
 		OurBinary.close();
 		ORIGINAL(At<ScriptFn>(0x4df6b0)(BinaryWriter, NULL));
-
-		// InstallPatch: no name, or no patched file "<name>_".
-		const char *Patch = Round % 2 == 0 ? nullptr : Missing.c_str();
-		Both2("InstallPatch", [&] { InstallPatch(Patch); }, [&] { ORIGINAL(At<void(__cdecl *)(const char *)>(0x4e3610)(Patch)); });
+		// InstallPatch (no name, or no patched file "<name>_") is gone with the patcher (Patella-Modern issue #75), and
+		// its comparison with it.
 	}
 	remove(Name.c_str());
 }
