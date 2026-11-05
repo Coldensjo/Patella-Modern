@@ -1777,7 +1777,7 @@ template <class T, class F> static void Vector(std::string &Out, int s, vector<T
 {
 	Add(Out, " vec %d,%d,%d,%d,%d", V.min, V.max, V.start, V.space, V.block);
 	Byte(Out, V.initialized);
-	Pointer(Out, s, V.entry);
+	Pointer(Out, s, V.entry.get());
 	if (V.entry == NULL)
 		return;
 	for (int i = First; i <= Last && i - First < 1000; i++) {

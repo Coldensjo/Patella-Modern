@@ -285,8 +285,8 @@ template <class T> static bool SameVector(vector<T> *Ours, [[maybe_unused]] vect
 		return false;
 	const TLayout &Layout = LayoutOf<T>();
 	size_t Size = (size_t)Ours->space * Layout.Size[0];
-	const uint8 *Entries = OriginalBytes("vector entries", LastEntries, ORIGINAL_OR(Image->entry, nullptr), Size);
-	Same = memcmp(Layout.ProjectAll(Ours->entry, (size_t)Ours->space).data(), Entries, Size) == 0;
+	const uint8 *Entries = OriginalBytes("vector entries", LastEntries, ORIGINAL_OR(Image->entry.get(), nullptr), Size);
+	Same = memcmp(Layout.ProjectAll(Ours->entry.get(), (size_t)Ours->space).data(), Entries, Size) == 0;
 	CHECK(Same, "%s %s: entries differ (space %d)", Name, What, Ours->space);
 	return Same;
 }
@@ -339,9 +339,9 @@ template <class T> static void TestVector(const TVectorInstance &Instance, int R
 				continue;
 			T *a = &(*Ours)(i);
 			ORIGINAL(T *b = (T *)At<At1Fn>(Instance.At)(Image, NULL, i));
-			int Entry = ORIGINAL_VALUE("vector entry", int, b - Image->entry);
-			CHECK(a - Ours->entry == Entry, "%s operator()(%d): entry %d, original %d", Instance.Name, i,
-				(int)(a - Ours->entry), Entry);
+			int Entry = ORIGINAL_VALUE("vector entry", int, b - Image->entry.get());
+			CHECK(a - Ours->entry.get() == Entry, "%s operator()(%d): entry %d, original %d", Instance.Name, i,
+				(int)(a - Ours->entry.get()), Entry);
 			if (Rnd() % 3 != 0) {
 				std::vector<uint8> Value(Layout.Size[0]);
 				RandomBytes(Value.data(), Value.size());
@@ -356,7 +356,7 @@ template <class T> static void TestVector(const TVectorInstance &Instance, int R
 		if (Instance.Dtor != 0)
 			At<DtorFn>(Instance.Dtor)(Image, NULL);
 		else
-			free(Image->entry);
+			free(Image->entry.get());
 		free(Image);
 #endif
 		free(Ours);
@@ -385,19 +385,19 @@ template <class T> static void TestArray(const char *Name, [[maybe_unused]] uint
 		CHECK(Same, "%s array(%d, %d): min %d/%d d %d/%d", Name, Min, Max, Ours->min, Head[0], Ours->d, Head[1]);
 		if (Same) {
 			size_t Size = (size_t)Ours->d * Layout.Size[0];
-			const uint8 *Entries = OriginalBytes("array entries", LastEntries, ORIGINAL_OR(Image->entry, nullptr), Size);
-			Same = memcmp(Layout.ProjectAll(Ours->entry, (size_t)Ours->d).data(), Entries, Size) == 0;
+			const uint8 *Entries = OriginalBytes("array entries", LastEntries, ORIGINAL_OR(Image->entry.get(), nullptr), Size);
+			Same = memcmp(Layout.ProjectAll(Ours->entry.get(), (size_t)Ours->d).data(), Entries, Size) == 0;
 			CHECK(Same, "%s array(%d, %d): entries differ", Name, Min, Max);
 		}
 		CHECK(Ours->low() == Min && Ours->high() == Max, "%s low/high %d %d", Name, Ours->low(), Ours->high());
 		for (int Op = 0; Same && Op < 30; Op++) {
 			int i = Min + (int)(Rnd() % (uint32)(Max - Min + 1));
 			T *a = &(*Ours)(i);
-			int Entry = ORIGINAL_VALUE("array entry", int, (T *)At<At1Fn>(AtFunction)(Image, NULL, i) - Image->entry);
-			CHECK(a - Ours->entry == Entry, "%s operator()(%d)", Name, i);
+			int Entry = ORIGINAL_VALUE("array entry", int, (T *)At<At1Fn>(AtFunction)(Image, NULL, i) - Image->entry.get());
+			CHECK(a - Ours->entry.get() == Entry, "%s operator()(%d)", Name, i);
 		}
 		Ours->~array<T>();
-		ORIGINAL(free(Image->entry); free(Image));
+		ORIGINAL(free(Image->entry.get()); free(Image));
 		free(Ours);
 	}
 }
@@ -421,17 +421,17 @@ template <class T> static void TestMatrix(const char *Name, [[maybe_unused]] uin
 		CHECK(Same, "%s matrix(%d, %d, %d, %d): header differs", Name, XMin, XMax, YMin, YMax);
 		if (Same) {
 			size_t Count = (size_t)Ours->dx * (size_t)Ours->dy;
-			const uint8 *Entries = OriginalBytes("matrix entries", LastEntries, ORIGINAL_OR(Image->entry, nullptr),
+			const uint8 *Entries = OriginalBytes("matrix entries", LastEntries, ORIGINAL_OR(Image->entry.get(), nullptr),
 				Count * Layout.Size[0]);
-			Same = memcmp(Layout.ProjectAll(Ours->entry, Count).data(), Entries, Count * Layout.Size[0]) == 0;
+			Same = memcmp(Layout.ProjectAll(Ours->entry.get(), Count).data(), Entries, Count * Layout.Size[0]) == 0;
 			CHECK(Same, "%s matrix(%d, %d, %d, %d): entries differ", Name, XMin, XMax, YMin, YMax);
 		}
 		for (int Op = 0; Same && Op < 30; Op++) {
 			int x = XMin + (int)(Rnd() % (uint32)(XMax - XMin + 1));
 			int y = YMin + (int)(Rnd() % (uint32)(YMax - YMin + 1));
 			T *a = &(*Ours)(x, y);
-			int Entry = ORIGINAL_VALUE("matrix entry", int, (T *)At<At2Fn>(AtFunction)(Image, NULL, x, y) - Image->entry);
-			CHECK(a - Ours->entry == Entry, "%s operator()(%d, %d)", Name, x, y);
+			int Entry = ORIGINAL_VALUE("matrix entry", int, (T *)At<At2Fn>(AtFunction)(Image, NULL, x, y) - Image->entry.get());
+			CHECK(a - Ours->entry.get() == Entry, "%s operator()(%d, %d)", Name, x, y);
 		}
 		Ours->~matrix<T>();
 		ORIGINAL(At<DtorFn>(Dtor)(Image, NULL); free(Image));
@@ -461,9 +461,9 @@ template <class T> static void TestMatrix3d(const char *Name, [[maybe_unused]] u
 		CHECK(Same, "%s matrix3d: header differs", Name);
 		if (Same) {
 			size_t Count = (size_t)Ours->dx * (size_t)Ours->dy * (size_t)Ours->dz;
-			const uint8 *Entries = OriginalBytes("matrix3d entries", LastEntries, ORIGINAL_OR(Image->entry, nullptr),
+			const uint8 *Entries = OriginalBytes("matrix3d entries", LastEntries, ORIGINAL_OR(Image->entry.get(), nullptr),
 				Count * Layout.Size[0]);
-			Same = memcmp(Layout.ProjectAll(Ours->entry, Count).data(), Entries, Count * Layout.Size[0]) == 0;
+			Same = memcmp(Layout.ProjectAll(Ours->entry.get(), Count).data(), Entries, Count * Layout.Size[0]) == 0;
 			CHECK(Same, "%s matrix3d: entries differ", Name);
 		}
 		for (int Op = 0; Same && Op < 30; Op++) {
@@ -472,11 +472,11 @@ template <class T> static void TestMatrix3d(const char *Name, [[maybe_unused]] u
 			int z = Low[2] + (int)(Rnd() % (uint32)(High[2] - Low[2] + 1));
 			T *a = &(*Ours)(x, y, z);
 			int Entry = ORIGINAL_VALUE("matrix3d entry", int,
-				(T *)At<At3Fn>(AtFunction)(Image, NULL, x, y, z) - Image->entry);
-			CHECK(a - Ours->entry == Entry, "%s operator()(%d, %d, %d)", Name, x, y, z);
+				(T *)At<At3Fn>(AtFunction)(Image, NULL, x, y, z) - Image->entry.get());
+			CHECK(a - Ours->entry.get() == Entry, "%s operator()(%d, %d, %d)", Name, x, y, z);
 		}
 		Ours->~matrix3d<T>();
-		ORIGINAL(free(Image->entry); free(Image));
+		ORIGINAL(free(Image->entry.get()); free(Image));
 		free(Ours);
 	}
 }
