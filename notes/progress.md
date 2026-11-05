@@ -336,6 +336,19 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #69 (branch issue-69, November 5, 2026): the remaining pointer and length parameters to spans
+(readBytes/writeBytes, CheckClipboardText, CopyString, FormatNumber, GetErrorMessage, DrawOutfit; CompareStrings and
+ShortenString kept). `python -I tools/build.py oracle-x86 --fresh` (CTest 4/4, 0 warnings): 16,848,752 + 67 +
+1,134,513 checks and 3,201 vlong checks, 0 failures; with recording on (`golden_corpus`, the branch's own
+build\golden, 903 MB) the same counts. The x64 golden_runner (windows-x64 and -debug, --fresh, CTest 13/13) replays
+16,461,713 checks, 1,521,619 retired, 0 not ported, 0 failures. tests/unit: tests_core 35/337 to 36/352 on Windows
+and with mingw-w64, Linux 35/340 to 36/355 (the new spans case); tests_unit 57/10,080, standin 57/10,082 (Linux
+56/10,062, Clang 10,060, standin 56/10,064), tests_testmode 35/709, tests_render 14/359, tests_vulkan 14/1,309
+unchanged; windows-x64-gcc and the Linux presets (--fresh) 11/11, 0 warnings, the analyzers clean. pecompare 7ad3e31
+and issue-69 at the same path: code only (the oracle resizes 20 functions, .text +0x2b0; x64 51, .text +0x2c0; no
+function added or removed, no string of .rdata changed). macrocheck: 2,108 calls, 0 differences. tidy_ci: 7
+findings, 0 new, 0 bugprone. banned_calls: 0. clang-format: clean.
+
 Patella-Modern issue #63 (branch issue-63, November 5, 2026): static analysis of patella_core, MSVC /analyze and GCC
 -fanalyzer in its build, clang-tidy's bugprone-* at zero (`tools/tidy.py --zero bugprone-`). `python -I tools/build.py
 oracle-x86 --fresh` (CTest 4/4, 0 warnings): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures;
