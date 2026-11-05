@@ -648,19 +648,6 @@ typedef void(__cdecl *TVoid)();
 #endif
 static int Covered[2][256]; // [login][type]: frames that started with the type
 
-// Our ReceivePackets for Both. Under AddressSanitizer (the preset windows-x64-asan, issue #70) the stack is filled
-// with the pattern again right before the call, from the same frame: ReceivePackets passes its Container, not yet
-// assigned, to ReceiveOpenContainer and ReceiveCloseContainer, whose TEND prints it when the first GetByte throws
-// (the original's read, issue #30), and ASan's Debug frames (larger, their slots shared between scopes) let what Both
-// calls after its FillStack land on that slot.
-static void OurReceivePackets()
-{
-#if defined(__SANITIZE_ADDRESS__)
-	FillStack();
-#endif
-	ReceivePackets();
-}
-
 // Runs the frames through both sides' ReceivePackets in a connection state.
 static bool RunFrames(const char *What, int ConnectionState)
 {
@@ -676,7 +663,23 @@ static bool RunFrames(const char *What, int ConnectionState)
 			fflush(stdout);
 		}
 	}
-	return Both(What, [&] { OurReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
+	// Under AddressSanitizer (the preset windows-x64-asan, issue #70) our side fills the stack with the pattern again
+	// right before its call, from the same frame: ReceivePackets passes its Container, not yet assigned, to
+	// ReceiveOpenContainer and ReceiveCloseContainer, whose TEND prints it when the first GetByte throws (the
+	// original's read, issue #30), and ASan's Debug frames (larger, their slots shared between scopes) let what Both
+	// calls after its FillStack land on that slot. Without ASan the call stays as it was: the depth of
+	// ReceivePackets' frame decides what the slot holds.
+#if defined(__SANITIZE_ADDRESS__)
+	return Both(
+		What,
+		[&] {
+			FillStack();
+			ReceivePackets();
+		},
+		ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
+#else
+	return Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
+#endif
 }
 
 static void SetRand(uint32 Seed);
