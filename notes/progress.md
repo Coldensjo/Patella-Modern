@@ -343,6 +343,18 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #73 (branch issue-73, November 5, 2026): tools/patch_client.py patches the Debug clients'
+login port (windows-x64-debug and windows-x64-asan-debug: InitServerList's loop stores through a register; found
+through the PDB's InitServerList when none of the four stores to Servers[i].Port is there); notes/decisions.md,
+"patch_client.py on the Debug builds". No src/ change. `python -I tools/patch_client.py --self-test`: passed (the new
+form covered). main's tool and the branch's on Tibia.exe, the oracle-x86 Release Patella.exe and the windows-x64 and
+windows-x64-asan Release Patella.exe and PatellaTest.exe (--port 7271 with and without --rsa, --host alone): identical
+byte for byte; the Debug images: --host alone identical, --port now patched (main refused them). `python -I
+tools/build.py windows-x64-asan-debug`, `windows-x64-debug` and `windows-x64-asan` (CTest 14/14 each; golden and
+golden_concurrent skipped: no corpus in the worktree). `python -I tools/reference.py compare --exe
+build\windows-x64-asan\Debug\PatellaTest.exe --out build\reference-compare-asan-debug`: every session matches, no ASan
+finding. Found: `--rsa` refuses the Debug images (the modulus twice: no string pooling).
+
 Patella-Modern issue #71 (branch issue-71, November 5, 2026): the main window's uncovered client area filled black
 during a live resize (src/vulkan/PresentWindow.cpp; notes/decisions.md, "The main window's background during a live
 resize"). No code the oracle compiles changed (oracle-x86 not rebuilt). windows-x64 and -debug (--fresh, CTest

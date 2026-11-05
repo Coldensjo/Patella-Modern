@@ -23,13 +23,18 @@ must be a different file.
   arranges InitServerList nor on where it puts it (older builds inline it into its caller, so the
   PDB may have no InitServerList; issue #57: with TServer::Address a TFixedString the x64 build
   copies the four names before the stores, which moved the last one beyond the window below).
+  Without optimization (windows-x64-debug, windows-x64-asan-debug; issue #73) InitServerList keeps its
+  loop and stores the port through a register (`mov dword ptr [rax], 7171`, C7 /0 with a register based
+  operand; under ASan after the shadow check), so there is none of the four stores. Then, and only then,
+  the PDB's InitServerList (its RVA and size) must hold exactly one such store of 7171, whose immediate
+  is the function's only occurrence of the four bytes 03 1c 00 00; that one immediate is patched.
   Tibia.exe (no PDB): the loop's `mov ecx, 7171`, found as `03 1c 00 00` in the 0x200 code bytes
   after the first reference to the server.tibia.com literal; exactly one is expected (the same
   search finds the four unrolled stores of older Patella.exe builds without a PDB). A reference is
   the literal's absolute address on x86; on x64 it is a RIP-relative disp32 after a ModRM byte
   with mod 00, r/m 101 (`movups xmm0, [rip+disp32]` or `lea rdx, [rip+disp32]`), whose target, the
   address after the disp32 plus the disp32, is inside the literal.
-  `python -I tools/patch_client.py --self-test` checks the store matcher on made-up code.
+  `python -I tools/patch_client.py --self-test` checks the store matchers on made-up code.
 - --rsa replaces the decimal text of CipSoft's RSA modulus (TRSA::SetPublicKey's argument
   in src/Communication.cpp, one literal used by both the login and the game connection).
   The argument is the decimal modulus or a PEM file (an RSA private or public key, PKCS#1 or
@@ -40,8 +45,8 @@ must be a different file.
 After writing, the output is read back and compared with the input byte by byte: every changed
 byte must be inside one of the patched ranges. Then it is checked as the client will read it:
 each login server name reads as --host up to its NUL; with --port, the code holds exactly one
-`mov dword ptr [Servers[i].Port], <port>` per server (found again in the written file, through the
-PDB) or, without a PDB, the new port at each immediate; with --rsa, the modulus text reads as the
+`mov dword ptr [Servers[i].Port], <port>` per server, or the one store of InitServerList's loop (found
+again in the written file, through the PDB) or, without a PDB, the new port at each immediate; with --rsa, the modulus text reads as the
 new modulus up to its NUL. On any failure the script deletes the output. Exit code 0 on success,
 1 on any error.
 """
@@ -101,6 +106,12 @@ class Image:
 			if raw <= offset < raw + rsize:
 				return self.base + va + offset - raw
 		raise PatchError("file offset 0x%x is in no section" % offset)
+
+	def rva_to_offset(self, rva):
+		for name, va, vsize, raw, rsize, chars in self.sections:
+			if va <= rva < va + min(vsize, rsize):
+				return raw + rva - va
+		raise PatchError("RVA 0x%x is in no section's file data" % rva)
 
 	def code_ranges(self):
 		# IMAGE_SCN_CNT_CODE or IMAGE_SCN_MEM_EXECUTE
@@ -219,9 +230,39 @@ def port_stores(code, code_va, x64, field_vas, port=LOGIN_PORT):
 	return hits
 
 
+def register_stores(code, port=LOGIN_PORT):
+	"""Offsets in code of the immediates of `mov dword ptr [<register based address>], port`: C7 with ModRM reg 0
+	and a memory operand that is neither absolute nor RIP-relative (mod 00 r/m 101: port_stores' form), then the
+	SIB byte and the displacement its ModRM gives, then the imm32. A REX prefix before C7 changes neither, an
+	operand-size prefix (66, a 16-bit store) is not this store. The loop of InitServerList without optimization
+	(issue #73): `mov rax, <&Servers[i].Port>; mov dword ptr [rax], 7171`."""
+	immediate = struct.pack("<I", port)
+	hits = []
+	for m in re.finditer(re.escape(b"\xc7"), code):
+		pos = m.start()
+		if pos + 2 > len(code) or (pos > 0 and code[pos - 1] == 0x66):
+			continue
+		modrm = code[pos + 1]
+		mod, reg, rm = modrm >> 6, (modrm >> 3) & 7, modrm & 7
+		if reg != 0 or mod == 3 or (mod == 0 and rm == 5):
+			continue
+		length = 2
+		if rm == 4:
+			if pos + 3 > len(code):
+				continue
+			if mod == 0 and code[pos + 2] & 7 == 5:
+				length += 4  # SIB without a base: a disp32
+			length += 1
+		length += (0, 1, 4)[mod]
+		if code[pos + length:pos + length + 4] == immediate:
+			hits.append(pos + length)
+	return hits
+
+
 def pdb_port_fields(exe_path):
-	"""[RVA of Servers[i].Port] from the PDB next to exe_path, or None when there is none or it has no Servers
-	(Tibia.exe). Uses tools/client_state.py's Pdb (dbghelp: Windows only)."""
+	"""{"fields": [RVA of Servers[i].Port], "function": (RVA, size) of InitServerList or None} from the PDB next
+	to exe_path, or None when there is none or it has no Servers (Tibia.exe). Uses tools/client_state.py's Pdb
+	(dbghelp: Windows only)."""
 	if os.name != "nt" or exe_path is None:
 		return None
 	sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -238,20 +279,23 @@ def pdb_port_fields(exe_path):
 		try:
 			size = pdb.length(pdb.type_named("TServer"))
 			port = pdb.member_path("TServer.Port")[0]
+			function = pdb.function_symbol("InitServerList")
 		except client_state.ReadError as e:
-			raise PatchError("the PDB has Servers but not TServer::Port: %s" % e)
-	return [servers + i * size + port for i in range(len(LOGIN_SERVERS))]
+			raise PatchError("the PDB has Servers but not TServer::Port or one InitServerList: %s" % e)
+	return {"fields": [servers + i * size + port for i in range(len(LOGIN_SERVERS))], "function": function}
 
 
-def find_port_structural(image, data, field_rvas, port=LOGIN_PORT):
+def find_port_structural(image, data, info, port=LOGIN_PORT):
 	"""The immediates of the four `mov dword ptr [Servers[i].Port], port` (InitServerList's, wherever the
-	compiler put it)."""
-	field_vas = [image.base + rva for rva in field_rvas]
+	compiler put it); when there is none of the four, the one store of InitServerList's loop (find_port_loop)."""
+	field_vas = [image.base + rva for rva in info["fields"]]
 	found = {va: [] for va in field_vas}
 	for lo, hi in image.code_ranges():
 		hits = port_stores(data[lo:hi], image.offset_to_va(lo), image.x64, field_vas, port)
 		for va in field_vas:
 			found[va] += [lo + offset for offset in hits[va]]
+	if not any(found.values()) and info["function"] is not None:
+		return find_port_loop(image, data, info["function"], port)
 	result = []
 	for i, va in enumerate(field_vas):
 		if len(found[va]) != 1:
@@ -261,6 +305,30 @@ def find_port_structural(image, data, field_rvas, port=LOGIN_PORT):
 	if max(result) - min(result) >= 0x1000:
 		raise PatchError("port %d: the four stores are not in one function (0x%x-0x%x)" % (port, min(result), max(result)))
 	return result
+
+
+def loop_store(code, port=LOGIN_PORT):
+	"""The offset in code (one function's bytes) of the immediate of its one register_stores store of port, which
+	must also be the code's only occurrence of the port's four bytes; None otherwise."""
+	stores = register_stores(code, port)
+	occurrences = [m.start() for m in re.finditer(re.escape(struct.pack("<I", port)), code)]
+	return stores[0] if len(stores) == 1 and occurrences == stores else None
+
+
+def find_port_loop(image, data, function, port=LOGIN_PORT):
+	"""Without optimization (windows-x64-debug, windows-x64-asan-debug: issue #73) InitServerList keeps its loop
+	and stores the port through a register: loop_store in InitServerList's bytes (the PDB's RVA and size).
+	Returns [its file offset] (one immediate for the four servers)."""
+	rva, size = function
+	lo = image.rva_to_offset(rva)
+	code = data[lo:lo + size]
+	offset = loop_store(code, port)
+	if offset is None:
+		raise PatchError("port %d: no store to Servers[i].Port, and InitServerList (RVA 0x%x, 0x%x bytes) has not "
+			"exactly one store of %d through a register and no other %d (%d stores, %d occurrences)"
+			% (port, rva, size, port, port, len(register_stores(code, port)),
+			len(re.findall(re.escape(struct.pack("<I", port)), code))))
+	return [lo + offset]
 
 
 def find_port(image, data, anchor_offset, anchor_len):
@@ -301,7 +369,7 @@ def patch(data, host, port, rsa, exe_path=None):
 		fields = pdb_port_fields(exe_path)
 		if fields is not None:
 			offsets = find_port_structural(image, data, fields)
-			how = "Servers[%d].Port (PDB)"
+			how = "Servers[%d].Port (PDB)" if len(offsets) > 1 else "Servers[i].Port (PDB: InitServerList's loop, %d)"
 		else:
 			offsets = find_port(image, data, *anchor)
 			how = "the login port (no PDB: search after server.tibia.com's reference) %d"
@@ -383,6 +451,30 @@ def self_test():
 	# Cut off at the end: not a store.
 	assert port_stores(x64[:13], code_va, True, [field]) == {field: [9]}
 	assert port_stores(x64[:12], code_va, True, [field]) == {field: []}
+	# InitServerList's loop without optimization (issue #73): the store through a register, after ASan's
+	# shadow check in windows-x64-asan-debug (48 8B 44 24 38: mov rax, [rsp+38h]; then C7 00 imm32).
+	imm = struct.pack("<I", 7171)
+	loop = (b"\x48\x8b\x44\x24\x38" + b"\xc7\x00" + imm  # mov dword ptr [rax], 7171
+		+ b"\xc6\x00\x01")  # mov byte ptr [rax], 1
+	assert register_stores(loop) == [7] and loop_store(loop) == 7, register_stores(loop)
+	# Every addressing form through a register: [rax+disp8], [rcx+disp32], [rsp+disp8] (SIB), [rax*4+disp32]
+	# (SIB without a base), [r8] (REX).
+	forms = [(b"\xc7\x40\x64", 3), (b"\xc7\x81" + struct.pack("<I", 0x164), 6), (b"\xc7\x44\x24\x24", 4),
+		(b"\xc7\x04\x85" + struct.pack("<I", 0x5000), 7), (b"\x41\xc7\x00", 3)]
+	for prefix, length in forms:
+		assert register_stores(b"\x90" + prefix + imm) == [1 + length], prefix
+	# Not this store: port_stores' absolute or RIP-relative form, mov ecx, another ModRM reg (C7 /1 is no mov),
+	# a register destination (mod 11), a 16-bit store, another immediate.
+	others = (b"\xc7\x05" + struct.pack("<I", 0x5000) + imm + b"\xb9" + imm + b"\xc7\x08" + imm
+		+ b"\xc7\xc0" + imm + b"\x66\xc7\x00" + imm + b"\xc7\x00" + struct.pack("<I", 7172))
+	assert register_stores(others) == [], register_stores(others)
+	# The loop store must be the function's only 7171: none, two stores, or the bytes once more.
+	assert loop_store(b"\x90" * 8) is None
+	assert loop_store(loop + loop) is None
+	assert loop_store(loop + b"\xb9" + imm) is None
+	# Another port: the immediate 7272 found, 7171 not.
+	other_port = loop.replace(imm, struct.pack("<I", 7272))
+	assert loop_store(other_port, 7272) == 7 and loop_store(other_port) is None
 	print("patch_client.py: self-test passed")
 
 
@@ -393,7 +485,7 @@ def main():
 	parser.add_argument("--host", help="login server name or IPv4 address")
 	parser.add_argument("--port", type=int, default=None, help="login server port (default 7171, unchanged)")
 	parser.add_argument("--rsa", default=None, help="decimal modulus, or a PEM file with the server's key")
-	parser.add_argument("--self-test", action="store_true", help="check the store matcher on made-up code")
+	parser.add_argument("--self-test", action="store_true", help="check the store matchers on made-up code")
 	args = parser.parse_args()
 	if args.self_test:
 		self_test()

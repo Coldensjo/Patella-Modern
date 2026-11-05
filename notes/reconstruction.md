@@ -400,8 +400,9 @@ both clients log into (issue #18):
 `python -I tools/testserver.py start` / `stop` start and stop it (only a server it started is stopped),
 `tools/patch_client.py`
 points copies of Tibia.exe and Patella.exe at 127.0.0.1 with the server's RSA key (the login port through
-Patella.exe's PDB since issue #57: the stores to `Servers[i].Port`; a search of the code in Tibia.exe; it reads
-the written file back and checks it; `--self-test`), and
+Patella.exe's PDB since issue #57: the stores to `Servers[i].Port`, or in the Debug builds, whose InitServerList keeps
+its loop, the one store through a register in the PDB's InitServerList (Patella-Modern issue #73); a search of the code
+in Tibia.exe; it reads the written file back and checks it; `--self-test`), and
 `tools/login_client.py` logs a client in (account 772001, password patella), enters the game and logs
 out, from build\run-orig or build\run-patella. Everything, including the server's configuration and
 backup: notes/testserver.md.
@@ -857,8 +858,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   under MSVC's AddressSanitizer: 16,461,713 replayed, 1,521,619 retired, 0 failures, no finding), then `python -I
   tools/reference.py compare --reference C:\Tibia\Patella-Modern\build\reference --exe
   build\windows-x64-asan\Release\PatellaTest.exe --out build\reference-compare-asan` (the 8 sessions with the ASan
-  client: every session matches); on Linux, linux-x64-clang and its -debug workflow (ASan, UBSan and LeakSanitizer over
-  the unit tests; golden_runner comes to Linux in M6, the client in M8). The hosted CI runs windows-x64-asan's unit tests
+  client: every session matches; the Debug ASan client too since issue #73, `--exe
+  build\windows-x64-asan\Debug\PatellaTest.exe --out build\reference-compare-asan-debug`); on Linux, linux-x64-clang
+  and its -debug workflow (ASan, UBSan and LeakSanitizer over the unit tests; golden_runner comes to Linux in M6, the client in M8). The hosted CI runs windows-x64-asan's unit tests
   (Release, without the client) and linux-x64-clang; the golden and reference runs are local (CipSoft-derived data).
   The original's reads that ASan reports are suppressed with `PATELLA_NO_SANITIZE_ADDRESS` (src/compat/msvc.h), each in
   notes/decisions.md's table ("Sanitizers over the replayed sessions").

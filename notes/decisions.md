@@ -9228,3 +9228,40 @@ TEMP (ConsoleWindow's SaveChannel file in %TEMP%\consolewindow, Errors' scripts 
 - **Not done** (found). The fixed folders that runners before #66 left in %TEMP% (errortest, consolewindow,
   golden-data, tibia-difftest-cfg, ...) are not removed by anything: no run uses them any more; deleting them is the
   user's.
+
+## patch_client.py on the Debug builds: InitServerList's loop store (Patella-Modern issue #73)
+
+Settled by Claude Opus 5.5, November 5, 2026. Found in #70: `reference.py compare --exe
+build\windows-x64-asan\Debug\PatellaTest.exe` stopped before any client started (exit 2), because tools/patch_client.py
+found none of the four `mov dword ptr [Servers[i].Port], 7171` stores. The plain windows-x64-debug images fail the same
+way (Patella.exe and PatellaTest.exe, today's and the build of November 3): without optimization InitServerList keeps
+its loop, `call std::array::operator[]; add rax, 64h; ...; mov dword ptr [rax], 1C03h` (`c7 00 03 1c 00 00`), under ASan
+after the shadow check of the address. No src/ change.
+
+- **The loop store through the PDB** (high). When the structural search finds none of the four stores (and only
+  then), the PDB's function InitServerList (dbghelp: its RVA and size, the new `Pdb.function_symbol` of
+  tools/client_state.py; an image whose PDB has none keeps today's error) must hold exactly one `mov dword ptr [<register
+  based address>], 7171` (C7 /0, a memory operand that is neither absolute nor RIP-relative, its SIB byte and
+  displacement decoded from the ModRM, a REX prefix allowed, an operand-size prefix not), and its immediate must be the
+  function's only occurrence of the bytes 03 1c 00 00. That one immediate is patched (it sets the port of all four
+  servers); the check after writing finds it again with the new port. Anything else stays an error. Any count of the
+  four stores other than zero takes the old path unchanged, so every image patched before is patched byte for byte the
+  same. Considered: a byte pattern for the whole loop (it changes with ASan, /RTC1 and /JMC); the PDB's line records of
+  `Servers[i].Port = 7171` (tied to src/Network.cpp's line numbers); decoding every instruction of the function (a
+  disassembler: a dependency the plan does not name).
+- **The self-test** (high). `--self-test` covers the new form: the ASan Debug code's `mov rax, [rsp+38h]; mov dword ptr
+  [rax], 7171`, the addressing forms [reg+disp8], [reg+disp32], [rsp+disp8] (SIB), [index*4+disp32] (SIB without a
+  base) and a REX prefix; not matched: the absolute or RIP-relative form, `mov ecx, 7171`, C7 /1, a register destination,
+  a 16-bit store, another immediate; a function with no store, two stores or the bytes once more is refused.
+- **Proof** (high). main's patch_client.py (4d1b8bd) and the branch's on Tibia.exe, the oracle-x86 Release Patella.exe,
+  windows-x64 Release Patella.exe and PatellaTest.exe, windows-x64-asan Release Patella.exe and PatellaTest.exe, each
+  with `--host 127.0.0.1 --port 7271 --rsa tibia.pem`, with `--host --port 7271` and with `--host` alone: the outputs are
+  identical byte for byte. The Debug images (windows-x64-debug and windows-x64-asan-debug, Patella.exe and
+  PatellaTest.exe): `--host` alone identical; with `--port`, main refused them and the branch patches the one immediate
+  (69 bytes changed). `python -I tools/reference.py compare --exe build\windows-x64-asan\Debug\PatellaTest.exe --out
+  build\reference-compare-asan-debug`: all 8 sessions match their recordings, no ASan finding.
+- **Not done** (found). `--rsa` refuses every Debug image: "the RSA modulus: expected one occurrence, found 2".
+  src/Communication.cpp passes CipSoft's modulus as two literals (the login and the game connection's
+  TRSA::SetPublicKey); Release builds pool identical strings (/GF with /O), Debug builds keep both. reference.py does not
+  use `--rsa` (the replay takes each connection's XTEA key), compare_traffic.py and testmode_check.py do (Release
+  clients). Patching both copies is a change of its own.

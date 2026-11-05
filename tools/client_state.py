@@ -605,6 +605,22 @@ class Pdb:
 			raise ReadError("%s: %d symbols named %s" % (self.exe_path, len(addresses), name))
 		return hits[0][0] - self.base, hits[0][1]
 
+	def function_symbol(self, name):
+		"""(RVA, size in bytes) of the function `name`, or None when the PDB has none (inlined everywhere);
+		more than one function of that name is an error."""
+		hits = []
+
+		def callback(info, size, context):
+			if info.contents.Name.decode() == name and info.contents.Tag == self.SYMTAG_FUNCTION:
+				hits.append((info.contents.Address - self.base, info.contents.Size))
+			return True
+
+		self.dbghelp.SymEnumSymbols(self.handle, self.base, name.encode(), self.ENUMPROC(callback), None)
+		hits = sorted(set(hits))
+		if len(hits) > 1:
+			raise ReadError("%s: %d functions named %s" % (self.exe_path, len(hits), name))
+		return hits[0] if hits else None
+
 
 def pdb_symbols(exe_path, names):
 	"""RVA of each name in the PDB of exe_path (dbghelp finds it next to the exe or through the debug
