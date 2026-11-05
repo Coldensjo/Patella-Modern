@@ -58,6 +58,8 @@ the test server only for the two live recordings) and `python -I tools/reference
 C:\Tibia\Patella-Modern\build\reference` (PatellaTest.exe on each session, the server side replayed inside the client,
 no server, PATELLA_VULKAN=cpu; Python only). Also as `record`/`compare` first words of compare_traffic.py,
 compare_files.py and compare_rendering.py. Local CipSoft-derived data: never committed, pushed or uploaded.
+On branch issue-56 (open) the live checks run on a hidden desktop of their own (tools/desktop.py) unless `--visible`
+is given; most of them give other results there (notes/decisions.md, "The live checks on a hidden desktop").
 
 The golden corpus (issue #24): `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86
 --target golden_corpus` records it into `build/golden` (derived from Tibia.exe: local only, never committed,
