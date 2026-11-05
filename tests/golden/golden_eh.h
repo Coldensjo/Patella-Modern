@@ -3,8 +3,7 @@
 // runner alike.
 //
 // difftest's error rounds make both sides throw (a fake that throws an assertion of the calling side
-// at its n-th call) and compare the exceptions that leave the call: TThrown, CompareThrown with its line
-// pairs, TErrorRound. Those parts are portable and live here, the same code in the oracle and in the
+// at its n-th call) and compare the exceptions that leave the call: TThrown, CompareThrown, TErrorRound. Those parts are portable and live here, the same code in the oracle and in the
 // runner; the oracle's own parts (catching the original's exception at the image's boundary,
 // ImageThrow, and making the image's exception machinery work) stay in imageeh.h.
 //
@@ -13,8 +12,14 @@
 //	TThrown Original = ORIGINAL_THROWN("thrown", ... the original's call ...);
 //	Round.Compare("What", Ours, Original);
 // The oracle runs the original's call inside ImageThrow and records what it threw (golden::OutputThrown:
-// kind, type, message, origin, PROGRAM_ERROR value); the runner gets the recorded one. CompareThrown's
-// checks (one per call, one per line pair) are the same code on both sides, so their counts are equal.
+// kind, type, PROGRAM_ERROR value); the runner gets the recorded one. CompareThrown's check (one per call)
+// is the same code on both sides, so their counts are equal.
+//
+// Since Patella-Modern issue #76 (plan 7, M5) the error paths are compared by outcome only: whether a call
+// threw, and what kind of exception (TMyException, a PROGRAM_ERROR with its value, another type by its
+// name). A TMyException's message and origin (the file names, line numbers, stringized expressions, values
+// and TEND levels) are neither compared nor recorded: M5 changes them (TBEGIN/TEND removed, TASSERT to
+// PATELLA_ASSERT), and a change of an assertion's text or line is no failure.
 // TErrorRound::Finish records the round's counts (checks, calls compared, calls that threw) and the
 // runner compares its own with them.
 
@@ -22,26 +27,26 @@
 
 #include "golden_test.h"
 
-#include <map>
 #include <stdint.h>
 #include <stdio.h>
 #include <string>
 
-// What a call threw, comparable between both sides.
+// What a call threw, comparable between both sides by its outcome (Kind, Type, Code; issue #76).
 struct TThrown {
 	enum TKind { NOTHING,
 		MYEXCEPTION,
 		PROGRAMERROR,
 		OTHER } Kind;
-	std::string Type;    // the decorated name of the thrown type, ".?AVTMyException@@"
-	std::string Message; // TMyException::GetMessage()
-	std::string Origin;  // TMyException::GetOrigin()
-	int Code;            // the PROGRAM_ERROR value
+	std::string Type; // the decorated name of the thrown type, ".?AVTMyException@@"
+	int Code;         // the PROGRAM_ERROR value
+	// TMyException::GetMessage() and GetOrigin(), for the failure reports only (not compared; the runner has
+	// none for the original, the corpus does not record them).
+	std::string Message;
+	std::string Origin;
 	TThrown() : Kind(NOTHING), Code(0) {}
 	bool operator==(const TThrown &Other) const
 	{
-		return Kind == Other.Kind && Type == Other.Type && Message == Other.Message && Origin == Other.Origin
-			&& Code == Other.Code;
+		return Kind == Other.Kind && Type == Other.Type && Code == Other.Code;
 	}
 	bool operator!=(const TThrown &Other) const { return !(*this == Other); }
 	std::string Describe() const; // for failure reports
@@ -67,18 +72,14 @@ template <class F> TThrown OurThrow(F Function)
 }
 
 // Compares what both sides threw (errortest.cpp's comparison, shared since
-// issue #34): kind, type, PROGRAM_ERROR value, message and origin exactly.
-// Every "<file> <line>: " that starts the message or follows ", reason:\n",
-// and the origin's, is compared with the line replaced, then each line pair
-// exactly (since issue #35 our sites name the original's lines; EH_LINEMAP=1
-// compares through one map for the whole run instead, as before). Failures
-// are reported as "<Test> <What>: ...". One check per call and one per line
-// pair; ThrownCompared and ThrownThrew count the calls and those in which the
-// original threw.
+// issue #34), by the outcome (issue #76): one check per call, that both threw
+// the same kind (TThrown's ==: kind, type, PROGRAM_ERROR value) or neither
+// threw. Until issue #76 it compared a TMyException's message and origin too,
+// and each "<file> <line>" pair in them with a check of its own (issue #35).
+// Failures are reported as "<Test> <What>: ..."; ThrownCompared and
+// ThrownThrew count the calls and those in which the original threw.
 void CompareThrown(const char *Test, const char *What, const TThrown &Ours, const TThrown &Original);
 extern int ThrownCompared, ThrownThrew;
-typedef std::map<std::string, std::map<int, int>> TLineMap;
-const TLineMap &ThrownLineMap(); // file -> our line -> the original's line (the lines seen)
 
 // The error round of a window or surface test (issue #34): the constructor
 // enables the image's exceptions (the oracle), Compare compares one pair of
@@ -123,8 +124,8 @@ void ThrowSideAssertion(bool Image, int Value);
 [[noreturn]] void OurSideAssertion(int Value);
 #if GOLDEN_ORACLE
 // The oracle, in a ported test that uses ThrowSideAssertion, before its error round: OurSideAssertion
-// must throw exactly what our TComponent::SetSize throws. Not a check (the counts stay difftest's); a
-// difference is a failure.
+// must throw what our TComponent::SetSize throws (by outcome, TThrown's ==, since issue #76). Not a check
+// (the counts stay difftest's); a difference is a failure.
 inline void VerifyOurSideAssertion(const char *Test)
 {
 	TThrown Real = OurThrow([] { ThrowSideAssertion(false, -17); });

@@ -1,16 +1,17 @@
-"""clang-tidy for src/, with the arguments of TASSERT*, TERROR* and TEND* left alone (issue #8).
+"""clang-tidy for src/ (issue #8).
 
-Those macros stringize their arguments into the exception messages that difftest and the golden corpus
-compare (and error.txt recorded until issue #74) (notes/modernization-plan.md, 4.2): until M5 no fix may change them, not even in whitespace.
-This wrapper runs clang-tidy with the repository's .clang-tidy on each file and
-- reports the findings outside those arguments (one line each, as clang-tidy writes them, and a count
-  per check), and counts the findings inside them apart: they wait for M5;
-- with --fix, lets clang-tidy apply its fixes and then reverts every edit inside a macro argument,
-  character by character, in every file under src/ that changed (headers included).
+This wrapper runs clang-tidy with the repository's .clang-tidy on each file and reports the findings (one
+line each, as clang-tidy writes them, and a count per check); with --fix clang-tidy applies its fixes.
+
+Until November 5, 2026 (issue #76) it kept the arguments of TASSERT*, TERROR* and TEND* apart: those macros
+stringize their arguments into the exception messages that difftest and the golden corpus compared (and
+error.txt recorded until issue #74), so no fix could change them (notes/modernization-plan.md, 4.2, the
+stringized-expression rule); it counted the findings inside them apart and reverted every fix inside them.
+Since issue #76 the error paths are compared by their outcome only, the rule is retired, and those findings
+count like every other.
 
 The findings baseline (issue #11; plan 4.1, "no new findings"): --baseline <file> compares the findings
-outside the macro arguments with a committed list and fails only on new ones; --write-baseline <file>
-writes that list. A finding is counted by file, check and message, not by line, so code that moves keeps
+with a committed list and fails only on new ones; --write-baseline <file> writes that list. A finding is counted by file, check and message, not by line, so code that moves keeps
 its entry; a finding that is gone is reported (rewrite the list to drop it), a new one, or one more of
 a kind, fails. CI (.github/workflows/hosted.yml) checks tools/tidy-baseline.tsv against the compile
 commands of the preset linux-x64-clang in the Docker image of docker/linux-x64 (clang-tidy 22.1.8):
@@ -20,8 +21,7 @@ commands of the preset linux-x64-clang in the Docker image of docker/linux-x64 (
 tools/tidy_ci.py runs that job locally, with the same result on the same commit (issue #51).
 
 Checks that must stay at zero (issue #63, plan section 7, M4: bugprone-* on the core library): --zero <prefix>
-fails on any finding of a check whose name starts with the prefix, outside the macro arguments or inside them,
-whatever the baseline says; such a finding is fixed, or suppressed in the code with a NOLINT that names the
+fails on any finding of a check whose name starts with the prefix, whatever the baseline says; such a finding is fixed, or suppressed in the code with a NOLINT that names the
 check and the reason (notes/decisions.md, "Static analysis of the core library"). CI passes --zero bugprone-.
 
 Headers (issue #49): clang-tidy checks the includes of the main file only (misc-include-cleaner), so a
@@ -37,28 +37,26 @@ of the build instantiates or includes (Container.h's templates, compat/cxx26.h),
 include check's business.
 
 Usage:
-	python -I tools/tidy.py [-p <build dir>] [--fix] [--checks <list>] [--extra-arg <arg>] [-v]
+	python -I tools/tidy.py [-p <build dir>] [--fix] [--checks <list>] [--extra-arg <arg>]
 		[--baseline <file> | --write-baseline <file>] [--zero <prefix>] (--all | --headers | <file> ...)
 	-p        the directory with compile_commands.json (CMAKE_EXPORT_COMPILE_COMMANDS; default
 	          build/windows-x64, the preset of issue #5)
-	--fix     apply the fixes outside the macro arguments
+	--fix     apply clang-tidy's fixes
 	--checks  passed to clang-tidy (added to .clang-tidy's)
 	--extra-arg  passed to clang-tidy (repeatable), e.g. -m32 for an x86 build's commands: clang
 	          takes the target from its own default, x64, not from the compiler of the build
-	-v        also list the findings inside macro arguments
 	--all     every source of compile_commands.json under src/ (not src/Extern), besides the files named
 	--headers every header of the build's header checks (cmake/HeaderCheck.cmake) as a main file, with
 	          misc-include-cleaner only (above), besides the files named
 	--baseline        compare with this findings list: exit 1 only for findings that are not in it
 	--write-baseline  write the findings to this list (the form --baseline reads)
 	--zero    fail on any finding of the checks that start with this prefix (repeatable), the baseline's
-	          and those inside macro arguments included
+	          included
 clang-tidy: the environment variable CLANG_TIDY, else clang-tidy on PATH, else Visual Studio's
-(VC\\Tools\\Llvm\\x64\\bin). Exit code 0 without findings outside the macro arguments (with --baseline:
-without new ones; with --zero: and none of those checks), 1 with, 2 when clang-tidy could not compile a file.
+(VC\\Tools\\Llvm\\x64\\bin). Exit code 0 without findings (with --baseline: without new ones; with --zero:
+and none of those checks), 1 with, 2 when clang-tidy could not compile a file.
 """
 import argparse
-import difflib
 import json
 import os
 import re
@@ -71,14 +69,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'src'
 
-# Every macro of src/ that stringizes an argument (the local ones of single files included); the same
-# list as WhitespaceSensitiveMacros in .clang-format.
-MACROS = (
-	'TASSERT', 'TASSERT1', 'TASSERT2', 'TASSERTB', 'TASSERTB1', 'TASSERTB2', 'TASSERT1_BUG', 'TASSERT2_BUG',
-	'TERROR', 'TERROR1', 'TERROR2', 'TERROR1B', 'TERROR_REASON', 'TERROR1_REASON',
-	'TEND', 'TEND1', 'TEND2', 'TEND_HANDLERS', 'TMYEXCEPTION',
-)
-MACRO_CALL = re.compile(r'\b(' + '|'.join(MACROS) + r')\s*\(')
 DIAGNOSTIC = re.compile(r'^(.*?):(\d+):(\d+): (warning|error): (.*?)(?: \[([^\]]+)\])?$')
 
 
@@ -96,86 +86,6 @@ def find_clang_tidy():
 		if out and candidate.exists():
 			return str(candidate)
 	sys.exit('tidy.py: clang-tidy not found (set CLANG_TIDY)')
-
-
-def protected_spans(text):
-	"""The character ranges [start, end) of every macro call of MACROS: the name, the parentheses and
-	everything between them. Comments, strings and character literals are skipped when matching."""
-	spans = []
-	for m in MACRO_CALL.finditer(text):
-		# Skip definitions (#define TASSERT(...)) and matches inside comments or strings: a call is
-		# preceded on its line by code, not by '#define', '//' or an open string.
-		line_start = text.rfind('\n', 0, m.start()) + 1
-		before = text[line_start:m.start()]
-		if before.lstrip().startswith('#define') or '//' in before or before.count('"') % 2:
-			continue
-		depth = 0
-		i = m.end() - 1
-		while i < len(text):
-			c = text[i]
-			if c in '"\'':
-				j = i + 1
-				while j < len(text) and text[j] != c:
-					j += 2 if text[j] == '\\' else 1
-				i = j
-			elif text.startswith('//', i):
-				i = text.find('\n', i)
-				if i < 0:
-					i = len(text)
-				continue
-			elif text.startswith('/*', i):
-				i = text.find('*/', i)
-				if i < 0:
-					break
-				i += 1
-			elif c == '(':
-				depth += 1
-			elif c == ')':
-				depth -= 1
-				if depth == 0:
-					spans.append((m.start(), i + 1))
-					break
-			i += 1
-	return spans
-
-
-def inside(spans, start, end=None):
-	if end is None or end == start:
-		return any(a < start < b for a, b in spans)
-	return any(start < b and end > a for a, b in spans)
-
-
-def offset(text, line, column):
-	pos = 0
-	for _ in range(line - 1):
-		pos = text.index('\n', pos) + 1
-	return pos + column - 1
-
-
-def revert_in_macros(old, new):
-	"""new with every edit that touches a protected span of old undone; the number of edits undone."""
-	spans = protected_spans(old)
-	old_lines = old.splitlines(keepends=True)
-	new_lines = new.splitlines(keepends=True)
-	starts = [0]
-	for l in old_lines:
-		starts.append(starts[-1] + len(l))
-	result = []
-	undone = 0
-	for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False).get_opcodes():
-		a = ''.join(old_lines[i1:i2])
-		b = ''.join(new_lines[j1:j2])
-		base = starts[i1]
-		if tag == 'equal' or not inside(spans, base, base + len(a)) and not inside(spans, base):
-			result.append(b)
-			continue
-		for t, k1, k2, l1, l2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
-			if t != 'equal' and inside(spans, base + k1, base + k2):
-				result.append(a[k1:k2])
-				undone += 1
-			else:
-				result.append(b[l1:l2])
-	return ''.join(result), undone
 
 
 def compile_commands_files(build):
@@ -301,17 +211,12 @@ def compare_baseline(name, counts, findings):
 	return 1 if new else 0
 
 
-def snapshot():
-	return {p: p.read_bytes() for p in SRC.rglob('*') if p.suffix.lower() in ('.cpp', '.h', '.c')}
-
-
 def main():
 	parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
 	parser.add_argument('-p', dest='build', default=str(ROOT / 'build' / 'windows-x64'))
 	parser.add_argument('--fix', action='store_true')
 	parser.add_argument('--checks')
 	parser.add_argument('--extra-arg', action='append', default=[])
-	parser.add_argument('-v', action='store_true')
 	parser.add_argument('--all', action='store_true')
 	parser.add_argument('--headers', action='store_true')
 	baseline = parser.add_mutually_exclusive_group()
@@ -342,56 +247,34 @@ def main():
 	if args.fix:
 		command.append('--fix')
 	findings = {}
-	in_macros = {}
 	failed = []
-	reverted = 0
 	for database, file, header in runs:
-		before = snapshot() if args.fix else None
 		checks = ['--checks=-*,misc-include-cleaner'] if header else ['--checks=' + args.checks] if args.checks else []
 		run = subprocess.run([tidy, '-p', database] + checks + command + [str(Path(file).resolve())],
 			capture_output=True, text=True, encoding='utf-8', errors='replace')
 		if 'Found compiler error' in run.stdout + run.stderr:
 			failed.append(file)
-		if args.fix:
-			for path, data in snapshot().items():
-				if before.get(path) not in (None, data):
-					old = before[path].decode('utf-8')
-					text, undone = revert_in_macros(old, data.decode('utf-8'))
-					path.write_bytes(text.encode('utf-8'))
-					reverted += undone
-		spans = {}
 		for line in run.stdout.splitlines():
 			m = DIAGNOSTIC.match(line)
 			if not m or m.group(6) is None:
 				continue
 			path = Path(m.group(1)).resolve()
 			key = (str(path), int(m.group(2)), int(m.group(3)), m.group(6))
-			if path not in spans:
-				data = (before or {}).get(path)
-				text = data.decode('utf-8') if data is not None else path.read_text(encoding='utf-8')
-				spans[path] = (text, protected_spans(text))
-			text, file_spans = spans[path]
-			pos = offset(text, key[1], key[2])
-			(in_macros if any(a <= pos < b for a, b in file_spans) else findings)[key] = (line, m.group(5))
+			findings[key] = (line, m.group(5))
 	for key in sorted(findings):
 		print(findings[key][0])
-	if args.v:
-		for key in sorted(in_macros):
-			print('in a macro argument: ' + in_macros[key][0])
 	counts = Counter(k[3] for k in findings)
 	for check, n in sorted(counts.items()):
 		print(f'tidy.py: {n:6} {check}')
-	print(f'tidy.py: {len(findings)} findings, {len(in_macros)} more inside TASSERT/TERROR/TEND arguments (left for M5)'
-		+ (f', {reverted} fix edits inside them reverted' if args.fix else ''))
+	print(f'tidy.py: {len(findings)} findings')
 	if failed:
 		print('tidy.py: clang-tidy could not compile: ' + ', '.join(failed))
 		return 2
 	zero = 0
 	if args.zero:
-		everything = {**findings, **in_macros}
-		for key in sorted(everything):
+		for key in sorted(findings):
 			if key[3].startswith(tuple(args.zero)):
-				print('tidy.py: must be zero: ' + everything[key][0])
+				print('tidy.py: must be zero: ' + findings[key][0])
 				zero += 1
 		print(f'tidy.py: {zero} findings of the checks that must stay at zero ({", ".join(args.zero)})')
 	if args.write_baseline:

@@ -9458,3 +9458,109 @@ The comparison tools expect these from the fork's clients against Tibia.exe and 
   tools/compare_files.py --patella build\windows-x64\Release\Patella.exe` (live): no differences, error with the same two
   expected. `python -I tools/compare_traffic.py --skip-live` with the x64 Patella.exe: no differences (a live run before
   the owner's instruction to skip the live half, November 5, trolls near the test server's temple, also had none).
+
+## The error paths compared by outcome only (Patella-Modern issue #76)
+
+Settled by Claude Opus 5.5, November 5, 2026; M5's second issue (notes/modernization-plan.md, 7 M5: "difftest (until
+M6) and the golden corpus compare the error paths by outcome only"), before #78 (TBEGIN/TEND removed) and #79 (TASSERT
+to PATELLA_ASSERT), which change the texts and the lines. No src/ change.
+
+- **The comparison** (high). Every exception comparison of difftest, communicationtest and the golden runner goes
+  through tests/golden/golden_eh.cpp's CompareThrown (the error rounds' TErrorRound::Compare, errors_tests.cpp's
+  Compare, commworld.cpp's CompareRun). It now makes one check per call: TThrown's `==`, the kind (nothing,
+  TMyException, PROGRAM_ERROR, another type), the thrown type's decorated name and a PROGRAM_ERROR's value. A
+  TMyException's message and origin (file names, line numbers, the stringized expressions, the values, the TEND
+  levels) are not compared. Until now the per-call check compared them too, with every "<file> <line>" pair
+  replaced, and each pair had a check of its own (issue #35: our line must be the original's). Those line-pair
+  checks are gone: under #78 their number follows the TEND levels, so no form of them stays meaningful. Considered:
+  keeping a check per pair that compares only the file names (it would still depend on the TEND levels), and keeping
+  the per-call check on the message without its lines (#78 and #79 change the message itself). EH_LINEMAP, EH_LINES,
+  ER_LINES and ThrownLineMap went with them; errors_tests.cpp's Relative (the work directory in the script errors'
+  messages, which differs between recording and replay) too: no text is compared now. TThrown keeps Message and
+  Origin for the failure reports only (ours, and the original's in the oracle).
+- **What stays a text** (high). Errors' TestMyException compares TMyException's two constructors (4,000 checks: the
+  class's formatting for random files, lines, names and values), not a site's text: a changed assertion does not
+  reach it. #79, which shrinks TMyException, changes or retires it. HandleException's check compares our stderr with
+  our own message ("Debug Assertion 7.72 " + GetMessage()), HandleProgramError's FatalError text and caption with the
+  original's (the fake's texts), and FatalError's caption and text as #74 left them: no site text is in them.
+  VerifyOurSideAssertion (the oracle's check that the runner's OurSideAssertion throws what our TComponent::SetSize
+  throws) compares by outcome too.
+- **The corpus** (high). golden::OutputThrown records the kind, the value and the type name, no message or origin;
+  GOLDEN_FORMAT 1 to 2, so a corpus of before says "format 1, the runner reads format 2; record the corpus again".
+  Recorded again (880 MB).
+- **macrocheck and the rule retired** (high). With nothing comparing the texts, plan 4.2's stringized-expression rule
+  (no change to a TASSERT*/TERROR*/TEND* argument until M5) and build\issue-8\tools\macrocheck.py (never in the
+  repository; it imported tidy.py's parser) are retired, dated November 5, 2026: notes/modernization-plan.md 4.2,
+  CLAUDE.md, notes/reconstruction.md "Checking", .clang-tidy's and .clang-format's comments. tools/tidy.py's guard
+  existed only for that rule: protected_spans, the revert of fixes inside those arguments, the separate count and -v
+  are gone, and every finding counts. .clang-format's WhitespaceSensitiveMacros stays: the arguments are still
+  stringized into the client's messages, and a reformat should not change them by the way.
+- **The baseline** (high). The guard kept 16 findings of the image's run apart (tidy_ci on e3e8565: "4 findings, 16
+  more inside TASSERT/TERROR/TEND arguments"), all modernize-use-nullptr in Utils.cpp's assertions (lines 127-366:
+  `TASSERT(66, s!=NULL)` and the others). Not fixed here (#79 rewrites the assertions): tools/tidy-baseline.tsv was
+  written again in the image with CLAUDE.md's command and gains one entry, `16 src/Utils.cpp modernize-use-nullptr
+  use nullptr`: 4 findings in 4 entries to 20 in 5; nothing else moved; `--zero bugprone-` 0. The per-target Windows
+  runs (Visual Studio's clang-tidy) see more of them (the 262 NULLs in assertions of plan 1 and others) in the files
+  Linux does not compile; they have no baseline.
+
+### The counts
+
+Same-path oracle builds of main (e3e8565, with temporary counters per test: the line-pair checks, the exceptions
+compared and those in which the original threw; build\issue-76-scripts\instrument.py, never committed) and of the
+branch. difftest 16,599,178 to 16,471,911 (-127,267), communicationtest 1,114,552 to 1,044,013 (-70,539), sysinctest
+67 and vlongtest 3,201 unchanged; 0 failures, CTest 4/4. Each test drops by exactly its line-pair checks; the number of
+exceptions compared, and of calls that threw, is the same in every test and round (the inputs, the random numbers and
+the calls are unchanged):
+
+| Test | Checks before | After | Line-pair checks gone | Error round before -> after | Calls compared (original threw) |
+|---|---|---|---|---|---|
+| GUI | 5,277,938 | 5,272,508 | 5,430 | 31,909 -> 26,479 | 2,750 (2,154) |
+| DialogWindow | 34,068 | 32,526 | 1,542 | 9,501 -> 7,959 | 1,810 (438) |
+| ContextMenus | 41,660 | 37,790 | 3,870 | 8,572 -> 4,702 | 1,795 (1,328) |
+| ConsoleWindow | 318,882 | 307,457 | 11,425 | 287,934 -> 276,509 | 93,196 (3,135) |
+| ContentWindows | 221,270 | 204,039 | 17,231 | 168,764 -> 151,533 | 46,704 (5,811) |
+| DialogElements | 1,362,116 | 1,326,298 | 35,818 | 1,226,638 -> 1,190,820 | 401,790 (12,810) |
+| Dialogs | 292,146 | 277,079 | 15,067 | 195,117 -> 180,050 | 59,586 (4,653) |
+| SurfaceDX | 1,368,981 | 1,366,501 | 2,480 | 155,615 -> 153,135 | 1,720 (1,362) |
+| SurfaceDX9 | 63,616 | 62,432 | 1,184 | 4,934 -> 3,750 | 930 (663) |
+| SurfaceGL | 55,702 | 55,246 | 456 | 2,620 -> 2,164 | 341 (282) |
+| Errors | 40,408 | 17,176 | 23,232 | own 31,912 -> 14,320; Statics 8,496 -> 2,856 | 11,852 (10,627) |
+| Network | 113,806 | 111,893 | 1,913 | 38,878 -> 36,965 | 7,393 (556) |
+| MainFrm | 48,132 | 46,504 | 1,628 | 17,546 -> 15,918 | 5,306 (529) |
+| MapWindow | 127,529 | 122,324 | 5,205 | 12,359 -> 7,154 | 1,776 (1,394) |
+| MainWindow | 57,314 | 56,528 | 786 | 43,150 -> 42,364 | 9,974 (229) |
+| Communication | 847,643 | 801,478 | 46,165 | 487,538 -> 454,103 | 61,622 (11,015) |
+| Control | 266,909 | 242,535 | 24,374 | 160,907 -> 140,556 | 18,056 (10,705) |
+
+Every other test is unchanged (none compares an exception). Checks that changed kind: the per-call checks, 646,923 of
+difftest's and 79,678 of communicationtest's (726,601), now compare the outcome only; of them the 45,971 and 21,720 in
+which the original threw (67,691) had compared texts. The line-pair checks, 127,267 + 70,539 = 197,806, are gone.
+
+- **The golden corpus** (high). Recorded again: 16,001,985 replayed + 1,514,006 retired = 17,515,991, 0 failures, golden
+  and golden_concurrent pass (main: 16,193,194 + 1,520,603 = 17,713,797; -191,209 replayed, -6,597 retired, together
+  the 197,806). The retired parts lose their own line-pair checks: Dialogs 9,369 to 8,924 (-445), Control 22,899 to
+  20,867 (-2,032), the whole engine tests SurfaceDX 1,368,981 to 1,366,501, DX9 63,616 to 62,432, GL 55,702 to 55,246;
+  Errors' 36 unchanged. Replayed per test as the table, less the retired parts.
+
+### The proofs (temporary mutations, never committed)
+
+- **A changed assertion text and line passes** (high). build\issue-76-scripts\mutation1.py on the branch: GUI.cpp's
+  TComponent::SetSize `TASSERT1(1092, _Width>=0, _Width)` to `TASSERT1(1091, 0 <= _Width, _Width)` one line down (the
+  assertion every window test's error round throws through ThrowSideAssertion, wrapped by the callers' TEND blocks),
+  and Utils.cpp's LowerString `TASSERT(66, s!=NULL)` to `TASSERT(67, s != nullptr)` one line down (Errors' TestUtils
+  compares LowerString(NULL)). `python -I tools/build.py oracle-x86`: 16,471,911 + 67 + 1,044,013 + 3,201 checks, 0
+  failures, CTest 4/4; golden_runner (rebuilt with the two files) on the corpus of the unchanged branch: 16,001,985
+  replayed + 1,514,006 retired, 0 failures, exit 0. Before this issue each would have failed (the message's text, and
+  the line pair).
+- **A call that no longer throws fails** (high). build\issue-76-scripts\mutation2.py: LowerString returns for a null
+  string instead of asserting. oracle-x86: difftest 16,471,911 checks, 1 failure ("Errors LowerString(NULL): ours
+  nothing thrown, original TMyException ..."), CTest 3/4, build.py exit 8; golden_runner: 1 failure, the same check
+  ("original TMyException": the corpus has no text), exit 1. Both reverted; src/ is main's (`git diff e3e8565 -- src`
+  empty).
+
+### The other gates
+
+windows-x64, windows-x64-debug and windows-x64-asan: 14/14 each, golden and golden_concurrent as above, no ASan finding;
+windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11; 0 warnings. pecompare (main's and the branch's x64 Release
+Patella.exe built at the same path): .text, .data, .pdata, .rsrc and .reloc identical, the link stamps and the PDB GUID
+only. tidy_ci 20 findings, 0 new, 0 bugprone; banned_calls 0; clang-format clean.

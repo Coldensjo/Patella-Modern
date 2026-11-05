@@ -6,18 +6,20 @@
 // message on stderr). A golden-corpus test since
 // Patella-Modern issue #26 (moved from tools/difftest/errortest.cpp; golden.h).
 //
-// The messages are compared in full, the line numbers too: every site of our
-// sources names the original's line (issue #35; golden_eh.cpp CompareThrown,
-// EH_LINEMAP=1 compares the lines through a map as before). ER_LINES=1 prints
-// the lines seen.
+// What each call threw is compared by its outcome (Patella-Modern issue #76,
+// golden_eh.cpp CompareThrown): thrown or not, and the kind (TMyException, a
+// PROGRAM_ERROR with its value, another type). Until then the messages were
+// compared in full, the line numbers too (issue #35). TestMyException still
+// compares TMyException's two constructors' texts for random arguments (the
+// formatting of the class itself, not the texts of the sites).
 //
 // DIFFTEST_ONLY=Errors runs this test alone; ER_TRACE=1 prints every compared
 // exception, ER_SEED=<n> changes the random inputs.
 //
 // In the corpus (issue #26):
-// - what each of the original's calls threw (ORIGINAL_THROWN), its TMyException
-//   texts, the FatalError texts (its error.txt until issue #74), the counts and positions the
-//   comparisons read from it;
+// - what each of the original's calls threw (ORIGINAL_THROWN: the outcome, since
+//   issue #76), the texts of TestMyException's TMyExceptions, the FatalError texts (its
+//   error.txt until issue #74), the counts and positions the comparisons read from it;
 // - which comparisons were skipped because an earlier test redirected the
 //   original's function or ours for good: the oracle finds that by decoding an
 //   x86 jump at the function's start (imageeh.cpp's Redirected); the runner
@@ -103,25 +105,13 @@ std::string WorkDirectory()
 	return std::string(getenv("TEMP") != nullptr ? getenv("TEMP") : ".") + "\\errortest";
 }
 
-// A thrown message with the work directory replaced by "%TEMP%\errortest": the script errors name their
-// file, and TEMP differs between the recording and the replay. Both sides' (in the oracle the same
-// directory on both: the comparison is the old one); the line pairs are not where a path is.
-TThrown Relative(TThrown Thrown)
-{
-	static const std::string Work = WorkDirectory();
-	static const std::string Placeholder = "%TEMP%\\errortest";
-	for (std::string *Text : {&Thrown.Message, &Thrown.Origin})
-		for (size_t At = Text->find(Work); At != std::string::npos; At = Text->find(Work, At + Placeholder.size()))
-			Text->replace(At, Work.size(), Placeholder);
-	return Thrown;
-}
-
 // Both sides as two calls, ours first; returns what the original threw (in the runner: what it threw in
-// the oracle). Original runs in the oracle only. The paths in the messages are relative (Relative).
+// the oracle). Original runs in the oracle only. (Until issue #76 the messages' work directory was replaced by
+// "%TEMP%\errortest", since TEMP differs between the recording and the replay; the texts are not compared now.)
 template <class F, class G> TThrown Both2(const char *What, F Ours, [[maybe_unused]] G Original)
 {
-	const TThrown A = Relative(OurThrow(Ours));
-	const TThrown B = golden::RecordedThrown("thrown", ORIGINAL_OR(Relative(ImageThrow(Original)), TThrown()));
+	const TThrown A = OurThrow(Ours);
+	const TThrown B = golden::RecordedThrown("thrown", ORIGINAL_OR(ImageThrow(Original), TThrown()));
 	Compare(What, A, B);
 	return B;
 }
@@ -1905,11 +1895,6 @@ void Run([[maybe_unused]] const char *ExePath)
 #else
 	UndoPatches();
 #endif
-	if (getenv("ER_LINES") != nullptr) {
-		for (auto &File : ThrownLineMap())
-			for (auto &Line : File.second)
-				printf("Errors line: %s %d -> %d\n", File.first.c_str(), Line.first, Line.second);
-	}
 	int Summary[4] = {Checks - Before, Compared, ComparedThrows, Skipped};
 	printf("Errors: %d checks, %d exceptions compared (%d calls that threw), %d comparisons skipped (functions "
 		   "redirected by earlier tests)\n",

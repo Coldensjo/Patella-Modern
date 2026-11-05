@@ -504,10 +504,11 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 - clang-tidy (issue #8): `.clang-tidy` has the checks of the coding standard (notes/modernization-plan.md,
   section 8). Run it only through `python -I tools/tidy.py -p <build dir> [--fix] <files>` (the build dir
   needs compile_commands.json: CMAKE_EXPORT_COMPILE_COMMANDS; default build\windows-x64, the preset of
-  issue #5; for an x86 build's commands add `--extra-arg=-m32`). It lists the findings outside the
-  TASSERT*/TERROR*/TEND* arguments with a count per check and counts the ones inside apart (they wait for
-  M5); with `--fix` it reverts, character by character, every fix clang-tidy made inside such an argument,
-  in the file and in the headers it changed (plan 4.2). Never run `clang-tidy --fix` directly.
+  issue #5; for an x86 build's commands add `--extra-arg=-m32`). It lists the findings with a count per check;
+  `--fix` applies clang-tidy's fixes. Until November 5, 2026 it kept the TASSERT*/TERROR*/TEND* arguments apart
+  (the findings inside counted apart, every fix inside reverted character by character: plan 4.2's
+  stringized-expression rule); issue #76 retired the rule with the comparison of the exception texts (below,
+  "Error paths"), so those findings count like every other and fixes may touch those arguments.
   `--all` takes every source of compile_commands.json under src/ (not src/Extern).
   misc-include-cleaner (issue #40) checks the includes of the main files: a new symbol of another header gets
   that header's include, after the file's own includes (never before common.h, `#define DIRECT3D_VERSION` or
@@ -539,8 +540,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   per-object data is in an anonymous namespace by hand, TRSA.h's HeaderExponent stays static).
   cppcoreguidelines-avoid-goto (issue #42) has no fixes either; it accepts a jump out of a loop but not out of a
   switch inside one, so ProcessEvents' kept goto carries a NOLINT with the binary's block ("Writing the source").
-- No new clang-tidy findings (issue #11; plan 4.1): `tools/tidy-baseline.tsv` lists the findings outside the
-  macro arguments, counted by file, check and message (not by line, so moved code keeps its entry), for the
+- No new clang-tidy findings (issue #11; plan 4.1): `tools/tidy-baseline.tsv` lists the findings, counted by
+  file, check and message (not by line, so moved code keeps its entry), for the
   compile commands of linux-x64-clang (the 16 sources of src/ that build on Linux: patella_core's, src/testmode's
   and src/vulkan's portable ones, and the headers of src/ they include; the rest of src/ needs the Windows
   headers and MFC) with clang-tidy 22.1.8 of the Docker image. `--baseline <file>` fails
@@ -582,13 +583,15 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   (issue #39's 11 testmode findings). Expect such differences in either direction (the Windows targets see the
   Windows branches, the image sees libstdc++), and fix a finding of either. 14 findings in 14 entries on November 3, 2026 (issue #32 removed the ten use-nullptr ones, issue #38 the seven use-nodiscard ones), and 16 more
   inside macro arguments; 13 since issue #57 (Utils.cpp's sprintf, a vararg call, is gone); 7 since issue #63 (the
-  six bugprone-* findings fixed or suppressed, below).
+  six bugprone-* findings fixed or suppressed, below); 4 on November 5, 2026, and 20 since issue #76: the 16
+  modernize-use-nullptr findings inside Utils.cpp's TASSERT/TERROR arguments, kept apart until then, count now
+  (one entry, "16 src/Utils.cpp modernize-use-nullptr").
 - Static analysis of the core library (issue #63; plan section 7, M4; notes/decisions.md, "Static analysis of the
   core library", with the table of suppressions): cmake/Core.cmake compiles patella_core with MSVC's `/analyze`
   (`/analyze:external-`) and GCC's `-fanalyzer` (option PATELLA_STATIC_ANALYSIS, on by default), so a finding
   fails the windows-x64, windows-x64-gcc and linux-x64-gcc builds like a warning; and the clang-tidy job passes
-  `--zero bugprone-` to tools/tidy.py, which fails on any bugprone-* finding whatever the baseline says (inside the
-  macro arguments too). All three are at zero: a finding is fixed without a change of behaviour, or suppressed in
+  `--zero bugprone-` to tools/tidy.py, which fails on any bugprone-* finding whatever the baseline says. All three
+  are at zero: a finding is fixed without a change of behaviour, or suppressed in
   the code with the check and the reason (`NOLINT(check): reason`; MSVC's `#pragma warning` through
   PATELLA_MSVC_WARNING, GCC's `#pragma GCC diagnostic` through PATELLA_GCC_DIAGNOSTIC, both compat/msvc.h; the C
   regexp its own pragmas), and gets a row in that table.
@@ -750,9 +753,13 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   the former build.cmd stopped such copies itself, the CMake build does not, so stop it first.
 - Error paths (issue #22): `errortest.cpp` (tests/golden/errors_tests.cpp since Patella-Modern issue #26; DIFFTEST_ONLY=Errors) calls the original and the reconstructed
   functions with inputs that fail their assertions, TERRORs and PROGRAM_ERROR throws and compares what each
-  side throws: the type, a PROGRAM_ERROR's value, a TMyException's whole message with every TEND level and its
-  origin, the line numbers too (since issue #35 every site names the original's line; before, they were
-  mapped). `imageeh.cpp` makes the image's own exception code run in
+  side throws by its outcome (Patella-Modern issue #76, plan 7 M5; golden_eh.cpp's CompareThrown, one check per
+  call): whether it threw, and the kind (TMyException, a PROGRAM_ERROR with its value, another type by its
+  name). Until issue #76 it compared a TMyException's whole message with every TEND level and its origin too,
+  and each line number with a check of its own (issue #35: every site named the original's line); M5 changes
+  those texts and lines (TBEGIN/TEND removed, TASSERT to PATELLA_ASSERT), so a changed assertion text or line
+  fails nothing now, and a call that throws on one side only still fails. TestMyException still compares
+  TMyException's two constructors' texts for random arguments (the class's formatting, not a site's text). `imageeh.cpp` makes the image's own exception code run in
   the child (its throw, frame handlers and catch blocks, its stringstream and TMyException code): the image's
   locks and per-thread data are patched, the imports it needs bound, and its exception handlers, which Windows
   refuses outside a mapped image, are called through a SafeSEH-registered trampoline (`imageehseh.asm`, built
@@ -800,7 +807,11 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   last line shows. Since issue #74 (the error report removed; notes/decisions.md, "The error report removed"), with
   the corpus recorded again: Status 324,707, Dialogs 292,146 (282,777 replayed, 9,369 retired), Errors 40,408, MainFrm
   48,132, Communication 847,643, Control 266,909 (244,010 replayed, 22,899 retired); difftest 15,101,474 of 16,599,178
-  replayed, communicationtest 1,091,653 of 1,114,552: 16,193,194 replayed + 1,520,603 retired = 17,713,797. Control's replay found an x64 defect of src/Control.cpp (event 0x12 read Communication's channel
+  replayed, communicationtest 1,091,653 of 1,114,552: 16,193,194 replayed + 1,520,603 retired = 17,713,797. Since
+  issue #76 (the error paths by outcome only, the line-pair checks gone; recorded again, format 2): difftest
+  14,978,772 of 16,471,911 replayed, communicationtest 1,023,146 of 1,044,013, sysinctest 67: 16,001,985 replayed +
+  1,514,006 retired (Dialogs 8,924, Errors 36, Control 20,867, SurfaceDX 1,366,501, DX9 62,432, GL 55,246) =
+  17,515,991; the per-test counts are in notes/decisions.md, "The error paths compared by outcome only". Control's replay found an x64 defect of src/Control.cpp (event 0x12 read Communication's channel
   list, an `int[]`, as INT_PTR[]), fixed with it (notes/decisions.md, issue #30's third part). The runner links the reconstructed files the
   ported tests call (golden_client: compiled against the MFC shim with the product settings; since issue #28
   graphics.cpp, GUI.cpp and every window file too; since issue #30's second part Communication.cpp and Control.cpp, in
@@ -850,7 +861,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     fake, as the oracle's PatchJump on difftest.exe; `FindImport`/`SetImport`: an import slot such as _time64's, our clock since issue #62).
     Issue #54's error rounds (golden_eh.h, the comparison of tools/difftest/imageeh.h moved there, the same code on
     both sides): `OurThrow([&] { our call; })` for ours, `ORIGINAL_THROWN(Name, the original's call)` for the
-    original's (the oracle runs it inside ImageThrow and records what it threw by value), TErrorRound's Compare
+    original's (the oracle runs it inside ImageThrow and records what it threw by value: since issue #76 the
+    outcome only, its kind, PROGRAM_ERROR value and type name, corpus format 2), TErrorRound's Compare
     and Finish as in difftest (Finish also records the round's counts, which the runner compares with its own);
     the runner throws our side's assertion of ThrowSideAssertion with OurSideAssertion (GUI.cpp's SetSize
     assertion; the oracle checks it with VerifyOurSideAssertion before the round). Issue #30's: a test whose
@@ -999,4 +1011,5 @@ rounds of 38,878 and 18,152 (issue #37), 1,213,366 SurfaceDX, 58,682 SurfaceDX9,
 4,934 SurfaceDX9, 2,620 SurfaceGL, 8,496 statics, 12,359 MapWindow, 43,150 MainWindow, 200,285 Dialogs,
 1,226,638 DialogElements), 67 in sysinctest.exe, 1,134,513 in communicationtest.exe (issue #36: Communication
 364,041 + error round 492,325, Control 114,595 + error round 163,552) and 3,201 against exact arithmetic, no
-differences. The line numbers of every compared exception are compared exactly (issue #35).
+differences. The line numbers of every compared exception are compared exactly (issue #35); since issue #76
+(November 5, 2026) neither the texts nor the line numbers are compared, only the outcome.
