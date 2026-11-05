@@ -1866,14 +1866,14 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Number(Out, B->Border);
 	} else if (In(K, {"TLabel", "TQuestionLabel", "TLogoutLabel", "TWaitLabel"})) {
 		TLabel *L = (TLabel *)C;
-		String(Out, s, L->Text);
+		String(Out, s, L->Text.get());
 		String(Out, s, L->FullText.get());
 		Font(Out, L->Font);
 		Number(Out, L->Lines);
-		Pointer(Out, s, L->Line);
-		if (L->Line != NULL && IsBlock(L->Line) && L->Text != NULL)
+		Pointer(Out, s, L->Line.get());
+		if (L->Line != NULL && IsBlock(L->Line.get()) && L->Text != NULL)
 			for (int i = 0; i < L->Lines && i < 100; i++) {
-				Add(Out, " [%d]", (int)(L->Line[i] - L->Text));
+				Add(Out, " [%d]", (int)(L->Line[i] - L->Text.get()));
 				String(Out, s, L->Line[i]);
 			}
 		Byte(Out, L->Shortened);
@@ -1891,8 +1891,8 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		}
 	} else if (K == "TFormattedText") {
 		TFormattedText *F = (TFormattedText *)C;
-		String(Out, s, F->Text);
-		Pointer(Out, s, F->Line);
+		String(Out, s, F->Text.get());
+		Pointer(Out, s, F->Line.get());
 		Byte(Out, F->AutoWidth);
 		Byte(Out, F->AutoHeight);
 	} else if (K == "TLink") {

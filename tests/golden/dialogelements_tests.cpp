@@ -856,11 +856,11 @@ static void Dump(std::string &Out, int s, TComponent *C, int Depth)
 		TLabel *L = (TLabel *)C;
 		Add(Out, " full %s lines %d short %d", Str(L->FullText.get()).c_str(), L->Lines, L->Shortened);
 		for (int i = 0; i < L->Lines; i++)
-			Add(Out, " [%d]%s", (int)(L->Line[i] - L->Text), Str(L->Line[i]).c_str());
+			Add(Out, " [%d]%s", (int)(L->Line[i] - L->Text.get()), Str(L->Line[i]).c_str());
 		DumpFont(Out, L->Font);
 	} else if (K == "FormattedText") {
 		TFormattedText *F = (TFormattedText *)C;
-		Add(Out, " text %s auto %d,%d", Str(F->Text).c_str(), F->AutoWidth, F->AutoHeight);
+		Add(Out, " text %s auto %d,%d", Str(F->Text.get()).c_str(), F->AutoWidth, F->AutoHeight);
 	} else if (K == "Link") {
 		TLink *L = (TLink *)C;
 		Add(Out, " dest %s url %d button %s label %s", Str(L->Destination.get()).c_str(), L->OpenURL == FakeOpenURL ? 1 : 0,
