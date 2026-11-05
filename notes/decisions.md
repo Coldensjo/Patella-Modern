@@ -9760,3 +9760,127 @@ compare --reference C:\Tibia\Patella-Modernuild
 eference`: the four sessions match (error with #74's deliberate
 differences). tidy_ci 20 findings, 0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs:
 build\logs\issue-85.
+
+## TBEGIN/TEND deleted, file by file (Patella-Modern issue #78)
+
+Settled by Claude Opus 5.5, November 5, 2026; M5 (notes/modernization-plan.md, 7 M5), after #74 (the error report,
+TBEGIN/TEND's only consumer, removed) and #76 (difftest and the golden corpus compare the error paths by outcome only).
+`TBEGIN`/`TEND*` (src/common.h) wrapped most function bodies in a try block whose handlers passed a PROGRAM_ERROR
+through, wrapped a TMyException with the TEND's line and values (text only, which #76 no longer compares) and turned
+anything else (`catch (...)`) into a TMyException "unknown exception occurred". Deleting a TEND therefore changes an
+exception's kind only where something other than a TMyException or a PROGRAM_ERROR passed through it: a C++ exception
+of another type (std::bad_alloc, std::bad_array_new_length, TRSA's `const char *`, an MFC exception), or, where the
+build uses /EHa (the oracle's difftest, sysinctest and communicationtest), a structured exception (the x64 client and
+the oracle's Patella.exe build with /EHsc, whose `catch (...)` never caught one; #67).
+
+### The plan (high)
+
+One merged branch per part (issue-78a, issue-78b, ...), the subsystems of notes/ownership.md section 2 grouped by size,
+the least entangled first; the TBEGIN counts are main 01937c5's (`git grep -c -E '^\s*TBEGIN\s*$' -- src`: 1,130 try
+blocks; the ~1,161 of `git grep -c TBEGIN` count comments too).
+
+| Part | Subsystems | Files (TBEGIN) | Total |
+|---|---|---|---|
+| 1 (issue-78a) | Files, buffers and portable code; Objects and the map; the small ones | Script.cpp 6, Inventory.cpp 4, Player.cpp 3, Status.cpp 1, Objects.cpp 61, Map.cpp 47, Creatures.cpp 31 | 153 |
+| 2 | Graphics, the GUI core, the main window and the map, the frame | graphics.cpp 43, GUI.cpp 39, MainWindow.cpp 27, MapWindow.cpp 40, MainFrm.cpp 32 | 181 |
+| 3 | Talk, the console, context menus | Talk.cpp 64, ConsoleWindow.cpp 71, ContextMenus.cpp 33 | 168 |
+| 4 | Content windows, sub-windows and the side panel | ContentWindows.cpp 137, DialogWindow.cpp 40 | 177 |
+| 5 | Dialog elements | DialogElements.cpp 141 | 141 |
+| 6 | Dialogs | Dialogs.cpp 129 | 129 |
+| 7 | Communication and the network, Control; the macros | Communication.cpp 125, Network.cpp 30, Control.cpp 26; then TBEGIN, TEND_HANDLERS, TEND, TEND1, TEND2 out of src/common.h and the comments that name them (Objects.h, TestHooks.h, compat/print.h, Utils.cpp, .clang-format's WhitespaceSensitiveMacros) | 181 |
+
+Communication, Network and Control come last: they hold the inner handlers that really handle errors (the encryption
+failures, TRSA's `const char *`, the connection's errors, Control's engine change) and Control's conversions, and every
+other subsystem calls into them or is called from their event loop. Each part, for the kind changes: list every handler
+that catches a TMyException by type (`catch (TMyException &)`, not `catch (...)`) and whose try block reaches a function
+of the part; for each, the third-type sources in the part's functions (new/new[] and their sizes, the standard
+library, TRSA, MFC) that no remaining TEND or `catch (...)` converts any more on the way. Where the size or the type comes
+from input (a file, a packet), keep the conversion at that boundary; where only an exhausted heap reaches it, record it.
+Then the top-level handlers (CPlayerApp::InitInstance and Run: every type to a TMyException, HandleException, the "Tibia
+Error - Debug Assertion" box, exit code 1) end the client as before.
+
+Mechanical deletion: the TBEGIN and TEND lines go, nothing else in the bodies changes (the blocks sit at the body's own
+indentation, so clang-format moves nothing). The functions' comments keep the original's catch lines and try blocks as
+line evidence; each file's header says they are the original's. A variable declared only for a TEND1's value stays.
+
+### Part 1 (issue-78a): Script, Inventory, Player, Status, Objects, Map, Creatures
+
+- **Deleted** (high). 153 TBEGIN/TEND pairs in 152 functions: Script.cpp 6 (TReadBinaryFile readWord, readQuad,
+  readString; TWriteBinaryFile writeWord, writeQuad, writeString), Inventory.cpp 4, Player.cpp 3 (InitInstance's two
+  around `new CMainFrame` and Redraw, OnIdle), Status.cpp 1 (CheckClipboardText), Objects.cpp 61, Map.cpp 47,
+  Creatures.cpp 31. Every block was the rest of its function's body at the body's indentation, except Player.cpp's
+  two single statements (no declaration in them), so no variable's scope or lifetime changed and clang-format moves
+  nothing. The other subsystem files of the part have none: Utils.cpp, Container.h, vlong.cpp and sysinc.cpp never had
+  one (the "TBEGIN" in Utils.cpp, TestHooks.h and compat/print.h are comments, and Objects.h's names MapWindow's
+  TEND1; part 7 rewrites them with the macros).
+- **Kept** (high). Every handler of these files that handles an error: Player.cpp's FatalError steps, WriteToStderr,
+  `SurfaceInitInstance`'s `catch (...)` to PROGRAM_ERROR 12, InitInstance's and Run's top-level handlers (each type
+  to its TERROR, HandleProgramError, HandleException); Map.cpp's LoadAutomapBlock and SaveAutomapBlock (an unreadable
+  or unwritable automap file is reported in the console and the block emptied or counted saved) and FindPath's
+  handler (its search state into the message); Objects.cpp's InitObjects (below). TASSERT*/TERROR* stay (#79).
+- **The kinds** (high). The handlers that catch a TMyException by type and reach a function of this part:
+  InitObjects (LoadObjects), LoadAutomapBlock and SaveAutomapBlock (TReadBinaryFile/TWriteBinaryFile's readQuad,
+  readString, writeQuad, writeString), graphics.cpp's four loaders (readWord, readQuad), Map.cpp's FindPath (the
+  field queries), MapWindow.cpp's light (GetObjectFlag), Preferences.cpp's two (only TReadScriptFile/TWriteScriptFile,
+  not changed here). The third-type
+  sources in this part's functions: `new`/`new[]` (readString's Length+1 of at most 65,536 bytes, CheckClipboardText's
+  two copies of the clipboard text, LoadObjects' four tables and LoadProperties' sprite table, Container.h's growth,
+  Map.cpp's std::stringstream in two error messages) and Player.cpp's `new CMainFrame`; readWord, readQuad,
+  writeWord, writeQuad, writeString and GetObjectFlag allocate nothing. Three cases:
+  - **LoadProperties' sprite table** (kept at the boundary). `new uint16[Count]`, Count the product of seven bytes of
+    Tibia.dat: a damaged file can make it negative (std::bad_array_new_length) or too large (std::bad_alloc). Before,
+    LoadProperties' and LoadObjects' TENDs made it a TMyException and InitObjects PROGRAM_ERROR 1 ("Tibia.dat" could not
+    be loaded, HandleProgramError's box); without them it would have passed InitObjects' `catch (TMyException &)` and
+    ended in HandleException's "Tibia Error - Debug Assertion" box, a different box for the same damaged file.
+    InitObjects now catches everything (`catch (...)`; LoadObjects throws no PROGRAM_ERROR), so the outcome is the
+    original's in every build. The only change of a handler in this part.
+  - **An exhausted heap in readString under LoadAutomapBlock** (recorded, not kept). Before, std::bad_alloc in
+    readString became a TMyException, so LoadAutomapBlock reported the automap file as damaged and emptied the block;
+    now it reaches the top-level handlers and the client ends with the "Tibia Error" box. The size is at most 65,536
+    bytes whatever the file says, so only a heap already exhausted gets there; the client could not go on anyway.
+  - **Everything else** (no change). CheckClipboardText, Player.cpp's two blocks and OnIdle, the Container.h growth,
+    the stringstreams and LoadObjects under ReloadObjects (no caller since #75) reach no handler of a TMyException on
+    the way: the callers' remaining TENDs (later parts) or the top-level handlers convert them, and InitInstance and Run
+    end every type in the same box (HandleException; caption "Tibia Error - Debug Assertion", TextCriticalError, exit
+    code 1). Only the fork's stderr line names a different message.
+  Structured exceptions: the x64 client and the oracle's Patella.exe build with /EHsc, whose `catch (...)` never caught
+  one, so nothing changes there; difftest, sysinctest and communicationtest build with /EHa, and none of their
+  comparisons changed (below).
+- **The images** (high). Main (01937c5) and the branch built at the same path (this worktree), the oracle's and the x64
+  Release Patella.exe, function by function through the PDBs: build\issue-78a-scripts\funcs.py, classify.py and
+  tables.py (never committed) on `dumpbin -disasm:nobytes` of each image, the addresses outside a function and the
+  x64 image-relative displacements masked, the jumps inside it as offsets from its start, the funclets (x64 catch$ and
+  dtor$; the x86 __ehhandler$ thunks, which have no symbols, by their jmp to __CxxFrameHandler3) counted per parent;
+  for the functions with switch tables (which dumpbin decodes as code) the code up to the first table and the tables'
+  offsets from the function's start. Of the 152 functions, AddCreature is the same in both images (the compiler had
+  dropped its try block already: nothing in it throws) and ReloadObjects is in neither (no caller since #75).
+  - x64: 11,752 functions to 11,737; 11,561 the same; 135 changed functions of the part (their catch and dtor funclets
+    gone); 16 functions of the part gone, inlined into every caller now that they have no EH state (ResetCreatures,
+    SortBuddies, ResetInventory, GetAutomapSpeed, GetFieldAutomapInfo, the six ShiftMap directions, GetEntryAutomapColor,
+    GetEntryElevation, GetEntryLensHelp, GetEntryWaypoints, TWriteBinaryFile::writeWord); 4 callers that inline one of
+    them now (EnterGame ResetCreatures, InitControl ResetInventory, CopyToClipboard CheckClipboardText, FindPath
+    GetEntryWaypoints); 1 new, Objects.h's inline GetObjectFlag(TObject &, int), which inlines the int GetObjectFlag
+    now and is emitted out of line; 36 with switch tables, the same code and table offsets. Funclets 4,680 to 4,371;
+    of the 156 parents whose count changed, 151 are the part's and 5 (CMFCOutlookBar::LoadState, TBorder::TBorder,
+    TMapWindow::AddLightSource, TRuleViolationTalkBuffer's constructor, patella::settings::Save) only name a funclet
+    that identical-code folding shares and that a removed function had named before; their code is the same. .text
+    0x35b9fc to 0x34a50c bytes, .rdata 0x119286 to 0x11672e, .pdata 0x2694c to 0x25a94 (314 unwind entries fewer).
+  - x86 (oracle-x86's Patella.exe): 11,476 functions to 11,461; 11,256 the same; 134 changed functions of the part, the
+    same 16 gone, the same 4 callers and the same new GetObjectFlag; 65 with switch tables, the same code and table
+    offsets; the unnamed EH region after the code (dumpbin gives it to ___guard_check_icall_thunk) 130 __ehhandler$
+    thunks fewer (2,049 to 1,919) and the unwind funclets of the part's functions gone. .text 0x2b7bba to 0x2a3d7a,
+    .rdata 0xcb370 to 0xc3af8.
+  No other function changed. pecompare.py (build\issue-8\tools) reports the shifted sections as byte differences
+  (x86 213,521, x64 258,342 ranges); the function comparison is the proof.
+- **The counts** (high). `python -I tools/build.py oracle-x86` on the head: difftest 16,459,337, sysinctest 67,
+  communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 4/4: every count main's, every test's own numbers
+  unchanged (the calls, the exceptions compared and the calls that threw are the same: the inputs are). So no
+  comparison saw a kind change, under /EHa either. The golden corpus recorded from the branch: 15,803,203 replayed +
+  1,512,822 retired = 17,316,025, 0 failures, golden and golden_concurrent pass on windows-x64, windows-x64-debug and
+  windows-x64-asan (no ASan finding). The InitObjects boundary has no test of its own: no test feeds a damaged
+  Tibia.dat (objects_tests.cpp reads the real one).
+
+windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11; 0 warnings on every preset. `python -I tools/reference.py
+compare --reference C:\Tibia\Patella-Modern\build\reference`: the four sessions match (error with #74's deliberate
+differences). tidy_ci 20 findings, 0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs:
+build\logs\issue-78a.
