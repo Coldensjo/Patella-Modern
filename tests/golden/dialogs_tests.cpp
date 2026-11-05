@@ -3285,6 +3285,107 @@ static void TestDialogsErrors()
 	R.Finish();
 }
 
+// --- Names of 30 characters (issue #85) -------------------------------------------------------
+//
+// The ignore and white lists' edit line takes 30 characters, one more than a character name has; the original's
+// strcpy kept such a name whole in its entry (its NUL in Permanent, which the next statement sets), #57's
+// TFixedString::Assign kept 29. The main rounds reach it only by chance (a paste of the long clipboard text into
+// an edited line, then Add or Delete), so these rounds run it whatever the random inputs: on their own random
+// numbers (the seed saved and set again, so that nothing after them moves), for each list with its permanent
+// box clear and set: Add, the long text pasted over "new entry" (cut to 30 characters), Add again (the entry
+// written), the first line deleted (the entry written, the list rebuilt from the entries, the long one among
+// them), the long line selected and deleted, OK; each step compared as the main rounds compare.
+static int LongNameChecks;
+static void LongIgnoreNames()
+{
+	const int Before = Checks;
+	const uint32 Saved = GetRandomSeed();
+	SetRandomSeed(85);
+	Kind = K_IGNORE;
+	for (int Round = 0; Round < 4; Round++) {
+		const bool White = Round >= 2, Permanent = Round % 2 != 0;
+		const int Add = White ? 712 : 709, Delete = White ? 713 : 710;
+		RandomWorld();
+		RandomArguments();
+		World.ClipboardEmpty = false;
+		World.Clipboard = "a much longer pasted text for the field";
+		strcpy(World.IgnoreText, "Alpha\nZed\n");
+		strcpy(World.BuddyIgnoreText, "Alpha\nZed\n");
+		SetEngine(World.Engine);
+		Clock = 1000;
+		SetTestClock(Clock);
+		Testing = true;
+		OperationName = "creator (30 characters)";
+		CurrentAction = ACTION_CREATOR;
+		Both([&](int s) { Frame[s] = Create(s); });
+		Compare();
+		if (Frame[OURS] != NULL && Frame[ORIGINAL] != NULL) {
+			auto List = [&](int s) -> TListBox * {
+				TIgnoreListDialog *I = (TIgnoreListDialog *)Body(s);
+				return White ? I->WhiteList : I->IgnoreList;
+			};
+			auto Event = [&](const char *Name, int Number) {
+				OperationName = Name;
+				CurrentAction = 9;
+				Both([&](int s) { Frame[s]->Dialog->HandleEvent(Number); });
+				Compare();
+			};
+			auto Select = [&](const char *Name, int Line) {
+				OperationName = Name;
+				CurrentAction = 15;
+				Both([&](int s) {
+					if (s == OURS)
+						List(s)->SetSelection(Line);
+					else
+						CallI<void>(0x46ad10, List(s), Line);
+					Frame[s]->Dialog->HandleEvent(11);
+				});
+				Compare();
+			};
+			Event("Add (30 characters)", Add);
+			if (Permanent) {
+				OperationName = "permanent (30 characters)";
+				CurrentAction = 15;
+				Both([&](int s) {
+					TIgnoreListDialog *I = (TIgnoreListDialog *)Body(s);
+					TCheckBox *Box = White ? I->AllowPermanently : I->IgnorePermanently;
+					if (s == OURS)
+						Box->SetChecked(true);
+					else
+						CallI<void>(0x467420, Box, true);
+				});
+				Compare();
+			}
+			OperationName = "paste (30 characters)";
+			CurrentAction = 1;
+			Both([&](int s) { Frame[s]->KeyPress(0x476); });
+			Compare();
+			Event("Add the long name (30 characters)", Add);
+			Select("select the first line (30 characters)", 0);
+			Event("Delete the first line (30 characters)", Delete);
+			Select("select the long name (30 characters)", 1);
+			Event("Delete the long name (30 characters)", Delete);
+			Event("OK (30 characters)", 602);
+			OperationName = "destructor (30 characters)";
+			CurrentAction = ACTION_DESTRUCTOR;
+			Both([&](int s) {
+				delete Frame[s];
+				Frame[s] = NULL;
+			});
+			OutputOriginalLog();
+			CHECK(Log[OURS] == Log[ORIGINAL], "Dialogs destructor (%s, 30 characters): logs differ\n  ours: %s\n  orig: %s",
+				KindNames[Kind], Log[OURS].c_str(), Log[ORIGINAL].c_str());
+		}
+		Frame[OURS] = Frame[ORIGINAL] = NULL;
+		Log[OURS].clear();
+		Log[ORIGINAL].clear();
+		Testing = false;
+		ReleaseFreedBlocks();
+	}
+	SetRandomSeed(Saved);
+	LongNameChecks = Checks - Before;
+}
+
 } // namespace DialogsTest
 
 void TestDialogs()
@@ -3367,6 +3468,9 @@ void TestDialogs()
 	memcpy(OperationCount, SavedCounts, sizeof(SavedCounts));
 	RoundChecks = AllChecks() - RoundChecks;
 
+	// The names of 30 characters (issue #85): on their own random numbers, their checks reported apart.
+	LongIgnoreNames();
+
 	for (int s = 0; s < SIDES; s++) {
 		delete Receiver[s];
 		delete ParentWindow[s];
@@ -3387,7 +3491,8 @@ void TestDialogs()
 	for (int i = 0; i < 16; i++)
 		MinOperation = OperationCount[i] < MinOperation ? OperationCount[i] : MinOperation;
 	printf("Dialogs: %d checks, %d failures (each dialog at least %d times, each operation at least %d times)\n",
-		AllChecks() - Before - RoundChecks, Failures - BeforeFailures, MinKind, MinOperation);
+		AllChecks() - Before - RoundChecks - LongNameChecks, Failures - BeforeFailures, MinKind, MinOperation);
+	printf("Dialogs: %d checks of ignore and white list names of 30 characters (issue #85)\n", LongNameChecks);
 	const int Retired = (int)(golden::RetiredChecks() - RetiredBefore);
 	if (Retired != 0)
 		printf("Dialogs: %d checks replayed, %d retired with the oracle (the advanced graphics dialog, #28/#31)\n",

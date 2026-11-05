@@ -1614,7 +1614,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		if (Selection > -1) {
 			TFont Font;
 			const char *Name = IgnoreList->GetLine(Selection, &Font);
-			IgnoreEntries(Selection).Name.Assign(Name);
+			IgnoreEntries(Selection).AssignName(Name);
 			IgnoreEntries(Selection).Permanent = IgnorePermanently->IsChecked();
 		}
 		const TFont Font;
@@ -1632,7 +1632,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		if (Selection > -1) {
 			TFont Font;
 			const char *Name = WhiteList->GetLine(Selection, &Font);
-			WhiteEntries(Selection).Name.Assign(Name);
+			WhiteEntries(Selection).AssignName(Name);
 			WhiteEntries(Selection).Permanent = AllowPermanently->IsChecked();
 		}
 		const TFont Font;
@@ -1649,7 +1649,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		if (Selection > -1) {
 			TFont Font;
 			const char *Name = IgnoreList->GetLine(Selection, &Font);
-			IgnoreEntries(Selection).Name.Assign(Name);
+			IgnoreEntries(Selection).AssignName(Name);
 			IgnoreEntries(Selection).Permanent = IgnorePermanently->IsChecked();
 			IgnoreList->Clear();
 			int i;
@@ -1674,7 +1674,7 @@ void TIgnoreListDialog::HandleEvent(int Event)
 		if (Selection > -1) {
 			TFont Font;
 			const char *Name = WhiteList->GetLine(Selection, &Font);
-			WhiteEntries(Selection).Name.Assign(Name);
+			WhiteEntries(Selection).AssignName(Name);
 			WhiteEntries(Selection).Permanent = AllowPermanently->IsChecked();
 			WhiteList->Clear();
 			int i;

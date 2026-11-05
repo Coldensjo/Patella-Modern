@@ -8028,7 +8028,10 @@ vsprintf or gets any more (167 calls on main b061421, 0 now; a grep gate in the 
   Tibia name has 30 characters (the client asserts strlen(Name)<30 everywhere else), and the list applies the
   edit lines' texts, not the entries, so the stored lists are the same; the entry's own copy differs only in the
   dialog after deleting another entry. difftest's PreferencesFile and Dialogs tests pass with unchanged counts, so
-  they do not reach either case (both overflowed in the original).
+  they do not reach either case (both overflowed in the original). **Corrected by issue #85**: neither wrote past its
+  structure at those lengths (the NUL went into the next member, which the next statement sets), so both were
+  regressions; the entries are now written over the rest of their structure, as strcpy wrote them, and both cases
+  are checked (section "The 30-character ignore names and the 128-character buddy descriptions").
 - **Two test harness fixes forced by the moved data** (high). communicationtest's CheckRoom (tools/difftest/
   commworld.cpp) scanned the first five bytes of a faked function for a ret byte (C3) and found one in the operand
   of `mov eax,[0x2066c378]` once the globals moved (HelpHandle's new address): four Help.cpp functions "too short
@@ -9678,7 +9681,82 @@ SetProgress.
   #57 (5b98b20) `IgnoreEntries(Selection).Name.Assign(Name)` and the white list's three like it cut at 29 where the
   original's strcpy wrote all 30 and its NUL into the next byte, Permanent, which the next statement sets again. Main's
   corpus never reaches it; an input of the Dialogs test that does showed it ('a much longer pasted text for' against the
-  original's 'a much longer pasted text for '). Not changed here (outside D9); for its own issue.
+  original's 'a much longer pasted text for '). Not changed here (outside D9); for its own issue. Fixed by issue #85
+  (the section below), with Dialogs checks that reach it whatever the random inputs.
 
 windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11; 0 warnings on every preset. tidy_ci (--worktree) 20 findings,
 0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs: build\logs\issue-75.
+
+## The 30-character ignore names and the 128-character buddy descriptions (Patella-Modern issue #85)
+
+Settled by Claude Opus 5.5, November 5, 2026. A regression of #57 (5b98b20), found in #75: TIgnoreListDialog kept a
+name of 30 characters, the most the lists' edit line takes (TFontListBox's TEditLine of 30), as 29. The original's
+`strcpy(IgnoreEntries(Selection).Name, Name)` (and the white list's, in Add 709/712 and Delete 710/713) wrote the 30
+characters and put the NUL into the next byte, TIgnoreEntry::Permanent, which the next statement sets; #57's
+`Name.Assign(Name)` kept N - 1 characters, the rule for a text that does not fit its buffer, though this one never left
+its structure.
+
+- **The fix: strcpy's bytes within the structure** (high). `TIgnoreEntry::AssignName` writes the text and its NUL
+  through a TStringBuffer over the whole entry (31 bytes: Name and Permanent; `offsetof(TIgnoreEntry, Name) == 0` is
+  asserted with the layout), so the entry's bytes are the original's for every name the edit line gives; the four
+  calls use it. Same size, no layout change (a non-virtual member function). The readers are unchanged: they read the
+  entry as the original did, so a 30-character entry with Permanent set reads on into the next entry (its "\x01" and
+  the next name) in both, as the original's dialog showed after a Delete; that is the original's behaviour, kept, and
+  the Dialogs checks below compare it.
+- **The other #57 conversions** (high). Every write of 5b98b20 and a7e13c6 (and the TFixedStrings of #60, which added
+  no write) was checked for the same off-by-one, a source that can be exactly N characters for a buffer of N:
+  - **The same bug, fixed**: Preferences.cpp's Tibia.cfg reader, `Buddies(n).Description.Assign(Description)`. The
+    description is read without a limit; the original's strcpy kept one of 128 characters whole (NUL in
+    TBuddy::Notify, which the reader sets next) and up to 131 its characters went into Notify and the padding (the
+    entry is 0x8c bytes, Description at 0x08); #57 cut at 127. `TBuddy::AssignDescriptionRead` writes over
+    Description, Notify and the padding (132 bytes), the original's bytes up to 131 characters; 132 or more, which
+    the original wrote past the entry (undefined), is cut at 131. SetBuddy keeps Description.Assign (it asserts
+    strlen<128).
+  - **Asserted before the write, cannot reach N**: TServer::Address (<100), TBuddyEntry::Name, TContainer::Name,
+    TOffer::Name, TCharacter::Name and World (<30), the hotkeys (<HOTKEY_LENGTH), SetBuddy's description (<128),
+    TEffect::Text (<10 in 12), the sprite and picture file names (<PATH_MAX), the status message
+    (<STATUSMESSAGE_LENGTH), TTextButton::Text (<50), TDialog::Caption (<100).
+  - **Bounded below N by their source**: THotkeyDialog::Texts (256) from its TEditLine of 255 or GetHotkey; the
+    battle list's MouseOverText (32), the shortened names (32, 40), the VIP list's MouseOverText (36), the context
+    menus' copies (30) and lines (50: "Revoke " + 29 + "'s Invitation" is 49), the talkbox's first line (40: 29 + "
+    whispers:" is 39), the console's prefix, file name and message (100, 1024, 100), the report title (220), the
+    skill names (100), all from names of at most 29 characters (GetString(..., 30), asserted elsewhere); the formats
+    of numbers, the packet types, the map file names (12 in 16), the time stamps (6 in 8), the account number (11 in
+    12), the IP address (15 in 16), GetErrorMessage (about 300 in 1024), the text dialog's descriptions (fixed texts
+    in 255), the Script file names ("Tibia.cfg" and the data file names in 1024).
+  - **Sized by their allocation**: the talk lines, list box lines, labels, captions, help, report and MotD copies,
+    TrimString, the ignore and exemption texts.
+  None was unclear, so none was left for the user.
+- **The checks** (high). tests/golden/dialogs_tests.cpp, LongIgnoreNames: four rounds of the ignore list dialog after
+  the error round, on their own random numbers (seed 85, the seed saved and set again: no other round's inputs move),
+  for the ignore and the white list, with the permanent box clear and set: Add, the long clipboard text pasted over
+  "new entry" (cut to 30 characters), Add (entry written by 709/712), the first line selected and deleted (710/713;
+  the list rebuilt from the entries, the long one among them), the long line selected and deleted (its 30 characters
+  written by 710/713), OK; the creator, each step's log and dump, the destructor's log. 80 checks, printed apart
+  ("Dialogs: 80 checks of ignore and white list names of 30 characters"). tests/golden/preferences_tests.cpp, after
+  the 400 random rounds: one Tibia.cfg with buddies of descriptions of 127 (Notify yes), 128, 129 and 131 characters
+  (Notify no: with yes the original reads on past Notify into padding whose bytes are each side's own), CheckLists and
+  the saved file compared; 179 checks, no random numbers. Proof: with the four Assign calls and the reader's Assign
+  put back (the tests kept), difftest fails 21 checks (Dialogs 16: Add the long name, the selections and deletes
+  after it, in the ignore and white list rounds; PreferencesFile 5: GetBuddyDescription(2), (3), (4), the saved
+  file, and ExitPreferences' file); with the fix 0 (build\logs\issue-85\proof-difftest.log). With the permanent
+  box set the rebuilt line is the long name, "" and the next entry's "new entry" (the read past Permanent above),
+  the same on both sides; deleting it writes its first 30 characters (the original's strcpy wrote the 40 on into the
+  next entry, whose bytes were those characters already, so the entries end the same).
+- **The counts** (high). `python -I tools/build.py oracle-x86`: difftest 16,459,078 to 16,459,337 (+259: Dialogs +80,
+  PreferencesFile +179; every other test's count unchanged, Dialogs' main rounds 93,396 and errors 173,967 as on
+  main), sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 4/4. The golden corpus recorded
+  again from the branch: 15,803,203 replayed + 1,512,822 retired = 17,316,025 (+259 replayed), 0 failures, golden and
+  golden_concurrent pass on windows-x64, windows-x64-debug and windows-x64-asan (no ASan finding).
+- **The images** (high). Main and the branch built at the same path, function by function through the PDBs
+  (build\issue-85\funcs.py and funcs2.py, never committed: the rel32 operands of call, jmp and jcc and the base
+  relocations masked; on x64 also 32-bit words moved by the code shift). Both images: TFixedString<128>::Assign gone
+  (its other user, SetBuddy, now inlines it: SetBuddy resized, its source unchanged). x86: TIgnoreListDialog::HandleEvent
+  the same size, its copy bounds 29 to 30 (`cmp ecx,1dh` to `1eh`); InitPreferences resized. x64: HandleEvent resized,
+  InitPreferences the same size with the bound 127 to 131. Nothing else differs.
+
+windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11; 0 warnings on every preset. `python -I tools/reference.py
+compare --reference C:\Tibia\Patella-Modernuild
+eference`: the four sessions match (error with #74's deliberate
+differences). tidy_ci 20 findings, 0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs:
+build\logs\issue-85.

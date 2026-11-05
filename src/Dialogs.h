@@ -369,11 +369,20 @@ struct TIgnoreEntry {
 		Name[0] = 0;
 		Permanent = false;
 	}
+	// strcpy(Name, Text) as the original wrote it (issue #85): the text and its NUL within the entry's 31 bytes.
+	// A name of 30 characters, the most the lists' edit line takes, is kept whole, and its NUL lands in
+	// Permanent, which every caller sets next (Name.Assign kept 29 characters, #57).
+	void AssignName(const char *Text) noexcept
+	{
+		TStringBuffer(reinterpret_cast<char *>(this), sizeof(TIgnoreEntry)).Assign(Text);
+	}
+
 	TFixedString<30> Name; // +0x00
 	bool Permanent;        // +0x1e
 };
 // The original's layout (no pointers: the same on x64), with Name a TFixedString (issue #57).
-static_assert(sizeof(TIgnoreEntry) == 0x1f && offsetof(TIgnoreEntry, Permanent) == 0x1e, "TIgnoreEntry's layout");
+static_assert(sizeof(TIgnoreEntry) == 0x1f && offsetof(TIgnoreEntry, Name) == 0 && offsetof(TIgnoreEntry, Permanent) == 0x1e,
+	"TIgnoreEntry's layout");
 
 // "Edit Ignore List and White List" (vtable 0x5639d8, 0xd0 bytes): both lists
 // as editable font list boxes (permanent entries in their own colour), the

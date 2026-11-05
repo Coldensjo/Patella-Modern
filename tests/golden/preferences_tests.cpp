@@ -600,6 +600,30 @@ void TestPreferencesFile()
 		}
 	}
 
+	// Long buddy descriptions (issue #85), whatever the random rounds drew (their CfgString(60) never reaches
+	// them): the reader copied the description without a limit, so one of 128 characters kept all of them with
+	// its NUL in Notify, and up to 131 the rest of the entry held the characters after it. With Notify "no"
+	// (yes would read on past Notify into the padding, whose bytes are each side's own). No random numbers.
+	{
+		std::string Text;
+		const int Lengths[] = {127, 128, 129, 131};
+		for (int i = 0; i < 4; i++) {
+			std::string Description(Lengths[i], (char)('a' + i));
+			for (int j = 0; j < Lengths[i]; j += 10)
+				Description[j] = (char)('0' + j / 10 % 10);
+			Text += "Buddy = (" + std::to_string(i + 1) + "," + std::to_string(i) + ",\"" + Description + "\","
+				+ (i == 0 ? "yes" : "no") + ")\r\n";
+		}
+		golden::InputBytes("Tibia.cfg", Text.data(), Text.size());
+		FILE *File = fopen("Tibia.cfg", "wb");
+		fwrite(Text.data(), 1, Text.size(), File);
+		fclose(File);
+		InitPreferences();
+		ORIGINAL(At<void(__cdecl *)()>(0x4ddc00)());
+		CheckLists("long buddy descriptions");
+		CompareSaved("long buddy descriptions");
+	}
+
 	// ExitPreferences frees the MotD and saves.
 	SetMotD("7\nToday's news");
 	ORIGINAL(At<bool(__cdecl *)(const char *)>(0x4dcac0)("7\nToday's news"));
