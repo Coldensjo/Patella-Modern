@@ -62,7 +62,8 @@
 
 namespace golden {
 
-const uint32_t GOLDEN_FORMAT = 1;
+// 2 since Patella-Modern issue #76: an exception's records are its outcome (kind, value, type), no texts.
+const uint32_t GOLDEN_FORMAT = 2;
 // CLAUDE.md: Tibia.exe 7.72 of 2006-06-08.
 const char *const TIBIA_SHA256 = "1a82fe97a39e536c29327d6d5dde316775f537dcc01506831429b1a0433b76f8";
 

@@ -1,5 +1,6 @@
 // The golden corpus's error rounds (issue #54); see golden_eh.h. The comparison moved here from
-// tools/difftest/imageeh.cpp unchanged, so that the oracle and the runner run the same code.
+// tools/difftest/imageeh.cpp unchanged, so that the oracle and the runner run the same code; since issue #76
+// it compares the outcome only.
 
 #include "golden_eh.h"
 
@@ -7,10 +8,8 @@
 #include "../../tools/difftest/imageeh.h"
 #endif
 
-#include <algorithm>
 #include <stdlib.h>
 #include <string.h>
-#include <vector>
 
 std::string TThrown::Describe() const
 {
@@ -18,7 +17,11 @@ std::string TThrown::Describe() const
 	switch (Kind) {
 	case NOTHING: return "nothing thrown";
 	case PROGRAMERROR: snprintf(Text, sizeof(Text), "PROGRAM_ERROR %d", Code); return Text;
-	case MYEXCEPTION: return "TMyException \"" + Message + "\" (origin \"" + Origin + "\")";
+	case MYEXCEPTION:
+		// The texts where this side has them (not the runner's original: the corpus does not record them).
+		if (Message.empty() && Origin.empty())
+			return "TMyException";
+		return "TMyException \"" + Message + "\" (origin \"" + Origin + "\")";
 	default: return "other exception " + Type;
 	}
 }
@@ -37,115 +40,18 @@ TThrown ThrownOf(const TMyException &Exception)
 
 // --- Comparing what both sides threw (moved from imageeh.cpp, errortest.cpp's before) ---------------
 
-static TLineMap OursToOriginal, OriginalToOurs;
 int ThrownCompared = 0, ThrownThrew = 0;
-const TLineMap &ThrownLineMap() { return OursToOriginal; }
 
-// "<file> <line>" at Start (a message's start or a "reason:\n"): the
-// position of the line number and its end, or false.
-static bool FindLine(const std::string &Text, size_t Start, size_t *Number, size_t *End)
-{
-	size_t Space = Start;
-	while (Space < Text.size() && Text[Space] != ' ' && Text[Space] != '\n')
-		Space++;
-	if (Space == Start || Space >= Text.size() || Text[Space] != ' ')
-		return false;
-	size_t Digits = Space + 1;
-	if (Digits < Text.size() && Text[Digits] == '-')
-		Digits++;
-	size_t Stop = Digits;
-	while (Stop < Text.size() && Text[Stop] >= '0' && Text[Stop] <= '9')
-		Stop++;
-	if (Stop == Digits || (Stop < Text.size() && Text[Stop] != ':'))
-		return false;
-	*Number = Space + 1;
-	*End = Stop;
-	return true;
-}
-
-namespace {
-
-struct TLineRef {
-	std::string File;
-	int Line;
-};
-
-} // namespace
-
-// Replaces the line numbers of every "<file> <line>: " that starts the
-// message or follows ", reason:\n", and of the origin "<file> <line>".
-static std::string WithoutLines(const std::string &Text, std::vector<TLineRef> *Lines)
-{
-	std::string Result;
-	size_t Position = 0;
-	size_t Start = 0;
-	for (;;) {
-		size_t Number, End;
-		if (FindLine(Text, Start, &Number, &End)) {
-			Result.append(Text, Position, Number - Position);
-			Result += "#";
-			TLineRef Ref = {Text.substr(Start, Number - 1 - Start), atoi(Text.c_str() + Number)};
-			Lines->push_back(Ref);
-			Position = End;
-		}
-		size_t Next = Text.find(", reason:\n", (std::max)(Position, Start));
-		if (Next == std::string::npos)
-			break;
-		Start = Next + 10;
-	}
-	Result.append(Text, Position, std::string::npos);
-	return Result;
-}
-
-// One check per line pair: our line must be the original's (issue #35: every
-// site names the original's line). EH_LINEMAP=1 compares through a map instead,
-// as before issue #35 (each of our lines must stand for one original line and
-// each original line for one of ours over the whole run), for debugging.
-static void CompareLines(const char *Test, const char *What, const std::vector<TLineRef> &Ours,
-	const std::vector<TLineRef> &Original)
-{
-	static const bool Map = getenv("EH_LINEMAP") != nullptr && atoi(getenv("EH_LINEMAP")) != 0;
-	for (size_t i = 0; i < Ours.size() && i < Original.size(); i++) {
-		if (Ours[i].File != Original[i].File)
-			continue; // the messages differ; reported there
-		const std::string &File = Ours[i].File;
-		std::map<int, int> &Forward = OursToOriginal[File];
-		std::map<int, int> &Backward = OriginalToOurs[File];
-		if (Map) {
-			auto F = Forward.find(Ours[i].Line);
-			auto B = Backward.find(Original[i].Line);
-			CHECK((F == Forward.end() || F->second == Original[i].Line)
-					&& (B == Backward.end() || B->second == Ours[i].Line),
-				"%s %s: our %s line %d stands for the original's line %d, earlier for %d; the original's line %d "
-				"earlier for our %d",
-				Test, What, File.c_str(), Ours[i].Line, Original[i].Line, F == Forward.end() ? -1 : F->second,
-				Original[i].Line, B == Backward.end() ? -1 : B->second);
-		} else {
-			CHECK(Ours[i].Line == Original[i].Line, "%s %s: our %s line %d, the original's %d", Test, What,
-				File.c_str(), Ours[i].Line, Original[i].Line);
-		}
-		Forward[Ours[i].Line] = Original[i].Line;
-		Backward[Original[i].Line] = Ours[i].Line;
-	}
-}
-
+// One check per call: the outcome (issue #76). Until then the messages and origins were compared with their
+// "<file> <line>" pairs replaced, and each pair with a check of its own (issue #35: every site names the
+// original's line; EH_LINEMAP=1 compared through a map, EH_LINES=1 printed the lines seen).
 void CompareThrown(const char *Test, const char *What, const TThrown &Ours, const TThrown &Original)
 {
 	ThrownCompared++;
 	if (Original.Kind != TThrown::NOTHING)
 		ThrownThrew++;
-	std::vector<TLineRef> OurLines, OriginalLines;
-	TThrown A = Ours, B = Original;
-	A.Message = WithoutLines(Ours.Message, &OurLines);
-	A.Origin = WithoutLines(Ours.Origin + ":", &OurLines);
-	B.Message = WithoutLines(Original.Message, &OriginalLines);
-	B.Origin = WithoutLines(Original.Origin + ":", &OriginalLines);
-	CHECK(A == B && OurLines.size() == OriginalLines.size(), "%s %s: ours %s, original %s", Test, What,
-		Ours.Describe().c_str(), Original.Describe().c_str());
-	// The lines of a comparison that matched otherwise (a different message is
-	// reported once, above).
-	if (A == B && OurLines.size() == OriginalLines.size())
-		CompareLines(Test, What, OurLines, OriginalLines);
+	CHECK(Ours == Original, "%s %s: ours %s, original %s", Test, What, Ours.Describe().c_str(),
+		Original.Describe().c_str());
 }
 
 // --- Our side's assertion -------------------------------------------------------------------------
@@ -191,11 +97,6 @@ void TErrorRound::Finish()
 	DisableImageExceptions();
 #endif
 	SetRandomSeed(SavedSeed);
-	if (getenv("EH_LINES") != nullptr) { // the lines seen so far (every test's): our line -> the original's
-		for (auto &File : OursToOriginal)
-			for (auto &Line : File.second)
-				printf("%s errors line: %s %d -> %d\n", Test, File.first.c_str(), Line.first, Line.second);
-	}
 	// The round's checks: those the runner skipped as retired (golden::RetiredBegin) count as the oracle's
 	// (the test restores ThrownCompared and ThrownThrew after a retired part).
 	const int Retired = (int)(golden::RetiredChecks() - Retired0);
@@ -223,6 +124,8 @@ void TErrorRound::Finish()
 
 namespace golden {
 
+// The outcome only (issue #76): the kind, the PROGRAM_ERROR value and the type's name. The texts stay out of
+// the corpus; the oracle keeps its own for its failure reports, the runner's are empty.
 void OutputThrown(const char *Name, TThrown *Thrown)
 {
 	std::string Prefix = Name;
@@ -231,8 +134,6 @@ void OutputThrown(const char *Name, TThrown *Thrown)
 	Thrown->Kind = (TThrown::TKind)Numbers[0];
 	Thrown->Code = Numbers[1];
 	Thrown->Type = OutputText((Prefix + " type").c_str(), Thrown->Type.data(), Thrown->Type.size());
-	Thrown->Message = OutputText((Prefix + " message").c_str(), Thrown->Message.data(), Thrown->Message.size());
-	Thrown->Origin = OutputText((Prefix + " origin").c_str(), Thrown->Origin.data(), Thrown->Origin.size());
 }
 
 } // namespace golden
