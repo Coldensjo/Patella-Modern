@@ -56,7 +56,7 @@ namespace {
 // Data, in .data/.bss order. 0x5c4540-0x5c4553 is not used by any code.
 int LastPacketType = -1;               // 0x5c0d8c, only written (ReceivePackets)
 int LastPacketIndex;                   // 0x5c4510, next slot in LastPacketTypes
-std::array<uint8, 10> LastPacketTypes; // 0x5c4514, the last ten packet types, a ring (unread since #74)
+std::array<uint8, 10> LastPacketTypes; // 0x5c4514, the last ten packet types, a ring (GetLastPacketTypes)
 int ReconnectTimeout;                  // 0x5c4520, GetMilliseconds time
 bool Reconnect;                        // 0x5c4524, set by event 0x3f
 int LastMouseMove;                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
@@ -1243,4 +1243,14 @@ void ExitControl()
 	ExitObjects();
 	ExitSysinc();
 	TEND(1661)
+}
+
+// Not in the original (Patella-Modern issue #77): LastPacketTypes in the order error.txt listed them until issue #74
+// (OutputControlErrorInformations), the newest first: the slot before LastPacketIndex, then back round the ring.
+std::array<uint8, 10> GetLastPacketTypes()
+{
+	std::array<uint8, 10> Types{};
+	for (std::size_t i = 0; i < Types.size(); i++)
+		Types[i] = LastPacketTypes[(static_cast<std::size_t>(LastPacketIndex) + 9 - i) % 10];
+	return Types;
 }

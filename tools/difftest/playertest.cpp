@@ -70,3 +70,5 @@ const std::array<int, 11> ClassNameCode = {57, 193, 225, 58, 140, 118, 195, 214,
 void Redraw(bool) STUB
 void MouseMove(int, int) STUB
 void ProcessEvents() STUB
+// Control.cpp's, for Player.cpp's developer log diagnostics (issue #77; at the debug level, never in the tests).
+std::array<uint8, 10> GetLastPacketTypes() STUB

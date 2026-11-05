@@ -9,6 +9,8 @@
 
 #include "common.h" // IWYU pragma: keep (HWND: MFC and the Windows headers, which include-cleaner does not check)
 
+#include <array>
+
 void Resize(int Width, int Height);
 
 void CheckSurface(bool Force);
@@ -38,3 +40,7 @@ void ProcessEvents();
 void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL));
 void InitControl(bool Gamemaster);
 void ExitControl();
+
+// Not in the original (Patella-Modern issue #77): the last ten packet types received, the newest first (0 for none),
+// for the developer log's diagnostics (Player.cpp HandleException; error.txt's "Last Packet Types" until issue #74).
+std::array<uint8, 10> GetLastPacketTypes();

@@ -18,9 +18,12 @@
 # - Both: patella::TSpan (src/compat/span.h, issue #59), std::span in tests_unit and the C++17 stand-in that the
 #   oracle-x86 build passes the packet buffers', TXTEA's and TRSA's spans with in tests_unit_cxx26_standin
 #   (PATELLA_SPAN_STANDIN): the same construction, conversion, size and part tests for both.
+# - Both: the developer log (src/log/Log.h, issue #77): the levels, the lines on the console and in the file, the
+#   formats through both paths (std::format and the stand-in), the fatal path's stack trace (std::stacktrace where the
+#   library has it) and debugger break.
 #
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
-#   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31) and
+#   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31), the developer log's keys in it (issue #77) and
 #   src/compat/msvc.h, the Microsoft CRT's semantics behind portable names (issue #43; its 32-bit time went in #62); the expected values that are not the code's own come from tests/unit/core_expected.py.
 #
 # - tests_testmode: patella_testmode (cmake/TestMode.cmake, issue #21): the virtual clock, the input
@@ -70,7 +73,8 @@ function(patella_unit_tests target)
 		crt71_test.cpp
 		time32_test.cpp
 		file_test.cpp
-		span_test.cpp)
+		span_test.cpp
+		log_test.cpp)
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
 	target_link_libraries(${target} PRIVATE doctest::doctest)
 	patella_target_language(${target})
@@ -117,6 +121,7 @@ add_executable(tests_core
 	core_regexp_test.cpp
 	core_container_test.cpp
 	core_settings_test.cpp
+	core_log_settings_test.cpp
 	core_msvc_test.cpp)
 target_link_libraries(tests_core PRIVATE patella_core doctest::doctest)
 patella_target_language(tests_core)

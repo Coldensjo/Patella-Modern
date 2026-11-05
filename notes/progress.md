@@ -233,6 +233,14 @@ One kind change is kept at its boundary: InitObjects catches every exception of 
 whose sprite count makes new[] throw still ends with PROGRAM_ERROR 1. One is recorded: with the heap exhausted,
 readString's std::bad_alloc under LoadAutomapBlock now ends the client instead of emptying the automap block.
 difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822 retired, 0 failures.
+The developer log and the fatal-error path (Patella-Modern issue #77, branch issue-77, November 5, 2026; M5, D16):
+src/log/Log.h, a small log of our own (levels error, warn, info, debug; lines "[<level>] <message>" on stderr and an
+optional file; std::format or the C++17 stand-in), Patella.ini's LogLevel and LogFile (src/log/LogSettings.cpp, x64
+client; defaults info and no file). FatalError and HandleException write through it at error; HandleException writes
+error.txt's old diagnostics at debug (engine, last packet types, last packet, player position); Debug builds add the
+std::stacktrace (MSVC, libstdc++ with libstdc++exp; fallback line on mingw-w64 and the oracle) and break into an
+attached debugger. oracle-x86: the log at its defaults, no Patella.ini. Counts unchanged; notes/decisions.md, "The
+developer log and the fatal-error path (Patella-Modern issue #77, D16)".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -378,6 +386,14 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #77 (branch issue-77, November 5, 2026): the developer log and the fatal-error path.
+`python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67, communicationtest 856,621, vlongtest 3,201,
+0 failures, CTest 4/4 (unchanged). golden on main's corpus 15,803,203 replayed + 1,512,822 retired = 17,316,025, 0
+failures (windows-x64 14/14, -debug and -asan 13/13, no ASan finding); windows-x64-gcc and the Linux presets 11/11, 0
+warnings; tests_unit 65 cases on Windows, 64 on Linux. reference.py compare: 4 sessions match. pecompare by function
+(x86 and x64): only FatalError, HandleException and (x64) InitInstance changed, the log's functions new. tidy_ci: 20
+findings, 0 new. banned_calls 0, clang-format clean. Logs: build\logs\issue-77.
 
 Patella-Modern issue #78, part 1 (branch issue-78a, November 5, 2026): TBEGIN/TEND deleted from Script.cpp,
 Inventory.cpp, Player.cpp, Status.cpp, Objects.cpp, Map.cpp and Creatures.cpp (153 try blocks); InitObjects catches
