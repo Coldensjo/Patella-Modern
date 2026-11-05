@@ -84,10 +84,10 @@ bool TTimer::IsExpired() const
 
 // 0x496040. The deleting destructor 0x496520 inlines it. Not noexcept: VC7.1's
 // destructors let exceptions out, and those of the window classes with their
-// own TBEGIN/TEND (the ContentWindows.cpp windows and bodies; TTab's and
-// TConsoleWindow's until issue #78, whose calls can still throw) rethrow to
-// the caller (issue #34; every class derived from TComponent inherits it, as
-// TTalkBuffer's destructor in Talk.cpp).
+// own TBEGIN/TEND in the original (TTab, TConsoleWindow, the ContentWindows.cpp
+// windows and bodies) rethrew to the caller, and their calls still can (issue
+// #34; every class derived from TComponent inherits it, as TTalkBuffer's
+// destructor in Talk.cpp).
 TComponent::~TComponent() noexcept(false)
 {
 	if (DrawingList != nullptr)
