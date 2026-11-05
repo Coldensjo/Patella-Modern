@@ -33,6 +33,16 @@ struct TContentWindowSize {
 // "Buddy = (CharacterID,Icon,Description,Notify)", 0x8c bytes. Notify
 // shows "%s has logged in."; CharacterID 0 marks a deleted entry.
 struct TBuddy {
+	// strcpy(Description, Text) as the original's Tibia.cfg reader wrote it (issue #85): the text and its NUL
+	// within the rest of the entry (Description, Notify and the padding, 132 bytes). A description of 128
+	// characters is kept whole, its NUL in Notify, which the reader sets next, and up to 131 characters the
+	// bytes are the original's; a longer one, which the original wrote past the entry, is cut at 131.
+	void AssignDescriptionRead(const char *Text) noexcept
+	{
+		TStringBuffer(reinterpret_cast<char *>(this) + offsetof(TBuddy, Description), sizeof(TBuddy) - offsetof(TBuddy, Description))
+			.Assign(Text);
+	}
+
 	int CharacterID;
 	int Icon;
 	TFixedString<BUDDYDESCRIPTION_LENGTH> Description;

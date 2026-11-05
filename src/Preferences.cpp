@@ -869,15 +869,16 @@ void InitPreferences()
 			if (strcmp(Identifier, "securemode") == 0)
 				SecureMode = Script.readNumber() == 1;
 			if (strcmp(Identifier, "buddy") == 0) {
-				// The description is copied without a length limit: past the buffer in the original
-				// (undefined), cut to its BUDDYDESCRIPTION_LENGTH - 1 characters here (issue #57).
+				// The description is copied without a length limit: a description of 128 characters is kept
+				// whole, its NUL in Notify, set below; one of 132 or more wrote past the entry in the original
+				// (undefined), cut to 131 characters here (issues #57, #85).
 				Script.readSymbol('(');
 				Buddies(NumberOfBuddyEntries).CharacterID = Script.readNumber();
 				Script.readSymbol(',');
 				Buddies(NumberOfBuddyEntries).Icon = Script.readNumber();
 				Script.readSymbol(',');
 				const char *Description = Script.readString();
-				Buddies(NumberOfBuddyEntries).Description.Assign(Description);
+				Buddies(NumberOfBuddyEntries).AssignDescriptionRead(Description);
 				Script.readSymbol(',');
 				const char *Notify = Script.readIdentifier();
 				Buddies(NumberOfBuddyEntries).Notify = strcmp(Notify, "yes") == 0;
