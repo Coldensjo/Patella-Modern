@@ -58,6 +58,9 @@ the test server only for the two live recordings) and `python -I tools/reference
 C:\Tibia\Patella-Modern\build\reference` (PatellaTest.exe on each session, the server side replayed inside the client,
 no server, PATELLA_VULKAN=cpu; Python only). Also as `record`/`compare` first words of compare_traffic.py,
 compare_files.py and compare_rendering.py. Local CipSoft-derived data: never committed, pushed or uploaded.
+The live checks run on the desktop of the session that starts them; a second interactive session (another Windows
+user, kept connected and unlocked) keeps the user's input away (issue #56; notes/reconstruction.md, "Checking").
+`--hidden` (tools/desktop.py) is experimental: DirectDraw, Direct3D 9, the CPU driver and GetCursorPos fail there.
 
 The golden corpus (issue #24): `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86
 --target golden_corpus` records it into `build/golden` (derived from Tibia.exe: local only, never committed,

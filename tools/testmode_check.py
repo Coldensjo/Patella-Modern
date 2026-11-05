@@ -83,6 +83,7 @@ import time
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import desktop  # noqa: E402
 import compare_traffic as ct  # noqa: E402
 import proxy as px  # noqa: E402
 import testmode_dumps as td  # noqa: E402
@@ -530,6 +531,7 @@ def main(argv=None):
 	parser.add_argument("--compare-only", action="store_true", help="compare the recordings already in --out")
 	parser.add_argument("--self-test", action="store_true", help="the comparisons on made-up data (no server,"
 		" no client)")
+	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 	args = parser.parse_args(argv)
 	if args.self_test:
 		failures = td.self_test(compare)
@@ -669,6 +671,7 @@ def cold_start_self_test(out=print):
 
 
 if __name__ == "__main__":
+	desktop.hide(skip=("--self-test", "--compare-only", "-h", "--help"))  # issue #56: only with --hidden
 	try:
 		sys.exit(main())
 	except (CheckError, ct.RunError, px.ProtocolError) as e:

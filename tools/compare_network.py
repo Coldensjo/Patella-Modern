@@ -43,6 +43,7 @@ import time
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import desktop  # noqa: E402
 import compare_traffic as ct  # noqa: E402
 import compare_files as cf  # noqa: E402
 import proxy as px  # noqa: E402
@@ -459,6 +460,7 @@ def main():
 	parser.add_argument("--only", default=None, help="comma-separated scenario names (prefixes)")
 	parser.add_argument("--list", action="store_true")
 	parser.add_argument("--repeat", action="store_true", help="run Tibia.exe again where the clients differ")
+	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 	args = parser.parse_args()
 	base = Base(px.load_events(args.recording))
 	all_scenarios = scenarios(base)
@@ -519,4 +521,5 @@ def main():
 
 
 if __name__ == "__main__":
+	desktop.hide(skip=("--list", "-h", "--help"))  # issue #56: only with --hidden
 	sys.exit(main())

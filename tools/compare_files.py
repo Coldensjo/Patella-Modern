@@ -65,6 +65,7 @@ import time
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import desktop  # noqa: E402
 import compare_traffic as ct  # noqa: E402
 import proxy as px  # noqa: E402
 import session_client as sc  # noqa: E402
@@ -1404,6 +1405,7 @@ def main():
 		"(default %(default)s: PATELLA_TESTSERVER, else C:\\Tibia\\gameserver, tools/testserver.py)")
 	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
 		"it (default build/oracle-x86/Release/Patella.exe; as tools/compare_traffic.py's --patella)")
+	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 	args = parser.parse_args()
 	if args.check_route:
 		problems = []
@@ -1530,6 +1532,7 @@ def kill_client(run):
 
 
 if __name__ == "__main__":
+	desktop.hide(skip=("--check-only", "--check-route", "-h", "--help"))  # issue #56: only with --hidden
 	try:
 		sys.exit(main())
 	except (RunError, sc.SessionError, px.ProtocolError) as e:

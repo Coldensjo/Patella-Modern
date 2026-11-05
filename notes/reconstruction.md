@@ -460,6 +460,15 @@ data files and the patched client, and a second Tibia.exe run (orig-repeat) has 
 
 Limits of the GUI comparisons until M2's built-in test mode replaces them (Patella-Modern issue #13):
 
+- **They run on the desktop of the session they are started in (Patella-Modern issue #56).** For a run that no
+  one's mouse and keyboard may reach, start it in a second interactive session ("Checking", "The live checks in a
+  second session"). `--hidden` (every live tool; tools/desktop.py; experimental) runs the tool on a hidden desktop
+  of its own instead, where most results differ: DirectDraw and Direct3D 9 do not start (Tibia.exe and the oracle
+  fall back to OpenGL), the Vulkan CPU driver's first present fails (PATELLA_VULKAN=cpu: the client crashes after
+  1 s), and GetCursorPos fails (the posted clicks of compare_traffic.py and compare_files.py miss). What gives the
+  same results there: PatellaTest.exe on a GPU (`reference.py compare --vulkan gpu --hidden`), the OpenGL engine
+  (`compare_rendering.py --engines gl --hidden`) and compare_network.py. notes/decisions.md, "The live checks on a
+  hidden desktop".
 - **Keep off the mouse and the keyboard while one runs.** They drive real client windows with posted window
   messages, and real input reaches the same windows: a mouse move or click over a client window comes in
   between the posted ones, a key goes to the client that has the focus. On November 2 a click during a
@@ -615,11 +624,70 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
      runner; `config.cmd --url https://github.com/Coldensjo/Patella-Modern --token <token> --labels patella`),
      and start it with `run.cmd` in that user's logged-in session, not as a service: the comparisons drive
      client windows and need a desktop (fast user switching keeps it apart from the user's own mouse and
-     keyboard).
+     keyboard; the session must stay connected and unlocked while a job runs: "The live checks in a second
+     session" below).
   4. `gh variable set PATELLA_SELF_HOSTED --body true --repo Coldensjo/Patella-Modern` (and
      `PATELLA_CIPSOFT_DIR` if the files are not in C:\Tibia\Patella). `--body false` turns it off again; a
      `workflow_dispatch` run (`gh workflow run self-hosted.yml --ref <branch>`) checks it once.
   The logs of a public repository's runs are public: the tools print counts and summaries, not the data files.
+- The live checks in a second session (Patella-Modern issue #56, the owner's decision of November 5, 2026): the
+  live checks (reference.py compare and record, testmode_check.py, compare_traffic.py, compare_files.py,
+  compare_rendering.py, compare_network.py) run on the desktop of the session that starts them. To keep the
+  user's mouse and keyboard away from them, start them in an interactive session of their own, whose desktop is
+  an input desktop like the user's: DirectDraw, Direct3D 9, the CPU driver's present and GetCursorPos behave there
+  as on the user's desktop (unlike `--hidden`'s desktop). Not tried on this machine yet; the owner sets it up.
+  1. A separate local Windows user (a standard user, for example `patella-checks`), with read access to the
+     repository's folder (the checkout or the worktree, with its CipSoft files) and C:\Tibia\gameserver, write
+     access to its `build` folder, and Python 3.13 and Visual Studio as in the runner's step 1 above. Its session:
+     through fast user switching on this machine (Ctrl+Alt+Del, Switch user; or Start, the user's picture), or a
+     Remote Desktop connection from another computer (Windows 11 Pro is a Remote Desktop host: Settings, System,
+     Remote Desktop).
+  2. There: a terminal in the repository's folder, `python -I tools/testserver.py start`, the tools as usual
+     (without `--hidden`), `python -I tools/testserver.py stop`. The test server's ports (7171, 7172, the proxy's
+     7271, 7272) are the machine's, not the session's: one session at a time runs live checks.
+  What Windows does to such a session (Windows 11 Pro, a client edition):
+  - **One connected session at a time.** A workstation lets one user at a time use its desktop: a switch to the
+    other user, or a Remote Desktop logon, disconnects the session that was connected (its programs keep
+    running). The user therefore cannot work in their own session while the checks run in the second one; the
+    second session keeps the checks' windows apart from the user's windows and input, not from the user at the
+    machine. Remote Desktop to this computer itself (localhost) is no way around it: one session is connected at
+    a time either way. Several connected sessions at once need Windows Server (Remote Desktop Services) or
+    Windows Enterprise multi-session, not this edition (Microsoft Q&A, "by design Remote Desktop on a workstation
+    will only allow one user at a time":
+    https://learn.microsoft.com/en-us/answers/questions/383792/rdp-session-local-user-logs-off-when-the-remote-co).
+  - **The checks' session must stay connected and unlocked for the whole run.** Of the interactive window
+    station's desktops only one is the input desktop, the one visible to the user that receives input; the
+    system switches to the Winlogon desktop on Ctrl+Alt+Del and the UAC prompt, and to the ScreenSaver desktop for
+    a secure screen saver (Microsoft Learn, "Desktops",
+    https://learn.microsoft.com/en-us/windows/win32/winstation/desktops). A disconnected session's programs keep
+    running (Microsoft Learn, tsdiscon,
+    https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tsdiscon), but its Default
+    desktop is no longer an input desktop and nothing is displayed: the condition `--hidden` creates, so expect
+    its results (DirectDraw and Direct3D 9 fall back to OpenGL, the CPU driver's first present fails, GetCursorPos
+    fails). GUI test tools say the same: SmartBear's TestComplete documents that GUI tests fail once the Remote
+    Desktop window is closed (the session locked, "the computer does not have GUI"), and hands the session to the
+    console with `tscon <session id> /dest:console` instead
+    (https://support.smartbear.com/testcomplete/docs/testing-with/running/via-rdp/keeping-computer-unlocked.html;
+    tscon: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tscon), which on this
+    edition disconnects the user's own session. Not tried here. Turn off the checks' user's screen saver lock and
+    sleep for the run's length.
+  - **A minimized Remote Desktop window stops the session's drawing.** The Remote Desktop client stops asking
+    for screen updates while it is minimized, and the session runs without a display (SmartBear TestLeft,
+    https://support.smartbear.com/testleft/docs/using/running-tests/remote-computers/rdp/running-tests-in-minimized-remote-desktop-window.html,
+    and Telerik, https://docs.telerik.com/teststudio/knowledge-base/test-execution-kb/minimized-rdc: the
+    connecting computer's DWORD `RemoteDesktop_SuppressWhenMinimized` = 2 under
+    `HKLM\Software\Microsoft\Terminal Server Client` keeps it drawing; third-party documentation, Microsoft does not
+    document the value). Keep the window open, or use fast user switching.
+  - **A Remote Desktop session has its own display adapter and mode.** Its screen is the remote display adapter's,
+    at the connecting window's size, not the monitor's mode (compare_rendering.py's fullscreen runs need
+    1024x768x32, "Test server" above). Whether its programs get the real GPU is the policy "Use hardware graphics
+    adapters for all Remote Desktop Services sessions" (Computer Configuration, Administrative Templates, Windows
+    Components, Remote Desktop Services, Remote Desktop Session Host, Remote Session Environment); Windows 11 uses
+    the hardware adapter there by default, Windows 10 used the Microsoft Basic Render Driver (Microsoft Q&A,
+    https://learn.microsoft.com/en-us/answers/questions/1684976/bug-in-win11-rdp-host-hardware-graphics-are-used-b;
+    a report, not a reference page). DirectDraw and Direct3D 9 in a Remote Desktop session were not tried. A fast
+    user switching session is the console's, with the real display adapter and monitor: the closest to the
+    user's own desktop.
 - Compile checks: the oracle-x86 build compiles every `src/*.cpp` and `src/Extern/regexp/*.c` with MSVC 14.51
   for x86 (`/W3`; a warning fails `tools/build.py`, "Building" above) twice: against real MFC (the Patella target) and against
   `src/compat/mfc_shim.h` (the mfc_shim_check target, the former `compile-check.cmd` with `TIBIA_MFC_SHIM`

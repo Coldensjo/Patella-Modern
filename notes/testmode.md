@@ -24,7 +24,11 @@ Run PatellaTest.exe from a run folder (copies of the data files, a patched clien
 from the root. Without `--test-script` it is the client on the system clock, through the same hooks. With a
 script it plays the script on the virtual clock and drops the keyboard and mouse input that comes from Windows,
 so the desktop's own mouse and keyboard cannot reach it (the limit of the GUI comparisons in
-notes/reconstruction.md, "Test server"); its window is still a real window. `--test-log` lists every event it
+notes/reconstruction.md, "Test server"); its window is still a real window, on the desktop of the session it is started in (a second session keeps
+it apart from the user's: notes/reconstruction.md, "Checking", "The live checks in a second session"). On a hidden
+desktop (the tools' experimental `--hidden`, tools/desktop.py, issue #56) it runs only on a GPU, not on the CPU
+driver: its first frame comes before the window is shown, and lavapipe's present into a window not yet shown fails
+there (notes/decisions.md, "The live checks on a hidden desktop"). `--test-log` lists every event it
 dispatched with its virtual time and script line. A script that cannot be read or does not parse ends the
 program before its window opens: exit code 3, the message (`testmode: <file>:<line>: <error>`) on stderr, in the
 log and through OutputDebugString, never a dialog. The client ignores the test mode's words (its command line
@@ -317,9 +321,9 @@ recording itself, and compares it with Tibia.exe's recording. Choices and their 
 "Reference recordings (Patella-Modern issue #23)".
 
 ```
-python -I tools/reference.py record  [--reference DIR] [--sessions a,b] [--live DIR] [--reuse-live]
+python -I tools/reference.py record  [--reference DIR] [--sessions a,b] [--live DIR] [--reuse-live] [--hidden]
 python -I tools/reference.py compare [--reference DIR] [--sessions a,b] [--exe PatellaTest.exe] [--out DIR]
-                                     [--vulkan cpu] [--timeout 600] [--check-only]
+                                     [--vulkan cpu] [--timeout 600] [--check-only] [--hidden]
 python -I tools/reference.py list    [--reference DIR]
 python -I tools/reference.py --self-test
 python -I tools/compare_traffic.py record|compare ...   (the same, with that tool's sessions)
@@ -328,6 +332,13 @@ python -I tools/compare_traffic.py record|compare ...   (the same, with that too
 The reference set's default is `<repository>\build\reference` (gitignored); the orchestrator's set is
 the main checkout's, `C:\Tibia\Patella-Modern\build\reference` (pass `--reference`). Reference recordings are CipSoft-derived local data:
 never committed, pushed or uploaded.
+
+Both run their clients on the desktop of the session they are started in; to keep the user's input away from
+them, run them in a second session (notes/reconstruction.md, "Checking", "The live checks in a second session":
+it has to stay connected and unlocked for the whole run). `--hidden` (issue #56, experimental) runs them on a
+hidden desktop of their own: there `compare` matches only on a GPU (`--vulkan gpu`; the CPU driver's first present
+fails), and `record` gets OpenGL frames from Tibia.exe instead of DirectX 9 ones (notes/decisions.md, "The live
+checks on a hidden desktop").
 
 ### The sessions
 
