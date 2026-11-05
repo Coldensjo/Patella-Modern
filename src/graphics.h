@@ -74,7 +74,9 @@ struct TRGBColor { // passed by value (12 bytes)
 	// 0x48b380 and 0x48b3b0: out-of-line copies at the start of graphics.obj,
 	// the first object that calls them (SurfaceGL.cpp calls 0x48b380 too).
 	// operator!= negates the inlined operator==, as the binary's does.
-	bool operator==(TRGBColor Other) const
+	// Not checked by AddressSanitizer (issue #70): GetVideoPicture compares the colour key of the picture after
+	// the one it draws, past the end of Pictures for the last one, as the original does (graphics.cpp).
+	PATELLA_NO_SANITIZE_ADDRESS bool operator==(TRGBColor Other) const
 	{
 		return R == Other.R && G == Other.G && B == Other.B;
 	}

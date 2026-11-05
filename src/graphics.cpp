@@ -743,7 +743,8 @@ TVideoCacheItem *GetVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColo
 
 // 0x48f020, lines 859-885. The colour key test reads the next picture's key
 // (Pictures[PictureNumber], past the end for the last picture), and both of
-// its branches set the same key (sic).
+// its branches set the same key (sic). Under AddressSanitizer that read is a heap overflow (issue #70), in
+// TRGBColor::operator== (graphics.h).
 TVideoCacheItem *GetVideoPicture(int PictureNumber, int TileX, int TileY)
 {
 	TASSERT2(859, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);

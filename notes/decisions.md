@@ -8989,6 +8989,81 @@ they include) report nothing that is not suppressed in the code with its reason,
   and size); two clean builds of bf3e6df made afterwards agree with each other and with issue-63, so the comparison
   is against those. macrocheck: 2,108 calls, 0 differences.
 
+## Sanitizers over the replayed sessions (Patella-Modern issue #70)
+
+Settled by Claude Opus 5.5, November 5, 2026. The last item of M4's exit (plan section 7, M4: "sanitizers clean over
+all replayed sessions on both platforms"; plan 4.1, gate 7): AddressSanitizer over what each platform replays, every
+finding fixed or suppressed with its reason.
+
+- **What is replayed where** (high). Windows x64: the golden corpus through golden_runner (difftest's, sysinctest's
+  and communicationtest's 17,983,332 comparisons, tests/golden) and the 8 reference sessions through PatellaTest.exe
+  (`tools/reference.py compare`, the server side replayed inside the client); the unit tests (tests_unit, standin,
+  tests_core, tests_testmode, tests_render, tests_vulkan) run under it too. Linux x64: what Linux builds, patella_core,
+  patella_testmode and the unit tests (tests_unit, standin, tests_core, tests_testmode with the replay file's format and
+  schedule and the scripts of tests/testmode, tests_render). Not on Linux yet: golden_runner (tests/golden is MSVC x64
+  only: the client's code against the MFC shim, the runner's patches of its own code; the Linux runner is M6's, plan
+  M6 exit 1, "the golden corpus is complete and green on x64 Windows and Linux") and PatellaTest.exe (the client is
+  Windows-only until M8, whose exit replays the reference recordings on Linux).
+- **The preset windows-x64-asan** (high; plan section 5 names it). windows-x64 with `PATELLA_SANITIZE=address`, which
+  cmake/Hardening.cmake now takes for MSVC too (only `address`: MSVC has no UBSan and no LeakSanitizer):
+  `/fsanitize=address` on every target patella_target_hardening sets up (the client, the test build, golden_runner,
+  the unit tests, the Vulkan back end and its libraries; not glslang, the build's own shader compiler, nor patcap.dll,
+  which are not product targets); every executable linked with `/DEBUG /INCREMENTAL:NO` and given
+  clang_rt.asan_dynamic-x86_64.dll next to it, copied from the compiler's folder after the link (the one ASan runtime
+  of every CRT and configuration since MSVC 14.37; the Debug executables import it too), so it runs without a
+  developer prompt's PATH. ASan is incompatible with /RTC and incremental linking: the preset sets
+  CMAKE_<LANG>_FLAGS_DEBUG to `/Ob0 /Od` and the Debug linker flags to `/debug /INCREMENTAL:NO`, and a PDB in Release
+  too (CMAKE_MSVC_DEBUG_INFORMATION_FORMAT, the reports' symbols); the configure stops when /RTC is still in a
+  configuration's flags or the runtime is missing. Workflows `windows-x64-asan` (Release) and
+  `windows-x64-asan-debug`, build tree build\windows-x64-asan. Both configurations run: Debug's unoptimised code
+  checks every access, Release is what the product compiles. ASAN_OPTIONS is not set: a finding stops the process
+  (MSVC's default), so CTest and the reference compare fail on it; `ASAN_OPTIONS=continue_on_error=1` lists every
+  finding of one run (how the findings below were collected).
+- **LeakSanitizer** (high). Linux only (linux-x64-clang's test presets, `detect_leaks=1`, as since issue #7), over the
+  unit tests, which leak nothing: it finds nothing. MSVC has none. Over the client it would be no check: the original
+  leaks on purpose (notes/ownership.md, section 5: the queued messages, ExitStatus, the tables Init* drops, the test
+  mode's clock state) and ends with exit(1) or ExitProcess with its windows alive, so every run would list those; the
+  client is Windows-only until M8, where there is no LeakSanitizer. M8 (the Linux client) decides it again, with a
+  suppression list of the kept leaks.
+- **Findings** (high), from the ASan runs (Windows Release and Debug; Linux Release and Debug found nothing):
+
+  | Sanitizer | Finding | Where | Kind | What was done | Reason |
+  |---|---|---|---|---|---|
+  | MSVC ASan | heap-buffer-overflow, a 4-byte read 16 bytes past Pictures | graphics.cpp GetVideoPicture's colour key test, in TRGBColor::operator== (graphics.h); golden Graphics test | the original's bug | `PATELLA_NO_SANITIZE_ADDRESS` on TRGBColor::operator== | the original compares `Pictures[PictureNumber].ColorKey`, the next picture's (past the end for the last); both branches set the same key, so the result never matters. Removing the read changes the image's function (0x48f020): kept until M6 |
+  | MSVC ASan | global-buffer-overflow, 1-byte reads just past ReceiveData (3) | Utils.cpp TReadBuffer::GetByte from Network.cpp GetNextCommand; golden Network test | the original's bug | `PATELLA_NO_SANITIZE_ADDRESS` on Network.cpp's ReceiveData and SendData (no redzones; MSVC applies it to globals) | PrepareNextPacket sets the read buffer's size from the packet's inner length, which can exceed the data read: the original then reads on past ReceiveData (0x715540) into SendData (0x719540) and the globals after it. The redzones also changed what was read (the Network test failed 5 comparisons); without them the read sees the neighbours of the build without ASan, and TReadBuffer keeps its checks. A real out-of-bounds read on a hostile server's packet: M5 (an assertion) or M7 |
+  | MSVC ASan | (test instrument) tests_vulkan's census: 360 handles of ended threads "started elsewhere" | tests/vulkan/render_test.cpp, issue #53's census | false positive | under ASan the census counts threads that start in the ASan runtime as lavapipe's | ASan's CreateThread interceptor starts every thread in its own routine, which calls the driver's: the rasterizer threads lavapipe leaves (issue #53) no longer start in vulkan_lvp.dll. The rounds start no other thread (0 elsewhere without ASan) |
+  | MSVC ASan | (test instrument) golden Errors: "our NumberOfBuddies not found by its getter", then 1,020 failures and a stale-corpus stop | tests/golden/errors_tests.cpp FindOwnStatic | false positive | under ASan the getter's code is searched 2,048 bytes deep (256 without) | ASan's prologue (the poisoned frame of TBEGIN's try) puts the getter's `mov r32, [rip+disp32]` 324 bytes in (Release), 1,123 (Debug); the load itself is the same instruction |
+  | MSVC ASan | (test instrument) golden Communication, Debug: 3 + 2 comparisons whose TEND names `Container` with another value, 25 checks fewer | tests/golden/communication_tests.cpp RunFrames | false positive | under ASan our side's lambda fills the stack with the pattern again right before ReceivePackets | Control.cpp's ReceivePackets passes its `int Container`, not yet assigned, to ReceiveOpenContainer and ReceiveCloseContainer, whose TEND prints it when the first GetByte throws (the original's read of an uninitialised local, kept); Both fills the stack with 0x5a5a5a5a first so both sides print the pattern (issue #30). ASan Debug's frames are larger and share slots between scopes, so what Both calls after its fill lands on that slot; a fill from the lambda that calls ReceivePackets covers it. A larger fill in Both (128 KB) did not; nor may the call move without ASan (a function of its own between Both and ReceivePackets broke the Debug build without ASan) |
+
+  Nothing in the reference sessions (PatellaTest.exe under ASan), the unit tests, or Linux's Clang ASan+UBSan+LSan.
+  Issue #65 (TDialogWindow::SetSize reads a child after a rearrange deleted it) is not seen: golden_runner keeps the
+  memory freed during DialogWindow's test until the test ends (issue #28), and no reference session reaches it; it
+  stays issue #65's (M5 or M7). vlong::operator='s self-assignment (issue #63) is never reached.
+- **PATELLA_NO_SANITIZE_ADDRESS** (high; src/compat/msvc.h). `__declspec(no_sanitize_address)` with MSVC's ASan
+  (`__SANITIZE_ADDRESS__`), `__attribute__((no_sanitize("address")))` with Clang's (`__has_feature(address_sanitizer)`;
+  functions and globals), `__attribute__((no_sanitize_address))` with GCC's; empty in every build without ASan, so
+  Patella.exe, PatellaTest.exe, the oracle and the builds without a sanitizer compile the same code as before. Its two
+  uses are the original's reads above; a new one needs a row in the table.
+- **CI** (high). The hosted workflow's new job windows-asan builds windows-x64-asan without the client
+  (`-DPATELLA_CLIENT=OFF`, as the windows-msvc job) in Release and runs its CTest: the unit tests under MSVC's ASan
+  (golden_runner is built and skipped: no corpus). linux-x64-clang's jobs (Release and Debug) run the Linux side as
+  before. Local gates (they read CipSoft-derived data, never in CI): `python -I tools/build.py windows-x64-asan` and
+  `windows-x64-asan-debug` (CTest's golden replays build\golden under ASan), and `python -I tools/reference.py compare
+  --exe build\windows-x64-asan\Release\PatellaTest.exe --out build\reference-compare-asan` (reference.py copies the
+  ASan runtime into the run folder with the CPU driver).
+- **Proof** (high). Behaviour: difftest 16,848,752, sysinctest 67, communicationtest 1,134,513, vlong 3,201, 0 failures
+  (`oracle-x86 --fresh`, and again recording the branch's corpus); golden_runner 16,461,713 replayed, 1,521,619
+  retired, 0 not ported, 0 failures in windows-x64, windows-x64-debug, windows-x64-asan and windows-x64-asan-debug (all
+  --fresh, CTest 13/13, no ASan finding); the unit tests' counts unchanged on every preset, under ASan too; the 8
+  reference sessions with the ASan PatellaTest.exe (Release) match their recordings. Images: pecompare of aa396fa and
+  issue-70 at the same path, oracle and x64 Release Patella.exe, differ in the link stamps only (.text, .data and
+  .rdata identical): PATELLA_NO_SANITIZE_ADDRESS is empty there. macrocheck: 2,108 calls, 0 differences.
+- **Not done** (found). The Debug ASan PatellaTest.exe does not run the reference sessions: tools/patch_client.py
+  finds the four `mov dword ptr [Servers[i].Port], 7171` stores through the PDB, and ASan's Debug code stores through a
+  register after the shadow check (it reports "found 0"); the Release ASan client is patched as before. Teaching
+  patch_client.py that form is a change of its own. The original's out-of-bounds read of the packet buffer (above)
+  stays a real defect for M5 or M7.
+
 ## The remaining pointer and length parameters to spans (Patella-Modern issue #69)
 
 Settled by Claude Opus 5.5, November 5, 2026. These are the parameters #59 and #60 left (their "Not done" lists): the

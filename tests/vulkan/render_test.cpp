@@ -1177,6 +1177,17 @@ TEST_CASE("switching to and from the CPU driver leaves no handles of ours (issue
 
 	// lavapipe's rasterizer threads: every new handle of an ended thread is of a thread vulkan_lvp.dll
 	// started, the same number for every device, at most LP_MAX_THREADS.
+	// Under MSVC's AddressSanitizer (the preset windows-x64-asan, issue #70) every thread starts in the ASan
+	// runtime's own start routine (its CreateThread interceptor), which then calls the driver's: such a thread
+	// counts as lavapipe's here, the only threads the rounds start (none started elsewhere without ASan).
+#if defined(__SANITIZE_ADDRESS__)
+	if (const HMODULE Asan = GetModuleHandleA("clang_rt.asan_dynamic-x86_64.dll"); Asan != nullptr) {
+		MODULEINFO Info = {};
+		REQUIRE(GetModuleInformation(GetCurrentProcess(), Asan, &Info, sizeof Info));
+		const auto Base = reinterpret_cast<uintptr_t>(Info.lpBaseOfDll);
+		LavapipeImages.emplace_back(Base, Base + Info.SizeOfImage);
+	}
+#endif
 	int Rasterizers = 0, Elsewhere = 0;
 	for (const TThreadHandle &Thread : After.Threads) {
 		if (!Thread.Ended)

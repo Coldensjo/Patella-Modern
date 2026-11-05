@@ -69,6 +69,24 @@
 #define PATELLA_GCC_DIAGNOSTIC(Text)
 #endif
 
+// AddressSanitizer's checks off for a function, or (MSVC and Clang) the redzones of a global (issue #70): the
+// original's out-of-bounds reads that ASan reports and that stay until behaviour may change, each listed with
+// its reason in notes/decisions.md ("Sanitizers over the replayed sessions"). Only in a build with ASan (MSVC
+// /fsanitize=address and GCC define __SANITIZE_ADDRESS__, Clang has __has_feature(address_sanitizer));
+// everywhere else nothing, so no other build's code changes.
+#if defined(__SANITIZE_ADDRESS__) && defined(_MSC_VER) && !defined(__clang__)
+#define PATELLA_NO_SANITIZE_ADDRESS __declspec(no_sanitize_address)
+#elif defined(__clang__) && defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define PATELLA_NO_SANITIZE_ADDRESS __attribute__((no_sanitize("address")))
+#endif
+#elif defined(__SANITIZE_ADDRESS__)
+#define PATELLA_NO_SANITIZE_ADDRESS __attribute__((no_sanitize_address))
+#endif
+#if !defined(PATELLA_NO_SANITIZE_ADDRESS)
+#define PATELLA_NO_SANITIZE_ADDRESS
+#endif
+
 // printf's format check of GCC and Clang on a function with a format parameter (MSVC has none).
 #if defined(__GNUC__)
 #define PATELLA_PRINTF_FORMAT(FormatIndex, FirstArgument) [[gnu::format(printf, FormatIndex, FirstArgument)]]

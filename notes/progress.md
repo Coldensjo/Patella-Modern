@@ -336,6 +336,25 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #70 (branch issue-70, November 5, 2026): sanitizers over the replayed sessions, M4's exit. The
+preset windows-x64-asan (MSVC /fsanitize=address through PATELLA_SANITIZE, Release and Debug); the original's two
+out-of-bounds reads suppressed with PATELLA_NO_SANITIZE_ADDRESS (TRGBColor::operator==, Network.cpp's ReceiveData and
+SendData); three test instruments taught ASan's code (tests_vulkan's census, FindOwnStatic's search, RunFrames' stack
+pattern); notes/decisions.md, "Sanitizers over the replayed sessions". `python -I tools/build.py windows-x64-asan
+--fresh` and `windows-x64-asan-debug --fresh` (CTest 13/13 each, 0 warnings): golden_runner 16,461,713 replayed,
+1,521,619 retired, 0 not ported, 0 failures, no ASan finding; the unit tests' counts as without ASan. `python -I
+tools/reference.py compare --exe build\windows-x64-asan\Release\PatellaTest.exe --out build\reference-compare-asan`: every session
+matches, no finding (the Debug ASan client is not patched by patch_client.py: its port stores go through a register).
+linux-x64-clang and -debug (--fresh, ASan, UBSan, LeakSanitizer): 11/11, clean.
+`python -I tools/build.py oracle-x86 --fresh` (CTest 4/4, 0 warnings): 16,848,752 + 67 + 1,134,513 checks and 3,201
+vlong checks, 0 failures; with recording on (`golden_corpus`, the branch's own build\golden) the same counts.
+windows-x64 and -debug (--fresh, CTest 13/13): golden 16,461,713 replayed, 1,521,619 retired, 0 failures; tests_unit
+57/10,080, standin 57/10,082, tests_core 38/360, tests_testmode 35/709, tests_render 14/359, tests_vulkan 14/1,309;
+windows-x64-gcc and the Linux presets (--fresh) 11/11 (Linux tests_unit 56/10,062, Clang 10,060, standin 56/10,064,
+tests_core 38/363), 0 warnings, the analyzers clean. pecompare aa396fa and issue-70 at the same path: the link
+stamps only (.text, .data and .rdata identical, oracle and x64). macrocheck: 2,108 calls, 0 differences. tidy_ci: 4
+findings, 0 new, 0 bugprone. banned_calls: 0. clang-format: clean.
+
 Patella-Modern issue #58, second part (branch issue-58b, November 5, 2026): std::unique_ptr for 7 more globals
 (Skins, the six graphics tables) and 11 more members (TComponent::DrawingList, TLabel::Text and Line,
 TFormattedText::Text and Line, TGraphicsOptionsDialog::Modes, Container.h's entry in its four templates,
