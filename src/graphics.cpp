@@ -16,6 +16,10 @@
 // graphics.h) and TVideoCacheItem's constructor (0x48b3f0, below), which the
 // binary emits before the first function.
 //
+// The try blocks and catch lines the comments name are the original's (its
+// TBEGIN/TEND); since issue #78 the functions here have none apart from the
+// loaders' inner handlers, which turn a file error into a PROGRAM_ERROR.
+//
 // Names: see graphics.h and notes/decisions.md ("graphics.cpp").
 
 #include "graphics.h"
@@ -140,7 +144,6 @@ void LoadSprites(const char *FileName)
 {
 	TASSERT(130, FileName!=NULL);
 	TASSERT(131, strlen(FileName)<PATH_MAX);
-	TBEGIN
 	SpriteFileName.Assign(FileName);
 	try {
 		TReadBinaryFile File;
@@ -155,7 +158,6 @@ void LoadSprites(const char *FileName)
 	} catch (TMyException &) {
 		throw (PROGRAM_ERROR)2;
 	}
-	TEND(148)
 }
 
 // 0x48b9a0, lines 156-212. Decodes a sprite into 32*32 RGB triples: the
@@ -166,7 +168,6 @@ void LoadSprite(int SpriteNumber, uint8 *Buffer)
 {
 	TASSERT2(156, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	TASSERT(157, Buffer!=NULL);
-	TBEGIN
 	TSprite &Sprite = Sprites[SpriteNumber - 1];
 	if (Sprite.Offset == 0) {
 		Sprite.ColorKey.R = 0;
@@ -210,7 +211,6 @@ void LoadSprite(int SpriteNumber, uint8 *Buffer)
 			throw (PROGRAM_ERROR)4;
 		}
 	}
-	TEND(212)
 }
 
 // 0x48bea0, lines 244-272. Tibia.pic: signature, number of pictures, then
@@ -220,7 +220,6 @@ void LoadPictures(const char *FileName)
 {
 	TASSERT(244, FileName!=NULL);
 	TASSERT(245, strlen(FileName)<PATH_MAX);
-	TBEGIN
 	PictureFileName.Assign(FileName);
 	try {
 		TReadBinaryFile File;
@@ -244,7 +243,6 @@ void LoadPictures(const char *FileName)
 	} catch (TMyException &) {
 		throw (PROGRAM_ERROR)3;
 	}
-	TEND(272)
 }
 
 // 0x48c3b0, lines 280-322. Decodes one tile of a picture like a sprite. The
@@ -254,7 +252,6 @@ void LoadPictureTile(int PictureNumber, int TileX, int TileY, uint8 *Buffer)
 {
 	TASSERT2(280, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
 	TASSERT(281, Buffer!=NULL);
-	TBEGIN
 	const TPicture &Picture = Pictures[PictureNumber - 1];
 	try {
 		TReadBinaryFile File;
@@ -286,7 +283,6 @@ void LoadPictureTile(int PictureNumber, int TileX, int TileY, uint8 *Buffer)
 	} catch (TMyException &) {
 		throw (PROGRAM_ERROR)5;
 	}
-	TEND1(322, PictureNumber)
 }
 
 // --- Fonts ---------------------------------------------------------------------
@@ -304,7 +300,6 @@ void InitFont(int FontName, int PictureNumber, int CharsPerLine, int CharWidth, 
 	TASSERT1(348, CharsPerLine>0, CharsPerLine);
 	TASSERT1(349, CharWidth>0, CharWidth);
 	TASSERT1(350, CharHeight>0, CharHeight);
-	TBEGIN
 	TFontInfo &Font = Fonts[FontName - 1];
 	Font.CharHeight = CharHeight;
 	Font.Spacing = Spacing;
@@ -340,13 +335,11 @@ void InitFont(int FontName, int PictureNumber, int CharsPerLine, int CharWidth, 
 			Bottom = Font.Height;
 		Font.Height = Bottom;
 	}
-	TEND2(387, FontName, PictureNumber)
 }
 
 // 0x492c30, line 403. The four fonts and their pictures.
 void InitFonts()
 {
-	TBEGIN
 	NumberOfFonts = 4;
 	static_cast<void>(Fonts.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
 	Fonts.reset(new TFontInfo[4]);
@@ -354,7 +347,6 @@ void InitFonts()
 	InitFont(2, 5, 32, 16, 16, -1, 15);
 	InitFont(3, 6, 32, 8, 8, 0, 10);
 	InitFont(4, 8, 32, 8, 16, 1, 14);
-	TEND(403)
 }
 
 // --- The memory cache ------------------------------------------------------------
@@ -362,7 +354,6 @@ void InitFonts()
 // 0x48c9c0, line 458. Items in one LRU list, item 0 the most recent.
 void InitMemoryCache(int MemoryCacheBytes)
 {
-	TBEGIN
 	MemoryCacheSize = MemoryCacheBytes / (32 * 32 * 3);
 	static_cast<void>(MemoryCacheData.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
 	MemoryCacheData.reset(new uint8[MemoryCacheSize * 32 * 32 * 3]);
@@ -384,7 +375,6 @@ void InitMemoryCache(int MemoryCacheBytes)
 	MostRecentMemoryItem = 0;
 	for (int i = 0; i < HASH_TABLE_SIZE; i++)
 		MemoryHashTable[i] = -1;
-	TEND(458)
 }
 
 // 0x48cc30, line 466. Makes an item the most recent one.
@@ -406,12 +396,11 @@ void TouchMemoryItem(int Position)
 	MostRecentMemoryItem = Position;
 }
 
-// 0x48ce00. The handlers of the TBEGIN/TEND here and in the other Find
-// functions were removed by the compiler (nothing in them can throw); the
-// exception states remain.
+// 0x48ce00. The handlers of the original's TBEGIN/TEND here and in the
+// other Find functions were removed by the compiler (nothing in them can
+// throw); the exception states remain.
 int FindMemorySprite(int SpriteNumber)
 {
-	TBEGIN
 	int Position = MemoryHashTable[SpriteNumber % HASH_TABLE_SIZE];
 	while (Position != -1) {
 		const TMemoryCacheItem &Item = MemoryCache[Position];
@@ -420,13 +409,11 @@ int FindMemorySprite(int SpriteNumber)
 		Position = Item.HashNext;
 	}
 	return -1;
-	TEND(498)
 }
 
 // 0x48ce70
 int FindMemoryPicture(int PictureNumber, int TileX, int TileY)
 {
-	TBEGIN
 	int Position = MemoryHashTable[(PictureNumber + TileX + TileY) % HASH_TABLE_SIZE];
 	while (Position != -1) {
 		const TMemoryCacheItem &Item = MemoryCache[Position];
@@ -436,7 +423,6 @@ int FindMemoryPicture(int PictureNumber, int TileX, int TileY)
 		Position = Item.HashNext;
 	}
 	return -1;
-	TEND(516)
 }
 
 // 0x48cef0, line 522. Empties an item and takes it out of its hash chain.
@@ -475,7 +461,6 @@ TMemoryCacheItem *GetMemorySprite(int SpriteNumber)
 {
 	TASSERT2(553, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	int Position = -1;
-	TBEGIN
 	Position = FindMemorySprite(SpriteNumber);
 	if (Position == -1) {
 		RemoveMemoryItem(LeastRecentMemoryItem);
@@ -488,14 +473,12 @@ TMemoryCacheItem *GetMemorySprite(int SpriteNumber)
 	}
 	TouchMemoryItem(Position);
 	return &MemoryCache[Position];
-	TEND2(569, SpriteNumber, Position)
 }
 
 // 0x48d740, lines 578-595
 TMemoryCacheItem *GetMemoryPicture(int PictureNumber, int TileX, int TileY)
 {
 	TASSERT2(578, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
-	TBEGIN
 	int Position = FindMemoryPicture(PictureNumber, TileX, TileY);
 	if (Position == -1) {
 		RemoveMemoryItem(LeastRecentMemoryItem);
@@ -510,7 +493,6 @@ TMemoryCacheItem *GetMemoryPicture(int PictureNumber, int TileX, int TileY)
 	}
 	TouchMemoryItem(Position);
 	return &MemoryCache[Position];
-	TEND1(595, PictureNumber)
 }
 
 // --- The video cache -------------------------------------------------------------
@@ -521,7 +503,6 @@ TMemoryCacheItem *GetMemoryPicture(int PictureNumber, int TileX, int TileY)
 // VideoCacheSize keeps its old value.
 void InitVideoCache()
 {
-	TBEGIN
 	const int Surfaces = GetSurface()->GetCacheSurfaces();
 	if (Surfaces == 0) {
 		static_cast<void>(VideoCache.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
@@ -551,7 +532,6 @@ void InitVideoCache()
 	MostRecentVideoItem = 0;
 	for (int i = 0; i < HASH_TABLE_SIZE; i++)
 		VideoHashTable[i] = -1;
-	TEND(636)
 }
 
 // 0x48dd70, line 644
@@ -577,7 +557,6 @@ void TouchVideoItem(int Position)
 // steps: the chains can be corrupt, see RemoveVideoItem.
 int FindVideoSprite(int SpriteNumber)
 {
-	TBEGIN
 	int Position = VideoHashTable[SpriteNumber % HASH_TABLE_SIZE];
 	int Count = 0;
 	while (Position != -1) {
@@ -589,14 +568,12 @@ int FindVideoSprite(int SpriteNumber)
 			return -1;
 	}
 	return -1;
-	TEND(681)
 }
 
 // 0x48dfc0. The fourth colour is compared through the out-of-line
 // operator==, the others inline.
 int FindVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColor *Colors)
 {
-	TBEGIN
 	int Position = VideoHashTable[(MaskNumber + SpriteNumber) % HASH_TABLE_SIZE];
 	int Count = 0;
 	while (Position != -1) {
@@ -610,13 +587,11 @@ int FindVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColor *Colors)
 			return -1;
 	}
 	return -1;
-	TEND(706)
 }
 
 // 0x48e0f0. Matches font characters of the picture too (sic).
 int FindVideoPicture(int PictureNumber, int TileX, int TileY)
 {
-	TBEGIN
 	int Position = VideoHashTable[(TileX + PictureNumber + TileY) % HASH_TABLE_SIZE];
 	int Count = 0;
 	while (Position != -1) {
@@ -629,13 +604,11 @@ int FindVideoPicture(int PictureNumber, int TileX, int TileY)
 			return -1;
 	}
 	return -1;
-	TEND(728)
 }
 
 // 0x48e190. A plain picture tile matches colour 0,0,0 (sic).
 int FindVideoFontChar(int PictureNumber, int TileX, int TileY, TRGBColor Color)
 {
-	TBEGIN
 	int Position = VideoHashTable[(TileX + PictureNumber + TileY) % HASH_TABLE_SIZE];
 	int Count = 0;
 	while (Position != -1) {
@@ -648,7 +621,6 @@ int FindVideoFontChar(int PictureNumber, int TileX, int TileY, TRGBColor Color)
 			return -1;
 	}
 	return -1;
-	TEND(750)
 }
 
 // 0x48e250, line 762. Unlike RemoveMemoryItem this ignores position 0 (sic):
@@ -692,7 +664,6 @@ TVideoCacheItem *GetVideoSprite(int SpriteNumber)
 {
 	TASSERT2(793, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	int Position = -1;
-	TBEGIN
 	Position = FindVideoSprite(SpriteNumber);
 	if (Position == -1) {
 		RemoveVideoItem(LeastRecentVideoItem);
@@ -709,7 +680,6 @@ TVideoCacheItem *GetVideoSprite(int SpriteNumber)
 	}
 	TouchVideoItem(Position);
 	return &VideoCache[Position];
-	TEND2(814, SpriteNumber, Position)
 }
 
 // 0x48eb30, lines 824-850. A sprite coloured through a mask (outfits).
@@ -717,7 +687,6 @@ TVideoCacheItem *GetVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColo
 {
 	TASSERT2(824, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	TASSERT2(825, In(MaskNumber,1,NumberOfSprites), MaskNumber, NumberOfSprites);
-	TBEGIN
 	int Position = FindVideoMaskedSprite(SpriteNumber, MaskNumber, Colors);
 	if (Position == -1) {
 		RemoveVideoItem(LeastRecentVideoItem);
@@ -738,7 +707,6 @@ TVideoCacheItem *GetVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColo
 	}
 	TouchVideoItem(Position);
 	return &VideoCache[Position];
-	TEND2(850, SpriteNumber, MaskNumber)
 }
 
 // 0x48f020, lines 859-885. The colour key test reads the next picture's key
@@ -749,7 +717,6 @@ TVideoCacheItem *GetVideoPicture(int PictureNumber, int TileX, int TileY)
 {
 	TASSERT2(859, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
 	int Position = -1;
-	TBEGIN
 	Position = FindVideoPicture(PictureNumber, TileX, TileY);
 	if (Position == -1) {
 		RemoveVideoItem(LeastRecentVideoItem);
@@ -772,7 +739,6 @@ TVideoCacheItem *GetVideoPicture(int PictureNumber, int TileX, int TileY)
 	}
 	TouchVideoItem(Position);
 	return &VideoCache[Position];
-	TEND2(885, PictureNumber, Position)
 }
 
 // 0x48f430, lines 894-919. A tile of a font's picture in a text colour: the
@@ -781,7 +747,6 @@ TVideoCacheItem *GetVideoFontChar(int FontNumber, int TileX, int TileY, TRGBColo
 {
 	TASSERT2(894, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	int Position = -1;
-	TBEGIN
 	const int PictureNumber = Fonts[FontNumber - 1].PictureNumber;
 	Position = FindVideoFontChar(PictureNumber, TileX, TileY, Color);
 	if (Position == -1) {
@@ -804,7 +769,6 @@ TVideoCacheItem *GetVideoFontChar(int FontNumber, int TileX, int TileY, TRGBColo
 	}
 	TouchVideoItem(Position);
 	return &VideoCache[Position];
-	TEND2(919, FontNumber, Position)
 }
 
 // --- Sprites ---------------------------------------------------------------------
@@ -826,11 +790,9 @@ void DrawSpriteClipped(int Surface, int x, int y, int SpriteNumber, TRect Clip)
 	if (SpriteNumber <= 0)
 		return;
 	TASSERT2(948, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
-	TBEGIN
 	const TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
 	GetSurface()->BlitClipped(Surface, x, y, Item->Surface + 6, TRect(Item->x, Item->y, 32, 32),
 		Sprites[SpriteNumber - 1].ColorKey, Clip);
-	TEND2(953, Surface, SpriteNumber)
 }
 
 // 0x48fd80, lines 979-984
@@ -840,17 +802,14 @@ void DrawSpriteScaled(int Surface, int x, int y, int Width, int Height, int Spri
 	if (SpriteNumber == 0)
 		return;
 	TASSERT2(979, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
-	TBEGIN
 	const TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
 	GetSurface()->StretchBlit(Surface, TRect(x, y, Width, Height), Item->Surface + 6,
 		TRect(Item->x, Item->y, 32, 32), Sprites[SpriteNumber - 1].ColorKey, Highlight, Clip);
-	TEND2(984, Surface, SpriteNumber)
 }
 
 // 0x4900d0, lines 998-1003. The assertions are inside the try block here.
 void DrawMaskedSprite(int Surface, int x, int y, int SpriteNumber, int MaskNumber, TRGBColor *Colors)
 {
-	TBEGIN
 	if (MaskNumber == 0) {
 		DrawSprite(Surface, x, y, SpriteNumber);
 		return;
@@ -860,14 +819,12 @@ void DrawMaskedSprite(int Surface, int x, int y, int SpriteNumber, int MaskNumbe
 	const TVideoCacheItem *Item = GetVideoMaskedSprite(SpriteNumber, MaskNumber, Colors);
 	GetSurface()->Blit(Surface, x, y, Item->Surface + 6, TRect(Item->x, Item->y, 32, 32),
 		Sprites[SpriteNumber - 1].ColorKey);
-	TEND2(1003, Surface, SpriteNumber)
 }
 
 // 0x4904b0, lines 1059-1064
 void DrawMaskedSpriteScaled(int Surface, int x, int y, int Width, int Height, int SpriteNumber,
 	int MaskNumber, TRGBColor *Colors, TRGBColor Highlight, TRect Clip)
 {
-	TBEGIN
 	if (MaskNumber == 0) {
 		DrawSpriteScaled(Surface, x, y, Width, Height, SpriteNumber, Highlight, Clip);
 		return;
@@ -877,7 +834,6 @@ void DrawMaskedSpriteScaled(int Surface, int x, int y, int Width, int Height, in
 	const TVideoCacheItem *Item = GetVideoMaskedSprite(SpriteNumber, MaskNumber, Colors);
 	GetSurface()->StretchBlit(Surface, TRect(x, y, Width, Height), Item->Surface + 6,
 		TRect(Item->x, Item->y, 32, 32), Sprites[SpriteNumber - 1].ColorKey, Highlight, Clip);
-	TEND2(1064, Surface, SpriteNumber)
 }
 
 // 0x494ca0, line 1100. An
@@ -888,7 +844,6 @@ void DrawMaskedSpriteScaled(int Surface, int x, int y, int Width, int Height, in
 void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor Highlight, TRect Clip,
 	TFont Font, bool ShowCount)
 {
-	TBEGIN
 	if (Obj.Type == 0)
 		return;
 	int PatternX = 1;
@@ -916,7 +871,6 @@ void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor High
 		const int Height = GetTextHeight(Font.FontNumber, Count);
 		PrintFormattedTextClipped(Surface, x - 1 + Size, y - Height - 1 + Size, Font, Count, Clip);
 	}
-	TEND1(1100, Surface)
 }
 
 // 0x495080, line 1137. A creature's outfit facing south (direction 2) in
@@ -925,7 +879,6 @@ void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor High
 void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, patella::TSpan<const int, 4> Colors,
 	TRGBColor Highlight, TRect Clip, TFont Font)
 {
-	TBEGIN
 	if (OutfitNumber == 0) {
 		if (Colors[0] != 0) {
 			const TObject Obj = {Colors[0], 0, 0};
@@ -956,7 +909,6 @@ void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, patella::
 				SpriteNumber, MaskNumber, OutfitColors.data(), Highlight, Clip);
 		}
 	}
-	TEND1(1137, Surface)
 }
 
 // --- Pictures --------------------------------------------------------------------
@@ -966,7 +918,6 @@ void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, patella::
 void DrawPicture(int Surface, int x, int y, int PictureNumber)
 {
 	TASSERT2(1145, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
-	TBEGIN
 	const TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = 0; TileY < Picture.TilesY; TileY++) {
 		for (int TileX = 0; TileX < Picture.TilesX; TileX++) {
@@ -975,7 +926,6 @@ void DrawPicture(int Surface, int x, int y, int PictureNumber)
 				TRect(Item->x, Item->y, 32, 32), Picture.ColorKey);
 		}
 	}
-	TEND2(1155, Surface, PictureNumber)
 }
 
 // 0x490c60, lines 1164-1182. The part SourceX, SourceY, Width, Height of a
@@ -991,7 +941,6 @@ void DrawPicturePart(int Surface, int x, int y, int PictureNumber, int SourceX, 
 		return;
 	TASSERT1(1166, Width>0, Width);
 	TASSERT1(1167, Height>0, Height);
-	TBEGIN
 	const TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = (SourceY / 32 < 0 ? 0 : SourceY / 32);
 		TileY < ((SourceY + Height + 31) / 32 > Picture.TilesY ? Picture.TilesY : (SourceY + Height + 31) / 32);
@@ -1012,7 +961,6 @@ void DrawPicturePart(int Surface, int x, int y, int PictureNumber, int SourceX, 
 				TRect(Item->x + LeftX, Item->y + TopY, PartWidth - LeftX, PartHeight - TopY), Picture.ColorKey);
 		}
 	}
-	TEND2(1182, Surface, PictureNumber)
 }
 
 // 0x4910e0, lines 1191-1206. As DrawPicturePart, with a clipping rectangle;
@@ -1023,7 +971,6 @@ void DrawPicturePartClipped(int Surface, int x, int y, int PictureNumber, int So
 	TASSERT2(1191, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
 	TASSERT1(1192, Width>0, Width);
 	TASSERT1(1193, Height>0, Height);
-	TBEGIN
 	const TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = (SourceY / 32 < 0 ? 0 : SourceY / 32);
 		TileY < ((SourceY + Height + 31) / 32 > Picture.TilesY ? Picture.TilesY : (SourceY + Height + 31) / 32);
@@ -1045,7 +992,6 @@ void DrawPicturePartClipped(int Surface, int x, int y, int PictureNumber, int So
 				Clip);
 		}
 	}
-	TEND2(1206, Surface, PictureNumber)
 }
 
 // --- Text ------------------------------------------------------------------------
@@ -1062,7 +1008,6 @@ void PrintTextPart(int Surface, int x, int y, int FontNumber, TRGBColor Color, c
 	TASSERT2(1217, Length<=(int)strlen(Text), Length, strlen(Text));
 	TASSERTB1(1218, Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment,
 		"[bug0000845]");
-	TBEGIN
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	if (Alignment != LEFT_ALIGN) {
 		const int Width = GetTextPartWidth(FontNumber, Text, Length);
@@ -1094,7 +1039,6 @@ void PrintTextPart(int Surface, int x, int y, int FontNumber, TRGBColor Color, c
 			Pictures[Font.PictureNumber - 1].ColorKey);
 		x += Font.Widths[Index] + Font.Spacing;
 	}
-	TEND2(1239, Surface, FontNumber)
 }
 
 // 0x4934e0, lines 1249-1273. The whole text, with a clipping rectangle.
@@ -1105,7 +1049,6 @@ void PrintTextClipped(int Surface, int x, int y, int FontNumber, TRGBColor Color
 	TASSERT(1250, Text!=NULL);
 	TASSERTB1(1251, Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment,
 		"[bug0000845]");
-	TBEGIN
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	const int Length = (int)strlen(Text);
 	if (Alignment != LEFT_ALIGN) {
@@ -1138,7 +1081,6 @@ void PrintTextClipped(int Surface, int x, int y, int FontNumber, TRGBColor Color
 			Pictures[Font.PictureNumber - 1].ColorKey, Clip);
 		x += Font.Widths[Index] + Font.Spacing;
 	}
-	TEND2(1273, Surface, FontNumber)
 }
 
 // 0x493af0, lines 1282-1288. The whole text.
@@ -1149,9 +1091,7 @@ void PrintText(int Surface, int x, int y, int FontNumber, TRGBColor Color, const
 	TASSERT(1283, Text!=NULL);
 	TASSERTB1(1284, Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment,
 		"[bug0000845]");
-	TBEGIN
 	PrintTextPart(Surface, x, y, FontNumber, Color, Text, (int)strlen(Text), Alignment);
-	TEND2(1288, Surface, FontNumber)
 }
 
 // 0x493f60, lines 1295-1299
@@ -1159,25 +1099,19 @@ void PrintFormattedText(int Surface, int x, int y, TFont Format, const char *Tex
 {
 	TASSERT1(1295, Format.Alignment==LEFT_ALIGN || Format.Alignment==CENTER_ALIGN || Format.Alignment==RIGHT_ALIGN,
 		Format.Alignment);
-	TBEGIN
 	PrintText(Surface, x, y, Format.FontNumber, Format.Color, Text, Format.Alignment);
-	TEND1(1299, Surface)
 }
 
 // 0x4941d0, line 1309
 void PrintFormattedTextClipped(int Surface, int x, int y, TFont Format, const char *Text, TRect Clip)
 {
-	TBEGIN
 	PrintTextClipped(Surface, x, y, Format.FontNumber, Format.Color, Text, Format.Alignment, Clip);
-	TEND1(1309, Surface)
 }
 
 // 0x4943b0, line 1319
 void PrintFormattedTextPart(int Surface, int x, int y, TFont Format, const char *Text, int Length)
 {
-	TBEGIN
 	PrintTextPart(Surface, x, y, Format.FontNumber, Format.Color, Text, Length, Format.Alignment);
-	TEND1(1319, Surface)
 }
 
 // 0x491710, line 1343. No try block.
@@ -1188,13 +1122,12 @@ int GetFontHeight(int FontNumber)
 }
 
 // 0x491880, lines 1352-1353. The highest visible character of the text.
-// The handlers of this TBEGIN/TEND and of the two following functions were
-// removed by the compiler; the exception states remain.
+// The handlers of the original's TBEGIN/TEND here and of the two following
+// functions were removed by the compiler; the exception states remain.
 int GetTextHeight(int FontNumber, const char *Text)
 {
 	TASSERT2(1352, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	TASSERT(1353, Text!=NULL);
-	TBEGIN
 	const int Length = (int)strlen(Text);
 	int Height = 0;
 	for (int i = 0; i < Length; i++) {
@@ -1212,7 +1145,6 @@ int GetTextHeight(int FontNumber, const char *Text)
 			Height = Fonts[FontNumber - 1].Heights[Index];
 	}
 	return Height;
-	TEND(1368)
 }
 
 // 0x494570, lines 1373-1378
@@ -1220,9 +1152,7 @@ int GetTextWidth(int FontNumber, const char *Text)
 {
 	TASSERT2(1373, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	TASSERT(1374, Text!=NULL);
-	TBEGIN
 	return GetTextPartWidth(FontNumber, Text, (int)strlen(Text));
-	TEND1(1378, FontNumber)
 }
 
 // 0x491b80, lines 1386-1388. The width of the first Length characters,
@@ -1232,7 +1162,6 @@ int GetTextPartWidth(int FontNumber, const char *Text, int Length)
 	TASSERT2(1386, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	TASSERT(1387, Text!=NULL);
 	TASSERT1(1388, Length<=(int)strlen(Text), Length);
-	TBEGIN
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	int Width = 0;
 	for (int i = 0; i < Length; i++) {
@@ -1254,7 +1183,6 @@ int GetTextPartWidth(int FontNumber, const char *Text, int Length)
 	if (Length > 0)
 		Width -= Font.Spacing;
 	return Width;
-	TEND(1404)
 }
 
 // 0x491f50, lines 1410-1411. The number of characters that fit into Width:
@@ -1264,7 +1192,6 @@ int GetFittingTextLength(int FontNumber, const char *Text, int Width)
 {
 	TASSERT2(1410, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	TASSERT(1411, Text!=NULL);
-	TBEGIN
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	int Position = -Font.Spacing;
 	const int Length = (int)strlen(Text);
@@ -1287,7 +1214,6 @@ int GetFittingTextLength(int FontNumber, const char *Text, int Width)
 			return i;
 	}
 	return Length;
-	TEND(1437)
 }
 
 // 0x492260. Where a text with Format goes in the box x, y, Width, Height:
@@ -1311,7 +1237,6 @@ void GetTextPosition(int *TextX, int *TextY, int x, int y, int Width, int Height
 // current surface (ChangeEngine calls it after a new surface is set up).
 void ResetVideoCache()
 {
-	TBEGIN
 	if (VideoCache != nullptr) {
 		for (int i = 0; i < VideoCacheSize; i++)
 			VideoCache[i].Type = EMPTY_ITEM;
@@ -1322,25 +1247,21 @@ void ResetVideoCache()
 		VideoCache = nullptr;
 	}
 	InitVideoCache();
-	TEND(1474)
 }
 
 // 0x492490, line 1498. After Tibia.spr was patched (event 0x46).
 void ReloadSprites()
 {
-	TBEGIN
 	ResetVideoCache();
 	ClearMemoryCache();
 	Sprites.reset();
 	Sprites = nullptr;
 	LoadSprites("Tibia.spr");
-	TEND(1498)
 }
 
 // 0x494900, line 1517. After Tibia.pic was patched (event 0x47).
 void ReloadPictures()
 {
-	TBEGIN
 	ResetVideoCache();
 	ClearMemoryCache();
 	Fonts.reset();
@@ -1351,17 +1272,14 @@ void ReloadPictures()
 	Pictures = nullptr;
 	LoadPictures("Tibia.pic");
 	InitFonts();
-	TEND(1517)
 }
 
 // 0x494af0, line 1539. Called by InitControl with 10 MB. The video cache
 // comes later (InitVideoCache), when the surfaces exist.
 void InitGraphics(int MemoryCacheBytes)
 {
-	TBEGIN
 	LoadSprites("Tibia.spr");
 	LoadPictures("Tibia.pic");
 	InitMemoryCache(MemoryCacheBytes);
 	InitFonts();
-	TEND1(1539, MemoryCacheBytes)
 }

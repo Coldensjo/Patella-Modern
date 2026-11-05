@@ -9,6 +9,9 @@
 // without exception frame), then the asserted ones in line order. The
 // TComponent functions that the binary has only as inline copies in earlier
 // objects (GetNext, GetParent, ...) are in GUI.h.
+//
+// The try blocks and catch lines the comments name are the original's (its
+// TBEGIN/TEND); since issue #78 the functions here have none.
 
 #include "GUI.h"
 #include "Skins.h"
@@ -165,7 +168,6 @@ void DrawSkin(int Surface, int x, int y, int width, int height, int skin, int sr
 	TASSERT1(46, Skins[skin].height>0, Skins[skin].height);
 	TASSERT1(47, width>0, width);
 	TASSERT1(48, height>0, height);
-	TBEGIN
 	if (Skins[skin].width == width && Skins[skin].height == height) {
 		DrawPicturePart(Surface, x, y, 4, Skins[skin].x, Skins[skin].y, Skins[skin].width, Skins[skin].height);
 	} else {
@@ -200,7 +202,6 @@ void DrawSkin(int Surface, int x, int y, int width, int height, int skin, int sr
 			dy += PieceHeight;
 		}
 	}
-	TEND1(86, skin)
 }
 
 // 0x4a1690, lines 99-160. DrawSkin with a clipping rectangle, which is
@@ -214,7 +215,6 @@ void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin,
 	TASSERT1(99, In(skin,0,LASTSKIN-1), skin);
 	TASSERT1(100, width>0, width);
 	TASSERT1(101, height>0, height);
-	TBEGIN
 	if (Skins[skin].width < 1 || Skins[skin].height < 1) {
 		std::stringstream s;
 		s << "some assertions failed " << "(surface: " << Surface << " x: " << x << " y: " << y
@@ -260,7 +260,6 @@ void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin,
 			dy += PieceHeight;
 		}
 	}
-	TEND1(160, skin)
 }
 
 // --- Skin properties ------------------------------------------------------
@@ -271,7 +270,6 @@ void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin,
 // values in another order; they are written here by offset.
 void InitSkinProperties()
 {
-	TBEGIN
 	SkinProperties.CursorHotspot1.x = 0;
 	SkinProperties.CursorHotspot1.y = 0;
 	SkinProperties.CursorHotspot2.x = 4;
@@ -1613,7 +1611,6 @@ void InitSkinProperties()
 	SkinProperties.Data1518.y = 268;
 	SkinProperties.Data1518.width = 0;
 	SkinProperties.Data1518.height = 16;
-	TEND(844)
 }
 
 // --- Timers ---------------------------------------------------------------
@@ -1621,26 +1618,22 @@ void InitSkinProperties()
 // 0x49af20, line 851. Takes the first free entry.
 void AddTimer(TTimer *Timer)
 {
-	TBEGIN
 	int i = 0;
 	while (Timers(i) != nullptr)
 		i++;
 	Timers(i) = Timer;
-	TEND(851)
 }
 
 // 0x49b0d0, line 868
 void RemoveTimer(TTimer *Timer)
 {
 	int i;
-	TBEGIN
 	for (i = Timers.min; i <= Timers.max; i++) {
 		if (Timers(i) == Timer) {
 			Timers(i) = nullptr;
 			return;
 		}
 	}
-	TEND1(868, i)
 }
 
 // 0x4a27c0, line 887. Called by ProcessEvents. The first call only starts
@@ -1648,7 +1641,6 @@ void RemoveTimer(TTimer *Timer)
 void UpdateTimers()
 {
 	int i;
-	TBEGIN
 	static int LastTime = GetMilliseconds();
 	const int elapsed = GetMilliseconds() - LastTime;
 	LastTime = GetMilliseconds();
@@ -1656,14 +1648,12 @@ void UpdateTimers()
 		if (Timers(i) != nullptr && !Timers(i)->IsExpired())
 			Timers(i)->Update(elapsed);
 	}
-	TEND1(887, i)
 }
 
 // 0x49b290, line 905. A time of 0 leaves the timer inactive.
 TTimer::TTimer(int Time, TCallback Callback)
 {
 	this->Callback = Callback;
-	TBEGIN
 	Remaining = Time * 100;
 	if (Remaining == 0) {
 		Active = false;
@@ -1671,7 +1661,6 @@ TTimer::TTimer(int Time, TCallback Callback)
 		AddTimer(this);
 		Active = true;
 	}
-	TEND(905)
 }
 
 // 0x4a1dc0, the deleting destructor; this destructor is inlined into it.
@@ -1685,7 +1674,6 @@ TTimer::~TTimer()
 // the time is up.
 void TTimer::Update(int elapsed)
 {
-	TBEGIN
 	if (Active) {
 		if (Remaining > 0) {
 			Remaining -= elapsed;
@@ -1698,7 +1686,6 @@ void TTimer::Update(int elapsed)
 			Active = false;
 		}
 	}
-	TEND1(947, elapsed)
 }
 
 // --- TComponent -------------------------------------------------------------
@@ -1751,7 +1738,6 @@ bool TComponent::IsChild([[maybe_unused]] TComponent *Child)
 TComponent *TComponent::GetPrevious()
 {
 	TASSERT(1057, Parent!=NULL);
-	TBEGIN
 	TComponent *Search = Parent->GetFirstChild();
 	while (Search != nullptr) {
 		if (Search->GetNext() == this)
@@ -1759,7 +1745,6 @@ TComponent *TComponent::GetPrevious()
 		Search = Search->GetNext();
 	}
 	return nullptr;
-	TEND(1066)
 }
 
 // 0x49bee0, lines 1092-1093. No try block.
@@ -1776,7 +1761,6 @@ void TComponent::SetSize(int _Width, int _Height)
 void TComponent::Draw(int Surface, int x, int y)
 {
 	int i = 0;
-	TBEGIN
 	for (; i < DrawingListLength; i++) {
 		if (DrawingList[i].skin == 0)
 			continue;
@@ -1803,7 +1787,6 @@ void TComponent::Draw(int Surface, int x, int y)
 		DrawSkin(Surface, DrawingList[i].x + x, DrawingList[i].y + y, DrawingList[i].width,
 			DrawingList[i].height, DrawingList[i].skin, DrawingList[i].srcx, DrawingList[i].srcy);
 	}
-	TEND2(1163, Surface, i)
 }
 
 // --- TWindow ----------------------------------------------------------------
@@ -1839,10 +1822,8 @@ void TWindow::AppendChild(TComponent *Child)
 // 0x49c6f0, line 1231
 void TWindow::DeleteChild(TComponent *Child)
 {
-	TBEGIN
 	RemoveChild(Child);
 	delete Child;
-	TEND(1231)
 }
 
 // 0x49c890, lines 1239-1260. The assertions before the try block. A child
@@ -1852,7 +1833,6 @@ void TWindow::RemoveChild(TComponent *Child)
 {
 	TASSERT(1239, Child!=NULL);
 	TASSERT(1240, Child->Parent==this);
-	TBEGIN
 	if (Child == Capture) {
 		Child->StopDragging();
 		Child->ReleaseCapture(nullptr);
@@ -1871,7 +1851,6 @@ void TWindow::RemoveChild(TComponent *Child)
 	}
 	Child->Parent = nullptr;
 	Child->Next = nullptr;
-	TEND(1260)
 }
 
 // 0x49cd00, lines 1269-1287. Inserts the child after Previous, at the front
@@ -1880,7 +1859,6 @@ void TWindow::InsertChildAfter(TComponent *Previous, TComponent *Child)
 {
 	TASSERT(1269, Child!=NULL);
 	TASSERT(1270, Child->Parent==NULL);
-	TBEGIN
 	if (Previous == nullptr) {
 		InsertChild(Child);
 		return;
@@ -1893,7 +1871,6 @@ void TWindow::InsertChildAfter(TComponent *Previous, TComponent *Child)
 	Child->Parent = this;
 	Child->Next = Search->Next;
 	Search->Next = Child;
-	TEND(1287)
 }
 
 // 0x49d200, lines 1295-1347. The first five assertions are before the try
@@ -1907,7 +1884,6 @@ void TWindow::SwapChildren(TComponent *Child1, TComponent *Child2)
 	TASSERT(1297, Child1->Parent==this);
 	TASSERT(1298, Child2->Parent==this);
 	TASSERT(1299, FirstChild!=NULL);
-	TBEGIN
 	TComponent *Before1 = nullptr;
 	TComponent *Search1 = FirstChild;
 	while (Search1 != nullptr && Search1 != Child1) {
@@ -1945,18 +1921,15 @@ void TWindow::SwapChildren(TComponent *Child1, TComponent *Child2)
 		InsertChildAfter(Before1, Search1);
 		InsertChildAfter(Before2, Search2);
 	}
-	TEND(1347)
 }
 
 // 0x49da60, line 1389
 void TWindow::SetPosition(int _OffsetX, int _OffsetY)
 {
-	TBEGIN
 	OffsetX = _OffsetX;
 	OffsetY = _OffsetY;
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next)
 		Child->PositionChanged();
-	TEND2(1389, _OffsetX, _OffsetY)
 }
 
 // 0x4a2590. Deletes the children. The deleting destructor is 0x4a29e0.
@@ -1969,20 +1942,16 @@ TWindow::~TWindow()
 // 0x4a2600, line 1408. The window's own drawing list, then the children.
 void TWindow::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	TComponent::Draw(Surface, x, y);
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next)
 		Child->Draw(Surface, Child->OffsetX + x, Child->OffsetY + y);
-	TEND1(1408, Surface)
 }
 
 // 0x49dc20, line 1424
 void TWindow::Arrange()
 {
-	TBEGIN
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next)
 		Child->Arrange();
-	TEND(1424)
 }
 
 // 0x49ddc0, line 1448. The mouse functions go to the capture if there is
@@ -1990,7 +1959,6 @@ void TWindow::Arrange()
 // child coordinates.
 bool TWindow::MouseMove(int x, int y)
 {
-	TBEGIN
 	if (Capture != nullptr)
 		return Capture->MouseMove(x - Capture->OffsetX, y - Capture->OffsetY);
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
@@ -1999,13 +1967,11 @@ bool TWindow::MouseMove(int x, int y)
 			return true;
 	}
 	return false;
-	TEND2(1448, x, y)
 }
 
 // 0x49dff0, line 1472
 bool TWindow::LeftButtonDown(int x, int y, int Flags)
 {
-	TBEGIN
 	if (Capture != nullptr)
 		return Capture->LeftButtonDown(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
@@ -2014,13 +1980,11 @@ bool TWindow::LeftButtonDown(int x, int y, int Flags)
 			return true;
 	}
 	return false;
-	TEND2(1472, x, y)
 }
 
 // 0x49e230, line 1496
 bool TWindow::LeftButtonUp(int x, int y, int Flags)
 {
-	TBEGIN
 	if (Capture != nullptr)
 		return Capture->LeftButtonUp(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
@@ -2029,13 +1993,11 @@ bool TWindow::LeftButtonUp(int x, int y, int Flags)
 			return true;
 	}
 	return false;
-	TEND2(1496, x, y)
 }
 
 // 0x49e470, line 1520
 bool TWindow::LeftButtonDoubleClick(int x, int y, int Flags)
 {
-	TBEGIN
 	if (Capture != nullptr)
 		return Capture->LeftButtonDoubleClick(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
@@ -2044,13 +2006,11 @@ bool TWindow::LeftButtonDoubleClick(int x, int y, int Flags)
 			return true;
 	}
 	return false;
-	TEND2(1520, x, y)
 }
 
 // 0x49e6b0, line 1544
 bool TWindow::RightButtonUp(int x, int y, int Flags)
 {
-	TBEGIN
 	if (Capture != nullptr)
 		return Capture->RightButtonUp(x - Capture->OffsetX, y - Capture->OffsetY, Flags);
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
@@ -2059,13 +2019,11 @@ bool TWindow::RightButtonUp(int x, int y, int Flags)
 			return true;
 	}
 	return false;
-	TEND2(1544, x, y)
 }
 
 // 0x49e8f0, line 1568
 bool TWindow::MouseWheel(int x, int y, int Direction)
 {
-	TBEGIN
 	if (Capture != nullptr)
 		return Capture->MouseWheel(x - Capture->OffsetX, y - Capture->OffsetY, Direction);
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
@@ -2074,28 +2032,24 @@ bool TWindow::MouseWheel(int x, int y, int Direction)
 			return true;
 	}
 	return false;
-	TEND2(1568, x, y)
 }
 
 // 0x49eb30, line 1588. No capture check; only the first child under the
 // point gets it.
 void TWindow::MouseHover(int x, int y)
 {
-	TBEGIN
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)) {
 			Child->MouseHover(x - Child->OffsetX, y - Child->OffsetY);
 			return;
 		}
 	}
-	TEND2(1588, x, y)
 }
 
 // 0x49ed10, line 1611. No capture check. The child that explains itself
 // moves the help area by its offset; without one the help handle is cleared.
 bool TWindow::HelpMouseMove(int x, int y)
 {
-	TBEGIN
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->Next) {
 		if (In(x - Child->OffsetX, 0, Child->Width - 1) && In(y - Child->OffsetY, 0, Child->Height - 1)
 			&& Child->HelpMouseMove(x - Child->OffsetX, y - Child->OffsetY)) {
@@ -2105,7 +2059,6 @@ bool TWindow::HelpMouseMove(int x, int y)
 	}
 	SetHelpHandle(0);
 	return false;
-	TEND2(1611, x, y)
 }
 
 // 0x49ef10, lines 1633-1638. The assertion is before the try block. The
@@ -2113,33 +2066,27 @@ bool TWindow::HelpMouseMove(int x, int y)
 void TWindow::SetCapture(TComponent *Component)
 {
 	TASSERT(1633, Capture==NULL);
-	TBEGIN
 	Capture = Component;
 	if (Parent != nullptr)
 		Parent->SetCapture(this);
-	TEND(1638)
 }
 
 // 0x49f1a0, lines 1648-1653. The assertion is before the try block.
 void TWindow::ReleaseCapture(TComponent *Component)
 {
 	TASSERT(1648, Capture==Component);
-	TBEGIN
 	Capture = nullptr;
 	if (Parent != nullptr)
 		Parent->ReleaseCapture(this);
-	TEND(1653)
 }
 
 // 0x49f430, line 1668. Does not release the parents' capture.
 void TWindow::StopDragging()
 {
-	TBEGIN
 	if (Capture != nullptr) {
 		Capture->StopDragging();
 		Capture = nullptr;
 	}
-	TEND(1668)
 }
 
 // 0x49f5d0, lines 1679-1690. Negative coordinates count from the right and
@@ -2151,7 +2098,6 @@ void TWindow::SetChildArea(TComponent *Child, TRect Area)
 	TASSERT(1679, Child->Parent==this);
 	TASSERT1(1680, Width>0, Width);
 	TASSERT1(1681, Height>0, Height);
-	TBEGIN
 	if (Area.x < 0)
 		Area.x = Width + Area.x;
 	if (Area.y < 0)
@@ -2162,7 +2108,6 @@ void TWindow::SetChildArea(TComponent *Child, TRect Area)
 	if (Area.height < 1)
 		Area.height = (Height - Area.y) + Area.height;
 	Child->SetSize(Area.width, Area.height);
-	TEND(1690)
 }
 
 // 0x49fa40, lines 1700-1708. The assertions are before the try block.
@@ -2171,13 +2116,11 @@ void TWindow::SetChildPosition(TComponent *Child, int x, int y)
 	TASSERT(1700, Child->Parent==this);
 	TASSERT1(1701, Width>0, Width);
 	TASSERT1(1702, Height>0, Height);
-	TBEGIN
 	if (x < 0)
 		x = Width + x;
 	if (y < 0)
 		y = Height + y;
 	Child->SetPosition(x, y);
-	TEND(1708)
 }
 
 // 0x49fe70, lines 1724-1738. Sizes the window to the child placed at
@@ -2190,7 +2133,6 @@ void TWindow::FitToChild(TComponent *Child, TRect Area, bool Notify)
 	TASSERT(1724, Child!=NULL);
 	TASSERT1(1725, Child->getWidth()>0, Child->getWidth());
 	TASSERT1(1726, Child->getHeight()>0, Child->getHeight());
-	TBEGIN
 	int NewWidth = Child->Width + (Area.x > 0 ? Area.x : 0) + (Area.width < 0 ? -Area.width : 0);
 	int NewHeight = (Area.y > 0 ? Area.y : 0) + Child->Height + (Area.height < 0 ? -Area.height : 0);
 	const int MinimumWidth = getMinimumWidth();
@@ -2203,7 +2145,6 @@ void TWindow::FitToChild(TComponent *Child, TRect Area, bool Notify)
 		SetSize(NewWidth, NewHeight);
 	else
 		TComponent::SetSize(NewWidth, NewHeight);
-	TEND(1738)
 }
 
 // 0x4a0300, lines 1772-1794. Moves the children so that their bounding box
@@ -2212,7 +2153,6 @@ void TWindow::FitToChild(TComponent *Child, TRect Area, bool Notify)
 // the minimum size. Nothing happens without children.
 void TWindow::FitToChildren(TRect Margin, bool Notify)
 {
-	TBEGIN
 	if (FirstChild == nullptr)
 		return;
 	int LeastX = INT_MAX;
@@ -2250,7 +2190,6 @@ void TWindow::FitToChildren(TRect Margin, bool Notify)
 		SetSize(Width, Height);
 	else
 		TComponent::SetSize(Width, Height);
-	TEND(1794)
 }
 
 // 0x4a0920, line 1860. Cuts the children to the window. A child that
@@ -2259,7 +2198,6 @@ void TWindow::FitToChildren(TRect Margin, bool Notify)
 // and bottom edges use the old position.
 void TWindow::ClipChildren(bool Strict)
 {
-	TBEGIN
 	if (FirstChild != nullptr) {
 		TComponent *Next = FirstChild;
 		while (Next != nullptr) {
@@ -2303,7 +2241,6 @@ void TWindow::ClipChildren(bool Strict)
 			}
 		}
 	}
-	TEND(1860)
 }
 
 // --- TElement -------------------------------------------------------------
@@ -2312,19 +2249,15 @@ void TWindow::ClipChildren(bool Strict)
 // not used.
 void TElement::SetCapture([[maybe_unused]] TComponent *Component)
 {
-	TBEGIN
 	if (GetParent() != nullptr)
 		GetParent()->SetCapture(this);
-	TEND(1893)
 }
 
 // 0x4a0d60, line 1905
 void TElement::ReleaseCapture([[maybe_unused]] TComponent *Component)
 {
-	TBEGIN
 	if (GetParent() != nullptr)
 		GetParent()->ReleaseCapture(this);
-	TEND(1905)
 }
 
 // --- TCallback --------------------------------------------------------------
@@ -2332,10 +2265,8 @@ void TElement::ReleaseCapture([[maybe_unused]] TComponent *Component)
 // 0x4a0f00, line 1931
 void TCallback::Send() const
 {
-	TBEGIN
 	if (Receiver != nullptr)
 		Receiver->HandleEvent(Event);
-	TEND(1931)
 }
 
 // --- Hotkeys --------------------------------------------------------------
@@ -2344,7 +2275,6 @@ void TCallback::Send() const
 void AddHotkey(int Key, TCallback Callback)
 {
 	int i;
-	TBEGIN
 	for (i = 0; i < NumberOfHotkeys; i++) {
 		if (Key == Hotkeys(i).Key) {
 			Hotkeys(i).Callback = Callback;
@@ -2354,14 +2284,12 @@ void AddHotkey(int Key, TCallback Callback)
 	Hotkeys(NumberOfHotkeys).Key = Key;
 	Hotkeys(NumberOfHotkeys).Callback = Callback;
 	NumberOfHotkeys++;
-	TEND1(1965, i)
 }
 
 // 0x4a12a0, lines 1983. The last entry takes the place of the removed one.
 void RemoveHotkey(int Key)
 {
 	int i;
-	TBEGIN
 	for (i = 0; i < NumberOfHotkeys; i++) {
 		if (Key == Hotkeys(i).Key) {
 			Hotkeys(i) = Hotkeys(NumberOfHotkeys - 1);
@@ -2369,7 +2297,6 @@ void RemoveHotkey(int Key)
 			return;
 		}
 	}
-	TEND2(1983, Key, i)
 }
 
 // 0x4a1480, line 2004. Called by Control.cpp's KeyPress when no modal window
@@ -2377,7 +2304,6 @@ void RemoveHotkey(int Key)
 bool CheckHotkey(int Key)
 {
 	int i;
-	TBEGIN
 	if ((Key & 0x200) != 0)
 		Key -= 0x200;
 	if ((Key & 0x1ff) > 0x60 && (Key & 0x1ff) < 0x7b)
@@ -2389,5 +2315,4 @@ bool CheckHotkey(int Key)
 		}
 	}
 	return false;
-	TEND2(2004, Key, i)
 }
