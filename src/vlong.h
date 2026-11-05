@@ -10,13 +10,14 @@
 
 #include "common.h"
 #include "compat/span.h"
+#include <memory>
 
 class flex_unit {
 public:
 	unsigned n; // +0x0, units in use
 private:
-	unsigned *a; // +0x4
-	unsigned z;  // +0x8, units allocated
+	std::unique_ptr<unsigned[]> a; // +0x4, the units (issue #58: their only owner)
+	unsigned z;                    // +0x8, units allocated
 public:
 	flex_unit()
 	{

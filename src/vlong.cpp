@@ -9,11 +9,21 @@
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 constexpr auto BPU = 8 * sizeof(unsigned); // bits per unit (size_t, as the macro was)
 #define lo(x) ((x) & ((1 << (BPU / 2)) - 1))
 #define hi(x) ((x) >> (BPU / 2))
 #define lh(x) ((x) << (BPU / 2))
+
+// flex_unit::a as a std::unique_ptr<unsigned[]> (issue #58): a pointer at the original's offset. reserve() frees the
+// old block (reset()) before it stores the new one, the destructor frees it where the original had delete[].
+static_assert(sizeof(std::unique_ptr<unsigned[]>) == sizeof(unsigned *)
+		&& alignof(std::unique_ptr<unsigned[]>) == alignof(unsigned *),
+	"std::unique_ptr<unsigned[]> is a pointer");
+#if PATELLA_ORIGINAL_LAYOUT
+static_assert(sizeof(flex_unit) == 0xc, "flex_unit's layout");
+#endif
 
 // 0x50bff0
 void flex_unit::reserve(unsigned x)
@@ -22,8 +32,8 @@ void flex_unit::reserve(unsigned x)
 		unsigned *na = new unsigned[x];
 		for (unsigned i = 0; i < n; i += 1)
 			na[i] = a[i];
-		delete[] a;
-		a = na;
+		a.reset();
+		a.reset(na);
 		z = x;
 	}
 }
@@ -232,7 +242,7 @@ flex_unit::~flex_unit()
 		i -= 1;
 		a[i] = 0;
 	}
-	delete[] a;
+	a.reset();
 }
 
 // 0x50c560
