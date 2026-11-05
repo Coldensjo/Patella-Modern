@@ -233,6 +233,12 @@ One kind change is kept at its boundary: InitObjects catches every exception of 
 whose sprite count makes new[] throw still ends with PROGRAM_ERROR 1. One is recorded: with the heap exhausted,
 readString's std::bad_alloc under LoadAutomapBlock now ends the client instead of emptying the automap block.
 difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822 retired, 0 failures.
+TBEGIN/TEND deleted, part 2 (Patella-Modern issue #78, branch issue-78b, November 5, 2026; M5): the 181 try blocks
+of graphics.cpp, GUI.cpp, MainWindow.cpp, MapWindow.cpp and MainFrm.cpp go (796 left in 10 files). Kept: the four
+loaders' file errors to PROGRAM_ERROR 2-5, MainWindow::Draw's start window to PROGRAM_ERROR 12, AddLightSource's
+message. No kind change reaches another handler; one is recorded: with the heap exhausted, MFC's CMemoryException in
+a frame handler is now reported by MFC's window procedure instead of ending the client. difftest 16,459,337 / 67 /
+856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822 retired, 0 failures.
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -378,6 +384,15 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #78, part 2 (branch issue-78b, November 5, 2026): TBEGIN/TEND deleted from graphics.cpp,
+GUI.cpp, MainWindow.cpp, MapWindow.cpp and MainFrm.cpp (181 try blocks in 165 functions); three MainFrm parameters
+[[maybe_unused]]. `python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67, communicationtest 856,621,
+vlongtest 3,201, 0 failures, CTest 4/4 (every count unchanged). golden on main's corpus 15,803,203 replayed + 1,512,822
+retired = 17,316,025, 0 failures (windows-x64 14/14, -debug 13/13, -asan 13/13, no ASan finding); windows-x64-gcc and
+the Linux presets 11/11, 0 warnings. reference.py compare: 4 sessions match. Images by function (x86 and x64): only
+the part's functions changed (18 on x86, 17 on x64 now inlined into the part's callers) and the two deleting destructors that inline
+its destructors. tidy_ci: 20 findings, 0 new. banned_calls 0, clang-format clean. Logs: build\logs\issue-78b.
 
 Patella-Modern issue #78, part 1 (branch issue-78a, November 5, 2026): TBEGIN/TEND deleted from Script.cpp,
 Inventory.cpp, Player.cpp, Status.cpp, Objects.cpp, Map.cpp and Creatures.cpp (153 try blocks); InitObjects catches
