@@ -10111,3 +10111,73 @@ banned_calls 0; clang-format clean. Logs: build\logs\issue-77.
   C:\Tibia\Patella-Modern\build\reference`: the four sessions match (error with #74's deliberate differences). tidy_ci
   20 findings, 0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs: build\logs\issue-78b. Left after
   part 2: 796 TBEGIN in 10 files (parts 3-7).
+
+### Part 3 (issue-78c): Talk, ConsoleWindow, ContextMenus
+
+- **Deleted** (high). 168 TBEGIN/TEND pairs in 168 functions: Talk.cpp 64, ConsoleWindow.cpp 71, ContextMenus.cpp 33.
+  Every block is the rest of its function's body at the body's indentation (no inner block, no declaration of the
+  block's own: the scopes and lifetimes are the same), so clang-format moves nothing. No parameter was named only by
+  a TEND (TPrivateTalkBuffer's TalkMode and TRuleViolationTalkBuffer's ReceiveTalkMode go to the base class). One
+  local was: TTalkBuffer::Write's `bytes` (the original's catch name for the FILE's slot) stays, `[[maybe_unused]]`
+  (MSVC's C4189 and -Wunused-variable). TTab's and TConsoleWindow's destructors lose the C4297 pragma (the rethrowing
+  handlers it was for are gone; an exception of their calls still passes out to the caller: TComponent's destructor
+  is noexcept(false)), and GUI.cpp's comment on that destructor no longer counts them among the classes with
+  TBEGIN/TEND. Each file's header says the try blocks and catch lines its comments name are the original's.
+- **Kept** (high). Nothing: none of the three files has a handler of its own besides the TENDs (no try or catch
+  left in them). TASSERT*/TERROR* stay (#79).
+- **The kinds** (high). The handlers that catch a TMyException by type (no `catch (...)` that gives the same kind) and
+  whose try block reaches a function of this part: Preferences.cpp's two, InitPreferences (Tibia.cfg's White and
+  Ignore lists through AddBuddyIgnore and IgnoreName, so AddIgnoreFilter, FindTalkFilter and AddTalkFilter) and
+  SavePreferences (GetBuddyIgnoreText, IsPermanentBuddyIgnore, GetIgnoreListText, IsPermanentIgnore). No other one:
+  graphics.cpp's loaders, Map.cpp's automap pair and FindPath, MapWindow.cpp's AddLightSource and Communication.cpp's
+  cylinder loop reach no function of the part; Control.cpp's ChangeEngine pairs each `catch (TMyException &)` with a
+  `catch (...)` (a TMyException too) and InitControl's `catch (PROGRAM_ERROR)` (around InitTalk) is followed by its
+  own TEND; MainWindow::Draw's handler takes every type. Every other path into the part comes through a remaining
+  TEND (Control.cpp's event handlers under MainFrm's, Communication.cpp's packet handlers, the content windows'
+  and dialogs'; parts 4-7) or the top-level handlers, so no new type reaches MFC's AfxCallWndProc. The third-type
+  sources in the part's functions: Talk.cpp allocates only with `new (std::nothrow)` (a null on an exhausted heap,
+  then a write through it: a structured exception) and grows its filter lists through Container.h (`new T[n]`,
+  std::bad_alloc); ConsoleWindow.cpp and ContextMenus.cpp allocate with plain `new` of fixed sizes or of sizes bounded
+  by a text (a caption, a selection of lines, a 30-character name), and use std::stringstream and std::format (TFile's
+  Print) for text; no size comes from input in a way that can make it negative or huge. Two cases, both recorded,
+  not kept (only an exhausted heap reaches them):
+  - **InitPreferences** (recorded). Before, std::bad_alloc of a filter list's growth (Tibia.cfg's lists) became a
+    TMyException, so InitPreferences set the defaults and went on; now it reaches the top-level handlers and the
+    client ends with the "Tibia Error" box. The growth needs as many list entries in Tibia.cfg as the heap has room
+    for their slots (and each entry its own TTalkFilter first), so a damaged file of ordinary size cannot get there.
+  - **SavePreferences, /EHa only** (recorded). GetBuddyIgnoreText's and GetIgnoreListText's `new (std::nothrow)` gives
+    a null on an exhausted heap, and the first write through it is an access violation. Under /EHa the TEND's
+    `catch (...)` made it a TMyException that SavePreferences ignored; now it passes. The x64 client and the oracle's
+    Patella.exe build with /EHsc, whose `catch (...)` never caught one, so nothing changes in a client; difftest,
+    sysinctest and communicationtest (/EHa) count the same (below).
+  Only the fork's stderr line names a different message where an exception reaches the top level as its own type.
+- **The images** (high). Main (ebc405f) and the branch built at the same path (this worktree), the oracle's and the x64
+  Release Patella.exe, function by function through the PDBs: issue-78c-scripts\funcs.py, classify.py and owners.py
+  next to the worktree (never committed; part 2's went with its worktree) on `dumpbin /disasm:nobytes`, the padding
+  between functions dropped, the addresses outside a function masked (x64 also its image-relative displacements and
+  table offsets), the jumps inside it as offsets from its start, the code compared up to its first switch table; a
+  function is the part's when its class and name are defined in one of the three files.
+  - x86: 11,470 functions to 11,459; 11,300 the same; 157 changed, every one of the part; 12 gone, inlined into
+    their callers of the part now that they have no EH state (TTabBar's constructor, TTab::SetActive,
+    TTextWindow::SetTextBuffer, TTabBar::ShowTab and StoreOpenChannels, TContextMenuEntry's constructor and SetLast,
+    the TPrivateTalkBuffer and TRuleViolationTalkBuffer constructors, ClearDefaultTextBuffer, FindTextBuffer,
+    RemoveIgnoreFilter); 1 new, TTalkBuffer's compiler-generated scalar deleting destructor (DeleteTextBuffer's
+    `delete`, which inlines ~TTalkBuffer and Clear now). The unnamed EH region after the code (dumpbin gives it to
+    ___guard_check_icall_thunk) has 124 __ehhandler$ thunks fewer (1,822 to 1,698). .text 0x2911da to 0x27cf7a,
+    .rdata 0xbc650 to 0xb4640.
+  - x64: 15,702 symbols to 15,335 (functions and funclets); of the functions 157 changed of the part and 12 gone,
+    the same as x86 except that GetSelectionStart is inlined here and StoreOpenChannels stays out of line; no new
+    function. Funclets 3,929 to 3,574; the part's go with their catch and dtor funclets, and 34 parents outside the
+    part (CreateBattleWindow, TDialog's constructor, TAutomapWindow's, ...) only name a funclet that identical-code
+    folding shares and that a part function had named before; their code is the same. .text 0x33771c to 0x32552c,
+    .rdata 0x112c4e to 0x10f876, .pdata 0x24918 to 0x2391c (341 unwind entries fewer).
+  No function of another file changed, no caller outside the part inlines one of its functions.
+- **The counts** (high). `python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67, communicationtest
+  856,621, vlongtest 3,201, 0 failures, CTest 4/4; the part's own error tests compare as many exceptions as before
+  (ConsoleWindow 93,196 in 3,135 calls that threw, ContextMenus 1,795 in 1,328), so no comparison saw a kind change,
+  under /EHa either. golden on main's corpus (C:\Tibia\Patella-Modern\build\golden, read only): 15,803,203 replayed +
+  1,512,822 retired = 17,316,025, 0 failures on windows-x64 (14/14, golden_concurrent passes), windows-x64-debug
+  (13/13) and windows-x64-asan (13/13, no ASan finding). windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11; 0 warnings on
+  every preset. `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: the four
+  sessions match (error with #74's deliberate differences). tidy_ci 20 findings, 0 new, 0 gone, 0 bugprone;
+  banned_calls 0; clang-format clean. Logs: build\logs\issue-78c. Left after part 3: 628 TBEGIN in 7 files (parts 4-7).
