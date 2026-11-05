@@ -55,6 +55,20 @@
 #endif
 
 /*
+ * Patella-Modern change (issue #63): patella_core's static analysis, false positives of the file as
+ * written (K&R C, kept until M6). MSVC /analyze: the functions have no prototypes (C28278 at each
+ * call), so it cannot see that reg, regbranch, regpiece and regatom set *flagp before they return
+ * non-NULL (C6001 on the callers' flags). GCC -fanalyzer: regmatch's regnext of a STAR or PLUS node
+ * is never NULL, as regcomp links each to the node that follows it, which the analyzer cannot know.
+ */
+#ifdef _MSC_VER
+#pragma warning(disable: 28278 6001)
+#endif
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic ignored "-Wanalyzer-null-dereference"
+#endif
+
+/*
  * Client change: the error hook (0x71f034). Nothing in the client sets it.
  * The call sites test it, so regerror is this file's own function, which the
  * compiler inlines.

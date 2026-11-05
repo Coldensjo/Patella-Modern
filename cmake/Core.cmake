@@ -36,3 +36,21 @@ target_compile_definitions(patella_core PUBLIC PATELLA_CORE)
 patella_target_language(patella_core)
 patella_target_warnings(patella_core)
 patella_target_hardening(patella_core)
+
+# Static analysis of the core library (issue #63; notes/modernization-plan.md, section 7, M4): MSVC's code
+# analysis (/analyze; not the headers in angle brackets, /analyze:external-) and GCC's static analyzer
+# (-fanalyzer) compile every source of patella_core, so the build fails on a finding (/WX, -Werror) like on a
+# warning: the hosted CI's windows-x64 job (MSVC) and linux-x64-gcc job run them, Release and Debug, and so
+# does every local build of those presets and of windows-x64-gcc. Clang has none here (clang-tidy's
+# bugprone-* is the clang-tidy job's, .clang-tidy). The findings that stay are suppressed in the code with
+# their reasons, listed in notes/decisions.md ("Static analysis of the core library"). The code analysis
+# does not change the objects; the client and the oracle compile these sources themselves, without it.
+# PATELLA_STATIC_ANALYSIS=OFF leaves it out (a quicker local build).
+option(PATELLA_STATIC_ANALYSIS "MSVC /analyze and GCC -fanalyzer on patella_core (issue #63)" ON)
+if(PATELLA_STATIC_ANALYSIS)
+	if(MSVC)
+		target_compile_options(patella_core PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:/analyze /analyze:external->)
+	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		target_compile_options(patella_core PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:-fanalyzer>)
+	endif()
+endif()

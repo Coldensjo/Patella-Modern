@@ -19,6 +19,11 @@ commands of the preset linux-x64-clang in the Docker image of docker/linux-x64 (
 
 tools/tidy_ci.py runs that job locally, with the same result on the same commit (issue #51).
 
+Checks that must stay at zero (issue #63, plan section 7, M4: bugprone-* on the core library): --zero <prefix>
+fails on any finding of a check whose name starts with the prefix, outside the macro arguments or inside them,
+whatever the baseline says; such a finding is fixed, or suppressed in the code with a NOLINT that names the
+check and the reason (notes/decisions.md, "Static analysis of the core library"). CI passes --zero bugprone-.
+
 Headers (issue #49): clang-tidy checks the includes of the main file only (misc-include-cleaner), so a
 header is checked as the main file of its own command. --headers takes the commands of the header checks
 of cmake/HeaderCheck.cmake (the generated build/<preset>/header-check/<target>/<header>.cpp, one line
@@ -33,7 +38,7 @@ include check's business.
 
 Usage:
 	python -I tools/tidy.py [-p <build dir>] [--fix] [--checks <list>] [--extra-arg <arg>] [-v]
-		[--baseline <file> | --write-baseline <file>] (--all | --headers | <file> ...)
+		[--baseline <file> | --write-baseline <file>] [--zero <prefix>] (--all | --headers | <file> ...)
 	-p        the directory with compile_commands.json (CMAKE_EXPORT_COMPILE_COMMANDS; default
 	          build/windows-x64, the preset of issue #5)
 	--fix     apply the fixes outside the macro arguments
@@ -46,9 +51,11 @@ Usage:
 	          misc-include-cleaner only (above), besides the files named
 	--baseline        compare with this findings list: exit 1 only for findings that are not in it
 	--write-baseline  write the findings to this list (the form --baseline reads)
+	--zero    fail on any finding of the checks that start with this prefix (repeatable), the baseline's
+	          and those inside macro arguments included
 clang-tidy: the environment variable CLANG_TIDY, else clang-tidy on PATH, else Visual Studio's
 (VC\\Tools\\Llvm\\x64\\bin). Exit code 0 without findings outside the macro arguments (with --baseline:
-without new ones), 1 with, 2 when clang-tidy could not compile a file.
+without new ones; with --zero: and none of those checks), 1 with, 2 when clang-tidy could not compile a file.
 """
 import argparse
 import difflib
@@ -310,6 +317,7 @@ def main():
 	baseline = parser.add_mutually_exclusive_group()
 	baseline.add_argument('--baseline')
 	baseline.add_argument('--write-baseline')
+	parser.add_argument('--zero', action='append', default=[], metavar='PREFIX')
 	parser.add_argument('files', nargs='*')
 	args = parser.parse_args()
 	if not (Path(args.build) / 'compile_commands.json').exists():
@@ -378,14 +386,22 @@ def main():
 	if failed:
 		print('tidy.py: clang-tidy could not compile: ' + ', '.join(failed))
 		return 2
+	zero = 0
+	if args.zero:
+		everything = {**findings, **in_macros}
+		for key in sorted(everything):
+			if key[3].startswith(tuple(args.zero)):
+				print('tidy.py: must be zero: ' + everything[key][0])
+				zero += 1
+		print(f'tidy.py: {zero} findings of the checks that must stay at zero ({", ".join(args.zero)})')
 	if args.write_baseline:
 		written = baseline_counts(findings)
 		write_baseline(args.write_baseline, written)
 		print(f'tidy.py: wrote {args.write_baseline}: {sum(written.values())} findings in {len(written)} entries')
-		return 0
+		return 1 if zero else 0
 	if args.baseline:
-		return compare_baseline(args.baseline, baseline_counts(findings), findings)
-	return 1 if findings else 0
+		return max(compare_baseline(args.baseline, baseline_counts(findings), findings), 1 if zero else 0)
+	return 1 if findings or zero else 0
 
 
 if __name__ == '__main__':

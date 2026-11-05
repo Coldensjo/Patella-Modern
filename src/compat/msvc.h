@@ -58,6 +58,17 @@
 #define PATELLA_MSVC_WARNING(...)
 #endif
 
+// #pragma GCC diagnostic of GCC as a macro (_Pragma), for the suppressions of GCC's static analyzer (-fanalyzer,
+// patella_core; issue #63): nothing for the other compilers. Clang knows the pragma but not GCC's analyzer
+// warnings, and warns about an unknown warning option. The text is the pragma's, in quotes:
+// PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push"), PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-W...\""),
+// PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop").
+#if defined(__GNUC__) && !defined(__clang__)
+#define PATELLA_GCC_DIAGNOSTIC(Text) _Pragma(Text)
+#else
+#define PATELLA_GCC_DIAGNOSTIC(Text)
+#endif
+
 // printf's format check of GCC and Clang on a function with a format parameter (MSVC has none).
 #if defined(__GNUC__)
 #define PATELLA_PRINTF_FORMAT(FormatIndex, FirstArgument) [[gnu::format(printf, FormatIndex, FirstArgument)]]

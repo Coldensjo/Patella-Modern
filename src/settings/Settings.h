@@ -30,7 +30,7 @@ namespace patella::settings {
 inline constexpr const char *FileName = "Patella.ini";
 
 // The largest file Load reads (a settings file is a few lines; anything larger is not one).
-inline constexpr std::size_t MaxFileSize = 1024 * 1024;
+inline constexpr std::size_t MaxFileSize = std::size_t{1024} * 1024;
 
 class TSettingsFile {
 public:

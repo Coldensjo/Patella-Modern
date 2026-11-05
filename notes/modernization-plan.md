@@ -477,6 +477,10 @@ unit tests:
 - **Times:** 64-bit `time_t` everywhere (`SaveChannel` calls `_ctime32`, which ends in 2038).
 - **Static analysis** to zero findings or documented suppressions: MSVC `/analyze`, clang-tidy `bugprone-*`,
   GCC `-fanalyzer` on the core library.
+  Done in issue #63 (notes/decisions.md): cmake/Core.cmake compiles patella_core with `/analyze` and `-fanalyzer`
+  (a finding fails the build: the hosted windows-x64 and linux-x64-gcc jobs), the clang-tidy job fails on any
+  bugprone-* finding (`tools/tidy.py --zero bugprone-`); 114, 2 and 6 findings, each fixed or suppressed in the code
+  with its reason (the table in notes/decisions.md); vlong::operator='s self-assignment is the original's, kept.
 
 Exit: no `strcpy`, `strcat`, `sprintf` or `gets` left (a grep gate); sanitizers clean over all replayed
 sessions on both platforms; difftest counts unchanged.

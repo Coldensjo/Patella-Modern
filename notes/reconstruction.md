@@ -539,7 +539,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   from Windows:
 
   ```
-  python -I tools/build.py --env linux-x64-clang bash -c "cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline build/linux-x64-clang/tidy-baseline.tsv"
+  python -I tools/build.py --env linux-x64-clang bash -c "cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline build/linux-x64-clang/tidy-baseline.tsv --zero bugprone-"
   ```
 
   (build.py works on a copy in the container, so the list is written into the mounted build\linux-x64-clang;
@@ -558,17 +558,29 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   `using ::size_t;` (libstdc++: a typedef), so a `std::size_t` local is reported on Linux's commands only
   (issue #39's 11 testmode findings). Expect such differences in either direction (the Windows targets see the
   Windows branches, the image sees libstdc++), and fix a finding of either. 14 findings in 14 entries on November 3, 2026 (issue #32 removed the ten use-nullptr ones, issue #38 the seven use-nodiscard ones), and 16 more
-  inside macro arguments; 13 since issue #57 (Utils.cpp's sprintf, a vararg call, is gone).
+  inside macro arguments; 13 since issue #57 (Utils.cpp's sprintf, a vararg call, is gone); 7 since issue #63 (the
+  six bugprone-* findings fixed or suppressed, below).
+- Static analysis of the core library (issue #63; plan section 7, M4; notes/decisions.md, "Static analysis of the
+  core library", with the table of suppressions): cmake/Core.cmake compiles patella_core with MSVC's `/analyze`
+  (`/analyze:external-`) and GCC's `-fanalyzer` (option PATELLA_STATIC_ANALYSIS, on by default), so a finding
+  fails the windows-x64, windows-x64-gcc and linux-x64-gcc builds like a warning; and the clang-tidy job passes
+  `--zero bugprone-` to tools/tidy.py, which fails on any bugprone-* finding whatever the baseline says (inside the
+  macro arguments too). All three are at zero: a finding is fixed without a change of behaviour, or suppressed in
+  the code with the check and the reason (`NOLINT(check): reason`; MSVC's `#pragma warning` through
+  PATELLA_MSVC_WARNING, GCC's `#pragma GCC diagnostic` through PATELLA_GCC_DIAGNOSTIC, both compat/msvc.h; the C
+  regexp its own pragmas), and gets a row in that table.
 - CI (issue #11; plan 4.7): `.github/workflows/hosted.yml` runs on GitHub's runners for every push and pull
   request (and by hand, workflow_dispatch), reads no CipSoft file and uses no secret: windows-latest with MSVC
   x64 (`python -I tools/build.py --env windows-x64 cmake --preset windows-x64 -DPATELLA_CLIENT=OFF`, then the
-  Release and Debug builds and `ctest`; cmake --workflow takes no -D, and the client needs Tibia.exe), the
+  Release and Debug builds and `ctest`; cmake --workflow takes no -D, and the client needs Tibia.exe; the builds
+  run `/analyze` on patella_core, issue #63), the
   client's and the test build's sources compiled in a job of its own (issues #25, #46:
   `-DPATELLA_CLIENT_COMPILE_ONLY=ON`, then `cmake --build --preset windows-x64 --target Patella_compile` and
   `--target PatellaTest_compile`; "Building" above), and on
   ubuntu-latest the image of docker/linux-x64, built from its pinned Dockerfile in each job: linux-x64-gcc and
-  linux-x64-clang (Release and Debug, `python3 -I tools/build.py <preset>` in the container), clang-format (the
-  files above), clang-tidy against the baseline (above; checks only, never --fix) and the grep gate of issue #57
+  linux-x64-clang (Release and Debug, `python3 -I tools/build.py <preset>` in the container; linux-x64-gcc runs
+  `-fanalyzer` on patella_core, issue #63), clang-format (the files above), clang-tidy against the baseline (above;
+  checks only, never --fix; `--zero bugprone-`, issue #63) and the grep gate of issue #57
   (job "banned C string calls": `python3 -I tools/banned_calls.py --self-test && python3 -I tools/banned_calls.py`,
   no call of strcpy, strcat, sprintf, vsprintf or gets in src/ outside src/Extern, and since issue #64 no FILE and
   no fopen, fclose or printf family outside src/types/File.h; comments and literals do not count; run it locally
