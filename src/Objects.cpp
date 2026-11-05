@@ -625,10 +625,13 @@ void LoadObjects(const char *FileName)
 	File.close();
 }
 
-// 0x4d77f0, line 1000. A TMyException while loading becomes PROGRAM_ERROR 1
-// (name of the value unknown); InitControl then shuts down. The binary's
-// handler has a catch object, so the original named the unused reference;
-// it is left unnamed here to avoid warning C4101.
+// 0x4d77f0, line 1000. An exception while loading becomes PROGRAM_ERROR 1
+// (name of the value unknown); InitControl then shuts down. The original
+// catches a TMyException; its LoadObjects' TBEGIN/TEND made every other
+// exception one (LoadProperties' new[] of a size from Tibia.dat can throw
+// std::bad_array_new_length or std::bad_alloc). That TEND is gone (issue
+// #78), so the boundary catches everything (LoadObjects throws no
+// PROGRAM_ERROR): the outcome is the original's.
 void InitObjects()
 {
 	// Cleared, not freed, as the original does (issue #58: release, not reset).
@@ -638,7 +641,7 @@ void InitObjects()
 	static_cast<void>(MissileProperties.release()); // NOLINT(bugprone-unused-return-value): the leak is the original's
 	try {
 		LoadObjects("Tibia.dat");
-	} catch (TMyException &) {
+	} catch (...) {
 		throw (PROGRAM_ERROR)1;
 	}
 }
