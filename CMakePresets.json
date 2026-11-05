@@ -65,6 +65,21 @@
 			}
 		},
 		{
+			"name": "windows-x64-asan",
+			"displayName": "windows-x64-asan: windows-x64 with MSVC's AddressSanitizer (/fsanitize=address): the client, the test build, golden_runner and the unit tests (issue #70)",
+			"description": "As windows-x64 (python -I tools/build.py windows-x64-asan sets up MSVC x64; Tibia.exe for the client's resources, PATELLA_CLIENT=OFF for only the unit tests and golden_runner). Debug without /RTC1 and every link without /INCREMENTAL, which ASan does not allow. Needs Visual Studio's C++ AddressSanitizer component.",
+			"inherits": "windows-x64",
+			"cacheVariables": {
+				"PATELLA_SANITIZE": "address",
+				"CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "ProgramDatabase",
+				"CMAKE_C_FLAGS_DEBUG": "/Ob0 /Od",
+				"CMAKE_CXX_FLAGS_DEBUG": "/Ob0 /Od",
+				"CMAKE_EXE_LINKER_FLAGS_DEBUG": "/debug /INCREMENTAL:NO",
+				"CMAKE_SHARED_LINKER_FLAGS_DEBUG": "/debug /INCREMENTAL:NO",
+				"CMAKE_MODULE_LINKER_FLAGS_DEBUG": "/debug /INCREMENTAL:NO"
+			}
+		},
+		{
 			"name": "windows-x64-gcc",
 			"displayName": "windows-x64-gcc: mingw-w64 GCC 16, C++26 on Windows (plan D6); so far the unit tests (issue #9)",
 			"description": "Needs mingw-w64 GCC 16 (gcc, g++) on PATH.",
@@ -138,6 +153,16 @@
 			"configuration": "Debug"
 		},
 		{
+			"name": "windows-x64-asan",
+			"configurePreset": "windows-x64-asan",
+			"configuration": "Release"
+		},
+		{
+			"name": "windows-x64-asan-debug",
+			"configurePreset": "windows-x64-asan",
+			"configuration": "Debug"
+		},
+		{
 			"name": "windows-x64-gcc",
 			"configurePreset": "windows-x64-gcc",
 			"configuration": "Release"
@@ -196,6 +221,30 @@
 		{
 			"name": "windows-x64-debug",
 			"configurePreset": "windows-x64",
+			"configuration": "Debug",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			}
+		},
+		{
+			"name": "windows-x64-asan",
+			"configurePreset": "windows-x64-asan",
+			"configuration": "Release",
+			"output": {
+				"verbosity": "verbose",
+				"outputOnFailure": true
+			},
+			"execution": {
+				"noTestsAction": "error"
+			}
+		},
+		{
+			"name": "windows-x64-asan-debug",
+			"configurePreset": "windows-x64-asan",
 			"configuration": "Debug",
 			"output": {
 				"verbosity": "verbose",
@@ -338,6 +387,42 @@
 				{
 					"type": "test",
 					"name": "windows-x64-debug"
+				}
+			]
+		},
+		{
+			"name": "windows-x64-asan",
+			"displayName": "windows-x64-asan: configure, build Release with ASan, run the unit tests and golden_runner",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "windows-x64-asan"
+				},
+				{
+					"type": "build",
+					"name": "windows-x64-asan"
+				},
+				{
+					"type": "test",
+					"name": "windows-x64-asan"
+				}
+			]
+		},
+		{
+			"name": "windows-x64-asan-debug",
+			"displayName": "windows-x64-asan-debug: configure, build Debug with ASan, run the unit tests and golden_runner",
+			"steps": [
+				{
+					"type": "configure",
+					"name": "windows-x64-asan"
+				},
+				{
+					"type": "build",
+					"name": "windows-x64-asan-debug"
+				},
+				{
+					"type": "test",
+					"name": "windows-x64-asan-debug"
 				}
 			]
 		},
