@@ -203,7 +203,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			}
 		},
 		{
@@ -215,7 +216,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			}
 		},
 		{
@@ -227,7 +229,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			}
 		},
 		{
@@ -239,7 +242,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			}
 		},
 		{
@@ -251,7 +255,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			}
 		},
 		{
@@ -263,7 +268,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			}
 		},
 		{
@@ -275,7 +281,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			}
 		},
 		{
@@ -287,7 +294,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			}
 		},
 		{
@@ -299,7 +307,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			}
 		},
 		{
@@ -311,7 +320,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			},
 			"environment": {
 				"ASAN_OPTIONS": "detect_leaks=1",
@@ -327,7 +337,8 @@
 				"outputOnFailure": true
 			},
 			"execution": {
-				"noTestsAction": "error"
+				"noTestsAction": "error",
+				"jobs": 16
 			},
 			"environment": {
 				"ASAN_OPTIONS": "detect_leaks=1",
