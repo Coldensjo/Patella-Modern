@@ -14,10 +14,16 @@
 // it Skins.obj loses its .data, .CRT$XCU and ATL sections, and the images' .data moves).
 #include "common.h" // IWYU pragma: keep
 #include "Skins.h"
+#include <memory>
 
 // Data, in .bss order.
-int NumberOfSkins; // 0x71c450
-TSkin *Skins;      // 0x71c454
+int NumberOfSkins;              // 0x71c450
+std::unique_ptr<TSkin[]> Skins; // 0x71c454 (issue #58)
+
+// The table as a std::unique_ptr (issue #58): a pointer, as the original's. TSkin has no destructor, so a table
+// still set when FatalError calls exit(1) is only memory freed during static destruction.
+static_assert(sizeof(std::unique_ptr<TSkin[]>) == sizeof(TSkin *) && alignof(std::unique_ptr<TSkin[]>) == alignof(TSkin *),
+	"std::unique_ptr<TSkin[]> is a pointer");
 
 // 0x4e3cb0. Fills the rectangles of the GUI graphics in Tibia.pic.
 // The table is a local array, so it is written to the stack on every call
@@ -294,7 +300,10 @@ void InitSkins()
 		{LASTSKIN, {0, 0, 0, 0}},
 	};
 	NumberOfSkins = LASTSKIN;
-	Skins = new TSkin[NumberOfSkins];
+	// Stored over a table it may still hold (InitSkins twice): the old one is dropped unfreed, as in the original.
+	static_cast<void>(Skins.release()); // NOLINT(bugprone-unused-return-value): the leak is the original's
+	// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): unique_ptr<T[]>::reset, a template, is not among its owners
+	Skins.reset(new TSkin[NumberOfSkins]);
 	for (int i = 0; i < NumberOfSkins - 1; i++)
 		Skins[SkinTable[i].skin] = SkinTable[i].Rect;
 }
@@ -302,6 +311,6 @@ void InitSkins()
 // 0x4e6da0
 void ExitSkins()
 {
-	delete[] Skins;
+	Skins.reset();
 	Skins = nullptr;
 }

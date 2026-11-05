@@ -2125,7 +2125,7 @@ void TestMapWindow(const char *ExePath)
 	ORIGINAL(At<void(__cdecl *)(const char *)>(0x4d7380)(Dat.c_str()));
 	SortTypes();
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	int SavedEngine = curEngine;

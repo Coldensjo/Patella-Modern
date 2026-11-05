@@ -1784,7 +1784,7 @@ void TestContextMenus()
 	int Before = Checks, BeforeFailures = Failures;
 	ORIGINAL(PatchImage());
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	LastDump.clear();

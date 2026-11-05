@@ -203,7 +203,7 @@ std::vector<int> GoodSkins;
 void PrepareSkins()
 {
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins);
+	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
 	GoodSkins.clear();
 	for (int i = 1; i < NumberOfSkins && i < LASTSKIN; i++) {
 		if (i != 152 && Skins[i].width > 0 && Skins[i].height > 0) // 152 is left uninitialised

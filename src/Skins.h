@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <memory>
 
 // Number of skin entries; the terminator of the table in InitSkins.
 inline constexpr int LASTSKIN = 262;
@@ -16,7 +17,7 @@ struct TSkin {
 };
 
 extern int NumberOfSkins;
-extern TSkin *Skins;
+extern std::unique_ptr<TSkin[]> Skins; // issue #58: the table's only owner, a pointer as the original's
 
 void InitSkins();
 void ExitSkins();
