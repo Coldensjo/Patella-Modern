@@ -66,6 +66,23 @@ static uint32 Rnd()
 	return Seed >> 8;
 }
 
+// Status.h's TErrorReport until Patella-Modern issue #74 (an error report read from error.txt; the reports are gone
+// from the client). The image's vector<TErrorReport> is still one of Container.h's vector instances to compare ours
+// with, so the test keeps the record: the original's layout (0xa5a bytes of char arrays, byte aligned) and its
+// constructor, which clears them.
+struct TErrorReport {
+	char Title[64];    // +0x000
+	char Date[26];     // +0x040
+	char Text[2048];   // +0x05a
+	char Comment[512]; // +0x85a
+	TErrorReport()
+		: Title{}, Date{}, Text{}, Comment{}
+	{
+	}
+};
+static_assert(sizeof(TErrorReport) == 0xa5a && alignof(TErrorReport) == 1 && offsetof(TErrorReport, Comment) == 0x85a,
+	"TErrorReport's layout");
+
 // New memory of both sides gets the same byte pattern.
 static uint8 Pattern = 0xab;
 static void *__cdecl PatternNew(size_t Size)

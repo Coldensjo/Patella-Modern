@@ -38,7 +38,6 @@ $Paths = @(
 	'tools\ehinfo.py',
 	'tools\ehcompare.py',
 	'tools\xctable.py',
-	'tools\lines.py',
 	'tools\listing.cmd'
 )
 

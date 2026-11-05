@@ -1492,6 +1492,11 @@ static void F_ClearMessages()
 static void F_SetRight(int RightID, int Value) { Call("SetRight(%d,%d)", RightID, Value); }
 static void F_AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 {
+	// Events 0x2a and 0x2b (the error report dialog at the start, the error reports sent when the game starts) are
+	// gone from ours (Patella-Modern issue #74): the original's posts of them (ReceivePackets' game start, 0x0a) are
+	// neither a call nor an event of the world, so both sides' logs and queues stay comparable.
+	if (Type == 0x2a || Type == 0x2b)
+		return;
 	TQueuedEvent E = {Type, Param1, Param2};
 	std::string Text = "AddMessage";
 	DescribeEvent(Text, E);
@@ -2302,12 +2307,14 @@ const TFake WorldFakes[] = {
 	F(UpdateBlinkState, 0x4e7340),
 	F(PeekMessageType, 0x4e75d0),
 	F(FetchMessage, 0x4e75f0),
-	F(ClearErrorReports, 0x4e7bb0),
-	F(GetNumberOfErrorReports, 0x4e7e10),
-	F(GetErrorReportTitle, 0x4e7e40),
-	F(GetErrorReportDate, 0x4e7e70),
-	F(GetErrorReportText, 0x4e7ea0),
-	F(GetErrorReportComment, 0x4e7ed0),
+	// The error report list is the original's only (ours is gone, Patella-Modern issue #74): its code that reads it
+	// (events 0x2a and 0x2b) is not reached any more, the fakes stay in case it is.
+	FO("ClearErrorReports", 0x4e7bb0, nullptr, F_ClearErrorReports),
+	FO("GetNumberOfErrorReports", 0x4e7e10, nullptr, F_GetNumberOfErrorReports),
+	FO("GetErrorReportTitle", 0x4e7e40, nullptr, F_GetErrorReportTitle),
+	FO("GetErrorReportDate", 0x4e7e70, nullptr, F_GetErrorReportDate),
+	FO("GetErrorReportText", 0x4e7ea0, nullptr, F_GetErrorReportText),
+	FO("GetErrorReportComment", 0x4e7ed0, nullptr, F_GetErrorReportComment),
 	F(ExitStatus, 0x4e7f00),
 	F(GetCharacterName, 0x4e9db0),
 	F(InitStatus, 0x4ea860),
@@ -2411,7 +2418,7 @@ const TFake WorldFakes[] = {
 	F(CreateConsoleOptionsDialog, 0x483dc0),
 	F(CreateNetworkOptionsDialog, 0x483fe0),
 	F(CreateHotkeyDialog, 0x484200),
-	F(CreateErrorReportDialog, 0x484400),
+	FO("CreateErrorReportDialog", 0x484400, nullptr, F_CreateErrorReportDialog), // the original's only (#74)
 	F(CreateRuleViolationDialog, 0x485290),
 	// Skins.cpp, Surface.cpp, sysinc.cpp
 	F(InitSkins, 0x4e3cb0),

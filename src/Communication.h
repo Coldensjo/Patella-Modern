@@ -69,7 +69,6 @@ void SendAddBuddy(const char *Name);
 void SendRemoveBuddy(uint32 CharacterID);
 void SendBugReport(const char *Text);
 void SendRuleViolationReport(const char *Name, uint8 Reason, uint8 Action, const char *Comment, uint32 StatementID, bool IPBanishment);
-void SendDebugReport(const char *Assertion, const char *Date, const char *Description, const char *Comment);
 void ReceiveLoginError();
 void ReceiveLoginMessage();
 void ReceiveMessageOfTheDay();

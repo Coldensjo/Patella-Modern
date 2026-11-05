@@ -1,7 +1,7 @@
 // Clock.h: the clocks of the test mode (issue #21; notes/modernization-plan.md, 4.4).
 //
 // The client reads three clocks: timeGetTime (sysinc.cpp GetMilliseconds and the seed of rand, the
-// engines' frame timer), the wall clock (time, 64 bits since issue #62: talk line stamps, skull times, error.txt,
+// engines' frame timer), the wall clock (time, 64 bits since issue #62: talk line stamps, skull times,
 // saved channels) and the frame timer's Sleep (WaitForNextFrame). The test build (PatellaTest.exe)
 // sends all three through one IClock (src/TestHooks.h); the product and oracle builds call the system
 // functions directly and contain none of this.

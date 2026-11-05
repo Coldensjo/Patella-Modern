@@ -8,7 +8,7 @@
 // (--test-script <file>), drives the client from src/testmode/InputScript.h:
 //
 //	PATELLA_TIME_GET_TIME()            timeGetTime: sysinc.cpp (GetMilliseconds, srand), the frame timers
-//	PATELLA_TIME(Time)                 time, the wall clock in 64 bits: Player.cpp (error.txt), Talk.cpp,
+//	PATELLA_TIME(Time)                 time, the wall clock in 64 bits: Talk.cpp,
 //	                                   Creatures.cpp, ContentWindows.cpp, ConsoleWindow.cpp (issue #62: no
 //	                                   _time32 any more; the 4-byte fields convert through types/Time32.h)
 //	PATELLA_FRAME_SLEEP(Milliseconds)  the frame timer's Sleep (WaitForNextFrame of the three engines)

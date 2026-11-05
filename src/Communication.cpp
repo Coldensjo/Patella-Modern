@@ -843,18 +843,8 @@ void SendRuleViolationReport(const char *Name, uint8 Reason, uint8 Action, const
 	TEND2(953, StatementID, (IPBanishment?1:0))
 }
 
-// 0x40a2f0, lines 969-969
-void SendDebugReport(const char *Assertion, const char *Date, const char *Description, const char *Comment)
-{
-	TBEGIN
-	BeginCommand(0xe8);
-	SendString(Assertion);
-	SendString(Date);
-	SendString(Description);
-	SendString(Comment);
-	SendCommand(true);
-	TEND(969)
-}
+// 0x40a2f0, line 969, SendDebugReport (client packet 0xe8: an error report of error.txt) is gone since
+// Patella-Modern issue #74 (decision D2).
 
 // 0x40a4c0, lines 994-994
 void ReceiveLoginError()

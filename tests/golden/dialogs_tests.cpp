@@ -103,7 +103,7 @@ static_assert(sizeof(TTextDialog) == 0x44 && sizeof(TEditListDialog) == 0x38 && 
 static_assert(sizeof(THintsDialog) == 0x30 && sizeof(TRuleViolationDialog) == 0x114 && sizeof(TEditMarkDialog) == 0xe8
 		&& sizeof(TOptionsDialog) == 0x2c && sizeof(TGeneralOptionsDialog) == 0x44 && sizeof(TGraphicsOptionsDialog) == 0x4c
 		&& sizeof(TAdvancedGraphicsDialog) == 0x54 && sizeof(TConsoleOptionsDialog) == 0x44
-		&& sizeof(TNetworkOptionsDialog) == 0x34 && sizeof(THotkeyDialog) == 0x2464 && sizeof(TErrorReportDialog) == 0x30,
+		&& sizeof(TNetworkOptionsDialog) == 0x34 && sizeof(THotkeyDialog) == 0x2464,
 	"sizes 3");
 static_assert(offsetof(TDialog, CancelCallback) == 0xbc && offsetof(TIgnoreListDialog, WhiteEntries) == 0x98
 		&& offsetof(TOutfitDialog, Part) == 0x278 && offsetof(THotkeyDialog, OpenURL) == 0x2460
@@ -471,7 +471,6 @@ static struct {
 	TObject DragObject;
 	int DragIndex, DragX, DragY, DragZ, TargetX, TargetY, TargetZ;
 	uint32 RightSeed, FlagSeed, IgnoreSeed;
-	int ErrorReports;
 	bool ClipboardEmpty;
 	const char *Clipboard;
 	TPreferences Pref[2];
@@ -696,29 +695,6 @@ static const char *__cdecl FakeGetActionName(int Action)
 	Tick();
 	return ActionNames[Action % 7];
 }
-static int __cdecl FakeGetNumberOfErrorReports()
-{
-	Tick();
-	return World.ErrorReports;
-}
-static const char *__cdecl FakeGetErrorReportTitle(int Number)
-{
-	Tick();
-	return ReportTitles[Number % 3];
-}
-static const char *__cdecl FakeGetErrorReportDate(int Number)
-{
-	Tick();
-	return Number % 2 ? "2006-06-08 12:00" : "2006-06-09";
-}
-static const char *__cdecl FakeGetErrorReportText(int Number)
-{
-	Tick();
-	return ReportTexts[Number % 3];
-}
-static void __cdecl FakeSetErrorReportComment(const char *Comment) { Logf("Comment%s;", Str(Comment).c_str()); }
-static void __cdecl FakeClearErrorReports() { Logf("ClearReports;"); }
-static void __cdecl FakeDeleteErrorFile() { Logf("DeleteErrorFile;"); }
 static void __cdecl FakeCheckClipboardText(const char *Text, int Length)
 {
 	Logf("Clip%s,%d;", std::string(Text, Length > 0 ? Length : 0).c_str(), Length);
@@ -1174,13 +1150,6 @@ static void PatchCallees()
 		{0x4e86e0, (void *)CheckRight, F(CheckRight)},
 		{0x4e88c0, (void *)GetRightName, F(GetRightName)},
 		{0x4e8de0, (void *)GetActionName, F(GetActionName)},
-		{0x4e7e10, (void *)GetNumberOfErrorReports, F(GetNumberOfErrorReports)},
-		{0x4e7e40, (void *)GetErrorReportTitle, F(GetErrorReportTitle)},
-		{0x4e7e70, (void *)GetErrorReportDate, F(GetErrorReportDate)},
-		{0x4e7ea0, (void *)GetErrorReportText, F(GetErrorReportText)},
-		{0x4e7d60, (void *)SetErrorReportComment, F(SetErrorReportComment)},
-		{0x4e7bb0, (void *)ClearErrorReports, F(ClearErrorReports)},
-		{0x4e7380, (void *)DeleteErrorFile, F(DeleteErrorFile)},
 		{0x4ea370, NULL, F(CheckClipboardText)},
 		{0, (void *)CheckClipboardText, F(OurCheckClipboardText)},
 		// Ours of IsClipboardEmpty is contextmenus_tests.cpp's, of GetClipboardText dialogelements_tests.cpp's
@@ -1349,21 +1318,20 @@ enum {
 	K_CONSOLE,
 	K_NETWORK,
 	K_HOTKEYS,
-	K_ERRORREPORT,
 	KINDS
 };
 static const char *const KindNames[KINDS] = {"message", "formatted message", "connecting", "wait", "reconnect",
 	"question", "logout", "info", "move objects", "login", "character list", "text", "edit list", "outfit",
 	"bug report", "new channel", "invite", "exclude", "ignore list", "report", "add VIP", "edit VIP", "update", "help",
 	"hints", "rule violation", "edit mark", "options", "general options", "graphics options", "advanced graphics",
-	"console options", "network options", "hotkeys", "error report"};
+	"console options", "network options", "hotkeys"};
 // The events each body handles (its own and those of its controls).
 static const std::vector<int> Events[KINDS] = {
 	{}, {}, {29, 31, 5}, {29, 31, 5}, {29, 31, 5}, {}, {}, {}, {1, 2}, {1, 2}, {1, 2, 31, 5}, {1, 2}, {1, 2},
 	{1000, 1001, 1002, 1003, 2000, 2001, 2050, 2132, 6, 1, 2}, {1, 2}, {1, 301, 302, 2}, {1, 2}, {1, 2},
 	{602, 709, 710, 712, 713, 11, 2}, {1, 2}, {1, 2}, {1, 2}, {2, 1}, {1, 2, 702, 703, 704, 705, 706, 707}, {1, 2},
 	{1, 2, 21}, {1, 2}, {1, 2, 400, 401, 402, 403, 404, 406}, {1, 2, 701}, {1, 2, 407, 701}, {1, 2, 30, 701},
-	{1, 2, 701}, {1, 2, 701}, {1, 2, 11}, {1, 2}};
+	{1, 2, 701}, {1, 2, 701}, {1, 2, 11}};
 
 static int Kind;
 static TDialog *Frame[2];
@@ -1413,7 +1381,7 @@ static void RandomWorld()
 	World.RightSeed = Random();
 	World.FlagSeed = Random();
 	World.IgnoreSeed = Random();
-	World.ErrorReports = Random() % 4;
+	Random(); // the error report count of the error report dialog, gone (issue #74): still drawn
 	World.ClipboardEmpty = Random() % 4 == 0;
 	static const char *const Clips[] = {"pasted", "two\nlines", "a much longer pasted text for the field", NULL};
 	World.Clipboard = Clips[Random() % 4];
@@ -1597,7 +1565,6 @@ static TDialog *Create(int s)
 	case K_CONSOLE: return CREATE(0x483dc0, CreateConsoleOptionsDialog, URL);
 	case K_NETWORK: return CREATE(0x483fe0, CreateNetworkOptionsDialog, URL);
 	case K_HOTKEYS: return CREATE(0x484200, CreateHotkeyDialog, URL);
-	case K_ERRORREPORT: return CREATE(0x484400, CreateErrorReportDialog);
 	}
 	return NULL;
 }
@@ -1670,7 +1637,6 @@ static const struct {
 	{0x563868, "TEditListDialog"},
 	{0x5639d8, "TIgnoreListDialog"},
 	{0x563a90, "THotkeyDialog"},
-	{0x563b30, "TErrorReportDialog"},
 };
 static std::map<uint32, std::string> ImageClass;
 #endif
@@ -2222,8 +2188,6 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Pointer(Out, s, H->AutoSendCheckBox);
 		Number(Out, H->Selected);
 		Pointer(Out, s, (const void *)H->OpenURL);
-	} else if (K == "TErrorReportDialog") {
-		Pointer(Out, s, ((TErrorReportDialog *)C)->CommentEdit);
 	}
 	// (TWindow, TOptionsDialog: no members of their own.)
 }
@@ -2830,59 +2794,18 @@ static void CheckCompareNames()
 	}
 }
 
-// The error report body: our constructor on both sides, the second object with
-// the image's vtable (0x563b30), so that its KeyPress and HandleEvent (and its
-// destructor) are the image's code.
-static void TestErrorReport()
+// The error report dialog is gone (Patella-Modern issue #74, decision D2), and its rounds with it (60, before the
+// main rounds). Their random numbers are still drawn, as they were, so that the main rounds keep their inputs and their
+// counts.
+static void SkipErrorReport()
 {
-	Kind = K_ERRORREPORT;
 	for (int Round = 0; Round < 60; Round++) {
 		RandomWorld();
-		Testing = true;
-		TErrorReportDialog *ReportBody[2] = {};
-		for (int s = 0; s < SIDES; s++) {
-			Side = s;
-			ReportBody[s] = new TErrorReportDialog();
-#if GOLDEN_ORACLE
-			if (s == ORIGINAL)
-				*(void **)ReportBody[s] = (void *)(uintptr_t)0x563b30;
-#endif
-		}
-		Side = OURS;
-		OperationName = "error report constructor";
-		OutputOriginalLog();
-		CHECK(Log[OURS] == Log[ORIGINAL], "Dialogs error report constructor: logs differ");
-		Log[OURS].clear();
-		Log[ORIGINAL].clear();
 		for (int i = 0; i < 30; i++) {
-			bool IsKey = Random() % 3 != 0;
-			int K = Key(), Event = 1 + Random() % 3;
-			OperationName = IsKey ? "error report KeyPress" : "error report HandleEvent";
-			for (int s = 0; s < SIDES; s++) {
-				Side = s;
-				Names[s].clear();
-				if (IsKey)
-					ReportBody[s]->KeyPress(K);
-				else
-					ReportBody[s]->HandleEvent(Event);
-				Logf("Comment %s;", Str(ReportBody[s]->CommentEdit->Text).c_str());
-			}
-			Side = OURS;
-			OutputOriginalLog();
-			CHECK(Log[OURS] == Log[ORIGINAL], "Dialogs %s: logs differ\n  ours: %s\n  orig: %s", OperationName,
-				Log[OURS].c_str(), Log[ORIGINAL].c_str());
-			Log[OURS].clear();
-			Log[ORIGINAL].clear();
+			Random(); // a key or an event
+			Key();
+			Random(); // the event
 		}
-		for (int s = 0; s < SIDES; s++) {
-			Side = s;
-			delete ReportBody[s];
-		}
-		Side = OURS;
-		Log[OURS].clear();
-		Log[ORIGINAL].clear();
-		Testing = false;
-		ReleaseFreedBlocks();
 	}
 }
 
@@ -3379,13 +3302,12 @@ void TestDialogs()
 		ParentWindow[s] = new TWindow;
 	}
 
-	TestErrorReport();
+	SkipErrorReport();
 	int KindCount[KINDS] = {};
 	for (int Count = 0; Count < 1200; Count++) {
-		// The image's error report constructor builds a std::stringstream: the
-		// image's iostreams need the CRT's static initialisers (which reach
-		// imports the child does not resolve). TestErrorReport covers the rest.
-		Kind = Random() % (KINDS - 1);
+		// Every kind (the error report dialog, the last kind until issue #74, had
+		// rounds of its own and was never drawn here).
+		Kind = Random() % KINDS;
 		KindCount[Kind]++;
 		if (Trace)
 			fprintf(stderr, "round %d kind %s\n", Count, KindNames[Kind]);

@@ -1,7 +1,9 @@
 // Differential tests of the error paths (issue #22): TASSERT, TERROR,
 // PROGRAM_ERROR throws and the TEND wrapping of the original code against the
 // reconstructed code, through imageeh.cpp, plus TMyException's messages and
-// the report HandleException writes to error.txt. A golden-corpus test since
+// HandleException's end (until Patella-Modern issue #74 the report it wrote
+// to error.txt; since then: the same outcome as the original's, no file, the
+// message on stderr). A golden-corpus test since
 // Patella-Modern issue #26 (moved from tools/difftest/errortest.cpp; golden.h).
 //
 // The messages are compared in full, the line numbers too: every site of our
@@ -14,7 +16,7 @@
 //
 // In the corpus (issue #26):
 // - what each of the original's calls threw (ORIGINAL_THROWN), its TMyException
-//   texts, its error.txt and the FatalError texts, the counts and positions the
+//   texts, the FatalError texts (its error.txt until issue #74), the counts and positions the
 //   comparisons read from it;
 // - which comparisons were skipped because an earlier test redirected the
 //   original's function or ours for good: the oracle finds that by decoding an
@@ -25,9 +27,9 @@
 //   Vulkan engine) is retired with the oracle (the user's decision of November
 //   4, 2026; golden::RetiredBegin): the runner skips its checks and counts them
 //   as retired.
-// The time zone is UTC0 on both sides while HandleException writes its report
-// (the date's text comes from the C library's local time, issue #61), so the
-// corpus does not depend on the recording machine's zone.
+// The time zone is UTC0 on both sides while HandleException runs (the
+// original's report took the date's text from the C library's local time,
+// issue #61), so the corpus does not depend on the recording machine's zone.
 
 #include "golden_test.h"
 
@@ -55,12 +57,16 @@
 #include "graphics.h"
 #include "Script.h"
 
+#include <algorithm>
 #include <direct.h>
+#include <fcntl.h>
+#include <io.h>
 #include <limits.h>
 #include <map>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
+#include <sys/stat.h>
 #include <time.h>
 #include <vector>
 
@@ -257,7 +263,7 @@ void TestMyException()
 	}
 }
 
-// --- Player.cpp: HandleException's error.txt and HandleProgramError -------
+// --- Player.cpp: HandleException and HandleProgramError -------------------
 
 std::string FatalText, FatalCaption; // the last FatalError call of either side
 // FatalError ends the program (exit), and the original's callers rely on it:
@@ -337,7 +343,9 @@ BOOL WINAPI FakeGetVersionEx(OSVERSIONINFOA *Version)
 		memcpy(Version, &FakeVersion, sizeof(FakeVersion));
 	return FakeVersionResult;
 }
+#if GOLDEN_ORACLE
 void __cdecl IgnoreStream(std::ostream &) {}
+#endif
 const char *__cdecl FakeErrorText(int Code)
 {
 	static char Text[40];
@@ -427,6 +435,35 @@ int __cdecl ImageFileFlush(TImageFile *File) { return fflush(File != NULL ? File
 int __cdecl ImageFileSeek(TImageFile *File, long Offset, int Origin) { return fseek(File->Real, Offset, Origin); }
 #endif
 
+// TextCriticalError (src/Text.h) since issue #74: the first sentence of the original's.
+const char *const CriticalErrorText = "The Tibia client encountered a critical error and had to be stopped.";
+
+// Our stderr (the C library's file descriptor 2) into a file while the object lives (issue #74: HandleException
+// writes the exception's message there).
+struct TStderrCapture {
+	int Saved;
+	explicit TStderrCapture(const char *Name)
+	{
+		fflush(stderr);
+		Saved = _dup(2);
+		const int File = _open(Name, _O_WRONLY | _O_CREAT | _O_TRUNC | _O_BINARY, _S_IREAD | _S_IWRITE);
+		if (File >= 0) {
+			_dup2(File, 2);
+			_close(File);
+		}
+	}
+	~TStderrCapture()
+	{
+		fflush(stderr);
+		if (Saved >= 0) {
+			_dup2(Saved, 2);
+			_close(Saved);
+		}
+	}
+	TStderrCapture(const TStderrCapture &) = delete;
+	TStderrCapture &operator=(const TStderrCapture &) = delete;
+};
+
 void WriteEarlierReport()
 {
 	FILE *File = fopen("error.txt", "wb");
@@ -446,8 +483,8 @@ template <class T> void *CodeAddress(T Member)
 
 #if !GOLDEN_ORACLE
 // The runner's patches of TestPlayer, undone where the oracle's DisableImageExceptions undoes its own: our
-// functions to the fakes (golden::RedirectOwn), the C library's clock and GetVersionExA through the runner's
-// import slots (ucrtbase and kernel32 are out of a rel32 jump's reach).
+// functions to the fakes (golden::RedirectOwn), the C library's clock through the runner's import slots (ucrtbase
+// is out of a rel32 jump's reach; GetVersionExA's too until issue #74, which ours no longer calls).
 struct TOwnPatch {
 	void *Function;
 	uint8 Saved[5];
@@ -532,21 +569,17 @@ void TestPlayer()
 	PatchImageJump(0x5121ea, (void *)FakeImageTime);
 	PatchOwnCode((void *)_time64, (void *)FakeTime64);
 	PatchImageJump(0x5121d1, (void *)FakeCtime);
-	PatchImageJump(0x445900, (void *)IgnoreStream); // OutputControlErrorInformations (Control.cpp)
-	PatchOwnCode((void *)(void (*)(std::ostream &))OutputControlErrorInformations, (void *)IgnoreStream);
+	PatchImageJump(0x445900, (void *)IgnoreStream); // OutputControlErrorInformations (Control.cpp; ours is gone, #74)
 	PatchImageJump(0x4fcbf0, (void *)FakeErrorText);
 	PatchOwnCode((void *)GetErrorText, (void *)FakeErrorText);
 	PatchImageJump(0x4fcc90, (void *)FakeErrorHint);
 	PatchOwnCode((void *)GetErrorHint, (void *)FakeErrorHint);
-	BindImageImport("KERNEL32.dll", "GetVersionExA", (void *)FakeGetVersionEx);
-	PatchOwnImport("KERNEL32.dll", "GetVersionExA", (void *)FakeGetVersionEx);
+	BindImageImport("KERNEL32.dll", "GetVersionExA", (void *)FakeGetVersionEx); // ours calls it no more (#74)
 #else
 	PatchOwn(CodeAddress(&CPlayerApp::FatalError), (void *)FakeFatalError);
-	PatchOwn((void *)(void (*)(std::ostream &))OutputControlErrorInformations, (void *)IgnoreStream);
 	PatchOwn((void *)GetErrorText, (void *)FakeErrorText);
 	PatchOwn((void *)GetErrorHint, (void *)FakeErrorHint);
 	PatchImport("_time64", (void *)FakeTime64);
-	PatchImport("GetVersionExA", (void *)FakeGetVersionEx);
 #endif
 	const TUtcZone Zone;
 
@@ -589,7 +622,7 @@ void TestPlayer()
 		bool Terminating = ErRandom() % 10 == 0;
 		bool Existing = ErRandom() % 3 == 0; // append to an earlier report
 
-		std::string OriginalFile, OriginalText, OriginalCaption;
+		std::string OriginalText, OriginalCaption;
 		[[maybe_unused]] bool OriginalTerminating = false;
 #if GOLDEN_ORACLE
 		memset(ImageApp, 0, sizeof(ImageApp));
@@ -602,16 +635,16 @@ void TestPlayer()
 			printf("Errors: HandleException %d\n", t);
 		FatalText = FatalCaption = "(none)";
 		UntilFatalError([&] { At<void(__fastcall *)(void *, void *, void *)>(0x4d9bd0)(ImageApp, NULL, Original.Bytes); });
-		OriginalFile = ReadFile("error.txt");
 		OriginalText = FatalText;
 		OriginalCaption = FatalCaption;
 		OriginalTerminating = ImageApp[0xa0] != 0;
 #endif
-		OriginalFile = OriginalString("error.txt", OriginalFile);
 		OriginalText = OriginalString("fatal text", OriginalText);
 		OriginalCaption = OriginalString("fatal caption", OriginalCaption);
 		OriginalTerminating = golden::Recorded<uint8>("terminating", OriginalTerminating ? 1 : 0) != 0;
 
+		// Ours writes no error.txt (Patella-Modern issue #74, decision D2): an earlier file stays as it was, none is
+		// made; the exception's message goes to stderr instead (none when a fatal error is already being shown).
 		memset(OurApp, 0, sizeof(OurApp));
 		CPlayerApp *App = (CPlayerApp *)OurApp;
 		App->Terminating = Terminating;
@@ -619,16 +652,33 @@ void TestPlayer()
 		remove("error.txt");
 		if (Existing)
 			WriteEarlierReport();
+		const std::string FileBefore = ReadFile("error.txt");
 		FatalText = FatalCaption = "(none)";
-		UntilFatalError([&] { App->HandleException(Ours); });
-		std::string OurFile = ReadFile("error.txt");
-		CHECK(OurFile == OriginalFile, "HandleException: error.txt\n%s\noriginal\n%s", OurFile.c_str(),
-			OriginalFile.c_str());
-		CHECK(FatalText == OriginalText && FatalCaption == OriginalCaption && App->Terminating == OriginalTerminating,
+		std::string OurStderr;
+		{
+			const TStderrCapture Capture("stderr.txt");
+			UntilFatalError([&] { App->HandleException(Ours); });
+		}
+		OurStderr = ReadFile("stderr.txt");
+		OurStderr.erase(std::remove(OurStderr.begin(), OurStderr.end(), '\r'), OurStderr.end());
+		remove("stderr.txt");
+		const std::string OurFile = ReadFile("error.txt");
+		const std::string ExpectedStderr = Terminating ? "" : "Debug Assertion 7.72 " + Ours.GetMessage() + "\n";
+		CHECK(OurFile == FileBefore && OurStderr == ExpectedStderr,
+			"HandleException (issue #74): error.txt\n%s\nbefore\n%s\nstderr \"%s\", expected \"%s\"", OurFile.c_str(),
+			FileBefore.c_str(), OurStderr.c_str(), ExpectedStderr.c_str());
+		// The outcome is the original's: both end in FatalError with its caption, or neither does (Terminating);
+		// the text is the first sentence of the original's (issue #74: the rest named the error file).
+		const bool OriginalCalled = OriginalText != "(none)", OursCalled = FatalText != "(none)";
+		CHECK(OursCalled == OriginalCalled && App->Terminating == OriginalTerminating
+				&& (!OursCalled
+					|| (FatalCaption == OriginalCaption && FatalText == CriticalErrorText
+						&& OriginalText.compare(0, FatalText.size(), FatalText) == 0
+						&& OriginalText.size() > FatalText.size())),
 			"HandleException: FatalError(\"%s\", \"%s\"), original (\"%s\", \"%s\")", FatalText.c_str(),
 			FatalCaption.c_str(), OriginalText.c_str(), OriginalCaption.c_str());
 		if (Trace && t < 3)
-			printf("Errors: error.txt\n%s\n", OurFile.c_str());
+			printf("Errors: stderr\n%s\n", OurStderr.c_str());
 
 		// HandleProgramError: the message of FatalError.
 		int Code = (int)(ErRandom() % 20) - 2;

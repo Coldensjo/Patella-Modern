@@ -3,7 +3,8 @@
 // and fullscreen mode.
 //
 // Names from the binary: CMainFrame (MFC wizard naming, the file is
-// MainFrm.cpp), OutputErrorInformations (Player.cpp's catch text), the
+// MainFrm.cpp), OutputErrorInformations (Player.cpp's catch text; the
+// function is gone since Patella-Modern issue #74), the
 // message handler names of MFC and their parameter names (catch strings:
 // point.x, point.y, cx, cy, nChar, nFlags, nIDEvent, ViewMode). The rest
 // are ours.
@@ -12,7 +13,6 @@
 
 #include "common.h"
 #include <array>
-#include <iosfwd>
 
 // Key codes of the client (Control.cpp's KeyPress) for the modifier flags.
 inline constexpr int KEY_SHIFT = 0x200;
@@ -29,7 +29,6 @@ public:
 	BOOL DestroyWindow() override;
 
 	int TranslateKey(UINT nChar, UINT nRepCnt, UINT nFlags) const;
-	void OutputErrorInformations(std::ostream &Out);
 	void SetDefaultWindowPosition();
 	void AddFrameSize(int *Width, int *Height);
 	void KeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
@@ -69,7 +68,7 @@ protected:
 	DECLARE_MESSAGE_MAP()
 };
 
-extern std::array<uint8, 16> PacketHeader; // 0x5d1644, the first bytes of the last packet, for error.txt
+extern std::array<uint8, 16> PacketHeader; // 0x5d1644, the first bytes of the last packet (error.txt's until issue #74)
 extern CMainFrame *MainFrame;              // 0x5d1654
 extern bool DisplayChanged;                // 0x5d1670, the display settings changed (OnDisplayChange); SurfaceGL.cpp
 

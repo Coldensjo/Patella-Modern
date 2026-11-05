@@ -2,12 +2,14 @@
 // see Dialogs.h.
 //
 // Order: the functions follow the source's line numbers: the creators
-// (lines 48-631), the frame TDialog (650-891) and the dialog bodies. The
+// (lines 48-617), the frame TDialog (650-891) and the dialog bodies. The
 // binary moves the creators, the constructors that call functions defined
 // further down (TDialog's, the outfit's, the edit list's, the ignore
 // list's, the hotkeys', the error report's, the rule violation's) and the
 // rule violation's HandleEvent to the end of the object, Creatures.cpp's
-// pattern. The header code at the start of the object (0x46b790-0x46c0cf
+// pattern. The error report dialog (CreateErrorReportDialog, line 631, and
+// TErrorReportDialog, lines 4053-4084) is gone since Patella-Modern issue
+// #74 (decision D2). The header code at the start of the object (0x46b790-0x46c0cf
 // with Container.h's vector<TIgnoreEntry>) is in Dialogs.h and Container.h.
 
 #include "Dialogs.h"
@@ -30,7 +32,6 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <sstream>
 #include "Communication.h"
 #include "Control.h"
 #include "Creatures.h"
@@ -590,18 +591,6 @@ TDialog *CreateHotkeyDialog(void (*OpenURL)(const char *URL))
 	Dialog->SetOkButton("Ok", TCallback(Body, 1));
 	return Dialog;
 	TEND(617)
-}
-
-// 0x484400, line 631
-TDialog *CreateErrorReportDialog()
-{
-	TBEGIN
-	TErrorReportDialog *Body = new TErrorReportDialog();
-	TDialog *Dialog = new TDialog("Error Report", Body);
-	Dialog->SetOkButton("Send", TCallback(Body, 1));
-	Dialog->SetCancelButton("Cancel", TCallback(Body, 2));
-	return Dialog;
-	TEND(631)
 }
 
 // --- TDialog ----------------------------------------------------------------------
@@ -3271,68 +3260,4 @@ bool THotkeyDialog::LeftButtonUp(int x, int y, int Flags)
 	}
 	return Result;
 	TEND2(4010, x, y)
-}
-
-// --- TErrorReportDialog ---------------------------------------------------------------
-
-// 0x47f290, line 4053. The reports are shown one after another (title,
-// date, text) in a read-only text.
-TErrorReportDialog::TErrorReportDialog()
-{
-	TBEGIN
-	TComponent::SetSize(SkinProperties.Data14E0, SkinProperties.Data14E4);
-	TLabel *CrashLabel = new TLabel(SkinProperties.StyleB08.Data78, TextClientCrashed);
-	TEditText *ReportText = new TEditText(4096, true);
-	TLabel *CommentLabel = new TLabel(SkinProperties.StyleB08.Data78, TextTellUsWhatYouDid);
-	CommentEdit = new TEditLine(511, false);
-	InsertChild(CrashLabel);
-	InsertChild(ReportText);
-	InsertChild(CommentLabel);
-	InsertChild(CommentEdit);
-	SetChildArea(CrashLabel, SkinProperties.Data14E8);
-	SetChildArea(ReportText, SkinProperties.Data14F8);
-	SetChildArea(CommentLabel, SkinProperties.Data1508);
-	SetChildArea(CommentEdit, SkinProperties.Data1518);
-	const int Reports = GetNumberOfErrorReports();
-	std::stringstream Text;
-	for (int i = 0; i < Reports; i++) {
-		if (i != 0)
-			Text << std::endl
-				 << std::endl;
-		Text << GetErrorReportTitle(i) << std::endl
-			 << GetErrorReportDate(i) << std::endl
-			 << GetErrorReportText(i);
-	}
-	ReportText->SetText(Text.str().c_str(), false);
-	CommentEdit->SetActive(true);
-	Arrange();
-	TEND(4053)
-}
-
-// 0x47c5e0, line 4067
-void TErrorReportDialog::KeyPress(int Key)
-{
-	TBEGIN
-	if (Key == 13)
-		HandleEvent(1);
-	else if (Key == 27)
-		HandleEvent(2);
-	else
-		CommentEdit->KeyPress(Key);
-	TEND1(4067, Key)
-}
-
-// 0x47c7b0, line 4084. Send (1) adds the comment (Control.cpp sends the
-// reports); Cancel (2) drops them and their file.
-void TErrorReportDialog::HandleEvent(int Event)
-{
-	TBEGIN
-	if (Event == 1)
-		SetErrorReportComment(CommentEdit->Text);
-	if (Event == 2) {
-		ClearErrorReports();
-		DeleteErrorFile();
-	}
-	SetActionState(0);
-	TEND1(4084, Event)
 }

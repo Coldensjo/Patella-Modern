@@ -102,7 +102,7 @@ run (one attempt, a retry with the first attempt kept, two unanswered attempts).
 | Hook | Replaces | Where |
 | :--- | :--- | :--- |
 | PATELLA_TIME_GET_TIME() | timeGetTime() | sysinc.cpp (StartTime, GetMilliseconds, srand), the three engines' ResetFrameTimer and WaitForNextFrame |
-| PATELLA_TIME(Time) | time(Time) | Player.cpp (error.txt), Talk.cpp (talk lines' stamps), Creatures.cpp (skull times), ContentWindows.cpp, ConsoleWindow.cpp (saved channels); 64 bits (issue #62: PATELLA_TIME32 and _time32 went) |
+| PATELLA_TIME(Time) | time(Time) | Talk.cpp (talk lines' stamps), Creatures.cpp (skull times), ContentWindows.cpp, ConsoleWindow.cpp (saved channels); 64 bits (issue #62: PATELLA_TIME32 and _time32 went) |
 | PATELLA_FRAME_SLEEP(ms) | Sleep(ms) | WaitForNextFrame of the three engines |
 | PATELLA_GET_CURSOR_POS(Point) | GetCursorPos(Point) | Player.cpp (InitInstance, OnIdle), MainFrm.cpp (OnSetCursor, OnCaptureChanged) |
 | PATELLA_SET_MAIN_TIMER(...) | ::SetTimer(...) | MainFrm.cpp OnCreate (the 100 ms timer of ActionNumber) |
@@ -144,7 +144,7 @@ of tools/capture/patcap.c's clock, so srand(timeGetTime()) gets 100000 in every 
 same XTEA keys and RSA padding as in the rendering comparison's runs. The time moves only by AdvanceTo (never
 backwards); FrameWait does not move it and sleeps a real millisecond (so that the idle loop, which redraws
 until the driver moves the clock, does not spin). The wall clock goes through the C library's local time for
-the talk stamps, error.txt and the saved channels (compat/crt71.h's CRT71LocalTime, issues #61 and #62:
+the talk stamps and the saved channels (error.txt's too until issue #74) (compat/crt71.h's CRT71LocalTime, issues #61 and #62:
 `_localtime64_s` on Windows, `localtime_r` on Linux), so the stamps follow the machine's time zone or TZ.
 
 ### The script (src/testmode/InputScript.h)
@@ -347,9 +347,7 @@ checks on a hidden desktop").
 | traffic | compare_rendering.py's windowed scenes, which contain compare_traffic.py's session (session_client.run_session) | compare_traffic.py's live session of Tibia.exe with the helper (the trade) | 26: every scene, state and frame |
 | options | compare_files.py options_session | none | start, after-options (state; Tibia.cfg saved); Tibia.cfg on exit |
 | walk | compare_files.py walk_session (19 actions, automap marks, the saved channel) | compare_files.py's live walk (record_walk) | every settle: 23 |
-| error | compare_files.py: the game login, then 0xff | crafted from the walk (craft_error) | start; the message box; exit code 1 |
-| error-login | compare_files.py: an earlier error.txt, the report dialog, 0x63 at the login | crafted (craft_error_login) | start; the box; exit code 1 |
-| report | compare_files.py: error.txt from the session error, its report sent on entering the game | crafted (craft_report) | 4 |
+| error | compare_files.py: the game login, then 0xff | crafted from the walk (craft_error) | start; the message box; exit code 1 (Tibia.exe's error.txt and its box's second sentence are deliberate differences, issue #74) |
 | patch | compare_files.py: four login connections patch Tibia.dat, .spr, .pic, Patch.exe | crafted (craft_patch) | 2 |
 | patch-exe | compare_files.py: a difference patch of Tibia.exe (Tibia.bak), the client closes | crafted (craft_patch_exe) | 3 |
 
@@ -510,8 +508,10 @@ b. states: every state dump against Tibia.exe's at the same checkpoint: "state" 
 c. frames: every frame against Tibia.exe's: exact, up to 2 per channel on the pixels the Vulkan engine marks as
    device-filtered (the user's decision of November 3, 2026), the recorded rectangles masked (the measured
    frame rate; the device choice of issue #31: compare_rendering.py's device_choice_mask);
-d. files: the files written and removed (byte for byte; Tibia.cfg, the *.map files, Default.txt, error.txt with
-   its time, the patched files, Tibia.bak), the saved files, the message boxes (caption and text), the exit code.
+d. files: the files written and removed (byte for byte; Tibia.cfg, the *.map files, Default.txt, the patched
+   files, Tibia.bak), the saved files, the message boxes (caption and text), the exit code. The deliberate
+   differences of tools/deliberate.py are expected and listed (issue #74: Tibia.exe's error.txt is not the test
+   client's, and the critical error box's text is its first sentence).
    Patella.ini (the x64 client's own, issue #31) is listed, not compared.
 
 `--check-only` compares the results in --out again (any platform). Report: <out>\report.txt; exit code 0 when

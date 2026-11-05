@@ -1,7 +1,7 @@
 """clang-tidy for src/, with the arguments of TASSERT*, TERROR* and TEND* left alone (issue #8).
 
-Those macros stringize their arguments into the exception messages that error.txt records and difftest
-compares (notes/modernization-plan.md, 4.2): until M5 no fix may change them, not even in whitespace.
+Those macros stringize their arguments into the exception messages that difftest and the golden corpus
+compare (and error.txt recorded until issue #74) (notes/modernization-plan.md, 4.2): until M5 no fix may change them, not even in whitespace.
 This wrapper runs clang-tidy with the repository's .clang-tidy on each file and
 - reports the findings outside those arguments (one line each, as clang-tidy writes them, and a count
   per check), and counts the findings inside them apart: they wait for M5;

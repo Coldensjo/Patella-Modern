@@ -1,7 +1,8 @@
 // Status.cpp: the client's shared state. Account, character list and
 // connection state; the message queue that the network code and the GUI use
-// to talk to the main loop; mouse and drag state; the player's rights;
-// error reports read from error.txt; the clipboard link check.
+// to talk to the main loop; mouse and drag state; the player's rights; the
+// clipboard link check. (The error reports read from error.txt are gone
+// since Patella-Modern issue #74, decision D2.)
 //
 // Names are ours unless a comment says they come from the binary.
 
@@ -12,7 +13,6 @@
 #include "types/FixedString.h"
 #include "Objects.h" // TObject
 #include <cstddef>
-#include <cstring>
 
 // "In(rightid,0,RIGHT_ANY-1)"; CheckRight treats RIGHT_ANY as "any right".
 inline constexpr int RIGHT_ANY = 50;
@@ -43,27 +43,6 @@ struct TCharacter {
 static_assert(sizeof(TCharacter) == 0x54 && offsetof(TCharacter, World) == 0x1e && offsetof(TCharacter, IP) == 0x3c
 		&& offsetof(TCharacter, IPAddress) == 0x40 && offsetof(TCharacter, Port) == 0x50,
 	"TCharacter's layout");
-
-// One error report from error.txt (0xa5a bytes, byte aligned). Date is
-// 26 bytes, the size of an asctime() string.
-struct TErrorReport {
-	TFixedString<64> Title;    // +0x000
-	TFixedString<26> Date;     // +0x040
-	TFixedString<2048> Text;   // +0x05a, lines separated by '\n'
-	TFixedString<512> Comment; // +0x85a, "Comment: " and the player's text
-
-	TErrorReport()
-	{
-		memset(Title, 0, sizeof(Title));
-		memset(Date, 0, sizeof(Date));
-		memset(Text, 0, sizeof(Text));
-		memset(Comment, 0, sizeof(Comment));
-	}
-};
-// The texts TFixedStrings (issue #60): the original's layout (no pointers: the same on x64).
-static_assert(sizeof(TErrorReport) == 0xa5a && offsetof(TErrorReport, Date) == 0x040 && offsetof(TErrorReport, Text) == 0x05a
-		&& offsetof(TErrorReport, Comment) == 0x85a,
-	"TErrorReport's layout");
 
 bool CheckAnyRight();
 void ClearRights();
@@ -119,20 +98,9 @@ const char *GetMouseOverText();
 void GetMouseOverTextPosition(int *x, int *y);
 void UpdateBlinkState();
 bool GetBlinkState();
-void DeleteErrorFile();
 int PeekMessageType();
 void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2);
 void ClearMessages();
-void ClearErrorReports();
-void AddErrorReport(const char *Title);
-void SetErrorReportDate(const char *Date);
-void AddErrorReportText(const char *Text);
-void SetErrorReportComment(const char *Comment);
-int GetNumberOfErrorReports();
-const char *GetErrorReportTitle(int Number);
-const char *GetErrorReportDate(int Number);
-const char *GetErrorReportText(int Number);
-const char *GetErrorReportComment(int Number);
 void ExitStatus();
 void SetRight(int rightid, int Value);
 bool CheckRight(int rightid, int Bit);

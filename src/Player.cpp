@@ -1,8 +1,11 @@
 // Player.cpp: reconstructed from Tibia.exe 7.72 (0x4d7cd0-0x4db29f).
 //
 // The MFC application: start-up (InitInstance), the message loop (Run),
-// idle processing, and the top-level error handling, which writes error.txt
-// and reads it back at the next start for the error report dialog.
+// idle processing, and the top-level error handling, which ends the client
+// with the critical error box. The original also wrote the error to error.txt
+// and read it back at the next start for the error report dialog; that
+// report is gone (Patella-Modern issue #74, decision D2): the message goes to
+// stderr instead.
 //
 // The range also holds code the linker kept in this object that is not part
 // of the source: CWinApp's destructor, AfxGetMainWnd, <fstream>/<sstream>
@@ -13,7 +16,8 @@
 // Order: the functions without line evidence first, in binary order
 // (message map, constructor, FatalError), then the two text decoders
 // (lines 62, 75), the window counter for EnumWindows, the error handlers
-// and the error.txt reader (binary order, before their first user), then
+// (binary order, before their first user; the error.txt reader that followed
+// them, 0x4da140, is gone since issue #74), then
 // InitInstance (lines 255-347), Run (383-408) and OnIdle (456). The
 // compiler placed OnIdle right after the decoders.
 
@@ -28,22 +32,19 @@
 #include "Text.h"
 #include "Utils.h"
 #include "sysinc.h"
-#include "compat/crt71.h"
 #include "common.h"
 #include "types/FixedString.h"
 #include <array>
-#include <fstream>
 #include <sstream>
 #include <string>
 #include <new>
 #include <stdexcept>
-#include <ctime>
 #include "compat/msvc.h"
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
-#include <ios>
-#include <ostream>
+#include <initializer_list>
 
 namespace {
 
@@ -57,6 +58,23 @@ const std::array<int, 11> ClassNameKey = {109, 168, 131, 83, 237, 53, 175, 191, 
 int LastMouseCursor = 1;  // 0x5c2518
 int NumberOfTibiaWindows; // 0x719db0, counted by CountTibiaWindows
 POINT LastMousePosition;  // 0x719db4
+
+// Not in the original (Patella-Modern issue #74, decision D2): a fatal error's text on stderr, the three parts and a
+// line break in one write. A GUI client's stderr is valid only when it is redirected; a failed write is ignored, and
+// nothing here throws.
+void WriteToStderr(const char *First, const char *Second, const char *Third) noexcept
+{
+	try {
+		std::string Text;
+		for (const char *Part : {First, Second, Third})
+			if (Part != nullptr)
+				Text += Part;
+		Text += '\n';
+		std::fwrite(Text.data(), 1, Text.size(), stderr);
+		std::fflush(stderr);
+	} catch (...) {
+	}
+}
 
 } // namespace
 
@@ -75,9 +93,11 @@ CPlayerApp::CPlayerApp()
 }
 
 // 0x4d7d80. Every step is guarded on its own; the program ends here. this
-// is passed but not used.
+// is passed but not used. Since issue #74 (D2) the box's caption and text go
+// to stderr first, the fork's record of a fatal error.
 void CPlayerApp::FatalError(const char *Text, const char *Caption)
 {
+	WriteToStderr(Caption, ": ", Text);
 	try {
 		ShutdownConnection();
 	} catch (...) {
@@ -149,139 +169,40 @@ void CPlayerApp::HandleProgramError(PROGRAM_ERROR Error)
 	FatalError(Message.str().c_str(), "Tibia Error");
 }
 
-// 0x4d9bd0. Appends a report to error.txt and ends the program; the report
-// is read back by ReadErrorFile at the next start. Each part of the report
-// is guarded on its own. Odd behaviour kept: the service pack text is
-// copied into a 30-byte buffer without a terminator when it has 30
-// characters or more, and the dashes at the end have no line break.
+// 0x4d9bd0. Ends the program with the critical error box. The original
+// appended a report to error.txt first (the client version, the exception's
+// origin, the time, the Windows version, the engine, the last packets, the
+// player's position and the message), which ReadErrorFile read back at the
+// next start for the error report dialog and Control.cpp sent to the server
+// as packet 0xe8. That report is gone (Patella-Modern issue #74, decision D2):
+// the exception's message goes to stderr, then FatalError's box (whose text,
+// TextCriticalError, no longer mentions the error file) ends the client.
 void CPlayerApp::HandleException(TMyException &Exception)
 {
 	if (Terminating) {
 		Terminating = true;
 		return;
 	}
-	std::ofstream Out("error.txt", std::ios::out | std::ios::app);
-	if (Out.is_open()) {
-		Out << std::endl
-			<< "+---------------------------------------------------------------" << std::endl
-			<< "Debug Assertion " << "7.72" << " " << Exception.GetOrigin();
-		const time_t Now = PATELLA_TIME(nullptr);
-		TCRT71TimeText Stamp;
-		Out << std::endl;
-		if (FormatCRT71Time(Stamp, Now) != nullptr) // ctime's text, the day as MSVC 7.1 writes it
-			Out << Stamp.View();
-		OSVERSIONINFOA Version;
-		memset(&Version, 0, sizeof(Version));
-		Version.dwOSVersionInfoSize = sizeof(Version);
-		try {
-			PATELLA_MSVC_WARNING(suppress : 4996) // deprecated in newer SDKs
-			if (!GetVersionExA(&Version)) {
-				Out << "Windows Version: (error)" << std::endl;
-			} else {
-				Out << "Windows Version: " << Version.dwMajorVersion << "." << Version.dwMinorVersion
-					<< " build " << Version.dwBuildNumber << " on " << Version.dwPlatformId;
-				if (strlen(Version.szCSDVersion) != 0) {
-					// Characters other than letters, digits, ' ', '.', '-' and
-					// '_' become '*'.
-					TFixedString<30> ServicePack = {0};
-					try {
-						unsigned int Length = (unsigned int)strlen(Version.szCSDVersion);
-						if (Length > 30)
-							Length = 30;
-						for (unsigned int i = 0; i < Length; i++) {
-							const char c = Version.szCSDVersion[i];
-							if (IsDigit(c) || IsAlpha(c) || c == ' ' || c == '.' || c == '-' || c == '_')
-								ServicePack[i] = c;
-							else
-								ServicePack[i] = '*';
-						}
-						Out << " with " << ServicePack.Chars;
-					} catch (...) {
-					}
-				}
-				Out << std::endl;
-			}
-		} catch (...) {
-			Out << "Windows Version: (exception)" << std::endl;
-		}
-		try {
-			Out << "Graphic Engine: " << GetCurrentEngine() << std::endl;
-		} catch (...) {
-			Out << "Graphic Engine: (exception)" << std::endl;
-		}
-		try {
-			OutputControlErrorInformations(Out);
-		} catch (...) {
-			Out << "OutputControlErrorInformations: (exception)" << std::endl;
-		}
-		if (m_pMainWnd != nullptr) {
-			try {
-				(static_cast<CMainFrame *>(m_pMainWnd))->OutputErrorInformations(Out);
-			} catch (...) {
-				Out << "OutputErrorInformations: (exception)" << std::endl;
-			}
-		}
-		Out << Exception.GetMessage() << std::endl
-			<< "----------------------------------------------------------------";
-		Out.close();
+	try {
+		WriteToStderr("Debug Assertion 7.72 ", Exception.GetMessage().c_str(), "");
+	} catch (...) {
 	}
 	FatalError(TextCriticalError, "Tibia Error - Debug Assertion");
 }
 
-// 0x4da140. Reads the reports in error.txt into the error report list
-// (Status.cpp): a line starting with '+' begins a report, the next line is
-// its title, the one after its date, the rest its text up to a line
-// starting with '-'. A line that is exactly "Player Position: [" or
-// "Windows Version: " (cut off when the file was written) gets
-// " (truncated input line)"; a read error replaces the line.
-void CPlayerApp::ReadErrorFile()
-{
-	if (!FileExists("error.txt"))
-		return;
-	std::ifstream In("error.txt", std::ios::in);
-	if (In.is_open()) {
-		int State = 0;
-		std::string Line;
-		while (!In.eof() && !In.bad()) {
-			std::getline(In, Line);
-			if (In.bad())
-				Line = " (bad input file)";
-			if (Line.length() == 0)
-				continue;
-			if (Line.compare(0, Line.length(), "Player Position: [", 18) == 0)
-				Line += " (truncated input line)";
-			if (Line.compare(0, Line.length(), "Windows Version: ", 17) == 0)
-				Line += " (truncated input line)";
-			if (Line.c_str()[0] == '-') {
-				State = 0;
-			} else if (Line.c_str()[0] == '+') {
-				State = 1;
-			} else if (State == 1) {
-				AddErrorReport(Line.c_str());
-				State = 2;
-			} else if (State == 2) {
-				SetErrorReportDate(Line.c_str());
-				State = 3;
-			} else if (State == 3) {
-				AddErrorReportText(Line.c_str());
-			}
-		}
-		In.close();
-	}
-}
-
-// 0x4da3e0, lines 255-347. Reads error.txt, registers the window class,
-// parses the command line, creates the frame window and the surfaces, and
-// refuses to run twice (except for gamemasters). Odd behaviour kept: "host"
-// and "port" are recognised but their values are dropped (the test server
-// is always test.cipsoft.com:7172), and after an error InitInstance still
-// returns TRUE. A PROGRAM_ERROR shows its code, any other error is turned
-// into a TMyException and written to error.txt.
+// 0x4da3e0, lines 255-347. Registers the window class, parses the command
+// line, creates the frame window and the surfaces, and refuses to run twice
+// (except for gamemasters). Odd behaviour kept: "host" and "port" are
+// recognised but their values are dropped (the test server is always
+// test.cipsoft.com:7172), and after an error InitInstance still returns TRUE.
+// A PROGRAM_ERROR shows its code, any other error is turned into a
+// TMyException for HandleException. The original read error.txt first and
+// posted event 0x2a at the end (the error report dialog); both are gone
+// since issue #74.
 BOOL CPlayerApp::InitInstance()
 {
 	try {
 		try {
-			ReadErrorFile();
 			TFixedString<32> ClassName;
 			GetWindowClassName(ClassName);
 			WNDCLASSA WindowClass = {0};
@@ -372,7 +293,6 @@ BOOL CPlayerApp::InitInstance()
 			if (GetViewMode() == 1)
 				ScreenToClient(m_pMainWnd->GetSafeHwnd(), &LastMousePosition);
 			MouseMove(LastMousePosition.x, LastMousePosition.y);
-			AddMessage(0x2a, 0, 0);
 			return TRUE;
 		} catch (PROGRAM_ERROR Error) {
 			HandleProgramError(Error);

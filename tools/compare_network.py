@@ -24,7 +24,8 @@ records:
     character list), the character list in memory and the client state (state(): connection
     state, player, map, creatures, containers, console) before WM_CLOSE;
   - error.txt (the crash time masked) and Tibia.cfg as written on exit.
-and compares the two clients. A difference is reported; --repeat runs Tibia.exe a second time for
+and compares the two clients, with the deliberate differences expected (tools/deliberate.py, issue #74:
+Patella.exe writes no error.txt, and its critical error box does not name that file). A difference is reported; --repeat runs Tibia.exe a second time for
 every scenario that differs, to show whether the difference is the client's run-to-run variation; the
 scenarios marked variable (a wrong XTEA key: the garbage the client decrypts depends on its random session key)
 always get the second run, and differ without failing only when Tibia.exe's two runs differ as well.
@@ -46,6 +47,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import desktop  # noqa: E402
 import compare_traffic as ct  # noqa: E402
 import compare_files as cf  # noqa: E402
+import deliberate  # noqa: E402
 import proxy as px  # noqa: E402
 import session_client as sc  # noqa: E402
 import login_client as lc  # noqa: E402
@@ -415,9 +417,25 @@ def client_state_error():
 
 # --- comparison --------------------------------------------------------------------------
 
-def compare(a, b):
-	"""Differences between Tibia.exe's result a and Patella.exe's b."""
+def expected_of(a):
+	"""Tibia.exe's result as Patella.exe is expected to give it (tools/deliberate.py, issue #74): no error.txt, the
+	critical error box without the sentence on the error file."""
+	e = dict(a)
+	e["error.txt"] = None
+	if e.get("files") is not None:
+		e["files"] = [n for n in e["files"] if n.lstrip("-") in deliberate.files([n.lstrip("-")])]
+	if e.get("box"):
+		caption, texts = e["box"]
+		e["box"] = [caption, [deliberate.box_text(caption, t) for t in texts]]
+	return e
+
+
+def compare(a, b, fork=True):
+	"""Differences between Tibia.exe's result a and Patella.exe's b (fork: with the deliberate ones expected; False for
+	two runs of Tibia.exe)."""
 	out = []
+	if fork:
+		a = expected_of(a)
 	for key in ("exit", "box", "characters", "error.txt", "Tibia.cfg", "files", "note"):
 		if a.get(key) != b.get(key):
 			out.append("%s: %r against %r" % (key, a.get(key), b.get(key)))
@@ -498,7 +516,7 @@ def main():
 		varies = False
 		if differences and (args.repeat or scenario[4]):
 			again = run(cf.REPEAT_RUN, name + "-repeat", scenario, args.out)
-			varies = bool(compare(results["orig"], again))
+			varies = bool(compare(results["orig"], again, fork=False))
 			if varies:
 				differences.append("(Tibia.exe's second run differs from its first as well: run-to-run variation)")
 		if differences and scenario[4] and varies:

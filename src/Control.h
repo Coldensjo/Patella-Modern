@@ -8,15 +8,12 @@
 #pragma once
 
 #include "common.h" // IWYU pragma: keep (HWND: MFC and the Windows headers, which include-cleaner does not check)
-#include <iosfwd>
 
-void OutputControlErrorInformations(std::ostream &Out);
 void Resize(int Width, int Height);
 
 void CheckSurface(bool Force);
 void ChangeEngine(int engine);
 void Redraw(bool Force);
-void SendErrorReports();
 void EnterGame();
 void LeaveGame();
 

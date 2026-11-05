@@ -30,9 +30,11 @@
 // - Control.cpp (playertest.cpp's stubs on our side), MainWindow.cpp's
 //   InitMainWindow, Preferences.cpp's view and window modes, Status.cpp's
 //   mouse cursor and position, the connection state and AddMessage,
-//   Network.cpp's functions (Network.cpp has its own test), Creatures.cpp's
-//   GetPlayerID and GetCreature, and the image's three ostream members
-//   OutputErrorInformations calls (the image gets a fake stream object).
+//   Network.cpp's functions (Network.cpp has its own test). Until issue #74
+//   also Creatures.cpp's GetPlayerID and GetCreature and the image's three
+//   ostream members, OutputErrorInformations' calls (the script still draws
+//   the player and its position, so that the random inputs stay as they
+//   were).
 //
 // Each round constructs both frames, runs random operations through every
 // handler and free function of the file (keys with every modifier and the
@@ -41,8 +43,8 @@
 // minimised, the cursor inside and outside, every mouse cursor, display
 // changes, the host lookup's reply with and without an error in every
 // connection state, the display mode switch with every engine, closing with
-// and without CloseRequest's consent, OutputErrorInformations with and
-// without a packet header and a player) and destroys them; after each
+// and without CloseRequest's consent, a packet header or none; until issue
+// #74 OutputErrorInformations with them) and destroys them; after each
 // operation the logs, the frames' members and the file's statics are
 // compared. The error round (TErrorRound) after the counted checks: every
 // operation with the n-th fake call throwing an assertion of the calling
@@ -81,7 +83,6 @@
 #pragma warning(pop)
 #endif
 #include <new>
-#include <sstream>
 #include <string>
 #include <vector>
 #include <stdarg.h>
@@ -247,7 +248,6 @@ struct TSideWorld {
 	int MouseX, MouseY;
 	int ConnectionState;
 	int Ticks;
-	std::string Stream; // the image's OutputErrorInformations output
 };
 TSideWorld World[2];
 int FailAt;
@@ -797,117 +797,7 @@ void __cdecl FakeGetErrorMessage(char *Message, int Code, int Type)
 	Tick();
 	sprintf(Message, "error %d type %d", Code, Type);
 }
-uint32 __cdecl FakeGetPlayerID()
-{
-	Tick();
-	return (uint32)Script.PlayerID;
-}
-alignas(16) uint8 CreatureBuffer[2][sizeof(TCreature) + 16];
-TCreature *__cdecl FakeGetCreature(uint32 ID)
-{
-	Logf("GetCreature(%u);", ID);
-	Tick();
-	if (!Script.HasCreature)
-		return NULL;
-	TCreature *C = (TCreature *)CreatureBuffer[Side];
-	C->RealX = Script.CreatureX;
-	C->RealY = Script.CreatureY;
-	C->RealZ = Script.CreatureZ;
-	return C;
-}
 
-#if GOLDEN_ORACLE
-// The image's stream: OutputErrorInformations calls operator<<(ostream &,
-// const char *) 0x402630, operator<<(int) 0x402f00 and put 0x402c00, then
-// flushes inline (the stream's ios at the offset of its virtual base table,
-// state +0x08, rdbuf +0x28, pubsync's slot +0x2c).
-struct TFakeStream {
-	uint32 *Bases;
-	uint32 Pad;
-	uint8 Ios[0x40];
-};
-uint32 StreamBases[2] = {0, 8};
-void *StreamBufferVtable[16];
-struct TFakeBuffer {
-	void **Vtable;
-} StreamBuffer = {StreamBufferVtable};
-TFakeStream ImageStream;
-int __fastcall FakeSync(void *, void *) { return 0; }
-// The three members are hooked only around the image's OutputErrorInformations
-// call: the image's TMyException constructors use them too (an error round's
-// exception), so a call for another stream runs the original (unhooked for it).
-struct THook {
-	uint32 Address;
-	void *Fake;
-	uint8 Original[5];
-};
-void *__cdecl ImagePutText(void *Stream, const char *Text);
-void *__fastcall ImagePutInt(void *Stream, void *, int Value);
-void *__fastcall ImagePut(void *Stream, void *, char c);
-THook Hooks[3] = {{0x402630, (void *)ImagePutText}, {0x402f00, (void *)ImagePutInt}, {0x402c00, (void *)ImagePut}};
-void Hook(THook &H, bool On)
-{
-	uint8 *Code = (uint8 *)(uintptr_t)H.Address;
-	DWORD Protection;
-	VirtualProtect(Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	if (On) {
-		memcpy(H.Original, Code, 5);
-		Code[0] = 0xe9;
-		*(int32_t *)(Code + 1) = (int32_t)((uintptr_t)H.Fake - (H.Address + 5));
-	} else {
-		memcpy(Code, H.Original, 5);
-	}
-	VirtualProtect(Code, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Code, 5);
-}
-void HookStream(bool On)
-{
-	for (auto &H : Hooks)
-		Hook(H, On);
-}
-void *__cdecl ImagePutText(void *Stream, const char *Text)
-{
-	if (Stream != &ImageStream) {
-		Hook(Hooks[0], false);
-		void *Result = ((void *(__cdecl *)(void *, const char *))(uintptr_t)Hooks[0].Address)(Stream, Text);
-		Hook(Hooks[0], true);
-		return Result;
-	}
-	World[IMAGE].Stream += Text;
-	return Stream;
-}
-void *__fastcall ImagePutInt(void *Stream, void *, int Value)
-{
-	if (Stream != &ImageStream) {
-		Hook(Hooks[1], false);
-		void *Result = ((void *(__fastcall *)(void *, void *, int))(uintptr_t)Hooks[1].Address)(Stream, NULL, Value);
-		Hook(Hooks[1], true);
-		return Result;
-	}
-	World[IMAGE].Stream += std::to_string(Value);
-	return Stream;
-}
-void *__fastcall ImagePut(void *Stream, void *, char c)
-{
-	if (Stream != &ImageStream) {
-		Hook(Hooks[2], false);
-		void *Result = ((void *(__fastcall *)(void *, void *, char))(uintptr_t)Hooks[2].Address)(Stream, NULL, c);
-		Hook(Hooks[2], true);
-		return Result;
-	}
-	World[IMAGE].Stream += c;
-	return Stream;
-}
-void MakeImageStream()
-{
-	memset(&ImageStream, 0, sizeof(ImageStream));
-	ImageStream.Bases = StreamBases;
-	for (int i = 0; i < 16; i++)
-		StreamBufferVtable[i] = NULL;
-	StreamBufferVtable[0x2c / 4] = (void *)FakeSync;
-	*(void **)(ImageStream.Ios + 0x28) = &StreamBuffer; // the ios at +8, its rdbuf at ios + 0x28
-}
-#endif
 
 } // namespace
 
@@ -1638,7 +1528,9 @@ void Operation(int Kind)
 		break;
 	}
 	case 35: {
-		// OutputErrorInformations, with and without a packet header.
+		// A packet header in the statics, or none. Until Patella-Modern issue #74 OutputErrorInformations, which
+		// printed it for error.txt, was compared here; it is gone, and its comparison with it. The header's random
+		// bytes are still drawn, as they were, so that the operations after it keep their inputs.
 		uint8 Header[16];
 		memset(Header, 0, 16);
 		if (Chance(70))
@@ -1646,24 +1538,6 @@ void Operation(int Kind)
 				Header[i] = (uint8)(Chance(30) ? 0 : Random());
 		for (int s = 0; s < 2; s++)
 			memcpy(Statics[s].PacketHeader, Header, 16);
-		Both("OutputErrorInformations", [&](int s) {
-			if (s == IMAGE) {
-#if GOLDEN_ORACLE
-				World[IMAGE].Stream.clear();
-				MakeImageStream();
-				HookStream(true);
-				struct TUnhook {
-					~TUnhook() { HookStream(false); }
-				} Unhook;
-				ImageMember<void>(0x4a8360, (void *)&ImageStream);
-				Logf("out:%s;", World[IMAGE].Stream.c_str());
-#endif
-			} else {
-				std::ostringstream Out;
-				Frame()->OutputErrorInformations(Out);
-				Logf("out:%s;", Out.str().c_str());
-			}
-		});
 		break;
 	}
 	case 36: {
@@ -1907,8 +1781,6 @@ void TestMainFrm()
 		{0x4ca9f0, (void *)SetServerIPAddress, (void *)FakeSetServerIPAddress},
 		{0x4ce300, (void *)Disconnect, (void *)FakeDisconnect},
 		{0x4cd180, (void *)GetErrorMessage, (void *)FakeGetErrorMessage},
-		{0x44b9c0, (void *)GetPlayerID, (void *)FakeGetPlayerID},
-		{0x44c6e0, (void *)GetCreature, (void *)FakeGetCreature},
 	};
 	for (auto &T : Table) {
 		ORIGINAL(Redirect((void *)(uintptr_t)T.Image, T.Fake));

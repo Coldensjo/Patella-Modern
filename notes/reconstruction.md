@@ -7,7 +7,7 @@ reference example.
 
 Since November 2, 2026 the decompilation workspace below (`symbols.tsv`, `names.tsv`, `file-ranges.tsv`,
 `decomp/`, `notes/source-map.md`, the analysis tools triage.py, simplify.py, callcheck.py, ehinfo.py,
-ehcompare.py, xctable.py, lines.py, listing.cmd, and `rea-out/`) is not in the repository: it is kept,
+ehcompare.py, xctable.py, listing.cmd, and `rea-out/`; lines.py too until issue #74, which dropped it with error.txt) is not in the repository: it is kept,
 gitignored, in `decompilation/`; `tools\decompilation.ps1 -Restore` puts it back at these paths before
 analysis work, `-Stash` puts it away (CLAUDE.md). The last commit that has the files is e02adfa.
 
@@ -30,8 +30,9 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
 - After most functions come three catch blocks. A 20-byte one re-throws a `PROGRAM_ERROR`; a
   `TRETHROW(line, "names"...)` one and a `TERROR(line, "unknown exception occurred", ...)` one
   are `TEND(line)`, `TEND1(line, name)` or `TEND2(line, a, b)`, closing a `TBEGIN` at the start of
-  the body. The names are the function's parameters (or expressions of them). `python -I tools/lines.py
-  check` checks every site's line against the binary.
+  the body. The names are the function's parameters (or expressions of them). difftest and the golden
+  corpus compare the messages, the line included (tools/lines.py, which checked every site's line against the
+  binary, went with error.txt in Patella-Modern issue #74).
 - A catch block with its own message, such as "Symmetric encryption failed with unknown
   exception", is an inner `try { ... } catch (...) { TERROR("..."); }`.
 - Get the catch types and the try ranges from the exception tables, not from the pseudocode:
@@ -418,7 +419,8 @@ equal to the original's).
 
 `python -I tools/compare_files.py` (issue #21) compares the files both clients write after the same sessions
 (Tibia.cfg after the option dialogs, the automap files after a walk over three floors, a saved channel,
-error.txt after forced errors and the error report flow, the files a patch from the login server writes):
+the forced error's end, the files a patch from the login server writes; error.txt and the error report flow until
+issue #74, which made Tibia.exe's error.txt a deliberate difference, tools/deliberate.py):
 notes/written-files.md. Its live recording is also Tibia.exe's walk run, the walk is 19 actions from a ladder
 (Patella-Modern issue #16; `--check-route` checks it against the server's map), and the second Tibia.exe run is
 `--repeat`. It takes `--patella <exe>` too and reads the dialogs' controls through client_state.py's
@@ -448,7 +450,7 @@ notes/testmode.md, "The cold start (issue #25)".
 compare_traffic.py, compare_files.py and compare_rendering.py) is the record/compare split of those three
 tools: record (Windows, Tibia.exe) needs the server only for the two live recordings (compare_traffic.py's
 session with the helper, compare_files.py's walk) and then plays every session (traffic, options, walk, error,
-error-login, report, patch, patch-exe) with Tibia.exe under patcap.dll against the replayed server side into the
+patch, patch-exe; error-login and report went with the error report in issue #74) with Tibia.exe under patcap.dll against the replayed server side into the
 reference set (default build\reference; the orchestrator's is the main checkout's,
 C:\Tibia\Patella-Modern\build\reference; local data, never committed); compare runs PatellaTest.exe on each session's script with the server side replayed inside the client
 (no server, PATELLA_VULKAN=cpu) and compares packets, states, frames, files and message boxes: notes/testmode.md,
@@ -754,8 +756,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   the child (its throw, frame handlers and catch blocks, its stringstream and TMyException code): the image's
   locks and per-thread data are patched, the imports it needs bound, and its exception handlers, which Windows
   refuses outside a mapped image, are called through a SafeSEH-registered trampoline (`imageehseh.asm`, built
-  with ml.exe). It also compares TMyException's constructors and the report HandleException writes to
-  error.txt. Another test can use it: EnableImageExceptions, ImageThrow/OurThrow, DisableImageExceptions.
+  with ml.exe). It also compares TMyException's constructors and how HandleException ends (until
+  Patella-Modern issue #74 the report it wrote to error.txt; since then the original's outcome, no file, the message
+  on stderr). Another test can use it: EnableImageExceptions, ImageThrow/OurThrow, DisableImageExceptions.
 - Communication.cpp and Control.cpp (issue #36) are compared in `communicationtest.exe`, a test program of its
   own (difftest.exe's other tests define fakes under their functions' names): every function they
   call is a fake on both sides (`commworld.cpp`), the comparison is the calls with their arguments, what each side
@@ -794,7 +797,10 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   checks. Retired with the oracle, 1,521,619 checks: Dialogs' 9,129, Errors' 36, Control's 24,155 and issue #29's three
   engine tests as whole tests (the user's decision; the runner's RetiredTests, "#29"): SurfaceDX's 1,368,981, DX9's
   63,616, GL's 55,702. Every test is ported; replayed and retired add up to the oracle's totals, which the runner's
-  last line shows. Control's replay found an x64 defect of src/Control.cpp (event 0x12 read Communication's channel
+  last line shows. Since issue #74 (the error report removed; notes/decisions.md, "The error report removed"), with
+  the corpus recorded again: Status 324,707, Dialogs 292,146 (282,777 replayed, 9,369 retired), Errors 40,408, MainFrm
+  48,132, Communication 847,643, Control 266,909 (244,010 replayed, 22,899 retired); difftest 15,101,474 of 16,599,178
+  replayed, communicationtest 1,091,653 of 1,114,552: 16,193,194 replayed + 1,520,603 retired = 17,713,797. Control's replay found an x64 defect of src/Control.cpp (event 0x12 read Communication's channel
   list, an `int[]`, as INT_PTR[]), fixed with it (notes/decisions.md, issue #30's third part). The runner links the reconstructed files the
   ported tests call (golden_client: compiled against the MFC shim with the product settings; since issue #28
   graphics.cpp, GUI.cpp and every window file too; since issue #30's second part Communication.cpp and Control.cpp, in
@@ -958,7 +964,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 | Script.cpp | Reconstructed: the script tokenizer and writer (TReadScriptFile, TWriteScriptFile), binary files, and the file patching; class and member names from CipSoft's game server (notes/decisions.md). The inline constructors, destructors and close() functions are in Script.h; their out-of-line copies are in the Preferences/Script gap (0x4df550-0x4df6c9). EH tables checked for every function; nextToken's jump table checked. Every function differentially tested with the image's stdio redirected to the test's CRT (scripttest.cpp); the error paths since issue #22 (errortest.cpp: the tokenizer on broken scripts, the writer, the binary files, InstallPatch), which found the file name missing as the reason of fourteen file errors (fixed). |
 | Talk.cpp | Reconstructed by ChatGPT gpt-6.1-sol: talkboxes, status messages, ignore/filter lists, console routing and polymorphic text buffers; includes the leading Talk gap, Talk.h COMDATs and the Container.h filter-vector instance. All EH tables and three jump tables checked. Integrated with Script/Objects main: all 21 reviewed names documented, one definition per binary entry, no compatibility shims/views, and typed Communication/Control/Preferences callers audited against instructions. Compile-check is warning/error-free; 1,202,522 Talk checks pass. 36 of 88 callcheck lexical differences are fully explained in notes/Talk.md. |
 | Objects.cpp | Reconstructed (first version by Claude Opus 5.5): the Tibia.dat tables of objects, outfits, effects and missiles, their loader and accessors. The Objects/Player gap after it is Player.obj (file-ranges.tsv; its STL/MFC code has names.tsv rows of kind stl). EH tables checked for every function; the loader's and GetMissileSpriteNumber's jump tables checked. Every function differentially tested on the real Tibia.dat and random .dat files (objectstest.cpp; malloc/free and fopen/fread/fclose redirected); the assertion-failure paths and the getters' TEND wrapping since issue #22. |
-| Player.cpp | Reconstructed: the MFC application CPlayerApp (InitInstance, Run, OnIdle), the error handlers that write error.txt and show PROGRAM_ERROR codes, and the error.txt reader; includes the three game functions of the Objects/Player gap. The STL/MFC code in its range is not part of the source (names.tsv kind stl). EH tables checked for every function. Only the two text decoders are differentially tested (the rest needs MFC and the window system); the MFC shim gained CWinApp/CFrameWnd declarations. Since issue #22 also HandleException (the error.txt it writes, byte for byte) and HandleProgramError (FatalError's text). |
+| Player.cpp | Reconstructed: the MFC application CPlayerApp (InitInstance, Run, OnIdle), the error handlers that end the client with the critical error box (error.txt and its reader removed in Patella-Modern issue #74, D2; the message goes to stderr); includes the three game functions of the Objects/Player gap. The STL/MFC code in its range is not part of the source (names.tsv kind stl). EH tables checked for every function. Only the two text decoders are differentially tested (the rest needs MFC and the window system); the MFC shim gained CWinApp/CFrameWnd declarations. Since issue #22 also HandleException (the error.txt it writes, byte for byte) and HandleProgramError (FatalError's text). |
 | Surface.cpp | Reconstructed (name inferred; first part of the Status/SurfaceDX gap, 0x4eaa80-0x4eae6f): curEngine, the surface object, the engine selection at start-up and the base class TSurface (moved to Surface.h). The getters are differentially tested; the rest needs DirectX, OpenGL and the window system. The rest of the gap (0x4eae70-0x4ed19f) is settled as SurfaceDX.cpp. Since issue #34 SurfaceInitInstance's catch (PROGRAM_ERROR 12) is compared with faked engine checks; its second catch does not exist in the binary. |
 | SurfaceDX.cpp | Reconstructed (issue #9, GPT-6.1-sol with Claude Opus 5.5 delegates): the full DirectDraw object at 0x4eae70-0x4efd0f, including Ghidra-missed functions and folded virtuals; pixels, fills, lines, images and masks, keyed/clipped/stretched blits, Direct3D shading, frame timing, mode enumeration and the display/surface lifecycle. The following gap through 0x4f1ea4 is surfaceDX9.cpp. Surface.h now has the real base layout and typed slots; shared statistics are in Surface.cpp. EH and switch instructions checked; 14 callcheck differences explained in notes/decisions.md. Every runnable function tested against the mapped image with fake DirectDraw/Direct3D and Win32 effects and its error paths (issue #34: every assertion site and PROGRAM_ERROR 7-18 through failure injection, notes/decisions.md). 1,213,828 standalone differential checks pass; eighteen mutation targets detected. Final compile-check has no warnings/errors and the full suite has no failures. |
 | surfaceDX9.cpp | Reconstructed (Claude Opus 5.5, issue #10) with the whole former SurfaceDX/surfaceDX9 gap (surfaceDX9.obj is 0x4efd10-0x4f46ef, agreed with #9): the Direct3D 9 surface TSurfaceDX9 (textured quads in a dynamic vertex buffer, colour fills, render-target textures for the surfaces, the light rectangles, d3d9.dll loaded at run time, DirectDraw 4 for the modes and capabilities) and its factory. The surfaceDX9/SurfaceGL gap 0x4f46f0-0x4fb7ef is SurfaceGL.obj (file-ranges.tsv, for #11). Seven slots are folded copies kept in SurfaceGL.obj and SurfaceDX.obj, written here. EH tables checked (no TBEGIN; ResetDisplay has a catch PROGRAM_ERROR with an inner catch ...); no jump tables. Every function differentially tested and its error paths (issue #34: every assertion site, PROGRAM_ERROR 7, 8, 12, 14-18, notes/decisions.md; surfacedx9test.cpp: the Windows functions faked through both import tables, per-side fake Direct3D 9/DirectDraw objects with COM vtables that log every call and keep pixel and vertex memory, objects and fake memory compared after random operations; a mutation check of 27 changes, two of them equivalent). 13 callcheck differences, all explained (notes/decisions.md). Uses the Windows SDK's d3d9.h and ddraw.h. |

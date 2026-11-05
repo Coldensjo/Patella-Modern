@@ -59,7 +59,6 @@ WNDPROC AfxGetAfxWndProc() STUB
 
 
 
-void OutputControlErrorInformations(std::ostream &) STUB
 // Not folded into one function: errortest.cpp redirects each to its own fake.
 const char *GetErrorText(int) { printf("GetErrorText stub\n"); abort(); }
 const char *GetErrorHint(int) { printf("GetErrorHint stub\n"); abort(); }
