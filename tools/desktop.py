@@ -1,9 +1,10 @@
-r"""Run a live check on a hidden Windows desktop of its own (Patella-Modern issue #56).
+r"""Run a live check on a hidden Windows desktop of its own, with --hidden (Patella-Modern issue #56;
+experimental).
 
 The live checks (tools/reference.py compare and record, tools/testmode_check.py, tools/compare_traffic.py,
 compare_files.py, compare_rendering.py, compare_network.py) start clients in real windows. Started from
 the user's desktop they appear on it: the user had to keep off the mouse and the keyboard while one ran,
-and a foreground change there could disturb a run (issue #52's lost scripted click). With this module
+and a foreground change there could disturb a run (issue #52's lost scripted click). With --hidden
 each of those tools first runs itself again on a new desktop (CreateDesktopW in the tool's own window
 station, the child started with STARTUPINFO.lpDesktop); every process the child starts (the clients,
 the proxy, the test server, patch_client.py, a build) inherits that desktop, so nothing appears on the
@@ -12,10 +13,20 @@ other change: EnumWindows, FindWindow and the screen DC of a thread see its own 
 messages, ReadProcessMemory (tools/client_state.py), patcap.dll's capture and the test mode's frame
 dumps do not depend on the desktop at all.
 
+The default is the user's desktop, as before this module: the clients do not behave on a desktop that is
+not the input desktop as they do on the user's (notes/decisions.md, "The live checks on a hidden desktop").
+DirectDraw and Direct3D 9 do not start there (Tibia.exe and the oracle's Patella.exe fall back to OpenGL),
+the Vulkan CPU driver's first present fails (lavapipe, PATELLA_VULKAN=cpu: the client ends after 1 s), and
+GetCursorPos fails (the posted clicks of compare_traffic.py and compare_files.py miss). What gives the same
+results there: PatellaTest.exe on a GPU (reference.py compare --vulkan gpu), the OpenGL engine
+(compare_rendering.py --engines gl) and compare_network.py. The owner's way to keep the live checks off
+the user's desktop is a second interactive session (notes/reconstruction.md, "Checking").
+
 In a tool (its `if __name__ == "__main__":` block, before main):
   desktop.hide(skip=("--self-test", ...))
 returns at once, and the tool goes on in this process, when
-  - --visible is on the command line (it is removed from sys.argv: the old behaviour, for debugging);
+  - --hidden is not on the command line (the default: the user's desktop, as on main); --hidden is
+    removed from sys.argv either way, and the child does not get it;
   - the process already runs on a desktop this module made (PATELLA_DESKTOP names it, and it is the
     thread's desktop);
   - an argument in skip is given (the tool starts no client then: --self-test, --check-only, list...);
@@ -40,9 +51,9 @@ import time
 import uuid
 
 ENV = "PATELLA_DESKTOP"
-VISIBLE = "--visible"
-VISIBLE_HELP = ("start the clients on the user's desktop, in visible windows (default: the whole run on a hidden "
-	"desktop of its own, tools/desktop.py, issue #56)")
+HIDDEN = "--hidden"
+HIDDEN_HELP = ("experimental: run on a hidden desktop of its own (tools/desktop.py, issue #56); DirectDraw, Direct3D 9, "
+	"the Vulkan CPU driver and GetCursorPos do not work there (default: the user's desktop)")
 WINDOWS = os.name == "nt"
 # What may stay running after the run: the test server keeps the desktop until testserver.py stop ends it.
 SERVER_NAMES = ("tibia-server.exe", "conhost.exe")
@@ -233,7 +244,7 @@ def run(command, cwd=None, env=None):
 			kernel32.CloseHandle(job)
 			job = None
 		kernel32.ResumeThread(info.hThread)
-		say("running on the hidden desktop %s (PID %d; --visible: on this desktop)" % (startup.lpDesktop,
+		say("running on the hidden desktop %s (PID %d; without --hidden: on this desktop)" % (startup.lpDesktop,
 			info.dwProcessId))
 		interrupted = False
 		while True:
@@ -258,12 +269,12 @@ def run(command, cwd=None, env=None):
 
 
 def hide(skip=()):
-	"""The start of a live check (see the module's text): returns to go on in this process, else runs
-	the tool on a hidden desktop and exits with its code."""
-	visible = VISIBLE in sys.argv[1:]
-	if visible:
-		sys.argv[1:] = [a for a in sys.argv[1:] if a != VISIBLE]
-	if visible or not WINDOWS or on_hidden_desktop() or any(a in skip for a in sys.argv[1:]):
+	"""The start of a live check (see the module's text): returns to go on in this process, else (with
+	--hidden) runs the tool on a hidden desktop and exits with its code."""
+	hidden = HIDDEN in sys.argv[1:]
+	if hidden:
+		sys.argv[1:] = [a for a in sys.argv[1:] if a != HIDDEN]
+	if not hidden or not WINDOWS or on_hidden_desktop() or any(a in skip for a in sys.argv[1:]):
 		return
 	script = os.path.abspath(sys.argv[0])
 	sys.exit(run(python_command([script] + sys.argv[1:])))
@@ -315,12 +326,14 @@ def self_test():
 	check("python_command keeps -I", python_command(["x.py"])[1:] == (["-I", "x.py"] if sys.flags.isolated else ["x.py"]))
 	saved = list(sys.argv)
 	try:
-		sys.argv = ["tool.py", "--a", VISIBLE, "b"]
+		sys.argv = ["tool.py", "--a", "b"]
 		hide()
-		check("--visible: hide() returns and removes it", sys.argv == ["tool.py", "--a", "b"], str(sys.argv))
-		sys.argv = ["tool.py", "--self-test"]
+		check("without --hidden: hide() returns (the user's desktop)", sys.argv == ["tool.py", "--a", "b"],
+			str(sys.argv))
+		sys.argv = ["tool.py", "--self-test", HIDDEN]
 		hide(skip=("--self-test",))
-		check("a skip argument: hide() returns", True)
+		check("--hidden with a skip argument: hide() returns and removes --hidden", sys.argv == ["tool.py",
+			"--self-test"], str(sys.argv))
 	finally:
 		sys.argv = saved
 	if not WINDOWS:

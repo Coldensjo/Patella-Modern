@@ -904,7 +904,7 @@ def main():
 	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
 		"it (default build/oracle-x86/Release/Patella.exe; e.g. build/windows-x64/Release/Patella.exe; as "
 		"tools/compare_traffic.py's --patella)")
-	parser.add_argument(desktop.VISIBLE, action="store_true", help=desktop.VISIBLE_HELP)
+	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 	args = parser.parse_args()
 	if args.patella:
 		CLIENTS["patella"]["source"] = CLIENTS["patella"]["pdb"] = os.path.abspath(args.patella)
@@ -1039,5 +1039,5 @@ def kill_clients():
 
 
 if __name__ == "__main__":
-	desktop.hide(skip=("--check-only", "--compare-only", "-h", "--help"))  # issue #56: unless --visible
+	desktop.hide(skip=("--check-only", "--compare-only", "-h", "--help"))  # issue #56: only with --hidden
 	sys.exit(main())

@@ -858,7 +858,7 @@ def main(argv=None):
 				help="where the live recordings go (default %(default)s)")
 			p.add_argument("--reuse-live", action="store_true", help="use the live recordings already in --live")
 		if command in ("record", "compare"):
-			p.add_argument(desktop.VISIBLE, action="store_true", help=desktop.VISIBLE_HELP)
+			p.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 		if command == "compare":
 			p.add_argument("--exe", default=DEFAULT_EXE, help="the test client (default %(default)s)")
 			p.add_argument("--out", default=DEFAULT_OUT, help="the results (default %(default)s)")
@@ -880,5 +880,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-	desktop.hide(skip=("--self-test", "--check-only", "list", "-h", "--help"))  # issue #56: unless --visible
+	desktop.hide(skip=("--self-test", "--check-only", "list", "-h", "--help"))  # issue #56: only with --hidden
 	sys.exit(main())
