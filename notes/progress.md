@@ -190,6 +190,13 @@ Mesa's lp_rast.c), its `thrd_current` (1 per instance) and NVIDIA's driver (3 ev
 worked around (the pinned driver). tests_vulkan's new "switching to and from the CPU driver leaves no handles of
 ours" counts them apart and requires the rest flat. notes/vulkan.md, "Handles the drivers leave (issue #53)";
 notes/decisions.md, "Handles the drivers leave (Patella-Modern issue #53)".
+The window's background during a live resize (Patella-Modern issue #71, November 5, 2026; M2): dragging the border
+larger showed stripes of old pixels in the uncovered area until the mouse was released. In the modal size loop no frame
+is drawn, the device's window keeps its size, and the main window's class has no brush (as the original's; Tibia.exe
+shows the same stripes). TPresentWindows now subclasses the main window and fills on WM_ERASEBKGND what no device
+window covers black: a deliberate on-screen difference. tests_vulkan 15 test cases. notes/vulkan.md, "The main window's
+background during a live resize (issue #71)"; notes/decisions.md, "The main window's background during a live resize
+(Patella-Modern issue #71)".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -335,6 +342,18 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #71 (branch issue-71, November 5, 2026): the main window's uncovered client area filled black
+during a live resize (src/vulkan/PresentWindow.cpp; notes/decisions.md, "The main window's background during a live
+resize"). No code the oracle compiles changed (oracle-x86 not rebuilt). windows-x64 and -debug (--fresh, CTest
+13/13, 0 warnings): golden 16,461,713 replayed, 1,521,619 retired, 0 not ported, 0 failures; tests_unit 57/10,080,
+standin 57/10,082, tests_core 38/360, tests_testmode 35/709, tests_render 14/359 unchanged; tests_vulkan 14/1,309 to
+15/1,392 (the new case, 83 assertions). windows-x64-asan (--fresh) 13/13; windows-x64-gcc and the Linux presets
+(--fresh) 11/11 (Linux tests_unit 56/10,062, Clang 10,060, standin 56/10,064, tests_core 38/363), 0 warnings.
+`python -I tools/reference.py compare`: every session matches. pecompare 3de8059 and issue-71 at the same path (x64):
+TPresentWindows' destructor and Open changed, ExcludeChild and ParentProc new, the COMCTL32.dll import (ordinals
+410, 412, 413); the rest moved. macrocheck: 2,108 calls, 0 differences. tidy_ci: 4 findings, 0 new, 0 bugprone.
+banned_calls: 0. clang-format: clean.
 
 Patella-Modern issue #70 (branch issue-70, November 5, 2026): sanitizers over the replayed sessions, M4's exit. The
 preset windows-x64-asan (MSVC /fsanitize=address through PATELLA_SANITIZE, Release and Debug); the original's two

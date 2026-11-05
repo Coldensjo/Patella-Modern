@@ -9134,3 +9134,60 @@ Two parameters stay, and why is given below.
   (`oracle-x86 --fresh`, and again recording the branch's corpus); golden_runner 16,461,713 replayed, 1,521,619
   retired, 0 not ported, 0 failures in windows-x64 and windows-x64-debug. tools/patch_client.py and
   tools/client_state.py read nothing this changes (no structure, global or code pattern they use).
+
+## The main window's background during a live resize (Patella-Modern issue #71)
+
+Settled by Claude Opus 5.5, November 5, 2026, from the owner's report (build\manual-test\Patella.exe on the intro
+screen: while the border is dragged larger, the new area shows stretched stripes of old pixels; whole again when the
+mouse is released) and live runs of Tibia.exe and of main's and the branch's x64 Patella.exe. notes/vulkan.md, "The
+main window's background during a live resize (issue #71)" has the facts.
+
+- **The cause** (high). While Windows runs its modal size loop (the border held), the message loop is the system's:
+  CPlayerApp::OnIdle, which draws the frames (Control.cpp ProcessEvents), never runs, only WM_TIMER's TimerEvent,
+  which draws nothing. The device's window (issue #52) keeps its size until the next frame's Fit, so the part a
+  larger window uncovers is the main window's own client area. Its class has no background brush (Player.cpp
+  InitInstance, as the original's) and CMainFrame handles neither WM_ERASEBKGND nor WM_PAINT, so nothing paints it:
+  the compositor shows what is left in the window's surface, the stripes of the report (each size step's edge).
+- **What Tibia.exe does** (high for the stripes, medium for the rest). The same: the same class, the same message
+  map, no frame during the loop. A live run (build\logs\issue-71\scripts\resize_repro.py: the window on the intro
+  screen, the bottom-right border pressed and dragged 700x450 with simulated mouse input, so the system's own size
+  loop runs, screenshots during and after) shows the same stripes in the uncovered area with its DirectX 9 and its
+  OpenGL engine. Its picture itself is not visible on this machine's desktop tonight (the monitor is off, the display
+  falls back to 1024x768, Direct3D 9 and OpenGL content shows white, as in issue #18's screenshots), so what it shows
+  after the release could not be seen; by the code it is the next frame of OnIdle, over the whole client area, as
+  the x64 client's.
+- **The change** (high). The uncovered area is filled black. TPresentWindows (src/vulkan/PresentWindow.cpp)
+  subclasses the main window from its first Open to Close or the main window's WM_NCDESTROY (SetWindowSubclass,
+  comctl32): on WM_ERASEBKGND it fills the client area outside the device windows (the current one and a retired one
+  that still shows its last frame) black and returns 1. The resize's invalidation brings the erase (CS_HREDRAW and
+  CS_VREDRAW), and the modal loop dispatches WM_PAINT, so each size step is filled at once. The device windows
+  themselves keep their size and their last picture during the loop, as the original's picture stays where it was.
+- **Why so, and not otherwise** (high). Nothing reconstructed changes: Player.cpp's class, MainFrm.cpp's message map
+  and the oracle stay as they are, and the fill lives where #52 put the x64 client's own windows. Drawing frames
+  during the loop (a timer between WM_ENTERSIZEMOVE and WM_EXITSIZEMOVE) would run the client's drawing and its
+  side effects at times the original never does; fitting the device window during the loop would show the old
+  swapchain image stretched by the compositor on the GPUs, and on the CPU driver (GDI) the old picture at its old
+  size with the rest of the device window unpainted: neither clean. Black:
+  no picture rather than an invented one, and a stock brush (no GDI object to keep).
+- **A deliberate on-screen difference from Tibia.exe** (high). During a live resize Tibia.exe's uncovered area shows
+  stripes of old pixels, the x64 client's is black. Also black, where it showed whatever the compositor had: the
+  client area when no device window exists (a failed CreateSurfaces) while the main window erases. Nothing the
+  comparisons see changes: the frames are the engine's own images, read back (the frame dumps, the reference
+  compare), the test mode moves no border, and no packet or file depends on the window's painting.
+- **Checked** (high). tests_vulkan's new case "the main window's area the device windows do not cover is filled
+  black (issue #71)": a hidden main window of the client's class style, the erase sent with a memory DC of white
+  pixels: before any device window and after Close the class's own erase (nothing, 0); with a device window the
+  uncovered part black and the window's part untouched through 8 size steps without a Fit (the device window keeps
+  its size), the fitted window, a retired window and the next one over a larger window, no device window at all
+  (all black); the main window's end takes the subclass with it, and a new main window gets it again. Live, with
+  main's and the branch's Patella.exe (PATELLA_VULKAN=cpu, whose picture the monitor-off desktop shows, and gpu):
+  stripes before, black after; with the CPU driver the whole picture after the release in both.
+- **The image** (high). pecompare of main 3de8059 and issue-71's x64 Release Patella.exe, built at the same path,
+  function by function through .pdata (13,299 and 13,301 functions): TPresentWindows' destructor (93 to 138 bytes,
+  Close's Unsubclass inlined) and Open (175 to 269, Subclass inlined) change, ExcludeChild (170) and ParentProc (267,
+  FillUncovered and Unsubclass inlined) are new; everything else only moves (.text +0x260, the references to what
+  moved; .rdata +0x4e, the new functions' unwind data and the import; .pdata two entries; .reloc +8). One import
+  more: COMCTL32.dll, ordinals 410, 412 and 413 (SetWindowSubclass, RemoveWindowSubclass, DefSubclassProc), which
+  Tibia.exe imports too (InitCommonControls); the Rich header has one entry more, which moves the PE header 8 bytes.
+  No text of .rdata changed but the DLL's name. The oracle is not built from these files (cmake/Vulkan.cmake is the
+  x64 client's).
