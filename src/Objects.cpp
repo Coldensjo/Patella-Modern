@@ -6,6 +6,9 @@
 // after GetEntrySpriteNumber, and ExitObjects (line 1023) before
 // ReloadObjects (line 1012).
 //
+// The try blocks and catch lines the comments name are the original's (its
+// TBEGIN/TEND); since issue #78 the functions here have none.
+//
 // The array<TProperties> constructor (0x4cfa30) and operator() (0x4d1a10)
 // are Container.h code. The gap after this file (0x4d7cd0-0x4d913e) is
 // Player.obj: the message map of the application class, its constructor and
@@ -49,73 +52,57 @@ inline bool GetEntryFlag(TProperties &Entry, int Flag)
 // 0x4cfbb0, lines 67-70
 int GetEntryWaypoints(TProperties &Entry)
 {
-	TBEGIN
 	TASSERT1(67, GetEntryFlag(Entry,BANK), *(int*)Entry.Flags);
 	return Entry.Waypoints;
-	TEND(70)
 }
 
 // 0x4cfe20, lines 91-94
 int GetEntryBrightness(TProperties &Entry)
 {
-	TBEGIN
 	TASSERT(91, GetEntryFlag(Entry,LIGHT));
 	return Entry.Brightness;
-	TEND(94)
 }
 
 // 0x4d0090, lines 103-106
 int GetEntryLightColor(TProperties &Entry)
 {
-	TBEGIN
 	TASSERT(103, GetEntryFlag(Entry,LIGHT));
 	return Entry.LightColor;
-	TEND(106)
 }
 
 // 0x4d0300, lines 115-118
 int GetEntryShiftX(TProperties &Entry)
 {
-	TBEGIN
 	TASSERT(115, GetEntryFlag(Entry,SHIFT));
 	return Entry.ShiftX;
-	TEND(118)
 }
 
 // 0x4d0570, lines 127-130
 int GetEntryShiftY(TProperties &Entry)
 {
-	TBEGIN
 	TASSERT(127, GetEntryFlag(Entry,SHIFT));
 	return Entry.ShiftY;
-	TEND(130)
 }
 
 // 0x4d07e0, lines 139-142
 int GetEntryElevation(TProperties &Entry)
 {
-	TBEGIN
 	TASSERT(139, GetEntryFlag(Entry,HEIGHT));
 	return Entry.Elevation;
-	TEND(142)
 }
 
 // 0x4d0a50, lines 151-154
 int GetEntryAutomapColor(TProperties &Entry)
 {
-	TBEGIN
 	TASSERT(151, GetEntryFlag(Entry,AUTOMAP));
 	return Entry.AutomapColor;
-	TEND(154)
 }
 
 // 0x4d0cc0, lines 163-166
 int GetEntryLensHelp(TProperties &Entry)
 {
-	TBEGIN
 	TASSERT(163, GetEntryFlag(Entry,LENSHELP));
 	return Entry.LensHelp;
-	TEND(166)
 }
 
 // 0x4d0f30, lines 238-244. No try block. The binary inlines In() for the
@@ -150,150 +137,114 @@ int GetEntrySpriteNumber(TProperties &Entry, int X, int Y, int Layer, int Patter
 // 0x4d1c40, lines 267-270
 bool GetObjectFlag(int Type, int Flag)
 {
-	TBEGIN
 	if (Type == CREATURE)
 		return Flag == UNPASS;
 	TASSERT2(267, In(Type,ObjectProperties->low(),ObjectProperties->high()), Type, ObjectProperties->high());
 	return GetEntryFlag((*ObjectProperties)(Type), Flag);
-	TEND2(270, Type, Flag)
 }
 
 // 0x4d1f30, line 281
 int GetObjectWaypoints(int Type)
 {
-	TBEGIN
 	return GetEntryWaypoints((*ObjectProperties)(Type));
-	TEND1(281, Type)
 }
 
 // 0x4d20d0, line 303
 int GetObjectBrightness(int Type)
 {
-	TBEGIN
 	return GetEntryBrightness((*ObjectProperties)(Type));
-	TEND1(303, Type)
 }
 
 // 0x4d2270, line 314
 int GetObjectLightColor(int Type)
 {
-	TBEGIN
 	return GetEntryLightColor((*ObjectProperties)(Type));
-	TEND1(314, Type)
 }
 
 // 0x4d2410, line 325
 int GetObjectShiftX(int Type)
 {
-	TBEGIN
 	return GetEntryShiftX((*ObjectProperties)(Type));
-	TEND1(325, Type)
 }
 
 // 0x4d25b0, line 336
 int GetObjectShiftY(int Type)
 {
-	TBEGIN
 	return GetEntryShiftY((*ObjectProperties)(Type));
-	TEND1(336, Type)
 }
 
 // 0x4d2750, line 347
 int GetObjectElevation(int Type)
 {
-	TBEGIN
 	return GetEntryElevation((*ObjectProperties)(Type));
-	TEND1(347, Type)
 }
 
 // 0x4d28f0, line 358
 int GetObjectAutomapColor(int Type)
 {
-	TBEGIN
 	return GetEntryAutomapColor((*ObjectProperties)(Type));
-	TEND1(358, Type)
 }
 
 // 0x4d2a90, line 369
 int GetObjectLensHelp(int Type)
 {
-	TBEGIN
 	return GetEntryLensHelp((*ObjectProperties)(Type));
-	TEND1(369, Type)
 }
 
 // 0x4d2c30, line 380
 int GetObjectWidth(int Type)
 {
-	TBEGIN
 	return (*ObjectProperties)(Type).Width;
-	TEND1(380, Type)
 }
 
 // 0x4d2dd0, line 391
 int GetObjectHeight(int Type)
 {
-	TBEGIN
 	return (*ObjectProperties)(Type).Height;
-	TEND1(391, Type)
 }
 
 // 0x4d2f70, line 402
 int GetObjectExactSize(int Type)
 {
-	TBEGIN
 	return (*ObjectProperties)(Type).ExactSize;
-	TEND1(402, Type)
 }
 
 // 0x4d3110, line 413
 int GetObjectLayers(int Type)
 {
-	TBEGIN
 	return (*ObjectProperties)(Type).Layers;
-	TEND1(413, Type)
 }
 
 // 0x4d32b0, line 424
 int GetObjectPatternWidth(int Type)
 {
-	TBEGIN
 	return (*ObjectProperties)(Type).PatternWidth;
-	TEND1(424, Type)
 }
 
 // 0x4d3450, line 435
 int GetObjectPatternHeight(int Type)
 {
-	TBEGIN
 	return (*ObjectProperties)(Type).PatternHeight;
-	TEND1(435, Type)
 }
 
 // 0x4d35f0, line 446
 int GetObjectPatternDepth(int Type)
 {
-	TBEGIN
 	return (*ObjectProperties)(Type).PatternDepth;
-	TEND1(446, Type)
 }
 
 // 0x4d3790, line 457
 int GetObjectPhases(int Type)
 {
-	TBEGIN
 	return (*ObjectProperties)(Type).Phases;
-	TEND1(457, Type)
 }
 
 // 0x4d3930, line 468
 int GetObjectSpriteNumber(int Type, int X, int Y, int Layer, int PatternX, int PatternY, int PatternZ,
 	int Phase)
 {
-	TBEGIN
 	return GetEntrySpriteNumber((*ObjectProperties)(Type), X, Y, Layer, PatternX, PatternY, PatternZ,
 		Phase);
-	TEND1(468, Type)
 }
 
 // --- Outfits -----------------------------------------------------------------
@@ -301,89 +252,67 @@ int GetObjectSpriteNumber(int Type, int X, int Y, int Layer, int PatternX, int P
 // 0x4d3af0, line 484. Unlike GetObjectFlag, no range check.
 bool GetOutfitFlag(int Number, int Flag)
 {
-	TBEGIN
 	return GetEntryFlag((*OutfitProperties)(Number), Flag);
-	TEND2(484, Number, Flag)
 }
 
 // 0x4d3cc0, line 495
 int GetOutfitBrightness(int Number)
 {
-	TBEGIN
 	return GetEntryBrightness((*OutfitProperties)(Number));
-	TEND1(495, Number)
 }
 
 // 0x4d3e60, line 506
 int GetOutfitLightColor(int Number)
 {
-	TBEGIN
 	return GetEntryLightColor((*OutfitProperties)(Number));
-	TEND1(506, Number)
 }
 
 // 0x4d4000, line 517
 int GetOutfitShiftX(int Number)
 {
-	TBEGIN
 	return GetEntryShiftX((*OutfitProperties)(Number));
-	TEND1(517, Number)
 }
 
 // 0x4d41a0, line 528
 int GetOutfitShiftY(int Number)
 {
-	TBEGIN
 	return GetEntryShiftY((*OutfitProperties)(Number));
-	TEND1(528, Number)
 }
 
 // 0x4d4340, line 539
 int GetOutfitWidth(int Number)
 {
-	TBEGIN
 	return (*OutfitProperties)(Number).Width;
-	TEND1(539, Number)
 }
 
 // 0x4d44e0, line 550. Comes before the height, unlike the object accessors.
 int GetOutfitExactSize(int Number)
 {
-	TBEGIN
 	return (*OutfitProperties)(Number).ExactSize;
-	TEND1(550, Number)
 }
 
 // 0x4d4680, line 561
 int GetOutfitHeight(int Number)
 {
-	TBEGIN
 	return (*OutfitProperties)(Number).Height;
-	TEND1(561, Number)
 }
 
 // 0x4d4820, line 572
 int GetOutfitLayers(int Number)
 {
-	TBEGIN
 	return (*OutfitProperties)(Number).Layers;
-	TEND1(572, Number)
 }
 
 // 0x4d49c0, line 583
 int GetOutfitPhases(int Number)
 {
-	TBEGIN
 	return (*OutfitProperties)(Number).Phases;
-	TEND1(583, Number)
 }
 
 // 0x4d4b60, line 594
 int GetOutfitSpriteNumber(int Number, int X, int Y, int Layer, int Direction, int Phase)
 {
-	TBEGIN
 	return GetEntrySpriteNumber((*OutfitProperties)(Number), X, Y, Layer, Direction + 1, 1, 1, Phase);
-	TEND1(594, Number)
 }
 
 // --- Effects -----------------------------------------------------------------
@@ -391,65 +320,49 @@ int GetOutfitSpriteNumber(int Number, int X, int Y, int Layer, int Direction, in
 // 0x4d4d20, line 610
 bool GetEffectFlag(int Number, int Flag)
 {
-	TBEGIN
 	return GetEntryFlag((*EffectProperties)(Number), Flag);
-	TEND2(610, Number, Flag)
 }
 
 // 0x4d4ef0, line 621
 int GetEffectBrightness(int Number)
 {
-	TBEGIN
 	return GetEntryBrightness((*EffectProperties)(Number));
-	TEND1(621, Number)
 }
 
 // 0x4d5090, line 632
 int GetEffectLightColor(int Number)
 {
-	TBEGIN
 	return GetEntryLightColor((*EffectProperties)(Number));
-	TEND1(632, Number)
 }
 
 // 0x4d5230, line 643
 int GetEffectWidth(int Number)
 {
-	TBEGIN
 	return (*EffectProperties)(Number).Width;
-	TEND1(643, Number)
 }
 
 // 0x4d53d0, line 654
 int GetEffectHeight(int Number)
 {
-	TBEGIN
 	return (*EffectProperties)(Number).Height;
-	TEND1(654, Number)
 }
 
 // 0x4d5570, line 665
 int GetEffectLayers(int Number)
 {
-	TBEGIN
 	return (*EffectProperties)(Number).Layers;
-	TEND1(665, Number)
 }
 
 // 0x4d5710, line 676
 int GetEffectPhases(int Number)
 {
-	TBEGIN
 	return (*EffectProperties)(Number).Phases;
-	TEND1(676, Number)
 }
 
 // 0x4d58b0, line 687
 int GetEffectSpriteNumber(int Number, int X, int Y, int Layer, int Phase)
 {
-	TBEGIN
 	return GetEntrySpriteNumber((*EffectProperties)(Number), X, Y, Layer, 1, 1, 1, Phase);
-	TEND1(687, Number)
 }
 
 // --- Missiles ----------------------------------------------------------------
@@ -457,49 +370,37 @@ int GetEffectSpriteNumber(int Number, int X, int Y, int Layer, int Phase)
 // 0x4d5a70, line 703
 bool GetMissileFlag(int Number, int Flag)
 {
-	TBEGIN
 	return GetEntryFlag((*MissileProperties)(Number), Flag);
-	TEND2(703, Number, Flag)
 }
 
 // 0x4d5c40, line 714
 int GetMissileBrightness(int Number)
 {
-	TBEGIN
 	return GetEntryBrightness((*MissileProperties)(Number));
-	TEND1(714, Number)
 }
 
 // 0x4d5de0, line 725
 int GetMissileLightColor(int Number)
 {
-	TBEGIN
 	return GetEntryLightColor((*MissileProperties)(Number));
-	TEND1(725, Number)
 }
 
 // 0x4d5f80, line 736
 int GetMissileWidth(int Number)
 {
-	TBEGIN
 	return (*MissileProperties)(Number).Width;
-	TEND1(736, Number)
 }
 
 // 0x4d6120, line 747
 int GetMissileHeight(int Number)
 {
-	TBEGIN
 	return (*MissileProperties)(Number).Height;
-	TEND1(747, Number)
 }
 
 // 0x4d62c0, line 758
 int GetMissileLayers(int Number)
 {
-	TBEGIN
 	return (*MissileProperties)(Number).Layers;
-	TEND1(758, Number)
 }
 
 // 0x4d6460, lines 766-780. The assertion comes before the try block. The
@@ -509,7 +410,6 @@ int GetMissileLayers(int Number)
 int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction)
 {
 	TASSERT1(766, In(Direction,0,7), Direction);
-	TBEGIN
 	switch (Direction) {
 	case 0:
 		return GetEntrySpriteNumber((*MissileProperties)(Number), X, Y, Layer, 2, 1, 1, 1);
@@ -529,7 +429,6 @@ int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction)
 		return GetEntrySpriteNumber((*MissileProperties)(Number), X, Y, Layer, 1, 1, 1, 1);
 	}
 	return 0;
-	TEND2(780, Number, Direction)
 }
 
 // --- Patterns ----------------------------------------------------------------
@@ -539,7 +438,6 @@ int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction)
 // object's pattern size.
 void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY)
 {
-	TBEGIN
 	TASSERT(796, GetObjectFlag(Obj,CUMULATIVE));
 	const int Count = Obj.Data;
 	if (Count < 2) {
@@ -567,17 +465,14 @@ void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY)
 	}
 	*PatternX = *PatternX % GetObjectPatternWidth(Obj.Type) + 1;
 	*PatternY = *PatternY % GetObjectPatternHeight(Obj.Type) + 1;
-	TEND(810)
 }
 
 // 0x4d6b20, lines 821-826. Obj.Data is the liquid: four columns per row.
 void GetLiquidPattern(TObject &Obj, int *PatternX, int *PatternY)
 {
-	TBEGIN
 	TASSERT(821, GetObjectFlag(Obj,LIQUIDPOOL) || GetObjectFlag(Obj,LIQUIDCONTAINER));
 	*PatternX = Obj.Data % 4 % GetObjectPatternWidth(Obj.Type) + 1;
 	*PatternY = Obj.Data / 4 % GetObjectPatternHeight(Obj.Type) + 1;
-	TEND(826)
 }
 
 // 0x4d6df0, lines 837-853. Obj.Data2 holds the wall flag the object hangs
@@ -585,7 +480,6 @@ void GetLiquidPattern(TObject &Obj, int *PatternX, int *PatternY)
 // when the object has them.
 void GetHangPattern(TObject &Obj, int *PatternX, int *PatternY)
 {
-	TBEGIN
 	TASSERT(837, GetObjectFlag(Obj,HANG));
 	if (Obj.Data2 == HOOKSOUTH)
 		*PatternX = (GetObjectPatternWidth(Obj.Type) >= 2) ? 2 : 1;
@@ -594,7 +488,6 @@ void GetHangPattern(TObject &Obj, int *PatternX, int *PatternY)
 	else
 		*PatternX = 1;
 	*PatternY = 1;
-	TEND(853)
 }
 
 // --- Loading -------------------------------------------------------------------
@@ -602,7 +495,6 @@ void GetHangPattern(TObject &Obj, int *PatternX, int *PatternY)
 // 0x4d70c0, line 888. Frees the four arrays and their sprite tables.
 void ReleaseObjects()
 {
-	TBEGIN
 	if (ObjectProperties != nullptr) {
 		for (int i = ObjectProperties->low(); i <= ObjectProperties->high(); i++)
 			delete[] (*ObjectProperties)(i).Sprites;
@@ -627,7 +519,6 @@ void ReleaseObjects()
 		MissileProperties.reset();
 		MissileProperties = nullptr;
 	}
-	TEND(888)
 }
 
 namespace {
@@ -639,7 +530,6 @@ namespace {
 // BANK case jumps back into the zeroing code, which ends with that store.
 void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 {
-	TBEGIN
 	for (int i = 0; i < 4; i++)
 		Entry->Flags[i] = 0;
 	Entry->Waypoints = 0;
@@ -701,7 +591,6 @@ void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 	Entry->Sprites = new uint16[Count];
 	for (int i = 0; i < Count; i++)
 		Entry->Sprites[i] = File->readWord();
-	TEND(939)
 }
 
 } // namespace
@@ -713,7 +602,6 @@ void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 void LoadObjects(const char *FileName)
 {
 	TASSERT(948, FileName!=NULL);
-	TBEGIN
 	ReleaseObjects();
 	TReadBinaryFile File;
 	File.open(FileName);
@@ -735,16 +623,17 @@ void LoadObjects(const char *FileName)
 	for (int i = 1; i <= Missiles; i++)
 		LoadProperties(&File, &(*MissileProperties)(i));
 	File.close();
-	TEND(978)
 }
 
-// 0x4d77f0, line 1000. A TMyException while loading becomes PROGRAM_ERROR 1
-// (name of the value unknown); InitControl then shuts down. The binary's
-// handler has a catch object, so the original named the unused reference;
-// it is left unnamed here to avoid warning C4101.
+// 0x4d77f0, line 1000. An exception while loading becomes PROGRAM_ERROR 1
+// (name of the value unknown); InitControl then shuts down. The original
+// catches a TMyException; its LoadObjects' TBEGIN/TEND made every other
+// exception one (LoadProperties' new[] of a size from Tibia.dat can throw
+// std::bad_array_new_length or std::bad_alloc). That TEND is gone (issue
+// #78), so the boundary catches everything (LoadObjects throws no
+// PROGRAM_ERROR): the outcome is the original's.
 void InitObjects()
 {
-	TBEGIN
 	// Cleared, not freed, as the original does (issue #58: release, not reset).
 	static_cast<void>(ObjectProperties.release());  // NOLINT(bugprone-unused-return-value): the leak is the original's
 	static_cast<void>(OutfitProperties.release());  // NOLINT(bugprone-unused-return-value): the leak is the original's
@@ -752,25 +641,20 @@ void InitObjects()
 	static_cast<void>(MissileProperties.release()); // NOLINT(bugprone-unused-return-value): the leak is the original's
 	try {
 		LoadObjects("Tibia.dat");
-	} catch (TMyException &) {
+	} catch (...) {
 		throw (PROGRAM_ERROR)1;
 	}
-	TEND(1000)
 }
 
 // 0x4d7b40, line 1012. After Tibia.dat was patched (event 0x45).
 void ReloadObjects()
 {
-	TBEGIN
 	ExitObjects();
 	InitObjects();
-	TEND(1012)
 }
 
 // 0x4d79b0, line 1023
 void ExitObjects()
 {
-	TBEGIN
 	ReleaseObjects();
-	TEND(1023)
 }

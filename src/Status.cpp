@@ -9,8 +9,8 @@
 // 0x71c64f) are interleaved with those of the asserted functions; only the
 // skin table at its start is a separate file (Skins.cpp).
 //
-// Of all functions here only CheckClipboardText has a try block (TBEGIN ...
-// TEND at line 869); the others have assertions only.
+// Of all functions here only CheckClipboardText had a try block (TBEGIN ...
+// TEND at line 869, gone since issue #78); the others have assertions only.
 
 #include "Status.h"
 #include "Utils.h"
@@ -714,7 +714,6 @@ void CheckClipboardText(patella::TSpan<const char> Characters)
 {
 	const char *const Text = Characters.data();
 	const int Length = static_cast<int>(Characters.size());
-	TBEGIN
 	if (TaintedClipboardText != nullptr)
 		delete[] TaintedClipboardText;
 	TaintedClipboardText = new char[Length + 1];
@@ -730,7 +729,6 @@ void CheckClipboardText(patella::TSpan<const char> Characters)
 		return;
 	}
 	SetClipboardText(TaintedClipboardText);
-	TEND(869)
 }
 
 // 0x4ea5b0, line 875

@@ -8,8 +8,8 @@
 // 0x4e3920-0x4e3a0f) after InstallPatch (0x4e3610, gone). readString is here
 // in line order; the helpers stay at the end, where the binary has them.
 //
-// Most errors are TERRORs thrown before a TBEGIN; the functions that call
-// other members wrap the calls in TBEGIN/TEND.
+// Most errors are TERRORs thrown at the start of a function. The original's
+// TBEGIN/TEND around the calls to other members are gone (issue #78).
 
 #include "Script.h"
 #include "compat/msvc_io.h"
@@ -488,11 +488,9 @@ uint8 TReadBinaryFile::readByte()
 // zero-extends AX.
 uint16 TReadBinaryFile::readWord()
 {
-	TBEGIN
 	const uint8 Low = readByte();
 	const uint8 High = readByte();
 	return (uint16)(Low | (High << 8));
-	TEND(619)
 }
 
 // 0x4e1ba0, lines 627-635
@@ -500,13 +498,11 @@ int TReadBinaryFile::readQuad()
 {
 	if (File == nullptr)
 		TERROR(627, "no file open");
-	TBEGIN
 	const uint8 Byte0 = readByte();
 	const uint8 Byte1 = readByte();
 	const uint8 Byte2 = readByte();
 	const uint8 Byte3 = readByte();
 	return Byte0 | (Byte1 << 8) | (Byte2 << 16) | (Byte3 << 24);
-	TEND(635)
 }
 
 // 0x4e3a10, lines 644-653. The caller frees the string with delete[].
@@ -514,14 +510,12 @@ char *TReadBinaryFile::readString()
 {
 	if (File == nullptr)
 		TERROR(644, "no file open");
-	TBEGIN
 	const int Length = readWord() & 0xffff;
 	char *Text = new char[Length + 1];
 	if (Length != 0)
 		readBytes(patella::TSpan<uint8>(reinterpret_cast<uint8 *>(Text), static_cast<std::size_t>(Length)));
 	Text[Length] = 0;
 	return Text;
-	TEND(653)
 }
 
 // 0x4e1e50, lines 661-664. The original's parameters (Buffer, Count) are the span's pointer and its size as an int, the
@@ -562,10 +556,8 @@ void TWriteBinaryFile::writeWord(uint16 Word)
 {
 	if (File == nullptr)
 		TERROR(737, "no file open");
-	TBEGIN
 	writeByte((uint8)Word);
 	writeByte((uint8)(Word >> 8));
-	TEND(742)
 }
 
 // 0x4e29e0, lines 750-757
@@ -573,12 +565,10 @@ void TWriteBinaryFile::writeQuad(uint32 Quad)
 {
 	if (File == nullptr)
 		TERROR(750, "no file open");
-	TBEGIN
 	writeByte((uint8)Quad);
 	writeByte((uint8)(Quad >> 8));
 	writeByte((uint8)(Quad >> 16));
 	writeByte((uint8)(Quad >> 24));
-	TEND(757)
 }
 
 // 0x4e2c80, lines 765-766. Writes one item of Count bytes, so Count 0 fails
@@ -598,12 +588,10 @@ void TWriteBinaryFile::writeBytes(patella::TSpan<const uint8> Bytes)
 // strings are cut to the low 16 bits of their length.
 void TWriteBinaryFile::writeString(const char *Text)
 {
-	TBEGIN
 	const int Length = (int)strlen(Text);
 	writeWord((uint16)Length);
 	if ((uint16)Length != 0)
 		writeBytes(patella::TSpan<const uint8>(reinterpret_cast<const uint8 *>(Text), (uint16)Length));
-	TEND(779)
 }
 
 // 0x4e3100 ApplyPatch (a difference patch of a file), 0x4e3500 ApplyFullPatch (a whole new file), both written next

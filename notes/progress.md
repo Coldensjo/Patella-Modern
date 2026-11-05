@@ -226,6 +226,13 @@ sets): TIgnoreEntry::AssignName and TBuddy::AssignDescriptionRead write over the
 the random inputs: Dialogs 80 (LongIgnoreNames), PreferencesFile 179; without the fix they fail 21. difftest
 16,459,337 / 67 / 856,621 / 3,201; golden 15,803,203 replayed + 1,512,822 retired = 17,316,025. notes/decisions.md,
 "The 30-character ignore names and the 128-character buddy descriptions (Patella-Modern issue #85)".
+TBEGIN/TEND deleted, part 1 (Patella-Modern issue #78, branch issue-78a, November 5, 2026; M5): the plan for all
+seven parts is in notes/decisions.md ("TBEGIN/TEND deleted, file by file"). Part 1 deletes the 153 try blocks of
+Script.cpp, Inventory.cpp, Player.cpp, Status.cpp, Objects.cpp, Map.cpp and Creatures.cpp (977 left in 15 files).
+One kind change is kept at its boundary: InitObjects catches every exception of LoadObjects, so a damaged Tibia.dat
+whose sprite count makes new[] throw still ends with PROGRAM_ERROR 1. One is recorded: with the heap exhausted,
+readString's std::bad_alloc under LoadAutomapBlock now ends the client instead of emptying the automap block.
+difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822 retired, 0 failures.
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -371,6 +378,15 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #78, part 1 (branch issue-78a, November 5, 2026): TBEGIN/TEND deleted from Script.cpp,
+Inventory.cpp, Player.cpp, Status.cpp, Objects.cpp, Map.cpp and Creatures.cpp (153 try blocks); InitObjects catches
+every exception of LoadObjects. `python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67,
+communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 4/4 (every count unchanged). golden 15,803,203 replayed +
+1,512,822 retired = 17,316,025, 0 failures (windows-x64, -debug, -asan, 14/14 each, golden_concurrent passes, no ASan
+finding); windows-x64-gcc and the Linux presets 11/11, 0 warnings. reference.py compare: 4 sessions match. pecompare
+by function (x86 and x64): only the part's functions lose their EH (16 now inlined), 4 callers inline them, switch
+tables moved. tidy_ci: 20 findings, 0 new. banned_calls 0, clang-format clean. Logs: build\logs\issue-78a.
 
 Patella-Modern issue #85 (branch issue-85, November 5, 2026): 30-character ignore names and 128-character buddy
 descriptions kept whole, as the original kept them. `python -I tools/build.py oracle-x86`: difftest 16,459,078 to

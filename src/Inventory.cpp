@@ -7,7 +7,8 @@
 // order; the compiler placed InsertContainerObject (lines 139-140) last.
 //
 // Most functions assert before doing anything and have no try block; the
-// ones that call other functions of this file have TBEGIN/TEND.
+// original's TBEGIN/TEND around the calls to other functions of this file
+// are gone (issue #78).
 
 #include "Inventory.h"
 #include "Objects.h"
@@ -81,19 +82,15 @@ void SetBodyObject(int Position, TObject Object)
 // 0x4a46d0, line 67
 void DeleteBodyObject(int Position)
 {
-	TBEGIN
 	SetBodyObject(Position, NoObject);
-	TEND1(67, Position)
 }
 
 // 0x4a4880, lines 77-80
 TObject *GetBodyObject(int Position)
 {
-	TBEGIN
 	const int Pos = Position - 1;
 	TASSERT1(77, In(Pos,0,BODY_POSITIONS-1), Pos);
 	return &Body[Pos];
-	TEND1(80, Position)
 }
 
 // 0x4a4b00, lines 102-105. The name is stored capitalised.
@@ -228,13 +225,11 @@ bool GetContainerHasParent(int Container)
 int GetFreeContainer()
 {
 	int i = 0;
-	TBEGIN
 	for (i = 0; i < OPEN_CONTAINERS; i++) {
 		if (!IsContainerOpen(i))
 			return i;
 	}
 	return OPEN_CONTAINERS - 1;
-	TEND1(258, i)
 }
 
 // 0x4a6eb0, lines 281-283
@@ -315,9 +310,7 @@ void InitInventory()
 // 0x4a7d70, line 400
 void ResetInventory()
 {
-	TBEGIN
 	InitInventory();
-	TEND(400)
 }
 
 // Empty; the linker kept one copy of the identical empty functions (0x496160,
