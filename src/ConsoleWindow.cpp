@@ -21,6 +21,9 @@
 // the frames are skins 169-176 (TConsole) and 177-185 (TConsoleWindow). Events
 // are written in decimal (201-213, 403), as in ContextMenus.cpp; AddMessage's
 // numbers in hex, as in Control.cpp.
+//
+// The try blocks and catch lines the comments name are the original's (its
+// TBEGIN/TEND); since issue #78 the functions here have none.
 
 #include "ConsoleWindow.h"
 #include "Communication.h"
@@ -99,7 +102,6 @@ TTextWindow::TTextWindow() : Lines(0, 0, 100)
 // until the window is arranged again.
 void TTextWindow::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	if (TextBuffer == nullptr || TextBuffer->first == nullptr || !TextBuffer->Complete) {
 		if (TextBuffer != nullptr && TextBuffer->first != nullptr)
 			TextBuffer->LinesChanged = false;
@@ -165,7 +167,6 @@ void TTextWindow::Draw(int Surface, int x, int y)
 		PrintTextPart(Surface, LineX, LineY, Format->FontNumber, Format->Color, Format->LineText,
 			Format->LineLength, 0);
 	}
-	TEND1(119, Surface)
 }
 
 // 0x420b80, line 148. Formats the lines and counts those that do not fit
@@ -175,7 +176,6 @@ void TTextWindow::Draw(int Surface, int x, int y)
 // leaves none.
 void TTextWindow::Arrange()
 {
-	TBEGIN
 	InvisibleLines = 0;
 	LastLineNumber = -1;
 	SetCurrentLineNumber(-1);
@@ -197,13 +197,11 @@ void TTextWindow::Arrange()
 				InvisibleLines++;
 		}
 	}
-	TEND(148)
 }
 
 // 0x4185b0, line 165. Moves the end of the selection while the button is down.
 bool TTextWindow::MouseMove(int x, int y)
 {
-	TBEGIN
 	if (Selecting) {
 		int Line, Offset, Length;
 		if (GetPosition(x, y, &Line, &Offset, &Length)) {
@@ -214,25 +212,21 @@ bool TTextWindow::MouseMove(int x, int y)
 		}
 	}
 	return true;
-	TEND2(165, x, y)
 }
 
 // 0x418790, line 179.
 bool TTextWindow::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (Selecting) {
 		ReleaseCapture(nullptr);
 		Selecting = false;
 	}
 	return true;
-	TEND(179)
 }
 
 // 0x418930, line 195. Starts a selection at the position.
 bool TTextWindow::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	Selecting = true;
 	SetCapture(nullptr);
 	int Line, Offset, Length;
@@ -243,14 +237,12 @@ bool TTextWindow::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 		SelectionEndOffset = Offset;
 	}
 	return true;
-	TEND2(195, x, y)
 }
 
 // 0x420d70, line 218. Selects the word at the position. The second loop
 // tests the character before the line length.
 bool TTextWindow::LeftButtonDoubleClick(int x, int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	int Length = 0;
 	int Line, Offset, LineLength;
 	if (GetPosition(x, y, &Line, &Offset, &LineLength)) {
@@ -267,7 +259,6 @@ bool TTextWindow::LeftButtonDoubleClick(int x, int y, [[maybe_unused]] int Flags
 		}
 	}
 	return true;
-	TEND2(218, x, y)
 }
 
 // 0x420f90, line 240. Opens the line's context menu (Control.cpp's
@@ -275,7 +266,6 @@ bool TTextWindow::LeftButtonDoubleClick(int x, int y, [[maybe_unused]] int Flags
 // opens the request menu (message 0x39).
 bool TTextWindow::RightButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	int Line, Offset, Length;
 	if (!GetPosition(x, y, &Line, &Offset, &Length))
 		return true;
@@ -292,7 +282,6 @@ bool TTextWindow::RightButtonUp(int x, int y, [[maybe_unused]] int Flags)
 	}
 	AddMessage(Message, Line, 0);
 	return true;
-	TEND2(240, x, y)
 }
 
 // 0x421190, lines 262-265. The edit events of TConsoleWindow::KeyPress and
@@ -300,7 +289,6 @@ bool TTextWindow::RightButtonUp(int x, int y, [[maybe_unused]] int Flags)
 // text), 20 select all.
 void TTextWindow::HandleEvent(int Event)
 {
-	TBEGIN
 	switch (Event) {
 	case 16: {
 		const char *Text = GetSelectedText();
@@ -318,16 +306,13 @@ void TTextWindow::HandleEvent(int Event)
 	default:
 		TERROR1(262, "unknown event", Event);
 	}
-	TEND1(265, Event)
 }
 
 // 0x418b10, line 277.
 void TTextWindow::SetTextBuffer(TTalkBuffer *_TextBuffer)
 {
-	TBEGIN
 	TextBuffer = _TextBuffer;
 	Arrange();
-	TEND(277)
 }
 
 // 0x418ca0, line 379. Breaks every talk line into the parts that fit into
@@ -338,7 +323,6 @@ void TTextWindow::SetTextBuffer(TTalkBuffer *_TextBuffer)
 // ever (no part is ever taken).
 void TTextWindow::FormatLines()
 {
-	TBEGIN
 	const int TextWidth = Width;
 	int Count = 0;
 	if (TextBuffer != nullptr) {
@@ -391,13 +375,11 @@ void TTextWindow::FormatLines()
 	const TLineFormat Empty;
 	for (int i = Count; i <= Lines.max; i++)
 		Lines(i) = Empty;
-	TEND(379)
 }
 
 // 0x419030, line 411. The talk line shown in that line.
 TTalkLine *TTextWindow::GetTalkLine(int LineNumber)
 {
-	TBEGIN
 	if (TextBuffer != nullptr && TextBuffer->first != nullptr) {
 		if (!TextBuffer->Complete) {
 			TextBuffer->LinesChanged = false;
@@ -408,13 +390,11 @@ TTalkLine *TTextWindow::GetTalkLine(int LineNumber)
 		}
 	}
 	return nullptr;
-	TEND1(411, LineNumber)
 }
 
 // 0x419200, line 425.
 TLineFormat *TTextWindow::GetLineFormat(int LineNumber)
 {
-	TBEGIN
 	if (TextBuffer != nullptr && TextBuffer->first != nullptr) {
 		if (!TextBuffer->Complete)
 			TextBuffer->LinesChanged = false;
@@ -422,7 +402,6 @@ TLineFormat *TTextWindow::GetLineFormat(int LineNumber)
 			return &Lines(LineNumber);
 	}
 	return nullptr;
-	TEND1(425, LineNumber)
 }
 
 // 0x4193d0, line 432. No try block.
@@ -439,7 +418,6 @@ void TTextWindow::SetCurrentLineNumber(int _CurrentLineNumber)
 // ends beyond its line is dropped.
 bool TTextWindow::GetSelectionStart(int *Line, int *Offset)
 {
-	TBEGIN
 	if (HasSelection()) {
 		int StartLine = SelectionStartLine;
 		int StartOffset = SelectionStartOffset;
@@ -461,13 +439,11 @@ bool TTextWindow::GetSelectionStart(int *Line, int *Offset)
 		SelectionEndOffset = -1;
 	}
 	return false;
-	TEND(481)
 }
 
 // 0x4197a0, line 510. The later end of the selection.
 bool TTextWindow::GetSelectionEnd(int *Line, int *Offset)
 {
-	TBEGIN
 	if (HasSelection()) {
 		int StartLine = SelectionStartLine;
 		int StartOffset = SelectionStartOffset;
@@ -489,13 +465,11 @@ bool TTextWindow::GetSelectionEnd(int *Line, int *Offset)
 		SelectionEndOffset = -1;
 	}
 	return false;
-	TEND(510)
 }
 
 // 0x4199e0, line 526.
 bool TTextWindow::SelectAll()
 {
-	TBEGIN
 	if (TextBuffer != nullptr) {
 		if (TextBuffer->Complete) {
 			SelectionStartLine = 0;
@@ -511,7 +485,6 @@ bool TTextWindow::SelectAll()
 		TextBuffer->LinesChanged = false;
 	}
 	return false;
-	TEND(526)
 }
 
 // 0x419bd0, line 626. The selected text, with a line break after the lines
@@ -519,7 +492,6 @@ bool TTextWindow::SelectAll()
 // a one-line selection a missing format is not tested (it would crash).
 const char *TTextWindow::GetSelectedText()
 {
-	TBEGIN
 	if (HasSelection()) {
 		if (SelectedText != nullptr)
 			SelectedText.reset();
@@ -565,7 +537,6 @@ const char *TTextWindow::GetSelectedText()
 		}
 	}
 	return nullptr;
-	TEND(626)
 }
 
 // 0x419fc0, line 674. The line and character under a point (clamped to the
@@ -575,7 +546,6 @@ const char *TTextWindow::GetSelectedText()
 // dropped).
 bool TTextWindow::GetPosition(int x, int y, int *Line, int *Offset, int *Length)
 {
-	TBEGIN
 	if (TextBuffer != nullptr && TextBuffer->first != nullptr) {
 		if (!TextBuffer->Complete) {
 			TextBuffer->LinesChanged = false;
@@ -623,7 +593,7 @@ bool TTextWindow::GetPosition(int x, int y, int *Line, int *Offset, int *Length)
 				x = 0;
 			}
 			// The position in the text is a value of its own (0x41a0d8-0x41a0e5,
-			// in a register): TEND2(x, y) prints x without the indent (issue #34).
+			// in a register): the original's TEND2(x, y) prints x without the indent (issue #34).
 			int TextX;
 			if (x < Format->Indent)
 				TextX = 0;
@@ -639,7 +609,6 @@ bool TTextWindow::GetPosition(int x, int y, int *Line, int *Offset, int *Length)
 		}
 	}
 	return false;
-	TEND2(674, x, y)
 }
 
 // --- TConsole --------------------------------------------------------------------------------
@@ -648,7 +617,6 @@ bool TTextWindow::GetPosition(int x, int y, int *Line, int *Offset, int *Length)
 // the two objects).
 TConsole::TConsole()
 {
-	TBEGIN
 	ScrollToEnd = false;
 	DrawingListLength = 8;
 	DrawingList.reset(new TDrawing[8]);
@@ -656,7 +624,6 @@ TConsole::TConsole()
 	ScrollBar = new TScrollBar(TRect(0, 0, SkinProperties.Data878, SkinProperties.Data874), 0, 0, 0, 0, 1);
 	InsertChild(ScrollBar);
 	InsertChild(TextWindow);
-	TEND(695)
 }
 
 // 0x41a4d0. No exception frame.
@@ -670,20 +637,16 @@ int TConsole::getMinimumHeight()
 // 0x41a4f0, line 706. The text follows the scroll bar.
 void TConsole::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	TextWindow->SetCurrentLineNumber(ScrollBar->Range->Value);
 	TWindow::Draw(Surface, x, y);
-	TEND1(706, Surface)
 }
 
 // 0x41a6a0, line 717. The wheel (Code 1 up, 2 down) moves the scroll bar.
 bool TConsole::MouseWheel(int x, int y, int Code)
 {
-	TBEGIN
 	if (Code != 1 && Code != 2)
 		return TWindow::MouseWheel(x, y, Code);
 	return ScrollBar->MouseWheel(x, y, Code);
-	TEND1(717, Code)
 }
 
 // 0x421450, lines 753-794. Places the scroll bar at the right edge (the
@@ -692,7 +655,6 @@ bool TConsole::MouseWheel(int x, int y, int Code)
 // unless the window is to show the end; then the frame (skins 169-176).
 void TConsole::Arrange()
 {
-	TBEGIN
 	const int WindowWidth = Width;
 	const int Top = Skins[175].height;
 	const int RightEdge = Skins[174].width;
@@ -733,7 +695,6 @@ void TConsole::Arrange()
 	DrawingList[6] = TDrawing(176, Skins[171].width, Height - Skins[176].height,
 		Width - Skins[172].width - Skins[171].width, Skins[176].height, 0, 0);
 	DrawingList[7] = TDrawing(172, Width - Skins[172].width, Height - Skins[172].height, 0, 0, 0, 0);
-	TEND(794)
 }
 
 // --- TTab ------------------------------------------------------------------------------------
@@ -744,7 +705,6 @@ TTab::TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback _Callback)
 {
 	TASSERT(806, _Caption!=NULL);
 	TASSERT(807, _TextBuffer!=NULL);
-	TBEGIN
 	TextBuffer = _TextBuffer;
 	LineCount = -1;
 	BlinkEnd = 0;
@@ -766,20 +726,17 @@ TTab::TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback _Callback)
 	if (ShortenString(Caption.get(), Length))
 		Shortened = true;
 	SetSize(SkinProperties.StyleAA4.Data00, SkinProperties.StyleAA4.Data04);
-	TEND(831)
 }
 
 // 0x41acd0, lines 849-866. Leaves the channel on the server: the player's
 // own request is cancelled, a gamemaster's open request closed, a public
 // channel left; the player's own private channel only when it was closed by
 // the server (Locked) and private channels only when the player may write.
-// Then the buffer is deleted (Talk.cpp). The handlers rethrow out of the
-// destructor (MainFrm.cpp's pragma).
-PATELLA_MSVC_WARNING(push)
-PATELLA_MSVC_WARNING(disable : 4297)
+// Then the buffer is deleted (Talk.cpp). The original's handlers rethrow out
+// of the destructor; an exception of the calls still passes out to the
+// caller (TComponent's destructor is noexcept(false)).
 TTab::~TTab()
 {
-	TBEGIN
 	Caption.reset();
 	if (FullCaption != nullptr)
 		FullCaption.reset();
@@ -799,25 +756,20 @@ TTab::~TTab()
 	}
 	DeleteTextBuffer(TextBuffer);
 	TextBuffer = nullptr;
-	TEND(866)
 }
-PATELLA_MSVC_WARNING(pop)
 
 // 0x41afe0, line 880.
 void TTab::SetActive(bool _Active)
 {
-	TBEGIN
 	Active = _Active;
 	Unread = false;
 	if (_Active == true)
 		Arrange();
-	TEND1(880, _Active?1:0)
 }
 
 // 0x41b190, line 898. Drags the tab along the bar.
 bool TTab::MouseMove(int x, [[maybe_unused]] int y)
 {
-	TBEGIN
 	if (Dragging) {
 		TTabBar *Bar = static_cast<TTabBar *>(GetParent());
 		x = OffsetX - DragX + x;
@@ -829,13 +781,11 @@ bool TTab::MouseMove(int x, [[maybe_unused]] int y)
 		Bar->Rearrange(this);
 	}
 	return true;
-	TEND1(898, x)
 }
 
 // 0x424200, line 916. Makes the tab current and starts dragging it.
 bool TTab::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	Dragging = 1;
 	SetCapture(nullptr);
 	DragX = x;
@@ -844,47 +794,39 @@ bool TTab::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 	(static_cast<TTabBar *>(GetParent()))->SetCurrentTab(this);
 	Callback.Send();
 	return true;
-	TEND2(916, x, y)
 }
 
 // 0x41b370, line 931.
 bool TTab::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (Dragging) {
 		ReleaseCapture(nullptr);
 		(static_cast<TTabBar *>(GetParent()))->Rearrange(nullptr);
 	}
 	return true;
-	TEND(931)
 }
 
 // 0x4243d0, line 945. Makes the tab current and opens the channel menu
 // (Control.cpp's message 0x38).
 bool TTab::RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	static_cast<TTabBar *>(GetParent())->SetCurrentTab(this);
 	Callback.Send();
 	AddMessage(0x38, 0, 0);
 	return true;
-	TEND(945)
 }
 
 // 0x41b520, line 956. A shortened caption shows the full one.
 void TTab::MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
-	TBEGIN
 	if (Shortened)
 		SetMouseOverText(FullCaption.get());
-	TEND(956)
 }
 
 // 0x41b6c0, line 974. New lines light the tab up (blinking when the number
 // of lines changed); a buffer that was read (GetClosed) puts it out.
 void TTab::Arrange()
 {
-	TBEGIN
 	if (TextBuffer->GetChanged()) {
 		if (TextBuffer->lines != LineCount)
 			BlinkEnd = GetActionNumber() + 10;
@@ -895,7 +837,6 @@ void TTab::Arrange()
 		Unread = false;
 		BlinkEnd = 0;
 	}
-	TEND(974)
 }
 
 // 0x41b890, lines 981-996. The assertions come before the try block (states
@@ -904,7 +845,6 @@ void TTab::Draw(int Surface, int x, int y)
 {
 	TASSERT1(981, x>=0, x);
 	TASSERT1(982, y>=0, y);
-	TBEGIN
 	DrawSkin(Surface, x, y, Width, Height, 187 - (Active ? 1 : 0), 0, 0);
 	const TFont *Font;
 	if (Active)
@@ -919,7 +859,6 @@ void TTab::Draw(int Surface, int x, int y)
 		Caption.get());
 	if (BlinkEnd != 0 && BlinkEnd < GetActionNumber())
 		BlinkEnd = 0;
-	TEND1(996, Surface)
 }
 
 // --- TTabBar ---------------------------------------------------------------------------------
@@ -929,20 +868,17 @@ void TTab::Draw(int Surface, int x, int y)
 // uninitialised value); Changed stays uninitialised.
 TTabBar::TTabBar()
 {
-	TBEGIN
 	Moved = nullptr;
 	CurrentTab = nullptr;
 	LeftTabs = new TWindow;
 	RightTabs = new TWindow;
 	Arrange();
 	Busy = false;
-	TEND(1016)
 }
 
 // 0x41bd40, line 1043. The dragged tab is drawn last, over the others.
 void TTabBar::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	TComponent::Draw(Surface, x, y);
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if (Child != Moved)
@@ -950,28 +886,23 @@ void TTabBar::Draw(int Surface, int x, int y)
 	}
 	if (Moved != nullptr)
 		Moved->Draw(Surface, Moved->OffsetX + x, Moved->OffsetY + y);
-	TEND1(1043, Surface)
 }
 
 // 0x41bf40, line 1055.
 void TTabBar::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TComponent::SetSize(Width, Height);
 	Rearrange(nullptr);
 	Changed = true;
-	TEND2(1055, Width, Height)
 }
 
 // 0x41c0f0, line 1068.
 void TTabBar::Arrange()
 {
-	TBEGIN
 	TWindow::Arrange();
 	RightTabs->Arrange();
 	LeftTabs->Arrange();
 	Rearrange(nullptr);
-	TEND(1068)
 }
 
 // 0x421d10, lines 1075-1085. The first assertion comes before the try block
@@ -979,7 +910,6 @@ void TTabBar::Arrange()
 void TTabBar::SetCurrentTab(TTab *Tab)
 {
 	TASSERT(1075, Tab!=NULL);
-	TBEGIN
 	const TWindow *Container = GetContainer(Tab);
 	TASSERT(1078, Container!=NULL);
 	Changed = true;
@@ -988,35 +918,29 @@ void TTabBar::SetCurrentTab(TTab *Tab)
 	Tab->SetActive(true);
 	CurrentTab = Tab;
 	ShowTab(Tab);
-	TEND(1085)
 }
 
 // 0x41c2a0, line 1098.
 void TTabBar::InsertChild(TComponent *Child)
 {
-	TBEGIN
 	TWindow::InsertChild(Child);
 	Changed = true;
 	Rearrange(nullptr);
 	Child->Arrange();
-	TEND(1098)
 }
 
 // 0x41c450, line 1111.
 void TTabBar::AppendChild(TComponent *Child)
 {
-	TBEGIN
 	TWindow::AppendChild(Child);
 	Changed = true;
 	Rearrange(nullptr);
 	Child->Arrange();
-	TEND(1111)
 }
 
 // 0x422090, line 1125.
 void TTabBar::DeleteChild(TComponent *Child)
 {
-	TBEGIN
 	TWindow *Container = GetContainer(Child);
 	if (Container == this)
 		TWindow::DeleteChild(Child);
@@ -1024,33 +948,27 @@ void TTabBar::DeleteChild(TComponent *Child)
 		Container->DeleteChild(Child);
 	Rearrange(nullptr);
 	Changed = true;
-	TEND(1125)
 }
 
 // 0x41c600, line 1139.
 void TTabBar::InsertChildAfter(TComponent *Previous, TComponent *Child)
 {
-	TBEGIN
 	TWindow::InsertChildAfter(Previous, Child);
 	Rearrange(nullptr);
 	Child->Arrange();
 	Changed = true;
-	TEND(1139)
 }
 
 // 0x41c7b0, line 1163.
 void TTabBar::SwapChildren(TComponent *Child1, TComponent *Child2)
 {
-	TBEGIN
 	TWindow::SwapChildren(Child1, Child2);
 	Changed = true;
-	TEND(1163)
 }
 
 // 0x422250, line 1177.
 void TTabBar::RemoveChild(TComponent *Child)
 {
-	TBEGIN
 	TWindow *Container = GetContainer(Child);
 	if (Container == this)
 		TWindow::RemoveChild(Child);
@@ -1058,21 +976,17 @@ void TTabBar::RemoveChild(TComponent *Child)
 		Container->RemoveChild(Child);
 	Rearrange(nullptr);
 	Changed = true;
-	TEND(1177)
 }
 
 // 0x41c950, line 1191.
 bool TTabBar::IsChild(TComponent *Child)
 {
-	TBEGIN
 	return TWindow::IsChild(Child) || LeftTabs->IsChild(Child) || RightTabs->IsChild(Child);
-	TEND(1191)
 }
 
 // 0x41cb20, lines 1203-1205. The window that holds the tab.
 TWindow *TTabBar::GetContainer(TComponent *Child)
 {
-	TBEGIN
 	if (TWindow::IsChild(Child))
 		return this;
 	if (LeftTabs->IsChild(Child))
@@ -1080,21 +994,18 @@ TWindow *TTabBar::GetContainer(TComponent *Child)
 	if (RightTabs->IsChild(Child))
 		return RightTabs;
 	TERROR(1203, "failed to get composite");
-	TEND(1205)
 }
 
 // 0x41cda0, lines 1215-1220. The help of the console (handle 23) for the
 // whole parent.
 bool TTabBar::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
-	TBEGIN
 	SetHelpHandle(23);
 	const TComponent *Parent = GetParent();
 	TASSERT(1215, Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
-	TEND(1220)
 }
 
 // 0x41d040, line 1258. 5 brings the last hidden tab on the left back, 6
@@ -1102,7 +1013,6 @@ bool TTabBar::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 // 26 do the same until no tab is hidden on that side.
 void TTabBar::HandleEvent(int Event)
 {
-	TBEGIN
 	if (Event == 6) {
 		if (RightTabs->GetFirstChild() == nullptr)
 			return;
@@ -1127,13 +1037,11 @@ void TTabBar::HandleEvent(int Event)
 			HandleEvent(6);
 	}
 	Rearrange(nullptr);
-	TEND1(1258, Event)
 }
 
 // 0x41d270, line 1290. The tab of a buffer, shown or hidden.
 TTab *TTabBar::FindTab(TTalkBuffer *TextBuffer)
 {
-	TBEGIN
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if ((static_cast<TTab *>(Child))->TextBuffer == TextBuffer)
 			return static_cast<TTab *>(Child);
@@ -1147,14 +1055,12 @@ TTab *TTabBar::FindTab(TTalkBuffer *TextBuffer)
 			return static_cast<TTab *>(Child);
 	}
 	return nullptr;
-	TEND(1290)
 }
 
 // 0x41d450, line 1309. A hidden tab comes back as the last but one shown
 // (it is appended and swapped with the last).
 void TTabBar::ShowTab(TTab *Tab)
 {
-	TBEGIN
 	if (GetContainer(Tab) != this) {
 		RemoveChild(Tab);
 		TComponent *Last = GetLastChild();
@@ -1163,14 +1069,12 @@ void TTabBar::ShowTab(TTab *Tab)
 		Rearrange(nullptr);
 		Changed = true;
 	}
-	TEND(1309)
 }
 
 // 0x41d620, line 1344. The public channels of all tabs go to the
 // preferences (Tibia.cfg's open channels).
 void TTabBar::StoreOpenChannels()
 {
-	TBEGIN
 	ClearOpenChannels();
 	for (int i = 0; i < 3; i++) {
 		TWindow *Container;
@@ -1189,7 +1093,6 @@ void TTabBar::StoreOpenChannels()
 				AddOpenChannel(TextBuffer->GetChannelID());
 		}
 	}
-	TEND(1344)
 }
 
 // 0x41d810, lines 1372-1427. A dragged tab changes places with a neighbour
@@ -1199,7 +1102,6 @@ void TTabBar::StoreOpenChannels()
 // hidden), and an empty bar takes the last tab hidden on the left.
 void TTabBar::Rearrange(TTab *_Moved)
 {
-	TBEGIN
 	if (!Busy) {
 		Busy = true;
 		Moved = _Moved;
@@ -1252,7 +1154,6 @@ void TTabBar::Rearrange(TTab *_Moved)
 		}
 		Busy = false;
 	}
-	TEND(1427)
 }
 
 // --- TConsoleWindow --------------------------------------------------------------------------
@@ -1264,7 +1165,6 @@ void TTabBar::Rearrange(TTab *_Moved)
 // default channel. The channels of the last session are joined again.
 TConsoleWindow::TConsoleWindow()
 {
-	TBEGIN
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
 	TalkMode = 1;
@@ -1304,16 +1204,13 @@ TConsoleWindow::TConsoleWindow()
 		SendJoinChannel(Channels[i]);
 	if (Count > 0)
 		delete[] Channels;
-	TEND(1516)
 }
 
 // 0x41dbe0, line 1543. Stores the open channels and the console height and
-// deletes the buttons that are not children.
-PATELLA_MSVC_WARNING(push)
-PATELLA_MSVC_WARNING(disable : 4297)
+// deletes the buttons that are not children. An exception of the calls
+// passes out to the caller, as TTab's.
 TConsoleWindow::~TConsoleWindow()
 {
-	TBEGIN
 	TabBar->StoreOpenChannels();
 	SetConsoleHeight(Height);
 	delete History;
@@ -1333,14 +1230,11 @@ TConsoleWindow::~TConsoleWindow()
 	RemoveHotkey(0x44d);
 	RemoveHotkey(0x44b);
 	RemoveHotkey(0x444);
-	TEND(1543)
 }
-PATELLA_MSVC_WARNING(pop)
 
 // 0x41de80, line 1571.
 void TConsoleWindow::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TComponent::SetSize(Width, Height);
 	SetChildArea(TabBar, SkinProperties.Style9E8.Data04);
 	SetChildArea(Input, SkinProperties.Style9E8.Data24);
@@ -1358,7 +1252,6 @@ void TConsoleWindow::SetSize(int Width, int Height)
 	if (MoveLeftButton != nullptr && IsChild(MoveLeftButton))
 		SetChildPosition(MoveLeftButton, SkinProperties.Style9E8.Data5C.x, SkinProperties.Style9E8.Data5C.y);
 	Arrange();
-	TEND2(1571, Width, Height)
 }
 
 // 0x422ac0, lines 1583-1601. Talk.cpp's changes rearrange the tabs and the
@@ -1366,7 +1259,6 @@ void TConsoleWindow::SetSize(int Width, int Height)
 // the tab bar's changes.
 void TConsoleWindow::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	if (GetConsoleChanged()) {
 		TabBar->Arrange();
 		TASSERT(1583, CurrentConsole!=NULL);
@@ -1382,14 +1274,12 @@ void TConsoleWindow::Draw(int Surface, int x, int y)
 	if (Changed)
 		UpdateButtons();
 	TWindow::Draw(Surface, x, y);
-	TEND1(1601, Surface)
 }
 
 // 0x41e1e0, line 1647. The frame: skins 177-184 and the tiled background
 // 185, aligned to the window's position.
 void TConsoleWindow::Arrange()
 {
-	TBEGIN
 	TWindow::Arrange();
 	DrawingList[0] = TDrawing(177, 0, 0, 0, 0, 0, 0);
 	DrawingList[1] = TDrawing(183, Skins[177].width, 0, Width - Skins[178].width - Skins[177].width,
@@ -1405,13 +1295,11 @@ void TConsoleWindow::Arrange()
 	DrawingList[7] = TDrawing(180, Width - Skins[180].width, Height - Skins[180].height, 0, 0, 0, 0);
 	DrawingList[8] = TDrawing(185, Skins[181].width, Skins[183].height, Width - Skins[182].width - Skins[181].width,
 		Height - Skins[184].height - Skins[183].height, 0, OffsetY % Skins[185].height);
-	TEND(1647)
 }
 
 // 0x41e5e0, line 1659. A click clears both selections.
 bool TConsoleWindow::LeftButtonDown(int x, int y, int Flags)
 {
-	TBEGIN
 	TTextWindow *TextWindow = CurrentConsole->TextWindow;
 	TextWindow->SelectionStartLine = -1;
 	TextWindow->SelectionStartOffset = -1;
@@ -1419,20 +1307,17 @@ bool TConsoleWindow::LeftButtonDown(int x, int y, int Flags)
 	TextWindow->SelectionEndOffset = -1;
 	Input->SelectionLength = 0;
 	return TWindow::LeftButtonDown(x, y, Flags);
-	TEND2(1659, x, y)
 }
 
 // 0x41e7a0, line 1673. The console's own help (handle 22) where no child
 // has one.
 bool TConsoleWindow::HelpMouseMove(int x, int y)
 {
-	TBEGIN
 	if (!TWindow::HelpMouseMove(x, y)) {
 		SetHelpHandle(22);
 		SetHelpSize(Width, Height);
 	}
 	return true;
-	TEND2(1673, x, y)
 }
 
 // 0x424580, lines 1718-1773. Tab and Shift+Tab switch channels, Ctrl+A
@@ -1444,7 +1329,6 @@ bool TConsoleWindow::HelpMouseMove(int x, int y)
 // through the sent lines (one step below the last stores the edit line).
 void TConsoleWindow::KeyPress(int Key)
 {
-	TBEGIN
 	if (Key == 9)
 		HandleEvent(212);
 	if (Key == 0x209)
@@ -1543,7 +1427,6 @@ void TConsoleWindow::KeyPress(int Key)
 		if (AutoSend)
 			SendInput();
 	}
-	TEND1(1773, Key)
 }
 
 // 0x424b10, lines 1856-1859. 201 shows the current tab's channel, 202 closes
@@ -1555,7 +1438,6 @@ void TConsoleWindow::KeyPress(int Key)
 // (Ctrl+K) opens the hotkey options (message 0x26).
 void TConsoleWindow::HandleEvent(int Event)
 {
-	TBEGIN
 	switch (Event) {
 	case 202:
 		CloseChannel();
@@ -1625,7 +1507,6 @@ void TConsoleWindow::HandleEvent(int Event)
 	default:
 		TERROR1(1856, "unknown event", Event);
 	}
-	TEND1(1859, Event)
 }
 
 // 0x41e960, lines 1869-1875. Activates the edit line, never in a channel
@@ -1633,7 +1514,6 @@ void TConsoleWindow::HandleEvent(int Event)
 // open (action state 11).
 void TConsoleWindow::SetActive(bool Active) const
 {
-	TBEGIN
 	TTalkBuffer *TextBuffer = CurrentConsole->getTextBuffer();
 	TASSERT(1869, TextBuffer!=NULL);
 	if (!TextBuffer->CanWrite())
@@ -1642,7 +1522,6 @@ void TConsoleWindow::SetActive(bool Active) const
 	if (!Active && GetActionState() == 11)
 		return;
 	Input->SetActive(Active);
-	TEND1(1875, Active?1:0)
 }
 
 // 0x41ed00, lines 1888-1938. The buttons of the current channel: the arrows
@@ -1651,7 +1530,6 @@ void TConsoleWindow::SetActive(bool Active) const
 // request channels (which have the default channel's font).
 void TConsoleWindow::UpdateButtons()
 {
-	TBEGIN
 	TTalkBuffer *TextBuffer = CurrentConsole->getTextBuffer();
 	TASSERT(1888, TextBuffer!=NULL);
 	if (IsChild(VolumeButton))
@@ -1688,18 +1566,15 @@ void TConsoleWindow::UpdateButtons()
 	Input->SetFont(Font);
 	Input->SetDisabled(!TextBuffer->CanWrite());
 	SetActive(TextBuffer->CanWrite());
-	TEND(1938)
 }
 
 // 0x422e70, line 1953. MainWindow.cpp opens the default channel ("Default").
 void TConsoleWindow::OpenDefaultChannel(TTalkBuffer *TextBuffer, const char *Caption)
 {
-	TBEGIN
 	DefaultTab = new TTab(Caption, TextBuffer, TCallback(this, 201));
 	TabBar->InsertChild(DefaultTab);
 	TabBar->SetCurrentTab(DefaultTab);
 	HandleEvent(201);
-	TEND(1953)
 }
 
 // 0x425070, lines 1965-1969. Creates the buffer of a channel (or takes the
@@ -1707,7 +1582,6 @@ void TConsoleWindow::OpenDefaultChannel(TTalkBuffer *TextBuffer, const char *Cap
 TTalkBuffer *TConsoleWindow::OpenChannel(int RecvMode, int SendMode, const char *Name, int Channel,
 	const char *Caption)
 {
-	TBEGIN
 	TTalkBuffer *TextBuffer = CreateTextBuffer(RecvMode, SendMode, Name, Channel);
 	if (TextBuffer == nullptr) {
 		TextBuffer = ::GetTextBuffer(RecvMode, Name, Channel);
@@ -1715,7 +1589,6 @@ TTalkBuffer *TConsoleWindow::OpenChannel(int RecvMode, int SendMode, const char 
 	}
 	AddChannel(TextBuffer, Caption);
 	return TextBuffer;
-	TEND2(1969, RecvMode, SendMode)
 }
 
 // 0x423060, lines 1977-1998. The first assertion comes before the try block
@@ -1726,7 +1599,6 @@ TTalkBuffer *TConsoleWindow::OpenChannel(int RecvMode, int SendMode, const char 
 void TConsoleWindow::AddChannel(TTalkBuffer *TextBuffer, const char *Caption)
 {
 	TASSERT(1977, TextBuffer!=NULL);
-	TBEGIN
 	TTab *NewTab = TabBar->FindTab(TextBuffer);
 	if (NewTab == nullptr) {
 		NewTab = new TTab(Caption, TextBuffer, TCallback(this, 201));
@@ -1745,7 +1617,6 @@ void TConsoleWindow::AddChannel(TTalkBuffer *TextBuffer, const char *Caption)
 	} else if (CurrentTab != nullptr) {
 		NewTab->SetActive(false);
 	}
-	TEND(1998)
 }
 
 // 0x4234b0, lines 2009-2020. Closes the current tab (never the default one):
@@ -1753,7 +1624,6 @@ void TConsoleWindow::AddChannel(TTalkBuffer *TextBuffer, const char *Caption)
 // becomes current, the tab is deleted.
 void TConsoleWindow::CloseChannel()
 {
-	TBEGIN
 	TTab *CurrentTab = TabBar->CurrentTab;
 	if (DefaultTab != CurrentTab) {
 		TASSERT(2009, DefaultTab!=NULL);
@@ -1770,7 +1640,6 @@ void TConsoleWindow::CloseChannel()
 		delete CurrentTab;
 		HandleEvent(201);
 	}
-	TEND(2020)
 }
 
 // 0x425330, lines 2033-2051. Opens the player's request channel with the
@@ -1778,7 +1647,6 @@ void TConsoleWindow::CloseChannel()
 // (without event 201) and the player is told to wait.
 void TConsoleWindow::ReportRuleViolation(const char *Question)
 {
-	TBEGIN
 	TTalkBuffer *TextBuffer = ::GetTextBuffer(TALK_GAMEMASTER_ANSWER, nullptr, -1);
 	if (TextBuffer != nullptr) {
 		TTab *NewTab = TabBar->FindTab(TextBuffer);
@@ -1797,7 +1665,6 @@ void TConsoleWindow::ReportRuleViolation(const char *Question)
 	AddTextBufferLine(TextBuffer, 0, TextWaitForGamemaster, TALK_ADMIN_MESSAGE, nullptr, 0);
 	SendTalk(TALK_GAMEMASTER_REQUEST, Question);
 	TextBuffer->SetWriteEnabled(false);
-	TEND(2051)
 }
 
 // 0x41f1c0, lines 2060-2061. No try block (ContextMenus.cpp's channel menu).
@@ -1814,10 +1681,8 @@ void TConsoleWindow::SetServerMessages(bool Show)
 {
 	TASSERT(2071, CurrentConsole->getTextBuffer()!=NULL);
 	TASSERT(2072, CurrentConsole->getTextBuffer()->isDefault()==false);
-	TBEGIN
 	ServerMessagesButton->State = Show;
 	HandleEvent(203);
-	TEND(2077)
 }
 
 // 0x41f7f0, line 2085. No try block.
@@ -1836,7 +1701,6 @@ TTalkBuffer *TConsoleWindow::GetTextBuffer() const
 // with "*name* " again, unless the channel is that player's.
 void TConsoleWindow::SendInput()
 {
-	TBEGIN
 	int ChannelID = -1;
 	int TalkMode;
 	char *Addressee;
@@ -1920,21 +1784,18 @@ void TConsoleWindow::SendInput()
 		Prefix.Format("*{}* ", Addressee);
 		Input->SetText(Prefix);
 	}
-	TEND(2184)
 }
 
 // 0x41f940, line 2207. Keeps the edit line (unless it repeats the last
 // one) and goes back to it.
 void TConsoleWindow::AddToHistory()
 {
-	TBEGIN
 	const char *Text = Input->Text;
 	if (strlen(Text) != 0) {
 		if (History->GetLast() == nullptr || strcmp(History->GetLast()->Text, Text) != 0)
 			History->Append(new TTalkLine(0, TALK_SAY, Text, 0));
 	}
 	HistoryPosition = -1;
-	TEND(2207)
 }
 
 // 0x41fb60, lines 2258-2304. Reads the edit line: "#X ..." is a command
@@ -1947,7 +1808,6 @@ void TConsoleWindow::AddToHistory()
 // the account number or the password (if one is set) is not sent.
 void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, char *Separator) const
 {
-	TBEGIN
 	int i = 0;
 	*Text = nullptr;
 	char *Line = Input->Text;
@@ -2015,14 +1875,12 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 		i++;
 	if (Line[i] != 0)
 		*Text = Line + i;
-	TEND(2304)
 }
 
 // 0x420090, lines 2316-2335. "Save Window" of the channel menu: appends the
 // channel to "<caption>.txt" in the working directory.
 bool TConsoleWindow::SaveChannel() const
 {
-	TBEGIN
 	TTab *CurrentTab = TabBar->CurrentTab;
 	TASSERT(2316, CurrentTab!=NULL);
 	TASSERT(2317, CurrentTab->getCaption()!=NULL);
@@ -2045,5 +1903,4 @@ bool TConsoleWindow::SaveChannel() const
 	Message.Format("Channel appended to {}", FileName);
 	SetStatusMessage(Message, false);
 	return true;
-	TEND(2335)
 }
