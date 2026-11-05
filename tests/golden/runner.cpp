@@ -15,12 +15,20 @@
 // (RetiredTests: issue #29's engine tests), counted with the retired checks, and the oracle's tests that are
 // not ported yet, with their checks. Exit code: 0 when every replayed test
 // passed with the oracle's check count, 1 on a failure or a stale corpus, 77 without a corpus.
+//
+// Each run has a temporary folder of its own (issue #66, TRunFolder): %TEMP%\golden-run-<process id>-<n>, the
+// process's TEMP, TMP and current directory while the tests run, removed at the end. Every file the tests and the
+// code under test write goes there (they write below TEMP or GetTempPath, or to the current directory), so two
+// runners at once, of one build or of two worktrees, do not share a file.
 
 #include "golden_test.h"
 
+#include <filesystem>
+#include <process.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <system_error>
 #if defined(_MSC_VER) && defined(_DEBUG)
 #include <crtdbg.h>
 #endif
@@ -114,6 +122,51 @@ const TPorted *FindPorted(const TExecutable &Executable, const std::string &Name
 	return nullptr;
 }
 
+// The run's temporary folder (issue #66): created below the TEMP the runner was started with, made the process's
+// TEMP and TMP (_putenv_s sets the C runtime's copy and the process environment: getenv, GetTempPathA and
+// std::filesystem::temp_directory_path all see it) and its current directory; at the end the previous directory
+// again, and the folder removed with everything in it. A static object, so that the tests' exit(1) removes it too.
+class TRunFolder {
+public:
+	bool Enter()
+	{
+		std::error_code Error;
+		const std::filesystem::path Base = std::filesystem::temp_directory_path(Error);
+		if (Error)
+			return false;
+		for (int n = 0; n < 1000 && Path.empty(); n++) {
+			std::filesystem::path Candidate = Base / ("golden-run-" + std::to_string(_getpid()) + "-" + std::to_string(n));
+			if (std::filesystem::create_directory(Candidate, Error))
+				Path = Candidate;
+			else if (Error)
+				return false;
+		}
+		if (Path.empty())
+			return false;
+		Previous = std::filesystem::current_path(Error);
+		const std::string Native = Path.string();
+		if (Error || _putenv_s("TEMP", Native.c_str()) != 0 || _putenv_s("TMP", Native.c_str()) != 0)
+			return false;
+		std::filesystem::current_path(Path, Error);
+		return !Error;
+	}
+	~TRunFolder()
+	{
+		if (Path.empty())
+			return;
+		std::error_code Error;
+		if (!Previous.empty())
+			std::filesystem::current_path(Previous, Error);
+		std::filesystem::remove_all(Path, Error);
+		if (Error)
+			fprintf(stderr, "golden_runner: cannot remove %s: %s\n", Path.string().c_str(), Error.message().c_str());
+	}
+
+private:
+	std::filesystem::path Path, Previous;
+};
+TRunFolder RunFolder;
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -145,6 +198,9 @@ int main(int argc, char **argv)
 	}
 	if (const char *Fails = getenv("DIFFTEST_FAILS"))
 		FailuresPrinted = atoi(Fails);
+	// The corpus is read after the change of directory (TRunFolder): a relative path as the full one.
+	if (std::error_code Error; std::filesystem::path(Directory).is_relative())
+		Directory = std::filesystem::absolute(Directory, Error).string();
 
 	// The corpus: every executable's manifest, or none.
 	golden::TManifest Manifests[sizeof(Executables) / sizeof(Executables[0])];
@@ -171,6 +227,11 @@ int main(int argc, char **argv)
 		return 1;
 	if (Found != Count) {
 		printf("golden: the corpus in %s is incomplete (a manifest is missing); record it again\n", Directory.c_str());
+		return 1;
+	}
+
+	if (!RunFolder.Enter()) {
+		printf("golden: cannot create the run's temporary folder below %s\n", getenv("TEMP") != nullptr ? getenv("TEMP") : "TEMP");
 		return 1;
 	}
 

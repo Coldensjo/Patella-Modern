@@ -355,6 +355,18 @@ TPresentWindows' destructor and Open changed, ExcludeChild and ParentProc new, t
 410, 412, 413); the rest moved. macrocheck: 2,108 calls, 0 differences. tidy_ci: 4 findings, 0 new, 0 bugprone.
 banned_calls: 0. clang-format: clean.
 
+Patella-Modern issue #66 (branch issue-66, November 5, 2026): each golden run in a temporary folder of its own.
+golden_runner's TRunFolder (`%TEMP%\golden-run-<pid>-<n>`, its TEMP, TMP and current directory, removed at the end),
+golden_corpus through cmake/RunGoldenRecord.cmake (a folder per recording below build\oracle-x86\tmp, removed); the new
+CTest test golden_concurrent (tests/golden/concurrent.py) runs two runners at once. No src/ change; notes/decisions.md,
+"Each golden run in a temporary folder of its own". `python -I tools/build.py oracle-x86` (CTest 4/4, 0 warnings):
+16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures; golden_corpus into the branch's build\golden: the
+same counts, build\oracle-x86\tmp and %TEMP% without a folder of it afterwards. windows-x64 and -debug (--fresh) and
+windows-x64-asan (CTest 14/14 each, 0 warnings): golden 16,461,713 replayed, 1,521,619 retired, 0 not ported, 0
+failures, golden_concurrent both runners the same, nothing left in %TEMP%; the unit tests' counts unchanged. windows-x64-gcc
+and the Linux presets (--fresh) 11/11, 0 warnings. tidy_ci: 4 findings, 0 new, 0 bugprone. banned_calls: 0.
+clang-format: clean.
+
 Patella-Modern issue #70 (branch issue-70, November 5, 2026): sanitizers over the replayed sessions, M4's exit. The
 preset windows-x64-asan (MSVC /fsanitize=address through PATELLA_SANITIZE, Release and Debug); the original's two
 out-of-bounds reads suppressed with PATELLA_NO_SANITIZE_ADDRESS (TRGBColor::operator==, Network.cpp's ReceiveData and
