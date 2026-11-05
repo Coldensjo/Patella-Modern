@@ -145,3 +145,16 @@ else()
 	add_test(NAME golden COMMAND golden_runner "${PATELLA_GOLDEN_DIR}")
 endif()
 set_tests_properties(golden PROPERTIES SKIP_RETURN_CODE 77)
+
+# Issue #66: two runners at once over the same corpus (concurrent.py), each in its temporary folder of its own
+# (runner.cpp, TRunFolder): 0 failures each, and neither folder left below TEMP. Skipped without a corpus.
+set(Python3_FIND_REGISTRY LAST)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+if(PATELLA_GOLDEN_REQUIRE)
+	set(golden_concurrent_require --require)
+else()
+	set(golden_concurrent_require)
+endif()
+add_test(NAME golden_concurrent COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/concurrent.py"
+	$<TARGET_FILE:golden_runner> ${golden_concurrent_require} "${PATELLA_GOLDEN_DIR}")
+set_tests_properties(golden_concurrent PROPERTIES SKIP_RETURN_CODE 77)

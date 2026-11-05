@@ -314,17 +314,17 @@ set_tests_properties(difftest communicationtest PROPERTIES TIMEOUT 7200)
 
 # The golden corpus (tests/golden/golden.h, issue #24): cmake --build --preset oracle-x86 --target
 # golden_corpus runs difftest, sysinctest and communicationtest in full with DIFFTEST_RECORD set, each
-# with a private TEMP as their CTest tests. The corpus is derived from Tibia.exe: it stays on this
+# in a temporary folder of its own below build/oracle-x86/tmp, its TEMP, TMP and current directory, removed
+# afterwards (cmake/RunGoldenRecord.cmake, issue #66, as golden_runner's run folder). The corpus is derived from Tibia.exe: it stays on this
 # machine, in PATELLA_GOLDEN_DIR (default build/golden, which .gitignore keeps out of git), and is
 # never committed or uploaded. The windows-x64 preset's golden_runner replays it.
 set(PATELLA_GOLDEN_DIR "${PROJECT_SOURCE_DIR}/build/golden" CACHE PATH
 	"Where golden_corpus records the golden corpus (tests/golden; local, never committed)")
 set(golden_commands)
 foreach(test difftest sysinctest communicationtest)
-	file(MAKE_DIRECTORY "${ORACLE_TMP_DIR}/golden-${test}")
-	file(TO_NATIVE_PATH "${ORACLE_TMP_DIR}/golden-${test}" tmp)
-	list(APPEND golden_commands COMMAND "${CMAKE_COMMAND}" -E env "DIFFTEST_RECORD=${PATELLA_GOLDEN_DIR}"
-		"TEMP=${tmp}" "TMP=${tmp}" "$<TARGET_FILE:${test}>" "${PATELLA_TIBIA_EXE_NATIVE}")
+	list(APPEND golden_commands COMMAND "${CMAKE_COMMAND}" "-DTEST=$<TARGET_FILE:${test}>"
+		"-DTIBIA=${PATELLA_TIBIA_EXE_NATIVE}" "-DRECORD=${PATELLA_GOLDEN_DIR}" "-DTMPROOT=${ORACLE_TMP_DIR}"
+		"-DNAME=${test}" -P "${PROJECT_SOURCE_DIR}/cmake/RunGoldenRecord.cmake")
 endforeach()
 add_custom_target(golden_corpus ${golden_commands}
 	DEPENDS difftest sysinctest communicationtest
