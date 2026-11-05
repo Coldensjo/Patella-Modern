@@ -107,7 +107,7 @@ def live_recordings(live, sessions):
 	check_ports()
 	setup_live()
 	need_traffic = "traffic" in sessions
-	need_walk = any(s in sessions for s in ("walk", "error", "error-login", "report", "patch", "patch-exe"))
+	need_walk = any(s in sessions for s in ("walk", "error", "patch", "patch-exe"))
 	if need_traffic:
 		players = ct.snapshot_players()
 		try:
@@ -286,33 +286,6 @@ def session_error(rec, driver, proxy):
 	runs its own message loop, where patcap takes no commands)."""
 	cf.game_login(driver, quiet(proxy), proxy)
 	return error_box(rec, driver)
-
-
-def session_error_login(rec, driver, proxy):
-	cf.wait_node(driver, "TErrorReportDialog")
-	driver.type("first comment")
-	driver.char(13)
-	cf.wait_gone(driver, "TErrorReportDialog")
-	cf.enter_login(driver)
-	return error_box(rec, driver)
-
-
-def session_report(rec, driver, proxy):
-	cf.wait_node(driver, "TErrorReportDialog")
-	driver.type(cf.REPORT_COMMENT)
-	driver.char(13)
-	cf.wait_gone(driver, "TErrorReportDialog")
-	cf.game_login(driver, rec.wait, proxy)
-	error = os.path.join(ct.run_dir("orig"), "error.txt")
-	for _ in range(10):
-		if not os.path.isfile(error):
-			break
-		rec.settle()
-	rec.checkpoint("report sent")
-	sc.logout(driver)
-	rec.settle()
-	rec.checkpoint("logout")
-	return {"exit": rec.close()}
 
 
 def patch_session(count, exe):
@@ -498,17 +471,6 @@ def record_main(args):
 			elif name == "error":
 				reference_run(reference, name, cf.craft_error(events_of(walk)), session_error,
 					comment="compare_files.py's error")
-			elif name == "error-login":
-				reference_run(reference, name, cf.craft_error_login(events_of(walk)), session_error_login,
-					seed={"error.txt": cf.EARLIER_REPORT}, comment="compare_files.py's error-login")
-			elif name == "report":
-				error_txt = os.path.join(ref.session_dir(reference, "error"), "files", "error.txt")
-				if not os.path.isfile(error_txt):
-					raise RunError("no %s: record the session error first" % error_txt)
-				with open(error_txt, "rb") as f:
-					data = f.read()
-				reference_run(reference, name, cf.craft_report(events_of(walk), data), session_report,
-					seed={"error.txt": data}, comment="compare_files.py's report")
 			elif name == "patch":
 				crafted, expected = cf.craft_patch(events_of(walk))
 				reference_run(reference, name, crafted, patch_session(4, False), comment="compare_files.py's patch")

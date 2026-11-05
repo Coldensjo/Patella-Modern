@@ -43,7 +43,8 @@
 //   vector<TContentWindowSize>  constructor 0x4dbe90, operator() 0x4db880 (Preferences.cpp)
 //   vector<TBuddy>          constructor 0x4dc170, operator() 0x4dba60 (Preferences.cpp)
 //   vector<TMessage>        constructor 0x4e7f50, operator() 0x4e7390 (Status.cpp)
-//   vector<TErrorReport>    constructor 0x4e8230, operator() 0x4e7860 (Status.cpp)
+//   vector<TErrorReport>    constructor 0x4e8230, operator() 0x4e7860 (Status.cpp until issue #74; the golden
+//                           test keeps comparing it with a record of TErrorReport's size)
 //   vector<TTalkFilter *>   initialized constructor 0x4fd6e0 (Talk.cpp's lists)
 // The four initialized constructors (0x425e70, 0x453300, 0x4973f0, 0x4fd6e0)
 // are the same code apart from addresses. The destructor is inline; its

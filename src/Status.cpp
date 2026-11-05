@@ -1,7 +1,9 @@
 // Status.cpp: reconstructed from Tibia.exe 7.72 (0x4e6dc0-0x4ea860).
 //
 // The functions without line evidence (0x4e6dc0-0x4e7f00, all of them small
-// accessors) come first, in binary order; the rest follow the assertion and
+// accessors) come first, in binary order (the error report list's,
+// 0x4e7380 and 0x4e7bb0-0x4e7ed0, and its vector at 0x71c648 are gone since
+// Patella-Modern issue #74, decision D2); the rest follow the assertion and
 // catch line numbers, which are also their binary order. The gap before the
 // first assertion (line 91) belongs here because its globals (0x71c458-
 // 0x71c64f) are interleaved with those of the asserted functions; only the
@@ -34,58 +36,57 @@ namespace {
 
 // Data, in .bss order. Status.obj's only .data, LinkPattern (0x5c2560), is
 // its copy of Status.h's.
-regexp *LinkRegexp;                         // 0x71c458, LinkPattern compiled
-char *TaintedClipboardText;                 // 0x71c45c, name from an assertion
-void (*LinkWarningEventHandler)();          // 0x71c460, from "linkwarningeventhandler!=NULL"
-bool BlinkState;                            // 0x71c464, toggled every 300 ms
-int BlinkTime;                              // 0x71c468
-int MouseOverTextY;                         // 0x71c46c
-int MouseOverTextX;                         // 0x71c470
-const char *MouseOverText;                  // 0x71c474
-std::array<int, RIGHT_ANY> Rights;          // 0x71c478
-bool Gamemaster;                            // 0x71c540, sent in the game login packet
-int PremiumDays;                            // 0x71c544
-int ActiveCharacter;                        // 0x71c548
-std::unique_ptr<TCharacter[]> Characters;   // 0x71c54c (issue #58)
-int AccountCharacters;                      // 0x71c550, name from an assertion
-TFixedString<30> AccountPassword;           // 0x71c554
-TFixedString<12> AccountNumberString;       // 0x71c574
-int AccountNumber;                          // 0x71c580
-int Progress;                               // 0x71c584, -1 = none
-int ConnectionState;                        // 0x71c588, see SetConnectionState
-int TradeInfo;                              // 0x71c58c
-int UseZ;                                   // 0x71c590
-int UseY;                                   // 0x71c594
-int UseX;                                   // 0x71c598
-int UseIndex;                               // 0x71c59c
-int TradeZ;                                 // 0x71c5a0
-int TradeY;                                 // 0x71c5a4
-int TradeX;                                 // 0x71c5a8
-int TradeIndex;                             // 0x71c5ac
-int DragTargetZ;                            // 0x71c5b0
-int DragTargetY;                            // 0x71c5b4
-int DragTargetX;                            // 0x71c5b8
-int DragZ;                                  // 0x71c5bc
-int DragY;                                  // 0x71c5c0
-int DragX;                                  // 0x71c5c4
-int DragIndex;                              // 0x71c5c8
-int DragStartY;                             // 0x71c5cc
-int DragStartX;                             // 0x71c5d0
-int PendingActionNumber;                    // 0x71c5d4
-int PendingActionState;                     // 0x71c5d8
-int WindowHeight;                           // 0x71c5dc
-int WindowWidth;                            // 0x71c5e0
-int MouseCursor;                            // 0x71c5e4
-int ActionState;                            // 0x71c5e8, from "GetActionState()" in Control.cpp
-int ActionNumber;                           // 0x71c5ec
-int NumberOfMessages;                       // 0x71c5f0
-vector<TMessage> Messages(0, 9, 10);        // 0x71c5f4, initialiser at 0x55a0f0
-int MouseX;                                 // 0x71c61c
-int MouseY;                                 // 0x71c620
-TObject DraggedObject;                      // 0x71c624
-TObject TradeObject;                        // 0x71c630, from "TradeObject!=0" in MapWindow.cpp
-TObject UseObject;                          // 0x71c63c, "SrcObj" in MapWindow.cpp
-vector<TErrorReport> ErrorReports(0, 0, 1); // 0x71c648, initialiser at 0x55a110
+regexp *LinkRegexp;                       // 0x71c458, LinkPattern compiled
+char *TaintedClipboardText;               // 0x71c45c, name from an assertion
+void (*LinkWarningEventHandler)();        // 0x71c460, from "linkwarningeventhandler!=NULL"
+bool BlinkState;                          // 0x71c464, toggled every 300 ms
+int BlinkTime;                            // 0x71c468
+int MouseOverTextY;                       // 0x71c46c
+int MouseOverTextX;                       // 0x71c470
+const char *MouseOverText;                // 0x71c474
+std::array<int, RIGHT_ANY> Rights;        // 0x71c478
+bool Gamemaster;                          // 0x71c540, sent in the game login packet
+int PremiumDays;                          // 0x71c544
+int ActiveCharacter;                      // 0x71c548
+std::unique_ptr<TCharacter[]> Characters; // 0x71c54c (issue #58)
+int AccountCharacters;                    // 0x71c550, name from an assertion
+TFixedString<30> AccountPassword;         // 0x71c554
+TFixedString<12> AccountNumberString;     // 0x71c574
+int AccountNumber;                        // 0x71c580
+int Progress;                             // 0x71c584, -1 = none
+int ConnectionState;                      // 0x71c588, see SetConnectionState
+int TradeInfo;                            // 0x71c58c
+int UseZ;                                 // 0x71c590
+int UseY;                                 // 0x71c594
+int UseX;                                 // 0x71c598
+int UseIndex;                             // 0x71c59c
+int TradeZ;                               // 0x71c5a0
+int TradeY;                               // 0x71c5a4
+int TradeX;                               // 0x71c5a8
+int TradeIndex;                           // 0x71c5ac
+int DragTargetZ;                          // 0x71c5b0
+int DragTargetY;                          // 0x71c5b4
+int DragTargetX;                          // 0x71c5b8
+int DragZ;                                // 0x71c5bc
+int DragY;                                // 0x71c5c0
+int DragX;                                // 0x71c5c4
+int DragIndex;                            // 0x71c5c8
+int DragStartY;                           // 0x71c5cc
+int DragStartX;                           // 0x71c5d0
+int PendingActionNumber;                  // 0x71c5d4
+int PendingActionState;                   // 0x71c5d8
+int WindowHeight;                         // 0x71c5dc
+int WindowWidth;                          // 0x71c5e0
+int MouseCursor;                          // 0x71c5e4
+int ActionState;                          // 0x71c5e8, from "GetActionState()" in Control.cpp
+int ActionNumber;                         // 0x71c5ec
+int NumberOfMessages;                     // 0x71c5f0
+vector<TMessage> Messages(0, 9, 10);      // 0x71c5f4, initialiser at 0x55a0f0
+int MouseX;                               // 0x71c61c
+int MouseY;                               // 0x71c620
+TObject DraggedObject;                    // 0x71c624
+TObject TradeObject;                      // 0x71c630, from "TradeObject!=0" in MapWindow.cpp
+TObject UseObject;                        // 0x71c63c, "SrcObj" in MapWindow.cpp
 
 } // namespace
 
@@ -446,12 +447,6 @@ bool GetBlinkState()
 	return BlinkState;
 }
 
-// 0x4e7380. The result of RemoveFile is dropped.
-void DeleteErrorFile()
-{
-	RemoveFile("error.txt");
-}
-
 // 0x4e75d0. Type of the first message, 0 when the queue is empty.
 int PeekMessageType()
 {
@@ -533,123 +528,11 @@ void ClearMessages()
 	NumberOfMessages = 0;
 }
 
-// 0x4e7bb0
-void ClearErrorReports()
-{
-	for (int i = ErrorReports.min; i <= ErrorReports.max; i++) {
-		TErrorReport &Report = ErrorReports(i);
-		memset(Report.Title, 0, sizeof(Report.Title));
-		memset(Report.Date, 0, sizeof(Report.Date));
-		memset(Report.Text, 0, sizeof(Report.Text));
-		memset(Report.Comment, 0, sizeof(Report.Comment));
-	}
-}
-
-// 0x4e7c20. Starts a report after the last one that has a title. Like the
-// functions below it searches down from ErrorReports.max; reports are
-// filled by the error.txt reader in Player.cpp.
-void AddErrorReport(const char *Title)
-{
-	int i = ErrorReports.max;
-	while (i >= 0 && ErrorReports(i).Title[0] == 0)
-		i--;
-	strncpy(ErrorReports(i + 1).Title, Title, 64);
-}
-
-// 0x4e7c70. The setters below change the last report with a title and do
-// nothing when there is none.
-void SetErrorReportDate(const char *Date)
-{
-	int i = ErrorReports.max;
-	while (i >= 0 && ErrorReports(i).Title[0] == 0)
-		i--;
-	if (i >= 0)
-		strncpy(ErrorReports(i).Date, Date, 26);
-}
-
-// 0x4e7cc0. Appends a line; nothing is added once the text is full.
-void AddErrorReportText(const char *Text)
-{
-	int i = ErrorReports.max;
-	while (i >= 0 && ErrorReports(i).Title[0] == 0)
-		i--;
-	if (i >= 0) {
-		int Length = (int)strlen(ErrorReports(i).Text);
-		if (Length + 1 < 2048) {
-			if (Length != 0) {
-				ErrorReports(i).Text[Length] = '\n';
-				Length++;
-			}
-			strncpy(ErrorReports(i).Text + Length, Text, 2048 - Length);
-		}
-	}
-}
-
-// 0x4e7d60
-void SetErrorReportComment(const char *Comment)
-{
-	int i = ErrorReports.max;
-	while (i >= 0 && ErrorReports(i).Title[0] == 0)
-		i--;
-	if (i >= 0) {
-		TFixedString<10> Prefix = {"Comment: "};
-		const int Length = (int)strlen(Prefix);
-		strncpy(ErrorReports(i).Comment, Prefix, Length);
-		strncpy(ErrorReports(i).Comment + Length, Comment, 512 - Length);
-	}
-}
-
-// 0x4e7e10. Reports up to and including the last one with a title.
-int GetNumberOfErrorReports()
-{
-	int i = ErrorReports.max;
-	while (true) {
-		if (i < 0)
-			return 0;
-		if (ErrorReports(i).Title[0] != 0)
-			break;
-		i--;
-	}
-	return i + 1;
-}
-
-// 0x4e7e40. The getters return "" for numbers outside the vector.
-const char *GetErrorReportTitle(int Number)
-{
-	if (Number >= ErrorReports.min && Number <= ErrorReports.max)
-		return ErrorReports(Number).Title;
-	return "";
-}
-
-// 0x4e7e70
-const char *GetErrorReportDate(int Number)
-{
-	if (Number >= ErrorReports.min && Number <= ErrorReports.max)
-		return ErrorReports(Number).Date;
-	return "";
-}
-
-// 0x4e7ea0
-const char *GetErrorReportText(int Number)
-{
-	if (Number >= ErrorReports.min && Number <= ErrorReports.max)
-		return ErrorReports(Number).Text;
-	return "";
-}
-
-// 0x4e7ed0
-const char *GetErrorReportComment(int Number)
-{
-	if (Number >= ErrorReports.min && Number <= ErrorReports.max)
-		return ErrorReports(Number).Comment;
-	return "";
-}
-
 // 0x4e7f00. LinkRegexp and TaintedClipboardText are freed but not cleared,
-// and the queued messages are not freed.
+// and the queued messages are not freed. The original cleared the error
+// reports first (gone since issue #74).
 void ExitStatus()
 {
-	ClearErrorReports();
 	if (Characters != nullptr)
 		Characters.reset();
 	Characters = nullptr;

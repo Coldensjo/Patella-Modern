@@ -80,7 +80,6 @@ TDialog *CreateAdvancedGraphicsDialog(void (*OpenURL)(const char *URL), TCompone
 TDialog *CreateConsoleOptionsDialog(void (*OpenURL)(const char *URL));                         // 0x483dc0, line 590
 TDialog *CreateNetworkOptionsDialog(void (*OpenURL)(const char *URL));                         // 0x483fe0, line 604
 TDialog *CreateHotkeyDialog(void (*OpenURL)(const char *URL));                                 // 0x484200, line 617
-TDialog *CreateErrorReportDialog();                                                            // 0x484400, line 631
 
 // --- The frame ------------------------------------------------------------------
 
@@ -728,16 +727,4 @@ public:
 	TCheckBox *AutoSendCheckBox;                  // +0x2458
 	int Selected;                                 // +0x245c, -1 for none
 	void (*OpenURL)(const char *URL);             // +0x2460, kept, not used
-};
-
-// "Error Report" (vtable 0x563b30, 0x30 bytes): the reports of the last
-// crashes and a comment to send with them.
-class TErrorReportDialog : public TWindow {
-public:
-	TErrorReportDialog(); // 0x47f290, line 4053
-	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void KeyPress(int Key) override;      // +0x6c, 0x47c5e0, line 4067
-	void HandleEvent(int Event) override; // +0x70, 0x47c7b0, line 4084
-
-	TEditLine *CommentEdit; // +0x2c
 };

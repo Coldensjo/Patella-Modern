@@ -68,6 +68,7 @@ import time
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import deliberate  # noqa: E402
 import desktop  # noqa: E402
 import testmode_dumps as td  # noqa: E402
 
@@ -89,7 +90,7 @@ CPU_DRIVER_FILES = ("vulkan_lvp.dll", "lvp_icd.x86_64.json")
 # cmake/Hardening.cmake; Release and Debug import the same DLL): copied with it when it is there, so an ASan
 # client runs too.
 ASAN_RUNTIME_FILES = ("clang_rt.asan_dynamic-x86_64.dll",)
-# The time zone of both clients' local time (error.txt's ctime, Default.txt's "Channel saved at").
+# The time zone of both clients' local time (Default.txt's "Channel saved at"; Tibia.exe's error.txt too).
 TIME_ZONE = "UTC0"
 # The x64 client's own settings file (issue #31), which Tibia.exe does not have: listed, not compared
 # (compare_files.py PATELLA_INI).
@@ -108,12 +109,13 @@ FORMAT1_DISPLAY_MODES = [[640, 480, 32], [720, 480, 32], [720, 576, 32], [800, 6
 	[2560, 1600, 32]]
 DISPLAY_MODES_HEADER = "# patella-display-modes 1"  # src/testmode/DisplayModes.h
 DISPLAY_MODES_FILE = "display-modes.txt"
-# The sessions, in recording order ("report" needs "error"'s error.txt).
-SESSIONS = ["traffic", "options", "walk", "error", "error-login", "report", "patch", "patch-exe"]
+# The sessions, in recording order. "error-login" and "report" (the error report dialog at the start, the reports
+# sent as packet 0xe8) went with the error report in issue #74: a reference set may still hold them, unused.
+SESSIONS = ["traffic", "options", "walk", "error", "patch", "patch-exe"]
 # Which tool's session each one is (the record/compare split of the three tools).
 SESSION_TOOLS = {"traffic": ("compare_traffic", "compare_rendering"), "options": ("compare_files",),
-	"walk": ("compare_files",), "error": ("compare_files",), "error-login": ("compare_files",),
-	"report": ("compare_files",), "patch": ("compare_files",), "patch-exe": ("compare_files",)}
+	"walk": ("compare_files",), "error": ("compare_files",), "patch": ("compare_files",),
+	"patch-exe": ("compare_files",)}
 OPCODE_LOGIN = 0x01
 
 
@@ -464,7 +466,9 @@ def compare_files(written_dir, removed, meta, reference):
 		ours.remove(PATELLA_INI)
 		with open(os.path.join(written_dir, PATELLA_INI), "rb") as f:
 			lines.append("  %s (the x64 client's own, not compared): %r" % (PATELLA_INI, f.read()))
-	theirs = sorted(meta.get("written", []))
+	# The deliberate differences (tools/deliberate.py): Tibia.exe's error.txt is not the test client's (issue #74).
+	lines.extend("  " + d for d in deliberate.expected_lines(meta.get("written", []), meta.get("removed", [])))
+	theirs = sorted(deliberate.files(meta.get("written", [])))
 	if ours != theirs:
 		differences.append("  files written: %s, the reference %s" % (ours, theirs))
 	for name in sorted(set(ours) & set(theirs)):
@@ -477,8 +481,9 @@ def compare_files(written_dir, removed, meta, reference):
 			at = next((i for i in range(min(len(a), len(b))) if a[i] != b[i]), min(len(a), len(b)))
 			differences.append("  %s: differs from byte %d (%d bytes against %d): %r against %r" % (name, at, len(a),
 				len(b), a[at:at + 40], b[at:at + 40]))
-	if sorted(removed) != sorted(meta.get("removed", [])):
-		differences.append("  files removed: %s, the reference %s" % (sorted(removed), sorted(meta.get("removed", []))))
+	theirs_removed = sorted(deliberate.files(meta.get("removed", [])))
+	if sorted(removed) != theirs_removed:
+		differences.append("  files removed: %s, the reference %s" % (sorted(removed), theirs_removed))
 	return differences, lines
 
 
@@ -635,9 +640,10 @@ def check_session(name, reference, out):
 	saved = compare_saved(dumps, reference)
 	part("d. files", (found[0] + saved[0], found[1] + saved[1]))
 	ours = [[c, normalize_box_text(t)] for c, t in load_messages(dumps)]
-	theirs = [[c, normalize_box_text(t)] for c, t in meta.get("messages", [])]
+	# Tibia.exe's boxes as the test client shows them (tools/deliberate.py: the critical error box, issue #74).
+	theirs = [[c, normalize_box_text(deliberate.box_text(c, t))] for c, t in meta.get("messages", [])]
 	part("d. message boxes", ([] if ours == theirs else ["  %s, Tibia.exe's %s" % (ours, theirs)],
-		["%d" % len(ours)] + ["%r" % m[0] for m in ours]))
+		["%d" % len(ours)] + ["%r" % m[0] for m in ours] + deliberate.expected_lines(boxes=meta.get("messages", []))))
 	log_path = os.path.join(dumps, "driver.log")
 	if os.path.isfile(log_path):
 		with open(log_path, encoding="utf-8", errors="replace") as f:

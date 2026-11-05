@@ -197,6 +197,17 @@ shows the same stripes). TPresentWindows now subclasses the main window and fill
 window covers black: a deliberate on-screen difference. tests_vulkan 15 test cases. notes/vulkan.md, "The main window's
 background during a live resize (issue #71)"; notes/decisions.md, "The main window's background during a live resize
 (Patella-Modern issue #71)".
+The error report removed (Patella-Modern issue #74, November 5, 2026; M5's first issue, decision D2): no error.txt
+is written or read, no error report dialog exists, no packet 0xE8 is sent (Player.cpp ReadErrorFile and HandleException's
+file, Status.cpp's report list, Dialogs.cpp's TErrorReportDialog, Control.cpp's SendErrorReports,
+OutputControlErrorInformations and events 0x2a/0x2b, Communication.cpp's SendDebugReport, MainFrm.cpp's
+OutputErrorInformations, texts 117 and 118). A fatal error still ends with the "Tibia Error" box; FatalError writes its
+caption and text to stderr, HandleException the exception's message; the box's text is the first sentence of the
+original's. The comparisons expect the deliberate differences (tools/deliberate.py: reference.py, compare_files.py,
+compare_network.py); compare_files.py's error-login and report sessions and lines.py are gone. difftest 16,599,178 /
+67 / 1,114,552 / 3,201 (each drop counted by function); the golden corpus recorded again: 16,193,194 replayed +
+1,520,603 retired = 17,713,797. notes/decisions.md, "The error report removed: error.txt, the report dialog, packet
+0xE8 (Patella-Modern issue #74, D2)".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

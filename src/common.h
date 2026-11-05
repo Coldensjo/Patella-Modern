@@ -95,8 +95,10 @@ static_assert(std::is_same_v<std::underlying_type_t<PROGRAM_ERROR>, int>);
 
 // Every site names the original's source line as its first argument, the line
 // the binary pushes for that site: TASSERT(66, s!=NULL), TEND1(874, Obj).
-// tools/lines.py reads the lines from Tibia.exe and checks every site against
-// them. The file is __FILE__ (the messages name it without its path).
+// difftest and the golden corpus compare the messages, these lines included
+// (tools/lines.py, which read them from Tibia.exe, went with error.txt in
+// Patella-Modern issue #74). The file is __FILE__ (the messages name it
+// without its path).
 #define TMYEXCEPTION(Line, Kind, N1, V1, N2, V2, Last) \
 	TMyException(__FILE__, Line, Kind, N1, (int)(V1), N2, (int)(V2), Last)
 

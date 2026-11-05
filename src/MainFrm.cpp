@@ -2,9 +2,11 @@
 //
 // The frame window of the client. Source order follows the catch lines;
 // functions without line evidence stay where the binary has them: the
-// message map, TranslateKey and OutputErrorInformations at the start (the
-// gap after Inventory.cpp), ExitProgram after the destructor, AddFrameSize
-// before OnSize, KeyUp and the OnKeyDown/OnKeyUp handlers after KeyDown.
+// message map and TranslateKey at the start (the gap after Inventory.cpp;
+// OutputErrorInformations, 0x4a8360, which wrote the last packet and the
+// player's position to error.txt, is gone since Patella-Modern issue #74),
+// ExitProgram after the destructor, AddFrameSize before OnSize, KeyUp and
+// the OnKeyDown/OnKeyUp handlers after KeyDown.
 // The compiler placed SetDefaultWindowPosition (line 375), OnCreate (273)
 // and OnDisplayChange (295) after the key handlers.
 //
@@ -15,7 +17,6 @@
 
 #include "MainFrm.h"
 #include "Control.h"
-#include "Creatures.h"
 #include "GUI.h"
 #include "MainWindow.h"
 #include "Network.h"
@@ -29,7 +30,6 @@
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
-#include <ostream>
 #include <cstdlib>
 #include <cstring>
 
@@ -140,35 +140,6 @@ int CMainFrame::TranslateKey(UINT nChar, [[maybe_unused]] UINT nRepCnt, UINT nFl
 	if ((KeyFlags & KEY_ALT) != 0 && nChar == VK_RETURN)
 		return VK_RETURN;
 	return 0;
-}
-
-// 0x4a8360. For error.txt (Player.cpp's HandleException): the start of the
-// last packet, if any, and the player's position.
-void CMainFrame::OutputErrorInformations(std::ostream &Out)
-{
-	int i;
-	for (i = 0; i < 16; i++) {
-		if (PacketHeader[i] != 0)
-			break;
-	}
-	if (i < 16) {
-		Out << "Last Packet:";
-		for (i = 0; i < 16; i++) {
-			TFixedString<8> Help;
-			Help.Format(" {:03}", (unsigned int)PacketHeader[i]);
-			Out << Help.View();
-		}
-		Out << std::endl;
-	}
-	if (GetPlayerID() != 0) {
-		try {
-			const TCreature *Player = GetCreature(GetPlayerID());
-			if (Player != nullptr)
-				Out << "Player Position: [" << Player->RealX << "," << Player->RealY << "," << Player->RealZ << "]"
-					<< std::endl;
-		} catch (...) {
-		}
-	}
 }
 
 // 0x4a8520, line 112

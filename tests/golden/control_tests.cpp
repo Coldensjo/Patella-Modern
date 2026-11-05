@@ -21,7 +21,7 @@
 // log, CT_ROUNDS=<n> the number of rounds (default 3000), CT_SEED=<n> (not with a corpus).
 //
 // By value (issue #30): the oracle records the original's side of every comparison as Communication does
-// (commworld.cpp's CompareRun), the original's statics (their dump and OutputControlErrorInformations' text),
+// (commworld.cpp's CompareRun), the original's statics (their dump; OutputControlErrorInformations' text until #74),
 // CloseRequest's result and curEngine. The runner runs our side alone; it compiles Control.cpp into this file
 // (as network_tests.cpp compiles Network.cpp), so it reads and sets our statics by name. The comparisons that reach
 // ChangeEngine retire with the oracle (the user's decision of November 4, 2026; commworld.h, RetireChangeEngine):
@@ -160,7 +160,9 @@ static void F_SendDebugReport(const char *Assertion, const char *Date, const cha
 static const TFake CommunicationFakes[] = {
 	CF(InitCommunication, 0x401000),
 	CF(SendFightModes, 0x407eb0),
-	CF(SendDebugReport, 0x40a2f0),
+	// The original's only (ours is gone, Patella-Modern issue #74): its code that sends the error reports is not
+	// reached any more (events 0x2a and 0x2b, below), the fake stays in case it is.
+	{"SendDebugReport", 0x40a2f0, nullptr, (void *)F_SendDebugReport},
 	CF(ReceiveLoginError, 0x40a4c0),
 	CF(ReceiveLoginMessage, 0x40a670),
 	CF(ReceiveMessageOfTheDay, 0x40a810),
@@ -421,24 +423,6 @@ static std::string DumpStatics(int S)
 	return Buffer;
 }
 
-#if GOLDEN_ORACLE
-// OutputControlErrorInformations into the image's std::stringstream
-// (constructor 0x403a10, its ostream at +8, str() 0x412a60) and ours.
-typedef void(__fastcall *TStreamCtor)(void *This, void *, int Mode, int MostDerived);
-typedef void *(__fastcall *TStreamStr)(void *This, void *, void *Result);
-static std::string ImageErrorInformations()
-{
-	static uint8 Stream[0x200];
-	memset(Stream, 0, sizeof(Stream));
-	At<TStreamCtor>(0x403a10)(Stream, NULL, 3, 1);
-	At<void(__cdecl *)(void *)>(0x445900)(Stream + 8);
-	uint8 String[0x1c];
-	At<TStreamStr>(0x412a60)(Stream, NULL, String);
-	std::string Text = ImageString(String);
-	FreeImageString(String);
-	return Text;
-}
-#endif
 
 static void CompareStatics(const char *What)
 {
@@ -452,14 +436,8 @@ static void CompareStatics(const char *What)
 	std::string A = DumpStatics(OURS);
 	std::string B = golden::OutputText("statics", ORIGINAL_OR(DumpStatics(IMAGE), std::string()).c_str());
 	CHECK(A == B, "%s: Control.cpp's statics\n    ours:     %s\n    original: %s", What, A.c_str(), B.c_str());
-	std::ostringstream Out;
-	OutputControlErrorInformations(Out);
-	std::string C = Out.str();
-	std::string D = golden::OutputText("error informations", ORIGINAL_OR(ImageErrorInformations(), std::string()).c_str());
-	for (std::string *T : {&C, &D}) // std::endl: "\n" in both
-		while (!T->empty() && (T->back() == '\n' || T->back() == '\r'))
-			T->pop_back();
-	CHECK(C == D, "%s: OutputControlErrorInformations \"%s\", original \"%s\"", What, C.c_str(), D.c_str());
+	// Until Patella-Modern issue #74 OutputControlErrorInformations' text (error.txt's last packet types) was compared
+	// here too; the function is gone, and its comparison with it.
 	if (Retired)
 		golden::RetiredEnd(Checks);
 }
@@ -618,7 +596,7 @@ static void Step(int Round)
 		Both(What, [&] { Redraw(Force); }, ORIGINAL_SIDE(At<TBoolFn>(0x449210)(Force)));
 		break;
 	case 13:
-		Both(What, [&] { SendErrorReports(); }, ORIGINAL_SIDE(At<TVoid>(0x4463f0)()));
+		// SendErrorReports (event 0x2b) is gone (Patella-Modern issue #74), and its comparison with it.
 		break;
 	case 14:
 		Both(What, [&] { EnterGame(); }, ORIGINAL_SIDE(At<TVoid>(0x4465f0)()));
@@ -859,6 +837,11 @@ static void EventRound(int Round, int Fail)
 		P.Seed = Random();
 		if (P.Type == 0x48 && Random() % 2 == 0)
 			P.Type = 0x47;
+		// Events 0x2a and 0x2b (the error report dialog, the error reports sent) are gone (Patella-Modern issue
+		// #74): ours handles them as it handles a type it does not know. Each becomes such a type for both sides
+		// (0x49, 0x4a), so the original's code for them is not run; the random numbers stay as they were.
+		if (P.Type == 0x2a || P.Type == 0x2b)
+			P.Type = 0x49 + (P.Type - 0x2a);
 		Plans.push_back(P);
 		EventCovered[P.Type < 0x49 ? P.Type : 0x49]++;
 	}
@@ -1034,7 +1017,7 @@ void TestControl(const char *ExePath)
 	DispatchAll();
 	int Least = 1 << 30;
 	for (int Type = 1; Type <= 0x49; Type++)
-		if (EventCovered[Type] < Least)
+		if (Type != 0x2a && Type != 0x2b && EventCovered[Type] < Least)
 			Least = EventCovered[Type];
 	printf("Control: %d checks, %d failures (each event type at least %d times)\n", Checks - Before,
 		Failures - BeforeFailures, Least);

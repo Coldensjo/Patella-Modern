@@ -67,7 +67,8 @@ shows the logout warning), and before WM_CLOSE the window tree (client_state.py 
 so "Connection failed" and its text, the character list dialog, the "Connecting" box), the character list in memory
 and the client state (state(): connection state, player, map, creatures, inventory, containers, console), then
 error.txt (each crash time masked: two runs of a client differ there, issue #21) and Tibia.cfg as written on exit,
-and the names of the files the run wrote or deleted.
+and the names of the files the run wrote or deleted. Since issue #74 Patella.exe writes no error.txt and its critical
+error box drops the sentence on that file: compare() expects both of Tibia.exe (tools/deliberate.py).
 
 ## Results (November 2, 2026)
 

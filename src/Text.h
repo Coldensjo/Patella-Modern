@@ -2,9 +2,10 @@
 //
 // The header defines its texts with internal linkage, so every object that
 // includes it has its own copy of the whole table in .data, 147 pointers in
-// this order, and reads only its own copy. Sixteen copies are in the image,
-// all with the same pointers (notes/decisions.md, "external.h removed (issue
-// #14)"):
+// this order (145 here: 117 and 118, the error report dialog's texts, are
+// gone since Patella-Modern issue #74), and reads only its own copy.
+// Sixteen copies are in the image, all with the same pointers
+// (notes/decisions.md, "external.h removed (issue #14)"):
 //
 //   0x5c0150 Communication.obj   reads 126, 127
 //   0x5c041c ConsoleWindow.obj   reads 12-19, 119, 120, 122, 146
@@ -13,7 +14,7 @@
 //   0x5c0b34 Control.obj         reads 109-111, 114, 115, 145
 //   0x5c0d90 Creatures.obj       reads none (link order)
 //   0x5c0fe0 DialogElements.obj  reads none (link order)
-//   0x5c123c Dialogs.obj         reads 53-55, 58-72, 74-89, 92-108, 112, 113, 117, 118, 121, 123,
+//   0x5c123c Dialogs.obj         reads 53-55, 58-72, 74-89, 92-108, 112, 113, 117 and 118 (until #74), 121, 123,
 //                                128-133, 135-142
 //   0x5c1498 DialogWindow.obj    reads none (link order)
 //   0x5c1708 GUI.obj             reads none (link order; its DefaultFontColor follows)
@@ -161,17 +162,10 @@ const char *TextNeverGiveAccount = // 115
 	"Never give your account number or your password to anybody!\n"
 	"Not even gamemasters or CipSoft members will need this data.\n"
 	"People asking you for this information are trying to hack you!";
-const char *TextCriticalError = // 116
-	"The Tibia client encountered a critical error and had to be stopped.\r\n"
-	"\r\n"
-	"A detailed error report has been written to the error file which\r\n"
-	"you are asked to submit at your next login.";
-const char *TextClientCrashed = // 117
-	"At your last visit in Tibia your client crashed and created a detailed error report.\n"
-	"Please help us to improve the game by sending us this report.\n"
-	"\n"
-	"Error report:";
-const char *TextTellUsWhatYouDid = "Please tell us what you were doing just before the crash:\n";                    // 118
+// 116: the first sentence of the original's text (Patella-Modern issue #74, decision D2: there is no error file).
+// The original went on: "\r\n\r\nA detailed error report has been written to the error file which\r\nyou are asked
+// to submit at your next login." 117 and 118, the error report dialog's texts, are gone with that dialog.
+const char *TextCriticalError = "The Tibia client encountered a critical error and had to be stopped.";
 const char *TextWaitForGamemaster = "Please wait patiently for a gamemaster to reply.";                              // 119
 const char *TextRequestSubmitted = "You have already submitted a request. Please be patient.";                       // 120
 const char *TextRequestAlreadySubmitted = "You have already submitted a request. Please close the current request."; // 121

@@ -849,7 +849,6 @@ typedef void(__cdecl *TSend9)(int, int, int, int, int, int, int, int, int);
 typedef void(__cdecl *TSend10)(int, int, int, int, int, int, int, int, int, int);
 typedef void(__cdecl *TSendOutfit)(int, const int *);
 typedef void(__cdecl *TSendReport)(const char *, uint8, uint8, const char *, uint32, bool);
-typedef void(__cdecl *TSendDebug)(const char *, const char *, const char *, const char *);
 #endif
 
 static int Coordinate()
@@ -885,6 +884,7 @@ static void CallSenders(const char *Round, bool Valid)
 		Index++; \
 	} while (0)
 	uint32 a = Pick32();
+	// T3 and T4 were SendDebugReport's (issue #74): still drawn, see below.
 	std::string T1 = PickText(1), T2 = PickText(1), T3 = PickText(), T4 = PickText();
 	const char *S1 = !Valid && Random() % 4 == 0 ? NULL : T1.c_str();
 	const char *S2 = !Valid && Random() % 4 == 0 ? NULL : T2.c_str();
@@ -961,9 +961,14 @@ static void CallSenders(const char *Round, bool Valid)
 	bool IP = Random() % 2 == 0;
 	SEND(SendRuleViolationReport, SendRuleViolationReport(S1, Reason, Action, S2, a, IP),
 		At<TSendReport>(0x40a0f0)(S1, Reason, Action, S2, a, IP));
-	const char *S3 = !Valid && Random() % 4 == 0 ? NULL : T3.c_str();
-	const char *S4 = !Valid && Random() % 4 == 0 ? NULL : T4.c_str();
-	SEND(SendDebugReport, SendDebugReport(S1, S2, S3, S4), At<TSendDebug>(0x40a2f0)(S1, S2, S3, S4));
+	// SendDebugReport (packet 0xe8, the error report) is gone (Patella-Modern issue #74), and its comparison with it.
+	// Its arguments' and its SetRand's random numbers are still drawn, as they were, so that the rounds after it
+	// keep their inputs.
+	if (!Valid)
+		Random(); // S3: NULL or T3
+	if (!Valid)
+		Random(); // S4: NULL or T4
+	Random();     // the sender's SetRand
 	SenderCount = Index;
 #undef SEND
 }

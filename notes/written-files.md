@@ -13,13 +13,13 @@ From the sources (every fopen, ofstream, remove and rename in src/):
 | :--- | :--- | :--- |
 | Tibia.cfg | Preferences.cpp SavePreferences | closing the options dialog, the hotkey dialog, the exit |
 | `<bx><by><bz>.map` (`%03d%03d%02d.map`, 256x256 fields of one floor) | Map.cpp SaveAutomapBlock | a changed automap block leaving the cache of blocks, the exit (ExitMap) |
-| error.txt | Player.cpp HandleException (appends a report); deleted by Control.cpp SendErrorReports on entering the game, or the error report dialog's Cancel (Status.cpp DeleteErrorFile) | a TMyException that reaches InitInstance or Run |
+| error.txt | Tibia.exe only since Patella-Modern issue #74 (D2): its HandleException appends a report; deleted by its SendErrorReports on entering the game, or its error report dialog's Cancel. The fork's clients write, read and delete none (a deliberate difference, tools/deliberate.py) | a TMyException that reaches InitInstance or Run |
 | `<channel>.txt` | ConsoleWindow.cpp SaveChannel (appends) | "Save Window" in a console tab's menu |
 | Tibia.da_, Tibia.sp_, Tibia.pi_, Patch.ex_; Tibia.bak | Script.cpp ApplyPatch / ApplyFullPatch | a patch from the login server (0x1e difference patch, 0x1f whole file, 0x20 blocks; Communication.cpp ReceivePatch*) |
 | Patella.ini (the x64 client only, Patella-Modern issue #31) | src/vulkan/DeviceSettings.cpp SaveDeviceChoice | a click in the advanced graphics options that changes the graphics device (notes/vulkan.md, "Choosing the device") |
 | Tibia.dat, Tibia.spr, Tibia.pic, Patch.exe (replaced) | Script.cpp InstallPatch (remove, rename `_` to the name) | messages 0x41-0x44 after the patch, once the login connection is closed |
 
-Since Patella-Modern issue #64 each of these files except error.txt (a std::ofstream, Player.cpp) is a `TFile`
+Since Patella-Modern issue #64 each of these files except error.txt (a std::ofstream, Player.cpp, until issue #74) is a `TFile`
 (src/types/File.h): Tibia.cfg and the binary files (`.map`, the patch files) through Script.h's four classes
 ("rb"/"wb", binary: Tibia.cfg's CR LF are written by writeLn itself), the saved channel through ConsoleWindow.cpp's
 SaveChannel in text mode ("at": every "\n" of the text becomes "\r\n", as the Microsoft C runtime wrote it, on
@@ -60,7 +60,7 @@ only Patella.exe replays the walk, and the walk itself is 19 actions instead of 
 6 minutes for all scenarios (estimated from the November 3 timings; before #16 about 18, of which 13.5 were
 the four walks of about 3 minutes each). `--skip-live` reuses `--out`'s walk-live.jsonl (no server); Tibia.exe
 then replays it for the walk as before, and the walk is the recording's (walk-live.walk). `--repeat` runs
-Tibia.exe a second time for walk, error and error-login, the evidence for the masks (about 2 minutes more);
+Tibia.exe a second time for walk (walk, error and error-login until issue #74), the evidence for the masks (about 2 minutes more);
 before #16 that was the default and `--no-repeat` skipped it (still accepted, it changes nothing now).
 
 The run folders are build\files\orig, build\files\patella and build\files\orig-repeat, the second
@@ -79,9 +79,7 @@ recording and its files) and report.txt.
 | :--- | :--- | :--- |
 | options | start window: Options; General (all five check boxes), Console (all five), Network (Test Server Login), Graphics (the next fullscreen resolution), Advanced (light, stretching, mouse pointer, the frame rate limit three steps down, the OpenGL engine: a live engine switch), Hotkeys (F1-F5: two texts, two sent automatically, one empty); OK everywhere; Tibia.cfg after the options dialog and after the exit | none |
 | walk | login; automap: three marks set (types 3, 9, none), one edited (text and type), one deleted; zoom in once, out twice; 19 actions over floors 7, 6, 7, 8, 7 into a second automap block (116 steps over floors 7, 6, 8, 7, 6, 7 before issue #16); "Save Window" of the default channel; logout | the live recording (Tibia.exe against the test server); Patella.exe replays it |
-| error | login, then the server packet 0xff (unknown type in the game): HandleException, the critical error box (its OK is pressed), exit code 1 | the recording's login and first game packets, then the crafted packet |
-| error-login | error.txt holds an earlier report: the error report dialog at the start (a comment, Send); login; the login server answers 0x63 (unknown type at the login): the report is appended | crafted login answer |
-| report | error.txt is Tibia.exe's from "error" in both folders: the dialog (a comment, Send), login; on entering the game the client sends the report (0xe8) and deletes error.txt; logout | the recording's login and first game packets; the crafted script expects the 0xe8 packet computed from error.txt (independently of the clients) and the logout, then closes |
+| error | login, then the server packet 0xff (unknown type in the game): HandleException, the critical error box (its OK is pressed), exit code 1; Tibia.exe also writes error.txt, and its box names that file (since issue #74 expected, the deliberate differences; error-login and report, the error report dialog and packet 0xe8, went with the report) | the recording's login and first game packets, then the crafted packet |
 | patch | login; four login connections in a row: a difference patch of Tibia.dat (all four operations copy/skip/insert/replace, all count forms: in the command byte, byte, word and quad), of Tibia.spr, the whole Tibia.pic and the whole Patch.exe; each installed, then the client reconnects by itself, with the new signatures in its login packet | crafted, from the recording's first login packet |
 | patch-exe | login; a difference patch of Tibia.exe (eight bytes of the DOS stub) to Tibia.bak; "Updating" (OK), the client closes | crafted |
 
@@ -134,20 +132,22 @@ process's windows (#32770) and closed with its one button, whose ID is IDCANCEL 
 ## Masks
 
 Compared after masking, because two runs of the same client differ there (the script runs Tibia.exe a second
-time for walk, error and error-login and shows that the two runs differ in exactly these places):
+time for walk and shows that the two runs differ in exactly these places):
 
-- error.txt: the line after "Debug Assertion ...", ctime of the crash.
 - `<channel>.txt`: "Channel saved at <ctime>".
+- error.txt's ctime line, until issue #74 (since then only Tibia.exe writes the file, and it is not compared).
 
 The masks accept only MSVC 7.1's form of ctime (the day with two digits): Patella's first run wrote
 "Mon Nov  2" where Tibia.exe wrote "Mon Nov 02", and a looser mask hid that (below).
 
-Not masked: the line numbers in error.txt's `<file> <line>`. Since issue #35 every error site of our sources
-names the original's line (tools/lines.py checks them against Tibia.exe), so error.txt is compared byte for
-byte apart from the time. Before #35 they were compared through a map (each differing pair inside the same
+Not masked, until issue #74: the line numbers in error.txt's `<file> <line>`. Since issue #35 every error site
+of our sources names the original's line (tools/lines.py checked them against Tibia.exe), so error.txt was
+compared byte for byte apart from the time. Before #35 they were compared through a map (each differing pair inside the same
 function, symbols.tsv's lines; the results below are of that run).
 
 ## Results (November 2, 2026)
+
+Before issue #74; error, error-login and report then compared error.txt and the 0xe8 packet.
 
 `python -I tools/compare_files.py` (out build\files\result, 12:36-12:54, 17 min 46 s): **no differences**.
 

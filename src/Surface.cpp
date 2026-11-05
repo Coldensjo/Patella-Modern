@@ -63,7 +63,7 @@ int LastBlitPixels;   // 0x71d0ec
 int NumberOfSurfaces; // 0x71d0f0
 int Data71D0F4;       // 0x71d0f4
 
-// 0x4eaa80. Written to error.txt as "Graphic Engine".
+// 0x4eaa80. Was written to error.txt as "Graphic Engine"; no caller in the client since issue #74.
 int GetCurrentEngine()
 {
 	return curEngine;
@@ -163,7 +163,7 @@ void TSurface::AttachWindow()
 #if defined(PATELLA_VULKAN)
 // The x64 client (issue #20): the Vulkan engine is the only engine, so curEngine is 2 whatever Tibia.cfg
 // or the command line says, and everything that asks for the engine (graphics.cpp's colour keys, the
-// frame rate line, error.txt's "Graphic Engine") sees the original's DirectX 9. Tibia.cfg's Engine keeps
+// frame rate line, GetCurrentEngine) sees the original's DirectX 9. Tibia.cfg's Engine keeps
 // the original's number for Tibia.exe (plan 6.3): the command line's "engine N" (0-2) and a number 0-2 from
 // Tibia.cfg are stored as they are, as the original stores them when the engine is available, and no
 // number (-1) or one out of range becomes 2, the original's choice on a machine with Direct3D 9. As in

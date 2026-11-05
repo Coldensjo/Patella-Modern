@@ -805,7 +805,7 @@ struct TSkinProperties {
 	TRGBColor Data14D4;                         // +0x14d4, the lines of hotkeys sent automatically
 	int Data14E0;                               // +0x14e0
 	int Data14E4;                               // +0x14e4
-	TRect Data14E8;                             // +0x14e8, the error report's labels and fields
+	TRect Data14E8;                             // +0x14e8, the error report's labels and fields (set, unread since #74)
 	TRect Data14F8;                             // +0x14f8
 	TRect Data1508;                             // +0x1508
 	TRect Data1518;                             // +0x1518

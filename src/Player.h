@@ -22,7 +22,6 @@ public:
 	void FatalError(const char *Text, const char *Caption);
 	void HandleProgramError(PROGRAM_ERROR Error);
 	void HandleException(TMyException &Exception);
-	void ReadErrorFile();
 
 	bool Terminating; // +0xa0, a fatal error is being shown; later errors return at once
 	bool RunPatch;    // +0xa1, Run starts patch.exe when the message loop ends

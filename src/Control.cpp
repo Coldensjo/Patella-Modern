@@ -7,9 +7,10 @@
 // others. Every function has the TBEGIN/TEND handlers, starting at try state
 // 0 (tools/ehinfo.py), except where noted.
 //
-// The file starts at 0x445900 (OutputControlErrorInformations, which prints
-// LastPacketTypes) and 0x4459b0 (Resize, TEND2(Width, Height) at line 93),
-// once the gap to ContextMenus.cpp.
+// The file starts at 0x445900 (OutputControlErrorInformations, which printed
+// LastPacketTypes for error.txt; gone since Patella-Modern issue #74) and
+// 0x4459b0 (Resize, TEND2(Width, Height) at line 93), once the gap to
+// ContextMenus.cpp.
 //
 // The event queue (Status.cpp, AddMessage and FetchMessage) carries a type
 // and two parameters; ProcessEvents turns each event into a dialog, a context
@@ -56,7 +57,7 @@ namespace {
 // Data, in .data/.bss order. 0x5c4540-0x5c4553 is not used by any code.
 int LastPacketType = -1;               // 0x5c0d8c, only written (ReceivePackets)
 int LastPacketIndex;                   // 0x5c4510, next slot in LastPacketTypes
-std::array<uint8, 10> LastPacketTypes; // 0x5c4514, the last ten packet types, a ring
+std::array<uint8, 10> LastPacketTypes; // 0x5c4514, the last ten packet types, a ring (unread since #74)
 int ReconnectTimeout;                  // 0x5c4520, GetMilliseconds time
 bool Reconnect;                        // 0x5c4524, set by event 0x3f
 int LastMouseMove;                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
@@ -76,22 +77,6 @@ TCallback NoCallback(nullptr, 0);
 
 // LastPacketTypes a std::array (issue #60).
 static_assert(sizeof(LastPacketTypes) == 10, "LastPacketTypes");
-
-// 0x445900. For error.txt (Player.cpp's HandleException): the last ten
-// packet types, newest first.
-void OutputControlErrorInformations(std::ostream &Out)
-{
-	Out << "Last Packet Types:";
-	for (int i = 9; i >= 0; i--) {
-		int Index = LastPacketIndex + i;
-		if (Index > 9)
-			Index -= 10;
-		TFixedString<8> Help;
-		Help.Format(" {:03}", (unsigned int)LastPacketTypes[Index]);
-		Out << Help.View();
-	}
-	Out << std::endl;
-}
 
 // 0x4459b0, line 93. The client area changed size (MainFrm.cpp); in
 // fullscreen mode (view mode 2) the screen size counts. An open context
@@ -344,22 +329,6 @@ void Redraw(bool Force)
 	}
 	GetSurface()->FinishFrame();
 	TEND1(366, Force?1:0)
-}
-
-// 0x4463f0, line 392. Event 0x2b, posted when the game starts: sends the
-// error reports of the last session and deletes error.txt. The binary keeps
-// i in a register, so the catch block always reports i = 0.
-void SendErrorReports()
-{
-	int i = 0;
-	TBEGIN
-	const int Count = GetNumberOfErrorReports();
-	for (i = 0; i < Count; i++)
-		SendDebugReport(GetErrorReportTitle(i), GetErrorReportDate(i), GetErrorReportText(i), GetErrorReportComment(i));
-	ClearErrorReports();
-	if (FileExists("error.txt"))
-		RemoveFile("error.txt");
-	TEND1(392, i)
 }
 
 // 0x4465f0, line 418. Game packet 0x0a, once the connection state is 8.
@@ -762,7 +731,6 @@ void ReceivePackets()
 				ReceiveGameLogin();
 				AddEventHelp(1);
 				SendFightModes();
-				AddMessage(0x2b, 0, 0);
 				break;
 			case 0x0b: ReceiveGamemasterActions(); break;
 			case 0x14: ReceiveGameError(); break;
@@ -1096,13 +1064,6 @@ void ProcessEvents()
 			break;
 		case 0x29:
 			ModalWindow = CreateUpdateDialog(reinterpret_cast<const char *>(Param1), (int)Param2);
-			break;
-		case 0x2a:
-			if (GetNumberOfErrorReports() > 0)
-				ModalWindow = CreateErrorReportDialog();
-			break;
-		case 0x2b:
-			SendErrorReports();
 			break;
 		case 0x2c:
 			SetActionState(7);

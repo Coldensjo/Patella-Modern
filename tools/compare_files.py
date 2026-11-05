@@ -25,15 +25,11 @@ Scenarios (--only takes their names):
            a second automap block), the default channel saved, logout. The *.map files,
            Default.txt and Tibia.cfg. --check-route checks the walks against the server's map.
   error    The walk recording up to the game login and the first packets, then a server packet
-           with the unknown type 0xff: HandleException writes error.txt and shows the critical
-           error box, which is closed (exit code 1). error.txt and Tibia.cfg.
-  error-login  The login server answers with the unknown type 0x63; error.txt has the same
-           earlier report in both folders (its dialog at the start is answered with Send), so the
-           new report is appended.
-  report   Both folders get the same error.txt (Tibia.exe's from "error"): the error report
-           dialog at the start (a comment is typed and sent), login to the game, where the
-           client sends the report (0xe8) and deletes error.txt, logout. The client packets of
-           both clients are compared, and the folder (error.txt gone).
+           with the unknown type 0xff: HandleException shows the critical error box, which is
+           closed (exit code 1). Tibia.cfg. Tibia.exe also writes error.txt, and its box names
+           that file; Patella.exe does neither (issue #74, the deliberate differences of
+           tools/deliberate.py, which the report lists). The sessions error-login and report
+           (the error report dialog, packet 0xe8) went with the error report in issue #74.
   patch    Crafted login server answers (no server): a difference patch of Tibia.dat (all four
            operations, all count forms, a new signature), a difference patch of Tibia.spr (new
            signature, one copy of the rest), the whole Tibia.pic (new signature) and the whole
@@ -44,10 +40,8 @@ Scenarios (--only takes their names):
            Tibia.exe as the patch's input, so both patch the same file.
 
 Masked, after two runs of Tibia.exe showed that they differ from run to run (--repeat runs
-Tibia.exe a second time for walk, error and error-login to show it again): the time in
-error.txt (ctime of the crash) and in Default.txt ("Channel saved at"). Everything else is
-compared byte for byte, error.txt's "<file> <line>" too: every error site of our sources names
-the original's line (issue #35, tools/lines.py). Report: <out>\report.txt; exit code 0 when
+Tibia.exe a second time for walk to show it again): the time in Default.txt ("Channel saved
+at"). Everything else is compared byte for byte. Report: <out>\report.txt; exit code 0 when
 nothing differs.
 """
 
@@ -67,6 +61,7 @@ import traceback
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import desktop  # noqa: E402
 import compare_traffic as ct  # noqa: E402
+import deliberate  # noqa: E402
 import proxy as px  # noqa: E402
 import session_client as sc  # noqa: E402
 import login_client as lc  # noqa: E402
@@ -1005,59 +1000,6 @@ def craft_error(events):
 	return login + game + [s2c("game", 1, game[-1]["t"] + 1.0, b"\xff")]
 
 
-def craft_error_login(events):
-	"""The login server answers with the unknown type 0x63."""
-	first = connection(events, "login")[0]
-	return [first, s2c("login", 1, first["t"] + 0.5, b"\x63")]
-
-
-REPORT_COMMENT = "patella comment"
-
-
-def debug_reports(error_txt, comment):
-	"""The 0xe8 packets (src/Communication.cpp SendDebugReport) the client sends for an error.txt
-	(Player.cpp ReadErrorFile: after a "+" line the title, the date, then the text lines up to a
-	"-" line, joined with "\\n") and the comment typed into the error report dialog, which the
-	client sends as "Comment: <text>" (the last report gets it)."""
-	reports = []
-	state = 0
-	for line in error_txt.decode("latin-1").replace("\r\n", "\n").split("\n"):
-		if not line:
-			continue
-		if line.startswith("-"):
-			state = 0
-		elif line.startswith("+"):
-			state = 1
-		elif state == 1:
-			reports.append([line, "", []])
-			state = 2
-		elif state == 2:
-			reports[-1][1] = line
-			state = 3
-		elif state == 3:
-			reports[-1][2].append(line)
-	out = []
-
-	def string(text):
-		data = text.encode("latin-1")
-		return struct.pack("<H", len(data)) + data
-
-	for i, (title, date, text) in enumerate(reports):
-		note = "Comment: " + comment if i == len(reports) - 1 else ""
-		out.append(b"\xe8" + string(title) + string(date) + string("\n".join(text)) + string(note))
-	return out
-
-
-def craft_report(events, error_txt):
-	"""The game login; then the client's error report (0xe8, the packet computed from error.txt)
-	and logout (0x14) are awaited and the server closes the connection."""
-	login, game = game_start(events)
-	t = game[-1]["t"]
-	expected = [c2s_expected("game", 1, t + 1 + 0.1 * i, packet) for i, packet in
-		enumerate(debug_reports(error_txt, REPORT_COMMENT))]
-	return login + game + expected + [c2s_expected("game", 1, t + 2, b"\x14"), close_event("game", 1, t + 2.5)]
-
-
 def enter_login(driver):
 	"""Start screen to the login: Enter Game, account, Tab, password, Return (sc.login's start)."""
 	_, _, width, height = lc.client_offset(driver.hwnd)
@@ -1070,59 +1012,15 @@ def enter_login(driver):
 	driver.char(13)
 
 
-EARLIER_REPORT = (
-	"\r\n+---------------------------------------------------------------\r\n"
-	"Debug Assertion 7.72 Map.cpp 1199\r\n"
-	"Sun Nov 01 12:00:00 2026\r\n"
-	"Windows Version: 6.2 build 9200 on 2\r\n"
-	"Graphic Engine: 2\r\n"
-	"Last Packet Types: 100 106 109 000 000 000 000 000 000 000\r\n"
-	"Map.cpp 1199: assertion failed (bx = 1000), reason:\r\n"
-	"In(bx,0,999)\r\n"
-	"----------------------------------------------------------------").encode("ascii")
-
-
 def run_error(run, out, events, name="error"):
-	"""name "error": the crash in the game, no error.txt before; "error-login": the crash at the
-	login, with an earlier report in error.txt. That report opens the error report dialog at the
-	start (Player.cpp InitInstance, message 0x2a): Send keeps the file (the client would send the
-	report and delete the file only on entering the game), so the new report is appended."""
-	crafted = craft_error_login(events) if name == "error-login" else craft_error(events)
-	seed = {"error.txt": EARLIER_REPORT} if name == "error-login" else None
+	"""The crash in the game (the server packet 0xff after the game login): the critical error box, closed."""
 
 	def session(driver, wait, proxy):
-		if name == "error-login":
-			wait_node(driver, "TErrorReportDialog")
-			driver.type("first comment")
-			driver.char(13)
-			wait_gone(driver, "TErrorReportDialog")
-			enter_login(driver)
-		else:
-			game_login(driver, wait, proxy)
+		game_login(driver, wait, proxy)
 		caption, text, code = close_error_box(driver)
 		return {"box": [caption, text], "exit": code}
 
-	return replay(run, crafted, os.path.join(out, name, ct.client_of(run)), session, seed=seed)
-
-
-def run_report(run, out, events, error_txt):
-	def session(driver, wait, proxy):
-		wait_node(driver, "TErrorReportDialog")
-		driver.type(REPORT_COMMENT)
-		driver.char(13)
-		wait_gone(driver, "TErrorReportDialog")
-		game_login(driver, wait, proxy)
-		deadline = time.time() + 20
-		while os.path.isfile(os.path.join(folder(run), "error.txt")) and time.time() < deadline:
-			time.sleep(0.2)
-		time.sleep(1)
-		sc.logout(driver)
-		time.sleep(1)
-		close(driver)
-		return {}
-
-	return replay(run, craft_report(events, error_txt), os.path.join(out, "report", ct.client_of(run)), session,
-		seed={"error.txt": error_txt})
+	return replay(run, craft_error(events), os.path.join(out, name, ct.client_of(run)), session)
 
 
 # --- scenarios: patch, patch-exe ---------------------------------------------------------
@@ -1284,10 +1182,8 @@ CTIME = rb"[A-Z][a-z]{2} [A-Z][a-z]{2} \d\d \d\d:\d\d:\d\d \d{4}"
 
 
 def mask(name, data):
-	"""The bytes a file is compared by: times masked (error.txt: the ctime line of each report;
-	<channel>.txt: "Channel saved at <ctime>")."""
-	if name.lower() == "error.txt":
-		return re.sub(rb"(?m)^" + CTIME + rb"(?=\r?$)", b"<time>", data)
+	"""The bytes a file is compared by: times masked (<channel>.txt: "Channel saved at <ctime>"; the
+	ctime line of each report in error.txt too until issue #74, which only Tibia.exe writes now)."""
 	if name.lower().endswith(".txt"):
 		return re.sub(rb"Channel saved at " + CTIME, b"Channel saved at <time>", data)
 	return data
@@ -1295,8 +1191,6 @@ def mask(name, data):
 
 def masked_spans(name, data):
 	"""The masked parts themselves (the evidence that they change from run to run)."""
-	if name.lower() == "error.txt":
-		return [m.group(0).decode() for m in re.finditer(rb"(?m)^" + CTIME + rb"(?=\r?$)", data)]
 	if name.lower().endswith(".txt"):
 		return [m.group(0).decode() for m in re.finditer(rb"Channel saved at " + CTIME, data)]
 	return []
@@ -1310,7 +1204,12 @@ def client_packets(events):
 def compare_files(say, name, results, repeat=None):
 	"""Both clients' written and removed files; masked files of two runs of Tibia.exe (repeat)."""
 	failed = False
-	o, p = results["orig"], dict(results["patella"])
+	o, p = dict(results["orig"]), dict(results["patella"])
+	# Tibia.exe's files as Patella.exe is expected to write them (tools/deliberate.py: no error.txt, issue #74).
+	for line in deliberate.expected_lines(o["written"], o["removed"]):
+		say("    " + line)
+	o["written"] = {name: data for name, data in o["written"].items() if name in deliberate.files([name])}
+	o["removed"] = deliberate.files(o["removed"])
 	p["written"] = dict(p["written"])
 	if PATELLA_INI in p["written"]:
 		say("    %s (Patella.exe's own, not compared): %r" % (PATELLA_INI, p["written"].pop(PATELLA_INI)))
@@ -1377,8 +1276,8 @@ def compare_packets(say, results):
 
 # --- main ----------------------------------------------------------------------------------
 
-SCENARIOS = ["options", "walk", "error", "error-login", "report", "patch", "patch-exe"]
-REPEATED = {"walk", "error", "error-login"}  # the scenarios with masked files: Tibia.exe runs twice with --repeat
+SCENARIOS = ["options", "walk", "error", "patch", "patch-exe"]
+REPEATED = {"walk"}  # the scenarios with masked files: Tibia.exe runs twice with --repeat
 
 
 def main():
@@ -1468,14 +1367,8 @@ def main():
 					result = live
 				elif name == "walk":
 					result = run_walk(run, target, events, keys, WALKS[walk_name])
-				elif name in ("error", "error-login"):
+				elif name == "error":
 					result = run_error(run, target, events, name)
-				elif name == "report":
-					path = os.path.join(out, "error", "orig", "error.txt")
-					if not os.path.isfile(path):
-						raise RunError("report needs Tibia.exe's error.txt of the scenario error (%s)" % path)
-					with open(path, "rb") as f:
-						result = run_report(run, target, events, f.read())
 				else:
 					result = run_patch(run, target, events, name)
 				results[name][run] = result
@@ -1502,8 +1395,16 @@ def main():
 		failed |= compare_files(say, name, r, r.get(REPEAT_RUN))
 		for key in ("exit", "box"):
 			if key in r["orig"] or key in r["patella"]:
-				same = r["orig"].get(key) == r["patella"].get(key)
-				say("    %s: %r / %r %s" % (key, r["orig"].get(key), r["patella"].get(key), "identical" if same else "DIFFERENT"))
+				expected = r["orig"].get(key)
+				if key == "box" and expected:
+					# Tibia.exe's boxes as Patella.exe shows them (tools/deliberate.py: the critical error box, #74).
+					caption, texts = expected
+					for line in deliberate.expected_lines(boxes=[(caption, t) for t in texts]):
+						say("    " + line)
+					expected = [caption, [deliberate.box_text(caption, t) for t in texts]]
+				same = expected == r["patella"].get(key)
+				say("    %s: %r / %r %s" % (key, r["orig"].get(key), r["patella"].get(key), "as expected" if same and
+					expected != r["orig"].get(key) else "identical" if same else "DIFFERENT"))
 				failed |= not same
 		if "expected" in r["orig"]:
 			for client in ("orig", "patella"):

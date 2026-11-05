@@ -9364,3 +9364,97 @@ issue-56b's runs on the user's desktop: two trolls attack the test character in 
 world, so its Ctrl+L logout is refused, and testmode_check.py (the client does not close within 180 s of the
 script's quit) and compare_traffic.py's live half ("still connected to the game server 10 s after Ctrl+L") fail,
 with main's tools too; the test server's world, not the tools.
+
+## The error report removed: error.txt, the report dialog, packet 0xE8 (Patella-Modern issue #74, D2)
+
+Settled by Claude Opus 5.5, November 5, 2026; M5's first issue (decision D2, notes/modernization-plan.md 7 M5). The
+crash report had one consumer chain: Player.cpp's HandleException appended a report to error.txt (the version, the
+exception's origin, ctime, the Windows version, the engine, Control.cpp's last ten packet types, MainFrm.cpp's last
+packet header and the player's position, the message), ReadErrorFile read it back at the next start into Status.cpp's
+report list, event 0x2a (posted by InitInstance) opened the error report dialog, and event 0x2b (posted on entering the
+game) sent each report as packet 0xE8 and deleted the file. The game server only logs 0xE8
+(gameserver/src/game/receiving.cc CErrorFileEntry).
+
+- **Removed** (high). CPlayerApp::ReadErrorFile (0x4da140) and HandleException's file; Status.cpp's TErrorReport,
+  its vector (0x71c648), ClearErrorReports, AddErrorReport, SetErrorReportDate, AddErrorReportText,
+  SetErrorReportComment, GetNumberOfErrorReports, GetErrorReportTitle/Date/Text/Comment (0x4e7bb0-0x4e7ed0) and
+  DeleteErrorFile (0x4e7380), and ExitStatus's call of ClearErrorReports; Dialogs.cpp's CreateErrorReportDialog (line
+  631) and TErrorReportDialog (constructor, KeyPress, HandleEvent: lines 4053-4084); Control.cpp's SendErrorReports
+  (line 392), OutputControlErrorInformations (0x445900) and events 0x2a and 0x2b (ProcessEvents' cases, InitInstance's
+  and ReceivePackets' posts); Communication.cpp's SendDebugReport (line 969, packet 0xE8); CMainFrame::
+  OutputErrorInformations (0x4a8360); the texts 117 and 118 of src/Text.h (the dialog's). 6 TEND calls went with their
+  functions (macrocheck: 2,108 calls, 6 deleted, no other difference); no TASSERT/TERROR/TEND argument was rewritten.
+  tools/lines.py (only in the decompilation workspace, never in the repository since November 2) is dropped from
+  tools/decompilation.ps1 and .gitignore; compare_files.py's sessions error-login and report and their reference
+  recordings (reference.py, reference_record.py) are gone.
+- **Kept** (high). An unrecoverable error still ends the client through FatalError: the connection shut down, the
+  display mode restored, the window hidden, the "Tibia Error - Debug Assertion" box (MB_ICONHAND), exit(1). New:
+  FatalError writes "<caption>: <text>" to stderr before the box, and HandleException writes "Debug Assertion 7.72
+  <message>" (the exception's message: "<file> <line>: <kind> ..." with the values and the expression) before it, one
+  fwrite each, failures ignored (a GUI client's stderr is valid only when redirected). HandleProgramError's box goes to
+  stderr the same way. TBEGIN/TEND stay (issue #78), and so do the data the report printed, LastPacketTypes and
+  PacketHeader (written, no longer read: the developer log of issue #77 can use them) and GetCurrentEngine (no caller
+  in the client now). TextCriticalError stays entry 116, with the first sentence of the original's text only.
+- **The box's text** (high). The original's second sentence ("A detailed error report has been written to the error
+  file which you are asked to submit at your next login.") would now be false; the box keeps the caption and the first
+  sentence. Considered: the exception's message in the box (new user-visible text the plan does not ask for); the
+  original's text unchanged (it points the user to a file that does not exist).
+- **No layout change** (high). Only functions, one global vector and a class of its own went; no structure the oracle
+  freezes changed (CPlayerApp loses two non-virtual members, SkinProperties keeps the dialog's fields Data14E0-Data1518,
+  set by InitSkinProperties and unread). The oracle builds the same sources.
+
+### Deliberate tier A differences
+
+The comparison tools expect these from the fork's clients against Tibia.exe and list them in their reports
+(tools/deliberate.py; reference.py, compare_files.py, compare_network.py):
+
+| Issue | Difference | Where Tibia.exe differs |
+|---|---|---|
+| #74 (D2) | No error.txt written, read or removed | HandleException appends a report; the next start reads it, entering the game sends and deletes it |
+| #74 (D2) | No error report dialog at the start | event 0x2a with reports in error.txt |
+| #74 (D2) | No client packet 0xE8 | event 0x2b with reports |
+| #74 (D2) | The critical error box's text is the first sentence of Tibia.exe's | TextCriticalError names the error file |
+| #71 | The area a live resize uncovers is black | stripes of old pixels (not compared: no tool moves a border) |
+
+### The tests
+
+- **difftest** (high). Same-path oracle builds of main (384e685) and the branch, the base with temporary counters
+  around the removed parts (build\issue-74-scripts\instrument_base.py, never committed). difftest 16,848,752 to
+  16,599,178 (-249,574), sysinctest 67, communicationtest 1,134,513 to 1,114,552 (-19,961), vlongtest 3,201; 0 failures,
+  CTest 4/4. By function: Status 241,102 (TestErrorReports' comparisons of the report list's ten functions, 241,100, and
+  DeleteErrorFile's 2); Dialogs 1,860 (TErrorReportDialog's 60 rounds: constructor, KeyPress, HandleEvent) and 5,403 in
+  its error round (the error report kind's rounds of CreateErrorReportDialog); MainFrm 838 and 390 in its error round
+  (OutputErrorInformations); Communication 3,936 and 4,661 in its error round (SendDebugReport); Control 8,758 and 2,688
+  in its error round (SendErrorReports and OutputControlErrorInformations' check after every statics comparison). The
+  counted parts drop by exactly these (the removed parts' random numbers are still drawn, so every other comparison
+  keeps its inputs) except Control's (-8,593: events 0x2a and 0x2b are compared as types neither side knows, 0x49 and
+  0x4a, so ProcessEvents goes on through the events after them where the original's fake report dialog stopped it);
+  the error rounds' sweeps (every n-th fake call failing until a call returns) depend on the fake calls the removed code
+  made: Dialogs errors -5,168 (and the shared random numbers after its error report rounds moved), MainFrm errors -606,
+  Communication errors -4,787, Control errors -2,645. Every other test's count is unchanged, the tests after Dialogs
+  included. Errors keeps its 31,912: HandleException's 300 rounds still make two checks each, now that ours writes no
+  error.txt (an earlier one stays as it was), puts the message on stderr (captured through file descriptor 2) and ends
+  as the original's does (FatalError with its caption or, with Terminating, not at all), with the first sentence of its
+  text. Container keeps its vector<TErrorReport> instance (a record of the original's layout in the test), 192,832.
+- **The golden corpus** (high). Re-recorded (the counts changed, so the corpus of main does not replay); 16,193,194
+  replayed + 1,520,603 retired = 17,713,797 (main: 16,461,713 + 1,521,619 = 17,983,332), 0 failures, golden_concurrent
+  passes. The retired checks: Dialogs 9,129 to 9,369 (the advanced graphics rounds with KINDS one smaller and the moved
+  random numbers), Control 24,155 to 22,899 (the statics comparison after a retired ChangeEngine has one check less).
+  The runner no longer redirects GetVersionExA for ours (no x64 code imports it now).
+- **The images** (high). Function by function through the PDBs (main 384e685 and the branch built at the same path).
+  x64 Release Patella.exe: 151 functions gone (the report's functions, their catch and unwind funclets, vector<TErrorReport>,
+  the ofstream/getline code only HandleException and ReadErrorFile used, and RemoveFile, time, GetCurrentEngine and
+  TMyException::GetOrigin, which nothing references any more), WriteToStderr new (with its two funclets and a catch of
+  HandleException's), resized: FatalError, HandleException, InitInstance, ExitStatus, ProcessEvents, ReceivePackets and
+  three iostream helpers the linker now folds differently; the other functions move. The oracle's Patella.exe: 93 gone
+  (the same, plus the CRT's file stream code and an out-of-line FormatCRT71Time: its one caller, SaveChannel, inlines it
+  now), WriteToStderr new, the same six resized.
+- **Tier A** (high). `python -I tools/reference.py compare --reference C:\Tibia\Patella-Modern\build\reference`: the six
+  sessions match, the error session with the two deliberate differences listed (error.txt, the box's text); the
+  recordings of error-login and report stay in the reference set, unused. That error run is the forced unrecoverable
+  error of PatellaTest.exe: its output has "Debug Assertion 7.72 Player.cpp 383: exception occurred, ..., Control.cpp
+  1274: unknown packet type during game (Type = 255)" and "Tibia Error - Debug Assertion: The Tibia client encountered a
+  critical error and had to be stopped.", the box is recorded, exit code 1, no error.txt. `python -I
+  tools/compare_files.py --patella build\windows-x64\Release\Patella.exe` (live): no differences, error with the same two
+  expected. `python -I tools/compare_traffic.py --skip-live` with the x64 Patella.exe: no differences (a live run before
+  the owner's instruction to skip the live half, November 5, trolls near the test server's temple, also had none).

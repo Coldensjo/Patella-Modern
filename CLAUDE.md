@@ -18,7 +18,7 @@ Names go in `names.tsv`, settled file ranges in `file-ranges.tsv`; `symbols.tsv`
 The decompilation workspace is not in the repository (since November 2, 2026; last commit with it:
 e02adfa): `decomp/`, `rea-out/`, `names.tsv`, `symbols.tsv`, `file-ranges.tsv`, the analysis notes
 (`notes/source-map.md`, `findings.md`, `Communication.md`, `Talk.md`) and the analysis tools (`tools/triage.py`,
-`simplify.py`, `callcheck.py`, `ehinfo.py`, `ehcompare.py`, `xctable.py`, `lines.py`, `listing.cmd`). It is kept,
+`simplify.py`, `callcheck.py`, `ehinfo.py`, `ehcompare.py`, `xctable.py`, `listing.cmd`; `lines.py` went with error.txt in issue #74). It is kept,
 gitignored, in `decompilation/` with the same relative paths. Before analysis work run
 `powershell -NoProfile -ExecutionPolicy Bypass -File tools\decompilation.ps1 -Restore` (back to the paths
 above, still ignored); `-Stash` puts it away again. The build and the tests do not need it.

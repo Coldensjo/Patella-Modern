@@ -530,82 +530,16 @@ void TestAccount()
 	}
 }
 
-void TestErrorReports()
+// The error report list (AddErrorReport and the rest) is gone (Patella-Modern issue #74, decision D2), and its
+// comparisons with it. Its rounds' random numbers are still drawn, as they were, so that the comparisons after them
+// keep their inputs and their counts (the shared Random() runs on into the later tests).
+void SkipErrorReports()
 {
-#if GOLDEN_ORACLE
-	typedef const char *(__cdecl * ReportGetFn)(int);
-#endif
 	for (int t = 0; t < 3000; t++) {
 		char Text[400];
 		RandomText(Text, (int)(Random() % (t % 3 == 0 ? 300 : 80)));
-		switch (Random() % 8) {
-		case 0:
-			if (GetNumberOfErrorReports() < 12) {
-				AddErrorReport(Text);
-				ORIGINAL(At<StrSetFn>(0x4e7c20)(Text));
-			}
-			break;
-		case 1:
-			SetErrorReportDate(Text);
-			ORIGINAL(At<StrSetFn>(0x4e7c70)(Text));
-			break;
-		case 2:
-		case 3:
-			AddErrorReportText(Text);
-			ORIGINAL(At<StrSetFn>(0x4e7cc0)(Text));
-			break;
-		case 4:
-			SetErrorReportComment(Text);
-			ORIGINAL(At<StrSetFn>(0x4e7d60)(Text));
-			break;
-		case 5:
-			if (Random() % 10 == 0) {
-				ClearErrorReports();
-				ORIGINAL(At<VoidFn>(0x4e7bb0)());
-			}
-			break;
-		default:
-			break;
-		}
-		int Count = GetNumberOfErrorReports();
-		int OriginalCount = ORIGINAL_VALUE("number of error reports", int, At<IntFn>(0x4e7e10)());
-		CHECK(Count == OriginalCount, "GetNumberOfErrorReports %d, original %d", Count, OriginalCount);
-		for (int i = -1; i <= Count + 1; i++) {
-			const char *A = GetErrorReportTitle(i);
-			if (i >= 0 && i < Count) {
-				// Reports in use: the whole record, unterminated fields included (char arrays only).
-				static_assert(sizeof(TErrorReport) == 0xa5a, "TErrorReport: the original's char arrays");
-				// Each report's bytes as recorded the time before: only the changes are recorded.
-				static char Reports[12][sizeof(TErrorReport)];
-				char *B = Reports[i];
-				golden::OutputChanges("error report", B, ORIGINAL_OR(At<ReportGetFn>(0x4e7e40)(i), nullptr),
-					sizeof(TErrorReport));
-				CHECK(memcmp(A, B, sizeof(TErrorReport)) == 0, "error report %d differs", i);
-				int Offsets[3] = {};
-#if GOLDEN_ORACLE
-				const char *Title = At<ReportGetFn>(0x4e7e40)(i);
-				Offsets[0] = (int)(At<ReportGetFn>(0x4e7e70)(i) - Title);
-				Offsets[1] = (int)(At<ReportGetFn>(0x4e7ea0)(i) - Title);
-				Offsets[2] = (int)(At<ReportGetFn>(0x4e7ed0)(i) - Title);
-#endif
-				golden::Output("error report offsets", Offsets);
-				CHECK(GetErrorReportDate(i) - A == 0x40 && Offsets[0] == 0x40, "Date offset");
-				CHECK(GetErrorReportText(i) - A == 0x5a && Offsets[1] == 0x5a, "Text offset");
-				CHECK(GetErrorReportComment(i) - A == 0x85a && Offsets[2] == 0x85a, "Comment offset");
-			} else {
-				// Possibly outside the vector, where the getters return "".
-				golden::TText Title = ORIGINAL_TEXT("title", At<ReportGetFn>(0x4e7e40)(i), 64);
-				CHECK(strncmp(A, Title.c_str(), 64) == 0, "title %d", i);
-				golden::TText Date = ORIGINAL_TEXT("date", At<ReportGetFn>(0x4e7e70)(i), 26);
-				CHECK(strncmp(GetErrorReportDate(i), Date.c_str(), 26) == 0, "date %d", i);
-				golden::TText ReportText = ORIGINAL_TEXT("text", At<ReportGetFn>(0x4e7ea0)(i), 2048);
-				CHECK(strncmp(GetErrorReportText(i), ReportText.c_str(), 2048) == 0, "text %d", i);
-				golden::TText Comment = ORIGINAL_TEXT("comment", At<ReportGetFn>(0x4e7ed0)(i), 512);
-				CHECK(strncmp(GetErrorReportComment(i), Comment.c_str(), 512) == 0, "comment %d", i);
-			}
-		}
-		golden::TText OutOfRange = ORIGINAL_TEXT("text 1000", At<ReportGetFn>(0x4e7ea0)(1000));
-		CHECK(strcmp(GetErrorReportText(1000), OutOfRange.c_str()) == 0, "out of range");
+		if (Random() % 8 == 5)
+			Random(); // ClearErrorReports' one in ten
 	}
 }
 
@@ -670,13 +604,7 @@ void TestBlinkAndFiles()
 		bool Blink = ORIGINAL_VALUE("blink state", bool, At<BoolFn>(0x4e7370)());
 		CHECK(GetBlinkState() == Blink, "GetBlinkState at %d", Clock);
 	}
-	DeleteErrorFile();
-	ORIGINAL(At<VoidFn>(0x4e7380)());
-	golden::Output("remove calls", RemoveCalls[ORIGINAL_SIDE]);
-	std::string Name = golden::OutputText("removed", Removed[ORIGINAL_SIDE]);
-	Record(Removed[ORIGINAL_SIDE], sizeof(Removed[ORIGINAL_SIDE]), Name.c_str());
-	CHECK(RemoveCalls[OURS] == RemoveCalls[ORIGINAL_SIDE] && strcmp(Removed[OURS], Removed[ORIGINAL_SIDE]) == 0,
-		"DeleteErrorFile");
+	// DeleteErrorFile's comparison went with it (issue #74).
 }
 
 void CheckInitialState(const char *When)
@@ -715,7 +643,8 @@ void CheckInitialState(const char *When)
 void TestStatus()
 {
 	ORIGINAL(PatchImage());
-	// The original's static initialisers (0x55a0f0, 0x55a110) did not run.
+	// The original's static initialisers (0x55a0f0, 0x55a110) did not run. The error report vector (0x71c648) is
+	// the original's only (issue #74): its ExitStatus clears it.
 	ORIGINAL(At<VectorCtorFn>(0x4e7f50)((void *)(uintptr_t)0x71c5f4, 0, 0, 9, 10));
 	ORIGINAL(At<VectorCtorFn>(0x4e8230)((void *)(uintptr_t)0x71c648, 0, 0, 0, 1));
 
@@ -729,7 +658,7 @@ void TestStatus()
 		TestRights();
 		TestMessages();
 		TestAccount();
-		TestErrorReports();
+		SkipErrorReports();
 		TestClipboard();
 		TestBlinkAndFiles();
 		ExitStatus();
