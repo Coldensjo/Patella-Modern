@@ -35,17 +35,21 @@ public:
 namespace {
 
 // Data, in .data/.bss order.
-int HostnameResolveBufferSize = MAXGETHOSTSTRUCT;   // 0x5c22c4, initialised to 0x400
-int CurrentServer;                                  // 0x7152f0
-TServer TestServer;                                 // 0x7152f8
-std::array<TServer, NUMBEROFSERVER> Servers;        // 0x715368
-HANDLE HostnameRequest;                             // 0x715528
-char *HostnameResolveBuffer;                        // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
-int ReceiveDataSize;                                // 0x715530, bytes in ReceiveData
-int ReceivePacketEnd;                               // 0x715534, end of the complete packets
-int ReceiveRead;                                    // 0x715538, start of the next unread packet
-std::array<uint8, 0x4000> ReceiveData;              // 0x715540
-std::array<uint8, 0x800> SendData;                  // 0x719540
+int HostnameResolveBufferSize = MAXGETHOSTSTRUCT; // 0x5c22c4, initialised to 0x400
+int CurrentServer;                                // 0x7152f0
+TServer TestServer;                               // 0x7152f8
+std::array<TServer, NUMBEROFSERVER> Servers;      // 0x715368
+HANDLE HostnameRequest;                           // 0x715528
+char *HostnameResolveBuffer;                      // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
+int ReceiveDataSize;                              // 0x715530, bytes in ReceiveData
+int ReceivePacketEnd;                             // 0x715534, end of the complete packets
+int ReceiveRead;                                  // 0x715538, start of the next unread packet
+
+// Without AddressSanitizer's redzones (issue #70): a packet whose inner length is larger than the data read
+// makes TReadBuffer read on past ReceiveData, into SendData and the globals after it, as in the original.
+PATELLA_NO_SANITIZE_ADDRESS std::array<uint8, 0x4000> ReceiveData; // 0x715540
+PATELLA_NO_SANITIZE_ADDRESS std::array<uint8, 0x800> SendData;     // 0x719540
+
 HWND NetworkWindow;                                 // 0x719d40, receives WM_USER+1 when a name is resolved
 void (*CloseCallback)();                            // 0x719d44
 void (*ReceiveCallback)();                          // 0x719d48
