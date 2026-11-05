@@ -364,6 +364,15 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #84 (branch issue-84, November 5, 2026): CTest runs each preset's tests in parallel
+(CMakePresets.json, execution.jobs 16; COST on the long tests), golden_concurrent only in windows-x64's Release (not Debug,
+not ASan); no test needed RESOURCE_LOCK or RUN_SERIAL. No src/ change. notes/decisions.md, "Tests in parallel". Test time
+before to after: windows-x64 228.6 s to 118.3 s, windows-x64-debug 780.7 s to 266.6 s, windows-x64-asan 1,821.1 s to
+775.8 s, oracle-x86 unchanged within noise (difftest alone 220-263 s). Counts unchanged (main 7764a95): golden 15,802,944
+replayed + 1,512,822 retired, 0 failures (windows-x64 14/14, -debug and -asan 13/13, no ASan finding); difftest 16,459,078,
+sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 4/4; windows-x64-gcc and the Linux presets
+green. Logs: build\logs\issue-84.
+
 Patella-Modern issue #75 (branch issue-75, November 5, 2026): the built-in patcher removed (decision D9). `python -I
 tools/build.py oracle-x86`: difftest 16,471,911 to 16,459,078 (-12,833: Dialogs -3,633 and errors -6,083, MainFrm -598
 and errors -285, Errors -100, Script -2,134), communicationtest 1,044,013 to 856,621 (-187,392: Communication -36,654

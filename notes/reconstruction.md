@@ -728,6 +728,20 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   on a header that is on none: a new header goes on a list. No header is an exception today (the shaders' SPIR-V
   headers are generated into the build tree, not src/). A header on a warning baseline (cmake/Warnings.cmake:
   Container.h for GCC, `-Wshadow`) gives its check the baseline level.
+- CTest in parallel (issue #84): every test preset of CMakePresets.json has `execution.jobs` 16, so `ctest --preset`
+  and the workflows run the tests at once; the longest (golden, golden_concurrent, difftest, communicationtest) have a
+  COST and start first, golden_concurrent holds two processors (PROCESSORS 2: two runners). No test needs RESOURCE_LOCK
+  or RUN_SERIAL: the oracle's four have a TEMP and TMP of their own (oracle_test_environment, build\oracle-x86\tmp\<test>)
+  and write only below it; each golden runner has its run folder (TRunFolder, #66); the unit tests' fixed temporary
+  names (core_msvc_test.cpp, core_settings_test.cpp's core_settings_test.ini) are in tests_core alone, and file_test.cpp's
+  names are random; the clipboard and the graphics interfaces are faked. With verbosity verbose CTest prefixes each
+  output line with the test's number, so the counts stay readable in the logs. `golden_concurrent` (#66) is registered
+  only in the Release configuration of the presets without ASan (windows-x64): it checks the runner's folder handling,
+  which Debug and ASan build from the same code, and there it only doubled the longest test. Test time (CTest's "Total
+  Test time", this machine, 24 cores shared with other worktrees' builds; before and after back to back, main 7764a95's
+  corpus): windows-x64 228.6 s to 118.3 s, windows-x64-debug 780.7 s to 266.6 s (13 tests), windows-x64-asan 1,821.1 s
+  to 775.8 s (13 tests), oracle-x86 230.0 s to 263.5 s and again 248.6 s to 230.7 s (difftest alone takes 220 to 263 s:
+  the four in parallel save the other three's 12 s, within the noise). notes/decisions.md, "Tests in parallel".
 - `python -I tools/build.py oracle-x86` builds and runs the differential tests through CTest (difftest,
   sysinctest, communicationtest, vlongtest; the output with the check counts is in the log, verbosity verbose).
   One test: `python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R <test>`; with
@@ -839,7 +853,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     golden::DataFile, ConsoleWindow's saved channel, Errors' scripts, Preferences' Tibia.cfg, the map and script
     files). So runners of one build or of several worktrees can run at once: the CTest test `golden_concurrent`
     (tests/golden/concurrent.py) starts two over the same corpus and passes when both pass and neither leaves its
-    folder; skipped without a corpus as `golden`. The recording side likewise: golden_corpus runs each test program
+    folder; skipped without a corpus as `golden`; since issue #84 only in windows-x64's Release configuration (not
+    Debug, not ASan), where it runs next to `golden`, a third runner at once. The recording side likewise: golden_corpus runs each test program
     through cmake/RunGoldenRecord.cmake, in `build\oracle-x86\tmp\golden-<test>-<time>-<random>` (its TEMP, TMP and
     current directory), removed afterwards. Not cleaned: the fixed folders that runners before #66 left in %TEMP%
     (errortest, consolewindow, golden-data, tibia-difftest-cfg...), which no run uses any more.
