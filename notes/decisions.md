@@ -9930,3 +9930,65 @@ windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11; 0 warnings on every pr
 compare --reference C:\Tibia\Patella-Modern\build\reference`: the four sessions match (error with #74's deliberate
 differences). tidy_ci 20 findings, 0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs:
 build\logs\issue-78a.
+
+## The developer log and the fatal-error path (Patella-Modern issue #77, D16)
+
+Settled by Claude Opus 5.5, November 5, 2026; M5 (notes/modernization-plan.md, 7 M5 "Kept", decision D16). Since #74
+the fatal path wrote its texts to stderr through Player.cpp's WriteToStderr, and the diagnostics error.txt had held
+(LastPacketTypes, PacketHeader, GetCurrentEngine, the player's position) were written but never read. Both now go
+through a small log of our own.
+
+- **The log** (high). src/log/Log.h, header only, so every target that compiles Player.cpp has it without a new
+  source on its list (the client, the test build, golden_runner, the oracle's Patella.exe, difftest, mfc_shim_check):
+  `patella::log::TLog` with a level, a console (a function given each whole line: `WriteToStderr` by default, the C
+  library's stderr in one fwrite, then fflush) and an optional file (a TFile opened for appending, binary, so '\n'
+  line ends on every platform), each line flushed at once (the fatal path's next step may end the process). The
+  client's log is `patella::log::Log()`; `Error`, `Warn`, `Info`, `Debug` (members and free functions) format with
+  std::format's language: std::format where the library has it, compat/format.h's stand-in on the oracle's C++17 and in
+  tests_unit_cxx26_standin, as compat/print.h and TFile::Print do (TFixedString arguments as their text). A line is
+  "[<level>] <message>\n" (a message keeps its own line breaks: the exception messages and HandleProgramError's text
+  have them). Nothing throws: a message that cannot be formatted (the stand-in's TFormatError, std::bad_alloc) is
+  dropped, a failed write ignored (a GUI client's stderr is valid only when redirected). A mutex guards the console and
+  the file, the level is an atomic. No library, no dependency, nothing sent anywhere. Considered: a FILE * console
+  (tools/banned_calls.py bans FILE outside src/types/File.h, issue #64; the function pointer also lets the unit tests
+  capture the lines); a timestamp per line (not needed for the fatal path, and the stand-in has no chrono formatting).
+- **The levels** (high). error, warn, info, debug (TLevel, in that order; a line is written when its level is the
+  log's or more severe). Default info. error: FatalError's "<caption>: <text>" and HandleException's "Debug Assertion
+  7.72 <message>" (the #74 stderr texts, now with the prefix), and the Debug stack trace. warn: a Patella.ini value that
+  cannot be used. info: nothing yet (the default level, so stderr stays as it was apart from the prefix). debug: the
+  settings read at the start, and the fatal diagnostics below.
+- **Patella.ini** (high; D12). Two keys, read once at the start by InitInstance (x64 client only, `#if
+  defined(PATELLA_VULKAN)`, like the device choice), never written by the client: `LogLevel` (error, warn, info, debug,
+  without regard to case; another value is a warn line and the level stays) and `LogFile` (a file the lines are
+  appended to as well, created where it does not exist, relative to the working directory; none without the key or
+  with an empty value; one that cannot be opened is a warn line). src/log/LogSettings.cpp, in patella_core (and
+  compiled into the client again, as Settings.cpp is), tested by tests_core. Without Patella.ini or the keys nothing
+  changes: no file appears (tier A: no new file by default).
+- **At the debug level: error.txt's diagnostics** (high). HandleException, after the message, writes what its report
+  held until #74 besides the version, origin, time and Windows version: "Graphic engine: <GetCurrentEngine()>", "Last
+  packet types: 255 108 ..." (Control.cpp's new GetLastPacketTypes: the ring in error.txt's order, the newest first,
+  three digits each), "Last packet: 001 000 ..." (MainFrm.cpp's PacketHeader, when any byte is set, as
+  OutputErrorInformations printed it) and "Player position: [x,y,z]" (GetCreature(GetPlayerID()), in the game). Each
+  part is left out where it throws. The failed check itself is the message at the error level. Not done above debug:
+  the work runs only when the level is debug.
+- **The fatal path** (high; M5 "Kept"). FatalError writes its line at the error level, then, in Debug builds
+  (`!defined(NDEBUG)`) only, the caller's stack as one error line ("Stack trace:" and std::stacktrace's to_string;
+  where the library has none, a line that says so) and `BreakIfDebugged`: IsDebuggerPresent and DebugBreak on Windows
+  (kernel32's, declared without <windows.h>), the TracerPid of /proc/self/status and SIGTRAP on Linux, nothing
+  elsewhere; without a debugger nothing happens and the box follows. Then, unchanged, the connection shut down, the
+  display mode restored, the window hidden, the box, exit(1). std::stacktrace by compiler: MSVC 19.51 yes (the Debug
+  test build's trace names FatalError, HandleException, Run's catch, AfxWinMain); GCC 16.2 on Linux yes (in
+  libstdc++exp, which patella_target_language already links for contract_assert); Clang 22.1 on Linux with Debian's
+  libstdc++ 14 yes, with libstdc++exp, linked by patella_target_language when a check program links (cmake/Warnings.cmake,
+  PATELLA_CLANG_STDCXXEXP); a libc++ has no __cpp_lib_stacktrace, the check fails and the fallback line is written;
+  mingw-w64 GCC 16.2 no (its libstdc++ has no backtrace for Windows: __cpp_lib_stacktrace undefined), so the fallback;
+  the oracle's /std:c++17 no. C++26's std::breakpoint_if_debugging was considered: GCC 16 has it only in libstdc++exp,
+  MSVC and Clang's libstdc++ 14 not at all.
+- **oracle-x86** (high). The log works there too, at its defaults: Patella.ini is never read (Settings.cpp and
+  LogSettings.cpp are not in the oracle; the call is the x64 client's), so the level is info and the lines go to
+  stderr only. difftest compares no stderr with the original (Tibia.exe wrote error.txt); its Errors test (and the
+  golden corpus's) compares our HandleException's stderr with the text it expects, now "[error] Debug Assertion 7.72
+  <message>\n" (tests/golden/errors_tests.cpp; FatalError itself is faked there, so neither the box line nor the stack
+  trace is written). The debug diagnostics never run in the tests (info level), and difftest gets a stub
+  GetLastPacketTypes (tools/difftest/playertest.cpp: Control.cpp is not linked there). No layout changes; no check
+  count changes.

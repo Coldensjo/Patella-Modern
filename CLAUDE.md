@@ -51,6 +51,10 @@ settings file, `src/settings/`), and `PATELLA_VULKAN=auto|gpu|gpuN|cpu` in its e
 driver (Mesa's lavapipe, copied next to
 the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it
 headless.
+The developer log (issue #77, D16; `src/log/`, every preset and oracle-x86): lines `[<level>] <message>` on stderr;
+Patella.ini's `LogLevel` (error, warn, info: the default, debug) and `LogFile` (also appended to; none by default) set
+it in the x64 client. A fatal error's box text goes there at error, error.txt's old diagnostics at debug, and Debug
+builds add the stack trace and a break into an attached debugger.
 
 The reference recordings (issue #23, M2's exit; `notes/testmode.md`, "Reference recordings"): `python -I
 tools/reference.py record --reference C:\Tibia\Patella-Modern\build\reference` (Windows, Tibia.exe under patcap.dll;
@@ -72,7 +76,7 @@ without Tibia.exe. Details: `notes/reconstruction.md`, "Checking", "The golden c
 `.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by
 `.clang-format-ignore`), `.editorconfig` the editor settings. Check with Visual Studio's clang-format
 (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/types/*.h src/testmode/*.cpp
-src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp
+src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h src/log/*.cpp src/log/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp
 tests/golden/*.cpp tests/golden/*.h`.
 The Microsoft CRT's and compiler's own spellings (`_snprintf`, `_stricmp`, `__cdecl`, `#pragma warning`...) go
 through `src/compat/msvc.h` and `msvc_io.h` (issue #43), which keep their semantics on every platform.
