@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <utility>
 
 constexpr auto BPU = 8 * sizeof(unsigned); // bits per unit (size_t, as the macro was)
 #define lo(x) ((x) & ((1 << (BPU / 2)) - 1))
@@ -17,7 +18,7 @@ constexpr auto BPU = 8 * sizeof(unsigned); // bits per unit (size_t, as the macr
 #define lh(x) ((x) << (BPU / 2))
 
 // flex_unit::a as a std::unique_ptr<unsigned[]> (issue #58): a pointer at the original's offset. reserve() frees the
-// old block (reset()) before it stores the new one, the destructor frees it where the original had delete[].
+// old block (reset()) before it moves the new one in, the destructor frees it where the original had delete[].
 static_assert(sizeof(std::unique_ptr<unsigned[]>) == sizeof(unsigned *)
 		&& alignof(std::unique_ptr<unsigned[]>) == alignof(unsigned *),
 	"std::unique_ptr<unsigned[]> is a pointer");
@@ -29,11 +30,12 @@ static_assert(sizeof(flex_unit) == 0xc, "flex_unit's layout");
 void flex_unit::reserve(unsigned x)
 {
 	if (x > z) {
-		unsigned *na = new unsigned[x];
+		// The new block in a unique_ptr from the start (GCC's analyzer, Debug: a raw na handed to reset() is a "leak").
+		std::unique_ptr<unsigned[]> na(new unsigned[x]);
 		for (unsigned i = 0; i < n; i += 1)
 			na[i] = a[i];
 		a.reset();
-		a.reset(na);
+		a = std::move(na);
 		z = x;
 	}
 }

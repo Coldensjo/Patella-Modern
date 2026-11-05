@@ -6,5 +6,4 @@
 1	src/Utils.cpp	cppcoreguidelines-owning-memory	initializing non-owner 'char *' with a newly created 'gsl::owner<>'
 1	src/common.h	cppcoreguidelines-use-enum-class	enum 'PROGRAM_ERROR' is unscoped, use 'enum class' instead
 1	src/vlong.cpp	cppcoreguidelines-owning-memory	assigning newly created 'gsl::owner<>' to non-owner 'vlong_value *'
-1	src/vlong.cpp	cppcoreguidelines-owning-memory	initializing non-owner 'unsigned int *' with a newly created 'gsl::owner<>'
 1	src/vlong.cpp	cppcoreguidelines-owning-memory	initializing non-owner 'vlong_value *' with a newly created 'gsl::owner<>'

@@ -354,7 +354,8 @@ them twice), `release()` drops the old one unfreed before the `reset(new ...)`, 
 checks that the old table is still allocated); InitVideoCache's clear without a free is a `release()`. The original
 passed `&Modes` to GetFullscreenModes; the dialog now passes a local and `reset()`s Modes with it, which changes
 nothing because every engine's GetFullscreenModes writes the pointer first. vector<T>'s growth keeps "free the old
-block, then store the new one" as `reset()`, `reset(help)`, and flex_unit::reserve the same. TPlayerStates allocates
+block, then store the new one" as `reset()`, `reset(help)`; flex_unit::reserve holds the new block in a `unique_ptr`
+local and moves it in after the `reset()` (GCC's analyzer took a raw one handed to `reset()` for a leak, in Debug). TPlayerStates allocates
 one of two lists by its branch, not one over the other (part 1's map said it replaced it).
 
 Behaviour that differs only where the original's own behaviour ends the client: a constructor that throws after

@@ -350,7 +350,7 @@ cases); tests_unit 57/10,080, standin 57/10,082 (Linux 56/10,062, Clang 10,060, 
 warnings, the analyzers clean (Clang's ASan/UBSan and LeakSanitizer too). pecompare 3f6042a and issue-58b at the same
 path: code only (the oracle resizes 194 functions, .text -0x600, adds the seven globals' initialisers and atexit
 destructors and the unique_ptrs' out-of-line destructors; x64 231, .text +0x1c00; no string of .rdata changed).
-macrocheck: 2,108 calls, 0 differences. tidy_ci: 5 findings (from 7: the raw Skins' two), 0 new, 0 bugprone; the
+macrocheck: 2,108 calls, 0 differences. tidy_ci: 4 findings (from 7: the raw Skins' two, reserve's raw block), 0 new, 0 bugprone; the
 baseline written again. banned_calls: 0. clang-format: clean. client_state.py --layout: the oracle equal to the
 original, x64 0 problems; its and patch_client.py's self-tests pass.
 
