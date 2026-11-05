@@ -525,7 +525,7 @@ char *TReadBinaryFile::readString()
 }
 
 // 0x4e1e50, lines 661-664. The original's parameters (Buffer, Count) are the span's pointer and its size as an int, the
-// name TERROR1_REASON's text uses (issue #69, as #59).
+// name the "out of data" error's text uses (issue #69, as #59).
 void TReadBinaryFile::readBytes(patella::TSpan<uint8> Bytes)
 {
 	uint8 *const Buffer = Bytes.data();
