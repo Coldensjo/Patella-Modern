@@ -10111,3 +10111,71 @@ banned_calls 0; clang-format clean. Logs: build\logs\issue-77.
   C:\Tibia\Patella-Modern\build\reference`: the four sessions match (error with #74's deliberate differences). tidy_ci
   20 findings, 0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs: build\logs\issue-78b. Left after
   part 2: 796 TBEGIN in 10 files (parts 3-7).
+
+### Part 4 (issue-78d): ContentWindows, DialogWindow
+
+- **Deleted** (high). 177 TBEGIN/TEND pairs in 177 functions: ContentWindows.cpp 137, DialogWindow.cpp 40. Every block
+  is the rest of its function's body at the body's indentation, closed by the function's brace (none nested, none
+  inside a brace block), so no variable's scope or lifetime changed and clang-format moves nothing. No parameter or
+  local was named only by a TEND (the 35 TEND2(x, y) and the other values are all used in their bodies), so nothing
+  is `[[maybe_unused]]`. The four destructors with a try block (TAutomapWindow, TContainerWindowBody,
+  TSkillsWindowBody, TTradeWindowBody) lose their `PATELLA_MSVC_WARNING(disable : 4297)` pairs with the handlers that
+  rethrew; they stay noexcept(false) through TComponent's destructor. Each file's header says the try blocks and
+  catch lines its comments name are the original's; GetSlotAt's and GetBuddyAt's comments say the original's TEND2
+  printed the moved x and y. GUI.cpp's comment on TComponent's destructor no longer counts the ContentWindows.cpp
+  windows and bodies among the classes with their own TBEGIN/TEND (its TTab and TConsoleWindow words are part 3's
+  and part 5's).
+- **Kept** (high): nothing. Neither file has a handler other than its TENDs. TASSERT*/TERROR* stay (#79).
+- **The kinds** (high): none changes. The handlers that catch a TMyException by type are those part 2 lists
+  (graphics.cpp's four loaders, AddLightSource, Map.cpp's automap pair and FindPath, Preferences.cpp's two,
+  Communication.cpp's cylinder loop, Control.cpp's ChangeEngine pairs, each with a `catch (...)` that gives a
+  TMyException too, and Player.cpp's top-level ones). No try block of them reaches a function of this part: the
+  loaders' reach only TReadBinaryFile, AddLightSource's and Communication.cpp's the map's object queries, Map.cpp's
+  the automap files and the fields, Preferences.cpp's the script files and the settings' own getters and setters
+  (ContentWindows.cpp calls SetAutomapZoom, SetContentWindowSize and GetSkillBar, not the other way). The third-type
+  sources in the part's functions are new of fixed sizes only: the windows, bodies, buttons, labels, scroll bars and
+  separators of the creators and constructors, the DrawingList arrays (TDrawing[1], [2], [4], [8], [9]), the mark
+  menu's data and the skill window's char[36]. No size comes from input, so there is no boundary to keep. As in part
+  2, recorded: under MFC's window procedure, where no caller's TEND remains (Control.cpp's and the dialogs' still
+  convert until parts 5-7), MFC's CMemoryException from such a new on an exhausted heap is now shown by
+  AfxCallWndProc's handler and the message ends, where before it ended the client. The destructors now let a
+  TMyException of their callees (SendCloseContainer, SendRejectTrade) out without the TEND's wrapping: the same kind.
+  Structured exceptions: the x64 client and the oracle's Patella.exe build with /EHsc, so nothing changes there;
+  under difftest's /EHa none of the counts changed (below).
+- **The images** (high). Main (ebc405f) and the branch built at the same path (this worktree), the oracle's and the x64
+  Release Patella.exe, function by function through the PDBs: funcs.py, compare.py, syms.py and classify.py in
+  C:\Users\Chris\issue-78d-scripts (outside the repository, never committed; part 2's went with its worktree) on `dumpbin /disasm:nobytes`, the addresses outside a function masked, those inside as offsets
+  from its start, x64's base+index displacements (RVAs of tables) masked, the code compared up to its first switch
+  table and the tables' offsets compared; each function's owner from `dumpbin -symbols` of the image's objects.
+  - x86: 11,470 functions to 11,446; 11,287 the same; 153 changed, every one defined only in the part's two objects,
+    and the four compiler-generated deleting destructors (`vector deleting destructor` of TAutomapWindow,
+    TContainerWindowBody, TSkillsWindowBody and TTradeWindowBody, which now inline the destructors); 24 gone, all of
+    the part, inlined into their callers of the part now that they have no EH state (seven constructors: the
+    battle, VIP and skill bodies, TSmallInventoryWindow, TTradeButtons, TTradeNames, TTradeOffers; the four
+    destructors; TBuddylistWindowBody's Arrange and MouseWheel, TContainerWindowBody::MouseWheel, TDialogWindow's
+    DragChild, FitChildren, GetFreeHeight, Grow and MakeRoom, TPlayerStates::GetIconAt, TTradeOffers'
+    GetContentHeight and LeftButtonDown, TTradeButtons' SetCancelButton and Wait); no new function. The unnamed
+    EH region after the code (dumpbin gives it to ___guard_check_icall_thunk) has 141 __ehhandler$ thunks fewer
+    (1,822 to 1,681); __startOneArgErrorHandling (CRT) differs only in a tail jump into that region. .text 0x2911da
+    to 0x27ac6a, .rdata 0xbc650 to 0xb41d8.
+  - x64: 11,721 functions to 11,696; 11,463 the same; 152 changed of the part plus the same four deleting
+    destructors; 25 gone: the same, except that TTradeOffers' GetContentHeight and TTradeButtons::SetCancelButton
+    stay out of line here (changed) and TBattleWindowBody::GetOpponentAt, TDialogWindow::PositionChildren and
+    TTradeButtons::ShowAcceptButton are inlined; no new function. Three CRT functions (__d2fixed_buffered_n,
+    convert_decimal_string_to_floating_type_common, __acrt_fltout) differ only in the RVA of a table in .rdata,
+    which moved. Funclets 3,951 to 3,602; of the 198 parents whose count changed, 175 are the part's and 23
+    (AddConsoleText, InitControl, ProcessEvents, OpenContainer, the dialogs', context menus' and dialog elements'
+    constructors and a few of their members) only name a funclet that identical-code folding shares and that a
+    function of the part named before; their code is the same. .text 0x33771c to 0x323adc, .rdata 0x112c4e to
+    0x10f4d6, .pdata 0x24918 to 0x2385c (357 unwind entries fewer).
+  No function of another file changed, no caller outside the part inlines one of its functions.
+- **The counts** (high). `python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67, communicationtest
+  856,621, vlongtest 3,201, 0 failures, CTest 4/4; every test's own lines (41: checks, exceptions compared, calls
+  that threw) are main's, compared with main's run at the same path (so no comparison saw a kind change, under /EHa
+  either; ContentWindows' own 52,506 among them). golden on main's corpus (C:\Tibia\Patella-Modern\build\golden,
+  read only): 15,803,203 replayed + 1,512,822 retired = 17,316,025, 0 failures on windows-x64 (14/14,
+  golden_concurrent passes), windows-x64-debug (13/13) and windows-x64-asan (13/13, no ASan finding).
+  windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11; 0 warnings on every preset. `python -I tools/reference.py
+  compare --reference C:/Tibia/Patella-Modern/build/reference`: the four sessions match (error with #74's deliberate
+  differences). tidy_ci 20 findings, 0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs: build\logs\issue-78d. Left after part 4: 619 TBEGIN in 8 files (parts
+  3, 5-7; part 3's three files are among them until it is merged).

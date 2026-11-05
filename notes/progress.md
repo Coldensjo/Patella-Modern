@@ -248,6 +248,13 @@ loaders' file errors to PROGRAM_ERROR 2-5, MainWindow::Draw's start window to PR
 message. No kind change reaches another handler; one is recorded: with the heap exhausted, MFC's CMemoryException in
 a frame handler is now reported by MFC's window procedure instead of ending the client. difftest 16,459,337 / 67 /
 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822 retired, 0 failures.
+
+TBEGIN/TEND deleted, part 4 (Patella-Modern issue #78, branch issue-78d, November 6, 2026; M5): the 177 try blocks
+of ContentWindows.cpp and DialogWindow.cpp go (the content windows, the sub-windows and the side panel's columns);
+neither file has a real handler, so no catch stays. No kind change reaches another handler (only fixed-size
+allocations in the part); recorded as in part 2: with the heap exhausted, MFC's CMemoryException under the window
+procedure is now reported by MFC instead of ending the client. difftest 16,459,337 / 67 / 856,621 / 3,201
+(unchanged); golden 15,803,203 replayed + 1,512,822 retired, 0 failures.
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -401,6 +408,16 @@ failures (windows-x64 14/14, -debug and -asan 13/13, no ASan finding); windows-x
 warnings; tests_unit 65 cases on Windows, 64 on Linux. reference.py compare: 4 sessions match. pecompare by function
 (x86 and x64): only FatalError, HandleException and (x64) InitInstance changed, the log's functions new. tidy_ci: 20
 findings, 0 new. banned_calls 0, clang-format clean. Logs: build\logs\issue-77.
+
+Patella-Modern issue #78, part 4 (branch issue-78d, November 6, 2026): TBEGIN/TEND deleted from ContentWindows.cpp
+and DialogWindow.cpp (177 try blocks in 177 functions); no catch kept, no parameter [[maybe_unused]], the four
+destructors' C4297 suppressions gone. `python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67,
+communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 4/4 (every test's own numbers main's). golden on main's
+corpus 15,803,203 replayed + 1,512,822 retired = 17,316,025, 0 failures (windows-x64 14/14, -debug 13/13, -asan 13/13,
+no ASan finding); windows-x64-gcc and the Linux presets 11/11, 0 warnings. reference.py compare: 4 sessions match.
+Images by function (x86 and x64): only the part's functions changed (24 on x86, 25 on x64 now inlined into the part's
+callers) and the four deleting destructors that inline its destructors. tidy_ci: 20 findings, 0 new. banned_calls 0,
+clang-format clean. Logs: build\logs\issue-78d.
 
 Patella-Modern issue #78, part 2 (branch issue-78b, November 5, 2026): TBEGIN/TEND deleted from graphics.cpp,
 GUI.cpp, MainWindow.cpp, MapWindow.cpp and MainFrm.cpp (181 try blocks in 165 functions); three MainFrm parameters
