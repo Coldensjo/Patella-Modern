@@ -24,6 +24,20 @@
 #include <climits>
 #include <cstddef>
 #include <cstdlib>
+#include <memory>
+
+// TComponent::DrawingList as a std::unique_ptr<TDrawing[]> (issue #58): a pointer at the original's offset. The
+// subclasses' constructors allocate it with reset(new TDrawing[n]) (each list is the first: TComponent's constructor
+// leaves it null, and no class allocates over a base's), ~TComponent frees it with reset() where the original had
+// delete[]; TDrawing's destructor is trivial, so the reset cannot throw.
+static_assert(sizeof(std::unique_ptr<TDrawing[]>) == sizeof(TDrawing *)
+		&& alignof(std::unique_ptr<TDrawing[]>) == alignof(TDrawing *),
+	"std::unique_ptr<TDrawing[]> is a pointer");
+#if PATELLA_ORIGINAL_LAYOUT
+static_assert(sizeof(TComponent) == 0x24 && offsetof(TComponent, DrawingList) == 0x04
+		&& offsetof(TComponent, DrawingListLength) == 0x08 && offsetof(TComponent, Height) == 0x20,
+	"TComponent's layout");
+#endif
 
 namespace {
 
@@ -73,7 +87,7 @@ bool TTimer::IsExpired() const
 TComponent::~TComponent() noexcept(false)
 {
 	if (DrawingList != nullptr)
-		delete[] DrawingList;
+		DrawingList.reset();
 }
 
 // 0x496060

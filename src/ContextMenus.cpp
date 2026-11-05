@@ -80,7 +80,7 @@ THelpBubble::THelpBubble(const char *HelpText)
 	TASSERT(106, HelpText!=NULL);
 	TBEGIN
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	Text = new TFormattedText(HelpText);
 	InsertChild(Text);
 	SetSize(SkinProperties.Data158, SkinProperties.Data15C);
@@ -322,7 +322,7 @@ TContextMenu::TContextMenu()
 {
 	TBEGIN
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	EntryWidth = 0;
 	Separator = false;
 	Empty = true;

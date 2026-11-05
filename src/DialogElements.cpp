@@ -90,7 +90,7 @@ TResizer::TResizer(TComponent *_ToResize, bool _ResizeWidth, bool _ResizeHeight,
 	ToResize = _ToResize;
 	Invisible = _Invisible;
 	DrawingListLength = 1;
-	DrawingList = new TDrawing[1];
+	DrawingList.reset(new TDrawing[1]);
 	Dragging = false;
 	StartY = 0;
 	StartX = 0;
@@ -179,7 +179,7 @@ TBorder::TBorder(TComponent *_Window, int _Border)
 	TBEGIN
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	Border = _Border;
 	Window = _Window;
 	TWindow::InsertChild(_Window);
@@ -203,7 +203,7 @@ TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int
 	TBEGIN
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	Border = _Border;
 	Window = _Window;
 	TWindow::InsertChild(_Window);
@@ -227,7 +227,7 @@ TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int
 	TBEGIN
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	Border = _Border;
 	Window = _Window;
 	TWindow::InsertChild(_Window);
@@ -1205,7 +1205,7 @@ TCheckBox::TCheckBox(const char *_Text)
 	TASSERT1(1687, strlen(_Text)<50, strlen(_Text));
 	TBEGIN
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	Checked = false;
 	Enabled = true;
 	Label = new TLabel(SkinProperties.CheckBox.Data18, _Text);
@@ -1280,7 +1280,7 @@ TEditLine::TEditLine(TRect Area, int _MaxLength, bool _ReadOnly)
 	Font = _ReadOnly ? SkinProperties.Style944.Data38 : SkinProperties.Style944.Data24;
 	MaxLength = _MaxLength;
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	TWindow::SetPosition(Area.x, Area.y);
 	TEditLine::SetSize(Area.width, Area.height);
 	TEditLine::Arrange();
@@ -1307,7 +1307,7 @@ TEditLine::TEditLine(int _MaxLength, bool _ReadOnly)
 	Font = _ReadOnly ? SkinProperties.Style944.Data38 : SkinProperties.Style944.Data24;
 	MaxLength = _MaxLength;
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	TEND1(1927, _MaxLength)
 }
 
@@ -2141,7 +2141,7 @@ THorizontalScrollBarRange::THorizontalScrollBarRange(int _Min, int _Max, int _Va
 	TASSERT2(2926, In(_Value,_Min,_Max), _Value, _Max);
 	TBEGIN
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	Min = _Min;
 	Value = _Value;
 	Enabled = _Min != _Max;
@@ -2389,7 +2389,7 @@ TScrollBarRange::TScrollBarRange(int x, int y, int Width, int Height, int _Min, 
 	TASSERT2(3228, In(_Value,_Min,_Max), _Value, _Max);
 	TBEGIN
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	Min = _Min;
 	Enabled = _Min != _Max;
 	Value = _Value;
@@ -2654,7 +2654,7 @@ TListBox::TListBox(TCallback _SelectCallback, TCallback _ActionCallback)
 	TextWidth = 0;
 	Selected = -1;
 	DrawingListLength = 4;
-	DrawingList = new TDrawing[4];
+	DrawingList.reset(new TDrawing[4]);
 	SelectCallback = _SelectCallback;
 	ActionCallback = _ActionCallback;
 	Editable = false;

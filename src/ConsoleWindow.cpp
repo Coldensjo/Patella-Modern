@@ -651,7 +651,7 @@ TConsole::TConsole()
 	TBEGIN
 	ScrollToEnd = false;
 	DrawingListLength = 8;
-	DrawingList = new TDrawing[8];
+	DrawingList.reset(new TDrawing[8]);
 	TextWindow = new TTextWindow;
 	ScrollBar = new TScrollBar(TRect(0, 0, SkinProperties.Data878, SkinProperties.Data874), 0, 0, 0, 0, 1);
 	InsertChild(ScrollBar);
@@ -1266,7 +1266,7 @@ TConsoleWindow::TConsoleWindow()
 {
 	TBEGIN
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	TalkMode = 1;
 	DefaultTab = nullptr;
 	HistoryPosition = -1;

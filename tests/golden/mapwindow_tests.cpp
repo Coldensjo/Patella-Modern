@@ -1564,7 +1564,7 @@ static void TestFrames(int Rounds)
 			uint8 ListB[8 * sizeof(TDrawing)] = {};
 			ORIGINAL(memcpy(ListB, *(void **)(B + 4), sizeof(ListB)));
 			golden::OutputBytes("drawing list", ListB, sizeof(ListB));
-			CHECK(Frame->DrawingListLength == LengthB && memcmp(Frame->DrawingList, ListB, 8 * sizeof(TDrawing)) == 0,
+			CHECK(Frame->DrawingListLength == LengthB && memcmp(Frame->DrawingList.get(), ListB, 8 * sizeof(TDrawing)) == 0,
 				"TMapFrame drawing list after SetSize(%d,%d)", Width, Height);
 			CompareLogs("TMapFrame::SetSize", Width);
 		}

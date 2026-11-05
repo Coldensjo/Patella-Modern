@@ -613,7 +613,7 @@ TDialog::TDialog(const char *_Caption, TComponent *_Dialog)
 	TASSERT(652, _Dialog!=NULL);
 	TBEGIN
 	DrawingListLength = 9;
-	DrawingList = new TDrawing[9];
+	DrawingList.reset(new TDrawing[9]);
 	Caption.Assign(_Caption);
 	Dragging = false;
 	OkCallback = NoCallback;
@@ -1396,7 +1396,7 @@ TEditListDialog::TEditListDialog(int MaxLength, const char *Text, int _Type, uin
 	EditText->SetActive(true);
 	EditText->SetText(Text, false);
 	DrawingListLength = 1;
-	DrawingList = new TDrawing[1];
+	DrawingList.reset(new TDrawing[1]);
 	if (Description != nullptr) {
 		TLabel *Label = new TLabel(SkinProperties.StyleB08.Data78, Description);
 		InsertChild(Label);

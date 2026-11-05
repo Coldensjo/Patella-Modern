@@ -18,6 +18,7 @@
 // classes and SkinProperties need them complete.
 #include "graphics.h"
 #include <array>
+#include <memory>
 
 void DrawSkin(int Surface, int x, int y, int width, int height, int skin, int srcx, int srcy); // 0x497a00
 void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin, int ClipX, int ClipY,
@@ -102,14 +103,14 @@ public:
 	int getWidth() const { return Width; }   // "Child->getWidth()" (line 1725), inlined
 	int getHeight() const { return Height; } // "Child->getHeight()" (line 1726), inlined
 
-	TDrawing *DrawingList; // +0x04, allocated by the subclasses
-	int DrawingListLength; // +0x08
-	TComponent *Parent;    // +0x0c
-	TComponent *Next;      // +0x10, the next child of Parent
-	int OffsetX;           // +0x14, relative to Parent
-	int OffsetY;           // +0x18
-	int Width;             // +0x1c
-	int Height;            // +0x20
+	std::unique_ptr<TDrawing[]> DrawingList; // +0x04, allocated by the subclasses (issue #58: the list's only owner)
+	int DrawingListLength;                   // +0x08
+	TComponent *Parent;                      // +0x0c
+	TComponent *Next;                        // +0x10, the next child of Parent
+	int OffsetX;                             // +0x14, relative to Parent
+	int OffsetY;                             // +0x18
+	int Width;                               // +0x1c
+	int Height;                              // +0x20
 };
 
 // A component without children (vtable 0x5645c8, 0x24 bytes). It takes

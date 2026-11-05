@@ -46,7 +46,7 @@ public:
 	{
 		Horizontal = _Horizontal;
 		DrawingListLength = 2;
-		DrawingList = new TDrawing[2];
+		DrawingList.reset(new TDrawing[2]);
 	}
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
 	void SetSize(int Width, int Height) override; // +0x34, 0x453930, line 42
@@ -836,7 +836,7 @@ public:
 	TProgressBar()
 	{
 		DrawingListLength = 6;
-		DrawingList = new TDrawing[6];
+		DrawingList.reset(new TDrawing[6]);
 		Current = 0;
 		Maximum = 100;
 	}
