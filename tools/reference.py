@@ -84,6 +84,10 @@ DATA_FILES = ("Tibia.dat", "Tibia.spr", "Tibia.pic")
 LOGIN_PORT, GAME_PORT = 7271, 7272
 # The CPU driver next to PatellaTest.exe (cmake/Vulkan.cmake).
 CPU_DRIVER_FILES = ("vulkan_lvp.dll", "lvp_icd.x86_64.json")
+# MSVC's AddressSanitizer runtime next to a PatellaTest.exe of the preset windows-x64-asan (issue #70,
+# cmake/Hardening.cmake; Release and Debug import the same DLL): copied with it when it is there, so an ASan
+# client runs too.
+ASAN_RUNTIME_FILES = ("clang_rt.asan_dynamic-x86_64.dll",)
 # The time zone of both clients' local time (error.txt's ctime, Default.txt's "Channel saved at").
 TIME_ZONE = "UTC0"
 # The x64 client's own settings file (issue #31), which Tibia.exe does not have: listed, not compared
@@ -537,7 +541,7 @@ def prepare_run(folder, exe, meta, reference, data_dir):
 		"--host", "127.0.0.1", "--port", str(LOGIN_PORT)], capture_output=True, text=True)
 	if result.returncode != 0:
 		raise ReferenceError_("patch_client.py failed: %s" % (result.stderr.strip() or result.stdout.strip()))
-	for name in CPU_DRIVER_FILES:
+	for name in CPU_DRIVER_FILES + ASAN_RUNTIME_FILES:
 		source = os.path.join(os.path.dirname(exe), name)
 		if os.path.isfile(source):
 			shutil.copyfile(source, os.path.join(folder, name))
