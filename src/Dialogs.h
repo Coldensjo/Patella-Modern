@@ -637,18 +637,18 @@ public:
 	TGraphicsOptionsDialog(void (*_OpenURL)(const char *URL), void (*_SetDisplayMode)(int Mode),
 		TWindow *_Parent); // 0x479a30, line 3549
 	// Inline (out-of-line copy 0x46bb40, deleting destructor 0x46bea0).
-	~TGraphicsOptionsDialog() override { delete[] Modes; }
+	~TGraphicsOptionsDialog() override { Modes.reset(); }
 	void KeyPress(int Key) override;      // +0x6c, 0x479f50, line 3573
 	void HandleEvent(int Event) override; // +0x70, 0x47a150, line 3598
 
-	TCheckBox *Fullscreen;            // +0x2c
-	TListBox *ResolutionList;         // +0x30
-	int NumberOfModes;                // +0x34
-	TFullscreenMode *Modes;           // +0x38, the surface's list
-	void (*SetDisplayMode)(int Mode); // +0x3c, 1 windowed, 2 fullscreen
-	TWindow *Parent;                  // +0x40, passed on to the advanced options
-	TTextButton *AdvancedButton;      // +0x44
-	void (*OpenURL)(const char *URL); // +0x48
+	TCheckBox *Fullscreen;                    // +0x2c
+	TListBox *ResolutionList;                 // +0x30
+	int NumberOfModes;                        // +0x34
+	std::unique_ptr<TFullscreenMode[]> Modes; // +0x38, the surface's list (issue #58)
+	void (*SetDisplayMode)(int Mode);         // +0x3c, 1 windowed, 2 fullscreen
+	TWindow *Parent;                          // +0x40, passed on to the advanced options
+	TTextButton *AdvancedButton;              // +0x44
+	void (*OpenURL)(const char *URL);         // +0x48
 };
 
 // "Advanced Graphics Options" (vtable 0x562738, 0x54 bytes): light,

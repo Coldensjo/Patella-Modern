@@ -2178,8 +2178,8 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Pointer(Out, s, G->Fullscreen);
 		Pointer(Out, s, G->ResolutionList);
 		Number(Out, G->NumberOfModes);
-		Pointer(Out, s, G->Modes);
-		if (IsBlock(G->Modes))
+		Pointer(Out, s, G->Modes.get());
+		if (IsBlock(G->Modes.get()))
 			for (int i = 0; i < G->NumberOfModes && i < 100; i++)
 				Add(Out, " %dx%dx%d@%d", G->Modes[i].Width, G->Modes[i].Height, G->Modes[i].Depth, G->Modes[i].Frequency);
 		Pointer(Out, s, (const void *)G->SetDisplayMode);
