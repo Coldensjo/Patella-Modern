@@ -107,7 +107,7 @@ def live_recordings(live, sessions):
 	check_ports()
 	setup_live()
 	need_traffic = "traffic" in sessions
-	need_walk = any(s in sessions for s in ("walk", "error", "patch", "patch-exe"))
+	need_walk = any(s in sessions for s in ("walk", "error"))
 	if need_traffic:
 		players = ct.snapshot_players()
 		try:
@@ -170,7 +170,7 @@ class Recorder:
 			self.lines.append("post 0x%04x 0x%x 0x%x" % (msg, wparam & 0xffffffffffffffff, lparam & 0xffffffffffffffff))
 
 	def advance(self, ms=cr.ADVANCE_MS, ticks=cr.ADVANCE_TICKS):
-		# The line first: a client that ends during the advance (patch-exe) got it too.
+		# The line first: a client that ends during the advance (patch-exe, until issue #75) got it too.
 		self.lines.append("advance %d %d" % (ms, ticks))
 		self.original_advance(ms, ticks)
 
@@ -288,45 +288,8 @@ def session_error(rec, driver, proxy):
 	return error_box(rec, driver)
 
 
-def patch_session(count, exe):
-	def session(rec, driver, proxy):
-		cf.enter_login(driver)
-		for _ in range(60):
-			if cf.logins_done(proxy, count, 2):
-				break
-			rec.settle()
-		else:
-			raise RunError("the client did not finish %d login connections" % count)
-		rec.settle()
-		rec.checkpoint("patched")
-		if not exe:
-			return {"exit": rec.close()}
-		# Until the download's dialog has made way for the message "Updating" (its OK closes the client).
-		for _ in range(15):
-			if not any(n.get("text", "") and n["text"].startswith("Downloading") for n in driver.mem.gui()):
-				break
-			rec.settle()
-		rec.checkpoint("update message")
-		cf.wait_node(driver, "TDialog")
-		driver.char(13)
-		# The client closes once its clock has moved (message 0x48): advance until it has ended.
-		for _ in range(15):
-			time.sleep(1)
-			if driver.proc.poll() is not None:
-				break
-			try:
-				rec.advance()
-			except RunError:
-				if driver.proc.poll() is None:
-					raise
-				break
-		try:
-			driver.proc.wait(30)
-		except subprocess.TimeoutExpired:
-			raise RunError("the client did not close after the Tibia.exe patch")
-		return {"exit": driver.proc.returncode}
-
-	return session
+# patch_session (compare_files.py's patch and patch-exe: the login connections of the patches, the message
+# "Updating" and the client's close) went with the patcher in issue #75.
 
 
 # --- the display modes (issue #48) ----------------------------------------------------------------
@@ -471,15 +434,6 @@ def record_main(args):
 			elif name == "error":
 				reference_run(reference, name, cf.craft_error(events_of(walk)), session_error,
 					comment="compare_files.py's error")
-			elif name == "patch":
-				crafted, expected = cf.craft_patch(events_of(walk))
-				reference_run(reference, name, crafted, patch_session(4, False), comment="compare_files.py's patch")
-			elif name == "patch-exe":
-				with open(os.path.join(ct.run_dir("orig"), "Tibia.exe"), "rb") as f:
-					exe = f.read()
-				crafted, expected = cf.craft_patch_exe(events_of(walk), exe)
-				reference_run(reference, name, crafted, patch_session(1, True), seed={"Tibia.exe": exe},
-					comment="compare_files.py's patch-exe")
 		except Exception as e:  # noqa: BLE001 - every session is tried
 			import traceback
 			traceback.print_exc()

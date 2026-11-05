@@ -30,14 +30,11 @@ Scenarios (--only takes their names):
            that file; Patella.exe does neither (issue #74, the deliberate differences of
            tools/deliberate.py, which the report lists). The sessions error-login and report
            (the error report dialog, packet 0xe8) went with the error report in issue #74.
-  patch    Crafted login server answers (no server): a difference patch of Tibia.dat (all four
-           operations, all count forms, a new signature), a difference patch of Tibia.spr (new
-           signature, one copy of the rest), the whole Tibia.pic (new signature) and the whole
-           Patch.exe; each is installed (Tibia.da_ -> Tibia.dat ...) and the client reconnects.
-           The patched files, Tibia.cfg, and the login packets (with the new signatures).
-  patch-exe  A difference patch of Tibia.exe (written to Tibia.bak; the client then closes to
-           run patch.exe, which is not there). Patella's folder has a copy of the patched
-           Tibia.exe as the patch's input, so both patch the same file.
+
+The sessions patch and patch-exe (crafted login server answers that patched Tibia.dat, Tibia.spr,
+Tibia.pic, Patch.exe and Tibia.exe) went with the built-in patcher in issue #75 (decision D9): the
+fork's clients end the login at a patch packet (tools/deliberate.py), so they write none of those
+files; the golden corpus's Communication test checks that (TestUpdateRequests).
 
 Masked, after two runs of Tibia.exe showed that they differ from run to run (--repeat runs
 Tibia.exe a second time for walk to show it again): the time in Default.txt ("Channel saved
@@ -52,7 +49,6 @@ import hashlib
 import os
 import re
 import shutil
-import struct
 import subprocess
 import sys
 import time
@@ -120,13 +116,13 @@ def snapshot(run):
 
 def prepare(run, seed=None, cfg=None):
 	"""The folder as every scenario starts (compare_traffic.clean_run_dir: emptied, the data files as
-	in the root, the patched client), then Tibia.exe (in Patella's folder the patched Tibia.exe, the
-	input of the Tibia.exe patch, and the x64 client's CPU driver: CPU_DRIVER_FILES), Tibia.cfg
-	(compare_traffic's), the files in seed ({name: bytes}), nothing else."""
+	in the root, the patched client), then (in Patella's folder) the x64 client's CPU driver:
+	CPU_DRIVER_FILES, Tibia.cfg (compare_traffic's), the files in seed ({name: bytes}), nothing else.
+	Until issue #75 Patella's folder also had a copy of the patched Tibia.exe, the input of the Tibia.exe
+	patch (patch-exe)."""
 	path = folder(run)
 	ct.clean_run_dir(run)
 	if ct.client_of(run) == "patella":
-		shutil.copyfile(os.path.join(folder("orig"), "Tibia.exe"), os.path.join(path, "Tibia.exe"))
 		source_dir = os.path.dirname(CLIENTS["patella"]["source"])
 		for name in CPU_DRIVER_FILES:
 			if os.path.isfile(os.path.join(source_dir, name)):
@@ -1023,158 +1019,6 @@ def run_error(run, out, events, name="error"):
 	return replay(run, craft_error(events), os.path.join(out, name, ct.client_of(run)), session)
 
 
-# --- scenarios: patch, patch-exe ---------------------------------------------------------
-
-def patch_command(operation, count):
-	"""A command of a difference patch (src/Script.cpp ApplyPatch): the operation in the top two
-	bits, a count below 61 in the low six; 61, 62, 63 announce a byte, word or quad count."""
-	if count < 61:
-		return bytes([operation | count])
-	if count < 0x100:
-		return bytes([operation | 61, count])
-	if count < 0x10000:
-		return bytes([operation | 62]) + struct.pack("<H", count)
-	return bytes([operation | 63]) + struct.pack("<I", count)
-
-
-COPY, SKIP, INSERT, REPLACE = 0x00, 0x40, 0x80, 0xc0
-
-
-def read_root(name):
-	with open(os.path.join(ROOT, name), "rb") as f:
-		return f.read()
-
-
-def new_signature(data, change):
-	return struct.pack("<I", struct.unpack_from("<I", data, 0)[0] ^ change)
-
-
-def dat_patch(data):
-	"""Every operation and count form; the result is the file with a new signature."""
-	patch = patch_command(REPLACE, 4) + new_signature(data, 0x5a5a0000)
-	patch += patch_command(COPY, 10)                       # 4..13
-	patch += patch_command(COPY, 200)                      # 14..213, byte count
-	patch += patch_command(SKIP, 5) + patch_command(INSERT, 5) + data[214:219]  # the same bytes again
-	patch += patch_command(COPY, 3000)                     # 219..3218, word count
-	patch += patch_command(REPLACE, 8) + data[3219:3227]
-	patch += patch_command(COPY, len(data) - 3227)         # the rest, quad count
-	return patch, new_signature(data, 0x5a5a0000) + data[4:]
-
-
-def spr_patch(data):
-	patch = patch_command(REPLACE, 4) + new_signature(data, 0x00a5a500) + patch_command(COPY, len(data) - 4)
-	return patch, new_signature(data, 0x00a5a500) + data[4:]
-
-
-PATCH_EXE = b"MZ" + b"Patella test data for Patch.exe, not a program\r\n" * 20
-
-
-def exe_patch(data):
-	"""Tibia.exe: eight bytes of the DOS stub replaced."""
-	patch = patch_command(COPY, 0x40) + patch_command(REPLACE, 8) + b"PATELLA!" + patch_command(COPY, len(data) - 0x48)
-	return patch, data[:0x40] + b"PATELLA!" + data[0x48:]
-
-
-def login_packet(template, dat, spr, pic):
-	"""The client's first login packet (as recorded) with the given file signatures."""
-	plain = bytearray(bytes.fromhex(template["plain"]))
-	plain[5:17] = dat[:4] + spr[:4] + pic[:4]
-	event = dict(template)
-	event["plain"] = bytes(plain).hex()
-	return event
-
-
-def transfer(ordinal, t, whole, number, data, block=16000):
-	"""The login server's answer: 0x1e (difference patch) or 0x1f (whole file) with the file number
-	and size, then 0x20 blocks; then the server closes the connection."""
-	events = [s2c("login", ordinal, t, bytes([0x1f if whole else 0x1e, number]) + struct.pack("<I", len(data)))]
-	for start_ in range(0, len(data), block):
-		piece = data[start_:start_ + block]
-		t += 0.05
-		events.append(s2c("login", ordinal, t, b"\x20" + struct.pack("<H", len(piece)) + piece))
-	events.append(close_event("login", ordinal, t + 0.5))
-	return events
-
-
-def craft_patch(events):
-	"""Four login connections: Tibia.dat (difference patch), Tibia.spr (difference patch), Tibia.pic
-	(whole file), Patch.exe (whole file). After the first three the client reconnects with the new
-	signatures. Returns (events, the expected files)."""
-	template = connection(events, "login")[0]
-	dat, spr, pic = (read_root(name) for name in DATA_FILES)
-	dat_data, dat_new = dat_patch(dat)
-	spr_data, spr_new = spr_patch(spr)
-	pic_new = new_signature(pic, 0x0000a55a) + pic[4:]
-	out = []
-	signatures = [dat, spr, pic]
-	for ordinal, (whole, number, data, index, new) in enumerate((
-			(False, 1, dat_data, 0, dat_new), (False, 2, spr_data, 1, spr_new), (True, 3, pic_new, 2, pic_new),
-			(True, 4, PATCH_EXE, None, None)), 1):
-		t = ordinal * 100.0
-		first = login_packet(template, *signatures)
-		first["conn_ordinal"] = ordinal
-		first["t"] = t
-		out.append(first)
-		out += transfer(ordinal, t + 0.3, whole, number, data)
-		if index is not None:
-			signatures[index] = new
-	expected = {"Tibia.dat": dat_new, "Tibia.spr": spr_new, "Tibia.pic": pic_new, "Patch.exe": PATCH_EXE}
-	return out, expected
-
-
-def craft_patch_exe(events, exe):
-	template = connection(events, "login")[0]
-	data, expected = exe_patch(exe)
-	first = dict(template)
-	return [first] + transfer(1, first["t"] + 0.3, False, 0, data), {"Tibia.bak": expected}
-
-
-def logins_done(proxy, count, timeout):
-	deadline = time.time() + timeout
-	while time.time() < deadline:
-		closed = [e for e in proxy.events if e["kind"] == "login" and e["dir"] == "close"]
-		if len(closed) >= count:
-			return True
-		time.sleep(0.2)
-	return False
-
-
-def run_patch(run, out, events, name="patch"):
-	if name == "patch":
-		crafted, expected = craft_patch(events)
-		connections = 4
-	else:
-		with open(os.path.join(folder("orig"), "Tibia.exe"), "rb") as f:
-			crafted, expected = craft_patch_exe(events, f.read())
-		connections = 1
-	def session(driver, wait, proxy):
-		enter_login(driver)
-		if not logins_done(proxy, connections, 180):
-			raise RunError("the client did not finish %d login connections" % connections)
-		time.sleep(3)
-		if name == "patch":
-			close(driver)
-			return {"exit": 0}
-		# Tibia.exe: the message "Updating" ("Program will now shut down and run an external patching
-		# program..."); its OK closes the client (message 0x48), which then runs patch.exe (not there)
-		wait_node(driver, "TDialog")
-		driver.char(13)
-		try:
-			driver.proc.wait(30)
-		except subprocess.TimeoutExpired:
-			raise RunError("the client did not close after the Tibia.exe patch")
-		code = driver.proc.returncode
-		log("the client exited with code %d" % code)
-		if driver.mem is not None:
-			driver.mem.close()
-			driver.mem = None
-		return {"exit": code}
-
-	result = replay(run, crafted, os.path.join(out, name, ct.client_of(run)), session)
-	result["expected"] = expected
-	return result
-
-
 # --- comparison --------------------------------------------------------------------------
 
 # ctime's text as MSVC 7.1's CRT writes it: the day with two digits (src/compat/crt71.h)
@@ -1276,7 +1120,7 @@ def compare_packets(say, results):
 
 # --- main ----------------------------------------------------------------------------------
 
-SCENARIOS = ["options", "walk", "error", "patch", "patch-exe"]
+SCENARIOS = ["options", "walk", "error"]  # patch and patch-exe went with the patcher (issue #75)
 REPEATED = {"walk"}  # the scenarios with masked files: Tibia.exe runs twice with --repeat
 
 
@@ -1367,10 +1211,8 @@ def main():
 					result = live
 				elif name == "walk":
 					result = run_walk(run, target, events, keys, WALKS[walk_name])
-				elif name == "error":
-					result = run_error(run, target, events, name)
 				else:
-					result = run_patch(run, target, events, name)
+					result = run_error(run, target, events, name)
 				results[name][run] = result
 			except Exception as e:  # noqa: BLE001 - one failed run must not stop the others
 				traceback.print_exc()
@@ -1406,14 +1248,6 @@ def main():
 				say("    %s: %r / %r %s" % (key, r["orig"].get(key), r["patella"].get(key), "as expected" if same and
 					expected != r["orig"].get(key) else "identical" if same else "DIFFERENT"))
 				failed |= not same
-		if "expected" in r["orig"]:
-			for client in ("orig", "patella"):
-				for file, data in r[client]["expected"].items():
-					got = r[client]["written"].get(file)
-					ok = got == data
-					say("    %s %s: %s" % (CLIENTS[client]["exe"], file, "as expected (%d bytes)" % len(data) if ok else
-						"NOT as expected (%s)" % ("missing" if got is None else "%d bytes" % len(got))))
-					failed |= not ok
 		if "events" in r["orig"]:
 			failed |= compare_packets(say, r)
 	say()
