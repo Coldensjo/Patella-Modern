@@ -4,10 +4,11 @@
 #	clang-format --dry-run --Werror <files>
 # src/Extern keeps its own style (.clang-format-ignore).
 #
-# The arguments of TASSERT*, TERROR* and TEND* are stringized into the exception messages that
-# error.txt records and difftest compares (notes/modernization-plan.md, 4.2): clang-format leaves
-# them exactly as written (WhitespaceSensitiveMacros). The list names every such macro of src/,
-# the local ones of single files included; a new one is added here.
+# The arguments of TASSERT*, TERROR* and TEND* are stringized into the exception messages:
+# clang-format leaves them exactly as written (WhitespaceSensitiveMacros). The list names every such
+# macro of src/, the local ones of single files included; a new one is added here. Until issue #76
+# (November 5, 2026) difftest compared those messages (notes/modernization-plan.md, 4.2, retired);
+# the list stays, so that a reformat does not change the client's messages by the way.
 Language: Cpp
 BasedOnStyle: LLVM
 Standard: Latest

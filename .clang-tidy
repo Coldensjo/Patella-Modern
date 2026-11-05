@@ -1,8 +1,8 @@
 # The clang-tidy configuration of src/ (issue #8; notes/modernization-plan.md, sections 4.1, 4.2 and
-# 8). Run it through tools/tidy.py, never with clang-tidy --fix directly: until M5 no fix may touch
-# the arguments of TASSERT*, TERROR* or TEND*, which are stringized into the exception messages that
-# error.txt records and difftest compares. tools/tidy.py reports the findings inside those arguments
-# apart and reverts every fix inside them.
+# 8). Run it through tools/tidy.py (the findings baseline, --zero, --headers). Until issue #76
+# (November 5, 2026) no fix could touch the arguments of TASSERT*, TERROR* or TEND*, which are
+# stringized into the exception messages difftest compared, and tools/tidy.py kept them apart; the
+# error paths are compared by outcome since, and the rule is retired (notes/modernization-plan.md, 4.2).
 #
 # The checks follow the coding standard of plan section 8: owning raw pointers and new/delete
 # (cppcoreguidelines-owning-memory, -no-malloc), C string and formatting functions

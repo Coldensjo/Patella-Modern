@@ -354,6 +354,19 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #76 (branch issue-76, November 5, 2026): the error paths compared by outcome only (thrown or not,
+and the kind) in difftest, communicationtest and the golden corpus; the line-pair checks are gone, the corpus records
+no exception texts (format 2, recorded again); plan 4.2's stringized-expression rule, macrocheck and tools/tidy.py's
+guard of the TASSERT/TERROR/TEND arguments retired. notes/decisions.md, "The error paths compared by outcome only".
+No src/ change. `python -I tools/build.py oracle-x86`: difftest 16,599,178 to 16,471,911 (-127,267 line-pair checks),
+communicationtest 1,114,552 to 1,044,013 (-70,539), sysinctest 67, vlongtest 3,201, 0 failures, CTest 4/4; the
+exceptions compared unchanged in every test. golden 16,001,985 replayed + 1,514,006 retired = 17,515,991, 0 failures
+(windows-x64, -debug, -asan, 14/14 each, golden_concurrent passes, no ASan finding); windows-x64-gcc and the Linux
+presets 11/11, 0 warnings. Mutations (reverted): GUI.cpp's SetSize and Utils.cpp's LowerString assertions with another
+text and line pass both; LowerString not throwing fails both (1 failure each). pecompare (x64 Patella.exe, main and the
+branch at the same path): link stamps only. tidy_ci: 20 findings (the 16 use-nullptr ones of Utils.cpp's assertions
+now count; baseline rewritten), 0 new, 0 bugprone. banned_calls: 0. clang-format: clean. Logs: build\logs\issue-76.
+
 Patella-Modern issue #56 (branch issue-56b, from issue-56, November 5, 2026, not merged): the owner's decision is
 a second interactive session for the live checks (notes/reconstruction.md, "Checking", "The live checks in a second
 session"); every live tool runs on the desktop of the session that starts it, as on main, and tools/desktop.py's
@@ -856,13 +869,15 @@ no total. Full build.cmd, November 2, 2026).
   the original (e.g. opening a missing file) unless the test enables the image's exceptions (next note).
 - Error paths (issue #22): tools/difftest/imageeh.cpp makes the image's exceptions work in the child
   (EnableImageExceptions ... DisableImageExceptions around the calls); ImageThrow([&] { ... }) and
-  OurThrow([&] { ... }) return what escaped as a TThrown, errortest.cpp's Compare compares two of them (line
-  numbers exactly since issue #35; mapped before, see notes/decisions.md "Error paths (issue #22)"). With it the image's stringstream works
+  OurThrow([&] { ... }) return what escaped as a TThrown, errortest.cpp's Compare compares two of them (by their
+  outcome since Patella-Modern issue #76: thrown or not, and the kind; until then the messages, with the line
+  numbers exactly since issue #35, mapped before, see notes/decisions.md "Error paths (issue #22)"). With it the image's stringstream works
   (TMyException messages, error.txt); its ofstream needs errortest.cpp's VC7.1 FILE fakes. A fake of a
   function the original compiled as noreturn (FatalError) must not return. An unbound import the image calls
   while it is enabled is named in a "crash:" line. DIFFTEST_ONLY=Errors runs errortest.cpp alone (ER_TRACE=1,
-  ER_LINES=1, ER_SEED=<n>, ER_WATCHDOG=<seconds> prints where a hung run is).
-- Original line numbers (issue #35): every TASSERT*/TERROR*/TEND*/TMYEXCEPTION site (and the file-local
+  ER_SEED=<n>, ER_WATCHDOG=<seconds> prints where a hung run is; ER_LINES=1 went with issue #76).
+- Original line numbers (issue #35; since Patella-Modern issue #76 no comparison reads them, and M5's issues may
+  change them): every TASSERT*/TERROR*/TEND*/TMYEXCEPTION site (and the file-local
   TASSERTB*, TASSERT*_BUG, TERROR1B) takes the original's line as its first argument: TASSERT(66, s!=NULL),
   TEND(1280), TEND1(1280, Type). A new site gets the line the binary pushes for it: `python -I tools/lines.py
   binary` lists every unit (file, line, strings, function addresses; a TEND's two catch blocks are one unit);

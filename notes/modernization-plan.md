@@ -140,6 +140,11 @@ assertions contain `NULL` (more contain casts or macros). **Until M5, no rewrite
 `TASSERT*`, `TERROR*` or `TEND*`.** The clang-tidy wrapper reverts hunks inside those macros; `lines.py` and
 difftest catch the rest.
 
+Retired on November 5, 2026 (issue #76, notes/decisions.md): difftest and the golden corpus compare the error
+paths by outcome only (M5 below), the corpus records no exception texts, and tools/tidy.py keeps no macro
+arguments apart any more; macrocheck (an uncommitted helper of issue #8) is retired with the rule. `lines.py`
+went with issue #74.
+
 ### 4.3 The golden corpus (by M6)
 
 Turn difftest's knowledge into data that needs neither Tibia.exe nor x86:
@@ -529,6 +534,9 @@ mechanism, so the trace has no reader left and the macros can simply go.
   that does not resolve) return `std::expected<T, TError>`.
 - difftest (until M6) and the golden corpus compare the error paths by outcome only from here on: both
   sides throw, or neither does. The texts and line numbers are no longer compared.
+  Done in issue #76 (notes/decisions.md): one check per compared call, the kind kept (TMyException, a
+  PROGRAM_ERROR's value, another type by name); the line-pair checks are gone (127,267 of difftest's,
+  70,539 of communicationtest's), and the corpus records the outcome only (format 2).
 - Order: remove the reporting first (one pull request, tier A change recorded), then the macros file by file
   (mechanical), then the assertions.
 

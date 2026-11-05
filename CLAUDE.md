@@ -76,9 +76,12 @@ src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings
 tests/golden/*.cpp tests/golden/*.h`.
 The Microsoft CRT's and compiler's own spellings (`_snprintf`, `_stricmp`, `__cdecl`, `#pragma warning`...) go
 through `src/compat/msvc.h` and `msvc_io.h` (issue #43), which keep their semantics on every platform.
-Run clang-tidy only through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>`,
-never `clang-tidy --fix` directly: until M5 no change may touch the arguments of TASSERT*, TERROR* or TEND*
-(stringized into the messages difftest compares), and the wrapper reverts every fix inside them. `--headers` runs
+Run clang-tidy through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>` (the
+baseline, `--zero` and `--headers` are its). Retired on November 5, 2026 (issue #76): the stringized-expression rule
+(plan 4.2: no change to the arguments of TASSERT*, TERROR* or TEND*), macrocheck, and tidy.py's guard that reverted
+fixes inside those arguments. difftest and the golden corpus compare the error paths by outcome only (thrown or not,
+and the kind: TMyException, a PROGRAM_ERROR's value, another type), so a change of an assertion's text or line fails
+neither, and a change of whether a call throws still does. `--headers` runs
 misc-include-cleaner on each header of the build's header checks as its own main file (issue #49); an include kept
 for the images or that include-cleaner cannot see used says `// IWYU pragma: keep` with the reason. The product
 targets' compiler, warning and hardening settings are `cmake/Warnings.cmake` and `cmake/Hardening.cmake`;
