@@ -746,6 +746,16 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     check of MSVC's Debug library (a std::array index out of range) reports to stderr and ends it with exit code 3,
     without a message box (issue #60); without a corpus it says so and exits 77, which
     CTest reports as skipped (hosted CI); `-DPATELLA_GOLDEN_REQUIRE=ON` (the self-hosted job) makes that a failure.
+  - Temporary files (issue #66): each run has a folder of its own, `%TEMP%\golden-run-<process id>-<n>` (runner.cpp's
+    TRunFolder), which is its TEMP, TMP and current directory while the tests run and is removed at the end (also
+    after a test's exit(1)); every file the tests and the code under test write goes there (the data files of
+    golden::DataFile, ConsoleWindow's saved channel, Errors' scripts, Preferences' Tibia.cfg, the map and script
+    files). So runners of one build or of several worktrees can run at once: the CTest test `golden_concurrent`
+    (tests/golden/concurrent.py) starts two over the same corpus and passes when both pass and neither leaves its
+    folder; skipped without a corpus as `golden`. The recording side likewise: golden_corpus runs each test program
+    through cmake/RunGoldenRecord.cmake, in `build\oracle-x86\tmp\golden-<test>-<time>-<random>` (its TEMP, TMP and
+    current directory), removed afterwards. Not cleaned: the fixed folders that runners before #66 left in %TEMP%
+    (errortest, consolewindow, golden-data, tibia-difftest-cfg...), which no run uses any more.
   - Staleness: every file carries the format version (golden::GOLDEN_FORMAT) and the SHA-256 of the Tibia.exe it
     was recorded from, which must be the 7.72 client's; every value carries its name and role, and the
     runner checks each against what the test asks for, each input against the one it generated, and the test's

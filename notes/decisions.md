@@ -7546,8 +7546,8 @@ earlier helpers.
     and GUI.cpp's and graphics.cpp's classes, and they run after the Graphics, GUI and window tests (#28, #29),
     whose redirects stay (MainWindow's after MapWindow's).
 - **Tibia.dat in the corpus** (high). golden::DataFile: the oracle records whether the file exists next to Tibia.exe
-  and its contents (176 KB, once per test that loads it); the runner writes them to %TEMP%\golden-data and loads that
-  copy. So the runner needs no data files, now and after M6, and a corpus is never replayed against another
+  and its contents (176 KB, once per test that loads it); the runner writes them to %TEMP%\golden-data (since issue #66 its
+  run's own folder) and loads that copy. So the runner needs no data files, now and after M6, and a corpus is never replayed against another
   Tibia.dat. The corpus is derived from CipSoft's files already: local only (build/ is ignored), never committed,
   pushed or uploaded. Considered: the runner looking for Tibia.dat (a cache variable, the source tree as the oracle
   does): one more local input to keep in step with the recording.
@@ -9134,3 +9134,40 @@ Two parameters stay, and why is given below.
   (`oracle-x86 --fresh`, and again recording the branch's corpus); golden_runner 16,461,713 replayed, 1,521,619
   retired, 0 not ported, 0 failures in windows-x64 and windows-x64-debug. tools/patch_client.py and
   tools/client_state.py read nothing this changes (no structure, global or code pattern they use).
+
+## Each golden run in a temporary folder of its own (Patella-Modern issue #66)
+
+Settled by Claude Opus 5.5, November 5, 2026. Found in #26: golden runners of different worktrees shared the user's
+TEMP (ConsoleWindow's SaveChannel file in %TEMP%\consolewindow, Errors' scripts in %TEMP%\errortest, the data files in
+%TEMP%\golden-data, Preferences' %TEMP%\tibia-difftest-cfg, the map, objects and script folders); two at once gave
+748 failures in SaveChannel, alone 0.
+
+- **The runner's run folder** (high). tests/golden/runner.cpp's TRunFolder: once the corpus is found, the runner
+  creates `golden-run-<process id>-<n>` below the TEMP it was started with (the first n whose folder does not exist
+  yet), sets TEMP and TMP to it with _putenv_s (the C runtime's copy and the process environment: getenv,
+  GetTempPathA, std::filesystem::temp_directory_path and tmpfile all see it) and makes it the current directory. At
+  the end (the static object's destructor: a return from main and the tests' exit(1) alike) the previous directory
+  again and the folder removed with remove_all; a failure to remove it is printed to stderr. A relative corpus path
+  is made absolute before the change of directory. Not removed: a run ended by _exit (the Debug library's check,
+  exit code 3) or a crash; the next run takes another name. No src/ change and no test change: every path the tests
+  and the code under test write is below TEMP, GetTempPath or the current directory, so the redirect reaches all of
+  them, and the recorded values hold no TEMP path (Errors' replaces its folder with "%TEMP%\errortest"; the recording's
+  TEMP was build\oracle-x86\tmp\golden-difftest already, not the runner's). Considered: changing each test's folder
+  name (seven files, each with its own spelling, and a new writer would have to remember it); a folder per test
+  (the tests share TEMP across a run in the oracle too).
+- **The recording side** (high). golden_corpus ran each test program with TEMP and TMP set to a fixed
+  build\oracle-x86\tmp\golden-<test>, never cleaned (Errors' written.bin and written.txt stayed). Now each runs
+  through cmake/RunGoldenRecord.cmake: `golden-<test>-<time with microseconds>-<6 random hex digits>` below
+  build\oracle-x86\tmp, the program's TEMP, TMP and working directory, removed afterwards; the program's exit code is
+  the script's. The oracle's CTest tests keep their fixed folders (build\oracle-x86\tmp\<test>, oracle_test_environment):
+  each build tree has its own, and one CTest run starts each test once. Recording twice at once in one build tree stays
+  unsupported: both write the one corpus.
+- **The proof as a test** (high). CTest test `golden_concurrent` (tests/golden/concurrent.py, the windows-x64 presets'
+  Python): two golden_runner processes over the same corpus started together, their output in
+  golden-concurrent-1.log and -2.log next to the runner; it passes when both exit 0 and neither's
+  `golden-run-<pid>-*` is left below TEMP; 77 (skipped) when both have no corpus, as `golden` (hosted CI). It runs as
+  long as one golden run (both run at once) and in CTest next to `golden`, a third runner at once, which is what it
+  tests. windows-x64, -debug and -asan(-debug) have 14 CTest tests now; windows-x64-gcc and Linux build no runner.
+- **Not done** (found). The fixed folders that runners before #66 left in %TEMP% (errortest, consolewindow,
+  golden-data, tibia-difftest-cfg, ...) are not removed by anything: no run uses them any more; deleting them is the
+  user's.
