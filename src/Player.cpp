@@ -247,9 +247,7 @@ BOOL CPlayerApp::InitInstance()
 			}
 
 			CMainFrame *MainFrame;
-			TBEGIN
 			MainFrame = new CMainFrame(Gamemaster);
-			TEND(255)
 			TFixedString<56> Title;
 			GetWindowTitle(Title);
 			if (!MainFrame->Create(nullptr, Title, WS_OVERLAPPEDWINDOW, CFrameWnd::rectDefault, nullptr, nullptr, 0, nullptr)) {
@@ -277,9 +275,7 @@ BOOL CPlayerApp::InitInstance()
 					return FALSE;
 				}
 			}
-			TBEGIN
 			Redraw(false);
-			TEND(296)
 			SendMessageA(MainFrame->m_hWnd, WM_SETICON, ICON_BIG,
 				reinterpret_cast<LPARAM>(::LoadIconA(AfxGetResourceHandle(), MAKEINTRESOURCEA(128))));
 			m_pMainWnd = MainFrame;
@@ -349,7 +345,6 @@ int CPlayerApp::Run()
 BOOL CPlayerApp::OnIdle(LONG lCount)
 {
 	PATELLA_TEST_IDLE
-	TBEGIN
 	CWinApp::OnIdle(lCount);
 	POINT Point;
 	PATELLA_GET_CURSOR_POS(&Point);
@@ -367,7 +362,6 @@ BOOL CPlayerApp::OnIdle(LONG lCount)
 	}
 	ProcessEvents();
 	return TRUE;
-	TEND(456)
 }
 
 #if defined(PATELLA_TEST_MODE)

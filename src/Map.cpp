@@ -4,6 +4,10 @@
 // Functions in source order (assertion and catch lines). The functions of the
 // MainWindow/Map gap (0x4b08a0-0x4b0b10: the map position and the ambient
 // light) have no line evidence and come first, where the binary has them.
+//
+// The try blocks and catch lines the comments name are the original's (its
+// TBEGIN/TEND); since issue #78 the functions here have none.
+//
 // Container.h instances of this object: array<TMapPoint> (0x4b0bc0, 0x4b5900),
 // matrix3d<int> (0x4b0d70, 0x4b5b40), matrix<TPathNode> (0x4b1100, 0x4b5e90,
 // 0x4b0b20); vector<TMark> is used through the copies kept from an earlier
@@ -221,7 +225,6 @@ TObject GetTopMoveObject(int rx, int ry, int rz, int &Position)
 	TASSERTB1(213, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(214, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(215, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TBEGIN
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
@@ -234,7 +237,6 @@ TObject GetTopMoveObject(int rx, int ry, int rz, int &Position)
 	if (Position > 0 && GetObjectFlag(Point.Objects[Position].Type, UNMOVE))
 		Position--;
 	return Point.Objects[Position];
-	TEND1(228, Position)
 }
 
 // 0x4b6ee0, lines 237-250. The lowest object that is no ground, border,
@@ -244,7 +246,6 @@ TObject GetTopLookObject(int rx, int ry, int rz, int &Position)
 	TASSERTB1(237, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(238, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(239, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TBEGIN
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
@@ -255,7 +256,6 @@ TObject GetTopLookObject(int rx, int ry, int rz, int &Position)
 		Position++;
 	}
 	return Point.Objects[Position];
-	TEND1(250, Position)
 }
 
 // 0x4b73a0, lines 259-275. The first object with FORCEUSE, else the lowest
@@ -266,7 +266,6 @@ TObject GetTopUseObject(int rx, int ry, int rz, int &Position)
 	TASSERTB1(259, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(260, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(261, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TBEGIN
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
@@ -282,7 +281,6 @@ TObject GetTopUseObject(int rx, int ry, int rz, int &Position)
 		&& (Point.Objects[Position].Type == CREATURE || GetObjectFlag(Point.Objects[Position].Type, LIQUIDPOOL)))
 		Position--;
 	return Point.Objects[Position];
-	TEND1(275, Position)
 }
 
 // 0x4b78d0, lines 284-299. Like GetTopUseObject, but creatures count and only
@@ -292,7 +290,6 @@ TObject GetTopMultiUseObject(int rx, int ry, int rz, int &Position)
 	TASSERTB1(284, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(285, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(286, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TBEGIN
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
@@ -307,7 +304,6 @@ TObject GetTopMultiUseObject(int rx, int ry, int rz, int &Position)
 	if (Position > 0 && GetObjectFlag(Point.Objects[Position].Type, LIQUIDPOOL))
 		Position--;
 	return Point.Objects[Position];
-	TEND1(299, Position)
 }
 
 namespace {
@@ -320,7 +316,6 @@ void SortObjects(int rx, int ry, int rz)
 	TASSERTB1(314, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(315, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(316, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TBEGIN
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	int n = 0;
 	for (int i = 0; i < Point.ObjectCount; i++) {
@@ -342,7 +337,6 @@ void SortObjects(int rx, int ry, int rz)
 	}
 	if (Hanging != nullptr && Hook != nullptr)
 		Hanging->Data2 = GetObjectFlag(Hook->Type, HOOKSOUTH) ? HOOKSOUTH : HOOKEAST;
-	TEND(341)
 }
 
 // 0x4b8310, lines 351-366. Inserts an object at a stack position; on a full
@@ -356,7 +350,6 @@ void InsertObject(int rx, int ry, int rz, int Position, TObject Obj)
 	TASSERT1(355, In(Position,0,OBJECTS_PER_POINT-1), Position);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	TASSERT1(357, Position<=Point.ObjectCount, Position);
-	TBEGIN
 	int i = Point.ObjectCount;
 	if (i > OBJECTS_PER_POINT - 1)
 		i = OBJECTS_PER_POINT - 1;
@@ -366,7 +359,6 @@ void InsertObject(int rx, int ry, int rz, int Position, TObject Obj)
 	if (Point.ObjectCount < OBJECTS_PER_POINT)
 		Point.ObjectCount++;
 	SortObjects(rx, ry, rz);
-	TEND1(366, Position)
 }
 
 } // namespace
@@ -380,7 +372,6 @@ void AddObject(int rx, int ry, int rz, TObject Obj)
 	TASSERTB1(376, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(377, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(378, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TBEGIN
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	int Position;
 	for (Position = 0; Position < Point.ObjectCount; Position++) {
@@ -405,7 +396,6 @@ void AddObject(int rx, int ry, int rz, TObject Obj)
 	}
 	if (Position < OBJECTS_PER_POINT)
 		InsertObject(rx, ry, rz, Position, Obj);
-	TEND(401)
 }
 
 // 0x4b8ec0, lines 410-431. Puts an object on top of the stack.
@@ -414,7 +404,6 @@ void AppendObject(int rx, int ry, int rz, TObject Obj)
 	TASSERTB1(410, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(411, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(412, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TBEGIN
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	if (!In(Point.ObjectCount, 0, OBJECTS_PER_POINT - 1)) {
 		std::stringstream s;
@@ -422,7 +411,6 @@ void AppendObject(int rx, int ry, int rz, TObject Obj)
 		throw TMYEXCEPTION(426, "too many objects on map point", "", 0, "", 0, s.str());
 	}
 	InsertObject(rx, ry, rz, Point.ObjectCount, Obj);
-	TEND(431)
 }
 
 // 0x4b9420, lines 441-454. True when the point was full, so that the objects
@@ -432,7 +420,6 @@ bool DeleteObject(int rx, int ry, int rz, int Position)
 	TASSERTB1(441, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(442, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(443, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TBEGIN
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	TASSERT1(447, In(Position,0,Point.ObjectCount-1), Position);
 	for (; Position < Point.ObjectCount - 1; Position++)
@@ -440,7 +427,6 @@ bool DeleteObject(int rx, int ry, int rz, int Position)
 	Point.ObjectCount--;
 	SortObjects(rx, ry, rz);
 	return Point.ObjectCount == OBJECTS_PER_POINT - 1;
-	TEND1(454, Position)
 }
 
 // 0x4b9940, lines 463-473
@@ -449,12 +435,10 @@ void ChangeObject(int rx, int ry, int rz, int Position, TObject Obj)
 	TASSERTB1(463, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(464, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(465, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TBEGIN
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	TASSERT1(469, In(Position,0,Point.ObjectCount-1), Position);
 	Point.Objects[Position] = Obj;
 	SortObjects(rx, ry, rz);
-	TEND1(473, Position)
 }
 
 // --- Effects -----------------------------------------------------------------
@@ -465,7 +449,6 @@ namespace {
 // the last.
 int GetEffectIteratorNumber(int n)
 {
-	TBEGIN
 	int EffectNumber = Fields(EffectIteratorField).EffectNumber;
 	TASSERTB2(508, In(EffectNumber,-1,EFFECTS-1), EffectNumber, EffectIteratorField, "[bug0000913]");
 	while (EffectNumber != -1 && n != 0) {
@@ -473,7 +456,6 @@ int GetEffectIteratorNumber(int n)
 		n--;
 	}
 	return EffectNumber;
-	TEND1(516, n)
 }
 
 } // namespace
@@ -484,20 +466,16 @@ int GetFirstEffect(int rx, int ry, int rz)
 	TASSERTB1(524, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
 	TASSERTB1(525, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
 	TASSERTB1(526, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TBEGIN
 	EffectIteratorField = FieldNumber(rx, ry, rz);
 	EffectIteratorCount = 0;
 	return GetEffectIteratorNumber(0);
-	TEND2(534, rx, ry)
 }
 
 // 0x4ba540, line 548
 int GetNextEffect()
 {
-	TBEGIN
 	EffectIteratorCount++;
 	return GetEffectIteratorNumber(EffectIteratorCount);
-	TEND1(548, EffectIteratorCount)
 }
 
 // 0x4b1440, line 556. Like the getters below, without a try block.
@@ -587,7 +565,6 @@ namespace {
 // it first on the point; coordinates off the map mean point 0,0,0.
 int NewEffect(int Status, int rx, int ry, int rz)
 {
-	TBEGIN
 	int Number = -1;
 	for (int i = 0; i < EFFECTS; i++) {
 		if (Effects[i].Status == 0) {
@@ -615,7 +592,6 @@ int NewEffect(int Status, int rx, int ry, int rz)
 	}
 	Point.EffectNumber = Number;
 	return Number;
-	TEND1(688, Status)
 }
 
 } // namespace
@@ -623,13 +599,11 @@ int NewEffect(int Status, int rx, int ry, int rz)
 // 0x4bab40, line 703
 void AddGraphicalEffect(int rx, int ry, int rz, int Type)
 {
-	TBEGIN
 	const int Number = NewEffect(1, rx, ry, rz);
 	if (Number != -1) {
 		Effects[Number].Type = Type;
 		Effects[Number].Phase = 1;
 	}
-	TEND1(703, Type)
 }
 
 // 0x4bad00, lines 712-721
@@ -637,14 +611,12 @@ void AddTextualEffect(int rx, int ry, int rz, int Color, const char *Text)
 {
 	TASSERT(712, Text!=NULL);
 	TASSERT1(713, strlen(Text)<10, strlen(Text));
-	TBEGIN
 	const int Number = NewEffect(2, rx, ry, rz);
 	if (Number != -1) {
 		Effects[Number].Type = Color;
 		Effects[Number].Text.Assign(Text);
 		Effects[Number].TextPhase = 0;
 	}
-	TEND(721)
 }
 
 // 0x4bb0c0, lines 730-768. Only missiles on the centre's floor are shown.
@@ -654,7 +626,6 @@ void AddTextualEffect(int rx, int ry, int rz, int Color, const char *Text)
 void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type)
 {
 	TASSERT1(730, Type>0, Type);
-	TBEGIN
 	if (sz != GetMapLevel())
 		return;
 	if (dz != GetMapLevel())
@@ -703,7 +674,6 @@ void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type)
 	Effect.DestZ = dz;
 	Effect.x = sx;
 	Effect.y = sy;
-	TEND1(768, Type)
 }
 
 namespace {
@@ -736,7 +706,6 @@ void DeleteEffect(int Number)
 void ProcessEffects()
 {
 	int i = 0;
-	TBEGIN
 	for (i = 0; i < EFFECTS; i++) {
 		TEffect &Effect = Effects[i];
 		switch (Effect.Status) {
@@ -753,7 +722,6 @@ void ProcessEffects()
 			break;
 		}
 	}
-	TEND1(817, i)
 }
 
 // 0x4bbd40, lines 841-878. Moves the missiles toward their destinations and
@@ -762,7 +730,6 @@ void ProcessEffects()
 void ProcessMissileEffects()
 {
 	int i = 0;
-	TBEGIN
 	const int Now = GetMilliseconds();
 	for (i = 0; i < EFFECTS; i++) {
 		TEffect &Effect = Effects[i];
@@ -821,7 +788,6 @@ void ProcessMissileEffects()
 			DeleteEffect(i);
 		}
 	}
-	TEND1(878, i)
 }
 
 // --- Map points ----------------------------------------------------------------
@@ -835,7 +801,6 @@ void ClearField(int rx, int ry, int rz, bool DeleteEffects)
 	TASSERTB1(892, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000913]");
 	TASSERTB1(893, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000913]");
 	int i = 0;
-	TBEGIN
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	for (i = 0; i < Point.ObjectCount; i++) {
 		if (Point.Objects[i].Type == CREATURE)
@@ -850,7 +815,6 @@ void ClearField(int rx, int ry, int rz, bool DeleteEffects)
 			DeleteEffect(Point.EffectNumber);
 		}
 	}
-	TEND1(913, i)
 }
 
 // 0x4bccb0. Empties every point and deletes every effect; no try block.
@@ -872,7 +836,6 @@ namespace {
 // this and the five functions below at their loops (0x4bcd50 ...).
 void ShiftMapWest()
 {
-	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
 		for (int y = 0; y < MAPSIZE_Y; y++) {
 			const int Help = FieldNumber(0, y, z);
@@ -882,13 +845,11 @@ void ShiftMapWest()
 			ClearField(MAPSIZE_X - 1, y, z, true);
 		}
 	}
-	TEND(945)
 }
 
 // 0x4bcf30, line 964
 void ShiftMapEast()
 {
-	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
 		for (int y = 0; y < MAPSIZE_Y; y++) {
 			const int Help = FieldNumber(MAPSIZE_X - 1, y, z);
@@ -898,13 +859,11 @@ void ShiftMapEast()
 			ClearField(0, y, z, true);
 		}
 	}
-	TEND(964)
 }
 
 // 0x4bd140, line 983
 void ShiftMapNorth()
 {
-	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
 		for (int x = 0; x < MAPSIZE_X; x++) {
 			const int Help = FieldNumber(x, 0, z);
@@ -914,13 +873,11 @@ void ShiftMapNorth()
 			ClearField(x, MAPSIZE_Y - 1, z, true);
 		}
 	}
-	TEND(983)
 }
 
 // 0x4bd350, line 1002
 void ShiftMapSouth()
 {
-	TBEGIN
 	for (int z = 0; z < MAPSIZE_Z; z++) {
 		for (int x = 0; x < MAPSIZE_X; x++) {
 			const int Help = FieldNumber(x, MAPSIZE_Y - 1, z);
@@ -930,7 +887,6 @@ void ShiftMapSouth()
 			ClearField(x, 0, z, true);
 		}
 	}
-	TEND(1002)
 }
 
 } // namespace
@@ -941,7 +897,6 @@ void ShiftMap(int dx, int dy)
 {
 	MapX -= dx;
 	MapY -= dy;
-	TBEGIN
 	for (; dx > 0; dx--)
 		ShiftMapEast();
 	for (; dx < 0; dx++)
@@ -950,7 +905,6 @@ void ShiftMap(int dx, int dy)
 		ShiftMapSouth();
 	for (; dy < 0; dy++)
 		ShiftMapNorth();
-	TEND2(1018, dx, dy)
 }
 
 namespace {
@@ -958,7 +912,6 @@ namespace {
 // 0x4bd750, line 1037. The points move one level up; level 0 is cleared.
 void ShiftMapUp()
 {
-	TBEGIN
 	for (int x = 0; x < MAPSIZE_X; x++) {
 		for (int y = 0; y < MAPSIZE_Y; y++) {
 			const int Help = FieldNumber(x, y, MAPSIZE_Z - 1);
@@ -968,13 +921,11 @@ void ShiftMapUp()
 			ClearField(x, y, 0, true);
 		}
 	}
-	TEND(1037)
 }
 
 // 0x4bd960, line 1056
 void ShiftMapDown()
 {
-	TBEGIN
 	for (int x = 0; x < MAPSIZE_X; x++) {
 		for (int y = 0; y < MAPSIZE_Y; y++) {
 			const int Help = FieldNumber(x, y, 0);
@@ -984,7 +935,6 @@ void ShiftMapDown()
 			ClearField(x, y, MAPSIZE_Z - 1, true);
 		}
 	}
-	TEND(1056)
 }
 
 } // namespace
@@ -993,7 +943,6 @@ void ShiftMapDown()
 // (the binary decides this on dz before the loops count it down).
 void ShiftMapLevel(int dz)
 {
-	TBEGIN
 	const bool Up = dz > 0;
 	for (; dz > 0; dz--)
 		ShiftMapUp();
@@ -1005,21 +954,17 @@ void ShiftMapLevel(int dz)
 				for (int y = 0; y < MAPSIZE_Y; y++)
 					ClearField(x, y, z, true);
 	}
-	TEND1(1074, dz)
 }
 
 // 0x4bdd70, line 1085
 void RequestFieldRefresh(int rx, int ry, int rz)
 {
-	TBEGIN
 	Fields(FieldNumber(rx, ry, rz)).RefreshRequested = true;
-	TEND2(1085, rx, ry)
 }
 
 // 0x4bdf30, line 1104. The number of objects with HEIGHT.
 int GetFieldHeight(int rx, int ry, int rz)
 {
-	TBEGIN
 	int Height = 0;
 	TObject Obj = GetFirstObject(rx, ry, rz);
 	while (Obj.Type != 0) {
@@ -1028,7 +973,6 @@ int GetFieldHeight(int rx, int ry, int rz)
 		Obj = GetNextObject();
 	}
 	return Height;
-	TEND2(1104, rx, ry)
 }
 
 // 0x4be130, line 1127. False if an object blocks the point. With CheckHeight,
@@ -1036,7 +980,6 @@ int GetFieldHeight(int rx, int ry, int rz)
 // point while the centre stands on such a pile, is passable.
 bool IsFieldPassable(int rx, int ry, int rz, bool CheckHeight)
 {
-	TBEGIN
 	if (CheckHeight) {
 		if (rz > 0 && rx < MAPSIZE_X - 1 && ry < MAPSIZE_Y - 1) {
 			const TObject Bank = GetFirstObject(rx, ry, rz);
@@ -1053,13 +996,11 @@ bool IsFieldPassable(int rx, int ry, int rz, bool CheckHeight)
 		Obj = GetNextObject();
 	}
 	return true;
-	TEND2(1127, rx, ry)
 }
 
 // 0x4be390, line 1141. False if an object blocks throwing.
 bool IsFieldThrowable(int rx, int ry, int rz)
 {
-	TBEGIN
 	TObject Obj = GetFirstObject(rx, ry, rz);
 	while (Obj.Type != 0) {
 		if (GetObjectFlag(Obj.Type, UNTHROW))
@@ -1067,13 +1008,11 @@ bool IsFieldThrowable(int rx, int ry, int rz)
 		Obj = GetNextObject();
 	}
 	return true;
-	TEND2(1141, rx, ry)
 }
 
 // 0x4be570, line 1153
 bool IsFieldTranslucent(int rx, int ry, int rz)
 {
-	TBEGIN
 	TObject Obj = GetFirstObject(rx, ry, rz);
 	while (Obj.Type != 0) {
 		if (GetObjectFlag(Obj.Type, TRANSLUCENT))
@@ -1081,15 +1020,12 @@ bool IsFieldTranslucent(int rx, int ry, int rz)
 		Obj = GetNextObject();
 	}
 	return false;
-	TEND2(1153, rx, ry)
 }
 
 // 0x4be750, line 1164
 bool FieldRefreshRequested(int rx, int ry, int rz)
 {
-	TBEGIN
 	return Fields(FieldNumber(rx, ry, rz)).RefreshRequested;
-	TEND2(1164, rx, ry)
 }
 
 namespace {
@@ -1101,7 +1037,6 @@ void GetFieldAutomapInfo(int rx, int ry, int rz, uint8 *Color, uint8 *Speed)
 {
 	*Color = 0;
 	*Speed = 250;
-	TBEGIN
 	bool Blocked = false;
 	TObject Obj = GetFirstObject(rx, ry, rz);
 	if (Obj.Type == 0)
@@ -1121,7 +1056,6 @@ void GetFieldAutomapInfo(int rx, int ry, int rz, uint8 *Color, uint8 *Speed)
 	}
 	if (Blocked)
 		*Speed = 255;
-	TEND2(1191, rx, ry)
 }
 
 // --- The automap -------------------------------------------------------------
@@ -1136,7 +1070,6 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 	TASSERT1(1199, In(bx,0,999), bx);
 	TASSERT1(1200, In(by,0,999), by);
 	TASSERT1(1201, In(bz,0, 99), bz);
-	TBEGIN
 	TAutomapBlock &Block = AutomapBlocks[Position];
 	Block.bx = bx;
 	Block.by = by;
@@ -1205,7 +1138,6 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 			}
 		}
 	}
-	TEND1(1304, Position)
 }
 
 // 0x4b36e0, lines 1317-1411. Writes a changed block back; marks at 0,0 are
@@ -1213,7 +1145,6 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 // reported in the default console; the block counts as saved either way.
 void SaveAutomapBlock(int Position)
 {
-	TBEGIN
 	TAutomapBlock &Block = AutomapBlocks[Position];
 	if (Block.bx == -1 || !Block.Changed)
 		return;
@@ -1277,7 +1208,6 @@ void SaveAutomapBlock(int Position)
 		SetConsoleChanged();
 	}
 	Block.Changed = false;
-	TEND1(1411, Position)
 }
 
 // 0x4b3e80, lines 1420-1446. The cached block, loaded into the least recently
@@ -1290,7 +1220,6 @@ TAutomapBlock *GetAutomapBlock(int bx, int by, int bz)
 	TASSERT1(1421, by>=0, by);
 	TASSERT1(1422, bz>=0, bz);
 	int Position = MostRecentBlock;
-	TBEGIN
 	while (Position != -1) {
 		const TAutomapBlock &Block = AutomapBlocks[Position];
 		if (Block.bx == bx && Block.by == by && Block.bz == bz)
@@ -1316,7 +1245,6 @@ TAutomapBlock *GetAutomapBlock(int bx, int by, int bz)
 		MostRecentBlock = Position;
 	}
 	return &AutomapBlocks[Position];
-	TEND1(1446, Position)
 }
 
 } // namespace
@@ -1324,7 +1252,6 @@ TAutomapBlock *GetAutomapBlock(int bx, int by, int bz)
 // 0x4beb90, line 1465. Records a point of the centre's level in the automap.
 void UpdateAutomap(int rx, int ry)
 {
-	TBEGIN
 	int x = rx;
 	int y = ry;
 	int z = GetMapLevel();
@@ -1333,20 +1260,17 @@ void UpdateAutomap(int rx, int ry)
 	GetFieldAutomapInfo(rx, ry, GetMapLevel(), &Block->Color[x % 256][y % 256], &Block->Speed[x % 256][y % 256]);
 	Block->Changed = true;
 	AutomapChanged = true;
-	TEND2(1465, rx, ry)
 }
 
 // 0x4b4370, lines 1473-1479. Black for negative coordinates.
 TRGBColor GetAutomapColor(int x, int y, int z)
 {
 	TASSERT1(1473, In(z,0,15), z);
-	TBEGIN
 	if (x >= 0 && y >= 0) {
 		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
 		return TRGBColor(Block->Color[x % 256][y % 256]);
 	}
 	return TRGBColor(0, 0, 0);
-	TEND2(1479, x, y)
 }
 
 // 0x4b4680, lines 1485-1493. Copies the marks of a block; x and y are block
@@ -1354,14 +1278,12 @@ TRGBColor GetAutomapColor(int x, int y, int z)
 void GetAutomapMarks(int x, int y, int z, vector<TMark> *Marks, int *Count)
 {
 	TASSERT1(1485, In(z,0,15), z);
-	TBEGIN
 	if (x >= 0 && y >= 0) {
 		TAutomapBlock *Block = GetAutomapBlock(x, y, z);
 		*Count = Block->MarkCount;
 		for (int i = 0; i < Block->MarkCount; i++)
 			(*Marks)(i) = Block->Marks(i);
 	}
-	TEND2(1493, x, y)
 }
 
 namespace {
@@ -1370,26 +1292,22 @@ namespace {
 bool IsAutomapBlocked(int x, int y, int z)
 {
 	TASSERT1(1500, In(z,0,15), z);
-	TBEGIN
 	if (x >= 0 && y >= 0) {
 		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
 		return Block->Speed[x % 256][y % 256] == 255;
 	}
 	return true;
-	TEND2(1506, x, y)
 }
 
 // 0x4b4c60, lines 1514-1520
 int GetAutomapSpeed(int x, int y, int z)
 {
 	TASSERT1(1514, In(z,0,15), z);
-	TBEGIN
 	if (x >= 0 && y >= 0) {
 		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
 		return Block->Speed[x % 256][y % 256];
 	}
 	return 1;
-	TEND2(1520, x, y)
 }
 
 } // namespace
@@ -1400,7 +1318,6 @@ void AddAutomapMark(TCoordinate &Coordinate, const char *Text, int Type)
 	TASSERT(1538, Text!=NULL);
 	TASSERT1(1539, Coordinate.x>0, Coordinate.x);
 	TASSERT1(1540, Coordinate.y>0, Coordinate.y);
-	TBEGIN
 	TAutomapBlock *Block = GetAutomapBlock(Coordinate.x / 256, Coordinate.y / 256, Coordinate.z);
 	TMark Mark;
 	Mark.x = Coordinate.x;
@@ -1411,7 +1328,6 @@ void AddAutomapMark(TCoordinate &Coordinate, const char *Text, int Type)
 	Block->MarkCount++;
 	Block->Changed = true;
 	AutomapChanged = true;
-	TEND(1557)
 }
 
 // 0x4b5410, line 1578. Deletes the marks at the position of Deleted by moving
@@ -1420,7 +1336,6 @@ void AddAutomapMark(TCoordinate &Coordinate, const char *Text, int Type)
 void DeleteAutomapMark(TMark &Deleted, int z)
 {
 	int i = 0;
-	TBEGIN
 	TAutomapBlock *Block = GetAutomapBlock(Deleted.x / 256, Deleted.y / 256, z);
 	for (i = 0; i < Block->MarkCount; i++) {
 		TMark &Mark = Block->Marks(i);
@@ -1431,7 +1346,6 @@ void DeleteAutomapMark(TMark &Deleted, int z)
 			AutomapChanged = true;
 		}
 	}
-	TEND1(1578, i)
 }
 
 // --- Paths ----------------------------------------------------------------------
@@ -1623,7 +1537,6 @@ int GetAmbientBrightness()
 // cache is empty. Callback receives the creatures ClearField removes.
 void InitMap(void (*Callback)(int CreatureID))
 {
-	TBEGIN
 	for (int x = 0; x < MAPSIZE_X; x++)
 		for (int y = 0; y < MAPSIZE_Y; y++)
 			for (int z = 0; z < MAPSIZE_Z; z++)
@@ -1644,17 +1557,14 @@ void InitMap(void (*Callback)(int CreatureID))
 	LeastRecentBlock = AUTOMAP_BLOCKS - 1;
 	AutomapChanged = true;
 	CreatureCallback = Callback;
-	TEND(1830)
 }
 
 // 0x4b5760, line 1842. Saves the cached automap blocks.
 void ExitMap()
 {
 	int i = 0;
-	TBEGIN
 	for (i = 0; i < AUTOMAP_BLOCKS; i++)
 		SaveAutomapBlock(i);
-	TEND1(1842, i)
 }
 
 #if defined(PATELLA_TEST_MODE)
