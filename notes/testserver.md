@@ -138,7 +138,10 @@ python -I tools/patch_client.py build/oracle-x86/Release/Patella.exe build/run-p
   four times in Patella.exe, whose compiler unrolled the loop), found in the 0x200 bytes after the first code
   reference to the server.tibia.com literal: on x86 its absolute address, on x64 (Patella-Modern issue #15) a
   RIP-relative disp32 after a ModRM byte with mod 00, r/m 101 whose target is inside the literal; the four
-  stores are then `mov dword ptr [rip+disp32], 7171` (`c7 05 <disp32> 03 1c 00 00`). compare_traffic.py's
+  stores are then `mov dword ptr [rip+disp32], 7171` (`c7 05 <disp32> 03 1c 00 00`). Since issue #57 Patella.exe's
+  stores are found through its PDB (Servers, TServer::Port); the Debug builds (windows-x64-debug,
+  windows-x64-asan-debug: Patella-Modern issue #73) keep the loop and store through a register (`mov dword ptr
+  [rax], 7171`, `c7 00 03 1c 00 00`), patched once, in the PDB's InitServerList. compare_traffic.py's
   clients use `--port 7271` (the proxy).
 - Everything is found by searching the file (no fixed offsets); PE32 (x86) and PE32+ (x64) images alike; the
   input is never written; afterwards the output is compared with the input byte by byte and must differ only
