@@ -363,7 +363,7 @@ LRESULT CMainFrame::OnNcHitTest([[maybe_unused]] CPoint point)
 }
 
 // 0x4a9b00, line 454
-void CMainFrame::OnTimer(UINT_PTR nIDEvent)
+void CMainFrame::OnTimer([[maybe_unused]] UINT_PTR nIDEvent)
 {
 	Default();
 	TimerEvent();
@@ -548,7 +548,7 @@ void CMainFrame::OnCaptureChanged([[maybe_unused]] CWnd *pWnd)
 // 0x4ab310, line 704. One MouseWheel call per notch (120); direction 1 is
 // up, 2 down. The catch block names point.x/point.y although the binary
 // passes the mouse position from Status.cpp.
-BOOL CMainFrame::OnMouseWheel([[maybe_unused]] UINT nFlags, short zDelta, CPoint point)
+BOOL CMainFrame::OnMouseWheel([[maybe_unused]] UINT nFlags, short zDelta, [[maybe_unused]] CPoint point)
 {
 	Default();
 	const int Delta = WheelDelta + zDelta;
@@ -616,7 +616,7 @@ void CMainFrame::OnSysKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 // 0x4ab7e0, line 871. Characters up to 255; with Control (and not Alt) the
 // control characters 1-26 become the letters 'a'-'z'.
-void CMainFrame::OnChar(UINT nChar, [[maybe_unused]] UINT nRepCnt, UINT nFlags)
+void CMainFrame::OnChar(UINT nChar, [[maybe_unused]] UINT nRepCnt, [[maybe_unused]] UINT nFlags)
 {
 	Default();
 	if ((KeyFlags & KEY_CONTROL) != 0 && (KeyFlags & KEY_ALT) == 0) {
