@@ -494,6 +494,12 @@ unit tests:
 
 Exit: no `strcpy`, `strcat`, `sprintf` or `gets` left (a grep gate); sanitizers clean over all replayed
 sessions on both platforms; difftest counts unchanged.
+The sanitizers, done in issue #70 (notes/decisions.md, "Sanitizers over the replayed sessions"): the preset
+`windows-x64-asan` (MSVC `/fsanitize=address`, Release and Debug) over the golden corpus, the 8 reference sessions and
+the unit tests; linux-x64-clang (ASan, UBSan, LeakSanitizer) over what Linux builds, the unit tests (the Linux
+golden_runner comes in M6, the Linux client's replays in M8); the original's two out-of-bounds reads ASan reports are
+suppressed with their reasons. With the grep gate (issue #57) and the unchanged counts, the exit is met on November 5,
+2026.
 
 ### M5. Error handling, and the removal of error.txt (decision D2) (L)
 

@@ -196,6 +196,7 @@ architecture, found through vswhere) and runs the workflow, from any shell:
 python -I tools/build.py oracle-x86              # configure, build Release, run the four tests through CTest
 python -I tools/build.py windows-x64             # the x64 client and the unit tests, Release
 python -I tools/build.py windows-x64-debug       # the same, Debug
+python -I tools/build.py windows-x64-asan        # windows-x64 under MSVC's AddressSanitizer (-debug: Debug)
 python -I tools/build.py windows-x64-gcc         # the unit tests with mingw-w64 GCC 16 (-debug: Debug)
 python -I tools/build.py linux-x64-gcc           # patella_core and the unit tests, GCC 16 (Docker on Windows)
 python -I tools/build.py linux-x64-clang         # the same, Clang 22 with ASan and UBSan (-debug: Debug)
@@ -266,7 +267,15 @@ the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8), w
 - `patella_target_hardening(<target>)`: `/guard:cf /CETCOMPAT`; `-fstack-protector-strong`,
   `_FORTIFY_SOURCE=3` (optimised builds), `_GLIBCXX_ASSERTIONS` (Debug), PIE and, on Linux, full RELRO; with
   the cache variable `PATELLA_SANITIZE` (GCC and Clang; linux-x64-clang sets `address,undefined`)
-  `-fsanitize=<list> -fno-sanitize-recover=all -fno-omit-frame-pointer`, so every finding fails the test.
+  `-fsanitize=<list> -fno-sanitize-recover=all -fno-omit-frame-pointer`, so every finding fails the test. With MSVC
+  (issue #70) PATELLA_SANITIZE takes only `address`: `/fsanitize=address`, every executable linked with `/DEBUG
+  /INCREMENTAL:NO` and clang_rt.asan_dynamic-x86_64.dll copied next to it from the compiler's folder.
+- The preset `windows-x64-asan` (issue #70; build\windows-x64-asan): windows-x64 with `PATELLA_SANITIZE=address`, Debug
+  without /RTC1 and every link without /INCREMENTAL (both incompatible with ASan), a PDB in Release too. `python -I
+  tools/build.py windows-x64-asan` (Release) and `windows-x64-asan-debug` build the client, PatellaTest.exe,
+  golden_runner and the unit tests under ASan and run its CTest (the golden test replays build\golden). A finding
+  stops the process; `ASAN_OPTIONS=continue_on_error=1` lists them all in one run. `-DPATELLA_CLIENT=OFF` (the hosted
+  CI) leaves the client out. notes/decisions.md, "Sanitizers over the replayed sessions (Patella-Modern issue #70)".
 
 `patella_core` (`cmake/Core.cmake`, issue #7) is the static library of the code that is already portable,
 built by every product preset: vlong.cpp, TRSA.cpp, TXTEA.cpp, TMyException.cpp, Utils.cpp, Skins.cpp,
@@ -833,6 +842,16 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   format, another Tibia.exe or data files) is refused: `python -I tools/reference.py record` makes it again (the
   test server for the live recordings, then Tibia.exe's reference runs). `--check-only` compares saved results
   again on any platform; `--self-test` checks the comparisons on made-up data. notes/testmode.md.
+- Sanitizers over the replayed sessions (Patella-Modern issue #70; M4's exit, plan 4.1 gate 7): on Windows, `python -I
+  tools/build.py windows-x64-asan` and `windows-x64-asan-debug` (the unit tests and golden_runner over build\golden
+  under MSVC's AddressSanitizer: 16,461,713 replayed, 1,521,619 retired, 0 failures, no finding), then `python -I
+  tools/reference.py compare --reference C:\Tibia\Patella-Modern\build\reference --exe
+  build\windows-x64-asan\Release\PatellaTest.exe --out build\reference-compare-asan` (the 8 sessions with the ASan
+  client: every session matches); on Linux, linux-x64-clang and its -debug workflow (ASan, UBSan and LeakSanitizer over
+  the unit tests; golden_runner comes to Linux in M6, the client in M8). The hosted CI runs windows-x64-asan's unit tests
+  (Release, without the client) and linux-x64-clang; the golden and reference runs are local (CipSoft-derived data).
+  The original's reads that ASan reports are suppressed with `PATELLA_NO_SANITIZE_ADDRESS` (src/compat/msvc.h), each in
+  notes/decisions.md's table ("Sanitizers over the replayed sessions").
 - Before finishing a file, compare each function against its pseudocode once more: every
   branch, constant, call and side effect.
 - Static objects and removed try blocks (issue #24): `tools\listing.cmd File.cpp` writes our

@@ -31,7 +31,9 @@ the four differential tests through CTest), `windows-x64` / `windows-x64-debug` 
 test build PatellaTest.exe with the virtual clock, scripted input and dumps (state, packets, frames) of
 `notes/testmode.md`, the portable
 libraries patella_core and patella_testmode, the unit tests and the 64-bit patcap.dll of compare_rendering.py),
-`windows-x64-gcc` (patella_core and the unit tests with mingw-w64 GCC),
+`windows-x64-asan` / `windows-x64-asan-debug` (windows-x64 under MSVC's AddressSanitizer, `/fsanitize=address`: the
+client, PatellaTest.exe, golden_runner and the unit tests, issue #70; the ASan runtime DLL is copied next to each
+executable), `windows-x64-gcc` (patella_core and the unit tests with mingw-w64 GCC),
 `linux-x64-gcc` / `linux-x64-clang` (patella_core and the unit tests with GCC 16 / Clang 22, the latter with
 AddressSanitizer and UBSan; `-debug` for Debug). Every preset also compiles each header of src/ on its own
 (`cmake/HeaderCheck.cmake`, issue #49: the `header_check_*` object libraries, a generated one-line source per
@@ -82,7 +84,7 @@ the oracle-x86 preset never uses them. Details: `notes/reconstruction.md`, "Chec
 ## CI
 
 `.github/workflows/hosted.yml` (GitHub's runners, also on pull requests): windows-x64 with MSVC x64 and
-`-DPATELLA_CLIENT=OFF`, the client's and the test build's sources compiled without Tibia.exe
+`-DPATELLA_CLIENT=OFF`, windows-x64-asan's unit tests (Release, `-DPATELLA_CLIENT=OFF`, issue #70), the client's and the test build's sources compiled without Tibia.exe
 (`-DPATELLA_CLIENT_COMPILE_ONLY=ON`, targets `Patella_compile` and `PatellaTest_compile`, issues #25, #46, and
 their headers alone, `header_check_client` and `header_check_test_build`, issue #49), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, the grep gate `python -I tools/banned_calls.py` (no strcpy, strcat, sprintf, vsprintf or gets in src/; the buffers are `TFixedString`/`TStringBuffer` of `src/types/FixedString.h`, issue #57), and
 clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings; `--all --headers`; `--zero bugprone-`: no
