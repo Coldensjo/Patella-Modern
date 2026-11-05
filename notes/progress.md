@@ -218,6 +218,14 @@ sessions patch and patch-exe are gone; tools/deliberate.py lists the differences
 3,201 (each drop counted by function); the golden corpus recorded again: 15,802,944 replayed + 1,512,822 retired =
 17,315,766. Found: TIgnoreListDialog cuts a 30-character name to 29 since #57 (not changed). notes/decisions.md, "The
 built-in patcher removed: packets 0x1e, 0x1f, 0x20, Patch.exe (Patella-Modern issue #75, D9)".
+The 30-character ignore names (Patella-Modern issue #85, November 5, 2026): a #57 regression found in #75.
+TIgnoreListDialog keeps a name of 30 characters (its edit line's most) whole again, and the Tibia.cfg reader a buddy
+description of 128 characters, as the original's strcpy did (the NUL in the next member, which the next statement
+sets): TIgnoreEntry::AssignName and TBuddy::AssignDescriptionRead write over the rest of the structure. Every other
+#57 conversion was checked: asserted, bounded by its source or sized by its allocation. New checks that run whatever
+the random inputs: Dialogs 80 (LongIgnoreNames), PreferencesFile 179; without the fix they fail 21. difftest
+16,459,337 / 67 / 856,621 / 3,201; golden 15,803,203 replayed + 1,512,822 retired = 17,316,025. notes/decisions.md,
+"The 30-character ignore names and the 128-character buddy descriptions (Patella-Modern issue #85)".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -363,6 +371,15 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #85 (branch issue-85, November 5, 2026): 30-character ignore names and 128-character buddy
+descriptions kept whole, as the original kept them. `python -I tools/build.py oracle-x86`: difftest 16,459,078 to
+16,459,337 (+259: Dialogs' LongIgnoreNames +80, PreferencesFile's long descriptions +179; the src fix reverted: 21
+failures), sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 4/4. golden 15,803,203 replayed +
+1,512,822 retired = 17,316,025, 0 failures (windows-x64, -debug, -asan, 14/14 each, golden_concurrent passes, no ASan
+finding); windows-x64-gcc and the Linux presets 11/11, 0 warnings. reference.py compare: 4 sessions match. pecompare by
+function (x86 and x64): only HandleEvent, InitPreferences and SetBuddy (inlining) differ, TFixedString<128>::Assign
+gone. tidy_ci: 20 findings, 0 new. banned_calls 0, clang-format clean. Logs: build\logs\issue-85.
 
 Patella-Modern issue #75 (branch issue-75, November 5, 2026): the built-in patcher removed (decision D9). `python -I
 tools/build.py oracle-x86`: difftest 16,471,911 to 16,459,078 (-12,833: Dialogs -3,633 and errors -6,083, MainFrm -598
