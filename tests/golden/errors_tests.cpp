@@ -1501,11 +1501,18 @@ int *FindOwnStatic(int (*Get)())
 #else
 // The runner's (x64) FindStatic for our getters: the first "mov r32, [rip+disp32]" (8b /r with mod 00, r/m
 // 101, a REX prefix without W allowed) in the getter's first bytes whose int has the getter's value and
-// whose change the getter sees, as the oracle's x86 FindStatic.
+// whose change the getter sees, as the oracle's x86 FindStatic. Under AddressSanitizer (the preset
+// windows-x64-asan, issue #70) the getter's prologue poisons its stack frame (TBEGIN's try) first, so the
+// load comes later (1,123 bytes in, in Debug): 2,048 bytes are searched there.
 int *FindOwnStatic(int (*Get)())
 {
+#if defined(__SANITIZE_ADDRESS__)
+	constexpr int Window = 2048;
+#else
+	constexpr int Window = 256;
+#endif
 	const uint8 *Code = (const uint8 *)Get;
-	for (int i = 0; i < 256; i++) {
+	for (int i = 0; i < Window; i++) {
 		const uint8 *Op = Code + i;
 		const int Prefix = Op[0] >= 0x40 && Op[0] <= 0x47 ? 1 : 0;
 		if (Op[Prefix] != 0x8b || (Op[Prefix + 1] & 0xc7) != 0x05)

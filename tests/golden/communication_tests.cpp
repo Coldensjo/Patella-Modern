@@ -648,6 +648,19 @@ typedef void(__cdecl *TVoid)();
 #endif
 static int Covered[2][256]; // [login][type]: frames that started with the type
 
+// Our ReceivePackets for Both. Under AddressSanitizer (the preset windows-x64-asan, issue #70) the stack is filled
+// with the pattern again right before the call, from the same frame: ReceivePackets passes its Container, not yet
+// assigned, to ReceiveOpenContainer and ReceiveCloseContainer, whose TEND prints it when the first GetByte throws
+// (the original's read, issue #30), and ASan's Debug frames (larger, their slots shared between scopes) let what Both
+// calls after its FillStack land on that slot.
+static void OurReceivePackets()
+{
+#if defined(__SANITIZE_ADDRESS__)
+	FillStack();
+#endif
+	ReceivePackets();
+}
+
 // Runs the frames through both sides' ReceivePackets in a connection state.
 static bool RunFrames(const char *What, int ConnectionState)
 {
@@ -663,7 +676,7 @@ static bool RunFrames(const char *What, int ConnectionState)
 			fflush(stdout);
 		}
 	}
-	return Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
+	return Both(What, [&] { OurReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
 }
 
 static void SetRand(uint32 Seed);
