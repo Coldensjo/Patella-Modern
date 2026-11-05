@@ -123,7 +123,8 @@ add_library(patella_render_vulkan STATIC
 	${patella_shader_headers})
 target_include_directories(patella_render_vulkan PUBLIC "${PROJECT_SOURCE_DIR}/src")
 target_include_directories(patella_render_vulkan PRIVATE "${patella_shader_dir}")
-target_link_libraries(patella_render_vulkan PUBLIC patella_vulkan_deps)
+# comctl32: PresentWindow.cpp subclasses the main window (SetWindowSubclass, issue #71).
+target_link_libraries(patella_render_vulkan PUBLIC patella_vulkan_deps comctl32)
 set_target_properties(patella_render_vulkan PROPERTIES
 	MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
 	MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)

@@ -13,7 +13,7 @@ their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)
 | `src/vulkan/DeviceSettings.h`, `.cpp` | the client's graphics device choice (issue #31): `PATELLA_VULKAN`, Patella.ini's `Device`, the GPU list, the CPU driver's manifest |
 | `src/vulkan/DeviceChoice.h`, `.cpp` | the choice's words (`auto`, `gpu`, `gpuN`, `cpu`) and what each button chooses; no Vulkan (tests_render on every preset) |
 | `src/settings/Settings.h`, `.cpp` | Patella.ini's parser and writer (D12), in patella_core (tests_core on every preset) |
-| `src/vulkan/PresentWindow.h`, `.cpp` | the windows the devices present in (issue #52): one child window of the main window per device, retired with its device, destroyed once the next device has shown a frame; the device test's hidden window |
+| `src/vulkan/PresentWindow.h`, `.cpp` | the windows the devices present in (issue #52): one child window of the main window per device, retired with its device, destroyed once the next device has shown a frame; the device test's hidden window; the main window's erase, which fills what they do not cover black (issue #71) |
 | `src/vulkan/Renderer.h`, `.cpp` | `patella::vulkan::TRenderer`, the back end: no window system, no MFC (portable C++23 with volk, vk-bootstrap and VMA) |
 | `src/vulkan/Quads.h`, `.cpp` | how Direct3D 9's quads become Vulkan vertices; no Vulkan at all (tests_render on every preset) |
 | `src/vulkan/FilterMask.h`, `.cpp` | `TFilterMasks`: which pixels come from the device's filter (the comparison's tolerance); no Vulkan (tests_render) |
@@ -204,6 +204,41 @@ it had met the user's own client still running). With a script the test mode now
 
 **Found on the way.** Each device on the CPU driver leaves about 25 process handles, a switch to it twice that
 (the device test and the device): lavapipe's own, see "Handles the drivers leave (issue #53)" below.
+
+## The main window's background during a live resize (issue #71)
+
+**What happened.** The owner (November 5, 2026, build\manual-test\Patella.exe on the intro screen): while the window's
+border is dragged larger, the newly uncovered client area shows stretched stripes of old pixels, the right and bottom
+edges smeared outwards; when the mouse is released the picture is whole again. Since the x64 client exists.
+
+**The cause.** While the border is held, Windows runs its modal size loop: the client's message loop, and with it
+OnIdle, which draws the frames, does not run (only WM_TIMER's TimerEvent, which draws nothing). The device's window
+keeps its size until the next frame's Fit (FinishFrame), so what a larger window uncovers is the main window's own
+client area, which nothing paints: its class has no background brush (Player.cpp InitInstance) and CMainFrame
+handles neither WM_ERASEBKGND nor WM_PAINT, as the original's. The compositor shows what is left in the window's
+surface: each size step's edge, the stripes.
+
+**Tibia.exe** shows the same stripes in the same situation (its DirectX 9 and OpenGL engines, a live drag of the
+bottom-right border with simulated mouse input, November 5, 2026): the same class, the same message map, no frame
+during the loop. notes/decisions.md, "The main window's background during a live resize", has the run.
+
+**The change.** TPresentWindows subclasses the main window (SetWindowSubclass) from its first Open until Close or
+the main window's WM_NCDESTROY. Its WM_ERASEBKGND fills the client area outside the device windows (the current one
+and a retired one still showing its last frame; their own WS_VISIBLE) black and returns 1; every other message goes
+on to MFC. Each size step's invalidation (CS_HREDRAW, CS_VREDRAW) brings the erase, and the modal loop dispatches
+WM_PAINT, so the uncovered area is black during the drag; the device window keeps its size and its last picture
+until the first frame after the release fits it again. A deliberate on-screen difference from Tibia.exe (black
+instead of stripes). The frames (the engine's images, read back for the dumps and the reference compare), the files
+and the packets do not change; the reconstructed files and the oracle are untouched.
+
+**Checked.** tests_vulkan's "the main window's area the device windows do not cover is filled black (issue #71)",
+with no device: a hidden main window of the client's class style, WM_ERASEBKGND sent with a memory DC of white
+pixels; the class's own erase before the first Open and after Close (nothing painted); the uncovered part black and
+the device window's part untouched through eight size steps without a Fit, after the Fit, with a retired window
+and the next one, and with no device window (all black); the subclass gone with the main window and taken by the
+next one. Live: main's and the branch's Patella.exe on the intro screen, the border dragged by simulated mouse
+input (build\logs\issue-71\scriptsesize_repro.py, local): stripes before, black after, on the CPU driver and on
+the GPU.
 
 ## How it works
 
@@ -418,8 +453,10 @@ those (patcap reports the seven others as hooked); compare_rendering.py needs no
   WS_VISIBLE, no ShowWindow; destroyed at the end) and one frame presented; and (issue #52) quick device switches
   through TPresentWindows on every device and a held click across the device windows' changes ("One window per
   device" above); and (issue #53) switching to and from the CPU driver and each GPU leaves no handles of ours ("Handles
-  the drivers leave" above; 228 assertions, about 26 s: 18 devices on the CPU driver, 12 on GPUs). 14 test cases, 1,309
-  assertions (13 and 1,081 before issue #53, 11 and 88 before issue #52). Fills, 400 random
+  the drivers leave" above; 228 assertions, about 26 s: 18 devices on the CPU driver, 12 on GPUs); and (issue #71) the
+  main window's erase around the device windows ("The main window's background during a live resize" above, 83
+  assertions, no device). 15 test cases, 1,392 assertions (14 and 1,309 before issue #71, 13 and 1,081 before issue
+  #53, 11 and 88 before issue #52). Fills, 400 random
   unscaled copies of a texture with transparent texels, the automap's upload (a texture of texel coordinates:
   every pixel must show texel max(k - 1, 0)), stretches, the colour key pass, the light, a draw that samples its
   target, six frames of 4.8 MB uploads and a resized image, each read back and compared with a model of Direct3D
