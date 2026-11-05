@@ -372,7 +372,7 @@ void TAutomapWindow::MouseHover(int x, int y)
 	if (Mark.x != 0 && Mark.y != 0) {
 		const int Length = (int)strlen(Mark.Text);
 		if (Length != 0) {
-			CopyString(AutomapMouseOverText, Mark.Text, 100);
+			CopyString(AutomapMouseOverText.Chars, Mark.Text);
 			SetMouseOverText(AutomapMouseOverText);
 		}
 	}
@@ -1866,7 +1866,7 @@ void TSkillsWindowBody::Draw(int Surface, int x, int y)
 							SkinProperties.Data654.Color);
 				} else {
 					TFixedString<20> Number;
-					FormatNumber(Value, Number);
+					FormatNumber(Value, Number.Chars);
 					PrintTextClipped(Surface, SkinProperties.Data668 + x, SkinProperties.Data66C + LineY + y,
 						SkinProperties.Data654.FontNumber, SkinProperties.Data654.Color, Text, 0,
 						TRect(ClipX, ClipY, TextWidth, ClipHeight));
@@ -2205,7 +2205,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 					1, Color, TRect(x, ClipY, ClipWidth, ClipHeight));
 			GetSurface()->Flag26 = true;
 			DrawOutfit(Surface, SkinProperties.Style688.Data04.x + x, SkinProperties.Style688.Data04.y + RowY + y,
-				SkinProperties.Style688.Data04.width, Creature->OutfitType, Creature->Colors.data(),
+				SkinProperties.Style688.Data04.width, Creature->OutfitType, Creature->Colors,
 				SkinProperties.Style688.Data68, TRect(x, ClipY, ClipWidth, ClipHeight), SkinProperties.Data498);
 			GetSurface()->Flag26 = false;
 			if (Creature->PARTYFlag > 0) {

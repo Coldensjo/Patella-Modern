@@ -21,6 +21,7 @@
 #pragma once
 
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <array>
 #include <type_traits>
@@ -253,8 +254,10 @@ void DrawMaskedSpriteScaled(int Surface, int x, int y, int Width, int Height, in
 	int MaskNumber, TRGBColor *Colors, TRGBColor Highlight, TRect Clip);
 void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor Highlight, TRect Clip,
 	TFont Font, bool ShowCount);
-void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, int *Colors,
+// Colors: the four outfit colours (TCreature::Colors); a fixed extent, passed as the pointer was (issue #69).
+void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, patella::TSpan<const int, 4> Colors,
 	TRGBColor Highlight, TRect Clip, TFont Font);
+static_assert(patella::IsSpanLayout<const int, 4>, "a pointer's size: the golden tests' fakes take int *");
 
 // Pictures.
 void DrawPicture(int Surface, int x, int y, int PictureNumber);

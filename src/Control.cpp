@@ -39,6 +39,7 @@
 #include "sysinc.h"
 #include "GUI.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <array>
 #include <ostream>
@@ -857,12 +858,12 @@ void ConnectionClosed()
 		LeaveGame();
 	} else if (GetConnectionState() == 6) {
 		char *Message = new char[1024];
-		GetErrorMessage(Message, ERROR_DISCONNECTED, 2);
+		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), ERROR_DISCONNECTED, 2);
 		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		AddMessage(10, 300, 0);
 	} else if (GetConnectionState() == 3) {
 		char *Message = new char[1024];
-		GetErrorMessage(Message, ERROR_DISCONNECTED, 1);
+		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), ERROR_DISCONNECTED, 1);
 		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 	}
 	SetConnectionState(0);

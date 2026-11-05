@@ -567,7 +567,7 @@ void TestBinary()
 				int Length = 1 + Random() % 50;
 				for (int j = 0; j < Length; j++)
 					Text += (char)Random();
-				Ours.writeBytes((const uint8 *)Text.data(), Length);
+				Ours.writeBytes(OriginalSpan((const uint8 *)Text.data(), Length));
 				ORIGINAL(At<ThisBytesFn>(0x4e2c80)(Original, NULL, Text.data(), Length));
 				break;
 			}
@@ -626,7 +626,7 @@ void TestBinary()
 			default: {
 				uint8 a[64], b[64] = {};
 				int Count = (int)Strings[i].size();
-				In.readBytes(a, Count);
+				In.readBytes(OriginalSpan(a, Count));
 				ORIGINAL(At<ThisBytesFn>(0x4e1e50)(Original, NULL, b, Count));
 				golden::OutputArray("readBytes", b, (size_t)Count);
 				CHECK(memcmp(a, b, Count) == 0, "readBytes");

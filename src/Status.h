@@ -8,6 +8,7 @@
 #pragma once
 
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include "Objects.h" // TObject
 #include <cstddef>
@@ -185,7 +186,7 @@ const char *LinkPattern =
 
 } // namespace
 
-void CheckClipboardText(const char *Text, int Length);
+void CheckClipboardText(patella::TSpan<const char> Characters); // the copied characters, no NUL needed
 void CopyToClipboard(const char *text);
 void CopyTaintedClipboardText();
 void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)());

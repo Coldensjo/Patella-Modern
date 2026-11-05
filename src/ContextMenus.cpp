@@ -261,11 +261,11 @@ TContextMenuEntry::TContextMenuEntry(const char *_Text, const char *_Shortcut, T
 	: Callback(nullptr, 0)
 {
 	TBEGIN
-	CopyString(Text, _Text, 50);
+	CopyString(Text.Chars, _Text);
 	if (_Shortcut == nullptr)
 		Shortcut[0] = 0;
 	else
-		CopyString(Shortcut, _Shortcut, 20);
+		CopyString(Shortcut.Chars, _Shortcut);
 	Callback = _Callback;
 	const int h = GetFontLineHeight(SkinProperties.Data0B0.FontNumber) + SkinProperties.Data0D4 * 2;
 	int w = GetTextWidth(SkinProperties.Data0B0.FontNumber, Text) + SkinProperties.Data0D4 * 2

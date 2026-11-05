@@ -25,6 +25,7 @@
 #include "GUI.h"
 #include "Skins.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include "graphics.h"
 #include <cstddef>
@@ -623,7 +624,7 @@ void TFormattedText::Arrange()
 		TComponent *Element = nullptr;
 		switch (TokenType) {
 		case 0: {
-			CopyString(Line, Piece, Position + 1);
+			CopyString(patella::TSpan<char>(Line, static_cast<std::size_t>(Position + 1)), Piece);
 			TFont Font;
 			Font.FontNumber = FontNumber;
 			Font.Color = Color;
@@ -789,7 +790,7 @@ void TOutfitIcon::Draw(int Surface, int x, int y)
 	TBEGIN
 	const int Size = Width;
 	TASSERT1(908, getWidth()==getHeight(), getWidth()-getHeight());
-	DrawOutfit(Surface, x, y, Size, Outfit, Colors.data(), Highlight, TRect(x, y, Size, Height), SkinProperties.Data498);
+	DrawOutfit(Surface, x, y, Size, Outfit, Colors, Highlight, TRect(x, y, Size, Height), SkinProperties.Data498);
 	TEND1(911, Surface)
 }
 
@@ -1538,7 +1539,7 @@ void TEditLine::HandleEvent(int Event)
 		if (SelectionStart != -1 && SelectionLength != 0) {
 			const int End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
 			const int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
-			CheckClipboardText(Text + Begin, End - Begin);
+			CheckClipboardText(patella::TSpan<const char>(Text + Begin, static_cast<std::size_t>(End - Begin)));
 		}
 		return;
 	case 17: {
@@ -1546,7 +1547,7 @@ void TEditLine::HandleEvent(int Event)
 			return;
 		int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
 		int End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
-		CheckClipboardText(Text + Begin, End - Begin);
+		CheckClipboardText(patella::TSpan<const char>(Text + Begin, static_cast<std::size_t>(End - Begin)));
 		SetCursor(SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart);
 		Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
 		End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;

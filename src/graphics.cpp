@@ -25,6 +25,7 @@
 #include "Surface.h"
 #include "Utils.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
@@ -901,7 +902,7 @@ void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor High
 // 0x495080, line 1137. A creature's outfit facing south (direction 2) in
 // its four colours (indices of the outfit palette), with the colour mask on
 // layer 2. Outfit 0 shows the object Colors[0] instead (none if 0).
-void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, int *Colors,
+void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, patella::TSpan<const int, 4> Colors,
 	TRGBColor Highlight, TRect Clip, TFont Font)
 {
 	TBEGIN

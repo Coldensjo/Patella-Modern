@@ -38,6 +38,7 @@
 #include "compat/crt71.h"
 #include "GUI.h"
 #include "common.h"
+#include "compat/span.h"
 #include "types/File.h"
 #include "types/FixedString.h"
 #include <sstream>
@@ -538,7 +539,7 @@ const char *TTextWindow::GetSelectedText()
 				if (StartLine == EndLine) {
 					const TLineFormat *Format = GetLineFormat(StartLine);
 					if (Format == nullptr || Format->LineText != nullptr)
-						CopyString(SelectedText.get(), Format->LineText + StartOffset, EndOffset - StartOffset + 1);
+						CopyString(patella::TSpan<char>(SelectedText.get(), static_cast<std::size_t>(EndOffset - StartOffset + 1)), Format->LineText + StartOffset);
 					return SelectedText.get();
 				}
 				for (int i = StartLine; i <= EndLine; i++) {
@@ -546,14 +547,15 @@ const char *TTextWindow::GetSelectedText()
 					if (Format == nullptr || Format->LineText == nullptr)
 						continue;
 					if (i == EndLine) {
-						CopyString(SelectedText.get() + strlen(SelectedText.get()), Format->LineText, EndOffset + 1);
+						CopyString(patella::TSpan<char>(SelectedText.get() + strlen(SelectedText.get()), static_cast<std::size_t>(EndOffset + 1)), Format->LineText);
 					} else if (i == StartLine) {
-						CopyString(SelectedText.get() + strlen(SelectedText.get()), Format->LineText + StartOffset,
-							Format->LineLength - StartOffset + 1);
+						CopyString(patella::TSpan<char>(SelectedText.get() + strlen(SelectedText.get()),
+									   static_cast<std::size_t>(Format->LineLength - StartOffset + 1)),
+							Format->LineText + StartOffset);
 						if (Format->LineEnd)
 							Selected.Append("\n");
 					} else {
-						CopyString(SelectedText.get() + strlen(SelectedText.get()), Format->LineText, Format->LineLength + 1);
+						CopyString(patella::TSpan<char>(SelectedText.get() + strlen(SelectedText.get()), static_cast<std::size_t>(Format->LineLength + 1)), Format->LineText);
 						if (Format->LineEnd)
 							Selected.Append("\n");
 					}

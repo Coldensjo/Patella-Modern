@@ -62,7 +62,9 @@ char *GetString();
 void GetBytes(patella::TSpan<uint8> Bytes);
 
 void CheckConnectionTimeout();
-void GetErrorMessage(char *Message, int ErrorCode, int ErrorType);
+// Message is the caller's new char[ERROR_MESSAGE_SIZE]: a fixed extent, passed as the pointer was (issue #69).
+void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int ErrorCode, int ErrorType);
+static_assert(patella::IsSpanLayout<char, ERROR_MESSAGE_SIZE>, "a pointer's size: the golden tests' fakes take char *");
 bool ResolveHostname(const char *Hostname);
 const char *GetResolvedIPAddress();
 int CreateSocket();
