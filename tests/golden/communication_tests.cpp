@@ -24,10 +24,14 @@
 // CompareRun: what it threw, its log, its creature records, its buffers' and world's dumps), the readers'
 // results, the first byte of the image's empty Exit function, and Tibia.dat's flag table (LoadObjectFlags).
 // The runner runs our side alone (every image call is inside ORIGINAL or ORIGINAL_SIDE) against the same
-// fakes, and compares with the recorded original. The error round's structured exceptions (the failing RSA's,
-// a block of a zero-sized patch dividing by zero) are caught by both sides' catch (...): the runner compiles
-// this file, commworld.cpp, Communication.cpp and Control.cpp with /EHa, as the oracle does
-// (tests/golden/comm/CMakeLists.txt).
+// fakes, and compares with the recorded original. The error round's structured exceptions (the failing RSA's)
+// are caught by both sides' catch (...): the runner compiles this file, commworld.cpp, Communication.cpp and
+// Control.cpp with /EHa, as the oracle does (tests/golden/comm/CMakeLists.txt).
+//
+// The patcher is gone from ours (Patella-Modern issue #75, decision D9): a login frame with a patch packet (0x1e,
+// 0x1f, 0x20) ends the login in ours (ReceiveUpdateRequest) where the original patches, so those frames are not
+// compared; their random numbers are still drawn, as they were, so that every other comparison keeps its inputs.
+// TestUpdateRequests checks ours alone on such frames.
 
 #include "commworld.h"
 #include "commseeds.h"
@@ -603,15 +607,19 @@ static const int GameTypes[] = {0x0a, 0x0b, 0x14, 0x15, 0x16, 0x1e, 0x64, 0x65, 
 	0xb3, 0xb4, 0xb5, 0xbe, 0xbf, 0xc8, 0xd2, 0xd3, 0xd4};
 static const int LoginTypes[] = {0x0a, 0x0b, 0x14, 0x1e, 0x1f, 0x20, 0x28, 0x64};
 static const int GameTypeCount = sizeof(GameTypes) / sizeof(GameTypes[0]);
+// The login server's patch packets (the original's ReceivePatch, ReceiveWholeFile and ReceivePatchBlock; ours ends
+// the login: ReceiveUpdateRequest, issue #75).
+static bool IsPatchMessage(int Type) { return Type == 0x1e || Type == 0x1f || Type == 0x20; }
 static const int LoginTypeCount = sizeof(LoginTypes) / sizeof(LoginTypes[0]);
 
 // Changes a frame: truncates it, changes bytes, appends bytes. A login
 // frame gets no byte that could become a patch message (0x1e, 0x1f, 0x20):
-// ReceivePatch and ReceiveWholeFile set the new size before they assert that
-// no transfer is running, and a block after such a failed start writes past
-// the old buffer on both sides (Communication.cpp keeps this). A frame that
-// starts a patch keeps its bytes (its size: a huge new[] fails differently
-// in the two runtimes).
+// until issue #75 the original's and our ReceivePatch and ReceiveWholeFile
+// set the new size before they asserted that no transfer was running, and a
+// block after such a failed start wrote past the old buffer on both sides;
+// since then such a message ends the login in ours alone. A frame that starts
+// a patch keeps its bytes (its size: a huge new[] failed differently in the
+// two runtimes).
 static int MutationByte(bool Login)
 {
 	for (;;) {
@@ -699,8 +707,7 @@ static void TestSeeds()
 		sprintf(What, "seed frame %d (round %d)", Round % Count, Round);
 		int State = Seed.Login ? 3 + Random() % 2 : 6 + Random() % 3;
 		RunFrames(What, State);
-		if (Seed.Login)
-			Both("CancelPatch after the frames", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
+		// The original's CancelPatch after a login frame is gone with ours (issue #75).
 		FreeWorlds();
 	}
 }
@@ -715,7 +722,8 @@ static void TestGenerated(int Rounds)
 		bool Login = Random() % 6 == 0;
 		Frames.clear();
 		int FrameCount = 1 + Random() % 3;
-		bool Started = false; // one patch start per round (see Mutate)
+		bool Started = false;      // one patch start per round (see Mutate)
+		bool PatchMessage = false; // a patch packet in a login round: not compared (issue #75)
 		for (int f = 0; f < FrameCount; f++) {
 			TPacket P;
 			int Messages = Random() % 3 == 0 ? 1 + Random() % 4 : 1;
@@ -732,6 +740,8 @@ static void TestGenerated(int Rounds)
 					Started = true;
 					Patch = true;
 				}
+				if (Login && IsPatchMessage(Type))
+					PatchMessage = true;
 				if (Login)
 					GenLogin(P, Type);
 				else
@@ -743,9 +753,10 @@ static void TestGenerated(int Rounds)
 		}
 		sprintf(What, "frames of round %d", Round);
 		int State = Login ? 3 + Random() % 2 : 6 + Random() % 3;
-		RunFrames(What, State);
-		if (Login)
-			Both("CancelPatch after the frames", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
+		// A login round with a patch packet is not compared (the original patches, ours ends the login: issue #75);
+		// the original's CancelPatch after a login round is gone with ours.
+		if (!PatchMessage)
+			RunFrames(What, State);
 		FreeWorlds();
 	}
 }
@@ -772,51 +783,48 @@ static void TestCancelWalks(int Rounds)
 	}
 }
 
-// A patch over several frames: the patch, its blocks, sometimes more or less.
+// A patch over several frames: the patch, its blocks, sometimes more or less. Not compared since issue #75 (the
+// original patches, ours ends the login at the first packet): the frames are still made, so that the later tests keep
+// their inputs; TestUpdateRequests runs ours alone on such frames.
+static void MakePatchFrames()
+{
+	TPacket P;
+	int Size = Random() % 4 == 0 ? 0 : (int)(Random() % 2000);
+	P.B(Random() % 2 == 0 ? 0x1e : 0x1f);
+	P.B(Random() % 5 == 0 ? Pick8() % 8 : (int)(Random() % 5));
+	P.Q(Size);
+	Frames.push_back(P.Data);
+	int Left = Size + (Random() % 6 == 0 ? 10 : 0);
+	while (Left > 0 && Frames.size() < 20) {
+		TPacket B;
+		int Block = Random() % 3 == 0 ? Left : 1 + (int)(Random() % (Left < 700 ? Left : 700));
+		B.B(0x20);
+		B.W(Block);
+		for (int i = 0; i < Block; i++)
+			B.B(Random());
+		Frames.push_back(B.Data);
+		Left -= Block;
+	}
+	if (Random() % 3 == 0)
+		Frames.push_back(std::vector<uint8>{0x20, 0x00, 0x00});
+	// A second start while a transfer may be running (until issue #75 the assertions of ReceivePatch and
+	// ReceiveWholeFile).
+	if (Random() % 3 == 0) {
+		TPacket Again;
+		Again.B(Random() % 2 == 0 ? 0x1e : 0x1f);
+		Again.B(Random() % 5);
+		Again.Q(Random() % 3000);
+		Frames.push_back(Again.Data);
+	}
+}
+
 static void TestPatches(int Rounds)
 {
-	char What[64];
 	for (int Round = 0; Round < Rounds; Round++) {
 		ResetWorlds();
 		SetRand(Random());
 		Frames.clear();
-		TPacket P;
-		int Size = Random() % 4 == 0 ? 0 : (int)(Random() % 2000);
-		P.B(Random() % 2 == 0 ? 0x1e : 0x1f);
-		P.B(Random() % 5 == 0 ? Pick8() % 8 : (int)(Random() % 5));
-		P.Q(Size);
-		Frames.push_back(P.Data);
-		int Left = Size + (Random() % 6 == 0 ? 10 : 0);
-		while (Left > 0 && Frames.size() < 20) {
-			TPacket B;
-			int Block = Random() % 3 == 0 ? Left : 1 + (int)(Random() % (Left < 700 ? Left : 700));
-			B.B(0x20);
-			B.W(Block);
-			for (int i = 0; i < Block; i++)
-				B.B(Random());
-			Frames.push_back(B.Data);
-			Left -= Block;
-		}
-		if (Random() % 3 == 0)
-			Frames.push_back(std::vector<uint8>{0x20, 0x00, 0x00});
-		// A second start while a transfer may be running (the assertions of
-		// ReceivePatch and ReceiveWholeFile); no block may follow it (see Mutate).
-		if (Random() % 3 == 0) {
-			TPacket Again;
-			Again.B(Random() % 2 == 0 ? 0x1e : 0x1f);
-			Again.B(Random() % 5);
-			Again.Q(Random() % 3000);
-			Frames.push_back(Again.Data);
-		}
-		sprintf(What, "patch of round %d", Round);
-		RunFrames(What, 4);
-		// An exception ends ReceivePackets; the client calls it again for the next frames.
-		for (int Again = 0; NextFrame[OURS] < (int)Frames.size() && Again < 30; Again++) {
-			sprintf(What, "patch of round %d, call %d", Round, Again + 2);
-			Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
-		}
-		// What is left over (PatchData) is released the same way on both sides.
-		Both("CancelPatch after a patch", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
+		MakePatchFrames();
 		FreeWorlds();
 	}
 }
@@ -1056,6 +1064,17 @@ static void ErrorRound()
 		int Type = Login ? LoginTypes[t - GameTypeCount] : GameTypes[t];
 		for (int Variant = 0; Variant < 3; Variant++) {
 			uint32 Seed = Random();
+			if (Login && IsPatchMessage(Type)) {
+				// Not compared since issue #75 (ours ends the login). Every pass of the loop below starts from Seed
+				// and makes the same frame, so one making of it leaves the random numbers as the loop did.
+				SetRandomSeed(Seed);
+				ResetWorlds();
+				SetRand(Random());
+				TPacket P;
+				GenLogin(P, Type);
+				FreeWorlds();
+				continue;
+			}
 			int Total = 0;
 			for (int Fail = 0;; Fail++) {
 				SetRandomSeed(Seed);
@@ -1075,11 +1094,8 @@ static void ErrorRound()
 				FailAt = 0;
 				if (Fail == 0)
 					Total = Ticks[OURS];
-				// PatchData of a patch that failed half-way; CancelPatch's calls fail too.
-				FailAt = Fail % 4;
-				Both("CancelPatch", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
-				FailAt = 0;
-				Both("CancelPatch again", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
+				// The original's CancelPatch after each (PatchData of a patch that failed half-way) is gone with ours
+				// (issue #75).
 				FreeWorlds();
 				if (Fail >= Total || Fail >= 300)
 					break;
@@ -1110,8 +1126,9 @@ static void ErrorRound()
 			Frames.clear();
 			Frames.push_back(P.Data);
 			sprintf(What, "frame type 0x%02x cut after %d bytes", Type, Cut);
-			RunFrames(What, Login ? 4 : 8);
-			Both("CancelPatch after a cut frame", [&] { CancelPatch(); }, ORIGINAL_SIDE(At<TVoid>(0x40bac0)()));
+			// A cut patch packet is not compared, and the original's CancelPatch after each is gone (issue #75).
+			if (!Login || !IsPatchMessage(Type))
+				RunFrames(What, Login ? 4 : 8);
 			FreeWorlds();
 		}
 	}
@@ -1152,6 +1169,95 @@ static void ErrorRound()
 	Round.Finish();
 }
 
+// The patch packets end the login (Patella-Modern issue #75, decision D9): ours alone (the original patches, so there
+// is nothing of it to compare with). Login frames as TestPatches makes them (a difference patch or a whole file, its
+// blocks, a block of a zero-sized patch, a second start), after login messages of the same frame or not, with login
+// messages after the patch packet in its frame, or a block alone; in connection state 3 or 4. Ours must read
+// everything the server sent (every frame, the receive buffer at its end), post one event, the login error dialog
+// ("Sorry") with the text, close the connection and set the connection state 0, and do nothing else: no other event,
+// no packet sent, no Communication.cpp function the original's patcher called (SetProgress, ApplyPatch,
+// ApplyFullPatch, InstallPatch, CreateUpdateDialog: neither the fakes nor ours exist for them). Its own random numbers
+// (the seed saved and set again), so that the later tests' inputs stay the same.
+static void TestUpdateRequests(int Rounds)
+{
+	const uint32 Saved = GetRandomSeed();
+	SetRandomSeed(75);
+	static const char *const Refused = "This server wants to update the client";
+	int ZeroSized = 0;
+	for (int Round = 0; Round < Rounds; Round++) {
+		ResetWorlds();
+		SetRand(Random());
+		Frames.clear();
+		const int Before = Random() % 3; // login messages before the patch packet in its frame
+		if (Round % 7 == 3) {
+			// A block alone (no transfer started).
+			TPacket P;
+			GenLogin(P, 0x20);
+			Frames.push_back(P.Data);
+		} else if (Round % 5 == 0) {
+			// Issue #67: a zero-sized patch and its block (the original's ReceivePatchBlock divided by the size).
+			TPacket P;
+			P.B(Round % 2 == 0 ? 0x1e : 0x1f);
+			P.B(Random() % 5);
+			P.Q(0);
+			Frames.push_back(P.Data);
+			Frames.push_back(std::vector<uint8>{0x20, 0x00, 0x00});
+			ZeroSized++;
+		} else {
+			MakePatchFrames();
+		}
+		if (Before > 0) {
+			TPacket First;
+			for (int i = 0; i < Before; i++)
+				GenLogin(First, Random() % 2 == 0 ? 0x0b : 0x14);
+			Frames[0].insert(Frames[0].begin(), First.Data.begin(), First.Data.end());
+		}
+		if (Random() % 3 == 0) {
+			TPacket After;
+			GenLogin(After, Random() % 2 == 0 ? 0x0b : 0x64);
+			Frames[0].insert(Frames[0].end(), After.Data.begin(), After.Data.end());
+		}
+		const int State = 3 + Random() % 2;
+		char What[64];
+		sprintf(What, "update request %d", Round);
+		World[OURS].ConnectionState = State;
+		World[OURS].Events.clear();
+		NextFrame[OURS] = 0;
+		SetReceiveData(OURS, NULL, 0);
+		const int SavedSide = Side;
+		Side = OURS;
+		Log[OURS].clear();
+		bool Threw = false;
+		try {
+			ReceivePackets();
+		} catch (...) {
+			Threw = true;
+		}
+		Side = SavedSide;
+		const std::string &L = Log[OURS];
+		CHECK(!Threw, "%s: ReceivePackets threw", What);
+		CHECK(NextFrame[OURS] == (int)Frames.size() && ReceiveBufferOf(OURS)->Position == ReceiveBufferOf(OURS)->Size,
+			"%s: frame %d of %d read, at %d of %d", What, NextFrame[OURS], (int)Frames.size(),
+			ReceiveBufferOf(OURS)->Position, ReceiveBufferOf(OURS)->Size);
+		const std::vector<TQueuedEvent> &E = World[OURS].Events;
+		const int Messages = Before; // ReceiveLoginMessage and ReceiveMessageOfTheDay post one event each, or none
+		const bool Posted = !E.empty() && E.back().Type == 1 && E.back().Param1 != 0 && E.back().Param2 != 0
+			&& strcmp((const char *)E.back().Param1, "Sorry") == 0 && strcmp((const char *)E.back().Param2, Refused) == 0;
+		CHECK(Posted && (int)E.size() <= Messages + 1, "%s: %d events, the last not the login error with the text", What,
+			(int)E.size());
+		const size_t Message = L.rfind("AddMessage1("), Close = L.find("Disconnect(0)", Message == std::string::npos ? 0 : Message);
+		CHECK(Message != std::string::npos && Close != std::string::npos && L.find("SetConnectionState(0)", Close) != std::string::npos,
+			"%s: no message, Disconnect and SetConnectionState(0) in that order: %s", What, L.substr(0, 400).c_str());
+		CHECK(World[OURS].ConnectionState == 0, "%s: connection state %d", What, World[OURS].ConnectionState);
+		CHECK(L.find("SendCommand") == std::string::npos && L.find("AddMessageFirst") == std::string::npos
+				&& L.find("SetProgress") == std::string::npos,
+			"%s: more than the login's end: %s", What, L.substr(0, 400).c_str());
+		FreeWorlds();
+	}
+	printf("Communication: %d update requests ended the login (%d of a zero-sized patch)\n", Rounds, ZeroSized);
+	SetRandomSeed(Saved);
+}
+
 void TestCommunication(const char *ExePath)
 {
 	int Before = Checks, BeforeFailures = Failures;
@@ -1179,7 +1285,6 @@ void TestCommunication(const char *ExePath)
 		Original);
 	BeginWorld();
 	InstallFakes(ControlFakes);
-	ORIGINAL(ExpectDivideByZero = true); // a block of a zero-sized patch (ReceivePatchBlock divides by the size)
 	ResetWorlds();
 	Both("InitCommunication", [&] { InitCommunication(); }, ORIGINAL_SIDE(At<TVoid>(0x401000)()));
 	FreeWorlds();
@@ -1195,11 +1300,15 @@ void TestCommunication(const char *ExePath)
 		CallSenders(What, true);
 		FreeWorlds();
 	}
+	// Before the error round: its Finish undoes the fakes.
+	TestUpdateRequests(300);
 	int Least = 1 << 30;
 	for (int Login = 0; Login < 2; Login++) {
 		int Count = Login ? LoginTypeCount : GameTypeCount;
 		for (int i = 0; i < Count; i++) {
 			int Type = Login ? LoginTypes[i] : GameTypes[i];
+			if (Login && IsPatchMessage(Type))
+				continue; // not compared since issue #75
 			if (Covered[Login][Type] < Least)
 				Least = Covered[Login][Type];
 		}
@@ -1207,7 +1316,6 @@ void TestCommunication(const char *ExePath)
 	printf("Communication: %d checks, %d failures (each packet type at least %d times, %d senders)\n", Checks - Before,
 		Failures - BeforeFailures, Least, SenderCount);
 	ErrorRound();
-	ORIGINAL(ExpectDivideByZero = false);
 	EndWorld();
 	RecordComparisons = false;
 	if (LogFile != NULL)

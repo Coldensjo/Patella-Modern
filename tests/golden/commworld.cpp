@@ -2264,9 +2264,11 @@ const TFake WorldFakes[] = {
 	F(SavePreferences, 0x4de890),
 	F(ExitPreferences, 0x4df520),
 	// Script.cpp
-	F(ApplyPatch, 0x4e3100),
-	F(ApplyFullPatch, 0x4e3500),
-	F(InstallPatch, 0x4e3610),
+	// The original's only (ours are gone with the patcher, Patella-Modern issue #75): the patch packets and the
+	// patcher's events are not compared any more, the fakes stay in case the image's code is reached.
+	{"ApplyPatch", 0x4e3100, nullptr, (void *)F_ApplyPatch},
+	{"ApplyFullPatch", 0x4e3500, nullptr, (void *)F_ApplyFullPatch},
+	{"InstallPatch", 0x4e3610, nullptr, (void *)F_InstallPatch},
 	// Status.cpp
 	F(ClearRights, 0x4e6de0),
 	F(SetActionState, 0x4e6e20),
@@ -2407,7 +2409,7 @@ const TFake WorldFakes[] = {
 	F(CreateReportDialog, 0x482640),
 	F(CreateAddBuddyDialog, 0x482870),
 	F(CreateEditBuddyDialog, 0x482a70),
-	F(CreateUpdateDialog, 0x482c80),
+	{"CreateUpdateDialog", 0x482c80, nullptr, (void *)F_CreateUpdateDialog}, // the original's only (issue #75)
 	F(CreateHelpDialog, 0x482ea0),
 	F(CreateHintsDialog, 0x4830c0),
 	F(CreateEditMarkDialog, 0x4832e0),

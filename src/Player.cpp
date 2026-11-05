@@ -89,7 +89,6 @@ CPlayerApp::CPlayerApp()
 	: CWinApp(nullptr)
 {
 	Terminating = false;
-	RunPatch = false;
 }
 
 // 0x4d7d80. Every step is guarded on its own; the program ends here. this
@@ -316,15 +315,14 @@ BOOL CPlayerApp::InitInstance()
 }
 
 // 0x4dae60, lines 383-408. The same handlers as InitInstance around the
-// message loop. patch.exe replaces the client process when RunPatch is set.
+// message loop. Tibia.exe's Run then started patch.exe (_execl) when CloseProgram had set RunPatch: gone with the
+// patcher since Patella-Modern issue #75 (decision D9).
 int CPlayerApp::Run()
 {
 	int Result = 0;
 	try {
 		try {
 			Result = CWinApp::Run();
-			if (RunPatch)
-				MsvcExecl("patch.exe", "patch.exe");
 		} catch (PROGRAM_ERROR Error) {
 			HandleProgramError(Error);
 		} catch (TMyException &Exception_) {

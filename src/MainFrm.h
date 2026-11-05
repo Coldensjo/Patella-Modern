@@ -73,7 +73,6 @@ extern CMainFrame *MainFrame;              // 0x5d1654
 extern bool DisplayChanged;                // 0x5d1670, the display settings changed (OnDisplayChange); SurfaceGL.cpp
 
 void ExitProgram();
-void CloseProgram();
 void SetDisplayMode(int ViewMode);
 void OpenURL(const char *URL);
 void UpdateMouseCursor();

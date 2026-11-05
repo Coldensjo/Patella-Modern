@@ -221,14 +221,13 @@ static bool MapImage(const char *Path)
 
 // Reports where a crash happened; the original code has no symbols. This
 // vectored handler sees each exception first, also the ones a test catches
-// (none of these codes in a passing run).
-bool ExpectDivideByZero;
+// (none of these codes in a passing run). Until Patella-Modern issue #75 an integer division by zero could be
+// expected (ExpectDivideByZero: the original's ReceivePatchBlock on a zero-sized patch, in communicationtest.exe);
+// the patch packets are no longer compared.
 
 static LONG CALLBACK ReportCrash(EXCEPTION_POINTERS *Info)
 {
 	DWORD Code = Info->ExceptionRecord->ExceptionCode;
-	if (Code == EXCEPTION_INT_DIVIDE_BY_ZERO && ExpectDivideByZero)
-		return EXCEPTION_CONTINUE_SEARCH;
 	if (Code == EXCEPTION_ACCESS_VIOLATION || Code == EXCEPTION_ILLEGAL_INSTRUCTION
 	 || Code == EXCEPTION_STACK_OVERFLOW || Code == EXCEPTION_INT_DIVIDE_BY_ZERO
 	 || Code == EXCEPTION_PRIV_INSTRUCTION || Code == EXCEPTION_IN_PAGE_ERROR

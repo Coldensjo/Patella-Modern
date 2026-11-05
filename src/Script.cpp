@@ -1,12 +1,12 @@
 // Script.cpp: reconstructed from Tibia.exe 7.72 (0x4df6d0-0x4e3c9f).
 //
-// The script-file tokenizer and writer, binary file access, and the patching
-// of the data files with patches from the login server. In line order, which
-// is also binary order, except that the compiler placed readString of
-// TReadBinaryFile (line 644, 0x4e3a10) and the readIdentifier, readNumber,
-// readString and readSymbol helpers (no line evidence, 0x4e3920-0x4e3a0f)
-// after InstallPatch. readString is here in line order; the helpers stay at
-// the end, where the binary has them.
+// The script-file tokenizer and writer and binary file access; the patching of
+// the data files with patches from the login server is gone (issue #75). In
+// line order, which is also binary order, except that the compiler placed
+// readString of TReadBinaryFile (line 644, 0x4e3a10) and the readIdentifier,
+// readNumber, readString and readSymbol helpers (no line evidence,
+// 0x4e3920-0x4e3a0f) after InstallPatch (0x4e3610, gone). readString is here
+// in line order; the helpers stay at the end, where the binary has them.
 //
 // Most errors are TERRORs thrown before a TBEGIN; the functions that call
 // other members wrap the calls in TBEGIN/TEND.
@@ -606,126 +606,10 @@ void TWriteBinaryFile::writeString(const char *Text)
 	TEND(779)
 }
 
-// The patched file is written next to the original: "Tibia.exe" becomes
-// "Tibia.bak", any other name gets '_' as its last character.
-
-// 0x4e3100. Applies a difference patch to FileName and writes the result
-// to the patched file name (InstallPatch moves it into place). A nonzero
-// Signature must match the first four bytes of the old file. Each command
-// byte has the operation in its top two bits and the count in the low six;
-// counts 61, 62 and 63 mean that a byte, word or quad with the count
-// follows. Operations: copy (0x00), skip (0x40), insert from the patch
-// (0x80), and replace with bytes from the patch (0xc0). Input after the
-// last command is dropped. Any error gives false.
-bool ApplyPatch(const char *FileName, const uint8 *Patch, int Size, uint32 Signature)
-{
-	TReadBinaryFile In;
-	TWriteBinaryFile Out;
-	try {
-		In.open(FileName);
-		if (Signature != 0) {
-			if ((uint32)In.readQuad() != Signature) {
-				In.close();
-				Out.close();
-				return false;
-			}
-			In.seek(0);
-		}
-		TFixedString<1024> Name;
-		const char *OutName;
-		if (strcmp(FileName, "Tibia.exe") == 0) {
-			OutName = "Tibia.bak";
-		} else {
-			Name.Assign(FileName);
-			Name[Name.Length() - 1] = '_';
-			OutName = Name;
-		}
-		Out.open(OutName);
-		int Pos = 0;
-		while (Pos < Size) {
-			const int Command = Patch[Pos++];
-			int Count = Command & 0x3f;
-			if (Count == 61) {
-				Count = Patch[Pos++];
-			} else if (Count == 62) {
-				Count = Patch[Pos] | (Patch[Pos + 1] << 8);
-				Pos += 2;
-			} else if (Count == 63) {
-				Count = Patch[Pos] | (Patch[Pos + 1] << 8) | (Patch[Pos + 2] << 16) | (Patch[Pos + 3] << 24);
-				Pos += 4;
-			}
-			int i;
-			switch (Command & 0xc0) {
-			case 0x00:
-				for (i = 0; i < Count; i++)
-					Out.writeByte(In.readByte());
-				break;
-			case 0x40:
-				for (i = 0; i < Count; i++)
-					In.readByte();
-				break;
-			case 0x80:
-				for (i = 0; i < Count; i++)
-					Out.writeByte(Patch[Pos++]);
-				break;
-			case 0xc0:
-				for (i = 0; i < Count; i++) {
-					Out.writeByte(Patch[Pos++]);
-					In.readByte();
-				}
-				break;
-			}
-		}
-		In.close();
-		Out.close();
-	} catch (TMyException &) {
-		In.close();
-		Out.close();
-		return false;
-	}
-	return true;
-}
-
-// 0x4e3500. Writes a complete new file under the patched file name.
-bool ApplyFullPatch(const char *FileName, const uint8 *Data, int Size)
-{
-	TWriteBinaryFile Out;
-	try {
-		TFixedString<1024> Name;
-		const char *OutName;
-		if (strcmp(FileName, "Tibia.exe") == 0) {
-			OutName = "Tibia.bak";
-		} else {
-			Name.Assign(FileName);
-			Name[Name.Length() - 1] = '_';
-			OutName = Name;
-		}
-		Out.open(OutName);
-		for (int i = 0; i < Size; i++)
-			Out.writeByte(Data[i]);
-	} catch (...) {
-		Out.close();
-		return false;
-	}
-	return true;
-}
-
-// 0x4e3610, lines 879-883. Replaces FileName with its patched file. For
-// "Tibia.exe" it would look for "Tibia.ex_", not the "Tibia.bak" that the
-// patch functions write (the client lets Patch.exe handle that case).
-void InstallPatch(const char *FileName)
-{
-	if (FileName == nullptr)
-		TERROR(879, "no file name");
-	// Name stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
-	char Name[1024]; // NOLINT(modernize-avoid-c-arrays): the error of line 883 names it as its reason, frozen until M5 (issue #60)
-	TStringBuffer(Name, sizeof(Name)).Assign(FileName);
-	Name[strlen(Name) - 1] = '_';
-	if (!FileExists(Name))
-		TERROR_REASON(883, "file does not exists", Name);
-	remove(FileName);
-	rename(Name, FileName);
-}
+// 0x4e3100 ApplyPatch (a difference patch of a file), 0x4e3500 ApplyFullPatch (a whole new file), both written next
+// to the file ("Tibia.exe" as "Tibia.bak", any other name with '_' as its last character), and 0x4e3610 InstallPatch
+// (lines 879-883: the written file moved into place) are gone with the patcher since Patella-Modern issue #75
+// (decision D9).
 
 // 0x4e3920. The next token, which must be an identifier, in lower case.
 char *TReadScriptFile::readIdentifier()

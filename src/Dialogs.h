@@ -67,7 +67,6 @@ TDialog *CreateIgnoreListDialog();                                              
 TDialog *CreateReportDialog();                                                                          // 0x482640, line 407
 TDialog *CreateAddBuddyDialog();                                                                        // 0x482870, line 420
 TDialog *CreateEditBuddyDialog(int CharacterID);                                                        // 0x482a70, line 434
-TDialog *CreateUpdateDialog(const char *FileName, int DataSize);                                        // 0x482c80, line 448
 TDialog *CreateHelpDialog(void (*OpenURL)(const char *URL));                                            // 0x482ea0, line 462
 TDialog *CreateHintsDialog();                                                                           // 0x4830c0, line 476
 TDialog *CreateRuleViolationDialog(const char *Name, TTalkLine *Statement);                             // 0x485290, line 490
@@ -508,23 +507,8 @@ public:
 
 // --- Updates, help and hints ----------------------------------------------------
 
-// "Updating ... Please wait" (vtable 0x562ff0, 0x44 bytes): the progress of
-// a downloaded data file; it closes itself two seconds after the download
-// ended.
-class TUpdateDialog : public TWindow {
-public:
-	TUpdateDialog(const char *FileName, int _DataSize); // 0x4759f0, line 2761
-	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void Draw(int Surface, int x, int y) override; // +0x44, 0x475d00, line 2793
-	void HandleEvent(int Event) override;          // +0x70, 0x475f00, line 2806
-
-	int Unused2C;              // +0x2c, never used
-	TProgressBar *ProgressBar; // +0x30
-	int StartTime;             // +0x34, GetMilliseconds() at the start
-	int DataSize;              // +0x38, kept, not used
-	int Progress;              // +0x3c, percent
-	bool Done;                 // +0x40
-};
+// TUpdateDialog ("Updating ... Please wait", vtable 0x562ff0, 0x44 bytes) is gone with the patcher since
+// Patella-Modern issue #75.
 
 // "Help" (vtable 0x5630c0, 0x30 bytes): six buttons with their texts.
 class THelpDialog : public TWindow {

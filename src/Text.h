@@ -2,8 +2,9 @@
 //
 // The header defines its texts with internal linkage, so every object that
 // includes it has its own copy of the whole table in .data, 147 pointers in
-// this order (145 here: 117 and 118, the error report dialog's texts, are
-// gone since Patella-Modern issue #74), and reads only its own copy.
+// this order (142 here: 117 and 118, the error report dialog's texts, are
+// gone since Patella-Modern issue #74, and 74-76, the update dialog's, since
+// issue #75), and reads only its own copy.
 // Sixteen copies are in the image, all with the same pointers
 // (notes/decisions.md, "external.h removed (issue #14)"):
 //
@@ -14,8 +15,8 @@
 //   0x5c0b34 Control.obj         reads 109-111, 114, 115, 145
 //   0x5c0d90 Creatures.obj       reads none (link order)
 //   0x5c0fe0 DialogElements.obj  reads none (link order)
-//   0x5c123c Dialogs.obj         reads 53-55, 58-72, 74-89, 92-108, 112, 113, 117 and 118 (until #74), 121, 123,
-//                                128-133, 135-142
+//   0x5c123c Dialogs.obj         reads 53-55, 58-72, 74-76 (until #75), 77-89, 92-108, 112, 113, 117 and 118 (until
+//                                #74), 121, 123, 128-133, 135-142
 //   0x5c1498 DialogWindow.obj    reads none (link order)
 //   0x5c1708 GUI.obj             reads none (link order; its DefaultFontColor follows)
 //   0x5c1960 Help.obj            reads none (low: Help.obj or Inventory.obj)
@@ -113,9 +114,6 @@ const char *TextSelectType = "Select a type:";                                  
 const char *TextEnterCharacterName2 = "Please enter a character name:";                                                     // 71
 const char *TextEnterShortDescription = "Enter a short description:";                                                       // 72
 const char *TextEnterFilename = "Please enter a filename:";                                                                 // 73
-const char *TextDownloadingPictures = "Downloading new pictures";                                                           // 74
-const char *TextDownloadingObjectData = "Downloading new object data";                                                      // 75
-const char *TextDownloadingObjectGraphics = "Downloading new object graphics";                                              // 76
 const char *TextClientInfo = "Click here to get\ninfo on the client.";                                                      // 77
 const char *TextShowPreviousHints = "Show previous hints";                                                                  // 78
 const char *TextAskTutor = "Ask a tutor for help";                                                                          // 79

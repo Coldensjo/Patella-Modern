@@ -2,7 +2,7 @@
 //
 // The class name CPlayerApp follows MFC's wizard naming for the project
 // "tibiaplayer"; the member names are ours. Layout: CWinApp (0xa0 bytes),
-// then the two flags.
+// then the two flags (the second is padding since issue #75).
 
 #pragma once
 
@@ -24,10 +24,16 @@ public:
 	void HandleException(TMyException &Exception);
 
 	bool Terminating; // +0xa0, a fatal error is being shown; later errors return at once
-	bool RunPatch;    // +0xa1, Run starts patch.exe when the message loop ends
+	// +0xa1 was RunPatch (Run started patch.exe when the message loop ended), gone with the patcher since
+	// Patella-Modern issue #75 (decision D9): padding now, the size is the original's.
 
 	DECLARE_MESSAGE_MAP()
 };
+
+#if PATELLA_ORIGINAL_LAYOUT
+// The original's size: CWinApp and the two flags, padded to 4 (issue #75: the second flag is padding now).
+static_assert(sizeof(CPlayerApp) == sizeof(CWinApp) + 4, "CPlayerApp keeps the original's size");
+#endif
 
 extern CPlayerApp theApp; // 0x719dc0, initialiser at 0x55a030
 

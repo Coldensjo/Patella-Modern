@@ -221,7 +221,3 @@ static_assert(sizeof(TReadBinaryFile) == 0x404 && offsetof(TReadBinaryFile, File
 static_assert(sizeof(TWriteBinaryFile) == 0x404 && offsetof(TWriteBinaryFile, File) == 0x000
 	&& offsetof(TWriteBinaryFile, Filename) == 0x004);
 #endif
-
-bool ApplyPatch(const char *FileName, const uint8 *Patch, int Size, uint32 Signature);
-bool ApplyFullPatch(const char *FileName, const uint8 *Data, int Size);
-void InstallPatch(const char *FileName);

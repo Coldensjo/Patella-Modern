@@ -447,17 +447,8 @@ TDialog *CreateEditBuddyDialog(int CharacterID)
 	TEND1(434, CharacterID)
 }
 
-// 0x482c80, line 448. Abort (and Escape) send 2.
-TDialog *CreateUpdateDialog(const char *FileName, int DataSize)
-{
-	TBEGIN
-	TUpdateDialog *Body = new TUpdateDialog(FileName, DataSize);
-	TDialog *Dialog = new TDialog("Updating ... Please wait", Body);
-	Dialog->SetOkButton("Abort", TCallback(Body, 2));
-	Dialog->SetCancelButton(nullptr, TCallback(Body, 2));
-	return Dialog;
-	TEND1(448, DataSize)
-}
+// 0x482c80, CreateUpdateDialog (line 448), is gone with the update dialog since Patella-Modern issue #75 (decision
+// D9).
 
 // 0x482ea0, line 462. OK goes to the frame (which closes the dialog).
 TDialog *CreateHelpDialog(void (*OpenURL)(const char *URL))
@@ -2092,70 +2083,9 @@ void TEditBuddyDialog::HandleEvent(int Event)
 
 // --- TUpdateDialog -----------------------------------------------------------------
 
-// 0x4759f0, line 2761
-TUpdateDialog::TUpdateDialog(const char *FileName, int _DataSize)
-{
-	TBEGIN
-	TComponent::SetSize(SkinProperties.Data104C, SkinProperties.Data1050);
-	DataSize = _DataSize;
-	StartTime = GetMilliseconds();
-	Progress = 0;
-	Done = false;
-	TFixedString<512> Buffer;
-	const char *Text;
-	if (CompareStrings(FileName, "tibia.pic", -1) == 0) {
-		Text = TextDownloadingPictures;
-	} else if (CompareStrings(FileName, "tibia.dat", -1) == 0) {
-		Text = TextDownloadingObjectData;
-	} else if (CompareStrings(FileName, "tibia.spr", -1) == 0) {
-		Text = TextDownloadingObjectGraphics;
-	} else {
-		Buffer.Format("Downloading {}", FileName);
-		Text = Buffer;
-	}
-	TLabel *Label = new TLabel(SkinProperties.StyleB08.Data64, Text);
-	InsertChild(Label);
-	SetChildArea(Label, SkinProperties.Data1054);
-	ProgressBar = new TProgressBar();
-	InsertChild(ProgressBar);
-	SetChildArea(ProgressBar, SkinProperties.Data1074);
-	Arrange();
-	TEND(2761)
-}
-
-// 0x475d00, line 2793. The progress -1 ends the download.
-void TUpdateDialog::Draw(int Surface, int x, int y)
-{
-	TBEGIN
-	if (Progress != GetProgress()) {
-		Progress = GetProgress();
-		if (Done || Progress == -1) {
-			Progress = 100;
-			Done = true;
-			if (GetMilliseconds() > StartTime + 2000)
-				SetActionState(0);
-		}
-		if (Done)
-			ProgressBar->SetComplete();
-		else
-			ProgressBar->SetCurrent(Progress);
-	}
-	TWindow::Draw(Surface, x, y);
-	TEND1(2793, Surface)
-}
-
-// 0x475f00, line 2806. The try block is inside the test (the catch block
-// names Event with the constant 2).
-void TUpdateDialog::HandleEvent(int Event)
-{
-	if (Event == 2) {
-		TBEGIN
-		if (!Done)
-			CancelPatch();
-		SetActionState(0);
-		TEND1(2806, Event)
-	}
-}
+// TUpdateDialog ("Updating ... Please wait": the progress of a patch from the login server; constructor 0x4759f0, line
+// 2761, Draw 0x475d00, line 2793, HandleEvent 0x475f00, line 2806) is gone with the patcher since Patella-Modern issue
+// #75 (decision D9).
 
 // --- THelpDialog -------------------------------------------------------------------
 
