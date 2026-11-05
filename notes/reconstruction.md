@@ -460,6 +460,12 @@ data files and the patched client, and a second Tibia.exe run (orig-repeat) has 
 
 Limits of the GUI comparisons until M2's built-in test mode replaces them (Patella-Modern issue #13):
 
+- **The hidden desktop (Patella-Modern issue #56, open).** On branch issue-56 every live check runs itself on a
+  hidden desktop of its own (tools/desktop.py; `--visible`: the user's desktop, as before). The clients do not
+  behave there as on the user's desktop: DirectDraw and Direct3D 9 do not start (Tibia.exe and the oracle fall back
+  to OpenGL), the CPU driver's first present fails (the client crashes after 1 s), and GetCursorPos fails (posted
+  clicks miss without patcap.dll). Only PatellaTest.exe on a GPU, the OpenGL engine and compare_network.py gave the
+  same results tonight. The owner's choice is pending: notes/decisions.md, "The live checks on a hidden desktop".
 - **Keep off the mouse and the keyboard while one runs.** They drive real client windows with posted window
   messages, and real input reaches the same windows: a mouse move or click over a client window comes in
   between the posted ones, a key goes to the client that has the focus. On November 2 a click during a

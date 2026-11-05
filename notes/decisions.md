@@ -9265,3 +9265,66 @@ after the shadow check of the address. No src/ change.
   TRSA::SetPublicKey); Release builds pool identical strings (/GF with /O), Debug builds keep both. reference.py does not
   use `--rsa` (the replay takes each connection's XTEA key), compare_traffic.py and testmode_check.py do (Release
   clients). Patching both copies is a change of its own.
+
+## The live checks on a hidden desktop (Patella-Modern issue #56): open, the owner's decision
+
+Found by Claude Opus 5.5, November 5, 2026, on branch issue-56 (not merged). The owner decided on November 4 that the
+live checks run on a hidden Windows desktop. tools/desktop.py does that: before main, each live check
+(reference.py compare and record, testmode_check.py, compare_traffic.py, compare_files.py, compare_rendering.py,
+compare_network.py) runs itself again on a new desktop (CreateDesktopW in its own window station,
+STARTUPINFO.lpDesktop, the same standard handles) in a job of its own. Every process it starts inherits that
+desktop, and nothing appears on the user's screen; `--visible` keeps the old behaviour. Arguments that start no
+client (--self-test, --check-only, --compare-only, --list, list, --check-route, -h) stay in the process. After the
+run, any process of the job still running is ended, except the test server and its console host, which are
+named. `python -I tools/desktop.py --self-test` checks the mechanism: the child's window is on its own desktop, and
+the user's EnumWindows does not see it. ctypes only, as the other tools.
+
+The mechanism works. The clients do not behave on that desktop as they do on the user's, so the issue's criterion
+("the same results as on the visible desktop") is not met. Three Windows behaviours of a desktop that is not the
+input desktop cause it (high: each one seen in the runs and in a small program):
+
+- **GDI into a window not yet shown fails.** BitBlt into a window that has not been shown fails with error 6 on a
+  new desktop. On the user's desktop the same call succeeds without drawing anything. Showing another window first
+  changes nothing. The client draws its first frame (CPlayerApp::InitInstance, Redraw(false)) before ShowWindow,
+  and lavapipe's present (Mesa's Win32 WSI, a BitBlt into the window) returns VK_ERROR_MEMORY_MAP_FAILED (-5).
+  TRenderer::Present throws, InitControl's catch calls ExitControl, which then crashes (0xC0000005: the original's
+  path). Every PatellaTest.exe and Patella.exe run on the CPU driver (PATELLA_VULKAN=cpu: reference.py compare's
+  and testmode_check.py's default, compare_rendering.py's vulkan-cpu) ends this way after 1 s. On a GPU
+  (PATELLA_VULKAN=gpu) the Vulkan engine presents and runs.
+- **DirectDraw and Direct3D 9 do not start; OpenGL does.** Tibia.exe and the oracle's Patella.exe with Engine = 0
+  (DirectX 5) or Engine = 2 (DirectX 9) draw every frame through OpenGL there (patcap.dll: "the frames came from
+  OpenGL SwapBuffers"), and write `Engine = 1` to Tibia.cfg and `Graphic Engine: 1` to error.txt. Engine = 1
+  (OpenGL) runs as on the user's desktop. Tibia.exe's DirectX 9 frames are the reference of every Vulkan
+  comparison (plan D7), and Tibia.exe is CipSoft's, so this cannot change in the client.
+- **GetCursorPos fails** ("the input desktop must be the current desktop"). The client polls it in OnIdle
+  (Player.cpp) into an uninitialised POINT and feeds the result to MouseMove. Under patcap.dll (compare_rendering.py,
+  reference.py record) the hook returns a fixed point, so nothing changes there. The clients of compare_traffic.py,
+  compare_files.py and compare_network.py run without it, and the posted clicks then miss: compare_traffic.py's
+  "trade request" never reaches the server (no TTradeOffers window), compare_files.py's walk never opens its mark
+  dialog, and its report run does not close within 20 s of WM_CLOSE. In the test mode, PATELLA_GET_CURSOR_POS goes
+  to the real GetCursorPos unless the script has `cursor`.
+
+What runs on the hidden desktop with the same results (tonight's runs, `build\logs\issue-56` of the worktree):
+PatellaTest.exe on a GPU (reference.py compare --sessions traffic --vulkan gpu: every check equal, hidden and
+visible), the OpenGL engine of both 32-bit clients under patcap.dll (compare_rendering.py --engines gl: identical
+but for the frame-rate mask), and compare_network.py (0 of 51 scenarios differ, 4 variable). compare_network.py
+passes because both clients fall back to OpenGL the same way and none of its scenarios uses the cursor, not because
+the run matches the user's desktop.
+
+Choices for the owner (not taken here; the issue says tools only, and each of these changes something else):
+
+1. **A second interactive session**: run the checks in a session of their own, either a separate local Windows
+   user through fast user switching or a Remote Desktop session to this machine (notes/reconstruction.md
+   "Checking" already says this for the self-hosted runner). That session's desktop is an input desktop, so
+   DirectDraw, Direct3D 9, GDI and GetCursorPos behave as on the user's desktop, and none of the user's input
+   reaches it. Needs no code; a manual set-up.
+2. **Hidden for what works, visible for the rest**: keep tools/desktop.py, but hide only the runs that do not need
+   DirectDraw, Direct3D 9, the CPU driver's first present or the real cursor. That leaves PatellaTest.exe on a
+   GPU, and compare_rendering.py's gl engine. The reference compare would then run on the GPU, whose frames are not
+   the CPU driver's (the exact frames of notes/vulkan.md); one session matched tonight, the rest was not checked.
+3. **Client changes so that the test build runs hidden** (src/, so stopped here): the Vulkan engine skips the
+   present while the main window is not visible (on the user's desktop such a present shows nothing anyway), and
+   the test mode's GetCursorPosition returns a fixed point outside the window when GetCursorPos fails. With both,
+   reference.py compare and testmode_check.py should run hidden on the CPU driver (not tried). Tibia.exe's DirectX
+   runs (compare_traffic.py, compare_files.py, compare_rendering.py's dx5, dx9, vulkan and vulkan-cpu, reference.py
+   record) would still need the visible desktop or choice 1.

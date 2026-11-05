@@ -24,7 +24,9 @@ Run PatellaTest.exe from a run folder (copies of the data files, a patched clien
 from the root. Without `--test-script` it is the client on the system clock, through the same hooks. With a
 script it plays the script on the virtual clock and drops the keyboard and mouse input that comes from Windows,
 so the desktop's own mouse and keyboard cannot reach it (the limit of the GUI comparisons in
-notes/reconstruction.md, "Test server"); its window is still a real window. `--test-log` lists every event it
+notes/reconstruction.md, "Test server"); its window is still a real window. On a hidden desktop (tools/desktop.py, issue #56) it
+runs on a GPU, not on the CPU driver: its first frame comes before the window is shown, and lavapipe's present into
+a window not yet shown fails there (notes/decisions.md, "The live checks on a hidden desktop"). `--test-log` lists every event it
 dispatched with its virtual time and script line. A script that cannot be read or does not parse ends the
 program before its window opens: exit code 3, the message (`testmode: <file>:<line>: <error>`) on stderr, in the
 log and through OutputDebugString, never a dialog. The client ignores the test mode's words (its command line

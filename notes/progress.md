@@ -343,6 +343,18 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #56 (branch issue-56, November 5, 2026, not merged; the owner's decision pending):
+tools/desktop.py runs each live check on a hidden desktop of its own (`--visible`: the old behaviour); the mechanism
+and `python -I tools/desktop.py --self-test` work, but the clients behave differently there (no DirectDraw or
+Direct3D 9, the CPU driver's first present fails, GetCursorPos fails): notes/decisions.md, "The live checks on a
+hidden desktop". No src/ change. windows-x64 and oracle-x86 built (exit 0). Visible, replays from the main checkout's
+live recordings (the user's tibia-server.exe from C:\Tibia\gameserver blocked the live runs and testmode_check.py):
+reference.py compare all 8 sessions match; compare_traffic.py --skip-live no differences; compare_files.py --skip-live
+no differences (report rerun once: Patella.exe had not closed in 20 s); compare_network.py 0 of 51 differ;
+compare_rendering.py vulkan, vulkan-cpu, dx5, dx9, gl windowed identical (vulkan rerun once: the display mode
+changed during the run; dx9 rerun once: two packets swapped in the oracle's replay). Hidden: only compare_network.py
+and the gl engine match, and reference.py compare --vulkan gpu (traffic session).
+
 Patella-Modern issue #73 (branch issue-73, November 5, 2026): tools/patch_client.py patches the Debug clients'
 login port (windows-x64-debug and windows-x64-asan-debug: InitServerList's loop stores through a register; found
 through the PDB's InitServerList when none of the four stores to Servers[i].Port is there); notes/decisions.md,
