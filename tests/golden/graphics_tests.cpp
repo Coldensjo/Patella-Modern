@@ -378,7 +378,7 @@ void CompareSprites(const char *What)
 	std::vector<uint8> Table((size_t)NumberOfSprites * sizeof(TSprite));
 	ORIGINAL(memcpy(Table.data(), OSprites, Table.size()));
 	golden::OutputBytes("sprite table", Table.data(), Table.size());
-	CHECK(memcmp(Sprites, Table.data(), Table.size()) == 0, "%s: sprite table differs", What);
+	CHECK(memcmp(Sprites.get(), Table.data(), Table.size()) == 0, "%s: sprite table differs", What);
 }
 
 void ComparePictures(const char *What)
@@ -469,7 +469,7 @@ void CompareMemoryCache(const char *What)
 	golden::OutputRuns("memory cache items", LastItems.data(), Items.data(), Items.size() * sizeof(int32_t));
 	for (int i = 0; i < MemoryCacheSize; i++) {
 		int32_t A[ITEM_FIELDS];
-		GetItemFields(MemoryCache[i], MemoryCacheData, A);
+		GetItemFields(MemoryCache[i], MemoryCacheData.get(), A);
 		bool Same = memcmp(A, &LastItems[(size_t)i * ITEM_FIELDS], sizeof(A)) == 0;
 		CHECK(Same, "%s: memory cache item %d differs", What, i);
 	}
@@ -487,7 +487,7 @@ void CompareMemoryCache(const char *What)
 		ORIGINAL(memcpy(&LastData[(size_t)i * TILE], OMemoryCacheData + (size_t)i * TILE, TILE));
 		RecordTile("memory cache slot", &LastData[(size_t)i * TILE]);
 	}
-	CHECK(memcmp(MemoryCacheData, LastData.data(), Size) == 0, "%s: memory cache data differs", What);
+	CHECK(memcmp(MemoryCacheData.get(), LastData.data(), Size) == 0, "%s: memory cache data differs", What);
 }
 
 std::vector<uint8> LastVideo;
@@ -532,7 +532,7 @@ void ClearNewMemoryItems()
 		MemoryCache[i].Number = MemoryCache[i].TileX = MemoryCache[i].TileY = 0;
 	ORIGINAL(for (int i = 0; i < MemoryCacheSize; i++) OMemoryCache[i].Number = OMemoryCache[i].TileX =
 				 OMemoryCache[i].TileY = 0);
-	memset(MemoryCacheData, 0, (size_t)MemoryCacheSize * TILE);
+	memset(MemoryCacheData.get(), 0, (size_t)MemoryCacheSize * TILE);
 	ORIGINAL(memset(OMemoryCacheData, 0, OMemoryCacheSize * TILE));
 }
 
@@ -705,14 +705,14 @@ void TestMemoryCache()
 				s = Range(1, 30);
 			TMemoryCacheItem *A = GetMemorySprite(s);
 			int B = ORIGINAL_VALUE("GetMemorySprite", int, At<MemSpriteFn>(0x48d440)(s) - OMemoryCache);
-			CHECK(A - MemoryCache == B, "GetMemorySprite(%d): %d, original %d", s, (int)(A - MemoryCache), B);
+			CHECK(A - MemoryCache.get() == B, "GetMemorySprite(%d): %d, original %d", s, (int)(A - MemoryCache.get()), B);
 		} else if (Op < 8) {
 			int p = Range(1, NumberOfPictures);
 			int tx = Range(0, Pictures[p - 1].TilesX - 1);
 			int ty = Range(0, Pictures[p - 1].TilesY - 1);
 			TMemoryCacheItem *A = GetMemoryPicture(p, tx, ty);
 			int B = ORIGINAL_VALUE("GetMemoryPicture", int, At<MemPictureFn>(0x48d740)(p, tx, ty) - OMemoryCache);
-			CHECK(A - MemoryCache == B, "GetMemoryPicture(%d, %d, %d)", p, tx, ty);
+			CHECK(A - MemoryCache.get() == B, "GetMemoryPicture(%d, %d, %d)", p, tx, ty);
 		} else if (Op == 8) {
 			int s = Range(1, 30);
 			CHECK(FindMemorySprite(s) == ORIGINAL_VALUE("FindMemorySprite", int, At<IntRetFn>(0x48ce00)(s)),

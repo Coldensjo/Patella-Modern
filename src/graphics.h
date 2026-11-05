@@ -24,6 +24,7 @@
 #include "compat/span.h"
 #include "types/FixedString.h"
 #include <array>
+#include <memory>
 #include <type_traits>
 
 struct TObject; // Objects.h, passed to DrawObject
@@ -192,15 +193,15 @@ extern TFixedString<PATH_MAX> SpriteFileName;            // 0x5ccb68
 extern int LeastRecentMemoryItem;                        // 0x5ccf68
 extern int MostRecentMemoryItem;                         // 0x5ccf6c
 extern int MemoryCacheSize;                              // 0x5ccf70
-extern uint8 *MemoryCacheData;                           // 0x5ccf74
+extern std::unique_ptr<uint8[]> MemoryCacheData;         // 0x5ccf74 (issue #58: the tables' only owners)
 extern int LeastRecentVideoItem;                         // 0x5ccf78
 extern int MostRecentVideoItem;                          // 0x5ccf7c
 extern int VideoCacheSize;                               // 0x5ccf80
-extern TVideoCacheItem *VideoCache;                      // 0x5ccf84
-extern TMemoryCacheItem *MemoryCache;                    // 0x5ccf88
-extern TSprite *Sprites;                                 // 0x5ccf8c
-extern TPicture *Pictures;                               // 0x5ccf90
-extern TFontInfo *Fonts;                                 // 0x5ccf94
+extern std::unique_ptr<TVideoCacheItem[]> VideoCache;    // 0x5ccf84
+extern std::unique_ptr<TMemoryCacheItem[]> MemoryCache;  // 0x5ccf88
+extern std::unique_ptr<TSprite[]> Sprites;               // 0x5ccf8c
+extern std::unique_ptr<TPicture[]> Pictures;             // 0x5ccf90
+extern std::unique_ptr<TFontInfo[]> Fonts;               // 0x5ccf94
 
 // Start-up and shut-down.
 void InitGraphics(int MemoryCacheBytes);

@@ -31,6 +31,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 
 // Assertions whose expression text carries a bug number (as in Map.cpp).
 #define TASSERTB1(Line, Expr, V1, Bug) \
@@ -49,15 +50,27 @@ TFixedString<PATH_MAX> SpriteFileName;            // 0x5ccb68
 int LeastRecentMemoryItem;                        // 0x5ccf68, tail of the memory cache's LRU list
 int MostRecentMemoryItem;                         // 0x5ccf6c, head
 int MemoryCacheSize;                              // 0x5ccf70
-uint8 *MemoryCacheData;                           // 0x5ccf74, MemoryCacheSize tiles of 32*32*3 bytes
+std::unique_ptr<uint8[]> MemoryCacheData;         // 0x5ccf74, MemoryCacheSize tiles of 32*32*3 bytes
 int LeastRecentVideoItem;                         // 0x5ccf78
 int MostRecentVideoItem;                          // 0x5ccf7c
 int VideoCacheSize;                               // 0x5ccf80
-TVideoCacheItem *VideoCache;                      // 0x5ccf84
-TMemoryCacheItem *MemoryCache;                    // 0x5ccf88
-TSprite *Sprites;                                 // 0x5ccf8c
-TPicture *Pictures;                               // 0x5ccf90
-TFontInfo *Fonts;                                 // 0x5ccf94
+std::unique_ptr<TVideoCacheItem[]> VideoCache;    // 0x5ccf84
+std::unique_ptr<TMemoryCacheItem[]> MemoryCache;  // 0x5ccf88
+std::unique_ptr<TSprite[]> Sprites;               // 0x5ccf8c
+std::unique_ptr<TPicture[]> Pictures;             // 0x5ccf90
+std::unique_ptr<TFontInfo[]> Fonts;               // 0x5ccf94
+
+// The six tables as std::unique_ptr (issue #58): each a pointer, as the original's. Their elements have no
+// destructors that act (a picture's Offsets stays raw: ExitGraphics and ReloadPictures free them first), so a table
+// still set when FatalError calls exit(1) is only memory freed during static destruction. Where the original stored a
+// new table over one it may still have held (InitMemoryCache, InitFonts, LoadSprites, LoadPictures, InitVideoCache;
+// the golden tests call them again), release() drops the old one unfreed first: the leak is the original's.
+static_assert(sizeof(std::unique_ptr<uint8[]>) == sizeof(uint8 *) && alignof(std::unique_ptr<uint8[]>) == alignof(uint8 *)
+		&& sizeof(std::unique_ptr<TVideoCacheItem[]>) == sizeof(TVideoCacheItem *)
+		&& sizeof(std::unique_ptr<TMemoryCacheItem[]>) == sizeof(TMemoryCacheItem *)
+		&& sizeof(std::unique_ptr<TSprite[]>) == sizeof(TSprite *) && sizeof(std::unique_ptr<TPicture[]>) == sizeof(TPicture *)
+		&& sizeof(std::unique_ptr<TFontInfo[]>) == sizeof(TFontInfo *),
+	"the graphics tables' std::unique_ptrs are pointers");
 
 // The arrays std::arrays (issue #60): the original's layouts (no pointers: the same on x64).
 static_assert(sizeof(TFontInfo) == 0x71c && offsetof(TFontInfo, Widths) == 0x010 && offsetof(TFontInfo, Heights) == 0x390
@@ -102,19 +115,19 @@ void ClearMemoryCache()
 // 0x48b4a0. Called by ExitControl.
 void ExitGraphics()
 {
-	delete[] VideoCache;
+	VideoCache.reset();
 	VideoCache = nullptr;
-	delete[] MemoryCacheData;
+	MemoryCacheData.reset();
 	MemoryCacheData = nullptr;
-	delete[] MemoryCache;
+	MemoryCache.reset();
 	MemoryCache = nullptr;
-	delete[] Fonts;
+	Fonts.reset();
 	Fonts = nullptr;
 	for (int i = 0; i < NumberOfPictures; i++)
 		delete[] Pictures[i].Offsets;
-	delete[] Pictures;
+	Pictures.reset();
 	Pictures = nullptr;
-	delete[] Sprites;
+	Sprites.reset();
 	Sprites = nullptr;
 }
 
@@ -134,7 +147,8 @@ void LoadSprites(const char *FileName)
 		File.open(FileName);
 		SpriteSignature = File.readQuad();
 		NumberOfSprites = File.readWord();
-		Sprites = new TSprite[NumberOfSprites];
+		static_cast<void>(Sprites.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
+		Sprites.reset(new TSprite[NumberOfSprites]);
 		for (int i = 0; i < NumberOfSprites; i++)
 			Sprites[i].Offset = File.readQuad();
 		File.close();
@@ -213,7 +227,8 @@ void LoadPictures(const char *FileName)
 		File.open(FileName);
 		PictureSignature = File.readQuad();
 		NumberOfPictures = File.readWord();
-		Pictures = new TPicture[NumberOfPictures];
+		static_cast<void>(Pictures.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
+		Pictures.reset(new TPicture[NumberOfPictures]);
 		for (int i = 0; i < NumberOfPictures; i++) {
 			Pictures[i].TilesX = File.readByte();
 			Pictures[i].TilesY = File.readByte();
@@ -333,7 +348,8 @@ void InitFonts()
 {
 	TBEGIN
 	NumberOfFonts = 4;
-	Fonts = new TFontInfo[4];
+	static_cast<void>(Fonts.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
+	Fonts.reset(new TFontInfo[4]);
 	InitFont(1, 3, 32, 8, 16, 1, 12);
 	InitFont(2, 5, 32, 16, 16, -1, 15);
 	InitFont(3, 6, 32, 8, 8, 0, 10);
@@ -348,8 +364,10 @@ void InitMemoryCache(int MemoryCacheBytes)
 {
 	TBEGIN
 	MemoryCacheSize = MemoryCacheBytes / (32 * 32 * 3);
-	MemoryCacheData = new uint8[MemoryCacheSize * 32 * 32 * 3];
-	MemoryCache = new TMemoryCacheItem[MemoryCacheSize];
+	static_cast<void>(MemoryCacheData.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
+	MemoryCacheData.reset(new uint8[MemoryCacheSize * 32 * 32 * 3]);
+	static_cast<void>(MemoryCache.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
+	MemoryCache.reset(new TMemoryCacheItem[MemoryCacheSize]);
 	for (int i = 0; i < MemoryCacheSize; i++) {
 		TMemoryCacheItem &Item = MemoryCache[i];
 		Item.Data = &MemoryCacheData[i * 32 * 32 * 3];
@@ -506,14 +524,15 @@ void InitVideoCache()
 	TBEGIN
 	const int Surfaces = GetSurface()->GetCacheSurfaces();
 	if (Surfaces == 0) {
-		VideoCache = nullptr;
+		static_cast<void>(VideoCache.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
 		return;
 	}
 	TRect Rect = {0, 0, 0, 0};
 	GetSurface()->GetSurfaceRect(6, &Rect);
 	const int PerSurface = (Rect.height / 32) * (Rect.width / 32);
 	VideoCacheSize = PerSurface * Surfaces;
-	VideoCache = new TVideoCacheItem[VideoCacheSize];
+	static_cast<void>(VideoCache.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
+	VideoCache.reset(new TVideoCacheItem[VideoCacheSize]);
 	for (int i = 0; i < VideoCacheSize; i++) {
 		TVideoCacheItem &Item = VideoCache[i];
 		Item.Surface = i / PerSurface;
@@ -1298,7 +1317,7 @@ void ResetVideoCache()
 		for (int i = 0; i < HASH_TABLE_SIZE; i++)
 			VideoHashTable[i] = -1;
 		if (VideoCache != nullptr)
-			delete[] VideoCache;
+			VideoCache.reset();
 		VideoCache = nullptr;
 	}
 	InitVideoCache();
@@ -1311,7 +1330,7 @@ void ReloadSprites()
 	TBEGIN
 	ResetVideoCache();
 	ClearMemoryCache();
-	delete[] Sprites;
+	Sprites.reset();
 	Sprites = nullptr;
 	LoadSprites("Tibia.spr");
 	TEND(1498)
@@ -1323,11 +1342,11 @@ void ReloadPictures()
 	TBEGIN
 	ResetVideoCache();
 	ClearMemoryCache();
-	delete[] Fonts;
+	Fonts.reset();
 	Fonts = nullptr;
 	for (int i = 0; i < NumberOfPictures; i++)
 		delete[] Pictures[i].Offsets;
-	delete[] Pictures;
+	Pictures.reset();
 	Pictures = nullptr;
 	LoadPictures("Tibia.pic");
 	InitFonts();
