@@ -10040,3 +10040,74 @@ banned_calls 0; clang-format clean. Logs: build\logs\issue-77.
 
 - Nothing writes at the info level yet; D16's other uses (the Vulkan layers at start-up, plan 6.3) come with their
   issues. HandleProgramError's path writes FatalError's line but no debug diagnostics (error.txt had none for it).
+
+### Part 2 (issue-78b): graphics, GUI, MainWindow, MapWindow, MainFrm
+
+- **Deleted** (high). 181 TBEGIN/TEND pairs in 165 functions: graphics.cpp 43, GUI.cpp 39, MainWindow.cpp 27,
+  MapWindow.cpp 40 (24 functions: TMapWindow::Draw's body and its ten inner blocks, DrawField's body and its six),
+  MainFrm.cpp 32. Every block is the rest of its function's body at the body's indentation, except Draw's and
+  DrawField's inner ones: those inside a brace block (`{ TObject Obj; TBEGIN ... TEND1(..., Obj) }`) keep the block and
+  its Obj (used in the block, and the original's scope), and of those at the body's level only Draw's line-776 block
+  declares something at its own level (`const int Talkboxes`, now in the function's scope; no other Talkboxes in Draw,
+  a trivially destroyed int). Three parameters only a TEND named are `[[maybe_unused]]` now (MainFrm.cpp: OnTimer's
+  nIDEvent, OnMouseWheel's point, OnChar's nFlags; MSVC's C4100 and -Wunused-parameter would fail the build). Each
+  file's header says the try blocks and catch lines its comments name are the original's.
+- **Kept** (high). graphics.cpp's four loaders (LoadSprites, LoadSprite, LoadPictures, LoadPictureTile: a file error,
+  a TMyException of TReadBinaryFile, becomes PROGRAM_ERROR 2, 4, 3, 5), MainWindow::Draw's `catch (...)` (an error
+  while drawing the start window becomes PROGRAM_ERROR 12), TMapWindow::AddLightSource's handler (the object whose flag
+  could not be read, into the message). TASSERT*/TERROR* stay (#79).
+- **The kinds** (high): none changes. The handlers that catch a TMyException by type (`catch (TMyException &)`
+  without a `catch (...)` that gives the same kind) are graphics.cpp's four, MapWindow.cpp's AddLightSource,
+  Map.cpp's automap pair and FindPath, Objects.cpp's InitObjects (`catch (...)` since part 1), Preferences.cpp's two,
+  Communication.cpp's cylinder loop (line 1502) and Player.cpp's top-level ones. Control.cpp's ChangeEngine pairs each
+  with a `catch (...)` whose TERROR is a TMyException too. No try block of them reaches a function of this part: the
+  four loaders' reach only TReadBinaryFile and their own new[], whose std::bad_alloc never was theirs (it passed the
+  inner handler before as now); AddLightSource's and Communication.cpp's only GetObjectFlag and the map's object
+  queries; Preferences.cpp's the script files and Talk.cpp's lists (part 3, still with TENDs); Map.cpp's the
+  automap files and the fields. So a third type from this part's functions goes, as before, to a remaining TEND of
+  a caller (later parts), to MainWindow::Draw's `catch (...)` or to the top-level handlers (every type in
+  HandleException's box, or HandleProgramError's). The third-type sources here: new/new[] of fixed sizes (the
+  windows, the buttons, the drawing lists, MainWindow.cpp's INT_PTR[4], MainFrm.cpp's char[1024], InitFonts' four
+  fonts) or of sizes bounded by 16-bit counts (LoadSprites' and LoadPictures' tables: at most 65,535 entries;
+  LoadPictures' tile offsets: at most 255 x 255; HandleEvent's event help copy), the caches (InitGraphics' fixed
+  10 MB memory cache, the video cache of the surface's size),
+  the error messages' std::stringstream, the Vulkan engine's TVulkanError (a std::runtime_error, through the surface)
+  and MFC (CMemoryException, only on an exhausted heap). One boundary is new: MainFrm.cpp's handlers run under MFC's
+  AfxCallWndProc, whose CATCH_ALL takes a `CException *` (message box, the message ends, the client goes on); before,
+  their TENDs made it a TMyException that passed AfxCallWndProc. MFC throws one only on an exhausted heap (operator
+  new, the handle maps of CWnd::FromHandle), so it is recorded, not kept: with the heap exhausted, a handler of the
+  frame now reports "out of memory" through MFC instead of ending the client. Only the fork's stderr line names a
+  different message where an exception reaches the top level as its own type. Structured exceptions: the x64 client
+  and the oracle's Patella.exe build with /EHsc, so nothing changes there; under difftest's /EHa none of the counts
+  changed (below).
+- **The images** (high). Main (bbf011f) and the branch built at the same path (this worktree), the oracle's and the x64
+  Release Patella.exe, function by function through the PDBs, as part 1 did: build\issue-78b-scripts\funcs.py and
+  classify.py (never committed; part 1's scripts went with its worktree) on `dumpbin /disasm:nobytes`, the addresses
+  outside a function masked (x64 also its image-relative displacements), jumps inside it as offsets from its start, the
+  code compared up to its first switch table and the tables' offsets compared; the x64 funclets counted per parent;
+  each function's owner from `dumpbin -symbols` of the image's objects.
+  - x86: 11,441 functions to 11,422; 11,272 the same; 147 changed, every one defined only in the part's five objects,
+    and the two compiler-generated deleting destructors (CMainFrame's and TWindow's `vector deleting destructor`,
+    which now inline ~CMainFrame and ~TWindow); 19 gone: 18 of the part, inlined into their callers of the part now
+    that they have no EH state (the six Find functions of the caches, InitMemoryCache, TTimer::Update, the TMainWindow,
+    TMapWindow and TSplitter constructors, ~CMainFrame, AddFrameSize, KeyUp, OnRButtonDown, DrawLightMask,
+    GetConsoleWindowHeight, ResizeConsole), and `std::array<TCreature *, 10>::operator[]`, called only from DrawField;
+    no new function. The unnamed EH region after the code (dumpbin gives it to ___guard_check_icall_thunk) has 104
+    __ehhandler$ thunks fewer (1,919 to 1,815). .text 0x2a3d7a to 0x28f96a, .rdata 0xc3af8 to 0xbc1d8.
+  - x64: 11,716 functions to 11,698; 11,548 the same; 148 changed of the part plus the same two deleting destructors;
+    18 gone: the same, except that the TMapWindow constructor stays out of line here (changed); no new function.
+    Funclets 4,365 to 3,959; of the 167 parents whose count changed, 163 are the part's (TMainWindow::ChangeMode and
+    TWindow's scalar deleting destructor gain one: they inline a destructor now) and 4 (CreateTextBuffer,
+    array<TMapPoint>::operator(), a format_to_n instantiation, vkb::InstanceBuilder::build) only name a funclet that
+    identical-code folding shares; their code is the same. .text 0x34a50c to 0x3357cc, .rdata 0x11672e to 0x112776,
+    .pdata 0x25a94 to 0x247f8 (397 unwind entries fewer).
+  No function of another file changed, no caller outside the part inlines one of its functions.
+- **The counts** (high). `python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67, communicationtest
+  856,621, vlongtest 3,201, 0 failures, CTest 4/4, every test's own numbers main's (so no comparison saw a kind
+  change, under /EHa either). golden on main's corpus (C:\Tibia\Patella-Modern\build\golden, read only): 15,803,203
+  replayed + 1,512,822 retired = 17,316,025, 0 failures on windows-x64 (14/14, golden_concurrent passes),
+  windows-x64-debug (13/13) and windows-x64-asan (13/13, no ASan finding). windows-x64-gcc, linux-x64-gcc and
+  linux-x64-clang 11/11; 0 warnings on every preset. `python -I tools/reference.py compare --reference
+  C:\Tibia\Patella-Modern\build\reference`: the four sessions match (error with #74's deliberate differences). tidy_ci
+  20 findings, 0 new, 0 gone, 0 bugprone; banned_calls 0; clang-format clean. Logs: build\logs\issue-78b. Left after
+  part 2: 796 TBEGIN in 10 files (parts 3-7).

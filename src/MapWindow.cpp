@@ -14,6 +14,10 @@
 // animated ones directly onto the map surface after the tiles below them were
 // blitted (FlushField). Light sources add up in Light[][], which is drawn
 // last as shaded rectangles or as darkness tiles of picture 7.
+//
+// The try blocks and catch lines the comments name are the original's (its
+// TBEGIN/TEND); since issue #78 the functions here have none apart from
+// AddLightSource's, which names the object whose flag could not be read.
 
 #include "MapWindow.h"
 #include "Communication.h"
@@ -90,7 +94,6 @@ static_assert(sizeof(TMapWindow) == 0x92d8 && offsetof(TMapWindow, Names) == 0x0
 // info, the hotkey 0x457 (Ctrl+W) removes the oldest talkbox.
 TMapWindow::TMapWindow()
 {
-	TBEGIN
 	HintButton = nullptr;
 	MaxLevel = 0;
 	AddHotkey(0x44e, TCallback(this, 600));
@@ -102,34 +105,28 @@ TMapWindow::TMapWindow()
 			Cache[i][j].CachedSprites = 0;
 		}
 	}
-	TEND(130)
 }
 
 // 0x4bfc30, line 152
 void TMapWindow::SetSize(int Width, int Height)
 {
-	TBEGIN
 	SetTalkChanged();
 	TWindow::SetSize(Width, Height);
 	Arrange();
-	TEND2(152, Width, Height)
 }
 
 // 0x4bfde0, line 164. The area is the TRect SkinProperties.Data140, copied
 // as one 16-byte block (sub esp,0x10 and four stores).
 void TMapWindow::Arrange()
 {
-	TBEGIN
 	if (HintButton != nullptr)
 		SetChildArea(HintButton, SkinProperties.Data140);
-	TEND(164)
 }
 
 // 0x4c24d0, line 196. Starts dragging the top movable object of the field.
 // Always reports the click as handled.
 bool TMapWindow::LeftButtonDown(int x, int y, int Flags)
 {
-	TBEGIN
 	if (!TWindow::LeftButtonDown(x, y, Flags)) {
 		int FieldX, FieldY, FieldZ;
 		GetField(x, y, &FieldX, &FieldY, &FieldZ);
@@ -142,7 +139,6 @@ bool TMapWindow::LeftButtonDown(int x, int y, int Flags)
 		}
 	}
 	return true;
-	TEND2(196, x, y)
 }
 
 // 0x4c2710, lines 219-272. Action state 7: use the object chosen before
@@ -154,7 +150,6 @@ bool TMapWindow::LeftButtonDown(int x, int y, int Flags)
 // right-button release.
 bool TMapWindow::LeftButtonUp(int x, int y, int Flags)
 {
-	TBEGIN
 	if (TWindow::LeftButtonUp(x, y, Flags))
 		return true;
 	int FieldX, FieldY, FieldZ;
@@ -223,7 +218,6 @@ bool TMapWindow::LeftButtonUp(int x, int y, int Flags)
 		}
 	}
 	return true;
-	TEND2(272, x, y)
 }
 
 // 0x4c2e50, lines 335-368. A field the player cannot see gives "You can't
@@ -237,7 +231,6 @@ bool TMapWindow::LeftButtonUp(int x, int y, int Flags)
 // looks, 0x400 uses and a plain click opens the context menu.
 bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 {
-	TBEGIN
 	int FieldX, FieldY, FieldZ;
 	GetField(x, y, &FieldX, &FieldY, &FieldZ);
 	if ((!In(FieldX - 8, -1, 1) || !In(FieldY - 6, -1, 1)) && Light[FieldX][FieldY].R == 0) {
@@ -322,14 +315,12 @@ bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 			AddMessage(0x34, 0, 0);
 		return true;
 	}
-	TEND2(368, x, y)
 }
 
 // 0x4bffa0, lines 382-388. Events 600 and 601 are the hotkeys of the
 // constructor, 27 the hint button: it shows the next event help as a message.
 void TMapWindow::HandleEvent(int Event)
 {
-	TBEGIN
 	if (Event == 600)
 		SetCreatureInfo((GetCreatureInfo() + 1) % 3);
 	if (Event == 601)
@@ -344,7 +335,6 @@ void TMapWindow::HandleEvent(int Event)
 		TStringBuffer(Text, Size).Assign(GetEventHelpText(Hint));
 		AddMessage(2, reinterpret_cast<INT_PTR>(GetEventHelpTitle(Hint)), reinterpret_cast<INT_PTR>(Text));
 	}
-	TEND1(388, Event)
 }
 
 // 0x4c3520, lines 417-432. Help mode: the help bubble for the creature or
@@ -352,7 +342,6 @@ void TMapWindow::HandleEvent(int Event)
 // object's lens help, 1002 a container), placed over the field.
 bool TMapWindow::HelpMouseMove(int x, int y)
 {
-	TBEGIN
 	int FieldX, FieldY, FieldZ;
 	GetField(x, y, &FieldX, &FieldY, &FieldZ);
 	if ((!In(FieldX - 8, -1, 1) || !In(FieldY - 6, -1, 1)) && Light[FieldX][FieldY].R == 0)
@@ -374,8 +363,8 @@ bool TMapWindow::HelpMouseMove(int x, int y)
 	TASSERT(417, Player!=NULL);
 	// The help position goes into x and y (the binary stores it in the
 	// parameters' stack slots, 0x4c372a/0x4c3751 and 0x4c3793/0x4c37bd), so
-	// TEND2(x, y) prints it after an error in MoveHelpPosition or SetHelpSize
-	// (issue #34).
+	// the original's TEND2(x, y) printed it after an error in
+	// MoveHelpPosition or SetHelpSize (issue #34).
 	if (GetNoStretching()) {
 		x = FieldX * 32 - (480 - Width) / 2 - Player->GetDeltaX() - 32;
 		y = FieldY * 32 - (352 - Height) / 2 - Player->GetDeltaY() - 32;
@@ -389,7 +378,6 @@ bool TMapWindow::HelpMouseMove(int x, int y)
 	}
 	SetHelpHandle(Handle);
 	return true;
-	TEND2(432, x, y)
 }
 
 // 0x4c7580, lines 456-834 (Ghidra split it at 0x4c7750). The blocks with
@@ -397,7 +385,6 @@ bool TMapWindow::HelpMouseMove(int x, int y)
 // with 794 inside, 830) follow the binary's exception table.
 void TMapWindow::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	const bool LightEffects = GetLightEffects() && GetSurface()->CanShadeRectangles();
 	const bool ShowTexts = GetTextualEffects();
 	const int CreatureInfo = GetCreatureInfo();
@@ -414,7 +401,6 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	// DONTHIDE.
 	{
 		TObject Obj;
-		TBEGIN
 		for (int FieldX = 7; FieldX < 10; FieldX++) {
 			for (int FieldY = 5; FieldY < 8; FieldY++) {
 				if ((FieldX == 8 || FieldY == 6) && IsFieldThrowable(FieldX, FieldY, Level)) {
@@ -433,12 +419,10 @@ void TMapWindow::Draw(int Surface, int x, int y)
 				}
 			}
 		}
-		TEND1(477, Obj)
 	}
 
 	{
 		TObject Obj;
-		TBEGIN
 		for (int FieldX = 0; FieldX < MAPSIZE_X; FieldX++) {
 			for (int FieldY = 0; FieldY < MAPSIZE_Y; FieldY++) {
 				CoverLevel[FieldX][FieldY] = 0;
@@ -451,7 +435,6 @@ void TMapWindow::Draw(int Surface, int x, int y)
 				}
 			}
 		}
-		TEND1(495, Obj)
 	}
 
 	// The levels bottom up. Each ground sets the light of its field to the
@@ -459,7 +442,6 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	// the light below it. The light below the player's level fades by 1/5.
 	{
 		TObject Obj;
-		TBEGIN
 		NumberOfNames = 0;
 		NumberOfTextualEffects = 0;
 		GetMapPosition(&PositionX, &PositionY, &PositionZ);
@@ -516,12 +498,10 @@ void TMapWindow::Draw(int Surface, int x, int y)
 			for (int FieldY = 0; FieldY < MAPSIZE_Y; FieldY++)
 				FlushField(FieldX, FieldY);
 		}
-		TEND1(527, Obj)
 	}
 
 	// The light: rectangles shaded between the field centres, or one
 	// darkness tile per field.
-	TBEGIN
 	if (LightEffects) {
 		std::array<TRect, (MAPSIZE_X + 1) * (MAPSIZE_Y + 1)> Rects;
 		std::array<TRGBColor, (MAPSIZE_X + 1) * (MAPSIZE_Y + 1) * 4> Colors;
@@ -547,7 +527,6 @@ void TMapWindow::Draw(int Surface, int x, int y)
 				DrawLightMask(FieldX * 32 - ScrollX, FieldY * 32 - ScrollY, Light[FieldX][FieldY].R);
 		}
 	}
-	TEND(550)
 
 	// The map surface onto the screen, then the names and health bars. A
 	// creature hidden by a ground above it gets a grey bar; the colour fades
@@ -557,7 +536,6 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	const int ScreenWidth = Width;
 	const int ScreenHeight = Height;
 	int BorderX = 0, BorderY = 0;
-	TBEGIN
 	if (GetNoStretching()) {
 		TASSERT1(558, getWidth()<=MAP_WIDTH*32, getWidth());
 		TASSERT1(559, getHeight()<=MAP_HEIGHT*32, getHeight());
@@ -584,11 +562,9 @@ void TMapWindow::Draw(int Surface, int x, int y)
 				Visible = true;
 				while (++cz <= MaxLevel) {
 					TObject Obj;
-					TBEGIN
 					Obj = GetFirstObject(cx, cy, cz);
 					if (Obj.Type != 0 && GetObjectFlag(Obj, BANK))
 						Visible = false;
-					TEND1(599, Obj)
 				}
 			}
 			const TRGBColor Color = Visible ? Creature->GetHealthColor() : TRGBColor(192, 192, 192);
@@ -700,11 +676,9 @@ void TMapWindow::Draw(int Surface, int x, int y)
 			}
 		}
 	}
-	TEND(757)
 
 	// The talkboxes (their positions follow the walk unless they stick to
 	// an edge) and the status message.
-	TBEGIN
 	if (GetTalkChanged())
 		ArrangeTalkboxes();
 	const int Talkboxes = GetNumberOfTalkboxes();
@@ -728,12 +702,10 @@ void TMapWindow::Draw(int Surface, int x, int y)
 		PrintTextPart(Surface, MessageWidth / 2 + x, MessageHeight - GetFontHeight(2) + y, 2,
 			TRGBColor(255, 255, 255), GetStatusMessage(), Length, 1);
 	}
-	TEND(776)
 
 	// The animated texts of visible fields and of the player's level.
 	{
 		TObject Obj;
-		TBEGIN
 		if (ShowTexts) {
 			for (int i = 0; i < NumberOfTextualEffects; i++) {
 				const int FieldX = TextualEffects[i].FieldX, FieldY = TextualEffects[i].FieldY;
@@ -742,11 +714,9 @@ void TMapWindow::Draw(int Surface, int x, int y)
 				if (In(FieldX, 0, MAPSIZE_X - 1) && In(FieldY, 0, MAPSIZE_Y - 1)) {
 					Visible = true;
 					while (++z <= MaxLevel) {
-						TBEGIN
 						Obj = GetFirstObject(FieldX, FieldY, z);
 						if (Obj.Type != 0 && GetObjectFlag(Obj, BANK))
 							Visible = false;
-						TEND1(794, Obj)
 					}
 				}
 				if (!Visible && TextualEffects[i].FieldZ != GetMapLevel())
@@ -766,11 +736,9 @@ void TMapWindow::Draw(int Surface, int x, int y)
 				PrintText(Surface, tx + x, ty + y, 2, TRGBColor(Color), Text, 1);
 			}
 		}
-		TEND(815)
 	}
 
 	// The hint button while there is an event help to show.
-	TBEGIN
 	if (GetShowNewHints() && GetEventHelp() != 0 && HintButton == nullptr) {
 		HintButton = new TBlinkingButton(0, 0, 61, 62, 63, 64, TCallback(this, 27), TextReceiveHint);
 		InsertChild(HintButton);
@@ -781,9 +749,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 		DeleteChild(HintButton);
 		HintButton = nullptr;
 	}
-	TEND(830)
 	TWindow::Draw(Surface, x, y);
-	TEND1(834, Surface)
 }
 
 // 0x4c5520, lines 874-1062. One field at map surface position posx/posy.
@@ -796,7 +762,6 @@ void TMapWindow::Draw(int Surface, int x, int y)
 // attack and follow frames and their mark.
 void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int FieldZ, int Mode)
 {
-	TBEGIN
 	int x = FieldX, y = FieldY, z = FieldZ;
 	RelativeToAbsolute(&x, &y, &z);
 	TObject Obj = GetFirstObject(FieldX, FieldY, FieldZ);
@@ -805,7 +770,6 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 	bool Lying = false;
 	int Elevation = 0;
 	TObject TopObject;
-	TBEGIN
 	for (Obj = GetFirstObject(FieldX, FieldY, FieldZ); Obj.Type != 0; Obj = GetNextObject()) {
 		if (Mode == 0 && Obj.Type != CREATURE && GetObjectFlag(Obj, LIGHT)) {
 			int ShiftX = 0, ShiftY = 0;
@@ -829,8 +793,6 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 	}
 	// The catch block prints the object (0x4c72da, line 874: "Obj" and the
 	// type at [ebp-0x4c]; issue #34).
-	TEND1(874, Obj)
-	TBEGIN
 	if (Lying) {
 		if (FieldX > 0) {
 			if (FieldY > 0)
@@ -840,14 +802,12 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 		if (FieldY > 0)
 			DrawField(posx, posy - 32, FieldX, FieldY - 1, FieldZ, 1);
 	}
-	TEND(884)
 	int NumberOfCreatures = 0;
 	std::array<TCreature *, 10> Creatures;
 	std::array<int, 10> OffsetX;
 	std::array<int, 10> OffsetY;
 	std::array<int, 10> ShiftX;
 	std::array<int, 10> ShiftY;
-	TBEGIN
 	for (int i = FieldX - 1; i <= FieldX + 1; i++) {
 		for (int j = FieldY - 1; j <= FieldY + 1; j++) {
 			if (i < 0 || j < 0 || i >= MAPSIZE_X || j >= MAPSIZE_Y)
@@ -888,7 +848,6 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 			}
 		}
 	}
-	TEND(927)
 	for (int i = 0; i < NumberOfCreatures - 1; i++) {
 		for (int j = i + 1; j < NumberOfCreatures; j++) {
 			if (OffsetY[i] > OffsetY[j] || (OffsetY[i] == OffsetY[j] && OffsetX[i] >= OffsetX[j])) {
@@ -911,7 +870,6 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 		}
 	}
 	int i;
-	TBEGIN
 	for (i = 0; i < NumberOfCreatures; i++) {
 		TRGBColor Color;
 		if (Creatures[i]->CreatureID == GetHighlightID())
@@ -979,9 +937,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 				AddLightSource(lx, ly, FieldZ, 2, TRGBColor(255, 255, 255));
 		}
 	}
-	TEND2(987, i, Creatures[i]->OutfitType)
 	int EffectNumber = -1;
-	TBEGIN
 	for (EffectNumber = GetFirstEffect(FieldX, FieldY, FieldZ); EffectNumber != -1; EffectNumber = GetNextEffect()) {
 		if (EffectNumber < 0 || EffectNumber > EFFECTS - 1) {
 			std::stringstream s;
@@ -1054,12 +1010,8 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 			}
 		}
 	}
-	TEND1(1054, EffectNumber)
-	TBEGIN
 	if (TopObject.Type != 0)
 		DrawObject(posx, posy, FieldZ, TopObject, x, y, z);
-	TEND(1060)
-	TEND2(1062, posx, posy)
 }
 
 // 0x4c4af0, lines 1071-1094. The pattern comes from the absolute position
@@ -1068,7 +1020,6 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 void TMapWindow::DrawObject(int posx, int posy, int Level, TObject Obj, int x, int y, int z)
 {
 	TASSERT(1071, Obj.Type!=0);
-	TBEGIN
 	int PatternX = x % GetObjectPatternWidth(Obj.Type) + 1;
 	int PatternY = y % GetObjectPatternHeight(Obj.Type) + 1;
 	const int PatternZ = z % GetObjectPatternDepth(Obj.Type) + 1;
@@ -1094,7 +1045,6 @@ void TMapWindow::DrawObject(int posx, int posy, int Level, TObject Obj, int x, i
 			}
 		}
 	}
-	TEND2(1094, posx, posy)
 }
 
 // 0x4c4f80, lines 1106-1129. Outfits are always animated; the second layer
@@ -1103,7 +1053,6 @@ void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature
 {
 	TASSERT(1106, Creature!=NULL);
 	TASSERT(1107, Creature->OutfitType!=0);
-	TBEGIN
 	const int OutfitType = Creature->OutfitType;
 	std::array<TRGBColor, 4> Colors;
 	int R, G, B;
@@ -1136,7 +1085,6 @@ void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature
 					MaskNumber, Colors.data());
 		}
 	}
-	TEND2(1129, posx, posy)
 }
 
 // 0x4c02c0, lines 1138-1144. One of the darkness tiles of picture 7 (0
@@ -1144,7 +1092,6 @@ void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature
 void TMapWindow::DrawLightMask(int posx, int posy, int Brightness)
 {
 	TASSERT1(1138, In(Brightness,0,255), Brightness);
-	TBEGIN
 	int Tile;
 	if (In(Brightness, 1, 27))
 		Tile = 1;
@@ -1152,7 +1099,6 @@ void TMapWindow::DrawLightMask(int posx, int posy, int Brightness)
 		Tile = Brightness / 28;
 	if (Tile <= 7)
 		DrawPicturePart(2, posx, posy, 7, Tile << 5, 0, 32, 32);
-	TEND2(1144, posx, posy)
 }
 
 // 0x4c46a0, line 1180. A sprite at map surface position x/y on the fields it
@@ -1165,7 +1111,6 @@ void TMapWindow::DrawFieldSprite(int x, int y, int Level, bool Animated, int Spr
 	const int ay = ScrollY + y;
 	const int FieldX = (ax + 32) / 32 - 1;
 	const int FieldY = (ay + 32) / 32 - 1;
-	TBEGIN
 	if (MaskNumber == 0 && !Animated) {
 		const int dx = (ax + 32) % 32;
 		const int dy = (ay + 32) % 32;
@@ -1202,7 +1147,6 @@ void TMapWindow::DrawFieldSprite(int x, int y, int Level, bool Animated, int Spr
 		else
 			DrawMaskedSprite(2, x, y, SpriteNumber, MaskNumber, Colors);
 	}
-	TEND1(1180, SpriteNumber)
 }
 
 // 0x4c41e0, line 1231. Adds a sprite at offset dx/dy to a field's cache
@@ -1213,7 +1157,6 @@ void TMapWindow::DrawFieldSprite(int x, int y, int Level, bool Animated, int Spr
 // surface, clipped to the field.
 void TMapWindow::CacheSprite(int FieldX, int FieldY, int SpriteNumber, int dx, int dy)
 {
-	TBEGIN
 	if (!In(FieldX, 0, MAPSIZE_X - 1) || !In(FieldY, 0, MAPSIZE_Y - 1))
 		return;
 	const int x = FieldX * 32 - ScrollX;
@@ -1274,7 +1217,6 @@ void TMapWindow::CacheSprite(int FieldX, int FieldY, int SpriteNumber, int dx, i
 		Field->CachedSprites = Field->Sprites + 1;
 	}
 	Field->Sprites++;
-	TEND1(1231, SpriteNumber)
 }
 
 // 0x4c3980, line 1256. Blits a field's cache tile to the map surface, once
@@ -1282,7 +1224,6 @@ void TMapWindow::CacheSprite(int FieldX, int FieldY, int SpriteNumber, int dx, i
 // drawn again over it first (without clearing it).
 void TMapWindow::FlushField(int FieldX, int FieldY)
 {
-	TBEGIN
 	if (In(FieldX, 0, MAPSIZE_X - 1) && In(FieldY, 0, MAPSIZE_Y - 1)) {
 		const int x = FieldX * 32 - ScrollX;
 		if (x > -32) {
@@ -1308,7 +1249,6 @@ void TMapWindow::FlushField(int FieldX, int FieldY)
 			}
 		}
 	}
-	TEND2(1256, FieldX, FieldY)
 }
 
 // 0x4c0590, lines 1264-1265. No try block. The tiles wrap with the map
@@ -1328,7 +1268,6 @@ TCacheField *TMapWindow::GetCacheField(int FieldX, int FieldY)
 // component.
 void TMapWindow::AddLightSource(int posx, int posy, int z, int Brightness, TRGBColor Color)
 {
-	TBEGIN
 	if (Brightness <= 0)
 		return;
 	posx += ScrollX;
@@ -1377,7 +1316,6 @@ void TMapWindow::AddLightSource(int posx, int posy, int z, int Brightness, TRGBC
 			FieldLight.B = FieldLight.B > B ? FieldLight.B : B;
 		}
 	}
-	TEND2(1347, posx, posy)
 }
 
 // 0x4c0880, lines 1405-1470. Places the talkboxes: a box of a speaking
@@ -1388,7 +1326,6 @@ void TMapWindow::AddLightSource(int posx, int posy, int z, int Brightness, TRGBC
 // no creature (then it does not follow the walk).
 void TMapWindow::ArrangeTalkboxes()
 {
-	TBEGIN
 	std::array<int, TALKBOXES> BoxWidth;
 	std::array<int, TALKBOXES> BoxHeight;
 	const int Talkboxes = GetNumberOfTalkboxes();
@@ -1561,7 +1498,6 @@ void TMapWindow::ArrangeTalkboxes()
 		else
 			SetTalkboxRectangle(Talkbox, PosX[i], Top, 1, Fixed[i]);
 	}
-	TEND(1470)
 }
 
 // 0x4c12e0, lines 1480-1499. The map field under window position x/y: the
@@ -1569,7 +1505,6 @@ void TMapWindow::ArrangeTalkboxes()
 // object (first or second) on the field; 0 if there is none.
 void TMapWindow::GetField(int x, int y, int *FieldX, int *FieldY, int *FieldZ)
 {
-	TBEGIN
 	const TCreature *Player = GetCreature(GetPlayerID());
 	TASSERT(1480, Player!=NULL);
 	if (GetNoStretching()) {
@@ -1589,7 +1524,6 @@ void TMapWindow::GetField(int x, int y, int *FieldX, int *FieldY, int *FieldZ)
 				return;
 		}
 	}
-	TEND2(1499, x, y)
 }
 
 // 0x4c16b0, line 1545. The creature whose figure (its name position, the
@@ -1599,7 +1533,6 @@ uint32 TMapWindow::GetCreatureAt(int x, int y)
 {
 	const int FieldWidth = Width / 15;
 	const int FieldHeight = Height / 11;
-	TBEGIN
 	for (int i = 0; i < NumberOfNames; i++) {
 		const TCreature *Creature = GetCreature(Names[i].CreatureID);
 		if (Creature == nullptr)
@@ -1629,7 +1562,6 @@ uint32 TMapWindow::GetCreatureAt(int x, int y)
 		}
 	}
 	return 0;
-	TEND2(1545, x, y)
 }
 
 // --- TMapFrame -------------------------------------------------------------
@@ -1638,12 +1570,10 @@ uint32 TMapWindow::GetCreatureAt(int x, int y)
 // and the background around them.
 TMapFrame::TMapFrame()
 {
-	TBEGIN
 	MapWindow = new TMapWindow;
 	InsertChild(MapWindow);
 	DrawingListLength = 8;
 	DrawingList.reset(new TDrawing[8]);
-	TEND(1564)
 }
 
 // 0x4c1c40, line 1584. The map view keeps 15:11 (at most 480 pixels wide
@@ -1651,7 +1581,6 @@ TMapFrame::TMapFrame()
 // follows it.
 void TMapFrame::SetSize(int Width, int Height)
 {
-	TBEGIN
 	const int Border = SkinProperties.Data13C;
 	const int MaxWidth = (Height - Border * 2) * 15 / 11 + 2;
 	ViewWidth = Width - Border * 2 < MaxWidth ? Width - Border * 2 : MaxWidth;
@@ -1664,23 +1593,18 @@ void TMapFrame::SetSize(int Width, int Height)
 	MapWindow->SetPosition(ViewX, ViewY);
 	TWindow::SetSize(Width, ViewHeight + SkinProperties.Data13C * 2);
 	Arrange();
-	TEND2(1584, Width, Height)
 }
 
 // 0x4c1ea0, line 1595
 int TMapFrame::getMinimumWidth()
 {
-	TBEGIN
 	return MapWindow->getMinimumWidth() + SkinProperties.Data13C * 2;
-	TEND(1595)
 }
 
 // 0x4c2040, line 1606
 int TMapFrame::getMinimumHeight()
 {
-	TBEGIN
 	return MapWindow->getMinimumHeight() + SkinProperties.Data13C * 2;
-	TEND(1606)
 }
 
 // 0x4c21e0. No exception frame. The border (skins 8-11) and skin 7 tiled

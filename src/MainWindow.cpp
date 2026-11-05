@@ -17,6 +17,11 @@
 // height. Leaving a mode (ChangeMode, the destructor) stores the open
 // sub-windows of both columns in the preferences; entering the game opens
 // them again.
+//
+// The try blocks and catch lines the comments name are the original's (its
+// TBEGIN/TEND); since issue #78 the functions here have none
+// apart from Draw's, which turns an error of the start window into
+// PROGRAM_ERROR 12.
 
 #include "MainWindow.h"
 #include "ContentWindows.h"
@@ -68,12 +73,10 @@ TCallback NoCallback(nullptr, 0);
 // switch between windowed and fullscreen mode.
 TMainWindow::TMainWindow(int Width, int Height)
 {
-	TBEGIN
 	TWindow::SetSize(Width, Height);
 	ChangeMode(false);
 	AddHotkey(0x446, TCallback(this, 0x1f8));
 	AddHotkey(0x80d, TCallback(this, 0x1f8));
-	TEND2(85, Width, Height)
 }
 
 // 0x4ac010. No exception frame of its own; ChangeMode starts with the same
@@ -107,7 +110,6 @@ void ExitMainWindow()
 // children are drawn in a fixed order, the map frame after the right column.
 void TMainWindow::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	if (!InGame) {
 		try {
 			TWindow::Draw(Surface, x, y);
@@ -121,14 +123,12 @@ void TMainWindow::Draw(int Surface, int x, int y)
 	DialogWindow->Draw(Surface, DialogWindow->OffsetX + x, DialogWindow->OffsetY + y);
 	MapFrame->Draw(Surface, MapFrame->OffsetX + x, MapFrame->OffsetY + y);
 	Splitter->Draw(Surface, Splitter->OffsetX + x, Splitter->OffsetY + y);
-	TEND1(127, Surface)
 }
 
 // 0x4ac340, line 177. The map gets the height the console leaves, at least
 // its minimum height and at most what the console's minimum height leaves.
 void TMainWindow::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TWindow::SetSize(Width, Height);
 	SetWindowSize(Width, Height);
 	if (InGame) {
@@ -161,7 +161,6 @@ void TMainWindow::SetSize(int Width, int Height)
 		StartWindow->SetPosition(0, 0);
 	}
 	Arrange();
-	TEND2(177, Width, Height)
 }
 
 // 0x4aea50, line 203. Only in connection state 8 (in the game): the arrow
@@ -169,7 +168,6 @@ void TMainWindow::SetSize(int Width, int Height)
 // arrow key turns, every other key goes to the console.
 void TMainWindow::KeyPress(int Key)
 {
-	TBEGIN
 	if (GetConnectionState() != 8)
 		return;
 	switch (Key) {
@@ -189,7 +187,6 @@ void TMainWindow::KeyPress(int Key)
 		Console->KeyPress(Key);
 		break;
 	}
-	TEND1(203, Key)
 }
 
 // 0x4aed10, lines 308-339. The events of the hotkeys, the buttons of the
@@ -199,7 +196,6 @@ void TMainWindow::KeyPress(int Key)
 // fullscreen mode (a fullscreen mode below 640x480 is raised to it first).
 void TMainWindow::HandleEvent(int Event)
 {
-	TBEGIN
 	switch (Event) {
 	case 0x21:
 		CopyTaintedClipboardText();
@@ -331,7 +327,6 @@ void TMainWindow::HandleEvent(int Event)
 		ChangeEngine(1);
 		break;
 	}
-	TEND1(339, Event)
 }
 
 // 0x4af5e0, line 463. Rebuilds the window for the game (InGame) or for the
@@ -344,7 +339,6 @@ void TMainWindow::HandleEvent(int Event)
 // deleted frame (never used there).
 void TMainWindow::ChangeMode(bool InGame)
 {
-	TBEGIN
 	if (FirstChild != nullptr && this->InGame) {
 		ClearOpenDialogs();
 		if (SidePanel != nullptr)
@@ -481,36 +475,30 @@ void TMainWindow::ChangeMode(bool InGame)
 	}
 	SetSize(Width, Height);
 	SetConsoleActive(ModalWindow == nullptr);
-	TEND(463)
 }
 
 // 0x4ac610, line 475. The console's new height, at least its minimum; the
 // caller lays out the window again.
 void TMainWindow::ResizeConsole(int ConsoleHeight) const
 {
-	TBEGIN
 	// One call of getMinimumHeight (0x4ac642; issue #34).
 	const int MinimumHeight = Console->getMinimumHeight();
 	if (ConsoleHeight < MinimumHeight)
 		ConsoleHeight = MinimumHeight;
 	Console->SetSize(Console->Width, ConsoleHeight);
-	TEND1(475, ConsoleHeight)
 }
 
 // 0x4ac7c0. The try block is gone (nothing in it can throw); the function
 // shares its exception tables with TSplitter::Arrange.
 int TMainWindow::GetConsoleWindowHeight() const
 {
-	TBEGIN
 	return Console->Height;
-	TEND(484)
 }
 
 // 0x4ac7f0, line 503. SetPlayerDestination returns 1 when the step can be
 // walked and 2 when the player has to stop.
 void TMainWindow::Walk(int dx, int dy, bool Diagonal)
 {
-	TBEGIN
 	int x, y, z;
 	GetPlayerPosition(&x, &y, &z);
 	switch (SetPlayerDestination(x + dx, y + dy, z, true, Diagonal)) {
@@ -521,7 +509,6 @@ void TMainWindow::Walk(int dx, int dy, bool Diagonal)
 		SendStop();
 		break;
 	}
-	TEND2(503, dx, dy)
 }
 
 // 0x4ac9e0, lines 511-539. The assertion comes before the try block. An
@@ -532,7 +519,6 @@ void TMainWindow::Walk(int dx, int dy, bool Diagonal)
 void TMainWindow::OpenContainer(int Container) const
 {
 	TASSERT(511, DialogWindow!=NULL);
-	TBEGIN
 	TSubWindow *Window = static_cast<TSubWindow *>(DialogWindow->GetContentWindow(Container + 0x40));
 	if (Window == nullptr) {
 		DialogWindow->Rearrange(16, CreateContainerWindow(Container));
@@ -549,19 +535,16 @@ void TMainWindow::OpenContainer(int Container) const
 		else
 			Window->HideUpButton();
 	}
-	TEND1(539, Container)
 }
 
 // 0x4acdb0, line 552
 void TMainWindow::CloseContainer(int Container) const
 {
-	TBEGIN
 	if (DialogWindow != nullptr) {
 		TContentWindow *Window = DialogWindow->GetContentWindow(Container + 0x40);
 		if (Window != nullptr)
 			DialogWindow->DeleteChild(Window);
 	}
-	TEND1(552, Container)
 }
 
 // 0x4afec0, lines 560-565. Both assertions come before the try block.
@@ -569,36 +552,29 @@ void TMainWindow::OpenTrade() const
 {
 	TASSERT(560, DialogWindow!=NULL);
 	TASSERT(561, !DialogWindow->hasContentWindow(TRADE_WINDOW));
-	TBEGIN
 	OpenContentWindow(TRADE_WINDOW);
-	TEND(565)
 }
 
 // 0x4acf60, lines 576-579. The trade window's body gets event 0x15 (the
 // counter offer arrived).
 void TMainWindow::UpdateTrade() const
 {
-	TBEGIN
 	const TSubWindow *Window = static_cast<TSubWindow *>(DialogWindow->GetContentWindow(TRADE_WINDOW));
 	if (Window != nullptr) {
 		TASSERT(576, Window->getBody()!=NULL);
 		Window->getBody()->HandleEvent(0x15);
 	}
-	TEND(579)
 }
 
 // 0x4b0230, line 590
 void TMainWindow::CloseTrade() const
 {
-	TBEGIN
 	CloseContentWindow(TRADE_WINDOW);
-	TEND(590)
 }
 
 // 0x4ad1e0, lines 606-610. The jump table 0x4ad48c has the four cases.
 void TMainWindow::OpenContentWindow(int Identifier) const
 {
-	TBEGIN
 	if (DialogWindow->GetContentWindow(Identifier) == nullptr) {
 		TWindow *Window;
 		switch (Identifier) {
@@ -619,27 +595,22 @@ void TMainWindow::OpenContentWindow(int Identifier) const
 		}
 		DialogWindow->Rearrange(16, Window);
 	}
-	TEND1(610, Identifier)
 }
 
 // 0x4ad4a0, line 621
 void TMainWindow::CloseContentWindow(int Identifier) const
 {
-	TBEGIN
 	TContentWindow *Window = DialogWindow->GetContentWindow(Identifier);
 	if (Window != nullptr)
 		DialogWindow->DeleteChild(Window);
-	TEND1(621, Identifier)
 }
 
 // 0x4ad650, line 632. The console takes the keyboard while no modal window
 // is open (Control.cpp passes ModalWindow==NULL).
 void TMainWindow::SetConsoleActive(bool Active) const
 {
-	TBEGIN
 	if (Console != nullptr)
 		Console->SetActive(Active);
-	TEND(632)
 }
 
 // --- TStartWindow ----------------------------------------------------------
@@ -648,7 +619,6 @@ void TMainWindow::SetConsoleActive(bool Active) const
 // (skins 0x34-0x3c) surrounds.
 TStartWindow::TStartWindow()
 {
-	TBEGIN
 	TWindow *Panel = new TWindow;
 	Panel->SetSize(SkinProperties.Style0D8.Data00, SkinProperties.Style0D8.Data04);
 	TComponent *Button = new TTextButton(0, 0, "Enter Game", 0x12, 0x13, TCallback(this, 0x1f5), nullptr);
@@ -669,33 +639,27 @@ TStartWindow::TStartWindow()
 	Frame = new TBorder(Panel, 0x34, 0x3a, 0x35, 0x38, 0x39, 0x36, 0x3b, 0x37, 0x3c, SkinProperties.Data134);
 	InsertChild(Frame);
 	Frame->FitToWindow();
-	TEND(671)
 }
 
 // 0x4adc60, line 691. Picture 1, the start screen, goes to the 640x480
 // surface 2 and is stretched over the window.
 void TStartWindow::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	DrawPicture(2, 0, 0, 1);
 	GetSurface()->StretchBlitRect(Surface, TRect(x, y, Width, Height), 2, TRect(0, 0, 640, 480));
 	TWindow::Draw(Surface, x, y);
-	TEND1(691, Surface)
 }
 
 // 0x4ade70, line 703
 void TStartWindow::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TWindow::SetSize(Width, Height);
 	SetChildPosition(Frame, SkinProperties.Style0D8.Data08.x, SkinProperties.Style0D8.Data08.y);
-	TEND2(703, Width, Height)
 }
 
 // 0x4ae030, line 731. The buttons work only while there is no connection.
 void TStartWindow::HandleEvent(int Event)
 {
-	TBEGIN
 	if (GetConnectionState() != 0)
 		return;
 	switch (Event) {
@@ -715,7 +679,6 @@ void TStartWindow::HandleEvent(int Event)
 		OpenURLCallback(TextAccountURL);
 		break;
 	}
-	TEND1(731, Event)
 }
 
 // --- TSplitter -------------------------------------------------------------
@@ -723,24 +686,20 @@ void TStartWindow::HandleEvent(int Event)
 // 0x4ae240, line 749
 TSplitter::TSplitter()
 {
-	TBEGIN
 	Dragging = false;
 	DrawingListLength = 3;
 	DrawingList.reset(new TDrawing[3]);
 	for (int i = 0; i < DrawingListLength; i++)
 		DrawingList[i].skin = 0;
-	TEND(749)
 }
 
 // 0x4ae430. Skins 8 (top), 7 (middle, stretched) and 9 (bottom). As in
 // GetConsoleWindowHeight the try block is gone.
 void TSplitter::Arrange()
 {
-	TBEGIN
 	DrawingList[0] = TDrawing(8, 0, 0, Width, Skins[8].height, 0, 0);
 	DrawingList[1] = TDrawing(7, 0, Skins[8].height, Width, Height - Skins[9].height - Skins[8].height, 0, 0);
 	DrawingList[2] = TDrawing(9, 0, Height - Skins[9].height, Width, Skins[9].height, 0, 0);
-	TEND(762)
 }
 
 // 0x4ae530, line 780. Mouse cursor 2 is the vertical size arrow. While
@@ -748,36 +707,30 @@ void TSplitter::Arrange()
 // not the parent. x has no name in the catch block.
 bool TSplitter::MouseMove([[maybe_unused]] int x, int y)
 {
-	TBEGIN
 	SetMouseCursor(2);
 	if (Dragging) {
 		MainWindow->ResizeConsole(DragY - y + MainWindow->GetConsoleWindowHeight());
 		MainWindow->SetSize(MainWindow->Width, MainWindow->Height);
 	}
 	return true;
-	TEND1(780, y)
 }
 
 // 0x4ae700, line 795
 bool TSplitter::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	SetCapture(nullptr);
 	DragX = x;
 	Dragging = true;
 	DragY = y;
 	return true;
-	TEND2(795, x, y)
 }
 
 // 0x4ae8b0, line 807. ReleaseCapture clears Dragging.
 bool TSplitter::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (Dragging)
 		ReleaseCapture(nullptr);
 	return true;
-	TEND(807)
 }
 
 // --- The main window -------------------------------------------------------
@@ -786,12 +739,10 @@ bool TSplitter::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[m
 void InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode),
 	void (*OpenURL)(const char *URL))
 {
-	TBEGIN
 	MainWindow = new TMainWindow(Width, Height);
 	TASSERT1(822, GetActionState()==ACTIONSTATE_NONE, GetActionState());
 	ExitProgramCallback = ExitProgram;
 	ModalWindow = nullptr;
 	SetDisplayModeCallback = SetDisplayMode;
 	OpenURLCallback = OpenURL;
-	TEND2(828, Width, Height)
 }
