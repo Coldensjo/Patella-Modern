@@ -456,6 +456,12 @@ unit tests:
   until exit; 608 `new` against 193 `delete`). Then `std::unique_ptr<T>` for owning members and globals
   (pointer-sized with the default deleter on all three compilers). Non-owning pointers stay raw, or become
   references where never null. No `std::shared_ptr`.
+  Done in issue #58 (notes/decisions.md): the map in two parts; 46 owning pointers to `std::unique_ptr` (33 members,
+  among them TComponent's drawing list and Container.h's entries, and 13 globals: the account's characters, the patch
+  buffer, the object, skin and graphics tables), each `delete` an explicit `reset()` in place and order, the original's
+  leaks kept with `release()`; every owner that stays raw is in notes/ownership.md's section 7 with the milestone that
+  unblocks it (M5: the `noexcept(false)` pointees and a TASSERT's `strlen(Text)`; M7: the GUI tree, the queue, the
+  containers' pointers, the mismatched releases, the globals that act at `exit(1)`; M8: MFC's and `malloc`'s).
 - **Views:** `std::string_view` and `std::span<const std::uint8_t>` parameters (the packet buffers, `TXTEA`,
   `TRSA`).
   Done in issue #59 (notes/decisions.md): `src/compat/span.h`'s `patella::TSpan` (std::span; a C++17 stand-in in the
