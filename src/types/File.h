@@ -86,7 +86,7 @@ public:
 		if (Content == TContent::Text)
 			Handle = OpenText(Name, Access);
 		else
-			Handle = std::fopen(Name, ModeText(Access, Content));
+			Handle = std::fopen(Name, ModeText(Access, Content)); // NOLINT(cppcoreguidelines-owning-memory): TFile owns it (Close)
 #endif
 		return Handle != nullptr;
 	}
@@ -120,7 +120,7 @@ public:
 		if (tmpfile_s(&Handle) != 0)
 			Handle = nullptr;
 #else
-		Handle = std::tmpfile();
+		Handle = std::tmpfile(); // NOLINT(cppcoreguidelines-owning-memory): TFile owns it (Close)
 #endif
 		return Handle != nullptr;
 	}

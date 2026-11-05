@@ -39,6 +39,8 @@ set(PATELLA_HEADERS_CORE
 	compat/print.h
 	compat/span.h
 	Container.h
+	log/Log.h
+	log/LogSettings.h
 	settings/Settings.h
 	Skins.h
 	TMyException.h
@@ -180,9 +182,9 @@ function(patella_header_checks)
 		patella_target_warnings(header_check_core)
 		patella_target_hardening(header_check_core)
 		# With the stand-ins of tests_unit_cxx26_standin: compat/format.h's (issue #57) and compat/span.h's (issue
-		# #59) too, and the headers that format through it (issue #64).
+		# #59) too, and the headers that format through it (issue #64; the developer log, issue #77).
 		patella_header_check(header_check_cxx26_standin ${PATELLA_HEADERS_CXX26} compat/format.h
-			compat/print.h compat/span.h types/File.h types/FixedString.h)
+			compat/print.h compat/span.h log/Log.h types/File.h types/FixedString.h)
 		target_compile_definitions(header_check_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN PATELLA_FORMAT_STANDIN
 			PATELLA_SPAN_STANDIN)
 		patella_target_language(header_check_cxx26_standin)
@@ -216,7 +218,7 @@ function(patella_header_checks)
 	# The oracle: Patella.exe's sources (src/*.cpp) and what they include, with real MFC and with the shim.
 	if(PATELLA_ORACLE)
 		set(headers common.h compat/format.h compat/msvc.h compat/msvc_io.h compat/print.h compat/span.h Container.h
-			Skins.h TMyException.h TRSA.h TXTEA.h types/File.h types/FixedString.h Utils.h vlong.h ${PATELLA_HEADERS_CLIENT}
+			log/Log.h Skins.h TMyException.h TRSA.h TXTEA.h types/File.h types/FixedString.h Utils.h vlong.h ${PATELLA_HEADERS_CLIENT}
 			${PATELLA_HEADERS_ORACLE_ENGINES})
 		patella_header_check(header_check_oracle ${headers})
 		patella_header_check_copy(header_check_oracle Patella)

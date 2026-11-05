@@ -5,7 +5,8 @@
 // with the critical error box. The original also wrote the error to error.txt
 // and read it back at the next start for the error report dialog; that
 // report is gone (Patella-Modern issue #74, decision D2): the message goes to
-// stderr instead.
+// the developer log instead (issue #77, D16: log/Log.h; stderr, and a log file
+// when Patella.ini names one), with the report's diagnostics at the debug level.
 //
 // The range also holds code the linker kept in this object that is not part
 // of the source: CWinApp's destructor, AfxGetMainWnd, <fstream>/<sstream>
@@ -23,6 +24,7 @@
 
 #include "Player.h"
 #include "Control.h"
+#include "Creatures.h"
 #include "MainFrm.h"
 #include "graphics.h"
 #include "Network.h"
@@ -33,18 +35,21 @@
 #include "Utils.h"
 #include "sysinc.h"
 #include "common.h"
+#include "log/Log.h"
 #include "types/FixedString.h"
+#if defined(PATELLA_VULKAN)
+#include "log/LogSettings.h"
+#endif
 #include <array>
 #include <sstream>
 #include <string>
 #include <new>
 #include <stdexcept>
 #include "compat/msvc.h"
-#include <cstdio>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
-#include <initializer_list>
 
 namespace {
 
@@ -59,20 +64,50 @@ int LastMouseCursor = 1;  // 0x5c2518
 int NumberOfTibiaWindows; // 0x719db0, counted by CountTibiaWindows
 POINT LastMousePosition;  // 0x719db4
 
-// Not in the original (Patella-Modern issue #74, decision D2): a fatal error's text on stderr, the three parts and a
-// line break in one write. A GUI client's stderr is valid only when it is redirected; a failed write is ignored, and
-// nothing here throws.
-void WriteToStderr(const char *First, const char *Second, const char *Third) noexcept
+// Not in the original (Patella-Modern issue #77, D16): bytes as error.txt listed them until issue #74, " 016 000 ...",
+// each as three digits.
+template <std::size_t N>
+std::string ByteList(const std::array<uint8, N> &Bytes)
 {
+	std::string Text;
+	for (const uint8 Byte : Bytes) {
+		TFixedString<8> Help;
+		Help.Format(" {:03}", static_cast<unsigned int>(Byte));
+		Text += Help.View();
+	}
+	return Text;
+}
+
+// Not in the original (Patella-Modern issue #77, D16): at the debug level, what HandleException's report in error.txt
+// held besides the message until issue #74: the engine, the last ten packet types (the newest first), the first bytes
+// of the last packet when there was one, and the player's position in the game. A part that fails is left out.
+void LogDiagnostics() noexcept
+{
+	if (!patella::log::Enabled(patella::log::TLevel::Debug))
+		return;
 	try {
-		std::string Text;
-		for (const char *Part : {First, Second, Third})
-			if (Part != nullptr)
-				Text += Part;
-		Text += '\n';
-		std::fwrite(Text.data(), 1, Text.size(), stderr);
-		std::fflush(stderr);
-	} catch (...) {
+		patella::log::Debug("Graphic engine: {}", GetCurrentEngine());
+	} catch (...) { // NOLINT(bugprone-empty-catch): this part left out
+	}
+	try {
+		patella::log::Debug("Last packet types:{}", ByteList(GetLastPacketTypes()));
+	} catch (...) { // NOLINT(bugprone-empty-catch): this part left out
+	}
+	try {
+		bool Any = false;
+		for (const uint8 Byte : PacketHeader)
+			Any = Any || Byte != 0;
+		if (Any)
+			patella::log::Debug("Last packet:{}", ByteList(PacketHeader));
+	} catch (...) { // NOLINT(bugprone-empty-catch): this part left out
+	}
+	try {
+		if (GetPlayerID() != 0) {
+			const TCreature *Player = GetCreature(GetPlayerID());
+			if (Player != nullptr)
+				patella::log::Debug("Player position: [{},{},{}]", Player->RealX, Player->RealY, Player->RealZ);
+		}
+	} catch (...) { // NOLINT(bugprone-empty-catch): this part left out
 	}
 }
 
@@ -93,10 +128,17 @@ CPlayerApp::CPlayerApp()
 
 // 0x4d7d80. Every step is guarded on its own; the program ends here. this
 // is passed but not used. Since issue #74 (D2) the box's caption and text go
-// to stderr first, the fork's record of a fatal error.
+// to stderr first, the fork's record of a fatal error; since issue #77 (D16)
+// through the developer log, at the error level. Debug builds then write the
+// stack (std::stacktrace, where the standard library has it) and stop in an
+// attached debugger; without a debugger they go on as Release builds do.
 void CPlayerApp::FatalError(const char *Text, const char *Caption)
 {
-	WriteToStderr(Caption, ": ", Text);
+	patella::log::Error("{}: {}", Caption != nullptr ? Caption : "", Text != nullptr ? Text : "");
+#if !defined(NDEBUG)
+	patella::log::WriteStacktrace(patella::log::Log());
+	patella::log::BreakIfDebugged();
+#endif
 	try {
 		ShutdownConnection();
 	} catch (...) {
@@ -176,6 +218,8 @@ void CPlayerApp::HandleProgramError(PROGRAM_ERROR Error)
 // as packet 0xe8. That report is gone (Patella-Modern issue #74, decision D2):
 // the exception's message goes to stderr, then FatalError's box (whose text,
 // TextCriticalError, no longer mentions the error file) ends the client.
+// Since issue #77 (D16) the message goes through the developer log at the
+// error level, and the report's other lines at the debug level (LogDiagnostics).
 void CPlayerApp::HandleException(TMyException &Exception)
 {
 	if (Terminating) {
@@ -183,9 +227,10 @@ void CPlayerApp::HandleException(TMyException &Exception)
 		return;
 	}
 	try {
-		WriteToStderr("Debug Assertion 7.72 ", Exception.GetMessage().c_str(), "");
-	} catch (...) {
+		patella::log::Error("Debug Assertion 7.72 {}", Exception.GetMessage());
+	} catch (...) { // NOLINT(bugprone-empty-catch): GetMessage's std::bad_alloc; the box still ends the client
 	}
+	LogDiagnostics();
 	FatalError(TextCriticalError, "Tibia Error - Debug Assertion");
 }
 
@@ -200,6 +245,10 @@ void CPlayerApp::HandleException(TMyException &Exception)
 // since issue #74.
 BOOL CPlayerApp::InitInstance()
 {
+#if defined(PATELLA_VULKAN)
+	// Not in the original (Patella-Modern issue #77, D16): the developer log's level and file from Patella.ini.
+	patella::log::LoadSettings();
+#endif
 	try {
 		try {
 			TFixedString<32> ClassName;

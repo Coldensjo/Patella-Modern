@@ -91,6 +91,24 @@ function(patella_target_language target)
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16)
 			target_link_libraries(${target} PRIVATE $<$<LINK_LANGUAGE:CXX>:stdc++exp>)
 		endif()
+		# Clang with libstdc++ (linux-x64-clang: Debian's GCC 14 library) keeps std::stacktrace there too (the
+		# developer log's stack trace, src/log/Log.h, issue #77); with a library that has no libstdc++exp the
+		# check fails and std::stacktrace is not used (the header has no __cpp_lib_stacktrace there).
+		if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT MSVC)
+			if(NOT DEFINED PATELLA_CLANG_STDCXXEXP)
+				include(CheckCXXSourceCompiles)
+				set(CMAKE_REQUIRED_FLAGS "-std=c++26")
+				set(CMAKE_REQUIRED_LIBRARIES stdc++exp)
+				check_cxx_source_compiles("#include <stacktrace>
+int main() { return static_cast<int>(std::stacktrace::current().size()); }"
+					PATELLA_CLANG_STDCXXEXP)
+				unset(CMAKE_REQUIRED_FLAGS)
+				unset(CMAKE_REQUIRED_LIBRARIES)
+			endif()
+			if(PATELLA_CLANG_STDCXXEXP)
+				target_link_libraries(${target} PRIVATE $<$<LINK_LANGUAGE:CXX>:stdc++exp>)
+			endif()
+		endif()
 		# mingw-w64: the compiler's runtime DLLs are copied next to the executable, where Windows
 		# looks first, so it never loads another GCC's libstdc++-6.dll that comes earlier on PATH (a
 		# loader error dialog at start). Linking them in (-static) is not possible with GCC 16.2: in

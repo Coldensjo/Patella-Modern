@@ -653,7 +653,8 @@ void TestPlayer()
 		OurStderr.erase(std::remove(OurStderr.begin(), OurStderr.end(), '\r'), OurStderr.end());
 		remove("stderr.txt");
 		const std::string OurFile = ReadFile("error.txt");
-		const std::string ExpectedStderr = Terminating ? "" : "Debug Assertion 7.72 " + Ours.GetMessage() + "\n";
+		// Through the developer log since issue #77, at the error level: its line, "[error] <message>".
+		const std::string ExpectedStderr = Terminating ? "" : "[error] Debug Assertion 7.72 " + Ours.GetMessage() + "\n";
 		CHECK(OurFile == FileBefore && OurStderr == ExpectedStderr,
 			"HandleException (issue #74): error.txt\n%s\nbefore\n%s\nstderr \"%s\", expected \"%s\"", OurFile.c_str(),
 			FileBefore.c_str(), OurStderr.c_str(), ExpectedStderr.c_str());
