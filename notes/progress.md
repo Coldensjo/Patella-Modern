@@ -336,6 +336,18 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #63 (branch issue-63, November 5, 2026): static analysis of patella_core, MSVC /analyze and GCC
+-fanalyzer in its build, clang-tidy's bugprone-* at zero (`tools/tidy.py --zero bugprone-`). `python -I tools/build.py
+oracle-x86 --fresh` (CTest 4/4, 0 warnings): 16,848,752 + 67 + 1,134,513 checks and 3,201 vlong checks, 0 failures;
+with recording on (`golden_corpus`, the branch's own build\golden, 903 MB) the same counts. The x64 golden_runner
+(windows-x64 and -debug, --fresh, CTest 13/13) replays 16,461,713 checks, 1,521,619 retired, 0 not ported, 0
+failures. tests/unit unchanged: tests_unit 57/10,080, standin 57/10,082, tests_core 35/337, tests_testmode 35/709,
+tests_render 14/359, tests_vulkan 14/1,309 (Linux 56/10,062, Clang 10,060, standin 56/10,064, tests_core 35/340);
+windows-x64-gcc and the Linux presets (--fresh, Release and Debug) 11/11, 0 warnings everywhere, the analyzers
+clean in every configuration. pecompare bf3e6df and issue-63 at the same path: oracle and x64 identical but for the
+link stamps. macrocheck: 2,108 calls, 0 differences. tidy_ci: 7 findings (from 13), 0 new, 0 bugprone.
+banned_calls: 0. clang-format: clean.
+
 Patella-Modern issue #60 (branch issue-60, November 5, 2026): std::array and TFixedString for the C arrays (members,
 globals, locals), spans for vlong's byte arrays and the test mode's packet hooks. `python -I tools/build.py oracle-x86
 --fresh` (CTest 4/4, 0 warnings; the new static_asserts of the frozen layouts compile): 16,848,752 + 67 + 1,134,513

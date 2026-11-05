@@ -85,14 +85,18 @@ the oracle-x86 preset never uses them. Details: `notes/reconstruction.md`, "Chec
 `-DPATELLA_CLIENT=OFF`, the client's and the test build's sources compiled without Tibia.exe
 (`-DPATELLA_CLIENT_COMPILE_ONLY=ON`, targets `Patella_compile` and `PatellaTest_compile`, issues #25, #46, and
 their headers alone, `header_check_client` and `header_check_test_build`, issue #49), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, the grep gate `python -I tools/banned_calls.py` (no strcpy, strcat, sprintf, vsprintf or gets in src/; the buffers are `TFixedString`/`TStringBuffer` of `src/types/FixedString.h`, issue #57), and
-clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings; `--all --headers`). `python -I tools/tidy_ci.py`
+clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings; `--all --headers`; `--zero bugprone-`: no
+bugprone-* finding at all, issue #63). Static analysis of patella_core (issue #63, `cmake/Core.cmake`): the windows-x64 builds
+compile it with MSVC `/analyze`, linux-x64-gcc (and windows-x64-gcc) with GCC `-fanalyzer`; a finding fails the build like a
+warning. A finding of any of the three is fixed or suppressed in the code with its reason and a row in notes/decisions.md's
+table ("Static analysis of the core library"). `python -I tools/tidy_ci.py`
 runs that job locally (the commit's image, files and script; `--worktree` for uncommitted changes, `--hosted <run id>`
 compares with a hosted run) and reports exactly what it reports: run it before pushing. The per-target Windows runs
 (Visual Studio's clang-tidy) still check the code Linux does not compile, and miss findings the image reports
 (issue #51: MSVC's `std::size_t` hides locals from misc-const-correctness). A change that adds a finding
 fixes it or rewrites the baseline in the image: `python -I tools/build.py --env linux-x64-clang bash -c "cmake
 --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline
-build/linux-x64-clang/tidy-baseline.tsv"`, then copy it to `tools/`. `.github/workflows/self-hosted.yml` (oracle-x86,
+build/linux-x64-clang/tidy-baseline.tsv --zero bugprone-"`, then copy it to `tools/`. `.github/workflows/self-hosted.yml` (oracle-x86,
 the comparisons and testmode_check.py; this machine) runs only on push and workflow_dispatch, and only when the repository variable
 `PATELLA_SELF_HOSTED` is `true`. Details: `notes/reconstruction.md`, "Checking".
 

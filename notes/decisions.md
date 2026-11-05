@@ -8875,3 +8875,68 @@ windows-x64's sources but the owners of #58 (`std::unique_ptr<T[]>`) and the arr
   dynamic initialiser for Containers (std::array<TContainer, 16>: the same zeroed values before main) and the same
   kind of instantiations; no string of .rdata changed. The x64 test mode's packet log and state dump are the live
   checks (reference.py compare).
+
+## Static analysis of the core library (Patella-Modern issue #63)
+
+Settled by Claude Opus 5.5, November 5, 2026. The eighth change of M4 (plan section 7, "Static analysis"): MSVC
+`/analyze`, clang-tidy's `bugprone-*` and GCC `-fanalyzer` on patella_core (cmake/Core.cmake: vlong.cpp, TRSA.cpp,
+TXTEA.cpp, TMyException.cpp, Utils.cpp, Skins.cpp, settings/Settings.cpp and the regexp, with the headers of src/
+they include) report nothing that is not suppressed in the code with its reason, and each runs in the hosted CI.
+
+- **How they run** (high). cmake/Core.cmake compiles patella_core with `/analyze /analyze:external-` (MSVC: the
+  headers in angle brackets, SDK and standard library, are not analysed) and `-fanalyzer` (GCC), for C and C++, in
+  every configuration, under the option PATELLA_STATIC_ANALYSIS (on by default). Their findings are warnings, so /WX
+  and -Werror (cmake/Warnings.cmake) fail the build on one, and tools/build.py's warning scan would too: the hosted
+  windows-x64 job (Release and Debug) runs /analyze, the linux-x64-gcc job (Release and Debug) -fanalyzer, and so does
+  every local windows-x64, windows-x64-gcc and linux-x64-gcc build. Clang has no analyzer step (clang-tidy is
+  Clang's). The analysis does not change the objects, and the client and the oracle compile the same sources
+  themselves without it (cmake/WindowsX64.cmake, OracleX86.cmake), so no image changes through the flags. Cost
+  (patella_core alone, one job at a time, measured): MSVC 5.8 s to 11 s, GCC 5.8 s to 14 s per configuration.
+- **bugprone-* at zero** (high). `.clang-tidy` had bugprone-* already (issue #8), and the hosted clang-tidy job
+  checked it against the baseline, which held six bugprone findings. tools/tidy.py's new `--zero <prefix>` fails on
+  any finding of those checks whatever the baseline says, inside TASSERT/TERROR/TEND arguments included (none are);
+  the job passes `--zero bugprone-`, and tools/tidy_ci.py runs the job's own script, so it checks the same. The
+  baseline is 7 findings (cppcoreguidelines-owning-memory and -use-enum-class), from 13.
+- **Measured** (high), before the change: MSVC 14.51 /analyze 114 findings (vlong.cpp C6246 1; regexp.c C28278 108,
+  C6001 5), Release and Debug alike; GCC 16.2 -fanalyzer 2 (vlong.cpp and regexp.c -Wanalyzer-null-dereference,
+  Release; Debug measured after the change only); clang-tidy 22.1.8 bugprone-* with every bugprone check on, linux-x64-clang's commands (the
+  CI job's: patella_core's sources and src/testmode's and src/vulkan's portable ones) 26: the six of the baseline and
+  20 of the four checks .clang-tidy leaves off (easily-swappable-parameters 17, reserved-identifier 2,
+  implicit-widening-of-multiplication-result 1, narrowing-conversions 0). After: 0, 0 and 0 outside the
+  suppressions below.
+- **Fixed** (high), each without a change of behaviour: vlong.cpp's fast_mul named its inner bound `min` like the
+  outer one (C6246; now `jmin`, the same code); GetOutfitColor's switch has a `default: break;` (a negative Color
+  keeps S and V at 1.0, as without it); Settings.h's MaxFileSize multiplies in `std::size_t` (the same constant).
+- **Suppressed** (high), in the code, each with its reason:
+
+  | Analyzer | Finding | Where | Kind | Suppression | Reason |
+  |---|---|---|---|---|---|
+  | clang-tidy | bugprone-unhandled-self-assignment | vlong.cpp, vlong::operator= | the original's bug | NOLINT | Barwood's operator=, as at 0x50c610: a self-assignment of an unshared value deletes it before taking it again. Nothing in the client assigns a vlong to itself; the fix changes the image's function, kept until M6 |
+  | clang-tidy | bugprone-unchecked-string-to-number-conversion | vlong.cpp, DecimalToVlong | the original's | NOLINT | the binary calls atoi (0x51262a) on a one-digit string; a non-digit counts as 0 |
+  | clang-tidy | bugprone-throwing-static-initialization | TRSA.cpp PublicExponent, TRSA.h HeaderExponent | the original's | NOLINT | the binary's globals (0x71f004 and each object's copy), constructed before main; vlong allocates, and an allocation failure there ends the program as in the original |
+  | clang-tidy | bugprone-integer-division | Utils.cpp, GetOutfitColor | false positive | NOLINT | `Color / 19` is the palette row, an integer on purpose (the binary's) |
+  | clang-tidy | bugprone-easily-swappable-parameters | 17 (HSVToRGB, vlong's exp, modinv, modexp, Settings' Parse, testmode, vulkan) | style | off in .clang-tidy | a heuristic on parameter lists, most of them the original's; no bug |
+  | clang-tidy | bugprone-reserved-identifier | 2 in the core (common.h's `_CRT_SECURE_NO_WARNINGS`, `_WINSOCK_DEPRECATED_NO_WARNINGS`) | false positive | off in .clang-tidy | the CRT's and the SDK's own macro names; the client's sources have several hundred `_Name` parameters (the reconstruction's convention), which the per-target Windows runs would report |
+  | clang-tidy | bugprone-narrowing-conversions, -implicit-widening-of-multiplication-result | 0 in the core (the one widening fixed above) | - | off in .clang-tidy | the client's integer types are the original's (issue #8); not turned on, as the per-target Windows runs would report the client's |
+  | MSVC /analyze | C28278 (no prototype in scope) | regexp.c, 108 | false positive | `#pragma warning(disable: 28278 6001)` in the file | K&R C (src/Extern, kept until M6): no function has a prototype |
+  | MSVC /analyze | C6001 (uninitialized memory 'flags') | regexp.c, 5 (regcomp, reg, regbranch, regpiece) | false positive | the same pragma | without prototypes the analysis cannot see that reg, regbranch, regpiece and regatom set `*flagp` before they return non-NULL |
+  | GCC -fanalyzer | -Wanalyzer-null-dereference | vlong.cpp, flex_unit::set | false positive | PATELLA_GCC_DIAGNOSTIC push/ignored/pop around the function | the path needs `i + 1` to wrap to 0 in reserve; i is below a source value's n |
+  | GCC -fanalyzer | -Wanalyzer-null-dereference | regexp.c, regmatch's STAR/PLUS | false positive | `#pragma GCC diagnostic ignored` in the file (GCC only) | regnext of a STAR or PLUS node is never NULL: regcomp links each to the node that follows |
+
+  The GCC pragmas go through compat/msvc.h's new PATELLA_GCC_DIAGNOSTIC (`_Pragma`, GCC only: Clang knows the pragma
+  but not the analyzer's warnings); regexp.c is C and includes none of src/'s headers, so it keeps its own
+  `#ifdef _MSC_VER` and `__GNUC__` pragmas, as for C4018 (issue #7). The pragmas change no object.
+- **Not done** (found). vlong::operator='s self-assignment (above) is a real use after free, kept with the original's
+  code; a guard (`if (this == &x)`) would change the oracle's and x64's function, for M6. The rest of the client
+  (MFC, Win32, the engines, the test mode on Windows) is not analysed by /analyze or -fanalyzer: only patella_core
+  is the plan's scope, and the client's sources are not in the library yet. clang-tidy's bugprone-* sees what
+  linux-x64-clang compiles; the Windows-only sources only in the per-target Windows runs, which are not gated.
+- **Proof** (high). Behaviour: difftest 16,848,752, sysinctest 67, communicationtest 1,134,513, vlong 3,201, 0
+  failures (`oracle-x86 --fresh`, and again recording the corpus); golden_runner 16,461,713 replayed, 1,521,619
+  retired, 0 not ported, 0 failures in windows-x64 and windows-x64-debug; the unit tests' counts unchanged on every
+  preset. Images: pecompare of bf3e6df and issue-63 at the same path, oracle and x64 Release Patella.exe, differ in
+  the link stamps only (.text, .data and .rdata identical): the pragmas, NOLINTs, renamed local and the new default
+  change no code. An x64 image of bf3e6df built first in a new build directory differed from every later clean
+  build of the same tree in one function, `std::_Integer_to_chars<unsigned char>` (register widths, same address
+  and size); two clean builds of bf3e6df made afterwards agree with each other and with issue-63, so the comparison
+  is against those. macrocheck: 2,108 calls, 0 differences.
