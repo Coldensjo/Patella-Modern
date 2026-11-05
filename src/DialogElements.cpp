@@ -12,6 +12,9 @@
 // evidence go where the binary has them. The header code at the start of the
 // object (0x4524e0-0x4532ff, with Container.h's vector<int> and
 // vector<TListBoxLine>) is in DialogElements.h and Container.h.
+//
+// The try blocks and catch lines the comments name are the original's (its
+// TBEGIN/TEND); since issue #78 the functions here have none.
 
 #include "DialogElements.h"
 #include <cstdio>
@@ -64,17 +67,14 @@ static_assert(sizeof(TMultiStateButton) == 0x58 && offsetof(TMultiStateButton, B
 // 0x453930, line 42
 void TSeparator::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TComponent::SetSize(Width, Height);
 	Arrange();
-	TEND2(42, Width, Height)
 }
 
 // 0x453ad0. The binary has the TBEGIN/TEND frame without a try block (the
 // body cannot throw).
 void TSeparator::Arrange()
 {
-	TBEGIN
 	if (!Horizontal) {
 		DrawingList[0] = TDrawing(11, 0, 0, Skins[11].width, Height, 0, 0);
 		DrawingList[1] = TDrawing(10, Skins[11].width, 0, Skins[10].width, Height, 0, 0);
@@ -82,7 +82,6 @@ void TSeparator::Arrange()
 		DrawingList[0] = TDrawing(9, 0, 0, Width, Skins[9].height, 0, 0);
 		DrawingList[1] = TDrawing(8, 0, Skins[9].height, Width, Skins[8].height, 0, 0);
 	}
-	TEND(62)
 }
 
 // --- TResizer ---------------------------------------------------------------------
@@ -106,21 +105,17 @@ TResizer::TResizer(TComponent *_ToResize, bool _ResizeWidth, bool _ResizeHeight,
 // 0x453dc0, line 94
 void TResizer::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TComponent::SetSize(Width, Height);
 	Arrange();
-	TEND(94)
 }
 
 // 0x453f60. TBEGIN/TEND without a try block.
 void TResizer::Arrange()
 {
-	TBEGIN
 	if (!Invisible)
 		DrawingList[0] = TDrawing(42, 0, 0, Width, Height, 0, 0);
 	else
 		DrawingList[0] = TDrawing(0, 0, 0, 0, 0, 0, 0);
-	TEND(106)
 }
 
 // 0x453fe0, lines 113-122. The cursor is set before the assertion.
@@ -128,7 +123,6 @@ bool TResizer::MouseMove(int x, int y)
 {
 	SetMouseCursor(2);
 	TASSERT(113, ToResize!=NULL);
-	TBEGIN
 	if (Dragging) {
 		int NewWidth = ToResize->Width;
 		if (ResizeWidth)
@@ -139,27 +133,23 @@ bool TResizer::MouseMove(int x, int y)
 		ToResize->SetSize(NewWidth, NewHeight);
 	}
 	return true;
-	TEND2(122, x, y)
 }
 
 // 0x4542a0, lines 129-137
 bool TResizer::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
 	TASSERT(129, ToResize!=NULL);
-	TBEGIN
 	Dragging = true;
 	SetCapture(nullptr);
 	StartX = x;
 	StartY = y;
 	return true;
-	TEND2(137, x, y)
 }
 
 // 0x454530, lines 144-154
 bool TResizer::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
 	TASSERT(144, ToResize!=NULL);
-	TBEGIN
 	if (Dragging) {
 		int NewWidth = ToResize->Width;
 		if (ResizeWidth)
@@ -171,7 +161,6 @@ bool TResizer::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 		ReleaseCapture(nullptr);
 	}
 	return true;
-	TEND2(154, x, y)
 }
 
 // --- TBorder ----------------------------------------------------------------------
@@ -181,7 +170,6 @@ bool TResizer::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 TBorder::TBorder(TComponent *_Window, int _Border)
 {
 	TASSERT(166, _Window!=NULL);
-	TBEGIN
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
@@ -197,7 +185,6 @@ TBorder::TBorder(TComponent *_Window, int _Border)
 	BottomLeft = 28;
 	Bottom = 33;
 	BottomRight = 29;
-	TEND(184)
 }
 
 // 0x454b10, lines 192-210
@@ -205,7 +192,6 @@ TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int
 	int _Bottom, int _BottomRight, int _Border)
 {
 	TASSERT(192, _Window!=NULL);
-	TBEGIN
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
@@ -221,7 +207,6 @@ TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int
 	BottomLeft = _BottomLeft;
 	Background = 0;
 	Bottom = _Bottom;
-	TEND(210)
 }
 
 // 0x454e30, lines 217-235
@@ -229,7 +214,6 @@ TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int
 	int _Bottom, int _BottomRight, int _Background, int _Border)
 {
 	TASSERT(217, _Window!=NULL);
-	TBEGIN
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
@@ -245,7 +229,6 @@ TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int
 	BottomRight = _BottomRight;
 	Background = _Background;
 	Bottom = _Bottom;
-	TEND(235)
 }
 
 // 0x455150, lines 242-251
@@ -253,27 +236,22 @@ void TBorder::SetSize(int Width, int Height)
 {
 	TASSERT1(242, Width>=getMinimumWidth(), Width);
 	TASSERT1(243, Height>=getMinimumHeight(), Height);
-	TBEGIN
 	TComponent::SetSize(Width, Height);
 	Arrange();
 	Window->SetPosition(WindowArea.x, WindowArea.y);
 	Window->SetSize(WindowArea.width, WindowArea.height);
 	Window->Arrange();
-	TEND(251)
 }
 
 // 0x455500, line 262. The frame's size for Window's size.
 void TBorder::FitToWindow()
 {
-	TBEGIN
 	SetSize(getMinimumWidth() + Window->Width, getMinimumHeight() + Window->Height);
-	TEND(262)
 }
 
 // 0x4556b0. TBEGIN/TEND without a try block.
 void TBorder::Arrange()
 {
-	TBEGIN
 	WindowArea.x = Skins[Left].width + Border;
 	WindowArea.width = Width - 2 * Border - Skins[Right].width - Skins[Left].width;
 	WindowArea.y = Skins[Top].height + Border;
@@ -296,7 +274,6 @@ void TBorder::Arrange()
 			Width - Skins[Right].width - Skins[Left].width, Height - Skins[Bottom].height - Skins[Top].height, 0, 0);
 	else
 		DrawingList[8] = TDrawing(0, 0, 0, 0, 0, 0, 0);
-	TEND(321)
 }
 
 // --- TLabel -----------------------------------------------------------------------
@@ -305,7 +282,6 @@ void TBorder::Arrange()
 TLabel::TLabel(int x, int y, int Width, int Height, TFont _Font, const char *_Text, bool Shorten)
 {
 	TASSERT(337, _Text!=NULL);
-	TBEGIN
 	Font = _Font;
 	Text = nullptr;
 	FullText = nullptr;
@@ -314,14 +290,12 @@ TLabel::TLabel(int x, int y, int Width, int Height, TFont _Font, const char *_Te
 	TComponent::SetPosition(x, y);
 	TComponent::SetSize(Width, Height);
 	SetText(_Text, Shorten);
-	TEND(348)
 }
 
 // 0x465810, lines 355-369. Sized to the widest line.
 TLabel::TLabel(int x, int y, TFont _Font, const char *_Text)
 {
 	TASSERT(355, _Text!=NULL);
-	TBEGIN
 	Font = _Font;
 	Text = nullptr;
 	FullText = nullptr;
@@ -336,14 +310,12 @@ TLabel::TLabel(int x, int y, TFont _Font, const char *_Text)
 	}
 	TComponent::SetPosition(x, y);
 	TComponent::SetSize(MaxWidth, Lines * GetFontLineHeight(Font.FontNumber));
-	TEND(369)
 }
 
 // 0x465b40, lines 376-389
 TLabel::TLabel(TFont _Font, const char *_Text)
 {
 	TASSERT(376, _Text!=NULL);
-	TBEGIN
 	Font = _Font;
 	Text = nullptr;
 	FullText = nullptr;
@@ -357,13 +329,11 @@ TLabel::TLabel(TFont _Font, const char *_Text)
 			MaxWidth = LineWidth;
 	}
 	TComponent::SetSize(MaxWidth, Lines * GetFontLineHeight(Font.FontNumber));
-	TEND(389)
 }
 
 // 0x455a50, line 413. A text of several lines starts at the top.
 void TLabel::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	int TextX, TextY;
 	GetTextPosition(&TextX, &TextY, x, y, Width, Height, &Font);
 	if (Lines > 1)
@@ -371,16 +341,13 @@ void TLabel::Draw(int Surface, int x, int y)
 	for (int i = 0; i < Lines; i++)
 		PrintTextClipped(Surface, TextX, TextY + GetFontLineHeight(Font.FontNumber) * i, Font.FontNumber, Font.Color,
 			Line[i], Font.Alignment, TRect(x, y, Width, Height));
-	TEND1(413, Surface)
 }
 
 // 0x455ca0, line 423
 void TLabel::MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
-	TBEGIN
 	if (Shortened)
 		SetMouseOverText(FullText.get());
-	TEND(423)
 }
 
 // 0x455e40, lines 431-472. Line breaks end the lines; Shorten cuts each line
@@ -388,7 +355,6 @@ void TLabel::MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y)
 void TLabel::SetText(const char *_Text, bool Shorten)
 {
 	TASSERT(431, _Text!=NULL);
-	TBEGIN
 	if (Text != nullptr) {
 		Text.reset();
 		Text = nullptr;
@@ -429,7 +395,6 @@ void TLabel::SetText(const char *_Text, bool Shorten)
 				Shortened = true;
 		}
 	}
-	TEND(472)
 }
 
 // --- TFormattedText ---------------------------------------------------------------
@@ -439,17 +404,14 @@ TFormattedText::TFormattedText(const char *_Text)
 {
 	AutoWidth = true;
 	AutoHeight = true;
-	TBEGIN
 	Text = nullptr;
 	Line = nullptr;
 	SetText(_Text, false);
-	TEND(508)
 }
 
 // 0x456200, line 531
 void TFormattedText::SetSize(int Width, int Height)
 {
-	TBEGIN
 	AutoWidth = true;
 	AutoHeight = true;
 	if (Width < 1)
@@ -462,7 +424,6 @@ void TFormattedText::SetSize(int Width, int Height)
 		AutoHeight = false;
 	TComponent::SetSize(Width, Height);
 	Arrange();
-	TEND2(531, Width, Height)
 }
 
 // 0x4563d0, line 577. The length of the token at the start of Text (0 when
@@ -472,7 +433,6 @@ int TFormattedText::GetToken(const char *Text, int &TokenType, int &TokenData)
 {
 	int State = 0;
 	TokenType = 0;
-	TBEGIN
 	int Position = 0;
 	TokenData = 0;
 	for (;;) {
@@ -557,7 +517,6 @@ int TFormattedText::GetToken(const char *Text, int &TokenType, int &TokenData)
 			break;
 		}
 	}
-	TEND2(577, TokenType, TokenData)
 }
 
 // 0x466010, lines 684-715. Lays the text out in pieces from left to right:
@@ -568,7 +527,6 @@ int TFormattedText::GetToken(const char *Text, int &TokenType, int &TokenData)
 // IsSpace sees the character after it.
 void TFormattedText::Arrange()
 {
-	TBEGIN
 	while (FirstChild != nullptr)
 		DeleteChild(FirstChild);
 	TRGBColor Color(224, 224, 224);
@@ -694,14 +652,12 @@ void TFormattedText::Arrange()
 		}
 		Piece += Position + Skip;
 	}
-	TEND(715)
 }
 
 // 0x456810, lines 723-734
 void TFormattedText::SetText(const char *_Text, bool Rearrange)
 {
 	TASSERT(723, _Text!=NULL);
-	TBEGIN
 	if (Text != nullptr)
 		Text.reset();
 	if (Line != nullptr)
@@ -714,7 +670,6 @@ void TFormattedText::SetText(const char *_Text, bool Rearrange)
 	TStringBuffer(Text.get(), Size).Assign(_Text);
 	if (Rearrange)
 		Arrange();
-	TEND(734)
 }
 
 // --- TLink ------------------------------------------------------------------------
@@ -726,7 +681,6 @@ TLink::TLink(const char *_Text, const char *ButtonText, const char *_Destination
 	TASSERT(785, _Destination!=NULL);
 	TASSERT(786, _Text!=NULL);
 	TASSERT(787, ButtonText!=NULL);
-	TBEGIN
 	const std::size_t Size = strlen(_Destination) + 1;
 	Destination.reset(new char[Size]);
 	TStringBuffer(Destination.get(), Size).Assign(_Destination);
@@ -735,14 +689,12 @@ TLink::TLink(const char *_Text, const char *ButtonText, const char *_Destination
 	TWindow::InsertChild(Label);
 	Button = new TTextButton(0, 0, ButtonText, 18, 19, TCallback(this, 1), Destination.get());
 	TWindow::InsertChild(Button);
-	TEND(796)
 }
 
 // 0x456b00, lines 812-824. The label fills the width left of the button;
 // the smaller of both is centred vertically on the larger.
 void TLink::Arrange()
 {
-	TBEGIN
 	const int Width = this->Width - Button->Width;
 	TASSERT1(812, Width>0, Width);
 	int LabelY = 0;
@@ -753,16 +705,13 @@ void TLink::Arrange()
 		LabelY = (Button->Height - Label->Height) / 2;
 	SetChildArea(Label, TRect(0, LabelY, Width, Label->Height));
 	SetChildPosition(Button, -Button->Width, ButtonY);
-	TEND(824)
 }
 
 // 0x456df0, line 838
 void TLink::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TComponent::SetSize(Width, Height);
 	Arrange();
-	TEND2(838, Width, Height)
 }
 
 // 0x456fa0, line 848. The catch blocks name Event with the constant 1: the
@@ -770,9 +719,7 @@ void TLink::SetSize(int Width, int Height)
 void TLink::HandleEvent(int Event)
 {
 	if (Event == 1) {
-		TBEGIN
 		OpenURL(Destination.get());
-		TEND1(848, Event)
 	}
 }
 
@@ -781,22 +728,18 @@ void TLink::HandleEvent(int Event)
 // 0x4666a0, line 899
 TOutfitIcon::TOutfitIcon(int _Outfit, int _Direction, int *ColorData, const TRGBColor *_Highlight)
 {
-	TBEGIN
 	Direction = _Direction;
 	Outfit = _Outfit;
 	SetColors(ColorData);
 	Highlight = *_Highlight;
-	TEND2(899, _Outfit, _Direction)
 }
 
 // 0x457140, lines 908-911
 void TOutfitIcon::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	const int Size = Width;
 	TASSERT1(908, getWidth()==getHeight(), getWidth()-getHeight());
 	DrawOutfit(Surface, x, y, Size, Outfit, Colors, Highlight, TRect(x, y, Size, Height), SkinProperties.Data498);
-	TEND1(911, Surface)
 }
 
 // 0x457440, line 934. No try block.
@@ -821,9 +764,7 @@ void TOutfitIcon::SetColors(const int *ColorData)
 // 0x457710, line 1002
 TSkinIcon::TSkinIcon(int _Skin) : Skin(_Skin)
 {
-	TBEGIN
 	TComponent::SetSize(Skins[Skin].width, Skins[Skin].height);
-	TEND(1002)
 }
 
 // 0x4578c0, lines 1009-1014
@@ -831,9 +772,7 @@ void TSkinIcon::Draw(int Surface, int x, int y)
 {
 	TASSERT1(1009, x>=0, x);
 	TASSERT1(1010, y>=0, y);
-	TBEGIN
 	DrawSkin(Surface, x, y, Width, Height, Skin, 0, 0);
-	TEND1(1014, Surface)
 }
 
 // --- TObjectIcon ------------------------------------------------------------------
@@ -842,7 +781,6 @@ void TSkinIcon::Draw(int Surface, int x, int y)
 // object is drawn at the full size.
 void TObjectIcon::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	int ClipX = x;
 	int ClipY = y;
 	int ClipWidth = Width;
@@ -859,7 +797,6 @@ void TObjectIcon::Draw(int Surface, int x, int y)
 	TASSERT1(1060, getWidth()==getHeight(), getWidth()-getHeight());
 	DrawObject(Surface, x, y, Width, Obj, Highlight, TRect(ClipX, ClipY, ClipWidth, ClipHeight),
 		SkinProperties.Data498, false);
-	TEND1(1063, Surface)
 }
 
 // --- TSkinButton ------------------------------------------------------------------
@@ -868,7 +805,6 @@ void TObjectIcon::Draw(int Surface, int x, int y)
 TSkinButton::TSkinButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback _Callback, const char *_Tooltip,
 	bool _Repeat) : Callback(nullptr, 0)
 {
-	TBEGIN
 	TComponent::SetPosition(x, y);
 	TComponent::SetSize(Skins[_ButtonUp].width, Skins[_ButtonUp].height);
 	SetSkins(_ButtonUp, _ButtonDown);
@@ -879,7 +815,6 @@ TSkinButton::TSkinButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback
 	MouseInside = false;
 	RadioButtonGroup = nullptr;
 	Enabled = true;
-	TEND(1113)
 }
 
 // 0x458150, lines 1122-1127
@@ -887,37 +822,30 @@ void TSkinButton::Draw(int Surface, int x, int y)
 {
 	TASSERT1(1122, x>=0, x);
 	TASSERT1(1123, y>=0, y);
-	TBEGIN
 	DrawSkin(Surface, x, y, Width, Height, IsPressed() ? ButtonDown : ButtonUp, 0, 0);
-	TEND(1127)
 }
 
 // 0x4584e0. TBEGIN/TEND without a try block.
 bool TSkinButton::MouseMove(int x, int y)
 {
-	TBEGIN
 	MouseInside = x >= 0 && x <= Width - 1 && y >= 0 && y <= Height - 1;
 	return true;
-	TEND(1138)
 }
 
 // 0x458540, line 1155
 bool TSkinButton::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (Enabled) {
 		Pressed = true;
 		MouseInside = x >= 0 && x <= Width - 1 && y >= 0 && y <= Height - 1;
 		SetCapture(nullptr);
 	}
 	return true;
-	TEND2(1155, x, y)
 }
 
 // 0x458710, line 1174
 bool TSkinButton::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (Pressed) {
 		ReleaseCapture(nullptr);
 		Pressed = false;
@@ -929,29 +857,24 @@ bool TSkinButton::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 		}
 	}
 	return true;
-	TEND2(1174, x, y)
 }
 
 // 0x4588f0, line 1192. Code 6 comes while the left button is held.
 bool TSkinButton::MouseWheel([[maybe_unused]] int x, [[maybe_unused]] int y, int Code)
 {
-	TBEGIN
 	if (Code != 6)
 		return false;
 	if (Repeat && Pressed && MouseInside)
 		Callback.Send();
 	return true;
-	TEND1(1192, Code)
 }
 
 // 0x458ab0. TBEGIN/TEND without a try block.
 bool TSkinButton::IsPressed()
 {
-	TBEGIN
 	if (RadioButtonGroup != nullptr && RadioButtonGroup->Selected == this)
 		return true;
 	return Pressed && MouseInside;
-	TEND(1213)
 }
 
 // 0x458b20, lines 1228-1229. No try block. The assertions print the skin
@@ -985,10 +908,8 @@ TColorButton::TColorButton(int x, int y, TRGBColor _Color, int _ButtonUp, int _B
 // 0x458f50, line 1274
 void TColorButton::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	GetSurface()->FillRectangle(Surface, TRect(x, y, Width, Height), Color);
 	TSkinButton::Draw(Surface, x, y);
-	TEND1(1274, Surface)
 }
 
 // 0x466ad0. No try block.
@@ -1001,13 +922,11 @@ TIconButton::TIconButton(int x, int y, int _Icon, int _ButtonUp, int _ButtonDown
 // 0x459130, lines 1305-1310
 void TIconButton::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	TSkinButton::Draw(Surface, x, y);
 	TASSERT1(1305, x+SkinProperties.Buttons.Texture.x>=0, x);
 	TASSERT1(1306, y+SkinProperties.Buttons.Texture.y>=0, y);
 	DrawSkin(Surface, x + SkinProperties.Buttons.Texture.x, y + SkinProperties.Buttons.Texture.y, Skins[Icon].width,
 		Skins[Icon].height, Icon, 0, 0);
-	TEND1(1310, Surface)
 }
 
 // 0x466b20. No try block.
@@ -1026,7 +945,6 @@ TBlinkingButton::TBlinkingButton(int x, int y, int _ButtonUp1, int _ButtonDown1,
 // 0x4594e0, line 1363
 void TBlinkingButton::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	if (GetMilliseconds() > NextChange) {
 		NextChange = GetMilliseconds() + SkinProperties.Data8C0;
 		if (Phase == 1) {
@@ -1040,7 +958,6 @@ void TBlinkingButton::Draw(int Surface, int x, int y)
 		}
 	}
 	TSkinButton::Draw(Surface, x, y);
-	TEND1(1363, Surface)
 }
 
 // 0x466bc0, lines 1378-1379. No try block.
@@ -1064,14 +981,12 @@ TTextButton::TTextButton(int x, int y, const char *_Text, TCallback _Callback, c
 // 0x4596d0, line 1410. The text moves by Buttons.Data28 while pressed.
 void TTextButton::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	TSkinButton::Draw(Surface, x, y);
 	const int Offset = IsPressed() ? SkinProperties.Buttons.Data28 : 0;
 	int TextX, TextY;
 	GetTextPosition(&TextX, &TextY, x, y, Width, Height, &SkinProperties.Buttons.Data00);
 	PrintFormattedText(Surface, TextX + Offset, TextY + Offset,
 		Enabled ? SkinProperties.Buttons.Data00 : SkinProperties.Buttons.Data14, Text);
-	TEND1(1410, Surface)
 }
 
 // 0x4671e0. No try block. The base gets the button's own Tooltip, which is
@@ -1088,7 +1003,6 @@ TToggleButton::TToggleButton(int x, int y, int _ButtonUp, int _ButtonDown, TCall
 // 0x459940, line 1454. The release does not check the position again.
 bool TToggleButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (Pressed) {
 		ReleaseCapture(nullptr);
 		Pressed = false;
@@ -1100,19 +1014,16 @@ bool TToggleButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y,
 		}
 	}
 	return true;
-	TEND(1454)
 }
 
 // 0x459b00. TBEGIN/TEND without a try block.
 bool TToggleButton::IsPressed()
 {
-	TBEGIN
 	if (RadioButtonGroup != nullptr && RadioButtonGroup->Selected == this)
 		return true;
 	if (State)
 		return true;
 	return Pressed && MouseInside;
-	TEND(1471)
 }
 
 // 0x467230. No try block; the base gets the button's own Tooltip.
@@ -1128,7 +1039,6 @@ TTextToggleButton::TTextToggleButton(int x, int y, const char *_Text, int _Butto
 // 0x459b70, line 1511
 bool TTextToggleButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (Pressed) {
 		ReleaseCapture(nullptr);
 		Pressed = false;
@@ -1140,19 +1050,16 @@ bool TTextToggleButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] in
 		}
 	}
 	return true;
-	TEND(1511)
 }
 
 // 0x459d30. TBEGIN/TEND without a try block.
 bool TTextToggleButton::IsPressed()
 {
-	TBEGIN
 	if (RadioButtonGroup != nullptr && RadioButtonGroup->Selected == this)
 		return true;
 	if (State)
 		return true;
 	return Pressed && MouseInside;
-	TEND(1531)
 }
 
 // 0x4672d0. No try block. A varargs constructor (__cdecl): after the first
@@ -1182,7 +1089,6 @@ TMultiStateButton::TMultiStateButton(int x, int y, const char *_Tooltip, int _St
 // 0x459da0, line 1609. Sends the callback of the state it leaves.
 bool TMultiStateButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (Pressed) {
 		ReleaseCapture(nullptr);
 		Pressed = false;
@@ -1198,7 +1104,6 @@ bool TMultiStateButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] in
 		}
 	}
 	return true;
-	TEND(1609)
 }
 
 // --- TCheckBox --------------------------------------------------------------------
@@ -1208,7 +1113,6 @@ TCheckBox::TCheckBox(const char *_Text)
 {
 	TASSERT(1686, _Text!=NULL);
 	TASSERT1(1687, strlen(_Text)<50, strlen(_Text));
-	TBEGIN
 	DrawingListLength = 4;
 	DrawingList.reset(new TDrawing[4]);
 	Checked = false;
@@ -1217,13 +1121,11 @@ TCheckBox::TCheckBox(const char *_Text)
 	TWindow::InsertChild(Label);
 	TWindow::FitToChild(Label, SkinProperties.CheckBox.Data08, true);
 	TWindow::SetChildArea(Label, SkinProperties.CheckBox.Data08);
-	TEND(1699)
 }
 
 // 0x459f90, lines 1711-1716. Skin 150 checked, 151 unchecked or disabled.
 void TCheckBox::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	TWindow::Draw(Surface, x, y);
 	int Skin = 151 - (IsChecked() ? 1 : 0);
 	if (!Enabled)
@@ -1232,27 +1134,23 @@ void TCheckBox::Draw(int Surface, int x, int y)
 	TASSERT1(1712, y+SkinProperties.CheckBox.Item.y>=0, y);
 	DrawSkin(Surface, x + SkinProperties.CheckBox.Item.x, y + SkinProperties.CheckBox.Item.y, Skins[Skin].width,
 		Skins[Skin].height, Skin, 0, 0);
-	TEND1(1716, Surface)
 }
 
 // 0x45a360. TBEGIN/TEND without a try block.
 void TCheckBox::Arrange()
 {
-	TBEGIN
 	DrawingList[0] = TDrawing(148, 0, 0, Width, Skins[148].height, 0, 0);
 	DrawingList[1] = TDrawing(146, 0, Skins[148].height, Skins[146].width, Height - Skins[148].height, 0, 0);
 	DrawingList[2] = TDrawing(147, Width - Skins[147].width, Skins[148].height, Skins[147].width,
 		Height - Skins[148].height, 0, 0);
 	DrawingList[3] = TDrawing(149, Skins[146].width, Height - Skins[149].height,
 		Width - Skins[147].width - Skins[146].width, Skins[149].height, 0, 0);
-	TEND(1740)
 }
 
 // 0x4678d0, line 1768. Replaces the label by one in the enabled or disabled
 // font (with only the first line of its text).
 void TCheckBox::SetEnabled(bool _Enabled)
 {
-	TBEGIN
 	Enabled = _Enabled;
 	const TFont Font = _Enabled ? SkinProperties.CheckBox.Data18 : SkinProperties.CheckBox.Data2C;
 	TLabel *NewLabel = new TLabel(Label->OffsetX, Label->OffsetY, Label->Width, Label->Height, Font, Label->Text.get(),
@@ -1260,7 +1158,6 @@ void TCheckBox::SetEnabled(bool _Enabled)
 	DeleteChild(Label);
 	Label = NewLabel;
 	InsertChild(NewLabel);
-	TEND(1768)
 }
 
 // --- TEditLine --------------------------------------------------------------------
@@ -1269,7 +1166,6 @@ void TCheckBox::SetEnabled(bool _Enabled)
 TEditLine::TEditLine(TRect Area, int _MaxLength, bool _ReadOnly)
 {
 	TASSERT1(1878, _MaxLength>=0, _MaxLength);
-	TBEGIN
 	Text = new char[_MaxLength + 1];
 	Text[0] = 0;
 	ReadOnly = _ReadOnly;
@@ -1289,14 +1185,12 @@ TEditLine::TEditLine(TRect Area, int _MaxLength, bool _ReadOnly)
 	TWindow::SetPosition(Area.x, Area.y);
 	TEditLine::SetSize(Area.width, Area.height);
 	TEditLine::Arrange();
-	TEND1(1900, _MaxLength)
 }
 
 // 0x45a4c0, lines 1908-1927. Without an area (the dialogs size it later).
 TEditLine::TEditLine(int _MaxLength, bool _ReadOnly)
 {
 	TASSERT1(1908, _MaxLength>=0, _MaxLength);
-	TBEGIN
 	Text = new char[_MaxLength + 1];
 	Text[0] = 0;
 	ReadOnly = _ReadOnly;
@@ -1313,14 +1207,12 @@ TEditLine::TEditLine(int _MaxLength, bool _ReadOnly)
 	MaxLength = _MaxLength;
 	DrawingListLength = 4;
 	DrawingList.reset(new TDrawing[4]);
-	TEND1(1927, _MaxLength)
 }
 
 // 0x45a800, line 1963. Scrolls the text so that the cursor is visible; the
 // cursor blinks every five action numbers.
 void TEditLine::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	GetSurface()->FillRectangle(Surface, TRect(x, y, Width, Height),
 		IsDisabled() ? SkinProperties.Style944.Data0C : SkinProperties.Style944.Data00);
 	TWindow::Draw(Surface, x, y);
@@ -1350,35 +1242,29 @@ void TEditLine::Draw(int Surface, int x, int y)
 			GetSurface()->DrawVerticalLine(Surface,
 				TextX + GetTextPartWidth(Font.FontNumber, Text + FirstVisible, Cursor - FirstVisible), TextY, GetFontHeight(Font.FontNumber), SkinProperties.Style944.Data18);
 	}
-	TEND(1963)
 }
 
 // 0x45ac40, line 1974
 void TEditLine::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TComponent::SetSize(Width, Height);
 	Arrange();
-	TEND(1974)
 }
 
 // 0x45ade0. TBEGIN/TEND without a try block. The frame of skins 8-11.
 void TEditLine::Arrange()
 {
-	TBEGIN
 	DrawingList[0] = TDrawing(9, 0, 0, Width, Skins[9].height, 0, 0);
 	DrawingList[1] = TDrawing(11, 0, Skins[9].height, Skins[11].width, Height - Skins[9].height, 0, 0);
 	DrawingList[2] = TDrawing(10, Width - Skins[10].width, Skins[9].height, Skins[10].width,
 		Height - Skins[9].height, 0, 0);
 	DrawingList[3] = TDrawing(8, Skins[11].width, Height - Skins[8].height,
 		Width - Skins[10].width - Skins[11].width, Skins[8].height, 0, 0);
-	TEND(1992)
 }
 
 // 0x45af40, line 2014. A drag extends the selection.
 bool TEditLine::MouseMove(int x, int y)
 {
-	TBEGIN
 	TWindow::MouseMove(x, y);
 	if (Selecting) {
 		const int Position = GetPosition(x, y);
@@ -1388,13 +1274,11 @@ bool TEditLine::MouseMove(int x, int y)
 		SetCursor(Position);
 	}
 	return true;
-	TEND2(2014, x, y)
 }
 
 // 0x467ec0, line 2037
 bool TEditLine::LeftButtonDown(int x, int y, int Flags)
 {
-	TBEGIN
 	if (!TWindow::LeftButtonDown(x, y, Flags) && !IsDisabled()) {
 		if (FocusGroup == nullptr)
 			SetActive(true);
@@ -1407,26 +1291,22 @@ bool TEditLine::LeftButtonDown(int x, int y, int Flags)
 		SetCapture(nullptr);
 	}
 	return true;
-	TEND2(2037, x, y)
 }
 
 // 0x45b130, line 2058
 bool TEditLine::LeftButtonUp(int x, int y, int Flags)
 {
-	TBEGIN
 	TWindow::LeftButtonUp(x, y, Flags);
 	if (Selecting) {
 		ReleaseCapture(nullptr);
 		Selecting = false;
 	}
 	return true;
-	TEND2(2058, x, y)
 }
 
 // 0x45b2e0, line 2078. Selects the word under the mouse.
 bool TEditLine::LeftButtonDoubleClick(int x, int y, int Flags)
 {
-	TBEGIN
 	if (!TWindow::LeftButtonDoubleClick(x, y, Flags) && !IsDisabled()) {
 		int Start;
 		for (Start = GetPosition(x, y); Start > 0; Start--) {
@@ -1443,7 +1323,6 @@ bool TEditLine::LeftButtonDoubleClick(int x, int y, int Flags)
 		SetCursor(Start + Length);
 	}
 	return true;
-	TEND2(2078, x, y)
 }
 
 // 0x45b5b0, line 2093. Opens the edit line's context menu (ContextMenus.cpp)
@@ -1451,12 +1330,10 @@ bool TEditLine::LeftButtonDoubleClick(int x, int y, int Flags)
 // a left button release (the binary calls TWindow::LeftButtonUp).
 bool TEditLine::RightButtonUp(int x, int y, int Flags)
 {
-	TBEGIN
 	if (!TWindow::LeftButtonUp(x, y, Flags) && !IsDisabled() && GetActionState() != 10
 		&& GetActionState() != 11)
 		AddMessage(58, reinterpret_cast<INT_PTR>(this), 0);
 	return true;
-	TEND2(2093, x, y)
 }
 
 // 0x4680c0, line 2156. Tab and Shift+Tab move through the focus group; the
@@ -1465,7 +1342,6 @@ bool TEditLine::RightButtonUp(int x, int y, int Flags)
 // printable characters edit.
 void TEditLine::KeyPress(int Key)
 {
-	TBEGIN
 	if (FocusGroup != nullptr) {
 		if (Key == 9)
 			FocusGroup->Next();
@@ -1519,7 +1395,7 @@ void TEditLine::KeyPress(int Key)
 					HandleEvent(19);
 			}
 			// Past the modifier test the binary keeps the code in Key's stack slot
-			// (0x4682b2-0x4682b8): TEND1(Key) then prints the code.
+			// (0x4682b2-0x4682b8): the original's TEND1(Key) then prints the code.
 			if ((Key & 0x400) == 0 || (Key & 0x800) != 0) {
 				Key = Code;
 				if (Key > 0x1f && Key < 0x100 && (int)strlen(Text) < MaxLength) {
@@ -1531,14 +1407,12 @@ void TEditLine::KeyPress(int Key)
 			}
 		}
 	}
-	TEND1(2156, Key)
 }
 
 // 0x45b790, lines 2206-2209. 16 copy, 17 cut, 18 paste (a single line stops
 // at the first line break), 19 delete the selection, 20 select all.
 void TEditLine::HandleEvent(int Event)
 {
-	TBEGIN
 	switch (Event) {
 	case 16:
 		if (SelectionStart != -1 && SelectionLength != 0) {
@@ -1598,42 +1472,35 @@ void TEditLine::HandleEvent(int Event)
 	default:
 		TERROR1(2206, "unknown event", Event);
 	}
-	TEND1(2209, Event)
 }
 
 // 0x45bc80. TBEGIN/TEND without a try block. Losing the input clears the
 // selection.
 void TEditLine::SetActive(bool _Active)
 {
-	TBEGIN
 	Active = _Active;
 	if (!_Active)
 		SelectionLength = 0;
-	TEND(2223)
 }
 
 // 0x468470, lines 2230-2235
 void TEditLine::SetFocusGroup(TFocusGroup *_FocusGroup)
 {
 	TASSERT(2230, _FocusGroup!=NULL);
-	TBEGIN
 	FocusGroup = _FocusGroup;
 	_FocusGroup->AddMember(this);
-	TEND(2235)
 }
 
 // 0x45bcc0, lines 2243-2252. Cut to MaxLength.
 void TEditLine::SetText(const char *_Text)
 {
 	TASSERT(2243, _Text!=NULL);
-	TBEGIN
 	strncpy(Text, _Text, MaxLength);
 	Text[MaxLength] = 0;
 	SetCursor((int)strlen(Text));
 	FirstVisible = 0;
 	SelectionLength = 0;
 	Arrange();
-	TEND(2252)
 }
 
 // 0x45bf70, lines 2263-2294. Inserts at the cursor (Position only enters
@@ -1642,7 +1509,6 @@ void TEditLine::SetText(const char *_Text)
 int TEditLine::InsertText(int Position, const char *String, int insertlength)
 {
 	TASSERT2(2263, Position <= (int)strlen(Text), Position, strlen(Text));
-	TBEGIN
 	int appendlength = (int)strlen(Text) - Position;
 	if ((int)strlen(Text) + insertlength <= MaxLength) {
 		TASSERT1(2270, Cursor+insertlength+appendlength<=MaxLength, Cursor+insertlength+appendlength);
@@ -1665,26 +1531,22 @@ int TEditLine::InsertText(int Position, const char *String, int insertlength)
 	SelectionLength = 0;
 	Arrange();
 	return insertlength;
-	TEND2(2294, Position, insertlength)
 }
 
 // 0x45c490, lines 2302-2309
 void TEditLine::InsertChar(int Position, char c)
 {
 	TASSERT2(2302, Position<=(int)strlen(Text), Position, strlen(Text));
-	TBEGIN
 	TFixedString<2> Help;
 	Help.Format("{}", c);
 	Help[1] = 0;
 	InsertText(Position, Help, 1);
 	Arrange();
-	TEND1(2309, Position)
 }
 
 // 0x45c760, line 2327
 void TEditLine::DeleteText(int start, int length)
 {
-	TBEGIN
 	const int Length = (int)strlen(Text);
 	if (start >= Length)
 		start = Length;
@@ -1696,19 +1558,16 @@ void TEditLine::DeleteText(int start, int length)
 		SelectionLength = 0;
 		Arrange();
 	}
-	TEND2(2327, start, length)
 }
 
 // 0x45c980, line 2342
 void TEditLine::Clear()
 {
-	TBEGIN
 	Text[0] = 0;
 	SetCursor(0);
 	FirstVisible = 0;
 	SelectionLength = 0;
 	Arrange();
-	TEND(2342)
 }
 
 // --- TPasswordEditLine ------------------------------------------------------------
@@ -1723,7 +1582,6 @@ TPasswordEditLine::TPasswordEditLine(int _MaxLength) : TEditLine(_MaxLength, fal
 // 0x45cbb0, line 2420. Draws a star per character in place of the text.
 void TPasswordEditLine::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	int i;
 	for (i = 0; i < (int)strlen(Text); i++)
 		Stars[i] = '*';
@@ -1735,7 +1593,6 @@ void TPasswordEditLine::Draw(int Surface, int x, int y)
 	Help = Text;
 	Text = Stars;
 	Stars = Help;
-	TEND1(2420, Surface)
 }
 
 // 0x45cda0, line 2430. Only pasting; the catch blocks name Event with the
@@ -1743,9 +1600,7 @@ void TPasswordEditLine::Draw(int Surface, int x, int y)
 void TPasswordEditLine::HandleEvent(int Event)
 {
 	if (Event == 18) {
-		TBEGIN
 		TEditLine::HandleEvent(18);
-		TEND1(2430, Event)
 	}
 }
 
@@ -1754,19 +1609,16 @@ void TPasswordEditLine::HandleEvent(int Event)
 // 0x46b570, line 2466
 TEditText::TEditText(int MaxLength, bool _ReadOnly) : TEditLine(MaxLength, _ReadOnly), LineStart(0, 9, 10, 0)
 {
-	TBEGIN
 	ScrollBar = new TScrollBar(TRect(0, 0, SkinProperties.Data878, SkinProperties.Data874), 0, 0, 0, 0, 1);
 	TWindow::InsertChild(ScrollBar);
 	Lines = 0;
 	SingleLine = false;
-	TEND1(2466, MaxLength)
 }
 
 // 0x45cf30, line 2503. The visible lines from the scroll position on, with
 // the selection; the cursor shows in its line (or after the end).
 void TEditText::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	GetSurface()->FillRectangle(Surface, TRect(x, y, Width, Height), SkinProperties.Style944.Data00);
 	TWindow::Draw(Surface, x, y);
 	if (!IsDisabled()) {
@@ -1807,14 +1659,12 @@ void TEditText::Draw(int Surface, int x, int y)
 			}
 		}
 	}
-	TEND1(2503, Surface)
 }
 
 // 0x4686f0, line 2536. The scroll bar's height subtracts skin widths (11
 // and 10, not the heights of 9 and 8).
 void TEditText::Arrange()
 {
-	TBEGIN
 	const int ScrollBarWidth = ScrollBar->Width;
 	SetChildArea(ScrollBar,
 		TRect(-(Skins[10].width + ScrollBarWidth), Skins[9].height, ScrollBarWidth,
@@ -1828,17 +1678,14 @@ void TEditText::Arrange()
 	else
 		ScrollBar->Range->SetRange(0, Lines - VisibleLines, ScrollBar->Range->Value, VisibleLines);
 	TEditLine::Arrange();
-	TEND(2536)
 }
 
 // 0x45d400, line 2549
 bool TEditText::MouseWheel(int x, int y, int Code)
 {
-	TBEGIN
 	if (!TWindow::MouseWheel(x, y, Code) && (Code == 1 || Code == 2))
 		return ScrollBar->MouseWheel(x, y, Code);
 	return true;
-	TEND1(2549, Code)
 }
 
 // 0x468a60, line 2703. Read-only: the keys scroll (copy and select all
@@ -1849,7 +1696,6 @@ bool TEditText::MouseWheel(int x, int y, int Code)
 // the first line.
 void TEditText::KeyPress(int Key)
 {
-	TBEGIN
 	if (ReadOnly) {
 		int Value = ScrollBar->Range->Value;
 		if (Key == 0x510 || Key == 0x463)
@@ -1965,7 +1811,6 @@ void TEditText::KeyPress(int Key)
 		ScrollBar->Range->SetValue(Line);
 	if (Line > ScrollBar->Range->Visible - 1 + ScrollBar->Range->Value)
 		ScrollBar->Range->SetValue(Line - ScrollBar->Range->Visible + 1);
-	TEND1(2703, Key)
 }
 
 // 0x469120, line 2711. No try block. Unless KeepPosition is set, the cursor
@@ -1985,18 +1830,15 @@ void TEditText::SetText(const char *_Text, bool KeepPosition)
 // 0x45d5d0, line 2728. A read-only field never takes the input.
 void TEditText::SetActive(bool _Active)
 {
-	TBEGIN
 	if (ReadOnly)
 		_Active = false;
 	TEditLine::SetActive(_Active);
-	TEND(2728)
 }
 
 // 0x45d770, line 2762. Left of or above the text: the first visible line's
 // start; right of or below it: the end of the last visible line.
 int TEditText::GetPosition(int x, int y)
 {
-	TBEGIN
 	x -= SkinProperties.Data99C;
 	y -= SkinProperties.Data99C;
 	int Line;
@@ -2028,7 +1870,6 @@ int TEditText::GetPosition(int x, int y)
 	if (Line > Lines)
 		Line = Lines - 1;
 	return LineStart(Line);
-	TEND2(2762, x, y)
 }
 
 // 0x45da90, lines 2770-2795. Breaks the text into lines of FieldWidth pixels,
@@ -2037,7 +1878,6 @@ int TEditText::GetPosition(int x, int y)
 void TEditText::FormatText()
 {
 	TASSERT1(2770, FieldWidth>0, FieldWidth);
-	TBEGIN
 	int Position = 0;
 	Lines = 0;
 	const int Length = (int)strlen(Text);
@@ -2064,7 +1904,6 @@ void TEditText::FormatText()
 			Position += i + 1;
 	}
 	LineStart(Lines) = Length;
-	TEND(2795)
 }
 
 // --- TFocusGroup ------------------------------------------------------------------
@@ -2079,12 +1918,10 @@ TFocusGroup::TFocusGroup() : MemberList(0, 2, 2, nullptr)
 // 0x45de20, line 2828
 void TFocusGroup::SetActive(TEditLine *Member)
 {
-	TBEGIN
 	if (Active != nullptr)
 		Active->SetActive(false);
 	Active = Member;
 	Active->SetActive(true);
-	TEND(2828)
 }
 
 // 0x45dfc0, lines 2835-2836. No try block. The duplicate test skips the
@@ -2102,7 +1939,6 @@ void TFocusGroup::AddMember(TEditLine *Member)
 void TFocusGroup::Next()
 {
 	TASSERT(2846, Active!=NULL);
-	TBEGIN
 	int Next = -1;
 	for (int i = 0; i < Members; i++) {
 		if (MemberList(i) == Active) {
@@ -2114,14 +1950,12 @@ void TFocusGroup::Next()
 		Next = 0;
 	TASSERT(2857, Next != -1);
 	SetActive(MemberList(Next));
-	TEND(2860)
 }
 
 // 0x45e630, lines 2868-2882
 void TFocusGroup::Previous()
 {
 	TASSERT(2868, Active!=NULL);
-	TBEGIN
 	int Next = -1;
 	for (int i = 0; i < Members; i++) {
 		if (MemberList(i) == Active) {
@@ -2133,7 +1967,6 @@ void TFocusGroup::Previous()
 	}
 	TASSERT(2879, Next != -1);
 	SetActive(MemberList(Next));
-	TEND(2882)
 }
 
 // --- THorizontalScrollBarRange ----------------------------------------------------
@@ -2144,7 +1977,6 @@ THorizontalScrollBarRange::THorizontalScrollBarRange(int _Min, int _Max, int _Va
 {
 	TASSERT2(2925, _Min<=_Max, _Min, _Max);
 	TASSERT2(2926, In(_Value,_Min,_Max), _Value, _Max);
-	TBEGIN
 	DrawingListLength = 4;
 	DrawingList.reset(new TDrawing[4]);
 	Min = _Min;
@@ -2160,35 +1992,29 @@ THorizontalScrollBarRange::THorizontalScrollBarRange(int _Min, int _Max, int _Va
 	SliderPosition = 0;
 	SliderWidth = 0;
 	ButtonRange = 1;
-	TEND2(2944, _Min, _Max)
 }
 
 // 0x45ee10, line 2974. Not while the slider is dragged.
 void THorizontalScrollBarRange::SetValue(int _Value)
 {
-	TBEGIN
 	if (!Dragging)
 		Value = _Value;
 	Limit(&Value, Min, Max);
 	Callback.Send();
 	Arrange();
-	TEND1(2974, _Value)
 }
 
 // 0x45eff0, line 2986
 void THorizontalScrollBarRange::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TComponent::SetSize(Width, Height);
 	Arrange();
-	TEND2(2986, Width, Height)
 }
 
 // 0x45f1a0. TBEGIN/TEND without a try block. The slider's share is computed
 // on the x87 stack (double precision here).
 void THorizontalScrollBarRange::Arrange()
 {
-	TBEGIN
 	DrawingList[0] = TDrawing(161, 0, 0, Width, Height, 0, 0);
 	if (!Enabled) {
 		DrawingList[1] = TDrawing(0, 0, 0, 0, 0, 0, 0);
@@ -2210,13 +2036,11 @@ void THorizontalScrollBarRange::Arrange()
 			SliderWidth - Skins[164].width - Skins[162].width, Height, 0, 0);
 		DrawingList[3] = TDrawing(164, SliderPosition - Skins[164].width + SliderWidth, 0, 0, 0, 0, 0);
 	}
-	TEND(3022)
 }
 
 // 0x45f3d0, line 3039
 bool THorizontalScrollBarRange::MouseMove(int x, [[maybe_unused]] int y)
 {
-	TBEGIN
 	if (Enabled && Dragging) {
 		Value = (x - DragOffset) * (Max - Min + 1) / (Width - SliderWidth + 1) + Min;
 		Limit(&Value, Min, Max);
@@ -2224,13 +2048,11 @@ bool THorizontalScrollBarRange::MouseMove(int x, [[maybe_unused]] int y)
 		Arrange();
 	}
 	return true;
-	TEND1(3039, x)
 }
 
 // 0x45f5c0, line 3057
 bool THorizontalScrollBarRange::LeftButtonDown(int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (!Enabled)
 		return true;
 	Pressed = true;
@@ -2240,14 +2062,12 @@ bool THorizontalScrollBarRange::LeftButtonDown(int x, [[maybe_unused]] int y, [[
 		Dragging = true;
 	}
 	return true;
-	TEND1(3057, x)
 }
 
 // 0x45f790, line 3081. A click beside the slider moves by one, or by a page
 // (Visible-1) with PageScroll.
 bool THorizontalScrollBarRange::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (Pressed)
 		ReleaseCapture(nullptr);
 	Pressed = false;
@@ -2272,14 +2092,12 @@ bool THorizontalScrollBarRange::LeftButtonUp(int x, int y, [[maybe_unused]] int 
 	Callback.Send();
 	Arrange();
 	return true;
-	TEND2(3081, x, y)
 }
 
 // 0x45f9d0, line 3113. Codes 1 and 2 are the wheel, 6 the held button (a
 // page step beside the slider, then the common tail runs again).
 bool THorizontalScrollBarRange::MouseWheel(int x, int y, int Code)
 {
-	TBEGIN
 	if (!Enabled)
 		return true;
 	if (Code == 1) {
@@ -2306,13 +2124,11 @@ bool THorizontalScrollBarRange::MouseWheel(int x, int y, int Code)
 	Callback.Send();
 	Arrange();
 	return true;
-	TEND1(3113, Code)
 }
 
 // 0x45fca0, line 3131. The callback goes out before the value is limited.
 void THorizontalScrollBarRange::KeyPress(int Key)
 {
-	TBEGIN
 	if (Enabled) {
 		if (Key == 0x10d)
 			Value -= ButtonRange;
@@ -2322,7 +2138,6 @@ void THorizontalScrollBarRange::KeyPress(int Key)
 		Limit(&Value, Min, Max);
 		Arrange();
 	}
-	TEND1(3131, Key)
 }
 
 // --- THorizontalScrollBar ---------------------------------------------------------
@@ -2334,7 +2149,6 @@ THorizontalScrollBar::THorizontalScrollBar(int Min, int Max, int _Value, int _Vi
 	TCallback _Callback)
 {
 	TASSERT1(3158, _ButtonRange>0, _ButtonRange);
-	TBEGIN
 	LeftButton = new TSkinButton(0, 0, 165, 166, TCallback(this, 5), nullptr, true);
 	RightButton = new TSkinButton(0, 0, 167, 168, TCallback(this, 6), nullptr, true);
 	TWindow::InsertChild(LeftButton);
@@ -2343,14 +2157,12 @@ THorizontalScrollBar::THorizontalScrollBar(int Min, int Max, int _Value, int _Vi
 	Range->PageScroll = true;
 	Range->ButtonRange = _ButtonRange;
 	TWindow::InsertChild(Range);
-	TEND2(3169, Min, Max)
 }
 
 // 0x45fe90, line 3188. The parameters are changed in place (the catch
 // blocks report the changed values).
 void THorizontalScrollBar::SetSize(int Width, int Height)
 {
-	TBEGIN
 	Height = SkinProperties.Data880;
 	Width -= RightButton->Width + LeftButton->Width;
 	if (Width < Range->getMinimumWidth())
@@ -2361,28 +2173,23 @@ void THorizontalScrollBar::SetSize(int Width, int Height)
 	LeftButton->SetPosition(0, 0);
 	Range->SetPosition(LeftButton->Width, 0);
 	RightButton->SetPosition(Range->Width + LeftButton->Width, 0);
-	TEND2(3188, Width, Height)
 }
 
 // 0x4600c0, line 3200
 bool THorizontalScrollBar::MouseWheel(int x, int y, int Code)
 {
-	TBEGIN
 	if (TWindow::MouseWheel(x, y, Code))
 		return true;
 	return Range->MouseWheel(x, y, Code);
-	TEND1(3200, Code)
 }
 
 // 0x460280, line 3213. The buttons' events.
 void THorizontalScrollBar::HandleEvent(int Event)
 {
-	TBEGIN
 	if (Event == 5)
 		Range->SetValue(Range->Value - Range->ButtonRange);
 	else if (Event == 6)
 		Range->SetValue(Range->Value + Range->ButtonRange);
-	TEND1(3213, Event)
 }
 
 // --- TScrollBarRange --------------------------------------------------------------
@@ -2392,7 +2199,6 @@ TScrollBarRange::TScrollBarRange(int x, int y, int Width, int Height, int _Min, 
 {
 	TASSERT2(3227, _Min<=_Max, _Min, _Max);
 	TASSERT2(3228, In(_Value,_Min,_Max), _Value, _Max);
-	TBEGIN
 	DrawingListLength = 4;
 	DrawingList.reset(new TDrawing[4]);
 	Min = _Min;
@@ -2410,14 +2216,12 @@ TScrollBarRange::TScrollBarRange(int x, int y, int Width, int Height, int _Min, 
 	TComponent::SetPosition(x, y);
 	TScrollBarRange::SetSize(Width, Height);
 	TScrollBarRange::Arrange();
-	TEND2(3248, _Min, _Max)
 }
 
 // 0x460450, lines 3281-3291. The value stays while the slider is dragged.
 void TScrollBarRange::SetRange(int _Min, int _Max, int _Value, int _Visible)
 {
 	TASSERT2(3281, _Min<=_Max, _Min, _Max);
-	TBEGIN
 	Enabled = _Min != _Max;
 	Min = _Min;
 	Max = _Max;
@@ -2429,34 +2233,28 @@ void TScrollBarRange::SetRange(int _Min, int _Max, int _Value, int _Visible)
 		Value = _Max;
 	Visible = _Visible;
 	Arrange();
-	TEND2(3291, _Min, _Max)
 }
 
 // 0x460710, line 3303
 void TScrollBarRange::SetValue(int _Value)
 {
-	TBEGIN
 	if (!Dragging)
 		Value = _Value;
 	Limit(&Value, Min, Max);
 	Arrange();
-	TEND1(3303, _Value)
 }
 
 // 0x4608e0, line 3315
 void TScrollBarRange::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TComponent::SetSize(Width, Height);
 	Arrange();
-	TEND2(3315, Width, Height)
 }
 
 // 0x460a90. TBEGIN/TEND without a try block; the vertical form of
 // THorizontalScrollBarRange::Arrange (skins 153-156).
 void TScrollBarRange::Arrange()
 {
-	TBEGIN
 	DrawingList[0] = TDrawing(153, 0, 0, Width, Height, 0, 0);
 	if (!Enabled) {
 		DrawingList[1] = TDrawing(0, 0, 0, 0, 0, 0, 0);
@@ -2478,26 +2276,22 @@ void TScrollBarRange::Arrange()
 			SliderHeight - Skins[156].height - Skins[154].height, 0, 0);
 		DrawingList[3] = TDrawing(156, 0, SliderPosition - Skins[156].height + SliderHeight, 0, 0, 0, 0);
 	}
-	TEND(3351)
 }
 
 // 0x460cc0, line 3367
 bool TScrollBarRange::MouseMove([[maybe_unused]] int x, int y)
 {
-	TBEGIN
 	if (Enabled && Dragging) {
 		Value = (y - DragOffset) * (Max - Min + 1) / (Height - SliderHeight + 1) + Min;
 		Limit(&Value, Min, Max);
 		Arrange();
 	}
 	return true;
-	TEND1(3367, y)
 }
 
 // 0x460eb0, line 3385
 bool TScrollBarRange::LeftButtonDown([[maybe_unused]] int x, int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (!Enabled)
 		return true;
 	Pressed = true;
@@ -2507,13 +2301,11 @@ bool TScrollBarRange::LeftButtonDown([[maybe_unused]] int x, int y, [[maybe_unus
 		Dragging = true;
 	}
 	return true;
-	TEND1(3385, y)
 }
 
 // 0x461080, line 3408
 bool TScrollBarRange::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	if (Pressed)
 		ReleaseCapture(nullptr);
 	Pressed = false;
@@ -2537,13 +2329,11 @@ bool TScrollBarRange::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 	Limit(&Value, Min, Max);
 	Arrange();
 	return true;
-	TEND2(3408, x, y)
 }
 
 // 0x4612c0, line 3438
 bool TScrollBarRange::MouseWheel(int x, int y, int Code)
 {
-	TBEGIN
 	if (!Enabled)
 		return true;
 	if (Code == 1) {
@@ -2568,13 +2358,11 @@ bool TScrollBarRange::MouseWheel(int x, int y, int Code)
 	Limit(&Value, Min, Max);
 	Arrange();
 	return true;
-	TEND2(3438, x, y)
 }
 
 // 0x461580, line 3455
 void TScrollBarRange::KeyPress(int Key)
 {
-	TBEGIN
 	if (Enabled) {
 		if (Key == 0x10c)
 			Value -= ButtonRange;
@@ -2583,7 +2371,6 @@ void TScrollBarRange::KeyPress(int Key)
 		Limit(&Value, Min, Max);
 		Arrange();
 	}
-	TEND1(3455, Key)
 }
 
 // --- TScrollBar -------------------------------------------------------------------
@@ -2593,7 +2380,6 @@ void TScrollBarRange::KeyPress(int Key)
 TScrollBar::TScrollBar(TRect Area, int Min, int Max, int _Value, int _Visible, int _ButtonRange)
 {
 	TASSERT1(3462, _ButtonRange>0, _ButtonRange);
-	TBEGIN
 	UpButton = new TSkinButton(0, 0, 157, 158, TCallback(this, 3), nullptr, true);
 	DownButton = new TSkinButton(0, 0, 159, 160, TCallback(this, 4), nullptr, true);
 	TWindow::InsertChild(UpButton);
@@ -2605,13 +2391,11 @@ TScrollBar::TScrollBar(TRect Area, int Min, int Max, int _Value, int _Visible, i
 	TWindow::InsertChild(Range);
 	TWindow::SetPosition(Area.x, Area.y);
 	TScrollBar::SetSize(Area.width, Area.height);
-	TEND2(3475, Min, Max)
 }
 
 // 0x461770, line 3509. The parameters are changed in place.
 void TScrollBar::SetSize(int Width, int Height)
 {
-	TBEGIN
 	Width = SkinProperties.Data878;
 	Height -= DownButton->Height + UpButton->Height;
 	if (Height < Range->getMinimumHeight())
@@ -2622,28 +2406,23 @@ void TScrollBar::SetSize(int Width, int Height)
 	UpButton->SetPosition(0, 0);
 	Range->SetPosition(0, UpButton->Height);
 	DownButton->SetPosition(0, Range->Height + UpButton->Height);
-	TEND2(3509, Width, Height)
 }
 
 // 0x4619a0, line 3521
 bool TScrollBar::MouseWheel(int x, int y, int Code)
 {
-	TBEGIN
 	if (TWindow::MouseWheel(x, y, Code))
 		return true;
 	return Range->MouseWheel(x, y, Code);
-	TEND1(3521, Code)
 }
 
 // 0x461b60, line 3534. The buttons' events.
 void TScrollBar::HandleEvent(int Event)
 {
-	TBEGIN
 	if (Event == 3)
 		Range->SetValue(Range->Value - Range->ButtonRange);
 	else if (Event == 4)
 		Range->SetValue(Range->Value + Range->ButtonRange);
-	TEND1(3534, Event)
 }
 
 // --- TListBox ---------------------------------------------------------------------
@@ -2652,7 +2431,6 @@ void TScrollBar::HandleEvent(int Event)
 TListBox::TListBox(TCallback _SelectCallback, TCallback _ActionCallback)
 	: LineText(0, 9, 10, nullptr), SelectCallback(nullptr, 0), ActionCallback(nullptr, 0)
 {
-	TBEGIN
 	ScrollBar = new TScrollBar(TRect(0, 0, SkinProperties.Data878, SkinProperties.Data874), 0, 0, 0, 0, 1);
 	TWindow::InsertChild(ScrollBar);
 	Lines = 0;
@@ -2666,14 +2444,12 @@ TListBox::TListBox(TCallback _SelectCallback, TCallback _ActionCallback)
 	Editing = false;
 	EditScroll = 0;
 	EditLine = new TEditLine(TRect(0, 0, 32, 16), 30, false);
-	TEND(3596)
 }
 
 // 0x461d10, line 3635. The loop stops at VisibleLines or Lines lines, not at
 // the last line after the scroll position. The edited line is not drawn.
 void TListBox::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	const int First = ScrollBar->Range->Value;
 	if (Editing && First != EditScroll)
 		StopEdit();
@@ -2700,23 +2476,19 @@ void TListBox::Draw(int Surface, int x, int y)
 				Fitting);
 		}
 	}
-	TEND1(3635, Surface)
 }
 
 // 0x4620e0, line 3646
 void TListBox::SetSize(int Width, int Height)
 {
-	TBEGIN
 	TComponent::SetSize(Width, Height);
 	Arrange();
-	TEND2(3646, Width, Height)
 }
 
 // 0x46a120, line 3676. The scroll bar's height subtracts skin widths, as in
 // TEditText::Arrange.
 void TListBox::Arrange()
 {
-	TBEGIN
 	TextWidth = Width - 2 * SkinProperties.Style9A0.Data20 - ScrollBar->Width;
 	SetChildArea(ScrollBar,
 		TRect(-(Skins[10].width + ScrollBar->Width), Skins[9].height, ScrollBar->Width,
@@ -2733,13 +2505,11 @@ void TListBox::Arrange()
 		Height - Skins[9].height, 0, 0);
 	DrawingList[3] = TDrawing(8, Skins[11].width, Height - Skins[8].height,
 		Width - Skins[10].width - Skins[11].width, Skins[8].height, 0, 0);
-	TEND(3676)
 }
 
 // 0x46a460, line 3696
 bool TListBox::LeftButtonDown(int x, int y, int Flags)
 {
-	TBEGIN
 	if (!TWindow::LeftButtonDown(x, y, Flags)) {
 		const int Line = GetLineAt(x, y);
 		if (Editing && Line != Selected)
@@ -2749,13 +2519,11 @@ bool TListBox::LeftButtonDown(int x, int y, int Flags)
 		SelectCallback.Send();
 	}
 	return true;
-	TEND2(3696, x, y)
 }
 
 // 0x46a640, line 3720
 bool TListBox::LeftButtonDoubleClick(int x, int y, int Flags)
 {
-	TBEGIN
 	if (!TWindow::LeftButtonDoubleClick(x, y, Flags)) {
 		const int Line = GetLineAt(x, y);
 		if (Editing && Line != Selected)
@@ -2767,30 +2535,25 @@ bool TListBox::LeftButtonDoubleClick(int x, int y, int Flags)
 		ActionCallback.Send();
 	}
 	return true;
-	TEND2(3720, x, y)
 }
 
 // 0x46a830, line 3734. The full text of a cut line.
 void TListBox::MouseHover(int x, int y)
 {
-	TBEGIN
 	const int Line = GetLineAt(x, y);
 	if (Line != -1) {
 		const int Fitting = GetFittingTextLength(SkinProperties.Style9A0.Data0C.FontNumber, LineText(Line), TextWidth);
 		if (LineText(Line) != nullptr && Fitting < (int)strlen(LineText(Line)))
 			SetMouseOverText(LineText(Line));
 	}
-	TEND2(3734, x, y)
 }
 
 // 0x462290, line 3747
 bool TListBox::MouseWheel(int x, int y, int Code)
 {
-	TBEGIN
 	if (!TWindow::MouseWheel(x, y, Code) && (Code == 1 || Code == 2))
 		return ScrollBar->MouseWheel(x, y, Code);
 	return true;
-	TEND1(3747, Code)
 }
 
 // 0x46aa30, line 3791. Up and Down move the selection, a letter selects the
@@ -2798,7 +2561,6 @@ bool TListBox::MouseWheel(int x, int y, int Code)
 // the edit and the other keys go to the edit line.
 void TListBox::KeyPress(int _Key)
 {
-	TBEGIN
 	const int Code = _Key & 0x1ff;
 	if (Code == 0x10c) {
 		if (Editing)
@@ -2832,20 +2594,17 @@ void TListBox::KeyPress(int _Key)
 	if (Selected > ScrollBar->Range->Visible - 1 + ScrollBar->Range->Value)
 		ScrollBar->Range->SetValue(Selected - ScrollBar->Range->Visible + 1);
 	SelectCallback.Send();
-	TEND1(3791, _Key)
 }
 
 // 0x462460, lines 3799-3806
 void TListBox::AddLine(const char *Text)
 {
 	TASSERT(3799, Text!=NULL);
-	TBEGIN
 	const std::size_t Size = strlen(Text) + 1;
 	LineText(Lines) = new char[Size];
 	TStringBuffer(LineText(Lines), Size).Assign(Text);
 	Lines++;
 	Arrange();
-	TEND(3806)
 }
 
 // 0x462730, lines 3831-3839
@@ -2853,14 +2612,12 @@ void TListBox::SetLine(int Number, const char *Text)
 {
 	TASSERT(3831, Text!=NULL);
 	TASSERT2(3832, In(Number,0,Lines-1), Number, Lines);
-	TBEGIN
 	if (LineText(Number) != nullptr)
 		delete[] LineText(Number);
 	const std::size_t Size = strlen(Text) + 1;
 	LineText(Number) = new char[Size];
 	TStringBuffer(LineText(Number), Size).Assign(Text);
 	Arrange();
-	TEND1(3839, Number)
 }
 
 // 0x462b20, line 3847. No try block.
@@ -2873,7 +2630,6 @@ char *TListBox::GetLine(int Number)
 // 0x46ad10, lines 3891-3896. Scrolls the selection into view.
 void TListBox::SetSelection(int Number)
 {
-	TBEGIN
 	if (Editing)
 		StopEdit();
 	if (Lines == 0 || Number == -1) {
@@ -2886,13 +2642,11 @@ void TListBox::SetSelection(int Number)
 		if (Selected > ScrollBar->Range->Visible - 1 + ScrollBar->Range->Value)
 			ScrollBar->Range->SetValue(Selected - ScrollBar->Range->Visible + 1);
 	}
-	TEND(3896)
 }
 
 // 0x462ca0, line 3921
 void TListBox::Clear()
 {
-	TBEGIN
 	StopEdit();
 	for (int i = 0; i < Lines; i++) {
 		if (LineText(i) != nullptr)
@@ -2901,13 +2655,11 @@ void TListBox::Clear()
 	}
 	Lines = 0;
 	Arrange();
-	TEND(3921)
 }
 
 // 0x462e70, line 3938. The visible line at y (-1 for none).
 int TListBox::GetLineAt([[maybe_unused]] int x, int y) const
 {
-	TBEGIN
 	const int LineHeight = GetFontLineHeight(SkinProperties.Style9A0.Data0C.FontNumber);
 	const int Offset = (LineHeight - GetFontHeight(SkinProperties.Style9A0.Data0C.FontNumber)) / 2;
 	if (y >= SkinProperties.Style9A0.Data20 - Offset) {
@@ -2917,13 +2669,11 @@ int TListBox::GetLineAt([[maybe_unused]] int x, int y) const
 			return Line;
 	}
 	return -1;
-	TEND1(3938, y)
 }
 
 // 0x463060, line 3957
 void TListBox::StartEdit()
 {
-	TBEGIN
 	if (!Editing) {
 		const int LineHeight = GetFontLineHeight(SkinProperties.Style9A0.Data0C.FontNumber);
 		const int ScrollBarWidth = ScrollBar->Width;
@@ -2936,19 +2686,16 @@ void TListBox::StartEdit()
 				ListWidth - ScrollBarWidth, 16));
 		EditScroll = ScrollBar->Range->Value;
 	}
-	TEND(3957)
 }
 
 // 0x463280, line 3971
 void TListBox::StopEdit()
 {
-	TBEGIN
 	if (Editing) {
 		RemoveChild(EditLine);
 		Editing = false;
 		SetLine(Selected, EditLine->Text);
 	}
-	TEND(3971)
 }
 
 // --- TFontListBox -----------------------------------------------------------------
@@ -2963,7 +2710,6 @@ TFontListBox::TFontListBox(TCallback _SelectCallback, TCallback _ActionCallback)
 // the selection).
 void TFontListBox::Draw(int Surface, int x, int y)
 {
-	TBEGIN
 	const int First = ScrollBar->Range->Value;
 	if (Editing && First != EditScroll)
 		StopEdit();
@@ -2990,21 +2736,18 @@ void TFontListBox::Draw(int Surface, int x, int y)
 				Fitting);
 		}
 	}
-	TEND1(4029, Surface)
 }
 
 // 0x463820, lines 4051-4059
 void TFontListBox::AddLine(const char *Text, TFont Font)
 {
 	TASSERT(4051, Text!=NULL);
-	TBEGIN
 	const std::size_t Size = strlen(Text) + 1;
 	FontLines(Lines).Text = new char[Size];
 	TStringBuffer(FontLines(Lines).Text, Size).Assign(Text);
 	FontLines(Lines).Font = Font;
 	Lines++;
 	Arrange();
-	TEND(4059)
 }
 
 // 0x463b10, lines 4067-4074. An empty line with room for MaxLength
@@ -3012,12 +2755,10 @@ void TFontListBox::AddLine(const char *Text, TFont Font)
 void TFontListBox::AddLine(int MaxLength)
 {
 	TASSERT1(4067, MaxLength>=0, MaxLength);
-	TBEGIN
 	FontLines(Lines).Text = new char[MaxLength + 1];
 	FontLines(Lines).Text[0] = 0;
 	Lines++;
 	Arrange();
-	TEND1(4074, MaxLength)
 }
 
 // 0x463dc0, lines 4082-4091
@@ -3025,7 +2766,6 @@ void TFontListBox::SetLine(int Number, const char *Text, TFont Font)
 {
 	TASSERT(4082, Text!=NULL);
 	TASSERT2(4083, In(Number,0,Lines-1), Number, Lines-1);
-	TBEGIN
 	if (FontLines(Number).Text != nullptr)
 		delete[] FontLines(Number).Text;
 	const std::size_t Size = strlen(Text) + 1;
@@ -3033,48 +2773,40 @@ void TFontListBox::SetLine(int Number, const char *Text, TFont Font)
 	TStringBuffer(FontLines(Number).Text, Size).Assign(Text);
 	FontLines(Number).Font = Font;
 	Arrange();
-	TEND1(4091, Number)
 }
 
 // 0x4641e0, line 4105. The texts are freed, the pointers kept.
 void TFontListBox::Clear()
 {
-	TBEGIN
 	StopEdit();
 	for (int i = 0; i < Lines; i++)
 		delete[] FontLines(i).Text;
 	Lines = 0;
 	Arrange();
-	TEND(4105)
 }
 
 // 0x4643a0, lines 4113-4118
 char *TFontListBox::GetLine(int Number, TFont *Font)
 {
 	TASSERT2(4113, In(Number,0,Lines-1), Number, Lines);
-	TBEGIN
 	*Font = FontLines(Number).Font;
 	return FontLines(Number).Text;
-	TEND(4118)
 }
 
 // 0x464670, line 4133
 void TFontListBox::MouseHover(int x, int y)
 {
-	TBEGIN
 	const int Line = GetLineAt(x, y);
 	if (Line != -1) {
 		const int Fitting = GetFittingTextLength(SkinProperties.Style9A0.Data0C.FontNumber, FontLines(Line).Text, TextWidth);
 		if (FontLines(Line).Text != nullptr && Fitting < (int)strlen(FontLines(Line).Text))
 			SetMouseOverText(FontLines(Line).Text);
 	}
-	TEND2(4133, x, y)
 }
 
 // 0x464870, line 4163. The edit starts with the whole text selected.
 void TFontListBox::StartEdit()
 {
-	TBEGIN
 	if (!Editing) {
 		const int LineHeight = GetFontLineHeight(SkinProperties.Style9A0.Data0C.FontNumber);
 		const int EditWidth = Width - ScrollBar->Width;
@@ -3091,13 +2823,11 @@ void TFontListBox::StartEdit()
 		EditLine->SelectionLength = End - EditLine->SelectionStart;
 		EditScroll = ScrollBar->Range->Value;
 	}
-	TEND(4163)
 }
 
 // 0x464af0, line 4183. Keeps the line's font.
 void TFontListBox::StopEdit()
 {
-	TBEGIN
 	if (Editing) {
 		const char *Text = EditLine->Text;
 		TFont Font;
@@ -3106,7 +2836,6 @@ void TFontListBox::StopEdit()
 		Editing = false;
 		RemoveChild(EditLine);
 	}
-	TEND(4183)
 }
 
 // --- TProgressBar -----------------------------------------------------------------
@@ -3115,7 +2844,6 @@ void TFontListBox::StopEdit()
 // 259-261 the filled part (start, middle, end).
 void TProgressBar::Arrange()
 {
-	TBEGIN
 	DrawingList[0] = TDrawing(256, 0, 0, Skins[256].width, Height, 0, 0);
 	DrawingList[1] = TDrawing(257, Skins[256].width, 0, Width - Skins[258].width - Skins[256].width, Height, 0, 0);
 	DrawingList[2] = TDrawing(258, Width - Skins[258].width, 0, Skins[258].width, Height, 0, 0);
@@ -3134,34 +2862,27 @@ void TProgressBar::Arrange()
 		DrawingList[4] = TDrawing(260, Skins[259].width, 0, Filled - Skins[259].width, Height, 0, 0);
 	else
 		DrawingList[4] = TDrawing(0, 0, 0, 0, 0, 0, 0);
-	TEND(4255)
 }
 
 // 0x464f40, lines 4271-4276
 void TProgressBar::SetMaximum(int maximum)
 {
 	TASSERT1(4271, maximum>0, maximum);
-	TBEGIN
 	Maximum = maximum;
 	Arrange();
-	TEND1(4276, maximum)
 }
 
 // 0x4651c0, line 4289
 void TProgressBar::SetCurrent(int current)
 {
-	TBEGIN
 	Current = current;
 	Limit(&Current, 0, Maximum);
 	Arrange();
-	TEND1(4289, current)
 }
 
 // 0x465380, line 4301
 void TProgressBar::SetComplete()
 {
-	TBEGIN
 	Current = Maximum;
 	Arrange();
-	TEND(4301)
 }
