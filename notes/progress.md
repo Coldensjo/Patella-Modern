@@ -208,6 +208,16 @@ compare_network.py); compare_files.py's error-login and report sessions and line
 67 / 1,114,552 / 3,201 (each drop counted by function); the golden corpus recorded again: 16,193,194 replayed +
 1,520,603 retired = 17,713,797. notes/decisions.md, "The error report removed: error.txt, the report dialog, packet
 0xE8 (Patella-Modern issue #74, D2)".
+The built-in patcher removed (Patella-Modern issue #75, November 5, 2026; M5, decision D9): a patch packet from the
+login server (0x1e, 0x1f, 0x20) ends the login in the login error dialog ("Sorry", "This server wants to update the
+client"; Communication.cpp ReceiveUpdateRequest); no file is patched, replaced or started (ReceivePatch*, CancelPatch,
+ApplyPatch, ApplyFullPatch, InstallPatch, the update dialog and texts 74-76, events 0x29 and 0x40-0x48, CloseProgram,
+Run's `_execl`, MsvcExecl removed; CPlayerApp's RunPatch is padding). #67's zero-sized patch block cannot crash any
+more (#67 stays open for its list of SEH-dependent catch blocks). compare_files.py's patch sessions and the reference
+sessions patch and patch-exe are gone; tools/deliberate.py lists the differences. difftest 16,459,078 / 67 / 856,621 /
+3,201 (each drop counted by function); the golden corpus recorded again: 15,802,944 replayed + 1,512,822 retired =
+17,315,766. Found: TIgnoreListDialog cuts a 30-character name to 29 since #57 (not changed). notes/decisions.md, "The
+built-in patcher removed: packets 0x1e, 0x1f, 0x20, Patch.exe (Patella-Modern issue #75, D9)".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -353,6 +363,16 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #75 (branch issue-75, November 5, 2026): the built-in patcher removed (decision D9). `python -I
+tools/build.py oracle-x86`: difftest 16,471,911 to 16,459,078 (-12,833: Dialogs -3,633 and errors -6,083, MainFrm -598
+and errors -285, Errors -100, Script -2,134), communicationtest 1,044,013 to 856,621 (-187,392: Communication -36,654
+with TestUpdateRequests' +1,800, its errors -150,696, Control -42), sysinctest 67, vlongtest 3,201, 0 failures, CTest 4/4.
+golden 15,802,944 replayed + 1,512,822 retired = 17,315,766, 0 failures (windows-x64, -debug, -asan, 14/14 each,
+golden_concurrent passes, no ASan finding); windows-x64-gcc and the Linux presets 11/11, 0 warnings. reference.py
+compare: 4 sessions match; compare_files.py (live) and compare_traffic.py (live): no differences. PatellaTest.exe on the
+recorded patch session and a zero-sized patch: the "Sorry" dialog, no file written. pecompare by function: 318 gone, 5
+new, 9 resized (x64). tidy_ci: 20 findings, 0 new. banned_calls 0, clang-format clean. Logs: build\logs\issue-75.
 
 Patella-Modern issue #76 (branch issue-76, November 5, 2026): the error paths compared by outcome only (thrown or not,
 and the kind) in difftest, communicationtest and the golden corpus; the line-pair checks are gone, the corpus records

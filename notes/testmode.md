@@ -348,8 +348,12 @@ checks on a hidden desktop").
 | options | compare_files.py options_session | none | start, after-options (state; Tibia.cfg saved); Tibia.cfg on exit |
 | walk | compare_files.py walk_session (19 actions, automap marks, the saved channel) | compare_files.py's live walk (record_walk) | every settle: 23 |
 | error | compare_files.py: the game login, then 0xff | crafted from the walk (craft_error) | start; the message box; exit code 1 (Tibia.exe's error.txt and its box's second sentence are deliberate differences, issue #74) |
-| patch | compare_files.py: four login connections patch Tibia.dat, .spr, .pic, Patch.exe | crafted (craft_patch) | 2 |
-| patch-exe | compare_files.py: a difference patch of Tibia.exe (Tibia.bak), the client closes | crafted (craft_patch_exe) | 3 |
+
+Until Patella-Modern issue #75 two more: patch (compare_files.py: four login connections patch Tibia.dat, .spr, .pic,
+Patch.exe; crafted, craft_patch; 2 checkpoints) and patch-exe (a difference patch of Tibia.exe to Tibia.bak, the client
+closes; crafted, craft_patch_exe; 3 checkpoints). They went with the built-in patcher (decision D9: the fork's client
+ends the login at a patch packet, tools/deliberate.py); a reference set may still hold their recordings, unused, as it
+may hold error-login and report (issue #74).
 
 Not covered: compare_rendering.py's fullscreen scenes (they need a 1024x768 desktop) and its oracle engines
 (dx5, dx9, gl: the oracle's, not the x64 client's); compare_traffic.py's second live session (Patella.exe's, a
