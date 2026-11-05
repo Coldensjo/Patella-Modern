@@ -343,8 +343,20 @@ None.
 
 ## Last difftest
 
-Patella-Modern issue #56 (branch issue-56, November 5, 2026, not merged; the owner's decision pending):
-tools/desktop.py runs each live check on a hidden desktop of its own (`--visible`: the old behaviour); the mechanism
+Patella-Modern issue #56 (branch issue-56b, from issue-56, November 5, 2026, not merged): the owner's decision is
+a second interactive session for the live checks (notes/reconstruction.md, "Checking", "The live checks in a second
+session"); every live tool runs on the desktop of the session that starts it, as on main, and tools/desktop.py's
+hidden desktop only with `--hidden` (experimental; `--visible` is gone). No src/ change. windows-x64 (14 tests, 2
+golden skipped) and oracle-x86 (4 difftests) built, exit 0. Self-tests pass: desktop.py, reference.py,
+patch_client.py, client_state.py, testmode_check.py. Visible: reference.py compare all 8 sessions match;
+compare_files.py with its live walk no differences; compare_traffic.py --skip-live on the main checkout's live
+recordings no differences. Its live half and testmode_check.py fail on main's tools too (rerun once each): two
+trolls attack the test character in the temple, so the Ctrl+L logout is refused ("still connected to the game
+server 10 s after Ctrl+L"; testmode_check.py: the client does not close within 180 s of quit). Hidden:
+reference.py compare --sessions traffic --vulkan gpu --hidden matches. Logs: build\logs\issue-56 of the worktree.
+
+The first version (branch issue-56, the same day): tools/desktop.py ran each live check on a hidden desktop of its
+own (`--visible`: the old behaviour); the mechanism
 and `python -I tools/desktop.py --self-test` work, but the clients behave differently there (no DirectDraw or
 Direct3D 9, the CPU driver's first present fails, GetCursorPos fails): notes/decisions.md, "The live checks on a
 hidden desktop". No src/ change. windows-x64 and oracle-x86 built (exit 0). Visible, replays from the main checkout's
