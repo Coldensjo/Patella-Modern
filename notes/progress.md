@@ -438,6 +438,11 @@ grows and reuses free entries, so every effect keeps the original's number, and 
 (-1) as the original's NewEffect did. tests/unit/slot_table_test.cpp on every compiler (against the original's
 search). TMapPoint::Objects is not converted: the golden Container test compares the bytes new TMapPoint[d] leaves,
 which a vector's constructor changes; the owner decides (notes/decisions.md, "#102: fixed-capacity lists").
+TMapPoint's objects (Patella-Modern issue #102, branch issue-102b, November 6, 2026; M7): TMapPoint (src/MapPoint.h)
+keeps its objects in a TStaticVector<TObject, 10>, its size the count, with the original's full point (InsertObject's
+top object falling off, AddObject's drop, AppendObject's throw, DeleteObject's true) and its Objects[0] of an empty
+point (Vacated). The golden Container test's array<TMapPoint> round has the original's point as its element type
+(it tests array<T>); every check unchanged. tests/unit/core_map_point_test.cpp. notes/decisions.md, "#102b".
 
 compare_rendering.py's failures explained (Patella-Modern issue #98, branch issue-98, November 6, 2026): Tibia.exe's
 first capture got no frame when its start-up's second IDirect3D9::CreateDevice did not return (1 start of 15 in the
@@ -480,6 +485,27 @@ and TNetworkSession (Status.cpp's functions, Client.cpp's adapter); TCommunicati
 The golden tests reach the members (the Communication world fakes the members too). Module cycles: main's 12-module
 cycle is one of 6 and {MainFrm, Player}; Network and Communication are in none. Golden 17,316,040, 0 failures.
 notes/decisions.md, "The second move: TNetwork and TCommunication".
+Golden on the Debug presets (Patella-Modern issue #115, branch issue-115, November 6, 2026; M7): the Communication
+test's check that ExitCommunication is empty (the only one, since the fakes replace it in every comparison) accepted
+`ret`, `ret 0` and Clang's frame-pointer frame; it now also accepts GCC's -O0 frame with its nop (55 48 89 E5 90 5D C3),
+and nothing looser. linux-x64-gcc-debug and linux-x64-clang-debug replay the corpus, 17,316,040, 0 failures.
+notes/decisions.md, "#115: an empty function's code at every optimisation level".
+
+Patella.ini in UTF-8 (Patella-Modern issue #117, branch issue-117, November 6, 2026; M7, the owner's decision): the file
+is UTF-8 with PreferencesVersion=2; its texts (hotkeys, buddy descriptions, the lists' names, LogFile) are converted to
+the client's Windows-1252 when read ('?' for a character it lacks), the escapes stay (and the five undefined bytes are
+escaped); a version-1 file is read as Windows-1252 and rewritten whole as version 2 at the next save.
+tools/settings_file.py reads both versions by value. notes/decisions.md, "#117: Patella.ini in UTF-8".
+
+
+TMapState (Patella-Modern issue #106, branch issue-106, November 6, 2026; M7): the game state's globals are the members
+of five objects that TMapState owns (src/MapState.h) and TClient makes after TNetwork: TObjectTypes (Objects.cpp),
+TMap (Map.cpp), TCreatures and TPlayerState (Creatures.cpp's creature and buddy tables, and the player's values and
+walk) and TInventory (Inventory.cpp). Each file's functions are members of the same names; the free functions forward
+through the bridge, so no other caller changed; TCreatures asks the later TPlayerState through TCreaturesPlayer, which
+TMapState implements. TCommunication writes the game state through references to the five. The golden tests read the
+members and fake them too (the Communication world, the Creatures test). Module cycles: main's 3, unchanged; the
+game state is in none. Golden 17,316,040, 0 failures. notes/decisions.md, "The third move: TMapState".
 TGUI, part 1 (Patella-Modern issue #107, branch issue-107, November 6, 2026; M7): TClient makes TGUI (GUI.h) after
 TCommunication. TGUI owns TTalk (Talk.cpp's 15 globals and UpdateTalkboxes' static, its 66 functions; it is
 TPreferences' TTalkLists, so Client.cpp's adapter went), THelp (Help.cpp's 9 globals, 18 functions) and TInteraction
@@ -489,7 +515,7 @@ ModalWindow and MainWindow (raw pointers as before, no longer globals; #108 make
 forward through the bridge. MainWindow.cpp and Dialogs.cpp call Control.cpp through TGUIController (Client.cpp's
 adapter), so the GUI cycle is {ContentWindows, ContextMenus, DialogWindow, MainWindow} (was 6 modules). Still
 globals: SkinProperties (2,096 uses); Control.cpp's and MainWindow.cpp's functions are not members yet. Golden
-17,316,040, 0 failures. notes/decisions.md, "The third move: TGUI".
+17,316,040, 0 failures. notes/decisions.md, "The fourth move: TGUI".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

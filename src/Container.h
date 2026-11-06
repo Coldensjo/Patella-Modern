@@ -76,7 +76,7 @@ template <class T> class array {
 public:
 	array(const array &) = delete;
 	array &operator=(const array &) = delete;
-	array(int min, int max);
+	array(int Min, int Max);
 	// Inlined into Objects.cpp's ReleaseObjects (delete[] entry, then
 	// operator delete on the array itself).
 	~array() { entry.reset(); }
@@ -90,10 +90,10 @@ public:
 };
 
 // Line 152. No try block; the assertion is the only EH state.
-template <class T> array<T>::array(int min, int max)
+template <class T> array<T>::array(int Min, int Max)
 {
-	this->min = min;
-	d = max - min + 1;
+	min = Min;
+	d = Max - Min + 1;
 	PATELLA_ASSERT_VALUES(d>0, d);
 	entry.reset(new T[d]);
 }
@@ -125,7 +125,7 @@ template <class T> class matrix {
 public:
 	matrix(const matrix &) = delete;
 	matrix &operator=(const matrix &) = delete;
-	matrix(int xmin, int xmax, int ymin, int ymax);
+	matrix(int XMin, int XMax, int YMin, int YMax);
 	~matrix() { entry.reset(); }
 	T &operator()(int x, int y);
 
@@ -137,12 +137,12 @@ public:
 };
 
 // Lines 217-218. No try block; the assertions are the only EH states.
-template <class T> matrix<T>::matrix(int xmin, int xmax, int ymin, int ymax)
+template <class T> matrix<T>::matrix(int XMin, int XMax, int YMin, int YMax)
 {
-	this->xmin = xmin;
-	this->ymin = ymin;
-	dx = xmax - xmin + 1;
-	dy = ymax - ymin + 1;
+	xmin = XMin;
+	ymin = YMin;
+	dx = XMax - XMin + 1;
+	dy = YMax - YMin + 1;
 	PATELLA_ASSERT_VALUES(dx>0, dx);
 	PATELLA_ASSERT_VALUES(dy>0, dy);
 	entry.reset(new T[dx * dy]);
@@ -167,7 +167,7 @@ template <class T> class matrix3d {
 public:
 	matrix3d(const matrix3d &) = delete;
 	matrix3d &operator=(const matrix3d &) = delete;
-	matrix3d(int xmin, int xmax, int ymin, int ymax, int zmin, int zmax);
+	matrix3d(int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax);
 	~matrix3d() { entry.reset(); }
 	T &operator()(int x, int y, int z);
 
@@ -181,14 +181,14 @@ public:
 };
 
 // Lines 282-284.
-template <class T> matrix3d<T>::matrix3d(int xmin, int xmax, int ymin, int ymax, int zmin, int zmax)
+template <class T> matrix3d<T>::matrix3d(int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax)
 {
-	this->xmin = xmin;
-	this->ymin = ymin;
-	this->zmin = zmin;
-	dx = xmax - xmin + 1;
-	dy = ymax - ymin + 1;
-	dz = zmax - zmin + 1;
+	xmin = XMin;
+	ymin = YMin;
+	zmin = ZMin;
+	dx = XMax - XMin + 1;
+	dy = YMax - YMin + 1;
+	dz = ZMax - ZMin + 1;
 	PATELLA_ASSERT_VALUES(dx>0, dx);
 	PATELLA_ASSERT_VALUES(dy>0, dy);
 	PATELLA_ASSERT_VALUES(dz>0, dz);

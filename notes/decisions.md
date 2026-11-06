@@ -12267,6 +12267,10 @@ Latin-1 where a text has such a byte, not UTF-8. The conservative choice: no con
 an editor must keep those bytes. When D4 is decided, the format can say so (PreferencesVersion 2, or UTF-8 at this
 boundary).
 
+Superseded by issue #117 (the owner's decision of November 6, 2026; "#117: Patella.ini in UTF-8" below): the file is
+UTF-8 with `PreferencesVersion=2`, a file of version 1 (these raw bytes) is read as Windows-1252 and converted once, at
+the next save. The escapes stay, and the five bytes Windows-1252 leaves undefined are escaped as well.
+
 ### The import (high)
 
 InitPreferences (the name the client calls, Control.cpp InitControl) sets the defaults and reads Patella.ini; when it
@@ -12653,7 +12657,7 @@ functions become the members of its subsystem under the same names, with their a
 | :--- | :--- | :--- | :--- |
 | TPreferences | 1 | Preferences.cpp (43: the options, the lists, the hotkeys, MotD, PreferencesLoaded) | #104, done |
 | TNetwork | 2 | Network.cpp (17: Socket, the send and receive buffers, Servers, CurrentServer, TestServer, the host name request, SymmetricKey, the timeouts, NetworkWindow, RecursionProtection); MainFrm.h's PacketHeader (the last packet's first bytes); Control.cpp's Reconnect and ReconnectTimeout | #105, done |
-| TMapState | 3 | the game state, as five smaller objects it owns (below): Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp | #106 |
+| TMapState | 3 | the game state, as five smaller objects it owns (below): Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp | #106, done |
 | TCommunication | 4 | Communication.cpp (6: SkipFields, OutfitRequested, CancelCount, LastCancelX/Y/Z); Control.cpp's LastPacketType, LastPacketIndex, LastPacketTypes; Status.cpp's session (ConnectionState, Progress, AccountNumber, AccountNumberString, AccountPassword, Characters, AccountCharacters, ActiveCharacter, PremiumDays, Gamemaster, Rights) | #105, done (the session as TSession, below) |
 | TGraphics (recommended) | 5 | graphics.cpp (21: the sprite, picture and font tables, the two caches and their lists), Surface.cpp (18: the engine choice, the screen, the blit counters, the surfaces), Skins.cpp (Skins, NumberOfSkins): the client's side of TSurface | none yet ("Found, not done") |
 | TGUI | 6 | MainWindow.cpp (ModalWindow, MainWindow); GUI.cpp (SkinProperties, NumberOfHotkeys, the LastTime static of its timer); Help.cpp (8); Talk.cpp (11 and its LastTime static, as a TTalk inside TGUI); ContentWindows.cpp (the two mouse-over texts); Status.cpp's user interaction (the action, drag, use and trade fields and objects, PendingAction*, the message queue Messages and NumberOfMessages, MouseX/Y, WindowWidth/Height, MouseCursor, the blink, the mouse-over text, LinkRegexp, TaintedClipboardText, LinkWarningEventHandler); Control.cpp's LastMouseMove, WindowHandle, ShowFPS | #107, part 1 done (not yet: SkinProperties, the functions of Control.cpp and MainWindow.cpp) |
@@ -12911,7 +12915,7 @@ ConsoleWindow and MapWindow left with them (their way back into the cycle went t
 
 Found, not done:
 
-- TNetworkSession is Client.cpp's adapter over Status.cpp's free functions (still so after #107: "The third move"). Its session part could be TSession's own
+- TNetworkSession is Client.cpp's adapter over Status.cpp's free functions (still so after #107: "The fourth move: TGUI"). Its session part could be TSession's own
   (TSession implementing it), but TSession is made after TNetwork (inside TCommunication), so TNetwork would hold a
   reference to a later object; AddMessage is TGUI's (#107). Revisit when TGUI exists (#107) or with #109's ISocket
   events.
@@ -12919,11 +12923,94 @@ Found, not done:
   ReceiveData and may have no reason left (tests/golden/CMakeLists.txt). Both kept: removing them is its own check.
 - decisions.md's ASan table (PATELLA_NO_SANITIZE_ADDRESS on ReceiveData and SendData) describes the globals until #105.
 
-### The third move: TGUI (issue #107, part 1)
+### The third move: TMapState (issue #106)
+
+Done by Claude Opus 5.5, November 6, 2026 (branch issue-106, two commits: the five objects, then TCommunication's
+references). TClient makes TPreferences, TNetwork, TMapState, TCommunication, in that order (Client.h).
+
+- **TMapState** (src/MapState.h, header only; high): owns TObjectTypes, TMap, TCreatures, TPlayerState and
+  TInventory, made in the design's order, each given the earlier ones it reads by constructor reference: TMap
+  TObjectTypes; TCreatures the interface below; TPlayerState TObjectTypes, TMap and TCreatures; TInventory
+  TObjectTypes. The bridge has one accessor per object (`bridge::ObjectTypes()`, `Map()`, `Creatures()`,
+  `PlayerState()`, `Inventory()`, each declared in its file's header, defined in Client.cpp).
+- **The moves** (rules 1-4; high): each file's globals are its object's members in .bss order with their addresses,
+  `{}` for the zero (Fields and FieldNumber with their initialisers' ranges, AUTOMAP_BLOCKS now in Map.h); each file's
+  functions are members of the same names, the file-local helpers (Map.cpp's SortObjects, InsertObject, NewEffect,
+  DeleteEffect, the six ShiftMap steps, the automap block cache and file functions) private ones; the getters const;
+  the functions that use no member static (IsPlayer, NotifySkull, ExitCreatures, GetSkillName, ExitInventory); SetBeat's
+  parameter is Value. The free functions forward to the bridge. Public data: Objects.cpp's six (they were extern), and
+  for the golden Errors test NumberOfBuddies, NumberOfPlayerSteps, OwnOffer and CounterOffer; the rest private.
+- **Creatures.cpp's split** (high): TCreatures has the creature table, FirstOpponent, LastOpponent, Beat, AttackID,
+  FollowID, HighlightID and the buddy list with the functions that use them; TPlayerState the Player* values and the
+  walk with theirs (44 functions). Three of TCreatures' functions need the later TPlayerState: IsOpponent and
+  CheckMonsterHint call GetPlayerID, MoveCreatures continues the player's walk, ResetCreatures resets the player's state.
+  They go through TCreaturesPlayer (Creatures.h; rule 5), which TMapState implements (its own base, constructed before
+  its members, so TCreatures can take it in TMapState's constructor; a TPlayerState member could not be converted to
+  its base before its construction). ContinuePlayerWalk and ResetPlayer are ours: MoveCreatures' and ResetCreatures'
+  original code for the player, moved into TPlayerState (ResetCreatures wrote AttackID and FollowID between the player's
+  members; nothing reads between the writes). The interface's GetPlayerID calls the free function, as the original's
+  code did, so the window tests' fakes of GetPlayerID are reached as before. TCreature's members (GetDeltaX, GetDeltaY,
+  GetDrawDirection, StartMovement) reach the step not confirmed yet and Beat through the bridge: TCreature keeps the
+  original's layout (the golden Creatures test compares the table byte for byte) and holds no reference; TCreatures and
+  TPlayerState name it a friend. Creatures.cpp's unused NoCallback (0x5cc418, never written or read) stays file-local.
+- **TCommunication** (high): takes TMapState and holds its five objects by reference; its packet handlers call them
+  member to member (184 calls) and read DatSignature and NoObject there. Its other calls (Talk, Help, graphics, the
+  windows, Status.cpp's GUI part) stay the free functions until #107.
+- **The test mode** (high): ViewMap, ViewCreatures and ViewInventory call the objects' const View members (ViewCreatures
+  both TCreatures' and TPlayerState's); the dump's keys and values are unchanged.
+- **Behaviour** (high): the same code on the same data; what differs is the call through the accessors and the
+  references, TCreaturesPlayer's virtual calls, and that the map's points, the field numbers and the automap blocks are
+  allocated at the first use of the client's state instead of before main.
+
+The golden tests' calls (adapted, no check changed; 15,803,218 replayed + 1,512,822 retired = 17,316,040, as before):
+
+- The object tables, DatSignature and NoObject through `bridge::ObjectTypes()` (commworld.cpp, divisions_tests.cpp,
+  errors_tests.cpp, graphics_tests.cpp, map_tests.cpp, mapwindow_tests.cpp, objects_tests.cpp).
+- errors_tests.cpp's TestErrorStatics takes the five statics' addresses from the members; FindOwnStatic, which found
+  them in their getters' code, had no user left and went.
+- creatures_tests.cpp redirects TMap's members of its seven map fakes as well (TPlayerState calls them member to
+  member); commworld.cpp the members of its 81 faked functions of the five files (TCommunication calls them). The shim
+  (TMemberFake) is a member function now in both: MSVC's x64 convention passes a returned structure's address after
+  this for a member and before the arguments for a function, so #105's static shim would misread TMap::GetFirstObject's
+  TObject (12 bytes, returned through memory).
+
+The include cycles after the move (a script over each src/*.cpp's `#include "X.h"` of another module of src/, Tarjan;
+its edge count includes the headers of src/compat and src/types, so it differs from #105's): main 5ba6281 has 258
+edges, 3 cycles: {ContentWindows, ContextMenus, Control, DialogWindow, Dialogs, MainWindow}, {Surface, graphics},
+{MainFrm, Player}. After #106: 264 edges (Client -> MapState, Objects, Map, Creatures, Inventory; Communication ->
+MapState), the same 3 cycles. Objects, Map, Creatures, Inventory and MapState are in none (they were in none on main
+either: their calls up, into Talk, Help, GUI, Status and Preferences, reach no module that includes them back).
+
+Found, not done:
+
+- Map.cpp's and Creatures.cpp's calls up (Talk's console, Help's hints, Status.cpp's messages and action number, GUI,
+  Preferences' buddy data) are free functions; Preferences is earlier and could be a constructor reference, the others
+  are TGUI's (#107), an interface then.
+- TCreaturesPlayer::GetPlayerID calls the free GetPlayerID for the window tests' fakes; with member fakes in those
+  tests it can call TPlayerState directly.
+- TCreature's members use the bridge; a TCreature that holds no state can take the player's step as a parameter once
+  its callers hold TPlayerState (MapWindow.cpp's drawing: #107).
+
+The gates (logs in build\logs\issue-106 of the branch's worktree; golden replayed main's frozen corpus read only,
+PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden, its manifest verified):
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), 0 warnings. windows-x64-debug: exit 0, 18/18; windows-x64-asan: exit 0,
+  18/18, no ASan report; golden the same on both. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc: exit 0, 16/16;
+  linux-x64-clang (ASan, UBSan): exit 0, 14/14, no sanitizer report; golden the same on both. 0 warnings on every preset.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches; `python -I tools/compare_traffic.py` exit 0, no differences. `python -I tools/compare_files.py`
+  exit 1: Tibia.exe's options run opened no window in 30 s (the walk's automap files and options were identical);
+  its one rerun could not bind the proxy's port 7271 (still closing from the first run): not a result of the change,
+  not passed.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
+  clang-format (CLAUDE.md's command): exit 0.
+
+### The fourth move: TGUI (issue #107, part 1)
 
 Done by Claude Opus 5.5, November 6, 2026 (branch issue-107, two commits: the move, then TGUIController). TClient
-makes TPreferences, TNetwork, TCommunication, TGUI, in that order (Client.h); TGUI is made with a TGUIController
-(below). TMapState (#106) is not there yet; when it is, TGUI is made after it, as the table says.
+makes TPreferences, TNetwork, TMapState, TCommunication, TGUI, in that order (Client.h; merged with #106's TMapState
+on main 0aaf626); TGUI is made with a TGUIController (below).
 
 - **TGUI** (GUI.h; high): the sixth subsystem. It owns three objects of its files, each declared in its file's header
   and defined in its file (as #105's TSession: the file stays the module map): TTalk (Talk.h), THelp (Help.h),
@@ -13161,7 +13248,7 @@ with GCC 16's libstdc++, the stand-in with MSVC and Clang 22 against libstdc++ 1
   ProcessMissileEffects, ClearField and ClearMap against the original, every entry's status and fields compared)
   and Errors test (the getters on every entry, out-of-range numbers) replay unchanged.
 
-### TMapPoint::Objects: why not converted (high; needs the owner)
+### TMapPoint::Objects: why not converted in #102 (high; the owner chose option 2, done in #102b below)
 
 The golden corpus's Container test (container_tests.cpp, TestArray) checks `array<TMapPoint>` (0x4b0bc0) against the
 original: after `new TMapPoint[d]` on memory both sides filled with the same pattern, every byte of every entry must
@@ -13249,7 +13336,7 @@ the ANSI calls produced.
 | URLs (MainFrm.cpp OpenURL: ShellExecuteA) | ANSI | **Unchanged**: the client's links are ASCII constants and LinkPattern's characters (Status.h) are ASCII; golden's mainfrm test fakes ShellExecuteA. M8: SDL_OpenURL with UTF-8 |
 | Keyboard input (CMainFrame::OnChar: WM_CHAR of the ANSI window class) | Windows converts a typed character to the code page of the active input language | **Deferred to M8**: a real mismatch for a layout whose code page is not 1252 (a Polish ł arrives as 0xb3, shown as ³). The fix needs a Unicode window (RegisterClassW and MFC's message handling, which the test mode's scripted WM_CHAR bytes go through) or SDL_EVENT_TEXT_INPUT's UTF-8 through Utf8ToCp1252, which M8's table names. Here (1252) correct |
 | The command line (Player.cpp InitInstance: m_lpCmdLine's gamemaster, host, port, engine) | ANSI | **Unchanged**: ASCII keywords (host's and port's values are dropped, the original's) |
-| Patella.ini's name and contents (settings/Settings.cpp) | the bytes as they are (#45) | **Unchanged**, as decided in #45: the name is an ASCII constant, the values stay Windows-1252 bytes (a value typed in a UTF-8 editor arrives as its UTF-8 bytes; Needs the user, below) |
+| Patella.ini's name and contents (settings/Settings.cpp) | the bytes as they are (#45) | **Unchanged**, as decided in #45: the name is an ASCII constant, the values stay Windows-1252 bytes (a value typed in a UTF-8 editor arrives as its UTF-8 bytes; Needs the user, below). **Converted since #117** (the owner's decision): UTF-8, PreferencesVersion 2; "#117" below |
 | The environment (PATELLA_VULKAN, PATELLA_VULKAN_VALIDATION, the test mode's variables) | ANSI | **Unchanged**: ASCII names and values |
 | The CPU driver's manifest (vulkan/DeviceSettings.cpp FindCpuDriverManifest: GetModuleFileNameA, GetFileAttributesA; Renderer.cpp TDriverFiles: _putenv_s of VK_DRIVER_FILES) | ANSI | **Deferred to M8** (Found, not done): not the client's text but the executable's folder; a folder name outside the ANSI code page loses the CPU fallback. The fix is std::filesystem paths and the wide environment end to end (the path also goes into error texts, the client's text): M8's "Files and paths" |
 | sysinc.cpp FileExists and RemoveFile (_access, remove) | ANSI | **Unchanged**: no caller |
@@ -13268,6 +13355,7 @@ of its Unicode name, written and read back. log_test.cpp: the lines in UTF-8, on
 - The clipboard's characters outside Windows-1252: `?` (chosen; portable, the same as M8's SDL clipboard will give)
   or Windows' best fit, which CF_TEXT gave until now (U+0100 as `A`). Only pasted text the client cannot show changes.
 - Patella.ini's values: Windows-1252 bytes (#45, kept) or UTF-8 (an editor's default today), converted when read.
+  Decided on November 6, 2026: UTF-8 (issue #117); the clipboard keeps `?` (the owner's decision, the same day).
 
 ### Found, not done (high)
 
@@ -13295,3 +13383,215 @@ Logs: build\logs\issue-112 of the branch's worktree; golden replayed main's froz
   0, no differences (TFile's names).
 - `python -I tools/tidy_ci.py --worktree`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I
   tools/banned_calls.py`: exit 0. clang-format (CLAUDE.md's command): exit 0.
+
+## #102b: TMapPoint's objects as TStaticVector (Patella-Modern issue #102, M7)
+
+Settled by Claude Opus 5.5, November 6, 2026, after the owner chose option 2 of "#102: fixed-capacity lists" ("TMapPoint::
+Objects: why not converted"). `TMapPoint` is in src/MapPoint.h (Map.h includes it): `Objects` is a
+`patella::TStaticVector<TObject, OBJECTS_PER_POINT>` (std::inplace_vector with GCC 16's libstdc++, the stand-in with MSVC
+and Clang 22 against libstdc++ 14), its size the original's ObjectCount; `Order`, `EffectNumber` and `RefreshRequested` as
+before, and `Vacated` (below). The layout is free (M6): Map.cpp's TMapPoint static_assert is gone.
+
+### The golden Container test's round (high)
+
+The round of `array<TMapPoint>` (0x4b0bc0, 0x4b5900) tests Container.h's `array<T>`: its header (min, d), the entries
+`new T[d]` leaves (every byte against the original's, on memory both sides fill with the same pattern) and
+operator()'s addresses. What it checks of T is T's default initialisation, the original point's compiler-generated
+constructor (0x4b0b40: the ten TObjects zeroed, the rest the pattern). Since #102b the client's point is another type
+with another construction (the vector's constructor sets its size and constructs no object), not part of what
+array<T> does. So the round's T is `TOriginalMapPoint` (container_tests.cpp, beside TErrorReport, the same kind of
+record kept for a vector instance): the original's members in its order (ObjectCount, std::array<TObject, 10>, the
+order, EffectNumber, RefreshRequested; 0xac bytes, static_assert), PLAIN_LAYOUT as before (the same "c172@4"). Every
+check is unchanged: 192,832 checks, 0 failures; the round's name stays "array<TMapPoint>".
+
+### The original's behaviour, kept (high)
+
+src/MapPoint.h has the stack operations Map.cpp's functions make of a point, each the original's:
+
+- `InsertPointObject` (InsertObject, 0x4b8310): the original shifts from index 9 at most, so on a full point the top
+  object falls off and the count stays 10: `pop_back` first when full, then `insert`. Map.cpp's InsertObject keeps its
+  assertions and SortObjects.
+- `AddPosition` (AddObject, 0x4b88f0): the original's search for the position (ground, borders, bottom, top objects,
+  creatures), GetObjectFlag passed in (Map.cpp passes a lambda over it; the overload for a TObject makes the name
+  ambiguous). AddObject inserts only below OBJECTS_PER_POINT: on a full point an object that belongs above every
+  object is dropped.
+- `CheckPointRoom` (AppendObject, 0x4b8ec0): "too many objects on map point" on a full point, the same
+  TMYEXCEPTION and reason text (the error's source location is MapPoint.h now; golden compares the outcome).
+- `DeletePointObject` (DeleteObject, 0x4b9420): true when the point was full.
+- `ClearPointObjects` (ClearField, ClearMap).
+- `PointObject(Point, Position)`: the original's `Objects[Position]`. The original's array kept the objects beyond
+  ObjectCount, and one of them is read: GetTopMoveObject, GetTopLookObject, GetTopUseObject and
+  GetTopMultiUseObject return `Objects[0]` of an empty point (Position 0, the loops not entered), which the golden Map
+  test compares on every point (ComparePoint). A vector has no object beyond its size, so the point keeps
+  `Vacated`, the object the original's slot 0 still held: the last object deleted from a point of one (the original
+  moves nothing then), or the bottom object when ClearField or ClearMap empties a point; a new point's is the cleared
+  TObject (`new TMapPoint[n]`'s zeroed objects). No other slot beyond the count is read (GetMapObject checks the count,
+  InsertObject reads below it, SortObjects and the loops stay below it).
+
+### golden_runner and the test mode (high)
+
+- The Map, Objects, MapWindow and Errors tests reach the points only through Map.cpp's functions (mapwindow_tests.cpp
+  fakes them with its own fields): no read changed, the counts are the same (Map 639,877, MapWindow 122,324).
+- The test mode's state dump (ClientStateWin32.cpp) reads `Objects.data()` and `PointObjectCount` where it read the
+  array and the count clamped to 10 (the size is never beyond 10).
+
+### Tests (high)
+
+tests/unit/core_map_point_test.cpp in tests_core (MapPoint.h needs common.h, patella_core's): 6 test cases, one per
+behaviour (InsertObject's cap, AddObject's drop, AppendObject's throw and its message, DeleteObject's true when full,
+an empty point's Objects[0]) and 20,000 random inserts, deletes and clears against the original's point (ObjectCount
+and the array, changed as 0x4b8310, 0x4b9420 and 0x4bc720 change them): the objects, the count, DeleteObject's
+results and Objects[0] after every step; the run meets full points. MapPoint.h is on cmake/HeaderCheck.cmake's core
+list.
+
+### Container.h's constructor parameters (high)
+
+MapPoint.h includes Objects.h (TObject, the flags), which includes Container.h, so tests_core and MapPoint.h's header
+check compile Container.h with GCC's full warnings: array's, matrix's and matrix3d's constructor parameters (min,
+xmin, ymin, zmin) hid the members of the same names (-Wshadow; the reason Container.h is on GCC's warning baseline,
+#99's "Found, not done"). They are Min, Max, XMin ... ZMax now; the members, the assertions (which name only d, dx,
+dy, dz) and the code are the same. Container.h stays on the baseline list (cmake/Warnings.cmake) for the files that
+include it there; taking it off is a separate measurement.
+
+### The gates (high)
+
+Logs: build\logs\issue-102b of the branch's worktree, all on d83a4f7; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired =
+  17,316,040, 0 failures (golden_concurrent the same; Container 192,832, Map 639,877, MapWindow 122,324 checks, as
+  before), 0 warnings. windows-x64-debug: exit 0, 18/18; windows-x64-asan: exit 0, 18/18, no ASan report; golden the
+  same on both. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc: exit 0, 16/16; linux-x64-clang (ASan, UBSan): exit 0,
+  14/14, no sanitizer report; golden the same on both. 0 warnings on every preset. The first windows-x64 run (before
+  d83a4f7) failed tests_core on one wrong expectation of the test (a new ground goes in at the bottom of a point of
+  grounds; the code was right); the first windows-x64-gcc and linux-x64-gcc runs failed on Container.h's -Wshadow
+  (above).
+- core_map_point_test.cpp: 6 test cases, in tests_core on MSVC (the stand-in), mingw-w64 GCC, GCC 16
+  (std::inplace_vector) and Clang 22.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (traffic, options, walk, error; two earlier runs stopped on ports 7271/7272 that another agent's
+  client held, without a difference). `python -I tools/compare_traffic.py`: the first run reported differences, all
+  from its live session, where the x64 client's first step ("walk north") was not sent: the two clients' replays of
+  both recordings were identical packet for packet and state for state, so an input lost on the desktop other agents'
+  clients shared; the one rerun: exit 0, no differences.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`:
+  exit 0. clang-format (CLAUDE.md's command): exit 0.
+
+## #115: an empty function's code at every optimisation level (Patella-Modern issue #115, M7)
+
+Done by Claude Opus 5.5, November 6, 2026 (branch issue-115). Only tests/golden/communication_tests.cpp changed.
+
+### Why the check exists (high)
+
+ExitCommunication is empty in the original: the linker folded it with four other empty Exit functions into one
+`ret` at 0x496160 (GUI.obj; Communication.cpp's comment). The golden Communication and Control tests replace it with a
+fake on both sides (ExitControl's calls of it are compared by controltest.cpp), so no comparison ever runs our body.
+The byte check in TestCommunication, before the fakes are installed, is the only proof that ours has none: it reads the
+first bytes of `patella::TCommunication::ExitCommunication` (the member since #105; the free function forwards to it)
+and the original's byte at 0x496160 (the corpus' recorded value, a `ret`, C3).
+
+### What changed (high)
+
+The check accepted three codes for an empty function: `ret`, `ret 0` (C2 00 00) and Clang's frame-pointer frame
+`push rbp; mov rbp, rsp; pop rbp; ret` (55 48 89 E5 5D C3, #91: the sanitizers' -fno-omit-frame-pointer; linux-x64-clang-debug
+passes with these). GCC at -O0 (linux-x64-gcc-debug) puts a `nop` for the empty body inside the frame: 55 48 89 E5 90 5D C3,
+read from the Debug golden_runner with objdump. The check now accepts that sequence as a fourth exact shape, and nothing
+looser: no other instruction, no call, no store. A body with any code still fails on every preset. Not chosen: skipping
+the check in Debug builds (it would prove nothing there) or a behaviour test (an empty function has no behaviour that the
+fakes leave visible). The failure message now prints the first seven bytes instead of one.
+
+### The gates (high)
+
+Logs: build\logs\issue-115 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Each golden run: 15,803,218 replayed +
+1,512,822 retired = 17,316,040, 0 failures.
+
+- Before the change: `python -I tools/build.py linux-x64-gcc-debug` 1 failure, communication_tests.cpp:1187 (`55, c3`).
+- After: linux-x64-gcc-debug exit 0, 15/15; linux-x64-clang-debug exit 0, 14/14, no sanitizer report; linux-x64-gcc
+  exit 0, 16/16; linux-x64-clang exit 0, 14/14; windows-x64 exit 0, 19/19, 0 compiler warnings; windows-x64-debug exit 0,
+  18/18, 0 compiler warnings.
+- `python -I tools/tidy_ci.py --worktree`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`:
+  exit 0. clang-format (CLAUDE.md's command): exit 0.
+- Not run: the live checks (a test-only change), windows-x64-asan and windows-x64-gcc (not among this issue's gates).
+
+## #117: Patella.ini in UTF-8 (Patella-Modern issue #117, M7)
+
+Settled by Claude Opus 5.5, November 6, 2026, on the owner's decision of the same day: Patella.ini is read and written
+as UTF-8, not as the client's raw Windows-1252 bytes (#45 kept the bytes, #112 left the choice open).
+
+### The format (high)
+
+- `PreferencesVersion=2` marks a UTF-8 file (src/settings/PreferenceKeys.h `PreferencesVersion`). A text field's
+  characters are the UTF-8 of the client's Windows-1252 bytes (types/Cp1252.h Cp1252ToUtf8); when read, each run of
+  characters between escapes goes through Utf8ToCp1252, so a character Windows-1252 does not have (typed in an editor)
+  is `?`, one per character, and so is each ill-formed part of the UTF-8, as #112 chose.
+- The escapes of #45 stay: `\`, `\"`, `\n`, `\r`, `\t`, `\xHH` for the other bytes below 0x20 and 0x7f, `\x00`
+  refused. New: the five bytes Windows-1252 leaves undefined (0x81, 0x8d, 0x8f, 0x90, 0x9d) are written as `\xHH`
+  too. They are C1 controls (U+0081 ...), invisible in an editor, like the C0 ones; written raw they would read back
+  the same (the reader takes U+0081 as 0x81), the escape only keeps them visible. `\xHH` is always the client's byte
+  HH, never a byte of the UTF-8 (an escape ends the run that is converted), in both versions.
+- The encoding is the file's (Settings.h `EncodingOf`, `ClientText`): Windows-1252 where PreferencesVersion is `1`,
+  UTF-8 otherwise: version 2, a later one (read as 2 and reported, ReadPreferences' problems), and a file without the
+  key (one with only Device, LogLevel, LogFile: an editor's file). `LogFile`'s name is converted the same way
+  (LogSettings.cpp, `ClientText`), so a log file named in a UTF-8 editor is that file (TFile opens the client's text by
+  its Unicode name, #112). Device and LogLevel are ASCII. A problem line reports the value as the client's text (the
+  log writes it as UTF-8 again, #112).
+
+### The import of version 1 (high)
+
+InitPreferences reads a version-1 file as Windows-1252 (the values are the bytes #45's client wrote) and says so in the
+log (`[info] Patella.ini: PreferencesVersion 1 (Windows-1252) read; written as version 2 (UTF-8) at the next save`).
+The next save (SavePreferences, ExitPreferences) converts the whole file first (PreferenceKeys.cpp `ConvertToUtf8`:
+every line's text through Cp1252ToUtf8, comments, LogFile and unknown keys included; a UTF-8 byte order mark kept as
+it is), then writes the options as version 2. So the file is converted once, every line of it, and its options are
+unchanged by value; a crash before the save leaves version 1, read the same way next time. Converting the whole file
+rather than only the options' texts: a version-1 comment or LogFile with é would otherwise be ill-formed UTF-8 in a
+version-2 file (LogFile then `?`).
+
+### tools/settings_file.py (high)
+
+`ini_values` reads both versions (version 2's texts through the same conversion: Python's UTF-8 decoder with
+`errors="replace"` replaces maximal subparts, then each character's Windows-1252 byte or `?`; the five undefined bytes
+as their C1 controls), and the values stay Latin-1 str of the client's bytes, so the comparison with Tibia.exe's
+Tibia.cfg is by value and the comparisons' verdicts are unchanged. `parse_fields(value, utf8=True)` mirrors ParseFields'
+default. The self test covers both versions, every Windows-1252 character, `?` and the escapes.
+
+### Tests (high)
+
+tests/unit/core_preferences_test.cpp (tests_core, every preset): every byte 1-255 quoted in UTF-8 and read back (the
+UTF-8 of its character or its escape; its raw character and its `\xHH` read as the byte, in both encodings); `?` for
+Ł, ź, 日, an emoji and ill-formed parts; a version-1 file with ö, € and 0x81 in a hotkey, a buddy's description and
+the lists, a comment and LogFile with é, read by value, written as version 2 in UTF-8 (every line), read back equal and
+written again unchanged; a byte order mark; EncodingOf, ClientText, an unknown version. tests/golden/preferences_file_test.cpp
+(the client's Preferences.cpp): the same version-1 file through InitPreferences and ExitPreferences, the getters'
+values, the file rewritten as version 2, the next start equal by value; its import test expects the UTF-8 of Ärger now.
+
+### Found, not done (high)
+
+- tests/golden/preferences_file_test.cpp's test cases share the client's talk lists (TTalkLists outlives
+  SetDefaultPreferences there: an earlier case's White name stays in a later one's file); the new case checks only its
+  own name. Not a client issue: the client loads the options once.
+
+### The gates (high)
+
+Logs: build\logs\issue-117 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), 0 warnings. windows-x64-debug and windows-x64-asan: exit 0, 18/18 each,
+  golden the same, no ASan report. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc: exit 0, 16/16; linux-x64-clang (ASan,
+  UBSan): exit 0, 14/14; golden the same on both. 0 warnings on every preset.
+- First runs that failed: MSVC's C7744 (a hex escape running into the next letter, `\xb3d`) and preferences_file's new
+  case (two expected texts with `\x81` where the file has the escape `\x81`, and the shared White list above): fixed,
+  every preset run again on the final code.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (the options by value: 37 options, equal); `python -I tools/compare_files.py` exit 0, no
+  differences; `python -I tools/testmode_check.py` exit 0, no differences; `python -I tools/compare_traffic.py` exit 0,
+  no differences.
+- Manual: PatellaTest.exe (`PATELLA_VULKAN=cpu`, a start and `quit`) in a folder with a version-1 Patella.ini (ö, €,
+  0x81 in a hotkey, a buddy's description, White and Ignore; é in a comment): the log line of the version-1 read, the
+  file rewritten as version 2 in UTF-8 (every line; 0x81 as `\x81`), the texts equal by value (settings_file.py); the
+  only differences are Engine and WindowedMode, which the client sets at any start.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
+  clang-format (CLAUDE.md's command): exit 0. `python -I tools/settings_file.py --self-test` and
+  `python -I tools/testmode_dumps.py --self-test`: exit 0.

@@ -1174,21 +1174,25 @@ void TestCommunication(const char *ExePath)
 	LoadObjectFlags(ExePath);
 	// ExitCommunication is empty: in the image one copy of five empty Exit
 	// functions (0x496160), which the fakes replace on both sides (ExitControl's
-	// calls are compared by controltest.cpp). Compared here by its code, a
-	// single ret, before the fakes are installed.
-	// The runner: on x64 too a single ret (C3; C2 00 00 is ret 0), as nothing of ours is redirected yet.
+	// calls are compared by controltest.cpp). Compared here by its code, an empty
+	// function's, before the fakes are installed: the only check that ours has no
+	// body, as no call of it is compared. The original's is a single ret.
+	// The runner (nothing of ours is redirected yet) accepts the empty function's
+	// code of each compiler and optimisation level, and nothing else (issue #115):
+	// - a single ret (C3), or ret 0 (C2 00 00): MSVC, GCC and Clang with optimisation;
+	// - the frame-pointer frame push rbp; mov rbp, rsp; pop rbp; ret: Clang with the sanitizers'
+	//   -fno-omit-frame-pointer (linux-x64-clang, issue #91) and at -O0 (linux-x64-clang-debug);
+	// - the same frame with GCC's nop for the empty body between, at -O0 (linux-x64-gcc-debug).
 	golden::RestoreAllOwn();
 	// Since issue #105 ExitCommunication is TCommunication's member (the free function forwards to it): its code.
-	const uint8 *Ours = (const uint8 *)(void *)&patella::TCommunication::ExitCommunication; // ret or ret 0
+	const uint8 *Ours = (const uint8 *)(void *)&patella::TCommunication::ExitCommunication;
 	const int Original = ORIGINAL_VALUE("0x496160", int, *(const uint8 *)(uintptr_t)0x496160);
-	// Linux with the sanitizers' frame pointers (linux-x64-clang, -fno-omit-frame-pointer; issue #91): the empty
-	// function's frame, push rbp; mov rbp, rsp; pop rbp; ret.
 	static const uint8 FramedRet[] = {0x55, 0x48, 0x89, 0xe5, 0x5d, 0xc3};
-	CHECK((Ours[0] == 0xc3 || (Ours[0] == 0xc2 && Ours[1] == 0 && Ours[2] == 0)
-			  || memcmp(Ours, FramedRet, sizeof(FramedRet)) == 0)
-			&& Original == 0xc3,
-		"ExitCommunication or 0x496160 is not a single ret: %02x, %02x", Ours[0],
-		Original);
+	static const uint8 FramedNopRet[] = {0x55, 0x48, 0x89, 0xe5, 0x90, 0x5d, 0xc3};
+	const bool EmptyCode = Ours[0] == 0xc3 || (Ours[0] == 0xc2 && Ours[1] == 0 && Ours[2] == 0)
+		|| memcmp(Ours, FramedRet, sizeof(FramedRet)) == 0 || memcmp(Ours, FramedNopRet, sizeof(FramedNopRet)) == 0;
+	CHECK(EmptyCode && Original == 0xc3, "ExitCommunication or 0x496160 is not an empty function: %02x %02x %02x %02x %02x %02x %02x, %02x",
+		Ours[0], Ours[1], Ours[2], Ours[3], Ours[4], Ours[5], Ours[6], Original);
 	BeginWorld();
 	InstallFakes(ControlFakes);
 	ResetWorlds();

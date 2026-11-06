@@ -5,9 +5,14 @@
 
 #include "Communication.h"
 #include "Control.h"
+#include "Creatures.h"
 #include "GUI.h"
 #include "Help.h"
+#include "Inventory.h"
+#include "Map.h"
+#include "MapState.h"
 #include "Network.h"
+#include "Objects.h"
 #include "Preferences.h"
 #include "Status.h"
 #include "Talk.h"
@@ -55,7 +60,9 @@ TNetworkSession &StatusCppSession()
 
 } // namespace
 
-TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network), GUI(ControlCppController()) {}
+TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network, MapState), GUI(ControlCppController())
+{
+}
 
 TClient &bridge::Client()
 {
@@ -81,6 +88,31 @@ TCommunication &bridge::Communication()
 TSession &bridge::Session()
 {
 	return Client().Communication.Session;
+}
+
+TObjectTypes &bridge::ObjectTypes()
+{
+	return Client().MapState.ObjectTypes;
+}
+
+TMap &bridge::Map()
+{
+	return Client().MapState.Map;
+}
+
+TCreatures &bridge::Creatures()
+{
+	return Client().MapState.Creatures;
+}
+
+TPlayerState &bridge::PlayerState()
+{
+	return Client().MapState.PlayerState;
+}
+
+TInventory &bridge::Inventory()
+{
+	return Client().MapState.Inventory;
 }
 
 // TPreferences' TTalkLists is TGUI's TTalk since issue #107 (Client.cpp's adapter over Talk.cpp's functions until

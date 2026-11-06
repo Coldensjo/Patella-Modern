@@ -595,8 +595,8 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   `std::inplace_vector<T, N>` where available, `TStaticVector<T, N>` (same interface) elsewhere.
   Done in #102 for the effect table (notes/decisions.md, "#102: fixed-capacity lists"): `TSlotTable<TEffect, EFFECTS>`
   of `src/types/SlotTable.h` over TStaticVector, the original's numbers and its full table (-1, the effect dropped).
-  `TMapPoint::Objects` stays a std::array with ObjectCount: the golden Container test compares `new TMapPoint[d]`'s
-  bytes, which a vector's constructor changes; the owner's decision (three options there).
+  Done in #102b for `TMapPoint::Objects` (notes/decisions.md, "#102b"): a TStaticVector in `src/MapPoint.h` with the
+  original's full-point behaviour; the golden Container test's array<TMapPoint> round has the original's point as T.
 - **The effect table's index links** (`Field`, `Previous`, `Next` as `int`) become typed handles
   (`enum class TEffectId : int`) with an iterator over a point's effects.
 - **Globals into subsystems:** the file-scope statics and shared globals become members of explicit objects
@@ -610,11 +610,14 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Done in #105: TNetwork (Network.cpp's globals, PacketHeader, the reconnect pair) and TCommunication
   (Communication.cpp's globals, Control.cpp's packet types, Status.cpp's session as its TSession); Network and
   Communication are in no include cycle any more (notes/decisions.md, "The second move: TNetwork and TCommunication").
+  Done in #106: TMapState (src/MapState.h) with TObjectTypes, TMap, TCreatures, TPlayerState and TInventory (the
+  globals of Objects.cpp, Map.cpp, Creatures.cpp and Inventory.cpp); TCommunication writes the game state through
+  them (notes/decisions.md, "The third move: TMapState").
   Done in #107 (part 1): TGUI owns TTalk (Talk.cpp, now TPreferences' TTalkLists), THelp (Help.cpp) and TInteraction
   (Status.cpp's user interaction and message queue), and holds GUI.cpp's timers and hotkeys, ContentWindows.cpp's,
   Control.cpp's and MainWindow.cpp's data; ModalWindow and MainWindow are its members (raw, for #108); the windows
   reach Control.cpp through TGUIController. The GUI cycle is 4 modules (was 6). Not yet: SkinProperties, Control.cpp's
-  and MainWindow.cpp's functions as members (notes/decisions.md, "The third move: TGUI").
+  and MainWindow.cpp's functions as members (notes/decisions.md, "The fourth move: TGUI").
 - **The core/platform split is completed:** packet parsing and building, game state (Creatures, Map,
   Objects, Inventory, Player), preferences, and the GUI's logic are in `patella_core` and
   include neither `<windows.h>` nor MFC. The platform interfaces are `IWindow`, `IInput`, `IClock`,
@@ -628,12 +631,17 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   `?` for characters it lacks); the clipboard (CF_UNICODETEXT), TFile's file names, the developer log's lines (UTF-8)
   and the Vulkan device names use it; titles, message boxes, URLs and the command line are ASCII and stay; the
   keyboard (WM_CHAR) and the CPU driver's path wait for M8.
+  Done in #117 (notes/decisions.md, "#117: Patella.ini in UTF-8"): Patella.ini is UTF-8 (PreferencesVersion 2), its
+  texts and LogFile converted to Windows-1252 when read; a version-1 file is read as Windows-1252 and converted once.
 - **Reflection** (GCC 16 `-freflection`) is a candidate for generating the state dump, the Tibia.cfg
   serialiser and the golden-record serialisers. Use it only behind a generator that also has a hand-written
   or macro-based path for MSVC, until MSVC has it.
 - **Modules:** `import std;` in new code once all three compilers support it under CMake. The client's own
   headers become named modules after MFC is gone (M8): one module per subsystem, partitions per original
   file.
+- **Debug presets replay the corpus too:** done in #115 (notes/decisions.md, "#115: an empty function's code at
+  every optimisation level"): the golden Communication test's check that ExitCommunication is empty accepts GCC's -O0
+  frame, so linux-x64-gcc-debug and linux-x64-clang-debug replay the corpus with 0 failures.
 
 Exit: `patella_core` contains everything except the platform layer and builds on both platforms;
 no CipSoft `vector` in core code; tier A green.
@@ -710,7 +718,7 @@ Decided on November 2, 2026 (recorded in `notes/decisions.md` under "Modernizati
 | D1 | The equivalence contract | As in section 3: tier A always, tier B until M6, tier C until M5/M6 |
 | D2 | `error.txt` and the error report | **Removed** in M5: no file, no report dialog, no packet 0xE8. A fatal error still shows the "Tibia Error" message box and writes the message to `stderr`. The server only logs packet 0xE8 (`gameserver/src/game/receiving.cc` `CErrorFileEntry`), so nothing depends on it |
 | D3 | Targets | Windows x64 and Linux x64, no 32-bit product; SDL3 as the platform layer for both |
-| D4 | Linux details | The client's 8-bit code page inside (as the original, Windows-1252), UTF-8 only at the platform boundary (#112: types/Cp1252.h); the settings file next to the data files (Patella.ini since #45, D12; Tibia.cfg is only read once, for the import); AppImage for Linux, a zip for Windows |
+| D4 | Linux details | The client's 8-bit code page inside (as the original, Windows-1252), UTF-8 only at the platform boundary (#112: types/Cp1252.h); the settings file next to the data files (Patella.ini since #45, D12, in UTF-8 since #117 (PreferencesVersion 2); Tibia.cfg is only read once, for the import); AppImage for Linux, a zip for Windows |
 | D5 | Rendering | **Vulkan 1.3 only**, hand-written (volk, VMA, vk-bootstrap), on both platforms; a pinned CPU Vulkan driver (lavapipe or SwiftShader) ships as the fallback and runs the tests. SDL3 only creates the window and the surface (section 6) |
 | D6 | Compilers | GCC 16 on Linux (the reference compiler), MSVC on Windows x64, Clang on Linux in CI. Revisit Windows after M8 (clang-cl or mingw-w64 GCC is a preset change). C++26 only through `cxx26.h` |
 | D7 | The reference engine for frames | Tibia.exe's DirectX 9 frames |

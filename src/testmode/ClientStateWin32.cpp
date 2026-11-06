@@ -298,7 +298,7 @@ TClientState ReadClientState()
 	if (Map.Fields->d == MapPoints && Map.Fields->entry != nullptr) {
 		for (int i = 0; i < MapPoints; i++) {
 			const TMapPoint &Point = Map.Fields->entry[i];
-			State.Map.push_back(Values(Point.Objects.data(), Clamp(Point.ObjectCount, OBJECTS_PER_POINT)));
+			State.Map.push_back(Values(Point.Objects.data(), PointObjectCount(Point)));
 		}
 	}
 

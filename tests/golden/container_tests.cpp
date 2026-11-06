@@ -38,6 +38,7 @@
 #include "Utils.h"
 
 #include <algorithm>
+#include <array>
 #include <new>
 #include <stddef.h>
 #include <string.h>
@@ -73,6 +74,24 @@ struct TErrorReport {
 };
 static_assert(sizeof(TErrorReport) == 0xa5a && alignof(TErrorReport) == 1 && offsetof(TErrorReport, Comment) == 0x85a,
 	"TErrorReport's layout");
+
+// Map.h's TMapPoint until Patella-Modern issue #102 (0xac bytes: ObjectCount, ten TObjects, the drawing order, the first
+// effect, the refresh flag), the element of the image's array<TMapPoint> (0x4b0bc0, 0x4b5900). The round tests
+// array<T>'s construction and operator() (the header, new T[d]'s default-initialised entries byte for byte, the entry
+// addresses): T is the original's point, whose compiler-generated constructor (0x4b0b40) zeroes only the objects (TObject's
+// own) and leaves the rest of the pattern. The client's TMapPoint (MapPoint.h) keeps its objects in a TStaticVector since
+// #102, whose constructor sets its size and leaves the objects: another construction, not array<T>'s, so the round keeps
+// the original's record (notes/decisions.md, "#102b").
+struct TOriginalMapPoint {
+	int ObjectCount;                 // +0x00
+	std::array<TObject, 10> Objects; // +0x04
+	std::array<int, 10> Order;       // +0x7c
+	int EffectNumber;                // +0xa4
+	bool RefreshRequested;           // +0xa8
+};
+static_assert(sizeof(TOriginalMapPoint) == 0xac && offsetof(TOriginalMapPoint, Order) == 0x7c
+		&& offsetof(TOriginalMapPoint, RefreshRequested) == 0xa8,
+	"TMapPoint's original layout");
 
 // New memory of both sides gets the same byte pattern.
 static uint8 Pattern = 0xab;
@@ -210,7 +229,7 @@ PLAIN_LAYOUT(TBuddy)
 LAYOUT(TMessage, "i p p") // Type, Param1, Param2 (INT_PTR)
 PLAIN_LAYOUT(TErrorReport)
 LAYOUT(TTalkFilter *, "p")
-PLAIN_LAYOUT(TMapPoint)
+PLAIN_LAYOUT(TOriginalMapPoint)
 LAYOUT(TProperties, "i i i i i i i i p c4 i i i i i i i i i") // ... Phases, Sprites, Flags, Waypoints ...
 LAYOUT(TPathNode, "i i c1 i i i p p")                         // x, y, Blocked, Cost, Speed, Estimate, Predecessor, Next
 LAYOUT(TBuffer, "p i i")                                      // Data, Size, Position
@@ -520,7 +539,7 @@ static void Run()
 	TestVector<TErrorReport>({"vector<TErrorReport>", 0x4e8230, 0, 0x4e7860, 0}, 60);
 	TestVector<TTalkFilter *>({"vector<TTalkFilter *>", 0, 0x4fd6e0, 0x452ac0, 0}, 300);
 
-	TestArray<TMapPoint>("array<TMapPoint>", 0x4b0bc0, 0x4b5900, 50, 100);
+	TestArray<TOriginalMapPoint>("array<TMapPoint>", 0x4b0bc0, 0x4b5900, 50, 100);
 	TestArray<TProperties>("array<TProperties>", 0x4cfa30, 0x4d1a10, 50, 100);
 	TestMatrix<TPathNode>("matrix<TPathNode>", 0x4b1100, 0x4b5e90, 0x4b0b20, 30, 100);
 	TestMatrix3d<int>("matrix3d<int>", 0x4b0d70, 0x4b5b40, 12, 100);
