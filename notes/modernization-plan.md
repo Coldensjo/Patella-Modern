@@ -5,7 +5,7 @@ Patella-Modern is a fork of Patella (https://github.com/Coldensjo/Patella, forke
 binary. This fork turns that reconstruction into a maintainable, portable C++ code base:
 
 - **Targets: Windows x64 and Linux x64.** No 32-bit product build. A 32-bit build survived only as a test
-  instrument until milestone M6 (see 1.2); since M6 (November 7, 2026, issue #94) the only 32-bit build is
+  instrument until milestone M6 (see 1.2); since M6 (November 6, 2026, issue #94) the only 32-bit build is
   `capture-x86`, the capture DLL the tools load into Tibia.exe.
 - **Build: CMake** (presets, Ninja), on both platforms. `Patella.sln` / `Patella.vcxproj` go away.
 - **Rendering: Vulkan**, one engine on both platforms (section 6). The three original
@@ -76,7 +76,7 @@ as now. It is never shipped. It disappears in M6, once the golden corpus and the
 The x64 and Linux builds have their natural layouts from the start, so every check that runs on them
 must not depend on layout.
 
-Done in M6 (November 7, 2026; issue #94): the oracle, difftest and the x86 `static_assert`s left the fork;
+Done in M6 (November 6, 2026; issue #94): the oracle, difftest and the x86 `static_assert`s left the fork;
 client_state.py reads Tibia.exe only, and patcap.c is built for Tibia.exe alone by the preset `capture-x86`.
 
 ---
@@ -569,14 +569,14 @@ Exit: no `TBEGIN`/`TEND`, no `error.txt`, no packet 0xE8; every gate green.
 
 Exit: there is no 32-bit build; tier A, the golden corpus and the unit tests pass without the oracle.
 
-Done November 7, 2026 (items 1 and 2: #91, #92; the final recording #93; items 3 and 4: #94). The tag
+Done November 6, 2026 (items 1 and 2: #91, #92; the final recording #93; items 3 and 4: #94). The tag
 `layout-frozen-final` is on ee1705c, the last commit with the oracle. Removed with #94: the oracle-x86 preset and
 cmake/OracleX86.cmake with its CTest tests (difftest, sysinctest, communicationtest, vlongtest, safeseh), the
 golden corpus's recorder (golden_corpus, golden_reproducible, the GOLDEN_ORACLE code of tests/golden),
 tools/difftest, compare_imports.py, compare_resources.py, safeseh_scan.py, the engines' sources (SurfaceDX,
 surfaceDX9, SurfaceGL, Extern/glh) and PATELLA_ORIGINAL_LAYOUT with the x86 `static_assert`s; the automap file's
 layer sizes are checked at Map.cpp's reader and writer instead. Kept: a `capture-x86` preset that builds only the
-32-bit patcap.dll (the owner's decision, November 7, 2026: the reference recordings' and the comparisons' Tibia.exe
+32-bit patcap.dll (the owner's decision, November 6, 2026: the reference recordings' and the comparisons' Tibia.exe
 runs need it), client_state.py's reading of Tibia.exe, the frozen corpus and reference recordings with their
 manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisions.md, "The oracle retired (issue
 #94)".

@@ -11579,7 +11579,7 @@ tools/difftest's three surface tests, cmake/OracleX86.cmake, cmake/CompareGolden
 ## TDialogWindow::SetSize and the child its own SetSize deleted (Patella-Modern issue #65)
 
 Settled by Claude Opus 5.5, November 6, 2026, on branch issue-65 (M6; found in #28's second part, "A deleted child
-read in TDialogWindow::SetSize"). The owner decided on November 7, 2026 to fix it now.
+read in TDialogWindow::SetSize"). The owner decided on November 6, 2026 to fix it now.
 
 - **The bug** (high: ASan, build\logs\issue-65\asan-before-run.log). TDialogWindow::SetSize (0x4857b0) sizes each
   child, `Child->SetSize(Width, Child->Height)`, and goes on with `Child->GetNext()`. A sub-window's SetSize ends
@@ -12004,7 +12004,7 @@ reference set. reference.py compare on build\reference-final: every session matc
 
 ## The oracle retired (Patella-Modern issue #94, M6)
 
-Settled by Claude Opus 5.5, November 7, 2026 (plan M6, items 3 and 4; the owner's go and decisions of that day). The
+Settled by Claude Opus 5.5, November 6, 2026 (plan M6, items 3 and 4; the owner's go and decisions of that day). The
 32-bit oracle left the fork: there is no 32-bit client build any more, and tier A, the golden corpus and the unit tests
 pass without it ("The gates"). upstream/main (55e97f1) was already merged, so there was nothing to merge. The tag
 `layout-frozen-final` is on ee1705c, main's head with the oracle, pushed before the removal; the oracle stays there and
@@ -12073,7 +12073,7 @@ looked at for a format it protects:
 
 ### Kept (high)
 
-- **capture-x86** (the owner's decision, November 7, 2026): CMakeLists.txt's PATELLA_CAPTURE includes cmake/Capture.cmake
+- **capture-x86** (the owner's decision, November 6, 2026): CMakeLists.txt's PATELLA_CAPTURE includes cmake/Capture.cmake
   only, which builds build\capture-x86\Release\patcap.dll from tools/capture/patcap.c and nothing else (no client, no
   test programs, no frozen layouts, no header checks). Its configure preset makes Release only; its workflow configures
   and builds (no test step: patcap.dll has no self-test; tier A's Tibia.exe runs under it are its check, "The gates").

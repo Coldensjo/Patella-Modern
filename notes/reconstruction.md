@@ -215,7 +215,7 @@ python -I tools/build.py --env windows-x64 cmake --build --preset windows-x64-de
 python -I tools/build.py --env windows-x64 ctest --preset windows-x64 -R golden       # preset's environment
 ```
 
-There is no 32-bit client build since Patella-Modern issue #94 (M6, November 7, 2026): the preset `oracle-x86`
+There is no 32-bit client build since Patella-Modern issue #94 (M6, November 6, 2026): the preset `oracle-x86`
 (issue #4) built the reconstructed client for x86 with the former Patella.vcxproj's options, the differential tests
 (difftest, sysinctest, communicationtest, vlongtest), the SafeSEH gate (issue #89), the golden corpus's recorder
 and the mfc_shim compile check, and checked the resources and imports against Tibia.exe (compare_resources.py,

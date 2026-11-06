@@ -400,7 +400,7 @@ of #23 unchanged (compare matches), its manifest in a copy, `build\reference-fin
 `layout-frozen-final` of #94; new checks are unit tests or test-mode recordings against Tibia.exe. notes/decisions.md,
 "The final oracle recording".
 
-The oracle retired (Patella-Modern issue #94, branch issue-94, November 7, 2026; M6 done): no 32-bit client build in
+The oracle retired (Patella-Modern issue #94, branch issue-94, November 6, 2026; M6 done): no 32-bit client build in
 the fork. Removed: the oracle-x86 preset and cmake/OracleX86.cmake with difftest, sysinctest, communicationtest,
 vlongtest and safeseh, golden_corpus and golden_reproducible, tools/difftest, compare_imports.py, compare_resources.py,
 safeseh_scan.py, the engines SurfaceDX/surfaceDX9/SurfaceGL and Extern/glh, PATELLA_ORIGINAL_LAYOUT with its 73 x86
@@ -555,7 +555,7 @@ None.
 
 ## Last difftest
 
-None since Patella-Modern issue #94 (November 7, 2026): the oracle and its differential tests left the fork. The
+None since Patella-Modern issue #94 (November 6, 2026): the oracle and its differential tests left the fork. The
 golden corpus replays their last recording (issue #93) with the oracle's counts: 15,803,218 replayed + 1,512,822
 retired = 17,316,040, 0 failures, on windows-x64 (Release, Debug, ASan), linux-x64-gcc and linux-x64-clang (issue #94's
 gates, build\logs\issue-94). The entries below are history.
