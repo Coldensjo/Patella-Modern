@@ -25,57 +25,24 @@
 #include <cstring>
 #include <ctime>
 
-namespace {
-
-bool IgnoreListEnabled;                           // 0x71dbd0
-bool BuddyIgnore;                                 // 0x71dbd1
-bool IgnoreEnabled;                               // 0x71dbd2
-bool ConsoleChanged;                              // 0x71dbd3
-int StatusMessageTime;                            // 0x71dbdc
-TFixedString<STATUSMESSAGE_LENGTH> StatusMessage; // 0x71dbe0
-int TalkOrder;                                    // 0x71dde0
-bool TalkChanged;                                 // 0x71dde4
-std::array<TTalkbox, TALKBOXES> Talkboxes;        // 0x71dde8
-
-} // namespace
-
-TTalkBuffer *DefaultTextBuffer; // 0x71ef68
-
-namespace {
-
-int TalkThrottle;                                                    // 0x71ef6c
-TIndexedVector<TTalkFilter *> BuddyExemptionList(0, 9, 10, nullptr); // 0x71ef70, 0x55a140
-
-} // namespace
-
-// These two stay static (issue #44): in an anonymous namespace MSVC swaps them in .bss (both the oracle and
-// x64).
-static TIndexedVector<TTalkFilter *> TemporaryIgnoreList(0, 9, 10, nullptr); // NOLINT(misc-use-anonymous-namespace): 0x71ef90, 0x55a160
-static TIndexedVector<TTalkFilter *> IgnoreList(0, 9, 10, nullptr);          // NOLINT(misc-use-anonymous-namespace): 0x71efb0, 0x55a180
-
-namespace {
-
-TIndexedVector<TTalkFilter *> ConsoleFilterList(0, 4, 5, nullptr); // 0x71efd0, 0x55a1a0
-
-} // namespace
+// The data (0x71dbd0-0x71eff4) is TTalk's (Talk.h, issue #107).
 
 static_assert(sizeof(TTalkbox) == 0x1c0, "talkbox layout");
 static_assert(offsetof(TTalkbox, Text) == 0x20 && offsetof(TTalkbox, Left) == 0x1b0, "talkbox lines (TFixedString, issue #57)");
 // No pointers: the same on x64. Text a std::array of TFixedStrings (issue #60).
 static_assert(sizeof(TTalkbox) == 0x1c0 && offsetof(TTalkbox, Text) == 0x20 && sizeof(TTalkbox::Text) == 0x190,
 	"TTalkbox's layout");
-static_assert(sizeof(Talkboxes) == TALKBOXES * sizeof(TTalkbox), "Talkboxes");
 static_assert(sizeof(TTalkLine::Time) == 4, "statement time: the original's 4 bytes (Time32, issue #62)");
 
 // 0x4fd440, no line evidence; leading Talk.cpp helpers remain in link order.
-bool GetTalkChanged()
+bool patella::TTalk::GetTalkChanged()
 {
 	const bool Result = TalkChanged;
 	TalkChanged = false;
 	return Result;
 }
 // 0x4fd450
-int GetNumberOfTalkboxes()
+int patella::TTalk::GetNumberOfTalkboxes() const
 {
 	int Count = 0;
 	for (int Position = 0; Position < TALKBOXES; Position++)
@@ -84,25 +51,25 @@ int GetNumberOfTalkboxes()
 	return Count;
 }
 // 0x4fd4c0
-void SetTalkChanged() { TalkChanged = true; }
+void patella::TTalk::SetTalkChanged() { TalkChanged = true; }
 // 0x4fd4d0
-const char *GetStatusMessage() { return StatusMessageTime != 0 ? StatusMessage.Chars : nullptr; }
+const char *patella::TTalk::GetStatusMessage() const { return StatusMessageTime != 0 ? StatusMessage.Chars : nullptr; }
 // 0x4fd4e0
-void SetIgnoreEnabled(bool Value) { IgnoreEnabled = Value; }
+void patella::TTalk::SetIgnoreEnabled(bool Value) { IgnoreEnabled = Value; }
 // 0x4fd4f0
-bool GetIgnoreEnabled() { return IgnoreEnabled; }
+bool patella::TTalk::GetIgnoreEnabled() const { return IgnoreEnabled; }
 // 0x4fd500
-void SetBuddyIgnore(bool Value) { BuddyIgnore = Value; }
+void patella::TTalk::SetBuddyIgnore(bool Value) { BuddyIgnore = Value; }
 // 0x4fd510
-bool GetBuddyIgnore() { return BuddyIgnore; }
+bool patella::TTalk::GetBuddyIgnore() const { return BuddyIgnore; }
 // 0x4fd520
-void SetIgnoreListEnabled(bool Value) { IgnoreListEnabled = Value; }
+void patella::TTalk::SetIgnoreListEnabled(bool Value) { IgnoreListEnabled = Value; }
 // 0x4fd530
-bool GetIgnoreListEnabled() { return IgnoreListEnabled; }
+bool patella::TTalk::GetIgnoreListEnabled() const { return IgnoreListEnabled; }
 // 0x4fd540
-void SetTalkThrottle() { TalkThrottle = GetMilliseconds() + 1000; }
+void patella::TTalk::SetTalkThrottle() { TalkThrottle = GetMilliseconds() + 1000; }
 // 0x4fd550
-bool IsTalkThrottled()
+bool patella::TTalk::IsTalkThrottled()
 {
 	if (TalkThrottle != 0) {
 		if (GetMilliseconds() < TalkThrottle)
@@ -112,17 +79,17 @@ bool IsTalkThrottled()
 	return false;
 }
 // 0x4fd580
-bool GetConsoleChanged()
+bool patella::TTalk::GetConsoleChanged()
 {
 	const bool Result = ConsoleChanged;
 	ConsoleChanged = false;
 	return Result;
 }
 // 0x4fd590
-void SetConsoleChanged() { ConsoleChanged = true; }
+void patella::TTalk::SetConsoleChanged() { ConsoleChanged = true; }
 
 // 0x4fd9e0, lines 81-107
-TRGBColor *GetTalkColor(TRGBColor *Color, int TalkMode)
+TRGBColor *patella::TTalk::GetTalkColor(TRGBColor *Color, int TalkMode)
 {
 	switch (TalkMode) {
 		// clang-format off
@@ -149,7 +116,7 @@ TRGBColor *GetTalkColor(TRGBColor *Color, int TalkMode)
 	return Color;
 }
 // 0x4fdd80, line 142
-TTalkbox *GetTalkbox(int Number)
+TTalkbox *patella::TTalk::GetTalkbox(int Number)
 {
 	PATELLA_ASSERT_VALUES(In(Number,1,GetNumberOfTalkboxes()), Number, GetNumberOfTalkboxes());
 	int Position = 0;
@@ -158,12 +125,12 @@ TTalkbox *GetTalkbox(int Number)
 	return &Talkboxes[Position];
 }
 // 0x4fdf10, line 158
-int GetTalkboxMode(int Number)
+int patella::TTalk::GetTalkboxMode(int Number)
 {
 	return GetTalkbox(Number)->Mode;
 }
 // 0x4fe0b0, line 180
-void GetTalkboxPosition(int Number, int *x, int *y, int *z)
+void patella::TTalk::GetTalkboxPosition(int Number, int *x, int *y, int *z)
 {
 	const TTalkbox *Box = GetTalkbox(Number);
 	const int Mode = Box->Mode;
@@ -176,7 +143,7 @@ void GetTalkboxPosition(int Number, int *x, int *y, int *z)
 	}
 }
 // 0x4fe2b0, line 196
-void GetTalkboxRectangle(int Number, int *x, int *y, int *Width, int *Height)
+void patella::TTalk::GetTalkboxRectangle(int Number, int *x, int *y, int *Width, int *Height)
 {
 	const TTalkbox *Box = GetTalkbox(Number);
 	*x = Box->Left;
@@ -185,23 +152,23 @@ void GetTalkboxRectangle(int Number, int *x, int *y, int *Width, int *Height)
 	*Height = Box->Height;
 }
 // 0x4fe470, line 208
-TRGBColor *GetTalkboxColor(TRGBColor *Color, int Number)
+TRGBColor *patella::TTalk::GetTalkboxColor(TRGBColor *Color, int Number)
 {
 	GetTalkColor(Color, GetTalkbox(Number)->Mode);
 	return Color;
 }
 // 0x4fe620, line 220
-int GetTalkboxLines(int Number)
+int patella::TTalk::GetTalkboxLines(int Number)
 {
 	return GetTalkbox(Number)->Lines;
 }
 // 0x4fe7c0, line 232
-const char *GetTalkboxLine(int Number, int Line)
+const char *patella::TTalk::GetTalkboxLine(int Number, int Line)
 {
 	return GetTalkbox(Number)->Text[Line];
 }
 // 0x4fe960, line 246
-void RemoveTalkbox(int Position)
+void patella::TTalk::RemoveTalkbox(int Position)
 {
 	PATELLA_ASSERT_VALUES(In(Position,0,TALKBOXES-1), Position);
 	TTalkbox &Box = Talkboxes[Position];
@@ -233,7 +200,7 @@ void RemoveTalkbox(int Position)
 	TalkChanged = true;
 }
 // 0x505120, line 300; returns the free slot in EAX.
-int FindFreeTalkbox()
+int patella::TTalk::FindFreeTalkbox()
 {
 	int i;
 	for (;;) {
@@ -244,7 +211,7 @@ int FindFreeTalkbox()
 	}
 }
 // 0x4fecc0, line 344
-void WrapTalkbox(TTalkbox *Talkbox, const char *Text)
+void patella::TTalk::WrapTalkbox(TTalkbox *Talkbox, const char *Text)
 {
 	while (Talkbox->Lines < 10 && *Text != 0) {
 		int Count = 0, Space = -1;
@@ -271,7 +238,7 @@ void WrapTalkbox(TTalkbox *Talkbox, const char *Text)
 	}
 }
 // 0x5052e0, lines 352-428
-void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *Text)
+void patella::TTalk::AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *Text)
 {
 	PATELLA_ASSERT_VALUES(Mode==TALK_SAY || Mode==TALK_WHISPER || Mode==TALK_YELL || Mode==TALK_PRIVATE_MESSAGE || Mode==TALK_GAMEMASTER_BROADCAST || Mode==TALK_GAMEMASTER_MESSAGE || Mode==TALK_ANIMAL_LOW || Mode==TALK_ANIMAL_LOUD, Mode);
 	PATELLA_ASSERT(Speaker!=NULL);
@@ -338,7 +305,7 @@ void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *
 	TalkChanged = true;
 }
 // 0x505ac0, lines 436-474
-void AddMessageTalkbox(int Mode, const char *Text)
+void patella::TTalk::AddMessageTalkbox(int Mode, const char *Text)
 {
 	PATELLA_ASSERT_VALUES(Mode==TALK_INFO_MESSAGE || Mode==TALK_EVENT_MESSAGE || Mode==TALK_ADMIN_MESSAGE, Mode);
 	PATELLA_ASSERT(Text!=NULL);
@@ -372,7 +339,7 @@ void AddMessageTalkbox(int Mode, const char *Text)
 	TalkChanged = true;
 }
 // 0x4fef70, line 490
-void SetTalkboxRectangle(int Number, int x, int y, int Width, int Height)
+void patella::TTalk::SetTalkboxRectangle(int Number, int x, int y, int Width, int Height)
 {
 	TTalkbox *Box = GetTalkbox(Number);
 	Box->Left = x;
@@ -385,10 +352,13 @@ void SetTalkboxRectangle(int Number, int x, int y, int Width, int Height)
 // turns off only outside the function); initialising i would change the oracle's code.
 PATELLA_MSVC_WARNING(push)
 PATELLA_MSVC_WARNING(disable : 4701)
-void UpdateTalkboxes()
+void patella::TTalk::UpdateTalkboxes()
 {
 	int i;
-	static int LastTime = GetMilliseconds(); // 0x71eff0, guard 0x71eff4
+	if (!LastTimeSet) { // the original's function-local static, initialised on the first call (issue #107)
+		LastTime = GetMilliseconds();
+		LastTimeSet = true;
+	}
 	const int DiffTime = GetMilliseconds() - LastTime;
 	for (i = 0; i < TALKBOXES; i++)
 		if (Talkboxes[i].State != 0 && (Talkboxes[i].RemainingTime -= DiffTime) < 1)
@@ -397,7 +367,7 @@ void UpdateTalkboxes()
 }
 PATELLA_MSVC_WARNING(pop)
 // 0x4ff330, line 536
-void RemoveOldestTalkbox()
+void patella::TTalk::RemoveOldestTalkbox()
 {
 	int Oldest = TalkOrder, Position = -1;
 	for (int Search = 0; Search < TALKBOXES; Search++)
@@ -409,7 +379,7 @@ void RemoveOldestTalkbox()
 		RemoveTalkbox(Position);
 }
 // 0x4ff500, lines 565-570
-void SetStatusMessage(const char *Message, bool Permanent)
+void patella::TTalk::SetStatusMessage(const char *Message, bool Permanent)
 {
 	TalkChanged = true;
 	if (Message == nullptr) {
@@ -421,7 +391,7 @@ void SetStatusMessage(const char *Message, bool Permanent)
 	StatusMessageTime = Permanent ? -1 : 50;
 }
 // 0x4ff7d0
-void UpdateStatusMessage()
+void patella::TTalk::UpdateStatusMessage()
 {
 	if (StatusMessageTime > 0 && --StatusMessageTime == 0)
 		TalkChanged = true;
@@ -441,7 +411,7 @@ bool TTalkFilter::Matches(int _Mode, const char *_Addressee, int _Channel)
 	return CompareStrings(Addressee, _Addressee, -1) == 0;
 }
 // 0x4ff9c0, line 652
-int FindTalkFilter(int Mode, const char *Addressee, int Channel, TIndexedVector<TTalkFilter *> &List)
+int patella::TTalk::FindTalkFilter(int Mode, const char *Addressee, int Channel, TIndexedVector<TTalkFilter *> &List)
 {
 	for (int i = List.min; i <= List.max; i++)
 		if (List(i) != nullptr && List(i)->Matches(Mode, Addressee, Channel))
@@ -449,7 +419,7 @@ int FindTalkFilter(int Mode, const char *Addressee, int Channel, TIndexedVector<
 	return -1;
 }
 // 0x4ffb90, lines 661-672
-int FindTextBuffer(TTalkBuffer *TextBuffer, TIndexedVector<TTalkFilter *> &List)
+int patella::TTalk::FindTextBuffer(TTalkBuffer *TextBuffer, TIndexedVector<TTalkFilter *> &List)
 {
 	PATELLA_ASSERT(TextBuffer!=NULL);
 	int i;
@@ -459,7 +429,7 @@ int FindTextBuffer(TTalkBuffer *TextBuffer, TIndexedVector<TTalkFilter *> &List)
 	return -1;
 }
 // 0x4ffe40, line 693
-void AddTalkFilter(int Mode, const char *Addressee, int Channel, TTalkBuffer *TextBuffer,
+void patella::TTalk::AddTalkFilter(int Mode, const char *Addressee, int Channel, TTalkBuffer *TextBuffer,
 	TIndexedVector<TTalkFilter *> &List, bool Permanent)
 {
 	int i = List.min;
@@ -479,7 +449,7 @@ void AddTalkFilter(int Mode, const char *Addressee, int Channel, TTalkBuffer *Te
 	List(i) = Filter;
 }
 // 0x500060, line 731. Buddy/temporary exceptions suppress the ignore list.
-bool IsTalkIgnored(int Mode, const char *Name, int Channel)
+bool patella::TTalk::IsTalkIgnored(int Mode, const char *Name, int Channel)
 {
 	if (IgnoreEnabled) {
 		if (BuddyIgnore)
@@ -498,7 +468,7 @@ bool IsTalkIgnored(int Mode, const char *Name, int Channel)
 }
 
 // 0x5002d0, line 766
-char *GetBuddyIgnoreText()
+char *patella::TTalk::GetBuddyIgnoreText()
 {
 	int Length = 0;
 	for (int i = BuddyExemptionList.min; i <= BuddyExemptionList.max; i++)
@@ -517,7 +487,7 @@ char *GetBuddyIgnoreText()
 }
 
 // 0x500520, line 782
-void ClearBuddyIgnore()
+void patella::TTalk::ClearBuddyIgnore()
 {
 	for (int i = BuddyExemptionList.min; i <= BuddyExemptionList.max; i++)
 		if (BuddyExemptionList(i) != nullptr) {
@@ -527,7 +497,7 @@ void ClearBuddyIgnore()
 }
 
 // 0x5006f0, line 802
-void AddBuddyIgnore(const char *Addressee, bool Permanent)
+void patella::TTalk::AddBuddyIgnore(const char *Addressee, bool Permanent)
 {
 	const int Filter = FindTalkFilter(0, Addressee, -1, BuddyExemptionList);
 	if (Filter != -1) {
@@ -537,14 +507,14 @@ void AddBuddyIgnore(const char *Addressee, bool Permanent)
 	AddTalkFilter(0, Addressee, -1, nullptr, BuddyExemptionList, Permanent);
 }
 // 0x5008d0, line 816
-bool IsPermanentBuddyIgnore(const char *Addressee)
+bool patella::TTalk::IsPermanentBuddyIgnore(const char *Addressee)
 {
 	const int Filter = FindTalkFilter(0, Addressee, -1, BuddyExemptionList);
 	return Filter != -1 ? BuddyExemptionList(Filter)->Permanent : false;
 }
 
 // 0x500a90, line 867
-void ClearTemporaryIgnore()
+void patella::TTalk::ClearTemporaryIgnore()
 {
 	for (int i = TemporaryIgnoreList.min; i <= TemporaryIgnoreList.max; i++)
 		if (TemporaryIgnoreList(i) != nullptr) {
@@ -554,7 +524,7 @@ void ClearTemporaryIgnore()
 }
 
 // 0x500c60, line 887.
-void AddTemporaryIgnore(const char *Addressee)
+void patella::TTalk::AddTemporaryIgnore(const char *Addressee)
 {
 	const int Filter = FindTalkFilter(0, Addressee, -1, TemporaryIgnoreList);
 	if (Filter != -1) {
@@ -564,7 +534,7 @@ void AddTemporaryIgnore(const char *Addressee)
 	AddTalkFilter(0, Addressee, -1, nullptr, TemporaryIgnoreList, false);
 }
 // 0x500e40, line 903
-void RemoveTemporaryIgnore(const char *Addressee)
+void patella::TTalk::RemoveTemporaryIgnore(const char *Addressee)
 {
 	const int Filter = FindTalkFilter(0, Addressee, -1, TemporaryIgnoreList);
 	if (Filter != -1) {
@@ -573,7 +543,7 @@ void RemoveTemporaryIgnore(const char *Addressee)
 	}
 }
 // 0x501010, line 954
-char *GetIgnoreListText()
+char *patella::TTalk::GetIgnoreListText()
 {
 	int Length = 0;
 	for (int i = IgnoreList.min; i <= IgnoreList.max; i++)
@@ -592,13 +562,13 @@ char *GetIgnoreListText()
 }
 
 // 0x501260, line 966
-bool IsModeIgnored(int Mode)
+bool patella::TTalk::IsModeIgnored(int Mode)
 {
 	return FindTalkFilter(Mode, nullptr, -1, IgnoreList) != -1;
 }
 
 // 0x501400, line 982
-void ClearIgnoreList()
+void patella::TTalk::ClearIgnoreList()
 {
 	for (int i = IgnoreList.min; i <= IgnoreList.max; i++)
 		if (IgnoreList(i) != nullptr) {
@@ -608,7 +578,7 @@ void ClearIgnoreList()
 }
 
 // 0x5015d0, line 1002
-void AddIgnoreFilter(int Mode, const char *Addressee, bool Permanent)
+void patella::TTalk::AddIgnoreFilter(int Mode, const char *Addressee, bool Permanent)
 {
 	const int Filter = FindTalkFilter(Mode, Addressee, -1, IgnoreList);
 	if (Filter != -1) {
@@ -618,23 +588,23 @@ void AddIgnoreFilter(int Mode, const char *Addressee, bool Permanent)
 	AddTalkFilter(Mode, Addressee, -1, nullptr, IgnoreList, Permanent);
 }
 // 0x5017b0, line 1012
-void IgnoreMode(int Mode)
+void patella::TTalk::IgnoreMode(int Mode)
 {
 	AddIgnoreFilter(Mode, nullptr, false);
 }
 // 0x501940, line 1022
-void IgnoreName(const char *Addressee, bool Permanent)
+void patella::TTalk::IgnoreName(const char *Addressee, bool Permanent)
 {
 	AddIgnoreFilter(0, Addressee, Permanent);
 }
 // 0x501ae0, line 1036
-bool IsPermanentIgnore(const char *Addressee)
+bool patella::TTalk::IsPermanentIgnore(const char *Addressee)
 {
 	const int Filter = FindTalkFilter(0, Addressee, -1, IgnoreList);
 	return Filter != -1 ? IgnoreList(Filter)->Permanent : false;
 }
 // 0x501ca0, line 1052
-void RemoveIgnoreFilter(int Mode, const char *Addressee)
+void patella::TTalk::RemoveIgnoreFilter(int Mode, const char *Addressee)
 {
 	const int Filter = FindTalkFilter(Mode, Addressee, -1, IgnoreList);
 	if (Filter != -1) {
@@ -643,17 +613,17 @@ void RemoveIgnoreFilter(int Mode, const char *Addressee)
 	}
 }
 // 0x501e70, line 1062
-void UnignoreMode(int Mode)
+void patella::TTalk::UnignoreMode(int Mode)
 {
 	RemoveIgnoreFilter(Mode, nullptr);
 }
 // 0x502010, line 1072
-void UnignoreName(const char *Addressee)
+void patella::TTalk::UnignoreName(const char *Addressee)
 {
 	RemoveIgnoreFilter(0, Addressee);
 }
 // 0x5076e0, lines 1144-1149
-void ShowPermanentIgnoreWarning()
+void patella::TTalk::ShowPermanentIgnoreWarning()
 {
 	int o, Counter = 0;
 	for (o = IgnoreList.min; o <= IgnoreList.max; o++)
@@ -666,7 +636,7 @@ void ShowPermanentIgnoreWarning()
 	}
 }
 // 0x505f10, lines 1179-1190
-void AddTextBufferLine(TTalkBuffer *TargetBuffer, uint32 StatementID, const char *Text,
+void patella::TTalk::AddTextBufferLine(TTalkBuffer *TargetBuffer, uint32 StatementID, const char *Text,
 	int TalkMode, const char *Name, int Time)
 {
 	PATELLA_ASSERT(TargetBuffer!=NULL);
@@ -679,7 +649,7 @@ void AddTextBufferLine(TTalkBuffer *TargetBuffer, uint32 StatementID, const char
 	ConsoleChanged = true;
 }
 // 0x5061f0, lines 1198-1257
-void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const char *Name, int Channel, int Time)
+void patella::TTalk::AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const char *Name, int Channel, int Time)
 {
 	PATELLA_ASSERT(Text!=NULL);
 	bool Broadcast;
@@ -724,7 +694,7 @@ void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const ch
 	}
 }
 // 0x506720, line 1279
-void AddChannelNotice(const char *Addressee, const char *Text, int Mode, const char *Name, int Channel)
+void patella::TTalk::AddChannelNotice(const char *Addressee, const char *Text, int Mode, const char *Name, int Channel)
 {
 	TTalkBuffer *TargetBuffer = Mode == 5 ? nullptr : DefaultTextBuffer;
 	for (int i = ConsoleFilterList.min; i <= ConsoleFilterList.max; i++) {
@@ -736,21 +706,21 @@ void AddChannelNotice(const char *Addressee, const char *Text, int Mode, const c
 		AddTextBufferLine(TargetBuffer, 0, Text, 24, Addressee, 0);
 }
 // 0x5021a0, line 1291
-void ClearDefaultTextBuffer()
+void patella::TTalk::ClearDefaultTextBuffer()
 {
 	if (DefaultTextBuffer != nullptr)
 		DefaultTextBuffer->Clear();
 	ConsoleChanged = true;
 }
 // 0x502340, lines 1299-1304
-void ClearTextBuffer(TTalkBuffer *TextBuffer)
+void patella::TTalk::ClearTextBuffer(TTalkBuffer *TextBuffer)
 {
 	PATELLA_ASSERT(TextBuffer!=NULL);
 	TextBuffer->Clear();
 	ConsoleChanged = true;
 }
 // 0x5025c0, lines 1315-1318
-TTalkBuffer *GetTextBuffer(int Mode, const char *Name, int Channel)
+TTalkBuffer *patella::TTalk::GetTextBuffer(int Mode, const char *Name, int Channel)
 {
 	const int Filter = FindTalkFilter(Mode, Name, Channel, ConsoleFilterList);
 	if (Filter == -1)
@@ -759,7 +729,7 @@ TTalkBuffer *GetTextBuffer(int Mode, const char *Name, int Channel)
 	return ConsoleFilterList(Filter)->TextBuffer;
 }
 // 0x507bc0, lines 1361-1366
-TTalkBuffer *CreateTextBuffer(int ReceiveTalkMode, int SendTalkMode, const char *Name, int Channel)
+TTalkBuffer *patella::TTalk::CreateTextBuffer(int ReceiveTalkMode, int SendTalkMode, const char *Name, int Channel)
 {
 	if (FindTalkFilter(ReceiveTalkMode, Name, Channel, ConsoleFilterList) != -1)
 		return nullptr;
@@ -787,7 +757,7 @@ TTalkBuffer *CreateTextBuffer(int ReceiveTalkMode, int SendTalkMode, const char 
 	return TextBuffer;
 }
 // 0x507fa0, lines 1377-1383
-void DeleteTextBuffer(TTalkBuffer *TextBuffer)
+void patella::TTalk::DeleteTextBuffer(TTalkBuffer *TextBuffer)
 {
 	if (TextBuffer != DefaultTextBuffer) {
 		const int Filter = FindTextBuffer(TextBuffer, ConsoleFilterList);
@@ -802,7 +772,7 @@ void DeleteTextBuffer(TTalkBuffer *TextBuffer)
 }
 // 0x502880, line 1411. The player owns a private channel (the selected one;
 // ConsoleWindow.cpp's "#I"/"#X" commands work only then).
-bool HasOwnPrivateChannel()
+bool patella::TTalk::HasOwnPrivateChannel()
 {
 	int i;
 	for (i = ConsoleFilterList.min; i <= ConsoleFilterList.max; i++) {
@@ -1077,7 +1047,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, con
 	TrimString(Text, _Line);
 }
 // 0x504d70, line 1922
-void ResetTalk()
+void patella::TTalk::ResetTalk()
 {
 	for (int Position = 0; Position < TALKBOXES; Position++)
 		Talkboxes[Position].State = 0;
@@ -1087,7 +1057,7 @@ void ResetTalk()
 	ClearDefaultTextBuffer();
 }
 // 0x504f30, line 1937
-void InitTalk()
+void patella::TTalk::InitTalk()
 {
 	IgnoreEnabled = true;
 	BuddyIgnore = false;
@@ -1101,7 +1071,7 @@ TPrivateChannel::TPrivateChannel(int TalkMode, int _ChannelID) : TChannelTalkBuf
 	WriteEnabled = true;
 }
 // 0x507a00, line 1952
-void ExitTalk()
+void patella::TTalk::ExitTalk()
 {
 	ClearBuddyIgnore();
 	ClearTemporaryIgnore();
@@ -1111,4 +1081,338 @@ void ExitTalk()
 		free(DefaultTextBuffer);
 	}
 	DefaultTextBuffer = nullptr;
+}
+
+// The functions of the original (issue #107): each calls its member on the one TClient's TTalk.
+
+bool GetTalkChanged()
+{
+	return patella::bridge::Talk().GetTalkChanged();
+}
+
+int GetNumberOfTalkboxes()
+{
+	return patella::bridge::Talk().GetNumberOfTalkboxes();
+}
+
+const char *GetStatusMessage()
+{
+	return patella::bridge::Talk().GetStatusMessage();
+}
+
+void SetIgnoreEnabled(bool Value)
+{
+	patella::bridge::Talk().SetIgnoreEnabled(Value);
+}
+
+bool GetIgnoreEnabled()
+{
+	return patella::bridge::Talk().GetIgnoreEnabled();
+}
+
+void SetBuddyIgnore(bool Value)
+{
+	patella::bridge::Talk().SetBuddyIgnore(Value);
+}
+
+bool GetBuddyIgnore()
+{
+	return patella::bridge::Talk().GetBuddyIgnore();
+}
+
+void SetIgnoreListEnabled(bool Value)
+{
+	patella::bridge::Talk().SetIgnoreListEnabled(Value);
+}
+
+bool GetIgnoreListEnabled()
+{
+	return patella::bridge::Talk().GetIgnoreListEnabled();
+}
+
+bool IsTalkThrottled()
+{
+	return patella::bridge::Talk().IsTalkThrottled();
+}
+
+bool GetConsoleChanged()
+{
+	return patella::bridge::Talk().GetConsoleChanged();
+}
+
+TRGBColor *GetTalkColor(TRGBColor *Color, int TalkMode)
+{
+	return patella::bridge::Talk().GetTalkColor(Color, TalkMode);
+}
+
+TTalkbox *GetTalkbox(int Number)
+{
+	return patella::bridge::Talk().GetTalkbox(Number);
+}
+
+int GetTalkboxMode(int Number)
+{
+	return patella::bridge::Talk().GetTalkboxMode(Number);
+}
+
+void GetTalkboxPosition(int Number, int *x, int *y, int *z)
+{
+	patella::bridge::Talk().GetTalkboxPosition(Number, x, y, z);
+}
+
+void GetTalkboxRectangle(int Number, int *x, int *y, int *Width, int *Height)
+{
+	patella::bridge::Talk().GetTalkboxRectangle(Number, x, y, Width, Height);
+}
+
+TRGBColor *GetTalkboxColor(TRGBColor *Color, int Number)
+{
+	return patella::bridge::Talk().GetTalkboxColor(Color, Number);
+}
+
+int GetTalkboxLines(int Number)
+{
+	return patella::bridge::Talk().GetTalkboxLines(Number);
+}
+
+const char *GetTalkboxLine(int Number, int Line)
+{
+	return patella::bridge::Talk().GetTalkboxLine(Number, Line);
+}
+
+void RemoveTalkbox(int Position)
+{
+	patella::bridge::Talk().RemoveTalkbox(Position);
+}
+
+int FindFreeTalkbox()
+{
+	return patella::bridge::Talk().FindFreeTalkbox();
+}
+
+void WrapTalkbox(TTalkbox *Talkbox, const char *Text)
+{
+	patella::bridge::Talk().WrapTalkbox(Talkbox, Text);
+}
+
+void SetTalkboxRectangle(int Number, int x, int y, int Width, int Height)
+{
+	patella::bridge::Talk().SetTalkboxRectangle(Number, x, y, Width, Height);
+}
+
+void RemoveOldestTalkbox()
+{
+	patella::bridge::Talk().RemoveOldestTalkbox();
+}
+
+int FindTalkFilter(int Mode, const char *Addressee, int Channel, TIndexedVector<TTalkFilter *> &List)
+{
+	return patella::bridge::Talk().FindTalkFilter(Mode, Addressee, Channel, List);
+}
+
+int FindTextBuffer(TTalkBuffer *TextBuffer, TIndexedVector<TTalkFilter *> &List)
+{
+	return patella::bridge::Talk().FindTextBuffer(TextBuffer, List);
+}
+
+void AddTalkFilter(int Mode, const char *Addressee, int Channel, TTalkBuffer *TextBuffer,
+	TIndexedVector<TTalkFilter *> &List, bool Permanent)
+{
+	patella::bridge::Talk().AddTalkFilter(Mode, Addressee, Channel, TextBuffer, List, Permanent);
+}
+
+char *GetBuddyIgnoreText()
+{
+	return patella::bridge::Talk().GetBuddyIgnoreText();
+}
+
+void ClearBuddyIgnore()
+{
+	patella::bridge::Talk().ClearBuddyIgnore();
+}
+
+void AddBuddyIgnore(const char *Addressee, bool Permanent)
+{
+	patella::bridge::Talk().AddBuddyIgnore(Addressee, Permanent);
+}
+
+bool IsPermanentBuddyIgnore(const char *Addressee)
+{
+	return patella::bridge::Talk().IsPermanentBuddyIgnore(Addressee);
+}
+
+void ClearTemporaryIgnore()
+{
+	patella::bridge::Talk().ClearTemporaryIgnore();
+}
+
+char *GetIgnoreListText()
+{
+	return patella::bridge::Talk().GetIgnoreListText();
+}
+
+bool IsModeIgnored(int Mode)
+{
+	return patella::bridge::Talk().IsModeIgnored(Mode);
+}
+
+void AddIgnoreFilter(int Mode, const char *Addressee, bool Permanent)
+{
+	patella::bridge::Talk().AddIgnoreFilter(Mode, Addressee, Permanent);
+}
+
+void IgnoreMode(int Mode)
+{
+	patella::bridge::Talk().IgnoreMode(Mode);
+}
+
+void IgnoreName(const char *Addressee, bool Permanent)
+{
+	patella::bridge::Talk().IgnoreName(Addressee, Permanent);
+}
+
+bool IsPermanentIgnore(const char *Addressee)
+{
+	return patella::bridge::Talk().IsPermanentIgnore(Addressee);
+}
+
+void RemoveIgnoreFilter(int Mode, const char *Addressee)
+{
+	patella::bridge::Talk().RemoveIgnoreFilter(Mode, Addressee);
+}
+
+void UnignoreMode(int Mode)
+{
+	patella::bridge::Talk().UnignoreMode(Mode);
+}
+
+void UnignoreName(const char *Addressee)
+{
+	patella::bridge::Talk().UnignoreName(Addressee);
+}
+
+void ClearDefaultTextBuffer()
+{
+	patella::bridge::Talk().ClearDefaultTextBuffer();
+}
+
+void ClearTextBuffer(TTalkBuffer *TextBuffer)
+{
+	patella::bridge::Talk().ClearTextBuffer(TextBuffer);
+}
+
+bool HasOwnPrivateChannel()
+{
+	return patella::bridge::Talk().HasOwnPrivateChannel();
+}
+
+void AddChannelNotice(const char *Addressee, const char *Text, int Mode, const char *Name, int Channel)
+{
+	patella::bridge::Talk().AddChannelNotice(Addressee, Text, Mode, Name, Channel);
+}
+
+void DeleteTextBuffer(TTalkBuffer *TextBuffer)
+{
+	patella::bridge::Talk().DeleteTextBuffer(TextBuffer);
+}
+
+TTalkBuffer *CreateTextBuffer(int ReceiveTalkMode, int SendTalkMode, const char *Name, int Channel)
+{
+	return patella::bridge::Talk().CreateTextBuffer(ReceiveTalkMode, SendTalkMode, Name, Channel);
+}
+
+void SetTalkChanged()
+{
+	patella::bridge::Talk().SetTalkChanged();
+}
+
+void SetTalkThrottle()
+{
+	patella::bridge::Talk().SetTalkThrottle();
+}
+
+void SetConsoleChanged()
+{
+	patella::bridge::Talk().SetConsoleChanged();
+}
+
+void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *Text)
+{
+	patella::bridge::Talk().AddTalkbox(Mode, Speaker, x, y, z, Text);
+}
+
+void AddMessageTalkbox(int Mode, const char *Text)
+{
+	patella::bridge::Talk().AddMessageTalkbox(Mode, Text);
+}
+
+void UpdateTalkboxes()
+{
+	patella::bridge::Talk().UpdateTalkboxes();
+}
+
+void SetStatusMessage(const char *Message, bool Permanent)
+{
+	patella::bridge::Talk().SetStatusMessage(Message, Permanent);
+}
+
+void UpdateStatusMessage()
+{
+	patella::bridge::Talk().UpdateStatusMessage();
+}
+
+bool IsTalkIgnored(int Mode, const char *Name, int Channel)
+{
+	return patella::bridge::Talk().IsTalkIgnored(Mode, Name, Channel);
+}
+
+void AddTemporaryIgnore(const char *Addressee)
+{
+	patella::bridge::Talk().AddTemporaryIgnore(Addressee);
+}
+
+void RemoveTemporaryIgnore(const char *Addressee)
+{
+	patella::bridge::Talk().RemoveTemporaryIgnore(Addressee);
+}
+
+void ClearIgnoreList()
+{
+	patella::bridge::Talk().ClearIgnoreList();
+}
+
+void ShowPermanentIgnoreWarning()
+{
+	patella::bridge::Talk().ShowPermanentIgnoreWarning();
+}
+
+void AddTextBufferLine(TTalkBuffer *TargetBuffer, uint32 StatementID, const char *Text,
+	int TalkMode, const char *Name, int Time)
+{
+	patella::bridge::Talk().AddTextBufferLine(TargetBuffer, StatementID, Text, TalkMode, Name, Time);
+}
+
+void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const char *Name, int Channel, int Time)
+{
+	patella::bridge::Talk().AddConsoleText(StatementID, Text, TalkMode, Name, Channel, Time);
+}
+
+TTalkBuffer *GetTextBuffer(int Mode, const char *Name, int Channel)
+{
+	return patella::bridge::Talk().GetTextBuffer(Mode, Name, Channel);
+}
+
+void ResetTalk()
+{
+	patella::bridge::Talk().ResetTalk();
+}
+
+void InitTalk()
+{
+	patella::bridge::Talk().InitTalk();
+}
+
+void ExitTalk()
+{
+	patella::bridge::Talk().ExitTalk();
 }

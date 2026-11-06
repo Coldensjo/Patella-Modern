@@ -32,53 +32,9 @@ static_assert(sizeof(std::unique_ptr<TCharacter[]>) == sizeof(TCharacter *)
 		&& alignof(std::unique_ptr<TCharacter[]>) == alignof(TCharacter *),
 	"std::unique_ptr<TCharacter[]> is a pointer");
 
-namespace {
-
-// Data, in .bss order. Status.obj's only .data, LinkPattern (0x5c2560), is
-// its copy of Status.h's.
-regexp *LinkRegexp;                // 0x71c458, LinkPattern compiled
-char *TaintedClipboardText;        // 0x71c45c, name from an assertion
-void (*LinkWarningEventHandler)(); // 0x71c460, from "linkwarningeventhandler!=NULL"
-bool BlinkState;                   // 0x71c464, toggled every 300 ms
-int BlinkTime;                     // 0x71c468
-int MouseOverTextY;                // 0x71c46c
-int MouseOverTextX;                // 0x71c470
-const char *MouseOverText;         // 0x71c474
-// 0x71c478-0x71c58b, the session (Rights ... ConnectionState), is TSession's (Status.h, issue #105).
-int TradeInfo;                               // 0x71c58c
-int UseZ;                                    // 0x71c590
-int UseY;                                    // 0x71c594
-int UseX;                                    // 0x71c598
-int UseIndex;                                // 0x71c59c
-int TradeZ;                                  // 0x71c5a0
-int TradeY;                                  // 0x71c5a4
-int TradeX;                                  // 0x71c5a8
-int TradeIndex;                              // 0x71c5ac
-int DragTargetZ;                             // 0x71c5b0
-int DragTargetY;                             // 0x71c5b4
-int DragTargetX;                             // 0x71c5b8
-int DragZ;                                   // 0x71c5bc
-int DragY;                                   // 0x71c5c0
-int DragX;                                   // 0x71c5c4
-int DragIndex;                               // 0x71c5c8
-int DragStartY;                              // 0x71c5cc
-int DragStartX;                              // 0x71c5d0
-int PendingActionNumber;                     // 0x71c5d4
-int PendingActionState;                      // 0x71c5d8
-int WindowHeight;                            // 0x71c5dc
-int WindowWidth;                             // 0x71c5e0
-int MouseCursor;                             // 0x71c5e4
-int ActionState;                             // 0x71c5e8, from "GetActionState()" in Control.cpp
-int ActionNumber;                            // 0x71c5ec
-int NumberOfMessages;                        // 0x71c5f0
-TIndexedVector<TMessage> Messages(0, 9, 10); // 0x71c5f4, initialiser at 0x55a0f0
-int MouseX;                                  // 0x71c61c
-int MouseY;                                  // 0x71c620
-TObject DraggedObject;                       // 0x71c624
-TObject TradeObject;                         // 0x71c630, from "TradeObject!=0" in MapWindow.cpp
-TObject UseObject;                           // 0x71c63c, "SrcObj" in MapWindow.cpp
-
-} // namespace
+// Status.obj's only .data, LinkPattern (0x5c2560), is its copy of Status.h's. The .bss (0x71c458-0x71c64f) is
+// TInteraction's (the user interaction, issue #107) and TSession's (the session, 0x71c478-0x71c58b, issue #105), both
+// in Status.h.
 
 
 // 0x4e6dc0. Inlined into CheckRight. Only the first 32 rights are checked
@@ -101,57 +57,57 @@ void patella::TSession::ClearRights()
 }
 
 // 0x4e6e00
-int GetActionNumber()
+int patella::TInteraction::GetActionNumber() const
 {
 	return ActionNumber;
 }
 
 // 0x4e6e10
-void IncrementActionNumber()
+void patella::TInteraction::IncrementActionNumber()
 {
 	ActionNumber++;
 }
 
 // 0x4e6e20. Values seen: 1 normal, 6 dragging, 7 use with, 8 trade with,
 // 9, 10 and 11 (a modal window has the mouse).
-void SetActionState(int State)
+void patella::TInteraction::SetActionState(int State)
 {
 	ActionState = State;
 }
 
 // 0x4e6e30
-int GetActionState()
+int patella::TInteraction::GetActionState() const
 {
 	return ActionState;
 }
 
 // 0x4e6e40
-void SetMousePosition(int x, int y)
+void patella::TInteraction::SetMousePosition(int x, int y)
 {
 	MouseX = x;
 	MouseY = y;
 }
 
 // 0x4e6e60
-int GetMouseX()
+int patella::TInteraction::GetMouseX() const
 {
 	return MouseX;
 }
 
 // 0x4e6e70
-int GetMouseY()
+int patella::TInteraction::GetMouseY() const
 {
 	return MouseY;
 }
 
 // 0x4e6e80
-void SetMouseCursor(int Cursor)
+void patella::TInteraction::SetMouseCursor(int Cursor)
 {
 	MouseCursor = Cursor;
 }
 
 // 0x4e6e90. The action state overrides the cursor that was set.
-int GetMouseCursor()
+int patella::TInteraction::GetMouseCursor() const
 {
 	if (ActionState == 9)
 		return 6;
@@ -163,45 +119,45 @@ int GetMouseCursor()
 }
 
 // 0x4e6ec0
-void SetPendingAction(int State, int Number)
+void patella::TInteraction::SetPendingAction(int State, int Number)
 {
 	PendingActionState = State;
 	PendingActionNumber = Number;
 }
 
 // 0x4e6ee0
-int GetPendingActionState()
+int patella::TInteraction::GetPendingActionState() const
 {
 	return PendingActionState;
 }
 
 // 0x4e6ef0
-int GetPendingActionNumber()
+int patella::TInteraction::GetPendingActionNumber() const
 {
 	return PendingActionNumber;
 }
 
 // 0x4e6f00
-void SetWindowSize(int Width, int Height)
+void patella::TInteraction::SetWindowSize(int Width, int Height)
 {
 	WindowWidth = Width;
 	WindowHeight = Height;
 }
 
 // 0x4e6f20
-int GetWindowWidth()
+int patella::TInteraction::GetWindowWidth() const
 {
 	return WindowWidth;
 }
 
 // 0x4e6f30
-int GetWindowHeight()
+int patella::TInteraction::GetWindowHeight() const
 {
 	return WindowHeight;
 }
 
 // 0x4e6f40. Clears the drag object; SetDragObject sets it afterwards.
-void SetDragStart(int x, int y)
+void patella::TInteraction::SetDragStart(int x, int y)
 {
 	DragStartX = x;
 	DragStartY = y;
@@ -211,7 +167,7 @@ void SetDragStart(int x, int y)
 }
 
 // 0x4e6f70
-void SetDragObject(TObject Obj, int Index, int x, int y, int z)
+void patella::TInteraction::SetDragObject(TObject Obj, int Index, int x, int y, int z)
 {
 	DraggedObject = Obj;
 	DragIndex = Index;
@@ -221,7 +177,7 @@ void SetDragObject(TObject Obj, int Index, int x, int y, int z)
 }
 
 // 0x4e6fc0
-void SetDragTarget(int x, int y, int z)
+void patella::TInteraction::SetDragTarget(int x, int y, int z)
 {
 	DragTargetX = x;
 	DragTargetY = y;
@@ -230,7 +186,7 @@ void SetDragTarget(int x, int y, int z)
 
 // 0x4e6fe0. Starts dragging once the mouse is more than 3 pixels away from
 // where the button went down.
-void CheckDragStart(int x, int y)
+void patella::TInteraction::CheckDragStart(int x, int y)
 {
 	if (ActionState != 6 && DraggedObject.Type != 0
 		&& (abs(x - DragStartX) > 3 || abs(y - DragStartY) > 3))
@@ -238,7 +194,7 @@ void CheckDragStart(int x, int y)
 }
 
 // 0x4e7030
-TObject *GetDragObject(int *Index, int *x, int *y, int *z)
+TObject *patella::TInteraction::GetDragObject(int *Index, int *x, int *y, int *z)
 {
 	*Index = DragIndex;
 	*x = DragX;
@@ -248,7 +204,7 @@ TObject *GetDragObject(int *Index, int *x, int *y, int *z)
 }
 
 // 0x4e7070
-void GetDragTarget(int *x, int *y, int *z)
+void patella::TInteraction::GetDragTarget(int *x, int *y, int *z) const
 {
 	*x = DragTargetX;
 	*y = DragTargetY;
@@ -256,7 +212,7 @@ void GetDragTarget(int *x, int *y, int *z)
 }
 
 // 0x4e70a0
-void SetTradeObject(TObject Obj, int Index, int x, int y, int z)
+void patella::TInteraction::SetTradeObject(TObject Obj, int Index, int x, int y, int z)
 {
 	TradeObject = Obj;
 	TradeIndex = Index;
@@ -266,7 +222,7 @@ void SetTradeObject(TObject Obj, int Index, int x, int y, int z)
 }
 
 // 0x4e70f0
-void SetUseObject(TObject Obj, int Index, int x, int y, int z)
+void patella::TInteraction::SetUseObject(TObject Obj, int Index, int x, int y, int z)
 {
 	UseObject = Obj;
 	UseIndex = Index;
@@ -276,13 +232,13 @@ void SetUseObject(TObject Obj, int Index, int x, int y, int z)
 }
 
 // 0x4e7140. Set together with the trade and use objects; meaning unknown.
-void SetTradeInfo(int Info)
+void patella::TInteraction::SetTradeInfo(int Info)
 {
 	TradeInfo = Info;
 }
 
 // 0x4e7150
-TObject *GetTradeObject(int *Index, int *x, int *y, int *z)
+TObject *patella::TInteraction::GetTradeObject(int *Index, int *x, int *y, int *z)
 {
 	*Index = TradeIndex;
 	*x = TradeX;
@@ -292,7 +248,7 @@ TObject *GetTradeObject(int *Index, int *x, int *y, int *z)
 }
 
 // 0x4e7190
-TObject *GetUseObject(int *Index, int *x, int *y, int *z)
+TObject *patella::TInteraction::GetUseObject(int *Index, int *x, int *y, int *z)
 {
 	*Index = UseIndex;
 	*x = UseX;
@@ -302,7 +258,7 @@ TObject *GetUseObject(int *Index, int *x, int *y, int *z)
 }
 
 // 0x4e71d0
-int GetTradeInfo()
+int patella::TInteraction::GetTradeInfo() const
 {
 	return TradeInfo;
 }
@@ -393,33 +349,33 @@ bool patella::TSession::GetGamemaster() const
 }
 
 // 0x4e72e0. The text is not copied.
-void SetMouseOverText(const char *Text)
+void patella::TInteraction::SetMouseOverText(const char *Text)
 {
 	MouseOverText = Text;
 }
 
 // 0x4e72f0
-void SetMouseOverTextPosition(int x, int y)
+void patella::TInteraction::SetMouseOverTextPosition(int x, int y)
 {
 	MouseOverTextX = x;
 	MouseOverTextY = y;
 }
 
 // 0x4e7310
-const char *GetMouseOverText()
+const char *patella::TInteraction::GetMouseOverText() const
 {
 	return MouseOverText;
 }
 
 // 0x4e7320
-void GetMouseOverTextPosition(int *x, int *y)
+void patella::TInteraction::GetMouseOverTextPosition(int *x, int *y) const
 {
 	*x = MouseOverTextX;
 	*y = MouseOverTextY;
 }
 
 // 0x4e7340. Called once per main loop iteration.
-void UpdateBlinkState()
+void patella::TInteraction::UpdateBlinkState()
 {
 	const int Now = GetMilliseconds();
 	if (BlinkTime + 300 < Now) {
@@ -429,13 +385,13 @@ void UpdateBlinkState()
 }
 
 // 0x4e7370
-bool GetBlinkState()
+bool patella::TInteraction::GetBlinkState() const
 {
 	return BlinkState;
 }
 
 // 0x4e75d0. Type of the first message, 0 when the queue is empty.
-int PeekMessageType()
+int patella::TInteraction::PeekMessageType()
 {
 	if (NumberOfMessages == 0)
 		return 0;
@@ -444,7 +400,7 @@ int PeekMessageType()
 
 // 0x4e75f0. Removes the first message; all zero when the queue is empty.
 // The parameters now belong to the caller.
-void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2)
+void patella::TInteraction::FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2)
 {
 	if (NumberOfMessages != 0) {
 		*Type = Messages(0).Type;
@@ -465,7 +421,7 @@ void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2)
 
 // 0x4e76e0. Frees the parameters that each message type owns. Type 14's
 // Param2 points to two more blocks.
-void ClearMessages()
+void patella::TInteraction::ClearMessages()
 {
 	for (int i = 0; i < NumberOfMessages; i++) {
 		const int Type = Messages(i).Type;
@@ -518,7 +474,7 @@ void ClearMessages()
 // 0x4e7f00. LinkRegexp and TaintedClipboardText are freed but not cleared,
 // and the queued messages are not freed. The original cleared the error
 // reports first (gone since issue #74).
-void ExitStatus()
+void patella::TInteraction::ExitStatus()
 {
 	patella::bridge::Session().ExitSession(); // the character list (issue #105)
 	if (TaintedClipboardText != nullptr)
@@ -606,7 +562,7 @@ const char *GetActionName(int actionid)
 
 // 0x4e9020, line 197. Appends a message; the queue takes ownership of the
 // parameters that ClearMessages frees.
-void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
+void patella::TInteraction::AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 {
 	PATELLA_ASSERT_VALUES(In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
 	Messages(NumberOfMessages).Type = Type;
@@ -616,7 +572,7 @@ void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 }
 
 // 0x4e91d0, line 209. Inserts a message at the front of the queue.
-void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
+void patella::TInteraction::AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
 {
 	PATELLA_ASSERT_VALUES(In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
 	// The new last element first (Patella-Modern issue #91): Messages(NumberOfMessages) may grow the vector, which
@@ -700,7 +656,7 @@ int patella::TSession::GetCharacterPort(int Number) const
 // contains something like a web or IP address, the link warning handler is
 // called instead of copying (it can copy later with
 // CopyTaintedClipboardText). Text and Length are the span's pointer and its size as an int (issue #69).
-void CheckClipboardText(patella::TSpan<const char> Characters)
+void patella::TInteraction::CheckClipboardText(patella::TSpan<const char> Characters)
 {
 	const char *const Text = Characters.data();
 	const int Length = static_cast<int>(Characters.size());
@@ -722,14 +678,14 @@ void CheckClipboardText(patella::TSpan<const char> Characters)
 }
 
 // 0x4ea5b0, line 875
-void CopyToClipboard(const char *text)
+void patella::TInteraction::CopyToClipboard(const char *text)
 {
 	PATELLA_ASSERT(text);
 	CheckClipboardText(patella::TSpan<const char>(text, strlen(text)));
 }
 
 // 0x4ea710, line 882
-void CopyTaintedClipboardText()
+void patella::TInteraction::CopyTaintedClipboardText()
 {
 	PATELLA_ASSERT(TaintedClipboardText);
 	SetClipboardText(TaintedClipboardText);
@@ -737,7 +693,7 @@ void CopyTaintedClipboardText()
 
 // 0x4ea860, line 1051. Not everything is reset: the mouse, window and drag
 // positions keep their values.
-void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
+void patella::TInteraction::InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 {
 	PATELLA_ASSERT(linkwarningeventhandler!=NULL);
 	LinkWarningEventHandler = linkwarningeventhandler;
@@ -924,4 +880,221 @@ const char *GetCharacterIPAddress(int Number)
 int GetCharacterPort(int Number)
 {
 	return patella::bridge::Session().GetCharacterPort(Number);
+}
+
+// The functions of the original (issue #107): each calls its member on the one TClient's TInteraction.
+
+int GetActionNumber()
+{
+	return patella::bridge::Interaction().GetActionNumber();
+}
+
+void IncrementActionNumber()
+{
+	patella::bridge::Interaction().IncrementActionNumber();
+}
+
+void SetActionState(int State)
+{
+	patella::bridge::Interaction().SetActionState(State);
+}
+
+int GetActionState()
+{
+	return patella::bridge::Interaction().GetActionState();
+}
+
+void SetMousePosition(int x, int y)
+{
+	patella::bridge::Interaction().SetMousePosition(x, y);
+}
+
+int GetMouseX()
+{
+	return patella::bridge::Interaction().GetMouseX();
+}
+
+int GetMouseY()
+{
+	return patella::bridge::Interaction().GetMouseY();
+}
+
+void SetMouseCursor(int Cursor)
+{
+	patella::bridge::Interaction().SetMouseCursor(Cursor);
+}
+
+int GetMouseCursor()
+{
+	return patella::bridge::Interaction().GetMouseCursor();
+}
+
+void SetPendingAction(int State, int Number)
+{
+	patella::bridge::Interaction().SetPendingAction(State, Number);
+}
+
+int GetPendingActionState()
+{
+	return patella::bridge::Interaction().GetPendingActionState();
+}
+
+int GetPendingActionNumber()
+{
+	return patella::bridge::Interaction().GetPendingActionNumber();
+}
+
+void SetWindowSize(int Width, int Height)
+{
+	patella::bridge::Interaction().SetWindowSize(Width, Height);
+}
+
+int GetWindowWidth()
+{
+	return patella::bridge::Interaction().GetWindowWidth();
+}
+
+int GetWindowHeight()
+{
+	return patella::bridge::Interaction().GetWindowHeight();
+}
+
+void SetDragStart(int x, int y)
+{
+	patella::bridge::Interaction().SetDragStart(x, y);
+}
+
+void SetDragObject(TObject Obj, int Index, int x, int y, int z)
+{
+	patella::bridge::Interaction().SetDragObject(Obj, Index, x, y, z);
+}
+
+void SetDragTarget(int x, int y, int z)
+{
+	patella::bridge::Interaction().SetDragTarget(x, y, z);
+}
+
+void CheckDragStart(int x, int y)
+{
+	patella::bridge::Interaction().CheckDragStart(x, y);
+}
+
+TObject *GetDragObject(int *Index, int *x, int *y, int *z)
+{
+	return patella::bridge::Interaction().GetDragObject(Index, x, y, z);
+}
+
+void GetDragTarget(int *x, int *y, int *z)
+{
+	patella::bridge::Interaction().GetDragTarget(x, y, z);
+}
+
+void SetTradeObject(TObject Obj, int Index, int x, int y, int z)
+{
+	patella::bridge::Interaction().SetTradeObject(Obj, Index, x, y, z);
+}
+
+void SetUseObject(TObject Obj, int Index, int x, int y, int z)
+{
+	patella::bridge::Interaction().SetUseObject(Obj, Index, x, y, z);
+}
+
+void SetTradeInfo(int Info)
+{
+	patella::bridge::Interaction().SetTradeInfo(Info);
+}
+
+TObject *GetTradeObject(int *Index, int *x, int *y, int *z)
+{
+	return patella::bridge::Interaction().GetTradeObject(Index, x, y, z);
+}
+
+TObject *GetUseObject(int *Index, int *x, int *y, int *z)
+{
+	return patella::bridge::Interaction().GetUseObject(Index, x, y, z);
+}
+
+int GetTradeInfo()
+{
+	return patella::bridge::Interaction().GetTradeInfo();
+}
+
+void SetMouseOverText(const char *Text)
+{
+	patella::bridge::Interaction().SetMouseOverText(Text);
+}
+
+void SetMouseOverTextPosition(int x, int y)
+{
+	patella::bridge::Interaction().SetMouseOverTextPosition(x, y);
+}
+
+const char *GetMouseOverText()
+{
+	return patella::bridge::Interaction().GetMouseOverText();
+}
+
+void GetMouseOverTextPosition(int *x, int *y)
+{
+	patella::bridge::Interaction().GetMouseOverTextPosition(x, y);
+}
+
+void UpdateBlinkState()
+{
+	patella::bridge::Interaction().UpdateBlinkState();
+}
+
+bool GetBlinkState()
+{
+	return patella::bridge::Interaction().GetBlinkState();
+}
+
+int PeekMessageType()
+{
+	return patella::bridge::Interaction().PeekMessageType();
+}
+
+void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2)
+{
+	patella::bridge::Interaction().FetchMessage(Type, Param1, Param2);
+}
+
+void ClearMessages()
+{
+	patella::bridge::Interaction().ClearMessages();
+}
+
+void ExitStatus()
+{
+	patella::bridge::Interaction().ExitStatus();
+}
+
+void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
+{
+	patella::bridge::Interaction().AddMessage(Type, Param1, Param2);
+}
+
+void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
+{
+	patella::bridge::Interaction().AddMessageFirst(Type, Param1, Param2);
+}
+
+void CheckClipboardText(patella::TSpan<const char> Characters)
+{
+	patella::bridge::Interaction().CheckClipboardText(Characters);
+}
+
+void CopyToClipboard(const char *text)
+{
+	patella::bridge::Interaction().CopyToClipboard(text);
+}
+
+void CopyTaintedClipboardText()
+{
+	patella::bridge::Interaction().CopyTaintedClipboardText();
+}
+
+void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
+{
+	patella::bridge::Interaction().InitStatus(Gamemaster, linkwarningeventhandler);
 }

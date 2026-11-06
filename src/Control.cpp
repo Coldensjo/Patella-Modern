@@ -60,13 +60,9 @@ namespace {
 // 0x5c0d8c LastPacketType, 0x5c4510 LastPacketIndex and 0x5c4514 LastPacketTypes are TCommunication's
 // (Communication.h, issue #105).
 // 0x5c4520 ReconnectTimeout and 0x5c4524 Reconnect are TNetwork's (Network.h, issue #105).
-int LastMouseMove;                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
-void (*URLCallback)(const char *URL);  // 0x5c452c
-void (*DisplayModeCallback)(int Mode); // 0x5c4530
+// 0x5c4528 LastMouseMove, 0x5c452c URLCallback, 0x5c4530 DisplayModeCallback, 0x5c4538 ExitCallback, 0x5c453c
+// WindowHandle and 0x5c4554 ShowFPS are TGUI's (GUI.h, issue #107).
 // 0x5c4534, CloseCallback (event 0x48: CloseProgram, then patch.exe), is gone with the patcher (issue #75).
-void (*ExitCallback)(); // 0x5c4538, stored but not used here
-HWND WindowHandle;      // 0x5c453c
-bool ShowFPS;           // 0x5c4554, toggled by key 0x907
 // At 0x5c4558, constructed by the static initialiser 0x559df0 as
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // the end of Control.obj's .bss, after ShowFPS and before Creatures.obj's
@@ -82,25 +78,26 @@ TCallback NoCallback(nullptr, 0);
 // help bubble (9) follows the main window.
 void Resize(int Width, int Height)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	SetMouseCursor(1);
 	if (GetViewMode() == 2) {
 		const TFullscreenMode *Mode = GetFullscreenMode();
 		Width = Mode->Width;
 		Height = Mode->Height;
 	}
-	MainWindow->SetSize(Width, Height);
-	if (ModalWindow != nullptr) {
+	GUI.MainWindow->SetSize(Width, Height);
+	if (GUI.ModalWindow != nullptr) {
 		if (GetActionState() == 11) {
-			delete ModalWindow;
-			ModalWindow = nullptr;
+			delete GUI.ModalWindow;
+			GUI.ModalWindow = nullptr;
 			SetActionState(0);
-			MainWindow->SetConsoleActive(true);
+			GUI.MainWindow->SetConsoleActive(true);
 		}
-		if (ModalWindow != nullptr && GetActionState() == 10)
-			ModalWindow->SetPosition(MainWindow->Width / 2 - ModalWindow->Width / 2,
-				MainWindow->Height / 2 - ModalWindow->Height / 2);
-		if (ModalWindow != nullptr && GetActionState() == 9)
-			(static_cast<THelpBubble *>(ModalWindow))->Place(MainWindow);
+		if (GUI.ModalWindow != nullptr && GetActionState() == 10)
+			GUI.ModalWindow->SetPosition(GUI.MainWindow->Width / 2 - GUI.ModalWindow->Width / 2,
+				GUI.MainWindow->Height / 2 - GUI.ModalWindow->Height / 2);
+		if (GUI.ModalWindow != nullptr && GetActionState() == 9)
+			(static_cast<THelpBubble *>(GUI.ModalWindow))->Place(GUI.MainWindow);
 	}
 }
 
@@ -111,7 +108,7 @@ void CheckSurface(bool Force)
 	TFullscreenMode *Resolution = GetFullscreenMode();
 	bool Success;
 	try {
-		Success = GetSurface()->Init(&WindowHandle, GetViewMode(), Resolution, Force);
+		Success = GetSurface()->Init(&patella::bridge::GUI().WindowHandle, GetViewMode(), Resolution, Force);
 	} catch (...) {
 		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
@@ -163,14 +160,15 @@ void ChangeEngine(int engine)
 // limits is swapped and it ends at 1.
 void Redraw(bool Force)
 {
+	const patella::TGUI &GUI = patella::bridge::GUI();
 	CheckSurface(Force);
 	if (GetSurface()->IsUnavailable()) {
 		Sleep(10);
 		return;
 	}
-	MainWindow->Draw(1, 0, 0);
-	if (ModalWindow != nullptr)
-		ModalWindow->Draw(1, ModalWindow->OffsetX, ModalWindow->OffsetY);
+	GUI.MainWindow->Draw(1, 0, 0);
+	if (GUI.ModalWindow != nullptr)
+		GUI.ModalWindow->Draw(1, GUI.ModalWindow->OffsetX, GUI.ModalWindow->OffsetY);
 	UpdateBlinkState();
 	const char *Tooltip = GetMouseOverText();
 	if (Tooltip != nullptr) {
@@ -209,7 +207,7 @@ void Redraw(bool Force)
 		PrintFormattedText(1, SkinProperties.TooltipBorder + x, SkinProperties.TooltipBorder + y,
 			SkinProperties.TooltipFont, Tooltip);
 	}
-	if (ShowFPS) {
+	if (GUI.ShowFPS) {
 		TFixedString<4> Engine; // _snprintf(Engine, 4, "DX5") until issue #64: three characters and the NUL
 		switch (curEngine) {
 		case 0:
@@ -275,10 +273,11 @@ void Redraw(bool Force)
 // golden corpus's Communication test replaces it, and ReceivePackets would inline it (issue #78).
 PATELLA_NOINLINE void EnterGame()
 {
-	MainWindow->ChangeMode(true);
-	if (ModalWindow == nullptr) {
+	const patella::TGUI &GUI = patella::bridge::GUI();
+	GUI.MainWindow->ChangeMode(true);
+	if (GUI.ModalWindow == nullptr) {
 		SetActionState(0);
-		MainWindow->SetConsoleActive(true);
+		GUI.MainWindow->SetConsoleActive(true);
 	}
 	ClearMap();
 	InitInventory();
@@ -291,11 +290,12 @@ PATELLA_NOINLINE void EnterGame()
 // 0x4467d0, line 438. The game connection was closed.
 void LeaveGame()
 {
-	MainWindow->ChangeMode(false);
-	if (ModalWindow != nullptr) {
-		delete ModalWindow;
-		ModalWindow = nullptr;
-		MainWindow->SetConsoleActive(true);
+	patella::TGUI &GUI = patella::bridge::GUI();
+	GUI.MainWindow->ChangeMode(false);
+	if (GUI.ModalWindow != nullptr) {
+		delete GUI.ModalWindow;
+		GUI.ModalWindow = nullptr;
+		GUI.MainWindow->SetConsoleActive(true);
 	}
 	SetActionState(0);
 	SavePreferences();
@@ -307,6 +307,7 @@ void LeaveGame()
 // replaced when the help text has changed.
 void MouseMove(int x, int y)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	SetMousePosition(x, y);
 	SetMouseCursor(1);
 	switch (GetActionState()) {
@@ -314,21 +315,21 @@ void MouseMove(int x, int y)
 		CheckDragStart(x, y);
 		[[fallthrough]];
 	default:
-		MainWindow->MouseMove(x, y);
+		GUI.MainWindow->MouseMove(x, y);
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT_VALUES(ModalWindow!=NULL, GetActionState());
-		ModalWindow->MouseMove(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY);
+		PATELLA_ASSERT_VALUES(GUI.ModalWindow!=NULL, GetActionState());
+		GUI.ModalWindow->MouseMove(x - GUI.ModalWindow->OffsetX, y - GUI.ModalWindow->OffsetY);
 		break;
 	case 9: {
 		SetHelpPosition(0, 0);
 		SetHelpSize(0, 0);
-		MainWindow->HelpMouseMove(x, y);
+		GUI.MainWindow->HelpMouseMove(x, y);
 		// The bubble is kept in a local: ModalWindow is read after
 		// HelpMouseMove and written only after Place (0x446b2a, 0x446b8f), so
 		// an exception before that leaves it as it was (issue #36).
-		THelpBubble *Bubble = static_cast<THelpBubble *>(ModalWindow);
+		THelpBubble *Bubble = static_cast<THelpBubble *>(GUI.ModalWindow);
 		if (GetHelpHandleChanged()) {
 			delete Bubble;
 			Bubble = nullptr;
@@ -336,22 +337,23 @@ void MouseMove(int x, int y)
 				Bubble = new THelpBubble(GetCurrentHelpText());
 		}
 		if (Bubble != nullptr)
-			Bubble->Place(MainWindow);
-		ModalWindow = Bubble;
+			Bubble->Place(GUI.MainWindow);
+		GUI.ModalWindow = Bubble;
 		break;
 	}
 	}
-	LastMouseMove = GetActionNumber();
+	GUI.LastMouseMove = GetActionNumber();
 	SetMouseOverText(nullptr);
 }
 
 // 0x446d10, lines 503-511
 void LeftButtonDown(int x, int y, int Flags)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	switch (GetActionState()) {
 	case 0:
 		SetDragStart(x, y);
-		MainWindow->LeftButtonDown(x, y, Flags);
+		GUI.MainWindow->LeftButtonDown(x, y, Flags);
 		SetActionState(1);
 		break;
 	case 2:
@@ -360,12 +362,12 @@ void LeftButtonDown(int x, int y, int Flags)
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT(ModalWindow!=NULL);
-		ModalWindow->LeftButtonDown(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
+		PATELLA_ASSERT(GUI.ModalWindow!=NULL);
+		GUI.ModalWindow->LeftButtonDown(x - GUI.ModalWindow->OffsetX, y - GUI.ModalWindow->OffsetY, Flags);
 		break;
 	}
 	SetPendingAction(6, GetActionNumber());
-	LastMouseMove = 0;
+	GUI.LastMouseMove = 0;
 	SetMouseOverText(nullptr);
 }
 
@@ -373,55 +375,57 @@ void LeftButtonDown(int x, int y, int Flags)
 // sends a left button release with Flags 0x200.
 void LeftButtonUp(int x, int y, int Flags)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	switch (GetActionState()) {
 	case 0:
-		if (MainWindow->GetCapture() != nullptr) {
-			MainWindow->LeftButtonUp(x, y, Flags);
-			MainWindow->StopDragging();
+		if (GUI.MainWindow->GetCapture() != nullptr) {
+			GUI.MainWindow->LeftButtonUp(x, y, Flags);
+			GUI.MainWindow->StopDragging();
 		}
 		break;
 	case 3:
 		SetActionState(5);
 		break;
 	case 4:
-		MainWindow->LeftButtonUp(x, y, 0x200);
+		GUI.MainWindow->LeftButtonUp(x, y, 0x200);
 		SetActionState(0);
 		break;
 	case 1:
 	case 6:
 	case 7:
 	case 8:
-		MainWindow->LeftButtonUp(x, y, Flags);
+		GUI.MainWindow->LeftButtonUp(x, y, Flags);
 		SetActionState(0);
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT(ModalWindow!=NULL);
-		ModalWindow->LeftButtonUp(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
+		PATELLA_ASSERT(GUI.ModalWindow!=NULL);
+		GUI.ModalWindow->LeftButtonUp(x - GUI.ModalWindow->OffsetX, y - GUI.ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0 || GetActionState() == 7 || GetActionState() == 8) {
-			delete ModalWindow;
-			ModalWindow = nullptr;
-			MainWindow->SetConsoleActive(true);
+			delete GUI.ModalWindow;
+			GUI.ModalWindow = nullptr;
+			GUI.MainWindow->SetConsoleActive(true);
 		}
 		break;
 	case 9:
-		delete ModalWindow;
-		ModalWindow = nullptr;
+		delete GUI.ModalWindow;
+		GUI.ModalWindow = nullptr;
 		SetActionState(0);
 		break;
 	}
 	SetPendingAction(0, 0);
-	LastMouseMove = 0;
+	GUI.LastMouseMove = 0;
 	SetMouseOverText(nullptr);
 }
 
 // 0x447390, lines 586-599
 void LeftButtonDoubleClick(int x, int y, int Flags)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	switch (GetActionState()) {
 	case 0:
 		SetDragStart(x, y);
-		MainWindow->LeftButtonDoubleClick(x, y, Flags);
+		GUI.MainWindow->LeftButtonDoubleClick(x, y, Flags);
 		SetActionState(1);
 		break;
 	case 2:
@@ -430,17 +434,17 @@ void LeftButtonDoubleClick(int x, int y, int Flags)
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT(ModalWindow!=NULL);
-		ModalWindow->LeftButtonDoubleClick(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
+		PATELLA_ASSERT(GUI.ModalWindow!=NULL);
+		GUI.ModalWindow->LeftButtonDoubleClick(x - GUI.ModalWindow->OffsetX, y - GUI.ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0 || GetActionState() == 7 || GetActionState() == 8) {
-			delete ModalWindow;
-			ModalWindow = nullptr;
-			MainWindow->SetConsoleActive(true);
+			delete GUI.ModalWindow;
+			GUI.ModalWindow = nullptr;
+			GUI.MainWindow->SetConsoleActive(true);
 		}
 		break;
 	}
 	SetPendingAction(6, GetActionNumber());
-	LastMouseMove = 0;
+	GUI.LastMouseMove = 0;
 	SetMouseOverText(nullptr);
 }
 
@@ -457,7 +461,7 @@ void RightButtonDown([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unu
 			SetActionState(3);
 		break;
 	}
-	LastMouseMove = 0;
+	patella::bridge::GUI().LastMouseMove = 0;
 	SetMouseOverText(nullptr);
 }
 
@@ -465,35 +469,36 @@ void RightButtonDown([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unu
 // sends a left button release with Flags 0x200.
 void RightButtonUp(int x, int y, int Flags)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	switch (GetActionState()) {
 	case 0:
-		if (MainWindow->GetCapture() != nullptr)
-			MainWindow->StopDragging();
+		if (GUI.MainWindow->GetCapture() != nullptr)
+			GUI.MainWindow->StopDragging();
 		break;
 	case 2:
-		MainWindow->RightButtonUp(x, y, Flags);
+		GUI.MainWindow->RightButtonUp(x, y, Flags);
 		SetActionState(0);
 		break;
 	case 3:
 		SetActionState(4);
 		break;
 	case 5:
-		MainWindow->LeftButtonUp(x, y, 0x200);
+		GUI.MainWindow->LeftButtonUp(x, y, 0x200);
 		SetActionState(0);
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT(ModalWindow!=NULL);
-		ModalWindow->RightButtonUp(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
+		PATELLA_ASSERT(GUI.ModalWindow!=NULL);
+		GUI.ModalWindow->RightButtonUp(x - GUI.ModalWindow->OffsetX, y - GUI.ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0) {
-			delete ModalWindow;
-			ModalWindow = nullptr;
-			MainWindow->SetConsoleActive(true);
+			delete GUI.ModalWindow;
+			GUI.ModalWindow = nullptr;
+			GUI.MainWindow->SetConsoleActive(true);
 		}
 		break;
 	case 9:
-		delete ModalWindow;
-		ModalWindow = nullptr;
+		delete GUI.ModalWindow;
+		GUI.ModalWindow = nullptr;
 		SetActionState(0);
 		break;
 	case 7:
@@ -501,49 +506,51 @@ void RightButtonUp(int x, int y, int Flags)
 		SetActionState(0);
 		break;
 	}
-	LastMouseMove = 0;
+	GUI.LastMouseMove = 0;
 	SetMouseOverText(nullptr);
 }
 
 // 0x447bd0, lines 681-692. Direction 1 up, 2 down (MainFrm's OnMouseWheel).
 void MouseWheel(int x, int y, int Direction)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	switch (GetActionState()) {
 	case 9:
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT(ModalWindow!=NULL);
-		ModalWindow->MouseWheel(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Direction);
+		PATELLA_ASSERT(GUI.ModalWindow!=NULL);
+		GUI.ModalWindow->MouseWheel(x - GUI.ModalWindow->OffsetX, y - GUI.ModalWindow->OffsetY, Direction);
 		break;
 	default:
-		MainWindow->MouseWheel(x, y, Direction);
+		GUI.MainWindow->MouseWheel(x, y, Direction);
 		break;
 	}
-	LastMouseMove = 0;
+	GUI.LastMouseMove = 0;
 	SetMouseOverText(nullptr);
 }
 
 // 0x447e60, line 1086. Key 0x907 switches the frame rate display.
 void KeyPress(int Key)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	if (Key == 0x907) {
-		ShowFPS = !ShowFPS;
+		GUI.ShowFPS = !GUI.ShowFPS;
 		return;
 	}
 	if (GetActionState() == 9)
 		SetActionState(0);
-	if (ModalWindow != nullptr) {
-		ModalWindow->KeyPress(Key);
+	if (GUI.ModalWindow != nullptr) {
+		GUI.ModalWindow->KeyPress(Key);
 		if (GetActionState() == 0) {
-			delete ModalWindow;
-			ModalWindow = nullptr;
-			MainWindow->SetConsoleActive(true);
+			delete GUI.ModalWindow;
+			GUI.ModalWindow = nullptr;
+			GUI.MainWindow->SetConsoleActive(true);
 		}
 	} else if (!CheckHotkey(Key)) {
-		MainWindow->KeyPress(Key);
+		GUI.MainWindow->KeyPress(Key);
 	}
-	LastMouseMove = 0;
+	GUI.LastMouseMove = 0;
 	SetMouseOverText(nullptr);
 }
 
@@ -553,7 +560,7 @@ void KeyPress(int Key)
 bool CloseRequest()
 {
 	if (GetConnectionState() == 8) {
-		if (ModalWindow == nullptr) {
+		if (patella::bridge::GUI().ModalWindow == nullptr) {
 			INT_PTR *Data = new INT_PTR[4];
 			Data[0] = reinterpret_cast<INT_PTR>("Warning");
 			Data[1] = reinterpret_cast<INT_PTR>("If you shut down the program, your character might stay in the game.\n"
@@ -615,6 +622,7 @@ void ConnectionEstablished()
 // server. The first packet moves state 3 to 4 and state 6 to 7.
 void ReceivePackets()
 {
+	const patella::TGUI &GUI = patella::bridge::GUI();
 	int Type = -1;
 	while ((Type = GetNextCommand()) != -1) {
 		patella::TCommunication &Communication = patella::bridge::Communication();
@@ -670,13 +678,13 @@ void ReceivePackets()
 			case 0x6e: {
 				int Container;
 				ReceiveOpenContainer(Container);
-				MainWindow->OpenContainer(Container);
+				GUI.MainWindow->OpenContainer(Container);
 				break;
 			}
 			case 0x6f: {
 				int Container;
 				ReceiveCloseContainer(Container);
-				MainWindow->CloseContainer(Container);
+				GUI.MainWindow->CloseContainer(Container);
 				break;
 			}
 			case 0x70: ReceiveContainerAddObject(); break;
@@ -687,9 +695,9 @@ void ReceivePackets()
 				ReceiveDeleteInventoryObject();
 				break;
 				// clang-format off
-			case 0x7d: ReceiveOwnTrade(); MainWindow->OpenTrade(); break;
-			case 0x7e: ReceiveCounterTrade(); MainWindow->UpdateTrade(); break;
-			case 0x7f: ReceiveCloseTrade(); MainWindow->CloseTrade(); break;
+			case 0x7d: ReceiveOwnTrade(); GUI.MainWindow->OpenTrade(); break;
+			case 0x7e: ReceiveCounterTrade(); GUI.MainWindow->UpdateTrade(); break;
+			case 0x7f: ReceiveCloseTrade(); GUI.MainWindow->CloseTrade(); break;
 			// clang-format on
 			case 0x82: ReceiveWorldLight(); break;
 			case 0x83: ReceiveMagicEffect(); break;
@@ -787,15 +795,16 @@ TMousePosition MousePosition()
 // connection timeout check and the two calls after it.
 void TimerEvent()
 {
+	const patella::TGUI &GUI = patella::bridge::GUI();
 	IncrementActionNumber();
-	if (LastMouseMove != 0 && LastMouseMove == GetActionNumber() - 10) {
+	if (GUI.LastMouseMove != 0 && GUI.LastMouseMove == GetActionNumber() - 10) {
 		// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
 		const int MouseY = GetMouseY();
 		const int MouseX = GetMouseX();
-		if (ModalWindow != nullptr)
-			ModalWindow->MouseHover(MouseX - ModalWindow->OffsetX, MouseY - ModalWindow->OffsetY);
+		if (GUI.ModalWindow != nullptr)
+			GUI.ModalWindow->MouseHover(MouseX - GUI.ModalWindow->OffsetX, MouseY - GUI.ModalWindow->OffsetY);
 		else
-			MainWindow->MouseHover(MouseX, MouseY);
+			GUI.MainWindow->MouseHover(MouseX, MouseY);
 		if (GetMouseOverText() != nullptr) {
 			const int TextY = GetMouseY();
 			SetMouseOverTextPosition(GetMouseX(), TextY);
@@ -813,10 +822,10 @@ void TimerEvent()
 			// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
 			const int MouseY = GetMouseY();
 			const int MouseX = GetMouseX();
-			if (ModalWindow != nullptr)
-				ModalWindow->MouseWheel(MouseX - ModalWindow->OffsetX, MouseY - ModalWindow->OffsetY, 6);
+			if (GUI.ModalWindow != nullptr)
+				GUI.ModalWindow->MouseWheel(MouseX - GUI.ModalWindow->OffsetX, MouseY - GUI.ModalWindow->OffsetY, 6);
 			else
-				MainWindow->MouseWheel(MouseX, MouseY, 6);
+				GUI.MainWindow->MouseWheel(MouseX, MouseY, 6);
 		}
 	}
 	CheckConnectionTimeout();
@@ -833,70 +842,71 @@ void TimerEvent()
 // 0x32 deletes Param2 after using Param1.
 void ProcessEvents()
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	int Type = 0;
-	if (ModalWindow != nullptr && GetActionState() == 0) {
-		delete ModalWindow;
-		ModalWindow = nullptr;
+	if (GUI.ModalWindow != nullptr && GetActionState() == 0) {
+		delete GUI.ModalWindow;
+		GUI.ModalWindow = nullptr;
 		SetActionState(0);
-		MainWindow->SetConsoleActive(true);
+		GUI.MainWindow->SetConsoleActive(true);
 		Redraw(false);
 	}
-	while (MainWindow->GetCapture() == nullptr && ModalWindow == nullptr && PeekMessageType() != 0) {
+	while (GUI.MainWindow->GetCapture() == nullptr && GUI.ModalWindow == nullptr && PeekMessageType() != 0) {
 		INT_PTR Param1, Param2;
 		FetchMessage(&Type, &Param1, &Param2);
 		switch (Type) {
 		case 0x01:
-			ModalWindow = CreateMessageDialog(reinterpret_cast<const char *>(Param1), reinterpret_cast<const char *>(Param2));
+			GUI.ModalWindow = CreateMessageDialog(reinterpret_cast<const char *>(Param1), reinterpret_cast<const char *>(Param2));
 			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x02:
-			ModalWindow = CreateFormattedMessageDialog(reinterpret_cast<const char *>(Param1), reinterpret_cast<const char *>(Param2));
+			GUI.ModalWindow = CreateFormattedMessageDialog(reinterpret_cast<const char *>(Param1), reinterpret_cast<const char *>(Param2));
 			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x03:
-			ModalWindow = CreateConnectingDialog("Connecting", TextCharacterListLoading, MainWindow);
+			GUI.ModalWindow = CreateConnectingDialog("Connecting", TextCharacterListLoading, GUI.MainWindow);
 			break;
 		case 0x04:
-			ModalWindow = CreateConnectingDialog("Connecting", TextConnectingGameWorld, MainWindow);
+			GUI.ModalWindow = CreateConnectingDialog("Connecting", TextConnectingGameWorld, GUI.MainWindow);
 			break;
 		case 0x05:
-			ModalWindow = CreateReconnectDialog("Please wait", reinterpret_cast<const char *>(Param1), (int)Param2);
+			GUI.ModalWindow = CreateReconnectDialog("Please wait", reinterpret_cast<const char *>(Param1), (int)Param2);
 			delete[] reinterpret_cast<char *>(Param1);
 			break;
 		case 0x06: {
 			const INT_PTR *Data = reinterpret_cast<INT_PTR *>(Param1);
-			ModalWindow = CreateQuestionDialog(reinterpret_cast<const char *>(Data[0]), reinterpret_cast<const char *>(Data[1]), reinterpret_cast<TWindow *>(Data[2]),
+			GUI.ModalWindow = CreateQuestionDialog(reinterpret_cast<const char *>(Data[0]), reinterpret_cast<const char *>(Data[1]), reinterpret_cast<TWindow *>(Data[2]),
 				(int)Data[3], 2);
 			delete[] Data;
 			break;
 		}
 		case 0x07: {
 			const INT_PTR *Data = reinterpret_cast<INT_PTR *>(Param1);
-			ModalWindow = CreateLogoutDialog(reinterpret_cast<const char *>(Data[0]), reinterpret_cast<const char *>(Data[1]), MainWindow);
+			GUI.ModalWindow = CreateLogoutDialog(reinterpret_cast<const char *>(Data[0]), reinterpret_cast<const char *>(Data[1]), GUI.MainWindow);
 			delete[] Data;
 			break;
 		}
 		case 0x08:
-			ModalWindow = CreateLoginDialog(URLCallback);
+			GUI.ModalWindow = CreateLoginDialog(GUI.URLCallback);
 			break;
 		case 0x09:
-			ModalWindow = CreateWaitDialog("Please wait", TextWaitForCharacterList, (int)Param1);
+			GUI.ModalWindow = CreateWaitDialog("Please wait", TextWaitForCharacterList, (int)Param1);
 			break;
 		case 0x0a:
-			ModalWindow = CreateCharacterListDialog((int)Param1);
+			GUI.ModalWindow = CreateCharacterListDialog((int)Param1);
 			break;
 		case 0x0b:
-			ModalWindow = CreateQuestionDialog(reinterpret_cast<const char *>(Param1), TextLinkCopyWarning, MainWindow, 0x21, 2);
+			GUI.ModalWindow = CreateQuestionDialog(reinterpret_cast<const char *>(Param1), TextLinkCopyWarning, GUI.MainWindow, 0x21, 2);
 			break;
 		case 0x0c:
-			ModalWindow = CreateMessageDialog(reinterpret_cast<const char *>(Param1), TextNeverGiveAccount);
+			GUI.ModalWindow = CreateMessageDialog(reinterpret_cast<const char *>(Param1), TextNeverGiveAccount);
 			break;
 		case 0x0d:
-			ModalWindow = CreateMoveObjectsDialog();
+			GUI.ModalWindow = CreateMoveObjectsDialog();
 			break;
 		case 0x0e: {
 			const INT_PTR *Texts = reinterpret_cast<INT_PTR *>(Param2);
-			ModalWindow = CreateTextDialog(reinterpret_cast<int *>(Param1), reinterpret_cast<const char *>(Texts[0]), reinterpret_cast<const char *>(Texts[1]));
+			GUI.ModalWindow = CreateTextDialog(reinterpret_cast<int *>(Param1), reinterpret_cast<const char *>(Texts[0]), reinterpret_cast<const char *>(Texts[1]));
 			delete[] reinterpret_cast<char *>(Param1);
 			delete[] reinterpret_cast<char *>(Texts[0]);
 			delete[] reinterpret_cast<char *>(Texts[1]);
@@ -904,44 +914,44 @@ void ProcessEvents()
 			break;
 		}
 		case 0x0f:
-			ModalWindow = CreateEditListDialog(reinterpret_cast<int *>(Param1), reinterpret_cast<const char *>(Param2));
+			GUI.ModalWindow = CreateEditListDialog(reinterpret_cast<int *>(Param1), reinterpret_cast<const char *>(Param2));
 			delete[] reinterpret_cast<char *>(Param1);
 			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x10:
 			patella::bridge::Communication().OutfitRequested = false;
-			ModalWindow = CreateOutfitDialog(reinterpret_cast<int *>(Param1));
+			GUI.ModalWindow = CreateOutfitDialog(reinterpret_cast<int *>(Param1));
 			delete[] reinterpret_cast<char *>(Param1);
 			break;
 		case 0x11:
-			ModalWindow = CreateBugReportDialog();
+			GUI.ModalWindow = CreateBugReportDialog();
 			break;
 		case 0x12: {
 			// ReceiveChannelList's int[]: the count, then the channel IDs (Patella-Modern issue #30).
 			int *Data = reinterpret_cast<int *>(Param1);
-			ModalWindow = CreateNewChannelDialog(Data[0], &Data[1], reinterpret_cast<const char (*)[30]>(Param2)); // NOLINT(modernize-avoid-c-arrays): CreateNewChannelDialog's parameter (Dialogs.h)
+			GUI.ModalWindow = CreateNewChannelDialog(Data[0], &Data[1], reinterpret_cast<const char (*)[30]>(Param2)); // NOLINT(modernize-avoid-c-arrays): CreateNewChannelDialog's parameter (Dialogs.h)
 			delete[] Data;
 			if (Param2 != 0)
 				delete[] reinterpret_cast<char *>(Param2);
 			break;
 		}
 		case 0x13:
-			ModalWindow = CreateInviteDialog();
+			GUI.ModalWindow = CreateInviteDialog();
 			break;
 		case 0x14:
-			ModalWindow = CreateExcludeDialog();
+			GUI.ModalWindow = CreateExcludeDialog();
 			break;
 		case 0x15:
-			ModalWindow = CreateIgnoreListDialog();
+			GUI.ModalWindow = CreateIgnoreListDialog();
 			break;
 		case 0x16:
-			ModalWindow = CreateReportDialog();
+			GUI.ModalWindow = CreateReportDialog();
 			break;
 		case 0x17:
-			ModalWindow = CreateAddBuddyDialog();
+			GUI.ModalWindow = CreateAddBuddyDialog();
 			break;
 		case 0x18:
-			ModalWindow = CreateEditBuddyDialog((int)Param1);
+			GUI.ModalWindow = CreateEditBuddyDialog((int)Param1);
 			break;
 		case 0x19:
 			AddTemporaryIgnore(reinterpret_cast<const char *>(Param1));
@@ -952,50 +962,50 @@ void ProcessEvents()
 			delete[] reinterpret_cast<char *>(Param1);
 			break;
 		case 0x1b:
-			ModalWindow = CreateInfoDialog(URLCallback);
+			GUI.ModalWindow = CreateInfoDialog(GUI.URLCallback);
 			break;
 		case 0x1c:
-			ModalWindow = CreateRuleViolationDialog(reinterpret_cast<const char *>(Param1), reinterpret_cast<TTalkLine *>(Param2));
+			GUI.ModalWindow = CreateRuleViolationDialog(reinterpret_cast<const char *>(Param1), reinterpret_cast<TTalkLine *>(Param2));
 			if (Param1 != 0)
 				delete[] reinterpret_cast<char *>(Param1);
 			if (Param2 != 0)
 				delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x1d:
-			ModalWindow = CreateEditMarkDialog(reinterpret_cast<TCoordinate *>(Param1), nullptr);
+			GUI.ModalWindow = CreateEditMarkDialog(reinterpret_cast<TCoordinate *>(Param1), nullptr);
 			break;
 		case 0x1e:
-			ModalWindow = CreateEditMarkDialog(reinterpret_cast<TCoordinate *>(Param1), reinterpret_cast<TMark *>(Param2));
+			GUI.ModalWindow = CreateEditMarkDialog(reinterpret_cast<TCoordinate *>(Param1), reinterpret_cast<TMark *>(Param2));
 			break;
 		case 0x1f:
-			ModalWindow = CreateHelpDialog(URLCallback);
+			GUI.ModalWindow = CreateHelpDialog(GUI.URLCallback);
 			break;
 		case 0x20:
-			ModalWindow = CreateHintsDialog();
+			GUI.ModalWindow = CreateHintsDialog();
 			break;
 		case 0x21:
-			ModalWindow = CreateOptionsDialog();
+			GUI.ModalWindow = CreateOptionsDialog();
 			break;
 		case 0x22:
-			ModalWindow = CreateNetworkOptionsDialog(URLCallback);
+			GUI.ModalWindow = CreateNetworkOptionsDialog(GUI.URLCallback);
 			break;
 		case 0x23:
-			ModalWindow = CreateGraphicsOptionsDialog(URLCallback, DisplayModeCallback, MainWindow);
+			GUI.ModalWindow = CreateGraphicsOptionsDialog(GUI.URLCallback, GUI.DisplayModeCallback, GUI.MainWindow);
 			break;
 		case 0x24:
-			ModalWindow = CreateAdvancedGraphicsDialog(URLCallback, reinterpret_cast<TComponent *>(Param1));
+			GUI.ModalWindow = CreateAdvancedGraphicsDialog(GUI.URLCallback, reinterpret_cast<TComponent *>(Param1));
 			break;
 		case 0x25:
-			ModalWindow = CreateConsoleOptionsDialog(URLCallback);
+			GUI.ModalWindow = CreateConsoleOptionsDialog(GUI.URLCallback);
 			break;
 		case 0x26:
-			ModalWindow = CreateHotkeyDialog(URLCallback);
+			GUI.ModalWindow = CreateHotkeyDialog(GUI.URLCallback);
 			break;
 		case 0x27:
-			ModalWindow = CreateGeneralOptionsDialog(URLCallback);
+			GUI.ModalWindow = CreateGeneralOptionsDialog(GUI.URLCallback);
 			break;
 		case 0x28:
-			ModalWindow = CreateMessageDialog("Message of the Day", GetMotD());
+			GUI.ModalWindow = CreateMessageDialog("Message of the Day", GetMotD());
 			break;
 		// 0x29, the update dialog (ReceivePatch and ReceiveWholeFile posted it), is gone since issue #75.
 		case 0x2c:
@@ -1009,77 +1019,77 @@ void ProcessEvents()
 			SetHelpHandle(0);
 			break;
 		case 0x2f:
-			MainWindow->Console->OpenChannel(4, 4, reinterpret_cast<const char *>(Param2), -1, reinterpret_cast<const char *>(Param2));
+			GUI.MainWindow->Console->OpenChannel(4, 4, reinterpret_cast<const char *>(Param2), -1, reinterpret_cast<const char *>(Param2));
 			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x30:
-			MainWindow->Console->OpenChannel(5, 5, nullptr, (int)Param1, reinterpret_cast<const char *>(Param2));
+			GUI.MainWindow->Console->OpenChannel(5, 5, nullptr, (int)Param1, reinterpret_cast<const char *>(Param2));
 			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x31:
-			MainWindow->Console->OpenChannel(5, 5, nullptr, (int)Param1, reinterpret_cast<const char *>(Param2))->SetSelected(true);
+			GUI.MainWindow->Console->OpenChannel(5, 5, nullptr, (int)Param1, reinterpret_cast<const char *>(Param2))->SetSelected(true);
 			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x32:
-			MainWindow->Console->AddChannel(reinterpret_cast<TTalkBuffer *>(Param1), TextRuleViolations);
+			GUI.MainWindow->Console->AddChannel(reinterpret_cast<TTalkBuffer *>(Param1), TextRuleViolations);
 			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x33:
-			MainWindow->Console->ReportRuleViolation(reinterpret_cast<const char *>(Param1));
+			GUI.MainWindow->Console->ReportRuleViolation(reinterpret_cast<const char *>(Param1));
 			delete[] reinterpret_cast<char *>(Param1);
 			break;
 		case 0x34: {
 			const TMousePosition Mouse = MousePosition();
-			ModalWindow = new TObjectContextMenu(Mouse.x, Mouse.y, MainWindow->Width,
-				MainWindow->Height);
+			GUI.ModalWindow = new TObjectContextMenu(Mouse.x, Mouse.y, GUI.MainWindow->Width,
+				GUI.MainWindow->Height);
 			break;
 		}
 		case 0x35: {
 			const TMousePosition Mouse = MousePosition();
-			ModalWindow = new TCreatureContextMenu((uint32)Param1, Mouse.x, Mouse.y,
-				MainWindow->Width, MainWindow->Height);
+			GUI.ModalWindow = new TCreatureContextMenu((uint32)Param1, Mouse.x, Mouse.y,
+				GUI.MainWindow->Width, GUI.MainWindow->Height);
 			break;
 		}
 		case 0x36: {
 			const TMousePosition Mouse = MousePosition();
-			ModalWindow = new TBuddyContextMenu((uint32)Param1, Mouse.x, Mouse.y,
-				MainWindow->Width, MainWindow->Height);
+			GUI.ModalWindow = new TBuddyContextMenu((uint32)Param1, Mouse.x, Mouse.y,
+				GUI.MainWindow->Width, GUI.MainWindow->Height);
 			break;
 		}
 		case 0x37: {
 			const TMousePosition Mouse = MousePosition();
-			ModalWindow = new TTextContextMenu(MainWindow->Console->CurrentConsole->TextWindow, (int)Param1,
-				Mouse.x, Mouse.y, MainWindow->Width, MainWindow->Height);
+			GUI.ModalWindow = new TTextContextMenu(GUI.MainWindow->Console->CurrentConsole->TextWindow, (int)Param1,
+				Mouse.x, Mouse.y, GUI.MainWindow->Width, GUI.MainWindow->Height);
 			break;
 		}
 		case 0x38: {
 			const TMousePosition Mouse = MousePosition();
-			ModalWindow = new TChannelContextMenu(MainWindow->Console, Mouse.x, Mouse.y,
-				MainWindow->Width, MainWindow->Height);
+			GUI.ModalWindow = new TChannelContextMenu(GUI.MainWindow->Console, Mouse.x, Mouse.y,
+				GUI.MainWindow->Width, GUI.MainWindow->Height);
 			break;
 		}
 		case 0x39: {
 			const TMousePosition Mouse = MousePosition();
-			ModalWindow = new TRequestContextMenu(MainWindow->Console, (int)Param1, Mouse.x,
-				Mouse.y, MainWindow->Width, MainWindow->Height);
+			GUI.ModalWindow = new TRequestContextMenu(GUI.MainWindow->Console, (int)Param1, Mouse.x,
+				Mouse.y, GUI.MainWindow->Width, GUI.MainWindow->Height);
 			break;
 		}
 		case 0x3a: {
 			const TMousePosition Mouse = MousePosition();
-			ModalWindow = new TEditContextMenu(reinterpret_cast<TEditLine *>(Param1), Mouse.x, Mouse.y,
-				MainWindow->Width, MainWindow->Height);
+			GUI.ModalWindow = new TEditContextMenu(reinterpret_cast<TEditLine *>(Param1), Mouse.x, Mouse.y,
+				GUI.MainWindow->Width, GUI.MainWindow->Height);
 			break;
 		}
 		case 0x3b: {
 			const TMousePosition Mouse = MousePosition();
-			ModalWindow = new TMarkContextMenu(reinterpret_cast<TMarkMenuData *>(Param1), Mouse.x, Mouse.y,
-				MainWindow->Width, MainWindow->Height);
+			GUI.ModalWindow = new TMarkContextMenu(reinterpret_cast<TMarkMenuData *>(Param1), Mouse.x, Mouse.y,
+				GUI.MainWindow->Width, GUI.MainWindow->Height);
 			break;
 		}
 		case 0x3c: {
 			const TMousePosition Mouse = MousePosition();
-			ModalWindow = new TSkillContextMenu(reinterpret_cast<TSkillsWindowBody *>(Param1), Mouse.x, Mouse.y,
-				MainWindow->Width, MainWindow->Height);
+			GUI.ModalWindow = new TSkillContextMenu(reinterpret_cast<TSkillsWindowBody *>(Param1), Mouse.x, Mouse.y,
+				GUI.MainWindow->Width, GUI.MainWindow->Height);
 			break;
 		}
 		case 0x3d:
@@ -1106,15 +1116,15 @@ void ProcessEvents()
 		default:
 			TERROR1("unknown message type", Type);
 		}
-		if (ModalWindow != nullptr) {
+		if (GUI.ModalWindow != nullptr) {
 			if (Type < 0x34) {
-				ModalWindow->SetPosition(MainWindow->Width / 2 - ModalWindow->Width / 2,
-					MainWindow->Height / 2 - ModalWindow->Height / 2);
+				GUI.ModalWindow->SetPosition(GUI.MainWindow->Width / 2 - GUI.ModalWindow->Width / 2,
+					GUI.MainWindow->Height / 2 - GUI.ModalWindow->Height / 2);
 				SetActionState(10);
 			} else {
 				SetActionState(11);
 			}
-			MainWindow->SetConsoleActive(false);
+			GUI.MainWindow->SetConsoleActive(false);
 		}
 	}
 	if (GetConnectionState() == 8 && MoveCreatures())
@@ -1126,11 +1136,12 @@ void ProcessEvents()
 // (event 0x48's callback), is gone with the patcher since issue #75.
 void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL))
 {
-	WindowHandle = Window;
+	patella::TGUI &GUI = patella::bridge::GUI();
+	GUI.WindowHandle = Window;
 	SetNetworkWindow(Window);
-	ExitCallback = ExitProgram;
-	DisplayModeCallback = SetDisplayMode;
-	URLCallback = OpenURL;
+	GUI.ExitCallback = ExitProgram;
+	GUI.DisplayModeCallback = SetDisplayMode;
+	GUI.URLCallback = OpenURL;
 	SetMouseCursor(1);
 	memset(patella::bridge::Communication().LastPacketTypes.data(), 0, sizeof(patella::TCommunication::LastPacketTypes));
 	patella::bridge::Communication().LastPacketIndex = 0;

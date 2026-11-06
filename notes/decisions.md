@@ -12660,7 +12660,7 @@ functions become the members of its subsystem under the same names, with their a
 | TMapState | 3 | the game state, as five smaller objects it owns (below): Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp | #106, done |
 | TCommunication | 4 | Communication.cpp (6: SkipFields, OutfitRequested, CancelCount, LastCancelX/Y/Z); Control.cpp's LastPacketType, LastPacketIndex, LastPacketTypes; Status.cpp's session (ConnectionState, Progress, AccountNumber, AccountNumberString, AccountPassword, Characters, AccountCharacters, ActiveCharacter, PremiumDays, Gamemaster, Rights) | #105, done (the session as TSession, below) |
 | TGraphics (recommended) | 5 | graphics.cpp (21: the sprite, picture and font tables, the two caches and their lists), Surface.cpp (18: the engine choice, the screen, the blit counters, the surfaces), Skins.cpp (Skins, NumberOfSkins): the client's side of TSurface | none yet ("Found, not done") |
-| TGUI | 6 | MainWindow.cpp (ModalWindow, MainWindow); GUI.cpp (SkinProperties, NumberOfHotkeys, the LastTime static of its timer); Help.cpp (8); Talk.cpp (11 and its LastTime static, as a TTalk inside TGUI); ContentWindows.cpp (the two mouse-over texts); Status.cpp's user interaction (the action, drag, use and trade fields and objects, PendingAction*, the message queue Messages and NumberOfMessages, MouseX/Y, WindowWidth/Height, MouseCursor, the blink, the mouse-over text, LinkRegexp, TaintedClipboardText, LinkWarningEventHandler); Control.cpp's LastMouseMove, WindowHandle, ShowFPS | #107 |
+| TGUI | 6 | MainWindow.cpp (ModalWindow, MainWindow); GUI.cpp (SkinProperties, NumberOfHotkeys, the LastTime static of its timer); Help.cpp (8); Talk.cpp (11 and its LastTime static, as a TTalk inside TGUI); ContentWindows.cpp (the two mouse-over texts); Status.cpp's user interaction (the action, drag, use and trade fields and objects, PendingAction*, the message queue Messages and NumberOfMessages, MouseX/Y, WindowWidth/Height, MouseCursor, the blink, the mouse-over text, LinkRegexp, TaintedClipboardText, LinkWarningEventHandler); Control.cpp's LastMouseMove, WindowHandle, ShowFPS | #107, part 1 done (not yet: SkinProperties, the functions of Control.cpp and MainWindow.cpp) |
 | the platform objects | outside TClient | MainFrm.cpp (MainFrame, the cursors, the buttons, Closing, DisplayChanged, ClassName, WheelDelta), Player.cpp (theApp, TitleKey, ClassNameKey, LastMouseCursor, NumberOfTibiaWindows, LastMousePosition), sysinc.cpp (the clipboard buffer; TitleCode and ClassNameCode are constants), src/vulkan (SurfaceVulkan.cpp, DeviceSettings.cpp) | #109 |
 
 TMapState's finer split (#106), each an object TMapState owns and passes to the others:
@@ -12915,7 +12915,7 @@ ConsoleWindow and MapWindow left with them (their way back into the cycle went t
 
 Found, not done:
 
-- TNetworkSession is Client.cpp's adapter over Status.cpp's free functions. Its session part could be TSession's own
+- TNetworkSession is Client.cpp's adapter over Status.cpp's free functions (still so after #107: "The fourth move: TGUI"). Its session part could be TSession's own
   (TSession implementing it), but TSession is made after TNetwork (inside TCommunication), so TNetwork would hold a
   reference to a later object; AddMessage is TGUI's (#107). Revisit when TGUI exists (#107) or with #109's ISocket
   events.
@@ -13005,6 +13005,109 @@ PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden, its manifest verified):
   not passed.
 - `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
   clang-format (CLAUDE.md's command): exit 0.
+
+### The fourth move: TGUI (issue #107, part 1)
+
+Done by Claude Opus 5.5, November 6, 2026 (branch issue-107, two commits: the move, then TGUIController). TClient
+makes TPreferences, TNetwork, TMapState, TCommunication, TGUI, in that order (Client.h; merged with #106's TMapState
+on main 0aaf626); TGUI is made with a TGUIController (below).
+
+- **TGUI** (GUI.h; high): the sixth subsystem. It owns three objects of its files, each declared in its file's header
+  and defined in its file (as #105's TSession: the file stays the module map): TTalk (Talk.h), THelp (Help.h),
+  TInteraction (Status.h). Its own members are the data of GUI.cpp (NumberOfHotkeys 0x5ccf98, Timers 0x5ccfa4,
+  Hotkeys 0x5ce4f0, UpdateTimers' static LastTime 0x5ce518), ContentWindows.cpp (AutomapMouseOverText 0x5c4398,
+  SkillMouseOverText 0x5c4400), Control.cpp (LastMouseMove 0x5c4528, URLCallback, DisplayModeCallback, ExitCallback,
+  WindowHandle 0x5c453c, ShowFPS 0x5c4554) and MainWindow.cpp (OpenURLCallback, SetDisplayModeCallback,
+  ExitProgramCallback 0x5d16a0-0x5d16a8, ModalWindow 0x5d16ac, MainWindow 0x5d16b0), in address order with the
+  original's comments and initial values. The table above names only three of Control.cpp's and two of
+  MainWindow.cpp's; the callbacks go with their files (a global the table does not name goes with its file), as do
+  GUI.cpp's Timers and Hotkeys. GUI.cpp's eight timer and hotkey functions (AddTimer, RemoveTimer, UpdateTimers,
+  InitHotkeys, ExitHotkeys, AddHotkey, RemoveHotkey, CheckHotkey) are TGUI's members of the same names (ExitHotkeys
+  static and empty, as TCommunication::ExitCommunication); the free functions forward to `bridge::GUI()`. The data
+  that the windows, Control.cpp, the test mode and the golden tests read is public (MainWindow, ModalWindow, the
+  callbacks, Control.cpp's six, the two texts); NumberOfHotkeys, Timers, Hotkeys and LastTime are private. 80 globals
+  and two function-local statics leave their files.
+- **TTalk** (Talk.h; high): Talk.cpp's 15 globals (0x71dbd0-0x71efef: the switches, the status message, the
+  talkboxes, DefaultTextBuffer, the throttle, the four filter lists, in .bss order; issue #44's two `static` lists in
+  their address order, which no longer depends on the compiler inside one object) and UpdateTalkboxes' static
+  LastTime (0x71eff0) are its members, its 66 functions the members of the same names. DefaultTextBuffer is public
+  (MainWindow.cpp, Map.cpp, TTalkBuffer::isDefault, the test mode's console dump and the golden Talk, MainWindow and
+  Map tests read or set it); isDefault is defined inline after TTalk in Talk.h. TTalk implements TPreferences'
+  TTalkLists (its seven members are TTalk's overrides), so `bridge::TalkLists()` returns the one TTalk and Client.cpp's
+  TTalkCppLists adapter is gone (#104's plan for #107).
+- **THelp** (Help.h; high): Help.cpp's 9 globals (0x5ce520-0x5ced5f) and its 18 functions (ExitHelp static and empty).
+- **TInteraction** (Status.h; high): Status.cpp's 40 globals that are not the session's (the link check's LinkRegexp,
+  TaintedClipboardText and LinkWarningEventHandler, the blink, the mouse-over text, the trade, use and drag state, the
+  pending action, the window size, the cursor, the action state and number, the message queue, the mouse, the three
+  objects; 0x71c458-0x71c477 and 0x71c58c-0x71c64f, around TSession's block) and its 43 functions. GetRightName and
+  GetActionName read no data and stay free functions. InitStatus and ExitStatus are TInteraction's and call the
+  session's InitSession and ExitSession on `bridge::Session()` where #105 put them. The compiled pattern is a
+  `regexp *` member with a forward declaration of the struct (Status.h does not include Extern/regexp).
+- **The function-local statics** (high): GUI.cpp's and Talk.cpp's `static int LastTime = GetMilliseconds();` are a
+  member and a flag (LastTime, LastTimeSet): the first call sets LastTime from the clock, as the static's guarded
+  initialisation did (the guard words 0x5ce51c and 0x71eff4); later calls see the stored value.
+- **ModalWindow and MainWindow** (high): TGUI's raw pointers, the original's ownership unchanged (Control.cpp news a
+  dialog, a context menu or the help bubble into ModalWindow and deletes the one before; InitMainWindow news the main
+  window, ExitMainWindow deletes both). They are no longer globals: MainWindow.h's externs are gone; the users write
+  `patella::bridge::GUI().ModalWindow` or, in a function with several uses, a local `patella::TGUI &GUI =
+  patella::bridge::GUI();` (as #105's Control.cpp did with TCommunication).
+- **What #108 needs** (high): ModalWindow has 59 assignments (57 in Control.cpp, 2 in MainWindow.cpp) and 10 deletes
+  (Resize, LeaveGame, the mouse handlers, KeyPress, ProcessEvents, ExitMainWindow); MainWindow one new
+  (InitMainWindow) and one delete (ExitMainWindow). The golden MainWindow and Communication tests take `TWindow *&`
+  and `TCtlMainWindow *&` to them (commworld.cpp's SideModalWindow and SideMainWindow, mainwindow_tests.cpp's Main)
+  and set them to NULL between scenarios: a unique_ptr needs those adapted (`.get()`, `release()`, `reset()`). The test
+  mode's ClientStateWin32.cpp reads both. MouseMove keeps the help bubble in a local before it writes ModalWindow
+  (issue #36), which an owner must keep. As owners they must not be destroyed by TClient's static destruction after
+  FatalError's exit (notes/ownership.md's table: the window destructors are `noexcept(false)`): #108's explicit close
+  before the owners, or a TClient that the entry point makes and destroys.
+- **TGUIController** (GUI.h; high): MainWindow.cpp's engine buttons call Control.cpp's ChangeEngine and Dialogs.cpp's
+  fullscreen switch its Resize, the windows' only calls up into Control.cpp. Rule 5: GUI.h declares the interface,
+  TGUI holds it by constructor reference (`Controller`), Client.cpp's TControlCppController implements it with
+  Control.cpp's free functions (stateless, made on first use, in another object file than the windows', so the golden
+  Dialogs test's fake of Resize and client_stubs.cpp's ChangeEngine are reached as before). MainWindow.cpp and
+  Dialogs.cpp no longer include Control.h.
+- **TNetworkSession** (high): stays Client.cpp's TStatusCppSession. Its AddMessage is TInteraction's now, but TGUI is
+  made after TNetwork, so a reference to it from TNetwork would point up; #109's ISocket events are the place to
+  revisit (as #105 noted).
+- **Behaviour** (high): the same code on the same data; what differs is the call through the accessors, TTalkLists'
+  and TGUIController's virtual calls, and the storage (one object instead of each file's .bss). The vectors are
+  allocated at TClient's first use instead of before main.
+
+The golden tests' calls (adapted, no check changed; 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0
+failures, as before):
+
+- control_tests.cpp: OUR_STATIC takes Control.cpp's statics as TGUI's members (`&patella::bridge::GUI().Name`, the
+  same NamedStatic search); ControlAfterRetired sets LastMouseMove and ShowFPS through the bridge; the
+  ReconnectTimeout search resets ModalWindow through it.
+- mainwindow_tests.cpp and commworld.cpp: MainWindow and ModalWindow through `bridge::GUI()`; mainwindow_tests.cpp,
+  map_tests.cpp and talk_tests.cpp: DefaultTextBuffer through `bridge::Talk()`.
+- No fake needed a member redirect: the golden tests fake Talk's, Help's and Status.cpp's functions where another
+  file calls them (the free functions keep their fakes), and the Preferences tests reach the real TTalk.
+
+The include cycles after the move (#104's measurement, main deadc83 against the branch): main has 33 modules, 208
+edges, 3 cycles: {ContentWindows, ContextMenus, Control, DialogWindow, Dialogs, MainWindow}, {Surface, graphics},
+{MainFrm, Player}. After #107: 209 edges (Client.cpp gains GUI, Help, Talk and Control; MainWindow.cpp and
+Dialogs.cpp lose Control), 3 cycles: {ContentWindows, ContextMenus, DialogWindow, MainWindow}, {Surface, graphics},
+{MainFrm, Player}. Control and Dialogs left the GUI cycle (their way back was MainWindow -> Control and Dialogs ->
+Control). What keeps the four: ContentWindows <-> ContextMenus (the content windows' context menus, which call back
+into them), ContentWindows <-> DialogWindow, ContentWindows -> MainWindow (TMainWindow's methods) and MainWindow ->
+ContentWindows, DialogWindow (the main window makes them).
+
+Found, not done (part 2 of #107):
+
+- **SkinProperties** (GUI.cpp, 0x5ccfc8) is still a global: 2,096 uses in 15 files (every window file, graphics.h's
+  and GUI.h's inlines, the test mode's dump). A rewrite to `bridge::GUI().SkinProperties` would touch every window
+  file and add a guarded static read to each; better when the windows hold their TGUI, or with TGraphics and
+  Skins.cpp, whose rectangles it carries. Where it goes is the owner's choice (TGUI by the table, or TGraphics).
+- **Control.cpp's 27 and MainWindow.cpp's 2 free functions** (InitControl, ProcessEvents, the input handlers,
+  InitMainWindow, ExitMainWindow) are not TGUI's members yet (rule 3); they reach TGUI's data through the bridge.
+  Control.cpp is compiled into control_tests.cpp (the test reads its statics), so that move changes the test's build:
+  a commit of its own.
+- **The NoCallback constants** (ContentWindows.cpp, Control.cpp, MainWindow.cpp, ConsoleWindow.cpp, MapWindow.cpp:
+  `TCallback(nullptr, 0)`, never written; ContentWindows.cpp's is copied by TTradeButtons) stay file-local: constants,
+  not state.
+- The 4-module GUI cycle: ContentWindows' calls into MainWindow (and the context menus' back into the content
+  windows) become TGUI's when the windows hold their TGUI (#108, or part 2).
 
 ## TIndexedVector over std::vector (Patella-Modern issue #99, M7)
 

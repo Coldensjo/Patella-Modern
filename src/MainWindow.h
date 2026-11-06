@@ -103,8 +103,8 @@ public:
 	int DragY;     // +0x2c
 };
 
-extern TWindow *ModalWindow;    // 0x5d16ac
-extern TMainWindow *MainWindow; // 0x5d16b0
+// ModalWindow (0x5d16ac) and MainWindow (0x5d16b0) are TGUI's members (GUI.h, issue #107):
+// patella::bridge::GUI().ModalWindow and .MainWindow.
 
 void InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode),
 	void (*OpenURL)(const char *URL)); // 0x4b05b0, lines 822-828

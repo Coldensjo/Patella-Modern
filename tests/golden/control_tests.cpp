@@ -324,7 +324,8 @@ static void *NamedStatic(const char *Name, void *Static, std::function<void(uint
 	}
 	return Static;
 }
-#define OUR_STATIC(Name, Set, Value, Value2) NamedStatic(#Name, (void *)&Name, Set, Value, Value2)
+// Control.cpp's statics are TGUI's members since issue #107 (GUI.h): the one TClient's.
+#define OUR_STATIC(Name, Set, Value, Value2) NamedStatic(#Name, (void *)&patella::bridge::GUI().Name, Set, Value, Value2)
 
 static void SearchChangeEngine(int Engine) { Call("ChangeEngine(%d)", Engine); }
 
@@ -359,7 +360,7 @@ static void FindStatics()
 		World[OURS].Events.clear();
 		World[OURS].Events.push_back(TQueuedEvent{0x3f, 0, 0});
 		World[OURS].Capture = NULL;
-		ModalWindow = NULL;
+		patella::bridge::GUI().ModalWindow = NULL;
 		ProcessEvents(); }, 0x5c6d7e30, 0x5c6d7e40);
 	// LastPacketType: a type the dispatcher knows, read from a frame (TCommunication's since issue #105).
 	O.LastPacketType = (int *)NamedStatic("LastPacketType", (void *)&patella::bridge::Communication().LastPacketType, [](uint32 v) {
@@ -426,8 +427,8 @@ static void ControlAfterRetired()
 	Communication.LastPacketIndex = Numbers[1];
 	patella::bridge::Network().ReconnectTimeout = Numbers[2];
 	patella::bridge::Network().Reconnect = Numbers[3] != 0;
-	LastMouseMove = Numbers[4];
-	ShowFPS = Numbers[5] != 0;
+	patella::bridge::GUI().LastMouseMove = Numbers[4];
+	patella::bridge::GUI().ShowFPS = Numbers[5] != 0;
 	curEngine = Numbers[6];
 	memcpy(Communication.LastPacketTypes.data(), Types, sizeof(Types));
 	std::string Ours = DumpStatics(OURS);

@@ -51,8 +51,7 @@ namespace {
 
 // Data, in .bss order. ContentWindows.obj's copy of the text table is
 // Text.h's (0x5c0678-0x5c08c3, then its copy of DefaultFontColor).
-TFixedString<100> AutomapMouseOverText; // 0x5c4398, a mark's text (TAutomapWindow::MouseHover)
-TFixedString<256> SkillMouseOverText;   // 0x5c4400, "You have %d percent to go"
+// 0x5c4398 AutomapMouseOverText and 0x5c4400 SkillMouseOverText are TGUI's (GUI.h, issue #107).
 // At 0x5c4500, constructed by the static initialiser 0x559dd0 as
 // TCallback(NULL, 0) like the other window files' (ConsoleWindow.obj's is at
 // 0x5c4390, initialiser 0x559dc0); here TTradeButtons' constructor copies it.
@@ -61,7 +60,7 @@ TCallback NoCallback(nullptr, 0);
 } // namespace
 
 // The texts TFixedStrings (issue #60).
-static_assert(sizeof(AutomapMouseOverText) == 100 && sizeof(SkillMouseOverText) == 256, "the mouse-over texts");
+static_assert(sizeof(patella::bridge::GUI().AutomapMouseOverText) == 100 && sizeof(patella::bridge::GUI().SkillMouseOverText) == 256, "the mouse-over texts");
 
 // --- The creators -----------------------------------------------------------------
 
@@ -322,15 +321,16 @@ bool TAutomapWindow::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int 
 // issue #64 compat/print.h's PrintLine, the same bytes).
 void TAutomapWindow::MouseHover(int x, int y)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	TMark Mark = View->GetMark(x - View->OffsetX, y - View->OffsetY);
 	if (Mark.x != 0 && Mark.y != 0) {
 		const int Length = (int)strlen(Mark.Text);
 		if (Length != 0) {
-			CopyString(AutomapMouseOverText.Chars, Mark.Text);
-			SetMouseOverText(AutomapMouseOverText);
+			CopyString(GUI.AutomapMouseOverText.Chars, Mark.Text);
+			SetMouseOverText(GUI.AutomapMouseOverText);
 		}
 	}
-	patella::compat::PrintLine("{}", static_cast<const char *>(AutomapMouseOverText));
+	patella::compat::PrintLine("{}", static_cast<const char *>(GUI.AutomapMouseOverText));
 }
 
 // 0x427200, line 465. The frame around the view: skins 9 (top), 11 (left),
@@ -1755,6 +1755,7 @@ bool TSkillsWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] i
 // 0x439c30, line 2133. Over a line with a bar: the percent still to go.
 void TSkillsWindowBody::MouseHover(int x, int y)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	if (!IsMinimized()) {
 		const int ScrollY = ScrollBar->Range->Value;
 		const int Bottom = Height - 1;
@@ -1783,8 +1784,8 @@ void TSkillsWindowBody::MouseHover(int x, int y)
 					ClipHeight = Bottom - Top + 1;
 				if (Top <= y && y <= ClipHeight + Top && SkinProperties.Data668 <= x
 					&& x <= SkinProperties.Data668 + TextWidth && Progress != -1) {
-					MsvcSnprintf(SkillMouseOverText, 256, TextPercentToGo, 100 - Progress);
-					SetMouseOverText(SkillMouseOverText);
+					MsvcSnprintf(GUI.SkillMouseOverText, 256, TextPercentToGo, 100 - Progress);
+					SetMouseOverText(GUI.SkillMouseOverText);
 				}
 			}
 			LineY += ItemHeight;

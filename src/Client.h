@@ -6,8 +6,9 @@
 // subsystem), and the bridge below.
 //
 // Today: TPreferences (Preferences.cpp, issue #104), TNetwork (Network.cpp), TMapState (the game state: Objects.cpp,
-// Map.cpp, Creatures.cpp, Inventory.cpp, issue #106; MapState.h) and TCommunication (Communication.cpp and Status.cpp's
-// session, issue #105). Next: TGUI (#107); the platform's services come in as interfaces (#109).
+// Map.cpp, Creatures.cpp, Inventory.cpp, issue #106; MapState.h), TCommunication (Communication.cpp and Status.cpp's
+// session, issue #105) and TGUI (Talk.cpp, Help.cpp, Status.cpp's user interaction and the windows' data, issue
+// #107; GUI.h). Next: the platform's services as interfaces (#109).
 //
 // The bridge: during the transition there is one TClient, made on first use by bridge::Client() (Client.cpp), and
 // each subsystem's header declares an accessor of its own (Preferences.h: bridge::Preferences()) for the free
@@ -18,6 +19,7 @@
 #pragma once
 
 #include "Communication.h"
+#include "GUI.h"
 #include "MapState.h"
 #include "Network.h"
 #include "Preferences.h"
@@ -38,6 +40,7 @@ public:
 	TNetwork Network;
 	TMapState MapState;
 	TCommunication Communication;
+	TGUI GUI; // issue #107
 };
 
 namespace bridge {

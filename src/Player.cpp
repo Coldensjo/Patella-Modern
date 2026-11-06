@@ -149,7 +149,7 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 		// MainFrame points to the freed frame: SetDisplayMode's calls would fault. Tibia.exe makes them (under
 		// cdb its CWnd::ModifyStyle faults on the freed frame, 0xfeeefeee), and its catch (...) (MSVC 7.1: an
 		// access violation as well) goes on to the box; under /EHsc it does not, so the step is skipped.
-		if (GetViewMode() != 1 && MainWindow != nullptr && GetSurface() != nullptr)
+		if (GetViewMode() != 1 && patella::bridge::GUI().MainWindow != nullptr && GetSurface() != nullptr)
 			SetDisplayMode(1);
 	} catch (...) {
 	}

@@ -62,7 +62,6 @@ struct TTalkLine {
 	[[nodiscard]] const char *GetText() const { return GetTimeStamps() ? Line : WithoutTime; }
 };
 class TTalkBuffer;
-extern TTalkBuffer *DefaultTextBuffer;
 class TTalkBuffer {
 public:
 	TTalkBuffer(const TTalkBuffer &) = delete;
@@ -97,7 +96,7 @@ public:
 	virtual void Remove(int lineNumber);
 	virtual void Clear();
 	// isDefault: ConsoleWindow.cpp's assertion "getTextBuffer()->isDefault()==false".
-	virtual bool isDefault() { return this == DefaultTextBuffer; }
+	virtual bool isDefault(); // TTalk's DefaultTextBuffer (below)
 	virtual bool AcceptMessages() { return isDefault(); }
 	virtual bool IsRuleViolation() { return false; }
 	virtual bool IsRuleViolationChannel() { return false; }
@@ -198,6 +197,135 @@ struct TTalkFilter {
 	bool Permanent;
 	bool Matches(int _Mode, const char *_Addressee, int _Channel);
 };
+namespace patella {
+
+// Talk.cpp's state (issue #107, M7; notes/decisions.md, "#104: TClient and the subsystem objects" and "#107"): the
+// globals 0x71dbd0-0x71eff4 of the original are the members, in its .bss order with the same initial values, and the
+// file's functions the members of the same names. TGUI owns it (GUI.h). It is TPreferences' TTalkLists: the White
+// and Ignore lists that the options read and write.
+class TTalk final : public TTalkLists {
+public:
+	TTalk() = default;
+	TTalk(const TTalk &) = delete;
+	TTalk &operator=(const TTalk &) = delete;
+	TTalk(TTalk &&) = delete;
+	TTalk &operator=(TTalk &&) = delete;
+	~TTalk() = default;
+
+	bool GetTalkChanged();
+	int GetNumberOfTalkboxes() const;
+	const char *GetStatusMessage() const;
+	void SetIgnoreEnabled(bool Value);
+	bool GetIgnoreEnabled() const;
+	void SetBuddyIgnore(bool Value);
+	bool GetBuddyIgnore() const;
+	void SetIgnoreListEnabled(bool Value);
+	bool GetIgnoreListEnabled() const;
+	bool IsTalkThrottled();
+	bool GetConsoleChanged();
+	TRGBColor *GetTalkColor(TRGBColor *Color, int TalkMode);
+	TTalkbox *GetTalkbox(int Number);
+	int GetTalkboxMode(int Number);
+	void GetTalkboxPosition(int Number, int *x, int *y, int *z);
+	void GetTalkboxRectangle(int Number, int *x, int *y, int *Width, int *Height);
+	TRGBColor *GetTalkboxColor(TRGBColor *Color, int Number);
+	int GetTalkboxLines(int Number);
+	const char *GetTalkboxLine(int Number, int Line);
+	void RemoveTalkbox(int Position);
+	int FindFreeTalkbox();
+	void WrapTalkbox(TTalkbox *Talkbox, const char *Text);
+	void SetTalkboxRectangle(int Number, int x, int y, int Width, int Height);
+	void RemoveOldestTalkbox();
+	int FindTalkFilter(int Mode, const char *Addressee, int Channel, TIndexedVector<TTalkFilter *> &List);
+	int FindTextBuffer(TTalkBuffer *TextBuffer, TIndexedVector<TTalkFilter *> &List);
+	void AddTalkFilter(int Mode, const char *Addressee, int Channel, TTalkBuffer *TextBuffer,
+		TIndexedVector<TTalkFilter *> &List, bool Permanent);
+	char *GetBuddyIgnoreText() override;
+	void ClearBuddyIgnore();
+	void AddBuddyIgnore(const char *Addressee, bool Permanent) override;
+	bool IsPermanentBuddyIgnore(const char *Addressee) override;
+	void ClearTemporaryIgnore();
+	char *GetIgnoreListText() override;
+	bool IsModeIgnored(int Mode);
+	void AddIgnoreFilter(int Mode, const char *Addressee, bool Permanent);
+	void IgnoreMode(int Mode);
+	void IgnoreName(const char *Addressee, bool Permanent) override;
+	bool IsPermanentIgnore(const char *Addressee) override;
+	void RemoveIgnoreFilter(int Mode, const char *Addressee);
+	void UnignoreMode(int Mode);
+	void UnignoreName(const char *Addressee);
+	void ClearDefaultTextBuffer();
+	void ClearTextBuffer(TTalkBuffer *TextBuffer);
+	bool HasOwnPrivateChannel();
+	void AddChannelNotice(const char *Addressee, const char *Text, int Mode, const char *Name, int Channel);
+	void DeleteTextBuffer(TTalkBuffer *TextBuffer);
+	TTalkBuffer *CreateTextBuffer(int ReceiveTalkMode, int SendTalkMode, const char *Name, int Channel);
+	void SetTalkChanged();
+	void SetTalkThrottle();
+	void SetConsoleChanged();
+	void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *Text);
+	void AddMessageTalkbox(int Mode, const char *Text);
+	void UpdateTalkboxes();
+	void SetStatusMessage(const char *Message, bool Permanent);
+	void UpdateStatusMessage();
+	bool IsTalkIgnored(int Mode, const char *Name, int Channel);
+	void AddTemporaryIgnore(const char *Addressee);
+	void RemoveTemporaryIgnore(const char *Addressee);
+	void ClearIgnoreList() override;
+	void ShowPermanentIgnoreWarning();
+	void AddTextBufferLine(TTalkBuffer *TargetBuffer, uint32 StatementID, const char *Text,
+		int TalkMode, const char *Name, int Time);
+	void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const char *Name, int Channel, int Time);
+	TTalkBuffer *GetTextBuffer(int Mode, const char *Name, int Channel);
+	void ResetTalk();
+	void InitTalk();
+	void ExitTalk();
+
+
+private:
+	// Data, in the original's .bss order.
+	bool IgnoreListEnabled{};                           // 0x71dbd0
+	bool BuddyIgnore{};                                 // 0x71dbd1
+	bool IgnoreEnabled{};                               // 0x71dbd2
+	bool ConsoleChanged{};                              // 0x71dbd3
+	int StatusMessageTime{};                            // 0x71dbdc
+	TFixedString<STATUSMESSAGE_LENGTH> StatusMessage{}; // 0x71dbe0
+	int TalkOrder{};                                    // 0x71dde0
+	bool TalkChanged{};                                 // 0x71dde4
+	std::array<TTalkbox, TALKBOXES> Talkboxes{};        // 0x71dde8
+
+public:
+	// 0x71ef68; public: MainWindow.cpp, Map.cpp, TTalkBuffer::isDefault, the test mode's state dump and the golden
+	// Talk, MainWindow and Map tests read it.
+	TTalkBuffer *DefaultTextBuffer{};
+
+private:
+	int TalkThrottle{};                                                   // 0x71ef6c
+	TIndexedVector<TTalkFilter *> BuddyExemptionList{0, 9, 10, nullptr};  // 0x71ef70, initialiser 0x55a140
+	TIndexedVector<TTalkFilter *> TemporaryIgnoreList{0, 9, 10, nullptr}; // 0x71ef90, initialiser 0x55a160
+	TIndexedVector<TTalkFilter *> IgnoreList{0, 9, 10, nullptr};          // 0x71efb0, initialiser 0x55a180
+	TIndexedVector<TTalkFilter *> ConsoleFilterList{0, 4, 5, nullptr};    // 0x71efd0, initialiser 0x55a1a0
+	int LastTime{};                                                       // 0x71eff0, UpdateTalkboxes' static
+	bool LastTimeSet{};                                                   // its guard (0x71eff4)
+
+	static_assert(sizeof(Talkboxes) == TALKBOXES * sizeof(TTalkbox), "Talkboxes");
+};
+
+// The transition's access path (issue #107; notes/decisions.md, "#104: TClient and the subsystem objects"): the one
+// TClient's TTalk (Client.cpp). It goes when no free function needs it.
+namespace bridge {
+TTalk &Talk();
+} // namespace bridge
+
+} // namespace patella
+
+// Talk.h inline in the original (it read the global): whether this is the console's default buffer.
+inline bool TTalkBuffer::isDefault()
+{
+	return this == patella::bridge::Talk().DefaultTextBuffer;
+}
+
+// Talk.cpp's functions (issue #107): each calls TTalk's member of the same name on bridge::Talk().
 bool GetTalkChanged();
 int GetNumberOfTalkboxes();
 const char *GetStatusMessage();

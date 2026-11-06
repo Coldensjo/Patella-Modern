@@ -17,6 +17,12 @@
 // The graphics types TRect, TRGBColor and TFont are graphics.h's; the window
 // classes and SkinProperties need them complete.
 #include "graphics.h"
+// TGUI (below) owns Talk.cpp's, Help.cpp's and Status.cpp's objects (issue #107).
+#include "Help.h"
+#include "Status.h"
+#include "Talk.h"
+#include "types/FixedString.h"
+#include "types/IndexedVector.h"
 #include <array>
 #include <memory>
 
@@ -815,8 +821,104 @@ extern TSkinProperties SkinProperties; // 0x5ccfc8
 
 void InitSkinProperties(); // 0x498160
 
-// TElement::HelpMouseMove needs Help.h's SetHelpHandle.
-#include "Help.h"
+class TMainWindow;
+
+namespace patella {
+
+// The GUI's state (issue #107, M7; notes/decisions.md, "#104: TClient and the subsystem objects" and "#107"), the
+// sixth of TClient's subsystems: Talk.cpp's TTalk, Help.cpp's THelp and Status.cpp's TInteraction, and the data of
+// GUI.cpp (the timers and hotkeys), ContentWindows.cpp (the two mouse-over texts), Control.cpp (the window, the
+// callbacks, the mouse's last move, the frame counter's switch) and MainWindow.cpp (ModalWindow, MainWindow and the
+// callbacks), in the original's address order with the same initial values. GUI.cpp's timer and hotkey functions are
+// its members of the same names; the free functions forward to them. SkinProperties is still GUI.cpp's global (its
+// 2,000 readers in the window files: notes/decisions.md, "#107", "Found, not done").
+//
+// The windows' calls into Control.cpp, the controller above them, go through TGUIController (rule 5 of the design: a
+// lower module declares the interface, the upper one implements it), so MainWindow.cpp and Dialogs.cpp do not include
+// Control.h.
+//
+// ModalWindow and MainWindow keep the original's raw ownership: Control.cpp news the dialogs into ModalWindow and
+// deletes the one it replaces, Player.cpp and Control.cpp the main window (notes/ownership.md, section 7). They are
+// TGUI's members, no longer globals; #108 turns them into owners.
+// Control.cpp's functions that the windows call (issue #107): the engine buttons of the main window's options
+// (MainWindow.cpp) and the graphics options' fullscreen switch (Dialogs.cpp). Implemented in Client.cpp by Control.cpp's
+// free functions until Control.cpp's functions are an object's.
+class TGUIController {
+public:
+	TGUIController() = default;
+	TGUIController(const TGUIController &) = delete;
+	TGUIController &operator=(const TGUIController &) = delete;
+	TGUIController(TGUIController &&) = delete;
+	TGUIController &operator=(TGUIController &&) = delete;
+	virtual void ChangeEngine(int engine) = 0;
+	virtual void Resize(int Width, int Height) = 0;
+
+protected:
+	~TGUIController() = default;
+};
+
+class TGUI {
+public:
+	explicit TGUI(TGUIController &Controller) : Controller(Controller) {}
+	TGUI(const TGUI &) = delete;
+	TGUI &operator=(const TGUI &) = delete;
+	TGUI(TGUI &&) = delete;
+	TGUI &operator=(TGUI &&) = delete;
+	~TGUI() = default;
+
+	// GUI.cpp's timers and hotkeys.
+	void AddTimer(TTimer *Timer);
+	void RemoveTimer(TTimer *Timer);
+	void UpdateTimers();
+	void InitHotkeys();
+	static void ExitHotkeys(); // empty (as TCommunication::ExitCommunication, issue #105)
+	void AddHotkey(int Key, TCallback Callback);
+	void RemoveHotkey(int Key);
+	bool CheckHotkey(int Key);
+
+	TGUIController &Controller; // Control.cpp's functions (above)
+
+	// The files' objects.
+	TTalk Talk;               // Talk.cpp
+	THelp Help;               // Help.cpp
+	TInteraction Interaction; // Status.cpp's user interaction
+
+	// Data, in the original's address order; public where another file or a golden test reads it (named).
+	TFixedString<100> AutomapMouseOverText{}; // 0x5c4398, ContentWindows.cpp: a mark's text (TAutomapWindow::MouseHover)
+	TFixedString<256> SkillMouseOverText{};   // 0x5c4400, ContentWindows.cpp: "You have %d percent to go"
+	// Control.cpp's (0x5c4540-0x5c4553 is not used by any code); the golden Control test reads and sets them.
+	int LastMouseMove{};                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
+	void (*URLCallback)(const char *URL){};  // 0x5c452c
+	void (*DisplayModeCallback)(int Mode){}; // 0x5c4530
+	void (*ExitCallback)(){};                // 0x5c4538, stored but not used
+	HWND WindowHandle{};                     // 0x5c453c
+	bool ShowFPS{};                          // 0x5c4554, toggled by key 0x907
+
+private:
+	// GUI.cpp's (SkinProperties, 0x5ccfc8, is still its global).
+	int NumberOfHotkeys{};                             // 0x5ccf98, used entries of Hotkeys
+	TIndexedVector<TTimer *> Timers{0, 0, 2, nullptr}; // 0x5ccfa4, initialiser 0x559e30
+	TIndexedVector<THotkey> Hotkeys{0, 50, 10};        // 0x5ce4f0, initialiser 0x559e60
+	int LastTime{};                                    // 0x5ce518, UpdateTimers' static
+	bool LastTimeSet{};                                // its guard (0x5ce51c)
+
+public:
+	// MainWindow.cpp's: the callbacks InitMainWindow stores, the modal window and the main window.
+	void (*OpenURLCallback)(const char *URL){}; // 0x5d16a0
+	void (*SetDisplayModeCallback)(int Mode){}; // 0x5d16a4
+	void (*ExitProgramCallback)(){};            // 0x5d16a8
+	TWindow *ModalWindow{};                     // 0x5d16ac, the dialog on top (raw, as the original's; #108)
+	TMainWindow *MainWindow{};                  // 0x5d16b0 (raw, as the original's; #108)
+};
+
+// The transition's access path (issue #107; notes/decisions.md, "#104: TClient and the subsystem objects"): the one
+// TClient's TGUI (Client.cpp). It goes when no free function needs it.
+namespace bridge {
+TGUI &GUI();
+} // namespace bridge
+
+} // namespace patella
+
 
 inline bool TElement::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {

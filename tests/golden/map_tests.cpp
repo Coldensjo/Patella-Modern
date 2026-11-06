@@ -616,9 +616,9 @@ void TestMap([[maybe_unused]] const char *ExePath)
 	using namespace MapTest;
 	int Before = Checks, BeforeFailures = Failures;
 	ORIGINAL(PatchScript());
-	TTalkBuffer *SavedBuffer = DefaultTextBuffer;
+	TTalkBuffer *SavedBuffer = patella::bridge::Talk().DefaultTextBuffer;
 	ORIGINAL(TTalkBuffer *SavedImageBuffer = Global<TTalkBuffer *>(0x71ef68));
-	DefaultTextBuffer = nullptr;
+	patella::bridge::Talk().DefaultTextBuffer = nullptr;
 	ORIGINAL(Global<TTalkBuffer *>(0x71ef68) = NULL);
 
 	std::string Dat = golden::DataFile("Tibia.dat", ExePath);
@@ -691,7 +691,7 @@ void TestMap([[maybe_unused]] const char *ExePath)
 	}
 	ExitObjects();
 	ORIGINAL(At<VoidFn>(0x4d79b0)());
-	DefaultTextBuffer = SavedBuffer;
+	patella::bridge::Talk().DefaultTextBuffer = SavedBuffer;
 	ORIGINAL(Global<TTalkBuffer *>(0x71ef68) = SavedImageBuffer);
 	printf("Map: %d checks, %d failures (paths -4..2: %d %d %d %d %d %d %d; effects seen: %d graphical, %d texts, %d "
 		   "missiles)\n",
