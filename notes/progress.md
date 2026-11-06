@@ -480,6 +480,11 @@ and TNetworkSession (Status.cpp's functions, Client.cpp's adapter); TCommunicati
 The golden tests reach the members (the Communication world fakes the members too). Module cycles: main's 12-module
 cycle is one of 6 and {MainFrm, Player}; Network and Communication are in none. Golden 17,316,040, 0 failures.
 notes/decisions.md, "The second move: TNetwork and TCommunication".
+Golden on the Debug presets (Patella-Modern issue #115, branch issue-115, November 6, 2026; M7): the Communication
+test's check that ExitCommunication is empty (the only one, since the fakes replace it in every comparison) accepted
+`ret`, `ret 0` and Clang's frame-pointer frame; it now also accepts GCC's -O0 frame with its nop (55 48 89 E5 90 5D C3),
+and nothing looser. linux-x64-gcc-debug and linux-x64-clang-debug replay the corpus, 17,316,040, 0 failures.
+notes/decisions.md, "#115: an empty function's code at every optimisation level".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
