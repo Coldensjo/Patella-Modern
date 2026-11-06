@@ -60,58 +60,10 @@ bool SetClipboardText(const char *textdata)
 	return true;
 }
 
-#if GOLDEN_ORACLE
-// Replacements patched into the image.
-static void *__cdecl ImageMalloc(size_t Size) { return malloc(Size); }
-static void __cdecl ImageFree(void *Block) { free(Block); }
-static int __cdecl ImageGetMilliseconds() { return Clock; }
-static bool __cdecl ImageRemoveFile(const char *FileName)
-{
-	Record(Removed[ORIGINAL_SIDE], 64, FileName);
-	RemoveCalls[ORIGINAL_SIDE]++;
-	return true;
-}
-static int __cdecl ImageSetClipboardText(char *textdata)
-{
-	Record(Clipboard[ORIGINAL_SIDE], 4096, textdata);
-	ClipboardCalls[ORIGINAL_SIDE]++;
-	return 1;
-}
-static void OriginalLinkWarning() { LinkWarnings[ORIGINAL_SIDE]++; }
-
-void PatchImage()
-{
-	static bool Done = false;
-	if (Done)
-		return;
-	Done = true;
-	PatchJump(0x512d18, (void *)ImageMalloc);
-	PatchJump(0x51165d, (void *)ImageFree);
-	PatchJump(0x4fcb90, (void *)ImageGetMilliseconds);
-	PatchJump(0x4fcbc0, (void *)ImageRemoveFile);
-	PatchJump(0x4fd1b0, (void *)ImageSetClipboardText);
-}
-#endif
 static void OurLinkWarning() { LinkWarnings[OURS]++; }
 
 // --- Status.cpp ----------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *VoidFn)();
-typedef int(__cdecl *IntFn)();
-typedef void(__cdecl *SetIntFn)(int);
-typedef void(__cdecl *SetInt2Fn)(int, int);
-typedef void(__cdecl *SetInt3Fn)(int, int, int);
-typedef bool(__cdecl *BoolFn)();
-typedef const char *(__cdecl *StrGetFn)();
-typedef const char *(__cdecl *StrIndexFn)(int);
-typedef void(__cdecl *StrSetFn)(const char *);
-typedef void(__cdecl *ObjSetFn)(TObject, int, int, int, int);
-typedef TObject *(__cdecl *ObjGetFn)(int *, int *, int *, int *);
-typedef void(__cdecl *Get2Fn)(int *, int *);
-typedef void(__cdecl *Get3Fn)(int *, int *, int *);
-typedef void(__fastcall *VectorCtorFn)(void *This, void *, int Min, int Max, int Block);
-#endif
 
 namespace {
 
@@ -126,12 +78,6 @@ const char MouseOverOther = 0;
 const char *OriginalMouseOverText(const char *Name)
 {
 	int Index = -1;
-#if GOLDEN_ORACLE
-	const char *Pointer = At<StrGetFn>(0x4e7310)();
-	for (int i = 0; i < 3; i++)
-		if (Pointer == MouseOverTexts[i])
-			Index = i;
-#endif
 	golden::Output(Name, Index);
 	return Index >= 0 ? MouseOverTexts[Index] : &MouseOverOther;
 }
@@ -378,28 +324,18 @@ struct TModel {
 INT_PTR OriginalParam(const char *Name, [[maybe_unused]] INT_PTR Value, const TModel *Head)
 {
 	int Kind[2] = {0, 0};
-#if GOLDEN_ORACLE
-	if (Head != nullptr && Value == Head->P[ORIGINAL_SIDE][0])
-		Kind[0] = 1;
-	else if (Head != nullptr && Value == Head->P[ORIGINAL_SIDE][1])
-		Kind[0] = 2;
-	else
-		Kind[1] = (int)Value;
-#endif
 	golden::Output(Name, Kind);
 	if (Kind[0] != 0)
 		return Head->P[ORIGINAL_SIDE][Kind[0] - 1];
 	return (INT_PTR)Kind[1];
 }
 
-#if !GOLDEN_ORACLE
 // The runner: the blocks the original would have freed (ClearMessages).
 void FreeOriginalParams(TModel *Model, int Count)
 {
 	for (int i = 0; i < Count; i++)
 		FreeParams(Model[i].Type, Model[i].P[ORIGINAL_SIDE][0], Model[i].P[ORIGINAL_SIDE][1]);
 }
-#endif
 
 void TestMessages()
 {
@@ -414,9 +350,6 @@ void TestMessages()
 			M.Type = Type;
 			MakeParams(Type, OURS, Shared1, Shared2, &M.P[OURS][0], &M.P[OURS][1]);
 			MakeParams(Type, ORIGINAL_SIDE, Shared1, Shared2, &M.P[ORIGINAL_SIDE][0], &M.P[ORIGINAL_SIDE][1]);
-#if GOLDEN_ORACLE
-			typedef void(__cdecl * AddFn)(int, INT_PTR, INT_PTR);
-#endif
 			if (Op < 3) {
 				AddMessage(Type, M.P[OURS][0], M.P[OURS][1]);
 				ORIGINAL(At<AddFn>(0x4e9020)(Type, M.P[ORIGINAL_SIDE][0], M.P[ORIGINAL_SIDE][1]));
@@ -455,9 +388,7 @@ void TestMessages()
 		} else if (Op == 8 && Random() % 10 == 0) {
 			ClearMessages();
 			ORIGINAL(At<VoidFn>(0x4e76e0)());
-#if !GOLDEN_ORACLE
 			FreeOriginalParams(Model, Count);
-#endif
 			Count = 0;
 		}
 		int Peeked = ORIGINAL_VALUE("PeekMessageType", int, At<IntFn>(0x4e75d0)());
@@ -467,9 +398,7 @@ void TestMessages()
 	}
 	ClearMessages();
 	ORIGINAL(At<VoidFn>(0x4e76e0)());
-#if !GOLDEN_ORACLE
 	FreeOriginalParams(Model, Count);
-#endif
 }
 
 void TestAccount()
@@ -610,20 +539,6 @@ void TestBlinkAndFiles()
 void CheckInitialState(const char *When)
 {
 	int Values[12] = {};
-#if GOLDEN_ORACLE
-	Values[0] = At<IntFn>(0x4e6e30)();
-	Values[1] = At<IntFn>(0x4e71f0)();
-	Values[2] = At<IntFn>(0x4e7210)();
-	Values[3] = At<IntFn>(0x4e7220)();
-	Values[4] = At<IntFn>(0x4e72a0)();
-	Values[5] = At<IntFn>(0x4e72b0)();
-	Values[6] = At<IntFn>(0x4e72c0)();
-	Values[7] = At<BoolFn>(0x4e72d0)();
-	Values[8] = At<IntFn>(0x4e71d0)();
-	Values[9] = At<IntFn>(0x4e6ee0)();
-	Values[10] = At<IntFn>(0x4e6ef0)();
-	Values[11] = At<IntFn>(0x4e75d0)();
-#endif
 	golden::Output("initial state", Values);
 	const char *MouseOverText = OriginalMouseOverText("initial mouse-over text");
 	bool Any = ORIGINAL_VALUE("initial CheckAnyRight", bool, At<BoolFn>(0x4e6dc0)());

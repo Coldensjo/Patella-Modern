@@ -1,6 +1,6 @@
 r"""Compare the files Patella.exe and the original Tibia.exe write (issue #21).
 
-Usage (from the repository or a worktree; python -I tools/build.py oracle-x86 first; the test server of
+Usage (from the repository or a worktree; python -I tools/build.py windows-x64 first; the test server of
 issue #18 must be stopped, the script starts and stops it for the one live recording):
   python -I tools/compare_files.py [--out build\files\result] [--only a,b] [--skip-live] [--repeat]
   python -I tools/compare_files.py record|compare [tools/reference.py's options]   (issue #23: the
@@ -43,8 +43,9 @@ that writes the last Tibia.cfg, the client's window is put back where the run's 
 compared in full. The live recording's server start waits for the ports and the loaded world
 (tools/testserver.py start, issue #68). `--self-test` checks the placement on a window of its own.
 
---patella with an x64 Patella.exe (Patella-Modern issue #92): its test build PatellaTest.exe runs in its place,
-read through its control channel, never through its memory (compare_traffic.py's use_patella).
+--patella: the x64 Patella.exe (default build\windows-x64\Release\Patella.exe; Patella-Modern issue #92): its test
+build PatellaTest.exe runs in its place, read through its control channel, never through its memory
+(compare_traffic.py's use_patella; the 32-bit oracle's Patella.exe left the fork with issue #94).
 
 Masked, after two runs of Tibia.exe showed that they differ from run to run (--repeat runs
 Tibia.exe a second time for walk to show it again): the time in Default.txt ("Channel saved
@@ -373,8 +374,8 @@ def button(driver, text):
 
 def member(driver, component, path):
 	"""The pointer member `path` (Type.Member, client_state.LAYOUT_FIELDS) of the component at
-	`component`: from Tibia.exe's or the oracle's memory (its offset from the layout, the PDB for
-	Patella.exe), or from the x64 test client's probe (issue #92)."""
+	`component`: from Tibia.exe's memory (its offset from the layout), or from the x64 test client's probe
+	(issue #92)."""
 	return driver.mem.member(component, path)
 
 
@@ -1218,9 +1219,8 @@ def main():
 		"(read-only, no client, no server) and exit")
 	parser.add_argument("--server-dir", default=ct.SERVER_DIR, help="the test server's folder for --check-route "
 		"(default %(default)s: PATELLA_TESTSERVER, else C:\\Tibia\\gameserver, tools/testserver.py)")
-	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 (the oracle's) or x64 (its "
-		"test build next to it runs, issue #92); default build/oracle-x86/Release/Patella.exe; as "
-		"tools/compare_traffic.py's --patella")
+	parser.add_argument("--patella", metavar="EXE", help="the x64 Patella.exe to test (its test build next to it "
+		"runs, issue #92); default build/windows-x64/Release/Patella.exe; as tools/compare_traffic.py's --patella")
 	parser.add_argument("--self-test", action="store_true", help="the window placement on a window of its own "
 		"(no client, no server) and exit")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
@@ -1236,7 +1236,7 @@ def main():
 		return 1 if problems else 0
 	if args.repeat and args.no_repeat:
 		raise RunError("--repeat and --no-repeat")
-	named = ct.use_patella(args.patella or CLIENTS["patella"]["source"])
+	named = ct.use_patella(args.patella or ct.DEFAULT_PATELLA)
 	log(named)
 	out = os.path.abspath(args.out)
 	os.makedirs(out, exist_ok=True)

@@ -68,11 +68,7 @@
 #include "golden_test.h"
 
 #include "golden_eh.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 // MainFrm.cpp is compiled into this file (its statics are in an unnamed namespace), at its own warning
 // level (cmake/Warnings.cmake's baseline).
 #ifdef _MSC_VER
@@ -156,61 +152,15 @@ void RestoreAll()
 	}
 	Saved.clear();
 }
-#if GOLDEN_ORACLE
-uint32 *ImageImport(const char *Dll, const char *Name)
-{
-	uint8 *Base = (uint8 *)(uintptr_t)0x400000;
-	IMAGE_NT_HEADERS32 *NT = (IMAGE_NT_HEADERS32 *)(Base + ((IMAGE_DOS_HEADER *)Base)->e_lfanew);
-	IMAGE_DATA_DIRECTORY &Directory = NT->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
-	for (IMAGE_IMPORT_DESCRIPTOR *D = (IMAGE_IMPORT_DESCRIPTOR *)(Base + Directory.VirtualAddress); D->Name != 0; D++) {
-		if (_stricmp((const char *)Base + D->Name, Dll) != 0)
-			continue;
-		uint32 *Names = (uint32 *)(Base + D->OriginalFirstThunk);
-		uint32 *Slots = (uint32 *)(Base + D->FirstThunk);
-		for (int i = 0; Names[i] != 0; i++)
-			if ((Names[i] & 0x80000000) == 0 && strcmp((const char *)Base + Names[i] + 2, Name) == 0)
-				return &Slots[i];
-	}
-	return NULL;
-}
-void **OwnImport(const char *Dll, const char *Name)
-{
-	uint8 *Base = (uint8 *)GetModuleHandleA(NULL);
-	HMODULE Module = GetModuleHandleA(Dll);
-	void *Real = Module != NULL ? (void *)GetProcAddress(Module, Name) : NULL;
-	if (Real == NULL)
-		return NULL;
-	IMAGE_NT_HEADERS32 *NT = (IMAGE_NT_HEADERS32 *)(Base + ((IMAGE_DOS_HEADER *)Base)->e_lfanew);
-	IMAGE_DATA_DIRECTORY Directory = NT->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
-	for (IMAGE_IMPORT_DESCRIPTOR *D = (IMAGE_IMPORT_DESCRIPTOR *)(Base + Directory.VirtualAddress); D->Name != 0; D++) {
-		void **Slot = (void **)(Base + D->FirstThunk);
-		for (; *Slot != NULL; Slot++)
-			if (*Slot == Real)
-				return Slot;
-	}
-	return NULL;
-}
-#endif
 // The image's import slot and ours (the oracle), the runner's (by name, golden_patch.h).
 void BindBoth([[maybe_unused]] const char *Dll, const char *Name, void *Fake)
 {
-#if GOLDEN_ORACLE
-	uint32 *Slot = ImageImport(Dll, Name);
-	void **Own = OwnImport(Dll, Name);
-	if (Slot == NULL || Own == NULL) {
-		printf("FAIL MainFrm: no import slot for %s %s (image %p, ours %p)\n", Dll, Name, (void *)Slot, (void *)Own);
-		Failures++;
-		return;
-	}
-	Write(Slot, &Fake, 4);
-#else
 	void **Own = golden::FindImport(Name);
 	if (Own == nullptr) {
 		printf("FAIL MainFrm: no import slot for %s\n", Name);
 		Failures++;
 		return;
 	}
-#endif
 	Write(Own, &Fake, sizeof(Fake));
 }
 
@@ -272,16 +222,6 @@ uint8 *FrameOf(int S) { return S == IMAGE ? ImageFrame : OurFrame; }
 HWND FAKE_WINDOW = (HWND)(uintptr_t)0x10ab0;
 uint8 ImageApp[0x200];
 alignas(16) uint8 OurApp[sizeof(CPlayerApp) + 16];
-#if GOLDEN_ORACLE
-// The image's AFX_MODULE_STATE as the inline AfxGetApp and AfxGetInstanceHandle read it.
-struct TModuleState {
-	uint32 Unused;
-	void *App;          // +0x04 m_pCurrentWinApp
-	HINSTANCE Instance; // +0x08 m_hCurrentInstanceHandle
-	uint8 Rest[0x40];
-};
-TModuleState ModuleState;
-#endif
 const HINSTANCE FAKE_INSTANCE = (HINSTANCE)(uintptr_t)0x770000;
 
 const char *Who(const void *Window)
@@ -555,51 +495,6 @@ void ModuleStateUsed()
 }
 
 // The image's MFC (the oracle).
-#if GOLDEN_ORACLE
-void *__fastcall ImageFrameCtor(void *This, void *)
-{
-	FrameConstructed(This);
-	return This;
-}
-void __fastcall ImageFrameDtor(void *This, void *) { FrameDestroyed(This); }
-BOOL __fastcall ImageGetPlacement(void *This, void *, WINDOWPLACEMENT *P) { return GetPlacement(This, P); }
-BOOL __fastcall ImageSetPlacement(void *This, void *, const WINDOWPLACEMENT *P) { return SetPlacement(This, P); }
-BOOL __fastcall ImageModifyStyle(void *This, void *, DWORD Remove, DWORD Add, UINT Flags)
-{
-	return ModifyStyleFake(This, Remove, Add, Flags, false);
-}
-BOOL __fastcall ImageModifyStyleEx(void *This, void *, DWORD Remove, DWORD Add, UINT Flags)
-{
-	return ModifyStyleFake(This, Remove, Add, Flags, true);
-}
-BOOL __fastcall ImageSetWindowPos(void *This, void *, const void *After, int x, int y, int cx, int cy, UINT Flags)
-{
-	return SetPosFake(This, After, x, y, cx, cy, Flags);
-}
-void __fastcall ImageMoveWindow(void *This, void *, int x, int y, int Width, int Height, BOOL Repaint)
-{
-	MoveFake(This, x, y, Width, Height, Repaint);
-}
-LRESULT __fastcall ImageDefault(void *This, void *) { return DefaultFake(This); }
-void __fastcall ImageOnSize(void *This, void *, UINT Type, int cx, int cy) { BaseOnSize(This, Type, cx, cy); }
-void __fastcall ImageOnClose(void *This, void *) { BaseOnClose(This); }
-void __fastcall ImageOnDestroy(void *This, void *) { BaseOnDestroy(This); }
-BOOL __fastcall ImageDestroyWindow(void *This, void *) { return BaseDestroyWindow(This); }
-BOOL __fastcall ImageOnSetCursor(void *This, void *, void *Window, UINT HitTest, UINT Message)
-{
-	return BaseOnSetCursor(This, Window, HitTest, Message);
-}
-BOOL __fastcall ImagePreCreateWindow(void *This, void *, CREATESTRUCT &cs) { return BasePreCreateWindow(This, cs); }
-int __fastcall ImageOnCreate(void *This, void *, LPCREATESTRUCT Create) { return BaseOnCreate(This, Create); }
-void *__stdcall ImageFromHandle(HWND Window) { return FromHandleFake(Window); }
-void *__cdecl ImageModuleState()
-{
-	ModuleStateUsed();
-	ModuleState.App = Script.HasApp ? ImageApp : NULL;
-	ModuleState.Instance = FAKE_INSTANCE;
-	return &ModuleState;
-}
-#endif
 
 // --- The fakes: the game files ---------------------------------------------------------------
 
@@ -876,16 +771,6 @@ public:
 TFrameAccess *Ours() { return (TFrameAccess *)OurFrame; }
 
 // The image's members, thiscall through __fastcall. The runner has no image: its side never runs there.
-#if GOLDEN_ORACLE
-template <class R, class... A> R ImageMember(uint32 Address, A... Arguments)
-{
-	return ((R(__fastcall *)(void *, void *, A...))(uintptr_t)Address)(ImageFrame, NULL, Arguments...);
-}
-template <class R, class... A> R ImageFree(uint32 Address, A... Arguments)
-{
-	return ((R(__cdecl *)(A...))(uintptr_t)Address)(Arguments...);
-}
-#else
 [[noreturn]] void NoImage()
 {
 	printf("golden: MainFrm called the original in the runner\n");
@@ -893,7 +778,6 @@ template <class R, class... A> R ImageFree(uint32 Address, A... Arguments)
 }
 template <class R, class... A> R ImageMember(uint32, A...) { NoImage(); }
 template <class R, class... A> R ImageFree(uint32, A...) { NoImage(); }
-#endif
 
 // --- Comparison ------------------------------------------------------------------------------
 
@@ -917,7 +801,6 @@ struct TStatics {
 	int *WheelDelta;
 };
 TStatics Statics[2];
-#if !GOLDEN_ORACLE
 // The runner: the test sets the original's statics as well (the inputs both sides get); nothing reads them.
 struct {
 	uint8 PacketHeader[16];
@@ -927,25 +810,9 @@ struct {
 	char ClassName[32];
 	int WheelDelta;
 } ImageStatics;
-#endif
 void MakeStatics()
 {
 	TStatics &I = Statics[IMAGE];
-#if GOLDEN_ORACLE
-	I.PacketHeader = (uint8 *)0x5d1644;
-	I.MainFrame = (void **)0x5d1654;
-	I.Hand = (HCURSOR *)0x5d1658;
-	I.Size = (HCURSOR *)0x5d165c;
-	I.Wait = (HCURSOR *)0x5d1660;
-	I.Arrow = (HCURSOR *)0x5d1664;
-	I.Default = (HCURSOR *)0x5d1668;
-	I.LeftButtonPressed = (bool *)0x5d166c;
-	I.RightButtonPressed = (bool *)0x5d166d;
-	I.Closing = (bool *)0x5d166f;
-	I.DisplayChanged = (bool *)0x5d1670;
-	I.ClassName = (char *)0x5d167c;
-	I.WheelDelta = (int *)0x5d169c;
-#else
 	I.PacketHeader = ImageStatics.PacketHeader;
 	I.MainFrame = &ImageStatics.MainFrame;
 	I.Hand = &ImageStatics.Hand;
@@ -959,7 +826,6 @@ void MakeStatics()
 	I.DisplayChanged = &ImageStatics.DisplayChanged;
 	I.ClassName = ImageStatics.ClassName;
 	I.WheelDelta = &ImageStatics.WheelDelta;
-#endif
 	TStatics &O = Statics[OURS];
 	O.PacketHeader = PacketHeader.data();
 	O.MainFrame = (void **)&MainFrame;
@@ -1076,12 +942,7 @@ void Compare(const char *Operation)
 		fprintf(LogFile, "%s: %s\n", Operation, Log[OURS].c_str());
 	Log[IMAGE].clear();
 	Log[OURS].clear();
-#if GOLDEN_ORACLE
-	TState Original = Capture(IMAGE);
-	golden::OutputRuns("state", &LastOriginal, &Original, sizeof(TState));
-#else
 	golden::OutputRuns("state", &LastOriginal, nullptr, sizeof(TState));
-#endif
 	std::string A = Dump(Capture(OURS)), B = Dump(LastOriginal);
 	CHECK(A == B, "MainFrm %s (%s): state\n%s\noriginal\n%s", Operation, What, A.c_str(), B.c_str());
 }
@@ -1095,10 +956,6 @@ template <class F> void Both(const char *Name, F Call)
 	if (Trace)
 		printf("MainFrm: %s\n", Name);
 	if (Round == NULL) {
-#if GOLDEN_ORACLE
-		Side = IMAGE;
-		Call(IMAGE);
-#endif
 		Side = OURS;
 		Call(OURS);
 	} else {
@@ -1715,34 +1572,6 @@ void TestMainFrm()
 	};
 	for (auto &I : Imports)
 		BindBoth(I.Dll, I.Name, I.Fake);
-#if GOLDEN_ORACLE
-	// The image's MFC.
-	struct {
-		uint32 Address;
-		void *Fake;
-	} Mfc[] = {
-		{0x52c0e6, (void *)ImageFrameCtor},
-		{0x52c1ab, (void *)ImageFrameDtor},
-		{0x5239d8, (void *)ImageGetPlacement},
-		{0x5239ef, (void *)ImageSetPlacement},
-		{0x526b61, (void *)ImageModifyStyle},
-		{0x526b8b, (void *)ImageModifyStyleEx},
-		{0x526c92, (void *)ImageSetWindowPos},
-		{0x526bd6, (void *)ImageMoveWindow},
-		{0x52bbf9, (void *)ImageOnSize},
-		{0x524c2c, (void *)ImageDefault},
-		{0x52abbd, (void *)ImageOnClose},
-		{0x524f25, (void *)ImageDestroyWindow},
-		{0x52be2b, (void *)ImageOnDestroy},
-		{0x52a8b3, (void *)ImageOnSetCursor},
-		{0x524ccf, (void *)ImageFromHandle},
-		{0x52a65e, (void *)ImagePreCreateWindow},
-		{0x52be1c, (void *)ImageOnCreate},
-		{0x52d008, (void *)ImageModuleState},
-	};
-	for (auto &M : Mfc)
-		Redirect((void *)(uintptr_t)M.Address, M.Fake);
-#endif
 	// The game files: one fake for both sides (ours of Control.cpp are playertest.cpp's in the oracle and
 	// client_stubs.cpp's in the runner, ours of Network.cpp network_tests.cpp's on both sides, issue #30).
 	struct {

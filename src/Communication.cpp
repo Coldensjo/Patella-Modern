@@ -62,11 +62,6 @@ int LastCancelX; // 0x5c4384
 static_assert(offsetof(TCreature, Direction) == 0x50, "creature direction");
 static_assert(offsetof(TCreature, OutfitType) == 0x60, "creature outfit");
 static_assert(offsetof(TCreature, PKFlag) == 0x90, "creature skull");
-#if PATELLA_ORIGINAL_LAYOUT
-static_assert(offsetof(TTalkBuffer, first) == 0x10, "channel first statement");
-static_assert(offsetof(TTalkBuffer, cursor) == 0x18, "channel cursor");
-static_assert(offsetof(TTalkLine, Addressee) == 0x14, "statement addressee");
-#endif
 
 // Not in this file's source: the linker placed VC7.1 STL template code that
 // this file instantiates (through std::stringstream in SendLogin and

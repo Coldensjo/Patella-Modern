@@ -47,16 +47,6 @@ static_assert(sizeof(uint8) == 1 && std::is_same_v<uint8, unsigned char>, "uint8
 static_assert(sizeof(uint16) == 2 && std::is_same_v<uint16, unsigned short>, "uint16 is unsigned short");
 static_assert(sizeof(uint32) == 4 && std::is_same_v<uint32, unsigned int>, "uint32 is unsigned int");
 
-// The original's structure layouts (its sizes and offsets, the static_asserts that check them) hold
-// in the 32-bit build, where the oracle-x86 preset freezes them until M6; the x64 build has its
-// natural layout, in which pointers and size_t are 8 bytes (notes/modernization-plan.md, 1.2 and
-// section 2, rule 4).
-#if defined(_M_IX86)
-#define PATELLA_ORIGINAL_LAYOUT 1
-#else
-#define PATELLA_ORIGINAL_LAYOUT 0
-#endif
-
 // Range check used in many assertions, e.g. "In(CommandType,0,255)".
 inline bool In(int Value, int Min, int Max)
 {
@@ -131,7 +121,7 @@ static_assert(sizeof(TProgramError) == sizeof(PROGRAM_ERROR) && std::is_triviall
 // has since issue #79. Until issue #80 every site named the original's source
 // line as its first argument (TERROR1(1274, "unknown packet type during game",
 // Type)); the lines stay in git history, in the image and in the comments that
-// name a function's lines. Since issue #76 difftest and the golden corpus
+// name a function's lines. Since issue #76 the oracle and the golden corpus
 // compare the outcome only (thrown or not, and the kind), not the messages.
 // TMYEXCEPTION's Reason is a text or a caught TMyException, whose message
 // becomes the reason (the original's wrapping constructor).

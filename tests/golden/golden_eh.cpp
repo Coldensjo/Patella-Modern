@@ -4,9 +4,6 @@
 
 #include "golden_eh.h"
 
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -91,9 +88,6 @@ TErrorRound::TErrorRound(const char *_Test)
 	if (getenv("EH_SEED") != nullptr)
 		Seed ^= strtoul(getenv("EH_SEED"), nullptr, 10);
 	SetRandomSeed(Seed);
-#if GOLDEN_ORACLE
-	EnableImageExceptions();
-#endif
 }
 
 void TErrorRound::Compare(const char *What, const TThrown &Ours, const TThrown &Original)
@@ -105,9 +99,6 @@ void TErrorRound::Compare(const char *What, const TThrown &Ours, const TThrown &
 
 void TErrorRound::Finish()
 {
-#if GOLDEN_ORACLE
-	DisableImageExceptions();
-#endif
 	SetRandomSeed(SavedSeed);
 	// The round's checks: those the runner skipped as retired (golden::RetiredBegin) count as the oracle's
 	// (the test restores ThrownCompared and ThrownThrew after a retired part).

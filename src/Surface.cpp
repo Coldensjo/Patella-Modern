@@ -9,8 +9,7 @@
 // The Windows x64 client (PATELLA_VULKAN, cmake/WindowsX64.cmake) has one engine since Patella-Modern
 // issue #20: the Vulkan engine (src/vulkan/SurfaceVulkan.h) as engine 2, without SurfaceDX.cpp,
 // SurfaceGL.cpp and surfaceDX9.cpp; GetSurface and SurfaceInitInstance have their own versions for it
-// below. The oracle compiles the original's.
-#if defined(PATELLA_VULKAN)
+// below. The original's versions and the three engines left the fork with the 32-bit oracle (issue #94).
 #include "Surface.h"
 #include "graphics.h"
 #include "Preferences.h"
@@ -19,16 +18,6 @@
 #include "vulkan/DeviceChoice.h"
 bool IsVulkanInstalled();
 TSurface *CreateSurfaceVulkan();
-#else
-// SurfaceDX.h's d3d.h must declare the DirectX 6/7 interfaces: real MFC's afxwin.h (common.h)
-// includes d3d9types.h, which would set DIRECT3D_VERSION to 0x0900 first (issue #16).
-#define DIRECT3D_VERSION 0x0700
-#include "Surface.h"
-#include "SurfaceDX.h"
-#include "SurfaceGL.h"
-#include "common.h"
-#include "Preferences.h"
-#endif
 
 // Data, in .data and .bss order. The shared data the engines use (Surface.h)
 // lies around this file's own; 0x71d0f8 and up are SurfaceDX.cpp's.
@@ -69,7 +58,6 @@ int GetCurrentEngine()
 	return curEngine;
 }
 
-#if defined(PATELLA_VULKAN)
 // The x64 client: curEngine is always 2, the Vulkan engine (SurfaceInitInstance).
 TSurface *GetSurface()
 {
@@ -77,22 +65,6 @@ TSurface *GetSurface()
 		Surface = CreateSurfaceVulkan();
 	return Surface;
 }
-#else
-// 0x4eaa90. Creates the surface of the current engine on first use.
-TSurface *GetSurface()
-{
-	if (curEngine == 1) {
-		if (Surface == nullptr)
-			Surface = new TSurfaceGL;
-	} else if (curEngine == 2) {
-		if (Surface == nullptr)
-			Surface = CreateSurfaceDX9();
-	} else if (curEngine == 0 && Surface == nullptr) {
-		Surface = CreateSurfaceDX();
-	}
-	return Surface;
-}
-#endif
 
 // 0x4eab60
 void SurfaceExitInstance()
@@ -160,7 +132,6 @@ void TSurface::AttachWindow()
 {
 }
 
-#if defined(PATELLA_VULKAN)
 // The x64 client (issue #20): the Vulkan engine is the only engine, so curEngine is 2 whatever Tibia.cfg
 // or the command line says, and everything that asks for the engine (graphics.cpp's colour keys, the
 // frame rate line, GetCurrentEngine) sees the original's DirectX 9. Tibia.cfg's Engine keeps
@@ -206,86 +177,3 @@ void SurfaceInitInstance(HWND *Window)
 	}
 	SetEngine(Engine);
 }
-#else
-// 0x4eac20. Chooses the engine at start-up and stores it (Preferences).
-// An "engine N" on the command line (0-2) is taken as it is, without
-// detection. Otherwise the engine from Tibia.cfg counts if it is 0-2 and
-// available: DirectX 9 when installed and its TestEngine passes, OpenGL when
-// an accelerated pixel format exists and works; the first engine found
-// available is taken when Tibia.cfg has none, DirectX 5 is the fallback.
-// Odd behaviour kept: a failed DirectX 9 test also drops the engine chosen
-// in Tibia.cfg, and when ChoosePixelFormat fails the function returns
-// before storing the engine.
-void SurfaceInitInstance(HWND *Window)
-{
-	SurfaceWindow = *Window;
-	bool Chosen = false;
-	if (CommandLineEngine >= 0 && CommandLineEngine < 3) {
-		curEngine = CommandLineEngine;
-		SetEngine(curEngine);
-		return;
-	}
-	const int Engine = curEngine = GetEngine();
-	if (Engine >= 0 && Engine < 3)
-		Chosen = true;
-	try {
-		if (IsDirect3D9Installed()) {
-			curEngine = 2;
-			GetSurface()->hWindow = *Window;
-			if (GetSurface()->TestEngine()) {
-				if (Surface != nullptr)
-					delete Surface;
-				AvailableEngines |= 2;
-				Surface = nullptr;
-				if (!Chosen) {
-					curEngine = 2;
-					Chosen = true;
-				} else {
-					curEngine = Engine;
-				}
-			} else {
-				if (Surface != nullptr)
-					delete Surface;
-				Surface = nullptr;
-				Chosen = false;
-				curEngine = Engine;
-			}
-		}
-	} catch (...) {
-		throw TProgramError{PROGRAM_ERROR::SURFACE};
-	}
-	HDC Context = GetDC(*Window);
-	// clang-format off
-	PIXELFORMATDESCRIPTOR Format = {
-		sizeof(PIXELFORMATDESCRIPTOR), 1,
-		PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_DEPTH_DONTCARE,
-		PFD_TYPE_RGBA, 32,
-	};
-	// clang-format on
-	// The binary has the unwind states of a try block here but no handler:
-	// ChoosePixelFormat and DescribePixelFormat are C functions, which the
-	// compiler assumes cannot throw, so it removed the catch (its body is
-	// unknown).
-	try {
-		const int Number = ChoosePixelFormat(Context, &Format);
-		if (Number == 0)
-			return;
-		DescribePixelFormat(Context, Number, sizeof(PIXELFORMATDESCRIPTOR), &Format);
-	} catch (...) {
-		throw TProgramError{PROGRAM_ERROR::SURFACE};
-	}
-	if ((Format.dwFlags & PFD_GENERIC_ACCELERATED) == 0 && (Format.dwFlags & PFD_GENERIC_FORMAT) == 0
-		&& IsOpenGLWorking(Context)) {
-		AvailableEngines |= 1;
-		if (!Chosen) {
-			curEngine = 1;
-			Chosen = true;
-		}
-	}
-	if (Chosen && curEngine == 2 && (AvailableEngines & 2) == 0)
-		curEngine = 1;
-	if (!Chosen || (curEngine == 1 && (AvailableEngines & 1) == 0))
-		curEngine = 0;
-	SetEngine(curEngine);
-}
-#endif

@@ -34,31 +34,6 @@
 #include <cstddef>
 #include <memory>
 
-#if PATELLA_ORIGINAL_LAYOUT
-// The original's layout, with Text a TFixedString (issue #57).
-static_assert(sizeof(TTextButton) == 0x78 && offsetof(TTextButton, Text) == 0x44, "TTextButton's layout");
-// Colors a std::array (issue #60).
-static_assert(sizeof(TOutfitIcon) == 0x48 && offsetof(TOutfitIcon, Colors) == 0x28, "TOutfitIcon's layout");
-// The owning members as std::unique_ptr (issue #58): each a pointer at the original's offset.
-static_assert(sizeof(std::unique_ptr<char[]>) == sizeof(char *) && alignof(std::unique_ptr<char[]>) == alignof(char *)
-		&& sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *)
-		&& sizeof(std::unique_ptr<TCallback[]>) == sizeof(TCallback *)
-		&& alignof(std::unique_ptr<TCallback[]>) == alignof(TCallback *)
-		&& sizeof(std::unique_ptr<char *[]>) == sizeof(char **) && alignof(std::unique_ptr<char *[]>) == alignof(char **),
-	"std::unique_ptr is a pointer");
-static_assert(sizeof(TLabel) == 0x4c && offsetof(TLabel, Text) == 0x24 && offsetof(TLabel, FullText) == 0x28
-		&& offsetof(TLabel, Line) == 0x44,
-	"TLabel's layout");
-static_assert(sizeof(TFormattedText) == 0x38 && offsetof(TFormattedText, Text) == 0x2c && offsetof(TFormattedText, Line) == 0x30,
-	"TFormattedText's layout");
-static_assert(sizeof(TLink) == 0x3c && offsetof(TLink, Destination) == 0x30, "TLink's layout");
-static_assert(sizeof(TMultiStateButton) == 0x58 && offsetof(TMultiStateButton, ButtonUps) == 0x4c
-		&& offsetof(TMultiStateButton, ButtonDowns) == 0x50 && offsetof(TMultiStateButton, Callbacks) == 0x54,
-	"TMultiStateButton's layout");
-// The edit line's text and the password line's stars (issue #81).
-static_assert(sizeof(TEditLine) == 0x68 && offsetof(TEditLine, Text) == 0x2c, "TEditLine's layout");
-static_assert(sizeof(TPasswordEditLine) == 0x6c && offsetof(TPasswordEditLine, Stars) == 0x68, "TPasswordEditLine's layout");
-#endif
 
 // Data. DialogElements.obj has no statics and no static initialiser. It keeps
 // a copy of the text table (Text.h, 0x5c0fe0-0x5c122b, then its regular

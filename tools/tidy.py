@@ -4,7 +4,7 @@ This wrapper runs clang-tidy with the repository's .clang-tidy on each file and 
 line each, as clang-tidy writes them, and a count per check); with --fix clang-tidy applies its fixes.
 
 Until November 5, 2026 (issue #76) it kept the arguments of TASSERT*, TERROR* and TEND* apart: those macros
-stringize their arguments into the exception messages that difftest and the golden corpus compared (and
+stringize their arguments into the exception messages that the oracle's tests and the golden corpus compared (and
 error.txt recorded until issue #74), so no fix could change them (notes/modernization-plan.md, 4.2, the
 stringized-expression rule); it counted the findings inside them apart and reverted every fix inside them.
 Since issue #76 the error paths are compared by their outcome only, the rule is retired, and those findings

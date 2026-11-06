@@ -1,6 +1,6 @@
 # The resource pictures (cursors, icon, bitmaps) of the local Tibia.exe, which src/res/Patella.rc
 # includes (notes/resources.md): extracted at configure time by tools/extract_resources.py. Used by
-# cmake/OracleX86.cmake and cmake/WindowsX64.cmake:
+# cmake/WindowsX64.cmake:
 #
 #	include(cmake/Resources.cmake)
 #	patella_extract_resources(<Tibia.exe> <output directory>)

@@ -444,7 +444,7 @@ def record_main(args):
 		print("record: FAILED: %s" % "; ".join(failed))
 		return 2
 	# The set's manifest (issue #93): every file of the folder, the commit, the tools, the time zone.
-	capture = cr.capture_dll("oracle-x86")
+	capture = cr.capture_dll("capture-x86")
 	programs = [("patcap.dll", capture)] if os.path.isfile(capture) else []
 	count, total = ref.write_manifest(reference, programs)
 	print("record: %d sessions in %s; its %s: %d files, %d bytes" % (len(sessions), reference, ref.data_manifest.NAME,

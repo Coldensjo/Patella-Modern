@@ -67,8 +67,8 @@ C:\Tibia:
 | `C:\Tibia\Assets` | Planned (plan D14), not used yet: the .dat, .spr and .pic of every client version. |
 
 Nothing in the repository depends on where it is checked out: the builds take Tibia.exe from the root
-(`PATELLA_TIBIA_EXE`), difftest, sysinctest and communicationtest take it as their required argument (CTest and
-the golden_corpus target pass `PATELLA_TIBIA_EXE`), the tools find the root from their own path. The only
+(`PATELLA_TIBIA_EXE`; until issue #94 the oracle's test programs took it as their argument), the tools find the
+root from their own path. The only
 absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self-hosted workflow's
 `PATELLA_CIPSOFT_DIR`.
 
@@ -113,12 +113,12 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   function that changes no member of its object is `const` (issue #39; misc-const-correctness and
   readability-make-member-function-const in .clang-tidy). `const` goes first (`const int`, `const T *`), also
   where clang-tidy's fix writes it after the type. A local stays non-const, with a NOLINT and the reason, where
-  const changes the oracle image (a constant the compiler then folds, as in TTalkBuffer::Remove): compare the
-  images. A virtual function becomes const only together with all its overriders.
+  const changes the image (a constant the compiler then folds, as in TTalkBuffer::Remove; until issue #94 the
+  oracle's image was the one that mattered): compare the images. A virtual function becomes const only together with all its overriders.
 - A pointer parameter whose pointee the function only reads points to const (issue #50;
   readability-non-const-parameter in .clang-tidy, which looks at pointers to integers and floating types). The
-  declaration in the header changes with the definition, and so does a difftest fake of the same image function
-  (tools/difftest/commworld.cpp's F_ functions). A callback whose type an API fixes (Windows, MFC, qsort, Vulkan)
+  declaration in the header changes with the definition, and so does a golden test's fake of the same function
+  (tests/golden/commworld.cpp's F_ functions). A callback whose type an API fixes (Windows, MFC, qsort, Vulkan)
   and a virtual function without all its overriders keep their parameters.
 - A cast that is not a plain arithmetic conversion or upcast is a named cast (issue #41;
   cppcoreguidelines-pro-type-cstyle-cast in .clang-tidy), the one the C cast would have been: static_cast for a
@@ -129,7 +129,7 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   block that a loop's end and a jump from inside it both reach and C++ has no other way out (ProcessEvents' `goto
   Done`, block 0x44a2f5): such a goto carries a NOLINT naming the block. Code the binary reaches from several
   branches (a copy, a skipped draw) is written with a value that says which (a skin of 0, an Index of -1) and an
-  if; compare the images and run difftest, since the generated code usually changes.
+  if; compare the images and replay the golden corpus, since the generated code usually changes.
 - No strcpy, strcat, sprintf, vsprintf or gets in src/ (issue #57; `tools/banned_calls.py`, a job of the hosted
   CI). A text buffer of the original (`char Name[30]`) is a `TFixedString<30>` (src/types/FixedString.h: exactly
   the array, converting to `char *` as it decayed) and is written with Assign, Append, Format and AppendFormat
@@ -202,18 +202,27 @@ Studio project and the scripts (issue #10)"). The MSVC presets mark their archit
 architecture, found through vswhere) and runs the workflow, from any shell:
 
 ```
-python -I tools/build.py oracle-x86              # configure, build Release, run the five tests through CTest
 python -I tools/build.py windows-x64             # the x64 client and the unit tests, Release
 python -I tools/build.py windows-x64-debug       # the same, Debug
 python -I tools/build.py windows-x64-asan        # windows-x64 under MSVC's AddressSanitizer (-debug: Debug)
 python -I tools/build.py windows-x64-gcc         # the unit tests with mingw-w64 GCC 16 (-debug: Debug)
 python -I tools/build.py linux-x64-gcc           # patella_core, the unit tests, golden_runner, GCC 16 (Docker on Windows)
 python -I tools/build.py linux-x64-clang         # the same, Clang 22 with ASan and UBSan (-debug: Debug)
+python -I tools/build.py capture-x86             # only patcap.dll, the 32-bit capture DLL for Tibia.exe
 python -I tools/build.py --list                  # the workflow presets
-python -I tools/build.py oracle-x86 --fresh      # extra options go to cmake --workflow
-python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86-debug   # any command, in the
-python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R vlongtest    # preset's environment
+python -I tools/build.py windows-x64 --fresh     # extra options go to cmake --workflow
+python -I tools/build.py --env windows-x64 cmake --build --preset windows-x64-debug   # any command, in the
+python -I tools/build.py --env windows-x64 ctest --preset windows-x64 -R golden       # preset's environment
 ```
+
+There is no 32-bit client build since Patella-Modern issue #94 (M6, November 7, 2026): the preset `oracle-x86`
+(issue #4) built the reconstructed client for x86 with the former Patella.vcxproj's options, the differential tests
+(difftest, sysinctest, communicationtest, vlongtest), the SafeSEH gate (issue #89), the golden corpus's recorder
+and the mfc_shim compile check, and checked the resources and imports against Tibia.exe (compare_resources.py,
+compare_imports.py). It left the fork with the engines DirectDraw, Direct3D 9 and OpenGL and the x86 layout
+asserts; it is in upstream Patella and at this repository's tag `layout-frozen-final` (ee1705c), the last commit with
+it (notes/decisions.md, "The oracle retired (issue #94)"). What it checked is checked now by the frozen golden corpus
+(function results, by value), the reference recordings and the live comparisons (tier A), and the unit tests.
 
 In the Docker image (issue #91) build.py mounts the golden corpus read-only at `/golden` and sets PATELLA_GOLDEN_DIR
 there to it: the host's PATELLA_GOLDEN_DIR, else the repository's build\golden when it exists (`PATELLA_GOLDEN_DIR=none`:
@@ -228,8 +237,8 @@ python -I tools/build.py linux-x64-gcc           # golden replays it in the imag
 python -I tools/build.py linux-x64-clang         # under ASan and UBSan
 ```
 
-No warnings on any preset (plan section 4.1): the product presets build with /WX or -Werror, and the oracle,
-which keeps the former Patella.vcxproj's /WX-, is failed by `tools/build.py` instead (issue #17). It passes
+No warnings on any preset (plan section 4.1): the product presets and capture-x86 build with /WX or -Werror, and
+`tools/build.py` fails a warning besides (issue #17; it was what failed the oracle, which kept /WX-). It passes
 cmake's output through and scans it, up to the test step, for compiler, resource compiler, assembler and linker
 warnings (MSVC's `warning C4101`, `warning LNK4075`, `warning RC4005`, `warning A4018`, `Command line warning
 D9025`; GCC's and Clang's `file:line:col: warning:`); after a run that warned it lists them again (`build.py: 1
@@ -237,39 +246,23 @@ warning in the build ...`) and exits 1, even when cmake succeeded. That holds fo
 <preset> cmake ...`. Ninja compiles only what changed, so an up-to-date build shows no warnings; `--fresh`
 checks every file. Plain `cmake --workflow` from a developer prompt does not check.
 
-From a developer prompt for the right architecture (`vcvarsall.bat x86` or `x64`) the plain CMake commands do
-the same: `cmake --workflow --preset <name>`, or step by step `cmake --preset oracle-x86`, `cmake --build
---preset oracle-x86` (oracle-x86-debug: Debug), `ctest --preset oracle-x86`. Everything needs Visual Studio
+From a developer prompt for the right architecture (`vcvarsall.bat x86` for capture-x86, `x64` for windows-x64) the
+plain CMake commands do the same: `cmake --workflow --preset <name>`, or step by step `cmake --preset windows-x64`,
+`cmake --build --preset windows-x64` (windows-x64-debug: Debug), `ctest --preset windows-x64`. Everything needs Visual Studio
 2026 with the C++ workload and the MFC component (MSVC 14.51), Python 3.13 on PATH and Tibia.exe in the root
 (or the cache variable PATELLA_TIBIA_EXE): the resource pictures are extracted from it at configure time
 (cmake/Resources.cmake, notes/resources.md).
 
-The preset `oracle-x86` (issue #4; `cmake/OracleX86.cmake`) is a test instrument until M6. It writes
-build\oracle-x86\<Configuration>:
-
-- Patella.exe, the reconstructed client, with exactly the compiler, resource compiler and linker options of
-  the former Patella.vcxproj (issue #16): every `src/*.cpp`, `src/Extern/regexp/*.c` and `src/res/Patella.rc`
-  for x86 with static MFC (nafxcw.lib) and the static CRT (`/MT`), Tibia.exe's system libraries with
-  oleacc.dll delay-loaded, no manifest; a PDB in both configurations. One exception: SurfaceGL.cpp compiles
-  without `/FC`, which would make the name in glh_extensions.h's `#line 173 "Extern\\glh/glh_extensions.h"`
-  absolute, so the malloc-failure message prints the original's `Extern\glh/glh_extensions.h` (issue #14; the
-  x64 build and the test programs have no /FC at all). After every link the build checks the
-  resources against Tibia.exe (`tools/compare_resources.py`, 0 differences; a difference fails the build).
-  `python -I tools/compare_imports.py Tibia.exe build\oracle-x86\Release\Patella.exe` compares the import
-  tables. Details: notes/decisions.md, "Building Patella.exe (issue #16)", "CMake: the oracle-x86 preset
-  (issue #4)" and "/FC and the glh_extensions.h #line name (issue #14)".
-- The four test programs difftest, sysinctest, communicationtest and vlongtest with the options of the former
-  tools\difftest\build.cmd (the same in every configuration), which `ctest --preset oracle-x86` runs ("Checking"
-  below). The tests get Tibia.exe as their argument and a private TEMP each (build\oracle-x86\tmp\<test>).
-- patcap.dll, the 32-bit capture DLL of tools/compare_rendering.py and the reference recordings' record step for
-  Tibia.exe and the oracle's Patella.exe (`cmake/Capture.cmake`; the script builds the target itself when the DLL is
-  missing or older than tools/capture/patcap.c). Tibia.exe's and the oracle's only since Patella-Modern issue #92:
-  patcap.c does not build for x64.
-- mfc_shim_check: every source of Patella.exe compiled, not linked, against `src/compat/mfc_shim.h` instead of
-  MFC (the former `compile-check.cmd` with TIBIA_MFC_SHIM set; "Checking" below).
+The preset `capture-x86` (Patella-Modern issue #94; `cmake/Capture.cmake`, CMakeLists.txt's PATELLA_CAPTURE) is a
+test instrument: it builds only build\capture-x86\Release\patcap.dll, the 32-bit capture DLL that
+tools/compare_rendering.py and the reference recordings' record step (tools/reference_record.py) load into Tibia.exe
+(the scripts build the target themselves when the DLL is missing or older than tools/capture/patcap.c), with the
+options of the former build-capture.cmd (/W4 /WX, the static CRT, no manifest; CMake's Release /O2). Tibia.exe's only
+since issues #92 and #94: patcap.c does not build for x64, and the 32-bit oracle's Patella.exe that it captured too is
+gone. No client, no tests, no header checks; its workflow configures and builds.
 
 The product presets (windows-x64, issue #5; linux-x64-gcc and linux-x64-clang, issue #7) give their targets
-the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8), which the oracle never uses:
+the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8):
 
 - `patella_target_language(<target>)`: C++23 (`/std:c++latest` on MSVC, `-std=c++26` on GCC and Clang),
   `/permissive- /Zc:__cplusplus /utf-8 /Zc:preprocessor /Zc:inline`, no `/Zc:strictStrings-`; C17 for the C
@@ -396,7 +389,7 @@ fetches the pinned Vulkan dependencies and reads no CipSoft file.
 
 Since Patella-Modern issue #19 both carry the Vulkan engine (notes/vulkan.md; `cmake/Vulkan.cmake`), since
 issue #20 as their only engine (SurfaceDX.cpp, surfaceDX9.cpp and SurfaceGL.cpp are not compiled, ddraw, dxguid,
-opengl32 and glu32 not linked; the oracle-x86 build keeps them): src/vulkan/SurfaceVulkan.cpp on the back end `patella_render_vulkan`
+opengl32 and glu32 not linked; their sources left with the oracle in issue #94): src/vulkan/SurfaceVulkan.cpp on the back end `patella_render_vulkan`
 (src/vulkan/Renderer.cpp and Quads.cpp) and the libraries' `patella_vulkan_deps` (volk, vk-bootstrap, VMA), the
 shaders compiled by a glslang built in the tree; Vulkan-Headers, volk, VMA, vk-bootstrap, glslang and the CPU
 driver (Mesa 26.2.5's lavapipe) are pinned by URL and SHA256 and downloaded on the first configure of a build
@@ -443,10 +436,10 @@ backup: notes/testserver.md.
 `python -I tools/compare_traffic.py` (issue #19) plays a scripted session (walk, talk, look, containers,
 use, trade, logout) with both clients against that server through a recording proxy (tools/proxy.py,
 which decrypts with the server's key), replays each recording to both clients and compares their packets,
-their state in memory after every step and their Tibia.cfg: notes/traffic.md. `--patella <exe>` tests another
-Patella.exe (build\oracle-x86\Release or, from issue #5, build\windows-x64\Release). tools/client_state.py
-reads Tibia.exe's memory, and the oracle's Patella.exe's with its globals and field offsets from its PDB by name
-(issue #6); `python -I tools/client_state.py --layout <Patella.exe>` checks them without a client (for x86: every one
+their state after every step and their Tibia.cfg: notes/traffic.md. `--patella <exe>` tests another x64
+Patella.exe (default build\windows-x64\Release\Patella.exe since issue #94; until then the oracle's,
+build\oracle-x86\Release). tools/client_state.py reads Tibia.exe's memory (until issue #94 also the oracle's
+Patella.exe's, with its globals and field offsets from its PDB by name, issue #6); `python -I tools/client_state.py --layout <Patella.exe>` checks them without a client (for x86: every one
 equal to the original's). An x64 `--patella` (Patella-Modern issue #92) runs the test build next to it,
 PatellaTest.exe, without a script (the client on the system clock, as Patella.exe), and reads it only through its
 test mode's control channel (tools/testmode_client.py: the probe's state, window tree and the places the session
@@ -471,8 +464,8 @@ on a window of its own.
 replayed with each engine (DirectX 5, DirectX 9, OpenGL), windowed and fullscreen, every frame read from the
 engine's own surfaces by a DLL the run folders' copies import (tools/capture/patcap.c, no display needed),
 with time made virtual so both clients draw the same moment: notes/rendering.md. It takes `--patella <exe>`
-too, x86 or x64 (Patella-Modern issue #18). The capture DLL (build\oracle-x86\Release\patcap.dll) is for Tibia.exe
-and the oracle's 32-bit Patella.exe; an x64 one runs as its test build with patcap's time course from the test mode
+too (Patella-Modern issue #18; the x64 client by default since issue #94). The capture DLL
+(build\capture-x86\Release\patcap.dll, the capture-x86 preset, issue #94) is for Tibia.exe; the x64 client runs as its test build with patcap's time course from the test mode
 itself (Patella-Modern issue #92: `clock manual`, `cursor`, then advance, frame and post lines through the control
 channel; the frame dump's pictures and masks are the scenes), never hooked.
 
@@ -541,8 +534,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   start that still fails says why in its `testserver start:` lines: look there first. The tools' own self-tests run
   without a server or a client: `python -I tools/testserver.py self-test`, `python -I tools/compare_files.py
   --self-test`, `python -I tools/testmode_check.py --self-test`.
-- How the tools read a client (Patella-Modern issue #92, M6): Tibia.exe and the oracle's 32-bit Patella.exe through
-  their memory (tools/client_state.py) and, for the frames and the virtual clock, tools/capture/patcap.c; the x64
+- How the tools read a client (Patella-Modern issue #92, M6): Tibia.exe (and until issue #94 the oracle's 32-bit
+  Patella.exe) through its memory (tools/client_state.py) and, for the frames and the virtual clock, tools/capture/patcap.c; the x64
   client only through its test mode: PatellaTest.exe with `--test-control` (tools/testmode_client.py; the probe, and
   with a script the script lines advance, frame and post) or with a script and the reference replay
   (tools/reference.py compare). client_state.py refuses a 64-bit process (`python -I tools/client_state.py --self-test`
@@ -578,8 +571,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   The headers (issue #49): `--headers` runs misc-include-cleaner (only that check) on every header of the build's
   header checks ("Compile checks" below) as the main file, with its check source's command (a compilation
   database per check target, `build/<preset>/header-check/<target>/compile_commands.json`, written by tidy.py).
-  `python -I tools/tidy.py -p build/windows-x64 --headers`, `-p build/oracle-x86 --headers --extra-arg=-m32`
-  (oracle-x86 configured with -DCMAKE_EXPORT_COMPILE_COMMANDS=ON); the hosted job runs `--all --headers` on
+  `python -I tools/tidy.py -p build/windows-x64 --headers` (until issue #94 also the oracle's build, with
+  `--extra-arg=-m32`); the hosted job runs `--all --headers` on
   linux-x64-clang's. An include a header does not use goes, unless removing it moves the images' data: then it
   stays with `// IWYU pragma: keep` and the reason (common.h's `<string>`, `<cstring>`, `<cstdio>`, `<cstdlib>`;
   Communication.h's Talk.h; notes/decisions.md, issue #49). A .cpp that relied on a removed include includes it
@@ -630,10 +623,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   CMakeCache.txt from earlier runs, so check the result with tidy_ci.py). On Linux the same tidy.py commands
   run directly after `cmake --preset linux-x64-clang`.
   Which check a change must pass (issue #51; notes/decisions.md): both, for different files. The per-target
-  Windows runs (tidy.py with Visual Studio's clang-tidy on one target's compile_commands.json each: oracle-x86's
-  Patella, mfc_shim_check, difftest, communicationtest, sysinctest, vlongtest with `--extra-arg=-m32`;
-  windows-x64's Patella, PatellaTest, patella_core, patella_testmode, patella_render_vulkan) are the only check of
-  the code Linux does not compile (MFC, DirectX, OpenGL, Win32, the oracle) and of the `#ifdef _WIN32` parts of
+  Windows runs (tidy.py with Visual Studio's clang-tidy on one target's compile_commands.json each: windows-x64's
+  Patella, PatellaTest, patella_core, patella_testmode, patella_render_vulkan; until issue #94 also the oracle's
+  targets with `--extra-arg=-m32`) are the only check of the code Linux does not compile (MFC, Win32) and of the `#ifdef _WIN32` parts of
   the shared files; an M3 step runs them for its check. tidy_ci.py is the gate: what it reports is what CI
   reports, and a change is not pushed until it passes. They disagree on the shared files because the compile
   commands differ, not only the version: misc-const-correctness (22.1.3 and 22.1.8 alike) does not report a
@@ -671,10 +663,11 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   no fopen, fclose or printf family outside src/types/File.h; comments and literals do not count; run it locally
   the same way). Every action is pinned by commit; `permissions: contents: read`.
   `.github/workflows/self-hosted.yml` runs on this machine (runner labels `self-hosted, Windows, X64, patella`):
-  oracle-x86 and the difftest, the windows-x64 client (Release and Debug), compare_traffic.py and
-  compare_files.py for the x64 client and compare_rendering.py `--modes windowed` for the x64 client (issue #18),
-  testmode_check.py for PatellaTest.exe (issue #25), the golden corpus recorded and replayed in one job (issue #24, below), and the Linux presets through
-  build.py in Docker. It triggers only on `push` to this repository's branches and on `workflow_dispatch`, never
+  the windows-x64 client (Release and Debug) with the frozen golden corpus required (PATELLA_GOLDEN_DIR), capture-x86,
+  the reference compare (PATELLA_REFERENCE_DIR), compare_traffic.py and compare_files.py for the x64 client and
+  compare_rendering.py `--modes windowed` for the x64 client (issue #18), testmode_check.py for PatellaTest.exe
+  (issue #25), and the Linux presets with the corpus through build.py in Docker (until issue #94 also the oracle and
+  its differential tests, and the golden job recorded the corpus before replaying it). It triggers only on `push` to this repository's branches and on `workflow_dispatch`, never
   on `pull_request` or `pull_request_target`, every job checks the repository's name and the event, and every
   job is skipped (not queued) unless the repository variable `PATELLA_SELF_HOSTED` is `true`. The CipSoft files
   come from `PATELLA_CIPSOFT_DIR` (a repository variable, default C:\Tibia\Patella) into the checkout's root
@@ -752,12 +745,11 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     a report, not a reference page). DirectDraw and Direct3D 9 in a Remote Desktop session were not tried. A fast
     user switching session is the console's, with the real display adapter and monitor: the closest to the
     user's own desktop.
-- Compile checks: the oracle-x86 build compiles every `src/*.cpp` and `src/Extern/regexp/*.c` with MSVC 14.51
-  for x86 (`/W3`; a warning fails `tools/build.py`, "Building" above) twice: against real MFC (the Patella target) and against
-  `src/compat/mfc_shim.h` (the mfc_shim_check target, the former `compile-check.cmd` with `TIBIA_MFC_SHIM`
-  set; the difftest always uses the shim). One file alone: `python -I tools/build.py --env oracle-x86 cmake
-  --build --preset oracle-x86 --target CMakeFiles/mfc_shim_check.dir/Release/src/<File>.cpp.obj` (or
-  `Patella.dir` for real MFC).
+- Compile checks: until Patella-Modern issue #94 the 32-bit oracle compiled every `src/*.cpp` and
+  `src/Extern/regexp/*.c` with MSVC for x86 twice, against real MFC and against `src/compat/mfc_shim.h` (the
+  mfc_shim_check target). Since then the x64 client compiles them with real MFC (windows-x64, and
+  `Patella_compile`/`PatellaTest_compile` in hosted CI), and the golden targets compile the files they test against
+  the shim, on Windows and on Linux (tests/golden/CMakeLists.txt).
 - TFixedString and the format stand-in (issue #57): tests/unit/fixed_string_test.cpp, in tests_unit (std::format_to_n)
   and tests_unit_cxx26_standin (PATELLA_FORMAT_STANDIN: the C++17 stand-in of src/compat/format.h that the oracle
   formats with), holds every write against strcpy, strcat and snprintf on a char[N] byte for byte, the truncation,
@@ -779,8 +771,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   definitions change the header (common.h: PATELLA_CORE, TIBIA_MFC_SHIM, PATELLA_VULKAN, PATELLA_TEST_MODE):
   `header_check_core`, `header_check_cxx26_standin`, `header_check_testmode` and `header_check_render` on every
   product preset, `header_check_client` and `header_check_test_build` on windows-x64 (with
-  PATELLA_CLIENT_COMPILE_ONLY too), `header_check_oracle` (real MFC) and `header_check_oracle_shim` on
-  oracle-x86. They are in the default build, so every workflow builds them (a header that needs what it does not
+  PATELLA_CLIENT_COMPILE_ONLY too); until issue #94 also the oracle's `header_check_oracle` (real MFC) and
+  `header_check_oracle_shim` (compat/mfc_shim.h, a header check exception since). They are in the default build, so every workflow builds them (a header that needs what it does not
   include fails the build, its warnings fail it as anything else's); the hosted CI builds the client's two by
   name. The lists in HeaderCheck.cmake name every header by the targets that include it, and the configure fails
   on a header that is on none: a new header goes on a list. No header is an exception today (the shaders' SPIR-V
@@ -800,71 +792,17 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   corpus): windows-x64 228.6 s to 118.3 s, windows-x64-debug 780.7 s to 266.6 s (13 tests), windows-x64-asan 1,821.1 s
   to 775.8 s (13 tests), oracle-x86 230.0 s to 263.5 s and again 248.6 s to 230.7 s (difftest alone takes 220 to 263 s:
   the four in parallel save the other three's 12 s, within the noise). notes/decisions.md, "Tests in parallel".
-- `python -I tools/build.py oracle-x86` builds and runs the differential tests through CTest (difftest,
-  sysinctest, communicationtest, vlongtest; the output with the check counts is in the log, verbosity verbose), and
-  the SafeSEH gate.
-- The SafeSEH gate (issue #89): CTest's `safeseh` runs `tools/safeseh_scan.py` on the five x86 images oracle-x86
-  links (difftest.exe, sysinctest.exe, communicationtest.exe, vlongtest.exe, Patella.exe). It finds every
-  exception-handler registration in their code (the C++ EH prologue push -1; push __ehhandler$...; mov eax, fs:[0],
-  the inline SEH3 and SEH4 frames, push handler; push fs:[0], the CRT's guard records, mov eax, handler; call
-  __EH_prolog3 and its variants) and fails on any whose handler is not in the image's SafeSEH table
-  (IMAGE_LOAD_CONFIG_DIRECTORY32's SEHandlerTable and SEHandlerCount), and on an image without a table (/SAFESEH:NO).
-  Windows refuses such a handler and ends the process when an exception passes the frame: MSVC x86 kept
-  TPlayerStates::GetIcon's frame without its handler in #79. A finding names the function from Patella.pdb (or a
-  .map), otherwise its RVA (the test programs have no PDB). `-v` lists every registration, the prolog helpers and
-  the fs:[0] loads it does not take as one (walks of the chain); `python -I tools/safeseh_scan.py --self-test` checks
-  it on made-up PE32 images and a made-up PDB. A CTest test, not a post-build step: it only reads the images, and a
-  finding fails the run like a difftest failure (notes/decisions.md, issue #89).
-  One test: `python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R <test>`; with
-  `DIFFTEST_ONLY=<name>` in the environment difftest runs only those tests. `difftest.cpp` copies Tibia.exe into a
-  child process at its base address 0x400000 (no loader, imports or entry point) and calls the
-  original functions next to the reconstructed ones on the same inputs. Only functions that do
-  not touch imports can be called this way. `statustest.cpp` patches the image's `malloc` and
-  `free` (and a few helpers that would reach Windows) to jump to the test's own code, so
-  allocating functions can be compared too; reuse its `PatchImage`.
-- How the tests report failures and crashes (issue #23): a test program that fails ends with a
-  non-zero exit code and its report, and CTest lists the test as failed (a build step that fails stops
-  the build with the compiler's output); a passing run ends with `100% tests passed`. Before each
-  test the child writes the test's name into memory shared with the parent (the `#define
-  TestX(...)` lines before `main` in difftest.cpp: a new test needs one) and runs `_heapchk()` after
-  it. A crash prints `crash:` lines in the child where it can (access violations, stack overflow,
-  heap corruption with address and stack; uncaught C++ exceptions with the thrown type and the
-  message of a TMyException or std::exception; terminate, abort, invalid parameter, pure call,
-  /GS cookie), and the parent always prints `difftest: the test process ended with exit code
-  0x... (name) in TestX` (or "in the heap check after TestX"), also for `__fastfail`, which nothing
-  in the child can catch. The child runs in a job that dies with the parent (no orphan keeps
-  difftest.exe locked) and never waits on Windows Error Reporting; DIFFTEST_TIMEOUT=<seconds>
-  (default 1800, 0 none; CTest stops difftest and communicationtest after 7,200 s) stops a hung child.
-  A copy of a test program that still runs (an interrupted run) keeps the linker from replacing it:
-  the former build.cmd stopped such copies itself, the CMake build does not, so stop it first.
-- Error paths (issue #22): `errortest.cpp` (tests/golden/errors_tests.cpp since Patella-Modern issue #26; DIFFTEST_ONLY=Errors) calls the original and the reconstructed
-  functions with inputs that fail their assertions, TERRORs and PROGRAM_ERROR throws and compares what each
-  side throws by its outcome (Patella-Modern issue #76, plan 7 M5; golden_eh.cpp's CompareThrown, one check per
-  call): whether it threw, and the kind (TMyException, a PROGRAM_ERROR with its value, another type by its
-  name). Until issue #76 it compared a TMyException's whole message with every TEND level and its origin too,
-  and each line number with a check of its own (issue #35: every site named the original's line); M5 changes
-  those texts and lines (TBEGIN/TEND removed, TASSERT to PATELLA_ASSERT), so a changed assertion text or line
-  fails nothing now, and a call that throws on one side only still fails. TestMyException still compares
-  TMyException's two constructors' texts for random arguments (the class's formatting, not a site's text). `imageeh.cpp` makes the image's own exception code run in
-  the child (its throw, frame handlers and catch blocks, its stringstream and TMyException code): the image's
-  locks and per-thread data are patched, the imports it needs bound, and its exception handlers, which Windows
-  refuses outside a mapped image, are called through a SafeSEH-registered trampoline (`imageehseh.asm`, built
-  with ml.exe). It also compares TMyException's constructors and how HandleException ends (until
-  Patella-Modern issue #74 the report it wrote to error.txt; since then the original's outcome, no file, the message
-  on stderr). Another test can use it: EnableImageExceptions, ImageThrow/OurThrow, DisableImageExceptions.
-- Communication.cpp and Control.cpp (issue #36) are compared in `communicationtest.exe`, a test program of its
-  own (difftest.exe's other tests define fakes under their functions' names): every function they
-  call is a fake on both sides (`commworld.cpp`), the comparison is the calls with their arguments, what each side
-  threw and the fakes' worlds; DIFFTEST_ONLY=Communication or Control. notes/decisions.md "Communication.cpp and
-  Control.cpp tests (issue #36)".
-- `tests/golden/script_tests.cpp` (issue #26; `scripttest.cpp` before) also
-  redirects the image's stdio functions (fopen, getc, fputc, fread, ...) to the test's CRT, so
-  file-based code can be compared on real files. CTest gives each test a private TEMP
-  (build\oracle-x86\tmp\<test>): several tests write fixed directories there, and runs in other worktrees at
-  the same time made each other crash. A test's result must not depend on where the heap is: the
-  environment block (other shell, other TEMP) moves it. `vlongtest.cpp` and
-  `vlongcheck.py` check the big-number code and RSA against Python's exact integers. Add a test
-  for every new pure function.
+- The differential tests (until Patella-Modern issue #94, M6): the 32-bit oracle preset ran difftest, sysinctest,
+  communicationtest and vlongtest through CTest, and the SafeSEH gate (issue #89, tools/safeseh_scan.py) on the five
+  x86 images. difftest mapped Tibia.exe into a child process at its base address and called the original functions
+  next to the reconstructed ones on the same inputs (with the image's malloc, stdio and exception code patched or
+  made to run: statustest.cpp's PatchImage, imageeh.cpp and imageehseh.asm); communicationtest compared
+  Communication.cpp and Control.cpp with every callee faked (issue #36); vlongtest checked vlong and TRSA against
+  Python's exact integers. Their comparisons are the golden corpus now (below), recorded by them for the last time in
+  issue #93; vlongtest's cases are tests/unit/core_vlong_test.cpp's. The programs, their crash reporting (issue #23),
+  DIFFTEST_ONLY, DIFFTEST_TIMEOUT and the gate are described at the tag `layout-frozen-final` (this file, "Checking")
+  and in notes/decisions.md (issues #22, #23, #36, #89); they are in upstream Patella. The ported tests'
+  ORIGINAL(...) arguments still show what the original's side ran.
 - The golden corpus (Patella-Modern issue #24; plan 4.3): difftest's comparisons as data, replayed without
   Tibia.exe. A ported test lives in `tests/golden/*_tests.cpp` and is compiled into the oracle's test program
   (GOLDEN_ORACLE: the original's code runs inside `ORIGINAL(...)` / `#if GOLDEN_ORACLE`) and into
@@ -905,8 +843,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   graphics.cpp, GUI.cpp and every window file too; since issue #30's second part Communication.cpp and Control.cpp, in
   tests/golden/comm) and aborting stubs of the others (tests/golden/client_stubs.cpp: the Vulkan engine and the
   device choice). Tibia.dat is in the corpus (golden::DataFile): the runner needs no data files.
-  - Record: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
-    golden_corpus` runs difftest, sysinctest and communicationtest in full with `DIFFTEST_RECORD=<dir>` (default
+  - Record (until issue #94; at the tag `layout-frozen-final` only): `python -I tools/build.py --env oracle-x86
+    cmake --build --preset oracle-x86 --target golden_corpus` ran difftest, sysinctest and communicationtest in full with `DIFFTEST_RECORD=<dir>` (default
     build\golden, the cache variable PATELLA_GOLDEN_DIR; about five minutes, 903 MB, of which MapWindow 182 MB,
     DialogElements 96 MB, Graphics 91 MB, Container 82 MB, ConsoleWindow 69 MB, GUI 56 MB, Dialogs 52 MB, ContentWindows 48 MB, Talk
     46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB, MainWindow 9 MB, Network 8 MB, DialogWindow 7 MB, ContextMenus
@@ -915,8 +853,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     recordings of one build are byte for byte the same (Buffers recorded the stack's leftovers, Talk's line
     identities followed the heap's addresses), and every expression of the ported tests and tools/difftest that
     called Random() twice without a sequence point makes its calls in the oracle's order, explicitly.
-  - Reproducible: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
-    golden_reproducible` records the corpus twice into build\oracle-x86\golden-reproducible\1 and \2 and compares
+  - Reproducible (until issue #94; at the tag only): `python -I tools/build.py --env oracle-x86 cmake --build --preset
+    oracle-x86 --target golden_reproducible` records the corpus twice into build\oracle-x86\golden-reproducible\1 and \2 and compares
     the two file by file (cmake/CompareGoldenRecordings.cmake, after its self-test); it fails on any difference and
     keeps both then, removes them when they are the same. About 8 minutes; not in the CTest run. Run it after a
     change to the recorder or a ported test (notes/decisions.md, issue #55's section, also the list of the reordered
@@ -952,8 +890,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     in the manifest's zone (UTC0: golden_corpus records with TZ=UTC0, cmake/RunGoldenRecord.cmake, so Talk's and
     Creatures' local times no longer depend on the recording machine). `python -I tools/data_manifest.py verify
     --kind golden <dir>` checks a copy without replaying it.
-  - Regenerating it after #94: only from the oracle as it was, at this repository's tag `layout-frozen-final` (#94
-    creates it on the last commit with oracle-x86): check that tag out in a worktree of its own, copy Tibia.exe and the data files
+  - Regenerating it after #94: only from the oracle as it was, at this repository's tag `layout-frozen-final` (on
+    ee1705c, the last commit with the oracle): check that tag out in a worktree of its own, copy Tibia.exe and the data files
     (the SHA-256 of CLAUDE.md) into its root, run `golden_reproducible` and then `golden_corpus` as above, and compare
     the new MANIFEST.tsv's file lines with the frozen one's (`python -I tools/data_manifest.py verify --kind golden`
     on the old corpus with the new manifest copied in, or a diff of the two manifests' `file` lines): the same
@@ -962,7 +900,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     commit would no longer be the oracle's): the ported tests stay as they are and replay the frozen corpus; new
     behaviour is checked by unit tests (tests/unit, every preset), by the test mode's recordings against Tibia.exe
     (tools/reference.py: a new session recorded from Tibia.exe in a reference set of its own; the record step needs
-    the 32-bit patcap.dll, which oracle-x86 builds: after #94 from the tag, unless #94 keeps a build of it), or by a
+    the 32-bit patcap.dll, which the capture-x86 preset builds since #94), or by a
     deliberate difference (tools/deliberate.py). A
     change to a ported test's code under test that changes what the original's records mean is a stale corpus
     (the runner stops with "the test changed since the recording"): the test is then retired with the oracle
@@ -971,7 +909,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     was recorded from, which must be the 7.72 client's; every value carries its name and role, and the
     runner checks each against what the test asks for, each input against the one it generated, and the test's
     check and value counts at its end. A changed test therefore stops with "the test changed since the
-    recording" instead of comparing wrong data: record again.
+    recording" instead of comparing wrong data; the corpus being frozen, the part is then retired (above).
   - Porting a test: move it to tests/golden, put the original's calls under ORIGINAL, pass every value the
     comparison takes from the original through golden::Output (by value: fields and offsets, never a memory
     image or a pointer), add it to golden_test.h, runner.cpp's table and both CMake lists. The helpers of issue
@@ -1122,13 +1060,18 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 | DialogElements.cpp | Reconstructed (Claude Opus 5.5, issue #7) with its leading run of header code (0x4524e0-0x4532ff, settled earlier; now every function named) and the DialogElements/Dialogs gap, which is Dialogs.obj's leading run (file-ranges.tsv): the dialog controls (separators, resizers, frames, labels, the formatted text, links, outfit/skin/object icons, nine kinds of buttons with radio groups, check boxes, the edit line with its password and multi-line forms and the focus groups, horizontal and vertical scroll bars with their ranges, list boxes with plain and font lines, the progress bar). EH tables checked for every function; the four jump tables checked. Every function differentially tested, the error paths since issue #34 (177 of 218 sites compared, the others not reachable; three fixes, notes/decisions.md) (dialogelementstest.cpp: 27 kinds of controls from the image's constructors and ours under random sizes, drawing, mouse, keys, events and members, logs of every callee and dumps of every member compared; a mutation check of twenty changes). callcheck differences all explained (notes/decisions.md). Side changes: GUI.h's getMinimumWidth/Height renamed (assertion text), SkinProperties.CheckBox.Data08 retyped, the surface slot +0x1c named, external.h's sketches replaced by DialogElements.h; the window tests keep their fakes as mirror classes (tools/difftest/elementfakes.h). |
 | Dialogs.cpp | Reconstructed (Claude Opus 5.5, issue #8) with its leading run of header code (0x46b790-0x46c0cf, settled in issue #7; now every function named: the inline constructors and destructors of Dialogs.h, a qsort comparator, Container.h's vector<TIgnoreEntry>): every dialog of the client and its creator: the frame TDialog (caption, OK, Cancel and extra buttons, dragging) around 31 bodies (messages, connecting, waiting and the reconnect countdown, questions, logout, info, login, character list, moving objects, outfit, texts, house lists, ignore and white lists, bug reports, channels and private channel invitations, rule violation requests and reports, the VIP list, updates (gone since Patella-Modern issue #75, D9), help, hints, automap marks, the options with their general, graphics, advanced graphics, console, network and hotkey dialogs, error reports). EH tables checked for every function; the one jump table checked. Every function differentially tested, the error paths since issue #34 (158 of 165 sites compared, the others not reachable; one fix, notes/decisions.md), the image's error report constructor only in the error round (dialogstest.cpp: every dialog from the image's creator and ours, the DialogElements controls real on both sides, logging fakes for every callee with an effect, logs and dumps of the whole tree compared after random drawing, keys, clicks, events and members; the image's iostreams cannot run in the child, so the error report body runs our constructor with the image's vtable; a mutation check of 22 changes). callcheck differences all explained (notes/decisions.md). Side changes: TObject's Data (assertion text), SkinProperties blocks retyped by offset (GUI.cpp's stores rewritten), TBorder frames a TComponent, TListBox::GetNumberOfLines, TSurface's +0x8c/+0xac and GetAvailableEngines, external.h's placeholders replaced by Dialogs.h and Control.cpp's calls renamed. |
 | Resources | Rebuilt (issue #17): src/res/Patella.rc and resource.h give all 55 entries of Tibia.exe's .rsrc (the client's icon 128, cursors 0x84 and 0x89, version information 7.7.2.0, and MFC 7.1's afxres.rc part: context help and wheel cursors, the "New" dialog, two bitmaps, the string tables) with the original types, IDs and languages. The pictures are extracted from the local Tibia.exe (tools/extract_resources.py), not committed; the build compiles the script with rc.exe (then tools\build-resources.cmd, since issue #10 the oracle-x86 preset) and tools/compare_resources.py finds the resources byte-identical, entry for entry. Every ID the client and the MFC code ask for is accounted for (notes/resources.md). Linked into Patella.exe (issue #16): its .rsrc has the same 55 entries, 0 differences. |
-| Patella.exe (the build) | Builds (issue #16; since issue #10 only with CMake, the oracle-x86 preset with the same options): the build compiles every source file with real MFC 14 (static, x86, /MT) and link Tibia.exe's system libraries (oleacc.dll delay-loaded, no manifest); no compiler or linker warnings in Release or Debug. The game code's imports are Tibia.exe's (the other differences of the import tables are MSVC 14's CRT and MFC 14, notes/decisions.md); the resources are identical. It starts from a folder with copies of the data files and shows the start screen (OpenGL engine); logging in was not tried. Five small source changes for real MFC (notes/decisions.md, "Building Patella.exe (issue #16)"). |
+| Patella.exe (the build) | The x64 client of windows-x64 since Patella-Modern issue #94, which removed the 32-bit build; until then: builds (issue #16; since issue #10 only with CMake, the oracle-x86 preset with the same options): the build compiles every source file with real MFC 14 (static, x86, /MT) and link Tibia.exe's system libraries (oleacc.dll delay-loaded, no manifest); no compiler or linker warnings in Release or Debug. The game code's imports are Tibia.exe's (the other differences of the import tables are MSVC 14's CRT and MFC 14, notes/decisions.md); the resources are identical. It starts from a folder with copies of the data files and shows the start screen (OpenGL engine); logging in was not tried. Five small source changes for real MFC (notes/decisions.md, "Building Patella.exe (issue #16)"). |
 | Container.h | Complete for the image (issue #13, Claude Opus 5.5): vector<T> (both constructors, operator(), the destructor), array<T>, matrix<T> and matrix3d<T>, each written once; every instance in the image (13 vectors, two arrays, a matrix and a matrix3d, listed at the top of the header with their addresses) compiles from it, checked against the disassembly and exception tables (the four initialized constructors are the same code; eleven EH states where the element has a constructor). Tested through the users (a temporary coverage build found every image instance reached except the out-of-line destructors) and directly in containertest.cpp (DIFFTEST_ONLY=Container: every image instance next to ours, objects and whole arrays compared after each call, pattern-filled new[] memory; 192,832 checks; a mutation check of eight changes, all detected). Not run: the assertion and index-error paths (the image cannot throw in the child). |
 | Header inlines | GUI.h (GetFirstChild/GetLastChild 0x417de0/0x417f00), ConsoleWindow.h (TLineFormat 0x418020), Utils.h (TBuffer::SetSize 0x4ca300) and Talk.h (0x4fd5a0, 0x4fd6c0, 0x507060, 0x5075c0) are in their headers; issue #13 checked them again and tests TLineFormat, SetSize and GetChannelID in containertest.cpp (the others are covered by the Talk and ConsoleWindow tests or only throw). notes/source-map.md's header table lists only glh_extensions.h's 0x4f9260 (#11). |
 | Extern/regexp (regexp.c, regexp.h, regmagic.h) | Third-party (issue #15): Henry Spencer's regexp of 1986 (0x50eb00-0x50fbb8, regcomp and regexec for Status.cpp's link check), the original text written from memory and checked function by function against the assembly (all 19 messages, MAGIC 0234, the 1986 struct and jump tables); the client's changes marked: regerror calls a hook the client never sets (0x71f034, our regerrorhandler), ANSI headers, prototypes with extern "C"; no regsub/regerror files. Compiled as C (compile-check compiles src/Extern/regexp/*.c). Differentially tested (regexptest.cpp: both regcomps' programs byte for byte, both regexecs with all startp/endp, own and cross, corrupted programs, LinkPattern; 229,958 checks; a mutation check of 44 changes, three equivalent survivors). |
 | Library region | Classified (issue #15): all 1,102 functions from 0x50eae8 have names.tsv rows (kind stl, the library in the note): MFC 7.1 (nafxcw.lib), the CRT (libcmt.lib), the C++ library (libcpmt.lib), ATL 7.1 header code, import and delay-load thunks, multimon.h stubs, the regexp above; 0x559ea0 is Inventory.cpp's static initialiser (game code). The build takes the libraries from Visual Studio; file-ranges.tsv lists the blocks. |
 
-Last differential run (November 2, 2026, main after merging #36 and #37): 16,848,752 checks
+The golden corpus on Patella-Modern issue #94's branch (no oracle; November 2026): 15,803,218 checks replayed and
+1,512,822 retired = 17,316,040, the final recording's (issue #93), 0 failures, on windows-x64, windows-x64-asan,
+linux-x64-gcc and linux-x64-clang. The oracle's last own run was issue #93's (difftest 16,459,352, sysinctest 67,
+communicationtest 856,621, vlongtest 3,201).
+
+Last differential run before the corpus (November 2, 2026, main after merging #36 and #37): 16,848,752 checks
 against the original code (difftest.exe, including 74,928 Network and 31,424 MainFrm checks with their error
 rounds of 38,878 and 18,152 (issue #37), 1,213,366 SurfaceDX, 58,682 SurfaceDX9, 53,082 SurfaceGL,
 192,832 Container, 229,958 regexp and 31,912 error-path checks, and the error rounds of issue #34: 31,909 GUI,

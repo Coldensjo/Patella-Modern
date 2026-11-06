@@ -20,8 +20,8 @@
 #   folder, where Windows looks first (not only on a developer prompt's PATH). /RTC is incompatible: the preset leaves it out
 #   of CMAKE_<LANG>_FLAGS_DEBUG, and the configure stops when it is still there.
 #
-# Never for the oracle-x86 targets: cmake/OracleX86.cmake keeps exactly the former Patella.vcxproj's
-# options.
+# Until M6 (Patella-Modern issue #94) never for the 32-bit oracle's targets, which kept exactly the former
+# Patella.vcxproj's options; the oracle has left the fork.
 
 include_guard(GLOBAL)
 

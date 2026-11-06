@@ -15,7 +15,7 @@ dumps do not depend on the desktop at all.
 
 The default is the user's desktop, as before this module: the clients do not behave on a desktop that is
 not the input desktop as they do on the user's (notes/decisions.md, "The live checks on a hidden desktop").
-DirectDraw and Direct3D 9 do not start there (Tibia.exe and the oracle's Patella.exe fall back to OpenGL),
+DirectDraw and Direct3D 9 do not start there (Tibia.exe falls back to OpenGL),
 the Vulkan CPU driver's first present fails (lavapipe, PATELLA_VULKAN=cpu: the client ends after 1 s), and
 GetCursorPos fails (the posted clicks of compare_traffic.py and compare_files.py miss). What gives the same
 results there: PatellaTest.exe on a GPU (reference.py compare --vulkan gpu), the OpenGL engine

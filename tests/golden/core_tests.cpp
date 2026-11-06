@@ -11,39 +11,9 @@
 
 #include <string.h>
 
-#if GOLDEN_ORACLE
-// Original functions.
-typedef void(__cdecl *XTEAFn)(uint32 *Block, const uint32 *Key);
-typedef int(__cdecl *CharFn)(int c);
-typedef void(__cdecl *HSVFn)(double H, double S, double V, int *R, int *G, int *B);
-typedef void(__cdecl *OutfitFn)(int Color, int *R, int *G, int *B);
-typedef void(__cdecl *StrFn)(char *s);
-typedef int(__cdecl *CompareFn)(const char *s1, const char *s2, int Count);
-typedef void(__cdecl *CopyFn)(char *Destination, const char *Source, int Size);
-typedef void(__cdecl *TrimFn)(char *Destination, const char *Source);
-typedef bool(__cdecl *ShortenFn)(char *Text, int MaxLength);
-typedef void(__cdecl *FormatFn)(int Number, char *Buffer);
-// thiscall members through __fastcall: ECX = this, EDX unused, rest on the stack.
-typedef void(__fastcall *BufInitFn)(void *This, void *, uint8 *Data, int Size);
-typedef uint32(__fastcall *BufGetFn)(void *This, void *);
-typedef void(__fastcall *BufGetStringFn)(void *This, void *, char *Buffer, int MaxLength);
-typedef void(__fastcall *BufGetBytesFn)(void *This, void *, uint8 *Buffer, int Count);
-typedef void(__fastcall *BufPutFn)(void *This, void *, uint32 Data);
-typedef void(__fastcall *BufPutStringFn)(void *This, void *, const char *s);
-typedef void(__fastcall *BufPutBytesFn)(void *This, void *, const uint8 *Buffer, int Count);
-typedef void(__fastcall *XTEAKeyFn)(void *This, void *, const uint8 *Key);
-typedef void(__fastcall *XTEABlockFn)(void *This, void *, uint8 *Block);
-#endif
 
 void TestXTEA()
 {
-#if GOLDEN_ORACLE
-	XTEAFn Encrypt = At<XTEAFn>(0x508cd0);
-	XTEAFn Decrypt = At<XTEAFn>(0x508e00);
-	XTEAKeyFn SetKey = At<XTEAKeyFn>(0x508ca0);
-	XTEABlockFn EncryptBlock = At<XTEABlockFn>(0x508f60);
-	XTEABlockFn DecryptBlock = At<XTEABlockFn>(0x508f80);
-#endif
 	for (int t = 0; t < 2000; t++) {
 		uint8 Key[16];
 		for (int i = 0; i < 16; i++)
@@ -63,11 +33,6 @@ void TestXTEA()
 
 		// The original object: vtable, then the key.
 		uint32 Wrapped[2] = {Plain[0], Plain[1]};
-#if GOLDEN_ORACLE
-		uint32 Object[5] = {0, 0, 0, 0, 0};
-		SetKey(Object, 0, Key);
-		EncryptBlock(Object, 0, (uint8 *)Wrapped);
-#endif
 		golden::Output("encrypt block", Wrapped);
 		CHECK(Wrapped[0] == Original[0] && Wrapped[1] == Original[1], "TXTEA::EncryptBlock differs");
 
@@ -144,14 +109,6 @@ void TestColors()
 
 void TestStrings()
 {
-#if GOLDEN_ORACLE
-	StrFn Lower = At<StrFn>(0x5093d0);
-	StrFn Capitalize = At<StrFn>(0x509540);
-	CompareFn Compare = At<CompareFn>(0x509710);
-	CopyFn Copy = At<CopyFn>(0x509a60);
-	TrimFn Trim = At<TrimFn>(0x509d10);
-	ShortenFn Shorten = At<ShortenFn>(0x50a040);
-#endif
 	for (int t = 0; t < 5000; t++) {
 		char A[64], B[64], C[64], D[64];
 		int Length = Random() % 40;
@@ -217,28 +174,11 @@ void TestStrings()
 	}
 }
 
-#if GOLDEN_ORACLE
-// The probe: the original's sprintf needs the original's C runtime, which the oracle does not start.
-static uint8 FormatNumberFails(FormatFn Format)
-{
-	__try {
-		char Probe[32];
-		Format(1234567, Probe);
-	} __except (EXCEPTION_EXECUTE_HANDLER) {
-		return 1;
-	}
-	return 0;
-}
-#endif
 
 void TestFormatNumber()
 {
 	// The runner skips when the oracle did.
 	uint8 Skip = 0;
-#if GOLDEN_ORACLE
-	FormatFn Format = At<FormatFn>(0x50bce0);
-	Skip = FormatNumberFails(Format);
-#endif
 	golden::Output("skip", Skip);
 	if (Skip != 0) {
 		printf("skip FormatNumber: the original sprintf needs the original CRT\n");
@@ -258,26 +198,12 @@ void TestFormatNumber()
 
 void TestBuffers()
 {
-#if GOLDEN_ORACLE
-	BufInitFn ReadInit = At<BufInitFn>(0x50a200);
-	BufGetFn GetByte = At<BufGetFn>(0x50a4b0), GetWord = At<BufGetFn>(0x50a610), GetQuad = At<BufGetFn>(0x50a780);
-	BufGetStringFn GetStr = At<BufGetStringFn>(0x50a900);
-	BufGetBytesFn GetBytes = At<BufGetBytesFn>(0x50ad50);
-	BufInitFn WriteInit = At<BufInitFn>(0x50b030);
-	BufPutFn PutByte = At<BufPutFn>(0x50b2e0), PutWord = At<BufPutFn>(0x50b450), PutQuad = At<BufPutFn>(0x50b5e0);
-	BufPutStringFn PutStr = At<BufPutStringFn>(0x50b780);
-	BufPutBytesFn PutBytes = At<BufPutBytesFn>(0x50ba00);
-#endif
 
 	for (int t = 0; t < 2000; t++) {
 		uint8 Ours[1024], Original[1024];
 		memset(Ours, 0xcd, sizeof(Ours));
 		memset(Original, 0xcd, sizeof(Original));
 		TWriteBuffer W(Ours);
-#if GOLDEN_ORACLE
-		uint32 WO[3];
-		WriteInit(WO, 0, Original, sizeof(Original));
-#endif
 		// Random sequence of writes, at most ~800 bytes.
 		uint32 Ops[40], Values[40];
 		// Zeroed (issue #55): PutBytes takes 7 bytes, also those after a shorter text's end, which were the
@@ -322,10 +248,6 @@ void TestBuffers()
 		CHECK(memcmp(Ours, Original, sizeof(Ours)) == 0 && W.Position == (int)WrittenPosition, "TWriteBuffer differs");
 
 		TReadBuffer R(OriginalSpan(Ours, W.Position));
-#if GOLDEN_ORACLE
-		uint32 RO[3];
-		ReadInit(RO, 0, Original, WO[2]);
-#endif
 		for (int i = 0; i < OpCount; i++) {
 			char A[32], B[32];
 			uint8 X[8], Y[8] = {};
@@ -376,12 +298,6 @@ void TestBuffers()
 void TestSkins()
 {
 	int OriginalCount = 0;
-#if GOLDEN_ORACLE
-	PatchImage();
-	At<void(__cdecl *)()>(0x4e3cb0)();
-	OriginalCount = Global<int>(0x71c450);
-	TSkin *&OriginalSkins = Global<TSkin *>(0x71c454);
-#endif
 	InitSkins();
 	golden::Output("count", OriginalCount);
 	CHECK(NumberOfSkins == OriginalCount, "NumberOfSkins %d, original %d", NumberOfSkins, OriginalCount);
@@ -389,12 +305,6 @@ void TestSkins()
 		if (i == 152)
 			continue; // left uninitialised by both
 		int Original[4] = {};
-#if GOLDEN_ORACLE
-		Original[0] = OriginalSkins[i].x;
-		Original[1] = OriginalSkins[i].y;
-		Original[2] = OriginalSkins[i].width;
-		Original[3] = OriginalSkins[i].height;
-#endif
 		golden::Output("skin", Original);
 		Checks++;
 		if (Skins[i].x != Original[0] || Skins[i].y != Original[1] || Skins[i].width != Original[2]
@@ -405,10 +315,6 @@ void TestSkins()
 		}
 	}
 	uint8 OriginalFreed = 0;
-#if GOLDEN_ORACLE
-	At<void(__cdecl *)()>(0x4e6da0)();
-	OriginalFreed = OriginalSkins == NULL;
-#endif
 	ExitSkins();
 	golden::Output("freed", OriginalFreed);
 	CHECK(Skins == NULL && OriginalFreed != 0, "ExitSkins leaves a pointer");

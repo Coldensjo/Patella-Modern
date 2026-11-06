@@ -13,25 +13,6 @@
 
 #include <string.h>
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *VoidFn)();
-typedef int(__cdecl *IntFn)();
-typedef bool(__cdecl *BoolIntFn)(int);
-typedef int(__cdecl *IntIntFn)(int);
-typedef char *(__cdecl *NameFn)(int);
-typedef void(__cdecl *SetBodyFn)(int, TObject);
-typedef TObject *(__cdecl *GetBodyFn)(int);
-typedef void(__cdecl *OpenFn)(int, TObject, const char *, int, bool);
-typedef void(__cdecl *ContainerObjectFn)(int, TObject);
-typedef void(__cdecl *ChangeFn)(int, int, TObject);
-typedef bool(__cdecl *DeleteFn)(int, int);
-typedef TObject(__cdecl *GetContainerFn)(int);
-typedef TObject(__cdecl *GetContentFn)(int, int);
-typedef bool(__cdecl *SetOfferFn)(const char *);
-typedef void(__cdecl *AddOfferFn)(TObject);
-typedef char *(__cdecl *OfferNameFn)();
-typedef TObject(__cdecl *OfferObjectFn)(int);
-#endif
 
 namespace {
 

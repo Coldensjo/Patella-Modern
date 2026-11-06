@@ -53,11 +53,7 @@
 
 #include "golden_eh.h"
 #include "testsurface.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 
 #include "Communication.h"
 #include "Container.h"
@@ -93,27 +89,6 @@
 #include <cxxabi.h>
 #endif
 
-#if GOLDEN_ORACLE
-static_assert(sizeof(TDialog) == 0xc4 && sizeof(TQuestionLabel) == 0x5c && sizeof(TLogoutLabel) == 0x5c
-		&& sizeof(TWaitLabel) == 0x54 && sizeof(TReconnectWindow) == 0x23c && sizeof(TLoginDialog) == 0x38
-		&& sizeof(TCharacterListDialog) == 0x38 && sizeof(TMoveObjectsDialog) == 0x60 && sizeof(TOutfitDialog) == 0x27c,
-	"sizes 1");
-static_assert(sizeof(TTextDialog) == 0x44 && sizeof(TEditListDialog) == 0x38 && sizeof(TIgnoreEntry) == 0x1f
-		&& sizeof(TIgnoreListDialog) == 0xd0 && sizeof(TBugReportDialog) == 0x30 && sizeof(TNewChannelDialog) == 0x44
-		&& sizeof(TPrivateChannelDialog) == 0x34 && sizeof(TReportDialog) == 0x30 && sizeof(TAddBuddyDialog) == 0x30
-		&& sizeof(TEditBuddyDialog) == 0x68 && sizeof(THelpDialog) == 0x30, // TUpdateDialog (0x44) gone: issue #75
-	"sizes 2");
-static_assert(sizeof(THintsDialog) == 0x30 && sizeof(TRuleViolationDialog) == 0x114 && sizeof(TEditMarkDialog) == 0xe8
-		&& sizeof(TOptionsDialog) == 0x2c && sizeof(TGeneralOptionsDialog) == 0x44 && sizeof(TGraphicsOptionsDialog) == 0x4c
-		&& sizeof(TAdvancedGraphicsDialog) == 0x54 && sizeof(TConsoleOptionsDialog) == 0x44
-		&& sizeof(TNetworkOptionsDialog) == 0x34 && sizeof(THotkeyDialog) == 0x2464,
-	"sizes 3");
-static_assert(offsetof(TDialog, CancelCallback) == 0xbc && offsetof(TIgnoreListDialog, WhiteEntries) == 0x98
-		&& offsetof(TOutfitDialog, Part) == 0x278 && offsetof(THotkeyDialog, OpenURL) == 0x2460
-		&& offsetof(TRuleViolationDialog, Reasons) == 0x4c && offsetof(TEditMarkDialog, TypeButtons) == 0xb0
-		&& offsetof(TReconnectWindow, TimeLabel) == 0x238 && offsetof(TLoginDialog, FocusGroup) == 0x34,
-	"layouts");
-#endif
 
 // The test's own definitions: in a namespace of their own (the other tests, linked into the same executable,
 // define classes of the same names at global scope).
@@ -124,7 +99,7 @@ namespace DialogsTest {
 enum { OURS = 0,
 	ORIGINAL = 1 };
 // The sides that have objects: both in the oracle, ours in the runner.
-static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
+static const int SIDES = 1; // ours alone (the oracle had the original's side too, until issue #94)
 static int Side;
 static bool Testing;
 static std::string Log[2];
@@ -167,12 +142,6 @@ template <class T> static void *Member(T Function) { return *(void **)&Function;
 // Image calls (thiscall members through a fastcall pointer, functions at their address). The runner has no
 // image: the original's calls are never reached there (Both runs our side only); one that were would stop
 // the runner.
-#if GOLDEN_ORACLE
-template <class R, class... A> static R CallI(uint32 Address, const void *This, A... Args)
-{
-	return ((R(__fastcall *)(const void *, void *, A...))(uintptr_t)Address)(This, NULL, Args...);
-}
-#else
 static void NoOriginal()
 {
 	printf("golden: Dialogs: a call of the original in the runner\n");
@@ -190,7 +159,6 @@ template <class T> static T At(uint32)
 	StopNoOriginal();
 	return nullptr;
 }
-#endif
 
 // The names of the objects of the current tree and the receivers.
 static std::map<const void *, std::string> Names[2];
@@ -251,9 +219,6 @@ static void *__cdecl PatternNew(size_t Size)
 	memset(Memory, 0xab, Size);
 	return Record(Memory, Size);
 }
-#if GOLDEN_ORACLE
-static void *__cdecl TrackedMalloc(size_t Size) { return Record(malloc(Size), Size); }
-#endif
 // Both sides' operator delete and delete[] and the image's free.
 static void __cdecl TrackedFree(void *Memory)
 {
@@ -277,10 +242,8 @@ static void __cdecl TrackedFree(void *Memory)
 	Blocks->erase(B);
 	free(Memory);
 }
-#if !GOLDEN_ORACLE
 // The runner's sized operator delete and delete[] (x64: the compiler calls them for complete types).
 static void __cdecl TrackedSizedFree(void *Memory, size_t) { TrackedFree(Memory); }
-#endif
 static void ApplyPendingFrees()
 {
 	std::vector<void *, TBlockAllocator<void *>> Pending;
@@ -309,13 +272,9 @@ static std::vector<TRange> StaticRanges;
 static TRange StackRange;
 static void InitRanges()
 {
-#if GOLDEN_ORACLE
-	IMAGE_NT_HEADERS32 *NT = (IMAGE_NT_HEADERS32 *)(uintptr_t)(0x400000 + ((IMAGE_DOS_HEADER *)0x400000)->e_lfanew);
-	StaticRanges.push_back(TRange{0x400000, 0x400000 + NT->OptionalHeader.SizeOfImage});
-#endif
 	MEMORY_BASIC_INFORMATION M;
 	// (The x86 oracle: below 2 GB, as before.)
-	const uintptr_t Limit = GOLDEN_ORACLE ? 0x7fff0000 : ~(uintptr_t)0;
+	const uintptr_t Limit = ~(uintptr_t)0; // x64 (the oracle's x86 limit was 0x7fff0000, until issue #94)
 	for (uintptr_t Address = 0x10000; Address < Limit && VirtualQuery((void *)Address, &M, sizeof(M)) == sizeof(M);) {
 		if (M.Type == MEM_IMAGE)
 			StaticRanges.push_back(TRange{(uintptr_t)M.BaseAddress, (uintptr_t)M.BaseAddress + M.RegionSize});
@@ -951,54 +910,12 @@ static void __cdecl FakeSendRuleViolationReport(const char *Name, uint8 Reason, 
 
 } // namespace DialogsTest
 
-#if GOLDEN_ORACLE
-// Not defined elsewhere in difftest.exe: our side's definitions (the image's go to the fakes as well). The
-// runner has client_stubs.cpp's and redirects them.
-void SendEditText(uint32 ObjectNumber, const char *Text) { DialogsTest::FakeSendEditText(ObjectNumber, Text); }
-void SendEditHouseText(int Type, uint32 Identifier, const char *Text)
-{
-	DialogsTest::FakeSendEditHouseText(Type, Identifier, Text);
-}
-void SendOpenPrivateChannel() { DialogsTest::FakeSendOpenPrivateChannel(); }
-void SendOutfit(int OutfitType, const int *Colors) { DialogsTest::FakeSendOutfit(OutfitType, Colors); }
-void SendBugReport(const char *Text) { DialogsTest::FakeSendBugReport(Text); }
-void SendRuleViolationReport(const char *Name, uint8 Reason, uint8 Action, const char *Comment, uint32 StatementID,
-	bool IPBanishment)
-{
-	DialogsTest::FakeSendRuleViolationReport(Name, Reason, Action, Comment, StatementID, IPBanishment);
-}
-#endif
 
 namespace DialogsTest {
 
 static void __cdecl FakeOpenURL(const char *URL) { Logf("URL%s;", URL); }
 static void __cdecl FakeSetDisplayMode(int Mode) { Logf("DisplayMode%d;", Mode); }
 
-#if GOLDEN_ORACLE
-// The CRT of the image.
-static int __cdecl ImageSprintf(char *Buffer, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = vsprintf(Buffer, Format, Args);
-	va_end(Args);
-	return Result;
-}
-static int __cdecl ImageSnprintf(char *Buffer, size_t Count, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = _vsnprintf(Buffer, Count, Format, Args);
-	va_end(Args);
-	return Result;
-}
-static void __cdecl ImageQsort(void *Base, size_t Number, size_t Width, int(__cdecl *Compare)(const void *, const void *))
-{
-	qsort(Base, Number, Width, Compare);
-}
-static long __cdecl ImageAtol(const char *Text) { return atol(Text); }
-static int __cdecl ImageStricmp(const char *a, const char *b) { return _stricmp(a, b); }
-#endif
 
 // The surface: the calls DialogElements.cpp and Dialogs.cpp make. The modes
 // are new memory the graphics dialog frees.
@@ -1065,31 +982,14 @@ static void Redirect(void *Function, void *Target)
 {
 	TSaved S;
 	S.Code = (uint8 *)Function;
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	memcpy(S.Bytes, Function, 5);
-	PatchJump((uint32)(uintptr_t)Function, Target);
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-#else
 	golden::SaveOwn(Function, S.Bytes);
 	golden::RedirectOwn(Function, Target);
-#endif
 	SavedCode.push_back(S);
 }
 static void RestoreAll()
 {
 	for (size_t i = SavedCode.size(); i-- > 0;) {
-#if GOLDEN_ORACLE
-		DWORD Protection;
-		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
-		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
-		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
-		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
-#else
 		golden::RestoreOwn(SavedCode[i].Code, SavedCode[i].Bytes);
-#endif
 	}
 	SavedCode.clear();
 }
@@ -1097,11 +997,7 @@ static void RestoreAll()
 // Ours of the functions the oracle's difftest.exe defines in this file (SendEditText ... SendRuleViolationReport;
 // CancelPatch until issue #75, when it went with the update dialog, its only caller): NULL
 // there (the image goes to the fakes directly), the runner's stubs (client_stubs.cpp) here.
-#if GOLDEN_ORACLE
-#define DEFINED_HERE(Function) NULL
-#else
 #define DEFINED_HERE(Function) ((void *)Function)
-#endif
 
 #define F(Name) (void *)Fake##Name
 static void PatchCallees()
@@ -1250,28 +1146,15 @@ static void PatchCallees()
 		{0x409830, DEFINED_HERE(SendOutfit), F(SendOutfit)},
 		{0x409f40, DEFINED_HERE(SendBugReport), F(SendBugReport)},
 		{0x40a0f0, DEFINED_HERE(SendRuleViolationReport), F(SendRuleViolationReport)},
-	// The CRT
-#if GOLDEN_ORACLE
-		{0x511d6b, NULL, (void *)ImageSprintf},
-		{0x51233d, NULL, (void *)ImageSnprintf},
-		{0x5126a0, NULL, (void *)ImageQsort},
-		{0x51262a, NULL, (void *)ImageAtol},
-		{0x512539, NULL, (void *)ImageStricmp},
-#endif
+		// The CRT
 		{0x5237e7, (void *)(void *(__cdecl *)(size_t)) operator new, (void *)PatternNew},
 		{0x523817, (void *)(void *(__cdecl *)(size_t)) operator new[], (void *)PatternNew},
-	// The blocks: the image's malloc and free (its operator delete frees with
-	// free), our operator delete and delete[].
-#if GOLDEN_ORACLE
-		{0x512d18, NULL, (void *)TrackedMalloc},
-		{0x51165d, NULL, (void *)TrackedFree},
-#endif
+		// The blocks: the image's malloc and free (its operator delete frees with
+		// free), our operator delete and delete[].
 		{0, (void *)(void(__cdecl *)(void *)) operator delete, (void *)TrackedFree},
 		{0, (void *)(void(__cdecl *)(void *)) operator delete[], (void *)TrackedFree},
-#if !GOLDEN_ORACLE
 		{0, (void *)(void(__cdecl *)(void *, size_t)) operator delete, (void *)TrackedSizedFree},
 		{0, (void *)(void(__cdecl *)(void *, size_t)) operator delete[], (void *)TrackedSizedFree},
-#endif
 	};
 	for (auto &T : Table) {
 		if (T.Image != 0)
@@ -1576,87 +1459,11 @@ static TDialog *Create(int s)
 // --- Dumps ------------------------------------------------------------------------------------
 
 // The classes: the original's by vtable (the image's), ours by type.
-#if GOLDEN_ORACLE
-static const struct {
-	uint32 Vtable;
-	const char *Name;
-} ImageClasses[] = {
-	{0x560bb8, "TLabel"},
-	{0x560c40, "TFormattedText"},
-	{0x560ce8, "TLink"},
-	{0x560d88, "TObjectIcon"},
-	{0x560e10, "TMultiStateButton"},
-	{0x560e98, "TEditLine"},
-	{0x560f60, "TPasswordEditLine"},
-	{0x561028, "TProgressBar"},
-	{0x5610b0, "TSeparator"},
-	{0x561138, "TListBox"},
-	{0x5611e0, "TFontListBox"},
-	{0x5612b0, "TResizer"},
-	{0x561358, "TBorder"},
-	{0x5614f8, "TSkinIcon"},
-	{0x5617e0, "THorizontalScrollBarRange"},
-	{0x561868, "TScrollBarRange"},
-	{0x561970, "TOutfitIcon"},
-	{0x5619f8, "TSkinButton"},
-	{0x561a80, "TColorButton"},
-	{0x561b08, "TIconButton"},
-	{0x561b90, "TBlinkingButton"},
-	{0x561c40, "TTextButton"},
-	{0x561cd0, "TToggleButton"},
-	{0x561d58, "TTextToggleButton"},
-	{0x561de8, "TCheckBox"},
-	{0x561ed0, "THorizontalScrollBar"},
-	{0x561f70, "TScrollBar"},
-	{0x562040, "TEditText"},
-	{0x564528, "TWindow"},
-	{0x562110, "TQuestionLabel"},
-	{0x562198, "TLogoutLabel"},
-	{0x562220, "TWaitLabel"},
-	{0x5622b0, "TReconnectWindow"},
-	{0x562370, "TCharacterListDialog"},
-	{0x562418, "TNewChannelDialog"},
-	{0x5624b8, "TGraphicsOptionsDialog"},
-	{0x562558, "TEditBuddyDialog"},
-	{0x5625f8, "TRuleViolationDialog"},
-	{0x562698, "TEditMarkDialog"},
-	{0x562738, "TAdvancedGraphicsDialog"},
-	{0x5627d8, "TLoginDialog"},
-	{0x562878, "TOutfitDialog"},
-	{0x562b68, "TMoveObjectsDialog"},
-	{0x562c28, "TTextDialog"},
-	{0x562cd8, "TBugReportDialog"},
-	{0x562db8, "TPrivateChannelDialog"},
-	{0x562e58, "TReportDialog"},
-	{0x562ef8, "TAddBuddyDialog"},
-	{0x5630c0, "THelpDialog"},
-	{0x563160, "THintsDialog"},
-	{0x563258, "TOptionsDialog"},
-	{0x563360, "TGeneralOptionsDialog"},
-	{0x563598, "TConsoleOptionsDialog"},
-	{0x563650, "TNetworkOptionsDialog"},
-	{0x563778, "TDialog"},
-	{0x563868, "TEditListDialog"},
-	{0x5639d8, "TIgnoreListDialog"},
-	{0x563a90, "THotkeyDialog"},
-};
-static std::map<uint32, std::string> ImageClass;
-#endif
 static void InitClasses()
 {
-#if GOLDEN_ORACLE
-	for (auto &C : ImageClasses)
-		ImageClass[C.Vtable] = C.Name;
-#endif
 }
 static std::string ClassOf([[maybe_unused]] int s, TComponent *C)
 {
-#if GOLDEN_ORACLE
-	if (s == ORIGINAL) {
-		auto I = ImageClass.find((uint32)(uintptr_t)*(void **)C);
-		return I == ImageClass.end() ? "?" : I->second;
-	}
-#endif
 	std::string N = typeid(*C).name();
 #if !defined(_MSC_VER)
 	// The Itanium ABI's name is the mangled one ("7TDialog", issue #91): demangled, as MSVC's ("class TDialog").
@@ -2272,11 +2079,7 @@ static void OutputOriginalLog()
 static std::string LastDump;
 static std::string OriginalDump()
 {
-#if GOLDEN_ORACLE
-	std::string Text = DumpAll(ORIGINAL);
-#else
 	std::string Text;
-#endif
 	return golden::OutputTextChanges("dump", &LastDump, Text);
 }
 
@@ -2901,10 +2704,6 @@ static void RemoveAbandonedTimers()
 		void *V = *(void **)B.first;
 		if (V == OurTimerVtable)
 			RemoveTimer((TTimer *)B.first);
-#if GOLDEN_ORACLE
-		else if ((uintptr_t)V == 0x5646e8)
-			At<void(__cdecl *)(void *)>(0x49b0d0)((void *)B.first);
-#endif
 	}
 }
 
@@ -3428,13 +3227,6 @@ void TestDialogs()
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	InitClasses();
 	LastDump.clear();
-#if GOLDEN_ORACLE
-	// The image's static timer vector (initialiser 0x559e30, constructor 0x4973f0) and NoCallback (0x559e10).
-	typedef void(__fastcall * VectorInitFn)(void *, void *, int, int, int, void *);
-	if (Global<void *>(0x5ccfa4 + 0x1c) == NULL)
-		At<VectorInitFn>(0x4973f0)((void *)(uintptr_t)0x5ccfa4, NULL, 0, 0, 2, NULL);
-	At<void(__cdecl *)()>(0x559e10)();
-#endif
 	{
 		TTimer Probe(1, TCallback(NULL, 0));
 		OurTimerVtable = *(void **)&Probe;

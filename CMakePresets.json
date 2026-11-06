@@ -31,9 +31,9 @@
 			}
 		},
 		{
-			"name": "oracle-x86",
-			"displayName": "oracle-x86: today's 32-bit Patella.exe and the difftest (MSVC x86, static MFC; until M6)",
-			"description": "Needs MSVC for x86 set up (vcvarsall.bat x86): python -I tools/build.py oracle-x86 does it. Needs Tibia.exe in the root (or PATELLA_TIBIA_EXE) and Python.",
+			"name": "capture-x86",
+			"displayName": "capture-x86: the 32-bit capture DLL patcap.dll for Tibia.exe, nothing else (MSVC x86; issue #94)",
+			"description": "Needs MSVC for x86 set up (vcvarsall.bat x86): python -I tools/build.py capture-x86 does it. Builds build/capture-x86/Release/patcap.dll (cmake/Capture.cmake), which the reference recordings' record step and the live comparisons load into Tibia.exe; no client, no tests.",
 			"inherits": "windows-base",
 			"architecture": {
 				"value": "x86",
@@ -44,7 +44,8 @@
 				"strategy": "external"
 			},
 			"cacheVariables": {
-				"PATELLA_ORACLE": "ON"
+				"PATELLA_CAPTURE": "ON",
+				"CMAKE_CONFIGURATION_TYPES": "Release"
 			}
 		},
 		{
@@ -133,14 +134,9 @@
 	],
 	"buildPresets": [
 		{
-			"name": "oracle-x86",
-			"configurePreset": "oracle-x86",
+			"name": "capture-x86",
+			"configurePreset": "capture-x86",
 			"configuration": "Release"
-		},
-		{
-			"name": "oracle-x86-debug",
-			"configurePreset": "oracle-x86",
-			"configuration": "Debug"
 		},
 		{
 			"name": "windows-x64",
@@ -194,19 +190,6 @@
 		}
 	],
 	"testPresets": [
-		{
-			"name": "oracle-x86",
-			"configurePreset": "oracle-x86",
-			"configuration": "Release",
-			"output": {
-				"verbosity": "verbose",
-				"outputOnFailure": true
-			},
-			"execution": {
-				"noTestsAction": "error",
-				"jobs": 16
-			}
-		},
 		{
 			"name": "windows-x64",
 			"configurePreset": "windows-x64",
@@ -348,20 +331,16 @@
 	],
 	"workflowPresets": [
 		{
-			"name": "oracle-x86",
-			"displayName": "oracle-x86: configure, build Release, run the difftest",
+			"name": "capture-x86",
+			"displayName": "capture-x86: configure, build patcap.dll (Release)",
 			"steps": [
 				{
 					"type": "configure",
-					"name": "oracle-x86"
+					"name": "capture-x86"
 				},
 				{
 					"type": "build",
-					"name": "oracle-x86"
-				},
-				{
-					"type": "test",
-					"name": "oracle-x86"
+					"name": "capture-x86"
 				}
 			]
 		},

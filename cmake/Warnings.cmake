@@ -6,8 +6,8 @@
 #	patella_target_language(<target>)   C++23 and the conformance switches
 #	patella_target_warnings(<target>)   the warning level, file by file, and warnings as errors
 #
-# Never for the oracle-x86 targets: cmake/OracleX86.cmake keeps exactly the flags of the former
-# Patella.vcxproj and tools\difftest\build.cmd (/std:c++17 /W3 /Zc:strictStrings- ...) until M6.
+# Until M6 (Patella-Modern issue #94) never for the 32-bit oracle's targets, which kept exactly the former
+# Patella.vcxproj's flags (/std:c++17 /W3 /Zc:strictStrings- ...); the oracle has left the fork.
 
 # DIRECTORY, not GLOBAL: the variables below are directory-scoped, and a directory that includes the
 # file after another one did (the client after tests/unit) must get them too.
@@ -46,11 +46,8 @@ set(PATELLA_WARNING_BASELINE_MSVC
 	src/Preferences.cpp
 	src/Status.cpp
 	src/Surface.cpp
-	src/SurfaceDX.cpp
-	src/SurfaceGL.cpp
 	src/TXTEA.cpp
 	src/Utils.cpp
-	src/surfaceDX9.cpp
 	src/vlong.cpp
 )
 # GCC and Clang: measured for what builds with them, patella_core (cmake/Core.cmake) and the unit

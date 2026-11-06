@@ -24,7 +24,7 @@ their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)
 | `tests/unit/render_quads_test.cpp`, `render_filtermask_test.cpp`, `render_device_choice_test.cpp` | `tests_render`: Quads.cpp, FilterMask.cpp and DeviceChoice.cpp |
 | `tests/unit/core_settings_test.cpp` | `tests_core`: Patella.ini's parser and writer |
 
-None of it is in the oracle-x86 build: its glob is `src/*.cpp`, and the only changes to reconstructed files are
+None of it was in the 32-bit oracle build (until issue #94): its glob was `src/*.cpp`, and the only changes to reconstructed files are
 the x64 client's own GetSurface and SurfaceInitInstance (Surface.cpp), ChangeEngine (Control.cpp) and the advanced
 graphics options' device choice (Dialogs.cpp, Dialogs.h: TAdvancedGraphicsDialog), behind
 `#if defined(PATELLA_VULKAN)`, which only the x64 client defines (pecompare: the oracle's Patella.exe is
@@ -34,7 +34,7 @@ unchanged).
 
 Since issue #20 **the Vulkan engine is the Windows x64 client's only engine**: SurfaceDX.cpp (DirectDraw),
 surfaceDX9.cpp (Direct3D 9) and SurfaceGL.cpp (OpenGL) are not compiled into it, and it imports neither ddraw.dll
-nor opengl32.dll nor glu32.dll (nor loads d3d9.dll). The oracle-x86 build keeps the three until M6. The x64 client
+nor opengl32.dll nor glu32.dll (nor loads d3d9.dll). The oracle kept the three until M6; they left the fork with it (issue #94). The x64 client
 has its own GetSurface and SurfaceInitInstance (Surface.cpp) and ChangeEngine (Control.cpp):
 
 - **curEngine is always 2**, the number of the original's DirectX 9, the engine whose frames the Vulkan engine
@@ -237,7 +237,8 @@ pixels; the class's own erase before the first Open and after Close (nothing pai
 the device window's part untouched through eight size steps without a Fit, after the Fit, with a retired window
 and the next one, and with no device window (all black); the subclass gone with the main window and taken by the
 next one. Live: main's and the branch's Patella.exe on the intro screen, the border dragged by simulated mouse
-input (build\logs\issue-71\scriptsesize_repro.py, local): stripes before, black after, on the CPU driver and on
+input (build\logs\issue-71\scripts
+esize_repro.py, local): stripes before, black after, on the CPU driver and on
 the GPU.
 
 ## How it works

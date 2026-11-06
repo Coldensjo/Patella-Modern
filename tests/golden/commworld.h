@@ -32,9 +32,6 @@
 #include "golden_test.h"
 
 #include "golden_eh.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#endif
 
 #include "Creatures.h"
 #include "GUI.h"
@@ -304,11 +301,7 @@ extern bool TraceBefore; // CM_TRACE=2 / CT_TRACE=2: each call is named before i
 extern FILE *LogFile;    // CM_LOGS=<file> / CT_LOGS=<file>: every compared log
 
 // The original's call of a comparison: a lambda in the oracle, nullptr in the runner (no original).
-#if GOLDEN_ORACLE
-#define ORIGINAL_SIDE(...) [&] { __VA_ARGS__; }
-#else
 #define ORIGINAL_SIDE(...) nullptr
-#endif
 
 template <class FO, class FI> bool Both(const char *What, FO Ours, FI Image)
 {
@@ -322,7 +315,7 @@ template <class FO, class FI> bool Both(const char *What, FO Ours, FI Image)
 	}
 	LastRetired = false;
 	// The runner knows from the corpus whether the comparison is retired, before it runs our side.
-	bool Retired = GOLDEN_ORACLE ? false : RetiredComparison(false);
+	bool Retired = RetiredComparison(false);
 	Side = OURS;
 	TThrown O;
 	if (!Retired) {
@@ -330,14 +323,7 @@ template <class FO, class FI> bool Both(const char *What, FO Ours, FI Image)
 		O = OurThrow(Ours);
 	}
 	TThrown I;
-#if GOLDEN_ORACLE
-	Side = IMAGE;
-	FillStack();
-	I = ImageThrow(Image);
-	Retired = RetiredComparison(ReachesChangeEngine());
-#else
 	static_cast<void>(Image);
-#endif
 	Side = OURS;
 	return CompareOrRetire(What, O, I, Retired);
 }

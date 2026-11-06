@@ -4,7 +4,6 @@
 
 #pragma once
 
-#if !GOLDEN_ORACLE
 
 #include "common.h"
 
@@ -176,5 +175,3 @@ inline void RestoreAllOwn()
 }
 
 } // namespace golden
-
-#endif

@@ -5,11 +5,7 @@
 #pragma once
 
 // common.h first: it sets _CRT_SECURE_NO_WARNINGS before any C runtime header.
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/difftest.h"
-#else
 #include "common.h"
-#endif
 #include "golden.h"
 #include "compat/span.h"
 
@@ -24,7 +20,6 @@ patella::TSpan<T> OriginalSpan(T *Pointer, int Count)
 	return patella::TSpan<T>(Pointer, static_cast<std::size_t>(Count));
 }
 
-#if !GOLDEN_ORACLE
 extern int Failures;
 extern int Checks;
 extern int FailuresPrinted;
@@ -48,7 +43,6 @@ uint32 Random();
 uint32 GetRandomSeed();
 void SetRandomSeed(uint32 Value);
 void RandomText(char *Text, int Length);
-#endif
 
 // Issue #55: the order of the calls of Random() in one expression is unspecified (C++17 sequences only the
 // operands of && || , ?: << >> and assignments, and an initializer list's elements), so every such
@@ -67,15 +61,9 @@ inline uint32 Random32()
 // function does. So: `R GOLDEN_THISCALL Fake(GOLDEN_THIS, the member's parameters...)` (this unnamed).
 // A fake that reads its object names this: `R GOLDEN_THISCALL Fake(GOLDEN_THIS_NAMED(TCreature *This), ...)`
 // (issue #27).
-#if GOLDEN_ORACLE
-#define GOLDEN_THISCALL __fastcall
-#define GOLDEN_THIS void *, void *
-#define GOLDEN_THIS_NAMED(Declaration) Declaration, void *
-#else
 #define GOLDEN_THISCALL
 #define GOLDEN_THIS void *
 #define GOLDEN_THIS_NAMED(Declaration) Declaration
-#endif
 
 // A fake in the form of a function that returns a structure through a hidden pointer (R *Fake(R *Result,
 // arguments...)), as the Microsoft ABIs return TObject and TRGBColor (12 bytes): GOLDEN_BY_VALUE(Fake) is the function

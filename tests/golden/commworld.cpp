@@ -2,9 +2,7 @@
 // (issue #36; a golden-corpus world since issue #30); see commworld.h.
 
 #include "commworld.h"
-#if !GOLDEN_ORACLE
 #include "golden_patch.h"
-#endif
 
 #include "Communication.h"
 #include "ConsoleWindow.h"
@@ -119,9 +117,6 @@ std::string Hex(const uint8 *Data, int Size)
 
 // --- Failure injection ---------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef uint8(__fastcall *TBufferGetByte)(void *This, void *);
-#endif
 
 // The side's own assertion: TReadBuffer::GetByte on an empty buffer
 // (Utils.cpp line 299), the image's 0x50a4b0 or ours.
@@ -129,16 +124,8 @@ void SideThrow()
 {
 	static uint8 Data[4];
 	if (Side == IMAGE) {
-#if GOLDEN_ORACLE
-		TBuffer Empty;
-		Empty.Data = Data;
-		Empty.Size = 0;
-		Empty.Position = 0;
-		At<TBufferGetByte>(0x50a4b0)(&Empty, NULL);
-#else
 		printf("golden: communication: the original's side called in the runner\n");
 		abort();
-#endif
 	} else {
 		TReadBuffer Empty(patella::TSpan<uint8>(Data).first(0));
 		Empty.GetByte();
@@ -243,14 +230,6 @@ void TCommBuffer::SetSelected(bool Value)
 
 // --- Windows ---------------------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-static_assert(sizeof(TWindow) == 0x2c, "TWindow");
-static_assert(sizeof(TCtlWindow) <= 0x30, "TCtlWindow fits a THelpBubble");
-static_assert(offsetof(TCtlMainWindow, Console) == 0x3c, "TMainWindow::Console");
-static_assert(offsetof(TCtlMainWindow, InGame) == 0x48, "TMainWindow::InGame");
-static_assert(offsetof(TConsoleWindow, CurrentConsole) == 0x34 && offsetof(TConsole, TextWindow) == 0x2c,
-	"the console members Control.cpp reads");
-#endif
 // On every target: TCtlMainWindow's members where our TMainWindow has them, and a TCtlWindow fits the memory
 // our code allocates for each window a faked constructor builds in place (ours: our layout, x64 in the runner).
 static_assert(offsetof(TCtlMainWindow, MapFrame) == offsetof(TMainWindow, MapFrame)
@@ -265,7 +244,7 @@ static_assert(sizeof(TCtlWindow) <= sizeof(THelpBubble) && sizeof(TCtlWindow) <=
 		&& sizeof(TCtlWindow) <= sizeof(TMarkContextMenu) && sizeof(TCtlWindow) <= sizeof(TSkillContextMenu),
 	"a TCtlWindow fits each window built in place");
 // The console's members Control.cpp reads, in memory of this size (the oracle's as before).
-static constexpr size_t ConsoleSize = GOLDEN_ORACLE ? 0x80 : 0x100;
+static constexpr size_t ConsoleSize = 0x100; // x64 (the oracle's x86 console was 0x80, until issue #94)
 static_assert(offsetof(TConsoleWindow, CurrentConsole) + sizeof(void *) <= ConsoleSize
 		&& offsetof(TConsole, TextWindow) + sizeof(void *) <= ConsoleSize,
 	"the console's members fit");
@@ -817,36 +796,6 @@ void DescribeEvent(std::string &Out, const TQueuedEvent &E)
 // compiles Network.cpp into network_tests.cpp, which gives them by name.
 static TBuffer *OurReceiveBuffer, *OurSendBuffer;
 
-#if GOLDEN_ORACLE
-static void *FollowJumps(void *Code)
-{
-	uint8 *p = (uint8 *)Code;
-	while (p[0] == 0xe9)
-		p = p + 5 + *(int32_t *)(p + 1);
-	return p;
-}
-
-// The this of the first member call in our function: `mov ecx, imm32` before a call or, where the call is the
-// function's last statement, a jump (GetByte's `return ReceiveBuffer.GetByte();` is a tail call since its try
-// block went, Patella-Modern issue #78).
-static TBuffer *ThisOfFirstCall(void *Function)
-{
-	uint8 *p = (uint8 *)FollowJumps(Function);
-	for (int i = 0; i < 160; i++) {
-		if (p[i] == 0xb9 && (p[i + 5] == 0xe8 || p[i + 5] == 0xe9)) {
-			uint32 Value = *(uint32 *)(p + i + 1);
-			if (Value >= 0x20000000 && Value < 0x30000000)
-				return (TBuffer *)(uintptr_t)Value;
-		}
-	}
-	printf("FAIL communicationtest: no buffer in the code at %p\n", Function);
-	Failures++;
-	return NULL;
-}
-
-TBuffer *ReceiveBufferOf(int S) { return S == IMAGE ? &Global<TBuffer>(0x719d68) : OurReceiveBuffer; }
-TBuffer *SendBufferOf(int S) { return S == IMAGE ? &Global<TBuffer>(0x719d5c) : OurSendBuffer; }
-#else
 // network_tests.cpp: Network.cpp's buffers, back in the state of the program's start.
 TBuffer *GoldenNetworkReceiveBuffer();
 TBuffer *GoldenNetworkSendBuffer();
@@ -855,7 +804,6 @@ void GoldenNetworkResetBuffers();
 static TBuffer ImageReceiveBuffer, ImageSendBuffer;
 TBuffer *ReceiveBufferOf(int S) { return S == IMAGE ? &ImageReceiveBuffer : OurReceiveBuffer; }
 TBuffer *SendBufferOf(int S) { return S == IMAGE ? &ImageSendBuffer : OurSendBuffer; }
-#endif
 
 static uint8 *ReceiveCopy[2];
 void SetReceiveData(int S, const uint8 *Data, int Size)
@@ -882,39 +830,7 @@ void LoadObjectFlags(const char *ExePath)
 {
 	if (!FlagTable.empty())
 		return;
-#if GOLDEN_ORACLE
-	std::string Dat = ExePath;
-	size_t Slash = Dat.find_last_of("\\/");
-	Dat = (Slash == std::string::npos ? std::string() : Dat.substr(0, Slash + 1)) + "Tibia.dat";
-	FILE *Probe = fopen(Dat.c_str(), "rb");
-	if (Probe == NULL) {
-		printf("note: %s not found, object flags from hashes only\n", Dat.c_str());
-	} else {
-		fclose(Probe);
-		LoadObjects(Dat.c_str());
-		FirstType = ObjectProperties->low();
-		for (int Type = FirstType; Type <= ObjectProperties->high(); Type++) {
-			uint32 Flags = 0;
-			for (int Flag = 0; Flag < 32; Flag++) {
-				try {
-					if (GetObjectFlag(Type, Flag))
-						Flags |= 1u << Flag;
-				} catch (...) {
-				}
-			}
-			FlagTable.push_back(Flags);
-			int Waypoints = 0;
-			try {
-				Waypoints = GetObjectWaypoints(Type);
-			} catch (...) {
-			}
-			WaypointTable.push_back(Waypoints);
-		}
-		ExitObjects();
-	}
-#else
 	static_cast<void>(ExePath);
-#endif
 	if (!RecordComparisons)
 		return;
 	int Sizes[2] = {FirstType, (int)FlagTable.size()};
@@ -1927,18 +1843,7 @@ extern "C" void OurMarkMenuConstructor();
 extern "C" void OurSkillMenuConstructor();
 #endif
 // Our constructors through their decorated names: x86 (the oracle)...
-#if GOLDEN_ORACLE
-#pragma comment(linker, "/alternatename:_OurHelpBubbleConstructor=??0THelpBubble@@QAE@PBD@Z")
-#pragma comment(linker, "/alternatename:_OurObjectMenuConstructor=??0TObjectContextMenu@@QAE@HHHH@Z")
-#pragma comment(linker, "/alternatename:_OurCreatureMenuConstructor=??0TCreatureContextMenu@@QAE@IHHHH@Z")
-#pragma comment(linker, "/alternatename:_OurBuddyMenuConstructor=??0TBuddyContextMenu@@QAE@IHHHH@Z")
-#pragma comment(linker, "/alternatename:_OurTextMenuConstructor=??0TTextContextMenu@@QAE@PAVTTextWindow@@HHHHH@Z")
-#pragma comment(linker, "/alternatename:_OurChannelMenuConstructor=??0TChannelContextMenu@@QAE@PAVTConsoleWindow@@HHHH@Z")
-#pragma comment(linker, "/alternatename:_OurRequestMenuConstructor=??0TRequestContextMenu@@QAE@PAVTConsoleWindow@@HHHHH@Z")
-#pragma comment(linker, "/alternatename:_OurEditMenuConstructor=??0TEditContextMenu@@QAE@PAVTEditLine@@HHHH@Z")
-#pragma comment(linker, "/alternatename:_OurMarkMenuConstructor=??0TMarkContextMenu@@QAE@PAUTMarkMenuData@@HHHH@Z")
-#pragma comment(linker, "/alternatename:_OurSkillMenuConstructor=??0TSkillContextMenu@@QAE@PAVTSkillsWindowBody@@HHHH@Z")
-#elif defined(_MSC_VER)
+#if defined(_MSC_VER)
 // x64 (the runner, MSVC only): the same constructors' x64 decorated names (as elementfakes.cpp's, issue #28).
 #pragma comment(linker, "/alternatename:OurHelpBubbleConstructor=??0THelpBubble@@QEAA@PEBD@Z")
 #pragma comment(linker, "/alternatename:OurObjectMenuConstructor=??0TObjectContextMenu@@QEAA@HHHH@Z")
@@ -2490,74 +2395,14 @@ void InstallFakes(const TFake *Fakes, int Count)
 {
 	for (int i = 0; i < Count; i++) {
 		const TFake &Fake = Fakes[i];
-#if GOLDEN_ORACLE
-		if (Fake.Image != 0)
-			PatchImageJump(Fake.Image, Fake.Fake);
-		if (Fake.Ours != NULL) {
-			void *Code = FollowJumps(Fake.Ours);
-			CheckRoom(Fake, Code);
-			PatchOwnCode(Code, Fake.Fake);
-		}
-#else
 		// The runner is linked without incremental-link thunks: the address is the code.
 		if (Fake.Ours != nullptr) {
 			CheckRoom(Fake, Fake.Ours);
 			golden::RedirectOwn(Fake.Ours, Fake.Fake);
 		}
-#endif
 	}
 }
 
-#if GOLDEN_ORACLE
-TCtlMainWindow *&SideMainWindow(int S) { return S == IMAGE ? Global<TCtlMainWindow *>(0x5d16b0) : (TCtlMainWindow *&)MainWindow; }
-TWindow *&SideModalWindow(int S) { return S == IMAGE ? Global<TWindow *>(0x5d16ac) : ModalWindow; }
-
-typedef void(__fastcall *TVlongCtor)(void *This, void *, uint32 Value);
-typedef void(__cdecl *TVoidFn)();
-
-void BeginWorld()
-{
-	EnableImageExceptions();
-	static bool Constructed = false;
-	if (!Constructed) {
-		Constructed = true;
-		// The image's static initialisers never ran: TRSA.cpp's exponent
-		// (0x71f004) and Communication.obj's copy of the header's (0x5c435c).
-		At<TVlongCtor>(0x50c560)((void *)(uintptr_t)0x71f004, NULL, 0x10001);
-		At<TVlongCtor>(0x50c560)((void *)(uintptr_t)0x5c435c, NULL, 0x10001);
-		// The skins and SkinProperties Redraw reads (cursor hotspots, the
-		// tooltip): both sides' real initialisers, before the fakes replace them.
-		At<TVoidFn>(0x4e3cb0)();
-		InitSkins();
-		At<TVoidFn>(0x498160)();
-		InitSkinProperties();
-		OurReceiveBuffer = ThisOfFirstCall((void *)(uint8 (*)())&GetByte);
-		OurSendBuffer = ThisOfFirstCall((void *)&BeginCommand);
-		// Network.cpp's SendBuffer (0x719d5c, constructed by 0x559fd0 as
-		// TWriteBuffer(SendData 0x719540, 0x800)).
-		TBuffer &Send = Global<TBuffer>(0x719d5c);
-		Send.Data = (uint8 *)(uintptr_t)0x719540;
-		Send.Size = 0x800;
-		Send.Position = 0;
-		if (OurSendBuffer == NULL || OurSendBuffer->Size != 0x800 || OurReceiveBuffer == NULL || OurReceiveBuffer->Size != 0) {
-			printf("FAIL communicationtest: Network.cpp's buffers not found\n");
-			Failures++;
-		}
-	}
-	InstallFakes(WorldFakes, WorldFakeCount);
-	BindImageImport("KERNEL32.dll", "Sleep", (void *)F_Sleep);
-	PatchOwnImport("KERNEL32.dll", "Sleep", (void *)F_Sleep);
-	// The same signatures and the same empty object on both sides.
-	DatSignature = Global<uint32>(0x719d9c) = 0x4495fa2b;
-	SpriteSignature = Global<uint32>(0x5ccb64) = 0x449a1c41;
-	PictureSignature = Global<uint32>(0x5cc758) = 0x43fc1d0c;
-	NoObject = TObject();
-	Global<TObject>(0x719da0) = TObject();
-}
-
-// DisableImageExceptions (the error round's Finish) undoes the oracle's patches.
-void EndWorld() {}
-#else
 // The original's MainWindow and ModalWindow: the test still sets them as the oracle does.
 static TCtlMainWindow *ImageMainWindow;
 static TWindow *ImageModalWindow;
@@ -2612,7 +2457,6 @@ void EndWorld()
 	golden::RestoreAllOwn();
 	golden::RestoreAllImports();
 }
-#endif
 
 // --- Comparison ------------------------------------------------------------------------
 
@@ -2798,11 +2642,6 @@ bool CompareRun(const char *What, const TThrown &O, TThrown I)
 		}
 		WorldDump = golden::OutputTextChanges("world", &LastWorld, ORIGINAL_OR(DumpWorld(IMAGE), std::string()));
 	} else {
-#if GOLDEN_ORACLE
-		for (int b = 0; b < WORLD_BUFFERS; b++)
-			BufferDump[b] = DumpBuffer(IMAGE, World[IMAGE].Buffers[b]);
-		WorldDump = DumpWorld(IMAGE);
-#endif
 	}
 	CompareThrown(TestName, What, O, I);
 	Checks++;

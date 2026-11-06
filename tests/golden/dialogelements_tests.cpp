@@ -41,11 +41,7 @@
 
 #include "golden_eh.h"
 #include "testsurface.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 
 #include "DialogElements.h"
 #include "GUI.h"
@@ -65,25 +61,6 @@
 #include <string>
 #include <vector>
 
-#if GOLDEN_ORACLE
-static_assert(sizeof(TSeparator) == 0x28 && sizeof(TResizer) == 0x38 && sizeof(TBorder) == 0x68
-		&& sizeof(TLabel) == 0x4c && sizeof(TFormattedText) == 0x38 && sizeof(TLink) == 0x3c
-		&& sizeof(TOutfitIcon) == 0x48 && sizeof(TSkinIcon) == 0x28 && sizeof(TObjectIcon) == 0x50,
-	"sizes 1");
-static_assert(sizeof(TSkinButton) == 0x44 && sizeof(TColorButton) == 0x50 && sizeof(TIconButton) == 0x48
-		&& sizeof(TBlinkingButton) == 0x5c && sizeof(TTextButton) == 0x78 && sizeof(TToggleButton) == 0x50
-		&& sizeof(TTextToggleButton) == 0x84 && sizeof(TMultiStateButton) == 0x58 && sizeof(TCheckBox) == 0x34,
-	"sizes 2");
-static_assert(sizeof(TEditLine) == 0x68 && sizeof(TPasswordEditLine) == 0x6c && sizeof(TEditText) == 0x9c
-		&& sizeof(TFocusGroup) == 0x28 && sizeof(THorizontalScrollBarRange) == 0x54 && sizeof(THorizontalScrollBar) == 0x38
-		&& sizeof(TScrollBarRange) == 0x4c && sizeof(TScrollBar) == 0x38 && sizeof(TListBox) == 0x7c
-		&& sizeof(TFontListBox) == 0xb0 && sizeof(TProgressBar) == 0x2c && sizeof(TListBoxLine) == 0x18,
-	"sizes 3");
-static_assert(offsetof(TEditLine, ReadOnly) == 0x66 && offsetof(TEditText, VisibleLines) == 0x98
-		&& offsetof(TListBox, EditScroll) == 0x78 && offsetof(TFontListBox, FontLines) == 0x7c
-		&& offsetof(THorizontalScrollBarRange, Callback) == 0x4c && offsetof(TSkinButton, Enabled) == 0x40,
-	"layouts");
-#endif
 
 // The test's own definitions: in a namespace of their own (the other tests, linked into the same executable,
 // define classes of the same names at global scope).
@@ -94,7 +71,7 @@ namespace DialogElementsTest {
 enum { OURS = 0,
 	ORIGINAL = 1 };
 // The sides that have objects: both in the oracle, ours in the runner.
-static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
+static const int SIDES = 1; // ours alone (the oracle had the original's side too, until issue #94)
 static int Side;
 static bool Testing;
 static std::string Log[2];
@@ -137,12 +114,6 @@ template <class T> static void *Member(T Function) { return *(void **)&Function;
 
 // Image calls of members (thiscall through a fastcall pointer). The runner has no image: the original's
 // calls are never reached there (Both runs our side only); one that were would stop the runner.
-#if GOLDEN_ORACLE
-template <class R, class... A> static R CallI(uint32 Address, const void *This, A... Args)
-{
-	return ((R(__fastcall *)(const void *, void *, A...))(uintptr_t)Address)(This, NULL, Args...);
-}
-#else
 static void NoOriginal()
 {
 	printf("golden: DialogElements: a call of the original in the runner\n");
@@ -155,7 +126,6 @@ template <class R, class... A> static R CallI(uint32, const void *, A...)
 	StopNoOriginal();
 	return R();
 }
-#endif
 
 static std::map<const void *, std::string> Roles[2];
 static std::map<void *, std::string> Kinds[2];
@@ -309,10 +279,6 @@ static char *__cdecl FakeGetClipboardText()
 }
 } // namespace DialogElementsTest
 
-#if GOLDEN_ORACLE
-// sysinc.cpp is not linked: our side's definition (the runner has sysinc.cpp's, golden_sysinc, and redirects it).
-char *GetClipboardText() { return DialogElementsTest::FakeGetClipboardText(); }
-#endif
 
 namespace DialogElementsTest {
 
@@ -387,31 +353,14 @@ static void Redirect(void *Function, void *Target)
 {
 	TSaved S;
 	S.Code = (uint8 *)Function;
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	memcpy(S.Bytes, Function, 5);
-	PatchJump((uint32)(uintptr_t)Function, Target);
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-#else
 	golden::SaveOwn(Function, S.Bytes);
 	golden::RedirectOwn(Function, Target);
-#endif
 	SavedCode.push_back(S);
 }
 static void RestoreAll()
 {
 	for (size_t i = SavedCode.size(); i-- > 0;) {
-#if GOLDEN_ORACLE
-		DWORD Protection;
-		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
-		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
-		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
-		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
-#else
 		golden::RestoreOwn(SavedCode[i].Code, SavedCode[i].Bytes);
-#endif
 	}
 	SavedCode.clear();
 }
@@ -496,42 +445,6 @@ static const char *const KindNames[KINDS] = {"separator", "resizer", "border", "
 	"text button", "toggle button", "text toggle button", "multi-state button", "check box", "edit lines",
 	"edit text", "horizontal scroll bar", "scroll bar", "horizontal range", "range", "list box", "font list box",
 	"progress bar"};
-#if GOLDEN_ORACLE
-static const struct {
-	uint32 Vtable;
-	const char *Kind;
-} ImageVtables[] = {
-	{0x560bb8, "Label"},
-	{0x560c40, "FormattedText"},
-	{0x560ce8, "Link"},
-	{0x560d88, "ObjectIcon"},
-	{0x560e10, "MultiState"},
-	{0x560e98, "EditLine"},
-	{0x560f60, "Password"},
-	{0x561028, "Progress"},
-	{0x5610b0, "Separator"},
-	{0x561138, "ListBox"},
-	{0x5611e0, "FontListBox"},
-	{0x5612b0, "Resizer"},
-	{0x561358, "Border"},
-	{0x5614f8, "SkinIcon"},
-	{0x5617e0, "HRange"},
-	{0x561868, "VRange"},
-	{0x561970, "OutfitIcon"},
-	{0x5619f8, "SkinButton"},
-	{0x561a80, "ColorButton"},
-	{0x561b08, "IconButton"},
-	{0x561b90, "Blinking"},
-	{0x561c40, "TextButton"},
-	{0x561cd0, "Toggle"},
-	{0x561d58, "TextToggle"},
-	{0x561de8, "CheckBox"},
-	{0x561ed0, "HScroll"},
-	{0x561f70, "VScroll"},
-	{0x562040, "EditText"},
-	{0x564528, "Window"},
-};
-#endif
 
 static int Kind;
 static TWindow *Root[2];
@@ -583,10 +496,6 @@ static TFont RandomFont()
 
 // --- Building ---------------------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void *(__fastcall *CtorFn)(void *, void *);
-static void *ImageWindow() { return At<CtorFn>(0x496080)(PatternNew(sizeof(TWindow)), NULL); }
-#endif
 
 struct TArguments {
 	int Variant;
@@ -738,13 +647,7 @@ static TComponent *Build(int s, const TArguments &A)
 		if (O)
 			return new TMultiStateButton(A.x, A.y, A.Tooltip1, 3, A.Skins[0], A.Skins[1], CB, A.Skins[2], A.Skins[3], CB2,
 				A.Skins[4], A.Skins[5], CB3);
-#if GOLDEN_ORACLE
-		typedef void *(__cdecl * MultiFn)(void *, int, int, const char *, int, int, int, TCallback, ...);
-		return (TComponent *)At<MultiFn>(0x4672d0)(PatternNew(0x58), A.x, A.y, A.Tooltip1, 3, A.Skins[0], A.Skins[1], CB,
-			A.Skins[2], A.Skins[3], CB2, A.Skins[4], A.Skins[5], CB3);
-#else
 		return CallI<TComponent *>(0x4672d0, nullptr); // never reached (ours above)
-#endif
 	}
 	case K_CHECKBOX:
 		return O ? (TComponent *)new TCheckBox(BoxText(A.Text))
@@ -1011,11 +914,7 @@ static void OutputOriginalLog()
 static std::string LastDump;
 static std::string OriginalDump()
 {
-#if GOLDEN_ORACLE
-	std::string Text = DumpAll(ORIGINAL);
-#else
 	std::string Text;
-#endif
 	return golden::OutputTextChanges("dump", &LastDump, Text);
 }
 
@@ -1690,10 +1589,6 @@ static const char *const ProbeNames[KINDS] = {"Separator", "Resizer", "Border", 
 // Our vtables, from objects made quietly.
 static void FindVtables()
 {
-#if GOLDEN_ORACLE
-	for (size_t i = 0; i < sizeof(ImageVtables) / sizeof(ImageVtables[0]); i++)
-		Kinds[ORIGINAL][(void *)(uintptr_t)ImageVtables[i].Vtable] = ImageVtables[i].Kind;
-#endif
 	Side = OURS;
 	Receiver[OURS] = new TDEReceiver;
 	TWindow *W = new TWindow;
@@ -1732,15 +1627,8 @@ static void ImageSide(int s, void *Object, bool Window)
 {
 	if (ElementsRound == NULL || s != ORIGINAL)
 		return;
-#if GOLDEN_ORACLE
-	void *Ours = VtableOf(Object);
-	void *Hybrid = ImageSideVtable(Ours, Window ? OurWindowVtable : OurElementVtable, Window ? 0x564528 : 0x5645c8);
-	Kinds[ORIGINAL][Hybrid] = Kinds[ORIGINAL][Ours];
-	*(void **)Object = Hybrid;
-#else
 	(void)Object;
 	(void)Window;
-#endif
 }
 
 static void Construct(const TArguments &A)

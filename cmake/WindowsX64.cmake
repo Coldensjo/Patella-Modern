@@ -1,11 +1,11 @@
 # The client of the preset windows-x64 (issue #5; notes/modernization-plan.md, section 7, M1): today's
 # code as a 64-bit Patella.exe with MSVC x64 and static x64 MFC. Its only graphics engine is the Vulkan
 # engine (issue #19; cmake/Vulkan.cmake, notes/vulkan.md) as engine 2: since issue #20 (plan M2) the
-# original engines (SurfaceDX.cpp: DirectDraw, surfaceDX9.cpp: Direct3D 9, SurfaceGL.cpp: OpenGL) are not
-# compiled, and ddraw, dxguid, opengl32 and glu32 are not linked. The oracle-x86 build keeps them.
+# original engines (DirectDraw, Direct3D 9, OpenGL) are not compiled, and ddraw, dxguid, opengl32 and glu32
+# are not linked; their sources left the fork with the 32-bit oracle (Patella-Modern issue #94).
 #
-# - The sources, definitions, import libraries and linker options of the oracle's Patella.exe
-#   (cmake/OracleX86.cmake), so the program does what that one does: static MFC (nafxcw.lib, pulled
+# - The sources, definitions, import libraries and linker options of the oracle's Patella.exe (the former
+#   Patella.vcxproj's, until issue #94), so the program does what that one does: static MFC (nafxcw.lib, pulled
 #   in by the MFC headers), the static CRT, oleacc.dll delay-loaded, no manifest (a manifest would
 #   change the common controls and the DPI handling the user sees).
 # - The product settings instead of the original's flags: cmake/Warnings.cmake (C++23, /W4 with the
@@ -57,7 +57,6 @@ include("${PROJECT_SOURCE_DIR}/cmake/Hardening.cmake")
 set(CMAKE_RC_FLAGS "/l0x0409 /nologo")
 
 file(GLOB patella_cpp_sources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/src/*.cpp")
-list(FILTER patella_cpp_sources EXCLUDE REGEX "/(SurfaceDX|SurfaceGL|surfaceDX9)\\.cpp$")
 list(SORT patella_cpp_sources CASE INSENSITIVE)
 file(GLOB patella_c_sources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/src/Extern/regexp/*.c")
 list(SORT patella_c_sources CASE INSENSITIVE)

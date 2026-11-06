@@ -36,11 +36,6 @@
 static_assert(sizeof(std::unique_ptr<TDrawing[]>) == sizeof(TDrawing *)
 		&& alignof(std::unique_ptr<TDrawing[]>) == alignof(TDrawing *),
 	"std::unique_ptr<TDrawing[]> is a pointer");
-#if PATELLA_ORIGINAL_LAYOUT
-static_assert(sizeof(TComponent) == 0x24 && offsetof(TComponent, DrawingList) == 0x04
-		&& offsetof(TComponent, DrawingListLength) == 0x08 && offsetof(TComponent, Height) == 0x20,
-	"TComponent's layout");
-#endif
 
 namespace {
 

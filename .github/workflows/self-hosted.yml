@@ -1,19 +1,19 @@
 # The checks that need this repository's own machine (issue #11; notes/modernization-plan.md, sections
-# 4.1 and 4.7): they read Tibia.exe and the data files, which never leave it, and the local test server.
-# - oracle-x86: the 32-bit Patella.exe and the differential tests (difftest, sysinctest,
-#   communicationtest, vlongtest) through CTest.
-# - windows-x64: the x64 client (with its resources from Tibia.exe) and the unit tests.
-# - comparisons: compare_traffic.py and compare_files.py against the test server for the x64 client,
-#   compare_rendering.py (windowed) for the x64 client (issue #18) from compare_traffic.py's recording:
-#   its Vulkan engine on a GPU and on the CPU driver (the default engines of an x64 client, issue #20);
-#   testmode_check.py (issue #25) for the test build PatellaTest.exe: two runs of the same script against
-#   the test server, compared (determinism), and the client's dumps against what the tools see.
-# - golden: the golden corpus (issue #24): recorded from the oracle-x86 difftest into build\golden of the
-#   job's checkout, then replayed by the windows-x64 golden_runner (CTest test golden, which fails without
-#   a corpus here: PATELLA_GOLDEN_REQUIRE=ON). The corpus is derived from Tibia.exe: it stays in the
-#   checkout, which the next run's git clean removes; it is never uploaded.
-# - linux-docker: the Linux presets through tools/build.py in the local Docker image, the place of the
-#   Linux replay tests (M2, M8).
+# 4.1 and 4.7): they read Tibia.exe and the data files, which never leave it, the frozen golden corpus and
+# reference recordings (local data, never uploaded), and the local test server.
+# - windows-x64: the x64 client (with its resources from Tibia.exe), the unit tests and the golden corpus's replay
+#   (CTest test golden, which fails without a corpus here: PATELLA_GOLDEN_REQUIRE=ON), Release and Debug.
+# - comparisons: capture-x86 (the 32-bit patcap.dll that the tools load into Tibia.exe, Patella-Modern issue #94),
+#   then compare_traffic.py and compare_files.py against the test server for the x64 client, compare_rendering.py
+#   (windowed) from compare_traffic.py's recording: its Vulkan engine on a GPU and on the CPU driver (issue #20);
+#   testmode_check.py (issue #25) for the test build PatellaTest.exe; and the reference compare (tools/reference.py,
+#   issue #23) of the frozen reference recordings. Every tool takes the x64 client by default since issue #94.
+# - linux-docker: the Linux presets through tools/build.py in the local Docker image, with the golden corpus mounted
+#   read-only (issue #91).
+# Until issue #94 a job built the 32-bit oracle preset and ran its differential tests, and the golden job
+# recorded the corpus from it before replaying it; the oracle left the fork, and the corpus is frozen (issue #93):
+# the jobs replay the copy in PATELLA_GOLDEN_DIR (default C:\Tibia\Patella-Modern\build\golden) and compare against
+# the reference set in PATELLA_REFERENCE_DIR (default C:\Tibia\Patella-Modern\build\reference), both read only.
 #
 # Safety (the repository goes public, D17): this workflow runs only on a push to this repository's
 # branches and on workflow_dispatch, never on pull_request or pull_request_target, so code from a fork
@@ -54,32 +54,13 @@ env:
   TIBIA_EXE_SHA256: 1a82fe97a39e536c29327d6d5dde316775f537dcc01506831429b1a0433b76f8
 
 jobs:
-  oracle-x86:
-    name: oracle-x86, difftest
-    if: github.repository == 'Coldensjo/Patella-Modern' && vars.PATELLA_SELF_HOSTED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: [self-hosted, Windows, X64, patella]
-    timeout-minutes: 180
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Copy the CipSoft files into the checkout
-        shell: pwsh
-        run: |
-          foreach ($name in 'Tibia.exe', 'Tibia.dat', 'Tibia.spr', 'Tibia.pic', 'Tibia.cfg') {
-            Copy-Item -LiteralPath (Join-Path $env:CIPSOFT_DIR $name) -Destination $name -ErrorAction Stop
-          }
-          $hash = (Get-FileHash -Algorithm SHA256 Tibia.exe).Hash.ToLowerInvariant()
-          if ($hash -ne $env:TIBIA_EXE_SHA256) { throw "Tibia.exe is not the 7.72 client (sha256 $hash)" }
-      - name: python -I tools/build.py oracle-x86
-        run: python -I tools/build.py oracle-x86
-
   windows-x64:
-    name: windows-x64 client, unit tests
+    name: windows-x64 client, unit tests, golden corpus
     if: github.repository == 'Coldensjo/Patella-Modern' && vars.PATELLA_SELF_HOSTED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: oracle-x86
     runs-on: [self-hosted, Windows, X64, patella]
-    timeout-minutes: 60
+    timeout-minutes: 90
+    env:
+      PATELLA_GOLDEN_DIR: ${{ vars.PATELLA_GOLDEN_DIR || 'C:\Tibia\Patella-Modern\build\golden' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -92,17 +73,23 @@ jobs:
           }
           $hash = (Get-FileHash -Algorithm SHA256 Tibia.exe).Hash.ToLowerInvariant()
           if ($hash -ne $env:TIBIA_EXE_SHA256) { throw "Tibia.exe is not the 7.72 client (sha256 $hash)" }
+      # The configure takes PATELLA_GOLDEN_DIR from the environment (tests/golden/CMakeLists.txt); the corpus is
+      # required here, and the runner checks it against its MANIFEST.tsv before it replays.
+      - name: Configure windows-x64 (the golden corpus required)
+        run: python -I tools/build.py --env windows-x64 cmake --preset windows-x64 -DPATELLA_GOLDEN_REQUIRE=ON
       - name: python -I tools/build.py windows-x64
         run: python -I tools/build.py windows-x64
       - name: python -I tools/build.py windows-x64-debug
         run: python -I tools/build.py windows-x64-debug
 
   comparisons:
-    name: comparisons against the test server
+    name: comparisons against Tibia.exe
     if: github.repository == 'Coldensjo/Patella-Modern' && vars.PATELLA_SELF_HOSTED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: windows-x64
     runs-on: [self-hosted, Windows, X64, patella]
     timeout-minutes: 240
+    env:
+      PATELLA_REFERENCE_DIR: ${{ vars.PATELLA_REFERENCE_DIR || 'C:\Tibia\Patella-Modern\build\reference' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -115,19 +102,23 @@ jobs:
           }
           $hash = (Get-FileHash -Algorithm SHA256 Tibia.exe).Hash.ToLowerInvariant()
           if ($hash -ne $env:TIBIA_EXE_SHA256) { throw "Tibia.exe is not the 7.72 client (sha256 $hash)" }
-      # The checkout's git clean removed the earlier jobs' build trees: build both clients again.
-      - name: python -I tools/build.py oracle-x86
-        run: python -I tools/build.py oracle-x86
+      # The checkout's git clean removed the earlier job's build tree: build the client again, and the 32-bit
+      # patcap.dll for Tibia.exe (capture-x86).
+      - name: python -I tools/build.py capture-x86
+        run: python -I tools/build.py capture-x86
       - name: python -I tools/build.py windows-x64
         run: python -I tools/build.py windows-x64
+      # The reference compare: PatellaTest.exe on each frozen session, no server (tools/reference.py).
+      - name: reference.py compare
+        run: python -I tools/reference.py compare --reference ${{ env.PATELLA_REFERENCE_DIR }}
       # compare_traffic.py starts and stops the test server itself (tools/testserver.py).
-      - name: compare_traffic.py (x64 client)
-        run: python -I tools/compare_traffic.py --patella build\windows-x64\Release\Patella.exe
-      - name: compare_files.py (x64 client)
-        run: python -I tools/compare_files.py --patella build\windows-x64\Release\Patella.exe
+      - name: compare_traffic.py
+        run: python -I tools/compare_traffic.py
+      - name: compare_files.py
+        run: python -I tools/compare_files.py
       # The fullscreen runs need a 1024x768x32 desktop (notes/reconstruction.md, "Test server").
-      - name: compare_rendering.py (windowed, x64 client)
-        run: python -I tools/compare_rendering.py --modes windowed --recording build\traffic\result\orig-live.jsonl --patella build\windows-x64\Release\Patella.exe
+      - name: compare_rendering.py (windowed)
+        run: python -I tools/compare_rendering.py --modes windowed --recording build/traffic/result/orig-live.jsonl
       # The test mode's determinism check (issues #21, #22, #25): starts and stops the test server
       # itself, which must be stopped before it starts.
       - name: testmode_check.py (test build)
@@ -136,40 +127,14 @@ jobs:
         if: always()
         run: python -I tools/testserver.py stop --force
 
-  golden:
-    name: golden corpus, recorded and replayed
+  linux-docker:
+    name: Linux presets in Docker (tools/build.py), with the golden corpus
     if: github.repository == 'Coldensjo/Patella-Modern' && vars.PATELLA_SELF_HOSTED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: oracle-x86
     runs-on: [self-hosted, Windows, X64, patella]
     timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Copy the CipSoft files into the checkout
-        shell: pwsh
-        run: |
-          foreach ($name in 'Tibia.exe', 'Tibia.dat', 'Tibia.spr', 'Tibia.pic', 'Tibia.cfg') {
-            Copy-Item -LiteralPath (Join-Path $env:CIPSOFT_DIR $name) -Destination $name -ErrorAction Stop
-          }
-          $hash = (Get-FileHash -Algorithm SHA256 Tibia.exe).Hash.ToLowerInvariant()
-          if ($hash -ne $env:TIBIA_EXE_SHA256) { throw "Tibia.exe is not the 7.72 client (sha256 $hash)" }
-      - name: Configure oracle-x86
-        run: python -I tools/build.py --env oracle-x86 cmake --preset oracle-x86
-      - name: Record the corpus (golden_corpus)
-        run: python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target golden_corpus
-      - name: Configure windows-x64 (the runner only, the corpus required)
-        run: python -I tools/build.py --env windows-x64 cmake --preset windows-x64 -DPATELLA_CLIENT=OFF -DPATELLA_GOLDEN_REQUIRE=ON
-      - name: Build golden_runner
-        run: python -I tools/build.py --env windows-x64 cmake --build --preset windows-x64 --target golden_runner
-      - name: Replay the corpus (CTest test golden)
-        run: python -I tools/build.py --env windows-x64 ctest --preset windows-x64 -R '^golden$'
-
-  linux-docker:
-    name: Linux presets in Docker (tools/build.py)
-    if: github.repository == 'Coldensjo/Patella-Modern' && vars.PATELLA_SELF_HOSTED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: [self-hosted, Windows, X64, patella]
-    timeout-minutes: 60
+    env:
+      # tools/build.py mounts it read-only at /golden of the image (issue #91).
+      PATELLA_GOLDEN_DIR: ${{ vars.PATELLA_GOLDEN_DIR || 'C:\Tibia\Patella-Modern\build\golden' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

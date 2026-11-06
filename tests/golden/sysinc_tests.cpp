@@ -12,9 +12,6 @@
 
 #include <string.h>
 
-#if GOLDEN_ORACLE
-typedef const char *(__cdecl *TextFn)(int);
-#endif
 
 void TestSysinc()
 {

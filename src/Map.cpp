@@ -66,12 +66,6 @@ static_assert(sizeof(TMapPoint) == 0xac && offsetof(TMapPoint, Objects) == 0x04 
 		&& sizeof(TMapPoint::Objects) == 0x78 && sizeof(TMapPoint::Order) == 0x28,
 	"TMapPoint's layout");
 static_assert(sizeof(TMark) == 0x70 && offsetof(TMark, Text) == 0x0c && sizeof(TMark::Text) == 100, "TMark's layout");
-#if PATELLA_ORIGINAL_LAYOUT
-static_assert(sizeof(TAutomapBlock) == 0x200a8 && offsetof(TAutomapBlock, Color) == 0x14
-		&& offsetof(TAutomapBlock, Speed) == 0x10014 && sizeof(TAutomapBlock::Color) == 0x10000
-		&& sizeof(TAutomapBlock::Speed) == 0x10000,
-	"TAutomapBlock's layout");
-#endif
 static_assert(sizeof(Effects) == EFFECTS * sizeof(TEffect) && sizeof(AutomapBlocks) == AUTOMAP_BLOCKS * sizeof(TAutomapBlock),
 	"Effects and AutomapBlocks");
 
@@ -1051,6 +1045,14 @@ void GetFieldAutomapInfo(int rx, int ry, int rz, uint8 *Color, uint8 *Speed)
 }
 
 // --- The automap -------------------------------------------------------------
+
+// The automap file's format (<bx><by><bz>.map; notes/written-files.md): 256 x 256 colour bytes, then 256 x 256 speed
+// bytes, each as LoadAutomapBlock and SaveAutomapBlock read and write a block's Color and Speed in one piece, then the
+// marks. A check of the file format (Patella-Modern issue #94), where the oracle's x86 build checked TAutomapBlock's
+// layout until then.
+constexpr std::size_t AUTOMAP_FILE_LAYER_BYTES = 256 * 256;
+static_assert(sizeof(TAutomapBlock::Color) == AUTOMAP_FILE_LAYER_BYTES && sizeof(TAutomapBlock::Speed) == AUTOMAP_FILE_LAYER_BYTES,
+	"the automap file's colour and speed layers: 256 x 256 bytes each");
 
 // 0x4b2e80, lines 1199-1304. Loads a block into cache entry Position. A
 // missing file leaves the block empty (speed 250 everywhere); a damaged one

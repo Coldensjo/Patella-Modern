@@ -43,10 +43,6 @@ void DecryptXTEA(uint32 *Block, const uint32 *Key)
 
 } // namespace
 
-#if PATELLA_ORIGINAL_LAYOUT
-// Key a std::array (issue #60), after the vtable pointer.
-static_assert(sizeof(TXTEA) == 0x14, "TXTEA's layout");
-#endif
 
 // 0x508c70
 TXTEA::TXTEA()

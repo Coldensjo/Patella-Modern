@@ -7,7 +7,7 @@
 #   stand-ins run the tests the real features pass.
 # - Both: TFixedString<N> (src/types/FixedString.h, issue #57), tests_unit with std::format_to_n and
 #   tests_unit_cxx26_standin with PATELLA_FORMAT_STANDIN, the C++17 stand-in of src/compat/format.h that the
-#   oracle-x86 build formats with; both compare the stand-in with std::format_to_n.
+#   32-bit oracle formatted with until issue #94; both compare the stand-in with std::format_to_n.
 # - Both: FormatCRT71Time (src/compat/crt71.h, issue #61), ctime's text as MSVC 7.1 wrote it, through both paths of
 #   TFixedString::Format: against texts computed apart, std::chrono's calendar and, on Windows, the UCRT's _ctime32.
 # - Both: Time32, StoreTime32 and LoadTime32 (src/types/Time32.h, issue #62), the original's 4-byte time fields and
@@ -16,7 +16,7 @@
 #   platform), fopen's and fclose's results, reads, seeks, _eof through Descriptor, Print through both paths of the
 #   format (std::format and the stand-in) against fprintf's text, and compat/print.h's FormatLine.
 # - Both: patella::TSpan (src/compat/span.h, issue #59), std::span in tests_unit and the C++17 stand-in that the
-#   oracle-x86 build passes the packet buffers', TXTEA's and TRSA's spans with in tests_unit_cxx26_standin
+#   32-bit oracle passed the packet buffers', TXTEA's and TRSA's spans with (until #94) in tests_unit_cxx26_standin
 #   (PATELLA_SPAN_STANDIN): the same construction, conversion, size and part tests for both.
 # - Both: the developer log (src/log/Log.h, issue #77): the levels, the lines on the console and in the file, the
 #   formats through both paths (std::format and the stand-in), the fatal path's stack trace (std::stacktrace where the

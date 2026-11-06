@@ -1,18 +1,19 @@
 r"""Read a running client's game state and window layout from its memory (issue #19).
 
-Tibia.exe and the oracle's 32-bit Patella.exe only (Patella-Modern issue #92): the tools read the x64
-client (Patella.exe, PatellaTest.exe of windows-x64) through its test mode, never its memory
-(tools/testmode_client.py: the control channel's probe; notes/testmode.md), and Client refuses a 64-bit
-process. The reference recordings read Tibia.exe with it (tools/reference_record.py); the oracle's part
-goes with the oracle (issue #94). `--layout` on an x64 image still lists its PDB's entries (no process).
+Tibia.exe only (Patella-Modern issues #92, #94): the tools read the x64 client (Patella.exe, PatellaTest.exe of
+windows-x64) through its test mode, never its memory (tools/testmode_client.py: the control channel's probe;
+notes/testmode.md), and Client refuses a 64-bit process. The reference recordings' record step and the live
+comparisons' Tibia.exe runs read Tibia.exe with it (tools/reference_record.py, tools/session_client.py).
+`--layout` on an x64 image still lists its PDB's entries (no process), and tools/patch_client.py finds the
+port patch's Servers through Pdb.
 
-Works on the original Tibia.exe (fixed addresses and field offsets, from the comments in src/) and on
-the oracle's Patella.exe (oracle-x86): its globals' addresses, field offsets,
-structure sizes and array lengths come from its PDB through dbghelp (SymGetTypeInfo; Patella-Modern
-issue #6), the addresses relative to the module base (Patella.exe is relocatable). Every offset the
-tools use is named in LAYOUT by its type and member names; Tibia.exe's values are the constants there.
-The oracle-x86 build has the original layout (static_asserts in src/), so its PDB gives exactly those
-constants: `python -I tools/client_state.py --layout <Patella.exe>` checks that, entry by entry.
+Works on the original Tibia.exe (fixed addresses and field offsets, from the comments in src/). Until issue #94 it
+read the 32-bit oracle's Patella.exe as well: its globals' addresses, field offsets, structure sizes and array
+lengths from its PDB through dbghelp (SymGetTypeInfo; Patella-Modern issue #6), the addresses relative to the
+module base (Patella.exe is relocatable); the oracle had the original layout (static_asserts in src/), so its PDB
+gave exactly Tibia.exe's constants. That path (Client with a pdb_exe, Layout.from_pdb, the RTTI class names) is
+kept for `--layout`; no running client uses it since the oracle left the fork. Every offset the tools use is named
+in LAYOUT by its type and member names; Tibia.exe's values are the constants there.
 
 state(): the client state the server's packets lead to, as a JSON-able dict:
   - connection state, player ID and statistics (Creatures.cpp), the skills;
@@ -39,7 +40,7 @@ absolute pointers on x86, image-relative offsets on x64). Tibia.exe has none for
 ORIGINAL_VTABLES names the few the session needs, the vtable address stands in for the rest.
 
 Raw numeric offsets (skin_rects/skin_int with an int, or address arithmetic in a caller) are only valid
-on a layout that equals the original (Tibia.exe, the oracle-x86 build): Layout.frozen.
+on a layout that equals the original (Tibia.exe; the 32-bit oracle's build until issue #94): Layout.frozen.
 """
 
 import ctypes
@@ -663,7 +664,7 @@ def process_is_64bit(handle):
 
 
 # Issue #92: the x64 client is read through its test mode only.
-X64_REFUSED = ("%s is a 64-bit client: client_state.py reads Tibia.exe and the oracle's 32-bit Patella.exe "
+X64_REFUSED = ("%s is a 64-bit client: client_state.py reads Tibia.exe "
 	"only; the x64 client is read through its test mode (PatellaTest.exe --test-control, "
 	"tools/testmode_client.py; Patella-Modern issue #92)")
 

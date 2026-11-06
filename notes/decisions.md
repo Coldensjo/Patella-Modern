@@ -12001,3 +12001,156 @@ runner.cpp called _tzset, which only the stand-ins' windows.h declares; tzset of
 above. Refused: a changed byte of difftest/Talk.bin, TZ=CET-1, main's corpus without a manifest; a changed file of the
 reference set. reference.py compare on build\reference-final: every session matches. oracle-x86 5/5 (difftest
 16,459,352, sysinctest 67, communicationtest 856,621, vlongtest 3,201; safeseh passed). Logs: build\logs\issue-93.
+
+## The oracle retired (Patella-Modern issue #94, M6)
+
+Settled by Claude Opus 5.5, November 7, 2026 (plan M6, items 3 and 4; the owner's go and decisions of that day). The
+32-bit oracle left the fork: there is no 32-bit client build any more, and tier A, the golden corpus and the unit tests
+pass without it ("The gates"). upstream/main (55e97f1) was already merged, so there was nothing to merge. The tag
+`layout-frozen-final` is on ee1705c, main's head with the oracle, pushed before the removal; the oracle stays there and
+in upstream Patella.
+
+### Removed (high)
+
+| What | Files or targets | Why it could go |
+| :--- | :--- | :--- |
+| The oracle-x86 preset | CMakePresets.json (configure, build, debug build, test, workflow presets), cmake/OracleX86.cmake, CMakeLists.txt's PATELLA_ORACLE | M6, item 3. Its Patella.exe was the reconstruction's check; the x64 client is the product, and what the oracle checked is checked by the corpus and tier A |
+| Its CTest tests | difftest, sysinctest, communicationtest, vlongtest (cmake/RunVlongTest.cmake), safeseh | Their comparisons are the golden corpus (recorded for the last time in #93); vlongtest's cases are tests/unit/core_vlong_test.cpp's (digested, every preset); the SafeSEH gate (#89) checked x86 images only, and none is built now |
+| The corpus's recorder | the targets golden_corpus and golden_reproducible, cmake/RunGoldenRecord.cmake, cmake/CompareGoldenRecordings.cmake, golden.cpp's recorder (TRecorder, StartRecording, BeginTest, EndTest, FinishRecording, TMode::Record), golden.h's oracle ORIGINAL macros | The corpus is frozen (#93); it is regenerated only from the tag |
+| The oracle's MFC and original-flags settings | mfc_shim_check, the oracle's flags and link options (all in OracleX86.cmake), header_check_oracle and header_check_oracle_shim (cmake/HeaderCheck.cmake) | No target compiles them. compat/mfc_shim.h stays (the golden targets compile the client's code against it, on Windows and Linux) and is a header check exception with that reason: its own check was the oracle's |
+| tools/difftest | difftest.cpp/.h, imageeh.cpp/.h, imageehseh.asm, playertest.cpp, surfacedxtest.cpp, surfacedx9test.cpp, surfacegltest.cpp/.h, vlongtest.cpp, vlongcheck.py, commseeds.py | The oracle's test programs. commseeds.py generated tests/golden/commseeds.h, which stays (the frozen corpus's seeds; .clang-format-ignore says where it came from) |
+| tests/golden's oracle side | every `#if GOLDEN_ORACLE` block (324 in 39 files, and golden.h's definition) (the original's side of each comparison, the image-side fakes of elementfakes.h, the oracle's PatchJump paths, 116 x86 static_asserts of the tests' fakes and classes) and the `GOLDEN_ORACLE ? ... : ...` choices (SIDES = 1, FIRST_SIDE = OURS, the x64 sizes and limits) | The runner compiled exactly the `#else` side (GOLDEN_ORACLE was 0): resolved with that value (a small unifdef), so the runner's code is the same; the corpus replays with the same counts. The ORIGINAL(...) arguments stay as the record of what the oracle's side ran |
+| compare_imports.py, compare_resources.py | tools/ | Tier C, oracle-only until M6 (plan section 3): the product builds are not compared. extract_resources.py stays (cmake/Resources.cmake); it never imported compare_resources.py |
+| tools/safeseh_scan.py | tools/ | Nothing else used it (the safeseh test only) |
+| The oracle-only engines | src/SurfaceDX.cpp/.h, surfaceDX9.cpp/.h, SurfaceGL.cpp/.h, src/Extern/glh (glh_extensions.h, glh_genext.h; only SurfaceGL.cpp included them); their entries in cmake/Warnings.cmake's MSVC baseline and WindowsX64.cmake's exclusion | DirectDraw, Direct3D 9 and OpenGL left the x64 client in #20; the oracle alone compiled them (#29: their tests are retired) |
+| The oracle-only code paths | the `#else` branches of `#if defined(PATELLA_VULKAN)` in Surface.cpp (the original GetSurface and SurfaceInitInstance with their engine selection), Control.cpp (the original ChangeEngine) and the guards in Player.cpp and Dialogs.cpp; PATELLA_ORIGINAL_LAYOUT (common.h) with its 16 `#if` blocks | Every target that compiles these files defines PATELLA_VULKAN (the client, golden_client, golden_comm_tests), so the Vulkan branch is the only one built; the headers' guards (Dialogs.h's device members) stay, golden_client_tests compiles Dialogs.h without the definition |
+| compare_network.py's oracle runs | tools/compare_network.py | It compared the oracle's network handling, not its engines: it takes the x64 client now, as the other comparisons (`--patella`, read through the test mode's probe; ControlError counts as a reading error) |
+| The oracle defaults | compare_traffic.py, compare_files.py, compare_rendering.py, compare_network.py | `--patella` defaults to build\windows-x64\Release\Patella.exe; a 32-bit Patella.exe is refused. compare_rendering.py's engines dx5, dx9, gl (the oracle's) are gone |
+
+### The asserts (high)
+
+The plan (M6, item 3) moves the size asserts that matter for wire and file formats to the serialisers as checks of
+the format, and drops the x86 layout asserts. Every assert of the removed `#if PATELLA_ORIGINAL_LAYOUT` blocks was
+looked at for a format it protects:
+
+- **Moved: the automap file** (src/Map.cpp, next to LoadAutomapBlock and SaveAutomapBlock). The `.map` file is the
+  block's Color and Speed layers, each read and written in one piece (`readBytes`/`writeBytes` of `sizeof(Block.Color)`
+  and `sizeof(Block.Speed)`), then the marks field by field. TAutomapBlock's x86 assert (size 0x200a8, Color at 0x14,
+  Speed at 0x10014, each 0x10000) is now `sizeof(TAutomapBlock::Color) == AUTOMAP_FILE_LAYER_BYTES` and the same for
+  Speed, AUTOMAP_FILE_LAYER_BYTES = 256 * 256: the format, on every target. The block's offsets and size are no part
+  of the file and are not checked.
+- **Already checks of the format, kept as they are** (unconditional, every target): Network.cpp's `sizeof(ReceiveData)
+  == 0x4000` and `sizeof(SendData) == 0x800` (the largest packets each way), MainFrm.cpp's PacketHeader (16 bytes of the
+  last packet), Control.cpp's LastPacketTypes (10). They were never x86-only.
+- **No format behind them: Tibia.cfg, Tibia.dat, .spr, .pic, the packets' fields.** Tibia.cfg is text (TWriteScriptFile
+  and TReadScriptFile, key by key); Tibia.dat's entries are read field by field into TProperties (Objects.cpp's
+  readByte/readWord per flag), Tibia.spr's and Tibia.pic's records field by field into TSprite and TPicture
+  (graphics.cpp), the packets by TReadBuffer/TWriteBuffer's typed reads; no structure is read or written as memory.
+  None of them had an x86 assert, and the unconditional asserts on those structures (TProperties' flags in
+  FlagByte, TCharacter, TServer, TBuddy) stay: they hold on every target and are no layout freeze of the oracle.
+- **Dropped with the oracle** (x86 layout, no format; 73 in src/, the file's structures and their offsets): Communication.cpp
+  (TTalkBuffer first and cursor, TTalkLine Addressee: 3); ConsoleWindow.cpp (unique_ptr<char[]>, TTextWindow,
+  TTab, unique_ptr<TTalkBuffer>, TConsoleWindow: 5); ContentWindows.cpp (TBattleWindowBody, the unique_ptrs,
+  TCombatControls, TBuddylistWindowBody: 4); ContextMenus.cpp (TContextMenuEntry: 1); DialogElements.cpp (TTextButton,
+  TOutfitIcon, the unique_ptrs, TLabel, TFormattedText, TLink, TMultiStateButton, TEditLine, TPasswordEditLine: 9);
+  Dialogs.cpp (TDialog, THotkeyDialog twice, TReconnectWindow twice, TOutfitDialog twice, TEditBuddyDialog twice,
+  TRuleViolationDialog twice, TEditMarkDialog twice, the unique_ptrs, TWaitLabel, TLoginDialog, TCharacterListDialog,
+  TGraphicsOptionsDialog, TNewChannelDialog, TAdvancedGraphicsDialog: 20); GUI.cpp (TComponent: 1); Inventory.cpp
+  (TContainer, TOffer, the object lists: 3); MainFrm.cpp (CMainFrame's KeyStates and KeyFlags: 1); Map.cpp
+  (TAutomapBlock: 1, its format part moved, above); MapWindow.cpp (TMapWindow: 1); Player.h (CPlayerApp's size: 1);
+  Script.h (TReadScriptFile twice, TWriteScriptFile, TReadBinaryFile, TWriteBinaryFile: 5); TXTEA.cpp (TXTEA: 1);
+  Talk.cpp (the eight talk classes' sizes, TTalkLine's WithoutTime, Time and the addressees: 11); vlong.cpp (flex_unit:
+  1); and SurfaceDX.cpp's TSurfaceDX, SurfaceGL.h's and surfaceDX9.h's with their files. They checked that the oracle's
+  x86 layout was the original's, for difftest (which ran the original's code on our objects) and client_state.py's PDB
+  reading of the oracle; neither exists now. In tests/golden, 116 x86 asserts inside `#if GOLDEN_ORACLE` (the tests'
+  view of the original's objects) went with that code.
+- **Not touched: the asserts that hold on every target** (Creatures.cpp's TCreature and TBuddyEntry, Map.cpp's TMapPoint
+  and TMark, MapWindow.cpp's TCacheField, GUI.cpp's skin properties, graphics.cpp's tables, Talk.cpp's TTalkbox, the
+  unique_ptr-is-a-pointer asserts of #58, the enums' sizes, ...). They are not x86 asserts, and several protect the
+  frozen corpus's replay (the golden tests compare bytes of TSkinProperties, TTalkBuffer and others by the original's
+  offsets, which these structures keep on x64). Whether a layout may change now is M7's question, structure by
+  structure; this issue changes none.
+
+### Kept (high)
+
+- **capture-x86** (the owner's decision, November 7, 2026): CMakeLists.txt's PATELLA_CAPTURE includes cmake/Capture.cmake
+  only, which builds build\capture-x86\Release\patcap.dll from tools/capture/patcap.c and nothing else (no client, no
+  test programs, no frozen layouts, no header checks). Its configure preset makes Release only; its workflow configures
+  and builds (no test step: patcap.dll has no self-test; tier A's Tibia.exe runs under it are its check, "The gates").
+  The options are build-capture.cmd's /W4 /WX, the static CRT, no manifest; CMake's defaults now stay (the Release
+  /O2 the oracle named itself), which changes the DLL's code generation flags slightly (/GR /EHsc, /Ob2) but not what it
+  does. compare_rendering.py's CLIENT_PRESETS and capture_preset, reference_record.py and reference.py's recorder line
+  name capture-x86.
+- **client_state.py**: its Tibia.exe reading (Layout.original(), the reading code, X64_REFUSED) for the reference
+  recordings' record step and the live comparisons' Tibia.exe runs; Pdb for patch_client.py's port patch of
+  PatellaTest.exe; Layout.from_pdb and Client's pdb_exe path for `--layout` (an x64 image's PDB, no process). No running
+  client uses the PDB path now ("Found, not done").
+- **compare_rendering.py's add_import, Capture and Driver**, for Tibia.exe (#92's list); patcap.c's hooks of DirectDraw,
+  Direct3D 9 and OpenGL: Tibia.exe draws with them.
+- **The frozen corpus and the reference recordings** (read only, never touched; their manifests verified by every
+  replay), tools/data_manifest.py, golden_runner and everything it needs on Windows and Linux (golden.cpp's replayer,
+  golden_patch.h, golden_eh, the tests' our-side code, tests/golden/linux).
+- **TIBIA_MFC_SHIM and compat/mfc_shim.h**: the golden targets'.
+- **The C++17 stand-ins** (compat/expected.h, format.h, span.h, print.h, assertion.h's source location): written for the
+  oracle's /std:c++17, kept for tests_unit_cxx26_standin and the libraries without std::format (mingw-w64's); their
+  comments say so now.
+- **"difftest" in tests/golden**: the corpus's first folder and program are named difftest (golden/difftest/*.bin,
+  the manifests' `executable difftest`, runner.cpp's table), frozen data; the ported tests' comments name the oracle's
+  programs they came from. tools/build.py's golden_corpus() is the corpus's mount, not the target.
+
+### The x64 Patella.exe (high)
+
+The client changes only where the oracle's code was: the removed `#else` branches never compiled into it, and the
+`#if defined(PATELLA_VULKAN)` lines and the x86 assert blocks it skipped are gone. What moves is the source lines below
+those blocks, and with them the line numbers that PATELLA_ASSERT and the TERROR macros put into the image
+(std::source_location: the line as an immediate in the throwing code). "The gates" has the function-by-function
+comparison.
+
+### Found, not done (high)
+
+- client_state.py's PDB path for a running client (Client's pdb_exe, the RTTI class names, the GetFirstChild lookup
+  by PDB name) has no user since the oracle left; `--layout` still uses Layout.from_pdb. It can go with a change of
+  client_state.py for another reason.
+- Patella.exe still looks up patcap.dll and its Vulkan exports (SurfaceVulkan.cpp InitDisplay; #92's open point):
+  unchanged here, as #94 changes the client as little as possible.
+- MainFrm.cpp's DisplayChanged is set by OnDisplayChange and was read only by SurfaceGL.cpp: now set and never read.
+  Removing it changes Patella.exe.
+- compare_network.py against the x64 client: rewired here (the probe has every reading it takes), not run in this
+  issue's gates (51 scenarios, about half an hour).
+- tests/golden's comments still describe the oracle's side in the present tense in places ("the oracle patches the
+  image ..."): history of where each test came from, left as is.
+
+### The gates (high)
+
+Logs: build\logs\issue-94 of the branch's worktree; every golden run replayed main's corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64` (after a clean): exit 0, 17/17, 0 warnings; golden 15,803,218 replayed +
+  1,512,822 retired = 17,316,040, 0 failures (golden_concurrent: both runners the same). windows-x64-debug: exit 0,
+  16/16, golden the same. windows-x64-asan: exit 0, 16/16, golden the same. windows-x64-gcc: exit 0, 11/11.
+  linux-x64-gcc: exit 0, 14/14; linux-x64-clang: exit 0, 13/13; golden the same on both.
+- `python -I tools/build.py capture-x86`: exit 0, build\capture-x86\Release\patcap.dll (PE32, machine 0x14c); no
+  self-test (none exists); the live runs below load it into Tibia.exe.
+- `git grep -n -i "oracle-x86\|OracleX86\|difftest\|PATELLA_ORIGINAL_LAYOUT"`: 810 lines, 707 in notes/ (history),
+  103 in tests/golden (40 files: the corpus's folder and program names, which are frozen data, and the ported tests'
+  provenance comments); none elsewhere.
+- Live, Tibia.exe under capture-x86's patcap.dll where the tool uses it: `python -I tools/reference.py compare
+  --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches (traffic, options, walk, error);
+  `python -I tools/compare_traffic.py` exit 0, no differences; `python -I tools/compare_files.py` exit 0, no
+  differences apart from the deliberate ones of #74; `python -I tools/testmode_check.py --runs 2` exit 0, no
+  differences. `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes windowed --no-repeat`
+  (build\render\session.jsonl copied from compare_traffic.py's orig-live.jsonl) exit 2 twice: both times Tibia.exe's
+  first run under patcap.dll (the vulkan pass) failed, once with no answer to the first capture (frames 0), once
+  with an unreadable capture after "walk west" and the client gone; the vulkan-cpu pass compared all 26 scenes,
+  identical outside the masks (Tibia.exe's second run under the same DLL complete), and the GPU pass's 11 scenes
+  before the failure identical. #92 saw the first kind once. Not run a third time (the rule: one rerun); "Needs the
+  user" in the report. capture-x86's patcap.dll against the oracle preset's of main (pecompare): .text, .data, .reloc
+  identical; only the import table's names are in another order (CMake's default libraries before the target's in the
+  link), so the DLL's code is not what changed.
+- pecompare of the x64 Release Patella.exe, main ee1705c and the branch built at the same path: the same 14,024
+  functions (dumpbin /disasm with the PDBs), the same sizes of every section; .data, .pdata, .rsrc, .reloc identical,
+  .rdata identical apart from the link stamps; 344 functions differ in 604 instructions, every one a `mov dword ptr
+  [...], <immediate>` whose immediate is a source line (std::source_location of PATELLA_ASSERT and TERROR*: the lines
+  below the removed blocks moved up). No other difference.
+- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, 0 gone (the baseline unchanged: no finding was in a removed file); `python -I tools/banned_calls.py` exit 0 (0 calls, 121 files); clang-format
+  with CLAUDE.md's command exit 0 (its list of globs needs no change: the engines' files are gone from src/*.cpp).

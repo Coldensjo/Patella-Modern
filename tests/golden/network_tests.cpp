@@ -71,11 +71,7 @@
 #include "golden_test.h"
 
 #include "golden_eh.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 // Network.cpp is compiled into this file (its statics are in an unnamed namespace), at its own warning
 // level (cmake/Warnings.cmake's baseline).
 #ifdef _MSC_VER
@@ -100,7 +96,7 @@ namespace {
 enum { IMAGE = 0,
 	OURS = 1 };
 // The sides this build has: both in the oracle, ours in the runner (the original's comes from the corpus).
-const int FIRST_SIDE = GOLDEN_ORACLE ? IMAGE : OURS;
+const int FIRST_SIDE = OURS; // the oracle began with the original's side (IMAGE), until issue #94
 int Side;
 std::string Log[2];
 bool Trace, Trace2;
@@ -165,35 +161,6 @@ void RestoreAll()
 	Saved.clear();
 }
 
-#if GOLDEN_ORACLE
-// The image's import slot of Dll's function Name, or of the ordinal (Name NULL).
-uint32 *ImageImport(const char *Dll, const char *Name, int Ordinal)
-{
-	uint8 *Base = (uint8 *)(uintptr_t)0x400000;
-	IMAGE_NT_HEADERS32 *NT = (IMAGE_NT_HEADERS32 *)(Base + ((IMAGE_DOS_HEADER *)Base)->e_lfanew);
-	IMAGE_DATA_DIRECTORY &Directory = NT->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
-	for (IMAGE_IMPORT_DESCRIPTOR *D = (IMAGE_IMPORT_DESCRIPTOR *)(Base + Directory.VirtualAddress); D->Name != 0; D++) {
-		if (_stricmp((const char *)Base + D->Name, Dll) != 0)
-			continue;
-		uint32 *Names = (uint32 *)(Base + D->OriginalFirstThunk);
-		uint32 *Slots = (uint32 *)(Base + D->FirstThunk);
-		for (int i = 0; Names[i] != 0; i++) {
-			if (Name == NULL ? (Names[i] & 0x80000000) != 0 && (int)(Names[i] & 0xffff) == Ordinal
-							 : (Names[i] & 0x80000000) == 0 && strcmp((const char *)Base + Names[i] + 2, Name) == 0)
-				return &Slots[i];
-		}
-	}
-	printf("FAIL networktest: the image does not import %s %s\n", Dll, Name != NULL ? Name : "(ordinal)");
-	Failures++;
-	return NULL;
-}
-void BindImage(const char *Dll, const char *Name, int Ordinal, void *Fake)
-{
-	uint32 *Slot = ImageImport(Dll, Name, Ordinal);
-	if (Slot != NULL)
-		Write(Slot, &Fake, 4);
-}
-#endif
 
 // --- The world the fakes answer from ---------------------------------------------------------
 
@@ -305,33 +272,6 @@ TView View[2];
 
 void MakeViews()
 {
-#if GOLDEN_ORACLE
-	TView &I = View[IMAGE];
-	I.CurrentServer = (int *)0x7152f0;
-	I.TestServer = (TServer *)0x7152f8;
-	I.Servers = (TServer *)0x715368;
-	I.HostnameRequest = (HANDLE *)0x715528;
-	I.HostnameResolveBuffer = (char **)0x71552c;
-	I.ReceiveDataSize = (int *)0x715530;
-	I.ReceivePacketEnd = (int *)0x715534;
-	I.ReceiveRead = (int *)0x715538;
-	I.ReceiveData = (uint8 *)0x715540;
-	I.SendData = (uint8 *)0x719540;
-	I.NetworkWindow = (HWND *)0x719d40;
-	I.CloseCallback = (void (**)())0x719d44;
-	I.ReceiveCallback = (void (**)())0x719d48;
-	I.ConnectCallback = (void (**)())0x719d4c;
-	I.Socket = (void **)0x719d50;
-	I.TimeoutCounter = (int *)0x719d54;
-	I.TimeoutLimit = (int *)0x719d58;
-	I.SendBuffer = (TBuffer *)0x719d5c;
-	I.ReceiveBuffer = (TBuffer *)0x719d68;
-	I.SymmetricKey = (uint8 *)0x719d74;
-	I.KeyOffset = 4;
-	I.RecursionProtection = (int *)0x719d88;
-	I.HostnameResolveBufferSize = (int *)0x5c22c4;
-	I.PacketHeader = (uint8 *)0x5d1644;
-#endif
 	TView &O = View[OURS];
 	O.CurrentServer = &CurrentServer;
 	O.TestServer = &TestServer;
@@ -499,10 +439,6 @@ char *WINAPI FakeInetNtoa(in_addr Address)
 // on x64).
 SOCKET &Handle([[maybe_unused]] int S, void *Object)
 {
-#if GOLDEN_ORACLE
-	if (S == IMAGE)
-		return *(SOCKET *)((uint8 *)Object + 4);
-#endif
 	return static_cast<CAsyncSocket *>(Object)->m_hSocket;
 }
 SOCKET &Handle(void *Object) { return Handle(Side, Object); }
@@ -618,49 +554,12 @@ int SocketSend(void *Object, const void *Buffer, int Length, int Flags)
 	return Script.SendResult;
 }
 
-#if GOLDEN_ORACLE
-// The image's MFC functions (thiscall through __fastcall).
-void *__fastcall ImageSocketCtor(void *This, void *)
-{
-	*(uint32 *)This = 0x575524; // CAsyncSocket's vtable, as the constructor sets it
-	SocketConstructed(This);
-	return This;
-}
-void __fastcall ImageSocketDtor(void *This, void *)
-{
-	*(uint32 *)This = 0x575524;
-	SocketDestroyed(This);
-}
-void __fastcall ImageSocketClose(void *This, void *) { SocketClose(This); }
-BOOL __fastcall ImageSocketCreate(void *This, void *, UINT Port, int Type, long Events, LPCTSTR Address)
-{
-	return SocketCreate(This, Port, Type, Events, Address);
-}
-BOOL __fastcall ImageSocketConnect(void *This, void *, LPCTSTR Address, UINT Port)
-{
-	return SocketConnect(This, Address, Port);
-}
-int __fastcall ImageSocketReceive(void *This, void *, void *Buffer, int Length, int Flags)
-{
-	return SocketReceive(This, Buffer, Length, Flags);
-}
-int __fastcall ImageSocketSend(void *This, void *, const void *Buffer, int Length, int Flags)
-{
-	return SocketSend(This, Buffer, Length, Flags);
-}
-#endif
 BOOL SocketInit()
 {
 	Logf("AfxSocketInit;");
 	Tick();
 	return Script.SocketInit;
 }
-#if GOLDEN_ORACLE
-BOOL __stdcall ImageAfxSocketInit(WSADATA *Data)
-{
-	return SocketInit();
-}
-#endif
 
 // The handlers InitNetwork gets.
 void RunSendProgram();
@@ -731,9 +630,6 @@ namespace {
 
 // --- Both sides' functions ---------------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void(__fastcall *EventFn)(void *, void *, int);
-#endif
 
 // The functions under test, by side: ours and the image's (all cdecl).
 struct TFunctions {
@@ -781,47 +677,6 @@ TFunctions Fn[2];
 template <class T> void SetFn(T &Slot, uint32 Address) { Slot = (T)(uintptr_t)Address; }
 void MakeFunctions()
 {
-#if GOLDEN_ORACLE
-	TFunctions &I = Fn[IMAGE];
-	SetFn(I.InitServerList, 0x4ca0e0);
-	SetFn(I.SetTestServerPort, 0x4ca260);
-	SetFn(I.ResetServerAvailability, 0x4ca270);
-	SetFn(I.SetConnectionTimeout, 0x4ca290);
-	SetFn(I.SetNetworkWindow, 0x4ca2b0);
-	SetFn(I.SetTestServerAddress, 0x4ca450);
-	SetFn(I.SetServerError, 0x4ca730);
-	SetFn(I.SetServerIPAddress, 0x4ca9f0);
-	SetFn(I.GetCurrentServer, 0x4cadb0);
-	SetFn(I.GetServerErrorCode, 0x4cb0d0);
-	SetFn(I.BeginCommand, 0x4cb2a0);
-	SetFn(I.SendByte, 0x4cb540);
-	SetFn(I.SendWord, 0x4cb6e0);
-	SetFn(I.SendQuad, 0x4cb880);
-	SetFn(I.SendString, 0x4cba20);
-	SetFn(I.SendBytes, 0x4cbca0);
-	SetFn(I.SendCommand, 0x4cbe00);
-	SetFn(I.PrepareNextPacket, 0x4cc130);
-	SetFn(I.GetNextCommand, 0x4cc550);
-	SetFn(I.GetByte, 0x4cc720);
-	SetFn(I.GetWord, 0x4cc8b0);
-	SetFn(I.GetQuad, 0x4cca40);
-	SetFn(I.GetStringBuffer, 0x4ccbd0);
-	SetFn(I.GetStringNew, 0x4cce50);
-	SetFn(I.GetBytes, 0x4ccfe0);
-	SetFn(I.CheckConnectionTimeout, 0x4cf850);
-	SetFn(I.GetErrorMessage, 0x4cd180);
-	SetFn(I.ResolveHostname, 0x4cd9a0);
-	SetFn(I.GetResolvedIPAddress, 0x4cdca0);
-	SetFn(I.CreateSocket, 0x4cee30);
-	SetFn(I.ConnectSocket, 0x4cdf20);
-	SetFn(I.SetSymmetricKey, 0x4ce210);
-	SetFn(I.Disconnect, 0x4ce300);
-	SetFn(I.ConnectToLoginServer, 0x4cf050);
-	SetFn(I.ConnectToGameServer, 0x4cf390);
-	SetFn(I.ShutdownConnection, 0x4ce8f0);
-	SetFn(I.InitNetwork, 0x4ce930);
-	SetFn(I.ExitNetwork, 0x4cec70);
-#endif
 	TFunctions &O = Fn[OURS];
 	O.InitServerList = InitServerList;
 	O.SetTestServerPort = SetTestServerPort;
@@ -874,13 +729,6 @@ void FireEvent(int Slot, int ErrorCode)
 		Logf("no socket;");
 		return;
 	}
-#if GOLDEN_ORACLE
-	if (Side == IMAGE) {
-		EventFn F = (EventFn)(uintptr_t)(*(uint32 **)Object)[Slot / 4];
-		F(Object, NULL, ErrorCode);
-		return;
-	}
-#endif
 	TSocket *S = (TSocket *)Object;
 	switch (Slot) {
 	case 0x1c: S->OnReceive(ErrorCode); break;
@@ -1037,20 +885,7 @@ uint8 LastSendData[0x800];
 
 std::string OriginalDump()
 {
-#if GOLDEN_ORACLE
-	std::string Text = Dump(IMAGE);
-	char Current[DUMP_SIZE] = {};
-	if (Text.size() >= DUMP_SIZE) {
-		printf("FAIL Network: the original's dump has %u bytes, more than %u\n", (unsigned)Text.size(),
-			(unsigned)DUMP_SIZE - 1);
-		Failures++;
-		Text.resize(DUMP_SIZE - 1);
-	}
-	memcpy(Current, Text.data(), Text.size());
-	golden::OutputRuns("state", LastDump, Current, DUMP_SIZE);
-#else
 	golden::OutputRuns("state", LastDump, nullptr, DUMP_SIZE);
-#endif
 	return std::string(LastDump, strnlen(LastDump, DUMP_SIZE));
 }
 
@@ -1161,10 +996,6 @@ template <class F> void Both(const char *Name, F Call)
 	if (Trace)
 		printf("Network: %s\n", Name);
 	if (Round == NULL) {
-#if GOLDEN_ORACLE
-		Side = IMAGE;
-		Call(IMAGE);
-#endif
 		Side = OURS;
 		Call(OURS);
 	} else {
@@ -1838,43 +1669,6 @@ void TestNetwork()
 	MakeViews();
 	MakeFunctions();
 	Side = OURS;
-#if GOLDEN_ORACLE
-	{
-		CAsyncSocket Probe; // the handle at +4 on our side too (as the image's)
-		if ((uint8 *)&Probe.m_hSocket - (uint8 *)&Probe != 4) {
-			printf("FAIL Network: our m_hSocket is not at +4\n");
-			Failures++;
-		}
-	}
-	World[OURS].Sockets.clear();
-	Log[OURS].clear();
-	// The image's static objects (its initialisers 0x559fd0, 0x559ff0, 0x55a010
-	// never ran; the last registers an atexit destructor, so the constructor is
-	// called alone).
-	At<void(__fastcall *)(void *, void *, uint8 *, int)>(0x50b030)((void *)(uintptr_t)0x719d5c, NULL,
-		(uint8 *)(uintptr_t)0x719540, 0x800);
-	At<void(__fastcall *)(void *, void *, uint8 *, int)>(0x50a200)((void *)(uintptr_t)0x719d68, NULL,
-		(uint8 *)(uintptr_t)0x715540, 0);
-	At<void(__fastcall *)(void *, void *)>(0x508c70)((void *)(uintptr_t)0x719d74, NULL);
-	// WinSock through the image's import slots (by ordinal, as Tibia.exe imports them).
-	BindImage("WS2_32.dll", NULL, 103, (void *)FakeWSAAsyncGetHostByName);
-	BindImage("WS2_32.dll", NULL, 111, (void *)FakeWSAGetLastError);
-	BindImage("WS2_32.dll", NULL, 108, (void *)FakeWSACancelAsyncRequest);
-	BindImage("WS2_32.dll", NULL, 22, (void *)FakeShutdown);
-	BindImage("WS2_32.dll", NULL, 12, (void *)FakeInetNtoa);
-	// The image's MFC: CAsyncSocket and AfxSocketInit.
-	Redirect((void *)(uintptr_t)0x52f37b, (void *)ImageSocketCtor);
-	Redirect((void *)(uintptr_t)0x52f976, (void *)ImageSocketDtor);
-	Redirect((void *)(uintptr_t)0x52f955, (void *)ImageSocketClose);
-	Redirect((void *)(uintptr_t)0x52f874, (void *)ImageSocketCreate);
-	Redirect((void *)(uintptr_t)0x52f418, (void *)ImageSocketConnect);
-	Redirect((void *)(uintptr_t)0x52f228, (void *)ImageSocketReceive);
-	Redirect((void *)(uintptr_t)0x52f240, (void *)ImageSocketSend);
-	Redirect((void *)(uintptr_t)0x52f9d7, (void *)ImageAfxSocketInit);
-	// rand(): the image's 0x511f33 and our static CRT's.
-	Redirect((void *)(uintptr_t)0x511f33, (void *)FakeRand);
-	Redirect((void *)rand, (void *)FakeRand);
-#else
 	// rand(): the runner's import slot of ucrtbase's (out of a rel32 jump's reach; Network.cpp calls it
 	// through the slot).
 	void **RandSlot = golden::FindImport("rand");
@@ -1885,7 +1679,6 @@ void TestNetwork()
 	}
 	void *SavedRand = *RandSlot;
 	golden::SetImport(RandSlot, (void *)FakeRand);
-#endif
 	// Status.cpp's and Preferences.cpp's functions: one fake for both sides.
 	struct {
 		uint32 Image;
@@ -1921,15 +1714,12 @@ void TestNetwork()
 	TestNetworkErrors();
 	ResetSides();
 	RestoreAll();
-#if !GOLDEN_ORACLE
 	golden::SetImport(RandSlot, SavedRand);
-#endif
 	SetRandomSeed(SavedSeed);
 	if (LogFile != NULL)
 		fclose(LogFile);
 }
 
-#if !GOLDEN_ORACLE
 // Network.cpp's buffers for the communication tests (tests/golden/commworld.cpp, issue #30): Communication.cpp
 // reads and builds packets in them. In the oracle communicationtest.exe links Network.cpp on its own (commworld.cpp
 // finds them in its code); here Network.cpp is this file's. Reset: their state at the program's start (the
@@ -1945,4 +1735,3 @@ void GoldenNetworkResetBuffers()
 	ReceiveBuffer.Size = 0;
 	ReceiveBuffer.Position = 0;
 }
-#endif

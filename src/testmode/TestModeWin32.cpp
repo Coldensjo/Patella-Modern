@@ -1,6 +1,6 @@
 // TestModeWin32.cpp: the test mode of the Windows test build (issue #21; notes/modernization-plan.md,
-// 4.4; src/TestHooks.h). Only PatellaTest.exe compiles it (cmake/WindowsX64.cmake); Patella.exe and
-// the oracle-x86 build contain none of it.
+// 4.4; src/TestHooks.h). Only PatellaTest.exe compiles it (cmake/WindowsX64.cmake); Patella.exe
+// contains none of it.
 //
 //	PatellaTest.exe [--test-script <file>] [--test-log <file>] [--test-out <folder>] [--test-sync <name>]
 //	                [--test-replay <file>] [--test-display-modes <file>] [--test-control <name>]

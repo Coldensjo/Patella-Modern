@@ -39,11 +39,7 @@
 #include "elementfakes.h"
 #include "golden_eh.h"
 #include "testsurface.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 
 #include "ContentWindows.h"
 #include "DialogWindow.h"
@@ -62,32 +58,13 @@
 #include <string>
 #include <vector>
 
-#if GOLDEN_ORACLE
-static_assert(sizeof(TContentWindow) == 0x44, "TContentWindow is 0x44 bytes");
-static_assert(sizeof(TSubWindow) == 0x70, "TSubWindow is 0x70 bytes");
-static_assert(sizeof(TDialogWindow) == 0x4c, "TDialogWindow is 0x4c bytes");
-static_assert(offsetof(TContentWindow, Identifier) == 0x2c, "TContentWindow::Identifier at +0x2c");
-static_assert(offsetof(TContentWindow, Dragging) == 0x35, "TContentWindow::Dragging at +0x35");
-static_assert(offsetof(TContentWindow, DragBottom) == 0x40, "TContentWindow::DragBottom at +0x40");
-static_assert(offsetof(TSubWindow, Body) == 0x44, "TSubWindow::Body at +0x44");
-static_assert(offsetof(TSubWindow, IsMinimized) == 0x64, "TSubWindow::IsMinimized at +0x64");
-static_assert(offsetof(TSubWindow, RestoreHeight) == 0x6c, "TSubWindow::RestoreHeight at +0x6c");
-static_assert(offsetof(TDialogWindow, Area) == 0x2c, "TDialogWindow::Area at +0x2c");
-static_assert(offsetof(TDialogWindow, Dragged) == 0x3c, "TDialogWindow::Dragged at +0x3c");
-static_assert(offsetof(TDialogWindow, UpdateFreeHeight) == 0x48, "TDialogWindow::UpdateFreeHeight at +0x48");
-static_assert(sizeof(TResizer) == 0x38, "TResizer is 0x38 bytes");
-#endif
 
 // --- Shared fakes (mainwindowtest.cpp uses them as well) ----------------------------
 
 TDialogFakes DialogFakes;
 
 // The container body's UpdateUpButton (the image's 0x42e4e0 and ours; elementfakes.h).
-#if GOLDEN_ORACLE
-void __fastcall FakeUpdateUpButton(void *Body, void *)
-#else
 void FakeUpdateUpButton(void *Body)
-#endif
 {
 	if (DialogFakes.Body != NULL)
 		DialogFakes.Body((TSubWindowBody *)Body, "Up");
@@ -115,7 +92,7 @@ namespace DialogWindowTest {
 enum { OURS = 0,
 	ORIGINAL = 1 };
 // The sides that have objects: both in the oracle, ours in the runner.
-static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
+static const int SIDES = 1; // ours alone (the oracle had the original's side too, until issue #94)
 static int Side;
 static std::string Log[2];
 
@@ -385,32 +362,15 @@ static void Redirect(void *Function, void *Target)
 {
 	TSaved S;
 	S.Code = (uint8 *)Function;
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	memcpy(S.Bytes, Function, 5);
-	PatchJump((uint32)(uintptr_t)Function, Target);
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-#else
 	golden::SaveOwn(Function, S.Bytes);
 	golden::RedirectOwn(Function, Target);
-#endif
 	SavedCode.push_back(S);
 }
 
 static void RestoreAll()
 {
 	for (size_t i = SavedCode.size(); i-- > 0;) {
-#if GOLDEN_ORACLE
-		DWORD Protection;
-		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
-		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
-		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
-		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
-#else
 		golden::RestoreOwn(SavedCode[i].Code, SavedCode[i].Bytes);
-#endif
 	}
 	SavedCode.clear();
 }
@@ -440,17 +400,6 @@ static void PatchCallees()
 
 // --- The objects ----------------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void *(__fastcall *ColumnCtorFn)(void *, void *);
-typedef void *(__fastcall *ContentCtorFn)(void *, void *, int, bool);
-typedef void *(__fastcall *SubCtorFn)(void *, void *, int, TSubWindowBody *, bool, bool);
-typedef TContentWindow *(__fastcall *FindFn)(void *, void *, int);
-typedef int(__fastcall *GetFn)(void *, void *);
-typedef void(__fastcall *VoidFn)(void *, void *);
-typedef void(__fastcall *SetFn)(void *, void *, TComponent *);
-typedef bool(__fastcall *BoolFn)(void *, void *);
-typedef void(__fastcall *PositionFn)(void *, void *, bool);
-#endif
 
 static TDialogWindow *Column[2][2]; // [side][column]
 
@@ -460,12 +409,7 @@ static TDialogWindow *NewColumn(int s)
 	if (s == OURS) {
 		C = new TDialogWindow;
 	} else {
-#if GOLDEN_ORACLE
-		void *Memory = operator new(sizeof(TDialogWindow));
-		C = (TDialogWindow *)At<ColumnCtorFn>(0x4856c0)(Memory, NULL);
-#else
 		abort(); // the runner has no original
-#endif
 	}
 	Register(C, "Col");
 	return C;
@@ -477,12 +421,7 @@ static TContentWindow *NewContent(int s, int Identifier, bool Background)
 	if (s == OURS) {
 		W = new TContentWindow(Identifier, Background);
 	} else {
-#if GOLDEN_ORACLE
-		void *Memory = operator new(sizeof(TContentWindow));
-		W = (TContentWindow *)At<ContentCtorFn>(0x4854c0)(Memory, NULL, Identifier, Background);
-#else
 		abort();
-#endif
 	}
 	Register(W, "CW");
 	return W;
@@ -501,15 +440,8 @@ static TSubWindow *NewSub(int s, int Identifier, TTestBody *Body, bool Resizable
 	TSubWindow *W;
 	void *Memory = operator new(sizeof(TSubWindow));
 	Register(Memory, "Sub"); // before the constructor: the resizers name it
-#if GOLDEN_ORACLE
-	if (s == OURS)
-		W = new (Memory) TSubWindow(Identifier, Body, Resizable, Background);
-	else
-		W = (TSubWindow *)At<SubCtorFn>(0x487e80)(Memory, NULL, Identifier, Body, Resizable, Background);
-#else
-	(void)s; // ours: the runner has no original
+	(void)s;                 // ours: the runner has no original
 	W = new (Memory) TSubWindow(Identifier, Body, Resizable, Background);
-#endif
 	return W;
 }
 
@@ -614,11 +546,7 @@ static void OutputOriginalLog()
 static std::string LastDump;
 static std::string OriginalDump()
 {
-#if GOLDEN_ORACLE
-	std::string Text = Dump(ORIGINAL);
-#else
 	std::string Text;
-#endif
 	return golden::OutputTextChanges("dump", &LastDump, Text);
 }
 
@@ -1048,13 +976,7 @@ static void Operation()
 				Free[s] = D->GetFreeHeight();
 				Frame[s] = TSubWindow::GetFrameHeight();
 			} else {
-#if GOLDEN_ORACLE
-				W = At<FindFn>(0x486400)(D, NULL, Identifier);
-				Free[s] = At<GetFn>(0x487060)(D, NULL);
-				Frame[s] = At<int(__cdecl *)()>(0x485670)();
-#else
 				abort();
-#endif
 			}
 			Ids[s] = W == NULL ? -1 : Info[s][W].Serial;
 			MinH[s] = D->getMinimumHeight();
@@ -1342,11 +1264,6 @@ static void TestDialogWindowErrors()
 			Side = OURS;
 			Register(Part, "Part");
 			TComponent *Part2 = nullptr; // the original's part (the oracle only)
-#if GOLDEN_ORACLE
-			Part2 = Which == 2 ? (TComponent *)new TTestSkinButton : (TComponent *)new TTestElement;
-			Side = ORIGINAL;
-			Register(Part2, "Part");
-#endif
 			Part->SetSize(5, 5);
 			ORIGINAL(Part2->SetSize(5, 5));
 			ThrowMask = Mask;

@@ -25,69 +25,6 @@
 // The reconstructed side's external function (sysinc.cpp).
 bool FileExists(const char *FileName) { return _access(FileName, 0) == 0; }
 
-#if GOLDEN_ORACLE
-// --- Replacements patched into the image -----------------------------------
-
-static FILE *__cdecl ImageFopen(const char *Name, const char *Mode) { return fopen(Name, Mode); }
-static int __cdecl ImageFclose(FILE *File) { return fclose(File); }
-static int __cdecl ImageGetc(FILE *File) { return getc(File); }
-static int __cdecl ImageUngetc(int c, FILE *File) { return ungetc(c, File); }
-static int __cdecl ImageFputc(int c, FILE *File) { return fputc(c, File); }
-static size_t __cdecl ImageFread(void *Buffer, size_t Size, size_t Count, FILE *File) { return fread(Buffer, Size, Count, File); }
-static size_t __cdecl ImageFwrite(const void *Buffer, size_t Size, size_t Count, FILE *File) { return fwrite(Buffer, Size, Count, File); }
-static int __cdecl ImageFseek(FILE *File, long Offset, int Origin) { return fseek(File, Offset, Origin); }
-static int __cdecl ImageFileno(FILE *File) { return _fileno(File); }
-static int __cdecl ImageEof(int Handle) { return _eof(Handle); }
-static int __cdecl ImageRemove(const char *Name) { return remove(Name); }
-static int __cdecl ImageRename(const char *Old, const char *New) { return rename(Old, New); }
-static bool __cdecl ImageFileExists(const char *Name) { return _access(Name, 0) == 0; }
-static int __cdecl ImageSprintf(char *Buffer, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = vsprintf(Buffer, Format, Args);
-	va_end(Args);
-	return Result;
-}
-
-void PatchScript()
-{
-	static bool Done = false;
-	if (Done)
-		return;
-	Done = true;
-	PatchImage();
-	PatchJump(0x51227f, (void *)ImageFopen);
-	PatchJump(0x512122, (void *)ImageFclose);
-	PatchJump(0x513237, (void *)ImageGetc);
-	PatchJump(0x513039, (void *)ImageUngetc);
-	PatchJump(0x5133da, (void *)ImageFputc);
-	PatchJump(0x513a29, (void *)ImageFread);
-	PatchJump(0x51338e, (void *)ImageFwrite);
-	PatchJump(0x5134e3, (void *)ImageFseek);
-	PatchJump(0x523017, (void *)ImageFileno);
-	PatchJump(0x5136de, (void *)ImageEof);
-	PatchJump(0x513c96, (void *)ImageRemove);
-	PatchJump(0x513a75, (void *)ImageRename);
-	PatchJump(0x4fcba0, (void *)ImageFileExists);
-	PatchJump(0x511d6b, (void *)ImageSprintf);
-}
-
-// Member functions of the original, called with this in ECX.
-typedef void(__fastcall *ThisFn)(void *This, void *);
-typedef void(__fastcall *ThisStrFn)(void *This, void *, const char *);
-typedef void(__fastcall *ThisIntFn)(void *This, void *, int);
-typedef int(__fastcall *ThisRetIntFn)(void *This, void *);
-typedef char *(__fastcall *ThisRetStrFn)(void *This, void *);
-typedef char(__fastcall *ThisRetCharFn)(void *This, void *);
-typedef void(__fastcall *ThisCharFn)(void *This, void *, char);
-typedef void(__fastcall *ThisBytesFn)(void *This, void *, const void *, int);
-
-// The oracle's classes have the original's layouts (the runner's do not: FILE * and Bytes are 8 bytes).
-static_assert(sizeof(TReadScriptFile) == 0x80c, "TReadScriptFile layout");
-static_assert(sizeof(TWriteScriptFile) == 0x408, "TWriteScriptFile layout");
-static_assert(sizeof(TReadBinaryFile) == 0x404, "TReadBinaryFile layout");
-#endif
 
 namespace {
 
@@ -132,11 +69,6 @@ bool OriginalFileText(const char *Name, [[maybe_unused]] const std::string &File
 
 // --- The original's objects, by field --------------------------------------------
 
-#if GOLDEN_ORACLE
-// The original's TReadScriptFile (TestReader, TestLongTokens), TWriteScriptFile (TestWriter) and
-// TReadBinaryFile / TWriteBinaryFile (TestBinary).
-alignas(4) uint8 Original[0x80c];
-#endif
 
 // A file name of the original. The test's files are in a directory of TEMP, which differs between
 // the recording and the replay: a name in it is recorded as TEMP_DIR_MARK and the rest, and the runner
@@ -152,14 +84,6 @@ struct TFilename {
 void OriginalFilename(const char *What, TFilename &Filename, [[maybe_unused]] const char *Name)
 {
 	char Value[1024] = {};
-#if GOLDEN_ORACLE
-	size_t Length = strnlen(Name, sizeof(Value) - 1);
-	if (!TempDir.empty() && strncmp(Name, TempDir.c_str(), TempDir.size()) == 0) {
-		Value[0] = TEMP_DIR_MARK;
-		memcpy(Value + 1, Name + TempDir.size(), Length - TempDir.size());
-	} else
-		memcpy(Value, Name, Length);
-#endif
 	golden::OutputChanges(What, Filename.Recorded, Value, sizeof(Value));
 	memset(Filename.Name, 0, sizeof(Filename.Name));
 	if (Filename.Recorded[0] == TEMP_DIR_MARK)
@@ -178,18 +102,6 @@ struct TReaderState {
 const TReaderState &OriginalReader()
 {
 	int Fields[9] = {};
-#if GOLDEN_ORACLE
-	const TReadScriptFile &O = *(const TReadScriptFile *)Original;
-	Fields[0] = (int)O.Token;
-	Fields[1] = O.Line;
-	Fields[2] = O.Number;
-	Fields[3] = O.CoordX;
-	Fields[4] = O.CoordY;
-	Fields[5] = O.CoordZ;
-	Fields[6] = O.Special;
-	Fields[7] = O.File == NULL;
-	Fields[8] = (int)(O.Bytes - (const uint8 *)O.String.Chars);
-#endif
 	golden::Output("reader", Fields);
 	Reader.Token = Fields[0];
 	Reader.Line = Fields[1];
@@ -216,14 +128,6 @@ struct TFileState {
 const TFileState &OriginalFile(TFileState &State, const char *Name, [[maybe_unused]] bool Script)
 {
 	int Fields[2] = {};
-#if GOLDEN_ORACLE
-	if (Script) {
-		const TWriteScriptFile &O = *(const TWriteScriptFile *)Original;
-		Fields[0] = O.File == NULL;
-		Fields[1] = O.Line;
-	} else
-		Fields[0] = ((const TReadBinaryFile *)Original)->File == NULL;
-#endif
 	golden::Output(Name, Fields);
 	State.FileNull = Fields[0];
 	State.Line = Fields[1];
@@ -524,10 +428,6 @@ void TestWriter()
 
 void TestBinary()
 {
-#if GOLDEN_ORACLE
-	typedef uint8(__fastcall * ReadByteFn)(void *, void *);
-	typedef bool(__fastcall * EofFn)(void *, void *);
-#endif
 	std::string NameOurs = TempPath("ours.bin"), NameOriginal = TempPath("original.bin");
 	for (int Round = 0; Round < 2000; Round++) {
 		// Writing.

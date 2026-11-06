@@ -16,7 +16,6 @@
 // catch wrappers, common.h); since issue #78 the functions here have none.
 
 #include "Dialogs.h"
-#if defined(PATELLA_VULKAN)
 #include "vulkan/DeviceSettings.h"
 #include "vulkan/DeviceChoice.h"
 
@@ -31,7 +30,6 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 
 } // namespace
 
-#endif
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -59,51 +57,6 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 #include <memory>
 #include <ostream>
 
-#if PATELLA_ORIGINAL_LAYOUT
-// The original's layouts, with the texts TFixedStrings (issue #57).
-static_assert(offsetof(TDialog, Caption) == 0x50 && offsetof(TDialog, OkCallback) == 0xb4, "TDialog's layout");
-static_assert(offsetof(THotkeyDialog, Texts) == 0x2c && offsetof(THotkeyDialog, AutoSend) == 0x242c,
-	"THotkeyDialog's layout");
-// The arrays std::arrays and TFixedStrings (issue #60).
-static_assert(sizeof(THotkeyDialog) == 0x2464 && sizeof(THotkeyDialog::Texts) == 0x2400 && sizeof(THotkeyDialog::AutoSend) == 0x24,
-	"THotkeyDialog's size");
-static_assert(sizeof(TReconnectWindow) == 0x23c && offsetof(TReconnectWindow, Text) == 0x30, "TReconnectWindow's layout");
-static_assert(sizeof(TOutfitDialog) == 0x27c && offsetof(TOutfitDialog, PartButtons) == 0x30
-		&& offsetof(TOutfitDialog, ColorButtons) == 0x44 && offsetof(TOutfitDialog, Colors) == 0x25c,
-	"TOutfitDialog's layout");
-static_assert(sizeof(TEditBuddyDialog) == 0x68 && offsetof(TEditBuddyDialog, IconButtons) == 0x3c, "TEditBuddyDialog's layout");
-static_assert(sizeof(TRuleViolationDialog) == 0x114 && offsetof(TRuleViolationDialog, Reasons) == 0x4c,
-	"TRuleViolationDialog's layout");
-static_assert(sizeof(TEditMarkDialog) == 0xe8 && offsetof(TEditMarkDialog, TypeButtons) == 0xb0, "TEditMarkDialog's layout");
-// The owning members as std::unique_ptr (issue #58): each a pointer at the original's offset.
-static_assert(sizeof(std::unique_ptr<TTimer>) == sizeof(TTimer *) && alignof(std::unique_ptr<TTimer>) == alignof(TTimer *)
-		&& sizeof(std::unique_ptr<TFocusGroup>) == sizeof(TFocusGroup *)
-		&& alignof(std::unique_ptr<TFocusGroup>) == alignof(TFocusGroup *)
-		&& sizeof(std::unique_ptr<TRadioButtonGroup>) == sizeof(TRadioButtonGroup *)
-		&& alignof(std::unique_ptr<TRadioButtonGroup>) == alignof(TRadioButtonGroup *)
-		&& sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *)
-		&& sizeof(std::unique_ptr<TFullscreenMode[]>) == sizeof(TFullscreenMode *)
-		&& alignof(std::unique_ptr<TFullscreenMode[]>) == alignof(TFullscreenMode *),
-	"std::unique_ptr is a pointer");
-static_assert(sizeof(TWaitLabel) == 0x54 && offsetof(TWaitLabel, Timer) == 0x4c, "TWaitLabel's layout");
-static_assert(sizeof(TReconnectWindow) == 0x23c && offsetof(TReconnectWindow, Timer) == 0x230, "TReconnectWindow's layout");
-static_assert(sizeof(TLoginDialog) == 0x38 && offsetof(TLoginDialog, FocusGroup) == 0x34, "TLoginDialog's layout");
-static_assert(sizeof(TCharacterListDialog) == 0x38 && offsetof(TCharacterListDialog, Timer) == 0x30,
-	"TCharacterListDialog's layout");
-static_assert(sizeof(TOutfitDialog) == 0x27c && offsetof(TOutfitDialog, PartGroup) == 0x40
-		&& offsetof(TOutfitDialog, ColorGroup) == 0x258,
-	"TOutfitDialog's layout");
-static_assert(sizeof(TGraphicsOptionsDialog) == 0x4c && offsetof(TGraphicsOptionsDialog, Modes) == 0x38,
-	"TGraphicsOptionsDialog's layout");
-static_assert(sizeof(TNewChannelDialog) == 0x44 && offsetof(TNewChannelDialog, ChannelIDs) == 0x40,
-	"TNewChannelDialog's layout");
-static_assert(sizeof(TEditBuddyDialog) == 0x68 && offsetof(TEditBuddyDialog, IconGroup) == 0x30, "TEditBuddyDialog's layout");
-static_assert(sizeof(TRuleViolationDialog) == 0x114 && offsetof(TRuleViolationDialog, FocusGroup) == 0x2c,
-	"TRuleViolationDialog's layout");
-static_assert(sizeof(TEditMarkDialog) == 0xe8 && offsetof(TEditMarkDialog, TypeGroup) == 0xac, "TEditMarkDialog's layout");
-static_assert(sizeof(TAdvancedGraphicsDialog) == 0x54 && offsetof(TAdvancedGraphicsDialog, EngineGroup) == 0x50,
-	"TAdvancedGraphicsDialog's layout");
-#endif
 
 namespace {
 
@@ -2558,7 +2511,6 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 	NoStretching = new TCheckBox("Don't stretch/shrink the Map");
 	WindowsMousepointer = new TCheckBox("Windows Mouse Pointer");
 	Framerate = new THorizontalScrollBar(10, 201, 10, 11, 1, TCallback(this, 30));
-#if defined(PATELLA_VULKAN)
 	// The x64 client (issue #31): the graphics device choice in the engine buttons' places, with the
 	// original's events (MainWindow.cpp: 800, 801, 802; Control.cpp ChangeEngine). The buttons are 58
 	// pixels wide (skin 16), which "CPU (compatibility)" does not fit: its help text says it. The line
@@ -2578,19 +2530,6 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 	OpenGLButton = new TTextButton(SkinProperties.Style1394.Data20.x, SkinProperties.Style1394.Data20.y,
 		"CPU", 16, 17, TCallback(_Receiver, 802), TextUseCpuDevice);
 	OpenGLButton->SetRadioButtonGroup(EngineGroup.get());
-#else
-	TLabel *Label = new TLabel(SkinProperties.Style1394.Data08.x, SkinProperties.Style1394.Data08.y,
-		SkinProperties.StyleB08.Data78, TextSelectEngine);
-	DirectX5Button = new TTextButton(SkinProperties.Style1394.Data10.x, SkinProperties.Style1394.Data10.y,
-		"DirectX5", 16, 17, TCallback(_Receiver, 800), TextSwitchToDirectX5);
-	DirectX5Button->SetRadioButtonGroup(EngineGroup.get());
-	DirectX9Button = new TTextButton(SkinProperties.Style1394.Data18.x, SkinProperties.Style1394.Data18.y,
-		"DirectX9", 16, 17, TCallback(_Receiver, 801), TextSwitchToDirectX9);
-	DirectX9Button->SetRadioButtonGroup(EngineGroup.get());
-	OpenGLButton = new TTextButton(SkinProperties.Style1394.Data20.x, SkinProperties.Style1394.Data20.y,
-		"OpenGL", 16, 17, TCallback(_Receiver, 802), TextSwitchToOpenGL);
-	OpenGLButton->SetRadioButtonGroup(EngineGroup.get());
-#endif
 	InsertChild(Label);
 	InsertChild(DirectX5Button);
 	InsertChild(DirectX9Button);
@@ -2618,18 +2557,11 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 		DirectX9Button->SetEnabled(false);
 		OpenGLButton->SetEnabled(false);
 	} else {
-#if defined(PATELLA_VULKAN)
 		// GPU without a GPU, CPU without the CPU driver next to the executable (vulkan/DeviceSettings.h).
 		if (GetNumberOfGpus() == 0)
 			DirectX9Button->SetEnabled(false);
 		if (GetCpuDriverManifest().empty())
 			OpenGLButton->SetEnabled(false);
-#else
-		if ((GetSurface()->GetAvailableEngines() & 2) == 0)
-			DirectX9Button->SetEnabled(false);
-		if ((GetSurface()->GetAvailableEngines() & 1) == 0)
-			OpenGLButton->SetEnabled(false);
-#endif
 		switch (curEngine) {
 		case 0:
 			EngineGroup->Selected = DirectX5Button;
@@ -2642,13 +2574,10 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 			break;
 		}
 	}
-#if defined(PATELLA_VULKAN)
 	ShowDevice();
-#endif
 	Arrange();
 }
 
-#if defined(PATELLA_VULKAN)
 // The x64 client (issue #31): the device choice's button selected, after the original's selection of
 // the current engine's (curEngine is always 2 there), and the line above the buttons naming the device
 // in use, when that changed.
@@ -2676,7 +2605,6 @@ void TAdvancedGraphicsDialog::ShowDevice()
 		snprintf(Text, sizeof(Text), "%s", TextSelectDevice);
 	DeviceLabel->SetText(Text, true);
 }
-#endif
 
 // 0x47aa30, line 3723. Draws the frame rate texts over the children and
 // shows the current engine as selected.
@@ -2705,9 +2633,7 @@ void TAdvancedGraphicsDialog::Draw(int Surface, int x, int y)
 		EngineGroup->Selected = DirectX9Button;
 		break;
 	}
-#if defined(PATELLA_VULKAN)
 	ShowDevice();
-#endif
 }
 
 // 0x47ad10, line 3751. The frame rate bar (30) sets the limit while it

@@ -1,6 +1,6 @@
 // FormatCRT71Time (src/compat/crt71.h, Patella-Modern issue #61): ctime's text as MSVC 7.1's CRT wrote it, the day of
 // the month with two digits. Compiled into tests_unit (std::format_to_n) and tests_unit_cxx26_standin (the C++17
-// stand-in of compat/format.h, which the oracle-x86 build formats with), so both paths of TFixedString::Format
+// stand-in of compat/format.h, which the 32-bit oracle formatted with), so both paths of TFixedString::Format
 // write the text.
 //
 // What the text is held against:
@@ -10,7 +10,7 @@
 //	  spread of times in UTC up to the year 3000, and in PST8PDT around every change of daylight saving time
 //	  from 2007 to 2037 (the rules computed with year_month_weekday);
 //	- on Windows, the UCRT's own _ctime32 with its 9th character made MSVC 7.1's (what the client wrote before
-//	  issue #61, which tools/compare_files.py and difftest held against Tibia.exe), for every hour of 1970 to
+//	  issue #61, which tools/compare_files.py and the oracle held against Tibia.exe), for every hour of 1970 to
 //	  2038 and the second before it, in UTC, in PST8PDT (the UCRT's rules of before and after 2007), east of UTC
 //	  with half an hour, and in the machine's own zone; since issue #62 FormatCRT71Time takes _localtime64_s for
 //	  every time, so this also holds it equal to _localtime32_s over the whole 32-bit range.

@@ -19,17 +19,6 @@
 #include <cstddef>
 #include <cstring>
 
-#if PATELLA_ORIGINAL_LAYOUT
-// The original's layouts, with the names TFixedStrings (issue #57).
-static_assert(sizeof(TContainer) == 0x1ec && offsetof(TContainer, Name) == 0x10 && offsetof(TContainer, Capacity) == 0x30,
-	"TContainer's layout");
-static_assert(sizeof(TOffer) == 0x4d4 && offsetof(TOffer, Name) == 0x00 && offsetof(TOffer, Count) == 0x20,
-	"TOffer's layout");
-// The object lists std::arrays (issue #60).
-static_assert(offsetof(TContainer, Objects) == 0x3c && sizeof(TContainer::Objects) == 0x1b0 && offsetof(TOffer, Objects) == 0x24
-		&& sizeof(TOffer::Objects) == 0x4b0,
-	"the object lists' layout");
-#endif
 
 namespace {
 

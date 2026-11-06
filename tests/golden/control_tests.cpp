@@ -31,9 +31,6 @@
 
 #include "commworld.h"
 
-#if GOLDEN_ORACLE
-#include "Control.h"
-#else
 // Control.cpp is compiled into this file (its statics are in an unnamed namespace), at its own warning level.
 #ifdef _MSC_VER
 #pragma warning(push, 3)
@@ -43,21 +40,12 @@
 #pragma warning(pop)
 #endif
 #include "golden_patch.h"
-#endif
 #include "Communication.h"
 #include "MainWindow.h"
 #include "Status.h"
 #include "Surface.h"
 #include <functional>
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *TVoid)();
-typedef void(__cdecl *TIntFn)(int);
-typedef void(__cdecl *TInt2Fn)(int, int);
-typedef void(__cdecl *TInt3Fn)(int, int, int);
-typedef void(__cdecl *TBoolFn)(bool);
-typedef bool(__cdecl *TBoolResult)();
-#endif
 
 // --- The original's catch wrappers and the structured exception -------------------
 
@@ -306,10 +294,6 @@ static void ControlThrow()
 		RaiseException(0xe0436f6d, 0, 0, NULL);
 	} else if (FailKind == 2) {
 		ThrownError = 7 + Ticks[Side] % 11;
-#if GOLDEN_ORACLE
-		if (Side == IMAGE)
-			At<void(__stdcall *)(void *, void *)>(0x511d2b)(&ThrownError, (void *)(uintptr_t)0x57b3c4);
-#endif
 		throw TProgramError{static_cast<PROGRAM_ERROR>(ThrownError)};
 	}
 	SideThrow();
@@ -326,54 +310,6 @@ struct TControlStatics {
 };
 static TControlStatics Statics[2];
 
-#if GOLDEN_ORACLE
-// Our writable sections.
-static void OurWritable(uint8 **Start, uint8 **End)
-{
-	uint8 *Base = (uint8 *)GetModuleHandleA(NULL);
-	IMAGE_NT_HEADERS32 *NT = (IMAGE_NT_HEADERS32 *)(Base + ((IMAGE_DOS_HEADER *)Base)->e_lfanew);
-	IMAGE_SECTION_HEADER *S = IMAGE_FIRST_SECTION(NT);
-	*Start = NULL;
-	*End = NULL;
-	for (int i = 0; i < NT->FileHeader.NumberOfSections; i++) {
-		if ((S[i].Characteristics & IMAGE_SCN_MEM_WRITE) == 0)
-			continue;
-		uint8 *A = Base + S[i].VirtualAddress, *B = A + S[i].Misc.VirtualSize;
-		if (*Start == NULL || A < *Start)
-			*Start = A;
-		if (B > *End)
-			*End = B;
-	}
-}
-
-// The one dword of ours that holds Value after Set(Value) and Value2 after Set(Value2).
-static void *FindOurStatic(const char *Name, std::function<void(uint32)> Set, uint32 Value, uint32 Value2)
-{
-	uint8 *Start, *End;
-	OurWritable(&Start, &End);
-	Set(Value);
-	std::vector<uint32 *> Candidates;
-	for (uint32 *p = (uint32 *)Start; p + 1 <= (uint32 *)End; p++)
-		if (*p == Value && (p < (uint32 *)&World[0] || p >= (uint32 *)&World[2])) // not the worlds' copies
-			Candidates.push_back(p);
-	Set(Value2);
-	uint32 *Found = NULL;
-	int Count = 0;
-	for (uint32 *p : Candidates) {
-		if (*p == Value2) {
-			Found = p;
-			Count++;
-		}
-	}
-	if (Count != 1) {
-		printf("FAIL controltest: our %s not found (%d candidates)\n", Name, Count);
-		Failures++;
-		return NULL;
-	}
-	return Found;
-}
-#define OUR_STATIC(Name, Set, Value, Value2) FindOurStatic(#Name, Set, Value, Value2)
-#else
 // The runner: our statics by name (Control.cpp is this file's); the same calls as the oracle's search, which
 // leave the same state, and the same proof that the static holds the value.
 static void *NamedStatic(const char *Name, void *Static, std::function<void(uint32)> Set, uint32 Value, uint32 Value2)
@@ -389,27 +325,13 @@ static void *NamedStatic(const char *Name, void *Static, std::function<void(uint
 	return Static;
 }
 #define OUR_STATIC(Name, Set, Value, Value2) NamedStatic(#Name, (void *)&Name, Set, Value, Value2)
-#endif
 
-#if !GOLDEN_ORACLE
 static void SearchChangeEngine(int Engine) { Call("ChangeEngine(%d)", Engine); }
-#endif
 
 static void FindStatics()
 {
-#if GOLDEN_ORACLE
-	TControlStatics &I = Statics[IMAGE];
-	I.LastPacketType = (int *)(uintptr_t)0x5c0d8c;
-	I.ReconnectTimeout = (int *)(uintptr_t)0x5c4520;
-	I.LastMouseMove = (int *)(uintptr_t)0x5c4528;
-	I.URLCallback = (void **)(uintptr_t)0x5c452c;
-	I.DisplayModeCallback = (void **)(uintptr_t)0x5c4530;
-	I.ExitCallback = (void **)(uintptr_t)0x5c4538;
-	I.WindowHandle = (HWND *)(uintptr_t)0x5c453c;
-#endif
 	TControlStatics &O = Statics[OURS];
 	Side = OURS;
-#if !GOLDEN_ORACLE
 	// The search's ProcessEvents redraws, and a surface whose Init fails makes CheckSurface call ChangeEngine:
 	// in the oracle our x86 one, compared nowhere (it leaves only curEngine, which every scenario sets again
 	// before a comparison reads it); here the x64 client's device choice, which the runner does not have. For the
@@ -417,7 +339,6 @@ static void FindStatics()
 	uint8 ChangeEngineStart[5];
 	golden::SaveOwn((const void *)&ChangeEngine, ChangeEngineStart);
 	golden::RedirectOwn((void *)&ChangeEngine, (void *)SearchChangeEngine);
-#endif
 	ResetWorlds();
 	auto Init = [](uint32 v) {
 		InitWindow((HWND)(uintptr_t)v, (void (*)())(uintptr_t)(v + 1), (void (*)(int))(uintptr_t)(v + 3),
@@ -449,9 +370,7 @@ static void FindStatics()
 		ReceivePackets(); }, 0xd3, 0xd4);
 	Log[OURS].clear();
 	FreeWorlds();
-#if !GOLDEN_ORACLE
 	golden::RestoreOwn((void *)&ChangeEngine, ChangeEngineStart);
-#endif
 }
 
 static std::string DumpStatics(int S)
@@ -498,22 +417,9 @@ static void ControlAfterRetired()
 	int Numbers[7] = {};
 	uint8 Types[10] = {};
 	std::string Callbacks;
-#if GOLDEN_ORACLE
-	Numbers[0] = Global<int>(0x5c0d8c);                              // LastPacketType
-	Numbers[1] = Global<int>(0x5c4510);                              // LastPacketIndex
-	Numbers[2] = Global<int>(0x5c4520);                              // ReconnectTimeout
-	Numbers[3] = Global<bool>(0x5c4524) ? 1 : 0;                     // Reconnect
-	Numbers[4] = Global<int>(0x5c4528);                              // LastMouseMove
-	Numbers[5] = Global<bool>(0x5c4554) ? 1 : 0;                     // ShowFPS
-	Numbers[6] = Global<int>(0x71d0c4);                              // curEngine
-	memcpy(Types, (const void *)(uintptr_t)0x5c4514, sizeof(Types)); // LastPacketTypes
-	Callbacks = DumpStatics(IMAGE);
-	Callbacks = Callbacks.substr(Callbacks.find(" WindowHandle"));
-#endif
 	golden::Output("statics after ChangeEngine", Numbers);
 	golden::Output("packet types after ChangeEngine", Types);
 	Callbacks = golden::OutputText("callbacks after ChangeEngine", Callbacks.c_str());
-#if !GOLDEN_ORACLE
 	LastPacketType = Numbers[0];
 	LastPacketIndex = Numbers[1];
 	ReconnectTimeout = Numbers[2];
@@ -529,7 +435,6 @@ static void ControlAfterRetired()
 			Callbacks.c_str());
 		Failures++;
 	}
-#endif
 }
 
 // --- Scenarios -----------------------------------------------------------------------

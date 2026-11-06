@@ -12,8 +12,9 @@ started from Patella (forked at df08bac on November 2, 2026): the code is rewrit
 `Tibia.exe`. The few deliberate changes (for example, removing `error.txt` and the built-in patcher) are
 each recorded as a decision.
 
-- **Targets:** Windows x64 and Linux x64. A 32-bit build (the `oracle-x86` preset) stays only as a test
-  instrument until milestone M6.
+- **Targets:** Windows x64 and Linux x64. There is no 32-bit client build: the 32-bit test instrument (the
+  oracle) left the fork in milestone M6 (tag `layout-frozen-final`). The only 32-bit build is `capture-x86`, the
+  capture DLL the comparisons load into the original `Tibia.exe`.
 - **Language and compilers:** C++23 (C++26 features only behind `src/compat/cxx26.h`); MSVC on Windows,
   GCC 16 and Clang on Linux.
 - **Rendering:** Vulkan 1.3 on both platforms. A CPU Vulkan driver is the fallback.
@@ -40,16 +41,16 @@ python -I tools/build.py windows-x64-debug   # the same for Debug
 python -I tools/build.py windows-x64-gcc     # the unit tests with mingw-w64 GCC 16
 python -I tools/build.py linux-x64-gcc       # the portable library and its tests on Linux, GCC 16
 python -I tools/build.py linux-x64-clang     # the same with Clang, AddressSanitizer and UBSan
-python -I tools/build.py oracle-x86          # the 32-bit oracle and the differential tests
+python -I tools/build.py capture-x86         # patcap.dll, the 32-bit capture DLL for Tibia.exe
 ```
 
 From a developer prompt (or for the GCC preset from any shell) `cmake --workflow --preset <name>` does the
 same; `python -I tools/build.py --env <preset> <command>` runs any other command (`cmake --build`, `ctest`)
 with that preset's compiler set up.
 
-The 64-bit client is `build\windows-x64\<Configuration>\Patella.exe` with its PDB. `oracle-x86` builds today's
-32-bit `Patella.exe` (`build\oracle-x86\<Configuration>`) with the original's flags and runs the differential
-tests; it is a test instrument until milestone M6, not a product. Run either client from a folder that holds
+The 64-bit client is `build\windows-x64\<Configuration>\Patella.exe` with its PDB. `capture-x86` builds only
+`build\capture-x86\Release\patcap.dll`, which the comparisons and the reference recordings load into `Tibia.exe`;
+it is a test instrument, not a product. Run the client from a folder that holds
 copies of the data files (for example `build\run`), never from the root, because the client rewrites
 `Tibia.cfg` on exit. See "Building" in [notes/reconstruction.md](notes/reconstruction.md) for the details and
 for the tests.
@@ -67,8 +68,8 @@ docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64
 
 CI (GitHub Actions): `.github/workflows/hosted.yml` builds and tests the Windows (MSVC x64) and Linux (GCC 16,
 Clang 22) presets and checks clang-format and clang-tidy on every push and pull request, without any CipSoft
-file. The checks that need the CipSoft files (the oracle, the differential tests, the comparisons against the
-test server) are in `.github/workflows/self-hosted.yml`, for the maintainer's own machine; they never run for
+file. The checks that need the CipSoft files (the golden corpus, the reference recordings, the comparisons
+against the test server) are in `.github/workflows/self-hosted.yml`, for the maintainer's own machine; they never run for
 pull requests. Details: "Checking" in [notes/reconstruction.md](notes/reconstruction.md).
 
 ## Documents
@@ -82,21 +83,15 @@ pull requests. Details: "Checking" in [notes/reconstruction.md](notes/reconstruc
   to D17.
 - [notes/reconstruction.md](notes/reconstruction.md) and [notes/progress.md](notes/progress.md): how the
   reconstruction, the build and the tests work, and where they stand.
-- `src/`: the sources. `tools/`: the build, the differential tests (`tools/difftest`) and the comparisons of
-  the running client against the original (traffic, written files, rendering, network).
+- `src/`: the sources. `tests/`: the unit tests and the golden corpus's runner. `tools/`: the build and the
+  comparisons of the running client against the original (traffic, written files, rendering, network).
 
 ## Keeping up with upstream
 
-Patella (`upstream`) keeps fixing the reconstruction. **Until milestone M6**, while the structure layouts
-are frozen in the `oracle-x86` build, `upstream/main` is merged into this repository regularly:
-
-```
-git fetch upstream
-git merge upstream/main
-```
-
-After M6 (tag `layout-frozen-final`), the layouts and the code have moved too far apart for a merge.
-Upstream fixes are then ported by hand.
+Patella (`upstream`) keeps fixing the reconstruction. Until milestone M6, while the structure layouts were
+frozen in the 32-bit oracle build, `upstream/main` was merged into this repository regularly. Since M6 (November 7,
+2026; tag `layout-frozen-final`, the last commit with the oracle) the layouts and the code move apart, and upstream
+fixes are ported by hand.
 
 The decompilation workspace (the decompiler output, the name and symbol databases, the analysis notes and
 tools) belongs to upstream and is not part of this repository.

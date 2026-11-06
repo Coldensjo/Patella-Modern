@@ -49,11 +49,7 @@
 #include "elementfakes.h"
 #include "golden_eh.h"
 #include "testsurface.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 
 #include "Communication.h"
 #include "ConsoleWindow.h"
@@ -79,29 +75,6 @@
 #include <time.h>
 #include <vector>
 
-#if GOLDEN_ORACLE
-static_assert(sizeof(TLineFormat) == 0x28, "TLineFormat is 0x28 bytes");
-static_assert(offsetof(TLineFormat, FontNumber) == 0x1c && offsetof(TLineFormat, LineEnd) == 0x24, "TLineFormat layout");
-static_assert(sizeof(TTextWindow) == 0x94, "TTextWindow is 0x94 bytes");
-static_assert(offsetof(TTextWindow, Lines) == 0x28 && offsetof(TTextWindow, CurrentLineNumber) == 0x6c,
-	"TTextWindow::Lines, CurrentLineNumber");
-static_assert(offsetof(TTextWindow, SelectedText) == 0x8c && offsetof(TTextWindow, AtEnd) == 0x90, "TTextWindow layout");
-static_assert(sizeof(TConsole) == 0x38 && offsetof(TConsole, ScrollToEnd) == 0x34, "TConsole layout");
-static_assert(sizeof(TTab) == 0x58 && offsetof(TTab, Callback) == 0x4c && offsetof(TTab, Shortened) == 0x54,
-	"TTab layout");
-static_assert(sizeof(TTabBar) == 0x40 && offsetof(TTabBar, Busy) == 0x3c && offsetof(TTabBar, Changed) == 0x3d,
-	"TTabBar layout");
-static_assert(sizeof(TConsoleWindow) == 0x6c && offsetof(TConsoleWindow, History) == 0x48
-		&& offsetof(TConsoleWindow, TalkMode) == 0x68,
-	"TConsoleWindow layout");
-static_assert(sizeof(TFakeEditLine) == 0x68 && offsetof(TFakeEditLine, Text) == 0x2c && offsetof(TFakeEditLine, Data60) == 0x60,
-	"TEditLine layout");
-static_assert(sizeof(TSkinButton) == 0x44 && sizeof(TToggleButton) == 0x50 && offsetof(TToggleButton, State) == 0x44,
-	"button layouts");
-static_assert(sizeof(TMultiStateButton) == 0x58, "TMultiStateButton is 0x58 bytes");
-static_assert(sizeof(TScrollBar) == 0x38 && offsetof(TScrollBar, Range) == 0x2c && offsetof(TScrollBarRange, Value) == 0x30,
-	"scroll bar layout");
-#endif
 
 // TFakeEditLine's Active (TEditLine::Active), a byte of Data30: +0x58 - 0x30 in the oracle.
 static const size_t EditActive = offsetof(TEditLine, Active) - offsetof(TEditLine, MaxLength);
@@ -116,7 +89,7 @@ namespace ConsoleWindowTest {
 enum { OURS = 0,
 	ORIGINAL = 1 };
 // The sides that have objects: both in the oracle, ours in the runner.
-static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
+static const int SIDES = 1; // ours alone (the oracle had the original's side too, until issue #94)
 static int Side;
 static bool Testing; // the DialogElements fakes log only while this test runs
 static std::string Log[2];
@@ -176,14 +149,8 @@ static void *FakeVtable(void *Ours, bool Window)
 {
 	if (ConsoleRound == NULL || Side != ORIGINAL)
 		return Ours;
-#if GOLDEN_ORACLE
-	void *Hybrid = ImageSideVtable(Ours, Window ? OurWindowVtable : OurElementVtable, Window ? 0x564528 : 0x5645c8);
-	Kinds[ORIGINAL][Hybrid] = Kinds[ORIGINAL][Ours];
-	return Hybrid;
-#else
 	(void)Window;
 	abort(); // the runner has no original side
-#endif
 }
 
 } // namespace ConsoleWindowTest
@@ -789,16 +756,6 @@ static void HookSetSkins(TSkinButton *Button, int ButtonUp, int ButtonDown)
 
 } // namespace ConsoleWindowTest
 
-#if GOLDEN_ORACLE
-// Communication.cpp is not in the test: our side's definitions of the Send
-// functions no other test defines. The runner has them as stubs (client_stubs.cpp) and redirects those.
-void SendTalk(int Mode, const char *Text) { FakeSendTalk1(Mode, Text); }
-void SendTalk(int Mode, const char *Addressee, const char *Text) { FakeSendTalk2(Mode, Addressee, Text); }
-void SendTalk(int Mode, int ChannelID, const char *Text) { FakeSendTalk3(Mode, ChannelID, Text); }
-void SendLeaveChannel(int ChannelID) { FakeSendLeaveChannel(ChannelID); }
-void SendCancelRuleViolation() { FakeSendCancelRuleViolation(); }
-void SendRequestChannels() { FakeSendRequestChannels(); }
-#endif
 
 namespace ConsoleWindowTest {
 
@@ -826,26 +783,6 @@ static __time64_t __cdecl FakeTime64(__time64_t *Time)
 		*Time = 1700000000;
 	return 1700000000;
 }
-#if GOLDEN_ORACLE
-static tm *__cdecl ImageLocaltime(const __time32_t *Time) { return _localtime32(Time); }
-static char *__cdecl ImageCtime(const __time32_t *Time) { return _ctime32(Time); }
-static int __cdecl ImageFprintf(FILE *File, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = vfprintf(File, Format, Args);
-	va_end(Args);
-	return Result;
-}
-static int __cdecl ImageSnprintf(char *Buffer, size_t Count, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = _vsnprintf(Buffer, Count, Format, Args);
-	va_end(Args);
-	return Result;
-}
-#endif
 
 // Patches that are undone at the end.
 struct TSaved {
@@ -859,50 +796,25 @@ static void Redirect(void *Function, void *Target)
 {
 	TSaved S;
 	S.Code = (uint8 *)Function;
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	memcpy(S.Bytes, Function, 5);
-	PatchJump((uint32)(uintptr_t)Function, Target);
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-#else
 	golden::SaveOwn(Function, S.Bytes);
 	golden::RedirectOwn(Function, Target);
-#endif
 	SavedCode.push_back(S);
 }
-#if !GOLDEN_ORACLE
 // Our _time64 (time(), issue #62): the runner's import slot of ucrtbase's (Talk's test does the same).
 static void **ClockSlot;
 static void *SavedClock;
-#endif
 static void RestoreAll()
 {
 	for (size_t i = SavedCode.size(); i-- > 0;) {
-#if GOLDEN_ORACLE
-		DWORD Protection;
-		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
-		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
-		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
-		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
-#else
 		golden::RestoreOwn(SavedCode[i].Code, SavedCode[i].Bytes);
-#endif
 	}
 	SavedCode.clear();
-#if !GOLDEN_ORACLE
 	golden::SetImport(ClockSlot, SavedClock);
-#endif
 }
 
 // Ours of the functions the oracle's difftest.exe defines in this file (the Send functions): NULL there, the
 // runner's stubs (client_stubs.cpp) here.
-#if GOLDEN_ORACLE
-#define DEFINED_HERE(Function) NULL
-#else
 #define DEFINED_HERE(Function) ((void *)(Function))
-#endif
 
 static void PatchCallees()
 {
@@ -970,7 +882,6 @@ static void PatchCallees()
 			Redirect(T.Ours, T.Fake);
 	}
 	ORIGINAL(Redirect((void *)_time64, (void *)FakeTime64));
-#if !GOLDEN_ORACLE
 	ClockSlot = golden::FindImport("_time64");
 	if (ClockSlot == nullptr) {
 		printf("golden: ConsoleWindow: the runner imports no _time64\n");
@@ -978,7 +889,6 @@ static void PatchCallees()
 	}
 	SavedClock = *ClockSlot;
 	golden::SetImport(ClockSlot, (void *)FakeTime64);
-#endif
 	// DialogElements.cpp: both sides' constructors and members build and are the fakes
 	// (elementfakes.cpp); TMultiStateButton::Reset is inline and runs for real.
 	PatchElementFakes(Redirect);
@@ -991,21 +901,6 @@ static void PatchCallees()
 
 // --- The consoles ------------------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void *(__fastcall *CtorFn)(void *, void *);
-typedef void(__fastcall *VoidFn)(void *, void *);
-typedef bool(__fastcall *BoolFn)(void *, void *);
-typedef void(__fastcall *BoolArgFn)(void *, void *, bool);
-typedef void(__fastcall *BufferStringFn)(void *, void *, TTalkBuffer *, const char *);
-typedef TTalkBuffer *(__fastcall *OpenChannelFn)(void *, void *, int, int, const char *, int, const char *);
-typedef void(__fastcall *StringFn)(void *, void *, const char *);
-typedef TTalkBuffer *(__fastcall *BufferFn)(void *, void *);
-typedef const char *(__fastcall *TextFn)(void *, void *);
-typedef TTalkLine *(__fastcall *TalkLineFn)(void *, void *, int);
-typedef void(__fastcall *PointerFn)(void *, void *, void *);
-typedef void(__fastcall *TabFn)(void *, void *, void *);
-typedef void *(__fastcall *TabCtorFn)(void *, void *, const char *, TTalkBuffer *, TCallback);
-#endif
 
 static TConsoleWindow *Console[2];
 static TConsoleWindow *C(int s) { return Console[s]; }
@@ -1275,11 +1170,7 @@ static void OutputOriginalLog()
 static std::string LastDump;
 static std::string OriginalDump()
 {
-#if GOLDEN_ORACLE
-	std::string Text = Dump(ORIGINAL);
-#else
 	std::string Text;
-#endif
 	return golden::OutputTextChanges("dump", &LastDump, Text);
 }
 
