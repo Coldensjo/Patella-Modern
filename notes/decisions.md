@@ -11792,3 +11792,14 @@ is defined (-fwrapv), as above.
   original's; the real client's CAsyncSocket would crash). M7 (ownership) or a bug issue.
 - Some CHECK messages read records in their arguments, so a run with more failures than DIFFTEST_FAILS reads another
   record sequence and later tests go stale (seen only after other failures).
+
+### The gates (high)
+
+On main 499389f merged, over the corpus of 499389f (build\golden-next, recorded by the orchestrator; read only):
+`python -I tools/build.py linux-x64-gcc --fresh` and `linux-x64-clang --fresh` with PATELLA_GOLDEN_DIR set to it:
+golden 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures, every test's count as windows-x64's
+(golden_concurrent passes in linux-x64-gcc; Clang under ASan and UBSan without a finding); 14/14 and 13/13. Without
+a corpus (PATELLA_GOLDEN_DIR=none) linux-x64-gcc, -clang, -gcc-debug, -clang-debug: golden skipped, the rest passes,
+0 warnings. windows-x64 17/17, -debug 16/16, -asan 16/16 (golden as above, 0 failures); oracle-x86 5/5 (difftest
+16,459,352, sysinctest 67, communicationtest 856,621, vlongtest 3,201, safeseh passed); windows-x64-gcc 11/11.
+tidy_ci 3 findings, 0 new (baseline 3), 0 bugprone; banned_calls 0; clang-format clean. Logs: build\logs\issue-91.
