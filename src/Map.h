@@ -23,6 +23,7 @@
 #include "types/FixedString.h"
 #include "types/IndexedVector.h"
 #include "graphics.h" // TRGBColor
+#include "MapPoint.h" // TMapPoint, OBJECTS_PER_POINT (issue #102)
 #include "Objects.h"  // TObject
 #include <array>
 #include <cstddef>
@@ -30,17 +31,7 @@
 inline constexpr int MAPSIZE_X = 18;
 inline constexpr int MAPSIZE_Y = 14;
 inline constexpr int MAPSIZE_Z = 8;
-inline constexpr int OBJECTS_PER_POINT = 10;
 inline constexpr int EFFECTS = 200;
-
-// A map point (0xac bytes); "Point" in the assertions.
-struct TMapPoint {
-	int ObjectCount;                                // +0x00
-	std::array<TObject, OBJECTS_PER_POINT> Objects; // +0x04, bottom to top
-	std::array<int, OBJECTS_PER_POINT> Order;       // +0x7c, drawing order (SortObjects)
-	int EffectNumber;                               // +0xa4, first effect on the point, -1 none
-	bool RefreshRequested;                          // +0xa8
-};
 
 // An effect (0x44 bytes). Status 0 is a free entry, 1 a graphical effect, 2 an
 // animated text, 3 a missile. The three kinds share the space after Type.

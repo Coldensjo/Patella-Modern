@@ -44,6 +44,7 @@ set(PATELLA_HEADERS_CORE
 	Container.h
 	log/Log.h
 	log/LogSettings.h
+	MapPoint.h
 	settings/PreferenceKeys.h
 	settings/Settings.h
 	Skins.h

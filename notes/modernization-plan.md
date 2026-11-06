@@ -595,8 +595,8 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   `std::inplace_vector<T, N>` where available, `TStaticVector<T, N>` (same interface) elsewhere.
   Done in #102 for the effect table (notes/decisions.md, "#102: fixed-capacity lists"): `TSlotTable<TEffect, EFFECTS>`
   of `src/types/SlotTable.h` over TStaticVector, the original's numbers and its full table (-1, the effect dropped).
-  `TMapPoint::Objects` stays a std::array with ObjectCount: the golden Container test compares `new TMapPoint[d]`'s
-  bytes, which a vector's constructor changes; the owner's decision (three options there).
+  Done in #102b for `TMapPoint::Objects` (notes/decisions.md, "#102b"): a TStaticVector in `src/MapPoint.h` with the
+  original's full-point behaviour; the golden Container test's array<TMapPoint> round has the original's point as T.
 - **The effect table's index links** (`Field`, `Previous`, `Next` as `int`) become typed handles
   (`enum class TEffectId : int`) with an iterator over a point's effects.
 - **Globals into subsystems:** the file-scope statics and shared globals become members of explicit objects
