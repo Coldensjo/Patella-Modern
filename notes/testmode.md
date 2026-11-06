@@ -21,8 +21,8 @@ only: client_state.py refuses a 64-bit process, patcap.c does not build for x64.
 ```
 python -I tools/build.py windows-x64            # builds Patella.exe and PatellaTest.exe (and the unit tests)
 build\windows-x64\Release\PatellaTest.exe --test-script <file> [--test-log <file>] [--test-out <folder>]
-                                          [--test-sync <name>] [--test-replay <file>]
-                                          [--test-display-modes <file>] [--test-control <name>]
+                                          [--test-replay <file>] [--test-display-modes <file>]
+                                          [--test-control <name>]
                                           [the client's own words]
 python -I tools/testmode_check.py               # the determinism and dump check against the test server
 python -I tools/testmode_check.py --self-test   # the check's comparisons on made-up data (no server, no client)
@@ -49,8 +49,8 @@ dispatched with its virtual time and script line. A script that cannot be read o
 program before its window opens: exit code 3, the message (`testmode: <file>:<line>: <error>`) on stderr, in the
 log and through OutputDebugString, never a dialog. The client ignores the test mode's words (its command line
 parser skips words it does not know). `--test-out <folder>` writes the dumps there (below); a script with
-`dump` or `frame` needs it (exit code 3 otherwise). `--test-sync <name>` was testmode_check.py's handshake (unused
-since issue #92). `--test-control <name>` opens the control channel (issue #92; "The control channel" below; it needs
+`dump` or `frame` needs it (exit code 3 otherwise). `--test-sync <name>`, testmode_check.py's handshake
+until issue #92, is gone since issue #97 (the client takes it as an unknown word). `--test-control <name>` opens the control channel (issue #92; "The control channel" below; it needs
 `--test-out`).
 
 `tools/testmode_check.py` runs PatellaTest.exe twice with `tests/testmode/login-walk.script` against the test
@@ -135,7 +135,7 @@ written as it goes, the game port with the world.
 | PATELLA_TEST_RSA_BLOCK(Block) | nothing (a statement macro, #22) | Communication.cpp SendLogin, SendGameLogin: the RSA block before RSA.Encrypt |
 | PATELLA_TEST_PACKET_SENT(Data, Size, Padded) | nothing (#22) | Network.cpp SendCommand: the packet complete, before XTEA (or before the unencrypted send) |
 | PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize) | nothing (#22) | Network.cpp PrepareNextPacket: the next packet decrypted |
-| PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask, Device) | nothing (#22; Device #92) | vulkan/SurfaceVulkan.cpp InitDisplay: without patcap.dll, the frame dump observes the engine; with the control channel the probe names the engine's device |
+| PATELLA_TEST_FRAME_OBSERVERS(Frame, Pixels, Mask, Device) | nothing (#22; Device #92; no Patcap argument since #97) | vulkan/SurfaceVulkan.cpp InitDisplay: the frame dump observes the engine (the only observer since #97: no patcap.dll lookup); with the control channel the probe names the engine's device |
 | PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) | MessageBoxA (#23) | Player.cpp FatalError and the start's two boxes: with a script not shown ("Message boxes") |
 | PATELLA_TEST_CAPTURE_CHANGED | nothing (a statement macro, Patella-Modern #52) | MainFrm.cpp OnCaptureChanged, before its body: with a script skipped (below) |
 | PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode) | EnumDisplaySettingsA (Patella-Modern #48) | vulkan/SurfaceVulkan.cpp GetFullscreenModes (the Graphics Options dialog's list): with `--test-display-modes` the file's modes ("The display modes") |
@@ -246,7 +246,7 @@ With `--test-out <folder>` the test build writes into that folder (created if ne
 
 None of it changes what the client does: the state dump only reads the client's data (no function of the
 client is called), the packet log copies the bytes the client is about to encrypt or has just decrypted, the
-frame observer only reads the canvas back (as patcap.dll's does in compare_rendering.py). `dump` and `frame` are
+frame observer only reads the canvas back. `dump` and `frame` are
 events of the script at their virtual time, so they never move the virtual clock: a `dump` is done in the idle
 call that delivers the next event (or moves the clock), so with or without dumps the client gets the same
 events in the same idle calls; a `frame` takes an idle call of its own, as an input event does, because it
@@ -305,8 +305,8 @@ and is never read is not in the log.
 ### The frame dump
 
 A `frame` asks for the next frame the Vulkan engine shows: the engine's frame observer (the hook in
-TSurfaceVulkan's InitDisplay; patcap.dll's observer when patcap.dll is loaded, then the test mode does not
-observe) gets the frame's device-filtered pixels and the canvas read back (TRenderer::ReadBack), before
+TSurfaceVulkan's InitDisplay; until issue #97 patcap.dll's observer when patcap.dll was loaded, then the test mode
+did not observe) gets the frame's device-filtered pixels and the canvas read back (TRenderer::ReadBack), before
 Present, and the test mode writes them as PNG files (8-bit RGB, filter 0, stored deflate blocks: no library).
 They have the forms of compare_rendering.py's `<scene>.png` and `<scene>.filtered.png`, so issue #23 can compare
 them with Tibia.exe's frames under the same tolerance (exact, or up to 2 per channel on the white pixels of the
@@ -324,7 +324,8 @@ In every run of testmode_check.py the client gets `--test-out <out>\run<N>`. Che
   window node, "text" only for TLabel, TContextMenuEntry and TTextButton); the window tree well formed (depth 0
   first, at most one level deeper from node to node, one "(modal)" node at depth 0 with its windows below it).
   Until issue #92 e compared each dump with client_state.py's reading of the same moment from the client's memory
-  (`--test-sync`: the client waited at each dump while the checker read it into `external-<NNN>.json`), issue
+  (`--test-sync`, removed in issue #97: the client waited at each dump while the checker read it into
+`external-<NNN>.json`), issue
   #22's first criterion; the x64 client is no longer read from outside, and the dumps' values are compared with
   Tibia.exe's readings by the reference compare (b. states) and with the live Tibia.exe's by compare_traffic.py
   (notes/decisions.md, issue #92);

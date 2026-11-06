@@ -12154,3 +12154,73 @@ Logs: build\logs\issue-94 of the branch's worktree; every golden run replayed ma
   below the removed blocks moved up). No other difference.
 - `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, 0 gone (the baseline unchanged: no finding was in a removed file); `python -I tools/banned_calls.py` exit 0 (0 calls, 121 files); clang-format
   with CLAUDE.md's command exit 0 (its list of globs needs no change: the engines' files are gone from src/*.cpp).
+
+## Patella.exe without the patcap.dll lookup, PatellaTest.exe without --test-sync (Patella-Modern issue #97)
+
+Settled by Claude Opus 5.5, November 6, 2026 (#92's and #94's found-not-done points, after #94: Patella.exe may change
+freely). Files: src/vulkan/SurfaceVulkan.cpp, SurfaceVulkan.h, src/TestHooks.h, src/testmode/TestModeWin32.cpp,
+src/compat/msvc.h (a comment); notes/testmode.md, notes/vulkan.md, notes/progress.md.
+
+### The lookup removed (high)
+
+TSurfaceVulkan::CreateSurfaces (InitDisplay's device set-up) asked `GetModuleHandleA("patcap.dll")` for every device
+and took its four exports PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanPixels and PatcapVulkanMask as the
+engine's observers. No tool has loaded patcap.dll into the x64 client since #92 (compare_rendering.py reads the frames
+through the test mode's control channel; patcap.c does not build for x64), so the lookup always failed. It is gone with
+its four strings and the GetModuleHandleA call site (GetModuleHandleA and GetProcAddress stay imported for other
+callers). The observer members and their calls in FinishFrame and the device set-up stay: the test build's frame dump
+is the only observer, installed by PATELLA_TEST_FRAME_OBSERVERS, whose first argument (the patcap module, which made
+the test mode stand back when patcap.dll was there) is gone. Patella.exe's observers stay null, so the engine calls
+nothing and keeps no masks, as before without patcap.dll. The observer types keep PATELLA_CDECL (nothing on x64 and
+Linux; the unit test that asserts so is unchanged).
+
+- Considered: removing the observer members from Patella.exe too (behind the test build's `#if`): it would move the
+  class layout and FinishFrame's code apart between the two builds, which the test build is meant to share; the null
+  checks cost nothing measurable.
+- tools/capture/patcap.c keeps its Vulkan exports and its header comment that describes the engine's lookup: the file
+  is capture-x86's, which this issue leaves unchanged (found, not done).
+
+### --test-sync removed (high)
+
+`--test-sync <name>` made the test client set `<name>-ready` after each state dump and wait up to 300 s for
+`<name>-continue`, so that testmode_check.py's client_state.py reading saw the same moment. That reading left with
+#92 (check e checks each dump on its own), and no tool passes the argument. Gone: the argument, TState's two event
+handles, OpenSync, SyncTimeout and the wait in WriteStateDump. The client takes the words as unknown ones now (its
+parser skips them), so an old command line still runs, without the wait.
+
+### Found, not done (high)
+
+- tools/capture/patcap.c still exports PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanMask and PatcapVulkanPixels,
+  and its header comment and compare_rendering.py's Capture (the `.mask` file next to a capture) still describe the
+  engine's lookup. No client calls them now; removing them changes capture-x86's patcap.dll, which the reference
+  recordings' record step loads into Tibia.exe: a change of its own.
+- notes/testmode.md's opening still names "the oracle's 32-bit Patella.exe" beside Tibia.exe as client_state.py's and
+  patcap.c's clients (#94's wording missed there).
+
+### The gates (high)
+
+Logs: build\logs\issue-97 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 17/17, 0 warnings; golden 15,803,218 replayed + 1,512,822 retired
+  = 17,316,040, 0 failures (golden_concurrent: both runners the same). windows-x64-debug: exit 0, 16/16, golden the
+  same. windows-x64-asan: exit 0, 16/16, golden the same. windows-x64-gcc: exit 0, 11/11. linux-x64-gcc: exit 0, 14/14;
+  linux-x64-clang: exit 0, 13/13; golden the same on both.
+- pecompare of the x64 Release Patella.exe, main e1cde88 and the branch built at the same path (dumpbin /disasm and
+  /headers with the PDBs; a script of this issue's, not committed, compared each function's bytes from its label to the
+  next): the same 13,947 functions; .text 0x70 bytes shorter, .rdata 0x80 (the strings "patcap.dll" and the four
+  export names); 5,890 functions byte-identical, 8,055 differing only in 4-byte words moved by the shrink (rel32 call
+  and jump targets, RIP-relative data, image-relative jump tables), 2 differing otherwise: TSurfaceVulkan::
+  CreateSurfaces (the lookup gone, 21 instructions fewer, two registers swapped by the allocator) and MFC's
+  CPreviewView::OnDraw (its call through the import of DPtoLP: the linker ordered the imports differently; the same
+  imports, GetModuleHandleA and GetProcAddress among them). The new image contains no "patcap".
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches; `python -I tools/compare_traffic.py` exit 1 at the first run (the helper Tibia.exe got no game
+  connection within 10 s, before any comparison), exit 0 at the rerun, no differences; `python -I
+  tools/testmode_check.py --runs 2` exit 0, no differences (the dumps and frames through the test mode's observer).
+  `python -I tools/compare_rendering.py --engines vulkan-cpu --modes windowed --no-repeat --recording
+  build/traffic/result/orig-live.jsonl` exit 2 at the first run (Tibia.exe under patcap.dll: command 2 not done within
+  30 s, frames 0, the kind #92 and #94 saw), exit 0 at the rerun: all 26 scenes identical outside the masks, the
+  device named by the probe (llvmpipe, CPU) through the device observer. The GPU pass not run (#98).
+- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, 0 gone; `python -I tools/banned_calls.py`
+  exit 0 (0 calls, 121 files); clang-format with CLAUDE.md's command exit 0.

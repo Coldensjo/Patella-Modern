@@ -37,8 +37,8 @@
 
 // --- the compiler's spellings ---
 
-// __cdecl, the calling convention of a function whose address goes to a caller that expects it (patcap.dll's
-// frame observers, the CRT): on 32-bit x86 Windows the convention is part of the function's type and of how
+// __cdecl, the calling convention of a function whose address goes to a caller that expects it (the Vulkan
+// engine's frame observers, the CRT): on 32-bit x86 Windows the convention is part of the function's type and of how
 // it is called; on x64 and on Linux there is only one convention, and the keyword means nothing.
 #if defined(_MSC_VER) && defined(_M_IX86)
 #define PATELLA_CDECL __cdecl
