@@ -94,7 +94,7 @@ static_assert(sizeof(PROGRAM_ERROR) == 4);
 static_assert(std::is_same_v<std::underlying_type_t<PROGRAM_ERROR>, int>);
 
 // Every site names the original's source line as its first argument, the line
-// the binary pushes for that site: TASSERT(66, s!=NULL), TEND1(874, Obj).
+// the binary pushes for that site: TASSERT(66, s!=NULL).
 // difftest and the golden corpus compare the messages, these lines included
 // (tools/lines.py, which read them from Tibia.exe, went with error.txt in
 // Patella-Modern issue #74). The file is __FILE__ (the messages name it
@@ -123,22 +123,12 @@ static_assert(std::is_same_v<std::underlying_type_t<PROGRAM_ERROR>, int>);
 #define TERROR1_REASON(Line, Message, V1, Reason) \
 	throw TMYEXCEPTION(Line, Message, #V1, V1, "", 0, Reason)
 
-// Most functions wrap their body in TBEGIN ... TEND. The three handlers are
-// visible in the binary as catch blocks after each function: a PROGRAM_ERROR
-// passes through unchanged, a TMyException is wrapped with the listed
-// parameters, and anything else becomes "unknown exception occurred". Both
-// messages name the TEND's line.
-#define TBEGIN try {
-// clang-format off
-#define TEND_HANDLERS(Line, N1, V1, N2, V2) \
-	} catch (PROGRAM_ERROR Error_) { \
-		throw Error_; \
-	} catch (TMyException &Exception_) { \
-		throw TMYEXCEPTION(Line, "exception occurred", N1, V1, N2, V2, Exception_); \
-	} catch (...) { \
-		throw TMYEXCEPTION(Line, "unknown exception occurred", N1, V1, N2, V2, ""); \
-	}
-#define TEND(Line) TEND_HANDLERS(Line, "", 0, "", 0)
-#define TEND1(Line, V1) TEND_HANDLERS(Line, #V1, V1, "", 0)
-#define TEND2(Line, V1, V2) TEND_HANDLERS(Line, #V1, V1, #V2, V2)
-// clang-format on
+// The original's catch wrappers: until Patella-Modern issue #78 most functions
+// wrapped their body in a try block with three handlers, visible in the binary
+// as catch blocks after each function: a PROGRAM_ERROR passed through
+// unchanged, a TMyException was wrapped with the wrapper's line and up to two
+// values ("exception occurred"), and anything else became "unknown exception
+// occurred". A hand-written stack trace for error.txt (gone since issue #74);
+// the function comments still name the wrappers' lines and values as line
+// evidence. Since issue #78 an exception passes unchanged to the first handler
+// that really handles it (notes/decisions.md, issue #78's section).

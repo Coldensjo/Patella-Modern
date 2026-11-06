@@ -16,7 +16,7 @@
 // last as shaded rectangles or as darkness tiles of picture 7.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none apart from
+// catch wrappers, common.h); since issue #78 the functions here have none apart from
 // AddLightSource's, which names the object whose flag could not be read.
 
 #include "MapWindow.h"
@@ -363,7 +363,7 @@ bool TMapWindow::HelpMouseMove(int x, int y)
 	TASSERT(417, Player!=NULL);
 	// The help position goes into x and y (the binary stores it in the
 	// parameters' stack slots, 0x4c372a/0x4c3751 and 0x4c3793/0x4c37bd), so
-	// the original's TEND2(x, y) printed it after an error in
+	// the original's catch wrapper printed it after an error in
 	// MoveHelpPosition or SetHelpSize (issue #34).
 	if (GetNoStretching()) {
 		x = FieldX * 32 - (480 - Width) / 2 - Player->GetDeltaX() - 32;

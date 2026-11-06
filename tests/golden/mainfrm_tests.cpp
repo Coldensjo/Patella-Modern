@@ -323,7 +323,7 @@ const char *CallbackName(const void *Function)
 // functions, which /EHsc (the original's build and Patella.exe's) assumes
 // cannot throw, so the compiler drops a try block that calls nothing else
 // (AddFrameSize's and ExitProgram's TENDs have no handlers in the binary);
-// the difftest builds with /EHa, which keeps ours. Every TEND is still
+// the difftest builds with /EHa. Every TEND of the original is still
 // reached through the MFC and game fakes.
 void Win32Tick() {}
 

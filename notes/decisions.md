@@ -10372,3 +10372,168 @@ banned_calls 0; clang-format clean. Logs: build\logs\issue-77.
   match (error with #74's deliberate differences). tidy_ci 20 findings, 0 new, 0 gone, 0 bugprone; banned_calls 0;
   clang-format clean. Logs: build\logs\issue-78e. Left after parts 4 and 5: 310 TBEGIN in 4 files (Dialogs.cpp, part
   6; Communication.cpp, Network.cpp and Control.cpp, part 7).
+
+### Part 7 (issue-78g): Communication, Network, Control; the macros
+
+- **Deleted** (high). 181 TBEGIN/TEND pairs in 180 functions: Communication.cpp 125, Network.cpp 30, Control.cpp 26
+  (Redraw had two: its body and, inside it, one around CheckSurface alone). Every block was the rest of its function's
+  body at the body's indentation, after the assertions or the locals the binary sets up before its try state
+  (`int Type = -1;` in ReceivePackets, `RecursionProtection++` in ConnectToLoginServer, the span's locals of
+  GetString and GetErrorMessage); none inside a brace block, so no scope or lifetime changed and clang-format moves
+  nothing. Two locals only a TEND read are `[[maybe_unused]]`: Network.cpp GetString's MaxLength (the span's size,
+  named for TEND1(470, MaxLength)) and Communication.cpp ReadField's OldType (written each round, read only by
+  TEND2(1416, Type, OldType); the write stays). No parameter was named only by a TEND. None of the three files had a
+  C4297 pragma; MainFrm.cpp's destructor still had one, left by part 2 (its rethrowing handlers went then), and loses
+  it now. Each file's header says the try blocks and catch lines its comments name are the original's.
+- **The macros** (high). TBEGIN, TEND_HANDLERS, TEND, TEND1 and TEND2 are out of src/common.h, which keeps a comment
+  on what they were (the original's catch wrappers, the name the function comments now use for them), and out of
+  .clang-format (StatementMacros, WhitespaceSensitiveMacros and its comments). Every comment of src/ that named them
+  says "the original's catch wrapper" instead (the 14 file headers of parts 1-6, the TEND1/TEND2 notes on the
+  stack slots the original printed, Objects.h, TestHooks.h, compat/print.h, Utils.cpp, Inventory.cpp, Script.cpp,
+  Status.cpp, graphics.cpp, GUI.cpp, Dialogs.cpp, DialogElements.cpp, MainFrm.cpp); cmake/Core.cmake's list and
+  three test comments that described our code as having them (tests/golden/network/CMakeLists.txt, errors_tests.cpp,
+  mainfrm_tests.cpp) too. `git grep -n "TBEGIN\|TEND" -- src` is empty. What still names them describes the original
+  or the history: the tests' comments on the image's TEND blocks (tests/golden, tools/difftest: the oracle still runs
+  the original's code, wrappers and all), CLAUDE.md's, .clang-tidy's and tools/tidy.py's notes on the retired rule
+  of #76, notes/modernization-plan.md, notes/progress.md, notes/ownership.md's M5 plan rows, notes/written-files.md's
+  error.txt lines and these sections.
+- **Kept** (high). Every handler of the three files that handles an error: SendLogin's and SendGameLogin's
+  encryption failures (TRSA's `const char *` and anything else, each into its message with the block's bytes),
+  ReceiveMoveCreature's cylinder loop (a TMyException while listing the fields goes into the message),
+  SendCommand's and PrepareNextPacket's XTEA failures, SetSymmetricKey's key failure (TXTEA's `const char *`),
+  CheckSurface's `catch (...)` to PROGRAM_ERROR 12, ChangeEngine's five steps (the oracle's engines; each `catch
+  (TMyException &)` with a `catch (...)`, both to a TMyException with the step's message) and InitControl's
+  `catch (PROGRAM_ERROR)` (ExitControl, its errors ignored, then the error on). TASSERT*/TERROR* stay (#79),
+  TMyException stays (#80).
+- **The kinds** (high): none reaches a different handler; one MFC case is recorded, as in parts 2 and 4.
+  - The handlers that catch a TMyException by type (no `catch (...)` that gives the same kind): graphics.cpp's four
+    loaders, Map.cpp's automap pair and FindPath, MapWindow.cpp's AddLightSource, Preferences.cpp's two,
+    Communication.cpp's cylinder loop and Player.cpp's outer ones (after the inner handlers that turn every type into
+    a TMyException). None of their try blocks reaches a function of this part: the loaders reach TReadBinaryFile,
+    the automap pair the automap files, FindPath, AddLightSource and the cylinder loop Map.cpp's and Objects.cpp's
+    queries, Preferences.cpp's the script files, Talk.cpp's lists and the settings. ChangeEngine's pairs, CheckSurface
+    and MainWindow::Draw take every type the same way as before.
+  - The third-type sources in the part's functions: TRSA's and TXTEA's `const char *` (caught where they are thrown,
+    above), `new`/`new[]` (std::bad_alloc) of fixed sizes (the event arrays and names, the 1,024-byte error
+    messages, the TSocket) or of sizes bounded by the packet's own fields (ReceiveChannelList's `Count + 1` ints and
+    `Count * 30` characters, Count a byte; GetString's `Length + 1`, Length a word), the error messages'
+    std::stringstream, and MFC (CAsyncSocket's Create, Connect, Receive and Close, whose handle maps throw MFC's
+    CMemoryException, an exhausted heap only). No size comes from input in a way that can make it negative or
+    huge, so no boundary is needed: only an exhausted heap gets there.
+  - Recorded, an exhausted heap only: TSocket's OnConnect, OnReceive and OnClose run under the socket window's
+    AfxCallWndProc (CAsyncSocket's notification), CMainFrame's handlers under the frame's. Before, Network.cpp's and
+    Control.cpp's TENDs made a CException * a TMyException that passed it; now AfxCallWndProc's CATCH_ALL takes it
+    (MFC's box, the message ends, the client goes on), as parts 2 and 4 recorded for the frame handlers' own calls.
+  - Structured exceptions: the x64 client and the oracle's Patella.exe build with /EHsc, whose `catch (...)` never
+    caught one, so nothing changes there; under difftest's /EHa none of the counts changed (below).
+- **What reaches MFC and the top level now** (high), for the whole client, with no wrapper left anywhere:
+  - Under MFC's AfxCallWndProc (CMainFrame's message map: the input, timer, paint, size and close handlers into
+    Control.cpp, and OnCreate's InitWindow and InitMainWindow; the socket window: TSocket's three handlers into
+    Control.cpp's ConnectionEstablished, ReceivePackets with all the packet handlers, ConnectionClosed): a
+    PROGRAM_ERROR, a TMyException and every other C++ type pass MFC as a TMyException passed it before (its
+    CATCH_ALL takes only a `CException *`), up through DispatchMessage to CWinApp::Run; only a `CException *` stops
+    there (the recorded case above). The idle work (CPlayerApp::OnIdle: ProcessEvents, Redraw) and the start-up
+    (InitInstance: CMainFrame's constructor with InitControl) run outside any window procedure.
+  - At the top level, InitInstance's and Run's handlers: a PROGRAM_ERROR ends in HandleProgramError's box as before;
+    every other type is turned into a TMyException by its own handler (TMyException, std::bad_alloc,
+    std::out_of_range, std::exception, `const char *`, `...`) and ends in HandleException's "Tibia Error - Debug
+    Assertion" box with TextCriticalError and exit code 1, as before. Only the developer log's error line differs:
+    the message has no wrapper levels between Run's (or InitInstance's) and the throw's any more, and a third type
+    names its own handler's line (Player.cpp 396 bad_alloc_exception occurred, ...) instead of the innermost TEND's
+    "unknown exception occurred". The reference error session's line is now "Player.cpp 383: exception occurred"
+    with Control.cpp 1274's "unknown packet type during game (Type = 255)" under it, without Control.cpp 1280's and
+    Network.cpp 885's levels; the box, which the reference compares, is the same.
+  - ~CMainFrame (noexcept, MFC's) calls ExitControl: an exception there ends the process with std::terminate, before
+    as now (issue #34).
+- **The tests after the deletion** (high). Three things the tests read from our code changed with it; each is
+  handled in the test or, for one function, by keeping the original's shape:
+  - EnterGame: without its EH state the compiler inlined it into ReceivePackets (the same file), where the golden
+    Communication test replaces its code with a fake (and logs "EnterGame()"): 238 failures in Communication's
+    seed frames. `PATELLA_NOINLINE` (new in compat/msvc.h: MSVC's `__declspec(noinline)`, GCC's and Clang's
+    attribute) keeps it out of line, as the original has it; only the place of its code changes.
+    ReceiveLoginError and ReceiveLoginMessage, which the Control test fakes, are inlined into ReceivePackets only by
+    Patella.exe's link-time code generation (another file); the golden runner and communicationtest compile them
+    apart without it, so they need nothing.
+  - communicationtest found Network.cpp's ReceiveBuffer through GetByte's first `mov ecx, imm32; call`; GetByte is a
+    tail jump now (`mov ecx, imm32; jmp`), and the scan took a later call's buffer (Size not 0, "Network.cpp's
+    buffers not found", then an access violation). commworld.cpp's ThisOfFirstCall takes a jump too (oracle only).
+  - The Control test's error round (1,992 failed checks in golden on main's corpus): MouseMove's
+    TEND1(483, GetActionState()) called GetActionState once more after an error, for its message, and the fake logs
+    that call (MouseMoveAsWrapped makes it on our side); and the round's kind 1, a structured exception
+    (RaiseException 0xe0436f6d) that this directory's /EHa lets the remaining `catch (...)` see, became the original's
+    TMyException in its outermost wrapper, where ours lets it pass, as every /EHsc product always did (ControlBoth: an
+    SEH filter on exactly that code turns it into a TMyException at the call on our side, every other exception passes
+    unchanged, so any other kind change still fails). Both are the original's wrappers' own behaviour, with comments
+    in control_tests.cpp; no corpus was re-recorded.
+- **The images** (high). Main (9fb9f96) and the branch head built at the same path (this worktree), the oracle's and
+  the x64 Release Patella.exe, function by function through the PDBs: issue-78g-scripts\funcs.py, classify.py,
+  owners.py and split.py next to the worktree (part 6's, reused; never committed) on `dumpbin -disasm:nobytes`.
+  - x86: 11,417 functions to 11,410; 11,238 the same; 172 changed: 171 of the part and ___guard_check_icall_thunk, to
+    which dumpbin gives the unnamed EH region after the code (1,376 __ehhandler$ thunks to 1,215); 7 gone, inlined
+    into their callers of the part now that they have no EH state (ReceiveLoginError and ReceiveLoginMessage into
+    ReceivePackets, SendPing into ReceivePing, SendRefreshContainer into ReceiveContainerDeleteObject, LeaveGame into
+    ConnectionClosed, GetServerErrorCode and ResolveHostname into ConnectToLoginServer); no new function. GetBytes
+    and HandleEvents have no name of their own in either image (identical-code folding). .text 0x24676a to
+    0x22ec1a, .rdata 0xa0268 to 0x97730.
+  - x64: 11,684 functions to 11,678 (without the funclets); 171 changed, all of the part; 6 gone, the same as x86
+    except GetServerErrorCode, which stays out of line here (changed); no new function. Funclets 2,697 to 2,306; of
+    the 197 parents whose funclets changed, 173 are the part's and 24 outside it (TMainWindow::ChangeMode,
+    FindPath, LoadAutomapBlock, TTextWindow::FormatLines, CPlayerApp::FatalError, ...) only name a funclet that
+    identical-code folding shares and that a part function named before; their code is the same. .text 0x2f2f9c
+    to 0x2def7c, .rdata 0x106c76 to 0x10262e, .pdata 0x20f1c to 0x1fd04 (386 unwind entries fewer).
+  No function of another file changed, no caller outside the part inlines one of its functions.
+- **The counts** (high). `python -I tools/build.py oracle-x86` on the head: difftest 16,459,337, sysinctest 67,
+  communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 4/4; every test's own line (41: checks, exceptions
+  compared, calls that threw) is main's, Communication errors 23,339 exceptions compared in 7,699 calls that threw and
+  Control errors 10,788 in 9,372 among them, so no comparison saw a kind change, under /EHa either, once the tests
+  model the two wrapper effects above. golden on main's corpus (C:\Tibia\Patella-Modern\build\golden, read only):
+  15,803,203 replayed + 1,512,822 retired = 17,316,025, 0 failures on windows-x64 (14/14, golden_concurrent passes),
+  windows-x64-debug (13/13) and windows-x64-asan (13/13, no ASan finding). windows-x64-gcc, linux-x64-gcc and
+  linux-x64-clang 11/11; 0 warnings on every preset. `python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference`: the four sessions match (error with #74's deliberate differences).
+  `python -I tools/compare_traffic.py --patella build/windows-x64/Release/Patella.exe` with its live half: no
+  differences (its first run stopped in Tibia.exe's own live session, the driver not finding the map window in 5 s
+  while the ASan preset loaded the machine; the one rerun on the idle machine passed). tidy_ci 20 findings, 0 new, 0
+  gone, 0 bugprone; banned_calls 0; clang-format clean. Logs: build\logs\issue-78g. Left: no TBEGIN.
+
+### The closing summary (issue #78 done)
+
+- **Deleted** (high). 1,130 try blocks over the seven parts, every TBEGIN of main 01937c5: part 1 153 (Script,
+  Inventory, Player, Status, Objects, Map, Creatures), part 2 181 (graphics, GUI, MainWindow, MapWindow, MainFrm),
+  part 3 168 (Talk, ConsoleWindow, ContextMenus), part 4 177 (ContentWindows, DialogWindow), part 5 141
+  (DialogElements), part 6 129 (Dialogs), part 7 181 (Communication, Network, Control); then the macros (TBEGIN,
+  TEND_HANDLERS, TEND, TEND1, TEND2). No TBEGIN or TEND is left in src/ (`git grep -n "TBEGIN\|TEND" -- src` is
+  empty). TASSERT*/TERROR* stay for #79, TMyException for #80. Six parameters or locals that only a TEND read are
+  `[[maybe_unused]]` (MainFrm.cpp's three parameters, Talk.cpp's `bytes`, Network.cpp's MaxLength, Communication.cpp's
+  OldType); the C4297 suppressions of the destructors that rethrew are gone (TTab, TConsoleWindow, the four
+  ContentWindows.cpp ones, CMainFrame).
+- **Kept** (high), the handlers that handle an error: Player.cpp's FatalError steps, InitInstance's `catch (...)` to PROGRAM_ERROR 12
+  around the surface's start and the top-level handlers of InitInstance and Run; Objects.cpp's InitObjects (`catch (...)` since part 1: the one boundary, below); Map.cpp's
+  automap pair and FindPath's; graphics.cpp's four loaders (PROGRAM_ERROR 2-5); MainWindow::Draw's (PROGRAM_ERROR
+  12); MapWindow.cpp's AddLightSource; Communication.cpp's encryption failures and cylinder loop; Network.cpp's XTEA
+  and key failures; Control.cpp's CheckSurface (PROGRAM_ERROR 12), ChangeEngine and InitControl. The surfaces', the
+  Vulkan engine's, Preferences.cpp's and Surface.cpp's handlers never had a TEND.
+- **Every kind change** (high), and what was done:
+  - Kept at a boundary (one): InitObjects catches everything, so a damaged Tibia.dat whose sprite count makes
+    `new uint16[Count]` throw std::bad_array_new_length or std::bad_alloc still ends with PROGRAM_ERROR 1 (part 1).
+  - Recorded, an exhausted heap only: readString's std::bad_alloc under LoadAutomapBlock ends the client instead of
+    emptying the block (part 1); a filter list's std::bad_alloc while InitPreferences reads Tibia.cfg ends the client
+    instead of setting the defaults (part 3); MFC's CMemoryException under a window procedure (the frame's handlers,
+    parts 2, 4 and 7, and the socket window's TSocket handlers, part 7) is shown by MFC's AfxCallWndProc and the
+    message ends, where it ended the client before.
+  - Recorded, /EHa only (the oracle's difftest, sysinctest, communicationtest and the golden runner's comm
+    directory, never a client): SavePreferences no longer swallows a nothrow null's access violation (part 3); a
+    structured exception is no longer made a TMyException by a wrapper (part 7: the Control test's error round, where
+    ControlBoth makes the round's own structured exception the original's TMyException at the call).
+  - Nothing else reaches a different handler: every other third type from the deleted functions (std::bad_alloc of
+    fixed or bounded sizes, std::stringstream's, the Vulkan engine's TVulkanError through the surface) ends, as
+    before, in a handler that takes every type the same way (MainWindow::Draw's, CheckSurface's) or at the top level.
+- **What reaches MFC and the top level now** (high): see part 7's last item. In short: under AfxCallWndProc every
+  exception but a `CException *` passes MFC as a TMyException passed it before; at the top level InitInstance and
+  Run end every type as before (HandleProgramError's box for a PROGRAM_ERROR, HandleException's "Tibia Error - Debug
+  Assertion" box, exit code 1, for every other), and only the developer log's error line is shorter (no wrapper
+  levels) or names the type's own handler line.
+- **The tests** (high). The comparisons count what they counted before every part (difftest 16,459,337, sysinctest 67,
+  communicationtest 856,621, vlongtest 3,201; golden 17,316,025 on main's corpus, never re-recorded for #78), so no
+  part's change was seen as a kind change by them, apart from part 7's two that the tests now model (MouseMove's
+  extra call, the structured exception), each with its comment in tests/golden/control_tests.cpp.

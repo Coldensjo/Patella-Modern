@@ -11,7 +11,7 @@
 // (notes/decisions.md).
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 //
 // The leading gap (0x44b740-0x44bc6f) is this file: every function uses
 // Creatures data (0x5c4560-0x5cc417) or a TCreature, and Control.cpp's last

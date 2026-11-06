@@ -3,8 +3,12 @@
 // Functions are in original source order, which comes from the assertion and
 // catch line numbers; the comment before each gives its address and those
 // lines. The functions without line evidence come first, as in the binary.
-// Where TBEGIN sits relative to the assertions follows the try-block states
-// in the exception tables (tools/ehinfo.py).
+// Where the original's try block (its catch wrapper, common.h) began relative
+// to the assertions followed the try-block states in the exception tables
+// (tools/ehinfo.py). The try blocks and catch lines the comments name are the
+// original's; since issue #78 the functions here have none apart from the
+// encryption failures' handlers (SendCommand, PrepareNextPacket,
+// SetSymmetricKey).
 // Wire format, from SendCommand and PrepareNextPacket:
 //   unencrypted: [u16 length][payload]
 //   encrypted:   [u16 total][XTEA([u16 length][payload][random padding to 8])]
@@ -127,7 +131,6 @@ void SetTestServerAddress(const char *Address)
 void SetServerError(int errorcode)
 {
 	TASSERT1(152, CurrentServer<NUMBEROFSERVER, CurrentServer);
-	TBEGIN
 	if (GetTestServerLogin()) {
 		TestServer.Available = false;
 		TestServer.ErrorCode = errorcode;
@@ -135,7 +138,6 @@ void SetServerError(int errorcode)
 	}
 	Servers[CurrentServer].Available = false;
 	Servers[CurrentServer].ErrorCode = errorcode;
-	TEND1(164, errorcode)
 }
 
 // 0x4ca9f0, lines 182-184
@@ -157,7 +159,6 @@ void SetServerIPAddress(const char *ipaddress)
 bool GetCurrentServer(TServer **Server)
 {
 	TASSERT1(202, CurrentServer<NUMBEROFSERVER, CurrentServer);
-	TBEGIN
 	if (GetTestServerLogin()) {
 		*Server = &TestServer;
 		const bool Available = TestServer.Available;
@@ -177,13 +178,11 @@ bool GetCurrentServer(TServer **Server)
 			CurrentServer = 0;
 	}
 	return false;
-	TEND(233)
 }
 
 // 0x4cb0d0, line 255
 int GetServerErrorCode()
 {
-	TBEGIN
 	if (GetTestServerLogin())
 		return TestServer.ErrorCode;
 	for (int i = 0; i < NUMBEROFSERVER; i++) {
@@ -193,52 +192,41 @@ int GetServerErrorCode()
 	TServer *Server;
 	GetCurrentServer(&Server);
 	return Server->ErrorCode;
-	TEND(255)
 }
 
 // 0x4cb2a0, lines 268-275. Reserves the 4 header bytes that SendCommand fills in.
 void BeginCommand(int CommandType)
 {
 	TASSERT1(268, In(CommandType,0,255), CommandType);
-	TBEGIN
 	SendBuffer.Position = 0;
 	SendBuffer.PutWord(0);
 	SendBuffer.PutWord(0);
 	SendBuffer.PutByte((uint8)CommandType);
-	TEND1(275, CommandType)
 }
 
 // 0x4cb540, line 286
 void SendByte(uint8 Data)
 {
-	TBEGIN
 	SendBuffer.PutByte(Data);
-	TEND1(286, Data)
 }
 
 // 0x4cb6e0, line 297
 void SendWord(uint16 Data)
 {
-	TBEGIN
 	SendBuffer.PutWord(Data);
-	TEND1(297, Data)
 }
 
 // 0x4cb880, line 308
 void SendQuad(uint32 Data)
 {
-	TBEGIN
 	SendBuffer.PutQuad(Data);
-	TEND1(308, Data)
 }
 
 // 0x4cba20, lines 316-320
 void SendString(const char *Text)
 {
 	TASSERT(316, Text!=NULL);
-	TBEGIN
 	SendBuffer.PutString(Text);
-	TEND(320)
 }
 
 // 0x4cbca0, line 328. Buffer is the span's pointer, the name of the assertion's text (issue #59).
@@ -252,7 +240,6 @@ void SendBytes(patella::TSpan<const uint8> Bytes)
 // 0x4cbe00, lines 355-367
 void SendCommand(bool Encrypt)
 {
-	TBEGIN
 	if (Socket == nullptr)
 		return;
 	const int Size = SendBuffer.Position - 4;
@@ -280,14 +267,12 @@ void SendCommand(bool Encrypt)
 		TERROR(355, "Symmetric encryption failed with unknown exception");
 	}
 	Socket->Send(SendData.data(), Length + 2, 0);
-	TEND(367)
 }
 
 // 0x4cc130, lines 391-410. Drops the packet already read, then decrypts the next
 // complete packet in place and points ReceiveBuffer at its payload.
 void PrepareNextPacket()
 {
-	TBEGIN
 	if (ReceiveRead > 0) {
 		if (ReceiveRead < ReceiveDataSize)
 			memmove(ReceiveData.data(), &ReceiveData[ReceiveRead], ReceiveDataSize - ReceiveRead);
@@ -313,78 +298,62 @@ void PrepareNextPacket()
 		ReceiveRead = PacketSize + 2;
 		memcpy(PacketHeader.data(), &ReceiveData[2], PacketSize < 16 ? PacketSize : 16);
 	}
-	TEND(410)
 }
 
 // 0x4cc550, line 423. Returns the next command byte, or -1 when no packet is complete.
 int GetNextCommand()
 {
-	TBEGIN
 	if (ReceiveBuffer.Position == ReceiveBuffer.Size) {
 		PrepareNextPacket();
 		if (ReceiveBuffer.Position == ReceiveBuffer.Size)
 			return -1;
 	}
 	return ReceiveBuffer.GetByte();
-	TEND(423)
 }
 
 // 0x4cc720, line 434
 uint8 GetByte()
 {
-	TBEGIN
 	return ReceiveBuffer.GetByte();
-	TEND(434)
 }
 
 // 0x4cc8b0, line 445
 uint16 GetWord()
 {
-	TBEGIN
 	return ReceiveBuffer.GetWord();
-	TEND(445)
 }
 
 // 0x4cca40, line 456
 uint32 GetQuad()
 {
-	TBEGIN
 	return ReceiveBuffer.GetQuad();
-	TEND(456)
 }
 
 // 0x4ccbd0, lines 466-470. Buffer and MaxLength are the span's pointer and size, the names of the macros' text
-// (issue #59; TReadBuffer::GetString).
+// (issue #59; TReadBuffer::GetString); MaxLength only the original's catch wrapper named (issue #78).
 void GetString(patella::TSpan<char> Text)
 {
 	const char *const Buffer = Text.data();
-	const int MaxLength = static_cast<int>(Text.size());
+	[[maybe_unused]] const int MaxLength = static_cast<int>(Text.size());
 	TASSERT(466, Buffer!=NULL);
-	TBEGIN
 	ReceiveBuffer.GetString(Text);
-	TEND1(470, MaxLength)
 }
 
 // 0x4cce50, line 482. The caller owns the returned string.
 char *GetString()
 {
-	TBEGIN
 	return ReceiveBuffer.GetString();
-	TEND(482)
 }
 
 // 0x4ccfe0, line 493
 void GetBytes(patella::TSpan<uint8> Bytes)
 {
-	TBEGIN
 	ReceiveBuffer.GetBytes(Bytes);
-	TEND(493)
 }
 
 // 0x4cf850, line 518. Called periodically; reconnects when the limit is passed.
 void CheckConnectionTimeout()
 {
-	TBEGIN
 	if (TimeoutLimit != 0 && ++TimeoutCounter > TimeoutLimit) {
 		TimeoutLimit = 0;
 		TimeoutCounter = 0;
@@ -393,7 +362,6 @@ void CheckConnectionTimeout()
 		SetConnectionState(0);
 		ConnectToLoginServer();
 	}
-	TEND(518)
 }
 
 // 0x4cd180, lines 544-602. ErrorType 1 is the login server, 2 the game server.
@@ -401,7 +369,6 @@ void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int
 {
 	char *const Message = MessageBuffer.data();
 	TASSERT(544, Message!=NULL);
-	TBEGIN
 	TFixedString<100> Text;
 	bool Offline = false;
 	Message[0] = 0;
@@ -480,7 +447,6 @@ void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int
 	}
 	Out.Append("\n\nFor more information take a look at the FAQs in the ");
 	Out.Append("\nguide section at www.tibia.com.");
-	TEND1(602, ErrorCode)
 }
 
 // 0x4cd9a0, lines 611-625. Starts an asynchronous lookup; NetworkWindow gets
@@ -488,7 +454,6 @@ void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int
 bool ResolveHostname(const char *Hostname)
 {
 	TASSERT(611, Hostname!=NULL);
-	TBEGIN
 	HostnameRequest = WSAAsyncGetHostByName(NetworkWindow, WM_USER + 1, Hostname,
 		HostnameResolveBuffer, HostnameResolveBufferSize);
 	if (HostnameRequest == nullptr) {
@@ -501,22 +466,18 @@ bool ResolveHostname(const char *Hostname)
 	TimeoutCounter = 0;
 	TimeoutLimit = 150;
 	return true;
-	TEND(625)
 }
 
 // 0x4cdca0, lines 634-640
 const char *GetResolvedIPAddress()
 {
-	TBEGIN
 	TASSERT(634, HostnameResolveBuffer!=NULL);
 	return inet_ntoa(*reinterpret_cast<in_addr *>(reinterpret_cast<HOSTENT *>(HostnameResolveBuffer)->h_addr_list[0]));
-	TEND(640)
 }
 
 // 0x4cee30, line 661. Returns 0 or a WinSock error code.
 int CreateSocket()
 {
-	TBEGIN
 	if (Socket != nullptr)
 		Disconnect(false);
 	Socket = new TSocket;
@@ -528,14 +489,12 @@ int CreateSocket()
 		return Error;
 	}
 	return 0;
-	TEND(661)
 }
 
 // 0x4cdf20, lines 671-687. Returns 0 or a WinSock error code.
 int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
 {
 	TASSERT(671, IPAddress!=NULL);
-	TBEGIN
 	if (!Socket->Connect(IPAddress, Port)) {
 		if (WSAGetLastError() != WSAEWOULDBLOCK) {
 			const int Error = WSAGetLastError();
@@ -553,7 +512,6 @@ int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
 		TimeoutCounter = 0;
 	}
 	return 0;
-	TEND(687)
 }
 
 // 0x4ce210, line 698
@@ -569,7 +527,6 @@ void SetSymmetricKey(const uint8 *Key)
 // 0x4ce300, line 727
 void Disconnect(bool force)
 {
-	TBEGIN
 	if (force || GetConnectionState() == 1) {
 		WSACancelAsyncRequest(HostnameRequest);
 		HostnameRequest = nullptr;
@@ -590,7 +547,6 @@ void Disconnect(bool force)
 		TimeoutLimit = 0;
 		TimeoutCounter = 0;
 	}
-	TEND1(727, (force?1:0))
 }
 
 // 0x4cf050, lines 739-773. Tries the current login server and moves on to the
@@ -598,7 +554,6 @@ void Disconnect(bool force)
 void ConnectToLoginServer()
 {
 	RecursionProtection++;
-	TBEGIN
 	TASSERT1(739, RecursionProtection<=NUMBEROFSERVER+1, RecursionProtection);
 	TServer *Server;
 	if (!GetCurrentServer(&Server)) {
@@ -625,13 +580,11 @@ void ConnectToLoginServer()
 		}
 	}
 	RecursionProtection--;
-	TEND(773)
 }
 
 // 0x4cf390, line 802
 void ConnectToGameServer()
 {
-	TBEGIN
 	SetConnectionState(5);
 	const int Character = GetActiveCharacter();
 	const char *IPAddress = GetCharacterIPAddress(Character);
@@ -650,13 +603,11 @@ void ConnectToGameServer()
 		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		AddMessage(10, 300, 0);
 	}
-	TEND(802)
 }
 
 // 0x4cf5e0, line 835. vtable 0x56d388 +0x2c.
 void TSocket::OnConnect(int ErrorCode)
 {
-	TBEGIN
 	TimeoutLimit = 0;
 	TimeoutCounter = 0;
 	if (ErrorCode == 0) {
@@ -681,14 +632,12 @@ void TSocket::OnConnect(int ErrorCode)
 	AddMessage(10, 300, 0);
 	Disconnect(false);
 	SetConnectionState(0);
-	TEND1(835, ErrorCode)
 }
 
 // 0x4ce530, line 885. vtable +0x1c. Appends received bytes and calls the
 // receive handler once at least one complete packet is buffered.
 void TSocket::OnReceive(int ErrorCode)
 {
-	TBEGIN
 	if (ErrorCode != 0)
 		return;
 	const int Count = Receive(&ReceiveData[ReceiveDataSize], sizeof(ReceiveData) - ReceiveDataSize, 0);
@@ -706,16 +655,13 @@ void TSocket::OnReceive(int ErrorCode)
 	}
 	if (Complete)
 		ReceiveCallback();
-	TEND1(885, ErrorCode)
 }
 
 // 0x4ce750, line 897. vtable +0x30.
 void TSocket::OnClose(int /*ErrorCode*/)
 {
-	TBEGIN
 	Disconnect(false);
 	CloseCallback();
-	TEND(897)
 }
 
 // 0x4ce8f0
@@ -748,11 +694,9 @@ void InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*Clos
 // 0x4cec70, line 961
 void ExitNetwork()
 {
-	TBEGIN
 	delete Socket;
 	Socket = nullptr;
 	if (HostnameResolveBuffer != nullptr)
 		free(HostnameResolveBuffer);
 	HostnameResolveBuffer = nullptr;
-	TEND(961)
 }

@@ -84,6 +84,18 @@
 #define PATELLA_NO_SANITIZE_ADDRESS
 #endif
 
+// A function kept out of line, as the original has it, where a test replaces its code (the golden corpus's
+// fakes: tests/golden/commworld.cpp InstallFakes) and the compiler would otherwise inline it into a caller now
+// that it has no exception state (Patella-Modern issue #78): MSVC's __declspec(noinline), GCC's and Clang's
+// noinline attribute. Only the place of the code changes, not what it does.
+#if defined(_MSC_VER)
+#define PATELLA_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__)
+#define PATELLA_NOINLINE __attribute__((noinline))
+#else
+#define PATELLA_NOINLINE
+#endif
+
 // printf's format check of GCC and Clang on a function with a format parameter (MSVC has none).
 #if defined(__GNUC__)
 #define PATELLA_PRINTF_FORMAT(FormatIndex, FirstArgument) [[gnu::format(printf, FormatIndex, FirstArgument)]]

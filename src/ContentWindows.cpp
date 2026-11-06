@@ -12,7 +12,7 @@
 // Container.h.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 
 #include "ContentWindows.h"
 #include <algorithm>
@@ -1622,7 +1622,7 @@ void TContainerWindowBody::Update()
 int TContainerWindowBody::GetSlotAt(int x, int y, bool Occupied) const
 {
 	// x and y become positions in the slot grid in their own stack slots
-	// (0x42e302, 0x42e30c): the original's TEND2(x, y) printed them (issue #34).
+	// (0x42e302, 0x42e30c): the original's catch wrapper printed them (issue #34).
 	x -= SkinProperties.Data630.x;
 	y += ScrollBar->Range->Value - SkinProperties.Data630.y;
 	const int Column = x / SkinProperties.Data648;
@@ -2843,7 +2843,7 @@ int TBuddylistWindowBody::GetContentHeight()
 
 // 0x4360c0, line 3389. The row under x, y; -1 for none. Odd, kept: y is
 // not tested against the top. y gets the scroll position in place
-// (0x43611f, the parameter's slot): the original's TEND2(x, y) printed the moved
+// (0x43611f, the parameter's slot): the original's catch wrapper printed the moved
 // y (issue #34).
 int TBuddylistWindowBody::GetBuddyAt(int x, int y)
 {

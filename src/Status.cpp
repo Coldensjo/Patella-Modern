@@ -9,8 +9,8 @@
 // 0x71c64f) are interleaved with those of the asserted functions; only the
 // skin table at its start is a separate file (Skins.cpp).
 //
-// Of all functions here only CheckClipboardText had a try block (TBEGIN ...
-// TEND at line 869, gone since issue #78); the others have assertions only.
+// Of all functions here only CheckClipboardText had a try block (its catch
+// wrapper at line 869, gone since issue #78); the others have assertions only.
 
 #include "Status.h"
 #include "Utils.h"

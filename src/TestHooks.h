@@ -16,7 +16,7 @@
 //	PATELLA_SET_MAIN_TIMER(...)        the main frame's 100 ms timer (MainFrm.cpp OnCreate); with a script
 //	                                   the driver makes its ticks
 //	PATELLA_TEST_IDLE                  the driver's step, at the start of CPlayerApp::OnIdle (a statement
-//	                                   without a semicolon, like TBEGIN; empty outside the test build)
+//	                                   without a semicolon; empty outside the test build)
 //
 // Issue #22 (the packet log and the frame dump; notes/testmode.md), statements without a semicolon too,
 // nothing at all outside the test build:

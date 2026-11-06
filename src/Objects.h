@@ -24,7 +24,7 @@
 // that zeroes exactly the ten objects. Written with default member
 // initializers so that the type stays an aggregate. MapWindow.cpp compares
 // objects with numbers ("SrcObj!=0", "Obj!=CREATURE") and prints one as the
-// int value of TEND1(Obj): the original converts a TObject to its Type.
+// int value of Obj in its catch wrapper: the original converts a TObject to its Type.
 struct TObject {
 	int Type = 0;
 	int Data = 0;

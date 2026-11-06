@@ -4,12 +4,17 @@
 // catch line numbers; the comment before each gives its address and those
 // lines. The binary does not keep that order: CheckSurface, Redraw,
 // ProcessEvents, HandleEvents, ReceivePackets and InitControl come after the
-// others. Every function has the TBEGIN/TEND handlers, starting at try state
-// 0 (tools/ehinfo.py), except where noted.
+// others. Every function had the original's catch wrappers (common.h),
+// starting at try state 0 (tools/ehinfo.py), except where noted. The try
+// blocks and catch lines the comments name are the original's; since issue
+// #78 the functions here have none apart from the handlers of their own:
+// CheckSurface's (an error of the surface becomes PROGRAM_ERROR 12),
+// ChangeEngine's (each step's error with its message) and InitControl's (a
+// PROGRAM_ERROR shuts the modules down again).
 //
 // The file starts at 0x445900 (OutputControlErrorInformations, which printed
 // LastPacketTypes for error.txt; gone since Patella-Modern issue #74) and
-// 0x4459b0 (Resize, TEND2(Width, Height) at line 93), once the gap to
+// 0x4459b0 (Resize, its catch wrapper at line 93), once the gap to
 // ContextMenus.cpp.
 //
 // The event queue (Status.cpp, AddMessage and FetchMessage) carries a type
@@ -83,7 +88,6 @@ static_assert(sizeof(LastPacketTypes) == 10, "LastPacketTypes");
 // help bubble (9) follows the main window.
 void Resize(int Width, int Height)
 {
-	TBEGIN
 	SetMouseCursor(1);
 	if (GetViewMode() == 2) {
 		const TFullscreenMode *Mode = GetFullscreenMode();
@@ -104,14 +108,12 @@ void Resize(int Width, int Height)
 		if (ModalWindow != nullptr && GetActionState() == 9)
 			(static_cast<THelpBubble *>(ModalWindow))->Place(MainWindow);
 	}
-	TEND2(93, Width, Height)
 }
 
 // 0x449010, line 124. Lets the surface check the window and display mode;
 // falls back to DirectX 5 when that fails.
 void CheckSurface(bool Force)
 {
-	TBEGIN
 	TFullscreenMode *Resolution = GetFullscreenMode();
 	bool Success;
 	try {
@@ -123,7 +125,6 @@ void CheckSurface(bool Force)
 		ChangeEngine(0);
 	if (GetSurface()->SurfaceRecreated(1))
 		ResetVideoCache();
-	TEND1(124, Force?1:0)
 }
 
 // 0x445c20, lines 145-201. The engine test runs on a new surface; when it
@@ -164,7 +165,6 @@ void ChangeEngine(int engine)
 #else
 	if (engine == curEngine)
 		return;
-	TBEGIN
 	const int oldEngine = curEngine;
 	curEngine = engine;
 	try {
@@ -208,7 +208,6 @@ void ChangeEngine(int engine)
 		TERROR(195, "InitSurfaces failed with unknown exception");
 	}
 	SetEngine(curEngine);
-	TEND1(201, engine)
 #endif
 }
 
@@ -218,10 +217,7 @@ void ChangeEngine(int engine)
 // limits is swapped and it ends at 1.
 void Redraw(bool Force)
 {
-	TBEGIN
-	TBEGIN
 	CheckSurface(Force);
-	TEND(218)
 	if (GetSurface()->IsUnavailable()) {
 		Sleep(10);
 		return;
@@ -327,13 +323,12 @@ void Redraw(bool Force)
 		}
 	}
 	GetSurface()->FinishFrame();
-	TEND1(366, Force?1:0)
 }
 
-// 0x4465f0, line 418. Game packet 0x0a, once the connection state is 8.
-void EnterGame()
+// 0x4465f0, line 418. Game packet 0x0a, once the connection state is 8. Out of line (PATELLA_NOINLINE): the
+// golden corpus's Communication test replaces it, and ReceivePackets would inline it (issue #78).
+PATELLA_NOINLINE void EnterGame()
 {
-	TBEGIN
 	MainWindow->ChangeMode(true);
 	if (ModalWindow == nullptr) {
 		SetActionState(0);
@@ -345,13 +340,11 @@ void EnterGame()
 	ResetTalk();
 	ShowPermanentIgnoreWarning();
 	SetAmbientLight(-1, 0);
-	TEND(418)
 }
 
 // 0x4467d0, line 438. The game connection was closed.
 void LeaveGame()
 {
-	TBEGIN
 	MainWindow->ChangeMode(false);
 	if (ModalWindow != nullptr) {
 		delete ModalWindow;
@@ -362,14 +355,12 @@ void LeaveGame()
 	SavePreferences();
 	if (!Reconnect)
 		AddMessage(10, 300, 0);
-	TEND(438)
 }
 
 // 0x4469b0, lines 461-483. In help mode (action state 9) the help bubble is
 // replaced when the help text has changed.
 void MouseMove(int x, int y)
 {
-	TBEGIN
 	SetMousePosition(x, y);
 	SetMouseCursor(1);
 	switch (GetActionState()) {
@@ -406,13 +397,11 @@ void MouseMove(int x, int y)
 	}
 	LastMouseMove = GetActionNumber();
 	SetMouseOverText(nullptr);
-	TEND1(483, GetActionState())
 }
 
 // 0x446d10, lines 503-511
 void LeftButtonDown(int x, int y, int Flags)
 {
-	TBEGIN
 	switch (GetActionState()) {
 	case 0:
 		SetDragStart(x, y);
@@ -432,14 +421,12 @@ void LeftButtonDown(int x, int y, int Flags)
 	SetPendingAction(6, GetActionNumber());
 	LastMouseMove = 0;
 	SetMouseOverText(nullptr);
-	TEND2(511, x, y)
 }
 
 // 0x447000, lines 548-566. Releasing the second of both buttons (state 4)
 // sends a left button release with Flags 0x200.
 void LeftButtonUp(int x, int y, int Flags)
 {
-	TBEGIN
 	switch (GetActionState()) {
 	case 0:
 		if (MainWindow->GetCapture() != nullptr) {
@@ -480,13 +467,11 @@ void LeftButtonUp(int x, int y, int Flags)
 	SetPendingAction(0, 0);
 	LastMouseMove = 0;
 	SetMouseOverText(nullptr);
-	TEND2(566, x, y)
 }
 
 // 0x447390, lines 586-599
 void LeftButtonDoubleClick(int x, int y, int Flags)
 {
-	TBEGIN
 	switch (GetActionState()) {
 	case 0:
 		SetDragStart(x, y);
@@ -511,14 +496,12 @@ void LeftButtonDoubleClick(int x, int y, int Flags)
 	SetPendingAction(6, GetActionNumber());
 	LastMouseMove = 0;
 	SetMouseOverText(nullptr);
-	TEND2(599, x, y)
 }
 
 // 0x4476c0, line 619. Only changes the action state; the windows are not told
 // (the position and flags are not used).
 void RightButtonDown([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	TBEGIN
 	switch (GetActionState()) {
 	case 0:
 		SetActionState(2);
@@ -530,14 +513,12 @@ void RightButtonDown([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unu
 	}
 	LastMouseMove = 0;
 	SetMouseOverText(nullptr);
-	TEND(619)
 }
 
 // 0x447880, lines 652-669. Releasing the second of both buttons (state 5)
 // sends a left button release with Flags 0x200.
 void RightButtonUp(int x, int y, int Flags)
 {
-	TBEGIN
 	switch (GetActionState()) {
 	case 0:
 		if (MainWindow->GetCapture() != nullptr)
@@ -576,13 +557,11 @@ void RightButtonUp(int x, int y, int Flags)
 	}
 	LastMouseMove = 0;
 	SetMouseOverText(nullptr);
-	TEND2(669, x, y)
 }
 
 // 0x447bd0, lines 681-692. Direction 1 up, 2 down (MainFrm's OnMouseWheel).
 void MouseWheel(int x, int y, int Direction)
 {
-	TBEGIN
 	switch (GetActionState()) {
 	case 9:
 		break;
@@ -597,13 +576,11 @@ void MouseWheel(int x, int y, int Direction)
 	}
 	LastMouseMove = 0;
 	SetMouseOverText(nullptr);
-	TEND2(692, x, y)
 }
 
 // 0x447e60, line 1086. Key 0x907 switches the frame rate display.
 void KeyPress(int Key)
 {
-	TBEGIN
 	if (Key == 0x907) {
 		ShowFPS = !ShowFPS;
 		return;
@@ -622,7 +599,6 @@ void KeyPress(int Key)
 	}
 	LastMouseMove = 0;
 	SetMouseOverText(nullptr);
-	TEND1(1086, Key)
 }
 
 // 0x4480b0, line 1117. False while a character is in the game; then the
@@ -630,7 +606,6 @@ void KeyPress(int Key)
 // array is allocated with new[]; ProcessEvents deletes it.
 bool CloseRequest()
 {
-	TBEGIN
 	if (GetConnectionState() == 8) {
 		if (ModalWindow == nullptr) {
 			INT_PTR *Data = new INT_PTR[4];
@@ -645,31 +620,25 @@ bool CloseRequest()
 		return false;
 	}
 	return true;
-	TEND(1117)
 }
 
 // 0x44a770, line 1133. After the character list and similar login packets.
 void HandleEvents()
 {
-	TBEGIN
 	ProcessEvents();
-	TEND(1133)
 }
 
 // 0x448290, line 1155. Callback for InitStatus.
 void LinkCopyWarning()
 {
-	TBEGIN
 	SetActionState(0);
 	AddMessage(11, reinterpret_cast<INT_PTR>("Link Copy Warning"), 0);
-	TEND(1155)
 }
 
 // 0x448430, lines 1174-1182. The connect handler for InitNetwork: sends the
 // login packet to the login server (state 2) or the game server (state 5).
 void ConnectionEstablished()
 {
-	TBEGIN
 	if (GetConnectionState() == 2) {
 		SetConnectionState(3);
 		SendLogin(GetAccountNumber(), GetAccountPassword());
@@ -686,7 +655,6 @@ void ConnectionEstablished()
 	SetConnectionState(0);
 	Disconnect(true);
 	SetActionState(0);
-	TEND(1182)
 }
 
 // 0x44a900, lines 1208-1280. The receive handler for InitNetwork. The
@@ -695,7 +663,6 @@ void ConnectionEstablished()
 void ReceivePackets()
 {
 	int Type = -1;
-	TBEGIN
 	while ((Type = GetNextCommand()) != -1) {
 		LastPacketTypes[LastPacketIndex] = (uint8)Type;
 		LastPacketIndex++;
@@ -811,7 +778,6 @@ void ReceivePackets()
 		}
 		LastPacketType = Type;
 	}
-	TEND1(1280, Type)
 }
 
 // 0x448720, line 1322. The close handler for InitNetwork. A pending
@@ -819,7 +785,6 @@ void ReceivePackets()
 // was in the game and the 5 seconds have not passed, else to the login server.
 void ConnectionClosed()
 {
-	TBEGIN
 	const bool InGame = GetConnectionState() == 8;
 	if (GetConnectionState() == 8) {
 		LeaveGame();
@@ -846,7 +811,6 @@ void ConnectionClosed()
 			AddMessage(3, 0, 0);
 		}
 	}
-	TEND(1322)
 }
 
 // 0x4489a0, line 1379. Called by the main frame's timer. Ten ticks after the
@@ -856,7 +820,6 @@ void ConnectionClosed()
 // connection timeout check and the two calls after it.
 void TimerEvent()
 {
-	TBEGIN
 	IncrementActionNumber();
 	if (LastMouseMove != 0 && LastMouseMove == GetActionNumber() - 10) {
 		if (ModalWindow != nullptr)
@@ -884,7 +847,6 @@ void TimerEvent()
 	CheckConnectionTimeout();
 	UpdateTimers();
 	UpdateSkulls();
-	TEND(1379)
 }
 
 // 0x4498a0, lines 1541-1560. Handles queued events until a window is open,
@@ -897,7 +859,6 @@ void TimerEvent()
 void ProcessEvents()
 {
 	int Type = 0;
-	TBEGIN
 	if (ModalWindow != nullptr && GetActionState() == 0) {
 		delete ModalWindow;
 		ModalWindow = nullptr;
@@ -1166,14 +1127,12 @@ void ProcessEvents()
 	if (GetConnectionState() == 8 && MoveCreatures())
 		SendWalk();
 	Redraw(false);
-	TEND1(1560, Type)
 }
 
 // 0x448c50, line 1585. Called when the main frame window is created. Tibia.exe's third parameter, CloseProgram
 // (event 0x48's callback), is gone with the patcher since issue #75.
 void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL))
 {
-	TBEGIN
 	WindowHandle = Window;
 	SetNetworkWindow(Window);
 	ExitCallback = ExitProgram;
@@ -1183,14 +1142,12 @@ void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int M
 	memset(LastPacketTypes.data(), 0, sizeof(LastPacketTypes));
 	LastPacketIndex = 0;
 	Reconnect = false;
-	TEND(1585)
 }
 
 // 0x44b510, line 1633. Initialises the modules; on a PROGRAM_ERROR it shuts
 // them down again (ignoring any error from that) and passes the error on.
 void InitControl(bool Gamemaster)
 {
-	TBEGIN
 	try {
 		InitSysinc();
 		InitObjects();
@@ -1214,7 +1171,6 @@ void InitControl(bool Gamemaster)
 		}
 		throw Error;
 	}
-	TEND(1633)
 }
 
 // 0x448e30, line 1661. Called from the main frame's destructor. GetSurface
@@ -1224,7 +1180,6 @@ void InitControl(bool Gamemaster)
 // reverse (names ours).
 void ExitControl()
 {
-	TBEGIN
 	ExitMainWindow();
 	ExitHotkeys();
 	ExitCommunication();
@@ -1242,7 +1197,6 @@ void ExitControl()
 	ExitMap();
 	ExitObjects();
 	ExitSysinc();
-	TEND(1661)
 }
 
 // Not in the original (Patella-Modern issue #77): LastPacketTypes in the order error.txt listed them until issue #74

@@ -9,7 +9,7 @@
 // in line order; the helpers stay at the end, where the binary has them.
 //
 // Most errors are TERRORs thrown at the start of a function. The original's
-// TBEGIN/TEND around the calls to other members are gone (issue #78).
+// catch wrappers (common.h) around the calls to other members are gone (issue #78).
 
 #include "Script.h"
 #include "compat/msvc_io.h"

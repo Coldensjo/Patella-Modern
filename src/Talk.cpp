@@ -3,7 +3,7 @@
 // Ghidra blocks 0x502f70 and 0x5036c0 belong to Remove and GetLine.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 #include "Talk.h"
 #include "Text.h"
 #include "Utils.h"
@@ -945,7 +945,7 @@ TTalkLine *TTalkBuffer::GetNext()
 	return cursor;
 }
 // 0x503a70, lines 1672-1682. bytes is the original catch name for F's slot
-// (the FILE's address; only its TEND1 named it). One line each, in the
+// (the FILE's address; only its catch wrapper named it). One line each, in the
 // file's mode: SaveChannel's text file ends them in CR LF.
 int TTalkBuffer::Write(TFile &F) const
 {

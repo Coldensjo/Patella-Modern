@@ -14,7 +14,7 @@
 // vector<TListBoxLine>) is in DialogElements.h and Container.h.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 
 #include "DialogElements.h"
 #include <cstdio>
@@ -71,7 +71,7 @@ void TSeparator::SetSize(int Width, int Height)
 	Arrange();
 }
 
-// 0x453ad0. The binary has the TBEGIN/TEND frame without a try block (the
+// 0x453ad0. The binary has the catch wrapper's states without a try block (the
 // body cannot throw).
 void TSeparator::Arrange()
 {
@@ -109,7 +109,7 @@ void TResizer::SetSize(int Width, int Height)
 	Arrange();
 }
 
-// 0x453f60. TBEGIN/TEND without a try block.
+// 0x453f60. The catch wrapper's states without a try block.
 void TResizer::Arrange()
 {
 	if (!Invisible)
@@ -249,7 +249,7 @@ void TBorder::FitToWindow()
 	SetSize(getMinimumWidth() + Window->Width, getMinimumHeight() + Window->Height);
 }
 
-// 0x4556b0. TBEGIN/TEND without a try block.
+// 0x4556b0. The catch wrapper's states without a try block.
 void TBorder::Arrange()
 {
 	WindowArea.x = Skins[Left].width + Border;
@@ -825,7 +825,7 @@ void TSkinButton::Draw(int Surface, int x, int y)
 	DrawSkin(Surface, x, y, Width, Height, IsPressed() ? ButtonDown : ButtonUp, 0, 0);
 }
 
-// 0x4584e0. TBEGIN/TEND without a try block.
+// 0x4584e0. The catch wrapper's states without a try block.
 bool TSkinButton::MouseMove(int x, int y)
 {
 	MouseInside = x >= 0 && x <= Width - 1 && y >= 0 && y <= Height - 1;
@@ -869,7 +869,7 @@ bool TSkinButton::MouseWheel([[maybe_unused]] int x, [[maybe_unused]] int y, int
 	return true;
 }
 
-// 0x458ab0. TBEGIN/TEND without a try block.
+// 0x458ab0. The catch wrapper's states without a try block.
 bool TSkinButton::IsPressed()
 {
 	if (RadioButtonGroup != nullptr && RadioButtonGroup->Selected == this)
@@ -1016,7 +1016,7 @@ bool TToggleButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y,
 	return true;
 }
 
-// 0x459b00. TBEGIN/TEND without a try block.
+// 0x459b00. The catch wrapper's states without a try block.
 bool TToggleButton::IsPressed()
 {
 	if (RadioButtonGroup != nullptr && RadioButtonGroup->Selected == this)
@@ -1052,7 +1052,7 @@ bool TTextToggleButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] in
 	return true;
 }
 
-// 0x459d30. TBEGIN/TEND without a try block.
+// 0x459d30. The catch wrapper's states without a try block.
 bool TTextToggleButton::IsPressed()
 {
 	if (RadioButtonGroup != nullptr && RadioButtonGroup->Selected == this)
@@ -1136,7 +1136,7 @@ void TCheckBox::Draw(int Surface, int x, int y)
 		Skins[Skin].height, Skin, 0, 0);
 }
 
-// 0x45a360. TBEGIN/TEND without a try block.
+// 0x45a360. The catch wrapper's states without a try block.
 void TCheckBox::Arrange()
 {
 	DrawingList[0] = TDrawing(148, 0, 0, Width, Skins[148].height, 0, 0);
@@ -1251,7 +1251,7 @@ void TEditLine::SetSize(int Width, int Height)
 	Arrange();
 }
 
-// 0x45ade0. TBEGIN/TEND without a try block. The frame of skins 8-11.
+// 0x45ade0. The catch wrapper's states without a try block. The frame of skins 8-11.
 void TEditLine::Arrange()
 {
 	DrawingList[0] = TDrawing(9, 0, 0, Width, Skins[9].height, 0, 0);
@@ -1395,7 +1395,7 @@ void TEditLine::KeyPress(int Key)
 					HandleEvent(19);
 			}
 			// Past the modifier test the binary keeps the code in Key's stack slot
-			// (0x4682b2-0x4682b8): the original's TEND1(Key) then prints the code.
+			// (0x4682b2-0x4682b8): the original's catch wrapper then prints the code.
 			if ((Key & 0x400) == 0 || (Key & 0x800) != 0) {
 				Key = Code;
 				if (Key > 0x1f && Key < 0x100 && (int)strlen(Text) < MaxLength) {
@@ -1474,7 +1474,7 @@ void TEditLine::HandleEvent(int Event)
 	}
 }
 
-// 0x45bc80. TBEGIN/TEND without a try block. Losing the input clears the
+// 0x45bc80. The catch wrapper's states without a try block. Losing the input clears the
 // selection.
 void TEditLine::SetActive(bool _Active)
 {
@@ -2011,7 +2011,7 @@ void THorizontalScrollBarRange::SetSize(int Width, int Height)
 	Arrange();
 }
 
-// 0x45f1a0. TBEGIN/TEND without a try block. The slider's share is computed
+// 0x45f1a0. The catch wrapper's states without a try block. The slider's share is computed
 // on the x87 stack (double precision here).
 void THorizontalScrollBarRange::Arrange()
 {
@@ -2251,7 +2251,7 @@ void TScrollBarRange::SetSize(int Width, int Height)
 	Arrange();
 }
 
-// 0x460a90. TBEGIN/TEND without a try block; the vertical form of
+// 0x460a90. The catch wrapper's states without a try block; the vertical form of
 // THorizontalScrollBarRange::Arrange (skins 153-156).
 void TScrollBarRange::Arrange()
 {
@@ -2840,7 +2840,7 @@ void TFontListBox::StopEdit()
 
 // --- TProgressBar -----------------------------------------------------------------
 
-// 0x464d00. TBEGIN/TEND without a try block. Skins 256-258 are the frame,
+// 0x464d00. The catch wrapper's states without a try block. Skins 256-258 are the frame,
 // 259-261 the filled part (start, middle, end).
 void TProgressBar::Arrange()
 {

@@ -3,6 +3,12 @@
 // packets (Receive*), which ReceivePackets in Control.cpp dispatches.
 // Functions are in original source order from the assertion and catch line
 // numbers; see notes/Communication.md for the details of this file.
+//
+// The try blocks and catch lines the comments name are the original's (its
+// catch wrappers, common.h); since issue #78 the functions here have none
+// apart from the handlers of their own: the encryption failures of SendLogin
+// and SendGameLogin (TRSA's const char *) and ReceiveMoveCreature's cylinder
+// loop (an error while listing the fields goes into the message).
 
 #include "Communication.h"
 #include "Help.h"
@@ -86,7 +92,6 @@ void InitCommunication()
 void SendLogin(uint32 AccountID, const char *Password)
 {
 	TASSERT(41, Password!=NULL);
-	TBEGIN
 	std::array<uint8, 16> Key;
 	for (int i = 0; i < 16; i++)
 		Key[i] = (uint8)rand();
@@ -138,7 +143,6 @@ void SendLogin(uint32 AccountID, const char *Password)
 	SendQuad(PictureSignature);
 	SendBytes(Data);
 	SendCommand(false);
-	TEND1(96, AccountID)
 }
 
 // 0x413de0, lines 109-166
@@ -146,7 +150,6 @@ void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 {
 	TASSERT(109, Name!=NULL);
 	TASSERT(110, Password!=NULL);
-	TBEGIN
 	std::array<uint8, 16> Key;
 	for (int i = 0; i < 16; i++)
 		Key[i] = (uint8)rand();
@@ -197,32 +200,26 @@ void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 	SendWord(772);
 	SendBytes(Data);
 	SendCommand(false);
-	TEND1(166, AccountID)
 }
 
 // 0x404350, lines 178-178
 // The body is in the leading gap, but its Communication.cpp catch identifies source line 178.
 void SendLogout()
 {
-	TBEGIN
 	BeginCommand(0x14);
 	SendCommand(true);
-	TEND(178)
 }
 
 // 0x404590, lines 190-190
 void SendPing()
 {
-	TBEGIN
 	BeginCommand(0x1e);
 	SendCommand(true);
-	TEND(190)
 }
 
 // 0x414530, lines 208-208
 void PrepareMovement()
 {
-	TBEGIN
 	if (GetAutoChaseOff()) {
 		if (GetAttackID() != 0) {
 			if (GetChaseMode() != 0) {
@@ -235,14 +232,12 @@ void PrepareMovement()
 		SetFollowID(0);
 		SendFollow(0);
 	}
-	TEND(208)
 }
 
 // 0x414700, lines 219-238
 // An invalid single-step direction still sends the existing command buffer.
 void SendWalk()
 {
-	TBEGIN
 	PrepareMovement();
 	const int Steps = GetNumberOfPlayerSteps();
 	TASSERT1(219, Steps>0, Steps);
@@ -264,59 +259,47 @@ void SendWalk()
 			SendByte(GetPlayerStep(i));
 	}
 	SendCommand(true);
-	TEND(238)
 }
 
 // 0x414a10, lines 251-251
 void SendStop()
 {
-	TBEGIN
 	PrepareMovement();
 	BeginCommand(0x69);
 	SendCommand(true);
-	TEND(251)
 }
 
 // 0x404730, lines 263-263
 void SendTurnNorth()
 {
-	TBEGIN
 	BeginCommand(0x6f);
 	SendCommand(true);
-	TEND(263)
 }
 
 // 0x4048d0, lines 275-275
 void SendTurnEast()
 {
-	TBEGIN
 	BeginCommand(0x70);
 	SendCommand(true);
-	TEND(275)
 }
 
 // 0x404a70, lines 287-287
 void SendTurnSouth()
 {
-	TBEGIN
 	BeginCommand(0x71);
 	SendCommand(true);
-	TEND(287)
 }
 
 // 0x404c10, lines 299-299
 void SendTurnWest()
 {
-	TBEGIN
 	BeginCommand(0x72);
 	SendCommand(true);
-	TEND(299)
 }
 
 // 0x404db0, lines 325-325
 void SendMoveObject(int x, int y, int z, int ObjectType, int Position, int DestinationX, int DestinationY, int DestinationZ, int Count)
 {
-	TBEGIN
 	if (GetObjectFlag(ObjectType, 13)) {
 		SetStatusMessage("You cannot move this object.", false);
 		return;
@@ -334,13 +317,11 @@ void SendMoveObject(int x, int y, int z, int ObjectType, int Position, int Desti
 	SendByte(DestinationZ);
 	SendByte(Count);
 	SendCommand(true);
-	TEND2(325, ObjectType, Position)
 }
 
 // 0x405000, lines 344-344
 void SendRequestTrade(int x, int y, int z, int ObjectType, int Position, uint32 CreatureID)
 {
-	TBEGIN
 	ClearPlayerSteps();
 	BeginCommand(0x7d);
 	SendWord(x);
@@ -350,42 +331,34 @@ void SendRequestTrade(int x, int y, int z, int ObjectType, int Position, uint32 
 	SendByte(Position);
 	SendQuad(CreatureID);
 	SendCommand(true);
-	TEND2(344, ObjectType, Position)
 }
 
 // 0x4051f0, lines 358-358
 void SendInspectTrade(int Side, int Position)
 {
-	TBEGIN
 	BeginCommand(0x7e);
 	SendByte(Side);
 	SendByte(Position);
 	SendCommand(true);
-	TEND2(358, Side, Position)
 }
 
 // 0x4053b0, lines 370-370
 void SendAcceptTrade()
 {
-	TBEGIN
 	BeginCommand(0x7f);
 	SendCommand(true);
-	TEND(370)
 }
 
 // 0x405550, lines 382-382
 void SendRejectTrade()
 {
-	TBEGIN
 	BeginCommand(0x80);
 	SendCommand(true);
-	TEND(382)
 }
 
 // 0x4056f0, lines 401-401
 void SendUseObject(int x, int y, int z, int ObjectType, int Position, int Container)
 {
-	TBEGIN
 	if (x != 0xffff)
 		ClearPlayerSteps();
 	BeginCommand(0x82);
@@ -396,13 +369,11 @@ void SendUseObject(int x, int y, int z, int ObjectType, int Position, int Contai
 	SendByte(Position);
 	SendByte(Container);
 	SendCommand(true);
-	TEND2(401, ObjectType, Position)
 }
 
 // 0x4058f0, lines 424-424
 void SendUseObjectWith(int x1, int y1, int z1, int ObjectType1, int Position1, int x2, int y2, int z2, int ObjectType2, int Position2)
 {
-	TBEGIN
 	if (x1 != 0xffff || x2 != 0xffff)
 		ClearPlayerSteps();
 	BeginCommand(0x83);
@@ -417,13 +388,11 @@ void SendUseObjectWith(int x1, int y1, int z1, int ObjectType1, int Position1, i
 	SendWord(ObjectType2);
 	SendByte(Position2);
 	SendCommand(true);
-	TEND2(424, ObjectType1, ObjectType2)
 }
 
 // 0x405b20, lines 443-443
 void SendUseObjectOnCreature(int x, int y, int z, int ObjectType, int Position, uint32 CreatureID)
 {
-	TBEGIN
 	ClearPlayerSteps();
 	BeginCommand(0x84);
 	SendWord(x);
@@ -433,13 +402,11 @@ void SendUseObjectOnCreature(int x, int y, int z, int ObjectType, int Position, 
 	SendByte(Position);
 	SendQuad(CreatureID);
 	SendCommand(true);
-	TEND2(443, ObjectType, CreatureID)
 }
 
 // 0x405d10, lines 460-460
 void SendRotateObject(int x, int y, int z, int ObjectType, int Position)
 {
-	TBEGIN
 	BeginCommand(0x85);
 	SendWord(x);
 	SendWord(y);
@@ -447,56 +414,46 @@ void SendRotateObject(int x, int y, int z, int ObjectType, int Position)
 	SendWord(ObjectType);
 	SendByte(Position);
 	SendCommand(true);
-	TEND2(460, ObjectType, Position)
 }
 
 // 0x405ef0, lines 473-473
 void SendCloseContainer(int Container)
 {
-	TBEGIN
 	BeginCommand(0x87);
 	SendByte(Container);
 	SendCommand(true);
-	TEND1(473, Container)
 }
 
 // 0x4060a0, lines 486-486
 void SendContainerUp(int Container)
 {
-	TBEGIN
 	BeginCommand(0x88);
 	SendByte(Container);
 	SendCommand(true);
-	TEND1(486, Container)
 }
 
 // 0x406250, lines 500-500
 void SendEditText(uint32 ObjectNumber, const char *Text)
 {
-	TBEGIN
 	BeginCommand(0x89);
 	SendQuad(ObjectNumber);
 	SendString(Text);
 	SendCommand(true);
-	TEND1(500, ObjectNumber)
 }
 
 // 0x406410, lines 515-515
 void SendEditHouseText(int Type, uint32 Identifier, const char *Text)
 {
-	TBEGIN
 	BeginCommand(0x8a);
 	SendByte(Type);
 	SendQuad(Identifier);
 	SendString(Text);
 	SendCommand(true);
-	TEND2(515, Type, Identifier)
 }
 
 // 0x4065e0, lines 532-532
 void SendLook(int x, int y, int z, int ObjectType, int Position)
 {
-	TBEGIN
 	BeginCommand(0x8c);
 	SendWord(x);
 	SendWord(y);
@@ -504,7 +461,6 @@ void SendLook(int x, int y, int z, int ObjectType, int Position)
 	SendWord(ObjectType);
 	SendByte(Position);
 	SendCommand(true);
-	TEND2(532, ObjectType, Position)
 }
 
 // 0x4067c0, lines 541-549
@@ -512,12 +468,10 @@ void SendTalk(int Mode, const char *Text)
 {
 	TASSERT1(541, Mode==TALK_SAY || Mode==TALK_WHISPER || Mode==TALK_YELL || Mode==TALK_GAMEMASTER_REQUEST || Mode==TALK_PLAYER_ANSWER || Mode==TALK_GAMEMASTER_BROADCAST || Mode==TALK_ANONYMOUS_BROADCAST, Mode);
 	TASSERT(542, Text!=NULL);
-	TBEGIN
 	BeginCommand(0x96);
 	SendByte(Mode);
 	SendString(Text);
 	SendCommand(true);
-	TEND1(549, Mode)
 }
 
 // 0x406b40, lines 557-567
@@ -526,13 +480,11 @@ void SendTalk(int Mode, const char *Addressee, const char *Text)
 	TASSERT1(557, Mode==TALK_PRIVATE_MESSAGE || Mode==TALK_GAMEMASTER_ANSWER || Mode==TALK_GAMEMASTER_MESSAGE || Mode==TALK_ANONYMOUS_MESSAGE, Mode);
 	TASSERT(558, Addressee!=NULL);
 	TASSERT(559, Text!=NULL);
-	TBEGIN
 	BeginCommand(0x96);
 	SendByte(Mode);
 	SendString(Addressee);
 	SendString(Text);
 	SendCommand(true);
-	TEND1(567, Mode)
 }
 
 // 0x406f90, lines 575-584
@@ -540,210 +492,169 @@ void SendTalk(int Mode, int ChannelID, const char *Text)
 {
 	TASSERT1(575, Mode==TALK_CHANNEL_CALL || Mode==TALK_GAMEMASTER_CHANNELCALL || Mode==TALK_ANONYMOUS_CHANNELCALL, Mode);
 	TASSERT(576, Text!=NULL);
-	TBEGIN
 	BeginCommand(0x96);
 	SendByte(Mode);
 	SendWord(ChannelID);
 	SendString(Text);
 	SendCommand(true);
-	TEND2(584, Mode, ChannelID)
 }
 
 // 0x407300, lines 596-596
 void SendRequestChannels()
 {
-	TBEGIN
 	BeginCommand(0x97);
 	SendCommand(true);
-	TEND(596)
 }
 
 // 0x4074a0, lines 609-609
 void SendJoinChannel(int ChannelID)
 {
-	TBEGIN
 	BeginCommand(0x98);
 	SendWord(ChannelID);
 	SendCommand(true);
-	TEND1(609, ChannelID)
 }
 
 // 0x407650, lines 622-622
 void SendLeaveChannel(int ChannelID)
 {
-	TBEGIN
 	BeginCommand(0x99);
 	SendWord(ChannelID);
 	SendCommand(true);
-	TEND1(622, ChannelID)
 }
 
 // 0x407800, lines 635-635
 void SendOpenPrivateConversation(const char *Name)
 {
-	TBEGIN
 	BeginCommand(0x9a);
 	SendString(Name);
 	SendCommand(true);
-	TEND(635)
 }
 
 // 0x4079b0, lines 648-648
 void SendProcessRuleViolation(const char *Name)
 {
-	TBEGIN
 	BeginCommand(0x9b);
 	SendString(Name);
 	SendCommand(true);
-	TEND(648)
 }
 
 // 0x407b60, lines 661-661
 void SendCloseRuleViolation(const char *Name)
 {
-	TBEGIN
 	BeginCommand(0x9c);
 	SendString(Name);
 	SendCommand(true);
-	TEND(661)
 }
 
 // 0x407d10, lines 673-673
 void SendCancelRuleViolation()
 {
-	TBEGIN
 	BeginCommand(0x9d);
 	SendCommand(true);
-	TEND(673)
 }
 
 // 0x407eb0, lines 689-689
 void SendFightModes()
 {
-	TBEGIN
 	BeginCommand(0xa0);
 	SendByte(GetAttackMode());
 	SendByte(GetChaseMode());
 	SendByte(GetSecureMode());
 	SendCommand(true);
-	TEND(689)
 }
 
 // 0x408080, lines 703-703
 void SendAttack(uint32 CreatureID)
 {
-	TBEGIN
 	if (CreatureID != 0)
 		ClearPlayerSteps();
 	BeginCommand(0xa1);
 	SendQuad(CreatureID);
 	SendCommand(true);
-	TEND1(703, CreatureID)
 }
 
 // 0x408230, lines 717-717
 void SendFollow(uint32 CreatureID)
 {
-	TBEGIN
 	if (CreatureID != 0)
 		ClearPlayerSteps();
 	BeginCommand(0xa2);
 	SendQuad(CreatureID);
 	SendCommand(true);
-	TEND1(717, CreatureID)
 }
 
 // 0x4083e0, lines 729-729
 void SendOpenPrivateChannel()
 {
-	TBEGIN
 	BeginCommand(0xaa);
 	SendCommand(true);
-	TEND(729)
 }
 
 // 0x408580, lines 742-742
 void SendInviteToPrivateChannel(const char *Name)
 {
-	TBEGIN
 	BeginCommand(0xab);
 	SendString(Name);
 	SendCommand(true);
-	TEND(742)
 }
 
 // 0x408730, lines 755-755
 void SendExcludeFromPrivateChannel(const char *Name)
 {
-	TBEGIN
 	BeginCommand(0xac);
 	SendString(Name);
 	SendCommand(true);
-	TEND(755)
 }
 
 // 0x4088e0, lines 768-768
 void SendInviteToParty(uint32 CharacterID)
 {
-	TBEGIN
 	BeginCommand(0xa3);
 	SendQuad(CharacterID);
 	SendCommand(true);
-	TEND1(768, CharacterID)
 }
 
 // 0x408a90, lines 781-781
 void SendJoinParty(uint32 CharacterID)
 {
-	TBEGIN
 	BeginCommand(0xa4);
 	SendQuad(CharacterID);
 	SendCommand(true);
-	TEND1(781, CharacterID)
 }
 
 // 0x408c40, lines 794-794
 void SendRevokePartyInvitation(uint32 CharacterID)
 {
-	TBEGIN
 	BeginCommand(0xa5);
 	SendQuad(CharacterID);
 	SendCommand(true);
-	TEND1(794, CharacterID)
 }
 
 // 0x408df0, lines 807-807
 void SendPassPartyLeadership(uint32 CharacterID)
 {
-	TBEGIN
 	BeginCommand(0xa6);
 	SendQuad(CharacterID);
 	SendCommand(true);
-	TEND1(807, CharacterID)
 }
 
 // 0x408fa0, lines 818-818
 void SendLeaveParty()
 {
-	TBEGIN
 	BeginCommand(0xa7);
 	SendCommand(true);
-	TEND(818)
 }
 
 // 0x409140, lines 830-830
 void SendCancel()
 {
-	TBEGIN
 	BeginCommand(0xbe);
 	SendCommand(true);
-	TEND(830)
 }
 
 // 0x4092e0, lines 847-847
 void SendRefreshField(int x, int y, int z)
 {
-	TBEGIN
 	BeginCommand(0xc9);
 	SendWord(x);
 	SendWord(y);
@@ -751,37 +662,31 @@ void SendRefreshField(int x, int y, int z)
 	SendCommand(true);
 	AbsoluteToRelative(&x, &y, &z);
 	RequestFieldRefresh(x, y, z);
-	TEND2(847, x, y)
 }
 
 // 0x4094d0, lines 860-860
 void SendRefreshContainer(int Container)
 {
-	TBEGIN
 	BeginCommand(0xca);
 	SendByte(Container);
 	SendCommand(true);
-	TEND1(860, Container)
 }
 
 // 0x409680, lines 875-875
 // The request flag is set before sending and is not rolled back on an exception.
 void SendRequestOutfit()
 {
-	TBEGIN
 	if (!OutfitRequested) {
 		OutfitRequested = true;
 		BeginCommand(0xd2);
 		SendCommand(true);
 	}
-	TEND(875)
 }
 
 // 0x409830, lines 883-893
 void SendOutfit(int OutfitType, const int *Colors)
 {
 	TASSERT(883, Colors!=NULL);
-	TBEGIN
 	BeginCommand(0xd3);
 	SendWord(OutfitType);
 	SendByte(Colors[0]);
@@ -789,44 +694,36 @@ void SendOutfit(int OutfitType, const int *Colors)
 	SendByte(Colors[2]);
 	SendByte(Colors[3]);
 	SendCommand(true);
-	TEND2(893, OutfitType, Colors[0])
 }
 
 // 0x409b00, lines 902-908
 void SendAddBuddy(const char *Name)
 {
 	TASSERT(902, Name!=NULL);
-	TBEGIN
 	BeginCommand(0xdc);
 	SendString(Name);
 	SendCommand(true);
-	TEND(908)
 }
 
 // 0x409d90, lines 921-921
 void SendRemoveBuddy(uint32 CharacterID)
 {
-	TBEGIN
 	BeginCommand(0xdd);
 	SendQuad(CharacterID);
 	SendCommand(true);
-	TEND1(921, CharacterID)
 }
 
 // 0x409f40, lines 934-934
 void SendBugReport(const char *Text)
 {
-	TBEGIN
 	BeginCommand(0xe6);
 	SendString(Text);
 	SendCommand(true);
-	TEND(934)
 }
 
 // 0x40a0f0, lines 953-953
 void SendRuleViolationReport(const char *Name, uint8 Reason, uint8 Action, const char *Comment, uint32 StatementID, bool IPBanishment)
 {
-	TBEGIN
 	BeginCommand(0xe7);
 	SendString(Name);
 	SendByte(Reason);
@@ -835,7 +732,6 @@ void SendRuleViolationReport(const char *Name, uint8 Reason, uint8 Action, const
 	SendQuad(StatementID);
 	SendByte(IPBanishment);
 	SendCommand(true);
-	TEND2(953, StatementID, (IPBanishment?1:0))
 }
 
 // 0x40a2f0, line 969, SendDebugReport (client packet 0xe8: an error report of error.txt) is gone since
@@ -844,32 +740,26 @@ void SendRuleViolationReport(const char *Name, uint8 Reason, uint8 Action, const
 // 0x40a4c0, lines 994-994
 void ReceiveLoginError()
 {
-	TBEGIN
 	const char *Text = GetString();
 	AddMessage(1, reinterpret_cast<INT_PTR>("Sorry"), reinterpret_cast<INT_PTR>(Text));
 	Disconnect(false);
 	SetConnectionState(0);
-	TEND(994)
 }
 
 // 0x40a670, lines 1006-1006
 void ReceiveLoginMessage()
 {
-	TBEGIN
 	const char *Text = GetString();
 	AddMessage(1, reinterpret_cast<INT_PTR>("For Your Information"), reinterpret_cast<INT_PTR>(Text));
-	TEND(1006)
 }
 
 // 0x40a810, lines 1020-1020
 void ReceiveMessageOfTheDay()
 {
-	TBEGIN
 	const char *Text = GetString();
 	if (SetMotD(Text))
 		AddMessage(0x28, 0, 0);
 	delete[] Text;
-	TEND(1020)
 }
 
 // 0x40a9c0 ReceivePatch (lines 1033-1045, packet 0x1e: a difference patch of a file), 0x40ae70 ReceiveWholeFile
@@ -895,7 +785,6 @@ void ReceiveUpdateRequest()
 void ReceiveCharacterList()
 {
 	int Count = 0;
-	TBEGIN
 	Count = GetByte();
 	SetAccountCharacters(Count);
 	for (int i = 0; i < Count; i++) {
@@ -912,7 +801,6 @@ void ReceiveCharacterList()
 	const int PremiumDays = GetWord();
 	SetPremiumDays(PremiumDays);
 	AddMessage(10, 300, 0);
-	TEND1(1162, Count)
 }
 
 // 0x40bac0, CancelPatch (line 1178: the update dialog's Cancel, the transfer dropped and the connection closed), is
@@ -921,19 +809,16 @@ void ReceiveCharacterList()
 // 0x40bc80, lines 1192-1192
 void ReceiveLoginServerOverloaded()
 {
-	TBEGIN
 	SetConnectionTimeout(0);
 	Disconnect(false);
 	SetConnectionState(0);
 	SetServerError(ERROR_LOGINSERVER_OVERLOADED);
 	ConnectToLoginServer();
-	TEND(1192)
 }
 
 // 0x40be30, lines 1215-1215
 void ReceiveGameLogin()
 {
-	TBEGIN
 	ClearRights();
 	const uint32 CreatureID = GetQuad();
 	SetPlayerID(CreatureID);
@@ -942,7 +827,6 @@ void ReceiveGameLogin()
 	const uint8 value = GetByte();
 	SetRight(40, value);
 	SetActionState(0);
-	TEND(1215)
 }
 
 // 0x40c000, lines 1232-1232
@@ -950,50 +834,40 @@ void ReceiveGamemasterActions()
 {
 	int i;
 	uint8 value = 0;
-	TBEGIN
 	for (i = 0; i < 32; i++) {
 		value = GetByte();
 		SetRight(i, value);
 	}
-	TEND2(1232, i, value)
 }
 
 // 0x40c1b0, lines 1246-1246
 void ReceiveGameError()
 {
-	TBEGIN
 	const char *Text = GetString();
 	AddMessage(1, reinterpret_cast<INT_PTR>("Sorry"), reinterpret_cast<INT_PTR>(Text));
 	Disconnect(false);
 	SetConnectionState(0);
-	TEND(1246)
 }
 
 // 0x40c360, lines 1258-1258
 void ReceiveGameMessage()
 {
-	TBEGIN
 	const char *Text = GetString();
 	AddMessage(1, reinterpret_cast<INT_PTR>("For Your Information"), reinterpret_cast<INT_PTR>(Text));
-	TEND(1258)
 }
 
 // 0x40c500, lines 1271-1271
 void ReceiveLoginWait()
 {
-	TBEGIN
 	const char *Text = GetString();
 	const int Delay = GetByte();
 	AddMessage(5, reinterpret_cast<INT_PTR>(Text), Delay);
-	TEND(1271)
 }
 
 // 0x40c6a0, lines 1282-1282
 void ReceivePing()
 {
-	TBEGIN
 	SendPing();
-	TEND(1282)
 }
 
 // 0x40c830, lines 1302-1368
@@ -1001,7 +875,6 @@ void ReceivePing()
 uint32 ReadCreature(int Type, int x, int y, int z)
 {
 	uint32 CreatureID = 0;
-	TBEGIN
 	TCreature *Creature;
 	if (Type == 0x61) {
 		const uint32 RemoveID = GetQuad();
@@ -1085,15 +958,13 @@ uint32 ReadCreature(int Type, int x, int y, int z)
 		Creature->Visible = true;
 	}
 	return CreatureID;
-	TEND2(1368, Type, CreatureID)
 }
 
-// 0x414bb0, lines 1401-1416
+// 0x414bb0, lines 1401-1416. OldType only the original's catch wrapper read (issue #78).
 void ReadField(int rx, int ry, int rz)
 {
 	uint16 Type = 0;
-	uint16 OldType = 0;
-	TBEGIN
+	[[maybe_unused]] uint16 OldType = 0;
 	if (SkipFields < 1) {
 		for (;;) {
 			OldType = Type;
@@ -1126,13 +997,11 @@ void ReadField(int rx, int ry, int rz)
 	}
 	if (rz == GetMapLevel())
 		UpdateAutomap(rx, ry);
-	TEND2(1416, Type, OldType)
 }
 
 // 0x414ff0, lines 1437-1437
 void ReadMap(int xmin, int ymin, int xmax, int ymax)
 {
-	TBEGIN
 	int PlayerX;
 	int PlayerY;
 	int PlayerZ;
@@ -1158,7 +1027,6 @@ void ReadMap(int xmin, int ymin, int xmax, int ymax)
 				ReadField(x, y, Floor);
 		}
 	}
-	TEND2(1437, xmin, ymin)
 }
 
 // 0x415200, lines 1460-1460
@@ -1166,7 +1034,6 @@ void ReceiveMap()
 {
 	uint16 PlayerX = 0;
 	uint16 PlayerY = 0;
-	TBEGIN
 	PlayerX = GetWord();
 	PlayerY = GetWord();
 	const int PlayerZ = GetByte();
@@ -1177,13 +1044,11 @@ void ReceiveMap()
 	SetTalkChanged();
 	StopPlayer();
 	CheckEventHelpPosition(PlayerX, PlayerY, PlayerZ);
-	TEND2(1460, PlayerX, PlayerY)
 }
 
 // 0x4153f0, lines 1476-1476
 void ReceiveMapNorth()
 {
-	TBEGIN
 	ShiftMap(0, 1);
 	ReadMap(0, 0, 17, 0);
 	SetTalkChanged();
@@ -1192,13 +1057,11 @@ void ReceiveMapNorth()
 	int z;
 	GetMapPosition(&x, &y, &z);
 	CheckEventHelpPosition(x, y, z);
-	TEND(1476)
 }
 
 // 0x4155c0, lines 1492-1492
 void ReceiveMapEast()
 {
-	TBEGIN
 	ShiftMap(-1, 0);
 	ReadMap(17, 0, 17, 13);
 	SetTalkChanged();
@@ -1207,13 +1070,11 @@ void ReceiveMapEast()
 	int z;
 	GetMapPosition(&x, &y, &z);
 	CheckEventHelpPosition(x, y, z);
-	TEND(1492)
 }
 
 // 0x415790, lines 1508-1508
 void ReceiveMapSouth()
 {
-	TBEGIN
 	ShiftMap(0, -1);
 	ReadMap(0, 13, 17, 13);
 	SetTalkChanged();
@@ -1222,13 +1083,11 @@ void ReceiveMapSouth()
 	int z;
 	GetMapPosition(&x, &y, &z);
 	CheckEventHelpPosition(x, y, z);
-	TEND(1508)
 }
 
 // 0x415960, lines 1524-1524
 void ReceiveMapWest()
 {
-	TBEGIN
 	ShiftMap(1, 0);
 	ReadMap(0, 0, 0, 13);
 	SetTalkChanged();
@@ -1237,7 +1096,6 @@ void ReceiveMapWest()
 	int z;
 	GetMapPosition(&x, &y, &z);
 	CheckEventHelpPosition(x, y, z);
-	TEND(1524)
 }
 
 // 0x415b30, lines 1546-1546
@@ -1247,7 +1105,6 @@ void ReceiveField()
 	int rx = 0;
 	int ry = 0;
 	int rz = 0;
-	TBEGIN
 	rx = GetWord();
 	ry = GetWord();
 	rz = GetByte();
@@ -1257,7 +1114,6 @@ void ReceiveField()
 	ReadField(rx, ry, rz);
 	if (rz == GetMapLevel())
 		UpdateAutomap(rx, ry);
-	TEND2(1546, rx, ry)
 }
 
 // 0x40cd10, lines 1575-1575
@@ -1266,7 +1122,6 @@ void ReceiveAddObject()
 	int rx = 0;
 	int ry = 0;
 	int rz = 0;
-	TBEGIN
 	rx = GetWord();
 	ry = GetWord();
 	rz = GetByte();
@@ -1292,7 +1147,6 @@ void ReceiveAddObject()
 	AddObject(rx, ry, rz, Object);
 	if (rz == GetMapLevel())
 		UpdateAutomap(rx, ry);
-	TEND2(1575, rx, ry)
 }
 
 // 0x40cfa0, lines 1594-1630
@@ -1301,7 +1155,6 @@ void ReceiveChangeObject()
 	int rx = 0;
 	int ry = 0;
 	int rz = 0;
-	TBEGIN
 	rx = GetWord();
 	ry = GetWord();
 	rz = GetByte();
@@ -1349,7 +1202,6 @@ void ReceiveChangeObject()
 		if (rz == GetMapLevel())
 			UpdateAutomap(rx, ry);
 	}
-	TEND2(1630, rx, ry)
 }
 
 // 0x40d440, lines 1649-1661
@@ -1358,7 +1210,6 @@ void ReceiveDeleteObject()
 	int rx = 0;
 	int ry = 0;
 	int rz = 0;
-	TBEGIN
 	rx = GetWord();
 	ry = GetWord();
 	rz = GetByte();
@@ -1380,14 +1231,12 @@ void ReceiveDeleteObject()
 		if (Refresh)
 			SendRefreshField(rx, ry, rz);
 	}
-	TEND2(1661, rx, ry)
 }
 
 // 0x415d40, lines 1879-1895
 // Diagnostics may follow creature mutation; a missing creature record still moves the map object.
 void ReceiveMoveCreature()
 {
-	TBEGIN
 	int sx = GetWord();
 	int sy = GetWord();
 	int sz = GetByte();
@@ -1526,13 +1375,11 @@ void ReceiveMoveCreature()
 	AddObject(zx, zy, zz, Object);
 	if (zz == GetMapLevel())
 		UpdateAutomap(zx, zy);
-	TEND(1895)
 }
 
 // 0x40d7d0, lines 1922-1922
 void ReceiveOpenContainer(int &Container)
 {
-	TBEGIN
 	Container = GetByte();
 	if (IsContainerOpen(Container))
 		CloseContainer(Container);
@@ -1554,17 +1401,14 @@ void ReceiveOpenContainer(int &Container)
 			Data = GetByte();
 		AppendContainerObject(Container, TObject{Type, (int)Data, 0});
 	}
-	TEND1(1922, Container)
 }
 
 // 0x40da70, lines 1934-1934
 void ReceiveCloseContainer(int &Container)
 {
-	TBEGIN
 	Container = GetByte();
 	if (IsContainerOpen(Container))
 		CloseContainer(Container);
-	TEND1(1934, Container)
 }
 
 // 0x40dc20, lines 1953-1953
@@ -1572,7 +1416,6 @@ void ReceiveContainerAddObject()
 {
 	int Container = 0;
 	int Type = 0;
-	TBEGIN
 	Container = GetByte();
 	Type = GetWord();
 	int Data = 0;
@@ -1584,7 +1427,6 @@ void ReceiveContainerAddObject()
 		Data = GetByte();
 	if (IsContainerOpen(Container))
 		InsertContainerObject(Container, TObject{Type, (int)Data, 0});
-	TEND2(1953, Container, Type)
 }
 
 // 0x40de40, lines 1974-1974
@@ -1592,7 +1434,6 @@ void ReceiveContainerChangeObject()
 {
 	int Container = 0;
 	int Type = 0;
-	TBEGIN
 	Container = GetByte();
 	const int Position = GetByte();
 	Type = GetWord();
@@ -1605,7 +1446,6 @@ void ReceiveContainerChangeObject()
 		Data = GetByte();
 	if (IsContainerOpen(Container))
 		ChangeContainerObject(Container, Position, TObject{Type, (int)Data, 0});
-	TEND2(1974, Container, Type)
 }
 
 // 0x40e060, lines 1992-1992
@@ -1613,14 +1453,12 @@ void ReceiveContainerDeleteObject()
 {
 	int Container = 0;
 	int Position = 0;
-	TBEGIN
 	Container = GetByte();
 	Position = GetByte();
 	if (IsContainerOpen(Container)) {
 		if (DeleteContainerObject(Container, Position))
 			SendRefreshContainer(Container);
 	}
-	TEND2(1992, Container, Position)
 }
 
 // 0x40e230, lines 2011-2011
@@ -1628,7 +1466,6 @@ void ReceiveInventoryObject()
 {
 	int Position = 0;
 	int Type = 0;
-	TBEGIN
 	Position = GetByte();
 	Type = GetWord();
 	int Data = 0;
@@ -1639,23 +1476,19 @@ void ReceiveInventoryObject()
 	if (GetObjectFlag(Type, 10))
 		Data = GetByte();
 	SetBodyObject(Position, TObject{Type, (int)Data, 0});
-	TEND2(2011, Position, Type)
 }
 
 // 0x40e440, lines 2024-2024
 void ReceiveDeleteInventoryObject()
 {
 	int Position = 0;
-	TBEGIN
 	Position = GetByte();
 	DeleteBodyObject(Position);
-	TEND1(2024, Position)
 }
 
 // 0x40e5e0, lines 2046-2046
 void ReceiveOwnTrade()
 {
-	TBEGIN
 	TFixedString<40> Name;
 	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	SetOwnOffer(Name);
@@ -1671,13 +1504,11 @@ void ReceiveOwnTrade()
 			Data = GetByte();
 		AddOwnOfferObject(TObject{Type, (int)Data, 0});
 	}
-	TEND(2046)
 }
 
 // 0x40e800, lines 2068-2068
 void ReceiveCounterTrade()
 {
-	TBEGIN
 	TFixedString<40> Name;
 	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	const bool Open = SetCounterOffer(Name);
@@ -1694,25 +1525,20 @@ void ReceiveCounterTrade()
 		if (Open)
 			AddCounterOfferObject(TObject{Type, (int)Data, 0});
 	}
-	TEND(2068)
 }
 
 // 0x40ea30, lines 2079-2079
 void ReceiveCloseTrade()
 {
-	TBEGIN
 	ClearOffers();
-	TEND(2079)
 }
 
 // 0x40ebc0, lines 2092-2092
 void ReceiveWorldLight()
 {
-	TBEGIN
 	const int Brightness = GetByte();
 	const int Color = GetByte();
 	SetAmbientLight(Brightness, Color);
-	TEND(2092)
 }
 
 // 0x40ed60, lines 2111-2111
@@ -1721,14 +1547,12 @@ void ReceiveMagicEffect()
 	int rx = 0;
 	int ry = 0;
 	int rz = 0;
-	TBEGIN
 	rx = GetWord();
 	ry = GetWord();
 	rz = GetByte();
 	AbsoluteToRelative(&rx, &ry, &rz);
 	const int Effect = GetByte();
 	AddGraphicalEffect(rx, ry, rz, Effect);
-	TEND2(2111, rx, ry)
 }
 
 // 0x40ef50, lines 2132-2132
@@ -1737,7 +1561,6 @@ void ReceiveAnimatedText()
 	int rx = 0;
 	int ry = 0;
 	int rz = 0;
-	TBEGIN
 	rx = GetWord();
 	ry = GetWord();
 	rz = GetByte();
@@ -1746,7 +1569,6 @@ void ReceiveAnimatedText()
 	TFixedString<24> Text;
 	GetString(patella::TSpan<char>(Text.Chars).first(10));
 	AddTextualEffect(rx, ry, rz, Color, Text);
-	TEND2(2132, rx, ry)
 }
 
 // 0x40f150, lines 2155-2155
@@ -1755,7 +1577,6 @@ void ReceiveDistanceEffect()
 	int sx = 0;
 	int sy = 0;
 	int sz = 0;
-	TBEGIN
 	sx = GetWord();
 	sy = GetWord();
 	sz = GetByte();
@@ -1766,14 +1587,12 @@ void ReceiveDistanceEffect()
 	AbsoluteToRelative(&dx, &dy, &dz);
 	const int Effect = GetByte();
 	AddMissileEffect(sx, sy, sz, dx, dy, dz, Effect);
-	TEND2(2155, sx, sy)
 }
 
 // 0x40f380, lines 2170-2170
 void ReceiveCreatureMark()
 {
 	uint32 CreatureID = 0;
-	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
@@ -1782,14 +1601,12 @@ void ReceiveCreatureMark()
 		return;
 	}
 	GetByte();
-	TEND1(2170, CreatureID)
 }
 
 // 0x40f550, lines 2185-2185
 void ReceiveCreatureHealth()
 {
 	uint32 CreatureID = 0;
-	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
@@ -1798,14 +1615,12 @@ void ReceiveCreatureHealth()
 		return;
 	}
 	GetByte();
-	TEND1(2185, CreatureID)
 }
 
 // 0x40f710, lines 2205-2205
 void ReceiveCreatureLight()
 {
 	uint32 CreatureID = 0;
-	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
@@ -1815,14 +1630,12 @@ void ReceiveCreatureLight()
 	}
 	GetByte();
 	GetByte();
-	TEND1(2205, CreatureID)
 }
 
 // 0x40f8e0, lines 2235-2235
 void ReceiveCreatureOutfit()
 {
 	uint32 CreatureID = 0;
-	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	const int Type = GetWord();
@@ -1846,14 +1659,12 @@ void ReceiveCreatureOutfit()
 		return;
 	}
 	Creature->Colors[0] = GetWord();
-	TEND1(2235, CreatureID)
 }
 
 // 0x40fb20, lines 2250-2250
 void ReceiveCreatureSpeed()
 {
 	uint32 CreatureID = 0;
-	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
@@ -1862,14 +1673,12 @@ void ReceiveCreatureSpeed()
 		return;
 	}
 	GetWord();
-	TEND1(2250, CreatureID)
 }
 
 // 0x40fce0, lines 2267-2267
 void ReceiveCreatureSkull()
 {
 	uint32 CreatureID = 0;
-	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
@@ -1879,14 +1688,12 @@ void ReceiveCreatureSkull()
 		return;
 	}
 	GetByte();
-	TEND1(2267, CreatureID)
 }
 
 // 0x40fec0, lines 2283-2283
 void ReceiveCreatureShield()
 {
 	uint32 CreatureID = 0;
-	TBEGIN
 	CreatureID = GetQuad();
 	TCreature *Creature = GetCreature(CreatureID);
 	if (Creature != nullptr) {
@@ -1895,13 +1702,11 @@ void ReceiveCreatureShield()
 		return;
 	}
 	GetByte();
-	TEND1(2283, CreatureID)
 }
 
 // 0x410080, lines 2303-2303
 void ReceiveEditText()
 {
-	TBEGIN
 	uint32 *Info = new uint32[3];
 	Info[0] = GetQuad();
 	Info[1] = GetWord();
@@ -1912,25 +1717,21 @@ void ReceiveEditText()
 	Strings[0] = Writer;
 	Strings[1] = Text;
 	AddMessage(14, reinterpret_cast<INT_PTR>(Info), reinterpret_cast<INT_PTR>(Strings));
-	TEND(2303)
 }
 
 // 0x410260, lines 2318-2318
 void ReceiveEditHouseText()
 {
-	TBEGIN
 	uint32 *Info = new uint32[2];
 	Info[0] = GetByte();
 	Info[1] = GetQuad();
 	const char *Text = GetString();
 	AddMessage(15, reinterpret_cast<INT_PTR>(Info), reinterpret_cast<INT_PTR>(Text));
-	TEND(2318)
 }
 
 // 0x410410, lines 2347-2347
 void ReceivePlayerStats()
 {
-	TBEGIN
 	const int Health = GetWord();
 	const int MaxHealth = GetWord();
 	const int Capacity = GetWord();
@@ -1948,37 +1749,30 @@ void ReceivePlayerStats()
 	SetPlayerSoul(Soul);
 	SetPlayerExperience(Experience, Level, LevelPercent);
 	SetPlayerMagicLevel(MagicLevel, MagicLevelPercent);
-	TEND(2347)
 }
 
 // 0x410660, lines 2363-2363
 void ReceivePlayerSkills()
 {
 	int i;
-	TBEGIN
 	for (i = 0; i < 7; i++) {
 		const int Level = GetByte();
 		const int Percent = GetByte();
 		SetPlayerSkill(i, Level, Percent);
 	}
-	TEND1(2363, i)
 }
 
 // 0x410810, lines 2374-2374
 void ReceivePlayerIcons()
 {
-	TBEGIN
 	const int Icons = GetByte();
 	SetPlayerState(Icons);
-	TEND(2374)
 }
 
 // 0x4109b0, lines 2386-2386
 void ReceiveCancelAttack()
 {
-	TBEGIN
 	SetAttackID(0);
-	TEND(2386)
 }
 
 // 0x410b40, lines 2461-2466
@@ -1986,7 +1780,6 @@ void ReceiveTalk()
 {
 	int Mode = 1;
 	int Channel = 0;
-	TBEGIN
 	const uint32 StatementID = GetQuad();
 	TFixedString<36> Name;
 	GetString(patella::TSpan<char>(Name.Chars).first(30));
@@ -2056,14 +1849,12 @@ void ReceiveTalk()
 		TERROR1_REASON(2461, "unknown talk mode", Mode, "[bug0000649]");
 	}
 	AddConsoleText(StatementID, Text, Mode, Name, TargetChannel, Time);
-	TEND2(2466, Mode, Channel)
 }
 
 // 0x411030, lines 2487-2487
 void ReceiveChannelList()
 {
 	int Count = 0;
-	TBEGIN
 	Count = GetByte();
 	int *Channels = new int[Count + 1];
 	char *Names = nullptr;
@@ -2075,48 +1866,40 @@ void ReceiveChannelList()
 		GetString(patella::TSpan<char>(Names + i * 30, 30));
 	}
 	AddMessage(0x12, reinterpret_cast<INT_PTR>(Channels), reinterpret_cast<INT_PTR>(Names));
-	TEND1(2487, Count)
 }
 
 // 0x411230, lines 2502-2502
 void ReceiveOpenChannel()
 {
 	int ChannelID = 0;
-	TBEGIN
 	ChannelID = GetWord();
 	char *Name = new char[30];
 	GetString(patella::TSpan<char>(Name, 30));
 	AddMessage(48, ChannelID, reinterpret_cast<INT_PTR>(Name));
-	TEND1(2502, ChannelID)
 }
 
 // 0x4113f0, lines 2515-2515
 void ReceiveOpenPrivateConversation()
 {
-	TBEGIN
 	char *Name = new char[30];
 	GetString(patella::TSpan<char>(Name, 30));
 	AddMessage(0x2f, 0, reinterpret_cast<INT_PTR>(Name));
-	TEND(2515)
 }
 
 // 0x4115a0, lines 2530-2530
 void ReceiveRuleViolationChannel()
 {
 	int ChannelID = 0;
-	TBEGIN
 	ChannelID = GetWord();
 	const TTalkBuffer *Channel = CreateTextBuffer(6, 1, nullptr, ChannelID);
 	if (Channel == nullptr)
 		Channel = GetTextBuffer(6, nullptr, -1);
 	AddMessage(0x32, reinterpret_cast<INT_PTR>(Channel), 0);
-	TEND1(2530, ChannelID)
 }
 
 // 0x411760, lines 2551-2551
 void ReceiveRemoveRuleViolation()
 {
-	TBEGIN
 	TFixedString<44> Name;
 	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	TTalkBuffer *Channel = GetTextBuffer(6, nullptr, -1);
@@ -2132,13 +1915,11 @@ void ReceiveRemoveRuleViolation()
 		}
 		SetConsoleChanged();
 	}
-	TEND(2551)
 }
 
 // 0x411940, lines 2569-2569
 void ReceiveCancelRuleViolation()
 {
-	TBEGIN
 	TFixedString<44> Name;
 	GetString(patella::TSpan<char>(Name.Chars).first(30));
 	TTalkBuffer *Channel = GetTextBuffer(8, Name, -1);
@@ -2148,39 +1929,33 @@ void ReceiveCancelRuleViolation()
 		AddTextBufferLine(Channel, 0, Text, 18, nullptr, 0);
 		Channel->SetWriteEnabled(false);
 	}
-	TEND(2569)
 }
 
 // 0x411b20, lines 2584-2584
 void ReceiveLockRuleViolation()
 {
-	TBEGIN
 	TTalkBuffer *Channel = GetTextBuffer(7, nullptr, -1);
 	if (Channel != nullptr) {
 		const char *Text = TextRequestClosed;
 		AddTextBufferLine(Channel, 0, Text, 18, nullptr, 0);
 		Channel->SetWriteEnabled(false);
 	}
-	TEND(2584)
 }
 
 // 0x411ce0, lines 2606-2606
 void ReceiveOwnChannel()
 {
 	int ChannelID = 0;
-	TBEGIN
 	ChannelID = GetWord();
 	char *Name = new char[40];
 	GetString(patella::TSpan<char>(Name, 40));
 	AddMessage(49, ChannelID, reinterpret_cast<INT_PTR>(Name));
-	TEND1(2606, ChannelID)
 }
 
 // 0x411ea0, lines 2623-2623
 void ReceiveCloseChannel()
 {
 	int ChannelID = 0;
-	TBEGIN
 	ChannelID = GetWord();
 	TTalkBuffer *Channel = GetTextBuffer(5, nullptr, ChannelID);
 	if (Channel != nullptr) {
@@ -2188,14 +1963,12 @@ void ReceiveCloseChannel()
 		AddTextBufferLine(Channel, 0, Text, 18, nullptr, 0);
 		Channel->SetWriteEnabled(false);
 	}
-	TEND1(2623, ChannelID)
 }
 
 // 0x412060, lines 2634-2641
 void ReceiveTextMessage()
 {
 	int Mode = 0;
-	TBEGIN
 	Mode = GetByte();
 	TASSERT1(2634, Mode>=0&&Mode<TALK_MODE_BEYONDLAST, Mode);
 	TFixedString<632> Text;
@@ -2206,13 +1979,11 @@ void ReceiveTextMessage()
 		SetStatusMessage(Text, false);
 	if (Mode != 23)
 		AddConsoleText(0, Text, Mode, nullptr, -1, 0);
-	TEND1(2641, Mode)
 }
 
 // 0x416c40, lines 2672-2672
 void ReceiveCancelWalk()
 {
-	TBEGIN
 	const int Direction = GetByte();
 	int x;
 	int y;
@@ -2233,26 +2004,22 @@ void ReceiveCancelWalk()
 	}
 	if (CancelPlayerWalk(Direction))
 		SendWalk();
-	TEND(2672)
 }
 
 // 0x416e60, lines 2685-2685
 // 0x416e90 is this loop's interior basic block, misidentified as a second function.
 void ReadFloor(int rz)
 {
-	TBEGIN
 	// 0x416e90, lines 2685-2685. Interior loop, not a separately callable function.
 	for (int rx = 0; rx < 18; rx++) {
 		for (int ry = 0; ry < 14; ry++)
 			ReadField(rx, ry, rz);
 	}
-	TEND1(2685, rz)
 }
 
 // 0x417020, lines 2717-2717
 void ReceiveFloorUp()
 {
-	TBEGIN
 	int x;
 	int y;
 	int z;
@@ -2280,13 +2047,11 @@ void ReceiveFloorUp()
 		for (int ry = 0; ry < 14; ry++)
 			UpdateAutomap(rx, ry);
 	}
-	TEND(2717)
 }
 
 // 0x417270, lines 2749-2749
 void ReceiveFloorDown()
 {
-	TBEGIN
 	int x;
 	int y;
 	int z;
@@ -2315,13 +2080,11 @@ void ReceiveFloorDown()
 		for (int ry = 0; ry < 14; ry++)
 			UpdateAutomap(rx, ry);
 	}
-	TEND(2749)
 }
 
 // 0x412350, lines 2768-2768
 void ReceiveOutfit()
 {
-	TBEGIN
 	int *Outfit = new int[7];
 	Outfit[0] = GetWord();
 	Outfit[1] = GetByte();
@@ -2331,7 +2094,6 @@ void ReceiveOutfit()
 	Outfit[5] = GetWord();
 	Outfit[6] = GetWord();
 	AddMessage(16, reinterpret_cast<INT_PTR>(Outfit), 0);
-	TEND(2768)
 }
 
 // 0x412540, lines 2785-2785
@@ -2339,7 +2101,6 @@ void ReceiveOutfit()
 void ReceiveBuddy()
 {
 	uint32 CharacterID = 0;
-	TBEGIN
 	CharacterID = GetQuad();
 	TFixedString<44> Name;
 	GetString(patella::TSpan<char>(Name.Chars).first(30));
@@ -2347,27 +2108,22 @@ void ReceiveBuddy()
 	AddBuddy(CharacterID, Name, State == 1);
 	const char *Copy = MsvcStrdup(Name);
 	AddMessage(25, reinterpret_cast<INT_PTR>(Copy), 0);
-	TEND1(2785, CharacterID)
 }
 
 // 0x412720, lines 2798-2798
 void ReceiveBuddyLogin()
 {
 	uint32 CharacterID = 0;
-	TBEGIN
 	CharacterID = GetQuad();
 	SetBuddyState(CharacterID, true);
-	TEND1(2798, CharacterID)
 }
 
 // 0x4128c0, lines 2811-2811
 void ReceiveBuddyLogout()
 {
 	uint32 CharacterID = 0;
-	TBEGIN
 	CharacterID = GetQuad();
 	SetBuddyState(CharacterID, false);
-	TEND1(2811, CharacterID)
 }
 
 // Empty; the linker kept one copy of the identical empty functions (0x496160,

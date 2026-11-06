@@ -46,6 +46,7 @@
 #endif
 #include "Communication.h"
 #include "MainWindow.h"
+#include "Status.h"
 #include "Surface.h"
 #include <functional>
 
@@ -57,6 +58,36 @@ typedef void(__cdecl *TInt3Fn)(int, int, int);
 typedef void(__cdecl *TBoolFn)(bool);
 typedef bool(__cdecl *TBoolResult)();
 #endif
+
+// --- The original's catch wrappers and the structured exception -------------------
+
+// The error round's structured exception (ControlThrow, kind 1): the code of RaiseException. The original (VC7.1)
+// catches it in the catch (...) of its catch wrappers, which made it a TMyException ("unknown exception occurred")
+// in the outermost Control.cpp function the test calls. Ours has no wrappers since Patella-Modern issue #78 and
+// lets it pass, as the products (/EHsc, whose catch (...) never catches one) always did; this directory compiles
+// with /EHa only so that both sides' remaining catch (...) see it (comm/CMakeLists.txt). ControlBoth makes it the
+// original's TMyException at the call on our side, so that the comparison still checks that both sides throw
+// there; any other exception passes unchanged, so a change of another kind still fails.
+constexpr DWORD ControlStructuredException = 0xe0436f6d;
+
+static bool RunUntilStructuredException(void (*Run)(void *), void *Argument)
+{
+	__try {
+		Run(Argument);
+		return true;
+	} __except (GetExceptionCode() == ControlStructuredException ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+		return false;
+	}
+}
+
+template <class FO, class FI> bool ControlBoth(const char *What, FO Ours, FI Image)
+{
+	auto Wrapped = [&] {
+		if (!RunUntilStructuredException([](void *F) { (*static_cast<FO *>(F))(); }, &Ours))
+			throw TMYEXCEPTION(0, "unknown exception occurred", "", 0, "", 0, "");
+	};
+	return Both(What, Wrapped, Image);
+}
 
 // --- Fakes of Communication.cpp's functions -------------------------------------
 
@@ -529,6 +560,21 @@ static void ScriptWorld()
 	}
 }
 
+// MouseMove with its original's catch wrapper's one call: TEND1(483, GetActionState()) read the action state once more
+// for its message when an exception other than a PROGRAM_ERROR left the function. Ours has no wrapper since
+// Patella-Modern issue #78, so the test makes that call on our side, where the fake logs it as the original's.
+static void MouseMoveAsWrapped(int x, int y)
+{
+	try {
+		MouseMove(x, y);
+	} catch (PROGRAM_ERROR) {
+		throw;
+	} catch (...) {
+		static_cast<void>(GetActionState());
+		throw;
+	}
+}
+
 static void Step(int Round)
 {
 	char What[96];
@@ -543,32 +589,32 @@ static void Step(int Round)
 	DeferRetiredEnd = true;
 	switch (Kind) {
 	case 0:
-		Both(What, [&] { MouseMove(x, y); TimerEvent(); }, ORIGINAL_SIDE(At<TInt2Fn>(0x4469b0)(x, y); At<TVoid>(0x4489a0)()));
+		ControlBoth(What, [&] { MouseMoveAsWrapped(x, y); TimerEvent(); }, ORIGINAL_SIDE(At<TInt2Fn>(0x4469b0)(x, y); At<TVoid>(0x4489a0)()));
 		break;
 	case 1:
-		Both(What, [&] { LeftButtonDown(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x446d10)(x, y, Flags)));
+		ControlBoth(What, [&] { LeftButtonDown(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x446d10)(x, y, Flags)));
 		break;
 	case 2:
-		Both(What, [&] { LeftButtonUp(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447000)(x, y, Flags)));
+		ControlBoth(What, [&] { LeftButtonUp(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447000)(x, y, Flags)));
 		break;
 	case 3:
-		Both(What, [&] { LeftButtonDoubleClick(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447390)(x, y, Flags)));
+		ControlBoth(What, [&] { LeftButtonDoubleClick(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447390)(x, y, Flags)));
 		break;
 	case 4:
-		Both(What, [&] { RightButtonDown(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x4476c0)(x, y, Flags)));
+		ControlBoth(What, [&] { RightButtonDown(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x4476c0)(x, y, Flags)));
 		break;
 	case 5:
-		Both(What, [&] { RightButtonUp(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447880)(x, y, Flags)));
+		ControlBoth(What, [&] { RightButtonUp(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447880)(x, y, Flags)));
 		break;
 	case 6:
-		Both(What, [&] { MouseWheel(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447bd0)(x, y, Flags)));
+		ControlBoth(What, [&] { MouseWheel(x, y, Flags); }, ORIGINAL_SIDE(At<TInt3Fn>(0x447bd0)(x, y, Flags)));
 		break;
 	case 7:
-		Both(What, [&] { KeyPress(Key); Redraw(Force); }, ORIGINAL_SIDE(At<TIntFn>(0x447e60)(Key); At<TBoolFn>(0x449210)(Force)));
+		ControlBoth(What, [&] { KeyPress(Key); Redraw(Force); }, ORIGINAL_SIDE(At<TIntFn>(0x447e60)(Key); At<TBoolFn>(0x449210)(Force)));
 		break;
 	case 8: {
 		bool Result[2] = {false, false};
-		Both(What, [&] { Result[0] = CloseRequest(); }, ORIGINAL_SIDE(Result[1] = At<TBoolResult>(0x4480b0)()));
+		ControlBoth(What, [&] { Result[0] = CloseRequest(); }, ORIGINAL_SIDE(Result[1] = At<TBoolResult>(0x4480b0)()));
 		if (!SkippingRetired()) {
 			golden::Output("CloseRequest", Result[1]);
 			CHECK(Result[0] == Result[1], "%s: CloseRequest %d, original %d", What, Result[0], Result[1]);
@@ -584,37 +630,37 @@ static void Step(int Round)
 			x = World[OURS].Fullscreen.Width;
 			y = World[OURS].Fullscreen.Height;
 		}
-		Both(What, [&] { Resize(x, y); }, ORIGINAL_SIDE(At<TInt2Fn>(0x4459b0)(x, y)));
+		ControlBoth(What, [&] { Resize(x, y); }, ORIGINAL_SIDE(At<TInt2Fn>(0x4459b0)(x, y)));
 		break;
 	case 10:
-		Both(What, [&] { CheckSurface(Force); }, ORIGINAL_SIDE(At<TBoolFn>(0x449010)(Force)));
+		ControlBoth(What, [&] { CheckSurface(Force); }, ORIGINAL_SIDE(At<TBoolFn>(0x449010)(Force)));
 		break;
 	case 11:
-		Both(What, [&] { ChangeEngine(Engine); }, ORIGINAL_SIDE(At<TIntFn>(0x445c20)(Engine)));
+		ControlBoth(What, [&] { ChangeEngine(Engine); }, ORIGINAL_SIDE(At<TIntFn>(0x445c20)(Engine)));
 		if (!SkippingRetired()) {
 			const int Original = ORIGINAL_VALUE("curEngine", int, Global<int>(0x71d0c4));
 			CHECK(curEngine == Original, "%s: curEngine %d, original %d", What, curEngine, Original);
 		}
 		break;
 	case 12:
-		Both(What, [&] { Redraw(Force); }, ORIGINAL_SIDE(At<TBoolFn>(0x449210)(Force)));
+		ControlBoth(What, [&] { Redraw(Force); }, ORIGINAL_SIDE(At<TBoolFn>(0x449210)(Force)));
 		break;
 	case 13:
 		// SendErrorReports (event 0x2b) is gone (Patella-Modern issue #74), and its comparison with it.
 		break;
 	case 14:
-		Both(What, [&] { EnterGame(); }, ORIGINAL_SIDE(At<TVoid>(0x4465f0)()));
+		ControlBoth(What, [&] { EnterGame(); }, ORIGINAL_SIDE(At<TVoid>(0x4465f0)()));
 		break;
 	case 15:
-		Both(What, [&] { LeaveGame(); }, ORIGINAL_SIDE(At<TVoid>(0x4467d0)()));
+		ControlBoth(What, [&] { LeaveGame(); }, ORIGINAL_SIDE(At<TVoid>(0x4467d0)()));
 		break;
 	case 16:
-		Both(What, [&] { LinkCopyWarning(); }, ORIGINAL_SIDE(At<TVoid>(0x448290)()));
+		ControlBoth(What, [&] { LinkCopyWarning(); }, ORIGINAL_SIDE(At<TVoid>(0x448290)()));
 		break;
 	case 17: {
 		int State = Random() % 3 == 0 ? (int)(Random() % 9) : (Random() % 2 == 0 ? 2 : 5);
 		World[0].ConnectionState = World[1].ConnectionState = State;
-		Both(What, [&] { ConnectionEstablished(); }, ORIGINAL_SIDE(At<TVoid>(0x448430)()));
+		ControlBoth(What, [&] { ConnectionEstablished(); }, ORIGINAL_SIDE(At<TVoid>(0x448430)()));
 		break;
 	}
 	case 18: {
@@ -628,7 +674,7 @@ static void Step(int Round)
 			SetModal(0);
 			World[0].Capture = World[1].Capture = NULL;
 		}
-		Both(What, [&] {
+		ControlBoth(What, [&] {
 			if (Pending) {
 				Wd().Events.push_back(TQueuedEvent{0x3f, 0, 0});
 				ProcessEvents();
@@ -641,22 +687,22 @@ static void Step(int Round)
 		break;
 	}
 	case 19:
-		Both(What, [&] { TimerEvent(); }, ORIGINAL_SIDE(At<TVoid>(0x4489a0)()));
+		ControlBoth(What, [&] { TimerEvent(); }, ORIGINAL_SIDE(At<TVoid>(0x4489a0)()));
 		break;
 	case 20:
-		Both(What, [&] { MouseMove(x, y); }, ORIGINAL_SIDE(At<TInt2Fn>(0x4469b0)(x, y)));
+		ControlBoth(What, [&] { MouseMoveAsWrapped(x, y); }, ORIGINAL_SIDE(At<TInt2Fn>(0x4469b0)(x, y)));
 		break;
 	case 21:
-		Both(What, [&] { HandleEvents(); }, ORIGINAL_SIDE(At<TVoid>(0x44a770)()));
+		ControlBoth(What, [&] { HandleEvents(); }, ORIGINAL_SIDE(At<TVoid>(0x44a770)()));
 		break;
 	case 22:
-		Both(What, [&] { InitWindow(TestWindow, TestExitProgram, TestSetDisplayMode, TestOpenURL); }, ORIGINAL_SIDE(At<void(__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL)));
+		ControlBoth(What, [&] { InitWindow(TestWindow, TestExitProgram, TestSetDisplayMode, TestOpenURL); }, ORIGINAL_SIDE(At<void(__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL)));
 		break;
 	case 26: {
 		// Ten timer ticks after a mouse move: the window under the mouse is told (hover).
 		int TimerTicks = 9 + Random() % 3;
-		Both(What, [&] {
-			MouseMove(x, y);
+		ControlBoth(What, [&] {
+			MouseMoveAsWrapped(x, y);
 			for (int i = 0; i < TimerTicks; i++) {
 				TimerEvent();
 			} }, ORIGINAL_SIDE(At<TInt2Fn>(0x4469b0)(x, y); for (int i = 0; i < TimerTicks; i++) { At<TVoid>(0x4489a0)(); }));
@@ -680,7 +726,7 @@ static void Step(int Round)
 			if (Height >= 0)
 				World[S].Main->Height = Height;
 		}
-		Both(What, [&] { Redraw(Force); }, ORIGINAL_SIDE(At<TBoolFn>(0x449210)(Force)));
+		ControlBoth(What, [&] { Redraw(Force); }, ORIGINAL_SIDE(At<TBoolFn>(0x449210)(Force)));
 	}
 	}
 	ForceReach = false;
@@ -867,7 +913,7 @@ static void EventRound(int Round, int Fail)
 	}
 	sprintf(What, "ProcessEvents of round %d", Round);
 	FailAt = Fail;
-	Both(What, [&] { ProcessEvents(); }, ORIGINAL_SIDE(At<TVoid>(0x4498a0)()));
+	ControlBoth(What, [&] { ProcessEvents(); }, ORIGINAL_SIDE(At<TVoid>(0x4498a0)()));
 	FailAt = 0;
 }
 
@@ -897,7 +943,7 @@ static void DispatchRound(int Round, int Fail)
 	SetReceiveData(IMAGE, NULL, 0);
 	sprintf(What, "ReceivePackets of round %d", Round);
 	FailAt = Fail;
-	Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
+	ControlBoth(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
 	FailAt = 0;
 }
 
@@ -919,7 +965,7 @@ static void DispatchAll()
 			// The patch packets of the login table: ours ends the login, the original patches (issue #75); not
 			// compared.
 			if (!Login || Type < 0x1e || Type > 0x20) {
-				Both(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
+				ControlBoth(What, [&] { ReceivePackets(); }, ORIGINAL_SIDE(At<TVoid>(0x44a900)()));
 				CompareStatics(What);
 			}
 			FreeWorlds();
@@ -934,9 +980,9 @@ static void InitExitRound(const char *Name, int Fail)
 	bool Gamemaster = Random() % 2 == 0;
 	sprintf(What, "InitControl(%d) %s", Gamemaster ? 1 : 0, Name);
 	FailAt = Fail;
-	Both(What, [&] { InitControl(Gamemaster); }, ORIGINAL_SIDE(At<TBoolFn>(0x44b510)(Gamemaster)));
+	ControlBoth(What, [&] { InitControl(Gamemaster); }, ORIGINAL_SIDE(At<TBoolFn>(0x44b510)(Gamemaster)));
 	sprintf(What, "ExitControl %s", Name);
-	Both(What, [&] { ExitControl(); }, ORIGINAL_SIDE(At<TVoid>(0x448e30)()));
+	ControlBoth(What, [&] { ExitControl(); }, ORIGINAL_SIDE(At<TVoid>(0x448e30)()));
 	FailAt = 0;
 }
 
@@ -1005,7 +1051,7 @@ void TestControl(const char *ExePath)
 	FindStatics();
 	// Both sides' statics from the same start.
 	ResetWorlds();
-	Both("InitWindow", [&] { InitWindow(TestWindow, TestExitProgram, TestSetDisplayMode, TestOpenURL); }, ORIGINAL_SIDE(At<void(__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL)));
+	ControlBoth("InitWindow", [&] { InitWindow(TestWindow, TestExitProgram, TestSetDisplayMode, TestOpenURL); }, ORIGINAL_SIDE(At<void(__cdecl *)(HWND, void (*)(), void (*)(), void (*)(int), void (*)(const char *))>(0x448c50)(TestWindow, TestExitProgram, TestCloseProgram, TestSetDisplayMode, TestOpenURL)));
 	FreeWorlds();
 	ResetWorlds();
 	for (int S = 0; S < 2; S++) {

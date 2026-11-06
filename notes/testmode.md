@@ -106,7 +106,7 @@ run (one attempt, a retry with the first attempt kept, two unanswered attempts).
 | PATELLA_FRAME_SLEEP(ms) | Sleep(ms) | WaitForNextFrame of the three engines |
 | PATELLA_GET_CURSOR_POS(Point) | GetCursorPos(Point) | Player.cpp (InitInstance, OnIdle), MainFrm.cpp (OnSetCursor, OnCaptureChanged) |
 | PATELLA_SET_MAIN_TIMER(...) | ::SetTimer(...) | MainFrm.cpp OnCreate (the 100 ms timer of ActionNumber) |
-| PATELLA_TEST_IDLE | nothing (a statement macro without a semicolon, like TBEGIN) | the start of CPlayerApp::OnIdle |
+| PATELLA_TEST_IDLE | nothing (a statement macro without a semicolon) | the start of CPlayerApp::OnIdle |
 | PATELLA_TEST_RSA_BLOCK(Block) | nothing (a statement macro, #22) | Communication.cpp SendLogin, SendGameLogin: the RSA block before RSA.Encrypt |
 | PATELLA_TEST_PACKET_SENT(Data, Size, Padded) | nothing (#22) | Network.cpp SendCommand: the packet complete, before XTEA (or before the unencrypted send) |
 | PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize) | nothing (#22) | Network.cpp PrepareNextPacket: the next packet decrypted |

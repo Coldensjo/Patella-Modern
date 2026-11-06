@@ -19,7 +19,7 @@
 // release or Escape ends the action state, and Control.cpp deletes the menu.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 
 #include "ContextMenus.h"
 #include "ContentWindows.h"

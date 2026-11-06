@@ -6,7 +6,7 @@
 // light) have no line evidence and come first, where the binary has them.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 //
 // Container.h instances of this object: array<TMapPoint> (0x4b0bc0, 0x4b5900),
 // matrix3d<int> (0x4b0d70, 0x4b5b40), matrix<TPathNode> (0x4b1100, 0x4b5e90,
