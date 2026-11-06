@@ -23,9 +23,12 @@ state(): the client state the server's packets lead to, as a JSON-able dict:
 gui(): the window tree under MainWindow and ModalWindow (TComponent: Parent, Next, OffsetX/Y,
 Width/Height; TWindow: FirstChild) as a list of (depth, class, x, y, width, height) with client-area
 coordinates. A component is a window when its vtable slot of TComponent::GetFirstChild (+0x20 in the
-original) is TWindow's `return FirstChild;`: `mov eax, [ecx+24h]; ret` (8b 41 24 c3) in the original
-and the x86 build, `mov rax, [rcx+XXh]; ret` (48 8b 41 XX c3) in an x64 build; TElement's throws "not
-possible". Class names come from Patella's RTTI (MSVC's complete object locator before the vtable:
+original) is TWindow's `return FirstChild;`: in a Patella.exe the function the PDB names
+TWindow::GetFirstChild (after any `jmp rel32` thunk: incremental linking), in every image the code
+`mov eax, [ecx+24h]; ret` (8b 41 24 c3) of the original and the x86 Release build, `mov rax,
+[rcx+XXh]; ret` (48 8b 41 XX c3) of an x64 Release build. A Debug build (/Od) compiles it otherwise
+(this through the stack, /RTC and /JMC code), so only its address identifies it there (issue #88);
+TElement's throws "not possible". Class names come from Patella's RTTI (MSVC's complete object locator before the vtable:
 absolute pointers on x86, image-relative offsets on x64). Tibia.exe has none for these classes: there
 ORIGINAL_VTABLES names the few the session needs, the vtable address stands in for the rest.
 
@@ -241,6 +244,12 @@ LAYOUT_VSLOTS = [
 	("TComponent::GetFirstChild", 0x20),
 ]
 
+# Functions whose address the tools compare with a vtable slot's (Patella.exe's PDB only): the window
+# test of gui() (issue #88: a Debug build's code matches no fixed pattern).
+LAYOUT_FUNCTIONS = [
+	"TWindow::GetFirstChild",
+]
+
 # Tibia.exe has no RTTI for its windows: the vtables of the classes the session driver looks
 # for (comments in src/*.h, or the vtable store in the constructor).
 ORIGINAL_VTABLES = {
@@ -303,7 +312,7 @@ class Layout:
 	sizes, array lengths, vtable slots, the pointer size. Layout.original() is Tibia.exe's,
 	Layout.from_pdb(exe) Patella.exe's from its PDB."""
 
-	def __init__(self, source, pointer_size, globals_, relative, fields, sizes, vslots, kinds):
+	def __init__(self, source, pointer_size, globals_, relative, fields, sizes, vslots, kinds, functions=None):
 		self.source = source
 		self.pointer_size = pointer_size
 		self.globals = globals_    # name -> address (relative: RVA)
@@ -312,6 +321,7 @@ class Layout:
 		self.sizes = sizes         # type -> size
 		self.vslots = vslots       # Type::Function -> offset in the vtable
 		self.kinds = kinds         # path or global -> kind
+		self.functions = functions or {}  # Type::Function -> RVA (a PDB's; absent when inlined everywhere)
 		self.frozen = (pointer_size == 4 and all(fields.get(path) == offset for path, offset, kind in LAYOUT_FIELDS)
 			and all(sizes.get(name) == size for name, size in LAYOUT_SIZES)
 			and all(vslots.get(name) == slot for name, slot in LAYOUT_VSLOTS))
@@ -340,7 +350,7 @@ class Layout:
 			raise ReadError("%s: machine 0x%x, neither x86 nor x64" % (exe_path, machine))
 		pointer_size = 4 if machine == IMAGE_FILE_MACHINE_I386 else 8
 		problems = []
-		globals_, fields, sizes, vslots, kinds = {}, {}, {}, {}, {}
+		globals_, fields, sizes, vslots, kinds, functions = {}, {}, {}, {}, {}, {}
 		with Pdb(exe_path) as pdb:
 			if pdb.pointer_size not in (None, pointer_size):
 				problems.append("pointer size %d in the PDB, %d by the image's machine" % (pdb.pointer_size,
@@ -371,9 +381,16 @@ class Layout:
 					vslots[name] = pdb.vtable_slot(name)
 				except ReadError as e:
 					problems.append(str(e))
+			for name in LAYOUT_FUNCTIONS:
+				try:
+					found = pdb.function_symbol(name)
+					if found:
+						functions[name] = found[0]
+				except ReadError as e:
+					problems.append(str(e))
 		if problems:
 			return None, problems
-		return cls(exe_path, pointer_size, globals_, True, fields, sizes, vslots, kinds), []
+		return cls(exe_path, pointer_size, globals_, True, fields, sizes, vslots, kinds, functions), []
 
 	def off(self, path):
 		return self.fields[path]
@@ -670,6 +687,8 @@ class Client:
 		self.addr = {name: (self.base + value if L.relative else value) for name, value in L.globals.items()}
 		F = L.fields
 		self.window_getfirstchild = window_getfirstchild_code(L.pointer_size, F["TWindow.FirstChild"])
+		rva = L.functions.get("TWindow::GetFirstChild")
+		self.window_getfirstchild_address = self.base + rva if rva is not None else None
 
 	def close(self):
 		if self.handle:
@@ -889,8 +908,21 @@ class Client:
 		original = vtable - self.base + 0x400000
 		return ORIGINAL_VTABLES.get(original, "vt_%x" % original) if not self.rtti else "vt_%x" % original
 
+	def resolve_thunks(self, function, limit=4):
+		"""function after up to `limit` `jmp rel32` thunks (e9 disp32: an incremental link's ILT entries)."""
+		for _ in range(limit):
+			code = self.read(function, 5)
+			if code[0] != 0xe9:
+				break
+			function += 5 + struct.unpack("<i", code[1:5])[0]
+			if self.pointer_size == 4:
+				function &= 0xffffffff
+		return function
+
 	def is_window(self, vtable):
 		function = self.ptr(vtable + self.layout.vslots["TComponent::GetFirstChild"])
+		if self.window_getfirstchild_address is not None and 				self.resolve_thunks(function) == self.window_getfirstchild_address:
+			return True
 		return self.read(function, len(self.window_getfirstchild)) == self.window_getfirstchild
 
 	def gui(self):
@@ -1008,6 +1040,9 @@ def check_layout(exe_path, compare=None, out=print):
 	code = window_getfirstchild_code(layout.pointer_size, layout.fields["TWindow.FirstChild"])
 	original_code = window_getfirstchild_code(4, original.fields["TWindow.FirstChild"])
 	out("code   TWindow::GetFirstChild %s (original %s)" % (code.hex(" "), original_code.hex(" ")))
+	for name in LAYOUT_FUNCTIONS:
+		rva = layout.functions.get(name)
+		out("func   %-38s %s" % (name, "rva 0x%x" % rva if rva is not None else "none (inlined everywhere)"))
 	if compare and code != original_code:
 		mismatches += 1
 	out("checked: %d globals (kind), %d fields, %d sizes, %d vtable slots, 1 code pattern; %s" % (
@@ -1036,7 +1071,7 @@ def self_test(out=print):
 	try:
 		is64 = struct.calcsize("P") == 8
 		client.layout = Layout("self test", 8 if is64 else 4, {}, True, {"TWindow.FirstChild": 0x48 if is64 else 0x24},
-			{}, {}, {})
+			{}, {"TComponent::GetFirstChild": 0x20}, {})
 		client.attach()
 		expect("bitness of this process", client.is64 == is64, "%d-bit" % (64 if client.is64 else 32))
 		base = kernel32.GetModuleHandleW(None)
@@ -1050,10 +1085,46 @@ def self_test(out=print):
 		expect("GetFirstChild pattern (x64, FirstChild 0x48)", client.window_getfirstchild ==
 			(bytes.fromhex("488b4148c3") if is64 else bytes.fromhex("8b4124c3")), client.window_getfirstchild.hex(" "))
 		expect("GetFirstChild pattern (x86, original)", window_getfirstchild_code(4, 0x24) == bytes.fromhex("8b4124c3"))
+		self_test_is_window(client, expect)
 	finally:
 		client.close()
 	out("self test: %d failures" % failures)
 	return failures
+
+
+def self_test_is_window(client, expect):
+	"""is_window() on made-up vtables in this process: a Release body (the pattern), a Debug body (issue #88:
+	only the PDB's address identifies it, directly or through a `jmp rel32` thunk), TElement's body."""
+	size = client.pointer_size
+	first_child = client.layout.fields["TWindow.FirstChild"]
+	# windows-x64-debug's body (/Od): this through the stack, `mov [rsp+8], rcx; push rdi; mov rax, [rsp+10h];
+	# mov rax, [rax+disp8]; pop rdi; ret`
+	debug_body = bytes.fromhex("48894c2408" "57" "488b442410" "488b40%02x" "5f" "c3" % first_child)
+	code = ctypes.create_string_buffer(0x100)
+	release = window_getfirstchild_code(size, first_child)
+	ctypes.memmove(ctypes.addressof(code), release, len(release))
+	ctypes.memmove(ctypes.addressof(code) + 0x20, debug_body, len(debug_body))
+	ctypes.memmove(ctypes.addressof(code) + 0x60, bytes.fromhex("cccccccc"), 4)  # TElement's: not the pattern
+	thunk = 0x80
+	ctypes.memmove(ctypes.addressof(code) + thunk, bytes([0xe9]) + struct.pack("<i", 0x20 - (thunk + 5)), 5)
+	vtables = (ctypes.c_size_t * 16)()
+
+	def vtable_with(function):
+		vtables[0x20 // size] = function
+		return ctypes.addressof(vtables)
+
+	base = ctypes.addressof(code)
+	saved = client.window_getfirstchild_address
+	try:
+		client.window_getfirstchild_address = None
+		ok = [client.is_window(vtable_with(base)), client.is_window(vtable_with(base + 0x20))]
+		expect("is_window: Release body, pattern only", ok == [True, False], str(ok))
+		client.window_getfirstchild_address = base + 0x20
+		ok = [client.is_window(vtable_with(base + 0x20)), client.is_window(vtable_with(base + thunk)),
+			client.is_window(vtable_with(base + 0x60)), client.is_window(vtable_with(base))]
+		expect("is_window: Debug body by address, thunk", ok == [True, True, False, True], str(ok))
+	finally:
+		client.window_getfirstchild_address = saved
 
 
 def main(argv):
