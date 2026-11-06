@@ -10566,3 +10566,7 @@ count of ended rasterizer threads: 21 and then 27 where every device leaves 24. 
   - checking only the total over all devices: it would also lose the per-device check.
 - **The log** (high). The census line also prints how many threads a census found still ending (summed over the
   censuses), so the logs show whether the wait did anything.
+- **Not yet seen working** (November 6, 2026). In the 52 runs after the fix (20 windows-x64, 20 windows-x64-asan, 12
+  under three concurrent ASan loops), no census found a thread still ending, so the wait never ran. The fix follows
+  from Mesa's source (lp_rast.c, lp_rast_destroy) and the sum-preserving counts (21 + 27 = 2 x 24), but is untested
+  against the failure itself; the census line's "still ending" count will show it when it happens.
