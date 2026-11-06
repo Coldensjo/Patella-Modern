@@ -426,6 +426,12 @@ retired, 17,316,040). Tests: tests_core (keys, escaping) and preferences_file (t
 The comparisons compare the options by value (tools/settings_file.py: Tibia.exe's Tibia.cfg against the x64 client's
 Patella.ini); two new deliberate differences (tools/deliberate.py). notes/decisions.md, "Patella.ini as the only
 settings file".
+TIndexedVector over std::vector (Patella-Modern issue #99, branch issue-99, November 6, 2026; M7): Container.h's
+vector<T> is TIndexedVector<T> of src/types/IndexedVector.h, the original's semantics (min..max, growth by block or
+doubling, the init fill, #91's padding-carrying swaps) over a std::vector whose allocator allocates as new T[n]; all 24
+objects and 4 functions' parameters converted, Container.h keeps array, matrix and matrix3d. Golden 17,316,040, 0
+failures on every preset; tests/unit/indexed_vector_test.cpp on every compiler. #100 moves the plain call sites to
+standard containers. notes/decisions.md, "TIndexedVector over std::vector".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
