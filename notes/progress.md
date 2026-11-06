@@ -409,6 +409,16 @@ Map.cpp's reader and writer. New: capture-x86, only the 32-bit patcap.dll for Ti
 by default; the self-hosted workflow replays the frozen corpus and builds capture-x86. Golden 17,316,040 (15,803,218 +
 1,512,822), 0 failures on every preset; the x64 Patella.exe differs from main's only in line-number immediates.
 notes/decisions.md, "The oracle retired".
+
+Patella.ini as the only settings file (Patella-Modern issue #45, branch issue-45, November 6, 2026; M6): every option
+of Tibia.cfg is a key of Patella.ini under Tibia.cfg's name (src/settings/PreferenceKeys.h: flags yes/no, numbers,
+comma lists, quoted texts with `\` escapes, Latin-1 bytes as they are; Hotkey<N>, ContentWindow<n>, Buddy<n>). The
+first start without them imports Tibia.cfg once through the original's reader (ReadTibiaCfg) and writes Patella.ini at
+once; the client never writes Tibia.cfg (the original's writer, WriteTibiaCfg, stays for the golden tests: no check
+retired, 17,316,040). Tests: tests_core (keys, escaping) and preferences_file (the import with the client's own code).
+The comparisons compare the options by value (tools/settings_file.py: Tibia.exe's Tibia.cfg against the x64 client's
+Patella.ini); two new deliberate differences (tools/deliberate.py). notes/decisions.md, "Patella.ini as the only
+settings file".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

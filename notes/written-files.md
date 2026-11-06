@@ -11,12 +11,12 @@ From the sources (every fopen, ofstream, remove and rename in src/):
 
 | File | Written by | When |
 | :--- | :--- | :--- |
-| Tibia.cfg | Preferences.cpp SavePreferences | closing the options dialog, the hotkey dialog, the exit |
+| Tibia.cfg | Tibia.exe only since Patella-Modern issue #45 (D12): its SavePreferences. The x64 client reads it once, the import on its first start without the options in Patella.ini (Preferences.cpp InitPreferences, the original's reader ReadTibiaCfg), and never writes it (a deliberate difference, tools/deliberate.py) | closing the options dialog, the hotkey dialog, a logout, the exit |
 | `<bx><by><bz>.map` (`%03d%03d%02d.map`, 256x256 fields of one floor) | Map.cpp SaveAutomapBlock | a changed automap block leaving the cache of blocks, the exit (ExitMap) |
 | error.txt | Tibia.exe only since Patella-Modern issue #74 (D2): its HandleException appends a report; deleted by its SendErrorReports on entering the game, or its error report dialog's Cancel. The fork's clients write, read and delete none (a deliberate difference, tools/deliberate.py) | a TMyException that reaches InitInstance or Run |
 | `<channel>.txt` | ConsoleWindow.cpp SaveChannel (appends) | "Save Window" in a console tab's menu |
 | Tibia.da_, Tibia.sp_, Tibia.pi_, Patch.ex_; Tibia.bak | Tibia.exe only since Patella-Modern issue #75 (D9): its Script.cpp ApplyPatch / ApplyFullPatch. The fork's clients end the login at a patch packet and write none (a deliberate difference, tools/deliberate.py) | a patch from the login server (0x1e difference patch, 0x1f whole file, 0x20 blocks; Tibia.exe's Communication.cpp ReceivePatch*) |
-| Patella.ini (the x64 client only, Patella-Modern issue #31) | src/vulkan/DeviceSettings.cpp SaveDeviceChoice | a click in the advanced graphics options that changes the graphics device (notes/vulkan.md, "Choosing the device") |
+| Patella.ini (the x64 client only, Patella-Modern issues #31, #45) | src/vulkan/DeviceSettings.cpp SaveDeviceChoice (`Device`); since issue #45 Preferences.cpp SavePreferences (every option Tibia.exe keeps in Tibia.cfg, src/settings/PreferenceKeys.h) | a click in the advanced graphics options that changes the graphics device (notes/vulkan.md, "Choosing the device"); where Tibia.exe writes Tibia.cfg; once at the start when it has no options yet (the import of Tibia.cfg, or the defaults without one) |
 | Tibia.dat, Tibia.spr, Tibia.pic, Patch.exe (replaced) | Tibia.exe only since issue #75: its Script.cpp InstallPatch (remove, rename `_` to the name); then patch.exe after a Tibia.exe patch (Player.cpp Run, `_execl`) | messages 0x41-0x44 after the patch, once the login connection is closed |
 
 Since Patella-Modern issue #64 each of these files except error.txt (a std::ofstream, Player.cpp, until issue #74) is a `TFile`
@@ -49,11 +49,15 @@ python -I tools/compare_files.py --check-route     # the walks against the serve
 `--patella` names the x64 Patella.exe to test (default build\windows-x64\Release\Patella.exe since Patella-Modern
 issue #94, the oracle's 32-bit one before; as compare_traffic.py's; issue #15).
 
-The x64 client's own settings file Patella.ini (issue #31) is not compared: Tibia.exe has none. The report names
-it with its contents (the options scenario's click in OpenGL's place, the x64 client's "CPU" button, writes
-`Device=cpu`). For that click the run folder of an x64 client also gets the CPU driver next to it
+The x64 client's settings file Patella.ini (issues #31, #45) holds the options Tibia.exe writes into Tibia.cfg, and
+the x64 client writes no Tibia.cfg (issue #45, D12). So Tibia.cfg leaves the byte comparison (tools/deliberate.py's
+files) and the options are compared by value (tools/settings_file.py compare_options): Tibia.exe's Tibia.cfg (the one
+it wrote; the run's, compare_traffic.py's, when it wrote none) against the x64 client's Patella.ini, which it must
+have written (its start imports the run's Tibia.cfg); the options scenario also compares the copies after the options
+dialog that way. Patella.ini's own keys are not compared (the options scenario's click in OpenGL's place, the x64
+client's "CPU" button, writes `Device=cpu`). For that click the run folder of an x64 client also gets the CPU driver next to it
 (vulkan_lvp.dll, lvp_icd.x86_64.json from the client's build folder, copied in every scenario's preparation):
-without it the CPU button is disabled and Tibia.cfg would keep `Engine = 2` where Tibia.exe writes 1.
+without it the CPU button is disabled and the x64 client would keep `Engine` 2 where Tibia.exe writes 1.
 
 The test server must be stopped; the script starts it for the one live recording and stops it (a clean stop
 saves, as always) and puts the test characters' player files back, as compare_traffic.py does. Everything

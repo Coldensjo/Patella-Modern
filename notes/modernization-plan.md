@@ -106,7 +106,7 @@ client_state.py reads Tibia.exe only, and patcap.c is built for Tibia.exe alone 
 | Tier | Artefact | Checked by | Kept |
 |---|---|---|---|
 | A | Packets sent and their order; the client state the server's packets lead to | `compare_traffic.py`, and the reference recordings on Linux (4.4) | always, on every target |
-| A | Files the client writes: Tibia.cfg, `*.map`, saved channels, patched files | `compare_files.py`, reference recordings | always |
+| A | Files the client writes: the options (Tibia.cfg; since #45 the x64 client's Patella.ini, compared with Tibia.exe's Tibia.cfg by value, D12), `*.map`, saved channels, patched files (until #75) | `compare_files.py`, reference recordings (`tools/settings_file.py` for the options) | always |
 | A | Rendered frames | `compare_rendering.py` and the reference frames (4.5) | always; exact, apart from the light overlay (6.1) |
 | A | User-visible text, dialogs, keyboard and mouse handling | the GUI tree of the state dump, frames | always, apart from deliberate changes (the engine buttons become a graphics device choice, 6.3) |
 | B | Function-level results against the original machine code | `difftest` (oracle-x86), then the golden corpus | difftest until M6 (gone with #94); the golden corpus (frozen, #93) remains, on every target |
@@ -358,7 +358,8 @@ The graphics options dialog has three engine buttons (DirectX 5, DirectX 9, Open
 engine number. Both are tier A today. With one engine, the buttons become a **graphics device** choice:
 "Automatic", one entry per Vulkan GPU found (useful on laptops with two GPUs), and "CPU (compatibility)".
 The choice is stored in the fork's own settings file (D12). Tibia.cfg keeps an engine number in the
-original's range, so it stays valid for Tibia.exe. This is a recorded exception to tier A, and the dialog's
+original's range, so it stays valid for Tibia.exe (since #45 the x64 client keeps that number as Patella.ini's
+`Engine` and writes no Tibia.cfg). This is a recorded exception to tier A, and the dialog's
 reference frames are re-recorded once.
 
 ---
@@ -639,7 +640,8 @@ One platform layer for both operating systems, with **SDL3** (D3) for the things
   drop-in (syntax, speed, exact matching behaviour).
 - **Files and paths:** `std::filesystem`; the data files are found next to the executable or in a configured
   directory, with case-insensitive lookup of the original names on Linux. Tibia.cfg's location stays next to
-  the data by default (portable), with an XDG option on Linux (D4).
+  the data by default (portable), with an XDG option on Linux (D4); since #45 that is Patella.ini's (D12), and
+  Tibia.cfg is only read, once, for the import.
 
 Exit: the Linux client logs into the test server and plays the scripted sessions; tier A green on Windows
 x64 and Linux x64 against the reference recordings; the Vulkan engine passes the reference frames on Linux
@@ -727,7 +729,7 @@ changes, each recorded in `notes/decisions.md`. All were adopted on November 2, 
 | D9 | **Remove the built-in patcher.** A login server can send patches (packets 0x1e, 0x1f, 0x20) that rewrite Tibia.dat, Tibia.spr, Tibia.pic, Patch.exe and Tibia.exe (as Tibia.bak), after which the client runs Patch.exe. Any server you log into can replace the client's files and have a program run | Removes a remote code execution path by design. CipSoft's patch servers are gone; data files are updated by hand | Communication.cpp `ReceivePatch*`, Script.cpp `ApplyPatch`/`InstallPatch`, Player.cpp's `_execl`, the update dialog, `compare_files.py`'s patch sessions | Yes, in M5 with error.txt. A patch packet ends the login with a message ("This server wants to update the client"). Done in issue #75 (notes/decisions.md, "The built-in patcher removed"): the message in the login error dialog ("Sorry") |
 | D10 | **Pixel-perfect scaling and high-DPI.** The client draws at fixed pixel sizes, which look tiny on high-resolution screens | Draw everything at the original size into an off-screen canvas and scale it to the window by a whole number (2x, 3x...) with sharp pixels, or smoothly as an option | The renderer design (D5): the canvas has to exist from the start; tests compare the 1x canvas | Yes. Integer scaling by default |
 | D11 | **Borderless fullscreen** instead of changing the monitor's display mode (`ChangeDisplaySettings`) | Mode changes are slow, rearrange other windows and break multi-monitor setups. With D10, fullscreen is a borderless window at the desktop's resolution | `SurfaceDX`/`DX9` display modes, the graphics options dialog (the resolution list becomes a scale choice) | Yes. Drop exclusive display modes |
-| D12 | **A settings file of the fork's own** (for example `Patella.ini`, plain `key=value`) for everything new: servers and key (D8), scale (D10), engine, vsync, data folder, log level | Tibia.cfg keeps exactly the original's format, so it stays readable by Tibia.exe and tier A keeps comparing it byte for byte | Preferences.cpp, M2 | Yes. A small parser of our own, no dependency |
+| D12 | **A settings file of the fork's own**, `Patella.ini` (plain `key=value`): everything new (servers and key (D8), scale (D10), the graphics device, vsync, data folder, log level) and, since M6 (#45, the owner's decision of November 3, 2026), every option the original keeps in Tibia.cfg, under Tibia.cfg's names (src/settings/PreferenceKeys.h). The x64 client imports an existing Tibia.cfg once (the first start without the options in Patella.ini) and never writes Tibia.cfg | Until M6 Tibia.cfg kept exactly the original's format, so Tibia.exe could read it and tier A compared it byte for byte; after the oracle's retirement one file is simpler for the user, and tier A compares the options by value (Tibia.exe's Tibia.cfg against the x64 client's Patella.ini, `tools/settings_file.py`) | Preferences.cpp, src/settings, M2 (#31), M6 (#45) | Yes. A small parser of our own, no dependency |
 | D13 | **Frame pacing:** vsync by default, the original's frame-rate slider kept as a cap | Smooth motion on 60-240 Hz screens; game timing is in milliseconds and does not depend on the frame rate | `WaitForNextFrame`, the SDL engine (M8) | Yes |
 | D14 | **Finding the data files:** the packages contain no CipSoft files; the client looks next to itself, then in the folder from D12 or `--data <folder>`, and otherwise asks once | Needed for Linux packages (AppImage) and for keeping CipSoft's files out of anything we build | M8 file layer | Yes |
 | D15 | **One namespace, the original's names.** Everything in `namespace patella`; the TitleCase/`T`-prefix style stays | CipSoft's `vector`/`array` no longer collide with `std::`; renaming everything to another style later would be churn with no benefit, and the notes keep matching the code | M3 (style), M7 (namespace) | Yes |

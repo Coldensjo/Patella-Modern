@@ -397,7 +397,7 @@ checks on a hidden desktop").
 | Session | From | Server side | Checkpoints |
 | :--- | :--- | :--- | :--- |
 | traffic | compare_rendering.py's windowed scenes, which contain compare_traffic.py's session (session_client.run_session) | compare_traffic.py's live session of Tibia.exe with the helper (the trade) | 26: every scene, state and frame |
-| options | compare_files.py options_session | none | start, after-options (state; Tibia.cfg saved); Tibia.cfg on exit |
+| options | compare_files.py options_session | none | start, after-options (state; Tibia.cfg saved: the test client's run saves Patella.ini there, issue #45); Tibia.cfg on exit |
 | walk | compare_files.py walk_session (19 actions, automap marks, the saved channel) | compare_files.py's live walk (record_walk) | every settle: 23 |
 | error | compare_files.py: the game login, then 0xff | crafted from the walk (craft_error) | start; the message box; exit code 1 (Tibia.exe's error.txt and its box's second sentence are deliberate differences, issue #74) |
 
@@ -564,11 +564,16 @@ b. states: every state dump against Tibia.exe's at the same checkpoint: "state" 
 c. frames: every frame against Tibia.exe's: exact, up to 2 per channel on the pixels the Vulkan engine marks as
    device-filtered (the user's decision of November 3, 2026), the recorded rectangles masked (the measured
    frame rate; the device choice of issue #31: compare_rendering.py's device_choice_mask);
-d. files: the files written and removed (byte for byte; Tibia.cfg, the *.map files, Default.txt, the patched
+d. files: the files written and removed (byte for byte; the *.map files, Default.txt, the patched
    files, Tibia.bak), the saved files, the message boxes (caption and text), the exit code. The deliberate
    differences of tools/deliberate.py are expected and listed (issue #74: Tibia.exe's error.txt is not the test
-   client's, and the critical error box's text is its first sentence).
-   Patella.ini (the x64 client's own, issue #31) is listed, not compared.
+   client's, and the critical error box's text is its first sentence; issue #45: Tibia.exe's Tibia.cfg is the
+   test client's Patella.ini). The options (issue #45): the test client writes Patella.ini, never Tibia.cfg, so
+   Tibia.exe's Tibia.cfg (files\, or Tibia.cfg.start when it wrote none) is compared with the client's Patella.ini
+   by value (tools/settings_file.py), and so is each saved Tibia.cfg with the client's saved Patella.ini: the run's
+   script is the reference's with `save Tibia.cfg` as `save Patella.ini` (<out>\<session>\session.script). The
+   state dumps hold no options (their keys are client_state.py's, check h, and the frozen reference states have
+   none), so the options are compared through the files written at the same checkpoints.
 
 `--check-only` compares the results in --out again (any platform). Report: <out>\report.txt; exit code 0 when
 every session matches, 1 on a difference, a stale session or a refused manifest (above, issue #93), 2 when a run
