@@ -12144,7 +12144,9 @@ Logs: build\logs\issue-94 of the branch's worktree; every golden run replayed ma
   with an unreadable capture after "walk west" and the client gone; the vulkan-cpu pass compared all 26 scenes,
   identical outside the masks (Tibia.exe's second run under the same DLL complete), and the GPU pass's 11 scenes
   before the failure identical. #92 saw the first kind once. Not run a third time (the rule: one rerun); "Needs the
-  user" in the report.
+  user" in the report. capture-x86's patcap.dll against the oracle preset's of main (pecompare): .text, .data, .reloc
+  identical; only the import table's names are in another order (CMake's default libraries before the target's in the
+  link), so the DLL's code is not what changed.
 - pecompare of the x64 Release Patella.exe, main ee1705c and the branch built at the same path: the same 14,024
   functions (dumpbin /disasm with the PDBs), the same sizes of every section; .data, .pdata, .rsrc, .reloc identical,
   .rdata identical apart from the link stamps; 344 functions differ in 604 instructions, every one a `mov dword ptr
