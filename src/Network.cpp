@@ -26,23 +26,12 @@
 #include <cstdlib>
 #include <cstring>
 
-// The socket of a TNetwork (issue #105: the events call the TNetwork that made it, where they read Network.cpp's
-// globals).
-class TSocket : public CAsyncSocket {
-public:
-	explicit TSocket(patella::TNetwork &Owner) : Network(Owner) {}
-	void OnReceive(int ErrorCode) override { Network.OnReceive(*this, ErrorCode); }
-	void OnSend(int /*ErrorCode*/) override {} // 0x4eac00, an empty function shared by several vtables
-	void OnConnect(int ErrorCode) override { Network.OnConnect(ErrorCode); }
-	void OnClose(int /*ErrorCode*/) override { Network.OnClose(); }
+// The data is TNetwork's (Network.h, issue #105), in the original's order with its addresses. The socket is the
+// platform's (issue #109: ISocket, platform/Socket.h; the original's CAsyncSocket class of this file is Win32's
+// TSocket, platform/Win32Platform.h), and its events come to TNetwork's OnConnect, OnReceive and OnClose.
 
-private:
-	patella::TNetwork &Network;
-};
-
-// The data is TNetwork's (Network.h, issue #105), in the original's order with its addresses.
-
-patella::TNetwork::TNetwork(TPreferences &PreferencesRef, TNetworkSession &SessionRef) : Preferences(PreferencesRef), Session(SessionRef)
+patella::TNetwork::TNetwork(TPreferences &PreferencesRef, TNetworkSession &SessionRef, platform::ISocket &SocketsRef)
+	: Preferences(PreferencesRef), Session(SessionRef), Sockets(SocketsRef)
 {
 }
 
@@ -222,7 +211,7 @@ void patella::TNetwork::SendCommand(bool Encrypt)
 		SendBuffer.PutWord(0);
 		SendBuffer.PutWord((uint16)Size);
 		PATELLA_TEST_PACKET_SENT(SendData, Size, 0)
-		Socket->Send(&SendData[2], Size + 2, 0);
+		Sockets.Send(Socket, &SendData[2], Size + 2);
 		return;
 	}
 	int Length = Size + 2;
@@ -240,7 +229,7 @@ void patella::TNetwork::SendCommand(bool Encrypt)
 	} catch (...) {
 		TERROR("Symmetric encryption failed with unknown exception");
 	}
-	Socket->Send(SendData.data(), Length + 2, 0);
+	Sockets.Send(Socket, SendData.data(), Length + 2);
 }
 
 // 0x4cc130, lines 391-410. Drops the packet already read, then decrypts the next
@@ -428,11 +417,11 @@ void patella::TNetwork::GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>
 bool patella::TNetwork::ResolveHostname(const char *Hostname)
 {
 	PATELLA_ASSERT(Hostname!=NULL);
-	HostnameRequest = WSAAsyncGetHostByName(NetworkWindow, WM_USER + 1, Hostname,
-		HostnameResolveBuffer, HostnameResolveBufferSize);
+	HostnameRequest = Sockets.ResolveHostname(NetworkWindow, WM_USER + 1, Hostname, HostnameResolveBuffer,
+		HostnameResolveBufferSize);
 	if (HostnameRequest == nullptr) {
 		char *Message = new char[1024];
-		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), WSAGetLastError(), 1);
+		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), Sockets.LastError(), 1);
 		Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		Session.SetConnectionState(0);
 		return false;
@@ -446,7 +435,7 @@ bool patella::TNetwork::ResolveHostname(const char *Hostname)
 const char *patella::TNetwork::GetResolvedIPAddress() const
 {
 	PATELLA_ASSERT(HostnameResolveBuffer!=NULL);
-	return inet_ntoa(*reinterpret_cast<in_addr *>(reinterpret_cast<HOSTENT *>(HostnameResolveBuffer)->h_addr_list[0]));
+	return Sockets.ResolvedAddress(HostnameResolveBuffer);
 }
 
 // 0x4cee30, line 661. Returns 0 or a WinSock error code.
@@ -454,10 +443,10 @@ int patella::TNetwork::CreateSocket()
 {
 	if (Socket != nullptr)
 		Disconnect(false);
-	Socket = new TSocket(*this);
-	if (!Socket->Create(0, SOCK_STREAM, FD_READ | FD_WRITE | FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE, nullptr)) {
-		const int Error = WSAGetLastError();
-		delete Socket;
+	Socket = Sockets.New(*this);
+	if (!Sockets.Create(Socket)) {
+		const int Error = Sockets.LastError();
+		Sockets.Delete(Socket);
 		Socket = nullptr;
 		Session.SetConnectionState(0);
 		return Error;
@@ -469,10 +458,10 @@ int patella::TNetwork::CreateSocket()
 int patella::TNetwork::ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
 {
 	PATELLA_ASSERT(IPAddress!=NULL);
-	if (!Socket->Connect(IPAddress, Port)) {
-		if (WSAGetLastError() != WSAEWOULDBLOCK) {
-			const int Error = WSAGetLastError();
-			delete Socket;
+	if (!Sockets.Connect(Socket, IPAddress, Port)) {
+		if (Sockets.LastError() != WSAEWOULDBLOCK) {
+			const int Error = Sockets.LastError();
+			Sockets.Delete(Socket);
 			Socket = nullptr;
 			Session.SetConnectionState(0);
 			return Error;
@@ -502,21 +491,21 @@ void patella::TNetwork::SetSymmetricKey(const uint8 *Key)
 void patella::TNetwork::Disconnect(bool force)
 {
 	if (force || Session.GetConnectionState() == 1) {
-		WSACancelAsyncRequest(HostnameRequest);
+		Sockets.CancelResolve(HostnameRequest);
 		HostnameRequest = nullptr;
 	}
 	if (Socket != nullptr) {
-		shutdown(Socket->m_hSocket, SD_SEND);
+		Sockets.Shutdown(Socket, platform::TShutdown::Send);
 		TFixedString<256> Buffer;
 		int Count;
 		do {
-			Count = Socket->Receive(Buffer, sizeof(Buffer), 0);
+			Count = Sockets.Receive(Socket, Buffer, sizeof(Buffer));
 			if (Count == 0)
 				break;
 		} while (Count != SOCKET_ERROR);
-		shutdown(Socket->m_hSocket, SD_BOTH);
-		Socket->Close();
-		delete Socket;
+		Sockets.Shutdown(Socket, platform::TShutdown::Both);
+		Sockets.Close(Socket);
+		Sockets.Delete(Socket);
 		Socket = nullptr;
 		TimeoutLimit = 0;
 		TimeoutCounter = 0;
@@ -610,11 +599,11 @@ void patella::TNetwork::OnConnect(int ErrorCode)
 
 // 0x4ce530, line 885. vtable +0x1c. Appends received bytes and calls the
 // receive handler once at least one complete packet is buffered.
-void patella::TNetwork::OnReceive(TSocket &Receiver, int ErrorCode)
+void patella::TNetwork::OnReceive(platform::TSocket &Receiver, int ErrorCode)
 {
 	if (ErrorCode != 0)
 		return;
-	const int Count = Receiver.Receive(&ReceiveData[ReceiveDataSize], sizeof(ReceiveData) - ReceiveDataSize, 0);
+	const int Count = Sockets.Receive(&Receiver, &ReceiveData[ReceiveDataSize], sizeof(ReceiveData) - ReceiveDataSize);
 	if (Count == 0 || Count == SOCKET_ERROR)
 		return;
 	ReceiveDataSize += Count;
@@ -642,13 +631,13 @@ void patella::TNetwork::OnClose()
 void patella::TNetwork::ShutdownConnection() const
 {
 	if (Socket != nullptr)
-		shutdown(Socket->m_hSocket, SD_BOTH);
+		Sockets.Shutdown(Socket, platform::TShutdown::Both);
 }
 
 // 0x4ce930, lines 932-934
 void patella::TNetwork::InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*CloseHandler)())
 {
-	if (!AfxSocketInit(nullptr))
+	if (!Sockets.Startup())
 		throw TProgramError{PROGRAM_ERROR::SOCKET_INIT};
 	PATELLA_ASSERT(ConnectHandler!=NULL);
 	PATELLA_ASSERT(ReceiveHandler!=NULL);
@@ -668,7 +657,7 @@ void patella::TNetwork::InitNetwork(void (*ConnectHandler)(), void (*ReceiveHand
 // 0x4cec70, line 961
 void patella::TNetwork::ExitNetwork()
 {
-	delete Socket;
+	Sockets.Delete(Socket);
 	Socket = nullptr;
 	if (HostnameResolveBuffer != nullptr)
 		free(HostnameResolveBuffer);

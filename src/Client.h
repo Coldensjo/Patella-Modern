@@ -8,7 +8,8 @@
 // Today: TPreferences (Preferences.cpp, issue #104), TNetwork (Network.cpp), TMapState (the game state: Objects.cpp,
 // Map.cpp, Creatures.cpp, Inventory.cpp, issue #106; MapState.h), TCommunication (Communication.cpp and Status.cpp's
 // session, issue #105) and TGUI (Talk.cpp, Help.cpp, Status.cpp's user interaction and the windows' data, issue
-// #107; GUI.h). Next: the platform's services as interfaces (#109).
+// #107; GUI.h). The platform's services are interfaces (issue #109, platform/Platform.h): TClient takes them in its
+// constructor and passes them on (TPreferences the file system, TNetwork the socket).
 //
 // The bridge: during the transition there is one TClient, made on first use by bridge::Client() (Client.cpp), and
 // each subsystem's header declares an accessor of its own (Preferences.h: bridge::Preferences()) for the free
@@ -23,12 +24,14 @@
 #include "MapState.h"
 #include "Network.h"
 #include "Preferences.h"
+#include "platform/Platform.h"
 
 namespace patella {
 
 class TClient {
 public:
-	TClient();
+	// The platform's services (issue #109; platform/Platform.h), which the subsystems take in their constructors.
+	explicit TClient(platform::TPlatform &Platform);
 	TClient(const TClient &) = delete;
 	TClient &operator=(const TClient &) = delete;
 	TClient(TClient &&) = delete;
@@ -44,7 +47,8 @@ public:
 };
 
 namespace bridge {
-// The one TClient of the transition, made on first use (its members start as the original's statics did).
+// The one TClient of the transition, made on first use (its members start as the original's statics did), on the
+// process's platform (platform::Platform(), the entry point's executable's).
 TClient &Client();
 } // namespace bridge
 

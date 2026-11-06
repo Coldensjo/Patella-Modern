@@ -13,6 +13,7 @@
 
 #include "common.h" // IWYU pragma: keep (first: it configures the CRT for the C headers of types/FixedString.h)
 #include "types/IndexedVector.h"
+#include "platform/FileSystem.h"
 #include "settings/PreferenceKeys.h"
 #include "types/FixedString.h"
 #include <cstddef>
@@ -84,10 +85,11 @@ protected:
 
 // Preferences.cpp's data and functions (issue #104): the globals of the original (0x719e70-0x71c44f, 0x5c2558) are
 // the members, with the same initial values (the others 0, as the original's .bss), and the functions the members
-// of the same names. The ones that reach Talk's lists take them as Lists.
+// of the same names. The ones that reach Talk's lists take them as Lists. The files are the platform's (issue #109:
+// IFileSystem, platform/FileSystem.h; Tibia.cfg's existence; Script.cpp opens the file itself).
 class TPreferences {
 public:
-	TPreferences() = default;
+	explicit TPreferences(patella::platform::IFileSystem &FileSystemRef) : FileSystem(FileSystemRef) {}
 	TPreferences(const TPreferences &) = delete;
 	TPreferences &operator=(const TPreferences &) = delete;
 	TPreferences(TPreferences &&) = delete;
@@ -232,6 +234,8 @@ private:
 	TIndexedVector<int> OpenChannels{0, 9, 10};                  // 0x71c368, initialiser at 0x55a090
 	TIndexedVector<TBuddy> Buddies{0, 9, 10};                    // 0x71c388, initialiser at 0x55a0b0
 	TIndexedVector<int> KnownHints{0, 9, 10};                    // 0x71c430, initialiser at 0x55a0d0
+
+	patella::platform::IFileSystem &FileSystem;
 
 	// The arrays std::arrays (issue #60).
 	static_assert(sizeof(SkillBars) == SKILLS && sizeof(BuddySortmethods) == 3 * sizeof(int)

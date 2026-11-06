@@ -36,11 +36,9 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <vector>
 
 
@@ -1337,8 +1335,7 @@ void TPreferences::InitPreferences(TTalkLists &Lists)
 		PreferencesLoaded = true;
 		return;
 	}
-	std::error_code Error;
-	const bool Import = std::filesystem::exists("Tibia.cfg", Error);
+	const bool Import = FileSystem.Exists("Tibia.cfg");
 	ReadTibiaCfg(Lists);
 	if (Import)
 		patella::log::Info("{}: the options imported from Tibia.cfg (Tibia.cfg is not written)", FileName);

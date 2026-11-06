@@ -17,6 +17,7 @@
 #include "Status.h"
 #include "Talk.h"
 #include "common.h"
+#include "platform/Platform.h"
 
 namespace patella {
 
@@ -60,13 +61,15 @@ TNetworkSession &StatusCppSession()
 
 } // namespace
 
-TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network, MapState), GUI(ControlCppController())
+TClient::TClient(platform::TPlatform &Platform)
+	: Preferences(Platform.FileSystem), Network(Preferences, StatusCppSession(), Platform.Socket),
+	  Communication(Network, MapState), GUI(ControlCppController())
 {
 }
 
 TClient &bridge::Client()
 {
-	static TClient Instance;
+	static TClient Instance(platform::Platform());
 	return Instance;
 }
 

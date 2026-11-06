@@ -12,6 +12,7 @@
 #include "TXTEA.h"
 #include "Utils.h"
 #include "compat/span.h"
+#include "platform/Socket.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
@@ -39,9 +40,6 @@ static_assert(offsetof(TServer, Address) == 0x00 && offsetof(TServer, Port) == 0
 		&& offsetof(TServer, Available) == 0x68 && offsetof(TServer, Resolved) == 0x69
 		&& offsetof(TServer, ErrorCode) == 0x6c,
 	"TServer's fields");
-
-// Network.cpp's CAsyncSocket (its events call the TNetwork that made it).
-class TSocket;
 
 namespace patella {
 
@@ -75,9 +73,13 @@ protected:
 // the same names. The data is public: the golden Network test reads and sets every member (network_tests.cpp's
 // views), the MainFrm and Control tests PacketHeader, Reconnect and ReconnectTimeout, Control.cpp the last two,
 // MainFrm.cpp and Player.cpp PacketHeader.
-class TNetwork {
+//
+// Issue #109: the socket and the name resolution are the platform's ISocket (platform/Socket.h), which TNetwork takes
+// in its constructor and calls where it called WinSock and CAsyncSocket; the connection's events come to it as
+// ISocketEvents (OnConnect, OnReceive, OnClose: the TSocket's of Network.cpp until then).
+class TNetwork final : public platform::ISocketEvents {
 public:
-	TNetwork(TPreferences &PreferencesRef, TNetworkSession &SessionRef);
+	TNetwork(TPreferences &PreferencesRef, TNetworkSession &SessionRef, platform::ISocket &SocketsRef);
 	TNetwork(const TNetwork &) = delete;
 	TNetwork &operator=(const TNetwork &) = delete;
 	TNetwork(TNetwork &&) = delete;
@@ -127,9 +129,9 @@ public:
 	void ExitNetwork();
 
 	// The socket's events: TSocket's OnConnect, OnReceive and OnClose (0x4cf5e0, 0x4ce530, 0x4ce750) call these.
-	void OnConnect(int ErrorCode);
-	void OnReceive(TSocket &Receiver, int ErrorCode);
-	void OnClose();
+	void OnConnect(int ErrorCode) override;
+	void OnReceive(platform::TSocket &Receiver, int ErrorCode) override;
+	void OnClose() override;
 
 	// Data, in the original's .data/.bss order.
 	int HostnameResolveBufferSize = MAXGETHOSTSTRUCT; // 0x5c22c4, initialised to 0x400
@@ -152,7 +154,7 @@ public:
 	void (*CloseCallback)(){};                          // 0x719d44
 	void (*ReceiveCallback)(){};                        // 0x719d48
 	void (*ConnectCallback)(){};                        // 0x719d4c
-	TSocket *Socket{};                                  // 0x719d50
+	platform::TSocket *Socket{};                        // 0x719d50, the platform's connection (issue #109)
 	int TimeoutCounter{};                               // 0x719d54
 	int TimeoutLimit{};                                 // 0x719d58, in CheckConnectionTimeout calls
 	TWriteBuffer SendBuffer{SendData};                  // 0x719d5c, initialiser at 0x559fd0
@@ -163,6 +165,7 @@ public:
 private:
 	TPreferences &Preferences;
 	TNetworkSession &Session;
+	platform::ISocket &Sockets;
 
 	// The arrays std::arrays (issue #60).
 	static_assert(sizeof(Servers) == NUMBEROFSERVER * sizeof(TServer) && sizeof(ReceiveData) == 0x4000

@@ -42,6 +42,7 @@
 #include "GUI.h"
 #include "common.h"
 #include "compat/span.h"
+#include "platform/Platform.h"
 #include "types/File.h"
 #include "types/FixedString.h"
 #include <sstream>
@@ -1884,11 +1885,11 @@ bool TConsoleWindow::SaveChannel() const
 	TFixedString<1024> FileName;
 	FileName.Format("{}.txt", CurrentTab->getCaption());
 	TFile File;
-	if (!File.Open(FileName, TFile::TAccess::Append, TFile::TContent::Text))
+	if (!patella::platform::Platform().FileSystem.Open(File, FileName, TFile::TAccess::Append, TFile::TContent::Text))
 		return false;
 	const TTalkBuffer *TextBuffer = GetTextBuffer();
 	PATELLA_ASSERT(TextBuffer!=NULL);
-	const std::int64_t Now = PATELLA_TIME(nullptr);
+	const std::int64_t Now = patella::platform::Platform().Clock.WallSeconds();
 	// ctime's text, the day as MSVC 7.1 writes it, of the 64-bit time (issue #62: after 2038 too, where the
 	// original's 32-bit time had none); where there is none (before 1970), printf wrote "(null)"
 	TCRT71TimeText Stamp;

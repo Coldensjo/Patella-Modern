@@ -2,9 +2,9 @@
 //
 // The client reads three clocks: timeGetTime (sysinc.cpp GetMilliseconds and the seed of rand, the
 // engines' frame timer), the wall clock (time, 64 bits since issue #62: talk line stamps, skull times,
-// saved channels) and the frame timer's Sleep (WaitForNextFrame). The test build (PatellaTest.exe)
-// sends all three through one IClock (src/TestHooks.h); the product and oracle builds call the system
-// functions directly and contain none of this.
+// saved channels) and the frame timer's Sleep (WaitForNextFrame). Since issue #109 they are the platform's
+// IClock (src/platform/Clock.h); the test build's (PatellaTest.exe, TestModeWin32.cpp's Platform()) is the
+// virtual clock below with a script, Win32's without one.
 //
 // TVirtualClock is the clock of a scripted run: it starts where tools/capture/patcap.c's virtual
 // clock starts (timeGetTime 100000 at the first call, the wall clock at 2026-11-02 12:00:00 UTC), so
@@ -12,6 +12,8 @@
 // (TestModeWin32.cpp, InputScript.h). Portable: no platform header.
 
 #pragma once
+
+#include "platform/Clock.h"
 
 #include <cstdint>
 
@@ -23,22 +25,8 @@ inline constexpr std::int64_t VirtualStartWallSeconds = 1793620800; // 2026-11-0
 // The main frame's timer (MainFrm.cpp OnCreate: SetTimer id 1, 100 ms): one tick of ActionNumber.
 inline constexpr std::uint32_t TickMilliseconds = 100;
 
-class IClock {
-public:
-	IClock() = default;
-	IClock(const IClock &) = delete;
-	IClock &operator=(const IClock &) = delete;
-	IClock(IClock &&) = delete;
-	IClock &operator=(IClock &&) = delete;
-	virtual ~IClock() = default;
-
-	// timeGetTime: milliseconds, wrapping at 2^32.
-	[[nodiscard]] virtual std::uint32_t Milliseconds() = 0;
-	// The wall clock: seconds since 1970-01-01 00:00:00 UTC.
-	[[nodiscard]] virtual std::int64_t WallSeconds() = 0;
-	// The frame timer's wait (WaitForNextFrame) of Duration milliseconds.
-	virtual void FrameWait(std::uint32_t Duration) = 0;
-};
+// The interface (issue #109: the platform's).
+using patella::platform::IClock;
 
 class TVirtualClock final : public IClock {
 public:

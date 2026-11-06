@@ -12,18 +12,14 @@
 #include "sysinc.h"
 #include "common.h"
 #include "compat/msvc_io.h"
+#include "platform/Platform.h"
 #include "types/Cp1252.h"
 #include <array>
-#include <mmsystem.h>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <string_view>
-
-#if defined(_MSC_VER)
-#pragma comment(lib, "winmm.lib")
-#endif
 
 // The other half of Player.cpp's XOR-encoded window title ("Tibia   ") and
 // class name ("TibiaClient"); the keys are Player.cpp's. First in this
@@ -35,16 +31,16 @@ const std::array<int, 11> ClassNameCode = {57, 193, 225, 58, 140, 118, 195, 214,
 namespace {
 
 // Data, in .bss order.
-char *ClipboardBuffer;                        // 0x71dbc4
-unsigned int ClipboardBufferSize;             // 0x71dbc8
-int StartTime = (int)PATELLA_TIME_GET_TIME(); // 0x71dbcc, initialiser at 0x55a130
+char *ClipboardBuffer;                                                   // 0x71dbc4
+unsigned int ClipboardBufferSize;                                        // 0x71dbc8
+int StartTime = (int)patella::platform::Platform().Clock.Milliseconds(); // 0x71dbcc, initialiser at 0x55a130
 
 } // namespace
 
 // 0x4fcb90
 int GetMilliseconds()
 {
-	return (int)PATELLA_TIME_GET_TIME() - StartTime;
+	return (int)patella::platform::Platform().Clock.Milliseconds() - StartTime;
 }
 
 // 0x4fcba0
@@ -141,7 +137,7 @@ void InitSysinc()
 {
 	ClipboardBuffer = new char[1024];
 	ClipboardBufferSize = 1024;
-	srand(PATELLA_TIME_GET_TIME());
+	srand(patella::platform::Platform().Clock.Milliseconds());
 }
 
 // 0x4fcd30. The buffer comes from new but is released with free.

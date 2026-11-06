@@ -45,6 +45,10 @@ set(PATELLA_HEADERS_CORE
 	log/Log.h
 	log/LogSettings.h
 	MapPoint.h
+	platform/Clock.h
+	platform/FileSystem.h
+	platform/Platform.h
+	platform/Socket.h
 	settings/PreferenceKeys.h
 	settings/Settings.h
 	Skins.h
@@ -108,6 +112,7 @@ set(PATELLA_HEADERS_CLIENT
 	TestHooks.h
 	Text.h
 	graphics.h
+	platform/Win32Platform.h
 	sysinc.h
 	res/resource.h)
 # The x64 client's Vulkan engine (patella_render_vulkan and TSurfaceVulkan, cmake/Vulkan.cmake).
