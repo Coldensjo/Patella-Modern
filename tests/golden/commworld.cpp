@@ -2443,8 +2443,8 @@ void InstallFakes(const TFake *Fakes, int Count)
 // The original's MainWindow and ModalWindow: the test still sets them as the oracle does.
 static TCtlMainWindow *ImageMainWindow;
 static TWindow *ImageModalWindow;
-TCtlMainWindow *&SideMainWindow(int S) { return S == IMAGE ? ImageMainWindow : (TCtlMainWindow *&)MainWindow; }
-TWindow *&SideModalWindow(int S) { return S == IMAGE ? ImageModalWindow : ModalWindow; }
+TCtlMainWindow *&SideMainWindow(int S) { return S == IMAGE ? ImageMainWindow : (TCtlMainWindow *&)patella::bridge::GUI().MainWindow; }
+TWindow *&SideModalWindow(int S) { return S == IMAGE ? ImageModalWindow : patella::bridge::GUI().ModalWindow; }
 
 // An import slot of the runner bound to a fake (golden_patch.h; EndWorld unbinds it).
 static void BindOwnImport(const char *Name, void *Fake)

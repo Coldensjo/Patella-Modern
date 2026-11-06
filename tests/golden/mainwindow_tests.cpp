@@ -129,7 +129,7 @@ static void SetVtable(void *Object, void *Vtable) { *(void **)Object = Vtable; }
 // original's side (which runs in the oracle only).
 static TMainWindow *OriginalMainWindow;
 static TWindow *OriginalModalWindow;
-static TMainWindow *Main(int s) { return s == OURS ? MainWindow : OriginalMainWindow; }
+static TMainWindow *Main(int s) { return s == OURS ? patella::bridge::GUI().MainWindow : OriginalMainWindow; }
 
 // --- Objects: names and serial numbers -----------------------------------------
 
@@ -828,7 +828,7 @@ static void FindFakeVtables()
 
 static void NameOurVtables()
 {
-	TMainWindow *M = MainWindow;
+	TMainWindow *M = patella::bridge::GUI().MainWindow;
 	NameVtable(OURS, VtableOf(M), "Main", true);
 	if (M->StartWindow != NULL)
 		NameVtable(OURS, VtableOf(M->StartWindow), "Start", true);
@@ -1148,7 +1148,7 @@ static void Operation()
 		bool Game = Random() % 3 != 0;
 		Both([&](int s) {
 			if (s == OURS)
-				MainWindow->ChangeMode(Game);
+				patella::bridge::GUI().MainWindow->ChangeMode(Game);
 			else
 				ORIGINAL(At<MemberInt>(0x4af5e0)(OriginalMainWindow, NULL, Game));
 		});
@@ -1186,9 +1186,9 @@ static void Operation()
 		Fullscreen[OURS].Depth = Fullscreen[ORIGINAL].Depth = 16;
 		Fullscreen[OURS].Frequency = Fullscreen[ORIGINAL].Frequency = 60 + Random() % 30;
 		TWindow *Modal = Random() % 3 == 0 ? (TWindow *)(uintptr_t)0x1000 : NULL;
-		ModalWindow = OriginalModalWindow = Modal;
+		patella::bridge::GUI().ModalWindow = OriginalModalWindow = Modal;
 		Both([&](int s) { Main(s)->HandleEvent(Event); });
-		ModalWindow = OriginalModalWindow = NULL;
+		patella::bridge::GUI().ModalWindow = OriginalModalWindow = NULL;
 		break;
 	}
 	case 7: {
@@ -1212,13 +1212,13 @@ static void Operation()
 		int Height = Random() % 500;
 		Both([&](int s) {
 			if (s == OURS)
-				MainWindow->ResizeConsole(Height);
+				patella::bridge::GUI().MainWindow->ResizeConsole(Height);
 			else
 				ORIGINAL(At<MemberInt>(0x4ac610)(OriginalMainWindow, NULL, Height));
 		});
 		if (Threw)
 			break;
-		int A = MainWindow->GetConsoleWindowHeight();
+		int A = patella::bridge::GUI().MainWindow->GetConsoleWindowHeight();
 		int B = ORIGINAL_VALUE("console height", int, At<MemberGet>(0x4ac7c0)(OriginalMainWindow, NULL));
 		CHECK(A == B, "GetConsoleWindowHeight %d, original %d", A, B);
 		break;
@@ -1229,7 +1229,7 @@ static void Operation()
 		DestinationResult = Random() % 4;
 		Both([&](int s) {
 			if (s == OURS)
-				MainWindow->Walk(dx, dy, Diagonal);
+				patella::bridge::GUI().MainWindow->Walk(dx, dy, Diagonal);
 			else
 				ORIGINAL(At<MemberWalk>(0x4ac7f0)(OriginalMainWindow, NULL, dx, dy, Diagonal));
 		});
@@ -1242,7 +1242,7 @@ static void Operation()
 		BodyAccepts = Random() % 3 != 0;
 		Both([&](int s) {
 			if (s == OURS)
-				MainWindow->OpenContainer(Container);
+				patella::bridge::GUI().MainWindow->OpenContainer(Container);
 			else
 				ORIGINAL(At<MemberInt>(0x4ac9e0)(OriginalMainWindow, NULL, Container));
 		});
@@ -1252,7 +1252,7 @@ static void Operation()
 		int Container = Random() % 16;
 		Both([&](int s) {
 			if (s == OURS)
-				MainWindow->CloseContainer(Container);
+				patella::bridge::GUI().MainWindow->CloseContainer(Container);
 			else
 				ORIGINAL(At<MemberInt>(0x4acdb0)(OriginalMainWindow, NULL, Container));
 		});
@@ -1268,17 +1268,17 @@ static void Operation()
 		Both([&](int s) {
 			if (What2 == 0) {
 				if (s == OURS)
-					MainWindow->OpenTrade();
+					patella::bridge::GUI().MainWindow->OpenTrade();
 				else
 					ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL));
 			} else if (What2 == 1) {
 				if (s == OURS)
-					MainWindow->UpdateTrade();
+					patella::bridge::GUI().MainWindow->UpdateTrade();
 				else
 					ORIGINAL(At<MemberVoid>(0x4acf60)(OriginalMainWindow, NULL));
 			} else {
 				if (s == OURS)
-					MainWindow->CloseTrade();
+					patella::bridge::GUI().MainWindow->CloseTrade();
 				else
 					ORIGINAL(At<MemberVoid>(0x4b0230)(OriginalMainWindow, NULL));
 			}
@@ -1294,12 +1294,12 @@ static void Operation()
 		Both([&](int s) {
 			if (Open) {
 				if (s == OURS)
-					MainWindow->OpenContentWindow(Identifier);
+					patella::bridge::GUI().MainWindow->OpenContentWindow(Identifier);
 				else
 					ORIGINAL(At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Identifier));
 			} else {
 				if (s == OURS)
-					MainWindow->CloseContentWindow(Identifier);
+					patella::bridge::GUI().MainWindow->CloseContentWindow(Identifier);
 				else
 					ORIGINAL(At<MemberInt>(0x4ad4a0)(OriginalMainWindow, NULL, Identifier));
 			}
@@ -1310,7 +1310,7 @@ static void Operation()
 		bool Active = Random() % 2 != 0;
 		Both([&](int s) {
 			if (s == OURS)
-				MainWindow->SetConsoleActive(Active);
+				patella::bridge::GUI().MainWindow->SetConsoleActive(Active);
 			else
 				ORIGINAL(At<MemberInt>(0x4ad650)(OriginalMainWindow, NULL, Active));
 		});
@@ -1392,13 +1392,13 @@ static void Operation()
 			if (WithModal) {
 				TWindow *Modal = new TWindow;
 				if (s == OURS)
-					ModalWindow = Modal;
+					patella::bridge::GUI().ModalWindow = Modal;
 				else
 					OriginalModalWindow = Modal;
 			}
 			if (s == OURS) {
 				ExitMainWindow();
-				CHECK(MainWindow == NULL && ModalWindow == NULL, "ExitMainWindow leaves a window");
+				CHECK(patella::bridge::GUI().MainWindow == NULL && patella::bridge::GUI().ModalWindow == NULL, "ExitMainWindow leaves a window");
 				InitMainWindow(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
 			} else {
 			}
@@ -1420,9 +1420,9 @@ static void Operation()
 // their members may point to deleted windows).
 static void NewMainWindows(int Fail)
 {
-	MainWindow = NULL;
+	patella::bridge::GUI().MainWindow = NULL;
 	OriginalMainWindow = NULL;
-	ModalWindow = OriginalModalWindow = NULL;
+	patella::bridge::GUI().ModalWindow = OriginalModalWindow = NULL;
 	Info[OURS].clear();
 	Info[ORIGINAL].clear();
 	Serials[OURS] = Serials[ORIGINAL] = 0;
@@ -1474,7 +1474,7 @@ static void ToGame(bool Game)
 	MainRound = NULL;
 	Both([&](int s) {
 		if (s == OURS)
-			MainWindow->ChangeMode(Game);
+			patella::bridge::GUI().MainWindow->ChangeMode(Game);
 		else
 			ORIGINAL(At<MemberInt>(0x4af5e0)(OriginalMainWindow, NULL, Game));
 	});
@@ -1536,17 +1536,17 @@ static void TestMainWindowErrors()
 		// Out of the game there is no dialog window.
 		int Container = Random() % 16;
 		MainCall(R, "TMainWindow::OpenContainer without a dialog window", [&](int s) {
-			if (s == OURS) MainWindow->OpenContainer(Container);
+			if (s == OURS) patella::bridge::GUI().MainWindow->OpenContainer(Container);
 			else ORIGINAL(At<MemberInt>(0x4ac9e0)(OriginalMainWindow, NULL, Container)); });
 		MainCall(R, "TMainWindow::OpenTrade without a dialog window", [&](int s) {
-			if (s == OURS) MainWindow->OpenTrade(); else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL)); });
+			if (s == OURS) patella::bridge::GUI().MainWindow->OpenTrade(); else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL)); });
 		Threw = false;
 		ToGame(true);
 		// The trade window twice, then without a body.
 		MainCall(R, "TMainWindow::OpenTrade", [&](int s) {
-			if (s == OURS) MainWindow->OpenTrade(); else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL)); });
+			if (s == OURS) patella::bridge::GUI().MainWindow->OpenTrade(); else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL)); });
 		MainCall(R, "TMainWindow::OpenTrade again", [&](int s) {
-			if (s == OURS) MainWindow->OpenTrade(); else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL)); });
+			if (s == OURS) patella::bridge::GUI().MainWindow->OpenTrade(); else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL)); });
 		Threw = false;
 		TSubWindow *Trade[2] = {NULL, NULL};
 		for (int s = 0; s < SIDES; s++)
@@ -1557,7 +1557,7 @@ static void TestMainWindowErrors()
 			Trade[OURS]->Body = NULL;
 			ORIGINAL(Body[ORIGINAL] = Trade[ORIGINAL]->Body; Trade[ORIGINAL]->Body = NULL);
 			MainCall(R, "TMainWindow::UpdateTrade without a body", [&](int s) {
-				if (s == OURS) MainWindow->UpdateTrade(); else ORIGINAL(At<MemberVoid>(0x4acf60)(OriginalMainWindow, NULL)); });
+				if (s == OURS) patella::bridge::GUI().MainWindow->UpdateTrade(); else ORIGINAL(At<MemberVoid>(0x4acf60)(OriginalMainWindow, NULL)); });
 			Trade[OURS]->Body = Body[OURS];
 			ORIGINAL(Trade[ORIGINAL]->Body = Body[ORIGINAL]);
 			Threw = false;
@@ -1565,7 +1565,7 @@ static void TestMainWindowErrors()
 		// Identifiers OpenContentWindow does not know.
 		int Identifier = Random() % 2 ? 1 + (int)(Random() % 5) : 10 + (int)(Random() % 50);
 		MainCall(R, "TMainWindow::OpenContentWindow unknown", [&](int s) {
-			if (s == OURS) MainWindow->OpenContentWindow(Identifier);
+			if (s == OURS) patella::bridge::GUI().MainWindow->OpenContentWindow(Identifier);
 			else ORIGINAL(At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Identifier)); });
 		Threw = false; // (the error comes before any change)
 		// The splitter pressed while the main window has a capture, released
@@ -1584,12 +1584,12 @@ static void TestMainWindowErrors()
 		// The inventory windows' swap without the window it replaces (half of
 		// the time after a swap).
 		if (Round % 2 == 0) {
-			int Swap = Find(OURS, MainWindow->SidePanel, 1) != NULL ? 0x17 : 0x18;
+			int Swap = Find(OURS, patella::bridge::GUI().MainWindow->SidePanel, 1) != NULL ? 0x17 : 0x18;
 			MainCall(R, "TMainWindow::HandleEvent swap", [&](int s) { Main(s)->HandleEvent(Swap); });
 			if (Threw)
 				continue;
 		}
-		int Event = Find(OURS, MainWindow->SidePanel, 1) != NULL ? 0x18 : 0x17;
+		int Event = Find(OURS, patella::bridge::GUI().MainWindow->SidePanel, 1) != NULL ? 0x18 : 0x17;
 		MainCall(R, "TMainWindow::HandleEvent swap without the window", [&](int s) { Main(s)->HandleEvent(Event); });
 		Threw = false; // (the assertion comes before any change)
 		// The splitter's MouseMove: its first fake call (the cursor).
@@ -1600,36 +1600,36 @@ static void TestMainWindowErrors()
 		// skills and battle windows stay: the column's rearrangement asks their
 		// bodies).
 		for (int Id = 6; Id <= 7; Id++) {
-			if (Find(OURS, MainWindow->DialogWindow, Id) == NULL)
+			if (Find(OURS, patella::bridge::GUI().MainWindow->DialogWindow, Id) == NULL)
 				MainCall(R, "errors: open", [&](int s) {
-					if (s == OURS) MainWindow->OpenContentWindow(Id);
+					if (s == OURS) patella::bridge::GUI().MainWindow->OpenContentWindow(Id);
 					else ORIGINAL(At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Id)); });
 		}
 		for (int What = 0; What < 3 && !Threw; What++) {
 			int Box = Random() % 16, Content = 9;
 			auto Open = [&](int s) {
 				if (What == 0) {
-					if (s == OURS) MainWindow->OpenContainer(Box);
+					if (s == OURS) patella::bridge::GUI().MainWindow->OpenContainer(Box);
 					else ORIGINAL(At<MemberInt>(0x4ac9e0)(OriginalMainWindow, NULL, Box));
 				} else if (What == 1) {
 					if (Find(s, Main(s)->DialogWindow, TRADE_WINDOW) == NULL) {
-						if (s == OURS) MainWindow->OpenTrade();
+						if (s == OURS) patella::bridge::GUI().MainWindow->OpenTrade();
 						else ORIGINAL(At<MemberVoid>(0x4afec0)(OriginalMainWindow, NULL));
 					}
 				} else {
-					if (s == OURS) MainWindow->OpenContentWindow(Content);
+					if (s == OURS) patella::bridge::GUI().MainWindow->OpenContentWindow(Content);
 					else ORIGINAL(At<MemberInt>(0x4ad1e0)(OriginalMainWindow, NULL, Content));
 				}
 			};
 			auto Close = [&](int s) {
 				if (What == 0) {
-					if (s == OURS) MainWindow->CloseContainer(Box);
+					if (s == OURS) patella::bridge::GUI().MainWindow->CloseContainer(Box);
 					else ORIGINAL(At<MemberInt>(0x4acdb0)(OriginalMainWindow, NULL, Box));
 				} else if (What == 1) {
-					if (s == OURS) MainWindow->CloseTrade();
+					if (s == OURS) patella::bridge::GUI().MainWindow->CloseTrade();
 					else ORIGINAL(At<MemberVoid>(0x4b0230)(OriginalMainWindow, NULL));
 				} else {
-					if (s == OURS) MainWindow->CloseContentWindow(Content);
+					if (s == OURS) patella::bridge::GUI().MainWindow->CloseContentWindow(Content);
 					else ORIGINAL(At<MemberInt>(0x4ad4a0)(OriginalMainWindow, NULL, Content));
 				}
 			};
@@ -1647,9 +1647,9 @@ static void TestMainWindowErrors()
 		if (Threw)
 			continue;
 	}
-	MainWindow = NULL;
+	patella::bridge::GUI().MainWindow = NULL;
 	OriginalMainWindow = NULL;
-	ModalWindow = OriginalModalWindow = NULL;
+	patella::bridge::GUI().ModalWindow = OriginalModalWindow = NULL;
 	Threw = false;
 	MainRound = NULL;
 	R.Finish();
@@ -1667,8 +1667,8 @@ void TestMainWindow()
 	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
-	TTalkBuffer *SavedBuffer = DefaultTextBuffer;
-	DefaultTextBuffer = (TTalkBuffer *)(uintptr_t)0x12340;
+	TTalkBuffer *SavedBuffer = patella::bridge::Talk().DefaultTextBuffer;
+	patella::bridge::Talk().DefaultTextBuffer = (TTalkBuffer *)(uintptr_t)0x12340;
 	Surface = new TMainSurface;
 	FindFakeVtables();
 	PatchCallees();
@@ -1763,7 +1763,7 @@ void TestMainWindow()
 	RandomWorld();
 	RandomSkinProperties();
 	ActionState[OURS] = ActionState[ORIGINAL] = 0;
-	ModalWindow = OriginalModalWindow = NULL;
+	patella::bridge::GUI().ModalWindow = OriginalModalWindow = NULL;
 	int Width, Height;
 	RandomSize(Width, Height);
 	Both([&](int s) {
@@ -1796,7 +1796,7 @@ void TestMainWindow()
 	memcpy(KindCount, SavedKinds, sizeof(SavedKinds));
 	RoundChecks = Checks - RoundChecks;
 
-	DefaultTextBuffer = SavedBuffer;
+	patella::bridge::Talk().DefaultTextBuffer = SavedBuffer;
 	ORIGINAL(OriginalBuffer = SavedOriginalBuffer);
 	ExitSkins();
 	ORIGINAL(Global<TSkin *>(0x71c454) = NULL);

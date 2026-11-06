@@ -279,6 +279,7 @@ void ProbeWalk(TProbe &Probe, const TComponent *Component)
 
 TClientState ReadClientState()
 {
+	const patella::TTalk &Talk = patella::bridge::Talk();
 	TClientState State;
 	State.Connection = *ViewConnectionState();
 
@@ -340,8 +341,8 @@ TClientState ReadClientState()
 	}
 	State.Trade = {Offer(*Inventory.OwnOffer), Offer(*Inventory.CounterOffer)};
 
-	if (DefaultTextBuffer != nullptr) {
-		for (const TTalkLine *Line = DefaultTextBuffer->first; Line != nullptr && State.Console.size() < ConsoleLines;
+	if (Talk.DefaultTextBuffer != nullptr) {
+		for (const TTalkLine *Line = Talk.DefaultTextBuffer->first; Line != nullptr && State.Console.size() < ConsoleLines;
 			Line = Line->Next) {
 			TConsoleLine Entry;
 			Entry.Mode = Line->Mode;
@@ -356,6 +357,7 @@ TClientState ReadClientState()
 
 void ReadProbe(TProbe &Probe)
 {
+	const patella::TGUI &GUI = patella::bridge::GUI();
 	Probe.State = ReadClientState();
 	Probe.Gui = ReadGui();
 
@@ -393,22 +395,23 @@ void ReadProbe(TProbe &Probe)
 	SkinInt(Probe.Skin, "Style1394.Data70.x", Skin.Style1394.Data70.x);
 	SkinInt(Probe.Skin, "Style1394.Data70.y", Skin.Style1394.Data70.y);
 
-	if (MainWindow != nullptr)
-		ProbeWalk(Probe, MainWindow);
-	if (ModalWindow != nullptr)
-		ProbeWalk(Probe, ModalWindow);
+	if (GUI.MainWindow != nullptr)
+		ProbeWalk(Probe, GUI.MainWindow);
+	if (GUI.ModalWindow != nullptr)
+		ProbeWalk(Probe, GUI.ModalWindow);
 }
 
 std::vector<TGuiNode> ReadGui()
 {
+	const patella::TGUI &GUI = patella::bridge::GUI();
 	std::vector<TGuiNode> Nodes;
-	if (MainWindow != nullptr)
-		Walk(Nodes, MainWindow, 0, 0, 0);
-	if (ModalWindow != nullptr) {
+	if (GUI.MainWindow != nullptr)
+		Walk(Nodes, GUI.MainWindow, 0, 0, 0);
+	if (GUI.ModalWindow != nullptr) {
 		TGuiNode Separator;
 		Separator.Class = "(modal)";
 		Nodes.push_back(Separator);
-		Walk(Nodes, ModalWindow, 1, 0, 0);
+		Walk(Nodes, GUI.ModalWindow, 1, 0, 0);
 	}
 	return Nodes;
 }

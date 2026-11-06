@@ -460,7 +460,7 @@ void TestFilters()
 		CHECK(SameText(OurBuddy, OriginalBuddy.c_str()) && SameText(OurIgnore, OriginalIgnore.c_str()), "serialized filters");
 		free(OurBuddy);
 		free(OurIgnore);
-		CheckBuffer(DefaultTextBuffer, OriginalDefault());
+		CheckBuffer(patella::bridge::Talk().DefaultTextBuffer, OriginalDefault());
 	}
 }
 
@@ -839,7 +839,7 @@ void TestRouting()
 		AddChannelNotice("notice", "channel event", Mode, Name, Channel);
 		ORIGINAL(At<void(__cdecl *)(const char *, const char *, int, const char *, int)>(0x506720)("notice", "channel event",
 			Mode, Name, Channel));
-		AddTextBufferLine(DefaultTextBuffer, Round, "direct", Mode, Name, 300);
+		AddTextBufferLine(patella::bridge::Talk().DefaultTextBuffer, Round, "direct", Mode, Name, 300);
 		ORIGINAL(At<void(__cdecl *)(TTalkBuffer *, uint32, const char *, int, const char *, int)>(0x505f10)(OriginalDefault(),
 			Round, "direct", Mode, Name, 300));
 		bool Changed = ORIGINAL_VALUE("console changed after routing", bool, At<BoolFn>(0x4fd580)());
@@ -853,7 +853,7 @@ void TestRouting()
 			Ours[Index]->SetLocked(Locked);
 			ORIGINAL(Virtual<ThisSetBoolFn>(Original[Index], 0x44)(Original[Index], NULL, Locked));
 		}
-		CheckBuffer(DefaultTextBuffer, OriginalDefault());
+		CheckBuffer(patella::bridge::Talk().DefaultTextBuffer, OriginalDefault());
 		bool Private = ORIGINAL_VALUE("own private channel", bool, At<BoolFn>(0x502880)());
 		CHECK(HasOwnPrivateChannel() == Private, "own private channel");
 		if (Round % 5 == 0) {
@@ -906,13 +906,13 @@ void TestRouting()
 		DeleteTextBuffer(RuleChannel);
 		ORIGINAL(At<DeleteFn>(0x507fa0)(RuleChannelOriginal));
 	}
-	DeleteTextBuffer(DefaultTextBuffer);
+	DeleteTextBuffer(patella::bridge::Talk().DefaultTextBuffer);
 	ORIGINAL(At<DeleteFn>(0x507fa0)(OriginalDefault()));
 	bool Private = ORIGINAL_VALUE("deleted console buffers", bool, At<BoolFn>(0x502880)());
 	CHECK(!HasOwnPrivateChannel() && !Private, "deleted console buffers");
 	ResetTalk();
 	ORIGINAL(At<VoidFn>(0x504d70)());
-	CheckBuffer(DefaultTextBuffer, OriginalDefault());
+	CheckBuffer(patella::bridge::Talk().DefaultTextBuffer, OriginalDefault());
 }
 
 } // namespace
@@ -923,9 +923,9 @@ void TestTalk()
 	PatchTalk();
 	InitTalk();
 	ORIGINAL(At<VoidFn>(0x504f30)());
-	DefaultTextBuffer->Closed = false;
+	patella::bridge::Talk().DefaultTextBuffer->Closed = false;
 	ORIGINAL(OriginalDefault()->Closed = false);
-	CheckBuffer(DefaultTextBuffer, OriginalDefault());
+	CheckBuffer(patella::bridge::Talk().DefaultTextBuffer, OriginalDefault());
 	TestHelpers();
 	TestFilters();
 	TestTalkboxes();
@@ -934,7 +934,7 @@ void TestTalk()
 	ExitTalk();
 	ORIGINAL(At<VoidFn>(0x507a00)());
 	bool Exited = ORIGINAL_VALUE("ExitTalk", bool, OriginalDefault() == NULL);
-	CHECK(DefaultTextBuffer == nullptr && Exited, "ExitTalk");
+	CHECK(patella::bridge::Talk().DefaultTextBuffer == nullptr && Exited, "ExitTalk");
 	UnpatchTalk();
 	printf("Talk: %d checks, %d failures\n", Checks - Before, Failures - BeforeFailures);
 }

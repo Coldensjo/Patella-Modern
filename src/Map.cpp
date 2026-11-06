@@ -1055,6 +1055,7 @@ static_assert(sizeof(TAutomapBlock::Color) == AUTOMAP_FILE_LAYER_BYTES && sizeof
 // the marks.
 void LoadAutomapBlock(int Position, int bx, int by, int bz)
 {
+	const patella::TTalk &Talk = patella::bridge::Talk();
 	PATELLA_ASSERT_VALUES(In(bx,0,999), bx);
 	PATELLA_ASSERT_VALUES(In(by,0,999), by);
 	PATELLA_ASSERT_VALUES(In(bz,0, 99), bz);
@@ -1114,10 +1115,10 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 			for (int i = Block.Marks.min; i <= Block.Marks.max; i++)
 				Block.Marks(i) = TMark();
 			Block.MarkCount = 0;
-			if (DefaultTextBuffer != nullptr) {
+			if (Talk.DefaultTextBuffer != nullptr) {
 				TFixedString<256> Message;
 				Message.Format("Map file '{}' was corrupted!", FileName);
-				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
+				AddTextBufferLine(Talk.DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 				SetConsoleChanged();
 			}
 		}
@@ -1129,6 +1130,7 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 // reported in the default console; the block counts as saved either way.
 void SaveAutomapBlock(int Position)
 {
+	const patella::TTalk &Talk = patella::bridge::Talk();
 	TAutomapBlock &Block = AutomapBlocks[Position];
 	if (Block.bx == -1 || !Block.Changed)
 		return;
@@ -1174,17 +1176,17 @@ void SaveAutomapBlock(int Position)
 			File.close();
 		} catch (TMyException &) {
 			File.close();
-			if (DefaultTextBuffer != nullptr) {
+			if (Talk.DefaultTextBuffer != nullptr) {
 				TFixedString<256> Message;
 				Message.Format("Error while saving file '{}'!", FileName);
-				AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
+				AddTextBufferLine(Talk.DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 				SetConsoleChanged();
 			}
 		}
-	} else if (DefaultTextBuffer != nullptr) {
+	} else if (Talk.DefaultTextBuffer != nullptr) {
 		TFixedString<256> Message;
 		Message.Format("Could not save file '{}'!", FileName);
-		AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, nullptr, 0);
+		AddTextBufferLine(Talk.DefaultTextBuffer, 0, Message, 20, nullptr, 0);
 		SetConsoleChanged();
 	}
 	Block.Changed = false;

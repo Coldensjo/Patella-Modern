@@ -46,17 +46,8 @@
 
 #include <cstdlib>
 
-namespace {
-
-// Data, in .bss order.
-void (*OpenURLCallback)(const char *URL); // 0x5d16a0
-void (*SetDisplayModeCallback)(int Mode); // 0x5d16a4
-void (*ExitProgramCallback)();            // 0x5d16a8
-
-} // namespace
-
-TWindow *ModalWindow;    // 0x5d16ac
-TMainWindow *MainWindow; // 0x5d16b0
+// The .bss before NoCallback (OpenURLCallback 0x5d16a0, SetDisplayModeCallback 0x5d16a4, ExitProgramCallback 0x5d16a8,
+// ModalWindow 0x5d16ac, MainWindow 0x5d16b0) is TGUI's (GUI.h, issue #107).
 
 namespace {
 
@@ -95,13 +86,14 @@ TMainWindow::~TMainWindow()
 // 0x4ac090. Called by Control.cpp's ExitControl.
 void ExitMainWindow()
 {
-	delete MainWindow;
-	MainWindow = nullptr;
-	if (ModalWindow != nullptr) {
-		delete ModalWindow;
+	patella::TGUI &GUI = patella::bridge::GUI();
+	delete GUI.MainWindow;
+	GUI.MainWindow = nullptr;
+	if (GUI.ModalWindow != nullptr) {
+		delete GUI.ModalWindow;
 		SetActionState(0);
 	}
-	ModalWindow = nullptr;
+	GUI.ModalWindow = nullptr;
 }
 
 // 0x4ac0f0, line 127. Out of the game an error while drawing the start
@@ -196,6 +188,7 @@ void TMainWindow::KeyPress(int Key)
 // fullscreen mode (a fullscreen mode below 640x480 is raised to it first).
 void TMainWindow::HandleEvent(int Event)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	switch (Event) {
 	case 0x21:
 		CopyTaintedClipboardText();
@@ -204,7 +197,7 @@ void TMainWindow::HandleEvent(int Event)
 		SetActionState(0);
 		break;
 	case 7:
-		ExitProgramCallback();
+		GUI.ExitProgramCallback();
 		break;
 	case 8:
 		AddMessage(0x21, 0, 0);
@@ -273,13 +266,13 @@ void TMainWindow::HandleEvent(int Event)
 				SetFullscreenMode(&Mode);
 				SetSize(640, 480);
 			}
-			SetDisplayModeCallback(GetViewMode() == 1 ? 2 : 1);
+			GUI.SetDisplayModeCallback(GetViewMode() == 1 ? 2 : 1);
 		}
 		break;
 	case 0x1f9:
 		if (!CheckRight(40, -1)) {
 			SetStatusMessage(TextNoBugReportRight, false);
-		} else if (GetConnectionState() == 8 && ModalWindow == nullptr) {
+		} else if (GetConnectionState() == 8 && GUI.ModalWindow == nullptr) {
 			AddMessage(0x11, 0, 0);
 		}
 		break;
@@ -425,7 +418,7 @@ void TMainWindow::ChangeMode(bool InGame)
 		Splitter->Arrange();
 		Console->SetSize(MapWidth, ConsoleHeight);
 		Console->SetPosition(0, MapHeight + SkinProperties.Data138);
-		Console->OpenDefaultChannel(DefaultTextBuffer, "Default");
+		Console->OpenDefaultChannel(patella::bridge::Talk().DefaultTextBuffer, "Default");
 		Console->Arrange();
 		SideBar->SetPosition(MapWidth, 0);
 		SideBar->SetSize(SkinProperties.Data184, SidePanel->getMinimumHeight() + SideBar->getMinimumHeight());
@@ -474,7 +467,7 @@ void TMainWindow::ChangeMode(bool InGame)
 		RemoveHotkey(0x1b);
 	}
 	SetSize(Width, Height);
-	SetConsoleActive(ModalWindow == nullptr);
+	SetConsoleActive(patella::bridge::GUI().ModalWindow == nullptr);
 }
 
 // 0x4ac610, line 475. The console's new height, at least its minimum; the
@@ -660,6 +653,7 @@ void TStartWindow::SetSize(int Width, int Height)
 // 0x4ae030, line 731. The buttons work only while there is no connection.
 void TStartWindow::HandleEvent(int Event)
 {
+	patella::TGUI &GUI = patella::bridge::GUI();
 	if (GetConnectionState() != 0)
 		return;
 	switch (Event) {
@@ -673,10 +667,10 @@ void TStartWindow::HandleEvent(int Event)
 		AddMessage(0x21, 0, 0);
 		break;
 	case 7:
-		ExitProgramCallback();
+		GUI.ExitProgramCallback();
 		break;
 	case 0x1fc:
-		OpenURLCallback(TextAccountURL);
+		GUI.OpenURLCallback(TextAccountURL);
 		break;
 	}
 }
@@ -707,10 +701,11 @@ void TSplitter::Arrange()
 // not the parent. x has no name in the catch block.
 bool TSplitter::MouseMove([[maybe_unused]] int x, int y)
 {
+	const patella::TGUI &GUI = patella::bridge::GUI();
 	SetMouseCursor(2);
 	if (Dragging) {
-		MainWindow->ResizeConsole(DragY - y + MainWindow->GetConsoleWindowHeight());
-		MainWindow->SetSize(MainWindow->Width, MainWindow->Height);
+		GUI.MainWindow->ResizeConsole(DragY - y + GUI.MainWindow->GetConsoleWindowHeight());
+		GUI.MainWindow->SetSize(GUI.MainWindow->Width, GUI.MainWindow->Height);
 	}
 	return true;
 }
@@ -739,10 +734,11 @@ bool TSplitter::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[m
 void InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode),
 	void (*OpenURL)(const char *URL))
 {
-	MainWindow = new TMainWindow(Width, Height);
+	patella::TGUI &GUI = patella::bridge::GUI();
+	GUI.MainWindow = new TMainWindow(Width, Height);
 	PATELLA_ASSERT_VALUES(GetActionState()==ACTIONSTATE_NONE, GetActionState());
-	ExitProgramCallback = ExitProgram;
-	ModalWindow = nullptr;
-	SetDisplayModeCallback = SetDisplayMode;
-	OpenURLCallback = OpenURL;
+	GUI.ExitProgramCallback = ExitProgram;
+	GUI.ModalWindow = nullptr;
+	GUI.SetDisplayModeCallback = SetDisplayMode;
+	GUI.OpenURLCallback = OpenURL;
 }

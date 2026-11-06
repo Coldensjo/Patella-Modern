@@ -19,47 +19,31 @@
 #include <cstring>
 
 
-namespace {
-
-// Data, in .bss order.
-int NumberOfEventHelps;                   // 0x5ce520, queued in EventHelps
-bool HelpHandleChanged;                   // 0x5ce524
-int HelpHandle;                           // 0x5ce528, what the help bubble explains
-int HelpHeight;                           // 0x5ce52c
-int HelpWidth;                            // 0x5ce530
-int HelpY;                                // 0x5ce534
-int HelpX;                                // 0x5ce538
-TIndexedVector<int> EventHelps(0, 9, 10); // 0x5ce53c, initialiser at 0x559e80
-TFixedString<2048> HelpText;              // 0x5ce560
-
-} // namespace
-
-// HelpText a TFixedString (issue #60).
-static_assert(sizeof(HelpText) == 2048, "HelpText");
+// The data (0x5ce520-0x5ced5f) is THelp's (Help.h, issue #107).
 
 // 0x4a2a00
-void SetHelpPosition(int x, int y)
+void patella::THelp::SetHelpPosition(int x, int y)
 {
 	HelpX = x;
 	HelpY = y;
 }
 
 // 0x4a2a20
-void MoveHelpPosition(int dx, int dy)
+void patella::THelp::MoveHelpPosition(int dx, int dy)
 {
 	HelpX += dx;
 	HelpY += dy;
 }
 
 // 0x4a2a50
-void SetHelpSize(int Width, int Height)
+void patella::THelp::SetHelpSize(int Width, int Height)
 {
 	HelpWidth = Width;
 	HelpHeight = Height;
 }
 
 // 0x4a2a70
-void SetHelpHandle(int Handle)
+void patella::THelp::SetHelpHandle(int Handle)
 {
 	const bool Changed = HelpHandle != Handle;
 	HelpHandle = Handle;
@@ -68,7 +52,7 @@ void SetHelpHandle(int Handle)
 }
 
 // 0x4a2a90
-void GetHelpArea(int *x, int *y, int *Width, int *Height)
+void patella::THelp::GetHelpArea(int *x, int *y, int *Width, int *Height) const
 {
 	*x = HelpX;
 	*y = HelpY;
@@ -77,13 +61,13 @@ void GetHelpArea(int *x, int *y, int *Width, int *Height)
 }
 
 // 0x4a2ac0
-int GetHelpHandle()
+int patella::THelp::GetHelpHandle() const
 {
 	return HelpHandle;
 }
 
 // 0x4a2ad0. Reports a change of the handle once.
-bool GetHelpHandleChanged()
+bool patella::THelp::GetHelpHandleChanged()
 {
 	const bool Changed = HelpHandleChanged;
 	HelpHandleChanged = false;
@@ -91,7 +75,7 @@ bool GetHelpHandleChanged()
 }
 
 // 0x4a2ae0
-void InitHelp()
+void patella::THelp::InitHelp()
 {
 	HelpHandle = 1;
 	HelpHandleChanged = false;
@@ -99,7 +83,7 @@ void InitHelp()
 }
 
 // 0x4a2b00. The next event help to show, 0 if none.
-int GetEventHelp()
+int patella::THelp::GetEventHelp()
 {
 	if (NumberOfEventHelps == 0)
 		return 0;
@@ -107,7 +91,7 @@ int GetEventHelp()
 }
 
 // 0x4a2b20. Takes the next event help from the queue.
-int PopEventHelp()
+int patella::THelp::PopEventHelp()
 {
 	if (NumberOfEventHelps == 0)
 		return 0;
@@ -124,7 +108,7 @@ int PopEventHelp()
 // the format. _snprintf until issue #64, now std::format's language ("%d" is
 // "{}"): no text has a brace or another conversion, and the longest (1297
 // characters) fits HelpText, so the bytes are the same.
-const char *GetHelpText(int Handle)
+const char *patella::THelp::GetHelpText(int Handle)
 {
 	switch (Handle) {
 	case 10:
@@ -224,7 +208,7 @@ const char *GetHelpText(int Handle)
 }
 
 // 0x4a32e0, line 369. Queues an event help that was not shown before.
-void AddEventHelp(int Number)
+void patella::THelp::AddEventHelp(int Number)
 {
 	PATELLA_ASSERT_VALUES(In(Number,1,EVENTHELPS), Number);
 	if (!IsKnownHint(Number)) {
@@ -236,7 +220,7 @@ void AddEventHelp(int Number)
 
 // 0x4a3460, line 381. Event helps for talking to the NPCs of Rookgaard.
 // Every name is tested on its own.
-void CheckEventHelpName(const char *Name)
+void patella::THelp::CheckEventHelpName(const char *Name)
 {
 	PATELLA_ASSERT(Name!=NULL);
 	if (strcmp(Name, "Cipfried") == 0)
@@ -263,7 +247,7 @@ void CheckEventHelpName(const char *Name)
 // binary's results (the compiler merged the tests that share an x and
 // returned early where no later test can match); the bounds are the
 // binary's, exclusive where written with < and >.
-void CheckEventHelpPosition(int x, int y, int z)
+void patella::THelp::CheckEventHelpPosition(int x, int y, int z)
 {
 	if (x > 0x7d5d && x < 0x7d65 && y == 0x7dd5 && z == 7)
 		AddEventHelp(3);
@@ -336,7 +320,7 @@ void CheckEventHelpPosition(int x, int y, int z)
 }
 
 // 0x4a3b60, lines 571-602
-const char *GetEventHelpTitle(int Number)
+const char *patella::THelp::GetEventHelpTitle(int Number)
 {
 	PATELLA_ASSERT_VALUES(In(Number,1,EVENTHELPS), Number);
 	switch (Number) {
@@ -374,7 +358,7 @@ const char *GetEventHelpTitle(int Number)
 }
 
 // 0x4a3fd0, lines 610-691
-const char *GetEventHelpText(int Number)
+const char *patella::THelp::GetEventHelpText(int Number)
 {
 	PATELLA_ASSERT_VALUES(In(Number,1,EVENTHELPS), Number);
 	switch (Number) {
@@ -412,7 +396,7 @@ const char *GetEventHelpText(int Number)
 }
 
 // 0x4a4440. The text for the current help handle.
-const char *GetCurrentHelpText()
+const char *patella::THelp::GetCurrentHelpText()
 {
 	return GetHelpText(HelpHandle);
 }
@@ -420,6 +404,98 @@ const char *GetCurrentHelpText()
 // Empty; the linker kept one copy of the identical empty functions (0x496160,
 // GUI.obj). ExitControl calls it where Help.cpp's exit belongs in the reverse
 // order of InitControl (name ours, low confidence).
+void patella::THelp::ExitHelp()
+{
+}
+
+// The functions of the original (issue #107): each calls its member on the one TClient's THelp.
+
+void SetHelpPosition(int x, int y)
+{
+	patella::bridge::Help().SetHelpPosition(x, y);
+}
+
+void MoveHelpPosition(int dx, int dy)
+{
+	patella::bridge::Help().MoveHelpPosition(dx, dy);
+}
+
+void SetHelpSize(int Width, int Height)
+{
+	patella::bridge::Help().SetHelpSize(Width, Height);
+}
+
+void SetHelpHandle(int Handle)
+{
+	patella::bridge::Help().SetHelpHandle(Handle);
+}
+
+void GetHelpArea(int *x, int *y, int *Width, int *Height)
+{
+	patella::bridge::Help().GetHelpArea(x, y, Width, Height);
+}
+
+int GetHelpHandle()
+{
+	return patella::bridge::Help().GetHelpHandle();
+}
+
+bool GetHelpHandleChanged()
+{
+	return patella::bridge::Help().GetHelpHandleChanged();
+}
+
+void InitHelp()
+{
+	patella::bridge::Help().InitHelp();
+}
+
 void ExitHelp()
 {
+	patella::THelp::ExitHelp();
+}
+
+int GetEventHelp()
+{
+	return patella::bridge::Help().GetEventHelp();
+}
+
+int PopEventHelp()
+{
+	return patella::bridge::Help().PopEventHelp();
+}
+
+const char *GetHelpText(int Handle)
+{
+	return patella::bridge::Help().GetHelpText(Handle);
+}
+
+void AddEventHelp(int Number)
+{
+	patella::bridge::Help().AddEventHelp(Number);
+}
+
+void CheckEventHelpName(const char *Name)
+{
+	patella::bridge::Help().CheckEventHelpName(Name);
+}
+
+void CheckEventHelpPosition(int x, int y, int z)
+{
+	patella::bridge::Help().CheckEventHelpPosition(x, y, z);
+}
+
+const char *GetEventHelpTitle(int Number)
+{
+	return patella::bridge::Help().GetEventHelpTitle(Number);
+}
+
+const char *GetEventHelpText(int Number)
+{
+	return patella::bridge::Help().GetEventHelpText(Number);
+}
+
+const char *GetCurrentHelpText()
+{
+	return patella::bridge::Help().GetCurrentHelpText();
 }

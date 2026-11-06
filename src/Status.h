@@ -9,8 +9,9 @@
 // Patella-Modern issue #105 (M7, notes/decisions.md, "#104: TClient and the subsystem objects" and "#105"): the
 // session (the connection state, the account, the character list, the rights) is TSession's, which TCommunication
 // owns (Communication.h); the free functions of the original's names are the bridge that the callers use until they
-// hold the object (bridge::Session(), defined in Client.cpp). The rest of the file's data is still its globals (TGUI's,
-// issue #107).
+// hold the object (bridge::Session(), defined in Client.cpp). Issue #107: the rest of the file's data, the user
+// interaction (the action, drag, trade and use state, the mouse, the message queue, the blink, the mouse-over text, the
+// clipboard's link check), is TInteraction's, which TGUI owns (GUI.h); bridge::Interaction() the same way.
 
 #pragma once
 
@@ -18,6 +19,7 @@
 #include "compat/span.h"
 #include "types/FixedString.h"
 #include "Objects.h" // TObject
+#include "types/IndexedVector.h"
 #include <array>
 #include <cstddef>
 #include <memory>
@@ -51,6 +53,8 @@ struct TCharacter {
 static_assert(sizeof(TCharacter) == 0x54 && offsetof(TCharacter, World) == 0x1e && offsetof(TCharacter, IP) == 0x3c
 		&& offsetof(TCharacter, IPAddress) == 0x40 && offsetof(TCharacter, Port) == 0x50,
 	"TCharacter's layout");
+
+struct regexp; // Extern/regexp/regexp.h (TInteraction holds the compiled link pattern)
 
 namespace patella {
 
@@ -123,10 +127,112 @@ private:
 		"Status.cpp's arrays");
 };
 
+// Status.cpp's user interaction (issue #107): the globals of 0x71c458-0x71c64f that are not the session's are the
+// members, in the original's .bss order with the same initial values (0, as its .bss), and the functions that read and
+// write them the members of the same names. TGUI owns it (GUI.h). GetRightName and GetActionName read no data and
+// stay free functions.
+class TInteraction {
+public:
+	TInteraction() = default;
+	TInteraction(const TInteraction &) = delete;
+	TInteraction &operator=(const TInteraction &) = delete;
+	TInteraction(TInteraction &&) = delete;
+	TInteraction &operator=(TInteraction &&) = delete;
+	~TInteraction() = default;
+
+	int GetActionNumber() const;
+	void IncrementActionNumber();
+	void SetActionState(int State);
+	int GetActionState() const;
+	void SetMousePosition(int x, int y);
+	int GetMouseX() const;
+	int GetMouseY() const;
+	void SetMouseCursor(int Cursor);
+	int GetMouseCursor() const;
+	void SetPendingAction(int State, int Number);
+	int GetPendingActionState() const;
+	int GetPendingActionNumber() const;
+	void SetWindowSize(int Width, int Height);
+	int GetWindowWidth() const;
+	int GetWindowHeight() const;
+	void SetDragStart(int x, int y);
+	void SetDragObject(TObject Obj, int Index, int x, int y, int z);
+	void SetDragTarget(int x, int y, int z);
+	void CheckDragStart(int x, int y);
+	TObject *GetDragObject(int *Index, int *x, int *y, int *z);
+	void GetDragTarget(int *x, int *y, int *z) const;
+	void SetTradeObject(TObject Obj, int Index, int x, int y, int z);
+	void SetUseObject(TObject Obj, int Index, int x, int y, int z);
+	void SetTradeInfo(int Info);
+	TObject *GetTradeObject(int *Index, int *x, int *y, int *z);
+	TObject *GetUseObject(int *Index, int *x, int *y, int *z);
+	int GetTradeInfo() const;
+	void SetMouseOverText(const char *Text);
+	void SetMouseOverTextPosition(int x, int y);
+	const char *GetMouseOverText() const;
+	void GetMouseOverTextPosition(int *x, int *y) const;
+	void UpdateBlinkState();
+	bool GetBlinkState() const;
+	int PeekMessageType();
+	void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2);
+	void ClearMessages();
+	void ExitStatus();
+	void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2);
+	void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2);
+	void CheckClipboardText(TSpan<const char> Characters);
+	void CopyToClipboard(const char *text);
+	void CopyTaintedClipboardText();
+	void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)());
+
+private:
+	// Data, in the original's .bss order (0x71c478-0x71c58b, between MouseOverText and TradeInfo, is TSession's).
+	regexp *LinkRegexp{};                        // 0x71c458, LinkPattern compiled
+	char *TaintedClipboardText{};                // 0x71c45c, name from an assertion
+	void (*LinkWarningEventHandler)(){};         // 0x71c460, from "linkwarningeventhandler!=NULL"
+	bool BlinkState{};                           // 0x71c464, toggled every 300 ms
+	int BlinkTime{};                             // 0x71c468
+	int MouseOverTextY{};                        // 0x71c46c
+	int MouseOverTextX{};                        // 0x71c470
+	const char *MouseOverText{};                 // 0x71c474
+	int TradeInfo{};                             // 0x71c58c
+	int UseZ{};                                  // 0x71c590
+	int UseY{};                                  // 0x71c594
+	int UseX{};                                  // 0x71c598
+	int UseIndex{};                              // 0x71c59c
+	int TradeZ{};                                // 0x71c5a0
+	int TradeY{};                                // 0x71c5a4
+	int TradeX{};                                // 0x71c5a8
+	int TradeIndex{};                            // 0x71c5ac
+	int DragTargetZ{};                           // 0x71c5b0
+	int DragTargetY{};                           // 0x71c5b4
+	int DragTargetX{};                           // 0x71c5b8
+	int DragZ{};                                 // 0x71c5bc
+	int DragY{};                                 // 0x71c5c0
+	int DragX{};                                 // 0x71c5c4
+	int DragIndex{};                             // 0x71c5c8
+	int DragStartY{};                            // 0x71c5cc
+	int DragStartX{};                            // 0x71c5d0
+	int PendingActionNumber{};                   // 0x71c5d4
+	int PendingActionState{};                    // 0x71c5d8
+	int WindowHeight{};                          // 0x71c5dc
+	int WindowWidth{};                           // 0x71c5e0
+	int MouseCursor{};                           // 0x71c5e4
+	int ActionState{};                           // 0x71c5e8, from "GetActionState()" in Control.cpp
+	int ActionNumber{};                          // 0x71c5ec
+	int NumberOfMessages{};                      // 0x71c5f0
+	TIndexedVector<TMessage> Messages{0, 9, 10}; // 0x71c5f4, initialiser at 0x55a0f0
+	int MouseX{};                                // 0x71c61c
+	int MouseY{};                                // 0x71c620
+	TObject DraggedObject{};                     // 0x71c624
+	TObject TradeObject{};                       // 0x71c630, from "TradeObject!=0" in MapWindow.cpp
+	TObject UseObject{};                         // 0x71c63c, "SrcObj" in MapWindow.cpp
+};
+
 // The transition's access path (issue #105; notes/decisions.md, "#104: TClient and the subsystem objects"): the
 // session of the one TClient's TCommunication (Client.cpp). It goes when no free function needs it.
 namespace bridge {
 TSession &Session();
+TInteraction &Interaction(); // issue #107: the one TClient's TGUI's
 } // namespace bridge
 
 } // namespace patella

@@ -37,13 +37,8 @@ static_assert(sizeof(std::unique_ptr<TDrawing[]>) == sizeof(TDrawing *)
 		&& alignof(std::unique_ptr<TDrawing[]>) == alignof(TDrawing *),
 	"std::unique_ptr<TDrawing[]> is a pointer");
 
-namespace {
-
-// Data, in .bss order.
-int NumberOfHotkeys;                               // 0x5ccf98, used entries of Hotkeys
-TIndexedVector<TTimer *> Timers(0, 0, 2, nullptr); // 0x5ccfa4, initialiser 0x559e30 (constructor 0x4973f0, operator() 0x452ac0)
-
-} // namespace
+// The data of .bss but SkinProperties (NumberOfHotkeys 0x5ccf98, Timers 0x5ccfa4, Hotkeys 0x5ce4f0, UpdateTimers' static
+// LastTime 0x5ce518) is TGUI's (GUI.h, issue #107).
 
 TSkinProperties SkinProperties; // 0x5ccfc8, initialiser 0x559e50 (constructor 0x496800)
 
@@ -58,10 +53,6 @@ static_assert(sizeof(TCombatControlsProperties) == 0x50 && offsetof(TCombatContr
 static_assert(sizeof(TSkinProperties) == 0x1528 && offsetof(TSkinProperties, DataC88) == 0xc88
 		&& offsetof(TSkinProperties, Data1204) == 0x1204,
 	"TSkinProperties' layout");
-// Hotkeys stays static (issue #44): in an anonymous namespace MSVC puts it before SkinProperties in .bss
-// (both the oracle and x64), which moves both.
-static TIndexedVector<THotkey> Hotkeys(0, 50, 10); // NOLINT(misc-use-anonymous-namespace): 0x5ce4f0, initialiser 0x559e60 (constructor 0x4976f0, operator() 0x496570)
-// UpdateTimers' static LastTime is at 0x5ce518 (guard 0x5ce51c).
 
 // --- Functions without exception frame (no line evidence) ------------------
 
@@ -136,7 +127,7 @@ TCallback::TCallback(TComponent *Receiver, int Event)
 }
 
 // 0x496150. Called last by InitControl.
-void InitHotkeys()
+void patella::TGUI::InitHotkeys()
 {
 	NumberOfHotkeys = 0;
 }
@@ -144,7 +135,7 @@ void InitHotkeys()
 // 0x496160, the one copy the linker kept of many identical empty functions
 // (folded). ExitControl calls this one first; TComponent::Arrange and
 // PositionChanged and TElement::StopDragging have the same body.
-void ExitHotkeys()
+void patella::TGUI::ExitHotkeys()
 {
 }
 
@@ -1612,7 +1603,7 @@ void InitSkinProperties()
 // --- Timers ---------------------------------------------------------------
 
 // 0x49af20, line 851. Takes the first free entry.
-void AddTimer(TTimer *Timer)
+void patella::TGUI::AddTimer(TTimer *Timer)
 {
 	int i = 0;
 	while (Timers(i) != nullptr)
@@ -1621,7 +1612,7 @@ void AddTimer(TTimer *Timer)
 }
 
 // 0x49b0d0, line 868
-void RemoveTimer(TTimer *Timer)
+void patella::TGUI::RemoveTimer(TTimer *Timer)
 {
 	int i;
 	for (i = Timers.min; i <= Timers.max; i++) {
@@ -1634,10 +1625,13 @@ void RemoveTimer(TTimer *Timer)
 
 // 0x4a27c0, line 887. Called by ProcessEvents. The first call only starts
 // the clock.
-void UpdateTimers()
+void patella::TGUI::UpdateTimers()
 {
 	int i;
-	static int LastTime = GetMilliseconds();
+	if (!LastTimeSet) { // the original's function-local static, initialised on the first call (issue #107)
+		LastTime = GetMilliseconds();
+		LastTimeSet = true;
+	}
 	const int elapsed = GetMilliseconds() - LastTime;
 	LastTime = GetMilliseconds();
 	for (i = Timers.min; i <= Timers.max; i++) {
@@ -2268,7 +2262,7 @@ void TCallback::Send() const
 // --- Hotkeys --------------------------------------------------------------
 
 // 0x4a10a0, line 1965. Replaces the callback of a key that is already there.
-void AddHotkey(int Key, TCallback Callback)
+void patella::TGUI::AddHotkey(int Key, TCallback Callback)
 {
 	int i;
 	for (i = 0; i < NumberOfHotkeys; i++) {
@@ -2283,7 +2277,7 @@ void AddHotkey(int Key, TCallback Callback)
 }
 
 // 0x4a12a0, lines 1983. The last entry takes the place of the removed one.
-void RemoveHotkey(int Key)
+void patella::TGUI::RemoveHotkey(int Key)
 {
 	int i;
 	for (i = 0; i < NumberOfHotkeys; i++) {
@@ -2297,7 +2291,7 @@ void RemoveHotkey(int Key)
 
 // 0x4a1480, line 2004. Called by Control.cpp's KeyPress when no modal window
 // is open. Flag 0x200 is ignored and lower-case letters count as upper case.
-bool CheckHotkey(int Key)
+bool patella::TGUI::CheckHotkey(int Key)
 {
 	int i;
 	if ((Key & 0x200) != 0)
@@ -2311,4 +2305,46 @@ bool CheckHotkey(int Key)
 		}
 	}
 	return false;
+}
+
+// The functions of the original (issue #107): each calls its member on the one TClient's TGUI.
+
+void AddTimer(TTimer *Timer)
+{
+	patella::bridge::GUI().AddTimer(Timer);
+}
+
+void RemoveTimer(TTimer *Timer)
+{
+	patella::bridge::GUI().RemoveTimer(Timer);
+}
+
+void UpdateTimers()
+{
+	patella::bridge::GUI().UpdateTimers();
+}
+
+void InitHotkeys()
+{
+	patella::bridge::GUI().InitHotkeys();
+}
+
+void ExitHotkeys()
+{
+	patella::TGUI::ExitHotkeys();
+}
+
+void AddHotkey(int Key, TCallback Callback)
+{
+	patella::bridge::GUI().AddHotkey(Key, Callback);
+}
+
+void RemoveHotkey(int Key)
+{
+	patella::bridge::GUI().RemoveHotkey(Key);
+}
+
+bool CheckHotkey(int Key)
+{
+	return patella::bridge::GUI().CheckHotkey(Key);
 }
