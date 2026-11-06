@@ -18,7 +18,8 @@ Scenarios (--only takes their names):
   options  No server. The start window's Options: every check box of the general, console and
            network options, the next fullscreen resolution, the advanced graphics options (three
            check boxes, the frame rate limit, the OpenGL engine), four hotkeys (two sent
-           automatically). Tibia.cfg after the options dialog closes and after the exit.
+           automatically). Tibia.cfg after the options dialog closes and after the exit (the
+           x64 client's Patella.ini, issue #45).
   walk     A live session (Tibia.exe through tools/proxy.py against the test server) is
            recorded once; that run is Tibia.exe's, and Patella.exe replays it (with --skip-live
            Tibia.exe replays it too): login, automap marks set, edited and deleted, the automap
@@ -38,7 +39,8 @@ fork's clients end the login at a patch packet (tools/deliberate.py), so they wr
 files; the golden corpus's Communication test checks that (TestUpdateRequests).
 
 The window's place is an input of every session (Patella-Modern issue #68): before each WM_CLOSE, the exit
-that writes the last Tibia.cfg, the client's window is put back where the run's Tibia.cfg put it ((10,10),
+that writes the last Tibia.cfg (the x64 client's Patella.ini), the client's window is put back where the run's
+Tibia.cfg put it ((10,10),
 800x600, not maximised) if Windows moved it, and the report lists every window it moved; WindowedMode stays
 compared in full. The live recording's server start waits for the ports and the loaded world
 (tools/testserver.py start, issue #68). `--self-test` checks the placement on a window of its own.
@@ -49,7 +51,11 @@ build PatellaTest.exe runs in its place, read through its control channel, never
 
 Masked, after two runs of Tibia.exe showed that they differ from run to run (--repeat runs
 Tibia.exe a second time for walk to show it again): the time in Default.txt ("Channel saved
-at"). Everything else is compared byte for byte. Report: <out>\report.txt; exit code 0 when
+at"). Everything else is compared byte for byte, but the options (Patella-Modern issue #45): the x64
+client writes them into Patella.ini (at its start, the import of the run's Tibia.cfg, and where Tibia.exe
+writes Tibia.cfg) and never writes Tibia.cfg, so Tibia.exe's Tibia.cfg (the one it wrote, else the run's)
+is compared with the x64 client's Patella.ini by value (tools/settings_file.py; tools/deliberate.py), and so
+are the options scenario's copies after the options dialog. Report: <out>\report.txt; exit code 0 when
 nothing differs.
 """
 
@@ -71,6 +77,7 @@ import compare_traffic as ct  # noqa: E402
 import deliberate  # noqa: E402
 import proxy as px  # noqa: E402
 import session_client as sc  # noqa: E402
+import settings_file  # noqa: E402
 import login_client as lc  # noqa: E402
 
 ROOT = ct.ROOT
@@ -100,9 +107,10 @@ def client_exe(run):
 	return CLIENTS[ct.client_of(run)]["exe"]
 
 
-# Patella-Modern issue #31: the x64 client's own settings file, which Tibia.exe does not have. It is
-# reported, not compared (the options scenario's CPU button writes Device=cpu into it).
-PATELLA_INI = "Patella.ini"
+# Patella-Modern issues #31, #45: the x64 client's settings file. Its options are compared by value with
+# Tibia.exe's Tibia.cfg (settings_file.compare_options); its own keys (the options scenario's CPU button writes
+# Device=cpu) are not compared.
+PATELLA_INI = deliberate.PATELLA_INI
 # The x64 client's CPU driver (cmake/Vulkan.cmake), copied next to it in its run folder, so that the
 # advanced options' CPU button, in the OpenGL button's place, is enabled and switches as Tibia.exe's
 # OpenGL button does (both write Engine = 1).
@@ -468,20 +476,33 @@ def options_session(driver, collect_cfg):
 OPTIONS_ENGINE_SWITCH = True  # the advanced options' OpenGL button: a live engine switch
 
 
+def settings_name(run):
+	"""The file a run's client keeps its options in: Tibia.exe's Tibia.cfg, the x64 client's Patella.ini (issue
+	#45)."""
+	return PATELLA_INI if ct.client_of(run) == "patella" else "Tibia.cfg"
+
+
 def run_options(run, out):
 	before = prepare(run)
 	driver = start(run)
 	target = os.path.join(out, "options", ct.client_of(run))
 	os.makedirs(target, exist_ok=True)
+	kept = {}
 	try:
 		def keep(name):
-			shutil.copyfile(os.path.join(folder(run), "Tibia.cfg"), os.path.join(target, "%s.Tibia.cfg" % name))
+			source = settings_name(run)
+			with open(os.path.join(folder(run), source), "rb") as f:
+				kept[name] = f.read()
+			with open(os.path.join(target, "%s.%s" % (name, source)), "wb") as f:
+				f.write(kept[name])
 
 		options_session(driver, keep)
 		close(driver)
 	finally:
 		driver.kill()
-	return collect(run, before, target)
+	result = collect(run, before, target)
+	result["kept"] = kept
+	return result
 
 
 # --- scenario: walk ----------------------------------------------------------------------
@@ -1122,14 +1143,30 @@ def compare_files(say, name, results, repeat=None):
 	"""Both clients' written and removed files; masked files of two runs of Tibia.exe (repeat)."""
 	failed = False
 	o, p = dict(results["orig"]), dict(results["patella"])
-	# Tibia.exe's files as Patella.exe is expected to write them (tools/deliberate.py: no error.txt, issue #74).
+	# Tibia.exe's files as Patella.exe is expected to write them (tools/deliberate.py: no error.txt, issue #74; its
+	# options in Patella.ini, compared by value, issue #45).
 	for line in deliberate.expected_lines(o["written"], o["removed"]):
 		say("    " + line)
+	cfg = o["written"].get("Tibia.cfg")
+	source = "Tibia.exe's Tibia.cfg" if cfg is not None else "the run's Tibia.cfg"
+	if cfg is None:
+		cfg = ct.TIBIA_CFG.replace("\n", "\r\n").encode("latin-1")
 	o["written"] = {name: data for name, data in o["written"].items() if name in deliberate.files([name])}
 	o["removed"] = deliberate.files(o["removed"])
 	p["written"] = dict(p["written"])
-	if PATELLA_INI in p["written"]:
-		say("    %s (Patella.exe's own, not compared): %r" % (PATELLA_INI, p["written"].pop(PATELLA_INI)))
+	differences, lines = settings_file.compare_options(cfg, p["written"].pop(PATELLA_INI, None), source)
+	for when in sorted(set(o.get("kept", {})) | set(p.get("kept", {}))):
+		if when not in o.get("kept", {}) or when not in p.get("kept", {}):
+			differences.append("%s: kept by one client only" % when)
+			continue
+		found, texts = settings_file.compare_options(o["kept"][when], p["kept"][when], "Tibia.exe's %s.Tibia.cfg" % when)
+		lines += texts
+		differences += found
+	for line in lines:
+		say("    " + line)
+	for line in differences:
+		say("    DIFFERENT " + line)
+	failed |= bool(differences)
 	if sorted(o["written"]) != sorted(p["written"]) or o["removed"] != p["removed"]:
 		say("    written: %s / %s, removed: %s / %s: DIFFERENT" % (sorted(o["written"]), sorted(p["written"]),
 			o["removed"], p["removed"]))
@@ -1161,8 +1198,9 @@ def compare_files(say, name, results, repeat=None):
 	if removed:
 		say("    removed by both: %s" % ", ".join(removed))
 	if repeat is not None:
-		for file in sorted(set(o["written"]) & set(repeat["written"])):
-			x, y = o["written"][file], repeat["written"][file]
+		first = results["orig"]["written"]  # Tibia.cfg too: two runs of Tibia.exe
+		for file in sorted(set(first) & set(repeat["written"])):
+			x, y = first[file], repeat["written"][file]
 			if x == y:
 				continue
 			if mask(file, x) == mask(file, y):

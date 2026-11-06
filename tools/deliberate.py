@@ -18,10 +18,22 @@ patch.exe; the fork's clients end the login at the first patch packet, in the lo
 UPDATE_REFUSED_TEXT, and write, replace or start none of those files. No session of the comparisons has a patch packet
 since compare_files.py's patch and patch-exe went with the patcher; a session that has one lists the difference
 (expected_lines' server_packets) and still fails on what follows from it.
+
+Issue #45 (plan D12): Patella.ini is the x64 client's only settings file. Tibia.exe writes its options into Tibia.cfg
+(when the options dialog or the hotkeys are closed, at a logout and at the exit); the x64 client writes them into
+Patella.ini (src/settings/PreferenceKeys.h) at the same moments, and once at its start when Patella.ini has none yet
+(the import of the Tibia.cfg the run folder starts with), and never writes Tibia.cfg. A comparison drops Tibia.cfg from
+Tibia.exe's written files (files) and Patella.ini from the x64 client's, and compares the options by value
+(tools/settings_file.py): Tibia.exe's Tibia.cfg (the one it wrote, else the one the run started with) against the x64
+client's Patella.ini, which it must have written.
 """
 
 ISSUE = "#74"
 ISSUE_PATCHER = "#75"
+ISSUE_SETTINGS = "#45"
+# Tibia.exe's settings file, and the x64 client's (issue #45; src/settings/Settings.h FileName).
+TIBIA_CFG = "Tibia.cfg"
+PATELLA_INI = "Patella.ini"
 # The file Tibia.exe writes, reads and removes for its error report (Player.cpp HandleException, ReadErrorFile;
 # Control.cpp SendErrorReports).
 ERROR_FILE = "error.txt"
@@ -58,8 +70,10 @@ def box_text(caption, text):
 
 def files(names):
 	"""Tibia.exe's written or removed file names as the fork's clients write or remove them: without error.txt (issue
-	#74) and the patcher's files (issue #75)."""
-	return [name for name in names if name.lower() != ERROR_FILE and name.lower() not in PATCH_FILES]
+	#74), the patcher's files (issue #75) and Tibia.cfg (issue #45: the options go into Patella.ini, which a
+	comparison takes from the fork's side and compares by value, settings_file.py)."""
+	return [name for name in names if name.lower() != ERROR_FILE and name.lower() not in PATCH_FILES
+		and name.lower() != TIBIA_CFG.lower()]
 
 
 def expected_lines(written=(), removed=(), boxes=(), packets=(), server_packets=()):
@@ -67,6 +81,9 @@ def expected_lines(written=(), removed=(), boxes=(), packets=(), server_packets=
 	its message boxes [(caption, text)], its client packets' payloads (bytes) and the login server's packets to it
 	(bytes) of one session."""
 	out = []
+	if any(name.lower() == TIBIA_CFG.lower() for name in written):
+		out.append("deliberate (%s): Tibia.exe wrote %s, the fork's client writes %s (the options compared by value)"
+			% (ISSUE_SETTINGS, TIBIA_CFG, PATELLA_INI))
 	if any(name.lower() == ERROR_FILE for name in written):
 		out.append("deliberate (%s): Tibia.exe wrote %s, the fork's client writes none" % (ISSUE, ERROR_FILE))
 	if any(name.lower() == ERROR_FILE for name in removed):
@@ -98,11 +115,12 @@ def self_test():
 	assert box_text(CRITICAL_ERROR_CAPTION, CRITICAL_ERROR_TEXT_TIBIA.replace("\r\n", "\n")) == CRITICAL_ERROR_TEXT
 	assert box_text("Tibia Error", CRITICAL_ERROR_TEXT_TIBIA) == CRITICAL_ERROR_TEXT_TIBIA
 	assert box_text(CRITICAL_ERROR_CAPTION, "other") == "other"
-	assert files(["Tibia.cfg", "error.txt", "ERROR.TXT", "a.map"]) == ["Tibia.cfg", "a.map"]
+	assert files(["Tibia.cfg", "error.txt", "ERROR.TXT", "a.map"]) == ["a.map"]
 	assert len(expected_lines(["error.txt"], [], [(CRITICAL_ERROR_CAPTION, CRITICAL_ERROR_TEXT_TIBIA)])) == 2
-	assert expected_lines(["Tibia.cfg"], [], [("Tibia Error", "x")]) == []
+	assert len(expected_lines(["Tibia.cfg"], [], [("Tibia Error", "x")])) == 1
+	assert expected_lines(["a.map"], [], [("Tibia Error", "x")]) == []
 	assert len(expected_lines(packets=[b"\xe8\x00", b"\x14"])) == 1
-	assert files(["Tibia.da_", "Tibia.dat", "Patch.exe", "Tibia.bak", "Tibia.cfg"]) == ["Tibia.cfg"]
+	assert files(["Tibia.da_", "Tibia.dat", "Patch.exe", "Tibia.bak", "Tibia.cfg", "x.map"]) == ["x.map"]
 	assert len(expected_lines(["Tibia.dat", "Tibia.da_"], ["Tibia.da_"])) == 3
 	assert len(expected_lines(server_packets=[b"\x14\x00", b"\x1e\x01\x00\x00\x00\x00"])) == 1
 	assert expected_lines(server_packets=[b"\x14\x00", b"\x64\x00"]) == []
