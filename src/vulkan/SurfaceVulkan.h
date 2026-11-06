@@ -34,8 +34,9 @@ enum : int {
 static_assert(sizeof(decltype(NUMBER_OF_SURFACES_VULKAN)) == 4);
 static_assert(std::is_same_v<std::underlying_type_t<decltype(NUMBER_OF_SURFACES_VULKAN)>, int>);
 
-// The functions of a frame observer DLL (tools/capture/patcap.c, loaded by tools/compare_rendering.py):
-// told about the device, asked before each frame is shown whether it wants the frame's pixels.
+// The functions of the frame observer, the test build's frame dump (src/TestHooks.h, PATELLA_TEST_FRAME_OBSERVERS;
+// none in Patella.exe, which looks up no patcap.dll since issue #97): told about the device, asked before each
+// frame is shown whether it wants the frame's pixels.
 using TVulkanDeviceObserver = void(PATELLA_CDECL *)(const char *Name, int Type, int CpuDriver);
 using TVulkanFrameObserver = int(PATELLA_CDECL *)(int Width, int Height);
 using TVulkanPixelsObserver = void(PATELLA_CDECL *)(const void *Bits, int Pitch, int Width, int Height);

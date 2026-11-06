@@ -2,7 +2,7 @@
 // 4.4; src/TestHooks.h). Only PatellaTest.exe compiles it (cmake/WindowsX64.cmake); Patella.exe
 // contains none of it.
 //
-//	PatellaTest.exe [--test-script <file>] [--test-log <file>] [--test-out <folder>] [--test-sync <name>]
+//	PatellaTest.exe [--test-script <file>] [--test-log <file>] [--test-out <folder>]
 //	                [--test-replay <file>] [--test-display-modes <file>] [--test-control <name>]
 //	                [the client's own words]
 //
@@ -37,7 +37,7 @@
 //   process (src/testmode/StateDump.h, ClientStateWin32.cpp);
 // - frame-<NNN>.png and frame-<NNN>.filtered.png at the script's frame commands: the next frame the
 //   Vulkan engine shows and its device-filtered pixels (src/testmode/Png.h), through the engine's frame
-//   observer (the one patcap.dll otherwise is); frames.txt lists them.
+//   observer (the only one since issue #97); frames.txt lists them.
 //
 // Issue #23, the reference recordings (notes/testmode.md, "Reference recordings"):
 //
@@ -61,10 +61,8 @@
 // GetFullscreenModes) answers from the file instead of the machine, so a reference session lists the
 // modes of the machine it was recorded on. Without it the test build asks Windows, as Patella.exe.
 //
-// --test-sync <name> (tools/testmode_check.py): after writing a state dump the client sets the event
-// <name>-ready and waits for <name>-continue (both made by the checker), so that client_state.py reads
-// the same moment from outside; the wait does not count for the pace (the virtual clock does not see
-// it). A script with dump or frame needs --test-out.
+// A script with dump or frame needs --test-out. (Until issue #97 --test-sync <name> made the client wait
+// at each state dump for testmode_check.py's reading from outside; no tool used it after issue #92.)
 //
 // Issue #92: --test-control <name> (tools/testmode_client.py), the control channel through which the
 // comparison tools drive and read a running test client instead of reading its memory or hooking its
@@ -164,9 +162,6 @@ void RealYield()
 	::Sleep(1);
 }
 
-// How long a state dump waits for the checker's <name>-continue.
-constexpr DWORD SyncTimeout = 300000;
-
 // The modal loop of a message box that is not shown (ShowMessageBox): it ends after this many real
 // milliseconds without a message or a replay event, or after BoxMilliseconds.
 constexpr long long BoxQuietMilliseconds = 500;
@@ -244,8 +239,6 @@ struct TState {
 	std::vector<std::uint8_t> Mask;
 	int MaskWidth = 0;
 	int MaskHeight = 0;
-	HANDLE SyncReady = nullptr;
-	HANDLE SyncContinue = nullptr;
 
 	// Issue #92: the control channel (--test-control).
 	HANDLE ControlCommand = nullptr;
@@ -299,14 +292,13 @@ struct TArguments {
 	std::wstring Script;
 	std::wstring Log;
 	std::wstring Out;
-	std::wstring Sync;
 	std::wstring Replay;
 	std::wstring DisplayModes;
 	std::wstring Control;
 };
 
-// The arguments --test-script, --test-log, --test-out, --test-sync, --test-replay, --test-display-modes and
-// --test-control of the command line.
+// The arguments --test-script, --test-log, --test-out, --test-replay, --test-display-modes and --test-control
+// of the command line.
 TArguments ReadArguments()
 {
 	TArguments Result;
@@ -321,8 +313,6 @@ TArguments ReadArguments()
 			Result.Log = Arguments[i + 1];
 		else if (wcscmp(Arguments[i], L"--test-out") == 0)
 			Result.Out = Arguments[i + 1];
-		else if (wcscmp(Arguments[i], L"--test-sync") == 0)
-			Result.Sync = Arguments[i + 1];
 		else if (wcscmp(Arguments[i], L"--test-replay") == 0)
 			Result.Replay = Arguments[i + 1];
 		else if (wcscmp(Arguments[i], L"--test-display-modes") == 0)
@@ -345,15 +335,6 @@ void OpenOut(TState &State, const std::wstring &Folder)
 		Fail(State, "cannot write " + Narrow(Log.wstring()));
 	State.Packets.Write(std::string(PacketLogHeader) + "\n");
 	State.Packets.Flush();
-}
-
-// The checker's two events (--test-sync).
-void OpenSync(TState &State, const std::wstring &Name)
-{
-	State.SyncReady = ::OpenEventW(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, (Name + L"-ready").c_str());
-	State.SyncContinue = ::OpenEventW(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, (Name + L"-continue").c_str());
-	if (State.SyncReady == nullptr || State.SyncContinue == nullptr)
-		Fail(State, "--test-sync " + Narrow(Name) + ": the events " + Narrow(Name) + "-ready and -continue do not exist");
 }
 
 // The tool's two events of the control channel (--test-control, issue #92).
@@ -423,8 +404,6 @@ void Initialize(TState &State)
 		State.Log.Open(Arguments.Log.c_str(), TFile::TAccess::Write, TFile::TContent::Text); // stays closed where it fails
 	if (!Arguments.Out.empty())
 		OpenOut(State, Arguments.Out);
-	if (!Arguments.Sync.empty())
-		OpenSync(State, Arguments.Sync);
 	if (!Arguments.Replay.empty())
 		OpenReplay(State, Arguments.Replay);
 	if (!Arguments.DisplayModes.empty())
@@ -526,8 +505,7 @@ bool SaveFile(const std::filesystem::path &Path, std::span<const char> Data)
 	return static_cast<bool>(File);
 }
 
-// The state dump of a dump command; with --test-sync the checker reads the same moment, and the wait
-// does not count for the pace.
+// The state dump of a dump command.
 void WriteStateDump(TState &State, const TInputEvent &Event)
 {
 	TStateDump Dump;
@@ -540,13 +518,6 @@ void WriteStateDump(TState &State, const TInputEvent &Event)
 	std::string Json = StateDumpJson(Dump);
 	if (!SaveFile(State.Out / Name, Json))
 		WriteLog(State, "testmode: cannot write " + Name);
-	if (State.SyncReady == nullptr)
-		return;
-	auto Before = std::chrono::steady_clock::now();
-	::SetEvent(State.SyncReady);
-	if (::WaitForSingleObject(State.SyncContinue, SyncTimeout) != WAIT_OBJECT_0)
-		WriteLog(State, "testmode: " + Name + ": no answer from the checker (--test-sync)");
-	State.RealStart += std::chrono::steady_clock::now() - Before;
 }
 
 void Deliver(TState &State, HWND Window, const TInputEvent &Event)
@@ -1349,12 +1320,10 @@ int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type
 	return IDOK;
 }
 
-void FrameObservers(HMODULE Patcap, int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **Pixels)(const void *, int, int, int),
+void FrameObservers(int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **Pixels)(const void *, int, int, int),
 	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int), void(PATELLA_CDECL **Device)(const char *, int, int))
 {
 	const TState &Current = State();
-	if (Patcap != nullptr)
-		return;
 	if (Current.ControlCommand != nullptr)
 		*Device = DeviceSeen;
 	if (!Current.FramesWanted)

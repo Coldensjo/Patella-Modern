@@ -456,7 +456,7 @@ void TSurfaceVulkan::ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBC
 	}
 }
 
-// FinishFrame. A frame observer (patcap.dll) sees the frame before it is shown.
+// FinishFrame. A frame observer (the test build's frame dump) sees the frame before it is shown.
 void TSurfaceVulkan::FinishFrame()
 {
 	if (ViewMode != 0) {
@@ -968,14 +968,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		}
 		DisplayModeSet = true;
 	}
-	HMODULE Observer = GetModuleHandleA("patcap.dll");
-	if (Observer != nullptr) {
-		DeviceObserver = reinterpret_cast<TVulkanDeviceObserver>(reinterpret_cast<void *>(GetProcAddress(Observer, "PatcapVulkanDevice")));
-		FrameObserver = reinterpret_cast<TVulkanFrameObserver>(reinterpret_cast<void *>(GetProcAddress(Observer, "PatcapVulkanFrame")));
-		PixelsObserver = reinterpret_cast<TVulkanPixelsObserver>(reinterpret_cast<void *>(GetProcAddress(Observer, "PatcapVulkanPixels")));
-		MaskObserver = reinterpret_cast<TVulkanMaskObserver>(reinterpret_cast<void *>(GetProcAddress(Observer, "PatcapVulkanMask")));
-	}
-	PATELLA_TEST_FRAME_OBSERVERS(Observer, FrameObserver, PixelsObserver, MaskObserver, DeviceObserver)
+	PATELLA_TEST_FRAME_OBSERVERS(FrameObserver, PixelsObserver, MaskObserver, DeviceObserver)
 	try {
 		// A window of its own for the new device (PresentWindow.h, issue #52).
 		HWND Window = nullptr;
