@@ -1930,7 +1930,7 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Byte(Out, B->Enabled);
 	} else if (In(K, {"TEditLine", "TPasswordEditLine", "TEditText"})) {
 		TEditLine *E = (TEditLine *)C;
-		String(Out, s, E->Text);
+		String(Out, s, E->Text.get());
 		Add(Out, " %d,%d", E->MaxLength, E->Cursor);
 		Byte(Out, E->SingleLine);
 		Pointer(Out, s, E->FocusGroup);
@@ -1942,7 +1942,7 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Byte(Out, E->Disabled);
 		Byte(Out, E->ReadOnly);
 		if (K == "TPasswordEditLine") {
-			String(Out, s, ((TPasswordEditLine *)C)->Stars);
+			String(Out, s, ((TPasswordEditLine *)C)->Stars.get());
 		} else if (K == "TEditText") {
 			TEditText *T = (TEditText *)C;
 			Vector(Out, s, T->LineStart, 0, T->Lines, [&](int Start) { Number(Out, Start); });

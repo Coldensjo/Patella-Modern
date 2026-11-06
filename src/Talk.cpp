@@ -830,7 +830,11 @@ bool HasOwnPrivateChannel()
 	return false;
 }
 // 0x506920, no line evidence; tail-calls Clear without its own EH frame.
-TTalkBuffer::~TTalkBuffer() noexcept(false) { Clear(); }
+// noexcept (issue #81; noexcept(false) until then): Clear removes the first
+// line until there is none, and Remove of the first line takes its first two
+// branches, never the search with its assertion; free does not throw. In a
+// destructor the virtual calls are TTalkBuffer's own.
+TTalkBuffer::~TTalkBuffer() { Clear(); }
 // 0x502a60, line 1476
 void TTalkBuffer::Clear()
 {

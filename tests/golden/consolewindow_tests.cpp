@@ -1364,7 +1364,7 @@ static void SetInput(const char *Text)
 			((TConsoleBuffer *)C(OURS)->CurrentConsole->TextWindow->TextBuffer)->Spec.Caption,
 			C(OURS)->CurrentConsole->TextWindow->TextBuffer->SendTalkMode);
 	Both([&](int s) {
-		strcpy(C(s)->Input->Text, Text);
+		strcpy(C(s)->Input->Text.get(), Text);
 		C(s)->Input->SelectionStart = -1;
 		C(s)->Input->SelectionLength = 0;
 	});

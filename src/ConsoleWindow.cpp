@@ -59,6 +59,11 @@ static_assert(sizeof(std::unique_ptr<char[]>) == sizeof(char *) && alignof(std::
 static_assert(sizeof(TTextWindow) == 0x94 && offsetof(TTextWindow, SelectedText) == 0x8c, "TTextWindow's layout");
 static_assert(sizeof(TTab) == 0x58 && offsetof(TTab, Caption) == 0x2c && offsetof(TTab, FullCaption) == 0x30,
 	"TTab's layout");
+// History as a std::unique_ptr<TTalkBuffer> (issue #81): a pointer at the original's offset.
+static_assert(sizeof(std::unique_ptr<TTalkBuffer>) == sizeof(TTalkBuffer *)
+		&& alignof(std::unique_ptr<TTalkBuffer>) == alignof(TTalkBuffer *),
+	"std::unique_ptr<TTalkBuffer> is a pointer");
+static_assert(sizeof(TConsoleWindow) == 0x6c && offsetof(TConsoleWindow, History) == 0x48, "TConsoleWindow's layout");
 #endif
 
 namespace {
@@ -1170,7 +1175,7 @@ TConsoleWindow::TConsoleWindow()
 	TalkMode = 1;
 	DefaultTab = nullptr;
 	HistoryPosition = -1;
-	History = new TTalkBuffer(0);
+	History.reset(new TTalkBuffer(0));
 	Input = new TEditLine(TRect(0, 0, 0, 0), 255, false);
 	InsertChild(Input);
 	TabBar = new TTabBar;
@@ -1213,7 +1218,7 @@ TConsoleWindow::~TConsoleWindow()
 {
 	TabBar->StoreOpenChannels();
 	SetConsoleHeight(Height);
-	delete History;
+	History.reset();
 	if (!IsChild(VolumeButton) && VolumeButton != nullptr)
 		delete VolumeButton;
 	if (!IsChild(CloseButton) && CloseButton != nullptr)
@@ -1346,7 +1351,7 @@ void TConsoleWindow::KeyPress(int Key)
 		TextWindow->SelectionEndOffset = -1;
 		Input->SelectionLength = 0;
 		TComponent *Target = Input;
-		if (strlen(Input->Text) == 0)
+		if (strlen(Input->Text.get()) == 0)
 			Target = CurrentConsole->TextWindow;
 		Target->HandleEvent(20);
 		return;
@@ -1717,7 +1722,7 @@ void TConsoleWindow::SendInput()
 		VolumeButton->Reset();
 		this->TalkMode = 1;
 	}
-	if (strlen(Input->Text) != 0)
+	if (strlen(Input->Text.get()) != 0)
 		AddToHistory();
 	char *Text;
 	char MessageSeparator;
@@ -1790,7 +1795,7 @@ void TConsoleWindow::SendInput()
 // one) and goes back to it.
 void TConsoleWindow::AddToHistory()
 {
-	const char *Text = Input->Text;
+	const char *Text = Input->Text.get();
 	if (strlen(Text) != 0) {
 		if (History->GetLast() == nullptr || strcmp(History->GetLast()->Text, Text) != 0)
 			History->Append(new TTalkLine(0, TALK_SAY, Text, 0));
@@ -1810,7 +1815,7 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 {
 	int i = 0;
 	*Text = nullptr;
-	char *Line = Input->Text;
+	char *Line = Input->Text.get();
 	*Separator = 0;
 	while (IsSpace(Line[i]))
 		i++;

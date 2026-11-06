@@ -10990,3 +10990,89 @@ for misc-include-cleaner), 0 bugprone; banned_calls 0; clang-format clean. `pyth
 differences); the box text is the same, the error session's log line is "[error] Debug Assertion 7.72 Player.cpp
 375: exception occurred, reason:\nControl.cpp 776: unknown packet type during game (Type = 255)" (our own lines since
 80a; #79's run named the original's 383 and 1274). Logs: build\logs\issue-80.
+
+## unique_ptr for the owners blocked by noexcept(false) destructors (Patella-Modern issue #81)
+
+Settled by Claude Opus 5.5, November 6, 2026; M5's last issue (#58's M5 list: notes/ownership.md, section 7), after
+#78 (TBEGIN/TEND deleted), #76 (outcome-only comparison), #79 (PATELLA_ASSERT) and #80 (TMyException, TProgramError).
+The rules are #58's: every original delete a `reset()` at the same place and in the same order, the allocations
+`reset(new ...)`, layouts frozen in oracle-x86 (size and offset asserted under `PATELLA_ORIGINAL_LAYOUT`).
+
+### The question: can the destructors still throw (high)
+
+`std::unique_ptr::reset()` and its destructor are `noexcept` whatever the deleter: an exception from the owned
+object's destructor ends in `std::terminate`, where the original let it pass to the caller. So each pointee's
+destructor, and what it calls, was read again on main bd08107:
+
+- **`~TTalkBuffer`** (was `noexcept(false)`): `Clear()`, which calls `Remove(first)` until `first` is null. In a
+  destructor the virtual calls are TTalkBuffer's own, and Remove of the first line takes its first two branches
+  (`line == first && line == last`, `line == first`); the search with its `PATELLA_ASSERT(Search!=NULL)` is only for a
+  line in the middle. `free` does not throw. The destructor cannot throw, so it is now implicitly `noexcept`. Its
+  derived classes (TPrivateTalkBuffer, TChannelTalkBuffer, TRuleViolationTalkBuffer, TRuleViolationChannel; the tests'
+  TConsoleBuffer, TCommBuffer, TTestBuffer) declare no destructor. No check makes it throw (tests/golden and
+  tools/difftest searched: no error round fakes Clear or Remove for a destructor).
+- **`~TComponent`** stays `noexcept(false)`, and with it every window destructor. `~TTab` keeps
+  `PATELLA_ASSERT(PlayerName!=NULL)` (a player's report without a name), calls SendCancelRuleViolation,
+  SendCloseRuleViolation and SendLeaveChannel, and DeleteTextBuffer (`PATELLA_ASSERT(Filter!=-1)`);
+  `~TConsoleWindow` calls StoreOpenChannels and SetConsoleHeight; `~TContainerWindowBody` SendCloseContainer;
+  `~TTradeWindowBody` SendRejectTrade; `~TAutomapWindow` SetAutomapZoom; `~TSubWindow` SetContentWindowSize;
+  `~TMainWindow` ClearOpenDialogs and StoreOpenDialogs. The golden ConsoleWindow test throws through `~TTab` on
+  purpose ("A player's report without a name: its tab's destructor asserts", tests/golden/consolewindow_tests.cpp,
+  two rounds that delete the console and compare the outcome). Making TComponent's destructor `noexcept` would turn
+  that round's TMyException into `std::terminate` (the runner would crash), and a real client's assertion there into
+  an end without the error box. Proving the throws unreachable is not possible: the golden round reaches one.
+
+### The owners (high)
+
+- **Converted**: `TConsoleWindow::History` (`std::unique_ptr<TTalkBuffer>`: the constructor's `History.reset(new
+  TTalkBuffer(0))`, the destructor's `History.reset()` where the original deleted it, before the buttons);
+  `TEditLine::Text` (`std::unique_ptr<char[]>`: `reset(new char[_MaxLength + 1])` in both constructors, `reset()` in
+  the destructor, `.get()` in every reader of src/ and three golden tests); `TPasswordEditLine::Stars` (the same;
+  Draw's two swaps through a local, `Help = Text; Text = Stars; Stars = Help`, are `Text.swap(Stars)`: the same
+  values in the same members at every call, and an exception from TEditLine::Draw leaves them swapped, as the
+  original did). The TASSERT2 arguments that blocked Text (#58) are PATELLA_ASSERTs whose text is not compared
+  (#76, #79). Layouts: TConsoleWindow 0x6c, History +0x48; TEditLine 0x68, Text +0x2c; TPasswordEditLine 0x6c,
+  Stars +0x68, and `sizeof`/`alignof` of `std::unique_ptr<TTalkBuffer>` against the raw pointer, in ConsoleWindow.cpp
+  and DialogElements.cpp under `PATELLA_ORIGINAL_LAYOUT`.
+- **Kept raw**, each in notes/ownership.md section 7 with the milestone:
+  - `TTabBar::LeftTabs`, `RightTabs`: their windows hold the tabs that do not fit, so `delete LeftTabs` runs
+    `~TTab`. As `unique_ptr`s, `reset()` would terminate, and a throw out of the first delete would destroy
+    `RightTabs` (and send its tabs' leave-channel packets) while unwinding, where the original left it. M7 (the GUI
+    tree): the destructors' work that can fail moves into an explicit close before the delete, then TComponent's
+    destructor can be `noexcept` and these two convert.
+  - `ModalWindow`, `MainWindow`: TComponent pointees (the main window's tree holds the console), and a global
+    `unique_ptr` would run the window destructors during static destruction after FatalError's `exit(1)`. M7
+    (owned by `TClient`).
+  - The conditional component members (TSubWindow's parts, TConsoleWindow's buttons, `TListBox::EditLine`): also
+    owned by the child list by `IsChild`/`Editing`. M7.
+  - The text buffers (`DefaultTextBuffer`, CreateTextBuffer's): `~TTalkBuffer` no longer blocks them, but they are
+    allocated with `new (std::nothrow)` and freed with the destructor and `free` (a mismatched release), and owned
+    through a tab and the console filter list at once. M7.
+
+### The images (high)
+
+Main's Release images (C:\Tibia\Patella-Modern\build, built from bd08107; copied, read only) against the branch's,
+function by function through the PDBs (#78's scratch funcs.py and classify.py, `dumpbin /disasm:nobytes`, addresses
+and string-literal symbols masked: main was built in another folder, so every `__FILE__` literal has another name).
+x64 Patella.exe: 14,020 to 14,024 functions; 109 changed, 5 gone, 9 new. Of the changed, 91 differ only in the
+assertion line constants of ConsoleWindow.cpp, DialogElements.cpp and Talk.cpp (the files gained lines); the other 18
+are the converted owners' functions (TConsoleWindow's constructor and destructor, TEditLine's constructors,
+destructor, deleting destructors, HandleEvent, InsertChar, InsertText, LeftButtonDoubleClick, TEditText::KeyPress,
+TPasswordEditLine's constructor, `~TTalkBuffer`) and their unwind funclets. Gone/new: the constructors' funclets
+renumbered and `std::unique_ptr<TTalkBuffer>`'s destructor. x86 (oracle-x86's Patella.exe): 11,410 to 11,411; 106
+changed, 83 line constants only, 23 the converted owners' (the same, plus the inlined TEditLine code in TListBox's
+constructor, the Draw and GetPosition functions of the edit lines, ExitTalk, which calls `~TTalkBuffer` without an
+EH state of its own now, TTalkBuffer's scalar deleting destructor, and the funclet block dumpbin names
+`___guard_check_icall_thunk`); 1 new (the `unique_ptr` destructor). No other function changed. Logs:
+build\logs\issue-81\list-x64.txt, list-x86.txt.
+
+### The gates (high)
+
+`python -I tools/build.py oracle-x86`: CTest 5/5, difftest 16,459,337, sysinctest 67, communicationtest 856,621,
+vlongtest 3,201, 0 failures (unchanged), safeseh 0 findings (difftest 1669 handlers/2785 registrations, sysinctest
+84/107, communicationtest 960/974, vlongtest 28/41, Patella.exe 1093/1808). windows-x64 14/14, windows-x64-debug and
+windows-x64-asan 13/13 (no ASan finding): golden on main's corpus 15,803,203 replayed + 1,512,822 retired =
+17,316,025, 0 failures. windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11. 0 warnings on every preset.
+tidy_ci 3 findings, 0 new (baseline 3); banned_calls 0; clang-format clean. `python -I tools/reference.py compare
+--reference C:/Tibia/Patella-Modern/build/reference`: every session matches (error with #74's deliberate
+differences). Logs: build\logs\issue-81.

@@ -876,7 +876,7 @@ void TLoginDialog::KeyPress(int Key)
 void TLoginDialog::HandleEvent(int Event)
 {
 	if (Event == 1) {
-		SetAccount(atoi(Account->Text), Password->Text);
+		SetAccount(atoi(Account->Text.get()), Password->Text.get());
 		AddMessage(0x3d, 0, 0);
 		AddMessage(3, 0, 0);
 	}
@@ -1221,7 +1221,7 @@ TTextDialog::TTextDialog(int MaximumLength, const char *Text, uint32 _ObjectNumb
 void TTextDialog::HandleEvent(int Event)
 {
 	if (Event == 1)
-		SendEditText(ObjectNumber, EditText->Text);
+		SendEditText(ObjectNumber, EditText->Text.get());
 	SetActionState(0);
 }
 
@@ -1263,7 +1263,7 @@ void TEditListDialog::Arrange()
 void TEditListDialog::HandleEvent(int Event)
 {
 	if (Event == 1)
-		SendEditHouseText(Type, Identifier, EditText->Text);
+		SendEditHouseText(Type, Identifier, EditText->Text.get());
 	SetActionState(0);
 }
 
@@ -1626,7 +1626,7 @@ TBugReportDialog::TBugReportDialog()
 void TBugReportDialog::HandleEvent(int Event)
 {
 	if (Event == 1) {
-		const char *Text = EditText->Text;
+		const char *Text = EditText->Text.get();
 		if (strlen(Text) != 0)
 			SendBugReport(Text);
 	}
@@ -1669,7 +1669,7 @@ TNewChannelDialog::TNewChannelDialog(int _NumberOfChannels, const int *_ChannelI
 void TNewChannelDialog::KeyPress(int Key)
 {
 	if (Key == 13) {
-		if (strlen(NameEdit->Text) != 0)
+		if (strlen(NameEdit->Text.get()) != 0)
 			HandleEvent(302);
 		else
 			HandleEvent(301);
@@ -1686,7 +1686,7 @@ void TNewChannelDialog::KeyPress(int Key)
 void TNewChannelDialog::HandleEvent(int Event)
 {
 	if (Event == 1) {
-		const char *Name = NameEdit->Text;
+		const char *Name = NameEdit->Text.get();
 		if (strlen(Name) != 0) {
 			TCreature *Creature = GetCreature(GetPlayerID());
 			PATELLA_ASSERT(Creature!=NULL);
@@ -1743,7 +1743,7 @@ void TPrivateChannelDialog::KeyPress(int Key)
 void TPrivateChannelDialog::HandleEvent(int Event)
 {
 	if (Event == 1) {
-		const char *Name = NameEdit->Text;
+		const char *Name = NameEdit->Text.get();
 		if (strlen(Name) != 0) {
 			if (!Exclude)
 				SendInviteToPrivateChannel(Name);
@@ -1785,10 +1785,10 @@ void TReportDialog::KeyPress(int Key)
 // copy (event 0x33).
 void TReportDialog::HandleEvent(int Event)
 {
-	if (Event == 1 && strlen(TextEdit->Text) != 0) {
-		const std::size_t Size = strlen(TextEdit->Text) + 1;
+	if (Event == 1 && strlen(TextEdit->Text.get()) != 0) {
+		const std::size_t Size = strlen(TextEdit->Text.get()) + 1;
 		char *Text = new char[Size];
-		TStringBuffer(Text, Size).Assign(TextEdit->Text);
+		TStringBuffer(Text, Size).Assign(TextEdit->Text.get());
 		AddMessage(0x33, reinterpret_cast<INT_PTR>(Text), 0);
 	}
 	SetActionState(0);
@@ -1825,7 +1825,7 @@ void TAddBuddyDialog::KeyPress(int Key)
 void TAddBuddyDialog::HandleEvent(int Event)
 {
 	if (Event == 1) {
-		const char *Name = NameEdit->Text;
+		const char *Name = NameEdit->Text.get();
 		if (strlen(Name) != 0)
 			SendAddBuddy(Name);
 	}
@@ -1891,7 +1891,7 @@ void TEditBuddyDialog::HandleEvent(int Event)
 				break;
 			}
 		}
-		EditBuddy(CharacterID, Icon, Description->Text, Notify->IsChecked());
+		EditBuddy(CharacterID, Icon, Description->Text.get(), Notify->IsChecked());
 	}
 	SetActionState(0);
 }
@@ -2138,7 +2138,7 @@ void TRuleViolationDialog::HandleEvent(int Event)
 		bool Valid = true;
 		const int Reason = GetReason();
 		const int Action = GetAction();
-		if (strlen(NameEdit->Text) == 0) {
+		if (strlen(NameEdit->Text.get()) == 0) {
 			SetStatusMessage(TextNoPlayerName, false);
 			Valid = false;
 		}
@@ -2150,12 +2150,12 @@ void TRuleViolationDialog::HandleEvent(int Event)
 			SetStatusMessage(TextNoAction, false);
 			Valid = false;
 		}
-		if (strlen(CommentEdit->Text) == 0) {
+		if (strlen(CommentEdit->Text.get()) == 0) {
 			SetStatusMessage(TextNoComment, false);
 			Valid = false;
 		}
 		if (Action == 6) {
-			if (strlen(StatementEdit->Text) == 0) {
+			if (strlen(StatementEdit->Text.get()) == 0) {
 				SetStatusMessage(TextNoStatement, false);
 				Valid = false;
 			} else if (StatementID == 0) {
@@ -2165,7 +2165,7 @@ void TRuleViolationDialog::HandleEvent(int Event)
 		}
 		if (Valid) {
 			const uint32 ID = StatementEdit->IsDisabled() ? 0 : StatementID;
-			SendRuleViolationReport(NameEdit->Text, Reason, Action, CommentEdit->Text, ID,
+			SendRuleViolationReport(NameEdit->Text.get(), Reason, Action, CommentEdit->Text.get(), ID,
 				IPBanishment->IsChecked());
 		}
 		break;
@@ -2279,7 +2279,7 @@ void TEditMarkDialog::KeyPress(int Key)
 void TEditMarkDialog::HandleEvent(int Event)
 {
 	if (Event == 1) {
-		CopyString(Mark.Text.Chars, TextEdit->Text);
+		CopyString(Mark.Text.Chars, TextEdit->Text.get());
 		int Type = 0;
 		for (int i = 0; i < 14; i++) {
 			if (TypeGroup->Selected == TypeButtons[i]) {
@@ -2879,7 +2879,7 @@ void THotkeyDialog::KeyPress(int Key)
 	default:
 		if (Selected != -1) {
 			TextEdit->KeyPress(Key);
-			Texts[Selected].Assign(TextEdit->Text);
+			Texts[Selected].Assign(TextEdit->Text.get());
 			AutoSendCheckBox->SetEnabled(strlen(Texts[Selected]) != 0);
 			if (strlen(Texts[Selected]) == 0) {
 				AutoSend[Selected] = false;

@@ -71,7 +71,7 @@ public:
 	TTalkBuffer(int TalkMode) : ReceiveTalkMode(TalkMode), SendTalkMode(TalkMode),
 								Changed(true), first(nullptr), last(nullptr), cursor(nullptr), lines(0), limit(1000),
 								ShowMessages(false), Enabled(true), Complete(true), LinesChanged(true), Locked(false), Selected(false) {}
-	~TTalkBuffer() noexcept(false);
+	~TTalkBuffer(); // noexcept (issue #81)
 	// 0x4fd5f0-0x4fd6b7, Talk.h inlines, in vtable order.
 	virtual bool GetChanged()
 	{
