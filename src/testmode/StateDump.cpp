@@ -316,4 +316,89 @@ std::string StateDumpJson(const TStateDump &Dump)
 	return Json.Text() + "\n";
 }
 
+std::string ProbeJson(const TProbe &Probe)
+{
+	TJsonWriter Json;
+	Json.BeginObject();
+	Json.Key("format");
+	Json.String(ProbeFormat);
+	Json.Key("step");
+	Json.Int(Probe.Step);
+	Json.Key("time");
+	Json.UInt(Probe.Time);
+	Json.Key("state");
+	WriteState(Json, Probe.State);
+	Json.Key("gui");
+	WriteGui(Json, Probe.Gui);
+	Json.Key("characters");
+	Json.BeginArray();
+	for (const std::string &Name : Probe.Characters)
+		Json.String(Name);
+	Json.EndArray();
+	Json.Key("skin");
+	Json.BeginObject();
+	for (const TProbeSkin &Skin : Probe.Skin) {
+		Json.Key(Skin.Path);
+		if (!Skin.Rects) {
+			Json.Int(Skin.Values.empty() ? 0 : Skin.Values.front());
+			continue;
+		}
+		Json.BeginArray();
+		for (std::size_t i = 0; i + 3 < Skin.Values.size(); i += 4) {
+			Json.BeginArray();
+			for (std::size_t j = i; j < i + 4; j++)
+				Json.Int(Skin.Values[j]);
+			Json.EndArray();
+		}
+		Json.EndArray();
+	}
+	Json.EndObject();
+	Json.Key("members");
+	Json.BeginObject();
+	for (const TProbeComponent &Component : Probe.Components) {
+		Json.Key(std::to_string(Component.Ptr));
+		Json.BeginObject();
+		for (const TProbeMember &Member : Component.Members) {
+			Json.Key(Member.Path);
+			Json.Int(Member.Value);
+		}
+		Json.EndObject();
+	}
+	Json.EndObject();
+	Json.Key("names");
+	Json.BeginObject();
+	for (const TProbeNames &Map : Probe.MapNames) {
+		Json.Key(std::to_string(Map.Ptr));
+		Json.BeginArray();
+		for (const TProbeName &Name : Map.Names) {
+			Json.BeginArray();
+			Json.UInt(Name.CreatureId);
+			Json.Int(Name.X);
+			Json.Int(Name.Y);
+			Json.EndArray();
+		}
+		Json.EndArray();
+	}
+	Json.EndObject();
+	Json.Key("device");
+	if (Probe.Device.Known) {
+		Json.BeginObject();
+		Json.Key("name");
+		Json.String(Probe.Device.Name);
+		Json.Key("type");
+		Json.Int(Probe.Device.Type);
+		Json.Key("cpu_driver");
+		Json.Int(Probe.Device.CpuDriver);
+		Json.EndObject();
+	} else {
+		Json.Null();
+	}
+	Json.Key("frames");
+	Json.UInt(Probe.Frames);
+	Json.Key("ticks");
+	Json.UInt(Probe.Ticks);
+	Json.EndObject();
+	return Json.Text() + "\n";
+}
+
 } // namespace patella::testmode

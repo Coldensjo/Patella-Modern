@@ -30,13 +30,20 @@ Runs the scripted session of tools/session_client.py with both clients and compa
       proxy checks each one as it comes);
    c. the client state (tools/client_state.py: player, map, creatures, inventory, containers,
       trade, console) and the window tree (classes, places, sizes, label texts) after every
-      step, Tibia.exe against Patella.exe in the replay of the same recording: identical;
+      step, Tibia.exe against Patella.exe in the replay of the same recording: identical (the x64
+      client's from its test mode's probe, below);
    d. the Tibia.cfg each client wrote when it closed: identical across all runs of the same
       kind;
    e. server packets of the two live sessions: listed, not required to be equal (the
       server's world moves on its own: creatures walk, times differ); the replay shows that
       the clients handle the same server data the same way.
 Exit code 0 when a-d found no difference, 1 otherwise (or on a failed run).
+
+--patella with an x64 Patella.exe (Patella-Modern issue #92): the client under test is the test build next
+to it, PatellaTest.exe (the same client with the test mode compiled in; without a script it runs on the
+system clock and takes Windows' input, as Patella.exe), started with its control channel and read through
+it (tools/testmode_client.py: the probe's state, window tree and the places the session clicks at), never
+through its memory: tools/client_state.py reads Tibia.exe and the oracle's 32-bit Patella.exe only.
 """
 
 import argparse
@@ -66,10 +73,41 @@ PLAYER_FILES = {  # the test account's characters (notes/testserver.md)
 	"Patella Second": os.path.join(SERVER_DIR, "data", "usr", "75", "15146575.usr"),
 }
 CLIENTS = {
-	"orig": {"exe": "Tibia.exe", "source": os.path.join(ROOT, "Tibia.exe"), "pdb": None},
+	"orig": {"exe": "Tibia.exe", "source": os.path.join(ROOT, "Tibia.exe"), "pdb": None, "test": False},
 	"patella": {"exe": "Patella.exe", "source": os.path.join(ROOT, "build", "oracle-x86", "Release", "Patella.exe"),
-		"pdb": os.path.join(ROOT, "build", "oracle-x86", "Release", "Patella.exe")},
+		"pdb": os.path.join(ROOT, "build", "oracle-x86", "Release", "Patella.exe"), "test": False},
 }
+TEST_BUILD = "PatellaTest.exe"  # the x64 client's test build, next to its Patella.exe (cmake/WindowsX64.cmake)
+IMAGE_FILE_MACHINE_AMD64 = 0x8664
+
+
+def pe_machine(path):
+	"""The machine field of a PE image's file header (client_state.pe_machine, without its Windows imports)."""
+	with open(path, "rb") as f:
+		head = f.read(0x400)
+	pe = int.from_bytes(head[0x3c:0x40], "little") if head[:2] == b"MZ" else -1
+	if pe < 0 or head[pe:pe + 4] != b"PE\0\0":
+		raise RunError("%s: not a PE image" % path)
+	return int.from_bytes(head[pe + 4:pe + 6], "little")
+
+
+def use_patella(path):
+	"""--patella: the client under test. An x86 one (the oracle's) is read through its memory with its PDB
+	(tools/client_state.py); for an x64 Patella.exe the test build next to it runs in its place, read
+	through its control channel (issue #92). Returns the line the report names it with."""
+	path = os.path.abspath(path)
+	if not os.path.isfile(path):
+		raise RunError("no %s" % path)
+	info = CLIENTS["patella"]
+	if pe_machine(path) != IMAGE_FILE_MACHINE_AMD64:
+		info.update(exe="Patella.exe", source=path, pdb=path, test=False)
+		return "patella: %s (read through its memory, tools/client_state.py)" % path
+	test = os.path.join(os.path.dirname(path), TEST_BUILD)
+	if not os.path.isfile(test):
+		raise RunError("no %s next to %s: the x64 client is read through its test build (python -I tools/build.py "
+			"windows-x64 builds both)" % (TEST_BUILD, path))
+	info.update(exe=TEST_BUILD, source=test, pdb=None, test=True)
+	return "patella: %s, run as its test build %s (read through its test mode's control channel)" % (path, test)
 HELPER = {"exe": "Tibia.exe", "source": os.path.join(ROOT, "Tibia.exe")}
 TRAFFIC = os.path.join(ROOT, "build", "traffic")
 LIVE_SETTLE = 1.5  # seconds after each live step: the server answers in milliseconds
@@ -310,11 +348,12 @@ def play(client, proxy, wait, out_prefix, helper=None):
 	info = CLIENTS[client]
 	clean_run_dir(client)
 	reset_cfg(client)
-	driver = sc.Driver(run_dir(client), info["exe"], info["pdb"])
+	driver = sc.Driver(run_dir(client), info["exe"], info["pdb"], test=info.get("test", False))
 	checkpoints = []
 
 	def checkpoint(name):
-		checkpoints.append({"step": name, "state": driver.mem.state(), "gui": gui_summary(driver.mem.gui())})
+		state, gui = driver.mem.snapshot()
+		checkpoints.append({"step": name, "state": state, "gui": gui_summary(gui)})
 
 	try:
 		driver.start()
@@ -468,12 +507,12 @@ def main():
 	parser.add_argument("--out", default=os.path.join(TRAFFIC, "result"))
 	parser.add_argument("--skip-live", action="store_true", help="reuse the live recordings in --out")
 	parser.add_argument("--no-cross", action="store_true", help="replay only Tibia.exe's live recording")
-	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
-		"it (default build/oracle-x86/Release/Patella.exe; e.g. build/windows-x64/Release/Patella.exe)")
+	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test: x86 (the oracle's, with its PDB "
+		"next to it) or x64 (its test build PatellaTest.exe next to it runs, issue #92); default "
+		"build/oracle-x86/Release/Patella.exe; e.g. build/windows-x64/Release/Patella.exe")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 	args = parser.parse_args()
-	if args.patella:
-		CLIENTS["patella"]["source"] = CLIENTS["patella"]["pdb"] = os.path.abspath(args.patella)
+	named = use_patella(args.patella or CLIENTS["patella"]["source"])
 	out = os.path.abspath(args.out)
 	os.makedirs(out, exist_ok=True)
 	report = []
@@ -482,6 +521,8 @@ def main():
 	def say(text=""):
 		print(text, flush=True)
 		report.append(text)
+
+	log(named)
 
 	setup()
 	live = {client: os.path.join(out, "%s-live.jsonl" % client) for client in CLIENTS}

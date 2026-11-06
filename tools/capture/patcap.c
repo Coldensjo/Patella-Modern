@@ -33,11 +33,18 @@ exactly the calls the client makes, and the same calls in both clients:
 
 The controller (tools/compare_rendering.py) talks to it through a named file mapping
 "Local\PatellaCapture-<pid>" (layout: struct Shared). Nothing here depends on which client it
-is in. It has the client's bitness (cmake/Capture.cmake): the patcap target of the oracle-x86 preset
-(32-bit, for Tibia.exe and the 32-bit Patella.exe) and of the windows-x64 preset (64-bit, for the x64
-Patella.exe; issue #18). The same source serves both: the import thunks are pointer-sized
-(IMAGE_THUNK_DATA), the COM vtable indices and the shared layout (LONGs) are the same, and the timer
-window's handle is stored truncated to 32 bits (only informational; window handles fit). */
+is in. It has the client's bitness (cmake/Capture.cmake): the patcap target of the oracle-x86 preset,
+32-bit, for Tibia.exe (tools/compare_rendering.py and the reference recordings' record step,
+tools/reference_record.py) and the oracle's 32-bit Patella.exe (which goes with the oracle, issue #94).
+
+Tibia.exe's and the oracle's only (Patella-Modern issue #92): the tools read the x64 client through its
+test mode (PatellaTest.exe --test-control: the frame dump, the probe; tools/testmode_client.py), never
+by hooking it, so this file no longer builds for x64 (issue #18 had built a 64-bit one; the Vulkan
+exports below stay for the x64 client's lookup of patcap.dll, which Patella.exe still makes). */
+
+#if defined(_WIN64)
+#error "patcap.dll is Tibia.exe's and the oracle's 32-bit Patella.exe's only (Patella-Modern issue #92): the x64 client is read through its test mode"
+#endif
 
 #define WIN32_LEAN_AND_MEAN
 #define COBJMACROS

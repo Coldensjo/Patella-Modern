@@ -29,20 +29,27 @@ equal; everywhere else the comparison stays exact.
 --tolerance N: the same everywhere (default 0). The report gives every scene's largest channel
 difference either way.
 
---patella: the Patella.exe to compare, x86 or x64 (Patella-Modern issue #18), with its PDB next to it
-(default the oracle's, build\oracle-x86\Release\Patella.exe); an x64 one: python -I tools/build.py
-windows-x64 first.
+--patella: the Patella.exe to compare, x86 (the oracle's, with its PDB next to it; the default,
+build\oracle-x86\Release\Patella.exe) or x64 (Patella-Modern issue #18; python -I tools/build.py
+windows-x64 first).
 
-The capture (tools/capture/patcap.c) is a DLL of the client's bitness (cmake/Capture.cmake):
-build\oracle-x86\Release\patcap.dll for the 32-bit clients (Tibia.exe, the oracle's Patella.exe),
-build\windows-x64\Release\patcap.dll for the x64 Patella.exe; each is its preset's patcap target, which
-this script builds when the DLL is missing or older than its source. The run folders' copies of the
-clients import it (add_import, PE32 and PE32+), so it is loaded before the client's entry point. It
-reads the composed frame from the engine's own surfaces (DirectDraw Blt/Flip, Direct3D 9 Present,
-SwapBuffers), so no display is needed, and it makes time deterministic: the clock (timeGetTime,
-the wall clock) and the main timer's ticks (WM_TIMER, ActionNumber) move only when this script
-says so, by the same amounts in both clients. The game scenes come from a recorded session
-replayed by tools/proxy.py (both clients get the same server bytes); no server is needed.
+The 32-bit clients (Tibia.exe, the oracle's Patella.exe) run under the capture DLL
+(tools/capture/patcap.c, cmake/Capture.cmake: build\oracle-x86\Release\patcap.dll, the oracle-x86
+preset's patcap target, which this script builds when the DLL is missing or older than its source).
+The run folders' copies of these clients import it (add_import), so it is loaded before the client's
+entry point. It reads the composed frame from the engine's own surfaces (DirectDraw Blt/Flip, Direct3D 9
+Present, SwapBuffers), so no display is needed, and it makes time deterministic: the clock (timeGetTime,
+the wall clock) and the main timer's ticks (WM_TIMER, ActionNumber) move only when this script says so,
+by the same amounts in both clients.
+
+The x64 client is never hooked (Patella-Modern issue #92): its test build next to it, PatellaTest.exe,
+runs in its place with the same time course from its own test mode (tools/testmode_client.py,
+TestDriver): the script `clock manual` and `cursor 1020 760` (patcap's), then through its control
+channel every window message as a post line (it drops Windows' input), patcap's ADVANCE as advance
+lines and each capture as a frame line (the frame dump: the next frame the Vulkan engine shows, and its
+device-filtered pixels, the forms of patcap's picture and mask); the probe names the engine's device and
+counts its frames. The game scenes come from a recorded session replayed by tools/proxy.py (both
+clients get the same server bytes); no server is needed.
 
 Exit code 0 when every scene of every engine is pixel-identical outside the masks (the measured frame
 rate in the advanced graphics options, notes/rendering.md; for vulkan and vulkan-cpu also the graphics
@@ -71,24 +78,33 @@ import compare_traffic as ct  # noqa: E402
 import proxy as px  # noqa: E402
 import session_client as sc  # noqa: E402
 import login_client as lc  # noqa: E402
-import client_state  # noqa: E402
+import testmode_client as tc  # noqa: E402
 import build  # noqa: E402
 
 ROOT = ct.ROOT
 RENDER = os.path.join(ROOT, "build", "render")
-# patcap.dll has the bitness of the client it is loaded into (cmake/Capture.cmake): the patcap target
-# of the oracle-x86 preset for the 32-bit clients (Tibia.exe, the oracle's Patella.exe), of the
-# windows-x64 preset for the x64 Patella.exe (issue #18). By the client's PE machine field:
-CAPTURE_PRESETS = {client_state.IMAGE_FILE_MACHINE_I386: "oracle-x86",
-	client_state.IMAGE_FILE_MACHINE_AMD64: "windows-x64"}
+IMAGE_FILE_MACHINE_I386 = 0x014c
+# The kind of a client by its PE machine field: the 32-bit ones (Tibia.exe, the oracle's Patella.exe) run
+# under the oracle-x86 preset's patcap.dll; the x64 client is read through its test mode (issue #92).
+CLIENT_PRESETS = {IMAGE_FILE_MACHINE_I386: "oracle-x86", ct.IMAGE_FILE_MACHINE_AMD64: "windows-x64"}
+
+
+def client_preset(exe):
+	"""The preset whose client `exe` is: oracle-x86 (32-bit) or windows-x64."""
+	machine = ct.pe_machine(exe)
+	if machine not in CLIENT_PRESETS:
+		raise RunError("%s: machine 0x%x, neither x86 nor x64" % (exe, machine))
+	return CLIENT_PRESETS[machine]
 
 
 def capture_preset(exe):
-	"""The preset whose patcap.dll fits the client `exe`."""
-	machine = client_state.pe_machine(exe)
-	if machine not in CAPTURE_PRESETS:
-		raise RunError("%s: machine 0x%x, neither x86 nor x64" % (exe, machine))
-	return CAPTURE_PRESETS[machine]
+	"""The preset whose patcap.dll fits the client `exe`: oracle-x86's. patcap.dll is Tibia.exe's and the
+	oracle's only: the x64 client is never hooked (issue #92), so an x64 image is refused."""
+	preset = client_preset(exe)
+	if preset != "oracle-x86":
+		raise RunError("%s is an x64 client: patcap.dll is Tibia.exe's and the oracle's 32-bit Patella.exe's only; "
+			"the x64 client is read through its test build's control channel (issue #92)" % exe)
+	return preset
 
 
 def capture_dll(preset):
@@ -289,12 +305,59 @@ def add_import(source, target, dll="patcap.dll", function="PatcapLoaded"):
 	return len(old)
 
 
+class TestDriver(sc.Driver):
+	"""session_client's driver for the x64 test client (issue #92): patcap's time course from the test mode
+	itself. The script it starts with is clock manual and cursor 1020 760 (patcap's CURSOR_X, CURSOR_Y);
+	every message goes through the control channel (scripted: post lines), advance() is an advance line,
+	frame() a frame line (the next frame the Vulkan engine shows, frame-NNN.png and .filtered.png)."""
+
+	def __init__(self, run_dir, exe, script, env=None, **kwargs):
+		super().__init__(run_dir, exe, None, test=True, scripted=True, test_arguments=["--test-script", script],
+			**kwargs)
+		self.env = env
+		self.cap = None
+		self.frames = 0
+
+	def environment(self):
+		return self.env
+
+	def advance(self, ms=2000, ticks=20):
+		self.channel.command("advance %d %d" % (ms, ticks), alive=self.alive)
+
+	def frame(self):
+		"""The next frame shown: (picture file, mask file or None)."""
+		self.channel.command("frame", alive=self.alive)
+		self.frames += 1
+		png = os.path.join(self.channel.out, "frame-%03d.png" % self.frames)
+		mask = os.path.join(self.channel.out, "frame-%03d.filtered.png" % self.frames)
+		if not os.path.isfile(png):
+			raise RunError("the frame dump wrote no %s" % png)
+		return png, mask if os.path.isfile(mask) else None
+
+	def facts(self):
+		"""patcap's facts from the probe: frames shown, ticks, virtual milliseconds, the Vulkan device."""
+		probe = self.mem.refresh()
+		device = probe.get("device")
+		return {"frames": probe["frames"], "ticks": probe["ticks"], "virtual_ms": probe["time"],
+			"hooks": ["none: the test mode's control channel"],
+			"vulkan_device": None if device is None else {"name": device["name"],
+				"type": VULKAN_TYPES.get(device["type"], "?"), "cpu_driver": bool(device["cpu_driver"])}}
+
+
+# The start of TestDriver's script: patcap's clock and cursor (tools/capture/patcap.c CURSOR_X, CURSOR_Y).
+TEST_START_SCRIPT = "# compare_rendering.py (issue #92): patcap's time course\nclock manual\ncursor 1020 760\n"
+
+
 class Driver(sc.Driver):
-	"""session_client's driver for a client whose copy imports patcap.dll (add_import)."""
+	"""session_client's driver for a client whose copy imports patcap.dll (add_import): Tibia.exe and the
+	oracle's 32-bit Patella.exe."""
 
 	def __init__(self, *args, env=None, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.env = env
+
+	def environment(self):
+		return self.env
 
 	def start(self, arguments=()):
 		path = os.path.join(self.run_dir, self.exe)
@@ -318,10 +381,7 @@ class Driver(sc.Driver):
 			raise sc.SessionError("no TibiaClient window after 30 s")
 		self.log("patcap.dll loaded; hooks: %s" % ", ".join(self.cap.hooks()))
 		time.sleep(2)
-		self.mem = client_state.Client(self.proc.pid, self.pdb_exe)
-
-	def alive(self):
-		return self.proc is not None and self.proc.poll() is None
+		self.mem = self.reader()
 
 	def advance(self, ms=2000, ticks=20):
 		self.cap.advance(ms, ticks, alive=self.alive)
@@ -459,7 +519,7 @@ ENGINES = {
 }
 
 
-# The engines each kind of Patella.exe has (capture_preset): the oracle's the original three, the x64
+# The engines each kind of Patella.exe has (client_preset): the oracle's the original three, the x64
 # client only the Vulkan engine (issue #20).
 PATELLA_ENGINES = {"oracle-x86": ("dx5", "dx9", "gl"), "windows-x64": ("vulkan", "vulkan-cpu")}
 
@@ -530,16 +590,19 @@ RUNS = ("orig", "patella", "orig-repeat")  # run folders; the second Tibia.exe r
 def setup():
 	"""Run folders build\\render\\orig, build\\render\\patella and build\\render\\orig-repeat:
 	compare_traffic's set-up (copies of the data files, the clients patched by patch_client.py),
-	then the import of patcap.dll, the one of the client's bitness."""
+	then, for the 32-bit clients, the import of patcap.dll (the x64 test client takes none, issue #92)."""
 	ct.set_folder(RENDER)
 	ct.setup(extra=["orig-repeat"])
 	for run in RUNS:
 		exe = os.path.join(ct.run_dir(run), CLIENTS[ct.client_of(run)]["exe"])
-		preset = capture_preset(exe)
-		build_capture(preset)
-		count = add_import(exe, exe)
-		shutil.copyfile(capture_dll(preset), os.path.join(ct.run_dir(run), "patcap.dll"))
-		log("%s: patcap.dll of %s added to its %d imports" % (exe, preset, count))
+		if CLIENTS[ct.client_of(run)].get("test"):
+			log("%s: the test build, driven through its control channel (no patcap.dll)" % exe)
+		else:
+			preset = capture_preset(exe)
+			build_capture(preset)
+			count = add_import(exe, exe)
+			shutil.copyfile(capture_dll(preset), os.path.join(ct.run_dir(run), "patcap.dll"))
+			log("%s: patcap.dll of %s added to its %d imports" % (exe, preset, count))
 		# The Vulkan engine's CPU driver, when the client under test has one next to it.
 		source_dir = os.path.dirname(CLIENTS[ct.client_of(run)]["source"])
 		for name in CPU_DRIVER_FILES:
@@ -585,11 +648,11 @@ def switch_fullscreen(driver):
 	wait_node(driver, "TOptionsDialog")
 	click_node(driver, button(driver, "Graphics"))
 	dialog = wait_node(driver, "TGraphicsOptionsDialog")
-	box = driver.mem.ptr(dialog["ptr"] + driver.mem.off("TGraphicsOptionsDialog.Fullscreen"))
+	box = driver.mem.member(dialog["ptr"], "TGraphicsOptionsDialog.Fullscreen")
 	node = driver.node_by_ptr(box)
 	driver.click(node["x"] + 6, node["y"] + node["h"] // 2)
 	time.sleep(0.3)
-	if driver.mem.read(box + driver.mem.off("TCheckBox.Checked"), 1)[0] == 0:
+	if not driver.mem.checked(box):
 		raise RunError("the Fullscreen check box did not change")
 	driver.char(13)
 	wait_gone(driver, "TGraphicsOptionsDialog")
@@ -677,12 +740,11 @@ def session(driver, proxy, shot, fullscreen=False, device_choice=False):
 	automap = wait_node(driver, "TAutomapWindow")
 
 	def zoom_in():
-		click_node(driver, driver.node_by_ptr(driver.mem.ptr(automap["ptr"]
-			+ driver.mem.off("TAutomapWindow.ZoomInButton"))))
+		click_node(driver, driver.node_by_ptr(driver.mem.member(automap["ptr"], "TAutomapWindow.ZoomInButton")))
 
 	step("automap-zoom", zoom_in)
-	click_node(driver, driver.node_by_ptr(driver.mem.ptr(automap["ptr"]
-		+ driver.mem.off("TAutomapWindow.ZoomOutButton"))))  # back to zoom 2
+	click_node(driver, driver.node_by_ptr(driver.mem.member(automap["ptr"],
+		"TAutomapWindow.ZoomOutButton")))  # back to zoom 2
 	settle()
 
 	def side_windows():
@@ -768,7 +830,13 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 		f.write(cfg_for(engine, fullscreen))
 	mode_before = display_mode()
 	info = CLIENTS[client]
-	driver = Driver(ct.run_dir(label), info["exe"], info["pdb"], env=client_env(engine, client))
+	if info.get("test"):
+		script = os.path.join(folder, "start.script")
+		with open(script, "w", encoding="utf-8", newline="\n") as f:
+			f.write(TEST_START_SCRIPT)
+		driver = TestDriver(ct.run_dir(label), info["exe"], script, env=client_env(engine, client))
+	else:
+		driver = Driver(ct.run_dir(label), info["exe"], info["pdb"], env=client_env(engine, client))
 	scenes, apis, scene_masks, filtered = {}, set(), {}, {}
 	proxy = px.Proxy(os.path.join(folder, "replay.jsonl"), px.load_private_key(ct.PEM),
 		replay=px.load_events(recording), log=log)
@@ -776,6 +844,18 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 	def shot(name, masks=None):
 		if masks:
 			scene_masks[name] = masks
+		if isinstance(driver, TestDriver):
+			# The test mode's frame dump: the frame and its device-filtered pixels (white), as patcap's.
+			png, mask = driver.frame()
+			picture = read_png(png)
+			apis.add("Vulkan")
+			if mask is not None:
+				shutil.copyfile(mask, os.path.join(folder, filtered_file(name)))
+				filtered[name] = sum(row[0::3].count(255) for row in read_png(mask)[2])
+			write_png(os.path.join(folder, scene_file(name)), *picture)
+			scenes[name] = pixel_digest(picture[2])
+			log("scene %s: %dx%d (the test mode's frame dump)" % (name, picture[0], picture[1]))
+			return
 		bmp = os.path.join(folder, "capture.bmp")
 		width, height, api = driver.capture(bmp, SKIP_FRAMES)
 		apis.add(api)
@@ -795,17 +875,21 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 		scenes[name] = pixel_digest(picture[2])
 		log("scene %s: %dx%d (%s)" % (name, width, height, api))
 
+	facts_cap = None
 	try:
 		with proxy:
 			driver.start()
 			session(driver, proxy, shot, fullscreen, "vulkan" in ENGINES[engine])
 			time.sleep(0.5)
+			if isinstance(driver, TestDriver):
+				facts_cap = driver.facts()
 			code = driver.close()
 			if code != 0:
 				raise RunError("%s exited with code %d" % (info["exe"], code))
 		facts = {"apis": sorted(apis), "frames": driver.cap.get("Frames") if driver.cap else None}
+		if isinstance(driver, TestDriver):
+			facts["frames"] = facts_cap["frames"]
 	finally:
-		facts_cap = None
 		if getattr(driver, "cap", None) is not None:
 			facts_cap = {"frames": driver.cap.get("Frames"), "ticks": driver.cap.get("Ticks"),
 				"virtual_ms": driver.cap.get("Now"), "hooks": driver.cap.hooks(),
@@ -901,21 +985,23 @@ def main():
 		"much counts as equal (default 0: exact)")
 	parser.add_argument("--region-tolerance", type=int, default=2, help="the same on the device-filtered "
 		"pixels the Vulkan engine marks (default 2: the bilinear stretches and the light)")
-	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
-		"it (default build/oracle-x86/Release/Patella.exe; e.g. build/windows-x64/Release/Patella.exe; as "
-		"tools/compare_traffic.py's --patella)")
+	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 (the oracle's, with its PDB "
+		"next to it, under patcap.dll) or x64 (its test build PatellaTest.exe next to it runs, read through its "
+		"test mode, issue #92); default build/oracle-x86/Release/Patella.exe; e.g. "
+		"build/windows-x64/Release/Patella.exe; as tools/compare_traffic.py's --patella")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 	args = parser.parse_args()
-	if args.patella:
-		CLIENTS["patella"]["source"] = CLIENTS["patella"]["pdb"] = os.path.abspath(args.patella)
-		if not os.path.isfile(CLIENTS["patella"]["source"]):
-			raise SystemExit("no %s" % CLIENTS["patella"]["source"])
 	args.out = os.path.abspath(args.out)  # the DLL writes the pictures from the client's folder
 	args.recording = os.path.abspath(args.recording)
 	patella_preset = None
-	if os.path.isfile(CLIENTS["patella"]["source"]):
+	named = None
+	patella_path = os.path.abspath(args.patella) if args.patella else CLIENTS["patella"]["source"]
+	if args.patella and not os.path.isfile(patella_path):
+		raise SystemExit("no %s" % patella_path)
+	if os.path.isfile(patella_path):
 		try:
-			patella_preset = capture_preset(CLIENTS["patella"]["source"])
+			patella_preset = client_preset(patella_path)
+			named = ct.use_patella(patella_path)
 		except RunError as e:
 			raise SystemExit(str(e))
 	if args.engines is None:
@@ -963,7 +1049,7 @@ def main():
 	say("recording %s; every step: %d ms and %d ticks of virtual time, capture after %d frames"
 		% (args.recording, ADVANCE_MS, ADVANCE_TICKS, SKIP_FRAMES))
 	patella = CLIENTS["patella"]["source"]
-	say("patella: %s (%s)" % (patella, capture_preset(patella) if os.path.isfile(patella) else "missing"))
+	say(named + " (%s)" % patella_preset if named else "patella: %s (missing)" % patella)
 	if args.tolerance:
 		say("tolerance: pixels whose channels differ by at most %d count as equal" % args.tolerance)
 	say("region tolerance: on the Vulkan engine's device-filtered pixels (<scene>.filtered.png), pixels whose "

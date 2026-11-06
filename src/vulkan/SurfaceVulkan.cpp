@@ -975,7 +975,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		PixelsObserver = reinterpret_cast<TVulkanPixelsObserver>(reinterpret_cast<void *>(GetProcAddress(Observer, "PatcapVulkanPixels")));
 		MaskObserver = reinterpret_cast<TVulkanMaskObserver>(reinterpret_cast<void *>(GetProcAddress(Observer, "PatcapVulkanMask")));
 	}
-	PATELLA_TEST_FRAME_OBSERVERS(Observer, FrameObserver, PixelsObserver, MaskObserver)
+	PATELLA_TEST_FRAME_OBSERVERS(Observer, FrameObserver, PixelsObserver, MaskObserver, DeviceObserver)
 	try {
 		// A window of its own for the new device (PresentWindow.h, issue #52).
 		HWND Window = nullptr;
