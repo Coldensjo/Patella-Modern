@@ -12917,3 +12917,7 @@ Logs: build\logs\issue-99 of the branch's worktree; golden replayed main's froze
   session matches (traffic, options, walk, error); `python -I tools/compare_traffic.py` exit 0, no differences.
 - `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
   clang-format (CLAUDE.md's command): exit 0.
+- After the merge of main cf4f5db (#113, #104, #98; logs in build\logs\issue-99fter-merge): `python -I
+  tools/build.py windows-x64 --fresh` exit 0, 19/19; `linux-x64-gcc --fresh` exit 0, 16/16; golden on both 15,803,218
+  replayed + 1,512,822 retired = 17,316,040, 0 failures. `reference.py compare` exit 0, every session matches.
+  clang-format and banned_calls.py: exit 0.
