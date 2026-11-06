@@ -318,6 +318,15 @@ asserts and sends, and the golden ConsoleWindow test throws through it; so `TTab
 `ModalWindow` and `MainWindow` stay raw until M7 (notes/ownership.md section 7). difftest 16,459,337 / 67 / 856,621 /
 3,201 (unchanged); golden 17,316,025, 0 failures. notes/decisions.md, "unique_ptr for the owners blocked by
 noexcept(false) destructors".
+The catch blocks that relied on structured exceptions (Patella-Modern issue #67, part 2, branch issue-67b, November 6,
+2026; M5): the 43 `catch (...)` of src/ decided (21 not SEH-dependent, 17 a driver's or the oracle's engines' traps, 3
+fixed, 2 left to #83: InitControl's ExitControl and FatalError's SetDisplayMode step). PATELLA_DIVISOR
+(compat/assertion.h) throws the original's TMyException where a divisor from input traps: the game login's Beat in
+StartMovement, Tibia.dat's pattern sizes, phases and exact sizes in six functions. FatalError skips ShowWindow on a
+NULL main window, as the original's catch-all handler did, so a start-up error shows its box (CTest fatal_error_box).
+difftest's Divisions test (15 checks; ported, `Since = "#67"`: main's corpus lacks it); difftest 16,459,352 / 67 /
+856,621 / 3,201; golden 17,316,025, 0 failures. notes/decisions.md, "The catch blocks that relied on catching
+structured exceptions".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -463,6 +472,14 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #67, part 2 (branch issue-67b, November 6, 2026): PATELLA_DIVISOR at the input divisions,
+FatalError's NULL main window. `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest 16,459,352 (+15:
+Divisions), sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures, safeseh 0 findings. golden on main's
+corpus 17,316,025, 0 failures (Divisions not in it, noted); windows-x64 15/15, -debug and -asan 14/14 (fatal_error_box
+passes), windows-x64-gcc and the Linux presets 11/11, 0 warnings. Images: only the changed functions and line
+constants. tidy_ci 3 findings, 0 new; banned_calls 0; clang-format clean. reference.py compare: every session matches.
+Logs: build\logs\issue-67b.
 
 Patella-Modern issue #81 (branch issue-81, November 6, 2026): unique_ptr for History, TEditLine::Text and
 TPasswordEditLine::Stars; ~TTalkBuffer noexcept. `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest
