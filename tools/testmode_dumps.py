@@ -1,4 +1,4 @@
-r"""The dumps of the test mode (issue #22): read them and compare them with what the tools see from outside.
+r"""The dumps of the test mode (issue #22): read them and check them.
 
 PatellaTest.exe --test-out <folder> writes (notes/testmode.md, "The dumps"):
   packets.log            every packet sent before encryption and received after decryption
@@ -8,11 +8,17 @@ PatellaTest.exe --test-out <folder> writes (notes/testmode.md, "The dumps"):
   frame-<NNN>.png        at each frame command: the next frame the Vulkan engine shows (8-bit RGB)
   frame-<NNN>.filtered.png  its device-filtered pixels, white (as compare_rendering.py's <scene>.filtered.png)
   frames.txt             <step> <requested ms> <line> <shown ms> <width> <height> <filtered pixels>
-tools/testmode_check.py adds external-<NNN>.json: client_state.py's reading of the same moment from
-outside (the client waits for it, --test-sync).
+Until Patella-Modern issue #92 tools/testmode_check.py added external-<NNN>.json, client_state.py's reading
+of the same moment from the client's memory (--test-sync), and compared the dumps with it. The x64 client
+is no longer read from outside (notes/decisions.md, issue #92): the dumps are checked on their own, and
+their values against Tibia.exe's readings by the reference compare (tools/reference.py, b. states).
 
-What is compared (the issue's criteria):
-  - state-<NNN>.json against external-<NNN>.json: "state" and "gui" equal, value for value;
+What is checked:
+  - every state-<NNN>.json on its own (check_state_dumps): one per dump command of the script, at that
+    command's line, in time order; the keys of StateDump.h's lists in their order (state, player,
+    creatures, containers, offers, the window tree's nodes, "text" only for TLabel, TContextMenuEntry and
+    TTextButton); the window tree well formed (depth 0 first, one deeper at most from node to node, the
+    "(modal)" node at depth 0 with its windows below it);
   - packets.log against tools/proxy.py's decrypted recording of the same run: per connection (kind and
     ordinal), the client packets identical and in order (payload and padding; the first packet with
     its RSA block before encryption, proxy.py's "plain"), the server packets the client decrypted
@@ -21,8 +27,9 @@ What is compared (the issue's criteria):
   - the keys of the dump (StateDump.h's lists) against the keys client_state.py writes (read from its
     source with ast), statically.
 
-Run on its own: python -I tools/testmode_dumps.py --self-test (the comparisons on made-up data: equal
-data passes, a changed field, packet or missing dump fails; and the static key lists).
+Run on its own: python -I tools/testmode_dumps.py --self-test (the checks on made-up data: good data
+passes, a missing key, a malformed window tree, a wrong line, a changed packet or a missing dump fails;
+and the static key lists).
 """
 
 import argparse
@@ -50,6 +57,17 @@ class DumpError(Exception):
 
 
 # --- the script -------------------------------------------------------------------------------
+
+def script_dump_lines(path):
+	"""The script lines (from 1) of the script's dump commands, in order."""
+	lines = []
+	with open(path, encoding="utf-8-sig") as f:
+		for number, line in enumerate(f, 1):
+			words = line.split("#", 1)[0].split()
+			if words and words[0].lower() == "dump":
+				lines.append(number)
+	return lines
+
 
 def script_commands(path):
 	"""(dumps, frames): how many dump and frame commands the script has (src/testmode/InputScript.cpp:
@@ -241,36 +259,87 @@ def diff_values(a, b, path="", out=None, limit=20):
 	return out
 
 
-def compare_state_dumps(folder, expected, limit=20):
-	"""(differences, lines): every state-<NNN>.json against external-<NNN>.json; expected: the script's
-	number of dump commands."""
+# The window classes whose node has "text" (src/testmode/ClientStateWin32.cpp, client_state.py gui()).
+TEXT_CLASSES = ("TLabel", "TContextMenuEntry", "TTextButton")
+
+
+def dump_problems(dump, keys):
+	"""What is wrong with one state dump on its own: its keys against StateDump.h's lists (keys: name ->
+	[keys], header_key_lists()), in their order, and the window tree's form."""
+	problems = []
+
+	def same_keys(what, value, expected):
+		if not isinstance(value, dict):
+			problems.append("%s: not an object" % what)
+		elif list(value) != expected:
+			problems.append("%s keys %s, StateDump.h %s" % (what, list(value), expected))
+
+	if list(dump) != ["format", "step", "time", "line", "state", "gui"]:
+		problems.append("the dump's keys %s" % list(dump))
+		return problems
+	state = dump["state"]
+	same_keys("state", state, keys["StateKeys"])
+	if problems:
+		return problems
+	same_keys("state.player", state["player"], keys["PlayerFields"])
+	for i, creature in enumerate(state["creatures"]):
+		same_keys("state.creatures[%d]" % i, creature, keys["CreatureKeys"])
+	for i, container in enumerate(state["containers"]):
+		same_keys("state.containers[%d]" % i, container, keys["ContainerKeys"])
+	if len(state["trade"]) != 2:
+		problems.append("state.trade: %d offers, not 2" % len(state["trade"]))
+	for i, offer in enumerate(state["trade"]):
+		same_keys("state.trade[%d]" % i, offer, keys["OfferKeys"])
+	modal = False
+	previous = -1
+	for i, node in enumerate(dump["gui"]):
+		expected = [k for k in keys["GuiKeys"] if k != "text" or node.get("class") in TEXT_CLASSES]
+		same_keys("gui[%d]" % i, node, expected)
+		if list(node) != expected:
+			continue
+		depth = node["depth"]
+		if node["class"] == "(modal)":
+			if depth != 0 or modal or node["ptr"] != 0:
+				problems.append("gui[%d]: a second (modal) node, or one not at depth 0 with ptr 0" % i)
+			modal = True
+		elif depth < (1 if modal else 0) or depth > previous + 1 or (i == 0 and depth != 0):
+			problems.append("gui[%d]: depth %d after depth %d%s" % (i, depth, previous, " (under the modal)" if modal else ""))
+		previous = depth
+	return problems
+
+
+def check_state_dumps(folder, script, limit=20):
+	"""(problems, lines): every state-<NNN>.json of a run on its own (issue #92; until then against
+	client_state.py's reading from outside): one per dump command of the script, at its line, in time
+	order, each with StateDump.h's keys and a well-formed window tree (dump_problems)."""
 	dumps = numbered(folder, "state", ".json")
-	readings = numbered(folder, "external", ".json")
-	differences, lines = [], []
-	if sorted(dumps) != list(range(1, expected + 1)):
-		differences.append("  %d state dumps (%s), the script has %d dump commands" % (len(dumps),
-			" ".join(str(s) for s in sorted(dumps)), expected))
+	script_lines = script_dump_lines(script)
+	keys = header_key_lists()
+	problems, lines = [], []
+	if sorted(dumps) != list(range(1, len(script_lines) + 1)):
+		problems.append("  %d state dumps (%s), the script has %d dump commands" % (len(dumps),
+			" ".join(str(s) for s in sorted(dumps)), len(script_lines)))
+	time = -1
 	for step in sorted(dumps):
 		dump = load_json(dumps[step])
 		if dump.get("format") != STATE_FORMAT or dump.get("step") != step:
-			differences.append("  state-%03d.json: format %r, step %r" % (step, dump.get("format"), dump.get("step")))
+			problems.append("  state-%03d.json: format %r, step %r" % (step, dump.get("format"), dump.get("step")))
 			continue
-		if step not in readings:
-			differences.append("  step %d: no external-%03d.json (client_state.py's reading)" % (step, step))
-			continue
-		reading = load_json(readings[step])
-		if "error" in reading:
-			differences.append("  step %d: client_state.py failed: %s" % (step, reading["error"]))
-			continue
-		found = diff_values(dump["state"], reading["state"], "state", None, limit)
-		found = diff_values(dump["gui"], reading["gui"], "gui", found, limit)
+		found = dump_problems(dump, keys)
+		if step <= len(script_lines) and dump["line"] != script_lines[step - 1]:
+			found.append("line %d, the script's dump command %d is on line %d" % (dump["line"], step,
+				script_lines[step - 1]))
+		if dump["time"] < time:
+			found.append("time %d ms, before the dump before it (%d ms)" % (dump["time"], time))
+		time = dump["time"]
 		state = dump["state"]
-		lines.append("  step %d (%d ms, line %d): %s; %d map objects, %d creatures, %d containers, %d console lines,"
-			" %d windows" % (step, dump["time"], dump["line"], "equal" if not found else "DIFFERENT",
-			sum(len(p) for p in state.get("map", [])), len(state.get("creatures", [])),
-			len(state.get("containers", [])), len(state.get("console", [])), len(dump["gui"])))
-		differences.extend("  step %d: %s" % (step, d) for d in found)
-	return differences, lines
+		if not found:
+			lines.append("  step %d (%d ms, line %d): well formed; %d map objects, %d creatures, %d containers, %d console"
+				" lines, %d windows" % (step, dump["time"], dump["line"], sum(len(p) for p in state.get("map", [])),
+				len(state.get("creatures", [])), len(state.get("containers", [])), len(state.get("console", [])),
+				len(dump["gui"])))
+		problems.extend("  step %d: %s" % (step, p) for p in found[:limit])
+	return problems, lines
 
 
 def comparable(dump):
@@ -384,16 +453,25 @@ def _fake_run(folder, number, script):
 		f.write("400 s2c game 1 xtea 0a01020304 01\n")
 		f.write("500 c2s game 1 xtea 65 11223344\n")
 		f.write("600 c2s game 1 xtea 14 55667788\n")
-	state = {"connection": 8, "player": {"PlayerID": 268435457, "PlayerHealth": 150},
-		"skills": [10] * 7, "map": [[[102, 0, 0]], []], "creatures": [{"slot": 0, "id": 268435457, "name": "Patella"}],
-		"console": [[1, "hello"], [17, None]]}
+	keys = header_key_lists()
+	player = {name: 0 for name in keys["PlayerFields"]}
+	player.update(PlayerID=268435457, PlayerHealth=150)
+	creature = {name: 0 for name in keys["CreatureKeys"]}
+	creature.update(id=268435457, name="Patella", pos=[32097, 32219, 7])
+	offer = {"name": "", "count": 0, "objects": []}
+	state = {"connection": 8, "player": player, "skills": [10] * 7, "skill_progress": [0] * 7,
+		"map_centre": [32097, 32219, 7], "map": [[[102, 0, 0]], []], "creatures": [creature], "body": [[0, 0, 0]] * 10,
+		"containers": [{"index": 0, "object": [1988, 0, 0], "name": "backpack", "capacity": 20, "has_parent": 0,
+			"objects": []}], "trade": [offer, dict(offer)], "console": [[1, "hello"], [17, None]]}
+	if list(state) != keys["StateKeys"]:
+		raise DumpError("the self-test's made-up state lacks keys of StateDump.h")
 	gui = [{"depth": 0, "class": "TMainWindow", "x": 0, "y": 0, "w": 800, "h": 600, "ptr": 4096, "vtable": 8192},
-		{"depth": 1, "class": "TLabel", "x": 4, "y": 5, "w": 6, "h": 7, "ptr": 12288, "vtable": 16384, "text": None}]
+		{"depth": 1, "class": "TLabel", "x": 4, "y": 5, "w": 6, "h": 7, "ptr": 12288, "vtable": 16384, "text": None},
+		{"depth": 0, "class": "(modal)", "x": 0, "y": 0, "w": 0, "h": 0, "ptr": 0, "vtable": 0},
+		{"depth": 1, "class": "TDialog", "x": 100, "y": 100, "w": 200, "h": 100, "ptr": 20480, "vtable": 24576}]
 	with open(os.path.join(dumps, "state-001.json"), "w", encoding="utf-8") as f:
 		json.dump({"format": STATE_FORMAT, "step": 1, "time": 2000, "line": 4, "state": state, "gui": gui}, f,
 			separators=(",", ":"))
-	with open(os.path.join(dumps, "external-001.json"), "w", encoding="utf-8") as f:
-		json.dump({"format": STATE_FORMAT, "source": "client_state.py", "step": 1, "state": state, "gui": gui}, f)
 	width, height = 4, 3
 
 	def png(rows):
@@ -436,12 +514,21 @@ def self_test(compare, out=print):
 			f.write(text.replace(old, new, 1))
 
 	cases.append(("identical runs", None, 0, "RESULT: no differences"))
-	cases.append(("a state field differs from client_state.py's reading",
-		lambda d: change_json(os.path.join(d, "run1", "external-001.json"),
-			lambda v: v["state"]["player"].__setitem__("PlayerHealth", 149)), 1, "step 1: state.player.PlayerHealth: 150 against 149"))
-	cases.append(("a window's text differs",
-		lambda d: change_json(os.path.join(d, "run2", "external-001.json"),
-			lambda v: v["gui"][1].__setitem__("text", "")), 1, "step 1: gui[1].text: None against ''"))
+	cases.append(("a dump lacks a key of StateDump.h",
+		lambda d: change_json(os.path.join(d, "run1", "state-001.json"),
+			lambda v: v["state"]["player"].pop("PlayerSoul")), 1, "step 1: state.player keys"))
+	cases.append(("a window node has a text its class has not",
+		lambda d: change_json(os.path.join(d, "run2", "state-001.json"),
+			lambda v: v["gui"][0].__setitem__("text", "")), 1, "step 1: gui[0] keys"))
+	cases.append(("a window two levels below its parent",
+		lambda d: change_json(os.path.join(d, "run2", "state-001.json"),
+			lambda v: v["gui"][1].__setitem__("depth", 2)), 1, "step 1: gui[1]: depth 2 after depth 0"))
+	cases.append(("a window of the modal at depth 0",
+		lambda d: change_json(os.path.join(d, "run1", "state-001.json"),
+			lambda v: v["gui"][3].__setitem__("depth", 0)), 1, "step 1: gui[3]: depth 0 after depth 0 (under the modal)"))
+	cases.append(("a dump at another line than its command",
+		lambda d: change_json(os.path.join(d, "run1", "state-001.json"),
+			lambda v: v.__setitem__("line", 5)), 1, "step 1: line 5, the script's dump command 1 is on line 4"))
 	cases.append(("a client packet differs from the proxy's",
 		lambda d: change_text(os.path.join(d, "run1", "packets.log"), "xtea 65 11223344", "xtea 66 11223344"), 1, "game 1 c2s #1: log ('66', '11223344')"))
 	cases.append(("a client packet's padding differs",
@@ -450,8 +537,6 @@ def self_test(compare, out=print):
 		lambda d: change_text(os.path.join(d, "run2", "packets.log"), "s2c game 1 xtea 0a01020304", "s2c game 1 xtea 0a01020305"), 1, "game 1 s2c #0: log ('0a01020305', '01')"))
 	cases.append(("a dump is missing", lambda d: os.remove(os.path.join(d, "run1", "state-001.json")), 1,
 		"0 state dumps (), the script has 1 dump commands"))
-	cases.append(("client_state.py's reading is missing", lambda d: os.remove(os.path.join(d, "run2", "external-001.json")), 1,
-		"step 1: no external-001.json"))
 	cases.append(("a frame is missing", lambda d: os.remove(os.path.join(d, "run1", "frame-001.png")), 1,
 		"0 frame dumps, the script has 1 frame commands"))
 	for title, change, expected, marker in cases:

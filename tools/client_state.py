@@ -1,7 +1,13 @@
 r"""Read a running client's game state and window layout from its memory (issue #19).
 
+Tibia.exe and the oracle's 32-bit Patella.exe only (Patella-Modern issue #92): the tools read the x64
+client (Patella.exe, PatellaTest.exe of windows-x64) through its test mode, never its memory
+(tools/testmode_client.py: the control channel's probe; notes/testmode.md), and Client refuses a 64-bit
+process. The reference recordings read Tibia.exe with it (tools/reference_record.py); the oracle's part
+goes with the oracle (issue #94). `--layout` on an x64 image still lists its PDB's entries (no process).
+
 Works on the original Tibia.exe (fixed addresses and field offsets, from the comments in src/) and on
-Patella.exe, 32-bit (oracle-x86) or 64-bit (windows-x64): its globals' addresses, field offsets,
+the oracle's Patella.exe (oracle-x86): its globals' addresses, field offsets,
 structure sizes and array lengths come from its PDB through dbghelp (SymGetTypeInfo; Patella-Modern
 issue #6), the addresses relative to the module base (Patella.exe is relocatable). Every offset the
 tools use is named in LAYOUT by its type and member names; Tibia.exe's values are the constants there.
@@ -656,6 +662,15 @@ def process_is_64bit(handle):
 	return struct.calcsize("P") == 8  # not WOW64: as wide as the OS, which a 64-bit Python implies
 
 
+# Issue #92: the x64 client is read through its test mode only.
+X64_REFUSED = ("%s is a 64-bit client: client_state.py reads Tibia.exe and the oracle's 32-bit Patella.exe "
+	"only; the x64 client is read through its test mode (PatellaTest.exe --test-control, "
+	"tools/testmode_client.py; Patella-Modern issue #92)")
+
+# The kinds of the members the session drivers follow (member(), member_index()).
+FIELD_KINDS = {path: kind for path, offset, kind in LAYOUT_FIELDS}
+
+
 class Client:
 	"""A running client's memory. pdb_exe: None for Tibia.exe, else the exe whose PDB to use (Patella.exe,
 	x86 or x64; the process must have the same bitness)."""
@@ -664,6 +679,9 @@ class Client:
 		self.handle = kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid)
 		if not self.handle:
 			raise ReadError("OpenProcess %d failed (error %d)" % (pid, ctypes.get_last_error()))
+		if process_is_64bit(self.handle):
+			self.close()
+			raise ReadError(X64_REFUSED % ("PID %d" % pid))
 		try:
 			self.layout = Layout.original() if pdb_exe is None else Layout.from_pdb(pdb_exe)
 			self.attach()
@@ -986,6 +1004,54 @@ class Client:
 	def skin_int(self, member):
 		return self.i32(self.addr["SkinProperties"] + self.skin_offset(member))
 
+	# --- what the session drivers read besides state() and gui() (tools/testmode_client.py's
+	# TestClient gives the same from the test client's probe, issue #92) ----------------------
+
+	def member(self, component, path):
+		"""The member `path` (a LAYOUT_FIELDS name) of the component at `component`: a pointer (4 or 8
+		bytes), an int, or a bool's byte, by its kind."""
+		kind, count = parse_kind(FIELD_KINDS[path])
+		if count is not None:
+			raise ReadError("%s is an array: member_index" % path)
+		address = component + self.off(path)
+		if kind == "ptr":
+			return self.ptr(address)
+		if kind == "bool":
+			return self.read(address, 1)[0]
+		if kind == "int":
+			return self.i32(address)
+		raise ReadError("%s: a %s, not a pointer, int or bool" % (path, kind))
+
+	def member_index(self, component, path, index):
+		"""Element `index` of the pointer array `path` of the component at `component`."""
+		kind, count = parse_kind(FIELD_KINDS[path])
+		if kind != "ptr" or count is None or not 0 <= index < count:
+			raise ReadError("%s[%d]: not an element of a pointer array (%s)" % (path, index, FIELD_KINDS[path]))
+		return self.ptr(component + self.off(path) + self.pointer_size * index)
+
+	def checked(self, box):
+		"""TCheckBox's Checked (+0x30 in the original, after the label pointer)."""
+		return self.member(box, "TCheckBox.Checked") != 0
+
+	def player_id(self):
+		return self.var("PlayerID")
+
+	def map_names(self, map_window):
+		"""[(creature ID, x, y)] of the map window's names (TMapWindow.Names, NumberOfNames of them)."""
+		L = self.layout
+		size = L.size("TCreatureName")
+		count = self.i32(map_window + self.off("TMapWindow.NumberOfNames"))
+		names = []
+		for i in range(max(0, min(count, L.count("TMapWindow.Names")))):
+			name = self.read(map_window + self.off("TMapWindow.Names") + size * i, size)
+			names.append((self.field_u32(name, 0, "TCreatureName.CreatureID"), self.field_i32(name, 0, "TCreatureName.x"),
+				self.field_i32(name, 0, "TCreatureName.y")))
+		return names
+
+	def snapshot(self):
+		"""state() and gui(), read one after the other (TestClient's: one probe)."""
+		return self.state(), self.gui()
+
 
 def window_getfirstchild_code(pointer_size, first_child):
 	"""The code of TWindow::GetFirstChild, `return FirstChild;`, as MSVC compiles it (thiscall: this in
@@ -1086,6 +1152,13 @@ def self_test(out=print):
 			(bytes.fromhex("488b4148c3") if is64 else bytes.fromhex("8b4124c3")), client.window_getfirstchild.hex(" "))
 		expect("GetFirstChild pattern (x86, original)", window_getfirstchild_code(4, 0x24) == bytes.fromhex("8b4124c3"))
 		self_test_is_window(client, expect)
+		if is64:
+			# Issue #92: a 64-bit process (this one) is refused; the x64 client is read through its test mode.
+			try:
+				Client(os.getpid()).close()
+				expect("a 64-bit process is refused (issue #92)", False)
+			except ReadError as e:
+				expect("a 64-bit process is refused (issue #92)", "64-bit client" in str(e), str(e)[:60])
 	finally:
 		client.close()
 	out("self test: %d failures" % failures)

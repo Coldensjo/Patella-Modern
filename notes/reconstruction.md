@@ -248,9 +248,10 @@ build\oracle-x86\<Configuration>:
 - The four test programs difftest, sysinctest, communicationtest and vlongtest with the options of the former
   tools\difftest\build.cmd (the same in every configuration), which `ctest --preset oracle-x86` runs ("Checking"
   below). The tests get Tibia.exe as their argument and a private TEMP each (build\oracle-x86\tmp\<test>).
-- patcap.dll, the 32-bit capture DLL of tools/compare_rendering.py for Tibia.exe and the oracle's Patella.exe
-  (`cmake/Capture.cmake`; the script builds the target itself when the DLL is missing or older than
-  tools/capture/patcap.c).
+- patcap.dll, the 32-bit capture DLL of tools/compare_rendering.py and the reference recordings' record step for
+  Tibia.exe and the oracle's Patella.exe (`cmake/Capture.cmake`; the script builds the target itself when the DLL is
+  missing or older than tools/capture/patcap.c). Tibia.exe's and the oracle's only since Patella-Modern issue #92:
+  patcap.c does not build for x64.
 - mfc_shim_check: every source of Patella.exe compiled, not linked, against `src/compat/mfc_shim.h` instead of
   MFC (the former `compile-check.cmd` with TIBIA_MFC_SHIM set; "Checking" below).
 
@@ -353,11 +354,11 @@ definitions, import libraries and linker options (no manifest, oleacc.dll delay-
 settings of Warnings.cmake and Hardening.cmake, 0 warnings with /WX in Release and Debug.
 `python -I tools/build.py windows-x64` builds Release and runs the unit tests; `python -I tools/build.py
 windows-x64-debug` does the same for Debug. The result is `build\windows-x64\<Configuration>\Patella.exe` with its
-`Patella.pdb` (a PDB in both configurations, which client_state.py's PDB offsets need). Its resource pictures are
+`Patella.pdb` (a PDB in both configurations; tools/patch_client.py's port patch reads it). Its resource pictures are
 extracted from Tibia.exe into build\windows-x64\res at configure time, as for the oracle
-(cmake/Resources.cmake, shared); without Tibia.exe the configure stops, and `-DPATELLA_CLIENT=OFF` builds only the unit tests
-and patcap.dll. The preset also builds the 64-bit patcap.dll, `build\windows-x64\<Configuration>\patcap.dll`, with or
-without the client (`cmake/Capture.cmake`, issue #18): compare_rendering.py loads it into the x64 Patella.exe. The
+(cmake/Resources.cmake, shared); without Tibia.exe the configure stops, and `-DPATELLA_CLIENT=OFF` builds only the unit tests.
+Until Patella-Modern issue #92 the preset also built a 64-bit patcap.dll for compare_rendering.py (issue #18); the
+tools read the x64 client through its test mode since then (notes/testmode.md, "The control channel"). The
 original's structure layouts hold only in the 32-bit build: the static_asserts that check a size or offset which
 pointers change are inside `#if PATELLA_ORIGINAL_LAYOUT` (common.h, x86 only). Details: notes/decisions.md,
 "Windows x64 build (issue #5)".
@@ -429,9 +430,12 @@ use, trade, logout) with both clients against that server through a recording pr
 which decrypts with the server's key), replays each recording to both clients and compares their packets,
 their state in memory after every step and their Tibia.cfg: notes/traffic.md. `--patella <exe>` tests another
 Patella.exe (build\oracle-x86\Release or, from issue #5, build\windows-x64\Release). tools/client_state.py
-reads Patella.exe's globals and field offsets from its PDB by name (issue #6), x86 or x64;
-`python -I tools/client_state.py --layout <Patella.exe>` checks them without a client (for x86: every one
-equal to the original's).
+reads Tibia.exe's memory, and the oracle's Patella.exe's with its globals and field offsets from its PDB by name
+(issue #6); `python -I tools/client_state.py --layout <Patella.exe>` checks them without a client (for x86: every one
+equal to the original's). An x64 `--patella` (Patella-Modern issue #92) runs the test build next to it,
+PatellaTest.exe, without a script (the client on the system clock, as Patella.exe), and reads it only through its
+test mode's control channel (tools/testmode_client.py: the probe's state, window tree and the places the session
+clicks at; notes/testmode.md, "The control channel"); client_state.py refuses a 64-bit process.
 
 `python -I tools/compare_files.py` (issue #21) compares the files both clients write after the same sessions
 (Tibia.cfg after the option dialogs, the automap files after a walk over three floors, a saved channel,
@@ -441,7 +445,8 @@ tools/deliberate.py):
 notes/written-files.md. Its live recording is also Tibia.exe's walk run, the walk is 19 actions from a ladder
 (Patella-Modern issue #16; `--check-route` checks it against the server's map), and the second Tibia.exe run is
 `--repeat`. It takes `--patella <exe>` too and reads the dialogs' controls through client_state.py's
-PDB table; tools/patch_client.py patches x86 and x64 images (Patella-Modern issue #15). Before each WM_CLOSE, the
+PDB table (an x64 one, its test build, through the probe's members: issue #92); tools/patch_client.py patches x86 and
+x64 images (Patella-Modern issue #15). Before each WM_CLOSE, the
 exit that writes the last Tibia.cfg, it puts the client's window back where the run's Tibia.cfg put it, (10,10),
 when Windows moved it (Patella-Modern issue #68: Tibia.exe once wrote `WindowedMode = (-4,6,800,600,no)`); the
 report lists every window it moved, and WindowedMode stays compared in full. `--self-test` checks that placement
@@ -451,17 +456,19 @@ on a window of its own.
 replayed with each engine (DirectX 5, DirectX 9, OpenGL), windowed and fullscreen, every frame read from the
 engine's own surfaces by a DLL the run folders' copies import (tools/capture/patcap.c, no display needed),
 with time made virtual so both clients draw the same moment: notes/rendering.md. It takes `--patella <exe>`
-too, x86 or x64 (Patella-Modern issue #18): the capture DLL has the client's bitness (build\oracle-x86\Release\patcap.dll
-for Tibia.exe and a 32-bit Patella.exe, build\windows-x64\Release\patcap.dll for the x64 one), and `add_import`
-patches PE32 and PE32+ images.
+too, x86 or x64 (Patella-Modern issue #18). The capture DLL (build\oracle-x86\Release\patcap.dll) is for Tibia.exe
+and the oracle's 32-bit Patella.exe; an x64 one runs as its test build with patcap's time course from the test mode
+itself (Patella-Modern issue #92: `clock manual`, `cursor`, then advance, frame and post lines through the control
+channel; the frame dump's pictures and masks are the scenes), never hooked.
 
 `python -I tools/testmode_check.py` (Patella-Modern issue #21) runs the test build, PatellaTest.exe, twice with
 the same input script (tests/testmode/login-walk.script: login, a square walk, a said line, logout) against that
 server through tools/proxy.py and compares the runs' client packets, raw frames, driver logs and Tibia.cfg;
 nothing drives the window from outside, and the client drops the desktop's own input. Since issue #22 it also
-checks the test mode's dumps in every run: each state dump against client_state.py's reading of the same
-moment (the client waits for it), the packet log against the proxy's decrypted recording, the frame dumps, and
-statically the dump's keys against client_state.py's; `--self-test` runs those comparisons on made-up data
+checks the test mode's dumps in every run: each state dump on its own (one per dump command, StateDump.h's keys, a
+well-formed window tree; until Patella-Modern issue #92 against client_state.py's reading of the same moment from the
+client's memory), the packet log against the proxy's decrypted recording, the frame dumps, and
+statically the dump's keys against client_state.py's; `--self-test` runs those checks on made-up data
 without a server or a client: notes/testmode.md. Since issue #25 each run waits after the server's start until
 server.log says "Server Online!" (the server listens before it has loaded the world; on a cold start the world
 was still loading at the game login; since Patella-Modern issue #68 that wait is testserver.py start's, for every
@@ -519,6 +526,14 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   start that still fails says why in its `testserver start:` lines: look there first. The tools' own self-tests run
   without a server or a client: `python -I tools/testserver.py self-test`, `python -I tools/compare_files.py
   --self-test`, `python -I tools/testmode_check.py --self-test`.
+- How the tools read a client (Patella-Modern issue #92, M6): Tibia.exe and the oracle's 32-bit Patella.exe through
+  their memory (tools/client_state.py) and, for the frames and the virtual clock, tools/capture/patcap.c; the x64
+  client only through its test mode: PatellaTest.exe with `--test-control` (tools/testmode_client.py; the probe, and
+  with a script the script lines advance, frame and post) or with a script and the reference replay
+  (tools/reference.py compare). client_state.py refuses a 64-bit process (`python -I tools/client_state.py --self-test`
+  checks that on its own process), compare_rendering.py's capture_preset refuses an x64 image, and patcap.c does not
+  build for x64. The list of every reader and what replaced it: notes/decisions.md, "The comparisons read the x64
+  client through its test mode only". Self-tests: `python -I tools/testmode_client.py --self-test` besides the others.
 - Code style (issue #8): `.clang-format` describes the style of src/ (tabs of four columns, function bodies
   on their own line, no column limit; the arguments of PATELLA_ASSERT*, TERROR* and TMYEXCEPTION are whitespace-sensitive,
   so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
@@ -879,7 +894,16 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     DialogElements 96 MB, Graphics 91 MB, Container 82 MB, ConsoleWindow 69 MB, GUI 56 MB, Dialogs 52 MB, ContentWindows 48 MB, Talk
     46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB, MainWindow 9 MB, Network 8 MB, DialogWindow 7 MB, ContextMenus
     5 MB, MainFrm 3 MB, Errors 3 MB, and communicationtest's Communication 41 MB and Control 18 MB).
-    Recording changes no check count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. The corpus is derived from Tibia.exe: it stays on
+    Recording changes no check count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. Since issue #55 two
+    recordings of one build are byte for byte the same (Buffers recorded the stack's leftovers, Talk's line
+    identities followed the heap's addresses), and every expression of the ported tests and tools/difftest that
+    called Random() twice without a sequence point makes its calls in the oracle's order, explicitly.
+  - Reproducible: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
+    golden_reproducible` records the corpus twice into build\oracle-x86\golden-reproducible\1 and \2 and compares
+    the two file by file (cmake/CompareGoldenRecordings.cmake, after its self-test); it fails on any difference and
+    keeps both then, removes them when they are the same. About 8 minutes; not in the CTest run. Run it after a
+    change to the recorder or a ported test (notes/decisions.md, issue #55's section, also the list of the reordered
+    expressions). The corpus is derived from Tibia.exe: it stays on
     the machine (build/ is ignored by git) and is never committed, pushed or uploaded, not even as a CI artifact.
   - Replay: `build\windows-x64\tests\golden\Release\golden_runner.exe [--require] [<dir>]`, or the CTest test
     `golden` of every windows-x64 build. It prints each replayed test's checks next to the oracle's (with a test's

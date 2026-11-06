@@ -5,8 +5,10 @@ take a character from the list, enter the game, walk, turn, talk, look, open a c
 look at and use (eat) an object in it, offer an object for trade to another player, inspect
 the offer, cancel the trade, close the container and log out. Every action is a posted
 window message (as in tools/login_client.py: no focus, no real mouse); the place of every
-click comes from the client's own memory (tools/client_state.py): the window tree, the skin's
-slot areas and the map window's creature names, never from a screenshot. After each step
+click comes from the client's own data, never from a screenshot: the window tree, the skin's
+slot areas and the map window's creature names, read from Tibia.exe's (and the oracle's) memory
+(tools/client_state.py) or, for the x64 client, from its test mode's probe (Patella-Modern issue
+#92: PatellaTest.exe under its control channel, tools/testmode_client.py; Driver(test=True)). After each step
 the driver waits until the server side is quiet (the proxy's wait_idle) and, if asked,
 records the client's state.
 
@@ -28,7 +30,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import login_client as lc  # noqa: E402
-import client_state  # noqa: E402
+import testmode_client as tc  # noqa: E402
 
 WM_KEYDOWN = 0x0100
 WM_KEYUP = 0x0101
@@ -66,8 +68,22 @@ def key_lparam(vk, up):
 	return value
 
 
+def test_out(run_dir):
+	"""The test client's --test-out folder: next to its run folder (the comparisons compare the files a
+	client writes into its run folder)."""
+	return os.path.abspath(run_dir) + ".testmode"
+
+
 class Driver:
-	def __init__(self, run_dir, exe, pdb_exe=None, game_port=7272, log=lc.log):
+	"""One client. test: the client is the test build (PatellaTest.exe, the x64 client), started with
+	its control channel (--test-control, test_arguments before the caller's words) and read through it
+	(tools/testmode_client.py), never through its memory; else Tibia.exe or the oracle's Patella.exe,
+	read with tools/client_state.py (pdb_exe: the exe whose PDB it uses, None for Tibia.exe). scripted:
+	the test client runs a script (test_arguments has --test-script), so it drops Windows' input, and
+	post() sends every message through the channel instead."""
+
+	def __init__(self, run_dir, exe, pdb_exe=None, game_port=7272, log=lc.log, test=False, test_arguments=(),
+			scripted=False):
 		self.run_dir = os.path.abspath(run_dir)
 		self.exe = exe
 		self.pdb_exe = pdb_exe
@@ -76,13 +92,21 @@ class Driver:
 		self.proc = None
 		self.hwnd = None
 		self.mem = None
+		self.test = test
+		self.test_arguments = list(test_arguments)
+		self.scripted = scripted
+		self.channel = None
 
 	# process
 
 	def start(self, arguments=()):
 		path = os.path.join(self.run_dir, self.exe)
-		self.proc = subprocess.Popen([path] + list(arguments), cwd=self.run_dir)
-		self.log("started %s, PID %d" % (path, self.proc.pid))
+		words = list(arguments)
+		if self.test:
+			self.channel = tc.Channel(test_out(self.run_dir))
+			words = self.channel.arguments() + self.test_arguments + words
+		self.proc = subprocess.Popen([path] + words, cwd=self.run_dir, env=self.environment())
+		self.log("started %s, PID %d%s" % (path, self.proc.pid, " (test mode, control channel)" if self.test else ""))
 		deadline = time.time() + 30
 		while self.hwnd is None and time.time() < deadline:
 			if self.proc.poll() is not None:
@@ -92,7 +116,21 @@ class Driver:
 		if self.hwnd is None:
 			raise SessionError("no TibiaClient window after 30 s")
 		time.sleep(4)
-		self.mem = client_state.Client(self.proc.pid, self.pdb_exe)
+		self.mem = self.reader()
+
+	def environment(self):
+		"""The client's environment (None: this one's)."""
+		return None
+
+	def alive(self):
+		return self.proc is not None and self.proc.poll() is None
+
+	def reader(self):
+		"""What reads the client: the test client's channel, else its memory."""
+		if self.test:
+			return tc.TestClient(self.channel, self.alive)
+		import client_state  # Tibia.exe and the oracle's 32-bit Patella.exe only (issue #92)
+		return client_state.Client(self.proc.pid, self.pdb_exe)
 
 	def kill(self):
 		if self.proc is not None and self.proc.poll() is None:
@@ -124,6 +162,12 @@ class Driver:
 	# input
 
 	def post(self, msg, wparam=0, lparam=0):
+		if self.scripted:
+			# The scripted test client drops Windows' input: the message goes through its control channel and
+			# is dispatched as Windows would (a script's post line).
+			self.channel.command("post 0x%x 0x%x 0x%x" % (msg, wparam & 0xffffffffffffffff, lparam & 0xffffffffffffffff),
+				alive=self.alive)
+			return
 		lc.post(self.hwnd, msg, wparam, lparam)
 
 	def key(self, vk, modifier=None):
@@ -138,14 +182,24 @@ class Driver:
 			self.post(WM_KEYUP, modifier, key_lparam(modifier, True))
 		time.sleep(0.1)
 
+	# login_client.py's key_char, type_text and ctrl_char, through post()
+
 	def char(self, code):
-		lc.key_char(self.hwnd, code)
+		self.post(lc.WM_CHAR, code, 1)
+		time.sleep(0.1)
 
 	def type(self, text):
-		lc.type_text(self.hwnd, text)
+		for ch in text:
+			self.post(lc.WM_CHAR, ord(ch), 1)
+			time.sleep(0.05)
 
 	def ctrl(self, letter):
-		lc.ctrl_char(self.hwnd, letter)
+		self.post(WM_KEYDOWN, VK_CONTROL, 0x001d0001)
+		time.sleep(0.05)
+		self.post(lc.WM_CHAR, ord(letter.lower()) - 0x60, 1)
+		time.sleep(0.05)
+		self.post(WM_KEYUP, VK_CONTROL, 0xc01d0001)
+		time.sleep(0.1)
 
 	def click(self, x, y, right=False, modifier=None):
 		x, y = int(x), int(y)
@@ -215,16 +269,9 @@ class Driver:
 	def creature_point(self, creature_id):
 		"""Where GetCreatureAt finds the creature: its name position plus half a field down."""
 		m = self.map_window()
-		mem = self.mem
-		names = m["ptr"] + mem.off("TMapWindow.Names")
-		size = mem.layout.size("TCreatureName")
-		# the map window refills Names in every Draw: a read can come while it is empty
+		# the map window refills Names in every Draw: a read from outside can come while it is empty
 		for attempt in range(40):
-			count = mem.i32(m["ptr"] + mem.off("TMapWindow.NumberOfNames"))
-			for i in range(max(0, min(count, mem.layout.count("TMapWindow.Names")))):
-				name = mem.read(names + size * i, size)
-				cid = mem.field_u32(name, 0, "TCreatureName.CreatureID")
-				nx, ny = mem.field_i32(name, 0, "TCreatureName.x"), mem.field_i32(name, 0, "TCreatureName.y")
+			for cid, nx, ny in self.mem.map_names(m["ptr"]):
 				if cid == creature_id:
 					return (m["x"] + nx * m["w"] // 480, m["y"] + ny * m["h"] // 352 + (m["h"] // 11) // 2)
 			time.sleep(0.05)
@@ -347,12 +394,12 @@ def run_session(driver, wait, checkpoint, until=None, with_login=True, proxy=Non
 	step("trade request", lambda: driver.click(*driver.creature_point(driver.creature_id(TRADE_PARTNER))))
 	step("look at offer", lambda: driver.click(*driver.offer_slot_point(0, 0), right=True, modifier=VK_SHIFT))
 	step("cancel trade", lambda: driver.click(*driver.component_point(
-		driver.mem.ptr(driver.node("TTradeButtons")["ptr"] + driver.mem.off("TTradeButtons.CancelButton")))))
+		driver.mem.member(driver.node("TTradeButtons")["ptr"], "TTradeButtons.CancelButton"))))
 
 	def close_container():
 		body = driver.node("TContainerWindowBody")
-		window = driver.mem.ptr(body["ptr"] + driver.mem.off("TComponent.Parent"))
-		driver.click(*driver.component_point(driver.mem.ptr(window + driver.mem.off("TSubWindow.CloseButton"))))
+		window = driver.mem.member(body["ptr"], "TComponent.Parent")
+		driver.click(*driver.component_point(driver.mem.member(window, "TSubWindow.CloseButton")))
 
 	step("close container", close_container)
 	step("logout", lambda: logout(driver), snapshot=False)

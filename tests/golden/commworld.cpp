@@ -497,7 +497,12 @@ static void BuildWorld(int S, uint32 Seed)
 	memset(W.Creatures, 0xab, sizeof(W.Creatures));
 	for (int i = 0; i < WORLD_CREATURES; i++) {
 		TCreature &C = W.Creatures[i];
-		C.CreatureID = i == 0 ? 0x10000000 + Random() % 8 : (Random() % 3 == 0 ? 0x10000000 : 0x40000000) + Random() % 8;
+		if (i == 0)
+			C.CreatureID = 0x10000000 + Random() % 8;
+		else {
+			const uint32 Base = Random() % 3 == 0 ? 0x10000000 : 0x40000000; // issue #55: the left operand first
+			C.CreatureID = Base + Random() % 8;
+		}
 		if (Random() % 6 == 0)
 			C.CreatureID = 0;
 		sprintf(C.Name, "Creature %d", i);
@@ -520,7 +525,7 @@ static void BuildWorld(int S, uint32 Seed)
 	W.MapLevel = Random() % 8;
 	W.CylinderIndex = -1;
 	W.CylinderX = W.CylinderY = W.CylinderZ = 0;
-	W.OpenContainers = Random() ^ (Random() << 16);
+	W.OpenContainers = Random32();
 	for (int b = 0; b < WORLD_BUFFERS; b++) {
 		TCommBuffer *Buffer = new TCommBuffer();
 		W.Buffers[b] = Buffer;

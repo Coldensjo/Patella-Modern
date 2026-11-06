@@ -259,6 +259,37 @@ TEST_CASE("StateDump: the key lists name every key once")
 	}
 }
 
+TEST_CASE("StateDump: the probe of the control channel (issue #92)")
+{
+	TProbe Probe;
+	Probe.Step = 3;
+	Probe.Time = 2000;
+	Probe.Characters = {"Patella Tester", "Patella \xe9"};
+	Probe.Skin.push_back(TProbeSkin{"Data62C", false, {4}});
+	Probe.Skin.push_back(TProbeSkin{"Style288.Data60", true, {1, 2, 3, 4, 5, 6, 7, 8}});
+	Probe.Components.push_back(TProbeComponent{1234, {{"TComponent.Parent", 0}, {"TCheckBox.Checked", 1}}});
+	Probe.MapNames.push_back(TProbeNames{77, {{268435457U, 240, 160}}});
+	Probe.Device = TProbeDevice{true, "llvmpipe", 4, 1};
+	Probe.Frames = 41;
+	Probe.Ticks = 20;
+	const std::string Json = ProbeJson(Probe);
+	CHECK(Json.starts_with(R"({"format":"patella-probe 1","step":3,"time":2000,"state":{"connection":0,)"));
+	CHECK(Json.find(R"(,"gui":[],"characters":["Patella Tester","Patella )") != std::string::npos);
+	CHECK(Json.find("\\u00e9\"]") != std::string::npos);
+	CHECK(Json.ends_with(R"("skin":{"Data62C":4,"Style288.Data60":[[1,2,3,4],[5,6,7,8]]},"members":{"1234":{"TComponent.Parent":0,"TCheckBox.Checked":1}},"names":{"77":[[268435457,240,160]]},"device":{"name":"llvmpipe","type":4,"cpu_driver":1},"frames":41,"ticks":20})"
+						 "\n"));
+	// No device yet: null.
+	CHECK(ProbeJson(TProbe{}).find(R"("names":{},"device":null,"frames":0,"ticks":0})") != std::string::npos);
+	// The state and the window tree are the state dump's.
+	TStateDump Dump = SmallDump();
+	Probe.State = Dump.State;
+	Probe.Gui = Dump.Gui;
+	const std::string Full = ProbeJson(Probe);
+	const std::string DumpJson = StateDumpJson(Dump);
+	const std::string Inner = DumpJson.substr(DumpJson.find(R"("state":)"), DumpJson.size() - 2 - DumpJson.find(R"("state":)"));
+	CHECK(Full.find(Inner + R"(,"characters":)") != std::string::npos);
+}
+
 TEST_CASE("PacketLog: the line of a packet, and back")
 {
 	TPacketRecord Record;

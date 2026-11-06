@@ -395,3 +395,38 @@ TEST_CASE("The scripts in tests/testmode parse")
 		CHECK(Result.Script.Events.back().Kind == TEventKind::Quit);
 	}
 }
+
+TEST_CASE("TScheduler: the control channel's lines after the last event (issue #92)")
+{
+	TParseResult Start = ParseScript("clock manual\ncursor 1020 760\nadvance 2000 20\n");
+	REQUIRE(Start.Ok);
+	TScheduler Scheduler(std::move(Start.Script));
+	const TInputEvent *First = Scheduler.TakeDue(0);
+	REQUIRE(First != nullptr);
+	CHECK(First->Kind == TEventKind::Advance);
+	CHECK(Scheduler.Finished());
+	// The driver parses a command's lines as a script of their own (with a manual clock after clock manual)
+	// and appends them at the clock's time.
+	TParseResult Lines = ParseScript("clock manual\npost 0x200 0 0x10001\nadvance 1000 10\nframe\n");
+	REQUIRE(Lines.Ok);
+	Scheduler.Append(std::move(Lines.Script.Events), 2000);
+	CHECK_FALSE(Scheduler.Finished());
+	CHECK(Scheduler.Remaining() == 3);
+	CHECK(Scheduler.TakeDue(1999) == nullptr);
+	const TInputEvent *Post = Scheduler.TakeDue(2000);
+	REQUIRE(Post != nullptr);
+	CHECK(Post->Kind == TEventKind::Post);
+	CHECK(Post->Time == 2000);
+	const TInputEvent *Advance = Scheduler.TakeDue(2000);
+	REQUIRE(Advance != nullptr);
+	CHECK(Advance->Kind == TEventKind::Advance);
+	// The frame comes after the advance's time.
+	CHECK(Scheduler.TakeDue(2000) == nullptr);
+	const TInputEvent *Frame = Scheduler.TakeDue(3000);
+	REQUIRE(Frame != nullptr);
+	CHECK(Frame->Kind == TEventKind::FrameDump);
+	CHECK(Frame->Time == 3000);
+	CHECK(Scheduler.Finished());
+	CHECK(Scheduler.ManualClock());
+	CHECK(Scheduler.FixedCursor());
+}

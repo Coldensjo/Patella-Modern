@@ -1244,13 +1244,16 @@ static void DXPhaseFactory()
 
 static TRect DXRandomRect(int Low, int Span, int MaxSize)
 {
-	return TRect(Low + (int)(Random() % Span), Low + (int)(Random() % Span), (int)(Random() % MaxSize) - 2,
-		(int)(Random() % MaxSize) - 2);
+	// Issue #55: the arguments right to left, as the oracle's.
+	const int Height = (int)(Random() % MaxSize) - 2, Width = (int)(Random() % MaxSize) - 2;
+	const int Y = Low + (int)(Random() % Span), X = Low + (int)(Random() % Span);
+	return TRect(X, Y, Width, Height);
 }
 
 static TRGBColor DXRandomColor()
 {
-	return TRGBColor(Random() % 256, Random() % 256, Random() % 256);
+	const int B = Random() % 256, G = Random() % 256, R = Random() % 256; // issue #55: right to left
+	return TRGBColor(R, G, B);
 }
 
 static void DXPrepareDrawObjects(int Round)
@@ -1303,7 +1306,8 @@ static void DXPhaseDraw()
 			int Width = 1 + Random() % 8, Height = 1 + Random() % 8;
 			int FromWidth = 1 + Random() % 12, FromHeight = 1 + Random() % 12;
 			int ToWidth = 1 + Random() % 12, ToHeight = 1 + Random() % 12;
-			int StretchTo = 1 + 3 * (Random() % 3) + (Random() % 2); // 1, 2?, 4, 5, 7, 8
+			const int Third = 3 * (Random() % 3); // issue #55: the left operand first
+			int StretchTo = 1 + Third + (Random() % 2); // 1, 2?, 4, 5, 7, 8
 			if (StretchTo == 2 || StretchTo == 3)
 				StretchTo = 6;
 			int LineWidth = 1 + Random() % 3;
@@ -1613,8 +1617,10 @@ static void DXRandomModes(int Round)
 		DWORD FormatFlags = Random() % 5 != 0 ? DDPF_RGB : Random() % 2 == 0 ? 0 : DDPF_PALETTEINDEXED8;
 		if (Random() % 2 == 0)
 			FormatFlags |= DDSD_REFRESHRATE;
-		DXMode(&DXScript.Modes[ItemIndex], Flags, Widths[Random() % 7], Heights[Random() % 7], FormatFlags,
-			Bits[Random() % 6], Refreshes[Random() % 5]);
+		// Issue #55: the arguments right to left, as the oracle's.
+		const DWORD Refresh = Refreshes[Random() % 5], Bit = Bits[Random() % 6], Height = Heights[Random() % 7],
+					Width = Widths[Random() % 7];
+		DXMode(&DXScript.Modes[ItemIndex], Flags, Width, Height, FormatFlags, Bit, Refresh);
 	}
 	if (Random() % 5 == 0)
 		DXScript.EnumResult = Random() % 2 == 0 ? DDERR_GENERIC : DDERR_INVALIDPARAMS;
@@ -2093,8 +2099,11 @@ static void TestSurfaceDXErrors()
 			DXDefaultScript(1 + Round % 4);
 			TSurfaceDX *Ours = DXOurs();
 			if (Case == 3 && Ours->DirectDraw != NULL && Ours->Surface[PRIMARY_SURFACE] != NULL) {
-				TRect Some(1, 1, 1 + (int)(Random() % 30), 1 + (int)(Random() % 30));
-				TRect Empty(1, 1, (int)(Random() % 2) - 1, 1 + (int)(Random() % 5));
+				// Issue #55: the arguments right to left, as the oracle's.
+				const int SomeHeight = 1 + (int)(Random() % 30), SomeWidth = 1 + (int)(Random() % 30);
+				TRect Some(1, 1, SomeWidth, SomeHeight);
+				const int EmptyHeight = 1 + (int)(Random() % 5), EmptyWidth = (int)(Random() % 2) - 1;
+				TRect Empty(1, 1, EmptyWidth, EmptyHeight);
 				if (Random() % 2 == 0)
 					std::swap(Empty.width, Empty.height);
 				TRGBColor Key(1, 2, 3);
@@ -2110,7 +2119,9 @@ static void TestSurfaceDXErrors()
 						To = SCREEN_SURFACE;
 					if (k >= 4 && (Good == TEMP_SURFACE || Good == STRETCH_SURFACE))
 						From = SPRITE_SURFACE;
-					TRect Huge(0, 0, 2000 + (int)(Random() % 3000), 1 + (int)(Random() % 20));
+					// Issue #55: the arguments right to left, as the oracle's.
+					const int HugeHeight = 1 + (int)(Random() % 20), HugeWidth = 2000 + (int)(Random() % 3000);
+					TRect Huge(0, 0, HugeWidth, HugeHeight);
 					if (Random() % 2 == 0)
 						std::swap(Huge.width, Huge.height);
 					TRect FromRect = k == 4 ? Huge : Some;

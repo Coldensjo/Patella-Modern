@@ -50,6 +50,17 @@ void SetRandomSeed(uint32 Value);
 void RandomText(char *Text, int Length);
 #endif
 
+// Issue #55: the order of the calls of Random() in one expression is unspecified (C++17 sequences only the
+// operands of && || , ?: << >> and assignments, and an initializer list's elements), so every such
+// expression of the tests is written as its calls in the order the oracle's compiler (MSVC x86) made them,
+// which the unchanged recordings prove. Random() ^ (Random() << 16): the left operand first.
+inline uint32 Random32()
+{
+	const uint32 Low = Random();
+	const uint32 High = Random() << 16;
+	return Low ^ High;
+}
+
 // A fake that stands in for a member function (its address goes where the member function's starts, issue
 // #28): on x86 thiscall passes this in ECX, which a __fastcall function takes as its first parameter, with a
 // dummy second one for EDX; on x64 every member function takes this as its first argument, as a plain

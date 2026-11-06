@@ -1458,56 +1458,10 @@ static void TestDialogWindowErrors()
 
 } // namespace DialogWindowTest
 
-#if !GOLDEN_ORACLE
-// The runner's operator delete: while the test runs, the memory it frees stays as it was until the end of the
-// test. Our TDialogWindow::SetSize (DialogWindow.cpp, as the original's 0x4857d0) sizes each child in a loop
-// that goes on through the child's Next; a sub-window's SetSize can rearrange the column and delete children,
-// the loop then reads a deleted child. The x86 oracle's heap leaves a freed object's members as they were, and
-// so does the x64 Release runner's, mostly; the Debug CRT fills freed memory. Keeping it makes the runner read
-// what the oracle read, in Release and Debug alike.
-// The list is malloc's own (a vector's reallocation would call this operator delete).
-namespace {
-bool KeepFreed = false;
-void **Freed = nullptr;
-size_t NumberOfFreed = 0, FreedCapacity = 0;
-void Free(void *Memory)
-{
-	if (!KeepFreed || Memory == nullptr) {
-		free(Memory);
-		return;
-	}
-	if (NumberOfFreed == FreedCapacity) {
-		FreedCapacity = FreedCapacity == 0 ? 4096 : 2 * FreedCapacity;
-		void **List = (void **)realloc(Freed, FreedCapacity * sizeof(void *));
-		if (List == nullptr) {
-			printf("golden: out of memory\n");
-			exit(1);
-		}
-		Freed = List;
-	}
-	Freed[NumberOfFreed++] = Memory;
-}
-void FreeKept()
-{
-	KeepFreed = false;
-	for (size_t i = 0; i < NumberOfFreed; i++)
-		free(Freed[i]);
-	free(Freed);
-	Freed = nullptr;
-	NumberOfFreed = FreedCapacity = 0;
-}
-} // namespace
-void operator delete(void *Memory) noexcept { Free(Memory); }
-void operator delete(void *Memory, size_t) noexcept { Free(Memory); }
-#endif
-
 void TestDialogWindow()
 {
 	using namespace DialogWindowTest;
 	int Before = Checks, BeforeFailures = Failures;
-#if !GOLDEN_ORACLE
-	KeepFreed = true;
-#endif
 	ORIGINAL(PatchImage());
 	InitSkins();
 	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
@@ -1597,9 +1551,6 @@ void TestDialogWindow()
 	delete DialogSurface;
 	ExitSkins();
 	ORIGINAL(Global<TSkin *>(0x71c454) = NULL);
-#if !GOLDEN_ORACLE
-	FreeKept();
-#endif
 	int Least = KindCount[0];
 	for (int i = 1; i < 24; i++)
 		Least = KindCount[i] < Least ? KindCount[i] : Least;

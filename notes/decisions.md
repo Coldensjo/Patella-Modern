@@ -7901,7 +7901,8 @@ earlier helpers.
   freed object as it was; the Debug CRT fills it, and the Debug runner crashed. The runner's operator delete keeps
   memory freed during DialogWindow's test until its end (dialogwindow_tests.cpp), so both builds read what the oracle
   read. src/ is unchanged (the behaviour is the original's); the game may never reach it (the test drives sizes the
-  game does not); left for a later issue.
+  game does not); left for a later issue. Settled in issue #65 (below): SetSize no longer reads the deleted child,
+  and the runner's operator delete is gone.
 - **The order of Random()** (high; #55). Expressions with two or more calls in one expression are now sequenced in
   the x86 oracle's order, right to left: the TRGBColor and TRect constructors of RandomSkinProperties
   (DialogWindow, ContextMenus) and DialogElements' colours, ContextMenus' NewLine(Random(), Modes[Random() % 6],
@@ -9041,7 +9042,7 @@ finding fixed or suppressed with its reason.
   Nothing in the reference sessions (PatellaTest.exe under ASan), the unit tests, or Linux's Clang ASan+UBSan+LSan.
   Issue #65 (TDialogWindow::SetSize reads a child after a rearrange deleted it) is not seen: golden_runner keeps the
   memory freed during DialogWindow's test until the test ends (issue #28), and no reference session reaches it; it
-  stays issue #65's (M5 or M7). vlong::operator='s self-assignment (issue #63) is never reached.
+  stays issue #65's (M5 or M7; fixed there, and the runner's operator delete removed). vlong::operator='s self-assignment (issue #63) is never reached.
 - **PATELLA_NO_SANITIZE_ADDRESS** (high; src/compat/msvc.h). `__declspec(no_sanitize_address)` with MSVC's ASan
   (`__SANITIZE_ADDRESS__`), `__attribute__((no_sanitize("address")))` with Clang's (`__has_feature(address_sanitizer)`;
   functions and globals), `__attribute__((no_sanitize_address))` with GCC's; empty in every build without ASan, so
@@ -11368,3 +11369,274 @@ ended the client with an access violation instead of the "Tibia Error" box.
   on a changed line (an `atoi` it found was replaced by std::from_chars). banned_calls 0; clang-format clean. `python
   -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: the four sessions match (error
   with #74's deliberate differences). Logs: build\logs\issue-90.
+
+## The comparisons read the x64 client through its test mode only (Patella-Modern issue #92, M6)
+
+Settled by Claude Opus 5.5, November 6, 2026 (M6, item 2 of the plan). The tools read Tibia.exe and the oracle's
+32-bit Patella.exe from their memory (tools/client_state.py) and capture their frames with tools/capture/patcap.c, as
+before; the x64 client is read only through its test mode: PatellaTest.exe, the test build next to Patella.exe, with a
+new control channel (`--test-control`, src/testmode/TestModeWin32.cpp; tools/testmode_client.py). Files: tools/
+client_state.py, session_client.py, compare_traffic.py, compare_files.py, compare_rendering.py, testmode_check.py,
+testmode_dumps.py, testmode_client.py (new), tools/capture/patcap.c, CMakeLists.txt, cmake/Capture.cmake;
+src/testmode/TestModeWin32.cpp, ClientStateWin32.*, ClientView.h, StateDump.*, InputScript.*; test-build-only lines in
+src/TestHooks.h, src/Status.cpp (its View function) and the one hook call of src/vulkan/SurfaceVulkan.cpp;
+tests/unit/testmode_dump_test.cpp, testmode_script_test.cpp. The x64 Patella.exe is the same image ("The gates").
+
+### Every reader of a client's memory or frames, and what became of it (high)
+
+(a): only for Tibia.exe or the oracle, stays (the oracle's part goes with #94); (b): for the x64 client, replaced by
+the test mode's dumps; (c): for the x64 client with no test-mode equivalent until now, added to the test mode.
+
+| # | Where | What it read | Used for | Class | Now |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 1 | tools/client_state.py Client | ReadProcessMemory: state(), gui(), characters(), the skin, members, through the PDB's layout for Patella.exe | every driver below | a | Tibia.exe and the oracle only: a 64-bit process is refused (X64_REFUSED; `--self-test` checks it on its own process). `--layout` still reads an x64 image's PDB (a file, no process) |
+| 2 | session_client.py Driver | client_state.Client: the window tree, the skin's slot areas, the map window's names, the character list, the trade's Cancel button, a container window's Parent and CloseButton | compare_traffic.py, compare_files.py, compare_rendering.py, compare_network.py, reference_record.py | b for the x64 client, a otherwise | `Driver(test=True)`: tools/testmode_client.py TestClient over the probe; Tibia.exe and the oracle as before. The member reads went into Client.member(), member_index(), checked(), map_names(), player_id(): the same reads as before for client_state.py |
+| 3 | compare_traffic.py play() | state() and gui() at every step | c. the states | b | the probe's state and gui (snapshot(): one probe, one moment) |
+| 4 | compare_files.py | the option dialogs' check boxes and their Checked, THotkeyDialog.Selected, TEditMarkDialog.TypeButtons[n], TAutomapWindow's zoom buttons, PlayerID and the creature table | its sessions' clicks and checks | b | the probe's members and state |
+| 5 | compare_rendering.py Driver | patcap.dll in the x64 client (add_import): the frames (PatcapVulkanFrame, Mask, Pixels), the virtual clock, the main timer's ticks, the cursor, the Vulkan device; client_state.Client for the clicks | the x64 rendering comparison | b (frames, clock, ticks, cursor, clicks), c (the device) | TestDriver: `--test-script` with `clock manual` and `cursor 1020 760`, then advance, frame and post lines through the channel; the frame dump's PNG and mask (the forms patcap's were turned into); the device from the probe (the new device observer) |
+| 6 | cmake/Capture.cmake in windows-x64, patcap.c for x64 | the 64-bit patcap.dll (issue #18) | 5 | b | not built for x64 any more; patcap.c has an `#error` for _WIN64; capture_preset() refuses an x64 image |
+| 7 | testmode_check.py StateReader (check e) | client_state.Client on PatellaTest.exe at each dump (--test-sync) | e: the dump against the outside reading | b | e is a dump-only check (below) |
+| 8 | compare_network.py | driver.mem: gui, characters, state | its scenarios | a | runs Tibia.exe and the oracle's Patella.exe only (no --patella); goes with #94 |
+| 9 | reference_record.py | client_state.Client and patcap.dll in Tibia.exe | the reference recordings | a | unchanged |
+| - | patch_client.py | the PDB file (client_state.Pdb: dbghelp), never a process | the port patch's Servers RVA | not a reader | unchanged; it patches PatellaTest.exe as before |
+| - | testmode_dumps.py (h) | client_state.py's source (ast) | the dump's key lists | not a reader | unchanged |
+| - | login_client.py screenshot | a BitBlt of the desktop under the window | its own by-hand runs | not a reader | unchanged |
+
+The data no test-mode dump had (c), added to the probe: the character list (a View function at the end of
+Status.cpp, test build only), the skin values the drivers place their clicks and masks by (21 entries, under their
+LAYOUT_FIELDS names), the members of the components they follow (by class, dynamic_cast), the map window's names, and
+the Vulkan engine's device (the engine's device observer, which only patcap.dll had: the hook
+PATELLA_TEST_FRAME_OBSERVERS takes it as a fifth argument, empty outside the test build).
+
+### The control channel (high)
+
+- **A channel, not more script commands** (high). The drivers decide their clicks from what the client shows at that
+  moment (a dialog's place, a check box's state, a creature's name position), so they must read the running client;
+  a script written in advance cannot. The reference recordings solve that by recording Tibia.exe's clicks; the live
+  comparisons (compare_traffic.py, compare_files.py, compare_rendering.py's replay) compare a running client with
+  Tibia.exe and need the reading. So the test build answers the tools while it runs: the tool makes two events
+  (`<name>-command`, `<name>-done`) and writes control.txt into --test-out; at an idle call (the driver's step in
+  OnIdle, on the client's thread: nothing of the client runs meanwhile) the client does the command and answers in
+  control-reply.txt. Considered: a socket (more code; the events are what --test-sync already used); shared memory
+  (patcap's way; a probe is JSON of 50 to 200 KB).
+- **The probe** (high). `probe` writes probe.json: the state dump's "state" and "gui" (the same code and form, so the
+  states compared with Tibia.exe's readings are the state dump's), plus "characters", "skin", "members" (by the gui's
+  "ptr"), "names", "device", "frames", "ticks" (src/testmode/StateDump.h, "The probe"). A pointer member is a "ptr" of
+  the tree, so the drivers' `node_by_ptr(member(...))` works unchanged. It reads and never writes
+  (ClientStateWin32.cpp, as the state dump). One probe per reading: a value is the client's at that call, as a fresh
+  ReadProcessMemory was. A probe takes about 10 ms.
+- **Without a script: probe only** (high). compare_traffic.py and compare_files.py run the client live against the
+  server on the system clock and post their messages to its window, as for Patella.exe: PatellaTest.exe without a
+  script takes Windows' input and is the client on the system clock (notes/testmode.md, "Running it"). The channel
+  answers `probe` there and refuses anything else.
+- **With a script: script lines after the last event** (high). compare_rendering.py needs patcap's time course. The
+  test client starts with a script of `clock manual` and `cursor 1020 760` (patcap's clock and cursor); each
+  command's lines are parsed as a script of their own (after `clock manual` for a manual clock) and appended after the
+  last event at the clock's time (TScheduler::Append, unit-tested), and the command is done once they are handed out,
+  the idle calls after each (QuietPasses) have passed and its frames were taken. pace, clock and cursor belong to the
+  starting script and are refused, as wait and at are with a manual clock (the parser's rule). Every message goes
+  through it as a `post` line, because a scripted client drops Windows' input (DropInput): the messages Tibia.exe
+  gets posted, dispatched as the reference compare dispatches them.
+- **The frame** (medium). patcap captured after skipping 2 frames; a `frame` line takes the next frame shown. With the
+  clock frozen between advances the frames drawn at one moment are the same picture (the reference compare already
+  matches Tibia.exe's patcap frames with `frame`), so the scenes compare as before; the gate below shows it.
+- **The test build only** (high). Status.cpp's View function and the hook's fifth argument are inside the test
+  build's `#if defined(PATELLA_TEST_MODE)` and its empty macro. src/vulkan/SurfaceVulkan.cpp still asks for
+  patcap.dll (`GetModuleHandleA("patcap.dll")`), which no tool loads into the x64 client now; removing the lookup
+  changes Patella.exe, which this issue keeps the same (found, not done).
+
+### testmode_check.py's check e (high)
+
+Until now e compared each state dump with client_state.py's reading of the same moment from the client's memory (the
+client waited at each dump, --test-sync). For the x64 client that reading is gone, and with it the outside half of e.
+Decided: e checks each dump on its own, and the values are compared with the original's by the reference compare.
+
+- e now: one dump per `dump` command, each at its command's script line, in time order; its keys StateDump.h's lists
+  in their order (state, player, creatures, containers, offers, every window node; "text" only for TLabel,
+  TContextMenuEntry and TTextButton); the window tree well formed (the first node at depth 0, at most one level deeper
+  from node to node, one "(modal)" node at depth 0 with ptr 0 and its windows below it). h (StateDump.h's keys
+  against client_state.py's, statically) stays. testmode_dumps.check_state_dumps; the self-test makes each problem.
+- Why it suffices: e proved that the in-process reading means what client_state.py reads, field for field. #22 showed
+  it for the x64 layout and #88 for the Debug window test, in every run since; the reading code is unchanged. The
+  stronger check of the values is the reference compare (tools/reference.py, b. states): every checkpoint's dump of
+  the test client against client_state.py's reading of Tibia.exe at the same point, value for value (addresses
+  dropped); and compare_traffic.py compares the probe's states (the same reading code) with Tibia.exe's after every
+  step. A wrong field in the dump fails those, against the original instead of against another reading of ours.
+- Considered: e against the channel's probe at the same moment (the same functions read both: it would prove
+  nothing); dropping e without a replacement (a malformed or missing dump, or one at the wrong line, would go unseen).
+- `--test-sync` stays in the test build; no tool uses it any more.
+
+### client_state.py and patcap (high)
+
+Both stay for Tibia.exe (the reference recordings' record step, the live comparisons' Tibia.exe runs and their
+helper) and for the oracle's 32-bit Patella.exe until #94; documented so in their headers, notes/testmode.md and
+notes/reconstruction.md. client_state.Client refuses a 64-bit process (the message names the test mode);
+compare_rendering.capture_preset refuses an x64 image; patcap.c does not compile for x64, and the windows-x64 preset no
+longer builds a 64-bit patcap.dll (CMakeLists.txt; the oracle-x86 preset builds the 32-bit one as before). What #94
+must keep: client_state.py's Layout.original() (Tibia.exe's constants) and its reading code, patcap.c's 32-bit build,
+compare_rendering.py's add_import, Capture and Driver, all for Tibia.exe. What can go with the oracle: client_state.py's
+PDB path (Layout.from_pdb), compare_network.py's Patella.exe runs, the oracle default of --patella.
+
+### Found, not done (high)
+
+- Patella.exe still looks up patcap.dll and its four Vulkan exports (src/vulkan/SurfaceVulkan.cpp InitDisplay). No tool
+  loads it into the x64 client any more; removing the lookup (the test mode's observer would then be the only one)
+  changes Patella.exe: an issue of its own after #94.
+- `--test-sync` is unused; it can go when the test build is next changed for another reason.
+
+### The gates (high)
+
+`python -I tools/build.py windows-x64`: exit 0, 16/16. pecompare of the x64 Release Patella.exe, main 0810767 and the
+branch built at the same path: identical apart from the link stamps (COFF and debug time stamps, the CodeView GUID).
+Live on the x64 client, each through the channel: `python -I tools/reference.py compare --reference
+C:/Tibia/Patella-Modern/build/reference` every session matches; `python -I tools/testmode_check.py --runs 2` exit 0,
+a-h pass (rerun once: the first attempt's test server never bound 7171, error 10049, before any client ran);
+`python -I tools/compare_traffic.py --patella build/windows-x64/Release/Patella.exe` and the same of
+compare_files.py exit 0, no differences; `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes
+windowed --no-repeat --patella build/windows-x64/Release/Patella.exe --recording build/traffic/result/orig-live.jsonl`
+every scene identical, the GPU and the CPU driver named by the probe (rerun once: the first attempt failed in
+Tibia.exe's first patcap capture). client_state.Client on a running PatellaTest.exe is refused, with and without its
+PDB. Logs: build\logs\issue-92 of the branch's worktree.
+
+## Reproducible golden recordings, no reliance on evaluation order (Patella-Modern issue #55)
+
+Settled by Claude Opus 5.5, November 6, 2026; M6's first issue, before #93 (the final recording). Found in #30. No src/
+change: every cause was in the tests. tests/golden (core_tests.cpp, talk_tests.cpp, golden_test.h and the files below),
+tools/difftest's three surface tests, cmake/OracleX86.cmake, cmake/CompareGoldenRecordings.cmake.
+
+- **What differed** (high). Two recordings of main (0810767), the same build, into two folders: 40 of 43 files the
+  same; Buffers.bin (81,870 bytes), Talk.bin (also in size: 1,189,206 against 1,189,260 records) and difftest's
+  manifest.tsv (Talk's record count) not. The records were parsed and the first differing ones named (a scratch
+  script, not committed): Buffers' "text bytes" and Talk's "line identity".
+- **Buffers: the stack's leftovers** (high). PutBytes takes 7 bytes of a text that may be shorter; the bytes after
+  its end were never written (`char Texts[40][32]` uninitialised), and #24 recorded the whole buffer ("text bytes")
+  so that the runner used the oracle's. They were whatever the stack held, which differs between runs. Now `Texts` is
+  zeroed and the record is gone (both sides write the same zeros; the comparison is unchanged). Buffers: 80,652
+  checks as before, 281,282 records to 241,956.
+- **Talk: lines by their heap address** (high). OriginalLineId gave an original's line the identity it had before when
+  its address was in a map from address to identity and the contents were the same. Whether a new line got a freed
+  line's address is the heap's choice, and Windows randomises the low-fragmentation heap's, so the "line identity"
+  records (new or known) differed. The runner uses an identity only to find the line's recorded contents. Now the
+  map is keyed by the contents (LineKey: the fields, and each text with whether it is NULL and its length), which is
+  deterministic and also merges lines of the same contents at different addresses. Talk: 1,214,929 checks as before,
+  1,189,206 records to 1,182,231.
+- **Proven** (high). After the two fixes, two more recordings of one build: 43 of 43 files byte for byte the same, the
+  checks unchanged in every test. With the order fix below a fifth recording, identical to those, and two more through
+  the new target (below): 43 of 43. Nothing else in the corpus depends on an address, the time, TEMP or a shared seed:
+  every other file was the same in every pair. Looked at, not changed: the tests' maps from the image's or our objects'
+  addresses to names (ConsoleWindow's and ContentWindows' Roles, commworld.cpp's Names) name objects by role, so what
+  they print does not depend on the address.
+- **The check** (high). `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
+  golden_reproducible` runs cmake/CompareGoldenRecordings.cmake's self-test (equal folders, a changed byte, a missing
+  file, two empty folders), records the corpus twice from the build into build/oracle-x86/golden-reproducible/1 and /2
+  (each test program as golden_corpus runs it, cmake/RunGoldenRecord.cmake), and compares the two file by file: one
+  line per file, then "<n> files compared, <k> different". It fails on any difference or missing file and keeps both
+  folders then; it removes them when they are the same. About 8 minutes and 1.8 GB while it runs. A target, not a
+  CTest test: the oracle-x86 CTest run stays the four comparisons and safeseh (5/5); the check is for a change to the
+  recorder or the ported tests, and for #93 before the final recording. Considered: a CTest test kept out of the
+  default run by a label (each workflow's test preset would need a filter); a Python tool that also names the first
+  differing record (the scratch script did that; CMake alone needs nothing more in this job).
+- **Evaluation order** (high). Found with a clang-tidy 22 query-based custom check (`--experimental-custom-checks`; a
+  scratch config run through tools/tidy.py with CLANG_TIDY pointing at a wrapper), on windows-x64's
+  compile_commands.json for the runner's side and on oracle-x86's (with -m32) for the oracle's side and
+  tools/difftest: an expression whose two operands (a binary operator other than && || , << >> and the assignments)
+  or two arguments (a call, an overloaded operator, a constructor that is not list-initialisation) each call,
+  directly or inside, a function of tests/golden or tools/difftest that reaches Random(), its seed, rand/srand or the
+  recorder (1,356 names, a text closure over those files). 55 findings: 53 expressions, and two false ones
+  (dialogs_tests.cpp's two Sweep calls, whose lambda arguments do not run where they are passed). Each of the 53 is now
+  its calls as temporaries in the order the oracle's MSVC x86 made them: a call's arguments right to left (also
+  std::string's operator+ chains, whose last operand is called first), a binary operator's left operand first;
+  golden_test.h's `Random32()` is `Random() ^ (Random() << 16)` in that order. Proof: the oracle's recording of the new
+  code is byte for byte the one before it (all 43 files, the surface tests' included), and the runner built with the
+  new order replays the old order's corpus with 0 failures. So no count and no record changed. The list:
+  - tests/golden/communication_tests.cpp: PickID's and Pick32's `Random() ^ (Random() << 16)`;
+  - tests/golden/commworld.cpp: the creatures' `(Random() % 3 == 0 ? ... : ...) + Random() % 8`, OpenContainers'
+    XOR;
+  - tests/golden/core_tests.cpp: XTEA's two plain words, Buffers' values (XOR);
+  - tests/golden/gui_tests.cpp: the key's `(0x41 + Random() % 30) | (Random() % 4 << 9)`, TRect Area's four
+    arguments;
+  - tests/golden/mainfrm_tests.cpp: ResolvedIP's snprintf arguments, the two key messages' `(Chance(50) ? 0x100 : 0)
+    | (Random() & ...)`, the error trials' seed (XOR);
+  - tests/golden/objects_tests.cpp: the object's Data and the signature (XOR);
+  - tests/golden/preferences_tests.cpp: the int options' value (XOR); the generated lines FullscreenMode,
+    WindowedMode, ContentWindow, BuddySortmethods, Buddy and the default case's LevelBar/MagLevelBar (operator+
+    chains of CfgNumber, CfgString, CfgYes);
+  - tests/golden/script_tests.cpp: the list `"[" + RandomNumberText() + ...` and the signed number `(Random() % 2 ?
+    "-" : "") + RandomNumberText()`;
+  - tests/golden/status_tests.cpp: three values (XOR);
+  - tools/difftest/surfacedxtest.cpp: RandomRect's and RandomColor's arguments, StretchTo's `3 * (Random() % 3) +
+    (Random() % 2)`, DXMode's four random arguments, the error rounds' Some, Empty and Huge rects;
+  - tools/difftest/surfacedx9test.cpp and surfacegltest.cpp: RandomColor and RandomRect, the Source, D, Rects[i],
+    Empty, Some (and DX9's Huge) rects of Between() calls; GL's two RandomExtensions(Between(), Chance()).
+  Not covered by the query: an order between our side's and the original's calls in one expression that write one
+  fake's log (none found: the tests call each side in a statement of its own). Considered: committing the query as a
+  tool or a CI check (it needs clang-tidy's experimental option and a name list kept by a script; the order is now
+  explicit, and a new test is reviewed against this section); leaving the order implicit and pinning the runner's
+  compiler (#91 brings GCC and Clang, which call arguments left to right).
+- **The corpus** (high). Recorded again (867 MB): every check count as on main; fewer records in Buffers and Talk only.
+  The runner replays it with 0 failures on windows-x64, -debug and -asan.
+
+## TDialogWindow::SetSize and the child its own SetSize deleted (Patella-Modern issue #65)
+
+Settled by Claude Opus 5.5, November 6, 2026, on branch issue-65 (M6; found in #28's second part, "A deleted child
+read in TDialogWindow::SetSize"). The owner decided on November 7, 2026 to fix it now.
+
+- **The bug** (high: ASan, build\logs\issue-65\asan-before-run.log). TDialogWindow::SetSize (0x4857b0) sizes each
+  child, `Child->SetSize(Width, Child->Height)`, and goes on with `Child->GetNext()`. A sub-window's SetSize ends
+  with its column's Rearrange(32) or (2, 4) and then Rearrange(8), whose FitChildren deletes the children that do not
+  fit the column's new height (DeleteChild: RemoveChild, then delete), the child being sized among them. The loop
+  then calls GetNext on the deleted child: a use after free. RemoveChild had set the child's Next to NULL before the
+  delete. The x86 heap and the x64 Release heap leave the freed object as it was, so the original read NULL and its
+  loop ended there. The Debug CRT fills freed memory, which is why the Debug golden runner crashed (#28). Only the
+  child being sized can be the deleted one the loop reads: a later child deleted by an earlier child's SetSize has
+  already been unlinked, so the live child's Next skips it.
+- **The fix** (high). After a child's SetSize, the loop goes on to the child's Next only while the child is still in
+  the column (`TWindow::IsChild(Child)`, which compares the pointer with the children and does not dereference it).
+  Otherwise it ends, as the original's did with the NULL it read. The column's own Rearrange(8) comes after, as
+  before. The other option, holding the deleted children until SetSize returns, would have moved their destructors
+  (a sub-window's stores its body's height, ContentWindows.cpp's send packets) after the following children's
+  SetSize: an order the comparisons can see. The pointer check reads nothing freed, and the order of every call stays
+  the same. A freed address cannot come back as a child during the child's SetSize: strategies 2, 4, 8 and 32 delete
+  and resize children but never insert one, and only strategy 16 (MakeRoom, a new window) appends. This is a
+  deliberate safety difference only in that freed memory is no longer read. The outcome (sizes, layout, the drawing
+  order, which children exist afterwards) is the original's, so tools/deliberate.py needs no entry: no comparison can
+  see it.
+- **The test** (high). CTest **dialogwindow_setsize** (tests/golden/dialogwindow_setsize_test.cpp, doctest; every
+  windows-x64 preset). Neither tests_unit nor tests_core can build DialogWindow.cpp (GUI.cpp and the client's other
+  files, against the MFC shim). The executable links the golden runner's object libraries with the test in place of
+  runner.cpp, and defines runner.cpp's globals. Our columns alone, no corpus, no image. Three cases on a column 176
+  wide with sub-windows of a test body of fixed minimum height, the column sized to 180: both children fit (both
+  resized); A's SetSize deletes B (A resized, B gone, A's Next NULL); A's own SetSize deletes A and keeps B (A gone,
+  B at the top, still 176 wide: the original's loop ended at A). 3 cases, 17 assertions. Before the fix,
+  windows-x64-asan: `AddressSanitizer: heap-use-after-free ... READ of size 8` in TDialogWindow::SetSize
+  (DialogWindow.cpp:128, the vtable read of GetNext), freed by TWindow::DeleteChild from FitChildren from
+  TSubWindow::SetSize; exit code 1. After: 3/3 cases, 17/17 assertions, exit code 0, under ASan and in every
+  windows-x64 configuration. difftest has no new check (the test is ours alone), and its counts are unchanged.
+- **The runner's workaround removed** (high). dialogwindow_tests.cpp's operator delete (the runner's for every test,
+  which held memory freed during DialogWindow's test until its end) is gone. The Debug golden_runner passes without it:
+  windows-x64-debug's golden 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures, DialogWindow 24,567 and
+  the difftest total 32,526 as the oracle's. That operator delete also took no size, so it had replaced ASan's sized
+  delete in the whole runner. Without it, windows-x64-asan's golden found a test instrument (5 reports, one site;
+  `ASAN_OPTIONS=continue_on_error=1` listed every report in one run, build\logs\issue-65\asan-golden-continue.log):
+  new-delete-type-mismatch in MainWindowTest::TFakeMapFrame's deleting destructor. The test gives our TMapFrames
+  (ChangeMode's `new TMapFrame`, 96 bytes) the fake's vtable, so their deleting destructor freed them with the fake's
+  size (72). TFakeMapFrame now has a class operator delete without a size (runner only, `#if !GOLDEN_ORACLE`). It is
+  a false positive (the block is freed whole; the size is the vtable's), not the client's.
+- **The images** (high). Patella.exe of windows-x64 and oracle-x86, Release, built in the worktree with main's
+  DialogWindow.cpp and with the branch's, function by function (#78's funcs.py and classify.py on `dumpbin
+  /disasm:nobytes`; build\logs\issue-65\pecompare). x64: 14,025 functions on both sides. x86: 11,412. None is gone or
+  new. TDialogWindow::SetSize changed (37 to 42 instructions on both; IsChild is a call, not inlined). Six others differ
+  only in one or two line constants, +12 (TSubWindow's constructor, Arrange, Minimize, Maximize; TContentWindow::Draw;
+  TDialogWindow::Shrink).
+- **The gates** (high). `python -I tools/build.py oracle-x86`: CTest 5/5, difftest 16,459,352 (DialogWindow 24,567),
+  sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0 (Patella.exe 1093
+  handlers, 1808 registrations). windows-x64 17/17, windows-x64-debug 16/16, windows-x64-asan 16/16 (no ASan finding):
+  golden on main's corpus 15,803,218 + 1,512,822 = 17,316,040, 0 failures. One test was rerun alone in each of
+  windows-x64-debug and windows-x64-asan: fatal_error_box, "A Tibia client is already running!", passed alone. The
+  first time my Debug and ASan workflows ran at once. The second time it was CTest's own parallel start of
+  fatal_error_box with init_control_failure: both run PatellaTest.exe, and its single-instance check stops the second
+  client (main's tests, not this change: neither has a RESOURCE_LOCK). windows-x64-gcc, linux-x64-gcc and
+  linux-x64-clang 11/11. 0 warnings on every preset. tidy_ci 3 findings, 0 new (baseline 3), 0 bugprone. tools/tidy.py
+  on DialogWindow.cpp and the test (Windows only): no finding on a changed line. banned_calls 0. clang-format clean.
+  `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: every session matches.
+  Logs: build\logs\issue-65.

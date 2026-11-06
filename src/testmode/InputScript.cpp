@@ -735,6 +735,14 @@ const TInputEvent *TScheduler::TakeDue(std::uint32_t Elapsed)
 	return &Script.Events[Next++];
 }
 
+void TScheduler::Append(std::vector<TInputEvent> Events, std::uint32_t Offset)
+{
+	for (TInputEvent &Event : Events) {
+		Event.Time = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(Event.Time) + Offset, UINT32_MAX));
+		Script.Events.push_back(std::move(Event));
+	}
+}
+
 std::uint32_t TScheduler::NextStop(std::uint32_t Elapsed) const
 {
 	if (Script.ManualClock)

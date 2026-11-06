@@ -136,10 +136,87 @@ struct TStateDump {
 	std::vector<TGuiNode> Gui;
 };
 
+// --- The probe (issue #92) ---
+//
+// The control channel's `probe` (TestModeWin32.cpp, --test-control): what the comparison tools read from a
+// running test client instead of its memory. The state and the window tree of a state dump, plus what
+// their session drivers read from tools/client_state.py besides state() and gui() (the places they click
+// at): the character list, the skin values (SkinProperties), the members of the components they follow
+// (a dialog's check box, a window's close button, ...: ProbeMembers), the names on a map window, and the
+// Vulkan engine's device and frames. One line of JSON, probe.json in --test-out:
+//
+//	{"format":"patella-probe 1","step":N,"time":T,"state":{...},"gui":[...],"characters":[...],
+//	 "skin":{"Style288.Data60":[[x,y,w,h],...],"Data62C":v,...},"members":{"<ptr>":{"<path>":v,...}},
+//	 "names":{"<ptr>":[[id,x,y],...]},"device":null|{"name":...,"type":n,"cpu_driver":0|1},
+//	 "frames":n,"ticks":n}
+//
+// "<ptr>" is a component's "ptr" of "gui" as a decimal string; a member's path and a skin value's are
+// client_state.py's LAYOUT_FIELDS names (Type.Member, TSkinProperties' members without the type), a
+// pointer member's value a "ptr" (0: none), a bool's its byte. step: the probe's number; time: the
+// virtual milliseconds (0 without a script); frames: the frames the Vulkan engine showed to the test
+// mode's observer; ticks: the main timer's ticks the driver sent (advance).
+
+// The format name of a probe file.
+inline constexpr std::string_view ProbeFormat = "patella-probe 1";
+
+struct TProbeMember {
+	std::string Path;
+	std::int64_t Value = 0;
+};
+
+// The members of one component.
+struct TProbeComponent {
+	std::uint64_t Ptr = 0;
+	std::vector<TProbeMember> Members;
+};
+
+// A name on the map window (TMapWindow.Names: TCreatureName).
+struct TProbeName {
+	std::uint32_t CreatureId = 0;
+	std::int32_t X = 0;
+	std::int32_t Y = 0;
+};
+
+struct TProbeNames {
+	std::uint64_t Ptr = 0; // the map window
+	std::vector<TProbeName> Names;
+};
+
+// A skin value: an int, or (Rects) TRects as x, y, width, height each.
+struct TProbeSkin {
+	std::string Path;
+	bool Rects = false;
+	std::vector<std::int32_t> Values;
+};
+
+// The Vulkan engine's device as the engine reported it (the frame observer's device call).
+struct TProbeDevice {
+	bool Known = false;
+	std::string Name;
+	int Type = 0; // VkPhysicalDeviceType
+	int CpuDriver = 0;
+};
+
+struct TProbe {
+	int Step = 0;
+	std::uint32_t Time = 0;
+	TClientState State;
+	std::vector<TGuiNode> Gui;
+	std::vector<std::string> Characters; // Latin-1
+	std::vector<TProbeSkin> Skin;
+	std::vector<TProbeComponent> Components;
+	std::vector<TProbeNames> MapNames;
+	TProbeDevice Device;
+	std::uint64_t Frames = 0;
+	std::uint64_t Ticks = 0;
+};
+
 // A Latin-1 text as a JSON string (with the quotes), as Python's json.dumps writes it: \" \\ \n \r \t
 // \b \f, every other byte outside 0x20-0x7e as \u00XX.
 [[nodiscard]] std::string JsonString(std::string_view Latin1);
 // The dump file's text (one line, with a newline at the end).
 [[nodiscard]] std::string StateDumpJson(const TStateDump &Dump);
+// The probe file's text (one line, with a newline at the end; issue #92).
+[[nodiscard]] std::string ProbeJson(const TProbe &Probe);
 
 } // namespace patella::testmode

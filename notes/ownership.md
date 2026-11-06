@@ -100,7 +100,9 @@ Kinds of owner used below:
   **conditional**. Each is a child while shown; the setters and the destructor delete it themselves when it is not
   (a hidden "up" button, the parts of a minimized window): `if (X != nullptr && !IsChild(X)) delete X;`.
 - `TContentWindow`'s and the dialog window's children: **child list**; TDialogWindow's DeleteChild clears its drag
-  pointer first and rearranges after.
+  pointer first and rearranges after. A child's own SetSize can delete it (a sub-window's SetSize ends with the
+  column's Rearrange(8), FitChildren); TDialogWindow::SetSize goes on to a child's Next only while the child is still
+  in the column (issue #65; the original read the deleted child).
 
 ### The console (ConsoleWindow.cpp, ConsoleWindow.h)
 

@@ -205,7 +205,7 @@ void TestPreferences()
 		}
 		case 2: {
 			const TIntOption &O = IntOptions[Random() % (sizeof(IntOptions) / sizeof(IntOptions[0]))];
-			int Value = (int)(Random() ^ (Random() << 16));
+			int Value = (int)Random32();
 			O.OurSet(Value);
 			ORIGINAL(At<SetIntFn>(O.Set)(Value));
 			break;
@@ -434,7 +434,10 @@ std::string CfgLine()
 	case 0: return "TestServer = " + CfgYes();
 	case 1: return "ServerAddress = " + CfgString(20);
 	case 2: return "ServerPort = " + CfgNumber();
-	case 3: return "FullscreenMode = (" + CfgNumber() + "," + CfgNumber() + "," + CfgNumber() + ")";
+	case 3: {
+		const std::string C = CfgNumber(), B = CfgNumber(), A = CfgNumber();
+		return "FullscreenMode = (" + A + "," + B + "," + C + ")";
+	}
 	case 4: return "WindowsMousepointer = " + CfgYes();
 	case 5: return "LightEffects = " + CfgYes();
 	case 6: return "TextualEffects = " + CfgYes();
@@ -451,11 +454,20 @@ std::string CfgLine()
 			Text.insert(Text.size() - 1, "\\n");
 		return std::string("Hotkey = (") + Help + "," + Text + ")";
 	}
-	case 13: return "WindowedMode = (" + CfgNumber(true) + "," + CfgNumber(true) + "," + CfgNumber() + "," + CfgNumber() + "," + CfgYes() + ")";
+	case 13: {
+		const std::string E = CfgYes(), D = CfgNumber(), C = CfgNumber(), B = CfgNumber(true), A = CfgNumber(true);
+		return "WindowedMode = (" + A + "," + B + "," + C + "," + D + "," + E + ")";
+	}
 	case 14: return "ConsoleHeight = " + CfgNumber();
 	case 15: return "AutomapZoom = " + CfgNumber(true);
-	case 16: return "ContentWindow = (" + CfgNumber() + "," + CfgNumber() + ")";
-	case 17: return "BuddySortmethods = (" + CfgNumber() + "," + CfgNumber() + "," + CfgNumber() + ")";
+	case 16: {
+		const std::string B = CfgNumber(), A = CfgNumber();
+		return "ContentWindow = (" + A + "," + B + ")";
+	}
+	case 17: {
+		const std::string C = CfgNumber(), B = CfgNumber(), A = CfgNumber();
+		return "BuddySortmethods = (" + A + "," + B + "," + C + ")";
+	}
 	case 18: return "BuddyHideOffline = " + CfgYes();
 	case 19:
 	case 20: {
@@ -484,13 +496,19 @@ std::string CfgLine()
 	case 35: {
 		char Help[8];
 		sprintf(Help, "%d", Random() % 5 == 0 ? 0 : (int)(1 + Random() % 30));
-		return std::string("Buddy = (") + Help + "," + CfgNumber() + "," + CfgString(60) + "," + CfgYes() + ")";
+		const std::string Notify = CfgYes(), Name = CfgString(60), Id = CfgNumber();
+		return std::string("Buddy = (") + Help + "," + Id + "," + Name + "," + Notify + ")";
 	}
 	case 36: return "White = " + CfgList(CfgName);
 	case 37: return "Ignore = " + CfgList(CfgName);
 	case 38: return "KnownHints = " + CfgList(CfgHint);
 	case 39: return "SkillBars = " + CfgList(CfgSkill);
-	default: return Random() % 2 ? "ShowNewHints = " + CfgYes() : (Random() % 2 ? "LevelBar = " : "MagLevelBar = ") + CfgYes();
+	default: {
+		if (Random() % 2)
+			return "ShowNewHints = " + CfgYes();
+		const std::string Value = CfgYes(); // operator+'s arguments right to left
+		return (Random() % 2 ? "LevelBar = " : "MagLevelBar = ") + Value;
+	}
 	}
 }
 

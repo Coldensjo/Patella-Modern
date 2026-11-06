@@ -48,7 +48,7 @@ void TestXTEA()
 		uint8 Key[16];
 		for (int i = 0; i < 16; i++)
 			Key[i] = (uint8)Random();
-		uint32 Plain[2] = {Random() ^ (Random() << 16), Random() ^ (Random() << 16)};
+		uint32 Plain[2] = {Random32(), Random32()};
 		golden::Input("key", Key);
 		golden::Input("plain", Plain);
 
@@ -280,19 +280,18 @@ void TestBuffers()
 #endif
 		// Random sequence of writes, at most ~800 bytes.
 		uint32 Ops[40], Values[40];
-		char Texts[40][32];
+		// Zeroed (issue #55): PutBytes takes 7 bytes, also those after a shorter text's end, which were the
+		// stack's leftovers, so two recordings differed there.
+		char Texts[40][32] = {};
 		int OpCount = Random() % 40;
 		golden::Input("operations", OpCount);
 		for (int i = 0; i < OpCount; i++) {
 			Ops[i] = Random() % 5;
-			Values[i] = Random() ^ (Random() << 16);
+			Values[i] = Random32();
 			RandomText(Texts[i], Random() % 20);
 			golden::Input("operation", Ops[i]);
 			golden::Input("value", Values[i]);
 			golden::InputBytes("text", Texts[i], strlen(Texts[i]) + 1);
-			// PutBytes takes 7 bytes, also those after a shorter text's end, which the test leaves
-			// uninitialised: the runner gets the oracle's.
-			golden::OutputBytes("text bytes", Texts[i], sizeof(Texts[i]));
 			switch (Ops[i]) {
 			case 0:
 				W.PutByte((uint8)Values[i]);
