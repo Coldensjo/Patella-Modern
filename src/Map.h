@@ -29,6 +29,7 @@
 #include "Objects.h"  // TObject
 #include <array>
 #include <cstddef>
+#include <iterator> // std::default_sentinel_t, TMapEffects
 
 inline constexpr int MAPSIZE_X = 18;
 inline constexpr int MAPSIZE_Y = 14;
@@ -61,9 +62,9 @@ struct TEffect {
 			int Duration;  // +0x34, milliseconds
 		};
 	};
-	int Field;    // +0x38, the map point (index into the point table)
-	int Previous; // +0x3c, effects of the same point
-	int Next;     // +0x40
+	int Field;          // +0x38, the map point (index into the point table, not an effect)
+	TEffectId Previous; // +0x3c, effects of the same point; None for the first
+	TEffectId Next;     // +0x40, None for the last
 };
 // The original's layout (no pointers: the same on x64), with Text a TFixedString (issue #57).
 static_assert(sizeof(TEffect) == 0x44 && offsetof(TEffect, Text) == 0x08 && offsetof(TEffect, TextPhase) == 0x14
@@ -134,6 +135,14 @@ struct TPathNode {
 
 inline constexpr int AUTOMAP_BLOCKS = 10;
 
+// The effect table (0x5d16f8): EFFECTS entries, numbered by TEffectId (issue #103; notes/decisions.md, "#102").
+using TEffectTable = TSlotTable<TEffect, EFFECTS, TEffectId>;
+
+// The effects of one map point, first to last, by their Next links (issue #103): TEffectTable::Chain from the point's
+// EffectNumber (TMap::PointEffects), the range Map.cpp's loops walk. A loop's body may delete the effect it is given
+// (ClearField does): DeleteEffect keeps the deleted entry's Next, which the step reads.
+using TPointEffects = TEffectTable::TChain;
+
 namespace patella {
 
 class TObjectTypes;
@@ -184,18 +193,18 @@ public:
 	void ChangeObject(int rx, int ry, int rz, int Position, TObject Obj);
 
 	// Effects.
-	int GetFirstEffect(int rx, int ry, int rz);
-	int GetNextEffect();
-	int GetEffectStatus(int EffectNumber) const;
-	int GetGraphicalEffectType(int EffectNumber) const;
-	int GetGraphicalEffectPhase(int EffectNumber) const;
-	int GetTextualEffectColor(int EffectNumber) const;
-	char *GetTextualEffectText(int EffectNumber);
-	int GetTextualEffectPhase(int EffectNumber) const;
-	int GetMissileEffectType(int EffectNumber) const;
-	int GetMissileEffectDirection(int EffectNumber) const;
-	int GetMissileEffectX(int EffectNumber) const;
-	int GetMissileEffectY(int EffectNumber) const;
+	TEffectId GetFirstEffect(int rx, int ry, int rz);
+	TEffectId GetNextEffect();
+	int GetEffectStatus(TEffectId EffectNumber) const;
+	int GetGraphicalEffectType(TEffectId EffectNumber) const;
+	int GetGraphicalEffectPhase(TEffectId EffectNumber) const;
+	int GetTextualEffectColor(TEffectId EffectNumber) const;
+	char *GetTextualEffectText(TEffectId EffectNumber);
+	int GetTextualEffectPhase(TEffectId EffectNumber) const;
+	int GetMissileEffectType(TEffectId EffectNumber) const;
+	int GetMissileEffectDirection(TEffectId EffectNumber) const;
+	int GetMissileEffectX(TEffectId EffectNumber) const;
+	int GetMissileEffectY(TEffectId EffectNumber) const;
 	void AddGraphicalEffect(int rx, int ry, int rz, int Type);
 	void AddTextualEffect(int rx, int ry, int rz, int Color, const char *Text);
 	void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type);
@@ -234,9 +243,10 @@ public:
 private:
 	void SortObjects(int rx, int ry, int rz);
 	void InsertObject(int rx, int ry, int rz, int Position, TObject Obj);
-	int GetEffectIteratorNumber(int n);
-	int NewEffect(int Status, int rx, int ry, int rz);
-	void DeleteEffect(int Number);
+	[[nodiscard]] TPointEffects PointEffects(const TMapPoint &Point) const noexcept { return Effects.Chain(Point.EffectNumber); }
+	TEffectId GetEffectIteratorNumber(int n);
+	TEffectId NewEffect(int Status, int rx, int ry, int rz);
+	void DeleteEffect(TEffectId Number);
 	void ShiftMapWest();
 	void ShiftMapEast();
 	void ShiftMapNorth();
@@ -266,7 +276,7 @@ private:
 	int MapZ{};                                                                      // 0x5d16e8, world position of the map's centre
 	int MapY{};                                                                      // 0x5d16ec
 	int MapX{};                                                                      // 0x5d16f0
-	TSlotTable<TEffect, EFFECTS> Effects;                                            // 0x5d16f8, an array of EFFECTS until issue #102
+	TEffectTable Effects;                                                            // 0x5d16f8, an array of EFFECTS until issue #102
 	array<TMapPoint> Fields{0, MAPSIZE_X * MAPSIZE_Y * MAPSIZE_Z - 1};               // 0x5d4c18, initialiser at 0x559f40
 	matrix3d<int> FieldNumber{0, MAPSIZE_X - 1, 0, MAPSIZE_Y - 1, 0, MAPSIZE_Z - 1}; // 0x5d4c24, 0x559f60
 	std::array<TAutomapBlock, AUTOMAP_BLOCKS> AutomapBlocks;                         // 0x5d4c40, initialiser at 0x559f90
@@ -330,6 +340,48 @@ void AddTextualEffect(int rx, int ry, int rz, int Color, const char *Text);
 void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type);
 void ProcessEffects();
 void ProcessMissileEffects();
+
+// The effects of map point rx, ry, rz by GetFirstEffect and GetNextEffect, as the original's numbers (issue #103):
+// TMapWindow::DrawField's effect loop. begin() calls GetFirstEffect, each step GetNextEffect, in the original loop's
+// order; the range ends at the first -1, and gives any other number as it comes (the loop checks the range itself).
+class TMapEffects {
+public:
+	class TIterator {
+	public:
+		using value_type = int;
+		using difference_type = std::ptrdiff_t;
+
+		TIterator() = default;
+		explicit TIterator(int Number) noexcept : Number(Number) {}
+
+		[[nodiscard]] int operator*() const noexcept { return Number; }
+		TIterator &operator++()
+		{
+			Number = GetNextEffect();
+			return *this;
+		}
+		TIterator operator++(int)
+		{
+			TIterator Before = *this;
+			++*this;
+			return Before;
+		}
+		[[nodiscard]] bool operator==(std::default_sentinel_t /*End*/) const noexcept { return Number == -1; }
+
+	private:
+		int Number = -1;
+	};
+
+	TMapEffects(int rx, int ry, int rz) noexcept : rx(rx), ry(ry), rz(rz) {}
+
+	[[nodiscard]] TIterator begin() const { return TIterator{GetFirstEffect(rx, ry, rz)}; }
+	[[nodiscard]] static std::default_sentinel_t end() noexcept { return std::default_sentinel; }
+
+private:
+	int rx;
+	int ry;
+	int rz;
+};
 
 // Map points and scrolling.
 void ClearField(int rx, int ry, int rz, bool DeleteEffects);

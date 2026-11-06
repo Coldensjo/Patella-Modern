@@ -368,21 +368,22 @@ void patella::TMap::ChangeObject(int rx, int ry, int rz, int Position, TObject O
 
 // --- Effects -----------------------------------------------------------------
 
-// 0x4b9e30, lines 508-516. The n-th effect of the iterated point, -1 after
+// 0x4b9e30, lines 508-516. The n-th effect of the iterated point, None after
 // the last.
-int patella::TMap::GetEffectIteratorNumber(int n)
+TEffectId patella::TMap::GetEffectIteratorNumber(int n)
 {
-	int EffectNumber = Fields(EffectIteratorField).EffectNumber;
-	PATELLA_ASSERT_VALUES(In(EffectNumber,-1,EFFECTS-1), EffectNumber, EffectIteratorField);
-	while (EffectNumber != -1 && n != 0) {
-		EffectNumber = Effects.Get(EffectNumber).Next;
+	const TMapPoint &Point = Fields(EffectIteratorField);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(Point.EffectNumber),-1,EFFECTS-1), EffectNumberOf(Point.EffectNumber), EffectIteratorField);
+	for (const TEffectId EffectNumber : PointEffects(Point)) {
+		if (n == 0)
+			return EffectNumber;
 		n--;
 	}
-	return EffectNumber;
+	return TEffectId::None;
 }
 
 // 0x4ba100, lines 524-534
-int patella::TMap::GetFirstEffect(int rx, int ry, int rz)
+TEffectId patella::TMap::GetFirstEffect(int rx, int ry, int rz)
 {
 	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
 	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
@@ -393,88 +394,88 @@ int patella::TMap::GetFirstEffect(int rx, int ry, int rz)
 }
 
 // 0x4ba540, line 548
-int patella::TMap::GetNextEffect()
+TEffectId patella::TMap::GetNextEffect()
 {
 	EffectIteratorCount++;
 	return GetEffectIteratorNumber(EffectIteratorCount);
 }
 
 // 0x4b1440, line 556. Like the getters below, without a try block.
-int patella::TMap::GetEffectStatus(int EffectNumber) const
+int patella::TMap::GetEffectStatus(TEffectId EffectNumber) const
 {
-	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(EffectNumber),0,EFFECTS-1), EffectNumberOf(EffectNumber));
 	return Effects.Get(EffectNumber).Status;
 }
 
 // 0x4b15a0, lines 565-566
-int patella::TMap::GetGraphicalEffectType(int EffectNumber) const
+int patella::TMap::GetGraphicalEffectType(TEffectId EffectNumber) const
 {
-	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(EffectNumber),0,EFFECTS-1), EffectNumberOf(EffectNumber));
 	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==1, Effects.Get(EffectNumber).Status);
 	return Effects.Get(EffectNumber).Type;
 }
 
 // 0x4b1860, lines 575-576
-int patella::TMap::GetGraphicalEffectPhase(int EffectNumber) const
+int patella::TMap::GetGraphicalEffectPhase(TEffectId EffectNumber) const
 {
-	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(EffectNumber),0,EFFECTS-1), EffectNumberOf(EffectNumber));
 	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==1, Effects.Get(EffectNumber).Status);
 	return Effects.Get(EffectNumber).Phase;
 }
 
 // 0x4b1b20, lines 585-586
-int patella::TMap::GetTextualEffectColor(int EffectNumber) const
+int patella::TMap::GetTextualEffectColor(TEffectId EffectNumber) const
 {
-	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(EffectNumber),0,EFFECTS-1), EffectNumberOf(EffectNumber));
 	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==2, Effects.Get(EffectNumber).Status);
 	return Effects.Get(EffectNumber).Type;
 }
 
 // 0x4b1de0, lines 595-596
-char *patella::TMap::GetTextualEffectText(int EffectNumber)
+char *patella::TMap::GetTextualEffectText(TEffectId EffectNumber)
 {
-	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(EffectNumber),0,EFFECTS-1), EffectNumberOf(EffectNumber));
 	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==2, Effects.Get(EffectNumber).Status);
 	return Effects[EffectNumber].Text; // Status 2: a taken entry
 }
 
 // 0x4b20a0, lines 605-606
-int patella::TMap::GetTextualEffectPhase(int EffectNumber) const
+int patella::TMap::GetTextualEffectPhase(TEffectId EffectNumber) const
 {
-	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(EffectNumber),0,EFFECTS-1), EffectNumberOf(EffectNumber));
 	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==2, Effects.Get(EffectNumber).Status);
 	return Effects.Get(EffectNumber).TextPhase;
 }
 
 // 0x4b2360, lines 615-616
-int patella::TMap::GetMissileEffectType(int EffectNumber) const
+int patella::TMap::GetMissileEffectType(TEffectId EffectNumber) const
 {
-	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(EffectNumber),0,EFFECTS-1), EffectNumberOf(EffectNumber));
 	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==3, Effects.Get(EffectNumber).Status);
 	return Effects.Get(EffectNumber).Type;
 }
 
 // 0x4b2620, lines 625-626
-int patella::TMap::GetMissileEffectDirection(int EffectNumber) const
+int patella::TMap::GetMissileEffectDirection(TEffectId EffectNumber) const
 {
-	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(EffectNumber),0,EFFECTS-1), EffectNumberOf(EffectNumber));
 	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==3, Effects.Get(EffectNumber).Status);
 	return Effects.Get(EffectNumber).Direction;
 }
 
 // 0x4b28e0, lines 635-636. Pixels from the field the missile is linked to.
-int patella::TMap::GetMissileEffectX(int EffectNumber) const
+int patella::TMap::GetMissileEffectX(TEffectId EffectNumber) const
 {
-	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(EffectNumber),0,EFFECTS-1), EffectNumberOf(EffectNumber));
 	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==3, Effects.Get(EffectNumber).Status);
 	const TEffect &Effect = Effects.Get(EffectNumber);
 	return (Effect.DestX - Effect.x) * 32 + Effect.OffsetX;
 }
 
 // 0x4b2bb0, lines 645-646
-int patella::TMap::GetMissileEffectY(int EffectNumber) const
+int patella::TMap::GetMissileEffectY(TEffectId EffectNumber) const
 {
-	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(EffectNumber),0,EFFECTS-1), EffectNumberOf(EffectNumber));
 	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==3, Effects.Get(EffectNumber).Status);
 	const TEffect &Effect = Effects.Get(EffectNumber);
 	return (Effect.DestY - Effect.y) * 32 + Effect.OffsetY;
@@ -482,11 +483,11 @@ int patella::TMap::GetMissileEffectY(int EffectNumber) const
 
 // 0x4ba6e0, lines 678-688. Takes a free entry (-1 if there is none) and puts
 // it first on the point; coordinates off the map mean point 0,0,0.
-int patella::TMap::NewEffect(int Status, int rx, int ry, int rz)
+TEffectId patella::TMap::NewEffect(int Status, int rx, int ry, int rz)
 {
-	const int Number = Effects.New();
-	if (Number == -1)
-		return -1;
+	const TEffectId Number = Effects.New();
+	if (Number == TEffectId::None)
+		return TEffectId::None;
 	if (!In(rx, 0, MAPSIZE_X - 1) || !In(ry, 0, MAPSIZE_Y - 1) || !In(rz, 0, MAPSIZE_Z - 1)) {
 		rx = 0;
 		ry = 0;
@@ -496,11 +497,11 @@ int patella::TMap::NewEffect(int Status, int rx, int ry, int rz)
 	Effect.Status = Status;
 	Effect.Field = FieldNumber(rx, ry, rz);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	PATELLA_ASSERT_VALUES(In(Point.EffectNumber,-1,EFFECTS-1), Point.EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(Point.EffectNumber),-1,EFFECTS-1), EffectNumberOf(Point.EffectNumber));
 	Effect.Next = Point.EffectNumber;
-	Effect.Previous = -1;
-	if (Point.EffectNumber != -1) {
-		PATELLA_ASSERT_VALUES(In(Number,-1,EFFECTS-1), Number);
+	Effect.Previous = TEffectId::None;
+	if (Point.EffectNumber != TEffectId::None) {
+		PATELLA_ASSERT_VALUES(In(EffectNumberOf(Number),-1,EFFECTS-1), EffectNumberOf(Number));
 		Effects[Point.EffectNumber].Previous = Number;
 	}
 	Point.EffectNumber = Number;
@@ -510,8 +511,8 @@ int patella::TMap::NewEffect(int Status, int rx, int ry, int rz)
 // 0x4bab40, line 703
 void patella::TMap::AddGraphicalEffect(int rx, int ry, int rz, int Type)
 {
-	const int Number = NewEffect(1, rx, ry, rz);
-	if (Number != -1) {
+	const TEffectId Number = NewEffect(1, rx, ry, rz);
+	if (Number != TEffectId::None) {
 		Effects[Number].Type = Type;
 		Effects[Number].Phase = 1;
 	}
@@ -522,8 +523,8 @@ void patella::TMap::AddTextualEffect(int rx, int ry, int rz, int Color, const ch
 {
 	PATELLA_ASSERT(Text!=NULL);
 	PATELLA_ASSERT_VALUES(strlen(Text)<10, strlen(Text));
-	const int Number = NewEffect(2, rx, ry, rz);
-	if (Number != -1) {
+	const TEffectId Number = NewEffect(2, rx, ry, rz);
+	if (Number != TEffectId::None) {
 		Effects[Number].Type = Color;
 		Effects[Number].Text.Assign(Text);
 		Effects[Number].TextPhase = 0;
@@ -541,8 +542,8 @@ void patella::TMap::AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int
 		return;
 	if (dz != GetMapLevel())
 		return;
-	const int Number = NewEffect(3, sx, sy, sz);
-	if (Number == -1)
+	const TEffectId Number = NewEffect(3, sx, sy, sz);
+	if (Number == TEffectId::None)
 		return;
 	TEffect &Effect = Effects[Number];
 	Effect.Type = Type;
@@ -588,22 +589,22 @@ void patella::TMap::AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int
 }
 
 // 0x4bb520, lines 776-789. No try block.
-void patella::TMap::DeleteEffect(int Number)
+void patella::TMap::DeleteEffect(TEffectId Number)
 {
-	PATELLA_ASSERT_VALUES(In(Number,0,EFFECTS-1), Number);
+	PATELLA_ASSERT_VALUES(In(EffectNumberOf(Number),0,EFFECTS-1), EffectNumberOf(Number));
 	PATELLA_ASSERT(Effects.Get(Number).Status!=0);
 	TEffect &Effect = Effects[Number];
 	Effect.Status = 0;
 	if (Fields(Effect.Field).EffectNumber == Number) {
-		PATELLA_ASSERT_VALUES(In(Effect.Next,-1,EFFECTS-1), Effect.Next);
+		PATELLA_ASSERT_VALUES(In(EffectNumberOf(Effect.Next),-1,EFFECTS-1), EffectNumberOf(Effect.Next));
 		Fields(Effect.Field).EffectNumber = Effect.Next;
 	}
-	if (Effect.Previous != -1) {
-		PATELLA_ASSERT_VALUES(In(Effect.Next,-1,EFFECTS-1), Effect.Next);
+	if (Effect.Previous != TEffectId::None) {
+		PATELLA_ASSERT_VALUES(In(EffectNumberOf(Effect.Next),-1,EFFECTS-1), EffectNumberOf(Effect.Next));
 		Effects[Effect.Previous].Next = Effect.Next;
 	}
-	if (Effect.Next != -1) {
-		PATELLA_ASSERT_VALUES(In(Effect.Previous,-1,EFFECTS-1), Effect.Previous);
+	if (Effect.Next != TEffectId::None) {
+		PATELLA_ASSERT_VALUES(In(EffectNumberOf(Effect.Previous),-1,EFFECTS-1), EffectNumberOf(Effect.Previous));
 		Effects[Effect.Next].Previous = Effect.Previous;
 	}
 }
@@ -614,18 +615,18 @@ void patella::TMap::ProcessEffects()
 {
 	int i = 0;
 	for (i = 0; i < Effects.Size(); i++) {
-		TEffect &Effect = Effects[i];
+		TEffect &Effect = Effects[EffectIdOf(i)];
 		switch (Effect.Status) {
 		case 1:
 			Effect.Phase++;
 			PATELLA_ASSERT_VALUES(Effect.Type > 0, Effect.Type);
 			if (Effect.Phase > ObjectTypes.GetEffectPhases(Effect.Type))
-				DeleteEffect(i);
+				DeleteEffect(EffectIdOf(i));
 			break;
 		case 2:
 			Effect.TextPhase++;
 			if (Effect.TextPhase > 10)
-				DeleteEffect(i);
+				DeleteEffect(EffectIdOf(i));
 			break;
 		}
 	}
@@ -639,7 +640,7 @@ void patella::TMap::ProcessMissileEffects()
 	int i = 0;
 	const int Now = GetMilliseconds();
 	for (i = 0; i < Effects.Size(); i++) {
-		TEffect &Effect = Effects[i];
+		TEffect &Effect = Effects[EffectIdOf(i)];
 		if (Effect.Status != 3)
 			continue;
 		if (Effect.OffsetX != 0) {
@@ -659,16 +660,16 @@ void patella::TMap::ProcessMissileEffects()
 			int y = (Effect.DestY * 32 + 31 + Effect.OffsetY) / 32;
 			int z = Effect.DestZ;
 			if (x != Effect.x || y != Effect.y) {
-				if (Fields(Effect.Field).EffectNumber == i) {
-					PATELLA_ASSERT_VALUES(In(Effect.Next,-1,EFFECTS-1), Effect.Next);
+				if (Fields(Effect.Field).EffectNumber == EffectIdOf(i)) {
+					PATELLA_ASSERT_VALUES(In(EffectNumberOf(Effect.Next),-1,EFFECTS-1), EffectNumberOf(Effect.Next));
 					Fields(Effect.Field).EffectNumber = Effect.Next;
 				}
-				if (Effect.Previous != -1) {
-					PATELLA_ASSERT_VALUES(In(Effect.Next,-1,EFFECTS-1), Effect.Next);
+				if (Effect.Previous != TEffectId::None) {
+					PATELLA_ASSERT_VALUES(In(EffectNumberOf(Effect.Next),-1,EFFECTS-1), EffectNumberOf(Effect.Next));
 					Effects[Effect.Previous].Next = Effect.Next;
 				}
-				if (Effect.Next != -1) {
-					PATELLA_ASSERT_VALUES(In(Effect.Previous,-1,EFFECTS-1), Effect.Previous);
+				if (Effect.Next != TEffectId::None) {
+					PATELLA_ASSERT_VALUES(In(EffectNumberOf(Effect.Previous),-1,EFFECTS-1), EffectNumberOf(Effect.Previous));
 					Effects[Effect.Next].Previous = Effect.Previous;
 				}
 				Effect.x = x;
@@ -681,18 +682,18 @@ void patella::TMap::ProcessMissileEffects()
 				}
 				TMapPoint &Point = Fields(FieldNumber(x, y, z));
 				Effect.Field = FieldNumber(x, y, z);
-				PATELLA_ASSERT_VALUES(In(Point.EffectNumber,-1,EFFECTS-1), Point.EffectNumber);
+				PATELLA_ASSERT_VALUES(In(EffectNumberOf(Point.EffectNumber),-1,EFFECTS-1), EffectNumberOf(Point.EffectNumber));
 				Effect.Next = Point.EffectNumber;
-				Effect.Previous = -1;
-				if (Point.EffectNumber != -1) {
+				Effect.Previous = TEffectId::None;
+				if (Point.EffectNumber != TEffectId::None) {
 					PATELLA_ASSERT_VALUES(In(i,-1,EFFECTS-1), i);
-					Effects[Point.EffectNumber].Previous = i;
+					Effects[Point.EffectNumber].Previous = EffectIdOf(i);
 				}
-				Point.EffectNumber = i;
+				Point.EffectNumber = EffectIdOf(i);
 			}
 		} else {
 			PATELLA_ASSERT(Effect.Status!=0);
-			DeleteEffect(i);
+			DeleteEffect(EffectIdOf(i));
 		}
 	}
 }
@@ -717,9 +718,11 @@ void patella::TMap::ClearField(int rx, int ry, int rz, bool DeleteEffects)
 	Point.RefreshRequested = false;
 	i = -1;
 	if (DeleteEffects) {
-		while (Point.EffectNumber != -1) {
-			PATELLA_ASSERT(Effects.Get(Point.EffectNumber).Status!=0);
-			DeleteEffect(Point.EffectNumber);
+		// The original deletes the point's first effect until there is none; the range gives the same ones (its step
+		// reads the deleted entry's Next, which DeleteEffect keeps and made the point's first).
+		for (const TEffectId EffectNumber : PointEffects(Point)) {
+			PATELLA_ASSERT(Effects.Get(EffectNumber).Status!=0);
+			DeleteEffect(EffectNumber);
 		}
 	}
 }
@@ -729,7 +732,7 @@ void patella::TMap::ClearMap()
 {
 	for (int i = 0; i < MAPSIZE_X * MAPSIZE_Y * MAPSIZE_Z; i++) {
 		ClearPointObjects(Fields(i));
-		Fields(i).EffectNumber = -1;
+		Fields(i).EffectNumber = TEffectId::None;
 		Fields(i).RefreshRequested = false;
 	}
 	Effects.Clear();
@@ -1580,62 +1583,62 @@ void ChangeObject(int rx, int ry, int rz, int Position, TObject Obj)
 
 int GetFirstEffect(int rx, int ry, int rz)
 {
-	return patella::bridge::Map().GetFirstEffect(rx, ry, rz);
+	return EffectNumberOf(patella::bridge::Map().GetFirstEffect(rx, ry, rz));
 }
 
 int GetNextEffect()
 {
-	return patella::bridge::Map().GetNextEffect();
+	return EffectNumberOf(patella::bridge::Map().GetNextEffect());
 }
 
 int GetEffectStatus(int EffectNumber)
 {
-	return patella::bridge::Map().GetEffectStatus(EffectNumber);
+	return patella::bridge::Map().GetEffectStatus(EffectIdOf(EffectNumber));
 }
 
 int GetGraphicalEffectType(int EffectNumber)
 {
-	return patella::bridge::Map().GetGraphicalEffectType(EffectNumber);
+	return patella::bridge::Map().GetGraphicalEffectType(EffectIdOf(EffectNumber));
 }
 
 int GetGraphicalEffectPhase(int EffectNumber)
 {
-	return patella::bridge::Map().GetGraphicalEffectPhase(EffectNumber);
+	return patella::bridge::Map().GetGraphicalEffectPhase(EffectIdOf(EffectNumber));
 }
 
 int GetTextualEffectColor(int EffectNumber)
 {
-	return patella::bridge::Map().GetTextualEffectColor(EffectNumber);
+	return patella::bridge::Map().GetTextualEffectColor(EffectIdOf(EffectNumber));
 }
 
 char *GetTextualEffectText(int EffectNumber)
 {
-	return patella::bridge::Map().GetTextualEffectText(EffectNumber);
+	return patella::bridge::Map().GetTextualEffectText(EffectIdOf(EffectNumber));
 }
 
 int GetTextualEffectPhase(int EffectNumber)
 {
-	return patella::bridge::Map().GetTextualEffectPhase(EffectNumber);
+	return patella::bridge::Map().GetTextualEffectPhase(EffectIdOf(EffectNumber));
 }
 
 int GetMissileEffectType(int EffectNumber)
 {
-	return patella::bridge::Map().GetMissileEffectType(EffectNumber);
+	return patella::bridge::Map().GetMissileEffectType(EffectIdOf(EffectNumber));
 }
 
 int GetMissileEffectDirection(int EffectNumber)
 {
-	return patella::bridge::Map().GetMissileEffectDirection(EffectNumber);
+	return patella::bridge::Map().GetMissileEffectDirection(EffectIdOf(EffectNumber));
 }
 
 int GetMissileEffectX(int EffectNumber)
 {
-	return patella::bridge::Map().GetMissileEffectX(EffectNumber);
+	return patella::bridge::Map().GetMissileEffectX(EffectIdOf(EffectNumber));
 }
 
 int GetMissileEffectY(int EffectNumber)
 {
-	return patella::bridge::Map().GetMissileEffectY(EffectNumber);
+	return patella::bridge::Map().GetMissileEffectY(EffectIdOf(EffectNumber));
 }
 
 void AddGraphicalEffect(int rx, int ry, int rz, int Type)

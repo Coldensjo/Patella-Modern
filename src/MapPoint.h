@@ -28,11 +28,26 @@
 
 inline constexpr int OBJECTS_PER_POINT = 10;
 
+// An entry of the effect table (Map.h), as the map points and the entries' Previous and Next links hold it (issue
+// #103; ints until then). Its value is the original's effect number, the entry's index (0 to EFFECTS - 1), which the
+// golden corpus records; None is the original's -1: no effect (the end of a point's list, a full table).
+enum class TEffectId : int { None = -1 };
+
+// The original's effect number of an id, and the id of a number (the original's functions take and give numbers).
+[[nodiscard]] constexpr int EffectNumberOf(TEffectId Id) noexcept
+{
+	return static_cast<int>(Id);
+}
+[[nodiscard]] constexpr TEffectId EffectIdOf(int Number) noexcept
+{
+	return static_cast<TEffectId>(Number);
+}
+
 // A map point; "Point" in the assertions.
 struct TMapPoint {
 	patella::TStaticVector<TObject, OBJECTS_PER_POINT> Objects; // bottom to top; the original's ObjectCount is its size
 	std::array<int, OBJECTS_PER_POINT> Order;                   // drawing order (SortObjects)
-	int EffectNumber;                                           // first effect on the point, -1 none
+	TEffectId EffectNumber;                                     // first effect on the point, None if there is none
 	bool RefreshRequested;
 	TObject Vacated; // the original's Objects[0] while the point is empty (above)
 };
