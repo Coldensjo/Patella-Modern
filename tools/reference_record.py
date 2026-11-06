@@ -196,8 +196,6 @@ class Recorder:
 		self.frames += 1
 		bmp = os.path.join(self.folder, "frames", "capture.bmp")
 		width, height, api = self.driver.capture(bmp, cr.SKIP_FRAMES)
-		if os.path.isfile(bmp + ".mask"):
-			os.remove(bmp + ".mask")
 		picture = cr.read_bmp(bmp)
 		os.remove(bmp)
 		cr.write_png(os.path.join(self.folder, "frames", "frame-%03d.png" % self.frames), *picture)
