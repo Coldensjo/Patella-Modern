@@ -276,6 +276,17 @@ of DialogElements.cpp go (310 left in 4 files after parts 4 and 5); the file has
 stays. No kind change reaches another handler: none of the handlers that catch a TMyException by type reaches the
 part, and its only third type is new's std::bad_alloc of bounded sizes (an exhausted heap: the same box as before).
 difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822 retired, 0 failures.
+
+TBEGIN/TEND deleted, part 7, the last (Patella-Modern issue #78, branch issue-78g, November 6, 2026; M5): the 181 try
+blocks of Communication.cpp, Network.cpp and Control.cpp go, then the macros out of src/common.h and .clang-format,
+and every comment of src/ that named them says "the original's catch wrapper": no TBEGIN or TEND is left in src/
+(1,130 try blocks over the seven parts). Kept: the encryption failures, the cylinder loop, CheckSurface,
+ChangeEngine, InitControl. No kind change reaches another handler; recorded as in parts 2 and 4: MFC's
+CMemoryException under the socket window's or the frame's window procedure is now reported by MFC. EnterGame stays
+out of line (PATELLA_NOINLINE: the golden Communication test fakes it); the Control test models the two effects of
+the original's wrappers its error round sees (MouseMove's extra GetActionState, a structured exception made a
+TMyException). difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822
+retired, 0 failures. notes/decisions.md, "Part 7" and "The closing summary".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -421,6 +432,15 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #78, part 7 (branch issue-78g, November 6, 2026): TBEGIN/TEND deleted from Communication.cpp,
+Network.cpp and Control.cpp (181 try blocks in 180 functions), then the macros. `python -I tools/build.py oracle-x86`:
+difftest 16,459,337, sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 4/4 (every test's
+own numbers main's). golden on main's corpus 15,803,203 replayed + 1,512,822 retired = 17,316,025, 0 failures
+(windows-x64 14/14, -debug 13/13, -asan 13/13, no ASan finding); windows-x64-gcc and the Linux presets 11/11, 0
+warnings. reference.py compare: 4 sessions match; compare_traffic.py (live, x64): no differences. Images by function
+(x86 and x64): only the part's functions changed (171), 7 on x86 and 6 on x64 now inlined into the part's callers.
+tidy_ci: 20 findings, 0 new. banned_calls 0, clang-format clean. Logs: build\logs\issue-78g.
 
 Patella-Modern issue #78, part 5 (branch issue-78e, November 6, 2026): TBEGIN/TEND deleted from DialogElements.cpp
 (141 try blocks in 141 functions). `python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67,

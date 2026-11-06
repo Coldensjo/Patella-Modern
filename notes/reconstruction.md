@@ -27,19 +27,19 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
 - `TASSERT_FAILED(line, "expr", "name", value)`: a failed `TASSERT1(line, expr, name)`.
   The expression text is the original source text; the line is the macro's first argument (issue #35).
 - `TERROR(line, "message", "name", value)`: `TERROR1(line, "message", name)`.
-- After most functions come three catch blocks. A 20-byte one re-throws a `PROGRAM_ERROR`; a
-  `TRETHROW(line, "names"...)` one and a `TERROR(line, "unknown exception occurred", ...)` one
-  are `TEND(line)`, `TEND1(line, name)` or `TEND2(line, a, b)`, closing a `TBEGIN` at the start of
-  the body. The names are the function's parameters (or expressions of them). difftest and the golden
-  corpus compare the messages, the line included (tools/lines.py, which checked every site's line against the
-  binary, went with error.txt in Patella-Modern issue #74).
+- After most functions come three catch blocks, the original's catch wrapper around the body: a 20-byte
+  one re-throws a `PROGRAM_ERROR`, a `TRETHROW(line, "names"...)` one and a `TERROR(line, "unknown exception
+  occurred", ...)` one wrap the exception with the line and the function's parameters (or expressions of
+  them). The reconstruction does not write them (src/common.h; until Patella-Modern issue #78 they were the
+  macros TBEGIN and TEND, TEND1, TEND2): the function's comment names their line, and an exception passes to the
+  first handler that really handles it.
 - A catch block with its own message, such as "Symmetric encryption failed with unknown
   exception", is an inner `try { ... } catch (...) { TERROR("..."); }`.
 - Get the catch types and the try ranges from the exception tables, not from the pseudocode:
   `python -I tools/ehinfo.py <address>`. The standard trio is `PROGRAM_ERROR`, `TMyException &`,
-  `...`. If the `TBEGIN` try block starts at a state above 0 (for example `try states 5-5`), the
-  assertions that build the first states come **before** `TBEGIN`; a failure there is not wrapped
-  with "exception occurred". Each assertion builds five strings, so five states.
+  `...`. If the wrapper's try block starts at a state above 0 (for example `try states 5-5`), the
+  assertions that build the first states come before it; a failure there was not wrapped with
+  "exception occurred" (the order of the assertions and the body follows the binary all the same). Each assertion builds five strings, so five states.
 - Ghidra hides the `this` pointer of member calls (`in_ECX`). When it matters which object a
   call uses, read the instructions: `rea instructions C:\Tibia\Patella\Tibia.exe <address>
   --provider ghidra --snapshot rea-out\tibia.snapshot --json` (after `-Restore`; upstream's is
@@ -100,7 +100,7 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   resource IDs of `src/res/resource.h`, an API's own macro names such as SurfaceGL.cpp's `WGL_*_ARB`).
 - Every enum has an explicit underlying type, followed by static_asserts of its size and of
   `std::underlying_type_t` (issue #37); a new enum is an `enum class` unless its values are used as
-  ints (array indices, bit numbers, int fields, packets) or its enumerators appear in a TASSERT/TERROR/TEND
+  ints (array indices, bit numbers, int fields, packets) or its enumerators appear in a TASSERT/TERROR
   argument.
 - A class whose destructor frees what it holds (memory, a FILE *, a descriptor, its children) declares its
   copy constructor and copy assignment `= delete`, or defines them where the code copies it (vlong's shared
@@ -136,7 +136,7 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   its callers allocate (say where it comes from). The writes put the text and its NUL where the C function did and
   nothing else; a text that does not fit (an overflow in the original) is cut at N - 1. A frozen structure's
   member becomes a TFixedString only with static_asserts of its size and offsets (under PATELLA_ORIGINAL_LAYOUT,
-  in the .cpp, where it has pointers or a vtable). Keep the array where a TASSERT/TERROR/TEND argument needs it as
+  in the .cpp, where it has pointers or a vtable). Keep the array where a TASSERT/TERROR argument needs it as
   a `std::string` (TERROR_REASON's reason: Script.cpp's Filename, until M5), and pass `.Chars` where it goes
   through `...` (MsvcSnprintf, a test's Logf): a TFixedString there is its N bytes, not a pointer. A bounded
   `MsvcSnprintf(Fixed.Chars, sizeof(Fixed), ...)` stays (_snprintf's result and missing NUL; the text table's
@@ -145,7 +145,7 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   (Control.cpp's frame rate: printf and std::format write NaN differently) stays MsvcSnprintf.
 - A pointer and its length go as one span (issue #59): `patella::TSpan<T>` or `TSpan<T, N>` of src/compat/span.h
   (std::span on the product presets, a C++17 stand-in in the oracle; spell the type, there are no deduction guides in
-  the stand-in). Where a TASSERT/TERROR/TEND argument names the original's parameters, the body defines them as
+  the stand-in). Where a TASSERT/TERROR argument names the original's parameters, the body defines them as
   locals from the span (`uint8 *const data = Bytes.data(); const int size = static_cast<int>(Bytes.size());`), so
   the text stays and a null pointer or a size above INT_MAX fails as before. A C string whose null pointer an
   assertion reports, or whose end is its NUL, stays `const char *`.
@@ -153,7 +153,7 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   `T[X][Y]`: `std::array<std::array<T, Y>, X>`), a text `TFixedString<N>`. A frozen structure's array changes only
   with static_asserts of the structure's size and the member's offset (the original's, from the oracle's PDB;
   unconditional where the structure has no pointers, else under PATELLA_ORIGINAL_LAYOUT). Where the array decayed
-  to a pointer, `.data()` (a TFixedString: `.Chars`, also for `...` and for a span); an array a TASSERT/TERROR/TEND
+  to a pointer, `.data()` (a TFixedString: `.Chars`, also for `...` and for a span); an array a TASSERT/TERROR
   argument needs as a pointer or a `std::string` stays until M5, with `NOLINT(modernize-avoid-c-arrays)` and the
   reason on its line. tools/client_state.py reads a `std::array<T, N>` member as `T[N]`.
 - No `FILE` and no fopen, fclose or printf family in src/ outside src/types/File.h (issue #64; the same
@@ -177,8 +177,9 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   `unique_ptr` must never go). Everything a window, the event queue or a container owns, everything whose destructor
   may throw (`TComponent`, `TTalkBuffer`: `reset()` is `noexcept`), and the mismatched releases stay raw; ownership.md's
   section 7 lists every raw owner with the milestone that unblocks it.
-- Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`, `TBEGIN`/`TEND*`) exactly where
-  the binary has the corresponding blocks.
+- Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`) exactly where the binary has the
+  corresponding blocks; the catch wrappers are not written (above), a handler of the function's own (its own
+  message or recovery) is.
 - Behaviour must match the binary exactly, including odd behaviour (for example
   `ConnectToGameServer` connects even when `CreateSocket` failed). Note such cases in a
   comment; do not fix them.
@@ -497,7 +498,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 ## Checking
 
 - Code style (issue #8): `.clang-format` describes the style of src/ (tabs of four columns, function bodies
-  on their own line, no column limit; the arguments of TASSERT*, TERROR* and TEND* are whitespace-sensitive,
+  on their own line, no column limit; the arguments of TASSERT*, TERROR* and TMYEXCEPTION are whitespace-sensitive,
   so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
   `.editorconfig` sets tabs, LF and UTF-8 for every editor. With Visual Studio's clang-format 22
   (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/types/*.h
@@ -889,7 +890,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     assertion; the oracle checks it with VerifyOurSideAssertion before the round). Issue #30's: a test whose
     fakes make C functions throw (Network: WinSock and rand() in their import slots) compiles in a directory of
     its own with /EHs instead of /EHsc (tests/golden/network/CMakeLists.txt), else our x64 code lets the
-    exception pass the TEND blocks; the WinSock functions reach the test's own slots through /alternatename of
+    exception pass where the original's TEND blocks catch it; the WinSock functions reach the test's own slots through /alternatename of
     their `__imp_` symbols (the runner links no ws2_32); a test may call Random() only once per expression (the
     order of two calls is unspecified, and the runner's Debug build chose another order than the oracle's).
     Issue #28's: the window tests keep the original's objects in the oracle and record what the comparisons read
