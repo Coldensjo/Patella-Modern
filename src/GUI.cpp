@@ -84,6 +84,8 @@ TComponent::~TComponent()
 
 static_assert(std::is_nothrow_destructible_v<TComponent> && std::is_nothrow_destructible_v<TWindow>,
 	"issue #108: the window classes' destructors are noexcept");
+static_assert(sizeof(void *) != 8 || (sizeof(TComponent) == 56 && offsetof(TComponent, Parent) == 24),
+	"issue #108: Closed is in the padding after DrawingListLength, TComponent's x64 layout unchanged");
 
 // Issue #108 (not in the original). Closed is set first: a close that throws is
 // not run again, as the original's destructor was not.

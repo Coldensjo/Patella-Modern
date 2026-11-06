@@ -120,12 +120,20 @@ public:
 
 	std::unique_ptr<TDrawing[]> DrawingList; // +0x04, allocated by the subclasses (issue #58: the list's only owner)
 	int DrawingListLength;                   // +0x08
-	TComponent *Parent;                      // +0x0c
-	TComponent *Next;                        // +0x10, the next child of Parent
-	int OffsetX;                             // +0x14, relative to Parent
-	int OffsetY;                             // +0x18
-	int Width;                               // +0x1c
-	int Height;                              // +0x20
+
+private:
+	// Close has run (issue #108; not in the original's layout). Here, in the padding after DrawingListLength on x64,
+	// so that no class's size or member offsets change (at the end the Itanium ABI would put derived members into its
+	// tail padding, which the golden tests' fake elements do not mirror).
+	bool Closed = false;
+
+public:
+	TComponent *Parent; // +0x0c
+	TComponent *Next;   // +0x10, the next child of Parent
+	int OffsetX;        // +0x14, relative to Parent
+	int OffsetY;        // +0x18
+	int Width;          // +0x1c
+	int Height;         // +0x20
 
 protected:
 	// A class's own part of the close (issue #108), overridden by the classes whose destructors did such work; each
@@ -138,9 +146,6 @@ protected:
 	// A component of a class with a close of its own that is destroyed without it (a delete without Close: a missed
 	// close, its work not done) writes a line to the developer log (error level).
 	void CheckClosed(const char *Class) const noexcept;
-
-private:
-	bool Closed = false; // Close has run (issue #108; not in the original's layout)
 };
 
 // Closes the component and deletes it (issue #108): the original's `delete Component`. Nothing for NULL. When the

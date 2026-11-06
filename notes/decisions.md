@@ -13606,7 +13606,10 @@ the preferences, removed hotkeys and asserted, and the golden ConsoleWindow test
 
 - **The close.** `TComponent::Close()` (GUI.h; not in the original) runs a component's close once (`Closed`, set
   first: a close that throws is not run again, as the original's destructor was not), through the protected virtual
-  `OnClose()`. The classes whose destructors did such work override it with that work, in the destructor's order, and
+  `OnClose()`. `Closed` is the byte after `DrawingListLength`, in the x64 padding there, so no class's size or offsets
+  change (static_assert in GUI.cpp: 56 bytes, Parent at 24); at the end of TComponent, GCC and Clang (the Itanium ABI)
+  put derived members into its tail padding, and the golden tests' fake elements (elementfakes.cpp, which assert
+  their layout against the real classes) did not compile there. The classes whose destructors did such work override it with that work, in the destructor's order, and
   end with their base's, as a destructor ends with its base's: `TTab` (the rule violation and channel sends, the
   nameless report's `PATELLA_ASSERT(PlayerName!=NULL)`, DeleteTextBuffer), `TTabBar` (the left and right windows'
   tabs, where it deleted them), `TConsoleWindow` (StoreOpenChannels, SetConsoleHeight, the buttons that are not
