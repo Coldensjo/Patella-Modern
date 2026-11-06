@@ -19,14 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Scope. This license covers the work of this repository's contributors. It does
-not cover:
-
-- src/Extern, which keeps the licenses stated in its files (regexp: Henry
-  Spencer's, University of Toronto; glh: its own terms);
-- Tibia, its client and its data files (Tibia.exe, Tibia.dat, Tibia.spr,
-  Tibia.pic, Tibia.cfg), which belong to CipSoft GmbH, are not part of this
-  repository and are not licensed by it. Nothing here grants any right to them.

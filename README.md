@@ -103,5 +103,5 @@ tools) belongs to upstream and is not part of this repository.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). It covers this repository's own work; `src/Extern` keeps its own licenses, and
+MIT, see [LICENSE](LICENSE); [NOTICE](NOTICE) gives its scope. It covers this repository's own work; `src/Extern` keeps its own licenses, and
 Tibia and its files belong to CipSoft GmbH and are not licensed here.
