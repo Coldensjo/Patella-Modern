@@ -13595,3 +13595,119 @@ Logs: build\logs\issue-117 of the branch's worktree; golden replayed main's froz
 - `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
   clang-format (CLAUDE.md's command): exit 0. `python -I tools/settings_file.py --self-test` and
   `python -I tools/testmode_dumps.py --self-test`: exit 0.
+
+## #114: reflection for the state dump and the serialisers (Patella-Modern issue #114, M7)
+
+Evaluated by Claude Opus 5.5, November 6, 2026. Decision: **adopt later**. No product code changed. The experiment is
+tests/reflection/state_dump_reflection.cpp, outside every build: no preset compiles it, and its header says how to run it.
+
+### The experiment (high)
+
+The state dump's creature entry (StateDump.h TCreatureValue, 13 members) and container entry (TContainerValue, 6
+members, with a nested TObjectValue and a vector of them) were each written three ways and compared byte for byte with
+what the product writes (StateDumpJson's "creatures" and "containers", from WriteCreature and WriteContainer of
+StateDump.cpp):
+
+1. the product's hand-written writer;
+2. the fallback that MSVC and Clang would need: per structure, a table of member pointers (`PATELLA_FIELD(Type, Member)`,
+   C++23: the member's name stringized and its pointer), written by one generic function (std::apply over the table);
+3. C++26 reflection (P2996, GCC `-freflection`): `nonstatic_data_members_of(^^T, access_context::unchecked())` in an
+   expansion statement (`template for`, P1306). The key is the member's identifier in snake_case
+   (`std::define_static_string`, HasParent: has_parent), and the value is `Value.[:Member:]`.
+
+Both generic paths share one overload per member type: signed, unsigned, std::string, std::array, std::vector, and
+TObjectValue. The dump writes a TObjectValue as an array [Type, Data, Data2], not as an object, so that type has a
+format rule of its own in either path. The data: three creatures (the largest unsigned id, INT_MIN, negative values,
+a Latin-1 name with a quote, a backslash, a line feed and 0x7f) and two containers, 546 + 197 bytes.
+
+With reflection the program also checks at compile time (static_assert) that each fallback table names every member
+of its structure, in the structure's order, and that the derived keys are StateDump.h's CreatureKeys and
+ContainerKeys (the lists that step h of tools/testmode_check.py compares with client_state.py). If a member is added,
+renamed or reordered without its table entry, the GCC build fails. That is the sync check, and it needs no generated
+file.
+
+Results (logs: build\logs\issue-114\experiment-*.log of the worktree):
+
+| Compiler | Paths | Result |
+|---|---|---|
+| GCC 16.2 (image), `-std=c++26 -freflection -O2 -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Werror` | product, table, reflection | same bytes, exit 0, 0 warnings |
+| GCC 16.2 (image), the same at -O0 with `-fsanitize=address,undefined` | the same | same bytes, no report |
+| GCC 16.2 (image), without `-freflection` | product, table | same bytes |
+| Clang 22.1.8 (image), the same flags (`-freflection` unknown to it) | product, table | same bytes |
+| mingw-w64 GCC 16.2 (this machine, windows-x64-gcc's compiler), `-freflection` | product, table, reflection | same bytes |
+| MSVC 19.51, `/std:c++latest /EHsc /W4 /WX /O2` | product, table | same bytes |
+
+### GCC 16.2's reflection (high)
+
+- What works: `__cpp_impl_reflection` and `__cpp_lib_reflection` 202603, `__cpp_expansion_statements` 202506,
+  `__cpp_lib_define_static` 202506, `<meta>`, splices, `define_static_array` and `define_static_string`, and
+  annotations (P3394: `[[=Key{"has_parent"}]]` and `annotations_of_with_type`; GCC 16.2 defines no `__cpp_annotations`
+  macro). They behave the same on the mingw-w64 build (Windows) and in the image (Linux).
+- No ICE in the experiment. The two mistakes made along the way gave clear errors: a `std::vector<info>` used as a
+  constant (it is the result of `operator new`; `define_static_array` fixes it), and an annotation with a
+  `const char *` member (reflect_constant fails; an annotation's type must be structural, e.g. with a `char[N]` member).
+- Build time: the experiment's file (two reflected structures) compiles in 1.6-1.7 s at -O2 with reflection and in
+  1.4 s with the table alone, so reflection adds 0.2-0.3 s (about 15 %). `-freflection` on a file that does not use it
+  costs nothing measurable (StateDump.cpp takes 1.1-1.2 s with and without; 5 runs each). The object has 34.6 KB of
+  text with reflection and 30.5 KB with the table (the compiler inlines differently; the output is the same).
+- Tooling: Clang 22 has no `-freflection`, so clang-tidy (tidy_ci, which uses the image's linux-x64-clang database)
+  never sees the reflection code. clang-format 22 parses splices and `^^` but not `template for`: it puts the loop's
+  brace on a line of its own. MSVC 19.51 has no reflection at all.
+
+### What it would save (high)
+
+- The state dump (StateDump.cpp): 56 of its 404 lines are a key and a value per member, for the 28 members of
+  TCreatureValue, TContainerValue, TOfferValue and TGuiNode. With reflection alone they become one generic writer.
+  StateDump.h's key arrays stay (testmode_check.py reads them) and are checked against the members. The irregular parts
+  stay hand-written: TGuiNode's three-state "text", TObjectValue as an array, the player's values as an array under
+  PlayerFields, the console's [mode, text or null], and the probe's maps keyed by pointer.
+- The settings (PreferenceKeys.cpp): 25 options are a flag or a number whose key is the member's name, written by 25
+  Put lines and read by 25 Read lines (50 of 543). The other 14 members are not regular:
+  - Hotkeys and HotkeyAutoSend share one indexed key;
+  - WindowedMode and WindowedMaximized share one key;
+  - FullscreenMode is optional;
+  - ContentWindows and Buddies are numbered keys;
+  - OpenChannels is written as `OpenChannel`;
+  - SkillBars is a list of indices;
+  - ChaseMode 2 reads as 0;
+  - OpenDialogs drops repeats.
+
+  The members' order is also not the file's: Engine is written last, a new Patella.ini's lines follow the order of the
+  writes, and compare_files reads them. A reflected writer would therefore need each member's order or key as an
+  annotation.
+- The golden records: nothing. The tests record values by name, one call each (248 names such as "FindPath steps"),
+  not the members of structures. The names are frozen with the corpus (#93), so a derived name would make it stale.
+- With the fallback that MSVC (windows-x64, the client's compiler) and Clang (linux-x64-clang, clang-tidy) need, a
+  table entry replaces each key-and-value pair one for one. No line is saved while the fallback exists, and the change
+  adds one more path and the sync check. The gain comes only when every compiler has reflection and the tables can go.
+
+### What it would add (high)
+
+Adopting it now would add:
+
+- `PATELLA_HAS_REFLECTION` in src/compat/cxx26.h and `-freflection` for GCC in cmake/Warnings.cmake;
+- the generic writers and the tables;
+- reflection code that only GCC compiles: clang-tidy cannot see it, and clang-format needs an exception for
+  `template for`;
+- a second path that hosted CI tests only on linux-x64-gcc and windows-x64-gcc;
+- a test per serialiser that the two paths give the same bytes.
+
+That is more to maintain than the 28 dump members and 25 options it covers. They change rarely and are already
+compared: the dumps by testmode_check.py and the reference compare, the options by compare_files and tests_core.
+
+### Decision and when to revisit (high)
+
+Adopt later, not now. GCC 16.2's implementation was reliable here, but the required fallback makes reflection a net
+addition of code and of tooling gaps, and it gains no behaviour. Revisit when MSVC ships P2996 (MSVC compiles the
+windows-x64 client) and when upstream Clang does (`-freflection` for linux-x64-clang and clang-tidy). The first target
+then is StateDump.cpp's member writers: one generic writer, with the key arrays checked against the members as the
+experiment does. After that come the 25 regular options, with annotations for their keys and order. If MSVC catches up
+and Clang does not, adopt it with the experiment's pattern (tables checked by the GCC build's static_assert), starting
+from the experiment's file.
+
+### The gates (high)
+
+Only the notes and the experiment outside the build changed. No preset compiles tests/reflection, so the builds,
+golden and the live checks are not affected and were not run. The experiment was formatted with Visual Studio's
+clang-format 22.1.3 (`-i`); `--dry-run --Werror` exits 0 afterwards. banned_calls and tidy_ci: exit 0 (logs
+banned_calls.log, tidy_ci.log).

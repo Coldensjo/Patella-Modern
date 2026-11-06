@@ -636,6 +636,9 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
 - **Reflection** (GCC 16 `-freflection`) is a candidate for generating the state dump, the Tibia.cfg
   serialiser and the golden-record serialisers. Use it only behind a generator that also has a hand-written
   or macro-based path for MSVC, until MSVC has it.
+  Done in #114 (notes/decisions.md, "#114: reflection for the state dump and the serialisers"): evaluated, adopt later.
+  GCC 16.2's reflection gives the same bytes and works reliably, but with the fallback MSVC and Clang need it saves no
+  code. Revisit when MSVC and upstream Clang ship P2996; the experiment is tests/reflection/state_dump_reflection.cpp.
 - **Modules:** `import std;` in new code once all three compilers support it under CMake. The client's own
   headers become named modules after MFC is gone (M8): one module per subsystem, partitions per original
   file.
