@@ -10711,3 +10711,35 @@ Settled by Claude Opus 5.5, November 6, 2026; M5 (notes/modernization-plan.md, 7
   every session matches (error with #74's deliberate differences); the error session's line "[error] Debug
   Assertion 7.72 Player.cpp 383: exception occurred, reason: Control.cpp 1274: unknown packet type during game (Type
   = 255)" (a TERROR, unchanged). Logs: build\logs\issue-79.
+
+## client_state.py's window test on the Debug builds: TWindow::GetFirstChild by its address (Patella-Modern issue #88)
+
+Settled by Claude Opus 5.5, November 6, 2026. Found in #82: with a Debug PatellaTest.exe, testmode_check.py's check e
+differed only in "gui" (the client's dump 9 to 50 windows, client_state.py's reading 1 to 3). gui() calls a component
+a window when its vtable slot of TComponent::GetFirstChild leads to TWindow's `return FirstChild;`, and it recognised
+that function only by its Release code, `mov rax, [rcx+disp8]; ret` (48 8b 41 XX c3; 8b 41 XX c3 on x86). The Debug
+build compiles it with /Od, through the stack: `mov [rsp+8], rcx; push rdi; mov rax, [rsp+10h]; mov rax, [rax+38h];
+pop rdi; ret` (windows-x64-debug PatellaTest.exe, RVA 0x142b20, 17 bytes). So no component was a window: the walk
+listed MainWindow's top-level siblings (and the modal) and never went into a child list. Member offsets, the vtable
+slot (0x40) and the RTTI names were right; the Debug layout of the STL plays no part (the tree is TComponent's own
+Next/FirstChild pointers). No src/ change.
+
+- **The PDB's address of TWindow::GetFirstChild, then the pattern** (high). Layout gets `functions` (LAYOUT_FUNCTIONS:
+  TWindow::GetFirstChild, its RVA from the PDB through Pdb.function_symbol; none when inlined everywhere). is_window()
+  follows up to four `jmp rel32` thunks (an incremental link's ILT; the x64 builds link /INCREMENTAL:NO today, the
+  oracle-x86 Debug build the same) and compares the target with that address; when it differs, the code pattern
+  decides as before. Tibia.exe has no PDB: the pattern alone, unchanged. In a Release image the PDB's function holds
+  the pattern's bytes (with /OPT:ICF possibly as the folded copy of another such getter, which the pattern accepted
+  anyway), so the address test can only agree with the pattern: Release readings are unchanged by construction.
+  Considered: a second, Debug byte pattern (it depends on /Od's register choices, /RTC and /JMC: brittle); RTTI
+  (whether a class derives from TWindow: its class hierarchy descriptor gives it, but more reading per component for
+  the same answer).
+- **The self-test** (high). `--self-test` builds made-up vtables and code in its own process: the Release body is a
+  window by the pattern without a PDB address and the Debug body is not; with the address, the Debug body is a window
+  directly and through a jmp thunk, a body that is neither (TElement's stand-in) is not, the Release body still is.
+  `--layout` lists the function's RVA.
+- **Proof** (high). `python -I tools/testmode_check.py --exe build/windows-x64/Debug/PatellaTest.exe --runs 2 --timeout
+  600`: exit 0, a-h pass; e equal in all six dumps of both runs (9, 23, 50, 50, 50 and 25 windows). The same with
+  build/windows-x64/Release/PatellaTest.exe: exit 0, a-h pass, unchanged (its first attempt stopped before any client
+  ran: the test server logged "Server Online" but listened on neither port within 300 s; stopped, the rerun passed). Logs: build\logs\issue-88 of the branch's
+  worktree.

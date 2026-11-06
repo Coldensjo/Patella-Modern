@@ -441,6 +441,15 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #88 (branch issue-88, November 6, 2026): tools/client_state.py recognises TWindow::GetFirstChild
+by the PDB's address as well as by the Release code pattern, so it walks a Debug client's window tree (/Od compiles
+the getter through the stack, which the pattern missed; notes/decisions.md, "client_state.py's window test on the
+Debug builds"). Tools only, no src/ change. `python -I tools/client_state.py --self-test` and `python -I
+tools/testmode_check.py --self-test`: 0 failures. `python -I tools/testmode_check.py --exe
+build/windows-x64/Debug/PatellaTest.exe --runs 2 --timeout 600`: exit 0, a-h pass (e: 9-50 windows read from outside, as
+dumped); the same with build/windows-x64/Release/PatellaTest.exe: exit 0, a-h pass (the second attempt: in the first the
+test server never listened within 300 s). Logs: build\logs\issue-88.
+
 Patella-Modern issue #82 (branch issue-82, November 6, 2026): tools/patch_client.py --rsa patches the Debug clients'
 two copies of the RSA modulus (Debug builds do not pool the two identical literals of src/Communication.cpp; each
 copy must be referenced by code); notes/decisions.md, "patch_client.py --rsa on the Debug builds". No src/ change.
