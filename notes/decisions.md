@@ -9292,7 +9292,8 @@ input desktop cause it (high: each one seen in the runs and in a small program):
   changes nothing. The client draws its first frame (CPlayerApp::InitInstance, Redraw(false)) before ShowWindow,
   and lavapipe's present (Mesa's Win32 WSI, a BitBlt into the window) returns VK_ERROR_MEMORY_MAP_FAILED (-5).
   TRenderer::Present throws, InitControl's catch calls ExitControl, which then crashes (0xC0000005: the original's
-  path). Every PatellaTest.exe and Patella.exe run on the CPU driver (PATELLA_VULKAN=cpu: reference.py compare's
+  path; corrected by issue #83: FatalError's ShowWindow on a null main window crashes, after InitInstance's first
+  Redraw, and Tibia.exe's catch (...) caught it; "A fatal error before the main window is set"). Every PatellaTest.exe and Patella.exe run on the CPU driver (PATELLA_VULKAN=cpu: reference.py compare's
   and testmode_check.py's default, compare_rendering.py's vulkan-cpu) ends this way after 1 s. On a GPU
   (PATELLA_VULKAN=gpu) the Vulkan engine presents and runs.
 - **DirectDraw and Direct3D 9 do not start; OpenGL does.** Tibia.exe and the oracle's Patella.exe with Engine = 0
@@ -11076,3 +11077,62 @@ windows-x64-asan 13/13 (no ASan finding): golden on main's corpus 15,803,203 rep
 tidy_ci 3 findings, 0 new (baseline 3); banned_calls 0; clang-format clean. `python -I tools/reference.py compare
 --reference C:/Tibia/Patella-Modern/build/reference`: every session matches (error with #74's deliberate
 differences). Logs: build\logs\issue-81.
+
+## A fatal error before the main window is set (Patella-Modern issue #83)
+
+Settled by Claude Opus 5.5, November 6, 2026, on branch issue-83 (M5, the fatal path of #77). #56 found that a failing
+first present (the CPU driver on a hidden desktop) crashed the x64 client with 0xC0000005 instead of ending it with
+"Tibia Error", and put the crash in ExitControl after InitControl's catch. That was the wrong place.
+
+- **Where it crashes** (high: seen under cdb). The first present is not in InitControl: InitControl has returned
+  (CMainFrame's constructor), and InitInstance's `Redraw(false)` draws the first frame after the surfaces exist and
+  before `m_pMainWnd = MainFrame`. TSurfaceVulkan's present catches the TVulkanError and throws PROGRAM_ERROR 12
+  (Fail), InitInstance's `catch (const TProgramError &)` calls HandleProgramError, and FatalError calls
+  `AfxGetMainWnd()->ShowWindow(SW_HIDE)` with AfxGetMainWnd() null. CWnd::ShowWindow reads `m_pCtrlSite` and
+  `m_hWnd` through the null `this`: an access violation. The stack (build\logs\issue-83\cdb-before.txt):
+  CWnd::ShowWindow, CPlayerApp::FatalError+0xa1, HandleProgramError, InitInstance's catch funclet, InitInstance,
+  AfxWinMain. The log line `[error] Tibia Error: Video surface allocation failed. (Error Code 12)` was already written,
+  the box never shown. ExitControl's steps are safe without a main window or with modules not initialised (each
+  Exit deletes or frees what may be null; GetSurface creates a surface first), and are not on this path.
+- **What Tibia.exe does** (high: the code and its exception tables). FatalError (0x4d7d80) calls CWnd::ShowWindow
+  (0x526c14, MFC 7.1's: `if (m_pCtrlSite == NULL) return ::ShowWindow(m_hWnd, nCmdShow)`, reading `this+0x4c` and
+  `this+0x1c`) with `this` taken from AfxGetMainWnd (0x527436) and null when it returns null: the same null call.
+  The call is in try state 4, whose handler is `catch (...)` at 0x4d7e16 (ehinfo.py: three try blocks, each `catch
+  ...`). MSVC 7.1's `catch (...)` catches structured exceptions too, so the access violation is caught and FatalError
+  goes on to MessageBoxA and `_exit(1)`. Tibia.exe ends with the box; it does not crash. (A hidden desktop with
+  Tibia.exe is not the same path: its DirectX engines fall back to OpenGL there, #56.)
+- **The choice** (high). The original does not crash, so ours matches it: FatalError skips ShowWindow when
+  AfxGetMainWnd() is null (src/Player.cpp), the one step whose `catch (...)` relied on catching an access violation,
+  which /EHsc does not. There is no window to hide then, and the steps after it are unchanged. Every other path is
+  unchanged: with a main window the same call. No deliberate difference (tools/deliberate.py unchanged): the
+  outcome is Tibia.exe's, the box and exit code 1. Considered: compiling Player.cpp with /EHa (catches every
+  structured exception in every handler of the file, a wider change; #67 decides on the SEH-dependent handlers);
+  setting m_pMainWnd before the first Redraw (moves the original's order of InitInstance). The same FatalError is the
+  oracle's (its /EHsc crashed the same way); difftest fakes FatalError, so no count changes.
+- **The test** (high). The test build's hook `PATELLA_TEST_PRESENT_FAILURE(Failure)` (src/TestHooks.h; nothing outside
+  PatellaTest.exe) before TRenderer::Present in TSurfaceVulkan's blit throws the TVulkanError of a failing
+  vkQueuePresentKHR (VkResult -5) when `PATELLA_TEST_FAIL_PRESENT=1` is in the environment (PresentFails,
+  src/testmode/TestModeWin32.cpp, read once). It reproduces #56's path on any desktop and device. Command (from a run
+  folder with the data files; build\repro83):
+  `PATELLA_VULKAN=cpu PATELLA_TEST_FAIL_PRESENT=1 build/windows-x64/Release/PatellaTest.exe --test-script quit.script
+  --test-out out` (quit.script: `wait 2000`, `quit`; with a script the box goes to messages.txt instead of a dialog).
+  Before the fix: the `[error]` line, then exit code 0xC0000005 (bash: 139), no messages.txt. After: the same line
+  on stderr, messages.txt `{"step":1,"time":0,"caption":"Tibia Error","text":"Video surface allocation failed. (Error
+  Code 12)\r\n\r\nPlease choose another video graphics mode.","type":16}`, exit code 1. Without the switch the same
+  run exits 0. Not a CTest test: it opens a window on the desktop of the session, as the live checks do.
+- **The images** (high). Main (f1be76a) and the branch built in this worktree, Release, function by function through
+  the PDBs (scratch funcs2.py, never committed: `dumpbin /disasm:nobytes`, addresses and image-relative displacements
+  of 5+ hex digits masked). x64 Patella.exe: 13,947 functions on both sides, none gone or new; FatalError changed;
+  InitInstance's and Run's catch funclets and GetWindowClassName differ only in their source-line constants (Player.cpp
+  gained five lines above them); the other 22 only in the switch-table bytes after their code (the code after FatalError
+  moved). x86 (oracle-x86's Patella.exe): 11,378 on both sides; FatalError changed; InitInstance, Run and
+  GetWindowClassName only in the line constants. The hook is empty outside the test build: TSurfaceVulkan's blit is the
+  same. Logs: build\logs\issue-83\pecompare-x64.log, pecompare-x86.log.
+- **The gates** (high). `python -I tools/build.py oracle-x86`: CTest 5/5, difftest 16,459,337, sysinctest 67,
+  communicationtest 856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0. windows-x64 14/14, windows-x64-debug
+  and windows-x64-asan 13/13 (no ASan finding): golden on main's corpus 15,803,203 replayed + 1,512,822 retired =
+  17,316,025, 0 failures. windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11. 0 warnings on every preset.
+  tidy_ci 3 findings, 0 new (baseline 3), 0 bugprone; tools/tidy.py on the three Windows-only files: no finding on a
+  changed line. banned_calls 0; clang-format clean. `python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference`: the four sessions match (error with #74's deliberate differences). Logs:
+  build\logs\issue-83.
