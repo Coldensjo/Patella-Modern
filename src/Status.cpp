@@ -634,8 +634,13 @@ void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
 {
 	PATELLA_ASSERT_VALUES(In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
-	for (int i = NumberOfMessages; i > 0; i--)
-		Messages(i) = Messages(i - 1);
+	// The new last element first (Patella-Modern issue #91): Messages(NumberOfMessages) may grow the vector, which
+	// moves its elements, and C++17 evaluates the right side of an assignment first, GCC and Clang so: a reference to
+	// Messages(i - 1) taken before would read freed memory. The original (and MSVC) evaluate the left side first.
+	for (int i = NumberOfMessages; i > 0; i--) {
+		TMessage &Moved = Messages(i);
+		Moved = Messages(i - 1);
+	}
 	Messages(0).Type = Type;
 	Messages(0).Param1 = Param1;
 	Messages(0).Param2 = Param2;

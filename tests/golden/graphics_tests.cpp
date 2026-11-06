@@ -46,7 +46,7 @@ static_assert(sizeof(TFont) == 20, "TFont is 20 bytes");
 static_assert(sizeof(TSprite) == 0x10, "TSprite is 0x10 bytes");
 static_assert(sizeof(TFontInfo) == 0x71c, "TFontInfo is 0x71c bytes");
 static_assert(sizeof(TVideoCacheItem) == 0x5c, "TVideoCacheItem is 0x5c bytes");
-static_assert(offsetof(TVideoCacheItem, Color) == 0x1c, "TVideoCacheItem::Color at +0x1c");
+static_assert(offsetof(TVideoCacheItem, Tile.Color) == 0x1c, "TVideoCacheItem::Tile.Color at +0x1c");
 static_assert(offsetof(TVideoCacheItem, Previous) == 0x48, "TVideoCacheItem::Previous at +0x48");
 #if GOLDEN_ORACLE
 // The two with a pointer: recorded field by field.

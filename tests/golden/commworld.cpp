@@ -485,7 +485,7 @@ public:
 
 // --- Worlds ----------------------------------------------------------------------------
 
-static const int WorldLines = WORLD_BUFFERS * WORLD_LINES;
+[[maybe_unused]] static const int WorldLines = WORLD_BUFFERS * WORLD_LINES;
 
 static void BuildWorld(int S, uint32 Seed)
 {
@@ -1914,6 +1914,7 @@ static void *GOLDEN_THISCALL F_NewSkillMenu(GOLDEN_THIS_NAMED(void *This), void 
 	Call("new TSkillContextMenu(%s,%d,%d,%d,%d)=%s", NameOf(Skills).c_str(), x, y, PW, PH, NameOf(W).c_str());
 	return This;
 }
+#if defined(_MSC_VER)
 extern "C" void OurHelpBubbleConstructor();
 extern "C" void OurObjectMenuConstructor();
 extern "C" void OurCreatureMenuConstructor();
@@ -1924,6 +1925,7 @@ extern "C" void OurRequestMenuConstructor();
 extern "C" void OurEditMenuConstructor();
 extern "C" void OurMarkMenuConstructor();
 extern "C" void OurSkillMenuConstructor();
+#endif
 // Our constructors through their decorated names: x86 (the oracle)...
 #if GOLDEN_ORACLE
 #pragma comment(linker, "/alternatename:_OurHelpBubbleConstructor=??0THelpBubble@@QAE@PBD@Z")
@@ -1936,7 +1938,7 @@ extern "C" void OurSkillMenuConstructor();
 #pragma comment(linker, "/alternatename:_OurEditMenuConstructor=??0TEditContextMenu@@QAE@PAVTEditLine@@HHHH@Z")
 #pragma comment(linker, "/alternatename:_OurMarkMenuConstructor=??0TMarkContextMenu@@QAE@PAUTMarkMenuData@@HHHH@Z")
 #pragma comment(linker, "/alternatename:_OurSkillMenuConstructor=??0TSkillContextMenu@@QAE@PAVTSkillsWindowBody@@HHHH@Z")
-#else
+#elif defined(_MSC_VER)
 // x64 (the runner, MSVC only): the same constructors' x64 decorated names (as elementfakes.cpp's, issue #28).
 #pragma comment(linker, "/alternatename:OurHelpBubbleConstructor=??0THelpBubble@@QEAA@PEBD@Z")
 #pragma comment(linker, "/alternatename:OurObjectMenuConstructor=??0TObjectContextMenu@@QEAA@HHHH@Z")
@@ -1948,6 +1950,18 @@ extern "C" void OurSkillMenuConstructor();
 #pragma comment(linker, "/alternatename:OurEditMenuConstructor=??0TEditContextMenu@@QEAA@PEAVTEditLine@@HHHH@Z")
 #pragma comment(linker, "/alternatename:OurMarkMenuConstructor=??0TMarkContextMenu@@QEAA@PEAUTMarkMenuData@@HHHH@Z")
 #pragma comment(linker, "/alternatename:OurSkillMenuConstructor=??0TSkillContextMenu@@QEAA@PEAVTSkillsWindowBody@@HHHH@Z")
+#else
+// Linux (issue #91): the Itanium ABI's names (golden_test.h GOLDEN_SYMBOL).
+GOLDEN_SYMBOL(OurHelpBubbleConstructor, "_ZN11THelpBubbleC1EPKc");
+GOLDEN_SYMBOL(OurObjectMenuConstructor, "_ZN18TObjectContextMenuC1Eiiii");
+GOLDEN_SYMBOL(OurCreatureMenuConstructor, "_ZN20TCreatureContextMenuC1Ejiiii");
+GOLDEN_SYMBOL(OurBuddyMenuConstructor, "_ZN17TBuddyContextMenuC1Ejiiii");
+GOLDEN_SYMBOL(OurTextMenuConstructor, "_ZN16TTextContextMenuC1EP11TTextWindowiiiii");
+GOLDEN_SYMBOL(OurChannelMenuConstructor, "_ZN19TChannelContextMenuC1EP14TConsoleWindowiiii");
+GOLDEN_SYMBOL(OurRequestMenuConstructor, "_ZN19TRequestContextMenuC1EP14TConsoleWindowiiiii");
+GOLDEN_SYMBOL(OurEditMenuConstructor, "_ZN16TEditContextMenuC1EP9TEditLineiiii");
+GOLDEN_SYMBOL(OurMarkMenuConstructor, "_ZN16TMarkContextMenuC1EP13TMarkMenuDataiiii");
+GOLDEN_SYMBOL(OurSkillMenuConstructor, "_ZN17TSkillContextMenuC1EP17TSkillsWindowBodyiiii");
 #endif
 
 // Dialogs.cpp: every creator returns a new window of the side.
@@ -2604,7 +2618,7 @@ void EndWorld()
 
 __declspec(noinline) void FillStack()
 {
-	volatile uint32 Area[8192];
+	[[maybe_unused]] volatile uint32 Area[8192];
 	for (int i = 0; i < 8192; i++)
 		Area[i] = 0x5a5a5a5a;
 }
@@ -2631,7 +2645,7 @@ static std::string DumpCreature(const TCreature &C)
 					"skull %d party %d",
 		C.CreatureID, Quote(C.Name).c_str(), C.RealX, C.RealY, C.RealZ, C.Direction, C.OutfitType,
 		C.Colors[0], C.Colors[1], C.Colors[2], C.Colors[3], C.LightStrength, C.LightColor, C.Mark, C.Health, C.Speed,
-		C.Visible ? 1 : 0, C.PKFlag, C.PARTYFlag);
+		*(const uint8 *)&C.Visible != 0 ? 1 : 0, C.PKFlag, C.PARTYFlag); // its byte: a bool of the test's memory pattern (issue #91)
 	return Buffer;
 }
 

@@ -671,7 +671,7 @@ void __cdecl FakeExitControl()
 }
 // InitWindow: the original's third callback, CloseProgram, is gone from ours with the patcher (Patella-Modern issue
 // #75); each side's fake logs the other three.
-void __cdecl FakeInitWindow(HWND Window, void (*A)(), void (*)(), void (*C)(int), void (*D)(const char *))
+[[maybe_unused]] void __cdecl FakeInitWindow(HWND Window, void (*A)(), void (*)(), void (*C)(int), void (*D)(const char *))
 {
 	Logf("InitWindow(%s,%s,%s,%s);", HwndName(Window), CallbackName((void *)A), CallbackName((void *)C),
 		CallbackName((void *)D));

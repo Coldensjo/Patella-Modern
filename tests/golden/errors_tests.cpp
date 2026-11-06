@@ -103,7 +103,7 @@ void Compare(const char *What, const TThrown &Ours, const TThrown &Original)
 // The test's work directory, %TEMP%\errortest (the script and error files).
 std::string WorkDirectory()
 {
-	return std::string(getenv("TEMP") != nullptr ? getenv("TEMP") : ".") + "\\errortest";
+	return std::string(getenv("TEMP") != nullptr ? getenv("TEMP") : ".") + GOLDEN_SLASH "errortest";
 }
 
 // Both sides as two calls, ours first; returns what the original threw (in the runner: what it threw in
@@ -471,9 +471,15 @@ void WriteEarlierReport()
 
 // The code address of a member function (MSVC: a member pointer of a class without virtual bases is its
 // address; the runner links without incremental-link thunks).
+// On Linux (issue #91) an Itanium member pointer: the code address of a non-virtual member, then the adjustment of
+// this.
 template <class T> void *CodeAddress(T Member)
 {
+#if defined(__linux__)
+	static_assert(sizeof(Member) == 2 * sizeof(void *), "an Itanium member pointer: the code address first");
+#else
 	static_assert(sizeof(Member) == sizeof(void *), "a member pointer that is a code address");
+#endif
 	void *Address;
 	memcpy(&Address, &Member, sizeof(Address));
 	return Address;
@@ -777,7 +783,7 @@ void TestUtils()
 		char Text[16];
 		uint8 Bytes[16];
 		ORIGINAL(char OriginalText[16]; uint8 OriginalBytes[16]);
-		const char *Put = Count < 0 ? nullptr : "abcdefg" + (7 - Count);
+		const char *Put = Count < 0 ? nullptr : &"abcdefg"[7 - Count];
 		char What[64];
 		snprintf(What, sizeof(What), "buffer operation %d (size %d, position %d, count %d)", Operation, Size, Position,
 			Count);
@@ -1383,7 +1389,7 @@ void TestScript()
 	golden::Input("seed", ErSeed);
 	const std::string Work = WorkDirectory();
 	_mkdir(Work.c_str());
-	std::string Name = Work + "\\script.txt", Missing = Work + "\\missing\\none.txt";
+	std::string Name = Work + GOLDEN_SLASH "script.txt", Missing = Work + GOLDEN_SLASH "missing" GOLDEN_SLASH "none.txt";
 	ORIGINAL(static uint8 Original[sizeof(TReadScriptFile) + 16]);
 	for (int Round = 0; Round < 400; Round++) {
 		WriteText(Name, ErrorScript());
@@ -1425,7 +1431,7 @@ void TestScript()
 		// The writer: open twice, a file that cannot be made, writing without a file.
 		ORIGINAL(static uint8 Writer[sizeof(TWriteScriptFile) + 16]; At<ScriptFn>(0x4df640)(Writer, NULL));
 		TWriteScriptFile OurWriter;
-		std::string Out = Work + "\\written.txt";
+		std::string Out = Work + GOLDEN_SLASH "written.txt";
 		int Case = (int)(ErRandom() % 6);
 		if (Case == 0) {
 			Both2("TWriteScriptFile::open (missing directory)", [&] { OurWriter.open(Missing.c_str()); }, [&] { ORIGINAL(At<ScriptStrFn>(0x4e04b0)(Writer, NULL, Missing.c_str())); });
@@ -1485,7 +1491,7 @@ void TestScript()
 
 		ORIGINAL(At<ScriptFn>(0x4df690)(BinaryWriter, NULL));
 		TWriteBinaryFile OurBinary;
-		std::string Out = Work + "\\written.bin";
+		std::string Out = Work + GOLDEN_SLASH "written.bin";
 		if (Round % 3 == 1) {
 			OurBinary.open(Out.c_str());
 			ORIGINAL(At<ScriptStrFn>(0x4e21a0)(BinaryWriter, NULL, Out.c_str()));
@@ -1737,7 +1743,7 @@ void TestErrorStatics()
 			printf("note: Statics: %s not found or its getter redirected; its assertions are not compared\n", S.Name);
 	}
 	for (int t = 0; t < 60; t++) {
-		int Saved[5][2];
+		int Saved[5][2] = {};
 		for (int k = 0; k < 5; k++)
 			if (Found[k]) {
 				Saved[k][0] = *Statics[k].Ours;

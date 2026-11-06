@@ -12,3 +12,10 @@ string(REPLACE "/EHsc" "/EHs" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 add_library(golden_network_tests OBJECT ../network_tests.cpp)
 golden_client_settings(golden_network_tests)
+# Linux with UBSan (linux-x64-clang, issue #91): the Network test calls ConnectSocket without a socket, as its rounds
+# reach it, and Network.cpp calls Socket->Connect on the null pointer, as the original does; the test's CAsyncSocket
+# takes a null this (network_tests.cpp SocketConnect). UBSan's null check reports the member call, so it is off for
+# this file only (notes/decisions.md, "The golden corpus on Linux (issue #91)").
+if(golden_linux AND PATELLA_SANITIZE MATCHES "undefined")
+	target_compile_options(golden_network_tests PRIVATE -fno-sanitize=null)
+endif()

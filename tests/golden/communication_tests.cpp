@@ -46,6 +46,7 @@
 #include "Network.h"
 #include "Status.h"
 #include "TRSA.h"
+#include <string.h>
 
 // --- What difftest.exe's other test files provide -------------------------
 // (The runner has them: status_tests.cpp's PatchImage, network_tests.cpp's CAsyncSocket and AfxSocketInit,
@@ -1280,7 +1281,12 @@ void TestCommunication(const char *ExePath)
 #endif
 	const uint8 *Ours = (const uint8 *)(void *)&ExitCommunication; // ret or ret 0
 	const int Original = ORIGINAL_VALUE("0x496160", int, *(const uint8 *)(uintptr_t)0x496160);
-	CHECK((Ours[0] == 0xc3 || (Ours[0] == 0xc2 && Ours[1] == 0 && Ours[2] == 0)) && Original == 0xc3,
+	// Linux with the sanitizers' frame pointers (linux-x64-clang, -fno-omit-frame-pointer; issue #91): the empty
+	// function's frame, push rbp; mov rbp, rsp; pop rbp; ret.
+	static const uint8 FramedRet[] = {0x55, 0x48, 0x89, 0xe5, 0x5d, 0xc3};
+	CHECK((Ours[0] == 0xc3 || (Ours[0] == 0xc2 && Ours[1] == 0 && Ours[2] == 0)
+			  || memcmp(Ours, FramedRet, sizeof(FramedRet)) == 0)
+			&& Original == 0xc3,
 		"ExitCommunication or 0x496160 is not a single ret: %02x, %02x", *(const uint8 *)(void *)&ExitCommunication,
 		Original);
 	BeginWorld();

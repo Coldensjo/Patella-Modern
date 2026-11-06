@@ -34,8 +34,9 @@ libraries patella_core and patella_testmode and the unit tests; no patcap.dll si
 `windows-x64-asan` / `windows-x64-asan-debug` (windows-x64 under MSVC's AddressSanitizer, `/fsanitize=address`: the
 client, PatellaTest.exe, golden_runner and the unit tests, issue #70; the ASan runtime DLL is copied next to each
 executable), `windows-x64-gcc` (patella_core and the unit tests with mingw-w64 GCC),
-`linux-x64-gcc` / `linux-x64-clang` (patella_core and the unit tests with GCC 16 / Clang 22, the latter with
-AddressSanitizer and UBSan; `-debug` for Debug). Every preset also compiles each header of src/ on its own
+`linux-x64-gcc` / `linux-x64-clang` (patella_core, the unit tests and golden_runner with GCC 16 / Clang 22, the latter
+with AddressSanitizer and UBSan; `-debug` for Debug; issue #91: the client's code under test against the Windows
+stand-ins of `tests/golden/linux`). Every preset also compiles each header of src/ on its own
 (`cmake/HeaderCheck.cmake`, issue #49: the `header_check_*` object libraries, a generated one-line source per
 header with a target's settings; a new header goes on one of its lists, or the configure fails). On Windows build.py runs the Linux presets in the Docker image
 `patella-modern/linux-x64:gcc16.2-clang22.1` (build it once: `docker build -t
@@ -73,8 +74,10 @@ user, kept connected and unlocked) keeps the user's input away (issue #56; notes
 
 The golden corpus (issue #24): `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86
 --target golden_corpus` records it into `build/golden` (derived from Tibia.exe: local only, never committed,
-pushed or uploaded); windows-x64's `golden_runner` (CTest test `golden`, skipped without a corpus) replays it
-without Tibia.exe. Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
+pushed or uploaded); `golden_runner` (CTest test `golden`, skipped without a corpus) replays it without Tibia.exe,
+in windows-x64 and since issue #91 in linux-x64-gcc and linux-x64-clang: build.py mounts the corpus read-only at
+`/golden` of the image (PATELLA_GOLDEN_DIR of the environment, else the repository's `build/golden`; `none`: no
+corpus) and passes Windows' time zone as TZ (the corpus has the recording machine's local times). Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
 
 ## Code style
 

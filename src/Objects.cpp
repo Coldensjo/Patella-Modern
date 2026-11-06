@@ -44,7 +44,7 @@ namespace {
 // signed divisions in the binary.
 inline bool GetEntryFlag(TProperties &Entry, int Flag)
 {
-	return (Entry.Flags[Flag / 8] & (1 << (Flag % 8))) != 0;
+	return (FlagByte(Entry, Flag) & (1 << (Flag % 8))) != 0;
 }
 
 // --- Entry accessors -------------------------------------------------------
@@ -547,7 +547,7 @@ void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 		const int Flag = File->readByte();
 		if (Flag == 0xff)
 			break;
-		Entry->Flags[Flag / 8] |= (uint8)(1 << (Flag % 8));
+		FlagByte(*Entry, Flag) |= (uint8)(1 << (Flag % 8));
 		switch (Flag) {
 		case BANK:
 			Entry->Waypoints = File->readWord();

@@ -55,8 +55,10 @@
 #pragma once
 
 #include "common.h"
+#include <cstring>
 #include <memory>
 #include <sstream>
+#include <type_traits>
 
 // Each container owns its entries as a std::unique_ptr<T[]> (issue #58): a pointer at the original's offset, freed
 // with reset() where the original had delete[] (the destructors, vector's growth), allocated with reset(new T[n])
@@ -64,6 +66,24 @@
 // destructors cannot throw (scalars, pointers and plain structures), so neither can the reset.
 static_assert(sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *),
 	"std::unique_ptr<T[]> is a pointer");
+
+// Swaps two entries as the original does when vector<T> grows: through a copy, each entry copied as a block of bytes
+// with its padding (VC7.1 copies a structure so, and so does MSVC). The golden corpus compares the entries' padding
+// (Patella-Modern issue #91), which GCC and Clang do not copy when they copy a structure member by member; a type
+// that is not trivially copyable is copied with its assignment.
+template <class T> inline void SwapEntries(T &A, T &B)
+{
+	if constexpr (std::is_trivially_copyable_v<T>) {
+		unsigned char Help[sizeof(T)];
+		std::memcpy(Help, &A, sizeof(T));
+		std::memcpy(&A, &B, sizeof(T));
+		std::memcpy(&B, Help, sizeof(T));
+	} else {
+		T Help = A;
+		A = B;
+		B = Help;
+	}
+}
 
 // array<T> is a fixed array indexed from min to min+d-1 (lines 152-178;
 // it comes before vector in the original file). The class name is ours;
@@ -278,9 +298,7 @@ template <class T> T &vector<T>::operator()(int i)
 			b = space;
 		T *help = new T[space + b];
 		for (int j = min; j <= max; j++) {
-			T h = help[j - start + b];
-			help[j - start + b] = entry[j - start];
-			entry[j - start] = h;
+			SwapEntries(help[j - start + b], entry[j - start]);
 		}
 		entry.reset();
 		entry.reset(help);
@@ -293,9 +311,7 @@ template <class T> T &vector<T>::operator()(int i)
 			b = space;
 		T *help = new T[space + b];
 		for (int j = min; j <= max; j++) {
-			T h = help[j - start];
-			help[j - start] = entry[j - start];
-			entry[j - start] = h;
+			SwapEntries(help[j - start], entry[j - start]);
 		}
 		entry.reset();
 		entry.reset(help);

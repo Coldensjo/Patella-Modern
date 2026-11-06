@@ -133,7 +133,7 @@ void CompareTables(const char *What)
 
 bool HasFlag(const TProperties &E, int Flag)
 {
-	return (E.Flags[Flag / 8] & (1 << (Flag % 8))) != 0;
+	return (FlagByte(E, Flag) & (1 << (Flag % 8))) != 0;
 }
 
 struct TIntAccessor {
@@ -428,7 +428,7 @@ void TestObjects([[maybe_unused]] const char *ExePath)
 
 	char Help[MAX_PATH];
 	GetTempPathA(MAX_PATH, Help);
-	std::string TempDir = std::string(Help) + "tibia-objectstest\\";
+	std::string TempDir = std::string(Help) + "tibia-objectstest" GOLDEN_SLASH;
 	CreateDirectoryA(TempDir.c_str(), nullptr);
 	std::string Name = TempDir + "Tibia.dat";
 

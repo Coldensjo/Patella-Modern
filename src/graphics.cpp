@@ -88,7 +88,7 @@ TVideoCacheItem::TVideoCacheItem()
 {
 	for (int i = 0; i < 4; i++)
 		Colors[i] = TRGBColor(0, 0, 0);
-	Color = TRGBColor(0, 0, 0);
+	Tile.Color = TRGBColor(0, 0, 0);
 }
 
 // --- The DialogWindow/graphics gap -------------------------------------------
@@ -593,7 +593,7 @@ int FindVideoPicture(int PictureNumber, int TileX, int TileY)
 	while (Position != -1) {
 		const TVideoCacheItem &Item = VideoCache[Position];
 		if (Item.Type == PICTURE_ITEM && Item.Number == PictureNumber && Item.TileX == TileX
-			&& Item.TileY == TileY)
+			&& Item.Tile.TileY == TileY)
 			return Position;
 		Position = Item.HashNext;
 		if (Count++ > VideoCacheSize)
@@ -610,7 +610,7 @@ int FindVideoFontChar(int PictureNumber, int TileX, int TileY, TRGBColor Color)
 	while (Position != -1) {
 		const TVideoCacheItem &Item = VideoCache[Position];
 		if (Item.Type == PICTURE_ITEM && Item.Number == PictureNumber && Item.TileX == TileX
-			&& Item.TileY == TileY && Item.Color == Color)
+			&& Item.Tile.TileY == TileY && Item.Tile.Color == Color)
 			return Position;
 		Position = Item.HashNext;
 		if (Count++ > VideoCacheSize)
@@ -726,11 +726,11 @@ TVideoCacheItem *GetVideoPicture(int PictureNumber, int TileX, int TileY)
 				GetSurface()->SetColorKey(Item.Surface + 6, Pictures[PictureNumber - 1].ColorKey);
 		}
 		GetSurface()->WriteImage(Item.Surface + 6, Item.x, Item.y, 32, 32, Tile->Data);
-		Item.TileY = TileY;
+		Item.Tile.TileY = TileY;
 		Item.TileX = TileX;
 		Item.Number = PictureNumber;
 		Item.Type = PICTURE_ITEM;
-		Item.Color = TRGBColor(0, 0, 0);
+		Item.Tile.Color = TRGBColor(0, 0, 0);
 		InsertVideoItem(Position, (PictureNumber + TileX + TileY) % HASH_TABLE_SIZE);
 	}
 	TouchVideoItem(Position);
@@ -757,10 +757,10 @@ TVideoCacheItem *GetVideoFontChar(int FontNumber, int TileX, int TileY, TRGBColo
 		GetSurface()->WriteMaskedImage(Item.Surface + 6, Item.x, Item.y, 32, 32, Tile->Data, nullptr,
 			Colors.data());
 		Item.TileX = TileX;
-		Item.TileY = TileY;
+		Item.Tile.TileY = TileY;
 		Item.Type = PICTURE_ITEM;
 		Item.Number = PictureNumber;
-		Item.Color = Color;
+		Item.Tile.Color = Color;
 		InsertVideoItem(Position, (TileX + PictureNumber + TileY) % HASH_TABLE_SIZE);
 	}
 	TouchVideoItem(Position);

@@ -169,10 +169,12 @@ struct TVideoCacheItem {
 	};
 	union {
 		std::array<TRGBColor, 4> Colors; // +0x18, masked sprites
+		// A named member (Patella-Modern issue #91): GCC and Clang allow no member with a constructor (Color) in an
+		// anonymous struct.
 		struct {
 			int TileY;       // +0x18, pictures
 			TRGBColor Color; // +0x1c, font characters; 0,0,0 for pictures
-		};
+		} Tile;
 	};
 	int Previous;     // +0x48
 	int Next;         // +0x4c

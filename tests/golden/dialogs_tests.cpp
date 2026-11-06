@@ -89,6 +89,9 @@
 #include <string>
 #include <typeinfo>
 #include <vector>
+#if !defined(_MSC_VER)
+#include <cxxabi.h>
+#endif
 
 #if GOLDEN_ORACLE
 static_assert(sizeof(TDialog) == 0xc4 && sizeof(TQuestionLabel) == 0x5c && sizeof(TLogoutLabel) == 0x5c
@@ -503,8 +506,8 @@ static const char *const HelpTitles[] = {"", "Moving", "Fighting", "Looting", "S
 static const char *const HelpTexts[] = {"", "Text of moving", "How to fight\nwell", "Loot <b>all</b>", "Buy here",
 	"Depot text", "Houses text", "Spells text", "Eat", "Dying", "Join a party", "Guild text", "Trading", "Quest text",
 	"Skill text", "Last text"};
-static const char *const ReportTitles[] = {"Crash 1", "Second crash", "Third"};
-static const char *const ReportTexts[] = {"Stack:\n0x401000", "Registers eax=1", "Text of three"};
+[[maybe_unused]] static const char *const ReportTitles[] = {"Crash 1", "Second crash", "Third"};
+[[maybe_unused]] static const char *const ReportTexts[] = {"Stack:\n0x401000", "Registers eax=1", "Text of three"};
 
 static bool Hash(uint32 Seed, int a, int b, int Percent)
 {
@@ -1655,6 +1658,14 @@ static std::string ClassOf([[maybe_unused]] int s, TComponent *C)
 	}
 #endif
 	std::string N = typeid(*C).name();
+#if !defined(_MSC_VER)
+	// The Itanium ABI's name is the mangled one ("7TDialog", issue #91): demangled, as MSVC's ("class TDialog").
+	int Status = 0;
+	if (char *Demangled = abi::__cxa_demangle(N.c_str(), nullptr, nullptr, &Status)) {
+		N = Demangled;
+		free(Demangled);
+	}
+#endif
 	return N.compare(0, 6, "class ") == 0 ? N.substr(6) : N;
 }
 

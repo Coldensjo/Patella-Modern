@@ -200,7 +200,9 @@ GOLDEN_SAME_SIZE(TFakeSkinIcon, TSkinIcon);
 GOLDEN_SAME_OFFSET(TFakeSkinIcon, Skin, TSkinIcon, Skin);
 GOLDEN_SAME_SIZE(TFakeBlinkingButton, TBlinkingButton);
 
-// Our constructors through their decorated names (MSVC x64; the runner is built with MSVC x64 only).
+// Our constructors through their decorated names: MSVC x64's, and on Linux (issue #91) the Itanium ABI's
+// (golden_test.h GOLDEN_SYMBOL).
+#if defined(_MSC_VER)
 extern "C" void OurResizerConstructor();
 extern "C" void OurSkinButtonConstructor();
 extern "C" void OurToggleButtonConstructor();
@@ -233,6 +235,24 @@ extern "C" void OurBlinkingButtonConstructor();
 #pragma comment(linker, "/alternatename:OurLabelAreaConstructor=??0TLabel@@QEAA@HHHHUTFont@@PEBD_N@Z")
 #pragma comment(linker, "/alternatename:OurSkinIconConstructor=??0TSkinIcon@@QEAA@H@Z")
 #pragma comment(linker, "/alternatename:OurBlinkingButtonConstructor=??0TBlinkingButton@@QEAA@HHHHHHUTCallback@@PEBD@Z")
+#else
+GOLDEN_SYMBOL(OurResizerConstructor, "_ZN8TResizerC1EP10TComponentbbb");
+GOLDEN_SYMBOL(OurSkinButtonConstructor, "_ZN11TSkinButtonC1Eiiii9TCallbackPKcb");
+GOLDEN_SYMBOL(OurToggleButtonConstructor, "_ZN13TToggleButtonC1Eiiii9TCallbackPKcS2_b");
+GOLDEN_SYMBOL(OurMultiStateButtonConstructor, "_ZN17TMultiStateButtonC1EiiPKciii9TCallbackz");
+GOLDEN_SYMBOL(OurScrollBarConstructor, "_ZN10TScrollBarC1E5TRectiiiii");
+GOLDEN_SYMBOL(OurEditLineConstructor, "_ZN9TEditLineC1E5TRectib");
+GOLDEN_SYMBOL(OurFormattedTextConstructor, "_ZN14TFormattedTextC1EPKc");
+GOLDEN_SYMBOL(OurBorderConstructor1, "_ZN7TBorderC1EP10TComponenti");
+GOLDEN_SYMBOL(OurBorderConstructor2, "_ZN7TBorderC1EP10TComponentiiiiiiiiii");
+GOLDEN_SYMBOL(OurTextButtonConstructor1, "_ZN11TTextButtonC1EiiPKcii9TCallbackS1_");
+GOLDEN_SYMBOL(OurTextButtonConstructor2, "_ZN11TTextButtonC1EiiPKc9TCallbackS1_");
+GOLDEN_SYMBOL(OurTextToggleButtonConstructor, "_ZN17TTextToggleButtonC1EiiPKcii9TCallbackS1_S1_b");
+GOLDEN_SYMBOL(OurLabelConstructor, "_ZN6TLabelC1E5TFontPKc");
+GOLDEN_SYMBOL(OurLabelAreaConstructor, "_ZN6TLabelC1Eiiii5TFontPKcb");
+GOLDEN_SYMBOL(OurSkinIconConstructor, "_ZN9TSkinIconC1Ei");
+GOLDEN_SYMBOL(OurBlinkingButtonConstructor, "_ZN15TBlinkingButtonC1Eiiiiii9TCallbackPKc");
+#endif
 
 // The constructors' stand-ins. On x64 a constructor (a member function) takes this as its first argument,
 // before the others, as a plain function does (the oracle's need __fastcall and a dummy for x86's ECX):

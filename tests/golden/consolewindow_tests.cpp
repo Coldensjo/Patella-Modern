@@ -2020,7 +2020,7 @@ static void TestConsoleWindowErrors()
 			// be removed, and Save() would append to it).
 			char OldDir[512];
 			_getcwd(OldDir, sizeof(OldDir));
-			std::string ErrorDir = TempDir + "\\errors";
+			std::string ErrorDir = TempDir + GOLDEN_SLASH "errors";
 			_mkdir(ErrorDir.c_str());
 			_chdir(ErrorDir.c_str());
 			ConsoleCall(What <= 7 ? Name : Names[What], [&](int s) {
@@ -2261,7 +2261,7 @@ void TestConsoleWindow()
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	LastDump.clear();
 	ConsoleSurface = new TConsoleSurface;
-	TempDir = std::string(getenv("TEMP") != NULL ? getenv("TEMP") : ".") + "\\consolewindow";
+	TempDir = std::string(getenv("TEMP") != NULL ? getenv("TEMP") : ".") + GOLDEN_SLASH "consolewindow";
 	_mkdir(TempDir.c_str());
 	Player.CreatureID = 0x10000001;
 	strcpy(Player.Name, "Tester");

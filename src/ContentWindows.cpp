@@ -1842,7 +1842,9 @@ void TSkillsWindowBody::Arrange()
 // 0x42f190, line 2183. At least one line.
 int TSkillsWindowBody::getMinimumHeight()
 {
-	return (std::max)(ScrollBar->getMinimumHeight(), GetFontLineHeight(SkinProperties.Data654.FontNumber));
+	// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
+	const int LineHeight = GetFontLineHeight(SkinProperties.Data654.FontNumber);
+	return (std::max)(ScrollBar->getMinimumHeight(), LineHeight);
 }
 
 // 0x42f330, line 2196. The stored height ("ContentWindow" 6 in Tibia.cfg)
@@ -2007,8 +2009,13 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 			ClipY += y;
 			bool Framed = false;
 			TRGBColor Color = SkinProperties.Style688.Data54.Color;
-			if (In(GetMouseY(), ClipY, ClipY + ClipHeight) && In(GetMouseX(), x, ClipWidth + x)
-				&& i == GetOpponentAt(GetMouseX() - x, GetMouseY() - y)) {
+			// GetOpponentAt's arguments in the original's order, right to left (MSVC; GCC and Clang may differ, issue
+			// #91).
+			const auto OpponentAtMouse = [&] {
+				const int MouseY = GetMouseY();
+				return GetOpponentAt(GetMouseX() - x, MouseY - y);
+			};
+			if (In(GetMouseY(), ClipY, ClipY + ClipHeight) && In(GetMouseX(), x, ClipWidth + x) && i == OpponentAtMouse()) {
 				SetHighlightID(Creature->CreatureID);
 				Color = SkinProperties.HighlightColor;
 				Framed = true;

@@ -1070,7 +1070,7 @@ static void Operation()
 			"DialogWindow queries: %d %d %d %d %d, original %d %d %d %d %d", Ids[OURS], Free[OURS], MinH[OURS],
 			MinW[OURS], Frame[OURS], Ids[ORIGINAL], Free[ORIGINAL], MinH[ORIGINAL], MinW[ORIGINAL], Frame[ORIGINAL]);
 		for (TComponent *Child = Column[OURS][0]->FirstChild; Child != NULL; Child = Child->Next) {
-			int Index = 0;
+			[[maybe_unused]] int Index = 0;
 			for (TComponent *C = Column[OURS][0]->FirstChild; C != Child; C = C->Next)
 				Index++;
 			int A = Child->getMinimumHeight();

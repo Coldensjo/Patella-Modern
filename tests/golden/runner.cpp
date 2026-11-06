@@ -127,7 +127,7 @@ const TPorted *FindPorted(const TExecutable &Executable, const std::string &Name
 }
 
 // The run's temporary folder (issue #66): created below the TEMP the runner was started with, made the process's
-// TEMP and TMP (_putenv_s sets the C runtime's copy and the process environment: getenv, GetTempPathA and
+// TEMP and TMP (MsvcPutenv, _putenv_s on Windows, sets the C runtime's copy and the process environment: getenv, GetTempPathA and
 // std::filesystem::temp_directory_path all see it) and its current directory; at the end the previous directory
 // again, and the folder removed with everything in it. A static object, so that the tests' exit(1) removes it too.
 class TRunFolder {
@@ -149,7 +149,7 @@ public:
 			return false;
 		Previous = std::filesystem::current_path(Error);
 		const std::string Native = Path.string();
-		if (Error || _putenv_s("TEMP", Native.c_str()) != 0 || _putenv_s("TMP", Native.c_str()) != 0)
+		if (Error || MsvcPutenv("TEMP", Native.c_str()) != 0 || MsvcPutenv("TMP", Native.c_str()) != 0)
 			return false;
 		std::filesystem::current_path(Path, Error);
 		return !Error;

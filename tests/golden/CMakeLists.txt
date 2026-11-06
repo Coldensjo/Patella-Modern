@@ -1,7 +1,8 @@
 # The golden corpus's runner (notes/modernization-plan.md, 4.3; issue #24): golden_runner replays the
 # corpus that the oracle-x86 preset's golden_corpus target records (tests/golden/golden.h), against this
-# build's code and without Tibia.exe. So far on Windows x64 with MSVC (plan M2); the Linux runner comes
-# later.
+# build's code and without Tibia.exe: on Windows x64 with MSVC (plan M2) and, since issue #91 (plan M6), on Linux x64
+# with GCC and Clang (linux-x64-gcc, linux-x64-clang), where tests/golden/linux stands in for the Windows API and
+# MFC parts the client's code and the tests use (tests/golden/linux/README.md).
 #
 # CTest test golden: the corpus in PATELLA_GOLDEN_DIR (default build/golden of the source tree, where
 # golden_corpus records it). Without a corpus (hosted CI: it is derived from Tibia.exe and never leaves
@@ -12,14 +13,28 @@
 # *_tests.cpp of the client's code) are the oracle's difftest and sysinctest sources as well
 # (cmake/OracleX86.cmake); here they see no original (GOLDEN_ORACLE unset).
 
-if(NOT (MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 8))
+if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+	return()
+endif()
+if(MSVC)
+	set(golden_linux OFF)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+	set(golden_linux ON)
+else()
 	return()
 endif()
 
 include("${PROJECT_SOURCE_DIR}/cmake/Warnings.cmake")
 include("${PROJECT_SOURCE_DIR}/cmake/Hardening.cmake")
 
-set(PATELLA_GOLDEN_DIR "${PROJECT_SOURCE_DIR}/build/golden" CACHE PATH
+# The default: the environment's PATELLA_GOLDEN_DIR at the first configure (tools/build.py sets it to /golden in the
+# Docker image, where it mounts the corpus read-only; issue #91), else build/golden of the source tree.
+if(DEFINED ENV{PATELLA_GOLDEN_DIR} AND NOT "$ENV{PATELLA_GOLDEN_DIR}" STREQUAL "")
+	file(TO_CMAKE_PATH "$ENV{PATELLA_GOLDEN_DIR}" golden_dir_default)
+else()
+	set(golden_dir_default "${PROJECT_SOURCE_DIR}/build/golden")
+endif()
+set(PATELLA_GOLDEN_DIR "${golden_dir_default}" CACHE PATH
 	"The golden corpus that the CTest test golden replays (recorded by oracle-x86's golden_corpus; local only)")
 option(PATELLA_GOLDEN_REQUIRE "The CTest test golden fails instead of being skipped when there is no corpus" OFF)
 
@@ -27,13 +42,87 @@ option(PATELLA_GOLDEN_REQUIRE "The CTest test golden fails instead of being skip
 # src/compat/mfc_shim.h, as the oracle's difftest compiles it, with the product's settings. The real
 # MFC headers switch C4201 (nameless struct/union, graphics.h) off for every file that includes them
 # (afx.h); the shim does not, so the files that include graphics.h get the same switch here.
+# On Linux (issue #91) the Windows headers the shim includes are tests/golden/linux's (windows.h, winsock2.h: the
+# types, constants and functions the code uses; the functions themselves, behind import slots, linux/win32.cpp).
+# The tests redirect our functions to their fakes by overwriting the functions' first bytes (golden_patch.h), so
+# the code is compiled with semantic interposition (-fsemantic-interposition; the objects are position-independent,
+# -fPIC): the compiler neither inlines a global function into a caller, nor calls a clone of it, nor concludes from
+# its body that it cannot throw (a fake throws in the error rounds), as MSVC does not across its object files.
+set(golden_linux_dir "${CMAKE_CURRENT_SOURCE_DIR}/linux")
+# What MSVC does that GCC and Clang do only when told (golden_linux_options), and the warnings of theirs that the
+# original's code and the tests' ways with it give where MSVC gives none (golden_linux_warnings, after -Wall on each
+# source: Clang takes the last of two options, GCC the explicit one). notes/decisions.md, "The golden corpus on
+# Linux (issue #91)".
+# - -fno-strict-aliasing: the tests read our objects, vtables and member pointers through other types (as difftest
+#   does); MSVC never optimises on the aliasing rules.
+# - -fno-delete-null-pointer-checks: the MFC shim's GetSafeHwnd compares this with nullptr, as MFC's does, and MSVC
+#   keeps the comparison; GCC and Clang warn about it (-Wno-nonnull-compare, -Wno-tautological-undefined-compare).
+# - -fwrapv: the error rounds give the code extreme sizes and positions (INT_MAX), whose sums the original and MSVC's
+#   code wrap around (TWindow::FitToChild, GUI.cpp); GCC and Clang assume a signed int never overflows, and UBSan
+#   reports it (signed-integer-overflow, which -fwrapv makes defined).
+# - With UBSan (linux-x64-clang): -fno-sanitize=vptr,object-size. The window tests put objects of their own (fakes,
+#   throwers, stand-ins smaller than the real class) where our code expects its classes, as difftest does: our code
+#   calls them through pointers of our types, whose dynamic type is not the static one. UBSan's checks of the dynamic
+#   type and of the object's size report each such call and cast; its other checks stay.
+# - GCC: -fno-lifetime-dse: the tests fill memory with a pattern before they construct an object in it, to compare
+#   the bytes a constructor leaves untouched (TSkinProperties, TTalkBuffer), which GCC removes as dead stores;
+#   -fno-toplevel-reorder: the globals in the order of their definitions, as MSVC places them (Network.cpp's
+#   ReceiveData, whose over-read the Network test replays, #72, is followed by SendData).
+# - -Wno-invalid-offsetof: the fakes and dumps take offsetof of our classes, which are not standard-layout (GCC and
+#   Clang compute it as MSVC does: no virtual bases).
+# - -Wno-overloaded-virtual: the original's classes hide virtual functions of their bases (DialogElements.h).
+# - -Wno-delete-non-virtual-dtor (Clang also -Wno-delete-non-abstract-non-virtual-dtor): the tests' buffers, and
+#   Talk.cpp's TTalkBuffer, are polymorphic classes without a virtual destructor, deleted through their own type.
+# - GCC: -Wno-class-memaccess (the tests clear and copy our objects with memset and memcpy, as difftest does),
+#   -Wno-stringop-truncation (the original's strncpy to the whole buffer, Status.cpp and Script.cpp) and
+#   -Wno-mismatched-new-delete (commworld.cpp's windows keep their memory in a class operator delete of their own).
+# - Clang: -Wno-non-pod-varargs: TMultiStateButton's constructor takes its callbacks (TCallback, trivially copyable
+#   but with a constructor) through ..., as the original's does (DialogElements.cpp, consolewindow_tests.cpp).
+set(golden_linux_options -fno-strict-aliasing -fno-delete-null-pointer-checks -fwrapv)
+set(golden_linux_warnings -Wno-invalid-offsetof -Wno-overloaded-virtual -Wno-delete-non-virtual-dtor)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	list(APPEND golden_linux_options -fno-lifetime-dse -fno-toplevel-reorder)
+	list(APPEND golden_linux_warnings -Wno-class-memaccess -Wno-stringop-truncation -Wno-mismatched-new-delete
+		-Wno-nonnull-compare)
+else()
+	if(PATELLA_SANITIZE MATCHES "undefined")
+		list(APPEND golden_linux_options -fno-sanitize=vptr,object-size)
+	endif()
+	list(APPEND golden_linux_warnings -Wno-tautological-undefined-compare -Wno-delete-non-abstract-non-virtual-dtor
+		-Wno-non-pod-varargs)
+endif()
+# GCC and Clang compile the client's code and the ported tests for the first time here (issue #91): at the warning
+# baseline's level (cmake/Warnings.cmake: -Wall, warnings as errors), as MSVC compiles most of them (its baseline,
+# /W3), with golden_linux_warnings after it. Every source of a golden target gets them before
+# patella_target_warnings, which then leaves the source's level as it is.
+function(golden_linux_warning_level target)
+	get_target_property(sources ${target} SOURCES)
+	foreach(source IN LISTS sources)
+		if(source MATCHES "\\.(c|cpp)$")
+			set_property(SOURCE "${source}" TARGET_DIRECTORY ${target} APPEND PROPERTY COMPILE_OPTIONS -Wall
+				${golden_linux_warnings})
+		endif()
+	endforeach()
+endfunction()
 function(golden_client_settings target)
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
 	target_compile_definitions(${target} PRIVATE TIBIA_MFC_SHIM)
 	patella_target_language(${target})
+	if(golden_linux)
+		golden_linux_warning_level(${target})
+	endif()
 	patella_target_warnings(${target})
 	patella_target_hardening(${target})
-	target_compile_options(${target} PRIVATE /wd4201)
+	if(golden_linux)
+		target_include_directories(${target} BEFORE PRIVATE "${golden_linux_dir}")
+		target_compile_options(${target} PRIVATE -fsemantic-interposition ${golden_linux_options})
+		# Not in compile_commands.json: tools/tidy.py --all (the CI's clang-tidy job, linux-x64-clang) checks every
+		# src/ file of the database, and these are the client's files against the stand-ins, not the product's
+		# (clang-tidy checks them with MFC in the Windows runs).
+		set_property(TARGET ${target} PROPERTY EXPORT_COMPILE_COMMANDS OFF)
+	else()
+		target_compile_options(${target} PRIVATE /wd4201)
+	endif()
 endfunction()
 
 # sysinc.cpp is not portable yet (the clipboard, timeGetTime): compiled against src/compat/mfc_shim.h,
@@ -78,6 +167,12 @@ add_library(golden_client OBJECT
 	"${PROJECT_SOURCE_DIR}/src/MainWindow.cpp")
 golden_client_settings(golden_client)
 target_compile_definitions(golden_client PRIVATE PATELLA_VULKAN)
+if(golden_linux)
+	# The constructors of TToggleButton and TTextToggleButton pass their base the button's own Tooltip before it is
+	# set, as the original's do (DialogElements.cpp); GCC and Clang warn (-Wuninitialized), MSVC does not.
+	set_property(SOURCE "${PROJECT_SOURCE_DIR}/src/DialogElements.cpp" TARGET_DIRECTORY golden_client APPEND PROPERTY
+		COMPILE_OPTIONS -Wno-uninitialized)
+endif()
 
 # The ported tests of the client's code and the stubs, with the same settings.
 add_library(golden_client_tests OBJECT
@@ -127,18 +222,42 @@ add_executable(golden_runner
 	$<TARGET_OBJECTS:golden_client_tests>
 	$<TARGET_OBJECTS:golden_network_tests>
 	$<TARGET_OBJECTS:golden_comm_tests>)
-target_link_libraries(golden_runner PRIVATE patella_core winmm user32)
 file(TO_CMAKE_PATH "${PROJECT_SOURCE_DIR}/build/golden" golden_default_dir)
 target_compile_definitions(golden_runner PRIVATE "GOLDEN_DEFAULT_DIR=\"${golden_default_dir}\"")
-patella_target_language(golden_runner)
-patella_target_warnings(golden_runner)
-patella_target_hardening(golden_runner)
-# The ported tests redirect some of our functions to their fakes (golden_patch.h): no function may share
-# its code with another. Nor may a function have two incremental-link thunks (issue #28): the element fakes
-# find our constructors through their decorated names (elementfakes.cpp), which an incremental link gives a
-# thunk of their own, so that patching it would not reach the calls; without incremental linking every
-# address is the function's code, in Debug as in Release.
-target_link_options(golden_runner PRIVATE /OPT:NOICF /INCREMENTAL:NO)
+# The settings of an executable of the golden objects (golden_runner, dialogwindow_setsize).
+function(golden_executable_settings target)
+	if(golden_linux)
+		# The executable's own sources see the same stand-ins (golden_test.h includes common.h, which includes the
+		# MFC shim), and linux/win32.cpp has the Windows functions. The C library's functions the tests replace
+		# through their import slots on Windows (time, the _time64 of the MSVC runtime, and fwrite; rand is the
+		# stand-ins' own, linux/windows.h) are wrapped (ld --wrap): every call of the executable's objects goes to
+		# __wrap_<name>, which calls through a slot of linux/win32.cpp, the C library's function at first
+		# (__real_<name>).
+		target_sources(${target} PRIVATE "${golden_linux_dir}/win32.cpp")
+		golden_linux_warning_level(${target})
+	endif()
+	patella_target_language(${target})
+	patella_target_warnings(${target})
+	patella_target_hardening(${target})
+	if(golden_linux)
+		target_include_directories(${target} BEFORE PRIVATE "${golden_linux_dir}")
+		target_compile_definitions(${target} PRIVATE TIBIA_MFC_SHIM)
+		target_compile_options(${target} PRIVATE ${golden_linux_options})
+		target_link_libraries(${target} PRIVATE patella_core)
+		target_link_options(${target} PRIVATE LINKER:--wrap=time LINKER:--wrap=fwrite)
+		set_property(TARGET ${target} PROPERTY EXPORT_COMPILE_COMMANDS OFF) # as golden_client_settings
+
+	else()
+		target_link_libraries(${target} PRIVATE patella_core winmm user32)
+		# The ported tests redirect some of our functions to their fakes (golden_patch.h): no function may share
+		# its code with another. Nor may a function have two incremental-link thunks (issue #28): the element fakes
+		# find our constructors through their decorated names (elementfakes.cpp), which an incremental link gives a
+		# thunk of their own, so that patching it would not reach the calls; without incremental linking every
+		# address is the function's code, in Debug as in Release.
+		target_link_options(${target} PRIVATE /OPT:NOICF /INCREMENTAL:NO)
+	endif()
+endfunction()
+golden_executable_settings(golden_runner)
 
 if(PATELLA_GOLDEN_REQUIRE)
 	add_test(NAME golden COMMAND golden_runner --require "${PATELLA_GOLDEN_DIR}")
@@ -147,6 +266,13 @@ else()
 endif()
 # Issue #84: CTest runs the tests in parallel (CMakePresets.json, execution.jobs); the longest tests start first.
 set_tests_properties(golden PROPERTIES SKIP_RETURN_CODE 77 COST 1000)
+# Linux with AddressSanitizer (linux-x64-clang, issue #91): the original's mismatched releases (free of memory from new,
+# Talk.cpp, Preferences.cpp and the others of notes/decisions.md's ownership map, #58: kept) and the leaks of the
+# original and of the tests' worlds are not reported, as MSVC's AddressSanitizer reports neither on Windows; every
+# other check of ASan and UBSan stays (a finding ends the run: -fno-sanitize-recover=all).
+if(golden_linux AND PATELLA_SANITIZE MATCHES "address")
+	set_tests_properties(golden PROPERTIES ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0:alloc_dealloc_mismatch=0")
+endif()
 
 # Issue #65: TDialogWindow::SetSize when a child's own SetSize deletes it (dialogwindow_setsize_test.cpp). Our
 # columns alone, no corpus: the runner's objects with the test in place of runner.cpp. Under ASan
@@ -165,12 +291,12 @@ add_executable(dialogwindow_setsize
 	$<TARGET_OBJECTS:golden_network_tests>
 	$<TARGET_OBJECTS:golden_comm_tests>
 	$<TARGET_OBJECTS:golden_dialogwindow_setsize>)
-target_link_libraries(dialogwindow_setsize PRIVATE patella_core winmm user32)
-patella_target_language(dialogwindow_setsize)
-patella_target_warnings(dialogwindow_setsize)
-patella_target_hardening(dialogwindow_setsize)
-target_link_options(dialogwindow_setsize PRIVATE /OPT:NOICF /INCREMENTAL:NO)
+golden_executable_settings(dialogwindow_setsize)
 add_test(NAME dialogwindow_setsize COMMAND dialogwindow_setsize)
+if(golden_linux AND PATELLA_SANITIZE MATCHES "address")
+	set_tests_properties(dialogwindow_setsize PROPERTIES ENVIRONMENT
+		"ASAN_OPTIONS=detect_leaks=0:alloc_dealloc_mismatch=0") # as golden's (above)
+endif()
 
 # Issue #66: two runners at once over the same corpus (concurrent.py), each in its temporary folder of its own
 # (runner.cpp, TRunFolder): 0 failures each, and neither folder left below TEMP. Skipped without a corpus.

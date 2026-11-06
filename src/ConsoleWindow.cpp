@@ -1107,7 +1107,12 @@ void TTabBar::StoreOpenChannels()
 // hidden), and an empty bar takes the last tab hidden on the left.
 void TTabBar::Rearrange(TTab *_Moved)
 {
-	if (!Busy) {
+	// The constructor's Arrange calls this before it sets Busy, as the original's does: Busy's byte as the original
+	// reads it (not 0: busy), whatever the memory held (Patella-Modern issue #91: a bool that is neither false nor
+	// true is undefined, and GCC and Clang may test one bit of it; UBSan reports it).
+	uint8 BusyByte = 0;
+	std::memcpy(&BusyByte, &Busy, sizeof(BusyByte));
+	if (BusyByte == 0) {
 		Busy = true;
 		Moved = _Moved;
 		if (_Moved != nullptr) {

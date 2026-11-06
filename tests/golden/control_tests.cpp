@@ -72,12 +72,24 @@ constexpr DWORD ControlStructuredException = 0xe0436f6d;
 
 static bool RunUntilStructuredException(void (*Run)(void *), void *Argument)
 {
+#if defined(__linux__)
+	// Linux (issue #91): RaiseException throws a TStructuredException (tests/golden/linux/windows.h).
+	try {
+		Run(Argument);
+		return true;
+	} catch (const TStructuredException &Exception) {
+		if (Exception.Code != ControlStructuredException)
+			throw;
+		return false;
+	}
+#else
 	__try {
 		Run(Argument);
 		return true;
 	} __except (GetExceptionCode() == ControlStructuredException ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
 		return false;
 	}
+#endif
 }
 
 template <class FO, class FI> bool ControlBoth(const char *What, FO Ours, FI Image)

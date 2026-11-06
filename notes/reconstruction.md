@@ -207,12 +207,23 @@ python -I tools/build.py windows-x64             # the x64 client and the unit t
 python -I tools/build.py windows-x64-debug       # the same, Debug
 python -I tools/build.py windows-x64-asan        # windows-x64 under MSVC's AddressSanitizer (-debug: Debug)
 python -I tools/build.py windows-x64-gcc         # the unit tests with mingw-w64 GCC 16 (-debug: Debug)
-python -I tools/build.py linux-x64-gcc           # patella_core and the unit tests, GCC 16 (Docker on Windows)
+python -I tools/build.py linux-x64-gcc           # patella_core, the unit tests, golden_runner, GCC 16 (Docker on Windows)
 python -I tools/build.py linux-x64-clang         # the same, Clang 22 with ASan and UBSan (-debug: Debug)
 python -I tools/build.py --list                  # the workflow presets
 python -I tools/build.py oracle-x86 --fresh      # extra options go to cmake --workflow
 python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86-debug   # any command, in the
 python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R vlongtest    # preset's environment
+```
+
+In the Docker image (issue #91) build.py mounts the golden corpus read-only at `/golden` and sets PATELLA_GOLDEN_DIR
+there to it: the host's PATELLA_GOLDEN_DIR, else the repository's build\golden when it exists (`PATELLA_GOLDEN_DIR=none`:
+no corpus, golden is skipped as in hosted CI), and passes Windows' time zone as TZ (POSIX form, from
+GetTimeZoneInformation; TZ itself when set), since the corpus has the recording machine's local times:
+
+```
+set PATELLA_GOLDEN_DIR=C:\Tibia\Patella-Modern\build\golden
+python -I tools/build.py linux-x64-gcc           # golden replays it in the image (and golden_concurrent)
+python -I tools/build.py linux-x64-clang         # under ASan and UBSan
 ```
 
 No warnings on any preset (plan section 4.1): the product presets build with /WX or -Werror, and the oracle,
@@ -855,7 +866,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 - The golden corpus (Patella-Modern issue #24; plan 4.3): difftest's comparisons as data, replayed without
   Tibia.exe. A ported test lives in `tests/golden/*_tests.cpp` and is compiled into the oracle's test program
   (GOLDEN_ORACLE: the original's code runs inside `ORIGINAL(...)` / `#if GOLDEN_ORACLE`) and into
-  `golden_runner` (windows-x64, MSVC x64), where the original's results come from the corpus. Each result of
+  `golden_runner` (windows-x64, MSVC x64; since issue #91 also linux-x64-gcc and linux-x64-clang, against the Windows
+  stand-ins of tests/golden/linux, notes/decisions.md "The golden corpus on Linux"), where the original's results come
+  from the corpus. Each result of
   the original passes through `golden::Output` (a number, an array of numbers, bytes, `OutputText`), each
   generated input through `golden::Input`; the CHECKs are the same code on both sides, so the counts are equal.
   Ported so far: difftest's XTEA, Characters, Colors, Strings, FormatNumber, Buffers, Skins and Regexp (issue #24,
@@ -1029,7 +1042,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   build\windows-x64-asan\Release\PatellaTest.exe --out build\reference-compare-asan` (the 8 sessions with the ASan
   client: every session matches; the Debug ASan client too since issue #73, `--exe
   build\windows-x64-asan\Debug\PatellaTest.exe --out build\reference-compare-asan-debug`); on Linux, linux-x64-clang
-  and its -debug workflow (ASan, UBSan and LeakSanitizer over the unit tests; golden_runner comes to Linux in M6, the client in M8). The hosted CI runs windows-x64-asan's unit tests
+  and its -debug workflow (ASan, UBSan and LeakSanitizer over the unit tests, and since issue #91 ASan and UBSan over golden_runner's replay, without the leak and alloc-dealloc-mismatch checks; the client in M8). The hosted CI runs windows-x64-asan's unit tests
   (Release, without the client) and linux-x64-clang; the golden and reference runs are local (CipSoft-derived data).
   The original's reads that ASan reports are suppressed with `PATELLA_NO_SANITIZE_ADDRESS` (src/compat/msvc.h), each in
   notes/decisions.md's table ("Sanitizers over the replayed sessions").

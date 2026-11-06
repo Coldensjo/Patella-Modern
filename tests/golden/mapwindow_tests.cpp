@@ -985,7 +985,7 @@ typedef void(__fastcall *CreatureFn)(void *, void *, int, int, int, TCreature *)
 #endif
 
 static TMapWindow *Ours;
-static uint8 *Original; // the oracle's (the runner has none)
+[[maybe_unused]] static uint8 *Original; // the oracle's (the runner has none)
 
 static void NewWindows()
 {
