@@ -148,6 +148,30 @@ endif()
 # Issue #84: CTest runs the tests in parallel (CMakePresets.json, execution.jobs); the longest tests start first.
 set_tests_properties(golden PROPERTIES SKIP_RETURN_CODE 77 COST 1000)
 
+# Issue #65: TDialogWindow::SetSize when a child's own SetSize deletes it (dialogwindow_setsize_test.cpp). Our
+# columns alone, no corpus: the runner's objects with the test in place of runner.cpp. Under ASan
+# (windows-x64-asan) the use after free of the code before the fix is a heap-use-after-free report.
+add_library(golden_dialogwindow_setsize OBJECT dialogwindow_setsize_test.cpp)
+golden_client_settings(golden_dialogwindow_setsize)
+target_link_libraries(golden_dialogwindow_setsize PRIVATE doctest::doctest)
+add_executable(dialogwindow_setsize
+	golden.cpp
+	core_tests.cpp
+	regexp_tests.cpp
+	sysinc_tests.cpp
+	$<TARGET_OBJECTS:golden_sysinc>
+	$<TARGET_OBJECTS:golden_client>
+	$<TARGET_OBJECTS:golden_client_tests>
+	$<TARGET_OBJECTS:golden_network_tests>
+	$<TARGET_OBJECTS:golden_comm_tests>
+	$<TARGET_OBJECTS:golden_dialogwindow_setsize>)
+target_link_libraries(dialogwindow_setsize PRIVATE patella_core winmm user32)
+patella_target_language(dialogwindow_setsize)
+patella_target_warnings(dialogwindow_setsize)
+patella_target_hardening(dialogwindow_setsize)
+target_link_options(dialogwindow_setsize PRIVATE /OPT:NOICF /INCREMENTAL:NO)
+add_test(NAME dialogwindow_setsize COMMAND dialogwindow_setsize)
+
 # Issue #66: two runners at once over the same corpus (concurrent.py), each in its temporary folder of its own
 # (runner.cpp, TRunFolder): 0 failures each, and neither folder left below TEMP. Skipped without a corpus.
 # Issue #84: only in the Release configuration of the presets without ASan (windows-x64). What it checks is the

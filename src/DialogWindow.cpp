@@ -120,13 +120,25 @@ TDialogWindow::TDialogWindow()
 // --- TDialogWindow ---------------------------------------------------------
 
 // 0x4857b0, line 63. The catch blocks name no parameter.
+//
+// Issue #65: a sub-window's SetSize ends with the column's Rearrange(8)
+// (FitChildren), which can delete the child being sized. The original then
+// reads the deleted child's Next (a use after free); RemoveChild had set it
+// to NULL before the delete, so its loop ends there. Ours ends there too,
+// without the read: a child that is no longer in the column was deleted
+// (strategies 2, 4, 8 and 32 delete children but never insert one, so the
+// pointer compared is not a new child's). A child still in it goes on to its
+// Next, as before.
 void TDialogWindow::SetSize(int Width, int Height)
 {
 	TWindow::SetSize(Width, Height);
 	Area.height = Height;
 	Area.width = Width;
-	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext())
+	TComponent *Child = FirstChild;
+	while (Child != nullptr) {
 		Child->SetSize(Width, Child->Height);
+		Child = TWindow::IsChild(Child) ? Child->GetNext() : nullptr;
+	}
 	Rearrange(8, nullptr);
 }
 
