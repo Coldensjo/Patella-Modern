@@ -432,6 +432,12 @@ doubling, the init fill, #91's padding-carrying swaps) over a std::vector whose 
 objects and 4 functions' parameters converted, Container.h keeps array, matrix and matrix3d. Golden 17,316,040, 0
 failures on every preset; tests/unit/indexed_vector_test.cpp on every compiler. #100 moves the plain call sites to
 standard containers. notes/decisions.md, "TIndexedVector over std::vector".
+Fixed-capacity lists (Patella-Modern issue #102, branch issue-102, November 6, 2026; M7): Map.cpp's effect table is a
+TSlotTable<TEffect, EFFECTS> (src/types/SlotTable.h) over TStaticVector (std::inplace_vector with GCC 16): it only
+grows and reuses free entries, so every effect keeps the original's number, and a full table drops the new effect
+(-1) as the original's NewEffect did. tests/unit/slot_table_test.cpp on every compiler (against the original's
+search). TMapPoint::Objects is not converted: the golden Container test compares the bytes new TMapPoint[d] leaves,
+which a vector's constructor changes; the owner decides (notes/decisions.md, "#102: fixed-capacity lists").
 
 compare_rendering.py's failures explained (Patella-Modern issue #98, branch issue-98, November 6, 2026): Tibia.exe's
 first capture got no frame when its start-up's second IDirect3D9::CreateDevice did not return (1 start of 15 in the

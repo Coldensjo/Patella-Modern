@@ -53,6 +53,7 @@ set(PATELLA_HEADERS_CORE
 	types/File.h
 	types/FixedString.h
 	types/IndexedVector.h
+	types/SlotTable.h
 	types/Time32.h
 	Utils.h
 	vlong.h)
@@ -173,7 +174,7 @@ function(patella_header_checks)
 		# #59) too, and the headers that format through it (issue #64; the developer log, issue #77); compat/assertion.h's
 		# source location (issue #79).
 		patella_header_check(header_check_cxx26_standin ${PATELLA_HEADERS_CXX26} compat/assertion.h compat/format.h
-			compat/print.h compat/span.h log/Log.h types/File.h types/FixedString.h)
+			compat/print.h compat/span.h log/Log.h types/File.h types/FixedString.h types/SlotTable.h)
 		target_compile_definitions(header_check_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN PATELLA_FORMAT_STANDIN
 			PATELLA_SPAN_STANDIN PATELLA_SOURCE_LOCATION_STANDIN)
 		patella_target_language(header_check_cxx26_standin)

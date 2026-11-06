@@ -12921,3 +12921,77 @@ Logs: build\logs\issue-99 of the branch's worktree; golden replayed main's froze
   tools/build.py windows-x64 --fresh` exit 0, 19/19; `linux-x64-gcc --fresh` exit 0, 16/16; golden on both 15,803,218
   replayed + 1,512,822 retired = 17,316,040, 0 failures. `reference.py compare` exit 0, every session matches.
   clang-format and banned_calls.py: exit 0.
+
+## #102: fixed-capacity lists (Patella-Modern issue #102, M7)
+
+Settled by Claude Opus 5.5, November 6, 2026. Plan M7, "Fixed-capacity lists": the effect table is a
+`TSlotTable<TEffect, EFFECTS>` (src/types/SlotTable.h) over `patella::TStaticVector` (compat/cxx26.h: std::inplace_vector
+with GCC 16's libstdc++, the stand-in with MSVC and Clang 22 against libstdc++ 14). `TMapPoint::Objects` +
+`ObjectCount` is **not** converted: the golden corpus has a check that a vector would fail (below; the owner decides).
+
+### What the original does when a list is full (high)
+
+- **A map point** (OBJECTS_PER_POINT, 10): InsertObject (0x4b8310) shifts the objects above Position up by one, but
+  from index 9 at most (`if (8 < count) i = 9`), so on a full point the top object falls off, and the count goes up
+  only while it is below 10 (decompilation `0x4b8310.c`, lines 156-171). AddObject (0x4b88f0) inserts only when the
+  position it found is below 10, so on a full point an object that belongs on top is dropped; AppendObject (0x4b8ec0)
+  throws "too many objects on map point" on a full point; DeleteObject (0x4b9420) returns true when the point was
+  full (its objects that fell off have to be requested again). Map.cpp does all of this, unchanged by #102. The
+  golden corpus's Map test replays random AddObject, AppendObject (below 10 only), DeleteObject and ChangeObject on
+  the points against the original, and its Errors test AppendObject's error path.
+- **The effect table** (EFFECTS, 200): NewEffect (0x4ba6e0) searches the array for the first entry with Status 0 and
+  returns -1 when there is none; AddGraphicalEffect, AddTextualEffect and AddMissileEffect then do nothing: the new
+  effect is dropped, every other entry unchanged. Kept: TSlotTable::New() returns -1, and Map.cpp's NewEffect too.
+
+### The effect table (high)
+
+- An entry's number is its index, held by TMapPoint::EffectNumber and the entries' Field, Previous and Next links
+  (#103 makes them typed handles), so the numbers must stay. TSlotTable's TStaticVector only grows: New() gives the
+  first entry below Size() with Status 0, else appends one (try_emplace_back, value-initialised, left at Status 0 for
+  the caller to fill), else -1. Clear (ClearMap) empties it. So the entries from Size() to EFFECTS are exactly the
+  ones the original had free and had not taken since its last ClearMap or the start, and New() gives the original's
+  number in every state; a freed entry below Size() keeps its other members until it is taken again, as the
+  original's did.
+- Reads: `Get(Number)` returns an entry beyond Size() as a free one (all zero), so GetEffectStatus and the getters'
+  Status assertions read 0 there, as the original read Status 0. What differs: the original's free entries beyond
+  our Size() kept the members of their use before the last ClearMap; every reader asserts the Status first or follows
+  a link, and no link reaches an entry freed by ClearMap (it sets every point's EffectNumber to -1), so nothing reads
+  them. Writes (`operator[]`) go to entries below Size() only: the entry New() gave, and the linked ones.
+- ProcessEffects and ProcessMissileEffects loop to Size() instead of EFFECTS: the entries beyond are free, which
+  both skip.
+- TEffect stays in Map.h (its anonymous structs are a Microsoft extension that MFC's headers switch on, C4201, and
+  -Wpedantic rejects outside the client's files), so TSlotTable is a template over an entry type with a Status;
+  Map.cpp is its one user.
+- Tests: tests/unit/slot_table_test.cpp in tests_unit and tests_unit_cxx26_standin (5 test cases): an empty table, a
+  full table (-1, nothing changed), freed entries taken again lowest first with their old members, the free entries
+  beyond Size() and Clear, and 20,000 random takes, frees and clears against the original's array and search (the
+  run meets a full table). The golden corpus's Map test (random effects of the three kinds, ProcessEffects,
+  ProcessMissileEffects, ClearField and ClearMap against the original, every entry's status and fields compared)
+  and Errors test (the getters on every entry, out-of-range numbers) replay unchanged.
+
+### TMapPoint::Objects: why not converted (high; needs the owner)
+
+The golden corpus's Container test (container_tests.cpp, TestArray) checks `array<TMapPoint>` (0x4b0bc0) against the
+original: after `new TMapPoint[d]` on memory both sides filled with the same pattern, every byte of every entry must
+equal the original's (the check of 192,832 that #99 kept unchanged). The original's TMapPoint has a
+compiler-generated constructor (0x4b0b40) that only zeroes the TObjects (their constructor); ObjectCount, Order,
+EffectNumber and RefreshRequested keep the pattern. A TStaticVector<TObject, 10> (std::inplace_vector or the
+stand-in) has a constructor that sets its size to 0 and constructs no element: the count's bytes would be 0 where
+the original's are the pattern, and the objects' the pattern where the original's are 0. No projection of our
+entry onto the original's layout (the test's TLayout) gives the original's bytes, so the Container test would fail
+for every round of array<TMapPoint> (and skip the operator() comparisons after it). The rule (plan M7: adapt the
+runner's calls, never the checks) leaves the conversion to the owner. The options:
+
+1. Keep TMapPoint as it is (std::array + ObjectCount, what #102 does). Its overflow behaviour is the original's,
+   checked by the golden Map test.
+2. Convert it, and give the Container test's array<TMapPoint> round an element type with the original TMapPoint's
+   members (the test then checks array<T>'s code for that instance, not the client's TMapPoint's construction).
+3. Convert it, and leave the count's and the objects' bytes out of the byte comparison for TMapPoint (a weaker
+   check: they become indeterminate in the original only).
+
+Same precedent: notes/ownership.md keeps TProperties and TPicture without a constructor for the same comparison.
+
+### Found, not done (high)
+
+- #103 (the effect table's typed handles and the iterator) builds on TSlotTable: Get, operator[] and New take and
+  give the numbers it types.
