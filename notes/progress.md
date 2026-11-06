@@ -506,6 +506,12 @@ through the bridge, so no other caller changed; TCreatures asks the later TPlaye
 TMapState implements. TCommunication writes the game state through references to the five. The golden tests read the
 members and fake them too (the Communication world, the Creatures test). Module cycles: main's 3, unchanged; the
 game state is in none. Golden 17,316,040, 0 failures. notes/decisions.md, "The third move: TMapState".
+The effect table's links as typed handles (Patella-Modern issue #103, branch issue-103, November 6, 2026; M7): a map
+point's first effect and the effects' Previous and Next are `enum class TEffectId : int` (src/MapPoint.h; its value the
+original's number, None its -1), the table is TSlotTable<TEffect, EFFECTS, TEffectId>, TMap's effect members take and
+give TEffectId; TSlotTable::Chain walks a point's effects (GetEffectIteratorNumber, ClearField's deletes) and
+TMapEffects wraps GetFirstEffect/GetNextEffect for DrawField's loop. Field (a map point's number) and the original's
+free functions (golden calls and fakes them) keep ints. Golden 17,316,040, 0 failures. notes/decisions.md, "#103".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

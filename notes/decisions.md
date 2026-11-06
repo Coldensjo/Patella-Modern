@@ -13492,3 +13492,77 @@ Logs: build\logs\issue-117 of the branch's worktree; golden replayed main's froz
 - `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
   clang-format (CLAUDE.md's command): exit 0. `python -I tools/settings_file.py --self-test` and
   `python -I tools/testmode_dumps.py --self-test`: exit 0.
+
+## #103: the effect table's links as TEffectId (Patella-Modern issue #103, M7)
+
+Settled by Claude Opus 5.5, November 6, 2026. Plan M7, "The effect table's index links": the effect numbers that the
+map points and the effects hold are `enum class TEffectId : int` (src/MapPoint.h), and a point's effects are a range.
+
+### The handle (high)
+
+- `TEffectId`'s value is the original's effect number, the entry's index 0 to EFFECTS - 1; `TEffectId::None` is the
+  original's -1, its only sentinel: NewEffect returns -1 for a full table, ClearMap sets every point's EffectNumber to
+  -1, the end of a point's list is a Next of -1 and GetFirstEffect/GetNextEffect return -1 after the last (the golden
+  Map test compares those returns with the original's, so -1 is the original's value, not ours). No 0 sentinel: 0 is
+  the first entry. `EffectNumberOf` and `EffectIdOf` convert, nothing else does.
+- Typed: TMapPoint::EffectNumber (the first effect of the point), TEffect::Previous and Next, the table
+  (`TEffectTable` = `TSlotTable<TEffect, EFFECTS, TEffectId>`: TSlotTable has a third parameter, the key, int by
+  default; New() gives Key(-1) when full), and TMap's effect members (GetFirstEffect, GetNextEffect and
+  GetEffectIteratorNumber give a TEffectId, the getters, NewEffect and DeleteEffect take or give one). TEffect's layout
+  is unchanged (an enumeration over int: the static_assert holds).
+- Not typed: **TEffect::Field** is a map point's number (an index into Fields, FieldNumber's value), not an effect's;
+  a TEffectId there would be wrong, so it stays an int (the issue lists it among the links; a point handle would be a
+  change of the map, not of the effect table). **The original's free functions** (GetFirstEffect ... GetMissileEffectY
+  of Map.h's global part) keep their int numbers: they are the original's interface, which the golden tests call with
+  numbers (in range and not: the Errors test) and fake by address (the MapWindow test's fakes replace them in our
+  code); they convert at the bridge. MapWindow's TTextualEffectPosition::EffectNumber is MapWindow's own state from
+  those functions and stays an int. ProcessEffects and ProcessMissileEffects walk the table by index (their loop
+  counter is the original's i, which ProcessMissileEffects' assertion reports) and convert it where they link.
+- The assertions report the number (`EffectNumberOf`), as before; their outcome is unchanged (golden compares the
+  error paths by outcome).
+
+### The iterator (high)
+
+- `TSlotTable::Chain(First)` (TPointEffects in Map.h, `TMap::PointEffects(Point)`): the numbers from First by the
+  entries' Next, a range with `std::default_sentinel_t` as its end (Key(-1)). Its step reads the Next of the entry it
+  leaves after the loop's body, which is what the original's loops do, and lets a body delete that entry because
+  DeleteEffect keeps a deleted entry's links.
+- GetEffectIteratorNumber (0x4b9e30) walks it n steps: the same entries, the head's assertion first as before.
+- ClearField (0x4bc720): the original deletes the point's first effect until there is none; the range gives the same
+  effects in the same order (each deleted one was the point's first, and its Next, which DeleteEffect made the
+  point's first, is the range's next), with the same Status assertion before each delete. The unit test checks this
+  against the original's loop.
+- TMapWindow::DrawField's effect loop (0x4c5520) called GetFirstEffect and GetNextEffect by hand; it is a range-for
+  over `TMapEffects(x, y, z)` (Map.h), whose begin() calls GetFirstEffect and whose step GetNextEffect, the original's
+  free functions in the original loop's order, so the MapWindow test's fakes still replace them and its "effect number
+  out of range [bug0000913]" check still sees any number they give. It yields int (above).
+- NewEffect's and ProcessMissileEffects' linking and DeleteEffect's and ProcessMissileEffects' unlinking are not
+  loops over a point and stay as they were, typed.
+
+### Tests (high)
+
+- tests/unit/slot_table_test.cpp (tests_unit and tests_unit_cxx26_standin): two new test cases, a table keyed by an
+  enumeration (its full table gives Key(-1)), and Chain against the original's loop over Next on four lists under 5,000
+  random pushes (NewEffect's linking), deletes of the n-th effect found through the range (GetEffectIteratorNumber)
+  and clears that delete while walking (ClearField's order checked). The five #102 cases are unchanged.
+- The golden corpus replays unchanged: no runner call changed (the tests use the original's int functions).
+
+### The gates (high)
+
+Logs: build\logs\issue-103 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired =
+  17,316,040, 0 failures (golden_concurrent the same; Map 639,877, MapWindow 122,324, Errors 17,076 checks, as
+  before), 0 warnings. windows-x64-debug: exit 0, 18/18; windows-x64-asan: exit 0, 18/18, no ASan report; golden the
+  same on both. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc: exit 0, 16/16; linux-x64-clang (ASan, UBSan): exit 0,
+  14/14, no sanitizer report; golden the same on both. 0 warnings on every preset (a first linux-x64-gcc run failed
+  on -Wshadow in the new ranges' constructors, fixed in the second commit; every preset above ran on the fix).
+- slot_table_test.cpp: 7 test cases, 43,216 assertions, in tests_unit and tests_unit_cxx26_standin on every compiler.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches. `python -I tools/compare_traffic.py`: the first run exit 1, one live client packet different
+  (the "look north" step: Tibia.exe looked at a creature, type 0x63, that had walked onto the field, Patella.exe at
+  the field's top item, 0x19a; the live world had 5 and 4 creatures; the four replays identical), its one rerun exit
+  0, no differences.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`:
+  exit 0. clang-format (CLAUDE.md's command, Visual Studio 18's 22.1.3): exit 0.

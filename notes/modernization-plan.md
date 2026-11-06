@@ -599,6 +599,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   original's full-point behaviour; the golden Container test's array<TMapPoint> round has the original's point as T.
 - **The effect table's index links** (`Field`, `Previous`, `Next` as `int`) become typed handles
   (`enum class TEffectId : int`) with an iterator over a point's effects.
+  Done in #103 (notes/decisions.md, "#103: the effect table's links as TEffectId"): `TEffectId` (`src/MapPoint.h`,
+  None for the original's -1) in TMapPoint::EffectNumber, Previous and Next, the table and TMap's effect members;
+  `TSlotTable::Chain` (TPointEffects) walks a point's effects, `TMapEffects` MapWindow's loop. `Field` is a map point's
+  number, not an effect's, and stays an int; the original's free functions keep their int numbers (golden's seam).
 - **Globals into subsystems:** the file-scope statics and shared globals become members of explicit objects
   (`TMapState`, `TNetwork`, `TCommunication`, `TGUI`, `TPreferences`, ...), owned by one `TClient` that
   passes dependencies in. This is when the include cycles noted in `notes/progress.md` get broken. The
