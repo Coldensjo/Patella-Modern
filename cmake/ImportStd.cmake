@@ -63,9 +63,9 @@ endmacro()
 # so GCC's standard flag is -std=c++26, the one of patella_target_language, not -std=gnu++26 (MSVC: cxx_std_23 is
 # /std:c++latest, the same as its flag).
 #
-# CMake compiles the std module with the directory's flags only (CMAKE_CXX_FLAGS_<CONFIG> and the standard), not with
-# the importer's options, so the module and its importer would differ in what the options define: MSVC warns C5050
-# ("Possible incompatible environment while importing module 'std': _CONTROL_FLOW_GUARD=1 is defined in current
+# CMake 4.1 compiles the std module with the directory's flags only (CMAKE_CXX_FLAGS_<CONFIG> and the standard), not
+# with the importer's options (4.4 compiles its BMI with the importer's; below), so the module and its importer would
+# differ in what the options define: MSVC warns C5050 ("Possible incompatible environment while importing module 'std': _CONTROL_FLOW_GUARD=1 is defined in current
 # command line and not in module command line", likewise _UTF8 of /utf-8; an error under /WX), and GCC accepts a module
 # built without the importer's -D_FORTIFY_SOURCE=3, -D_GLIBCXX_ASSERTIONS (Debug), -fstack-protector-strong or the
 # sanitizers, which change the library's inline code. So the module gets the target's own options: on MSVC the module
@@ -87,11 +87,14 @@ function(patella_target_import_std target)
 	target_compile_features(${target} PRIVATE cxx_std_${PATELLA_IMPORT_STD_LEVEL})
 	set_target_properties(${target} PROPERTIES CXX_MODULE_STD ON CXX_EXTENSIONS OFF)
 
+	# CMake 4.4 creates the std module's target at generate time (@cmake_cxx_std) and compiles its BMI for each
+	# importer with the importer's own options (@cmake_cxx_std@synth_<n>), so there is nothing to give it; 4.1
+	# creates __CMAKE::CXX<level> at project() and compiles it with the directory's flags only.
+	set(module __CMAKE::CXX${PATELLA_IMPORT_STD_LEVEL})
 	get_target_property(options ${target} COMPILE_OPTIONS)
-	if(NOT options)
+	if(NOT options OR NOT TARGET ${module})
 		return()
 	endif()
-	set(module __CMAKE::CXX${PATELLA_IMPORT_STD_LEVEL})
 	get_target_property(aliased ${module} ALIASED_TARGET)
 	if(aliased)
 		set_property(TARGET ${aliased} APPEND PROPERTY COMPILE_OPTIONS ${options})

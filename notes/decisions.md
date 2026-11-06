@@ -12460,6 +12460,14 @@ source property (patella_target_warnings), so the module keeps the compiler's de
 library's. A second user of import std would need the same options, so the function refuses a second target; with
 more users the options move to one place they share.
 
+CMake 4.4 (the hosted Windows runner's 4.4.5) does it differently: it creates the std module's target only at
+generate time (`@cmake_cxx_std`, its objects compiled as `-std:c++20` with the directory's flags) and compiles the BMI
+that an importer reads for each importer with that importer's options (`@cmake_cxx_std@synth_<n>`: /guard:cf /utf-8
+... /WX), so there is no C5050 and nothing to copy; `__CMAKE::CXX23` does not exist at configure. The first hosted run
+of the branch failed there ("get_target_property() called with non-existent target "__CMAKE::CXX23"", the three
+Windows jobs); the function copies only when the target exists. Checked locally with CMake 4.4.5 on the repository
+(windows-x64-cmake4.4.5.log: windows-x64 without the client, Release and Debug, tests_import_std passed).
+
 - Considered: CMAKE_CXX_FLAGS for the options: they would reach every target, the third-party code too (the regexp,
   doctest).
 - Considered: C5050 left as a warning: /WX and tools/build.py fail it, rightly.
@@ -12502,5 +12510,8 @@ branch's image (built as patella-modern/linux-x64:issue-113, PATELLA_DOCKER_IMAG
   tests_import_std), golden the same.
 - linux-x64-gcc-debug (beyond the gates): exit 8, 14/15, tests_import_std passed, golden 1 failure
   (communication_tests.cpp:1186, above); main c0aad52 in the old image: the same failure, 13/14.
+- CMake 4.4.5 (the hosted runner's), locally: the repository's windows-x64 without the client configured, built
+  Release and Debug and tests_import_std, tests_unit and tests_core run: exit 0 (windows-x64-cmake4.4.5.log). After
+  that fix windows-x64 (exit 0, 19/19, golden 0 failures) and windows-x64-gcc (exit 0, 12/12) again on 4.1.2.
 - `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, 0 gone (the commit's image, CMake
   4.1.2); `python -I tools/banned_calls.py` exit 0 (0 calls, 123 files); clang-format with CLAUDE.md's command exit 0.
