@@ -68,6 +68,14 @@ the test server only for the two live recordings) and `python -I tools/reference
 C:\Tibia\Patella-Modern\build\reference` (PatellaTest.exe on each session, the server side replayed inside the client,
 no server, PATELLA_VULKAN=cpu; Python only). Also as `record`/`compare` first words of compare_traffic.py,
 compare_files.py and compare_rendering.py. Local CipSoft-derived data: never committed, pushed or uploaded.
+
+Frozen since issue #93: the golden corpus and the reference recordings are never recorded again in this repository
+(#94 removes oracle-x86); each folder has a `MANIFEST.tsv` (tools/data_manifest.py: every file's size and SHA-256, the
+commit, the tools, the date, the time zone; local, with the data), which golden_runner and reference.py compare check
+first and refuse when missing or mismatched (`--unverified`, golden_runner also `PATELLA_GOLDEN_UNVERIFIED=1`: local
+experiments only). The corpus is recorded with TZ=UTC0 and replayed in its manifest's zone. Regenerated only from the
+tag `layout-frozen-final`; new checks are unit tests or test-mode recordings against Tibia.exe
+(notes/reconstruction.md, "The golden corpus"; notes/testmode.md, "Reference recordings").
 The live checks run on the desktop of the session that starts them; a second interactive session (another Windows
 user, kept connected and unlocked) keeps the user's input away (issue #56; notes/reconstruction.md, "Checking").
 `--hidden` (tools/desktop.py) is experimental: DirectDraw, Direct3D 9, the CPU driver and GetCursorPos fail there.
@@ -77,7 +85,7 @@ The golden corpus (issue #24): `python -I tools/build.py --env oracle-x86 cmake 
 pushed or uploaded); `golden_runner` (CTest test `golden`, skipped without a corpus) replays it without Tibia.exe,
 in windows-x64 and since issue #91 in linux-x64-gcc and linux-x64-clang: build.py mounts the corpus read-only at
 `/golden` of the image (PATELLA_GOLDEN_DIR of the environment, else the repository's `build/golden`; `none`: no
-corpus) and passes Windows' time zone as TZ (the corpus has the recording machine's local times). Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
+corpus) and passes the corpus manifest's time zone as TZ (issue #93: UTC0; Windows' zone for a corpus without one). Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
 
 ## Code style
 

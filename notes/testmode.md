@@ -349,8 +349,9 @@ recording itself, and compares it with Tibia.exe's recording. Choices and their 
 ```
 python -I tools/reference.py record  [--reference DIR] [--sessions a,b] [--live DIR] [--reuse-live] [--hidden]
 python -I tools/reference.py compare [--reference DIR] [--sessions a,b] [--exe PatellaTest.exe] [--out DIR]
-                                     [--vulkan cpu] [--timeout 600] [--check-only] [--hidden]
+                                     [--vulkan cpu] [--timeout 600] [--check-only] [--hidden] [--unverified]
 python -I tools/reference.py list    [--reference DIR]
+python -I tools/reference.py manifest [--reference DIR] [--commit HASH] [--date TEXT]
 python -I tools/reference.py --self-test
 python -I tools/compare_traffic.py record|compare ...   (the same, with that tool's sessions)
 ```
@@ -358,6 +359,26 @@ python -I tools/compare_traffic.py record|compare ...   (the same, with that too
 The reference set's default is `<repository>\build\reference` (gitignored); the orchestrator's set is
 the main checkout's, `C:\Tibia\Patella-Modern\build\reference` (pass `--reference`). Reference recordings are CipSoft-derived local data:
 never committed, pushed or uploaded.
+
+### Frozen, with a manifest (issue #93)
+
+The reference set is frozen since issue #93 (M6), as the golden corpus is: #94 removes oracle-x86, which builds the
+32-bit patcap.dll the record step runs Tibia.exe under. The set in use is the one of November 3, 2026 (issue #23;
+#48 added the display modes without a new recording), unchanged by #93: `compare` matched it on #93's branch, so
+nothing since #23 had made it stale. Its `MANIFEST.tsv` (tools/data_manifest.py: every file's size and SHA-256, the
+recording's commit, the tools, the date, the time zone UTC0) is in the set's folder, local like the set; `compare`
+(and `list`) check the set against it before any session: a missing or mismatched manifest, or one of another zone
+than reference.py's TIME_ZONE, is refused (exit 1, "RESULT: refused"); `--unverified` compares anyway, for local
+experiments only. `record` writes the manifest after a recording; `manifest` writes it for a set recorded before #93
+(the recording's commit "unknown" unless `--commit`, its date the sessions' meta.json). The set's sessions that are no
+longer compared (error-login, patch, patch-exe) are in the manifest too.
+
+After #94 the set is regenerated only from the oracle as it was, at the tag `layout-frozen-final`: in a worktree of
+that tag with Tibia.exe and the data files in its root, `python -I tools/build.py oracle-x86` (patcap.dll), the test
+server, then `python -I tools/reference.py record --reference <new folder>`; compare it with `compare --reference
+<new folder>` before it replaces the frozen one. A later change that needs a check of new behaviour adds a session
+of its own in a new set (recorded the same way) or a unit test, and leaves the frozen set as it is
+(notes/reconstruction.md, "The golden corpus").
 
 Both run their clients on the desktop of the session they are started in; to keep the user's input away from
 them, run them in a second session (notes/reconstruction.md, "Checking", "The live checks in a second session":
@@ -545,7 +566,8 @@ d. files: the files written and removed (byte for byte; Tibia.cfg, the *.map fil
    Patella.ini (the x64 client's own, issue #31) is listed, not compared.
 
 `--check-only` compares the results in --out again (any platform). Report: <out>\report.txt; exit code 0 when
-every session matches, 1 on a difference or a stale session, 2 when a run failed.
+every session matches, 1 on a difference, a stale session or a refused manifest (above, issue #93), 2 when a run
+failed.
 
 The live modes of the three tools still work (`python -I tools/compare_traffic.py` etc.): they compare two live
 clients against the server (since issue #92 the x64 client through its control channel, below). `record` and

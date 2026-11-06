@@ -217,8 +217,10 @@ python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R vlongtest
 
 In the Docker image (issue #91) build.py mounts the golden corpus read-only at `/golden` and sets PATELLA_GOLDEN_DIR
 there to it: the host's PATELLA_GOLDEN_DIR, else the repository's build\golden when it exists (`PATELLA_GOLDEN_DIR=none`:
-no corpus, golden is skipped as in hosted CI), and passes Windows' time zone as TZ (POSIX form, from
-GetTimeZoneInformation; TZ itself when set), since the corpus has the recording machine's local times:
+no corpus, golden is skipped as in hosted CI), and passes the time zone of the corpus's MANIFEST.tsv as TZ (issue #93:
+UTC0; the runner sets it itself too); without a manifest, Windows' zone as before (POSIX form, from
+GetTimeZoneInformation; TZ itself when set), for a corpus recorded before #93 in the machine's zone.
+PATELLA_GOLDEN_UNVERIFIED of the host goes in too:
 
 ```
 set PATELLA_GOLDEN_DIR=C:\Tibia\Patella-Modern\build\golden
@@ -938,6 +940,33 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     through cmake/RunGoldenRecord.cmake, in `build\oracle-x86\tmp\golden-<test>-<time>-<random>` (its TEMP, TMP and
     current directory), removed afterwards. Not cleaned: the fixed folders that runners before #66 left in %TEMP%
     (errortest, consolewindow, golden-data, tibia-difftest-cfg...), which no run uses any more.
+  - Frozen (issue #93, M6; notes/decisions.md, "The final oracle recording"): the corpus in use is the final
+    recording of issue #93, and it is never recorded again in this repository: #94 removes oracle-x86, and with it
+    difftest, sysinctest, communicationtest and the targets golden_corpus and golden_reproducible. The local copy is
+    the main checkout's `C:\Tibia\Patella-Modern\build\golden` (installed from `build\golden-final`); a worktree's
+    `build\golden` is a copy of it, or PATELLA_GOLDEN_DIR names it. Its `MANIFEST.tsv` (tools/data_manifest.py: the
+    format; every file's size and SHA-256, the commit, the tools, the date, the time zone) stays with it, local like
+    the corpus. golden_runner checks the corpus against it before it replays (golden::VerifyDataManifest): a missing
+    or mismatched manifest, or a TZ of the environment other than the manifest's zone, is refused with exit 1;
+    `--unverified` or `PATELLA_GOLDEN_UNVERIFIED=1` replays anyway, for local experiments only. The runner replays
+    in the manifest's zone (UTC0: golden_corpus records with TZ=UTC0, cmake/RunGoldenRecord.cmake, so Talk's and
+    Creatures' local times no longer depend on the recording machine). `python -I tools/data_manifest.py verify
+    --kind golden <dir>` checks a copy without replaying it.
+  - Regenerating it after #94: only from the oracle as it was, at this repository's tag `layout-frozen-final` (#94
+    creates it on the last commit with oracle-x86): check that tag out in a worktree of its own, copy Tibia.exe and the data files
+    (the SHA-256 of CLAUDE.md) into its root, run `golden_reproducible` and then `golden_corpus` as above, and compare
+    the new MANIFEST.tsv's file lines with the frozen one's (`python -I tools/data_manifest.py verify --kind golden`
+    on the old corpus with the new manifest copied in, or a diff of the two manifests' `file` lines): the same
+    commit's recording is byte for byte the same (issue #55). Never in the repository, never pushed or uploaded.
+  - A later change that needs new checks does not record the corpus again (it cannot, and a recording at another
+    commit would no longer be the oracle's): the ported tests stay as they are and replay the frozen corpus; new
+    behaviour is checked by unit tests (tests/unit, every preset), by the test mode's recordings against Tibia.exe
+    (tools/reference.py: a new session recorded from Tibia.exe in a reference set of its own; the record step needs
+    the 32-bit patcap.dll, which oracle-x86 builds: after #94 from the tag, unless #94 keeps a build of it), or by a
+    deliberate difference (tools/deliberate.py). A
+    change to a ported test's code under test that changes what the original's records mean is a stale corpus
+    (the runner stops with "the test changed since the recording"): the test is then retired with the oracle
+    (golden::RetiredBegin, runner.cpp's RetiredTests) with the user's decision, not recorded again.
   - Staleness: every file carries the format version (golden::GOLDEN_FORMAT) and the SHA-256 of the Tibia.exe it
     was recorded from, which must be the 7.72 client's; every value carries its name and role, and the
     runner checks each against what the test asks for, each input against the one it generated, and the test's
