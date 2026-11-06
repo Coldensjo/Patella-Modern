@@ -5,6 +5,12 @@
 // since Patella-Modern issue #74, decision D2.)
 //
 // Names are ours unless a comment says they come from the binary.
+//
+// Patella-Modern issue #105 (M7, notes/decisions.md, "#104: TClient and the subsystem objects" and "#105"): the
+// session (the connection state, the account, the character list, the rights) is TSession's, which TCommunication
+// owns (Communication.h); the free functions of the original's names are the bridge that the callers use until they
+// hold the object (bridge::Session(), defined in Client.cpp). The rest of the file's data is still its globals (TGUI's,
+// issue #107).
 
 #pragma once
 
@@ -12,7 +18,9 @@
 #include "compat/span.h"
 #include "types/FixedString.h"
 #include "Objects.h" // TObject
+#include <array>
 #include <cstddef>
+#include <memory>
 
 // "In(rightid,0,RIGHT_ANY-1)"; CheckRight treats RIGHT_ANY as "any right".
 inline constexpr int RIGHT_ANY = 50;
@@ -44,6 +52,87 @@ static_assert(sizeof(TCharacter) == 0x54 && offsetof(TCharacter, World) == 0x1e 
 		&& offsetof(TCharacter, IPAddress) == 0x40 && offsetof(TCharacter, Port) == 0x50,
 	"TCharacter's layout");
 
+namespace patella {
+
+// Status.cpp's session (issue #105): the globals 0x71c478-0x71c58b of the original are the members, in its order
+// with the same initial values (0, as the original's .bss), and the functions that read and write only them the
+// members of the same names. InitSession and ExitSession are InitStatus's and ExitStatus's part of them (not functions
+// of the original: InitStatus inlined ClearRights).
+class TSession {
+public:
+	TSession() = default;
+	TSession(const TSession &) = delete;
+	TSession &operator=(const TSession &) = delete;
+	TSession(TSession &&) = delete;
+	TSession &operator=(TSession &&) = delete;
+	~TSession() = default;
+
+	bool CheckAnyRight() const;
+	void ClearRights();
+	void SetConnectionState(int State);
+	int GetConnectionState() const;
+	void SetProgress(int Value);
+	int GetProgress() const;
+	int GetAccountNumber() const;
+	const char *GetAccountNumberString() const;
+	const char *GetAccountPassword() const;
+	void SetAccountCharacters(int Number);
+	void SetPremiumDays(int Days);
+	int GetAccountCharacters() const;
+	int GetPremiumDays() const;
+	int GetActiveCharacter() const;
+	bool GetGamemaster() const;
+	void SetRight(int rightid, int Value);
+	bool CheckRight(int rightid, int Bit) const;
+	void SetAccount(int Number, const char *Password);
+	void SetCharacter(int Number, const char *Name, const char *World, const uint8 *Address, int Port);
+	void SetActiveCharacter(int Number);
+	const char *GetCharacterName(int Number) const;
+	const char *GetCharacterWorld(int Number) const;
+	const char *GetCharacterIPAddress(int Number) const;
+	int GetCharacterPort(int Number) const;
+	void InitSession(bool Value);
+	void ExitSession();
+
+	// The test mode's views (ClientView.h's ViewConnectionState and ViewCharacters read through them).
+	const int *ViewConnectionState() const { return &ConnectionState; }
+	const TCharacter *ViewCharacters() const { return Characters.get(); }
+	const int *ViewAccountCharacters() const { return &AccountCharacters; }
+
+private:
+	// Data, in the original's .bss order.
+	std::array<int, RIGHT_ANY> Rights{};      // 0x71c478
+	bool Gamemaster{};                        // 0x71c540, sent in the game login packet
+	int PremiumDays{};                        // 0x71c544
+	int ActiveCharacter{};                    // 0x71c548
+	std::unique_ptr<TCharacter[]> Characters; // 0x71c54c (issue #58)
+
+public:
+	int AccountCharacters{}; // 0x71c550, name from an assertion; public: the golden Errors test sets it (TestErrorStatics)
+
+private:
+	TFixedString<30> AccountPassword{};     // 0x71c554
+	TFixedString<12> AccountNumberString{}; // 0x71c574
+	int AccountNumber{};                    // 0x71c580
+	int Progress{};                         // 0x71c584, -1 = none
+	int ConnectionState{};                  // 0x71c588, see SetConnectionState
+
+	// The arrays std::arrays and TFixedStrings (issue #60).
+	static_assert(sizeof(Rights) == RIGHT_ANY * sizeof(int) && sizeof(AccountPassword) == 30
+			&& sizeof(AccountNumberString) == 12,
+		"Status.cpp's arrays");
+};
+
+// The transition's access path (issue #105; notes/decisions.md, "#104: TClient and the subsystem objects"): the
+// session of the one TClient's TCommunication (Client.cpp). It goes when no free function needs it.
+namespace bridge {
+TSession &Session();
+} // namespace bridge
+
+} // namespace patella
+
+// The session's functions (issue #105): each calls TSession's member of the same name on bridge::Session(); the
+// others are Status.cpp's own.
 bool CheckAnyRight();
 void ClearRights();
 int GetActionNumber();

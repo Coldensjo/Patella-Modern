@@ -36,25 +36,15 @@ namespace {
 
 // Data, in .bss order. Status.obj's only .data, LinkPattern (0x5c2560), is
 // its copy of Status.h's.
-regexp *LinkRegexp;                          // 0x71c458, LinkPattern compiled
-char *TaintedClipboardText;                  // 0x71c45c, name from an assertion
-void (*LinkWarningEventHandler)();           // 0x71c460, from "linkwarningeventhandler!=NULL"
-bool BlinkState;                             // 0x71c464, toggled every 300 ms
-int BlinkTime;                               // 0x71c468
-int MouseOverTextY;                          // 0x71c46c
-int MouseOverTextX;                          // 0x71c470
-const char *MouseOverText;                   // 0x71c474
-std::array<int, RIGHT_ANY> Rights;           // 0x71c478
-bool Gamemaster;                             // 0x71c540, sent in the game login packet
-int PremiumDays;                             // 0x71c544
-int ActiveCharacter;                         // 0x71c548
-std::unique_ptr<TCharacter[]> Characters;    // 0x71c54c (issue #58)
-int AccountCharacters;                       // 0x71c550, name from an assertion
-TFixedString<30> AccountPassword;            // 0x71c554
-TFixedString<12> AccountNumberString;        // 0x71c574
-int AccountNumber;                           // 0x71c580
-int Progress;                                // 0x71c584, -1 = none
-int ConnectionState;                         // 0x71c588, see SetConnectionState
+regexp *LinkRegexp;                // 0x71c458, LinkPattern compiled
+char *TaintedClipboardText;        // 0x71c45c, name from an assertion
+void (*LinkWarningEventHandler)(); // 0x71c460, from "linkwarningeventhandler!=NULL"
+bool BlinkState;                   // 0x71c464, toggled every 300 ms
+int BlinkTime;                     // 0x71c468
+int MouseOverTextY;                // 0x71c46c
+int MouseOverTextX;                // 0x71c470
+const char *MouseOverText;         // 0x71c474
+// 0x71c478-0x71c58b, the session (Rights ... ConnectionState), is TSession's (Status.h, issue #105).
 int TradeInfo;                               // 0x71c58c
 int UseZ;                                    // 0x71c590
 int UseY;                                    // 0x71c594
@@ -90,14 +80,11 @@ TObject UseObject;                           // 0x71c63c, "SrcObj" in MapWindow.
 
 } // namespace
 
-// The arrays std::arrays and TFixedStrings (issue #60).
-static_assert(sizeof(Rights) == RIGHT_ANY * sizeof(int) && sizeof(AccountPassword) == 30 && sizeof(AccountNumberString) == 12,
-	"Status.cpp's arrays");
 
 // 0x4e6dc0. Inlined into CheckRight. Only the first 32 rights are checked
 // (the loop ends at 0x71c4f8), the ones GetRightName has names for; rights
 // 32-49 never count.
-bool CheckAnyRight()
+bool patella::TSession::CheckAnyRight() const
 {
 	for (int i = 0; i < 32; i++) {
 		if (Rights[i] != 0)
@@ -107,7 +94,7 @@ bool CheckAnyRight()
 }
 
 // 0x4e6de0. Inlined into InitStatus.
-void ClearRights()
+void patella::TSession::ClearRights()
 {
 	for (int i = 0; i < RIGHT_ANY; i++)
 		Rights[i] = 0;
@@ -323,49 +310,49 @@ int GetTradeInfo()
 // 0x4e71e0. 0 offline, 1 resolving the login server name, 2 connecting to a
 // login server, 4 talking to the login server, 5 connecting to the game
 // server; the game uses higher values (see ReceivePackets in Control.cpp).
-void SetConnectionState(int State)
+void patella::TSession::SetConnectionState(int State)
 {
 	ConnectionState = State;
 }
 
 // 0x4e71f0
-int GetConnectionState()
+int patella::TSession::GetConnectionState() const
 {
 	return ConnectionState;
 }
 
 // 0x4e7200. Download progress in percent, -1 when there is none.
-void SetProgress(int Progress)
+void patella::TSession::SetProgress(int Value)
 {
-	::Progress = Progress;
+	Progress = Value;
 }
 
 // 0x4e7210
-int GetProgress()
+int patella::TSession::GetProgress() const
 {
 	return Progress;
 }
 
 // 0x4e7220
-int GetAccountNumber()
+int patella::TSession::GetAccountNumber() const
 {
 	return AccountNumber;
 }
 
 // 0x4e7230
-const char *GetAccountNumberString()
+const char *patella::TSession::GetAccountNumberString() const
 {
 	return AccountNumberString;
 }
 
 // 0x4e7240
-const char *GetAccountPassword()
+const char *patella::TSession::GetAccountPassword() const
 {
 	return AccountPassword;
 }
 
 // 0x4e7250. Replaces the character list with Number empty entries.
-void SetAccountCharacters(int Number)
+void patella::TSession::SetAccountCharacters(int Number)
 {
 	AccountCharacters = Number;
 	if (Characters != nullptr)
@@ -376,31 +363,31 @@ void SetAccountCharacters(int Number)
 }
 
 // 0x4e7290
-void SetPremiumDays(int Days)
+void patella::TSession::SetPremiumDays(int Days)
 {
 	PremiumDays = Days;
 }
 
 // 0x4e72a0
-int GetAccountCharacters()
+int patella::TSession::GetAccountCharacters() const
 {
 	return AccountCharacters;
 }
 
 // 0x4e72b0
-int GetPremiumDays()
+int patella::TSession::GetPremiumDays() const
 {
 	return PremiumDays;
 }
 
 // 0x4e72c0
-int GetActiveCharacter()
+int patella::TSession::GetActiveCharacter() const
 {
 	return ActiveCharacter;
 }
 
 // 0x4e72d0
-bool GetGamemaster()
+bool patella::TSession::GetGamemaster() const
 {
 	return Gamemaster;
 }
@@ -533,9 +520,7 @@ void ClearMessages()
 // reports first (gone since issue #74).
 void ExitStatus()
 {
-	if (Characters != nullptr)
-		Characters.reset();
-	Characters = nullptr;
+	patella::bridge::Session().ExitSession(); // the character list (issue #105)
 	if (TaintedClipboardText != nullptr)
 		delete[] TaintedClipboardText;
 	if (LinkRegexp != nullptr)
@@ -543,7 +528,7 @@ void ExitStatus()
 }
 
 // 0x4e8580, line 91
-void SetRight(int rightid, int Value)
+void patella::TSession::SetRight(int rightid, int Value)
 {
 	PATELLA_ASSERT_VALUES(In(rightid,0,RIGHT_ANY-1), rightid);
 	Rights[rightid] = Value;
@@ -551,7 +536,7 @@ void SetRight(int rightid, int Value)
 
 // 0x4e86e0, line 100. Bit -1 asks for any bit. The RIGHT_ANY branch cannot
 // be reached after the assertion; it is in the binary.
-bool CheckRight(int rightid, int Bit)
+bool patella::TSession::CheckRight(int rightid, int Bit) const
 {
 	PATELLA_ASSERT_VALUES(In(rightid,0,RIGHT_ANY-1), rightid);
 	if (rightid == RIGHT_ANY)
@@ -648,7 +633,7 @@ void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
 }
 
 // 0x4e93d0, lines 621-622
-void SetAccount(int Number, const char *Password)
+void patella::TSession::SetAccount(int Number, const char *Password)
 {
 	PATELLA_ASSERT(Password!=NULL);
 	PATELLA_ASSERT_VALUES(strlen(Password)<30, strlen(Password));
@@ -659,7 +644,7 @@ void SetAccount(int Number, const char *Password)
 }
 
 // 0x4e96d0, lines 669-673. Address is the IPv4 address in network order.
-void SetCharacter(int Number, const char *Name, const char *World, const uint8 *Address, int Port)
+void patella::TSession::SetCharacter(int Number, const char *Name, const char *World, const uint8 *Address, int Port)
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	PATELLA_ASSERT(Name!=NULL);
@@ -677,35 +662,35 @@ void SetCharacter(int Number, const char *Name, const char *World, const uint8 *
 }
 
 // 0x4e9c50, line 696
-void SetActiveCharacter(int Number)
+void patella::TSession::SetActiveCharacter(int Number)
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	ActiveCharacter = Number;
 }
 
 // 0x4e9db0, line 713
-const char *GetCharacterName(int Number)
+const char *patella::TSession::GetCharacterName(int Number) const
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	return Characters[Number].Name;
 }
 
 // 0x4e9f20, line 722
-const char *GetCharacterWorld(int Number)
+const char *patella::TSession::GetCharacterWorld(int Number) const
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	return Characters[Number].World;
 }
 
 // 0x4ea090, line 740
-const char *GetCharacterIPAddress(int Number)
+const char *patella::TSession::GetCharacterIPAddress(int Number) const
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	return Characters[Number].IPAddress;
 }
 
 // 0x4ea200, line 749
-int GetCharacterPort(int Number)
+int patella::TSession::GetCharacterPort(int Number) const
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	return Characters[Number].Port;
@@ -759,8 +744,7 @@ void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 	TaintedClipboardText = nullptr;
 	LinkRegexp = nullptr;
 	LinkRegexp = regcomp(const_cast<char *>(LinkPattern));
-	::Gamemaster = Gamemaster;
-	ClearRights();
+	patella::bridge::Session().InitSession(Gamemaster); // the session's part (issue #105), in its order below
 	NumberOfMessages = 0;
 	ActionNumber = 0;
 	DraggedObject.Type = 0;
@@ -773,6 +757,18 @@ void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 	UseObject.Data = 0;
 	UseObject.Data2 = 0;
 	TradeInfo = 0;
+	ActionState = 0;
+	MouseOverText = nullptr;
+	PendingActionState = 0;
+	PendingActionNumber = 0;
+}
+
+// InitStatus's part (0x4ea860, issue #105): the session's members in the order InitStatus wrote them (Gamemaster and
+// the rights first, ClearRights inlined there; the rest after its other data).
+void patella::TSession::InitSession(bool Value)
+{
+	Gamemaster = Value;
+	ClearRights();
 	ConnectionState = 0;
 	AccountNumber = 0;
 	AccountPassword[0] = 0;
@@ -780,11 +776,15 @@ void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 	Characters = nullptr;
 	PremiumDays = 0;
 	ActiveCharacter = 0;
-	ActionState = 0;
-	MouseOverText = nullptr;
-	PendingActionState = 0;
-	PendingActionNumber = 0;
 	Progress = -1;
+}
+
+// ExitStatus's part (0x4e7f00, issue #105): the character list, freed first.
+void patella::TSession::ExitSession()
+{
+	if (Characters != nullptr)
+		Characters.reset();
+	Characters = nullptr;
 }
 
 #if defined(PATELLA_TEST_MODE)
@@ -792,13 +792,136 @@ void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 // nothing. Test build only.
 const int *patella::testmode::ViewConnectionState()
 {
-	return &ConnectionState;
+	return patella::bridge::Session().ViewConnectionState();
 }
 
 // The character list (issue #92: the control channel's probe, tools/client_state.py's characters()).
 void patella::testmode::ViewCharacters(TCharactersView *View)
 {
-	View->Characters = Characters.get();
-	View->Count = &AccountCharacters;
+	const patella::TSession &Session = patella::bridge::Session();
+	View->Characters = Session.ViewCharacters();
+	View->Count = Session.ViewAccountCharacters();
 }
 #endif
+
+// The session's functions of the original (issue #105): each calls its member on the one TClient's TSession.
+
+bool CheckAnyRight()
+{
+	return patella::bridge::Session().CheckAnyRight();
+}
+
+void ClearRights()
+{
+	patella::bridge::Session().ClearRights();
+}
+
+void SetConnectionState(int State)
+{
+	patella::bridge::Session().SetConnectionState(State);
+}
+
+int GetConnectionState()
+{
+	return patella::bridge::Session().GetConnectionState();
+}
+
+void SetProgress(int Progress)
+{
+	patella::bridge::Session().SetProgress(Progress);
+}
+
+int GetProgress()
+{
+	return patella::bridge::Session().GetProgress();
+}
+
+int GetAccountNumber()
+{
+	return patella::bridge::Session().GetAccountNumber();
+}
+
+const char *GetAccountNumberString()
+{
+	return patella::bridge::Session().GetAccountNumberString();
+}
+
+const char *GetAccountPassword()
+{
+	return patella::bridge::Session().GetAccountPassword();
+}
+
+void SetAccountCharacters(int Number)
+{
+	patella::bridge::Session().SetAccountCharacters(Number);
+}
+
+void SetPremiumDays(int Days)
+{
+	patella::bridge::Session().SetPremiumDays(Days);
+}
+
+int GetAccountCharacters()
+{
+	return patella::bridge::Session().GetAccountCharacters();
+}
+
+int GetPremiumDays()
+{
+	return patella::bridge::Session().GetPremiumDays();
+}
+
+int GetActiveCharacter()
+{
+	return patella::bridge::Session().GetActiveCharacter();
+}
+
+bool GetGamemaster()
+{
+	return patella::bridge::Session().GetGamemaster();
+}
+
+void SetRight(int rightid, int Value)
+{
+	patella::bridge::Session().SetRight(rightid, Value);
+}
+
+bool CheckRight(int rightid, int Bit)
+{
+	return patella::bridge::Session().CheckRight(rightid, Bit);
+}
+
+void SetAccount(int Number, const char *Password)
+{
+	patella::bridge::Session().SetAccount(Number, Password);
+}
+
+void SetCharacter(int Number, const char *Name, const char *World, const uint8 *Address, int Port)
+{
+	patella::bridge::Session().SetCharacter(Number, Name, World, Address, Port);
+}
+
+void SetActiveCharacter(int Number)
+{
+	patella::bridge::Session().SetActiveCharacter(Number);
+}
+
+const char *GetCharacterName(int Number)
+{
+	return patella::bridge::Session().GetCharacterName(Number);
+}
+
+const char *GetCharacterWorld(int Number)
+{
+	return patella::bridge::Session().GetCharacterWorld(Number);
+}
+
+const char *GetCharacterIPAddress(int Number)
+{
+	return patella::bridge::Session().GetCharacterIPAddress(Number);
+}
+
+int GetCharacterPort(int Number)
+{
+	return patella::bridge::Session().GetCharacterPort(Number);
+}

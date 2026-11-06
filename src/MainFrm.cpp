@@ -36,8 +36,8 @@
 #include <cstring>
 
 // Data, in .bss order.
-std::array<uint8, 16> PacketHeader; // 0x5d1644, written by Network.cpp
-CMainFrame *MainFrame;              // 0x5d1654
+// 0x5d1644, PacketHeader, is TNetwork's (Network.h, issue #105).
+CMainFrame *MainFrame; // 0x5d1654
 
 namespace {
 
@@ -67,7 +67,7 @@ int WheelDelta;             // 0x5d169c, the remainder below one notch (120)
 
 // The arrays std::arrays and TFixedStrings (issue #60). CMainFrame derives from MFC's CFrameWnd, whose size is
 // the MFC's or the shim's (the golden tests): KeyStates' place among CMainFrame's own members.
-static_assert(sizeof(PacketHeader) == 16 && sizeof(ClassName) == 32, "PacketHeader and ClassName");
+static_assert(sizeof(ClassName) == 32, "ClassName");
 // 0x4a8200. The handlers that share an address in the table (OnKeyDown
 // and OnSysKeyDown, OnKeyUp and OnSysKeyUp) have identical code that the
 // linker folded.
@@ -145,7 +145,7 @@ CMainFrame::CMainFrame(bool Gamemaster)
 	MainFrame = this;
 	KeyFlags = 0;
 	memset(KeyStates.data(), 0, sizeof(KeyStates));
-	memset(PacketHeader.data(), 0, sizeof(PacketHeader));
+	memset(patella::bridge::Network().PacketHeader.data(), 0, sizeof(patella::bridge::Network().PacketHeader));
 	ArrowCursor = LoadCursorA(nullptr, IDC_ARROW);
 	SizeCursor = LoadCursorA(nullptr, IDC_SIZENS);
 	WaitCursor = LoadCursorA(nullptr, IDC_WAIT);

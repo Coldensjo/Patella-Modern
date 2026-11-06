@@ -94,6 +94,7 @@ void LogDiagnostics() noexcept
 	}
 	try {
 		bool Any = false;
+		const auto &PacketHeader = patella::bridge::Network().PacketHeader;
 		for (const uint8 Byte : PacketHeader)
 			Any = Any || Byte != 0;
 		if (Any)

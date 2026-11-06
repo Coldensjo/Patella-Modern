@@ -14,11 +14,9 @@
 //   encrypted:   [u16 total][XTEA([u16 length][payload][random padding to 8])]
 
 #include "Network.h"
-#include "MainFrm.h"
 #include "Utils.h"
 #include "TXTEA.h"
 #include "Preferences.h"
-#include "Status.h"
 #include "common.h"
 #include "compat/span.h"
 #include "types/FixedString.h"
@@ -28,52 +26,28 @@
 #include <cstdlib>
 #include <cstring>
 
+// The socket of a TNetwork (issue #105: the events call the TNetwork that made it, where they read Network.cpp's
+// globals).
 class TSocket : public CAsyncSocket {
 public:
-	void OnReceive(int ErrorCode) override;
+	explicit TSocket(patella::TNetwork &Owner) : Network(Owner) {}
+	void OnReceive(int ErrorCode) override { Network.OnReceive(*this, ErrorCode); }
 	void OnSend(int /*ErrorCode*/) override {} // 0x4eac00, an empty function shared by several vtables
-	void OnConnect(int ErrorCode) override;
-	void OnClose(int ErrorCode) override;
+	void OnConnect(int ErrorCode) override { Network.OnConnect(ErrorCode); }
+	void OnClose(int /*ErrorCode*/) override { Network.OnClose(); }
+
+private:
+	patella::TNetwork &Network;
 };
 
-namespace {
+// The data is TNetwork's (Network.h, issue #105), in the original's order with its addresses.
 
-// Data, in .data/.bss order.
-int HostnameResolveBufferSize = MAXGETHOSTSTRUCT; // 0x5c22c4, initialised to 0x400
-int CurrentServer;                                // 0x7152f0
-TServer TestServer;                               // 0x7152f8
-std::array<TServer, NUMBEROFSERVER> Servers;      // 0x715368
-HANDLE HostnameRequest;                           // 0x715528
-char *HostnameResolveBuffer;                      // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
-int ReceiveDataSize;                              // 0x715530, bytes in ReceiveData
-int ReceivePacketEnd;                             // 0x715534, end of the complete packets
-int ReceiveRead;                                  // 0x715538, start of the next unread packet
-
-// Without AddressSanitizer's redzones (issue #70): a packet whose inner length is larger than the data read
-// makes TReadBuffer read on past ReceiveData, into SendData and the globals after it, as in the original.
-PATELLA_NO_SANITIZE_ADDRESS PATELLA_IN_DEFINITION_ORDER std::array<uint8, 0x4000> ReceiveData; // 0x715540
-PATELLA_NO_SANITIZE_ADDRESS PATELLA_IN_DEFINITION_ORDER std::array<uint8, 0x800> SendData;     // 0x719540
-
-HWND NetworkWindow;                                 // 0x719d40, receives WM_USER+1 when a name is resolved
-void (*CloseCallback)();                            // 0x719d44
-void (*ReceiveCallback)();                          // 0x719d48
-void (*ConnectCallback)();                          // 0x719d4c
-TSocket *Socket;                                    // 0x719d50
-int TimeoutCounter;                                 // 0x719d54
-int TimeoutLimit;                                   // 0x719d58, in CheckConnectionTimeout calls
-TWriteBuffer SendBuffer(SendData);                  // 0x719d5c, initialiser at 0x559fd0
-TReadBuffer ReceiveBuffer({ReceiveData.data(), 0}); // 0x719d68, initialiser at 0x559ff0
-TXTEA SymmetricKey;                                 // 0x719d74, initialiser at 0x55a010
-int RecursionProtection;                            // 0x719d88
-
-} // namespace
-
-// The arrays std::arrays (issue #60).
-static_assert(sizeof(Servers) == NUMBEROFSERVER * sizeof(TServer) && sizeof(ReceiveData) == 0x4000 && sizeof(SendData) == 0x800,
-	"Network.cpp's arrays");
+patella::TNetwork::TNetwork(TPreferences &PreferencesRef, TNetworkSession &SessionRef) : Preferences(PreferencesRef), Session(SessionRef)
+{
+}
 
 // 0x4ca0e0
-void InitServerList()
+void patella::TNetwork::InitServerList()
 {
 	memset(Servers.data(), 0, sizeof(Servers));
 	Servers[0].Address.Assign("server.tibia.com");
@@ -91,13 +65,13 @@ void InitServerList()
 }
 
 // 0x4ca260
-void SetTestServerPort(int Port)
+void patella::TNetwork::SetTestServerPort(int Port)
 {
 	TestServer.Port = Port;
 }
 
 // 0x4ca270
-void ResetServerAvailability()
+void patella::TNetwork::ResetServerAvailability()
 {
 	for (int i = 0; i < NUMBEROFSERVER; i++)
 		Servers[i].Available = true;
@@ -105,7 +79,7 @@ void ResetServerAvailability()
 }
 
 // 0x4ca290
-void SetConnectionTimeout(int Timeout)
+void patella::TNetwork::SetConnectionTimeout(int Timeout)
 {
 	TimeoutCounter = 0;
 	TimeoutLimit = 0;
@@ -114,13 +88,13 @@ void SetConnectionTimeout(int Timeout)
 }
 
 // 0x4ca2b0
-void SetNetworkWindow(HWND Window)
+void patella::TNetwork::SetNetworkWindow(HWND Window)
 {
 	NetworkWindow = Window;
 }
 
 // 0x4ca450, lines 132-133
-void SetTestServerAddress(const char *Address)
+void patella::TNetwork::SetTestServerAddress(const char *Address)
 {
 	PATELLA_ASSERT(Address!=NULL);
 	PATELLA_ASSERT_VALUES(strlen(Address)<100, strlen(Address));
@@ -128,10 +102,10 @@ void SetTestServerAddress(const char *Address)
 }
 
 // 0x4ca730, lines 152-164
-void SetServerError(int errorcode)
+void patella::TNetwork::SetServerError(int errorcode)
 {
 	PATELLA_ASSERT_VALUES(CurrentServer<NUMBEROFSERVER, CurrentServer);
-	if (GetTestServerLogin()) {
+	if (Preferences.GetTestServerLogin()) {
 		TestServer.Available = false;
 		TestServer.ErrorCode = errorcode;
 		return;
@@ -141,12 +115,12 @@ void SetServerError(int errorcode)
 }
 
 // 0x4ca9f0, lines 182-184
-void SetServerIPAddress(const char *ipaddress)
+void patella::TNetwork::SetServerIPAddress(const char *ipaddress)
 {
 	PATELLA_ASSERT_VALUES(CurrentServer<NUMBEROFSERVER, CurrentServer);
 	PATELLA_ASSERT(ipaddress!=NULL);
 	PATELLA_ASSERT_VALUES(strlen(ipaddress)<100, strlen(ipaddress));
-	if (GetTestServerLogin()) {
+	if (Preferences.GetTestServerLogin()) {
 		TestServer.Address.Assign(ipaddress);
 		TestServer.Resolved = true;
 		return;
@@ -156,10 +130,10 @@ void SetServerIPAddress(const char *ipaddress)
 }
 
 // 0x4cadb0, lines 202-233. Stores the server to try next; false when none is left.
-bool GetCurrentServer(TServer **Server)
+bool patella::TNetwork::GetCurrentServer(TServer **Server)
 {
 	PATELLA_ASSERT_VALUES(CurrentServer<NUMBEROFSERVER, CurrentServer);
-	if (GetTestServerLogin()) {
+	if (Preferences.GetTestServerLogin()) {
 		*Server = &TestServer;
 		const bool Available = TestServer.Available;
 		for (int i = 0; i < NUMBEROFSERVER; i++)
@@ -181,9 +155,9 @@ bool GetCurrentServer(TServer **Server)
 }
 
 // 0x4cb0d0, line 255
-int GetServerErrorCode()
+int patella::TNetwork::GetServerErrorCode()
 {
-	if (GetTestServerLogin())
+	if (Preferences.GetTestServerLogin())
 		return TestServer.ErrorCode;
 	for (int i = 0; i < NUMBEROFSERVER; i++) {
 		if (Servers[i].ErrorCode == ERROR_LOGINSERVER_OVERLOADED)
@@ -195,7 +169,7 @@ int GetServerErrorCode()
 }
 
 // 0x4cb2a0, lines 268-275. Reserves the 4 header bytes that SendCommand fills in.
-void BeginCommand(int CommandType)
+void patella::TNetwork::BeginCommand(int CommandType)
 {
 	PATELLA_ASSERT_VALUES(In(CommandType,0,255), CommandType);
 	SendBuffer.Position = 0;
@@ -205,32 +179,32 @@ void BeginCommand(int CommandType)
 }
 
 // 0x4cb540, line 286
-void SendByte(uint8 Data)
+void patella::TNetwork::SendByte(uint8 Data)
 {
 	SendBuffer.PutByte(Data);
 }
 
 // 0x4cb6e0, line 297
-void SendWord(uint16 Data)
+void patella::TNetwork::SendWord(uint16 Data)
 {
 	SendBuffer.PutWord(Data);
 }
 
 // 0x4cb880, line 308
-void SendQuad(uint32 Data)
+void patella::TNetwork::SendQuad(uint32 Data)
 {
 	SendBuffer.PutQuad(Data);
 }
 
 // 0x4cba20, lines 316-320
-void SendString(const char *Text)
+void patella::TNetwork::SendString(const char *Text)
 {
 	PATELLA_ASSERT(Text!=NULL);
 	SendBuffer.PutString(Text);
 }
 
 // 0x4cbca0, line 328. Buffer is the span's pointer, the name of the assertion's text (issue #59).
-void SendBytes(patella::TSpan<const uint8> Bytes)
+void patella::TNetwork::SendBytes(patella::TSpan<const uint8> Bytes)
 {
 	const uint8 *const Buffer = Bytes.data();
 	PATELLA_ASSERT(Buffer!=NULL);
@@ -238,7 +212,7 @@ void SendBytes(patella::TSpan<const uint8> Bytes)
 }
 
 // 0x4cbe00, lines 355-367
-void SendCommand(bool Encrypt)
+void patella::TNetwork::SendCommand(bool Encrypt)
 {
 	if (Socket == nullptr)
 		return;
@@ -271,7 +245,7 @@ void SendCommand(bool Encrypt)
 
 // 0x4cc130, lines 391-410. Drops the packet already read, then decrypts the next
 // complete packet in place and points ReceiveBuffer at its payload.
-void PrepareNextPacket()
+void patella::TNetwork::PrepareNextPacket()
 {
 	if (ReceiveRead > 0) {
 		if (ReceiveRead < ReceiveDataSize)
@@ -301,7 +275,7 @@ void PrepareNextPacket()
 }
 
 // 0x4cc550, line 423. Returns the next command byte, or -1 when no packet is complete.
-int GetNextCommand()
+int patella::TNetwork::GetNextCommand()
 {
 	if (ReceiveBuffer.Position == ReceiveBuffer.Size) {
 		PrepareNextPacket();
@@ -312,26 +286,26 @@ int GetNextCommand()
 }
 
 // 0x4cc720, line 434
-uint8 GetByte()
+uint8 patella::TNetwork::GetByte()
 {
 	return ReceiveBuffer.GetByte();
 }
 
 // 0x4cc8b0, line 445
-uint16 GetWord()
+uint16 patella::TNetwork::GetWord()
 {
 	return ReceiveBuffer.GetWord();
 }
 
 // 0x4cca40, line 456
-uint32 GetQuad()
+uint32 patella::TNetwork::GetQuad()
 {
 	return ReceiveBuffer.GetQuad();
 }
 
 // 0x4ccbd0, lines 466-470. Buffer and MaxLength are the span's pointer and size, the names of the macros' text
 // (issue #59; TReadBuffer::GetString); MaxLength only the original's catch wrapper named (issue #78).
-void GetString(patella::TSpan<char> Text)
+void patella::TNetwork::GetString(patella::TSpan<char> Text)
 {
 	const char *const Buffer = Text.data();
 	[[maybe_unused]] const int MaxLength = static_cast<int>(Text.size());
@@ -340,32 +314,32 @@ void GetString(patella::TSpan<char> Text)
 }
 
 // 0x4cce50, line 482. The caller owns the returned string.
-char *GetString()
+char *patella::TNetwork::GetString()
 {
 	return ReceiveBuffer.GetString();
 }
 
 // 0x4ccfe0, line 493
-void GetBytes(patella::TSpan<uint8> Bytes)
+void patella::TNetwork::GetBytes(patella::TSpan<uint8> Bytes)
 {
 	ReceiveBuffer.GetBytes(Bytes);
 }
 
 // 0x4cf850, line 518. Called periodically; reconnects when the limit is passed.
-void CheckConnectionTimeout()
+void patella::TNetwork::CheckConnectionTimeout()
 {
 	if (TimeoutLimit != 0 && ++TimeoutCounter > TimeoutLimit) {
 		TimeoutLimit = 0;
 		TimeoutCounter = 0;
 		SetServerError(WSAETIMEDOUT);
 		Disconnect(false);
-		SetConnectionState(0);
+		Session.SetConnectionState(0);
 		ConnectToLoginServer();
 	}
 }
 
 // 0x4cd180, lines 544-602. ErrorType 1 is the login server, 2 the game server.
-void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int ErrorCode, int ErrorType)
+void patella::TNetwork::GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int ErrorCode, int ErrorType)
 {
 	char *const Message = MessageBuffer.data();
 	PATELLA_ASSERT(Message!=NULL);
@@ -416,7 +390,7 @@ void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int
 		break;
 	}
 
-	if (GetTestServerLogin()) {
+	if (Preferences.GetTestServerLogin()) {
 		Out.Append("Cannot connect to the test server.\n\nError: ");
 		Out.Append(Text);
 		if (Offline) {
@@ -451,7 +425,7 @@ void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int
 
 // 0x4cd9a0, lines 611-625. Starts an asynchronous lookup; NetworkWindow gets
 // WM_USER+1 when it completes.
-bool ResolveHostname(const char *Hostname)
+bool patella::TNetwork::ResolveHostname(const char *Hostname)
 {
 	PATELLA_ASSERT(Hostname!=NULL);
 	HostnameRequest = WSAAsyncGetHostByName(NetworkWindow, WM_USER + 1, Hostname,
@@ -459,8 +433,8 @@ bool ResolveHostname(const char *Hostname)
 	if (HostnameRequest == nullptr) {
 		char *Message = new char[1024];
 		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), WSAGetLastError(), 1);
-		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
-		SetConnectionState(0);
+		Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+		Session.SetConnectionState(0);
 		return false;
 	}
 	TimeoutCounter = 0;
@@ -469,30 +443,30 @@ bool ResolveHostname(const char *Hostname)
 }
 
 // 0x4cdca0, lines 634-640
-const char *GetResolvedIPAddress()
+const char *patella::TNetwork::GetResolvedIPAddress() const
 {
 	PATELLA_ASSERT(HostnameResolveBuffer!=NULL);
 	return inet_ntoa(*reinterpret_cast<in_addr *>(reinterpret_cast<HOSTENT *>(HostnameResolveBuffer)->h_addr_list[0]));
 }
 
 // 0x4cee30, line 661. Returns 0 or a WinSock error code.
-int CreateSocket()
+int patella::TNetwork::CreateSocket()
 {
 	if (Socket != nullptr)
 		Disconnect(false);
-	Socket = new TSocket;
+	Socket = new TSocket(*this);
 	if (!Socket->Create(0, SOCK_STREAM, FD_READ | FD_WRITE | FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE, nullptr)) {
 		const int Error = WSAGetLastError();
 		delete Socket;
 		Socket = nullptr;
-		SetConnectionState(0);
+		Session.SetConnectionState(0);
 		return Error;
 	}
 	return 0;
 }
 
 // 0x4cdf20, lines 671-687. Returns 0 or a WinSock error code.
-int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
+int patella::TNetwork::ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
 {
 	PATELLA_ASSERT(IPAddress!=NULL);
 	if (!Socket->Connect(IPAddress, Port)) {
@@ -500,7 +474,7 @@ int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
 			const int Error = WSAGetLastError();
 			delete Socket;
 			Socket = nullptr;
-			SetConnectionState(0);
+			Session.SetConnectionState(0);
 			return Error;
 		}
 	}
@@ -515,7 +489,7 @@ int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
 }
 
 // 0x4ce210, line 698
-void SetSymmetricKey(const uint8 *Key)
+void patella::TNetwork::SetSymmetricKey(const uint8 *Key)
 {
 	try {
 		SymmetricKey.SetKey(TXTEA::TKey(Key, 16));
@@ -525,9 +499,9 @@ void SetSymmetricKey(const uint8 *Key)
 }
 
 // 0x4ce300, line 727
-void Disconnect(bool force)
+void patella::TNetwork::Disconnect(bool force)
 {
-	if (force || GetConnectionState() == 1) {
+	if (force || Session.GetConnectionState() == 1) {
 		WSACancelAsyncRequest(HostnameRequest);
 		HostnameRequest = nullptr;
 	}
@@ -551,7 +525,7 @@ void Disconnect(bool force)
 
 // 0x4cf050, lines 739-773. Tries the current login server and moves on to the
 // next one on failure; recursion is bounded by the number of servers.
-void ConnectToLoginServer()
+void patella::TNetwork::ConnectToLoginServer()
 {
 	RecursionProtection++;
 	PATELLA_ASSERT_VALUES(RecursionProtection<=NUMBEROFSERVER+1, RecursionProtection);
@@ -559,15 +533,15 @@ void ConnectToLoginServer()
 	if (!GetCurrentServer(&Server)) {
 		char *Message = new char[1024];
 		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), GetServerErrorCode(), 1);
-		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+		Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 		for (int i = 0; i < NUMBEROFSERVER; i++)
 			Servers[i].Available = true;
 		TestServer.Available = true;
 	} else if (!Server->Resolved) {
-		SetConnectionState(1);
+		Session.SetConnectionState(1);
 		ResolveHostname(Server->Address);
 	} else {
-		SetConnectionState(2);
+		Session.SetConnectionState(2);
 		int Error = CreateSocket();
 		if (Error == 0) {
 			Error = ConnectSocket(Server->Address, Server->Port, true);
@@ -583,30 +557,30 @@ void ConnectToLoginServer()
 }
 
 // 0x4cf390, line 802
-void ConnectToGameServer()
+void patella::TNetwork::ConnectToGameServer()
 {
-	SetConnectionState(5);
-	const int Character = GetActiveCharacter();
-	const char *IPAddress = GetCharacterIPAddress(Character);
-	GetCharacterPort(Character); // result unused in the binary
+	Session.SetConnectionState(5);
+	const int Character = Session.GetActiveCharacter();
+	const char *IPAddress = Session.GetCharacterIPAddress(Character);
+	Session.GetCharacterPort(Character); // result unused in the binary
 	int Error = CreateSocket();
 	if (Error != 0) {
 		char *Message = new char[1024];
 		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), Error, 2);
-		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
-		AddMessage(10, 300, 0);
+		Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+		Session.AddMessage(10, 300, 0);
 	}
-	Error = ConnectSocket(IPAddress, GetCharacterPort(Character), false);
+	Error = ConnectSocket(IPAddress, Session.GetCharacterPort(Character), false);
 	if (Error != 0) {
 		char *Message = new char[1024];
 		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), Error, 2);
-		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
-		AddMessage(10, 300, 0);
+		Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+		Session.AddMessage(10, 300, 0);
 	}
 }
 
 // 0x4cf5e0, line 835. vtable 0x56d388 +0x2c.
-void TSocket::OnConnect(int ErrorCode)
+void patella::TNetwork::OnConnect(int ErrorCode)
 {
 	TimeoutLimit = 0;
 	TimeoutCounter = 0;
@@ -617,30 +591,30 @@ void TSocket::OnConnect(int ErrorCode)
 		TestServer.Available = true;
 		return;
 	}
-	if (GetConnectionState() == 2) {
+	if (Session.GetConnectionState() == 2) {
 		// A login server refused: try the next one.
 		TimeoutLimit = 0;
 		TimeoutCounter = 0;
-		SetConnectionState(0);
+		Session.SetConnectionState(0);
 		SetServerError(ErrorCode);
 		ConnectToLoginServer();
 		return;
 	}
 	char *Message = new char[1024];
 	GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), ErrorCode, 2);
-	AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
-	AddMessage(10, 300, 0);
+	Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+	Session.AddMessage(10, 300, 0);
 	Disconnect(false);
-	SetConnectionState(0);
+	Session.SetConnectionState(0);
 }
 
 // 0x4ce530, line 885. vtable +0x1c. Appends received bytes and calls the
 // receive handler once at least one complete packet is buffered.
-void TSocket::OnReceive(int ErrorCode)
+void patella::TNetwork::OnReceive(TSocket &Receiver, int ErrorCode)
 {
 	if (ErrorCode != 0)
 		return;
-	const int Count = Receive(&ReceiveData[ReceiveDataSize], sizeof(ReceiveData) - ReceiveDataSize, 0);
+	const int Count = Receiver.Receive(&ReceiveData[ReceiveDataSize], sizeof(ReceiveData) - ReceiveDataSize, 0);
 	if (Count == 0 || Count == SOCKET_ERROR)
 		return;
 	ReceiveDataSize += Count;
@@ -658,21 +632,21 @@ void TSocket::OnReceive(int ErrorCode)
 }
 
 // 0x4ce750, line 897. vtable +0x30.
-void TSocket::OnClose(int /*ErrorCode*/)
+void patella::TNetwork::OnClose()
 {
 	Disconnect(false);
 	CloseCallback();
 }
 
 // 0x4ce8f0
-void ShutdownConnection()
+void patella::TNetwork::ShutdownConnection() const
 {
 	if (Socket != nullptr)
 		shutdown(Socket->m_hSocket, SD_BOTH);
 }
 
 // 0x4ce930, lines 932-934
-void InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*CloseHandler)())
+void patella::TNetwork::InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*CloseHandler)())
 {
 	if (!AfxSocketInit(nullptr))
 		throw TProgramError{PROGRAM_ERROR::SOCKET_INIT};
@@ -692,11 +666,203 @@ void InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*Clos
 }
 
 // 0x4cec70, line 961
-void ExitNetwork()
+void patella::TNetwork::ExitNetwork()
 {
 	delete Socket;
 	Socket = nullptr;
 	if (HostnameResolveBuffer != nullptr)
 		free(HostnameResolveBuffer);
 	HostnameResolveBuffer = nullptr;
+}
+
+// The original's functions (issue #105): each calls its member on the one TClient's TNetwork.
+
+void InitServerList()
+{
+	patella::bridge::Network().InitServerList();
+}
+
+void SetTestServerPort(int Port)
+{
+	patella::bridge::Network().SetTestServerPort(Port);
+}
+
+void ResetServerAvailability()
+{
+	patella::bridge::Network().ResetServerAvailability();
+}
+
+void SetConnectionTimeout(int Timeout)
+{
+	patella::bridge::Network().SetConnectionTimeout(Timeout);
+}
+
+void SetNetworkWindow(HWND Window)
+{
+	patella::bridge::Network().SetNetworkWindow(Window);
+}
+
+void SetTestServerAddress(const char *Address)
+{
+	patella::bridge::Network().SetTestServerAddress(Address);
+}
+
+void SetServerError(int errorcode)
+{
+	patella::bridge::Network().SetServerError(errorcode);
+}
+
+void SetServerIPAddress(const char *ipaddress)
+{
+	patella::bridge::Network().SetServerIPAddress(ipaddress);
+}
+
+bool GetCurrentServer(TServer **Server)
+{
+	return patella::bridge::Network().GetCurrentServer(Server);
+}
+
+int GetServerErrorCode()
+{
+	return patella::bridge::Network().GetServerErrorCode();
+}
+
+void BeginCommand(int CommandType)
+{
+	patella::bridge::Network().BeginCommand(CommandType);
+}
+
+void SendByte(uint8 Data)
+{
+	patella::bridge::Network().SendByte(Data);
+}
+
+void SendWord(uint16 Data)
+{
+	patella::bridge::Network().SendWord(Data);
+}
+
+void SendQuad(uint32 Data)
+{
+	patella::bridge::Network().SendQuad(Data);
+}
+
+void SendString(const char *Text)
+{
+	patella::bridge::Network().SendString(Text);
+}
+
+void SendBytes(patella::TSpan<const uint8> Bytes)
+{
+	patella::bridge::Network().SendBytes(Bytes);
+}
+
+void SendCommand(bool Encrypt)
+{
+	patella::bridge::Network().SendCommand(Encrypt);
+}
+
+void PrepareNextPacket()
+{
+	patella::bridge::Network().PrepareNextPacket();
+}
+
+int GetNextCommand()
+{
+	return patella::bridge::Network().GetNextCommand();
+}
+
+uint8 GetByte()
+{
+	return patella::bridge::Network().GetByte();
+}
+
+uint16 GetWord()
+{
+	return patella::bridge::Network().GetWord();
+}
+
+uint32 GetQuad()
+{
+	return patella::bridge::Network().GetQuad();
+}
+
+void GetString(patella::TSpan<char> Text)
+{
+	patella::bridge::Network().GetString(Text);
+}
+
+char *GetString()
+{
+	return patella::bridge::Network().GetString();
+}
+
+void GetBytes(patella::TSpan<uint8> Bytes)
+{
+	patella::bridge::Network().GetBytes(Bytes);
+}
+
+void CheckConnectionTimeout()
+{
+	patella::bridge::Network().CheckConnectionTimeout();
+}
+
+void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int ErrorCode, int ErrorType)
+{
+	patella::bridge::Network().GetErrorMessage(MessageBuffer, ErrorCode, ErrorType);
+}
+
+bool ResolveHostname(const char *Hostname)
+{
+	return patella::bridge::Network().ResolveHostname(Hostname);
+}
+
+const char *GetResolvedIPAddress()
+{
+	return patella::bridge::Network().GetResolvedIPAddress();
+}
+
+int CreateSocket()
+{
+	return patella::bridge::Network().CreateSocket();
+}
+
+int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
+{
+	return patella::bridge::Network().ConnectSocket(IPAddress, Port, SetTimeout);
+}
+
+void SetSymmetricKey(const uint8 *Key)
+{
+	patella::bridge::Network().SetSymmetricKey(Key);
+}
+
+void Disconnect(bool force)
+{
+	patella::bridge::Network().Disconnect(force);
+}
+
+void ConnectToLoginServer()
+{
+	patella::bridge::Network().ConnectToLoginServer();
+}
+
+void ConnectToGameServer()
+{
+	patella::bridge::Network().ConnectToGameServer();
+}
+
+void ShutdownConnection()
+{
+	patella::bridge::Network().ShutdownConnection();
+}
+
+void InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*CloseHandler)())
+{
+	patella::bridge::Network().InitNetwork(ConnectHandler, ReceiveHandler, CloseHandler);
+}
+
+void ExitNetwork()
+{
+	patella::bridge::Network().ExitNetwork();
 }

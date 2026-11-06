@@ -827,7 +827,7 @@ void MakeStatics()
 	I.ClassName = ImageStatics.ClassName;
 	I.WheelDelta = &ImageStatics.WheelDelta;
 	TStatics &O = Statics[OURS];
-	O.PacketHeader = PacketHeader.data();
+	O.PacketHeader = patella::bridge::Network().PacketHeader.data(); // TNetwork's since issue #105
 	O.MainFrame = (void **)&MainFrame;
 	O.Hand = &HandCursor;
 	O.Size = &SizeCursor;

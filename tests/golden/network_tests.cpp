@@ -78,6 +78,8 @@
 #pragma warning(push, 3)
 #endif
 #include "../../src/Network.cpp"
+// Status.cpp's functions the test fakes (Network.cpp reaches them through TNetworkSession since issue #105).
+#include "../../src/Status.h"
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -148,6 +150,16 @@ void Redirect(void *Function, void *Target)
 	int32_t Offset = (int32_t)Distance;
 	memcpy(Jump + 1, &Offset, 4);
 	Write(Function, Jump, 5);
+}
+// The address of a member function (non-virtual, single inheritance; commworld.h's).
+template <class T> void *MemberAddress(T Member)
+{
+	union {
+		T m;
+		void *p;
+	} u;
+	u.m = Member;
+	return u.p;
 }
 void RestoreAll()
 {
@@ -273,30 +285,32 @@ TView View[2];
 void MakeViews()
 {
 	TView &O = View[OURS];
-	O.CurrentServer = &CurrentServer;
-	O.TestServer = &TestServer;
-	O.Servers = Servers.data();
-	O.HostnameRequest = &HostnameRequest;
-	O.HostnameResolveBuffer = &HostnameResolveBuffer;
-	O.ReceiveDataSize = &ReceiveDataSize;
-	O.ReceivePacketEnd = &ReceivePacketEnd;
-	O.ReceiveRead = &ReceiveRead;
-	O.ReceiveData = ReceiveData.data();
-	O.SendData = SendData.data();
-	O.NetworkWindow = &NetworkWindow;
-	O.CloseCallback = &CloseCallback;
-	O.ReceiveCallback = &ReceiveCallback;
-	O.ConnectCallback = &ConnectCallback;
-	O.Socket = (void **)&Socket;
-	O.TimeoutCounter = &TimeoutCounter;
-	O.TimeoutLimit = &TimeoutLimit;
-	O.SendBuffer = &SendBuffer;
-	O.ReceiveBuffer = &ReceiveBuffer;
-	O.SymmetricKey = (uint8 *)&SymmetricKey;
+	// Network.cpp's data: the members of the one TClient's TNetwork (issue #105).
+	patella::TNetwork &N = patella::bridge::Network();
+	O.CurrentServer = &N.CurrentServer;
+	O.TestServer = &N.TestServer;
+	O.Servers = N.Servers.data();
+	O.HostnameRequest = &N.HostnameRequest;
+	O.HostnameResolveBuffer = &N.HostnameResolveBuffer;
+	O.ReceiveDataSize = &N.ReceiveDataSize;
+	O.ReceivePacketEnd = &N.ReceivePacketEnd;
+	O.ReceiveRead = &N.ReceiveRead;
+	O.ReceiveData = N.ReceiveData.data();
+	O.SendData = N.SendData.data();
+	O.NetworkWindow = &N.NetworkWindow;
+	O.CloseCallback = &N.CloseCallback;
+	O.ReceiveCallback = &N.ReceiveCallback;
+	O.ConnectCallback = &N.ConnectCallback;
+	O.Socket = (void **)&N.Socket;
+	O.TimeoutCounter = &N.TimeoutCounter;
+	O.TimeoutLimit = &N.TimeoutLimit;
+	O.SendBuffer = &N.SendBuffer;
+	O.ReceiveBuffer = &N.ReceiveBuffer;
+	O.SymmetricKey = (uint8 *)&N.SymmetricKey;
 	O.KeyOffset = (int)sizeof(void *); // TXTEA: a vtable pointer, then uint32 Key[4]
-	O.RecursionProtection = &RecursionProtection;
-	O.HostnameResolveBufferSize = &HostnameResolveBufferSize;
-	O.PacketHeader = PacketHeader.data();
+	O.RecursionProtection = &N.RecursionProtection;
+	O.HostnameResolveBufferSize = &N.HostnameResolveBufferSize;
+	O.PacketHeader = N.PacketHeader.data();
 }
 
 // --- The fakes -------------------------------------------------------------------------------
@@ -1145,7 +1159,7 @@ void AddServerData(int Frames)
 // (a CreateSocket that succeeds), else the operation is left out.
 bool OurSocket()
 {
-	if (Socket != NULL)
+	if (patella::bridge::Network().Socket != NULL)
 		return true;
 	if (!Chance(70))
 		return false;
@@ -1153,7 +1167,7 @@ bool OurSocket()
 	Script.Create[0] = TRUE;
 	Both("CreateSocket", [&](int s) { Fn[s].CreateSocket(); });
 	Script = Kept;
-	return Socket != NULL;
+	return patella::bridge::Network().Socket != NULL;
 }
 
 // One random operation (inputs decided here, from Random() and our side's state).
@@ -1234,7 +1248,7 @@ void Operation(int Kind)
 		break;
 	}
 	case 11:
-		if (!World[OURS].HostFilled || HostnameResolveBuffer == NULL)
+		if (!World[OURS].HostFilled || patella::bridge::Network().HostnameResolveBuffer == NULL)
 			return;
 		Both("GetResolvedIPAddress", [&](int s) {
 			if (!World[s].HostFilled || *View[s].HostnameResolveBuffer == NULL)
@@ -1624,7 +1638,7 @@ void TestNetworkErrors()
 				StartRound();
 				for (int i = 0; i < Length; i++)
 					Operation(RandomKind());
-				if (((Kind >= 20 && Kind <= 22) || Kind == 25 || Kind == 13) && Socket == NULL) {
+				if (((Kind >= 20 && Kind <= 22) || Kind == 25 || Kind == 13) && patella::bridge::Network().Socket == NULL) {
 					RandomScript();
 					Script.Create[0] = TRUE;
 					Both("CreateSocket", [&](int s) { Fn[s].CreateSocket(); });
@@ -1697,6 +1711,9 @@ void TestNetwork()
 		ORIGINAL(Redirect((void *)(uintptr_t)T.Image, T.Fake));
 		Redirect(T.Ours, T.Fake);
 	}
+	// Since issue #105 TNetwork asks its TPreferences for GetTestServerLogin: the member goes to the same fake (it
+	// takes no argument but this, which the fake does not read).
+	Redirect(MemberAddress(&patella::TPreferences::GetTestServerLogin), (void *)FakeGetTestServerLogin);
 
 	int Before = Checks;
 	int Rounds = getenv("NW_ROUNDS") != NULL ? atoi(getenv("NW_ROUNDS")) : 300;
@@ -1724,14 +1741,15 @@ void TestNetwork()
 // reads and builds packets in them. In the oracle communicationtest.exe links Network.cpp on its own (commworld.cpp
 // finds them in its code); here Network.cpp is this file's. Reset: their state at the program's start (the
 // Network test above leaves its last round's).
-TBuffer *GoldenNetworkReceiveBuffer() { return &ReceiveBuffer; }
-TBuffer *GoldenNetworkSendBuffer() { return &SendBuffer; }
+TBuffer *GoldenNetworkReceiveBuffer() { return &patella::bridge::Network().ReceiveBuffer; }
+TBuffer *GoldenNetworkSendBuffer() { return &patella::bridge::Network().SendBuffer; }
 void GoldenNetworkResetBuffers()
 {
-	SendBuffer.Data = SendData.data();
-	SendBuffer.Size = sizeof(SendData);
-	SendBuffer.Position = 0;
-	ReceiveBuffer.Data = ReceiveData.data();
-	ReceiveBuffer.Size = 0;
-	ReceiveBuffer.Position = 0;
+	patella::TNetwork &N = patella::bridge::Network();
+	N.SendBuffer.Data = N.SendData.data();
+	N.SendBuffer.Size = sizeof(N.SendData);
+	N.SendBuffer.Position = 0;
+	N.ReceiveBuffer.Data = N.ReceiveData.data();
+	N.ReceiveBuffer.Size = 0;
+	N.ReceiveBuffer.Position = 0;
 }

@@ -3,8 +3,12 @@
 
 #include "Client.h"
 
+#include "Communication.h"
+#include "Network.h"
 #include "Preferences.h"
+#include "Status.h"
 #include "Talk.h"
+#include "common.h"
 
 namespace patella {
 
@@ -24,7 +28,29 @@ public:
 	bool IsPermanentIgnore(const char *Addressee) override { return ::IsPermanentIgnore(Addressee); }
 };
 
+// Status.cpp's session and message queue for TNetwork (TNetworkSession, issue #105), until TCommunication and TGUI
+// implement it. Stateless, as TTalkCppLists: each member calls Status.cpp's function of its name (from another object
+// file than Network.cpp's, so the golden Network test's fakes of those functions are reached as before).
+class TStatusCppSession final : public TNetworkSession {
+public:
+	void SetConnectionState(int State) override { ::SetConnectionState(State); }
+	int GetConnectionState() override { return ::GetConnectionState(); }
+	int GetActiveCharacter() override { return ::GetActiveCharacter(); }
+	const char *GetCharacterIPAddress(int Number) override { return ::GetCharacterIPAddress(Number); }
+	int GetCharacterPort(int Number) override { return ::GetCharacterPort(Number); }
+	void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2) override { ::AddMessage(Type, Param1, Param2); }
+};
+
+// Made on first use, as TClient is (a static initialiser of another file may make TClient first).
+TNetworkSession &StatusCppSession()
+{
+	static TStatusCppSession Session;
+	return Session;
+}
+
 } // namespace
+
+TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network) {}
 
 TClient &bridge::Client()
 {
@@ -35,6 +61,21 @@ TClient &bridge::Client()
 TPreferences &bridge::Preferences()
 {
 	return Client().Preferences;
+}
+
+TNetwork &bridge::Network()
+{
+	return Client().Network;
+}
+
+TCommunication &bridge::Communication()
+{
+	return Client().Communication;
+}
+
+TSession &bridge::Session()
+{
+	return Client().Communication.Session;
 }
 
 TTalkLists &bridge::TalkLists()

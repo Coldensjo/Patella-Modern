@@ -470,6 +470,16 @@ against Windows' code page 1252). The clipboard is CF_UNICODETEXT, TFile opens a
 Windows, UTF-8 elsewhere), the developer log writes UTF-8 lines, the Vulkan device names come into the client's code
 page; the other boundaries are ASCII and stay, the keyboard and the CPU driver's path wait for M8. Golden 17,316,040,
 0 failures. notes/decisions.md, "#112: text encoding at the platform boundary".
+
+TNetwork and TCommunication (Patella-Modern issue #105, branch issue-105, November 6, 2026; M7): Network.cpp's 17
+globals, MainFrm.cpp's PacketHeader and Control.cpp's reconnect pair are TNetwork's members (Network.h), Communication.cpp's
+globals and Control.cpp's packet types TCommunication's (Communication.h), Status.cpp's session (connection state,
+account, character list, rights) TSession's (Status.h), which TCommunication owns; TClient makes TPreferences, TNetwork,
+TCommunication. The free functions forward through the bridge, so no other caller changed. TNetwork takes TPreferences
+and TNetworkSession (Status.cpp's functions, Client.cpp's adapter); TCommunication sends and reads through its TNetwork.
+The golden tests reach the members (the Communication world fakes the members too). Module cycles: main's 12-module
+cycle is one of 6 and {MainFrm, Player}; Network and Communication are in none. Golden 17,316,040, 0 failures.
+notes/decisions.md, "The second move: TNetwork and TCommunication".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

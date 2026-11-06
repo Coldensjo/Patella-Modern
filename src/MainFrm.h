@@ -68,9 +68,8 @@ protected:
 	DECLARE_MESSAGE_MAP()
 };
 
-extern std::array<uint8, 16> PacketHeader; // 0x5d1644, the first bytes of the last packet (error.txt's until issue #74)
-extern CMainFrame *MainFrame;              // 0x5d1654
-extern bool DisplayChanged;                // 0x5d1670, the display settings changed (OnDisplayChange); SurfaceGL.cpp
+extern CMainFrame *MainFrame; // 0x5d1654
+extern bool DisplayChanged;   // 0x5d1670, the display settings changed (OnDisplayChange); SurfaceGL.cpp
 
 void ExitProgram();
 void SetDisplayMode(int ViewMode);
