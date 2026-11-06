@@ -1,17 +1,16 @@
-// assertion.h: PATELLA_ASSERT, the client's assertions (Patella-Modern issue #79; they were common.h's TASSERT*).
-// Not part of the original source.
+// assertion.h: PATELLA_ASSERT, the client's assertions (Patella-Modern issue #79; until then common.h's three assertion
+// macros and nine local variants). Not part of the original source.
 //
-// - PATELLA_ASSERT(Expression): when the expression is false, throws the TMyException the TASSERT macros threw:
+// - PATELLA_ASSERT(Expression): when the expression is false, throws the TMyException the old macros threw:
 //   "<file> <line>: assertion failed, reason:\n<Expression>", with the expression's source text.
 // - PATELLA_ASSERT_VALUES(Expression, Value1[, Value2]): the same with one or two values in the message,
 //   "<file> <line>: assertion failed (<Value1's text> = <value>)[ (<Value2's text> = <value>)], reason:\n...", each
-//   value converted to int (static_cast) as TASSERT1 and TASSERT2 did.
+//   value converted to int (static_cast) as the old macros' (int) cast did.
 //
 // The expression is evaluated exactly once, the values only when it is false (after it, in an unspecified order, as
-// TASSERT2's arguments were). The file
-// and line are the assertion's own (std::source_location::current(), or __FILE__ and __LINE__ below), no longer the
-// original's line. Each is an expression of type void, so it is one statement anywhere a statement fits (an if without
-// braces, an else: no dangling else), and nothing is compiled out in any build: assertions on packets and files stay
+// the old macros' arguments were). The file and line are the assertion's own (std::source_location::current(), or
+// __FILE__ and __LINE__ below), no longer the original's line. Each is an expression of type void, so it is one
+// statement anywhere a statement fits (an if without braces, an else: no dangling else), and nothing is compiled out in any build: assertions on packets and files stay
 // checked (notes/modernization-plan.md, M5).
 //
 // Not contract_assert, on any compiler (notes/decisions.md, issue #79): the outcome of a failed assertion must stay a
@@ -48,9 +47,8 @@ using TSourceLocation = std::source_location;
 
 #else
 
-// The part of std::source_location the assertions use. An aggregate: no constructor runs at the assertion (MSVC x86
-// with /EHa gave a function whose temporary had one an exception frame whose handler was missing from its SafeSEH
-// table, notes/decisions.md, issue #79).
+// The part of std::source_location the assertions use. An aggregate, so an assertion's failure path is three stores and
+// the call, no constructor.
 struct TSourceLocation {
 	const char *File;
 	std::uint_least32_t Line;
