@@ -426,6 +426,14 @@ retired, 17,316,040). Tests: tests_core (keys, escaping) and preferences_file (t
 The comparisons compare the options by value (tools/settings_file.py: Tibia.exe's Tibia.cfg against the x64 client's
 Patella.ini); two new deliberate differences (tools/deliberate.py). notes/decisions.md, "Patella.ini as the only
 settings file".
+
+TClient and TPreferences (Patella-Modern issue #104, branch issue-104, November 6, 2026; M7's first issue): the design
+of M7's globals-into-subsystems (the objects, which object owns each global, the order of #105-#111, the bridge,
+golden_runner's and the test mode's access, the module cycles) is notes/decisions.md, "#104: TClient and the subsystem
+objects". First move: Preferences.cpp's 43 globals are TPreferences' members (Preferences.h), owned by TClient
+(src/Client.h, Client.cpp: one lazy instance during the transition, bridge::Client()); the original's free functions
+forward to bridge::Preferences(), so no caller changed. Talk's White and Ignore lists through TTalkLists: the module
+cycle {Preferences, Talk, graphics, Surface} is {Surface, graphics} now. Golden 17,316,040, 0 failures.
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

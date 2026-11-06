@@ -142,9 +142,10 @@ target_compile_definitions(golden_sysinc PRIVATE GetMilliseconds=SysincGetMillis
 # MapWindow, MainWindow, Communication and Control reach) are here too, as in the oracle; the stubs are the
 # files below them (Communication.cpp's Send functions, Control.cpp, the Vulkan engine). MainFrm.cpp and
 # Network.cpp are compiled into their tests (mainfrm_tests.cpp, network_tests.cpp, as in the oracle: the
-# tests read their statics).
+# tests read their statics). Client.cpp (issue #104): the one TClient that Preferences.cpp's free functions reach.
 add_library(golden_client OBJECT
 	"${PROJECT_SOURCE_DIR}/src/Status.cpp"
+	"${PROJECT_SOURCE_DIR}/src/Client.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Preferences.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Script.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Talk.cpp"

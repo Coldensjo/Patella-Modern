@@ -12544,3 +12544,30 @@ longer includes the upper module's header:
 
 Each issue reruns the measurement (every `#include "X.h"` of a src/*.cpp is an edge to X's module; Tarjan's
 strongly connected components) and notes the cycles left in its subsection.
+
+### The first move: TPreferences (high)
+
+- **Moved**: Preferences.cpp's 43 globals (0x5c2558-0x5c255f, 0x719e70-0x71c44f) are TPreferences' private members
+  (Preferences.h), in the same order with the same comments; WindowedWidth 600 and WindowedHeight 400 as before,
+  every other member `{}` (the .bss zero), the five vectors with their (0, 9, 10) and (0, 9, 10, -1). The 87
+  functions are its members of the same names with their address comments, the 30 pure getters const; SetViewMode's
+  parameter is Value (it hid the member); the arrays' static_assert is in the class.
+- **The callers**: unchanged. Preferences.h keeps the original's free functions, and each (at the end of
+  Preferences.cpp) calls its member on `patella::bridge::Preferences()`, the one TClient's TPreferences. So the 18
+  files that call them (17 .cpp and Talk.h), the golden tests, their fakes of InitPreferences, SavePreferences and
+  ExitPreferences (commworld.cpp, dialogs_tests.cpp) and the test mode's reads are as before. TClient owns
+  TPreferences (Client.h).
+- **Talk's lists**: TPreferences reaches the White and Ignore lists (ClearIgnoreList, GetBuddyIgnoreText,
+  AddBuddyIgnore, IsPermanentBuddyIgnore, GetIgnoreListText, IgnoreName, IsPermanentIgnore) through TTalkLists
+  (Preferences.h), a parameter of the eight members that use them (SetDefaultPreferences, ReadTibiaCfg,
+  WriteTibiaCfg, GetPreferenceValues, SetPreferenceValues, InitPreferences, SavePreferences, ExitPreferences). A
+  parameter, not a member, because Talk's state is TGUI's (#107), made after TPreferences: a stored reference would
+  point up. Until #107 `bridge::TalkLists()` is an adapter in Client.cpp that calls Talk.cpp's functions (the golden
+  tests that fake them, dialogs_tests.cpp and contextmenus_tests.cpp, still reach their fakes: Client.cpp is its own
+  object). Preferences.cpp no longer includes Talk.h.
+- **Behaviour**: the same code on the same data. Patella.ini is read and written the same, the import of Tibia.cfg
+  the same; what runs differs only by the call through the accessor and, for the eight, the lists' virtual calls.
+  The vectors are allocated at the first use of the options instead of before main (nothing observes when). The
+  mismatched release of MotD (new[] in SetMotD, free in ExitPreferences; notes/ownership.md) is kept.
+- **Container.h**: the vector members keep CipSoft's `vector<T>` (now in Preferences.h, which includes Container.h);
+  #99 (TIndexedVector) renames them with its other users, a one-line rebase there.

@@ -75,6 +75,7 @@ set(PATELLA_HEADERS_RENDER
 	vulkan/Quads.h)
 # The client's own headers (Windows, MFC or its shim): the x64 client's, and the golden tests' (with the shim).
 set(PATELLA_HEADERS_CLIENT
+	Client.h
 	Communication.h
 	ConsoleWindow.h
 	ContentWindows.h
