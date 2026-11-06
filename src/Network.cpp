@@ -675,7 +675,7 @@ void ShutdownConnection()
 void InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*CloseHandler)())
 {
 	if (!AfxSocketInit(nullptr))
-		throw PROGRAM_ERROR_SOCKET_INIT;
+		throw TProgramError{PROGRAM_ERROR::SOCKET_INIT};
 	PATELLA_ASSERT(ConnectHandler!=NULL);
 	PATELLA_ASSERT(ReceiveHandler!=NULL);
 	PATELLA_ASSERT(CloseHandler!=NULL);

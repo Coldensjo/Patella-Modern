@@ -119,7 +119,7 @@ void CheckSurface(bool Force)
 	try {
 		Success = GetSurface()->Init(&WindowHandle, GetViewMode(), Resolution, Force);
 	} catch (...) {
-		throw (PROGRAM_ERROR)12; // name of the value unknown
+		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
 	if (!Success)
 		ChangeEngine(0);
@@ -1164,7 +1164,7 @@ void InitControl(bool Gamemaster)
 		InitNetwork(ConnectionEstablished, ReceivePackets, ConnectionClosed);
 		InitCommunication();
 		InitHotkeys();
-	} catch (PROGRAM_ERROR Error) {
+	} catch (const TProgramError &Error) {
 		try {
 			ExitControl();
 		} catch (...) {

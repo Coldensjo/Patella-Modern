@@ -585,7 +585,7 @@ void TSurfaceDX::ResetDisplay(int VMode, TFullscreenMode *GMode)
 	try {
 		InitDisplay(VMode, GMode);
 		CreateSurfaces();
-	} catch (PROGRAM_ERROR Error) {
+	} catch (const TProgramError &Error) {
 		try {
 			ExitDisplay();
 		} catch (...) {
@@ -823,9 +823,9 @@ void TSurfaceDX::InitSurfaces()
 	}
 	IDirectDraw *DirectDraw1;
 	if (DirectDrawCreate(nullptr, &DirectDraw1, nullptr) != DD_OK)
-		throw (PROGRAM_ERROR)7;
+		throw TProgramError{PROGRAM_ERROR::DIRECTX_INIT};
 	if (DirectDraw1->QueryInterface(IID_IDirectDraw4, reinterpret_cast<void **>(&DirectDraw)) != DD_OK)
-		throw (PROGRAM_ERROR)7;
+		throw TProgramError{PROGRAM_ERROR::DIRECTX_INIT};
 	DDCAPS HardwareCaps;
 	memset(&HardwareCaps, 0, sizeof(HardwareCaps));
 	HardwareCaps.dwSize = sizeof(DDCAPS);
@@ -854,7 +854,7 @@ void TSurfaceDX::AttachWindow()
 	PATELLA_ASSERT(Surface[PRIMARY_SURFACE]!=NULL);
 	IDirectDrawClipper *Clipper;
 	if (DirectDraw->CreateClipper(0, &Clipper, nullptr) != DD_OK)
-		throw (PROGRAM_ERROR)9;
+		throw TProgramError{PROGRAM_ERROR::CLIPPER};
 	Clipper->SetHWnd(0, hWindow);
 	Surface[PRIMARY_SURFACE]->SetClipper(Clipper);
 	Clipper->Release();
@@ -934,7 +934,7 @@ void TSurfaceDX::InitDisplay(int VMode, TFullscreenMode *GMode)
 	PATELLA_ASSERT(VMode==WINDOWED_MODE || GMode!=NULL);
 	if (VMode == WINDOWED_MODE) {
 		if (DirectDraw->SetCooperativeLevel(hWindow, DDSCL_NORMAL) != DD_OK)
-			throw (PROGRAM_ERROR)10;
+			throw TProgramError{PROGRAM_ERROR::COOPERATIVE_LEVEL};
 		GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
 		GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
 		GetClientRect(hWindow, &WindowRect);
@@ -945,9 +945,9 @@ void TSurfaceDX::InitDisplay(int VMode, TFullscreenMode *GMode)
 		Height = GMode->Height;
 		Depth = GMode->Depth;
 		if (DirectDraw->SetCooperativeLevel(hWindow, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN) != DD_OK)
-			throw (PROGRAM_ERROR)10;
+			throw TProgramError{PROGRAM_ERROR::COOPERATIVE_LEVEL};
 		if (DirectDraw->SetDisplayMode(Width, Height, Depth, 0, 0) != DD_OK)
-			throw (PROGRAM_ERROR)11;
+			throw TProgramError{PROGRAM_ERROR::DISPLAY_MODE};
 		SetRect(&Rect[PRIMARY_SURFACE], 0, 0, Width, Height);
 		SetRect(&Rect[SCREEN_SURFACE], 0, 0, Width, Height);
 		SetRect(&WindowRect, 0, 0, Width, Height);
@@ -982,20 +982,20 @@ void TSurfaceDX::CreateSurfaces()
 	Desc.dwSize = sizeof(Desc);
 	DirectDraw->GetDisplayMode(&Desc);
 	if (Desc.ddpfPixelFormat.dwRGBBitCount < 16)
-		throw (PROGRAM_ERROR)8;
+		throw TProgramError{PROGRAM_ERROR::COLOR_DEPTH};
 	if (ViewMode == WINDOWED_MODE) {
 		memset(&Desc, 0, sizeof(Desc));
 		Desc.dwSize = sizeof(Desc);
 		Desc.dwFlags = DDSD_CAPS;
 		Desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 		if (DirectDraw->CreateSurface(&Desc, &Surface[PRIMARY_SURFACE], nullptr) != DD_OK)
-			throw (PROGRAM_ERROR)12;
+			throw TProgramError{PROGRAM_ERROR::SURFACE};
 		AttachWindow();
 		SurfaceMemory[PRIMARY_SURFACE] = 1;
 		NumberOfSurfaces = 1;
 		if (!CreateOffscreenSurface(&Surface[SCREEN_SURFACE], GetSystemMetrics(SM_CXSCREEN),
 				GetSystemMetrics(SM_CYSCREEN), false))
-			throw (PROGRAM_ERROR)13;
+			throw TProgramError{PROGRAM_ERROR::SCREEN_SURFACE};
 	} else if (ViewMode == FULLSCREEN_MODE) {
 		memset(&Desc, 0, sizeof(Desc));
 		Desc.dwSize = sizeof(Desc);
@@ -1003,12 +1003,12 @@ void TSurfaceDX::CreateSurfaces()
 		Desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_FLIP | DDSCAPS_COMPLEX;
 		Desc.dwBackBufferCount = 1;
 		if (DirectDraw->CreateSurface(&Desc, &Surface[PRIMARY_SURFACE], nullptr) != DD_OK)
-			throw (PROGRAM_ERROR)12;
+			throw TProgramError{PROGRAM_ERROR::SURFACE};
 		SurfaceMemory[PRIMARY_SURFACE] = 1;
 		DDSCAPS2 Caps;
 		Caps.dwCaps = DDSCAPS_BACKBUFFER;
 		if (Surface[PRIMARY_SURFACE]->GetAttachedSurface(&Caps, &Surface[SCREEN_SURFACE]) != DD_OK)
-			throw (PROGRAM_ERROR)13;
+			throw TProgramError{PROGRAM_ERROR::SCREEN_SURFACE};
 		SurfaceMemory[SCREEN_SURFACE] = 1;
 	}
 	NumberOfSurfaces = 2;
@@ -1058,21 +1058,21 @@ void TSurfaceDX::CreateSurfaces()
 	if (Direct3D == nullptr
 		&& !CreateOffscreenSurface(&Surface[TEMP_SURFACE], Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom,
 			false))
-		throw (PROGRAM_ERROR)14;
+		throw TProgramError{PROGRAM_ERROR::TEMP_SURFACE};
 	if (!CreateOffscreenSurface(&Surface[STRETCH_SURFACE], Rect[STRETCH_SURFACE].right,
 			Rect[STRETCH_SURFACE].bottom, false))
-		throw (PROGRAM_ERROR)15;
+		throw TProgramError{PROGRAM_ERROR::STRETCH_SURFACE};
 	if (!CreateOffscreenSurface(&Surface[CACHE_SURFACE], Rect[CACHE_SURFACE].right,
 			Rect[CACHE_SURFACE].bottom, false))
-		throw (PROGRAM_ERROR)16;
+		throw TProgramError{PROGRAM_ERROR::CACHE_SURFACE};
 	if (!CreateOffscreenSurface(&Surface[AUTOMAP_SURFACE], Rect[AUTOMAP_SURFACE].right,
 			Rect[AUTOMAP_SURFACE].bottom, false))
-		throw (PROGRAM_ERROR)17;
+		throw TProgramError{PROGRAM_ERROR::AUTOMAP_SURFACE};
 	for (int LoopIndex = 0; LoopIndex < NUMBER_OF_SURFACES - SPRITE_SURFACE; LoopIndex++) {
 		if (LoopIndex < 8) {
 			if (!CreateOffscreenSurface(&Surface[SPRITE_SURFACE + LoopIndex], Rect[SPRITE_SURFACE + LoopIndex].right,
 					Rect[SPRITE_SURFACE + LoopIndex].bottom, false))
-				throw (PROGRAM_ERROR)18;
+				throw TProgramError{PROGRAM_ERROR::SPRITE_SURFACE};
 		} else if (!CreateOffscreenSurface(&Surface[SPRITE_SURFACE + LoopIndex], Rect[SPRITE_SURFACE + LoopIndex].right,
 					   Rect[SPRITE_SURFACE + LoopIndex].bottom, true)) {
 			break;

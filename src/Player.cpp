@@ -204,9 +204,10 @@ void CPlayerApp::HandleProgramError(PROGRAM_ERROR Error)
 		Terminating = true;
 		return;
 	}
+	const int Code = static_cast<int>(Error); // an enum class since issue #80
 	std::stringstream Message;
-	Message << GetErrorText(Error) << " (Error Code " << Error << ")\r\n\r\n"
-			<< GetErrorHint(Error);
+	Message << GetErrorText(Code) << " (Error Code " << Code << ")\r\n\r\n"
+			<< GetErrorHint(Code);
 	FatalError(Message.str().c_str(), "Tibia Error");
 }
 
@@ -308,7 +309,7 @@ BOOL CPlayerApp::InitInstance()
 				GetSurface()->InitSurfaces();
 				InitVideoCache();
 			} catch (...) {
-				throw (PROGRAM_ERROR)12; // "Video surface allocation failed."
+				throw TProgramError{PROGRAM_ERROR::SURFACE}; // "Video surface allocation failed."
 			}
 			if (!Gamemaster) {
 				NumberOfTibiaWindows = 0;
@@ -338,8 +339,8 @@ BOOL CPlayerApp::InitInstance()
 				ScreenToClient(m_pMainWnd->GetSafeHwnd(), &LastMousePosition);
 			MouseMove(LastMousePosition.x, LastMousePosition.y);
 			return TRUE;
-		} catch (PROGRAM_ERROR Error) {
-			HandleProgramError(Error);
+		} catch (const TProgramError &Error) {
+			HandleProgramError(Error.Code);
 		} catch (TMyException &Exception_) {
 			throw TMYEXCEPTION("exception occurred", "", 0, "", 0, Exception_);
 		} catch (std::bad_alloc &) {
@@ -368,8 +369,8 @@ int CPlayerApp::Run()
 	try {
 		try {
 			Result = CWinApp::Run();
-		} catch (PROGRAM_ERROR Error) {
-			HandleProgramError(Error);
+		} catch (const TProgramError &Error) {
+			HandleProgramError(Error.Code);
 		} catch (TMyException &Exception_) {
 			throw TMYEXCEPTION("exception occurred", "", 0, "", 0, Exception_);
 		} catch (std::bad_alloc &) {

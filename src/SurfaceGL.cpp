@@ -679,23 +679,23 @@ void TSurfaceGL::CreateSurfaces()
 	NumberOfSurfaces = 0;
 	CreateTexture(&Textures[TEMP_SURFACE], Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom, false);
 	if (!CreateTexture(&Textures[STRETCH_SURFACE], Rect[STRETCH_SURFACE].right, Rect[STRETCH_SURFACE].bottom, false))
-		throw (PROGRAM_ERROR)15;
+		throw TProgramError{PROGRAM_ERROR::STRETCH_SURFACE};
 	if (!CreateTexture(&Textures[CACHE_SURFACE], Rect[CACHE_SURFACE].right, Rect[CACHE_SURFACE].bottom, false))
-		throw (PROGRAM_ERROR)16;
+		throw TProgramError{PROGRAM_ERROR::CACHE_SURFACE};
 	if (!CreateTexture(&Textures[AUTOMAP_SURFACE], Rect[AUTOMAP_SURFACE].right, Rect[AUTOMAP_SURFACE].bottom, false))
-		throw (PROGRAM_ERROR)17;
+		throw TProgramError{PROGRAM_ERROR::AUTOMAP_SURFACE};
 	for (int i = 0; i < 16; i++) {
 		const int Surface = SPRITE_SURFACE + i;
 		if (i < 24) {
 			if (!CreateTexture(&Textures[Surface], Rect[Surface].right, Rect[Surface].bottom, false))
-				throw (PROGRAM_ERROR)18;
+				throw TProgramError{PROGRAM_ERROR::SPRITE_SURFACE};
 		} else if (!CreateTexture(&Textures[Surface], Rect[Surface].right, Rect[Surface].bottom, false)) {
 			break;
 		}
 		CacheSurfaces++;
 	}
 	if (!CreatePbuffer())
-		throw (PROGRAM_ERROR)12;
+		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	Recreated[0] = true;
 	Recreated[1] = true;
 	Recreated[2] = true;
@@ -710,9 +710,9 @@ void TSurfaceGL::ResetDisplay(int VMode, TFullscreenMode *GMode)
 		try {
 			ExitDisplay();
 		} catch (...) {
-			throw (PROGRAM_ERROR)12;
+			throw TProgramError{PROGRAM_ERROR::SURFACE};
 		}
-		throw (PROGRAM_ERROR)12;
+		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
 }
 
@@ -723,7 +723,7 @@ void TSurfaceGL::RestoreSurfaces([[maybe_unused]] int ViewMode, [[maybe_unused]]
 	try {
 		CreateSurfaces();
 	} catch (...) {
-		throw (PROGRAM_ERROR)12;
+		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
 }
 

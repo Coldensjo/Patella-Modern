@@ -114,7 +114,7 @@ void TMainWindow::Draw(int Surface, int x, int y)
 		try {
 			TWindow::Draw(Surface, x, y);
 		} catch (...) {
-			throw (PROGRAM_ERROR)12;
+			throw TProgramError{PROGRAM_ERROR::SURFACE};
 		}
 		return;
 	}

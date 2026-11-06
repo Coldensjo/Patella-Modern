@@ -38,6 +38,17 @@ TThrown ThrownOf(const TMyException &Exception)
 	return Result;
 }
 
+TThrown ThrownOf(const TProgramError &Error)
+{
+	TThrown Result;
+	Result.Kind = TThrown::PROGRAMERROR;
+	// The original's type (the image's throw information: the bare enum, ".?AW4PROGRAM_ERROR@@"), not
+	// TProgramError's: the kind is a PROGRAM_ERROR with its value on both sides (issue #80).
+	Result.Type = ".?AW4PROGRAM_ERROR@@";
+	Result.Code = static_cast<int>(Error.Code);
+	return Result;
+}
+
 // --- Comparing what both sides threw (moved from imageeh.cpp, errortest.cpp's before) ---------------
 
 int ThrownCompared = 0, ThrownThrew = 0;

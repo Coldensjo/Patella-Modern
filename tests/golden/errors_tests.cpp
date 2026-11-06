@@ -693,7 +693,7 @@ void TestPlayer()
 		OriginalCaption = OriginalString("program error caption", OriginalCaption);
 		App->Terminating = Terminating;
 		FatalText = FatalCaption = "(none)";
-		UntilFatalError([&] { App->HandleProgramError((PROGRAM_ERROR)Code); });
+		UntilFatalError([&] { App->HandleProgramError(static_cast<PROGRAM_ERROR>(Code)); });
 		CHECK(FatalText == OriginalText && FatalCaption == OriginalCaption,
 			"HandleProgramError(%d): FatalError(\"%s\", \"%s\"), original (\"%s\", \"%s\")", Code, FatalText.c_str(),
 			FatalCaption.c_str(), OriginalText.c_str(), OriginalCaption.c_str());

@@ -642,7 +642,7 @@ void InitObjects()
 	try {
 		LoadObjects("Tibia.dat");
 	} catch (...) {
-		throw (PROGRAM_ERROR)1;
+		throw TProgramError{PROGRAM_ERROR::OBJECTS_FILE};
 	}
 }
 
