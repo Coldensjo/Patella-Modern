@@ -23,6 +23,7 @@
 #include "Talk.h"
 #include "Utils.h"
 #include "sysinc.h"
+#include "AutomapLayer.h"
 #include "Container.h"
 #include "types/IndexedVector.h"
 #include "types/SlotTable.h"
@@ -961,13 +962,23 @@ void patella::TMap::GetFieldAutomapInfo(int rx, int ry, int rz, uint8 *Color, ui
 
 // The automap file's format (<bx><by><bz>.map; notes/written-files.md): 256 x 256 colour bytes, then 256 x 256 speed
 // bytes, each as LoadAutomapBlock and SaveAutomapBlock read and write a block's Color and Speed in one piece, then the
-// marks. A check of the file format (Patella-Modern issue #94), where the oracle's x86 build checked TAutomapBlock's
-// layout until then.
+// marks; in a layer the byte of x, y is at x * 256 + y. A check of the file format (Patella-Modern issue #94), where the
+// oracle's x86 build checked TAutomapBlock's layout until then; since issue #101 also of the view's order (a layer's
+// bytes are TAutomapLayer's, indexed through its mdspan view).
 namespace {
 constexpr std::size_t AUTOMAP_FILE_LAYER_BYTES = 256 * 256;
+constexpr int AutomapFileOffset(int x, int y)
+{
+	return x * 256 + y;
+}
 } // namespace
-static_assert(sizeof(TAutomapBlock::Color) == AUTOMAP_FILE_LAYER_BYTES && sizeof(TAutomapBlock::Speed) == AUTOMAP_FILE_LAYER_BYTES,
-	"the automap file's colour and speed layers: 256 x 256 bytes each");
+static_assert(sizeof(TAutomapLayer::Bytes) == AUTOMAP_FILE_LAYER_BYTES,
+	"the automap file's colour and speed layers (TAutomapBlock's Color and Speed): 256 x 256 bytes each");
+static_assert(TAutomapLayer::TView::mapping_type()(0, 1) == AutomapFileOffset(0, 1)
+		&& TAutomapLayer::TView::mapping_type()(1, 0) == AutomapFileOffset(1, 0)
+		&& TAutomapLayer::TView::mapping_type()(255, 255) == AutomapFileOffset(255, 255)
+		&& TAutomapLayer::TView::mapping_type().required_span_size() == static_cast<int>(AUTOMAP_FILE_LAYER_BYTES),
+	"a layer's view [x, y]: the file's byte x * 256 + y");
 
 // 0x4b2e80, lines 1199-1304. Loads a block into cache entry Position. A
 // missing file leaves the block empty (speed 250 everywhere); a damaged one
@@ -984,8 +995,8 @@ void patella::TMap::LoadAutomapBlock(int Position, int bx, int by, int bz)
 	Block.bx = bx;
 	Block.by = by;
 	Block.bz = bz;
-	memset(Block.Color.data(), 0, sizeof(Block.Color));
-	memset(Block.Speed.data(), 250, sizeof(Block.Speed));
+	Block.Color.Bytes.fill(0);
+	Block.Speed.Bytes.fill(250);
 	Block.Changed = false;
 	for (int i = Block.Marks.min; i <= Block.Marks.max; i++)
 		Block.Marks(i) = TMark();
@@ -998,8 +1009,8 @@ void patella::TMap::LoadAutomapBlock(int Position, int bx, int by, int bz)
 	if (Opened) {
 		try {
 			try {
-				File.readBytes(patella::TSpan<uint8>(&Block.Color[0][0], sizeof(Block.Color)));
-				File.readBytes(patella::TSpan<uint8>(&Block.Speed[0][0], sizeof(Block.Speed)));
+				File.readBytes(patella::TSpan<uint8>(Block.Color.Bytes));
+				File.readBytes(patella::TSpan<uint8>(Block.Speed.Bytes));
 			} catch (TMyException &Exception) {
 				throw TMYEXCEPTION("failed to write colors", "", 0, "", 0, Exception);
 			}
@@ -1030,8 +1041,8 @@ void patella::TMap::LoadAutomapBlock(int Position, int bx, int by, int bz)
 			Block.bx = bx;
 			Block.by = by;
 			Block.bz = bz;
-			memset(Block.Color.data(), 0, sizeof(Block.Color));
-			memset(Block.Speed.data(), 250, sizeof(Block.Speed));
+			Block.Color.Bytes.fill(0);
+			Block.Speed.Bytes.fill(250);
 			Block.Changed = false;
 			for (int i = Block.Marks.min; i <= Block.Marks.max; i++)
 				Block.Marks(i) = TMark();
@@ -1066,8 +1077,8 @@ void patella::TMap::SaveAutomapBlock(int Position)
 	if (Opened) {
 		try {
 			try {
-				File.writeBytes(patella::TSpan<const uint8>(&Block.Color[0][0], sizeof(Block.Color)));
-				File.writeBytes(patella::TSpan<const uint8>(&Block.Speed[0][0], sizeof(Block.Speed)));
+				File.writeBytes(patella::TSpan<const uint8>(Block.Color.Bytes));
+				File.writeBytes(patella::TSpan<const uint8>(Block.Speed.Bytes));
 			} catch (TMyException &Exception) {
 				throw TMYEXCEPTION("failed to write colors", "", 0, "", 0, Exception);
 			}
@@ -1158,7 +1169,7 @@ void patella::TMap::UpdateAutomap(int rx, int ry)
 	int z = GetMapLevel();
 	RelativeToAbsolute(&x, &y, &z);
 	TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
-	GetFieldAutomapInfo(rx, ry, GetMapLevel(), &Block->Color[x % 256][y % 256], &Block->Speed[x % 256][y % 256]);
+	GetFieldAutomapInfo(rx, ry, GetMapLevel(), &Block->Color.view()[x % 256, y % 256], &Block->Speed.view()[x % 256, y % 256]);
 	Block->Changed = true;
 	AutomapChanged = true;
 }
@@ -1169,7 +1180,7 @@ TRGBColor patella::TMap::GetAutomapColor(int x, int y, int z)
 	PATELLA_ASSERT_VALUES(In(z,0,15), z);
 	if (x >= 0 && y >= 0) {
 		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
-		return TRGBColor(Block->Color[x % 256][y % 256]);
+		return TRGBColor(Block->Color.view()[x % 256, y % 256]);
 	}
 	return TRGBColor(0, 0, 0);
 }
@@ -1193,7 +1204,7 @@ bool patella::TMap::IsAutomapBlocked(int x, int y, int z)
 	PATELLA_ASSERT_VALUES(In(z,0,15), z);
 	if (x >= 0 && y >= 0) {
 		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
-		return Block->Speed[x % 256][y % 256] == 255;
+		return Block->Speed.view()[x % 256, y % 256] == 255;
 	}
 	return true;
 }
@@ -1204,7 +1215,7 @@ int patella::TMap::GetAutomapSpeed(int x, int y, int z)
 	PATELLA_ASSERT_VALUES(In(z,0,15), z);
 	if (x >= 0 && y >= 0) {
 		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
-		return Block->Speed[x % 256][y % 256];
+		return Block->Speed.view()[x % 256, y % 256];
 	}
 	return 1;
 }

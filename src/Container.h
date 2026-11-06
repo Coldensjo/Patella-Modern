@@ -56,6 +56,7 @@
 #pragma once
 
 #include "common.h"
+#include "compat/mdspan.h"
 #include <memory>
 #include <sstream>
 
@@ -121,6 +122,12 @@ template <class T> T &array<T>::operator()(int i)
 // Instances (Map.cpp):
 //   matrix<TPathNode>  constructor 0x4b1100, operator() 0x4b5e90, destructor 0x4b0b20
 //   matrix3d<int>      constructor 0x4b0d70, operator() 0x4b5b40
+//
+// The entries are indexed through a std::mdspan view over the owned storage since Patella-Modern issue #101
+// (src/compat/mdspan.h; notes/decisions.md, "#101: the matrices and the automap layers as mdspan views"): view()
+// makes one from entry and the extents, layout_left, so view()[x, y] is entry[y * dx + x] and view()[x, y, z]
+// entry[(z * dy + y) * dx + x] as in the original. operator() checks the indices first; a view does not. The members
+// before entry and entry itself stay as they were (the golden test compares them with the original's).
 template <class T> class matrix {
 public:
 	matrix(const matrix &) = delete;
@@ -128,6 +135,12 @@ public:
 	matrix(int XMin, int XMax, int YMin, int YMax);
 	~matrix() { entry.reset(); }
 	T &operator()(int x, int y);
+
+	// [x, y] from 0, x the fastest index.
+	using TView = patella::TMdspan<T, patella::TDynamicExtents<int, 2>, patella::TLayoutLeft>;
+	using TConstView = patella::TMdspan<const T, patella::TDynamicExtents<int, 2>, patella::TLayoutLeft>;
+	TView view() { return TView(entry.get(), dx, dy); }
+	TConstView view() const { return TConstView(entry.get(), dx, dy); }
 
 	int xmin;                   // +0x00
 	int ymin;                   // +0x04
@@ -160,7 +173,7 @@ template <class T> T &matrix<T>::operator()(int x, int y)
 		  << ", dy: " << dy << ")";
 		TERROR(s.str().c_str());
 	}
-	return entry[y * dx + x];
+	return view()[x, y];
 }
 
 template <class T> class matrix3d {
@@ -170,6 +183,12 @@ public:
 	matrix3d(int XMin, int XMax, int YMin, int YMax, int ZMin, int ZMax);
 	~matrix3d() { entry.reset(); }
 	T &operator()(int x, int y, int z);
+
+	// [x, y, z] from 0, x the fastest index, z the slowest.
+	using TView = patella::TMdspan<T, patella::TDynamicExtents<int, 3>, patella::TLayoutLeft>;
+	using TConstView = patella::TMdspan<const T, patella::TDynamicExtents<int, 3>, patella::TLayoutLeft>;
+	TView view() { return TView(entry.get(), dx, dy, dz); }
+	TConstView view() const { return TConstView(entry.get(), dx, dy, dz); }
 
 	int xmin;                   // +0x00
 	int ymin;                   // +0x04
@@ -210,5 +229,5 @@ template <class T> T &matrix3d<T>::operator()(int x, int y, int z)
 		  << ", dy: " << dy << ", dz: " << dz << ")";
 		throw TMYEXCEPTION(s.str().c_str(), "", 0, "", 0, "[bug0000013]");
 	}
-	return entry[(z * dy + y) * dx + x];
+	return view()[x, y, z];
 }

@@ -27,6 +27,9 @@
 # - Both: patella::TSpan (src/compat/span.h, issue #59), std::span in tests_unit and the C++17 stand-in that the
 #   32-bit oracle passed the packet buffers', TXTEA's and TRSA's spans with (until #94) in tests_unit_cxx26_standin
 #   (PATELLA_SPAN_STANDIN): the same construction, conversion, size and part tests for both.
+# - Both: patella::TMdspan (src/compat/mdspan.h, issue #101), std::mdspan in tests_unit where the library has it
+#   (MSVC, GCC 16; not linux-x64-clang's libstdc++ 14) and the stand-in in tests_unit_cxx26_standin
+#   (PATELLA_MDSPAN_STANDIN): the extents, both layouts' mappings, indexing, the const view.
 # - Both: the developer log (src/log/Log.h, issue #77): the levels, the lines on the console and in the file, the
 #   formats through both paths (std::format and the stand-in), the fatal path's stack trace (std::stacktrace where the
 #   library has it) and debugger break.
@@ -43,7 +46,8 @@
 #   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31), the options' keys in it and their escaping (issue #45), the developer log's keys in it (issue #77) and
 #   src/compat/msvc.h, the Microsoft CRT's semantics behind portable names (issue #43; its 32-bit time went in #62); the expected values that are not the code's own come from tests/unit/core_expected.py;
 #   common.h's TERROR*, TMYEXCEPTION and TProgramError (issue #80); src/MapPoint.h, a map point's stack of objects over
-#   TStaticVector and the original's behaviour when it is full (issue #102).
+#   TStaticVector and the original's behaviour when it is full (issue #102); Container.h's matrix views and
+#   src/AutomapLayer.h, the automap's layers in the file's order (issue #101).
 #
 # - tests_testmode: patella_testmode (cmake/TestMode.cmake, issue #21): the virtual clock, the input
 #   script's parser and key table, the scheduler, the driver's loop on the virtual clock, and that the
@@ -96,6 +100,7 @@ function(patella_unit_tests target)
 		slot_table_test.cpp
 		file_test.cpp
 		span_test.cpp
+		mdspan_test.cpp
 		log_test.cpp
 		assertion_test.cpp
 		exception_test.cpp
@@ -135,7 +140,8 @@ endif()
 
 patella_unit_tests(tests_unit_cxx26_standin)
 target_compile_definitions(tests_unit_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN PATELLA_EXPECT_CXX26=0
-	PATELLA_FORMAT_STANDIN PATELLA_SPAN_STANDIN PATELLA_SOURCE_LOCATION_STANDIN PATELLA_EXPECTED_STANDIN)
+	PATELLA_FORMAT_STANDIN PATELLA_SPAN_STANDIN PATELLA_SOURCE_LOCATION_STANDIN PATELLA_EXPECTED_STANDIN
+	PATELLA_MDSPAN_STANDIN)
 
 add_executable(tests_core
 	core_main.cpp
@@ -151,7 +157,8 @@ add_executable(tests_core
 	core_log_settings_test.cpp
 	core_msvc_test.cpp
 	core_errors_test.cpp
-	core_map_point_test.cpp)
+	core_map_point_test.cpp
+	core_automap_layer_test.cpp)
 target_link_libraries(tests_core PRIVATE patella_core doctest::doctest)
 patella_target_language(tests_core)
 patella_target_warnings(tests_core)
