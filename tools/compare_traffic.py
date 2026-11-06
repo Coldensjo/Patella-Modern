@@ -9,7 +9,7 @@ Runs the scripted session of tools/session_client.py with both clients and compa
 
 1. Live: for each client (Tibia.exe first, then Patella.exe) the test characters' player
    files are restored to what they were when the script started, the server is started
-   (tools/testserver.py start), the client under test is started, then the helper (a third
+   (tools/testserver.py start: both ports and the loaded world, issue #68), the client under test is started, then the helper (a third
    copy of Tibia.exe, started with "gamemaster" so that it skips the one-client check; this
    server ignores the flag) logs "Patella Second" in, the trade partner. The client under test
    goes through tools/proxy.py (recording, decryption) and plays the session as "Patella
@@ -241,10 +241,12 @@ def server_running():
 
 
 def start_server():
-	"""testserver.py start; again if the login server listens on 0.0.0.0. The server's login
-	thread reads its bind address from a global (GameAddress) that LoadWorldConfig overwrites
-	while the thread starts (src/main.cc, login/login_server.cc), so now and then it binds
-	0.0.0.0:7171 although config.cfg says 127.0.0.1."""
+	"""testserver.py start, the one start of every tool (compare_files.py, testmode_check.py, reference.py's
+	live recordings): it returns when the server listens on both ports and its world is loaded ("Server
+	Online!"), and stops and restarts a server of its own that stalls (Patella-Modern issue #68). Again if the
+	login server listens on 0.0.0.0. The server's login thread reads its bind address from a global
+	(GameAddress) that LoadWorldConfig overwrites while the thread starts (src/main.cc,
+	login/login_server.cc), so now and then it binds 0.0.0.0:7171 although config.cfg says 127.0.0.1."""
 	for attempt in range(1, 6):
 		output = server_script("start")
 		if "0.0.0.0:7171" not in output:

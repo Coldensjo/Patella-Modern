@@ -7,6 +7,7 @@ issue #18 must be stopped, the script starts and stops it for the one live recor
       reference recordings of this tool's sessions; notes/testmode.md, "Reference recordings")
                                    [--walk ladder|stairs] [--patella EXE]
   python -I tools/compare_files.py --check-route [--walk NAME] [--server-dir DIR]
+  python -I tools/compare_files.py --self-test   (issue #68: the window placement, no client, no server)
 
 Both clients play the same sessions in run folders with copies of the data files
 (build\files\orig, build\files\patella, build\files\orig-repeat, made like tools/compare_traffic.py's,
@@ -35,6 +36,12 @@ The sessions patch and patch-exe (crafted login server answers that patched Tibi
 Tibia.pic, Patch.exe and Tibia.exe) went with the built-in patcher in issue #75 (decision D9): the
 fork's clients end the login at a patch packet (tools/deliberate.py), so they write none of those
 files; the golden corpus's Communication test checks that (TestUpdateRequests).
+
+The window's place is an input of every session (Patella-Modern issue #68): before each WM_CLOSE, the exit
+that writes the last Tibia.cfg, the client's window is put back where the run's Tibia.cfg put it ((10,10),
+800x600, not maximised) if Windows moved it, and the report lists every window it moved; WindowedMode stays
+compared in full. The live recording's server start waits for the ports and the loaded world
+(tools/testserver.py start, issue #68). `--self-test` checks the placement on a window of its own.
 
 Masked, after two runs of Tibia.exe showed that they differ from run to run (--repeat runs
 Tibia.exe a second time for walk to show it again): the time in Default.txt ("Channel saved
@@ -159,7 +166,66 @@ def start(run, arguments=()):
 	return driver
 
 
+class WINDOWPLACEMENT(ctypes.Structure):
+	_fields_ = [("length", wt.UINT), ("flags", wt.UINT), ("showCmd", wt.UINT), ("ptMinPosition", wt.POINT),
+		("ptMaxPosition", wt.POINT), ("rcNormalPosition", wt.RECT)]
+
+
+user32.GetWindowPlacement.argtypes = [wt.HWND, ctypes.POINTER(WINDOWPLACEMENT)]
+user32.SetWindowPlacement.argtypes = [wt.HWND, ctypes.POINTER(WINDOWPLACEMENT)]
+SW_SHOWNORMAL, SW_SHOWNOACTIVATE = 1, 4
+
+
+def cfg_window(cfg=ct.TIBIA_CFG):
+	"""(x, y, width, height) of a Tibia.cfg's WindowedMode line."""
+	match = re.search(r"^WindowedMode = \((-?\d+),(-?\d+),(\d+),(\d+),(yes|no)\)", cfg, re.M)
+	if match is None:
+		raise RunError("no WindowedMode line in the run's Tibia.cfg")
+	return tuple(int(value) for value in match.groups()[:4])
+
+
+def window_placement(hwnd):
+	"""(x, y, width, height, showCmd) of a window's normal (restored) place: what the client's OnDestroy
+	writes to Tibia.cfg's WindowedMode (GetWindowPlacement's rcNormalPosition, src/MainFrm.cpp)."""
+	placement = WINDOWPLACEMENT()
+	placement.length = ctypes.sizeof(WINDOWPLACEMENT)
+	if not user32.GetWindowPlacement(hwnd, ctypes.byref(placement)):
+		raise RunError("GetWindowPlacement failed (error %d)" % ctypes.get_last_error())
+	r = placement.rcNormalPosition
+	return r.left, r.top, r.right - r.left, r.bottom - r.top, placement.showCmd
+
+
+# Patella-Modern issue #68: where the window was found before the WM_CLOSE that writes the last Tibia.cfg,
+# when it was not where the run's Tibia.cfg put it: [(scenario, run, found, placed)], listed in the report.
+PLACEMENTS = []
+SCENARIO = [""]  # the scenario running, for PLACEMENTS
+
+
+def place_window(hwnd, target, run="", settle=0.3):
+	"""Puts the window at target (x, y, width, height; normal, not maximised) when it is elsewhere (issue #68:
+	Windows now and then moves a client's window on its own, (10,10) became (-4,6) in Tibia.exe's Tibia.cfg).
+	The window's place is an input of the session, like the Tibia.cfg it starts with: both clients get the
+	same one, and WindowedMode stays compared in full. Returns where it was, or None when it was in place."""
+	found = window_placement(hwnd)
+	if found[:4] == tuple(target) and found[4] == SW_SHOWNORMAL:
+		return None
+	placement = WINDOWPLACEMENT()
+	placement.length = ctypes.sizeof(WINDOWPLACEMENT)
+	placement.showCmd = SW_SHOWNOACTIVATE
+	x, y, width, height = target
+	placement.rcNormalPosition = wt.RECT(x, y, x + width, y + height)
+	if not user32.SetWindowPlacement(hwnd, ctypes.byref(placement)):
+		raise RunError("SetWindowPlacement failed (error %d)" % ctypes.get_last_error())
+	time.sleep(settle)
+	placed = window_placement(hwnd)
+	log("%s: the window was at %s (showCmd %d), not at Tibia.cfg's %s: placed there, now %s (showCmd %d)" % (
+		run or "window", found[:4], found[4], tuple(target), placed[:4], placed[4]))
+	PLACEMENTS.append((SCENARIO[0], run, found, placed))
+	return found
+
+
 def close(driver, expect=0):
+	place_window(driver.hwnd, cfg_window(), os.path.basename(driver.run_dir))
 	code = driver.close()
 	if code != expect:
 		raise RunError("%s exited with code %d, expected %d" % (driver.exe, code, expect))
@@ -1148,8 +1214,12 @@ def main():
 		"(default %(default)s: PATELLA_TESTSERVER, else C:\\Tibia\\gameserver, tools/testserver.py)")
 	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
 		"it (default build/oracle-x86/Release/Patella.exe; as tools/compare_traffic.py's --patella)")
+	parser.add_argument("--self-test", action="store_true", help="the window placement on a window of its own "
+		"(no client, no server) and exit")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 	args = parser.parse_args()
+	if args.self_test:
+		return 1 if self_test() else 0
 	if args.check_route:
 		problems = []
 		for name in ([args.walk] if args.walk else sorted(WALKS)):
@@ -1183,6 +1253,7 @@ def main():
 	if any(name != "options" for name in only):
 		if not (args.skip_live and os.path.isfile(recording)):
 			log("=== live recording (Tibia.exe against the test server), walk %s" % walk_name)
+			SCENARIO[0] = "walk"
 			live = record_walk(out, walk_name)
 		else:
 			path = os.path.join(out, "walk-live.walk")
@@ -1202,6 +1273,7 @@ def main():
 		results[name] = {}
 		for run in runs:
 			log("=== %s: %s" % (name, run))
+			SCENARIO[0] = name
 			try:
 				target = os.path.join(out, "repeat") if run == REPEAT_RUN else out  # <target>\<scenario>\<client>
 				if name == "options":
@@ -1250,11 +1322,69 @@ def main():
 				failed |= not same
 		if "events" in r["orig"]:
 			failed |= compare_packets(say, r)
+	moved = [entry for entry in PLACEMENTS if entry[0] in only]
+	say()
+	say("window placement before the exit (issue #68): %s" % ("every window where Tibia.cfg put it" if not moved
+		else "%d moved back to Tibia.cfg's %s" % (len(moved), cfg_window())))
+	for scenario, run, found, placed in moved:
+		say("    %s, %s: found at %s (showCmd %d), placed at %s" % (scenario, client_exe(run) if run in (
+			"orig", "patella", REPEAT_RUN) else run, found[:4], found[4], placed[:4]))
 	say()
 	say("RESULT: %s" % ("differences found" if failed else "no differences"))
 	with open(os.path.join(out, "report.txt"), "w", encoding="utf-8", newline="\n") as f:
 		f.write("\n".join(report) + "\n")
 	return 1 if failed else 0
+
+
+def self_test(out=print):
+	"""place_window on a window of this process's own (a STATIC control as a top-level window, no client, no
+	server) and cfg_window on Tibia.cfg lines. Returns the number of failed expectations."""
+	failures = 0
+	out("window placement (issue #68)")
+
+	def check(title, ok):
+		nonlocal failures
+		failures += not ok
+		out("  %-60s %s" % (title, "ok" if ok else "FAILED"))
+
+	check("compare_traffic's Tibia.cfg: (10,10,800,600)", cfg_window() == (10, 10, 800, 600))
+	check("a negative position", cfg_window("WindowedMode = (-4,6,800,600,no)\r\n") == (-4, 6, 800, 600))
+	try:
+		cfg_window("Engine = 2\n")
+		check("no WindowedMode line: RunError", False)
+	except RunError:
+		check("no WindowedMode line: RunError", True)
+	user32.CreateWindowExW.restype = wt.HWND
+	user32.CreateWindowExW.argtypes = [wt.DWORD, wt.LPCWSTR, wt.LPCWSTR, wt.DWORD, ctypes.c_int, ctypes.c_int,
+		ctypes.c_int, ctypes.c_int, wt.HWND, wt.HMENU, wt.HINSTANCE, wt.LPVOID]
+	user32.DestroyWindow.argtypes = [wt.HWND]
+	user32.MoveWindow.argtypes = [wt.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wt.BOOL]
+	user32.ShowWindow.argtypes = [wt.HWND, ctypes.c_int]
+	WS_OVERLAPPEDWINDOW, WS_EX_TOOLWINDOW, WS_EX_NOACTIVATE = 0x00CF0000, 0x00000080, 0x08000000
+	hwnd = user32.CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, "STATIC", "compare_files self-test",
+		WS_OVERLAPPEDWINDOW, 10, 10, 800, 600, None, None, None, None)
+	if not hwnd:
+		check("CreateWindowExW", False)
+		return failures
+	PLACEMENTS.clear()
+	try:
+		user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
+		target = (10, 10, 800, 600)
+		check("in place: left alone", place_window(hwnd, target, "self-test", settle=0) is None and not PLACEMENTS)
+		user32.MoveWindow(hwnd, -4, 6, 800, 600, True)
+		found = place_window(hwnd, target, "self-test", settle=0)
+		check("moved to (-4,6): found there, placed back", found is not None and found[:4] == (-4, 6, 800, 600)
+			and window_placement(hwnd)[:4] == target and len(PLACEMENTS) == 1)
+		user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE
+		found = place_window(hwnd, target, "self-test", settle=0)
+		placed = window_placement(hwnd)
+		check("maximised: restored to the place", found is not None and found[4] == 3 and placed[:4] == target
+			and placed[4] == SW_SHOWNORMAL)
+	finally:
+		user32.DestroyWindow(hwnd)
+		PLACEMENTS.clear()
+	out("compare_files self test: %d failures" % failures)
+	return failures
 
 
 def kill_client(run):
@@ -1267,7 +1397,7 @@ def kill_client(run):
 
 
 if __name__ == "__main__":
-	desktop.hide(skip=("--check-only", "--check-route", "-h", "--help"))  # issue #56: only with --hidden
+	desktop.hide(skip=("--check-only", "--check-route", "--self-test", "-h", "--help"))  # issue #56: only with --hidden
 	try:
 		sys.exit(main())
 	except (RunError, sc.SessionError, px.ProtocolError) as e:

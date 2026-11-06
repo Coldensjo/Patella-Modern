@@ -21,10 +21,15 @@ accounts; its sources are in `gameserver\src`.
   (it finds config.cfg, tibia.db and tibia.pem relative to its working directory) in a hidden console of its
   own, writes its output to `build\testserver\server.log` (overwritten at each start; stderr: server.err) and
   its PID (and the process's creation time) to `build\testserver\server.pid`, and returns when both ports
-  listen (about 5 s: the map, 9,873 sectors and 8.9 million objects, loads in 3.3 s), printing
-  `listening on 127.0.0.1:7171, 127.0.0.1:7172`. `--window` shows the console minimised instead;
-  `--server-dir` for another copy, `--timeout` (300 s) for the wait. Refuses to start a second server or to
-  start when 7171/7172 is taken. Exit code 0 when the server is up.
+  listen and the world is loaded, server.log's `Server Online!` (Patella-Modern issue #68; about 5 s: the map,
+  9,873 sectors and 8.9 million objects, loads in 2 to 3.3 s), printing `listening on 127.0.0.1:7171,
+  127.0.0.1:7172` and `world loaded`. An attempt that stalls (no progress in server.log, the ports or the
+  server's CPU time for `--stall`, 180 s; `Server Online!` without both ports `--after-online`, 60 s, later;
+  `--timeout`, 900 s, in all) or exits is stopped (it is the one this start started) and the server started
+  again, `--retries` (1) times, the failed attempt's log kept as `server-attempt<N>.log`. `--window` shows the
+  console minimised instead; `--server-dir` for another copy. Refuses to start a second server or to start when
+  7171/7172 is taken, also before a retry. Exit code 0 when the server is ready. `self-test` checks the wait on
+  made-up servers (no server).
 - **Stop**: `python -I tools/testserver.py stop`. Sends Ctrl+C to the server's console, the shutdown the
   server documents ("Press Ctrl+C to shutdown the server": stops the login server, logs everyone out and
   saves, closes the database), and waits for the exit. The Ctrl+C comes from a separate copy of the script
