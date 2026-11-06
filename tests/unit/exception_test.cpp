@@ -55,8 +55,7 @@ TEST_CASE("ErrorText: the wrapping constructor 0x5086a0 appends the inner messag
 	const TMyException Inner("Control.cpp 1274: unknown packet type during game (Type = 255)", PATELLA_SOURCE_LOCATION());
 	CHECK(patella::ErrorText("Player.cpp", 383, "exception occurred", "", 0, "", 0, Inner)
 		== "Player.cpp 383: exception occurred, reason:\nControl.cpp 1274: unknown packet type during game (Type = 255)");
-	CHECK(patella::ErrorText("Control.cpp", 145, "ExitSurfaces failed", "oldEngine", 2, "", 0, Inner).starts_with(
-		"Control.cpp 145: ExitSurfaces failed (oldEngine = 2), reason:\nControl.cpp 1274"));
+	CHECK(patella::ErrorText("Control.cpp", 145, "ExitSurfaces failed", "oldEngine", 2, "", 0, Inner).starts_with("Control.cpp 145: ExitSurfaces failed (oldEngine = 2), reason:\nControl.cpp 1274"));
 	const TMyException Empty("", PATELLA_SOURCE_LOCATION());
 	CHECK(patella::ErrorText("x.cpp", 1, "k", "", 0, "", 0, Empty) == "x.cpp 1: k, reason:\n");
 }

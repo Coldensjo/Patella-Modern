@@ -74,31 +74,31 @@ public:
 	virtual void SwapChildren(TComponent *Child1, TComponent *Child2);      // +0x18, 0x49b9f0, line 1041
 	virtual bool IsChild(TComponent *Child);                                // +0x1c, 0x49bb10, line 1049
 	// GUI.h lines 681 and 682 (0x417de0, 0x417f00, kept in an earlier object).
-	virtual TComponent *GetFirstChild() { TERROR("not possible"); } // +0x20
-	virtual TComponent *GetLastChild() { TERROR("not possible"); }  // +0x24
-	virtual TComponent *GetNext() { return Next; }                      // +0x28, 0x417680
-	virtual TComponent *GetPrevious();                                  // +0x2c, 0x49bc30, lines 1057-1066
-	virtual TComponent *GetParent() { return Parent; }                  // +0x30, 0x417690
-	virtual void SetSize(int _Width, int _Height);                      // +0x34, 0x49bee0, lines 1092-1093
-	virtual void SetPosition(int _OffsetX, int _OffsetY);               // +0x38, 0x496060
-	virtual int getMinimumWidth() { return 0; }                         // +0x3c, 0x417a20
-	virtual int getMinimumHeight() { return 0; }                        // +0x40, 0x417a20
-	virtual void Draw(int Surface, int x, int y);                       // +0x44, 0x4a1fb0, lines 1118-1163
-	virtual void Arrange() {}                                           // +0x48, empty (0x496160); rebuilds the drawing list in subclasses
-	virtual bool MouseMove(int x, int y) = 0;                           // +0x4c
-	virtual bool LeftButtonDown(int x, int y, int Flags) = 0;           // +0x50
-	virtual bool LeftButtonUp(int x, int y, int Flags) = 0;             // +0x54, Flags 0x200: both buttons
-	virtual bool LeftButtonDoubleClick(int x, int y, int Flags) = 0;    // +0x58
-	virtual bool RightButtonUp(int x, int y, int Flags) = 0;            // +0x5c
-	virtual bool MouseWheel(int x, int y, int Direction) = 0;           // +0x60, 1 up, 2 down, 6 left button held
-	virtual void MouseHover(int x, int y) = 0;                          // +0x64
-	virtual bool HelpMouseMove(int x, int y) = 0;                       // +0x68, action state 9
-	virtual void KeyPress([[maybe_unused]] int Key) {}                  // +0x6c, empty (0x4eac00)
-	virtual void HandleEvent([[maybe_unused]] int Event) {}             // +0x70, empty (0x4eac00); see TCallback
-	virtual void PositionChanged() {}                                   // +0x74, empty (0x496160); the parent moved
-	virtual void SetCapture(TComponent *Component) = 0;                 // +0x78
-	virtual void ReleaseCapture(TComponent *Component) = 0;             // +0x7c
-	virtual void StopDragging() = 0;                                    // +0x80
+	virtual TComponent *GetFirstChild() { TERROR("not possible"); }  // +0x20
+	virtual TComponent *GetLastChild() { TERROR("not possible"); }   // +0x24
+	virtual TComponent *GetNext() { return Next; }                   // +0x28, 0x417680
+	virtual TComponent *GetPrevious();                               // +0x2c, 0x49bc30, lines 1057-1066
+	virtual TComponent *GetParent() { return Parent; }               // +0x30, 0x417690
+	virtual void SetSize(int _Width, int _Height);                   // +0x34, 0x49bee0, lines 1092-1093
+	virtual void SetPosition(int _OffsetX, int _OffsetY);            // +0x38, 0x496060
+	virtual int getMinimumWidth() { return 0; }                      // +0x3c, 0x417a20
+	virtual int getMinimumHeight() { return 0; }                     // +0x40, 0x417a20
+	virtual void Draw(int Surface, int x, int y);                    // +0x44, 0x4a1fb0, lines 1118-1163
+	virtual void Arrange() {}                                        // +0x48, empty (0x496160); rebuilds the drawing list in subclasses
+	virtual bool MouseMove(int x, int y) = 0;                        // +0x4c
+	virtual bool LeftButtonDown(int x, int y, int Flags) = 0;        // +0x50
+	virtual bool LeftButtonUp(int x, int y, int Flags) = 0;          // +0x54, Flags 0x200: both buttons
+	virtual bool LeftButtonDoubleClick(int x, int y, int Flags) = 0; // +0x58
+	virtual bool RightButtonUp(int x, int y, int Flags) = 0;         // +0x5c
+	virtual bool MouseWheel(int x, int y, int Direction) = 0;        // +0x60, 1 up, 2 down, 6 left button held
+	virtual void MouseHover(int x, int y) = 0;                       // +0x64
+	virtual bool HelpMouseMove(int x, int y) = 0;                    // +0x68, action state 9
+	virtual void KeyPress([[maybe_unused]] int Key) {}               // +0x6c, empty (0x4eac00)
+	virtual void HandleEvent([[maybe_unused]] int Event) {}          // +0x70, empty (0x4eac00); see TCallback
+	virtual void PositionChanged() {}                                // +0x74, empty (0x496160); the parent moved
+	virtual void SetCapture(TComponent *Component) = 0;              // +0x78
+	virtual void ReleaseCapture(TComponent *Component) = 0;          // +0x7c
+	virtual void StopDragging() = 0;                                 // +0x80
 
 	int getWidth() const { return Width; }   // "Child->getWidth()" (line 1725), inlined
 	int getHeight() const { return Height; } // "Child->getHeight()" (line 1726), inlined
