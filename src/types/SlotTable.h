@@ -64,7 +64,7 @@ public:
 			using difference_type = std::ptrdiff_t;
 
 			TIterator() = default;
-			TIterator(const TSlotTable &Table, Key Number) noexcept : Table(&Table), Number(Number) {}
+			TIterator(const TSlotTable &Of, Key At) noexcept : Table(&Of), Number(At) {}
 
 			[[nodiscard]] Key operator*() const noexcept { return Number; }
 			TIterator &operator++() noexcept
@@ -88,7 +88,7 @@ public:
 			Key Number = static_cast<Key>(-1);
 		};
 
-		TChain(const TSlotTable &Table, Key First) noexcept : Table(Table), First(First) {}
+		TChain(const TSlotTable &Of, Key From) noexcept : Table(Of), First(From) {}
 
 		[[nodiscard]] TIterator begin() const noexcept { return {Table, First}; }
 		[[nodiscard]] static std::default_sentinel_t end() noexcept { return std::default_sentinel; }

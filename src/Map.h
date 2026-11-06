@@ -352,7 +352,7 @@ public:
 		using difference_type = std::ptrdiff_t;
 
 		TIterator() = default;
-		explicit TIterator(int Number) noexcept : Number(Number) {}
+		explicit TIterator(int First) noexcept : Number(First) {}
 
 		[[nodiscard]] int operator*() const noexcept { return Number; }
 		TIterator &operator++()
@@ -372,15 +372,15 @@ public:
 		int Number = -1;
 	};
 
-	TMapEffects(int rx, int ry, int rz) noexcept : rx(rx), ry(ry), rz(rz) {}
+	TMapEffects(int rx, int ry, int rz) noexcept : FieldX(rx), FieldY(ry), FieldZ(rz) {}
 
-	[[nodiscard]] TIterator begin() const { return TIterator{GetFirstEffect(rx, ry, rz)}; }
+	[[nodiscard]] TIterator begin() const { return TIterator{GetFirstEffect(FieldX, FieldY, FieldZ)}; }
 	[[nodiscard]] static std::default_sentinel_t end() noexcept { return std::default_sentinel; }
 
 private:
-	int rx;
-	int ry;
-	int rz;
+	int FieldX;
+	int FieldY;
+	int FieldZ;
 };
 
 // Map points and scrolling.
