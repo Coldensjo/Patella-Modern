@@ -13015,3 +13015,91 @@ Logs: build\logs\issue-102 of the branch's worktree; golden replayed main's froz
   session matches (traffic, options, walk, error); `python -I tools/compare_traffic.py` exit 0, no differences.
 - `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`:
   exit 0. clang-format (CLAUDE.md's command): exit 0.
+
+## #112: text encoding at the platform boundary (Patella-Modern issue #112, M7)
+
+Settled by Claude Opus 5.5, November 6, 2026. D4 (plan section 9): the client's 8-bit code page inside, as the
+original; Unicode only where its text meets the platform. The code page is Windows-1252 (Latin-1 with the printable
+characters of 0x80-0x9f): what the protocol, Tibia.dat, Tibia.cfg and Patella.ini carry, and what Tibia.exe's ANSI
+calls meant on the Western Windows it was made for.
+
+### The conversion (high)
+
+`src/types/Cp1252.h` (header only, no platform header; patella_core's, and types/File.h's in tests_unit):
+`Cp1252ToUtf8`, `Utf8ToCp1252`, `Cp1252ToUtf16`, `Utf16ToCp1252`, on Windows `Cp1252ToWide` and `WideToCp1252`
+(wchar_t), and for single characters `Cp1252ToCodePoint` and `CodePointToCp1252`.
+
+- **The five undefined bytes** (0x81, 0x8d, 0x8f, 0x90, 0x9d) are the C1 controls of their value (U+0081, U+008D,
+  U+008F, U+0090, U+009D), as Windows' own code page 1252 maps them (MultiByteToWideChar; the unit test compares all
+  256 bytes with it) and as the WHATWG encoding standard does. Every byte has a character and each of those characters
+  its byte, so the client's text goes out and comes back unchanged: no byte is lost on the clipboard or in a file name.
+- **A character with no Windows-1252 byte** becomes `?` (`patella::text::Replacement`; the functions take another),
+  one per character whatever its length; so does each ill-formed part of the input: a maximal subpart of ill-formed
+  UTF-8 (Unicode 15, section 3.9, the practice WHATWG and Windows follow), a lone UTF-16 surrogate. Nothing is
+  dropped; NUL and the C0 controls convert as themselves. `?` is the default character of Windows' WideCharToMultiByte
+  without best fit (WC_NO_BEST_FIT_CHARS); the unit test compares every BMP character with it. Best fit (U+0100 as
+  `A`, U+221E as `8`) was rejected: it is Windows' own table, not portable, and silently turns text into other text.
+
+### The boundaries (high)
+
+Every place where the client's text meets the platform, with its decision. On this machine (ANSI code page 1252)
+nothing tier A compares changes: the texts there are ASCII, or 8-bit bytes whose Windows-1252 characters are the ones
+the ANSI calls produced.
+
+| Boundary | Before | Decision |
+|---|---|---|
+| The clipboard: SetClipboardText (CopyToClipboard, CheckClipboardText, CopyTaintedClipboardText), GetClipboardText and IsClipboardEmpty (the paste), sysinc.cpp | CF_TEXT: the bytes in the system's ANSI code page; Windows makes the Unicode text of a copy from the code page of the input language active then (a Russian layout: 1251) | **Converted**: CF_UNICODETEXT, to and from Windows-1252. A real mismatch wherever the ANSI or the input language's code page is not 1252 (a copied "Jörg" pasted elsewhere as "J?rg" or "Jцrg"). Here the same for every character the client has; a pasted character outside Windows-1252 is `?` now where Windows' CF_TEXT made a best-fit one (Needs the user, below). The original's odd CR removal (one byte past the data) is kept; its Size is the converted text's with the NUL |
+| File names, TFile::Open(const char *) (types/File.h): the data files (Tibia.dat, .spr, .pic), Tibia.cfg's import, the map files, "Save Window" (`<channel>.txt`: the caption is the server's text, a private channel the partner's name), Patella.ini's LogFile | `_fsopen` (ANSI) on Windows, the bytes as they are elsewhere | **Converted**: a name is the client's text; on Windows `_wfsopen` with its UTF-16 name (the same sharing, _SH_DENYNO), elsewhere `fopen`/`open` with its UTF-8 name. Here the same file for every name; on another ANSI code page and on Linux (M8) "Jörg.txt" is that file, not mojibake. The test mode's UTF-16 overload is unchanged |
+| The developer log's output (log/Log.h): stderr and LogFile | the message's bytes | **Converted**: every line goes out in UTF-8 (FormatLine). The messages are the client's text (exception texts with the server's or a file's bytes, Patella.ini's values); a terminal, an editor and M8's Linux console read UTF-8. An ASCII line is unchanged. golden's errors_tests.cpp expects HandleException's line in UTF-8 now (its random messages have ä and ß): that expected text is ours, made from our exception; the check is as strict as before |
+| The Vulkan device names (Renderer.cpp TDeviceInfo::Name: the advanced options' device buttons and label, GetDeviceName, the test mode's device observer) | Vulkan's UTF-8 shown as 8-bit text | **Converted**: Utf8ToCp1252 when a device is listed, so the GUI draws a driver's ® or ü as itself. The names here (lavapipe's, the GPUs') are ASCII: unchanged |
+| Window titles and the window class (Player.cpp GetWindowTitle, GetWindowClassName, CMainFrame::Create, PreCreateWindow; CountTibiaWindows' GetWindowTextA and GetClassNameA of other windows) | ANSI calls | **Unchanged**: the texts are ASCII constants ("Tibia", "TibiaClient"); another window's non-ASCII title is not "Tibia" in any code page. M8: SDL_CreateWindow's UTF-8 title |
+| Message boxes (PATELLA_MESSAGE_BOX: FatalError's, the start's two; the test mode's ShowMessageBox) | MessageBoxA | **Unchanged**: every caption and text is ASCII (the PROGRAM_ERROR texts, TextCriticalError, the two start messages); the exception's message goes to the log, not into the box. The golden corpus has MessageBoxA's slot. M8: SDL_ShowSimpleMessageBox with Cp1252ToUtf8 |
+| URLs (MainFrm.cpp OpenURL: ShellExecuteA) | ANSI | **Unchanged**: the client's links are ASCII constants and LinkPattern's characters (Status.h) are ASCII; golden's mainfrm test fakes ShellExecuteA. M8: SDL_OpenURL with UTF-8 |
+| Keyboard input (CMainFrame::OnChar: WM_CHAR of the ANSI window class) | Windows converts a typed character to the code page of the active input language | **Deferred to M8**: a real mismatch for a layout whose code page is not 1252 (a Polish ł arrives as 0xb3, shown as ³). The fix needs a Unicode window (RegisterClassW and MFC's message handling, which the test mode's scripted WM_CHAR bytes go through) or SDL_EVENT_TEXT_INPUT's UTF-8 through Utf8ToCp1252, which M8's table names. Here (1252) correct |
+| The command line (Player.cpp InitInstance: m_lpCmdLine's gamemaster, host, port, engine) | ANSI | **Unchanged**: ASCII keywords (host's and port's values are dropped, the original's) |
+| Patella.ini's name and contents (settings/Settings.cpp) | the bytes as they are (#45) | **Unchanged**, as decided in #45: the name is an ASCII constant, the values stay Windows-1252 bytes (a value typed in a UTF-8 editor arrives as its UTF-8 bytes; Needs the user, below) |
+| The environment (PATELLA_VULKAN, PATELLA_VULKAN_VALIDATION, the test mode's variables) | ANSI | **Unchanged**: ASCII names and values |
+| The CPU driver's manifest (vulkan/DeviceSettings.cpp FindCpuDriverManifest: GetModuleFileNameA, GetFileAttributesA; Renderer.cpp TDriverFiles: _putenv_s of VK_DRIVER_FILES) | ANSI | **Deferred to M8** (Found, not done): not the client's text but the executable's folder; a folder name outside the ANSI code page loses the CPU fallback. The fix is std::filesystem paths and the wide environment end to end (the path also goes into error texts, the client's text): M8's "Files and paths" |
+| sysinc.cpp FileExists and RemoveFile (_access, remove) | ANSI | **Unchanged**: no caller |
+| The test mode's dumps (packets.log, messages.txt, the state dump, the frames' index) | the client's bytes | **Unchanged**: test data compared byte for byte with the frozen reference recordings, not a platform boundary |
+
+### Tests (high)
+
+tests/unit/cp1252_test.cpp in tests_unit and tests_unit_cxx26_standin (every compiler): every byte's character, the
+round trips of all 256 bytes through UTF-8 and UTF-16, every code point 0-0x10FFFF against the table, the characters
+Windows-1252 does not have, ill-formed UTF-8 (Unicode's table 3-8 among it) and UTF-16; on Windows against
+MultiByteToWideChar and WideCharToMultiByte (1252, without best fit). file_test.cpp: a name with ö and € is the file
+of its Unicode name, written and read back. log_test.cpp: the lines in UTF-8, on the console and in the file.
+
+### Needs the user (high)
+
+- The clipboard's characters outside Windows-1252: `?` (chosen; portable, the same as M8's SDL clipboard will give)
+  or Windows' best fit, which CF_TEXT gave until now (U+0100 as `A`). Only pasted text the client cannot show changes.
+- Patella.ini's values: Windows-1252 bytes (#45, kept) or UTF-8 (an editor's default today), converted when read.
+
+### Found, not done (high)
+
+- The keyboard (WM_CHAR of an ANSI window) and the CPU driver's manifest path: M8, above.
+- std::stacktrace's text (Log.h WriteStacktrace) is the standard library's, in the build's file names; the log
+  converts it like a message, so a non-ASCII build path would be written as its ANSI bytes' characters.
+- tests/unit's temporary names come from std::filesystem::path::string() (the ANSI code page on Windows); a temporary
+  folder outside Windows-1252 would fail file_test's new case there, not the client.
+
+### The gates (high)
+
+Logs: build\logs\issue-112 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), 0 warnings. windows-x64-debug and windows-x64-asan: exit 0, 18/18 each,
+  golden the same, no ASan report. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc: exit 0, 16/16; linux-x64-clang (ASan,
+  UBSan): exit 0, 14/14; golden the same on both.
+- First runs that failed: MSVC's C4244 and C5321 in the new tests (an int list into unsigned char; a u8 literal's hex
+  escapes, which MSVC encodes as characters), Clang 22's -Wcharacter-conversion (a char16_t compared with a char32_t),
+  and mingw-w64's libstdc++, whose std::filesystem::path refuses a narrow name that is not UTF-8 (the test's helper,
+  not TFile): fixed, every preset run again on the final code.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches; `python -I tools/compare_traffic.py` exit 0, no differences; `python -I tools/compare_files.py` exit
+  0, no differences (TFile's names).
+- `python -I tools/tidy_ci.py --worktree`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I
+  tools/banned_calls.py`: exit 0. clang-format (CLAUDE.md's command): exit 0.

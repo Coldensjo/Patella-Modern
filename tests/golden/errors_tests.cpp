@@ -54,6 +54,7 @@
 #include "Help.h"
 #include "graphics.h"
 #include "Script.h"
+#include "types/Cp1252.h"
 
 #include <algorithm>
 #include <direct.h>
@@ -471,8 +472,10 @@ void TestPlayer()
 		OurStderr.erase(std::remove(OurStderr.begin(), OurStderr.end(), '\r'), OurStderr.end());
 		remove("stderr.txt");
 		const std::string OurFile = ReadFile("error.txt");
-		// Through the developer log since issue #77, at the error level: its line, "[error] <message>".
-		const std::string ExpectedStderr = Terminating ? "" : "[error] Debug Assertion 7.72 " + Ours.GetMessage() + "\n";
+		// Through the developer log since issue #77, at the error level: its line, "[error] <message>"; since issue #112
+		// in UTF-8 (the message's 0xe4 and 0xdf are two bytes each there).
+		const std::string ExpectedStderr =
+			Terminating ? "" : "[error] Debug Assertion 7.72 " + patella::text::Cp1252ToUtf8(Ours.GetMessage()) + "\n";
 		CHECK(OurFile == FileBefore && OurStderr == ExpectedStderr,
 			"HandleException (issue #74): error.txt\n%s\nbefore\n%s\nstderr \"%s\", expected \"%s\"", OurFile.c_str(),
 			FileBefore.c_str(), OurStderr.c_str(), ExpectedStderr.c_str());

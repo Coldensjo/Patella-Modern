@@ -15,6 +15,8 @@
 #	Extern/regexp         Henry Spencer's regexp (K&R C, compiled as C17)
 #	Container.h           the container templates (header only)
 #	types/IndexedVector.h TIndexedVector, the growable vector over std::vector (header only, issue #99)
+#	types/Cp1252.h       the client's code page (Windows-1252) to and from UTF-8 and UTF-16 (header only,
+#	                      issue #112, plan D4: 8-bit inside, Unicode at the platform boundary)
 #
 # PATELLA_CORE (common.h) leaves out MFC and the Windows headers, so no core source can use them
 # (plan section 8). The client (cmake/WindowsX64.cmake) and the oracle still compile these sources

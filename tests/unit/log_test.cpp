@@ -87,6 +87,21 @@ TEST_CASE("Log: the lines")
 	CHECK(patella::log::FormatLine(TLevel::Error, "Tibia Error: text") == "[error] Tibia Error: text\n");
 	CHECK(patella::log::FormatLine(TLevel::Warn, "") == "[warn] \n");
 	CHECK(patella::log::FormatLine(TLevel::Debug, "a\r\n\r\nb") == "[debug] a\r\n\r\nb\n");
+	// The message is the client's text (Windows-1252), the line UTF-8 (issue #112).
+	CHECK(patella::log::FormatLine(TLevel::Info, "J\xf6rg: \x80 5") == "[info] J\xc3\xb6rg: \xe2\x82\xac 5\n");
+}
+
+TEST_CASE("Log: the lines in the file and on the console are UTF-8 (issue #112)")
+{
+	const TTemporaryPath Path("patella_utf8.log");
+	const TCapture Console;
+	{
+		TLog Log(Capture);
+		REQUIRE(Log.OpenFile(Path.Path));
+		Log.Info("{} \xe4\xdf", "J\xf6rg");
+	}
+	CHECK(FileBytes(Path.Path) == "[info] J\xc3\xb6rg \xc3\xa4\xc3\x9f\n");
+	CHECK(Console.Text() == "[info] J\xc3\xb6rg \xc3\xa4\xc3\x9f\n");
 }
 
 TEST_CASE("Log: the levels written")

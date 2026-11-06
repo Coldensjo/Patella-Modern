@@ -18,6 +18,9 @@
 # - Both: TSlotTable<T, N> (src/types/SlotTable.h, issue #102), Map.cpp's effect table over TStaticVector
 #   (std::inplace_vector in tests_unit on GCC 16): the numbers New() gives, a full table (-1: the new effect is dropped), freed entries taken
 #   again, Clear, and random operations against the original's array and search.
+# - Both: the client's code page and Unicode (src/types/Cp1252.h, issue #112, plan D4): every byte's character, the
+#   round trips through UTF-8 and UTF-16, '?' for the characters Windows-1252 does not have and for ill-formed UTF-8
+#   and UTF-16, every code point; on Windows against Windows' own code page 1252.
 # - Both: TFile (src/types/File.h, issue #64), the client's files: the bytes of each open mode (text: "\r\n" on every
 #   platform), fopen's and fclose's results, reads, seeks, _eof through Descriptor, Print through both paths of the
 #   format (std::format and the stand-in) against fprintf's text, and compat/print.h's FormatLine.
@@ -85,6 +88,7 @@ function(patella_unit_tests target)
 		cxx26_contracts_test.cpp
 		cxx26_static_vector_test.cpp
 		fixed_string_test.cpp
+		cp1252_test.cpp
 		crt71_test.cpp
 		time32_test.cpp
 		indexed_vector_test.cpp
