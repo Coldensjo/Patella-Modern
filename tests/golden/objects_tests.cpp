@@ -28,8 +28,8 @@ namespace ObjectsTest {
 // Our tables are std::unique_ptr since issue #58: the pointer they hold.
 array<TProperties> *OurTable(int Kind)
 {
-	const std::unique_ptr<array<TProperties>> *Tables[4] = {&ObjectProperties, &OutfitProperties, &EffectProperties,
-		&MissileProperties};
+	const std::unique_ptr<array<TProperties>> *Tables[4] = {&patella::bridge::ObjectTypes().ObjectProperties, &patella::bridge::ObjectTypes().OutfitProperties, &patella::bridge::ObjectTypes().EffectProperties,
+		&patella::bridge::ObjectTypes().MissileProperties};
 	return Tables[Kind]->get();
 }
 
@@ -55,7 +55,7 @@ void GetFields(const TProperties &E, int32_t *Fields)
 void CompareTables(const char *What)
 {
 	uint32 Signature = ORIGINAL_VALUE("signature", uint32, Global<uint32>(0x719d9c));
-	CHECK(DatSignature == Signature, "%s: signature 0x%x, original 0x%x", What, DatSignature, Signature);
+	CHECK(patella::bridge::ObjectTypes().DatSignature == Signature, "%s: signature 0x%x, original 0x%x", What, patella::bridge::ObjectTypes().DatSignature, Signature);
 	for (int k = 0; k < 4; k++) {
 		array<TProperties> *Ours = OurTable(k);
 		ORIGINAL(array<TProperties> *Original = OriginalTable(k));
@@ -371,7 +371,7 @@ void TestObjects([[maybe_unused]] const char *ExePath)
 	int Empty[3] = {};
 	ORIGINAL(memcpy(Empty, (void *)(uintptr_t)0x719da0, sizeof(Empty)));
 	golden::Output("NoObject", Empty);
-	const int Ours[3] = {NoObject.Type, NoObject.Data, NoObject.Data2};
+	const int Ours[3] = {patella::bridge::ObjectTypes().NoObject.Type, patella::bridge::ObjectTypes().NoObject.Data, patella::bridge::ObjectTypes().NoObject.Data2};
 	CHECK(memcmp(Ours, Empty, sizeof(Ours)) == 0, "NoObject differs");
 
 	// The real Tibia.dat, next to Tibia.exe (the runner's from the corpus).

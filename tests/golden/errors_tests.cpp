@@ -1058,8 +1058,8 @@ void TestWrapping([[maybe_unused]] const char *ExePath)
 		{"GetMissileHeight", 0x4d6120, GetMissileHeight, 3},
 		{"GetMissileLayers", 0x4d62c0, GetMissileLayers, 3},
 	};
-	array<TProperties> *Tables[4] = {ObjectProperties.get(), OutfitProperties.get(), EffectProperties.get(), // std::unique_ptr (issue #58)
-		MissileProperties.get()};
+	array<TProperties> *Tables[4] = {patella::bridge::ObjectTypes().ObjectProperties.get(), patella::bridge::ObjectTypes().OutfitProperties.get(), patella::bridge::ObjectTypes().EffectProperties.get(), // std::unique_ptr (issue #58)
+		patella::bridge::ObjectTypes().MissileProperties.get()};
 	for (int t = 0; t < 400; t++) {
 		auto &G = Getters[ErRandom() % (sizeof(Getters) / sizeof(Getters[0]))];
 		array<TProperties> *Table = Tables[G.Kind];
@@ -1272,43 +1272,8 @@ void TestScript()
 
 // --- Assertions that print a file's statics (issue #34) --------------------
 
-// The runner's (x64) FindStatic for our getters: the first "mov r32, [rip+disp32]" (8b /r with mod 00, r/m
-// 101, a REX prefix without W allowed) in the getter's first bytes whose int has the getter's value and
-// whose change the getter sees, as the oracle's x86 FindStatic. Under AddressSanitizer (the preset
-// windows-x64-asan, issue #70) the getter's prologue poisons its stack frame first, so the
-// load comes later (1,123 bytes in, in Debug): 2,048 bytes are searched there.
-int *FindOwnStatic(int (*Get)())
-{
-#if defined(__SANITIZE_ADDRESS__)
-	constexpr int Window = 2048;
-#else
-	constexpr int Window = 256;
-#endif
-	const uint8 *Code = (const uint8 *)Get;
-	for (int i = 0; i < Window; i++) {
-		const uint8 *Op = Code + i;
-		const int Prefix = Op[0] >= 0x40 && Op[0] <= 0x47 ? 1 : 0;
-		if (Op[Prefix] != 0x8b || (Op[Prefix + 1] & 0xc7) != 0x05)
-			continue;
-		int32_t Displacement;
-		memcpy(&Displacement, Op + Prefix + 2, sizeof(Displacement));
-		const uint8 *Address = Op + Prefix + 6 + Displacement;
-		MEMORY_BASIC_INFORMATION Memory;
-		if (VirtualQuery(Address, &Memory, sizeof(Memory)) == 0 || Memory.State != MEM_COMMIT
-			|| (Memory.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE | PAGE_WRITECOPY)) == 0)
-			continue;
-		int *Value = (int *)const_cast<uint8 *>(Address);
-		const int Old = *Value;
-		if (Get() != Old)
-			continue;
-		*Value = Old ^ 0x5a5a;
-		const bool Seen = Get() == (Old ^ 0x5a5a);
-		*Value = Old;
-		if (Seen)
-			return Value;
-	}
-	return nullptr;
-}
+// Our statics are members since issues #105 and #106 (TSession, TCreatures, TPlayerState, TInventory): the test
+// takes their addresses (TestErrorStatics); until then the runner found them in their getters' code (FindOwnStatic).
 
 // --- Surface.cpp's SurfaceInitInstance (issue #34) --------------------------
 //
@@ -1347,9 +1312,13 @@ void TestErrorStatics()
 		TStatic &S = Statics[k];
 		Found[k] = !RecordedSkip(S.ImageGetter, (const void *)S.OurGetter);
 		if (Found[k]) {
-			// AccountCharacters is TSession's since issue #105 (its getter reads it through bridge::Session(), not
-			// at a fixed address): the member itself.
-			S.Ours = k == 2 ? &patella::bridge::Session().AccountCharacters : FindOwnStatic(S.OurGetter);
+			// The members themselves (their getters read them through the bridge, not at a fixed address):
+			// AccountCharacters is TSession's since issue #105, NumberOfBuddies TCreatures', NumberOfPlayerSteps
+			// TPlayerState's and the offers TInventory's since issue #106.
+			int *const Members[5] = {&patella::bridge::Creatures().NumberOfBuddies,
+				&patella::bridge::PlayerState().NumberOfPlayerSteps, &patella::bridge::Session().AccountCharacters,
+				&patella::bridge::Inventory().OwnOffer.Count, &patella::bridge::Inventory().CounterOffer.Count};
+			S.Ours = Members[k];
 			ORIGINAL(S.Image = FindStatic((const uint8 *)(uintptr_t)S.ImageGetter, At<int(__cdecl *)()>(S.ImageGetter)));
 			// The oracle's answer; the runner must have found ours where the oracle found both.
 			Found[k] = ORIGINAL_VALUE("static found", uint8, S.Ours != NULL && S.Image != NULL) != 0;

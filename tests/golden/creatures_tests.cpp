@@ -95,8 +95,8 @@ int Path(int Side, int x, int y, int z, int DestX, int DestY, int DestZ, bool Ex
 	return PathResult;
 }
 
-// Our side's Map.cpp functions are redirected to these fakes in PatchCreatures; map_tests.cpp runs
-// before this test, so nothing needs them afterwards.
+// Our side's Map.cpp functions (and TMap's members of their names, issue #106) are redirected to these fakes in
+// PatchCreatures; map_tests.cpp runs before this test, so nothing needs them afterwards.
 void __cdecl FakeGetMapPosition(int *x, int *y, int *z) { GetCenter(x, y, z); }
 int __cdecl FakeGetMapLevel() { return FakeLevel; }
 TObject __cdecl FakeGetFirstObject(int rx, int ry, int) { return Field(rx, ry); }
@@ -123,6 +123,29 @@ __time64_t __cdecl OurTime(__time64_t *Time)
 
 void PatchOwn(void *Function, void *Target) { golden::RedirectOwn(Function, Target); }
 
+// Since issue #106 Creatures.cpp's TPlayerState calls Map.cpp's TMap member to member (Map.cpp's own members call each
+// other the same way): a fake takes the place of the free function and of the member of its name, through this shim
+// (a member function itself, which does not use its this: it has the members' calling convention, where MSVC's x64
+// passes a returned structure's address after this, a free function's before the arguments; GetFirstObject returns a
+// TObject).
+template <auto Fake> struct TMemberFake;
+template <class R, class... A, R (*Fake)(A...)> struct TMemberFake<Fake> {
+	R Call(A... Arguments) { return Fake(Arguments...); }
+};
+template <class T> void *MemberCode(T Member)
+{
+	union {
+		T m;
+		void *p;
+	} u;
+	u.m = Member;
+	return u.p;
+}
+template <auto Fake, class T> void PatchMember(T Member)
+{
+	PatchOwn(MemberCode(Member), MemberCode(&TMemberFake<Fake>::Call));
+}
+
 // The runner's _time64 is ucrtbase's: its import slot points at the fake while the test runs.
 void **ClockSlot;
 void *SavedSlot;
@@ -143,6 +166,13 @@ void PatchCreatures()
 	PatchOwn((void *)GetFieldHeight, (void *)FakeGetFieldHeight);
 	PatchOwn((void *)AbsoluteToRelative, (void *)FakeAbsoluteToRelative);
 	PatchOwn((void *)FindPath, (void *)FakeFindPath);
+	PatchMember<FakeGetMapPosition>(&patella::TMap::GetMapPosition);
+	PatchMember<FakeGetMapLevel>(&patella::TMap::GetMapLevel);
+	PatchMember<FakeGetFirstObject>(&patella::TMap::GetFirstObject);
+	PatchMember<FakeIsFieldPassable>(&patella::TMap::IsFieldPassable);
+	PatchMember<FakeGetFieldHeight>(&patella::TMap::GetFieldHeight);
+	PatchMember<FakeAbsoluteToRelative>(&patella::TMap::AbsoluteToRelative);
+	PatchMember<FakeFindPath>(&patella::TMap::FindPath);
 	ClockSlot = golden::FindImport("_time64");
 	if (ClockSlot == nullptr) {
 		printf("golden: Creatures: the runner imports no _time64\n");

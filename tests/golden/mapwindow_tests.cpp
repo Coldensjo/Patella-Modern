@@ -726,7 +726,7 @@ static TRGBColor RandomColor(uint32 Max)
 
 static void SortTypes()
 {
-	for (int Type = 100; Type <= ObjectProperties->high(); Type++) {
+	for (int Type = 100; Type <= patella::bridge::ObjectTypes().ObjectProperties->high(); Type++) {
 		if (GetObjectFlag(Type, FULLBANK))
 			FullBanks.push_back(Type);
 		if (GetObjectFlag(Type, BANK))
@@ -748,15 +748,15 @@ static void SortTypes()
 	}
 	// Outfits with the four directions, missiles with the 3x3 directions
 	// (GetOutfitSpriteNumber and GetMissileSpriteNumber assert them).
-	for (int i = 1; i <= OutfitProperties->high(); i++) {
-		if ((*OutfitProperties)(i).PatternWidth >= 4)
+	for (int i = 1; i <= patella::bridge::ObjectTypes().OutfitProperties->high(); i++) {
+		if ((*patella::bridge::ObjectTypes().OutfitProperties)(i).PatternWidth >= 4)
 			Outfits.push_back(i);
 	}
-	for (int i = 1; i <= MissileProperties->high(); i++) {
-		if ((*MissileProperties)(i).PatternWidth >= 3 && (*MissileProperties)(i).PatternHeight >= 3)
+	for (int i = 1; i <= patella::bridge::ObjectTypes().MissileProperties->high(); i++) {
+		if ((*patella::bridge::ObjectTypes().MissileProperties)(i).PatternWidth >= 3 && (*patella::bridge::ObjectTypes().MissileProperties)(i).PatternHeight >= 3)
 			Missiles.push_back(i);
 	}
-	LastEffect = EffectProperties->high();
+	LastEffect = patella::bridge::ObjectTypes().EffectProperties->high();
 }
 
 static TObject RandomObject()

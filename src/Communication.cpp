@@ -122,7 +122,7 @@ void patella::TCommunication::SendLogin(uint32 AccountID, const char *Password)
 	Network.BeginCommand(1);
 	Network.SendWord(2);
 	Network.SendWord(772);
-	Network.SendQuad(DatSignature);
+	Network.SendQuad(patella::bridge::ObjectTypes().DatSignature);
 	Network.SendQuad(SpriteSignature);
 	Network.SendQuad(PictureSignature);
 	Network.SendBytes(Data);
@@ -1145,7 +1145,7 @@ void patella::TCommunication::ReceiveChangeObject()
 	const int Position = Network.GetByte(); // read before the conversion (0x40cff3)
 	AbsoluteToRelative(&rx, &ry, &rz);
 	const TObject OldObject = GetMapObject(rx, ry, rz, Position);
-	if (OldObject.Type == NoObject.Type) {
+	if (OldObject.Type == patella::bridge::ObjectTypes().NoObject.Type) {
 		PATELLA_ASSERT_VALUES(FieldRefreshRequested(rx,ry,rz), rx, ry);
 		const int Type = Network.GetWord();
 		if (Type == 0x61 || Type == 0x62 || Type == 0x63) {
@@ -1200,7 +1200,7 @@ void patella::TCommunication::ReceiveDeleteObject()
 	const int Position = Network.GetByte();
 	AbsoluteToRelative(&rx, &ry, &rz);
 	const TObject Object = GetMapObject(rx, ry, rz, Position);
-	if (Object.Type == NoObject.Type) {
+	if (Object.Type == patella::bridge::ObjectTypes().NoObject.Type) {
 		PATELLA_ASSERT_VALUES(FieldRefreshRequested(rx,ry,rz), rx, ry);
 	} else {
 		if (Object.Type == 0x63) {
@@ -1243,7 +1243,7 @@ void patella::TCommunication::ReceiveMoveCreature()
 	const TObject Object = GetMapObject(sx, sy, sz, Position);
 	std::string Error;
 	TCreature *Creature = nullptr;
-	if (Object.Type == NoObject.Type || Object.Type != 0x63) {
+	if (Object.Type == patella::bridge::ObjectTypes().NoObject.Type || Object.Type != 0x63) {
 		if (FieldRefreshRequested(sx, sy, sz)) {
 			RelativeToAbsolute(&zx, &zy, &zz);
 			SendRefreshField(zx, zy, zz);
@@ -1251,7 +1251,7 @@ void patella::TCommunication::ReceiveMoveCreature()
 		}
 		std::stringstream Text;
 		Text << "MoveCreature has been received for a coordinate where there is no creature anymore [bug0000017]";
-		if (Object.Type != NoObject.Type) {
+		if (Object.Type != patella::bridge::ObjectTypes().NoObject.Type) {
 			if (Object.Type == 0x61)
 				Text << " (UNKNOWNCREATURE, ";
 			else if (Object.Type == 0x62)
@@ -1311,7 +1311,7 @@ void patella::TCommunication::ReceiveMoveCreature()
 				 << " Start Cylinder (2): ";
 			for (int i = 0; i < 10; i++) {
 				Current = GetMapObject(sx, sy, sz, i);
-				if (Current.Type == NoObject.Type)
+				if (Current.Type == patella::bridge::ObjectTypes().NoObject.Type)
 					Text << "(-)";
 				else
 					Text << " (" << Current.Type << "," << Current.Data << ")";
@@ -1327,7 +1327,7 @@ void patella::TCommunication::ReceiveMoveCreature()
 				 << " Destination Cylinder (2): ";
 			for (int i = 0; i < 10; i++) {
 				Current = GetMapObject(zx, zy, zz, i);
-				if (Current.Type == NoObject.Type)
+				if (Current.Type == patella::bridge::ObjectTypes().NoObject.Type)
 					Text << "(-)";
 				else
 					Text << " (" << Current.Type << "," << Current.Data << ")";

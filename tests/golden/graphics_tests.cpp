@@ -528,7 +528,7 @@ bool SpriteOK(int SpriteNumber) { return SpriteNumber >= 0 && SpriteNumber <= Nu
 
 void FindDrawables()
 {
-	for (int Type = ObjectProperties->min; Type < ObjectProperties->min + ObjectProperties->d; Type++) {
+	for (int Type = patella::bridge::ObjectTypes().ObjectProperties->min; Type < patella::bridge::ObjectTypes().ObjectProperties->min + patella::bridge::ObjectTypes().ObjectProperties->d; Type++) {
 		try {
 			if (GetObjectExactSize(Type) <= 0 || GetObjectPhases(Type) <= 0)
 				continue;
@@ -545,7 +545,7 @@ void FindDrawables()
 		} catch (...) {
 		}
 	}
-	for (int Outfit = OutfitProperties->min; Outfit < OutfitProperties->min + OutfitProperties->d; Outfit++) {
+	for (int Outfit = patella::bridge::ObjectTypes().OutfitProperties->min; Outfit < patella::bridge::ObjectTypes().OutfitProperties->min + patella::bridge::ObjectTypes().OutfitProperties->d; Outfit++) {
 		try {
 			if (GetOutfitExactSize(Outfit) <= 0)
 				continue;

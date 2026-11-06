@@ -113,15 +113,108 @@ inline uint8 FlagByte(const TProperties &Entry, int Flag)
 	return reinterpret_cast<const uint8 *>(&Entry)[offsetof(TProperties, Flags) + static_cast<std::size_t>(Flag / 8)];
 }
 
-// The four tables own their arrays (std::unique_ptr since issue #58; the entries' Sprites stay raw, freed by
-// ReleaseObjects).
-extern std::unique_ptr<array<TProperties>> MissileProperties; // 0x719d8c
-extern std::unique_ptr<array<TProperties>> EffectProperties;  // 0x719d90
-extern std::unique_ptr<array<TProperties>> OutfitProperties;  // 0x719d94
-extern std::unique_ptr<array<TProperties>> ObjectProperties;  // 0x719d98, from 100
-extern uint32 DatSignature;                                   // 0x719d9c, sent at login and when patching
-extern TObject NoObject;                                      // 0x719da0, never written
+namespace patella {
 
+// Objects.cpp's data and functions (Patella-Modern issue #106, M7; notes/decisions.md, "#104: TClient and the
+// subsystem objects" and "#106"): Tibia.dat's four tables, read once, then read-only, and the functions of the same
+// names as members. TMapState owns it (MapState.h), first: TMap, TCreatures and TInventory read it. The data
+// (0x719d8c-0x719dab, .bss: every member starts empty) is public: the golden Objects, Divisions, Errors, Graphics, Map
+// and MapWindow tests read the tables, the Objects test NoObject and DatSignature, the Communication world sets both;
+// Communication.cpp sends DatSignature and compares with NoObject, Inventory.cpp and Map.cpp return NoObject.
+class TObjectTypes {
+public:
+	TObjectTypes() = default;
+	TObjectTypes(const TObjectTypes &) = delete;
+	TObjectTypes &operator=(const TObjectTypes &) = delete;
+	TObjectTypes(TObjectTypes &&) = delete;
+	TObjectTypes &operator=(TObjectTypes &&) = delete;
+	~TObjectTypes() = default;
+
+	// Object types. Type CREATURE has only UNPASS.
+	bool GetObjectFlag(int Type, int Flag) const;
+	bool GetObjectFlag(const TObject &Obj, int Flag) const { return GetObjectFlag(Obj.Type, Flag); }
+	int GetObjectWaypoints(int Type) const;
+	int GetObjectBrightness(int Type) const;
+	int GetObjectLightColor(int Type) const;
+	int GetObjectShiftX(int Type) const;
+	int GetObjectShiftY(int Type) const;
+	int GetObjectElevation(int Type) const;
+	int GetObjectAutomapColor(int Type) const;
+	int GetObjectLensHelp(int Type) const;
+	int GetObjectWidth(int Type) const;
+	int GetObjectHeight(int Type) const;
+	int GetObjectExactSize(int Type) const;
+	int GetObjectLayers(int Type) const;
+	int GetObjectPatternWidth(int Type) const;
+	int GetObjectPatternHeight(int Type) const;
+	int GetObjectPatternDepth(int Type) const;
+	int GetObjectPhases(int Type) const;
+	int GetObjectSpriteNumber(int Type, int X, int Y, int Layer, int PatternX, int PatternY, int PatternZ,
+		int Phase) const;
+
+	// Outfits; Direction 0-3 selects the pattern column.
+	bool GetOutfitFlag(int Number, int Flag) const;
+	int GetOutfitBrightness(int Number) const;
+	int GetOutfitLightColor(int Number) const;
+	int GetOutfitShiftX(int Number) const;
+	int GetOutfitShiftY(int Number) const;
+	int GetOutfitWidth(int Number) const;
+	int GetOutfitExactSize(int Number) const;
+	int GetOutfitHeight(int Number) const;
+	int GetOutfitLayers(int Number) const;
+	int GetOutfitPhases(int Number) const;
+	int GetOutfitSpriteNumber(int Number, int X, int Y, int Layer, int Direction, int Phase) const;
+
+	// Effects.
+	bool GetEffectFlag(int Number, int Flag) const;
+	int GetEffectBrightness(int Number) const;
+	int GetEffectLightColor(int Number) const;
+	int GetEffectWidth(int Number) const;
+	int GetEffectHeight(int Number) const;
+	int GetEffectLayers(int Number) const;
+	int GetEffectPhases(int Number) const;
+	int GetEffectSpriteNumber(int Number, int X, int Y, int Layer, int Phase) const;
+
+	// Missiles; Direction 0-7 clockwise from north.
+	bool GetMissileFlag(int Number, int Flag) const;
+	int GetMissileBrightness(int Number) const;
+	int GetMissileLightColor(int Number) const;
+	int GetMissileWidth(int Number) const;
+	int GetMissileHeight(int Number) const;
+	int GetMissileLayers(int Number) const;
+	int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction) const;
+
+	// The pattern (1-based) that shows an object's count, liquid or wall side.
+	void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY) const;
+	void GetLiquidPattern(TObject &Obj, int *PatternX, int *PatternY) const;
+	void GetHangPattern(TObject &Obj, int *PatternX, int *PatternY) const;
+
+	void ReleaseObjects();
+	void LoadObjects(const char *FileName);
+	void InitObjects();
+	void ReloadObjects();
+	void ExitObjects();
+
+	// Data, in .bss order. The four tables own their arrays (std::unique_ptr since issue #58; the entries' Sprites
+	// stay raw, freed by ReleaseObjects).
+	std::unique_ptr<array<TProperties>> MissileProperties; // 0x719d8c
+	std::unique_ptr<array<TProperties>> EffectProperties;  // 0x719d90
+	std::unique_ptr<array<TProperties>> OutfitProperties;  // 0x719d94
+	std::unique_ptr<array<TProperties>> ObjectProperties;  // 0x719d98, from 100
+	uint32 DatSignature{};                                 // 0x719d9c, sent at login and when patching
+	TObject NoObject;                                      // 0x719da0, never written; owner inferred from the address
+};
+
+// The transition's access path (issue #106; notes/decisions.md, "#104: TClient and the subsystem objects"): the object
+// types of the one TClient (Client.cpp). It goes when no free function needs it.
+namespace bridge {
+TObjectTypes &ObjectTypes();
+} // namespace bridge
+
+} // namespace patella
+
+// The original's functions (the callers' names, and the golden tests'): each calls TObjectTypes' member of the same
+// name on bridge::ObjectTypes().
 // Object types. Type CREATURE has only UNPASS.
 bool GetObjectFlag(int Type, int Flag);
 inline bool GetObjectFlag(TObject &Obj, int Flag) { return GetObjectFlag(Obj.Type, Flag); }

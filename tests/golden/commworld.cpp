@@ -994,7 +994,7 @@ static TObject F_GetMapObject(int rx, int ry, int rz, int Position)
 	switch (h % 8) {
 	case 0:
 	case 1:
-		O = NoObject;
+		O = patella::bridge::ObjectTypes().NoObject;
 		break;
 	case 2:
 	case 3:
@@ -2483,10 +2483,10 @@ void BeginWorld()
 	BindOwnImport("Sleep", (void *)F_Sleep);
 	BindOwnImport("rand", (void *)F_Rand);
 	// The same signatures and the same empty object as the original's.
-	DatSignature = 0x4495fa2b;
+	patella::bridge::ObjectTypes().DatSignature = 0x4495fa2b;
 	SpriteSignature = 0x449a1c41;
 	PictureSignature = 0x43fc1d0c;
-	NoObject = TObject();
+	patella::bridge::ObjectTypes().NoObject = TObject();
 }
 
 void EndWorld()

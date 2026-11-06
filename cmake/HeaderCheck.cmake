@@ -95,6 +95,7 @@ set(PATELLA_HEADERS_CLIENT
 	MainFrm.h
 	MainWindow.h
 	Map.h
+	MapState.h
 	MapWindow.h
 	Network.h
 	Objects.h
