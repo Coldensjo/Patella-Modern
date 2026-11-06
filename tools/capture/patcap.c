@@ -1,10 +1,10 @@
 /* patcap.dll: frame capture and virtual time for the rendering comparison (issue #20).
 
-Loaded into a client (Tibia.exe or Patella.exe) as an ordinary dependency: the run folders' copies
-of the clients get one more import descriptor (patcap.dll, PatcapLoaded; tools/compare_rendering.py
+Loaded into Tibia.exe as an ordinary dependency: the run folders' copies
+of the client get one more import descriptor (patcap.dll, PatcapLoaded; tools/compare_rendering.py
 add_import), so the loader loads it and runs DllMain before the client's entry point (and its
 static initialisers). DllMain patches the main module's import address table, so the DLL sees
-exactly the calls the client makes, and the same calls in both clients:
+exactly the calls the client makes:
 
 - timeGetTime: a virtual clock. Its first call (sysinc.cpp's StartTime initialiser) returns
   BASE_TIME; afterwards the clock stands still and moves only by ADVANCE commands. Wall-clock
@@ -24,12 +24,12 @@ exactly the calls the client makes, and the same calls in both clients:
   OpenGL (SurfaceGL.cpp): SwapBuffers (glReadPixels of the back buffer, the client area).
   The vtable entries are patched when the client creates the objects (DirectDrawCreate,
   IDirectDraw4::CreateSurface, GetProcAddress "Direct3DCreate9", IDirect3D9::CreateDevice).
-  Vulkan (the x64 client's src/vulkan/SurfaceVulkan.cpp, Patella-Modern issue #19): the engine looks
-  this DLL up (GetModuleHandle "patcap.dll") and calls its exports: PatcapVulkanDevice once it has a
-  device, PatcapVulkanFrame before each frame is shown (counts it; nonzero: the frame is wanted),
-  then PatcapVulkanMask (which pixels come from the device's filter: <path>.mask) and PatcapVulkanPixels
-  with the canvas read back (TRenderer::ReadBack, the rectangle Present shows).
-  Nothing is hooked: a swapchain image cannot be read back from outside the engine.
+- Direct3D 9's course (Patella-Modern issue #98): the calls of Direct3DCreate9, CreateDevice (its
+  result), TestCooperativeLevel (its last result) and Present (its first and last time, its last
+  result, the failures) are counted in the shared memory, and the rare events (the load, the device,
+  the first frame, a change of a result, every capture) are written to patcap.log in the client's
+  folder with the milliseconds since the DLL was loaded: the controller names the cause when a capture
+  gets no frame (no device, a lost device, no Present at all).
 
 The controller (tools/compare_rendering.py) talks to it through a named file mapping
 "Local\PatellaCapture-<pid>" (layout: struct Shared). Nothing here depends on which client it
@@ -40,8 +40,10 @@ fork with the oracle.
 
 Tibia.exe's only (Patella-Modern issue #92): the tools read the x64 client through its
 test mode (PatellaTest.exe --test-control: the frame dump, the probe; tools/testmode_client.py), never
-by hooking it, so this file no longer builds for x64 (issue #18 had built a 64-bit one; the Vulkan
-exports below stay for the x64 client's lookup of patcap.dll, which Patella.exe still makes). */
+by hooking it, so this file no longer builds for x64 (issue #18 had built a 64-bit one). Its Vulkan
+exports (PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanMask, PatcapVulkanPixels, issue #19) served
+Patella.exe's lookup of the DLL, which issue #97 removed; they left with issue #98, and with them the
+shared memory's Vulkan fields (version 4). */
 
 #if defined(_WIN64)
 #error "patcap.dll is Tibia.exe's only (Patella-Modern issues #92, #94): the x64 client is read through its test mode"
@@ -56,6 +58,7 @@ exports below stay for the x64 client's lookup of patcap.dll, which Patella.exe 
 #include <ddraw.h>
 #include <d3d9.h>
 #include <GL/gl.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -74,7 +77,6 @@ exports below stay for the x64 client's lookup of patcap.dll, which Patella.exe 
 #define API_DDRAW_FLIP 2
 #define API_D3D9 3
 #define API_OPENGL 4
-#define API_VULKAN 5
 
 #pragma pack(push, 4)
 typedef struct {
@@ -101,19 +103,64 @@ typedef struct {
 	LONG ApiFrames[5];     /* 848: frames per API */
 	LONG Realtime;         /* 868 */
 	LONG FirstCall;        /* 872: the virtual clock has started */
-	/* Version 2 (Patella-Modern issue #19), the Vulkan engine: */
-	LONG VulkanFrames;     /* 876: frames per API for API_VULKAN (ApiFrames has 5) */
-	LONG VulkanType;       /* 880: VkPhysicalDeviceType of the device (4 the CPU) */
-	LONG VulkanCpuDriver;  /* 884: the device is the shipped CPU driver's */
-	char VulkanDevice[128]; /* 888: the device's name */
-	/* Version 3: the last Vulkan capture's mask (<path>.mask): its device-filtered pixels, or -1 */
-	LONG MaskPixels;       /* 1016 */
+	/* Version 4 (Patella-Modern issue #98; versions 2 and 3 had the Vulkan engine's fields here):
+	   Direct3D 9's course. Times are milliseconds since the DLL was loaded (GetTickCount), -1 never. */
+	LONG Direct3DCreates;  /* 876: calls of Direct3DCreate9 (fetched through GetProcAddress) */
+	LONG DeviceCreates;    /* 880: calls of IDirect3D9::CreateDevice (counted when it is called) */
+	LONG DeviceResult;     /* 884: the last CreateDevice's HRESULT (1: none yet) */
+	LONG DeviceTime;       /* 888: the last CreateDevice's time */
+	LONG DeviceWidth;      /* 892: its back buffer as asked for (windowed: 0, the window's) */
+	LONG DeviceHeight;     /* 896 */
+	LONG DeviceWindow;     /* 900: its focus window */
+	LONG CooperativeLevel; /* 904: the last TestCooperativeLevel's HRESULT (1: none yet) */
+	LONG LostChecks;       /* 908: TestCooperativeLevel results other than D3D_OK */
+	LONG PresentResult;    /* 912: the last Present's HRESULT (1: none yet) */
+	LONG PresentFailures;  /* 916: Present results other than D3D_OK */
+	LONG FirstPresentTime; /* 920 */
+	LONG LastPresentTime;  /* 924 */
+	LONG LoadTick;         /* 928: GetTickCount when the DLL was loaded */
+	LONG DeviceInside;     /* 932: 1 while a CreateDevice call has not returned */
+	LONG DeviceCallTime;   /* 936: when the last CreateDevice was called */
 } Shared;
 #pragma pack(pop)
 
 static Shared *S;
 static HANDLE Mapping;
 static HMODULE Self;
+
+/* --- the event log (patcap.log in the client's folder, issue #98) ------------------------- */
+
+static LONG Elapsed(void)
+{
+	return (LONG)(GetTickCount() - (DWORD)S->LoadTick);
+}
+
+/* One line: the milliseconds since the load, the text. Only rare events: it opens the file each time. */
+static void Log(const char *Format, ...)
+{
+	char Line[512];
+	int Length, More;
+	va_list Arguments;
+	HANDLE File;
+	DWORD Written;
+	Length = sprintf_s(Line, sizeof(Line), "%8ld ", (long)Elapsed());
+	if (Length <= 0)
+		return;
+	va_start(Arguments, Format);
+	More = vsprintf_s(Line + Length, sizeof(Line) - Length - 2, Format, Arguments);
+	va_end(Arguments);
+	if (More < 0)
+		return;
+	Length += More;
+	Line[Length++] = '\r';
+	Line[Length++] = '\n';
+	File = CreateFileA("patcap.log", FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS,
+		FILE_ATTRIBUTE_NORMAL, NULL);
+	if (File == INVALID_HANDLE_VALUE)
+		return;
+	WriteFile(File, Line, (DWORD)Length, &Written, NULL);
+	CloseHandle(File);
+}
 
 /* --- the virtual clock ------------------------------------------------------------------- */
 
@@ -262,12 +309,11 @@ static BOOL WriteBitmap(const char *Path, const BYTE *Bits, int Pitch, int Width
 /* Called before each frame is shown; TRUE when this frame is to be captured. */
 static BOOL FrameShown(int Api)
 {
+	if (S->Frames == 0)
+		Log("first frame (API %d)", Api);
 	S->Frames++;
 	S->Api = Api;
-	if (Api < 5)
-		S->ApiFrames[Api]++;
-	else
-		S->VulkanFrames++;
+	S->ApiFrames[Api]++;
 	if (!CapturePending)
 		return FALSE;
 	if (CaptureSkip > 0) {
@@ -283,6 +329,10 @@ static void Captured(BOOL Ok, int Width, int Height, int Bits, const char *Error
 	S->Width = Width;
 	S->Height = Height;
 	S->SourceBits = Bits;
+	if (Ok)
+		Log("capture done: %dx%d, %d bits, frame %ld", Width, Height, Bits, (long)S->Frames);
+	else
+		Log("capture failed: %s", Error);
 	Finish(Ok ? 0 : 2, Ok ? "" : Error);
 }
 
@@ -346,7 +396,7 @@ typedef HRESULT (WINAPI *TDirectDrawCreate)(GUID *, LPDIRECTDRAW *, IUnknown *);
 #define MAX_VTABLES 8
 typedef struct { void **Vtable; void *Original; } TPatch;
 static TPatch BltPatches[MAX_VTABLES], FlipPatches[MAX_VTABLES], CreateSurfacePatches[MAX_VTABLES];
-static TPatch PresentPatches[MAX_VTABLES], CreateDevicePatches[MAX_VTABLES];
+static TPatch PresentPatches[MAX_VTABLES], CreateDevicePatches[MAX_VTABLES], CooperativeLevelPatches[MAX_VTABLES];
 
 static void *Original(TPatch *Patches, void *Object)
 {
@@ -444,6 +494,7 @@ static HRESULT WINAPI HookDirectDrawCreate(GUID *Guid, LPDIRECTDRAW *DirectDraw,
 
 /* Direct3D 9 */
 typedef HRESULT (STDMETHODCALLTYPE *TPresent)(IDirect3DDevice9 *, const RECT *, const RECT *, HWND, const RGNDATA *);
+typedef HRESULT (STDMETHODCALLTYPE *TTestCooperativeLevel)(IDirect3DDevice9 *);
 typedef HRESULT (STDMETHODCALLTYPE *TCreateDevice)(IDirect3D9 *, UINT, D3DDEVTYPE, HWND, DWORD,
 	D3DPRESENT_PARAMETERS *, IDirect3DDevice9 **);
 typedef IDirect3D9 *(WINAPI *TDirect3DCreate9)(UINT);
@@ -502,24 +553,66 @@ static HRESULT STDMETHODCALLTYPE HookPresent(IDirect3DDevice9 *This, const RECT 
 	const RGNDATA *Dirty)
 {
 	TPresent Real = (TPresent)Original(PresentPatches, This);
+	HRESULT Result;
+	LONG Now = Elapsed();
+	if (S->FirstPresentTime < 0)
+		S->FirstPresentTime = Now;
+	S->LastPresentTime = Now;
 	if (FrameShown(API_D3D9))
 		CaptureDirect3D9(This, From);
-	return Real(This, From, To, Window, Dirty);
+	Result = Real(This, From, To, Window, Dirty);
+	if (Result != D3D_OK)
+		S->PresentFailures++;
+	if (Result != S->PresentResult)
+		Log("Present: 0x%08lx (frame %ld)", (unsigned long)Result, (long)S->Frames);
+	S->PresentResult = Result;
+	return Result;
+}
+
+/* The client asks it before every frame (surfaceDX9.cpp RestoreSurfaces): a lost device shows here. */
+static HRESULT STDMETHODCALLTYPE HookTestCooperativeLevel(IDirect3DDevice9 *This)
+{
+	TTestCooperativeLevel Real = (TTestCooperativeLevel)Original(CooperativeLevelPatches, This);
+	HRESULT Result = Real(This);
+	if (Result != D3D_OK)
+		S->LostChecks++;
+	if (Result != S->CooperativeLevel)
+		Log("TestCooperativeLevel: 0x%08lx (frame %ld)", (unsigned long)Result, (long)S->Frames);
+	S->CooperativeLevel = Result;
+	return Result;
 }
 
 static HRESULT STDMETHODCALLTYPE HookCreateDevice(IDirect3D9 *This, UINT Adapter, D3DDEVTYPE Type, HWND Window,
 	DWORD Flags, D3DPRESENT_PARAMETERS *Parameters, IDirect3DDevice9 **Device)
 {
 	TCreateDevice Real = (TCreateDevice)Original(CreateDevicePatches, This);
-	HRESULT Result = Real(This, Adapter, Type, Window, Flags, Parameters, Device);
-	if (Result == D3D_OK && Device != NULL && *Device != NULL)
+	HRESULT Result;
+	S->DeviceCreates++;
+	S->DeviceInside = 1;
+	S->DeviceCallTime = Elapsed();
+	Log("CreateDevice called (call %ld)", (long)S->DeviceCreates);
+	Result = Real(This, Adapter, Type, Window, Flags, Parameters, Device);
+	S->DeviceInside = 0;
+	S->DeviceResult = Result;
+	S->DeviceTime = Elapsed();
+	S->DeviceWindow = (LONG)(LONG_PTR)Window;
+	S->DeviceWidth = Parameters != NULL ? (LONG)Parameters->BackBufferWidth : -1;
+	S->DeviceHeight = Parameters != NULL ? (LONG)Parameters->BackBufferHeight : -1;
+	Log("CreateDevice(adapter %u, type %d, window 0x%lx, flags 0x%lx, windowed %d, %ldx%ld): 0x%08lx", Adapter,
+		(int)Type, (unsigned long)(ULONG_PTR)Window, (unsigned long)Flags, Parameters != NULL ? Parameters->Windowed : -1,
+		(long)S->DeviceWidth, (long)S->DeviceHeight, (unsigned long)Result);
+	if (Result == D3D_OK && Device != NULL && *Device != NULL) {
 		PatchVtable(PresentPatches, *Device, 17, (void *)HookPresent);  /* IDirect3DDevice9::Present */
+		PatchVtable(CooperativeLevelPatches, *Device, 3, (void *)HookTestCooperativeLevel);  /* ::TestCooperativeLevel */
+	}
 	return Result;
 }
 
 static IDirect3D9 *WINAPI HookDirect3DCreate9(UINT Version)
 {
 	IDirect3D9 *Direct3D = RealDirect3DCreate9(Version);
+	S->Direct3DCreates++;
+	Log("Direct3DCreate9(%u): %s", Version, Direct3D != NULL ? "an object" : "NULL");
 	if (Direct3D != NULL)
 		PatchVtable(CreateDevicePatches, Direct3D, 16, (void *)HookCreateDevice);  /* IDirect3D9::CreateDevice */
 	return Direct3D;
@@ -652,6 +745,8 @@ static void Commands(void)
 		Advance(S->Arg0, S->Arg1);
 		break;
 	case CMD_CAPTURE:
+		Log("capture asked for: skip %ld, frame %ld, Present %ld calls (the last 0x%08lx at %ld)", (long)S->Arg0,
+			(long)S->Frames, (long)S->ApiFrames[API_D3D9], (unsigned long)S->PresentResult, (long)S->LastPresentTime);
 		lstrcpynA(CapturePath, S->Path, sizeof(CapturePath));
 		CaptureSkip = S->Arg0;
 		CapturePending = TRUE;
@@ -733,48 +828,6 @@ static int PatchImports(void)
 	return Found;
 }
 
-/* Vulkan: the engine's calls (SurfaceVulkan.cpp CreateSurfaces and FinishFrame). */
-__declspec(dllexport) void __cdecl PatcapVulkanDevice(const char *Name, int Type, int CpuDriver)
-{
-	S->VulkanType = Type;
-	S->VulkanCpuDriver = CpuDriver;
-	lstrcpynA(S->VulkanDevice, Name ? Name : "", sizeof(S->VulkanDevice));
-}
-
-__declspec(dllexport) int __cdecl PatcapVulkanFrame(int Width, int Height)
-{
-	(void)Width;
-	(void)Height;
-	return FrameShown(API_VULKAN);
-}
-
-/* Before the pixels of a wanted frame: a byte per pixel, 1 where the value comes from the device's
-   filter (the bilinear stretches, the light), else 0; written raw (Width x Height bytes, rows top-down)
-   to the capture's path with ".mask" appended. */
-__declspec(dllexport) void __cdecl PatcapVulkanMask(const unsigned char *Mask, int Width, int Height)
-{
-	char Path[540];
-	FILE *Out;
-	LONG Count = 0;
-	int i;
-	sprintf_s(Path, sizeof(Path), "%s.mask", CapturePath);
-	S->MaskPixels = -1;
-	if (fopen_s(&Out, Path, "wb") != 0)
-		return;
-	for (i = 0; i < Width * Height; i++)
-		Count += Mask[i] != 0;
-	if (fwrite(Mask, 1, (size_t)Width * (size_t)Height, Out) == (size_t)Width * (size_t)Height)
-		S->MaskPixels = Count;
-	fclose(Out);
-}
-
-/* Width x Height pixels, rows top-down Pitch bytes apart, B G R A bytes (D3DCOLOR). */
-__declspec(dllexport) void __cdecl PatcapVulkanPixels(const void *Bits, int Pitch, int Width, int Height)
-{
-	BOOL Ok = WriteBitmap(CapturePath, (const BYTE *)Bits, Pitch, Width, Height, 32);
-	Captured(Ok, Width, Height, 32, "cannot write the file");
-}
-
 /* The function the clients' copies import (by name); never called. */
 __declspec(dllexport) int __cdecl PatcapLoaded(void)
 {
@@ -796,8 +849,17 @@ BOOL WINAPI DllMain(HINSTANCE Instance, DWORD Reason, LPVOID Reserved)
 		if (S == NULL)
 			return FALSE;
 		S->Magic = 'PCAP';
-		S->Version = 3;
+		S->Version = 4;
+		S->LoadTick = (LONG)GetTickCount();
+		S->DeviceResult = 1;
+		S->CooperativeLevel = 1;
+		S->PresentResult = 1;
+		S->FirstPresentTime = -1;
+		S->LastPresentTime = -1;
+		S->DeviceTime = -1;
+		S->DeviceCallTime = -1;
 		S->Hooks = PatchImports();
+		Log("loaded in PID %lu; hooks 0x%x", GetCurrentProcessId(), (unsigned)S->Hooks);
 	}
 	return TRUE;
 }

@@ -48,6 +48,20 @@ device-filtered pixels, the forms of patcap's picture and mask); the probe names
 counts its frames. The game scenes come from a recorded session replayed by tools/proxy.py (both
 clients get the same server bytes); no server is needed.
 
+The display stays on while the tool runs (Patella-Modern issue #98): SetThreadExecutionState with
+ES_DISPLAY_REQUIRED, as a video player does; the posted window messages are not user input, so without it
+the display's idle timeout (Windows' "turn off the display after", 15 minutes here) ran out during the
+runs, and with the display off Tibia.exe's Direct3D 9 device was not created (no frame: the first capture
+timed out) and the x64 client's window lost its size (0x0 frames, the trade partner not found). Tibia.exe's
+run waits for its first frame (patcap.dll's Present) before the first scene. A run that fails says why:
+the window's state (visible, minimized, the foreground), the display's (on or off, the user's idle time
+against the timeout, the input desktop: locked or not, the monitors) and patcap.dll's Direct3D 9 course
+(the device's creation and its result, TestCooperativeLevel, Present), and the run folder's patcap.log
+(the DLL's events) is kept as <out>\<engine>\orig\patcap.log. notes/rendering.md, "When a run fails".
+
+--self-test checks the offsets of patcap.dll's shared memory against tools/capture/patcap.c and the
+diagnosis on made-up data (no client, no display).
+
 Exit code 0 when every scene of every engine is pixel-identical outside the masks (the measured frame
 rate in the advanced graphics options, notes/rendering.md; for vulkan and vulkan-cpu also the graphics
 device choice there, Patella-Modern issue #31: device_choice_mask), 1 on a difference, 2 when a run
@@ -61,6 +75,7 @@ import hashlib
 import json
 import mmap
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -110,19 +125,38 @@ CLIENTS = ct.CLIENTS
 RunError = ct.RunError
 log = ct.log
 
-# patcap.c struct Shared
+# patcap.c struct Shared, version 4 (issue #98: Direct3D 9's course where versions 2 and 3 had the Vulkan
+# engine's fields, which left with the DLL's Vulkan exports; --self-test compares the offsets with patcap.c)
+PATCAP_VERSION = 4
 CMD_ADVANCE, CMD_CAPTURE, CMD_REALTIME = 1, 2, 3
-API_NAMES = {0: "none", 1: "DirectDraw Blt", 2: "DirectDraw Flip", 3: "Direct3D 9 Present", 4: "OpenGL SwapBuffers",
-	5: "Vulkan"}
+API_NAMES = {0: "none", 1: "DirectDraw Blt", 2: "DirectDraw Flip", 3: "Direct3D 9 Present", 4: "OpenGL SwapBuffers"}
 OFF = {"Magic": 0, "Version": 4, "CmdSeq": 8, "DoneSeq": 12, "Cmd": 16, "Arg0": 20, "Arg1": 24, "Result": 28,
 	"Frames": 32, "Api": 36, "Now": 40, "Ticks": 44, "TimerWindow": 48, "TimerActive": 52, "Width": 56,
 	"Height": 60, "SourceBits": 64, "Hooks": 68, "Path": 72, "Message": 592, "ApiFrames": 848, "Realtime": 868,
-	"FirstCall": 872, "VulkanFrames": 876, "VulkanType": 880, "VulkanCpuDriver": 884, "VulkanDevice": 888,
-	"MaskPixels": 1016}
+	"FirstCall": 872, "Direct3DCreates": 876, "DeviceCreates": 880, "DeviceResult": 884, "DeviceTime": 888,
+	"DeviceWidth": 892, "DeviceHeight": 896, "DeviceWindow": 900, "CooperativeLevel": 904, "LostChecks": 908,
+	"PresentResult": 912, "PresentFailures": 916, "FirstPresentTime": 920, "LastPresentTime": 924, "LoadTick": 928,
+	"DeviceInside": 932, "DeviceCallTime": 936}
+# HRESULTs of Direct3D 9 that patcap.dll reports (d3d9.h); 1: the call has not been made yet.
+HRESULTS = {0: "D3D_OK", 1: "not called yet", 0x88760868: "D3DERR_DEVICELOST", 0x88760869: "D3DERR_DEVICENOTRESET",
+	0x8876086a: "D3DERR_NOTAVAILABLE", 0x8876086c: "D3DERR_INVALIDCALL", 0x8876017c: "D3DERR_OUTOFVIDEOMEMORY",
+	0x88760870: "D3DERR_DEVICEREMOVED", 0x88760874: "D3DERR_DEVICEHUNG", 0x08760873: "S_PRESENT_OCCLUDED",
+	0x80004005: "E_FAIL", 0x8007000e: "E_OUTOFMEMORY"}
+# How long Tibia.exe may take from its window to its first frame (patcap.dll's first Present): the device
+# is made at start-up; normally the first frame comes within a second.
+FIRST_FRAME_TIMEOUT = 30
+# Starts of Tibia.exe before a run fails for want of a first frame (issue #98: the driver's CreateDevice did not
+# return once in a while at the first start after the GPU was idle; the next start worked).
+START_ATTEMPTS = 2
+
+
+class FirstFrameError(RunError):
+	"""Tibia.exe showed no frame after its start (Driver.start)."""
 # VkPhysicalDeviceType
 VULKAN_TYPES = {0: "other", 1: "integrated GPU", 2: "discrete GPU", 3: "virtual GPU", 4: "CPU"}
 # The CPU driver next to the x64 Patella.exe (cmake/Vulkan.cmake), copied into its run folder.
 CPU_DRIVER_FILES = ("vulkan_lvp.dll", "lvp_icd.x86_64.json")
+API_NAMES_INDEX = {v: k for k, v in API_NAMES.items()}
 HOOK_NAMES = ["timeGetTime", "GetSystemTimeAsFileTime", "GetSystemTimePreciseAsFileTime", "GetProcAddress",
 	"SetTimer", "KillTimer", "GetCursorPos", "PeekMessageA", "SwapBuffers", "wglMakeCurrent", "DirectDrawCreate"]
 
@@ -135,6 +169,10 @@ class Capture:
 		self.map = mmap.mmap(-1, 4096, tagname="Local\\PatellaCapture-%d" % pid)
 		if self.get("Magic") != 0x50434150:  # 'PCAP' as the compiler stores the multi-character constant
 			raise RunError("patcap.dll is not loaded in PID %d (magic 0x%x)" % (pid, self.get("Magic")))
+		if self.get("Version") != PATCAP_VERSION:
+			raise RunError("patcap.dll in PID %d has the shared memory's version %d, not %d: rebuild it (python -I "
+				"tools/build.py capture-x86)" % (pid, self.get("Version"), PATCAP_VERSION))
+		self.explain = None  # a function: the window's and the display's state, for a timeout's message
 
 	def close(self):
 		self.map.close()
@@ -167,7 +205,8 @@ class Capture:
 		deadline = time.time() + timeout
 		while self.get("DoneSeq") != seq:
 			if time.time() > deadline:
-				raise RunError("command %d not done within %d s (frames %d)" % (cmd, timeout, self.get("Frames")))
+				raise RunError("command %d not done within %d s (frames %d)%s" % (cmd, timeout, self.get("Frames"),
+					"; " + self.explain() if self.explain else ""))
 			if alive is not None and not alive():
 				raise RunError("the client ended during command %d" % cmd)
 			time.sleep(0.01)
@@ -181,12 +220,15 @@ class Capture:
 		self.command(CMD_CAPTURE, skip, 0, path, alive=alive)
 		return self.get("Width"), self.get("Height"), API_NAMES.get(self.get("Api"), "?")
 
-	def vulkan_device(self):
-		"""The Vulkan engine's device as the engine reported it (None before, or for another engine)."""
-		if self.get("Version") < 2 or not self.text("VulkanDevice", 128):
-			return None
-		return {"name": self.text("VulkanDevice", 128), "type": VULKAN_TYPES.get(self.get("VulkanType"), "?"),
-			"cpu_driver": bool(self.get("VulkanCpuDriver"))}
+	def d3d9(self):
+		"""Direct3D 9's course as patcap.dll saw it (version 4, issue #98)."""
+		names = ("Direct3DCreates", "DeviceCreates", "DeviceResult", "DeviceTime", "DeviceWidth", "DeviceHeight",
+			"DeviceWindow", "CooperativeLevel", "LostChecks", "PresentResult", "PresentFailures", "FirstPresentTime",
+			"LastPresentTime", "DeviceInside", "DeviceCallTime")
+		facts = {n: self.get(n) for n in names}
+		facts["Presents"] = self.get("ApiFrames", API_NAMES_INDEX["Direct3D 9 Present"])
+		facts["Loaded"] = (ctypes.windll.kernel32.GetTickCount() - self.get("LoadTick")) & 0xffffffff
+		return facts
 
 
 def build_capture(preset):
@@ -357,6 +399,23 @@ class Driver(sc.Driver):
 		return self.env
 
 	def start(self, arguments=()):
+		"""Starts the client and waits for its first frame (issue #98). A client that shows none within
+		FIRST_FRAME_TIMEOUT (its Direct3D 9 device not made: the driver's CreateDevice did not return) is ended
+		and started once more: nothing has been sent to it yet, so the run is the same as with a first start that
+		worked. The second failure is the run's, with the diagnosis."""
+		for attempt in range(1, START_ATTEMPTS + 1):
+			try:
+				return self.start_once(arguments)
+			except FirstFrameError as e:
+				if attempt == START_ATTEMPTS:
+					raise
+				self.log("start %d of %d failed, starting the client again: %s" % (attempt, START_ATTEMPTS, e))
+				self.kill()
+				self.cap.close()
+				self.cap = None
+				self.hwnd = None
+
+	def start_once(self, arguments=()):
 		path = os.path.join(self.run_dir, self.exe)
 		self.proc = subprocess.Popen([path] + list(arguments), cwd=self.run_dir, env=self.env)
 		self.log("started %s, PID %d" % (path, self.proc.pid))
@@ -376,7 +435,21 @@ class Driver(sc.Driver):
 			raise RunError("patcap.dll is not loaded in %s" % self.exe)
 		if self.hwnd is None:
 			raise sc.SessionError("no TibiaClient window after 30 s")
+		self.cap.explain = lambda: explain(self.hwnd, self.cap)
 		self.log("patcap.dll loaded; hooks: %s" % ", ".join(self.cap.hooks()))
+		# Issue #98: the first frame (patcap's Present) before the first command, not a fixed time; a client
+		# whose Direct3D 9 device was not made never shows one, and that is said here, with why.
+		deadline = time.time() + FIRST_FRAME_TIMEOUT
+		while self.cap.get("Frames") == 0:
+			if self.proc.poll() is not None:
+				raise sc.SessionError("the client exited with code %d before its first frame" % self.proc.returncode)
+			if time.time() > deadline:
+				raise FirstFrameError("no frame within %d s of the start; %s" % (FIRST_FRAME_TIMEOUT,
+					explain(self.hwnd, self.cap)))
+			time.sleep(0.05)
+		facts = self.cap.d3d9()
+		self.log("first frame after %d ms (%s; CreateDevice %s at %d ms)" % (facts["FirstPresentTime"],
+			API_NAMES.get(self.cap.get("Api"), "?"), hresult(facts["DeviceResult"]), facts["DeviceTime"]))
 		time.sleep(2)
 		self.mem = self.reader()
 
@@ -838,10 +911,18 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 	def shot(name, masks=None):
 		if masks:
 			scene_masks[name] = masks
+		if os.name == "nt" and ctypes.windll.user32.IsIconic(driver.hwnd):
+			# Issue #98: a minimized window has no client area (Windows minimizes the windows of a monitor that
+			# goes away: a DisplayPort monitor asleep); the scene is not taken, and the run says so.
+			raise RunError("scene %s: the client's window is minimized; %s" % (name, explain(driver.hwnd,
+				getattr(driver, "cap", None))))
 		if isinstance(driver, TestDriver):
 			# The test mode's frame dump: the frame and its device-filtered pixels (white), as patcap's.
 			png, mask = driver.frame()
 			picture = read_png(png)
+			if picture[0] == 0 or picture[1] == 0:
+				raise RunError("scene %s: the frame dump is %dx%d (the window has no client area); %s"
+					% (name, picture[0], picture[1], explain(driver.hwnd)))
 			apis.add("Vulkan")
 			if mask is not None:
 				shutil.copyfile(mask, os.path.join(folder, filtered_file(name)))
@@ -853,16 +934,6 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 		bmp = os.path.join(folder, "capture.bmp")
 		width, height, api = driver.capture(bmp, SKIP_FRAMES)
 		apis.add(api)
-		if os.path.isfile(bmp + ".mask"):
-			# The Vulkan engine's device-filtered pixels (patcap's PatcapVulkanMask), as a picture.
-			with open(bmp + ".mask", "rb") as f:
-				mask = f.read()
-			os.remove(bmp + ".mask")
-			if len(mask) == width * height:
-				write_png(os.path.join(folder, filtered_file(name)), width, height,
-					[bytes(255 if v else 0 for v in mask[y * width:(y + 1) * width] for _ in range(3))
-						for y in range(height)])
-				filtered[name] = sum(1 for v in mask if v)
 		picture = read_bmp(bmp)
 		os.remove(bmp)
 		write_png(os.path.join(folder, scene_file(name)), *picture)
@@ -870,10 +941,17 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 		log("scene %s: %dx%d (%s)" % (name, width, height, api))
 
 	facts_cap = None
+	log("display: %s" % display_summary())
 	try:
 		with proxy:
-			driver.start()
-			session(driver, proxy, shot, fullscreen, "vulkan" in ENGINES[engine])
+			try:
+				driver.start()
+				session(driver, proxy, shot, fullscreen, "vulkan" in ENGINES[engine])
+			except Exception as e:
+				# Issue #98: the window's and the display's state with the failure, once.
+				if "user idle " not in str(e) and driver.hwnd is not None:
+					raise RunError("%s; %s" % (e, explain(driver.hwnd, getattr(driver, "cap", None)))) from e
+				raise
 			time.sleep(0.5)
 			if isinstance(driver, TestDriver):
 				facts_cap = driver.facts()
@@ -886,9 +964,11 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 	finally:
 		if getattr(driver, "cap", None) is not None:
 			facts_cap = {"frames": driver.cap.get("Frames"), "ticks": driver.cap.get("Ticks"),
-				"virtual_ms": driver.cap.get("Now"), "hooks": driver.cap.hooks(),
-				"vulkan_device": driver.cap.vulkan_device()}
+				"virtual_ms": driver.cap.get("Now"), "hooks": driver.cap.hooks(), "d3d9": driver.cap.d3d9()}
 		driver.kill()
+		patcap_log = os.path.join(ct.run_dir(label), "patcap.log")
+		if os.path.isfile(patcap_log):
+			shutil.copyfile(patcap_log, os.path.join(folder, "patcap.log"))
 	problems = proxy.mismatches + proxy.errors
 	api = ENGINES[engine]["api"]
 	if client == "patella" and "patella_api" in ENGINES[engine]:
@@ -982,7 +1062,11 @@ def main():
 		"next to it runs, read through its test mode, issue #92); default build/windows-x64/Release/Patella.exe; as "
 		"tools/compare_traffic.py's --patella")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
+	parser.add_argument("--self-test", action="store_true", help="check patcap.dll's shared-memory offsets against "
+		"tools/capture/patcap.c and the failure diagnosis on made-up data; no client")
 	args = parser.parse_args()
+	if args.self_test:
+		return self_test()
 	args.out = os.path.abspath(args.out)  # the DLL writes the pictures from the client's folder
 	args.recording = os.path.abspath(args.recording)
 	patella_preset = None
@@ -1022,6 +1106,8 @@ def main():
 	failed = []
 	if not args.compare_only:
 		setup()
+		keep_display_on(True)
+		log("display: %s" % display_summary())
 		for engine, fullscreen in passes:
 			plan = [("orig", "orig"), ("patella", "patella")] + ([] if args.no_repeat else [("orig", "orig-repeat")])
 			for client, label in plan:
@@ -1035,6 +1121,7 @@ def main():
 				if display_mode()[:3] != FULLSCREEN_MODE and "fullscreen" in modes:
 					failed.append("the display mode is now %s: no more runs" % (display_mode(),))
 					break
+		keep_display_on(False)
 	report = []
 	say = report.append
 	say("Rendering comparison (issue #20), %s" % time.strftime("%Y-%m-%d %H:%M"))
@@ -1105,6 +1192,269 @@ def main():
 	return 2 if failed else 1 if differences else 0
 
 
+# --- the window and the display (issue #98) -------------------------------------------------
+
+ES_CONTINUOUS = 0x80000000
+ES_SYSTEM_REQUIRED = 0x00000001
+ES_DISPLAY_REQUIRED = 0x00000002
+
+
+def keep_display_on(on):
+	"""While on: the display and the system stay on (SetThreadExecutionState, this thread; a display that the idle
+	timeout had turned off is turned on again). The tool's input is posted window messages, which Windows does not
+	count as the user's input. Off: back to the idle timeouts. Never input of its own: the user's mouse and keyboard
+	are left alone."""
+	flags = ES_CONTINUOUS | (ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED if on else 0)
+	if os.name == "nt" and not ctypes.windll.kernel32.SetThreadExecutionState(flags):
+		log("SetThreadExecutionState(0x%x) failed" % flags)
+
+
+GUID_CONSOLE_DISPLAY_STATE = "6fe69556-704a-47a0-8f24-c28d936fda47"
+GUID_VIDEO_SUBGROUP = "7516b95f-f776-4464-8c53-06167f40cc99"
+GUID_VIDEO_POWERDOWN_TIMEOUT = "3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e"
+
+
+def console_display_state():
+	"""The console display's power state: "on", "off", "dimmed" or "unknown" (RegisterPowerSettingNotification of
+	GUID_CONSOLE_DISPLAY_STATE: Windows sends the current state at once to a message-only window)."""
+	import uuid
+	user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+	proc_type = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
+	user32.DefWindowProcW.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
+	user32.DefWindowProcW.restype = ctypes.c_ssize_t
+	user32.CreateWindowExW.restype = wt.HWND
+	user32.CreateWindowExW.argtypes = [wt.DWORD, wt.LPCWSTR, wt.LPCWSTR, wt.DWORD, ctypes.c_int, ctypes.c_int,
+		ctypes.c_int, ctypes.c_int, wt.HWND, wt.HMENU, wt.HINSTANCE, wt.LPVOID]
+	user32.RegisterPowerSettingNotification.restype = ctypes.c_void_p
+	user32.RegisterPowerSettingNotification.argtypes = [wt.HANDLE, ctypes.c_void_p, wt.DWORD]
+	user32.UnregisterPowerSettingNotification.argtypes = [ctypes.c_void_p]
+	states = []
+
+	def proc(hwnd, msg, wparam, lparam):
+		if msg == 0x218 and wparam == 0x8013:  # WM_POWERBROADCAST, PBT_POWERSETTINGCHANGE
+			data = ctypes.string_at(lparam, 24)  # POWERBROADCAST_SETTING: GUID, DataLength, Data
+			states.append(struct.unpack_from("<I", data, 20)[0])
+		return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+
+	callback = proc_type(proc)
+
+	class WNDCLASS(ctypes.Structure):
+		_fields_ = [("style", wt.UINT), ("proc", proc_type), ("extra", ctypes.c_int * 2), ("instance", wt.HINSTANCE),
+			("icon", wt.HICON), ("cursor", wt.HANDLE), ("brush", wt.HBRUSH), ("menu", wt.LPCWSTR), ("name", wt.LPCWSTR)]
+
+	name = "compare_rendering_display_%d" % os.getpid()
+	instance = kernel32.GetModuleHandleW(None)
+	window_class = WNDCLASS(proc=callback, instance=instance, name=name)
+	if not user32.RegisterClassW(ctypes.byref(window_class)):
+		return "unknown"
+	hwnd = user32.CreateWindowExW(0, name, "", 0, 0, 0, 0, 0, wt.HWND(-3), None, instance, None)  # HWND_MESSAGE
+	try:
+		if not hwnd:
+			return "unknown"
+		guid = uuid.UUID(GUID_CONSOLE_DISPLAY_STATE).bytes_le
+		handle = user32.RegisterPowerSettingNotification(hwnd, guid, 0)
+		message = wt.MSG()
+		for _ in range(50):
+			while user32.PeekMessageW(ctypes.byref(message), hwnd, 0, 0, 1):
+				user32.DispatchMessageW(ctypes.byref(message))
+			if states:
+				break
+			time.sleep(0.01)
+		if handle:
+			user32.UnregisterPowerSettingNotification(handle)
+	finally:
+		if hwnd:
+			user32.DestroyWindow(hwnd)
+		user32.UnregisterClassW(name, instance)
+	return {0: "off", 1: "on", 2: "dimmed"}.get(states[0], str(states[0])) if states else "unknown"
+
+
+def idle_seconds():
+	"""Seconds since the user's last input (GetLastInputInfo; posted messages are not input)."""
+	class LASTINPUTINFO(ctypes.Structure):
+		_fields_ = [("cbSize", wt.UINT), ("dwTime", wt.DWORD)]
+
+	info = LASTINPUTINFO(ctypes.sizeof(LASTINPUTINFO), 0)
+	if not ctypes.windll.user32.GetLastInputInfo(ctypes.byref(info)):
+		return None
+	return ((ctypes.windll.kernel32.GetTickCount() - info.dwTime) & 0xffffffff) // 1000
+
+
+def display_timeout():
+	"""The active power scheme's "turn off the display after" on AC power, in seconds (0: never; None: unknown)."""
+	import uuid
+	powrprof = ctypes.windll.powrprof
+	scheme = ctypes.c_void_p()
+	if powrprof.PowerGetActiveScheme(None, ctypes.byref(scheme)) != 0:
+		return None
+	try:
+		value = wt.DWORD()
+		if powrprof.PowerReadACValueIndex(None, scheme, uuid.UUID(GUID_VIDEO_SUBGROUP).bytes_le,
+				uuid.UUID(GUID_VIDEO_POWERDOWN_TIMEOUT).bytes_le, ctypes.byref(value)) != 0:
+			return None
+		return value.value
+	finally:
+		ctypes.windll.kernel32.LocalFree(scheme)
+
+
+def input_desktop():
+	"""The input desktop's name ("Default" normally, "Winlogon" while the session is locked or at the sign-in screen),
+	or "none" (no input desktop for this session: disconnected)."""
+	user32 = ctypes.windll.user32
+	user32.OpenInputDesktop.restype = wt.HANDLE
+	handle = user32.OpenInputDesktop(0, False, 0x0001)  # DESKTOP_READOBJECTS
+	if not handle:
+		return "none"
+	try:
+		buffer = ctypes.create_unicode_buffer(256)
+		needed = wt.DWORD()
+		if not user32.GetUserObjectInformationW(handle, 2, buffer, ctypes.sizeof(buffer), ctypes.byref(needed)):
+			return "?"
+		return buffer.value
+	finally:
+		user32.CloseDesktop(handle)
+
+
+def display_summary():
+	"""The display's state in one line: power, the user's idle time against the timeout, the input desktop, the
+	monitors and the primary display's mode."""
+	if os.name != "nt":
+		return "not Windows"
+	idle, timeout = idle_seconds(), display_timeout()
+	parts = ["display %s" % console_display_state(),
+		"user idle %s s (the display's timeout %s)" % (idle, "never" if timeout == 0 else "%s s" % timeout),
+		"input desktop %s" % input_desktop(), "%d monitor(s)" % ctypes.windll.user32.GetSystemMetrics(80)]
+	try:
+		parts.append("mode %dx%dx%d" % display_mode()[:3])
+	except RunError:
+		parts.append("mode unknown")
+	return ", ".join(parts)
+
+
+def window_summary(hwnd):
+	"""The client window's state in one line: visible, minimized, the foreground (or which window is), its client
+	area, and whether the foreground window covers its monitor (another program in full-screen)."""
+	user32 = ctypes.windll.user32
+	user32.GetForegroundWindow.restype = wt.HWND
+	user32.MonitorFromWindow.restype = wt.HANDLE
+	if not hwnd or not user32.IsWindow(hwnd):
+		return "window gone"
+	client = wt.RECT()
+	user32.GetClientRect(hwnd, ctypes.byref(client))
+	parts = ["window %s" % ("visible" if user32.IsWindowVisible(hwnd) else "hidden"),
+		"minimized" if user32.IsIconic(hwnd) else "not minimized", "client area %dx%d" % (client.right, client.bottom)]
+	foreground = user32.GetForegroundWindow()
+	if foreground == hwnd:
+		parts.append("the foreground")
+	elif not foreground:
+		parts.append("no foreground window")
+	else:
+		name = ctypes.create_unicode_buffer(256)
+		user32.GetClassNameW(foreground, name, 256)
+		pid = wt.DWORD()
+		user32.GetWindowThreadProcessId(foreground, ctypes.byref(pid))
+		rect = wt.RECT()
+		user32.GetWindowRect(foreground, ctypes.byref(rect))
+
+		class MONITORINFO(ctypes.Structure):
+			_fields_ = [("cbSize", wt.DWORD), ("rcMonitor", wt.RECT), ("rcWork", wt.RECT), ("dwFlags", wt.DWORD)]
+
+		info = MONITORINFO(ctypes.sizeof(MONITORINFO))
+		monitor = user32.MonitorFromWindow(foreground, 2)  # MONITOR_DEFAULTTONEAREST
+		covers = bool(user32.GetMonitorInfoW(monitor, ctypes.byref(info))) and rect.left <= info.rcMonitor.left \
+			and rect.top <= info.rcMonitor.top and rect.right >= info.rcMonitor.right and rect.bottom >= info.rcMonitor.bottom
+		parts.append("the foreground is %s of PID %d%s" % (name.value, pid.value, ", covering its monitor" if covers else ""))
+	return ", ".join(parts)
+
+
+def hresult(value):
+	value &= 0xffffffff
+	return HRESULTS.get(value, "0x%08x" % value)
+
+
+def d3d9_summary(facts):
+	"""patcap.dll's Direct3D 9 course in one line (Capture.d3d9)."""
+	if facts["Direct3DCreates"] == 0:
+		return "Direct3D 9: Direct3DCreate9 not called (%d ms since the load)" % facts["Loaded"]
+	if facts["DeviceCreates"] == 0:
+		return "Direct3D 9: Direct3DCreate9 called, CreateDevice not (%d ms since the load)" % facts["Loaded"]
+	if facts["DeviceInside"]:
+		# Issue #98's hang: the client's thread is inside the driver's CreateDevice.
+		text = "Direct3D 9: CreateDevice call %d has not returned (called at %d ms, %d ms since the load; the call " 			"before: %s)" % (facts["DeviceCreates"], facts["DeviceCallTime"], facts["Loaded"], hresult(facts["DeviceResult"]))
+		return text + (", %d Presents before it" % facts["Presents"] if facts["Presents"] else ", no Present")
+	text = "Direct3D 9: CreateDevice %s (call %d, at %d ms)" % (hresult(facts["DeviceResult"]), facts["DeviceCreates"],
+		facts["DeviceTime"])
+	text += ", TestCooperativeLevel %s (%d not D3D_OK)" % (hresult(facts["CooperativeLevel"]), facts["LostChecks"])
+	if facts["Presents"] == 0:
+		return text + ", no Present (%d ms since the load)" % facts["Loaded"]
+	return text + ", %d Presents (first at %d ms, last at %d ms of %d; the last %s, %d failed)" % (facts["Presents"],
+		facts["FirstPresentTime"], facts["LastPresentTime"], facts["Loaded"], hresult(facts["PresentResult"]),
+		facts["PresentFailures"])
+
+
+def explain(hwnd, cap=None):
+	"""Why a client may show no frame: the window, the display and (Tibia.exe) patcap.dll's Direct3D 9 course."""
+	parts = []
+	try:
+		parts.append(window_summary(hwnd))
+		parts.append(display_summary())
+	except Exception as e:  # the diagnosis never hides the failure it explains
+		parts.append("(window or display state unreadable: %s)" % e)
+	if cap is not None:
+		try:
+			parts.append(d3d9_summary(cap.d3d9()))
+		except Exception as e:
+			parts.append("(patcap.dll's state unreadable: %s)" % e)
+	return "; ".join(parts)
+
+
+def self_test():
+	"""The offsets of OFF against patcap.c's struct Shared comments, and the diagnosis texts on made-up data."""
+	source = os.path.join(ROOT, "tools", "capture", "patcap.c")
+	with open(source, encoding="utf-8") as f:
+		text = f.read()
+	struct_text = text[text.index("typedef struct {"):text.index("} Shared;")]
+	found = {}
+	for m in re.finditer(r"^\s*(?:volatile\s+)?(?:LONG|char)\s+(\w+)(?:\[\d+\])?;\s*/\*\s*(\d+)", struct_text, re.M):
+		found[m.group(1)] = int(m.group(2))
+	if found != OFF:
+		raise SystemExit("self-test: OFF differs from patcap.c's struct Shared: only here %s, only there %s, other offsets %s"
+			% (sorted(set(OFF) - set(found)), sorted(set(found) - set(OFF)),
+				sorted(n for n in set(OFF) & set(found) if OFF[n] != found[n])))
+	version = re.search(r"S->Version = (\d+);", text)
+	if version is None or int(version.group(1)) != PATCAP_VERSION:
+		raise SystemExit("self-test: patcap.c sets version %s, the tool reads %d" % (version and version.group(1), PATCAP_VERSION))
+	if re.search(r"dllexport.*PatcapVulkan", text):
+		raise SystemExit("self-test: patcap.c has Vulkan exports again (they left with issue #98)")
+	none = {"Direct3DCreates": 1, "DeviceCreates": 1, "DeviceResult": 0x8876086a - (1 << 32), "DeviceTime": 412,
+		"DeviceWidth": 0, "DeviceHeight": 0, "DeviceWindow": 0x1234, "CooperativeLevel": 1, "LostChecks": 0,
+		"PresentResult": 1, "PresentFailures": 0, "FirstPresentTime": -1, "LastPresentTime": -1, "Presents": 0,
+		"Loaded": 31000, "DeviceInside": 0, "DeviceCallTime": 400}
+	checks = [
+		(d3d9_summary(none), "Direct3D 9: CreateDevice D3DERR_NOTAVAILABLE (call 1, at 412 ms), TestCooperativeLevel "
+			"not called yet (0 not D3D_OK), no Present (31000 ms since the load)"),
+		(d3d9_summary(dict(none, Direct3DCreates=0)), "Direct3D 9: Direct3DCreate9 not called (31000 ms since the load)"),
+		(d3d9_summary(dict(none, DeviceResult=0, CooperativeLevel=0x88760868 - (1 << 32), LostChecks=7, Presents=9,
+			FirstPresentTime=500, LastPresentTime=900, PresentResult=0x88760868 - (1 << 32), PresentFailures=3)),
+			"Direct3D 9: CreateDevice D3D_OK (call 1, at 412 ms), TestCooperativeLevel D3DERR_DEVICELOST (7 not D3D_OK), "
+			"9 Presents (first at 500 ms, last at 900 ms of 31000; the last D3DERR_DEVICELOST, 3 failed)"),
+		(d3d9_summary(dict(none, DeviceCreates=2, DeviceResult=0, DeviceInside=1, DeviceCallTime=484)),
+			"Direct3D 9: CreateDevice call 2 has not returned (called at 484 ms, 31000 ms since the load; the call before: "
+			"D3D_OK), no Present"),
+		(hresult(0x12345678), "0x12345678"),
+	]
+	for got, want in checks:
+		if got != want:
+			raise SystemExit("self-test: %r, expected %r" % (got, want))
+	if os.name == "nt":
+		summary = display_summary()  # reads only: no window of its own stays, no setting changes
+		if not summary.startswith("display "):
+			raise SystemExit("self-test: display_summary() gave %r" % summary)
+		print("compare_rendering.py: this display: %s" % summary)
+	print("compare_rendering.py: self-test passed (%d offsets, %d diagnosis texts)" % (len(OFF), len(checks)))
+	return 0
+
+
 def kill_clients():
 	"""Ends a client of this script's run folders left behind by a failed run (only those)."""
 	for run in RUNS:
@@ -1117,5 +1467,5 @@ def kill_clients():
 
 
 if __name__ == "__main__":
-	desktop.hide(skip=("--check-only", "--compare-only", "-h", "--help"))  # issue #56: only with --hidden
+	desktop.hide(skip=("--check-only", "--compare-only", "--self-test", "-h", "--help"))  # issue #56: only with --hidden
 	sys.exit(main())
