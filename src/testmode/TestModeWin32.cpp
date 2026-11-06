@@ -70,6 +70,10 @@
 // the Vulkan engine fail as a failing vkQueuePresentKHR does (PresentFails, TestHooks.h), so the first frame's
 // ends the client on its fatal path (PROGRAM_ERROR 12, "Tibia Error").
 //
+// Issue #90: PATELLA_TEST_FAIL_INIT=<n> (1-16) in the environment makes InitControl throw PROGRAM_ERROR 6 before
+// its step n (16: after the last), so the client ends on InitControl's fatal path ("Tibia Error", "(Error Code
+// 6)") with the steps before it done (InitFails, TestHooks.h).
+//
 // A script that does not parse ends the program before the window opens, with exit code 3 and the
 // message on stderr, in the log and through OutputDebugString (never a dialog).
 
@@ -92,6 +96,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -879,6 +884,22 @@ bool PresentFails()
 		return getenv_s(&Length, Value.data(), Value.size(), "PATELLA_TEST_FAIL_PRESENT") == 0 && Length == 2 && Value[0] == '1';
 	}();
 	return Fails;
+}
+
+// Issue #90: PATELLA_TEST_FAIL_INIT=<n> makes InitControl fail before its step n (TestHooks.h), read once.
+bool InitFails(int Step)
+{
+	static const int FailingStep = [] {
+		std::array<char, 8> Value{};
+		std::size_t Length = 0;
+		if (getenv_s(&Length, Value.data(), Value.size(), "PATELLA_TEST_FAIL_INIT") != 0 || Length < 2)
+			return 0;
+		int Parsed = 0;
+		const char *const Last = Value.data() + (Length - 1); // Length counts the terminating zero
+		const auto [End, Error] = std::from_chars(Value.data(), Last, Parsed);
+		return Error == std::errc{} && End == Last ? Parsed : 0;
+	}();
+	return FailingStep != 0 && Step == FailingStep;
 }
 
 void Idle()

@@ -1146,24 +1146,42 @@ void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int M
 
 // 0x44b510, line 1633. Initialises the modules; on a PROGRAM_ERROR it shuts
 // them down again (ignoring any error from that) and passes the error on.
+// The test build's PATELLA_TEST_INIT_FAILURE (TestHooks.h, issue #90) can
+// make any step fail; nothing outside PatellaTest.exe.
 void InitControl(bool Gamemaster)
 {
 	try {
+		PATELLA_TEST_INIT_FAILURE(1)
 		InitSysinc();
+		PATELLA_TEST_INIT_FAILURE(2)
 		InitObjects();
+		PATELLA_TEST_INIT_FAILURE(3)
 		InitMap(HideCreature);
+		PATELLA_TEST_INIT_FAILURE(4)
 		ResetInventory();
+		PATELLA_TEST_INIT_FAILURE(5)
 		InitCreatures();
+		PATELLA_TEST_INIT_FAILURE(6)
 		InitStatus(Gamemaster, LinkCopyWarning);
+		PATELLA_TEST_INIT_FAILURE(7)
 		InitHelp();
+		PATELLA_TEST_INIT_FAILURE(8)
 		InitPreferences();
+		PATELLA_TEST_INIT_FAILURE(9)
 		InitTalk();
+		PATELLA_TEST_INIT_FAILURE(10)
 		InitGraphics(0xa00000);
+		PATELLA_TEST_INIT_FAILURE(11)
 		InitSkins();
+		PATELLA_TEST_INIT_FAILURE(12)
 		InitSkinProperties();
+		PATELLA_TEST_INIT_FAILURE(13)
 		InitNetwork(ConnectionEstablished, ReceivePackets, ConnectionClosed);
+		PATELLA_TEST_INIT_FAILURE(14)
 		InitCommunication();
+		PATELLA_TEST_INIT_FAILURE(15)
 		InitHotkeys();
+		PATELLA_TEST_INIT_FAILURE(16)
 	} catch (const TProgramError &Error) {
 		try {
 			ExitControl();
@@ -1173,11 +1191,17 @@ void InitControl(bool Gamemaster)
 	}
 }
 
-// 0x448e30, line 1661. Called from the main frame's destructor. GetSurface
-// creates a surface first if there is none, so one may be created only to be
-// deleted. The five empty Exit functions are folded into one copy
-// (0x496160); which module each belongs to follows InitControl's order in
-// reverse (names ours).
+// 0x448e30, line 1661. Called from the main frame's destructor, and from
+// InitControl after a failed step. GetSurface creates a surface first if there
+// is none, so one may be created only to be deleted. Patella-Modern issue #90:
+// the x64 GetSurface makes one only once SurfaceInitInstance has set the
+// engine (after InitControl), so after a failed InitControl there is none and
+// the surface step is skipped. Tibia.exe's GetSurface made a DirectX 5 surface
+// there whose ExitSurfaces faulted on its uninitialised members (seen under
+// cdb); its catch wrapper and InitControl's catch (...) (MSVC 7.1: an access
+// violation as well) swallowed that, and the PROGRAM_ERROR went on to the box.
+// The five empty Exit functions are folded into one copy (0x496160); which
+// module each belongs to follows InitControl's order in reverse (names ours).
 void ExitControl()
 {
 	ExitMainWindow();
@@ -1186,7 +1210,9 @@ void ExitControl()
 	ExitNetwork();
 	ExitSkins();
 	ExitGraphics();
-	GetSurface()->ExitSurfaces();
+	TSurface *const Current = GetSurface();
+	if (Current != nullptr)
+		Current->ExitSurfaces();
 	SurfaceExitInstance();
 	ExitPreferences();
 	ExitTalk();

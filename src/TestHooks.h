@@ -64,6 +64,14 @@
 //	                                   of every present, so the first one fails (the CPU driver's present on a
 //	                                   hidden desktop, issue #56)
 //
+// Issue #90 (a statement without a semicolon, nothing at all outside the test build):
+//
+//	PATELLA_TEST_INIT_FAILURE(Step)    Control.cpp InitControl, before each of its 15 steps (Step 1-15) and
+//	                                   after the last (16): with PATELLA_TEST_FAIL_INIT=<Step> in the
+//	                                   environment InitControl throws PROGRAM_ERROR 6 (InitNetwork's "Cannot
+//	                                   initialize Windows Sockets.") there, as a failing step does, so its
+//	                                   catch runs ExitControl with the steps before it done
+//
 // The state dump reads the client's data through the View functions at the end of Creatures.cpp,
 // Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h; test build only).
 //
@@ -106,6 +114,8 @@ bool IgnoreCaptureChange();
 BOOL EnumDisplayMode(LPCSTR Device, DWORD Index, DEVMODEA *Mode);
 // True: PATELLA_TEST_FAIL_PRESENT is 1 (issue #83), every present fails.
 bool PresentFails();
+// True: PATELLA_TEST_FAIL_INIT is Step (issue #90), InitControl fails there.
+bool InitFails(int Step);
 } // namespace patella::testmode
 
 #define PATELLA_TIME_GET_TIME() patella::testmode::TimeGetTime()
@@ -127,6 +137,8 @@ bool PresentFails();
 #define PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode) patella::testmode::EnumDisplayMode(Device, Index, Mode)
 #define PATELLA_TEST_PRESENT_FAILURE(Failure) \
 	if (patella::testmode::PresentFails()) { Failure; }
+#define PATELLA_TEST_INIT_FAILURE(Step) \
+	if (patella::testmode::InitFails(Step)) { throw TProgramError{PROGRAM_ERROR::SOCKET_INIT}; }
 
 #else
 
@@ -146,5 +158,6 @@ bool PresentFails();
 #define PATELLA_TEST_CAPTURE_CHANGED
 #define PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode) EnumDisplaySettingsA(Device, Index, Mode)
 #define PATELLA_TEST_PRESENT_FAILURE(Failure)
+#define PATELLA_TEST_INIT_FAILURE(Step)
 
 #endif

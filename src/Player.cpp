@@ -26,6 +26,7 @@
 #include "Control.h"
 #include "Creatures.h"
 #include "MainFrm.h"
+#include "MainWindow.h"
 #include "graphics.h"
 #include "Network.h"
 #include "Preferences.h"
@@ -144,7 +145,12 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 	} catch (...) {
 	}
 	try {
-		if (GetViewMode() != 1)
+		// Patella-Modern issue #90: after a failed InitControl (CMainFrame's constructor) there is no main
+		// window and, on x64, no surface (GetSurface makes one only once SurfaceInitInstance has run), and
+		// MainFrame points to the freed frame: SetDisplayMode's calls would fault. Tibia.exe makes them (under
+		// cdb its CWnd::ModifyStyle faults on the freed frame, 0xfeeefeee), and its catch (...) (MSVC 7.1: an
+		// access violation as well) goes on to the box; under /EHsc it does not, so the step is skipped.
+		if (GetViewMode() != 1 && MainWindow != nullptr && GetSurface() != nullptr)
 			SetDisplayMode(1);
 	} catch (...) {
 	}
