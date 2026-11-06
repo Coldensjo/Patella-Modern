@@ -414,7 +414,9 @@ A local 7.72 server (C:\Tibia\gameserver, or the folder in `PATELLA_TESTSERVER`;
 both clients log into (issue #18):
 `python -I tools/testserver.py start` / `stop` start and stop it (only a server it started is stopped; since
 Patella-Modern issue #68 start returns when both ports listen and the world is loaded, server.log's "Server
-Online!", and stops and restarts once a server of its own that stalls: notes/testserver.md),
+Online!", and stops and restarts once a server of its own that stalls; since Patella-Modern issue #95 a bind error in
+server.log, the server's own race that binds a half-written address and fails with 10049, fails the attempt at once
+and is retried up to 3 more times: notes/testserver.md, "The bind race"),
 `tools/patch_client.py`
 points copies of Tibia.exe and Patella.exe at 127.0.0.1 with the server's RSA key (the login port through
 Patella.exe's PDB since issue #57: the stores to `Servers[i].Port`, or in the Debug builds, whose InitServerList keeps

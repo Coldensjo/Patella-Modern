@@ -2,7 +2,7 @@ r"""Start and stop the local 7.72 test server (issue #18, notes/testserver.md); 
 
 Usage:
   python -I tools/testserver.py start [--server-dir DIR] [--timeout 900] [--stall 180] [--after-online 60]
-                                      [--retries 1] [--window]
+                                      [--retries 1] [--bind-retries 3] [--window]
   python -I tools/testserver.py stop [--server-dir DIR] [--timeout 60] [--force]
   python -I tools/testserver.py self-test      (no server: the start's wait on made-up servers, issue #68)
 
@@ -27,6 +27,19 @@ progress, not the clock, decides. A failed attempt's server, the one this start 
 stopped (Ctrl+C, killed after 30 s: it never came online, so it has nothing to save), its server.log kept as
 server-attempt<N>.log, and the server started again, --retries times (default 1). A server the tools did not
 start is never touched: when one runs or holds a port before a retry, start gives up.
+
+A bind error in server.log (issue #95: "Failed to bind Login Server on port 7171 (error 10049)", the line the
+server writes when its login thread cannot bind, after which it still says "Server Online!" and never listens on
+7171; or its game server's "Failed to bind Game Server on port 7172.") fails the attempt at once, with the error
+code and what it means (10049: the server's own start-up race, below; 10048: the port is taken; 10013: the port
+is in a Windows excluded port range, which start then names, or held exclusively). The attempt's server is
+stopped once its world is loaded ("Server Online!", so that its Ctrl+C is the usual shutdown, not one during the
+map's load) and started again. Bind failures have their own --bind-retries (default 3), on top of --retries:
+the race is the server's, comes back at random, and costs only a few seconds an attempt. The race (issue #95,
+notes/testserver.md): the server's login thread copies its bind address from the global buffer that the main
+thread's second ReadConfig resets to "0.0.0.0" and then fills with bind_address again; a copy taken in the
+middle ("127.0.0", "1.0.0.0"...) is not a local address, and bind fails with WSAEADDRNOTAVAIL (10049); a copy of
+"0.0.0.0" binds all interfaces (compare_traffic.py restarts the server then).
 Exit code 0 when the server is ready, 1 when it is already running, failed to start, exited, or stalled in
 every attempt.
 
@@ -47,6 +60,7 @@ import argparse
 import ctypes
 import ipaddress
 import os
+import re
 import signal
 import struct
 import subprocess
@@ -76,7 +90,22 @@ START_TIMEOUT = 900  # seconds an attempt may take in all
 START_STALL = 180  # seconds without progress (output, a port, CPU time) before an attempt is given up
 AFTER_ONLINE = 60  # seconds from "Server Online!" to both ports listening
 START_RETRIES = 1
+BIND_RETRIES = 3  # more starts after a bind error in server.log (issue #95), on top of START_RETRIES
 STALLED_STOP = 30  # seconds a stalled server gets for its Ctrl+C before it is killed
+# The lines the server writes when a bind fails (issue #95; its strings, login/login_server.cc and
+# game/communication.cc): "<date> <time> [ERR] LoginServerWorker: Failed to bind Login Server on port 7171 (error
+# 10049)" and "LaunchServer: Failed to bind Game Server on port 7172." (no code).
+BIND_ERROR = re.compile(r"Failed to bind (Login|Game) Server on port (\d+)(?: \(error (\d+)\))?")
+LOG_STAMP = re.compile(r"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d \[")  # the time stamp of the server's log lines
+# What a WinSock error code of a bind means here (issue #95).
+BIND_CODES = {
+	10049: "WSAEADDRNOTAVAIL: the address is not one of this machine's. Here it is the server's own start-up race:"
+		" its login thread copies the bind address from a buffer the main thread rewrites at the same moment"
+		" (notes/testserver.md, \"The bind race\"), not a Windows setting",
+	10048: "WSAEADDRINUSE: another socket holds the port (a server of someone else's)",
+	10013: "WSAEACCES: the port is in one of Windows' excluded port ranges (Hyper-V, WSL, Docker reserve them;"
+		" netsh int ipv4 show excludedportrange protocol=tcp) or another process holds it exclusively",
+}
 
 
 
@@ -350,7 +379,8 @@ def wait_ready(poll, listening, log_text, cpu, timeout=START_TIMEOUT, stall=STAR
 	"""Waits until a starting server is ready (issue #68): both ports listening and its world loaded.
 	poll() is the process's exit code or None, listening() its listening sockets as "address:port",
 	log_text() server.log's text, cpu() its CPU time in seconds (or None). Returns (state, detail):
-	("ready", (listening, "online" or "unknown")), ("exited", code), ("stalled", text) or ("timeout", text)."""
+	("ready", (listening, "online" or "unknown")), ("exited", code), ("bind", (server, port, code or None, the
+	line)) as soon as server.log has a bind error (issue #95), ("stalled", text) or ("timeout", text)."""
 	started = clock()
 	last_progress = started
 	seen = None
@@ -361,6 +391,9 @@ def wait_ready(poll, listening, log_text, cpu, timeout=START_TIMEOUT, stall=STAR
 			return "exited", code
 		entries = sorted(listening())
 		text = log_text()
+		failed = bind_error(text)
+		if failed is not None:
+			return "bind", failed
 		ports = {int(entry.rpartition(":")[2]) for entry in entries}
 		both = LOGIN_PORT in ports and GAME_PORT in ports
 		online = LOG_ONLINE in text
@@ -390,6 +423,73 @@ def wait_ready(poll, listening, log_text, cpu, timeout=START_TIMEOUT, stall=STAR
 			return "timeout", "not ready after %d s (%s)" % (timeout, "world not loaded" if not missing
 				else "not listening on " + missing)
 		sleep(0.5)
+
+
+def bind_error(text):
+	"""The first bind error in server.log's text: (server, port, code or None, the line), or None (issue #95)."""
+	match = BIND_ERROR.search(text)
+	if match is None:
+		return None
+	begin = text.rfind("\n", 0, match.start()) + 1
+	# the main thread's text may come first on that line (issue #95's run: ":: Initializing database threads &
+	# queues... 2026-11-06 ... [ERR] ..."): the line from its time stamp
+	stamped = list(LOG_STAMP.finditer(text, begin, match.start()))
+	if stamped:
+		begin = stamped[-1].start()
+	end = text.find("\n", match.end())
+	line = text[begin:end if end >= 0 else len(text)].strip()
+	return match.group(1).lower(), int(match.group(2)), None if match.group(3) is None else int(match.group(3)), line
+
+
+def excluded_ranges(text):
+	"""[(first, last)] of `netsh int ipv4 show excludedportrange protocol=tcp`'s output."""
+	return [(int(first), int(last)) for first, last in re.findall(r"^\s*(\d+)\s+(\d+)\b", text, re.MULTILINE)]
+
+
+def windows_excluded_ranges():
+	"""Windows' excluded TCP port ranges (IPv4 and IPv6), or None when netsh cannot tell (not Windows)."""
+	if not WINDOWS:
+		return None
+	ranges = []
+	for family in ("ipv4", "ipv6"):
+		try:
+			output = subprocess.run(["netsh", "int", family, "show", "excludedportrange", "protocol=tcp"],
+				capture_output=True, text=True, timeout=30, stdin=subprocess.DEVNULL).stdout
+		except (OSError, subprocess.SubprocessError):
+			return None
+		ranges += excluded_ranges(output or "")
+	return ranges
+
+
+def explain_bind(server, port, code, ranges):
+	"""The text start prints for a bind error (issue #95): the code's meaning, and an excluded port range (from
+	windows_excluded_ranges(); None: not known) that holds the port, whatever the code."""
+	text = "the %s server could not bind port %d (%s)" % (server, port, "no error code in the line" if code is None
+		else "error %d, %s" % (code, BIND_CODES.get(code, "see WinSock's error codes")))
+	holding = [(first, last) for first, last in ranges or () if first <= port <= last]
+	if holding:
+		text += "; port %d is in Windows' excluded port range %s: free it there (an administrator's change, not" \
+			" the tools')" % (port, ", ".join("%d-%d" % r for r in holding))
+	elif ranges is not None:
+		text += "; port %d is in no excluded port range" % port
+	return text
+
+
+def retry_allowed(kind, failures, retries, bind_retries):
+	"""Whether start tries again after a failed attempt of `kind` ("bind" or "other"), given the failures so far
+	{"bind": n, "other": m}, this one counted (issue #95): bind failures use --bind-retries first, then
+	--retries, which the other failures use."""
+	return failures["other"] + max(0, failures["bind"] - bind_retries) <= retries
+
+
+def wait_online(poll, log_text, seconds, clock=time.monotonic, sleep=time.sleep):
+	"""Waits up to `seconds` until server.log says "Server Online!" or the server exits; True when online."""
+	deadline = clock() + seconds
+	while LOG_ONLINE not in log_text():
+		if poll() is not None or clock() >= deadline:
+			return False
+		sleep(0.5)
+	return True
 
 
 def spawn(exe, server_dir, window):
@@ -429,14 +529,16 @@ def keep_attempt_log(attempt):
 
 
 def start(server_dir, timeout=START_TIMEOUT, window=False, stall=START_STALL, after_online=AFTER_ONLINE,
-		retries=START_RETRIES):
+		retries=START_RETRIES, bind_retries=BIND_RETRIES):
 	exe = os.path.join(server_dir, EXE_NAME)
 	if not os.path.isfile(exe):
 		say("start", "%s not found" % exe)
 		return 1
 	exe = os.path.abspath(exe)
-	attempts = retries + 1
-	for attempt in range(1, attempts + 1):
+	failures = {"bind": 0, "other": 0}
+	attempt = 0
+	while True:
+		attempt += 1
 		# before every attempt: a server the tools did not start, or a port someone else holds, is never touched
 		running = server_processes(server_exe(server_dir))
 		if running:
@@ -447,8 +549,7 @@ def start(server_dir, timeout=START_TIMEOUT, window=False, stall=START_STALL, af
 				say("start", "port %d is already in use" % port)
 				return 1
 		process = spawn(exe, server_dir, window)
-		say("start", "started PID %d, log %s%s" % (process.pid, LOG_FILE,
-			"" if attempts == 1 else " (attempt %d of %d)" % (attempt, attempts)))
+		say("start", "started PID %d, log %s (attempt %d)" % (process.pid, LOG_FILE, attempt))
 		begun = time.monotonic()
 		state, detail = wait_ready(process.poll,
 			lambda: ["%s:%d" % (address, port) for pid, address, port in listeners()
@@ -463,9 +564,24 @@ def start(server_dir, timeout=START_TIMEOUT, window=False, stall=START_STALL, af
 				say("start", "world: not shown in server.log (%r missing: the output does not reach the file as it"
 					" is written); the ports alone count" % LOG_EARLY)
 			return 0
+		kind = "other"
 		if state == "exited":
 			say("start", "the server exited with code %d; see %s and %s" % (detail, LOG_FILE, ERR_FILE))
 			remove_pid_file()
+		elif state == "bind":
+			kind = "bind"
+			server, port, code, line = detail
+			say("start", "bind error in server.log after %.1f s: %r" % (time.monotonic() - begun, line))
+			say("start", explain_bind(server, port, code, windows_excluded_ranges()))
+			# its Ctrl+C once the world is loaded: the usual shutdown, not one in the middle of the map's load
+			online = wait_online(process.poll, read_log, after_online)
+			say("start", "stopping PID %d (the one this start started)%s" % (process.pid, "" if online else
+				", %r not said within %d s" % (LOG_ONLINE, after_online)))
+			if process.poll() is not None:
+				remove_pid_file()
+			elif stop(server_dir, STALLED_STOP, True) != 0:
+				say("start", "could not stop PID %d: giving up" % process.pid)
+				return 1
 		else:
 			say("start", "the server (PID %d) %s: %s; stopping it (the one this start started)" % (process.pid,
 				"stalled" if state == "stalled" else "timed out", detail))
@@ -473,10 +589,12 @@ def start(server_dir, timeout=START_TIMEOUT, window=False, stall=START_STALL, af
 				say("start", "could not stop PID %d: giving up" % process.pid)
 				return 1
 		kept = keep_attempt_log(attempt)
-		if attempt < attempts:
-			say("start", "attempt %d of %d failed (its log: %s): starting the server again" % (attempt, attempts, kept))
-	say("start", "the server did not become ready in %d attempt%s (the last log: %s)" % (attempts,
-		"" if attempts == 1 else "s", kept))
+		failures[kind] += 1
+		if not retry_allowed(kind, failures, retries, bind_retries):
+			break
+		say("start", "attempt %d failed (its log: %s): starting the server again" % (attempt, kept))
+	say("start", "the server did not become ready in %d attempt%s (%d with a bind error; the last log: %s)" % (
+		attempt, "" if attempt == 1 else "s", failures["bind"], kept))
 	return 1
 
 
@@ -563,9 +681,9 @@ def self_test(out=print):
 		failures += not ok
 		out("  %-62s %s" % (title, "ok" if ok else "FAILED"))
 
-	def run(script, timeout=900, stall=180, after_online=60, exits=None):
-		"""wait_ready on a made-up server: script(t) -> (log lines, ports, cpu seconds) at made-up second t;
-		exits: the second it exits at. Returns (state, detail, seconds waited)."""
+	def run(script, timeout=900, stall=180, after_online=60, exits=None, log=SELF_TEST_LOG):
+		"""wait_ready on a made-up server: script(t) -> (log lines, ports, cpu seconds) at made-up second t, the
+		first lines of `log`; exits: the second it exits at. Returns (state, detail, seconds waited)."""
 		now = [0.0]
 
 		def at():
@@ -574,7 +692,7 @@ def self_test(out=print):
 
 		state, detail = wait_ready(lambda: 0 if exits is not None and now[0] >= exits else None,
 			lambda: ["127.0.0.1:%d" % port for port in at()[1]],
-			lambda: "".join(line + "\n" for line in SELF_TEST_LOG[:at()[0]]),
+			lambda: "".join(line + "\n" for line in log[:at()[0]]),
 			lambda: at()[2], timeout, stall, after_online, clock=lambda: now[0],
 			sleep=lambda seconds: now.__setitem__(0, now[0] + seconds))
 		return state, detail, now[0]
@@ -610,6 +728,70 @@ def self_test(out=print):
 	check("a log not written as it goes: the ports alone", state == "ready" and detail[1] == "unknown")
 	state, detail, waited = run(lambda t: (2 if t < 30 else 5, (LOGIN_PORT,) if t < 30 else both, t))
 	check("the login port first, the game port with the world", state == "ready" and waited == 30)
+
+	out("a bind error in server.log (issue #95)")
+	login_error = "2026-11-06 10:00:01 [ERR] LoginServerWorker: Failed to bind Login Server on port 7171 (error 10049)"
+	bind_log = SELF_TEST_LOG[:2] + (login_error,) + SELF_TEST_LOG[2:]
+	# #88's and #92's starts: the login thread's bind fails, the server goes on, says online, listens on 7172 only
+	state, detail, waited = run(lambda t: (2 if t < 1 else 6, (GAME_PORT,) if t >= 2 else (), t), log=bind_log)
+	check("login bind error 10049: failed at once, port and code", state == "bind" and waited == 1
+		and detail[:3] == ("login", 7171, 10049) and detail[3] == login_error)
+	state, detail, waited = run(lambda t: (6, (GAME_PORT,), t), log=bind_log)
+	check("the error with 'Server Online!' after it: still the bind", state == "bind" and waited == 0)
+	game_log = SELF_TEST_LOG[:4] + ("LaunchServer: Failed to bind Game Server on port 7172.",) + SELF_TEST_LOG[4:]
+	state, detail, waited = run(lambda t: (5, (LOGIN_PORT,), t), log=game_log)
+	check("game bind error (no code): failed at once", state == "bind" and detail[:3] == ("game", 7172, None))
+	state, detail, waited = run(lambda t: (6, both, 1.0), log=SELF_TEST_LOG[:2]
+		+ ("Failed to listen on Login Server on port 7171",) + SELF_TEST_LOG[2:])
+	check("another error line, both ports listening: ready", state == "ready")
+	failed = bind_error(":: Initializing database threads & queues... " + login_error + "\n[done]\n")
+	check("bind_error: the line from its time stamp (issue #95's run)", failed is not None and failed[3]
+		== login_error)
+	check("bind_error: no error in the made-up log", bind_error("".join(line + "\n" for line in SELF_TEST_LOG))
+		is None)
+	text = explain_bind("login", 7171, 10049, [(5357, 5357), (50000, 50059)])
+	check("10049 named as the server's race, no excluded range", "error 10049, WSAEADDRNOTAVAIL" in text
+		and "start-up race" in text and text.endswith("port 7171 is in no excluded port range"))
+	text = explain_bind("login", 7171, 10013, [(7100, 7199)])
+	check("10013 in an excluded range: the range named", "WSAEACCES" in text and "excluded port range 7100-7199"
+		in text)
+	text = explain_bind("game", 7172, None, None)
+	check("no code, ranges unknown: said so, no range line", text == "the game server could not bind port 7172"
+		" (no error code in the line)")
+	netsh = ("\nProtocol tcp Port Exclusion Ranges\n\nStart Port    End Port      \n----------    --------      \n"
+		"      5357        5357      \n     50000       50059     *\n     55777       55876      \n\n"
+		"* - Administered port exclusions.\n")
+	check("netsh's excluded port ranges parsed", excluded_ranges(netsh) == [(5357, 5357), (50000, 50059),
+		(55777, 55876)])
+	check("excluded_ranges of an empty output: none", excluded_ranges("") == [])
+
+	def allowed(kinds, retries=1, bind_retries=3):
+		"""retry_allowed after each failure in `kinds` ("b": bind, "o": other): the answers as a string."""
+		counts = {"bind": 0, "other": 0}
+		answers = ""
+		for kind in kinds:
+			counts["bind" if kind == "b" else "other"] += 1
+			answers += "y" if retry_allowed("bind" if kind == "b" else "other", counts, retries, bind_retries) else "n"
+		return answers
+
+	check("retries: 3 bind failures, then --retries' 1 more", allowed("bbbbb") == "yyyyn")
+	check("retries: other failures use --retries only", allowed("oo") == "yn")
+	check("retries: a bind failure keeps the other's retry", allowed("bo") == "yy" and allowed("bbbbo")
+		== "yyyyn")
+	check("retries: --bind-retries 0 --retries 0: none", allowed("b", 0, 0) == "n")
+	now = [0.0]
+	lines = [""]
+
+	def tick(seconds):
+		now[0] += seconds
+		if now[0] >= 3:
+			lines[0] = "\n".join(SELF_TEST_LOG)
+
+	check("wait_online: online after 3 s", wait_online(lambda: None, lambda: lines[0], 60, lambda: now[0], tick)
+		and now[0] == 3)
+	now[0], lines[0] = 0.0, ""
+	check("wait_online: never online, gives up after the time", not wait_online(lambda: None, lambda: "", 60,
+		lambda: now[0], tick) and now[0] == 60)
 	out("testserver self test: %d failures" % failures)
 	return failures
 
@@ -630,6 +812,8 @@ def main(argv):
 		" ports listening (default %%(default)s)" % LOG_ONLINE)
 	start_parser.add_argument("--retries", type=int, default=START_RETRIES, help="starts again after a failed"
 		" attempt, its server stopped (default %(default)s)")
+	start_parser.add_argument("--bind-retries", type=int, default=BIND_RETRIES, help="more starts after a bind error"
+		" in server.log, on top of --retries (default %(default)s; issue #95)")
 	start_parser.add_argument("--window", action="store_true", help="show the server's console, minimised")
 	stop_parser = commands.add_parser("stop", help="Ctrl+C to the server start started, and wait")
 	stop_parser.add_argument("--server-dir", default=SERVER_DIR, help=SERVER_DIR_HELP)
@@ -640,7 +824,8 @@ def main(argv):
 	if args.command == "self-test":
 		return 1 if self_test() else 0
 	if args.command == "start":
-		return start(args.server_dir, args.timeout, args.window, args.stall, args.after_online, max(0, args.retries))
+		return start(args.server_dir, args.timeout, args.window, args.stall, args.after_online, max(0, args.retries),
+			max(0, args.bind_retries))
 	return stop(args.server_dir, args.timeout, args.force)
 
 

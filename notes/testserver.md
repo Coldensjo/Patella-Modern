@@ -27,7 +27,13 @@ accounts; its sources are in `gameserver\src`.
   server's CPU time for `--stall`, 180 s; `Server Online!` without both ports `--after-online`, 60 s, later;
   `--timeout`, 900 s, in all) or exits is stopped (it is the one this start started) and the server started
   again, `--retries` (1) times, the failed attempt's log kept as `server-attempt<N>.log`. `--window` shows the
-  console minimised instead; `--server-dir` for another copy. Refuses to start a second server or to start when
+  console minimised instead; `--server-dir` for another copy. A bind error in server.log (Patella-Modern issue
+  #95: `[ERR] LoginServerWorker: Failed to bind Login Server on port 7171 (error 10049)`, or the game server's
+  `LaunchServer: Failed to bind Game Server on port 7172.`) fails the attempt at once, with the line, the error
+  code's meaning and whether Windows excludes the port (`netsh int ipv4|ipv6 show excludedportrange
+  protocol=tcp`); the attempt's server is stopped once it says `Server Online!` (the usual shutdown, not a Ctrl+C
+  during the map's load) and started again, up to `--bind-retries` (3) times on top of `--retries` (below, "The
+  bind race"). Refuses to start a second server or to start when
   7171/7172 is taken, also before a retry. Exit code 0 when the server is ready. `self-test` checks the wait on
   made-up servers (no server).
 - **Stop**: `python -I tools/testserver.py stop`. Sends Ctrl+C to the server's console, the shutdown the
@@ -47,6 +53,44 @@ accounts; its sources are in `gameserver\src`.
 - The listening sockets come from GetExtendedTcpTable (the owner PID of each listening socket, IPv4 and IPv6;
   on Linux /proc/net/tcp and tcp6), the processes from their image paths: no PowerShell and no pip package.
   On Linux the executable is `tibia-server` in `--server-dir`, stopped with SIGINT.
+
+### The bind race (Patella-Modern issue #95)
+
+Now and then the login server does not bind 127.0.0.1:7171: server.log has `<date> <time> [ERR]
+LoginServerWorker: Failed to bind Login Server on port 7171 (error 10049)` (WSAEADDRNOTAVAIL), the server goes on,
+says `Server Online!` and listens on 7172 only. The cause is the server's own code (read from tibia-server.exe's
+disassembly, read only; its sources are no longer in the folder), the same race as issue #19's 0.0.0.0:7171
+(notes/traffic.md):
+
+- main (0x140169120) passes StartLoginServer (0x140168040) a pointer to the global address buffer (char[16] at
+  0x1401cd960, filled by the first ReadConfig) and the login thread is created with that pointer. The
+  std::string LoginServerWorker (0x140168200) takes is built in the new thread (0x140166690: strlen, then a copy),
+  that is, whenever the thread runs.
+- Right after "Starting Login Server... [done]" the main thread's InitAll calls ReadConfig again ("Loading
+  config... [config.cfg]"): it resets the buffer to "0.0.0.0" (strncpy of 8 bytes, 0x1400e8eb7), parses the file
+  and copies bind_address over it again (strncpy of 15, 0x1400ed0f3); LoadWorldConfig then writes the world's
+  address into it (`%d.%d.%d.%d`, 0x140119ed5, "127.0.0.1" again).
+- LoginServerWorker binds INADDR_ANY when the string is "0.0.0.0" (or empty), else `inet_addr` of it. A thread
+  that copies the buffer while it is "0.0.0.0" binds all interfaces (issue #19); one that copies it half-written
+  gets a string such as "1.0.0.0", "120.0.0" or "127.0.0" (strlen of the old text, the copy of the new: the
+  first 7 bytes of "127.0.0.1"), which is not this machine's: bind fails with 10049. inet_addr and bind of each
+  of them on this machine: build\logs\issue-95\bind-probe.log of the issue's worktree (127.0.0.1, 0.0.0.0 and
+  127.0.0.2 bind; 127.0.0.0, 120.0.0.0, 1.0.0.0, 23.0.0.1 and 255.255.255.255 fail with 10049).
+- Not the cause: Windows' excluded port ranges (on November 6, 2026: 5357, 13508, 50000-50059, 55777-56463 in
+  five blocks, 61555-61654; neither 7171 nor 7172, and an excluded port fails with 10013, not 10049); a TIME_WAIT
+  socket of the previous server (that would be 10048, WSAEADDRINUSE, and only on the same address and port); the Docker,
+  WSL (vEthernet 172.24.112.1) and VirtualBox (192.168.56.1) adapters (127.0.0.1 stays on the loopback
+  pseudo-interface, 127.0.0.0/8; the failing address is not 127.0.0.1).
+
+How often: 10 cold starts and stops in a row on November 6, 2026 (issue #95): 9 bound 127.0.0.1:7171 at once, 1
+(the 7th) logged 10049 0.5 s after the start, while the main thread was at "Initializing database threads &
+queues" (the error is printed into the middle of that line); its server was stopped once online and the second
+attempt bound, 19.3 s in all; none bound 0.0.0.0. Issue #92's run had two such attempts in a row, so the race
+comes back at random, about one start in ten here.
+
+Only the server can fix it: a copy of the address into the thread before it starts (or a lock). Its binary and
+code are the user's; tools/testserver.py retries instead (above), and compare_traffic.py still restarts a server
+on 0.0.0.0:7171.
 
 ### Configuration
 
