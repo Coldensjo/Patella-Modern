@@ -199,7 +199,7 @@ def staleness(meta, data_dir=ROOT):
 
 # --- the set's manifest (issue #93, tools/data_manifest.py) ---------------------------------------
 
-RECORDER = ("tools/reference_record.py: Tibia.exe under patcap.dll's virtual clock (tools/capture/patcap.c, oracle-x86), "
+RECORDER = ("tools/reference_record.py: Tibia.exe under patcap.dll's virtual clock (tools/capture/patcap.c, capture-x86), "
 	"against tools/proxy.py")
 
 

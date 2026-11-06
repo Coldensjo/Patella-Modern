@@ -6,7 +6,7 @@ look at and use (eat) an object in it, offer an object for trade to another play
 the offer, cancel the trade, close the container and log out. Every action is a posted
 window message (as in tools/login_client.py: no focus, no real mouse); the place of every
 click comes from the client's own data, never from a screenshot: the window tree, the skin's
-slot areas and the map window's creature names, read from Tibia.exe's (and the oracle's) memory
+slot areas and the map window's creature names, read from Tibia.exe's memory
 (tools/client_state.py) or, for the x64 client, from its test mode's probe (Patella-Modern issue
 #92: PatellaTest.exe under its control channel, tools/testmode_client.py; Driver(test=True)). After each step
 the driver waits until the server side is quiet (the proxy's wait_idle) and, if asked,
@@ -77,7 +77,7 @@ def test_out(run_dir):
 class Driver:
 	"""One client. test: the client is the test build (PatellaTest.exe, the x64 client), started with
 	its control channel (--test-control, test_arguments before the caller's words) and read through it
-	(tools/testmode_client.py), never through its memory; else Tibia.exe or the oracle's Patella.exe,
+	(tools/testmode_client.py), never through its memory; else Tibia.exe (the oracle's Patella.exe until #94),
 	read with tools/client_state.py (pdb_exe: the exe whose PDB it uses, None for Tibia.exe). scripted:
 	the test client runs a script (test_arguments has --test-script), so it drops Windows' input, and
 	post() sends every message through the channel instead."""
@@ -129,7 +129,7 @@ class Driver:
 		"""What reads the client: the test client's channel, else its memory."""
 		if self.test:
 			return tc.TestClient(self.channel, self.alive)
-		import client_state  # Tibia.exe and the oracle's 32-bit Patella.exe only (issue #92)
+		import client_state  # Tibia.exe only (issues #92, #94)
 		return client_state.Client(self.proc.pid, self.pdb_exe)
 
 	def kill(self):

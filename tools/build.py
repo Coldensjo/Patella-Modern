@@ -5,17 +5,18 @@ Usage:
   python -I tools/build.py --env <preset> <command> [arguments ...]
   python -I tools/build.py --list
 
-The first form runs `cmake --workflow --preset <workflow preset>` (CMakePresets.json: oracle-x86,
-windows-x64, windows-x64-debug, windows-x64-gcc, windows-x64-gcc-debug, linux-x64-gcc,
-linux-x64-clang and their -debug forms): configure, build, test. The second runs any command (cmake
+The first form runs `cmake --workflow --preset <workflow preset>` (CMakePresets.json: windows-x64,
+windows-x64-debug, windows-x64-asan, windows-x64-gcc, windows-x64-gcc-debug, linux-x64-gcc,
+linux-x64-clang and their -debug forms, capture-x86): configure, build, test (capture-x86: configure
+and build only). The second runs any command (cmake
 --build, ctest, ...) in the compiler environment of <preset> (a configure, build, test or workflow
 preset), e.g.
-  python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86-debug
-  python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R vlongtest
+  python -I tools/build.py --env windows-x64 cmake --build --preset windows-x64-debug
+  python -I tools/build.py --env windows-x64 ctest --preset windows-x64 -R golden
 
 The MSVC presets mark their architecture and toolset `external`: CMake does not set up the compiler
 for them. This script does what a developer prompt does: it runs Visual Studio's vcvarsall.bat with
-the architecture of the preset (x86 for oracle-x86, x64 for windows-x64; found through vswhere, the
+the architecture of the preset (x86 for capture-x86, x64 for windows-x64; found through vswhere, the
 newest Visual Studio with the C++ tools) and runs CMake in the environment it sets. A shell that is
 already a developer prompt for that architecture is used as it is. The other presets (mingw-w64 GCC,
 and the Linux presets on Linux) run CMake in the shell's own environment.
@@ -35,8 +36,9 @@ checked for compiler, resource compiler, assembler and linker warnings (MSVC's "
 "file:line:col: warning:"). The output is passed through unchanged; the scan stops where the test step
 begins, so the tests' output is not scanned. A warning makes the script exit 1 after the command ends
 (when the command itself succeeded), with the warnings listed again. The product presets build with
-/WX or -Werror already; this is what makes a warning fail oracle-x86, which keeps the former
-Patella.vcxproj's /WX- until M6 (plan section 4.1: no warnings on any preset). Ninja recompiles only
+/WX or -Werror already (capture-x86's patcap.dll too); until M6 this was what made a warning fail the
+32-bit oracle preset, which kept the former Patella.vcxproj's /WX- (plan section 4.1: no warnings on any
+preset; the oracle left with Patella-Modern issue #94). Ninja recompiles only
 what changed, so a build that is up to date shows no warnings: --fresh checks every file.
 
 Exit code: the command's, or 1 when it succeeded but warned.

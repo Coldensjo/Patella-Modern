@@ -3,7 +3,7 @@ r"""Drive and read a running test client through its control channel (Patella-Mo
 The comparison tools read the x64 client only through its test mode: they run PatellaTest.exe (the test
 build next to Patella.exe) with `--test-control <name> --test-out <folder>` (src/testmode/TestModeWin32.cpp)
 and never read its memory (tools/client_state.py) or hook its frames (tools/capture/patcap.c); both stay
-for Tibia.exe and the oracle's 32-bit Patella.exe. notes/testmode.md, "The control channel".
+for Tibia.exe (and the 32-bit oracle's Patella.exe until Patella-Modern issue #94). notes/testmode.md, "The control channel".
 
 Channel: the two events <name>-command and <name>-done (made here), control.txt and control-reply.txt in
 the test-out folder. command(text) writes the text, sets <name>-command and waits for <name>-done; the

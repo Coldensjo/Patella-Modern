@@ -1,5 +1,6 @@
 r"""The manifest of a frozen data set (Patella-Modern issue #93): MANIFEST.tsv in the folder of the golden corpus
-(tests/golden, recorded by oracle-x86's golden_corpus) and of the reference recordings (tools/reference.py).
+(tests/golden, recorded by the 32-bit oracle's golden_corpus until Patella-Modern issue #94) and of the reference
+recordings (tools/reference.py).
 
 Usage (from the repository or a worktree):
   python -I tools/data_manifest.py write --kind golden|reference --time-zone TZ [--tibia Tibia.exe]

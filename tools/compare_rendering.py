@@ -1,14 +1,15 @@
 r"""Compare the rendering of Patella.exe and the original Tibia.exe (issue #20).
 
-Both clients play the same scenes with each graphics engine (DirectX 5: SurfaceDX.cpp, DirectX 9:
-surfaceDX9.cpp, OpenGL: SurfaceGL.cpp; for the x64 client the Vulkan engine against Tibia.exe's
-DirectX 9); the frame each client composes is read back just before it is shown and the pictures are
-compared pixel by pixel. notes/rendering.md describes the
-method and the results; notes/decisions.md "Rendering comparison (issue #20)" the choices.
+Both clients play the same scenes, Patella.exe (the x64 client) with its Vulkan engine against Tibia.exe's
+DirectX 9; the frame each client composes is read back just before it is shown and the pictures are
+compared pixel by pixel. Until Patella-Modern issue #94 the 32-bit oracle's Patella.exe was compared with each of
+the original engines too (DirectX 5, DirectX 9, OpenGL: dx5, dx9, gl); they left the fork with the oracle.
+notes/rendering.md describes the method and the results; notes/decisions.md "Rendering comparison (issue #20)" the
+choices.
 
 Usage:
-  python -I tools/build.py oracle-x86
-  python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl | vulkan,vulkan-cpu]
+  python -I tools/build.py windows-x64
+  python -I tools/compare_rendering.py [--out build\render\result] [--engines vulkan,vulkan-cpu]
   python -I tools/compare_rendering.py record|compare [tools/reference.py's options]   (issue #23: the
       reference recordings of this tool's sessions; notes/testmode.md, "Reference recordings")
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
@@ -17,10 +18,8 @@ Usage:
 --engines vulkan,vulkan-cpu (Patella-Modern issue #19): Patella.exe (the x64 client, whose only engine
 is the Vulkan engine since issue #20) runs it on a GPU (PATELLA_VULKAN=gpu) or on the CPU driver next to
 it (PATELLA_VULKAN=cpu), Tibia.exe its DirectX 9 engine, the reference (plan D7); both with Engine = 2.
-The run checks that Patella.exe's frames came from the Vulkan engine on that kind of device. The
-original engines (dx5, dx9, gl) need the oracle's 32-bit Patella.exe: the x64 client has none of them
-since issue #20, and the script refuses them for it. The default --engines follows --patella: dx5,dx9,gl
-for the oracle's, vulkan,vulkan-cpu for an x64 one.
+The run checks that Patella.exe's frames came from the Vulkan engine on that kind of device. The default
+--engines is both.
 --region-tolerance N (default 2, the user's decision of November 3, 2026): on the pixels the Vulkan
 engine marks for each captured frame (those whose value comes from the device's bilinear filter or the
 light's interpolation: the stretches and the lit map, notes/vulkan.md "Pixels"; stored as
@@ -29,14 +28,12 @@ equal; everywhere else the comparison stays exact.
 --tolerance N: the same everywhere (default 0). The report gives every scene's largest channel
 difference either way.
 
---patella: the Patella.exe to compare, x86 (the oracle's, with its PDB next to it; the default,
-build\oracle-x86\Release\Patella.exe) or x64 (Patella-Modern issue #18; python -I tools/build.py
-windows-x64 first).
+--patella: the x64 Patella.exe to compare (Patella-Modern issue #18; default build\windows-x64\Release\Patella.exe,
+python -I tools/build.py windows-x64 first).
 
-The 32-bit clients (Tibia.exe, the oracle's Patella.exe) run under the capture DLL
-(tools/capture/patcap.c, cmake/Capture.cmake: build\oracle-x86\Release\patcap.dll, the oracle-x86
-preset's patcap target, which this script builds when the DLL is missing or older than its source).
-The run folders' copies of these clients import it (add_import), so it is loaded before the client's
+Tibia.exe runs under the capture DLL (tools/capture/patcap.c, cmake/Capture.cmake:
+build\capture-x86\Release\patcap.dll, the capture-x86 preset's patcap target, which this script builds when the DLL
+is missing or older than its source). The run folders' copies of Tibia.exe import it (add_import), so it is loaded before the client's
 entry point. It reads the composed frame from the engine's own surfaces (DirectDraw Blt/Flip, Direct3D 9
 Present, SwapBuffers), so no display is needed, and it makes time deterministic: the clock (timeGetTime,
 the wall clock) and the main timer's ticks (WM_TIMER, ActionNumber) move only when this script says so,
@@ -84,13 +81,13 @@ import build  # noqa: E402
 ROOT = ct.ROOT
 RENDER = os.path.join(ROOT, "build", "render")
 IMAGE_FILE_MACHINE_I386 = 0x014c
-# The kind of a client by its PE machine field: the 32-bit ones (Tibia.exe, the oracle's Patella.exe) run
-# under the oracle-x86 preset's patcap.dll; the x64 client is read through its test mode (issue #92).
-CLIENT_PRESETS = {IMAGE_FILE_MACHINE_I386: "oracle-x86", ct.IMAGE_FILE_MACHINE_AMD64: "windows-x64"}
+# The kind of a client by its PE machine field: the 32-bit one (Tibia.exe; the oracle's Patella.exe until issue
+# #94) runs under the capture-x86 preset's patcap.dll; the x64 client is read through its test mode (issue #92).
+CLIENT_PRESETS = {IMAGE_FILE_MACHINE_I386: "capture-x86", ct.IMAGE_FILE_MACHINE_AMD64: "windows-x64"}
 
 
 def client_preset(exe):
-	"""The preset whose client `exe` is: oracle-x86 (32-bit) or windows-x64."""
+	"""The preset whose client `exe` is: capture-x86 (32-bit: Tibia.exe) or windows-x64."""
 	machine = ct.pe_machine(exe)
 	if machine not in CLIENT_PRESETS:
 		raise RunError("%s: machine 0x%x, neither x86 nor x64" % (exe, machine))
@@ -98,11 +95,11 @@ def client_preset(exe):
 
 
 def capture_preset(exe):
-	"""The preset whose patcap.dll fits the client `exe`: oracle-x86's. patcap.dll is Tibia.exe's and the
-	oracle's only: the x64 client is never hooked (issue #92), so an x64 image is refused."""
+	"""The preset whose patcap.dll fits the client `exe`: capture-x86's. patcap.dll is Tibia.exe's only: the x64
+	client is never hooked (issue #92), so an x64 image is refused."""
 	preset = client_preset(exe)
-	if preset != "oracle-x86":
-		raise RunError("%s is an x64 client: patcap.dll is Tibia.exe's and the oracle's 32-bit Patella.exe's only; "
+	if preset != "capture-x86":
+		raise RunError("%s is an x64 client: patcap.dll is Tibia.exe's only; "
 			"the x64 client is read through its test build's control channel (issue #92)" % exe)
 	return preset
 
@@ -349,8 +346,8 @@ TEST_START_SCRIPT = "# compare_rendering.py (issue #92): patcap's time course\nc
 
 
 class Driver(sc.Driver):
-	"""session_client's driver for a client whose copy imports patcap.dll (add_import): Tibia.exe and the
-	oracle's 32-bit Patella.exe."""
+	"""session_client's driver for a client whose copy imports patcap.dll (add_import): Tibia.exe (and the
+	oracle's 32-bit Patella.exe, until issue #94)."""
 
 	def __init__(self, *args, env=None, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -506,10 +503,9 @@ def write_diff(path, a, b):
 
 # Tibia.cfg's Engine (Surface.cpp GetSurface: 0 DirectX 5, 1 OpenGL, 2 DirectX 9) and the API
 # that must show the frames (else the client fell back to another engine).
+# The original engines (dx5, dx9, gl) were compared on the 32-bit oracle's Patella.exe until Patella-Modern
+# issue #94; they left the fork with it.
 ENGINES = {
-	"dx5": {"engine": 0, "api": "DirectDraw Blt", "source": "SurfaceDX.cpp"},
-	"dx9": {"engine": 2, "api": "Direct3D 9 Present", "source": "surfaceDX9.cpp"},
-	"gl": {"engine": 1, "api": "OpenGL SwapBuffers", "source": "SurfaceGL.cpp"},
 	# The Vulkan engine in Patella.exe (the x64 client's only engine since issue #20; issue #19) against
 	# Tibia.exe's DirectX 9 frames (plan D7); "vulkan" on a GPU, "vulkan-cpu" on the shipped CPU driver.
 	"vulkan": {"engine": 2, "api": "Direct3D 9 Present", "patella_api": "Vulkan", "vulkan": "gpu",
@@ -519,9 +515,8 @@ ENGINES = {
 }
 
 
-# The engines each kind of Patella.exe has (client_preset): the oracle's the original three, the x64
-# client only the Vulkan engine (issue #20).
-PATELLA_ENGINES = {"oracle-x86": ("dx5", "dx9", "gl"), "windows-x64": ("vulkan", "vulkan-cpu")}
+# The engines Patella.exe has (client_preset): the x64 client only the Vulkan engine (issue #20).
+PATELLA_ENGINES = {"windows-x64": ("vulkan", "vulkan-cpu")}
 
 
 def client_env(engine, client):
@@ -798,8 +793,7 @@ def framerate_mask(driver, dialog):
 # TAdvancedGraphicsDialog), where Tibia.exe shows "Select graphics engine:" and DirectX5, DirectX9,
 # OpenGL. For the Vulkan engines that area is masked in both runs: from the label's corner
 # (SkinProperties.Style1394.Data08) to the dialog's width (Data00) and the buttons' bottom (Data10.y plus
-# the 20 pixels of the button skin 16). The rest of the dialog stays exact against Tibia.exe; the
-# oracle's engines (dx5, dx9, gl) keep the original dialog, unmasked.
+# the 20 pixels of the button skin 16). The rest of the dialog stays exact against Tibia.exe.
 DEVICE_BUTTON_HEIGHT = 20
 
 
@@ -896,7 +890,7 @@ def run(engine, client, out, recording, label=None, fullscreen=False):
 				"vulkan_device": driver.cap.vulkan_device()}
 		driver.kill()
 	problems = proxy.mismatches + proxy.errors
-	api = "DirectDraw Flip" if fullscreen and engine == "dx5" else ENGINES[engine]["api"]
+	api = ENGINES[engine]["api"]
 	if client == "patella" and "patella_api" in ENGINES[engine]:
 		api = ENGINES[engine]["patella_api"]
 	if apis != {api}:
@@ -973,8 +967,7 @@ def main():
 		return reference.main([sys.argv[1], "--sessions", ",".join(reference.tool_sessions("compare_rendering"))] + sys.argv[2:])
 	parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
 	parser.add_argument("--out", default=os.path.join(RENDER, "result"))
-	parser.add_argument("--engines", help="the engines (%s); default: the ones --patella has, dx5,dx9,gl for the "
-		"oracle's, vulkan,vulkan-cpu for an x64 one" % ", ".join(ENGINES))
+	parser.add_argument("--engines", help="the engines (%s); default: both" % ", ".join(ENGINES))
 	parser.add_argument("--modes", default="windowed,fullscreen",
 		help="windowed and/or fullscreen (in the desktop's own mode, %dx%dx%d)" % FULLSCREEN_MODE)
 	parser.add_argument("--recording", default=os.path.join(RENDER, "session.jsonl"),
@@ -985,17 +978,16 @@ def main():
 		"much counts as equal (default 0: exact)")
 	parser.add_argument("--region-tolerance", type=int, default=2, help="the same on the device-filtered "
 		"pixels the Vulkan engine marks (default 2: the bilinear stretches and the light)")
-	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 (the oracle's, with its PDB "
-		"next to it, under patcap.dll) or x64 (its test build PatellaTest.exe next to it runs, read through its "
-		"test mode, issue #92); default build/oracle-x86/Release/Patella.exe; e.g. "
-		"build/windows-x64/Release/Patella.exe; as tools/compare_traffic.py's --patella")
+	parser.add_argument("--patella", metavar="EXE", help="the x64 Patella.exe to test (its test build PatellaTest.exe "
+		"next to it runs, read through its test mode, issue #92); default build/windows-x64/Release/Patella.exe; as "
+		"tools/compare_traffic.py's --patella")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 	args = parser.parse_args()
 	args.out = os.path.abspath(args.out)  # the DLL writes the pictures from the client's folder
 	args.recording = os.path.abspath(args.recording)
 	patella_preset = None
 	named = None
-	patella_path = os.path.abspath(args.patella) if args.patella else CLIENTS["patella"]["source"]
+	patella_path = os.path.abspath(args.patella) if args.patella else ct.DEFAULT_PATELLA
 	if args.patella and not os.path.isfile(patella_path):
 		raise SystemExit("no %s" % patella_path)
 	if os.path.isfile(patella_path):
@@ -1005,14 +997,14 @@ def main():
 		except RunError as e:
 			raise SystemExit(str(e))
 	if args.engines is None:
-		args.engines = ",".join(PATELLA_ENGINES.get(patella_preset, PATELLA_ENGINES["oracle-x86"]))
+		args.engines = ",".join(PATELLA_ENGINES["windows-x64"])
 	engines = [e for e in args.engines.split(",") if e]
 	for e in engines:
 		if e not in ENGINES:
 			raise SystemExit("unknown engine %r (%s)" % (e, ", ".join(ENGINES)))
 		if not args.compare_only and patella_preset is not None and e not in PATELLA_ENGINES[patella_preset]:
 			raise SystemExit("%s (%s) has no engine %s: it has %s (the x64 client only the Vulkan engine since "
-				"issue #20, the oracle's only the original three)" % (CLIENTS["patella"]["source"], patella_preset, e,
+				"issue #20)" % (CLIENTS["patella"]["source"], patella_preset, e,
 					", ".join(PATELLA_ENGINES[patella_preset])))
 	modes = [m for m in args.modes.split(",") if m]
 	for m in modes:

@@ -1,8 +1,14 @@
 r"""Compare how Patella.exe and the original Tibia.exe take crafted and fuzzed server streams (issue #37).
 
-Usage (from the repository or a worktree; python -I tools/build.py oracle-x86 first; no server is needed):
+Usage (from the repository or a worktree; python -I tools/build.py windows-x64 first; no server is needed):
   python -I tools/compare_network.py [--out build\network\result] [--only a,b] [--list] [--repeat]
-      [--recording build\network\orig-live.jsonl]
+      [--recording build\network\orig-live.jsonl] [--patella build\windows-x64\Release\Patella.exe]
+
+Patella.exe is the x64 client, run as its test build PatellaTest.exe next to it and read through its control
+channel (compare_traffic.py's use_patella; Patella-Modern issue #92). Until issue #94 this tool ran the 32-bit
+oracle's Patella.exe, read through its memory; the oracle left the fork, and the tool takes the x64 client by
+default since then (issue #94: the window tree, the character list and the client state come from the test mode's
+probe, as in compare_traffic.py and compare_files.py).
 
 Both clients (patched copies in build\network\orig and build\network\patella, made like
 tools/compare_traffic.py's) log in through tools/proxy.py, which answers from a recording of a live
@@ -20,9 +26,9 @@ records:
   - the message boxes it showed (FatalError's critical error box: caption and text) and how it
     ended: the exit code after the box or after WM_CLOSE, or that it refused to close (in the
     game: the logout warning) and was killed;
-  - the window tree (tools/client_state.py gui(): the dialogs, their captions and texts, the
-    character list), the character list in memory and the client state (state(): connection
-    state, player, map, creatures, containers, console) before WM_CLOSE;
+  - the window tree (Tibia.exe: tools/client_state.py gui(); Patella.exe: the test mode's probe; the dialogs,
+    their captions and texts, the character list), the character list and the client state (state():
+    connection state, player, map, creatures, containers, console) before WM_CLOSE;
   - error.txt (the crash time masked) and Tibia.cfg as written on exit.
 and compares the two clients, with the deliberate differences expected (tools/deliberate.py, issue #74:
 Patella.exe writes no error.txt, and its critical error box does not name that file). A difference is reported; --repeat runs Tibia.exe a second time for
@@ -411,8 +417,10 @@ def run(run_name, name, scenario, out):
 
 
 def client_state_error():
+	"""The reading errors: client_state.py's (Tibia.exe) and the control channel's (the x64 test client)."""
 	import client_state
-	return client_state.ReadError
+	import testmode_client
+	return (client_state.ReadError, testmode_client.ControlError)
 
 
 # --- comparison --------------------------------------------------------------------------
@@ -478,6 +486,8 @@ def main():
 	parser.add_argument("--only", default=None, help="comma-separated scenario names (prefixes)")
 	parser.add_argument("--list", action="store_true")
 	parser.add_argument("--repeat", action="store_true", help="run Tibia.exe again where the clients differ")
+	parser.add_argument("--patella", metavar="EXE", help="the x64 Patella.exe to test (its test build next to it "
+		"runs, issue #92); default build/windows-x64/Release/Patella.exe; as tools/compare_traffic.py's --patella")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
 	args = parser.parse_args()
 	base = Base(px.load_events(args.recording))
@@ -487,6 +497,7 @@ def main():
 			print("%-28s %s" % (name, s[0]))
 		return 0
 	chosen = [n for n in all_scenarios if not args.only or any(n.startswith(o) for o in args.only.split(","))]
+	log(ct.use_patella(args.patella or ct.DEFAULT_PATELLA))
 	ct.set_folder(NETWORK)
 	ct.setup(extra=[cf.REPEAT_RUN])
 	os.makedirs(args.out, exist_ok=True)
