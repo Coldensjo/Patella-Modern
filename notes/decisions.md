@@ -12375,3 +12375,172 @@ Logs: build\logs\issue-45 of the branch's worktree; golden replayed main's froze
   clang-format (CLAUDE.md's command): exit 0. The tools' self-tests (settings_file.py, deliberate.py, reference.py):
   passed.
 - Hosted CI on the branch: green.
+
+## #104: TClient and the subsystem objects (Patella-Modern issue #104, M7)
+
+Designed by Claude Opus 5.5, November 6, 2026 (plan M7, "Globals into subsystems"). This section is the plan the
+later M7 issues follow (#105 TNetwork and TCommunication, #106 TMapState, #107 TGUI, #108 the noexcept destructors,
+#109 the platform interfaces, #110 and #111 into patella_core); each move appends its own subsection here. The first
+move, TPreferences, is #104's ("The first move: TPreferences", below).
+
+### The objects (high)
+
+TClient (src/Client.h, Client.cpp) is the composition root: it owns the subsystems as members, made in the order
+below, each given the earlier ones it needs in its constructor (references, never owners). A subsystem never holds
+a later one; a call "upwards" goes through a small interface the lower subsystem declares in its own header and the
+upper one implements (TTalkLists, below, is the first). The original's files stay the module map (plan M7): a file's
+functions become the members of its subsystem under the same names, with their address comments, in the same file.
+
+| Object | Made | Files (their globals) | Issue |
+| :--- | :--- | :--- | :--- |
+| TPreferences | 1 | Preferences.cpp (43: the options, the lists, the hotkeys, MotD, PreferencesLoaded) | #104, done |
+| TNetwork | 2 | Network.cpp (17: Socket, the send and receive buffers, Servers, CurrentServer, TestServer, the host name request, SymmetricKey, the timeouts, NetworkWindow, RecursionProtection); MainFrm.h's PacketHeader (the last packet's first bytes); Control.cpp's Reconnect and ReconnectTimeout | #105 |
+| TMapState | 3 | the game state, as five smaller objects it owns (below): Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp | #106 |
+| TCommunication | 4 | Communication.cpp (6: SkipFields, OutfitRequested, CancelCount, LastCancelX/Y/Z); Control.cpp's LastPacketType, LastPacketIndex, LastPacketTypes; Status.cpp's session (ConnectionState, Progress, AccountNumber, AccountNumberString, AccountPassword, Characters, AccountCharacters, ActiveCharacter, PremiumDays, Gamemaster, Rights) | #105 |
+| TGraphics (recommended) | 5 | graphics.cpp (21: the sprite, picture and font tables, the two caches and their lists), Surface.cpp (18: the engine choice, the screen, the blit counters, the surfaces), Skins.cpp (Skins, NumberOfSkins): the client's side of TSurface | none yet ("Found, not done") |
+| TGUI | 6 | MainWindow.cpp (ModalWindow, MainWindow); GUI.cpp (SkinProperties, NumberOfHotkeys, the LastTime static of its timer); Help.cpp (8); Talk.cpp (11 and its LastTime static, as a TTalk inside TGUI); ContentWindows.cpp (the two mouse-over texts); Status.cpp's user interaction (the action, drag, use and trade fields and objects, PendingAction*, the message queue Messages and NumberOfMessages, MouseX/Y, WindowWidth/Height, MouseCursor, the blink, the mouse-over text, LinkRegexp, TaintedClipboardText, LinkWarningEventHandler); Control.cpp's LastMouseMove, WindowHandle, ShowFPS | #107 |
+| the platform objects | outside TClient | MainFrm.cpp (MainFrame, the cursors, the buttons, Closing, DisplayChanged, ClassName, WheelDelta), Player.cpp (theApp, TitleKey, ClassNameKey, LastMouseCursor, NumberOfTibiaWindows, LastMousePosition), sysinc.cpp (the clipboard buffer; TitleCode and ClassNameCode are constants), src/vulkan (SurfaceVulkan.cpp, DeviceSettings.cpp) | #109 |
+
+TMapState's finer split (#106), each an object TMapState owns and passes to the others:
+
+- TObjectTypes: Objects.cpp (ObjectProperties, OutfitProperties, EffectProperties, MissileProperties, DatSignature,
+  NoObject): Tibia.dat, read once, then read-only. First, because the others read it.
+- TMap: Map.cpp (16: the map points and their position MapX/Y/Z, the effect table and the two iterators, the automap
+  blocks and their cache list, the ambient light).
+- TCreatures: Creatures.cpp's creature table (Creatures, FirstOpponent, LastOpponent, Beat), the battle and follow
+  targets (AttackID, FollowID, HighlightID) and the buddy window's list (Buddies, NumberOfBuddies,
+  NumberOfOnlineBuddies, BuddySortMethods: Creatures.cpp's, not Preferences').
+- TPlayerState: Creatures.cpp's Player* values (PlayerID, the health, mana, level, skills, capacity, soul, state) and
+  the walk (PlayerSteps, NumberOfPlayerSteps, CurrentPlayerStep, PlayerStepDX/DY/Direction, the destination,
+  NewPlayerDestination).
+- TInventory: Inventory.cpp (Body, Containers, OwnOffer, CounterOffer).
+
+Why this split: Creatures.cpp holds three unrelated tables (the plan's "Player" state is its Player* globals; there
+is no game-state player file, Player.cpp is the application object); TPlayerState is what the packets of the
+player's stats write and the walk reads, TCreatures what the battle window reads. The five are the units #110 moves
+into patella_core.
+
+What stays outside TClient: the developer log (src/log's TLog, a process-wide service like stderr), the test mode's
+TState (the test build's own), constants and tables (Text.h, TitleCode, ClassNameCode), and the CRT shims'
+function-local caches. The platform objects (#109: IWindow, IInput, IClock, IClipboard, ISocket, IFileSystem,
+TSurface) are made by the platform's entry point (CTibiaApp today, M8's SDL3 main later), and TClient takes them as
+references in its constructor and passes them on: TNetwork ISocket and IClock, TPreferences IFileSystem, TGraphics
+TSurface, TGUI IWindow, IInput and IClipboard.
+
+### Which object owns each global (high)
+
+The table above is the map. The inventory it comes from (November 6, 2026, main c0aad52): `git grep -E "^extern "
+-- 'src/*.h'` (Communication.h 1, GUI.h 1, MainFrm.h 3, MainWindow.h 2, Objects.h 6, Player.h 1, Skins.h 2,
+Surface.h 15, Talk.h 1, graphics.h 21, sysinc.h 2, log/Log.h 2) and the file-scope data of each .cpp
+(Preferences.cpp 43, Status.cpp 48, Creatures.cpp 38, graphics.cpp 21, Surface.cpp 18, Network.cpp 17, Map.cpp 16,
+MainFrm.cpp 13, Talk.cpp 11, Control.cpp 8, Help.cpp 8, SurfaceVulkan.cpp 8, Communication.cpp 6, Objects.cpp 6,
+Player.cpp 6, Inventory.cpp 4, sysinc.cpp 4, DeviceSettings.cpp 4, ContentWindows.cpp 2, GUI.cpp 2, MainWindow.cpp 2,
+Skins.cpp 2), and two function-local statics (GUI.cpp's and Talk.cpp's LastTime). The other files (the window and
+dialog files, Script.cpp, Utils.cpp, the crypto) have no data of their own. A global the table does not name goes
+with the file it is defined in; one whose file is split (Status.cpp, Control.cpp, Creatures.cpp) goes with the
+object that writes it, and the issue that moves it says so in its subsection.
+
+The rules for a move, the same in every issue:
+
+1. The file's data becomes its object's members, in the original's .data/.bss order with the address comments; each
+   member has the initial value the static had (an explicit `{}` for the zero of .bss, so that an object a test
+   makes on the stack starts the same).
+2. Data that was file-local (an anonymous namespace) is private. Data that was `extern` is a public member, and its
+   `extern` declaration goes; its users write `patella::bridge::<Object>().<Name>` (a mechanical rewrite), or the
+   member through the object they hold. A member that a golden test or the test mode reads is public, with a comment
+   naming the reader.
+3. The file's functions become the object's member functions of the same names; a parameter that hides a member is
+   renamed (Value; MSVC's C4458 and GCC's -Wshadow catch them); the getters are const where they can be
+   (readability-make-member-function-const).
+4. The original's free functions stay, each calling its member on the bridge (below), while anything calls them by
+   name: the other files, the golden tests (which also fake them by symbol: commworld.cpp's F(), the redirects of
+   golden_patch.h; a forwarder is a real function in its file's own object, so the fakes still land), the test mode.
+5. A dependency on an earlier subsystem is a constructor reference; on a later one, an interface the lower header
+   declares, implemented by the later object (until that object exists, by an adapter in Client.cpp that calls the
+   other file's free functions: from another object file, so the golden tests' fakes of those functions still land).
+
+### The order of the moves (high)
+
+1. #104: TClient, TPreferences, the bridge (done here).
+2. #105: TNetwork, then TCommunication (one pull request each if the diff is large). TCommunication's packet handlers
+   write TMapState's and TGUI's state: through the bridge until #106 and #107, then through the references.
+3. #106: TMapState with its five objects (TObjectTypes first).
+4. #107: TGUI, with TTalk implementing TTalkLists (Client.cpp's adapter goes) and Status.cpp's interaction state;
+   ModalWindow and MainWindow become TGUI's members (#81's two raw owners, notes/ownership.md section 7).
+5. #108: the noexcept destructors (the window destructors' work into an explicit close), on TGUI's owners.
+6. TGraphics (graphics.cpp, Surface.cpp, Skins.cpp), with or right before #109's TSurface.
+7. #109: the platform interfaces, passed to TClient's constructor; MainFrm.cpp, Player.cpp and sysinc.cpp become
+   the Win32 implementations.
+8. #110, #111: the subsystems' files into patella_core; the bridge goes at the end of #111 (below).
+
+The order follows the dependencies: each object needs only the ones moved before it (TPreferences none, TNetwork
+TPreferences' TestServerLogin, TCommunication TNetwork and the state it writes), so every pull request builds, and
+the bridge carries the calls that still go the other way until their callee has moved.
+
+### TClient during the transition: one instance and the bridge (high)
+
+- **One TClient**, made on first use by `patella::bridge::Client()` (Client.cpp: a function-local static). Its
+  members start as the original's statics did (an object of static storage is zero-initialised before its
+  constructor runs, and the members' initialisers are the statics' own), and it is destroyed at the exit as they
+  were. Why not made by an entry point now: InitControl, golden_runner, the unit tests and the test mode all reach
+  the state before (or without) any one entry point; a lazy instance keeps their order of initialisation the
+  original's.
+- **One accessor per subsystem**, `patella::bridge::<Object>()`, declared in the subsystem's own header and defined
+  in Client.cpp (`TPreferences &bridge::Preferences()`). Only Client.cpp includes Client.h, so no subsystem depends
+  on TClient's header (or, through it, on every other subsystem). `git grep -n "bridge::"` lists every use.
+- **The free functions of the original's names** are the bridge's callers: each is one line that calls its member on
+  the accessor.
+- **How it disappears.** A file stops using the bridge when its functions are members of an object that holds what
+  they need (its own members, the constructor references, the interfaces). The callers of a free function move to
+  the member as their own file moves; a free function with no callers left goes (the golden tests then call the
+  member, and fake it by its member address, commworld.h's MemberAddress, as FM() does today). When `git grep
+  "bridge::"` is empty (the end of #111, the M7 exit), Client.cpp's accessors and bridge::Client() go, and the entry
+  points own their TClient: the platform's main (CTibiaApp::InitInstance; M8's main) makes it before InitControl's
+  work and destroys it after ExitInstance's, where the statics' first use and their atexit release are today.
+
+### golden_runner and the test mode (high)
+
+- **golden_runner** links Client.cpp (golden_client's objects) and calls the free functions as today, so the tests
+  replay the frozen corpus unchanged: one TClient for the whole run, as the original's statics were one set for the
+  whole recording (later tests start from the state earlier ones left). The tests that compile a file into
+  themselves to read its statics (mainfrm_tests.cpp, network_tests.cpp) read the members through the bridge
+  (`bridge::Network().ReceiveData`, public by rule 2). When the bridge goes, the runner makes one TClient for the run
+  and the tests call its members; the checks stay as they are (plan: adapt the runner's calls, never the checks).
+- **The test mode**: the state dump and the probe (src/testmode/ClientStateWin32.cpp, StateDump, TestModeWin32.cpp)
+  read through each file's View functions (ClientView.h: ViewCreatures, ViewMap, ViewInventory, ViewConnectionState,
+  ViewCharacters, Status.cpp's View) and the free getters. The View functions stay each file's window onto its data:
+  they read their object through the bridge, later through a `const TClient &` that TestModeWin32.cpp's TState gets
+  from the entry point. The dump's keys and values do not change (testmode_check.py's check h compares them with
+  client_state.py's).
+
+### The include cycles (high)
+
+Measured on main c0aad52 with a short script over the `#include "..."` lines of src/ (November 6, 2026): the headers
+have no include cycle (compat/msvc.h and msvc_portable.h include each other on purpose: one interface in two
+files). The cycles are between modules, a module being a .cpp with its header, an edge a .cpp that includes another
+module's header:
+
+- {Preferences, Talk, graphics, Surface}: Preferences -> Talk (the White and Ignore lists), Talk -> Preferences (the
+  console filters, TimeStamps), Talk -> graphics -> Surface -> Preferences (the engine), Surface <-> graphics.
+- {Communication, ConsoleWindow, ContentWindows, ContextMenus, Control, DialogWindow, Dialogs, MainFrm, MainWindow,
+  MapWindow, Network, Player}: the windows call Communication's Send functions (down), Communication calls the
+  windows on packets (up); Control (the controller) calls the windows and is called by them; Network -> MainFrm (the
+  network window's messages); MainFrm -> Control, Network, Player; Player -> MainFrm, Control, MainWindow, Network.
+
+The objects' layering breaks them: the platform (MainFrm, Player, sysinc, src/vulkan) -> TClient -> TGUI -> TGraphics
+-> TCommunication -> TMapState, TNetwork -> TPreferences -> the libraries (Script, Utils, Container, the crypto). A
+call down is a constructor reference; a call up an interface the lower module declares (rule 5), so its .cpp no
+longer includes the upper module's header:
+
+- #104: Preferences -> Talk is gone (TTalkLists); the first cycle is {Surface, graphics} now, which TGraphics with
+  #109's TSurface breaks (graphics.cpp's caches call the surface; Surface.cpp's engine switch resets graphics').
+- #105: Network -> MainFrm becomes ISocket's events (#109) or a TNetwork interface the platform implements;
+  Communication -> the windows becomes an interface TCommunication declares (the game events: a packet changed the
+  map, a container, the console...) that TGUI implements.
+- #107: Control's calls into the windows become TGUI's own; the windows' calls into Control go through TClient's
+  references; ContentWindows, ContextMenus and ConsoleWindow are TGUI's members calling each other through TGUI.
+- #109: MainFrm and Player become the platform layer, which calls TClient and is called back only through IWindow,
+  IInput and the others.
+
+Each issue reruns the measurement (every `#include "X.h"` of a src/*.cpp is an edge to X's module; Tarjan's
+strongly connected components) and notes the cycles left in its subsection.
