@@ -209,7 +209,10 @@ def verify(folder, kind=None):
 
 def describe(manifest):
 	"""One line about a manifest: the commit, the date, the files, the zone."""
-	return "recorded at %s (%s) on %s, %d files, %d bytes, time zone %s" % (manifest["commit"][:12],
+	commit = manifest["commit"]
+	if len(commit) == 40 and all(c in "0123456789abcdef" for c in commit):
+		commit = commit[:12]
+	return "recorded at %s (%s) on %s, %d files, %d bytes, time zone %s" % (commit,
 		"clean" if manifest.get("clean") == "yes" else "tree " + manifest.get("clean", "unknown"), manifest["date"],
 		manifest["count"], manifest["bytes"], manifest["time_zone"])
 

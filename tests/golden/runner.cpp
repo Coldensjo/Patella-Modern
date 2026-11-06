@@ -278,7 +278,11 @@ int main(int argc, char **argv)
 			printf("golden: cannot set TZ to %s\n", Data.TimeZone.c_str());
 			return 1;
 		}
+#if defined(_WIN32)
 		_tzset();
+#else
+		tzset();
+#endif
 	}
 	if (Stale)
 		return 1;
