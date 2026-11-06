@@ -361,8 +361,8 @@ static void FindStatics()
 		World[OURS].Capture = NULL;
 		ModalWindow = NULL;
 		ProcessEvents(); }, 0x5c6d7e30, 0x5c6d7e40);
-	// LastPacketType: a type the dispatcher knows, read from a frame.
-	O.LastPacketType = (int *)OUR_STATIC(LastPacketType, [](uint32 v) {
+	// LastPacketType: a type the dispatcher knows, read from a frame (TCommunication's since issue #105).
+	O.LastPacketType = (int *)NamedStatic("LastPacketType", (void *)&patella::bridge::Communication().LastPacketType, [](uint32 v) {
 		World[OURS].ConnectionState = 8;
 		Frames.clear();
 		Frames.push_back(std::vector<uint8>{(uint8)v});
@@ -421,14 +421,15 @@ static void ControlAfterRetired()
 	golden::Output("statics after ChangeEngine", Numbers);
 	golden::Output("packet types after ChangeEngine", Types);
 	Callbacks = golden::OutputText("callbacks after ChangeEngine", Callbacks.c_str());
-	LastPacketType = Numbers[0];
-	LastPacketIndex = Numbers[1];
+	patella::TCommunication &Communication = patella::bridge::Communication(); // its packet types (issue #105)
+	Communication.LastPacketType = Numbers[0];
+	Communication.LastPacketIndex = Numbers[1];
 	patella::bridge::Network().ReconnectTimeout = Numbers[2];
 	patella::bridge::Network().Reconnect = Numbers[3] != 0;
 	LastMouseMove = Numbers[4];
 	ShowFPS = Numbers[5] != 0;
 	curEngine = Numbers[6];
-	memcpy(LastPacketTypes.data(), Types, sizeof(Types));
+	memcpy(Communication.LastPacketTypes.data(), Types, sizeof(Types));
 	std::string Ours = DumpStatics(OURS);
 	Ours = Ours.substr(Ours.find(" WindowHandle"));
 	if (Ours != Callbacks) {

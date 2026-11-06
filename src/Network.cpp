@@ -42,7 +42,9 @@ private:
 
 // The data is TNetwork's (Network.h, issue #105), in the original's order with its addresses.
 
-patella::TNetwork::TNetwork(TPreferences &Preferences, TNetworkSession &Session) : Preferences(Preferences), Session(Session) {}
+patella::TNetwork::TNetwork(TPreferences &PreferencesRef, TNetworkSession &SessionRef) : Preferences(PreferencesRef), Session(SessionRef)
+{
+}
 
 // 0x4ca0e0
 void patella::TNetwork::InitServerList()

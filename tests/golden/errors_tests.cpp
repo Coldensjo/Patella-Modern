@@ -1344,7 +1344,9 @@ void TestErrorStatics()
 		TStatic &S = Statics[k];
 		Found[k] = !RecordedSkip(S.ImageGetter, (const void *)S.OurGetter);
 		if (Found[k]) {
-			S.Ours = FindOwnStatic(S.OurGetter);
+			// AccountCharacters is TSession's since issue #105 (its getter reads it through bridge::Session(), not
+			// at a fixed address): the member itself.
+			S.Ours = k == 2 ? &patella::bridge::Session().AccountCharacters : FindOwnStatic(S.OurGetter);
 			ORIGINAL(S.Image = FindStatic((const uint8 *)(uintptr_t)S.ImageGetter, At<int(__cdecl *)()>(S.ImageGetter)));
 			// The oracle's answer; the runner must have found ours where the oracle found both.
 			Found[k] = ORIGINAL_VALUE("static found", uint8, S.Ours != NULL && S.Image != NULL) != 0;

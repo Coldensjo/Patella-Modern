@@ -5,8 +5,9 @@
 // subsystem objects", has the design: the objects, which globals go where, the order of the moves (one issue per
 // subsystem), and the bridge below.
 //
-// Today: TPreferences (Preferences.cpp, issue #104), TNetwork (Network.cpp, issue #105). Next: TCommunication (#105),
-// TMapState (#106), TGUI (#107); the platform's services come in as interfaces (#109).
+// Today: TPreferences (Preferences.cpp, issue #104), TNetwork (Network.cpp) and TCommunication (Communication.cpp and
+// Status.cpp's session, issue #105). Next: TMapState (#106), TGUI (#107); the platform's services come in as
+// interfaces (#109).
 //
 // The bridge: during the transition there is one TClient, made on first use by bridge::Client() (Client.cpp), and
 // each subsystem's header declares an accessor of its own (Preferences.h: bridge::Preferences()) for the free
@@ -16,6 +17,7 @@
 
 #pragma once
 
+#include "Communication.h"
 #include "Network.h"
 #include "Preferences.h"
 
@@ -33,6 +35,7 @@ public:
 	// The subsystems, in the order they are made (a later one may take an earlier one in its constructor).
 	TPreferences Preferences;
 	TNetwork Network;
+	TCommunication Communication;
 };
 
 namespace bridge {

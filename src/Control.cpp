@@ -57,9 +57,8 @@
 namespace {
 
 // Data, in .data/.bss order. 0x5c4540-0x5c4553 is not used by any code.
-int LastPacketType = -1;               // 0x5c0d8c, only written (ReceivePackets)
-int LastPacketIndex;                   // 0x5c4510, next slot in LastPacketTypes
-std::array<uint8, 10> LastPacketTypes; // 0x5c4514, the last ten packet types, a ring (GetLastPacketTypes)
+// 0x5c0d8c LastPacketType, 0x5c4510 LastPacketIndex and 0x5c4514 LastPacketTypes are TCommunication's
+// (Communication.h, issue #105).
 // 0x5c4520 ReconnectTimeout and 0x5c4524 Reconnect are TNetwork's (Network.h, issue #105).
 int LastMouseMove;                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
 void (*URLCallback)(const char *URL);  // 0x5c452c
@@ -76,8 +75,6 @@ TCallback NoCallback(nullptr, 0);
 
 } // namespace
 
-// LastPacketTypes a std::array (issue #60).
-static_assert(sizeof(LastPacketTypes) == 10, "LastPacketTypes");
 
 // 0x4459b0, line 93. The client area changed size (MainFrm.cpp); in
 // fullscreen mode (view mode 2) the screen size counts. An open context
@@ -598,7 +595,7 @@ void ConnectionEstablished()
 	if (GetConnectionState() == 5) {
 		const int OldConnectionState = GetConnectionState();
 		SetConnectionState(6);
-		OutfitRequested = false;
+		patella::bridge::Communication().OutfitRequested = false;
 		// The original's order: In's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
 		const int AccountCharacters = GetAccountCharacters();
 		PATELLA_ASSERT_VALUES(In(GetActiveCharacter(),0,AccountCharacters-1), GetActiveCharacter(), OldConnectionState);
@@ -620,10 +617,11 @@ void ReceivePackets()
 {
 	int Type = -1;
 	while ((Type = GetNextCommand()) != -1) {
-		LastPacketTypes[LastPacketIndex] = (uint8)Type;
-		LastPacketIndex++;
-		if (LastPacketIndex >= 10)
-			LastPacketIndex -= 10;
+		patella::TCommunication &Communication = patella::bridge::Communication();
+		Communication.LastPacketTypes[Communication.LastPacketIndex] = (uint8)Type;
+		Communication.LastPacketIndex++;
+		if (Communication.LastPacketIndex >= 10)
+			Communication.LastPacketIndex -= 10;
 		if (GetConnectionState() == 3)
 			SetConnectionState(4);
 		if (GetConnectionState() == 4) {
@@ -732,7 +730,7 @@ void ReceivePackets()
 				TERROR1("unknown packet type during game", Type);
 			}
 		}
-		LastPacketType = Type;
+		patella::bridge::Communication().LastPacketType = Type;
 	}
 }
 
@@ -911,7 +909,7 @@ void ProcessEvents()
 			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x10:
-			OutfitRequested = false;
+			patella::bridge::Communication().OutfitRequested = false;
 			ModalWindow = CreateOutfitDialog(reinterpret_cast<int *>(Param1));
 			delete[] reinterpret_cast<char *>(Param1);
 			break;
@@ -1134,8 +1132,8 @@ void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int M
 	DisplayModeCallback = SetDisplayMode;
 	URLCallback = OpenURL;
 	SetMouseCursor(1);
-	memset(LastPacketTypes.data(), 0, sizeof(LastPacketTypes));
-	LastPacketIndex = 0;
+	memset(patella::bridge::Communication().LastPacketTypes.data(), 0, sizeof(patella::TCommunication::LastPacketTypes));
+	patella::bridge::Communication().LastPacketIndex = 0;
 	patella::bridge::Network().Reconnect = false;
 }
 
@@ -1225,7 +1223,8 @@ void ExitControl()
 std::array<uint8, 10> GetLastPacketTypes()
 {
 	std::array<uint8, 10> Types{};
+	const patella::TCommunication &Communication = patella::bridge::Communication();
 	for (std::size_t i = 0; i < Types.size(); i++)
-		Types[i] = LastPacketTypes[(static_cast<std::size_t>(LastPacketIndex) + 9 - i) % 10];
+		Types[i] = Communication.LastPacketTypes[(static_cast<std::size_t>(Communication.LastPacketIndex) + 9 - i) % 10];
 	return Types;
 }

@@ -77,7 +77,7 @@ protected:
 // MainFrm.cpp and Player.cpp PacketHeader.
 class TNetwork {
 public:
-	TNetwork(TPreferences &Preferences, TNetworkSession &Session);
+	TNetwork(TPreferences &PreferencesRef, TNetworkSession &SessionRef);
 	TNetwork(const TNetwork &) = delete;
 	TNetwork &operator=(const TNetwork &) = delete;
 	TNetwork(TNetwork &&) = delete;

@@ -3,6 +3,7 @@
 
 #include "Client.h"
 
+#include "Communication.h"
 #include "Network.h"
 #include "Preferences.h"
 #include "Status.h"
@@ -49,7 +50,7 @@ TNetworkSession &StatusCppSession()
 
 } // namespace
 
-TClient::TClient() : Network(Preferences, StatusCppSession()) {}
+TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network) {}
 
 TClient &bridge::Client()
 {
@@ -65,6 +66,16 @@ TPreferences &bridge::Preferences()
 TNetwork &bridge::Network()
 {
 	return Client().Network;
+}
+
+TCommunication &bridge::Communication()
+{
+	return Client().Communication;
+}
+
+TSession &bridge::Session()
+{
+	return Client().Communication.Session;
 }
 
 TTalkLists &bridge::TalkLists()

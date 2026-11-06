@@ -868,7 +868,7 @@ static void CallSenders(const char *Round, bool Valid)
 	SEND(SendRefreshField, SendRefreshField(x, y, z), At<TSendIII>(0x4092e0)(x, y, z));
 	SEND(SendRefreshContainer, SendRefreshContainer(Pos), At<TSendI>(0x4094d0)(Pos));
 	bool Requested = Random() % 2 == 0;
-	OutfitRequested = Requested;
+	patella::bridge::Communication().OutfitRequested = Requested; // TCommunication's since issue #105
 	ORIGINAL(Global<bool>(0x5c4358) = Requested);
 	SEND(SendRequestOutfit, SendRequestOutfit(), At<TVoid>(0x409680)());
 	int Colors[4] = {Small(), Small(), Small(), Small()};
@@ -1178,7 +1178,8 @@ void TestCommunication(const char *ExePath)
 	// single ret, before the fakes are installed.
 	// The runner: on x64 too a single ret (C3; C2 00 00 is ret 0), as nothing of ours is redirected yet.
 	golden::RestoreAllOwn();
-	const uint8 *Ours = (const uint8 *)(void *)&ExitCommunication; // ret or ret 0
+	// Since issue #105 ExitCommunication is TCommunication's member (the free function forwards to it): its code.
+	const uint8 *Ours = (const uint8 *)MemberAddress(&patella::TCommunication::ExitCommunication); // ret or ret 0
 	const int Original = ORIGINAL_VALUE("0x496160", int, *(const uint8 *)(uintptr_t)0x496160);
 	// Linux with the sanitizers' frame pointers (linux-x64-clang, -fno-omit-frame-pointer; issue #91): the empty
 	// function's frame, push rbp; mov rbp, rsp; pop rbp; ret.
@@ -1186,7 +1187,7 @@ void TestCommunication(const char *ExePath)
 	CHECK((Ours[0] == 0xc3 || (Ours[0] == 0xc2 && Ours[1] == 0 && Ours[2] == 0)
 			  || memcmp(Ours, FramedRet, sizeof(FramedRet)) == 0)
 			&& Original == 0xc3,
-		"ExitCommunication or 0x496160 is not a single ret: %02x, %02x", *(const uint8 *)(void *)&ExitCommunication,
+		"ExitCommunication or 0x496160 is not a single ret: %02x, %02x", Ours[0],
 		Original);
 	BeginWorld();
 	InstallFakes(ControlFakes);

@@ -2060,6 +2060,16 @@ static void WINAPI F_Sleep(DWORD Milliseconds)
 #define FM(Name, Address, Member, Fake) {Name, Address, MemberAddress(Member), (void *)Fake}
 #define FO(Name, Address, Ours, Fake) {Name, Address, (void *)Ours, (void *)Fake}
 
+// Since issue #105 Communication.cpp's members reach Network.cpp's and Status.cpp's session functions through their
+// TNetwork and TSession, member to member: a free function's fake also takes the place of the member of its name,
+// through this shim (the member's this, which the fake does not need, then the arguments). The free functions (which
+// Control.cpp and the other files call) keep their fakes.
+template <auto Fake> struct TMemberFake;
+template <class R, class... A, R (*Fake)(A...)> struct TMemberFake<Fake> {
+	static R Call(void * /*This*/, A... Arguments) { return Fake(Arguments...); }
+};
+#define FMF(Class, Name) {#Class "::" #Name, 0, MemberAddress(&patella::Class::Name), (void *)&TMemberFake<F_##Name>::Call}
+
 const TFake WorldFakes[] = {
 	// Network.cpp
 	F(SetConnectionTimeout, 0x4ca290),
@@ -2075,6 +2085,19 @@ const TFake WorldFakes[] = {
 	F(InitNetwork, 0x4ce930),
 	F(ExitNetwork, 0x4cec70),
 	F(CheckConnectionTimeout, 0x4cf850),
+	FMF(TNetwork, SetConnectionTimeout),
+	FMF(TNetwork, SetServerError),
+	FMF(TNetwork, SetSymmetricKey),
+	FMF(TNetwork, Disconnect),
+	FMF(TNetwork, ConnectToLoginServer),
+	FMF(TNetwork, ConnectToGameServer),
+	FMF(TNetwork, SendCommand),
+	FMF(TNetwork, GetNextCommand),
+	FMF(TNetwork, SetNetworkWindow),
+	FMF(TNetwork, GetErrorMessage),
+	FMF(TNetwork, InitNetwork),
+	FMF(TNetwork, ExitNetwork),
+	FMF(TNetwork, CheckConnectionTimeout),
 	// Map.cpp
 	F(SetMapPosition, 0x4b08a0),
 	F(GetMapPosition, 0x4b08c0),
@@ -2246,6 +2269,20 @@ const TFake WorldFakes[] = {
 	FO("GetErrorReportComment", 0x4e7ed0, nullptr, F_GetErrorReportComment),
 	F(ExitStatus, 0x4e7f00),
 	F(GetCharacterName, 0x4e9db0),
+	FMF(TSession, ClearRights),
+	FMF(TSession, SetConnectionState),
+	FMF(TSession, SetProgress),
+	FMF(TSession, SetAccountCharacters),
+	FMF(TSession, SetPremiumDays),
+	FMF(TSession, GetGamemaster),
+	FMF(TSession, SetRight),
+	FMF(TSession, SetCharacter),
+	FMF(TSession, GetConnectionState),
+	FMF(TSession, GetAccountNumber),
+	FMF(TSession, GetAccountPassword),
+	FMF(TSession, GetAccountCharacters),
+	FMF(TSession, GetActiveCharacter),
+	FMF(TSession, GetCharacterName),
 	F(InitStatus, 0x4ea860),
 	// Talk.cpp
 	F(SetTalkChanged, 0x4fd4c0),
