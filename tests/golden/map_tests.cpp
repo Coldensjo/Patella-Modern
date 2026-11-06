@@ -628,8 +628,8 @@ void TestMap([[maybe_unused]] const char *ExePath)
 	}
 	LoadObjects(Dat.c_str());
 	ORIGINAL(At<LoadFn>(0x4d7380)(Dat.c_str()));
-	MaxObject = ObjectProperties->high();
-	MaxEffect = EffectProperties->high();
+	MaxObject = patella::bridge::ObjectTypes().ObjectProperties->high();
+	MaxEffect = patella::bridge::ObjectTypes().EffectProperties->high();
 
 	// The image's static objects of Map.cpp.
 	ORIGINAL(At<Ctor2Fn>(0x4b0bc0)((void *)(uintptr_t)0x5d4c18, NULL, 0, 0x7df);

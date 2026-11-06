@@ -30,13 +30,7 @@ static_assert(sizeof(std::unique_ptr<array<TProperties>>) == sizeof(array<TPrope
 		&& alignof(std::unique_ptr<array<TProperties>>) == alignof(array<TProperties> *),
 	"std::unique_ptr<array<TProperties>> is a pointer");
 
-// Data, in .bss order.
-std::unique_ptr<array<TProperties>> MissileProperties; // 0x719d8c
-std::unique_ptr<array<TProperties>> EffectProperties;  // 0x719d90
-std::unique_ptr<array<TProperties>> OutfitProperties;  // 0x719d94
-std::unique_ptr<array<TProperties>> ObjectProperties;  // 0x719d98
-uint32 DatSignature;                                   // 0x719d9c
-TObject NoObject;                                      // 0x719da0, owner inferred from the address
+// The data (0x719d8c-0x719dab) is TObjectTypes' (Objects.h, issue #106).
 
 namespace {
 
@@ -135,7 +129,7 @@ int GetEntrySpriteNumber(TProperties &Entry, int X, int Y, int Layer, int Patter
 // --- Object types ------------------------------------------------------------
 
 // 0x4d1c40, lines 267-270
-bool GetObjectFlag(int Type, int Flag)
+bool patella::TObjectTypes::GetObjectFlag(int Type, int Flag) const
 {
 	if (Type == CREATURE)
 		return Flag == UNPASS;
@@ -144,104 +138,104 @@ bool GetObjectFlag(int Type, int Flag)
 }
 
 // 0x4d1f30, line 281
-int GetObjectWaypoints(int Type)
+int patella::TObjectTypes::GetObjectWaypoints(int Type) const
 {
 	return GetEntryWaypoints((*ObjectProperties)(Type));
 }
 
 // 0x4d20d0, line 303
-int GetObjectBrightness(int Type)
+int patella::TObjectTypes::GetObjectBrightness(int Type) const
 {
 	return GetEntryBrightness((*ObjectProperties)(Type));
 }
 
 // 0x4d2270, line 314
-int GetObjectLightColor(int Type)
+int patella::TObjectTypes::GetObjectLightColor(int Type) const
 {
 	return GetEntryLightColor((*ObjectProperties)(Type));
 }
 
 // 0x4d2410, line 325
-int GetObjectShiftX(int Type)
+int patella::TObjectTypes::GetObjectShiftX(int Type) const
 {
 	return GetEntryShiftX((*ObjectProperties)(Type));
 }
 
 // 0x4d25b0, line 336
-int GetObjectShiftY(int Type)
+int patella::TObjectTypes::GetObjectShiftY(int Type) const
 {
 	return GetEntryShiftY((*ObjectProperties)(Type));
 }
 
 // 0x4d2750, line 347
-int GetObjectElevation(int Type)
+int patella::TObjectTypes::GetObjectElevation(int Type) const
 {
 	return GetEntryElevation((*ObjectProperties)(Type));
 }
 
 // 0x4d28f0, line 358
-int GetObjectAutomapColor(int Type)
+int patella::TObjectTypes::GetObjectAutomapColor(int Type) const
 {
 	return GetEntryAutomapColor((*ObjectProperties)(Type));
 }
 
 // 0x4d2a90, line 369
-int GetObjectLensHelp(int Type)
+int patella::TObjectTypes::GetObjectLensHelp(int Type) const
 {
 	return GetEntryLensHelp((*ObjectProperties)(Type));
 }
 
 // 0x4d2c30, line 380
-int GetObjectWidth(int Type)
+int patella::TObjectTypes::GetObjectWidth(int Type) const
 {
 	return (*ObjectProperties)(Type).Width;
 }
 
 // 0x4d2dd0, line 391
-int GetObjectHeight(int Type)
+int patella::TObjectTypes::GetObjectHeight(int Type) const
 {
 	return (*ObjectProperties)(Type).Height;
 }
 
 // 0x4d2f70, line 402
-int GetObjectExactSize(int Type)
+int patella::TObjectTypes::GetObjectExactSize(int Type) const
 {
 	return (*ObjectProperties)(Type).ExactSize;
 }
 
 // 0x4d3110, line 413
-int GetObjectLayers(int Type)
+int patella::TObjectTypes::GetObjectLayers(int Type) const
 {
 	return (*ObjectProperties)(Type).Layers;
 }
 
 // 0x4d32b0, line 424
-int GetObjectPatternWidth(int Type)
+int patella::TObjectTypes::GetObjectPatternWidth(int Type) const
 {
 	return (*ObjectProperties)(Type).PatternWidth;
 }
 
 // 0x4d3450, line 435
-int GetObjectPatternHeight(int Type)
+int patella::TObjectTypes::GetObjectPatternHeight(int Type) const
 {
 	return (*ObjectProperties)(Type).PatternHeight;
 }
 
 // 0x4d35f0, line 446
-int GetObjectPatternDepth(int Type)
+int patella::TObjectTypes::GetObjectPatternDepth(int Type) const
 {
 	return (*ObjectProperties)(Type).PatternDepth;
 }
 
 // 0x4d3790, line 457
-int GetObjectPhases(int Type)
+int patella::TObjectTypes::GetObjectPhases(int Type) const
 {
 	return (*ObjectProperties)(Type).Phases;
 }
 
 // 0x4d3930, line 468
-int GetObjectSpriteNumber(int Type, int X, int Y, int Layer, int PatternX, int PatternY, int PatternZ,
-	int Phase)
+int patella::TObjectTypes::GetObjectSpriteNumber(int Type, int X, int Y, int Layer, int PatternX, int PatternY, int PatternZ,
+	int Phase) const
 {
 	return GetEntrySpriteNumber((*ObjectProperties)(Type), X, Y, Layer, PatternX, PatternY, PatternZ,
 		Phase);
@@ -250,67 +244,67 @@ int GetObjectSpriteNumber(int Type, int X, int Y, int Layer, int PatternX, int P
 // --- Outfits -----------------------------------------------------------------
 
 // 0x4d3af0, line 484. Unlike GetObjectFlag, no range check.
-bool GetOutfitFlag(int Number, int Flag)
+bool patella::TObjectTypes::GetOutfitFlag(int Number, int Flag) const
 {
 	return GetEntryFlag((*OutfitProperties)(Number), Flag);
 }
 
 // 0x4d3cc0, line 495
-int GetOutfitBrightness(int Number)
+int patella::TObjectTypes::GetOutfitBrightness(int Number) const
 {
 	return GetEntryBrightness((*OutfitProperties)(Number));
 }
 
 // 0x4d3e60, line 506
-int GetOutfitLightColor(int Number)
+int patella::TObjectTypes::GetOutfitLightColor(int Number) const
 {
 	return GetEntryLightColor((*OutfitProperties)(Number));
 }
 
 // 0x4d4000, line 517
-int GetOutfitShiftX(int Number)
+int patella::TObjectTypes::GetOutfitShiftX(int Number) const
 {
 	return GetEntryShiftX((*OutfitProperties)(Number));
 }
 
 // 0x4d41a0, line 528
-int GetOutfitShiftY(int Number)
+int patella::TObjectTypes::GetOutfitShiftY(int Number) const
 {
 	return GetEntryShiftY((*OutfitProperties)(Number));
 }
 
 // 0x4d4340, line 539
-int GetOutfitWidth(int Number)
+int patella::TObjectTypes::GetOutfitWidth(int Number) const
 {
 	return (*OutfitProperties)(Number).Width;
 }
 
 // 0x4d44e0, line 550. Comes before the height, unlike the object accessors.
-int GetOutfitExactSize(int Number)
+int patella::TObjectTypes::GetOutfitExactSize(int Number) const
 {
 	return (*OutfitProperties)(Number).ExactSize;
 }
 
 // 0x4d4680, line 561
-int GetOutfitHeight(int Number)
+int patella::TObjectTypes::GetOutfitHeight(int Number) const
 {
 	return (*OutfitProperties)(Number).Height;
 }
 
 // 0x4d4820, line 572
-int GetOutfitLayers(int Number)
+int patella::TObjectTypes::GetOutfitLayers(int Number) const
 {
 	return (*OutfitProperties)(Number).Layers;
 }
 
 // 0x4d49c0, line 583
-int GetOutfitPhases(int Number)
+int patella::TObjectTypes::GetOutfitPhases(int Number) const
 {
 	return (*OutfitProperties)(Number).Phases;
 }
 
 // 0x4d4b60, line 594
-int GetOutfitSpriteNumber(int Number, int X, int Y, int Layer, int Direction, int Phase)
+int patella::TObjectTypes::GetOutfitSpriteNumber(int Number, int X, int Y, int Layer, int Direction, int Phase) const
 {
 	return GetEntrySpriteNumber((*OutfitProperties)(Number), X, Y, Layer, Direction + 1, 1, 1, Phase);
 }
@@ -318,49 +312,49 @@ int GetOutfitSpriteNumber(int Number, int X, int Y, int Layer, int Direction, in
 // --- Effects -----------------------------------------------------------------
 
 // 0x4d4d20, line 610
-bool GetEffectFlag(int Number, int Flag)
+bool patella::TObjectTypes::GetEffectFlag(int Number, int Flag) const
 {
 	return GetEntryFlag((*EffectProperties)(Number), Flag);
 }
 
 // 0x4d4ef0, line 621
-int GetEffectBrightness(int Number)
+int patella::TObjectTypes::GetEffectBrightness(int Number) const
 {
 	return GetEntryBrightness((*EffectProperties)(Number));
 }
 
 // 0x4d5090, line 632
-int GetEffectLightColor(int Number)
+int patella::TObjectTypes::GetEffectLightColor(int Number) const
 {
 	return GetEntryLightColor((*EffectProperties)(Number));
 }
 
 // 0x4d5230, line 643
-int GetEffectWidth(int Number)
+int patella::TObjectTypes::GetEffectWidth(int Number) const
 {
 	return (*EffectProperties)(Number).Width;
 }
 
 // 0x4d53d0, line 654
-int GetEffectHeight(int Number)
+int patella::TObjectTypes::GetEffectHeight(int Number) const
 {
 	return (*EffectProperties)(Number).Height;
 }
 
 // 0x4d5570, line 665
-int GetEffectLayers(int Number)
+int patella::TObjectTypes::GetEffectLayers(int Number) const
 {
 	return (*EffectProperties)(Number).Layers;
 }
 
 // 0x4d5710, line 676
-int GetEffectPhases(int Number)
+int patella::TObjectTypes::GetEffectPhases(int Number) const
 {
 	return (*EffectProperties)(Number).Phases;
 }
 
 // 0x4d58b0, line 687
-int GetEffectSpriteNumber(int Number, int X, int Y, int Layer, int Phase)
+int patella::TObjectTypes::GetEffectSpriteNumber(int Number, int X, int Y, int Layer, int Phase) const
 {
 	return GetEntrySpriteNumber((*EffectProperties)(Number), X, Y, Layer, 1, 1, 1, Phase);
 }
@@ -368,37 +362,37 @@ int GetEffectSpriteNumber(int Number, int X, int Y, int Layer, int Phase)
 // --- Missiles ----------------------------------------------------------------
 
 // 0x4d5a70, line 703
-bool GetMissileFlag(int Number, int Flag)
+bool patella::TObjectTypes::GetMissileFlag(int Number, int Flag) const
 {
 	return GetEntryFlag((*MissileProperties)(Number), Flag);
 }
 
 // 0x4d5c40, line 714
-int GetMissileBrightness(int Number)
+int patella::TObjectTypes::GetMissileBrightness(int Number) const
 {
 	return GetEntryBrightness((*MissileProperties)(Number));
 }
 
 // 0x4d5de0, line 725
-int GetMissileLightColor(int Number)
+int patella::TObjectTypes::GetMissileLightColor(int Number) const
 {
 	return GetEntryLightColor((*MissileProperties)(Number));
 }
 
 // 0x4d5f80, line 736
-int GetMissileWidth(int Number)
+int patella::TObjectTypes::GetMissileWidth(int Number) const
 {
 	return (*MissileProperties)(Number).Width;
 }
 
 // 0x4d6120, line 747
-int GetMissileHeight(int Number)
+int patella::TObjectTypes::GetMissileHeight(int Number) const
 {
 	return (*MissileProperties)(Number).Height;
 }
 
 // 0x4d62c0, line 758
-int GetMissileLayers(int Number)
+int patella::TObjectTypes::GetMissileLayers(int Number) const
 {
 	return (*MissileProperties)(Number).Layers;
 }
@@ -407,7 +401,7 @@ int GetMissileLayers(int Number)
 // 3x3 pattern holds the eight directions around its centre, clockwise from
 // north (PatternX 2, PatternY 1). The default case cannot be reached; the
 // binary returns 0 there.
-int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction)
+int patella::TObjectTypes::GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction) const
 {
 	PATELLA_ASSERT_VALUES(In(Direction,0,7), Direction);
 	switch (Direction) {
@@ -437,7 +431,7 @@ int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction)
 // 9, 24, 49 and more in the second row. Both results wrap around the
 // object's pattern size.
 // A pattern size of 0 in Tibia.dat throws a TMyException (PATELLA_DIVISOR, issue #67).
-void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY)
+void patella::TObjectTypes::GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY) const
 {
 	PATELLA_ASSERT(GetObjectFlag(Obj,CUMULATIVE));
 	const int Count = Obj.Data;
@@ -470,7 +464,7 @@ void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY)
 
 // 0x4d6b20, lines 821-826. Obj.Data is the liquid: four columns per row.
 // A pattern size of 0 in Tibia.dat throws a TMyException (PATELLA_DIVISOR, issue #67).
-void GetLiquidPattern(TObject &Obj, int *PatternX, int *PatternY)
+void patella::TObjectTypes::GetLiquidPattern(TObject &Obj, int *PatternX, int *PatternY) const
 {
 	PATELLA_ASSERT(GetObjectFlag(Obj,LIQUIDPOOL) || GetObjectFlag(Obj,LIQUIDCONTAINER));
 	*PatternX = Obj.Data % 4 % PATELLA_DIVISOR(GetObjectPatternWidth(Obj.Type)) + 1;
@@ -480,7 +474,7 @@ void GetLiquidPattern(TObject &Obj, int *PatternX, int *PatternY)
 // 0x4d6df0, lines 837-853. Obj.Data2 holds the wall flag the object hangs
 // on (HOOKSOUTH or HOOKEAST); the second and third columns are used only
 // when the object has them.
-void GetHangPattern(TObject &Obj, int *PatternX, int *PatternY)
+void patella::TObjectTypes::GetHangPattern(TObject &Obj, int *PatternX, int *PatternY) const
 {
 	PATELLA_ASSERT(GetObjectFlag(Obj,HANG));
 	if (Obj.Data2 == HOOKSOUTH)
@@ -495,7 +489,7 @@ void GetHangPattern(TObject &Obj, int *PatternX, int *PatternY)
 // --- Loading -------------------------------------------------------------------
 
 // 0x4d70c0, line 888. Frees the four arrays and their sprite tables.
-void ReleaseObjects()
+void patella::TObjectTypes::ReleaseObjects()
 {
 	if (ObjectProperties != nullptr) {
 		for (int i = ObjectProperties->low(); i <= ObjectProperties->high(); i++)
@@ -601,7 +595,7 @@ void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 // Header: signature, then the highest object type (types start at 100) and
 // the numbers of outfits, effects and missiles. The file is closed twice:
 // by close() and by the destructor.
-void LoadObjects(const char *FileName)
+void patella::TObjectTypes::LoadObjects(const char *FileName)
 {
 	PATELLA_ASSERT(FileName!=NULL);
 	ReleaseObjects();
@@ -634,7 +628,7 @@ void LoadObjects(const char *FileName)
 // std::bad_array_new_length or std::bad_alloc). That wrapper is gone (issue
 // #78), so the boundary catches everything (LoadObjects throws no
 // PROGRAM_ERROR): the outcome is the original's.
-void InitObjects()
+void patella::TObjectTypes::InitObjects()
 {
 	// Cleared, not freed, as the original does (issue #58: release, not reset).
 	static_cast<void>(ObjectProperties.release());  // NOLINT(bugprone-unused-return-value): the leak is the original's
@@ -649,14 +643,276 @@ void InitObjects()
 }
 
 // 0x4d7b40, line 1012. After Tibia.dat was patched (event 0x45).
-void ReloadObjects()
+void patella::TObjectTypes::ReloadObjects()
 {
 	ExitObjects();
 	InitObjects();
 }
 
 // 0x4d79b0, line 1023
-void ExitObjects()
+void patella::TObjectTypes::ExitObjects()
 {
 	ReleaseObjects();
+}
+
+// The original's functions (issue #106): each calls its member on the one TClient's TObjectTypes.
+
+bool GetObjectFlag(int Type, int Flag)
+{
+	return patella::bridge::ObjectTypes().GetObjectFlag(Type, Flag);
+}
+
+int GetObjectWaypoints(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectWaypoints(Type);
+}
+
+int GetObjectBrightness(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectBrightness(Type);
+}
+
+int GetObjectLightColor(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectLightColor(Type);
+}
+
+int GetObjectShiftX(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectShiftX(Type);
+}
+
+int GetObjectShiftY(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectShiftY(Type);
+}
+
+int GetObjectElevation(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectElevation(Type);
+}
+
+int GetObjectAutomapColor(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectAutomapColor(Type);
+}
+
+int GetObjectLensHelp(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectLensHelp(Type);
+}
+
+int GetObjectWidth(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectWidth(Type);
+}
+
+int GetObjectHeight(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectHeight(Type);
+}
+
+int GetObjectExactSize(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectExactSize(Type);
+}
+
+int GetObjectLayers(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectLayers(Type);
+}
+
+int GetObjectPatternWidth(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectPatternWidth(Type);
+}
+
+int GetObjectPatternHeight(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectPatternHeight(Type);
+}
+
+int GetObjectPatternDepth(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectPatternDepth(Type);
+}
+
+int GetObjectPhases(int Type)
+{
+	return patella::bridge::ObjectTypes().GetObjectPhases(Type);
+}
+
+int GetObjectSpriteNumber(int Type, int X, int Y, int Layer, int PatternX, int PatternY, int PatternZ, int Phase)
+{
+	return patella::bridge::ObjectTypes().GetObjectSpriteNumber(Type, X, Y, Layer, PatternX, PatternY, PatternZ, Phase);
+}
+
+bool GetOutfitFlag(int Number, int Flag)
+{
+	return patella::bridge::ObjectTypes().GetOutfitFlag(Number, Flag);
+}
+
+int GetOutfitBrightness(int Number)
+{
+	return patella::bridge::ObjectTypes().GetOutfitBrightness(Number);
+}
+
+int GetOutfitLightColor(int Number)
+{
+	return patella::bridge::ObjectTypes().GetOutfitLightColor(Number);
+}
+
+int GetOutfitShiftX(int Number)
+{
+	return patella::bridge::ObjectTypes().GetOutfitShiftX(Number);
+}
+
+int GetOutfitShiftY(int Number)
+{
+	return patella::bridge::ObjectTypes().GetOutfitShiftY(Number);
+}
+
+int GetOutfitWidth(int Number)
+{
+	return patella::bridge::ObjectTypes().GetOutfitWidth(Number);
+}
+
+int GetOutfitExactSize(int Number)
+{
+	return patella::bridge::ObjectTypes().GetOutfitExactSize(Number);
+}
+
+int GetOutfitHeight(int Number)
+{
+	return patella::bridge::ObjectTypes().GetOutfitHeight(Number);
+}
+
+int GetOutfitLayers(int Number)
+{
+	return patella::bridge::ObjectTypes().GetOutfitLayers(Number);
+}
+
+int GetOutfitPhases(int Number)
+{
+	return patella::bridge::ObjectTypes().GetOutfitPhases(Number);
+}
+
+int GetOutfitSpriteNumber(int Number, int X, int Y, int Layer, int Direction, int Phase)
+{
+	return patella::bridge::ObjectTypes().GetOutfitSpriteNumber(Number, X, Y, Layer, Direction, Phase);
+}
+
+bool GetEffectFlag(int Number, int Flag)
+{
+	return patella::bridge::ObjectTypes().GetEffectFlag(Number, Flag);
+}
+
+int GetEffectBrightness(int Number)
+{
+	return patella::bridge::ObjectTypes().GetEffectBrightness(Number);
+}
+
+int GetEffectLightColor(int Number)
+{
+	return patella::bridge::ObjectTypes().GetEffectLightColor(Number);
+}
+
+int GetEffectWidth(int Number)
+{
+	return patella::bridge::ObjectTypes().GetEffectWidth(Number);
+}
+
+int GetEffectHeight(int Number)
+{
+	return patella::bridge::ObjectTypes().GetEffectHeight(Number);
+}
+
+int GetEffectLayers(int Number)
+{
+	return patella::bridge::ObjectTypes().GetEffectLayers(Number);
+}
+
+int GetEffectPhases(int Number)
+{
+	return patella::bridge::ObjectTypes().GetEffectPhases(Number);
+}
+
+int GetEffectSpriteNumber(int Number, int X, int Y, int Layer, int Phase)
+{
+	return patella::bridge::ObjectTypes().GetEffectSpriteNumber(Number, X, Y, Layer, Phase);
+}
+
+bool GetMissileFlag(int Number, int Flag)
+{
+	return patella::bridge::ObjectTypes().GetMissileFlag(Number, Flag);
+}
+
+int GetMissileBrightness(int Number)
+{
+	return patella::bridge::ObjectTypes().GetMissileBrightness(Number);
+}
+
+int GetMissileLightColor(int Number)
+{
+	return patella::bridge::ObjectTypes().GetMissileLightColor(Number);
+}
+
+int GetMissileWidth(int Number)
+{
+	return patella::bridge::ObjectTypes().GetMissileWidth(Number);
+}
+
+int GetMissileHeight(int Number)
+{
+	return patella::bridge::ObjectTypes().GetMissileHeight(Number);
+}
+
+int GetMissileLayers(int Number)
+{
+	return patella::bridge::ObjectTypes().GetMissileLayers(Number);
+}
+
+int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction)
+{
+	return patella::bridge::ObjectTypes().GetMissileSpriteNumber(Number, X, Y, Layer, Direction);
+}
+
+void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY)
+{
+	patella::bridge::ObjectTypes().GetCumulativePattern(Obj, PatternX, PatternY);
+}
+
+void GetLiquidPattern(TObject &Obj, int *PatternX, int *PatternY)
+{
+	patella::bridge::ObjectTypes().GetLiquidPattern(Obj, PatternX, PatternY);
+}
+
+void GetHangPattern(TObject &Obj, int *PatternX, int *PatternY)
+{
+	patella::bridge::ObjectTypes().GetHangPattern(Obj, PatternX, PatternY);
+}
+
+void ReleaseObjects()
+{
+	patella::bridge::ObjectTypes().ReleaseObjects();
+}
+
+void LoadObjects(const char *FileName)
+{
+	patella::bridge::ObjectTypes().LoadObjects(FileName);
+}
+
+void InitObjects()
+{
+	patella::bridge::ObjectTypes().InitObjects();
+}
+
+void ReloadObjects()
+{
+	patella::bridge::ObjectTypes().ReloadObjects();
+}
+
+void ExitObjects()
+{
+	patella::bridge::ObjectTypes().ExitObjects();
 }

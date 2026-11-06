@@ -12657,7 +12657,7 @@ functions become the members of its subsystem under the same names, with their a
 | :--- | :--- | :--- | :--- |
 | TPreferences | 1 | Preferences.cpp (43: the options, the lists, the hotkeys, MotD, PreferencesLoaded) | #104, done |
 | TNetwork | 2 | Network.cpp (17: Socket, the send and receive buffers, Servers, CurrentServer, TestServer, the host name request, SymmetricKey, the timeouts, NetworkWindow, RecursionProtection); MainFrm.h's PacketHeader (the last packet's first bytes); Control.cpp's Reconnect and ReconnectTimeout | #105, done |
-| TMapState | 3 | the game state, as five smaller objects it owns (below): Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp | #106 |
+| TMapState | 3 | the game state, as five smaller objects it owns (below): Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp | #106, done |
 | TCommunication | 4 | Communication.cpp (6: SkipFields, OutfitRequested, CancelCount, LastCancelX/Y/Z); Control.cpp's LastPacketType, LastPacketIndex, LastPacketTypes; Status.cpp's session (ConnectionState, Progress, AccountNumber, AccountNumberString, AccountPassword, Characters, AccountCharacters, ActiveCharacter, PremiumDays, Gamemaster, Rights) | #105, done (the session as TSession, below) |
 | TGraphics (recommended) | 5 | graphics.cpp (21: the sprite, picture and font tables, the two caches and their lists), Surface.cpp (18: the engine choice, the screen, the blit counters, the surfaces), Skins.cpp (Skins, NumberOfSkins): the client's side of TSurface | none yet ("Found, not done") |
 | TGUI | 6 | MainWindow.cpp (ModalWindow, MainWindow); GUI.cpp (SkinProperties, NumberOfHotkeys, the LastTime static of its timer); Help.cpp (8); Talk.cpp (11 and its LastTime static, as a TTalk inside TGUI); ContentWindows.cpp (the two mouse-over texts); Status.cpp's user interaction (the action, drag, use and trade fields and objects, PendingAction*, the message queue Messages and NumberOfMessages, MouseX/Y, WindowWidth/Height, MouseCursor, the blink, the mouse-over text, LinkRegexp, TaintedClipboardText, LinkWarningEventHandler); Control.cpp's LastMouseMove, WindowHandle, ShowFPS | #107 |
@@ -12922,6 +12922,89 @@ Found, not done:
 - PATELLA_IN_DEFINITION_ORDER (src/compat/msvc.h) has no user; golden_linux's -fno-toplevel-reorder was for Network.cpp's
   ReceiveData and may have no reason left (tests/golden/CMakeLists.txt). Both kept: removing them is its own check.
 - decisions.md's ASan table (PATELLA_NO_SANITIZE_ADDRESS on ReceiveData and SendData) describes the globals until #105.
+
+### The third move: TMapState (issue #106)
+
+Done by Claude Opus 5.5, November 6, 2026 (branch issue-106, two commits: the five objects, then TCommunication's
+references). TClient makes TPreferences, TNetwork, TMapState, TCommunication, in that order (Client.h).
+
+- **TMapState** (src/MapState.h, header only; high): owns TObjectTypes, TMap, TCreatures, TPlayerState and
+  TInventory, made in the design's order, each given the earlier ones it reads by constructor reference: TMap
+  TObjectTypes; TCreatures the interface below; TPlayerState TObjectTypes, TMap and TCreatures; TInventory
+  TObjectTypes. The bridge has one accessor per object (`bridge::ObjectTypes()`, `Map()`, `Creatures()`,
+  `PlayerState()`, `Inventory()`, each declared in its file's header, defined in Client.cpp).
+- **The moves** (rules 1-4; high): each file's globals are its object's members in .bss order with their addresses,
+  `{}` for the zero (Fields and FieldNumber with their initialisers' ranges, AUTOMAP_BLOCKS now in Map.h); each file's
+  functions are members of the same names, the file-local helpers (Map.cpp's SortObjects, InsertObject, NewEffect,
+  DeleteEffect, the six ShiftMap steps, the automap block cache and file functions) private ones; the getters const;
+  the functions that use no member static (IsPlayer, NotifySkull, ExitCreatures, GetSkillName, ExitInventory); SetBeat's
+  parameter is Value. The free functions forward to the bridge. Public data: Objects.cpp's six (they were extern), and
+  for the golden Errors test NumberOfBuddies, NumberOfPlayerSteps, OwnOffer and CounterOffer; the rest private.
+- **Creatures.cpp's split** (high): TCreatures has the creature table, FirstOpponent, LastOpponent, Beat, AttackID,
+  FollowID, HighlightID and the buddy list with the functions that use them; TPlayerState the Player* values and the
+  walk with theirs (44 functions). Three of TCreatures' functions need the later TPlayerState: IsOpponent and
+  CheckMonsterHint call GetPlayerID, MoveCreatures continues the player's walk, ResetCreatures resets the player's state.
+  They go through TCreaturesPlayer (Creatures.h; rule 5), which TMapState implements (its own base, constructed before
+  its members, so TCreatures can take it in TMapState's constructor; a TPlayerState member could not be converted to
+  its base before its construction). ContinuePlayerWalk and ResetPlayer are ours: MoveCreatures' and ResetCreatures'
+  original code for the player, moved into TPlayerState (ResetCreatures wrote AttackID and FollowID between the player's
+  members; nothing reads between the writes). The interface's GetPlayerID calls the free function, as the original's
+  code did, so the window tests' fakes of GetPlayerID are reached as before. TCreature's members (GetDeltaX, GetDeltaY,
+  GetDrawDirection, StartMovement) reach the step not confirmed yet and Beat through the bridge: TCreature keeps the
+  original's layout (the golden Creatures test compares the table byte for byte) and holds no reference; TCreatures and
+  TPlayerState name it a friend. Creatures.cpp's unused NoCallback (0x5cc418, never written or read) stays file-local.
+- **TCommunication** (high): takes TMapState and holds its five objects by reference; its packet handlers call them
+  member to member (184 calls) and read DatSignature and NoObject there. Its other calls (Talk, Help, graphics, the
+  windows, Status.cpp's GUI part) stay the free functions until #107.
+- **The test mode** (high): ViewMap, ViewCreatures and ViewInventory call the objects' const View members (ViewCreatures
+  both TCreatures' and TPlayerState's); the dump's keys and values are unchanged.
+- **Behaviour** (high): the same code on the same data; what differs is the call through the accessors and the
+  references, TCreaturesPlayer's virtual calls, and that the map's points, the field numbers and the automap blocks are
+  allocated at the first use of the client's state instead of before main.
+
+The golden tests' calls (adapted, no check changed; 15,803,218 replayed + 1,512,822 retired = 17,316,040, as before):
+
+- The object tables, DatSignature and NoObject through `bridge::ObjectTypes()` (commworld.cpp, divisions_tests.cpp,
+  errors_tests.cpp, graphics_tests.cpp, map_tests.cpp, mapwindow_tests.cpp, objects_tests.cpp).
+- errors_tests.cpp's TestErrorStatics takes the five statics' addresses from the members; FindOwnStatic, which found
+  them in their getters' code, had no user left and went.
+- creatures_tests.cpp redirects TMap's members of its seven map fakes as well (TPlayerState calls them member to
+  member); commworld.cpp the members of its 81 faked functions of the five files (TCommunication calls them). The shim
+  (TMemberFake) is a member function now in both: MSVC's x64 convention passes a returned structure's address after
+  this for a member and before the arguments for a function, so #105's static shim would misread TMap::GetFirstObject's
+  TObject (12 bytes, returned through memory).
+
+The include cycles after the move (a script over each src/*.cpp's `#include "X.h"` of another module of src/, Tarjan;
+its edge count includes the headers of src/compat and src/types, so it differs from #105's): main 5ba6281 has 258
+edges, 3 cycles: {ContentWindows, ContextMenus, Control, DialogWindow, Dialogs, MainWindow}, {Surface, graphics},
+{MainFrm, Player}. After #106: 264 edges (Client -> MapState, Objects, Map, Creatures, Inventory; Communication ->
+MapState), the same 3 cycles. Objects, Map, Creatures, Inventory and MapState are in none (they were in none on main
+either: their calls up, into Talk, Help, GUI, Status and Preferences, reach no module that includes them back).
+
+Found, not done:
+
+- Map.cpp's and Creatures.cpp's calls up (Talk's console, Help's hints, Status.cpp's messages and action number, GUI,
+  Preferences' buddy data) are free functions; Preferences is earlier and could be a constructor reference, the others
+  are TGUI's (#107), an interface then.
+- TCreaturesPlayer::GetPlayerID calls the free GetPlayerID for the window tests' fakes; with member fakes in those
+  tests it can call TPlayerState directly.
+- TCreature's members use the bridge; a TCreature that holds no state can take the player's step as a parameter once
+  its callers hold TPlayerState (MapWindow.cpp's drawing: #107).
+
+The gates (logs in build\logs\issue-106 of the branch's worktree; golden replayed main's frozen corpus read only,
+PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden, its manifest verified):
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), 0 warnings. windows-x64-debug: exit 0, 18/18; windows-x64-asan: exit 0,
+  18/18, no ASan report; golden the same on both. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc: exit 0, 16/16;
+  linux-x64-clang (ASan, UBSan): exit 0, 14/14, no sanitizer report; golden the same on both. 0 warnings on every preset.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches; `python -I tools/compare_traffic.py` exit 0, no differences. `python -I tools/compare_files.py`
+  exit 1: Tibia.exe's options run opened no window in 30 s (the walk's automap files and options were identical);
+  its one rerun could not bind the proxy's port 7271 (still closing from the first run): not a result of the change,
+  not passed.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
+  clang-format (CLAUDE.md's command): exit 0.
 
 ## TIndexedVector over std::vector (Patella-Modern issue #99, M7)
 

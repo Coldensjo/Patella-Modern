@@ -610,6 +610,9 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Done in #105: TNetwork (Network.cpp's globals, PacketHeader, the reconnect pair) and TCommunication
   (Communication.cpp's globals, Control.cpp's packet types, Status.cpp's session as its TSession); Network and
   Communication are in no include cycle any more (notes/decisions.md, "The second move: TNetwork and TCommunication").
+  Done in #106: TMapState (src/MapState.h) with TObjectTypes, TMap, TCreatures, TPlayerState and TInventory (the
+  globals of Objects.cpp, Map.cpp, Creatures.cpp and Inventory.cpp); TCommunication writes the game state through
+  them (notes/decisions.md, "The third move: TMapState").
 - **The core/platform split is completed:** packet parsing and building, game state (Creatures, Map,
   Objects, Inventory, Player), preferences, and the GUI's logic are in `patella_core` and
   include neither `<windows.h>` nor MFC. The platform interfaces are `IWindow`, `IInput`, `IClock`,

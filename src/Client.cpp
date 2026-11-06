@@ -4,7 +4,12 @@
 #include "Client.h"
 
 #include "Communication.h"
+#include "Creatures.h"
+#include "Inventory.h"
+#include "Map.h"
+#include "MapState.h"
 #include "Network.h"
+#include "Objects.h"
 #include "Preferences.h"
 #include "Status.h"
 #include "Talk.h"
@@ -50,7 +55,7 @@ TNetworkSession &StatusCppSession()
 
 } // namespace
 
-TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network) {}
+TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network, MapState) {}
 
 TClient &bridge::Client()
 {
@@ -76,6 +81,31 @@ TCommunication &bridge::Communication()
 TSession &bridge::Session()
 {
 	return Client().Communication.Session;
+}
+
+TObjectTypes &bridge::ObjectTypes()
+{
+	return Client().MapState.ObjectTypes;
+}
+
+TMap &bridge::Map()
+{
+	return Client().MapState.Map;
+}
+
+TCreatures &bridge::Creatures()
+{
+	return Client().MapState.Creatures;
+}
+
+TPlayerState &bridge::PlayerState()
+{
+	return Client().MapState.PlayerState;
+}
+
+TInventory &bridge::Inventory()
+{
+	return Client().MapState.Inventory;
 }
 
 TTalkLists &bridge::TalkLists()

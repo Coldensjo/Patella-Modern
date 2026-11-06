@@ -76,7 +76,7 @@ void TestStartMovement()
 // The first object type of Tibia.dat with the flag (100 ... the highest type), or 0.
 int FirstWithFlag(int Flag)
 {
-	for (int Type = 100; Type <= ObjectProperties->high(); Type++)
+	for (int Type = 100; Type <= patella::bridge::ObjectTypes().ObjectProperties->high(); Type++)
 		if (GetObjectFlag(Type, Flag))
 			return Type;
 	return 0;
@@ -85,7 +85,7 @@ int FirstWithFlag(int Flag)
 // Sets one pattern size of Type on both sides.
 void SetPatternSize(int Type, bool Height, int Value)
 {
-	TProperties &Entry = (*ObjectProperties)(Type);
+	TProperties &Entry = (*patella::bridge::ObjectTypes().ObjectProperties)(Type);
 	(Height ? Entry.PatternHeight : Entry.PatternWidth) = Value;
 }
 
@@ -98,7 +98,7 @@ void TestPatterns(const char *Name, [[maybe_unused]] uint32 Address, void (*Func
 		printf("note: Divisions: no object with flag %d in Tibia.dat, %s not compared\n", Flag, Name);
 		return;
 	}
-	const TProperties Saved = (*ObjectProperties)(Type);
+	const TProperties Saved = (*patella::bridge::ObjectTypes().ObjectProperties)(Type);
 	for (int Round = 0; Round < 3; Round++) {
 		SetPatternSize(Type, false, Round == 1 ? 0 : Saved.PatternWidth);
 		SetPatternSize(Type, true, Round == 2 ? 0 : Saved.PatternHeight);
