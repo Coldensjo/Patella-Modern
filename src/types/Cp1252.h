@@ -170,7 +170,7 @@ constexpr int CodePointToCp1252(char32_t CodePoint) noexcept
 	if (CodePoint < 0x80 || (CodePoint >= 0xa0 && CodePoint <= 0xff))
 		return static_cast<int>(CodePoint);
 	for (std::size_t i = 0; i < detail::HighControls.size(); i++) {
-		if (detail::HighControls[i] == CodePoint)
+		if (char32_t{detail::HighControls[i]} == CodePoint)
 			return static_cast<int>(0x80 + i);
 	}
 	return -1;
@@ -233,7 +233,7 @@ std::string detail::FromUtf16(std::basic_string_view<Unit> Text, char Missing)
 	Out.reserve(Text.size());
 	for (std::size_t i = 0; i < Text.size(); i++) {
 		const auto Unit0 = static_cast<char16_t>(Text[i]);
-		char32_t CodePoint = Unit0;
+		auto CodePoint = static_cast<char32_t>(Unit0);
 		if (Unit0 >= 0xd800 && Unit0 <= 0xdbff && i + 1 < Text.size()) {
 			const auto Unit1 = static_cast<char16_t>(Text[i + 1]);
 			if (Unit1 >= 0xdc00 && Unit1 <= 0xdfff) {
