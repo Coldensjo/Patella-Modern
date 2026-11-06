@@ -12652,9 +12652,9 @@ functions become the members of its subsystem under the same names, with their a
 | Object | Made | Files (their globals) | Issue |
 | :--- | :--- | :--- | :--- |
 | TPreferences | 1 | Preferences.cpp (43: the options, the lists, the hotkeys, MotD, PreferencesLoaded) | #104, done |
-| TNetwork | 2 | Network.cpp (17: Socket, the send and receive buffers, Servers, CurrentServer, TestServer, the host name request, SymmetricKey, the timeouts, NetworkWindow, RecursionProtection); MainFrm.h's PacketHeader (the last packet's first bytes); Control.cpp's Reconnect and ReconnectTimeout | #105 |
+| TNetwork | 2 | Network.cpp (17: Socket, the send and receive buffers, Servers, CurrentServer, TestServer, the host name request, SymmetricKey, the timeouts, NetworkWindow, RecursionProtection); MainFrm.h's PacketHeader (the last packet's first bytes); Control.cpp's Reconnect and ReconnectTimeout | #105, done |
 | TMapState | 3 | the game state, as five smaller objects it owns (below): Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp | #106 |
-| TCommunication | 4 | Communication.cpp (6: SkipFields, OutfitRequested, CancelCount, LastCancelX/Y/Z); Control.cpp's LastPacketType, LastPacketIndex, LastPacketTypes; Status.cpp's session (ConnectionState, Progress, AccountNumber, AccountNumberString, AccountPassword, Characters, AccountCharacters, ActiveCharacter, PremiumDays, Gamemaster, Rights) | #105 |
+| TCommunication | 4 | Communication.cpp (6: SkipFields, OutfitRequested, CancelCount, LastCancelX/Y/Z); Control.cpp's LastPacketType, LastPacketIndex, LastPacketTypes; Status.cpp's session (ConnectionState, Progress, AccountNumber, AccountNumberString, AccountPassword, Characters, AccountCharacters, ActiveCharacter, PremiumDays, Gamemaster, Rights) | #105, done (the session as TSession, below) |
 | TGraphics (recommended) | 5 | graphics.cpp (21: the sprite, picture and font tables, the two caches and their lists), Surface.cpp (18: the engine choice, the screen, the blit counters, the surfaces), Skins.cpp (Skins, NumberOfSkins): the client's side of TSurface | none yet ("Found, not done") |
 | TGUI | 6 | MainWindow.cpp (ModalWindow, MainWindow); GUI.cpp (SkinProperties, NumberOfHotkeys, the LastTime static of its timer); Help.cpp (8); Talk.cpp (11 and its LastTime static, as a TTalk inside TGUI); ContentWindows.cpp (the two mouse-over texts); Status.cpp's user interaction (the action, drag, use and trade fields and objects, PendingAction*, the message queue Messages and NumberOfMessages, MouseX/Y, WindowWidth/Height, MouseCursor, the blink, the mouse-over text, LinkRegexp, TaintedClipboardText, LinkWarningEventHandler); Control.cpp's LastMouseMove, WindowHandle, ShowFPS | #107 |
 | the platform objects | outside TClient | MainFrm.cpp (MainFrame, the cursors, the buttons, Closing, DisplayChanged, ClassName, WheelDelta), Player.cpp (theApp, TitleKey, ClassNameKey, LastMouseCursor, NumberOfTibiaWindows, LastMousePosition), sysinc.cpp (the clipboard buffer; TitleCode and ClassNameCode are constants), src/vulkan (SurfaceVulkan.cpp, DeviceSettings.cpp) | #109 |
@@ -12829,6 +12829,95 @@ strongly connected components) and notes the cycles left in its subsection.
   mismatched release of MotD (new[] in SetMotD, free in ExitPreferences; notes/ownership.md) is kept.
 - **Container.h**: the vector members keep CipSoft's `vector<T>` (now in Preferences.h, which includes Container.h);
   #99 (TIndexedVector) renames them with its other users, a one-line rebase there.
+
+### The second move: TNetwork and TCommunication (issue #105)
+
+Done by Claude Opus 5.5, November 6, 2026 (branch issue-105, two commits: TNetwork, then TCommunication). TClient
+makes TPreferences, TNetwork, TCommunication, in that order (Client.h).
+
+- **TNetwork** (Network.h; high): Network.cpp's 17 globals, MainFrm.cpp's PacketHeader (0x5d1644) and Control.cpp's
+  ReconnectTimeout and Reconnect (0x5c4520, 0x5c4524) are its members, in address order with the original's comments
+  and initial values (HostnameResolveBufferSize MAXGETHOSTSTRUCT, every other member `{}`; the two buffers' initialisers
+  as before). All of them are public (rule 2): the golden Network test reads and sets every one (network_tests.cpp's
+  views), the MainFrm and Control tests PacketHeader and ReconnectTimeout, Control.cpp the reconnect pair, MainFrm.cpp's
+  constructor and Player.cpp's start-up log PacketHeader. The 38 functions are members of the same names with their
+  address comments (GetResolvedIPAddress and ShutdownConnection const); the free functions forward to
+  `bridge::Network()`. TSocket holds the TNetwork that made it (`new TSocket(*this)`): its OnConnect, OnReceive and
+  OnClose (the vtable's, unchanged) call TNetwork's members of those names, which have the original's bodies.
+- **TNetwork's dependencies** (high): TPreferences by constructor reference (GetTestServerLogin, rule 5). Status.cpp's
+  SetConnectionState, GetConnectionState, GetActiveCharacter, GetCharacterIPAddress, GetCharacterPort and AddMessage
+  are later objects' (TCommunication's session, TGUI's message queue): TNetworkSession, an interface in Network.h,
+  which TNetwork holds by constructor reference; Client.cpp's TStatusCppSession implements it with Status.cpp's free
+  functions (stateless, made on first use; in another object file than Network.cpp, so the Network test's fakes of
+  those six free functions are reached as before). A reference, not #104's parameter of TTalkLists: the socket's events
+  come from the platform, not from a caller that could pass it. Network.cpp no longer includes MainFrm.h or Status.h.
+- **TCommunication** (Communication.h; high): Communication.cpp's SkipFields, OutfitRequested, CancelCount and
+  LastCancelZ/Y/X, and Control.cpp's LastPacketType (-1), LastPacketIndex and LastPacketTypes, in address order.
+  OutfitRequested and the three packet-type members are public (Control.cpp's ReceivePackets, ConnectionEstablished,
+  ProcessEvents, InitWindow and GetLastPacketTypes write or read them; the Communication and Control tests set them),
+  the other four private. The 128 functions of Communication.h are members of the same names (InitCommunication and
+  ExitCommunication too, empty as before and static: without this, Clang's UBSan adds no null check of it, and the
+  golden test still finds ExitCommunication's single ret); the free functions forward to `bridge::Communication()`. It holds its
+  TNetwork by constructor reference and calls it (`Network.GetByte()`, `Network.SendCommand(...)`): 497 calls.
+- **The session, TSession** (Status.h; high; a deviation from #104's table, accepted by the M7 orchestrator on
+  November 6, 2026): the design table puts Status.cpp's session into TCommunication itself. It is TCommunication's member `Session`, an object of its own, TSession, declared in
+  Status.h and defined in Status.cpp: Status.cpp's 11 session globals (Rights ... ConnectionState, 0x71c478-0x71c58b,
+  contiguous in the image) and the 24 functions that read or write only them (CheckAnyRight, ClearRights, the
+  connection state, Progress, the account, the character list, the rights) are its members, and the free functions
+  forward to `bridge::Session()` (Client.cpp: `Client().Communication.Session`). Why an object of its own: the file
+  stays the module map (the functions stay in Status.cpp), and a Status.cpp that defined TCommunication's members
+  would include Communication.h, while Communication.cpp includes Status.h: a new cycle {Status, Communication}. With
+  TSession in Status.h neither changes direction. InitStatus and ExitStatus stay Status.cpp's free functions (TGUI's,
+  #107) and write the session through two members that are not the original's: InitSession (Gamemaster, the
+  rights, then the other session members, in InitStatus's order; nothing observes the interleaving with InitStatus's
+  other writes) and ExitSession (the character list, which ExitStatus freed first). AccountCharacters is public: the
+  golden Errors test sets it (TestErrorStatics). The test mode's ViewConnectionState and ViewCharacters read it through
+  three const views of TSession.
+- **TCommunication's calls of the session** go to `Session.X()` (11 calls); its other calls (Map, Creatures, Inventory,
+  Talk, Help, graphics, Status.cpp's GUI part, the windows) are the other files' free functions until #106 and #107.
+- **Behaviour** (high): the same code on the same data; what differs is the call through the accessors and the
+  references, and TNetworkSession's virtual calls. The buffers are TNetwork's members in the original's order, so
+  PrepareNextPacket's over-read past ReceiveData (a packet's inner length larger than the data read) reads SendData and
+  the members after it as it read the globals after it (the golden Network test replays it); inside one object it has
+  no ASan redzone, so PATELLA_NO_SANITIZE_ADDRESS and PATELLA_IN_DEFINITION_ORDER are not needed there any more (the
+  latter has no user left). The packet log and the test mode see the traffic as before: PATELLA_TEST_PACKET_SENT and
+  PATELLA_TEST_PACKET_RECEIVED are in TNetwork's SendCommand and PrepareNextPacket, PATELLA_TEST_RSA_BLOCK in
+  TCommunication's SendLogin and SendGameLogin, unchanged.
+
+The golden tests' calls (adapted, no check changed; 15,803,218 replayed + 1,512,822 retired = 17,316,040, as before):
+
+- network_tests.cpp: the views and the socket checks read `bridge::Network()`'s members; it includes Status.h (which
+  Network.cpp no longer does) for the six fakes; `TPreferences::GetTestServerLogin` is redirected to its fake as well
+  (MemberAddress; the fake takes no argument, this is not read).
+- mainfrm_tests.cpp (PacketHeader), control_tests.cpp (ReconnectTimeout, Reconnect, LastPacketType, LastPacketIndex,
+  LastPacketTypes; NamedStatic with the member's address where OUR_STATIC took a static's name),
+  communication_tests.cpp (OutfitRequested): the members through the bridge.
+- communication_tests.cpp's ExitCommunication check reads the static member's code (the free function is a jump to it
+  now): still a single ret.
+- commworld.cpp: the 13 TNetwork and 14 TSession members whose free functions the world fakes are redirected to the
+  same fakes through TMemberFake (a shim that drops this), because TCommunication calls them member to member; the
+  free functions keep their fakes (Control.cpp and the other files call them).
+- errors_tests.cpp: AccountCharacters is the member (its getter reads it through the bridge, not at an address the
+  getter's code names).
+
+The include cycles after the move (the measurement of "The include cycles", main 8390d87 against the branch): main
+has 33 modules, 207 edges, 2 cycles: the 12 modules {Communication, ConsoleWindow, ContentWindows, ContextMenus,
+Control, DialogWindow, Dialogs, MainFrm, MainWindow, MapWindow, Network, Player} and {Surface, graphics}. After #105:
+208 edges (Client -> Communication, Network, Status; Network -> MainFrm and Network -> Status gone), 3 cycles:
+{ContentWindows, ContextMenus, Control, DialogWindow, Dialogs, MainWindow}, {Surface, graphics} and {MainFrm, Player}.
+Network and Communication are in no cycle: Network.cpp includes only Preferences.h and the libraries, and no module
+that Communication.cpp includes (the game state's, Status, Talk, Help, graphics, Preferences, Network) reaches back.
+ConsoleWindow and MapWindow left with them (their way back into the cycle went through Network -> MainFrm).
+
+Found, not done:
+
+- TNetworkSession is Client.cpp's adapter over Status.cpp's free functions. Its session part could be TSession's own
+  (TSession implementing it), but TSession is made after TNetwork (inside TCommunication), so TNetwork would hold a
+  reference to a later object; AddMessage is TGUI's (#107). Revisit when TGUI exists (#107) or with #109's ISocket
+  events.
+- PATELLA_IN_DEFINITION_ORDER (src/compat/msvc.h) has no user; golden_linux's -fno-toplevel-reorder was for Network.cpp's
+  ReceiveData and may have no reason left (tests/golden/CMakeLists.txt). Both kept: removing them is its own check.
+- decisions.md's ASan table (PATELLA_NO_SANITIZE_ADDRESS on ReceiveData and SendData) describes the globals until #105.
 
 ## TIndexedVector over std::vector (Patella-Modern issue #99, M7)
 
