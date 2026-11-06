@@ -223,7 +223,7 @@ void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin,
 		  << " skinwidth: " << Skins[skin].width << " skinheight: " << Skins[skin].height
 		  << " skinoffsetx: " << skinoffsetx << " skinoffsety: " << skinoffsety
 		  << " cliprect: " << ClipX << "/" << ClipY << "/" << ClipWidth << "/" << ClipHeight << ")";
-		TERROR(123, s.str().c_str());
+		TERROR(s.str().c_str());
 	}
 	if (Skins[skin].width == width && Skins[skin].height == height) {
 		DrawPicturePartClipped(Surface, x, y, 4, Skins[skin].x, Skins[skin].y, Skins[skin].width,
@@ -1694,31 +1694,31 @@ void TTimer::Update(int elapsed)
 // 0x49b450, line 993
 void TComponent::InsertChild([[maybe_unused]] TComponent *Child)
 {
-	TERROR(993, "not possible");
+	TERROR("not possible");
 }
 
 // 0x49b570, line 1001
 void TComponent::AppendChild([[maybe_unused]] TComponent *Child)
 {
-	TERROR(1001, "not possible");
+	TERROR("not possible");
 }
 
 // 0x49b690, line 1009
 void TComponent::RemoveChild([[maybe_unused]] TComponent *Child)
 {
-	TERROR(1009, "not possible");
+	TERROR("not possible");
 }
 
 // 0x49b7b0, line 1017
 void TComponent::DeleteChild([[maybe_unused]] TComponent *Child)
 {
-	TERROR(1017, "not possible");
+	TERROR("not possible");
 }
 
 // 0x49b8d0, line 1025
 void TComponent::InsertChildAfter([[maybe_unused]] TComponent *Previous, [[maybe_unused]] TComponent *Child)
 {
-	TERROR(1025, "not possible");
+	TERROR("not possible");
 }
 
 // Line 1033 has no function in the binary (removed by the linker).
@@ -1726,13 +1726,13 @@ void TComponent::InsertChildAfter([[maybe_unused]] TComponent *Previous, [[maybe
 // 0x49b9f0, line 1041
 void TComponent::SwapChildren([[maybe_unused]] TComponent *Child1, [[maybe_unused]] TComponent *Child2)
 {
-	TERROR(1041, "not possible");
+	TERROR("not possible");
 }
 
 // 0x49bb10, line 1049
 bool TComponent::IsChild([[maybe_unused]] TComponent *Child)
 {
-	TERROR(1049, "not possible");
+	TERROR("not possible");
 }
 
 // 0x49bc30, lines 1057-1066. The assertion comes before the try block.
@@ -1783,7 +1783,7 @@ void TComponent::Draw(int Surface, int x, int y)
 			  << " DrawingList.y: " << DrawingList[i].y << " DrawingList.width: " << DrawingList[i].width
 			  << " DrawingList.height: " << DrawingList[i].height << " DrawingList.srcx: "
 			  << DrawingList[i].srcx << " DrawingList.srcy: " << DrawingList[i].srcy << ")";
-			TERROR(1140, s.str().c_str());
+			TERROR(s.str().c_str());
 		}
 		DrawSkin(Surface, DrawingList[i].x + x, DrawingList[i].y + y, DrawingList[i].width,
 			DrawingList[i].height, DrawingList[i].skin, DrawingList[i].srcx, DrawingList[i].srcy);

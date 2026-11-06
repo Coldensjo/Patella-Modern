@@ -218,7 +218,7 @@ const char *GetHelpText(int Handle)
 		TStringBuffer(HelpText, sizeof(HelpText)).Format("<B>Books and Scrolls<N>\n<br=5>To read or edit a book right-click on it and select \'Use\' from the context menu.");
 		break;
 	default:
-		TERROR1(354, "unknown handle", Handle);
+		TERROR1("unknown handle", Handle);
 	}
 	return HelpText;
 }
@@ -369,7 +369,7 @@ const char *GetEventHelpTitle(int Number)
 	case 14:
 		return "Level 20 and Security Information";
 	default:
-		TERROR1(602, "unknown hint", Number);
+		TERROR1("unknown hint", Number);
 	}
 }
 
@@ -407,7 +407,7 @@ const char *GetEventHelpText(int Number)
 	case 14:
 		return "<b>Congratulations!\n<br=7><n>You have reached level 20!\n<br=5>If you are a premium player and if your character has the necessary funds, you can now promote your character to the elite rank of his vocation!\n<br=7>We would like to take the opportunity to remind you that you should keep your account secure. Remember there might be people who try to steal it!\n<br=7>Please take a minute and read the following security hints carefully. For further information please see our website. \n<br=10>1.<INDENT=15>Never give your password and/or account number away! <INDENT=0>\n<br=2>2.<INDENT=15>Use a secure password.<INDENT=0>\n<br=2>3.<INDENT=15>Do not store account data on your computer.<INDENT=0>\n<br=2>3.<INDENT=15>Do not download modified clients or tools for Tibia!<INDENT=0>\n<br=2>4.<INDENT=15>Do not share or trade accounts!<INDENT=0>\n<br=2>5.<INDENT=15>Protect your computer.<INDENT=0>\n<br=2>6.<INDENT=15>Keep an eye on the registered email address.<INDENT=0>\n<br=2>7.<INDENT=15>Personalise your account!<INDENT=0>\n<br=2>";
 	default:
-		TERROR1(691, "unknown hint", Number);
+		TERROR1("unknown hint", Number);
 	}
 }
 

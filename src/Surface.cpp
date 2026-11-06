@@ -202,7 +202,7 @@ void SurfaceInitInstance(HWND *Window)
 			Surface = nullptr;
 		}
 	} catch (...) {
-		throw (PROGRAM_ERROR)12;
+		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
 	SetEngine(Engine);
 }
@@ -252,7 +252,7 @@ void SurfaceInitInstance(HWND *Window)
 			}
 		}
 	} catch (...) {
-		throw (PROGRAM_ERROR)12;
+		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
 	HDC Context = GetDC(*Window);
 	// clang-format off
@@ -272,7 +272,7 @@ void SurfaceInitInstance(HWND *Window)
 			return;
 		DescribePixelFormat(Context, Number, sizeof(PIXELFORMATDESCRIPTOR), &Format);
 	} catch (...) {
-		throw (PROGRAM_ERROR)12;
+		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
 	if ((Format.dwFlags & PFD_GENERIC_ACCELERATED) == 0 && (Format.dwFlags & PFD_GENERIC_FORMAT) == 0
 		&& IsOpenGLWorking(Context)) {

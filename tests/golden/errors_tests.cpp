@@ -10,8 +10,9 @@
 // golden_eh.cpp CompareThrown): thrown or not, and the kind (TMyException, a
 // PROGRAM_ERROR with its value, another type). Until then the messages were
 // compared in full, the line numbers too (issue #35). TestMyException still
-// compares TMyException's two constructors' texts for random arguments (the
-// formatting of the class itself, not the texts of the sites).
+// compares the texts of TMyException's two constructors for random arguments
+// (the formatting itself, not the texts of the sites): since issue #80 ours
+// are patella::ErrorText's two forms and ErrorOrigin (TMyException.h).
 //
 // DIFFTEST_ONLY=Errors runs this test alone; ER_TRACE=1 prints every compared
 // exception, ER_SEED=<n> changes the random inputs.
@@ -215,7 +216,11 @@ void TestMyException()
 		std::string File = RandomFile(), Kind = RandomPart(30), Name1 = ErRandom() % 2 ? RandomPart(20) : "",
 					Name2 = ErRandom() % 2 ? RandomPart(20) : "", Last = ErRandom() % 2 ? RandomPart(40) : "";
 		int Line = RandomValue(), Value1 = RandomValue(), Value2 = RandomValue();
-		TMyException Ours(File, Line, Kind, Name1, Value1, Name2, Value2, Last);
+		// Ours: ErrorText's two forms and ErrorOrigin (the original's constructors' formatting, issue #80), the
+		// original's message and origin.
+		TMyException Ours(patella::ErrorText(File, Line, Kind, Name1, Value1, Name2, Value2, Last),
+			PATELLA_SOURCE_LOCATION());
+		const std::string OurOrigin = patella::ErrorOrigin(File, Line);
 #if GOLDEN_ORACLE
 		TImageException Original;
 		{
@@ -226,15 +231,18 @@ void TestMyException()
 #endif
 		const std::string Message = OriginalString("message", ORIGINAL_OR(Original.Message(), std::string()));
 		const std::string Origin = OriginalString("origin", ORIGINAL_OR(Original.Origin(), std::string()));
-		CHECK(Ours.GetMessage() == Message && Ours.GetOrigin() == Origin,
+		CHECK(Ours.GetMessage() == Message && OurOrigin == Origin,
 			"TMyException(\"%s\", %d, \"%s\", ...): \"%s\" (\"%s\"), original \"%s\" (\"%s\")", File.c_str(), Line,
-			Kind.c_str(), Ours.GetMessage().c_str(), Ours.GetOrigin().c_str(), Message.c_str(), Origin.c_str());
+			Kind.c_str(), Ours.GetMessage().c_str(), OurOrigin.c_str(), Message.c_str(), Origin.c_str());
 
 		// The wrapping constructor on both.
 		std::string File2 = RandomFile(), Kind2 = RandomPart(20), Name3 = ErRandom() % 2 ? RandomPart(10) : "",
 					Name4 = ErRandom() % 2 ? RandomPart(10) : "";
 		int Line2 = RandomValue(), Value3 = RandomValue(), Value4 = RandomValue();
-		TMyException OurOuter(File2, Line2, Kind2, Name3, Value3, Name4, Value4, Ours);
+		// The wrapped exception's origin is the inner one's (the original's; ours has no origin, the message names
+		// the inner site).
+		TMyException OurOuter(patella::ErrorText(File2, Line2, Kind2, Name3, Value3, Name4, Value4, Ours),
+			PATELLA_SOURCE_LOCATION());
 #if GOLDEN_ORACLE
 		TImageException OriginalOuter;
 		{
@@ -246,9 +254,9 @@ void TestMyException()
 		const std::string OuterMessage = OriginalString("outer message",
 			ORIGINAL_OR(OriginalOuter.Message(), std::string()));
 		const std::string OuterOrigin = OriginalString("outer origin", ORIGINAL_OR(OriginalOuter.Origin(), std::string()));
-		CHECK(OurOuter.GetMessage() == OuterMessage && OurOuter.GetOrigin() == OuterOrigin,
+		CHECK(OurOuter.GetMessage() == OuterMessage && OurOrigin == OuterOrigin,
 			"TMyException(\"%s\", %d, \"%s\", ..., inner): \"%s\" (\"%s\"), original \"%s\" (\"%s\")", File2.c_str(),
-			Line2, Kind2.c_str(), OurOuter.GetMessage().c_str(), OurOuter.GetOrigin().c_str(), OuterMessage.c_str(),
+			Line2, Kind2.c_str(), OurOuter.GetMessage().c_str(), OurOrigin.c_str(), OuterMessage.c_str(),
 			OuterOrigin.c_str());
 	}
 }
@@ -588,7 +596,7 @@ void TestPlayer()
 		std::string File = RandomFile(), Kind = RandomPart(30), Name1 = ErRandom() % 2 ? RandomPart(20) : "",
 					Last = RandomPart(60);
 		int Line = RandomValue(), Value1 = RandomValue();
-		TMyException Ours(File, Line, Kind, Name1, Value1, "", 0, Last);
+		TMyException Ours(patella::ErrorText(File, Line, Kind, Name1, Value1, "", 0, Last), PATELLA_SOURCE_LOCATION());
 #if GOLDEN_ORACLE
 		TImageException Original;
 		{
@@ -685,7 +693,7 @@ void TestPlayer()
 		OriginalCaption = OriginalString("program error caption", OriginalCaption);
 		App->Terminating = Terminating;
 		FatalText = FatalCaption = "(none)";
-		UntilFatalError([&] { App->HandleProgramError((PROGRAM_ERROR)Code); });
+		UntilFatalError([&] { App->HandleProgramError(static_cast<PROGRAM_ERROR>(Code)); });
 		CHECK(FatalText == OriginalText && FatalCaption == OriginalCaption,
 			"HandleProgramError(%d): FatalError(\"%s\", \"%s\"), original (\"%s\", \"%s\")", Code, FatalText.c_str(),
 			FatalCaption.c_str(), OriginalText.c_str(), OriginalCaption.c_str());

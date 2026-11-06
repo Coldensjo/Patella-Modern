@@ -84,7 +84,7 @@ template <class FO, class FI> bool ControlBoth(const char *What, FO Ours, FI Ima
 {
 	auto Wrapped = [&] {
 		if (!RunUntilStructuredException([](void *F) { (*static_cast<FO *>(F))(); }, &Ours))
-			throw TMYEXCEPTION(0, "unknown exception occurred", "", 0, "", 0, "");
+			throw TMYEXCEPTION("unknown exception occurred", "", 0, "", 0, "");
 	};
 	return Both(What, Wrapped, Image);
 }
@@ -285,7 +285,7 @@ static const HWND TestWindow = (HWND)(uintptr_t)0x13572468;
 // --- Failure kinds -----------------------------------------------------------------
 
 // What the FailAt-th call throws: 0 the side's TMyException, 1 a structured
-// exception (catch (...) of both sides), 2 a PROGRAM_ERROR of the side.
+// exception (catch (...) of both sides), 2 a PROGRAM_ERROR of the side (ours in a TProgramError, issue #80).
 static int FailKind;
 static uint32 ThrownError;
 static void ControlThrow()
@@ -298,7 +298,7 @@ static void ControlThrow()
 		if (Side == IMAGE)
 			At<void(__stdcall *)(void *, void *)>(0x511d2b)(&ThrownError, (void *)(uintptr_t)0x57b3c4);
 #endif
-		throw (PROGRAM_ERROR)ThrownError;
+		throw TProgramError{static_cast<PROGRAM_ERROR>(ThrownError)};
 	}
 	SideThrow();
 }
@@ -567,7 +567,7 @@ static void MouseMoveAsWrapped(int x, int y)
 {
 	try {
 		MouseMove(x, y);
-	} catch (PROGRAM_ERROR) {
+	} catch (const TProgramError &) {
 		throw;
 	} catch (...) {
 		static_cast<void>(GetActionState());

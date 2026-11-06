@@ -57,7 +57,7 @@ TCaught Caught(Function Assertion)
 	try {
 		Assertion();
 	} catch (const TMyException &Exception) {
-		return {Exception.GetMessage(), Exception.GetOrigin()};
+		return {Exception.GetMessage(), patella::ErrorOrigin(Exception)};
 	} catch (...) {
 		FAIL("not a TMyException");
 	}

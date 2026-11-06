@@ -152,7 +152,7 @@ void LoadSprites(const char *FileName)
 			Sprites[i].Offset = File.readQuad();
 		File.close();
 	} catch (TMyException &) {
-		throw (PROGRAM_ERROR)2;
+		throw TProgramError{PROGRAM_ERROR::SPRITES_FILE};
 	}
 }
 
@@ -204,7 +204,7 @@ void LoadSprite(int SpriteNumber, uint8 *Buffer)
 			}
 			File.close();
 		} catch (TMyException &) {
-			throw (PROGRAM_ERROR)4;
+			throw TProgramError{PROGRAM_ERROR::SPRITES_DATA};
 		}
 	}
 }
@@ -237,7 +237,7 @@ void LoadPictures(const char *FileName)
 		}
 		File.close();
 	} catch (TMyException &) {
-		throw (PROGRAM_ERROR)3;
+		throw TProgramError{PROGRAM_ERROR::PICTURES_FILE};
 	}
 }
 
@@ -277,7 +277,7 @@ void LoadPictureTile(int PictureNumber, int TileX, int TileY, uint8 *Buffer)
 		}
 		File.close();
 	} catch (TMyException &) {
-		throw (PROGRAM_ERROR)5;
+		throw TProgramError{PROGRAM_ERROR::PICTURES_DATA};
 	}
 }
 

@@ -39,8 +39,9 @@ struct TThrown {
 		OTHER } Kind;
 	std::string Type; // the decorated name of the thrown type, ".?AVTMyException@@"
 	int Code;         // the PROGRAM_ERROR value
-	// TMyException::GetMessage() and GetOrigin(), for the failure reports only (not compared; the runner has
-	// none for the original, the corpus does not record them).
+	// The message and the origin (TMyException::GetMessage() and patella::ErrorOrigin(), the image's message and
+	// origin), for the failure reports only (not compared; the runner has none for the original, the corpus does not
+	// record them).
 	std::string Message;
 	std::string Origin;
 	TThrown() : Kind(NOTHING), Code(0) {}
@@ -52,17 +53,19 @@ struct TThrown {
 	std::string Describe() const; // for failure reports
 };
 
-// Our side: catches PROGRAM_ERROR, TMyException and the rest.
+// Our side: catches TProgramError, TMyException and the rest. Since issue #80 ours throws a PROGRAM_ERROR inside
+// TProgramError where the original throws the bare enum (ThrowInfo 0x57b3c4): both are the kind PROGRAMERROR with the
+// value, under the original's type name, so a check compares what it compared before (the kind and the value). A bare
+// PROGRAM_ERROR of ours, which nothing throws, would be OTHER and fail.
 TThrown ThrownOf(const TMyException &Exception);
+TThrown ThrownOf(const TProgramError &Error);
 template <class F> TThrown OurThrow(F Function)
 {
 	TThrown Result;
 	try {
 		Function();
-	} catch (PROGRAM_ERROR Error) {
-		Result.Kind = TThrown::PROGRAMERROR;
-		Result.Type = ".?AW4PROGRAM_ERROR@@";
-		Result.Code = (int)Error;
+	} catch (const TProgramError &Error) {
+		Result = ThrownOf(Error);
 	} catch (TMyException &Exception) {
 		Result = ThrownOf(Exception);
 	} catch (...) {

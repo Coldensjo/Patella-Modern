@@ -10857,3 +10857,136 @@ docs only, no src/ change.
   --runs 2`: exit 0, a-h pass. `python -I tools/testserver.py start --timeout 1` on the real server: both attempts
   timed out, each server stopped by Ctrl+C, the logs kept as server-attempt1.log and server-attempt2.log, exit 1, no
   server left. Logs: build/logs/issue-68 of the branch's worktree.
+
+## TMyException with a source location, TProgramError, std::expected (Patella-Modern issue #80)
+
+Settled by Claude Opus 5.5, November 6, 2026; M5 (notes/modernization-plan.md, 7 M5: "`TMyException` shrinks to a
+message and a `std::source_location`. `PROGRAM_ERROR` becomes an `enum class` carried by its own exception type.
+Recoverable failures (a file that does not load, a host that does not resolve) return `std::expected<T, TError>`"),
+after #76 (outcome-only comparison), #78 (TBEGIN/TEND deleted) and #79 (PATELLA_ASSERT).
+
+### The split (high)
+
+One branch (issue-80), one commit per part, each built and scanned on its own:
+
+- **80a**: TMyException becomes a message and a source location; TMYEXCEPTION, TERROR* and PATELLA_ASSERT's failure
+  functions build it; the line arguments of the sites go.
+- **80b**: PROGRAM_ERROR becomes an `enum class` with named values, thrown inside `TProgramError`; every throw and
+  catch changes with it; golden_eh's OurThrow maps a TProgramError to the kind the original's bare enum has.
+- **80c**: the recoverable failures return `std::expected<T, TError>`, or are documented with a plan when that is
+  too risky in this issue.
+
+### 80a: TMyException, a message and a source location (high)
+
+- **The class** (src/TMyException.h): `TMyException(std::string Message, const patella::TSourceLocation &Location)`,
+  `GetMessage()`, `GetLocation()`, the virtual destructor kept (RTTI; the thrown type's name stays
+  `.?AVTMyException@@`, which golden_eh compares). The old fields are gone: the Origin string ("<file> <line>" of the
+  site that first raised the error) had error.txt's report (#74) as its only reader; File, Line, Kind, the two named
+  values and the reason are folded into the message, whose format is unchanged: `patella::ErrorText` is the text of
+  the original constructor 0x508400 ("<file> <line>: <Kind>[ (<N1> = <V1>)][ (<N2> = <V2>)][, reason:\n<Reason>]", the
+  file without its path) and of the wrapping one 0x5086a0 (the inner message always appended), `ErrorOrigin` the old
+  origin's text for the tests' comparison and the failure reports. `patella::MakeError(Location, Kind, N1, V1, N2, V2,
+  Reason | Inner)` builds the exception for TMYEXCEPTION, the TERROR* macros and PATELLA_ASSERT's failure functions.
+- **The layout** (high): nothing compared depends on it. The image's TMyException (vtable, two VC7.1 strings of 0x1c
+  bytes, 0x3c bytes) never had our layout (MSVC 19's std::string is 0x18 bytes on x86): the tests keep the two sides'
+  exceptions apart (ThrowSideAssertion, ImageSideVtable), imageeh.cpp reads the image's by its own offsets, difftest's
+  crash report reads ours as our class. No static_assert names its size. So no same-size replacement is needed.
+- **The sites**: TMYEXCEPTION(Kind, N1, V1, N2, V2, Reason) and TERROR, TERROR1, TERROR2, TERROR_REASON,
+  TERROR1_REASON and MapWindow.cpp's TERROR1B lose their first argument, the original's line (as TASSERT* did in #79):
+  the site's own `PATELLA_SOURCE_LOCATION()` replaces it. A script (scratch, never committed) removed it at 132 sites
+  in 22 files (src/ and control_tests.cpp), comments skipped; the lines stay in git history, the image and the
+  comments that name a function's lines. The throw stays inline at each site (`throw TMYEXCEPTION(...)`); the text
+  parameters are string_views.
+- **The box and the log** (tier A unchanged): HandleException still shows TextCriticalError in "Tibia Error - Debug
+  Assertion" and logs `[error] Debug Assertion 7.72 <message>`; the message's format is the same, its lines are our
+  own now (the error session's line under "The gates").
+- **The tests**: errors_tests.cpp's TestMyException compares ErrorText (both forms) and ErrorOrigin with the
+  original's constructors for the same 2,000 random arguments, as it compared the constructors (the same checks, the
+  same corpus records); its HandleException part builds ours from ErrorText. golden_eh's ThrownOf and OurSideAssertion
+  use ErrorOrigin and ErrorText. tests_core's Container and Utils tests compare messages as "<file> N: ..." (their
+  TERROR lines are ours now). New: tests/unit/exception_test.cpp (5 cases, both unit builds).
+
+### 80b: PROGRAM_ERROR as an enum class in TProgramError (high)
+
+- `enum class PROGRAM_ERROR : int` with names of ours after GetErrorText's texts and the sites (OBJECTS_FILE 1,
+  SPRITES_FILE 2, PICTURES_FILE 3, SPRITES_DATA 4, PICTURES_DATA 5, SOCKET_INIT 6, DIRECTX_INIT 7, COLOR_DEPTH 8,
+  CLIPPER 9, COOPERATIVE_LEVEL 10, DISPLAY_MODE 11, SURFACE 12 (the primary surface and the generic code),
+  SCREEN_SURFACE 13, TEMP_SURFACE 14, STRETCH_SURFACE 15, CACHE_SURFACE 16, AUTOMAP_SURFACE 17, SPRITE_SURFACE 18), and
+  `struct TProgramError { PROGRAM_ERROR Code; }`, 4 bytes, trivially copyable (static_asserts in every build).
+- 62 throws became `throw TProgramError{PROGRAM_ERROR::...}` (11 files, SurfaceVulkan.cpp among them), the 7 catches
+  `catch (const TProgramError &Error)` (Control.cpp's InitControl, the three ResetDisplays, Player.cpp's InitInstance
+  and Run): a rethrow is `throw Error;`, a copy, as before. HandleProgramError(PROGRAM_ERROR) shows the code as an int
+  (the same box text; sysinc.cpp's GetErrorText/GetErrorHint keep their int parameter, compared with the original's).
+- **The golden_eh mapping**: OurThrow catches `const TProgramError &` first, and ThrownOf(TProgramError) gives it the
+  kind PROGRAMERROR, the type name of the original's bare enum (`.?AW4PROGRAM_ERROR@@`) and the value: what
+  imageeh.cpp's ImageFilter gives the original's throw. So every check compares what it did (the kind and the value),
+  and the corpus records the same. A bare PROGRAM_ERROR of ours (nothing throws one) would be OTHER and fail.
+  control_tests.cpp's ControlThrow throws ours in a TProgramError on our side (the image side still throws the image's
+  enum through its own _CxxThrowException); MouseMoveAsWrapped catches `const TProgramError &`. No image code catches
+  an exception of ours or the reverse (the sides' throws are apart, as for TMyException).
+- The tidy baseline loses cppcoreguidelines-use-enum-class's PROGRAM_ERROR entry (4 to 3). New: tests_core's
+  core_errors_test.cpp (3 cases: TERROR*, TMYEXCEPTION's wrap, TProgramError caught neither as the enum nor as a
+  TMyException).
+
+### 80c: the recoverable failures (high)
+
+`src/compat/expected.h`: `patella::TExpected<T, E>` and `TUnexpected<E>` are std::expected and std::unexpected where
+the library has them (every product preset), a C++17 stand-in in the oracle (and with PATELLA_EXPECTED_STANDIN in
+tests_unit_cxx26_standin). `TError { std::string Message; TSourceLocation Location; }` (TMyException.h) is what a
+TMyException would carry; `TMyException(TError)` throws it after all; `MakeFailure` and common.h's
+`TUNEXPECTED_REASON(Message, Reason)` build one. The paths, by how the client recovers:
+
+| Path | Returns now | Comparison boundary |
+| --- | --- | --- |
+| TReadScriptFile, TWriteScriptFile, TReadBinaryFile, TWriteBinaryFile `TryOpen` (Script.cpp): "file still open", "failed to open file" | `TExpected<void, TError>` | `open`, which the original exposes and errors_tests compares directly, keeps throwing: `if (!TryOpen(...)) throw TMyException(error)`. The checks are unchanged. |
+| LoadAutomapBlock (Map.cpp): a map file that does not open, an empty block | tests `TryOpen(...).has_value()` instead of catching open's TMyException | Nothing else in open throws a TMyException (TFile::Open and the copies are noexcept), so the outcome is the same; map_tests compare the function as before. A damaged file (the reads) still throws inside and is caught there: the reads are the original's throwing functions, compared one by one. |
+| SaveAutomapBlock (Map.cpp): a map file that does not open, nothing written | the same | The same; the writes' failures stay caught. |
+| InitPreferences, SavePreferences (Preferences.cpp): Tibia.cfg missing or malformed, the defaults or nothing | unchanged: catch (TMyException &) | The failure comes from anywhere in the tokenizer (TReadScriptFile::error and the TERRORs of compared functions); the catch is the recovery boundary. |
+| ResolveHostname, CreateSocket, ConnectSocket (Network.cpp): a host that does not resolve, a socket that does not connect | unchanged: bool, a WinSock code | They never threw; their returns are the original's, compared directly. |
+| The fatal paths (InitObjects, the graphics loaders, the surfaces) | unchanged: TProgramError | Not recoverable: they end the client. |
+
+New: tests/unit/expected_test.cpp (5 cases, both paths). compat/expected.h is in the header checks (core and oracle).
+
+### SafeSEH (high)
+
+While the branch was built, the scratch scanner of #79 (C:/Tibia/Patella-Modern/build/tools-scratch, C++ EH
+prologues only) found 0 findings on main and after each of 80a, 80b and 80c. After #89 was merged into the branch,
+the gate's `python -I tools/safeseh_scan.py` (C++ EH, `__EH_prolog3`, SEH3/SEH4 frames) on oracle-x86's difftest,
+sysinctest, communicationtest, vlongtest and Patella.exe: main (74371d2's images, built in this worktree) 0 findings
+(1674 handlers/2821 registrations, 84/107, 1026/1040, 28/41, 1119/1867), the branch 0 (1667/2784, 84/107, 958/972,
+28/41, 1093/1806: fewer C++ EH frames, as the throws are smaller); CTest's safeseh passes (5/5). Logs:
+build\logs\issue-80\safeseh89-main.log, safeseh89-branch.log.
+
+### The images (high)
+
+Main (74371d2) and the branch built in this worktree, Release, function by function through the PDBs (scratch
+funcs.py: `dumpbin /disasm:nobytes`, 6+-digit hex numbers and labels masked, never committed). x64 Patella.exe: 13,946
+to 13,943 functions; 184 changed, 104 gone, 101 new. Of the changed, 109 contain a throw or catch of the sites (they
+call MakeError, ErrorText or AssertionFailed, or throw), 36 are catch/unwind funclets, 6 are 80c's (the opens and
+the automap load/save). The other 33 were all diffed: switch functions whose jump table moved (an image-relative
+displacement and the table's bytes after the code: GetErrorText, GetErrorHint, GetOutfitColor, Redraw, the KeyPress
+and HandleEvent switches...), catch sites whose frame shrank with the smaller TERRORs (SendCommand, SetSymmetricKey,
+AddLightSource, InitInstance, Run), GetFileName (string_view), and library code (the CRT's str*, VMA, ATL,
+vk-bootstrap). Gone/new: the old constructors and funclets renumbered; new: ErrorText, MakeError, MakeFailure, the
+TryOpens, TMyException's two constructors, std::expected's destructor. x86 (oracle-x86's Patella.exe): 11,369 to
+11,377; 254 changed, 5 gone, 13 new: 147 throw/catch, 4 80c, 103 others: padding and table bytes after the last
+instruction (SetAutomapZoom, InitHotkeys, ExitGraphics, ChangeMode, TConsole's constructor...: only int 3 runs or a
+jump table differ) and MFC/CRT library code, as in #79. No sampled function changed in its own logic. Logs:
+build\logs\issue-80\pecompare-x64.txt and pecompare-x86.txt.
+
+### The gates (high)
+
+`python -I tools/build.py oracle-x86` (after the merge of main c6637c8, #89): difftest 16,459,337, sysinctest 67,
+communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 5/5 with safeseh (unchanged counts: no check counts a
+text, and golden_eh's mapping keeps each PROGRAM_ERROR check). windows-x64 14/14, windows-x64-debug and
+windows-x64-asan 13/13 (no ASan finding): golden on main's corpus 15,803,203 replayed + 1,512,822 retired =
+17,316,025, 0 failures (nothing recorded: the corpus has the outcome and the original's texts only).
+windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11. 0 warnings on every preset. tests_unit 72 to 82 cases on
+MSVC (10,166 to 10,215 assertions; the stand-in 10,170 to 10,219) and mingw-w64 GCC (10,212 / 10,216), 81 on Linux
+(GCC 10,197 / 10,201, Clang 10,195 / 10,201); tests_core 42 to 45 cases (404 assertions on Windows, 407 on Linux).
+tidy_ci 3 findings in 3 entries (the baseline 4 to 3, nothing new; expected.h's `<utility>` moved into the stand-in
+for misc-include-cleaner), 0 bugprone; banned_calls 0; clang-format clean. `python -I tools/reference.py compare
+--reference C:/Tibia/Patella-Modern/build/reference`: every session matches (error with #74's deliberate
+differences); the box text is the same, the error session's log line is "[error] Debug Assertion 7.72 Player.cpp
+375: exception occurred, reason:\nControl.cpp 776: unknown packet type during game (Type = 255)" (our own lines since
+80a; #79's run named the original's 383 and 1274). Logs: build\logs\issue-80.

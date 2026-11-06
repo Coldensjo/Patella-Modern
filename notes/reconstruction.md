@@ -27,9 +27,10 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
 - `TASSERT_FAILED(line, "expr", "name", value)`: a failed assertion with one value, written
   `PATELLA_ASSERT_VALUES(expr, name)` (TASSERT1(line, expr, name) until issue #79). The expression text is the
   original source text; the line is the original's (issue #35), which the source no longer names.
-- `TERROR(line, "message", "name", value)`: `TERROR1(line, "message", name)`.
+- `TERROR(line, "message", "name", value)`: `TERROR1("message", name)` (TERROR1(line, "message", name) until issue
+  #80; the line is the site's own source location now).
 - After most functions come three catch blocks, the original's catch wrapper around the body: a 20-byte
-  one re-throws a `PROGRAM_ERROR`, a `TRETHROW(line, "names"...)` one and a `TERROR(line, "unknown exception
+  one re-throws a `PROGRAM_ERROR` (ours: a `TProgramError`, issue #80), a `TRETHROW(line, "names"...)` one and a `TERROR(line, "unknown exception
   occurred", ...)` one wrap the exception with the line and the function's parameters (or expressions of
   them). The reconstruction does not write them (src/common.h; until Patella-Modern issue #78 they were the
   macros TBEGIN and TEND, TEND1, TEND2): the function's comment names their line, and an exception passes to the
@@ -180,8 +181,12 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   section 7 lists every raw owner with the milestone that unblocks it.
 - Use the error macros exactly where the binary has the corresponding blocks: `PATELLA_ASSERT(expr)` and
   `PATELLA_ASSERT_VALUES(expr, value[, value])` (`src/compat/assertion.h`, issue #79: no line argument, the
-  assertion's own source location; TASSERT* until then) and `TERROR*` (`src/common.h`, with the original's line); the catch wrappers are not written (above), a handler of the function's own (its own
-  message or recovery) is.
+  assertion's own source location; TASSERT* until then) and `TERROR*` (`src/common.h`; since issue #80 without the
+  original's line, the site's own source location); the catch wrappers are not written (above), a handler of the function's own (its own
+  message or recovery) is. A thrown error code is `throw TProgramError{PROGRAM_ERROR::...}` (the original throws the
+  bare enum; issue #80), caught as `const TProgramError &`. A failure the caller recovers from may be returned as
+  `patella::TExpected<T, TError>` (`src/compat/expected.h`, issue #80) behind the function the original exposes,
+  which still throws (Script.cpp's TryOpen behind open).
 - Behaviour must match the binary exactly, including odd behaviour (for example
   `ConnectToGameServer` connects even when `CreateSocket` failed). Note such cases in a
   comment; do not fix them.
@@ -1016,7 +1021,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 |---|---|
 | Network.cpp | Reconstructed, compile-checked; catch types and try ranges checked against the exception tables. Every function differentially tested and its error paths (issue #37: networktest.cpp, tests/golden/network_tests.cpp since Patella-Modern issue #30, compiles the file in, fakes MFC's CAsyncSocket and AfxSocketInit at the calls into MFC, ws2_32 through both import tables, Status.cpp and rand() on both sides; random operations with server frames in pieces, coalesced, empty, with wrong inner lengths, failures of every socket call; logs, every static and both buffers compared; an error round over 50 of the 54 error sites, the other four not reachable; a mutation check of 15 changes, all detected). The real clients against crafted and fuzzed server streams: tools/compare_network.py (notes/network.md). No difference. |
 | Utils.cpp | Reconstructed; every function differentially tested against the original code, the assertions too (issue #22). |
-| TMyException.cpp | Reconstructed (name of the file inferred); message format from the assembly; both constructors differentially tested on random inputs (issue #22). |
+| TMyException.cpp | Reconstructed (name of the file inferred); message format from the assembly; both constructors differentially tested on random inputs (issue #22). Since issue #80 TMyException is a message and a source location; the constructors' formatting is patella::ErrorText (both forms) and ErrorOrigin, compared with the original's constructors as before. |
 | TRSA.cpp | Reconstructed (name inferred); RSA output checked against Python. |
 | TXTEA.cpp | Reconstructed (name inferred); differentially tested. |
 | vlong.cpp | Reconstructed from George Barwood's vlong with CipSoft's changes; checked against Python. |

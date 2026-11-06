@@ -34,7 +34,18 @@ TThrown ThrownOf(const TMyException &Exception)
 	// filter of imageeh.cpp); spelled out, the same on every compiler.
 	Result.Type = ".?AVTMyException@@";
 	Result.Message = Exception.GetMessage();
-	Result.Origin = Exception.GetOrigin();
+	Result.Origin = patella::ErrorOrigin(Exception); // "<file> <line>" of the site that threw it (issue #80)
+	return Result;
+}
+
+TThrown ThrownOf(const TProgramError &Error)
+{
+	TThrown Result;
+	Result.Kind = TThrown::PROGRAMERROR;
+	// The original's type (the image's throw information: the bare enum, ".?AW4PROGRAM_ERROR@@"), not
+	// TProgramError's: the kind is a PROGRAM_ERROR with its value on both sides (issue #80).
+	Result.Type = ".?AW4PROGRAM_ERROR@@";
+	Result.Code = static_cast<int>(Error.Code);
 	return Result;
 }
 
@@ -60,7 +71,8 @@ void OurSideAssertion(int Value)
 {
 	// GUI.cpp's TComponent::SetSize: PATELLA_ASSERT_VALUES(_Width>=0, _Width), with the original's line (the
 	// message names the file without its path; since issue #79 ours names our own line, which nothing compares).
-	throw TMyException("GUI.cpp", 1092, "assertion failed", "_Width", Value, "", 0, "_Width>=0");
+	throw TMyException(patella::ErrorText("GUI.cpp", 1092, "assertion failed", "_Width", Value, "", 0, "_Width>=0"),
+		PATELLA_SOURCE_LOCATION());
 }
 
 // ThrowSideAssertion is gui_tests.cpp's, in the oracle and (issue #28) in the runner.

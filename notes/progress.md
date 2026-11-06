@@ -300,6 +300,16 @@ exception-handler registrations (C++ EH prologues, SEH3/SEH4 frames, the CRT's g
 variants) and fails on a handler missing from the image's SafeSEH table or an image without one; names from the PDB
 or a map, else RVAs; `--self-test` on made-up PE32 images. oracle-x86's CTest test `safeseh` runs it on difftest,
 sysinctest, communicationtest, vlongtest and Patella.exe (CTest 5/5). notes/decisions.md, "The SafeSEH gate".
+TMyException with a source location, TProgramError, std::expected (Patella-Modern issue #80, branch issue-80, November 6,
+2026; M5): 80a: TMyException is a message and a std::source_location (the stand-in in the oracle's C++17); the
+original constructors' formatting is patella::ErrorText and ErrorOrigin, compared with the original's as before;
+TMYEXCEPTION, TERROR* and PATELLA_ASSERT build it through MakeError; the original's line argument is gone from 132
+sites. 80b: PROGRAM_ERROR is an enum class with named codes, thrown inside TProgramError (62 throws, 7 catches);
+golden_eh's OurThrow gives it the original's kind (a PROGRAM_ERROR with its value). 80c: compat/expected.h
+(std::expected, a C++17 stand-in) and TError; the four file classes' TryOpen return open's failures, open still
+throws them, the automap's load and save test the result; the other recoverable paths are listed with why they stay.
+difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); tidy baseline 4 to 3. notes/decisions.md, "TMyException with
+a source location, TProgramError, std::expected".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

@@ -124,7 +124,7 @@ TDeviceRequest TSurfaceVulkan::Request(HWND Window)
 
 void TSurfaceVulkan::Fail()
 {
-	throw (PROGRAM_ERROR)12;
+	throw TProgramError{PROGRAM_ERROR::SURFACE};
 }
 
 // surfaceDX9.cpp TestEngine: a device for the window, released again. Its surface is on a hidden child
@@ -554,7 +554,7 @@ void TSurfaceVulkan::ResetDisplay(int VMode, TFullscreenMode *GMode)
 	try {
 		InitDisplay(VMode, GMode);
 		CreateSurfaces();
-	} catch (PROGRAM_ERROR Error) {
+	} catch (const TProgramError &Error) {
 		try {
 			ExitDisplay();
 		} catch (...) {
@@ -950,7 +950,7 @@ void TSurfaceVulkan::CreateSurfaces()
 	if (!Initialized || !EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS, &Desktop))
 		Desktop.dmBitsPerPel = 0;
 	if (Desktop.dmBitsPerPel < 16)
-		throw (PROGRAM_ERROR)8;
+		throw TProgramError{PROGRAM_ERROR::COLOR_DEPTH};
 	if (ViewMode == FULLSCREEN_MODE) {
 		// Direct3D 9's fullscreen device sets the display mode; the window is already a popup over the
 		// whole screen (MainFrm.cpp SetDisplayMode).
@@ -963,7 +963,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		Mode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 		if (ChangeDisplaySettingsA(&Mode, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL) {
 			InitStep = 1;
-			throw (PROGRAM_ERROR)12;
+			throw TProgramError{PROGRAM_ERROR::SURFACE};
 		}
 		DisplayModeSet = true;
 	}
@@ -1030,7 +1030,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		Renderer.reset();
 		PresentWindows.Retire();
 		InitStep = 1;
-		throw (PROGRAM_ERROR)12;
+		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
 	// A new device draws into the back buffer and has no texture; the numbers above stay as they were
 	// (surfaceDX9.cpp's statics outlive the device).

@@ -598,7 +598,7 @@ const char *GetRightName(int rightid)
 	case 30: return "Spoiling auction";
 	case 31: return "Invalid payment";
 	default:
-		TERROR1(165, "unknown right", rightid);
+		TERROR1("unknown right", rightid);
 	}
 }
 
@@ -615,7 +615,7 @@ const char *GetActionName(int actionid)
 	case 6: return "Statement Report";
 	case 7: return "IP Banishment";
 	default:
-		TERROR1(183, "unknown action", actionid);
+		TERROR1("unknown action", actionid);
 	}
 }
 

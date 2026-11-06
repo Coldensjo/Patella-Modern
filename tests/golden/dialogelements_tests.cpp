@@ -1085,7 +1085,7 @@ template <class F> static void Both(F Function)
 			try {
 				Function(s);
 			} catch (TMyException &E) {
-				printf("DialogElements: our side threw: %s (%s)\n", E.GetMessage().c_str(), E.GetOrigin().c_str());
+				printf("DialogElements: our side threw: %s (%s)\n", E.GetMessage().c_str(), patella::ErrorOrigin(E).c_str());
 				fflush(stdout);
 				abort();
 			}

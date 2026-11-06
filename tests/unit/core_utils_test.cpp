@@ -14,12 +14,12 @@
 
 namespace {
 
-// An assertion's message names its own line since issue #79 (PATELLA_ASSERT: the line moves with the code), so it
-// is compared as "<file> N: assertion failed..."; an error's message keeps the original's line.
-std::string WithoutAssertionLine(const std::string &Message)
+// An assertion's message names its own line since issue #79 (PATELLA_ASSERT: the line moves with the code), an
+// error's (TERROR, TMYEXCEPTION) since issue #80, so a message is compared as "<file> N: ...".
+std::string WithoutLine(const std::string &Message)
 {
 	const std::string::size_type Space = Message.find(' ');
-	const std::string::size_type Colon = Message.find(": assertion failed");
+	const std::string::size_type Colon = Message.find(": ");
 	if (Space == std::string::npos || Colon == std::string::npos || Colon < Space)
 		return Message;
 	return Message.substr(0, Space + 1) + "N" + Message.substr(Colon);
@@ -30,7 +30,7 @@ std::string MessageOf(void (*Function)())
 	try {
 		Function();
 	} catch (const TMyException &Exception) {
-		return WithoutAssertionLine(Exception.GetMessage());
+		return WithoutLine(Exception.GetMessage());
 	}
 	return "no exception";
 }
@@ -188,9 +188,9 @@ TEST_CASE("Utils: packet buffers, little-endian")
 		In.GetQuad();
 		FAIL("no exception");
 	} catch (const TMyException &Exception) {
-		CHECK(WithoutAssertionLine(Exception.GetMessage())
+		CHECK(WithoutLine(Exception.GetMessage())
 			== "Utils.cpp N: assertion failed (Position = 14) (Size = 17), reason:\nPosition<=Size-4");
-		CHECK(Exception.GetOrigin().starts_with("Utils.cpp "));
+		CHECK(patella::ErrorOrigin(Exception).starts_with("Utils.cpp "));
 	}
 }
 

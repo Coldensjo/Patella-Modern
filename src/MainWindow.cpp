@@ -114,7 +114,7 @@ void TMainWindow::Draw(int Surface, int x, int y)
 		try {
 			TWindow::Draw(Surface, x, y);
 		} catch (...) {
-			throw (PROGRAM_ERROR)12;
+			throw TProgramError{PROGRAM_ERROR::SURFACE};
 		}
 		return;
 	}
@@ -591,7 +591,7 @@ void TMainWindow::OpenContentWindow(int Identifier) const
 			Window = CreateBuddylistWindow();
 			break;
 		default:
-			TERROR1(606, "unknown identifier", Identifier);
+			TERROR1("unknown identifier", Identifier);
 		}
 		DialogWindow->Rearrange(16, Window);
 	}

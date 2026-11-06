@@ -1,9 +1,9 @@
 // Shared definitions for the reconstructed Tibia 7.72 client.
 //
-// The error macros reproduce the client's error-trace pattern as seen in the
+// The error macros reproduce the client's error messages as seen in the
 // binary. Their names are ours; the strings they produce (expression text,
-// "assertion failed", "exception occurred", "unknown exception occurred",
-// file and line) match the original.
+// "assertion failed", "exception occurred", "unknown exception occurred")
+// match the original's, the file and line are the site's own (issues #79, #80).
 
 #pragma once
 
@@ -84,39 +84,77 @@ inline void Limit(int *Value, int Min, int Max)
 // Thrown by value (ThrowInfo at 0x57b3b4).
 #include "TMyException.h" // IWYU pragma: export
 
-// The client's second exception type: an error code thrown by value
-// (ThrowInfo 0x57b3c4, ".?AW4PROGRAM_ERROR@@"). The enumerator names are
-// unknown; values seen so far: 6 (AfxSocketInit failed, InitNetwork).
-enum PROGRAM_ERROR : int {
-	PROGRAM_ERROR_SOCKET_INIT = 6, // our name
+// The client's second exception: an error code, PROGRAM_ERROR, that
+// CPlayerApp::HandleProgramError shows with sysinc.cpp's texts. The original
+// throws the enum by value (ThrowInfo 0x57b3c4, ".?AW4PROGRAM_ERROR@@"); since
+// Patella-Modern issue #80 it is an enum class carried by its own exception
+// type, TProgramError (golden_eh.h's OurThrow gives it the original's kind:
+// a PROGRAM_ERROR with its value). The enumerator names are ours, after
+// GetErrorText's texts and the sites that throw them.
+enum class PROGRAM_ERROR : int {
+	OBJECTS_FILE = 1,  // "Cannot find file "Tibia.dat"." (InitObjects)
+	SPRITES_FILE = 2,  // "Cannot find file "Tibia.spr"." (the sprite offsets)
+	PICTURES_FILE = 3, // "Cannot find file "Tibia.pic"."
+	SPRITES_DATA = 4,  // "Cannot open file "Tibia.spr"." (a sprite's pixels)
+	PICTURES_DATA = 5, // "Cannot open file "Tibia.pic"."
+	SOCKET_INIT = 6,   // "Cannot initialize Windows Sockets." (InitNetwork)
+	DIRECTX_INIT = 7,  // "Cannot initialize DirectX."
+	COLOR_DEPTH = 8,   // "Too low color depth detected."
+	CLIPPER = 9,       // "Cannot initialize video graphics mode." (9-11)
+	COOPERATIVE_LEVEL = 10,
+	DISPLAY_MODE = 11,
+	SURFACE = 12, // "Video surface allocation failed." (12-18): the primary surface, and the generic code
+	SCREEN_SURFACE = 13,
+	TEMP_SURFACE = 14,
+	STRETCH_SURFACE = 15,
+	CACHE_SURFACE = 16,
+	AUTOMAP_SURFACE = 17,
+	SPRITE_SURFACE = 18,
 };
 static_assert(sizeof(PROGRAM_ERROR) == 4);
 static_assert(std::is_same_v<std::underlying_type_t<PROGRAM_ERROR>, int>);
+
+// A thrown PROGRAM_ERROR (issue #80). Caught by reference: catch (const
+// TProgramError &Error), Error.Code. The size of the original's thrown enum.
+struct TProgramError {
+	PROGRAM_ERROR Code;
+};
+static_assert(sizeof(TProgramError) == sizeof(PROGRAM_ERROR) && std::is_trivially_copyable_v<TProgramError>);
 
 // The assertions: PATELLA_ASSERT and PATELLA_ASSERT_VALUES (Patella-Modern issue
 // #79; until then three macros here, which named the original's line).
 #include "compat/assertion.h" // IWYU pragma: export
 
-// Every error site names the original's source line as its first argument, the
-// line the binary pushes for that site: TERROR1(1274, "unknown packet type
-// during game", Type). Since Patella-Modern issue #76 difftest and the golden
-// corpus compare the outcome only (thrown or not, and the kind), not the
-// messages. The file is __FILE__ (the messages name it without its path).
-#define TMYEXCEPTION(Line, Kind, N1, V1, N2, V2, Last) \
-	TMyException(__FILE__, Line, Kind, N1, (int)(V1), N2, (int)(V2), Last)
+// The error sites' exception (Patella-Modern issue #80): a TMyException with
+// ErrorText's message ("<file> <line>: <Kind>[ (<V1's text> = <V1>)]...[,
+// reason:\n<Reason>]") and the site's own source location, as PATELLA_ASSERT
+// has since issue #79. Until issue #80 every site named the original's source
+// line as its first argument (TERROR1(1274, "unknown packet type during game",
+// Type)); the lines stay in git history, in the image and in the comments that
+// name a function's lines. Since issue #76 difftest and the golden corpus
+// compare the outcome only (thrown or not, and the kind), not the messages.
+// TMYEXCEPTION's Reason is a text or a caught TMyException, whose message
+// becomes the reason (the original's wrapping constructor).
+#define TMYEXCEPTION(Kind, N1, V1, N2, V2, Reason) \
+	::patella::MakeError(PATELLA_SOURCE_LOCATION(), Kind, N1, (int)(V1), N2, (int)(V2), Reason)
 
-#define TERROR(Line, Message) \
-	throw TMYEXCEPTION(Line, Message, "", 0, "", 0, "")
-#define TERROR1(Line, Message, V1) \
-	throw TMYEXCEPTION(Line, Message, #V1, V1, "", 0, "")
-#define TERROR2(Line, Message, V1, V2) \
-	throw TMYEXCEPTION(Line, Message, #V1, V1, #V2, V2, "")
+#define TERROR(Message) \
+	throw TMYEXCEPTION(Message, "", 0, "", 0, "")
+#define TERROR1(Message, V1) \
+	throw TMYEXCEPTION(Message, #V1, V1, "", 0, "")
+#define TERROR2(Message, V1, V2) \
+	throw TMYEXCEPTION(Message, #V1, V1, #V2, V2, "")
 // An error with a text as its reason (Script.cpp: the file name), in the
 // place of an assertion's expression: "<Message>, reason:\n<Reason>".
-#define TERROR_REASON(Line, Message, Reason) \
-	throw TMYEXCEPTION(Line, Message, "", 0, "", 0, Reason)
-#define TERROR1_REASON(Line, Message, V1, Reason) \
-	throw TMYEXCEPTION(Line, Message, #V1, V1, "", 0, Reason)
+#define TERROR_REASON(Message, Reason) \
+	throw TMYEXCEPTION(Message, "", 0, "", 0, Reason)
+#define TERROR1_REASON(Message, V1, Reason) \
+	throw TMYEXCEPTION(Message, #V1, V1, "", 0, Reason)
+// TERROR_REASON's failure returned instead of thrown (issue #80): a
+// patella::TUnexpected<TError> for a function that returns a
+// patella::TExpected<T, TError> (compat/expected.h).
+#define TUNEXPECTED_REASON(Message, Reason) \
+	::patella::TUnexpected<TError>(::patella::MakeFailure(PATELLA_SOURCE_LOCATION(), Message, "", 0, "", 0, Reason))
 
 // The original's catch wrappers: until Patella-Modern issue #78 most functions
 // wrapped their body in a try block with three handlers, visible in the binary

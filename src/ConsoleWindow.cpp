@@ -304,7 +304,7 @@ void TTextWindow::HandleEvent(int Event)
 		SelectAll();
 		break;
 	default:
-		TERROR1(262, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 
@@ -674,7 +674,7 @@ void TConsole::Arrange()
 			  << ", InvisibleLines: " << TextWindow->InvisibleLines << ", FirstLineNumber: "
 			  << TextWindow->getFirstLineNumber() << ", TotalLines: "
 			  << TextWindow->getLastLineNumber() - TextWindow->getFirstLineNumber() + 1 << ")";
-		TERROR(753, Error.str().c_str());
+		TERROR(Error.str().c_str());
 	}
 	int Value = Maximum;
 	if (!ScrollToEnd && !TextWindow->AtEnd)
@@ -993,7 +993,7 @@ TWindow *TTabBar::GetContainer(TComponent *Child)
 		return LeftTabs;
 	if (RightTabs->IsChild(Child))
 		return RightTabs;
-	TERROR(1203, "failed to get composite");
+	TERROR("failed to get composite");
 }
 
 // 0x41cda0, lines 1215-1220. The help of the console (handle 23) for the
@@ -1505,7 +1505,7 @@ void TConsoleWindow::HandleEvent(int Event)
 		AddMessage(0x26, 0, 0);
 		break;
 	default:
-		TERROR1(1856, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 
@@ -1770,7 +1770,7 @@ void TConsoleWindow::SendInput()
 			AddChannelNotice(GetCreature(GetPlayerID())->Name, Text, TALK_GAMEMASTER_ANSWER, "", -1);
 			break;
 		default:
-			TERROR1(2170, "unknown talk mode", TalkMode);
+			TERROR1("unknown talk mode", TalkMode);
 		}
 	}
 	Input->Clear();
@@ -1858,7 +1858,7 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 			*TalkMode = TALK_PRIVATE_MESSAGE;
 		} else {
 			if (MessageSeparator != '@')
-				TERROR1(2258, "unknown message separator", (Word) MessageSeparator);
+				TERROR1("unknown message separator", (Word) MessageSeparator);
 			*TalkMode = TALK_GAMEMASTER_MESSAGE;
 		}
 	}

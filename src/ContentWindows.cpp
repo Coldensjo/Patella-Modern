@@ -800,7 +800,7 @@ void TPlayerStates::MouseHover(int x, int y)
 				Text = TextKilledTooMany;
 				break;
 			default:
-				TERROR1(973, "unknown skin", skin);
+				TERROR1("unknown skin", skin);
 			}
 			SetMouseOverText(Text);
 		}
