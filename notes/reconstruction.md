@@ -24,8 +24,9 @@ Regenerate after changes: `python -I tools/triage.py` (only when the raw decompi
 
 ## Reading the clean pseudocode
 
-- `TASSERT_FAILED(line, "expr", "name", value)`: a failed `TASSERT1(line, expr, name)`.
-  The expression text is the original source text; the line is the macro's first argument (issue #35).
+- `TASSERT_FAILED(line, "expr", "name", value)`: a failed assertion with one value, written
+  `PATELLA_ASSERT_VALUES(expr, name)` (TASSERT1(line, expr, name) until issue #79). The expression text is the
+  original source text; the line is the original's (issue #35), which the source no longer names.
 - `TERROR(line, "message", "name", value)`: `TERROR1(line, "message", name)`.
 - After most functions come three catch blocks, the original's catch wrapper around the body: a 20-byte
   one re-throws a `PROGRAM_ERROR`, a `TRETHROW(line, "names"...)` one and a `TERROR(line, "unknown exception
@@ -177,8 +178,9 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   `unique_ptr` must never go). Everything a window, the event queue or a container owns, everything whose destructor
   may throw (`TComponent`, `TTalkBuffer`: `reset()` is `noexcept`), and the mismatched releases stay raw; ownership.md's
   section 7 lists every raw owner with the milestone that unblocks it.
-- Use the error macros from `src/common.h` (`TASSERT*`, `TERROR*`) exactly where the binary has the
-  corresponding blocks; the catch wrappers are not written (above), a handler of the function's own (its own
+- Use the error macros exactly where the binary has the corresponding blocks: `PATELLA_ASSERT(expr)` and
+  `PATELLA_ASSERT_VALUES(expr, value[, value])` (`src/compat/assertion.h`, issue #79: no line argument, the
+  assertion's own source location; TASSERT* until then) and `TERROR*` (`src/common.h`, with the original's line); the catch wrappers are not written (above), a handler of the function's own (its own
   message or recovery) is.
 - Behaviour must match the binary exactly, including odd behaviour (for example
   `ConnectToGameServer` connects even when `CreateSocket` failed). Note such cases in a
@@ -498,7 +500,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 ## Checking
 
 - Code style (issue #8): `.clang-format` describes the style of src/ (tabs of four columns, function bodies
-  on their own line, no column limit; the arguments of TASSERT*, TERROR* and TMYEXCEPTION are whitespace-sensitive,
+  on their own line, no column limit; the arguments of PATELLA_ASSERT*, TERROR* and TMYEXCEPTION are whitespace-sensitive,
   so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
   `.editorconfig` sets tabs, LF and UTF-8 for every editor. With Visual Studio's clang-format 22
   (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/types/*.h
@@ -592,7 +594,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   inside macro arguments; 13 since issue #57 (Utils.cpp's sprintf, a vararg call, is gone); 7 since issue #63 (the
   six bugprone-* findings fixed or suppressed, below); 4 on November 5, 2026, and 20 since issue #76: the 16
   modernize-use-nullptr findings inside Utils.cpp's TASSERT/TERROR arguments, kept apart until then, count now
-  (one entry, "16 src/Utils.cpp modernize-use-nullptr").
+  (one entry, "16 src/Utils.cpp modernize-use-nullptr"); 4 in 4 entries since issue #79, which fixed them.
 - Static analysis of the core library (issue #63; plan section 7, M4; notes/decisions.md, "Static analysis of the
   core library", with the table of suppressions): cmake/Core.cmake compiles patella_core with MSVC's `/analyze`
   (`/analyze:external-`) and GCC's `-fanalyzer` (option PATELLA_STATIC_ANALYSIS, on by default), so a finding

@@ -10537,3 +10537,98 @@ banned_calls 0; clang-format clean. Logs: build\logs\issue-77.
   communicationtest 856,621, vlongtest 3,201; golden 17,316,025 on main's corpus, never re-recorded for #78), so no
   part's change was seen as a kind change by them, apart from part 7's two that the tests now model (MouseMove's
   extra call, the structured exception), each with its comment in tests/golden/control_tests.cpp.
+
+## TASSERT* to PATELLA_ASSERT (Patella-Modern issue #79)
+
+Settled by Claude Opus 5.5, November 6, 2026; M5 (notes/modernization-plan.md, 7 M5: "`TASSERT*` becomes
+`PATELLA_ASSERT(expr)`"), after #76 (outcome-only comparison) and #78 (TBEGIN/TEND deleted).
+
+- **contract_assert is not used** (high). The plan named `contract_assert` (and `pre(...)`) on GCC 16. What a failed
+  assertion throws must stay a TMyException: difftest and the golden corpus compare the kind (#76), and the original
+  throws one. A contract assertion with the default semantic "enforce" ends the program after the violation handler
+  returns; only a replaceable violation handler that throws gives an exception. Tried on GCC 16.2.0 in the Linux image
+  (`g++ -std=c++26`, `-lstdc++exp`, a `handle_contract_violation` that throws; build\issue-79 scratch, never
+  committed): (1) a throwing handler does propagate out of `contract_assert` under enforce and observe, and out of a
+  noexcept function it terminates, as a throw does; but (2) `-fcontract-evaluation-semantic=ignore` compiles the check
+  out (the predicate was not evaluated, nothing thrown) and `quick_enforce` terminates without calling the handler:
+  a compiler flag decides whether an assertion on a packet is checked at all; (3) the handler is one for the whole
+  program, so CONTRACT_ASSERT (compat/cxx26.h, TStaticVector's preconditions, which must terminate: its
+  RunContractViolation tests) would throw a TMyException too; (4) GCC 16.2's `std::contracts::contract_violation`
+  has no `evaluation_exception()` and reports `detection_mode::predicate_false` also when the predicate threw, so a
+  predicate's own exception (a PROGRAM_ERROR, say) could not be passed on unchanged: its kind would change; (5) the
+  standard lets a contract predicate be evaluated more than once, or its side effects be elided (P2900, the repeated
+  evaluation of contract assertions), where TASSERT evaluated it exactly once; and (6) locals are const inside a
+  contract predicate. Sources: GCC 16.2's `<contracts>` (/usr/local/include/c++/16.2.0/contracts in the image),
+  `g++ --help=c++` (the -fcontract-* options), compat/cxx26.h's notes on GCC's handler. So PATELLA_ASSERT is the same
+  function-based check on every compiler; `pre(...)` is not used either (the same handler).
+- **The macro** (high). src/compat/assertion.h (not cxx26.h: the oracle-x86 build compiles common.h with /std:c++17,
+  and cxx26.h's stand-ins need C++23; the header is C++17-clean like compat/span.h). `PATELLA_ASSERT(Expression)` and
+  `PATELLA_ASSERT_VALUES(Expression, Value1[, Value2])`: an expression of type void, `(!(Expression) ?
+  patella::AssertionFailed(#Expression, PATELLA_SOURCE_LOCATION()) : void())`, so it is one statement anywhere (no
+  dangling else); the expression is evaluated once with `!` as TASSERT did, the values only when it fails (in an
+  unspecified order, as TASSERT2's arguments), each `static_cast<int>` as TASSERT1/2's `(int)` cast. The failure
+  functions (TMyException.cpp, `[[noreturn]]`) throw `TMyException(file, line, "assertion failed", names, values,
+  expression)`: the same kind, the same message format, but with the assertion's own file and line
+  (std::source_location::current() where the library has it, every product preset; in the oracle's C++17 and with
+  PATELLA_SOURCE_LOCATION_STANDIN, tests/unit's stand-in build, an aggregate from `__FILE__`, `__LINE__`,
+  `__func__`). The values' names are the preprocessor's text of the values (`#__VA_ARGS__`), split at the top-level
+  commas. Nothing is compiled out in any build (the plan's later release-build option waits for M9's fuzzing).
+- **The variants** (high). The original's line, TASSERT*'s first argument, is gone (the source location replaces it;
+  the lines stay in git history, in the image and in the comments that name a function's lines). TASSERT1 and TASSERT2
+  are PATELLA_ASSERT_VALUES, whose values stay in the message, the diagnostic that matters (the developer log writes
+  the message at error). The file-local bug variants (Map.cpp's TASSERTB/B1/B2, ContentWindows.cpp's TASSERTB2,
+  graphics.cpp's, SurfaceDX.cpp's and surfaceDX9.cpp's TASSERTB1, Creatures.cpp's TASSERT1_BUG/TASSERT2_BUG) appended
+  a CipSoft bug number to the expression text ("[bug0000013]" 39 sites, "[bug0000913]" 14, "[bug0000845]" 3,
+  "[bug0000038]" 2, "[bug0000290]" 2, "[bug0000289]", "[bug0000611]", "[bug0000996]" one each: 63): an internal
+  tracker's number tells a developer of this fork nothing, so they are PATELLA_ASSERT(_VALUES) without it.
+- **The conversion** (high). A script outside the repository (build\issue-79 scratch: convert_tassert.py, balanced
+  arguments, comments skipped): 802 sites in 30 files, TASSERT 348, TASSERT1 292, TASSERT2 99, TASSERTB 1, TASSERTB1 57,
+  TASSERTB2 3, TASSERT1_BUG 1, TASSERT2_BUG 1; PATELLA_ASSERT 349, PATELLA_ASSERT_VALUES 453. The arguments are as
+  written apart from Utils.cpp's 16 `NULL` in assertions, now `nullptr` (#76's 16 modernize-use-nullptr findings; the
+  baseline shrinks by its entry). The three macros of common.h and the nine local ones are deleted; .clang-format's
+  WhitespaceSensitiveMacros names PATELLA_ASSERT and PATELLA_ASSERT_VALUES instead. `git grep TASSERT -- src`: nothing.
+- **An MSVC x86 bug the change exposed: TPlayerStates::GetIcon** (high). The first oracle run ended difftest with an
+  uncaught C++ exception in ContentWindows' error round: a fake's assertion thrown under TPlayerStates::GetIcon did
+  not reach OurThrow's catch. GetIcon's `default: TERROR1(1063, "index out of range", i)` can never run (i is 0-9);
+  MSVC 19.51 x86 (/O2, /EHa and /EHsc alike) removes its code but keeps the function's exception frame (five states,
+  no unwind actions) and leaves the frame's handler out of the object's .sxdata, so it is missing from the image's
+  SafeSEH table and Windows refuses it (STATUS_INVALID_EXCEPTION_HANDLER under cdb): every exception through GetIcon
+  ended the program, in difftest and in the oracle Patella.exe alike. Main hid it: TASSERT2's inline throw kept live
+  unwind actions in the same frame. The default now does nothing (the original's TERROR1 named in the comment): the
+  outcome is the same, as it was never reached. A scan of the x86 images for exception-frame prologues whose handler
+  is not in the SafeSEH table (scratch safeseh_scan.py, never committed): on this branch before the fix one each in
+  difftest.exe, communicationtest.exe and Patella.exe (GetIcon), after it 0 in difftest, communicationtest, sysinctest,
+  vlongtest and Patella.exe; main 0. The x64 images use table-based unwinding and are not affected.
+- **The tests** (high). tests/unit/assertion_test.cpp in tests_unit and tests_unit_cxx26_standin (7 cases, with
+  TMyException.cpp linked: the location path selected, a true expression evaluated once and nothing thrown, a false
+  one throwing TMyException with this file, the line and the expression, the values not evaluated when true and
+  evaluated once when false, the names split at top-level commas, the int conversion, a predicate's own exception
+  passing unchanged, one statement under if/else). tests_core's Utils and Container tests compared assertion
+  messages with the original's lines: they now compare "<file> N: assertion failed..." (TERROR messages keep their
+  lines) and `nullptr` in Utils.cpp's texts.
+- **The images** (high). Main (168970f) and the branch built at the same path (this worktree), Release, function by
+  function through the PDBs (`dumpbin /disasm:nobytes`; scratch funcs.py, never committed: addresses, image-relative
+  displacements and the switch tables after a function's code masked). x64 Patella.exe: 13,913 to 13,946 functions;
+  579 changed, 162 gone, 195 new. x86 (oracle-x86's Patella.exe): 11,377 to 11,369; 652 changed, 24 gone, 16 new. Of
+  the changed, 447 (x64) and 500 (x86) are assertion sites (ours calls patella::AssertionFailed or main constructed a
+  TMyException there). The other 132 and 152 were sampled: inlining that follows from smaller assertion code (a
+  callee whose inline throw is gone now fits: FindTalkFilter into IsPermanentIgnore, Container.h's constructors into
+  their callers, the "gone" list's 162 container constructors and funclets), funclets renumbered by those inlinings,
+  TERRORs inlined where their function got smaller (GetRightName), GetIcon's dropped default, and in the x86 image
+  library code (MFC, the CRT's float parsing, std::to_chars) whose difference is the bytes after its last instruction
+  that the masking does not cut. New: AssertionFailed (three), AssertionFailedValues<int>, <int,int>, <int,TObject>,
+  source_location::file_name, functions now out of line. No sampled function changed in its own logic.
+- **The gates** (high). `python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67, communicationtest
+  856,621, vlongtest 3,201, 0 failures, CTest 4/4 (unchanged: no check counts a text). windows-x64 14/14,
+  windows-x64-debug and windows-x64-asan 13/13 (no ASan finding): golden on main's corpus 15,803,203 replayed +
+  1,512,822 retired = 17,316,025, 0 failures (nothing recorded: the corpus has no texts). windows-x64-gcc,
+  linux-x64-gcc and linux-x64-clang 11/11. 0 warnings on every preset. tests_unit 65 to 72 cases: MSVC 10,166
+  assertions (the stand-in 10,170), mingw-w64 GCC 10,163 / 10,167; on Linux 64 to 71: GCC 10,148 / 10,152, Clang
+  10,146 / 10,152 (the Linux numbers from the run before the test's Throws got a condition for MSVC's C4702; the same
+  cases). tests_core 42 cases, 390 assertions on Windows, 393 on Linux, unchanged in number. tidy_ci 4 findings in 4
+  entries (from 20 in 5: the 16 use-nullptr gone, nothing new; Utils.cpp's `<cstddef>` went with its last NULL, and
+  assertion.h includes `<cstdint>` only for the stand-in, both misc-include-cleaner), 0 bugprone; banned_calls 0;
+  clang-format clean. `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`:
+  every session matches (error with #74's deliberate differences); the error session's line "[error] Debug
+  Assertion 7.72 Player.cpp 383: exception occurred, reason: Control.cpp 1274: unknown packet type during game (Type
+  = 255)" (a TERROR, unchanged). Logs: build\logs\issue-79.

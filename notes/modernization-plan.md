@@ -527,6 +527,10 @@ mechanism, so the trace has no reader left and the macros can simply go.
   preconditions); elsewhere a function with `std::source_location`. A violation throws, as today, so the
   top-level handler ends the client the same way. Assertions on untrusted input (packets, files) are
   checked in every build; the rest may be compiled out of release builds later, once fuzzing (M9) has run.
+  Done in issue #79 (notes/decisions.md), differently: `PATELLA_ASSERT(expr)` and `PATELLA_ASSERT_VALUES(expr,
+  values)` in `src/compat/assertion.h` are the function with `std::source_location` on every compiler, no
+  `contract_assert` (a violation would have to throw through the one replaceable handler, which a compiler
+  flag can bypass and which cannot pass a predicate's own exception on); 802 sites converted.
 - `TBEGIN`/`TEND*` are deleted. A catch stays only where a function really handles an error (the inner
   `try`/`catch` blocks with their own messages, such as the encryption failures).
 - `TMyException` shrinks to a message and a `std::source_location`. `PROGRAM_ERROR` becomes an
