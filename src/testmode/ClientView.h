@@ -10,6 +10,7 @@
 #include <cstdint>
 
 class TCreature;
+struct TCharacter;
 struct TContainer;
 struct TMapPoint;
 struct TObject;
@@ -61,5 +62,11 @@ void ViewInventory(TInventoryView *View);
 void ViewMap(TMapView *View);
 // Status.cpp
 const int *ViewConnectionState();
+// Status.cpp's character list (issue #92)
+struct TCharactersView {
+	const TCharacter *Characters = nullptr; // [*Count], or none
+	const int *Count = nullptr;
+};
+void ViewCharacters(TCharactersView *View);
 
 } // namespace patella::testmode

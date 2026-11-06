@@ -30,9 +30,10 @@
 //	PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize)
 //	                                   Network.cpp PrepareNextPacket: ReceiveData with the next packet
 //	                                   decrypted
-//	PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask)
+//	PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask, Device)
 //	                                   vulkan/SurfaceVulkan.cpp InitDisplay: without patcap.dll, the test
-//	                                   mode's frame dump becomes the engine's frame observer
+//	                                   mode's frame dump becomes the engine's frame observer (and, issue #92,
+//	                                   its device observer: the control channel's probe names the device)
 //
 // Issue #23 (the reference recordings; notes/testmode.md):
 //
@@ -106,7 +107,7 @@ void RsaBlock(patella::TSpan<const unsigned char, 128> Block);
 void PacketSent(patella::TSpan<const unsigned char> Data, int Size, int Padded);
 void PacketReceived(patella::TSpan<const unsigned char> Data, int PacketSize);
 void FrameObservers(HMODULE Patcap, int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **Pixels)(const void *, int, int, int),
-	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int));
+	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int), void(PATELLA_CDECL **Device)(const char *, int, int));
 int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type);
 // True: a WM_CAPTURECHANGED that the script's input does not know of (with a script: every one).
 bool IgnoreCaptureChange();
@@ -127,7 +128,8 @@ bool InitFails(int Step);
 #define PATELLA_TEST_RSA_BLOCK(Block) patella::testmode::RsaBlock(Block);
 #define PATELLA_TEST_PACKET_SENT(Data, Size, Padded) patella::testmode::PacketSent(Data, Size, Padded);
 #define PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize) patella::testmode::PacketReceived(Data, PacketSize);
-#define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask) patella::testmode::FrameObservers(Patcap, &(Frame), &(Pixels), &(Mask));
+#define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask, Device) \
+	patella::testmode::FrameObservers(Patcap, &(Frame), &(Pixels), &(Mask), &(Device));
 #define PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) patella::testmode::ShowMessageBox(Window, Text, Caption, Type)
 #define PATELLA_TEST_CAPTURE_CHANGED \
 	if (patella::testmode::IgnoreCaptureChange()) { \
@@ -153,7 +155,7 @@ bool InitFails(int Step);
 #define PATELLA_TEST_RSA_BLOCK(Block)
 #define PATELLA_TEST_PACKET_SENT(Data, Size, Padded)
 #define PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize)
-#define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask)
+#define PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask, Device)
 #define PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) MessageBoxA(Window, Text, Caption, Type)
 #define PATELLA_TEST_CAPTURE_CHANGED
 #define PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode) EnumDisplaySettingsA(Device, Index, Mode)

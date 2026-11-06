@@ -181,6 +181,11 @@ public:
 	[[nodiscard]] int CursorY() const { return Script.CursorY; }
 	// The real milliseconds after the driver's start at which the clock may reach Elapsed.
 	[[nodiscard]] std::uint64_t RealDeadline(std::uint32_t Elapsed) const;
+	// Issue #92, the control channel (TestModeWin32.cpp, --test-control): Events (a script of their own,
+	// parsed while the client runs) after the last event, each Offset virtual milliseconds later than its
+	// time in that script. The driver appends only when every earlier event was handed out, with the clock's
+	// time as Offset, so the events come in their order from then on.
+	void Append(std::vector<TInputEvent> Events, std::uint32_t Offset);
 	// Every event handed out.
 	[[nodiscard]] bool Finished() const { return Next >= Script.Events.size(); }
 	[[nodiscard]] std::size_t Remaining() const { return Script.Events.size() - Next; }

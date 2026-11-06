@@ -43,6 +43,9 @@ that writes the last Tibia.cfg, the client's window is put back where the run's 
 compared in full. The live recording's server start waits for the ports and the loaded world
 (tools/testserver.py start, issue #68). `--self-test` checks the placement on a window of its own.
 
+--patella with an x64 Patella.exe (Patella-Modern issue #92): its test build PatellaTest.exe runs in its place,
+read through its control channel, never through its memory (compare_traffic.py's use_patella).
+
 Masked, after two runs of Tibia.exe showed that they differ from run to run (--repeat runs
 Tibia.exe a second time for walk to show it again): the time in Default.txt ("Channel saved
 at"). Everything else is compared byte for byte. Report: <out>\report.txt; exit code 0 when
@@ -161,7 +164,7 @@ def collect(run, before, target):
 
 def start(run, arguments=()):
 	info = CLIENTS[ct.client_of(run)]
-	driver = sc.Driver(folder(run), info["exe"], info["pdb"])
+	driver = sc.Driver(folder(run), info["exe"], info["pdb"], test=info.get("test", False))
 	driver.start(arguments)
 	return driver
 
@@ -370,13 +373,14 @@ def button(driver, text):
 
 def member(driver, component, path):
 	"""The pointer member `path` (Type.Member, client_state.LAYOUT_FIELDS) of the component at
-	`component`: its offset from the layout (the PDB for Patella.exe), 4 or 8 bytes."""
-	return driver.mem.ptr(component + driver.mem.off(path))
+	`component`: from Tibia.exe's or the oracle's memory (its offset from the layout, the PDB for
+	Patella.exe), or from the x64 test client's probe (issue #92)."""
+	return driver.mem.member(component, path)
 
 
 def checked(driver, box):
 	"""TCheckBox's Checked (+0x30 in the original, after the label pointer)."""
-	return driver.mem.read(box + driver.mem.off("TCheckBox.Checked"), 1)[0] != 0
+	return driver.mem.checked(box)
 
 
 def toggle(driver, box):
@@ -447,7 +451,7 @@ def options_session(driver, collect_cfg):
 			("trade offer", False))):
 		driver.key(VK_DOWN)  # the next line: F1, F2, ...
 		time.sleep(0.2)
-		if driver.mem.i32(body["ptr"] + driver.mem.off("THotkeyDialog.Selected")) != number:
+		if driver.mem.member(body["ptr"], "THotkeyDialog.Selected") != number:
 			raise RunError("hotkey %d not selected" % number)
 		driver.type(text)
 		if auto:
@@ -549,11 +553,14 @@ def next_position(walk, position, action):
 
 def player_position(driver):
 	"""The player's creature's position (Creatures.cpp's table, as client_state reads it)."""
-	player = driver.mem.var("PlayerID")
+	player = driver.mem.player_id()
 	for creature in driver.mem.creatures():
 		if player != 0 and creature["id"] == player:
 			return tuple(creature["pos"])
 	return None
+
+
+MARK_SYMBOLS = 14  # TEditMarkDialog.TypeButtons (Dialogs.h)
 
 
 def menu_entry(driver, text):
@@ -577,10 +584,9 @@ def set_mark(driver, dx, dy, text, kind, entry="Set Mark"):
 	body = wait_node(driver, "TEditMarkDialog")
 	driver.type(text)
 	if kind is not None:
-		if not 0 <= kind < driver.mem.layout.count("TEditMarkDialog.TypeButtons"):
+		if not 0 <= kind < MARK_SYMBOLS:
 			raise RunError("mark symbol %d out of range" % kind)
-		click_ptr(driver, driver.mem.ptr(body["ptr"] + driver.mem.off("TEditMarkDialog.TypeButtons")
-			+ driver.mem.pointer_size * kind))  # TypeButtons[kind]
+		click_ptr(driver, driver.mem.member_index(body["ptr"], "TEditMarkDialog.TypeButtons", kind))
 	driver.char(13)
 	wait_gone(driver, "TEditMarkDialog")
 
@@ -1212,8 +1218,9 @@ def main():
 		"(read-only, no client, no server) and exit")
 	parser.add_argument("--server-dir", default=ct.SERVER_DIR, help="the test server's folder for --check-route "
 		"(default %(default)s: PATELLA_TESTSERVER, else C:\\Tibia\\gameserver, tools/testserver.py)")
-	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 or x64, with its PDB next to "
-		"it (default build/oracle-x86/Release/Patella.exe; as tools/compare_traffic.py's --patella)")
+	parser.add_argument("--patella", metavar="EXE", help="the Patella.exe to test, x86 (the oracle's) or x64 (its "
+		"test build next to it runs, issue #92); default build/oracle-x86/Release/Patella.exe; as "
+		"tools/compare_traffic.py's --patella")
 	parser.add_argument("--self-test", action="store_true", help="the window placement on a window of its own "
 		"(no client, no server) and exit")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
@@ -1229,8 +1236,8 @@ def main():
 		return 1 if problems else 0
 	if args.repeat and args.no_repeat:
 		raise RunError("--repeat and --no-repeat")
-	if args.patella:
-		CLIENTS["patella"]["source"] = CLIENTS["patella"]["pdb"] = os.path.abspath(args.patella)
+	named = ct.use_patella(args.patella or CLIENTS["patella"]["source"])
+	log(named)
 	out = os.path.abspath(args.out)
 	os.makedirs(out, exist_ok=True)
 	only = [name.strip() for name in args.only.split(",") if name.strip()]

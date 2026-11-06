@@ -11368,3 +11368,131 @@ ended the client with an access violation instead of the "Tibia Error" box.
   on a changed line (an `atoi` it found was replaced by std::from_chars). banned_calls 0; clang-format clean. `python
   -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: the four sessions match (error
   with #74's deliberate differences). Logs: build\logs\issue-90.
+
+## The comparisons read the x64 client through its test mode only (Patella-Modern issue #92, M6)
+
+Settled by Claude Opus 5.5, November 6, 2026 (M6, item 2 of the plan). The tools read Tibia.exe and the oracle's
+32-bit Patella.exe from their memory (tools/client_state.py) and capture their frames with tools/capture/patcap.c, as
+before; the x64 client is read only through its test mode: PatellaTest.exe, the test build next to Patella.exe, with a
+new control channel (`--test-control`, src/testmode/TestModeWin32.cpp; tools/testmode_client.py). Files: tools/
+client_state.py, session_client.py, compare_traffic.py, compare_files.py, compare_rendering.py, testmode_check.py,
+testmode_dumps.py, testmode_client.py (new), tools/capture/patcap.c, CMakeLists.txt, cmake/Capture.cmake;
+src/testmode/TestModeWin32.cpp, ClientStateWin32.*, ClientView.h, StateDump.*, InputScript.*; test-build-only lines in
+src/TestHooks.h, src/Status.cpp (its View function) and the one hook call of src/vulkan/SurfaceVulkan.cpp;
+tests/unit/testmode_dump_test.cpp, testmode_script_test.cpp. The x64 Patella.exe is the same image ("The gates").
+
+### Every reader of a client's memory or frames, and what became of it (high)
+
+(a): only for Tibia.exe or the oracle, stays (the oracle's part goes with #94); (b): for the x64 client, replaced by
+the test mode's dumps; (c): for the x64 client with no test-mode equivalent until now, added to the test mode.
+
+| # | Where | What it read | Used for | Class | Now |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 1 | tools/client_state.py Client | ReadProcessMemory: state(), gui(), characters(), the skin, members, through the PDB's layout for Patella.exe | every driver below | a | Tibia.exe and the oracle only: a 64-bit process is refused (X64_REFUSED; `--self-test` checks it on its own process). `--layout` still reads an x64 image's PDB (a file, no process) |
+| 2 | session_client.py Driver | client_state.Client: the window tree, the skin's slot areas, the map window's names, the character list, the trade's Cancel button, a container window's Parent and CloseButton | compare_traffic.py, compare_files.py, compare_rendering.py, compare_network.py, reference_record.py | b for the x64 client, a otherwise | `Driver(test=True)`: tools/testmode_client.py TestClient over the probe; Tibia.exe and the oracle as before. The member reads went into Client.member(), member_index(), checked(), map_names(), player_id(): the same reads as before for client_state.py |
+| 3 | compare_traffic.py play() | state() and gui() at every step | c. the states | b | the probe's state and gui (snapshot(): one probe, one moment) |
+| 4 | compare_files.py | the option dialogs' check boxes and their Checked, THotkeyDialog.Selected, TEditMarkDialog.TypeButtons[n], TAutomapWindow's zoom buttons, PlayerID and the creature table | its sessions' clicks and checks | b | the probe's members and state |
+| 5 | compare_rendering.py Driver | patcap.dll in the x64 client (add_import): the frames (PatcapVulkanFrame, Mask, Pixels), the virtual clock, the main timer's ticks, the cursor, the Vulkan device; client_state.Client for the clicks | the x64 rendering comparison | b (frames, clock, ticks, cursor, clicks), c (the device) | TestDriver: `--test-script` with `clock manual` and `cursor 1020 760`, then advance, frame and post lines through the channel; the frame dump's PNG and mask (the forms patcap's were turned into); the device from the probe (the new device observer) |
+| 6 | cmake/Capture.cmake in windows-x64, patcap.c for x64 | the 64-bit patcap.dll (issue #18) | 5 | b | not built for x64 any more; patcap.c has an `#error` for _WIN64; capture_preset() refuses an x64 image |
+| 7 | testmode_check.py StateReader (check e) | client_state.Client on PatellaTest.exe at each dump (--test-sync) | e: the dump against the outside reading | b | e is a dump-only check (below) |
+| 8 | compare_network.py | driver.mem: gui, characters, state | its scenarios | a | runs Tibia.exe and the oracle's Patella.exe only (no --patella); goes with #94 |
+| 9 | reference_record.py | client_state.Client and patcap.dll in Tibia.exe | the reference recordings | a | unchanged |
+| - | patch_client.py | the PDB file (client_state.Pdb: dbghelp), never a process | the port patch's Servers RVA | not a reader | unchanged; it patches PatellaTest.exe as before |
+| - | testmode_dumps.py (h) | client_state.py's source (ast) | the dump's key lists | not a reader | unchanged |
+| - | login_client.py screenshot | a BitBlt of the desktop under the window | its own by-hand runs | not a reader | unchanged |
+
+The data no test-mode dump had (c), added to the probe: the character list (a View function at the end of
+Status.cpp, test build only), the skin values the drivers place their clicks and masks by (21 entries, under their
+LAYOUT_FIELDS names), the members of the components they follow (by class, dynamic_cast), the map window's names, and
+the Vulkan engine's device (the engine's device observer, which only patcap.dll had: the hook
+PATELLA_TEST_FRAME_OBSERVERS takes it as a fifth argument, empty outside the test build).
+
+### The control channel (high)
+
+- **A channel, not more script commands** (high). The drivers decide their clicks from what the client shows at that
+  moment (a dialog's place, a check box's state, a creature's name position), so they must read the running client;
+  a script written in advance cannot. The reference recordings solve that by recording Tibia.exe's clicks; the live
+  comparisons (compare_traffic.py, compare_files.py, compare_rendering.py's replay) compare a running client with
+  Tibia.exe and need the reading. So the test build answers the tools while it runs: the tool makes two events
+  (`<name>-command`, `<name>-done`) and writes control.txt into --test-out; at an idle call (the driver's step in
+  OnIdle, on the client's thread: nothing of the client runs meanwhile) the client does the command and answers in
+  control-reply.txt. Considered: a socket (more code; the events are what --test-sync already used); shared memory
+  (patcap's way; a probe is JSON of 50 to 200 KB).
+- **The probe** (high). `probe` writes probe.json: the state dump's "state" and "gui" (the same code and form, so the
+  states compared with Tibia.exe's readings are the state dump's), plus "characters", "skin", "members" (by the gui's
+  "ptr"), "names", "device", "frames", "ticks" (src/testmode/StateDump.h, "The probe"). A pointer member is a "ptr" of
+  the tree, so the drivers' `node_by_ptr(member(...))` works unchanged. It reads and never writes
+  (ClientStateWin32.cpp, as the state dump). One probe per reading: a value is the client's at that call, as a fresh
+  ReadProcessMemory was. A probe takes about 10 ms.
+- **Without a script: probe only** (high). compare_traffic.py and compare_files.py run the client live against the
+  server on the system clock and post their messages to its window, as for Patella.exe: PatellaTest.exe without a
+  script takes Windows' input and is the client on the system clock (notes/testmode.md, "Running it"). The channel
+  answers `probe` there and refuses anything else.
+- **With a script: script lines after the last event** (high). compare_rendering.py needs patcap's time course. The
+  test client starts with a script of `clock manual` and `cursor 1020 760` (patcap's clock and cursor); each
+  command's lines are parsed as a script of their own (after `clock manual` for a manual clock) and appended after the
+  last event at the clock's time (TScheduler::Append, unit-tested), and the command is done once they are handed out,
+  the idle calls after each (QuietPasses) have passed and its frames were taken. pace, clock and cursor belong to the
+  starting script and are refused, as wait and at are with a manual clock (the parser's rule). Every message goes
+  through it as a `post` line, because a scripted client drops Windows' input (DropInput): the messages Tibia.exe
+  gets posted, dispatched as the reference compare dispatches them.
+- **The frame** (medium). patcap captured after skipping 2 frames; a `frame` line takes the next frame shown. With the
+  clock frozen between advances the frames drawn at one moment are the same picture (the reference compare already
+  matches Tibia.exe's patcap frames with `frame`), so the scenes compare as before; the gate below shows it.
+- **The test build only** (high). Status.cpp's View function and the hook's fifth argument are inside the test
+  build's `#if defined(PATELLA_TEST_MODE)` and its empty macro. src/vulkan/SurfaceVulkan.cpp still asks for
+  patcap.dll (`GetModuleHandleA("patcap.dll")`), which no tool loads into the x64 client now; removing the lookup
+  changes Patella.exe, which this issue keeps the same (found, not done).
+
+### testmode_check.py's check e (high)
+
+Until now e compared each state dump with client_state.py's reading of the same moment from the client's memory (the
+client waited at each dump, --test-sync). For the x64 client that reading is gone, and with it the outside half of e.
+Decided: e checks each dump on its own, and the values are compared with the original's by the reference compare.
+
+- e now: one dump per `dump` command, each at its command's script line, in time order; its keys StateDump.h's lists
+  in their order (state, player, creatures, containers, offers, every window node; "text" only for TLabel,
+  TContextMenuEntry and TTextButton); the window tree well formed (the first node at depth 0, at most one level deeper
+  from node to node, one "(modal)" node at depth 0 with ptr 0 and its windows below it). h (StateDump.h's keys
+  against client_state.py's, statically) stays. testmode_dumps.check_state_dumps; the self-test makes each problem.
+- Why it suffices: e proved that the in-process reading means what client_state.py reads, field for field. #22 showed
+  it for the x64 layout and #88 for the Debug window test, in every run since; the reading code is unchanged. The
+  stronger check of the values is the reference compare (tools/reference.py, b. states): every checkpoint's dump of
+  the test client against client_state.py's reading of Tibia.exe at the same point, value for value (addresses
+  dropped); and compare_traffic.py compares the probe's states (the same reading code) with Tibia.exe's after every
+  step. A wrong field in the dump fails those, against the original instead of against another reading of ours.
+- Considered: e against the channel's probe at the same moment (the same functions read both: it would prove
+  nothing); dropping e without a replacement (a malformed or missing dump, or one at the wrong line, would go unseen).
+- `--test-sync` stays in the test build; no tool uses it any more.
+
+### client_state.py and patcap (high)
+
+Both stay for Tibia.exe (the reference recordings' record step, the live comparisons' Tibia.exe runs and their
+helper) and for the oracle's 32-bit Patella.exe until #94; documented so in their headers, notes/testmode.md and
+notes/reconstruction.md. client_state.Client refuses a 64-bit process (the message names the test mode);
+compare_rendering.capture_preset refuses an x64 image; patcap.c does not compile for x64, and the windows-x64 preset no
+longer builds a 64-bit patcap.dll (CMakeLists.txt; the oracle-x86 preset builds the 32-bit one as before). What #94
+must keep: client_state.py's Layout.original() (Tibia.exe's constants) and its reading code, patcap.c's 32-bit build,
+compare_rendering.py's add_import, Capture and Driver, all for Tibia.exe. What can go with the oracle: client_state.py's
+PDB path (Layout.from_pdb), compare_network.py's Patella.exe runs, the oracle default of --patella.
+
+### Found, not done (high)
+
+- Patella.exe still looks up patcap.dll and its four Vulkan exports (src/vulkan/SurfaceVulkan.cpp InitDisplay). No tool
+  loads it into the x64 client any more; removing the lookup (the test mode's observer would then be the only one)
+  changes Patella.exe: an issue of its own after #94.
+- `--test-sync` is unused; it can go when the test build is next changed for another reason.
+
+### The gates (high)
+
+`python -I tools/build.py windows-x64`: exit 0, 16/16. pecompare of the x64 Release Patella.exe, main 0810767 and the
+branch built at the same path: identical apart from the link stamps (COFF and debug time stamps, the CodeView GUID).
+Live on the x64 client, each through the channel: `python -I tools/reference.py compare --reference
+C:/Tibia/Patella-Modern/build/reference` every session matches; `python -I tools/testmode_check.py --runs 2` exit 0,
+a-h pass (rerun once: the first attempt's test server never bound 7171, error 10049, before any client ran);
+`python -I tools/compare_traffic.py --patella build/windows-x64/Release/Patella.exe` and the same of
+compare_files.py exit 0, no differences; `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes
+windowed --no-repeat --patella build/windows-x64/Release/Patella.exe --recording build/traffic/result/orig-live.jsonl`
+every scene identical, the GPU and the CPU driver named by the probe (rerun once: the first attempt failed in
+Tibia.exe's first patcap capture). client_state.Client on a running PatellaTest.exe is refused, with and without its
+PDB. Logs: build\logs\issue-92 of the branch's worktree.

@@ -14,21 +14,30 @@
 //   a component is a window when it is a TWindow (client_state.py: its GetFirstChild is TWindow's,
 //   the only override of TComponent's); "ptr" and "vtable" are the addresses in this process.
 //
+// Issue #92: ReadProbe adds what the comparison tools' drivers read from tools/client_state.py besides
+// state() and gui() (StateDump.h, "The probe"), for the control channel of TestModeWin32.cpp.
+//
 // Reading changes nothing in the client: it calls no function of the client, only reads its data.
 
 #include "common.h"
 
 #include "Container.h"
+#include "ContentWindows.h"
 #include "ContextMenus.h"
 #include "Creatures.h"
 #include "DialogElements.h"
+#include "DialogWindow.h"
+#include "Dialogs.h"
 #include "GUI.h"
 #include "Inventory.h"
 #include "MainWindow.h"
 #include "Map.h"
+#include "MapWindow.h"
 #include "Objects.h"
 #include "Preferences.h"
+#include "Status.h"
 #include "Talk.h"
+#include "graphics.h"
 #include "testmode/ClientStateWin32.h"
 #include "testmode/StateDump.h"
 
@@ -157,6 +166,115 @@ void Walk(std::vector<TGuiNode> &Nodes, TComponent *Component, int Depth, std::i
 	}
 }
 
+// --- the probe (issue #92) ---
+
+std::int64_t Address(const void *Pointer)
+{
+	return static_cast<std::int64_t>(reinterpret_cast<std::uintptr_t>(Pointer));
+}
+
+std::uint64_t Key(const void *Pointer)
+{
+	return reinterpret_cast<std::uintptr_t>(Pointer);
+}
+
+void SkinInt(std::vector<TProbeSkin> &Skin, const char *Path, int Value)
+{
+	Skin.push_back(TProbeSkin{Path, false, {Value}});
+}
+
+template <std::size_t N> void SkinRects(std::vector<TProbeSkin> &Skin, const char *Path, const std::array<TRect, N> &Rects)
+{
+	TProbeSkin Entry{Path, true, {}};
+	for (const TRect &Rect : Rects)
+		Entry.Values.insert(Entry.Values.end(), {Rect.x, Rect.y, Rect.width, Rect.height});
+	Skin.push_back(std::move(Entry));
+}
+
+void SkinRect(std::vector<TProbeSkin> &Skin, const char *Path, const TRect &Rect)
+{
+	SkinRects(Skin, Path, std::array<TRect, 1>{Rect});
+}
+
+// The members tools/compare_files.py, compare_rendering.py and session_client.py follow from a component
+// (client_state.py's LAYOUT_FIELDS names), by its class.
+void Members(TProbeComponent &Out, const TComponent *Component)
+{
+	auto Add = [&Out](const std::string &Path, std::int64_t Value) { Out.Members.push_back(TProbeMember{Path, Value}); };
+	Add("TComponent.Parent", Address(Component->Parent));
+	if (const auto *Window = dynamic_cast<const TSubWindow *>(Component))
+		Add("TSubWindow.CloseButton", Address(Window->CloseButton));
+	if (const auto *Buttons = dynamic_cast<const TTradeButtons *>(Component))
+		Add("TTradeButtons.CancelButton", Address(Buttons->CancelButton));
+	if (const auto *Automap = dynamic_cast<const TAutomapWindow *>(Component)) {
+		Add("TAutomapWindow.ZoomInButton", Address(Automap->ZoomInButton));
+		Add("TAutomapWindow.ZoomOutButton", Address(Automap->ZoomOutButton));
+	}
+	if (const auto *Box = dynamic_cast<const TCheckBox *>(Component))
+		Add("TCheckBox.Checked", Byte(Box->Checked));
+	if (const auto *Bar = dynamic_cast<const THorizontalScrollBar *>(Component))
+		Add("THorizontalScrollBar.LeftButton", Address(Bar->LeftButton));
+	if (const auto *Dialog = dynamic_cast<const TGeneralOptionsDialog *>(Component)) {
+		Add("TGeneralOptionsDialog.TextualEffects", Address(Dialog->TextualEffects));
+		Add("TGeneralOptionsDialog.CreatureNames", Address(Dialog->CreatureNames));
+		Add("TGeneralOptionsDialog.ShowHints", Address(Dialog->ShowHints));
+		Add("TGeneralOptionsDialog.ClassicControl", Address(Dialog->ClassicControl));
+		Add("TGeneralOptionsDialog.AutoChaseOff", Address(Dialog->AutoChaseOff));
+	}
+	if (const auto *Dialog = dynamic_cast<const TConsoleOptionsDialog *>(Component)) {
+		Add("TConsoleOptionsDialog.InfoMessages", Address(Dialog->InfoMessages));
+		Add("TConsoleOptionsDialog.EventMessages", Address(Dialog->EventMessages));
+		Add("TConsoleOptionsDialog.StatusMessages", Address(Dialog->StatusMessages));
+		Add("TConsoleOptionsDialog.TimeStamps", Address(Dialog->TimeStamps));
+		Add("TConsoleOptionsDialog.PrivateMessages", Address(Dialog->PrivateMessages));
+	}
+	if (const auto *Dialog = dynamic_cast<const TNetworkOptionsDialog *>(Component))
+		Add("TNetworkOptionsDialog.TestServerLogin", Address(Dialog->TestServerLogin));
+	if (const auto *Dialog = dynamic_cast<const TGraphicsOptionsDialog *>(Component))
+		Add("TGraphicsOptionsDialog.Fullscreen", Address(Dialog->Fullscreen));
+	if (const auto *Dialog = dynamic_cast<const TAdvancedGraphicsDialog *>(Component)) {
+		Add("TAdvancedGraphicsDialog.LightEffects", Address(Dialog->LightEffects));
+		Add("TAdvancedGraphicsDialog.NoStretching", Address(Dialog->NoStretching));
+		Add("TAdvancedGraphicsDialog.WindowsMousepointer", Address(Dialog->WindowsMousepointer));
+		Add("TAdvancedGraphicsDialog.Framerate", Address(Dialog->Framerate));
+		Add("TAdvancedGraphicsDialog.OpenGLButton", Address(Dialog->OpenGLButton));
+	}
+	if (const auto *Dialog = dynamic_cast<const THotkeyDialog *>(Component)) {
+		Add("THotkeyDialog.AutoSendCheckBox", Address(Dialog->AutoSendCheckBox));
+		Add("THotkeyDialog.Selected", Dialog->Selected);
+	}
+	if (const auto *Dialog = dynamic_cast<const TEditMarkDialog *>(Component)) {
+		for (std::size_t i = 0; i < Dialog->TypeButtons.size(); i++)
+			Add("TEditMarkDialog.TypeButtons[" + std::to_string(i) + "]", Address(Dialog->TypeButtons.at(i)));
+	}
+}
+
+// Every component of the window tree, in gui()'s order (Walk's): its members and a map window's names.
+void ProbeWalk(TProbe &Probe, const TComponent *Component)
+{
+	int Count = 0;
+	while (Component != nullptr && Count < Siblings) {
+		TProbeComponent Entry;
+		Entry.Ptr = Key(Component);
+		Members(Entry, Component);
+		Probe.Components.push_back(std::move(Entry));
+		if (const auto *Map = dynamic_cast<const TMapWindow *>(Component)) {
+			TProbeNames Names;
+			Names.Ptr = Key(Component);
+			const int Used = Clamp(Map->NumberOfNames, static_cast<int>(Map->Names.size()));
+			for (int i = 0; i < Used; i++) {
+				const TCreatureName &Name = Map->Names.at(static_cast<std::size_t>(i));
+				Names.Names.push_back(TProbeName{Name.CreatureID, Name.x, Name.y});
+			}
+			Probe.MapNames.push_back(std::move(Names));
+		}
+		if (const auto *Window = dynamic_cast<const TWindow *>(Component))
+			ProbeWalk(Probe, Window->FirstChild);
+		Component = Component->Next;
+		Count++;
+	}
+}
+
 } // namespace
 
 TClientState ReadClientState()
@@ -234,6 +352,51 @@ TClientState ReadClientState()
 		}
 	}
 	return State;
+}
+
+void ReadProbe(TProbe &Probe)
+{
+	Probe.State = ReadClientState();
+	Probe.Gui = ReadGui();
+
+	// client_state.py's characters(): the names of the list (none while it has no array).
+	TCharactersView Characters;
+	ViewCharacters(&Characters);
+	if (Characters.Characters != nullptr && Characters.Count != nullptr) {
+		for (int i = 0; i < *Characters.Count; i++) {
+			const TCharacter &Character = Characters.Characters[i];
+			Probe.Characters.push_back(Text(Character.Name, sizeof(Character.Name)));
+		}
+	}
+
+	// The skin values the drivers place their clicks and masks by (client_state.py skin_rects, skin_int).
+	const TSkinProperties &Skin = SkinProperties;
+	SkinRects(Probe.Skin, "Style288.Data60", Skin.Style288.Data60);
+	SkinInt(Probe.Skin, "Data62C", Skin.Data62C);
+	SkinInt(Probe.Skin, "Data630.x", Skin.Data630.x);
+	SkinInt(Probe.Skin, "Data630.y", Skin.Data630.y);
+	SkinInt(Probe.Skin, "Data638.width", Skin.Data638.width);
+	SkinInt(Probe.Skin, "Data638.height", Skin.Data638.height);
+	SkinInt(Probe.Skin, "Data648", Skin.Data648);
+	SkinInt(Probe.Skin, "Data64C", Skin.Data64C);
+	SkinRect(Probe.Skin, "Style6FC.Data68", Skin.Style6FC.Data68);
+	SkinRect(Probe.Skin, "Style6FC.Data78", Skin.Style6FC.Data78);
+	SkinInt(Probe.Skin, "Style6FC.Data9C", Skin.Style6FC.Data9C);
+	SkinInt(Probe.Skin, "Style6FC.DataA0", Skin.Style6FC.DataA0);
+	SkinInt(Probe.Skin, "Style6FC.DataA4", Skin.Style6FC.DataA4);
+	SkinRect(Probe.Skin, "Data60C", Skin.Data60C);
+	SkinRect(Probe.Skin, "Data61C", Skin.Data61C);
+	SkinInt(Probe.Skin, "Style1394.Data00", Skin.Style1394.Data00);
+	SkinInt(Probe.Skin, "Style1394.Data08.x", Skin.Style1394.Data08.x);
+	SkinInt(Probe.Skin, "Style1394.Data08.y", Skin.Style1394.Data08.y);
+	SkinInt(Probe.Skin, "Style1394.Data10.y", Skin.Style1394.Data10.y);
+	SkinInt(Probe.Skin, "Style1394.Data70.x", Skin.Style1394.Data70.x);
+	SkinInt(Probe.Skin, "Style1394.Data70.y", Skin.Style1394.Data70.y);
+
+	if (MainWindow != nullptr)
+		ProbeWalk(Probe, MainWindow);
+	if (ModalWindow != nullptr)
+		ProbeWalk(Probe, ModalWindow);
 }
 
 std::vector<TGuiNode> ReadGui()

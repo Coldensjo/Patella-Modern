@@ -3,7 +3,7 @@
 // the oracle-x86 build contain none of it.
 //
 //	PatellaTest.exe [--test-script <file>] [--test-log <file>] [--test-out <folder>] [--test-sync <name>]
-//	                [--test-replay <file>] [--test-display-modes <file>]
+//	                [--test-replay <file>] [--test-display-modes <file>] [--test-control <name>]
 //	                [the client's own words]
 //
 // Without --test-script the test build is the client on the system clock (TSystemClock: timeGetTime,
@@ -65,6 +65,27 @@
 // <name>-ready and waits for <name>-continue (both made by the checker), so that client_state.py reads
 // the same moment from outside; the wait does not count for the pace (the virtual clock does not see
 // it). A script with dump or frame needs --test-out.
+//
+// Issue #92: --test-control <name> (tools/testmode_client.py), the control channel through which the
+// comparison tools drive and read a running test client instead of reading its memory or hooking its
+// frames (tools/client_state.py, tools/capture/patcap.c: Tibia.exe's). The tool makes the events
+// <name>-command and <name>-done, writes control.txt into --test-out and sets <name>-command; at an idle
+// call the driver reads it, does it, writes control-reply.txt ("ok" or "error: <why>") and sets
+// <name>-done. A command is:
+//
+// - probe: probe.json (StateDump.h, "The probe"): the state dump's state and window tree and what the
+//   tools' drivers read besides (characters, skin values, components' members, the map's names, the Vulkan
+//   engine's device and frames), with or without a script;
+// - with a script, any lines of a script (InputScript.h; with clock manual none that moves the clock but
+//   advance, and no pace, clock or cursor): they come after the script's last event, at the clock's time,
+//   and the command is done once every one was handed out, the idle calls after it have passed and its
+//   frame dumps were taken. A tool drives the client so with a script of clock manual and cursor only
+//   (patcap's time course, tools/compare_rendering.py) and posts its window messages as post lines.
+//
+// Without a script the client takes Windows' input as Patella.exe does (tools/compare_traffic.py and
+// compare_files.py post their messages to its window) and the channel answers probe only. A command is
+// taken only once the one before it is done. With a script the frame observer is installed for the
+// channel's frame lines.
 //
 // Issue #83: PATELLA_TEST_FAIL_PRESENT=1 in the environment, with or without a script, makes every present of
 // the Vulkan engine fail as a failing vkQueuePresentKHR does (PresentFails, TestHooks.h), so the first frame's
@@ -221,6 +242,15 @@ struct TState {
 	HANDLE SyncReady = nullptr;
 	HANDLE SyncContinue = nullptr;
 
+	// Issue #92: the control channel (--test-control).
+	HANDLE ControlCommand = nullptr;
+	HANDLE ControlDone = nullptr;
+	bool ControlBusy = false; // a command's script lines are being handed out
+	int Probes = 0;
+	TProbeDevice Device;
+	std::uint64_t FramesShown = 0; // frames the observer was asked about
+	std::uint64_t Ticks = 0;       // the main timer's ticks of advance
+
 	// Issue #23.
 	TReplayState Replay;
 	int Messages = 0;
@@ -267,10 +297,11 @@ struct TArguments {
 	std::wstring Sync;
 	std::wstring Replay;
 	std::wstring DisplayModes;
+	std::wstring Control;
 };
 
-// The arguments --test-script, --test-log, --test-out, --test-sync, --test-replay and --test-display-modes of
-// the command line.
+// The arguments --test-script, --test-log, --test-out, --test-sync, --test-replay, --test-display-modes and
+// --test-control of the command line.
 TArguments ReadArguments()
 {
 	TArguments Result;
@@ -291,6 +322,8 @@ TArguments ReadArguments()
 			Result.Replay = Arguments[i + 1];
 		else if (wcscmp(Arguments[i], L"--test-display-modes") == 0)
 			Result.DisplayModes = Arguments[i + 1];
+		else if (wcscmp(Arguments[i], L"--test-control") == 0)
+			Result.Control = Arguments[i + 1];
 	}
 	::LocalFree(Arguments);
 	return Result;
@@ -316,6 +349,18 @@ void OpenSync(TState &State, const std::wstring &Name)
 	State.SyncContinue = ::OpenEventW(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, (Name + L"-continue").c_str());
 	if (State.SyncReady == nullptr || State.SyncContinue == nullptr)
 		Fail(State, "--test-sync " + Narrow(Name) + ": the events " + Narrow(Name) + "-ready and -continue do not exist");
+}
+
+// The tool's two events of the control channel (--test-control, issue #92).
+void OpenControl(TState &State, const std::wstring &Name)
+{
+	if (State.Out.empty())
+		Fail(State, "--test-control needs --test-out <folder>");
+	State.ControlCommand = ::OpenEventW(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, (Name + L"-command").c_str());
+	State.ControlDone = ::OpenEventW(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, (Name + L"-done").c_str());
+	if (State.ControlCommand == nullptr || State.ControlDone == nullptr)
+		Fail(State, "--test-control " + Narrow(Name) + ": the events " + Narrow(Name) + "-command and -done do not exist");
+	WriteLog(State, "testmode: control channel " + Narrow(Name));
 }
 
 // The server replay (--test-replay): the file and the listening sockets.
@@ -379,6 +424,8 @@ void Initialize(TState &State)
 		OpenReplay(State, Arguments.Replay);
 	if (!Arguments.DisplayModes.empty())
 		OpenDisplayModes(State, Arguments.DisplayModes);
+	if (!Arguments.Control.empty())
+		OpenControl(State, Arguments.Control);
 	const std::wstring &ScriptPath = Arguments.Script;
 	if (ScriptPath.empty())
 		return;
@@ -399,6 +446,9 @@ void Initialize(TState &State)
 	}
 	if (Dumps && State.Out.empty())
 		Fail(State, Narrow(ScriptPath) + ": the script has dump or frame commands: --test-out <folder> is needed");
+	// The control channel's frame lines (issue #92) need the observer, which the engine takes at its start.
+	if (State.ControlCommand != nullptr)
+		State.FramesWanted = true;
 	State.Scheduler = TScheduler(std::move(Parsed.Script));
 	State.Clock = &State.Virtual;
 	State.Scripted = true;
@@ -571,6 +621,7 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 		for (std::uint32_t i = 0; i < Event.Ticks; i++) {
 			State.Virtual.AdvanceTo(State.Virtual.Elapsed() + Step);
 			::SendMessageA(Window, WM_TIMER, 1, 0);
+			State.Ticks++;
 		}
 		State.Virtual.AdvanceTo(State.Virtual.Elapsed() + (Event.Duration - Step * Event.Ticks));
 		break;
@@ -587,6 +638,89 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 		break;
 	}
 	}
+}
+
+// --- the control channel (issue #92) ---
+
+std::string ReadText(const std::filesystem::path &Path)
+{
+	std::ifstream In(Path, std::ios::binary);
+	return {std::istreambuf_iterator<char>(In), std::istreambuf_iterator<char>()};
+}
+
+// Answers the command: control-reply.txt, then <name>-done.
+void ControlReply(TState &State, const std::string &Reply)
+{
+	if (!SaveFile(State.Out / L"control-reply.txt", Reply + "\n"))
+		WriteLog(State, "testmode: cannot write control-reply.txt");
+	if (Reply != "ok")
+		WriteLog(State, "testmode: control: " + Reply);
+	::SetEvent(State.ControlDone);
+}
+
+void WriteProbe(TState &State)
+{
+	TProbe Probe;
+	Probe.Step = ++State.Probes;
+	Probe.Time = State.Scripted ? State.Virtual.Elapsed() : 0;
+	ReadProbe(Probe);
+	Probe.Device = State.Device;
+	Probe.Frames = State.FramesShown;
+	Probe.Ticks = State.Ticks;
+	if (!SaveFile(State.Out / L"probe.json", ProbeJson(Probe)))
+		WriteLog(State, "testmode: cannot write probe.json");
+}
+
+// The command's script lines (a script with them alone; with a manual clock parsed as one), appended
+// after the last event at Elapsed; empty, or why not.
+std::string AppendLines(TState &State, const std::string &Text, std::uint32_t Elapsed)
+{
+	const bool Manual = State.Scheduler.ManualClock();
+	TParseResult Parsed = ParseScript((Manual ? "clock manual\n" : "") + Text);
+	if (!Parsed.Ok)
+		return "line " + std::to_string(Parsed.ErrorLine - (Manual ? 1 : 0)) + ": " + Parsed.Error;
+	if (Parsed.Script.FixedCursor || Parsed.Script.RealPerTick != TScript{}.RealPerTick
+		|| Parsed.Script.ManualClock != Manual)
+		return "pace, clock and cursor belong to the script the client starts with";
+	for (const TInputEvent &Event : Parsed.Script.Events) {
+		if (Event.Kind == TEventKind::Save && State.Out.empty())
+			return "save needs --test-out";
+	}
+	State.Scheduler.Append(std::move(Parsed.Script.Events), Elapsed);
+	return {};
+}
+
+// At an idle call with nothing of the script left to hand out: the command whose lines are done is
+// answered, then a new one is taken.
+void ControlPoll(TState &State, std::uint32_t Elapsed)
+{
+	if (State.ControlBusy) {
+		if (!State.Scheduler.Finished() || !State.PendingFrames.empty())
+			return;
+		State.ControlBusy = false;
+		ControlReply(State, "ok");
+	}
+	if (::WaitForSingleObject(State.ControlCommand, 0) != WAIT_OBJECT_0)
+		return;
+	std::string Text = ReadText(State.Out / L"control.txt");
+	while (!Text.empty() && (Text.back() == '\n' || Text.back() == '\r' || Text.back() == ' '))
+		Text.pop_back();
+	WriteLog(State, "testmode: control: " + (Text.find('\n') == std::string::npos ? Text : Text.substr(0, Text.find('\n')) + " ..."));
+	if (Text == "probe") {
+		WriteProbe(State);
+		ControlReply(State, "ok");
+		return;
+	}
+	if (!State.Scripted) {
+		ControlReply(State, "error: without --test-script the channel answers probe only");
+		return;
+	}
+	const std::string Error = AppendLines(State, Text, Elapsed);
+	if (!Error.empty()) {
+		ControlReply(State, "error: " + Error);
+		return;
+	}
+	State.ControlBusy = true;
 }
 
 // --- the server replay (issue #23) ---
@@ -905,8 +1039,12 @@ bool InitFails(int Step)
 void Idle()
 {
 	TState &Current = State();
-	if (!Current.Scripted)
+	if (!Current.Scripted) {
+		// Issue #92: without a script the control channel answers probe only, at any idle call.
+		if (Current.ControlCommand != nullptr && MainWindow() != nullptr)
+			ControlPoll(Current, 0);
 		return;
+	}
 	HWND Window = MainWindow();
 	if (Window == nullptr)
 		return;
@@ -947,7 +1085,14 @@ void Idle()
 		Current.Quiet = Current.Scheduler.ManualClock() ? QuietPasses : 0;
 		return;
 	}
-	if (Current.Scheduler.Finished() && !Current.FinishReported) {
+	if (Current.ControlCommand != nullptr) {
+		// Issue #92: the control channel's next command once the script and the last command are done.
+		if (Current.Scheduler.Finished()) {
+			ControlPoll(Current, Elapsed);
+			if (!Current.Scheduler.Finished())
+				return; // the command's lines, from the next idle call on
+		}
+	} else if (Current.Scheduler.Finished() && !Current.FinishReported) {
 		Current.FinishReported = true;
 		WriteLog(Current, "testmode: the script ends at " + std::to_string(Elapsed) + " ms; the clock goes on");
 	}
@@ -1056,7 +1201,20 @@ namespace {
 
 int PATELLA_CDECL FrameWanted(int /*Width*/, int /*Height*/)
 {
-	return State().PendingFrames.empty() ? 0 : 1;
+	TState &Current = State();
+	Current.FramesShown++;
+	return Current.PendingFrames.empty() ? 0 : 1;
+}
+
+// Issue #92: the device the Vulkan engine runs on, for the control channel's probe.
+void PATELLA_CDECL DeviceSeen(const char *Name, int Type, int CpuDriver)
+{
+	TState &Current = State();
+	Current.Device.Known = true;
+	Current.Device.Name = Name != nullptr ? Name : "";
+	Current.Device.Type = Type;
+	Current.Device.CpuDriver = CpuDriver;
+	WriteLog(Current, "testmode: the Vulkan engine's device: " + Current.Device.Name);
 }
 
 void PATELLA_CDECL FrameMask(const unsigned char *Mask, int Width, int Height)
@@ -1163,10 +1321,14 @@ int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type
 }
 
 void FrameObservers(HMODULE Patcap, int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **Pixels)(const void *, int, int, int),
-	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int))
+	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int), void(PATELLA_CDECL **Device)(const char *, int, int))
 {
 	const TState &Current = State();
-	if (Patcap != nullptr || !Current.FramesWanted)
+	if (Patcap != nullptr)
+		return;
+	if (Current.ControlCommand != nullptr)
+		*Device = DeviceSeen;
+	if (!Current.FramesWanted)
 		return;
 	*Frame = FrameWanted;
 	*Pixels = FramePixels;

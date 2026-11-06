@@ -789,4 +789,11 @@ const int *patella::testmode::ViewConnectionState()
 {
 	return &ConnectionState;
 }
+
+// The character list (issue #92: the control channel's probe, tools/client_state.py's characters()).
+void patella::testmode::ViewCharacters(TCharactersView *View)
+{
+	View->Characters = Characters.get();
+	View->Count = &AccountCharacters;
+}
 #endif

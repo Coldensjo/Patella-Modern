@@ -1,6 +1,5 @@
 r"""The determinism check of the test mode (issue #21): the same script, the same packets; and the
-check of its dumps (issue #22): the client's own state dump, packet log and frame dump against what the
-tools see from outside.
+check of its dumps (issue #22): the client's own state dump, packet log and frame dump.
 
 Usage (from the repository or a worktree; the test server of issue #18 must be stopped):
   python -I tools/build.py windows-x64
@@ -42,12 +41,14 @@ Compared, run 1 against every later run:
      padding): identical too, because the virtual clock gives srand the same seed in every run;
   c. the driver's logs (every event with its virtual time and script line): identical;
   d. the Tibia.cfg the client wrote when it closed: identical.
-Compared in every run (issue #22; the client runs with --test-out <out>\run<N> --test-sync <name>,
+Compared in every run (issue #22; the client runs with --test-out <out>\run<N>,
 tools/testmode_dumps.py):
-  e. each state dump of the client (state-<NNN>.json, at the script's dump commands) against
-     client_state.py's reading of the same moment from outside (external-<NNN>.json: the client
-     waits at each dump until this tool has read it): "state" and "gui" equal, and one dump per dump
-     command;
+  e. each state dump of the client (state-<NNN>.json, at the script's dump commands) on its own: one
+     per dump command, at its line, in time order, with StateDump.h's keys in their order and a
+     well-formed window tree. Until Patella-Modern issue #92 e compared each dump with client_state.py's
+     reading of the same moment from the client's memory (--test-sync); the x64 client is no longer read
+     from outside, and the dumps' values are compared with Tibia.exe's readings by the reference compare
+     (tools/reference.py, b. states; notes/decisions.md, issue #92);
   f. the client's packet log (packets.log, before encryption and after decryption) against the
      proxy's decrypted recording of the same run: every client packet identical, payload and padding,
      the first packets with the RSA block before encryption; the server packets the client decrypted
@@ -65,13 +66,11 @@ The client runs with PATELLA_VULKAN=cpu (--vulkan): the pinned CPU driver next t
 copied into the run folder, for frames that do not depend on the machine's GPU.
 
 Results in --out: run<N>.jsonl (the proxy's recordings), run<N>.log (the driver's), run<N>.Tibia.cfg,
-run<N>\ (the client's dumps and client_state.py's readings), report.txt.
+run<N>\ (the client's dumps), report.txt.
 """
 
 import argparse
 import contextlib
-import ctypes
-import ctypes.wintypes as wt
 import io
 import json
 import os
@@ -98,7 +97,6 @@ DEFAULT_SCRIPT = os.path.join(ROOT, "tests", "testmode", "login-walk.script")
 SCRIPT_ERROR_EXIT = 3  # src/testmode/TestModeWin32.cpp: the script does not parse
 # The Vulkan engine's CPU driver next to PatellaTest.exe (cmake/Vulkan.cmake; compare_rendering.py's).
 CPU_DRIVER_FILES = ("vulkan_lvp.dll", "lvp_icd.x86_64.json")
-WAIT_OBJECT_0, WAIT_TIMEOUT = 0, 0x102
 RETRIES = 1  # a run whose game server never answered is run once more
 
 
@@ -138,68 +136,11 @@ def setup(exe):
 	ct.RUN_EXES[RUN] = EXE_NAME
 
 
-class StateReader:
-	"""client_state.py's reading at each state dump (--test-sync): the client sets <name>-ready after
-	writing state-<NNN>.json and waits for <name>-continue; meanwhile this reads state() and gui()
-	from its memory into external-<NNN>.json."""
-
-	def __init__(self, dumps, pdb_exe):
-		self.kernel32 = k = ctypes.WinDLL("kernel32", use_last_error=True)
-		k.CreateEventW.restype = wt.HANDLE
-		k.CreateEventW.argtypes = [ctypes.c_void_p, wt.BOOL, wt.BOOL, wt.LPCWSTR]
-		k.SetEvent.argtypes = [wt.HANDLE]
-		k.WaitForSingleObject.argtypes = [wt.HANDLE, wt.DWORD]
-		k.WaitForSingleObject.restype = wt.DWORD
-		k.CloseHandle.argtypes = [wt.HANDLE]
-		self.name = "Local\\patella-testmode-%d-%d" % (os.getpid(), int(time.time() * 1000) % 1000000)
-		self.ready = k.CreateEventW(None, False, False, self.name + "-ready")
-		self.go_on = k.CreateEventW(None, False, False, self.name + "-continue")
-		if not self.ready or not self.go_on:
-			raise CheckError("CreateEventW failed (error %d)" % ctypes.get_last_error())
-		self.dumps = dumps
-		self.pdb_exe = pdb_exe
-		self.client = None
-		self.steps = 0
-
-	def close(self):
-		if self.client is not None:
-			self.client.close()
-		for handle in (self.ready, self.go_on):
-			self.kernel32.CloseHandle(handle)
-
-	def serve(self, proc, deadline):
-		"""Answers the client's dumps until it exits or the deadline passes; False on the deadline."""
-		import client_state as cs
-		while proc.poll() is None:
-			if time.time() > deadline:
-				return False
-			if self.kernel32.WaitForSingleObject(self.ready, 250) != WAIT_OBJECT_0:
-				continue
-			self.steps += 1
-			reading = {"format": td.STATE_FORMAT, "source": "client_state.py", "step": self.steps}
-			started = time.time()
-			try:
-				if self.client is None:
-					self.client = cs.Client(proc.pid, self.pdb_exe)
-				reading["state"] = self.client.state()
-				reading["gui"] = self.client.gui()
-			except (cs.ReadError, OSError) as e:
-				reading["error"] = str(e)
-			with open(os.path.join(self.dumps, "external-%03d.json" % self.steps), "w", encoding="utf-8") as f:
-				json.dump(reading, f, separators=(",", ":"))
-			self.kernel32.SetEvent(self.go_on)
-			log("state dump %d read by client_state.py in %.2f s%s" % (self.steps, time.time() - started,
-				" (%s)" % reading["error"] if "error" in reading else ""))
-		return True
-
-
-def run_client(script, log_path, timeout, dumps, pdb_exe, vulkan):
-	"""Starts the test client in the run folder with the script, answers its state dumps, and waits
-	for it to exit."""
+def run_client(script, log_path, timeout, dumps, vulkan):
+	"""Starts the test client in the run folder with the script and waits for it to exit."""
 	folder = ct.run_dir(RUN)
-	reader = StateReader(dumps, pdb_exe)
 	command = [os.path.join(folder, EXE_NAME), "--test-script", script, "--test-log", log_path,
-		"--test-out", dumps, "--test-sync", reader.name]
+		"--test-out", dumps]
 	env = dict(os.environ)
 	env["PATELLA_VULKAN"] = vulkan
 	started = time.time()
@@ -207,15 +148,12 @@ def run_client(script, log_path, timeout, dumps, pdb_exe, vulkan):
 		stdin=subprocess.DEVNULL, env=env)
 	log("started %s, PID %d, PATELLA_VULKAN=%s" % (EXE_NAME, proc.pid, vulkan))
 	try:
-		in_time = reader.serve(proc, started + timeout)
-		if not in_time:
-			proc.kill()
-			proc.communicate()
-			raise CheckError("the client did not exit within %d s (the script ends with quit; see %s)"
-				% (timeout, log_path))
-		_, stderr = proc.communicate(timeout=30)
-	finally:
-		reader.close()
+		_, stderr = proc.communicate(timeout=timeout)
+	except subprocess.TimeoutExpired:
+		proc.kill()
+		proc.communicate()
+		raise CheckError("the client did not exit within %d s (the script ends with quit; see %s)"
+			% (timeout, log_path))
 	text = stderr.decode("utf-8", "replace").strip()
 	if proc.returncode == SCRIPT_ERROR_EXIT:
 		raise CheckError("the script was refused: %s" % text)
@@ -277,7 +215,7 @@ def run_with_retry(number, out, run, retries=RETRIES):
 		attempt += 1
 
 
-def live_run(number, script, out, players, timeout, pdb_exe, vulkan):
+def live_run(number, script, out, players, timeout, vulkan):
 	log("=== run %d" % number)
 	ct.restore_players(players)
 	start_server_online()
@@ -290,7 +228,7 @@ def live_run(number, script, out, players, timeout, pdb_exe, vulkan):
 		os.makedirs(prefix)
 		proxy = px.Proxy(prefix + ".jsonl", px.load_private_key(ct.PEM), log=log)
 		with proxy:
-			run_client(script, prefix + ".log", timeout, prefix, pdb_exe, vulkan)
+			run_client(script, prefix + ".log", timeout, prefix, vulkan)
 		if proxy.errors:
 			raise CheckError("proxy errors: %s" % proxy.errors)
 		shutil.copyfile(os.path.join(ct.run_dir(RUN), "Tibia.cfg"), prefix + ".Tibia.cfg")
@@ -415,10 +353,11 @@ def compare(out, runs, script, quiet=False, report=None):
 	# Issue #22: the dumps, in every run.
 	dumps_wanted, frames_wanted = td.script_commands(script)
 	say()
-	say("e. the state dumps against client_state.py's reading of the same moment (%d dump commands)" % dumps_wanted)
+	say("e. the state dumps on their own: one per dump command, StateDump.h's keys, the window tree's form (%d dump"
+		" commands)" % dumps_wanted)
 	for number in range(1, runs + 1):
-		differences, lines = td.compare_state_dumps(os.path.join(out, "run%d" % number), dumps_wanted)
-		say("  run %d: %s" % (number, "equal" if not differences else "DIFFERENT"))
+		differences, lines = td.check_state_dumps(os.path.join(out, "run%d" % number), script)
+		say("  run %d: %s" % (number, "well formed" if not differences else "PROBLEMS"))
 		for line in lines + differences:
 			say("  " + line)
 		failed |= bool(differences)
@@ -519,7 +458,7 @@ def main(argv=None):
 		try:
 			for number in range(1, args.runs + 1):
 				run_with_retry(number, out, lambda number=number: live_run(number, script, out, players,
-					args.timeout, exe, args.vulkan))
+					args.timeout, args.vulkan))
 		finally:
 			ct.restore_players(players)
 			log("player files of the test characters restored")
