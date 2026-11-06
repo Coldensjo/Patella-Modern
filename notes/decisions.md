@@ -10711,3 +10711,21 @@ Settled by Claude Opus 5.5, November 6, 2026; M5 (notes/modernization-plan.md, 7
   every session matches (error with #74's deliberate differences); the error session's line "[error] Debug
   Assertion 7.72 Player.cpp 383: exception occurred, reason: Control.cpp 1274: unknown packet type during game (Type
   = 255)" (a TERROR, unchanged). Logs: build\logs\issue-79.
+
+## TMyException with a source location, TProgramError, std::expected (Patella-Modern issue #80)
+
+Settled by Claude Opus 5.5, November 6, 2026; M5 (notes/modernization-plan.md, 7 M5: "`TMyException` shrinks to a
+message and a `std::source_location`. `PROGRAM_ERROR` becomes an `enum class` carried by its own exception type.
+Recoverable failures (a file that does not load, a host that does not resolve) return `std::expected<T, TError>`"),
+after #76 (outcome-only comparison), #78 (TBEGIN/TEND deleted) and #79 (PATELLA_ASSERT).
+
+### The split (high)
+
+One branch (issue-80), one commit per part, each built and scanned on its own:
+
+- **80a**: TMyException becomes a message and a source location; TMYEXCEPTION, TERROR* and PATELLA_ASSERT's failure
+  functions build it; the line arguments of the sites go.
+- **80b**: PROGRAM_ERROR becomes an `enum class` with named values, thrown inside `TProgramError`; every throw and
+  catch changes with it; golden_eh's OurThrow maps a TProgramError to the kind the original's bare enum has.
+- **80c**: the recoverable failures return `std::expected<T, TError>`, or are documented with a plan when that is
+  too risky in this issue.
