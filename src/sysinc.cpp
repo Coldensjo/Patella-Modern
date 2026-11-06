@@ -12,11 +12,14 @@
 #include "sysinc.h"
 #include "common.h"
 #include "compat/msvc_io.h"
+#include "types/Cp1252.h"
 #include <array>
 #include <mmsystem.h>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <string_view>
 
 #if defined(_MSC_VER)
 #pragma comment(lib, "winmm.lib")
@@ -56,10 +59,12 @@ bool RemoveFile(const char *FileName)
 	return remove(FileName) == 0;
 }
 
-// 0x4fcbe0. True when the clipboard has no text.
+// 0x4fcbe0. True when the clipboard has no text. Since Patella-Modern issue
+// #112 the clipboard's text is its UTF-16 text (CF_UNICODETEXT; Windows makes
+// it from CF_TEXT and CF_TEXT from it, so the one is there when the other is).
 bool IsClipboardEmpty()
 {
-	return !IsClipboardFormatAvailable(CF_TEXT);
+	return !IsClipboardFormatAvailable(CF_UNICODETEXT);
 }
 
 // 0x4fcbf0. What failed, for a PROGRAM_ERROR code (Player.cpp).
@@ -163,21 +168,34 @@ void ResizeClipboardBuffer(unsigned int Size)
 // line breaks turned into spaces; NULL when the clipboard cannot be opened.
 // Odd behaviour kept: each removed CR moves Size-i bytes from i+1, one byte
 // past the clipboard data.
+// Patella-Modern issue #112 (plan D4): the original read CF_TEXT, the text in
+// the system's ANSI code page (or the code page of the input language that
+// put it there); the client's text is Windows-1252 on every system, so the
+// clipboard's UTF-16 text is converted (types/Cp1252.h: '?' for a character
+// the code page does not have). Size is the converted text's with its NUL
+// (the original's was the CF_TEXT memory's, at least that).
 char *GetClipboardText()
 {
 	if (!OpenClipboard(nullptr))
 		return nullptr;
-	HANDLE Memory = GetClipboardData(CF_TEXT);
-	const SIZE_T Size = GlobalSize(Memory);
-	ResizeClipboardBuffer((unsigned int)Size);
-	const char *Data = static_cast<char *>(GlobalLock(Memory));
-	if (Data == nullptr) {
-		ClipboardBuffer[0] = 0;
-	} else {
-		memcpy(ClipboardBuffer, Data, Size);
+	HANDLE Memory = GetClipboardData(CF_UNICODETEXT);
+	const SIZE_T Units = GlobalSize(Memory) / sizeof(char16_t);
+	const auto *Data = static_cast<const char16_t *>(GlobalLock(Memory));
+	std::string Text;
+	if (Data != nullptr) {
+		std::size_t Length = 0;
+		while (Length < Units && Data[Length] != 0)
+			Length++;
+		Text = patella::text::Utf16ToCp1252(std::u16string_view(Data, Length));
 		const BOOL result = GlobalUnlock(Memory);
 		PATELLA_ASSERT(result!=0 || GetLastError()==NO_ERROR);
 	}
+	const SIZE_T Size = Data != nullptr ? Text.size() + 1 : 0;
+	ResizeClipboardBuffer((unsigned int)Size);
+	if (Data == nullptr)
+		ClipboardBuffer[0] = 0;
+	else
+		memcpy(ClipboardBuffer, Text.c_str(), Size);
 	CloseClipboard();
 	for (SIZE_T i = 0; i < Size; i++) {
 		if (ClipboardBuffer[i] == '\r')
@@ -190,21 +208,25 @@ char *GetClipboardText()
 	return ClipboardBuffer;
 }
 
-// 0x4fd1b0, lines 139-143
+// 0x4fd1b0, lines 139-143. Since Patella-Modern issue #112 the text (the
+// client's, Windows-1252) goes on the clipboard as UTF-16 (CF_UNICODETEXT),
+// instead of the original's CF_TEXT, so that another program reads it as the client
+// shows it whatever the system's ANSI code page and the input language.
 bool SetClipboardText(const char *Text)
 {
-	const size_t Length = strlen(Text);
+	const std::u16string Wide = patella::text::Cp1252ToUtf16(Text);
+	const size_t Length = Wide.size();
 	if (!OpenClipboard(nullptr))
 		return false;
 	HGLOBAL Memory;
-	if (EmptyClipboard() && (Memory = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, Length + 1)) != nullptr) {
-		char *textdata = static_cast<char *>(GlobalLock(Memory));
+	if (EmptyClipboard() && (Memory = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, (Length + 1) * sizeof(char16_t))) != nullptr) {
+		auto *textdata = static_cast<char16_t *>(GlobalLock(Memory));
 		PATELLA_ASSERT(textdata!=NULL);
-		memcpy(textdata, Text, Length);
+		memcpy(textdata, Wide.data(), Length * sizeof(char16_t));
 		textdata[Length] = 0;
 		const BOOL result = GlobalUnlock(Memory);
 		PATELLA_ASSERT_VALUES(result==0 || GetLastError()==NO_ERROR, result, GetLastError());
-		if (SetClipboardData(CF_TEXT, Memory) != nullptr) {
+		if (SetClipboardData(CF_UNICODETEXT, Memory) != nullptr) {
 			CloseClipboard();
 			return true;
 		}

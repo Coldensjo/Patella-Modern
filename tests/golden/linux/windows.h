@@ -423,6 +423,7 @@ typedef struct _devicemodeA {
 #define SM_CXSCREEN 0
 #define SM_CYSCREEN 1
 #define CF_TEXT 1
+#define CF_UNICODETEXT 13
 #define GMEM_FIXED 0x0000
 #define GMEM_MOVEABLE 0x0002
 #define GMEM_ZEROINIT 0x0040

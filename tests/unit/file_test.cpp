@@ -167,6 +167,38 @@ TEST_CASE("file: binary files keep the bytes")
 #endif
 }
 
+TEST_CASE("file: a name is the client's text, Windows-1252, and the file the one of its Unicode name (issue #112)")
+{
+	// "J\xf6rg \x80.bin": the file the platform knows as "Jörg €.bin" (UTF-16 on Windows, UTF-8 elsewhere).
+	const TTemporaryPath Path("J\xf6rg \x80.bin");
+	const std::string Directory = std::filesystem::path(Path.Path).parent_path().string();
+	const std::string Leaf = std::filesystem::path(Path.Path).filename().string();
+	REQUIRE(Leaf.size() > 10);
+	const std::string Prefix = Leaf.substr(0, Leaf.size() - 10); // patella_file_test_<unique>_
+	// UTF-8 bytes into a u8string (MSVC encodes a u8 literal's hex escapes as characters: C5321).
+	const std::string Utf8 = Prefix + "J\xc3\xb6rg \xe2\x82\xac.bin";
+	const std::filesystem::path Unicode = std::filesystem::path(Directory) / std::filesystem::path(std::u8string(Utf8.begin(), Utf8.end()));
+	{
+		TFile File;
+		REQUIRE(File.Open(Path.Name(), TFile::TAccess::Write));
+		CHECK(File.Write("bytes"));
+	}
+	std::error_code Error;
+	CHECK(std::filesystem::exists(Unicode, Error));
+	{
+		std::ifstream In(Unicode, std::ios::binary);
+		CHECK(std::string(std::istreambuf_iterator<char>(In), std::istreambuf_iterator<char>()) == "bytes");
+	}
+	{
+		TFile File;
+		REQUIRE(File.Open(Path.Name(), TFile::TAccess::Read));
+		std::string Read(5, '\0');
+		CHECK(File.Read(Read.data(), 1, 5) == 5);
+		CHECK(Read == "bytes");
+	}
+	std::filesystem::remove(Unicode, Error);
+}
+
 TEST_CASE("file: text files end their lines in CR LF on every platform, as the Microsoft C runtime wrote them")
 {
 	const std::string Expected = "\r\nx\r\ny\r\r\n1 z\r\n\r\nw";

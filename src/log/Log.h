@@ -20,6 +20,10 @@
 // binary ('\n' line ends on every platform); stderr's own mode does the rest (the Microsoft C runtime writes "\r\n").
 // Each line is flushed at once: the next thing the fatal path does may be the end of the process.
 //
+// The messages are the client's text, Windows-1252 (plan D4); the lines go out in UTF-8 (issue #112,
+// types/Cp1252.h), to stderr and to the file alike, so that a terminal, an editor and M8's Linux console show them as
+// they are. An ASCII message is written unchanged. LogFile's name is the client's text too (TFile::Open).
+//
 // The fatal path's extras for Debug builds (Player.cpp FatalError), here so that every compiler tests them:
 // CurrentStacktrace (std::stacktrace's text where the standard library has it: MSVC's, and libstdc++'s with
 // libstdc++exp, GCC 16 and Clang 22 on Linux; nothing on mingw-w64's GCC 16 and on the oracle's C++17), and
@@ -29,6 +33,7 @@
 #pragma once
 
 #include "compat/format.h"
+#include "types/Cp1252.h"
 #include "types/File.h"
 #include "types/FixedString.h" // IWYU pragma: keep (std::format's branch: TFormatArgument)
 
@@ -103,7 +108,7 @@ inline std::optional<TLevel> ParseLevel(std::string_view Name) noexcept
 	return std::nullopt;
 }
 
-// The line written for a message: "[<level>] <message>\n".
+// The line written for a message (the client's text, Windows-1252): "[<level>] <message>\n", in UTF-8 (issue #112).
 inline std::string FormatLine(TLevel Level, std::string_view Message)
 {
 	const std::string_view Name = LevelName(Level);
@@ -112,7 +117,7 @@ inline std::string FormatLine(TLevel Level, std::string_view Message)
 	Line += '[';
 	Line += Name;
 	Line += "] ";
-	Line += Message;
+	Line += patella::text::Cp1252ToUtf8(Message);
 	Line += '\n';
 	return Line;
 }

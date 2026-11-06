@@ -25,10 +25,14 @@
 //	  Reading in text mode is refused (false, errno EINVAL): the client reads only binary files.
 // Open is fopen with the original's sharing on Windows (_fsopen with _SH_DENYNO, which is what fopen calls);
 // the UTF-16 name overload of the Windows-only test mode is _wfopen_s, as its callers had (not shared).
+// The name is the client's text, Windows-1252 (issue #112, plan D4; types/Cp1252.h): on Windows it is opened by its
+// UTF-16 name (_wfsopen, the same sharing), so it no longer depends on the system's ANSI code page (where that is
+// 1252 the file is the same); elsewhere by its UTF-8 name. An ASCII name is the same file everywhere.
 
 #pragma once
 
 #include "compat/format.h"
+#include "types/Cp1252.h"
 #include "types/FixedString.h" // IWYU pragma: keep (std::format's branch of Print: TFormatArgument)
 
 #include <array>
@@ -74,20 +78,32 @@ public:
 		return *this;
 	}
 
-	// fopen(Name, Mode). False where fopen returned NULL (errno set), and on a TFile that is already open
-	// (EBUSY; the callers check that themselves first, with their own error).
+	// fopen(Name, Mode), Name in the client's code page (above). False where fopen returned NULL (errno set), on a
+	// TFile that is already open (EBUSY; the callers check that themselves first, with their own error), and where
+	// the converted name cannot be made (ENOMEM).
 	bool Open(const char *Name, TAccess Access, TContent Content = TContent::Binary) noexcept
 	{
 		if (!Usable(Access, Content))
 			return false;
+		if (Name == nullptr) {
+			errno = EINVAL;
+			return false;
+		}
+		try {
 #if defined(_WIN32)
-		Handle = _fsopen(Name, ModeText(Access, Content), _SH_DENYNO);
+			const std::wstring WideName = patella::text::Cp1252ToWide(Name);
+			Handle = _wfsopen(WideName.c_str(), WideModeText(Access, Content).data(), _SH_DENYNO);
 #else
-		if (Content == TContent::Text)
-			Handle = OpenText(Name, Access);
-		else
-			Handle = std::fopen(Name, ModeText(Access, Content)); // NOLINT(cppcoreguidelines-owning-memory): TFile owns it (Close)
+			const std::string Utf8Name = patella::text::Cp1252ToUtf8(Name);
+			if (Content == TContent::Text)
+				Handle = OpenText(Utf8Name.c_str(), Access);
+			else
+				Handle = std::fopen(Utf8Name.c_str(), ModeText(Access, Content)); // NOLINT(cppcoreguidelines-owning-memory): TFile owns it (Close)
 #endif
+		} catch (...) { // std::bad_alloc of the name
+			errno = ENOMEM;
+			return false;
+		}
 		return Handle != nullptr;
 	}
 
@@ -97,10 +113,7 @@ public:
 	{
 		if (!Usable(Access, Content))
 			return false;
-		const char *Mode = ModeText(Access, Content);
-		std::array<wchar_t, 4> WideMode = {};
-		for (int i = 0; i < 3 && Mode[i] != 0; i++)
-			WideMode[i] = static_cast<wchar_t>(Mode[i]);
+		const std::array<wchar_t, 4> WideMode = WideModeText(Access, Content);
 		std::FILE *Opened = nullptr;
 		if (_wfopen_s(&Opened, Name, WideMode.data()) != 0)
 			Opened = nullptr;
@@ -225,6 +238,18 @@ private:
 		}
 		return "rb";
 	}
+
+#if defined(_WIN32)
+	// ModeText as the wide functions take it.
+	static std::array<wchar_t, 4> WideModeText(TAccess Access, TContent Content) noexcept
+	{
+		const char *Mode = ModeText(Access, Content);
+		std::array<wchar_t, 4> WideMode = {};
+		for (std::size_t i = 0; i < 3 && Mode[i] != 0; i++)
+			WideMode[i] = static_cast<wchar_t>(Mode[i]);
+		return WideMode;
+	}
+#endif
 
 	int PutFormatted(std::string_view Text) noexcept
 	{

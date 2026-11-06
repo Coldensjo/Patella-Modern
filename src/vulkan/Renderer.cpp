@@ -29,6 +29,7 @@
 #include "QuadFrag.h"
 #include "QuadVert.h"
 
+#include "types/Cp1252.h"
 #include "vulkan/DeviceChoice.h"
 #include "vulkan/Quads.h"
 
@@ -187,7 +188,7 @@ std::vector<vkb::PhysicalDevice> FindDevices(const vkb::Instance &Instance, VkSu
 TDeviceInfo InfoOf(const vkb::PhysicalDevice &Physical, bool Cpu)
 {
 	TDeviceInfo Info;
-	Info.Name = Physical.properties.deviceName;
+	Info.Name = patella::text::Utf8ToCp1252(Physical.properties.deviceName); // UTF-8 (Vulkan), shown by the GUI
 	Info.Type = Physical.properties.deviceType;
 	Info.VendorId = Physical.properties.vendorID;
 	Info.DeviceId = Physical.properties.deviceID;
