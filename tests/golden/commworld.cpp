@@ -821,11 +821,14 @@ static void *FollowJumps(void *Code)
 	return p;
 }
 
+// The this of the first member call in our function: `mov ecx, imm32` before a call or, where the call is the
+// function's last statement, a jump (GetByte's `return ReceiveBuffer.GetByte();` is a tail call since its try
+// block went, Patella-Modern issue #78).
 static TBuffer *ThisOfFirstCall(void *Function)
 {
 	uint8 *p = (uint8 *)FollowJumps(Function);
 	for (int i = 0; i < 160; i++) {
-		if (p[i] == 0xb9 && p[i + 5] == 0xe8) {
+		if (p[i] == 0xb9 && (p[i + 5] == 0xe8 || p[i + 5] == 0xe9)) {
 			uint32 Value = *(uint32 *)(p + i + 1);
 			if (Value >= 0x20000000 && Value < 0x30000000)
 				return (TBuffer *)(uintptr_t)Value;

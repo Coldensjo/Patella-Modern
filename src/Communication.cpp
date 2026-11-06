@@ -737,8 +737,9 @@ void SendRuleViolationReport(const char *Name, uint8 Reason, uint8 Action, const
 // 0x40a2f0, line 969, SendDebugReport (client packet 0xe8: an error report of error.txt) is gone since
 // Patella-Modern issue #74 (decision D2).
 
-// 0x40a4c0, lines 994-994
-void ReceiveLoginError()
+// 0x40a4c0, lines 994-994. Out of line (PATELLA_NOINLINE): the golden
+// corpus's Control test replaces it, and ReceivePackets would inline it (issue #78).
+PATELLA_NOINLINE void ReceiveLoginError()
 {
 	const char *Text = GetString();
 	AddMessage(1, reinterpret_cast<INT_PTR>("Sorry"), reinterpret_cast<INT_PTR>(Text));
@@ -746,8 +747,9 @@ void ReceiveLoginError()
 	SetConnectionState(0);
 }
 
-// 0x40a670, lines 1006-1006
-void ReceiveLoginMessage()
+// 0x40a670, lines 1006-1006. Out of line (PATELLA_NOINLINE): the golden
+// corpus's Control test replaces it, and ReceivePackets would inline it (issue #78).
+PATELLA_NOINLINE void ReceiveLoginMessage()
 {
 	const char *Text = GetString();
 	AddMessage(1, reinterpret_cast<INT_PTR>("For Your Information"), reinterpret_cast<INT_PTR>(Text));
