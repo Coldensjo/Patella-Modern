@@ -433,6 +433,18 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #82 (branch issue-82, November 6, 2026): tools/patch_client.py --rsa patches the Debug clients'
+two copies of the RSA modulus (Debug builds do not pool the two identical literals of src/Communication.cpp; each
+copy must be referenced by code); notes/decisions.md, "patch_client.py --rsa on the Debug builds". No src/ change.
+`python -I tools/patch_client.py --self-test`: passed (made-up PE32 and PE32+ images, one copy, two copies, the refused
+cases). main's tool and the branch's with `--host 127.0.0.1 --rsa tibia.pem`, with and without `--port 7271`, on
+Tibia.exe, the oracle-x86 Release Patella.exe and the windows-x64 and windows-x64-asan Release Patella.exe and
+PatellaTest.exe: identical byte for byte; the four Debug images (windows-x64-debug, windows-x64-asan-debug): main
+refused them, the branch patches both copies (620 bytes, 621 with the port; size unchanged). `python -I
+tools/testmode_check.py --exe build/windows-x64/Debug/PatellaTest.exe --runs 2 --timeout 600`: both runs log in, walk,
+talk and log out, a-d and f-h pass; exit 1 from e alone (client_state.py reads the Debug image's window tree as 1-3
+windows: found, not done). Logs: build\logs\issue-82.
+
 Patella-Modern issue #87 (branch issue-87, November 6, 2026): tests_vulkan's thread census now counts after the CPU
 driver's threads have ended. Before, a census could catch lavapipe's rasterizer threads still exiting, which gave 21
 and 27 for 24 under ASan. Each census in the rounds now waits up to 30 s for the new live threads that started in

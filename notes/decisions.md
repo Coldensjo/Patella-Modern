@@ -10570,3 +10570,49 @@ count of ended rasterizer threads: 21 and then 27 where every device leaves 24. 
   under three concurrent ASan loops), no census found a thread still ending, so the wait never ran. The fix follows
   from Mesa's source (lp_rast.c, lp_rast_destroy) and the sum-preserving counts (21 + 27 = 2 x 24), but is untested
   against the failure itself; the census line's "still ending" count will show it when it happens.
+
+## patch_client.py --rsa on the Debug builds: the modulus's two copies (Patella-Modern issue #82)
+
+Settled by Claude Opus 5.5, November 6, 2026. Found in #73: `tools/patch_client.py --rsa` refused every Debug image
+("the RSA modulus: expected one occurrence, found 2"), so compare_traffic.py and testmode_check.py, which patch in the
+server's key, could not use a Debug client. src/Communication.cpp passes CipSoft's modulus to TRSA::SetPublicKey twice,
+as two identical literals (the login connection, line 110, and the game connection, line 170). Tibia.exe and every
+Release build pool identical strings (/GF, which /O1 and /O2 imply), so the image holds one copy, referenced twice; the Debug
+builds do not pool, so they hold two copies, each referenced once (windows-x64-debug Patella.exe: 0xce6250 and
+0xce65f0 in the file). No src/ change.
+
+- **Both copies, each referenced by code** (high). The copies are found as the 309 digits with a NUL before and after
+  (a lookahead and lookbehind, so two copies with one NUL between them are both found). One copy is patched as
+  before. Two are patched only when the code references each of them: on x86 its absolute address in a code section,
+  on x64 a RIP-relative disp32 after a ModRM byte with mod 00 and r/m 101 (first_reference's test) whose target is
+  inside the copy. Both get the same text, NUL-padded to the old length, so the image's layout and size stay the same.
+  Any other count (zero, three or more), or two copies of which one is not referenced, stays an error. The check after
+  writing reads each copy back as the new modulus. The new scan (`literal_references`) reads the code with
+  struct.iter_unpack per alignment: about 8 s on a 19 MB Debug image. Considered: telling Debug from the PDB (the
+  issue's suggestion; a PDB does not say whether strings were pooled, and the references say directly which copies
+  the client reads); patching any number of copies (a stray copy elsewhere would be patched unseen); one literal in
+  src/ (a src/ change, while #79 rewrites src/; and Patella.ini's key, D8 for M8, will remove the patching anyway).
+- **The self-test** (high). `--self-test` builds made-up PE32 and PE32+ images (a code and a data section, the four
+  login server names, the modulus copies, `push imm32` or `lea rcx, [rip+disp32]` references into the middle of
+  each copy) and runs patch, verify and check on them: one copy referenced twice, and two copies each referenced
+  twice, are patched (each copy to the same 308-digit text and its NUL padding); two copies with only the first, only
+  the second or neither referenced, and three copies, are refused. It also checks that a disp32 after a ModRM other
+  than mod 00 r/m 101 is no reference.
+- **Proof** (high). main's patch_client.py (c9c4833) and the branch's, with `--host 127.0.0.1 --rsa
+  C:/Tibia/gameserver/tibia.pem` and with `--port 7271` added, on Tibia.exe, the oracle-x86 Release Patella.exe, and
+  windows-x64 and windows-x64-asan Release Patella.exe and PatellaTest.exe: the outputs are identical byte for byte
+  (344 bytes changed, 348 with the port). The Debug images (windows-x64-debug and windows-x64-asan-debug, Patella.exe
+  and PatellaTest.exe): main refused them, the branch patches both copies (620 bytes changed, 621 with the port), the
+  same size, every changed byte in a patched range, both copies equal to the Release image's patched text. Logs:
+  build\logs\issue-82 of the branch's worktree.
+- **Live proof** (high). `python -I tools/testmode_check.py --exe build/windows-x64/Debug/PatellaTest.exe --runs 2
+  --timeout 600 --out build/testmode/issue-82` (the client patched with the server's key by testmode_check.py itself):
+  both runs log in (login and game connection, account 772001), walk four steps, talk and log out (opcodes
+  login-login game-login a0 65 66 67 68 96 14); a (client packets), b (raw frames), c (driver logs), d (Tibia.cfg),
+  f (the packet log against the proxy's decrypted recording), g (frames) and h (keys) pass. Exit code 1, from e
+  alone: see the next point.
+- **Found, not done** (high). With a Debug PatellaTest.exe, check e (the state dumps against client_state.py's reading
+  from outside) differs only in "gui": the client's dump lists 9 to 50 windows, client_state.py's reading 1 to 3 (the
+  root, then a modal TDialog where the client has TStartWindow and TBorder). Every other key of the six dumps is the
+  same. client_state.py's walk of the window tree does not follow the Debug image's (tools/client_state.py, not the
+  RSA patch: the packets show the session as the Release client plays it). An issue of its own.
