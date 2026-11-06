@@ -215,7 +215,7 @@ TEST_CASE("the first start imports Tibia.cfg into Patella.ini; Tibia.cfg is neve
 	REQUIRE(Ini.has_value());
 	CHECK(patella::settings::HasPreferences(*Ini));
 	CHECK(Ini->Get("OpenDialogs") == "2");
-	CHECK(Ini->Get("Buddy1") == "123456,3,\"\xc4rger = friend\",yes");
+	CHECK(Ini->Get("Buddy1") == "123456,3,\"\xc3\x84rger = friend\",yes");
 	CHECK(Ini->Get("Hotkey35") == "\"say \\\"hi\\\"\",no");
 	CHECK(Ini->Get("Ignore") == "\"Spammer\",\"Other One\"");
 	CHECK(Ini->BadLines().empty());
@@ -275,7 +275,7 @@ TEST_CASE("a Patella.ini without the options (issue #31's Device) gets them, its
 	InitPreferences();
 	CheckImported(false);
 	const std::string Text = ReadFile(Folder.Path / "Patella.ini");
-	CHECK(Text.starts_with("# mine\r\nDevice=cpu\r\nLogLevel=debug\r\nPreferencesVersion=1\r\n"));
+	CHECK(Text.starts_with("# mine\r\nDevice=cpu\r\nLogLevel=debug\r\nPreferencesVersion=2\r\n"));
 	ExitPreferences();
 	CHECK(ReadFile(Folder.Path / "Tibia.cfg") == TibiaCfg);
 }
@@ -287,5 +287,40 @@ TEST_CASE("a Tibia.cfg the original's reader cannot read imports the defaults")
 	InitPreferences();
 	CHECK_FALSE(GetTestServerLogin());
 	CHECK(patella::settings::HasPreferences(*PatellaIni()));
+	ExitPreferences();
+}
+
+TEST_CASE("a Patella.ini of version 1 (Windows-1252) is read as such and written once as version 2 (UTF-8)")
+{
+	// Issue #117: #45's client wrote the client's bytes as they are; o-umlaut 0xf6, the euro sign 0x80, undefined 0x81.
+	TFolder Folder("patella-preferences-version1");
+	WriteFile(Folder.Path / "Patella.ini", "# mine\r\n"
+										   "PreferencesVersion=1\r\n"
+										   "Hotkey3=\"K\xf6nig \x80\x81\",yes\r\n"
+										   "Buddy1=4711,2,\"Gr\xf6\xdf"
+										   "e \x80\x81\",yes\r\n"
+										   "White=\"J\xf6rg\"\r\n");
+	InitPreferences();
+	bool AutoSend = false;
+	CHECK(std::string(GetHotkey(3, &AutoSend)) == "K\xf6nig \x80\x81");
+	CHECK(AutoSend);
+	CHECK(std::string(GetBuddyDescription(4711)) == "Gr\xf6\xdf"
+													"e \x80\x81");
+	CHECK(GetBuddyNotify(4711));
+	CHECK(IsPermanentBuddyIgnore("J\xf6rg"));
+	const patella::settings::TPreferenceValues Before = GetPreferenceValues();
+	ExitPreferences();
+	const std::optional<patella::settings::TSettingsFile> Ini = PatellaIni();
+	REQUIRE(Ini.has_value());
+	CHECK(Ini->Get("PreferencesVersion") == "2");
+	CHECK(Ini->Get("Hotkey3") == "\"K\xc3\xb6nig \xe2\x82\xac\\x81\",yes");
+	CHECK(Ini->Get("Buddy1") == "4711,2,\"Gr\xc3\xb6\xc3\x9f"
+								"e \xe2\x82\xac\\x81\",yes");
+	// The talk lists outlive a test case here (an earlier one's "Some Friend" stays): only the new name is checked.
+	CHECK(Ini->Get("White").value_or("").ends_with("\"J\xc3\xb6rg\""));
+	CHECK(ReadFile(Folder.Path / "Patella.ini").starts_with("# mine\r\nPreferencesVersion=2\r\n"));
+	// The next start reads the same options by value from the UTF-8 file.
+	InitPreferences();
+	CHECK(GetPreferenceValues() == Before);
 	ExitPreferences();
 }

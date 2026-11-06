@@ -4,7 +4,8 @@
 // Patella.ini (settings/Settings.h), one `key=value` line each, and writes Tibia.cfg no more. The keys are
 // Tibia.cfg's names (ASCII case-insensitive, as every key of Patella.ini), written in this case:
 //
-//	PreferencesVersion=1                  the file has the options (without it an existing Tibia.cfg is imported)
+//	PreferencesVersion=2                  the file has the options (without it an existing Tibia.cfg is imported);
+//	                                      2: the file is UTF-8 (issue #117), 1: Windows-1252 (below)
 //	TestServer=no                         yes or no, as every flag below
 //	FullscreenMode=640,480,32             width, height, depth; no line while none was chosen (width 0)
 //	WindowsMousepointer, LightEffects, TextualEffects, NoStretching
@@ -28,9 +29,16 @@
 // A value is a list of fields separated by ',' (spaces and tabs around them dropped): a number (decimal,
 // 32 bits, optionally '-'), yes or no, or a text in double quotes. In a text `\\` is a backslash, `\"` a quote,
 // `\n`, `\r` and `\t` line feed, carriage return and tab, `\xHH` the byte HH (two hex digits); the writer
-// writes every other byte below 0x20 and 0x7f as `\xHH`. Bytes from 0x80 on are written and read as they
-// are: the client's texts are Latin-1 (plan D4 is undecided), so the file is Latin-1 where a text has such
-// a byte, not UTF-8; an editor must keep those bytes.
+// writes every other byte below 0x20 and 0x7f as `\xHH`, and so the five bytes Windows-1252 leaves undefined (0x81,
+// 0x8d, 0x8f, 0x90, 0x9d: the C1 controls of their value, types/Cp1252.h). `\xHH` is always the client's byte HH.
+//
+// The encoding (issue #117, plan D4; notes/decisions.md "#117"): the client's texts are Windows-1252 (#112), the file
+// is UTF-8. Every other character of a text is written as the UTF-8 of its Windows-1252 byte, and read back as the
+// byte of its character: '?' for a character Windows-1252 does not have (typed in an editor) and for each ill-formed
+// part of the UTF-8 (Utf8ToCp1252). A file of PreferencesVersion 1 (#45's client) has the bytes from 0x80 on as they
+// are; ReadPreferences reads it so (TEncoding::Cp1252, Settings.h EncodingOf), and WritePreferences converts the
+// whole file to UTF-8 first (its comments and other keys too) and writes it as version 2: a version-1 file is
+// converted once, at the next save, its options unchanged by value.
 //
 // The reading mirrors the original's Tibia.cfg reader on the file its writer wrote (Preferences.cpp
 // ReadTibiaCfg, WriteTibiaCfg), so the options after a restart are the original's: ChaseMode 2 reads as 0, a
@@ -60,8 +68,8 @@ inline constexpr int PreferenceSkills = 7;
 // The longest hotkey text (Preferences.h HOTKEY_LENGTH - 1).
 inline constexpr std::size_t PreferenceHotkeyLength = 255;
 
-inline constexpr const char *PreferencesVersionKey = "PreferencesVersion";
-inline constexpr int PreferencesVersion = 1;
+inline constexpr const char *PreferencesVersionKey = VersionKey;
+inline constexpr int PreferencesVersion = 2;
 
 struct TContentWindowValue {
 	int ID = 0;
@@ -126,17 +134,24 @@ struct TPreferenceValues {
 // The file has the options (PreferencesVersionKey).
 [[nodiscard]] bool HasPreferences(const TSettingsFile &File);
 
-// Writes every option into File: the keys it has are set where they are, the others appended; the
-// Hotkey<N>, ContentWindow<n> and Buddy<n> lines of entries that are gone are removed, and so is
-// FullscreenMode while none is chosen. Other keys and lines stay.
+// Writes every option into File, as version 2 (UTF-8): a file of version 1 is converted to UTF-8 first, every line
+// (ConvertToUtf8). The keys it has are set where they are, the others appended; the Hotkey<N>, ContentWindow<n> and
+// Buddy<n> lines of entries that are gone are removed, and so is FullscreenMode while none is chosen. Other keys and
+// lines stay.
 void WritePreferences(TSettingsFile &File, const TPreferenceValues &Values);
 
-// Reads the options of File into Values; an option without a line keeps its value. Returns the problems:
-// a line per value it could not read (that option kept as well).
+// Reads the options of File into Values, the texts in File's encoding (EncodingOf); an option without a line keeps
+// its value. Returns the problems: a line per value it could not read (that option kept as well), and one for a
+// PreferencesVersion other than 1 or 2 (read as 2).
 std::vector<std::string> ReadPreferences(const TSettingsFile &File, TPreferenceValues &Values);
 
-// A text as a quoted field, and the fields of a value (nothing when it is not a list of fields).
-std::string QuoteText(std::string_view Text);
+// A file of version 1 (Windows-1252) as UTF-8: every line's text converted (a byte order mark kept as it is); a file
+// in UTF-8 is left as it is. Its PreferencesVersion stays: WritePreferences sets it.
+void ConvertToUtf8(TSettingsFile &File);
+
+// A text (the client's Windows-1252) as a quoted field in Encoding, and the fields of a value in Encoding (nothing
+// when it is not a list of fields), their texts the client's Windows-1252.
+std::string QuoteText(std::string_view Text, TEncoding Encoding = TEncoding::Utf8);
 
 struct TField {
 	enum class TKind { Number,
@@ -146,6 +161,6 @@ struct TField {
 	bool Flag = false;
 	std::string Text;
 };
-std::optional<std::vector<TField>> ParseFields(std::string_view Value);
+std::optional<std::vector<TField>> ParseFields(std::string_view Value, TEncoding Encoding = TEncoding::Utf8);
 
 } // namespace patella::settings

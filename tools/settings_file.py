@@ -14,7 +14,10 @@ Patella.ini and compare the options' values (tools/deliberate.py, notes/decision
   differences(a, b)  the options that differ, one line each
 
 Both give the same dict: {option: value}, the lists as lists, a hotkey as {number: [text, sent at once]}, the
-texts as Latin-1 str (the files' bytes; plan D4 is undecided). Python only, no Windows-only code.
+texts as Latin-1 str of the client's Windows-1252 bytes (a character per byte, Tibia.cfg's bytes as they are). Since
+issue #117 Patella.ini is UTF-8 (PreferencesVersion 2): its texts are converted to the client's bytes as the x64 client
+converts them ('?' for a character Windows-1252 does not have, src/types/Cp1252.h); a file of version 1 (#45's client)
+has the bytes as they are. Either compares by value with Tibia.cfg. Python only, no Windows-only code.
 
 python -I tools/settings_file.py --self-test     the parsers on made-up files
 python -I tools/settings_file.py A B             compares two files (Tibia.cfg or Patella.ini, by their content)
@@ -51,6 +54,26 @@ def defaults():
 
 class SettingsError(Exception):
 	pass
+
+
+def _cp1252_table():
+	"""Windows-1252's characters (src/types/Cp1252.h): Python's cp1252, the five undefined bytes their C1 controls."""
+	table = {}
+	for byte in range(256):
+		try:
+			table[bytes([byte]).decode("cp1252")] = chr(byte)
+		except UnicodeDecodeError:
+			table[chr(byte)] = chr(byte)
+	return table
+
+
+CP1252 = _cp1252_table()  # character: the client's byte as a Latin-1 character
+
+
+def utf8_to_client(text):
+	"""UTF-8 (a Latin-1 str of its bytes) as the client's bytes (Utf8ToCp1252): '?' for a character Windows-1252 does
+	not have and for each ill-formed part (Python's decoder replaces maximal subparts, as Unicode's practice)."""
+	return "".join(CP1252.get(c, "?") for c in text.encode("latin-1").decode("utf-8", errors="replace"))
 
 
 def _text(data):
@@ -249,8 +272,10 @@ def _ini_lines(text):
 	return out, order
 
 
-def parse_fields(value):
-	"""A value's fields (PreferenceKeys.cpp ParseFields): int, bool or ("text", str); None when it is not a list."""
+def parse_fields(value, utf8=True):
+	"""A value's fields (PreferenceKeys.cpp ParseFields): int, bool or ("text", str of the client's bytes); None when it
+	is not a list. utf8: the file's text is UTF-8 (version 2), its characters converted (an x escape is the client's
+	byte); False: version 1, the bytes as they are."""
 	value = value.strip(" \t")
 	fields, i, n = [], 0, len(value)
 	if not value:
@@ -259,15 +284,21 @@ def parse_fields(value):
 		while i < n and value[i] in " \t":
 			i += 1
 		if i < n and value[i] == '"':
-			out, i = [], i + 1
+			out, run, i = [], [], i + 1
+
+			def flush():
+				out.append(utf8_to_client("".join(run)) if utf8 else "".join(run))
+				run.clear()
 			while True:
 				if i >= n:
 					return None
 				c = value[i]
 				i += 1
 				if c == '"':
+					flush()
 					break
 				if c == "\\":
+					flush()
 					if i >= n:
 						return None
 					e = value[i]
@@ -285,7 +316,7 @@ def parse_fields(value):
 					else:
 						return None
 				else:
-					out.append(c)
+					run.append(c)
 			fields.append(("text", "".join(out)))
 		else:
 			end = value.find(",", i)
@@ -329,12 +360,15 @@ def ini_values(data, problems=None):
 		return None
 	values = defaults()
 	problems = [] if problems is None else problems
+	utf8 = lines["preferencesversion"] != "1"  # issue #117: version 2 (and a later one) is UTF-8
+	if lines["preferencesversion"] not in ("1", "2"):
+		problems.append("PreferencesVersion=%s" % lines["preferencesversion"])
 
 	def fields(key, pattern):
 		value = lines.get(key.lower())
 		if value is None:
 			return None
-		found = parse_fields(value)
+		found = parse_fields(value, utf8)
 		if not _kinds(found, pattern):
 			problems.append("%s=%s" % (key, value))
 			return None
@@ -481,8 +515,22 @@ def self_test(out=print):
 	bad = ini_values(b"PreferencesVersion=1\nTestServer=maybe\nHotkey40=\"x\",no\nLightEffects=no\n", problems)
 	check("a value that cannot be read: the default, listed", bad["TestServer"] is False and len(problems) == 2
 		and bad["LightEffects"] is False)
-	check("the escapes of a quoted text", parse_fields('"a\\\\b\\"c\\n\\r\\t\\x01\\x7f\xe4",yes,-3') ==
+	check("the escapes of a quoted text", parse_fields('"a\\\\b\\"c\\n\\r\\t\\x01\\x7f\xe4",yes,-3', False) ==
 		[("text", 'a\\b"c\n\r\t\x01\x7f\xe4'), True, -3])
+	# Issue #117: version 2 is UTF-8, converted to the client's bytes; version 1 has them as they are.
+	utf8 = SAMPLE_INI.replace(b"PreferencesVersion=1", b"PreferencesVersion=2").replace(b"\xc4rger", b"\xc3\x84rger")
+	check("Patella.ini of version 2 (UTF-8) and Tibia.cfg: no differences", differences(a, ini_values(utf8)) == [])
+	check("version 2 read as UTF-8, version 1 as Windows-1252",
+		ini_values(b"PreferencesVersion=2\nWhite=\"\xc3\xb6\xe2\x82\xac\"\n")["White"] == ["\xf6\x80"]
+		and ini_values(b"PreferencesVersion=1\nWhite=\"\xc3\xb6\"\n")["White"] == ["\xc3\xb6"])
+	check("UTF-8: '?' for a character Windows-1252 lacks and each ill-formed part, \\xHH the client's byte",
+		parse_fields('"\xc5\x81\xc3\xb3d\xc5\xba \\x81\xc2\x81 \xe2\x82\\x41\xff"') == [("text", "?\xf3d? \x81\x81 ?A?")])
+	check("every Windows-1252 character in UTF-8 reads as its byte", all(
+		parse_fields('"%s"' % c.encode("utf-8").decode("latin-1")) == [("text", CP1252[c])]
+		for c in CP1252 if c not in '"\\\x00'))
+	problems = []
+	check("a version this tool does not know: listed, read as UTF-8",
+		ini_values(b"PreferencesVersion=3\nWhite=\"\xc3\xb6\"\n", problems)["White"] == ["\xf6"] and len(problems) == 1)
 	check("not a list of fields", all(parse_fields(v) is None for v in ("1,", "\"x", "1 2", "\"\\x00\"", "maybe")))
 	check("compare_options: equal", compare_options(SAMPLE_CFG, SAMPLE_INI)[0] == [])
 	check("compare_options: no Patella.ini", len(compare_options(SAMPLE_CFG, None)[0]) == 1)

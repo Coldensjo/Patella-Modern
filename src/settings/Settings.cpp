@@ -2,6 +2,8 @@
 
 #include "settings/Settings.h"
 
+#include "types/Cp1252.h"
+
 #include <array>
 #include <cstddef>
 #include <filesystem>
@@ -174,6 +176,16 @@ std::vector<int> TSettingsFile::BadLines() const
 			Result.push_back(static_cast<int>(i + 1));
 	}
 	return Result;
+}
+
+TEncoding EncodingOf(const TSettingsFile &File)
+{
+	return File.Get(VersionKey) == "1" ? TEncoding::Cp1252 : TEncoding::Utf8;
+}
+
+std::string ClientText(const TSettingsFile &File, std::string_view Value)
+{
+	return EncodingOf(File) == TEncoding::Cp1252 ? std::string(Value) : patella::text::Utf8ToCp1252(Value);
 }
 
 std::optional<TSettingsFile> Load(const std::string &Path, std::string_view Newline)

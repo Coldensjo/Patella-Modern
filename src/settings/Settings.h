@@ -17,6 +17,11 @@
 // Keys today: Device (auto, gpu, gpuN, cpu; notes/vulkan.md, "Choosing the device"), LogLevel and LogFile
 // (log/LogSettings.h, issue #77), the options of Tibia.cfg (settings/PreferenceKeys.h, issue #45). The other
 // D12 keys (servers, scale, vsync, data folder) come with their issues.
+//
+// The text (issue #117, plan D4): the file is UTF-8, and a value that is the client's text (a hotkey, a name, LogFile)
+// is converted to the client's Windows-1252 when read (types/Cp1252.h; '?' for a character it does not have). A file
+// with PreferencesVersion=1 (written by #45's client until issue #117) has the client's Windows-1252 bytes as they are:
+// it is read as such and converted to UTF-8 as a whole at the next save of the options (PreferenceKeys.h).
 
 #pragma once
 
@@ -37,6 +42,14 @@ inline constexpr const char *NewFileNewline = "\r\n";
 
 // The largest file Load reads (a settings file is a few lines; anything larger is not one).
 inline constexpr std::size_t MaxFileSize = std::size_t{1024} * 1024;
+
+// The key that marks a file with the options (settings/PreferenceKeys.h) and the file's text encoding.
+inline constexpr const char *VersionKey = "PreferencesVersion";
+
+enum class TEncoding {
+	Utf8,  // PreferencesVersion 2 or later, or a file without it
+	Cp1252 // PreferencesVersion 1: the client's bytes as they are
+};
 
 class TSettingsFile {
 public:
@@ -84,6 +97,12 @@ private:
 	std::string LineEnd;
 	bool FinalNewline = true; // the text ended with a line end (a new or empty file: yes)
 };
+
+// The file's text encoding: Cp1252 where its PreferencesVersion is 1, else Utf8.
+[[nodiscard]] TEncoding EncodingOf(const TSettingsFile &File);
+
+// A value of File as the client's text (Windows-1252): converted from UTF-8, or as it is in a file of version 1.
+[[nodiscard]] std::string ClientText(const TSettingsFile &File, std::string_view Value);
 
 // Reads the file. Nothing when it does not exist, cannot be read or is larger than MaxFileSize.
 std::optional<TSettingsFile> Load(const std::string &Path, std::string_view Newline = "\n");
