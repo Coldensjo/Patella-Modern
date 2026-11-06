@@ -116,6 +116,10 @@ function(golden_client_settings target)
 	if(golden_linux)
 		target_include_directories(${target} BEFORE PRIVATE "${golden_linux_dir}")
 		target_compile_options(${target} PRIVATE -fsemantic-interposition ${golden_linux_options})
+		# Not in compile_commands.json: tools/tidy.py --all (the CI's clang-tidy job, linux-x64-clang) checks every
+		# src/ file of the database, and these are the client's files against the stand-ins, not the product's
+		# (clang-tidy checks them with MFC in the Windows runs).
+		set_property(TARGET ${target} PROPERTY EXPORT_COMPILE_COMMANDS OFF)
 	else()
 		target_compile_options(${target} PRIVATE /wd4201)
 	endif()
@@ -220,33 +224,40 @@ add_executable(golden_runner
 	$<TARGET_OBJECTS:golden_comm_tests>)
 file(TO_CMAKE_PATH "${PROJECT_SOURCE_DIR}/build/golden" golden_default_dir)
 target_compile_definitions(golden_runner PRIVATE "GOLDEN_DEFAULT_DIR=\"${golden_default_dir}\"")
-if(golden_linux)
-	# The runner's own sources see the same stand-ins (golden_test.h includes common.h, which includes the MFC
-	# shim), and linux/win32.cpp has the Windows functions. The C library's functions the tests replace through
-	# their import slots on Windows (time, the _time64 of the MSVC runtime, and fwrite; rand is the stand-ins'
-	# own, linux/windows.h) are wrapped (ld --wrap): every call of the runner's objects goes to __wrap_<name>,
-	# which calls through a slot of linux/win32.cpp, the C library's function at first (__real_<name>).
-	target_sources(golden_runner PRIVATE linux/win32.cpp)
-	golden_linux_warning_level(golden_runner)
-endif()
-patella_target_language(golden_runner)
-patella_target_warnings(golden_runner)
-patella_target_hardening(golden_runner)
-if(golden_linux)
-	target_include_directories(golden_runner BEFORE PRIVATE "${golden_linux_dir}")
-	target_compile_definitions(golden_runner PRIVATE TIBIA_MFC_SHIM)
-	target_compile_options(golden_runner PRIVATE ${golden_linux_options})
-	target_link_libraries(golden_runner PRIVATE patella_core)
-	target_link_options(golden_runner PRIVATE LINKER:--wrap=time LINKER:--wrap=fwrite)
-else()
-	target_link_libraries(golden_runner PRIVATE patella_core winmm user32)
-	# The ported tests redirect some of our functions to their fakes (golden_patch.h): no function may share
-	# its code with another. Nor may a function have two incremental-link thunks (issue #28): the element fakes
-	# find our constructors through their decorated names (elementfakes.cpp), which an incremental link gives a
-	# thunk of their own, so that patching it would not reach the calls; without incremental linking every
-	# address is the function's code, in Debug as in Release.
-	target_link_options(golden_runner PRIVATE /OPT:NOICF /INCREMENTAL:NO)
-endif()
+# The settings of an executable of the golden objects (golden_runner, dialogwindow_setsize).
+function(golden_executable_settings target)
+	if(golden_linux)
+		# The executable's own sources see the same stand-ins (golden_test.h includes common.h, which includes the
+		# MFC shim), and linux/win32.cpp has the Windows functions. The C library's functions the tests replace
+		# through their import slots on Windows (time, the _time64 of the MSVC runtime, and fwrite; rand is the
+		# stand-ins' own, linux/windows.h) are wrapped (ld --wrap): every call of the executable's objects goes to
+		# __wrap_<name>, which calls through a slot of linux/win32.cpp, the C library's function at first
+		# (__real_<name>).
+		target_sources(${target} PRIVATE "${golden_linux_dir}/win32.cpp")
+		golden_linux_warning_level(${target})
+	endif()
+	patella_target_language(${target})
+	patella_target_warnings(${target})
+	patella_target_hardening(${target})
+	if(golden_linux)
+		target_include_directories(${target} BEFORE PRIVATE "${golden_linux_dir}")
+		target_compile_definitions(${target} PRIVATE TIBIA_MFC_SHIM)
+		target_compile_options(${target} PRIVATE ${golden_linux_options})
+		target_link_libraries(${target} PRIVATE patella_core)
+		target_link_options(${target} PRIVATE LINKER:--wrap=time LINKER:--wrap=fwrite)
+		set_property(TARGET ${target} PROPERTY EXPORT_COMPILE_COMMANDS OFF) # as golden_client_settings
+
+	else()
+		target_link_libraries(${target} PRIVATE patella_core winmm user32)
+		# The ported tests redirect some of our functions to their fakes (golden_patch.h): no function may share
+		# its code with another. Nor may a function have two incremental-link thunks (issue #28): the element fakes
+		# find our constructors through their decorated names (elementfakes.cpp), which an incremental link gives a
+		# thunk of their own, so that patching it would not reach the calls; without incremental linking every
+		# address is the function's code, in Debug as in Release.
+		target_link_options(${target} PRIVATE /OPT:NOICF /INCREMENTAL:NO)
+	endif()
+endfunction()
+golden_executable_settings(golden_runner)
 
 if(PATELLA_GOLDEN_REQUIRE)
 	add_test(NAME golden COMMAND golden_runner --require "${PATELLA_GOLDEN_DIR}")
@@ -280,12 +291,12 @@ add_executable(dialogwindow_setsize
 	$<TARGET_OBJECTS:golden_network_tests>
 	$<TARGET_OBJECTS:golden_comm_tests>
 	$<TARGET_OBJECTS:golden_dialogwindow_setsize>)
-target_link_libraries(dialogwindow_setsize PRIVATE patella_core winmm user32)
-patella_target_language(dialogwindow_setsize)
-patella_target_warnings(dialogwindow_setsize)
-patella_target_hardening(dialogwindow_setsize)
-target_link_options(dialogwindow_setsize PRIVATE /OPT:NOICF /INCREMENTAL:NO)
+golden_executable_settings(dialogwindow_setsize)
 add_test(NAME dialogwindow_setsize COMMAND dialogwindow_setsize)
+if(golden_linux AND PATELLA_SANITIZE MATCHES "address")
+	set_tests_properties(dialogwindow_setsize PROPERTIES ENVIRONMENT
+		"ASAN_OPTIONS=detect_leaks=0:alloc_dealloc_mismatch=0") # as golden's (above)
+endif()
 
 # Issue #66: two runners at once over the same corpus (concurrent.py), each in its temporary folder of its own
 # (runner.cpp, TRunFolder): 0 failures each, and neither folder left below TEMP. Skipped without a corpus.

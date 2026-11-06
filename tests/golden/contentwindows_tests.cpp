@@ -813,7 +813,10 @@ static void __cdecl FakeGetAutomapMarks(int BlockX, int BlockY, int z, vector<TM
 		if (g % 11 == 0)
 			M.y = 0;
 		M.Type = (int)(g % 20);
-		sprintf(M.Text, g % 3 == 0 ? "" : "Mark %u of block %d,%d", g % 1000, BlockX, BlockY);
+		if (g % 3 == 0)
+			M.Text[0] = 0; // an empty text (Clang: a format string that is empty, -Wformat-zero-length; issue #91)
+		else
+			sprintf(M.Text, "Mark %u of block %d,%d", g % 1000, BlockX, BlockY);
 		// Next to the map's corner, the first mark lies on y 0 below the player.
 		if (i == 0 && World.PlayerY < 7) {
 			M.x = World.PlayerX;

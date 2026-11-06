@@ -11640,3 +11640,141 @@ read in TDialogWindow::SetSize"). The owner decided on November 7, 2026 to fix i
   on DialogWindow.cpp and the test (Windows only): no finding on a changed line. banned_calls 0. clang-format clean.
   `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: every session matches.
   Logs: build\logs\issue-65.
+
+## The golden corpus on Linux (Patella-Modern issue #91, M6)
+
+Settled by Claude Opus 5.5, November 6, 2026; M6's first item ("the golden corpus is complete and green on x64 Windows
+and Linux"). golden_runner, its CTest tests golden and golden_concurrent and #65's dialogwindow_setsize now build in
+linux-x64-gcc and linux-x64-clang (Release and Debug) and replay the corpus there. Changed: tests/golden (CMakeLists.txt,
+network/CMakeLists.txt, golden_patch.h, golden_test.h, the new linux/ folder and the test files named below),
+tools/build.py, and the src/ files below.
+
+### How the code under test compiles on Linux (high)
+
+- **The Windows API: stand-ins of the tests** (tests/golden/linux). The client's files under test include
+  src/compat/mfc_shim.h, which includes <winsock2.h> and <windows.h>; on Linux those are linux/'s: the types with the
+  Windows x64 sizes (LONG, DWORD and u_long 4 bytes where Linux's long has 8; HOSTENT with its two shorts; the
+  handles 8), the SDK's constants (the virtual keys and messages are recorded), and the functions. Each function is
+  linux/win32.cpp's and calls through a slot of its own, GoldenSlot_<name>, as the Windows runner's calls go through
+  its import table: golden::FindImport (golden_patch.h) finds the slots the tests bind (Sleep, rand, _time64, fwrite,
+  the 17 user32 functions and ShellExecuteA of MainFrm's test, MessageBoxA, timeGetTime, GetTempPathA). A slot starts
+  at a Linux implementation where the code or the tests need one (the clocks, the temporary folder, the current
+  directory, the global memory), else at a stop with the function's name (reached only without a fake: none is). The
+  five WinSock functions call through network_tests.cpp's NWSlot_ slots, which are their __imp_ symbols on Windows.
+  linux/'s direct.h, io.h, process.h and mmsystem.h are the Microsoft CRT's few names the tests use. No product
+  target sees the folder.
+- **The C library's functions the tests replace.** time (the Microsoft CRT's _time64) and fwrite are wrapped at the
+  link (ld --wrap): every call of the runner's objects goes through a slot that starts at the real function. rand is
+  the stand-ins' GoldenRand (a macro in linux/windows.h): glibc declares rand noexcept, and the Network test's fake
+  rand throws in its error round, which ends the program in a caller compiled for noexcept.
+- **The code patches.** RedirectOwn and RestoreOwn write the jump with mprotect (Windows: VirtualProtect); the tests'
+  own patching code uses the stand-ins' VirtualProtect, VirtualQuery (over /proc/self/maps: the images by their file
+  mappings, MEM_IMAGE), FlushInstructionCache, HeapCreate/HeapAlloc/HeapFree and NtCurrentTeb (the stack's bounds from
+  pthread_getattr_np). The golden objects are compiled with -fsemantic-interposition (they are -fPIC): neither
+  compiler inlines a global function into a caller, calls a clone of it or concludes from its body that it cannot
+  throw, so that a redirected function is reached and a fake may throw, as across MSVC's object files. GCC and Clang
+  both emit a constructor's base-object variant (C2) as the same function as the complete-object one (C1): the tests
+  name C1 (checked with nm for all 34).
+- **The tests' Windows-only spellings.** Constructors by their Itanium names (golden_test.h GOLDEN_SYMBOL, asm labels;
+  elementfakes.cpp, mainwindow_tests.cpp, commworld.cpp) where MSVC's are #pragma comment(linker, "/alternatename");
+  a member pointer's code address is its first 8 of 16 bytes (errors_tests.cpp CodeAddress); RaiseException throws a
+  C++ TStructuredException, which control_tests.cpp catches where it had __try/__except (a catch (...) catches it, as
+  /EHa's catches the structured exception); typeid names demangled (dialogs_tests.cpp, "7TDialog"); the folder
+  separator GOLDEN_SLASH (objects_tests.cpp's "tibia-objectstest" with a backslash was a file name on Linux, and
+  InitObjects found no Tibia.dat; also map, script, consolewindow and errors_tests.cpp); the runner's own operator new
+  (linux/win32.cpp: the tests redirect it, which reaches the runner's image only).
+- **The ABI.** Five fakes of functions that return TObject or TRGBColor (12 bytes) by value had the Microsoft form, a
+  hidden result pointer (contentwindows_tests.cpp); the System V ABI returns these in registers: GOLDEN_BY_VALUE
+  wraps them. Talk.cpp's GetTalkColor and GetTalkboxColor take the pointer themselves and stay. The Itanium ABI puts a
+  derived class's first members in the tail padding of its base: TToggleButton's and TMultiStateButton's State after
+  TSkinButton's Enabled, TTextToggleButton's after TTextButton's Text; the fakes' bases end where the real members end
+  (elementfakes.h GOLDEN_DATA_END), so that the fakes' members are at the real offsets again (elementfakes.cpp's
+  static_asserts). No record has a long; the corpus (little-endian, fixed sizes) reads the same on both.
+- **Compiler settings for the golden objects** (tests/golden/CMakeLists.txt, golden_linux_options):
+  -fno-strict-aliasing (the tests read our objects and member pointers through other types),
+  -fno-delete-null-pointer-checks (the shim's GetSafeHwnd compares this with nullptr), -fwrapv (the error rounds give
+  INT_MAX sizes, whose sums the original and MSVC's code wrap: TWindow::FitToChild, UBSan's signed overflow), and for
+  GCC -fno-lifetime-dse (the tests fill memory with a pattern before a constructor, to compare the bytes it leaves;
+  GCC removed the fill as dead: SkinProperties, TTalkBuffer) and -fno-toplevel-reorder (globals in the order of their
+  definitions, as MSVC places them).
+- **Warnings.** The golden sources build at the baseline level (-Wall, warnings as errors), as MSVC builds most of
+  them (/W3), with these off (golden_linux_warnings, after -Wall): invalid-offsetof, overloaded-virtual,
+  delete-non-virtual-dtor (Clang delete-non-abstract-non-virtual-dtor), GCC's class-memaccess, stringop-truncation,
+  mismatched-new-delete and nonnull-compare, Clang's tautological-undefined-compare and non-pod-varargs (TCallback
+  through TMultiStateButton's ...), and DialogElements.cpp's uninitialized (the toggle buttons pass their unset
+  Tooltip to the base, as the original). The rest were fixed in the tests ([[maybe_unused]], [[fallthrough]], the
+  lambdas' unused parameters, parentheses, an empty format string, "abcdefg" + n as &"abcdefg"[n]). Text.h's table
+  and Status.h's LinkPattern say they are unused on purpose (GCC warns about every text a file does not read).
+
+### What the port found in our code (high)
+
+Each fixed in src/, the same behaviour on Windows (the corpus replays it), no layout change:
+- **Status.cpp AddMessageFirst read freed memory.** `Messages(i) = Messages(i - 1)`: C++17 evaluates the right side of
+  an assignment first, GCC and Clang so, and when Messages(i) grew the vector the copy read the moved-from block
+  (glibc's tcache had overwritten its first bytes: a type-0 message at the head, 4 failures of Status). MSVC (and
+  the original) evaluate the left side first. The left side is taken first now.
+- **Container.h vector<T>'s growth swapped entries member by member.** The Container test compares the entries'
+  padding, which the original's block copies carry (and MSVC's): GCC copied TLineFormat's members only and lost it
+  (vector<TLineFormat> operator(): entries differ, then a stale corpus). SwapEntries copies a trivially copyable entry
+  as bytes.
+- **TXTEA read a packet's words unaligned.** EncryptBlock and DecryptBlock cast the block's bytes to uint32 *, at any
+  offset of the packet (UBSan: misaligned load). Through an aligned copy now.
+- **Objects.cpp indexed Flags[4] past its end** for flags above 31 (inside TProperties, as recorded before; UBSan:
+  index out of bounds). FlagByte (Objects.h) reads and writes the entry's bytes.
+- **TTabBar::Rearrange read Busy before the constructor set it** (as the original; its value is the memory's, the
+  test's pattern 0xbe). A bool that is neither false nor true is undefined, and Clang may test one bit of it (UBSan:
+  invalid bool load): its byte is read now, not 0 meaning busy, as the original reads it.
+- **graphics.h's TVideoCacheItem had a TRGBColor in an anonymous struct**, which GCC and Clang reject (a member with a
+  constructor): a named member now, Item.Tile.TileY and Item.Tile.Color (graphics.cpp, graphics_tests.cpp).
+- **Network.cpp's ReceiveData must lie before SendData** (its over-read, #72, reads SendData): Clang emitted SendData
+  first (5 Network failures). PATELLA_IN_DEFINITION_ORDER (src/compat/msvc.h, GCC's and Clang's used attribute) emits
+  them where they are defined.
+- sysinc.cpp's #pragma comment(lib) only for MSVC.
+
+### What the port found in the tests, and the time zone (high)
+
+- contextmenus_tests.cpp and commworld.cpp printed an uninitialised bool (the pattern) as `b ? 1 : 0`: its byte now.
+- The window tests' fakes stand where our code expects its classes (a smaller TMenuSkillsStandIn as a
+  TSkillsWindowBody, TMapThrower as TMapWindow): UBSan's vptr and object-size checks are off for the golden objects
+  (-fno-sanitize=vptr,object-size); the stand-in's cast is a reinterpret_cast.
+- Network's rounds call ConnectSocket without a socket, as the original: Socket->Connect on the null pointer, which
+  the test's CAsyncSocket takes. UBSan's null check is off for network_tests.cpp only (listed under "Found, not done").
+- player_tests.cpp called GetAvailableEngines on a null TSurface: a TTestSurface on Linux. Regexp's allocation sizes:
+  _msize is the program walked to its END node on Linux (glibc's malloc_usable_size is not the size asked for).
+  ExitCommunication's "single ret" accepts the frame-pointer form (push rbp ... ret) of the sanitizer builds.
+- **The time zone.** Talk's and Creatures' fixed clocks print local times, and the corpus has the recording machine's
+  (CET): in the image's UTC Talk had 97,883 failures. tools/build.py passes Windows' zone to the container as a POSIX
+  TZ (GetTimeZoneInformation: "STD-1DST-2,M3.5.0/2:00,M10.5.0/3:00"), TZ itself when it is set. The corpus does not
+  record its zone (listed under "Found, not done").
+- **The evaluation order.** Before #55, Clang (left to right) built other inputs than MSVC and GCC (right to left)
+  where a test called Random() twice in one expression: Script, PreferencesFile, Talk, GUI, ContentWindows, Container,
+  MainFrm and Control failed or went stale on linux-x64-clang only. #55 made those calls explicit.
+
+### The sanitizers (high)
+
+linux-x64-clang (ASan and UBSan, -fno-sanitize-recover=all) over the whole corpus: no finding beyond those fixed
+above. Not reported, as MSVC's ASan on Windows reports neither (the golden and dialogwindow_setsize tests'
+ENVIRONMENT, ASAN_OPTIONS=detect_leaks=0:alloc_dealloc_mismatch=0): the original's mismatched releases (the ownership
+map of #58: free of `new (std::nothrow)` memory in Talk.cpp and Preferences.cpp, ClearIgnoreList first) and the leaks
+(26.7 MB in 263,286 allocations at the end: the original's and the tests' worlds). The error rounds' signed overflow
+is defined (-fwrapv), as above.
+
+### The corpus in the container, the tests (high)
+
+- tools/build.py mounts the corpus read-only at /golden and sets PATELLA_GOLDEN_DIR=/golden in the container, mounted
+  or not: PATELLA_GOLDEN_DIR of the host's environment, else build/golden of the repository when it exists;
+  PATELLA_GOLDEN_DIR=none mounts nothing. tests/golden/CMakeLists.txt takes the environment's PATELLA_GOLDEN_DIR as
+  the cache variable's default at the first configure (Windows: build/golden as before, unless the environment names
+  another). Without a corpus golden is skipped (77), as in hosted CI, which runs build.py inside the image itself.
+- golden_concurrent runs on Linux too, in linux-x64-gcc's Release configuration (no sanitizer, as on Windows since
+  #84): the same folder handling (std::filesystem::temp_directory_path reads TMPDIR, TMP, TEMP; the runner sets TEMP
+  and TMP, linux/win32.cpp's GetTempPathA reads them).
+
+### Found, not done (high)
+
+- The corpus's local times depend on the recording machine's time zone (Talk, Creatures); a corpus recorded in
+  another zone fails both platforms' replay. For #93 (the final recording): record with TZ fixed, or record the zone.
+- Network.cpp's ConnectSocket calls Socket->Connect without a socket when ConnectToGameServer comes without one (the
+  original's; the real client's CAsyncSocket would crash). M7 (ownership) or a bug issue.
+- Some CHECK messages read records in their arguments, so a run with more failures than DIFFTEST_FAILS reads another
+  record sequence and later tests go stale (seen only after other failures).
