@@ -12280,3 +12280,28 @@ Added to the table of "Deliberate tier A differences" (issue #74's section):
   SavePreferences, the original's names; the source's comments give both.
 - compare_rendering.py seeds Tibia.cfg for each engine run; the x64 client imports it (the run folders are emptied
   first), so it works unchanged. Not run here (#98).
+
+### The gates (high)
+
+Logs: build\logs\issue-45 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 18/18, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), preferences_file and tests_core passed. windows-x64-debug and
+  windows-x64-asan: exit 0, 17/17 each, golden the same. windows-x64-gcc: exit 0, 11/11. linux-x64-gcc: exit 0, 15/15;
+  linux-x64-clang (ASan, UBSan): exit 0, 14/14; golden the same on both, preferences_file passed. The first GCC builds
+  failed on -Wshadow in PreferenceKeys.cpp (TReader's constructor), fixed.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (traffic, options, walk, error), the options equal by value in each (37 options) and in the options
+  session's saved copy; `python -I tools/compare_files.py` exit 0, no differences but the deliberate ones (#45, #74),
+  the options equal at the exit and after the options dialog; `python -I tools/compare_traffic.py` exit 0, no
+  differences (d.: live 2 files, replay 4 files, equal); `python -I tools/testmode_check.py --runs 2` exit 0 (d.:
+  Patella.ini identical, Tibia.cfg as each run started).
+- The manual-equivalent check (manual-check.log): PatellaTest.exe in a fresh folder with the data files and the options
+  session's Tibia.cfg (dated January 1, 2026): the first run logs the import and writes Patella.ini, the second reads
+  it (no import line); `tools/settings_file.py Tibia.cfg Patella.ini`: 0 differences; Tibia.cfg's SHA-256 and time
+  unchanged after both runs.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
+  clang-format (CLAUDE.md's command): exit 0. The tools' self-tests (settings_file.py, deliberate.py, reference.py):
+  passed.
+- Hosted CI on the branch: green.
