@@ -485,6 +485,15 @@ and TNetworkSession (Status.cpp's functions, Client.cpp's adapter); TCommunicati
 The golden tests reach the members (the Communication world fakes the members too). Module cycles: main's 12-module
 cycle is one of 6 and {MainFrm, Player}; Network and Communication are in none. Golden 17,316,040, 0 failures.
 notes/decisions.md, "The second move: TNetwork and TCommunication".
+
+TMapState (Patella-Modern issue #106, branch issue-106, November 6, 2026; M7): the game state's globals are the members
+of five objects that TMapState owns (src/MapState.h) and TClient makes after TNetwork: TObjectTypes (Objects.cpp),
+TMap (Map.cpp), TCreatures and TPlayerState (Creatures.cpp's creature and buddy tables, and the player's values and
+walk) and TInventory (Inventory.cpp). Each file's functions are members of the same names; the free functions forward
+through the bridge, so no other caller changed; TCreatures asks the later TPlayerState through TCreaturesPlayer, which
+TMapState implements. TCommunication writes the game state through references to the five. The golden tests read the
+members and fake them too (the Communication world, the Creatures test). Module cycles: main's 3, unchanged; the
+game state is in none. Golden 17,316,040, 0 failures. notes/decisions.md, "The third move: TMapState".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
