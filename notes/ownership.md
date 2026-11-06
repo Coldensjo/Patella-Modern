@@ -265,16 +265,21 @@ argument whose text would need `.get()` (until M5 the text may not change), memc
 
 The reasons an owner stays raw, in short (section 7 names each owner):
 
-- **The pointee's destructor may throw.** Every `TComponent` (`virtual ~TComponent() noexcept(false)`: the window
-  destructors with TBEGIN/TEND rethrow to the caller, issue #34) and `TTalkBuffer` (`~TTalkBuffer() noexcept(false)`).
-  `std::unique_ptr`'s `reset()` and destructor are `noexcept`, so an exception from such a destructor would end in
-  `std::terminate` instead of reaching the original's handlers (error.txt and the error report). A deleter that lets
-  exceptions out is not the default deleter. M5 removes TBEGIN/TEND, and with them the reason for `noexcept(false)`.
-- **A TASSERT argument names it in a way a `unique_ptr` does not compile in.** `TEditLine::Text` is
-  `strlen(Text)` in two TASSERT2s (DialogElements.cpp, lines 2263 and 2302); `.get()` would change the message
-  difftest compares. M5 rewrites the assertions.
-- **Ownership moves between two members.** `TPasswordEditLine::Stars` swaps blocks with `TEditLine::Text` around every
-  Draw and SetText; it follows `Text`.
+- **The pointee's destructor may throw.** Every `TComponent` (`virtual ~TComponent() noexcept(false)`, issue #34).
+  `std::unique_ptr`'s `reset()` and destructor are `noexcept` whatever the deleter, so an exception from such a
+  destructor would end in `std::terminate` instead of reaching the caller's handler. Issue #81 checked whether that is
+  still so after #78 (TBEGIN/TEND gone) and #80: it is. `~TTab` asserts (`PlayerName!=NULL`, a player's report
+  without a name), calls the Send functions and DeleteTextBuffer (its `Filter!=-1` assertion), and the golden
+  ConsoleWindow test throws through it on purpose ("A player's report without a name: its tab's destructor
+  asserts"); `~TConsoleWindow`, `~TContainerWindowBody`, `~TTradeWindowBody`, `~TAutomapWindow`, `~TSubWindow` and
+  `~TMainWindow` call the preferences, the hotkeys and the Send functions too. So `TComponent`'s destructor stays
+  `noexcept(false)` and the owners of components stay raw (section 7). `TTalkBuffer`'s destructor was
+  `noexcept(false)` too until #81 made it `noexcept`: it cannot throw (Clear only removes the first line, which never
+  reaches Remove's assertion).
+- **A TASSERT argument names it in a way a `unique_ptr` does not compile in** (until #81). `TEditLine::Text` was
+  `strlen(Text)` in two assertions; since #76 (outcome only) and #79 (PATELLA_ASSERT) the text is not compared, and
+  #81 converted it with `.get()`. `TPasswordEditLine::Stars`, which swaps blocks with `Text` around Draw, converted
+  with it (the swap is `Text.swap(Stars)`).
 - **Mismatched release** (the original freed `new` memory with `free`, `new T` with `delete[]`, or an array with
   `delete`): a `unique_ptr` with the default deleter would call another function; a custom deleter is not allowed. M7
   (or the Linux client, M8) gives each its matching release (section 5).
@@ -338,6 +343,8 @@ allocations as `reset(new ...)` (the same form of `new`: default-initialised arr
 | Dialogs (Dialogs.h; second part) | `TGraphicsOptionsDialog::Modes` (`TFullscreenMode[]`) | c966428 |
 | Containers (Container.h; second part) | `array<T>::entry`, `matrix<T>::entry`, `matrix3d<T>::entry`, `vector<T>::entry` (`T[]`, every instance) | 209422c |
 | vlong (vlong.h; second part) | `flex_unit::a` (`unsigned[]`) | 92fd511 |
+| Console (ConsoleWindow.h; issue #81) | `TConsoleWindow::History` (`TTalkBuffer`) | issue-81 |
+| Dialog elements (DialogElements.h; issue #81) | `TEditLine::Text`, `TPasswordEditLine::Stars` (`char[]`) | issue-81 |
 
 28 owning pointers in the first part: 22 members of 17 classes and 6 globals. The second part: 7 globals (`Skins` and
 the six graphics tables) and 11 members (`DrawingList` of every window class, the label's and the formatted text's four
@@ -367,6 +374,14 @@ tables are arrays of plain structures (a picture's `Offsets` stays raw, so `Pict
 table); in a constructor of the dialog elements, the containers or flex_unit that throws, the converted members are
 null or freed during the unwinding, where the original left an indeterminate pointer or leaked the block.
 
+Issue #81 (M5, #58's M5 list) converted three more: `TConsoleWindow::History` once `~TTalkBuffer` was made `noexcept`
+(the console's constructor `History.reset(new TTalkBuffer(0))`, its destructor `History.reset()` where the original
+deleted it, before the buttons), `TEditLine::Text` (`reset(new char[...])` in both constructors, `reset()` in the
+destructor; every reader takes `.get()`) and `TPasswordEditLine::Stars` (the same; Draw's two swaps through a local are
+`Text.swap(Stars)`), each with its size and offset asserted under `PATELLA_ORIGINAL_LAYOUT` (TConsoleWindow 0x6c,
+History +0x48; TEditLine 0x68, Text +0x2c; TPasswordEditLine 0x6c, Stars +0x68). The rest of the M5 list stays raw
+(section 7): the owners of components, because `TComponent`'s destructor still throws.
+
 ## 7. The owners that stay raw, and the milestone that unblocks each
 
 After the second part every owning member and global of src/ is a `std::unique_ptr` or one of these (the reasons in
@@ -375,17 +390,14 @@ with the owners below):
 
 | Owner | Why raw | Unblocked by |
 |---|---|---|
-| The component members that own a component: `TTabBar::LeftTabs`, `RightTabs` (`TWindow`); the conditional members (`TSubWindow`'s eight parts, `TConsoleWindow`'s five buttons, `TListBox::EditLine`) | the pointee's destructor may throw (`TComponent`, `noexcept(false)`); the conditional ones are also owned by the child list or the member, by `IsChild`/`Editing` | M5 (TBEGIN/TEND go, the destructors become `noexcept`) for the exclusive ones; M7 (the GUI tree) for the conditional ones |
-| `TConsoleWindow::History` (`TTalkBuffer`) | the pointee's destructor may throw (`~TTalkBuffer() noexcept(false)`) | M5 |
+| The component members that own a component: `TTabBar::LeftTabs`, `RightTabs` (`TWindow`); the conditional members (`TSubWindow`'s eight parts, `TConsoleWindow`'s five buttons, `TListBox::EditLine`) | the pointee's destructor throws (`TComponent`, `noexcept(false)`, kept by #81): the two windows hold the tabs that do not fit, and `~TTab` asserts on a nameless report, sends and calls DeleteTextBuffer's assertion (the golden ConsoleWindow test throws through it); as a `unique_ptr`, `reset()` would end in `std::terminate`, and a throw from `delete LeftTabs` would destroy `RightTabs` while unwinding (its tabs' sends) where the original left it. The conditional ones are also owned by the child list or the member, by `IsChild`/`Editing` | M7 (the GUI tree): the destructors' work that can fail (a tab leaving its channel, the console storing the channels and its height, a body closing its container or trade, the preferences) moves into an explicit close before the delete, so `TComponent`'s destructor can become `noexcept`; then the exclusive ones convert, and the conditional ones with the tree |
 | The child list: `TWindow::FirstChild`, `TComponent::Next` (379 allocation sites) | not one owner: an intrusive list, ownership moves between lists and is decided by `IsChild`; its destruction order is DeleteChild's | M7 (the GUI tree) |
-| `ModalWindow`, `MainWindow` (globals) | the pointee's destructor may throw; a global's destructor would run the window destructors during static destruction after FatalError's `exit(1)` | M5 (`noexcept` destructors) and M7 (owned by `TClient`) |
+| `ModalWindow`, `MainWindow` (globals) | the pointee's destructor throws (`TComponent`, kept `noexcept(false)` by #81; the main window's tree holds the console and its tabs); a global's destructor would run the window destructors during static destruction after FatalError's `exit(1)` | M7 (owned by `TClient`, with the GUI tree's `noexcept` destructors) |
 | `Socket` (`TSocket`, a CAsyncSocket) | its destructor acts at `exit(1)`, after MFC's module state | M8 (CAsyncSocket replaced) |
 | `Surface` (the engine) | its destructor releases the device and the windows at `exit(1)` | M7 (owned by `TClient`) |
-| `TEditLine::Text` | the TASSERT2 arguments `strlen(Text)` (lines 2263, 2302) would need `.get()` | M5 (the assertions rewritten) |
-| `TPasswordEditLine::Stars` | swaps its block with `TEditLine::Text` (Draw, SetText) | M5, with `TEditLine::Text` |
 | `TPicture::Offsets`, `TProperties::Sprites` | a pointer in each element of an owned array: a `unique_ptr` would clear it in `new T[n]` and give the element a destructor | M7 (the tables as `std::vector`s) |
 | The list boxes' lines (`TListBox::LineText`, `TFontListBox::FontLines(i).Text`), Talk.cpp's filter lists (Container.h `vector<T *>` entries) | owned entries of a container of pointers; the filters are also freed with `free` | M7 (the containers) |
-| `DefaultTextBuffer`, the text buffers of CreateTextBuffer, a `TTalkBuffer`'s lines (`first` ... `last`, `TTalkLine::Line`) | mismatched release (the destructor then `free`, `free` of `new` text); the throwing `~TTalkBuffer`; the lines an intrusive list | M5 (`noexcept`) and M7 (matching releases, the list) |
+| `DefaultTextBuffer`, the text buffers of CreateTextBuffer, a `TTalkBuffer`'s lines (`first` ... `last`, `TTalkLine::Line`) | mismatched release (`new (std::nothrow)`, then the destructor and `free`; `free` of `new` text); the buffers are also not one owner (a tab's `TextBuffer` and the console filter list's entry; DeleteTextBuffer frees both). `~TTalkBuffer` is `noexcept` since #81, so that reason is gone | M7 (matching releases, the filter list, the lines' list) |
 | `MotD` (Preferences.cpp), `ClipboardBuffer` (sysinc.cpp) | mismatched release (`free` of `new char[]`) | M7 |
 | `TaintedClipboardText` (Status.cpp) | freed without being cleared (ExitStatus); the second delete after it is the original's | M7 (a deliberate fix, recorded) |
 | `LinkRegexp` (Status.cpp) | regcomp's `malloc`, freed with `free` and not cleared | M8 (the regexp behind an RAII wrapper) |

@@ -310,6 +310,14 @@ golden_eh's OurThrow gives it the original's kind (a PROGRAM_ERROR with its valu
 throws them, the automap's load and save test the result; the other recoverable paths are listed with why they stay.
 difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); tidy baseline 4 to 3. notes/decisions.md, "TMyException with
 a source location, TProgramError, std::expected".
+unique_ptr for the owners blocked by noexcept(false) destructors (Patella-Modern issue #81, branch issue-81, November
+6, 2026; M5's last): `~TTalkBuffer` is noexcept (it cannot throw: Clear only removes the first line), so
+`TConsoleWindow::History` is a std::unique_ptr; `TEditLine::Text` and `TPasswordEditLine::Stars` are
+std::unique_ptr<char[]> (Draw's swaps `Text.swap(Stars)`). `TComponent`'s destructor stays noexcept(false): `~TTab`
+asserts and sends, and the golden ConsoleWindow test throws through it; so `TTabBar::LeftTabs`/`RightTabs`,
+`ModalWindow` and `MainWindow` stay raw until M7 (notes/ownership.md section 7). difftest 16,459,337 / 67 / 856,621 /
+3,201 (unchanged); golden 17,316,025, 0 failures. notes/decisions.md, "unique_ptr for the owners blocked by
+noexcept(false) destructors".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -455,6 +463,15 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #81 (branch issue-81, November 6, 2026): unique_ptr for History, TEditLine::Text and
+TPasswordEditLine::Stars; ~TTalkBuffer noexcept. `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest
+16,459,337, sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0 findings.
+golden on main's corpus 15,803,203 replayed + 1,512,822 retired = 17,316,025, 0 failures (windows-x64 14/14, -debug
+13/13, -asan 13/13, no ASan finding); windows-x64-gcc and the Linux presets 11/11, 0 warnings. Images by function: x64
+109 changed (91 assertion line constants only), x86 106 (83); the rest the converted owners' functions. tidy_ci 3
+findings, 0 new; banned_calls 0; clang-format clean. reference.py compare: every session matches. Logs:
+build\logs\issue-81.
 
 Patella-Modern issue #68 (branch issue-68, November 6, 2026): `tools/testserver.py start` now returns only when both
 ports listen and the world is loaded ("Server Online!"). That is the one start of compare_traffic.py,
