@@ -363,6 +363,14 @@ heap-use-after-free under windows-x64-asan before the fix and passes after it. T
 DialogWindow's test is gone, and the Debug runner passes without it. The MainWindow test's TFakeMapFrame frees without
 a size (the operator delete had hidden ASan's size check). difftest 16,459,352 / 67 / 856,621 / 3,201 (unchanged);
 golden 17,316,040, 0 failures. notes/decisions.md, "TDialogWindow::SetSize and the child its own SetSize deleted".
+The golden corpus on Linux (Patella-Modern issue #91, branch issue-91, November 6, 2026; M6): golden_runner (and
+golden_concurrent, dialogwindow_setsize) build in linux-x64-gcc and linux-x64-clang against the Windows stand-ins of
+tests/golden/linux and replay the corpus, which tools/build.py mounts read-only at /golden with Windows' time zone.
+The port found an evaluation-order read of freed memory (Status.cpp AddMessageFirst), unaligned XTEA words, the flag
+bytes past Flags[4] (Objects.cpp), an unset bool read (TTabBar), the entries' padding of vector growth (Container.h),
+and calls whose order the original fixes (Control.cpp, MainFrm.cpp, ContentWindows.cpp, ContextMenus.cpp): fixed.
+golden 15,803,218 replayed + 1,512,822 retired, 0 failures on both compilers (Clang under ASan and UBSan, no finding).
+notes/decisions.md, "The golden corpus on Linux".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
