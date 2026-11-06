@@ -55,7 +55,7 @@ TNetworkSession &StatusCppSession()
 
 } // namespace
 
-TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network) {}
+TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network, MapState) {}
 
 TClient &bridge::Client()
 {

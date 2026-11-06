@@ -18,16 +18,22 @@
 
 namespace patella {
 
+class TCreatures;
+class TInventory;
+class TMap;
+class TMapState;
 class TNetwork;
+class TObjectTypes;
+class TPlayerState;
 
 // Communication.cpp's data and functions (issue #105): the globals of the original (0x5c4340-0x5c4387), with
 // Control.cpp's LastPacketType, LastPacketIndex and LastPacketTypes (0x5c0d8c, 0x5c4510-0x5c451d), are the members,
 // with the same initial values, and the functions the members of the same names; Status.cpp's session is its TSession
-// (Status.h). It sends and reads through its TNetwork. The packet handlers write the game state and call the windows
-// through those files' functions until TMapState (#106) and TGUI (#107) are objects.
+// (Status.h). It sends and reads through its TNetwork; the packet handlers write the game state through TMapState's
+// five objects (issue #106) and call the windows through those files' functions until TGUI (#107) is an object.
 class TCommunication {
 public:
-	explicit TCommunication(TNetwork &NetworkRef);
+	TCommunication(TNetwork &NetworkRef, TMapState &MapState);
 	TCommunication(const TCommunication &) = delete;
 	TCommunication &operator=(const TCommunication &) = delete;
 	TCommunication(TCommunication &&) = delete;
@@ -184,6 +190,12 @@ private:
 	int LastCancelX{}; // 0x5c4384
 
 	TNetwork &Network;
+	// TMapState's objects (issue #106).
+	TObjectTypes &ObjectTypes;
+	TMap &Map;
+	TCreatures &Creatures;
+	TPlayerState &PlayerState;
+	TInventory &Inventory;
 
 	// LastPacketTypes a std::array (issue #60).
 	static_assert(sizeof(LastPacketTypes) == 10, "LastPacketTypes");

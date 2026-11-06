@@ -2061,14 +2061,16 @@ static void WINAPI F_Sleep(DWORD Milliseconds)
 #define FO(Name, Address, Ours, Fake) {Name, Address, (void *)Ours, (void *)Fake}
 
 // Since issue #105 Communication.cpp's members reach Network.cpp's and Status.cpp's session functions through their
-// TNetwork and TSession, member to member: a free function's fake also takes the place of the member of its name,
-// through this shim (the member's this, which the fake does not need, then the arguments). The free functions (which
-// Control.cpp and the other files call) keep their fakes.
+// TNetwork and TSession, and since issue #106 the game state through TMapState's five objects, member to member: a free
+// function's fake also takes the place of the member of its name, through this shim. The shim is a member function
+// itself, which does not use its this: it has the members' calling convention (MSVC's x64 passes a returned
+// structure's address after this, a free function's before the arguments; GetFirstObject returns a TObject). The free
+// functions (which Control.cpp and the other files call) keep their fakes. A static member is faked as a function.
 template <auto Fake> struct TMemberFake;
 template <class R, class... A, R (*Fake)(A...)> struct TMemberFake<Fake> {
-	static R Call(void * /*This*/, A... Arguments) { return Fake(Arguments...); }
+	R Call(A... Arguments) { return Fake(Arguments...); }
 };
-#define FMF(Class, Name) {#Class "::" #Name, 0, MemberAddress(&patella::Class::Name), (void *)&TMemberFake<F_##Name>::Call}
+#define FMF(Class, Name) {#Class "::" #Name, 0, MemberAddress(&patella::Class::Name), MemberAddress(&TMemberFake<F_##Name>::Call)}
 
 const TFake WorldFakes[] = {
 	// Network.cpp
@@ -2197,6 +2199,88 @@ const TFake WorldFakes[] = {
 	F(InitObjects, 0x4d77f0),
 	F(ExitObjects, 0x4d79b0),
 	F(ReloadObjects, 0x4d7b40),
+	// TMapState's members of the faked functions (issue #106): TCommunication calls them.
+	FMF(TMap, SetMapPosition),
+	FMF(TMap, GetMapPosition),
+	FMF(TMap, GetMapLevel),
+	FMF(TMap, RelativeToAbsolute),
+	FMF(TMap, AbsoluteToRelative),
+	FMF(TMap, SetAmbientLight),
+	FMF(TMap, GetFirstObject),
+	FMF(TMap, GetNextObject),
+	FMF(TMap, GetMapObject),
+	FMF(TMap, AddObject),
+	FMF(TMap, AppendObject),
+	FMF(TMap, ChangeObject),
+	FMF(TMap, AddGraphicalEffect),
+	FMF(TMap, AddTextualEffect),
+	FMF(TMap, AddMissileEffect),
+	FMF(TMap, ClearField),
+	FMF(TMap, ClearMap),
+	FMF(TMap, ShiftMap),
+	FMF(TMap, ShiftMapLevel),
+	FMF(TMap, RequestFieldRefresh),
+	FMF(TMap, FieldRefreshRequested),
+	FMF(TMap, UpdateAutomap),
+	FMF(TMap, UpdateAmbientLight),
+	FMF(TMap, ExitMap),
+	FMF(TMap, ProcessEffects),
+	FMF(TMap, InitMap),
+	FMF(TPlayerState, GetNumberOfPlayerSteps),
+	FMF(TPlayerState, GetPlayerPosition),
+	FMF(TPlayerState, ClearPlayerSteps),
+	FMF(TCreatures, HideAllCreatures),
+	FMF(TCreatures, SetBeat),
+	{"TCreatures::IsPlayer", 0, (void *)&patella::TCreatures::IsPlayer, (void *)F_IsPlayer},
+	FMF(TPlayerState, SetPlayerID),
+	FMF(TPlayerState, SetPlayerHealth),
+	FMF(TPlayerState, SetPlayerMagicLevel),
+	FMF(TPlayerState, SetPlayerMana),
+	FMF(TPlayerState, SetPlayerSoul),
+	FMF(TPlayerState, SetPlayerCapacity),
+	FMF(TPlayerState, SetPlayerState),
+	FMF(TPlayerState, GetPlayerID),
+	FMF(TCreatures, SetAttackID),
+	FMF(TCreatures, SetFollowID),
+	FMF(TCreatures, GetAttackID),
+	FMF(TCreatures, GetFollowID),
+	FMF(TPlayerState, GetPlayerStep),
+	FMF(TCreatures, AddCreature),
+	FMF(TCreatures, GetCreature),
+	{"TCreatures::NotifySkull", 0, (void *)&patella::TCreatures::NotifySkull, (void *)F_NotifySkull},
+	FMF(TPlayerState, SetPlayerExperience),
+	FMF(TPlayerState, SetPlayerSkill),
+	FMF(TCreatures, AddBuddy),
+	FMF(TCreatures, SetBuddyState),
+	FMF(TPlayerState, StopPlayer),
+	FMF(TPlayerState, CancelPlayerWalk),
+	FMF(TCreatures, CheckMonsterHint),
+	FMF(TCreatures, UpdateSkulls),
+	FMF(TCreatures, ResetCreatures),
+	FMF(TCreatures, MoveCreatures),
+	FMF(TCreatures, InitCreatures),
+	FMF(TInventory, ClearOffers),
+	FMF(TInventory, SetBodyObject),
+	FMF(TInventory, DeleteBodyObject),
+	FMF(TInventory, OpenContainer),
+	FMF(TInventory, CloseContainer),
+	FMF(TInventory, IsContainerOpen),
+	FMF(TInventory, AppendContainerObject),
+	FMF(TInventory, ChangeContainerObject),
+	FMF(TInventory, DeleteContainerObject),
+	FMF(TInventory, SetOwnOffer),
+	FMF(TInventory, SetCounterOffer),
+	FMF(TInventory, AddOwnOfferObject),
+	FMF(TInventory, AddCounterOfferObject),
+	FMF(TInventory, InsertContainerObject),
+	FMF(TInventory, InitInventory),
+	FMF(TInventory, ResetInventory),
+	FMF(TObjectTypes, GetObjectWaypoints),
+	FMF(TObjectTypes, InitObjects),
+	FMF(TObjectTypes, ExitObjects),
+	FMF(TObjectTypes, ReloadObjects),
+	FMF(TMap, DeleteObject),
+	{"TObjectTypes::GetObjectFlag", 0, MemberAddress(static_cast<bool (patella::TObjectTypes::*)(int, int) const>(&patella::TObjectTypes::GetObjectFlag)), MemberAddress(&TMemberFake<F_GetObjectFlag>::Call)},
 	// Preferences.cpp
 	F(GetAutoChaseOff, 0x4db650),
 	F(SetChaseMode, 0x4db670),
