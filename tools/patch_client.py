@@ -36,7 +36,13 @@ must be a different file.
   address after the disp32 plus the disp32, is inside the literal.
   `python -I tools/patch_client.py --self-test` checks the store matchers on made-up code.
 - --rsa replaces the decimal text of CipSoft's RSA modulus (TRSA::SetPublicKey's argument
-  in src/Communication.cpp, one literal used by both the login and the game connection).
+  in src/Communication.cpp, at the login and at the game connection). Tibia.exe and the Release
+  builds pool identical strings, so the image holds one NUL-delimited copy of the text; the Debug
+  builds (windows-x64-debug, windows-x64-asan-debug; issue #82) keep one copy per literal, two.
+  One copy is patched as before; two are patched only when the code references each of them (on
+  x86 its absolute address, on x64 a RIP-relative disp32 as below whose target is inside the
+  copy), and both get the same text. Any other count, or a copy no code references, is an error;
+  the self-test checks both cases, x86 and x64, on made-up images.
   The argument is the decimal modulus or a PEM file (an RSA private or public key, PKCS#1 or
   X.509 SubjectPublicKeyInfo). The new text must not be longer than the old one (309
   digits); a shorter one is NUL-padded. The public exponent is 65537 in the client and must
@@ -47,7 +53,7 @@ byte must be inside one of the patched ranges. Then it is checked as the client 
 each login server name reads as --host up to its NUL; with --port, the code holds exactly one
 `mov dword ptr [Servers[i].Port], <port>` per server, or the one store of InitServerList's loop (found
 again in the written file, through the PDB) or, without a PDB, the new port at each immediate; with --rsa, the modulus text reads as the
-new modulus up to its NUL. On any failure the script deletes the output. Exit code 0 on success,
+new modulus up to its NUL at each copy. On any failure the script deletes the output. Exit code 0 on success,
 1 on any error.
 """
 
@@ -207,6 +213,46 @@ def first_reference(image, data, lo, hi):
 			if lo <= target <= hi:
 				return pos
 	return None
+
+
+def literal_references(code, code_va, x64, lo, hi):
+	"""Offsets in code (whose first byte is at code_va) of every reference to an address in [lo, hi]: x86 an
+	absolute address (any 4 bytes), x64 a RIP-relative disp32 after a ModRM byte with mod 00, r/m 101, whose
+	target (the address after the disp32 plus the disp32) is there. first_reference's test, for every one, with
+	struct.iter_unpack per alignment instead of one unpack per byte (the Debug images have 10 MB of code)."""
+	hits = []
+	for shift in range(4):
+		usable = (len(code) - shift) // 4 * 4
+		values = struct.iter_unpack("<i" if x64 else "<I", code[shift:shift + usable])
+		for index, (value,) in enumerate(values):
+			pos = shift + 4 * index
+			if x64:
+				if pos == 0 or code[pos - 1] & 0xc7 != 0x05:
+					continue
+				value += code_va + pos + 4
+			if lo <= value <= hi:
+				hits.append(pos)
+	return sorted(hits)
+
+
+def modulus_copies(image, data, text):
+	"""The file offsets of the client's copies of the modulus text (a NUL before and after each): the one copy
+	(identical strings pooled), or the two of a Debug build (one per TRSA::SetPublicKey literal, issue #82) when
+	the code references each of them."""
+	hits = [m.start() for m in re.finditer(b"(?<=\0)" + re.escape(text) + b"(?=\0)", data)]
+	if len(hits) == 1:
+		return hits
+	if len(hits) != 2:
+		raise PatchError("the RSA modulus: expected one occurrence (two in a Debug build), found %d" % len(hits))
+	for offset in hits:
+		lo = image.offset_to_va(offset)
+		count = 0
+		for start, end in image.code_ranges():
+			count += len(literal_references(data[start:end], image.offset_to_va(start), image.x64, lo,
+				lo + len(text)))
+		if count == 0:
+			raise PatchError("the RSA modulus: two occurrences, and no code references the one at 0x%x" % offset)
+	return hits
 
 
 def port_stores(code, code_va, x64, field_vas, port=LOGIN_PORT):
@@ -380,14 +426,18 @@ def patch(data, host, port, rsa, exe_path=None):
 	if rsa is not None:
 		old = CIPSOFT_MODULUS.encode("ascii")
 		new = rsa.encode("ascii")
-		offset = find_unique(data, b"\0" + old + b"\0", "the RSA modulus") + 1
+		offsets = modulus_copies(image, data, old)
 		if len(new) > len(old):
 			raise PatchError("the new modulus has %d digits, more than the client's %d" % (len(new), len(old)))
-		expected["rsa"] = (offset, new)
+		expected["rsa"] = (offsets, new)
 		if new != old:
-			out[offset:offset + len(old)] = new.ljust(len(old), b"\0")
-			ranges.append((offset, offset + len(old), "RSA modulus (%d digits) -> %s...%s (%d digits)"
-				% (len(old), rsa[:8], rsa[-8:], len(new))))
+			for index, offset in enumerate(offsets):
+				out[offset:offset + len(old)] = new.ljust(len(old), b"\0")
+				what = "RSA modulus"
+				if len(offsets) > 1:
+					what += ", copy %d of %d (Debug)" % (index + 1, len(offsets))
+				ranges.append((offset, offset + len(old), "%s (%d digits) -> %s...%s (%d digits)"
+					% (what, len(old), rsa[:8], rsa[-8:], len(new))))
 	return image, bytes(out), ranges, expected
 
 
@@ -411,9 +461,10 @@ def check(image, patched, host, expected):
 			if struct.unpack_from("<I", patched, offset)[0] != port:
 				raise PatchError("check: the port at 0x%x is not %d" % (offset, port))
 	if expected["rsa"] is not None:
-		offset, new = expected["rsa"]
-		if c_string(patched, offset) != new:
-			raise PatchError("check: the RSA modulus at 0x%x is not the new one" % offset)
+		offsets, new = expected["rsa"]
+		for offset in offsets:
+			if c_string(patched, offset) != new:
+				raise PatchError("check: the RSA modulus at 0x%x is not the new one" % offset)
 
 
 def verify(image, original, patched, ranges):
@@ -475,7 +526,95 @@ def self_test():
 	# Another port: the immediate 7272 found, 7171 not.
 	other_port = loop.replace(imm, struct.pack("<I", 7272))
 	assert loop_store(other_port, 7272) == 7 and loop_store(other_port) is None
+	self_test_modulus()
 	print("patch_client.py: self-test passed")
+
+
+def made_up_image(x64, code, rdata):
+	"""A PE32 or PE32+ file with code at RVA 0x1000 (file offset 0x200) and rdata in the next 0x1000 bytes of RVA:
+	enough of a PE for Image."""
+	base = 0x140000000 if x64 else 0x400000
+	optsize = 0xf0 if x64 else 0xe0
+	header = bytearray(0x200)
+	header[0:2] = b"MZ"
+	struct.pack_into("<I", header, 0x3c, 0x40)
+	header[0x40:0x44] = b"PE\0\0"
+	struct.pack_into("<HH", header, 0x44, 0x8664 if x64 else 0x14c, 2)
+	struct.pack_into("<H", header, 0x40 + 20, optsize)
+	opt = 0x40 + 24
+	if x64:
+		struct.pack_into("<H", header, opt, 0x20b)
+		struct.pack_into("<Q", header, opt + 24, base)
+	else:
+		struct.pack_into("<H", header, opt, 0x10b)
+		struct.pack_into("<I", header, opt + 28, base)
+	code_size = (len(code) + 0x1ff) // 0x200 * 0x200
+	rdata_size = (len(rdata) + 0x1ff) // 0x200 * 0x200
+	sections = [(b".text", 0x1000, code_size, 0x200, 0x60000020), (b".rdata", 0x1000 + max(code_size, 0x1000),
+		rdata_size, 0x200 + code_size, 0x40000040)]
+	for i, (name, va, size, raw, chars) in enumerate(sections):
+		struct.pack_into("<8sIIII12xI", header, opt + optsize + 40 * i, name, size, va, size, raw, chars)
+	data = bytes(header) + code.ljust(code_size, b"\xcc") + rdata.ljust(rdata_size, b"\0")
+	return data, base + 0x1000, base + sections[1][1]
+
+
+def self_test_modulus():
+	"""--rsa on made-up images (issue #82): the one pooled copy of the modulus, and the two copies of a Debug build,
+	each referenced by code (x64 `lea rcx, [rip+disp32]`, x86 `push imm32`), are patched to the same text; two copies
+	of which the code references only one, or three copies, are refused."""
+	old = CIPSOFT_MODULUS.encode("ascii")
+	names = b"".join(name + b"\0" for name in LOGIN_SERVERS)
+	new = CIPSOFT_MODULUS[:-1]  # 308 digits: each copy's NUL padding is checked as well
+
+	def build(x64, copies, referenced):
+		rdata = b"\0" + names + b"".join(b"\0" + old for _ in range(copies)) + b"\0"
+		first = 1 + len(names) + 1
+		offsets = [first + i * (len(old) + 1) for i in range(copies)]
+		code = b"\x90" * 5
+		for _ in range(2):  # two references each, as the Release builds' two calls to the one pooled copy
+			for i in referenced:
+				if x64:
+					code += b"\x48\x8d\x0d"  # lea rcx, [rip+disp32]
+					code += struct.pack("<i", 0)  # placeholder: the target needs the rdata VA
+				else:
+					code += b"\x68" + struct.pack("<I", 0)  # push imm32
+		data, code_va, rdata_va = made_up_image(x64, code, rdata)
+		data = bytearray(data)
+		pos = 0x200 + 5
+		for _ in range(2):
+			for i in referenced:
+				target = rdata_va + offsets[i] + 7 * (i + 1)  # inside the copy, not only its first byte
+				if x64:
+					va = code_va + pos - 0x200 + 7
+					struct.pack_into("<i", data, pos + 3, target - va)
+					pos += 7
+				else:
+					struct.pack_into("<I", data, pos + 1, target)
+					pos += 5
+		rdata_offset = struct.unpack_from("<I", data, 0x40 + 24 + (0xf0 if x64 else 0xe0) + 40 + 20)[0]
+		return bytes(data), [rdata_offset + o for o in offsets]
+
+	for x64 in (False, True):
+		for copies, referenced in ((1, [0]), (2, [0, 1])):
+			data, offsets = build(x64, copies, referenced)
+			image, patched, ranges, expected = patch(data, "127.0.0.1", None, new)
+			assert expected["rsa"][0] == offsets, (x64, copies, expected["rsa"], offsets)
+			changed = verify(image, data, patched, ranges)
+			check(image, patched, "127.0.0.1", expected)
+			for offset in offsets:
+				assert patched[offset:offset + len(old) + 1] == new.encode("ascii").ljust(len(old) + 1, b"\0")
+			assert len(changed) > 0 and len(ranges) == 4 + copies
+		for copies, referenced in ((2, [0]), (2, [1]), (2, []), (3, [0, 1, 2])):
+			data, offsets = build(x64, copies, referenced)
+			try:
+				patch(data, "127.0.0.1", None, new)
+			except PatchError:
+				continue
+			raise AssertionError("copies %d, referenced %s, x64 %s: patched" % (copies, referenced, x64))
+	# literal_references: an x64 disp32 counts only after a ModRM of mod 00, r/m 101.
+	code = b"\x48\x8b\x0d" + struct.pack("<i", 0x100) + b"\x48\x8b\x4d" + struct.pack("<i", 0x1107 - 0x100e)
+	assert literal_references(code, 0x1000, True, 0x1107, 0x1107) == [3], literal_references(code, 0x1000, True,
+		0x1107, 0x1107)
 
 
 def main():
@@ -485,7 +624,7 @@ def main():
 	parser.add_argument("--host", help="login server name or IPv4 address")
 	parser.add_argument("--port", type=int, default=None, help="login server port (default 7171, unchanged)")
 	parser.add_argument("--rsa", default=None, help="decimal modulus, or a PEM file with the server's key")
-	parser.add_argument("--self-test", action="store_true", help="check the store matchers on made-up code")
+	parser.add_argument("--self-test", action="store_true", help="check the store matchers and --rsa on made-up code")
 	args = parser.parse_args()
 	if args.self_test:
 		self_test()
