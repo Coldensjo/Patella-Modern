@@ -136,7 +136,7 @@ Kinds of owner used below:
 
 ### The main window and the map (MainWindow.cpp, MapWindow.cpp)
 
-- `MainWindow` (global, `TMainWindow`): **global, init/exit**: InitMainWindow creates it, ExitMainWindow deletes it
+- `MainWindow` (`TMainWindow`; a global until issue #107, TGUI's member since, GUI.h): **global, init/exit**: InitMainWindow creates it, ExitMainWindow deletes it
   (MainWindow.cpp 95). Its 23 parts (side panel, side bar, console, dialog window, map frame, ...) are its children.
 - `TMapFrame::MapWindow`, `TMapWindow::HintButton`: **child list** (the hint button is added and deleted with
   DeleteChild as hints come and go).
@@ -145,7 +145,7 @@ Kinds of owner used below:
 
 ### Control and the event queue (Control.cpp, Status.cpp's messages)
 
-- `ModalWindow` (global, MainWindow.cpp's): the one modal window, a dialog, a context menu or the help bubble.
+- `ModalWindow` (MainWindow.cpp's global until issue #107, TGUI's member since, GUI.h; still a raw pointer): the one modal window, a dialog, a context menu or the help bubble.
   **global**, created by ProcessEvents (Create*Dialog, the context menus) and MouseMove (the help bubble), deleted
   wherever the modal window ends (Resize, LeaveGame, the mouse handlers, KeyPress, ProcessEvents: 10 sites) and by
   ExitMainWindow. Read by TASSERTs (`ModalWindow!=NULL`), by tools/client_state.py, the test mode's state dump and
@@ -394,7 +394,7 @@ with the owners below):
 |---|---|---|
 | The component members that own a component: `TTabBar::LeftTabs`, `RightTabs` (`TWindow`); the conditional members (`TSubWindow`'s eight parts, `TConsoleWindow`'s five buttons, `TListBox::EditLine`) | the pointee's destructor throws (`TComponent`, `noexcept(false)`, kept by #81): the two windows hold the tabs that do not fit, and `~TTab` asserts on a nameless report, sends and calls DeleteTextBuffer's assertion (the golden ConsoleWindow test throws through it); as a `unique_ptr`, `reset()` would end in `std::terminate`, and a throw from `delete LeftTabs` would destroy `RightTabs` while unwinding (its tabs' sends) where the original left it. The conditional ones are also owned by the child list or the member, by `IsChild`/`Editing` | M7 (the GUI tree): the destructors' work that can fail (a tab leaving its channel, the console storing the channels and its height, a body closing its container or trade, the preferences) moves into an explicit close before the delete, so `TComponent`'s destructor can become `noexcept`; then the exclusive ones convert, and the conditional ones with the tree |
 | The child list: `TWindow::FirstChild`, `TComponent::Next` (379 allocation sites) | not one owner: an intrusive list, ownership moves between lists and is decided by `IsChild`; its destruction order is DeleteChild's | M7 (the GUI tree) |
-| `ModalWindow`, `MainWindow` (globals) | the pointee's destructor throws (`TComponent`, kept `noexcept(false)` by #81; the main window's tree holds the console and its tabs); a global's destructor would run the window destructors during static destruction after FatalError's `exit(1)` | M7 (owned by `TClient`, with the GUI tree's `noexcept` destructors) |
+| `ModalWindow`, `MainWindow` (TGUI's raw members since #107) | the pointee's destructor throws (`TComponent`, kept `noexcept(false)` by #81; the main window's tree holds the console and its tabs); a global's destructor would run the window destructors during static destruction after FatalError's `exit(1)` | M7 (owned by `TClient`, with the GUI tree's `noexcept` destructors) |
 | `Socket` (`TSocket`, a CAsyncSocket) | its destructor acts at `exit(1)`, after MFC's module state | M8 (CAsyncSocket replaced) |
 | `Surface` (the engine) | its destructor releases the device and the windows at `exit(1)` | M7 (owned by `TClient`) |
 | `TPicture::Offsets`, `TProperties::Sprites` | a pointer in each element of an owned array: a `unique_ptr` would clear it in `new T[n]` and give the element a destructor | M7 (the tables as `std::vector`s) |

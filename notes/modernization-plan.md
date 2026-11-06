@@ -610,6 +610,11 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Done in #105: TNetwork (Network.cpp's globals, PacketHeader, the reconnect pair) and TCommunication
   (Communication.cpp's globals, Control.cpp's packet types, Status.cpp's session as its TSession); Network and
   Communication are in no include cycle any more (notes/decisions.md, "The second move: TNetwork and TCommunication").
+  Done in #107 (part 1): TGUI owns TTalk (Talk.cpp, now TPreferences' TTalkLists), THelp (Help.cpp) and TInteraction
+  (Status.cpp's user interaction and message queue), and holds GUI.cpp's timers and hotkeys, ContentWindows.cpp's,
+  Control.cpp's and MainWindow.cpp's data; ModalWindow and MainWindow are its members (raw, for #108); the windows
+  reach Control.cpp through TGUIController. The GUI cycle is 4 modules (was 6). Not yet: SkinProperties, Control.cpp's
+  and MainWindow.cpp's functions as members (notes/decisions.md, "The third move: TGUI").
 - **The core/platform split is completed:** packet parsing and building, game state (Creatures, Map,
   Objects, Inventory, Player), preferences, and the GUI's logic are in `patella_core` and
   include neither `<windows.h>` nor MFC. The platform interfaces are `IWindow`, `IInput`, `IClock`,

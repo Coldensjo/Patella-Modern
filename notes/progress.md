@@ -480,6 +480,16 @@ and TNetworkSession (Status.cpp's functions, Client.cpp's adapter); TCommunicati
 The golden tests reach the members (the Communication world fakes the members too). Module cycles: main's 12-module
 cycle is one of 6 and {MainFrm, Player}; Network and Communication are in none. Golden 17,316,040, 0 failures.
 notes/decisions.md, "The second move: TNetwork and TCommunication".
+TGUI, part 1 (Patella-Modern issue #107, branch issue-107, November 6, 2026; M7): TClient makes TGUI (GUI.h) after
+TCommunication. TGUI owns TTalk (Talk.cpp's 15 globals and UpdateTalkboxes' static, its 66 functions; it is
+TPreferences' TTalkLists, so Client.cpp's adapter went), THelp (Help.cpp's 9 globals, 18 functions) and TInteraction
+(Status.cpp's 40 non-session globals, 43 functions), and holds GUI.cpp's timers and hotkeys (their 8 functions and
+UpdateTimers' static), ContentWindows.cpp's two texts, Control.cpp's six statics, MainWindow.cpp's callbacks and
+ModalWindow and MainWindow (raw pointers as before, no longer globals; #108 makes them owners). The free functions
+forward through the bridge. MainWindow.cpp and Dialogs.cpp call Control.cpp through TGUIController (Client.cpp's
+adapter), so the GUI cycle is {ContentWindows, ContextMenus, DialogWindow, MainWindow} (was 6 modules). Still
+globals: SkinProperties (2,096 uses); Control.cpp's and MainWindow.cpp's functions are not members yet. Golden
+17,316,040, 0 failures. notes/decisions.md, "The third move: TGUI".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
