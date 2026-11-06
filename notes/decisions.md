@@ -12995,3 +12995,23 @@ Same precedent: notes/ownership.md keeps TProperties and TPicture without a cons
 
 - #103 (the effect table's typed handles and the iterator) builds on TSlotTable: Get, operator[] and New take and
   give the numbers it types.
+
+### The gates (high)
+
+Logs: build\logs\issue-102 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired =
+  17,316,040, 0 failures (golden_concurrent the same; Map 639,877 and Container 192,832 checks, as before), 0
+  warnings. windows-x64-debug: exit 0, 18/18, golden the same. windows-x64-asan: golden the same, no ASan report
+  in any client code; tests_vulkan failed once (exit 8) with a null-pc access violation on a thread of the NVIDIA
+  OpenGL/Vulkan driver (nvoglv64.dll, with OBS's graphics-hook64.dll injected) inside vkCreateDevice of its GPU case;
+  its one rerun (`ctest -R ^tests_vulkan$` in the preset's environment) passed. windows-x64-gcc: exit 0, 12/12.
+  linux-x64-gcc: exit 0, 16/16; linux-x64-clang (ASan, UBSan): exit 0, 14/14, no sanitizer report; golden the
+  same on both. 0 warnings on every preset.
+- slot_table_test.cpp: 5 test cases, 33,021 assertions, in tests_unit and tests_unit_cxx26_standin on MSVC (the
+  stand-in), mingw-w64 GCC, GCC 16 (tests_unit: std::inplace_vector) and Clang 22.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (traffic, options, walk, error); `python -I tools/compare_traffic.py` exit 0, no differences.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`:
+  exit 0. clang-format (CLAUDE.md's command): exit 0.
