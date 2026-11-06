@@ -432,6 +432,31 @@ doubling, the init fill, #91's padding-carrying swaps) over a std::vector whose 
 objects and 4 functions' parameters converted, Container.h keeps array, matrix and matrix3d. Golden 17,316,040, 0
 failures on every preset; tests/unit/indexed_vector_test.cpp on every compiler. #100 moves the plain call sites to
 standard containers. notes/decisions.md, "TIndexedVector over std::vector".
+
+compare_rendering.py's failures explained (Patella-Modern issue #98, branch issue-98, November 6, 2026): Tibia.exe's
+first capture got no frame when its start-up's second IDirect3D9::CreateDevice did not return (1 start of 15 in the
+repro, inside the driver); the tool now waits for the first frame and starts a client without one once more. The
+x64 client's "late" trade window was a minimized window (0x0 frames, the click on the partner missed), most likely
+the DisplayPort monitor asleep after the display timeout (posted messages are not input): the tool keeps the display
+on (SetThreadExecutionState) and fails a minimized scene at once. Every failure names the window's, the display's and
+patcap.dll's Direct3D 9 state (patcap.dll's shared memory version 4 and patcap.log; compare_rendering.py
+--self-test). patcap.dll's four PatcapVulkan* exports, unused since #97, are gone. notes/rendering.md, "When a run
+fails"; notes/decisions.md, "compare_rendering.py's failed starts and runs explained".
+
+import std (Patella-Modern issue #113, branch issue-113, November 6, 2026; M7): `import std;` works with MSVC 14.51,
+mingw-w64 GCC 16.2 and GCC 16.2 under CMake 4.1.2 (and MSVC under 4.4.5), not with Clang 22 in the image (Debian's
+libstdc++ 14 has no std module). The option PATELLA_IMPORT_STD (cmake/ImportStd.cmake) is ON in windows-x64,
+windows-x64-asan, windows-x64-gcc and linux-x64-gcc; tests_import_std (tests/unit/import_std_test.cpp) is its one
+user, and the std module gets that target's options. The Linux image has Kitware's CMake 4.1.2 instead of Debian's
+3.31.6. Clang's unblock (GCC 16's libstdc++ or libc++) is the owner's decision. notes/decisions.md, "import std".
+
+TClient and TPreferences (Patella-Modern issue #104, branch issue-104, November 6, 2026; M7's first issue): the design
+of M7's globals-into-subsystems (the objects, which object owns each global, the order of #105-#111, the bridge,
+golden_runner's and the test mode's access, the module cycles) is notes/decisions.md, "#104: TClient and the subsystem
+objects". First move: Preferences.cpp's 43 globals are TPreferences' members (Preferences.h), owned by TClient
+(src/Client.h, Client.cpp: one lazy instance during the transition, bridge::Client()); the original's free functions
+forward to bridge::Preferences(), so no caller changed. Talk's White and Ignore lists through TTalkLists: the module
+cycle {Preferences, Talk, graphics, Surface} is {Surface, graphics} now. Golden 17,316,040, 0 failures.
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

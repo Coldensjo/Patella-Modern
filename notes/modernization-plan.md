@@ -600,6 +600,9 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   passes dependencies in. This is when the include cycles noted in `notes/progress.md` get broken. The
   original's file structure stays as the module map, so the reconstruction notes still point at the right
   code.
+  Designed in issue #104 (notes/decisions.md, "#104: TClient and the subsystem objects"): the objects, the owner of each
+  global, the order of the moves (#105-#111), the bridge (one TClient made on first use, an accessor per subsystem,
+  the original's free functions forwarding until their callers hold the object); TPreferences is the first, done.
 - **The core/platform split is completed:** packet parsing and building, game state (Creatures, Map,
   Objects, Inventory, Player), preferences, and the GUI's logic are in `patella_core` and
   include neither `<windows.h>` nor MFC. The platform interfaces are `IWindow`, `IInput`, `IClock`,

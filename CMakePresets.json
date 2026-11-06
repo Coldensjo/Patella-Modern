@@ -62,7 +62,8 @@
 				"strategy": "external"
 			},
 			"cacheVariables": {
-				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+				"PATELLA_IMPORT_STD": "ON"
 			}
 		},
 		{
@@ -93,7 +94,8 @@
 			"cacheVariables": {
 				"CMAKE_C_COMPILER": "gcc",
 				"CMAKE_CXX_COMPILER": "g++",
-				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+				"PATELLA_IMPORT_STD": "ON"
 			}
 		},
 		{
@@ -117,7 +119,8 @@
 			"inherits": "linux-base",
 			"cacheVariables": {
 				"CMAKE_C_COMPILER": "gcc",
-				"CMAKE_CXX_COMPILER": "g++"
+				"CMAKE_CXX_COMPILER": "g++",
+				"PATELLA_IMPORT_STD": "ON"
 			}
 		},
 		{

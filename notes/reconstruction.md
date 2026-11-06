@@ -237,6 +237,17 @@ python -I tools/build.py linux-x64-gcc           # golden replays it in the imag
 python -I tools/build.py linux-x64-clang         # under ASan and UBSan
 ```
 
+`import std;` (issue #113, M7; `cmake/ImportStd.cmake`): the option PATELLA_IMPORT_STD, ON in the presets windows-x64
+(and windows-x64-asan), windows-x64-gcc and linux-x64-gcc, sets CMake's experimental gate
+(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD, a UUID per CMake minor version: 4.1 and 4.4 are known) before project() and
+requires the compiler's std module; `patella_target_import_std(<target>)`, after the target's language, warning and
+hardening settings, lets a target's sources import it and gives the std module the target's options. Its one user is
+tests_import_std (tests/unit/import_std_test.cpp). Not linux-x64-clang: Clang uses Debian's libstdc++ 14, which has
+no std module. On a CMake version without a known gate the configure warns and builds without it. Per compiler, the
+errors and what would unblock Clang: notes/decisions.md, "import std (Patella-Modern issue #113, M7)". A build folder
+configured before #113 fails its configure ("Experimental `import std` support not enabled when detecting toolchain"),
+because the compiler was detected without the gate: configure it once with `python -I tools/build.py <preset> --fresh`.
+
 No warnings on any preset (plan section 4.1): the product presets and capture-x86 build with /WX or -Werror, and
 `tools/build.py` fails a warning besides (issue #17; it was what failed the oracle, which kept /WX-). It passes
 cmake's output through and scans it, up to the test step, for compiler, resource compiler, assembler and linker
@@ -305,7 +316,8 @@ each with a `-debug` workflow, build patella_core and the unit tests, not the cl
 client needs Tibia.exe for its resources, and MFC). On Linux: `cmake --workflow --preset linux-x64-gcc`. On
 Windows, `python -I tools/build.py linux-x64-gcc` (and `--env linux-x64-gcc <command>`) runs them in the Docker
 image `patella-modern/linux-x64:gcc16.2-clang22.1` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
-pinned by digest, Debian's Clang 22.1.8, CMake 3.31.6 and Ninja 1.12.1 pinned by version, since issue #11
+pinned by digest, Debian's Clang 22.1.8 and Ninja 1.12.1 pinned by version, Kitware's CMake 4.1.2 by its SHA-256
+(issue #113; Debian's 3.31.6 until then), since issue #11
 also clang-format and clang-tidy 22.1.8; build it once with
 `docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`, about half a minute, and again
 when the Dockerfile changes: the tag stays the same). build.py

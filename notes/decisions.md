@@ -12376,6 +12376,460 @@ Logs: build\logs\issue-45 of the branch's worktree; golden replayed main's froze
   passed.
 - Hosted CI on the branch: green.
 
+## compare_rendering.py's failed starts and runs explained, patcap.dll without its Vulkan exports (Patella-Modern issue #98)
+
+Settled by Claude Opus 5.5, November 6, 2026 (#92's, #94's and #97's failed compare_rendering.py passes). Files:
+tools/capture/patcap.c, tools/compare_rendering.py, tools/reference_record.py; notes/rendering.md ("When a run
+fails"), notes/vulkan.md, notes/progress.md. No src/ change. Logs: build\logs\issue-98 of the branch's worktree.
+
+### Tibia.exe's first capture without a frame: a CreateDevice that did not return (high)
+
+patcap.dll now records Direct3D 9's course in its shared memory (version 4: Direct3DCreate9's calls, CreateDevice's
+calls, result, time, back buffer and window, whether a call is still inside the driver, TestCooperativeLevel's last
+result and its failures, Present's first and last time, last result and failures) and its rare events in patcap.log
+(the run folder; the tool keeps it). A start of Tibia.exe makes the device twice: Direct3DCreate9 and CreateDevice at
+about 80 ms, both again at about 480 ms, the first Present at about 560 ms.
+
+The repro (a script of this issue's, not committed: Tibia.exe under patcap.dll started again and again, its first
+frame, an advance, the "start" capture, WM_CLOSE; logs repro-01 to repro-04): 15 starts, 14 with the first frame
+within 0.6 s; one (repro-01's first, 17:17, the display on, the window visible and not minimized, Chrome in the
+foreground, the input desktop Default) ran the second Direct3DCreate9 and nothing after it: no CreateDevice result,
+no TestCooperativeLevel, no Present for 30 s (patcap.log: "Direct3DCreate9(32): an object" at 484 ms, then nothing;
+CreateDevice's result is logged when the call returns; the line before the call came later in this issue). That is
+#92's, #94's and #97's "command 2 not done within 30 s (frames 0)": the first capture waits for a Present that never
+comes. #97's first compare_traffic.py run (the helper Tibia.exe got no game connection within 10 s, then passed) fits
+the same start, without patcap.dll. Not caught again: 8 starts in a row with fresh copies of the client, 2 starts
+after 6 minutes without GPU work, and the gate runs below all worked; no stack of the hung thread was taken (the
+repro's non-invasive cdb attach was ready but never needed). So it is in the driver's start-up (NVIDIA RTX 5080, the
+Direct3D 9 runtime) or the machine's state, rare, and a second start works.
+
+- Fixed in the tool: Driver.start waits for the first frame (FIRST_FRAME_TIMEOUT, 30 s) instead of sleeping 2 s, and a
+  client that shows none is ended and started once more (START_ATTEMPTS, 2), logged as "start 1 of 2 failed,
+  starting the client again: <the diagnosis>". Nothing has been sent to the client before its first frame (the first
+  command, the advance, comes after), so the run is the same as one whose first start worked; a second failure fails
+  the run with the diagnosis. reference_record.py's record step gets the same (it uses this Driver).
+- Considered: a longer capture timeout (the hang did not end within 30 s, nor #94's within 34 s: a longer wait is no
+  fix); patcap.dll making the device itself or skipping the second one (it would change what the client does).
+
+### The x64 client's trade window "late": its window was minimized (medium)
+
+#94's log (C:\Tibia\Patella-Modern\build\logs\main-94-rendering.log): the GPU pass's PatellaTest.exe frames were
+780x557 until "walk east" and 0x0 from "walk south" on (15:22:08). The frame dump's size is SCREEN_SURFACE's
+rectangle, the window's client area, so the window was minimized; with no client area the map window has none, the
+click on the trade partner hit nothing, the client sent no trade request (the proxy: "recorded 7dffff05...; client
+sent closed"), and "no window of class TTradeOffers (#0) within 5 s" followed. So the window was not late and the
+trade is not ordered differently from compare_traffic.py's: it was never asked for. What minimized the window is
+inferred: the monitor is a DisplayPort one (WmiMonitorConnectionParams: VideoOutputTechnology 10); asleep it is gone
+for Windows (the desktop falls back to 1024x768, notes/rendering.md "How the pixels are read without a display");
+Windows 11 minimizes the windows of a monitor that went away (MonitorRemovalRecalcBehavior unset: the default, on);
+the power scheme turns the display off after 900 s without input on AC; posted window messages are not input. No log
+records the display's state at 15:22; at 17:10 the display was on after 1705 s without input (something held it on),
+so the timeout does not always fire.
+
+- Fixed in the tool: SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED) while the runs
+  last (a display already off comes on again; no input is sent); a scene whose window is minimized, and a 0x0 frame
+  dump, fail the run at once with the diagnosis, instead of a later step with a misleading message.
+- Not done: restoring a minimized window (SW_SHOWNOACTIVATE would not take the input, but the client would get window
+  messages the other run did not: the scenes would not come from the same session); bringing the window to the
+  foreground (every passing run of this issue had another program in the foreground: the clients do not need it, and
+  taking it would take the user's keyboard).
+
+### The diagnosis (high)
+
+Every failed start, capture timeout, minimized scene, 0x0 frame and failed session step ends its message with the
+window's state (visible, minimized, the client area, the foreground window and whether it covers its monitor), the
+display's (GUID_CONSOLE_DISPLAY_STATE, the idle time against the display timeout, the input desktop: Winlogon when
+locked, the monitors, the mode) and, for Tibia.exe, patcap.dll's Direct3D 9 course. Each run's log starts with a
+`display:` line, and run.json's facts have patcap.dll's `d3d9`. `--self-test` (new) checks the offsets against
+patcap.c's struct Shared and the diagnosis texts on made-up data.
+
+### patcap.dll's Vulkan exports removed (high)
+
+PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanMask and PatcapVulkanPixels (issue #19) had no caller since #97.
+Removed with the shared memory's Vulkan fields (VulkanFrames, VulkanType, VulkanCpuDriver, VulkanDevice, MaskPixels;
+version 4 has Direct3D 9's course from offset 876), API_VULKAN, compare_rendering.py's `.mask` reading and
+vulkan_device(), and reference_record.py's `.mask` removal. dumpbin /exports (build\logs\issue-98\exports.txt):
+before PatcapLoaded, PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanMask, PatcapVulkanPixels; after PatcapLoaded
+only. The tool refuses a patcap.dll of another version ("rebuild it"); it builds the DLL itself when patcap.c is
+newer.
+
+The reference recordings (build\reference) were recorded with the old patcap.dll. `reference.py compare` loads none
+(PatellaTest.exe replays each session's script), so it is not affected. A future `reference.py record` runs
+Tibia.exe under the new one: the same hooks, the same clock and the same captures; the differences are patcap.log in
+the record step's run folder (not one of the saved files) and the restart of a client without a first frame, before
+any line of the script is written. So a recording made with it is the same.
+
+### Found, not done (high)
+
+- `python -I tools/testmode_check.py --self-test` and `python -I tools/testmode_dumps.py --self-test` fail on main
+  c0aad52 too (their "identical runs" case: "Tibia.cfg was written"; log gate4-main-comparison.log): since #45
+  Patella.ini is the settings file, and the self-tests' made-up runs still expect Tibia.cfg unwritten. Not this
+  issue's.
+- The live gates found another agent's build (worktree t3-3369ef48, issue-99) running PatellaTest.exe through its
+  ctest at the same time; the first gate run was stopped and started again after it (log
+  aborted-gate2-other-client-running.log).
+
+### The gates (high)
+
+Logs: build\logs\issue-98 of the branch's worktree. Recording: build\traffic\result\orig-live.jsonl, a copy of
+C:\Tibia\Patella-Modern\build\recordings\orig-live.jsonl (sha256 61103b95...825b, notes/network.md's).
+
+- `python -I tools/build.py capture-x86`: exit 0 (capture-x86.log; before the change capture-x86-before.log, exit 0).
+  Exports in exports.txt (above). `python -I tools/build.py windows-x64`: exit 0, 18 tests, 0 failed (golden and
+  golden_concurrent skipped: no corpus in the worktree; no src/ change) (windows-x64.log).
+- `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes windowed --no-repeat --recording
+  build/traffic/result/orig-live.jsonl`, twice in a row: exit 0 both (gate2-rendering-1.log, 17:42-17:49;
+  gate2-rendering-2.log, 17:52-17:58): every scene of both passes identical (outside the masks), no problems in any of
+  the 4 runs, the GPU pass on the NVIDIA GeForce RTX 5080 and the CPU pass on llvmpipe (the probe), Tibia.exe's first
+  frame within 1.5 s each time (no restart needed), the display on throughout. During the first, other worktrees'
+  ctest (t3-56952a53, t3-3369ef48, t3-2547e399: windows-x64-asan) ran PatellaTest.exe unit tests (logged in
+  gate2-rendering-1.others.log); the second ran with no other client. An earlier start of the first was stopped by
+  hand when another worktree's client showed up (aborted-gate2-other-client-running.log).
+- `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: exit 0, every session
+  matches its reference (gate3-reference-compare.log).
+- The tools' self-tests (gate4-self-tests.log): banned_calls, client_state, compare_files, compare_rendering (new),
+  data_manifest, desktop, patch_client, reference, settings_file, testmode_client, testserver: exit 0;
+  `python -I tools/banned_calls.py` exit 0. testmode_check and testmode_dumps exit 1, the same on main c0aad52
+  (gate4-main-comparison.log; found, not done).
+- The repro runs: repro-01 (3 starts, 1 hang), repro-02 (2), repro-03 (8, fresh copies each), repro-04 (2 after 6
+  minutes idle).
+
+## import std (Patella-Modern issue #113, M7)
+
+Settled by Claude Opus 5.5, November 6, 2026 (CMake 4.1.2 and Ninja 1.13.2 on Windows, CMake 4.4.5 on the hosted
+Windows runner; MSVC 14.51 / cl 19.51.36260; mingw-w64 GCC 16.2.0; in the Linux image GCC 16.2.0, Debian's Clang
+22.1.8, CMake 3.31.6 before and 4.1.2 after this issue, Ninja 1.12.1). Files: cmake/ImportStd.cmake (new),
+CMakeLists.txt, CMakePresets.json, tests/unit/CMakeLists.txt, tests/unit/import_std_test.cpp (new),
+docker/linux-x64/Dockerfile; CLAUDE.md, notes/reconstruction.md, notes/progress.md.
+
+### What CMake needs (high)
+
+`import std;` under CMake is experimental in every version up to 4.4 at least: the target property CXX_MODULE_STD
+(variable CMAKE_CXX_MODULE_STD) acts only when CMAKE_EXPERIMENTAL_CXX_IMPORT_STD holds the gate's UUID before the CXX
+language is enabled (before project()), and the UUID changes with CMake's minor version: 3.31
+`0e5b6991-d74f-4b3d-a41c-cf096e0b2508`, 4.1 `d0edc3af-4c50-42ea-a356-e2862fe7a444`, 4.4
+`f35a9ac6-8463-4d38-8eec-5d6008153e7d` (each read from its cmake executable: `grep -ao "CxxImportStd.\{40\}"`). It
+also needs a Ninja generator (the presets' Ninja Multi-Config scans modules; Ninja 1.11 or newer: 1.13.2 on Windows,
+1.12.1 in the image) and a library that ships its std module: MSVC's `modules/std.ixx`, libstdc++'s
+`libstdc++.modules.json` (GCC 15 and newer, `bits/std.cc`), libc++'s `libc++.modules.json`. CMake adds the std
+module's target only to a target with the compile feature cxx_std_23 or newer. CMake 3.31 supports MSVC and Clang
+with libc++ only; 4.1 adds GCC 15+ and Clang with libstdc++.
+
+### Per compiler (high)
+
+A minimal project (build\logs\issue-113\minimal: `import std;`, a vector, std::ranges::fold_left, std::println),
+Ninja Multi-Config, Release:
+
+| Compiler | CMake | Result |
+|---|---|---|
+| MSVC 14.51 (cl 19.51) x64 | 4.1.2, 4.4.5 | works: CMAKE_CXX_COMPILER_IMPORT_STD is `23` (/std:c++latest; no 26); prints 6 |
+| mingw-w64 GCC 16.2 | 4.1.2 | works: `23;26`; links with libstdc++exp (std::print's terminal helpers, as cmake/Warnings.cmake links it); runs with the compiler's runtime DLLs next to it (exit 127 without them: another libstdc++-6.dll on PATH, what Warnings.cmake's copy solves) |
+| GCC 16.2 (Linux image) | 3.31.6 | fails: "Toolchain does not support discovering `import std` support" (3.31 has no GNU-CXX-CXXImportStd.cmake) |
+| GCC 16.2 (Linux image) | 4.1.2 | works: `23;26`; prints 6 |
+| Clang 22.1.8 (Linux image) | 3.31.6 | fails: "Only `libc++` is supported" |
+| Clang 22.1.8 (Linux image) | 4.1.2 | fails: "`libstdc++.modules.json` resource does not exist": Clang uses Debian's GCC 14 installation, and libstdc++ 14 has no std module |
+
+What would unblock Clang (both tried; build\logs\issue-113\minimal-linux-clang-unblock.log and -byhand.log):
+
+- GCC 16's libstdc++ for Clang (`--gcc-install-dir=/usr/local/lib/gcc/x86_64-linux-gnu/16.2.0`): by hand Clang 22
+  precompiles libstdc++ 16's bits/std.cc without an error and the program runs (prints 6). Under CMake the flag in
+  CMAKE_CXX_FLAGS does not reach CMake's `-print-file-name=libstdc++.modules.json` probe, which still finds nothing;
+  the flag would have to be part of the compiler (a Clang configuration file, or CMAKE_CXX_COMPILER with the
+  argument). It moves linux-x64-clang from libstdc++ 14 to 16: everything that preset checks (the unit tests, golden
+  under ASan and UBSan, and the clang-tidy job and its baseline, which read its compile_commands.json) would run on
+  another library. The owner's decision (Needs the user).
+- libc++ 22 (Debian's libc++-22-dev and libc++abi-22-dev 1:22.1.8-1~deb13u4): CMake finds `libc++.modules.json`
+  (`23;26`), but it is reached through /lib/x86_64-linux-gnu, and its relative `../share/libc++/v1/std.cppm` resolves
+  to /lib/share/libc++/v1/std.cppm, which does not exist ("Cannot find source file"): a packaging defect. And libc++
+  is another library than the one the preset tests: the same decision, with a second dependency.
+
+### What is enabled where (high)
+
+The option PATELLA_IMPORT_STD (cmake/ImportStd.cmake, default OFF) is set ON by the presets windows-x64 (so
+windows-x64-asan too, which inherits it), windows-x64-gcc and linux-x64-gcc; not by linux-x64-clang (above) and not by
+capture-x86 (returns before the product build). With it the configure sets the gate for the CMake versions above
+(4.1 and 4.4: the ones verified) and, after project(), requires the toolchain's std module for the targets' standard
+(MSVC 23, GCC 26), or fails ("PATELLA_IMPORT_STD: ... has no std module ..."): the option on where it does not work is
+an error. On a CMake version with no known gate it warns at configure and turns itself off, so a hosted runner's CMake
+update does not fail every build (Found, not done). CMake prints its own "experimental" developer warning at
+configure; build.py's warning check is the compilers' and linkers', so it passes.
+
+The one user is tests_import_std (tests/unit/import_std_test.cpp, a CTest test of its own): only `import std;`, no
+#include and no doctest (whose header would put the library's headers and the module into one translation unit; the
+module exports no macros, so the result is the return value). It checks std::format, std::ranges (fold_left, sort,
+views::filter), std::map with a transparent comparator, std::span and std::expected, with the product settings
+(patella_target_language, _warnings, _hardening: /W4 or -Wall -Wextra ..., warnings as errors). No existing code
+converted (the issue: new code only).
+
+### The std module's options (high)
+
+CMake compiles the std module with the directory's flags (CMAKE_CXX_FLAGS_<CONFIG> and its own standard flag), not
+with the importing target's options. With MSVC that gave C5050 in tests_import_std, "Possible incompatible environment
+while importing module 'std': _CONTROL_FLOW_GUARD=1 is defined in current command line and not in module command
+line" (/guard:cf) and the same for _UTF8 (/utf-8); GCC compiled bits/std.cc as `-std=gnu++26` without the importer's
+-D_FORTIFY_SOURCE=3, -fstack-protector-strong, -D_GLIBCXX_ASSERTIONS (Debug) and sanitizers, silently. So
+patella_target_import_std, called after the three settings functions, gives the module the target's own
+COMPILE_OPTIONS: for MSVC the module is a static library of the build (`__cmake_cxx23`, aliased as `__CMAKE::CXX23`),
+its COMPILE_OPTIONS; for GCC an imported INTERFACE target (`__CMAKE::CXX26`) that CMake compiles for each importer,
+its INTERFACE_COMPILE_OPTIONS (the importer gets them again; they are its own already). Checked in the generated Ninja
+files: std.ixx with /std:c++latest /permissive- /Zc:__cplusplus /utf-8 /Zc:preprocessor /Zc:inline ... /guard:cf,
+bits/std.cc with -std=c++26 -fstack-protector-strong -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3. The warning level is a
+source property (patella_target_warnings), so the module keeps the compiler's default level; its code is the
+library's. A second user of import std would need the same options, so the function refuses a second target; with
+more users the options move to one place they share.
+
+CMake 4.4 (the hosted Windows runner's 4.4.5) does it differently: it creates the std module's target only at
+generate time (`@cmake_cxx_std`, its objects compiled as `-std:c++20` with the directory's flags) and compiles the BMI
+that an importer reads for each importer with that importer's options (`@cmake_cxx_std@synth_<n>`: /guard:cf /utf-8
+... /WX), so there is no C5050 and nothing to copy; `__CMAKE::CXX23` does not exist at configure. The first hosted run
+of the branch failed there ("get_target_property() called with non-existent target "__CMAKE::CXX23"", the three
+Windows jobs); the function copies only when the target exists. Checked locally with CMake 4.4.5 on the repository
+(windows-x64-cmake4.4.5.log: windows-x64 without the client, Release and Debug, tests_import_std passed).
+
+- Considered: CMAKE_CXX_FLAGS for the options: they would reach every target, the third-party code too (the regexp,
+  doctest).
+- Considered: C5050 left as a warning: /WX and tools/build.py fail it, rightly.
+
+### The Linux image (high)
+
+docker/linux-x64/Dockerfile: CMake 3.31.6 (Debian's cmake and cmake-data packages) replaced by Kitware's release
+4.1.2 for Linux x86_64, downloaded from its GitHub release, checked against its SHA-256
+(773cc679c3a7395413bd096523f8e5d6c39f8718af4e12eb4e4195f72f35e4ab, from the release's cmake-4.1.2-SHA-256.txt),
+unpacked to /opt/cmake, with cmake, ctest and cpack linked into /usr/local/bin. Why: 3.31 has no import std for GCC,
+and 4.1.2 is the Windows builds' version, whose gate the build knows (Debian's trixie-backports has 4.3.4: a third
+version, a third gate). GCC 16.2's std module was in the image already (the gcc image installs
+`libstdc++.modules.json` and bits/std.cc); no other package changed. The tag stays
+`patella-modern/linux-x64:gcc16.2-clang22.1` (it names the compilers, which are the same); a local image must be
+built again with CLAUDE.md's command. With the old image linux-x64-gcc still builds: CMake 3.31 has no gate the build
+knows, so it warns and leaves tests_import_std out. The branch's gates ran on the new image built as
+`patella-modern/linux-x64:issue-113` (PATELLA_DOCKER_IMAGE), so other branches kept the old one meanwhile.
+
+### Found, not done (high)
+
+- A new CMake minor version needs its gate in cmake/ImportStd.cmake; until then that CMake builds without import std
+  (with a configure warning). The hosted Windows runner has 4.4.5 today.
+- golden in linux-x64-gcc-debug with the corpus: 1 failure, communication_tests.cpp:1186 ("ExitCommunication or
+  0x496160 is not a single ret: 55, c3"): GCC -O0 gives the empty function a frame (push rbp ...), which the check
+  accepts only in Clang's form. Main has it too (the gates); hosted CI runs that preset without a corpus.
+- Clang's library: above.
+
+### The gates (high)
+
+Logs: build\logs\issue-113 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. The Linux presets ran in the
+branch's image (built as patella-modern/linux-x64:issue-113, PATELLA_DOCKER_IMAGE).
+
+- The minimal project (minimal-*.log): MSVC exit 0 with CMake 4.1.2 and 4.4.5; mingw GCC exit 0 (after the runtime
+  DLLs); GCC 16 exit 0 with 4.1.2, fails with 3.31.6; Clang 22 fails with both (the table above).
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, 0 warnings, tests_import_std passed; golden 15,803,218
+  replayed + 1,512,822 retired = 17,316,040, 0 failures. windows-x64-debug: exit 0, 18/18, golden the same.
+  windows-x64-asan: exit 0, 18/18 (the module with /fsanitize=address), golden the same. windows-x64-gcc: exit 0,
+  12/12. linux-x64-gcc: exit 0, 16/16, golden the same (and golden_concurrent). linux-x64-clang: exit 0, 14/14 (no
+  tests_import_std), golden the same.
+- linux-x64-gcc-debug (beyond the gates): exit 8, 14/15, tests_import_std passed, golden 1 failure
+  (communication_tests.cpp:1186, above); main c0aad52 in the old image: the same failure, 13/14.
+- CMake 4.4.5 (the hosted runner's), locally: the repository's windows-x64 without the client configured, built
+  Release and Debug and tests_import_std, tests_unit and tests_core run: exit 0 (windows-x64-cmake4.4.5.log). After
+  that fix windows-x64 (exit 0, 19/19, golden 0 failures) and windows-x64-gcc (exit 0, 12/12) again on 4.1.2.
+- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, 0 gone (the commit's image, CMake
+  4.1.2); `python -I tools/banned_calls.py` exit 0 (0 calls, 123 files); clang-format with CLAUDE.md's command exit 0.
+
+## #104: TClient and the subsystem objects (Patella-Modern issue #104, M7)
+
+Designed by Claude Opus 5.5, November 6, 2026 (plan M7, "Globals into subsystems"). This section is the plan the
+later M7 issues follow (#105 TNetwork and TCommunication, #106 TMapState, #107 TGUI, #108 the noexcept destructors,
+#109 the platform interfaces, #110 and #111 into patella_core); each move appends its own subsection here. The first
+move, TPreferences, is #104's ("The first move: TPreferences", below).
+
+### The objects (high)
+
+TClient (src/Client.h, Client.cpp) is the composition root: it owns the subsystems as members, made in the order
+below, each given the earlier ones it needs in its constructor (references, never owners). A subsystem never holds
+a later one; a call "upwards" goes through a small interface the lower subsystem declares in its own header and the
+upper one implements (TTalkLists, below, is the first). The original's files stay the module map (plan M7): a file's
+functions become the members of its subsystem under the same names, with their address comments, in the same file.
+
+| Object | Made | Files (their globals) | Issue |
+| :--- | :--- | :--- | :--- |
+| TPreferences | 1 | Preferences.cpp (43: the options, the lists, the hotkeys, MotD, PreferencesLoaded) | #104, done |
+| TNetwork | 2 | Network.cpp (17: Socket, the send and receive buffers, Servers, CurrentServer, TestServer, the host name request, SymmetricKey, the timeouts, NetworkWindow, RecursionProtection); MainFrm.h's PacketHeader (the last packet's first bytes); Control.cpp's Reconnect and ReconnectTimeout | #105 |
+| TMapState | 3 | the game state, as five smaller objects it owns (below): Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp | #106 |
+| TCommunication | 4 | Communication.cpp (6: SkipFields, OutfitRequested, CancelCount, LastCancelX/Y/Z); Control.cpp's LastPacketType, LastPacketIndex, LastPacketTypes; Status.cpp's session (ConnectionState, Progress, AccountNumber, AccountNumberString, AccountPassword, Characters, AccountCharacters, ActiveCharacter, PremiumDays, Gamemaster, Rights) | #105 |
+| TGraphics (recommended) | 5 | graphics.cpp (21: the sprite, picture and font tables, the two caches and their lists), Surface.cpp (18: the engine choice, the screen, the blit counters, the surfaces), Skins.cpp (Skins, NumberOfSkins): the client's side of TSurface | none yet ("Found, not done") |
+| TGUI | 6 | MainWindow.cpp (ModalWindow, MainWindow); GUI.cpp (SkinProperties, NumberOfHotkeys, the LastTime static of its timer); Help.cpp (8); Talk.cpp (11 and its LastTime static, as a TTalk inside TGUI); ContentWindows.cpp (the two mouse-over texts); Status.cpp's user interaction (the action, drag, use and trade fields and objects, PendingAction*, the message queue Messages and NumberOfMessages, MouseX/Y, WindowWidth/Height, MouseCursor, the blink, the mouse-over text, LinkRegexp, TaintedClipboardText, LinkWarningEventHandler); Control.cpp's LastMouseMove, WindowHandle, ShowFPS | #107 |
+| the platform objects | outside TClient | MainFrm.cpp (MainFrame, the cursors, the buttons, Closing, DisplayChanged, ClassName, WheelDelta), Player.cpp (theApp, TitleKey, ClassNameKey, LastMouseCursor, NumberOfTibiaWindows, LastMousePosition), sysinc.cpp (the clipboard buffer; TitleCode and ClassNameCode are constants), src/vulkan (SurfaceVulkan.cpp, DeviceSettings.cpp) | #109 |
+
+TMapState's finer split (#106), each an object TMapState owns and passes to the others:
+
+- TObjectTypes: Objects.cpp (ObjectProperties, OutfitProperties, EffectProperties, MissileProperties, DatSignature,
+  NoObject): Tibia.dat, read once, then read-only. First, because the others read it.
+- TMap: Map.cpp (16: the map points and their position MapX/Y/Z, the effect table and the two iterators, the automap
+  blocks and their cache list, the ambient light).
+- TCreatures: Creatures.cpp's creature table (Creatures, FirstOpponent, LastOpponent, Beat), the battle and follow
+  targets (AttackID, FollowID, HighlightID) and the buddy window's list (Buddies, NumberOfBuddies,
+  NumberOfOnlineBuddies, BuddySortMethods: Creatures.cpp's, not Preferences').
+- TPlayerState: Creatures.cpp's Player* values (PlayerID, the health, mana, level, skills, capacity, soul, state) and
+  the walk (PlayerSteps, NumberOfPlayerSteps, CurrentPlayerStep, PlayerStepDX/DY/Direction, the destination,
+  NewPlayerDestination).
+- TInventory: Inventory.cpp (Body, Containers, OwnOffer, CounterOffer).
+
+Why this split: Creatures.cpp holds three unrelated tables (the plan's "Player" state is its Player* globals; there
+is no game-state player file, Player.cpp is the application object); TPlayerState is what the packets of the
+player's stats write and the walk reads, TCreatures what the battle window reads. The five are the units #110 moves
+into patella_core.
+
+What stays outside TClient: the developer log (src/log's TLog, a process-wide service like stderr), the test mode's
+TState (the test build's own), constants and tables (Text.h, TitleCode, ClassNameCode), and the CRT shims'
+function-local caches. The platform objects (#109: IWindow, IInput, IClock, IClipboard, ISocket, IFileSystem,
+TSurface) are made by the platform's entry point (CTibiaApp today, M8's SDL3 main later), and TClient takes them as
+references in its constructor and passes them on: TNetwork ISocket and IClock, TPreferences IFileSystem, TGraphics
+TSurface, TGUI IWindow, IInput and IClipboard.
+
+### Which object owns each global (high)
+
+The table above is the map. The inventory it comes from (November 6, 2026, main c0aad52): `git grep -E "^extern "
+-- 'src/*.h'` (Communication.h 1, GUI.h 1, MainFrm.h 3, MainWindow.h 2, Objects.h 6, Player.h 1, Skins.h 2,
+Surface.h 15, Talk.h 1, graphics.h 21, sysinc.h 2, log/Log.h 2) and the file-scope data of each .cpp
+(Preferences.cpp 43, Status.cpp 48, Creatures.cpp 38, graphics.cpp 21, Surface.cpp 18, Network.cpp 17, Map.cpp 16,
+MainFrm.cpp 13, Talk.cpp 11, Control.cpp 8, Help.cpp 8, SurfaceVulkan.cpp 8, Communication.cpp 6, Objects.cpp 6,
+Player.cpp 6, Inventory.cpp 4, sysinc.cpp 4, DeviceSettings.cpp 4, ContentWindows.cpp 2, GUI.cpp 2, MainWindow.cpp 2,
+Skins.cpp 2), and two function-local statics (GUI.cpp's and Talk.cpp's LastTime). The other files (the window and
+dialog files, Script.cpp, Utils.cpp, the crypto) have no data of their own. A global the table does not name goes
+with the file it is defined in; one whose file is split (Status.cpp, Control.cpp, Creatures.cpp) goes with the
+object that writes it, and the issue that moves it says so in its subsection.
+
+The rules for a move, the same in every issue:
+
+1. The file's data becomes its object's members, in the original's .data/.bss order with the address comments; each
+   member has the initial value the static had (an explicit `{}` for the zero of .bss, so that an object a test
+   makes on the stack starts the same).
+2. Data that was file-local (an anonymous namespace) is private. Data that was `extern` is a public member, and its
+   `extern` declaration goes; its users write `patella::bridge::<Object>().<Name>` (a mechanical rewrite), or the
+   member through the object they hold. A member that a golden test or the test mode reads is public, with a comment
+   naming the reader.
+3. The file's functions become the object's member functions of the same names; a parameter that hides a member is
+   renamed (Value; MSVC's C4458 and GCC's -Wshadow catch them); the getters are const where they can be
+   (readability-make-member-function-const).
+4. The original's free functions stay, each calling its member on the bridge (below), while anything calls them by
+   name: the other files, the golden tests (which also fake them by symbol: commworld.cpp's F(), the redirects of
+   golden_patch.h; a forwarder is a real function in its file's own object, so the fakes still land), the test mode.
+5. A dependency on an earlier subsystem is a constructor reference; on a later one, an interface the lower header
+   declares, implemented by the later object (until that object exists, by an adapter in Client.cpp that calls the
+   other file's free functions: from another object file, so the golden tests' fakes of those functions still land).
+
+### The order of the moves (high)
+
+1. #104: TClient, TPreferences, the bridge (done here).
+2. #105: TNetwork, then TCommunication (one pull request each if the diff is large). TCommunication's packet handlers
+   write TMapState's and TGUI's state: through the bridge until #106 and #107, then through the references.
+3. #106: TMapState with its five objects (TObjectTypes first).
+4. #107: TGUI, with TTalk implementing TTalkLists (Client.cpp's adapter goes) and Status.cpp's interaction state;
+   ModalWindow and MainWindow become TGUI's members (#81's two raw owners, notes/ownership.md section 7).
+5. #108: the noexcept destructors (the window destructors' work into an explicit close), on TGUI's owners.
+6. TGraphics (graphics.cpp, Surface.cpp, Skins.cpp), with or right before #109's TSurface.
+7. #109: the platform interfaces, passed to TClient's constructor; MainFrm.cpp, Player.cpp and sysinc.cpp become
+   the Win32 implementations.
+8. #110, #111: the subsystems' files into patella_core; the bridge goes at the end of #111 (below).
+
+The order follows the dependencies: each object needs only the ones moved before it (TPreferences none, TNetwork
+TPreferences' TestServerLogin, TCommunication TNetwork and the state it writes), so every pull request builds, and
+the bridge carries the calls that still go the other way until their callee has moved.
+
+### TClient during the transition: one instance and the bridge (high)
+
+- **One TClient**, made on first use by `patella::bridge::Client()` (Client.cpp: a function-local static). Its
+  members start as the original's statics did (an object of static storage is zero-initialised before its
+  constructor runs, and the members' initialisers are the statics' own), and it is destroyed at the exit as they
+  were. Why not made by an entry point now: InitControl, golden_runner, the unit tests and the test mode all reach
+  the state before (or without) any one entry point; a lazy instance keeps their order of initialisation the
+  original's.
+- **One accessor per subsystem**, `patella::bridge::<Object>()`, declared in the subsystem's own header and defined
+  in Client.cpp (`TPreferences &bridge::Preferences()`). Only Client.cpp includes Client.h, so no subsystem depends
+  on TClient's header (or, through it, on every other subsystem). `git grep -n "bridge::"` lists every use.
+- **The free functions of the original's names** are the bridge's callers: each is one line that calls its member on
+  the accessor.
+- **How it disappears.** A file stops using the bridge when its functions are members of an object that holds what
+  they need (its own members, the constructor references, the interfaces). The callers of a free function move to
+  the member as their own file moves; a free function with no callers left goes (the golden tests then call the
+  member, and fake it by its member address, commworld.h's MemberAddress, as FM() does today). When `git grep
+  "bridge::"` is empty (the end of #111, the M7 exit), Client.cpp's accessors and bridge::Client() go, and the entry
+  points own their TClient: the platform's main (CTibiaApp::InitInstance; M8's main) makes it before InitControl's
+  work and destroys it after ExitInstance's, where the statics' first use and their atexit release are today.
+
+### golden_runner and the test mode (high)
+
+- **golden_runner** links Client.cpp (golden_client's objects) and calls the free functions as today, so the tests
+  replay the frozen corpus unchanged: one TClient for the whole run, as the original's statics were one set for the
+  whole recording (later tests start from the state earlier ones left). The tests that compile a file into
+  themselves to read its statics (mainfrm_tests.cpp, network_tests.cpp) read the members through the bridge
+  (`bridge::Network().ReceiveData`, public by rule 2). When the bridge goes, the runner makes one TClient for the run
+  and the tests call its members; the checks stay as they are (plan: adapt the runner's calls, never the checks).
+- **The test mode**: the state dump and the probe (src/testmode/ClientStateWin32.cpp, StateDump, TestModeWin32.cpp)
+  read through each file's View functions (ClientView.h: ViewCreatures, ViewMap, ViewInventory, ViewConnectionState,
+  ViewCharacters, Status.cpp's View) and the free getters. The View functions stay each file's window onto its data:
+  they read their object through the bridge, later through a `const TClient &` that TestModeWin32.cpp's TState gets
+  from the entry point. The dump's keys and values do not change (testmode_check.py's check h compares them with
+  client_state.py's).
+
+### The include cycles (high)
+
+Measured on main c0aad52 with a short script over the `#include "..."` lines of src/ (November 6, 2026): the headers
+have no include cycle (compat/msvc.h and msvc_portable.h include each other on purpose: one interface in two
+files). The cycles are between modules, a module being a .cpp with its header, an edge a .cpp that includes another
+module's header:
+
+- {Preferences, Talk, graphics, Surface}: Preferences -> Talk (the White and Ignore lists), Talk -> Preferences (the
+  console filters, TimeStamps), Talk -> graphics -> Surface -> Preferences (the engine), Surface <-> graphics.
+- {Communication, ConsoleWindow, ContentWindows, ContextMenus, Control, DialogWindow, Dialogs, MainFrm, MainWindow,
+  MapWindow, Network, Player}: the windows call Communication's Send functions (down), Communication calls the
+  windows on packets (up); Control (the controller) calls the windows and is called by them; Network -> MainFrm (the
+  network window's messages); MainFrm -> Control, Network, Player; Player -> MainFrm, Control, MainWindow, Network.
+
+The objects' layering breaks them: the platform (MainFrm, Player, sysinc, src/vulkan) -> TClient -> TGUI -> TGraphics
+-> TCommunication -> TMapState, TNetwork -> TPreferences -> the libraries (Script, Utils, Container, the crypto). A
+call down is a constructor reference; a call up an interface the lower module declares (rule 5), so its .cpp no
+longer includes the upper module's header:
+
+- #104: Preferences -> Talk is gone (TTalkLists); the first cycle is {Surface, graphics} now, which TGraphics with
+  #109's TSurface breaks (graphics.cpp's caches call the surface; Surface.cpp's engine switch resets graphics').
+- #105: Network -> MainFrm becomes ISocket's events (#109) or a TNetwork interface the platform implements;
+  Communication -> the windows becomes an interface TCommunication declares (the game events: a packet changed the
+  map, a container, the console...) that TGUI implements.
+- #107: Control's calls into the windows become TGUI's own; the windows' calls into Control go through TClient's
+  references; ContentWindows, ContextMenus and ConsoleWindow are TGUI's members calling each other through TGUI.
+- #109: MainFrm and Player become the platform layer, which calls TClient and is called back only through IWindow,
+  IInput and the others.
+
+Each issue reruns the measurement (every `#include "X.h"` of a src/*.cpp is an edge to X's module; Tarjan's
+strongly connected components) and notes the cycles left in its subsection.
+
+### The first move: TPreferences (high)
+
+- **Moved**: Preferences.cpp's 43 globals (0x5c2558-0x5c255f, 0x719e70-0x71c44f) are TPreferences' private members
+  (Preferences.h), in the same order with the same comments; WindowedWidth 600 and WindowedHeight 400 as before,
+  every other member `{}` (the .bss zero), the five vectors with their (0, 9, 10) and (0, 9, 10, -1). The 87
+  functions are its members of the same names with their address comments, the 30 pure getters const; SetViewMode's
+  parameter is Value (it hid the member); the arrays' static_assert is in the class.
+- **The callers**: unchanged. Preferences.h keeps the original's free functions, and each (at the end of
+  Preferences.cpp) calls its member on `patella::bridge::Preferences()`, the one TClient's TPreferences. So the 18
+  files that call them (17 .cpp and Talk.h), the golden tests, their fakes of InitPreferences, SavePreferences and
+  ExitPreferences (commworld.cpp, dialogs_tests.cpp) and the test mode's reads are as before. TClient owns
+  TPreferences (Client.h).
+- **Talk's lists**: TPreferences reaches the White and Ignore lists (ClearIgnoreList, GetBuddyIgnoreText,
+  AddBuddyIgnore, IsPermanentBuddyIgnore, GetIgnoreListText, IgnoreName, IsPermanentIgnore) through TTalkLists
+  (Preferences.h), a parameter of the eight members that use them (SetDefaultPreferences, ReadTibiaCfg,
+  WriteTibiaCfg, GetPreferenceValues, SetPreferenceValues, InitPreferences, SavePreferences, ExitPreferences). A
+  parameter, not a member, because Talk's state is TGUI's (#107), made after TPreferences: a stored reference would
+  point up. Until #107 `bridge::TalkLists()` is an adapter in Client.cpp that calls Talk.cpp's functions (the golden
+  tests that fake them, dialogs_tests.cpp and contextmenus_tests.cpp, still reach their fakes: Client.cpp is its own
+  object). Preferences.cpp no longer includes Talk.h.
+- **Behaviour**: the same code on the same data. Patella.ini is read and written the same, the import of Tibia.cfg
+  the same; what runs differs only by the call through the accessor and, for the eight, the lists' virtual calls.
+  The vectors are allocated at the first use of the options instead of before main (nothing observes when). The
+  mismatched release of MotD (new[] in SetMotD, free in ExitPreferences; notes/ownership.md) is kept.
+- **Container.h**: the vector members keep CipSoft's `vector<T>` (now in Preferences.h, which includes Container.h);
+  #99 (TIndexedVector) renames them with its other users, a one-line rebase there.
+
 ## TIndexedVector over std::vector (Patella-Modern issue #99, M7)
 
 Settled by Claude Opus 5.5, November 6, 2026. Plan M7, containers: CipSoft's `vector<T>` of Container.h is
@@ -12421,12 +12875,13 @@ members, offsets and padding).
 
 24 objects and 4 functions' parameters, all converted: the members ConsoleWindow.h TTextWindow::Lines, DialogElements.h
 TRadioButtonGroup::Buttons, TEditText::LineStart, TFocusGroup::MemberList, TListBox::LineText,
-TFontListBox::FontLines, Dialogs.h IgnoreEntries and WhiteEntries, Map.h TAutomapBlock::Marks (9); the globals GUI.cpp Timers and Hotkeys, Help.cpp EventHelps,
-Preferences.cpp ContentWindows, OpenDialogs, OpenChannels, Buddies and KnownHints, Status.cpp Messages, Talk.cpp
-BuddyExemptionList, TemporaryIgnoreList, IgnoreList and ConsoleFilterList (13); ContentWindows.cpp's two automap
-mark lists (2); GetAutomapMarks (Map) and FindTalkFilter, FindTextBuffer, AddTalkFilter (Talk). Preferences.cpp: only
-its five declarations and the include changed (#104 works there at the same time). Comments that describe the
-binary's instances keep the original's name `vector<T>`.
+TFontListBox::FontLines, Dialogs.h IgnoreEntries and WhiteEntries, Map.h TAutomapBlock::Marks, and Preferences.h
+TPreferences' ContentWindows, OpenDialogs, OpenChannels, Buddies and KnownHints (14; the last five were
+Preferences.cpp's globals until #104, converted at the merge with it); the globals GUI.cpp Timers and Hotkeys, Help.cpp
+EventHelps, Status.cpp Messages, Talk.cpp BuddyExemptionList, TemporaryIgnoreList, IgnoreList and ConsoleFilterList
+(8); ContentWindows.cpp's two automap mark lists (2); GetAutomapMarks (Map) and FindTalkFilter, FindTextBuffer,
+AddTalkFilter (Talk). Preferences.h and Preferences.cpp: only the five declarations and the includes changed. Comments that
+describe the binary's instances keep the original's name `vector<T>`.
 
 Candidates for #100 (index from a fixed lower bound and need no growth by indexing, or a bounded size): to be decided
 there call site by call site; this issue changes no semantics.

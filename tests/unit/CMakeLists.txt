@@ -178,3 +178,17 @@ patella_target_language(tests_render)
 patella_target_warnings(tests_render)
 patella_target_hardening(tests_render)
 add_test(NAME tests_render COMMAND tests_render)
+
+# tests_import_std (issue #113): import std; in new code, where the preset turns it on (PATELLA_IMPORT_STD,
+# cmake/ImportStd.cmake: windows-x64, windows-x64-asan, windows-x64-gcc, linux-x64-gcc). One source that imports the
+# standard library as a module and checks a few of its parts (formatting, ranges, containers, std::expected), with the
+# product settings; no doctest, whose header would put #include and import std into one translation unit.
+if(PATELLA_IMPORT_STD_AVAILABLE)
+	add_executable(tests_import_std import_std_test.cpp)
+	patella_target_language(tests_import_std)
+	patella_target_warnings(tests_import_std)
+	patella_target_hardening(tests_import_std)
+	# Last: the std module gets the options above (cmake/ImportStd.cmake).
+	patella_target_import_std(tests_import_std)
+	add_test(NAME tests_import_std COMMAND tests_import_std)
+endif()

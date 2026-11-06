@@ -39,7 +39,9 @@ stand-ins of `tests/golden/linux`), `capture-x86` (only the 32-bit capture DLL `
 that the tools load into Tibia.exe, `cmake/Capture.cmake`; no client, no tests; issue #94). There is no 32-bit client
 build: the oracle (the 32-bit Patella.exe, the differential tests, the x86 layout asserts, the engines DirectDraw,
 Direct3D 9 and OpenGL) left the fork with issue #94, M6; it is in upstream Patella and at the tag `layout-frozen-final`
-(`notes/decisions.md`, issue #94). Every product preset also compiles each header of src/ on its own
+(`notes/decisions.md`, issue #94). `import std;` (issue #113, `cmake/ImportStd.cmake`): PATELLA_IMPORT_STD is ON in windows-x64, windows-x64-asan,
+windows-x64-gcc and linux-x64-gcc (CMake's experimental gate, known for CMake 4.1 and 4.4; the image has CMake 4.1.2),
+not in linux-x64-clang (Debian's libstdc++ 14 has no std module); its one user is tests_import_std. Every product preset also compiles each header of src/ on its own
 (`cmake/HeaderCheck.cmake`, issue #49: the `header_check_*` object libraries, a generated one-line source per
 header with a target's settings; a new header goes on one of its lists, or the configure fails). On Windows build.py runs the Linux presets in the Docker image
 `patella-modern/linux-x64:gcc16.2-clang22.1` (build it once: `docker build -t
