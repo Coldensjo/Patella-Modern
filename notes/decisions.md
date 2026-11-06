@@ -13160,3 +13160,33 @@ the lists, a comment and LogFile with é, read by value, written as version 2 in
 written again unchanged; a byte order mark; EncodingOf, ClientText, an unknown version. tests/golden/preferences_file_test.cpp
 (the client's Preferences.cpp): the same version-1 file through InitPreferences and ExitPreferences, the getters'
 values, the file rewritten as version 2, the next start equal by value; its import test expects the UTF-8 of Ärger now.
+
+### Found, not done (high)
+
+- tests/golden/preferences_file_test.cpp's test cases share the client's talk lists (TTalkLists outlives
+  SetDefaultPreferences there: an earlier case's White name stays in a later one's file); the new case checks only its
+  own name. Not a client issue: the client loads the options once.
+
+### The gates (high)
+
+Logs: build\logs\issue-117 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), 0 warnings. windows-x64-debug and windows-x64-asan: exit 0, 18/18 each,
+  golden the same, no ASan report. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc: exit 0, 16/16; linux-x64-clang (ASan,
+  UBSan): exit 0, 14/14; golden the same on both. 0 warnings on every preset.
+- First runs that failed: MSVC's C7744 (a hex escape running into the next letter, `\xb3d`) and preferences_file's new
+  case (two expected texts with `\x81` where the file has the escape `\x81`, and the shared White list above): fixed,
+  every preset run again on the final code.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (the options by value: 37 options, equal); `python -I tools/compare_files.py` exit 0, no
+  differences; `python -I tools/testmode_check.py` exit 0, no differences; `python -I tools/compare_traffic.py` exit 0,
+  no differences.
+- Manual: PatellaTest.exe (`PATELLA_VULKAN=cpu`, a start and `quit`) in a folder with a version-1 Patella.ini (ö, €,
+  0x81 in a hotkey, a buddy's description, White and Ignore; é in a comment): the log line of the version-1 read, the
+  file rewritten as version 2 in UTF-8 (every line; 0x81 as `\x81`), the texts equal by value (settings_file.py); the
+  only differences are Engine and WindowedMode, which the client sets at any start.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
+  clang-format (CLAUDE.md's command): exit 0. `python -I tools/settings_file.py --self-test` and
+  `python -I tools/testmode_dumps.py --self-test`: exit 0.
