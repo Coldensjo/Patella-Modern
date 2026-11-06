@@ -13,6 +13,7 @@
 
 #include "common.h"
 #include "Container.h"
+#include <cstddef>
 #include <memory>
 #include <type_traits>
 
@@ -97,6 +98,20 @@ struct TProperties {
 	int AutomapColor;  // +0x44, AUTOMAP
 	int LensHelp;      // +0x48, LENSHELP
 };
+
+// The byte of Flag's bit, Flags[Flag / 8], for every flag up to 0xff as the original indexes it: a flag above 31 is a
+// bit of the members after Flags (inside TProperties, up to +0x43; on x64 +0x47). Through the entry's bytes
+// (Patella-Modern issue #91): Flags indexed past its four elements is undefined behaviour, which UBSan's bounds check
+// reports.
+inline uint8 &FlagByte(TProperties &Entry, int Flag)
+{
+	static_assert(offsetof(TProperties, Flags) + 0xff / 8 < sizeof(TProperties), "every flag's byte is in TProperties");
+	return reinterpret_cast<uint8 *>(&Entry)[offsetof(TProperties, Flags) + static_cast<std::size_t>(Flag / 8)];
+}
+inline uint8 FlagByte(const TProperties &Entry, int Flag)
+{
+	return reinterpret_cast<const uint8 *>(&Entry)[offsetof(TProperties, Flags) + static_cast<std::size_t>(Flag / 8)];
+}
 
 // The four tables own their arrays (std::unique_ptr since issue #58; the entries' Sprites stay raw, freed by
 // ReleaseObjects).

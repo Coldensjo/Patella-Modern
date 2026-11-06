@@ -334,12 +334,16 @@ static void GOLDEN_THISCALL FakeConsoleOpen(GOLDEN_THIS, TTalkBuffer *TextBuffer
 using namespace MainWindowTest;
 
 // Our TConsoleWindow::TConsoleWindow() (a constructor has no address in C++), through its decorated name (x86
-// in the oracle, x64 in the runner, which is built with MSVC x64 only).
+// in the oracle, x64 in the runner; on Linux, issue #91, the Itanium ABI's, golden_test.h GOLDEN_SYMBOL).
+#if defined(_MSC_VER)
 extern "C" void OurConsoleConstructor();
+#endif
 #if GOLDEN_ORACLE
 #pragma comment(linker, "/alternatename:_OurConsoleConstructor=??0TConsoleWindow@@QAE@XZ")
-#else
+#elif defined(_MSC_VER)
 #pragma comment(linker, "/alternatename:OurConsoleConstructor=??0TConsoleWindow@@QEAA@XZ")
+#else
+GOLDEN_SYMBOL(OurConsoleConstructor, "_ZN14TConsoleWindowC1Ev");
 #endif
 
 namespace MainWindowTest {
@@ -463,17 +467,23 @@ static_assert(sizeof(TMainSide3) == sizeof(TAutomapWindow) && sizeof(TMainSide4)
 } // namespace MainWindowTest
 using namespace MainWindowTest;
 
+#if defined(_MSC_VER)
 extern "C" void OurAutomapConstructor();
 extern "C" void OurStatusConstructor();
 extern "C" void OurButtonsConstructor();
+#endif
 #if GOLDEN_ORACLE
 #pragma comment(linker, "/alternatename:_OurAutomapConstructor=??0TAutomapWindow@@QAE@XZ")
 #pragma comment(linker, "/alternatename:_OurStatusConstructor=??0TStatusWindow@@QAE@XZ")
 #pragma comment(linker, "/alternatename:_OurButtonsConstructor=??0TButtonsWindow@@QAE@PAVTDialogWindow@@PAVTMainWindow@@@Z")
-#else
+#elif defined(_MSC_VER)
 #pragma comment(linker, "/alternatename:OurAutomapConstructor=??0TAutomapWindow@@QEAA@XZ")
 #pragma comment(linker, "/alternatename:OurStatusConstructor=??0TStatusWindow@@QEAA@XZ")
 #pragma comment(linker, "/alternatename:OurButtonsConstructor=??0TButtonsWindow@@QEAA@PEAVTDialogWindow@@PEAVTMainWindow@@@Z")
+#else
+GOLDEN_SYMBOL(OurAutomapConstructor, "_ZN14TAutomapWindowC1Ev");
+GOLDEN_SYMBOL(OurStatusConstructor, "_ZN13TStatusWindowC1Ev");
+GOLDEN_SYMBOL(OurButtonsConstructor, "_ZN14TButtonsWindowC1EP13TDialogWindowP11TMainWindow");
 #endif
 
 // elementfakes.h's fakes this test introduced (the border, the first text button constructor, the label's

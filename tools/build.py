@@ -204,6 +204,57 @@ def in_docker(name):
 	return configure if needs_linux(resolved(presets, configure)) else None
 
 
+def golden_corpus():
+	"""The golden corpus to mount in the image (issue #91): PATELLA_GOLDEN_DIR, else build/golden of the repository
+	when it is there; None when there is none, or when PATELLA_GOLDEN_DIR is "none"."""
+	folder = os.environ.get("PATELLA_GOLDEN_DIR", "")
+	if folder.lower() == "none":
+		return None
+	if not folder:
+		folder = os.path.join(ROOT, "build", "golden")
+	return os.path.abspath(folder) if os.path.isdir(folder) else None
+
+
+def posix_offset(minutes):
+	"""A POSIX TZ offset: minutes west of UTC as [-]hh[:mm]."""
+	sign = "-" if minutes < 0 else ""
+	minutes = abs(minutes)
+	return "%s%d" % (sign, minutes // 60) + (":%02d" % (minutes % 60) if minutes % 60 else "")
+
+
+def host_time_zone():
+	"""Windows' time zone as a POSIX TZ string (issue #91), for the image, whose localtime is UTC otherwise: the
+	golden corpus has the recording machine's local times (the Talk and Creatures tests' clocks), and the runner on
+	Windows replays them in the same zone. TZ of the environment when it is set; None off Windows or on an error."""
+	if os.environ.get("TZ"):
+		return os.environ["TZ"]
+	if os.name != "nt":
+		return None
+	import ctypes
+	from ctypes import wintypes
+
+	class SYSTEMTIME(ctypes.Structure):
+		_fields_ = [(name, wintypes.WORD) for name in ("wYear", "wMonth", "wDayOfWeek", "wDay", "wHour", "wMinute",
+			"wSecond", "wMilliseconds")]
+
+	class TIME_ZONE_INFORMATION(ctypes.Structure):
+		_fields_ = [("Bias", wintypes.LONG), ("StandardName", wintypes.WCHAR * 32), ("StandardDate", SYSTEMTIME),
+			("StandardBias", wintypes.LONG), ("DaylightName", wintypes.WCHAR * 32), ("DaylightDate", SYSTEMTIME),
+			("DaylightBias", wintypes.LONG)]
+
+	info = TIME_ZONE_INFORMATION()
+	if ctypes.windll.kernel32.GetTimeZoneInformation(ctypes.byref(info)) == 0xFFFFFFFF:
+		return None
+	zone = "STD" + posix_offset(info.Bias + info.StandardBias)
+	if info.DaylightDate.wMonth != 0 and info.StandardDate.wMonth != 0:
+		def rule(date):
+			# Windows: wDay is the week of the month (5 the last), wDayOfWeek 0 Sunday, as POSIX's Mm.w.d.
+			return "M%d.%d.%d/%d:%02d" % (date.wMonth, date.wDay, date.wDayOfWeek, date.wHour, date.wMinute)
+		zone += "DST%s,%s,%s" % (posix_offset(info.Bias + info.DaylightBias), rule(info.DaylightDate),
+			rule(info.StandardDate))
+	return zone
+
+
 def docker_command(configure, command):
 	"""`docker run` for `command` in /work of the image, the repository's files copied there (module
 	comment), and the file that names them, which the caller passes on stdin and deletes."""
@@ -224,8 +275,18 @@ def docker_command(configure, command):
 	os.makedirs(build_dir, exist_ok=True)
 	script = ('set -e; mkdir -p /work; (cd /src && tar --null -T - -cf -) | tar -x -C /work; '
 		'cd /work; exec "$@"')
+	# The golden corpus read-only at /golden (issue #91), and PATELLA_GOLDEN_DIR naming it whether it is mounted or
+	# not (tests/golden/CMakeLists.txt takes it as the default at the first configure; the runner skips without one).
+	mounts = []
+	corpus = golden_corpus()
+	if corpus is not None:
+		mounts += ["-v", "%s:/golden:ro" % corpus]
+	mounts += ["-e", "PATELLA_GOLDEN_DIR=/golden"]
+	zone = host_time_zone()
+	if zone:
+		mounts += ["-e", "TZ=%s" % zone]
 	return ["docker", "run", "--rm", "-i", "-v", "%s:/src:ro" % ROOT,
-		"-v", "%s:/work/build/%s" % (build_dir, configure),
+		"-v", "%s:/work/build/%s" % (build_dir, configure)] + mounts + [
 		image, "bash", "-c", script, "bash"] + command, listing.name
 
 

@@ -687,7 +687,7 @@ void TestMap([[maybe_unused]] const char *ExePath)
 	_getcwd(Saved, MAX_PATH);
 	char Help[MAX_PATH];
 	GetTempPathA(MAX_PATH, Help);
-	const char *Names[2] = {"tibia-maptest-ours\\", "tibia-maptest-original\\"};
+	const char *Names[2] = {"tibia-maptest-ours" GOLDEN_SLASH, "tibia-maptest-original" GOLDEN_SLASH};
 	for (int s = 0; s < 2; s++) {
 		Dir[s] = std::string(Help) + Names[s];
 		CreateDirectoryA(Dir[s].c_str(), nullptr);

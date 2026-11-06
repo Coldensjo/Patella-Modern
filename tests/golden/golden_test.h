@@ -66,6 +66,40 @@ void RandomText(char *Text, int Length);
 #define GOLDEN_THIS_NAMED(Declaration) Declaration
 #endif
 
+// A fake in the form of a function that returns a structure through a hidden pointer (R *Fake(R *Result,
+// arguments...)), as the Microsoft ABIs return TObject and TRGBColor (12 bytes): GOLDEN_BY_VALUE(Fake) is the function
+// that stands for one of ours returning R by value. On Linux (issue #91) the System V ABI returns such a structure in
+// registers, so it is a function of its own that calls the fake; with MSVC the fake itself.
+#if defined(_MSC_VER)
+#define GOLDEN_BY_VALUE(Fake) (Fake)
+#else
+template <auto Fake> struct TGoldenByValue;
+template <class R, class... A, R *(*Fake)(R *, A...)> struct TGoldenByValue<Fake> {
+	static R Call(A... Arguments)
+	{
+		R Result;
+		Fake(&Result, Arguments...);
+		return Result;
+	}
+};
+#define GOLDEN_BY_VALUE(Fake) (&TGoldenByValue<Fake>::Call)
+#endif
+
+// The folder separator of the paths the tests build: Windows', or on Linux (issue #91) POSIX's.
+#if defined(_WIN32)
+#define GOLDEN_SLASH "\\"
+#else
+#define GOLDEN_SLASH "/"
+#endif
+
+// One of our functions by its symbol, where C++ has no name for it (a constructor): GOLDEN_SYMBOL(Name, "<symbol>")
+// declares extern "C" void Name() as that symbol. MSVC finds the decorated names with #pragma comment(linker,
+// "/alternatename:..."); on Linux (issue #91) GCC's and Clang's asm labels name the Itanium ABI's symbols, of the
+// complete-object constructor (C1; both compilers emit the base-object constructor, C2, as the same function).
+#if !defined(_MSC_VER)
+#define GOLDEN_SYMBOL(Name, Symbol) extern "C" void Name() __asm__(Symbol)
+#endif
+
 // status_tests.cpp: the clock GetMilliseconds returns (both sides' in the oracle).
 void SetTestClock(int Value);
 

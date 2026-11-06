@@ -166,6 +166,16 @@ public:
 // The runner: the same classes with our x64 layout. Each named member is at the offset of the real member
 // it stands for (elementfakes.cpp checks them), each class has its real class's size; the Data arrays
 // cover what lies between, as in the oracle.
+//
+// GOLDEN_DATA_END(Class, Last): where the members of Class end. MSVC: its size. The Itanium ABI (Linux, issue #91)
+// places a derived class's first members in the tail padding of a base that is not a POD (TToggleButton's State
+// right after TSkinButton's Enabled): there the end of the last member, so that a fake base has the same tail
+// padding for its fake derived classes.
+#if defined(_MSC_VER)
+#define GOLDEN_DATA_END(Class, Last) sizeof(Class)
+#else
+#define GOLDEN_DATA_END(Class, Last) (offsetof(Class, Last) + sizeof(Class::Last))
+#endif
 class TFakeResizer : public TElement {
 public:
 	TFakeResizer(TComponent *_ToResize, bool Param2, bool Param3, bool Param4);
@@ -182,7 +192,7 @@ public:
 	uint8 Data2C[offsetof(TSkinButton, RadioButtonGroup) - offsetof(TSkinButton, Pressed)]; // holds a TCallback
 	TRadioButtonGroup *RadioButtonGroup;
 	const char *Tooltip;
-	uint8 Data40[sizeof(TSkinButton) - offsetof(TSkinButton, Enabled)];
+	uint8 Data40[GOLDEN_DATA_END(TSkinButton, Enabled) - offsetof(TSkinButton, Enabled)];
 };
 class TFakeToggleButton : public TFakeSkinButton {
 public:
@@ -254,7 +264,7 @@ class TFakeTextButton : public TElement {
 public:
 	TFakeTextButton(int x, int y, const char *_Text, int Skin1, int Skin2, TCallback Callback, const char *Param);
 	TFakeTextButton(int x, int y, const char *_Text, TCallback Callback, const char *Tooltip);
-	uint8 Data24[sizeof(TTextButton) - sizeof(TElement)];
+	uint8 Data24[GOLDEN_DATA_END(TTextButton, Text) - sizeof(TElement)];
 };
 class TFakeTextToggleButton : public TFakeTextButton {
 public:

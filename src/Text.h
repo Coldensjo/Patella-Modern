@@ -33,6 +33,13 @@
 
 #pragma once
 
+// GCC and Clang (the golden runner on Linux, issue #91) warn about every text of the table that a file does not read
+// (-Wunused-variable: internal linkage); each file reads some, as the original's objects do.
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+
 namespace {
 
 const char *TextPoisoned = "You are poisoned";                                                                              // 0
@@ -200,3 +207,7 @@ const char *TextRuleViolations = "Rule Violations";                             
 const char *TextReportRuleViolation = "Report Rule Violation";                                                       // 146
 
 } // namespace
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif

@@ -497,7 +497,7 @@ char *WINAPI FakeInetNtoa(in_addr Address)
 // CAsyncSocket. The image's objects have the handle at +4 (MFC 7.1's
 // m_hSocket after the vtable), ours at the shim's m_hSocket (+4 on x86, +8
 // on x64).
-SOCKET &Handle(int S, void *Object)
+SOCKET &Handle([[maybe_unused]] int S, void *Object)
 {
 #if GOLDEN_ORACLE
 	if (S == IMAGE)
@@ -718,8 +718,8 @@ void *NWSlot_inet_ntoa = (void *)FakeInetNtoa;
 #pragma comment(linker, "/alternatename:__imp__WSACancelAsyncRequest@4=_NWSlot_WSACancelAsyncRequest")
 #pragma comment(linker, "/alternatename:__imp__shutdown@8=_NWSlot_shutdown")
 #pragma comment(linker, "/alternatename:__imp__inet_ntoa@4=_NWSlot_inet_ntoa")
-#else
-// x64 (the runner): no decoration.
+#elif defined(_MSC_VER)
+// x64 (the runner): no decoration. On Linux (issue #91) linux/winsock2.h calls through the slots itself.
 #pragma comment(linker, "/alternatename:__imp_WSAAsyncGetHostByName=NWSlot_WSAAsyncGetHostByName")
 #pragma comment(linker, "/alternatename:__imp_WSAGetLastError=NWSlot_WSAGetLastError")
 #pragma comment(linker, "/alternatename:__imp_WSACancelAsyncRequest=NWSlot_WSACancelAsyncRequest")
@@ -1327,7 +1327,7 @@ bool OurSocket()
 
 // One random operation (inputs decided here, from Random() and our side's state).
 enum { OPERATIONS = 30 };
-const char *OperationName(int Kind)
+[[maybe_unused]] const char *OperationName(int Kind)
 {
 	static const char *Names[OPERATIONS] = {"SetTestServerAddress", "SetTestServerPort", "SetServerIPAddress",
 		"SetServerError", "ResetServerAvailability", "SetConnectionTimeout", "SetNetworkWindow", "GetCurrentServer",
@@ -1460,7 +1460,7 @@ void Operation(int Kind)
 		if (!OurSocket())
 			return;
 		int Error = Chance(60) ? 0 : RandomErrorCode();
-		Both("OnConnect", [&](int s) { FireEvent(0x2c, Error); });
+		Both("OnConnect", [&](int) { FireEvent(0x2c, Error); });
 		break;
 	}
 	case 21: {
@@ -1468,29 +1468,29 @@ void Operation(int Kind)
 			return;
 		AddServerData(Random() % 6);
 		int Error = Chance(90) ? 0 : RandomErrorCode();
-		Both("OnReceive", [&](int s) { FireEvent(0x1c, Error); });
+		Both("OnReceive", [&](int) { FireEvent(0x1c, Error); });
 		break;
 	}
 	case 22: {
 		if (!OurSocket())
 			return;
 		int Error = Chance(60) ? 0 : RandomErrorCode();
-		Both("OnClose", [&](int s) { FireEvent(0x30, Error); });
+		Both("OnClose", [&](int) { FireEvent(0x30, Error); });
 		break;
 	}
 	case 23:
 		if (Script.Command < 0)
 			Script.Command = Random() % 256;
-		Both("send", [&](int s) { RunSendProgram(); });
+		Both("send", [&](int) { RunSendProgram(); });
 		break;
 	case 24:
-		Both("read", [&](int s) { ReadPackets(); });
+		Both("read", [&](int) { ReadPackets(); });
 		break;
 	case 25: {
 		if (!OurSocket())
 			return;
 		int Error = RandomErrorCode();
-		Both("OnSend", [&](int s) { FireEvent(0x20, Error); });
+		Both("OnSend", [&](int) { FireEvent(0x20, Error); });
 		break;
 	}
 	case 26:
@@ -1748,7 +1748,7 @@ void TestNetworkErrors()
 					World[s].Incoming += Frame;
 				Script.Packets = 2;
 				Script.Chunk[0] = 0x4000;
-				Call("OnReceive(bad size)", [&](int s) { FireEvent(0x1c, 0); });
+				Call("OnReceive(bad size)", [&](int) { FireEvent(0x1c, 0); });
 			}
 			break;
 		}
@@ -1793,7 +1793,7 @@ void TestNetworkErrors()
 				StartRound();
 				for (int i = 0; i < Length; i++)
 					Operation(RandomKind());
-				if ((Kind >= 20 && Kind <= 22 || Kind == 25 || Kind == 13) && Socket == NULL) {
+				if (((Kind >= 20 && Kind <= 22) || Kind == 25 || Kind == 13) && Socket == NULL) {
 					RandomScript();
 					Script.Create[0] = TRUE;
 					Both("CreateSocket", [&](int s) { Fn[s].CreateSocket(); });

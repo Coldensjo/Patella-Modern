@@ -1145,16 +1145,16 @@ static void PatchCallees()
 		{0x4a4880, (void *)GetBodyObject, (void *)FakeGetBodyObject},
 		{0x4a5bd0, (void *)GetContainerObjectCount, (void *)FakeGetContainerObjectCount},
 		{0x4a6790, (void *)GetContainerCapacity, (void *)FakeGetContainerCapacity},
-		{0x4a6150, (void *)GetContainerContent, (void *)FakeGetContainerContent},
-		{0x4a5e80, (void *)GetContainerObject, (void *)FakeGetContainerObject},
+		{0x4a6150, (void *)GetContainerContent, (void *)GOLDEN_BY_VALUE(FakeGetContainerContent)},
+		{0x4a5e80, (void *)GetContainerObject, (void *)GOLDEN_BY_VALUE(FakeGetContainerObject)},
 		{0x4a64e0, (void *)GetContainerName, (void *)FakeGetContainerName},
 		{0x4a6a40, (void *)GetContainerHasParent, (void *)FakeGetContainerHasParent},
 		{0x4a5220, (void *)IsContainerOpen, (void *)FakeIsContainerOpen},
 		{0x4a6cf0, (void *)GetFreeContainer, (void *)FakeGetFreeContainer},
 		{0x4a4530, (void *)GetOwnOfferCount, (void *)FakeGetOwnOfferCount},
 		{0x4a4540, (void *)GetCounterOfferCount, (void *)FakeGetCounterOfferCount},
-		{0x4a7a00, (void *)GetOwnOfferObject, (void *)FakeGetOwnOfferObject},
-		{0x4a7b90, (void *)GetCounterOfferObject, (void *)FakeGetCounterOfferObject},
+		{0x4a7a00, (void *)GetOwnOfferObject, (void *)GOLDEN_BY_VALUE(FakeGetOwnOfferObject)},
+		{0x4a7b90, (void *)GetCounterOfferObject, (void *)GOLDEN_BY_VALUE(FakeGetCounterOfferObject)},
 		{0x4a7760, (void *)GetOwnOfferName, (void *)FakeGetOwnOfferName},
 		{0x4a78b0, (void *)GetCounterOfferName, (void *)FakeGetCounterOfferName},
 		{0x4a4520, (void *)ClearOffers, (void *)FakeClearOffers},
@@ -1211,7 +1211,7 @@ static void PatchCallees()
 		{0x4db640, (void *)GetClassicControl, (void *)FakeGetClassicControl},
 		{0x4b08c0, (void *)GetMapPosition, (void *)FakeGetMapPosition},
 		{0x4b09d0, (void *)GetAutomapChanged, (void *)FakeGetAutomapChanged},
-		{0x4b4370, (void *)GetAutomapColor, (void *)FakeGetAutomapColor},
+		{0x4b4370, (void *)GetAutomapColor, (void *)GOLDEN_BY_VALUE(FakeGetAutomapColor)},
 		{0x4b4680, (void *)GetAutomapMarks, (void *)FakeGetAutomapMarks},
 		{0x451400, (void *)SetPlayerDestination, (void *)FakeSetPlayerDestination},
 		{0x4d1c40, (void *)(bool (*)(int, int))GetObjectFlag, (void *)FakeGetObjectFlag},
@@ -2085,7 +2085,7 @@ static void Queries()
 			return;
 		}
 	}
-	// fall through: the inventories have player states
+		[[fallthrough]]; // the inventories have player states
 	case SC_SMALL_INVENTORY: {
 		if (Scenario == SC_SMALL_INVENTORY && Random() % 2 == 0) {
 			// A drop on the small inventory's area (a pile asks for the count).

@@ -141,6 +141,27 @@ std::string RxShow(const char *Text, size_t Max = 60)
 	return Out;
 }
 
+#if defined(__linux__)
+// The allocation's size on Linux (issue #91), where glibc's malloc_usable_size is not the size asked for, as the
+// Microsoft CRT's _msize is: sizeof(regexp) and the program's bytes, as regcomp allocates (regsize), found by walking
+// the program from its magic byte to its END node, which reg() emits last: each node an opcode and two bytes of
+// "next", the string operands of ANYOF, ANYBUT and EXACTLY with their NUL.
+size_t RxAllocation(const regexp *Program)
+{
+	const char *p = Program->program + 1;
+	for (;;) {
+		const char Op = *p;
+		p += 3;
+		if (Op == 4 || Op == 5 || Op == 8) // ANYOF, ANYBUT, EXACTLY
+			p += strlen(p) + 1;
+		if (Op == 0) // END
+			break;
+	}
+	return sizeof(regexp) + (size_t)(p - Program->program);
+}
+#define _msize(Program) RxAllocation(Program)
+#endif
+
 // The program of a compiled expression; regsize = allocation - sizeof(regexp).
 size_t RxProgramSize(regexp *Program) { return _msize(Program) - sizeof(regexp); }
 

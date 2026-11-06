@@ -51,8 +51,8 @@ int ReceiveRead;                                  // 0x715538, start of the next
 
 // Without AddressSanitizer's redzones (issue #70): a packet whose inner length is larger than the data read
 // makes TReadBuffer read on past ReceiveData, into SendData and the globals after it, as in the original.
-PATELLA_NO_SANITIZE_ADDRESS std::array<uint8, 0x4000> ReceiveData; // 0x715540
-PATELLA_NO_SANITIZE_ADDRESS std::array<uint8, 0x800> SendData;     // 0x719540
+PATELLA_NO_SANITIZE_ADDRESS PATELLA_IN_DEFINITION_ORDER std::array<uint8, 0x4000> ReceiveData; // 0x715540
+PATELLA_NO_SANITIZE_ADDRESS PATELLA_IN_DEFINITION_ORDER std::array<uint8, 0x800> SendData;     // 0x719540
 
 HWND NetworkWindow;                                 // 0x719d40, receives WM_USER+1 when a name is resolved
 void (*CloseCallback)();                            // 0x719d44

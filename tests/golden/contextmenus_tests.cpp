@@ -1040,7 +1040,7 @@ enum {
 };
 static const char *const KindNames[] = {"help", "object", "creature", "buddy", "text", "request", "channel",
 	"edit", "mark", "skill"};
-static void *OurVtables[KINDS];
+[[maybe_unused]] static void *OurVtables[KINDS];
 static void *OurEntryVtable;
 
 #if GOLDEN_ORACLE
@@ -1212,8 +1212,10 @@ static std::string Dump(int s)
 				((TRequestContextMenu *)W)->LineNumber);
 			break;
 		case KIND_CHANNEL:
+			// The bool's byte (the default channel's is the memory's 0xa5): a bool that is neither 0 nor 1 is not a
+			// value, GCC reads it as its byte (issue #91).
 			sprintf(Text, " cw %d show %d", ((TChannelContextMenu *)W)->ConsoleWindow == Console ? 1 : 0,
-				((TChannelContextMenu *)W)->ShowServerMessages ? 1 : 0);
+				*(const uint8 *)&((TChannelContextMenu *)W)->ShowServerMessages != 0 ? 1 : 0);
 			break;
 		case KIND_EDIT: sprintf(Text, " edit %d", ((TEditContextMenu *)W)->Edit == (TEditLine *)Edit ? 1 : 0); break;
 		case KIND_MARK: {
@@ -1804,7 +1806,9 @@ void TestContextMenus()
 		TMenuSkillsStandIn *StandIn = new TMenuSkillsStandIn;
 		StandIn->Minimized = false;
 		StandIn->ContextMenu = NULL;
-		SkillsWindow[s] = (TSkillsWindowBody *)(TWindow *)StandIn;
+		// Not a TSkillsWindowBody (smaller): reinterpret_cast, as the C-style cast was meant (a static_cast downcast
+		// that UBSan checks, issue #91).
+		SkillsWindow[s] = reinterpret_cast<TSkillsWindowBody *>(static_cast<TWindow *>(StandIn));
 	}
 
 	// Our vtables, from instances.

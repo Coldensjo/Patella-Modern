@@ -8,6 +8,9 @@
 #include "MainFrm.h"
 #include "Player.h"
 #include "Surface.h"
+#if defined(__linux__)
+#include "testsurface.h"
+#endif
 
 #include <string.h>
 
@@ -26,8 +29,14 @@ void TestSurface()
 		int Original = ORIGINAL_VALUE("GetCurrentEngine", int, At<int(__cdecl *)()>(0x4eaa80)());
 		CHECK(GetCurrentEngine() == Original, "GetCurrentEngine %d", Engine);
 	}
-	// A member that does not read this (the binary passes the surface in ECX).
+	// A member that does not read this (the binary passes the surface in ECX). On Linux (issue #91) a real object:
+	// a call on a null pointer is undefined, and UBSan reports it (linux-x64-clang).
+#if defined(__linux__)
+	TTestSurface Object;
+	TSurface *Surface = &Object;
+#else
 	TSurface *Surface = nullptr;
+#endif
 	uint8 Available = ORIGINAL_VALUE("GetAvailableEngines", uint8, At<uint8(__cdecl *)()>(0x4eabe0)());
 	CHECK(Surface->GetAvailableEngines() == 0 && Available == 0, "GetAvailableEngines");
 }

@@ -18,7 +18,9 @@
 #include <cstdlib>
 #include <cstring>
 
+#if defined(_MSC_VER)
 #pragma comment(lib, "winmm.lib")
+#endif
 
 // The other half of Player.cpp's XOR-encoded window title ("Tibia   ") and
 // class name ("TibiaClient"); the keys are Player.cpp's. First in this

@@ -836,7 +836,7 @@ void TestScript()
 	ORIGINAL(PatchScript());
 	char Help[MAX_PATH];
 	GetTempPathA(MAX_PATH, Help);
-	TempDir = std::string(Help) + "tibia-difftest\\";
+	TempDir = std::string(Help) + "tibia-difftest" GOLDEN_SLASH;
 	CreateDirectoryA(TempDir.c_str(), nullptr);
 	TestReader();
 	TestLongTokens();

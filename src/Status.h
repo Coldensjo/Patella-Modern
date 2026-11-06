@@ -136,9 +136,10 @@ namespace {
 //   0x5c16e4 DialogWindow.obj
 //
 // MainFrm.obj, MainWindow.obj and Player.obj medium (they use Status.cpp,
-// their neighbours do not), the others high. Only Status.cpp reads it. The
+// their neighbours do not), the others high. Only Status.cpp reads it (the
+// others' copies are unused: [[maybe_unused]] for GCC and Clang, issue #91). The
 // name is ours.
-const char *LinkPattern =
+[[maybe_unused]] const char *LinkPattern =
 	"(^|[ .,:;/@<>|()\"\n\r%])(([a-z0-9-]+(\\.|\\%2e))+(ac|ad|ae|aero|af|ag|ai|al|am|an|ao|aq|a"
 	"r|arpa|as|at|au|aw|az|ba|bb|bd|be|bf|bg|bh|bi|biz|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|c"
 	"d|cf|cg|ch|ci|ck|cl|cm|cn|co|com|coop|cr|cu|cv|cx|cy|cz|de|dj|dk|dm|do|dz|ec|edu|ee|eg|er|"
