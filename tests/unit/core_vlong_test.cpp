@@ -1,5 +1,5 @@
-// vlong and TRSA (src/vlong.cpp, src/TRSA.cpp). The cases of tools/difftest/vlongtest.cpp (the same
-// generator and order), which the oracle's vlongtest checks against Python's exact integers, digested
+// vlong and TRSA (src/vlong.cpp, src/TRSA.cpp). The cases of the oracle's vlongtest (the same generator
+// and order; until issue #94), which it checked against Python's exact integers, digested
 // here: tests/unit/core_expected.py computes the expected digest the same way.
 
 #include <doctest/doctest.h>

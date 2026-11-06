@@ -37,12 +37,7 @@
 #include "golden_test.h"
 
 #include "golden_eh.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#include "testsurface.h"
-#else
 #include "golden_patch.h"
-#endif
 
 #include "Utils.h"
 #include "Player.h"
@@ -141,26 +136,6 @@ bool RecordedSkip([[maybe_unused]] uint32 Address, [[maybe_unused]] const void *
 
 // --- TMyException.cpp -----------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void(__fastcall *ExceptionCtorFn)(void *This, void *, const void *File, int Line, const void *Kind,
-	const void *Name1, int Value1, const void *Name2, int Value2, const void *Last);
-typedef void(__fastcall *ThisFn)(void *This, void *);
-
-struct TImageException {
-	uint8 Bytes[0x3c];
-	TImageException() { memset(Bytes, 0, sizeof(Bytes)); }
-	~TImageException() { At<ThisFn>(0x508300)(Bytes, NULL); }
-	std::string Message() const { return ImageString(Bytes + 0x04); }
-	std::string Origin() const { return ImageString(Bytes + 0x20); }
-};
-
-// A VC7.1 std::string of the image for the length of a call.
-struct TImageString {
-	uint8 Bytes[0x1c];
-	explicit TImageString(const std::string &Text) { MakeImageString(Bytes, Text.c_str()); }
-	~TImageString() { FreeImageString(Bytes); }
-};
-#endif
 
 std::string RandomPart(int MaxLength)
 {
@@ -221,14 +196,6 @@ void TestMyException()
 		TMyException Ours(patella::ErrorText(File, Line, Kind, Name1, Value1, Name2, Value2, Last),
 			PATELLA_SOURCE_LOCATION());
 		const std::string OurOrigin = patella::ErrorOrigin(File, Line);
-#if GOLDEN_ORACLE
-		TImageException Original;
-		{
-			TImageString F(File), K(Kind), N1(Name1), N2(Name2), L(Last);
-			At<ExceptionCtorFn>(0x508400)(Original.Bytes, NULL, F.Bytes, Line, K.Bytes, N1.Bytes, Value1, N2.Bytes,
-				Value2, L.Bytes);
-		}
-#endif
 		const std::string Message = OriginalString("message", ORIGINAL_OR(Original.Message(), std::string()));
 		const std::string Origin = OriginalString("origin", ORIGINAL_OR(Original.Origin(), std::string()));
 		CHECK(Ours.GetMessage() == Message && OurOrigin == Origin,
@@ -243,14 +210,6 @@ void TestMyException()
 		// the inner site).
 		TMyException OurOuter(patella::ErrorText(File2, Line2, Kind2, Name3, Value3, Name4, Value4, Ours),
 			PATELLA_SOURCE_LOCATION());
-#if GOLDEN_ORACLE
-		TImageException OriginalOuter;
-		{
-			TImageString F(File2), K(Kind2), N1(Name3), N2(Name4);
-			At<ExceptionCtorFn>(0x5086a0)(OriginalOuter.Bytes, NULL, F.Bytes, Line2, K.Bytes, N1.Bytes, Value3,
-				N2.Bytes, Value4, Original.Bytes);
-		}
-#endif
 		const std::string OuterMessage = OriginalString("outer message",
 			ORIGINAL_OR(OriginalOuter.Message(), std::string()));
 		const std::string OuterOrigin = OriginalString("outer origin", ORIGINAL_OR(OriginalOuter.Origin(), std::string()));
@@ -270,26 +229,6 @@ std::string FatalText, FatalCaption; // the last FatalError call of either side
 // exception of its own (SEH; the image's code is in the call too), in the
 // runner a C++ exception of its own type (our code only; under the runner's
 // /EHsc an SEH exception would skip our destructors).
-#if GOLDEN_ORACLE
-const DWORD FATAL_ERROR_CALLED = 0xe0fa7a1e;
-void GOLDEN_THISCALL FakeFatalError(GOLDEN_THIS, const char *Text, const char *Caption)
-{
-	FatalText = Text;
-	FatalCaption = Caption;
-	RaiseException(FATAL_ERROR_CALLED, EXCEPTION_NONCONTINUABLE, 0, NULL);
-}
-void UntilFatalErrorCall(void (*Function)(void *), void *Context)
-{
-	__try {
-		Function(Context);
-	} __except (GetExceptionCode() == FATAL_ERROR_CALLED ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
-	}
-}
-template <class F> void UntilFatalError(F Function)
-{
-	UntilFatalErrorCall(ThrowThunk<F>, &Function);
-}
-#else
 struct TFatalErrorCalled {};
 void GOLDEN_THISCALL FakeFatalError(GOLDEN_THIS, const char *Text, const char *Caption)
 {
@@ -304,35 +243,12 @@ template <class F> void UntilFatalError(F Function)
 	} catch (const TFatalErrorCalled &) {
 	}
 }
-#endif
-#if GOLDEN_ORACLE
-uint32 __cdecl FakeImageTime(uint32 *Time)
-{
-	if (Time != NULL)
-		*Time = 1149770096;
-	return 1149770096;
-}
-#endif
 __time64_t __cdecl FakeTime64(__time64_t *Time)
 {
 	if (Time != nullptr)
 		*Time = 1149770096;
 	return 1149770096;
 }
-#if GOLDEN_ORACLE
-// The image's ctime: the UCRT's _ctime32 of its time (June 8, 2006: a one-digit day) in the form MSVC 7.1's asctime
-// wrote, the day with two digits (src/compat/crt71.h). Ours formats the same time itself (FormatCRT71Time, issue
-// #61) with the same local time (the test's zone, UTC0).
-char *__cdecl FakeCtime(const __time32_t *Time)
-{
-	static char Text[26];
-	if (_ctime32_s(Text, sizeof(Text), Time) != 0)
-		return NULL;
-	if (Text[8] == ' ')
-		Text[8] = '0';
-	return Text;
-}
-#endif
 OSVERSIONINFOA FakeVersion;
 BOOL FakeVersionResult;
 BOOL WINAPI FakeGetVersionEx(OSVERSIONINFOA *Version)
@@ -341,9 +257,6 @@ BOOL WINAPI FakeGetVersionEx(OSVERSIONINFOA *Version)
 		memcpy(Version, &FakeVersion, sizeof(FakeVersion));
 	return FakeVersionResult;
 }
-#if GOLDEN_ORACLE
-void __cdecl IgnoreStream(std::ostream &) {}
-#endif
 const char *__cdecl FakeErrorText(int Code)
 {
 	static char Text[40];
@@ -357,26 +270,6 @@ const char *__cdecl FakeErrorHint(int Code)
 	return Text;
 }
 
-#if GOLDEN_ORACLE
-// ER_WATCHDOG=<seconds>: prints where the test thread is after that time
-// (for hangs in the image's code).
-HANDLE MainThread;
-DWORD WINAPI Watchdog(void *Seconds)
-{
-	Sleep((DWORD)(uintptr_t)Seconds * 1000);
-	SuspendThread(MainThread);
-	CONTEXT Context;
-	Context.ContextFlags = CONTEXT_FULL;
-	GetThreadContext(MainThread, &Context);
-	printf("watchdog: eip %08lx esp %08lx ebp %08lx\nwatchdog: stack", Context.Eip, Context.Esp, Context.Ebp);
-	for (int i = 0; i < 64; i++)
-		printf(" %08x", ((uint32 *)(uintptr_t)Context.Esp)[i]);
-	printf("\n");
-	fflush(stdout);
-	TerminateProcess(GetCurrentProcess(), 5);
-	return 0;
-}
-#endif
 
 std::string ReadFile(const char *Name)
 {
@@ -392,46 +285,6 @@ std::string ReadFile(const char *Name)
 	return Text;
 }
 
-#if GOLDEN_ORACLE
-// The image's ofstream (basic_filebuf) reads the buffer pointers of its FILE
-// directly (_ptr, _cnt, _base of VC7.1's FILE), so it cannot get one of our
-// CRT's FILEs as script_tests.cpp's PatchScript gives it: it gets a VC7.1 FILE
-// without a buffer (_ptr and _cnt 0, so every character goes through fputc or
-// fwrite), which holds our FILE.
-struct TImageFile {
-	char *_ptr;
-	int _cnt;
-	char *_base;
-	int _flag;
-	int _file;
-	int _charbuf;
-	int _bufsiz;
-	char *_tmpfname;
-	FILE *Real;
-};
-TImageFile *__cdecl ImageFileOpen(const char *Name, const char *Mode)
-{
-	FILE *Real = fopen(Name, Mode);
-	if (Real == NULL)
-		return NULL;
-	TImageFile *File = new TImageFile();
-	File->Real = Real;
-	return File;
-}
-int __cdecl ImageFileClose(TImageFile *File)
-{
-	int Result = fclose(File->Real);
-	delete File;
-	return Result;
-}
-int __cdecl ImageFilePutc(int c, TImageFile *File) { return fputc(c, File->Real); }
-size_t __cdecl ImageFileWrite(const void *Buffer, size_t Size, size_t Count, TImageFile *File)
-{
-	return fwrite(Buffer, Size, Count, File->Real);
-}
-int __cdecl ImageFileFlush(TImageFile *File) { return fflush(File != NULL ? File->Real : NULL); }
-int __cdecl ImageFileSeek(TImageFile *File, long Offset, int Origin) { return fseek(File->Real, Offset, Origin); }
-#endif
 
 // TextCriticalError (src/Text.h) since issue #74: the first sentence of the original's.
 const char *const CriticalErrorText = "The Tibia client encountered a critical error and had to be stopped.";
@@ -485,7 +338,6 @@ template <class T> void *CodeAddress(T Member)
 	return Address;
 }
 
-#if !GOLDEN_ORACLE
 // The runner's patches of TestPlayer, undone where the oracle's DisableImageExceptions undoes its own: our
 // functions to the fakes (golden::RedirectOwn), the C library's clock through the runner's import slots (ucrtbase
 // is out of a rel32 jump's reach; GetVersionExA's too until issue #74, which ours no longer calls).
@@ -532,7 +384,6 @@ void UndoPatches()
 		golden::RestoreOwn(P.Function, P.Saved);
 	}
 }
-#endif
 
 // The time zone of HandleException's reports: UTC0 on both sides (our FormatCRT71Time and the image's ctime
 // fake take the C library's local time), the earlier one back afterwards.
@@ -560,31 +411,10 @@ struct TUtcZone {
 void TestPlayer()
 {
 	golden::Input("seed", ErSeed);
-#if GOLDEN_ORACLE
-	PatchScript(); // sprintf (num_put) and the rest of the image's stdio
-	PatchImageJump(0x51227f, (void *)ImageFileOpen);
-	PatchImageJump(0x512122, (void *)ImageFileClose);
-	PatchImageJump(0x5133da, (void *)ImageFilePutc);
-	PatchImageJump(0x51338e, (void *)ImageFileWrite);
-	PatchImageJump(0x5131de, (void *)ImageFileFlush);
-	PatchImageJump(0x5134e3, (void *)ImageFileSeek);
-	PatchImageJump(0x4d7d80, (void *)FakeFatalError);
-	PatchOwnCode(CodeAddress(&CPlayerApp::FatalError), (void *)FakeFatalError);
-	PatchImageJump(0x5121ea, (void *)FakeImageTime);
-	PatchOwnCode((void *)_time64, (void *)FakeTime64);
-	PatchImageJump(0x5121d1, (void *)FakeCtime);
-	PatchImageJump(0x445900, (void *)IgnoreStream); // OutputControlErrorInformations (Control.cpp; ours is gone, #74)
-	PatchImageJump(0x4fcbf0, (void *)FakeErrorText);
-	PatchOwnCode((void *)GetErrorText, (void *)FakeErrorText);
-	PatchImageJump(0x4fcc90, (void *)FakeErrorHint);
-	PatchOwnCode((void *)GetErrorHint, (void *)FakeErrorHint);
-	BindImageImport("KERNEL32.dll", "GetVersionExA", (void *)FakeGetVersionEx); // ours calls it no more (#74)
-#else
 	PatchOwn(CodeAddress(&CPlayerApp::FatalError), (void *)FakeFatalError);
 	PatchOwn((void *)GetErrorText, (void *)FakeErrorText);
 	PatchOwn((void *)GetErrorHint, (void *)FakeErrorHint);
 	PatchImport("_time64", (void *)FakeTime64);
-#endif
 	const TUtcZone Zone;
 
 	char Directory[MAX_PATH];
@@ -595,22 +425,11 @@ void TestPlayer()
 	if (_chdir(Work.c_str()) != 0)
 		printf("note: Errors: cannot enter %s\n", Work.c_str());
 	alignas(16) static uint8 OurApp[sizeof(CPlayerApp) + 16];
-#if GOLDEN_ORACLE
-	static uint8 ImageApp[0x200];
-#endif
 	for (int t = 0; t < 300; t++) {
 		std::string File = RandomFile(), Kind = RandomPart(30), Name1 = ErRandom() % 2 ? RandomPart(20) : "",
 					Last = RandomPart(60);
 		int Line = RandomValue(), Value1 = RandomValue();
 		TMyException Ours(patella::ErrorText(File, Line, Kind, Name1, Value1, "", 0, Last), PATELLA_SOURCE_LOCATION());
-#if GOLDEN_ORACLE
-		TImageException Original;
-		{
-			TImageString F(File), K(Kind), N1(Name1), N2(""), L(Last);
-			At<ExceptionCtorFn>(0x508400)(Original.Bytes, NULL, F.Bytes, Line, K.Bytes, N1.Bytes, Value1, N2.Bytes, 0,
-				L.Bytes);
-		}
-#endif
 		memset(&FakeVersion, 0, sizeof(FakeVersion));
 		FakeVersion.dwOSVersionInfoSize = sizeof(FakeVersion);
 		FakeVersion.dwMajorVersion = ErRandom() % 11;
@@ -628,21 +447,6 @@ void TestPlayer()
 
 		std::string OriginalText, OriginalCaption;
 		[[maybe_unused]] bool OriginalTerminating = false;
-#if GOLDEN_ORACLE
-		memset(ImageApp, 0, sizeof(ImageApp));
-		ImageApp[0xa0] = Terminating;
-		Global<int>(0x71d0c4) = Engine; // curEngine
-		remove("error.txt");
-		if (Existing)
-			WriteEarlierReport();
-		if (Trace)
-			printf("Errors: HandleException %d\n", t);
-		FatalText = FatalCaption = "(none)";
-		UntilFatalError([&] { At<void(__fastcall *)(void *, void *, void *)>(0x4d9bd0)(ImageApp, NULL, Original.Bytes); });
-		OriginalText = FatalText;
-		OriginalCaption = FatalCaption;
-		OriginalTerminating = ImageApp[0xa0] != 0;
-#endif
 		OriginalText = OriginalString("fatal text", OriginalText);
 		OriginalCaption = OriginalString("fatal caption", OriginalCaption);
 		OriginalTerminating = golden::Recorded<uint8>("terminating", OriginalTerminating ? 1 : 0) != 0;
@@ -687,14 +491,6 @@ void TestPlayer()
 
 		// HandleProgramError: the message of FatalError.
 		int Code = (int)(ErRandom() % 20) - 2;
-#if GOLDEN_ORACLE
-		memset(ImageApp, 0, sizeof(ImageApp));
-		ImageApp[0xa0] = Terminating;
-		FatalText = FatalCaption = "(none)";
-		UntilFatalError([&] { At<void(__fastcall *)(void *, void *, int)>(0x4d9910)(ImageApp, NULL, Code); });
-		OriginalText = FatalText;
-		OriginalCaption = FatalCaption;
-#endif
 		OriginalText = OriginalString("program error text", OriginalText);
 		OriginalCaption = OriginalString("program error caption", OriginalCaption);
 		App->Terminating = Terminating;
@@ -711,23 +507,6 @@ void TestPlayer()
 
 // --- Utils.cpp --------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *StrFn)(char *s);
-typedef int(__cdecl *CompareFn)(const char *s1, const char *s2, int Count);
-typedef void(__cdecl *CopyFn)(char *Destination, const char *Source, int Size);
-typedef void(__cdecl *TrimFn)(char *Destination, const char *Source);
-typedef bool(__cdecl *ShortenFn)(char *Text, int MaxLength);
-typedef void(__cdecl *FormatFn)(int Number, char *Buffer);
-typedef void(__fastcall *BufInitFn)(void *This, void *, uint8 *Data, int Size);
-typedef uint32(__fastcall *BufGetFn)(void *This, void *);
-typedef void(__fastcall *BufGetStringFn)(void *This, void *, char *Buffer, int MaxLength);
-typedef char *(__fastcall *BufNewStringFn)(void *This, void *);
-typedef void(__fastcall *BufGetBytesFn)(void *This, void *, uint8 *Buffer, int Count);
-typedef void(__fastcall *BufPutFn)(void *This, void *, uint32 Data);
-typedef void(__fastcall *BufPutStringFn)(void *This, void *, const char *s);
-typedef void(__fastcall *BufPutBytesFn)(void *This, void *, const uint8 *Buffer, int Count);
-typedef void(__fastcall *BufSetSizeFn)(void *This, void *, int NewSize);
-#endif
 
 void TestUtils()
 {
@@ -1160,27 +939,10 @@ void TestGraphics()
 
 // --- TEND: errors raised in a callee, wrapped by the TBEGIN/TEND callers ---
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *LoadFn)(const char *FileName);
-#endif
 
 void TestWrapping([[maybe_unused]] const char *ExePath)
 {
 	golden::Input("seed", ErSeed);
-#if GOLDEN_ORACLE
-	// Map.cpp: the field queries call GetFirstObject (and others), which
-	// asserts the coordinates; TEND2(rx, ry) wraps it. The image's field
-	// matrix and object vector need their constructors (as in map_tests.cpp;
-	// a second construction leaks the first one's memory). IsFieldPassable
-	// only without CheckHeight, which reads the field (8, 6, GetMapLevel()).
-	static bool MapConstructed = false;
-	if (!MapConstructed) {
-		MapConstructed = true;
-		At<void(__fastcall *)(void *, void *, int, int)>(0x4b0bc0)((void *)(uintptr_t)0x5d4c18, NULL, 0, 0x7df);
-		At<void(__fastcall *)(void *, void *, int, int, int, int, int, int)>(0x4b0d70)((void *)(uintptr_t)0x5d4c24, NULL,
-			0, 17, 0, 13, 0, 7);
-	}
-#endif
 	// The callees whose errors are wrapped must be the real ones (the oracle's answer, recorded).
 	const bool Fields = !RecordedSkip(0x4b6140, (const void *)(TObject (*)(int, int, int))GetFirstObject);
 	const bool Creatures = !RecordedSkip(0x44c6e0, (const void *)GetCreature);
@@ -1317,13 +1079,6 @@ void TestWrapping([[maybe_unused]] const char *ExePath)
 
 // --- Script.cpp: the tokenizer's and the writer's errors -------------------
 
-#if GOLDEN_ORACLE
-typedef void(__fastcall *ScriptFn)(void *This, void *);
-typedef void(__fastcall *ScriptStrFn)(void *This, void *, const char *);
-typedef void(__fastcall *ScriptIntFn)(void *This, void *, int);
-typedef uint32(__fastcall *ScriptRetFn)(void *This, void *);
-typedef void(__fastcall *ScriptBytesFn)(void *This, void *, uint8 *, int);
-#endif
 
 std::string ErrorScript()
 {
@@ -1514,44 +1269,6 @@ void TestScript()
 
 // --- Assertions that print a file's statics (issue #34) --------------------
 
-#if GOLDEN_ORACLE
-// The int a getter returns: the first "mov eax, [address]" or "mov reg,
-// [address]" in the getter's first bytes whose int has the getter's value
-// and whose change the getter sees. Works for our functions and the image's.
-// (GetNumberOfBuddies reads its count after its try block's set-up, and only
-// while offline buddies are shown: 256 bytes, BuddyHideOffline cleared.)
-int *FindStatic(const uint8 *Code, int(__cdecl *Get)())
-{
-	for (int i = 0; i < 256; i++) {
-		const uint8 *Op = Code + i;
-		uint32 Address;
-		if (Op[0] == 0xa1)
-			Address = *(const uint32 *)(Op + 1);
-		else if (Op[0] == 0x8b && (Op[1] & 0xc7) == 0x05)
-			Address = *(const uint32 *)(Op + 2);
-		else
-			continue;
-		MEMORY_BASIC_INFORMATION Memory;
-		if (VirtualQuery((void *)(uintptr_t)Address, &Memory, sizeof(Memory)) == 0 || Memory.State != MEM_COMMIT
-			|| (Memory.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE | PAGE_WRITECOPY)) == 0)
-			continue;
-		int *Value = (int *)(uintptr_t)Address;
-		int Old = *Value;
-		if (Get() != Old)
-			continue;
-		*Value = Old ^ 0x5a5a;
-		bool Seen = Get() == (Old ^ 0x5a5a);
-		*Value = Old;
-		if (Seen)
-			return Value;
-	}
-	return NULL;
-}
-int *FindOwnStatic(int (*Get)())
-{
-	return FindStatic((const uint8 *)Get, Get);
-}
-#else
 // The runner's (x64) FindStatic for our getters: the first "mov r32, [rip+disp32]" (8b /r with mod 00, r/m
 // 101, a REX prefix without W allowed) in the getter's first bytes whose int has the getter's value and
 // whose change the getter sees, as the oracle's x86 FindStatic. Under AddressSanitizer (the preset
@@ -1589,7 +1306,6 @@ int *FindOwnStatic(int (*Get)())
 	}
 	return nullptr;
 }
-#endif
 
 // --- Surface.cpp's SurfaceInitInstance (issue #34) --------------------------
 //
@@ -1598,107 +1314,6 @@ int *FindOwnStatic(int (*Get)())
 // replaces by the Vulkan engine. The oracle still runs and records it; the runner skips it
 // (golden::RetiredBegin in TestErrorStatics).
 
-#if GOLDEN_ORACLE
-// Its try block around the DirectX 9 test turns every exception into
-// PROGRAM_ERROR 12: IsDirect3D9Installed, the surface's creation (GetSurface,
-// CreateSurfaceDX9) or its TestEngine throws an assertion of the calling side
-// (fakes on both sides; the engine from Tibia.cfg random, no command line
-// engine). The second try block (ChoosePixelFormat, DescribePixelFormat) has
-// no handler in the binary and is not reached.
-int InitSide, InitMode, InitEngine; // 0 ours, 1 the image's; what fails
-bool __cdecl FakeInitD3D9Installed()
-{
-	if (InitMode == 0)
-		ThrowSideAssertion(InitSide == 1, -1);
-	return true;
-}
-int __cdecl FakeInitGetEngine() { return InitEngine; }
-class TInitTestSurface : public TTestSurface {
-public:
-	bool TestEngine()
-	{
-		ThrowSideAssertion(InitSide == 1, -3);
-		return true;
-	}
-};
-TSurface *__cdecl FakeInitSurface()
-{
-	if (InitMode == 1)
-		ThrowSideAssertion(InitSide == 1, -2);
-	static TInitTestSurface *Made[2];
-	if (Made[InitSide] == NULL)
-		Made[InitSide] = new TInitTestSurface;
-	return Made[InitSide];
-}
-struct TCodePatch {
-	uint8 *Code;
-	uint8 Old[5];
-};
-void PatchSaved(std::vector<TCodePatch> &List, void *Function, void *Target, bool Image)
-{
-	TCodePatch P;
-	P.Code = (uint8 *)Function;
-	memcpy(P.Old, P.Code, 5);
-	List.push_back(P);
-	if (Image)
-		PatchImageJump((uint32)(uintptr_t)Function, Target);
-	else
-		PatchOwnCode(Function, Target);
-}
-void RestorePatches(std::vector<TCodePatch> &List)
-{
-	for (size_t i = List.size(); i-- > 0;) {
-		DWORD Old;
-		VirtualProtect(List[i].Code, 5, PAGE_EXECUTE_READWRITE, &Old);
-		memcpy(List[i].Code, List[i].Old, 5);
-		VirtualProtect(List[i].Code, 5, Old, &Old);
-		FlushInstructionCache(GetCurrentProcess(), List[i].Code, 5);
-	}
-	List.clear();
-}
-void TestSurfaceInitInstance()
-{
-	std::vector<TCodePatch> Patches;
-	PatchSaved(Patches, (void *)IsDirect3D9Installed, (void *)FakeInitD3D9Installed, false);
-	PatchSaved(Patches, (void *)GetEngine, (void *)FakeInitGetEngine, false);
-	PatchSaved(Patches, (void *)GetSurface, (void *)FakeInitSurface, false);
-	PatchSaved(Patches, (void *)CreateSurfaceDX9, (void *)FakeInitSurface, false);
-	PatchSaved(Patches, (void *)(uintptr_t)0x4efd10, (void *)FakeInitD3D9Installed, true);
-	PatchSaved(Patches, (void *)(uintptr_t)0x4db420, (void *)FakeInitGetEngine, true);
-	PatchSaved(Patches, (void *)(uintptr_t)0x4eaa90, (void *)FakeInitSurface, true);
-	PatchSaved(Patches, (void *)(uintptr_t)0x4f1430, (void *)FakeInitSurface, true);
-	int SavedCommandLine[2] = {CommandLineEngine, Global<int>(0x5c2564)};
-	int SavedEngine[2] = {curEngine, Global<int>(0x71d0c4)};
-	HWND SavedWindow = Global<HWND>(0x71d0c0);
-	CommandLineEngine = -1;
-	Global<int>(0x5c2564) = -1;
-	for (int Round = 0; Round < 12; Round++) {
-		InitMode = Round % 3;
-		InitEngine = (int)(ErRandom() % 5) - 1;
-		HWND Window = (HWND)(uintptr_t)(0x1000 + Round);
-		char What[64];
-		snprintf(What, sizeof(What), "SurfaceInitInstance (fails %d, engine %d)", InitMode, InitEngine);
-		TThrown A = OurThrow([&] {
-			InitSide = 0;
-			SurfaceInitInstance(&Window);
-		});
-		TThrown B = ImageThrow([&] {
-			InitSide = 1;
-			At<void(__cdecl *)(HWND *)>(0x4eac20)(&Window);
-		});
-		CHECK(A.Kind != TThrown::NOTHING && B.Kind != TThrown::NOTHING, "Statics: %s did not throw", What);
-		Compare(What, A, B);
-		CHECK(curEngine == Global<int>(0x71d0c4), "Statics: %s: engine %d, original %d", What, curEngine,
-			Global<int>(0x71d0c4));
-	}
-	RestorePatches(Patches);
-	CommandLineEngine = SavedCommandLine[0];
-	Global<int>(0x5c2564) = SavedCommandLine[1];
-	curEngine = SavedEngine[0];
-	Global<int>(0x71d0c4) = SavedEngine[1];
-	Global<HWND>(0x71d0c0) = SavedWindow;
-}
-#endif
 
 // Each count is set on both sides for the calls (out-of-range arguments, so
 // that only the assertions run) and put back: NumberOfBuddies,
@@ -1833,9 +1448,6 @@ void TestErrorStatics()
 	// the round reads of it: the exceptions it compared (the round's summary) and the random state.
 	const int RetiredCompared = ThrownCompared, RetiredThrew = ThrownThrew;
 	if (!golden::RetiredBegin("SurfaceInitInstance", Checks)) {
-#if GOLDEN_ORACLE
-		TestSurfaceInitInstance();
-#endif
 	}
 	golden::RetiredEnd(Checks);
 	int Exceptions[2] = {ThrownCompared - RetiredCompared, ThrownThrew - RetiredThrew};
@@ -1852,14 +1464,6 @@ void Run([[maybe_unused]] const char *ExePath)
 	if (getenv("ER_SEED") != nullptr)
 		ErSeed = strtoul(getenv("ER_SEED"), nullptr, 10);
 	int Before = Checks;
-#if GOLDEN_ORACLE
-	if (getenv("ER_WATCHDOG") != NULL) {
-		DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &MainThread, 0, FALSE,
-			DUPLICATE_SAME_ACCESS);
-		CreateThread(NULL, 0, Watchdog, (void *)(uintptr_t)atoi(getenv("ER_WATCHDOG")), 0, NULL);
-	}
-	EnableImageExceptions();
-#endif
 	if (Trace)
 		printf("Errors: %s\n", "TestMyException");
 	TestMyException();
@@ -1903,11 +1507,7 @@ void Run([[maybe_unused]] const char *ExePath)
 	if (Trace)
 		printf("Errors: %s\n", "TestGraphics");
 	TestGraphics();
-#if GOLDEN_ORACLE
-	DisableImageExceptions(); // also undoes TestPlayer's patches
-#else
 	UndoPatches();
-#endif
 	int Summary[4] = {Checks - Before, Compared, ComparedThrows, Skipped};
 	printf("Errors: %d checks, %d exceptions compared (%d calls that threw), %d comparisons skipped (functions "
 		   "redirected by earlier tests)\n",

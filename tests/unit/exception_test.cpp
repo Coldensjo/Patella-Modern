@@ -1,7 +1,7 @@
 // TMyException (src/TMyException.h, issue #80): a message and the source location of the site that threw it, and the
 // texts of the original's two constructors (patella::ErrorText, ErrorOrigin) that the sites' messages are made of.
 // The same tests in tests_unit (std::source_location) and tests_unit_cxx26_standin (the oracle's C++17 stand-in,
-// PATELLA_SOURCE_LOCATION_STANDIN). difftest's Errors test compares ErrorText with Tibia.exe's constructors for
+// PATELLA_SOURCE_LOCATION_STANDIN). The oracle's Errors test compared ErrorText with Tibia.exe's constructors for
 // random arguments; these are the fixed cases, on every compiler.
 
 #include <doctest/doctest.h>

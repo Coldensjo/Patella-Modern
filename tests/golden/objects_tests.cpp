@@ -21,49 +21,9 @@
 #include <string.h>
 #include <string>
 
-#if GOLDEN_ORACLE
-static_assert(sizeof(TProperties) == 0x4c, "TProperties is 0x4c bytes");
-static_assert(sizeof(array<TProperties>) == 12, "array<T> is 12 bytes");
-#endif
 
 namespace ObjectsTest {
 
-#if GOLDEN_ORACLE
-// --- Replacements patched into the image -----------------------------------
-
-FILE *__cdecl ImageFopen(const char *Name, const char *Mode) { return fopen(Name, Mode); }
-int __cdecl ImageFclose(FILE *File) { return fclose(File); }
-size_t __cdecl ImageFread(void *Buffer, size_t Size, size_t Count, FILE *File) { return fread(Buffer, Size, Count, File); }
-
-void PatchObjects()
-{
-	static bool Done = false;
-	if (Done)
-		return;
-	Done = true;
-	PatchImage();
-	PatchJump(0x51227f, (void *)ImageFopen);
-	PatchJump(0x512122, (void *)ImageFclose);
-	PatchJump(0x513a29, (void *)ImageFread);
-}
-
-// --- Original functions --------------------------------------------------------
-
-typedef void(__cdecl *VoidFn)();
-typedef void(__cdecl *LoadFn)(const char *FileName);
-typedef int(__cdecl *IntFn)(int);
-typedef bool(__cdecl *FlagFn)(int, int);
-typedef int(__cdecl *Sprite8Fn)(int, int, int, int, int, int, int, int);
-typedef int(__cdecl *Sprite6Fn)(int, int, int, int, int, int);
-typedef int(__cdecl *Sprite5Fn)(int, int, int, int, int);
-typedef void(__cdecl *PatternFn)(TObject *, int *, int *);
-
-array<TProperties> *&OriginalTable(int Kind)
-{
-	static const uint32 Address[4] = {0x719d98, 0x719d94, 0x719d90, 0x719d8c};
-	return Global<array<TProperties> *>(Address[Kind]);
-}
-#endif
 
 // Our tables are std::unique_ptr since issue #58: the pointer they hold.
 array<TProperties> *OurTable(int Kind)

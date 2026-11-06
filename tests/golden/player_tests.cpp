@@ -14,9 +14,6 @@
 
 #include <string.h>
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *TextFn)(char *);
-#endif
 
 namespace {
 
@@ -46,10 +43,6 @@ void TestSurface()
 void TestTranslateKey()
 {
 	alignas(8) static uint8 Ours[sizeof(CMainFrame)];
-#if GOLDEN_ORACLE
-	static uint8 Original[0x204];
-	typedef int(__fastcall * KeyFn)(void *, void *, UINT, UINT, UINT);
-#endif
 	CMainFrame *Frame = (CMainFrame *)Ours;
 	for (int Flags = 0; Flags < 8; Flags++) {
 		int KeyFlags = ((Flags & 1) ? KEY_SHIFT : 0) | ((Flags & 2) ? KEY_CONTROL : 0) | ((Flags & 4) ? KEY_ALT : 0);

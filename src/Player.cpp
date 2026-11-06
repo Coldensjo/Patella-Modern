@@ -38,9 +38,7 @@
 #include "common.h"
 #include "log/Log.h"
 #include "types/FixedString.h"
-#if defined(PATELLA_VULKAN)
 #include "log/LogSettings.h"
-#endif
 #include <array>
 #include <sstream>
 #include <string>
@@ -257,10 +255,8 @@ void CPlayerApp::HandleException(TMyException &Exception)
 // since issue #74.
 BOOL CPlayerApp::InitInstance()
 {
-#if defined(PATELLA_VULKAN)
 	// Not in the original (Patella-Modern issue #77, D16): the developer log's level and file from Patella.ini.
 	patella::log::LoadSettings();
-#endif
 	try {
 		try {
 			TFixedString<32> ClassName;

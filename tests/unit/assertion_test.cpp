@@ -1,6 +1,6 @@
 // PATELLA_ASSERT and PATELLA_ASSERT_VALUES of src/compat/assertion.h (issue #79): the same tests in tests_unit
 // (std::source_location) and tests_unit_cxx26_standin (PATELLA_SOURCE_LOCATION_STANDIN: the stand-in that the
-// oracle-x86 build's C++17 takes). A false expression throws the TMyException that common.h's TASSERT, TASSERT1 and
+// 32-bit oracle's C++17 took). A false expression throws the TMyException that common.h's TASSERT, TASSERT1 and
 // TASSERT2 threw, with this file and the assertion's line; a true one throws nothing; the expression is evaluated
 // exactly once, the values only when it is false.
 
@@ -202,7 +202,7 @@ TEST_CASE("PATELLA_ASSERT is one statement")
 }
 
 // PATELLA_DIVISOR (issue #67): a divisor from input. Zero throws the TMyException that the original's catch wrapper made
-// of the division's trap (by kind, which difftest and the golden corpus compare); any other value is the divisor,
+// of the division's trap (by kind, which the golden corpus compares); any other value is the divisor,
 // evaluated once, so the quotient and the remainder are the plain division's.
 TEST_CASE("PATELLA_DIVISOR: a divisor that is not zero is the value, evaluated once")
 {

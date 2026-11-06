@@ -19,8 +19,9 @@
 #	header_check_render          tests_render's (the Vulkan engine's portable part)    every product preset
 #	header_check_client          Patella.exe's (PATELLA_VULKAN)                        windows-x64 (client)
 #	header_check_test_build      PatellaTest.exe's (PATELLA_VULKAN, PATELLA_TEST_MODE) windows-x64 (client)
-#	header_check_oracle          the oracle Patella.exe's (real MFC, C++17, x86)       oracle-x86
-#	header_check_oracle_shim     mfc_shim_check's and the difftest's (TIBIA_MFC_SHIM)  oracle-x86
+#
+# Until Patella-Modern issue #94 the 32-bit oracle preset had two more, header_check_oracle (real MFC, C++17, x86) and
+# header_check_oracle_shim (TIBIA_MFC_SHIM); they left with the oracle.
 #
 # The x64 client's two exist with PATELLA_CLIENT_COMPILE_ONLY too (the hosted CI builds them by name).
 # Included by CMakeLists.txt after the targets they copy: patella_header_checks() makes the ones whose
@@ -71,7 +72,7 @@ set(PATELLA_HEADERS_RENDER
 	vulkan/DeviceChoice.h
 	vulkan/FilterMask.h
 	vulkan/Quads.h)
-# The client's own headers (Windows, MFC or its shim): the oracle's and the x64 client's.
+# The client's own headers (Windows, MFC or its shim): the x64 client's, and the golden tests' (with the shim).
 set(PATELLA_HEADERS_CLIENT
 	Communication.h
 	ConsoleWindow.h
@@ -102,14 +103,6 @@ set(PATELLA_HEADERS_CLIENT
 	graphics.h
 	sysinc.h
 	res/resource.h)
-# The original engines, compiled only in the oracle (DirectDraw, Direct3D 9, OpenGL; issue #20).
-set(PATELLA_HEADERS_ORACLE_ENGINES
-	SurfaceDX.h
-	SurfaceGL.h
-	surfaceDX9.h)
-# MFC's stand-in (TIBIA_MFC_SHIM: mfc_shim_check and the difftest).
-set(PATELLA_HEADERS_MFC_SHIM
-	compat/mfc_shim.h)
 # The x64 client's Vulkan engine (patella_render_vulkan and TSurfaceVulkan, cmake/Vulkan.cmake).
 set(PATELLA_HEADERS_VULKAN_CLIENT
 	vulkan/DeviceSettings.h
@@ -119,10 +112,13 @@ set(PATELLA_HEADERS_VULKAN_CLIENT
 # The Windows side of the test mode (PatellaTest.exe).
 set(PATELLA_HEADERS_TEST_BUILD
 	testmode/ClientStateWin32.h)
-# Headers that are not meant to stand alone, each with the reason. None: every header of src/ is
-# checked. (The shaders' SPIR-V headers, ColorKeyFrag.h and the others, are generated into the build
-# tree by glslang, cmake/Vulkan.cmake: not headers of src/.)
-set(PATELLA_HEADER_CHECK_EXCEPTIONS)
+# Headers that are not checked on their own, each with the reason. (The shaders' SPIR-V headers, ColorKeyFrag.h and
+# the others, are generated into the build tree by glslang, cmake/Vulkan.cmake: not headers of src/.)
+# - compat/mfc_shim.h: MFC's stand-in (TIBIA_MFC_SHIM), which only the golden tests' targets compile (tests/golden,
+#   through common.h, which includes it first). Its check of its own was the oracle's header_check_oracle_shim,
+#   which left with the oracle (issue #94); every golden target still compiles it, on Windows and on Linux.
+set(PATELLA_HEADER_CHECK_EXCEPTIONS
+	compat/mfc_shim.h)
 
 # Every header of src/ outside src/Extern is on a list.
 file(GLOB_RECURSE patella_all_headers RELATIVE "${PROJECT_SOURCE_DIR}/src" CONFIGURE_DEPENDS
@@ -130,8 +126,7 @@ file(GLOB_RECURSE patella_all_headers RELATIVE "${PROJECT_SOURCE_DIR}/src" CONFI
 	"${PROJECT_SOURCE_DIR}/src/*.inc")
 list(FILTER patella_all_headers EXCLUDE REGEX "^Extern/")
 set(patella_listed_headers ${PATELLA_HEADERS_CORE} ${PATELLA_HEADERS_CXX26} ${PATELLA_HEADERS_TESTMODE}
-	${PATELLA_HEADERS_RENDER} ${PATELLA_HEADERS_CLIENT} ${PATELLA_HEADERS_ORACLE_ENGINES}
-	${PATELLA_HEADERS_MFC_SHIM} ${PATELLA_HEADERS_VULKAN_CLIENT} ${PATELLA_HEADERS_TEST_BUILD}
+	${PATELLA_HEADERS_RENDER} ${PATELLA_HEADERS_CLIENT} ${PATELLA_HEADERS_VULKAN_CLIENT} ${PATELLA_HEADERS_TEST_BUILD}
 	${PATELLA_HEADER_CHECK_EXCEPTIONS})
 foreach(header IN LISTS patella_all_headers)
 	if(NOT header IN_LIST patella_listed_headers)
@@ -162,18 +157,6 @@ function(patella_header_check target)
 	endforeach()
 	add_library(${target} OBJECT ${sources})
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
-endfunction()
-
-# The settings of an oracle target, copied: OracleX86.cmake sets them on the target itself (the former
-# Patella.vcxproj's command lines), and /Zc:strictStrings- per source of Patella.exe.
-function(patella_header_check_copy target from)
-	foreach(property IN ITEMS COMPILE_OPTIONS COMPILE_DEFINITIONS INCLUDE_DIRECTORIES MSVC_RUNTIME_LIBRARY
-			MSVC_DEBUG_INFORMATION_FORMAT)
-		get_target_property(value ${from} ${property})
-		if(value)
-			set_property(TARGET ${target} PROPERTY ${property} "${value}")
-		endif()
-	endforeach()
 endfunction()
 
 function(patella_header_checks)
@@ -208,7 +191,7 @@ function(patella_header_checks)
 		patella_target_hardening(header_check_render)
 	endif()
 	# The x64 client: every header its sources include, with its settings (cmake/WindowsX64.cmake).
-	if(TARGET Patella_compile OR (TARGET Patella AND NOT PATELLA_ORACLE))
+	if(TARGET Patella_compile OR TARGET Patella)
 		set(headers ${PATELLA_HEADERS_CORE} ${PATELLA_HEADERS_RENDER} ${PATELLA_HEADERS_CLIENT}
 			${PATELLA_HEADERS_VULKAN_CLIENT})
 		patella_header_check(header_check_client ${headers})
@@ -217,16 +200,5 @@ function(patella_header_checks)
 			${PATELLA_HEADERS_TEST_BUILD})
 		patella_client_compile_settings(header_check_test_build)
 		target_compile_definitions(header_check_test_build PRIVATE PATELLA_TEST_MODE)
-	endif()
-	# The oracle: Patella.exe's sources (src/*.cpp) and what they include, with real MFC and with the shim.
-	if(PATELLA_ORACLE)
-		set(headers common.h compat/assertion.h compat/expected.h compat/format.h compat/msvc.h compat/msvc_io.h compat/print.h compat/span.h Container.h
-			log/Log.h Skins.h TMyException.h TRSA.h TXTEA.h types/File.h types/FixedString.h Utils.h vlong.h ${PATELLA_HEADERS_CLIENT}
-			${PATELLA_HEADERS_ORACLE_ENGINES})
-		patella_header_check(header_check_oracle ${headers})
-		patella_header_check_copy(header_check_oracle Patella)
-		target_compile_options(header_check_oracle PRIVATE /Zc:strictStrings-)
-		patella_header_check(header_check_oracle_shim ${headers} ${PATELLA_HEADERS_MFC_SHIM})
-		patella_header_check_copy(header_check_oracle_shim mfc_shim_check)
 	endif()
 endfunction()

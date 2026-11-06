@@ -1,6 +1,6 @@
 // patella::TExpected and TUnexpected (src/compat/expected.h, issue #80) and TError (src/TMyException.h): the same tests
 // in tests_unit (std::expected) and tests_unit_cxx26_standin (PATELLA_EXPECTED_STANDIN: the C++17 stand-in that the
-// oracle-x86 build returns the recoverable failures with). A TExpected holds a value or an error; a TError holds what a
+// 32-bit oracle returned the recoverable failures with). A TExpected holds a value or an error; a TError holds what a
 // TMyException would carry, and TMyException(TError) throws it after all with the same message and location.
 
 #include <doctest/doctest.h>

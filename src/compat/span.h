@@ -1,9 +1,9 @@
 // span.h: C++20's std::span for the parameters that took a pointer and a length (the packet buffers, TXTEA and TRSA;
-// Patella-Modern issue #59), and a C++17 stand-in for the oracle-x86 preset, which compiles with /std:c++17 until M6
-// (notes/modernization-plan.md, section 5: the oracle keeps its flags). Not part of the original source.
+// Patella-Modern issue #59), and a C++17 stand-in, written for the 32-bit oracle's /std:c++17 (which left the fork
+// with issue #94) and kept for tests/unit's stand-in build. Not part of the original source.
 //
 // After this header PATELLA_HAS_SPAN is 1 where the library has std::span (every product preset: MSVC
-// /std:c++latest, GCC 16, Clang 22) and 0 elsewhere (the oracle's C++17) or with PATELLA_SPAN_STANDIN, which
+// /std:c++latest, GCC 16, Clang 22) and 0 elsewhere (a C++17 library) or with PATELLA_SPAN_STANDIN, which
 // tests/unit's stand-in build defines for a whole target (never for one file: the two are different types), so that
 // the stand-in runs the tests std::span passes, on the same compiler.
 //

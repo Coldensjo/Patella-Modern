@@ -41,11 +41,7 @@
 #include "elementfakes.h"
 #include "golden_eh.h"
 #include "testsurface.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 
 #include "Communication.h"
 #include "Creatures.h"
@@ -72,14 +68,6 @@
 #include <string>
 #include <vector>
 
-#if GOLDEN_ORACLE
-static_assert(sizeof(TMapWindow) == 0x92d8, "TMapWindow is 0x92d8 bytes");
-static_assert(sizeof(TMapFrame) == 0x40, "TMapFrame is 0x40 bytes");
-static_assert(offsetof(TMapWindow, Light) == 0x19fc, "TMapWindow::Light at +0x19fc");
-static_assert(offsetof(TMapWindow, CoverLevel) == 0x25dc, "TMapWindow::CoverLevel at +0x25dc");
-static_assert(offsetof(TMapWindow, Cache) == 0x29d4, "TMapWindow::Cache at +0x29d4");
-static_assert(offsetof(TMapWindow, HintButton) == 0x92d4, "TMapWindow::HintButton at +0x92d4");
-#endif
 static_assert(sizeof(TCacheField) == 0x8c, "TCacheField is 0x8c bytes");
 // TMapWindow's members up to HintButton have no pointers: the same bytes on both targets, at the same
 // distances from the first one.
@@ -99,7 +87,7 @@ namespace MapWindowTest {
 enum { OURS = 0,
 	ORIGINAL = 1 };
 // The sides that have objects: both in the oracle, ours in the runner.
-static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
+static const int SIDES = 1; // ours alone (the oracle had the original's side too, until issue #94)
 static int Side;
 static std::string Log[2];
 
@@ -129,15 +117,7 @@ static void Logf(const char *Format, ...)
 // own with golden::RedirectOwn).
 static void PatchOwn(void *Function, void *Target)
 {
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	PatchJump((uint32)(uintptr_t)Function, Target);
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-#else
 	golden::RedirectOwn(Function, Target);
-#endif
 }
 
 template <class T> static void *Member(T Function) { return *(void **)&Function; }
@@ -555,33 +535,6 @@ static bool SurfaceLost, CanShade;
 } // namespace MapWindowTest
 using namespace MapWindowTest;
 
-#if GOLDEN_ORACLE
-void SendWalk() { FakeSendWalk(); }
-void SendStop() { FakeSendStop(); }
-void SendAttack(uint32 CreatureID) { FakeSendAttack(CreatureID); }
-void SendLook(int x, int y, int z, int Type, int Position) { FakeSendLook(x, y, z, Type, Position); }
-void SendMoveObject(int x, int y, int z, int Type, int Position, int dx, int dy, int dz, int Count)
-{
-	FakeSendMoveObject(x, y, z, Type, Position, dx, dy, dz, Count);
-}
-void SendRequestTrade(int x, int y, int z, int Type, int Position, uint32 CreatureID)
-{
-	FakeSendRequestTrade(x, y, z, Type, Position, CreatureID);
-}
-void SendUseObject(int x, int y, int z, int Type, int Position, int Container)
-{
-	FakeSendUseObject(x, y, z, Type, Position, Container);
-}
-void SendUseObjectWith(int x1, int y1, int z1, int Type1, int Position1, int x2, int y2, int z2, int Type2,
-	int Position2)
-{
-	FakeSendUseObjectWith(x1, y1, z1, Type1, Position1, x2, y2, z2, Type2, Position2);
-}
-void SendUseObjectOnCreature(int x, int y, int z, int Type, int Position, uint32 CreatureID)
-{
-	FakeSendUseObjectOnCreature(x, y, z, Type, Position, CreatureID);
-}
-#endif
 
 // The surface slots MapWindow.cpp calls (the TTestSurface methods; the others
 // are graphics_tests.cpp's recorders and playertest.cpp's stubs).
@@ -752,12 +705,7 @@ static void PatchWorld()
 		{0x405b20, (void *)SendUseObjectOnCreature, (void *)FakeSendUseObjectOnCreature},
 	};
 	for (auto &S : Sends) {
-#if GOLDEN_ORACLE
-		PatchJump(S.Image, S.Ours);
-		(void)S.Fake;
-#else
 		PatchOwn(S.Ours, S.Fake);
-#endif
 	}
 }
 
@@ -963,26 +911,6 @@ static void RandomTalkboxes()
 
 // --- The windows -------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void *(__fastcall *CtorFn)(void *, void *);
-typedef void *(__fastcall *DeleteFn)(void *, void *, int);
-typedef void(__fastcall *VoidFn)(void *, void *);
-typedef int(__fastcall *IntFn)(void *, void *);
-typedef void(__fastcall *Int1Fn)(void *, void *, int);
-typedef void(__fastcall *Int2Fn)(void *, void *, int, int);
-typedef void(__fastcall *Int3Fn)(void *, void *, int, int, int);
-typedef void(__fastcall *Int5Fn)(void *, void *, int, int, int, int, int);
-typedef void(__fastcall *Int6Fn)(void *, void *, int, int, int, int, int, int);
-typedef bool(__fastcall *Bool2Fn)(void *, void *, int, int);
-typedef bool(__fastcall *Bool3Fn)(void *, void *, int, int, int);
-typedef uint32(__fastcall *ID2Fn)(void *, void *, int, int);
-typedef void *(__fastcall *CacheFn)(void *, void *, int, int);
-typedef void(__fastcall *FieldFn)(void *, void *, int, int, int *, int *, int *);
-typedef void(__fastcall *LightFn)(void *, void *, int, int, int, int, TRGBColor);
-typedef void(__fastcall *SpriteFn)(void *, void *, int, int, int, bool, int, int, TRGBColor *);
-typedef void(__fastcall *ObjectFn)(void *, void *, int, int, int, TObject, int, int, int);
-typedef void(__fastcall *CreatureFn)(void *, void *, int, int, int, TCreature *);
-#endif
 
 static TMapWindow *Ours;
 [[maybe_unused]] static uint8 *Original; // the oracle's (the runner has none)
@@ -1057,14 +985,6 @@ static void StateOf(const TMapWindow *Map, uint8 *State)
 	memcpy(State, &Map->OffsetX, GEOMETRY);
 	memcpy(State + GEOMETRY, &Map->NumberOfNames, MEMBERS);
 }
-#if GOLDEN_ORACLE
-// The original's map view, at the x86 offsets.
-static void OriginalStateOf(const uint8 *Map, uint8 *State)
-{
-	memcpy(State, Map + 0x14, GEOMETRY);
-	memcpy(State + GEOMETRY, Map + 0x2c, MEMBERS);
-}
-#endif
 // The original's members (Value, the oracle's; ignored by the runner) by their changes since the last
 // record into Last, which then holds the original's members on both sides (zeroed at first on both).
 static void OutputState(const char *Name, uint8 *Last, const uint8 *Value) { golden::OutputRuns(Name, Last, Value, STATE); }
@@ -1077,13 +997,7 @@ static void Compare(const char *What, int Arg = 0)
 	CompareLogs(What, Arg);
 	std::vector<uint8> A(STATE);
 	StateOf(Ours, A.data());
-#if GOLDEN_ORACLE
-	std::vector<uint8> Value(STATE);
-	OriginalStateOf(Original, Value.data());
-	OutputState("window", LastWindow.data(), Value.data());
-#else
 	OutputState("window", LastWindow.data(), nullptr);
-#endif
 	const uint8 *B = LastWindow.data();
 	size_t Differ = STATE;
 	for (size_t i = 0; i < STATE && Differ == STATE; i++) {
@@ -1397,17 +1311,6 @@ static void TestOperations(int Rounds)
 					A = Ours->RightButtonUp(x, y, Flags);
 				else
 					A = Ours->HelpMouseMove(x, y);
-#if GOLDEN_ORACLE
-				Side = ORIGINAL;
-				if (Op == 15)
-					B = At<Bool3Fn>(0x4c24d0)(Original, NULL, x, y, Flags);
-				else if (Op == 16)
-					B = At<Bool3Fn>(0x4c2710)(Original, NULL, x, y, Flags);
-				else if (Op == 17)
-					B = At<Bool3Fn>(0x4c2e50)(Original, NULL, x, y, Flags);
-				else
-					B = At<Bool2Fn>(0x4c3520)(Original, NULL, x, y);
-#endif
 				golden::Output("result", B);
 				CHECK(A == B, "mouse operation %d at %d,%d (flags 0x%x): %d, original %d", Op, x, y, Flags, A, B);
 				Compare("mouse", Op);
@@ -1425,10 +1328,6 @@ static void TestOperations(int Rounds)
 			}
 			case 20: { // Arrange with a hint button, then HandleEvent(27) and Draw remove it
 				TElement *Element = new TElement;
-#if GOLDEN_ORACLE
-				void *OriginalElement = calloc(1, sizeof(TElement));
-				At<CtorFn>(0x496100)(OriginalElement, NULL);
-#endif
 				Side = OURS;
 				Ours->InsertChild(Element);
 				Ours->HintButton = Element;
@@ -1491,15 +1390,6 @@ static void ClearMapWindow(TMapWindow *Map)
 			memset(&Map->Cache[i][j].CachedSprites, 0, sizeof(TCacheField) - offsetof(TCacheField, CachedSprites));
 	}
 }
-#if GOLDEN_ORACLE
-static void ClearOriginalMapWindow(uint8 *Map)
-{
-	memset(Map + 0x2c, 0, 0x19fc - 0x2c);
-	memset(Map + 0x25cc, 0, 0x29d4 - 0x25cc);
-	for (int i = 0; i < 16 * 12; i++)
-		memset(Map + 0x29d4 + i * 0x8c + 0xc, 0, 0x8c - 0xc);
-}
-#endif
 
 // A frame's compared members, in the order of the x86 bytes the old test compared: its OffsetX, OffsetY,
 // Width and Height (+0x14), its ViewY, ViewX, ViewWidth and ViewHeight (+0x30).
@@ -1519,14 +1409,6 @@ static void TestFrames(int Rounds)
 		Window[ORIGINAL] = NULL;
 		Side = OURS;
 		TMapFrame *Frame = new (A) TMapFrame;
-#if GOLDEN_ORACLE
-		uint8 *B = (uint8 *)calloc(1, sizeof(TMapFrame));
-		Side = ORIGINAL;
-		At<CtorFn>(0x4c1a40)(B, NULL);
-		uint8 *MapB = *(uint8 **)(B + 0x2c);
-		Window[ORIGINAL] = MapB;
-		ClearOriginalMapWindow(MapB);
-#endif
 		TMapWindow *MapA = Frame->MapWindow;
 		Window[OURS] = MapA;
 		ClearMapWindow(MapA);
@@ -1548,13 +1430,7 @@ static void TestFrames(int Rounds)
 				"TMapFrame::SetSize(%d,%d)", Width, Height);
 			std::vector<uint8> ViewA(STATE);
 			StateOf(MapA, ViewA.data());
-#if GOLDEN_ORACLE
-			std::vector<uint8> ViewB(STATE);
-			OriginalStateOf(MapB, ViewB.data());
-			OutputState("map view", LastFrameView.data(), ViewB.data());
-#else
 			OutputState("map view", LastFrameView.data(), nullptr);
-#endif
 			CHECK(memcmp(ViewA.data(), LastFrameView.data(), GEOMETRY) == 0
 					&& memcmp(ViewA.data() + GEOMETRY, LastFrameView.data() + GEOMETRY, MEMBERS) == 0,
 				"TMapFrame::SetSize(%d,%d): the map view", Width, Height);
@@ -1623,19 +1499,11 @@ private:
 	// The image's TComponent::SetSize and SetPosition (the oracle's image side only).
 	void ImageSetSize([[maybe_unused]] int w, [[maybe_unused]] int h)
 	{
-#if GOLDEN_ORACLE
-		At<Int2Fn>(0x49bee0)(this, NULL, w, h);
-#else
 		abort();
-#endif
 	}
 	void ImageSetPosition([[maybe_unused]] int x, [[maybe_unused]] int y)
 	{
-#if GOLDEN_ORACLE
-		At<Int2Fn>(0x496060)(this, NULL, x, y);
-#else
 		abort();
-#endif
 	}
 };
 
@@ -1682,10 +1550,6 @@ static size_t SavedSize() { return (size_t)((uint8 *)&Ours->HintButton - SavedFr
 template <class F> static void MWFailing(const char *What, int Tries, F Call)
 {
 	std::vector<uint8> Saved(SavedFrom(), SavedFrom() + SavedSize());
-#if GOLDEN_ORACLE
-	const int From = 0x14, Size = (int)offsetof(TMapWindow, HintButton) - From;
-	std::vector<uint8> SavedOriginal(Original + From, Original + From + Size);
-#endif
 	MWCall(What, 0, 0, Call);
 	int Count = Ticks;
 	for (int t = 0; t < Tries && Count > 0; t++) {
@@ -1751,10 +1615,6 @@ static void TestMapWindowErrors()
 		// hundred calls before the end).
 		if (Level < 7 && CreatureInfo != 0) {
 			std::vector<uint8> Saved(SavedFrom(), SavedFrom() + SavedSize());
-#if GOLDEN_ORACLE
-			const int From = 0x14, Size = (int)offsetof(TMapWindow, HintButton) - From;
-			std::vector<uint8> SavedOriginal(Original + From, Original + From + Size);
-#endif
 			MWCall("TMapWindow::Draw below the top", 0, 0, [&](int s) {
 				if (s == OURS) Ours->Draw(1, x, y); else ORIGINAL(At<Int3Fn>(0x4c7580)(Original, NULL, 1, x, y)); });
 			int Count = Ticks;
@@ -1870,12 +1730,6 @@ static void TestMapWindowErrors()
 					else if (Op == 17) Ours->RightButtonUp(mx, my, Flags);
 					else Ours->HelpMouseMove(mx, my);
 				} else {
-#if GOLDEN_ORACLE
-					if (Op == 15) At<Bool3Fn>(0x4c24d0)(Original, NULL, mx, my, Flags);
-					else if (Op == 16) At<Bool3Fn>(0x4c2710)(Original, NULL, mx, my, Flags);
-					else if (Op == 17) At<Bool3Fn>(0x4c2e50)(Original, NULL, mx, my, Flags);
-					else At<Bool2Fn>(0x4c3520)(Original, NULL, mx, my);
-#endif
 				}
 			});
 		}
@@ -2015,10 +1869,6 @@ static void TestMapWindowErrors()
 					if (Which <= 1) Ours->LeftButtonUp(mx, my, 0);
 					else Ours->RightButtonUp(mx, my, Flags);
 				} else {
-#if GOLDEN_ORACLE
-					if (Which <= 1) At<Bool3Fn>(0x4c2710)(Original, NULL, mx, my, 0);
-					else At<Bool3Fn>(0x4c2e50)(Original, NULL, mx, my, Flags);
-#endif
 				}
 			});
 		}
@@ -2066,12 +1916,6 @@ static void TestMapWindowErrors()
 		Side = OURS;
 		TMapFrame *Frame = new (A) TMapFrame;
 		ClearMapWindow(Frame->MapWindow);
-#if GOLDEN_ORACLE
-		uint8 *B = (uint8 *)calloc(1, sizeof(TMapFrame));
-		Side = ORIGINAL;
-		At<CtorFn>(0x4c1a40)(B, NULL);
-		ClearOriginalMapWindow(*(uint8 **)(B + 0x2c));
-#endif
 		CompareLogs("TMapFrame errors: constructor");
 		for (int Fail = 0; Fail <= 4; Fail++) {
 			int Width = 260 + Random() % 700, Height = 200 + Random() % 500;

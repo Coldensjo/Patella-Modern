@@ -27,13 +27,9 @@
 #include "graphics.h"
 #include "testsurface.h"
 
-#if GOLDEN_ORACLE
-#include <direct.h>
-#else
 #include "golden_patch.h"
 
 #include <direct.h>
-#endif
 #include <stdio.h>
 #include <string.h>
 #include <string>
@@ -48,11 +44,6 @@ static_assert(sizeof(TFontInfo) == 0x71c, "TFontInfo is 0x71c bytes");
 static_assert(sizeof(TVideoCacheItem) == 0x5c, "TVideoCacheItem is 0x5c bytes");
 static_assert(offsetof(TVideoCacheItem, Tile.Color) == 0x1c, "TVideoCacheItem::Tile.Color at +0x1c");
 static_assert(offsetof(TVideoCacheItem, Previous) == 0x48, "TVideoCacheItem::Previous at +0x48");
-#if GOLDEN_ORACLE
-// The two with a pointer: recorded field by field.
-static_assert(sizeof(TPicture) == 0x18, "TPicture is 0x18 bytes");
-static_assert(sizeof(TMemoryCacheItem) == 0x28, "TMemoryCacheItem is 0x28 bytes");
-#endif
 
 namespace GraphicsTest {
 
@@ -109,11 +100,6 @@ void RecordTile(const char *Name, uint8 *Tile)
 	if (golden::Mode() == golden::TMode::Off)
 		return;
 	int Index = -1;
-#if GOLDEN_ORACLE
-	std::unordered_map<std::string, int>::const_iterator It = TileIndex.find(std::string((const char *)Tile, TILE));
-	if (It != TileIndex.end())
-		Index = It->second;
-#endif
 	golden::Output(Name, Index);
 	if (Index >= 0) {
 		if (Index >= (int)Tiles.size())
@@ -139,14 +125,6 @@ void OutputOriginalLog()
 	ORIGINAL(Offsets = LogTiles);
 	golden::OutputArray("log tile offsets", Offsets.data(), Count);
 	std::string Rest;
-#if GOLDEN_ORACLE
-	size_t From = 0;
-	for (uint32 Offset : Offsets) {
-		Rest.append(Log[ORIGINAL], From, Offset - From);
-		From = Offset + TILE;
-	}
-	Rest.append(Log[ORIGINAL], From, std::string::npos);
-#endif
 	Rest = golden::OutputText("log", Rest.data(), Rest.size());
 	std::string Full;
 	size_t From2 = 0;
@@ -274,61 +252,6 @@ void TTestSurface::GetSurfaceRect(int Surface, TRect *Rect)
 
 namespace GraphicsTest {
 
-#if GOLDEN_ORACLE
-// --- Original functions and data ------------------------------------------------
-
-typedef void(__cdecl *VoidFn)();
-typedef void(__cdecl *LoadFn)(const char *);
-typedef void(__cdecl *IntFn)(int);
-typedef int(__cdecl *IntRetFn)(int);
-typedef void(__cdecl *Int2Fn)(int, int);
-typedef int(__cdecl *Find3Fn)(int, int, int);
-typedef void(__cdecl *LoadSpriteFn)(int, uint8 *);
-typedef void(__cdecl *LoadTileFn)(int, int, int, uint8 *);
-typedef TMemoryCacheItem *(__cdecl *MemSpriteFn)(int);
-typedef TMemoryCacheItem *(__cdecl *MemPictureFn)(int, int, int);
-typedef void(__cdecl *DrawSpriteFn)(int, int, int, int);
-typedef void(__cdecl *DrawClippedFn)(int, int, int, int, TRect);
-typedef void(__cdecl *DrawScaledFn)(int, int, int, int, int, int, TRGBColor, TRect);
-typedef void(__cdecl *DrawMaskedFn)(int, int, int, int, int, TRGBColor *);
-typedef void(__cdecl *DrawMaskedScaledFn)(int, int, int, int, int, int, int, TRGBColor *, TRGBColor, TRect);
-typedef void(__cdecl *DrawObjectFn)(int, int, int, int, TObject, TRGBColor, TRect, TFont, bool);
-typedef void(__cdecl *DrawOutfitFn)(int, int, int, int, int, int *, TRGBColor, TRect, TFont);
-typedef void(__cdecl *PartFn)(int, int, int, int, int, int, int, int);
-typedef void(__cdecl *PartClippedFn)(int, int, int, int, int, int, int, int, TRect);
-typedef void(__cdecl *TextPartFn)(int, int, int, int, TRGBColor, const char *, int, int);
-typedef void(__cdecl *TextClippedFn)(int, int, int, int, TRGBColor, const char *, int, TRect);
-typedef void(__cdecl *TextFn)(int, int, int, int, TRGBColor, const char *, int);
-typedef void(__cdecl *FormatFn)(int, int, int, TFont, const char *);
-typedef void(__cdecl *FormatClippedFn)(int, int, int, TFont, const char *, TRect);
-typedef void(__cdecl *FormatPartFn)(int, int, int, TFont, const char *, int);
-typedef int(__cdecl *WidthFn)(int, const char *);
-typedef int(__cdecl *PartWidthFn)(int, const char *, int);
-typedef void(__cdecl *PositionFn)(int *, int *, int, int, int, int, TFont *);
-
-#define ORIGINAL_DATA(Type, Name, Address) Type &O##Name = Global<Type>(Address)
-ORIGINAL_DATA(int, NumberOfFonts, 0x5cc750);
-ORIGINAL_DATA(int, NumberOfPictures, 0x5cc754);
-ORIGINAL_DATA(uint32, PictureSignature, 0x5cc758);
-ORIGINAL_DATA(int, NumberOfSprites, 0x5ccb60);
-ORIGINAL_DATA(uint32, SpriteSignature, 0x5ccb64);
-ORIGINAL_DATA(int, LeastRecentMemoryItem, 0x5ccf68);
-ORIGINAL_DATA(int, MostRecentMemoryItem, 0x5ccf6c);
-ORIGINAL_DATA(int, MemoryCacheSize, 0x5ccf70);
-ORIGINAL_DATA(uint8 *, MemoryCacheData, 0x5ccf74);
-ORIGINAL_DATA(int, LeastRecentVideoItem, 0x5ccf78);
-ORIGINAL_DATA(int, MostRecentVideoItem, 0x5ccf7c);
-ORIGINAL_DATA(int, VideoCacheSize, 0x5ccf80);
-ORIGINAL_DATA(TVideoCacheItem *, VideoCache, 0x5ccf84);
-ORIGINAL_DATA(TMemoryCacheItem *, MemoryCache, 0x5ccf88);
-ORIGINAL_DATA(TSprite *, Sprites, 0x5ccf8c);
-ORIGINAL_DATA(TPicture *, Pictures, 0x5ccf90);
-ORIGINAL_DATA(TFontInfo *, Fonts, 0x5ccf94);
-int *OMemoryHashTable = (int *)(uintptr_t)0x5cc430;
-int *OVideoHashTable = (int *)(uintptr_t)0x5cc5c0;
-const char *OSpriteFileName = (const char *)(uintptr_t)0x5ccb68;
-const char *OPictureFileName = (const char *)(uintptr_t)0x5cc760;
-#endif
 
 // --- Comparisons -----------------------------------------------------------------
 
@@ -811,7 +734,7 @@ void RandomDraw(int t)
 	if (Outfit == 0)
 		OutfitColors[0] = t % 3 ? DrawableObjects[Random() % DrawableObjects.size()] : 0;
 	int Op = Random() % 17;
-	for (int Pass = 0; Pass < (GOLDEN_ORACLE ? 2 : 1); Pass++) {
+	for (int Pass = 0; Pass < 1; Pass++) {
 		bool O = Pass == ORIGINAL;
 		Side = Pass;
 		switch (Op) {
@@ -937,15 +860,7 @@ void TestVideoCache()
 	SetEngine(1);
 	if (RecordingSurface == nullptr) {
 		RecordingSurface = new TTestSurface;
-#if GOLDEN_ORACLE
-		DWORD Protection;
-		VirtualProtect((void *)GetSurface, 5, PAGE_EXECUTE_READWRITE, &Protection);
-		PatchJump((uint32)(uintptr_t)GetSurface, (void *)GetRecordingSurface);
-		VirtualProtect((void *)GetSurface, 5, Protection, &Protection);
-		FlushInstructionCache(GetCurrentProcess(), (void *)GetSurface, 5);
-#else
 		golden::RedirectOwn((void *)GetSurface, (void *)GetRecordingSurface);
-#endif
 	}
 	[[maybe_unused]] TSurface *Fake = GetSurface();
 	ORIGINAL(Global<TSurface *>(0x71d0cc) = Fake);

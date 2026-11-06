@@ -49,16 +49,6 @@ namespace {
 enum { RX_OURS = 0,
 	RX_ORIGINAL = 1 };
 
-#if GOLDEN_ORACLE
-typedef regexp *(__cdecl *RxCompileFn)(char *Pattern);
-typedef int(__cdecl *RxExecuteFn)(regexp *Program, char *Text);
-typedef void(__cdecl *RxErrorFn)(char *Message);
-
-RxCompileFn const ImageRegcomp = (RxCompileFn)(uintptr_t)0x50fa40;
-RxExecuteFn const ImageRegexec = (RxExecuteFn)(uintptr_t)0x50f360;
-const uint32 RX_IMAGE_HANDLER = 0x71f034;
-const uint32 RX_IMAGE_LINKPATTERN = 0x5c2560;
-#endif
 
 uint32 RxSeed = 15;
 uint32 RxRandom()
@@ -94,14 +84,6 @@ void RxCount(const char *Message)
 	RxCoverage.Messages[RX_MESSAGES]++;
 }
 
-#if GOLDEN_ORACLE
-void __cdecl RxImageError(char *Message)
-{
-	RxLog[RX_ORIGINAL] += "E:";
-	RxLog[RX_ORIGINAL] += Message;
-	RxLog[RX_ORIGINAL] += ";";
-}
-#endif
 
 void RxOurError(char *Message)
 {
@@ -197,16 +179,9 @@ regexp *RxImageCompile([[maybe_unused]] char *Pattern)
 		return NULL;
 	// The program's size, its fields (regmust as an offset into the program) and its bytes.
 	int32_t Fields[4] = {};
-#if GOLDEN_ORACLE
-	Fields[0] = (int32_t)RxProgramSize(Program);
-	Fields[1] = Program->regstart;
-	Fields[2] = Program->reganch;
-	Fields[3] = Program->regmlen;
-#endif
 	golden::Output("program fields", Fields);
 	int32_t Must = ORIGINAL_OR(Program->regmust != NULL ? (int32_t)(Program->regmust - Program->program) : -1, 0);
 	golden::Output("regmust", Must);
-#if !GOLDEN_ORACLE
 	Program = (regexp *)malloc(sizeof(regexp) + (size_t)Fields[0]);
 	if (Program == NULL)
 		return NULL;
@@ -215,7 +190,6 @@ regexp *RxImageCompile([[maybe_unused]] char *Pattern)
 	Program->reganch = (char)Fields[2];
 	Program->regmlen = Fields[3];
 	Program->regmust = Must >= 0 ? Program->program + Must : NULL;
-#endif
 	golden::OutputBytes("program", Program->program, (size_t)Fields[0]);
 	return Program;
 }

@@ -1,4 +1,5 @@
-// The golden corpus's recorder and replayer (golden.h has the format).
+// The golden corpus's replayer (golden.h has the format). The recorder was the 32-bit oracle's, until
+// Patella-Modern issue #94: the corpus is frozen (issue #93).
 
 // fopen and getenv as everywhere else (src/common.h).
 #define _CRT_SECURE_NO_WARNINGS
@@ -114,123 +115,9 @@ std::string Hex(const uint8_t *Data, size_t Size)
 	return Out;
 }
 
-bool FromHex(const std::string &Text, uint8_t *Data, size_t Size)
-{
-	if (Text.size() != 2 * Size)
-		return false;
-	for (size_t i = 0; i < 2 * Size; i++) {
-		char c = Text[i];
-		int v = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10
-																	  : -1;
-		if (v < 0)
-			return false;
-		Data[i / 2] = (uint8_t)(i % 2 == 0 ? v << 4 : Data[i / 2] | v);
-	}
-	return true;
-}
-
 enum : uint8_t { TAG_NAME = 1,
 	TAG_VALUE = 2,
 	TAG_END = 3 };
-
-// --- The recorder ----------------------------------------------------------------------------------
-
-struct TRecorder {
-	std::filesystem::path Directory; // <corpus>/<executable>
-	std::string Executable;
-	std::string TibiaSha256;
-	uint8_t TibiaDigest[32] = {};
-	std::string Manifest;
-	// The test that runs.
-	std::string Test;
-	uint32_t Seed = 0;
-	int ChecksBefore = 0;
-	FILE *File = nullptr;
-	std::map<std::string, uint32_t> Names;
-	long long Records = 0;
-	// A retired part that runs (RetiredBegin): the test's checks and records at its start.
-	bool InRetired = false;
-	int RetiredChecks = 0;
-	long long RetiredRecords = 0;
-};
-TRecorder *Recorder;
-
-void Fail(const std::string &Message)
-{
-	fprintf(stderr, "golden: %s\n", Message.c_str());
-	printf("golden: %s\n", Message.c_str());
-	fflush(stdout);
-	exit(2);
-}
-
-void PutVarint(FILE *File, uint64_t Value)
-{
-	do {
-		uint8_t Byte = (uint8_t)(Value & 0x7f);
-		Value >>= 7;
-		if (Value != 0)
-			Byte |= 0x80;
-		fputc(Byte, File);
-	} while (Value != 0);
-}
-void PutU32(FILE *File, uint32_t Value)
-{
-	for (int i = 0; i < 4; i++)
-		fputc((int)((Value >> (8 * i)) & 0xff), File);
-}
-void PutU64(FILE *File, uint64_t Value)
-{
-	for (int i = 0; i < 8; i++)
-		fputc((int)((Value >> (8 * i)) & 0xff), File);
-}
-
-void OpenTestFile()
-{
-	std::filesystem::path Path = Recorder->Directory / (Recorder->Test + ".bin");
-	Recorder->File = fopen(Path.string().c_str(), "wb");
-	if (Recorder->File == nullptr)
-		Fail("cannot write " + Path.string());
-	static char Buffer[1 << 16];
-	setvbuf(Recorder->File, Buffer, _IOFBF, sizeof(Buffer));
-	fwrite("PGLD", 1, 4, Recorder->File);
-	PutU32(Recorder->File, GOLDEN_FORMAT);
-	fwrite(Recorder->TibiaDigest, 1, 32, Recorder->File);
-	PutU32(Recorder->File, Recorder->Seed);
-	uint16_t Length = (uint16_t)Recorder->Test.size();
-	fputc(Length & 0xff, Recorder->File);
-	fputc(Length >> 8, Recorder->File);
-	fwrite(Recorder->Test.data(), 1, Length, Recorder->File);
-}
-
-void Record(const char *Name, char Role, char Type, size_t ElementSize, size_t Count, const void *Data)
-{
-	if (Recorder->Test.empty())
-		Fail(std::string("record \"") + Name + "\" outside a test");
-	if (Recorder->File == nullptr)
-		OpenTestFile();
-	FILE *File = Recorder->File;
-	auto Found = Recorder->Names.find(Name);
-	uint32_t Id;
-	if (Found == Recorder->Names.end()) {
-		Id = (uint32_t)Recorder->Names.size();
-		Recorder->Names[Name] = Id;
-		size_t Length = strlen(Name);
-		fputc(TAG_NAME, File);
-		PutVarint(File, Id);
-		PutVarint(File, Length);
-		fwrite(Name, 1, Length, File);
-	} else
-		Id = Found->second;
-	fputc(TAG_VALUE, File);
-	PutVarint(File, Id);
-	fputc(Role, File);
-	fputc(Type, File);
-	fputc((int)ElementSize, File);
-	PutVarint(File, Count);
-	if (Count != 0)
-		fwrite(Data, ElementSize, Count, File);
-	Recorder->Records++;
-}
 
 // --- The replayer ----------------------------------------------------------------------------------
 
@@ -359,92 +246,6 @@ std::string FileSha256(const char *Path)
 	uint8_t Digest[32];
 	Hash.Finish(Digest);
 	return Hex(Digest, 32);
-}
-
-void StartRecording(const char *Executable, const char *TibiaPath)
-{
-	const char *Target = getenv("DIFFTEST_RECORD");
-	if (Target == nullptr || *Target == 0)
-		return;
-	if (getenv("DIFFTEST_ONLY") != nullptr || getenv("DIFFTEST_SKIP") != nullptr) {
-		printf("golden: DIFFTEST_RECORD ignored: a corpus is recorded from full runs only (DIFFTEST_ONLY or "
-			   "DIFFTEST_SKIP is set)\n");
-		return;
-	}
-	Recorder = new TRecorder;
-	Recorder->Executable = Executable;
-	Recorder->TibiaSha256 = FileSha256(TibiaPath);
-	if (Recorder->TibiaSha256.empty())
-		Fail(std::string("cannot read ") + TibiaPath);
-	FromHex(Recorder->TibiaSha256, Recorder->TibiaDigest, 32);
-	if (Recorder->TibiaSha256 != TIBIA_SHA256)
-		printf("golden: warning: %s is not Tibia.exe 7.72 (sha256 %s); the runner will not accept this corpus\n",
-			TibiaPath, Recorder->TibiaSha256.c_str());
-	Recorder->Directory = std::filesystem::path(Target) / Executable;
-	std::error_code Error;
-	std::filesystem::create_directories(Recorder->Directory, Error);
-	if (Error)
-		Fail("cannot create " + Recorder->Directory.string() + ": " + Error.message());
-	// The earlier recording goes first: a recording that does not finish leaves no manifest.
-	for (auto &Entry : std::filesystem::directory_iterator(Recorder->Directory, Error)) {
-		std::string Extension = Entry.path().extension().string();
-		if (Extension == ".bin" || Entry.path().filename() == "manifest.tsv")
-			std::filesystem::remove(Entry.path(), Error);
-	}
-	char Line[256];
-	snprintf(Line, sizeof(Line), "format\t%u\ntibia_sha256\t%s\nexecutable\t%s\n", (unsigned)GOLDEN_FORMAT,
-		Recorder->TibiaSha256.c_str(), Executable);
-	Recorder->Manifest = Line;
-	CurrentMode = TMode::Record;
-	printf("golden: recording %s's corpus into %s\n", Executable, Recorder->Directory.string().c_str());
-}
-
-void BeginTest(const char *Test, uint32_t Seed, int Checks)
-{
-	if (Recorder == nullptr)
-		return;
-	Recorder->Test = Test;
-	if (Recorder->Test.compare(0, 4, "Test") == 0)
-		Recorder->Test.erase(0, 4);
-	Recorder->Seed = Seed;
-	Recorder->ChecksBefore = Checks;
-	Recorder->Records = 0;
-	Recorder->Names.clear();
-}
-
-void EndTest(int Checks)
-{
-	if (Recorder == nullptr || Recorder->Test.empty())
-		return;
-	int TestChecks = Checks - Recorder->ChecksBefore;
-	if (Recorder->File != nullptr) {
-		fputc(TAG_END, Recorder->File);
-		PutU64(Recorder->File, (uint64_t)TestChecks);
-		PutU64(Recorder->File, (uint64_t)Recorder->Records);
-		if (fclose(Recorder->File) != 0)
-			Fail("cannot write the recording of " + Recorder->Test);
-		Recorder->File = nullptr;
-	}
-	char Line[256];
-	snprintf(Line, sizeof(Line), "test\t%s\t%u\t%d\t%lld\n", Recorder->Test.c_str(), (unsigned)Recorder->Seed,
-		TestChecks, Recorder->Records);
-	Recorder->Manifest += Line;
-	Recorder->Test.clear();
-}
-
-void FinishRecording(int Checks, int Failures)
-{
-	if (Recorder == nullptr)
-		return;
-	char Line[128];
-	snprintf(Line, sizeof(Line), "total\t%d\t%d\n", Checks, Failures);
-	Recorder->Manifest += Line;
-	std::filesystem::path Path = Recorder->Directory / "manifest.tsv";
-	FILE *File = fopen(Path.string().c_str(), "wb");
-	if (File == nullptr || fwrite(Recorder->Manifest.data(), 1, Recorder->Manifest.size(), File) != Recorder->Manifest.size()
-		|| fclose(File) != 0)
-		Fail("cannot write " + Path.string());
-	printf("golden: %s's corpus recorded (%s)\n", Recorder->Executable.c_str(), Path.string().c_str());
 }
 
 namespace {
@@ -655,7 +456,7 @@ bool ReadManifest(const std::string &Directory, const char *Executable, TManifes
 	else if (Manifest->Failures != 0)
 		Error.Message = "recorded from a run with " + std::to_string(Manifest->Failures) + " failures";
 	if (!Error.Message.empty()) {
-		Error.Message = Path.string() + ": " + Error.Message + "; record the corpus again";
+		Error.Message = Path.string() + ": " + Error.Message + "; the corpus is frozen: regenerated only from the tag layout-frozen-final";
 		throw Error;
 	}
 	return true;
@@ -668,7 +469,7 @@ uint32_t BeginReplay(const std::string &Directory, const char *Executable, const
 	Replay->Path = (std::filesystem::path(Directory) / Executable / (std::string(Test) + ".bin")).string();
 	FILE *File = fopen(Replay->Path.c_str(), "rb");
 	if (File == nullptr)
-		Stale("missing; record the corpus again");
+		Stale("missing; the corpus is frozen: regenerated only from the tag layout-frozen-final");
 	uint8_t Buffer[1 << 16];
 	size_t Read;
 	while ((Read = fread(Buffer, 1, sizeof(Buffer), File)) != 0)
@@ -680,10 +481,10 @@ uint32_t BeginReplay(const std::string &Directory, const char *Executable, const
 	uint32_t Format = (uint32_t)GetFixed(4);
 	if (Format != GOLDEN_FORMAT)
 		Stale("format " + std::to_string(Format) + ", the runner reads format " + std::to_string(GOLDEN_FORMAT)
-			+ "; record the corpus again");
+			+ "; the corpus is frozen: regenerated only from the tag layout-frozen-final");
 	std::string Digest = Hex(GetBlock(32), 32);
 	if (Digest != TIBIA_SHA256)
-		Stale("recorded from another Tibia.exe (sha256 " + Digest + "); record the corpus again");
+		Stale("recorded from another Tibia.exe (sha256 " + Digest + "); the corpus is frozen: regenerated only from the tag layout-frozen-final");
 	uint32_t Seed = (uint32_t)GetFixed(4);
 	size_t Length = (size_t)GetFixed(2);
 	std::string Name((const char *)GetBlock(Length), Length);
@@ -715,15 +516,8 @@ void EndReplay(int Checks)
 
 bool RetiredBegin(const char *Name, int Checks)
 {
+	(void)Checks; // the recorder's (the part's checks at its start; the oracle's, until issue #94)
 	InputBytes("retired", Name, strlen(Name));
-	if (CurrentMode == TMode::Record) {
-		if (Recorder->InRetired)
-			Fail(std::string("retired part \"") + Name + "\" inside another");
-		Recorder->InRetired = true;
-		Recorder->RetiredChecks = Checks;
-		Recorder->RetiredRecords = Recorder->Records;
-		return false;
-	}
 	if (CurrentMode != TMode::Replay)
 		return false;
 	// The part's values, up to its "retired end": skipped by their sizes (a value's name is checked, not
@@ -765,30 +559,20 @@ bool RetiredBegin(const char *Name, int Checks)
 
 void RetiredEnd(int Checks)
 {
-	if (CurrentMode != TMode::Record)
-		return; // the runner read the end in RetiredBegin
-	if (!Recorder->InRetired)
-		Fail("a retired part's end without its start");
-	Recorder->InRetired = false;
-	int64_t End[2] = {Checks - Recorder->RetiredChecks, Recorder->Records - Recorder->RetiredRecords};
-	Output("retired end", End);
+	(void)Checks; // the runner read the end in RetiredBegin (the recorder wrote it here until issue #94)
 }
 
 long long RetiredChecks() { return TotalRetired; }
 
 void Exchange(const char *Name, char Role, char Type, size_t ElementSize, size_t Count, void *Data)
 {
-	if (CurrentMode == TMode::Record)
-		Record(Name, Role, Type, ElementSize, Count, Data);
-	else if (CurrentMode == TMode::Replay)
+	if (CurrentMode == TMode::Replay)
 		Play(Name, Role, Type, ElementSize, Count, Data);
 }
 
 std::string OutputText(const char *Name, const char *Text)
 {
-	if (CurrentMode == TMode::Record)
-		Record(Name, 'O', 'b', 1, strlen(Text), Text);
-	else if (CurrentMode == TMode::Replay) {
+	if (CurrentMode == TMode::Replay) {
 		std::string Recorded;
 		Play(Name, 'O', 'b', 1, (size_t)-1, &Recorded);
 		return Recorded;
@@ -798,9 +582,7 @@ std::string OutputText(const char *Name, const char *Text)
 
 std::string OutputText(const char *Name, const char *Text, size_t Length)
 {
-	if (CurrentMode == TMode::Record)
-		Record(Name, 'O', 'b', 1, Length, Text);
-	else if (CurrentMode == TMode::Replay) {
+	if (CurrentMode == TMode::Replay) {
 		std::string Recorded;
 		Play(Name, 'O', 'b', 1, (size_t)-1, &Recorded);
 		return Recorded;
@@ -812,7 +594,7 @@ void OutputChanges(const char *Name, void *Last, const void *Value, size_t Size)
 {
 	uint8_t *Previous = (uint8_t *)Last;
 	uint32_t Span[2] = {0, 0};          // the first changed byte, the number of bytes from there to the last
-	if (CurrentMode != TMode::Replay) { // the oracle, recording or not
+	if (CurrentMode != TMode::Replay) { // without a corpus (TMode::Off): computed here
 		const uint8_t *Current = (const uint8_t *)Value;
 		size_t First = 0, End = Size;
 		while (First < Size && Previous[First] == Current[First])
@@ -837,7 +619,7 @@ void OutputRuns(const char *Name, void *Last, const void *Value, size_t Size)
 	uint8_t *Previous = (uint8_t *)Last;
 	std::vector<uint32_t> Runs; // offset, length
 	std::string Bytes;
-	if (CurrentMode != TMode::Replay) { // the oracle, recording or not
+	if (CurrentMode != TMode::Replay) { // without a corpus (TMode::Off): computed here
 		const uint8_t *Current = (const uint8_t *)Value;
 		size_t i = 0;
 		while (i < Size) {
@@ -880,7 +662,7 @@ void OutputRuns(const char *Name, void *Last, const void *Value, size_t Size)
 std::string OutputTextChanges(const char *Name, std::string *Last, const std::string &Text)
 {
 	uint32_t Span[3] = {0, 0, 0};       // the bytes kept from Last's start, from its end, the new text's length
-	if (CurrentMode != TMode::Replay) { // the oracle, recording or not
+	if (CurrentMode != TMode::Replay) { // without a corpus (TMode::Off): computed here
 		size_t Shorter = Text.size() < Last->size() ? Text.size() : Last->size(), Start = 0, End = 0;
 		while (Start < Shorter && Text[Start] == (*Last)[Start])
 			Start++;
@@ -905,18 +687,12 @@ std::string DataFile(const char *Name, const char *ExePath)
 {
 	std::string Path, Contents;
 	uint8_t Found = 0;
-	if (CurrentMode != TMode::Replay) { // the oracle, recording or not
+	if (CurrentMode != TMode::Replay) { // without a corpus (TMode::Off): computed here
 		Path = ExePath != nullptr ? ExePath : "";
 		size_t Slash = Path.find_last_of("\\/");
 		Path = (Slash == std::string::npos ? std::string() : Path.substr(0, Slash + 1)) + Name;
 		if (FILE *File = fopen(Path.c_str(), "rb")) {
 			Found = 1;
-			if (CurrentMode == TMode::Record) {
-				char Buffer[1 << 16];
-				size_t Read;
-				while ((Read = fread(Buffer, 1, sizeof(Buffer), File)) != 0)
-					Contents.append(Buffer, Read);
-			}
 			fclose(File);
 		}
 	}
@@ -926,8 +702,6 @@ std::string DataFile(const char *Name, const char *ExePath)
 	if (CurrentMode == TMode::Off)
 		return Path;
 	Contents = OutputText(Name, Contents.data(), Contents.size());
-	if (CurrentMode == TMode::Record)
-		return Path;
 	std::error_code Error;
 	std::filesystem::path Directory = std::filesystem::temp_directory_path(Error) / "golden-data";
 	std::filesystem::create_directories(Directory, Error);

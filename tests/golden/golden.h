@@ -1,20 +1,18 @@
 // The golden corpus (notes/modernization-plan.md, 4.3; issue #24): the original's inputs and outputs of
-// difftest's comparisons, by value, so that the comparisons can be replayed without Tibia.exe and on any
-// platform.
+// the 32-bit oracle's differential comparisons, by value, so that the comparisons are replayed without Tibia.exe and on
+// any platform.
 //
-// One source of every ported test (tests/golden/*_tests.cpp) is compiled twice:
-// - into the oracle-x86 test executables (difftest.exe, sysinctest.exe; GOLDEN_ORACLE defined), where
-//   the original's code runs inside ORIGINAL(...) and #if GOLDEN_ORACLE, and each of its results is
-//   passed through golden::Output, each generated input through golden::Input. With DIFFTEST_RECORD set
-//   they are written to the corpus; without it the calls do nothing;
-// - into the runner (tests/golden/runner.cpp, x64; GOLDEN_ORACLE 0), where ORIGINAL(...) is empty and
-//   golden::Output reads the original's result back from the corpus, golden::Input compares the input
-//   the test generated again with the recorded one.
-// The CHECK calls are the same in both, so the runner makes the same checks as difftest.
+// The ported tests (tests/golden/*_tests.cpp) were compiled twice until Patella-Modern issue #94: into the oracle's
+// test executables, where the original's code ran inside ORIGINAL(...) and each of its results was recorded, and
+// into the runner (tests/golden/runner.cpp), where ORIGINAL(...) is empty and golden::Output reads the original's
+// result back from the corpus, golden::Input compares the input the test generated again with the recorded one. The
+// oracle and its recorder left the fork with issue #94 (they are in upstream Patella and at the tag
+// layout-frozen-final, where the frozen corpus of issue #93 was recorded); the runner is what is left. The
+// ORIGINAL(...) arguments stay in the tests as the record of what the oracle's side ran.
 //
 // The format (version GOLDEN_FORMAT; little-endian, both targets are):
 //	<dir>/<executable>/manifest.tsv   text, one line per field (tab-separated):
-//	    format <version>, tibia_sha256 <hex>, executable <name>, then per test (difftest's order)
+//	    format <version>, tibia_sha256 <hex>, executable <name>, then per test (the recording's order)
 //	    test <name> <seed> <checks> <records>, and last total <checks> <failures>. It is written
 //	    after the last test, so a recording that did not finish has none.
 //	<dir>/<executable>/<test>.bin    per test with records: "PGLD", u32 version, the 32-byte SHA-256 of
@@ -40,26 +38,15 @@
 #include <type_traits>
 #include <vector>
 
-#ifndef GOLDEN_ORACLE
-#define GOLDEN_ORACLE 0
-#endif
-
-// The original's side of a comparison: compiled into the oracle only.
-// ORIGINAL_OR(Value, Otherwise): the original's value in the oracle, Otherwise in the runner.
-// ORIGINAL_VALUE(Name, Type, Expression...): the original's value of Expression, recorded by the oracle
-// and read back by the runner (golden::Recorded); ORIGINAL_TEXT(Name, Expression...) the same for a text
-// that may be NULL (golden::TText).
-#if GOLDEN_ORACLE
-#define ORIGINAL(...) __VA_ARGS__
-#define ORIGINAL_OR(Value, Otherwise) (Value)
-#define ORIGINAL_VALUE(Name, Type, ...) golden::Recorded<Type>(Name, static_cast<Type>(__VA_ARGS__))
-#define ORIGINAL_TEXT(Name, ...) golden::RecordedText(Name, __VA_ARGS__)
-#else
+// The original's side of a comparison: the oracle compiled it (until issue #94), the runner has none.
+// ORIGINAL_OR(Value, Otherwise): Otherwise (the oracle's was Value).
+// ORIGINAL_VALUE(Name, Type, Expression...): the original's value of Expression, as the oracle recorded it, read
+// back from the corpus (golden::Recorded); ORIGINAL_TEXT(Name, Expression...) the same for a text that may be NULL
+// (golden::TText).
 #define ORIGINAL(...) ((void)0)
 #define ORIGINAL_OR(Value, Otherwise) (Otherwise)
 #define ORIGINAL_VALUE(Name, Type, ...) golden::Recorded<Type>(Name, Type{})
 #define ORIGINAL_TEXT(Name, ...) golden::RecordedText(Name, nullptr)
-#endif
 
 namespace golden {
 
@@ -68,17 +55,11 @@ const uint32_t GOLDEN_FORMAT = 2;
 // CLAUDE.md: Tibia.exe 7.72 of 2006-06-08.
 const char *const TIBIA_SHA256 = "1a82fe97a39e536c29327d6d5dde316775f537dcc01506831429b1a0433b76f8";
 
+// Off: no corpus (the tests run our side alone); Replay: a test of the corpus is replayed. (Record was the oracle's
+// recorder, until issue #94.)
 enum class TMode { Off,
-	Record,
 	Replay };
 TMode Mode();
-
-// The recorder (the oracle's test executables). StartRecording reads DIFFTEST_RECORD (the corpus
-// directory); without it nothing is recorded. It removes the executable's earlier recording.
-void StartRecording(const char *Executable, const char *TibiaPath);
-void BeginTest(const char *Test, uint32_t Seed, int Checks);
-void EndTest(int Checks);
-void FinishRecording(int Checks, int Failures);
 
 // The replayer (the runner). A failure to read or a stale corpus throws TStale.
 struct TStale {

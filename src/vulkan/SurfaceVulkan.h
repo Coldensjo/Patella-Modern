@@ -6,7 +6,7 @@
 // same colour fills, uploads, colour key and light, and the same statistics. Instead of Direct3D 9 it
 // drives the Vulkan back end (Renderer.h); the display modes come from EnumDisplaySettings, in the order
 // and with the filter DirectDraw 4 gave surfaceDX9.cpp (issue #20). Windows x64 client only
-// (cmake/Vulkan.cmake); the oracle-x86 build never compiles it.
+// (cmake/Vulkan.cmake).
 //
 // The engine is the x64 client's only engine, curEngine 2 (DirectX 9 in the original and in the oracle;
 // Surface.cpp; notes/vulkan.md, "Choosing the engine"). Its device is the graphics device choice of

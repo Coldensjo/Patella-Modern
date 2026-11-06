@@ -44,11 +44,7 @@
 #include "elementfakes.h"
 #include "golden_eh.h"
 #include "testsurface.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 
 #include "Communication.h"
 #include "ConsoleWindow.h"
@@ -77,36 +73,6 @@
 #include <string>
 #include <vector>
 
-#if GOLDEN_ORACLE
-static_assert(sizeof(THelpBubble) == 0x30, "THelpBubble is 0x30 bytes");
-static_assert(offsetof(THelpBubble, Text) == 0x2c, "THelpBubble::Text at +0x2c");
-static_assert(sizeof(TContextMenuEntry) == 0x74, "TContextMenuEntry is 0x74 bytes");
-static_assert(offsetof(TContextMenuEntry, Text) == 0x24, "TContextMenuEntry::Text at +0x24");
-static_assert(offsetof(TContextMenuEntry, Shortcut) == 0x56, "TContextMenuEntry::Shortcut at +0x56");
-static_assert(offsetof(TContextMenuEntry, Callback) == 0x6c, "TContextMenuEntry::Callback at +0x6c");
-static_assert(sizeof(TContextMenu) == 0x34, "TContextMenu is 0x34 bytes");
-static_assert(offsetof(TContextMenu, EntryWidth) == 0x2c, "TContextMenu::EntryWidth at +0x2c");
-static_assert(offsetof(TContextMenu, Empty) == 0x31, "TContextMenu::Empty at +0x31");
-static_assert(sizeof(TObjectContextMenu) == 0x70, "TObjectContextMenu is 0x70 bytes");
-static_assert(offsetof(TObjectContextMenu, LookedObjectX) == 0x44, "LookedObjectX at +0x44");
-static_assert(offsetof(TObjectContextMenu, UsedObject) == 0x50, "UsedObject at +0x50");
-static_assert(offsetof(TObjectContextMenu, CreatureID) == 0x6c, "TObjectContextMenu::CreatureID at +0x6c");
-static_assert(sizeof(TCreatureContextMenu) == 0x38, "TCreatureContextMenu is 0x38 bytes");
-static_assert(sizeof(TBuddyContextMenu) == 0x38, "TBuddyContextMenu is 0x38 bytes");
-static_assert(sizeof(TTextContextMenu) == 0x3c, "TTextContextMenu is 0x3c bytes");
-static_assert(sizeof(TRequestContextMenu) == 0x3c, "TRequestContextMenu is 0x3c bytes");
-static_assert(sizeof(TChannelContextMenu) == 0x3c, "TChannelContextMenu is 0x3c bytes");
-static_assert(offsetof(TChannelContextMenu, ShowServerMessages) == 0x38, "ShowServerMessages at +0x38");
-static_assert(sizeof(TEditContextMenu) == 0x38, "TEditContextMenu is 0x38 bytes");
-static_assert(sizeof(TMarkMenuData) == 0x80, "TMarkMenuData is 0x80 bytes");
-static_assert(sizeof(TMarkContextMenu) == 0xb4, "TMarkContextMenu is 0xb4 bytes");
-static_assert(sizeof(TSkillContextMenu) == 0x38, "TSkillContextMenu is 0x38 bytes");
-static_assert(offsetof(TFakeEditLine, Data5C) == 0x5c && offsetof(TFakeEditLine, Data66) == 0x66, "TEditLine layout");
-static_assert(offsetof(TTextWindow, TextBuffer) == 0x24, "TTextWindow::TextBuffer at +0x24");
-static_assert(offsetof(TSkillsWindowBody, ContextMenu) == 0x30, "TSkillsWindowBody::ContextMenu at +0x30");
-static_assert(sizeof(TFormattedText) == 0x38, "TFormattedText is 0x38 bytes");
-static_assert(sizeof(TSeparator) == 0x28, "TSeparator is 0x28 bytes");
-#endif
 
 // The test's own definitions: in a namespace of their own (the other window tests, linked into the same
 // executable, define classes of the same names at global scope).
@@ -117,7 +83,7 @@ namespace ContextMenusTest {
 enum { OURS = 0,
 	ORIGINAL = 1 };
 // The sides that have objects: both in the oracle, ours in the runner.
-static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
+static const int SIDES = 1; // ours alone (the oracle had the original's side too, until issue #94)
 static int Side;
 static std::string Log[2];
 
@@ -788,29 +754,6 @@ static void __cdecl FakeDrawPicturePart(int Surface, int x, int y, int PictureNu
 
 } // namespace ContextMenusTest
 
-#if GOLDEN_ORACLE
-// Communication.cpp is not in the test: our side's definitions of the Send
-// functions no other test defines (redirected to the fakes as well). The runner has them as stubs
-// (client_stubs.cpp) and redirects those.
-using namespace ContextMenusTest;
-void SendRotateObject(int x, int y, int z, int Type, int Position) { FakeSendRotateObject(x, y, z, Type, Position); }
-void SendOpenPrivateConversation(const char *Name) { FakeSendOpenPrivate(Name); }
-void SendProcessRuleViolation(const char *Name) { FakeSendProcess(Name); }
-void SendCloseRuleViolation(const char *Name) { FakeSendClose(Name); }
-void SendFollow(uint32 ID) { FakeSendFollow(ID); }
-void SendInviteToPrivateChannel(const char *Name) { FakeSendInvite(Name); }
-void SendExcludeFromPrivateChannel(const char *Name) { FakeSendExclude(Name); }
-void SendInviteToParty(uint32 ID) { FakeSendInviteToParty(ID); }
-void SendJoinParty(uint32 ID) { FakeSendJoinParty(ID); }
-void SendRevokePartyInvitation(uint32 ID) { FakeSendRevoke(ID); }
-void SendPassPartyLeadership(uint32 ID) { FakeSendPass(ID); }
-void SendLeaveParty() { FakeSendLeaveParty(); }
-void SendRequestOutfit() { FakeSendRequestOutfit(); }
-void SendAddBuddy(const char *Name) { FakeSendAddBuddy(Name); }
-void SendRemoveBuddy(uint32 ID) { FakeSendRemoveBuddy(ID); }
-// sysinc.cpp is in sysinctest.exe only.
-bool IsClipboardEmpty() { return FakeIsClipboardEmpty(); }
-#endif
 
 namespace ContextMenusTest {
 
@@ -824,32 +767,6 @@ public:
 static TMenuSurface *MenuSurface;
 static TSurface *__cdecl FakeGetSurface() { return MenuSurface; }
 
-#if GOLDEN_ORACLE
-// The image's clock and formatting (its CRT reaches Windows).
-static __time32_t __cdecl ImageTime(__time32_t *Time)
-{
-	if (Time != NULL)
-		*Time = 1700000000;
-	return 1700000000;
-}
-static tm *__cdecl ImageLocaltime(const __time32_t *Time) { return _localtime32(Time); }
-static int __cdecl ImageSprintf(char *Buffer, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = vsprintf(Buffer, Format, Args);
-	va_end(Args);
-	return Result;
-}
-static int __cdecl ImageSnprintf(char *Buffer, size_t Count, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = _vsnprintf(Buffer, Count, Format, Args);
-	va_end(Args);
-	return Result;
-}
-#endif
 
 // Patches that are undone at the end (later tests use these functions).
 struct TSaved {
@@ -864,43 +781,22 @@ static void Redirect(void *Function, void *Target)
 {
 	TSaved S;
 	S.Code = (uint8 *)Function;
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	memcpy(S.Bytes, Function, 5);
-	PatchJump((uint32)(uintptr_t)Function, Target);
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-#else
 	golden::SaveOwn(Function, S.Bytes);
 	golden::RedirectOwn(Function, Target);
-#endif
 	SavedCode.push_back(S);
 }
 
 static void RestoreAll()
 {
 	for (size_t i = SavedCode.size(); i-- > 0;) {
-#if GOLDEN_ORACLE
-		DWORD Protection;
-		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
-		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
-		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
-		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
-#else
 		golden::RestoreOwn(SavedCode[i].Code, SavedCode[i].Bytes);
-#endif
 	}
 	SavedCode.clear();
 }
 
 // Ours of the functions the oracle's difftest.exe defines in this file (the Send functions, IsClipboardEmpty):
 // NULL there, the runner's stubs (client_stubs.cpp) and sysinc.cpp's IsClipboardEmpty here.
-#if GOLDEN_ORACLE
-#define DEFINED_HERE(Function) NULL
-#else
 #define DEFINED_HERE(Function) ((void *)Function)
-#endif
 
 static void PatchCallees()
 {
@@ -1043,19 +939,6 @@ static const char *const KindNames[] = {"help", "object", "creature", "buddy", "
 [[maybe_unused]] static void *OurVtables[KINDS];
 static void *OurEntryVtable;
 
-#if GOLDEN_ORACLE
-typedef void *(__fastcall *HelpCtorFn)(void *, void *, const char *);
-typedef void *(__fastcall *ObjectCtorFn)(void *, void *, int, int, int, int);
-typedef void *(__fastcall *IDCtorFn)(void *, void *, uint32, int, int, int, int);
-typedef void *(__fastcall *LineCtorFn)(void *, void *, void *, int, int, int, int, int);
-typedef void *(__fastcall *PtrCtorFn)(void *, void *, void *, int, int, int, int);
-typedef void(__fastcall *PlaceFn)(void *, void *, TWindow *);
-typedef bool(__fastcall *FitsInFn)(void *, void *, int *, int *, int *, int *, TWindow *);
-typedef void(__fastcall *ShowFn)(void *, void *, int, int, int, int);
-typedef void(__fastcall *AddEntryFn)(void *, void *, int, const char *, const char *);
-typedef void(__fastcall *VoidFn)(void *, void *);
-typedef void *(__fastcall *BaseCtorFn)(void *, void *);
-#endif
 
 struct TArguments {
 	int Kind;
@@ -1105,38 +988,6 @@ static TWindow *Build(int s, TArguments &A)
 		return W;
 	}
 
-#if GOLDEN_ORACLE
-	switch (A.Kind) {
-	case KIND_HELP: W = (TWindow *)At<HelpCtorFn>(0x441d60)(M, NULL, A.HelpText); break;
-	case KIND_OBJECT: W = (TWindow *)At<ObjectCtorFn>(0x443130)(M, NULL, A.x, A.y, A.ParentWidth, A.ParentHeight); break;
-	case KIND_CREATURE:
-		W = (TWindow *)At<IDCtorFn>(0x443960)(M, NULL, A.ID, A.x, A.y, A.ParentWidth, A.ParentHeight);
-		break;
-	case KIND_BUDDY:
-		W = (TWindow *)At<IDCtorFn>(0x443e20)(M, NULL, A.ID, A.x, A.y, A.ParentWidth, A.ParentHeight);
-		break;
-	case KIND_TEXT:
-		W = (TWindow *)At<LineCtorFn>(0x444160)(M, NULL, TextWindow, A.LineNumber, A.x, A.y, A.ParentWidth,
-			A.ParentHeight);
-		break;
-	case KIND_REQUEST:
-		W = (TWindow *)At<LineCtorFn>(0x444720)(M, NULL, Console, A.LineNumber, A.x, A.y, A.ParentWidth,
-			A.ParentHeight);
-		break;
-	case KIND_CHANNEL:
-		W = (TWindow *)At<PtrCtorFn>(0x444a70)(M, NULL, Console, A.x, A.y, A.ParentWidth, A.ParentHeight);
-		break;
-	case KIND_EDIT: W = (TWindow *)At<PtrCtorFn>(0x444eb0)(M, NULL, Edit, A.x, A.y, A.ParentWidth, A.ParentHeight); break;
-	case KIND_MARK:
-		W = (TWindow *)At<PtrCtorFn>(0x4451e0)(M, NULL, new TMarkMenuData(A.Data), A.x, A.y, A.ParentWidth,
-			A.ParentHeight);
-		break;
-	case KIND_SKILL:
-		W = (TWindow *)At<PtrCtorFn>(0x4454f0)(M, NULL, SkillsWindow[s], A.x, A.y, A.ParentWidth, A.ParentHeight);
-		break;
-	}
-	SwapSeparators(s, W);
-#endif
 	return W;
 }
 
@@ -1272,11 +1123,7 @@ static bool OriginalWindow() { return ORIGINAL_VALUE("original window", bool, Wi
 static std::string LastDump;
 static std::string OriginalDump()
 {
-#if GOLDEN_ORACLE
-	std::string Text = Dump(ORIGINAL);
-#else
 	std::string Text;
-#endif
 	return golden::OutputTextChanges("dump", &LastDump, Text);
 }
 

@@ -15,18 +15,6 @@
 #include <string.h>
 #include <string>
 
-#if GOLDEN_ORACLE
-// The original atol needs the locale data of its uninitialised CRT.
-static long __cdecl ImageAtol(const char *Text) { return atol(Text); }
-
-typedef void(__fastcall *VectorCtorFn)(void *This, void *, int Min, int Max, int Block);
-typedef void(__fastcall *VectorInitCtorFn)(void *This, void *, int Min, int Max, int Block, int Init);
-
-typedef void(__cdecl *SetBoolFn)(bool);
-typedef bool(__cdecl *GetBoolFn)();
-typedef void(__cdecl *SetIntFn)(int);
-typedef int(__cdecl *GetIntFn)();
-#endif
 
 namespace {
 
@@ -118,9 +106,6 @@ void CheckAllOptions(const char *When)
 
 void CheckLists(const char *When)
 {
-#if GOLDEN_ORACLE
-	typedef int(__cdecl * ListFn)(int **);
-#endif
 	struct {
 		uint32 Original;
 		int (*Ours)(int **);
@@ -317,18 +302,6 @@ void TestPreferences()
 // Runs after TestScript: uses its stdio redirection (PatchScript). Only valid
 // files are generated; a parse error would throw inside the original.
 
-#if GOLDEN_ORACLE
-static void __cdecl ImageFree2(void *Block) { free(Block); }
-static char *__cdecl ImageStrtok(char *Text, const char *Delimiters) { return strtok(Text, Delimiters); }
-static int __cdecl ImageSnprintf(char *Buffer, size_t Count, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = _vsnprintf(Buffer, Count, Format, Args);
-	va_end(Args);
-	return Result;
-}
-#endif
 
 namespace {
 
@@ -351,13 +324,6 @@ std::string OriginalFile(const char *Name, bool *Exists, [[maybe_unused]] uint32
 {
 	std::string Text;
 	uint8 Have = 0;
-#if GOLDEN_ORACLE
-	At<void(__cdecl *)()>(Save)();
-	bool Found;
-	Text = ReadWholeFile("Tibia.cfg", &Found);
-	remove("Tibia.cfg");
-	Have = Found;
-#endif
 	golden::Output(Name, Have);
 	*Exists = Have != 0;
 	return golden::OutputText(Name, Text.data(), Text.size());
@@ -552,12 +518,6 @@ void TestPreferencesFile()
 	ORIGINAL(PatchJump(0x513544, (void *)ImageStrtok));
 	ORIGINAL(PatchJump(0x51233d, (void *)ImageSnprintf));
 	// The original's Talk filter lists (static initialisers, see talk_tests.cpp).
-#if GOLDEN_ORACLE
-	for (uint32 Address : {0x71ef70u, 0x71ef90u, 0x71efb0u, 0x71efd0u})
-		if (Global<void *>(Address + 28) == NULL)
-			At<VectorInitCtorFn>(0x4fd6e0)((void *)(uintptr_t)Address, NULL, 0, Address == 0x71efd0 ? 4 : 9,
-				Address == 0x71efd0 ? 5 : 10, 0);
-#endif
 	char OldDirectory[MAX_PATH], Help[MAX_PATH];
 	GetCurrentDirectoryA(MAX_PATH, OldDirectory);
 	GetTempPathA(MAX_PATH, Help);

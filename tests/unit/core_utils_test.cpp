@@ -1,5 +1,5 @@
 // Utils (src/Utils.cpp) and TMyException's messages: the Latin-1 helpers, the outfit colours, the
-// packet buffers. The expected values are the reconstructed code's, which the oracle's difftest compares
+// packet buffers. The expected values are the reconstructed code's, which the oracle's tests compared
 // with Tibia.exe; here they show that the 64-bit builds and the Linux compilers give the same.
 
 #include <doctest/doctest.h>

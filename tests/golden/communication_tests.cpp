@@ -35,9 +35,7 @@
 
 #include "commworld.h"
 #include "commseeds.h"
-#if !GOLDEN_ORACLE
 #include "golden_patch.h"
-#endif
 
 #include "compat/mfc_shim.h"
 #include "Communication.h"
@@ -52,70 +50,6 @@
 // (The runner has them: status_tests.cpp's PatchImage, network_tests.cpp's CAsyncSocket and AfxSocketInit,
 // mainfrm_tests.cpp's MainFrm.cpp.)
 
-#if GOLDEN_ORACLE
-// imageeh.cpp's EnableImageExceptions calls it (tests/golden/status_tests.cpp's in difftest.exe):
-// the image's malloc and free are ours.
-static void *__cdecl CommImageMalloc(size_t Size) { return malloc(Size); }
-static void __cdecl CommImageFree(void *Block) { free(Block); }
-void PatchImage()
-{
-	static bool Done = false;
-	if (Done)
-		return;
-	Done = true;
-	PatchJump(0x512d18, (void *)CommImageMalloc);
-	PatchJump(0x51165d, (void *)CommImageFree);
-}
-
-// Network.cpp's socket is MFC's CAsyncSocket, which the shim only declares:
-// nothing in the test opens a socket (Network.cpp's connecting functions are
-// faked).
-static void SocketTrap(const char *Name)
-{
-	printf("crash: communicationtest: CAsyncSocket::%s called\n", Name);
-	fflush(stdout);
-	abort();
-}
-CAsyncSocket::CAsyncSocket() { m_hSocket = INVALID_SOCKET; }
-CAsyncSocket::~CAsyncSocket() {}
-BOOL CAsyncSocket::Create(UINT, int, long, LPCTSTR)
-{
-	SocketTrap("Create");
-	return FALSE;
-}
-BOOL CAsyncSocket::Connect(LPCTSTR, UINT)
-{
-	SocketTrap("Connect");
-	return FALSE;
-}
-void CAsyncSocket::Close() { SocketTrap("Close"); }
-int CAsyncSocket::Receive(void *, int, int)
-{
-	SocketTrap("Receive");
-	return 0;
-}
-int CAsyncSocket::Send(const void *, int, int)
-{
-	SocketTrap("Send");
-	return 0;
-}
-void CAsyncSocket::OnReceive(int) {}
-void CAsyncSocket::OnSend(int) {}
-void CAsyncSocket::OnOutOfBandData(int) {}
-void CAsyncSocket::OnAccept(int) {}
-void CAsyncSocket::OnConnect(int) {}
-void CAsyncSocket::OnClose(int) {}
-BOOL AfxSocketInit(WSADATA *)
-{
-	SocketTrap("AfxSocketInit");
-	return FALSE;
-}
-
-// MainFrm.cpp's globals (MainFrm.cpp and Player.cpp are not linked: MFC's
-// frame window and application classes, which the shim only declares).
-std::array<uint8, 16> PacketHeader;
-bool DisplayChanged;
-#endif
 
 // --- Control.cpp's functions that ReceivePackets calls -----------------------
 
@@ -652,9 +586,6 @@ static void Mutate(std::vector<uint8> &Frame, bool Login, bool Patch)
 
 // --- Rounds ------------------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *TVoid)();
-#endif
 static int Covered[2][256]; // [login][type]: frames that started with the type
 
 // Runs the frames through both sides' ReceivePackets in a connection state.
@@ -839,26 +770,6 @@ static void SetRand(uint32 Seed)
 	CommRandState(IMAGE, Seed);
 }
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *TSendI)(int);
-typedef void(__cdecl *TSendU)(uint32);
-typedef void(__cdecl *TSendS)(const char *);
-typedef void(__cdecl *TSendIS)(int, const char *);
-typedef void(__cdecl *TSendISS)(int, const char *, const char *);
-typedef void(__cdecl *TSendIIS)(int, int, const char *);
-typedef void(__cdecl *TSendUS)(uint32, const char *);
-typedef void(__cdecl *TSendUSS)(uint32, const char *, const char *);
-typedef void(__cdecl *TSendIUS)(int, uint32, const char *);
-typedef void(__cdecl *TSendII)(int, int);
-typedef void(__cdecl *TSendIII)(int, int, int);
-typedef void(__cdecl *TSend5)(int, int, int, int, int);
-typedef void(__cdecl *TSend6)(int, int, int, int, int, int);
-typedef void(__cdecl *TSend6U)(int, int, int, int, int, uint32);
-typedef void(__cdecl *TSend9)(int, int, int, int, int, int, int, int, int);
-typedef void(__cdecl *TSend10)(int, int, int, int, int, int, int, int, int, int);
-typedef void(__cdecl *TSendOutfit)(int, const int *);
-typedef void(__cdecl *TSendReport)(const char *, uint8, uint8, const char *, uint32, bool);
-#endif
 
 static int Coordinate()
 {
@@ -984,12 +895,6 @@ static void CallSenders(const char *Round, bool Valid)
 
 // --- The readers -------------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef uint32(__cdecl *TReadCreature)(int, int, int, int);
-typedef void(__cdecl *TReadField)(int, int, int);
-typedef void(__cdecl *TReadMap)(int, int, int, int);
-typedef void(__cdecl *TReadFloor)(int);
-#endif
 
 static void TestReaders(int Rounds)
 {
@@ -1045,10 +950,6 @@ static void GOLDEN_THISCALL F_Encrypt(GOLDEN_THIS, uint8 *)
 	Call("TRSA::Encrypt()");
 	if (RsaFailure == 2)
 		RaiseException(0xe0525341, 0, 0, NULL);
-#if GOLDEN_ORACLE
-	if (Side == IMAGE)
-		At<void(__stdcall *)(void *, void *)>(0x511d2b)(&RsaMessage, (void *)(uintptr_t)0x5bb5d0);
-#endif
 	throw RsaMessage;
 }
 static const TFake RsaFakes[] = {
@@ -1276,9 +1177,7 @@ void TestCommunication(const char *ExePath)
 	// calls are compared by controltest.cpp). Compared here by its code, a
 	// single ret, before the fakes are installed.
 	// The runner: on x64 too a single ret (C3; C2 00 00 is ret 0), as nothing of ours is redirected yet.
-#if !GOLDEN_ORACLE
 	golden::RestoreAllOwn();
-#endif
 	const uint8 *Ours = (const uint8 *)(void *)&ExitCommunication; // ret or ret 0
 	const int Original = ORIGINAL_VALUE("0x496160", int, *(const uint8 *)(uintptr_t)0x496160);
 	// Linux with the sanitizers' frame pointers (linux-x64-clang, -fno-omit-frame-pointer; issue #91): the empty

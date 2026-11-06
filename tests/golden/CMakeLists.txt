@@ -1,17 +1,17 @@
 # The golden corpus's runner (notes/modernization-plan.md, 4.3; issue #24): golden_runner replays the
-# corpus that the oracle-x86 preset's golden_corpus target records (tests/golden/golden.h), against this
-# build's code and without Tibia.exe: on Windows x64 with MSVC (plan M2) and, since issue #91 (plan M6), on Linux x64
+# frozen corpus (tests/golden/golden.h; recorded by the 32-bit oracle until Patella-Modern issue #94, frozen since
+# issue #93), against this build's code and without Tibia.exe: on Windows x64 with MSVC (plan M2) and, since issue #91 (plan M6), on Linux x64
 # with GCC and Clang (linux-x64-gcc, linux-x64-clang), where tests/golden/linux stands in for the Windows API and
 # MFC parts the client's code and the tests use (tests/golden/linux/README.md).
 #
-# CTest test golden: the corpus in PATELLA_GOLDEN_DIR (default build/golden of the source tree, where
-# golden_corpus records it). Without a corpus (hosted CI: it is derived from Tibia.exe and never leaves
+# CTest test golden: the corpus in PATELLA_GOLDEN_DIR (default build/golden of the source tree, where the
+# frozen corpus is kept). Without a corpus (hosted CI: it is derived from Tibia.exe and never leaves
 # the recording machine) the runner says so and the test is skipped (exit code 77); with
 # PATELLA_GOLDEN_REQUIRE=ON (the self-hosted workflow) a missing corpus fails it.
 #
 # The ported tests (core_tests.cpp, regexp_tests.cpp, sysinc_tests.cpp, and since issue #26 the
-# *_tests.cpp of the client's code) are the oracle's difftest and sysinctest sources as well
-# (cmake/OracleX86.cmake); here they see no original (GOLDEN_ORACLE unset).
+# *_tests.cpp of the client's code) were the oracle's test programs' sources as well until issue #94, which
+# removed their original's side; here they see no original.
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
 	return()
@@ -35,11 +35,11 @@ else()
 	set(golden_dir_default "${PROJECT_SOURCE_DIR}/build/golden")
 endif()
 set(PATELLA_GOLDEN_DIR "${golden_dir_default}" CACHE PATH
-	"The golden corpus that the CTest test golden replays (recorded by oracle-x86's golden_corpus; local only)")
+	"The golden corpus that the CTest test golden replays (frozen since issue #93; local only)")
 option(PATELLA_GOLDEN_REQUIRE "The CTest test golden fails instead of being skipped when there is no corpus" OFF)
 
 # The client's code the ported tests call (issue #26) is not portable yet either: compiled against
-# src/compat/mfc_shim.h, as the oracle's difftest compiles it, with the product's settings. The real
+# src/compat/mfc_shim.h, as the oracle's test programs compiled it, with the product's settings. The real
 # MFC headers switch C4201 (nameless struct/union, graphics.h) off for every file that includes them
 # (afx.h); the shim does not, so the files that include graphics.h get the same switch here.
 # On Linux (issue #91) the Windows headers the shim includes are tests/golden/linux's (windows.h, winsock2.h: the
@@ -53,15 +53,15 @@ set(golden_linux_dir "${CMAKE_CURRENT_SOURCE_DIR}/linux")
 # original's code and the tests' ways with it give where MSVC gives none (golden_linux_warnings, after -Wall on each
 # source: Clang takes the last of two options, GCC the explicit one). notes/decisions.md, "The golden corpus on
 # Linux (issue #91)".
-# - -fno-strict-aliasing: the tests read our objects, vtables and member pointers through other types (as difftest
-#   does); MSVC never optimises on the aliasing rules.
+# - -fno-strict-aliasing: the tests read our objects, vtables and member pointers through other types (as the oracle's
+#   tests did); MSVC never optimises on the aliasing rules.
 # - -fno-delete-null-pointer-checks: the MFC shim's GetSafeHwnd compares this with nullptr, as MFC's does, and MSVC
 #   keeps the comparison; GCC and Clang warn about it (-Wno-nonnull-compare, -Wno-tautological-undefined-compare).
 # - -fwrapv: the error rounds give the code extreme sizes and positions (INT_MAX), whose sums the original and MSVC's
 #   code wrap around (TWindow::FitToChild, GUI.cpp); GCC and Clang assume a signed int never overflows, and UBSan
 #   reports it (signed-integer-overflow, which -fwrapv makes defined).
 # - With UBSan (linux-x64-clang): -fno-sanitize=vptr,object-size. The window tests put objects of their own (fakes,
-#   throwers, stand-ins smaller than the real class) where our code expects its classes, as difftest does: our code
+#   throwers, stand-ins smaller than the real class) where our code expects its classes, as the oracle's did: our code
 #   calls them through pointers of our types, whose dynamic type is not the static one. UBSan's checks of the dynamic
 #   type and of the object's size report each such call and cast; its other checks stay.
 # - GCC: -fno-lifetime-dse: the tests fill memory with a pattern before they construct an object in it, to compare
@@ -73,7 +73,7 @@ set(golden_linux_dir "${CMAKE_CURRENT_SOURCE_DIR}/linux")
 # - -Wno-overloaded-virtual: the original's classes hide virtual functions of their bases (DialogElements.h).
 # - -Wno-delete-non-virtual-dtor (Clang also -Wno-delete-non-abstract-non-virtual-dtor): the tests' buffers, and
 #   Talk.cpp's TTalkBuffer, are polymorphic classes without a virtual destructor, deleted through their own type.
-# - GCC: -Wno-class-memaccess (the tests clear and copy our objects with memset and memcpy, as difftest does),
+# - GCC: -Wno-class-memaccess (the tests clear and copy our objects with memset and memcpy, as the oracle's did),
 #   -Wno-stringop-truncation (the original's strncpy to the whole buffer, Status.cpp and Script.cpp) and
 #   -Wno-mismatched-new-delete (commworld.cpp's windows keep their memory in a class operator delete of their own).
 # - Clang: -Wno-non-pod-varargs: TMultiStateButton's constructor takes its callbacks (TCallback, trivially copyable
@@ -126,7 +126,7 @@ function(golden_client_settings target)
 endfunction()
 
 # sysinc.cpp is not portable yet (the clipboard, timeGetTime): compiled against src/compat/mfc_shim.h,
-# as the oracle's sysinctest compiles it. The oracle keeps it out of difftest.exe, whose tests define
+# as the oracle's sysinctest compiled it. The oracle kept it out of its main test program, whose tests define
 # GetMilliseconds, RemoveFile, SetClipboardText and FileExists as recorders (status_tests.cpp,
 # script_tests.cpp); the runner has both in one program, so sysinc.cpp's four are renamed here.
 add_library(golden_sysinc OBJECT "${PROJECT_SOURCE_DIR}/src/sysinc.cpp")
@@ -134,12 +134,12 @@ golden_client_settings(golden_sysinc)
 target_compile_definitions(golden_sysinc PRIVATE GetMilliseconds=SysincGetMilliseconds RemoveFile=SysincRemoveFile
 	SetClipboardText=SysincSetClipboardText FileExists=SysincFileExists)
 
-# The reconstructed files the ported tests compare (difftest.exe links them all; these are the ones
+# The reconstructed files the ported tests compare (the oracle's main test program linked them all; these are the ones
 # the ported tests call, and the ones that are called from them on the paths the tests run), with
 # PATELLA_VULKAN as Patella.exe has it (only Surface.cpp differs: the Vulkan engine as its only engine);
 # client_stubs.cpp has the functions of the other files, which the tests never call. Since issue #28
 # graphics.cpp, GUI.cpp and every window file (the classes the window tests build and the files Errors,
-# MapWindow, MainWindow, Communication and Control reach) are here too, as in difftest.exe; the stubs are the
+# MapWindow, MainWindow, Communication and Control reach) are here too, as in the oracle; the stubs are the
 # files below them (Communication.cpp's Send functions, Control.cpp, the Vulkan engine). MainFrm.cpp and
 # Network.cpp are compiled into their tests (mainfrm_tests.cpp, network_tests.cpp, as in the oracle: the
 # tests read their statics).

@@ -1,9 +1,9 @@
 // format.h: C++20's std::format_to_n for the code that formats into fixed buffers (types/FixedString.h), and a
-// C++17 stand-in for the oracle-x86 preset, which compiles with /std:c++17 until M6 (notes/modernization-plan.md,
-// section 5: the oracle keeps its flags). Patella-Modern issue #57. Not part of the original source.
+// C++17 stand-in, written for the 32-bit oracle's /std:c++17 (which left the fork with issue #94) and kept for the
+// libraries without std::format and tests/unit's stand-in build. Patella-Modern issue #57. Not part of the original.
 //
 // After this header PATELLA_HAS_FORMAT is 1 where the library has std::format (the product presets: MSVC
-// /std:c++latest, GCC 16, Clang 22) and 0 elsewhere (the oracle's C++17) or with PATELLA_FORMAT_STANDIN, which
+// /std:c++latest, GCC 16, Clang 22) and 0 elsewhere (a C++17 library) or with PATELLA_FORMAT_STANDIN, which
 // tests/unit's stand-in build defines for a whole target (never for one file), so that the stand-in runs the
 // tests std::format passes, on the same compiler.
 //

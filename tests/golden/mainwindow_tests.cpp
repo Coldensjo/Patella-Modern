@@ -40,11 +40,7 @@
 #include "elementfakes.h"
 #include "golden_eh.h"
 #include "testsurface.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 
 #include "Communication.h"
 #include "ConsoleWindow.h"
@@ -74,21 +70,6 @@
 #include <string>
 #include <vector>
 
-#if GOLDEN_ORACLE
-static_assert(sizeof(TMainWindow) == 0x4c, "TMainWindow is 0x4c bytes");
-static_assert(sizeof(TStartWindow) == 0x30, "TStartWindow is 0x30 bytes");
-static_assert(sizeof(TSplitter) == 0x30, "TSplitter is 0x30 bytes");
-static_assert(offsetof(TMainWindow, MapFrame) == 0x2c, "TMainWindow::MapFrame at +0x2c");
-static_assert(offsetof(TMainWindow, InGame) == 0x48, "TMainWindow::InGame at +0x48");
-static_assert(offsetof(TSplitter, DragY) == 0x2c, "TSplitter::DragY at +0x2c");
-static_assert(sizeof(TConsoleWindow) == 0x6c, "TConsoleWindow is 0x6c bytes");
-static_assert(sizeof(TBorder) == 0x68, "TBorder is 0x68 bytes");
-static_assert(sizeof(TTextButton) == 0x78, "TTextButton is 0x78 bytes");
-static_assert(sizeof(TLabel) == 0x4c, "TLabel is 0x4c bytes");
-static_assert(sizeof(TObjectIcon) == 0x50, "TObjectIcon is 0x50 bytes");
-static_assert(sizeof(TAutomapWindow) == 0x80 && sizeof(TStatusWindow) == 0x4c && sizeof(TButtonsWindow) == 0x58,
-	"side-bar window sizes");
-#endif
 
 // The test's own definitions: in a namespace of their own (the other window tests, linked into the same
 // executable, define classes of the same names at global scope). The fakes' members (elementfakes.h's
@@ -98,7 +79,7 @@ namespace MainWindowTest {
 enum { OURS = 0,
 	ORIGINAL = 1 };
 // The sides that have objects: both in the oracle, ours in the runner.
-static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
+static const int SIDES = 1; // ours alone (the oracle had the original's side too, until issue #94)
 static int Side;
 static bool Quiet;
 static bool Running; // the shared fakes (TTextButton, TLabel, TObjectIcon) register only while this test runs
@@ -137,30 +118,17 @@ static void Logf(const char *Format, ...)
 // own with golden::RedirectOwn).
 static void PatchOwn(void *Function, void *Target)
 {
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	PatchJump((uint32)(uintptr_t)Function, Target);
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-#else
 	golden::RedirectOwn(Function, Target);
-#endif
 }
 
 template <class T> static void *Member(T Function) { return *(void **)&Function; }
 static void *VtableOf(const void *Object) { return *(void **)Object; }
 static void SetVtable(void *Object, void *Vtable) { *(void **)Object = Vtable; }
 
-#if GOLDEN_ORACLE
-static TMainWindow *&OriginalMainWindow = Global<TMainWindow *>(0x5d16b0);
-static TWindow *&OriginalModalWindow = Global<TWindow *>(0x5d16ac);
-#else
 // The runner has no original: these are set as the oracle sets the image's globals, never read for the
 // original's side (which runs in the oracle only).
 static TMainWindow *OriginalMainWindow;
 static TWindow *OriginalModalWindow;
-#endif
 static TMainWindow *Main(int s) { return s == OURS ? MainWindow : OriginalMainWindow; }
 
 // --- Objects: names and serial numbers -----------------------------------------
@@ -311,12 +279,10 @@ public:
 	}
 	void Draw(int Surface, int x, int y) { Logf("DFrame%d,%d,%d;", Surface, x, y); }
 	void Arrange() { Logf("AFrame;"); }
-#if !GOLDEN_ORACLE
 	// The objects with this vtable are our TMapFrames (ChangeMode's new TMapFrame, larger than this class): the
 	// deleting destructor frees them without a size, so ASan's sized delete sees no mismatch (issue #65; until then
 	// dialogwindow_tests.cpp's operator delete, the runner's for every test, took no size).
 	static void operator delete(void *Memory) { ::operator delete(Memory); }
-#endif
 };
 
 static void *FakeConsoleVtable, *FakeBorderVtable, *FakeButtonVtable, *FakeMapFrameVtable;
@@ -344,9 +310,7 @@ using namespace MainWindowTest;
 #if defined(_MSC_VER)
 extern "C" void OurConsoleConstructor();
 #endif
-#if GOLDEN_ORACLE
-#pragma comment(linker, "/alternatename:_OurConsoleConstructor=??0TConsoleWindow@@QAE@XZ")
-#elif defined(_MSC_VER)
+#if defined(_MSC_VER)
 #pragma comment(linker, "/alternatename:OurConsoleConstructor=??0TConsoleWindow@@QEAA@XZ")
 #else
 GOLDEN_SYMBOL(OurConsoleConstructor, "_ZN14TConsoleWindowC1Ev");
@@ -366,11 +330,6 @@ static void HookSetSkins(TSkinButton *Button, int ButtonUp, int ButtonDown)
 	Logf("Skins%s,%d,%d;", Name(Button).c_str(), ButtonUp, ButtonDown);
 }
 
-#if GOLDEN_ORACLE
-typedef void *(__fastcall *ContentCtorFn)(void *, void *, int, bool);
-typedef void *(__fastcall *SubCtorFn)(void *, void *, int, TSubWindowBody *, bool, bool);
-typedef TContentWindow *(__fastcall *FindFn)(void *, void *, int);
-#endif
 
 // A content window as the ContentWindows.cpp creators return them: the
 // image's or our class (per side), sized to the side bar. The inventory
@@ -383,12 +342,7 @@ static TWindow *NewSubWindow(int Identifier)
 		if (Side == OURS) {
 			Window = new TContentWindow(Identifier, true);
 		} else {
-#if GOLDEN_ORACLE
-			void *Memory = operator new(sizeof(TContentWindow));
-			Window = (TContentWindow *)At<ContentCtorFn>(0x4854c0)(Memory, NULL, Identifier, true);
-#else
 			abort(); // (the original's side: the oracle only)
-#endif
 		}
 		Register(Window, "CW", Identifier);
 		Window->SetSize(SkinProperties.Data184, Height);
@@ -402,11 +356,7 @@ static TWindow *NewSubWindow(int Identifier)
 	if (Side == OURS)
 		Window = new (Memory) TSubWindow(Identifier, Body, false, Identifier % 2 != 0);
 	else {
-#if GOLDEN_ORACLE
-		Window = (TSubWindow *)At<SubCtorFn>(0x487e80)(Memory, NULL, Identifier, Body, false, Identifier % 2 != 0);
-#else
 		abort(); // (the original's side: the oracle only)
-#endif
 	}
 	Register(Window, "Sub", Identifier);
 	Window->SetSize(SkinProperties.Data184, Height);
@@ -478,11 +428,7 @@ extern "C" void OurAutomapConstructor();
 extern "C" void OurStatusConstructor();
 extern "C" void OurButtonsConstructor();
 #endif
-#if GOLDEN_ORACLE
-#pragma comment(linker, "/alternatename:_OurAutomapConstructor=??0TAutomapWindow@@QAE@XZ")
-#pragma comment(linker, "/alternatename:_OurStatusConstructor=??0TStatusWindow@@QAE@XZ")
-#pragma comment(linker, "/alternatename:_OurButtonsConstructor=??0TButtonsWindow@@QAE@PAVTDialogWindow@@PAVTMainWindow@@@Z")
-#elif defined(_MSC_VER)
+#if defined(_MSC_VER)
 #pragma comment(linker, "/alternatename:OurAutomapConstructor=??0TAutomapWindow@@QEAA@XZ")
 #pragma comment(linker, "/alternatename:OurStatusConstructor=??0TStatusWindow@@QEAA@XZ")
 #pragma comment(linker, "/alternatename:OurButtonsConstructor=??0TButtonsWindow@@QEAA@PEAVTDialogWindow@@PEAVTMainWindow@@@Z")
@@ -592,16 +538,6 @@ static void FakeChangeEngine(int engine) { Logf("Engine%d;", engine); }
 } // namespace MainWindowTest
 using namespace MainWindowTest;
 
-#if GOLDEN_ORACLE
-void SendTurnNorth() { FakeSendTurnNorth(); }
-void SendTurnEast() { FakeSendTurnEast(); }
-void SendTurnSouth() { FakeSendTurnSouth(); }
-void SendTurnWest() { FakeSendTurnWest(); }
-void SendCancel() { FakeSendCancel(); }
-void SendLogout() { FakeSendLogout(); }
-void SendJoinChannel(int ChannelID) { FakeSendJoinChannel(ChannelID); }
-void ChangeEngine(int engine) { FakeChangeEngine(engine); }
-#endif
 
 namespace MainWindowTest {
 
@@ -836,30 +772,9 @@ static void PatchCallees()
 		{0x445c20, (void *)ChangeEngine, (void *)FakeChangeEngine},
 	};
 	for (auto &U : Undefined) {
-#if GOLDEN_ORACLE
-		PatchJump(U.Image, U.Ours);
-		(void)U.Fake;
-#else
 		PatchOwn(U.Ours, U.Fake);
-#endif
 	}
 	// Image functions whose fakes are the stand-ins above (ours: the constructors and members below).
-#if GOLDEN_ORACLE
-	static const struct {
-		uint32 Image;
-		void *Fake;
-	} Images[] = {
-		{0x422410, (void *)FakeConsoleNew},
-		{0x41e960, (void *)FakeConsoleActive},
-		{0x422e70, (void *)FakeConsoleOpen},
-		{0x42e4e0, (void *)FakeUpdateUpButton},
-		{0x4368c0, (void *)ImageSide3},
-		{0x438310, (void *)ImageSide4},
-		{0x426480, (void *)ImageSide5},
-	};
-	for (auto &I : Images)
-		PatchJump(I.Image, I.Fake);
-#endif
 	// ContentWindows.cpp: the creators and the side-bar constructors, the image's and ours.
 	static const struct {
 		uint32 Image;
@@ -910,13 +825,6 @@ static void FindFakeVtables()
 
 // --- The two main windows ------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void(__fastcall *MemberVoid)(void *, void *);
-typedef void(__fastcall *MemberInt)(void *, void *, int);
-typedef int(__fastcall *MemberGet)(void *, void *);
-typedef void(__fastcall *MemberWalk)(void *, void *, int, int, int);
-typedef void(__cdecl *InitFn)(int, int, void (*)(), void (*)(int), void (*)(const char *));
-#endif
 
 static void NameOurVtables()
 {
@@ -1042,11 +950,7 @@ static void OutputOriginal(std::string *Dumped)
 	std::string Text = golden::OutputText("log", Log[ORIGINAL].data(), Log[ORIGINAL].size());
 	ORIGINAL_OR((void)0, Log[ORIGINAL] = Text);
 	if (Dumped != NULL) {
-#if GOLDEN_ORACLE
-		std::string Dump0 = Dump(ORIGINAL);
-#else
 		std::string Dump0;
-#endif
 		*Dumped = golden::OutputTextChanges("dump", &LastDump, Dump0);
 	}
 	golden::Output("action state", ActionState[ORIGINAL]);
@@ -1149,11 +1053,7 @@ static TContentWindow *Find(int s, TDialogWindow *Dialog, int Identifier)
 {
 	if (s == OURS)
 		return Dialog->GetContentWindow(Identifier);
-#if GOLDEN_ORACLE
-	return At<FindFn>(0x486400)(Dialog, NULL, Identifier);
-#else
 	abort(); // (the original's side: the oracle only)
-#endif
 }
 
 static void RandomSkinProperties()
@@ -1181,25 +1081,6 @@ static void RandomSkinProperties()
 	int B = (int)(Random() % 256);
 	R = (int)(Random() % 256);
 	SkinProperties.Style194.Data80 = TRGBColor(R, 3, B);
-#if GOLDEN_ORACLE
-	// The image's skin properties get the same.
-	TSkinProperties &O = Global<TSkinProperties>(0x5ccfc8);
-	O.Data184 = SkinProperties.Data184;
-	O.Data138 = SkinProperties.Data138;
-	O.Data134 = SkinProperties.Data134;
-	O.Style0D8.Data00 = SkinProperties.Style0D8.Data00;
-	O.Style0D8.Data04 = SkinProperties.Style0D8.Data04;
-	O.Style0D8.Data08.x = SkinProperties.Style0D8.Data08.x;
-	O.Style0D8.Data08.y = SkinProperties.Style0D8.Data08.y;
-	TGUIPoint *Theirs = &O.Style0D8.Data10;
-	for (int i = 0; i < 5; i++) {
-		Theirs[i].x = Ours[i].x;
-		Theirs[i].y = Ours[i].y;
-	}
-	O.Style194.Data38.FontNumber = SkinProperties.Style194.Data38.FontNumber;
-	O.Style194.Data38.Color = SkinProperties.Style194.Data38.Color;
-	O.Style194.Data80 = SkinProperties.Style194.Data80;
-#endif
 }
 
 static void RandomWorld()
@@ -1520,11 +1401,6 @@ static void Operation()
 				CHECK(MainWindow == NULL && ModalWindow == NULL, "ExitMainWindow leaves a window");
 				InitMainWindow(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
 			} else {
-#if GOLDEN_ORACLE
-				At<void(__cdecl *)()>(0x4ac090)();
-				OriginalLeft = OriginalMainWindow == NULL && OriginalModalWindow == NULL ? 1 : 0;
-				At<InitFn>(0x4b05b0)(Width, Height, FakeExitProgram, FakeSetDisplayMode, FakeOpenURL);
-#endif
 			}
 		});
 		OriginalLeft = ORIGINAL_VALUE("left", int, OriginalLeft);
@@ -1792,11 +1668,6 @@ void TestMainWindow()
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	TTalkBuffer *SavedBuffer = DefaultTextBuffer;
-#if GOLDEN_ORACLE
-	TTalkBuffer *&OriginalBuffer = Global<TTalkBuffer *>(0x71ef68);
-	TTalkBuffer *SavedOriginalBuffer = OriginalBuffer;
-	OriginalBuffer = (TTalkBuffer *)(uintptr_t)0x12340;
-#endif
 	DefaultTextBuffer = (TTalkBuffer *)(uintptr_t)0x12340;
 	Surface = new TMainSurface;
 	FindFakeVtables();
@@ -1806,17 +1677,6 @@ void TestMainWindow()
 	DialogFakes.SetSkins = HookSetSkins;
 
 	// The image's classes, and ours that can be made directly.
-#if GOLDEN_ORACLE
-	NameVtable(ORIGINAL, (void *)(uintptr_t)0x56c498, "Main", true);
-	NameVtable(ORIGINAL, (void *)(uintptr_t)0x56c5c0, "Start", true);
-	NameVtable(ORIGINAL, (void *)(uintptr_t)0x56c660, "Splitter", false);
-	NameVtable(ORIGINAL, (void *)(uintptr_t)0x564528, "Window", true);
-	NameVtable(ORIGINAL, (void *)(uintptr_t)0x56d0b8, "RealFrame", true);
-	NameVtable(ORIGINAL, (void *)(uintptr_t)0x56cf38, "MapView", true);
-	NameVtable(ORIGINAL, (void *)(uintptr_t)0x563f80, "Dialog", true);
-	NameVtable(ORIGINAL, (void *)(uintptr_t)0x563ed8, "Sub", true);
-	NameVtable(ORIGINAL, (void *)(uintptr_t)0x563e38, "CW", true);
-#endif
 	{
 		TWindow W;
 		NameVtable(OURS, VtableOf(&W), "Window", true);

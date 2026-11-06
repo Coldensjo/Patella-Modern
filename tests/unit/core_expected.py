@@ -1,5 +1,5 @@
 """The expected values of tests_core (issue #7), from Python's exact integers and IEEE doubles, the way
-tools/difftest/vlongcheck.py checks vlongtest.exe. Prints the constants the tests compare with:
+the oracle's vlongcheck.py checked vlongtest.exe (until issue #94). Prints the constants the tests compare with:
 
 	python -I tests/unit/core_expected.py
 

@@ -48,11 +48,7 @@
 #include "elementfakes.h"
 #include "golden_eh.h"
 #include "testsurface.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 
 #include "Communication.h"
 #include "ContentWindows.h"
@@ -81,34 +77,6 @@
 #include <time.h>
 #include <vector>
 
-#if GOLDEN_ORACLE
-static_assert(sizeof(TButtonsWindow) == 0x58 && offsetof(TButtonsWindow, LogoutButton) == 0x54, "TButtonsWindow layout");
-static_assert(sizeof(TAutomapView) == 0x24 && sizeof(TCompassRose) == 0x28, "automap parts");
-static_assert(sizeof(TAutomapWindow) == 0x80 && offsetof(TAutomapWindow, Changed) == 0x60
-		&& offsetof(TAutomapWindow, ViewX) == 0x64 && offsetof(TAutomapWindow, Zoom) == 0x7c,
-	"TAutomapWindow layout");
-static_assert(sizeof(TCapacityLabel) == 0x24 && sizeof(TSoulLabel) == 0x24, "labels");
-static_assert(sizeof(TPlayerStates) == 0x2c && offsetof(TPlayerStates, MaxIcons) == 0x28, "TPlayerStates layout");
-static_assert(sizeof(TSmallInventoryWindow) == 0x44 && sizeof(TInventoryView) == 0x2c, "inventory windows");
-static_assert(sizeof(TCombatControls) == 0x44 && offsetof(TCombatControls, SecureButton) == 0x40, "TCombatControls layout");
-static_assert(sizeof(TStatusWindow) == 0x4c, "TStatusWindow layout");
-static_assert(sizeof(TSubWindowBody) == 0x30 && offsetof(TSubWindowBody, Minimized) == 0x2c, "TSubWindowBody layout");
-static_assert(sizeof(TContainerWindowBody) == 0x44 && offsetof(TContainerWindowBody, HasParent) == 0x40,
-	"TContainerWindowBody layout");
-static_assert(sizeof(TSkillsWindowBody) == 0x3c && offsetof(TSkillsWindowBody, Lines) == 0x38, "TSkillsWindowBody layout");
-static_assert(sizeof(TBattleWindowBody) == 0x58 && offsetof(TBattleWindowBody, MouseOverText) == 0x38,
-	"TBattleWindowBody layout");
-static_assert(sizeof(TBuddylistWindowBody) == 0x3c && offsetof(TBuddylistWindowBody, MouseOverText) == 0x38,
-	"TBuddylistWindowBody layout");
-static_assert(sizeof(TTradeWindowBody) == 0x3c && sizeof(TTradeOffers) == 0x34 && sizeof(TTradeNames) == 0x38
-		&& sizeof(TTradeButtons) == 0x4c && offsetof(TTradeButtons, Callback) == 0x44,
-	"trade layouts");
-static_assert(sizeof(TRadioButtonGroup) == 0x28 && offsetof(TRadioButtonGroup, Count) == 0x24, "TRadioButtonGroup layout");
-static_assert(offsetof(TSkinButton, RadioButtonGroup) == 0x38 && sizeof(TTextToggleButton) == 0x84
-		&& offsetof(TTextToggleButton, State) == 0x78 && sizeof(TLabel) == 0x4c && sizeof(TSkinIcon) == 0x28,
-	"DialogElements layouts");
-static_assert(sizeof(TMarkMenuData) == 0x80, "TMarkMenuData is 0x80 bytes");
-#endif
 
 // The test's own definitions: in a namespace of their own (the other window tests, linked into the same
 // executable, define classes of the same names at global scope). The fakes' members (elementfakes.h's
@@ -120,7 +88,7 @@ namespace ContentWindowsTest {
 enum { OURS = 0,
 	ORIGINAL = 1 };
 // The sides that have objects: both in the oracle, ours in the runner.
-static const int SIDES = GOLDEN_ORACLE ? 2 : 1;
+static const int SIDES = 1; // ours alone (the oracle had the original's side too, until issue #94)
 static int Side;
 static bool Testing; // the fakes log only while this test runs
 static std::string Log[2];
@@ -272,11 +240,7 @@ namespace ContentWindowsTest {
 
 // Both sides' SetRange (the shared one logs only in consolewindow_tests.cpp); a member function's stand-in
 // (GOLDEN_THISCALL: this in ECX on x86, first on x64).
-#if GOLDEN_ORACLE
-static void __fastcall FakeSetRange(TFakeScrollBarRange *Range, void *, int Minimum, int Maximum, int Value, int Visible)
-#else
 static void FakeSetRange(TFakeScrollBarRange *Range, int Minimum, int Maximum, int Value, int Visible)
-#endif
 {
 	Logf("Range%d,%d,%d,%d;", Minimum, Maximum, Value, Visible);
 	((int *)Range->Data00)[0] = Minimum;
@@ -340,14 +304,7 @@ static void *TestVtable(void *Ours)
 {
 	if (ContentRound == NULL || Side != ORIGINAL)
 		return Ours;
-#if GOLDEN_ORACLE
-	bool Window = Ours == ScrollVtable;
-	void *Hybrid = ImageSideVtable(Ours, Window ? OurWindowBase : OurElementBase, Window ? 0x564528 : 0x5645c8);
-	Kinds[ORIGINAL][Hybrid] = Kinds[ORIGINAL][Ours];
-	return Hybrid;
-#else
 	abort(); // the runner has no original side
-#endif
 }
 // The scroll bar's press is TWindow's (the image's in the error round, as
 // ImageSideVtable gives the methods it does not override), after a tick:
@@ -946,16 +903,6 @@ static void __cdecl FakeSendWalk() { Logf("SWalk;"); }
 static void __cdecl FakeSendStop() { Logf("SStop;"); }
 } // namespace ContentWindowsTest
 
-#if GOLDEN_ORACLE
-// Communication.cpp is not in the test: our side's definitions of the Send functions no other test defines.
-// The runner has them as stubs (client_stubs.cpp) and redirects those.
-void SendCloseContainer(int Container) { FakeSendCloseContainer(Container); }
-void SendContainerUp(int Container) { FakeSendContainerUp(Container); }
-void SendFightModes() { FakeSendFightModes(); }
-void SendInspectTrade(int Side_, int Position) { FakeSendInspectTrade(Side_, Position); }
-void SendAcceptTrade() { FakeSendAcceptTrade(); }
-void SendRejectTrade() { FakeSendRejectTrade(); }
-#endif
 
 namespace ContentWindowsTest {
 
@@ -1078,50 +1025,25 @@ static void Redirect(void *Function, void *Target)
 {
 	TSaved S;
 	S.Code = (uint8 *)Function;
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	memcpy(S.Bytes, Function, 5);
-	PatchJump((uint32)(uintptr_t)Function, Target);
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-#else
 	golden::SaveOwn(Function, S.Bytes);
 	golden::RedirectOwn(Function, Target);
-#endif
 	SavedCode.push_back(S);
 }
-#if !GOLDEN_ORACLE
 // Our _time64 (time(), issue #62): the runner's import slot of ucrtbase's (Talk's test does the same).
 static void **ClockSlot;
 static void *SavedClock;
-#endif
 static void RestoreAll()
 {
 	for (size_t i = SavedCode.size(); i-- > 0;) {
-#if GOLDEN_ORACLE
-		DWORD Protection;
-		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
-		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
-		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
-		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
-#else
 		golden::RestoreOwn(SavedCode[i].Code, SavedCode[i].Bytes);
-#endif
 	}
 	SavedCode.clear();
-#if !GOLDEN_ORACLE
 	golden::SetImport(ClockSlot, SavedClock);
-#endif
 }
 
 // Ours of the functions the oracle's difftest.exe defines in this file (the Send functions): NULL there, the
 // runner's stubs (client_stubs.cpp) here.
-#if GOLDEN_ORACLE
-#define DEFINED_HERE(Function) NULL
-#else
 #define DEFINED_HERE(Function) ((void *)(Function))
-#endif
 
 static void PatchCallees()
 {
@@ -1271,7 +1193,6 @@ static void PatchCallees()
 			Redirect(T.Ours, T.Fake);
 	}
 	ORIGINAL(Redirect((void *)_time64, (void *)FakeTime64));
-#if !GOLDEN_ORACLE
 	ClockSlot = golden::FindImport("_time64");
 	if (ClockSlot == nullptr) {
 		printf("golden: ContentWindows: the runner imports no _time64\n");
@@ -1279,7 +1200,6 @@ static void PatchCallees()
 	}
 	SavedClock = *ClockSlot;
 	golden::SetImport(ClockSlot, (void *)FakeTime64);
-#endif
 }
 
 // Our stdout output is a fake only while our side runs (CHECK prints with printf). Since issue #64 MouseHover's
@@ -1287,30 +1207,6 @@ static void PatchCallees()
 // to stdout as FakePrintf logged the original's printf ("Printf" and the text) and passes every other stream on.
 // The oracle's fwrite (static CRT) gets a jump to the fake, which writes the others with _fwrite_nolock; the
 // runner's is ucrtbase's through its import slot.
-#if GOLDEN_ORACLE
-static uint8 FwriteBytes[5];
-static size_t __cdecl FakeOurFwrite(const void *Buffer, size_t Size, size_t Count, FILE *Stream)
-{
-	if (Stream != stdout)
-		return _fwrite_nolock(Buffer, Size, Count, Stream);
-	Logf("Printf%.*s", (int)(Size * Count), (const char *)Buffer);
-	return Count;
-}
-static void FakeOurPrintf(bool On)
-{
-	void *Function = (void *)fwrite;
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	if (On) {
-		memcpy(FwriteBytes, Function, 5);
-		PatchJump((uint32)(uintptr_t)Function, (void *)FakeOurFwrite);
-	} else {
-		memcpy(Function, FwriteBytes, 5);
-	}
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-}
-#else
 using FwriteFn = size_t(__cdecl *)(const void *, size_t, size_t, FILE *);
 static FwriteFn SavedFwrite = nullptr;
 static size_t __cdecl FakeOurFwrite(const void *Buffer, size_t Size, size_t Count, FILE *Stream)
@@ -1331,29 +1227,9 @@ static void FakeOurPrintf(bool On)
 		SavedFwrite = (FwriteFn)*Slot;
 	golden::SetImport(Slot, On ? (void *)FakeOurFwrite : (void *)SavedFwrite);
 }
-#endif
 
 // --- The windows ------------------------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void *(__fastcall *CtorFn)(void *, void *);
-typedef void *(__fastcall *ContentCtorFn)(void *, void *, int, bool);
-typedef void *(__fastcall *ButtonsCtorFn)(void *, void *, TDialogWindow *, TMainWindow *);
-typedef TWindow *(__cdecl *CreateFn)(TMainWindow *);
-typedef TWindow *(__cdecl *CreateIntFn)(int);
-typedef TWindow *(__cdecl *Create0Fn)();
-typedef int(__fastcall *IntFn)(void *, void *);
-typedef int(__fastcall *IntIntFn)(void *, void *, int);
-typedef int(__fastcall *XYFn)(void *, void *, int, int);
-typedef int(__fastcall *SlotFn)(void *, void *, int, int, bool);
-typedef void(__fastcall *VoidFn)(void *, void *);
-typedef void(__fastcall *BoolArgFn)(void *, void *, bool);
-typedef void(__fastcall *IntArgFn)(void *, void *, int);
-typedef void(__fastcall *PointerArgFn)(void *, void *, void *);
-typedef bool(__fastcall *LineFn)(void *, void *, int, char *, int *, int *);
-typedef void(__fastcall *OfferFn)(void *, void *, int, int, int *, int *);
-typedef void *(__fastcall *IntCtorFn)(void *, void *, int);
-#endif
 
 // The receiver of the windows' callbacks (the main window in the game).
 class TContentReceiver : public TWindow {
@@ -1474,10 +1350,8 @@ static TContentWindow *Create(int s)
 {
 	TMainWindow *Main = (TMainWindow *)(TWindow *)Receiver;
 	bool Ours = s == OURS;
-#if !GOLDEN_ORACLE
 	if (!Ours)
 		return nullptr; // the runner has no original
-#endif
 	switch (Scenario) {
 	case SC_INVENTORY:
 		return Ours ? CreateInventoryWindow(Main) : ORIGINAL_OR((TContentWindow *)At<CreateFn>(0x4362b0)(Main), nullptr);
@@ -1706,11 +1580,7 @@ static void OutputOriginalLog()
 static std::string LastDump;
 static std::string OriginalDump()
 {
-#if GOLDEN_ORACLE
-	std::string Text = Dump(ORIGINAL);
-#else
 	std::string Text;
-#endif
 	return golden::OutputTextChanges("dump", &LastDump, Text);
 }
 
@@ -2907,41 +2777,6 @@ void TestContentWindows()
 		Kinds[s][ScrollVtable] = "Scroll";
 		Kinds[s][LabelVtable] = "Element";
 	}
-#if GOLDEN_ORACLE
-	static const struct {
-		uint32 Vtable;
-		const char *Kind;
-	} Images[] = {
-		{0x563e38, "CW"},
-		{0x563ed8, "Sub"},
-		{0x563f80, "Column"},
-		{0x564528, "Window"},
-		{0x55e968, "Buttons"},
-		{0x55ea08, "Automap"},
-		{0x55e688, "AutomapView"},
-		{0x55eaf0, "Rose"},
-		{0x55e578, "Capacity"},
-		{0x55e600, "Soul"},
-		{0x55eb98, "States"},
-		{0x55ec98, "SmallInv"},
-		{0x55ed38, "InvView"},
-		{0x55e880, "Combat"},
-		{0x55f500, "Status"},
-		{0x55eed0, "ContainerBody"},
-		{0x55efa8, "SkillsBody"},
-		{0x55e710, "BattleBody"},
-		{0x55e7c8, "BuddyBody"},
-		{0x55f370, "TradeBody"},
-		{0x55f138, "TradeOffers"},
-		{0x55f200, "TradeNames"},
-		{0x55f2a0, "TradeButtons"},
-	};
-	for (auto &I : Images)
-		Kinds[ORIGINAL][(void *)(uintptr_t)I.Vtable] = I.Kind;
-	// The real separators and object icons (inline constructors).
-	Kinds[ORIGINAL][(void *)(uintptr_t)0x5610b0] = "Separator";
-	Kinds[ORIGINAL][(void *)(uintptr_t)0x560d88] = "ObjectIcon";
-#endif
 	{
 		TSeparator *Separator = new TSeparator(true);
 		TRGBColor Color;

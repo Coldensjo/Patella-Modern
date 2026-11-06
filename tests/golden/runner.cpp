@@ -3,8 +3,8 @@
 // the original's results read from the corpus.
 //
 // Usage: golden_runner [--require] [--unverified] [corpus directory]
-// The directory defaults to build/golden of the source tree (GOLDEN_DEFAULT_DIR), where the oracle-x86
-// preset's golden_corpus target records it. Without a corpus the runner says so and exits with 77,
+// The directory defaults to build/golden of the source tree (GOLDEN_DEFAULT_DIR), where the frozen corpus is kept
+// (recorded by the 32-bit oracle until Patella-Modern issue #94). Without a corpus the runner says so and exits with 77,
 // which CTest reports as skipped (hosted CI has no corpus: it is derived from Tibia.exe and never leaves
 // the machine that recorded it); --require makes that a failure (exit 1).
 //
@@ -237,8 +237,8 @@ int main(int argc, char **argv)
 	}
 	std::error_code ExistsError;
 	if (Found == 0 && !std::filesystem::exists(std::filesystem::path(Directory) / golden::DATA_MANIFEST, ExistsError)) {
-		printf("golden: no corpus in %s: it is recorded from Tibia.exe on the oracle machine (cmake --build --preset "
-			   "oracle-x86 --target golden_corpus) and never leaves it; %s\n",
+		printf("golden: no corpus in %s: it was recorded from Tibia.exe by the 32-bit oracle (frozen since issue #93; "
+			   "regenerated only from the tag layout-frozen-final) and never leaves the recording machine; %s\n",
 			Directory.c_str(), Require ? "failed (--require)" : "skipped");
 		return Require ? 1 : 77;
 	}

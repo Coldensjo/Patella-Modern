@@ -52,19 +52,6 @@
 #include <cstdio>
 #include <memory>
 
-#if PATELLA_ORIGINAL_LAYOUT
-// The original's layout, with the owning buffers as std::unique_ptr<char[]> (issue #58): a pointer.
-static_assert(sizeof(std::unique_ptr<char[]>) == sizeof(char *) && alignof(std::unique_ptr<char[]>) == alignof(char *),
-	"std::unique_ptr<char[]> is a pointer");
-static_assert(sizeof(TTextWindow) == 0x94 && offsetof(TTextWindow, SelectedText) == 0x8c, "TTextWindow's layout");
-static_assert(sizeof(TTab) == 0x58 && offsetof(TTab, Caption) == 0x2c && offsetof(TTab, FullCaption) == 0x30,
-	"TTab's layout");
-// History as a std::unique_ptr<TTalkBuffer> (issue #81): a pointer at the original's offset.
-static_assert(sizeof(std::unique_ptr<TTalkBuffer>) == sizeof(TTalkBuffer *)
-		&& alignof(std::unique_ptr<TTalkBuffer>) == alignof(TTalkBuffer *),
-	"std::unique_ptr<TTalkBuffer> is a pointer");
-static_assert(sizeof(TConsoleWindow) == 0x6c && offsetof(TConsoleWindow, History) == 0x48, "TConsoleWindow's layout");
-#endif
 
 namespace {
 

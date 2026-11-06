@@ -16,22 +16,6 @@
 #include <string>
 #include <vector>
 
-#if GOLDEN_ORACLE
-static int __cdecl HelpSnprintf(char *Buffer, size_t Count, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = _vsnprintf(Buffer, Count, Format, Args);
-	va_end(Args);
-	return Result;
-}
-
-typedef const char *(__cdecl *TextFn)(int);
-typedef void(__fastcall *VectorCtorFn)(void *This, void *, int Min, int Max, int Block);
-typedef void(__cdecl *VoidFn)();
-typedef int(__cdecl *IntFn)();
-typedef void(__cdecl *Int2Fn)(int, int);
-#endif
 
 namespace {
 
@@ -50,10 +34,6 @@ void CompareQueues(const char *What, int x, int y, int z)
 	CHECK(GetEventHelp() == Help, "GetEventHelp after %s (%d,%d,%d)", What, x, y, z);
 	for (int Number; (Number = PopEventHelp()) != 0;)
 		A.push_back(Number);
-#if GOLDEN_ORACLE
-	for (int Number; (Number = At<IntFn>(0x4a2b20)()) != 0;)
-		B.push_back(Number);
-#endif
 	int Count = golden::Recorded<int>("event help queue length", (int)B.size());
 	B.resize((size_t)Count);
 	if (Count > 0)

@@ -66,12 +66,6 @@ static_assert(sizeof(TMapPoint) == 0xac && offsetof(TMapPoint, Objects) == 0x04 
 		&& sizeof(TMapPoint::Objects) == 0x78 && sizeof(TMapPoint::Order) == 0x28,
 	"TMapPoint's layout");
 static_assert(sizeof(TMark) == 0x70 && offsetof(TMark, Text) == 0x0c && sizeof(TMark::Text) == 100, "TMark's layout");
-#if PATELLA_ORIGINAL_LAYOUT
-static_assert(sizeof(TAutomapBlock) == 0x200a8 && offsetof(TAutomapBlock, Color) == 0x14
-		&& offsetof(TAutomapBlock, Speed) == 0x10014 && sizeof(TAutomapBlock::Color) == 0x10000
-		&& sizeof(TAutomapBlock::Speed) == 0x10000,
-	"TAutomapBlock's layout");
-#endif
 static_assert(sizeof(Effects) == EFFECTS * sizeof(TEffect) && sizeof(AutomapBlocks) == AUTOMAP_BLOCKS * sizeof(TAutomapBlock),
 	"Effects and AutomapBlocks");
 

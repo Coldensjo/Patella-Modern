@@ -18,11 +18,7 @@
 
 #include "golden_test.h"
 
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_eh.h"
-#endif
 
 #include "Creatures.h"
 #include "Objects.h"
@@ -34,28 +30,6 @@
 
 namespace DivisionsTest {
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *VoidFn)();
-typedef void(__cdecl *SetFn)(int);
-typedef void(__cdecl *LoadFn)(const char *);
-typedef void(__cdecl *PatternFn)(TObject *, int *, int *);
-typedef bool(__cdecl *FlagFn)(int, int);
-// thiscall through __fastcall: ECX = this, EDX unused, the rest on the stack.
-typedef void(__fastcall *MemberSet3Fn)(void *, void *, int, int, int);
-
-// The original's property table of the objects (Objects.cpp's ObjectProperties at 0x719d98): Container.h's
-// array<TProperties>, the same layout as ours.
-struct TImageArray {
-	int Min;
-	int Count;
-	TProperties *Entry;
-};
-TProperties &ImageObject(int Type)
-{
-	TImageArray *Table = *(TImageArray **)(uintptr_t)0x719d98;
-	return Table->Entry[Type - Table->Min];
-}
-#endif
 
 int Compared = 0;
 int Threw = 0;
@@ -113,10 +87,6 @@ void SetPatternSize(int Type, bool Height, int Value)
 {
 	TProperties &Entry = (*ObjectProperties)(Type);
 	(Height ? Entry.PatternHeight : Entry.PatternWidth) = Value;
-#if GOLDEN_ORACLE
-	TProperties &Image = ImageObject(Type);
-	(Height ? Image.PatternHeight : Image.PatternWidth) = Value;
-#endif
 }
 
 void TestPatterns(const char *Name, [[maybe_unused]] uint32 Address, void (*Function)(TObject &, int *, int *),
@@ -163,10 +133,6 @@ void TestDivisions([[maybe_unused]] const char *ExePath)
 	const int Before = Checks, BeforeFailures = Failures;
 	Compared = 0;
 	Threw = 0;
-#if GOLDEN_ORACLE
-	PatchScript(); // the image's stdio, for its LoadObjects
-	EnableImageExceptions();
-#endif
 	TestStartMovement();
 	const std::string Dat = golden::DataFile("Tibia.dat", ExePath);
 	if (Dat.empty()) {
@@ -180,9 +146,6 @@ void TestDivisions([[maybe_unused]] const char *ExePath)
 		ReleaseObjects();
 		ORIGINAL(At<VoidFn>(0x4d70c0)());
 	}
-#if GOLDEN_ORACLE
-	DisableImageExceptions();
-#endif
 	printf("Divisions: %d checks, %d failures, %d exceptions compared (%d calls that threw)\n", Checks - Before,
 		Failures - BeforeFailures, Compared, Threw);
 }

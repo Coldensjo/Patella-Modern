@@ -46,21 +46,6 @@
 #include <cstring>
 #include <memory>
 
-#if PATELLA_ORIGINAL_LAYOUT
-// The original's layout, with MouseOverText a TFixedString (issue #57).
-static_assert(sizeof(TBattleWindowBody) == 0x58 && offsetof(TBattleWindowBody, MouseOverText) == 0x38,
-	"TBattleWindowBody's layout");
-// The owning members as std::unique_ptr (issue #58): each a pointer at the original's offset.
-static_assert(sizeof(std::unique_ptr<TRadioButtonGroup>) == sizeof(TRadioButtonGroup *)
-		&& alignof(std::unique_ptr<TRadioButtonGroup>) == alignof(TRadioButtonGroup *)
-		&& sizeof(std::unique_ptr<char[]>) == sizeof(char *) && alignof(std::unique_ptr<char[]>) == alignof(char *),
-	"std::unique_ptr is a pointer");
-static_assert(sizeof(TCombatControls) == 0x44 && offsetof(TCombatControls, AttackModes) == 0x30
-		&& offsetof(TCombatControls, ChaseModes) == 0x34,
-	"TCombatControls' layout");
-static_assert(sizeof(TBuddylistWindowBody) == 0x3c && offsetof(TBuddylistWindowBody, MouseOverText) == 0x38,
-	"TBuddylistWindowBody's layout");
-#endif
 
 namespace {
 

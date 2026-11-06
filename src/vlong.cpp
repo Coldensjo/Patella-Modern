@@ -22,9 +22,6 @@ constexpr auto BPU = 8 * sizeof(unsigned); // bits per unit (size_t, as the macr
 static_assert(sizeof(std::unique_ptr<unsigned[]>) == sizeof(unsigned *)
 		&& alignof(std::unique_ptr<unsigned[]>) == alignof(unsigned *),
 	"std::unique_ptr<unsigned[]> is a pointer");
-#if PATELLA_ORIGINAL_LAYOUT
-static_assert(sizeof(flex_unit) == 0xc, "flex_unit's layout");
-#endif
 
 // 0x50bff0
 void flex_unit::reserve(unsigned x)

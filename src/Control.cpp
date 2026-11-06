@@ -51,10 +51,8 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
-#if defined(PATELLA_VULKAN)
 #include "vulkan/DeviceSettings.h"
 #include "vulkan/DeviceChoice.h"
-#endif
 
 namespace {
 
@@ -132,7 +130,6 @@ void CheckSurface(bool Force)
 // block in the binary (the try state is set after the comparison).
 void ChangeEngine(int engine)
 {
-#if defined(PATELLA_VULKAN)
 	// The x64 client (Patella-Modern issues #20 and #31; Surface.cpp SurfaceInitInstance): one engine, and
 	// the advanced options' three buttons choose its graphics device (plan 6.3; vulkan/DeviceSettings.h).
 	// They are in the original's places and send its numbers: DirectX5's (0) "Automatic", DirectX9's (2)
@@ -162,53 +159,6 @@ void ChangeEngine(int engine)
 		SetEngine(engine);
 		SaveDeviceChoice();
 	}
-#else
-	if (engine == curEngine)
-		return;
-	const int oldEngine = curEngine;
-	curEngine = engine;
-	try {
-		GetSurface()->ExitSurfaces();
-	} catch (TMyException &Exception) {
-		throw TMYEXCEPTION("ExitSurfaces failed", "oldEngine", oldEngine, "", 0, Exception);
-	} catch (...) {
-		TERROR1("ExitSurfaces failed with unknown exception", oldEngine);
-	}
-	try {
-		SurfaceExitInstance();
-	} catch (TMyException &Exception) {
-		throw TMYEXCEPTION("SurfaceExitInstance failed", "curEngine", curEngine, "", 0, Exception);
-	} catch (...) {
-		TERROR1("SurfaceExitInstance failed with unknown exception", curEngine);
-	}
-	bool Success;
-	try {
-		Success = GetSurface()->TestEngine();
-	} catch (TMyException &Exception) {
-		throw TMYEXCEPTION("TestEngine failed", "curEngine", curEngine, "", 0, Exception);
-	} catch (...) {
-		TERROR1("TestEngine failed with unknown exception", curEngine);
-	}
-	if (!Success) {
-		curEngine = oldEngine;
-		try {
-			SurfaceExitInstance();
-		} catch (TMyException &Exception) {
-			throw TMYEXCEPTION("SurfaceExitInstance after test failed", "curEngine", curEngine, "", 0,
-				Exception);
-		} catch (...) {
-			TERROR1("SurfaceExitInstance after test failed with unknown exception", curEngine);
-		}
-	}
-	try {
-		GetSurface()->InitSurfaces();
-	} catch (TMyException &Exception) {
-		throw TMYEXCEPTION("InitSurfaces failed", "", 0, "", 0, Exception);
-	} catch (...) {
-		TERROR("InitSurfaces failed with unknown exception");
-	}
-	SetEngine(curEngine);
-#endif
 }
 
 // 0x449210, lines 218-366. Draws the windows, the tooltip, the frame rate and

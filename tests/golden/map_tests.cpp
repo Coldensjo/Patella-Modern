@@ -27,64 +27,17 @@
 #include <vector>
 
 static_assert(sizeof(TMark) == 0x70, "TMark is 0x70 bytes on both sides");
-#if GOLDEN_ORACLE
-static_assert(sizeof(TMapPoint) == 0xac, "TMapPoint is 0xac bytes");
-static_assert(sizeof(TEffect) == 0x44, "TEffect is 0x44 bytes");
-static_assert(sizeof(vector<TMark>) == 0x8c, "vector<TMark> is 0x8c bytes");
-static_assert(sizeof(TAutomapBlock) == 0x200a8, "TAutomapBlock is 0x200a8 bytes");
-static_assert(sizeof(TPathNode) == 0x20, "TPathNode is 0x20 bytes");
-static_assert(sizeof(matrix3d<int>) == 0x1c, "matrix3d is 0x1c bytes");
-#endif
 
 namespace MapTest {
 
 // --- Original functions ----------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *VoidFn)();
-typedef void(__cdecl *LoadFn)(const char *FileName);
-typedef void(__cdecl *Int3Fn)(int, int, int);
-typedef void(__cdecl *Ptr3Fn)(int *, int *, int *);
-typedef int(__cdecl *IntFn)();
-typedef int(__cdecl *IntIntFn)(int);
-typedef bool(__cdecl *BoolFn)();
-typedef void(__cdecl *Int2Fn)(int, int);
-typedef void(__cdecl *Int1Fn)(int);
-typedef TRGBColor *(__cdecl *ColorFn)(TRGBColor *);
-typedef TRGBColor *(__cdecl *ColorAtFn)(TRGBColor *, int, int, int);
-typedef TObject *(__cdecl *ObjAtFn)(TObject *, int, int, int);
-typedef TObject *(__cdecl *ObjNextFn)(TObject *);
-typedef TObject *(__cdecl *ObjPosFn)(TObject *, int, int, int, int);
-typedef TObject *(__cdecl *ObjRefFn)(TObject *, int, int, int, int *);
-typedef void(__cdecl *PutFn)(int, int, int, TObject);
-typedef void(__cdecl *PutAtFn)(int, int, int, int, TObject);
-typedef bool(__cdecl *DeleteFn)(int, int, int, int);
-typedef int(__cdecl *Int3RetFn)(int, int, int);
-typedef bool(__cdecl *Bool3Fn)(int, int, int);
-typedef bool(__cdecl *Bool4Fn)(int, int, int, bool);
-typedef void(__cdecl *Clear4Fn)(int, int, int, bool);
-typedef char *(__cdecl *TextFn)(int);
-typedef void(__cdecl *Effect4Fn)(int, int, int, int);
-typedef void(__cdecl *TextEffectFn)(int, int, int, int, const char *);
-typedef void(__cdecl *MissileFn)(int, int, int, int, int, int, int);
-typedef void(__cdecl *MarksFn)(int, int, int, vector<TMark> *, int *);
-typedef void(__cdecl *AddMarkFn)(TCoordinate *, const char *, int);
-typedef void(__cdecl *DeleteMarkFn)(TMark *, int);
-typedef int(__cdecl *PathFn)(int, int, int, int, int, int, bool, int *, int *, bool);
-typedef void(__cdecl *InitFn)(void (*)(int));
-typedef void *(__fastcall *Ctor2Fn)(void *This, void *, int, int);
-typedef void *(__fastcall *Ctor6Fn)(void *This, void *, int, int, int, int, int, int);
-typedef void *(__fastcall *Ctor0Fn)(void *This, void *);
-#endif
 
 // --- Creature callbacks ------------------------------------------------------
 
 std::vector<int> Removed[2];
 size_t RemovedRecorded; // how many of Removed[1] the corpus has
 void OurCallback(int CreatureID) { Removed[0].push_back(CreatureID); }
-#if GOLDEN_ORACLE
-void __cdecl OriginalCallback(int CreatureID) { Removed[1].push_back(CreatureID); }
-#endif
 
 // Coverage counters for the summary line.
 int PathResults[8]; // FindPath results -4..2, for the summary

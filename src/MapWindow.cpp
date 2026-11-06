@@ -76,12 +76,6 @@ inline void Limit(int &Value, int Bound1, int Bound2)
 static_assert(sizeof(TCacheField) == 0x8c && offsetof(TCacheField, Sprite) == 0x0c && offsetof(TCacheField, SpriteX) == 0x34
 		&& offsetof(TCacheField, SpriteY) == 0x5c,
 	"TCacheField's layout");
-#if PATELLA_ORIGINAL_LAYOUT
-static_assert(sizeof(TMapWindow) == 0x92d8 && offsetof(TMapWindow, Names) == 0x0030
-		&& offsetof(TMapWindow, TextualEffects) == 0x073c && offsetof(TMapWindow, Light) == 0x19fc
-		&& offsetof(TMapWindow, CoverLevel) == 0x25dc && offsetof(TMapWindow, Cache) == 0x29d4,
-	"TMapWindow's layout");
-#endif
 
 // A thrown error whose expression text is a bug number, like Map.cpp's
 // assertions ("unknown creature party flag", "[bug0001106]").

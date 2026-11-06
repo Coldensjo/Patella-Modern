@@ -125,21 +125,6 @@ void ThrowSideAssertion(bool Image, int Value);
 // PATELLA_ASSERT_VALUES(_Width>=0, _Width), our TMyException (the same kind; since issue #79 its line differs). The runner's stand-in until issue #28;
 // the oracle still checks it against SetSize (VerifyOurSideAssertion).
 [[noreturn]] void OurSideAssertion(int Value);
-#if GOLDEN_ORACLE
-// The oracle, in a ported test that uses ThrowSideAssertion, before its error round: OurSideAssertion
-// must throw what our TComponent::SetSize throws (by outcome, TThrown's ==, since issue #76). Not a check
-// (the counts stay difftest's); a difference is a failure.
-inline void VerifyOurSideAssertion(const char *Test)
-{
-	TThrown Real = OurThrow([] { ThrowSideAssertion(false, -17); });
-	TThrown StandIn = OurThrow([] { OurSideAssertion(-17); });
-	if (Real != StandIn) {
-		Failures++;
-		printf("FAIL %s errors: OurSideAssertion throws %s, our TComponent::SetSize %s\n", Test,
-			StandIn.Describe().c_str(), Real.Describe().c_str());
-	}
-}
-#endif
 
 namespace golden {
 
@@ -156,11 +141,7 @@ inline TThrown RecordedThrown(const char *Name, TThrown Thrown)
 
 // ORIGINAL_THROWN(Name, Statements...): what the original's Statements threw (the oracle runs them
 // inside ImageThrow, tools/difftest/imageeh.h), recorded by the oracle and read back by the runner.
-#if GOLDEN_ORACLE
-#define ORIGINAL_THROWN(Name, ...) golden::RecordedThrown(Name, ImageThrow([&] { __VA_ARGS__; }))
-#else
 #define ORIGINAL_THROWN(Name, ...) golden::RecordedThrown(Name, TThrown())
-#endif
 
 // imageeh.h's ROUND_COMPARE by value (issue #28; gui_tests.cpp's GUI_ROUND_COMPARE): our call, then the
 // original's (the oracle runs it inside ImageThrow and records what it threw; the runner gets the recorded

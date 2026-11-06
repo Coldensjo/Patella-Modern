@@ -30,10 +30,6 @@ public:
 	DECLARE_MESSAGE_MAP()
 };
 
-#if PATELLA_ORIGINAL_LAYOUT
-// The original's size: CWinApp and the two flags, padded to 4 (issue #75: the second flag is padding now).
-static_assert(sizeof(CPlayerApp) == sizeof(CWinApp) + 4, "CPlayerApp keeps the original's size");
-#endif
 
 extern CPlayerApp theApp; // 0x719dc0, initialiser at 0x55a030
 

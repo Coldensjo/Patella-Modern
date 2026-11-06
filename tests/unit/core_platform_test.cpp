@@ -28,5 +28,4 @@ TEST_CASE("platform: the sizes that differ between the targets")
 	CHECK(sizeof(wchar_t) == 4);
 #endif
 	CHECK(sizeof(void *) == 8);
-	CHECK(PATELLA_ORIGINAL_LAYOUT == 0);
 }

@@ -61,22 +61,6 @@ vector<TTalkFilter *> ConsoleFilterList(0, 4, 5, nullptr); // 0x71efd0, 0x55a1a0
 
 static_assert(sizeof(TTalkbox) == 0x1c0, "talkbox layout");
 static_assert(offsetof(TTalkbox, Text) == 0x20 && offsetof(TTalkbox, Left) == 0x1b0, "talkbox lines (TFixedString, issue #57)");
-#if PATELLA_ORIGINAL_LAYOUT
-static_assert(sizeof(TTalkLine) == 0x40, "statement layout");
-static_assert(sizeof(TTalkBuffer) == 0x2c, "text buffer layout");
-static_assert(sizeof(TPrivateTalkBuffer) == 0x4c, "private buffer layout");
-static_assert(sizeof(TChannelTalkBuffer) == 0x30, "channel buffer layout");
-static_assert(sizeof(TRuleViolationTalkBuffer) == 0x4c, "rule violation buffer layout");
-static_assert(sizeof(TRuleViolationChannel) == 0x30, "rule violation channel layout");
-static_assert(sizeof(TPrivateChannel) == 0x34, "private channel layout");
-static_assert(sizeof(TTalkFilter) == 0x30, "filter layout");
-static_assert(offsetof(TTalkLine, WithoutTime) == 0x34, "statement text");
-static_assert(offsetof(TTalkLine, Time) == 0x3c, "statement time (Time32, issue #62)");
-// The addressees TFixedStrings (issue #60).
-static_assert(offsetof(TTalkLine, Addressee) == 0x14 && offsetof(TPrivateTalkBuffer, Addressee) == 0x2c
-		&& offsetof(TRuleViolationTalkBuffer, Addressee) == 0x2c && offsetof(TTalkFilter, Addressee) == 0x04,
-	"the addressees' offsets");
-#endif
 // No pointers: the same on x64. Text a std::array of TFixedStrings (issue #60).
 static_assert(sizeof(TTalkbox) == 0x1c0 && offsetof(TTalkbox, Text) == 0x20 && sizeof(TTalkbox::Text) == 0x190,
 	"TTalkbox's layout");

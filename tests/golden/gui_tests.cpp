@@ -34,11 +34,7 @@
 #include "golden_test.h"
 
 #include "golden_eh.h"
-#if GOLDEN_ORACLE
-#include "../../tools/difftest/imageeh.h"
-#else
 #include "golden_patch.h"
-#endif
 
 #include "Container.h" // vector (GUI.h included it before issue #49)
 #include "GUI.h"
@@ -72,7 +68,7 @@ namespace GUITest {
 enum { OURS = 0,
 	ORIGINAL = 1 };
 // The sides that have objects: both in the oracle, ours in the runner.
-const int SIDES = GOLDEN_ORACLE ? 2 : 1;
+const int SIDES = 1; // ours alone (the oracle had the original's side too, until issue #94)
 std::string Log[2];
 
 void Logf(int Side, const char *Format, ...)
@@ -85,11 +81,6 @@ void Logf(int Side, const char *Format, ...)
 	Log[Side] += Buffer;
 }
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *DrawSkinFn)(int, int, int, int, int, int, int, int);
-typedef void(__cdecl *DrawSkinClippedFn)(int, int, int, int, int, int, int, int, int, int, int, int);
-typedef void(__fastcall *ThisFn)(void *This, void *);
-#endif
 
 // --- graphics.cpp recorders -------------------------------------------------
 
@@ -122,47 +113,18 @@ void OurClippedPicture(int Surface, int x, int y, int PictureNumber, int SourceX
 	PictureThrow(OURS);
 }
 
-#if GOLDEN_ORACLE
-void __cdecl ImagePicture(int Surface, int x, int y, int PictureNumber, int SourceX, int SourceY, int Width,
-	int Height)
-{
-	Logf(ORIGINAL, "P%d,%d,%d,%d,%d,%d,%d,%d;", Surface, x, y, PictureNumber, SourceX, SourceY, Width, Height);
-	PictureThrow(ORIGINAL);
-}
-
-void __cdecl ImageClippedPicture(int Surface, int x, int y, int PictureNumber, int SourceX, int SourceY, int Width,
-	int Height, int ClipX, int ClipY, int ClipWidth, int ClipHeight)
-{
-	Logf(ORIGINAL, "C%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d;", Surface, x, y, PictureNumber, SourceX, SourceY, Width,
-		Height, ClipX, ClipY, ClipWidth, ClipHeight);
-	PictureThrow(ORIGINAL);
-}
-#endif
 
 // Redirects one of our functions to a recorder (Restore = false) or puts
 // back its first five bytes, as talktest.cpp does with the CRT clock.
 uint8 SavedPicture[2][5];
 void RedirectOurs(int Index, void *Function, void *Recorder, bool Restore)
 {
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	if (Restore) {
-		memcpy(Function, SavedPicture[Index], 5);
-	} else {
-		memcpy(SavedPicture[Index], Function, 5);
-		PatchJump((uint32)(uintptr_t)Function, Recorder);
-	}
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-	VirtualProtect(Function, 5, Protection, &Protection);
-#else
 	if (Restore)
 		golden::RestoreOwn(Function, SavedPicture[Index]);
 	else {
 		golden::SaveOwn(Function, SavedPicture[Index]);
 		golden::RedirectOwn(Function, Recorder);
 	}
-#endif
 }
 
 // The original's log of a comparison: the oracle's, recorded; the runner's from the corpus.
@@ -400,32 +362,9 @@ struct TNode {
 std::vector<TNode> Nodes;
 std::map<TComponent *, int> Index[2];
 
-#if GOLDEN_ORACLE
-// Copies of the original vtables whose destructor slot logs first.
-void *WindowVtable[40], *ElementVtable[33];
-
-void LogOriginalDeletion(void *This)
-{
-	std::map<TComponent *, int>::iterator It = Index[ORIGINAL].find((TComponent *)This);
-	Logf(ORIGINAL, "~%d;", It != Index[ORIGINAL].end() ? It->second : -1);
-}
-
-void __fastcall OriginalWindowDestructor(void *This, void *, int Flags)
-{
-	LogOriginalDeletion(This);
-	At<void(__fastcall *)(void *, void *, int)>(0x4a29e0)(This, NULL, Flags);
-}
-
-void __fastcall OriginalElementDestructor(void *This, void *, int Flags)
-{
-	LogOriginalDeletion(This);
-	At<void(__fastcall *)(void *, void *, int)>(0x496550)(This, NULL, Flags);
-}
-#else
 // The runner's stand-in for a node's original object: never dereferenced (every use of the original's side
 // is inside ORIGINAL); CollectDeletions clears it when the original's recorded log reports the deletion.
 TComponent *Placeholder(int Id) { return reinterpret_cast<TComponent *>((uintptr_t)(0x10000 + 16 * Id)); }
-#endif
 
 void AddNode(int Kind)
 {
@@ -435,20 +374,8 @@ void AddNode(int Kind)
 	N.Alive = true;
 	N.Side[ORIGINAL] = ORIGINAL_OR(nullptr, Placeholder(Id));
 	if (Kind == WINDOW) {
-#if GOLDEN_ORACLE
-		void *Memory = operator new(0x2c);
-		At<ThisFn>(0x496080)(Memory, NULL);
-		*(void ***)Memory = WindowVtable;
-		N.Side[ORIGINAL] = (TComponent *)Memory;
-#endif
 		N.Side[OURS] = new TOurWindow(Id);
 	} else if (Kind == ELEMENT) {
-#if GOLDEN_ORACLE
-		void *Memory = operator new(0x24);
-		At<ThisFn>(0x496100)(Memory, NULL);
-		*(void ***)Memory = ElementVtable;
-		N.Side[ORIGINAL] = (TComponent *)Memory;
-#endif
 		N.Side[OURS] = new TOurElement(Id);
 	} else {
 		ORIGINAL(N.Side[ORIGINAL] = new TProbe(ORIGINAL, Id));
@@ -536,22 +463,6 @@ void CompareTrees(const char *What)
 	CollectDeletions();
 	LastTree.resize(Nodes.size() * TREE_FIELDS, 0);
 	std::vector<int32_t> Tree(LastTree);
-#if GOLDEN_ORACLE
-	for (size_t i = 0; i < Nodes.size(); i++) {
-		if (!Nodes[i].Alive)
-			continue;
-		TComponent *B = Nodes[i].Side[ORIGINAL];
-		int32_t *F = &Tree[i * TREE_FIELDS];
-		F[0] = IndexOf(ORIGINAL, B->Parent);
-		F[1] = IndexOf(ORIGINAL, B->Next);
-		F[2] = B->OffsetX;
-		F[3] = B->OffsetY;
-		F[4] = B->Width;
-		F[5] = B->Height;
-		F[6] = Nodes[i].Kind == WINDOW ? IndexOf(ORIGINAL, ((TWindow *)B)->FirstChild) : 0;
-		F[7] = Nodes[i].Kind == WINDOW ? IndexOf(ORIGINAL, ((TWindow *)B)->Capture) : 0;
-	}
-#endif
 	golden::OutputRuns("tree", LastTree.data(), Tree.data(), LastTree.size() * sizeof(int32_t));
 	for (size_t i = 0; i < Nodes.size(); i++) {
 		if (!Nodes[i].Alive)
@@ -966,12 +877,6 @@ void TestWindows()
 	ORIGINAL(At<void(__cdecl *)(int, int)>(0x4a2a00)(0, 0));
 	SetHelpHandle(0);
 	ORIGINAL(At<void(__cdecl *)(int)>(0x4a2a70)(0));
-#if GOLDEN_ORACLE
-	memcpy(WindowVtable, (void *)(uintptr_t)0x564528, sizeof(WindowVtable));
-	WindowVtable[0] = (void *)OriginalWindowDestructor;
-	memcpy(ElementVtable, (void *)(uintptr_t)0x5645c8, sizeof(ElementVtable));
-	ElementVtable[0] = (void *)OriginalElementDestructor;
-#endif
 	for (int Round = 0; Round < 40; Round++) {
 		Nodes.clear();
 		Index[0].clear();
@@ -1030,13 +935,6 @@ void TestComponentDraw()
 
 void TestTimers()
 {
-#if GOLDEN_ORACLE
-	typedef void(__fastcall * TimerCtorFn)(void *, void *, int, TCallback);
-	typedef void(__fastcall * TimerUpdateFn)(void *, void *, int);
-	typedef int(__fastcall * TimerIntFn)(void *, void *);
-	typedef void(__fastcall * VectorInitFn)(void *, void *, int, int, int, void *);
-	At<VectorInitFn>(0x4973f0)((void *)(uintptr_t)0x5ccfa4, NULL, 0, 0, 2, NULL);
-#endif
 	TProbe *Receivers[2][4] = {};
 	for (int s = 0; s < SIDES; s++)
 		for (int i = 0; i < 4; i++)
@@ -1054,11 +952,6 @@ void TestTimers()
 			TCallback C[2] = {TCallback(r < 4 ? Receivers[0][r] : nullptr, Event),
 				TCallback(r < 4 ? Receivers[1][r] : nullptr, Event)};
 			Timers[OURS].push_back(new TTimer(Time, C[OURS]));
-#if GOLDEN_ORACLE
-			void *Memory = operator new(0x14);
-			At<TimerCtorFn>(0x49b290)(Memory, NULL, Time, C[ORIGINAL]);
-			Timers[ORIGINAL].push_back((TTimer *)Memory);
-#endif
 		} else if (Op == 2 && !Timers[OURS].empty()) {
 			size_t i = Random() % Timers[OURS].size();
 			delete Timers[OURS][i];
@@ -1078,15 +971,6 @@ void TestTimers()
 		}
 		// The original's timers: Remaining, Active, GetTime(), IsExpired() (getters without side effects).
 		std::vector<int32_t> B(Timers[OURS].size() * 4);
-#if GOLDEN_ORACLE
-		for (size_t i = 0; i < Timers[OURS].size(); i++) {
-			TTimer *T = Timers[ORIGINAL][i];
-			B[i * 4] = T->Remaining;
-			B[i * 4 + 1] = T->Active;
-			B[i * 4 + 2] = At<TimerIntFn>(0x496000)(T, NULL);
-			B[i * 4 + 3] = (At<TimerIntFn>(0x496020)(T, NULL) & 0xff) != 0;
-		}
-#endif
 		golden::OutputArray("timers", B.data(), B.size());
 		for (size_t i = 0; i < Timers[OURS].size(); i++) {
 			TTimer *A = Timers[OURS][i];
@@ -1116,14 +1000,6 @@ void TestTimers()
 
 void TestHotkeys()
 {
-#if GOLDEN_ORACLE
-	typedef void(__fastcall * VectorFn)(void *, void *, int, int, int);
-	typedef void(__cdecl * AddFn)(int, TCallback);
-	typedef void(__cdecl * KeyFn)(int);
-	typedef void(__fastcall * SendFn)(void *, void *);
-	typedef void(__fastcall * CallbackCtorFn)(void *, void *, TComponent *, int);
-	At<VectorFn>(0x4976f0)((void *)(uintptr_t)0x5ce4f0, NULL, 0, 50, 10);
-#endif
 	InitHotkeys();
 	ORIGINAL(At<void(__cdecl *)()>(0x496150)());
 	TProbe *Receivers[2][3] = {};
@@ -1142,10 +1018,6 @@ void TestHotkeys()
 		if (Op < 3) {
 			int r = Random() % 4, Event = Random() % 300;
 			TCallback C(r < 3 ? Receivers[OURS][r] : nullptr, Event);
-#if GOLDEN_ORACLE
-			TCallback D;
-			At<CallbackCtorFn>(0x496130)(&D, NULL, r < 3 ? Receivers[ORIGINAL][r] : NULL, Event);
-#endif
 			AddHotkey(Key, C);
 			ORIGINAL(At<AddFn>(0x4a10a0)(Key, D));
 		} else if (Op < 5) {
@@ -1196,13 +1068,9 @@ void ThrowSideAssertion(bool Image, int Value)
 {
 	static uint8 Dummy[sizeof(TComponent)]; // the assertion comes before any write
 	if (Image) {
-#if GOLDEN_ORACLE
-		At<void(__fastcall *)(void *, void *, int, int)>(0x49bee0)(Dummy, NULL, Value, 0);
-#else
 		// The runner has no original: its exceptions come from the corpus.
 		printf("golden: ThrowSideAssertion for the original's side called in the runner\n");
 		abort();
-#endif
 	} else
 		((TComponent *)Dummy)->TComponent::SetSize(Value, 0);
 }
@@ -1695,11 +1563,6 @@ void TestGUIErrors()
 		TTimer *Timer[2] = {};
 		int Time = (int)(Random() % 5);
 		Timer[OURS] = new TTimer(Time, C[0]);
-#if GOLDEN_ORACLE
-		void *Memory = operator new(0x14);
-		At<void(__fastcall *)(void *, void *, int, TCallback)>(0x49b290)(Memory, NULL, Time, C[1]);
-		Timer[ORIGINAL] = (TTimer *)Memory;
-#endif
 		int Elapsed = (int)(Random() % 1000) + Time * 100;
 		GUI_COMPARE("TTimer::Update", Timer[0]->Update(Elapsed),
 			At<void(__fastcall *)(void *, void *, int)>(0x4a1df0)(Timer[1], NULL, Elapsed));

@@ -31,40 +31,10 @@
 #include <string>
 #include <vector>
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *VoidFn)();
-typedef bool(__cdecl *BoolFn)();
-typedef int(__cdecl *IntFn)();
-typedef void(__cdecl *SetBoolFn)(bool);
-typedef void(__fastcall *ThisFn)(void *, void *);
-typedef void(__fastcall *ThisIntFn)(void *, void *, int);
-typedef void(__fastcall *ThisLineFn)(void *, void *, TTalkLine *);
-typedef void(__fastcall *ThisTextFn)(void *, void *, int, const char *, int);
-typedef bool(__fastcall *ThisBoolFn)(void *, void *);
-typedef bool(__fastcall *ThisSetBoolFn)(void *, void *, bool);
-typedef TTalkLine *(__fastcall *GetLineFn)(void *, void *, int);
-typedef TTalkLine *(__fastcall *NextFn)(void *, void *);
-typedef void(__fastcall *LineFn)(void *, void *, uint32, int, const char *, int);
-typedef void(__fastcall *NamedLineFn)(void *, void *, uint32, int, const char *, const char *, int);
-typedef void(__fastcall *VectorFn)(void *, void *, int, int, int, TTalkFilter *);
-typedef TTalkBuffer *(__cdecl *CreateFn)(int, int, const char *, int);
-typedef void(__cdecl *DeleteFn)(TTalkBuffer *);
-typedef bool(__fastcall *MatchFn)(void *, void *, int, const char *, int);
-
-static_assert(sizeof(TTalkBuffer) == 0x2c, "TTalkBuffer: the original's layout in the oracle");
-#endif
 
 namespace {
 
 __time32_t FixedTime = 1700000000;
-#if GOLDEN_ORACLE
-__time32_t __cdecl ImageTime(__time32_t *Time)
-{
-	if (Time != nullptr)
-		*Time = FixedTime;
-	return FixedTime;
-}
-#endif
 // Our clock (issue #62: time(), the CRT's _time64): the same fixed time.
 __time64_t __cdecl OurTime(__time64_t *Time)
 {
@@ -73,27 +43,6 @@ __time64_t __cdecl OurTime(__time64_t *Time)
 	return FixedTime;
 }
 
-#if GOLDEN_ORACLE
-uint8 SavedClock[5];
-void *TestClockFunction;
-tm *__cdecl ImageLocaltime(const __time32_t *Time) { return _localtime32(Time); }
-int __cdecl ImageSprintf(char *Buffer, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = vsprintf(Buffer, Format, Args);
-	va_end(Args);
-	return Result;
-}
-int __cdecl ImageFprintf(FILE *File, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = vfprintf(File, Format, Args);
-	va_end(Args);
-	return Result;
-}
-#else
 // The import slot of _time64 in the runner and what it held.
 void **ClockSlot;
 void *SavedSlot;
@@ -102,29 +51,9 @@ void SetClockSlot(void *Value)
 {
 	golden::SetImport(ClockSlot, Value);
 }
-#endif
 
 void PatchTalk()
 {
-#if GOLDEN_ORACLE
-	PatchImage();
-	PatchJump(0x5121ea, (void *)ImageTime);
-	PatchJump(0x513eb1, (void *)ImageLocaltime);
-	PatchJump(0x511d6b, (void *)ImageSprintf);
-	PatchJump(0x512173, (void *)ImageFprintf);
-	DWORD Protection;
-	void *ClockFunction = (void *)_time64;
-	TestClockFunction = ClockFunction;
-	memcpy(SavedClock, ClockFunction, 5);
-	CHECK(VirtualProtect(ClockFunction, 5, PAGE_EXECUTE_READWRITE, &Protection) != 0, "patch test CRT clock");
-	PatchJump((uint32)(uintptr_t)ClockFunction, (void *)OurTime);
-	FlushInstructionCache(GetCurrentProcess(), ClockFunction, 5);
-	VirtualProtect(ClockFunction, 5, Protection, &Protection);
-	for (uint32 Address : {0x71ef70u, 0x71ef90u, 0x71efb0u, 0x71efd0u})
-		if (Global<TTalkFilter **>(Address + 28) == NULL)
-			At<VectorFn>(0x4fd6e0)((void *)(uintptr_t)Address, NULL, 0, Address == 0x71efd0 ? 4 : 9,
-				Address == 0x71efd0 ? 5 : 10, NULL);
-#else
 	ClockSlot = golden::FindImport("_time64");
 	CHECK(ClockSlot != nullptr, "patch test CRT clock");
 	if (ClockSlot == nullptr) {
@@ -133,20 +62,11 @@ void PatchTalk()
 	}
 	SavedSlot = *ClockSlot;
 	SetClockSlot((void *)OurTime);
-#endif
 }
 
 void UnpatchTalk()
 {
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(TestClockFunction, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	memcpy(TestClockFunction, SavedClock, 5);
-	FlushInstructionCache(GetCurrentProcess(), TestClockFunction, 5);
-	VirtualProtect(TestClockFunction, 5, Protection, &Protection);
-#else
 	SetClockSlot(SavedSlot);
-#endif
 }
 
 bool SameText(const char *Ours, const char *Original)
@@ -163,64 +83,12 @@ struct TLineState {
 	golden::TText Addressee, Line, WithoutTime, Text;
 };
 
-#if GOLDEN_ORACLE
-TLineState LineOf(const TTalkLine *O)
-{
-	TLineState State;
-	State.StatementID = O->StatementID;
-	State.Mode = O->Mode;
-	State.Time = (int)O->Time;
-	State.WithoutTimeOffset = (int)(O->WithoutTime - O->Line);
-	State.TextOffset = (int)(O->Text - O->Line);
-	auto Text = [](const char *Value, size_t Max = (size_t)-1) {
-		golden::TText Result;
-		Result.Null = Value == nullptr;
-		if (Value != nullptr)
-			Result.Text = std::string(Value, strnlen(Value, Max));
-		return Result;
-	};
-	State.Addressee = Text(O->Addressee, sizeof(O->Addressee));
-	State.Line = Text(O->Line);
-	State.WithoutTime = Text(O->WithoutTime);
-	State.Text = Text(O->Text);
-	return State;
-}
-
-// A line's contents as one key: its fields, and each text with whether it is NULL and its length.
-std::string LineKey(const TLineState &State)
-{
-	std::string Key;
-	auto Number = [&Key](int64_t Value) { Key.append((const char *)&Value, sizeof(Value)); };
-	auto Text = [&Key, &Number](const golden::TText &Value) {
-		Number(Value.Null ? -1 : (int64_t)Value.Text.size());
-		Key += Value.Text;
-	};
-	Number(State.StatementID);
-	Number(State.Mode);
-	Number(State.Time);
-	Number(State.WithoutTimeOffset);
-	Number(State.TextOffset);
-	Text(State.Addressee);
-	Text(State.Line);
-	Text(State.WithoutTime);
-	Text(State.Text);
-	return Key;
-}
-#endif
 
 // Records a line's contents (the oracle: State), returns them as recorded.
 TLineState RecordLine([[maybe_unused]] const TLineState &State)
 {
 	TLineState Result;
 	int Fields[5] = {};
-#if GOLDEN_ORACLE
-	Fields[0] = (int)State.StatementID;
-	Fields[1] = State.Mode;
-	Fields[2] = State.Time;
-	Fields[3] = State.WithoutTimeOffset;
-	Fields[4] = State.TextOffset;
-	Result = State;
-#endif
 	golden::Output("line", Fields);
 	Result.StatementID = (uint32)Fields[0];
 	Result.Mode = Fields[1];
@@ -246,25 +114,11 @@ TLineState OriginalLineState([[maybe_unused]] const TTalkLine *Line)
 // which the heap chooses (Windows randomises the low-fragmentation heap), so two recordings differed in
 // whether a new line at a freed line's address was new; the runner uses only a line's contents.
 std::vector<TLineState> LineTable;
-#if GOLDEN_ORACLE
-std::map<std::string, int> LineIds;
-#endif
 
 int OriginalLineId([[maybe_unused]] const TTalkLine *Line)
 {
 	int Entry[2] = {0, 0}; // the identity, whether it is new
 	TLineState State;
-#if GOLDEN_ORACLE
-	State = LineOf(Line);
-	const std::string Key = LineKey(State);
-	auto Found = LineIds.find(Key);
-	if (Found != LineIds.end())
-		Entry[0] = Found->second;
-	else {
-		Entry[0] = (int)LineTable.size();
-		Entry[1] = 1;
-	}
-#endif
 	golden::Output("line identity", Entry);
 	if (Entry[1] != 0) {
 		if (Entry[0] != (int)LineTable.size())
@@ -286,16 +140,6 @@ struct TBufferState {
 	std::vector<int> Ids, Previous;
 };
 
-#if GOLDEN_ORACLE
-int OriginalIndex(const TTalkBuffer *Buffer, const TTalkLine *Line)
-{
-	int Index = 0;
-	for (TTalkLine *Search = Buffer->first; Search != NULL; Search = Search->Next, Index++)
-		if (Search == Line)
-			return Index;
-	return -1;
-}
-#endif
 
 TBufferState OriginalBuffer([[maybe_unused]] const TTalkBuffer *O)
 {
@@ -303,20 +147,6 @@ TBufferState OriginalBuffer([[maybe_unused]] const TTalkBuffer *O)
 	int Fields[8] = {};
 	uint8 Bytes[8] = {};
 	int Count = 0;
-#if GOLDEN_ORACLE
-	Fields[0] = O->ReceiveTalkMode;
-	Fields[1] = O->SendTalkMode;
-	Fields[2] = O->lines;
-	Fields[3] = O->limit;
-	Fields[4] = OriginalIndex(O, O->cursor);
-	Fields[5] = OriginalIndex(O, O->last);
-	memcpy(&Bytes[0], &O->Changed, 1);
-	memcpy(&Bytes[1], &O->Closed, 1);
-	memcpy(&Bytes[2], &O->ShowMessages, 6);
-	for (const TTalkLine *Line = O->first; Line != NULL && Count < 1000000; Line = Line->Next)
-		Count++;
-	Fields[6] = Count;
-#endif
 	golden::Output("buffer", Fields);
 	golden::Output("buffer flags", Bytes);
 	State.ReceiveTalkMode = Fields[0];
@@ -331,16 +161,8 @@ TBufferState OriginalBuffer([[maybe_unused]] const TTalkBuffer *O)
 	Count = Fields[6];
 	State.Ids.resize((size_t)Count);
 	State.Previous.resize((size_t)Count);
-#if GOLDEN_ORACLE
-	int i = 0;
-	for (const TTalkLine *Line = O->first; i < Count; Line = Line->Next, i++) {
-		State.Ids[(size_t)i] = OriginalLineId(Line);
-		State.Previous[(size_t)i] = OriginalIndex(O, Line->Previous);
-	}
-#else
 	for (int i = 0; i < Count; i++)
 		State.Ids[(size_t)i] = OriginalLineId(nullptr);
-#endif
 	if (Count > 0)
 		golden::OutputArray("previous lines", State.Previous.data(), State.Previous.size());
 	return State;
@@ -400,26 +222,7 @@ void CheckBuffer(const TTalkBuffer *Ours, [[maybe_unused]] const TTalkBuffer *Or
 	CheckBuffer(Ours, OriginalBuffer(Original));
 }
 
-#if GOLDEN_ORACLE
-TTalkLine *OriginalLine(uint32 ID, int Mode, const char *Name, const char *Text, int DiffTime)
-{
-	TTalkLine *Line = (TTalkLine *)malloc(sizeof(TTalkLine));
-	memset(Line, 0xa5, sizeof(TTalkLine));
-	if (Name == NULL)
-		At<LineFn>(0x5044b0)(Line, NULL, ID, Mode, Text, DiffTime);
-	else
-		At<NamedLineFn>(0x5048a0)(Line, NULL, ID, Mode, Name, Text, DiffTime);
-	return Line;
-}
-void FreeLine(TTalkLine *Line)
-{
-	free(Line->Line);
-	free(Line);
-}
-TTalkBuffer *OriginalDefault() { return Global<TTalkBuffer *>(0x71ef68); }
-#else
 TTalkBuffer *OriginalDefault() { return nullptr; }
-#endif
 void FreeOurLine(TTalkLine *Line)
 {
 	free(Line->Line);
@@ -527,11 +330,6 @@ void TestFilters()
 		CHECK(Filter.Matches(Mode, Name, Channel) == Matches, "filter match");
 	}
 	vector<TTalkFilter *> Ours(0, 4, 5, nullptr);
-#if GOLDEN_ORACLE
-	alignas(4) uint8 OriginalData[32] = {};
-	At<VectorFn>(0x4fd6e0)(OriginalData, NULL, 0, 4, 5, NULL);
-	vector<TTalkFilter *> &Original = *(vector<TTalkFilter *> *)OriginalData;
-#endif
 	for (int Count = 0; Count < 65; Count++) {
 		char Name[30];
 		sprintf(Name, "filter%d", Count);
@@ -819,14 +617,7 @@ void TestLinesAndBuffers()
 	alignas(8) uint8 OurData[80];
 	memset(OurData, 0x55, sizeof(OurData));
 	TTalkBuffer *Ours = new (OurData) TTalkBuffer(1);
-#if GOLDEN_ORACLE
-	alignas(8) uint8 OriginalData[80];
-	memset(OriginalData, 0x55, sizeof(OriginalData));
-	TTalkBuffer *Original = (TTalkBuffer *)OriginalData;
-	At<ThisIntFn>(0x4fd5a0)(Original, NULL, 1);
-#else
 	TTalkBuffer *Original = nullptr;
-#endif
 	{
 		// The base constructor, the bytes it leaves untouched included: field by field (the layouts
 		// differ), and the bytes no field covers.
@@ -946,12 +737,6 @@ void TestLinesAndBuffers()
 	CheckBuffer(Ours, Original);
 }
 
-#if GOLDEN_ORACLE
-template <class Function> Function Virtual(TTalkBuffer *Buffer, int Offset)
-{
-	return (Function)(*(void ***)Buffer)[Offset / 4];
-}
-#endif
 
 void TestRouting()
 {

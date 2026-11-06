@@ -1,7 +1,7 @@
 // Minimal stand-in for the MFC declarations the reconstruction uses, for
-// compile checks without MFC (the mfc_shim_check target of the oracle-x86
-// preset, cmake/OracleX86.cmake, compiles every source with TIBIA_MFC_SHIM
-// defined) and for the difftest. Declarations only: it is not linkable and
+// the golden tests (tests/golden, TIBIA_MFC_SHIM: the client's code they
+// compile; until issue #94 also the 32-bit oracle's compile check and test
+// programs). Declarations only: it is not linkable and
 // does not reproduce MFC's layout beyond m_hSocket. Patella.exe builds with
 // real MFC (the Patella target).
 

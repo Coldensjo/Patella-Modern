@@ -223,15 +223,3 @@ public:
 };
 
 // The FILE * members are TFiles (issue #64): the same 4 bytes in the original's layout.
-#if PATELLA_ORIGINAL_LAYOUT
-static_assert(sizeof(TReadScriptFile) == 0x80c && offsetof(TReadScriptFile, File) == 0x004
-	&& offsetof(TReadScriptFile, Filename) == 0x008 && offsetof(TReadScriptFile, Special) == 0x808);
-// String a TFixedString (issue #60).
-static_assert(offsetof(TReadScriptFile, String) == 0x40c && sizeof(TReadScriptFile::String) == MAX_STRING_LENGTH);
-static_assert(sizeof(TWriteScriptFile) == 0x408 && offsetof(TWriteScriptFile, File) == 0x000
-	&& offsetof(TWriteScriptFile, Filename) == 0x004 && offsetof(TWriteScriptFile, Line) == 0x404);
-static_assert(sizeof(TReadBinaryFile) == 0x404 && offsetof(TReadBinaryFile, File) == 0x000
-	&& offsetof(TReadBinaryFile, Filename) == 0x004);
-static_assert(sizeof(TWriteBinaryFile) == 0x404 && offsetof(TWriteBinaryFile, File) == 0x000
-	&& offsetof(TWriteBinaryFile, Filename) == 0x004);
-#endif

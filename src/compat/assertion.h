@@ -16,7 +16,7 @@
 // checked (notes/modernization-plan.md, M5).
 //
 // Not contract_assert, on any compiler (notes/decisions.md, issue #79): the outcome of a failed assertion must stay a
-// TMyException (difftest and the golden corpus compare the kind), and a contract assertion gives it only through a
+// TMyException (the golden corpus compares the kind), and a contract assertion gives it only through a
 // throwing replaceable violation handler, one for the whole program (CONTRACT_ASSERT's, compat/cxx26.h, would throw
 // too), whose semantic a compiler flag changes (ignore compiles the check out), which may evaluate the predicate more
 // than once, and in which GCC 16.2 cannot tell a predicate that threw from a false one.

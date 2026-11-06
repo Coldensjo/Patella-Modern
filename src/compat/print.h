@@ -1,5 +1,5 @@
 // print.h: printf on stdout with std::format's language, for the client's one diagnostic line on stdout
-// (ContentWindows.cpp's MouseHover), with a C++17 stand-in for the oracle-x86 preset (/std:c++17 until M6) and the
+// (ContentWindows.cpp's MouseHover), with a C++17 stand-in (the 32-bit oracle's /std:c++17, until issue #94) and the
 // same call site, as compat/format.h is for std::format_to_n. Patella-Modern issue #64. Not part of the original
 // source.
 //

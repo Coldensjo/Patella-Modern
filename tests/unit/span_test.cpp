@@ -1,4 +1,4 @@
-// patella::TSpan (src/compat/span.h, issue #59): std::span in tests_unit, the C++17 stand-in of the oracle-x86 build
+// patella::TSpan (src/compat/span.h, issue #59): std::span in tests_unit, the C++17 stand-in of the 32-bit oracle
 // in tests_unit_cxx26_standin (PATELLA_SPAN_STANDIN). The same tests hold for both, so the stand-in behaves as
 // std::span where the code uses it.
 

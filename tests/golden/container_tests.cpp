@@ -46,16 +46,6 @@
 
 namespace ContainerTest {
 
-#if GOLDEN_ORACLE
-typedef void(__fastcall *Ctor2Fn)(void *This, void *, int a, int b);
-typedef void(__fastcall *Ctor3Fn)(void *This, void *, int Min, int Max, int Block);
-typedef void(__fastcall *Ctor4Fn)(void *This, void *, int a, int b, int c, int d);
-typedef void(__fastcall *Ctor6Fn)(void *This, void *, int a, int b, int c, int d, int e, int f);
-typedef void *(__fastcall *At1Fn)(void *This, void *, int i);
-typedef void *(__fastcall *At2Fn)(void *This, void *, int x, int y);
-typedef void *(__fastcall *At3Fn)(void *This, void *, int x, int y, int z);
-typedef void(__fastcall *DtorFn)(void *This, void *);
-#endif
 
 // Its own random numbers: the shared Random() stays where it was, so the
 // tests after this one get the same inputs as without it.
@@ -91,41 +81,9 @@ static void *__cdecl PatternNew(size_t Size)
 	memset(Memory, Pattern, Size);
 	return Memory;
 }
-#if !GOLDEN_ORACLE
 // The runner: our operator new[] (below) fills while this is set.
 bool PatternActive = false;
-#endif
 
-#if GOLDEN_ORACLE
-struct TSaved {
-	uint8 *Code;
-	uint8 Bytes[5];
-};
-static std::vector<TSaved> SavedCode;
-static void Redirect(void *Function, void *Target)
-{
-	TSaved S;
-	S.Code = (uint8 *)Function;
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	memcpy(S.Bytes, Function, 5);
-	PatchJump((uint32)(uintptr_t)Function, Target);
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-	SavedCode.push_back(S);
-}
-static void RestoreAll()
-{
-	for (size_t i = SavedCode.size(); i-- > 0;) {
-		DWORD Protection;
-		VirtualProtect(SavedCode[i].Code, 5, PAGE_EXECUTE_READWRITE, &Protection);
-		memcpy(SavedCode[i].Code, SavedCode[i].Bytes, 5);
-		VirtualProtect(SavedCode[i].Code, 5, Protection, &Protection);
-		FlushInstructionCache(GetCurrentProcess(), SavedCode[i].Code, 5);
-	}
-	SavedCode.clear();
-}
-#endif
 
 static void RandomBytes(void *Data, size_t Size)
 {
@@ -186,9 +144,6 @@ struct TLayout {
 			}
 		}
 		bool Valid = Size[1] == OurSize;
-#if GOLDEN_ORACLE
-		Valid = Valid && Size[0] == OurSize; // the oracle's classes have the original's layout
-#endif
 		for (const TField &Field : Fields)
 			Valid = Valid && Field.Gap[0] <= Field.Gap[1];
 		if (!Valid) {
@@ -369,13 +324,6 @@ template <class T> static void TestVector(const TVectorInstance &Instance, int R
 		}
 		// The destructor: ours inline, the image's out-of-line copy where it has one.
 		Ours->~vector<T>();
-#if GOLDEN_ORACLE
-		if (Instance.Dtor != 0)
-			At<DtorFn>(Instance.Dtor)(Image, NULL);
-		else
-			free(Image->entry.get());
-		free(Image);
-#endif
 		free(Ours);
 	}
 }
@@ -500,12 +448,6 @@ template <class T> static void TestMatrix3d(const char *Name, [[maybe_unused]] u
 
 // --- The other header functions ------------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void(__fastcall *LineFormatFn)(void *This, void *, TTalkLine *TextLine, const char *LineText, int LineLength,
-	int OriginalOffset, int Indent, int FontNumber, TRGBColor Color, bool LineEnd);
-typedef void(__fastcall *SetSizeFn)(void *This, void *, int NewSize);
-typedef int(__fastcall *GetChannelIDFn)(void *This, void *);
-#endif
 
 static void TestHeaderInlines()
 {
@@ -524,12 +466,6 @@ static void TestHeaderInlines()
 		TLineFormat *Ours = (TLineFormat *)PatternNew(sizeof(TLineFormat));
 		new (Ours) TLineFormat(Line, Text, Length, Offset, Indent, Font, Color, End);
 		uint8 Image[0x28] = {};
-#if GOLDEN_ORACLE
-		TLineFormat *ImageObject = (TLineFormat *)PatternNew(sizeof(TLineFormat));
-		At<LineFormatFn>(0x418020)(ImageObject, NULL, Line, Text, Length, Offset, Indent, Font, Color, End);
-		memcpy(Image, ImageObject, sizeof(Image));
-		free(ImageObject);
-#endif
 		golden::Output("TLineFormat", Image);
 		CHECK(memcmp(LineFormat.ProjectAll(Ours, 1).data(), Image, LineFormat.Size[0]) == 0, "TLineFormat(%d, %d, %d, %d)",
 			Length, Offset, Indent, Font);
@@ -562,15 +498,7 @@ static void TestHeaderInlines()
 
 static void Run()
 {
-#if GOLDEN_ORACLE
-	PatchImage();
-	// operator new[] of both sides (and the image's operator new) fill with the pattern.
-	Redirect((void *)(uintptr_t)0x523817, (void *)PatternNew);
-	Redirect((void *)(uintptr_t)0x5237e7, (void *)PatternNew);
-	Redirect((void *)(void *(__cdecl *)(size_t)) operator new[], (void *)PatternNew);
-#else
 	PatternActive = true;
-#endif
 	int Before = Checks;
 
 	// One entry per instance in the image (Container.h's list).
@@ -594,17 +522,12 @@ static void Run()
 	TestMatrix3d<int>("matrix3d<int>", 0x4b0d70, 0x4b5b40, 12, 100);
 
 	TestHeaderInlines();
-#if GOLDEN_ORACLE
-	RestoreAll();
-#else
 	PatternActive = false;
-#endif
 	printf("Container: %d checks\n", Checks - Before);
 }
 
 } // namespace ContainerTest
 
-#if !GOLDEN_ORACLE
 // The runner's operator new[]: the pattern while the test runs (the oracle patches its CRT's instead),
 // else malloc, as MSVC's; delete[] frees.
 void *operator new[](size_t Size)
@@ -618,7 +541,6 @@ void *operator new[](size_t Size)
 }
 void operator delete[](void *Memory) noexcept { free(Memory); }
 void operator delete[](void *Memory, size_t) noexcept { free(Memory); }
-#endif
 
 void TestContainer()
 {

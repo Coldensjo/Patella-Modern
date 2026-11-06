@@ -10,9 +10,8 @@
 #	src/testmode/DisplayModes.cpp the fixed display modes' file format and choice (issue #48)
 #
 # The test build of the client (PatellaTest.exe, cmake/WindowsX64.cmake) links it with
-# src/testmode/TestModeWin32.cpp and ClientStateWin32.cpp, the Windows side. Patella.exe and the
-# oracle-x86 build never link it: their hooks (src/TestHooks.h) are the system calls themselves, or
-# nothing.
+# src/testmode/TestModeWin32.cpp and ClientStateWin32.cpp, the Windows side. Patella.exe never links it: its
+# hooks (src/TestHooks.h) are the system calls themselves, or nothing.
 
 include("${PROJECT_SOURCE_DIR}/cmake/Warnings.cmake")
 include("${PROJECT_SOURCE_DIR}/cmake/Hardening.cmake")

@@ -10,10 +10,10 @@
 // (a setting that could not be used), info (the default level) and debug (the diagnostics error.txt held until issue
 // #74: the engine, the last packet types, the last packet's first bytes and the player's position). A line is
 // written when its level is the log's level or a more severe one. The level and the file come from Patella.ini
-// (log/LogSettings.h, the x64 client: LogLevel, LogFile); without them, or where nothing reads them (the oracle-x86
-// build), the log is at info and writes to stderr only.
+// (log/LogSettings.h, the x64 client: LogLevel, LogFile); without them, or where nothing reads them (the tests),
+// the log is at info and writes to stderr only.
 //
-// The text comes from std::format where the library has it (PATELLA_HAS_FORMAT), elsewhere (the oracle's C++17 and
+// The text comes from std::format where the library has it (PATELLA_HAS_FORMAT), elsewhere (a C++17 library and
 // tests_unit_cxx26_standin) from compat/format.h's stand-in, as compat/print.h and TFile::Print do. Nothing here
 // throws: a message that cannot be formatted (the stand-in's TFormatError, std::bad_alloc) is dropped, and a failed
 // write is ignored (a GUI client's stderr is valid only when it is redirected). The file is opened for appending, in

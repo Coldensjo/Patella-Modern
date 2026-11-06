@@ -66,13 +66,8 @@ int WheelDelta;             // 0x5d169c, the remainder below one notch (120)
 
 
 // The arrays std::arrays and TFixedStrings (issue #60). CMainFrame derives from MFC's CFrameWnd, whose size is
-// the MFC's or the shim's (difftest, the golden tests): KeyStates' place among CMainFrame's own members.
+// the MFC's or the shim's (the golden tests): KeyStates' place among CMainFrame's own members.
 static_assert(sizeof(PacketHeader) == 16 && sizeof(ClassName) == 32, "PacketHeader and ClassName");
-#if PATELLA_ORIGINAL_LAYOUT
-static_assert(offsetof(CMainFrame, KeyStates) == offsetof(CMainFrame, Placement) + sizeof(WINDOWPLACEMENT)
-		&& offsetof(CMainFrame, KeyFlags) == offsetof(CMainFrame, KeyStates) + 0x100,
-	"CMainFrame's KeyStates");
-#endif
 // 0x4a8200. The handlers that share an address in the table (OnKeyDown
 // and OnSysKeyDown, OnKeyUp and OnSysKeyUp) have identical code that the
 // linker folded.

@@ -113,14 +113,6 @@ int __cdecl FakeFindPath(int x, int y, int z, int DestX, int DestY, int DestZ, b
 void __cdecl OurHint(int Value) { Hints[OURS].push_back(Value); }
 void __cdecl OurMonsterHint(const char *Name) { MonsterHints[OURS].push_back(Name); }
 
-#if GOLDEN_ORACLE
-__time32_t __cdecl ImageTime(__time32_t *Time)
-{
-	if (Time != nullptr)
-		*Time = FixedTime;
-	return FixedTime;
-}
-#endif
 // Our clock (issue #62: time(), the CRT's _time64): the same fixed time.
 __time64_t __cdecl OurTime(__time64_t *Time)
 {
@@ -129,89 +121,19 @@ __time64_t __cdecl OurTime(__time64_t *Time)
 	return FixedTime;
 }
 
-#if GOLDEN_ORACLE
-void PatchOwn(void *Function, void *Target)
-{
-	DWORD Protection;
-	VirtualProtect(Function, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	PatchJump((uint32)(uintptr_t)Function, Target);
-	VirtualProtect(Function, 5, Protection, &Protection);
-	FlushInstructionCache(GetCurrentProcess(), Function, 5);
-}
-
-// Replacements patched into the image.
-void __cdecl ImageGetCenter(int *x, int *y, int *z) { GetCenter(x, y, z); }
-int __cdecl ImageGetLevel() { return FakeLevel; }
-TObject __cdecl ImageField(int x, int y, int) { return Field(x, y); }
-bool __cdecl ImageFieldFree(int x, int y, int, bool) { return FieldFree[x & 15][y & 15]; }
-int __cdecl ImageFieldHeight(int x, int y, int) { return FieldHeight[x & 15][y & 15]; }
-void __cdecl ImageToScreen(int *x, int *y, int *z) { ToScreen(x, y, z); }
-int __cdecl ImagePath(int x, int y, int z, int DestX, int DestY, int DestZ, bool Exact, int *Steps, int *Directions,
-	bool Diagonal)
-{
-	return Path(ORIGINAL_SIDE, x, y, z, DestX, DestY, DestZ, Exact, Steps, Directions, Diagonal);
-}
-void __cdecl ImageHint(int Value) { Hints[ORIGINAL_SIDE].push_back(Value); }
-void __cdecl ImageMonsterHint(const char *Name) { MonsterHints[ORIGINAL_SIDE].push_back(Name); }
-int __cdecl ImageSprintf(char *Buffer, const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-	int Result = vsprintf(Buffer, Format, Args);
-	va_end(Args);
-	return Result;
-}
-int __cdecl ImageStricmp(const char *a, const char *b) { return _stricmp(a, b); }
-char *__cdecl ImageStrdup(const char *s)
-{
-	char *t = (char *)malloc(strlen(s) + 1);
-	strcpy(t, s);
-	return t;
-}
-FILE *__cdecl ImageFopen(const char *Name, const char *Mode) { return fopen(Name, Mode); }
-int __cdecl ImageFclose(FILE *File) { return fclose(File); }
-size_t __cdecl ImageFread(void *Buffer, size_t Size, size_t Count, FILE *File) { return fread(Buffer, Size, Count, File); }
-
-uint8 SavedClock[5];
-void *ClockFunction;
-#else
 void PatchOwn(void *Function, void *Target) { golden::RedirectOwn(Function, Target); }
 
 // The runner's _time64 is ucrtbase's: its import slot points at the fake while the test runs.
 void **ClockSlot;
 void *SavedSlot;
-#endif
 
 void PatchClock(bool On)
 {
-#if GOLDEN_ORACLE
-	DWORD Protection;
-	VirtualProtect(ClockFunction, 5, PAGE_EXECUTE_READWRITE, &Protection);
-	if (On)
-		PatchJump((uint32)(uintptr_t)ClockFunction, (void *)OurTime);
-	else
-		memcpy(ClockFunction, SavedClock, 5);
-	FlushInstructionCache(GetCurrentProcess(), ClockFunction, 5);
-	VirtualProtect(ClockFunction, 5, Protection, &Protection);
-#else
 	golden::SetImport(ClockSlot, On ? (void *)OurTime : SavedSlot);
-#endif
 }
 
 void PatchCreatures()
 {
-#if GOLDEN_ORACLE
-	PatchImage();
-	PatchJump(0x4b08c0, (void *)ImageGetCenter);
-	PatchJump(0x4b08f0, (void *)ImageGetLevel);
-	PatchJump(0x4b6140, (void *)ImageField);
-	PatchJump(0x4be130, (void *)ImageFieldFree);
-	PatchJump(0x4bdf30, (void *)ImageFieldHeight);
-	PatchJump(0x4b0960, (void *)ImageToScreen);
-	PatchJump(0x4bee00, (void *)ImagePath);
-	PatchJump(0x4a32e0, (void *)ImageHint);
-	PatchJump(0x4a3460, (void *)ImageMonsterHint);
-#endif
 	PatchOwn((void *)AddEventHelp, (void *)OurHint);
 	PatchOwn((void *)CheckEventHelpName, (void *)OurMonsterHint);
 	PatchOwn((void *)GetMapPosition, (void *)FakeGetMapPosition);
@@ -221,69 +143,17 @@ void PatchCreatures()
 	PatchOwn((void *)GetFieldHeight, (void *)FakeGetFieldHeight);
 	PatchOwn((void *)AbsoluteToRelative, (void *)FakeAbsoluteToRelative);
 	PatchOwn((void *)FindPath, (void *)FakeFindPath);
-#if GOLDEN_ORACLE
-	PatchJump(0x5121ea, (void *)ImageTime);
-	PatchJump(0x511d6b, (void *)ImageSprintf);
-	PatchJump(0x512539, (void *)ImageStricmp);
-	PatchJump(0x51491c, (void *)ImageStrdup);
-	PatchJump(0x51227f, (void *)ImageFopen);
-	PatchJump(0x512122, (void *)ImageFclose);
-	PatchJump(0x513a29, (void *)ImageFread);
-	ClockFunction = (void *)_time64;
-	memcpy(SavedClock, ClockFunction, 5);
-#else
 	ClockSlot = golden::FindImport("_time64");
 	if (ClockSlot == nullptr) {
 		printf("golden: Creatures: the runner imports no _time64\n");
 		exit(1);
 	}
 	SavedSlot = *ClockSlot;
-#endif
 	PatchClock(true);
 }
 
 // --- The original functions ------------------------------------------------
 
-#if GOLDEN_ORACLE
-typedef void(__cdecl *VoidFn)();
-typedef int(__cdecl *IntFn)();
-typedef bool(__cdecl *BoolFn)();
-typedef void(__cdecl *SetFn)(int);
-typedef void(__cdecl *Set2Fn)(int, int);
-typedef void(__cdecl *Set3Fn)(int, int, int);
-typedef int(__cdecl *GetFn)(int);
-typedef bool(__cdecl *TestFn)(int);
-typedef const char *(__cdecl *NameFn)(int);
-typedef TCreature *(__cdecl *AddFn)(uint32, uint32);
-typedef TCreature *(__cdecl *CreatureFn)(uint32);
-typedef TCreature *(__cdecl *OpponentFn)(int);
-typedef bool(__cdecl *CreatureTestFn)(TCreature *);
-typedef void(__cdecl *CreatureDoFn)(TCreature *);
-typedef void(__cdecl *PositionFn)(int *, int *, int *);
-typedef int(__cdecl *DestinationFn)(int, int, int, bool, bool);
-typedef bool(__cdecl *PairFn)(int, int);
-typedef void(__cdecl *SwapFn)(int, int);
-typedef void(__cdecl *AddBuddyFn)(uint32, const char *, bool);
-typedef void(__cdecl *BuddyStateFn)(uint32, bool);
-typedef void(__cdecl *EditBuddyFn)(int, int, const char *, bool);
-typedef bool(__cdecl *NameTestFn)(const char *);
-typedef void(__cdecl *SetBoolFn)(bool);
-typedef void(__cdecl *SetBuddyFn)(int, int, const char *, bool);
-typedef void(__cdecl *FetchFn)(int *, INT_PTR *, INT_PTR *);
-typedef const char *(__cdecl *StatusFn)();
-typedef void(__cdecl *LoadFn)(const char *);
-// thiscall members through __fastcall: ECX = this, EDX unused, rest on the stack.
-typedef TRGBColor *(__fastcall *ColorFn)(void *, void *, TRGBColor *);
-typedef bool(__fastcall *MemberTestFn)(void *, void *);
-typedef int(__fastcall *MemberGetFn)(void *, void *);
-typedef int(__fastcall *MemberGet1Fn)(void *, void *, int);
-typedef void(__fastcall *MemberSet1Fn)(void *, void *, int);
-typedef void(__fastcall *MemberSkullFn)(void *, void *, int, bool);
-typedef void(__fastcall *MemberSet3Fn)(void *, void *, int, int, int);
-
-TCreature *const OriginalCreatures = (TCreature *)(uintptr_t)0x5c68b0;
-TBuddyEntry *const OriginalBuddies = (TBuddyEntry *)(uintptr_t)0x5c4570;
-#endif
 TCreature *OurCreatures;
 TBuddyEntry *OurBuddies;
 // The original's tables as last recorded (the same start on both sides: the oracle's tables before the
@@ -495,15 +365,9 @@ void RandomPath()
 
 // Writes the same fields into our creature and, in the oracle, into the original's (the test plays
 // Communication.cpp's part).
-#if GOLDEN_ORACLE
-#define BOTH_CREATURES(A, B, Statement) \
-	for (TCreature *T : {A, B}) \
-	Statement
-#else
 #define BOTH_CREATURES(A, B, Statement) \
 	for (TCreature *T : {A}) \
 	Statement
-#endif
 
 void TestCreatureTable()
 {
