@@ -7901,7 +7901,8 @@ earlier helpers.
   freed object as it was; the Debug CRT fills it, and the Debug runner crashed. The runner's operator delete keeps
   memory freed during DialogWindow's test until its end (dialogwindow_tests.cpp), so both builds read what the oracle
   read. src/ is unchanged (the behaviour is the original's); the game may never reach it (the test drives sizes the
-  game does not); left for a later issue.
+  game does not); left for a later issue. Settled in issue #65 (below): SetSize no longer reads the deleted child,
+  and the runner's operator delete is gone.
 - **The order of Random()** (high; #55). Expressions with two or more calls in one expression are now sequenced in
   the x86 oracle's order, right to left: the TRGBColor and TRect constructors of RandomSkinProperties
   (DialogWindow, ContextMenus) and DialogElements' colours, ContextMenus' NewLine(Random(), Modes[Random() % 6],
@@ -9041,7 +9042,7 @@ finding fixed or suppressed with its reason.
   Nothing in the reference sessions (PatellaTest.exe under ASan), the unit tests, or Linux's Clang ASan+UBSan+LSan.
   Issue #65 (TDialogWindow::SetSize reads a child after a rearrange deleted it) is not seen: golden_runner keeps the
   memory freed during DialogWindow's test until the test ends (issue #28), and no reference session reaches it; it
-  stays issue #65's (M5 or M7). vlong::operator='s self-assignment (issue #63) is never reached.
+  stays issue #65's (M5 or M7; fixed there, and the runner's operator delete removed). vlong::operator='s self-assignment (issue #63) is never reached.
 - **PATELLA_NO_SANITIZE_ADDRESS** (high; src/compat/msvc.h). `__declspec(no_sanitize_address)` with MSVC's ASan
   (`__SANITIZE_ADDRESS__`), `__attribute__((no_sanitize("address")))` with Clang's (`__has_feature(address_sanitizer)`;
   functions and globals), `__attribute__((no_sanitize_address))` with GCC's; empty in every build without ASan, so
@@ -11574,3 +11575,68 @@ tools/difftest's three surface tests, cmake/OracleX86.cmake, cmake/CompareGolden
   compiler (#91 brings GCC and Clang, which call arguments left to right).
 - **The corpus** (high). Recorded again (867 MB): every check count as on main; fewer records in Buffers and Talk only.
   The runner replays it with 0 failures on windows-x64, -debug and -asan.
+
+## TDialogWindow::SetSize and the child its own SetSize deleted (Patella-Modern issue #65)
+
+Settled by Claude Opus 5.5, November 6, 2026, on branch issue-65 (M6; found in #28's second part, "A deleted child
+read in TDialogWindow::SetSize"). The owner decided on November 7, 2026 to fix it now.
+
+- **The bug** (high: ASan, build\logs\issue-65\asan-before-run.log). TDialogWindow::SetSize (0x4857b0) sizes each
+  child, `Child->SetSize(Width, Child->Height)`, and goes on with `Child->GetNext()`. A sub-window's SetSize ends
+  with its column's Rearrange(32) or (2, 4) and then Rearrange(8), whose FitChildren deletes the children that do not
+  fit the column's new height (DeleteChild: RemoveChild, then delete), the child being sized among them. The loop
+  then calls GetNext on the deleted child: a use after free. RemoveChild had set the child's Next to NULL before the
+  delete. The x86 heap and the x64 Release heap leave the freed object as it was, so the original read NULL and its
+  loop ended there. The Debug CRT fills freed memory, which is why the Debug golden runner crashed (#28). Only the
+  child being sized can be the deleted one the loop reads: a later child deleted by an earlier child's SetSize has
+  already been unlinked, so the live child's Next skips it.
+- **The fix** (high). After a child's SetSize, the loop goes on to the child's Next only while the child is still in
+  the column (`TWindow::IsChild(Child)`, which compares the pointer with the children and does not dereference it).
+  Otherwise it ends, as the original's did with the NULL it read. The column's own Rearrange(8) comes after, as
+  before. The other option, holding the deleted children until SetSize returns, would have moved their destructors
+  (a sub-window's stores its body's height, ContentWindows.cpp's send packets) after the following children's
+  SetSize: an order the comparisons can see. The pointer check reads nothing freed, and the order of every call stays
+  the same. A freed address cannot come back as a child during the child's SetSize: strategies 2, 4, 8 and 32 delete
+  and resize children but never insert one, and only strategy 16 (MakeRoom, a new window) appends. This is a
+  deliberate safety difference only in that freed memory is no longer read. The outcome (sizes, layout, the drawing
+  order, which children exist afterwards) is the original's, so tools/deliberate.py needs no entry: no comparison can
+  see it.
+- **The test** (high). CTest **dialogwindow_setsize** (tests/golden/dialogwindow_setsize_test.cpp, doctest; every
+  windows-x64 preset). Neither tests_unit nor tests_core can build DialogWindow.cpp (GUI.cpp and the client's other
+  files, against the MFC shim). The executable links the golden runner's object libraries with the test in place of
+  runner.cpp, and defines runner.cpp's globals. Our columns alone, no corpus, no image. Three cases on a column 176
+  wide with sub-windows of a test body of fixed minimum height, the column sized to 180: both children fit (both
+  resized); A's SetSize deletes B (A resized, B gone, A's Next NULL); A's own SetSize deletes A and keeps B (A gone,
+  B at the top, still 176 wide: the original's loop ended at A). 3 cases, 17 assertions. Before the fix,
+  windows-x64-asan: `AddressSanitizer: heap-use-after-free ... READ of size 8` in TDialogWindow::SetSize
+  (DialogWindow.cpp:128, the vtable read of GetNext), freed by TWindow::DeleteChild from FitChildren from
+  TSubWindow::SetSize; exit code 1. After: 3/3 cases, 17/17 assertions, exit code 0, under ASan and in every
+  windows-x64 configuration. difftest has no new check (the test is ours alone), and its counts are unchanged.
+- **The runner's workaround removed** (high). dialogwindow_tests.cpp's operator delete (the runner's for every test,
+  which held memory freed during DialogWindow's test until its end) is gone. The Debug golden_runner passes without it:
+  windows-x64-debug's golden 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures, DialogWindow 24,567 and
+  the difftest total 32,526 as the oracle's. That operator delete also took no size, so it had replaced ASan's sized
+  delete in the whole runner. Without it, windows-x64-asan's golden found a test instrument (5 reports, one site;
+  `ASAN_OPTIONS=continue_on_error=1` listed every report in one run, build\logs\issue-65\asan-golden-continue.log):
+  new-delete-type-mismatch in MainWindowTest::TFakeMapFrame's deleting destructor. The test gives our TMapFrames
+  (ChangeMode's `new TMapFrame`, 96 bytes) the fake's vtable, so their deleting destructor freed them with the fake's
+  size (72). TFakeMapFrame now has a class operator delete without a size (runner only, `#if !GOLDEN_ORACLE`). It is
+  a false positive (the block is freed whole; the size is the vtable's), not the client's.
+- **The images** (high). Patella.exe of windows-x64 and oracle-x86, Release, built in the worktree with main's
+  DialogWindow.cpp and with the branch's, function by function (#78's funcs.py and classify.py on `dumpbin
+  /disasm:nobytes`; build\logs\issue-65\pecompare). x64: 14,025 functions on both sides. x86: 11,412. None is gone or
+  new. TDialogWindow::SetSize changed (37 to 42 instructions on both; IsChild is a call, not inlined). Six others differ
+  only in one or two line constants, +12 (TSubWindow's constructor, Arrange, Minimize, Maximize; TContentWindow::Draw;
+  TDialogWindow::Shrink).
+- **The gates** (high). `python -I tools/build.py oracle-x86`: CTest 5/5, difftest 16,459,352 (DialogWindow 24,567),
+  sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0 (Patella.exe 1093
+  handlers, 1808 registrations). windows-x64 17/17, windows-x64-debug 16/16, windows-x64-asan 16/16 (no ASan finding):
+  golden on main's corpus 15,803,218 + 1,512,822 = 17,316,040, 0 failures. One test was rerun alone in each of
+  windows-x64-debug and windows-x64-asan: fatal_error_box, "A Tibia client is already running!", passed alone. The
+  first time my Debug and ASan workflows ran at once. The second time it was CTest's own parallel start of
+  fatal_error_box with init_control_failure: both run PatellaTest.exe, and its single-instance check stops the second
+  client (main's tests, not this change: neither has a RESOURCE_LOCK). windows-x64-gcc, linux-x64-gcc and
+  linux-x64-clang 11/11. 0 warnings on every preset. tidy_ci 3 findings, 0 new (baseline 3), 0 bugprone. tools/tidy.py
+  on DialogWindow.cpp and the test (Windows only): no finding on a changed line. banned_calls 0. clang-format clean.
+  `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: every session matches.
+  Logs: build\logs\issue-65.

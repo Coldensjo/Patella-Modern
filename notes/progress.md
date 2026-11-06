@@ -354,6 +354,15 @@ compare_files.py and compare_rendering.py runs the test build next to it and rea
 tools/client_state.py refuses a 64-bit process, patcap.c does not build for x64 (windows-x64 builds no patcap.dll);
 both stay for Tibia.exe and the oracle. testmode_check.py's e checks each dump on its own. Patella.exe unchanged
 (pecompare). notes/decisions.md, "The comparisons read the x64 client through its test mode only".
+
+TDialogWindow::SetSize and the child its own SetSize deleted (Patella-Modern issue #65, branch issue-65, November
+6, 2026; M6): the loop went on through the Next of a child that its own SetSize had deleted (FitChildren), as the
+original's did (a use after free that read NULL). It now ends when the child is no longer in the column: the same
+outcome, without the read. The CTest dialogwindow_setsize (tests/golden, the runner's objects, no corpus) is a
+heap-use-after-free under windows-x64-asan before the fix and passes after it. The golden runner's operator delete for
+DialogWindow's test is gone, and the Debug runner passes without it. The MainWindow test's TFakeMapFrame frees without
+a size (the operator delete had hidden ASan's size check). difftest 16,459,352 / 67 / 856,621 / 3,201 (unchanged);
+golden 17,316,040, 0 failures. notes/decisions.md, "TDialogWindow::SetSize and the child its own SetSize deleted".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -523,6 +532,14 @@ once in windows-x64 and -debug, "A Tibia client is already running!" from anothe
 alone); windows-x64-gcc and the Linux presets 11/11, 0 warnings. golden_reproducible: 43 files compared, 0
 different. Logs: build\logs\issue-55.
 
+Patella-Modern issue #65 (branch issue-65, November 6, 2026): TDialogWindow::SetSize ends its loop at a child its own
+SetSize deleted (dialogwindow_setsize: heap-use-after-free under ASan before, 3/3 cases after). `python -I
+tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest 16,459,352, sysinctest 67, communicationtest 856,621,
+vlongtest 3,201, 0 failures (unchanged), safeseh 0. golden on main's corpus 15,803,218 replayed + 1,512,822 retired =
+17,316,040, 0 failures (windows-x64 17/17, -debug 16/16 without the runner's operator delete, -asan 16/16, no ASan
+finding; fatal_error_box rerun alone in -debug and -asan: a client of a parallel test was running); windows-x64-gcc and
+the Linux presets 11/11, 0 warnings. Images by function: SetSize, line constants only elsewhere. tidy_ci 3 findings, 0
+new; banned_calls 0; clang-format clean. reference.py compare: every session matches. Logs: build\logs\issue-65.
 Patella-Modern issue #90 (branch issue-90, November 6, 2026): ExitControl skips ExitSurfaces without a surface,
 FatalError skips SetDisplayMode without a main window or a surface (PatellaTest.exe without Tibia.dat: 0xC0000005
 before, the box and exit code 1 after). `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest 16,459,352,
