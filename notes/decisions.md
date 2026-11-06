@@ -11892,3 +11892,112 @@ reference session, Tibia.exe), seen in #55's and #65's gates. Test build, docs; 
   golden on main's corpus 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 warnings. tidy_ci 3
   findings, 0 new (baseline 3), 0 bugprone; tools/tidy.py on the Windows build for TestModeWin32.cpp and Player.cpp: no
   finding on a changed line. banned_calls 0. clang-format clean. Logs: build\logs\issue-96.
+
+## The final oracle recording: the golden corpus and the reference recordings frozen with a manifest (Patella-Modern issue #93, M6)
+
+Settled by Claude Opus 5.5, November 6, 2026. The last recording before #94 removes oracle-x86: after it neither the
+corpus nor the reference recordings can be recorded again in the fork. Changed: cmake/OracleX86.cmake,
+cmake/RunGoldenRecord.cmake, tests/golden (golden.h, golden.cpp, runner.cpp), tools/data_manifest.py (new),
+tools/build.py, tools/reference.py, tools/reference_record.py.
+
+### The manifest (high)
+
+- One format for both data sets, `MANIFEST.tsv` in the set's folder, written and read by tools/data_manifest.py
+  (`write`, `verify`, `--self-test`); its module comment is the format. Text, one tab-separated field per line, like
+  the corpus's own manifest.tsv files, so that the C++ runner reads it without a library: `format
+  patella-data-manifest 1`, `kind` (golden, reference), `commit` and `clean` (the recording's commit and whether its
+  tracked files were unchanged), `date` (UTC), `time_zone` (POSIX TZ), `tibia_sha256`, `tool` lines (MSVC's cl
+  version, CMake's, the oracle-x86 configuration and folder), `program` lines (size and SHA-256 of difftest.exe,
+  sysinctest.exe, communicationtest.exe; the reference set's patcap.dll when a recording writes it), a `manifest` line
+  when the manifest was written later than the data (its commit and date), `files <count> <bytes>`, then one `file
+  <size> <sha256> <path>` per file, '/'-separated and sorted. The manifest is local data like the set (it lists the
+  CipSoft-derived files): never committed; only its format and code are in the repository.
+- A folder matches its manifest when every listed file is there with its size and SHA-256, no other file is, and the
+  counts are the `files` line's. golden_runner checks this itself (golden::VerifyDataManifest, with golden.cpp's
+  SHA-256) before it reads a test; reference.py `compare` and `list` through data_manifest.verify. Either refuses a
+  missing or mismatched manifest (exit 1, each problem listed, at most 20). The override: golden_runner `--unverified`
+  or `PATELLA_GOLDEN_UNVERIFIED=1` (the environment, so that a CTest run and build.py's image take it; build.py
+  forwards it), reference.py compare `--unverified`: the problems are printed and the replay goes on. For local
+  experiments only: a corpus recorded again by hand, a changed file. Without any corpus the runner still skips (77),
+  as in hosted CI.
+- golden_corpus removes the old MANIFEST.tsv before it records and writes the new one after the three programs, so a
+  recording that did not finish has none. golden_reproducible writes none (its two recordings must compare equal,
+  and the dates would differ).
+- A reference set recorded before the manifest gets one from `reference.py manifest` (commit "unknown" unless
+  `--commit`, the date from the sessions' meta.json); `record` writes it after a recording.
+
+### The time zone: the recorder fixed to UTC0 (high)
+
+#91 found that the corpus held the recording machine's local times (Talk's and Creatures' fixed clocks go through the
+process's localtime on both sides) and replayed only in that zone. Two ways were open: record the machine's zone in
+the manifest and replay in it, or fix the recorder's zone. Chosen: the recorder fixed to TZ=UTC0
+(cmake/RunGoldenRecord.cmake sets TZ from -DTZ, GOLDEN_TIME_ZONE of OracleX86.cmake; golden_reproducible the same),
+the zone recorded in the manifest, and golden_runner setting TZ to the manifest's zone (MsvcPutenv, then _tzset; the
+stand-in's tzset on Linux) before the first test. Why:
+- The corpus no longer depends on the machine that recorded it: a regeneration from the tag on another machine gives
+  the same bytes, which the manifest then confirms.
+- A Windows zone with daylight saving time cannot be given to a process through TZ: the UCRT's TZ format is
+  `tzn[+|-]hh[:mm[:ss]][dzn]` with the US rules for dzn, and no rule part (`,M3.5.0/2,M10.5.0/3`); so on Windows a
+  corpus recorded in CET replays only on a machine set to CET. UTC0 has no rules, and the UCRT, glibc and the image's
+  redirected localtime read it the same.
+- It is what the rest already does: the reference recordings and their comparison run in TZ=UTC0 (reference.py
+  TIME_ZONE), and Errors' HandleException rounds switch to UTC0 on both sides (errors_tests.cpp TUtcZone).
+- The oracle's own comparisons are unaffected: in the recording both sides of each Talk and Creatures comparison read
+  the same process zone, and the recordings under UTC0 had 0 failures.
+A TZ in the runner's environment that names another zone than the manifest's is refused (the corpus's times would
+not be the replay's); with --unverified the environment's TZ is kept, so that a corpus recorded before #93 in the
+machine's zone can still be replayed. tools/build.py passes the manifest's zone into the image (the host's zone, as
+before, only for a corpus without a manifest).
+
+### The final recording (high)
+
+- Recorded with `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target golden_corpus`
+  at commit ab1391c (main 6cecf91 with this issue's code and notes; clean tree), November 6, 2026, 12:00:38 UTC, MSVC
+  cl 19.51.36260.0 (x86), CMake 4.1.2, oracle-x86 Release; difftest.exe 987a930a..., sysinctest.exe df58ab74...,
+  communicationtest.exe 4bcfdc8b... (the full hashes are in the manifest). 43 files, 908,993,929 bytes (867 MiB):
+  difftest 38 (37 tests' files and its manifest.tsv), sysinctest 2, communicationtest 3; Tibia.dat, .spr and .pic are
+  inside the test files (golden::DataFile). Largest: MapWindow 182 MB, Graphics 91 MB, DialogElements 90 MB,
+  Container 82 MB, ConsoleWindow 67 MB. The recording's own comparisons: 0 failures.
+- Reproducible: golden_reproducible first (two recordings, 43 files compared, 0 different); and the corpus itself was
+  recorded twice (the first run's manifest said `clean no`: a file of the tree had changed during it), the second
+  time from the clean tree: the two recordings' file lines are identical.
+- Installed for the orchestrator as `C:\Tibia\Patella-Modern\build\golden-final` (a copy, checked with
+  data_manifest.py verify). Main's `build\golden` (recorded before #93 in CET, without a manifest) is left for the
+  orchestrator to swap: this branch's golden_runner refuses it.
+- Replayed against it: windows-x64, windows-x64-asan, linux-x64-gcc and linux-x64-clang, 15,803,218 replayed +
+  1,512,822 retired = 17,316,040, 0 failures, the counts of main's corpus.
+
+### The reference recordings (high)
+
+Unchanged: the set of November 3, 2026 (#23, recorded on the issue-23 branch, merged as 42381dd; #48 added its display
+modes without a new recording). Nothing since #23 made it stale: `reference.py compare` on this branch matches every
+session. Its manifest was written into a copy, `C:\Tibia\Patella-Modern\build\reference-final` (191 files, 82,756,440
+bytes: the four compared sessions and the unused ones of #74 and #75; commit "unknown (the issue-23 branch, merged
+into main as 42381dd)", time zone UTC0); `build\reference` itself is left for the orchestrator to swap.
+
+### Frozen, and what later changes do (high)
+
+Both sets are frozen from now on. Regenerating them is possible only from the oracle as it was, at the tag
+`layout-frozen-final` that #94 creates (notes/reconstruction.md, "The golden corpus"; notes/testmode.md, "Reference
+recordings"); a regeneration is checked against the frozen manifest's file lines, and is never committed or uploaded.
+A later change that needs new checks does not record the corpus again: unit tests (tests/unit, every preset) for new
+or changed behaviour of our code, the test mode's recordings against Tibia.exe (a new reference session) for the
+client's behaviour, a deliberate difference (tools/deliberate.py) where the fork differs on purpose. A change that
+makes a ported test stale (the runner's "the test changed since the recording") retires the affected part with the
+oracle (golden::RetiredBegin, runner.cpp's RetiredTests) by the user's decision.
+
+### Found, not done (high)
+
+- The runner's refusal says "does not match its manifest" also for a wrong TZ in the environment, which is not the
+  manifest's fault; the problem line under it says what is wrong.
+- The reference set's recording commit is not known exactly (meta.json has none); a future record step writes it (the
+  manifest's commit and clean lines).
+
+### The gates (high)
+
+golden_reproducible 43 files, 0 different; golden_corpus 0 failures; golden on the final corpus (manifest verified)
+windows-x64 17/17, -asan 16/16, linux-x64-gcc 14/14, linux-x64-clang 13/13 (the first Linux runs failed to compile:
+runner.cpp called _tzset, which only the stand-ins' windows.h declares; tzset off Windows now), each 17,316,040 as
+above. Refused: a changed byte of difftest/Talk.bin, TZ=CET-1, main's corpus without a manifest; a changed file of the
+reference set. reference.py compare on build\reference-final: every session matches. oracle-x86 5/5 (difftest
+16,459,352, sysinctest 67, communicationtest 856,621, vlongtest 3,201; safeseh passed). Logs: build\logs\issue-93.

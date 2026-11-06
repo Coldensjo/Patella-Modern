@@ -5,7 +5,9 @@ Usage (from the repository or a worktree):
   python -I tools/reference.py record  [--reference DIR] [--sessions a,b] [--live DIR] [--reuse-live]
   python -I tools/reference.py compare [--reference DIR] [--sessions a,b] [--exe PatellaTest.exe]
                                        [--out DIR] [--vulkan cpu] [--timeout 600] [--check-only]
+                                       [--unverified]
   python -I tools/reference.py list    [--reference DIR]
+  python -I tools/reference.py manifest [--reference DIR] [--commit HASH] [--date TEXT]
   python -I tools/reference.py --self-test
 
 The two steps of the comparison tools (notes/modernization-plan.md, 4.4; notes/testmode.md,
@@ -51,7 +53,14 @@ the ones it was recorded with (compare refuses it; record it again). meta.json's
 #48) is optional in format 1: the sessions recorded before it lack it and were all recorded on the
 machine of FORMAT1_DISPLAY_MODES, which they get instead.
 
-Exit code 0 when every session matches, 1 on a difference or a stale session, 2 when a run failed.
+The set's MANIFEST.tsv (issue #93; tools/data_manifest.py: every file's size and SHA-256, the commit, the tools,
+the date, the time zone) is checked before compare runs a session: a missing or mismatched manifest, or one of
+another time zone than TIME_ZONE, is refused (exit 1); --unverified compares anyway (local experiments only). The
+record step writes it after a recording; `manifest` writes it for a set recorded before issue #93. The reference
+recordings are frozen since issue #93 (notes/testmode.md, "Reference recordings").
+
+Exit code 0 when every session matches, 1 on a difference, a stale session or a refused manifest, 2 when a run
+failed.
 """
 
 import argparse
@@ -68,6 +77,7 @@ import time
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import data_manifest  # noqa: E402
 import deliberate  # noqa: E402
 import desktop  # noqa: E402
 import testmode_dumps as td  # noqa: E402
@@ -185,6 +195,31 @@ def staleness(meta, data_dir=ROOT):
 	if not meta.get("data_sha256"):
 		problems.append("no data files' SHA-256 in meta.json")
 	return problems
+
+
+# --- the set's manifest (issue #93, tools/data_manifest.py) ---------------------------------------
+
+RECORDER = ("tools/reference_record.py: Tibia.exe under patcap.dll's virtual clock (tools/capture/patcap.c, oracle-x86), "
+	"against tools/proxy.py")
+
+
+def write_manifest(reference, programs=(), commit=None, clean=None, date=None, manifest=None):
+	"""Writes the set's MANIFEST.tsv; returns (file count, bytes)."""
+	return data_manifest.write(reference, "reference", TIME_ZONE, TIBIA_SHA256, [("recorder", RECORDER)], programs,
+		commit, clean, date, manifest)
+
+
+def manifest_problems(reference):
+	"""(the manifest or None, the problems: empty when the set matches its manifest)."""
+	try:
+		manifest, problems = data_manifest.verify(reference, "reference")
+	except data_manifest.ManifestError as e:
+		return None, [str(e)]
+	if manifest["time_zone"] != TIME_ZONE:
+		problems.append("the manifest's time zone is %s, the comparison's %s" % (manifest["time_zone"], TIME_ZONE))
+	if manifest.get("tibia_sha256") != TIBIA_SHA256:
+		problems.append("the manifest's Tibia.exe is %s, not %s" % (manifest.get("tibia_sha256"), TIBIA_SHA256))
+	return manifest, problems
 
 
 # --- the display modes (issue #48, src/testmode/DisplayModes.h) -----------------------------------
@@ -690,6 +725,22 @@ def compare_main(args):
 	failed_runs, differing, stale = [], [], []
 	say("Reference comparison (issue #23), %s" % time.strftime("%Y-%m-%d %H:%M"))
 	say("reference %s; test client %s; PATELLA_VULKAN=%s; results in %s" % (reference, exe, args.vulkan, out))
+	manifest, problems = manifest_problems(reference)
+	if manifest is not None:
+		say("manifest: %s" % data_manifest.describe(manifest))
+	if problems:
+		say("MANIFEST: the reference set does not match its %s (issue #93):" % data_manifest.NAME)
+		for line in data_manifest.problem_lines(problems):
+			say(line)
+		if not args.unverified:
+			say("RESULT: refused: the reference recordings are frozen (notes/testmode.md, \"Reference recordings\"); "
+				"install the final set again, or compare anyway with --unverified (local experiments only)")
+			with open(os.path.join(out, "report.txt"), "w", encoding="utf-8", newline="\n") as f:
+				f.write("\n".join(report) + "\n")
+			return 1
+		say("compared anyway, unverified (--unverified)")
+	else:
+		say("manifest: every file matches")
 	for name in selected(args.sessions):
 		folder = session_dir(reference, name)
 		say()
@@ -735,8 +786,33 @@ def compare_main(args):
 	return 2 if failed_runs else 1 if differing or stale else 0
 
 
+def manifest_main(args):
+	"""Writes the MANIFEST.tsv of a set recorded before issue #93: the recording's commit unknown unless --commit
+	names it, its date the sessions' meta.json "recorded" (local times) unless --date gives one."""
+	reference = os.path.abspath(args.reference)
+	recorded = []
+	for name in sorted(os.listdir(reference)):
+		if os.path.isfile(os.path.join(reference, name, "meta.json")):
+			recorded.append(load_meta(os.path.join(reference, name)).get("recorded") or "?")
+	if not recorded:
+		print("manifest: %s has no recorded session" % reference)
+		return 1
+	date = args.date or "sessions recorded %s to %s (local time)" % (min(recorded), max(recorded))
+	head, _ = data_manifest.commit_facts()
+	try:
+		count, total = write_manifest(reference, commit=args.commit or "unknown", clean="unknown", date=date,
+			manifest=(head, data_manifest.utc_now()))
+	except data_manifest.ManifestError as e:
+		print("manifest: %s" % e)
+		return 1
+	print("manifest: %s: %d files, %d bytes" % (os.path.join(reference, data_manifest.NAME), count, total))
+	return 0
+
+
 def list_main(args):
 	reference = os.path.abspath(args.reference)
+	manifest, problems = manifest_problems(reference)
+	print("manifest: %s" % ("; ".join(problems) if problems else data_manifest.describe(manifest) + ", every file matches"))
 	for name in SESSIONS:
 		folder = session_dir(reference, name)
 		try:
@@ -855,9 +931,13 @@ def main(argv=None):
 	parser = argparse.ArgumentParser(description="Reference recordings: record (Tibia.exe) and compare (the test client).")
 	parser.add_argument("--self-test", action="store_true")
 	sub = parser.add_subparsers(dest="command")
-	for command in ("record", "compare", "list"):
+	for command in ("record", "compare", "list", "manifest"):
 		p = sub.add_parser(command)
 		p.add_argument("--reference", default=DEFAULT_REFERENCE, help="the reference set (default %(default)s)")
+		if command == "manifest":
+			p.add_argument("--commit", help="the commit the set was recorded at (default: unknown)")
+			p.add_argument("--date", help="when it was recorded (default: the sessions' meta.json)")
+			continue
 		p.add_argument("--sessions", default="all", help="comma-separated: %s" % ", ".join(SESSIONS))
 		p.add_argument("--data", default=ROOT, help="the folder with Tibia.dat, Tibia.spr, Tibia.pic (default the root)")
 		if command == "record":
@@ -872,6 +952,8 @@ def main(argv=None):
 			p.add_argument("--vulkan", default="cpu", help="PATELLA_VULKAN for the client (default cpu: the pinned CPU driver)")
 			p.add_argument("--timeout", type=int, default=600, help="seconds per run (default 600)")
 			p.add_argument("--check-only", action="store_true", help="compare the results already in --out")
+			p.add_argument("--unverified", action="store_true",
+				help="compare even when the set does not match its MANIFEST.tsv (issue #93; local experiments only)")
 	args = parser.parse_args(argv)
 	if args.self_test:
 		return self_test()
@@ -879,6 +961,8 @@ def main(argv=None):
 		return compare_main(args)
 	if args.command == "list":
 		return list_main(args)
+	if args.command == "manifest":
+		return manifest_main(args)
 	if args.command == "record":
 		import reference_record  # Windows only: Tibia.exe, patcap.dll, the test server
 		return reference_record.record_main(args)

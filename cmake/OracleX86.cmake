@@ -330,17 +330,31 @@ set_tests_properties(communicationtest PROPERTIES COST 500)
 # The golden corpus (tests/golden/golden.h, issue #24): cmake --build --preset oracle-x86 --target
 # golden_corpus runs difftest, sysinctest and communicationtest in full with DIFFTEST_RECORD set, each
 # in a temporary folder of its own below build/oracle-x86/tmp, its TEMP, TMP and current directory, removed
-# afterwards (cmake/RunGoldenRecord.cmake, issue #66, as golden_runner's run folder). The corpus is derived from Tibia.exe: it stays on this
-# machine, in PATELLA_GOLDEN_DIR (default build/golden, which .gitignore keeps out of git), and is
-# never committed or uploaded. The windows-x64 preset's golden_runner replays it.
+# afterwards (cmake/RunGoldenRecord.cmake, issue #66, as golden_runner's run folder), with TZ set to
+# GOLDEN_TIME_ZONE (issue #93). Then tools/data_manifest.py writes the corpus's MANIFEST.tsv (issue #93: every file's
+# size and SHA-256, the commit, the tools, the date, the time zone), which golden_runner verifies before it replays;
+# the old one is removed first, so a recording that did not finish has none. The corpus is derived from Tibia.exe: it
+# stays on this machine, in PATELLA_GOLDEN_DIR (default build/golden, which .gitignore keeps out of git), and is
+# never committed or uploaded. The windows-x64 preset's golden_runner replays it. Since issue #93 the corpus is
+# frozen: notes/reconstruction.md, "The golden corpus".
 set(PATELLA_GOLDEN_DIR "${PROJECT_SOURCE_DIR}/build/golden" CACHE PATH
 	"Where golden_corpus records the golden corpus (tests/golden; local, never committed)")
-set(golden_commands)
+# The time zone of every recording (issue #93): the corpus's local times are UTC, as the reference recordings' are
+# (tools/reference.py TIME_ZONE).
+set(GOLDEN_TIME_ZONE "UTC0")
+set(golden_commands COMMAND "${CMAKE_COMMAND}" -E rm -f "${PATELLA_GOLDEN_DIR}/MANIFEST.tsv")
 foreach(test difftest sysinctest communicationtest)
 	list(APPEND golden_commands COMMAND "${CMAKE_COMMAND}" "-DTEST=$<TARGET_FILE:${test}>"
 		"-DTIBIA=${PATELLA_TIBIA_EXE_NATIVE}" "-DRECORD=${PATELLA_GOLDEN_DIR}" "-DTMPROOT=${ORACLE_TMP_DIR}"
-		"-DNAME=${test}" -P "${PROJECT_SOURCE_DIR}/cmake/RunGoldenRecord.cmake")
+		"-DNAME=${test}" "-DTZ=${GOLDEN_TIME_ZONE}" -P "${PROJECT_SOURCE_DIR}/cmake/RunGoldenRecord.cmake")
 endforeach()
+list(APPEND golden_commands COMMAND "${Python3_EXECUTABLE}" -I "${PROJECT_SOURCE_DIR}/tools/data_manifest.py" write
+	--kind golden --time-zone "${GOLDEN_TIME_ZONE}" --tibia "${PATELLA_TIBIA_EXE_NATIVE}"
+	--tool "msvc=cl.exe ${CMAKE_CXX_COMPILER_VERSION} (x86)" --tool "cmake=${CMAKE_VERSION}"
+	--tool "oracle-x86=$<CONFIG> build in ${PROJECT_BINARY_DIR}"
+	--program "difftest.exe=$<TARGET_FILE:difftest>" --program "sysinctest.exe=$<TARGET_FILE:sysinctest>"
+	--program "communicationtest.exe=$<TARGET_FILE:communicationtest>"
+	"${PATELLA_GOLDEN_DIR}")
 add_custom_target(golden_corpus ${golden_commands}
 	DEPENDS difftest sysinctest communicationtest
 	COMMENT "Recording the golden corpus into ${PATELLA_GOLDEN_DIR}"
@@ -360,7 +374,8 @@ foreach(recording 1 2)
 	foreach(test difftest sysinctest communicationtest)
 		list(APPEND golden_reproducible_commands COMMAND "${CMAKE_COMMAND}" "-DTEST=$<TARGET_FILE:${test}>"
 			"-DTIBIA=${PATELLA_TIBIA_EXE_NATIVE}" "-DRECORD=${GOLDEN_REPRODUCIBLE_DIR}/${recording}"
-			"-DTMPROOT=${ORACLE_TMP_DIR}" "-DNAME=${test}" -P "${PROJECT_SOURCE_DIR}/cmake/RunGoldenRecord.cmake")
+			"-DTMPROOT=${ORACLE_TMP_DIR}" "-DNAME=${test}" "-DTZ=${GOLDEN_TIME_ZONE}"
+			-P "${PROJECT_SOURCE_DIR}/cmake/RunGoldenRecord.cmake")
 	endforeach()
 endforeach()
 add_custom_target(golden_reproducible ${golden_reproducible_commands}

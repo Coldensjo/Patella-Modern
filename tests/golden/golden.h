@@ -38,6 +38,7 @@
 #include <stdint.h>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #ifndef GOLDEN_ORACLE
 #define GOLDEN_ORACLE 0
@@ -100,6 +101,20 @@ struct TManifest {
 };
 // False when the manifest does not exist; throws TStale when it is unreadable or stale.
 bool ReadManifest(const std::string &Directory, const char *Executable, TManifest *Manifest);
+// The corpus's MANIFEST.tsv (issue #93; tools/data_manifest.py has the format and writes it after golden_corpus's
+// recording): every file's size and SHA-256, the commit, the tools, the date and the time zone of the recording.
+const char *const DATA_MANIFEST = "MANIFEST.tsv";
+const char *const DATA_MANIFEST_FORMAT = "patella-data-manifest 1";
+struct TDataManifest {
+	bool Found = false; // false: the directory has no MANIFEST.tsv
+	std::string Kind, Commit, Clean, Date, TimeZone, TibiaSha256;
+	long long Files = -1, Bytes = -1;
+};
+// Reads <directory>/MANIFEST.tsv and checks the directory against it: Problems gets every difference (none when
+// every listed file is there with its size and SHA-256, no other file is, the counts are the manifest's and its
+// kind is Kind). Without a manifest Manifest->Found is false and Problems gets that.
+void VerifyDataManifest(
+	const std::string &Directory, const char *Kind, TDataManifest *Manifest, std::vector<std::string> *Problems);
 // Opens <directory>/<executable>/<test>.bin; returns the seed the test started with.
 uint32_t BeginReplay(const std::string &Directory, const char *Executable, const char *Test);
 // Checks that every record was used and the test made the recorded number of checks (the ones it replayed,

@@ -387,6 +387,18 @@ machine. The check is not a mutex but InitInstance's EnumWindows count of the wi
 client's own windows; Patella.exe's EnumWindows is unchanged (pecompare: identical apart from link stamps). No
 RESOURCE_LOCK: the two tests no longer see each other. notes/decisions.md, "The start's window count in the test
 build".
+
+The final oracle recording (Patella-Modern issue #93, branch issue-93, November 6, 2026; M6): the golden corpus and the
+reference recordings are frozen, each with a MANIFEST.tsv in its folder (tools/data_manifest.py: every file's size and
+SHA-256, the commit, the tools, the date, the time zone; local, with the data), which golden_runner and reference.py
+compare check before they replay and refuse when missing or mismatched (`--unverified`, PATELLA_GOLDEN_UNVERIFIED=1:
+local experiments only). golden_corpus records with TZ=UTC0 and the runner replays in the manifest's zone (#91's open
+point: the corpus no longer depends on the recording machine's zone). The final corpus: commit ab1391c, 2026-11-06
+12:00:38 UTC, 43 files, 908,993,929 bytes, reproducible (golden_reproducible 0 different, and two recordings of the
+corpus identical); in `C:\Tibia\Patella-Modern\build\golden-final` for the orchestrator to install. The reference set
+of #23 unchanged (compare matches), its manifest in a copy, `build\reference-final`. Regenerated only from the tag
+`layout-frozen-final` of #94; new checks are unit tests or test-mode recordings against Tibia.exe. notes/decisions.md,
+"The final oracle recording".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -532,6 +544,16 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #93 (branch issue-93, November 6, 2026): the final oracle recording, with its manifest.
+golden_reproducible: 43 files compared, 0 different. golden_corpus at ab1391c (clean): 0 failures, 43 files,
+908,993,929 bytes, time zone UTC0. golden against it, the manifest verified: windows-x64 17/17, -asan 16/16,
+linux-x64-gcc 14/14, linux-x64-clang 13/13, each 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures. A
+changed byte (difftest/Talk.bin) and TZ=CET-1 refused (exit 1); --unverified replays the changed copy into a stale
+Talk. reference.py compare on build\reference-final: every session matches, the manifest verified; a changed file
+refused. `python -I tools/build.py oracle-x86`: 5/5, difftest 16,459,352, sysinctest 67, communicationtest 856,621,
+vlongtest 3,201, 0 failures (unchanged), safeseh passed. tidy_ci, banned_calls 0, clang-format clean. Logs:
+build\logs\issue-93.
 
 Patella-Modern issue #92 (branch issue-92, November 6, 2026): the x64 client read through its test mode's control
 channel only. No difftest change (the oracle is untouched). `python -I tools/build.py windows-x64`: exit 0, 16/16
