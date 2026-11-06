@@ -95,6 +95,11 @@
 // its step n (16: after the last), so the client ends on InitControl's fatal path ("Tibia Error", "(Error Code
 // 6)") with the steps before it done (InitFails, TestHooks.h).
 //
+// Issue #96: InitInstance's count of the Tibia windows (CountTibiaWindows, Player.cpp: "A Tibia client is already
+// running!" with more than one, "Application is corrupted!" with none) sees only this process's windows
+// (EnumOwnWindows, TestHooks.h), so another client on the machine (another worktree's test, a parallel CTest test,
+// a Tibia.exe) cannot stop a test client. Patella.exe counts every window, as the original.
+//
 // A script that does not parse ends the program before the window opens, with exit code 3 and the
 // message on stderr, in the log and through OutputDebugString (never a dialog).
 
@@ -1034,6 +1039,30 @@ bool InitFails(int Step)
 		return Error == std::errc{} && End == Last ? Parsed : 0;
 	}();
 	return FailingStep != 0 && Step == FailingStep;
+}
+
+namespace {
+
+// Issue #96: EnumOwnWindows's callback and its parameter, and the filter that hands it only this process's windows.
+struct TOwnWindows {
+	WNDENUMPROC Function;
+	LPARAM Parameter;
+};
+
+BOOL CALLBACK EnumOwnWindow(HWND Window, LPARAM Parameter)
+{
+	const auto *const Own = reinterpret_cast<const TOwnWindows *>(Parameter);
+	DWORD Process = 0;
+	GetWindowThreadProcessId(Window, &Process);
+	return Process == GetCurrentProcessId() ? Own->Function(Window, Own->Parameter) : TRUE;
+}
+
+} // namespace
+
+BOOL EnumOwnWindows(WNDENUMPROC Function, LPARAM Parameter)
+{
+	const TOwnWindows Own{Function, Parameter};
+	return EnumWindows(EnumOwnWindow, reinterpret_cast<LPARAM>(&Own));
 }
 
 void Idle()

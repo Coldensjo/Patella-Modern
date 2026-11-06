@@ -324,7 +324,7 @@ BOOL CPlayerApp::InitInstance()
 			}
 			if (!Gamemaster) {
 				NumberOfTibiaWindows = 0;
-				EnumWindows(CountTibiaWindows, 0);
+				PATELLA_ENUM_WINDOWS(CountTibiaWindows, 0);
 				if (NumberOfTibiaWindows == 0) {
 					PATELLA_MESSAGE_BOX(nullptr, "Application is corrupted! Please re-install Tibia.", "Tibia - Error", MB_ICONEXCLAMATION);
 					ExitProgram();

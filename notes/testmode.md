@@ -40,7 +40,11 @@ there (notes/decisions.md, "The live checks on a hidden desktop"). `PATELLA_TEST
 (issue #83; the hook PATELLA_TEST_PRESENT_FAILURE of src/TestHooks.h, before TRenderer::Present) makes every present of
 the Vulkan engine fail as that one does, on any desktop: with a script the client ends at its first frame with the
 "Tibia Error" box (PROGRAM_ERROR 12, in messages.txt), the box text as an `[error]` line on stderr and exit code 1
-(notes/decisions.md, "A fatal error before the main window is set"). `--test-log` lists every event it
+(notes/decisions.md, "A fatal error before the main window is set"). The start's count of the Tibia windows
+("A Tibia client is already running!" with more than one; Player.cpp CountTibiaWindows) sees only the test client's
+own windows (issue #96; the hook PATELLA_ENUM_WINDOWS of src/TestHooks.h), so another client on the machine (another
+worktree's test or reference session, a parallel CTest test, Tibia.exe) cannot stop it; Patella.exe counts every
+window, as the original. A client built without #96 still counts a test client's window. `--test-log` lists every event it
 dispatched with its virtual time and script line. A script that cannot be read or does not parse ends the
 program before its window opens: exit code 3, the message (`testmode: <file>:<line>: <error>`) on stderr, in the
 log and through OutputDebugString, never a dialog. The client ignores the test mode's words (its command line
