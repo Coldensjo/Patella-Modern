@@ -73,6 +73,14 @@
 //	                                   initialize Windows Sockets.") there, as a failing step does, so its
 //	                                   catch runs ExitControl with the steps before it done
 //
+// Issue #96:
+//
+//	PATELLA_ENUM_WINDOWS(Function, Parameter)
+//	                                   EnumWindows: Player.cpp InitInstance, the count of the Tibia windows
+//	                                   (CountTibiaWindows; "A Tibia client is already running!" with more than
+//	                                   one); the test build hands the callback only its own process's windows,
+//	                                   so another client on the machine does not stop a test client
+//
 // The state dump reads the client's data through the View functions at the end of Creatures.cpp,
 // Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h; test build only).
 //
@@ -117,6 +125,8 @@ BOOL EnumDisplayMode(LPCSTR Device, DWORD Index, DEVMODEA *Mode);
 bool PresentFails();
 // True: PATELLA_TEST_FAIL_INIT is Step (issue #90), InitControl fails there.
 bool InitFails(int Step);
+// EnumWindows over this process's top-level windows only (issue #96).
+BOOL EnumOwnWindows(WNDENUMPROC Function, LPARAM Parameter);
 } // namespace patella::testmode
 
 #define PATELLA_TIME_GET_TIME() patella::testmode::TimeGetTime()
@@ -141,6 +151,7 @@ bool InitFails(int Step);
 	if (patella::testmode::PresentFails()) { Failure; }
 #define PATELLA_TEST_INIT_FAILURE(Step) \
 	if (patella::testmode::InitFails(Step)) { throw TProgramError{PROGRAM_ERROR::SOCKET_INIT}; }
+#define PATELLA_ENUM_WINDOWS(Function, Parameter) patella::testmode::EnumOwnWindows(Function, Parameter)
 
 #else
 
@@ -161,5 +172,6 @@ bool InitFails(int Step);
 #define PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode) EnumDisplaySettingsA(Device, Index, Mode)
 #define PATELLA_TEST_PRESENT_FAILURE(Failure)
 #define PATELLA_TEST_INIT_FAILURE(Step)
+#define PATELLA_ENUM_WINDOWS(Function, Parameter) EnumWindows(Function, Parameter)
 
 #endif
