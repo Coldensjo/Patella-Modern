@@ -11845,3 +11845,50 @@ a corpus (PATELLA_GOLDEN_DIR=none) linux-x64-gcc, -clang, -gcc-debug, -clang-deb
 0 warnings. windows-x64 17/17, -debug 16/16, -asan 16/16 (golden as above, 0 failures); oracle-x86 5/5 (difftest
 16,459,352, sysinctest 67, communicationtest 856,621, vlongtest 3,201, safeseh passed); windows-x64-gcc 11/11.
 tidy_ci 3 findings, 0 new (baseline 3), 0 bugprone; banned_calls 0; clang-format clean. Logs: build\logs\issue-91.
+
+## The start's window count in the test build (Patella-Modern issue #96)
+
+Settled by Claude Opus 5.5, November 6, 2026, on branch issue-96. CTest fatal_error_box (#67 part 2, #83) failed with
+"A Tibia client is already running!" whenever another client was running on the machine (another worktree's test or
+reference session, Tibia.exe), seen in #55's and #65's gates. Test build, docs; Patella.exe unchanged.
+
+- **The check is a window count, not a mutex** (high: src/Player.cpp, decisions "Player.cpp"). InitInstance, after the
+  frame window and SurfaceInitInstance, runs `EnumWindows(CountTibiaWindows, 0)`: every top-level window of the
+  desktop whose title is "Tibia" or whose class is "TibiaClient" (caseless) counts, its own included; none is
+  "Application is corrupted!", more than one "A Tibia client is already running!", each ending the start with exit
+  code 0. So a window of any client on the desktop stops a test client that gets that far. fatal_error_box gets there
+  (its PROGRAM_ERROR 12 comes at the first present, after the check); init_control_failure (#90) never does (its
+  error is in CMainFrame's constructor, before the frame window): it neither fails nor stops another client. Reproduced
+  (build\logs\issue-96\gate1-before.log): main's PatellaTest.exe kept running with a script of `wait 900000`, then
+  `ctest -R "fatal_error_box|init_control_failure"`: fatal_error_box exit code 0, messages.txt the "already running"
+  box; init_control_failure passed.
+- **The choice: the test build counts only its own windows** (high). The hook `PATELLA_ENUM_WINDOWS(Function,
+  Parameter)` (src/TestHooks.h) replaces that EnumWindows call: in Patella.exe and the oracle it is `EnumWindows(Function,
+  Parameter)`, word for word; in PatellaTest.exe it is EnumOwnWindows (src/testmode/TestModeWin32.cpp), EnumWindows
+  with a filter that hands the callback only the windows of the current process (GetWindowThreadProcessId). The test
+  client still runs CountTibiaWindows and both of its outcomes on what it owns (its frame window: 1, the start goes
+  on), so it is the issue's "per-run name": each process is its own instance. Always on in the test build, not only
+  with --test-out or a script: PatellaTest.exe is never the product, and the comparisons start it without a script
+  too. Considered: an environment variable with a per-run name (there is no name to vary: the title and class are the
+  client's and visible to the tools); skipping the check (leaves CountTibiaWindows unrun in every test); the scripts
+  reporting the box as a skip, exit code 77 (the issue's last choice: the test would not run when it matters).
+- **Not covered: the other direction** (high). A test client's frame window still has the title and class, so a
+  client without the filter (Patella.exe, Tibia.exe, a PatellaTest.exe built before #96, e.g. another worktree's
+  from an older main) still counts it and stops. Once #96 is on main every test build ignores the others.
+- **No RESOURCE_LOCK** (high). Within one CTest run the two tests can no longer see each other: each client counts its
+  own windows only, and init_control_failure's clients create no frame window. A lock would only serialise them.
+  Checked with the holder running: `ctest -R "fatal_error_box|init_control_failure" -j 2 --repeat until-fail:5`, 5
+  rounds of both in parallel, all passed (build\logs\issue-96\gate1-after-repeat.log). Nothing else in the x64 presets
+  starts PatellaTest.exe (tests_vulkan is headless; testmode_check.py and reference.py are outside CTest).
+- **No test of the original's check** (high). None exists, and none is added: Patella.exe's start is unchanged
+  (pecompare below), and checking it means two Patella.exe windows at once on the session's desktop, a live check
+  for one unchanged call. The test build runs CountTibiaWindows at every start that gets past the surface.
+- **The images** (high). x64 Release Patella.exe, main 6cecf91 and the branch, built in this worktree: pecompare.py
+  (#8's, build\issue-8\tools of the main checkout): .text, .data, .pdata, .rsrc and .reloc identical; the only
+  differences the COFF and debug-directory time stamps and the CodeView record; 0 unexpected
+  (build\logs\issue-96\pecompare-x64.log). The oracle compiles the same macro to the same call.
+- **The gates** (high). After the fix, with the holder running, `ctest -R "fatal_error_box|init_control_failure"`
+  2/2 (gate1-after.log). `python -I tools/build.py windows-x64` 17/17, windows-x64-debug 16/16, windows-x64-asan 16/16;
+  golden on main's corpus 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 warnings. tidy_ci 3
+  findings, 0 new (baseline 3), 0 bugprone; tools/tidy.py on the Windows build for TestModeWin32.cpp and Player.cpp: no
+  finding on a changed line. banned_calls 0. clang-format clean. Logs: build\logs\issue-96.

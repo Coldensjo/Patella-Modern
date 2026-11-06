@@ -379,6 +379,14 @@ bytes past Flags[4] (Objects.cpp), an unset bool read (TTabBar), the entries' pa
 and calls whose order the original fixes (Control.cpp, MainFrm.cpp, ContentWindows.cpp, ContextMenus.cpp): fixed.
 golden 15,803,218 replayed + 1,512,822 retired, 0 failures on both compilers (Clang under ASan and UBSan, no finding).
 notes/decisions.md, "The golden corpus on Linux".
+
+The start's window count in the test build (Patella-Modern issue #96, branch issue-96, November 6, 2026):
+fatal_error_box failed with "A Tibia client is already running!" whenever another client's window was open on the
+machine. The check is not a mutex but InitInstance's EnumWindows count of the windows titled "Tibia" or of class
+"TibiaClient". The test build's hook PATELLA_ENUM_WINDOWS (src/TestHooks.h) hands CountTibiaWindows only the test
+client's own windows; Patella.exe's EnumWindows is unchanged (pecompare: identical apart from link stamps). No
+RESOURCE_LOCK: the two tests no longer see each other. notes/decisions.md, "The start's window count in the test
+build".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
