@@ -125,7 +125,7 @@ void Put(TSettingsFile &File, std::string_view Key, std::string_view Value)
 
 class TReader {
 public:
-	TReader(const TSettingsFile &File, std::vector<std::string> &Problems) : File(File), Problems(Problems) {}
+	TReader(const TSettingsFile &Source, std::vector<std::string> &Found) : File(Source), Problems(Found) {}
 
 	// The fields of Key's value when they have the kinds of Pattern ('n' number, 'f' flag, 't' text, '*' any
 	// number of the kind after it); nothing without a line, or (reported) when they do not.
