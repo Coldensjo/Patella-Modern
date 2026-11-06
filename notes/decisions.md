@@ -13801,3 +13801,42 @@ Not touched (#108 works there): the interfaces needed nothing of it.
   themselves; they are patella_core's and portable already.
 - sysinc.cpp's FileExists and RemoveFile (no caller in the client since issues #74 and #75; the golden tests' only)
   stay the C library's.
+
+### The image (high)
+
+Main aa4444c and the branch, the x64 Release Patella.exe built from the same source path (main into build/pe-main),
+compared function by function through their PDBs (dumpbin's disassembly with the PDB's labels; absolute and
+image-relative addresses masked, each function cut at its first jump table, the padding after it dropped; the script
+was never committed; build\logs\issue-109\pecompare.txt): 14,316 and 14,341 functions; 10 gone, 35 new, 74 changed,
+123 with only assertion line numbers changed (the include lines moved them in Creatures.cpp, Talk.cpp, Script.cpp,
+ConsoleWindow.cpp, ContentWindows.cpp, Control.cpp, Preferences.cpp, sysinc.cpp). Every change is one of:
+
+- the interfaces' call sites: Network.cpp's members that called WinSock or CAsyncSocket (CreateSocket, ConnectSocket,
+  Disconnect, ResolveHostname, GetResolvedIPAddress, SendCommand, OnReceive, ShutdownConnection, InitNetwork,
+  ExitNetwork), the clock's (GetMilliseconds, StartTime's initialiser, InitSysinc, TTalkLine's constructors, SetSkull,
+  UpdateSkulls, the battle window's skull test, SaveChannel, Redraw, ResetFrameTimer, WaitForNextFrame), the files'
+  (the three TryOpen, SaveChannel, InitPreferences' Exists);
+- the two layouts: TNetwork's members are 8 bytes further (the vptr of ISocketEvents: every TNetwork member, the free
+  functions inlining them, Control.cpp's and MainFrm.cpp's reads of Reconnect and PacketHeader, the start-up log's
+  PacketHeader), and TPreferences is 8 bytes larger (its IFileSystem reference), so the later subsystems of TClient are
+  8 bytes further (bridge::Client() and the accessors, and the functions that inline them);
+- what the interfaces add: the constructors with their new parameters, TSocket under its new name (the same three
+  events), the Win32 implementations, Platform(), Cp1252ToWide out of line (TSystemFileSystem's), and funclet labels and
+  one folded string destructor that the linker placed differently.
+
+No other function changed.
+
+### The gates (high)
+
+Logs in build\logs\issue-109 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden, its manifest verified).
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), 0 warnings. windows-x64-debug: exit 0, 18/18; windows-x64-asan: exit 0,
+  18/18, no ASan report; golden the same on both. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc: exit 0, 16/16;
+  linux-x64-clang (ASan, UBSan): exit 0, 14/14, no sanitizer report; golden the same on both. 0 warnings on every preset.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches; `python -I tools/compare_traffic.py` exit 0, no differences; `python -I tools/compare_files.py`
+  exit 0, no differences; `python -I tools/testmode_check.py` exit 0, no differences.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
+  clang-format (CLAUDE.md's command with src/platform added): exit 0.
