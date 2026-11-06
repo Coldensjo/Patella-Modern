@@ -69,11 +69,12 @@ set_source_files_properties("${patella_rc}" PROPERTIES OBJECT_DEPENDS "${PATELLA
 # selection (issue #20). The graphics device choice (issue #31): src/vulkan/DeviceSettings.cpp, the
 # advanced options' buttons and Patella.ini (src/settings/Settings.cpp, patella_core's parser compiled
 # here again for the static CRT); the environment variable PATELLA_VULKAN=auto|gpu|gpuN|cpu overrides it. The
-# developer log's keys in Patella.ini (issue #77): src/log/LogSettings.cpp, patella_core's, compiled here again too.
+# developer log's keys in Patella.ini (issue #77): src/log/LogSettings.cpp, patella_core's, compiled here again too, and
+# so are the options' keys in it (issue #45: src/settings/PreferenceKeys.cpp, Preferences.cpp's Patella.ini).
 include("${PROJECT_SOURCE_DIR}/cmake/Vulkan.cmake")
 set(patella_vulkan_client_sources "${PROJECT_SOURCE_DIR}/src/vulkan/SurfaceVulkan.cpp"
 	"${PROJECT_SOURCE_DIR}/src/vulkan/DeviceSettings.cpp" "${PROJECT_SOURCE_DIR}/src/settings/Settings.cpp"
-	"${PROJECT_SOURCE_DIR}/src/log/LogSettings.cpp")
+	"${PROJECT_SOURCE_DIR}/src/settings/PreferenceKeys.cpp" "${PROJECT_SOURCE_DIR}/src/log/LogSettings.cpp")
 
 # The client: Patella.exe, the product; PatellaTest.exe, the test build (issue #21; plan 4.4), the
 # same sources with PATELLA_TEST_MODE, which turns the hooks of src/TestHooks.h into the test mode:

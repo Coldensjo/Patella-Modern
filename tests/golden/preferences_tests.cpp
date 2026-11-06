@@ -5,6 +5,11 @@
 //
 // The original's state is recorded by value at each check: its options, lists (their length, then
 // their entries), texts and the Tibia.cfg it writes (the file's bytes).
+//
+// Patella-Modern issue #45: the original's InitPreferences and SavePreferences (0x4ddc00, 0x4de890) are
+// ReadTibiaCfg and WriteTibiaCfg in Preferences.cpp (the x64 client's import of Tibia.cfg, and the writer these
+// tests read its results by); ours of the original's names read and write Patella.ini. The checks are the same:
+// the original's ExitPreferences (free the message of the day, save) is ours followed by WriteTibiaCfg.
 
 #include "golden_test.h"
 
@@ -500,7 +505,7 @@ void CheckTalkLists(const char *When)
 
 void CompareSaved(const char *When)
 {
-	SavePreferences();
+	WriteTibiaCfg();
 	bool HaveA, HaveB;
 	std::string A = ReadWholeFile("Tibia.cfg", &HaveA);
 	remove("Tibia.cfg");
@@ -526,7 +531,7 @@ void TestPreferencesFile()
 	SetCurrentDirectoryA(Directory.c_str());
 	remove("Tibia.cfg");
 
-	// Before InitPreferences nothing is written.
+	// Before ReadTibiaCfg (the original's InitPreferences) nothing is written.
 	CompareSaved("no InitPreferences");
 
 	for (int Round = 0; Round < 400; Round++) {
@@ -548,7 +553,7 @@ void TestPreferencesFile()
 			fwrite(Text.data(), 1, Text.size(), Copy);
 			fclose(Copy);
 		}
-		InitPreferences();
+		ReadTibiaCfg();
 		ORIGINAL(At<void(__cdecl *)()>(0x4ddc00)());
 		bool Loaded = ORIGINAL_VALUE("PreferencesLoaded", bool, Global<bool>(0x71c319));
 		CHECK(Loaded, "PreferencesLoaded not set");
@@ -559,10 +564,10 @@ void TestPreferencesFile()
 		// Saving and loading again must give the same file.
 		if (Round % 10 == 0) {
 			bool Trace = getenv("DIFFTEST_TRACE") != nullptr;
-			SavePreferences();
+			WriteTibiaCfg();
 			if (Trace)
 				fprintf(stderr, "ours init\n");
-			InitPreferences();
+			ReadTibiaCfg();
 			remove("Tibia.cfg");
 			if (Trace)
 				fprintf(stderr, "original save\n");
@@ -596,7 +601,7 @@ void TestPreferencesFile()
 		FILE *File = fopen("Tibia.cfg", "wb");
 		fwrite(Text.data(), 1, Text.size(), File);
 		fclose(File);
-		InitPreferences();
+		ReadTibiaCfg();
 		ORIGINAL(At<void(__cdecl *)()>(0x4ddc00)());
 		CheckLists("long buddy descriptions");
 		CompareSaved("long buddy descriptions");
@@ -606,6 +611,9 @@ void TestPreferencesFile()
 	SetMotD("7\nToday's news");
 	ORIGINAL(At<bool(__cdecl *)(const char *)>(0x4dcac0)("7\nToday's news"));
 	ExitPreferences();
+	// Ours saves into Patella.ini since issue #45; WriteTibiaCfg writes what the original's ExitPreferences wrote.
+	WriteTibiaCfg();
+	remove("Patella.ini");
 	bool HaveA, HaveB;
 	std::string A = ReadWholeFile("Tibia.cfg", &HaveA);
 	remove("Tibia.cfg");

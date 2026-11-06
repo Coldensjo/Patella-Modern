@@ -1,13 +1,16 @@
-// Settings.cpp: Patella.ini (Settings.h; Patella-Modern issue #31, plan D12).
+// Settings.cpp: Patella.ini (Settings.h; Patella-Modern issues #31, #45, plan D12).
 
 #include "settings/Settings.h"
 
 #include <array>
 #include <cstddef>
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -128,6 +131,28 @@ bool TSettingsFile::Set(std::string_view Key, std::string_view Value)
 	return true;
 }
 
+int TSettingsFile::Remove(std::string_view Key)
+{
+	int Removed = 0;
+	for (size_t i = Lines.size(); i-- > 0;) {
+		if (!Lines[i].Key.empty() && SameKey(Lines[i].Key, Key)) {
+			Lines.erase(Lines.begin() + static_cast<std::ptrdiff_t>(i));
+			Removed++;
+		}
+	}
+	return Removed;
+}
+
+std::vector<std::string> TSettingsFile::Keys() const
+{
+	std::vector<std::string> Result;
+	for (const TLine &Line : Lines) {
+		if (!Line.Key.empty())
+			Result.push_back(Line.Key);
+	}
+	return Result;
+}
+
 std::string TSettingsFile::Text() const
 {
 	std::string Result;
@@ -166,6 +191,16 @@ std::optional<TSettingsFile> Load(const std::string &Path, std::string_view Newl
 	if (File.bad())
 		return std::nullopt;
 	return TSettingsFile::Parse(Text, Newline);
+}
+
+std::optional<TSettingsFile> LoadForUpdate(const std::string &Path)
+{
+	if (std::optional<TSettingsFile> File = Load(Path, NewFileNewline))
+		return File;
+	std::error_code Error;
+	if (std::filesystem::exists(Path, Error) || Error)
+		return std::nullopt;
+	return TSettingsFile::Parse(std::string(NewFileComment) + NewFileNewline, NewFileNewline);
 }
 
 bool Save(const std::string &Path, const TSettingsFile &Settings)

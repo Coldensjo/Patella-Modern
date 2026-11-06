@@ -31,7 +31,7 @@
 #   tests_unit, the oracle's C++17 stand-in in tests_unit_cxx26_standin (PATELLA_EXPECTED_STANDIN).
 #
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
-#   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31), the developer log's keys in it (issue #77) and
+#   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31), the options' keys in it and their escaping (issue #45), the developer log's keys in it (issue #77) and
 #   src/compat/msvc.h, the Microsoft CRT's semantics behind portable names (issue #43; its 32-bit time went in #62); the expected values that are not the code's own come from tests/unit/core_expected.py;
 #   common.h's TERROR*, TMYEXCEPTION and TProgramError (issue #80).
 #
@@ -134,6 +134,7 @@ add_executable(tests_core
 	core_regexp_test.cpp
 	core_container_test.cpp
 	core_settings_test.cpp
+	core_preferences_test.cpp
 	core_log_settings_test.cpp
 	core_msvc_test.cpp
 	core_errors_test.cpp)

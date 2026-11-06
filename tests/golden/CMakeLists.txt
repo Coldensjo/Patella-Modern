@@ -317,3 +317,27 @@ if(PATELLA_SANITIZE STREQUAL "")
 		"${PATELLA_GOLDEN_DIR}")
 	set_tests_properties(golden_concurrent PROPERTIES SKIP_RETURN_CODE 77 PROCESSORS 2 COST 1000)
 endif()
+
+# Issue #45: Patella.ini as the x64 client's only settings file (preferences_file_test.cpp): the import of Tibia.cfg on
+# the first start, the starts after it, the saves, and that Tibia.cfg is never written. Our client's code alone, no
+# corpus, as dialogwindow_setsize.
+add_library(golden_preferences_file OBJECT preferences_file_test.cpp)
+golden_client_settings(golden_preferences_file)
+target_link_libraries(golden_preferences_file PRIVATE doctest::doctest)
+add_executable(preferences_file
+	golden.cpp
+	core_tests.cpp
+	regexp_tests.cpp
+	sysinc_tests.cpp
+	$<TARGET_OBJECTS:golden_sysinc>
+	$<TARGET_OBJECTS:golden_client>
+	$<TARGET_OBJECTS:golden_client_tests>
+	$<TARGET_OBJECTS:golden_network_tests>
+	$<TARGET_OBJECTS:golden_comm_tests>
+	$<TARGET_OBJECTS:golden_preferences_file>)
+golden_executable_settings(preferences_file)
+add_test(NAME preferences_file COMMAND preferences_file)
+if(golden_linux AND PATELLA_SANITIZE MATCHES "address")
+	set_tests_properties(preferences_file PROPERTIES ENVIRONMENT
+		"ASAN_OPTIONS=detect_leaks=0:alloc_dealloc_mismatch=0") # as golden's (above)
+endif()
