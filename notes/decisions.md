@@ -11190,13 +11190,13 @@ ExitControl, worked on at the same time); settled in #83: fixed there. Lines are
 | Communication.cpp 124, 184: SendLogin's and SendGameLogin's RSA (after `catch (const char *)`) | TRSA on the fixed public key and a 128-byte block of fixed layout: nothing from input | the message with the block's bytes (TERROR) | the same (only C++ exceptions possible) | (a) |
 | Control.cpp 121: CheckSurface, the surface's Init | the graphics driver (x64: the Vulkan loader and driver; the oracle: DirectDraw, Direct3D 9, OpenGL); Tibia.cfg's mode only reaches the driver | PROGRAM_ERROR 12, "Video surface allocation failed" | a driver's trap ends the client | (c): a fault inside a driver is not input's, and a driver that faulted leaves no state to go on with; no input division there (the surfaces' scale factors are doubles) |
 | Control.cpp 174, 181, 189, 199, 207: ChangeEngine's five steps | the DirectDraw, Direct3D 9 and OpenGL drivers | a TMyException with the step's message | oracle-x86 only (the x64 ChangeEngine is the Vulkan device choice, with no handler) | (c): oracle only; those engines retire with the oracle (#29) |
-| Control.cpp 1170: InitControl, ExitControl's errors ignored after a PROGRAM_ERROR | ExitControl after a failed Init*: on x64 `GetSurface()->ExitSurfaces()` with GetSurface() NULL (Surface.cpp: the x64 GetSurface makes a surface only for curEngine 2, which SurfaceInitInstance sets after InitControl) | its GetSurface makes a surface; any trap swallowed; then the PROGRAM_ERROR's box | an access violation: main f1be76a's PatellaTest.exe in a folder without Tibia.dat stops in ExitControl+0x2a (Control.cpp 1189) under InitControl's catch block; no box | #83 (the same function pair; its agent has this finding) |
+| Control.cpp 1170: InitControl, ExitControl's errors ignored after a PROGRAM_ERROR | ExitControl after a failed Init*: on x64 `GetSurface()->ExitSurfaces()` with GetSurface() NULL (Surface.cpp: the x64 GetSurface makes a surface only for curEngine 2, which SurfaceInitInstance sets after InitControl) | its GetSurface makes a surface; any trap swallowed; then the PROGRAM_ERROR's box | an access violation: main f1be76a's PatellaTest.exe in a folder without Tibia.dat stops in ExitControl+0x2a (Control.cpp 1189) under InitControl's catch block; no box | settled in #90: ExitControl skips ExitSurfaces when GetSurface() is NULL (Tibia.exe's ExitSurfaces faults there on an uninitialised DirectX 5 surface, seen under cdb, and its handlers swallow it); CTest init_control_failure |
 | MainWindow.cpp 116: TMainWindow::Draw out of the game | the start screen's windows: skins, fonts and texts of constants; no object or outfit is drawn out of the game | PROGRAM_ERROR 12 | the same for C++ exceptions | (a); a PATELLA_DIVISOR TMyException would end there as PROGRAM_ERROR 12, as the original's trap did |
 | Network.cpp 266, 292: SendCommand's and PrepareNextPacket's XTEA | blocks inside SendData and ReceiveData: SendBuffer checks its writes, OnReceive counts a packet only when it is complete inside ReceiveData, PrepareNextPacket tests `PacketSize % 8` | TERROR | the same | (a) |
 | Objects.cpp 646: InitObjects | LoadObjects: TReadBinaryFile's checked reads ("out of data"), new[] of sizes from Tibia.dat (C++ exceptions), Container.h's `d>0` assertion; LoadProperties' `Flags[Flag / 8]` stays inside TProperties (up to +0x43); no division | PROGRAM_ERROR 1 | the same | (a) |
 | Player.cpp 90, 94, 102, 110: LogDiagnostics | ours (issue #77): the engine's name, the packet bytes, GetCreature's slot or NULL (tested) | - | - | (a) |
 | Player.cpp 144: FatalError, ShutdownConnection | `shutdown` on the socket's handle; Socket tested for NULL | ignored | the same | (a) |
-| Player.cpp 149: FatalError, SetDisplayMode(1) when the view mode is not 1 | before InitPreferences (the view mode still 0: an InitControl failure) SetDisplayMode's Redraw calls CheckSurface on GetSurface(), NULL on x64 before SurfaceInitInstance (above), then `MainWindow->Draw` with MainWindow NULL before OnCreate | its GetSurface makes a surface, any trap swallowed; then the box | not reached today: that path stops in ExitControl first (Control.cpp 1170) | #83: the same root, GetSurface() NULL before SurfaceInitInstance; to be checked again once ExitControl no longer faults ("Found, not done") |
+| Player.cpp 149: FatalError, SetDisplayMode(1) when the view mode is not 1 | before InitPreferences (the view mode still 0: an InitControl failure) SetDisplayMode's Redraw calls CheckSurface on GetSurface(), NULL on x64 before SurfaceInitInstance (above), then `MainWindow->Draw` with MainWindow NULL before OnCreate | its GetSurface makes a surface, any trap swallowed; then the box | not reached today: that path stops in ExitControl first (Control.cpp 1170) | settled in #90: reached once ExitControl no longer faulted, where it faults first in CWnd::ModifyStyle on the freed frame (MainFrame, after CMainFrame's constructor threw), as Tibia.exe's does under cdb (0xfeeefeee); the step is skipped without a main window or a surface (`MainWindow != nullptr && GetSurface() != nullptr`); CTest init_control_failure |
 | Player.cpp 158: FatalError, `AfxGetMainWnd()->ShowWindow(SW_HIDE)` | before InitInstance sets m_pMainWnd, AfxGetMainWnd() is the thread's active window, none, so NULL; CWnd::ShowWindow reads `this->m_pCtrlSite` | the access violation swallowed, then the box, exit code 1 | an access violation in CWnd::ShowWindow (main's PatellaTest.exe with no Vulkan driver: PROGRAM_ERROR 12 from InitInstance's surface start, then FatalError at Player.cpp 152): the developer log's error line, no box, exit code 0xC0000005 | settled in #83 (3678f82; the original's handler at 0x4d7e16): AfxGetMainWnd() tested for NULL, the call skipped as the original's handler skipped it. This branch had the same check; the merge keeps #83's. The CTest fatal_error_box stays: it reaches the block from another start-up error (no Vulkan driver) than #83's failing first present |
 | Player.cpp 237: HandleException's log line | ours (#77): GetMessage's std::bad_alloc | - | - | (a) |
 | Player.cpp 316: InitInstance around SurfaceInitInstance, InitSurfaces, InitVideoCache | the Vulkan loader and driver; InitVideoCache divides by the surfaces' own sizes | PROGRAM_ERROR 12 | a driver's trap ends the client | (c), as CheckSurface |
@@ -11210,7 +11210,7 @@ ExitControl, worked on at the same time); settled in #83: fixed there. Lines are
 
 In all: 21 (a), 17 (c) (Control.cpp 121, 174, 181, 189, 199, 207; Player.cpp 316; Surface.cpp 204, 254, 274;
 SurfaceDX.cpp 591; surfaceDX9.cpp 507; SurfaceGL.cpp 156, 709, 712, 725; SurfaceVulkan.cpp 560), 2 (b) (Player.cpp 359, 389), 1 settled in #83 (Player.cpp 158), 2 #83 (Control.cpp 1170,
-Player.cpp 149; #83 fixed neither: its notes list ExitControl's null dereference as found, not done).
+Player.cpp 149; #83 fixed neither: its notes list ExitControl's null dereference as found, not done; both settled in #90).
 
 ### The changes (high)
 
@@ -11265,12 +11265,8 @@ Player.cpp 149; #83 fixed neither: its notes list ExitControl's null dereference
 
 ### Found, not done (high)
 
-- **ExitControl after a failed InitControl** (Control.cpp 1170, issue #83's): on x64 a PROGRAM_ERROR of InitControl
-  (a missing Tibia.dat is enough) ends in an access violation in ExitControl's `GetSurface()->ExitSurfaces()`
-  (GetSurface() NULL before SurfaceInitInstance), so neither the box nor exit code 1. Left to #83. Once ExitControl no
-  longer faults, the same path reaches FatalError with the view mode still 0, and its SetDisplayMode(1) step runs
-  Redraw: CheckSurface on GetSurface() (NULL, the same root) and `MainWindow->Draw` with MainWindow NULL (Player.cpp
-  149); that step then needs the same look (the fatal_error_box test without Tibia.dat would show it).
+- **ExitControl after a failed InitControl** (Control.cpp 1170, issue #83's) and FatalError's SetDisplayMode step
+  (Player.cpp 149): settled in issue #90 ("A PROGRAM_ERROR in InitControl").
 - The drawing sites' zero divisors are not compared against the original function by function (above, "The tests").
 
 ### The images (high)
@@ -11296,3 +11292,79 @@ ASan finding; fatal_error_box passes on all three): golden on main's corpus 15,8
 linux-x64-clang 11/11. 0 warnings on every preset. tidy_ci 3 findings, 0 new (baseline 3), 0 bugprone; banned_calls 0;
 clang-format clean. `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: every
 session matches (error with #74's deliberate differences). Logs: build\logs\issue-67b.
+
+## A PROGRAM_ERROR in InitControl (Patella-Modern issue #90)
+
+Settled by Claude Opus 5.5, November 6, 2026, on branch issue-90 (M5; found in #67 part 2, Control.cpp 1170 and
+Player.cpp 149 of its table). On x64 a PROGRAM_ERROR from any step of InitControl (a missing Tibia.dat is enough)
+ended the client with an access violation instead of the "Tibia Error" box.
+
+- **Where it crashes** (high: seen under cdb, build\logs\issue-90\cdb-before.txt). main 02be035's PatellaTest.exe in
+  a folder with Tibia.spr and Tibia.pic but no Tibia.dat: InitObjects throws PROGRAM_ERROR 1, InitControl's `catch
+  (const TProgramError &)` calls ExitControl, and `GetSurface()->ExitSurfaces()` calls through NULL (ExitControl+0x2a,
+  under InitControl's catch funclet, under CMainFrame's constructor and InitInstance): the x64 GetSurface makes a
+  surface only for curEngine 2, which SurfaceInitInstance sets after the frame window exists. Exit code 0xC0000005,
+  no `[error]` line, no box. With ExitControl fixed alone (build\logs\issue-90\cdb-exitcontrol-only.txt), the next
+  fault is FatalError's SetDisplayMode(1) step (the view mode is still 0): CWnd::ModifyStyle on MainFrame, which
+  points to the frame that `new CMainFrame` freed when its constructor threw; after that, Redraw would call
+  CheckSurface on the NULL surface and `MainWindow->Draw` on the NULL main window.
+- **What Tibia.exe does** (high: the code, its exception tables and a run under cdb). ehinfo.py: InitControl
+  (0x44b510) has a `catch (PROGRAM_ERROR)` around its steps whose handler (0x44b5c9) calls ExitControl inside a `catch
+  (...)` (0x44b5f0, empty) and rethrows; ExitControl (0x448e30) has its own catch wrapper (PROGRAM_ERROR, TMyException,
+  `...` to TERROR at line 1661); FatalError (0x4d7d80) has three `catch (...)` blocks (states 0, 2, 4:
+  ShutdownConnection, SetDisplayMode, ShowWindow). Tibia.exe in a folder without Tibia.dat under x86 cdb (access
+  violations and C++ exceptions logged, a breakpoint on MessageBoxA that quits before the box opens;
+  build\logs\issue-90\cdb-tibia-exe.txt): InitObjects' PROGRAM_ERROR, then an access violation at 0x4ec56d inside
+  ExitControl's ExitSurfaces (its GetSurface made a DirectX 5 surface, curEngine 0, whose members were never set:
+  0xbaadf00d), turned into a TMyException by ExitControl's wrapper and swallowed by InitControl's `catch (...)`; the
+  PROGRAM_ERROR goes on (CMainFrame's constructor, InitInstance) to FatalError. There an access violation in
+  CWnd::ModifyStyle (0x526b82, `this` the freed frame, 0xfeeefeee) called from SetDisplayMode (0x4a8bd8), turned into a
+  TMyException by SetDisplayMode's wrapper and swallowed by FatalError's `catch (...)`; then #83's access violation in
+  CWnd::ShowWindow on NULL (0x526c14), swallowed; then MessageBoxA "Cannot find file "Tibia.dat". (Error Code
+  1)\r\n\r\nPlease re-install the program.", "Tibia Error" (and `_exit(1)`). MSVC 7.1's `catch (...)` catches the
+  access violations; /EHsc's does not.
+- **The choice** (high). The outcome is the original's: the box and exit code 1. Each faulting step is skipped where
+  the original's handler swallowed its fault, and only when what it works on does not exist:
+  - ExitControl (Control.cpp): `GetSurface()->ExitSurfaces()` only when GetSurface() is not NULL. It is never NULL in
+    the oracle (its GetSurface always makes one) or once SurfaceInitInstance has run. Unlike the original, the Exit
+    functions after it run too (the original's fault left them out): each deletes or frees what may be null, as #83
+    found, and the CTest below runs ExitControl after every step, also under ASan.
+  - FatalError (Player.cpp): SetDisplayMode(1) only when `MainWindow != nullptr && GetSurface() != nullptr`.
+    MainWindow is set in the frame's OnCreate and cleared only by ExitControl, so it is not NULL exactly when the frame
+    window exists, and with it MainFrame is valid; on x64 the surface exists once SurfaceInitInstance has run. On every
+    path after the frame's creation (#83's failing first present, the fatal_error_box start without a Vulkan driver, a
+    PROGRAM_ERROR in the game) both are set and the step is unchanged. Without them the step is skipped; Tibia.exe's
+    made SetViewMode(1) before its fault, which nothing reads before `exit(1)`.
+  Not done: clearing MainFrame when CMainFrame's constructor throws (it dangles in the original too, and nothing reads
+  it on this path now). No deliberate difference (tools/deliberate.py unchanged). The same code is in the oracle,
+  where it changes only this path (difftest fakes FatalError; no count changed).
+- **The test** (high). The test build's `PATELLA_TEST_INIT_FAILURE(Step)` (src/TestHooks.h; nothing outside
+  PatellaTest.exe: Patella.exe's InitControl is unchanged, below) before each of InitControl's 15 steps and after the
+  last throws PROGRAM_ERROR 6 when `PATELLA_TEST_FAIL_INIT=<Step>` (1-16) is in the environment (InitFails,
+  src/testmode/TestModeWin32.cpp, read once). The CTest **init_control_failure** (windows-x64, -debug, -asan;
+  cmake/RunInitControlFailure.cmake, skipped without the data files) runs PatellaTest.exe 17 times in temporary
+  folders without a Vulkan driver (VK_LOADER_DRIVERS_DISABLE=*, PATELLA_VULKAN=cpu): once without Tibia.dat (the box
+  "Cannot find file \"Tibia.dat\". (Error Code 1)"), and for each step 1-16 with the data files ("(Error Code 6)");
+  each must exit with code 1 and write the "Tibia Error" box to messages.txt. No window is shown (the frame window is
+  never created). Before (main 02be035, the same folder layout, build\repro90-before): no Tibia.dat ends with exit
+  code 0xC0000005 (bash 139), no messages.txt. After: `[error] Tibia Error: Cannot find file "Tibia.dat". (Error Code
+  1)` on stderr, messages.txt `{"step":1,"time":0,"caption":"Tibia Error","text":"Cannot find file \"Tibia.dat\".
+  (Error Code 1)\r\n\r\nPlease re-install the program.","type":16}`, exit code 1; the 16 steps the same with "(Error
+  Code 6)".
+- **The images** (high). Main 02be035's sources and the branch's built in this worktree, Release Patella.exe of
+  windows-x64 and oracle-x86, function by function through the PDBs (#78's funcs.py and classify.py on `dumpbin
+  /disasm:nobytes`; build\logs\issue-90\pecompare). x64: 14,025 functions on both sides, none gone or new; ExitControl
+  and FatalError changed; GetWindowClassName and twelve of InitInstance's and Run's catch funclets only in a line
+  constant (+6: Player.cpp gained six lines above them). x86: 11,412 on both sides; ExitControl and FatalError
+  changed; GetWindowClassName, InitInstance and Run only in the line constants. InitControl is the same on both (the
+  hooks are empty outside the test build).
+- **The gates** (high). `python -I tools/build.py oracle-x86`: CTest 5/5, difftest 16,459,352, sysinctest 67,
+  communicationtest 856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0 (Patella.exe 1093 handlers, 1808
+  registrations, as on main). windows-x64 16/16, windows-x64-debug and windows-x64-asan 15/15 (no ASan finding;
+  fatal_error_box and init_control_failure pass on all three): golden on main's re-recorded corpus (with Divisions)
+  15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures. windows-x64-gcc, linux-x64-gcc and
+  linux-x64-clang 11/11. 0 warnings on every preset. tidy_ci 3 findings, 0 new (baseline 3), 0 bugprone;
+  tools/tidy.py on the three Windows-only files (Control.cpp, Player.cpp, testmode/TestModeWin32.cpp): no new finding
+  on a changed line (an `atoi` it found was replaced by std::from_chars). banned_calls 0; clang-format clean. `python
+  -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: the four sessions match (error
+  with #74's deliberate differences). Logs: build\logs\issue-90.

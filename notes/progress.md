@@ -336,6 +336,15 @@ ShowWindow fix from a start-up error without a Vulkan driver (the box, exit code
 difftest's Divisions test (15 checks; ported, `Since = "#67"`: main's corpus lacks it); difftest 16,459,352 / 67 /
 856,621 / 3,201; golden 17,316,025, 0 failures. notes/decisions.md, "The catch blocks that relied on catching
 structured exceptions".
+A PROGRAM_ERROR in InitControl (Patella-Modern issue #90, branch issue-90, November 6, 2026; M5): a missing Tibia.dat
+(or any failing InitControl step) crashed the x64 client in ExitControl (`GetSurface()->ExitSurfaces()` on the NULL
+surface) and then in FatalError's SetDisplayMode (CWnd::ModifyStyle on the freed frame). Tibia.exe faults in both
+places too (cdb) and its `catch (...)` blocks swallow the faults before the box; ours now skips ExitSurfaces without a
+surface and SetDisplayMode without a main window or a surface, and ends with the box and exit code 1. The test build's
+`PATELLA_TEST_FAIL_INIT=<n>` (hook PATELLA_TEST_INIT_FAILURE) fails InitControl before step n; the CTest
+init_control_failure runs a missing Tibia.dat and steps 1-16. difftest 16,459,352 / 67 / 856,621 / 3,201 (unchanged);
+golden 17,316,040 (main's re-recorded corpus, with Divisions), 0 failures. notes/decisions.md, "A PROGRAM_ERROR in
+InitControl".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -482,6 +491,14 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #90 (branch issue-90, November 6, 2026): ExitControl skips ExitSurfaces without a surface,
+FatalError skips SetDisplayMode without a main window or a surface (PatellaTest.exe without Tibia.dat: 0xC0000005
+before, the box and exit code 1 after). `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest 16,459,352,
+sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0. golden on main's
+re-recorded corpus 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures (windows-x64 16/16, -debug 15/15,
+-asan 15/15, no ASan finding; init_control_failure passes); windows-x64-gcc and the Linux presets 11/11, 0 warnings.
+Images by function: ExitControl and FatalError, line constants only elsewhere. tidy_ci 3 findings, 0 new;
+banned_calls 0; clang-format clean. reference.py compare: every session matches. Logs: build\logs\issue-90.
 Patella-Modern issue #83 (branch issue-83, November 6, 2026): FatalError skips ShowWindow without a main window, so a
 failing first present ends with "Tibia Error" and exit code 1 (PatellaTest.exe with PATELLA_TEST_FAIL_PRESENT=1:
 0xC0000005 before, the box and exit code 1 after). `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest

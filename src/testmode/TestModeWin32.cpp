@@ -96,6 +96,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -893,7 +894,10 @@ bool InitFails(int Step)
 		std::size_t Length = 0;
 		if (getenv_s(&Length, Value.data(), Value.size(), "PATELLA_TEST_FAIL_INIT") != 0 || Length < 2)
 			return 0;
-		return atoi(Value.data());
+		int Parsed = 0;
+		const char *const Last = Value.data() + (Length - 1); // Length counts the terminating zero
+		const auto [End, Error] = std::from_chars(Value.data(), Last, Parsed);
+		return Error == std::errc{} && End == Last ? Parsed : 0;
 	}();
 	return FailingStep != 0 && Step == FailingStep;
 }
