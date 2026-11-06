@@ -4,7 +4,8 @@
 // Two keys of Patella.ini (settings/Settings.h), read once at the start (Player.cpp InitInstance, the x64 client):
 //
 //	LogLevel=debug          error, warn, info (the default) or debug, without regard to case (log/Log.h)
-//	LogFile=patella.log     a file the lines are appended to as well (created where it does not exist); none
+//	LogFile=patella.log     a file the lines are appended to as well (created where it does not exist; the name in
+//	                        UTF-8, issue #117: settings::ClientText); none
 //	                        without the key or with an empty value. A relative name is from the working directory,
 //	                        Tibia.cfg's and Patella.ini's.
 //

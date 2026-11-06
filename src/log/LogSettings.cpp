@@ -20,12 +20,14 @@ void Configure(TLog &Target, const patella::settings::TSettingsFile &Settings)
 				LevelKey, *Name, LevelName(Target.GetLevel()));
 	}
 	std::string Opened;
-	if (const std::optional<std::string> Path = Settings.Get(FileKey); Path.has_value() && !Path->empty()) {
-		if (Target.OpenFile(*Path))
-			Opened = *Path;
+	if (const std::optional<std::string> Value = Settings.Get(FileKey); Value.has_value() && !Value->empty()) {
+		// The client's text, as every name TFile opens (issue #117: converted from the file's UTF-8).
+		const std::string Path = patella::settings::ClientText(Settings, *Value);
+		if (Target.OpenFile(Path))
+			Opened = Path;
 		else
 			Target.Warn("{}: {} \"{}\" cannot be opened for appending; no log file", patella::settings::FileName, FileKey,
-				*Path);
+				Path);
 	}
 	Target.Debug("{}: level {}, {}{}", patella::settings::FileName, LevelName(Target.GetLevel()),
 		Opened.empty() ? "no log file" : "log file ", Opened);

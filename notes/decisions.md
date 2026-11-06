@@ -12267,6 +12267,10 @@ Latin-1 where a text has such a byte, not UTF-8. The conservative choice: no con
 an editor must keep those bytes. When D4 is decided, the format can say so (PreferencesVersion 2, or UTF-8 at this
 boundary).
 
+Superseded by issue #117 (the owner's decision of November 6, 2026; "#117: Patella.ini in UTF-8" below): the file is
+UTF-8 with `PreferencesVersion=2`, a file of version 1 (these raw bytes) is read as Windows-1252 and converted once, at
+the next save. The escapes stay, and the five bytes Windows-1252 leaves undefined are escaped as well.
+
 ### The import (high)
 
 InitPreferences (the name the client calls, Control.cpp InitControl) sets the defaults and reads Patella.ini; when it
@@ -13146,7 +13150,7 @@ the ANSI calls produced.
 | URLs (MainFrm.cpp OpenURL: ShellExecuteA) | ANSI | **Unchanged**: the client's links are ASCII constants and LinkPattern's characters (Status.h) are ASCII; golden's mainfrm test fakes ShellExecuteA. M8: SDL_OpenURL with UTF-8 |
 | Keyboard input (CMainFrame::OnChar: WM_CHAR of the ANSI window class) | Windows converts a typed character to the code page of the active input language | **Deferred to M8**: a real mismatch for a layout whose code page is not 1252 (a Polish ł arrives as 0xb3, shown as ³). The fix needs a Unicode window (RegisterClassW and MFC's message handling, which the test mode's scripted WM_CHAR bytes go through) or SDL_EVENT_TEXT_INPUT's UTF-8 through Utf8ToCp1252, which M8's table names. Here (1252) correct |
 | The command line (Player.cpp InitInstance: m_lpCmdLine's gamemaster, host, port, engine) | ANSI | **Unchanged**: ASCII keywords (host's and port's values are dropped, the original's) |
-| Patella.ini's name and contents (settings/Settings.cpp) | the bytes as they are (#45) | **Unchanged**, as decided in #45: the name is an ASCII constant, the values stay Windows-1252 bytes (a value typed in a UTF-8 editor arrives as its UTF-8 bytes; Needs the user, below) |
+| Patella.ini's name and contents (settings/Settings.cpp) | the bytes as they are (#45) | **Unchanged**, as decided in #45: the name is an ASCII constant, the values stay Windows-1252 bytes (a value typed in a UTF-8 editor arrives as its UTF-8 bytes; Needs the user, below). **Converted since #117** (the owner's decision): UTF-8, PreferencesVersion 2; "#117" below |
 | The environment (PATELLA_VULKAN, PATELLA_VULKAN_VALIDATION, the test mode's variables) | ANSI | **Unchanged**: ASCII names and values |
 | The CPU driver's manifest (vulkan/DeviceSettings.cpp FindCpuDriverManifest: GetModuleFileNameA, GetFileAttributesA; Renderer.cpp TDriverFiles: _putenv_s of VK_DRIVER_FILES) | ANSI | **Deferred to M8** (Found, not done): not the client's text but the executable's folder; a folder name outside the ANSI code page loses the CPU fallback. The fix is std::filesystem paths and the wide environment end to end (the path also goes into error texts, the client's text): M8's "Files and paths" |
 | sysinc.cpp FileExists and RemoveFile (_access, remove) | ANSI | **Unchanged**: no caller |
@@ -13165,6 +13169,7 @@ of its Unicode name, written and read back. log_test.cpp: the lines in UTF-8, on
 - The clipboard's characters outside Windows-1252: `?` (chosen; portable, the same as M8's SDL clipboard will give)
   or Windows' best fit, which CF_TEXT gave until now (U+0100 as `A`). Only pasted text the client cannot show changes.
 - Patella.ini's values: Windows-1252 bytes (#45, kept) or UTF-8 (an editor's default today), converted when read.
+  Decided on November 6, 2026: UTF-8 (issue #117); the clipboard keeps `?` (the owner's decision, the same day).
 
 ### Found, not done (high)
 
@@ -13322,3 +13327,85 @@ Logs: build\logs\issue-115 of the branch's worktree; golden replayed main's froz
 - `python -I tools/tidy_ci.py --worktree`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`:
   exit 0. clang-format (CLAUDE.md's command): exit 0.
 - Not run: the live checks (a test-only change), windows-x64-asan and windows-x64-gcc (not among this issue's gates).
+
+## #117: Patella.ini in UTF-8 (Patella-Modern issue #117, M7)
+
+Settled by Claude Opus 5.5, November 6, 2026, on the owner's decision of the same day: Patella.ini is read and written
+as UTF-8, not as the client's raw Windows-1252 bytes (#45 kept the bytes, #112 left the choice open).
+
+### The format (high)
+
+- `PreferencesVersion=2` marks a UTF-8 file (src/settings/PreferenceKeys.h `PreferencesVersion`). A text field's
+  characters are the UTF-8 of the client's Windows-1252 bytes (types/Cp1252.h Cp1252ToUtf8); when read, each run of
+  characters between escapes goes through Utf8ToCp1252, so a character Windows-1252 does not have (typed in an editor)
+  is `?`, one per character, and so is each ill-formed part of the UTF-8, as #112 chose.
+- The escapes of #45 stay: `\`, `\"`, `\n`, `\r`, `\t`, `\xHH` for the other bytes below 0x20 and 0x7f, `\x00`
+  refused. New: the five bytes Windows-1252 leaves undefined (0x81, 0x8d, 0x8f, 0x90, 0x9d) are written as `\xHH`
+  too. They are C1 controls (U+0081 ...), invisible in an editor, like the C0 ones; written raw they would read back
+  the same (the reader takes U+0081 as 0x81), the escape only keeps them visible. `\xHH` is always the client's byte
+  HH, never a byte of the UTF-8 (an escape ends the run that is converted), in both versions.
+- The encoding is the file's (Settings.h `EncodingOf`, `ClientText`): Windows-1252 where PreferencesVersion is `1`,
+  UTF-8 otherwise: version 2, a later one (read as 2 and reported, ReadPreferences' problems), and a file without the
+  key (one with only Device, LogLevel, LogFile: an editor's file). `LogFile`'s name is converted the same way
+  (LogSettings.cpp, `ClientText`), so a log file named in a UTF-8 editor is that file (TFile opens the client's text by
+  its Unicode name, #112). Device and LogLevel are ASCII. A problem line reports the value as the client's text (the
+  log writes it as UTF-8 again, #112).
+
+### The import of version 1 (high)
+
+InitPreferences reads a version-1 file as Windows-1252 (the values are the bytes #45's client wrote) and says so in the
+log (`[info] Patella.ini: PreferencesVersion 1 (Windows-1252) read; written as version 2 (UTF-8) at the next save`).
+The next save (SavePreferences, ExitPreferences) converts the whole file first (PreferenceKeys.cpp `ConvertToUtf8`:
+every line's text through Cp1252ToUtf8, comments, LogFile and unknown keys included; a UTF-8 byte order mark kept as
+it is), then writes the options as version 2. So the file is converted once, every line of it, and its options are
+unchanged by value; a crash before the save leaves version 1, read the same way next time. Converting the whole file
+rather than only the options' texts: a version-1 comment or LogFile with é would otherwise be ill-formed UTF-8 in a
+version-2 file (LogFile then `?`).
+
+### tools/settings_file.py (high)
+
+`ini_values` reads both versions (version 2's texts through the same conversion: Python's UTF-8 decoder with
+`errors="replace"` replaces maximal subparts, then each character's Windows-1252 byte or `?`; the five undefined bytes
+as their C1 controls), and the values stay Latin-1 str of the client's bytes, so the comparison with Tibia.exe's
+Tibia.cfg is by value and the comparisons' verdicts are unchanged. `parse_fields(value, utf8=True)` mirrors ParseFields'
+default. The self test covers both versions, every Windows-1252 character, `?` and the escapes.
+
+### Tests (high)
+
+tests/unit/core_preferences_test.cpp (tests_core, every preset): every byte 1-255 quoted in UTF-8 and read back (the
+UTF-8 of its character or its escape; its raw character and its `\xHH` read as the byte, in both encodings); `?` for
+Ł, ź, 日, an emoji and ill-formed parts; a version-1 file with ö, € and 0x81 in a hotkey, a buddy's description and
+the lists, a comment and LogFile with é, read by value, written as version 2 in UTF-8 (every line), read back equal and
+written again unchanged; a byte order mark; EncodingOf, ClientText, an unknown version. tests/golden/preferences_file_test.cpp
+(the client's Preferences.cpp): the same version-1 file through InitPreferences and ExitPreferences, the getters'
+values, the file rewritten as version 2, the next start equal by value; its import test expects the UTF-8 of Ärger now.
+
+### Found, not done (high)
+
+- tests/golden/preferences_file_test.cpp's test cases share the client's talk lists (TTalkLists outlives
+  SetDefaultPreferences there: an earlier case's White name stays in a later one's file); the new case checks only its
+  own name. Not a client issue: the client loads the options once.
+
+### The gates (high)
+
+Logs: build\logs\issue-117 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), 0 warnings. windows-x64-debug and windows-x64-asan: exit 0, 18/18 each,
+  golden the same, no ASan report. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc: exit 0, 16/16; linux-x64-clang (ASan,
+  UBSan): exit 0, 14/14; golden the same on both. 0 warnings on every preset.
+- First runs that failed: MSVC's C7744 (a hex escape running into the next letter, `\xb3d`) and preferences_file's new
+  case (two expected texts with `\x81` where the file has the escape `\x81`, and the shared White list above): fixed,
+  every preset run again on the final code.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (the options by value: 37 options, equal); `python -I tools/compare_files.py` exit 0, no
+  differences; `python -I tools/testmode_check.py` exit 0, no differences; `python -I tools/compare_traffic.py` exit 0,
+  no differences.
+- Manual: PatellaTest.exe (`PATELLA_VULKAN=cpu`, a start and `quit`) in a folder with a version-1 Patella.ini (ö, €,
+  0x81 in a hotkey, a buddy's description, White and Ignore; é in a comment): the log line of the version-1 read, the
+  file rewritten as version 2 in UTF-8 (every line; 0x81 as `\x81`), the texts equal by value (settings_file.py); the
+  only differences are Engine and WindowedMode, which the client sets at any start.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
+  clang-format (CLAUDE.md's command): exit 0. `python -I tools/settings_file.py --self-test` and
+  `python -I tools/testmode_dumps.py --self-test`: exit 0.

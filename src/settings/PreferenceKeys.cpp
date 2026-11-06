@@ -1,8 +1,9 @@
-// PreferenceKeys.cpp: the options of Tibia.cfg as keys of Patella.ini (PreferenceKeys.h; Patella-Modern issue #45).
+// PreferenceKeys.cpp: the options of Tibia.cfg as keys of Patella.ini (PreferenceKeys.h; Patella-Modern issues #45, #117).
 
 #include "settings/PreferenceKeys.h"
 
 #include "settings/Settings.h"
+#include "types/Cp1252.h"
 
 #include <algorithm>
 #include <array>
@@ -125,7 +126,7 @@ void Put(TSettingsFile &File, std::string_view Key, std::string_view Value)
 
 class TReader {
 public:
-	TReader(const TSettingsFile &Source, std::vector<std::string> &Found) : File(Source), Problems(Found) {}
+	TReader(const TSettingsFile &Source, std::vector<std::string> &Found) : File(Source), Problems(Found), Encoding(EncodingOf(Source)) {}
 
 	// The fields of Key's value when they have the kinds of Pattern ('n' number, 'f' flag, 't' text, '*' any
 	// number of the kind after it); nothing without a line, or (reported) when they do not.
@@ -134,10 +135,10 @@ public:
 		const std::optional<std::string> Value = File.Get(Key);
 		if (!Value)
 			return std::nullopt;
-		std::optional<std::vector<TField>> Result = ParseFields(*Value);
+		std::optional<std::vector<TField>> Result = ParseFields(*Value, Encoding);
 		if (Result && Matches(*Result, Pattern))
 			return Result;
-		Problems.push_back(std::string(Key) + "=" + *Value + ": not " + Describe(Pattern) + "; kept as it was");
+		Problems.push_back(std::string(Key) + "=" + ClientText(File, *Value) + ": not " + Describe(Pattern) + "; kept as it was");
 		return std::nullopt;
 	}
 
@@ -215,11 +216,34 @@ private:
 
 	const TSettingsFile &File;
 	std::vector<std::string> &Problems;
+	TEncoding Encoding;
 };
+
+// The bytes Windows-1252 leaves undefined: the C1 controls of their value (types/Cp1252.h), escaped as the C0 ones.
+bool Undefined(unsigned char Byte)
+{
+	return Byte == 0x81 || Byte == 0x8d || Byte == 0x8f || Byte == 0x90 || Byte == 0x9d;
+}
 
 } // namespace
 
-std::string QuoteText(std::string_view Text)
+void ConvertToUtf8(TSettingsFile &File)
+{
+	if (EncodingOf(File) != TEncoding::Cp1252)
+		return;
+	constexpr std::string_view ByteOrderMark = "\xEF\xBB\xBF";
+	const std::string Old = File.Text();
+	std::string_view Text = Old;
+	std::string New;
+	if (Text.starts_with(ByteOrderMark)) {
+		New = ByteOrderMark;
+		Text.remove_prefix(ByteOrderMark.size());
+	}
+	New += patella::text::Cp1252ToUtf8(Text);
+	File = TSettingsFile::Parse(New, File.Newline());
+}
+
+std::string QuoteText(std::string_view Text, TEncoding Encoding)
 {
 	std::string Result = "\"";
 	for (const char c : Text) {
@@ -231,10 +255,12 @@ std::string QuoteText(std::string_view Text)
 		case '\r': Result += "\\r"; break;
 		case '\t': Result += "\\t"; break;
 		default:
-			if (Byte < 0x20 || Byte == 0x7f) {
+			if (Byte < 0x20 || Byte == 0x7f || (Encoding == TEncoding::Utf8 && Undefined(Byte))) {
 				Result += "\\x";
 				Result += HexDigits[Byte >> 4];
 				Result += HexDigits[Byte & 15];
+			} else if (Encoding == TEncoding::Utf8 && Byte >= 0x80) {
+				Result += patella::text::Cp1252ToUtf8(std::string_view(&c, 1));
 			} else {
 				Result += c;
 			}
@@ -243,7 +269,7 @@ std::string QuoteText(std::string_view Text)
 	return Result + "\"";
 }
 
-std::optional<std::vector<TField>> ParseFields(std::string_view Value)
+std::optional<std::vector<TField>> ParseFields(std::string_view Value, TEncoding Encoding)
 {
 	std::vector<TField> Result;
 	Value = Trim(Value);
@@ -257,16 +283,26 @@ std::optional<std::vector<TField>> ParseFields(std::string_view Value)
 		if (Position < Value.size() && Value[Position] == '"') {
 			Field.Kind = TKind::Text;
 			Position++;
+			// The characters since the last escape, in the file's encoding: converted at the next escape and at the
+			// end (an escape is the client's byte, never part of the UTF-8).
+			std::string Run;
+			const auto Flush = [&] {
+				Field.Text += Encoding == TEncoding::Utf8 ? patella::text::Utf8ToCp1252(Run) : Run;
+				Run.clear();
+			};
 			for (;;) {
 				if (Position >= Value.size())
 					return std::nullopt; // no closing quote
 				const char c = Value[Position++];
-				if (c == '"')
+				if (c == '"') {
+					Flush();
 					break;
+				}
 				if (c != '\\') {
-					Field.Text += c;
+					Run += c;
 					continue;
 				}
+				Flush();
 				if (Position >= Value.size())
 					return std::nullopt;
 				const char e = Value[Position++];
@@ -324,6 +360,7 @@ bool HasPreferences(const TSettingsFile &File)
 void WritePreferences(TSettingsFile &File, const TPreferenceValues &Values)
 {
 	const auto Number = [](int Value) { return std::to_string(Value); };
+	ConvertToUtf8(File);
 	Put(File, PreferencesVersionKey, Number(PreferencesVersion));
 	Put(File, "TestServer", YesNo(Values.TestServer));
 	if (Values.FullscreenMode) {
@@ -399,6 +436,8 @@ void WritePreferences(TSettingsFile &File, const TPreferenceValues &Values)
 std::vector<std::string> ReadPreferences(const TSettingsFile &File, TPreferenceValues &Values)
 {
 	std::vector<std::string> Problems;
+	if (const std::optional<std::string> Version = File.Get(PreferencesVersionKey); Version && *Version != "1" && *Version != "2")
+		Problems.push_back(std::string(PreferencesVersionKey) + "=" + ClientText(File, *Version) + ": not 1 or 2; read as 2 (UTF-8)");
 	TReader Read(File, Problems);
 	Read.Flag("TestServer", Values.TestServer);
 	if (const auto Fields = Read.Fields("FullscreenMode", "nnn"))
@@ -495,7 +534,7 @@ std::vector<std::string> ReadPreferences(const TSettingsFile &File, TPreferenceV
 				Bars[static_cast<size_t>(Field.Number)] = true;
 			Values.SkillBars = Bars;
 		} else {
-			Read.Problem("SkillBars=" + File.Get("SkillBars").value_or("") + ": a skill not 0 to 6; kept as it was");
+			Read.Problem("SkillBars=" + ClientText(File, File.Get("SkillBars").value_or("")) + ": a skill not 0 to 6; kept as it was");
 		}
 	}
 	return Problems;

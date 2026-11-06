@@ -491,8 +491,8 @@ def _fake_run(folder, number, script):
 	# Since issue #45 the client writes Patella.ini (with the options) and leaves the run's Tibia.cfg as it was.
 	sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 	import compare_traffic  # noqa: E402
-	with open(os.path.join(folder, "run%d.Patella.ini" % number), "w", encoding="latin-1") as f:
-		f.write("PreferencesVersion=1\nEngine=2\n")
+	with open(os.path.join(folder, "run%d.Patella.ini" % number), "w", encoding="utf-8") as f:
+		f.write("PreferencesVersion=2\nEngine=2\n")
 	with open(os.path.join(folder, "run%d.Tibia.cfg" % number), "wb") as f:
 		f.write(compare_traffic.TIBIA_CFG.replace("\n", "\r\n").encode("ascii"))
 

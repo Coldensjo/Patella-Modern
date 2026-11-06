@@ -1330,6 +1330,9 @@ void TPreferences::InitPreferences(TTalkLists &Lists)
 		TPreferenceValues Values = GetPreferenceValues(Lists);
 		for (const std::string &Problem : ReadPreferences(*File, Values))
 			patella::log::Warn("{}: {}", FileName, Problem);
+		// Issue #117: a file of version 1 (Windows-1252) is written as version 2 (UTF-8) at the next save.
+		if (EncodingOf(*File) == TEncoding::Cp1252)
+			patella::log::Info("{}: PreferencesVersion 1 (Windows-1252) read; written as version 2 (UTF-8) at the next save", FileName);
 		SetPreferenceValues(Values, Lists);
 		PreferencesLoaded = true;
 		return;

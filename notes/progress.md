@@ -490,6 +490,12 @@ test's check that ExitCommunication is empty (the only one, since the fakes repl
 `ret`, `ret 0` and Clang's frame-pointer frame; it now also accepts GCC's -O0 frame with its nop (55 48 89 E5 90 5D C3),
 and nothing looser. linux-x64-gcc-debug and linux-x64-clang-debug replay the corpus, 17,316,040, 0 failures.
 notes/decisions.md, "#115: an empty function's code at every optimisation level".
+
+Patella.ini in UTF-8 (Patella-Modern issue #117, branch issue-117, November 6, 2026; M7, the owner's decision): the file
+is UTF-8 with PreferencesVersion=2; its texts (hotkeys, buddy descriptions, the lists' names, LogFile) are converted to
+the client's Windows-1252 when read ('?' for a character it lacks), the escapes stay (and the five undefined bytes are
+escaped); a version-1 file is read as Windows-1252 and rewritten whole as version 2 at the next save.
+tools/settings_file.py reads both versions by value. notes/decisions.md, "#117: Patella.ini in UTF-8".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
