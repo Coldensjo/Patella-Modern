@@ -33,6 +33,7 @@ set(PATELLA_HEADERS_CORE
 	common.h
 	compat/assertion.h
 	compat/crt71.h
+	compat/expected.h
 	compat/format.h
 	compat/msvc.h
 	compat/msvc_io.h
@@ -219,7 +220,7 @@ function(patella_header_checks)
 	endif()
 	# The oracle: Patella.exe's sources (src/*.cpp) and what they include, with real MFC and with the shim.
 	if(PATELLA_ORACLE)
-		set(headers common.h compat/assertion.h compat/format.h compat/msvc.h compat/msvc_io.h compat/print.h compat/span.h Container.h
+		set(headers common.h compat/assertion.h compat/expected.h compat/format.h compat/msvc.h compat/msvc_io.h compat/print.h compat/span.h Container.h
 			log/Log.h Skins.h TMyException.h TRSA.h TXTEA.h types/File.h types/FixedString.h Utils.h vlong.h ${PATELLA_HEADERS_CLIENT}
 			${PATELLA_HEADERS_ORACLE_ENGINES})
 		patella_header_check(header_check_oracle ${headers})

@@ -67,6 +67,8 @@ TMyException::TMyException(std::string Message_, const patella::TSourceLocation 
 {
 }
 
+TMyException::TMyException(TError Error) : Message(std::move(Error.Message)), Location(Error.Location) {}
+
 namespace patella {
 
 // 0x508400's text
@@ -124,6 +126,13 @@ TMyException MakeError(const TSourceLocation &Location, std::string_view Kind, s
 {
 	return TMyException(ErrorText(Location.file_name(), GetLine(Location), Kind, Name1, Value1, Name2, Value2, Inner),
 		Location);
+}
+
+TError MakeFailure(const TSourceLocation &Location, std::string_view Kind, std::string_view Name1, int Value1,
+	std::string_view Name2, int Value2, std::string_view Reason)
+{
+	return TError{ErrorText(Location.file_name(), GetLine(Location), Kind, Name1, Value1, Name2, Value2, Reason),
+		Location};
 }
 
 // The failures of PATELLA_ASSERT and PATELLA_ASSERT_VALUES (compat/assertion.h, issue #79): the TMyException of

@@ -10,11 +10,13 @@
 // linker kept their out-of-line copies from Preferences.obj, the first object
 // that uses them (0x4df550-0x4df6c9, after the Tibia.cfg loader and saver).
 // The FILE * members are TFiles (types/File.h, Patella-Modern issue #64):
-// fopen, fclose and the reads and writes with an owner, the same bytes.
+// fopen, fclose and the reads and writes with an owner, the same bytes. Each
+// class's TryOpen returns open's failures (Patella-Modern issue #80).
 
 #pragma once
 
 #include "common.h"
+#include "compat/expected.h"
 #include "compat/span.h"
 #include "types/File.h"
 #include "types/FixedString.h"
@@ -79,6 +81,9 @@ public:
 		Special = '#';
 	}
 
+	// open's failures ("file still open", "failed to open file") returned instead of thrown (issue #80); open throws
+	// them, as the original.
+	[[nodiscard]] patella::TExpected<void, TError> TryOpen(const char *FileName);
 	void open(const char *FileName);
 	void error(const char *Text);
 	void nextToken();
@@ -132,6 +137,9 @@ public:
 		Line = 0;
 	}
 
+	// open's failures ("file still open", "failed to open file") returned instead of thrown (issue #80); open throws
+	// them, as the original.
+	[[nodiscard]] patella::TExpected<void, TError> TryOpen(const char *FileName);
 	void open(const char *FileName);
 	void writeLn();
 	void writeText(const char *Text);
@@ -165,6 +173,9 @@ public:
 		File.Close();
 	}
 
+	// open's failures ("file still open", "failed to open file") returned instead of thrown (issue #80); open throws
+	// them, as the original.
+	[[nodiscard]] patella::TExpected<void, TError> TryOpen(const char *FileName);
 	void open(const char *FileName);
 	void seek(int Offset);
 	bool eof() const;
@@ -197,6 +208,9 @@ public:
 		File.Close();
 	}
 
+	// open's failures ("file still open", "failed to open file") returned instead of thrown (issue #80); open throws
+	// them, as the original.
+	[[nodiscard]] patella::TExpected<void, TError> TryOpen(const char *FileName);
 	void open(const char *FileName);
 	void writeByte(uint8 Byte);
 	void writeWord(uint16 Word);

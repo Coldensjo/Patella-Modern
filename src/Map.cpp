@@ -1075,12 +1075,8 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 	TFixedString<16> FileName;
 	FileName.Format("{:03}{:03}{:02}.map", bx, by, bz);
 	TReadBinaryFile File;
-	bool Opened = false;
-	try {
-		File.open(FileName);
-		Opened = true;
-	} catch (TMyException &) {
-	}
+	// A file that does not open: TryOpen's failure (issue #80), until then open's TMyException caught here.
+	const bool Opened = File.TryOpen(FileName).has_value();
 	if (Opened) {
 		try {
 			try {
@@ -1146,12 +1142,8 @@ void SaveAutomapBlock(int Position)
 	TFixedString<16> FileName;
 	FileName.Format("{:03}{:03}{:02}.map", Block.bx, Block.by, Block.bz);
 	TWriteBinaryFile File;
-	bool Opened = false;
-	try {
-		File.open(FileName);
-		Opened = true;
-	} catch (TMyException &) {
-	}
+	// A file that does not open: TryOpen's failure (issue #80), until then open's TMyException caught here.
+	const bool Opened = File.TryOpen(FileName).has_value();
 	if (Opened) {
 		try {
 			try {

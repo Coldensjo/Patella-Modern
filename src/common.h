@@ -92,18 +92,18 @@ inline void Limit(int *Value, int Min, int Max)
 // a PROGRAM_ERROR with its value). The enumerator names are ours, after
 // GetErrorText's texts and the sites that throw them.
 enum class PROGRAM_ERROR : int {
-	OBJECTS_FILE = 1,      // "Cannot find file "Tibia.dat"." (InitObjects)
-	SPRITES_FILE = 2,      // "Cannot find file "Tibia.spr"." (the sprite offsets)
-	PICTURES_FILE = 3,     // "Cannot find file "Tibia.pic"."
-	SPRITES_DATA = 4,      // "Cannot open file "Tibia.spr"." (a sprite's pixels)
-	PICTURES_DATA = 5,     // "Cannot open file "Tibia.pic"."
-	SOCKET_INIT = 6,       // "Cannot initialize Windows Sockets." (InitNetwork)
-	DIRECTX_INIT = 7,      // "Cannot initialize DirectX."
-	COLOR_DEPTH = 8,       // "Too low color depth detected."
-	CLIPPER = 9,           // "Cannot initialize video graphics mode." (9-11)
+	OBJECTS_FILE = 1,  // "Cannot find file "Tibia.dat"." (InitObjects)
+	SPRITES_FILE = 2,  // "Cannot find file "Tibia.spr"." (the sprite offsets)
+	PICTURES_FILE = 3, // "Cannot find file "Tibia.pic"."
+	SPRITES_DATA = 4,  // "Cannot open file "Tibia.spr"." (a sprite's pixels)
+	PICTURES_DATA = 5, // "Cannot open file "Tibia.pic"."
+	SOCKET_INIT = 6,   // "Cannot initialize Windows Sockets." (InitNetwork)
+	DIRECTX_INIT = 7,  // "Cannot initialize DirectX."
+	COLOR_DEPTH = 8,   // "Too low color depth detected."
+	CLIPPER = 9,       // "Cannot initialize video graphics mode." (9-11)
 	COOPERATIVE_LEVEL = 10,
 	DISPLAY_MODE = 11,
-	SURFACE = 12,          // "Video surface allocation failed." (12-18): the primary surface, and the generic code
+	SURFACE = 12, // "Video surface allocation failed." (12-18): the primary surface, and the generic code
 	SCREEN_SURFACE = 13,
 	TEMP_SURFACE = 14,
 	STRETCH_SURFACE = 15,
@@ -150,6 +150,11 @@ static_assert(sizeof(TProgramError) == sizeof(PROGRAM_ERROR) && std::is_triviall
 	throw TMYEXCEPTION(Message, "", 0, "", 0, Reason)
 #define TERROR1_REASON(Message, V1, Reason) \
 	throw TMYEXCEPTION(Message, #V1, V1, "", 0, Reason)
+// TERROR_REASON's failure returned instead of thrown (issue #80): a
+// patella::TUnexpected<TError> for a function that returns a
+// patella::TExpected<T, TError> (compat/expected.h).
+#define TUNEXPECTED_REASON(Message, Reason) \
+	::patella::TUnexpected<TError>(::patella::MakeFailure(PATELLA_SOURCE_LOCATION(), Message, "", 0, "", 0, Reason))
 
 // The original's catch wrappers: until Patella-Modern issue #78 most functions
 // wrapped their body in a try block with three handlers, visible in the binary

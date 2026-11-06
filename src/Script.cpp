@@ -16,21 +16,32 @@
 #include "Utils.h"
 #include "sysinc.h"
 #include "common.h"
+#include "compat/expected.h"
 #include "compat/span.h"
 #include "types/FixedString.h"
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
-// 0x4df6d0, lines 48-50
+// 0x4df6d0, lines 48-50: TryOpen, its failure thrown.
 void TReadScriptFile::open(const char *FileName)
 {
+	patella::TExpected<void, TError> Result = TryOpen(FileName);
+	if (!Result)
+		throw TMyException(std::move(Result.error()));
+}
+
+// open's code, its two TERROR_REASONs returned (issue #80).
+patella::TExpected<void, TError> TReadScriptFile::TryOpen(const char *FileName)
+{
 	if (File != nullptr)
-		TERROR_REASON("file still open", Filename);
+		return TUNEXPECTED_REASON("file still open", Filename);
 	if (!File.Open(FileName, TFile::TAccess::Read))
-		TERROR_REASON("failed to open file", FileName);
+		return TUNEXPECTED_REASON("failed to open file", FileName);
 	Line = 1;
 	// Filename stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
 	TStringBuffer(Filename, sizeof(Filename)).Assign(FileName);
+	return {};
 }
 
 // 0x4df9b0, line 84. Closes the file and throws; the message names the file
@@ -378,16 +389,25 @@ char TReadScriptFile::getSpecial()
 	return Special;
 }
 
-// 0x4e04b0, lines 403-405. Line is reset but never counted.
+// 0x4e04b0, lines 403-405: TryOpen, its failure thrown.
 void TWriteScriptFile::open(const char *FileName)
 {
+	patella::TExpected<void, TError> Result = TryOpen(FileName);
+	if (!Result)
+		throw TMyException(std::move(Result.error()));
+}
+
+// open's code, its two TERROR_REASONs returned (issue #80). Line is reset but never counted.
+patella::TExpected<void, TError> TWriteScriptFile::TryOpen(const char *FileName)
+{
 	if (File != nullptr)
-		TERROR_REASON("file still open", Filename);
+		return TUNEXPECTED_REASON("file still open", Filename);
 	if (!File.Open(FileName, TFile::TAccess::Write))
-		TERROR_REASON("failed to open file", FileName);
+		return TUNEXPECTED_REASON("failed to open file", FileName);
 	Line = 0;
 	// Filename stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
 	TStringBuffer(Filename, sizeof(Filename)).Assign(FileName);
+	return {};
 }
 
 // 0x4e0790, line 441. The file is binary, so the line ends in CR LF.
@@ -445,14 +465,23 @@ void TWriteScriptFile::writeNumber(int Number)
 	writeText(Help);
 }
 
-// 0x4e1040, lines 552-554
+// 0x4e1040, lines 552-554: TryOpen, its failure thrown.
 void TReadBinaryFile::open(const char *FileName)
 {
+	patella::TExpected<void, TError> Result = TryOpen(FileName);
+	if (!Result)
+		throw TMyException(std::move(Result.error()));
+}
+
+// open's code, its two TERROR_REASONs returned (issue #80).
+patella::TExpected<void, TError> TReadBinaryFile::TryOpen(const char *FileName)
+{
 	if (File != nullptr)
-		TERROR_REASON("file still open", Filename);
+		return TUNEXPECTED_REASON("file still open", Filename);
 	if (!File.Open(FileName, TFile::TAccess::Read))
-		TERROR_REASON("failed to open file", FileName);
+		return TUNEXPECTED_REASON("failed to open file", FileName);
 	strncpy(Filename, FileName, sizeof(Filename));
+	return {};
 }
 
 // 0x4e1320, lines 572-573
@@ -532,14 +561,23 @@ void TReadBinaryFile::readBytes(patella::TSpan<uint8> Bytes)
 		TERROR1_REASON("out of data", Count, Filename);
 }
 
-// 0x4e21a0, lines 706-708
+// 0x4e21a0, lines 706-708: TryOpen, its failure thrown.
 void TWriteBinaryFile::open(const char *FileName)
 {
+	patella::TExpected<void, TError> Result = TryOpen(FileName);
+	if (!Result)
+		throw TMyException(std::move(Result.error()));
+}
+
+// open's code, its two TERROR_REASONs returned (issue #80).
+patella::TExpected<void, TError> TWriteBinaryFile::TryOpen(const char *FileName)
+{
 	if (File != nullptr)
-		TERROR_REASON("file still open", Filename);
+		return TUNEXPECTED_REASON("file still open", Filename);
 	if (!File.Open(FileName, TFile::TAccess::Write))
-		TERROR_REASON("failed to open file", FileName);
+		return TUNEXPECTED_REASON("failed to open file", FileName);
 	strncpy(Filename, FileName, sizeof(Filename));
+	return {};
 }
 
 // 0x4e2480, lines 727-729

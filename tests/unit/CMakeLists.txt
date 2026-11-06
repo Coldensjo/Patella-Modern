@@ -27,6 +27,8 @@
 #   tests_unit_cxx26_standin with the oracle's C++17 stand-in (PATELLA_SOURCE_LOCATION_STANDIN).
 # - Both: TMyException (src/TMyException.h, issue #80), a message and a source location, and patella::ErrorText,
 #   ErrorOrigin and MakeError, the texts of the original's two constructors that the sites' messages are made of.
+# - Both: patella::TExpected and TUnexpected (src/compat/expected.h, issue #80) and TError: std::expected in
+#   tests_unit, the oracle's C++17 stand-in in tests_unit_cxx26_standin (PATELLA_EXPECTED_STANDIN).
 #
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
 #   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31), the developer log's keys in it (issue #77) and
@@ -84,6 +86,7 @@ function(patella_unit_tests target)
 		log_test.cpp
 		assertion_test.cpp
 		exception_test.cpp
+		expected_test.cpp
 		"${PROJECT_SOURCE_DIR}/src/TMyException.cpp")
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
 	target_link_libraries(${target} PRIVATE doctest::doctest)
@@ -119,7 +122,7 @@ endif()
 
 patella_unit_tests(tests_unit_cxx26_standin)
 target_compile_definitions(tests_unit_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN PATELLA_EXPECT_CXX26=0
-	PATELLA_FORMAT_STANDIN PATELLA_SPAN_STANDIN PATELLA_SOURCE_LOCATION_STANDIN)
+	PATELLA_FORMAT_STANDIN PATELLA_SPAN_STANDIN PATELLA_SOURCE_LOCATION_STANDIN PATELLA_EXPECTED_STANDIN)
 
 add_executable(tests_core
 	core_main.cpp

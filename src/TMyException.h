@@ -20,9 +20,19 @@
 #include <string>
 #include <string_view>
 
+// A recoverable failure (issue #80): what a TMyException would carry, returned in a patella::TExpected<T, TError>
+// (compat/expected.h) instead of thrown. A function that the original exposes throws it on (TMyException(TError));
+// its callers that recover test the result instead of catching (notes/decisions.md, issue #80, 80c).
+struct TError {
+	std::string Message;
+	patella::TSourceLocation Location;
+};
+
 class TMyException {
 public:
 	TMyException(std::string Message, const patella::TSourceLocation &Location);
+	// A returned failure thrown after all: the same message and location.
+	explicit TMyException(TError Error);
 	virtual ~TMyException(); // 0x508300; scalar deleting destructor at 0x404570
 
 	// Inline; the original's GetMessage was emitted at 0x4042f0 and 0x4d9110.
@@ -55,5 +65,8 @@ TMyException MakeError(const TSourceLocation &Location, std::string_view Kind, s
 	std::string_view Name2, int Value2, std::string_view Reason);
 TMyException MakeError(const TSourceLocation &Location, std::string_view Kind, std::string_view Name1, int Value1,
 	std::string_view Name2, int Value2, const TMyException &Inner);
+// TUNEXPECTED_REASON's failure: MakeError's message and location as a TError.
+TError MakeFailure(const TSourceLocation &Location, std::string_view Kind, std::string_view Name1, int Value1,
+	std::string_view Name2, int Value2, std::string_view Reason);
 
 } // namespace patella
