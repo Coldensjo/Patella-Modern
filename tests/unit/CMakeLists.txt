@@ -12,6 +12,9 @@
 #   TFixedString::Format: against texts computed apart, std::chrono's calendar and, on Windows, the UCRT's _ctime32.
 # - Both: Time32, StoreTime32 and LoadTime32 (src/types/Time32.h, issue #62), the original's 4-byte time fields and
 #   their conversion from and to the 64-bit time, held against the original's 32-bit arithmetic, past 2038 and 2106.
+# - Both: TIndexedVector<T> (src/types/IndexedVector.h, issue #99), CipSoft's growable vector<T> over a std::vector: the
+#   range and negative indices, growth by block and doubling, the init fill, the padding a growth carries (#91), the
+#   storage's allocator (new T[n]'s) and the assertions.
 # - Both: TFile (src/types/File.h, issue #64), the client's files: the bytes of each open mode (text: "\r\n" on every
 #   platform), fopen's and fclose's results, reads, seeks, _eof through Descriptor, Print through both paths of the
 #   format (std::format and the stand-in) against fprintf's text, and compat/print.h's FormatLine.
@@ -81,6 +84,7 @@ function(patella_unit_tests target)
 		fixed_string_test.cpp
 		crt71_test.cpp
 		time32_test.cpp
+		indexed_vector_test.cpp
 		file_test.cpp
 		span_test.cpp
 		log_test.cpp

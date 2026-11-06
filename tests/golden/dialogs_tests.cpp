@@ -56,7 +56,7 @@
 #include "golden_patch.h"
 
 #include "Communication.h"
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "Control.h"
 #include "Creatures.h"
 #include "DialogElements.h"
@@ -1556,12 +1556,12 @@ static void Callback(std::string &Out, int s, const TCallback &C)
 }
 static void Object(std::string &Out, const TObject &O) { Add(Out, " obj %d,%d,%d", O.Type, O.Data, O.Data2); }
 // A vector's fields, then the entries from First to Last (those set).
-template <class T, class F> static void Vector(std::string &Out, int s, vector<T> &V, int First, int Last, F Entry)
+template <class T, class F> static void Vector(std::string &Out, int s, TIndexedVector<T> &V, int First, int Last, F Entry)
 {
 	Add(Out, " vec %d,%d,%d,%d,%d", V.min, V.max, V.start, V.space, V.block);
 	Byte(Out, V.initialized);
-	Pointer(Out, s, V.entry.get());
-	if (V.entry == NULL)
+	Pointer(Out, s, V.entry.data());
+	if (V.entry.empty())
 		return;
 	for (int i = First; i <= Last && i - First < 1000; i++) {
 		if (i < V.min || i > V.max)
@@ -1888,7 +1888,7 @@ static void DumpMembers(std::string &Out, int s, TComponent *C, const std::strin
 		Pointer(Out, s, I->DeleteWhiteButton);
 		Pointer(Out, s, I->AllowPermanently);
 		Pointer(Out, s, I->AllowBuddies);
-		for (vector<TIgnoreEntry> *V : {&I->IgnoreEntries, &I->WhiteEntries})
+		for (TIndexedVector<TIgnoreEntry> *V : {&I->IgnoreEntries, &I->WhiteEntries})
 			Vector(Out, s, *V, V->min, V->max, [&](TIgnoreEntry &E) {
 				Chars(Out, E.Name, sizeof(E.Name));
 				Byte(Out, E.Permanent);

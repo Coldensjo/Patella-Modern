@@ -9,7 +9,7 @@
 #include "Utils.h"
 #include "graphics.h"
 #include "sysinc.h"
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "Preferences.h"
 #include "common.h"
 #include "types/File.h"
@@ -43,19 +43,19 @@ TTalkBuffer *DefaultTextBuffer; // 0x71ef68
 
 namespace {
 
-int TalkThrottle;                                            // 0x71ef6c
-vector<TTalkFilter *> BuddyExemptionList(0, 9, 10, nullptr); // 0x71ef70, 0x55a140
+int TalkThrottle;                                                    // 0x71ef6c
+TIndexedVector<TTalkFilter *> BuddyExemptionList(0, 9, 10, nullptr); // 0x71ef70, 0x55a140
 
 } // namespace
 
 // These two stay static (issue #44): in an anonymous namespace MSVC swaps them in .bss (both the oracle and
 // x64).
-static vector<TTalkFilter *> TemporaryIgnoreList(0, 9, 10, nullptr); // NOLINT(misc-use-anonymous-namespace): 0x71ef90, 0x55a160
-static vector<TTalkFilter *> IgnoreList(0, 9, 10, nullptr);          // NOLINT(misc-use-anonymous-namespace): 0x71efb0, 0x55a180
+static TIndexedVector<TTalkFilter *> TemporaryIgnoreList(0, 9, 10, nullptr); // NOLINT(misc-use-anonymous-namespace): 0x71ef90, 0x55a160
+static TIndexedVector<TTalkFilter *> IgnoreList(0, 9, 10, nullptr);          // NOLINT(misc-use-anonymous-namespace): 0x71efb0, 0x55a180
 
 namespace {
 
-vector<TTalkFilter *> ConsoleFilterList(0, 4, 5, nullptr); // 0x71efd0, 0x55a1a0
+TIndexedVector<TTalkFilter *> ConsoleFilterList(0, 4, 5, nullptr); // 0x71efd0, 0x55a1a0
 
 } // namespace
 
@@ -441,7 +441,7 @@ bool TTalkFilter::Matches(int _Mode, const char *_Addressee, int _Channel)
 	return CompareStrings(Addressee, _Addressee, -1) == 0;
 }
 // 0x4ff9c0, line 652
-int FindTalkFilter(int Mode, const char *Addressee, int Channel, vector<TTalkFilter *> &List)
+int FindTalkFilter(int Mode, const char *Addressee, int Channel, TIndexedVector<TTalkFilter *> &List)
 {
 	for (int i = List.min; i <= List.max; i++)
 		if (List(i) != nullptr && List(i)->Matches(Mode, Addressee, Channel))
@@ -449,7 +449,7 @@ int FindTalkFilter(int Mode, const char *Addressee, int Channel, vector<TTalkFil
 	return -1;
 }
 // 0x4ffb90, lines 661-672
-int FindTextBuffer(TTalkBuffer *TextBuffer, vector<TTalkFilter *> &List)
+int FindTextBuffer(TTalkBuffer *TextBuffer, TIndexedVector<TTalkFilter *> &List)
 {
 	PATELLA_ASSERT(TextBuffer!=NULL);
 	int i;
@@ -460,7 +460,7 @@ int FindTextBuffer(TTalkBuffer *TextBuffer, vector<TTalkFilter *> &List)
 }
 // 0x4ffe40, line 693
 void AddTalkFilter(int Mode, const char *Addressee, int Channel, TTalkBuffer *TextBuffer,
-	vector<TTalkFilter *> &List, bool Permanent)
+	TIndexedVector<TTalkFilter *> &List, bool Permanent)
 {
 	int i = List.min;
 	while (i <= List.max && List(i) != nullptr)

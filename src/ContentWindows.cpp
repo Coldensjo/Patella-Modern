@@ -31,7 +31,7 @@
 #include "Text.h"
 #include "Utils.h"
 #include "graphics.h"
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "DialogElements.h"
 #include "DialogWindow.h"
 #include "GUI.h"
@@ -516,7 +516,7 @@ void TAutomapView::Draw(int Surface, int x, int y)
 		const int Top = CentreY - 106 / Window->Zoom;
 		for (int BlockX = Left / 256; BlockX < Left / 256 + 2; BlockX++) {
 			for (int BlockY = Top / 256; BlockY < Top / 256 + 2; BlockY++) {
-				vector<TMark> Marks(0, 0, 10);
+				TIndexedVector<TMark> Marks(0, 0, 10);
 				int Count;
 				GetAutomapMarks(BlockX, BlockY, PosZ, &Marks, &Count);
 				for (int i = 0; i < Count; i++) {
@@ -583,7 +583,7 @@ TMark TAutomapView::GetMark(int x, int y)
 	const int Top = Window->ViewY - 106 / Window->Zoom;
 	for (int BlockX = Left / 256; BlockX < Left / 256 + 2; BlockX++) {
 		for (int BlockY = Top / 256; BlockY < Top / 256 + 2; BlockY++) {
-			vector<TMark> Marks(0, 0, 10);
+			TIndexedVector<TMark> Marks(0, 0, 10);
 			int Count;
 			GetAutomapMarks(BlockX, BlockY, Window->ViewZ, &Marks, &Count);
 			for (int i = Count - 1; i >= 0; i--) {

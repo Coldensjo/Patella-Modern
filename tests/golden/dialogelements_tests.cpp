@@ -691,7 +691,7 @@ static TComponent *Build(int s, const TArguments &A)
 
 // --- Dumps -------------------------------------------------------------------------------
 
-template <class T> static bool Entry(vector<T> &V, int i, T *Out)
+template <class T> static bool Entry(TIndexedVector<T> &V, int i, T *Out)
 {
 	if (i < V.min || i > V.max)
 		return false;

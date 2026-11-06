@@ -14,6 +14,7 @@
 #	                      log/Log.h, is header only)
 #	Extern/regexp         Henry Spencer's regexp (K&R C, compiled as C17)
 #	Container.h           the container templates (header only)
+#	types/IndexedVector.h TIndexedVector, the growable vector over std::vector (header only, issue #99)
 #
 # PATELLA_CORE (common.h) leaves out MFC and the Windows headers, so no core source can use them
 # (plan section 8). The client (cmake/WindowsX64.cmake) and the oracle still compile these sources

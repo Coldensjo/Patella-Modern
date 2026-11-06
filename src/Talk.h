@@ -3,7 +3,7 @@
 #include "types/File.h"
 #include "types/FixedString.h"
 #include "types/Time32.h"
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "Preferences.h"
 #include <array>
 #include <type_traits>
@@ -222,10 +222,10 @@ int FindFreeTalkbox();
 void WrapTalkbox(TTalkbox *Talkbox, const char *Text);
 void SetTalkboxRectangle(int Number, int x, int y, int Width, int Height);
 void RemoveOldestTalkbox();
-int FindTalkFilter(int Mode, const char *Addressee, int Channel, vector<TTalkFilter *> &List);
-int FindTextBuffer(TTalkBuffer *TextBuffer, vector<TTalkFilter *> &List);
+int FindTalkFilter(int Mode, const char *Addressee, int Channel, TIndexedVector<TTalkFilter *> &List);
+int FindTextBuffer(TTalkBuffer *TextBuffer, TIndexedVector<TTalkFilter *> &List);
 void AddTalkFilter(int Mode, const char *Addressee, int Channel, TTalkBuffer *TextBuffer,
-	vector<TTalkFilter *> &List, bool Permanent);
+	TIndexedVector<TTalkFilter *> &List, bool Permanent);
 char *GetBuddyIgnoreText();
 void ClearBuddyIgnore();
 void AddBuddyIgnore(const char *Addressee, bool Permanent);

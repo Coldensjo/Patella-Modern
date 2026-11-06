@@ -25,7 +25,7 @@
 
 #include "common.h"
 #include "types/FixedString.h"
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "GUI.h"
 #include "graphics.h"
 #include "Skins.h"   // Skins
@@ -303,9 +303,9 @@ public:
 // is left uninitialised.
 struct TRadioButtonGroup {
 	TRadioButtonGroup() : Buttons(0, 0, 10, nullptr) { Count = 0; }
-	TSkinButton *Selected;         // +0x00
-	vector<TSkinButton *> Buttons; // +0x04
-	int Count;                     // +0x24
+	TSkinButton *Selected;                 // +0x00
+	TIndexedVector<TSkinButton *> Buttons; // +0x04
+	int Count;                             // +0x24
 };
 
 // A button on a coloured background (vtable 0x561a80, 0x50 bytes).
@@ -584,12 +584,12 @@ public:
 	virtual void SetText(const char *_Text, bool KeepPosition); // +0xcc, 0x469120, line 2711
 	void FormatText();                                          // 0x45da90, lines 2770-2795
 
-	vector<int> LineStart; // +0x68
-	TScrollBar *ScrollBar; // +0x88
-	int Lines;             // +0x8c
-	int FieldWidth;        // +0x90
-	int FieldHeight;       // +0x94
-	int VisibleLines;      // +0x98
+	TIndexedVector<int> LineStart; // +0x68
+	TScrollBar *ScrollBar;         // +0x88
+	int Lines;                     // +0x8c
+	int FieldWidth;                // +0x90
+	int FieldHeight;               // +0x94
+	int VisibleLines;              // +0x98
 };
 
 // The edit lines of a dialog between which Tab and Shift+Tab move the input
@@ -602,9 +602,9 @@ public:
 	void Next();                       // 0x45e290, lines 2846-2860
 	void Previous();                   // 0x45e630, lines 2868-2882
 
-	TEditLine *Active;              // +0x00
-	vector<TEditLine *> MemberList; // +0x04
-	int Members;                    // +0x24
+	TEditLine *Active;                      // +0x00
+	TIndexedVector<TEditLine *> MemberList; // +0x04
+	int Members;                            // +0x24
 };
 
 // --- Scroll bars ------------------------------------------------------------------
@@ -780,18 +780,18 @@ public:
 	// TChannelTalkBuffer::GetChannelID 0x507060).
 	int GetNumberOfLines() const { return Lines; }
 
-	int Lines;                // +0x2c
-	int TextWidth;            // +0x30
-	vector<char *> LineText;  // +0x34
-	int Selected;             // +0x54, -1 for none
-	TCallback SelectCallback; // +0x58
-	TCallback ActionCallback; // +0x60
-	TScrollBar *ScrollBar;    // +0x68
-	int VisibleLines;         // +0x6c
-	bool Editable;            // +0x70
-	bool Editing;             // +0x71
-	TEditLine *EditLine;      // +0x74
-	int EditScroll;           // +0x78, the scroll position when the edit started
+	int Lines;                       // +0x2c
+	int TextWidth;                   // +0x30
+	TIndexedVector<char *> LineText; // +0x34
+	int Selected;                    // +0x54, -1 for none
+	TCallback SelectCallback;        // +0x58
+	TCallback ActionCallback;        // +0x60
+	TScrollBar *ScrollBar;           // +0x68
+	int VisibleLines;                // +0x6c
+	bool Editable;                   // +0x70
+	bool Editing;                    // +0x71
+	TEditLine *EditLine;             // +0x74
+	int EditScroll;                  // +0x78, the scroll position when the edit started
 };
 
 // A line of a TFontListBox (0x18 bytes; the type name is ours). The
@@ -824,7 +824,7 @@ public:
 	void Clear();                                           // 0x4641e0, line 4105
 	char *GetLine(int Number, TFont *Font);                 // 0x4643a0, lines 4113-4118
 
-	vector<TListBoxLine> FontLines; // +0x7c
+	TIndexedVector<TListBoxLine> FontLines; // +0x7c
 };
 
 // --- Progress bar -----------------------------------------------------------------

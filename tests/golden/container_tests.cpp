@@ -26,6 +26,7 @@
 
 #include "ConsoleWindow.h"
 #include "Container.h"
+#include "types/IndexedVector.h"
 #include "DialogElements.h"
 #include "Dialogs.h"
 #include "GUI.h"
@@ -239,10 +240,12 @@ struct TVectorInstance {
 
 // Everything but the entry pointer (min ... initialized, init: vector<T>'s layout made of T's), then the
 // whole allocated array.
-template <class T> static bool SameVector(vector<T> *Ours, [[maybe_unused]] vector<T> *Image, const char *Name, const char *What)
+template <class T> static bool SameVector(TIndexedVector<T> *Ours, [[maybe_unused]] TIndexedVector<T> *Image, const char *Name, const char *What)
 {
-	static const TLayout Header(("i i i i i c1 " + LayoutOf<T>().Description + " p").c_str(), sizeof(vector<T>),
-		"vector<T>");
+	// Ours: min ... init, then the storage (a std::vector, issue #99) where the original has its entry pointer, of
+	// which the header compares nothing; the layout ends with the storage's first pointer.
+	static const TLayout Header(("i i i i i c1 " + LayoutOf<T>().Description + " p").c_str(),
+		offsetof(TIndexedVector<T>, entry) + sizeof(void *), "vector<T>");
 	static std::string LastHead, LastEntries;
 	size_t HeadSize = Header.Size[0] - 4; // the original's offset of entry, its last member
 	const uint8 *Head = OriginalBytes("vector header", LastHead, ORIGINAL_OR(Image, nullptr), HeadSize);
@@ -257,8 +260,8 @@ template <class T> static bool SameVector(vector<T> *Ours, [[maybe_unused]] vect
 		return false;
 	const TLayout &Layout = LayoutOf<T>();
 	size_t Size = (size_t)Ours->space * Layout.Size[0];
-	const uint8 *Entries = OriginalBytes("vector entries", LastEntries, ORIGINAL_OR(Image->entry.get(), nullptr), Size);
-	Same = memcmp(Layout.ProjectAll(Ours->entry.get(), (size_t)Ours->space).data(), Entries, Size) == 0;
+	const uint8 *Entries = OriginalBytes("vector entries", LastEntries, ORIGINAL_OR(Image->entry.data(), nullptr), Size);
+	Same = memcmp(Layout.ProjectAll(Ours->entry.data(), (size_t)Ours->space).data(), Entries, Size) == 0;
 	CHECK(Same, "%s %s: entries differ (space %d)", Name, What, Ours->space);
 	return Same;
 }
@@ -266,7 +269,8 @@ template <class T> static bool SameVector(vector<T> *Ours, [[maybe_unused]] vect
 template <class T> static void TestVector(const TVectorInstance &Instance, int Rounds)
 {
 	const TLayout &Layout = LayoutOf<T>();
-	CHECK(offsetof(vector<T>, entry) + sizeof(T *) == sizeof(vector<T>), "%s: entry is not the last member", Instance.Name);
+	CHECK(offsetof(TIndexedVector<T>, entry) + sizeof(typename TIndexedVector<T>::TEntries) == sizeof(TIndexedVector<T>),
+		"%s: entry is not the last member", Instance.Name);
 	for (int Round = 0; Round < Rounds; Round++) {
 		Pattern = (uint8)Rnd();
 		int Min = (int)(Rnd() % 11) - 5;
@@ -274,8 +278,8 @@ template <class T> static void TestVector(const TVectorInstance &Instance, int R
 		int Block = (int)(Rnd() % 5);
 		bool WithInit = Instance.Ctor4 != 0 && (Instance.Ctor3 == 0 || Rnd() % 2 == 0);
 		uint32 Init = Rnd() % 4 == 0 ? 0 : Rnd();
-		vector<T> *Ours = (vector<T> *)PatternNew(sizeof(vector<T>));
-		vector<T> *Image = ORIGINAL_OR((vector<T> *)PatternNew(sizeof(vector<T>)), nullptr);
+		TIndexedVector<T> *Ours = (TIndexedVector<T> *)PatternNew(sizeof(TIndexedVector<T>));
+		TIndexedVector<T> *Image = ORIGINAL_OR((TIndexedVector<T> *)PatternNew(sizeof(TIndexedVector<T>)), nullptr);
 		// The entries get another pattern than the object, so that an entry
 		// set from init (whose bytes the constructor leaves) differs from one
 		// that is not.
@@ -285,12 +289,12 @@ template <class T> static void TestVector(const TVectorInstance &Instance, int R
 			if (WithInit) {
 				T Value{};
 				Layout.Inject((const uint8 *)&Init, (uint8 *)&Value);
-				new (Ours) vector<T>(Min, Max, Block, Value);
+				new (Ours) TIndexedVector<T>(Min, Max, Block, Value);
 				ORIGINAL(At<Ctor4Fn>(Instance.Ctor4)(Image, NULL, Min, Max, Block, (int)Init));
 			}
 		}
 		if (!WithInit) {
-			new (Ours) vector<T>(Min, Max, Block);
+			new (Ours) TIndexedVector<T>(Min, Max, Block);
 			ORIGINAL(At<Ctor3Fn>(Instance.Ctor3)(Image, NULL, Min, Max, Block));
 		}
 		bool Same = SameVector(Ours, Image, Instance.Name, WithInit ? "vector(min, max, block, init)" : "vector(min, max, block)");
@@ -311,9 +315,9 @@ template <class T> static void TestVector(const TVectorInstance &Instance, int R
 				continue;
 			T *a = &(*Ours)(i);
 			ORIGINAL(T *b = (T *)At<At1Fn>(Instance.At)(Image, NULL, i));
-			int Entry = ORIGINAL_VALUE("vector entry", int, b - Image->entry.get());
-			CHECK(a - Ours->entry.get() == Entry, "%s operator()(%d): entry %d, original %d", Instance.Name, i,
-				(int)(a - Ours->entry.get()), Entry);
+			int Entry = ORIGINAL_VALUE("vector entry", int, b - Image->entry.data());
+			CHECK(a - Ours->entry.data() == Entry, "%s operator()(%d): entry %d, original %d", Instance.Name, i,
+				(int)(a - Ours->entry.data()), Entry);
 			if (Rnd() % 3 != 0) {
 				std::vector<uint8> Value(Layout.Size[0]);
 				RandomBytes(Value.data(), Value.size());
@@ -323,7 +327,7 @@ template <class T> static void TestVector(const TVectorInstance &Instance, int R
 			Same = SameVector(Ours, Image, Instance.Name, "operator()");
 		}
 		// The destructor: ours inline, the image's out-of-line copy where it has one.
-		Ours->~vector<T>();
+		Ours->~TIndexedVector<T>();
 		free(Ours);
 	}
 }
