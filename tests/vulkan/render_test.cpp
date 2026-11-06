@@ -1146,7 +1146,7 @@ struct THandleEntry {
 struct TThreadHandle {
 	ULONG_PTR Handle;
 	bool Ended;
-	uintptr_t Start; // the ended thread's start address
+	uintptr_t Start; // where the thread started
 	DWORD Thread;    // the live thread's id
 };
 
@@ -1229,13 +1229,12 @@ TCensus TakeCensus()
 			Type->second++;
 		if (TypeName == "Thread") {
 			TThreadHandle Thread{Entry.Handle, false, 0, 0};
+			QueryThread(Handle, ThreadQuerySetWin32StartAddress, &Thread.Start, sizeof Thread.Start, nullptr);
 			DWORD Code = 0;
-			if (GetExitCodeThread(Handle, &Code) && Code != STILL_ACTIVE) {
+			if (GetExitCodeThread(Handle, &Code) && Code != STILL_ACTIVE)
 				Thread.Ended = true;
-				QueryThread(Handle, ThreadQuerySetWin32StartAddress, &Thread.Start, sizeof Thread.Start, nullptr);
-			} else {
+			else
 				Thread.Thread = GetThreadId(Handle);
-			}
 			Census.Threads.push_back(Thread);
 		}
 	}
@@ -1320,21 +1319,70 @@ TEST_CASE("switching to and from the CPU driver leaves no handles of ours (issue
 		CHECK(Read(Renderer, Image)[0] == 0xff204060u);
 		Renderer.Finish();
 	};
+	// Under MSVC's AddressSanitizer (the preset windows-x64-asan, issue #70) every thread starts in the ASan
+	// runtime's own start routine (its CreateThread interceptor), which then calls the driver's: such a thread
+	// counts as lavapipe's here, the only threads the rounds start (none started elsewhere without ASan).
+#if defined(__SANITIZE_ADDRESS__)
+	if (const HMODULE Asan = GetModuleHandleA("clang_rt.asan_dynamic-x86_64.dll"); Asan != nullptr) {
+		MODULEINFO Info = {};
+		REQUIRE(GetModuleInformation(GetCurrentProcess(), Asan, &Info, sizeof Info));
+		const auto Base = reinterpret_cast<uintptr_t>(Info.lpBaseOfDll);
+		LavapipeImages.emplace_back(Base, Base + Info.SizeOfImage);
+	}
+#endif
+	const auto InLavapipe = [&LavapipeImages](const TThreadHandle &Thread) {
+		return std::any_of(LavapipeImages.begin(), LavapipeImages.end(),
+			[&Thread](const auto &Image) { return Thread.Start >= Image.first && Thread.Start < Image.second; });
+	};
+	// A census once the CPU driver's threads have ended (issue #87). lavapipe's lp_rast_destroy waits on
+	// Windows for each rasterizer thread's last semaphore post, not for the thread's end (lp_rast.c,
+	// lines 1334-1350), so right after a device is destroyed some of its threads may still be ending: their
+	// handles are of live threads, and a census taken then counts them in the next device's share (21 and 27
+	// for 24 under ASan, whose thread exit is slower). Waits, at most SettleTimeout in all, for the handles
+	// that appeared since Earlier, are of live threads and started in vulkan_lvp.dll (or in the ASan
+	// runtime); a thread that does not end in time stays live, and the checks below then count it.
+	constexpr DWORD SettleTimeout = 30000; // ms
+	int StillEnding = 0;                   // threads a census found still ending, for the log
+	const auto Settled = [&](const TCensus &Earlier) {
+		const ULONGLONG Deadline = GetTickCount64() + SettleTimeout;
+		for (;;) {
+			TCensus Census = TakeCensus();
+			std::vector<HANDLE> Ending;
+			for (const TThreadHandle &Thread : Census.Threads) {
+				if (Thread.Ended || Thread.Thread == GetCurrentThreadId() || !InLavapipe(Thread))
+					continue;
+				// The same handle of the same live thread (a handle value can be reused).
+				const bool Old =
+					std::any_of(Earlier.Threads.begin(), Earlier.Threads.end(), [&Thread](const TThreadHandle &Before) {
+						return !Before.Ended && Before.Thread == Thread.Thread && Before.Handle == Thread.Handle;
+					});
+				if (!Old)
+					Ending.push_back(reinterpret_cast<HANDLE>(Thread.Handle));
+			}
+			if (Ending.empty() || GetTickCount64() >= Deadline)
+				return Census;
+			StillEnding += static_cast<int>(Ending.size());
+			for (HANDLE Thread : Ending) {
+				const ULONGLONG Left = Deadline > GetTickCount64() ? Deadline - GetTickCount64() : 0;
+				WaitForSingleObject(Thread, static_cast<DWORD>(Left));
+			}
+		}
+	};
 	// A round: the CPU driver, then each GPU and back to the CPU driver; the handles of ended threads
 	// each CPU driver device added.
 	std::vector<int> EndedPerDevice;
 	auto Round = [&]() {
-		int Ended = TakeCensus().Ended();
+		TCensus Last = TakeCensus();
 		Use(Cpu);
-		const int First = TakeCensus().Ended();
-		EndedPerDevice.push_back(First - Ended);
-		Ended = First;
+		TCensus Next = Settled(Last);
+		EndedPerDevice.push_back(Next.Ended() - Last.Ended());
+		Last = std::move(Next);
 		for (const pv::TDeviceRequest &Gpu : Gpus) {
 			Use(Gpu);
 			Use(Cpu);
-			const int Next = TakeCensus().Ended();
-			EndedPerDevice.push_back(Next - Ended);
-			Ended = Next;
+			Next = Settled(Last);
+			EndedPerDevice.push_back(Next.Ended() - Last.Ended());
+			Last = std::move(Next);
 		}
 	};
 
@@ -1352,17 +1400,6 @@ TEST_CASE("switching to and from the CPU driver leaves no handles of ours (issue
 
 	// lavapipe's rasterizer threads: every new handle of an ended thread is of a thread vulkan_lvp.dll
 	// started, the same number for every device, at most LP_MAX_THREADS.
-	// Under MSVC's AddressSanitizer (the preset windows-x64-asan, issue #70) every thread starts in the ASan
-	// runtime's own start routine (its CreateThread interceptor), which then calls the driver's: such a thread
-	// counts as lavapipe's here, the only threads the rounds start (none started elsewhere without ASan).
-#if defined(__SANITIZE_ADDRESS__)
-	if (const HMODULE Asan = GetModuleHandleA("clang_rt.asan_dynamic-x86_64.dll"); Asan != nullptr) {
-		MODULEINFO Info = {};
-		REQUIRE(GetModuleInformation(GetCurrentProcess(), Asan, &Info, sizeof Info));
-		const auto Base = reinterpret_cast<uintptr_t>(Info.lpBaseOfDll);
-		LavapipeImages.emplace_back(Base, Base + Info.SizeOfImage);
-	}
-#endif
 	int Rasterizers = 0, Elsewhere = 0;
 	for (const TThreadHandle &Thread : After.Threads) {
 		if (!Thread.Ended)
@@ -1371,16 +1408,15 @@ TEST_CASE("switching to and from the CPU driver leaves no handles of ours (issue
 			[&Thread](const TThreadHandle &Earlier) { return Earlier.Ended && Earlier.Handle == Thread.Handle; });
 		if (Old)
 			continue;
-		const bool InLavapipe = std::any_of(LavapipeImages.begin(), LavapipeImages.end(),
-			[&Thread](const auto &Image) { return Thread.Start >= Image.first && Thread.Start < Image.second; });
-		if (InLavapipe)
+		if (InLavapipe(Thread))
 			Rasterizers++;
 		else
 			Elsewhere++;
 	}
 	const int PerDevice = EndedPerDevice.front();
-	std::printf("handle census: %d CPU driver devices left %d handles of ended threads (%d each), %d started elsewhere\n",
-		CpuCreated, Rasterizers, PerDevice, Elsewhere);
+	std::printf("handle census: %d CPU driver devices left %d handles of ended threads (%d each), %d started elsewhere; "
+				"%d found still ending\n",
+		CpuCreated, Rasterizers, PerDevice, Elsewhere, StillEnding);
 	CHECK(Elsewhere == 0);
 	CHECK(PerDevice <= MaxRasterizerThreads);
 	for (const int Count : EndedPerDevice)

@@ -10537,3 +10537,32 @@ banned_calls 0; clang-format clean. Logs: build\logs\issue-77.
   communicationtest 856,621, vlongtest 3,201; golden 17,316,025 on main's corpus, never re-recorded for #78), so no
   part's change was seen as a kind change by them, apart from part 7's two that the tests now model (MouseMove's
   extra call, the structured exception), each with its comment in tests/golden/control_tests.cpp.
+
+## The thread census counts after lavapipe's threads have ended (Patella-Modern issue #87)
+
+Settled by Claude Opus 5.5, November 6, 2026. Seen in #78 part 5: windows-x64-asan's tests_vulkan failed one check
+of issue #53's handle census ("switching to and from the CPU driver leaves no handles of ours"), the per-device
+count of ended rasterizer threads: 21 and then 27 where every device leaves 24. tests/vulkan only; no src/ change.
+
+- **Why the count moved** (high). On Windows, Mesa 26.2.5's `lp_rast_destroy` (lp_rast.c, lines 1334-1350) waits
+  on each rasterizer thread's `work_done` semaphore, which the thread posts just before it returns. It does not
+  wait for the thread to end (it never joins it on Windows; notes/vulkan.md, "Handles the drivers leave (issue
+  #53)"). So right after a CPU driver device is destroyed, some of its threads may still be exiting. The census
+  counted their handles as handles of live threads, and the next census counted them as ended, in the next device's
+  share. The sum stays the same (21 + 27 = 2 × 24). It shows under ASan because ASan's thread exit is slower, and
+  more often under load.
+- **The fix: count once the threads have ended** (high). Each census in the rounds is now taken through `Settled`.
+  `Settled` looks for handles that are new since the previous census, are of live threads, and whose thread started
+  in vulkan_lvp.dll (or in the ASan runtime; issue #70). It waits on those handles (WaitForSingleObject; the census
+  already queries their start address), then takes the census again. It stops when no such thread is left, or after
+  30 s in all. A handle value can be reused, so "new" means not the same handle of the same live thread.
+  `TakeCensus` now also records the start address of live threads. Every check keeps its exact numbers and its
+  purpose: the same number of rasterizer threads for every device, at most LP_MAX_THREADS, all started in the
+  driver, and that number times the devices in all. A thread that does not end within the timeout stays live, and
+  those checks then count it. Considered and not taken:
+  - a bound instead of equality: it would lose the "same for every device" check, which is what catches a device
+    that leaves more threads;
+  - polling the count until it is stable: slower, and "stable" is itself a timing guess;
+  - checking only the total over all devices: it would also lose the per-device check.
+- **The log** (high). The census line also prints how many threads a census found still ending (summed over the
+  censuses), so the logs show whether the wait did anything.

@@ -433,6 +433,15 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #87 (branch issue-87, November 6, 2026): tests_vulkan's thread census now counts after the CPU
+driver's threads have ended. Before, a census could catch lavapipe's rasterizer threads still exiting, which gave 21
+and 27 for 24 under ASan. Each census in the rounds now waits up to 30 s for the new live threads that started in
+vulkan_lvp.dll or the ASan runtime. The checks keep their exact numbers (notes/decisions.md, "The thread census counts
+after lavapipe's threads have ended (Patella-Modern issue #87)"). tests/vulkan only, no src/ change. `python -I
+tools/build.py windows-x64` 14/14 and `windows-x64-asan` 13/13, 0 warnings (no golden corpus in the worktree: golden
+skipped). tests_vulkan `--repeat until-fail:20`: 20/20 on windows-x64, 20/20 on windows-x64-asan, 24 per device in
+every run. In these 40 runs no census found a thread still ending, so the wait never ran. Logs: build\logs\issue-87.
+
 Patella-Modern issue #78, part 7 (branch issue-78g, November 6, 2026): TBEGIN/TEND deleted from Communication.cpp,
 Network.cpp and Control.cpp (181 try blocks in 180 functions), then the macros. `python -I tools/build.py oracle-x86`:
 difftest 16,459,337, sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 4/4 (every test's
