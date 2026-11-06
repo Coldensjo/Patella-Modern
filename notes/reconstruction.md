@@ -244,7 +244,9 @@ requires the compiler's std module; `patella_target_import_std(<target>)`, after
 hardening settings, lets a target's sources import it and gives the std module the target's options. Its one user is
 tests_import_std (tests/unit/import_std_test.cpp). Not linux-x64-clang: Clang uses Debian's libstdc++ 14, which has
 no std module. On a CMake version without a known gate the configure warns and builds without it. Per compiler, the
-errors and what would unblock Clang: notes/decisions.md, "import std (Patella-Modern issue #113, M7)".
+errors and what would unblock Clang: notes/decisions.md, "import std (Patella-Modern issue #113, M7)". A build folder
+configured before #113 fails its configure ("Experimental `import std` support not enabled when detecting toolchain"),
+because the compiler was detected without the gate: configure it once with `python -I tools/build.py <preset> --fresh`.
 
 No warnings on any preset (plan section 4.1): the product presets and capture-x86 build with /WX or -Werror, and
 `tools/build.py` fails a warning besides (issue #17; it was what failed the oracle, which kept /WX-). It passes
