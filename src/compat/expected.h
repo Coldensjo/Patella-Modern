@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include <utility>
 #include <version> // IWYU pragma: keep (the feature-test macro of the #if line)
 
 #if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L && !defined(PATELLA_EXPECTED_STANDIN)
@@ -31,6 +30,7 @@
 #define PATELLA_HAS_EXPECTED 0
 #include <optional>
 #include <type_traits>
+#include <utility>
 #include <variant>
 #endif
 
