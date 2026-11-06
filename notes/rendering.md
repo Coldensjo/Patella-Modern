@@ -86,6 +86,59 @@ python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,
   the keyboard during a run (notes/reconstruction.md "Test server"; a click during a run on November 2
   crashed Tibia.exe with GUI.cpp 1633 "Capture==NULL").
 
+## When a run fails (Patella-Modern issue #98)
+
+A run that fails names its cause: the message of a failed start, a capture that got no frame, a minimized window or
+a failed session step ends with the window's state (visible or hidden, minimized or not, its client area, which
+window is the foreground and whether that one covers its monitor: another program in full-screen), the display's
+(on, off or dimmed: GUID_CONSOLE_DISPLAY_STATE; the user's idle time against the power scheme's "turn off the
+display after"; the input desktop, `Winlogon` while the session is locked; the monitors; the mode) and, for
+Tibia.exe, patcap.dll's Direct3D 9 course (Direct3DCreate9 called or not, CreateDevice's result or that it has not
+returned, TestCooperativeLevel's last result, the Presents: how many, the first and the last time, the last result).
+patcap.dll writes its rare events with the milliseconds since its load to `patcap.log` in the run folder (the load,
+each Direct3DCreate9 and CreateDevice, the first frame, a change of TestCooperativeLevel's or Present's result,
+every capture asked for and done); the tool keeps it as `<out>\<engine>\orig\patcap.log`. Every run's log starts with
+a `display:` line. `python -I tools/compare_rendering.py --self-test` checks the shared memory's offsets against
+patcap.c and the diagnosis texts (no client).
+
+What #98 found, and what the tool does about it:
+
+- **Tibia.exe's start hangs in the driver, once in a while.** Tibia.exe makes its Direct3D 9 device twice at start-up
+  (Direct3DCreate9 and CreateDevice at about 80 ms, again at about 480 ms; the first frame at about 560 ms). In one
+  start of 15 here (November 6, 2026, the first start after the windows-x64 build; the display on, the window
+  visible, Chrome in the foreground) the second CreateDevice was called and did not return: no TestCooperativeLevel,
+  no Present, so the first capture timed out with "frames 0" (#92's, #94's and #97's failures; #97's first
+  compare_traffic.py run, whose helper Tibia.exe got no game connection within 10 s, fits too: the same start with
+  the same `Engine = 2`, without patcap.dll). The next start worked every time. So Driver.start waits for the first
+  frame (up to 30 s, FIRST_FRAME_TIMEOUT; not a fixed 2 s), and a client that shows none is ended and started once
+  more (START_ATTEMPTS = 2): nothing has been sent to it yet, so the run is the same. The log says `start 1 of 2
+  failed, starting the client again: ...` with the diagnosis. A second failure fails the run with it.
+- **The display most likely turned off during #94's GPU pass** (nothing recorded the display's state then; the
+  `display:` lines do now). The tool's input is posted window messages, which Windows does not
+  count as the user's: the power scheme's display timeout (900 s on AC here) runs out during the runs when nobody
+  touches the machine. The monitor is a DisplayPort one (Samsung, 5120x1440): asleep, it is gone for Windows, the
+  desktop falls back to 1024x768 (above: "How the pixels are read without a display") and Windows minimizes the
+  windows of a monitor that went away (Settings, System, Display, "Minimize windows when a monitor is
+  disconnected"). A minimized window has no client area: in #94's GPU pass the x64 client's frames were 0x0 from
+  "walk south" on, the map window had no area, the click on the trade partner hit nothing, the client sent no trade
+  request (the proxy: recorded 0x7d, the client sent nothing) and "no window of class TTradeOffers (#0) within 5 s"
+  followed. The trade window was not late: there was none. What made the window minimized is inferred, not seen: a
+  minimized window is the only way to a 0x0 client area here, and the display's timeout is the one cause of a
+  minimize that nobody saw; on November 6 at 17:10 the display was on after 1705 s without input (something held it
+  on then), so it does not always happen. The tool keeps the display (and the system) on while it
+  runs (SetThreadExecutionState with ES_DISPLAY_REQUIRED, as a video player does; a display already off comes back
+  on; no input is sent), stops a run at a scene whose window is minimized ("the client's window is minimized; ...")
+  and at a 0x0 frame dump, with the diagnosis.
+- **Not done**: bringing the window to the foreground. The clients draw and the captures work without it (every
+  passing run of #98 had another program in the foreground), and taking the foreground would take the user's
+  keyboard. Restoring a minimized window either: the scene would follow other window messages than the other
+  client's; the run fails instead.
+
+How to avoid the rest: keep the session unlocked; no other program in exclusive full-screen; for unattended runs
+also Windows' display timeout off (`powercfg /change monitor-timeout-ac 0`) or "Minimize windows when a monitor is
+disconnected" off, if anything else could let the monitor sleep; run no second live check at the same time (another
+worktree's ctest starts PatellaTest.exe too).
+
 ## How the pixels are read without a display
 
 The monitor is off (issue #18: screenshots of the window came out white; with no monitor the desktop falls
@@ -98,7 +151,7 @@ client's process that reads that surface at the moment the client shows it:
 | DirectX 5 (SurfaceDX.cpp FinishFrame) | windowed: `IDirectDrawSurface4::Blt` of SCREEN_SURFACE into the primary; fullscreen: `Flip` | the Blt's source surface and rectangle (Lock); for Flip the back buffer |
 | DirectX 9 (surfaceDX9.cpp FinishFrame) | `IDirect3DDevice9::Present(&Rect[SCREEN_SURFACE], ...)` | the back buffer through `GetRenderTargetData`, the Present's source rectangle |
 | OpenGL (SurfaceGL.cpp FinishFrame) | `SwapBuffers` | `glReadPixels` of the back buffer (the client area), in the window's context |
-| Vulkan (x64 only; src/vulkan/SurfaceVulkan.cpp FinishFrame, Patella-Modern issue #19) | `vkQueuePresentKHR` of a blit of the canvas | until issue #92 (since then the test mode's frame dump, its own observer of the same calls): nothing is hooked: the engine calls patcap's exports `PatcapVulkanFrame` (counts the frame, says whether it is wanted), `PatcapVulkanMask` (its device-filtered pixels, `<capture>.mask`) and `PatcapVulkanPixels` (the canvas's presented rectangle, read back by the engine), and `PatcapVulkanDevice` once per device |
+| Vulkan (x64 only; src/vulkan/SurfaceVulkan.cpp FinishFrame, Patella-Modern issue #19) | `vkQueuePresentKHR` of a blit of the canvas | nothing: since issue #92 the test mode's frame dump, the engine's own observer (the picture and its device-filtered pixels). Until #92 the engine called patcap's exports `PatcapVulkanFrame`, `PatcapVulkanMask` (`<capture>.mask`), `PatcapVulkanPixels` and `PatcapVulkanDevice`; its lookup of patcap.dll left with #97, the exports with #98 |
 
 The DLL patches the vtable entries when the client creates the objects (DirectDrawCreate and
 IDirectDraw4::CreateSurface; GetProcAddress("Direct3DCreate9") and IDirect3D9::CreateDevice;

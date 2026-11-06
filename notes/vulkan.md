@@ -430,7 +430,8 @@ Until issue #97 the engine also looked up patcap.dll once per device (GetModuleH
 exports PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanMask and PatcapVulkanPixels (shared memory version 3),
 for the 64-bit patcap.dll that compare_rendering.py loaded into the x64 client until issue #92. tools/capture/patcap.c
 is Tibia.exe's only since then (capture-x86, a 32-bit DLL; it hooks the original engines: DirectDrawCreate,
-Direct3DCreate9, wglMakeCurrent, SwapBuffers); its Vulkan exports have no caller.
+Direct3DCreate9, wglMakeCurrent, SwapBuffers); its Vulkan exports, without a caller after #97, left with issue #98
+(the shared memory's version 4 has Direct3D 9's course in their place).
 
 ## Checks
 

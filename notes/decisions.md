@@ -12375,3 +12375,121 @@ Logs: build\logs\issue-45 of the branch's worktree; golden replayed main's froze
   clang-format (CLAUDE.md's command): exit 0. The tools' self-tests (settings_file.py, deliberate.py, reference.py):
   passed.
 - Hosted CI on the branch: green.
+
+## compare_rendering.py's failed starts and runs explained, patcap.dll without its Vulkan exports (Patella-Modern issue #98)
+
+Settled by Claude Opus 5.5, November 6, 2026 (#92's, #94's and #97's failed compare_rendering.py passes). Files:
+tools/capture/patcap.c, tools/compare_rendering.py, tools/reference_record.py; notes/rendering.md ("When a run
+fails"), notes/vulkan.md, notes/progress.md. No src/ change. Logs: build\logs\issue-98 of the branch's worktree.
+
+### Tibia.exe's first capture without a frame: a CreateDevice that did not return (high)
+
+patcap.dll now records Direct3D 9's course in its shared memory (version 4: Direct3DCreate9's calls, CreateDevice's
+calls, result, time, back buffer and window, whether a call is still inside the driver, TestCooperativeLevel's last
+result and its failures, Present's first and last time, last result and failures) and its rare events in patcap.log
+(the run folder; the tool keeps it). A start of Tibia.exe makes the device twice: Direct3DCreate9 and CreateDevice at
+about 80 ms, both again at about 480 ms, the first Present at about 560 ms.
+
+The repro (a script of this issue's, not committed: Tibia.exe under patcap.dll started again and again, its first
+frame, an advance, the "start" capture, WM_CLOSE; logs repro-01 to repro-04): 15 starts, 14 with the first frame
+within 0.6 s; one (repro-01's first, 17:17, the display on, the window visible and not minimized, Chrome in the
+foreground, the input desktop Default) ran the second Direct3DCreate9 and nothing after it: no CreateDevice result,
+no TestCooperativeLevel, no Present for 30 s (patcap.log: "Direct3DCreate9(32): an object" at 484 ms, then nothing;
+CreateDevice's result is logged when the call returns; the line before the call came later in this issue). That is
+#92's, #94's and #97's "command 2 not done within 30 s (frames 0)": the first capture waits for a Present that never
+comes. #97's first compare_traffic.py run (the helper Tibia.exe got no game connection within 10 s, then passed) fits
+the same start, without patcap.dll. Not caught again: 8 starts in a row with fresh copies of the client, 2 starts
+after 6 minutes without GPU work, and the gate runs below all worked; no stack of the hung thread was taken (the
+repro's non-invasive cdb attach was ready but never needed). So it is in the driver's start-up (NVIDIA RTX 5080, the
+Direct3D 9 runtime) or the machine's state, rare, and a second start works.
+
+- Fixed in the tool: Driver.start waits for the first frame (FIRST_FRAME_TIMEOUT, 30 s) instead of sleeping 2 s, and a
+  client that shows none is ended and started once more (START_ATTEMPTS, 2), logged as "start 1 of 2 failed,
+  starting the client again: <the diagnosis>". Nothing has been sent to the client before its first frame (the first
+  command, the advance, comes after), so the run is the same as one whose first start worked; a second failure fails
+  the run with the diagnosis. reference_record.py's record step gets the same (it uses this Driver).
+- Considered: a longer capture timeout (the hang did not end within 30 s, nor #94's within 34 s: a longer wait is no
+  fix); patcap.dll making the device itself or skipping the second one (it would change what the client does).
+
+### The x64 client's trade window "late": its window was minimized (medium)
+
+#94's log (C:\Tibia\Patella-Modern\build\logs\main-94-rendering.log): the GPU pass's PatellaTest.exe frames were
+780x557 until "walk east" and 0x0 from "walk south" on (15:22:08). The frame dump's size is SCREEN_SURFACE's
+rectangle, the window's client area, so the window was minimized; with no client area the map window has none, the
+click on the trade partner hit nothing, the client sent no trade request (the proxy: "recorded 7dffff05...; client
+sent closed"), and "no window of class TTradeOffers (#0) within 5 s" followed. So the window was not late and the
+trade is not ordered differently from compare_traffic.py's: it was never asked for. What minimized the window is
+inferred: the monitor is a DisplayPort one (WmiMonitorConnectionParams: VideoOutputTechnology 10); asleep it is gone
+for Windows (the desktop falls back to 1024x768, notes/rendering.md "How the pixels are read without a display");
+Windows 11 minimizes the windows of a monitor that went away (MonitorRemovalRecalcBehavior unset: the default, on);
+the power scheme turns the display off after 900 s without input on AC; posted window messages are not input. No log
+records the display's state at 15:22; at 17:10 the display was on after 1705 s without input (something held it on),
+so the timeout does not always fire.
+
+- Fixed in the tool: SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED) while the runs
+  last (a display already off comes on again; no input is sent); a scene whose window is minimized, and a 0x0 frame
+  dump, fail the run at once with the diagnosis, instead of a later step with a misleading message.
+- Not done: restoring a minimized window (SW_SHOWNOACTIVATE would not take the input, but the client would get window
+  messages the other run did not: the scenes would not come from the same session); bringing the window to the
+  foreground (every passing run of this issue had another program in the foreground: the clients do not need it, and
+  taking it would take the user's keyboard).
+
+### The diagnosis (high)
+
+Every failed start, capture timeout, minimized scene, 0x0 frame and failed session step ends its message with the
+window's state (visible, minimized, the client area, the foreground window and whether it covers its monitor), the
+display's (GUID_CONSOLE_DISPLAY_STATE, the idle time against the display timeout, the input desktop: Winlogon when
+locked, the monitors, the mode) and, for Tibia.exe, patcap.dll's Direct3D 9 course. Each run's log starts with a
+`display:` line, and run.json's facts have patcap.dll's `d3d9`. `--self-test` (new) checks the offsets against
+patcap.c's struct Shared and the diagnosis texts on made-up data.
+
+### patcap.dll's Vulkan exports removed (high)
+
+PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanMask and PatcapVulkanPixels (issue #19) had no caller since #97.
+Removed with the shared memory's Vulkan fields (VulkanFrames, VulkanType, VulkanCpuDriver, VulkanDevice, MaskPixels;
+version 4 has Direct3D 9's course from offset 876), API_VULKAN, compare_rendering.py's `.mask` reading and
+vulkan_device(), and reference_record.py's `.mask` removal. dumpbin /exports (build\logs\issue-98\exports.txt):
+before PatcapLoaded, PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanMask, PatcapVulkanPixels; after PatcapLoaded
+only. The tool refuses a patcap.dll of another version ("rebuild it"); it builds the DLL itself when patcap.c is
+newer.
+
+The reference recordings (build\reference) were recorded with the old patcap.dll. `reference.py compare` loads none
+(PatellaTest.exe replays each session's script), so it is not affected. A future `reference.py record` runs
+Tibia.exe under the new one: the same hooks, the same clock and the same captures; the differences are patcap.log in
+the record step's run folder (not one of the saved files) and the restart of a client without a first frame, before
+any line of the script is written. So a recording made with it is the same.
+
+### Found, not done (high)
+
+- `python -I tools/testmode_check.py --self-test` and `python -I tools/testmode_dumps.py --self-test` fail on main
+  c0aad52 too (their "identical runs" case: "Tibia.cfg was written"; log gate4-main-comparison.log): since #45
+  Patella.ini is the settings file, and the self-tests' made-up runs still expect Tibia.cfg unwritten. Not this
+  issue's.
+- The live gates found another agent's build (worktree t3-3369ef48, issue-99) running PatellaTest.exe through its
+  ctest at the same time; the first gate run was stopped and started again after it (log
+  aborted-gate2-other-client-running.log).
+
+### The gates (high)
+
+Logs: build\logs\issue-98 of the branch's worktree. Recording: build\traffic\result\orig-live.jsonl, a copy of
+C:\Tibia\Patella-Modern\build\recordings\orig-live.jsonl (sha256 61103b95...825b, notes/network.md's).
+
+- `python -I tools/build.py capture-x86`: exit 0 (capture-x86.log; before the change capture-x86-before.log, exit 0).
+  Exports in exports.txt (above). `python -I tools/build.py windows-x64`: exit 0, 18 tests, 0 failed (golden and
+  golden_concurrent skipped: no corpus in the worktree; no src/ change) (windows-x64.log).
+- `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes windowed --no-repeat --recording
+  build/traffic/result/orig-live.jsonl`, twice in a row: exit 0 both (gate2-rendering-1.log, 17:42-17:49;
+  gate2-rendering-2.log, 17:52-17:58): every scene of both passes identical (outside the masks), no problems in any of
+  the 4 runs, the GPU pass on the NVIDIA GeForce RTX 5080 and the CPU pass on llvmpipe (the probe), Tibia.exe's first
+  frame within 1.5 s each time (no restart needed), the display on throughout. During the first, other worktrees'
+  ctest (t3-56952a53, t3-3369ef48, t3-2547e399: windows-x64-asan) ran PatellaTest.exe unit tests (logged in
+  gate2-rendering-1.others.log); the second ran with no other client. An earlier start of the first was stopped by
+  hand when another worktree's client showed up (aborted-gate2-other-client-running.log).
+- `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: exit 0, every session
+  matches its reference (gate3-reference-compare.log).
+- The tools' self-tests (gate4-self-tests.log): banned_calls, client_state, compare_files, compare_rendering (new),
+  data_manifest, desktop, patch_client, reference, settings_file, testmode_client, testserver: exit 0;
+  `python -I tools/banned_calls.py` exit 0. testmode_check and testmode_dumps exit 1, the same on main c0aad52
+  (gate4-main-comparison.log; found, not done).
+- The repro runs: repro-01 (3 starts, 1 hang), repro-02 (2), repro-03 (8, fresh copies each), repro-04 (2 after 6
+  minutes idle).
