@@ -144,4 +144,10 @@ if(PATELLA_TEST_BUILD)
 		"-DDATA=${patella_data_dir}" "-DTMPROOT=${PROJECT_BINARY_DIR}/tmp"
 		-P "${PROJECT_SOURCE_DIR}/cmake/RunFatalErrorBox.cmake")
 	set_tests_properties(fatal_error_box PROPERTIES SKIP_RETURN_CODE 77)
+	# Issue #90: a PROGRAM_ERROR in InitControl (a missing Tibia.dat, or the test hook at any of its steps) ends
+	# with the same box and exit code 1 (cmake/RunInitControlFailure.cmake; skipped without the data files).
+	add_test(NAME init_control_failure COMMAND "${CMAKE_COMMAND}" "-DEXE=$<TARGET_FILE:PatellaTest>"
+		"-DDATA=${patella_data_dir}" "-DTMPROOT=${PROJECT_BINARY_DIR}/tmp"
+		-P "${PROJECT_SOURCE_DIR}/cmake/RunInitControlFailure.cmake")
+	set_tests_properties(init_control_failure PROPERTIES SKIP_RETURN_CODE 77)
 endif()
