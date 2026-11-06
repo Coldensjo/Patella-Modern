@@ -354,6 +354,12 @@ compare_files.py and compare_rendering.py runs the test build next to it and rea
 tools/client_state.py refuses a 64-bit process, patcap.c does not build for x64 (windows-x64 builds no patcap.dll);
 both stay for Tibia.exe and the oracle. testmode_check.py's e checks each dump on its own. Patella.exe unchanged
 (pecompare). notes/decisions.md, "The comparisons read the x64 client through its test mode only".
+The test server's bind errors (Patella-Modern issue #95, branch issue-95, November 6, 2026): the 10049 of #88 and
+#92 is the server's own start-up race (its login thread copies the bind address from a buffer the second ReadConfig
+rewrites; a half-written copy is not a local address); excluded port ranges, TIME_WAIT and the virtual adapters
+ruled out. tools/testserver.py fails an attempt at once on the bind error line, says the code's meaning and any
+excluded range, stops its server once online and retries (`--bind-retries` 3, on top of `--retries`). 10 cold
+starts: 9 bound at once, 1 hit 10049 and the retry bound. notes/decisions.md, "The test server's bind errors".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

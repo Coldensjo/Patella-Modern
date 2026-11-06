@@ -11496,3 +11496,45 @@ windowed --no-repeat --patella build/windows-x64/Release/Patella.exe --recording
 every scene identical, the GPU and the CPU driver named by the probe (rerun once: the first attempt failed in
 Tibia.exe's first patcap capture). client_state.Client on a running PatellaTest.exe is refused, with and without its
 PDB. Logs: build\logs\issue-92 of the branch's worktree.
+
+## The test server's bind errors: the server's race, failed at once and retried (Patella-Modern issue #95)
+
+Settled by Claude Opus 5.5, November 6, 2026. tools/testserver.py; notes/testserver.md ("Start", "The bind race"),
+notes/reconstruction.md ("Test server"). Tools and docs only, no src/ change; the server's binary, data and config
+unchanged (read only).
+
+- **The cause is the server's own start-up race** (high). Read from tibia-server.exe's disassembly (its sources are no
+  longer in C:\Tibia\gameserver): StartLoginServer gets a pointer to the global address buffer (0x1401cd960) and the
+  login thread builds its std::string from it when it runs (strlen, then a copy; 0x140166690). Meanwhile the main
+  thread's InitAll calls ReadConfig a second time, which resets the buffer to "0.0.0.0" and copies bind_address over
+  it again, and LoadWorldConfig writes the world's address into it. A copy of "0.0.0.0" binds all interfaces (issue
+  #19's 0.0.0.0:7171); a half-written one ("1.0.0.0", "120.0.0", or 7 bytes of "127.0.0.1": "127.0.0") is not a local
+  address, and inet_addr plus bind fail with 10049 (each checked with bind on this machine:
+  build\logs\issue-95\bind-probe.log). The error line is printed into the middle of the main thread's
+  "Initializing database threads & queues..." line, after the second ReadConfig began, as the race needs.
+- **Ruled out** (high): Windows' excluded port ranges (netsh: 5357, 13508, 50000-50059, 55777-56463, 61555-61654;
+  not 7171 or 7172, and an excluded port fails with 10013); TIME_WAIT or SO_EXCLUSIVEADDRUSE (10048, not 10049; the
+  server does not set SO_REUSEADDR and never logged 10048); the WSL, Docker and VirtualBox adapters (the loopback
+  pseudo-interface keeps 127.0.0.0/8, and 127.0.0.1 binds; the failing address is not 127.0.0.1).
+- **Fail at once, stop once online, retry with its own budget** (high). wait_ready returns ("bind", (server, port,
+  code, line)) as soon as server.log has `Failed to bind Login Server on port N (error C)` or the game server's
+  `Failed to bind Game Server on port N.`; start prints the line (from its time stamp), the code's meaning (10049: the
+  race; 10048: the port taken; 10013: an excluded range or an exclusive holder) and whether netsh lists the port in an
+  excluded range (IPv4 and IPv6), whatever the code. The attempt's server is stopped once it says "Server Online!"
+  (60 s at most), so its Ctrl+C is the usual shutdown and not one during the map's load, which rewrites data\map at
+  the save. A bind failure is cheap (about 5 s) and random, so it has `--bind-retries` (3) of its own before it takes
+  from `--retries` (1), which the stalls and exits keep; the issue's "more patient retry". self-test: 17 new cases
+  (bind errors, the line's time stamp, the codes' texts, netsh's ranges, the retry budget, wait_online). The other
+  outcome of the race, 0.0.0.0:7171, stays compare_traffic.py's restart.
+- **The counts** (high). `python -I tools/testserver.py start` / `stop` 10 times in a row: 9 bound at once (3.6 to
+  4.1 s), 1 (the 7th) logged 10049 after 0.5 s, its server was stopped and the second attempt bound (19.3 s in all);
+  no 0.0.0.0 bind, every stop clean. A made-up tibia-server.exe (scratch, gcc) that writes the error line ran start's
+  path end to end: `--bind-retries 1 --retries 1` made 3 attempts, each stopped by Ctrl+C, exit code 1.
+- **Not ours to fix**: the server needs to copy the address before the thread starts (or keep the second ReadConfig
+  off the buffer). Its binary and code are the user's.
+
+### The gates (high)
+
+`python -I tools/testserver.py self-test`: exit 0, 28 checks (11 of #68, 17 new), 0 failures. The 10 cold starts
+above (coldstarts.log, start-NN.log, stop-NN.log, run07-server-attempt1.log). Hosted CI on issue-95. Logs:
+build\logs\issue-95 of the branch's worktree.
