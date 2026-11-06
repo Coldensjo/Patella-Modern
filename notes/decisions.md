@@ -12375,3 +12375,132 @@ Logs: build\logs\issue-45 of the branch's worktree; golden replayed main's froze
   clang-format (CLAUDE.md's command): exit 0. The tools' self-tests (settings_file.py, deliberate.py, reference.py):
   passed.
 - Hosted CI on the branch: green.
+
+## import std (Patella-Modern issue #113, M7)
+
+Settled by Claude Opus 5.5, November 6, 2026 (CMake 4.1.2 and Ninja 1.13.2 on Windows, CMake 4.4.5 on the hosted
+Windows runner; MSVC 14.51 / cl 19.51.36260; mingw-w64 GCC 16.2.0; in the Linux image GCC 16.2.0, Debian's Clang
+22.1.8, CMake 3.31.6 before and 4.1.2 after this issue, Ninja 1.12.1). Files: cmake/ImportStd.cmake (new),
+CMakeLists.txt, CMakePresets.json, tests/unit/CMakeLists.txt, tests/unit/import_std_test.cpp (new),
+docker/linux-x64/Dockerfile; CLAUDE.md, notes/reconstruction.md, notes/progress.md.
+
+### What CMake needs (high)
+
+`import std;` under CMake is experimental in every version up to 4.4 at least: the target property CXX_MODULE_STD
+(variable CMAKE_CXX_MODULE_STD) acts only when CMAKE_EXPERIMENTAL_CXX_IMPORT_STD holds the gate's UUID before the CXX
+language is enabled (before project()), and the UUID changes with CMake's minor version: 3.31
+`0e5b6991-d74f-4b3d-a41c-cf096e0b2508`, 4.1 `d0edc3af-4c50-42ea-a356-e2862fe7a444`, 4.4
+`f35a9ac6-8463-4d38-8eec-5d6008153e7d` (each read from its cmake executable: `grep -ao "CxxImportStd.\{40\}"`). It
+also needs a Ninja generator (the presets' Ninja Multi-Config scans modules; Ninja 1.11 or newer: 1.13.2 on Windows,
+1.12.1 in the image) and a library that ships its std module: MSVC's `modules/std.ixx`, libstdc++'s
+`libstdc++.modules.json` (GCC 15 and newer, `bits/std.cc`), libc++'s `libc++.modules.json`. CMake adds the std
+module's target only to a target with the compile feature cxx_std_23 or newer. CMake 3.31 supports MSVC and Clang
+with libc++ only; 4.1 adds GCC 15+ and Clang with libstdc++.
+
+### Per compiler (high)
+
+A minimal project (build\logs\issue-113\minimal: `import std;`, a vector, std::ranges::fold_left, std::println),
+Ninja Multi-Config, Release:
+
+| Compiler | CMake | Result |
+|---|---|---|
+| MSVC 14.51 (cl 19.51) x64 | 4.1.2, 4.4.5 | works: CMAKE_CXX_COMPILER_IMPORT_STD is `23` (/std:c++latest; no 26); prints 6 |
+| mingw-w64 GCC 16.2 | 4.1.2 | works: `23;26`; links with libstdc++exp (std::print's terminal helpers, as cmake/Warnings.cmake links it); runs with the compiler's runtime DLLs next to it (exit 127 without them: another libstdc++-6.dll on PATH, what Warnings.cmake's copy solves) |
+| GCC 16.2 (Linux image) | 3.31.6 | fails: "Toolchain does not support discovering `import std` support" (3.31 has no GNU-CXX-CXXImportStd.cmake) |
+| GCC 16.2 (Linux image) | 4.1.2 | works: `23;26`; prints 6 |
+| Clang 22.1.8 (Linux image) | 3.31.6 | fails: "Only `libc++` is supported" |
+| Clang 22.1.8 (Linux image) | 4.1.2 | fails: "`libstdc++.modules.json` resource does not exist": Clang uses Debian's GCC 14 installation, and libstdc++ 14 has no std module |
+
+What would unblock Clang (both tried; build\logs\issue-113\minimal-linux-clang-unblock.log and -byhand.log):
+
+- GCC 16's libstdc++ for Clang (`--gcc-install-dir=/usr/local/lib/gcc/x86_64-linux-gnu/16.2.0`): by hand Clang 22
+  precompiles libstdc++ 16's bits/std.cc without an error and the program runs (prints 6). Under CMake the flag in
+  CMAKE_CXX_FLAGS does not reach CMake's `-print-file-name=libstdc++.modules.json` probe, which still finds nothing;
+  the flag would have to be part of the compiler (a Clang configuration file, or CMAKE_CXX_COMPILER with the
+  argument). It moves linux-x64-clang from libstdc++ 14 to 16: everything that preset checks (the unit tests, golden
+  under ASan and UBSan, and the clang-tidy job and its baseline, which read its compile_commands.json) would run on
+  another library. The owner's decision (Needs the user).
+- libc++ 22 (Debian's libc++-22-dev and libc++abi-22-dev 1:22.1.8-1~deb13u4): CMake finds `libc++.modules.json`
+  (`23;26`), but it is reached through /lib/x86_64-linux-gnu, and its relative `../share/libc++/v1/std.cppm` resolves
+  to /lib/share/libc++/v1/std.cppm, which does not exist ("Cannot find source file"): a packaging defect. And libc++
+  is another library than the one the preset tests: the same decision, with a second dependency.
+
+### What is enabled where (high)
+
+The option PATELLA_IMPORT_STD (cmake/ImportStd.cmake, default OFF) is set ON by the presets windows-x64 (so
+windows-x64-asan too, which inherits it), windows-x64-gcc and linux-x64-gcc; not by linux-x64-clang (above) and not by
+capture-x86 (returns before the product build). With it the configure sets the gate for the CMake versions above
+(4.1 and 4.4: the ones verified) and, after project(), requires the toolchain's std module for the targets' standard
+(MSVC 23, GCC 26), or fails ("PATELLA_IMPORT_STD: ... has no std module ..."): the option on where it does not work is
+an error. On a CMake version with no known gate it warns at configure and turns itself off, so a hosted runner's CMake
+update does not fail every build (Found, not done). CMake prints its own "experimental" developer warning at
+configure; build.py's warning check is the compilers' and linkers', so it passes.
+
+The one user is tests_import_std (tests/unit/import_std_test.cpp, a CTest test of its own): only `import std;`, no
+#include and no doctest (whose header would put the library's headers and the module into one translation unit; the
+module exports no macros, so the result is the return value). It checks std::format, std::ranges (fold_left, sort,
+views::filter), std::map with a transparent comparator, std::span and std::expected, with the product settings
+(patella_target_language, _warnings, _hardening: /W4 or -Wall -Wextra ..., warnings as errors). No existing code
+converted (the issue: new code only).
+
+### The std module's options (high)
+
+CMake compiles the std module with the directory's flags (CMAKE_CXX_FLAGS_<CONFIG> and its own standard flag), not
+with the importing target's options. With MSVC that gave C5050 in tests_import_std, "Possible incompatible environment
+while importing module 'std': _CONTROL_FLOW_GUARD=1 is defined in current command line and not in module command
+line" (/guard:cf) and the same for _UTF8 (/utf-8); GCC compiled bits/std.cc as `-std=gnu++26` without the importer's
+-D_FORTIFY_SOURCE=3, -fstack-protector-strong, -D_GLIBCXX_ASSERTIONS (Debug) and sanitizers, silently. So
+patella_target_import_std, called after the three settings functions, gives the module the target's own
+COMPILE_OPTIONS: for MSVC the module is a static library of the build (`__cmake_cxx23`, aliased as `__CMAKE::CXX23`),
+its COMPILE_OPTIONS; for GCC an imported INTERFACE target (`__CMAKE::CXX26`) that CMake compiles for each importer,
+its INTERFACE_COMPILE_OPTIONS (the importer gets them again; they are its own already). Checked in the generated Ninja
+files: std.ixx with /std:c++latest /permissive- /Zc:__cplusplus /utf-8 /Zc:preprocessor /Zc:inline ... /guard:cf,
+bits/std.cc with -std=c++26 -fstack-protector-strong -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3. The warning level is a
+source property (patella_target_warnings), so the module keeps the compiler's default level; its code is the
+library's. A second user of import std would need the same options, so the function refuses a second target; with
+more users the options move to one place they share.
+
+- Considered: CMAKE_CXX_FLAGS for the options: they would reach every target, the third-party code too (the regexp,
+  doctest).
+- Considered: C5050 left as a warning: /WX and tools/build.py fail it, rightly.
+
+### The Linux image (high)
+
+docker/linux-x64/Dockerfile: CMake 3.31.6 (Debian's cmake and cmake-data packages) replaced by Kitware's release
+4.1.2 for Linux x86_64, downloaded from its GitHub release, checked against its SHA-256
+(773cc679c3a7395413bd096523f8e5d6c39f8718af4e12eb4e4195f72f35e4ab, from the release's cmake-4.1.2-SHA-256.txt),
+unpacked to /opt/cmake, with cmake, ctest and cpack linked into /usr/local/bin. Why: 3.31 has no import std for GCC,
+and 4.1.2 is the Windows builds' version, whose gate the build knows (Debian's trixie-backports has 4.3.4: a third
+version, a third gate). GCC 16.2's std module was in the image already (the gcc image installs
+`libstdc++.modules.json` and bits/std.cc); no other package changed. The tag stays
+`patella-modern/linux-x64:gcc16.2-clang22.1` (it names the compilers, which are the same); a local image must be
+built again with CLAUDE.md's command. With the old image linux-x64-gcc still builds: CMake 3.31 has no gate the build
+knows, so it warns and leaves tests_import_std out. The branch's gates ran on the new image built as
+`patella-modern/linux-x64:issue-113` (PATELLA_DOCKER_IMAGE), so other branches kept the old one meanwhile.
+
+### Found, not done (high)
+
+- A new CMake minor version needs its gate in cmake/ImportStd.cmake; until then that CMake builds without import std
+  (with a configure warning). The hosted Windows runner has 4.4.5 today.
+- golden in linux-x64-gcc-debug with the corpus: 1 failure, communication_tests.cpp:1186 ("ExitCommunication or
+  0x496160 is not a single ret: 55, c3"): GCC -O0 gives the empty function a frame (push rbp ...), which the check
+  accepts only in Clang's form. Main has it too (the gates); hosted CI runs that preset without a corpus.
+- Clang's library: above.
+
+### The gates (high)
+
+Logs: build\logs\issue-113 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. The Linux presets ran in the
+branch's image (built as patella-modern/linux-x64:issue-113, PATELLA_DOCKER_IMAGE).
+
+- The minimal project (minimal-*.log): MSVC exit 0 with CMake 4.1.2 and 4.4.5; mingw GCC exit 0 (after the runtime
+  DLLs); GCC 16 exit 0 with 4.1.2, fails with 3.31.6; Clang 22 fails with both (the table above).
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, 0 warnings, tests_import_std passed; golden 15,803,218
+  replayed + 1,512,822 retired = 17,316,040, 0 failures. windows-x64-debug: exit 0, 18/18, golden the same.
+  windows-x64-asan: exit 0, 18/18 (the module with /fsanitize=address), golden the same. windows-x64-gcc: exit 0,
+  12/12. linux-x64-gcc: exit 0, 16/16, golden the same (and golden_concurrent). linux-x64-clang: exit 0, 14/14 (no
+  tests_import_std), golden the same.
+- linux-x64-gcc-debug (beyond the gates): exit 8, 14/15, tests_import_std passed, golden 1 failure
+  (communication_tests.cpp:1186, above); main c0aad52 in the old image: the same failure, 13/14.
+- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, 0 gone (the commit's image, CMake
+  4.1.2); `python -I tools/banned_calls.py` exit 0 (0 calls, 123 files); clang-format with CLAUDE.md's command exit 0.
