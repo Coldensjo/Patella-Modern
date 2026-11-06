@@ -65,6 +65,9 @@ public:
 	TSplitter *Splitter;         // +0x40
 	TStartWindow *StartWindow;   // +0x44
 	bool InGame;                 // +0x48
+
+protected:
+	void OnClose() override; // the destructor's preferences (issue #108)
 };
 
 // The window behind the start dialogs (vtable 0x56c5c0, 0x30 bytes).

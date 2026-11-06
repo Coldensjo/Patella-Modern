@@ -198,7 +198,7 @@ public:
 	const char *getCaption() { return Shortened ? FullCaption.get() : Caption.get(); }
 	TTalkBuffer *getTextBuffer() const { return TextBuffer; }
 
-	TTalkBuffer *TextBuffer;             // +0x24
+	TTalkBuffer *TextBuffer;             // +0x24 (with the console's filter list: not one owner, notes/ownership.md 7)
 	int LineCount;                       // +0x28, the buffer's lines when the tab last looked
 	std::unique_ptr<char[]> Caption;     // +0x2c (issue #58)
 	std::unique_ptr<char[]> FullCaption; // +0x30
@@ -211,6 +211,9 @@ public:
 	int BlinkEnd;                        // +0x48, action number; 0 = not blinking
 	TCallback Callback;                  // +0x4c, sent when the tab is pressed
 	bool Shortened;                      // +0x54
+
+protected:
+	void OnClose() override; // the destructor's sends and DeleteTextBuffer (issue #108)
 };
 
 // The tab bar: its own tabs and the two hidden windows with the tabs that do
@@ -221,11 +224,12 @@ public:
 	TTabBar(const TTabBar &) = delete;
 	TTabBar &operator=(const TTabBar &) = delete;
 	TTabBar(); // 0x421b30, line 1016
-	// Inline (0x417610, deleting destructor 0x417a60).
+	// Inline (0x417610, deleting destructor 0x417a60). The original's two
+	// deletes, in its order (OnClose closes the two windows' tabs first).
 	~TTabBar() override
 	{
-		delete LeftTabs;
-		delete RightTabs;
+		LeftTabs.reset();
+		RightTabs.reset();
 	}
 	void InsertChild(TComponent *Child) override;                            // +0x04, 0x41c2a0, line 1098
 	void AppendChild(TComponent *Child) override;                            // +0x08, 0x41c450, line 1111
@@ -249,12 +253,15 @@ public:
 	void ShowTab(TTab *Tab);                  // 0x41d450, line 1309
 	void StoreOpenChannels();                 // 0x41d620, line 1344
 
-	TTab *Moved;        // +0x2c
-	TTab *CurrentTab;   // +0x30
-	TWindow *LeftTabs;  // +0x34
-	TWindow *RightTabs; // +0x38
-	bool Busy;          // +0x3c, Rearrange is running
-	bool Changed;       // +0x3d, the console updates its buttons when it is set
+	TTab *Moved;                        // +0x2c
+	TTab *CurrentTab;                   // +0x30
+	std::unique_ptr<TWindow> LeftTabs;  // +0x34 (issue #108: the bar is their only owner, they are not its children)
+	std::unique_ptr<TWindow> RightTabs; // +0x38
+	bool Busy;                          // +0x3c, Rearrange is running
+	bool Changed;                       // +0x3d, the console updates its buttons when it is set
+
+protected:
+	void OnClose() override; // the two windows' tabs, then the bar's own (issue #108)
 };
 
 // The console. TalkMode is the volume of the default channel (1 say,
@@ -300,12 +307,17 @@ public:
 	int SwitchTime;                       // +0x40, new channels become current only from this action number on
 	int HistoryPosition;                  // +0x44
 	std::unique_ptr<TTalkBuffer> History; // +0x48 (issue #81)
-	TMultiStateButton *VolumeButton;      // +0x4c, events 206-208
-	TSkinButton *CloseButton;             // +0x50, event 202
-	TToggleButton *ServerMessagesButton;  // +0x54, event 203
-	TSkinButton *IgnoreButton;            // +0x58, event 204
-	TSkinButton *NewChannelButton;        // +0x5c, event 205
-	TSkinButton *MoveRightButton;         // +0x60, the tab bar's event 5
-	TSkinButton *MoveLeftButton;          // +0x64, the tab bar's event 6
-	int TalkMode;                         // +0x68
+	// The buttons shown by need (UpdateButtons) are owned by the child list while they are children and by the
+	// member while they are not, so they stay raw (notes/ownership.md, section 7; issue #108).
+	TMultiStateButton *VolumeButton;     // +0x4c, events 206-208
+	TSkinButton *CloseButton;            // +0x50, event 202
+	TToggleButton *ServerMessagesButton; // +0x54, event 203
+	TSkinButton *IgnoreButton;           // +0x58, event 204
+	TSkinButton *NewChannelButton;       // +0x5c, event 205
+	TSkinButton *MoveRightButton;        // +0x60, the tab bar's event 5
+	TSkinButton *MoveLeftButton;         // +0x64, the tab bar's event 6
+	int TalkMode;                        // +0x68
+
+protected:
+	void OnClose() override; // the destructor's preferences and hotkeys, the buttons that are not children (issue #108)
 };

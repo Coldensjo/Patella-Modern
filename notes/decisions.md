@@ -13595,3 +13595,94 @@ Logs: build\logs\issue-117 of the branch's worktree; golden replayed main's froz
 - `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
   clang-format (CLAUDE.md's command): exit 0. `python -I tools/settings_file.py --self-test` and
   `python -I tools/testmode_dumps.py --self-test`: exit 0.
+
+## #108: noexcept destructors, the windows' close (Patella-Modern issue #108, M7)
+
+### The close (high)
+
+Settled by Claude Opus 5.5, November 6, 2026, on branch issue-108 (M7, after #107's TGUI part 1). #81 kept
+`TComponent`'s destructor `noexcept(false)` (notes/ownership.md, section 7): the window destructors sent packets, wrote
+the preferences, removed hotkeys and asserted, and the golden ConsoleWindow test throws through `~TTab` on purpose.
+
+- **The close.** `TComponent::Close()` (GUI.h; not in the original) runs a component's close once (`Closed`, set
+  first: a close that throws is not run again, as the original's destructor was not), through the protected virtual
+  `OnClose()`. The classes whose destructors did such work override it with that work, in the destructor's order, and
+  end with their base's, as a destructor ends with its base's: `TTab` (the rule violation and channel sends, the
+  nameless report's `PATELLA_ASSERT(PlayerName!=NULL)`, DeleteTextBuffer), `TTabBar` (the left and right windows'
+  tabs, where it deleted them), `TConsoleWindow` (StoreOpenChannels, SetConsoleHeight, the buttons that are not
+  children, six RemoveHotkey), `TAutomapWindow` (SetAutomapZoom, eight RemoveHotkey), `TContainerWindowBody`
+  (SendCloseContainer), `TBattleWindowBody` (SetHighlightID(0)), `TTradeWindowBody` (SendRejectTrade, ClearOffers),
+  `TSubWindow` (SetContentWindowSize, the parts that are not children), `TMainWindow` (ClearOpenDialogs,
+  StoreOpenDialogs), `TMapWindow` (two RemoveHotkey). `TWindow::OnClose` closes the children first to last (~TWindow's
+  order). The hotkeys and SetHighlightID moved too, though they cannot fail: the golden tests log them among the sends
+  (FakeRemoveHotkey, FakeSetHighlightID), so their order with the closes is compared.
+- **What stays in the destructors**: freeing memory (the captions, the history, the drawing lists, the label texts),
+  the deletes of the parts that are not children (the close closed them first), the timers' RemoveTimer (`~TTimer`,
+  noexcept before), the skill window's and its context menu's pointers to each other. So every free happens where and
+  in the order it did (ASan, windows-x64-asan and linux-x64-clang, checks the order); only the work before the frees
+  moved ahead of them. `TComponent`'s destructor is implicitly `noexcept` now, and with it every window destructor
+  (static_asserts in GUI.cpp and ConsoleWindow.cpp).
+- **Where the close runs**: before each delete of a component. `DeleteComponent(C)` (GUI.h) is the original's `delete
+  C`: Close, then delete; `TWindow::DeleteChild` removes the child and then deletes it so. The original's deletes of
+  components in src/ (CloseChannel's tab, TSubWindow's five setters, Control.cpp's nine of ModalWindow and MouseMove's
+  help bubble, ExitMainWindow's two) call it. `~TWindow` still deletes its children through DeleteChild: after the
+  window's close they are closed and only freed; a window destroyed without a close is one whose constructor threw
+  (TMainWindow's ChangeMode, a sub-window's): then DeleteChild closes each child there, as the original's destructors
+  did their work during that unwinding, and an exception of it ends the program, as the original's second exception
+  did. A class with a close of its own that is destroyed without one writes `<class> destroyed without Close` to the
+  developer log (error level; CheckClosed): a missed close is visible in every test run (the gates' logs have none).
+- **An exception of a close** (the faked Send functions of the golden error rounds, the nameless report): the
+  original's destructor body stopped, its bases' destructors ran while the exception passed (~TWindow deleted the
+  children, which sent), and a throw out of a child's delete left the siblings after it undeleted. Each OnClose
+  keeps that: its own part in a try block, the base's close in the handler (CloseWhileUnwinding: noexcept, a second
+  exception terminates as the original's did) and the rethrow; TWindow::OnClose stops at the child that threw, so the
+  later ones are not closed. DeleteComponent then does not delete: the component stays allocated and closed as far as
+  it came (the original had freed it as far as its destructors had come; nothing reads it after: the golden tests drop
+  it, the client ends at FatalError). Considered: deleting it anyway (then ~TWindow would close the children the
+  original never reached, sending their packets).
+- **The golden ConsoleWindow test's throw** ("A player's report without a name: its tab's destructor asserts"):
+  the assertion now throws in `TTab::OnClose`, reached from `DeleteComponent(C(s))` through `TConsoleWindow::OnClose`,
+  `TWindow::OnClose`, the tab bar's (or its left or right window's) close; before the delete, so nothing is freed while
+  it passes. The outcome per call is the same (a TMyException), the round keeps its name ("TConsoleWindow::
+  ~TConsoleWindow nameless report"), and the fake calls' log before it is the same.
+
+### The owners (high)
+
+notes/ownership.md, sections 6 and 7.
+
+
+- **Converted**: `TTabBar::LeftTabs`, `RightTabs` (`std::unique_ptr<TWindow>`: the bar is their only owner, they are
+  not its children; `reset(new TWindow)` in the constructor, `reset()` in the destructor in the original's order, after
+  OnClose closed them), `TGUI::MainWindow` (`std::unique_ptr<TMainWindow>`: InitMainWindow stores the new window as
+  the original did, over a pointer it never had set (`release()`, then the move), ExitMainWindow closes and frees it).
+  TGUI's constructor and destructor are in MainWindow.cpp, where TMainWindow is complete.
+- **Kept raw, with the reason**: `TGUI::ModalWindow`: one owner, but MouseMove's help bubble (issue #36) leaves it
+  pointing to the bubble it deleted when `new THelpBubble` or Place throws, and the golden Control test compares that
+  ("modal deleted ..." in its world dump, from TCtlWindow's names); an owner cannot hold a freed window. Its deletes
+  are DeleteComponent and the original's `= NULL`. The conditional members (TSubWindow's eight parts,
+  TConsoleWindow's five buttons, `TListBox::EditLine`): owned by the child list while they are children and by the
+  member while they are not (IsChild, Editing), so neither alone is the owner. The text buffers (`DefaultTextBuffer`,
+  CreateTextBuffer's, a tab's `TextBuffer`): owned by a tab and the console's filter list at once (DeleteTextBuffer
+  frees both), allocated with `new (std::nothrow)` and freed with the destructor and `free`.
+### The static destruction (high)
+
+TGUI owns the main window now, and TClient is a function-local static, so a
+  window still set at the exit would be destroyed by static destruction: after FatalError's `exit(1)` the main window
+  unclosed, ~TWindow closing its children (the console's leave-channel packets, the content windows' closes, the
+  preferences). The original's globals had no destructor. The choice: an explicit teardown before the exit,
+  `TGUI::AbandonWindows()` (noexcept) in CPlayerApp::FatalError right before `exit(1)`: MainWindow released, the window
+  left allocated and unclosed as the original left it. The normal end (ExitControl's ExitMainWindow) closes and frees it
+  before, and ModalWindow is raw. Not the entry point owning TClient: #104's reason holds (InitControl, golden_runner,
+  the unit tests and the test mode reach the state before any one entry point), and a TClient of the entry point
+  would still have to leave the windows alone at `exit(1)`, so the same release would be needed there. The golden
+  tests release the main window they set (`SetSideMainWindow`, the MainWindow tests' `release()`), as their raw
+  assignments left it before.
+
+### The golden tests (high)
+
+The calls adapted, no check changed: every delete of a component in the window tests is
+`DeleteComponent` (94, incl. the ConsoleWindow test's nameless report rounds and the content windows' error rounds,
+whose faked closes throw: a plain delete would reach them inside ~TWindow, noexcept); commworld's `SideMainWindow`
+is a getter with `SetSideMainWindow`; the MainWindow test reads and releases `MainWindow` through `.get()` and
+`release()`; the console test reads `LeftTabs`/`RightTabs` through `.get()`; the MapWindow test, which runs
+`~TMapWindow` by hand on its own block, calls `Close()` first.

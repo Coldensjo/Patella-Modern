@@ -83,6 +83,8 @@ public:
 	// Inline ("Window->getBody()!=NULL", MainWindow.cpp).
 	TSubWindowBody *getBody() const { return Body; }
 
+	// The parts are owned by the child list while they are children and by the member while they are not (a minimized
+	// window's, a hidden "up" button), so they stay raw (notes/ownership.md, section 7; issue #108).
 	TSubWindowBody *Body;        // +0x44
 	TResizer *Resizer1;          // +0x48, area Style194.Data60
 	TResizer *Resizer2;          // +0x4c, area Style194.Data70
@@ -94,6 +96,9 @@ public:
 	bool IsMinimized;            // +0x64
 	int Data68;                  // +0x68, cleared by the constructor, not used here
 	int RestoreHeight;           // +0x6c, the height before Minimize
+
+protected:
+	void OnClose() override; // the destructor's preferences and the parts that are not children (issue #108)
 };
 
 // A column of content windows.

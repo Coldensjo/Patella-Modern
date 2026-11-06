@@ -22,12 +22,14 @@
 #include "Help.h"
 #include "common.h"
 #include "graphics.h"
+#include "log/Log.h"
 
 #include <sstream>
 #include <climits>
 #include <cstddef>
 #include <cstdlib>
 #include <memory>
+#include <type_traits>
 
 // TComponent::DrawingList as a std::unique_ptr<TDrawing[]> (issue #58): a pointer at the original's offset. The
 // subclasses' constructors allocate it with reset(new TDrawing[n]) (each list is the first: TComponent's constructor
@@ -68,16 +70,45 @@ bool TTimer::IsExpired() const
 	return !(Active && Remaining != 0);
 }
 
-// 0x496040, inlined into the deleting destructor 0x496520. Not noexcept: VC7.1's
-// destructors let exceptions out, and the window classes' calls still can (issue
-// #34; every class derived from TComponent inherits it). Kept by issue #81: TTab's
-// destructor asserts on a nameless report and calls the Send functions and
-// DeleteTextBuffer's assertion, and the golden ConsoleWindow test makes it throw
-// on purpose; as noexcept that would end in std::terminate (notes/ownership.md 7).
-TComponent::~TComponent() noexcept(false)
+// 0x496040, inlined into the deleting destructor 0x496520. noexcept since issue
+// #108: the work of the window classes' destructors that could throw (TTab's
+// assertion, the Send functions, the preferences, DeleteTextBuffer) is their
+// Close (OnClose), which every delete of a component runs first; it was
+// noexcept(false) from issue #34 to #108 (VC7.1's destructors let exceptions
+// out; notes/ownership.md, section 7).
+TComponent::~TComponent()
 {
 	if (DrawingList != nullptr)
 		DrawingList.reset();
+}
+
+static_assert(std::is_nothrow_destructible_v<TComponent> && std::is_nothrow_destructible_v<TWindow>,
+	"issue #108: the window classes' destructors are noexcept");
+
+// Issue #108 (not in the original). Closed is set first: a close that throws is
+// not run again, as the original's destructor was not.
+void TComponent::Close()
+{
+	if (Closed)
+		return;
+	Closed = true;
+	OnClose();
+}
+
+// Issue #108.
+void TComponent::CheckClosed(const char *Class) const noexcept
+{
+	if (!Closed)
+		patella::log::Error("{} destroyed without Close: its close was not done (issue #108)", Class);
+}
+
+// Issue #108: the original's `delete Component`.
+void DeleteComponent(TComponent *Component)
+{
+	if (Component == nullptr)
+		return;
+	Component->Close();
+	delete Component;
 }
 
 // 0x496060
@@ -1809,11 +1840,12 @@ void TWindow::AppendChild(TComponent *Child)
 	Child->Parent = this;
 }
 
-// 0x49c6f0, line 1231
+// 0x49c6f0, line 1231. The child is closed after it is removed, where the
+// original's delete ran its destructor (issue #108).
 void TWindow::DeleteChild(TComponent *Child)
 {
 	RemoveChild(Child);
-	delete Child;
+	DeleteComponent(Child);
 }
 
 // 0x49c890, lines 1239-1260. The assertions before the try block. A child
@@ -1922,11 +1954,30 @@ void TWindow::SetPosition(int _OffsetX, int _OffsetY)
 		Child->PositionChanged();
 }
 
-// 0x4a2590. Deletes the children. The deleting destructor is 0x4a29e0.
+// 0x4a2590. Deletes the children. The deleting destructor is 0x4a29e0. After
+// the window's Close (issue #108) its children are closed and DeleteChild only
+// removes and frees them. A window destroyed without a close is one whose
+// constructor threw (its fully made bases are destroyed): then DeleteChild
+// closes each child, as the original's destructors did their work there, and an
+// exception of it ends the program, as the original's second exception during
+// the unwinding did.
 TWindow::~TWindow()
 {
 	while (FirstChild != nullptr)
 		DeleteChild(FirstChild);
+}
+
+// Issue #108: ~TWindow's order, the first child first. The next child is taken
+// before the close (a close does not change the list; the original's
+// destructors ran on children already removed from it).
+void TWindow::OnClose()
+{
+	TComponent *Child = FirstChild;
+	while (Child != nullptr) {
+		TComponent *Next = Child->Next;
+		Child->Close();
+		Child = Next;
+	}
 }
 
 // 0x4a2600, line 1408. The window's own drawing list, then the children.

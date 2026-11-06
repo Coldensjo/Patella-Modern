@@ -2545,7 +2545,7 @@ static void DirectFailures()
 			ContentCall("errors: TTradeButtons::TTradeButtons", [&](int s) { Made[s] = s == OURS ? (TComponent *)new TTradeButtons
 																								 : ORIGINAL_OR((TComponent *)At<CtorFn>(0x432f00)(PatternNew(0x4c), NULL), nullptr); }, true, Fail);
 			if (!Threw && Made[OURS] != NULL && ORIGINAL_VALUE("made", bool, Made[ORIGINAL] != NULL))
-				ContentCall("errors: TTradeButtons deleted", [&](int s) { delete Made[s]; });
+				ContentCall("errors: TTradeButtons deleted", [&](int s) { DeleteComponent(Made[s]); });
 			break;
 		}
 		case 13:
@@ -2655,8 +2655,8 @@ static void DeleteWindows()
 	Stage = "errors: destructor";
 	CurrentAction = 13;
 	Both([&](int s) {
-		delete Column[s];
-		delete Checked[s];
+		DeleteComponent(Column[s]);
+		DeleteComponent(Checked[s]);
 		Column[s] = Checked[s] = NULL;
 	});
 	OutputOriginalLog();
@@ -2701,8 +2701,8 @@ static void TestContentWindowsErrors()
 		Stage = "errors: destructor";
 		CurrentAction = 13;
 		Both([&](int s) {
-			delete Column[s];
-			delete Checked[s];
+			DeleteComponent(Column[s]);
+			DeleteComponent(Checked[s]);
 			Column[s] = Checked[s] = NULL;
 		});
 		OutputOriginalLog();
@@ -2763,14 +2763,14 @@ void TestContentWindows()
 	{
 		TCWTestElement *E = new TCWTestElement;
 		ElementVtable = VtableOf(E);
-		delete E;
+		DeleteComponent(E);
 		TCWTestScrollBar *S = new TCWTestScrollBar;
 		ScrollVtable = VtableOf(S);
 		delete S->Range;
-		delete S;
+		DeleteComponent(S);
 		TCWTestLabel *L = new TCWTestLabel;
 		LabelVtable = VtableOf(L);
-		delete L;
+		DeleteComponent(L);
 	}
 	for (int s = 0; s < 2; s++) {
 		Kinds[s][ElementVtable] = "Element";
@@ -2783,8 +2783,8 @@ void TestContentWindows()
 		TObjectIcon *Icon = new TObjectIcon(TObject(), &Color, false);
 		Kinds[OURS][VtableOf(Separator)] = "Separator";
 		Kinds[OURS][VtableOf(Icon)] = "ObjectIcon";
-		delete Separator;
-		delete Icon;
+		DeleteComponent(Separator);
+		DeleteComponent(Icon);
 	}
 	PatchCallees();
 	DialogFakes.SetSkins = HookSetSkins;
@@ -2838,23 +2838,23 @@ void TestContentWindows()
 		};
 		for (auto &L : List)
 			Kinds[OURS][VtableOf(L.Object)] = L.Kind;
-		delete TB;
-		delete VB;
-		delete BB;
-		delete CB;
-		delete B;
-		delete Status;
-		delete Combat;
-		delete V;
-		delete Small;
-		delete P;
-		delete Soul;
-		delete Cap;
-		delete A;
-		delete Sub;
-		delete W;
-		delete C;
-		delete D;
+		DeleteComponent(TB);
+		DeleteComponent(VB);
+		DeleteComponent(BB);
+		DeleteComponent(CB);
+		DeleteComponent(B);
+		DeleteComponent(Status);
+		DeleteComponent(Combat);
+		DeleteComponent(V);
+		DeleteComponent(Small);
+		DeleteComponent(P);
+		DeleteComponent(Soul);
+		DeleteComponent(Cap);
+		DeleteComponent(A);
+		DeleteComponent(Sub);
+		DeleteComponent(W);
+		DeleteComponent(C);
+		DeleteComponent(D);
 	}
 	Kinds[OURS][VtableOf(Receiver)] = "Receiver";
 	Kinds[ORIGINAL][VtableOf(Receiver)] = "Receiver";
@@ -2881,8 +2881,8 @@ void TestContentWindows()
 		}
 		Stage = "destructor";
 		Both([&](int s) {
-			delete Column[s];
-			delete Checked[s];
+			DeleteComponent(Column[s]);
+			DeleteComponent(Checked[s]);
 			Column[s] = Checked[s] = NULL;
 		});
 		OutputOriginalLog();
@@ -2903,10 +2903,10 @@ void TestContentWindows()
 	{
 		TWindow *W = new TWindow;
 		OurWindowBase = VtableOf(W);
-		delete W;
+		DeleteComponent(W);
 		TElement *E = new TElement;
 		OurElementBase = VtableOf(E);
-		delete E;
+		DeleteComponent(E);
 	}
 	TestContentWindowsErrors();
 	memcpy(ActionCount, SavedCounts, sizeof(SavedCounts));
@@ -2925,7 +2925,7 @@ void TestContentWindows()
 	DialogFakes.SetSkins = NULL;
 	DialogFakes.NewResizer = NULL;
 	RestoreAll();
-	delete Receiver;
+	DeleteComponent(Receiver);
 	delete ContentSurface;
 	ExitSkins();
 	ORIGINAL(Global<TSkin *>(0x71c454) = NULL);

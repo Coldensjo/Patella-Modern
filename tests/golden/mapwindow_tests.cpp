@@ -490,8 +490,8 @@ static void __cdecl FakeAddHotkey(int Key, TCallback Callback)
 {
 	Logf("HK+%d,%d,%d;", Key, Callback.Receiver == Window[Side], Callback.Event);
 }
-// (~TMapWindow calls it: a destructor of ours must not throw, so this fake
-// does not count for the error round's FailAt.)
+// (~TMapWindow called it, its close since issue #108: so that it does not
+// throw, this fake does not count for the error round's FailAt.)
 static void __cdecl FakeRemoveHotkey(int Key)
 {
 	int Saved = FailAt;
@@ -928,6 +928,7 @@ static void NewWindows()
 static void DeleteWindows()
 {
 	Side = OURS;
+	Ours->Close(); // the destructor's RemoveHotkey calls are its close since issue #108
 	Ours->~TMapWindow();
 	free(Ours);
 	ORIGINAL(Side = ORIGINAL; At<DeleteFn>(0x4bf9e0)(Original, NULL, 0); free(Original));
@@ -1937,7 +1938,7 @@ static void TestMapWindowErrors()
 			(Side = ORIGINAL, At<IntFn>(0x4c2040)(B, NULL)));
 		Frame->MapWindow = View;
 		ORIGINAL(*(void **)(B + 0x2c) = OriginalView);
-		delete T[OURS];
+		DeleteComponent(T[OURS]);
 		ORIGINAL(delete T[ORIGINAL]);
 		Side = OURS;
 		Frame->~TMapFrame();

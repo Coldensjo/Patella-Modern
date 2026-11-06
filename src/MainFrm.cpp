@@ -158,7 +158,7 @@ CMainFrame::CMainFrame(bool Gamemaster)
 }
 
 // 0x4a8760, line 123. The original's handlers rethrew out of the destructor.
-// Unlike TComponent's, this one cannot be noexcept(false): CFrameWnd's
+// It cannot be noexcept(false) (TComponent's was until issue #108): CFrameWnd's
 // destructor (MFC) is noexcept and an override may not throw more (C2694). An
 // exception from ExitControl ends the program here, where the original's goes
 // on to the caller of the destructor (issue #34). The warning C4297 that the

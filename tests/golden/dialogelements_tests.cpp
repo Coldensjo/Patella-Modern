@@ -1594,10 +1594,10 @@ static void FindVtables()
 	TWindow *W = new TWindow;
 	Kinds[OURS][VtableOf(W)] = "Window";
 	OurWindowVtable = VtableOf(W);
-	delete W;
+	DeleteComponent(W);
 	TElement *E = new TElement;
 	OurElementVtable = VtableOf(E);
-	delete E;
+	DeleteComponent(E);
 	for (int s = 0; s < 2; s++)
 		Kinds[s][VtableOf(Receiver[OURS])] = "Receiver";
 	for (int k = 0; k < KINDS; k++) {
@@ -1612,12 +1612,12 @@ static void FindVtables()
 			}
 			TComponent *C = Build(OURS, A);
 			Kinds[OURS][VtableOf(C)] = k == K_EDIT && Variant == 2 ? "Password" : ProbeNames[k];
-			delete C;
+			DeleteComponent(C);
 			if (k != K_BORDER)
-				delete Target[OURS];
+				DeleteComponent(Target[OURS]);
 		}
 	}
-	delete Receiver[OURS];
+	DeleteComponent(Receiver[OURS]);
 }
 
 // The image side's receiver and target in the error round: the image's
@@ -1674,10 +1674,10 @@ static void Construct(const TArguments &A)
 static void Destruct()
 {
 	Both([&](int s) {
-		delete Root[s];
+		DeleteComponent(Root[s]);
 		if (Kind != K_BORDER)
-			delete Target[s];
-		delete Receiver[s];
+			DeleteComponent(Target[s]);
+		DeleteComponent(Receiver[s]);
 		delete Radio[s];
 		delete Group[s];
 		Group[s] = NULL;

@@ -604,7 +604,7 @@ void ResetWorlds()
 	BuildWorld(OURS, Seed);
 	BuildWorld(IMAGE, Seed);
 	for (int S = 0; S < 2; S++) {
-		SideMainWindow(S) = World[S].Main;
+		SetSideMainWindow(S, World[S].Main);
 		SideModalWindow(S) = NULL;
 		SetReceiveData(S, NULL, 0);
 	}
@@ -670,7 +670,7 @@ static void FreeWorld(int S)
 	}
 	int Saved = Side;
 	Side = S;
-	delete W.Main;
+	DeleteComponent(W.Main);
 	Side = Saved;
 	W.Main = NULL;
 	free(W.Console);
@@ -688,7 +688,7 @@ void FreeWorlds()
 		free(Memory);
 	DeletedWindows.clear();
 	for (int S = 0; S < 2; S++) {
-		SideMainWindow(S) = NULL;
+		SetSideMainWindow(S, NULL);
 		SideModalWindow(S) = NULL;
 	}
 }
@@ -2527,7 +2527,18 @@ void InstallFakes(const TFake *Fakes, int Count)
 // The original's MainWindow and ModalWindow: the test still sets them as the oracle does.
 static TCtlMainWindow *ImageMainWindow;
 static TWindow *ImageModalWindow;
-TCtlMainWindow *&SideMainWindow(int S) { return S == IMAGE ? ImageMainWindow : (TCtlMainWindow *&)patella::bridge::GUI().MainWindow; }
+TCtlMainWindow *SideMainWindow(int S) { return S == IMAGE ? ImageMainWindow : (TCtlMainWindow *)patella::bridge::GUI().MainWindow.get(); }
+// TGUI's MainWindow is an owner since issue #108: the test's window goes in without the old one being freed (the
+// test frees its windows itself, FreeWorld), as the raw assignment before.
+void SetSideMainWindow(int S, TCtlMainWindow *Window)
+{
+	if (S == IMAGE) {
+		ImageMainWindow = Window;
+		return;
+	}
+	(void)patella::bridge::GUI().MainWindow.release();
+	patella::bridge::GUI().MainWindow.reset((TMainWindow *)(TWindow *)Window);
+}
 TWindow *&SideModalWindow(int S) { return S == IMAGE ? ImageModalWindow : patella::bridge::GUI().ModalWindow; }
 
 // An import slot of the runner bound to a fake (golden_patch.h; EndWorld unbinds it).

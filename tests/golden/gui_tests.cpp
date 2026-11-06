@@ -825,7 +825,7 @@ void TreeOperation()
 		if (Ours(w)->Parent != nullptr || Random() % 4 != 0)
 			return;
 		for (int s = 0; s < SIDES; s++)
-			delete Nodes[w].Side[s];
+			DeleteComponent(Nodes[w].Side[s]);
 		break;
 	}
 	case 27: { // PositionChanged, KeyPress, HandleEvent reach the components unchanged
@@ -895,7 +895,7 @@ void TestWindows()
 		for (size_t i = 0; i < Nodes.size(); i++) {
 			if (Nodes[i].Alive && Nodes[i].Side[OURS]->Parent == nullptr) {
 				for (int s = 0; s < SIDES; s++)
-					delete Nodes[i].Side[s];
+					DeleteComponent(Nodes[i].Side[s]);
 				CompareTrees("final deletion");
 			}
 		}
@@ -991,7 +991,7 @@ void TestTimers()
 	CheckLogs("timer deletion");
 	for (int s = 0; s < SIDES; s++)
 		for (int i = 0; i < 4; i++)
-			delete Receivers[s][i];
+			DeleteComponent(Receivers[s][i]);
 	Log[0].clear();
 	Log[1].clear();
 }
@@ -1053,7 +1053,7 @@ void TestHotkeys()
 	CheckLogs("hotkey table");
 	for (int s = 0; s < SIDES; s++)
 		for (int i = 0; i < 3; i++)
-			delete Receivers[s][i];
+			DeleteComponent(Receivers[s][i]);
 	Log[0].clear();
 	Log[1].clear();
 }
@@ -1583,7 +1583,7 @@ void TestGUIErrors()
 		for (size_t i = 0; i < Nodes.size(); i++) {
 			if (Nodes[i].Alive && Nodes[i].Side[OURS]->Parent == NULL) {
 				for (int s = 0; s < SIDES; s++)
-					delete Nodes[i].Side[s];
+					DeleteComponent(Nodes[i].Side[s]);
 				CompareTrees("errors: deletion");
 			}
 		}

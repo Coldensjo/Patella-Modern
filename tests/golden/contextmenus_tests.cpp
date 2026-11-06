@@ -1568,7 +1568,7 @@ static void TestContextMenusErrors()
 		ThrowMask = 0;
 		for (int s = 0; s < SIDES; s++) {
 			Side = s;
-			delete Window[s];
+			DeleteComponent(Window[s]);
 			Window[s] = NULL;
 		}
 		Compare("errors: destructor");
@@ -1616,7 +1616,7 @@ static void TestContextMenusErrors()
 		SkillsWindow[ORIGINAL] = SavedSkills[ORIGINAL];
 		for (int s = 0; s < SIDES; s++) {
 			Side = s;
-			delete Built[s];
+			DeleteComponent(Built[s]);
 		}
 		Log[OURS].clear();
 		Log[ORIGINAL].clear();
@@ -1663,17 +1663,17 @@ void TestContextMenus()
 		Side = OURS;
 		TTestSeparator *S = new TTestSeparator;
 		SeparatorVtable = VtableOf(S);
-		delete S;
+		DeleteComponent(S);
 		TSeparator *Real = new TSeparator(true);
 		OurSeparatorVtable = VtableOf(Real);
-		delete Real;
+		DeleteComponent(Real);
 		TTestFormattedText *T = new TTestFormattedText;
 		TextVtable = VtableOf(T);
-		delete T;
+		DeleteComponent(T);
 		RandomWorld();
 		TContextMenuEntry *E = new TContextMenuEntry("x", NULL, TCallback(NULL, 0));
 		OurEntryVtable = VtableOf(E);
-		delete E;
+		DeleteComponent(E);
 		FreeWorld();
 		Log[OURS].clear();
 	}
@@ -1694,7 +1694,7 @@ void TestContextMenus()
 		for (int i = 0; i < Actions; i++)
 			Action();
 		Both([&](int s) {
-			delete Window[s];
+			DeleteComponent(Window[s]);
 			Window[s] = NULL;
 		});
 		CHECK(SkillsWindow[OURS]->ContextMenu == NULL
@@ -1715,9 +1715,9 @@ void TestContextMenus()
 	free(TextWindow);
 	free(ConsoleView);
 	free(Console);
-	delete Edit;
+	DeleteComponent(Edit);
 	for (int s = 0; s < 2; s++)
-		delete (TMenuSkillsStandIn *)(TWindow *)SkillsWindow[s];
+		DeleteComponent((TMenuSkillsStandIn *)(TWindow *)SkillsWindow[s]);
 	ExitSkins();
 	ORIGINAL(Global<TSkin *>(0x71c454) = NULL);
 	int Least = KindCount[0], LeastAction = ActionCount[0];

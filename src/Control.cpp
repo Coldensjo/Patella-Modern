@@ -88,7 +88,7 @@ void Resize(int Width, int Height)
 	GUI.MainWindow->SetSize(Width, Height);
 	if (GUI.ModalWindow != nullptr) {
 		if (GetActionState() == 11) {
-			delete GUI.ModalWindow;
+			DeleteComponent(GUI.ModalWindow);
 			GUI.ModalWindow = nullptr;
 			SetActionState(0);
 			GUI.MainWindow->SetConsoleActive(true);
@@ -97,7 +97,7 @@ void Resize(int Width, int Height)
 			GUI.ModalWindow->SetPosition(GUI.MainWindow->Width / 2 - GUI.ModalWindow->Width / 2,
 				GUI.MainWindow->Height / 2 - GUI.ModalWindow->Height / 2);
 		if (GUI.ModalWindow != nullptr && GetActionState() == 9)
-			(static_cast<THelpBubble *>(GUI.ModalWindow))->Place(GUI.MainWindow);
+			(static_cast<THelpBubble *>(GUI.ModalWindow))->Place(GUI.MainWindow.get());
 	}
 }
 
@@ -293,7 +293,7 @@ void LeaveGame()
 	patella::TGUI &GUI = patella::bridge::GUI();
 	GUI.MainWindow->ChangeMode(false);
 	if (GUI.ModalWindow != nullptr) {
-		delete GUI.ModalWindow;
+		DeleteComponent(GUI.ModalWindow);
 		GUI.ModalWindow = nullptr;
 		GUI.MainWindow->SetConsoleActive(true);
 	}
@@ -331,13 +331,13 @@ void MouseMove(int x, int y)
 		// an exception before that leaves it as it was (issue #36).
 		THelpBubble *Bubble = static_cast<THelpBubble *>(GUI.ModalWindow);
 		if (GetHelpHandleChanged()) {
-			delete Bubble;
+			DeleteComponent(Bubble);
 			Bubble = nullptr;
 			if (GetHelpHandle() != 0)
 				Bubble = new THelpBubble(GetCurrentHelpText());
 		}
 		if (Bubble != nullptr)
-			Bubble->Place(GUI.MainWindow);
+			Bubble->Place(GUI.MainWindow.get());
 		GUI.ModalWindow = Bubble;
 		break;
 	}
@@ -402,13 +402,13 @@ void LeftButtonUp(int x, int y, int Flags)
 		PATELLA_ASSERT(GUI.ModalWindow!=NULL);
 		GUI.ModalWindow->LeftButtonUp(x - GUI.ModalWindow->OffsetX, y - GUI.ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0 || GetActionState() == 7 || GetActionState() == 8) {
-			delete GUI.ModalWindow;
+			DeleteComponent(GUI.ModalWindow);
 			GUI.ModalWindow = nullptr;
 			GUI.MainWindow->SetConsoleActive(true);
 		}
 		break;
 	case 9:
-		delete GUI.ModalWindow;
+		DeleteComponent(GUI.ModalWindow);
 		GUI.ModalWindow = nullptr;
 		SetActionState(0);
 		break;
@@ -437,7 +437,7 @@ void LeftButtonDoubleClick(int x, int y, int Flags)
 		PATELLA_ASSERT(GUI.ModalWindow!=NULL);
 		GUI.ModalWindow->LeftButtonDoubleClick(x - GUI.ModalWindow->OffsetX, y - GUI.ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0 || GetActionState() == 7 || GetActionState() == 8) {
-			delete GUI.ModalWindow;
+			DeleteComponent(GUI.ModalWindow);
 			GUI.ModalWindow = nullptr;
 			GUI.MainWindow->SetConsoleActive(true);
 		}
@@ -491,13 +491,13 @@ void RightButtonUp(int x, int y, int Flags)
 		PATELLA_ASSERT(GUI.ModalWindow!=NULL);
 		GUI.ModalWindow->RightButtonUp(x - GUI.ModalWindow->OffsetX, y - GUI.ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0) {
-			delete GUI.ModalWindow;
+			DeleteComponent(GUI.ModalWindow);
 			GUI.ModalWindow = nullptr;
 			GUI.MainWindow->SetConsoleActive(true);
 		}
 		break;
 	case 9:
-		delete GUI.ModalWindow;
+		DeleteComponent(GUI.ModalWindow);
 		GUI.ModalWindow = nullptr;
 		SetActionState(0);
 		break;
@@ -543,7 +543,7 @@ void KeyPress(int Key)
 	if (GUI.ModalWindow != nullptr) {
 		GUI.ModalWindow->KeyPress(Key);
 		if (GetActionState() == 0) {
-			delete GUI.ModalWindow;
+			DeleteComponent(GUI.ModalWindow);
 			GUI.ModalWindow = nullptr;
 			GUI.MainWindow->SetConsoleActive(true);
 		}
@@ -845,7 +845,7 @@ void ProcessEvents()
 	patella::TGUI &GUI = patella::bridge::GUI();
 	int Type = 0;
 	if (GUI.ModalWindow != nullptr && GetActionState() == 0) {
-		delete GUI.ModalWindow;
+		DeleteComponent(GUI.ModalWindow);
 		GUI.ModalWindow = nullptr;
 		SetActionState(0);
 		GUI.MainWindow->SetConsoleActive(true);
@@ -864,10 +864,10 @@ void ProcessEvents()
 			delete[] reinterpret_cast<char *>(Param2);
 			break;
 		case 0x03:
-			GUI.ModalWindow = CreateConnectingDialog("Connecting", TextCharacterListLoading, GUI.MainWindow);
+			GUI.ModalWindow = CreateConnectingDialog("Connecting", TextCharacterListLoading, GUI.MainWindow.get());
 			break;
 		case 0x04:
-			GUI.ModalWindow = CreateConnectingDialog("Connecting", TextConnectingGameWorld, GUI.MainWindow);
+			GUI.ModalWindow = CreateConnectingDialog("Connecting", TextConnectingGameWorld, GUI.MainWindow.get());
 			break;
 		case 0x05:
 			GUI.ModalWindow = CreateReconnectDialog("Please wait", reinterpret_cast<const char *>(Param1), (int)Param2);
@@ -882,7 +882,7 @@ void ProcessEvents()
 		}
 		case 0x07: {
 			const INT_PTR *Data = reinterpret_cast<INT_PTR *>(Param1);
-			GUI.ModalWindow = CreateLogoutDialog(reinterpret_cast<const char *>(Data[0]), reinterpret_cast<const char *>(Data[1]), GUI.MainWindow);
+			GUI.ModalWindow = CreateLogoutDialog(reinterpret_cast<const char *>(Data[0]), reinterpret_cast<const char *>(Data[1]), GUI.MainWindow.get());
 			delete[] Data;
 			break;
 		}
@@ -896,7 +896,7 @@ void ProcessEvents()
 			GUI.ModalWindow = CreateCharacterListDialog((int)Param1);
 			break;
 		case 0x0b:
-			GUI.ModalWindow = CreateQuestionDialog(reinterpret_cast<const char *>(Param1), TextLinkCopyWarning, GUI.MainWindow, 0x21, 2);
+			GUI.ModalWindow = CreateQuestionDialog(reinterpret_cast<const char *>(Param1), TextLinkCopyWarning, GUI.MainWindow.get(), 0x21, 2);
 			break;
 		case 0x0c:
 			GUI.ModalWindow = CreateMessageDialog(reinterpret_cast<const char *>(Param1), TextNeverGiveAccount);
@@ -990,7 +990,7 @@ void ProcessEvents()
 			GUI.ModalWindow = CreateNetworkOptionsDialog(GUI.URLCallback);
 			break;
 		case 0x23:
-			GUI.ModalWindow = CreateGraphicsOptionsDialog(GUI.URLCallback, GUI.DisplayModeCallback, GUI.MainWindow);
+			GUI.ModalWindow = CreateGraphicsOptionsDialog(GUI.URLCallback, GUI.DisplayModeCallback, GUI.MainWindow.get());
 			break;
 		case 0x24:
 			GUI.ModalWindow = CreateAdvancedGraphicsDialog(GUI.URLCallback, reinterpret_cast<TComponent *>(Param1));

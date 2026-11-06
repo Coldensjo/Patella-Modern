@@ -129,7 +129,7 @@ static void SetVtable(void *Object, void *Vtable) { *(void **)Object = Vtable; }
 // original's side (which runs in the oracle only).
 static TMainWindow *OriginalMainWindow;
 static TWindow *OriginalModalWindow;
-static TMainWindow *Main(int s) { return s == OURS ? patella::bridge::GUI().MainWindow : OriginalMainWindow; }
+static TMainWindow *Main(int s) { return s == OURS ? patella::bridge::GUI().MainWindow.get() : OriginalMainWindow; }
 
 // --- Objects: names and serial numbers -----------------------------------------
 
@@ -817,10 +817,10 @@ static void FindFakeVtables()
 	TFakeMapFrame *Frame = new TFakeMapFrame;
 	FakeMapFrameVtable = VtableOf(Frame);
 	Quiet = false;
-	delete Console;
-	delete Border;
-	delete Button;
-	delete Frame;
+	DeleteComponent(Console);
+	DeleteComponent(Border);
+	DeleteComponent(Button);
+	DeleteComponent(Frame);
 }
 
 // --- The two main windows ------------------------------------------------------
@@ -828,7 +828,7 @@ static void FindFakeVtables()
 
 static void NameOurVtables()
 {
-	TMainWindow *M = patella::bridge::GUI().MainWindow;
+	TMainWindow *M = patella::bridge::GUI().MainWindow.get();
 	NameVtable(OURS, VtableOf(M), "Main", true);
 	if (M->StartWindow != NULL)
 		NameVtable(OURS, VtableOf(M->StartWindow), "Start", true);
@@ -1420,7 +1420,7 @@ static void Operation()
 // their members may point to deleted windows).
 static void NewMainWindows(int Fail)
 {
-	patella::bridge::GUI().MainWindow = NULL;
+	(void)patella::bridge::GUI().MainWindow.release(); // the test keeps the old ones (issue #108: an owner)
 	OriginalMainWindow = NULL;
 	patella::bridge::GUI().ModalWindow = OriginalModalWindow = NULL;
 	Info[OURS].clear();
@@ -1647,7 +1647,7 @@ static void TestMainWindowErrors()
 		if (Threw)
 			continue;
 	}
-	patella::bridge::GUI().MainWindow = NULL;
+	(void)patella::bridge::GUI().MainWindow.release(); // the test keeps the old ones (issue #108: an owner)
 	OriginalMainWindow = NULL;
 	patella::bridge::GUI().ModalWindow = OriginalModalWindow = NULL;
 	Threw = false;
@@ -1731,14 +1731,14 @@ void TestMainWindow()
 		NameVtable(OURS, VtableOf(Sub), "Sub", true);
 		NameVtable(OURS, VtableOf(Content), "CW", true);
 		NameVtable(OURS, VtableOf(Dialog), "Dialog", true);
-		delete Sub;
-		delete Content;
-		delete Dialog;
-		delete S3;
-		delete S4;
-		delete S5;
-		delete Label;
-		delete Icon;
+		DeleteComponent(Sub);
+		DeleteComponent(Content);
+		DeleteComponent(Dialog);
+		DeleteComponent(S3);
+		DeleteComponent(S4);
+		DeleteComponent(S5);
+		DeleteComponent(Label);
+		DeleteComponent(Icon);
 		// Our TMainWindow, TStartWindow, TSplitter, TMapFrame and TMapWindow,
 		// from a main window made quietly.
 		RandomWorld();
@@ -1750,7 +1750,7 @@ void TestMainWindow()
 		NameVtable(OURS, VtableOf(Tmp->Splitter), "Splitter", false);
 		NameVtable(OURS, VtableOf(Tmp->MapFrame), "RealFrame", true);
 		NameVtable(OURS, VtableOf(((TWindow *)Tmp->MapFrame)->FirstChild), "MapView", true);
-		delete Tmp;
+		DeleteComponent(Tmp);
 		OpenDialogs[OURS].clear();
 	}
 	Quiet = false;

@@ -396,7 +396,7 @@ void ReadProbe(TProbe &Probe)
 	SkinInt(Probe.Skin, "Style1394.Data70.y", Skin.Style1394.Data70.y);
 
 	if (GUI.MainWindow != nullptr)
-		ProbeWalk(Probe, GUI.MainWindow);
+		ProbeWalk(Probe, GUI.MainWindow.get());
 	if (GUI.ModalWindow != nullptr)
 		ProbeWalk(Probe, GUI.ModalWindow);
 }
@@ -406,7 +406,7 @@ std::vector<TGuiNode> ReadGui()
 	const patella::TGUI &GUI = patella::bridge::GUI();
 	std::vector<TGuiNode> Nodes;
 	if (GUI.MainWindow != nullptr)
-		Walk(Nodes, GUI.MainWindow, 0, 0, 0);
+		Walk(Nodes, GUI.MainWindow.get(), 0, 0, 0);
 	if (GUI.ModalWindow != nullptr) {
 		TGuiNode Separator;
 		Separator.Class = "(modal)";

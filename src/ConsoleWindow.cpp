@@ -51,6 +51,7 @@
 #include <ctime>
 #include <cstdio>
 #include <memory>
+#include <type_traits>
 
 
 namespace {
@@ -720,18 +721,29 @@ TTab::TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback _Callback)
 	SetSize(SkinProperties.StyleAA4.Data00, SkinProperties.StyleAA4.Data04);
 }
 
-// 0x41acd0, lines 849-866. Leaves the channel on the server: the player's
-// own request is cancelled, a gamemaster's open request closed, a public
-// channel left; the player's own private channel only when it was closed by
-// the server (Locked) and private channels only when the player may write.
-// Then the buffer is deleted (Talk.cpp). The original's handlers rethrow out
-// of the destructor; an exception of the calls still passes out to the
-// caller (TComponent's destructor is noexcept(false)).
+// 0x41acd0, lines 849-866: the destructor frees the captions; the rest of its
+// work is the close (issue #108).
 TTab::~TTab()
 {
+	CheckClosed("TTab");
 	Caption.reset();
 	if (FullCaption != nullptr)
 		FullCaption.reset();
+}
+
+static_assert(std::is_nothrow_destructible_v<TTab> && std::is_nothrow_destructible_v<TConsoleWindow>,
+	"issue #108: the console's destructors are noexcept");
+
+// The destructor's work until issue #108 (0x41acd0, after the captions are
+// freed). Leaves the channel on the server: the player's own request is
+// cancelled, a gamemaster's open request closed, a public channel left; the
+// player's own private channel only when it was closed by the server (Locked)
+// and private channels only when the player may write. Then the buffer is
+// deleted (Talk.cpp). The original's handlers rethrow out of the destructor;
+// an exception of the calls passes out of the close (the golden ConsoleWindow
+// test's nameless report reaches the assertion below).
+void TTab::OnClose()
+{
 	if (TextBuffer->IsRuleViolation() && TextBuffer->GetReceiveTalkMode() == TALK_GAMEMASTER_ANSWER) {
 		SendCancelRuleViolation();
 	} else if (TextBuffer->IsRuleViolation() && TextBuffer->GetReceiveTalkMode() == TALK_PLAYER_ANSWER
@@ -748,6 +760,7 @@ TTab::~TTab()
 	}
 	DeleteTextBuffer(TextBuffer);
 	TextBuffer = nullptr;
+	TElement::OnClose();
 }
 
 // 0x41afe0, line 880.
@@ -862,8 +875,8 @@ TTabBar::TTabBar()
 {
 	Moved = nullptr;
 	CurrentTab = nullptr;
-	LeftTabs = new TWindow;
-	RightTabs = new TWindow;
+	LeftTabs.reset(new TWindow);
+	RightTabs.reset(new TWindow);
 	Arrange();
 	Busy = false;
 }
@@ -982,9 +995,9 @@ TWindow *TTabBar::GetContainer(TComponent *Child)
 	if (TWindow::IsChild(Child))
 		return this;
 	if (LeftTabs->IsChild(Child))
-		return LeftTabs;
+		return LeftTabs.get();
 	if (RightTabs->IsChild(Child))
-		return RightTabs;
+		return RightTabs.get();
 	TERROR("failed to get composite");
 }
 
@@ -1063,6 +1076,22 @@ void TTabBar::ShowTab(TTab *Tab)
 	}
 }
 
+// The original's ~TTabBar (issue #108): deletes the left window, then the right
+// one (each closes its tabs, ~TWindow's order), then ~TWindow the bar's own
+// tabs. An exception out of the left window's tabs leaves the right one (the
+// original's delete of it did not run) and closes the bar's own tabs first.
+void TTabBar::OnClose()
+{
+	try {
+		LeftTabs->Close();
+		RightTabs->Close();
+	} catch (...) {
+		CloseWhileUnwinding([this] { TWindow::OnClose(); });
+		throw;
+	}
+	TWindow::OnClose();
+}
+
 // 0x41d620, line 1344. The public channels of all tabs go to the
 // preferences (Tibia.cfg's open channels).
 void TTabBar::StoreOpenChannels()
@@ -1071,9 +1100,9 @@ void TTabBar::StoreOpenChannels()
 	for (int i = 0; i < 3; i++) {
 		TWindow *Container;
 		if (i == 0)
-			Container = LeftTabs;
+			Container = LeftTabs.get();
 		else if (i == 2)
-			Container = RightTabs;
+			Container = RightTabs.get();
 		else
 			Container = this;
 		TComponent *Child = Container->GetFirstChild();
@@ -1203,13 +1232,12 @@ TConsoleWindow::TConsoleWindow()
 		delete[] Channels;
 }
 
-// 0x41dbe0, line 1543. Stores the open channels and the console height and
-// deletes the buttons that are not children. An exception of the calls
-// passes out to the caller, as TTab's.
+// 0x41dbe0, line 1543. Frees the history and deletes the buttons that are not
+// children (the close closed them); the rest of the original's destructor is
+// the close (issue #108).
 TConsoleWindow::~TConsoleWindow()
 {
-	TabBar->StoreOpenChannels();
-	SetConsoleHeight(Height);
+	CheckClosed("TConsoleWindow");
 	History.reset();
 	if (!IsChild(VolumeButton) && VolumeButton != nullptr)
 		delete VolumeButton;
@@ -1221,12 +1249,40 @@ TConsoleWindow::~TConsoleWindow()
 		delete MoveRightButton;
 	if (!IsChild(MoveLeftButton) && MoveLeftButton != nullptr)
 		delete MoveLeftButton;
-	RemoveHotkey(0x449);
-	RemoveHotkey(0x44f);
-	RemoveHotkey(0x445);
-	RemoveHotkey(0x44d);
-	RemoveHotkey(0x44b);
-	RemoveHotkey(0x444);
+}
+
+// The destructor's work until issue #108 (0x41dbe0), in its order: stores the
+// open channels and the console height, closes the buttons that are not
+// children where it deleted them, removes the hotkeys; then the children
+// (~TWindow's: the tab bar with its tabs). An exception of the calls passes
+// out of the close after the children's closes, as the original's ~TWindow
+// ran while it passed.
+void TConsoleWindow::OnClose()
+{
+	try {
+		TabBar->StoreOpenChannels();
+		SetConsoleHeight(Height);
+		if (!IsChild(VolumeButton) && VolumeButton != nullptr)
+			VolumeButton->Close();
+		if (!IsChild(CloseButton) && CloseButton != nullptr)
+			CloseButton->Close();
+		if (!IsChild(ServerMessagesButton) && ServerMessagesButton != nullptr)
+			ServerMessagesButton->Close();
+		if (!IsChild(MoveRightButton) && MoveRightButton != nullptr)
+			MoveRightButton->Close();
+		if (!IsChild(MoveLeftButton) && MoveLeftButton != nullptr)
+			MoveLeftButton->Close();
+		RemoveHotkey(0x449);
+		RemoveHotkey(0x44f);
+		RemoveHotkey(0x445);
+		RemoveHotkey(0x44d);
+		RemoveHotkey(0x44b);
+		RemoveHotkey(0x444);
+	} catch (...) {
+		CloseWhileUnwinding([this] { TWindow::OnClose(); });
+		throw;
+	}
+	TWindow::OnClose();
 }
 
 // 0x41de80, line 1571.
@@ -1634,7 +1690,7 @@ void TConsoleWindow::CloseChannel()
 			PATELLA_ASSERT(NewTab!=NULL);
 		}
 		TabBar->SetCurrentTab(static_cast<TTab *>(NewTab));
-		delete CurrentTab;
+		DeleteComponent(CurrentTab);
 		HandleEvent(201);
 	}
 }

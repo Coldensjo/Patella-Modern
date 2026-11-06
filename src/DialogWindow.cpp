@@ -64,14 +64,12 @@ TContentWindow::TContentWindow(int _Identifier, bool _Background)
 	Background = _Background;
 }
 
-// 0x485500 (deleting destructor 0x485790). The skill, battle and VIP windows
-// store their body's height in the preferences ("ContentWindow"). The parts
-// that are not children at the moment (a hidden "up" button, the parts of a
-// minimized window) are deleted here; ~TWindow deletes the children.
+// 0x485500 (deleting destructor 0x485790). The parts that are not children at
+// the moment (a hidden "up" button, the parts of a minimized window) are
+// deleted here (the close closed them); ~TWindow deletes the children.
 TSubWindow::~TSubWindow()
 {
-	if (Identifier == 6 || Identifier == 7 || Identifier == 9)
-		SetContentWindowSize(Identifier, Body->Height);
+	CheckClosed("TSubWindow");
 	if (UpButton != nullptr && !IsChild(UpButton))
 		delete UpButton;
 	if (CloseButton != nullptr && !IsChild(CloseButton))
@@ -88,6 +86,39 @@ TSubWindow::~TSubWindow()
 		delete Resizer1;
 	if (Resizer2 != nullptr && !IsChild(Resizer2))
 		delete Resizer2;
+}
+
+// The destructor's work until issue #108 (0x485500), in its order: the skill,
+// battle and VIP windows store their body's height in the preferences
+// ("ContentWindow"), the parts that are not children are closed where it
+// deleted them (a minimized container's body sends its close); then the
+// children.
+void TSubWindow::OnClose()
+{
+	try {
+		if (Identifier == 6 || Identifier == 7 || Identifier == 9)
+			SetContentWindowSize(Identifier, Body->Height);
+		if (UpButton != nullptr && !IsChild(UpButton))
+			UpButton->Close();
+		if (CloseButton != nullptr && !IsChild(CloseButton))
+			CloseButton->Close();
+		if (MinimizeButton != nullptr && !IsChild(MinimizeButton))
+			MinimizeButton->Close();
+		if (Icon != nullptr && !IsChild(Icon))
+			Icon->Close();
+		if (Title != nullptr && !IsChild(Title))
+			Title->Close();
+		if (Body != nullptr && !IsChild(Body))
+			Body->Close();
+		if (Resizer1 != nullptr && !IsChild(Resizer1))
+			Resizer1->Close();
+		if (Resizer2 != nullptr && !IsChild(Resizer2))
+			Resizer2->Close();
+	} catch (...) {
+		CloseWhileUnwinding([this] { TContentWindow::OnClose(); });
+		throw;
+	}
+	TContentWindow::OnClose();
 }
 
 // 0x485670. ContentWindows.cpp adds the body's height to get the window's.
@@ -761,7 +792,7 @@ void TSubWindow::SetUpButton(TComponent *Button)
 		if (IsChild(UpButton))
 			DeleteChild(UpButton);
 		else
-			delete UpButton;
+			DeleteComponent(UpButton);
 	}
 	UpButton = Button;
 	InsertChild(Button);
@@ -775,7 +806,7 @@ void TSubWindow::SetCloseButton(TComponent *Button)
 		if (IsChild(CloseButton))
 			DeleteChild(CloseButton);
 		else
-			delete CloseButton;
+			DeleteComponent(CloseButton);
 	}
 	CloseButton = Button;
 	InsertChild(Button);
@@ -789,7 +820,7 @@ void TSubWindow::SetMinimizeButton(TSkinButton *Button)
 		if (IsChild(MinimizeButton))
 			DeleteChild(MinimizeButton);
 		else
-			delete MinimizeButton;
+			DeleteComponent(MinimizeButton);
 	}
 	MinimizeButton = Button;
 	InsertChild(Button);
@@ -803,7 +834,7 @@ void TSubWindow::SetIcon(TComponent *_Icon)
 		if (IsChild(Icon))
 			DeleteChild(Icon);
 		else
-			delete Icon;
+			DeleteComponent(Icon);
 	}
 	Icon = _Icon;
 	InsertChild(_Icon);
@@ -817,7 +848,7 @@ void TSubWindow::SetTitle(TComponent *_Title)
 		if (IsChild(Title))
 			DeleteChild(Title);
 		else
-			delete Title;
+			DeleteComponent(Title);
 	}
 	Title = _Title;
 	InsertChild(_Title);
