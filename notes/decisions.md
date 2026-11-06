@@ -11757,8 +11757,9 @@ Each fixed in src/, the same behaviour on Windows (the corpus replays it), no la
   GetAccountCharacters() - 1), TimerEvent's GetMouseX/GetMouseY pairs (MouseHover, SetMouseOverTextPosition,
   MouseWheel) and the nine context menus' (MousePosition); MainFrm.cpp's SetDisplayMode (the two GetSystemMetrics)
   and OnMouseWheel; ContentWindows.cpp's GetOpponentAt(GetMouseX() - x, GetMouseY() - y) and
-  TSkillsWindowBody::getMinimumHeight's max of two calls. The Windows images' calls are in the same order as before
-  (MSVC's); GCC (also right to left here) had replayed them already.
+  TSkillsWindowBody::getMinimumHeight's max of two calls; ContextMenus.cpp's TContextMenuEntry::SetLast (a binary
+  operator's left operand first: GCC with -fwrapv took GetFontHeight first, 3,748 ContextMenus failures). The
+  Windows images' calls are in the same order as before (MSVC's).
 - **The runner's operator delete.** #65 removed dialogwindow_tests.cpp's runner-wide operator delete; Dialogs' test
   redirects operator delete, which on Linux was libstdc++'s, out of a jump's reach: linux/win32.cpp defines it (and
   the sized one) next to operator new, over free.

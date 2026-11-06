@@ -298,8 +298,9 @@ bool TContextMenuEntry::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] in
 // 0x43e660, line 361. The last entry loses the space below the font.
 void TContextMenuEntry::SetLast()
 {
-	SetSize(Width,
-		Height - (GetFontLineHeight(SkinProperties.Data0B0.FontNumber) - GetFontHeight(SkinProperties.Data0B0.FontNumber)));
+	// The original's order: the left operand first (MSVC; GCC and Clang may differ, issue #91).
+	const int LineHeight = GetFontLineHeight(SkinProperties.Data0B0.FontNumber);
+	SetSize(Width, Height - (LineHeight - GetFontHeight(SkinProperties.Data0B0.FontNumber)));
 }
 
 // --- TContextMenu --------------------------------------------------------------
