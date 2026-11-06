@@ -474,7 +474,7 @@ public:
 	TEditLine(TRect Area, int _MaxLength, bool _ReadOnly); // 0x467b50, lines 1878-1900
 	TEditLine(int _MaxLength, bool _ReadOnly);             // 0x45a4c0, lines 1908-1927
 	// Inline (out-of-line copy 0x4527e0, deleting destructor 0x452dd0).
-	~TEditLine() override { delete[] Text; }
+	~TEditLine() override { Text.reset(); }
 	void SetSize(int Width, int Height) override;                 // +0x34, 0x45ac40, line 1974
 	void Draw(int Surface, int x, int y) override;                // +0x44, 0x45a800, line 1963
 	void Arrange() override;                                      // +0x48, 0x45ade0
@@ -508,29 +508,29 @@ public:
 	void SetCursor(int Position)
 	{
 		Cursor = Position;
-		Limit(&Cursor, 0, (int)strlen(Text));
+		Limit(&Cursor, 0, (int)strlen(Text.get()));
 	}
-	void LimitCursor() { Limit(&Cursor, 0, (int)strlen(Text)); }
+	void LimitCursor() { Limit(&Cursor, 0, (int)strlen(Text.get())); }
 	void SetSelection(int Position)
 	{
-		Limit(&Position, 0, (int)strlen(Text));
+		Limit(&Position, 0, (int)strlen(Text.get()));
 		SelectionLength = 0;
 		SelectionStart = Position;
 	}
 
-	char *Text;              // +0x2c
-	int MaxLength;           // +0x30
-	int Cursor;              // +0x34
-	bool SingleLine;         // +0x38, a paste stops at the first line break
-	TFocusGroup *FocusGroup; // +0x3c
-	TFont Font;              // +0x40
-	int FirstVisible;        // +0x54, the first character shown
-	bool Active;             // +0x58, shows the cursor
-	int SelectionStart;      // +0x5c, -1 without a selection
-	int SelectionLength;     // +0x60, negative when selected to the left
-	bool Selecting;          // +0x64, a mouse drag
-	bool Disabled;           // +0x65
-	bool ReadOnly;           // +0x66
+	std::unique_ptr<char[]> Text; // +0x2c (issue #81)
+	int MaxLength;                // +0x30
+	int Cursor;                   // +0x34
+	bool SingleLine;              // +0x38, a paste stops at the first line break
+	TFocusGroup *FocusGroup;      // +0x3c
+	TFont Font;                   // +0x40
+	int FirstVisible;             // +0x54, the first character shown
+	bool Active;                  // +0x58, shows the cursor
+	int SelectionStart;           // +0x5c, -1 without a selection
+	int SelectionLength;          // +0x60, negative when selected to the left
+	bool Selecting;               // +0x64, a mouse drag
+	bool Disabled;                // +0x65
+	bool ReadOnly;                // +0x66
 };
 
 // The character under (x, y): the first visible one left of the text, the
@@ -542,10 +542,10 @@ inline int TEditLine::GetPosition(int x, int y)
 	if (x < 0 || y < 0)
 		return FirstVisible;
 	if (x > Width - 2 * SkinProperties.Data99C || y > Height - 2 * SkinProperties.Data99C)
-		return (int)strlen(Text);
-	const int Position = GetFittingTextLength(Font.FontNumber, Text + FirstVisible, x) + FirstVisible;
-	if (Position > (int)strlen(Text))
-		return (int)strlen(Text);
+		return (int)strlen(Text.get());
+	const int Position = GetFittingTextLength(Font.FontNumber, Text.get() + FirstVisible, x) + FirstVisible;
+	if (Position > (int)strlen(Text.get()))
+		return (int)strlen(Text.get());
 	return Position;
 }
 
@@ -556,13 +556,13 @@ public:
 	TPasswordEditLine &operator=(const TPasswordEditLine &) = delete;
 	TPasswordEditLine(int _MaxLength); // 0x45cb50
 	// Inline (out-of-line copy 0x452980, deleting destructor 0x452df0).
-	~TPasswordEditLine() override { delete[] Stars; }
+	~TPasswordEditLine() override { Stars.reset(); }
 	void Draw(int Surface, int x, int y) override;                                                       // +0x44, 0x45cbb0, line 2420
 	bool MouseMove(int x, int y) override { return TWindow::MouseMove(x, y); }                           // +0x4c, 0x4529c0, no selecting
 	bool RightButtonUp(int x, int y, int Flags) override { return TWindow::RightButtonUp(x, y, Flags); } // +0x5c, 0x4529b0, no menu
 	void HandleEvent(int Event) override;                                                                // +0x70, 0x45cda0, line 2430
 
-	char *Stars; // +0x68
+	std::unique_ptr<char[]> Stars; // +0x68 (issue #81)
 };
 
 // A multi-line edit field with a scroll bar (vtable 0x562040, 0x9c bytes).

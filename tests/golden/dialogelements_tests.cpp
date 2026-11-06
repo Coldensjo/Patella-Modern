@@ -812,7 +812,7 @@ static void DumpButton(std::string &Out, int s, TSkinButton *B)
 static void DumpEdit(std::string &Out, int, TEditLine *E)
 {
 	Add(Out, " text %s max %d cursor %d single %d group %d first %d active %d sel %d,%d selecting %d dis %d ro %d",
-		Str(E->Text).c_str(), E->MaxLength, E->Cursor, E->SingleLine, E->FocusGroup != NULL ? 1 : 0, E->FirstVisible,
+		Str(E->Text.get()).c_str(), E->MaxLength, E->Cursor, E->SingleLine, E->FocusGroup != NULL ? 1 : 0, E->FirstVisible,
 		E->Active, E->SelectionStart, E->SelectionLength, E->Selecting, E->Disabled, E->ReadOnly);
 	DumpFont(Out, E->Font);
 }
@@ -911,7 +911,7 @@ static void Dump(std::string &Out, int s, TComponent *C, int Depth)
 	} else if (K == "EditLine" || K == "Password" || K == "EditText") {
 		DumpEdit(Out, s, (TEditLine *)C);
 		if (K == "Password") {
-			Add(Out, " stars %s", Str(((TPasswordEditLine *)C)->Stars).c_str());
+			Add(Out, " stars %s", Str(((TPasswordEditLine *)C)->Stars.get()).c_str());
 		} else if (K == "EditText") {
 			TEditText *E = (TEditText *)C;
 			Add(Out, " lines %d field %d,%d visible %d starts", E->Lines, E->FieldWidth, E->FieldHeight,
@@ -1160,7 +1160,7 @@ static int Key()
 }
 
 static TEditLine *Edit(int s) { return (TEditLine *)Control[s]; }
-static int EditLength() { return (int)strlen(Edit(OURS)->Text); }
+static int EditLength() { return (int)strlen(Edit(OURS)->Text.get()); }
 
 // The members of each class (the non-virtual ones at their image addresses).
 static void Special(int r1, int r2, int r3)

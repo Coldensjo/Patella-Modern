@@ -55,6 +55,9 @@ static_assert(sizeof(TLink) == 0x3c && offsetof(TLink, Destination) == 0x30, "TL
 static_assert(sizeof(TMultiStateButton) == 0x58 && offsetof(TMultiStateButton, ButtonUps) == 0x4c
 		&& offsetof(TMultiStateButton, ButtonDowns) == 0x50 && offsetof(TMultiStateButton, Callbacks) == 0x54,
 	"TMultiStateButton's layout");
+// The edit line's text and the password line's stars (issue #81).
+static_assert(sizeof(TEditLine) == 0x68 && offsetof(TEditLine, Text) == 0x2c, "TEditLine's layout");
+static_assert(sizeof(TPasswordEditLine) == 0x6c && offsetof(TPasswordEditLine, Stars) == 0x68, "TPasswordEditLine's layout");
 #endif
 
 // Data. DialogElements.obj has no statics and no static initialiser. It keeps
@@ -1166,7 +1169,7 @@ void TCheckBox::SetEnabled(bool _Enabled)
 TEditLine::TEditLine(TRect Area, int _MaxLength, bool _ReadOnly)
 {
 	PATELLA_ASSERT_VALUES(_MaxLength>=0, _MaxLength);
-	Text = new char[_MaxLength + 1];
+	Text.reset(new char[_MaxLength + 1]);
 	Text[0] = 0;
 	ReadOnly = _ReadOnly;
 	Cursor = 0;
@@ -1191,7 +1194,7 @@ TEditLine::TEditLine(TRect Area, int _MaxLength, bool _ReadOnly)
 TEditLine::TEditLine(int _MaxLength, bool _ReadOnly)
 {
 	PATELLA_ASSERT_VALUES(_MaxLength>=0, _MaxLength);
-	Text = new char[_MaxLength + 1];
+	Text.reset(new char[_MaxLength + 1]);
 	Text[0] = 0;
 	ReadOnly = _ReadOnly;
 	Cursor = 0;
@@ -1220,27 +1223,27 @@ void TEditLine::Draw(int Surface, int x, int y)
 		if (Cursor < FirstVisible)
 			FirstVisible = Cursor;
 		while (Cursor > FirstVisible
-				+ GetFittingTextLength(Font.FontNumber, Text + FirstVisible, Width - 2 * SkinProperties.Data99C))
+				+ GetFittingTextLength(Font.FontNumber, Text.get() + FirstVisible, Width - 2 * SkinProperties.Data99C))
 			FirstVisible++;
 		const int TextX = x + SkinProperties.Data99C;
 		const int TextY = y + SkinProperties.Data99C;
-		const int Visible = GetFittingTextLength(Font.FontNumber, Text + FirstVisible, Width - 2 * SkinProperties.Data99C);
+		const int Visible = GetFittingTextLength(Font.FontNumber, Text.get() + FirstVisible, Width - 2 * SkinProperties.Data99C);
 		if (SelectionStart != -1 && SelectionLength != 0) {
 			const int Low = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
 			const int High = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
 			const int Begin = Low < FirstVisible ? FirstVisible : Low;
 			const int End = High < FirstVisible + Visible ? High : FirstVisible + Visible;
-			const int Offset = GetTextPartWidth(Font.FontNumber, Text + FirstVisible, Begin - FirstVisible);
-			const int SelectionWidth = GetTextPartWidth(Font.FontNumber, Text + Begin, End - Begin);
+			const int Offset = GetTextPartWidth(Font.FontNumber, Text.get() + FirstVisible, Begin - FirstVisible);
+			const int SelectionWidth = GetTextPartWidth(Font.FontNumber, Text.get() + Begin, End - Begin);
 			GetSurface()->FillRectangle(Surface,
 				TRect(TextX + Offset, TextY, SelectionWidth,
 					GetFontHeight(Font.FontNumber)),
 				SkinProperties.Style944.Data4C);
 		}
-		PrintFormattedTextPart(Surface, TextX, TextY, Font, Text + FirstVisible, Visible);
+		PrintFormattedTextPart(Surface, TextX, TextY, Font, Text.get() + FirstVisible, Visible);
 		if (Active && GetActionNumber() / 5 % 2 == 0)
 			GetSurface()->DrawVerticalLine(Surface,
-				TextX + GetTextPartWidth(Font.FontNumber, Text + FirstVisible, Cursor - FirstVisible), TextY, GetFontHeight(Font.FontNumber), SkinProperties.Style944.Data18);
+				TextX + GetTextPartWidth(Font.FontNumber, Text.get() + FirstVisible, Cursor - FirstVisible), TextY, GetFontHeight(Font.FontNumber), SkinProperties.Style944.Data18);
 	}
 }
 
@@ -1269,7 +1272,7 @@ bool TEditLine::MouseMove(int x, int y)
 	if (Selecting) {
 		const int Position = GetPosition(x, y);
 		int End = Position;
-		Limit(&End, 0, (int)strlen(Text));
+		Limit(&End, 0, (int)strlen(Text.get()));
 		SelectionLength = End - SelectionStart;
 		SetCursor(Position);
 	}
@@ -1314,11 +1317,11 @@ bool TEditLine::LeftButtonDoubleClick(int x, int y, int Flags)
 				break;
 		}
 		int Length = 0;
-		while (!IsSpace(Text[Start + Length]) && Start + Length < (int)strlen(Text))
+		while (!IsSpace(Text[Start + Length]) && Start + Length < (int)strlen(Text.get()))
 			Length++;
 		SetSelection(Start);
 		int End = Start + Length;
-		Limit(&End, 0, (int)strlen(Text));
+		Limit(&End, 0, (int)strlen(Text.get()));
 		SelectionLength = End - SelectionStart;
 		SetCursor(Start + Length);
 	}
@@ -1354,7 +1357,7 @@ void TEditLine::KeyPress(int Key)
 			SetCursor(Cursor - 1);
 			SelectionLength = 0;
 		}
-		if (Code == 0x10e && Cursor < (int)strlen(Text)) {
+		if (Code == 0x10e && Cursor < (int)strlen(Text.get())) {
 			SetCursor(Cursor + 1);
 			SelectionLength = 0;
 		}
@@ -1363,7 +1366,7 @@ void TEditLine::KeyPress(int Key)
 			SelectionLength = 0;
 		}
 		if (Code == 0x113) {
-			SetCursor((int)strlen(Text));
+			SetCursor((int)strlen(Text.get()));
 			SelectionLength = 0;
 		}
 		if (!ReadOnly) {
@@ -1388,7 +1391,7 @@ void TEditLine::KeyPress(int Key)
 					HandleEvent(19);
 				}
 			}
-			if (Key == 0x111 && Cursor <= (int)strlen(Text)) {
+			if (Key == 0x111 && Cursor <= (int)strlen(Text.get())) {
 				if (SelectionStart == -1 || SelectionLength == 0)
 					DeleteChar(Cursor);
 				else
@@ -1398,7 +1401,7 @@ void TEditLine::KeyPress(int Key)
 			// (0x4682b2-0x4682b8): the original's catch wrapper then prints the code.
 			if ((Key & 0x400) == 0 || (Key & 0x800) != 0) {
 				Key = Code;
-				if (Key > 0x1f && Key < 0x100 && (int)strlen(Text) < MaxLength) {
+				if (Key > 0x1f && Key < 0x100 && (int)strlen(Text.get()) < MaxLength) {
 					if (HasSelection())
 						HandleEvent(19);
 					InsertChar(Cursor, (char)Key);
@@ -1418,7 +1421,7 @@ void TEditLine::HandleEvent(int Event)
 		if (SelectionStart != -1 && SelectionLength != 0) {
 			const int End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
 			const int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
-			CheckClipboardText(patella::TSpan<const char>(Text + Begin, static_cast<std::size_t>(End - Begin)));
+			CheckClipboardText(patella::TSpan<const char>(Text.get() + Begin, static_cast<std::size_t>(End - Begin)));
 		}
 		return;
 	case 17: {
@@ -1426,7 +1429,7 @@ void TEditLine::HandleEvent(int Event)
 			return;
 		int Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
 		int End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
-		CheckClipboardText(patella::TSpan<const char>(Text + Begin, static_cast<std::size_t>(End - Begin)));
+		CheckClipboardText(patella::TSpan<const char>(Text.get() + Begin, static_cast<std::size_t>(End - Begin)));
 		SetCursor(SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart);
 		Begin = SelectionLength < 0 ? SelectionStart + SelectionLength : SelectionStart;
 		End = SelectionLength < 0 ? SelectionStart : SelectionStart + SelectionLength;
@@ -1466,7 +1469,7 @@ void TEditLine::HandleEvent(int Event)
 	case 20:
 		// The cursor goes to max(length, 0) (the binary keeps the test).
 		SelectionStart = 0;
-		SelectionLength = (int)strlen(Text);
+		SelectionLength = (int)strlen(Text.get());
 		SetCursor(SelectionLength < 0 ? 0 : SelectionLength);
 		return;
 	default:
@@ -1495,9 +1498,9 @@ void TEditLine::SetFocusGroup(TFocusGroup *_FocusGroup)
 void TEditLine::SetText(const char *_Text)
 {
 	PATELLA_ASSERT(_Text!=NULL);
-	strncpy(Text, _Text, MaxLength);
+	strncpy(Text.get(), _Text, MaxLength);
 	Text[MaxLength] = 0;
-	SetCursor((int)strlen(Text));
+	SetCursor((int)strlen(Text.get()));
 	FirstVisible = 0;
 	SelectionLength = 0;
 	Arrange();
@@ -1508,12 +1511,12 @@ void TEditLine::SetText(const char *_Text)
 // first the rest after the cursor. Returns the inserted length.
 int TEditLine::InsertText(int Position, const char *String, int insertlength)
 {
-	PATELLA_ASSERT_VALUES(Position <= (int)strlen(Text), Position, strlen(Text));
-	int appendlength = (int)strlen(Text) - Position;
-	if ((int)strlen(Text) + insertlength <= MaxLength) {
+	PATELLA_ASSERT_VALUES(Position <= (int)strlen(Text.get()), Position, strlen(Text.get()));
+	int appendlength = (int)strlen(Text.get()) - Position;
+	if ((int)strlen(Text.get()) + insertlength <= MaxLength) {
 		PATELLA_ASSERT_VALUES(Cursor+insertlength+appendlength<=MaxLength, Cursor+insertlength+appendlength);
-		memmove(Text + Cursor + insertlength, Text + Cursor, appendlength + 1);
-		memcpy(Text + Cursor, String, insertlength);
+		memmove(Text.get() + Cursor + insertlength, Text.get() + Cursor, appendlength + 1);
+		memcpy(Text.get() + Cursor, String, insertlength);
 		LimitCursor();
 		SelectionLength = 0;
 		Arrange();
@@ -1524,8 +1527,8 @@ int TEditLine::InsertText(int Position, const char *String, int insertlength)
 	if (Cursor + insertlength + appendlength > MaxLength)
 		appendlength = MaxLength - Cursor - insertlength;
 	PATELLA_ASSERT_VALUES(Cursor+insertlength+appendlength<=MaxLength, Cursor+insertlength+appendlength);
-	memmove(Text + Cursor + insertlength, Text + Cursor, appendlength);
-	memcpy(Text + Cursor, String, insertlength);
+	memmove(Text.get() + Cursor + insertlength, Text.get() + Cursor, appendlength);
+	memcpy(Text.get() + Cursor, String, insertlength);
 	Text[Cursor + insertlength + appendlength] = 0;
 	LimitCursor();
 	SelectionLength = 0;
@@ -1536,7 +1539,7 @@ int TEditLine::InsertText(int Position, const char *String, int insertlength)
 // 0x45c490, lines 2302-2309
 void TEditLine::InsertChar(int Position, char c)
 {
-	PATELLA_ASSERT_VALUES(Position<=(int)strlen(Text), Position, strlen(Text));
+	PATELLA_ASSERT_VALUES(Position<=(int)strlen(Text.get()), Position, strlen(Text.get()));
 	TFixedString<2> Help;
 	Help.Format("{}", c);
 	Help[1] = 0;
@@ -1547,13 +1550,13 @@ void TEditLine::InsertChar(int Position, char c)
 // 0x45c760, line 2327
 void TEditLine::DeleteText(int start, int length)
 {
-	const int Length = (int)strlen(Text);
+	const int Length = (int)strlen(Text.get());
 	if (start >= Length)
 		start = Length;
 	if (start + length > Length)
 		length = Length - start;
 	if (length != 0) {
-		memmove(Text + start, Text + start + length, Length - start - length + 1);
+		memmove(Text.get() + start, Text.get() + start + length, Length - start - length + 1);
 		LimitCursor();
 		SelectionLength = 0;
 		Arrange();
@@ -1575,7 +1578,7 @@ void TEditLine::Clear()
 // 0x45cb50. No try block.
 TPasswordEditLine::TPasswordEditLine(int _MaxLength) : TEditLine(_MaxLength, false)
 {
-	Stars = new char[_MaxLength + 1];
+	Stars.reset(new char[_MaxLength + 1]);
 	Stars[0] = 0;
 }
 
@@ -1583,16 +1586,14 @@ TPasswordEditLine::TPasswordEditLine(int _MaxLength) : TEditLine(_MaxLength, fal
 void TPasswordEditLine::Draw(int Surface, int x, int y)
 {
 	int i;
-	for (i = 0; i < (int)strlen(Text); i++)
+	for (i = 0; i < (int)strlen(Text.get()); i++)
 		Stars[i] = '*';
-	Stars[strlen(Text)] = 0;
-	char *Help = Text;
-	Text = Stars;
-	Stars = Help;
+	Stars[strlen(Text.get())] = 0;
+	// The original swapped the two pointers through a local (issue #81: the
+	// owners swap their blocks).
+	Text.swap(Stars);
 	TEditLine::Draw(Surface, x, y);
-	Help = Text;
-	Text = Stars;
-	Stars = Help;
+	Text.swap(Stars);
 }
 
 // 0x45cda0, line 2430. Only pasting; the catch blocks name Event with the
@@ -1638,8 +1639,8 @@ void TEditText::Draw(int Surface, int x, int y)
 				const int Begin = Start > Low ? Start : Low;
 				const int Stop = High < End ? High : End;
 				if (Begin < End && Start < Stop) {
-					const int Offset = GetTextPartWidth(Font.FontNumber, Text + Start, Begin - Start);
-					const int SelectionWidth = GetTextPartWidth(Font.FontNumber, Text + Begin, Stop - Begin);
+					const int Offset = GetTextPartWidth(Font.FontNumber, Text.get() + Start, Begin - Start);
+					const int SelectionWidth = GetTextPartWidth(Font.FontNumber, Text.get() + Begin, Stop - Begin);
 					int SelectionHeight = GetFontLineHeight(Font.FontNumber);
 					if (High < End)
 						SelectionHeight = GetFontHeight(Font.FontNumber);
@@ -1650,12 +1651,12 @@ void TEditText::Draw(int Surface, int x, int y)
 				}
 			}
 			const int LineY = i * LineHeight + TextY;
-			PrintFormattedTextPart(Surface, TextX, LineY, Font, Text + Start, End - Start);
+			PrintFormattedTextPart(Surface, TextX, LineY, Font, Text.get() + Start, End - Start);
 			if (Active && !ReadOnly && GetActionNumber() / 5 % 2 == 0) {
 				if ((Cursor >= Start && Cursor <= End - 1)
-					|| (Line == Lines - 1 && Cursor == (int)strlen(Text)))
+					|| (Line == Lines - 1 && Cursor == (int)strlen(Text.get())))
 					GetSurface()->DrawVerticalLine(Surface,
-						TextX + GetTextPartWidth(Font.FontNumber, Text + Start, Cursor - Start), LineY, GetFontHeight(Font.FontNumber), SkinProperties.Style944.Data18);
+						TextX + GetTextPartWidth(Font.FontNumber, Text.get() + Start, Cursor - Start), LineY, GetFontHeight(Font.FontNumber), SkinProperties.Style944.Data18);
 			}
 		}
 	}
@@ -1723,7 +1724,7 @@ void TEditText::KeyPress(int Key)
 		ScrollBar->Range->SetValue(Value);
 		return;
 	}
-	if (Key == 0x0d && (int)strlen(Text) < MaxLength) {
+	if (Key == 0x0d && (int)strlen(Text.get()) < MaxLength) {
 		if (SelectionStart != -1 && SelectionLength != 0)
 			HandleEvent(19);
 		InsertChar(Cursor, '\n');
@@ -1743,22 +1744,22 @@ void TEditText::KeyPress(int Key)
 		case 0x10c:
 			if (Line == 0)
 				break;
-			PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
+			PixelX = GetTextPartWidth(Font.FontNumber, Text.get() + LineStart(Line), Cursor - LineStart(Line));
 			Next = LineStart(Line);
 			Line--;
 			MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
-			Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
+			Fitting = GetFittingTextLength(Font.FontNumber, Text.get() + LineStart(Line), PixelX);
 			Start = LineStart(Line);
 			Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
 			break;
 		case 0x10f:
 			if (Line == Lines - 1)
 				break;
-			PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
+			PixelX = GetTextPartWidth(Font.FontNumber, Text.get() + LineStart(Line), Cursor - LineStart(Line));
 			Next = LineStart(Line + 2);
 			Line++;
 			MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
-			Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
+			Fitting = GetFittingTextLength(Font.FontNumber, Text.get() + LineStart(Line), PixelX);
 			Start = LineStart(Line);
 			Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
 			break;
@@ -1767,7 +1768,7 @@ void TEditText::KeyPress(int Key)
 			break;
 		case 0x113:
 			if (Line == Lines - 1) {
-				Cursor = (int)strlen(Text);
+				Cursor = (int)strlen(Text.get());
 			} else {
 				Next = LineStart(Line + 1);
 				Cursor = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
@@ -1779,11 +1780,11 @@ void TEditText::KeyPress(int Key)
 				Line = 0;
 				Cursor = 0;
 			}
-			PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
+			PixelX = GetTextPartWidth(Font.FontNumber, Text.get() + LineStart(Line), Cursor - LineStart(Line));
 			Next = LineStart(Line);
 			Line--;
 			MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
-			Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
+			Fitting = GetFittingTextLength(Font.FontNumber, Text.get() + LineStart(Line), PixelX);
 			Start = LineStart(Line);
 			Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
 			break;
@@ -1793,11 +1794,11 @@ void TEditText::KeyPress(int Key)
 				Line = Lines - 1;
 				Cursor = LineStart(Line);
 			}
-			PixelX = GetTextPartWidth(Font.FontNumber, Text + LineStart(Line), Cursor - LineStart(Line));
+			PixelX = GetTextPartWidth(Font.FontNumber, Text.get() + LineStart(Line), Cursor - LineStart(Line));
 			Next = LineStart(Line + 2);
 			Line++;
 			MaxPosition = LineStart(Line) <= Next - 1 ? Next - 1 : LineStart(Line);
-			Fitting = GetFittingTextLength(Font.FontNumber, Text + LineStart(Line), PixelX);
+			Fitting = GetFittingTextLength(Font.FontNumber, Text.get() + LineStart(Line), PixelX);
 			Start = LineStart(Line);
 			Cursor = MaxPosition <= Start + Fitting ? MaxPosition : Start + Fitting;
 			break;
@@ -1820,7 +1821,7 @@ void TEditText::SetText(const char *_Text, bool KeepPosition)
 	PATELLA_ASSERT(_Text!=NULL);
 	TEditLine::SetText(_Text);
 	if (!KeepPosition)
-		SetCursor((int)strlen(Text));
+		SetCursor((int)strlen(Text.get()));
 	SelectionLength = 0;
 	Arrange();
 	if (!KeepPosition)
@@ -1851,21 +1852,21 @@ int TEditText::GetPosition(int x, int y)
 		const int Start = LineStart(Line);
 		int Length;
 		if (Line == Lines)
-			Length = (int)strlen(Text) - Start;
+			Length = (int)strlen(Text.get()) - Start;
 		else
 			Length = LineStart(Line + 1) - Start;
-		const int Fitting = GetFittingTextLength(Font.FontNumber, Text + Start, x);
+		const int Fitting = GetFittingTextLength(Font.FontNumber, Text.get() + Start, x);
 		if (Fitting <= Length)
 			Length = Fitting;
 		int Position = Length + Start;
-		if (Position > (int)strlen(Text))
-			Position = (int)strlen(Text);
-		Limit(&Position, 0, (int)strlen(Text));
+		if (Position > (int)strlen(Text.get()))
+			Position = (int)strlen(Text.get());
+		Limit(&Position, 0, (int)strlen(Text.get()));
 		return Position;
 	} else {
 		Line = VisibleLines + ScrollBar->Range->Value;
 		if (Line == Lines)
-			return (int)strlen(Text);
+			return (int)strlen(Text.get());
 	}
 	if (Line > Lines)
 		Line = Lines - 1;
@@ -1880,11 +1881,11 @@ void TEditText::FormatText()
 	PATELLA_ASSERT_VALUES(FieldWidth>0, FieldWidth);
 	int Position = 0;
 	Lines = 0;
-	const int Length = (int)strlen(Text);
+	const int Length = (int)strlen(Text.get());
 	while (Position <= Length) {
 		LineStart(Lines) = Position;
 		Lines++;
-		const int Fitting = GetFittingTextLength(Font.FontNumber, Text + Position, FieldWidth);
+		const int Fitting = GetFittingTextLength(Font.FontNumber, Text.get() + Position, FieldWidth);
 		int Break = -1;
 		int i;
 		bool Wrapped = false;
@@ -2694,7 +2695,7 @@ void TListBox::StopEdit()
 	if (Editing) {
 		RemoveChild(EditLine);
 		Editing = false;
-		SetLine(Selected, EditLine->Text);
+		SetLine(Selected, EditLine->Text.get());
 	}
 }
 
@@ -2819,7 +2820,7 @@ void TFontListBox::StartEdit()
 		EditLine->SetActive(true);
 		EditLine->SetSelection(0);
 		int End = (int)strlen(Edited);
-		Limit(&End, 0, (int)strlen(EditLine->Text));
+		Limit(&End, 0, (int)strlen(EditLine->Text.get()));
 		EditLine->SelectionLength = End - EditLine->SelectionStart;
 		EditScroll = ScrollBar->Range->Value;
 	}
@@ -2829,7 +2830,7 @@ void TFontListBox::StartEdit()
 void TFontListBox::StopEdit()
 {
 	if (Editing) {
-		const char *Text = EditLine->Text;
+		const char *Text = EditLine->Text.get();
 		TFont Font;
 		GetLine(Selected, &Font);
 		SetLine(Selected, Text, Font);

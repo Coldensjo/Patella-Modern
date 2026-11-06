@@ -82,12 +82,12 @@ bool TTimer::IsExpired() const
 	return !(Active && Remaining != 0);
 }
 
-// 0x496040. The deleting destructor 0x496520 inlines it. Not noexcept: VC7.1's
-// destructors let exceptions out, and those of the window classes with their
-// own catch wrappers in the original (TTab, TConsoleWindow, the ContentWindows.cpp
-// windows and bodies) rethrew to the caller, and their calls still can (issue
-// #34; every class derived from TComponent inherits it, as TTalkBuffer's
-// destructor in Talk.cpp).
+// 0x496040, inlined into the deleting destructor 0x496520. Not noexcept: VC7.1's
+// destructors let exceptions out, and the window classes' calls still can (issue
+// #34; every class derived from TComponent inherits it). Kept by issue #81: TTab's
+// destructor asserts on a nameless report and calls the Send functions and
+// DeleteTextBuffer's assertion, and the golden ConsoleWindow test makes it throw
+// on purpose; as noexcept that would end in std::terminate (notes/ownership.md 7).
 TComponent::~TComponent() noexcept(false)
 {
 	if (DrawingList != nullptr)

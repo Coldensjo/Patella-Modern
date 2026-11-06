@@ -292,20 +292,20 @@ public:
 	void ParseInput(char **Text, char **Addressee, int *TalkMode, char *MessageSeparator) const; // 0x41fb60, lines 2258-2304
 	bool SaveChannel() const;                                                                    // 0x420090, lines 2316-2335
 
-	TTabBar *TabBar;                     // +0x2c
-	int Data30;                          // +0x30, not used
-	TConsole *CurrentConsole;            // +0x34
-	TTab *DefaultTab;                    // +0x38
-	TEditLine *Input;                    // +0x3c
-	int SwitchTime;                      // +0x40, new channels become current only from this action number on
-	int HistoryPosition;                 // +0x44
-	TTalkBuffer *History;                // +0x48
-	TMultiStateButton *VolumeButton;     // +0x4c, events 206-208
-	TSkinButton *CloseButton;            // +0x50, event 202
-	TToggleButton *ServerMessagesButton; // +0x54, event 203
-	TSkinButton *IgnoreButton;           // +0x58, event 204
-	TSkinButton *NewChannelButton;       // +0x5c, event 205
-	TSkinButton *MoveRightButton;        // +0x60, the tab bar's event 5
-	TSkinButton *MoveLeftButton;         // +0x64, the tab bar's event 6
-	int TalkMode;                        // +0x68
+	TTabBar *TabBar;                      // +0x2c
+	int Data30;                           // +0x30, not used
+	TConsole *CurrentConsole;             // +0x34
+	TTab *DefaultTab;                     // +0x38
+	TEditLine *Input;                     // +0x3c
+	int SwitchTime;                       // +0x40, new channels become current only from this action number on
+	int HistoryPosition;                  // +0x44
+	std::unique_ptr<TTalkBuffer> History; // +0x48 (issue #81)
+	TMultiStateButton *VolumeButton;      // +0x4c, events 206-208
+	TSkinButton *CloseButton;             // +0x50, event 202
+	TToggleButton *ServerMessagesButton;  // +0x54, event 203
+	TSkinButton *IgnoreButton;            // +0x58, event 204
+	TSkinButton *NewChannelButton;        // +0x5c, event 205
+	TSkinButton *MoveRightButton;         // +0x60, the tab bar's event 5
+	TSkinButton *MoveLeftButton;          // +0x64, the tab bar's event 6
+	int TalkMode;                         // +0x68
 };
