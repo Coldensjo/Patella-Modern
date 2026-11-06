@@ -1,19 +1,34 @@
 r"""Start and stop the local 7.72 test server (issue #18, notes/testserver.md); Python since issue #10.
 
 Usage:
-  python -I tools/testserver.py start [--server-dir DIR] [--timeout 300] [--window]
+  python -I tools/testserver.py start [--server-dir DIR] [--timeout 900] [--stall 180] [--after-online 60]
+                                      [--retries 1] [--window]
   python -I tools/testserver.py stop [--server-dir DIR] [--timeout 60] [--force]
+  python -I tools/testserver.py self-test      (no server: the start's wait on made-up servers, issue #68)
 
 start runs tibia-server.exe (tibia-server elsewhere) from its own folder (--server-dir; default the
 environment variable PATELLA_TESTSERVER, else C:\Tibia\gameserver, issue #2; where config.cfg, tibia.db
 and tibia.pem are found relative to the working directory) in a hidden
 console of its own (--window: minimised), writes its output to build\testserver\server.log (stderr:
 server.err; both overwritten at each start) and its PID to build\testserver\server.pid, and waits
-until it listens on the login port (7171) and the game port (7172). It refuses to start when a
-tibia-server from that folder already runs or anything listens on 7171 or 7172. An inherited "ignore
-Ctrl+C" flag (a shell such as Git Bash passes it on) is cleared before the start, so that stop works.
-Exit code 0 when the server is up, 1 when it is already running, failed to start, exited, or did not
-listen within --timeout seconds.
+until the server is ready: it listens on the login port (7171) and the game port (7172) AND its world is
+loaded, server.log's "Server Online!" (Patella-Modern issue #68: the ports open before the map loads, issue
+#25, and a client that logged in then got no game). When server.log does not show the server's early line
+"Starting Login Server" once both ports listen, its output does not reach the file as it is written and the
+ports alone count (a line says so). It refuses to start when a tibia-server from that folder already runs or
+anything listens on 7171 or 7172. An inherited "ignore Ctrl+C" flag (a shell such as Git Bash passes it on)
+is cleared before the start, so that stop works.
+
+The wait (issue #68) gives up on an attempt when the server exits; when it stalls: no progress (server.log
+grew, a port began to listen, the process used CPU time) for --stall seconds, or "Server Online!" said but not
+both ports listening --after-online seconds later (issue #88's run); or after --timeout seconds in all. A
+busy machine only slows the start down (issue #75's second start took more than the old 300 s), so the
+progress, not the clock, decides. A failed attempt's server, the one this start started (server.pid), is
+stopped (Ctrl+C, killed after 30 s: it never came online, so it has nothing to save), its server.log kept as
+server-attempt<N>.log, and the server started again, --retries times (default 1). A server the tools did not
+start is never touched: when one runs or holds a port before a retry, start gives up.
+Exit code 0 when the server is ready, 1 when it is already running, failed to start, exited, or stalled in
+every attempt.
 
 stop sends Ctrl+C to the server's console (the shutdown it documents: it stops the login server,
 logs all players out and saves, closes the database) and waits for it to exit; on Linux SIGINT. It
@@ -24,11 +39,10 @@ of its own, attaches to the server's and ignores the event itself. With --force,
 not exited after --timeout seconds is killed (no save). Exit code 0 when the server the tools started
 is not running afterwards, 1 otherwise (also when a server the tools did not start is running).
 
-The printed lines start with "testserver start:" / "testserver stop:"; when the server listens,
+The printed lines start with "testserver start:" / "testserver stop:"; when the server is ready,
 start prints "listening on <address>:<port>, ..." (tools/compare_traffic.py looks for 0.0.0.0:7171
-there, the server's start-up race).
+there, the server's start-up race) and then "world loaded" or "world: not shown in server.log".
 """
-
 import argparse
 import ctypes
 import ipaddress
@@ -54,6 +68,15 @@ SERVER_DIR_HELP = ("the server's folder (default %(default)s: PATELLA_TESTSERVER
 EXE_NAME = "tibia-server.exe" if os.name == "nt" else "tibia-server"
 LOGIN_PORT, GAME_PORT = 7171, 7172
 WINDOWS = os.name == "nt"
+# The server's output in server.log: a line it writes before it listens, and the line it writes once the
+# world is loaded and it is online (issue #25; the wait moved here from testmode_check.py in issue #68).
+LOG_EARLY = "Starting Login Server"
+LOG_ONLINE = "Server Online!"
+START_TIMEOUT = 900  # seconds an attempt may take in all
+START_STALL = 180  # seconds without progress (output, a port, CPU time) before an attempt is given up
+AFTER_ONLINE = 60  # seconds from "Server Online!" to both ports listening
+START_RETRIES = 1
+STALLED_STOP = 30  # seconds a stalled server gets for its Ctrl+C before it is killed
 
 
 
@@ -116,6 +139,19 @@ if WINDOWS:
 			if not kernel32.GetProcessTimes(handle, *[ctypes.byref(t) for t in times]):
 				return None
 			return (times[0].dwHighDateTime << 32) | times[0].dwLowDateTime
+		finally:
+			kernel32.CloseHandle(handle)
+
+	def process_cpu(pid):
+		"""The CPU time the process has used (kernel and user, seconds), or None."""
+		handle = open_process(pid)
+		if handle is None:
+			return None
+		try:
+			times = [wt.FILETIME() for _ in range(4)]
+			if not kernel32.GetProcessTimes(handle, *[ctypes.byref(t) for t in times]):
+				return None
+			return sum((t.dwHighDateTime << 32) | t.dwLowDateTime for t in times[2:]) / 1e7
 		finally:
 			kernel32.CloseHandle(handle)
 
@@ -191,6 +227,14 @@ else:
 			with open("/proc/%d/stat" % pid, "r", encoding="ascii", errors="replace") as f:
 				fields = f.read().rpartition(")")[2].split()
 			return int(fields[19])  # starttime, field 22
+		except (OSError, ValueError, IndexError):
+			return None
+
+	def process_cpu(pid):
+		try:
+			with open("/proc/%d/stat" % pid, "r", encoding="ascii", errors="replace") as f:
+				fields = f.read().rpartition(")")[2].split()
+			return (int(fields[11]) + int(fields[12])) / os.sysconf("SC_CLK_TCK")  # utime, stime: fields 14, 15
 		except (OSError, ValueError, IndexError):
 			return None
 
@@ -293,22 +337,64 @@ def say(command, text):
 	print("testserver %s: %s" % (command, text), flush=True)
 
 
-def start(server_dir, timeout, window):
-	exe = os.path.join(server_dir, EXE_NAME)
-	if not os.path.isfile(exe):
-		say("start", "%s not found" % exe)
-		return 1
-	exe = os.path.abspath(exe)
-	running = server_processes(server_exe(server_dir))
-	if running:
-		say("start", "already running (PID %s)" % ", ".join(map(str, running)))
-		return 1
-	for port in (LOGIN_PORT, GAME_PORT):
-		if any(p == port for _, _, p in listeners()):
-			say("start", "port %d is already in use" % port)
-			return 1
-	os.makedirs(STATE_DIR, exist_ok=True)
+def read_log():
+	try:
+		with open(LOG_FILE, "r", encoding="utf-8", errors="replace") as f:
+			return f.read()
+	except OSError:
+		return ""
 
+
+def wait_ready(poll, listening, log_text, cpu, timeout=START_TIMEOUT, stall=START_STALL, after_online=AFTER_ONLINE,
+		clock=time.monotonic, sleep=time.sleep):
+	"""Waits until a starting server is ready (issue #68): both ports listening and its world loaded.
+	poll() is the process's exit code or None, listening() its listening sockets as "address:port",
+	log_text() server.log's text, cpu() its CPU time in seconds (or None). Returns (state, detail):
+	("ready", (listening, "online" or "unknown")), ("exited", code), ("stalled", text) or ("timeout", text)."""
+	started = clock()
+	last_progress = started
+	seen = None
+	online_since = None
+	while True:
+		code = poll()
+		if code is not None:
+			return "exited", code
+		entries = sorted(listening())
+		text = log_text()
+		ports = {int(entry.rpartition(":")[2]) for entry in entries}
+		both = LOGIN_PORT in ports and GAME_PORT in ports
+		online = LOG_ONLINE in text
+		if both and online:
+			return "ready", (entries, "online")
+		if both and LOG_EARLY not in text:
+			return "ready", (entries, "unknown")
+		now = clock()
+		used = cpu()
+		state = (len(text), tuple(entries))
+		if seen is None or state != seen[0] or (used is not None and seen[1] is not None and used > seen[1]):
+			seen = (state, used)
+			last_progress = now
+		elif used is not None and seen[1] is None:
+			seen = (seen[0], used)
+		missing = ", ".join(str(port) for port in (LOGIN_PORT, GAME_PORT) if port not in ports)
+		if online:
+			if online_since is None:
+				online_since = now
+			if now - online_since >= after_online:
+				return "stalled", "server.log says %r, but nothing listens on %s %d s later" % (LOG_ONLINE, missing,
+					after_online)
+		elif now - last_progress >= stall:
+			return "stalled", "no progress for %d s (server.log, the ports, CPU time; %s)" % (stall,
+				"world not loaded" if not missing else "not listening on " + missing)
+		if now - started >= timeout:
+			return "timeout", "not ready after %d s (%s)" % (timeout, "world not loaded" if not missing
+				else "not listening on " + missing)
+		sleep(0.5)
+
+
+def spawn(exe, server_dir, window):
+	"""Starts the server (its output to server.log, its PID to server.pid); returns the Popen."""
+	os.makedirs(STATE_DIR, exist_ok=True)
 	options = {}
 	if WINDOWS:
 		# A process that ignores Ctrl+C passes that on to its children (SetConsoleCtrlHandler(NULL,
@@ -329,24 +415,68 @@ def start(server_dir, timeout, window):
 	started = process_started(process.pid)
 	with open(PID_FILE, "w", encoding="ascii", newline="\n") as f:
 		f.write("%d\n%s\n" % (process.pid, "" if started is None else started))
-	say("start", "started PID %d, log %s" % (process.pid, LOG_FILE))
+	return process
 
-	deadline = time.monotonic() + timeout
-	while time.monotonic() < deadline:
-		code = process.poll()
-		if code is not None:
-			say("start", "the server exited with code %d; see %s and %s" % (code, LOG_FILE, ERR_FILE))
-			remove_pid_file()
+
+def keep_attempt_log(attempt):
+	"""server.log of a failed attempt as server-attempt<N>.log (replacing an older one)."""
+	target = os.path.join(STATE_DIR, "server-attempt%d.log" % attempt)
+	try:
+		os.replace(LOG_FILE, target)
+	except OSError:
+		return LOG_FILE
+	return target
+
+
+def start(server_dir, timeout=START_TIMEOUT, window=False, stall=START_STALL, after_online=AFTER_ONLINE,
+		retries=START_RETRIES):
+	exe = os.path.join(server_dir, EXE_NAME)
+	if not os.path.isfile(exe):
+		say("start", "%s not found" % exe)
+		return 1
+	exe = os.path.abspath(exe)
+	attempts = retries + 1
+	for attempt in range(1, attempts + 1):
+		# before every attempt: a server the tools did not start, or a port someone else holds, is never touched
+		running = server_processes(server_exe(server_dir))
+		if running:
+			say("start", "already running (PID %s)" % ", ".join(map(str, running)))
 			return 1
-		listening = ["%s:%d" % (address, port) for pid, address, port in listeners()
-			if pid == process.pid and port in (LOGIN_PORT, GAME_PORT)]
-		if (any(entry.endswith(":%d" % LOGIN_PORT) for entry in listening)
-				and any(entry.endswith(":%d" % GAME_PORT) for entry in listening)):
-			say("start", "listening on %s" % ", ".join(listening))
+		for port in (LOGIN_PORT, GAME_PORT):
+			if any(p == port for _, _, p in listeners()):
+				say("start", "port %d is already in use" % port)
+				return 1
+		process = spawn(exe, server_dir, window)
+		say("start", "started PID %d, log %s%s" % (process.pid, LOG_FILE,
+			"" if attempts == 1 else " (attempt %d of %d)" % (attempt, attempts)))
+		begun = time.monotonic()
+		state, detail = wait_ready(process.poll,
+			lambda: ["%s:%d" % (address, port) for pid, address, port in listeners()
+				if pid == process.pid and port in (LOGIN_PORT, GAME_PORT)],
+			read_log, lambda: process_cpu(process.pid), timeout, stall, after_online)
+		if state == "ready":
+			entries, world = detail
+			say("start", "listening on %s" % ", ".join(entries))
+			if world == "online":
+				say("start", "world loaded (%r) after %.1f s" % (LOG_ONLINE, time.monotonic() - begun))
+			else:
+				say("start", "world: not shown in server.log (%r missing: the output does not reach the file as it"
+					" is written); the ports alone count" % LOG_EARLY)
 			return 0
-		time.sleep(0.5)
-	say("start", "not listening on %d and %d after %d s (still running, PID %d); see %s"
-		% (LOGIN_PORT, GAME_PORT, timeout, process.pid, LOG_FILE))
+		if state == "exited":
+			say("start", "the server exited with code %d; see %s and %s" % (detail, LOG_FILE, ERR_FILE))
+			remove_pid_file()
+		else:
+			say("start", "the server (PID %d) %s: %s; stopping it (the one this start started)" % (process.pid,
+				"stalled" if state == "stalled" else "timed out", detail))
+			if stop(server_dir, STALLED_STOP, True) != 0:
+				say("start", "could not stop PID %d: giving up" % process.pid)
+				return 1
+		kept = keep_attempt_log(attempt)
+		if attempt < attempts:
+			say("start", "attempt %d of %d failed (its log: %s): starting the server again" % (attempt, attempts, kept))
+	say("start", "the server did not become ready in %d attempt%s (the last log: %s)" % (attempts,
+		"" if attempts == 1 else "s", kept))
 	return 1
 
 
@@ -415,22 +545,102 @@ def stop(server_dir, timeout, force):
 	return 1
 
 
+# --- the self-test (issue #68) -------------------------------------------------------------
+
+SELF_TEST_LOG = (":: Initializing network subsystem... [done]", ":: Starting Login Server on port 7171... [done]",
+	":: Initializing connections & network... [done]", ":: Loading map sectors... [done]",
+	">> Zanera (Tibia 7.72) Server Online!")
+
+
+def self_test(out=print):
+	"""wait_ready on made-up servers that change as a made-up clock goes on (no server, no process). Returns
+	the number of failed expectations."""
+	failures = 0
+	out("testserver start's wait (issue #68)")
+
+	def check(title, ok):
+		nonlocal failures
+		failures += not ok
+		out("  %-62s %s" % (title, "ok" if ok else "FAILED"))
+
+	def run(script, timeout=900, stall=180, after_online=60, exits=None):
+		"""wait_ready on a made-up server: script(t) -> (log lines, ports, cpu seconds) at made-up second t;
+		exits: the second it exits at. Returns (state, detail, seconds waited)."""
+		now = [0.0]
+
+		def at():
+			lines, ports, cpu = script(now[0])
+			return lines, ports, cpu
+
+		state, detail = wait_ready(lambda: 0 if exits is not None and now[0] >= exits else None,
+			lambda: ["127.0.0.1:%d" % port for port in at()[1]],
+			lambda: "".join(line + "\n" for line in SELF_TEST_LOG[:at()[0]]),
+			lambda: at()[2], timeout, stall, after_online, clock=lambda: now[0],
+			sleep=lambda seconds: now.__setitem__(0, now[0] + seconds))
+		return state, detail, now[0]
+
+	both = (LOGIN_PORT, GAME_PORT)
+	state, detail, waited = run(lambda t: (5, both, 1.0))
+	check("listening and online at once: ready", state == "ready" and detail[1] == "online" and waited == 0)
+	# issue #64's run: both ports listen at once, the world loads for 20 s (CPU busy), then online
+	state, detail, waited = run(lambda t: (3 if t < 20 else 5, both, t))
+	check("ports first, the world 20 s later: waited for the world", state == "ready" and detail[1] == "online"
+		and waited == 20)
+	# issue #75: a busy machine, a slow start that keeps using CPU time, 600 s to the world
+	state, detail, waited = run(lambda t: (3 if t < 600 else 5, both, t / 100))
+	check("a slow start with progress (600 s): ready, no stall", state == "ready" and waited == 600)
+	# the log grows but no CPU time is read (None): the output is the progress
+	state, detail, waited = run(lambda t: (min(5, 1 + int(t // 100)), both if t >= 150 else (), None))
+	check("progress by the output alone: ready", state == "ready" and waited == 400)
+	state, detail, waited = run(lambda t: (3, both, 2.0))
+	check("loading without any progress: stalled after --stall", state == "stalled" and waited == 180
+		and "no progress" in detail)
+	# issue #88: "Server Online" said, neither port listening
+	state, detail, waited = run(lambda t: (5, (), t))
+	check("online but not listening: stalled after --after-online", state == "stalled" and waited == 60
+		and "7171, 7172" in detail)
+	state, detail, waited = run(lambda t: (5, (LOGIN_PORT,), t))
+	check("online, only the login port: stalled, names 7172", state == "stalled" and detail.endswith(
+		"nothing listens on 7172 60 s later"))
+	state, detail, waited = run(lambda t: (3, both, t), timeout=900)
+	check("progress that never ends: timeout after --timeout", state == "timeout" and waited == 900)
+	state, detail, waited = run(lambda t: (3, both, t), exits=10)
+	check("the server exits while it loads: exited", state == "exited" and waited == 10)
+	state, detail, waited = run(lambda t: (0, both, t))
+	check("a log not written as it goes: the ports alone", state == "ready" and detail[1] == "unknown")
+	state, detail, waited = run(lambda t: (2 if t < 30 else 5, (LOGIN_PORT,) if t < 30 else both, t))
+	check("the login port first, the game port with the world", state == "ready" and waited == 30)
+	out("testserver self test: %d failures" % failures)
+	return failures
+
+
 def main(argv):
 	if len(argv) == 2 and argv[0] == "_ctrl-c":
 		return send_ctrl_c(int(argv[1]))
 	parser = argparse.ArgumentParser(description="Start and stop the local test server (notes/testserver.md).")
 	commands = parser.add_subparsers(dest="command", required=True)
-	start_parser = commands.add_parser("start", help="start the server and wait until it listens")
+	start_parser = commands.add_parser("start", help="start the server and wait until it listens and its world is"
+		" loaded")
 	start_parser.add_argument("--server-dir", default=SERVER_DIR, help=SERVER_DIR_HELP)
-	start_parser.add_argument("--timeout", type=int, default=300, help="seconds to wait for the ports")
+	start_parser.add_argument("--timeout", type=int, default=START_TIMEOUT, help="seconds an attempt may take in all"
+		" (default %(default)s)")
+	start_parser.add_argument("--stall", type=int, default=START_STALL, help="seconds without progress (server.log,"
+		" the ports, CPU time) before an attempt is given up (default %(default)s)")
+	start_parser.add_argument("--after-online", type=int, default=AFTER_ONLINE, help="seconds from %r to both"
+		" ports listening (default %%(default)s)" % LOG_ONLINE)
+	start_parser.add_argument("--retries", type=int, default=START_RETRIES, help="starts again after a failed"
+		" attempt, its server stopped (default %(default)s)")
 	start_parser.add_argument("--window", action="store_true", help="show the server's console, minimised")
 	stop_parser = commands.add_parser("stop", help="Ctrl+C to the server start started, and wait")
 	stop_parser.add_argument("--server-dir", default=SERVER_DIR, help=SERVER_DIR_HELP)
 	stop_parser.add_argument("--timeout", type=int, default=60, help="seconds to wait for the exit")
 	stop_parser.add_argument("--force", action="store_true", help="kill it after --timeout")
+	commands.add_parser("self-test", help="the start's wait on made-up servers (no server)")
 	args = parser.parse_args(argv)
+	if args.command == "self-test":
+		return 1 if self_test() else 0
 	if args.command == "start":
-		return start(args.server_dir, args.timeout, args.window)
+		return start(args.server_dir, args.timeout, args.window, args.stall, args.after_online, max(0, args.retries))
 	return stop(args.server_dir, args.timeout, args.force)
 
 
