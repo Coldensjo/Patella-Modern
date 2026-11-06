@@ -10743,3 +10743,63 @@ Next/FirstChild pointers). No src/ change.
   build/windows-x64/Release/PatellaTest.exe: exit 0, a-h pass, unchanged (its first attempt stopped before any client
   ran: the test server logged "Server Online" but listened on neither port within 300 s; stopped, the rerun passed). Logs: build\logs\issue-88 of the branch's
   worktree.
+
+## The tools wait for the world; the window's place before the exit (Patella-Modern issue #68)
+
+Settled by Claude Opus 5.5, November 6, 2026. tools/testserver.py, tools/compare_traffic.py, tools/compare_files.py,
+tools/testmode_check.py; notes/testserver.md ("Start"), notes/testmode.md ("The cold start (issue #25)"). Tools and
+docs only, no src/ change.
+
+- **The wait in testserver.py start, for every tool** (high). The issue asks to share testmode_check.py's wait for
+  "Server Online!" (issue #25). compare_traffic.start_server, which compare_files.py, testmode_check.py and
+  reference.py's live recordings all call, runs `testserver.py start`. So the wait now lives in start itself, and
+  `testserver.py start` by hand gives the same guarantee. start returns 0 only when both ports listen (by the
+  server's PID, as before) AND server.log says "Server Online!". The case of #25 stays: when the log does not have
+  "Starting Login Server" once both ports listen, the output does not reach the file as it is written, and the
+  ports alone count, with a line that says so. testmode_check.py's own wait and its `--online-timeout` went (no
+  caller passed it); its retry of an unanswered game login stays: the wait cannot see a game server that loaded
+  but does not answer.
+- **Progress, not a fixed clock, decides a stall** (high). Issue #75's second start took more than the old 300 s on
+  a busy machine. Issue #88's run logged "Server Online" and listened on neither port within 300 s. A fixed
+  timeout cannot tell those two apart; progress can. An attempt is given up when there is no progress (server.log
+  grew, a port began to listen, the process used CPU time: GetProcessTimes, /proc/<pid>/stat on Linux) for
+  `--stall` seconds (180); when "Server Online!" is in the log but both ports do not listen `--after-online`
+  seconds (60) later (#88); when it has taken `--timeout` seconds (900) in all; or when the server exits. CPU
+  time counts as progress because the map's sectors load without a line for many seconds on a busy machine, and
+  a loading server always uses CPU, while a deadlocked one does not. The made-up servers of `testserver.py
+  self-test` (also run by `testmode_check.py --self-test`) cover each case.
+- **Stop the attempt's own server and retry once** (high). A failed attempt's server is the one this start started
+  (server.pid, the same executable and creation time), so stop() handles it as always: Ctrl+C, and since it never
+  came online and has nothing to save, killed after 30 s. Its server.log is kept as
+  build\testserver\server-attempt<N>.log. Then the server starts again, `--retries` times (1). Before every
+  attempt the checks of the first run again: a tibia-server from that folder that runs, or a port someone holds,
+  ends start with exit code 1 and is never touched. Every step prints a `testserver start:` line, which
+  compare_traffic.py copies into the tools' logs.
+- **The window placed before the exit, not a mask** (high). The second run of #64 wrote `WindowedMode =
+  (-4,6,800,600,no)` from Tibia.exe and `(10,10,800,600,no)` from Patella.exe. Both start at Tibia.cfg's (10,10),
+  and the client writes WindowedMode at its exit from GetWindowPlacement's normal rectangle (src/MainFrm.cpp
+  OnDestroy). On this branch the shift came back once, in the first `--only options` run, with a build running
+  beside it. It did not come back in the later runs: three Tibia.exe and one Patella.exe options sessions with the
+  window's place read at every step (always (10,10,810,610), normal), a second `--only options` run, and the
+  gate runs below. So Windows moves the window now and then on its own. It is not a difference between the clients. Of the issue's two options, placing the window
+  keeps the most comparison. A mask of WindowedMode's position would stop checking, in every run, that a client
+  writes the position its window has. Placing the window makes the place an input of the session, like the
+  Tibia.cfg it starts with: compare_files.py's close() checks, just before the WM_CLOSE, whether the window's
+  normal place is Tibia.cfg's (x, y, width, height), not maximised. If not, it puts the window there with
+  SetWindowPlacement (SW_SHOWNOACTIVATE, so no focus moves) and logs where it was. The report lists every window
+  it moved ("window placement before the exit"), so a shift stays visible, and WindowedMode, position, size and
+  maximised flag, is still compared byte for byte. This applies to every compare_files.py scenario that ends with
+  WM_CLOSE (options, walk, the live recording's Tibia.exe run; error ends at its error box). Not done:
+  compare_traffic.py's and the reference recordings' closes (sc.Driver.close). They compare or record Tibia.cfg
+  too, but the issue saw the shift only in the options session, and changing a recording's session is a matter
+  for the reference set. `compare_files.py --self-test` checks the placement on a window of its own: left alone in
+  place, moved back from (-4,6), restored from maximised.
+- **Proof** (high). `python -I tools/testserver.py self-test`, `python -I tools/compare_files.py --self-test`,
+  `python -I tools/compare_files.py --check-route` and `python -I tools/testmode_check.py --self-test`: 0 failures.
+  Two consecutive `python -I tools/compare_files.py --patella build/windows-x64/Release/Patella.exe`, each starting the
+  server itself (stopped after the run): exit 0 both, "no differences", the world loaded 4.0 s and 3.5 s after the
+  start, no window moved (the issue's exit). `python -I tools/compare_traffic.py --patella
+  build/windows-x64/Release/Patella.exe` with its live half: exit 0, no differences. `python -I tools/testmode_check.py
+  --runs 2`: exit 0, a-h pass. `python -I tools/testserver.py start --timeout 1` on the real server: both attempts
+  timed out, each server stopped by Ctrl+C, the logs kept as server-attempt1.log and server-attempt2.log, exit 1, no
+  server left. Logs: build/logs/issue-68 of the branch's worktree.

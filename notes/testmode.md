@@ -61,18 +61,24 @@ game, the next run and a full rerun passed (build\logs\issue-21 of the orchestra
 testmode_check.py now:
 
 - waits, after the start, until build\testserver\server.log says `Server Online!` (the server's line once the
-  world is loaded), at most `--online-timeout` seconds (default 180; the server's exit or the timeout end the
-  check with an error). When the log does not have the server's early line `Starting Login Server` at that
-  point, its output does not reach the file as it is written, and the wait is skipped with a line in the log;
+  world is loaded). Since Patella-Modern issue #68 that wait is tools/testserver.py start's, for every tool that
+  starts the server (compare_traffic.py, compare_files.py, reference.py's live recordings): it waits for the
+  ports and the world, and stops and restarts a server of its own that stalls (notes/testserver.md, "Start");
+  `--online-timeout` went with this tool's own wait. When the log does not have the server's early line
+  `Starting Login Server` once both ports listen, its output does not reach the file as it is written, and the
+  ports alone count, with a line in the log;
 - is run once more (the server started again, the player files restored) when the client sent a game login and
   no game connection got a single server packet; the first attempt's files stay in --out as
   `run<N>-attempt1.jsonl`, `.log`, `.Tibia.cfg` and `run<N>-attempt1\`, the log names it, and only the last
   attempt is compared. A second unanswered attempt is compared as it is (and fails: no game).
 
-`--self-test` checks both without a server or a client: the wait on a made-up server.log that grows with a
-made-up clock (online at once, loading then online, never online, the server gone, a log not written as it
-goes, no log), the unanswered login on recordings shaped like issue #21's two runs, and the retry with a made-up
-run (one attempt, a retry with the first attempt kept, two unanswered attempts).
+`--self-test` checks both without a server or a client: the unanswered login on recordings shaped like issue
+#21's two runs, the retry with a made-up run (one attempt, a retry with the first attempt kept, two unanswered
+attempts), and (since issue #68, `testserver.self_test`, also `python -I tools/testserver.py self-test`) the
+start's wait on made-up servers that change with a made-up clock: online at once, the world 20 s after the
+ports, a slow start that keeps making progress, progress by the output alone, no progress (stalled), issue #88's
+"Server Online" without the ports, the login port alone, the overall timeout, the server's exit, a log not
+written as it goes, the game port with the world.
 
 ## The pieces
 

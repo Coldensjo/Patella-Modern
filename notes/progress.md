@@ -441,6 +441,18 @@ None.
 
 ## Last difftest
 
+Patella-Modern issue #68 (branch issue-68, November 6, 2026): `tools/testserver.py start` now returns only when both
+ports listen and the world is loaded ("Server Online!"). That is the one start of compare_traffic.py,
+compare_files.py, testmode_check.py and reference.py's live recordings. An attempt that stalls (no progress in
+server.log, the ports or CPU time for 180 s; "Server Online!" without the ports 60 s later; 900 s in all) or exits is
+stopped (the start's own server only) and started once more. compare_files.py puts each client's window back at
+Tibia.cfg's place before the exit when Windows moved it, and the report lists it, so WindowedMode stays compared in
+full (notes/decisions.md, "The tools wait for the world; the window's place before the exit"). Tools and docs only, no
+src/ change. Self-tests of testserver.py, compare_files.py and testmode_check.py: 0 failures. Two consecutive
+`python -I tools/compare_files.py --patella build/windows-x64/Release/Patella.exe` from a started server: exit 0, no
+differences, both. `python -I tools/compare_traffic.py --patella build/windows-x64/Release/Patella.exe`: exit 0, no
+differences. `python -I tools/testmode_check.py --runs 2`: exit 0, a-h pass. Logs: build\logs\issue-68.
+
 Patella-Modern issue #88 (branch issue-88, November 6, 2026): tools/client_state.py recognises TWindow::GetFirstChild
 by the PDB's address as well as by the Release code pattern, so it walks a Debug client's window tree (/Od compiles
 the getter through the stack, which the pattern missed; notes/decisions.md, "client_state.py's window test on the

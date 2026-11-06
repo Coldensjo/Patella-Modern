@@ -406,7 +406,9 @@ may be the user's own.
 
 A local 7.72 server (C:\Tibia\gameserver, or the folder in `PATELLA_TESTSERVER`; not in the repository) that
 both clients log into (issue #18):
-`python -I tools/testserver.py start` / `stop` start and stop it (only a server it started is stopped),
+`python -I tools/testserver.py start` / `stop` start and stop it (only a server it started is stopped; since
+Patella-Modern issue #68 start returns when both ports listen and the world is loaded, server.log's "Server
+Online!", and stops and restarts once a server of its own that stalls: notes/testserver.md),
 `tools/patch_client.py`
 points copies of Tibia.exe and Patella.exe at 127.0.0.1 with the server's RSA key (the login port through
 Patella.exe's PDB since issue #57: the stores to `Servers[i].Port`, or in the Debug builds, whose InitServerList keeps
@@ -434,7 +436,11 @@ tools/deliberate.py):
 notes/written-files.md. Its live recording is also Tibia.exe's walk run, the walk is 19 actions from a ladder
 (Patella-Modern issue #16; `--check-route` checks it against the server's map), and the second Tibia.exe run is
 `--repeat`. It takes `--patella <exe>` too and reads the dialogs' controls through client_state.py's
-PDB table; tools/patch_client.py patches x86 and x64 images (Patella-Modern issue #15).
+PDB table; tools/patch_client.py patches x86 and x64 images (Patella-Modern issue #15). Before each WM_CLOSE, the
+exit that writes the last Tibia.cfg, it puts the client's window back where the run's Tibia.cfg put it, (10,10),
+when Windows moved it (Patella-Modern issue #68: Tibia.exe once wrote `WindowedMode = (-4,6,800,600,no)`); the
+report lists every window it moved, and WindowedMode stays compared in full. `--self-test` checks that placement
+on a window of its own.
 
 `python -I tools/compare_rendering.py` (issue #20) compares what both clients draw: issue #19's session
 replayed with each engine (DirectX 5, DirectX 9, OpenGL), windowed and fullscreen, every frame read from the
@@ -453,8 +459,9 @@ moment (the client waits for it), the packet log against the proxy's decrypted r
 statically the dump's keys against client_state.py's; `--self-test` runs those comparisons on made-up data
 without a server or a client: notes/testmode.md. Since issue #25 each run waits after the server's start until
 server.log says "Server Online!" (the server listens before it has loaded the world; on a cold start the world
-was still loading at the game login), and a run whose game logins got no server packet is run once more:
-notes/testmode.md, "The cold start (issue #25)".
+was still loading at the game login; since Patella-Modern issue #68 that wait is testserver.py start's, for every
+tool), and a run whose game logins got no server packet is run once more: notes/testmode.md, "The cold start
+(issue #25)".
 
 `python -I tools/reference.py record` / `compare` (Patella-Modern issue #23; the same as the first word of
 compare_traffic.py, compare_files.py and compare_rendering.py) is the record/compare split of those three
@@ -500,6 +507,13 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
 
 ## Checking
 
+- The live checks' server start (Patella-Modern issue #68): every tool that needs the test server starts it through
+  `testserver.py start`, which returns when both ports listen and the world is loaded. A server of its own that stalls
+  or exits it stops and starts once more (the failed attempt's log kept as build\testserver\server-attempt<N>.log); a
+  server or port someone else holds ends the start, untouched. So a cold or slow start needs no rerun by hand. A
+  start that still fails says why in its `testserver start:` lines: look there first. The tools' own self-tests run
+  without a server or a client: `python -I tools/testserver.py self-test`, `python -I tools/compare_files.py
+  --self-test`, `python -I tools/testmode_check.py --self-test`.
 - Code style (issue #8): `.clang-format` describes the style of src/ (tabs of four columns, function bodies
   on their own line, no column limit; the arguments of PATELLA_ASSERT*, TERROR* and TMYEXCEPTION are whitespace-sensitive,
   so clang-format never touches them), `.clang-format-ignore` leaves src/Extern and tools/ alone,
