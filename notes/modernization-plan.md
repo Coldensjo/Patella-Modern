@@ -622,6 +622,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Objects, Inventory, Player), preferences, and the GUI's logic are in `patella_core` and
   include neither `<windows.h>` nor MFC. The platform interfaces are `IWindow`, `IInput`, `IClock`,
   `IClipboard`, `ISocket`, `IFileSystem` and `TSurface`.
+  Done in #109 (part 1; notes/decisions.md, "#109: the platform interfaces"): `IClock`, `IFileSystem` and `ISocket` in
+  `src/platform` with their Win32 implementations (timeGetTime, time, Sleep; TFile and std::filesystem; CAsyncSocket
+  and WinSock) and the test mode's clock; TClient passes TPreferences the file system and TNetwork the socket. Not yet:
+  `IClipboard`, `IInput`, `IWindow`, `TSurface`, an in-process `ISocket` for the server replay.
 - **Text encoding:** the 7.72 protocol and files use the client's 8-bit code page (Latin-1 / Windows-1252).
   Internally, decide (D4) between keeping 8-bit text (simplest, closest to the original) and UTF-8 with
   conversion at the protocol and file boundaries. The platform layer converts in either case: SDL3 and Linux

@@ -357,8 +357,8 @@ the Microsoft function itself (a macro: forwarders change the images), elsewhere
 implementation; tests_core's core_msvc_test.cpp holds both against the same values. A new use of a Microsoft CRT
 function goes through it (or gets its name there first); the Windows API and the Windows-only test mode's `_wfopen_s`
 stay. notes/decisions.md, "MSVC-only spellings behind portable functions (Patella-Modern issue #43)".
-The client's time has 64 bits (issue #62): every wall clock read is `PATELLA_TIME(nullptr)` (TestHooks.h: `time()`,
-the CRT's `_time64` on Windows), and src/ calls no 32-bit time function. The original's two 4-byte time fields,
+The client's time has 64 bits (issue #62): every wall clock read is the platform clock's `WallSeconds()` (issue #109, src/platform/Clock.h; Win32's is
+`time()`, the CRT's `_time64` on Windows), and src/ calls no 32-bit time function. The original's two 4-byte time fields,
 `TCreature::SkullTime` and `TTalkLine::Time` (frozen until M6), are `Time32` of src/types/Time32.h: written only
 through `StoreTime32` (the low 32 bits, what the original's own `time()` returned: the time itself up to
 2038-01-19 03:14:07 UTC, then the original's wrapped value) and read only through `LoadTime32` (the time nearest

@@ -109,7 +109,7 @@ written as it goes, the game port with the world.
 | src/testmode/PacketLog.h, PacketLog.cpp | the packet log: the line format, the connections (portable; #22) |
 | src/testmode/Png.h, Png.cpp | the frame dump's PNG pictures: CRC-32, Adler-32, stored deflate (portable; #22) |
 | src/testmode/ServerReplay.h, ServerReplay.cpp | the server replay: its file, its schedule, XTEA frames (portable; #23) |
-| src/testmode/TestModeWin32.cpp | the Windows side: TSystemClock, the command line, the driver, the messages, the dumps' files, the replay's sockets (#23) |
+| src/testmode/TestModeWin32.cpp | the Windows side: the test build's Platform() (#109), the command line, the driver, the messages, the dumps' files, the replay's sockets (#23) |
 | src/testmode/ClientStateWin32.cpp, ClientView.h | the state dump's and the probe's reading of the client (test build only; #22, #92) |
 | cmake/TestMode.cmake | patella_testmode, the portable part, on every product preset |
 | cmake/WindowsX64.cmake | PatellaTest.exe (option PATELLA_TEST_BUILD, default ON) next to Patella.exe; PatellaTest_compile, its sources compiled without Tibia.exe (PATELLA_CLIENT_COMPILE_ONLY, the hosted CI; #25; Patella_compile the same for Patella.exe, #46) |
@@ -124,11 +124,12 @@ written as it goes, the game port with the world.
 
 ### The hooks (src/TestHooks.h)
 
+Since issue #109 the clocks are no hooks: timeGetTime, time and the frame timer's Sleep (PATELLA_TIME_GET_TIME,
+PATELLA_TIME, PATELLA_FRAME_SLEEP until then) are the platform's IClock (src/platform/Platform.h), and the test build's
+Platform() (TestModeWin32.cpp) gives the clock below (notes/decisions.md, "#109: the platform interfaces").
+
 | Hook | Replaces | Where |
 | :--- | :--- | :--- |
-| PATELLA_TIME_GET_TIME() | timeGetTime() | sysinc.cpp (StartTime, GetMilliseconds, srand), the three engines' ResetFrameTimer and WaitForNextFrame |
-| PATELLA_TIME(Time) | time(Time) | Talk.cpp (talk lines' stamps), Creatures.cpp (skull times), ContentWindows.cpp, ConsoleWindow.cpp (saved channels); 64 bits (issue #62: PATELLA_TIME32 and _time32 went) |
-| PATELLA_FRAME_SLEEP(ms) | Sleep(ms) | WaitForNextFrame of the three engines |
 | PATELLA_GET_CURSOR_POS(Point) | GetCursorPos(Point) | Player.cpp (InitInstance, OnIdle), MainFrm.cpp (OnSetCursor, OnCaptureChanged) |
 | PATELLA_SET_MAIN_TIMER(...) | ::SetTimer(...) | MainFrm.cpp OnCreate (the 100 ms timer of ActionNumber) |
 | PATELLA_TEST_IDLE | nothing (a statement macro without a semicolon) | the start of CPlayerApp::OnIdle |
@@ -163,8 +164,9 @@ flags, when the handler does nothing anyway. Without a script nothing changes.
 
 ### The clock (src/testmode/Clock.h)
 
-IClock: `Milliseconds()` (timeGetTime), `WallSeconds()` (seconds since 1970, UTC), `FrameWait(ms)`.
-TSystemClock (TestModeWin32.cpp): timeGetTime, _time64 (std::time), Sleep. TVirtualClock: timeGetTime 100000 + the elapsed
+IClock (src/platform/Clock.h since issue #109): `Milliseconds()` (timeGetTime), `WallSeconds()` (seconds since 1970,
+UTC), `FrameWait(ms)`. Without a script the platform's TWin32Clock (platform/Win32Platform.cpp): timeGetTime, _time64
+(std::time), Sleep. TVirtualClock: timeGetTime 100000 + the elapsed
 virtual milliseconds, the wall clock 2026-11-02 12:00:00 UTC (1793620800) + the elapsed whole seconds: the start
 of tools/capture/patcap.c's clock, so srand(timeGetTime()) gets 100000 in every run and the client makes the
 same XTEA keys and RSA padding as in the rendering comparison's runs. The time moves only by AdvanceTo (never

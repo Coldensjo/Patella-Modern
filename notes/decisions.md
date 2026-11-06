@@ -13711,3 +13711,93 @@ Only the notes and the experiment outside the build changed. No preset compiles 
 golden and the live checks are not affected and were not run. The experiment was formatted with Visual Studio's
 clang-format 22.1.3 (`-i`); `--dry-run --Werror` exits 0 afterwards. banned_calls and tidy_ci: exit 0 (logs
 banned_calls.log, tidy_ci.log).
+
+## #109: the platform interfaces (Patella-Modern issue #109, M7, part 1)
+
+Done by Claude Opus 5.5, November 6, 2026 (branch issue-109). Part 1 of the issue, as the brief allowed: IClock,
+IFileSystem and ISocket, with the core code calling them instead of the system for those services. IClipboard,
+IInput, IWindow and TSurface are not done (below, "Unfinished").
+
+### The interfaces and their implementations (high)
+
+The interfaces are portable headers in src/platform (no platform header, on patella_core's header list):
+
+| Interface | Header | Win32 implementation (Patella.exe, golden runner) | Test implementation |
+| :--- | :--- | :--- | :--- |
+| IClock: Milliseconds, WallSeconds, FrameWait | platform/Clock.h | TWin32Clock: timeGetTime, time, Sleep (platform/Win32Platform.cpp) | TVirtualClock (testmode/Clock.h), PatellaTest.exe's with --test-script; without a script the test build uses TWin32Clock |
+| IFileSystem: Open (a TFile by name), Exists | platform/FileSystem.h | TSystemFileSystem: TFile::Open, std::filesystem::exists (portable, header only) | TFolderFileSystem: the names of a folder, every open listed, names made missing (tests_core, core_file_system_test.cpp) |
+| ISocket: Startup, LastError, New, Delete, Create, Connect, Send, Receive, Shutdown, Close, ResolveHostname, CancelResolve, ResolvedAddress; ISocketEvents: OnConnect, OnReceive, OnClose | platform/Socket.h | TWin32Socket: AfxSocketInit, WSAGetLastError, CAsyncSocket, shutdown, WSAAsyncGetHostByName, WSACancelAsyncRequest, inet_ntoa; the connection TSocket is the original's CAsyncSocket class (vtable 0x56d388), moved from Network.cpp | none yet (below) |
+
+- **TPlatform and Platform()** (platform/Platform.h): the three references. Platform() is defined once per executable:
+  Win32Platform.cpp's for Patella.exe and the golden runner (`#if !defined(PATELLA_TEST_MODE)`), TestModeWin32.cpp's
+  for PatellaTest.exe (the test mode's clock as Initialize chose it, the Win32 file system and socket). The Win32
+  objects are constant-initialised (stateless, trivial destructors), so they are there for sysinc.cpp's StartTime
+  initialiser before main and after the static destructors; the interfaces' destructors are protected and not
+  virtual (nothing is deleted through them), as TNetworkSession's.
+- **How the code reaches them** (high). #104's design: the entry point makes the platform objects and passes them
+  to TClient's constructor. During the transition TClient is bridge::Client()'s, made on first use, so the
+  executable's Platform() stands for the entry point: `bridge::Client()` makes `TClient(platform::Platform())`, and
+  TClient passes TPreferences its IFileSystem (Tibia.cfg's Exists in InitPreferences) and TNetwork its ISocket
+  (constructor references). The callers that are not an object's member, or whose object TClient does not make, use
+  `platform::Platform()` as the free functions use the bridge: sysinc.cpp (GetMilliseconds, StartTime, the seed of
+  srand; platform side), the wall clock of Talk.cpp, Creatures.cpp, ConsoleWindow.cpp and ContentWindows.cpp, the
+  frame timer of vulkan/SurfaceVulkan.cpp, Control.cpp's Redraw (its Sleep(10) for an unavailable surface is the
+  clock's FrameWait now), Script.cpp's four opens and ConsoleWindow.cpp's saved channel. When the entry point owns
+  TClient (#111) it makes the platform and the objects take references from TClient.
+- **TNetwork** (high): every WinSock and CAsyncSocket call of Network.cpp is an ISocket call, in the same order with the
+  same arguments (two LastError calls in ConnectSocket, as the two WSAGetLastError; Delete where it deleted;
+  ConnectSocket without a socket calls Connect with a null connection, which TWin32Socket passes to
+  CAsyncSocket::Connect as the original did). TNetwork is the connection's ISocketEvents (final; its OnConnect,
+  OnReceive and OnClose are the overrides), so it has a vptr now; its members keep their order. `Socket` is a
+  `platform::TSocket *`. Network.cpp no longer names WinSock but its error codes (GetErrorMessage's table,
+  WSAEWOULDBLOCK, SOCKET_ERROR), which are the protocol's error numbers here; MainFrm.cpp's WSAGETASYNCERROR is the
+  platform side's.
+- **The test mode** (high): TSystemClock went (TWin32Clock is the same three calls); TimeGetTime, WallTime and
+  FrameSleep went with the hooks PATELLA_TIME_GET_TIME, PATELLA_TIME and PATELLA_FRAME_SLEEP. The only behaviour of
+  the test build that changes: Redraw's wait for an unavailable surface is the virtual clock's FrameWait with a script
+  (a real millisecond instead of 10; the virtual time moved by neither). Patella.exe makes the same calls.
+
+### Why the test build keeps the Win32 file system and socket (high)
+
+- Files: compare_files.py and the reference compare read the files the client writes in its working folder (the
+  options, the automap, the saved channels), and the test build must write them as Patella.exe does. A folder of its
+  own (TFolderFileSystem) would be a test mode switch; none is needed yet.
+- Sockets: the server replay (--test-replay) is a server on the loopback ports in the client's own process, which the
+  client reaches through real sockets, so the client's network code runs as Patella.exe's. An ISocket that replays the
+  recording in the process (no ports) is possible now and would end the port collisions between parallel runs; not
+  done ("Unfinished").
+
+### The hooks that remain (high)
+
+TestHooks.h keeps 14 hooks. The services of the interfaces still to come: PATELLA_GET_CURSOR_POS, PATELLA_SET_MAIN_TIMER,
+PATELLA_TEST_IDLE, PATELLA_TEST_CAPTURE_CHANGED and CPlayerApp::PreTranslateMessage's DropInput (IInput: the scripted
+cursor, the main timer's ticks, the driver's step, the dropped desktop input), PATELLA_MESSAGE_BOX, PATELLA_ENUM_WINDOWS
+and PATELLA_ENUM_DISPLAY_SETTINGS (IWindow: the boxes not shown, the own windows' count, the fixed display modes). They
+live in MainFrm.cpp, Player.cpp and the Vulkan engine, the platform side, and become IInput's and IWindow's test
+implementations with them. The rest are the test mode's observers and failure injections, not a platform's service:
+PATELLA_TEST_RSA_BLOCK, PATELLA_TEST_PACKET_SENT, PATELLA_TEST_PACKET_RECEIVED (the packet log), PATELLA_TEST_FRAME_OBSERVERS
+(the frame dump, TSurface's), PATELLA_TEST_PRESENT_FAILURE and PATELLA_TEST_INIT_FAILURE; they stay hooks (an observer
+interface would be a test-only interface in the product).
+
+### The golden tests' calls (high)
+
+No check changed. network_tests.cpp includes platform/Win32Platform.h for TSocket and fires the events through
+`patella::platform::TSocket`'s vtable (FireEvent); Win32Platform.cpp is compiled in tests/golden/network, with the
+Network test's exception model (/EHs: the error round's WinSock fakes throw through TWin32Socket now) and, on Linux with
+UBSan, its -fno-sanitize=null (the null connection's Connect). The other tests' fakes land as before: the clock's
+timeGetTime, _time64 and Sleep are the same imports (the runner's import slots, Linux's --wrap and slots), the files the
+same TFile calls.
+
+### Player.cpp (high)
+
+Not touched (#108 works there): the interfaces needed nothing of it.
+
+### Unfinished (high)
+
+- IClipboard (sysinc.cpp's clipboard and its buffer), IInput and IWindow (MainFrm.cpp, Player.cpp: the hooks above),
+  and TSurface as the platform's (the Vulkan engine's seam; with TGraphics, #104's step 6).
+- A test implementation of ISocket: the server replay inside the process (above).
+- IFileSystem for the fork's own files: Settings.cpp's Patella.ini (std::fstream) and the log's LogFile (TFile) open
+  themselves; they are patella_core's and portable already.
+- sysinc.cpp's FileExists and RemoveFile (no caller in the client since issues #74 and #75; the golden tests' only)
+  stay the C library's.

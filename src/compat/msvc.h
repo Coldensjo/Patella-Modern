@@ -32,7 +32,7 @@
 #include <cstdio>  // IWYU pragma: keep (on Windows the Msvc* macros' expansions need it)
 #include <cstdlib> // IWYU pragma: keep (on Windows the Msvc* macros' expansions need it)
 #include <cstring> // IWYU pragma: keep (on Windows the Msvc* macros' expansions need it)
-#include <ctime>   // IWYU pragma: keep (PATELLA_TIME's expansion, TestHooks.h, needs it; here since issue #43)
+#include <ctime>   // IWYU pragma: keep (the client's time_t; PATELLA_TIME's expansion until issue #109; here since #43)
 
 
 // --- the compiler's spellings ---

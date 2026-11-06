@@ -630,7 +630,7 @@ using ::GoldenRand;
 #define _stricmp MsvcStricmp
 #define _strdup MsvcStrdup
 #define _putenv_s MsvcPutenv
-// The client's clock is time() (TestHooks.h PATELLA_TIME), 64 bits as the Microsoft CRT's _time64.
+// The client's clock is time() (the platform's TWin32Clock, issue #109), 64 bits as the Microsoft CRT's _time64.
 using __time64_t = std::time_t;
 static_assert(sizeof(__time64_t) == 8, "time_t has 64 bits");
 inline __time64_t _time64(__time64_t *Time) { return std::time(Time); }

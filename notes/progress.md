@@ -517,6 +517,16 @@ adapter), so the GUI cycle is {ContentWindows, ContextMenus, DialogWindow, MainW
 globals: SkinProperties (2,096 uses); Control.cpp's and MainWindow.cpp's functions are not members yet. Golden
 17,316,040, 0 failures. notes/decisions.md, "The fourth move: TGUI".
 
+The platform interfaces, part 1 (Patella-Modern issue #109, branch issue-109, November 6, 2026; M7): IClock,
+IFileSystem and ISocket in src/platform (portable headers; TPlatform and Platform() in Platform.h). Win32's
+(platform/Win32Platform.cpp: timeGetTime, time and Sleep; the portable TSystemFileSystem; CAsyncSocket and WinSock, with
+Network.cpp's TSocket moved there) is Patella.exe's and the golden runner's platform; the test build's is the test
+mode's clock with Win32's files and sockets. TClient takes the platform: TPreferences the file system, TNetwork the
+socket (TNetwork is the connection's ISocketEvents). The clocks' callers, Script.cpp's and ConsoleWindow.cpp's opens go
+through Platform(); the hooks PATELLA_TIME_GET_TIME, PATELLA_TIME and PATELLA_FRAME_SLEEP are gone. TFolderFileSystem,
+the file system's test implementation, is tested in tests_core. Not yet: IClipboard, IInput, IWindow, TSurface.
+Golden 17,316,040, 0 failures. notes/decisions.md, "#109: the platform interfaces".
+
 Reflection evaluated (Patella-Modern issue #114, branch issue-114, November 6, 2026; M7): adopt later. GCC 16.2's
 `-freflection` wrote the state dump's creature and container entries with the same bytes as the product and as a
 member-pointer table that MSVC and Clang could build (tests/reflection/state_dump_reflection.cpp, outside the build;
