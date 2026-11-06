@@ -409,7 +409,8 @@ both clients log into (issue #18):
 points copies of Tibia.exe and Patella.exe at 127.0.0.1 with the server's RSA key (the login port through
 Patella.exe's PDB since issue #57: the stores to `Servers[i].Port`, or in the Debug builds, whose InitServerList keeps
 its loop, the one store through a register in the PDB's InitServerList (Patella-Modern issue #73); a search of the code
-in Tibia.exe; it reads the written file back and checks it; `--self-test`), and
+in Tibia.exe; the RSA modulus's one copy, or in the Debug builds, which do not pool strings, its two copies, each
+referenced by code (Patella-Modern issue #82); it reads the written file back and checks it; `--self-test`), and
 `tools/login_client.py` logs a client in (account 772001, password patella), enters the game and logs
 out, from build\run-orig or build\run-patella. Everything, including the server's configuration and
 backup: notes/testserver.md.
