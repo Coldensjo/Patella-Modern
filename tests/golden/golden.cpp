@@ -447,6 +447,156 @@ void FinishRecording(int Checks, int Failures)
 	printf("golden: %s's corpus recorded (%s)\n", Recorder->Executable.c_str(), Path.string().c_str());
 }
 
+namespace {
+
+// The lines of Text, each split at its tabs (a CR before the LF dropped: CRLF from an editor).
+std::vector<std::vector<std::string>> TabLines(const std::string &Text)
+{
+	std::vector<std::vector<std::string>> Lines;
+	size_t Start = 0;
+	while (Start < Text.size()) {
+		size_t End = Text.find('\n', Start);
+		if (End == std::string::npos)
+			End = Text.size();
+		const size_t Next = End + 1;
+		if (End > Start && Text[End - 1] == '\r')
+			End--;
+		std::vector<std::string> Fields;
+		size_t Field = Start;
+		for (size_t i = Start; i <= End; i++)
+			if (i == End || Text[i] == '\t') {
+				Fields.push_back(Text.substr(Field, i - Field));
+				Field = i + 1;
+			}
+		Lines.push_back(Fields);
+		Start = Next;
+	}
+	return Lines;
+}
+
+bool ReadText(const std::filesystem::path &Path, std::string *Text)
+{
+	FILE *File = fopen(Path.string().c_str(), "rb");
+	if (File == nullptr)
+		return false;
+	char Buffer[4096];
+	size_t Read;
+	while ((Read = fread(Buffer, 1, sizeof(Buffer), File)) != 0)
+		Text->append(Buffer, Read);
+	fclose(File);
+	return true;
+}
+
+// A decimal number of the manifest, or -1.
+long long ManifestNumber(const std::string &Text)
+{
+	if (Text.empty() || Text.find_first_not_of("0123456789") != std::string::npos)
+		return -1;
+	return strtoll(Text.c_str(), nullptr, 10);
+}
+
+} // namespace
+
+void VerifyDataManifest(
+	const std::string &Directory, const char *Kind, TDataManifest *Manifest, std::vector<std::string> *Problems)
+{
+	*Manifest = TDataManifest();
+	const std::filesystem::path Root(Directory);
+	std::string Text;
+	if (!ReadText(Root / DATA_MANIFEST, &Text)) {
+		Problems->push_back(std::string("there is no ") + DATA_MANIFEST);
+		return;
+	}
+	Manifest->Found = true;
+	struct TListed {
+		long long Size;
+		std::string Sha256;
+		bool Seen = false;
+	};
+	std::map<std::string, TListed> Listed;
+	long long ListedBytes = 0;
+	int Number = 0;
+	bool Format = false;
+	for (const std::vector<std::string> &Fields : TabLines(Text)) {
+		Number++;
+		if (!Fields.empty() && !Fields[0].empty() && Fields[0][0] == '#')
+			continue;
+		const std::string &Key = Fields[0];
+		if (Number == 1 && !(Fields.size() == 2 && Key == "format" && Fields[1] == DATA_MANIFEST_FORMAT)) {
+			Problems->push_back(std::string(DATA_MANIFEST) + "'s first line is not \"format\t" + DATA_MANIFEST_FORMAT
+				+ "\": another format, which this runner does not read");
+			return;
+		}
+		if (Fields.size() == 2 && Key == "format")
+			Format = true;
+		else if (Fields.size() == 2 && Key == "kind")
+			Manifest->Kind = Fields[1];
+		else if (Fields.size() == 2 && Key == "commit")
+			Manifest->Commit = Fields[1];
+		else if (Fields.size() == 2 && Key == "clean")
+			Manifest->Clean = Fields[1];
+		else if (Fields.size() == 2 && Key == "date")
+			Manifest->Date = Fields[1];
+		else if (Fields.size() == 2 && Key == "time_zone")
+			Manifest->TimeZone = Fields[1];
+		else if (Fields.size() == 2 && Key == "tibia_sha256")
+			Manifest->TibiaSha256 = Fields[1];
+		else if ((Fields.size() == 3 && (Key == "tool" || Key == "manifest")) || (Fields.size() == 4 && Key == "program")) {
+		} else if (Fields.size() == 3 && Key == "files") {
+			Manifest->Files = ManifestNumber(Fields[1]);
+			Manifest->Bytes = ManifestNumber(Fields[2]);
+		} else if (Fields.size() == 4 && Key == "file" && ManifestNumber(Fields[1]) >= 0) {
+			if (!Listed.emplace(Fields[3], TListed{ManifestNumber(Fields[1]), Fields[2]}).second)
+				Problems->push_back(Fields[3] + " is listed twice");
+			ListedBytes += ManifestNumber(Fields[1]);
+		} else
+			Problems->push_back(std::string(DATA_MANIFEST) + ", line " + std::to_string(Number) + ": not a line of the format");
+	}
+	if (!Format)
+		Problems->push_back(std::string(DATA_MANIFEST) + " has no format line");
+	if (Manifest->Kind != Kind)
+		Problems->push_back(std::string("the manifest is of kind \"") + Manifest->Kind + "\", not \"" + Kind + "\"");
+	if (Manifest->TimeZone.empty())
+		Problems->push_back("the manifest names no time zone");
+	if (Manifest->Commit.empty() || Manifest->Date.empty())
+		Problems->push_back("the manifest has no commit or no date");
+	if (Manifest->TibiaSha256 != TIBIA_SHA256)
+		Problems->push_back("the manifest's Tibia.exe is not " + std::string(TIBIA_SHA256));
+	if (Manifest->Files != (long long)Listed.size() || Manifest->Bytes != ListedBytes)
+		Problems->push_back("the manifest lists " + std::to_string(Listed.size()) + " files of " + std::to_string(ListedBytes)
+			+ " bytes, its files line says " + std::to_string(Manifest->Files) + " of " + std::to_string(Manifest->Bytes));
+	// Every file in the directory: listed, with the listed size and SHA-256.
+	std::error_code Error;
+	std::vector<std::string> Unlisted;
+	for (std::filesystem::recursive_directory_iterator Entry(Root, Error), End; !Error && Entry != End;
+		Entry.increment(Error)) {
+		std::error_code FileError;
+		if (!Entry->is_regular_file(FileError))
+			continue;
+		const std::string Relative = Entry->path().lexically_relative(Root).generic_string();
+		if (Relative == DATA_MANIFEST)
+			continue;
+		auto Found = Listed.find(Relative);
+		if (Found == Listed.end()) {
+			Unlisted.push_back(Relative);
+			continue;
+		}
+		Found->second.Seen = true;
+		const long long Size = (long long)Entry->file_size(FileError);
+		if (Size != Found->second.Size)
+			Problems->push_back(Relative + " has " + std::to_string(Size) + " bytes, the manifest " + std::to_string(Found->second.Size));
+		else if (FileSha256(Entry->path().string().c_str()) != Found->second.Sha256)
+			Problems->push_back(Relative + " has another SHA-256 than the manifest's");
+	}
+	if (Error)
+		Problems->push_back("cannot list " + Directory + ": " + Error.message());
+	for (const auto &[Path, File] : Listed)
+		if (!File.Seen)
+			Problems->push_back(Path + " is missing");
+	for (const std::string &Path : Unlisted)
+		Problems->push_back(Path + " is not in the manifest");
+}
+
 bool ReadManifest(const std::string &Directory, const char *Executable, TManifest *Manifest)
 {
 	std::filesystem::path Path = std::filesystem::path(Directory) / Executable / "manifest.tsv";

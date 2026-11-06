@@ -2,11 +2,19 @@
 // Tibia.exe: the ported tests of tests/golden/*_tests.cpp make the same checks as in the oracle, with
 // the original's results read from the corpus.
 //
-// Usage: golden_runner [--require] [corpus directory]
+// Usage: golden_runner [--require] [--unverified] [corpus directory]
 // The directory defaults to build/golden of the source tree (GOLDEN_DEFAULT_DIR), where the oracle-x86
 // preset's golden_corpus target records it. Without a corpus the runner says so and exits with 77,
 // which CTest reports as skipped (hosted CI has no corpus: it is derived from Tibia.exe and never leaves
 // the machine that recorded it); --require makes that a failure (exit 1).
+//
+// Before it replays, the runner checks the corpus against its MANIFEST.tsv (issue #93; golden::VerifyDataManifest,
+// tools/data_manifest.py): every file with its size and SHA-256, no other file. A missing or mismatched manifest is
+// an error (exit 1); --unverified, or PATELLA_GOLDEN_UNVERIFIED=1 in the environment, replays anyway (local
+// experiments only: a corpus recorded again by hand, a changed file). The manifest's time zone (UTC0: the recorder's
+// TZ) is the process's for the replay (TZ, then _tzset): the corpus's local times (Talk's and Creatures' fixed
+// clocks) are of that zone. A TZ of the environment that names another zone is an error too (with --unverified the
+// environment's zone is kept).
 //
 // Per test executable of the oracle (difftest, sysinctest, communicationtest), the runner replays the
 // ported tests and checks that each makes exactly the checks the oracle made and passes them (a test's
@@ -29,6 +37,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <system_error>
+#include <time.h>
+#include <vector>
 #if defined(_MSC_VER) && defined(_DEBUG)
 #include <crtdbg.h>
 #endif
@@ -190,12 +200,16 @@ int main(int argc, char **argv)
 	});
 #endif
 	bool Require = false;
+	const char *UnverifiedVariable = getenv("PATELLA_GOLDEN_UNVERIFIED");
+	bool Unverified = UnverifiedVariable != nullptr && *UnverifiedVariable != 0 && strcmp(UnverifiedVariable, "0") != 0;
 	std::string Directory = GOLDEN_DEFAULT_DIR;
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--require") == 0)
 			Require = true;
+		else if (strcmp(argv[i], "--unverified") == 0)
+			Unverified = true;
 		else if (argv[i][0] == '-') {
-			printf("usage: golden_runner [--require] [corpus directory]\n");
+			printf("usage: golden_runner [--require] [--unverified] [corpus directory]\n");
 			return 2;
 		} else
 			Directory = argv[i];
@@ -221,11 +235,50 @@ int main(int argc, char **argv)
 		}
 		Count++;
 	}
-	if (Found == 0) {
+	std::error_code ExistsError;
+	if (Found == 0 && !std::filesystem::exists(std::filesystem::path(Directory) / golden::DATA_MANIFEST, ExistsError)) {
 		printf("golden: no corpus in %s: it is recorded from Tibia.exe on the oracle machine (cmake --build --preset "
 			   "oracle-x86 --target golden_corpus) and never leaves it; %s\n",
 			Directory.c_str(), Require ? "failed (--require)" : "skipped");
 		return Require ? 1 : 77;
+	}
+	// The corpus against its manifest (issue #93), and the manifest's time zone.
+	golden::TDataManifest Data;
+	std::vector<std::string> Problems;
+	golden::VerifyDataManifest(Directory, "golden", &Data, &Problems);
+	const char *Zone = getenv("TZ");
+	const bool ZoneSet = Zone != nullptr && *Zone != 0;
+	if (Data.Found && !Data.TimeZone.empty() && ZoneSet && Data.TimeZone != Zone)
+		Problems.push_back("TZ=" + std::string(Zone) + " in the environment, but the corpus's local times are of the zone "
+			+ Data.TimeZone + " (its manifest's): unset TZ, or set it to " + Data.TimeZone);
+	if (Data.Found)
+		printf("golden: the corpus in %s: recorded at %s (tree clean: %s) on %s, %lld files, %lld bytes, time zone %s\n",
+			Directory.c_str(), Data.Commit.c_str(), Data.Clean.c_str(), Data.Date.c_str(), Data.Files, Data.Bytes,
+			Data.TimeZone.c_str());
+	if (!Problems.empty()) {
+		const size_t Shown = Problems.size() < 20 ? Problems.size() : 20;
+		printf("golden: the corpus in %s does not match its manifest (%s, issue #93):\n", Directory.c_str(),
+			golden::DATA_MANIFEST);
+		for (size_t i = 0; i < Shown; i++)
+			printf("golden:   %s\n", Problems[i].c_str());
+		if (Shown < Problems.size())
+			printf("golden:   ... and %zu more\n", Problems.size() - Shown);
+		if (!Unverified) {
+			printf("golden: refused: the corpus is frozen (notes/reconstruction.md, \"The golden corpus\"); install the "
+				   "final one again, or replay this one anyway with --unverified or PATELLA_GOLDEN_UNVERIFIED=1 (local "
+				   "experiments only)\n");
+			return 1;
+		}
+		printf("golden: replayed anyway, unverified (--unverified or PATELLA_GOLDEN_UNVERIFIED)\n");
+	} else
+		printf("golden: every file matches the manifest\n");
+	// The replay's zone: the manifest's (with --unverified an environment's TZ stays).
+	if (Data.Found && !Data.TimeZone.empty() && !(Unverified && ZoneSet)) {
+		if (MsvcPutenv("TZ", Data.TimeZone.c_str()) != 0) {
+			printf("golden: cannot set TZ to %s\n", Data.TimeZone.c_str());
+			return 1;
+		}
+		_tzset();
 	}
 	if (Stale)
 		return 1;

@@ -255,6 +255,23 @@ def host_time_zone():
 	return zone
 
 
+def corpus_time_zone(corpus):
+	"""The TZ for the image (issue #93): the time zone the golden corpus's MANIFEST.tsv names (tools/data_manifest.py;
+	golden_runner sets it itself, and refuses a TZ of the environment that names another), else, for a corpus without
+	a manifest (replayed with PATELLA_GOLDEN_UNVERIFIED, recorded before issue #93 in the machine's zone) or without a
+	corpus, Windows' zone as before (host_time_zone)."""
+	if corpus is not None:
+		try:
+			with open(os.path.join(corpus, "MANIFEST.tsv"), encoding="utf-8") as f:
+				for line in f:
+					key, _, value = line.rstrip("\r\n").partition("\t")
+					if key == "time_zone" and value:
+						return value
+		except OSError:
+			pass
+	return host_time_zone()
+
+
 def docker_command(configure, command):
 	"""`docker run` for `command` in /work of the image, the repository's files copied there (module
 	comment), and the file that names them, which the caller passes on stdin and deletes."""
@@ -282,9 +299,12 @@ def docker_command(configure, command):
 	if corpus is not None:
 		mounts += ["-v", "%s:/golden:ro" % corpus]
 	mounts += ["-e", "PATELLA_GOLDEN_DIR=/golden"]
-	zone = host_time_zone()
+	zone = corpus_time_zone(corpus)
 	if zone:
 		mounts += ["-e", "TZ=%s" % zone]
+	# The runner's override of the manifest check (issue #93), for a local experiment.
+	if os.environ.get("PATELLA_GOLDEN_UNVERIFIED"):
+		mounts += ["-e", "PATELLA_GOLDEN_UNVERIFIED=%s" % os.environ["PATELLA_GOLDEN_UNVERIFIED"]]
 	return ["docker", "run", "--rm", "-i", "-v", "%s:/src:ro" % ROOT,
 		"-v", "%s:/work/build/%s" % (build_dir, configure)] + mounts + [
 		image, "bash", "-c", script, "bash"] + command, listing.name
