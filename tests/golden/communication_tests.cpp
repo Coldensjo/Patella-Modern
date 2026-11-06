@@ -1179,7 +1179,7 @@ void TestCommunication(const char *ExePath)
 	// The runner: on x64 too a single ret (C3; C2 00 00 is ret 0), as nothing of ours is redirected yet.
 	golden::RestoreAllOwn();
 	// Since issue #105 ExitCommunication is TCommunication's member (the free function forwards to it): its code.
-	const uint8 *Ours = (const uint8 *)MemberAddress(&patella::TCommunication::ExitCommunication); // ret or ret 0
+	const uint8 *Ours = (const uint8 *)(void *)&patella::TCommunication::ExitCommunication; // ret or ret 0
 	const int Original = ORIGINAL_VALUE("0x496160", int, *(const uint8 *)(uintptr_t)0x496160);
 	// Linux with the sanitizers' frame pointers (linux-x64-clang, -fno-omit-frame-pointer; issue #91): the empty
 	// function's frame, push rbp; mov rbp, rsp; pop rbp; ret.

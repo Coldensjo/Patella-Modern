@@ -2121,12 +2121,12 @@ void patella::TCommunication::ExitCommunication()
 
 void InitCommunication()
 {
-	patella::bridge::Communication().InitCommunication();
+	patella::TCommunication::InitCommunication();
 }
 
 void ExitCommunication()
 {
-	patella::bridge::Communication().ExitCommunication();
+	patella::TCommunication::ExitCommunication();
 }
 
 void SendLogin(uint32 AccountID, const char *Password)

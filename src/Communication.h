@@ -34,8 +34,10 @@ public:
 	TCommunication &operator=(TCommunication &&) = delete;
 	~TCommunication() = default;
 
-	void InitCommunication();
-	void ExitCommunication(); // empty, folded into 0x496160
+	// Empty, so static: no this (Clang's UBSan would check it, and the golden Communication test reads
+	// ExitCommunication's code as the original's single ret).
+	static void InitCommunication();
+	static void ExitCommunication(); // empty, folded into 0x496160
 	void SendLogin(uint32 AccountID, const char *Password);
 	void SendGameLogin(uint32 AccountID, const char *Name, const char *Password);
 	void SendLogout();
