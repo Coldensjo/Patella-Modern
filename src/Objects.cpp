@@ -7,7 +7,7 @@
 // ReloadObjects (line 1012).
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 //
 // The array<TProperties> constructor (0x4cfa30) and operator() (0x4d1a10)
 // are Container.h code. The gap after this file (0x4d7cd0-0x4d913e) is
@@ -627,9 +627,9 @@ void LoadObjects(const char *FileName)
 
 // 0x4d77f0, line 1000. An exception while loading becomes PROGRAM_ERROR 1
 // (name of the value unknown); InitControl then shuts down. The original
-// catches a TMyException; its LoadObjects' TBEGIN/TEND made every other
+// catches a TMyException; its LoadObjects' catch wrapper made every other
 // exception one (LoadProperties' new[] of a size from Tibia.dat can throw
-// std::bad_array_new_length or std::bad_alloc). That TEND is gone (issue
+// std::bad_array_new_length or std::bad_alloc). That wrapper is gone (issue
 // #78), so the boundary catches everything (LoadObjects throws no
 // PROGRAM_ERROR): the outcome is the original's.
 void InitObjects()

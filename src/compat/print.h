@@ -8,7 +8,7 @@
 // stdout's own mode does the rest (the Microsoft C runtime's text mode writes "\r\n"), and a failed write is
 // ignored. Not std::println: that throws std::system_error where the write fails (C++23 [print.fun]), and a GUI
 // program like the client has no valid stdout unless it is redirected, so every call would throw inside the
-// caller's TBEGIN/TEND and end the client; on Windows it would also write UTF-16 to a console where printf wrote
+// caller and end the client; on Windows it would also write UTF-16 to a console where printf wrote
 // the bytes. The text comes from std::format where the library has it (PATELLA_HAS_FORMAT, the product presets),
 // elsewhere from the stand-in of compat/format.h; FormatLine is the text alone (the unit tests compare the two).
 

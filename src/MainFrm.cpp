@@ -10,7 +10,7 @@
 // The compiler placed SetDefaultWindowPosition (line 375), OnCreate (273)
 // and OnDisplayChange (295) after the key handlers.
 //
-// In the original every handler was wrapped in TBEGIN/TEND; since issue #78
+// In the original every handler was wrapped in a catch wrapper (common.h); since issue #78
 // the functions here have none, and the try blocks and catch lines the
 // comments name are the original's. In ExitProgram, AddFrameSize and KeyUp
 // the binary has the unwind states but no try block: they call only C
@@ -162,19 +162,16 @@ CMainFrame::CMainFrame(bool Gamemaster)
 	MouseCursor = GetMouseCursor();
 }
 
-// 0x4a8760, line 123. The handlers rethrow out of the destructor; modern
-// compilers make destructors noexcept and warn about that. Unlike
-// TComponent's, this one cannot be noexcept(false): CFrameWnd's destructor
-// (MFC) is noexcept and an override may not throw more (C2694). An exception
-// from ExitControl ends the program here, where the original's goes on to
-// the caller of the destructor (issue #34).
-PATELLA_MSVC_WARNING(push)
-PATELLA_MSVC_WARNING(disable : 4297)
+// 0x4a8760, line 123. The original's handlers rethrew out of the destructor.
+// Unlike TComponent's, this one cannot be noexcept(false): CFrameWnd's
+// destructor (MFC) is noexcept and an override may not throw more (C2694). An
+// exception from ExitControl ends the program here, where the original's goes
+// on to the caller of the destructor (issue #34). The warning C4297 that the
+// rethrowing handlers caused went with them (issue #78).
 CMainFrame::~CMainFrame()
 {
 	ExitControl();
 }
-PATELLA_MSVC_WARNING(pop)
 
 // 0x4a88f0. Closes the client without asking (Control.cpp's exit callback).
 void ExitProgram()

@@ -11,7 +11,7 @@
 // objects (GetNext, GetParent, ...) are in GUI.h.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 
 #include "GUI.h"
 #include "Skins.h"
@@ -84,7 +84,7 @@ bool TTimer::IsExpired() const
 
 // 0x496040. The deleting destructor 0x496520 inlines it. Not noexcept: VC7.1's
 // destructors let exceptions out, and those of the window classes with their
-// own TBEGIN/TEND in the original (TTab, TConsoleWindow, the ContentWindows.cpp
+// own catch wrappers in the original (TTab, TConsoleWindow, the ContentWindows.cpp
 // windows and bodies) rethrew to the caller, and their calls still can (issue
 // #34; every class derived from TComponent inherits it, as TTalkBuffer's
 // destructor in Talk.cpp).
@@ -266,7 +266,7 @@ void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin,
 // --- Skin properties ------------------------------------------------------
 
 // 0x498160. Called by InitControl after InitSkins. The exception tables have
-// the states of a TBEGIN/TEND but no try block (the compiler removed it: the
+// the states of a catch wrapper but no try block (the compiler removed it: the
 // body cannot throw); the catch line is unknown. The binary stores the
 // values in another order; they are written here by offset.
 void InitSkinProperties()

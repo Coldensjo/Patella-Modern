@@ -17,7 +17,7 @@
 // binary emits before the first function.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none apart from the
+// catch wrappers, common.h); since issue #78 the functions here have none apart from the
 // loaders' inner handlers, which turn a file error into a PROGRAM_ERROR.
 //
 // Names: see graphics.h and notes/decisions.md ("graphics.cpp").
@@ -396,7 +396,7 @@ void TouchMemoryItem(int Position)
 	MostRecentMemoryItem = Position;
 }
 
-// 0x48ce00. The handlers of the original's TBEGIN/TEND here and in the
+// 0x48ce00. The handlers of the original's catch wrappers here and in the
 // other Find functions were removed by the compiler (nothing in them can
 // throw); the exception states remain.
 int FindMemorySprite(int SpriteNumber)
@@ -1122,7 +1122,7 @@ int GetFontHeight(int FontNumber)
 }
 
 // 0x491880, lines 1352-1353. The highest visible character of the text.
-// The handlers of the original's TBEGIN/TEND here and of the two following
+// The handlers of the original's catch wrappers here and of the two following
 // functions were removed by the compiler; the exception states remain.
 int GetTextHeight(int FontNumber, const char *Text)
 {

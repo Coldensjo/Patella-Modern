@@ -7,7 +7,7 @@
 // order; the compiler placed InsertContainerObject (lines 139-140) last.
 //
 // Most functions assert before doing anything and have no try block; the
-// original's TBEGIN/TEND around the calls to other functions of this file
+// original's catch wrappers (common.h) around the calls to other functions of this file
 // are gone (issue #78).
 
 #include "Inventory.h"

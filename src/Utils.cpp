@@ -2,8 +2,8 @@
 //
 // The functions before line 66 have no assertions; they are assigned to this
 // file because they run straight up to its first assertion and are inlined
-// into its later functions. None of the functions has the TBEGIN/TEND catch
-// blocks.
+// into its later functions. None of the functions has the original's catch
+// wrappers (common.h).
 
 #include "Utils.h"
 #include "common.h"

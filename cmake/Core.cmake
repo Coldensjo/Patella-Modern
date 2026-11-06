@@ -5,7 +5,7 @@
 #
 #	vlong.cpp, TRSA.cpp   big numbers and the login packet's RSA
 #	TXTEA.cpp             the session's XTEA cipher
-#	TMyException.cpp      the exception type of the TASSERT/TERROR/TEND macros (common.h)
+#	TMyException.cpp      the exception type of the TASSERT/TERROR macros (common.h)
 #	Utils.cpp             the Latin-1 string helpers, outfit colours and packet buffers
 #	Skins.cpp             the rectangles of the GUI graphics in Tibia.pic
 #	settings/Settings.cpp Patella.ini, the fork's own settings file (issue #31, plan D12)

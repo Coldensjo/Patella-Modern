@@ -23,7 +23,7 @@
 // numbers in hex, as in Control.cpp.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 
 #include "ConsoleWindow.h"
 #include "Communication.h"
@@ -593,7 +593,7 @@ bool TTextWindow::GetPosition(int x, int y, int *Line, int *Offset, int *Length)
 				x = 0;
 			}
 			// The position in the text is a value of its own (0x41a0d8-0x41a0e5,
-			// in a register): the original's TEND2(x, y) prints x without the indent (issue #34).
+			// in a register): the original's catch wrapper prints x without the indent (issue #34).
 			int TextX;
 			if (x < Format->Indent)
 				TextX = 0;

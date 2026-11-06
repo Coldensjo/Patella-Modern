@@ -1541,7 +1541,7 @@ int *FindOwnStatic(int (*Get)())
 // The runner's (x64) FindStatic for our getters: the first "mov r32, [rip+disp32]" (8b /r with mod 00, r/m
 // 101, a REX prefix without W allowed) in the getter's first bytes whose int has the getter's value and
 // whose change the getter sees, as the oracle's x86 FindStatic. Under AddressSanitizer (the preset
-// windows-x64-asan, issue #70) the getter's prologue poisons its stack frame (TBEGIN's try) first, so the
+// windows-x64-asan, issue #70) the getter's prologue poisons its stack frame first, so the
 // load comes later (1,123 bytes in, in Debug): 2,048 bytes are searched there.
 int *FindOwnStatic(int (*Get)())
 {

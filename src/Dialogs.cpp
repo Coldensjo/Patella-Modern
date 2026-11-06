@@ -13,7 +13,7 @@
 // with Container.h's vector<TIgnoreEntry>) is in Dialogs.h and Container.h.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 
 #include "Dialogs.h"
 #if defined(PATELLA_VULKAN)
@@ -524,7 +524,7 @@ TDialog *CreateHotkeyDialog(void (*OpenURL)(const char *URL))
 // --- TDialog ----------------------------------------------------------------------
 
 // 0x47c970, lines 650-677. The assertions come after the base class and the
-// two callbacks, before the original's TBEGIN. The frame has nine skins (43-51, Arrange);
+// two callbacks, before the original's try block. The frame has nine skins (43-51, Arrange);
 // the caption is copied, the buttons are OK and Cancel until the creator
 // changes them.
 TDialog::TDialog(const char *_Caption, TComponent *_Dialog)
@@ -665,7 +665,7 @@ void TDialog::KeyPress(int Key)
 
 // 0x46d410, line 848. A drag keeps the dialog inside the game window. The new
 // position is a value of its own (ebx, edi; the parameters' stack slots are
-// never written): the original's TEND2 prints the mouse position.
+// never written): the original's catch wrapper prints the mouse position.
 bool TDialog::MouseMove(int x, int y)
 {
 	if (!Dragging)
@@ -1251,7 +1251,7 @@ TEditListDialog::TEditListDialog(int MaxLength, const char *Text, int _Type, uin
 	Arrange();
 }
 
-// 0x471b60. The original's TBEGIN/TEND without a try block; the children keep their
+// 0x471b60. The original's catch wrapper's states without a try block; the children keep their
 // areas (TWindow::Arrange is not called).
 void TEditListDialog::Arrange()
 {

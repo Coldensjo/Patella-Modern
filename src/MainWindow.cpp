@@ -19,7 +19,7 @@
 // them again.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none
+// catch wrappers, common.h); since issue #78 the functions here have none
 // apart from Draw's, which turns an error of the start window into
 // PROGRAM_ERROR 12.
 

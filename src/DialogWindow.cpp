@@ -12,7 +12,7 @@
 // each calls a function defined further down.
 //
 // The try blocks and catch lines the comments name are the original's (its
-// TBEGIN/TEND); since issue #78 the functions here have none.
+// catch wrappers, common.h); since issue #78 the functions here have none.
 //
 // A column lays its children out from the top of Area, each as wide as the
 // column. Rearrange is called after every change with a strategy: when a
