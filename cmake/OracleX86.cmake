@@ -309,6 +309,14 @@ add_test(NAME vlongtest COMMAND "${CMAKE_COMMAND}"
 	"-DOUTPUT=${ORACLE_TMP_DIR}/vlongtest/vlong.txt"
 	-P "${PROJECT_SOURCE_DIR}/cmake/RunVlongTest.cmake")
 oracle_test_environment(vlongtest)
+# Issue #89: no exception frame of the five x86 images may register a handler missing from the image's SafeSEH
+# table (issue #79: MSVC x86 kept TPlayerStates::GetIcon's frame without its handler, and every exception through
+# it ended the process). A CTest test rather than a post-build step: it reads the linked images only, so a
+# finding fails the run like a difftest failure and leaves the images in place for a look. Functions are named
+# from Patella.pdb; the test programs have no PDB, so theirs are RVAs.
+add_test(NAME safeseh COMMAND "${Python3_EXECUTABLE}" -I "${PROJECT_SOURCE_DIR}/tools/safeseh_scan.py"
+	"$<TARGET_FILE:difftest>" "$<TARGET_FILE:sysinctest>" "$<TARGET_FILE:communicationtest>"
+	"$<TARGET_FILE:vlongtest>" "$<TARGET_FILE:Patella>")
 # The full difftest runs for a long time; DIFFTEST_TIMEOUT (default 1800 s) stops a hung child.
 set_tests_properties(difftest communicationtest PROPERTIES TIMEOUT 7200)
 # Issue #84: CTest runs the four in parallel (CMakePresets.json, execution.jobs): each has its own TEMP and TMP

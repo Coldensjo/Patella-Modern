@@ -202,7 +202,7 @@ Studio project and the scripts (issue #10)"). The MSVC presets mark their archit
 architecture, found through vswhere) and runs the workflow, from any shell:
 
 ```
-python -I tools/build.py oracle-x86              # configure, build Release, run the four tests through CTest
+python -I tools/build.py oracle-x86              # configure, build Release, run the five tests through CTest
 python -I tools/build.py windows-x64             # the x64 client and the unit tests, Release
 python -I tools/build.py windows-x64-debug       # the same, Debug
 python -I tools/build.py windows-x64-asan        # windows-x64 under MSVC's AddressSanitizer (-debug: Debug)
@@ -757,7 +757,20 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   to 775.8 s (13 tests), oracle-x86 230.0 s to 263.5 s and again 248.6 s to 230.7 s (difftest alone takes 220 to 263 s:
   the four in parallel save the other three's 12 s, within the noise). notes/decisions.md, "Tests in parallel".
 - `python -I tools/build.py oracle-x86` builds and runs the differential tests through CTest (difftest,
-  sysinctest, communicationtest, vlongtest; the output with the check counts is in the log, verbosity verbose).
+  sysinctest, communicationtest, vlongtest; the output with the check counts is in the log, verbosity verbose), and
+  the SafeSEH gate.
+- The SafeSEH gate (issue #89): CTest's `safeseh` runs `tools/safeseh_scan.py` on the five x86 images oracle-x86
+  links (difftest.exe, sysinctest.exe, communicationtest.exe, vlongtest.exe, Patella.exe). It finds every
+  exception-handler registration in their code (the C++ EH prologue push -1; push __ehhandler$...; mov eax, fs:[0],
+  the inline SEH3 and SEH4 frames, push handler; push fs:[0], the CRT's guard records, mov eax, handler; call
+  __EH_prolog3 and its variants) and fails on any whose handler is not in the image's SafeSEH table
+  (IMAGE_LOAD_CONFIG_DIRECTORY32's SEHandlerTable and SEHandlerCount), and on an image without a table (/SAFESEH:NO).
+  Windows refuses such a handler and ends the process when an exception passes the frame: MSVC x86 kept
+  TPlayerStates::GetIcon's frame without its handler in #79. A finding names the function from Patella.pdb (or a
+  .map), otherwise its RVA (the test programs have no PDB). `-v` lists every registration, the prolog helpers and
+  the fs:[0] loads it does not take as one (walks of the chain); `python -I tools/safeseh_scan.py --self-test` checks
+  it on made-up PE32 images and a made-up PDB. A CTest test, not a post-build step: it only reads the images, and a
+  finding fails the run like a difftest failure (notes/decisions.md, issue #89).
   One test: `python -I tools/build.py --env oracle-x86 ctest --preset oracle-x86 -R <test>`; with
   `DIFFTEST_ONLY=<name>` in the environment difftest runs only those tests. `difftest.cpp` copies Tibia.exe into a
   child process at its base address 0x400000 (no loader, imports or entry point) and calls the

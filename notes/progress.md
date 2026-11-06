@@ -295,6 +295,11 @@ semantic can bypass and which cannot pass a predicate's exception on). 802 sites
 the three macros and nine local bug variants deleted (the CipSoft bug numbers dropped), Utils.cpp's 16 NULL in
 assertions nullptr (tidy baseline 20 to 4). TPlayerStates::GetIcon's unreachable TERROR1 default left out: MSVC x86 had
 kept its exception frame without the handler in the SafeSEH table. notes/decisions.md, "TASSERT* to PATELLA_ASSERT".
+The SafeSEH gate (Patella-Modern issue #89, branch issue-89, November 6, 2026): tools/safeseh_scan.py finds the x86
+exception-handler registrations (C++ EH prologues, SEH3/SEH4 frames, the CRT's guard records, __EH_prolog3 and its
+variants) and fails on a handler missing from the image's SafeSEH table or an image without one; names from the PDB
+or a map, else RVAs; `--self-test` on made-up PE32 images. oracle-x86's CTest test `safeseh` runs it on difftest,
+sysinctest, communicationtest, vlongtest and Patella.exe (CTest 5/5). notes/decisions.md, "The SafeSEH gate".
 TMyException with a source location, TProgramError, std::expected (Patella-Modern issue #80, branch issue-80, November 6,
 2026; M5): 80a: TMyException is a message and a std::source_location (the stand-in in the oracle's C++17); the
 original constructors' formatting is patella::ErrorText and ErrorOrigin, compared with the original's as before;
@@ -450,6 +455,22 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #88 (branch issue-88, November 6, 2026): tools/client_state.py recognises TWindow::GetFirstChild
+by the PDB's address as well as by the Release code pattern, so it walks a Debug client's window tree (/Od compiles
+the getter through the stack, which the pattern missed; notes/decisions.md, "client_state.py's window test on the
+Debug builds"). Tools only, no src/ change. `python -I tools/client_state.py --self-test` and `python -I
+tools/testmode_check.py --self-test`: 0 failures. `python -I tools/testmode_check.py --exe
+build/windows-x64/Debug/PatellaTest.exe --runs 2 --timeout 600`: exit 0, a-h pass (e: 9-50 windows read from outside, as
+dumped); the same with build/windows-x64/Release/PatellaTest.exe: exit 0, a-h pass (the second attempt: in the first the
+test server never listened within 300 s). Logs: build\logs\issue-88.
+
+Patella-Modern issue #89 (branch issue-89, November 6, 2026): the SafeSEH gate. `python -I tools/safeseh_scan.py
+--self-test`: passed. `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest 16,459,337, sysinctest 67,
+communicationtest 856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0 findings. With #79's GetIcon fix
+reverted (not committed): exit 8, CTest 3/5, safeseh names TPlayerStates::GetIcon in Patella.exe and finds the frame
+in difftest.exe and communicationtest.exe, difftest ends in TestContentWindows; restored: 5/5. No src/ change. Logs:
+build\logs\issue-89.
 
 Patella-Modern issue #82 (branch issue-82, November 6, 2026): tools/patch_client.py --rsa patches the Debug clients'
 two copies of the RSA modulus (Debug builds do not pool the two identical literals of src/Communication.cpp; each
