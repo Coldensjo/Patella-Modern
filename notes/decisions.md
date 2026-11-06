@@ -11368,3 +11368,81 @@ ended the client with an access violation instead of the "Tibia Error" box.
   on a changed line (an `atoi` it found was replaced by std::from_chars). banned_calls 0; clang-format clean. `python
   -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: the four sessions match (error
   with #74's deliberate differences). Logs: build\logs\issue-90.
+
+## Reproducible golden recordings, no reliance on evaluation order (Patella-Modern issue #55)
+
+Settled by Claude Opus 5.5, November 6, 2026; M6's first issue, before #93 (the final recording). Found in #30. No src/
+change: every cause was in the tests. tests/golden (core_tests.cpp, talk_tests.cpp, golden_test.h and the files below),
+tools/difftest's three surface tests, cmake/OracleX86.cmake, cmake/CompareGoldenRecordings.cmake.
+
+- **What differed** (high). Two recordings of main (0810767), the same build, into two folders: 40 of 43 files the
+  same; Buffers.bin (81,870 bytes), Talk.bin (also in size: 1,189,206 against 1,189,260 records) and difftest's
+  manifest.tsv (Talk's record count) not. The records were parsed and the first differing ones named (a scratch
+  script, not committed): Buffers' "text bytes" and Talk's "line identity".
+- **Buffers: the stack's leftovers** (high). PutBytes takes 7 bytes of a text that may be shorter; the bytes after
+  its end were never written (`char Texts[40][32]` uninitialised), and #24 recorded the whole buffer ("text bytes")
+  so that the runner used the oracle's. They were whatever the stack held, which differs between runs. Now `Texts` is
+  zeroed and the record is gone (both sides write the same zeros; the comparison is unchanged). Buffers: 80,652
+  checks as before, 281,282 records to 241,956.
+- **Talk: lines by their heap address** (high). OriginalLineId gave an original's line the identity it had before when
+  its address was in a map from address to identity and the contents were the same. Whether a new line got a freed
+  line's address is the heap's choice, and Windows randomises the low-fragmentation heap's, so the "line identity"
+  records (new or known) differed. The runner uses an identity only to find the line's recorded contents. Now the
+  map is keyed by the contents (LineKey: the fields, and each text with whether it is NULL and its length), which is
+  deterministic and also merges lines of the same contents at different addresses. Talk: 1,214,929 checks as before,
+  1,189,206 records to 1,182,231.
+- **Proven** (high). After the two fixes, two more recordings of one build: 43 of 43 files byte for byte the same, the
+  checks unchanged in every test. With the order fix below a fifth recording, identical to those, and two more through
+  the new target (below): 43 of 43. Nothing else in the corpus depends on an address, the time, TEMP or a shared seed:
+  every other file was the same in every pair. Looked at, not changed: the tests' maps from the image's or our objects'
+  addresses to names (ConsoleWindow's and ContentWindows' Roles, commworld.cpp's Names) name objects by role, so what
+  they print does not depend on the address.
+- **The check** (high). `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
+  golden_reproducible` runs cmake/CompareGoldenRecordings.cmake's self-test (equal folders, a changed byte, a missing
+  file, two empty folders), records the corpus twice from the build into build/oracle-x86/golden-reproducible/1 and /2
+  (each test program as golden_corpus runs it, cmake/RunGoldenRecord.cmake), and compares the two file by file: one
+  line per file, then "<n> files compared, <k> different". It fails on any difference or missing file and keeps both
+  folders then; it removes them when they are the same. About 8 minutes and 1.8 GB while it runs. A target, not a
+  CTest test: the oracle-x86 CTest run stays the four comparisons and safeseh (5/5); the check is for a change to the
+  recorder or the ported tests, and for #93 before the final recording. Considered: a CTest test kept out of the
+  default run by a label (each workflow's test preset would need a filter); a Python tool that also names the first
+  differing record (the scratch script did that; CMake alone needs nothing more in this job).
+- **Evaluation order** (high). Found with a clang-tidy 22 query-based custom check (`--experimental-custom-checks`; a
+  scratch config run through tools/tidy.py with CLANG_TIDY pointing at a wrapper), on windows-x64's
+  compile_commands.json for the runner's side and on oracle-x86's (with -m32) for the oracle's side and
+  tools/difftest: an expression whose two operands (a binary operator other than && || , << >> and the assignments)
+  or two arguments (a call, an overloaded operator, a constructor that is not list-initialisation) each call,
+  directly or inside, a function of tests/golden or tools/difftest that reaches Random(), its seed, rand/srand or the
+  recorder (1,356 names, a text closure over those files). 55 findings: 53 expressions, and two false ones
+  (dialogs_tests.cpp's two Sweep calls, whose lambda arguments do not run where they are passed). Each of the 53 is now
+  its calls as temporaries in the order the oracle's MSVC x86 made them: a call's arguments right to left (also
+  std::string's operator+ chains, whose last operand is called first), a binary operator's left operand first;
+  golden_test.h's `Random32()` is `Random() ^ (Random() << 16)` in that order. Proof: the oracle's recording of the new
+  code is byte for byte the one before it (all 43 files, the surface tests' included), and the runner built with the
+  new order replays the old order's corpus with 0 failures. So no count and no record changed. The list:
+  - tests/golden/communication_tests.cpp: PickID's and Pick32's `Random() ^ (Random() << 16)`;
+  - tests/golden/commworld.cpp: the creatures' `(Random() % 3 == 0 ? ... : ...) + Random() % 8`, OpenContainers'
+    XOR;
+  - tests/golden/core_tests.cpp: XTEA's two plain words, Buffers' values (XOR);
+  - tests/golden/gui_tests.cpp: the key's `(0x41 + Random() % 30) | (Random() % 4 << 9)`, TRect Area's four
+    arguments;
+  - tests/golden/mainfrm_tests.cpp: ResolvedIP's snprintf arguments, the two key messages' `(Chance(50) ? 0x100 : 0)
+    | (Random() & ...)`, the error trials' seed (XOR);
+  - tests/golden/objects_tests.cpp: the object's Data and the signature (XOR);
+  - tests/golden/preferences_tests.cpp: the int options' value (XOR); the generated lines FullscreenMode,
+    WindowedMode, ContentWindow, BuddySortmethods, Buddy and the default case's LevelBar/MagLevelBar (operator+
+    chains of CfgNumber, CfgString, CfgYes);
+  - tests/golden/script_tests.cpp: the list `"[" + RandomNumberText() + ...` and the signed number `(Random() % 2 ?
+    "-" : "") + RandomNumberText()`;
+  - tests/golden/status_tests.cpp: three values (XOR);
+  - tools/difftest/surfacedxtest.cpp: RandomRect's and RandomColor's arguments, StretchTo's `3 * (Random() % 3) +
+    (Random() % 2)`, DXMode's four random arguments, the error rounds' Some, Empty and Huge rects;
+  - tools/difftest/surfacedx9test.cpp and surfacegltest.cpp: RandomColor and RandomRect, the Source, D, Rects[i],
+    Empty, Some (and DX9's Huge) rects of Between() calls; GL's two RandomExtensions(Between(), Chance()).
+  Not covered by the query: an order between our side's and the original's calls in one expression that write one
+  fake's log (none found: the tests call each side in a statement of its own). Considered: committing the query as a
+  tool or a CI check (it needs clang-tidy's experimental option and a name list kept by a script; the order is now
+  explicit, and a new test is reviewed against this section); leaving the order implicit and pinning the runner's
+  compiler (#91 brings GCC and Clang, which call arguments left to right).
+- **The corpus** (high). Recorded again (867 MB): every check count as on main; fewer records in Buffers and Talk only.
+  The runner replays it with 0 failures on windows-x64, -debug and -asan.

@@ -879,7 +879,16 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     DialogElements 96 MB, Graphics 91 MB, Container 82 MB, ConsoleWindow 69 MB, GUI 56 MB, Dialogs 52 MB, ContentWindows 48 MB, Talk
     46 MB, Creatures 35 MB, Script 29 MB, Map 17 MB, MainWindow 9 MB, Network 8 MB, DialogWindow 7 MB, ContextMenus
     5 MB, MainFrm 3 MB, Errors 3 MB, and communicationtest's Communication 41 MB and Control 18 MB).
-    Recording changes no check count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. The corpus is derived from Tibia.exe: it stays on
+    Recording changes no check count; it is refused with DIFFTEST_ONLY or DIFFTEST_SKIP. Since issue #55 two
+    recordings of one build are byte for byte the same (Buffers recorded the stack's leftovers, Talk's line
+    identities followed the heap's addresses), and every expression of the ported tests and tools/difftest that
+    called Random() twice without a sequence point makes its calls in the oracle's order, explicitly.
+  - Reproducible: `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86 --target
+    golden_reproducible` records the corpus twice into build\oracle-x86\golden-reproducible\1 and \2 and compares
+    the two file by file (cmake/CompareGoldenRecordings.cmake, after its self-test); it fails on any difference and
+    keeps both then, removes them when they are the same. About 8 minutes; not in the CTest run. Run it after a
+    change to the recorder or a ported test (notes/decisions.md, issue #55's section, also the list of the reordered
+    expressions). The corpus is derived from Tibia.exe: it stays on
     the machine (build/ is ignored by git) and is never committed, pushed or uploaded, not even as a CI artifact.
   - Replay: `build\windows-x64\tests\golden\Release\golden_runner.exe [--require] [<dir>]`, or the CTest test
     `golden` of every windows-x64 build. It prints each replayed test's checks next to the oracle's (with a test's
