@@ -18,10 +18,13 @@
 // client never writes Tibia.cfg. InitPreferences, SavePreferences and
 // ExitPreferences, the names the client calls, read and write Patella.ini
 // (settings/PreferenceKeys.h) and come last.
+//
+// Patella-Modern issue #104: the data and the functions are TPreferences' (Preferences.h), which TClient owns; the
+// free functions at the end, the original's names, call them on bridge::Preferences(). Talk's lists (White, Ignore)
+// are reached through TTalkLists, so this file no longer includes Talk.h.
 
 #include "Preferences.h"
 #include "Script.h"
-#include "Talk.h"
 #include "Utils.h"
 #include "Container.h"
 #include "common.h"
@@ -40,199 +43,143 @@
 #include <system_error>
 #include <vector>
 
-namespace {
-
-// Data, in .data/.bss order.
-int WindowedWidth = 600;                                  // 0x5c2558, "WindowedMode = (x,y,Width,Height,Maximized)"
-int WindowedHeight = 400;                                 // 0x5c255c
-std::array<bool, SKILLS> SkillBars;                       // 0x719e70, "SkillBars = {...}"
-bool MagLevelBar;                                         // 0x719e77
-bool LevelBar;                                            // 0x719e78
-bool ShowNewHints;                                        // 0x719e79
-int NumberOfKnownHints;                                   // 0x719e7c, "KnownHints = {...}"
-int NumberOfBuddyEntries;                                 // 0x719e80, "Buddy = (...)", deleted entries included
-bool SecureMode;                                          // 0x719e84
-int ChaseMode;                                            // 0x719e88
-int AttackMode;                                           // 0x719e8c
-bool AutoChaseOff;                                        // 0x719e90
-bool ClassicControl;                                      // 0x719e91
-int NumberOfOpenChannels;                                 // 0x719e94, "OpenChannel = ..."
-bool PrivateMessages;                                     // 0x719e98
-bool TimeStamps;                                          // 0x719e99
-bool StatusMessages;                                      // 0x719e9a
-bool EventMessages;                                       // 0x719e9b
-bool InfoMessages;                                        // 0x719e9c
-char *MotD;                                               // 0x719ea0, text of the message of the day
-int LastMotD;                                             // 0x719ea4, its number
-int NumberOfOpenDialogs;                                  // 0x719ea8, "OpenDialogs = ..."
-bool BuddyHideOffline;                                    // 0x719eac
-std::array<int, 3> BuddySortmethods;                      // 0x719eb0
-int NumberOfContentWindows;                               // 0x719ebc, "ContentWindow = (...)"
-int AutomapZoom;                                          // 0x719ec0
-int ConsoleHeight;                                        // 0x719ec4
-bool WindowedMaximized;                                   // 0x719ec8
-std::array<bool, HOTKEYS> HotkeyAutoSend;                 // 0x719ecc, saved as a '\n' after the text
-std::array<TFixedString<HOTKEY_LENGTH>, HOTKEYS> Hotkeys; // 0x719ef0, "Hotkey = (Number,Text)"
-int Engine;                                               // 0x71c2f0, -1 = not chosen
-int ConfineFramerate;                                     // 0x71c2f4
-int NoStretching;                                         // 0x71c2f8, 0 or 1, 2 = not set yet
-int CreatureInfo;                                         // 0x71c2fc
-bool TextualEffects;                                      // 0x71c300
-bool LightEffects;                                        // 0x71c301
-bool WindowsMousepointer;                                 // 0x71c302
-TFullscreenMode FullscreenMode;                           // 0x71c304, Width 0 = not set
-int ViewMode;                                             // 0x71c314, "ViewMode" in a MainFrm.cpp catch block
-bool TestServerLogin;                                     // 0x71c318, "TestServer = yes"
-bool PreferencesLoaded;                                   // 0x71c319, set by InitPreferences; SavePreferences writes only then
-int WindowedX;                                            // 0x71c31c
-int WindowedY;                                            // 0x71c320
-vector<TContentWindowSize> ContentWindows(0, 9, 10);      // 0x71c324, initialiser at 0x55a050
-vector<int> OpenDialogs(0, 9, 10, -1);                    // 0x71c348, initialiser at 0x55a070
-vector<int> OpenChannels(0, 9, 10);                       // 0x71c368, initialiser at 0x55a090
-vector<TBuddy> Buddies(0, 9, 10);                         // 0x71c388, initialiser at 0x55a0b0
-vector<int> KnownHints(0, 9, 10);                         // 0x71c430, initialiser at 0x55a0d0
-
-} // namespace
 
 // Patella.ini's keys have the same numbers of hotkeys and skills (issue #45).
 static_assert(HOTKEYS == patella::settings::PreferenceHotkeys && SKILLS == patella::settings::PreferenceSkills
 		&& HOTKEY_LENGTH - 1 == patella::settings::PreferenceHotkeyLength,
 	"Preferences.h and settings/PreferenceKeys.h");
 
-// The arrays std::arrays (issue #60).
-static_assert(sizeof(SkillBars) == SKILLS && sizeof(BuddySortmethods) == 3 * sizeof(int) && sizeof(HotkeyAutoSend) == HOTKEYS
-		&& sizeof(Hotkeys) == HOTKEYS * HOTKEY_LENGTH,
-	"Preferences.cpp's arrays");
+namespace patella {
 
 // 0x4db2a0
-bool GetTestServerLogin()
+bool TPreferences::GetTestServerLogin() const
 {
 	return TestServerLogin;
 }
 
 // 0x4db2b0
-void SetTestServerLogin(bool Value)
+void TPreferences::SetTestServerLogin(bool Value)
 {
 	TestServerLogin = Value;
 }
 
 // 0x4db2c0
-void SetViewMode(int ViewMode)
+void TPreferences::SetViewMode(int Value)
 {
-	::ViewMode = ViewMode;
+	ViewMode = Value;
 }
 
 // 0x4db2d0
-void SetFullscreenMode(const TFullscreenMode *Mode)
+void TPreferences::SetFullscreenMode(const TFullscreenMode *Mode)
 {
 	FullscreenMode = *Mode;
 }
 
 // 0x4db300
-void SetWindowsMousepointer(bool Value)
+void TPreferences::SetWindowsMousepointer(bool Value)
 {
 	WindowsMousepointer = Value;
 }
 
 // 0x4db310
-void SetLightEffects(bool Value)
+void TPreferences::SetLightEffects(bool Value)
 {
 	LightEffects = Value;
 }
 
 // 0x4db320
-void SetTextualEffects(bool Value)
+void TPreferences::SetTextualEffects(bool Value)
 {
 	TextualEffects = Value;
 }
 
 // 0x4db330
-void SetCreatureInfo(int Value)
+void TPreferences::SetCreatureInfo(int Value)
 {
 	CreatureInfo = Value;
 }
 
 // 0x4db340
-void SetNoStretching(bool Value)
+void TPreferences::SetNoStretching(bool Value)
 {
 	NoStretching = Value ? 1 : 0;
 }
 
 // 0x4db360. Only takes effect while the option has never been set.
-void SetDefaultNoStretching(bool Value)
+void TPreferences::SetDefaultNoStretching(bool Value)
 {
 	if (NoStretching == 2)
 		NoStretching = Value ? 1 : 0;
 }
 
 // 0x4db380
-void SetConfineFramerate(int Value)
+void TPreferences::SetConfineFramerate(int Value)
 {
 	ConfineFramerate = Value;
 }
 
 // 0x4db390
-void SetEngine(int Value)
+void TPreferences::SetEngine(int Value)
 {
 	Engine = Value;
 }
 
 // 0x4db3a0
-int GetViewMode()
+int TPreferences::GetViewMode() const
 {
 	return ViewMode;
 }
 
 // 0x4db3b0
-TFullscreenMode *GetFullscreenMode()
+TFullscreenMode *TPreferences::GetFullscreenMode()
 {
 	return &FullscreenMode;
 }
 
 // 0x4db3c0
-bool GetWindowsMousepointer()
+bool TPreferences::GetWindowsMousepointer() const
 {
 	return WindowsMousepointer;
 }
 
 // 0x4db3d0
-bool GetLightEffects()
+bool TPreferences::GetLightEffects() const
 {
 	return LightEffects;
 }
 
 // 0x4db3e0
-bool GetTextualEffects()
+bool TPreferences::GetTextualEffects() const
 {
 	return TextualEffects;
 }
 
 // 0x4db3f0
-int GetCreatureInfo()
+int TPreferences::GetCreatureInfo() const
 {
 	return CreatureInfo;
 }
 
 // 0x4db400. "Not set yet" (2) reads as false.
-bool GetNoStretching()
+bool TPreferences::GetNoStretching() const
 {
 	return NoStretching == 1;
 }
 
 // 0x4db410
-int GetConfineFramerate()
+int TPreferences::GetConfineFramerate() const
 {
 	return ConfineFramerate;
 }
 
 // 0x4db420
-int GetEngine()
+int TPreferences::GetEngine() const
 {
 	return Engine;
 }
 
 // 0x4db430
-void SetWindowedMode(int x, int y, int Width, int Height, bool Maximized)
+void TPreferences::SetWindowedMode(int x, int y, int Width, int Height, bool Maximized)
 {
 	WindowedX = x;
 	WindowedY = y;
@@ -242,7 +189,7 @@ void SetWindowedMode(int x, int y, int Width, int Height, bool Maximized)
 }
 
 // 0x4db470
-void GetWindowedMode(int *x, int *y, int *Width, int *Height, bool *Maximized)
+void TPreferences::GetWindowedMode(int *x, int *y, int *Width, int *Height, bool *Maximized) const
 {
 	*x = WindowedX;
 	*y = WindowedY;
@@ -252,31 +199,31 @@ void GetWindowedMode(int *x, int *y, int *Width, int *Height, bool *Maximized)
 }
 
 // 0x4db4b0
-void SetConsoleHeight(int Value)
+void TPreferences::SetConsoleHeight(int Value)
 {
 	ConsoleHeight = Value;
 }
 
 // 0x4db4c0
-int GetConsoleHeight()
+int TPreferences::GetConsoleHeight() const
 {
 	return ConsoleHeight;
 }
 
 // 0x4db4d0
-void SetAutomapZoom(int Value)
+void TPreferences::SetAutomapZoom(int Value)
 {
 	AutomapZoom = Value;
 }
 
 // 0x4db4e0
-int GetAutomapZoom()
+int TPreferences::GetAutomapZoom() const
 {
 	return AutomapZoom;
 }
 
 // 0x4db4f0
-void SetBuddySortmethods(const int *Methods)
+void TPreferences::SetBuddySortmethods(const int *Methods)
 {
 	BuddySortmethods[0] = Methods[0];
 	BuddySortmethods[1] = Methods[1];
@@ -284,7 +231,7 @@ void SetBuddySortmethods(const int *Methods)
 }
 
 // 0x4db510
-void GetBuddySortmethods(int *Methods)
+void TPreferences::GetBuddySortmethods(int *Methods) const
 {
 	Methods[0] = BuddySortmethods[0];
 	Methods[1] = BuddySortmethods[1];
@@ -292,25 +239,25 @@ void GetBuddySortmethods(int *Methods)
 }
 
 // 0x4db530
-void SetBuddyHideOffline(bool Value)
+void TPreferences::SetBuddyHideOffline(bool Value)
 {
 	BuddyHideOffline = Value;
 }
 
 // 0x4db540
-bool GetBuddyHideOffline()
+bool TPreferences::GetBuddyHideOffline() const
 {
 	return BuddyHideOffline;
 }
 
 // 0x4db550
-void ClearOpenDialogs()
+void TPreferences::ClearOpenDialogs()
 {
 	NumberOfOpenDialogs = 0;
 }
 
 // 0x4db560
-const char *GetMotD()
+const char *TPreferences::GetMotD() const
 {
 	if (MotD == nullptr)
 		return "No current information.";
@@ -318,170 +265,170 @@ const char *GetMotD()
 }
 
 // 0x4db570
-void SetInfoMessages(bool Value)
+void TPreferences::SetInfoMessages(bool Value)
 {
 	InfoMessages = Value;
 }
 
 // 0x4db580
-void SetEventMessages(bool Value)
+void TPreferences::SetEventMessages(bool Value)
 {
 	EventMessages = Value;
 }
 
 // 0x4db590
-void SetStatusMessages(bool Value)
+void TPreferences::SetStatusMessages(bool Value)
 {
 	StatusMessages = Value;
 }
 
 // 0x4db5a0
-void SetTimeStamps(bool Value)
+void TPreferences::SetTimeStamps(bool Value)
 {
 	TimeStamps = Value;
 }
 
 // 0x4db5b0
-void SetPrivateMessages(bool Value)
+void TPreferences::SetPrivateMessages(bool Value)
 {
 	PrivateMessages = Value;
 }
 
 // 0x4db5c0
-bool GetInfoMessages()
+bool TPreferences::GetInfoMessages() const
 {
 	return InfoMessages;
 }
 
 // 0x4db5d0
-bool GetEventMessages()
+bool TPreferences::GetEventMessages() const
 {
 	return EventMessages;
 }
 
 // 0x4db5e0
-bool GetStatusMessages()
+bool TPreferences::GetStatusMessages() const
 {
 	return StatusMessages;
 }
 
 // 0x4db5f0
-bool GetTimeStamps()
+bool TPreferences::GetTimeStamps() const
 {
 	return TimeStamps;
 }
 
 // 0x4db600
-bool GetPrivateMessages()
+bool TPreferences::GetPrivateMessages() const
 {
 	return PrivateMessages;
 }
 
 // 0x4db610
-void ClearOpenChannels()
+void TPreferences::ClearOpenChannels()
 {
 	NumberOfOpenChannels = 0;
 }
 
 // 0x4db620
-void SetClassicControl(bool Value)
+void TPreferences::SetClassicControl(bool Value)
 {
 	ClassicControl = Value;
 }
 
 // 0x4db630
-void SetAutoChaseOff(bool Value)
+void TPreferences::SetAutoChaseOff(bool Value)
 {
 	AutoChaseOff = Value;
 }
 
 // 0x4db640
-bool GetClassicControl()
+bool TPreferences::GetClassicControl() const
 {
 	return ClassicControl;
 }
 
 // 0x4db650
-bool GetAutoChaseOff()
+bool TPreferences::GetAutoChaseOff() const
 {
 	return AutoChaseOff;
 }
 
 // 0x4db660
-void SetAttackMode(int Value)
+void TPreferences::SetAttackMode(int Value)
 {
 	AttackMode = Value;
 }
 
 // 0x4db670
-void SetChaseMode(int Value)
+void TPreferences::SetChaseMode(int Value)
 {
 	ChaseMode = Value;
 }
 
 // 0x4db680. A byte, although it is saved as a number like AttackMode.
-void SetSecureMode(bool Value)
+void TPreferences::SetSecureMode(bool Value)
 {
 	SecureMode = Value;
 }
 
 // 0x4db690
-int GetAttackMode()
+int TPreferences::GetAttackMode() const
 {
 	return AttackMode;
 }
 
 // 0x4db6a0
-int GetChaseMode()
+int TPreferences::GetChaseMode() const
 {
 	return ChaseMode;
 }
 
 // 0x4db6b0
-bool GetSecureMode()
+bool TPreferences::GetSecureMode() const
 {
 	return SecureMode;
 }
 
 // 0x4db6c0
-void SetShowNewHints(bool Value)
+void TPreferences::SetShowNewHints(bool Value)
 {
 	ShowNewHints = Value;
 }
 
 // 0x4db6d0
-bool GetShowNewHints()
+bool TPreferences::GetShowNewHints() const
 {
 	return ShowNewHints;
 }
 
 // 0x4db6e0
-bool GetLevelBar()
+bool TPreferences::GetLevelBar() const
 {
 	return LevelBar;
 }
 
 // 0x4db6f0
-bool GetMagLevelBar()
+bool TPreferences::GetMagLevelBar() const
 {
 	return MagLevelBar;
 }
 
 // 0x4db700
-void SetLevelBar(bool Value)
+void TPreferences::SetLevelBar(bool Value)
 {
 	LevelBar = Value;
 }
 
 // 0x4db710
-void SetMagLevelBar(bool Value)
+void TPreferences::SetMagLevelBar(bool Value)
 {
 	MagLevelBar = Value;
 }
 
 // 0x4db720. Not reset: the windowed position and size, and the hotkey texts
 // past their first byte. MotD is cleared without being freed.
-void SetDefaultPreferences()
+void TPreferences::SetDefaultPreferences(TTalkLists &Lists)
 {
 	memset(HotkeyAutoSend.data(), 0, sizeof(HotkeyAutoSend));
 	ViewMode = 1;
@@ -525,14 +472,14 @@ void SetDefaultPreferences()
 	for (int i = 0; i < SKILLS; i++)
 		SkillBars[i] = true;
 	TestServerLogin = false;
-	ClearIgnoreList();
+	Lists.ClearIgnoreList();
 }
 
 // 0x4db880: vector<TContentWindowSize>::operator() (Container.h).
 // 0x4dba60: vector<TBuddy>::operator() (Container.h).
 
 // 0x4dbcd0. Updates the entry for ID or appends one.
-void SetContentWindowSize(int ID, int Size)
+void TPreferences::SetContentWindowSize(int ID, int Size)
 {
 	for (int i = 0; i < NumberOfContentWindows; i++) {
 		if (ContentWindows(i).ID == ID) {
@@ -546,7 +493,7 @@ void SetContentWindowSize(int ID, int Size)
 }
 
 // 0x4dbd50. 0 for an unknown ID.
-int GetContentWindowSize(int ID)
+int TPreferences::GetContentWindowSize(int ID)
 {
 	for (int i = 0; i < NumberOfContentWindows; i++) {
 		if (ContentWindows(i).ID == ID)
@@ -557,7 +504,7 @@ int GetContentWindowSize(int ID)
 
 // 0x4dbd90. Returns a new array in *List (left unchanged when there are
 // none) and the number of entries.
-int GetOpenDialogs(int **List)
+int TPreferences::GetOpenDialogs(int **List)
 {
 	if (NumberOfOpenDialogs == 0)
 		return 0;
@@ -568,7 +515,7 @@ int GetOpenDialogs(int **List)
 }
 
 // 0x4dbde0. Like GetOpenDialogs.
-int GetOpenChannels(int **List)
+int TPreferences::GetOpenChannels(int **List)
 {
 	if (NumberOfOpenChannels == 0)
 		return 0;
@@ -579,14 +526,14 @@ int GetOpenChannels(int **List)
 }
 
 // 0x4dbe30. Does not check for duplicates.
-void AddKnownHint(int Hint)
+void TPreferences::AddKnownHint(int Hint)
 {
 	KnownHints(NumberOfKnownHints) = Hint;
 	NumberOfKnownHints++;
 }
 
 // 0x4dbe50
-bool IsKnownHint(int Hint)
+bool TPreferences::IsKnownHint(int Hint)
 {
 	for (int i = 0; i < NumberOfKnownHints; i++) {
 		if (KnownHints(i) == Hint)
@@ -599,7 +546,7 @@ bool IsKnownHint(int Hint)
 // 0x4dc170: vector<TBuddy>::vector(min, max, block) (Container.h).
 
 // 0x4dc450, lines 223-225
-void SetHotkey(int Number, const char *Text, bool AutoSend)
+void TPreferences::SetHotkey(int Number, const char *Text, bool AutoSend)
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,HOTKEYS-1), Number);
 	PATELLA_ASSERT(Text!=NULL);
@@ -609,7 +556,7 @@ void SetHotkey(int Number, const char *Text, bool AutoSend)
 }
 
 // 0x4dc7e0, line 235
-const char *GetHotkey(int Number, bool *AutoSend)
+const char *TPreferences::GetHotkey(int Number, bool *AutoSend) const
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,HOTKEYS-1), Number);
 	*AutoSend = HotkeyAutoSend[Number];
@@ -617,7 +564,7 @@ const char *GetHotkey(int Number, bool *AutoSend)
 }
 
 // 0x4dc950, line 393
-void AddOpenDialog(int Identifier)
+void TPreferences::AddOpenDialog(int Identifier)
 {
 	PATELLA_ASSERT_VALUES(Identifier>=0, Identifier);
 	OpenDialogs(NumberOfOpenDialogs) = Identifier;
@@ -626,7 +573,7 @@ void AddOpenDialog(int Identifier)
 
 // 0x4dcac0, line 425. Text is "<number>\n<message>"; without a line break
 // nothing changes. Returns true when the number differs from the last one.
-bool SetMotD(const char *Text)
+bool TPreferences::SetMotD(const char *Text)
 {
 	PATELLA_ASSERT(Text != NULL);
 	const char *Break = strchr(Text, '\n');
@@ -644,7 +591,7 @@ bool SetMotD(const char *Text)
 }
 
 // 0x4dccb0, line 551
-void AddOpenChannel(int Identifier)
+void TPreferences::AddOpenChannel(int Identifier)
 {
 	PATELLA_ASSERT_VALUES(Identifier>=0, Identifier);
 	OpenChannels(NumberOfOpenChannels) = Identifier;
@@ -652,7 +599,7 @@ void AddOpenChannel(int Identifier)
 }
 
 // 0x4dce20, line 680. Index of the buddy entry, -1 if there is none.
-int FindBuddy(int CharacterID)
+int TPreferences::FindBuddy(int CharacterID)
 {
 	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	for (int i = 0; i < NumberOfBuddyEntries; i++) {
@@ -663,7 +610,7 @@ int FindBuddy(int CharacterID)
 }
 
 // 0x4dcfb0, lines 691-693. Deleted entries are not reused.
-void SetBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
+void TPreferences::SetBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 {
 	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	PATELLA_ASSERT(Description!=NULL);
@@ -679,7 +626,7 @@ void SetBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 }
 
 // 0x4dd360, line 711. Only marks the entry as free.
-void DeleteBuddy(int CharacterID)
+void TPreferences::DeleteBuddy(int CharacterID)
 {
 	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	const int Number = FindBuddy(CharacterID);
@@ -688,7 +635,7 @@ void DeleteBuddy(int CharacterID)
 }
 
 // 0x4dd4c0, line 722
-int GetBuddyIcon(int CharacterID)
+int TPreferences::GetBuddyIcon(int CharacterID)
 {
 	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	const int Number = FindBuddy(CharacterID);
@@ -698,7 +645,7 @@ int GetBuddyIcon(int CharacterID)
 }
 
 // 0x4dd640, line 733. NULL for an unknown character.
-const char *GetBuddyDescription(int CharacterID)
+const char *TPreferences::GetBuddyDescription(int CharacterID)
 {
 	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	const int Number = FindBuddy(CharacterID);
@@ -708,7 +655,7 @@ const char *GetBuddyDescription(int CharacterID)
 }
 
 // 0x4dd7c0, line 744
-bool GetBuddyNotify(int CharacterID)
+bool TPreferences::GetBuddyNotify(int CharacterID)
 {
 	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	const int Number = FindBuddy(CharacterID);
@@ -718,14 +665,14 @@ bool GetBuddyNotify(int CharacterID)
 }
 
 // 0x4dd940, line 825
-bool GetSkillBar(int SkillNumber)
+bool TPreferences::GetSkillBar(int SkillNumber) const
 {
 	PATELLA_ASSERT_VALUES(In(SkillNumber,0,SKILLS-1), SkillNumber);
 	return SkillBars[SkillNumber];
 }
 
 // 0x4ddaa0, line 850
-void SetSkillBar(int SkillNumber, bool Value)
+void TPreferences::SetSkillBar(int SkillNumber, bool Value)
 {
 	PATELLA_ASSERT_VALUES(In(SkillNumber,0,SKILLS-1), SkillNumber);
 	SkillBars[SkillNumber] = Value;
@@ -737,9 +684,9 @@ void SetSkillBar(int SkillNumber, bool Value)
 // Any error (also a missing file) resets everything to the defaults. In
 // both cases the options count as loaded, so SavePreferences writes them.
 // ServerAddress, ServerPort and LoginMessages are read and dropped.
-void ReadTibiaCfg()
+void TPreferences::ReadTibiaCfg(TTalkLists &Lists)
 {
-	SetDefaultPreferences();
+	SetDefaultPreferences(Lists);
 	try {
 		TReadScriptFile Script;
 		Script.open("Tibia.cfg");
@@ -914,7 +861,7 @@ void ReadTibiaCfg()
 					if (Script.Token == TOKEN::SPECIAL && Script.getSpecial() == '}')
 						break;
 					if (Script.Token != TOKEN::SPECIAL || Script.getSpecial() != ',')
-						AddBuddyIgnore(Script.getString(), true);
+						Lists.AddBuddyIgnore(Script.getString(), true);
 				}
 			}
 			if (strcmp(Identifier, "ignore") == 0) {
@@ -924,7 +871,7 @@ void ReadTibiaCfg()
 					if (Script.Token == TOKEN::SPECIAL && Script.getSpecial() == '}')
 						break;
 					if (Script.Token != TOKEN::SPECIAL || Script.getSpecial() != ',')
-						IgnoreName(Script.getString(), true);
+						Lists.IgnoreName(Script.getString(), true);
 				}
 			}
 			if (strcmp(Identifier, "knownhints") == 0) {
@@ -959,7 +906,7 @@ void ReadTibiaCfg()
 			}
 		}
 	} catch (TMyException &) {
-		SetDefaultPreferences();
+		SetDefaultPreferences(Lists);
 	}
 	PreferencesLoaded = true;
 }
@@ -972,7 +919,7 @@ void ReadTibiaCfg()
 // before every skill above 0, also when nothing came before it. Deleted
 // buddies (CharacterID 0) are skipped. The fourth FullscreenMode value is
 // not saved.
-void WriteTibiaCfg()
+void TPreferences::WriteTibiaCfg(TTalkLists &Lists)
 {
 	int i = 0;
 	if (!PreferencesLoaded)
@@ -1126,13 +1073,13 @@ void WriteTibiaCfg()
 			Script.writeText(")");
 			Script.writeLn();
 		}
-		char *List = GetBuddyIgnoreText();
+		char *List = Lists.GetBuddyIgnoreText();
 		Script.writeText("White = {");
 		if (List != nullptr) {
 			char *Name = List;
 			while ((Name = strtok(Name, "\n")) != nullptr) {
 				const int Length = (int)strlen(Name);
-				if (Length != 0 && IsPermanentBuddyIgnore(Name)) {
+				if (Length != 0 && Lists.IsPermanentBuddyIgnore(Name)) {
 					if (i > 0)
 						Script.writeText(",");
 					Script.writeString(Name);
@@ -1144,14 +1091,14 @@ void WriteTibiaCfg()
 		}
 		Script.writeText("}");
 		Script.writeLn();
-		List = GetIgnoreListText();
+		List = Lists.GetIgnoreListText();
 		i = 0;
 		Script.writeText("Ignore = {");
 		if (List != nullptr) {
 			char *Name = List;
 			while ((Name = strtok(Name, "\n")) != nullptr) {
 				const int Length = (int)strlen(Name);
-				if (Length != 0 && IsPermanentIgnore(Name)) {
+				if (Length != 0 && Lists.IsPermanentIgnore(Name)) {
 					if (i > 0)
 						Script.writeText(",");
 					Script.writeString(Name);
@@ -1203,7 +1150,7 @@ void WriteTibiaCfg()
 // permanent entries of the Talk lists, NoStretching's "not set yet" as no, no
 // fourth FullscreenMode value. A description is read as WriteTibiaCfg reads it,
 // up to its NUL, within the entry (AssignDescriptionRead's bytes, issue #85).
-patella::settings::TPreferenceValues GetPreferenceValues()
+patella::settings::TPreferenceValues TPreferences::GetPreferenceValues(TTalkLists &Lists)
 {
 	patella::settings::TPreferenceValues Values;
 	Values.TestServer = TestServerLogin;
@@ -1253,7 +1200,7 @@ patella::settings::TPreferenceValues GetPreferenceValues()
 		const std::size_t Length = End == nullptr ? Room : static_cast<std::size_t>(static_cast<const char *>(End) - Description);
 		Values.Buddies.push_back({Buddy.CharacterID, Buddy.Icon, std::string(Description, Length), Buddy.Notify});
 	}
-	const auto Names = [](char *List, bool (*Permanent)(const char *)) {
+	const auto Names = [&Lists](char *List, bool (TTalkLists::*Permanent)(const char *)) {
 		std::vector<std::string> Result;
 		if (List == nullptr)
 			return Result;
@@ -1262,14 +1209,14 @@ patella::settings::TPreferenceValues GetPreferenceValues()
 			const std::size_t End = Rest.find('\n');
 			const std::string Name(Rest.substr(0, End));
 			Rest = End == std::string_view::npos ? std::string_view() : Rest.substr(End + 1);
-			if (!Name.empty() && Permanent(Name.c_str()))
+			if (!Name.empty() && (Lists.*Permanent)(Name.c_str()))
 				Result.push_back(Name);
 		}
 		free(List);
 		return Result;
 	};
-	Values.White = Names(GetBuddyIgnoreText(), IsPermanentBuddyIgnore);
-	Values.Ignore = Names(GetIgnoreListText(), IsPermanentIgnore);
+	Values.White = Names(Lists.GetBuddyIgnoreText(), &TTalkLists::IsPermanentBuddyIgnore);
+	Values.Ignore = Names(Lists.GetIgnoreListText(), &TTalkLists::IsPermanentIgnore);
 	for (int i = 0; i < NumberOfKnownHints; i++)
 		Values.KnownHints.push_back(KnownHints(i));
 	Values.ShowNewHints = ShowNewHints;
@@ -1284,7 +1231,7 @@ patella::settings::TPreferenceValues GetPreferenceValues()
 // after SetDefaultPreferences: the lists are appended to. PreferenceKeys.cpp's
 // ReadPreferences already did what the original's reader does to the values
 // (a hotkey's line breaks, ChaseMode 2, a repeated dialog).
-void SetPreferenceValues(const patella::settings::TPreferenceValues &Values)
+void TPreferences::SetPreferenceValues(const patella::settings::TPreferenceValues &Values, TTalkLists &Lists)
 {
 	TestServerLogin = Values.TestServer;
 	if (Values.FullscreenMode) {
@@ -1357,9 +1304,9 @@ void SetPreferenceValues(const patella::settings::TPreferenceValues &Values)
 		NumberOfBuddyEntries++;
 	}
 	for (const std::string &Name : Values.White)
-		AddBuddyIgnore(Name.c_str(), true);
+		Lists.AddBuddyIgnore(Name.c_str(), true);
 	for (const std::string &Name : Values.Ignore)
-		IgnoreName(Name.c_str(), true);
+		Lists.IgnoreName(Name.c_str(), true);
 	for (const int Hint : Values.KnownHints) {
 		KnownHints(NumberOfKnownHints) = Hint;
 		NumberOfKnownHints++;
@@ -1375,32 +1322,32 @@ void SetPreferenceValues(const patella::settings::TPreferenceValues &Values)
 // none (no PreferencesVersion key), imports Tibia.cfg once: the original's
 // reader (ReadTibiaCfg; the defaults without a Tibia.cfg or with one it cannot
 // read), then the options go into Patella.ini at once. Tibia.cfg is left as it is.
-void InitPreferences()
+void TPreferences::InitPreferences(TTalkLists &Lists)
 {
 	using namespace patella::settings;
-	SetDefaultPreferences();
+	SetDefaultPreferences(Lists);
 	if (const std::optional<TSettingsFile> File = Load(FileName, NewFileNewline); File && HasPreferences(*File)) {
-		TPreferenceValues Values = GetPreferenceValues();
+		TPreferenceValues Values = GetPreferenceValues(Lists);
 		for (const std::string &Problem : ReadPreferences(*File, Values))
 			patella::log::Warn("{}: {}", FileName, Problem);
-		SetPreferenceValues(Values);
+		SetPreferenceValues(Values, Lists);
 		PreferencesLoaded = true;
 		return;
 	}
 	std::error_code Error;
 	const bool Import = std::filesystem::exists("Tibia.cfg", Error);
-	ReadTibiaCfg();
+	ReadTibiaCfg(Lists);
 	if (Import)
 		patella::log::Info("{}: the options imported from Tibia.cfg (Tibia.cfg is not written)", FileName);
 	else
 		patella::log::Info("{}: no options and no Tibia.cfg: the default options", FileName);
-	SavePreferences();
+	SavePreferences(Lists);
 }
 
 // Patella-Modern issue #45. Writes the options into Patella.ini (its other keys
 // and lines stay), only after InitPreferences loaded them; a failure is
 // reported in the log.
-void SavePreferences()
+void TPreferences::SavePreferences(TTalkLists &Lists)
 {
 	using namespace patella::settings;
 	if (!PreferencesLoaded)
@@ -1410,17 +1357,457 @@ void SavePreferences()
 		patella::log::Warn("{} cannot be read: the options are not saved", FileName);
 		return;
 	}
-	WritePreferences(*File, GetPreferenceValues());
+	WritePreferences(*File, GetPreferenceValues(Lists));
 	if (!Save(FileName, *File))
 		patella::log::Warn("{} cannot be written: the options are not saved", FileName);
 }
 
 // 0x4df520. Frees the message of the day and saves the options (Patella.ini
 // since issue #45; Tibia.cfg in the original).
-void ExitPreferences()
+void TPreferences::ExitPreferences(TTalkLists &Lists)
 {
 	if (MotD != nullptr)
 		free(MotD);
 	MotD = nullptr;
-	SavePreferences();
+	SavePreferences(Lists);
+}
+
+} // namespace patella
+
+// The original's functions, the bridge of issue #104 (Preferences.h): each calls its member on the one TClient's
+// TPreferences.
+
+bool GetTestServerLogin()
+{
+	return patella::bridge::Preferences().GetTestServerLogin();
+}
+
+void SetTestServerLogin(bool Value)
+{
+	patella::bridge::Preferences().SetTestServerLogin(Value);
+}
+
+void SetViewMode(int ViewMode)
+{
+	patella::bridge::Preferences().SetViewMode(ViewMode);
+}
+
+void SetFullscreenMode(const TFullscreenMode *Mode)
+{
+	patella::bridge::Preferences().SetFullscreenMode(Mode);
+}
+
+void SetWindowsMousepointer(bool Value)
+{
+	patella::bridge::Preferences().SetWindowsMousepointer(Value);
+}
+
+void SetLightEffects(bool Value)
+{
+	patella::bridge::Preferences().SetLightEffects(Value);
+}
+
+void SetTextualEffects(bool Value)
+{
+	patella::bridge::Preferences().SetTextualEffects(Value);
+}
+
+void SetCreatureInfo(int Value)
+{
+	patella::bridge::Preferences().SetCreatureInfo(Value);
+}
+
+void SetNoStretching(bool Value)
+{
+	patella::bridge::Preferences().SetNoStretching(Value);
+}
+
+void SetDefaultNoStretching(bool Value)
+{
+	patella::bridge::Preferences().SetDefaultNoStretching(Value);
+}
+
+void SetConfineFramerate(int Value)
+{
+	patella::bridge::Preferences().SetConfineFramerate(Value);
+}
+
+void SetEngine(int Value)
+{
+	patella::bridge::Preferences().SetEngine(Value);
+}
+
+int GetViewMode()
+{
+	return patella::bridge::Preferences().GetViewMode();
+}
+
+TFullscreenMode *GetFullscreenMode()
+{
+	return patella::bridge::Preferences().GetFullscreenMode();
+}
+
+bool GetWindowsMousepointer()
+{
+	return patella::bridge::Preferences().GetWindowsMousepointer();
+}
+
+bool GetLightEffects()
+{
+	return patella::bridge::Preferences().GetLightEffects();
+}
+
+bool GetTextualEffects()
+{
+	return patella::bridge::Preferences().GetTextualEffects();
+}
+
+int GetCreatureInfo()
+{
+	return patella::bridge::Preferences().GetCreatureInfo();
+}
+
+bool GetNoStretching()
+{
+	return patella::bridge::Preferences().GetNoStretching();
+}
+
+int GetConfineFramerate()
+{
+	return patella::bridge::Preferences().GetConfineFramerate();
+}
+
+int GetEngine()
+{
+	return patella::bridge::Preferences().GetEngine();
+}
+
+void SetWindowedMode(int x, int y, int Width, int Height, bool Maximized)
+{
+	patella::bridge::Preferences().SetWindowedMode(x, y, Width, Height, Maximized);
+}
+
+void GetWindowedMode(int *x, int *y, int *Width, int *Height, bool *Maximized)
+{
+	patella::bridge::Preferences().GetWindowedMode(x, y, Width, Height, Maximized);
+}
+
+void SetConsoleHeight(int Value)
+{
+	patella::bridge::Preferences().SetConsoleHeight(Value);
+}
+
+int GetConsoleHeight()
+{
+	return patella::bridge::Preferences().GetConsoleHeight();
+}
+
+void SetAutomapZoom(int Value)
+{
+	patella::bridge::Preferences().SetAutomapZoom(Value);
+}
+
+int GetAutomapZoom()
+{
+	return patella::bridge::Preferences().GetAutomapZoom();
+}
+
+void SetBuddySortmethods(const int *Methods)
+{
+	patella::bridge::Preferences().SetBuddySortmethods(Methods);
+}
+
+void GetBuddySortmethods(int *Methods)
+{
+	patella::bridge::Preferences().GetBuddySortmethods(Methods);
+}
+
+void SetBuddyHideOffline(bool Value)
+{
+	patella::bridge::Preferences().SetBuddyHideOffline(Value);
+}
+
+bool GetBuddyHideOffline()
+{
+	return patella::bridge::Preferences().GetBuddyHideOffline();
+}
+
+void ClearOpenDialogs()
+{
+	patella::bridge::Preferences().ClearOpenDialogs();
+}
+
+const char *GetMotD()
+{
+	return patella::bridge::Preferences().GetMotD();
+}
+
+void SetInfoMessages(bool Value)
+{
+	patella::bridge::Preferences().SetInfoMessages(Value);
+}
+
+void SetEventMessages(bool Value)
+{
+	patella::bridge::Preferences().SetEventMessages(Value);
+}
+
+void SetStatusMessages(bool Value)
+{
+	patella::bridge::Preferences().SetStatusMessages(Value);
+}
+
+void SetTimeStamps(bool Value)
+{
+	patella::bridge::Preferences().SetTimeStamps(Value);
+}
+
+void SetPrivateMessages(bool Value)
+{
+	patella::bridge::Preferences().SetPrivateMessages(Value);
+}
+
+bool GetInfoMessages()
+{
+	return patella::bridge::Preferences().GetInfoMessages();
+}
+
+bool GetEventMessages()
+{
+	return patella::bridge::Preferences().GetEventMessages();
+}
+
+bool GetStatusMessages()
+{
+	return patella::bridge::Preferences().GetStatusMessages();
+}
+
+bool GetTimeStamps()
+{
+	return patella::bridge::Preferences().GetTimeStamps();
+}
+
+bool GetPrivateMessages()
+{
+	return patella::bridge::Preferences().GetPrivateMessages();
+}
+
+void ClearOpenChannels()
+{
+	patella::bridge::Preferences().ClearOpenChannels();
+}
+
+void SetClassicControl(bool Value)
+{
+	patella::bridge::Preferences().SetClassicControl(Value);
+}
+
+void SetAutoChaseOff(bool Value)
+{
+	patella::bridge::Preferences().SetAutoChaseOff(Value);
+}
+
+bool GetClassicControl()
+{
+	return patella::bridge::Preferences().GetClassicControl();
+}
+
+bool GetAutoChaseOff()
+{
+	return patella::bridge::Preferences().GetAutoChaseOff();
+}
+
+void SetAttackMode(int Value)
+{
+	patella::bridge::Preferences().SetAttackMode(Value);
+}
+
+void SetChaseMode(int Value)
+{
+	patella::bridge::Preferences().SetChaseMode(Value);
+}
+
+void SetSecureMode(bool Value)
+{
+	patella::bridge::Preferences().SetSecureMode(Value);
+}
+
+int GetAttackMode()
+{
+	return patella::bridge::Preferences().GetAttackMode();
+}
+
+int GetChaseMode()
+{
+	return patella::bridge::Preferences().GetChaseMode();
+}
+
+bool GetSecureMode()
+{
+	return patella::bridge::Preferences().GetSecureMode();
+}
+
+void SetShowNewHints(bool Value)
+{
+	patella::bridge::Preferences().SetShowNewHints(Value);
+}
+
+bool GetShowNewHints()
+{
+	return patella::bridge::Preferences().GetShowNewHints();
+}
+
+bool GetLevelBar()
+{
+	return patella::bridge::Preferences().GetLevelBar();
+}
+
+bool GetMagLevelBar()
+{
+	return patella::bridge::Preferences().GetMagLevelBar();
+}
+
+void SetLevelBar(bool Value)
+{
+	patella::bridge::Preferences().SetLevelBar(Value);
+}
+
+void SetMagLevelBar(bool Value)
+{
+	patella::bridge::Preferences().SetMagLevelBar(Value);
+}
+
+void SetDefaultPreferences()
+{
+	patella::bridge::Preferences().SetDefaultPreferences(patella::bridge::TalkLists());
+}
+
+void SetContentWindowSize(int ID, int Size)
+{
+	patella::bridge::Preferences().SetContentWindowSize(ID, Size);
+}
+
+int GetContentWindowSize(int ID)
+{
+	return patella::bridge::Preferences().GetContentWindowSize(ID);
+}
+
+int GetOpenDialogs(int **List)
+{
+	return patella::bridge::Preferences().GetOpenDialogs(List);
+}
+
+int GetOpenChannels(int **List)
+{
+	return patella::bridge::Preferences().GetOpenChannels(List);
+}
+
+void AddKnownHint(int Hint)
+{
+	patella::bridge::Preferences().AddKnownHint(Hint);
+}
+
+bool IsKnownHint(int Hint)
+{
+	return patella::bridge::Preferences().IsKnownHint(Hint);
+}
+
+void SetHotkey(int Number, const char *Text, bool AutoSend)
+{
+	patella::bridge::Preferences().SetHotkey(Number, Text, AutoSend);
+}
+
+const char *GetHotkey(int Number, bool *AutoSend)
+{
+	return patella::bridge::Preferences().GetHotkey(Number, AutoSend);
+}
+
+void AddOpenDialog(int Identifier)
+{
+	patella::bridge::Preferences().AddOpenDialog(Identifier);
+}
+
+bool SetMotD(const char *Text)
+{
+	return patella::bridge::Preferences().SetMotD(Text);
+}
+
+void AddOpenChannel(int Identifier)
+{
+	patella::bridge::Preferences().AddOpenChannel(Identifier);
+}
+
+int FindBuddy(int CharacterID)
+{
+	return patella::bridge::Preferences().FindBuddy(CharacterID);
+}
+
+void SetBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
+{
+	patella::bridge::Preferences().SetBuddy(CharacterID, Icon, Description, Notify);
+}
+
+void DeleteBuddy(int CharacterID)
+{
+	patella::bridge::Preferences().DeleteBuddy(CharacterID);
+}
+
+int GetBuddyIcon(int CharacterID)
+{
+	return patella::bridge::Preferences().GetBuddyIcon(CharacterID);
+}
+
+const char *GetBuddyDescription(int CharacterID)
+{
+	return patella::bridge::Preferences().GetBuddyDescription(CharacterID);
+}
+
+bool GetBuddyNotify(int CharacterID)
+{
+	return patella::bridge::Preferences().GetBuddyNotify(CharacterID);
+}
+
+bool GetSkillBar(int SkillNumber)
+{
+	return patella::bridge::Preferences().GetSkillBar(SkillNumber);
+}
+
+void SetSkillBar(int SkillNumber, bool Value)
+{
+	patella::bridge::Preferences().SetSkillBar(SkillNumber, Value);
+}
+
+void ReadTibiaCfg()
+{
+	patella::bridge::Preferences().ReadTibiaCfg(patella::bridge::TalkLists());
+}
+
+void WriteTibiaCfg()
+{
+	patella::bridge::Preferences().WriteTibiaCfg(patella::bridge::TalkLists());
+}
+
+patella::settings::TPreferenceValues GetPreferenceValues()
+{
+	return patella::bridge::Preferences().GetPreferenceValues(patella::bridge::TalkLists());
+}
+
+void SetPreferenceValues(const patella::settings::TPreferenceValues &Values)
+{
+	patella::bridge::Preferences().SetPreferenceValues(Values, patella::bridge::TalkLists());
+}
+
+void InitPreferences()
+{
+	patella::bridge::Preferences().InitPreferences(patella::bridge::TalkLists());
+}
+
+void SavePreferences()
+{
+	patella::bridge::Preferences().SavePreferences(patella::bridge::TalkLists());
+}
+
+void ExitPreferences()
+{
+	patella::bridge::Preferences().ExitPreferences(patella::bridge::TalkLists());
 }
