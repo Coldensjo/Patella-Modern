@@ -4,6 +4,7 @@
 #include "Client.h"
 
 #include "Communication.h"
+#include "Control.h"
 #include "GUI.h"
 #include "Help.h"
 #include "Network.h"
@@ -30,6 +31,21 @@ public:
 	void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2) override { ::AddMessage(Type, Param1, Param2); }
 };
 
+// Control.cpp's functions for TGUI's windows (TGUIController, issue #107), until Control.cpp's functions are an
+// object's. Stateless, as TStatusCppSession: each member calls Control.cpp's function of its name (from another object
+// file than the windows', so the golden tests' fakes of Resize and ChangeEngine are reached as before).
+class TControlCppController final : public TGUIController {
+public:
+	void ChangeEngine(int engine) override { ::ChangeEngine(engine); }
+	void Resize(int Width, int Height) override { ::Resize(Width, Height); }
+};
+
+TGUIController &ControlCppController()
+{
+	static TControlCppController Controller;
+	return Controller;
+}
+
 // Made on first use, as TClient is (a static initialiser of another file may make TClient first).
 TNetworkSession &StatusCppSession()
 {
@@ -39,7 +55,7 @@ TNetworkSession &StatusCppSession()
 
 } // namespace
 
-TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network) {}
+TClient::TClient() : Network(Preferences, StatusCppSession()), Communication(Network), GUI(ControlCppController()) {}
 
 TClient &bridge::Client()
 {

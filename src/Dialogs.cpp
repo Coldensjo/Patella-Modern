@@ -34,7 +34,6 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 #include <cstdlib>
 #include <cstring>
 #include "Communication.h"
-#include "Control.h"
 #include "Creatures.h"
 #include "Help.h"
 #include "Map.h"
@@ -2486,7 +2485,7 @@ void TGraphicsOptionsDialog::HandleEvent(int Event)
 			&& (!Fullscreen->IsChecked() || ResolutionList->GetSelection() != -1))
 			SetDisplayMode(Fullscreen->IsChecked() + 1);
 		if (curEngine == 2 && Fullscreen->IsChecked())
-			Resize(0, 0);
+			patella::bridge::GUI().Controller.Resize(0, 0); // Control.cpp's (issue #107)
 	} else if (Event == 407) {
 		AddMessageFirst(0x23, 0, 0);
 		AddMessageFirst(0x24, reinterpret_cast<INT_PTR>(Parent), 0);

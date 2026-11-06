@@ -833,12 +833,33 @@ namespace patella {
 // its members of the same names; the free functions forward to them. SkinProperties is still GUI.cpp's global (its
 // 2,000 readers in the window files: notes/decisions.md, "#107", "Found, not done").
 //
+// The windows' calls into Control.cpp, the controller above them, go through TGUIController (rule 5 of the design: a
+// lower module declares the interface, the upper one implements it), so MainWindow.cpp and Dialogs.cpp do not include
+// Control.h.
+//
 // ModalWindow and MainWindow keep the original's raw ownership: Control.cpp news the dialogs into ModalWindow and
 // deletes the one it replaces, Player.cpp and Control.cpp the main window (notes/ownership.md, section 7). They are
 // TGUI's members, no longer globals; #108 turns them into owners.
+// Control.cpp's functions that the windows call (issue #107): the engine buttons of the main window's options
+// (MainWindow.cpp) and the graphics options' fullscreen switch (Dialogs.cpp). Implemented in Client.cpp by Control.cpp's
+// free functions until Control.cpp's functions are an object's.
+class TGUIController {
+public:
+	TGUIController() = default;
+	TGUIController(const TGUIController &) = delete;
+	TGUIController &operator=(const TGUIController &) = delete;
+	TGUIController(TGUIController &&) = delete;
+	TGUIController &operator=(TGUIController &&) = delete;
+	virtual void ChangeEngine(int engine) = 0;
+	virtual void Resize(int Width, int Height) = 0;
+
+protected:
+	~TGUIController() = default;
+};
+
 class TGUI {
 public:
-	TGUI() = default;
+	explicit TGUI(TGUIController &Controller) : Controller(Controller) {}
 	TGUI(const TGUI &) = delete;
 	TGUI &operator=(const TGUI &) = delete;
 	TGUI(TGUI &&) = delete;
@@ -854,6 +875,8 @@ public:
 	void AddHotkey(int Key, TCallback Callback);
 	void RemoveHotkey(int Key);
 	bool CheckHotkey(int Key);
+
+	TGUIController &Controller; // Control.cpp's functions (above)
 
 	// The files' objects.
 	TTalk Talk;               // Talk.cpp

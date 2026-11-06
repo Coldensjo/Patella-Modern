@@ -27,7 +27,6 @@
 #include "ContentWindows.h"
 #include "Communication.h"
 #include "ConsoleWindow.h"
-#include "Control.h"
 #include "Creatures.h"
 #include "DialogElements.h"
 #include "Inventory.h"
@@ -311,13 +310,13 @@ void TMainWindow::HandleEvent(int Event)
 			AddMessage(0x1c, 0, 0);
 		break;
 	case 800:
-		ChangeEngine(0);
+		patella::bridge::GUI().Controller.ChangeEngine(0);
 		break;
 	case 801:
-		ChangeEngine(2);
+		patella::bridge::GUI().Controller.ChangeEngine(2);
 		break;
 	case 802:
-		ChangeEngine(1);
+		patella::bridge::GUI().Controller.ChangeEngine(1);
 		break;
 	}
 }
