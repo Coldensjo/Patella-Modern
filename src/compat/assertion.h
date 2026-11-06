@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <version> // IWYU pragma: keep (the feature-test macro of the #if line)
 
 #if defined(__cpp_lib_source_location) && __cpp_lib_source_location >= 201907L \
@@ -36,6 +35,7 @@
 #include <source_location> // IWYU pragma: export
 #else
 #define PATELLA_HAS_SOURCE_LOCATION 0
+#include <cstdint>
 #endif
 
 namespace patella {
