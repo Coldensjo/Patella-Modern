@@ -823,11 +823,13 @@ static TRGBColor RandomColor()
 	static const TRGBColor Common[] = {TRGBColor(0, 0, 0), TRGBColor(255, 0, 255), TRGBColor(255, 255, 255)};
 	if (Chance(40))
 		return Common[Rnd() % 3];
-	return TRGBColor(Between(0, 255), Between(0, 255), Between(0, 255));
+	const int B = Between(0, 255), G = Between(0, 255), R = Between(0, 255); // issue #55: right to left
+	return TRGBColor(R, G, B);
 }
 static TRect RandomRect(int Size)
 {
-	return TRect(Between(-20, Size), Between(-20, Size), Between(-5, Size / 2), Between(-5, Size / 2));
+	const int Height = Between(-5, Size / 2), Width = Between(-5, Size / 2), Y = Between(-20, Size), X = Between(-20, Size); // issue #55: the arguments right to left
+	return TRect(X, Y, Width, Height);
 }
 static int AnySurface() { return Between(0, NUMBER_OF_SURFACES_GL - 1); }
 static int SourceSurface() { return Between(2, NUMBER_OF_SURFACES_GL - 1); } // has a texture (and is not SCREEN_SURFACE)
@@ -1206,7 +1208,8 @@ static void RandomOperation()
 	case 22:
 	case 23: {
 		int To = AnySurface(), From = SourceSurface(), x = Between(-40, 600), y = Between(-40, 450);
-		TRect Source(Between(0, 400), Between(0, 300), Between(1, 120), Between(1, 120));
+		const int SourceHeight = Between(1, 120), SourceWidth = Between(1, 120), SourceY = Between(0, 300), SourceX = Between(0, 400); // issue #55: the arguments right to left
+		TRect Source(SourceX, SourceY, SourceWidth, SourceHeight);
 		TRect Clip = RandomRect(500);
 		if (Chance(50))
 			Both("BlitRect", [&](TSurface *T) { T->BlitRect(To, x, y, From, Source); });
@@ -1233,8 +1236,10 @@ static void RandomOperation()
 	case 26:
 	case 27: {
 		int To = AnySurface(), From = SourceSurface();
-		TRect D(Between(-40, 600), Between(-40, 450), Between(0, 200), Between(0, 200));
-		TRect Source(Between(0, 400), Between(0, 300), Between(1, 200), Between(1, 200));
+		const int DHeight = Between(0, 200), DWidth = Between(0, 200), DY = Between(-40, 450), DX = Between(-40, 600); // issue #55: the arguments right to left
+		TRect D(DX, DY, DWidth, DHeight);
+		const int SourceHeight = Between(1, 200), SourceWidth = Between(1, 200), SourceY = Between(0, 300), SourceX = Between(0, 400); // issue #55: the arguments right to left
+		TRect Source(SourceX, SourceY, SourceWidth, SourceHeight);
 		Both("StretchBlitRect", [&](TSurface *T) { T->StretchBlitRect(To, D, From, Source); });
 		break;
 	}
@@ -1276,8 +1281,10 @@ static void RandomOperation()
 		int Count = Chance(10) ? 0 : Between(1, 40);
 		std::vector<TRect> Rects(Count + 1);
 		std::vector<TRGBColor> Colors(4 * Count + 4);
-		for (int i = 0; i < Count; i++)
-			Rects[i] = TRect(Between(-10, 500), Between(-10, 400), Between(0, 64), Between(0, 64));
+		for (int i = 0; i < Count; i++) {
+			const int Height = Between(0, 64), Width = Between(0, 64), Y = Between(-10, 400), X = Between(-10, 500); // issue #55: the arguments right to left
+			Rects[i] = TRect(X, Y, Width, Height);
+		}
 		for (size_t i = 0; i < Colors.size(); i++)
 			Colors[i] = RandomColor();
 		Both("ShadeRectangles", [&](TSurface *T) { T->ShadeRectangles(Surface, Count, &Rects[0], &Colors[0]); });
@@ -1343,7 +1350,10 @@ static void GlhRound()
 	World.ProcNullPercent = Chance(50) ? 0 : Between(1, 60);
 	World.ProcSeed = Rnd();
 	World.MissingWGL = Chance(70) ? 0 : (int)(Rnd() & 0x1ff);
-	RandomExtensions(Between(0, 100), Chance(50));
+	{
+		const bool Pbuffer = Chance(50); // issue #55: the arguments right to left
+		RandomExtensions(Between(0, 100), Pbuffer);
+	}
 	Both("glh_shutdown_extensions", [&](TSurface *) { GlhShutdown(); });
 	int Requests = Between(1, 6);
 	for (int r = 0; r < Requests; r++) {
@@ -1364,8 +1374,10 @@ static void GlhRound()
 		}
 		bool Null = Chance(5);
 		BothResult<int>("glh_init_extensions", [&](TSurface *) { return GlhInit(Null ? NULL : Request); });
-		if (Chance(20))
-			RandomExtensions(Between(0, 100), Chance(50)); // used only after the next shutdown
+		if (Chance(20)) {
+			const bool Pbuffer = Chance(50); // issue #55: the arguments right to left
+			RandomExtensions(Between(0, 100), Pbuffer); // used only after the next shutdown
+		}
 		if (Chance(25))
 			Both("glh_shutdown_extensions", [&](TSurface *) { GlhShutdown(); });
 	}
@@ -1518,10 +1530,12 @@ static void TestSurfaceGLErrors()
 			int Good = Between(0, NUMBER_OF_SURFACES_GL - 1);
 			int x = Chance(50) ? Between(-5, -1) : Between(0, 40), y = Chance(30) ? -1 : Between(0, 40);
 			int w = Chance(50) ? Between(-2, 0) : Between(1, 20), h = Chance(30) ? 0 : Between(1, 20);
-			TRect Empty(Between(0, 5), Between(0, 5), Between(-3, 0), Between(1, 5));
+			const int EmptyHeight = Between(1, 5), EmptyWidth = Between(-3, 0), EmptyY = Between(0, 5), EmptyX = Between(0, 5); // issue #55: the arguments right to left
+			TRect Empty(EmptyX, EmptyY, EmptyWidth, EmptyHeight);
 			if (Chance(50))
 				std::swap(Empty.width, Empty.height);
-			TRect Some(Between(0, 5), Between(0, 5), Between(1, 30), Between(1, 30));
+			const int SomeHeight = Between(1, 30), SomeWidth = Between(1, 30), SomeY = Between(0, 5), SomeX = Between(0, 5); // issue #55: the arguments right to left
+			TRect Some(SomeX, SomeY, SomeWidth, SomeHeight);
 			BothThrown(R, "WriteImage screen", [&](TSurface *T) { T->WriteImage(SCREEN_SURFACE, 0, 0, 4, 4, Data); });
 			BothThrown(R, "WriteImage area", [&](TSurface *T) { T->WriteImage(SPRITE_SURFACE, x, y, w, h, Data); });
 			BothThrown(R, "WriteMaskedImage screen", [&](TSurface *T) {

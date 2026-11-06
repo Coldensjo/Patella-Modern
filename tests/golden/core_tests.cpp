@@ -48,7 +48,7 @@ void TestXTEA()
 		uint8 Key[16];
 		for (int i = 0; i < 16; i++)
 			Key[i] = (uint8)Random();
-		uint32 Plain[2] = {Random() ^ (Random() << 16), Random() ^ (Random() << 16)};
+		uint32 Plain[2] = {Random32(), Random32()};
 		golden::Input("key", Key);
 		golden::Input("plain", Plain);
 
@@ -287,7 +287,7 @@ void TestBuffers()
 		golden::Input("operations", OpCount);
 		for (int i = 0; i < OpCount; i++) {
 			Ops[i] = Random() % 5;
-			Values[i] = Random() ^ (Random() << 16);
+			Values[i] = Random32();
 			RandomText(Texts[i], Random() % 20);
 			golden::Input("operation", Ops[i]);
 			golden::Input("value", Values[i]);

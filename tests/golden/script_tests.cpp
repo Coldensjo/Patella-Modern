@@ -293,7 +293,11 @@ std::string RandomToken()
 		}
 		return s + "\"";
 	}
-	case 6: return "[" + RandomNumberText() + "," + RandomNumberText() + "," + RandomNumberText() + "]";
+	case 6: {
+		// Issue #55: operator+'s arguments right to left, as the oracle's.
+		const std::string C = RandomNumberText(), B = RandomNumberText(), A = RandomNumberText();
+		return "[" + A + "," + B + "," + C + "]";
+	}
 	case 7: {
 		static const char *S[] = {"<=", ">=", "<>", "->", "<", ">", "-", "[", "="};
 		return S[Random() % 9];
@@ -406,7 +410,11 @@ void TestReader()
 			Symbols.push_back("=(),{}"[Random() % 6]);
 			switch (Kind) {
 			case 0: Text += RandomIdentifier(true); break; // getc gives umlauts as 0xe4 etc., which IsAlpha rejects
-			case 1: Text += (Random() % 2 ? "-" : "") + RandomNumberText(); break;
+			case 1: {
+				const std::string Number = RandomNumberText(); // issue #55: operator+'s arguments right to left
+				Text += (Random() % 2 ? "-" : "") + Number;
+				break;
+			}
 			case 2: {
 				std::string s = RandomToken();
 				while (s[0] != '"')

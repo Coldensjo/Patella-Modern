@@ -1150,8 +1150,9 @@ void RandomScript()
 	S.CreatureX = Between(30000, 34000);
 	S.CreatureY = Between(30000, 34000);
 	S.CreatureZ = Between(0, 15);
-	snprintf(S.ResolvedIP, sizeof(S.ResolvedIP), "%u.%u.%u.%u", Random() % 256, Random() % 256, Random() % 256,
-		Random() % 256);
+	// Issue #55: snprintf's arguments right to left, as the oracle's.
+	const uint32 D = Random() % 256, C = Random() % 256, B = Random() % 256, A = Random() % 256;
+	snprintf(S.ResolvedIP, sizeof(S.ResolvedIP), "%u.%u.%u.%u", A, B, C, D);
 }
 
 // The world both sides read (Preferences, Status), set alike.
@@ -1224,7 +1225,8 @@ void Operation(int Kind)
 	case 0:
 	case 1:
 	case 2: {
-		UINT Key = RandomKey(), Repeat = Between(0, 3), Flags = (Chance(50) ? 0x100 : 0) | (Random() & 0x2ff & ~0x100);
+		UINT Key = RandomKey(), Repeat = Between(0, 3), Extended = Chance(50) ? 0x100 : 0; // issue #55: the left operand first
+		UINT Flags = Extended | (Random() & 0x2ff & ~0x100);
 		static const char *Names[] = {"OnKeyDown", "OnSysKeyDown", "KeyDown"};
 		Both(Names[Kind], [&](int s) {
 			if (s == IMAGE)
@@ -1241,7 +1243,8 @@ void Operation(int Kind)
 	case 3:
 	case 4:
 	case 5: {
-		UINT Key = RandomKey(), Repeat = Between(0, 3), Flags = (Chance(50) ? 0x100 : 0) | (Random() & 0x2ff & ~0x100);
+		UINT Key = RandomKey(), Repeat = Between(0, 3), Extended = Chance(50) ? 0x100 : 0; // issue #55: the left operand first
+		UINT Flags = Extended | (Random() & 0x2ff & ~0x100);
 		static const char *Names[] = {"OnKeyUp", "OnSysKeyUp", "KeyUp"};
 		Both(Names[Kind - 3], [&](int s) {
 			if (s == IMAGE)
@@ -1622,7 +1625,7 @@ void TestMainFrmErrors()
 		if (Kind == 36 || Kind == 38 || Kind == 39)
 			continue;
 		for (int Trial = 0; Trial < 6; Trial++) {
-			uint32 Seed = Random() ^ (Random() << 16);
+			uint32 Seed = Random32();
 			int Length = Random() % 10;
 			for (int n = 1; n < 200; n++) {
 				SetRandomSeed(Seed);

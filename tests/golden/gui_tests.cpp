@@ -1131,7 +1131,13 @@ void TestHotkeys()
 		for (int i = 0; i < 3; i++)
 			Receivers[s][i] = new TProbe(s, 200 + i);
 	for (int t = 0; t < 30000; t++) {
-		int Key = Random() % 4 == 0 ? (int)(Random() % 0x800) : (int)(0x41 + Random() % 30) | (int)(Random() % 4 << 9);
+		int Key;
+		if (Random() % 4 == 0)
+			Key = (int)(Random() % 0x800);
+		else {
+			const int Letter = (int)(0x41 + Random() % 30); // issue #55: the left operand first
+			Key = Letter | (int)(Random() % 4 << 9);
+		}
 		int Op = Random() % 10;
 		if (Op < 3) {
 			int r = Random() % 4, Event = Random() % 300;
@@ -1467,8 +1473,10 @@ void TestGUIErrors()
 		}
 		CompareTrees("errors: capture");
 		// Areas and fitting.
-		TRect Area((int)(Random() % 40) - 20, (int)(Random() % 40) - 20, (int)(Random() % 300) - 150,
-			(int)(Random() % 300) - 150);
+		// Issue #55: the arguments' calls right to left, as the oracle's.
+		const int AreaHeight = (int)(Random() % 300) - 150, AreaWidth = (int)(Random() % 300) - 150;
+		const int AreaY = (int)(Random() % 40) - 20, AreaX = (int)(Random() % 40) - 20;
+		TRect Area(AreaX, AreaY, AreaWidth, AreaHeight);
 		GUI_COMPARE("TWindow::SetChildArea another's", V[0]->SetChildArea(E[0], Area), V[1]->SetChildArea(E[1], Area));
 		GUI_COMPARE("TWindow::SetChildPosition another's", V[0]->SetChildPosition(E[0], x, y),
 			V[1]->SetChildPosition(E[1], x, y));
