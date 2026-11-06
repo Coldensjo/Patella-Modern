@@ -352,7 +352,8 @@ static void FindStatics()
 		World[OURS].ActionState = 0;
 		World[OURS].ActionNumber = (int)v;
 		MouseMove(1, 1); }, 0x6b5c4d30, 0x6b5c4d40);
-	O.ReconnectTimeout = (int *)OUR_STATIC(ReconnectTimeout, [](uint32 v) {
+	// ReconnectTimeout: TNetwork's since issue #105.
+	O.ReconnectTimeout = (int *)NamedStatic("ReconnectTimeout", (void *)&patella::bridge::Network().ReconnectTimeout, [](uint32 v) {
 		World[OURS].ConnectionState = 8;
 		World[OURS].Milliseconds = (int)v - 5000;
 		World[OURS].Events.clear();
@@ -422,8 +423,8 @@ static void ControlAfterRetired()
 	Callbacks = golden::OutputText("callbacks after ChangeEngine", Callbacks.c_str());
 	LastPacketType = Numbers[0];
 	LastPacketIndex = Numbers[1];
-	ReconnectTimeout = Numbers[2];
-	Reconnect = Numbers[3] != 0;
+	patella::bridge::Network().ReconnectTimeout = Numbers[2];
+	patella::bridge::Network().Reconnect = Numbers[3] != 0;
 	LastMouseMove = Numbers[4];
 	ShowFPS = Numbers[5] != 0;
 	curEngine = Numbers[6];

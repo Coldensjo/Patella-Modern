@@ -60,8 +60,7 @@ namespace {
 int LastPacketType = -1;               // 0x5c0d8c, only written (ReceivePackets)
 int LastPacketIndex;                   // 0x5c4510, next slot in LastPacketTypes
 std::array<uint8, 10> LastPacketTypes; // 0x5c4514, the last ten packet types, a ring (GetLastPacketTypes)
-int ReconnectTimeout;                  // 0x5c4520, GetMilliseconds time
-bool Reconnect;                        // 0x5c4524, set by event 0x3f
+// 0x5c4520 ReconnectTimeout and 0x5c4524 Reconnect are TNetwork's (Network.h, issue #105).
 int LastMouseMove;                     // 0x5c4528, timer tick of the last mouse move, 0 after a click
 void (*URLCallback)(const char *URL);  // 0x5c452c
 void (*DisplayModeCallback)(int Mode); // 0x5c4530
@@ -303,7 +302,7 @@ void LeaveGame()
 	}
 	SetActionState(0);
 	SavePreferences();
-	if (!Reconnect)
+	if (!patella::bridge::Network().Reconnect)
 		AddMessage(10, 300, 0);
 }
 
@@ -756,10 +755,10 @@ void ConnectionClosed()
 		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
 	}
 	SetConnectionState(0);
-	if (Reconnect) {
-		Reconnect = false;
+	if (patella::bridge::Network().Reconnect) {
+		patella::bridge::Network().Reconnect = false;
 		if (InGame) {
-			if (GetMilliseconds() < ReconnectTimeout) {
+			if (GetMilliseconds() < patella::bridge::Network().ReconnectTimeout) {
 				AddMessage(0x3e, 0, 0);
 				AddMessage(4, 0, 0);
 			}
@@ -1095,8 +1094,8 @@ void ProcessEvents()
 			break;
 		case 0x3f:
 			if (GetConnectionState() != 0) {
-				Reconnect = true;
-				ReconnectTimeout = GetMilliseconds() + 5000;
+				patella::bridge::Network().Reconnect = true;
+				patella::bridge::Network().ReconnectTimeout = GetMilliseconds() + 5000;
 			} else {
 				AddMessage(0x3d, 0, 0);
 				AddMessage(3, 0, 0);
@@ -1137,7 +1136,7 @@ void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int M
 	SetMouseCursor(1);
 	memset(LastPacketTypes.data(), 0, sizeof(LastPacketTypes));
 	LastPacketIndex = 0;
-	Reconnect = false;
+	patella::bridge::Network().Reconnect = false;
 }
 
 // 0x44b510, line 1633. Initialises the modules; on a PROGRAM_ERROR it shuts
