@@ -25,6 +25,7 @@
 #include "sysinc.h"
 #include "Container.h"
 #include "types/IndexedVector.h"
+#include "types/SlotTable.h"
 #include "common.h"
 #include "compat/span.h"
 #include "types/FixedString.h"
@@ -52,7 +53,7 @@ int ObjectIteratorField;                                                        
 int MapZ;                                                                        // 0x5d16e8, world position of the map's centre
 int MapY;                                                                        // 0x5d16ec
 int MapX;                                                                        // 0x5d16f0
-std::array<TEffect, EFFECTS> Effects;                                            // 0x5d16f8
+TSlotTable<TEffect, EFFECTS> Effects;                                            // 0x5d16f8, an array of EFFECTS until issue #102
 array<TMapPoint> Fields(0, MAPSIZE_X * MAPSIZE_Y * MAPSIZE_Z - 1);               // 0x5d4c18, initialiser at 0x559f40
 matrix3d<int> FieldNumber(0, MAPSIZE_X - 1, 0, MAPSIZE_Y - 1, 0, MAPSIZE_Z - 1); // 0x5d4c24, 0x559f60
 std::array<TAutomapBlock, AUTOMAP_BLOCKS> AutomapBlocks;                         // 0x5d4c40, initialiser at 0x559f90
@@ -67,8 +68,7 @@ static_assert(sizeof(TMapPoint) == 0xac && offsetof(TMapPoint, Objects) == 0x04 
 		&& sizeof(TMapPoint::Objects) == 0x78 && sizeof(TMapPoint::Order) == 0x28,
 	"TMapPoint's layout");
 static_assert(sizeof(TMark) == 0x70 && offsetof(TMark, Text) == 0x0c && sizeof(TMark::Text) == 100, "TMark's layout");
-static_assert(sizeof(Effects) == EFFECTS * sizeof(TEffect) && sizeof(AutomapBlocks) == AUTOMAP_BLOCKS * sizeof(TAutomapBlock),
-	"Effects and AutomapBlocks");
+static_assert(sizeof(AutomapBlocks) == AUTOMAP_BLOCKS * sizeof(TAutomapBlock), "AutomapBlocks");
 
 // --- Position (the MainWindow/Map gap) ------------------------------------
 
@@ -439,7 +439,7 @@ int GetEffectIteratorNumber(int n)
 	int EffectNumber = Fields(EffectIteratorField).EffectNumber;
 	PATELLA_ASSERT_VALUES(In(EffectNumber,-1,EFFECTS-1), EffectNumber, EffectIteratorField);
 	while (EffectNumber != -1 && n != 0) {
-		EffectNumber = Effects[EffectNumber].Next;
+		EffectNumber = Effects.Get(EffectNumber).Next;
 		n--;
 	}
 	return EffectNumber;
@@ -469,71 +469,71 @@ int GetNextEffect()
 int GetEffectStatus(int EffectNumber)
 {
 	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	return Effects[EffectNumber].Status;
+	return Effects.Get(EffectNumber).Status;
 }
 
 // 0x4b15a0, lines 565-566
 int GetGraphicalEffectType(int EffectNumber)
 {
 	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==1, Effects[EffectNumber].Status);
-	return Effects[EffectNumber].Type;
+	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==1, Effects.Get(EffectNumber).Status);
+	return Effects.Get(EffectNumber).Type;
 }
 
 // 0x4b1860, lines 575-576
 int GetGraphicalEffectPhase(int EffectNumber)
 {
 	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==1, Effects[EffectNumber].Status);
-	return Effects[EffectNumber].Phase;
+	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==1, Effects.Get(EffectNumber).Status);
+	return Effects.Get(EffectNumber).Phase;
 }
 
 // 0x4b1b20, lines 585-586
 int GetTextualEffectColor(int EffectNumber)
 {
 	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==2, Effects[EffectNumber].Status);
-	return Effects[EffectNumber].Type;
+	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==2, Effects.Get(EffectNumber).Status);
+	return Effects.Get(EffectNumber).Type;
 }
 
 // 0x4b1de0, lines 595-596
 char *GetTextualEffectText(int EffectNumber)
 {
 	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==2, Effects[EffectNumber].Status);
-	return Effects[EffectNumber].Text;
+	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==2, Effects.Get(EffectNumber).Status);
+	return Effects[EffectNumber].Text; // Status 2: a taken entry
 }
 
 // 0x4b20a0, lines 605-606
 int GetTextualEffectPhase(int EffectNumber)
 {
 	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==2, Effects[EffectNumber].Status);
-	return Effects[EffectNumber].TextPhase;
+	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==2, Effects.Get(EffectNumber).Status);
+	return Effects.Get(EffectNumber).TextPhase;
 }
 
 // 0x4b2360, lines 615-616
 int GetMissileEffectType(int EffectNumber)
 {
 	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
-	return Effects[EffectNumber].Type;
+	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==3, Effects.Get(EffectNumber).Status);
+	return Effects.Get(EffectNumber).Type;
 }
 
 // 0x4b2620, lines 625-626
 int GetMissileEffectDirection(int EffectNumber)
 {
 	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
-	return Effects[EffectNumber].Direction;
+	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==3, Effects.Get(EffectNumber).Status);
+	return Effects.Get(EffectNumber).Direction;
 }
 
 // 0x4b28e0, lines 635-636. Pixels from the field the missile is linked to.
 int GetMissileEffectX(int EffectNumber)
 {
 	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
-	const TEffect &Effect = Effects[EffectNumber];
+	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==3, Effects.Get(EffectNumber).Status);
+	const TEffect &Effect = Effects.Get(EffectNumber);
 	return (Effect.DestX - Effect.x) * 32 + Effect.OffsetX;
 }
 
@@ -541,8 +541,8 @@ int GetMissileEffectX(int EffectNumber)
 int GetMissileEffectY(int EffectNumber)
 {
 	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
-	const TEffect &Effect = Effects[EffectNumber];
+	PATELLA_ASSERT_VALUES(Effects.Get(EffectNumber).Status==3, Effects.Get(EffectNumber).Status);
+	const TEffect &Effect = Effects.Get(EffectNumber);
 	return (Effect.DestY - Effect.y) * 32 + Effect.OffsetY;
 }
 
@@ -552,13 +552,7 @@ namespace {
 // it first on the point; coordinates off the map mean point 0,0,0.
 int NewEffect(int Status, int rx, int ry, int rz)
 {
-	int Number = -1;
-	for (int i = 0; i < EFFECTS; i++) {
-		if (Effects[i].Status == 0) {
-			Number = i;
-			break;
-		}
-	}
+	const int Number = Effects.New();
 	if (Number == -1)
 		return -1;
 	if (!In(rx, 0, MAPSIZE_X - 1) || !In(ry, 0, MAPSIZE_Y - 1) || !In(rz, 0, MAPSIZE_Z - 1)) {
@@ -669,8 +663,8 @@ namespace {
 void DeleteEffect(int Number)
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,EFFECTS-1), Number);
+	PATELLA_ASSERT(Effects.Get(Number).Status!=0);
 	TEffect &Effect = Effects[Number];
-	PATELLA_ASSERT(Effect.Status!=0);
 	Effect.Status = 0;
 	if (Fields(Effect.Field).EffectNumber == Number) {
 		PATELLA_ASSERT_VALUES(In(Effect.Next,-1,EFFECTS-1), Effect.Next);
@@ -693,7 +687,7 @@ void DeleteEffect(int Number)
 void ProcessEffects()
 {
 	int i = 0;
-	for (i = 0; i < EFFECTS; i++) {
+	for (i = 0; i < Effects.Size(); i++) {
 		TEffect &Effect = Effects[i];
 		switch (Effect.Status) {
 		case 1:
@@ -718,7 +712,7 @@ void ProcessMissileEffects()
 {
 	int i = 0;
 	const int Now = GetMilliseconds();
-	for (i = 0; i < EFFECTS; i++) {
+	for (i = 0; i < Effects.Size(); i++) {
 		TEffect &Effect = Effects[i];
 		if (Effect.Status != 3)
 			continue;
@@ -798,7 +792,7 @@ void ClearField(int rx, int ry, int rz, bool DeleteEffects)
 	i = -1;
 	if (DeleteEffects) {
 		while (Point.EffectNumber != -1) {
-			PATELLA_ASSERT(Effects[Point.EffectNumber].Status!=0);
+			PATELLA_ASSERT(Effects.Get(Point.EffectNumber).Status!=0);
 			DeleteEffect(Point.EffectNumber);
 		}
 	}
@@ -812,8 +806,7 @@ void ClearMap()
 		Fields(i).EffectNumber = -1;
 		Fields(i).RefreshRequested = false;
 	}
-	for (int i = 0; i < EFFECTS; i++)
-		Effects[i].Status = 0;
+	Effects.Clear();
 }
 
 namespace {
