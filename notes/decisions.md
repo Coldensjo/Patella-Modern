@@ -10889,10 +10889,13 @@ New: tests/unit/expected_test.cpp (5 cases, both paths). compat/expected.h is in
 
 ### SafeSEH (high)
 
-`python -I safeseh_scan.py` (C:/Tibia/Patella-Modern/build/tools-scratch, read only) on oracle-x86's difftest,
-sysinctest, communicationtest, vlongtest and Patella.exe: main (74371d2, built in this worktree) 0 findings
-(1674/2793, 84/88, 1026/1016, 28/23, 1119/608 table entries/EH prologues); after 80a 0, after 80b 0, after 80c 0
-(1667/2756, 84/88, 958/948, 28/23, 1093/547).
+While the branch was built, the scratch scanner of #79 (C:/Tibia/Patella-Modern/build/tools-scratch, C++ EH
+prologues only) found 0 findings on main and after each of 80a, 80b and 80c. After #89 was merged into the branch,
+the gate's `python -I tools/safeseh_scan.py` (C++ EH, `__EH_prolog3`, SEH3/SEH4 frames) on oracle-x86's difftest,
+sysinctest, communicationtest, vlongtest and Patella.exe: main (74371d2's images, built in this worktree) 0 findings
+(1674 handlers/2821 registrations, 84/107, 1026/1040, 28/41, 1119/1867), the branch 0 (1667/2784, 84/107, 958/972,
+28/41, 1093/1806: fewer C++ EH frames, as the throws are smaller); CTest's safeseh passes (5/5). Logs:
+build\logs\issue-80\safeseh89-main.log, safeseh89-branch.log.
 
 ### The images (high)
 
@@ -10910,3 +10913,20 @@ TryOpens, TMyException's two constructors, std::expected's destructor. x86 (orac
 instruction (SetAutomapZoom, InitHotkeys, ExitGraphics, ChangeMode, TConsole's constructor...: only int 3 runs or a
 jump table differ) and MFC/CRT library code, as in #79. No sampled function changed in its own logic. Logs:
 build\logs\issue-80\pecompare-x64.txt and pecompare-x86.txt.
+
+### The gates (high)
+
+`python -I tools/build.py oracle-x86` (after the merge of main c6637c8, #89): difftest 16,459,337, sysinctest 67,
+communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 5/5 with safeseh (unchanged counts: no check counts a
+text, and golden_eh's mapping keeps each PROGRAM_ERROR check). windows-x64 14/14, windows-x64-debug and
+windows-x64-asan 13/13 (no ASan finding): golden on main's corpus 15,803,203 replayed + 1,512,822 retired =
+17,316,025, 0 failures (nothing recorded: the corpus has the outcome and the original's texts only).
+windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11. 0 warnings on every preset. tests_unit 72 to 82 cases on
+MSVC (10,166 to 10,215 assertions; the stand-in 10,170 to 10,219) and mingw-w64 GCC (10,212 / 10,216), 81 on Linux
+(GCC 10,197 / 10,201, Clang 10,195 / 10,201); tests_core 42 to 45 cases (404 assertions on Windows, 407 on Linux).
+tidy_ci 3 findings in 3 entries (the baseline 4 to 3, nothing new; expected.h's `<utility>` moved into the stand-in
+for misc-include-cleaner), 0 bugprone; banned_calls 0; clang-format clean. `python -I tools/reference.py compare
+--reference C:/Tibia/Patella-Modern/build/reference`: every session matches (error with #74's deliberate
+differences); the box text is the same, the error session's log line is "[error] Debug Assertion 7.72 Player.cpp
+375: exception occurred, reason:\nControl.cpp 776: unknown packet type during game (Type = 255)" (our own lines since
+80a; #79's run named the original's 383 and 1274). Logs: build\logs\issue-80.
