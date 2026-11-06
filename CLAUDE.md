@@ -30,7 +30,7 @@ vcvarsall.bat for the MSVC presets, then runs `cmake --workflow`): `oracle-x86` 
 the four differential tests and the SafeSEH gate `safeseh` of tools/safeseh_scan.py, issue #89, through CTest), `windows-x64` / `windows-x64-debug` (the x64 client Patella.exe, its
 test build PatellaTest.exe with the virtual clock, scripted input and dumps (state, packets, frames) of
 `notes/testmode.md`, the portable
-libraries patella_core and patella_testmode, the unit tests and the 64-bit patcap.dll of compare_rendering.py),
+libraries patella_core and patella_testmode and the unit tests; no patcap.dll since issue #92),
 `windows-x64-asan` / `windows-x64-asan-debug` (windows-x64 under MSVC's AddressSanitizer, `/fsanitize=address`: the
 client, PatellaTest.exe, golden_runner and the unit tests, issue #70; the ASan runtime DLL is copied next to each
 executable), `windows-x64-gcc` (patella_core and the unit tests with mingw-w64 GCC),
@@ -55,6 +55,11 @@ The developer log (issue #77, D16; `src/log/`, every preset and oracle-x86): lin
 Patella.ini's `LogLevel` (error, warn, info: the default, debug) and `LogFile` (also appended to; none by default) set
 it in the x64 client. A fatal error's box text goes there at error, error.txt's old diagnostics at debug, and Debug
 builds add the stack trace and a break into an attached debugger.
+
+The comparisons read the x64 client only through its test mode (issue #92, M6): an x64 `--patella` of compare_traffic.py,
+compare_files.py and compare_rendering.py runs PatellaTest.exe next to it with its control channel (`--test-control`,
+tools/testmode_client.py; notes/testmode.md, "The control channel"); tools/client_state.py (memory) and
+tools/capture/patcap.c (frames) are Tibia.exe's and the oracle's only, and refuse x64.
 
 The reference recordings (issue #23, M2's exit; `notes/testmode.md`, "Reference recordings"): `python -I
 tools/reference.py record --reference C:\Tibia\Patella-Modern\build\reference` (Windows, Tibia.exe under patcap.dll;

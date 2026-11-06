@@ -1,13 +1,20 @@
-# The test mode: virtual clock, scripted input, the dumps and the reference recordings (Patella-Modern issues #21, #22, #23)
+# The test mode: virtual clock, scripted input, the dumps, the reference recordings and the control channel (Patella-Modern issues #21, #22, #23, #92)
 
 The client's built-in test mode (notes/modernization-plan.md, 4.4; M2): one clock behind timeGetTime, the wall
 clock and the frame timer, and a script of keyboard, mouse and text events at virtual times (issue #21); the
 state dump, the packet log and the frame dump (issue #22, "The dumps" below). It is compiled only into the test
 build, PatellaTest.exe; Patella.exe and the oracle-x86 build contain none of it. The reference recordings,
 the server replay and the record/compare split of the comparison tools (issue #23): "Reference recordings"
-below. Choices and their reasons: notes/decisions.md,
-"Test mode: virtual clock and scripted input (Patella-Modern issue #21)" and "Test mode: the dumps
-(Patella-Modern issue #22)".
+below. The control channel, through which the comparison tools drive and read a running test client instead of
+its memory (issue #92): "The control channel" below. Choices and their reasons: notes/decisions.md,
+"Test mode: virtual clock and scripted input (Patella-Modern issue #21)", "Test mode: the dumps
+(Patella-Modern issue #22)" and "The comparisons read the x64 client through its test mode only (Patella-Modern
+issue #92, M6)".
+
+Since issue #92 the tools read the x64 client only through its test mode: they run PatellaTest.exe (for an x64
+`--patella` its sibling next to Patella.exe) and never read its memory or hook its frames. tools/client_state.py
+(memory) and tools/capture/patcap.c (frames, the virtual clock) are Tibia.exe's and the oracle's 32-bit Patella.exe's
+only: client_state.py refuses a 64-bit process, patcap.c does not build for x64.
 
 ## Running it
 
@@ -15,7 +22,8 @@ below. Choices and their reasons: notes/decisions.md,
 python -I tools/build.py windows-x64            # builds Patella.exe and PatellaTest.exe (and the unit tests)
 build\windows-x64\Release\PatellaTest.exe --test-script <file> [--test-log <file>] [--test-out <folder>]
                                           [--test-sync <name>] [--test-replay <file>]
-                                          [--test-display-modes <file>] [the client's own words]
+                                          [--test-display-modes <file>] [--test-control <name>]
+                                          [the client's own words]
 python -I tools/testmode_check.py               # the determinism and dump check against the test server
 python -I tools/testmode_check.py --self-test   # the check's comparisons on made-up data (no server, no client)
 ```
@@ -37,7 +45,9 @@ dispatched with its virtual time and script line. A script that cannot be read o
 program before its window opens: exit code 3, the message (`testmode: <file>:<line>: <error>`) on stderr, in the
 log and through OutputDebugString, never a dialog. The client ignores the test mode's words (its command line
 parser skips words it does not know). `--test-out <folder>` writes the dumps there (below); a script with
-`dump` or `frame` needs it (exit code 3 otherwise). `--test-sync <name>` is testmode_check.py's handshake.
+`dump` or `frame` needs it (exit code 3 otherwise). `--test-sync <name>` was testmode_check.py's handshake (unused
+since issue #92). `--test-control <name>` opens the control channel (issue #92; "The control channel" below; it needs
+`--test-out`).
 
 `tools/testmode_check.py` runs PatellaTest.exe twice with `tests/testmode/login-walk.script` against the test
 server through tools/proxy.py (each run: player files restored, server started fresh, run folder
@@ -45,16 +55,16 @@ build\testmode\testmode emptied, compare_traffic.py's Tibia.cfg; the server stop
 runs: (a) the client packets as compare_traffic.py compares them (the first packets' XTEA key and RSA padding
 masked, the payloads decrypted), the issue's criterion; (b) the raw client frames, encrypted, keys and padding
 included, which a fixed seed makes equal too; (c) the driver's logs; (d) the Tibia.cfg written on exit. In
-every run it also checks the dumps (issue #22; "The check of the dumps" below): (e) each state dump against
-client_state.py's reading of the same moment, (f) the packet log against the proxy's decrypted recording, (g)
+every run it also checks the dumps (issue #22; "The check of the dumps" below): (e) each state dump on its own (one
+per dump command, StateDump.h's keys, a well-formed window tree; until issue #92 against client_state.py's reading
+of the same moment from the client's memory), (f) the packet log against the proxy's decrypted recording, (g)
 the frame dumps, (h) the dump's keys against client_state.py's. It also lists whether the session reached the
 game (game login, walks, logout), the server packets, and which state dumps and frames the runs share. Exit code
 0 when a-h show no difference. `--runs N`, `--exe`, `--script`, `--out` (default build\testmode\result),
 `--timeout` (seconds per run, default 180), `--vulkan` (the client's PATELLA_VULKAN, default `cpu`: the pinned
 CPU driver, copied into the run folder), `--compare-only` (the recordings in --out again), `--self-test`. The
 test server must be stopped; the script starts and stops it. About 25 s of script per run at real-time pace,
-plus the server's start and stop and the six readings of client_state.py (about a second each): two runs take
-two to four minutes.
+plus the server's start and stop: two runs take two to four minutes.
 
 ### The cold start (issue #25)
 
@@ -96,13 +106,14 @@ written as it goes, the game port with the world.
 | src/testmode/Png.h, Png.cpp | the frame dump's PNG pictures: CRC-32, Adler-32, stored deflate (portable; #22) |
 | src/testmode/ServerReplay.h, ServerReplay.cpp | the server replay: its file, its schedule, XTEA frames (portable; #23) |
 | src/testmode/TestModeWin32.cpp | the Windows side: TSystemClock, the command line, the driver, the messages, the dumps' files, the replay's sockets (#23) |
-| src/testmode/ClientStateWin32.cpp, ClientView.h | the state dump's reading of the client (test build only; #22) |
+| src/testmode/ClientStateWin32.cpp, ClientView.h | the state dump's and the probe's reading of the client (test build only; #22, #92) |
 | cmake/TestMode.cmake | patella_testmode, the portable part, on every product preset |
 | cmake/WindowsX64.cmake | PatellaTest.exe (option PATELLA_TEST_BUILD, default ON) next to Patella.exe; PatellaTest_compile, its sources compiled without Tibia.exe (PATELLA_CLIENT_COMPILE_ONLY, the hosted CI; #25; Patella_compile the same for Patella.exe, #46) |
 | tests/unit/testmode_*.cpp | tests_testmode: the clock, the parser, the scheduler, the driver loop; the dumps' formats |
 | tests/testmode/login-walk.script | the check's script (6 dumps, 3 frames) |
 | tools/testmode_check.py | the determinism check and the check of the dumps |
-| tools/testmode_dumps.py | the dumps' readers and comparisons, the static key lists, the self-test |
+| tools/testmode_dumps.py | the dumps' readers and checks, the static key lists, the self-test |
+| tools/testmode_client.py | the control channel's tool side and TestClient, client_state.Client's reading interface over the probe (#92) |
 | tests/unit/testmode_replay_test.cpp | the reference scripts' commands, the replay's file, schedule and frames (#23) |
 | tools/reference.py | the reference recordings: record (through reference_record.py) and compare (#23) |
 | tools/reference_record.py | the record step: live recordings, Tibia.exe's reference runs under patcap.dll (#23) |
@@ -120,7 +131,7 @@ written as it goes, the game port with the world.
 | PATELLA_TEST_RSA_BLOCK(Block) | nothing (a statement macro, #22) | Communication.cpp SendLogin, SendGameLogin: the RSA block before RSA.Encrypt |
 | PATELLA_TEST_PACKET_SENT(Data, Size, Padded) | nothing (#22) | Network.cpp SendCommand: the packet complete, before XTEA (or before the unencrypted send) |
 | PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize) | nothing (#22) | Network.cpp PrepareNextPacket: the next packet decrypted |
-| PATELLA_TEST_FRAME_OBSERVERS(Patcap, ...) | nothing (#22) | vulkan/SurfaceVulkan.cpp InitDisplay: without patcap.dll, the frame dump observes the engine |
+| PATELLA_TEST_FRAME_OBSERVERS(Patcap, Frame, Pixels, Mask, Device) | nothing (#22; Device #92) | vulkan/SurfaceVulkan.cpp InitDisplay: without patcap.dll, the frame dump observes the engine; with the control channel the probe names the engine's device |
 | PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) | MessageBoxA (#23) | Player.cpp FatalError and the start's two boxes: with a script not shown ("Message boxes") |
 | PATELLA_TEST_CAPTURE_CHANGED | nothing (a statement macro, Patella-Modern #52) | MainFrm.cpp OnCaptureChanged, before its body: with a script skipped (below) |
 | PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode) | EnumDisplaySettingsA (Patella-Modern #48) | vulkan/SurfaceVulkan.cpp GetFullscreenModes (the Graphics Options dialog's list): with `--test-display-modes` the file's modes ("The display modes") |
@@ -128,7 +139,8 @@ written as it goes, the game port with the world.
 The state dump also reads the client's file-local data through four View functions at the ends of
 Creatures.cpp, Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h), inside `#if
 defined(PATELLA_TEST_MODE)`: they hand out const pointers and write nothing; at the ends of the files, so no
-line of the product's code moves.
+line of the product's code moves. Status.cpp's second one, ViewCharacters, gives the probe the character list
+(issue #92).
 
 In the test build CPlayerApp also overrides PreTranslateMessage (Player.h/.cpp, `#if
 defined(PATELLA_TEST_MODE)`): with a script it drops WM_KEYFIRST-WM_KEYLAST, WM_MOUSEFIRST-WM_MOUSELAST and the
@@ -301,14 +313,17 @@ the canvas at any moment, while the observer gives the frame as it is shown, wit
 
 ### The check of the dumps (tools/testmode_check.py, tools/testmode_dumps.py)
 
-In every run of testmode_check.py the client gets `--test-out <out>\run<N>` and `--test-sync <name>`: the
-checker makes two events, `<name>-ready` and `<name>-continue`; after writing a state dump the client sets the
-first and waits for the second (at most 300 s), while the checker reads client_state.py's state() and gui() from
-its memory (the PDB of the PatellaTest.exe it was given) into `external-<NNN>.json`. The wait is taken out of
-the pace (the driver's real start moves by it), so the virtual clock and the events do not see it. Compared:
+In every run of testmode_check.py the client gets `--test-out <out>\run<N>`. Checked:
 
-- (e) every state-<NNN>.json against external-<NNN>.json: "state" and "gui" equal value for value, one dump per
-  `dump` of the script: the issue's first criterion;
+- (e) every state-<NNN>.json on its own (issue #92): one per `dump` of the script, at that command's line, in
+  time order; the keys of StateDump.h's lists in their order (state, player, creatures, containers, offers, every
+  window node, "text" only for TLabel, TContextMenuEntry and TTextButton); the window tree well formed (depth 0
+  first, at most one level deeper from node to node, one "(modal)" node at depth 0 with its windows below it).
+  Until issue #92 e compared each dump with client_state.py's reading of the same moment from the client's memory
+  (`--test-sync`: the client waited at each dump while the checker read it into `external-<NNN>.json`), issue
+  #22's first criterion; the x64 client is no longer read from outside, and the dumps' values are compared with
+  Tibia.exe's readings by the reference compare (b. states) and with the live Tibia.exe's by compare_traffic.py
+  (notes/decisions.md, issue #92);
 - (f) packets.log against the proxy's recording of the same run, per connection: the client packets identical
   and in order (payload and padding; the first packets with the RSA block before encryption), the server
   packets the client decrypted identical to the proxy's, in order from the first (the ones the proxy passed on
@@ -317,9 +332,10 @@ the pace (the driver's real start moves by it), so the virtual clock and the eve
 - (h) statically, StateDump.h's key lists against the keys client_state.py writes (read from its source with
   Python's ast): the same names in the same order.
 
-`python -I tools/testmode_check.py --self-test` runs the comparisons on made-up runs (equal data passes; a
-changed state field, window text, client packet, padding, server packet, a missing dump, reading or frame each
-fail, and the report names it) and the static key lists, without a server or a client.
+`python -I tools/testmode_check.py --self-test` runs the checks on made-up runs (good data passes; a missing key, a
+window text its class has not, a window two levels below its parent, a modal's window at depth 0, a dump at the wrong
+line, a changed client packet, padding or server packet, a missing dump or frame each fail, and the report names it)
+and the static key lists, without a server or a client.
 
 ## Reference recordings (issue #23)
 
@@ -531,6 +547,53 @@ d. files: the files written and removed (byte for byte; Tibia.cfg, the *.map fil
 `--check-only` compares the results in --out again (any platform). Report: <out>\report.txt; exit code 0 when
 every session matches, 1 on a difference or a stale session, 2 when a run failed.
 
-The live modes of the three tools are unchanged and still work (`python -I tools/compare_traffic.py` etc.):
-they compare two live clients against the server. `record` and `compare` as their first word forward to
-tools/reference.py with the tool's sessions.
+The live modes of the three tools still work (`python -I tools/compare_traffic.py` etc.): they compare two live
+clients against the server (since issue #92 the x64 client through its control channel, below). `record` and
+`compare` as their first word forward to tools/reference.py with the tool's sessions.
+
+## The control channel (issue #92)
+
+The comparison tools' drivers decide their clicks from what the client shows (a dialog's place, a check box's
+state, a creature's name on the map), so they read the running client. For Tibia.exe and the oracle that is
+tools/client_state.py (its memory); the x64 client answers them itself:
+
+```
+PatellaTest.exe --test-control <name> --test-out <folder> [--test-script <file>] [...]
+```
+
+The tool (tools/testmode_client.py, Channel) makes the events `<name>-command` and `<name>-done`, writes the
+command into `<folder>\control.txt` and sets `<name>-command`; at an idle call (the driver's step in OnIdle, on the
+client's thread) the client does it, writes `control-reply.txt` (`ok` or `error: <why>`) and sets `<name>-done`.
+A command is taken only once the one before it is done. The commands:
+
+| Command | Without a script | With a script |
+| :--- | :--- | :--- |
+| `probe` | probe.json (below) | the same, between other commands |
+| script lines (src/testmode/InputScript.h) | refused | appended after the script's last event at the clock's time (with `clock manual` parsed after it: no wait or at; pace, clock and cursor refused); done once every one was handed out, the idle calls after them passed and their frames were written |
+
+probe.json (src/testmode/StateDump.h, "The probe"), one line of JSON: "format" (`patella-probe 1`), "step", "time"
+(the virtual milliseconds; 0 without a script), "state" and "gui" (the state dump's), "characters" (the character
+list), "skin" (the SkinProperties values the drivers place their clicks and masks by, under client_state.py's
+LAYOUT_FIELDS names: `Style288.Data60` a list of [x, y, w, h], `Data62C` a number, ...), "members" (per component,
+its "ptr" as a decimal string: `TComponent.Parent`, and by its class `TSubWindow.CloseButton`, `TTradeButtons.CancelButton`,
+`TAutomapWindow.ZoomInButton`, `TCheckBox.Checked`, the option dialogs' check boxes, `THorizontalScrollBar.LeftButton`,
+`THotkeyDialog.AutoSendCheckBox` and `.Selected`, `TEditMarkDialog.TypeButtons[n]`; a pointer as a "ptr"), "names" (per
+map window: [creature ID, x, y] of TMapWindow.Names), "device" (the Vulkan engine's device: name, VkPhysicalDeviceType,
+cpu_driver; null before it has one), "frames" (frames the engine showed to the test mode's observer, with a script)
+and "ticks" (the main timer's ticks of advance). It only reads the client, as the state dump does; about 10 ms.
+
+How the tools use it (tools/session_client.py `Driver(test=True)`, compare_traffic.py `use_patella`):
+
+- compare_traffic.py and compare_files.py with an x64 `--patella`: PatellaTest.exe next to it runs in the run
+  folder (patched as Patella.exe was), without a script: on the system clock, Windows' input taken, as Patella.exe;
+  the tools post their messages to its window as before and read it through TestClient (state(), gui(),
+  characters(), member(), map_names(), ... from a probe each), its --test-out next to the run folder
+  (`<run folder>.testmode`, so the files the client writes into its folder are compared as before);
+- compare_rendering.py with an x64 `--patella` (TestDriver): the script `clock manual` and `cursor 1020 760`
+  (patcap's clock and cursor), then every window message as a `post` line (a scripted client drops Windows' input),
+  each step's advance as an `advance 2000 20` line and each capture as a `frame` line; the frame dump's
+  frame-NNN.png and .filtered.png are the scene and its mask; the probe gives the device the run checks, the frames
+  and the ticks.
+
+`python -I tools/testmode_client.py --self-test` checks TestClient on made-up probes; the channel's lines are
+unit-tested (tests_testmode: TScheduler::Append, the probe's JSON).

@@ -49,12 +49,13 @@ python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,
   `<dir>\orig-live.jsonl`.
 - The capture helper is loaded into the client, so it has the client's bitness (`cmake/Capture.cmake`):
   `build\oracle-x86\Release\patcap.dll`, the patcap target of the oracle-x86 preset, for Tibia.exe and a
-  32-bit Patella.exe; `build\windows-x64\Release\patcap.dll`, the patcap target of the windows-x64 preset
-  (Patella-Modern issue #18), for an x64 Patella.exe. The script picks one per client by the PE machine field,
-  and builds the target itself when the DLL is missing or older than tools/capture/patcap.c (configuring the
-  preset first if needed). The same source serves both: the import thunks are pointer-sized, the COM vtable
-  indices and the shared memory's layout are the same. Before issue #10 tools\build-capture.cmd built
-  build\capture\patcap.dll.
+  32-bit Patella.exe. The script builds the target itself when the DLL is missing or older than
+  tools/capture/patcap.c (configuring the preset first if needed). Before issue #10 tools\build-capture.cmd built
+  build\capture\patcap.dll. From Patella-Modern issue #18 to #92 the windows-x64 preset built a 64-bit one for an
+  x64 Patella.exe; since #92 the x64 client is never hooked: its test build, PatellaTest.exe, runs in its place
+  with patcap's time course from its own test mode (`clock manual`, `cursor 1020 760`, then advance, frame and post
+  lines through its control channel; the frame dump's picture and mask are the scene and its `.filtered.png`;
+  notes/testmode.md, "The control channel"), and patcap.c does not build for x64.
 - Run folders `build\render\orig`, `build\render\patella` and `build\render\orig-repeat` (the
   second Tibia.exe run's own since Patella-Modern issue #12; before, it ran in build\render\orig)
   (compare_traffic.py's set-up through its set_folder: copies of the data files, the clients patched by
@@ -98,7 +99,7 @@ client's process that reads that surface at the moment the client shows it:
 | DirectX 5 (SurfaceDX.cpp FinishFrame) | windowed: `IDirectDrawSurface4::Blt` of SCREEN_SURFACE into the primary; fullscreen: `Flip` | the Blt's source surface and rectangle (Lock); for Flip the back buffer |
 | DirectX 9 (surfaceDX9.cpp FinishFrame) | `IDirect3DDevice9::Present(&Rect[SCREEN_SURFACE], ...)` | the back buffer through `GetRenderTargetData`, the Present's source rectangle |
 | OpenGL (SurfaceGL.cpp FinishFrame) | `SwapBuffers` | `glReadPixels` of the back buffer (the client area), in the window's context |
-| Vulkan (x64 only; src/vulkan/SurfaceVulkan.cpp FinishFrame, Patella-Modern issue #19) | `vkQueuePresentKHR` of a blit of the canvas | nothing is hooked: the engine calls patcap's exports `PatcapVulkanFrame` (counts the frame, says whether it is wanted), `PatcapVulkanMask` (its device-filtered pixels, `<capture>.mask`) and `PatcapVulkanPixels` (the canvas's presented rectangle, read back by the engine), and `PatcapVulkanDevice` once per device |
+| Vulkan (x64 only; src/vulkan/SurfaceVulkan.cpp FinishFrame, Patella-Modern issue #19) | `vkQueuePresentKHR` of a blit of the canvas | until issue #92 (since then the test mode's frame dump, its own observer of the same calls): nothing is hooked: the engine calls patcap's exports `PatcapVulkanFrame` (counts the frame, says whether it is wanted), `PatcapVulkanMask` (its device-filtered pixels, `<capture>.mask`) and `PatcapVulkanPixels` (the canvas's presented rectangle, read back by the engine), and `PatcapVulkanDevice` once per device |
 
 The DLL patches the vtable entries when the client creates the objects (DirectDrawCreate and
 IDirectDraw4::CreateSurface; GetProcAddress("Direct3DCreate9") and IDirect3D9::CreateDevice;
