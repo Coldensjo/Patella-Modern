@@ -6,6 +6,8 @@
 // for the first Status 0 (0x4ba6e0, NewEffect). TEntry stands for TEffect (Map.h, which needs the client's headers):
 // the members the table and the tests read. The golden corpus's Map test replays the original's effect operations
 // through Map.cpp's public functions; these tests hold the table's semantics on every compiler without the corpus.
+// Issue #103: a table numbered by an enumeration (TEffectId's kind) and Chain, the range of a map point's effects,
+// against the original's loops over the Next links, with the original's way of deleting while walking (ClearField).
 
 #include <doctest/doctest.h>
 
@@ -16,6 +18,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <vector>
 
 namespace {
 
@@ -30,6 +33,54 @@ struct TEntry {
 };
 
 using TEffectTable = TSlotTable<TEntry, EFFECTS>;
+
+// MapPoint.h's TEffectId and a TEffect's links, for the typed table.
+enum class TId : int { None = -1 };
+
+struct TLinkedEntry {
+	int Status;
+	TId Previous;
+	TId Next;
+};
+
+using TLinkedTable = TSlotTable<TLinkedEntry, EFFECTS, TId>;
+
+// Map.cpp's NewEffect: a new entry first on the list that Head starts.
+TId Push(TLinkedTable &Table, TId &Head)
+{
+	const TId Number = Table.New();
+	if (Number == TId::None)
+		return TId::None;
+	Table[Number].Status = 1;
+	Table[Number].Next = Head;
+	Table[Number].Previous = TId::None;
+	if (Head != TId::None)
+		Table[Head].Previous = Number;
+	Head = Number;
+	return Number;
+}
+
+// Map.cpp's DeleteEffect: frees the entry and unlinks it, keeping its own links.
+void Delete(TLinkedTable &Table, TId &Head, TId Number)
+{
+	TLinkedEntry &Entry = Table[Number];
+	Entry.Status = 0;
+	if (Head == Number)
+		Head = Entry.Next;
+	if (Entry.Previous != TId::None)
+		Table[Entry.Previous].Next = Entry.Next;
+	if (Entry.Next != TId::None)
+		Table[Entry.Next].Previous = Entry.Previous;
+}
+
+// The original's loop: the numbers from Head by Next.
+std::vector<int> Walk(const TLinkedTable &Table, TId Head)
+{
+	std::vector<int> Numbers;
+	for (TId Number = Head; Number != TId::None; Number = Table.Get(Number).Next)
+		Numbers.push_back(static_cast<int>(Number));
+	return Numbers;
+}
 
 // Takes the next entry as Map.cpp's NewEffect does: the number, then its Status.
 int Take(TEffectTable &Table, int Status)
@@ -168,4 +219,71 @@ TEST_CASE("TSlotTable: random operations give the original's numbers and statuse
 		REQUIRE(Same);
 	}
 	CHECK(Full > 0); // the run met a full table
+}
+
+TEST_CASE("TSlotTable: numbered by an enumeration, a full table gives Key(-1)")
+{
+	TLinkedTable Table;
+	TId Head = TId::None;
+	for (int Number = 0; Number < EFFECTS; Number++)
+		REQUIRE(Push(Table, Head) == static_cast<TId>(Number));
+	CHECK(Table.New() == TId::None);
+	CHECK(Push(Table, Head) == TId::None);
+	CHECK(Head == static_cast<TId>(EFFECTS - 1));
+	CHECK(Table.Get(static_cast<TId>(7)).Status == 1);
+}
+
+TEST_CASE("TSlotTable: Chain gives a list's numbers as the original's loop does")
+{
+	TLinkedTable Table;
+	CHECK(Table.Chain(TId::None).begin() == Table.Chain(TId::None).end());
+
+	std::array<TId, 4> Heads{TId::None, TId::None, TId::None, TId::None};
+	std::uint32_t Seed = 103;
+	const auto Random = [&Seed](std::uint32_t Range) {
+		Seed = Seed * 1103515245U + 12345U;
+		return static_cast<int>((Seed >> 8) % Range);
+	};
+	int Cleared = 0;
+	for (int Step = 0; Step < 5000; Step++) {
+		TId &Head = Heads[static_cast<std::size_t>(Random(4))];
+		const int Operation = Random(100);
+		if (Operation < 60) {
+			static_cast<void>(Push(Table, Head));
+		} else if (Operation < 95) {
+			// The n-th of the list, as GetEffectIteratorNumber finds it, deleted.
+			const std::vector<int> Numbers = Walk(Table, Head);
+			if (!Numbers.empty()) {
+				int n = Random(static_cast<std::uint32_t>(Numbers.size()));
+				TId Found = TId::None;
+				for (const TId Number : Table.Chain(Head)) {
+					if (n == 0) {
+						Found = Number;
+						break;
+					}
+					n--;
+				}
+				REQUIRE(Found != TId::None);
+				Delete(Table, Head, Found);
+			}
+		} else {
+			// ClearField: every effect of the list deleted while the range walks it, in the original's order.
+			const std::vector<int> Expected = Walk(Table, Head);
+			std::vector<int> Deleted;
+			for (const TId Number : Table.Chain(Head)) {
+				REQUIRE(Table.Get(Number).Status != 0);
+				REQUIRE(Number == Head); // the original deletes the list's first until there is none
+				Deleted.push_back(static_cast<int>(Number));
+				Delete(Table, Head, Number);
+			}
+			CHECK(Deleted == Expected);
+			CHECK(Head == TId::None);
+			Cleared += Expected.empty() ? 0 : 1;
+		}
+		std::vector<int> Ranged;
+		for (const TId Number : Table.Chain(Head))
+			Ranged.push_back(static_cast<int>(Number));
+		REQUIRE(Ranged == Walk(Table, Head));
+	}
+	CHECK(Cleared > 0);
 }

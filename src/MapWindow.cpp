@@ -931,8 +931,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 				AddLightSource(lx, ly, FieldZ, 2, TRGBColor(255, 255, 255));
 		}
 	}
-	int EffectNumber = -1;
-	for (EffectNumber = GetFirstEffect(FieldX, FieldY, FieldZ); EffectNumber != -1; EffectNumber = GetNextEffect()) {
+	for (const int EffectNumber : TMapEffects(FieldX, FieldY, FieldZ)) {
 		if (EffectNumber < 0 || EffectNumber > EFFECTS - 1) {
 			std::stringstream s;
 			s << "EffectNumber: " << EffectNumber << " X: " << FieldX << " Y: " << FieldY << " Z: " << FieldZ;

@@ -523,6 +523,13 @@ member-pointer table that MSVC and Clang could build (tests/reflection/state_dum
 its static_assert keeps the table in sync with the members). With that fallback it saves no code, and Clang and MSVC
 have no reflection yet. Revisit when MSVC and upstream Clang ship P2996. notes/decisions.md, "#114: reflection for the
 state dump and the serialisers".
+
+The effect table's links as typed handles (Patella-Modern issue #103, branch issue-103, November 6, 2026; M7): a map
+point's first effect and the effects' Previous and Next are `enum class TEffectId : int` (src/MapPoint.h; its value the
+original's number, None its -1), the table is TSlotTable<TEffect, EFFECTS, TEffectId>, TMap's effect members take and
+give TEffectId; TSlotTable::Chain walks a point's effects (GetEffectIteratorNumber, ClearField's deletes) and
+TMapEffects wraps GetFirstEffect/GetNextEffect for DrawField's loop. Field (a map point's number) and the original's
+free functions (golden calls and fakes them) keep ints. Golden 17,316,040, 0 failures. notes/decisions.md, "#103".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
