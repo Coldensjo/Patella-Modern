@@ -25,7 +25,7 @@
 #pragma once
 
 #include "common.h"
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "GUI.h"
 #include "Talk.h"
 #include "graphics.h"
@@ -140,7 +140,7 @@ public:
 	}
 
 	TTalkBuffer *TextBuffer;              // +0x24
-	vector<TLineFormat> Lines;            // +0x28 (entry +0x68)
+	TIndexedVector<TLineFormat> Lines;    // +0x28 (entry +0x68)
 	int CurrentLineNumber;                // +0x6c
 	int InvisibleLines;                   // +0x70, lines above the window when the last one is at the bottom
 	int LastLineNumber;                   // +0x74

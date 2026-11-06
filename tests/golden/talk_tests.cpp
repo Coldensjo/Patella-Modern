@@ -18,7 +18,7 @@
 #include "golden_test.h"
 #include "golden_patch.h"
 
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "Preferences.h"
 #include "Talk.h"
 #include "Utils.h"
@@ -329,7 +329,7 @@ void TestFilters()
 		bool Matches = ORIGINAL_VALUE("filter match", bool, At<MatchFn>(0x4ff810)(&Filter, NULL, Mode, Name, Channel));
 		CHECK(Filter.Matches(Mode, Name, Channel) == Matches, "filter match");
 	}
-	vector<TTalkFilter *> Ours(0, 4, 5, nullptr);
+	TIndexedVector<TTalkFilter *> Ours(0, 4, 5, nullptr);
 	for (int Count = 0; Count < 65; Count++) {
 		char Name[30];
 		sprintf(Name, "filter%d", Count);
@@ -359,9 +359,8 @@ void TestFilters()
 		free(Ours(Index));
 		ORIGINAL(free(Original(Index)));
 	}
-	// vector<T>'s destructor deletes the entries again at the end of the function.
-	Ours.entry.reset();
-	Ours.entry = nullptr;
+	// The storage freed here, as before (TIndexedVector's destructor frees what is left at the end of the function).
+	Ours.entry = {};
 	ORIGINAL(free(Original.entry.get()));
 	const char *Names[] = {"Alice", "Bob", "alice", "Carol", "", "Daniel"};
 	for (int Round = 0; Round < 2500; Round++) {

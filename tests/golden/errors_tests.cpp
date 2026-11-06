@@ -691,7 +691,7 @@ void TestMap()
 		int Floor = Outside(0, 15);
 		Both("GetAutomapColor", 0x4b4370, GetAutomapColor, 100, 200, Floor);
 		int Count = 0;
-		Both("GetAutomapMarks", 0x4b4680, GetAutomapMarks, 100, 200, Floor, (vector<TMark> *)nullptr, &Count);
+		Both("GetAutomapMarks", 0x4b4680, GetAutomapMarks, 100, 200, Floor, (TIndexedVector<TMark> *)nullptr, &Count);
 		TCoordinate Coordinate;
 		memset(&Coordinate, 0, sizeof(Coordinate));
 		Coordinate.x = t % 3 == 0 ? 100 : -(int)(ErRandom() % 3);
@@ -759,7 +759,7 @@ void TestTalk()
 {
 	golden::Input("seed", ErSeed);
 	alignas(8) static uint8 NoList[64]; // never read: the assertion comes first
-	vector<TTalkFilter *> &List = *(vector<TTalkFilter *> *)NoList;
+	TIndexedVector<TTalkFilter *> &List = *(TIndexedVector<TTalkFilter *> *)NoList;
 	for (int t = 0; t < 30; t++) {
 		{
 			const int Number = Outside(0, TALKBOXES - 1);

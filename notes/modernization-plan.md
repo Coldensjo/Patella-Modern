@@ -588,6 +588,9 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   semantics (min..max indexing, block growth, `init` fill). Call sites that index from 0 and never grow by
   indexing move to `std::vector`, `std::array` or `std::flat_map`. `matrix3d<T>` and the automap's
   `uint8 Color[256][256]` become `std::mdspan` views over owned storage.
+  Done in issue #99 (notes/decisions.md): `src/types/IndexedVector.h`'s TIndexedVector<T> over a std::vector (its
+  allocator allocates as `new T[n]`), every `vector<T>` converted, Container.h keeps array, matrix and matrix3d. The
+  call sites that need no min..max or growth move to standard containers in #100.
 - **Fixed-capacity lists** (`TMapPoint::Objects[10]` + `ObjectCount`, the effect table):
   `std::inplace_vector<T, N>` where available, `TStaticVector<T, N>` (same interface) elsewhere.
 - **The effect table's index links** (`Field`, `Previous`, `Next` as `int`) become typed handles

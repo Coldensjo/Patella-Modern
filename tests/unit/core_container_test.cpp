@@ -1,6 +1,6 @@
-// Container.h's templates: array, matrix, matrix3d and the growing vector, with their errors
-// (TMyException messages naming Container.h and the original's lines). On the GCC and Clang warning
-// baselines (cmake/Warnings.cmake): Container.h's constructor parameters hide its members (-Wshadow)
+// Container.h's templates: array, matrix and matrix3d, with their errors (TMyException messages naming Container.h
+// and the original's lines); the growing vector is TIndexedVector since issue #99 (indexed_vector_test.cpp). On the GCC
+// and Clang warning baselines (cmake/Warnings.cmake): Container.h's constructor parameters hide its members (-Wshadow)
 // and its new[] sizes are int (-Wsign-conversion); a warning fix of M3.
 
 #include <doctest/doctest.h>
@@ -64,28 +64,4 @@ TEST_CASE("Container.h: matrix and matrix3d")
 	CHECK(MessageOf([&] { C(0, 0, 1); })
 		== "Container.h N: index out of range (original x: 0, original y: 0, original z: 1, x: 0, y: 0, z: 2, "
 		   "xmin: 0, ymin: 0, zmin: -1, dx: 2, dy: 2, dz: 2), reason:\n[bug0000013]");
-}
-
-TEST_CASE("Container.h: vector grows by block, or doubles")
-{
-	vector<int> V(0, 1, 0, -1);
-	CHECK(V(0) == -1);
-	V(1) = 1;
-	V(5) = 5; // doubles twice: space 2, 4, 8
-	CHECK(V.space == 8);
-	CHECK(V.max == 5);
-	CHECK(V(4) == -1);
-	CHECK(V(1) == 1);
-	V(-3) = -3; // grows below by the space, 8
-	CHECK(V.start == -8);
-	CHECK(V.min == -3);
-	CHECK(V(-1) == -1);
-	CHECK(V(1) == 1);
-	CHECK(V(5) == 5);
-
-	vector<int> W(10, 10, 4);
-	W(11) = 11;
-	CHECK(W.space == 5);
-	CHECK(W(11) == 11);
-	CHECK(MessageOf([] { vector<int> Bad(0, 0, -1); }) == "Container.h N: assertion failed (block = -1), reason:\nblock>=0");
 }

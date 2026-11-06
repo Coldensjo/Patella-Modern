@@ -26,7 +26,7 @@
 #include "Preferences.h"
 #include "Script.h"
 #include "Utils.h"
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "common.h"
 #include "types/FixedString.h"
 #include "log/Log.h"

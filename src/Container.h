@@ -5,9 +5,10 @@
 // exception table). The assertion texts and line numbers come from the
 // instances; member names other than space and block are ours.
 //
-// vector<T> is a growable array indexed from min to max. Indexing outside the
-// current range grows it by block entries at a time (by its current size
-// when block is 0) and, if initialized is set, fills new entries with init.
+// The original file's growable vector<T> (lines 353-370) is TIndexedVector<T> of
+// src/types/IndexedVector.h since Patella-Modern issue #99, the same semantics
+// over a std::vector; its instances in the binary are listed here, by the
+// original's name.
 //
 // The linker keeps one copy of an instance, normally in the first object that
 // uses it (objects are in alphabetical order), so most copies sit in an
@@ -55,35 +56,15 @@
 #pragma once
 
 #include "common.h"
-#include <cstring>
 #include <memory>
 #include <sstream>
-#include <type_traits>
 
 // Each container owns its entries as a std::unique_ptr<T[]> (issue #58): a pointer at the original's offset, freed
-// with reset() where the original had delete[] (the destructors, vector's growth), allocated with reset(new T[n])
+// with reset() where the original had delete[] (the destructors), allocated with reset(new T[n])
 // (the same new-expression: entries of a type without a constructor stay uninitialised). The element types'
 // destructors cannot throw (scalars, pointers and plain structures), so neither can the reset.
 static_assert(sizeof(std::unique_ptr<int[]>) == sizeof(int *) && alignof(std::unique_ptr<int[]>) == alignof(int *),
 	"std::unique_ptr<T[]> is a pointer");
-
-// Swaps two entries as the original does when vector<T> grows: through a copy, each entry copied as a block of bytes
-// with its padding (VC7.1 copies a structure so, and so does MSVC). The golden corpus compares the entries' padding
-// (Patella-Modern issue #91), which GCC and Clang do not copy when they copy a structure member by member; a type
-// that is not trivially copyable is copied with its assignment.
-template <class T> inline void SwapEntries(T &A, T &B)
-{
-	if constexpr (std::is_trivially_copyable_v<T>) {
-		unsigned char Help[sizeof(T)];
-		std::memcpy(Help, &A, sizeof(T));
-		std::memcpy(&A, &B, sizeof(T));
-		std::memcpy(&B, Help, sizeof(T));
-	} else {
-		T Help = A;
-		A = B;
-		B = Help;
-	}
-}
 
 // array<T> is a fixed array indexed from min to min+d-1 (lines 152-178;
 // it comes before vector in the original file). The class name is ours;
@@ -230,102 +211,4 @@ template <class T> T &matrix3d<T>::operator()(int x, int y, int z)
 		throw TMYEXCEPTION(s.str().c_str(), "", 0, "", 0, "[bug0000013]");
 	}
 	return entry[(z * dy + y) * dx + x];
-}
-
-template <class T> class vector {
-public:
-	vector(const vector &) = delete;
-	vector &operator=(const vector &) = delete;
-	vector(int min, int max, int block, T init);
-	vector(int min, int max, int block);
-	// Inlined everywhere: the atexit thunks of the static vectors
-	// (0x55a320-0x55a3c0) and Map.cpp's TAutomapBlock destructor 0x4b0b30
-	// free entry.
-	~vector() { entry.reset(); }
-	T &operator()(int i);
-
-	int min;          // +0x00, lowest index used so far
-	int max;          // +0x04, highest index used so far
-	int start;        // +0x08, index of entry[0]
-	int space;        // +0x0c, allocated entries
-	int block;        // +0x10, growth step, 0 = double
-	bool initialized; // +0x14, fill new entries with init
-	T init;           // +0x15 or the next aligned offset
-	std::unique_ptr<T[]> entry;
-};
-
-// Lines 353-358 (0x453300, 0x425e70, 0x4973f0, 0x4fd6e0). Every entry starts
-// as init.
-template <class T> vector<T>::vector(int min, int max, int block, T init)
-{
-	this->min = min;
-	this->max = max;
-	start = min;
-	space = max - min + 1;
-	this->block = block;
-	initialized = true;
-	this->init = init;
-	PATELLA_ASSERT_VALUES(space>0, space);
-	PATELLA_ASSERT_VALUES(block>=0, block);
-	entry.reset(new T[space]);
-	for (int i = 0; i < space; i++)
-		entry[i] = init;
-}
-
-// Lines 368-370. No try block; the two assertions are the only EH states (ten),
-// plus one for new[] when T has a constructor (eleven: TLineFormat, TMark,
-// TListBoxLine, TIgnoreEntry, THotkey, TErrorReport).
-template <class T> vector<T>::vector(int min, int max, int block)
-{
-	this->min = min;
-	this->max = max;
-	start = min;
-	space = max - min + 1;
-	this->block = block;
-	initialized = false;
-	PATELLA_ASSERT_VALUES(space>0, space);
-	PATELLA_ASSERT_VALUES(block>=0, block);
-	entry.reset(new T[space]);
-}
-
-// Grows the array until i is inside it and returns the entry. Existing
-// entries are moved by swapping them with the fresh ones.
-template <class T> T &vector<T>::operator()(int i)
-{
-	while (i < start) {
-		int b = block;
-		if (b == 0)
-			b = space;
-		T *help = new T[space + b];
-		for (int j = min; j <= max; j++) {
-			SwapEntries(help[j - start + b], entry[j - start]);
-		}
-		entry.reset();
-		entry.reset(help);
-		start -= b;
-		space += b;
-	}
-	while (i >= start + space) {
-		int b = block;
-		if (b == 0)
-			b = space;
-		T *help = new T[space + b];
-		for (int j = min; j <= max; j++) {
-			SwapEntries(help[j - start], entry[j - start]);
-		}
-		entry.reset();
-		entry.reset(help);
-		space += b;
-	}
-	while (i < min) {
-		min--;
-		if (initialized)
-			entry[min - start] = init;
-	}
-	while (i > max) {
-		max++;
-		if (initialized)
-			entry[max - start] = init;
-	}
-	return entry[i - start];
 }

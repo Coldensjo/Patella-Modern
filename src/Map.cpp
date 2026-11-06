@@ -24,6 +24,7 @@
 #include "Utils.h"
 #include "sysinc.h"
 #include "Container.h"
+#include "types/IndexedVector.h"
 #include "common.h"
 #include "compat/span.h"
 #include "types/FixedString.h"
@@ -1261,7 +1262,7 @@ TRGBColor GetAutomapColor(int x, int y, int z)
 
 // 0x4b4680, lines 1485-1493. Copies the marks of a block; x and y are block
 // coordinates here, despite their names.
-void GetAutomapMarks(int x, int y, int z, vector<TMark> *Marks, int *Count)
+void GetAutomapMarks(int x, int y, int z, TIndexedVector<TMark> *Marks, int *Count)
 {
 	PATELLA_ASSERT_VALUES(In(z,0,15), z);
 	if (x >= 0 && y >= 0) {

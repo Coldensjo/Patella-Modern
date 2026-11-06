@@ -10,7 +10,7 @@
 // code kept in this object.
 
 #include "Help.h"
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "Preferences.h"
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "common.h"
@@ -22,15 +22,15 @@
 namespace {
 
 // Data, in .bss order.
-int NumberOfEventHelps;           // 0x5ce520, queued in EventHelps
-bool HelpHandleChanged;           // 0x5ce524
-int HelpHandle;                   // 0x5ce528, what the help bubble explains
-int HelpHeight;                   // 0x5ce52c
-int HelpWidth;                    // 0x5ce530
-int HelpY;                        // 0x5ce534
-int HelpX;                        // 0x5ce538
-vector<int> EventHelps(0, 9, 10); // 0x5ce53c, initialiser at 0x559e80
-TFixedString<2048> HelpText;      // 0x5ce560
+int NumberOfEventHelps;                   // 0x5ce520, queued in EventHelps
+bool HelpHandleChanged;                   // 0x5ce524
+int HelpHandle;                           // 0x5ce528, what the help bubble explains
+int HelpHeight;                           // 0x5ce52c
+int HelpWidth;                            // 0x5ce530
+int HelpY;                                // 0x5ce534
+int HelpX;                                // 0x5ce538
+TIndexedVector<int> EventHelps(0, 9, 10); // 0x5ce53c, initialiser at 0x559e80
+TFixedString<2048> HelpText;              // 0x5ce560
 
 } // namespace
 

@@ -36,7 +36,7 @@
 #include "golden_eh.h"
 #include "golden_patch.h"
 
-#include "Container.h" // vector (GUI.h included it before issue #49)
+#include "types/IndexedVector.h" // TIndexedVector (GUI.h included Container.h before issue #49)
 #include "GUI.h"
 #include "Help.h"
 #include "Skins.h"
@@ -980,7 +980,7 @@ void TestTimers()
 			CHECK(A->GetTime() == O[2], "TTimer::GetTime");
 			CHECK(A->IsExpired() == (O[3] != 0), "TTimer::IsExpired");
 		}
-		int Min = ORIGINAL_VALUE("timer vector min", int, ((vector<TTimer *> *)(uintptr_t)0x5ccfa4)->min);
+		int Min = ORIGINAL_VALUE("timer vector min", int, ((TIndexedVector<TTimer *> *)(uintptr_t)0x5ccfa4)->min);
 		CHECK(Min == 0, "timer vector min");
 		CheckLogs("timers");
 	}

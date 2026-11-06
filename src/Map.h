@@ -21,7 +21,7 @@
 
 #include "common.h"
 #include "types/FixedString.h"
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "graphics.h" // TRGBColor
 #include "Objects.h"  // TObject
 #include <array>
@@ -115,7 +115,7 @@ struct TAutomapBlock {
 	std::array<std::array<uint8, 256>, 256> Color; // +0x14, [x][y], palette colour
 	std::array<std::array<uint8, 256>, 256> Speed; // +0x10014, [x][y], ground speed, 250 unknown, 255 blocked
 	bool Changed;                                  // +0x20014
-	vector<TMark> Marks;                           // +0x20018
+	TIndexedVector<TMark> Marks;                   // +0x20018
 	int MarkCount;                                 // +0x200a4
 };
 
@@ -200,7 +200,7 @@ bool FieldRefreshRequested(int rx, int ry, int rz);
 bool GetAutomapChanged();
 void UpdateAutomap(int rx, int ry);
 TRGBColor GetAutomapColor(int x, int y, int z);
-void GetAutomapMarks(int x, int y, int z, vector<TMark> *Marks, int *Count);
+void GetAutomapMarks(int x, int y, int z, TIndexedVector<TMark> *Marks, int *Count);
 void AddAutomapMark(TCoordinate &Coordinate, const char *Text, int Type);
 void DeleteAutomapMark(TMark &Deleted, int z);
 

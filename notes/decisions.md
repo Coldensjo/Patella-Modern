@@ -12829,3 +12829,95 @@ strongly connected components) and notes the cycles left in its subsection.
   mismatched release of MotD (new[] in SetMotD, free in ExitPreferences; notes/ownership.md) is kept.
 - **Container.h**: the vector members keep CipSoft's `vector<T>` (now in Preferences.h, which includes Container.h);
   #99 (TIndexedVector) renames them with its other users, a one-line rebase there.
+
+## TIndexedVector over std::vector (Patella-Modern issue #99, M7)
+
+Settled by Claude Opus 5.5, November 6, 2026. Plan M7, containers: CipSoft's `vector<T>` of Container.h is
+`TIndexedVector<T>` of `src/types/IndexedVector.h`, over a std::vector, with the original's semantics. Container.h's
+vector is gone (no alias); array, matrix and matrix3d stay there. #100 moves the call sites that need neither min..max
+nor growth to standard containers.
+
+### The interface (high)
+
+- `TIndexedVector(int Min, int Max, int Block, T Init)` and `TIndexedVector(int Min, int Max, int Block)`: the two
+  constructors, with the original's two assertions (`space > 0`, `block >= 0`, PATELLA_ASSERT_VALUES; their messages
+  name IndexedVector.h now, the golden corpus compares the outcome only).
+- `T &operator()(int i)`: the original's growth, unchanged: below `start` or past `start + space` the storage grows by
+  `block` entries at a time (by `space`, doubling, when `block` is 0), the entries min..max swapped into the new storage
+  (SwapIndexedEntries, Container.h's SwapEntries of #91 moved with it: a trivially copyable entry copied as bytes, its
+  padding with it); then `min`/`max` move to `i`, each entry taken in set to `init` when `initialized`.
+- The members are the original's names in its order, public as before: `min`, `max`, `start`, `space`, `block`,
+  `initialized`, `init`, then `entry`, the storage (`std::vector<T, TArrayNewAllocator<T>>`, `entry.size() == space`)
+  where the original had `T *entry`. Call sites keep reading `min`/`max` and `entry[...]`; no accessor layer was added,
+  since #100 rewrites most of those loops anyway. Copy and move are deleted, as before.
+- The members are initialised with braces: `<windows.h>`'s min and max macros take `max(` in an initialiser list.
+
+### The storage's allocator (high)
+
+std::vector's own allocator value-initialises (an int entry is 0); the original's `new T[n]` default-initialises (an
+int keeps the memory's bytes, a class runs its constructor), and the golden corpus's Container test compares every
+allocated entry with the bytes the image's `new[]` left (the runner's operator new[] fills with a pattern). So the
+storage's allocator, TArrayNewAllocator, allocates through `operator new[]` and frees through `operator delete[]`, and
+its `construct(p)` without arguments default-initialises. With it the Container test's 192,832 checks pass unchanged.
+The alternative, std::allocator with the runner also replacing the global operator new, would have changed the runner's
+allocation for every test; rejected. Over-aligned types are refused (static_assert): none is stored.
+
+### The golden tests' calls (high)
+
+Adapted, no check changed (17,316,040, the same counts): container_tests.cpp's header layout ends at the storage
+(`offsetof(TIndexedVector<T>, entry) + sizeof(void *)` as our size; the compared bytes are min ... init with their
+padding, as before) and its "entry is the last member" check uses the storage's size; `entry.get()` is `entry.data()`
+there and in dialogs_tests.cpp (`entry == NULL` is `entry.empty()`); talk_tests.cpp frees the filter vector's storage
+with `entry = {}` where it reset the pointer. talk_tests.cpp's 21-byte header comparison is unchanged (the same
+members, offsets and padding).
+
+### The uses (high)
+
+24 objects and 4 functions' parameters, all converted: the members ConsoleWindow.h TTextWindow::Lines, DialogElements.h
+TRadioButtonGroup::Buttons, TEditText::LineStart, TFocusGroup::MemberList, TListBox::LineText,
+TFontListBox::FontLines, Dialogs.h IgnoreEntries and WhiteEntries, Map.h TAutomapBlock::Marks, and Preferences.h
+TPreferences' ContentWindows, OpenDialogs, OpenChannels, Buddies and KnownHints (14; the last five were
+Preferences.cpp's globals until #104, converted at the merge with it); the globals GUI.cpp Timers and Hotkeys, Help.cpp
+EventHelps, Status.cpp Messages, Talk.cpp BuddyExemptionList, TemporaryIgnoreList, IgnoreList and ConsoleFilterList
+(8); ContentWindows.cpp's two automap mark lists (2); GetAutomapMarks (Map) and FindTalkFilter, FindTextBuffer,
+AddTalkFilter (Talk). Preferences.h and Preferences.cpp: only the five declarations and the includes changed. Comments that
+describe the binary's instances keep the original's name `vector<T>`.
+
+Candidates for #100 (index from a fixed lower bound and need no growth by indexing, or a bounded size): to be decided
+there call site by call site; this issue changes no semantics.
+
+### Tests (high)
+
+tests/unit/indexed_vector_test.cpp in tests_unit and tests_unit_cxx26_standin (every compiler: MSVC, mingw-w64 GCC,
+GCC 16, Clang 22 with ASan and UBSan): 8 test cases, 77 assertions: the range and negative indices, growth by block
+above and below, doubling, the init fill (construction, the range taking entries in, none without init), the padding a
+growth carries, entries that are not trivially copyable (constructions and assignments counted), the allocator, the
+assertions. The vector case of core_container_test.cpp moved there. The allocator's default initialisation of an int
+cannot be read by a test (an indeterminate value); the golden corpus's Container test checks it byte for byte.
+
+### Found, not done (high)
+
+- Container.h's array, matrix and matrix3d still own `std::unique_ptr<T[]>`; plan M7 makes matrix3d an mdspan view.
+- Container.h stays on the GCC warning baseline (array's and matrix's constructor parameters hide members);
+  IndexedVector.h has no such warning and is on no baseline.
+
+### The gates (high)
+
+Logs: build\logs\issue-99 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 18/18, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same; the Container test 192,832 checks), 0 warnings. windows-x64-debug and
+  windows-x64-asan: exit 0, 17/17 each, golden the same, no ASan report. windows-x64-gcc: exit 0, 11/11. linux-x64-gcc:
+  exit 0, 15/15; linux-x64-clang (ASan, UBSan): exit 0, 14/14, no sanitizer report; golden the same on both. The first
+  MSVC build failed on `max(Max)` in an initialiser list (`<windows.h>`'s macro): braces.
+- TIndexedVector's unit tests (8 test cases, 77 assertions, each in tests_unit and tests_unit_cxx26_standin): passed with
+  MSVC (Release, Debug, ASan), mingw-w64 GCC, GCC 16 and Clang 22.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (traffic, options, walk, error); `python -I tools/compare_traffic.py` exit 0, no differences.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
+  clang-format (CLAUDE.md's command): exit 0.
+- After the merge of main cf4f5db (#113, #104, #98; logs in build\logs\issue-99\after-merge): `python -I
+  tools/build.py windows-x64 --fresh` exit 0, 19/19; `linux-x64-gcc --fresh` exit 0, 16/16; golden on both 15,803,218
+  replayed + 1,512,822 retired = 17,316,040, 0 failures. `reference.py compare` exit 0, every session matches.
+  clang-format and banned_calls.py: exit 0.

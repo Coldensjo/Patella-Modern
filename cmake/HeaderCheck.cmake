@@ -52,6 +52,7 @@ set(PATELLA_HEADERS_CORE
 	TXTEA.h
 	types/File.h
 	types/FixedString.h
+	types/IndexedVector.h
 	types/Time32.h
 	Utils.h
 	vlong.h)

@@ -25,7 +25,7 @@
 
 #include "common.h"
 #include "types/FixedString.h"
-#include "Container.h"
+#include "types/IndexedVector.h"
 #include "GUI.h"
 #include "graphics.h"
 #include "DialogElements.h"
@@ -397,21 +397,21 @@ public:
 	void KeyPress(int Key) override;                     // +0x6c, 0x472d80, line 2216
 	void HandleEvent(int Event) override;                // +0x70, 0x471f20, line 2171
 
-	TCheckBox *IgnoreListCheckBox;      // +0x2c, "Activate Ignore List"
-	TFontListBox *IgnoreList;           // +0x30, event 11
-	TTextButton *AddIgnoreButton;       // +0x34, event 709
-	TTextButton *DeleteIgnoreButton;    // +0x38, event 710
-	TCheckBox *IgnorePermanently;       // +0x3c
-	TCheckBox *IgnoreYelling;           // +0x40
-	TCheckBox *IgnorePrivate;           // +0x44
-	TCheckBox *WhiteListCheckBox;       // +0x48, "Activate White List"
-	TFontListBox *WhiteList;            // +0x4c, event 11
-	TTextButton *AddWhiteButton;        // +0x50, event 712
-	TTextButton *DeleteWhiteButton;     // +0x54, event 713
-	TCheckBox *AllowPermanently;        // +0x58
-	TCheckBox *AllowBuddies;            // +0x5c, "Allow VIPs to message you"
-	vector<TIgnoreEntry> IgnoreEntries; // +0x60
-	vector<TIgnoreEntry> WhiteEntries;  // +0x98
+	TCheckBox *IgnoreListCheckBox;              // +0x2c, "Activate Ignore List"
+	TFontListBox *IgnoreList;                   // +0x30, event 11
+	TTextButton *AddIgnoreButton;               // +0x34, event 709
+	TTextButton *DeleteIgnoreButton;            // +0x38, event 710
+	TCheckBox *IgnorePermanently;               // +0x3c
+	TCheckBox *IgnoreYelling;                   // +0x40
+	TCheckBox *IgnorePrivate;                   // +0x44
+	TCheckBox *WhiteListCheckBox;               // +0x48, "Activate White List"
+	TFontListBox *WhiteList;                    // +0x4c, event 11
+	TTextButton *AddWhiteButton;                // +0x50, event 712
+	TTextButton *DeleteWhiteButton;             // +0x54, event 713
+	TCheckBox *AllowPermanently;                // +0x58
+	TCheckBox *AllowBuddies;                    // +0x5c, "Allow VIPs to message you"
+	TIndexedVector<TIgnoreEntry> IgnoreEntries; // +0x60
+	TIndexedVector<TIgnoreEntry> WhiteEntries;  // +0x98
 };
 
 // The qsort order of the names (out-of-line copy 0x46bb00, an inline
