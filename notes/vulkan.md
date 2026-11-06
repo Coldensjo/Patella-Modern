@@ -329,13 +329,13 @@ hardware what a Direct3D 9 driver gives it); on the CPU driver they differ by at
 
 **The tolerance (the user's decision of November 3, 2026):** up to 2 per colour channel on the pixels whose value
 comes from the device's filter or interpolation (the bilinear stretches and the light), exact everywhere else, on
-every device. The engine knows those pixels: while a frame observer (patcap.dll) watches, `TFilterMasks`
+every device. The engine knows those pixels: while a frame observer (the test build's frame dump) watches, `TFilterMasks`
 (FilterMask.cpp) follows its fills, uploads and quads with a byte per pixel of every image, "filtered" and
 "transparent" (alpha 0). Uploads and fills set it exactly; a copy carries the source's bytes over, texel for texel
 as the engine samples it, except through transparent texels (which leave the target's pixel); every other quad
 marks every pixel it covers. So a glyph over the stretched start screen is exact where its texels are opaque, and
 the lit map copied unscaled to the screen ("no stretching") keeps its marks. The captured frame's mask goes to
-patcap.dll (below); compare_rendering.py applies `--region-tolerance` (default 2) on it only. One case is wider
+the frame dump (`frame-<NNN>.filtered.png`, below); compare_rendering.py applies `--region-tolerance` (default 2) on it only. One case is wider
 than needed: a scaled item picture's colour-keyed texels (ApplyColorKey's pixels are only known on the GPU) count
 as filtered where they leave the target unchanged.
 
@@ -417,18 +417,20 @@ extracted CPU driver (`extracted-<first hash digits>`) with it, and tests_vulkan
 
 ## Capture for compare_rendering.py
 
-tools/capture/patcap.c reads the other engines' frames by hooking their APIs. A Vulkan swapchain image cannot be
-read back from outside the engine (the injected DLL would need the engine's device, queue and a copy usage of the
-swapchain), so the engine calls patcap.dll itself when it is loaded (GetModuleHandle "patcap.dll"):
-`PatcapVulkanDevice(name, type, cpu)` once it has a device, `PatcapVulkanFrame(width, height)` before every
-frame is shown (patcap counts the frame, API 5, and answers whether it wants it), and, when wanted,
-`PatcapVulkanMask` (the frame's device-filtered pixels, a byte each, written raw to the capture's path with
-`.mask` appended) and `PatcapVulkanPixels` with SCREEN_SURFACE's rectangle read back, the picture Present shows.
-Shared memory version 3 (`MaskPixels` at 1016: the marked pixels of the last mask). Without patcap.dll the engine
-looks it up once per device, calls nothing and keeps no masks. These calls stay until the test mode's frame
-dump (issue #22) replaces them; patcap's hooks of the original engines (DirectDrawCreate, Direct3DCreate9,
-wglMakeCurrent, SwapBuffers) stay for Tibia.exe and the oracle. Since issue #20 the x64 client imports none of
-those (patcap reports the seven others as hooked); compare_rendering.py needs none of them for it.
+A Vulkan swapchain image cannot be read back from outside the engine (an injected DLL would need the engine's
+device, queue and a copy usage of the swapchain), so the engine offers its frames to a frame observer of its own:
+a device call (name, type, cpu) once it has a device, a frame call (width, height) before every frame is shown
+(the observer answers whether it wants it), and, when wanted, the mask (the frame's device-filtered pixels, a
+byte each) and the pixels with SCREEN_SURFACE's rectangle read back, the picture Present shows. The only
+observer is the test build's frame dump (src/TestHooks.h, PATELLA_TEST_FRAME_OBSERVERS; notes/testmode.md, "The
+frame dump"), which compare_rendering.py reads through the control channel (issue #92). Without an observer the
+engine calls nothing and keeps no masks; Patella.exe has none.
+
+Until issue #97 the engine also looked up patcap.dll once per device (GetModuleHandle "patcap.dll") and its
+exports PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanMask and PatcapVulkanPixels (shared memory version 3),
+for the 64-bit patcap.dll that compare_rendering.py loaded into the x64 client until issue #92. tools/capture/patcap.c
+is Tibia.exe's only since then (capture-x86, a 32-bit DLL; it hooks the original engines: DirectDrawCreate,
+Direct3DCreate9, wglMakeCurrent, SwapBuffers); its Vulkan exports have no caller.
 
 ## Checks
 

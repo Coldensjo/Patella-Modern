@@ -409,6 +409,14 @@ Map.cpp's reader and writer. New: capture-x86, only the 32-bit patcap.dll for Ti
 by default; the self-hosted workflow replays the frozen corpus and builds capture-x86. Golden 17,316,040 (15,803,218 +
 1,512,822), 0 failures on every preset; the x64 Patella.exe differs from main's only in line-number immediates.
 notes/decisions.md, "The oracle retired".
+
+Patella.exe without the patcap.dll lookup (Patella-Modern issue #97, branch issue-97, November 6, 2026): the Vulkan
+engine no longer asks for patcap.dll and its four Vulkan exports; the test build's frame dump is its only frame and
+device observer (PATELLA_TEST_FRAME_OBSERVERS without its patcap argument). PatellaTest.exe's `--test-sync`, unused
+since #92, is gone. The x64 Patella.exe differs from main's only in CreateSurfaces (pecompare, byte by byte: every
+other function the same or moved by the 0x70 bytes less code). notes/decisions.md, "Patella.exe without the
+patcap.dll lookup".
+
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
