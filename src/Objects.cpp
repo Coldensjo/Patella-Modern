@@ -436,6 +436,7 @@ int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction)
 // 0x4d6800, lines 796-810. Obj.Data is the count: 1, 2, 3, 4, then up to
 // 9, 24, 49 and more in the second row. Both results wrap around the
 // object's pattern size.
+// A pattern size of 0 in Tibia.dat throws a TMyException (PATELLA_DIVISOR, issue #67).
 void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY)
 {
 	PATELLA_ASSERT(GetObjectFlag(Obj,CUMULATIVE));
@@ -463,16 +464,17 @@ void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY)
 			*PatternX = 3;
 		*PatternY = 1;
 	}
-	*PatternX = *PatternX % GetObjectPatternWidth(Obj.Type) + 1;
-	*PatternY = *PatternY % GetObjectPatternHeight(Obj.Type) + 1;
+	*PatternX = *PatternX % PATELLA_DIVISOR(GetObjectPatternWidth(Obj.Type)) + 1;
+	*PatternY = *PatternY % PATELLA_DIVISOR(GetObjectPatternHeight(Obj.Type)) + 1;
 }
 
 // 0x4d6b20, lines 821-826. Obj.Data is the liquid: four columns per row.
+// A pattern size of 0 in Tibia.dat throws a TMyException (PATELLA_DIVISOR, issue #67).
 void GetLiquidPattern(TObject &Obj, int *PatternX, int *PatternY)
 {
 	PATELLA_ASSERT(GetObjectFlag(Obj,LIQUIDPOOL) || GetObjectFlag(Obj,LIQUIDCONTAINER));
-	*PatternX = Obj.Data % 4 % GetObjectPatternWidth(Obj.Type) + 1;
-	*PatternY = Obj.Data / 4 % GetObjectPatternHeight(Obj.Type) + 1;
+	*PatternX = Obj.Data % 4 % PATELLA_DIVISOR(GetObjectPatternWidth(Obj.Type)) + 1;
+	*PatternY = Obj.Data / 4 % PATELLA_DIVISOR(GetObjectPatternHeight(Obj.Type)) + 1;
 }
 
 // 0x4d6df0, lines 837-853. Obj.Data2 holds the wall flag the object hangs

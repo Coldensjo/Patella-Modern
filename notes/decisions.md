@@ -11136,3 +11136,163 @@ first present (the CPU driver on a hidden desktop) crashed the x64 client with 0
   changed line. banned_calls 0; clang-format clean. `python -I tools/reference.py compare --reference
   C:/Tibia/Patella-Modern/build/reference`: the four sessions match (error with #74's deliberate differences). Logs:
   build\logs\issue-83.
+## The catch blocks that relied on catching structured exceptions (Patella-Modern issue #67, part 2)
+
+Settled by Claude Opus 5.5, November 6, 2026; M5 (plan 7). #67's first part (a zero-sized patch block) went with the
+patcher (#75). The original (MSVC 7.1) gave every `catch (...)` /EHa's meaning: it also caught a structured exception,
+an integer division by zero or an access violation. The x64 client and the oracle's Patella.exe build with /EHsc, where
+`catch (...)` never sees one: the trap ends the process (exit code 0xC0000094 or 0xC0000005, no box). Only the
+difftest programs and the golden runner's comm directory build with /EHa, and the original's code in them keeps its
+own meaning, so they already compare the original's error paths; the runner's other directories and every product
+build do not.
+
+### The method (high)
+
+`git grep -n "catch *(\.\.\.)" -- src` on f1be76a: 43 handlers (the same 43 on the branch after the merge of
+#83, whose FatalError comment adds a 44th line that is not a handler, Player.cpp 154). For each: what its try
+block can fault on, whether input (a packet, a file, the environment) can make it fault, and what the original did
+then. Two of them, InitInstance's and Run's top-level `catch (...)` ("unknown exception occurred", then
+HandleException's "Tibia Error - Debug Assertion" box and exit code 1), have the whole client in their try blocks; for
+them every integer division and remainder of src/ whose divisor is not a constant was listed (`git grep -nE` for `/`
+and `%` with a name or a call on the right, also `/=` and `%=`, in the .cpp and .h files) and its divisor traced to
+its source:
+
+| Division | The divisor's source | Can input make it zero |
+|---|---|---|
+| Creatures.cpp TCreature::StartMovement, `(Beat - 1 + Duration) / Beat * Beat` | the game login's word (Communication.cpp ReceiveGameLogin, packet 0x0a) | yes: a server's 0, then any step (0x6d, or the player's own walk, DoPlayerStep) |
+| Objects.cpp GetCumulativePattern and GetLiquidPattern, `% GetObjectPatternWidth`, `% GetObjectPatternHeight` | Tibia.dat (a pattern size byte) | yes: a damaged or edited Tibia.dat (LoadProperties then allocates no sprites, no error) |
+| MapWindow.cpp TMapWindow::DrawObject: the three pattern sizes and the phases | Tibia.dat | yes |
+| MapWindow.cpp TMapWindow::DrawCreature, `% GetOutfitPhases` (ANIMATEALWAYS) | Tibia.dat | yes (the other branch's GetAnimationPhase asserts the phases already) |
+| graphics.cpp DrawObject, `% GetObjectPhases` and `/ GetObjectExactSize`; DrawOutfit, `/ GetOutfitExactSize` | Tibia.dat (ExactSize is read when the width or height is above 1) | yes |
+| Creatures.cpp StartMovement's `/ Speed`, GetAnimationPhase's `% (AvailablePhases - 1)` | a packet, Tibia.dat | no: `Speed > 0` and `AvailablePhases == 1` are tested first |
+| ContentWindows.cpp TStatusWindow::Draw, `/ MaxHealth`, `/ MaxMana` | packets (words) | no: only under `Health < MaxHealth`, which a zero maximum never meets |
+| DialogElements.cpp the scroll bars' `/ (Max - Min)`, TProgressBar's `/ Maximum` | the ranges; a packet's reconnect time | no: only when Enabled (`Min != Max`); SetMaximum asserts `maximum>0` |
+| the skin and font properties (ContentWindows.cpp, ContextMenus.cpp, graphics.cpp's fonts, the `% Skins[n].height` of the backgrounds) | constants of GUI.cpp, Skins.cpp and InitGraphics | no |
+| MapWindow.cpp's `/ Width`, `/ Height` (the map's scaling), graphics.cpp's video cache (`/ PerSurface`), the frame timers | the window's and the surfaces' sizes, the clock | no input; the frame timers divide doubles |
+| vlong.cpp, TRSA.cpp, TXTEA.cpp | the fixed key and the block sizes | no |
+
+An access violation from input is another matter. The original's checks of input are its assertions and Container.h's
+checked indices (TMyExceptions it reports by design), and the reads of packets and files are checked (TReadBuffer,
+TReadBinaryFile). An access violation that remains is a memory error (a stale or null pointer, an unchecked index),
+which the original "reported" only when it happened to land on an unmapped page and which the sanitizer presets and
+the hardening are there to find: the x64 client ending on it is the sane outcome, (c). The null pointers of the
+fatal-error path found below are not of that kind: the original's error path made those calls on NULL every time.
+
+### The decisions (high)
+
+(a) not SEH-dependent, nothing to do; (b) SEH-dependent, input reaches it and the original recovered or reported, so
+x64 now checks where the trap was and takes the original's path, with a test; (c) SEH-dependent, but the trap is
+unreachable from input or a crash is the only sane outcome; #83: left to issue #83's agent (InitControl and
+ExitControl, worked on at the same time); settled in #83: fixed there. Lines are the branch's, after the merge of #83.
+
+| Location | What can fault in the try block | The original | x64 on main | Decision |
+|---|---|---|---|---|
+| Communication.cpp 124, 184: SendLogin's and SendGameLogin's RSA (after `catch (const char *)`) | TRSA on the fixed public key and a 128-byte block of fixed layout: nothing from input | the message with the block's bytes (TERROR) | the same (only C++ exceptions possible) | (a) |
+| Control.cpp 121: CheckSurface, the surface's Init | the graphics driver (x64: the Vulkan loader and driver; the oracle: DirectDraw, Direct3D 9, OpenGL); Tibia.cfg's mode only reaches the driver | PROGRAM_ERROR 12, "Video surface allocation failed" | a driver's trap ends the client | (c): a fault inside a driver is not input's, and a driver that faulted leaves no state to go on with; no input division there (the surfaces' scale factors are doubles) |
+| Control.cpp 174, 181, 189, 199, 207: ChangeEngine's five steps | the DirectDraw, Direct3D 9 and OpenGL drivers | a TMyException with the step's message | oracle-x86 only (the x64 ChangeEngine is the Vulkan device choice, with no handler) | (c): oracle only; those engines retire with the oracle (#29) |
+| Control.cpp 1170: InitControl, ExitControl's errors ignored after a PROGRAM_ERROR | ExitControl after a failed Init*: on x64 `GetSurface()->ExitSurfaces()` with GetSurface() NULL (Surface.cpp: the x64 GetSurface makes a surface only for curEngine 2, which SurfaceInitInstance sets after InitControl) | its GetSurface makes a surface; any trap swallowed; then the PROGRAM_ERROR's box | an access violation: main f1be76a's PatellaTest.exe in a folder without Tibia.dat stops in ExitControl+0x2a (Control.cpp 1189) under InitControl's catch block; no box | #83 (the same function pair; its agent has this finding) |
+| MainWindow.cpp 116: TMainWindow::Draw out of the game | the start screen's windows: skins, fonts and texts of constants; no object or outfit is drawn out of the game | PROGRAM_ERROR 12 | the same for C++ exceptions | (a); a PATELLA_DIVISOR TMyException would end there as PROGRAM_ERROR 12, as the original's trap did |
+| Network.cpp 266, 292: SendCommand's and PrepareNextPacket's XTEA | blocks inside SendData and ReceiveData: SendBuffer checks its writes, OnReceive counts a packet only when it is complete inside ReceiveData, PrepareNextPacket tests `PacketSize % 8` | TERROR | the same | (a) |
+| Objects.cpp 646: InitObjects | LoadObjects: TReadBinaryFile's checked reads ("out of data"), new[] of sizes from Tibia.dat (C++ exceptions), Container.h's `d>0` assertion; LoadProperties' `Flags[Flag / 8]` stays inside TProperties (up to +0x43); no division | PROGRAM_ERROR 1 | the same | (a) |
+| Player.cpp 90, 94, 102, 110: LogDiagnostics | ours (issue #77): the engine's name, the packet bytes, GetCreature's slot or NULL (tested) | - | - | (a) |
+| Player.cpp 144: FatalError, ShutdownConnection | `shutdown` on the socket's handle; Socket tested for NULL | ignored | the same | (a) |
+| Player.cpp 149: FatalError, SetDisplayMode(1) when the view mode is not 1 | before InitPreferences (the view mode still 0: an InitControl failure) SetDisplayMode's Redraw calls CheckSurface on GetSurface(), NULL on x64 before SurfaceInitInstance (above), then `MainWindow->Draw` with MainWindow NULL before OnCreate | its GetSurface makes a surface, any trap swallowed; then the box | not reached today: that path stops in ExitControl first (Control.cpp 1170) | #83: the same root, GetSurface() NULL before SurfaceInitInstance; to be checked again once ExitControl no longer faults ("Found, not done") |
+| Player.cpp 158: FatalError, `AfxGetMainWnd()->ShowWindow(SW_HIDE)` | before InitInstance sets m_pMainWnd, AfxGetMainWnd() is the thread's active window, none, so NULL; CWnd::ShowWindow reads `this->m_pCtrlSite` | the access violation swallowed, then the box, exit code 1 | an access violation in CWnd::ShowWindow (main's PatellaTest.exe with no Vulkan driver: PROGRAM_ERROR 12 from InitInstance's surface start, then FatalError at Player.cpp 152): the developer log's error line, no box, exit code 0xC0000005 | settled in #83 (3678f82; the original's handler at 0x4d7e16): AfxGetMainWnd() tested for NULL, the call skipped as the original's handler skipped it. This branch had the same check; the merge keeps #83's. The CTest fatal_error_box stays: it reaches the block from another start-up error (no Vulkan driver) than #83's failing first present |
+| Player.cpp 237: HandleException's log line | ours (#77): GetMessage's std::bad_alloc | - | - | (a) |
+| Player.cpp 316: InitInstance around SurfaceInitInstance, InitSurfaces, InitVideoCache | the Vulkan loader and driver; InitVideoCache divides by the surfaces' own sizes | PROGRAM_ERROR 12 | a driver's trap ends the client | (c), as CheckSurface |
+| Player.cpp 359, 389: InitInstance's and Run's top-level `catch (...)` | the whole client: the divisions above, access violations | "unknown exception occurred": HandleException's box, exit code 1 | the trap ends the client | (b) for the input divisions of the first table: PATELLA_DIVISOR at each (11 divisors in 6 functions), tests below; (c) for access violations (above) |
+| Surface.cpp 204: the x64 SurfaceInitInstance, TestEngine | the Vulkan loader and driver | PROGRAM_ERROR 12 | a driver's trap ends the client | (c), as CheckSurface |
+| Surface.cpp 254, 274: the oracle's engine detection (Direct3D 9; ChoosePixelFormat, whose catch the original's compiler removed) | drivers | PROGRAM_ERROR 12 (274: no handler in the binary) | oracle only | (c): oracle only (#29) |
+| SurfaceDX.cpp 591, surfaceDX9.cpp 507, SurfaceGL.cpp 156, 709, 712, 725 | the DirectDraw, Direct3D 9 and OpenGL drivers | the error on, PROGRAM_ERROR 12, or TestEngine false | oracle only | (c): oracle only (#29) |
+| vulkan/SurfaceVulkan.cpp 560: ResetDisplay, ExitDisplay's errors ignored | the Vulkan driver | (surfaceDX9.cpp's, the same shape) | a driver's trap ends the client | (c), as CheckSurface |
+| vulkan/Renderer.cpp 254, 1028 | ours: clean-up, then `throw;` | - | - | (a) |
+| compat/cxx26.h 90 (CONTRACT_ASSERT), log/Log.h 187, 199, 234, 331, 347, 367 | ours: the predicate's exception; the log's std::bad_alloc, format errors, the debugger check | - | - | (a) |
+
+In all: 21 (a), 17 (c) (Control.cpp 121, 174, 181, 189, 199, 207; Player.cpp 316; Surface.cpp 204, 254, 274;
+SurfaceDX.cpp 591; surfaceDX9.cpp 507; SurfaceGL.cpp 156, 709, 712, 725; SurfaceVulkan.cpp 560), 2 (b) (Player.cpp 359, 389), 1 settled in #83 (Player.cpp 158), 2 #83 (Control.cpp 1170,
+Player.cpp 149; #83 fixed neither: its notes list ExitControl's null dereference as found, not done).
+
+### The changes (high)
+
+- **PATELLA_DIVISOR(Value)** (compat/assertion.h, with PATELLA_ASSERT): the divisor itself, evaluated once; when it is
+  zero, the TMyException "<file> <line>: integer division by zero, reason:\n<Value's text>" (TMyException.cpp's
+  DivisionByZero, through MakeError) instead of the division. It is the original's outcome by kind, which difftest and
+  the golden corpus compare: each of the six functions had a catch wrapper in the original (StartMovement line 142,
+  GetCumulativePattern 796-810, GetLiquidPattern 821-826, TMapWindow::DrawObject 1071-1094, DrawCreature 1106-1129,
+  graphics.cpp's DrawObject 1100, DrawOutfit 1137), whose `catch (...)` made the trap a TMyException ("unknown
+  exception occurred") right there. From there both go up the same way: no handler on the way catches a TMyException
+  and recovers (Communication.cpp's cylinder loop's try block holds no step), so a step with Beat 0 or an object with a
+  zero pattern ends in Run's handler and HandleException's box, exit code 1, and a draw out of the game in
+  MainWindow::Draw's PROGRAM_ERROR 12, as in the original. A divisor that is not zero gives the same quotient and the
+  same calls in the same order (the divisor's call was the division's operand already). The divisors: StartMovement's
+  Beat; GetCumulativePattern's and GetLiquidPattern's two pattern sizes; DrawObject's (MapWindow.cpp) three pattern
+  sizes and phases; DrawCreature's outfit phases; graphics.cpp DrawObject's phases and exact size, DrawOutfit's exact
+  size. No check at the load (LoadProperties): the original loads such an entry without an error and fails only when
+  the object is drawn, and the error stays where it was.
+- **FatalError's main window** (Player.cpp): settled in #83, which tests `AfxGetMainWnd()` for NULL before
+  ShowWindow(SW_HIDE) (this branch had the same check; the merge keeps #83's). When it is NULL the original's call
+  faulted at once (the first read of `this`), and its handler went on to the box.
+
+### The tests (high)
+
+- **Divisions** (tests/golden/divisions_tests.cpp; difftest.exe's last test, DIFFTEST_ONLY=Divisions alone): ours
+  against the original by outcome, StartMovement with Beat 50, 1 and 0 (the step's duration compared when neither
+  throws), GetCumulativePattern and GetLiquidPattern on the first cumulative and the first liquid container of the real
+  Tibia.dat as it is, with its pattern width 0 and with its height 0 (both sides' property tables; the pattern
+  compared when neither throws). 15 checks, 9 exceptions compared, 5 calls that threw. Before the checks (the sites
+  reverted, the oracle's /EHa build): 5 failures, each "ours other exception, original TMyException "Creatures.cpp
+  142: unknown exception occurred"" (or Objects.cpp 810, 826): the original's wrapper turned the trap into a
+  TMyException, our trap passed as another type (build\logs\issue-67b\before-difftest-divisions.log); after: 0
+  failures (after-difftest-divisions.log). difftest.cpp's crash report leaves out the original's expected traps again
+  (ExpectDivideByZero, gone with #75's patch blocks, set around the original's calls here). In the golden runner it is
+  a ported test (registered with `Since = "#67"`, runner.cpp): a corpus recorded before it, as main's, has no
+  Divisions test, which the runner notes and accepts instead of calling the corpus stale; the next recording of the
+  corpus records it and the runner replays it on x64 (/EHsc: there, before the checks, our trap ended the runner).
+- **PATELLA_DIVISOR** (tests/unit/assertion_test.cpp, in tests_unit and the stand-in build on every preset): a divisor
+  that is not zero is the value, evaluated once (quotients and remainders of negative and unsigned operands); zero
+  throws the TMyException with this file, the line and the divisor's text, the division not done.
+- **fatal_error_box** (CTest, for #83's check, windows-x64, windows-x64-debug and windows-x64-asan, wherever PatellaTest.exe is built;
+  cmake/RunFatalErrorBox.cmake): PatellaTest.exe in a temporary folder with copies of Tibia.dat, Tibia.spr and
+  Tibia.pic (CipSoft's: local, removed afterwards; skipped without them), `VK_LOADER_DRIVERS_DISABLE=*` and
+  `PATELLA_VULKAN=cpu` (no Vulkan driver loads), a one-line script: InitInstance's surface start throws PROGRAM_ERROR
+  12 before m_pMainWnd is set. Exit code 1 and messages.txt's "Tibia Error" box with "(Error Code 12)" are required.
+  Before the check (main f1be76a's PatellaTest.exe, the same folder): an access violation in CWnd::ShowWindow, exit
+  code 0xC0000005, no box (cdb's stack: CWnd::ShowWindow, CPlayerApp::FatalError, HandleProgramError, InitInstance's
+  catch block). No window is shown: the frame is created hidden and the box is the test mode's record.
+- Not compared function by function: the drawing sites' zero divisors (MapWindow.cpp's DrawObject and DrawCreature,
+  graphics.cpp's DrawObject and DrawOutfit), which need the graphics tests' surfaces and sprites; the macro is the
+  same, the original functions' outcome is their wrapper's TMyException as in the compared ones.
+
+### Found, not done (high)
+
+- **ExitControl after a failed InitControl** (Control.cpp 1170, issue #83's): on x64 a PROGRAM_ERROR of InitControl
+  (a missing Tibia.dat is enough) ends in an access violation in ExitControl's `GetSurface()->ExitSurfaces()`
+  (GetSurface() NULL before SurfaceInitInstance), so neither the box nor exit code 1. Left to #83. Once ExitControl no
+  longer faults, the same path reaches FatalError with the view mode still 0, and its SetDisplayMode(1) step runs
+  Redraw: CheckSurface on GetSurface() (NULL, the same root) and `MainWindow->Draw` with MainWindow NULL (Player.cpp
+  149); that step then needs the same look (the fatal_error_box test without Tibia.dat would show it).
+- The drawing sites' zero divisors are not compared against the original function by function (above, "The tests").
+
+### The images (high)
+
+Before the merge of #83 (so FatalError is this branch's check, the same as #83's). Function by function through
+the PDBs (#78's funcs.py and classify.py, `dumpbin /disasm:nobytes`), main f1be76a's
+sources and the branch's built in the same folder (this worktree), the Release Patella.exe of oracle-x86 and of
+windows-x64: x86 11,411 to 11,412 functions, 56 changed, 1 new (patella::DivisionByZero); x64 14,024 to 14,025, 64
+changed, the same new one. Of the changed, 46 (x86) and 55 (x64) differ only in constants (the assertion lines of the
+five files whose lines moved, and on x64 InitInstance's and Run's catch funclets and TMapWindow::Draw); the others are
+the changed functions: StartMovement and CancelPlayerWalk (which inlines StartMovement(0, 0, -1)),
+GetCumulativePattern, GetLiquidPattern, TMapWindow::DrawObject, DrawCreature, graphics.cpp's DrawObject and DrawOutfit,
+FatalError, and on x86 the EH region dumpbin names ___guard_check_icall_thunk (the same length). No other function
+changed. Logs: build\logs\issue-67b\pecompare.
+
+### The gates (high)
+
+`python -I tools/build.py oracle-x86`: CTest 5/5, difftest 16,459,352 (main's 16,459,337 and Divisions' 15),
+sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures; safeseh 0 findings (difftest 1673 handlers/2792
+registrations, Patella.exe 1093/1808 as on main). windows-x64 15/15, windows-x64-debug and windows-x64-asan 14/14 (no
+ASan finding; fatal_error_box passes on all three): golden on main's corpus 15,803,203 replayed + 1,512,822 retired =
+17,316,025, 0 failures, with the note that the corpus has no Divisions test. windows-x64-gcc, linux-x64-gcc and
+linux-x64-clang 11/11. 0 warnings on every preset. tidy_ci 3 findings, 0 new (baseline 3), 0 bugprone; banned_calls 0;
+clang-format clean. `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: every
+session matches (error with #74's deliberate differences). Logs: build\logs\issue-67b.

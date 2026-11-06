@@ -242,6 +242,8 @@ list(APPEND difftest_tests "${GOLDEN_DIR}/dialogs_tests.cpp")
 list(APPEND difftest_tests "${GOLDEN_DIR}/mapwindow_tests.cpp" "${GOLDEN_DIR}/mainwindow_tests.cpp")
 # Issue #26 (second part): Errors (its SurfaceInitInstance part retired with the oracle).
 list(APPEND difftest_tests "${GOLDEN_DIR}/errors_tests.cpp")
+# Issue #67 (part 2): the divisions whose divisor input can make zero, after every other test.
+list(APPEND difftest_tests "${GOLDEN_DIR}/divisions_tests.cpp")
 set_source_files_properties("${DIFFTEST_DIR}/imageehseh.asm" PROPERTIES COMPILE_OPTIONS /safeseh)
 add_executable(difftest ${difftest_tests}
 	"${PROJECT_SOURCE_DIR}/src/Utils.cpp" "${PROJECT_SOURCE_DIR}/src/TXTEA.cpp"

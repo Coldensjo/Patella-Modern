@@ -153,4 +153,10 @@ void AssertionFailed(const char *Expression, const TSourceLocation &Location, co
 		Expression);
 }
 
+// PATELLA_DIVISOR's failure (compat/assertion.h, issue #67): a divisor from input that is zero.
+void DivisionByZero(const char *Expression, const TSourceLocation &Location)
+{
+	throw MakeError(Location, "integer division by zero", "", 0, "", 0, Expression);
+}
+
 } // namespace patella

@@ -113,6 +113,8 @@ void TestMapWindow(const char *ExePath);
 void TestMainWindow();
 // Issue #26 (second part; ExePath as TestObjects').
 void TestErrors(const char *ExePath);
+// divisions_tests.cpp (issue #67): after every other test of difftest.
+void TestDivisions(const char *ExePath);
 // Issue #30 (second part; communicationtest.exe's, ExePath as TestObjects').
 void TestCommunication(const char *ExePath);
 void TestControl(const char *ExePath);

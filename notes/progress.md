@@ -326,6 +326,16 @@ the box; ours now skips ShowWindow without a main window and ends the same way (
 build's `PATELLA_TEST_FAIL_PRESENT=1` (hook PATELLA_TEST_PRESENT_FAILURE) reproduces it. difftest 16,459,337 / 67 /
 856,621 / 3,201 (unchanged); golden 17,316,025, 0 failures. notes/decisions.md, "A fatal error before the main
 window is set".
+The catch blocks that relied on structured exceptions (Patella-Modern issue #67, part 2, branch issue-67b, November 6,
+2026; M5): the 43 `catch (...)` of src/ decided (21 not SEH-dependent, 17 a driver's or the oracle's engines' traps, 2
+fixed, FatalError's ShowWindow settled in #83, 2 left to #83 and not fixed there: InitControl's ExitControl and
+FatalError's SetDisplayMode step). PATELLA_DIVISOR
+(compat/assertion.h) throws the original's TMyException where a divisor from input traps: the game login's Beat in
+StartMovement, Tibia.dat's pattern sizes, phases and exact sizes in six functions. The CTest fatal_error_box checks #83's
+ShowWindow fix from a start-up error without a Vulkan driver (the box, exit code 1).
+difftest's Divisions test (15 checks; ported, `Since = "#67"`: main's corpus lacks it); difftest 16,459,352 / 67 /
+856,621 / 3,201; golden 17,316,025, 0 failures. notes/decisions.md, "The catch blocks that relied on catching
+structured exceptions".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -480,6 +490,13 @@ main's corpus 15,803,203 replayed + 1,512,822 retired = 17,316,025, 0 failures (
 13/13, no ASan finding); windows-x64-gcc and the Linux presets 11/11, 0 warnings. Images by function: FatalError, and
 line constants or switch-table bytes only elsewhere. tidy_ci 3 findings, 0 new; banned_calls 0; clang-format clean.
 reference.py compare: every session matches. Logs: build\logs\issue-83.
+Patella-Modern issue #67, part 2 (branch issue-67b, November 6, 2026): PATELLA_DIVISOR at the input divisions
+(FatalError's NULL main window settled in #83; the numbers are from before the merge of main 3678f82). `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest 16,459,352 (+15:
+Divisions), sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures, safeseh 0 findings. golden on main's
+corpus 17,316,025, 0 failures (Divisions not in it, noted); windows-x64 15/15, -debug and -asan 14/14 (fatal_error_box
+passes), windows-x64-gcc and the Linux presets 11/11, 0 warnings. Images: only the changed functions and line
+constants. tidy_ci 3 findings, 0 new; banned_calls 0; clang-format clean. reference.py compare: every session matches.
+Logs: build\logs\issue-67b.
 
 Patella-Modern issue #81 (branch issue-81, November 6, 2026): unique_ptr for History, TEditLine::Text and
 TPasswordEditLine::Stars; ~TTalkBuffer noexcept. `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest

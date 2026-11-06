@@ -200,3 +200,42 @@ TEST_CASE("PATELLA_ASSERT is one statement")
 	});
 	CHECK(Exception.Message == At(Line) + ": assertion failed (Value = 0), reason:\nValue == 1");
 }
+
+// PATELLA_DIVISOR (issue #67): a divisor from input. Zero throws the TMyException that the original's catch wrapper made
+// of the division's trap (by kind, which difftest and the golden corpus compare); any other value is the divisor,
+// evaluated once, so the quotient and the remainder are the plain division's.
+TEST_CASE("PATELLA_DIVISOR: a divisor that is not zero is the value, evaluated once")
+{
+	Calls = 0;
+	const int Beat = 50;
+	CHECK((1049 / PATELLA_DIVISOR(Beat)) == 20);
+	CHECK((-7 % PATELLA_DIVISOR(CountedValue(3))) == -1);
+	CHECK(Calls == 1);
+	CHECK((7 / PATELLA_DIVISOR(CountedValue(-2))) == -3);
+	CHECK(Calls == 2);
+	const unsigned Big = 0x80000000U;
+	CHECK((0xffffffffU / PATELLA_DIVISOR(Big)) == 1U);
+}
+
+TEST_CASE("PATELLA_DIVISOR: zero throws TMyException with this file, the line and the divisor's text")
+{
+	Calls = 0;
+	int Line = 0;
+	int Quotient = -1;
+	const int Beat = 0;
+	TCaught Exception = Caught([&] {
+		Line = __LINE__ + 1;
+		Quotient = (Beat - 1 + 400) / PATELLA_DIVISOR(Beat) * Beat;
+	});
+	CHECK(Quotient == -1);
+	CHECK(Exception.Origin == At(Line));
+	CHECK(Exception.Message == At(Line) + ": integer division by zero, reason:\nBeat");
+
+	Exception = Caught([&] {
+		Line = __LINE__ + 1;
+		Quotient = 17 % PATELLA_DIVISOR(CountedValue(0)) + 1;
+	});
+	CHECK(Calls == 1);
+	CHECK(Quotient == -1);
+	CHECK(Exception.Message == At(Line) + ": integer division by zero, reason:\nCountedValue(0)");
+}

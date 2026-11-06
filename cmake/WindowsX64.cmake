@@ -137,4 +137,11 @@ option(PATELLA_TEST_BUILD "Build PatellaTest.exe, the client with the test mode 
 if(PATELLA_TEST_BUILD)
 	patella_client(PatellaTest ${patella_test_build_sources})
 	target_compile_definitions(PatellaTest PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:PATELLA_TEST_MODE>)
+	# Issues #67 (part 2) and #83: a fatal error before the main window is set still shows FatalError's box and exits
+	# with code 1 (cmake/RunFatalErrorBox.cmake; skipped without the data files next to Tibia.exe).
+	get_filename_component(patella_data_dir "${PATELLA_TIBIA_EXE}" DIRECTORY)
+	add_test(NAME fatal_error_box COMMAND "${CMAKE_COMMAND}" "-DEXE=$<TARGET_FILE:PatellaTest>"
+		"-DDATA=${patella_data_dir}" "-DTMPROOT=${PROJECT_BINARY_DIR}/tmp"
+		-P "${PROJECT_SOURCE_DIR}/cmake/RunFatalErrorBox.cmake")
+	set_tests_properties(fatal_error_box PROPERTIES SKIP_RETURN_CODE 77)
 endif()

@@ -491,7 +491,9 @@ void TCreature::StartMovement(int dx, int dy, int Waypoints)
 		Duration = Waypoints * 1000 / Speed;
 	else
 		Duration = 1000;
-	Duration = (Beat - 1 + Duration) / Beat * Beat;
+	// Beat is the game login's word (Communication.cpp ReceiveGameLogin): 0 from the server trapped here in the
+	// original, whose catch wrapper made it a TMyException (issue #67).
+	Duration = (Beat - 1 + Duration) / PATELLA_DIVISOR(Beat) * Beat;
 	DeltaX = -dx * 32;
 	DeltaY = -dy * 32;
 	StepX = abs(dx) * 32;
