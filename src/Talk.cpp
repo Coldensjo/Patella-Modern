@@ -142,7 +142,7 @@ TRGBColor *GetTalkColor(TRGBColor *Color, int TalkMode)
 {
 	switch (TalkMode) {
 		// clang-format off
-	case 0: TERROR(81, "none is talking");
+	case 0: TERROR("none is talking");
 	case 1: case 2: case 3: case 5: case 7: case 8:
 		Color->R = 240; Color->G = 240; Color->B = 0; break;
 	case 4:
@@ -159,7 +159,7 @@ TRGBColor *GetTalkColor(TRGBColor *Color, int TalkMode)
 		Color->R = 0; Color->G = 240; Color->B = 0; break;
 	case 24:
 		Color->R = 160; Color->G = 160; Color->B = 255; break;
-	default: TERROR1(107, "something unknown is talking", TalkMode);
+	default: TERROR1("something unknown is talking", TalkMode);
 		// clang-format on
 	}
 	return Color;
@@ -793,7 +793,7 @@ TTalkBuffer *CreateTextBuffer(int ReceiveTalkMode, int SendTalkMode, const char 
 		TextBuffer = new (std::nothrow) TRuleViolationTalkBuffer(ReceiveTalkMode, SendTalkMode, Name);
 	else {
 		if (Name != nullptr || Channel == -1 || ReceiveTalkMode != 6)
-			TERROR(1361, "can't create text buffer");
+			TERROR("can't create text buffer");
 		if (FindTalkFilter(6, nullptr, -1, ConsoleFilterList) != -1)
 			return nullptr;
 		TextBuffer = new (std::nothrow) TRuleViolationChannel(6, Channel);

@@ -297,7 +297,7 @@ void TDialogWindow::Rearrange(int Strategy, TComponent *Work)
 		PositionChildren(false);
 		break;
 	default:
-		TERROR1(290, "unknown strategy", Strategy);
+		TERROR1("unknown strategy", Strategy);
 	}
 	Arrange();
 	UpdateFreeHeight = true;

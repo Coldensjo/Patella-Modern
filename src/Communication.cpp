@@ -120,7 +120,7 @@ void SendLogin(uint32 AccountID, const char *Password)
 			Text << Byte.View();
 		}
 		Text << std::endl;
-		throw TMYEXCEPTION(73, Text.str().c_str(), "", 0, "", 0, Error);
+		throw TMYEXCEPTION(Text.str().c_str(), "", 0, "", 0, Error);
 	} catch (...) {
 		std::stringstream Text;
 		Text << "Asymmetric encryption for login server failed with unknown exception";
@@ -133,7 +133,7 @@ void SendLogin(uint32 AccountID, const char *Password)
 		}
 		// No std::endl after the bytes here, unlike the first catch block (the
 		// binary goes from the loop to str(), issue #36).
-		TERROR(84, Text.str().c_str());
+		TERROR(Text.str().c_str());
 	}
 	BeginCommand(1);
 	SendWord(2);
@@ -180,7 +180,7 @@ void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 			Text << Byte.View();
 		}
 		Text << std::endl;
-		throw TMYEXCEPTION(146, Text.str().c_str(), "", 0, "", 0, Error);
+		throw TMYEXCEPTION(Text.str().c_str(), "", 0, "", 0, Error);
 	} catch (...) {
 		std::stringstream Text;
 		Text << "Asymmetric encryption for game server failed with unknown exception";
@@ -193,7 +193,7 @@ void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 		}
 		// No std::endl after the bytes here, unlike the first catch block (the
 		// binary goes from the loop to str(), issue #36).
-		TERROR(157, Text.str().c_str());
+		TERROR(Text.str().c_str());
 	}
 	BeginCommand(10);
 	SendWord(2);
@@ -976,7 +976,7 @@ void ReadField(int rx, int ry, int rz)
 			if (Type == 0) {
 				std::stringstream Text;
 				Text << "client recieved field with type 0 (" << rx << "," << ry << "," << rz << ")";
-				TERROR(1401, Text.str().c_str());
+				TERROR(Text.str().c_str());
 			}
 			if (Type == 0x61 || Type == 0x62 || Type == 0x63) {
 				const uint32 CreatureID = ReadCreature(Type, rx, ry, rz);
@@ -1361,7 +1361,7 @@ void ReceiveMoveCreature()
 			Text << std::endl
 				 << " DeltaX: " << Creature->DeltaX << " DeltaY: " << Creature->DeltaY;
 		}
-		throw TMYEXCEPTION(1879, Error.c_str(), "", 0, "", 0, Text.str().c_str());
+		throw TMYEXCEPTION(Error.c_str(), "", 0, "", 0, Text.str().c_str());
 	}
 	if (DeleteObject(sx, sy, sz, Position)) {
 		int x = sx;
@@ -1846,7 +1846,7 @@ void ReceiveTalk()
 		return;
 	}
 	default:
-		TERROR1_REASON(2461, "unknown talk mode", Mode, "[bug0000649]");
+		TERROR1_REASON("unknown talk mode", Mode, "[bug0000649]");
 	}
 	AddConsoleText(StatementID, Text, Mode, Name, TargetChannel, Time);
 }

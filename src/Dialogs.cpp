@@ -1992,7 +1992,7 @@ void THelpDialog::HandleEvent(int Event)
 		SetActionState(0);
 		break;
 	default:
-		TERROR1(2914, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 
@@ -2176,7 +2176,7 @@ void TRuleViolationDialog::HandleEvent(int Event)
 		UpdateActions();
 		return;
 	default:
-		TERROR1(3124, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 	SetActionState(0);
 }
@@ -2294,7 +2294,7 @@ void TEditMarkDialog::HandleEvent(int Event)
 		}
 		AddAutomapMark(Coordinate, Mark.Text, Type);
 	} else if (Event != 2) {
-		TERROR1(3294, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 	SetActionState(0);
 }
@@ -2391,7 +2391,7 @@ void TOptionsDialog::HandleEvent(int Event)
 		AddMessage(0x21, 0, 0);
 		break;
 	default:
-		TERROR1(3422, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 	SetActionState(0);
 }
@@ -2446,7 +2446,7 @@ void TGeneralOptionsDialog::HandleEvent(int Event)
 		OpenURL(TextOptionsURL);
 		break;
 	default:
-		TERROR1(3495, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 
@@ -2922,7 +2922,7 @@ void THotkeyDialog::HandleEvent(int Event)
 			AutoSendCheckBox->SetChecked(false);
 		break;
 	default:
-		TERROR1(3993, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 

@@ -25,6 +25,8 @@
 #   TMyException a false expression throws (this file, the line, the expression, the values), none for a true one, the
 #   expression evaluated once and the values only when it is false; tests_unit with std::source_location,
 #   tests_unit_cxx26_standin with the oracle's C++17 stand-in (PATELLA_SOURCE_LOCATION_STANDIN).
+# - Both: TMyException (src/TMyException.h, issue #80), a message and a source location, and patella::ErrorText,
+#   ErrorOrigin and MakeError, the texts of the original's two constructors that the sites' messages are made of.
 #
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
 #   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31), the developer log's keys in it (issue #77) and
@@ -80,6 +82,7 @@ function(patella_unit_tests target)
 		span_test.cpp
 		log_test.cpp
 		assertion_test.cpp
+		exception_test.cpp
 		"${PROJECT_SOURCE_DIR}/src/TMyException.cpp")
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
 	target_link_libraries(${target} PRIVATE doctest::doctest)

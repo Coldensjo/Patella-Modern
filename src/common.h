@@ -1,9 +1,9 @@
 // Shared definitions for the reconstructed Tibia 7.72 client.
 //
-// The error macros reproduce the client's error-trace pattern as seen in the
+// The error macros reproduce the client's error messages as seen in the
 // binary. Their names are ours; the strings they produce (expression text,
-// "assertion failed", "exception occurred", "unknown exception occurred",
-// file and line) match the original.
+// "assertion failed", "exception occurred", "unknown exception occurred")
+// match the original's, the file and line are the site's own (issues #79, #80).
 
 #pragma once
 
@@ -97,26 +97,31 @@ static_assert(std::is_same_v<std::underlying_type_t<PROGRAM_ERROR>, int>);
 // #79; until then three macros here, which named the original's line).
 #include "compat/assertion.h" // IWYU pragma: export
 
-// Every error site names the original's source line as its first argument, the
-// line the binary pushes for that site: TERROR1(1274, "unknown packet type
-// during game", Type). Since Patella-Modern issue #76 difftest and the golden
-// corpus compare the outcome only (thrown or not, and the kind), not the
-// messages. The file is __FILE__ (the messages name it without its path).
-#define TMYEXCEPTION(Line, Kind, N1, V1, N2, V2, Last) \
-	TMyException(__FILE__, Line, Kind, N1, (int)(V1), N2, (int)(V2), Last)
+// The error sites' exception (Patella-Modern issue #80): a TMyException with
+// ErrorText's message ("<file> <line>: <Kind>[ (<V1's text> = <V1>)]...[,
+// reason:\n<Reason>]") and the site's own source location, as PATELLA_ASSERT
+// has since issue #79. Until issue #80 every site named the original's source
+// line as its first argument (TERROR1(1274, "unknown packet type during game",
+// Type)); the lines stay in git history, in the image and in the comments that
+// name a function's lines. Since issue #76 difftest and the golden corpus
+// compare the outcome only (thrown or not, and the kind), not the messages.
+// TMYEXCEPTION's Reason is a text or a caught TMyException, whose message
+// becomes the reason (the original's wrapping constructor).
+#define TMYEXCEPTION(Kind, N1, V1, N2, V2, Reason) \
+	::patella::MakeError(PATELLA_SOURCE_LOCATION(), Kind, N1, (int)(V1), N2, (int)(V2), Reason)
 
-#define TERROR(Line, Message) \
-	throw TMYEXCEPTION(Line, Message, "", 0, "", 0, "")
-#define TERROR1(Line, Message, V1) \
-	throw TMYEXCEPTION(Line, Message, #V1, V1, "", 0, "")
-#define TERROR2(Line, Message, V1, V2) \
-	throw TMYEXCEPTION(Line, Message, #V1, V1, #V2, V2, "")
+#define TERROR(Message) \
+	throw TMYEXCEPTION(Message, "", 0, "", 0, "")
+#define TERROR1(Message, V1) \
+	throw TMYEXCEPTION(Message, #V1, V1, "", 0, "")
+#define TERROR2(Message, V1, V2) \
+	throw TMYEXCEPTION(Message, #V1, V1, #V2, V2, "")
 // An error with a text as its reason (Script.cpp: the file name), in the
 // place of an assertion's expression: "<Message>, reason:\n<Reason>".
-#define TERROR_REASON(Line, Message, Reason) \
-	throw TMYEXCEPTION(Line, Message, "", 0, "", 0, Reason)
-#define TERROR1_REASON(Line, Message, V1, Reason) \
-	throw TMYEXCEPTION(Line, Message, #V1, V1, "", 0, Reason)
+#define TERROR_REASON(Message, Reason) \
+	throw TMYEXCEPTION(Message, "", 0, "", 0, Reason)
+#define TERROR1_REASON(Message, V1, Reason) \
+	throw TMYEXCEPTION(Message, #V1, V1, "", 0, Reason)
 
 // The original's catch wrappers: until Patella-Modern issue #78 most functions
 // wrapped their body in a try block with three handlers, visible in the binary

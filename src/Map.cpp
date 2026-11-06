@@ -400,7 +400,7 @@ void AppendObject(int rx, int ry, int rz, TObject Obj)
 	if (!In(Point.ObjectCount, 0, OBJECTS_PER_POINT - 1)) {
 		std::stringstream s;
 		s << "ObjectCount: " << Point.ObjectCount << " rx: " << rx << " ry: " << ry << " rz: " << rz;
-		throw TMYEXCEPTION(426, "too many objects on map point", "", 0, "", 0, s.str());
+		throw TMYEXCEPTION("too many objects on map point", "", 0, "", 0, s.str());
 	}
 	InsertObject(rx, ry, rz, Point.ObjectCount, Obj);
 }
@@ -1087,7 +1087,7 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 				File.readBytes(patella::TSpan<uint8>(&Block.Color[0][0], sizeof(Block.Color)));
 				File.readBytes(patella::TSpan<uint8>(&Block.Speed[0][0], sizeof(Block.Speed)));
 			} catch (TMyException &Exception) {
-				throw TMYEXCEPTION(1244, "failed to write colors", "", 0, "", 0, Exception);
+				throw TMYEXCEPTION("failed to write colors", "", 0, "", 0, Exception);
 			}
 			try {
 				if (File.eof())
@@ -1108,7 +1108,7 @@ void LoadAutomapBlock(int Position, int bx, int by, int bz)
 					}
 				}
 			} catch (TMyException &Exception) {
-				throw TMYEXCEPTION(1268, "failed to load flags", "", 0, "", 0, Exception);
+				throw TMYEXCEPTION("failed to load flags", "", 0, "", 0, Exception);
 			}
 			File.close();
 		} catch (TMyException &) {
@@ -1158,7 +1158,7 @@ void SaveAutomapBlock(int Position)
 				File.writeBytes(patella::TSpan<const uint8>(&Block.Color[0][0], sizeof(Block.Color)));
 				File.writeBytes(patella::TSpan<const uint8>(&Block.Speed[0][0], sizeof(Block.Speed)));
 			} catch (TMyException &Exception) {
-				throw TMYEXCEPTION(1346, "failed to write colors", "", 0, "", 0, Exception);
+				throw TMYEXCEPTION("failed to write colors", "", 0, "", 0, Exception);
 			}
 			int Count = 0;
 			for (int j = 0; j < Block.MarkCount; j++) {
@@ -1168,7 +1168,7 @@ void SaveAutomapBlock(int Position)
 			try {
 				File.writeQuad(Count);
 			} catch (TMyException &Exception) {
-				throw TMYEXCEPTION(1361, "failed to write flag count", "", 0, "", 0, Exception);
+				throw TMYEXCEPTION("failed to write flag count", "", 0, "", 0, Exception);
 			}
 			int i = 0;
 			try {
@@ -1181,7 +1181,7 @@ void SaveAutomapBlock(int Position)
 					}
 				}
 			} catch (TMyException &Exception) {
-				throw TMYEXCEPTION(1376, "failed to write flag", "i", i, "", 0, Exception);
+				throw TMYEXCEPTION("failed to write flag", "i", i, "", 0, Exception);
 			}
 			File.close();
 		} catch (TMyException &) {
@@ -1512,7 +1512,7 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 			 << " DestX: " << DestX << " DestY: " << DestY << " DestZ: " << DestZ
 			 << " MustReach: " << (MustReach ? "true" : "false")
 			 << " ForceDiagonal: " << (ForceDiagonal ? "true" : "false") << ")";
-		throw TMYEXCEPTION(1738, Text.str().c_str(), "", 0, "", 0, Exception);
+		throw TMYEXCEPTION(Text.str().c_str(), "", 0, "", 0, Exception);
 	}
 }
 

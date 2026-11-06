@@ -1433,7 +1433,7 @@ template <class F> static void Both(F Function)
 				Function(s);
 			} catch (TMyException &E) {
 				FakeOurPrintf(false);
-				printf("ContentWindows: our side threw: %s (%s)\n", E.GetMessage().c_str(), E.GetOrigin().c_str());
+				printf("ContentWindows: our side threw: %s (%s)\n", E.GetMessage().c_str(), patella::ErrorOrigin(E).c_str());
 				fflush(stdout);
 				abort();
 			} catch (...) {

@@ -85,7 +85,7 @@ static_assert(sizeof(TMapWindow) == 0x92d8 && offsetof(TMapWindow, Names) == 0x0
 
 // A thrown error whose expression text is a bug number, like Map.cpp's
 // assertions ("unknown creature party flag", "[bug0001106]").
-#define TERROR1B(Line, Message, V1, Bug) throw TMYEXCEPTION(Line, Message, #V1, V1, "", 0, Bug)
+#define TERROR1B(Message, V1, Bug) throw TMYEXCEPTION(Message, #V1, V1, "", 0, Bug)
 
 // --- TMapWindow ------------------------------------------------------------
 
@@ -627,7 +627,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 					Icon1 = 255;
 					break;
 				default:
-					TERROR1B(690, "unknown creature party flag", Creature->PARTYFlag, "[bug0001106]");
+					TERROR1B("unknown creature party flag", Creature->PARTYFlag, "[bug0001106]");
 				}
 			}
 			if (Creature->PKFlag > 0) {
@@ -646,7 +646,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 					Skull = 247;
 					break;
 				default:
-					TERROR1(699, "unknown creature PK flag", Creature->PKFlag);
+					TERROR1("unknown creature PK flag", Creature->PKFlag);
 				}
 				Icon2 = Skull;
 				if (Icon1 == 0) {
@@ -945,7 +945,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 			const TCreature *Player = GetCreature(GetPlayerID());
 			if (Player != nullptr)
 				s << " PlayerX: " << Player->RealX << " PlayerY: " << Player->RealY << " PlayerZ: " << Player->RealZ;
-			throw TMYEXCEPTION(1008, "effect number out of range [bug0000913]", "", 0, "", 0, s.str());
+			throw TMYEXCEPTION("effect number out of range [bug0000913]", "", 0, "", 0, s.str());
 		}
 		if (GetEffectStatus(EffectNumber) == 1) {
 			const int Type = GetGraphicalEffectType(EffectNumber);
@@ -1296,7 +1296,7 @@ void TMapWindow::AddLightSource(int posx, int posy, int z, int Brightness, TRGBC
 				std::stringstream s;
 				s << "failed to get object flag from type " << Obj.Type << " (" << posx << "," << posy << ","
 				  << z << "->" << x << "," << y << "," << z << ")";
-				throw TMYEXCEPTION(1338, s.str().c_str(), "", 0, "", 0, Exception);
+				throw TMYEXCEPTION(s.str().c_str(), "", 0, "", 0, Exception);
 			}
 			if (R < 0)
 				R = 0;
@@ -1401,7 +1401,7 @@ void TMapWindow::ArrangeTalkboxes()
 				cy = Height / 4;
 				break;
 			default:
-				TERROR1(1405, "unknown talk box mode", GetTalkboxMode(Talkbox));
+				TERROR1("unknown talk box mode", GetTalkboxMode(Talkbox));
 			}
 			CentreY = cy;
 			const int HalfWidth = BoxWidth[i] / 2;

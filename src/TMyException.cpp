@@ -1,22 +1,25 @@
 // TMyException.cpp: reconstructed from Tibia.exe 7.72 (0x508300-0x508968).
 // The code between 0x508270 and 0x508390 that is not listed here is STL
 // (std::string::find_last_of and the substring constructor), instantiated in
-// this object.
+// this object. Since Patella-Modern issue #80 the constructors' formatting is
+// ErrorText's (TMyException.h).
 
 #include "TMyException.h"
 #include "compat/assertion.h"
 #include <sstream>
 #include <ostream>
 #include <string>
+#include <string_view>
+#include <utility>
 
 namespace {
 
 // 0x508390. The part of a path after the last '/' or '\'.
-std::string GetFileName(const std::string &Path)
+std::string_view GetFileName(std::string_view Path)
 {
-	const std::string::size_type Separator = Path.find_last_of("/\\");
-	if (Separator != std::string::npos && Separator + 1 < Path.size())
-		return std::string(Path, Separator + 1, Path.size() - Separator);
+	const std::string_view::size_type Separator = Path.find_last_of("/\\");
+	if (Separator != std::string_view::npos && Separator + 1 < Path.size())
+		return Path.substr(Separator + 1, Path.size() - Separator);
 	return Path;
 }
 
@@ -59,29 +62,32 @@ int GetLine(const patella::TSourceLocation &Location)
 // 0x508300
 TMyException::~TMyException() = default;
 
-// 0x508400
-TMyException::TMyException(const std::string &File, int Line, const std::string &Kind,
-	const std::string &Name1, int Value1, const std::string &Name2, int Value2,
-	const std::string &Expression)
+TMyException::TMyException(std::string Message_, const patella::TSourceLocation &Location_)
+	: Message(std::move(Message_)), Location(Location_)
+{
+}
+
+namespace patella {
+
+// 0x508400's text
+std::string ErrorText(std::string_view File, int Line, std::string_view Kind, std::string_view Name1, int Value1,
+	std::string_view Name2, int Value2, std::string_view Reason)
 {
 	std::stringstream Text;
-	Text << GetFileName(File) << " " << Line;
-	Origin = Text.str();
-	Text << ": " << Kind;
+	Text << GetFileName(File) << " " << Line << ": " << Kind;
 	if (Name1.size() != 0)
 		Text << " (" << Name1 << " = " << Value1 << ")";
 	if (Name2.size() != 0)
 		Text << " (" << Name2 << " = " << Value2 << ")";
-	if (Expression.size() != 0)
+	if (Reason.size() != 0)
 		Text << ", reason:" << std::endl
-			 << Expression;
-	Message = Text.str();
+			 << Reason;
+	return Text.str();
 }
 
-// 0x5086a0
-TMyException::TMyException(const std::string &File, int Line, const std::string &Kind,
-	const std::string &Name1, int Value1, const std::string &Name2, int Value2,
-	const TMyException &Inner)
+// 0x5086a0's text
+std::string ErrorText(std::string_view File, int Line, std::string_view Kind, std::string_view Name1, int Value1,
+	std::string_view Name2, int Value2, const TMyException &Inner)
 {
 	std::stringstream Text;
 	Text << GetFileName(File) << " " << Line << ": " << Kind;
@@ -91,29 +97,51 @@ TMyException::TMyException(const std::string &File, int Line, const std::string 
 		Text << " (" << Name2 << " = " << Value2 << ")";
 	Text << ", reason:" << std::endl
 		 << Inner.GetMessage();
-	Message = Text.str();
-	Origin = Inner.GetOrigin();
+	return Text.str();
+}
+
+std::string ErrorOrigin(std::string_view File, int Line)
+{
+	std::stringstream Text;
+	Text << GetFileName(File) << " " << Line;
+	return Text.str();
+}
+
+std::string ErrorOrigin(const TMyException &Exception)
+{
+	return ErrorOrigin(Exception.GetLocation().file_name(), GetLine(Exception.GetLocation()));
+}
+
+TMyException MakeError(const TSourceLocation &Location, std::string_view Kind, std::string_view Name1, int Value1,
+	std::string_view Name2, int Value2, std::string_view Reason)
+{
+	return TMyException(ErrorText(Location.file_name(), GetLine(Location), Kind, Name1, Value1, Name2, Value2, Reason),
+		Location);
+}
+
+TMyException MakeError(const TSourceLocation &Location, std::string_view Kind, std::string_view Name1, int Value1,
+	std::string_view Name2, int Value2, const TMyException &Inner)
+{
+	return TMyException(ErrorText(Location.file_name(), GetLine(Location), Kind, Name1, Value1, Name2, Value2, Inner),
+		Location);
 }
 
 // The failures of PATELLA_ASSERT and PATELLA_ASSERT_VALUES (compat/assertion.h, issue #79): the TMyException of
 // common.h's assertion macros before it, with the assertion's own file and line.
-namespace patella {
-
 void AssertionFailed(const char *Expression, const TSourceLocation &Location)
 {
-	throw TMyException(Location.file_name(), GetLine(Location), "assertion failed", "", 0, "", 0, Expression);
+	throw MakeError(Location, "assertion failed", "", 0, "", 0, Expression);
 }
 
 void AssertionFailed(const char *Expression, const TSourceLocation &Location, const char *Names, int Value1)
 {
-	throw TMyException(Location.file_name(), GetLine(Location), "assertion failed", GetValueName(Names, 0), Value1, "",
-		0, Expression);
+	throw MakeError(Location, "assertion failed", GetValueName(Names, 0), Value1, "", 0, Expression);
 }
 
 void AssertionFailed(const char *Expression, const TSourceLocation &Location, const char *Names, int Value1, int Value2)
 {
-	throw TMyException(Location.file_name(), GetLine(Location), "assertion failed", GetValueName(Names, 0), Value1,
-		GetValueName(Names, 1), Value2, Expression);
+	throw MakeError(Location, "assertion failed", GetValueName(Names, 0), Value1, GetValueName(Names, 1), Value2,
+		Expression);
 }
 
 } // namespace patella

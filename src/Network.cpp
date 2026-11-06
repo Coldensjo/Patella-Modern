@@ -264,7 +264,7 @@ void SendCommand(bool Encrypt)
 		for (int i = 2; i < Length + 2; i += 8)
 			SymmetricKey.EncryptBlock(TXTEA::TBlock(&SendData[i], 8));
 	} catch (...) {
-		TERROR(355, "Symmetric encryption failed with unknown exception");
+		TERROR("Symmetric encryption failed with unknown exception");
 	}
 	Socket->Send(SendData.data(), Length + 2, 0);
 }
@@ -285,12 +285,12 @@ void PrepareNextPacket()
 		ReceiveBuffer.Position = 0;
 		const int PacketSize = ReceiveBuffer.GetWord();
 		if (PacketSize % 8 != 0)
-			TERROR1(391, "packet size does not fit to symmetric encryption", PacketSize);
+			TERROR1("packet size does not fit to symmetric encryption", PacketSize);
 		try {
 			for (int i = 2; i < PacketSize + 2; i += 8)
 				SymmetricKey.DecryptBlock(TXTEA::TBlock(&ReceiveData[i], 8));
 		} catch (...) {
-			TERROR(398, "Symmetric decryption failed with unknown exception");
+			TERROR("Symmetric decryption failed with unknown exception");
 		}
 		ReceiveBuffer.SetSize(ReceiveBuffer.GetWord() + 4);
 		PATELLA_TEST_PACKET_RECEIVED(ReceiveData, PacketSize)
@@ -437,7 +437,7 @@ void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int
 		}
 	} else {
 		if (ErrorType != 2)
-			TERROR1(597, "unknown error type", ErrorType);
+			TERROR1("unknown error type", ErrorType);
 		Out.Append("Cannot connect to the game server.\n\nError: ");
 		Out.Append(Text);
 		if (Offline) {
@@ -520,7 +520,7 @@ void SetSymmetricKey(const uint8 *Key)
 	try {
 		SymmetricKey.SetKey(TXTEA::TKey(Key, 16));
 	} catch (const char *) {
-		TERROR(698, "Key initialization failed");
+		TERROR("Key initialization failed");
 	}
 }
 

@@ -84,7 +84,7 @@ template <class FO, class FI> bool ControlBoth(const char *What, FO Ours, FI Ima
 {
 	auto Wrapped = [&] {
 		if (!RunUntilStructuredException([](void *F) { (*static_cast<FO *>(F))(); }, &Ours))
-			throw TMYEXCEPTION(0, "unknown exception occurred", "", 0, "", 0, "");
+			throw TMYEXCEPTION("unknown exception occurred", "", 0, "", 0, "");
 	};
 	return Both(What, Wrapped, Image);
 }

@@ -636,7 +636,7 @@ void TFormattedText::Arrange()
 			Color = TRGBColor(Color.R, Color.G, TokenData);
 			break;
 		default:
-			TERROR1(684, "unknown token type", TokenType);
+			TERROR1("unknown token type", TokenType);
 		}
 		if (Element != nullptr) {
 			InsertChild(Element);
@@ -1470,7 +1470,7 @@ void TEditLine::HandleEvent(int Event)
 		SetCursor(SelectionLength < 0 ? 0 : SelectionLength);
 		return;
 	default:
-		TERROR1(2206, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 

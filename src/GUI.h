@@ -74,8 +74,8 @@ public:
 	virtual void SwapChildren(TComponent *Child1, TComponent *Child2);      // +0x18, 0x49b9f0, line 1041
 	virtual bool IsChild(TComponent *Child);                                // +0x1c, 0x49bb10, line 1049
 	// GUI.h lines 681 and 682 (0x417de0, 0x417f00, kept in an earlier object).
-	virtual TComponent *GetFirstChild() { TERROR(681, "not possible"); } // +0x20
-	virtual TComponent *GetLastChild() { TERROR(682, "not possible"); }  // +0x24
+	virtual TComponent *GetFirstChild() { TERROR("not possible"); } // +0x20
+	virtual TComponent *GetLastChild() { TERROR("not possible"); }  // +0x24
 	virtual TComponent *GetNext() { return Next; }                      // +0x28, 0x417680
 	virtual TComponent *GetPrevious();                                  // +0x2c, 0x49bc30, lines 1057-1066
 	virtual TComponent *GetParent() { return Parent; }                  // +0x30, 0x417690

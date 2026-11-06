@@ -341,17 +341,17 @@ BOOL CPlayerApp::InitInstance()
 		} catch (PROGRAM_ERROR Error) {
 			HandleProgramError(Error);
 		} catch (TMyException &Exception_) {
-			throw TMYEXCEPTION(322, "exception occurred", "", 0, "", 0, Exception_);
+			throw TMYEXCEPTION("exception occurred", "", 0, "", 0, Exception_);
 		} catch (std::bad_alloc &) {
-			TERROR(335, "bad_alloc_exception occurred");
+			TERROR("bad_alloc_exception occurred");
 		} catch (std::out_of_range &) {
-			TERROR(338, "out_of_range_exception occurred");
+			TERROR("out_of_range_exception occurred");
 		} catch (std::exception &) {
-			TERROR(341, "exception occurred");
+			TERROR("exception occurred");
 		} catch (const char *) {
-			TERROR(344, "const char* exception occurred");
+			TERROR("const char* exception occurred");
 		} catch (...) {
-			TERROR(347, "unknown exception occurred");
+			TERROR("unknown exception occurred");
 		}
 	} catch (TMyException &Exception) {
 		HandleException(Exception);
@@ -371,17 +371,17 @@ int CPlayerApp::Run()
 		} catch (PROGRAM_ERROR Error) {
 			HandleProgramError(Error);
 		} catch (TMyException &Exception_) {
-			throw TMYEXCEPTION(383, "exception occurred", "", 0, "", 0, Exception_);
+			throw TMYEXCEPTION("exception occurred", "", 0, "", 0, Exception_);
 		} catch (std::bad_alloc &) {
-			TERROR(396, "bad_alloc_exception occurred");
+			TERROR("bad_alloc_exception occurred");
 		} catch (std::out_of_range &) {
-			TERROR(399, "out_of_range_exception occurred");
+			TERROR("out_of_range_exception occurred");
 		} catch (std::exception &) {
-			TERROR(402, "exception occurred");
+			TERROR("exception occurred");
 		} catch (const char *) {
-			TERROR(405, "const char* exception occurred");
+			TERROR("const char* exception occurred");
 		} catch (...) {
-			TERROR(408, "unknown exception occurred");
+			TERROR("unknown exception occurred");
 		}
 	} catch (TMyException &Exception) {
 		HandleException(Exception);

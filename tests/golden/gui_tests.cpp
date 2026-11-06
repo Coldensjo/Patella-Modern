@@ -982,7 +982,7 @@ void TestWindows()
 			try {
 				TreeOperation();
 			} catch (TMyException &E) {
-				printf("GUI: exception in round %d step %d: %s / %s\n", Round, t, E.GetMessage().c_str(), E.GetOrigin().c_str());
+				printf("GUI: exception in round %d step %d: %s / %s\n", Round, t, E.GetMessage().c_str(), patella::ErrorOrigin(E).c_str());
 				exit(3);
 			}
 		}

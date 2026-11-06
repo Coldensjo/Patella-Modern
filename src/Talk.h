@@ -170,7 +170,7 @@ public:
 	// 0x5075c0, Talk.h line 321.
 	void AddText([[maybe_unused]] int Mode, [[maybe_unused]] const char *text, [[maybe_unused]] int DiffTime) override
 	{
-		TERROR(321, "not possible");
+		TERROR("not possible");
 	}
 	void Remove(int lineNumber) override;
 	void Remove(TTalkLine *line) override;

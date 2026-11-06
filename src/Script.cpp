@@ -25,9 +25,9 @@
 void TReadScriptFile::open(const char *FileName)
 {
 	if (File != nullptr)
-		TERROR_REASON(48, "file still open", Filename);
+		TERROR_REASON("file still open", Filename);
 	if (!File.Open(FileName, TFile::TAccess::Read))
-		TERROR_REASON(50, "failed to open file", FileName);
+		TERROR_REASON("failed to open file", FileName);
 	Line = 1;
 	// Filename stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
 	TStringBuffer(Filename, sizeof(Filename)).Assign(FileName);
@@ -44,7 +44,7 @@ void TReadScriptFile::error(const char *Text)
 	MsvcSnprintf(Message, 1054, "error in script file '%s' in line %d", Filename, Line);
 	if (Text == nullptr)
 		Text = Unknown;
-	throw TMYEXCEPTION(84, Message, "", 0, "", 0, Text);
+	throw TMYEXCEPTION(Message, "", 0, "", 0, Text);
 }
 
 // 0x4dfb60, lines 93-230. A state machine over getc. String is cleared
@@ -57,7 +57,7 @@ void TReadScriptFile::error(const char *Text)
 void TReadScriptFile::nextToken()
 {
 	if (File == nullptr)
-		TERROR(93, "no file open");
+		TERROR("no file open");
 	int State = 0;
 	int Size = 0;
 	memset(String, 0, sizeof(String));
@@ -336,7 +336,7 @@ void TReadScriptFile::nextToken()
 			Token = TOKEN::SPECIAL;
 			return;
 		default:
-			TERROR1(230, "invalid state", State);
+			TERROR1("invalid state", State);
 		}
 		// The binary checks this after every state change (the first pass
 		// starts at the switch).
@@ -382,9 +382,9 @@ char TReadScriptFile::getSpecial()
 void TWriteScriptFile::open(const char *FileName)
 {
 	if (File != nullptr)
-		TERROR_REASON(403, "file still open", Filename);
+		TERROR_REASON("file still open", Filename);
 	if (!File.Open(FileName, TFile::TAccess::Write))
-		TERROR_REASON(405, "failed to open file", FileName);
+		TERROR_REASON("failed to open file", FileName);
 	Line = 0;
 	// Filename stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
 	TStringBuffer(Filename, sizeof(Filename)).Assign(FileName);
@@ -394,7 +394,7 @@ void TWriteScriptFile::open(const char *FileName)
 void TWriteScriptFile::writeLn()
 {
 	if (File == nullptr)
-		TERROR(441, "no file open");
+		TERROR("no file open");
 	File.PutChar('\r');
 	File.PutChar('\n');
 }
@@ -403,9 +403,9 @@ void TWriteScriptFile::writeLn()
 void TWriteScriptFile::writeText(const char *Text)
 {
 	if (File == nullptr)
-		TERROR(451, "no file open");
+		TERROR("no file open");
 	if (Text == nullptr)
-		TERROR(452, "no text");
+		TERROR("no text");
 	while (*Text != 0) {
 		File.PutChar(*Text);
 		Text++;
@@ -417,9 +417,9 @@ void TWriteScriptFile::writeText(const char *Text)
 void TWriteScriptFile::writeString(const char *Text)
 {
 	if (File == nullptr)
-		TERROR(462, "no file open");
+		TERROR("no file open");
 	if (Text == nullptr)
-		TERROR(463, "no text");
+		TERROR("no text");
 	File.PutChar('"');
 	while (*Text != 0) {
 		if (*Text == '"' || *Text == '\\')
@@ -439,7 +439,7 @@ void TWriteScriptFile::writeString(const char *Text)
 void TWriteScriptFile::writeNumber(int Number)
 {
 	if (File == nullptr)
-		TERROR(481, "no file open");
+		TERROR("no file open");
 	TFixedString<20> Help;
 	Help.Format("{}", Number);
 	writeText(Help);
@@ -449,9 +449,9 @@ void TWriteScriptFile::writeNumber(int Number)
 void TReadBinaryFile::open(const char *FileName)
 {
 	if (File != nullptr)
-		TERROR_REASON(552, "file still open", Filename);
+		TERROR_REASON("file still open", Filename);
 	if (!File.Open(FileName, TFile::TAccess::Read))
-		TERROR_REASON(554, "failed to open file", FileName);
+		TERROR_REASON("failed to open file", FileName);
 	strncpy(Filename, FileName, sizeof(Filename));
 }
 
@@ -459,9 +459,9 @@ void TReadBinaryFile::open(const char *FileName)
 void TReadBinaryFile::seek(int Offset)
 {
 	if (File == nullptr)
-		TERROR(572, "no file open");
+		TERROR("no file open");
 	if (Offset < 0)
-		TERROR1_REASON(573, "negative offset", Offset, Filename);
+		TERROR1_REASON("negative offset", Offset, Filename);
 	File.Seek(Offset, SEEK_SET);
 }
 
@@ -469,7 +469,7 @@ void TReadBinaryFile::seek(int Offset)
 bool TReadBinaryFile::eof() const
 {
 	if (File == nullptr)
-		TERROR(582, "no file open");
+		TERROR("no file open");
 	return MsvcEof(File.Descriptor()) != 0;
 }
 
@@ -477,10 +477,10 @@ bool TReadBinaryFile::eof() const
 uint8 TReadBinaryFile::readByte()
 {
 	if (File == nullptr)
-		TERROR(603, "no file open");
+		TERROR("no file open");
 	uint8 Byte;
 	if (File.Read(&Byte, 1, 1) == 0)
-		TERROR_REASON(605, "out of data", Filename);
+		TERROR_REASON("out of data", Filename);
 	return Byte;
 }
 
@@ -497,7 +497,7 @@ uint16 TReadBinaryFile::readWord()
 int TReadBinaryFile::readQuad()
 {
 	if (File == nullptr)
-		TERROR(627, "no file open");
+		TERROR("no file open");
 	const uint8 Byte0 = readByte();
 	const uint8 Byte1 = readByte();
 	const uint8 Byte2 = readByte();
@@ -509,7 +509,7 @@ int TReadBinaryFile::readQuad()
 char *TReadBinaryFile::readString()
 {
 	if (File == nullptr)
-		TERROR(644, "no file open");
+		TERROR("no file open");
 	const int Length = readWord() & 0xffff;
 	char *Text = new char[Length + 1];
 	if (Length != 0)
@@ -525,20 +525,20 @@ void TReadBinaryFile::readBytes(patella::TSpan<uint8> Bytes)
 	uint8 *const Buffer = Bytes.data();
 	const int Count = static_cast<int>(Bytes.size());
 	if (File == nullptr)
-		TERROR(661, "no file open");
+		TERROR("no file open");
 	if (Buffer == nullptr)
-		TERROR(662, "Buffer==NULL");
+		TERROR("Buffer==NULL");
 	if ((int)File.Read(Buffer, 1, Count) != Count)
-		TERROR1_REASON(664, "out of data", Count, Filename);
+		TERROR1_REASON("out of data", Count, Filename);
 }
 
 // 0x4e21a0, lines 706-708
 void TWriteBinaryFile::open(const char *FileName)
 {
 	if (File != nullptr)
-		TERROR_REASON(706, "file still open", Filename);
+		TERROR_REASON("file still open", Filename);
 	if (!File.Open(FileName, TFile::TAccess::Write))
-		TERROR_REASON(708, "failed to open file", FileName);
+		TERROR_REASON("failed to open file", FileName);
 	strncpy(Filename, FileName, sizeof(Filename));
 }
 
@@ -546,16 +546,16 @@ void TWriteBinaryFile::open(const char *FileName)
 void TWriteBinaryFile::writeByte(uint8 Byte)
 {
 	if (File == nullptr)
-		TERROR(727, "no file open");
+		TERROR("no file open");
 	if (File.Write(&Byte, 1, 1) != 1)
-		TERROR_REASON(729, "failed to write file", Filename);
+		TERROR_REASON("failed to write file", Filename);
 }
 
 // 0x4e2750, lines 737-742
 void TWriteBinaryFile::writeWord(uint16 Word)
 {
 	if (File == nullptr)
-		TERROR(737, "no file open");
+		TERROR("no file open");
 	writeByte((uint8)Word);
 	writeByte((uint8)(Word >> 8));
 }
@@ -564,7 +564,7 @@ void TWriteBinaryFile::writeWord(uint16 Word)
 void TWriteBinaryFile::writeQuad(uint32 Quad)
 {
 	if (File == nullptr)
-		TERROR(750, "no file open");
+		TERROR("no file open");
 	writeByte((uint8)Quad);
 	writeByte((uint8)(Quad >> 8));
 	writeByte((uint8)(Quad >> 16));
@@ -579,9 +579,9 @@ void TWriteBinaryFile::writeBytes(patella::TSpan<const uint8> Bytes)
 	const uint8 *const Buffer = Bytes.data();
 	const int Count = static_cast<int>(Bytes.size());
 	if (File == nullptr)
-		TERROR(765, "no file open");
+		TERROR("no file open");
 	if (File.Write(Buffer, Count, 1) != 1)
-		TERROR1_REASON(766, "failed to write file", Count, Filename);
+		TERROR1_REASON("failed to write file", Count, Filename);
 }
 
 // 0x4e2f50, line 779. A word with the length, then the characters; longer

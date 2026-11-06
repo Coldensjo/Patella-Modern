@@ -170,42 +170,42 @@ void ChangeEngine(int engine)
 	try {
 		GetSurface()->ExitSurfaces();
 	} catch (TMyException &Exception) {
-		throw TMYEXCEPTION(145, "ExitSurfaces failed", "oldEngine", oldEngine, "", 0, Exception);
+		throw TMYEXCEPTION("ExitSurfaces failed", "oldEngine", oldEngine, "", 0, Exception);
 	} catch (...) {
-		TERROR1(148, "ExitSurfaces failed with unknown exception", oldEngine);
+		TERROR1("ExitSurfaces failed with unknown exception", oldEngine);
 	}
 	try {
 		SurfaceExitInstance();
 	} catch (TMyException &Exception) {
-		throw TMYEXCEPTION(154, "SurfaceExitInstance failed", "curEngine", curEngine, "", 0, Exception);
+		throw TMYEXCEPTION("SurfaceExitInstance failed", "curEngine", curEngine, "", 0, Exception);
 	} catch (...) {
-		TERROR1(157, "SurfaceExitInstance failed with unknown exception", curEngine);
+		TERROR1("SurfaceExitInstance failed with unknown exception", curEngine);
 	}
 	bool Success;
 	try {
 		Success = GetSurface()->TestEngine();
 	} catch (TMyException &Exception) {
-		throw TMYEXCEPTION(166, "TestEngine failed", "curEngine", curEngine, "", 0, Exception);
+		throw TMYEXCEPTION("TestEngine failed", "curEngine", curEngine, "", 0, Exception);
 	} catch (...) {
-		TERROR1(169, "TestEngine failed with unknown exception", curEngine);
+		TERROR1("TestEngine failed with unknown exception", curEngine);
 	}
 	if (!Success) {
 		curEngine = oldEngine;
 		try {
 			SurfaceExitInstance();
 		} catch (TMyException &Exception) {
-			throw TMYEXCEPTION(180, "SurfaceExitInstance after test failed", "curEngine", curEngine, "", 0,
+			throw TMYEXCEPTION("SurfaceExitInstance after test failed", "curEngine", curEngine, "", 0,
 				Exception);
 		} catch (...) {
-			TERROR1(183, "SurfaceExitInstance after test failed with unknown exception", curEngine);
+			TERROR1("SurfaceExitInstance after test failed with unknown exception", curEngine);
 		}
 	}
 	try {
 		GetSurface()->InitSurfaces();
 	} catch (TMyException &Exception) {
-		throw TMYEXCEPTION(192, "InitSurfaces failed", "", 0, "", 0, Exception);
+		throw TMYEXCEPTION("InitSurfaces failed", "", 0, "", 0, Exception);
 	} catch (...) {
-		TERROR(195, "InitSurfaces failed with unknown exception");
+		TERROR("InitSurfaces failed with unknown exception");
 	}
 	SetEngine(curEngine);
 #endif
@@ -685,7 +685,7 @@ void ReceivePackets()
 			case 0x28: ReceiveLoginServerOverloaded(); break;
 			case 0x64: ReceiveCharacterList(); break;
 			default:
-				TERROR1(1208, "unknown packet type during login", Type);
+				TERROR1("unknown packet type during login", Type);
 			}
 		} else {
 			if (GetConnectionState() == 6)
@@ -773,7 +773,7 @@ void ReceivePackets()
 			case 0xd3: ReceiveBuddyLogin(); break;
 			case 0xd4: ReceiveBuddyLogout(); break;
 			default:
-				TERROR1(1274, "unknown packet type during game", Type);
+				TERROR1("unknown packet type during game", Type);
 			}
 		}
 		LastPacketType = Type;
@@ -1111,7 +1111,7 @@ void ProcessEvents()
 		// the client closes and runs patch.exe) were posted only by ReceivePatchBlock; they are gone with it since
 		// Patella-Modern issue #75 (decision D9), and with 0x40 the shared exit block 0x44a2f5 it jumped to (#42).
 		default:
-			TERROR1(1541, "unknown message type", Type);
+			TERROR1("unknown message type", Type);
 		}
 		if (ModalWindow != nullptr) {
 			if (Type < 0x34) {

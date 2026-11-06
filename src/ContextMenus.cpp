@@ -506,7 +506,7 @@ TObjectContextMenu::TObjectContextMenu(int x, int y, int ParentWidth, int Parent
 					}
 					break;
 				default:
-					TERROR1(643, "unknown player party flag", GetPlayerPartyFlag());
+					TERROR1("unknown player party flag", GetPlayerPartyFlag());
 				}
 			}
 		}
@@ -649,7 +649,7 @@ void TObjectContextMenu::HandleEvent(int Event)
 		break;
 	}
 	default:
-		TERROR1(777, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 
@@ -712,7 +712,7 @@ TCreatureContextMenu::TCreatureContextMenu(uint32 CreatureID, int x, int y, int 
 			}
 			break;
 		default:
-			TERROR1(845, "unknown player party flag", GetPlayerPartyFlag());
+			TERROR1("unknown player party flag", GetPlayerPartyFlag());
 		}
 		Separator = true;
 	}
@@ -814,7 +814,7 @@ void TCreatureContextMenu::HandleEvent(int Event)
 		break;
 	}
 	default:
-		TERROR1(934, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 
@@ -914,7 +914,7 @@ void TBuddyContextMenu::HandleEvent(int Event)
 		HideOfflineBuddies(!GetBuddyHideOffline());
 		break;
 	default:
-		TERROR1(1040, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 
@@ -1165,7 +1165,7 @@ void TChannelContextMenu::HandleEvent(int Event)
 		break;
 	}
 	default:
-		TERROR1(1310, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 
@@ -1213,7 +1213,7 @@ void TEditContextMenu::HandleEvent(int Event)
 		Edit->HandleEvent(20);
 		break;
 	default:
-		TERROR1(1363, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 
@@ -1263,7 +1263,7 @@ void TMarkContextMenu::HandleEvent(int Event)
 		DeleteAutomapMark(Data.Mark, Data.Coordinate.z);
 		break;
 	default:
-		TERROR1(1426, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 }
 
@@ -1325,7 +1325,7 @@ void TSkillContextMenu::HandleEvent(int Event)
 			SetSkillBar(i, false);
 		break;
 	default:
-		TERROR1(1525, "unknown event", Event);
+		TERROR1("unknown event", Event);
 	}
 	if (SkillsWindow != nullptr)
 		SkillsWindow->Arrange();

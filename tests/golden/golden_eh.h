@@ -39,8 +39,9 @@ struct TThrown {
 		OTHER } Kind;
 	std::string Type; // the decorated name of the thrown type, ".?AVTMyException@@"
 	int Code;         // the PROGRAM_ERROR value
-	// TMyException::GetMessage() and GetOrigin(), for the failure reports only (not compared; the runner has
-	// none for the original, the corpus does not record them).
+	// The message and the origin (TMyException::GetMessage() and patella::ErrorOrigin(), the image's message and
+	// origin), for the failure reports only (not compared; the runner has none for the original, the corpus does not
+	// record them).
 	std::string Message;
 	std::string Origin;
 	TThrown() : Kind(NOTHING), Code(0) {}

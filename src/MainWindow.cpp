@@ -591,7 +591,7 @@ void TMainWindow::OpenContentWindow(int Identifier) const
 			Window = CreateBuddylistWindow();
 			break;
 		default:
-			TERROR1(606, "unknown identifier", Identifier);
+			TERROR1("unknown identifier", Identifier);
 		}
 		DialogWindow->Rearrange(16, Window);
 	}
