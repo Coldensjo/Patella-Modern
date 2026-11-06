@@ -39,7 +39,8 @@
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
 #   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31), the options' keys in it and their escaping (issue #45), the developer log's keys in it (issue #77) and
 #   src/compat/msvc.h, the Microsoft CRT's semantics behind portable names (issue #43; its 32-bit time went in #62); the expected values that are not the code's own come from tests/unit/core_expected.py;
-#   common.h's TERROR*, TMYEXCEPTION and TProgramError (issue #80).
+#   common.h's TERROR*, TMYEXCEPTION and TProgramError (issue #80); src/MapPoint.h, a map point's stack of objects over
+#   TStaticVector and the original's behaviour when it is full (issue #102).
 #
 # - tests_testmode: patella_testmode (cmake/TestMode.cmake, issue #21): the virtual clock, the input
 #   script's parser and key table, the scheduler, the driver's loop on the virtual clock, and that the
@@ -145,7 +146,8 @@ add_executable(tests_core
 	core_preferences_test.cpp
 	core_log_settings_test.cpp
 	core_msvc_test.cpp
-	core_errors_test.cpp)
+	core_errors_test.cpp
+	core_map_point_test.cpp)
 target_link_libraries(tests_core PRIVATE patella_core doctest::doctest)
 patella_target_language(tests_core)
 patella_target_warnings(tests_core)

@@ -62,11 +62,8 @@ TRGBColor AmbienteActualColor;                                                  
 
 } // namespace
 
-// The arrays std::arrays and TMark::Text a TFixedString (issue #60). TMapPoint and TMark have no pointers: the same
-// on x64.
-static_assert(sizeof(TMapPoint) == 0xac && offsetof(TMapPoint, Objects) == 0x04 && offsetof(TMapPoint, Order) == 0x7c
-		&& sizeof(TMapPoint::Objects) == 0x78 && sizeof(TMapPoint::Order) == 0x28,
-	"TMapPoint's layout");
+// TMark's arrays std::arrays and its Text a TFixedString (issue #60), no pointers: the same on x64. TMapPoint's layout
+// is free since issue #102 (MapPoint.h: its objects a TStaticVector).
 static_assert(sizeof(TMark) == 0x70 && offsetof(TMark, Text) == 0x0c && sizeof(TMark::Text) == 100, "TMark's layout");
 static_assert(sizeof(AutomapBlocks) == AUTOMAP_BLOCKS * sizeof(TAutomapBlock), "AutomapBlocks");
 
@@ -176,9 +173,9 @@ TObject GetFirstObject(int rx, int ry, int rz)
 	ObjectIteratorField = FieldNumber(rx, ry, rz);
 	ObjectIteratorCount = 0;
 	const TMapPoint &Point = Fields(ObjectIteratorField);
-	if (Point.ObjectCount == 0)
+	if (PointObjectCount(Point) == 0)
 		return NoObject;
-	return Point.Objects[Point.Order[0]];
+	return PointObject(Point, Point.Order[0]);
 }
 
 // 0x4b6510
@@ -186,9 +183,9 @@ TObject GetNextObject()
 {
 	ObjectIteratorCount++;
 	const TMapPoint &Point = Fields(ObjectIteratorField);
-	if (ObjectIteratorCount >= Point.ObjectCount)
+	if (ObjectIteratorCount >= PointObjectCount(Point))
 		return NoObject;
-	return Point.Objects[Point.Order[ObjectIteratorCount]];
+	return PointObject(Point, Point.Order[ObjectIteratorCount]);
 }
 
 // 0x4b6580, lines 197-202. The object at a stack position (0 is the bottom).
@@ -199,8 +196,8 @@ TObject GetMapObject(int rx, int ry, int rz, int Position)
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	PATELLA_ASSERT_VALUES(In(Position,0,OBJECTS_PER_POINT-1), Position);
-	if (Position < Point.ObjectCount)
-		return Point.Objects[Position];
+	if (Position < PointObjectCount(Point))
+		return PointObject(Point, Position);
 	return NoObject;
 }
 
@@ -214,16 +211,16 @@ TObject GetTopMoveObject(int rx, int ry, int rz, int &Position)
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
-	while (Position < Point.ObjectCount - 1) {
-		const TObject &Obj = Point.Objects[Position];
+	while (Position < PointObjectCount(Point) - 1) {
+		const TObject &Obj = PointObject(Point, Position);
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
 			&& !GetObjectFlag(Obj.Type, TOP) && Obj.Type != CREATURE)
 			break;
 		Position++;
 	}
-	if (Position > 0 && GetObjectFlag(Point.Objects[Position].Type, UNMOVE))
+	if (Position > 0 && GetObjectFlag(PointObject(Point, Position).Type, UNMOVE))
 		Position--;
-	return Point.Objects[Position];
+	return PointObject(Point, Position);
 }
 
 // 0x4b6ee0, lines 237-250. The lowest object that is no ground, border,
@@ -235,14 +232,14 @@ TObject GetTopLookObject(int rx, int ry, int rz, int &Position)
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
-	while (Position < Point.ObjectCount - 1) {
-		const TObject &Obj = Point.Objects[Position];
+	while (Position < PointObjectCount(Point) - 1) {
+		const TObject &Obj = PointObject(Point, Position);
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
 			&& !GetObjectFlag(Obj.Type, TOP))
 			break;
 		Position++;
 	}
-	return Point.Objects[Position];
+	return PointObject(Point, Position);
 }
 
 // 0x4b73a0, lines 259-275. The first object with FORCEUSE, else the lowest
@@ -255,8 +252,8 @@ TObject GetTopUseObject(int rx, int ry, int rz, int &Position)
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
-	while (Position < Point.ObjectCount - 1) {
-		const TObject &Obj = Point.Objects[Position];
+	while (Position < PointObjectCount(Point) - 1) {
+		const TObject &Obj = PointObject(Point, Position);
 		if (GetObjectFlag(Obj.Type, FORCEUSE))
 			return Obj;
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
@@ -265,9 +262,9 @@ TObject GetTopUseObject(int rx, int ry, int rz, int &Position)
 		Position++;
 	}
 	while (Position > 0
-		&& (Point.Objects[Position].Type == CREATURE || GetObjectFlag(Point.Objects[Position].Type, LIQUIDPOOL)))
+		&& (PointObject(Point, Position).Type == CREATURE || GetObjectFlag(PointObject(Point, Position).Type, LIQUIDPOOL)))
 		Position--;
-	return Point.Objects[Position];
+	return PointObject(Point, Position);
 }
 
 // 0x4b78d0, lines 284-299. Like GetTopUseObject, but creatures count and only
@@ -279,8 +276,8 @@ TObject GetTopMultiUseObject(int rx, int ry, int rz, int &Position)
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
-	while (Position < Point.ObjectCount - 1) {
-		const TObject &Obj = Point.Objects[Position];
+	while (Position < PointObjectCount(Point) - 1) {
+		const TObject &Obj = PointObject(Point, Position);
 		if (GetObjectFlag(Obj.Type, FORCEUSE))
 			return Obj;
 		if (!GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Obj.Type, BOTTOM)
@@ -288,9 +285,9 @@ TObject GetTopMultiUseObject(int rx, int ry, int rz, int &Position)
 			break;
 		Position++;
 	}
-	if (Position > 0 && GetObjectFlag(Point.Objects[Position].Type, LIQUIDPOOL))
+	if (Position > 0 && GetObjectFlag(PointObject(Point, Position).Type, LIQUIDPOOL))
 		Position--;
-	return Point.Objects[Position];
+	return PointObject(Point, Position);
 }
 
 namespace {
@@ -305,18 +302,18 @@ void SortObjects(int rx, int ry, int rz)
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	int n = 0;
-	for (int i = 0; i < Point.ObjectCount; i++) {
-		if (!GetObjectFlag(Point.Objects[i].Type, BANK) && !GetObjectFlag(Point.Objects[i].Type, CLIP)
-			&& !GetObjectFlag(Point.Objects[i].Type, BOTTOM))
+	for (int i = 0; i < PointObjectCount(Point); i++) {
+		if (!GetObjectFlag(PointObject(Point, i).Type, BANK) && !GetObjectFlag(PointObject(Point, i).Type, CLIP)
+			&& !GetObjectFlag(PointObject(Point, i).Type, BOTTOM))
 			break;
 		Point.Order[n++] = i;
 	}
-	for (int i = Point.ObjectCount - 1; i >= 0 && n != Point.ObjectCount; i--)
+	for (int i = PointObjectCount(Point) - 1; i >= 0 && n != PointObjectCount(Point); i--)
 		Point.Order[n++] = i;
 	TObject *Hanging = nullptr;
 	const TObject *Hook = nullptr;
-	for (int i = Point.ObjectCount - 1; i >= 0; i--) {
-		TObject &Obj = Point.Objects[i];
+	for (int i = PointObjectCount(Point) - 1; i >= 0; i--) {
+		TObject &Obj = Point.Objects[static_cast<std::size_t>(i)];
 		if (GetObjectFlag(Obj.Type, HANG))
 			Hanging = &Obj;
 		if (GetObjectFlag(Obj.Type, HOOKSOUTH) || GetObjectFlag(Obj.Type, HOOKEAST))
@@ -336,15 +333,8 @@ void InsertObject(int rx, int ry, int rz, int Position, TObject Obj)
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	PATELLA_ASSERT_VALUES(In(Position,0,OBJECTS_PER_POINT-1), Position);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	PATELLA_ASSERT_VALUES(Position<=Point.ObjectCount, Position);
-	int i = Point.ObjectCount;
-	if (i > OBJECTS_PER_POINT - 1)
-		i = OBJECTS_PER_POINT - 1;
-	for (; i > Position; i--)
-		Point.Objects[i] = Point.Objects[i - 1];
-	Point.Objects[Position] = Obj;
-	if (Point.ObjectCount < OBJECTS_PER_POINT)
-		Point.ObjectCount++;
+	PATELLA_ASSERT_VALUES(Position<=PointObjectCount(Point), Position);
+	InsertPointObject(Point, Position, Obj);
 	SortObjects(rx, ry, rz);
 }
 
@@ -360,27 +350,7 @@ void AddObject(int rx, int ry, int rz, TObject Obj)
 	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	int Position;
-	for (Position = 0; Position < Point.ObjectCount; Position++) {
-		const TObject &Here = Point.Objects[Position];
-		if (GetObjectFlag(Obj.Type, BANK) && !GetObjectFlag(Here.Type, BANK))
-			break;
-		if (GetObjectFlag(Obj.Type, BANK) == GetObjectFlag(Here.Type, BANK)) {
-			if (GetObjectFlag(Obj.Type, CLIP) && !GetObjectFlag(Here.Type, CLIP))
-				break;
-			if (GetObjectFlag(Obj.Type, CLIP) == GetObjectFlag(Here.Type, CLIP)) {
-				if (GetObjectFlag(Obj.Type, BOTTOM) && !GetObjectFlag(Here.Type, BOTTOM))
-					break;
-				if (GetObjectFlag(Obj.Type, BOTTOM) == GetObjectFlag(Here.Type, BOTTOM)) {
-					if (GetObjectFlag(Obj.Type, TOP) && !GetObjectFlag(Here.Type, TOP))
-						break;
-					if (GetObjectFlag(Obj.Type, TOP) == GetObjectFlag(Here.Type, TOP)
-						&& (Obj.Type == CREATURE || Here.Type != CREATURE))
-						break;
-				}
-			}
-		}
-	}
+	const int Position = AddPosition(Point, Obj, [](int Type, int Flag) { return GetObjectFlag(Type, Flag); });
 	if (Position < OBJECTS_PER_POINT)
 		InsertObject(rx, ry, rz, Position, Obj);
 }
@@ -392,12 +362,8 @@ void AppendObject(int rx, int ry, int rz, TObject Obj)
 	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	if (!In(Point.ObjectCount, 0, OBJECTS_PER_POINT - 1)) {
-		std::stringstream s;
-		s << "ObjectCount: " << Point.ObjectCount << " rx: " << rx << " ry: " << ry << " rz: " << rz;
-		throw TMYEXCEPTION("too many objects on map point", "", 0, "", 0, s.str());
-	}
-	InsertObject(rx, ry, rz, Point.ObjectCount, Obj);
+	CheckPointRoom(Point, rx, ry, rz);
+	InsertObject(rx, ry, rz, PointObjectCount(Point), Obj);
 }
 
 // 0x4b9420, lines 441-454. True when the point was full, so that the objects
@@ -408,12 +374,10 @@ bool DeleteObject(int rx, int ry, int rz, int Position)
 	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	PATELLA_ASSERT_VALUES(In(Position,0,Point.ObjectCount-1), Position);
-	for (; Position < Point.ObjectCount - 1; Position++)
-		Point.Objects[Position] = Point.Objects[Position + 1];
-	Point.ObjectCount--;
+	PATELLA_ASSERT_VALUES(In(Position,0,PointObjectCount(Point)-1), Position);
+	const bool WasFull = DeletePointObject(Point, Position);
 	SortObjects(rx, ry, rz);
-	return Point.ObjectCount == OBJECTS_PER_POINT - 1;
+	return WasFull;
 }
 
 // 0x4b9940, lines 463-473
@@ -423,8 +387,8 @@ void ChangeObject(int rx, int ry, int rz, int Position, TObject Obj)
 	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	PATELLA_ASSERT_VALUES(In(Position,0,Point.ObjectCount-1), Position);
-	Point.Objects[Position] = Obj;
+	PATELLA_ASSERT_VALUES(In(Position,0,PointObjectCount(Point)-1), Position);
+	Point.Objects[static_cast<std::size_t>(Position)] = Obj;
 	SortObjects(rx, ry, rz);
 }
 
@@ -783,11 +747,11 @@ void ClearField(int rx, int ry, int rz, bool DeleteEffects)
 	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	int i = 0;
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	for (i = 0; i < Point.ObjectCount; i++) {
-		if (Point.Objects[i].Type == CREATURE)
-			CreatureCallback(Point.Objects[i].Data);
+	for (i = 0; i < PointObjectCount(Point); i++) {
+		if (PointObject(Point, i).Type == CREATURE)
+			CreatureCallback(PointObject(Point, i).Data);
 	}
-	Point.ObjectCount = 0;
+	ClearPointObjects(Point);
 	Point.RefreshRequested = false;
 	i = -1;
 	if (DeleteEffects) {
@@ -802,7 +766,7 @@ void ClearField(int rx, int ry, int rz, bool DeleteEffects)
 void ClearMap()
 {
 	for (int i = 0; i < MAPSIZE_X * MAPSIZE_Y * MAPSIZE_Z; i++) {
-		Fields(i).ObjectCount = 0;
+		ClearPointObjects(Fields(i));
 		Fields(i).EffectNumber = -1;
 		Fields(i).RefreshRequested = false;
 	}

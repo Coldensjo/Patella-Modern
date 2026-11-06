@@ -438,6 +438,11 @@ grows and reuses free entries, so every effect keeps the original's number, and 
 (-1) as the original's NewEffect did. tests/unit/slot_table_test.cpp on every compiler (against the original's
 search). TMapPoint::Objects is not converted: the golden Container test compares the bytes new TMapPoint[d] leaves,
 which a vector's constructor changes; the owner decides (notes/decisions.md, "#102: fixed-capacity lists").
+TMapPoint's objects (Patella-Modern issue #102, branch issue-102b, November 6, 2026; M7): TMapPoint (src/MapPoint.h)
+keeps its objects in a TStaticVector<TObject, 10>, its size the count, with the original's full point (InsertObject's
+top object falling off, AddObject's drop, AppendObject's throw, DeleteObject's true) and its Objects[0] of an empty
+point (Vacated). The golden Container test's array<TMapPoint> round has the original's point as its element type
+(it tests array<T>); every check unchanged. tests/unit/core_map_point_test.cpp. notes/decisions.md, "#102b".
 
 compare_rendering.py's failures explained (Patella-Modern issue #98, branch issue-98, November 6, 2026): Tibia.exe's
 first capture got no frame when its start-up's second IDirect3D9::CreateDevice did not return (1 start of 15 in the

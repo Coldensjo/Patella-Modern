@@ -12969,7 +12969,7 @@ with GCC 16's libstdc++, the stand-in with MSVC and Clang 22 against libstdc++ 1
   ProcessMissileEffects, ClearField and ClearMap against the original, every entry's status and fields compared)
   and Errors test (the getters on every entry, out-of-range numbers) replay unchanged.
 
-### TMapPoint::Objects: why not converted (high; needs the owner)
+### TMapPoint::Objects: why not converted in #102 (high; the owner chose option 2, done in #102b below)
 
 The golden corpus's Container test (container_tests.cpp, TestArray) checks `array<TMapPoint>` (0x4b0bc0) against the
 original: after `new TMapPoint[d]` on memory both sides filled with the same pattern, every byte of every entry must
@@ -13015,3 +13015,63 @@ Logs: build\logs\issue-102 of the branch's worktree; golden replayed main's froz
   session matches (traffic, options, walk, error); `python -I tools/compare_traffic.py` exit 0, no differences.
 - `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`:
   exit 0. clang-format (CLAUDE.md's command): exit 0.
+
+## #102b: TMapPoint's objects as TStaticVector (Patella-Modern issue #102, M7)
+
+Settled by Claude Opus 5.5, November 6, 2026, after the owner chose option 2 of "#102: fixed-capacity lists" ("TMapPoint::
+Objects: why not converted"). `TMapPoint` is in src/MapPoint.h (Map.h includes it): `Objects` is a
+`patella::TStaticVector<TObject, OBJECTS_PER_POINT>` (std::inplace_vector with GCC 16's libstdc++, the stand-in with MSVC
+and Clang 22 against libstdc++ 14), its size the original's ObjectCount; `Order`, `EffectNumber` and `RefreshRequested` as
+before, and `Vacated` (below). The layout is free (M6): Map.cpp's TMapPoint static_assert is gone.
+
+### The golden Container test's round (high)
+
+The round of `array<TMapPoint>` (0x4b0bc0, 0x4b5900) tests Container.h's `array<T>`: its header (min, d), the entries
+`new T[d]` leaves (every byte against the original's, on memory both sides fill with the same pattern) and
+operator()'s addresses. What it checks of T is T's default initialisation, the original point's compiler-generated
+constructor (0x4b0b40: the ten TObjects zeroed, the rest the pattern). Since #102b the client's point is another type
+with another construction (the vector's constructor sets its size and constructs no object), not part of what
+array<T> does. So the round's T is `TOriginalMapPoint` (container_tests.cpp, beside TErrorReport, the same kind of
+record kept for a vector instance): the original's members in its order (ObjectCount, std::array<TObject, 10>, the
+order, EffectNumber, RefreshRequested; 0xac bytes, static_assert), PLAIN_LAYOUT as before (the same "c172@4"). Every
+check is unchanged: 192,832 checks, 0 failures; the round's name stays "array<TMapPoint>".
+
+### The original's behaviour, kept (high)
+
+src/MapPoint.h has the stack operations Map.cpp's functions make of a point, each the original's:
+
+- `InsertPointObject` (InsertObject, 0x4b8310): the original shifts from index 9 at most, so on a full point the top
+  object falls off and the count stays 10: `pop_back` first when full, then `insert`. Map.cpp's InsertObject keeps its
+  assertions and SortObjects.
+- `AddPosition` (AddObject, 0x4b88f0): the original's search for the position (ground, borders, bottom, top objects,
+  creatures), GetObjectFlag passed in (Map.cpp passes a lambda over it; the overload for a TObject makes the name
+  ambiguous). AddObject inserts only below OBJECTS_PER_POINT: on a full point an object that belongs above every
+  object is dropped.
+- `CheckPointRoom` (AppendObject, 0x4b8ec0): "too many objects on map point" on a full point, the same
+  TMYEXCEPTION and reason text (the error's source location is MapPoint.h now; golden compares the outcome).
+- `DeletePointObject` (DeleteObject, 0x4b9420): true when the point was full.
+- `ClearPointObjects` (ClearField, ClearMap).
+- `PointObject(Point, Position)`: the original's `Objects[Position]`. The original's array kept the objects beyond
+  ObjectCount, and one of them is read: GetTopMoveObject, GetTopLookObject, GetTopUseObject and
+  GetTopMultiUseObject return `Objects[0]` of an empty point (Position 0, the loops not entered), which the golden Map
+  test compares on every point (ComparePoint). A vector has no object beyond its size, so the point keeps
+  `Vacated`, the object the original's slot 0 still held: the last object deleted from a point of one (the original
+  moves nothing then), or the bottom object when ClearField or ClearMap empties a point; a new point's is the cleared
+  TObject (`new TMapPoint[n]`'s zeroed objects). No other slot beyond the count is read (GetMapObject checks the count,
+  InsertObject reads below it, SortObjects and the loops stay below it).
+
+### golden_runner and the test mode (high)
+
+- The Map, Objects, MapWindow and Errors tests reach the points only through Map.cpp's functions (mapwindow_tests.cpp
+  fakes them with its own fields): no read changed, the counts are the same (Map 639,877, MapWindow 122,324).
+- The test mode's state dump (ClientStateWin32.cpp) reads `Objects.data()` and `PointObjectCount` where it read the
+  array and the count clamped to 10 (the size is never beyond 10).
+
+### Tests (high)
+
+tests/unit/core_map_point_test.cpp in tests_core (MapPoint.h needs common.h, patella_core's): 6 test cases, one per
+behaviour (InsertObject's cap, AddObject's drop, AppendObject's throw and its message, DeleteObject's true when full,
+an empty point's Objects[0]) and 20,000 random inserts, deletes and clears against the original's point (ObjectCount
+and the array, changed as 0x4b8310, 0x4b9420 and 0x4bc720 change them): the objects, the count, DeleteObject's
+results and Objects[0] after every step; the run meets full points. MapPoint.h is on cmake/HeaderCheck.cmake's core
+list.
