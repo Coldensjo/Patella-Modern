@@ -13285,3 +13285,40 @@ Logs: build\logs\issue-102b of the branch's worktree, all on d83a4f7; golden rep
   clients shared; the one rerun: exit 0, no differences.
 - `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`:
   exit 0. clang-format (CLAUDE.md's command): exit 0.
+
+## #115: an empty function's code at every optimisation level (Patella-Modern issue #115, M7)
+
+Done by Claude Opus 5.5, November 6, 2026 (branch issue-115). Only tests/golden/communication_tests.cpp changed.
+
+### Why the check exists (high)
+
+ExitCommunication is empty in the original: the linker folded it with four other empty Exit functions into one
+`ret` at 0x496160 (GUI.obj; Communication.cpp's comment). The golden Communication and Control tests replace it with a
+fake on both sides (ExitControl's calls of it are compared by controltest.cpp), so no comparison ever runs our body.
+The byte check in TestCommunication, before the fakes are installed, is the only proof that ours has none: it reads the
+first bytes of `patella::TCommunication::ExitCommunication` (the member since #105; the free function forwards to it)
+and the original's byte at 0x496160 (the corpus' recorded value, a `ret`, C3).
+
+### What changed (high)
+
+The check accepted three codes for an empty function: `ret`, `ret 0` (C2 00 00) and Clang's frame-pointer frame
+`push rbp; mov rbp, rsp; pop rbp; ret` (55 48 89 E5 5D C3, #91: the sanitizers' -fno-omit-frame-pointer; linux-x64-clang-debug
+passes with these). GCC at -O0 (linux-x64-gcc-debug) puts a `nop` for the empty body inside the frame: 55 48 89 E5 90 5D C3,
+read from the Debug golden_runner with objdump. The check now accepts that sequence as a fourth exact shape, and nothing
+looser: no other instruction, no call, no store. A body with any code still fails on every preset. Not chosen: skipping
+the check in Debug builds (it would prove nothing there) or a behaviour test (an empty function has no behaviour that the
+fakes leave visible). The failure message now prints the first seven bytes instead of one.
+
+### The gates (high)
+
+Logs: build\logs\issue-115 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Each golden run: 15,803,218 replayed +
+1,512,822 retired = 17,316,040, 0 failures.
+
+- Before the change: `python -I tools/build.py linux-x64-gcc-debug` 1 failure, communication_tests.cpp:1187 (`55, c3`).
+- After: linux-x64-gcc-debug exit 0, 15/15; linux-x64-clang-debug exit 0, 14/14, no sanitizer report; linux-x64-gcc
+  exit 0, 16/16; linux-x64-clang exit 0, 14/14; windows-x64 exit 0, 19/19, 0 compiler warnings; windows-x64-debug exit 0,
+  18/18, 0 compiler warnings.
+- `python -I tools/tidy_ci.py --worktree`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`:
+  exit 0. clang-format (CLAUDE.md's command): exit 0.
+- Not run: the live checks (a test-only change), windows-x64-asan and windows-x64-gcc (not among this issue's gates).

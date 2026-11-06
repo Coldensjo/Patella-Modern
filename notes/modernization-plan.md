@@ -629,6 +629,9 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
 - **Modules:** `import std;` in new code once all three compilers support it under CMake. The client's own
   headers become named modules after MFC is gone (M8): one module per subsystem, partitions per original
   file.
+- **Debug presets replay the corpus too:** done in #115 (notes/decisions.md, "#115: an empty function's code at
+  every optimisation level"): the golden Communication test's check that ExitCommunication is empty accepts GCC's -O0
+  frame, so linux-x64-gcc-debug and linux-x64-clang-debug replay the corpus with 0 failures.
 
 Exit: `patella_core` contains everything except the platform layer and builds on both platforms;
 no CipSoft `vector` in core code; tier A green.
