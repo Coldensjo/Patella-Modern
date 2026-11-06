@@ -4,8 +4,9 @@ Patella-Modern is a fork of Patella (https://github.com/Coldensjo/Patella, forke
 2026). Patella stays the faithful reconstruction of Tibia.exe 7.72, checked function by function against the
 binary. This fork turns that reconstruction into a maintainable, portable C++ code base:
 
-- **Targets: Windows x64 and Linux x64.** No 32-bit product build. A 32-bit build survives only as a test
-  instrument until milestone M6 (see 1.2).
+- **Targets: Windows x64 and Linux x64.** No 32-bit product build. A 32-bit build survived only as a test
+  instrument until milestone M6 (see 1.2); since M6 (November 7, 2026, issue #94) the only 32-bit build is
+  `capture-x86`, the capture DLL the tools load into Tibia.exe.
 - **Build: CMake** (presets, Ninja), on both platforms. `Patella.sln` / `Patella.vcxproj` go away.
 - **Rendering: Vulkan**, one engine on both platforms (section 6). The three original
   engines (DirectDraw 5, Direct3D 9, OpenGL 1.x through WGL) are Windows-only and are retired.
@@ -75,6 +76,9 @@ as now. It is never shipped. It disappears in M6, once the golden corpus and the
 The x64 and Linux builds have their natural layouts from the start, so every check that runs on them
 must not depend on layout.
 
+Done in M6 (November 7, 2026; issue #94): the oracle, difftest and the x86 `static_assert`s left the fork;
+client_state.py reads Tibia.exe only, and patcap.c is built for Tibia.exe alone by the preset `capture-x86`.
+
 ---
 
 ## 2. Rules for the fork
@@ -105,10 +109,10 @@ must not depend on layout.
 | A | Files the client writes: Tibia.cfg, `*.map`, saved channels, patched files | `compare_files.py`, reference recordings | always |
 | A | Rendered frames | `compare_rendering.py` and the reference frames (4.5) | always; exact, apart from the light overlay (6.1) |
 | A | User-visible text, dialogs, keyboard and mouse handling | the GUI tree of the state dump, frames | always, apart from deliberate changes (the engine buttons become a graphics device choice, 6.3) |
-| B | Function-level results against the original machine code | `difftest` (oracle-x86), then the golden corpus | difftest until M6, the golden corpus after |
-| B | Structure layout and field offsets | `static_assert`s and `client_state.py` in oracle-x86 | until M6 |
+| B | Function-level results against the original machine code | `difftest` (oracle-x86), then the golden corpus | difftest until M6 (gone with #94); the golden corpus (frozen, #93) remains, on every target |
+| B | Structure layout and field offsets | `static_assert`s and `client_state.py` in oracle-x86 | until M6: the x86 `static_assert`s gone with #94; the file formats' sizes are checked at their serialisers (the automap file's layers, Map.cpp) |
 | C | `error.txt`, the error report dialog and packet 0xE8 | `lines.py`, `compare_files.py`, `compare_traffic.py` | until M5, then removed (D2) |
-| C | Import table, resource section byte for byte, no manifest | `compare_imports.py`, `compare_resources.py` | oracle-x86 only, until M6. The product builds are not compared |
+| C | Import table, resource section byte for byte, no manifest | `compare_imports.py`, `compare_resources.py` | oracle-x86 only, until M6 (gone with #94). The product builds are not compared |
 
 Tier A is the product, and it does not change. Tiers B and C are scaffolding from the reconstruction. Each
 can be given up at the named milestone, once something else checks what it used to check.
@@ -119,10 +123,11 @@ can be given up at the named milestone, once something else checks what it used 
 
 ### 4.1 Gates for every pull request
 
-1. CMake presets `windows-x64` (Debug, Release), `oracle-x86`, and from M1 `linux-x64-gcc` /
-   `linux-x64-clang` for whatever already builds there: no warnings.
-2. `oracle-x86`: `difftest` passes and **its check counts are unchanged**; `lines.py check` (until M5);
-   `compare_imports.py` and `compare_resources.py` against Tibia.exe (until M6).
+1. CMake presets `windows-x64` (Debug, Release), `oracle-x86` (until M6; `capture-x86` since), and from M1
+   `linux-x64-gcc` / `linux-x64-clang` for whatever already builds there: no warnings.
+2. Until M6 (issue #94): `oracle-x86`: `difftest` passes and **its check counts are unchanged**; `lines.py check`
+   (until M5); `compare_imports.py` and `compare_resources.py` against Tibia.exe. Since M6 the golden corpus
+   (gate 5) has the oracle's counts: 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures.
 3. Tier A on Windows x64: `compare_traffic.py`, `compare_files.py`: 0 differences. `compare_rendering.py`
    (or, from M2, the reference frames) on every pull request that touches drawing, GUI or surfaces; the full
    matrix before a milestone closes.
@@ -251,7 +256,8 @@ packages or `pip install cmake` provide it), and Ninja (included with Visual Stu
   | `windows-x64-asan` | MSVC `/fsanitize=address` | sanitizer runs |
   | `linux-x64-gcc` | GCC 16 | the Linux product |
   | `linux-x64-clang` | Clang (libc++ or libstdc++) | second compiler, `-fsanitize=address,undefined` |
-  | `oracle-x86` | MSVC x86, static MFC, the original's flags | today's Patella.exe and the difftest, until M6 |
+  | `oracle-x86` | MSVC x86, static MFC, the original's flags | today's Patella.exe and the difftest, until M6 (removed in #94) |
+  | `capture-x86` | MSVC x86 | only patcap.dll for Tibia.exe (since M6, #94) |
   | `windows-x64-gcc` | mingw-w64 GCC 16 (optional, D6) | C++26 parity build on Windows |
 
 - **Toolchain options in one place** (`cmake/Warnings.cmake`, `cmake/Hardening.cmake`):
@@ -343,7 +349,8 @@ API forced to Vulkan (less code, but the graphics would depend on SDL's abstract
 (maintenance mode), bgfx and WebGPU (large dependencies), Direct3D 12 (Windows only).
 
 The three original engines stay in `oracle-x86` until M6, and leave `windows-x64` as soon as the Vulkan
-engine passes tier A there (M2). `glh_genext.h` and patcap's engine hooks go with them.
+engine passes tier A there (M2). `glh_genext.h` and patcap's engine hooks go with them. (Done: the sources and
+`glh_genext.h` left with the oracle in #94; patcap's hooks of the three APIs stay, for Tibia.exe.)
 
 ### 6.3 The engine choice the user sees
 
@@ -561,6 +568,18 @@ Exit: no `TBEGIN`/`TEND`, no `error.txt`, no packet 0xE8; every gate green.
 4. Tag `layout-frozen-final`. From here, upstream fixes are ported by hand.
 
 Exit: there is no 32-bit build; tier A, the golden corpus and the unit tests pass without the oracle.
+
+Done November 7, 2026 (items 1 and 2: #91, #92; the final recording #93; items 3 and 4: #94). The tag
+`layout-frozen-final` is on ee1705c, the last commit with the oracle. Removed with #94: the oracle-x86 preset and
+cmake/OracleX86.cmake with its CTest tests (difftest, sysinctest, communicationtest, vlongtest, safeseh), the
+golden corpus's recorder (golden_corpus, golden_reproducible, the GOLDEN_ORACLE code of tests/golden),
+tools/difftest, compare_imports.py, compare_resources.py, safeseh_scan.py, the engines' sources (SurfaceDX,
+surfaceDX9, SurfaceGL, Extern/glh) and PATELLA_ORIGINAL_LAYOUT with the x86 `static_assert`s; the automap file's
+layer sizes are checked at Map.cpp's reader and writer instead. Kept: a `capture-x86` preset that builds only the
+32-bit patcap.dll (the owner's decision, November 7, 2026: the reference recordings' and the comparisons' Tibia.exe
+runs need it), client_state.py's reading of Tibia.exe, the frozen corpus and reference recordings with their
+manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisions.md, "The oracle retired (issue
+#94)".
 
 ### M7. Data structures and architecture (XL)
 

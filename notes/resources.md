@@ -9,7 +9,7 @@ IDs and languages, and the compiled `.res` is byte-identical to the original ent
 The CMake presets do all three steps (issue #10; before, `tools\build-resources.cmd [path\to\Tibia.exe]`):
 
 ```
-python -I tools/build.py oracle-x86
+python -I tools/build.py windows-x64
 ```
 
 1. At configure time `python -I tools/extract_resources.py Tibia.exe build/<preset>/res` (cmake/Resources.cmake)
@@ -21,9 +21,10 @@ python -I tools/build.py oracle-x86
    `--list` prints the table only.
 2. rc.exe of the Windows SDK (10.0.26100.0 x86 here) compiles `src\res\Patella.rc` with that folder on the
    include path (`/l0x0409`), as part of Patella.exe.
-3. After the link, `python -I tools/compare_resources.py Tibia.exe build\oracle-x86\<Configuration>\Patella.exe`
-   (a step of the oracle-x86 build; a difference fails the build) compares the set of (type, name, language)
-   and the data of every entry. It also reads a compiled `.res` (the result below was Patella.res's).
+3. Until Patella-Modern issue #94, after the link of the 32-bit oracle's Patella.exe, `tools/compare_resources.py`
+   (a step of that build; a difference failed it) compared the set of (type, name, language) and the data of every
+   entry with Tibia.exe's. It left with the oracle; the x64 build's resources were never compared (plan section 3,
+   tier C).
 
 Result (November 2, 2026): 55 entries in the original, 55 in Patella.res, 0 differences, on the
 first compile; no padding or format difference of rc.exe had to be worked around. A negative

@@ -26,8 +26,7 @@ above, still ignored); `-Stash` puts it away again. The build and the tests do n
 ## Building
 
 CMake presets, run from any shell through `python -I tools/build.py <workflow preset>` (it sets up MSVC with
-vcvarsall.bat for the MSVC presets, then runs `cmake --workflow`): `oracle-x86` (the 32-bit oracle Patella.exe,
-the four differential tests and the SafeSEH gate `safeseh` of tools/safeseh_scan.py, issue #89, through CTest), `windows-x64` / `windows-x64-debug` (the x64 client Patella.exe, its
+vcvarsall.bat for the MSVC presets, then runs `cmake --workflow`): `windows-x64` / `windows-x64-debug` (the x64 client Patella.exe, its
 test build PatellaTest.exe with the virtual clock, scripted input and dumps (state, packets, frames) of
 `notes/testmode.md`, the portable
 libraries patella_core and patella_testmode and the unit tests; no patcap.dll since issue #92),
@@ -36,7 +35,11 @@ client, PatellaTest.exe, golden_runner and the unit tests, issue #70; the ASan r
 executable), `windows-x64-gcc` (patella_core and the unit tests with mingw-w64 GCC),
 `linux-x64-gcc` / `linux-x64-clang` (patella_core, the unit tests and golden_runner with GCC 16 / Clang 22, the latter
 with AddressSanitizer and UBSan; `-debug` for Debug; issue #91: the client's code under test against the Windows
-stand-ins of `tests/golden/linux`). Every preset also compiles each header of src/ on its own
+stand-ins of `tests/golden/linux`), `capture-x86` (only the 32-bit capture DLL `build\capture-x86\Release\patcap.dll`
+that the tools load into Tibia.exe, `cmake/Capture.cmake`; no client, no tests; issue #94). There is no 32-bit client
+build: the oracle (the 32-bit Patella.exe, the differential tests, the x86 layout asserts, the engines DirectDraw,
+Direct3D 9 and OpenGL) left the fork with issue #94, M6; it is in upstream Patella and at the tag `layout-frozen-final`
+(`notes/decisions.md`, issue #94). Every product preset also compiles each header of src/ on its own
 (`cmake/HeaderCheck.cmake`, issue #49: the `header_check_*` object libraries, a generated one-line source per
 header with a target's settings; a new header goes on one of its lists, or the configure fails). On Windows build.py runs the Linux presets in the Docker image
 `patella-modern/linux-x64:gcc16.2-clang22.1` (build it once: `docker build -t
@@ -44,23 +47,24 @@ patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`). `python -I tools/
 <command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. The
 test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/reconstruction.md`, "Building",
 "Test server", "Checking".
-The x64 client's only engine is the Vulkan engine, as engine 2 (issues #19, #20, `notes/vulkan.md`; DirectDraw,
-Direct3D 9 and OpenGL only in oracle-x86); its device is the advanced graphics options' choice (issue #31: "Automatic",
+The x64 client's only engine is the Vulkan engine, as engine 2 (issues #19, #20, `notes/vulkan.md`; the original
+engines left with the oracle, #94); its device is the advanced graphics options' choice (issue #31: "Automatic",
 "GPU", "CPU" in the engine buttons' places), stored as `Device` in `Patella.ini` next to Tibia.cfg (the fork's own
 settings file, `src/settings/`), and `PATELLA_VULKAN=auto|gpu|gpuN|cpu` in its environment overrides it at start-up
 (the comparisons' and tests' choice; `notes/vulkan.md`, "Choosing the device"); its pinned libraries and the CPU
 driver (Mesa's lavapipe, copied next to
 the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it
 headless.
-The developer log (issue #77, D16; `src/log/`, every preset and oracle-x86): lines `[<level>] <message>` on stderr;
+The developer log (issue #77, D16; `src/log/`, every preset): lines `[<level>] <message>` on stderr;
 Patella.ini's `LogLevel` (error, warn, info: the default, debug) and `LogFile` (also appended to; none by default) set
 it in the x64 client. A fatal error's box text goes there at error, error.txt's old diagnostics at debug, and Debug
 builds add the stack trace and a break into an attached debugger.
 
-The comparisons read the x64 client only through its test mode (issue #92, M6): an x64 `--patella` of compare_traffic.py,
-compare_files.py and compare_rendering.py runs PatellaTest.exe next to it with its control channel (`--test-control`,
+The comparisons read the x64 client only through its test mode (issue #92, M6): `--patella` of compare_traffic.py,
+compare_files.py, compare_rendering.py and compare_network.py (default `build\windows-x64\Release\Patella.exe` since
+issue #94; a 32-bit one is refused) runs PatellaTest.exe next to it with its control channel (`--test-control`,
 tools/testmode_client.py; notes/testmode.md, "The control channel"); tools/client_state.py (memory) and
-tools/capture/patcap.c (frames) are Tibia.exe's and the oracle's only, and refuse x64.
+tools/capture/patcap.c (frames, capture-x86) are Tibia.exe's only, and refuse x64.
 
 The reference recordings (issue #23, M2's exit; `notes/testmode.md`, "Reference recordings"): `python -I
 tools/reference.py record --reference C:\Tibia\Patella-Modern\build\reference` (Windows, Tibia.exe under patcap.dll;
@@ -70,7 +74,7 @@ no server, PATELLA_VULKAN=cpu; Python only). Also as `record`/`compare` first wo
 compare_files.py and compare_rendering.py. Local CipSoft-derived data: never committed, pushed or uploaded.
 
 Frozen since issue #93: the golden corpus and the reference recordings are never recorded again in this repository
-(#94 removes oracle-x86); each folder has a `MANIFEST.tsv` (tools/data_manifest.py: every file's size and SHA-256, the
+(the oracle that recorded the corpus left with #94); each folder has a `MANIFEST.tsv` (tools/data_manifest.py: every file's size and SHA-256, the
 commit, the tools, the date, the time zone; local, with the data), which golden_runner and reference.py compare check
 first and refuse when missing or mismatched (`--unverified`, golden_runner also `PATELLA_GOLDEN_UNVERIFIED=1`: local
 experiments only). The corpus is recorded with TZ=UTC0 and replayed in its manifest's zone. Regenerated only from the
@@ -80,9 +84,9 @@ The live checks run on the desktop of the session that starts them; a second int
 user, kept connected and unlocked) keeps the user's input away (issue #56; notes/reconstruction.md, "Checking").
 `--hidden` (tools/desktop.py) is experimental: DirectDraw, Direct3D 9, the CPU driver and GetCursorPos fail there.
 
-The golden corpus (issue #24): `python -I tools/build.py --env oracle-x86 cmake --build --preset oracle-x86
---target golden_corpus` records it into `build/golden` (derived from Tibia.exe: local only, never committed,
-pushed or uploaded); `golden_runner` (CTest test `golden`, skipped without a corpus) replays it without Tibia.exe,
+The golden corpus (issue #24): the 32-bit oracle recorded it until issue #94 (the target golden_corpus, at the tag
+`layout-frozen-final`); the frozen copy is `C:\Tibia\Patella-Modern\build\golden` (derived from Tibia.exe: local
+only, never committed, pushed or uploaded; read only); `golden_runner` (CTest test `golden`, skipped without a corpus) replays it without Tibia.exe,
 in windows-x64 and since issue #91 in linux-x64-gcc and linux-x64-clang: build.py mounts the corpus read-only at
 `/golden` of the image (PATELLA_GOLDEN_DIR of the environment, else the repository's `build/golden`; `none`: no
 corpus) and passes the corpus manifest's time zone as TZ (issue #93: UTC0; Windows' zone for a corpus without one). Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
@@ -102,17 +106,17 @@ Assertions are `PATELLA_ASSERT(expr)` and `PATELLA_ASSERT_VALUES(expr, value[, v
 TERROR* and TMYEXCEPTION of `src/common.h` build it, without a line argument); `PROGRAM_ERROR` is an `enum class`,
 thrown as `TProgramError{PROGRAM_ERROR::...}` and caught as `const TProgramError &` (golden_eh's OurThrow gives it the
 original's kind, a PROGRAM_ERROR with its value); a recoverable failure returns `patella::TExpected<T, TError>`
-(`src/compat/expected.h`: std::expected, a C++17 stand-in in the oracle).
+(`src/compat/expected.h`: std::expected, a C++17 stand-in for tests/unit's stand-in build).
 Run clang-tidy through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>` (the
 baseline, `--zero` and `--headers` are its). Retired on November 5, 2026 (issue #76): the stringized-expression rule
 (plan 4.2: no change to the arguments of TASSERT*, TERROR* or TEND*), macrocheck, and tidy.py's guard that reverted
-fixes inside those arguments. difftest and the golden corpus compare the error paths by outcome only (thrown or not,
+fixes inside those arguments. The golden corpus compares the error paths by outcome only (thrown or not,
 and the kind: TMyException, a PROGRAM_ERROR's value (ours a TProgramError), another type), so a change of an assertion's text or line fails
 neither, and a change of whether a call throws still does. `--headers` runs
 misc-include-cleaner on each header of the build's header checks as its own main file (issue #49); an include kept
 for the images or that include-cleaner cannot see used says `// IWYU pragma: keep` with the reason. The product
 targets' compiler, warning and hardening settings are `cmake/Warnings.cmake` and `cmake/Hardening.cmake`;
-the oracle-x86 preset never uses them. Details: `notes/reconstruction.md`, "Checking".
+capture-x86's patcap.dll never uses them. Details: `notes/reconstruction.md`, "Checking".
 
 ## CI
 
@@ -131,8 +135,9 @@ compares with a hosted run) and reports exactly what it reports: run it before p
 (issue #51: MSVC's `std::size_t` hides locals from misc-const-correctness). A change that adds a finding
 fixes it or rewrites the baseline in the image: `python -I tools/build.py --env linux-x64-clang bash -c "cmake
 --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --write-baseline
-build/linux-x64-clang/tidy-baseline.tsv --zero bugprone-"`, then copy it to `tools/`. `.github/workflows/self-hosted.yml` (oracle-x86,
-the comparisons and testmode_check.py; this machine) runs only on push and workflow_dispatch, and only when the repository variable
+build/linux-x64-clang/tidy-baseline.tsv --zero bugprone-"`, then copy it to `tools/`. `.github/workflows/self-hosted.yml` (windows-x64
+with the frozen golden corpus, capture-x86, the reference compare, the comparisons and testmode_check.py, the Linux
+presets with the corpus; this machine) runs only on push and workflow_dispatch, and only when the repository variable
 `PATELLA_SELF_HOSTED` is `true`. Details: `notes/reconstruction.md`, "Checking".
 
 ## REA

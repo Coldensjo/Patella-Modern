@@ -399,6 +399,16 @@ corpus identical); in `C:\Tibia\Patella-Modern\build\golden-final` for the orche
 of #23 unchanged (compare matches), its manifest in a copy, `build\reference-final`. Regenerated only from the tag
 `layout-frozen-final` of #94; new checks are unit tests or test-mode recordings against Tibia.exe. notes/decisions.md,
 "The final oracle recording".
+
+The oracle retired (Patella-Modern issue #94, branch issue-94, November 7, 2026; M6 done): no 32-bit client build in
+the fork. Removed: the oracle-x86 preset and cmake/OracleX86.cmake with difftest, sysinctest, communicationtest,
+vlongtest and safeseh, golden_corpus and golden_reproducible, tools/difftest, compare_imports.py, compare_resources.py,
+safeseh_scan.py, the engines SurfaceDX/surfaceDX9/SurfaceGL and Extern/glh, PATELLA_ORIGINAL_LAYOUT with its 73 x86
+asserts, tests/golden's GOLDEN_ORACLE side and golden.cpp's recorder. The automap file's layer sizes are checked at
+Map.cpp's reader and writer. New: capture-x86, only the 32-bit patcap.dll for Tibia.exe. The tools take the x64 client
+by default; the self-hosted workflow replays the frozen corpus and builds capture-x86. Golden 17,316,040 (15,803,218 +
+1,512,822), 0 failures on every preset; the x64 Patella.exe differs from main's only in line-number immediates.
+notes/decisions.md, "The oracle retired".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -544,6 +554,11 @@ None.
 - None yet.
 
 ## Last difftest
+
+None since Patella-Modern issue #94 (November 7, 2026): the oracle and its differential tests left the fork. The
+golden corpus replays their last recording (issue #93) with the oracle's counts: 15,803,218 replayed + 1,512,822
+retired = 17,316,040, 0 failures, on windows-x64 (Release, Debug, ASan), linux-x64-gcc and linux-x64-clang (issue #94's
+gates, build\logs\issue-94). The entries below are history.
 
 Patella-Modern issue #93 (branch issue-93, November 6, 2026): the final oracle recording, with its manifest.
 golden_reproducible: 43 files compared, 0 different. golden_corpus at ab1391c (clean): 0 failures, 43 files,

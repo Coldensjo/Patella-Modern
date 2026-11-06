@@ -40,14 +40,14 @@ checks the end of the login.
 ## Running it
 
 ```
-python -I tools/build.py oracle-x86
+python -I tools/build.py windows-x64
 python -I tools/compare_files.py [--out build\files\result] [--only options,walk,...] [--skip-live] [--repeat]
                                  [--walk ladder|stairs] [--patella EXE]
 python -I tools/compare_files.py --check-route     # the walks against the server's map, no client
 ```
 
-`--patella` names the Patella.exe to test, x86 or x64, with its PDB next to it (default
-build\oracle-x86\Release\Patella.exe; as compare_traffic.py's; Patella-Modern issue #15).
+`--patella` names the x64 Patella.exe to test (default build\windows-x64\Release\Patella.exe since Patella-Modern
+issue #94, the oracle's 32-bit one before; as compare_traffic.py's; issue #15).
 
 The x64 client's own settings file Patella.ini (issue #31) is not compared: Tibia.exe has none. The report names
 it with its contents (the options scenario's click in OpenGL's place, the x64 client's "CPU" button, writes

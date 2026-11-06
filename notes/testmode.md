@@ -3,7 +3,7 @@
 The client's built-in test mode (notes/modernization-plan.md, 4.4; M2): one clock behind timeGetTime, the wall
 clock and the frame timer, and a script of keyboard, mouse and text events at virtual times (issue #21); the
 state dump, the packet log and the frame dump (issue #22, "The dumps" below). It is compiled only into the test
-build, PatellaTest.exe; Patella.exe and the oracle-x86 build contain none of it. The reference recordings,
+build, PatellaTest.exe; Patella.exe contains none of it (nor did the 32-bit oracle, until issue #94). The reference recordings,
 the server replay and the record/compare split of the comparison tools (issue #23): "Reference recordings"
 below. The control channel, through which the comparison tools drive and read a running test client instead of
 its memory (issue #92): "The control channel" below. Choices and their reasons: notes/decisions.md,
@@ -366,8 +366,8 @@ never committed, pushed or uploaded.
 
 ### Frozen, with a manifest (issue #93)
 
-The reference set is frozen since issue #93 (M6), as the golden corpus is: #94 removes oracle-x86, which builds the
-32-bit patcap.dll the record step runs Tibia.exe under. The set in use is the one of November 3, 2026 (issue #23;
+The reference set is frozen since issue #93 (M6), as the golden corpus is: #94 removed the oracle (which built the
+32-bit patcap.dll the record step runs Tibia.exe under until then; the capture-x86 preset builds it since). The set in use is the one of November 3, 2026 (issue #23;
 #48 added the display modes without a new recording), unchanged by #93: `compare` matched it on #93's branch, so
 nothing since #23 had made it stale. Its `MANIFEST.tsv` (tools/data_manifest.py: every file's size and SHA-256, the
 recording's commit, the tools, the date, the time zone UTC0) is in the set's folder, local like the set; `compare`
@@ -377,11 +377,12 @@ experiments only. `record` writes the manifest after a recording; `manifest` wri
 (the recording's commit "unknown" unless `--commit`, its date the sessions' meta.json). The set's sessions that are no
 longer compared (error-login, patch, patch-exe) are in the manifest too.
 
-After #94 the set is regenerated only from the oracle as it was, at the tag `layout-frozen-final`: in a worktree of
-that tag with Tibia.exe and the data files in its root, `python -I tools/build.py oracle-x86` (patcap.dll), the test
-server, then `python -I tools/reference.py record --reference <new folder>`; compare it with `compare --reference
+After #94 the set is regenerated only from the tools as they were, at the tag `layout-frozen-final` (ee1705c): in a
+worktree of that tag with Tibia.exe and the data files in its root, `python -I tools/build.py oracle-x86` (patcap.dll),
+the test server, then `python -I tools/reference.py record --reference <new folder>`; compare it with `compare --reference
 <new folder>` before it replaces the frozen one. A later change that needs a check of new behaviour adds a session
-of its own in a new set (recorded the same way) or a unit test, and leaves the frozen set as it is
+of its own in a new set (recorded on this branch with capture-x86's patcap.dll: `python -I tools/build.py capture-x86`)
+or a unit test, and leaves the frozen set as it is
 (notes/reconstruction.md, "The golden corpus").
 
 Both run their clients on the desktop of the session they are started in; to keep the user's input away from

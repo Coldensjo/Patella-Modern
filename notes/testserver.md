@@ -172,7 +172,7 @@ this server's game port. So the clients are patched like an "IP changer", on cop
 
 ```
 python -I tools/patch_client.py Tibia.exe build/run-orig/Tibia.exe --host 127.0.0.1 --rsa C:\Tibia\gameserver\tibia.pem
-python -I tools/patch_client.py build/oracle-x86/Release/Patella.exe build/run-patella/Patella.exe --host 127.0.0.1 --rsa C:\Tibia\gameserver\tibia.pem
+python -I tools/patch_client.py build/windows-x64/Release/PatellaTest.exe build/run-patella/PatellaTest.exe --host 127.0.0.1 --rsa C:\Tibia\gameserver\tibia.pem
 ```
 
 - The four server names are replaced in place by 127.0.0.1, NUL-padded to their own length (both clients
@@ -222,7 +222,7 @@ never run a client from the repository root or C:\Tibia\Patella). Set up:
 ```
 mkdir build\run-orig build\run-patella
 copy Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg into both
-python -I tools/build.py oracle-x86, then the two patch_client.py lines above
+python -I tools/build.py windows-x64, then the two patch_client.py lines above
 ```
 
 `WindowedMode` in the copied Tibia.cfg was set to (200,200,800,600,no); with the monitor off (below) the

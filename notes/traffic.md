@@ -8,13 +8,13 @@ state after every step and their Tibia.cfg are compared. Choices and their reaso
 ## Running it
 
 ```
-python -I tools/build.py oracle-x86
+python -I tools/build.py windows-x64
 python -I tools/compare_traffic.py [--out build\traffic\result] [--skip-live] [--no-cross] [--patella EXE]
 ```
 
-`--patella` names the Patella.exe to test (default build\oracle-x86\Release\Patella.exe; build\Release\Patella.exe, the
-MSBuild output, before issue #10), x86 or x64, with its PDB next to it, e.g. `build\windows-x64\Release\Patella.exe`
-(issue #6).
+`--patella` names the x64 Patella.exe to test (default build\windows-x64\Release\Patella.exe since Patella-Modern issue
+#94; its test build runs, issue #92). Until #94 the default was the 32-bit oracle's build\oracle-x86\Release\Patella.exe
+(build\Release\Patella.exe, the MSBuild output, before issue #10), read with its PDB (issue #6).
 
 The test server must be stopped (the script starts and stops it itself, with `python -I tools/testserver.py
 start` and `stop`). About 9 minutes: two live sessions (server start, session, server stop with its

@@ -10,7 +10,7 @@ driver, the memory reader) and the run folders of issues #18 and #21.
 ## Running it
 
 ```
-python -I tools/build.py oracle-x86
+python -I tools/build.py windows-x64
 python -I tools/build.py windows-x64                # only for --patella with the x64 client
 python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,dx9,gl | vulkan,vulkan-cpu]
 	[--modes windowed,fullscreen] [--no-repeat] [--recording build\render\session.jsonl] [--compare-only]
@@ -36,10 +36,9 @@ python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,
 - `--tolerance N`: the same everywhere (default 0, exact). Every report line of a differing scene gives the largest
   channel difference outside the masks either way.
 
-- `--patella <exe>` (Patella-Modern issue #18): the Patella.exe compared with Tibia.exe, x86 or x64, with its
-  PDB next to it (client_state.py reads its fields through it); default the oracle's
-  build\oracle-x86\Release\Patella.exe. The x64 client (cmake/WindowsX64.cmake) has the original engines too, so
-  the same three engines run.
+- `--patella <exe>` (Patella-Modern issue #18): the x64 Patella.exe compared with Tibia.exe, default
+  build\windows-x64\Release\Patella.exe since issue #94 (its test build runs, issue #92). Until #94 the default was
+  the 32-bit oracle's Patella.exe with the three original engines (dx5, dx9, gl), which left the fork with it.
 
 - No server: every game scene comes from a recorded session replayed by tools/proxy.py, so both clients
   get the same server bytes. The recording is issue #19's live session of Tibia.exe
@@ -48,8 +47,8 @@ python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,
   `python -I tools/compare_traffic.py --out <dir>` (starts and stops the test server itself), then use
   `<dir>\orig-live.jsonl`.
 - The capture helper is loaded into the client, so it has the client's bitness (`cmake/Capture.cmake`):
-  `build\oracle-x86\Release\patcap.dll`, the patcap target of the oracle-x86 preset, for Tibia.exe and a
-  32-bit Patella.exe. The script builds the target itself when the DLL is missing or older than
+  `build\capture-x86\Release\patcap.dll`, the patcap target of the capture-x86 preset (issue #94; the oracle-x86
+  preset's until then), for Tibia.exe. The script builds the target itself when the DLL is missing or older than
   tools/capture/patcap.c (configuring the preset first if needed). Before issue #10 tools\build-capture.cmd built
   build\capture\patcap.dll. From Patella-Modern issue #18 to #92 the windows-x64 preset built a 64-bit one for an
   x64 Patella.exe; since #92 the x64 client is never hooked: its test build, PatellaTest.exe, runs in its place
