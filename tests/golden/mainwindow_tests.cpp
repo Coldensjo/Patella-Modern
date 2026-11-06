@@ -311,6 +311,12 @@ public:
 	}
 	void Draw(int Surface, int x, int y) { Logf("DFrame%d,%d,%d;", Surface, x, y); }
 	void Arrange() { Logf("AFrame;"); }
+#if !GOLDEN_ORACLE
+	// The objects with this vtable are our TMapFrames (ChangeMode's new TMapFrame, larger than this class): the
+	// deleting destructor frees them without a size, so ASan's sized delete sees no mismatch (issue #65; until then
+	// dialogwindow_tests.cpp's operator delete, the runner's for every test, took no size).
+	static void operator delete(void *Memory) { ::operator delete(Memory); }
+#endif
 };
 
 static void *FakeConsoleVtable, *FakeBorderVtable, *FakeButtonVtable, *FakeMapFrameVtable;
