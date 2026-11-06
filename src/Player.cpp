@@ -149,7 +149,12 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 	} catch (...) {
 	}
 	try {
-		AfxGetMainWnd()->ShowWindow(SW_HIDE);
+		// Patella-Modern issue #83: before InitInstance sets m_pMainWnd (a fatal error in its first Redraw: a
+		// failing first present) there is no main window. Tibia.exe calls CWnd::ShowWindow on null there too, and
+		// its catch (...) (MSVC 7.1: an access violation as well) goes on to the box; under /EHsc it does not.
+		CWnd *Window = AfxGetMainWnd();
+		if (Window != nullptr)
+			Window->ShowWindow(SW_HIDE);
 	} catch (...) {
 	}
 	PATELLA_MESSAGE_BOX(nullptr, Text, Caption, MB_ICONHAND);

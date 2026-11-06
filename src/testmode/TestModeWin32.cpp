@@ -66,6 +66,10 @@
 // the same moment from outside; the wait does not count for the pace (the virtual clock does not see
 // it). A script with dump or frame needs --test-out.
 //
+// Issue #83: PATELLA_TEST_FAIL_PRESENT=1 in the environment, with or without a script, makes every present of
+// the Vulkan engine fail as a failing vkQueuePresentKHR does (PresentFails, TestHooks.h), so the first frame's
+// ends the client on its fatal path (PROGRAM_ERROR 12, "Tibia Error").
+//
 // A script that does not parse ends the program before the window opens, with exit code 3 and the
 // message on stderr, in the log and through OutputDebugString (never a dialog).
 
@@ -92,6 +96,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 #include <cwchar>
 #include <deque>
@@ -863,6 +868,17 @@ BOOL EnumDisplayMode(LPCSTR Device, DWORD Index, DEVMODEA *Mode)
 	Mode->dmDisplayFlags = 0;
 	Mode->dmDisplayFrequency = 60;
 	return TRUE;
+}
+
+// Issue #83: PATELLA_TEST_FAIL_PRESENT=1 makes every present of the Vulkan engine fail (TestHooks.h), read once.
+bool PresentFails()
+{
+	static const bool Fails = [] {
+		std::array<char, 8> Value{};
+		std::size_t Length = 0;
+		return getenv_s(&Length, Value.data(), Value.size(), "PATELLA_TEST_FAIL_PRESENT") == 0 && Length == 2 && Value[0] == '1';
+	}();
+	return Fails;
 }
 
 void Idle()
