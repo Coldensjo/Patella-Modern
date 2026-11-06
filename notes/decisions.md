@@ -13075,3 +13075,12 @@ an empty point's Objects[0]) and 20,000 random inserts, deletes and clears again
 and the array, changed as 0x4b8310, 0x4b9420 and 0x4bc720 change them): the objects, the count, DeleteObject's
 results and Objects[0] after every step; the run meets full points. MapPoint.h is on cmake/HeaderCheck.cmake's core
 list.
+
+### Container.h's constructor parameters (high)
+
+MapPoint.h includes Objects.h (TObject, the flags), which includes Container.h, so tests_core and MapPoint.h's header
+check compile Container.h with GCC's full warnings: array's, matrix's and matrix3d's constructor parameters (min,
+xmin, ymin, zmin) hid the members of the same names (-Wshadow; the reason Container.h is on GCC's warning baseline,
+#99's "Found, not done"). They are Min, Max, XMin ... ZMax now; the members, the assertions (which name only d, dx,
+dy, dz) and the code are the same. Container.h stays on the baseline list (cmake/Warnings.cmake) for the files that
+include it there; taking it off is a separate measurement.
