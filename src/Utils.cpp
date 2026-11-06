@@ -9,7 +9,6 @@
 #include "common.h"
 #include "compat/span.h"
 #include "types/FixedString.h"
-#include <cstddef>
 #include <cstring>
 
 // 0x508fa0
