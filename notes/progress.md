@@ -255,6 +255,12 @@ exhausted: a filter list's std::bad_alloc while InitPreferences reads Tibia.cfg 
 setting the defaults, and under /EHa only (difftest) a nothrow null's access violation in SavePreferences' list texts
 is no longer ignored. difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822
 retired, 0 failures.
+TBEGIN/TEND deleted, part 6 (Patella-Modern issue #78, branch issue-78f, November 6, 2026; M5): the 129 try blocks
+of Dialogs.cpp go (499 left in 6 files on the branch, parts 4, 5 and 7); the file has no handler of its own, so no
+catch stays. No kind change: every path into the dialogs comes through Control.cpp's remaining TENDs or
+MainWindow::Draw's `catch (...)`, and no allocation's size comes from input unbounded (the channel list's count is a
+byte). difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822 retired, 0
+failures.
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -408,6 +414,14 @@ failures (windows-x64 14/14, -debug and -asan 13/13, no ASan finding); windows-x
 warnings; tests_unit 65 cases on Windows, 64 on Linux. reference.py compare: 4 sessions match. pecompare by function
 (x86 and x64): only FatalError, HandleException and (x64) InitInstance changed, the log's functions new. tidy_ci: 20
 findings, 0 new. banned_calls 0, clang-format clean. Logs: build\logs\issue-77.
+
+Patella-Modern issue #78, part 6 (branch issue-78f, November 6, 2026): TBEGIN/TEND deleted from Dialogs.cpp (129 try
+blocks in 129 functions). `python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67, communicationtest
+856,621, vlongtest 3,201, 0 failures, CTest 4/4 (every count unchanged). golden on main's corpus 15,803,203 replayed +
+1,512,822 retired = 17,316,025, 0 failures (windows-x64 14/14, -debug 13/13, -asan 13/13, no ASan finding); windows-x64-gcc and
+the Linux presets 11/11, 0 warnings. reference.py compare: 4 sessions match. Images by function (x86 and x64): only
+the part's functions changed (11 on x86, 12 on x64 now inlined into the part's callers or folded with identical
+code). tidy_ci: 20 findings, 0 new. banned_calls 0, clang-format clean. Logs: build\logs\issue-78f.
 
 Patella-Modern issue #78, part 2 (branch issue-78b, November 5, 2026): TBEGIN/TEND deleted from graphics.cpp,
 GUI.cpp, MainWindow.cpp, MapWindow.cpp and MainFrm.cpp (181 try blocks in 165 functions); three MainFrm parameters

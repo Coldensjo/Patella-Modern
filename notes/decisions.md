@@ -10181,3 +10181,62 @@ banned_calls 0; clang-format clean. Logs: build\logs\issue-77.
   every preset. `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: the four
   sessions match (error with #74's deliberate differences). tidy_ci 20 findings, 0 new, 0 gone, 0 bugprone;
   banned_calls 0; clang-format clean. Logs: build\logs\issue-78c. Left after part 3: 628 TBEGIN in 7 files (parts 4-7).
+
+### Part 6 (issue-78f): Dialogs
+
+- **Deleted** (high). 129 TBEGIN/TEND pairs in 129 functions of Dialogs.cpp: the 30 creators, the frame TDialog and
+  the dialog bodies (constructors, Arrange, Draw, KeyPress, the mouse handlers, HandleEvent and the helpers). Every
+  block is the rest of its function's body at the body's indentation (no inner block; nothing declared before a
+  TBEGIN but the TASSERTs' checks), so the scopes and lifetimes are the same and clang-format moves nothing. No
+  parameter or local was named only by a TEND (each TEND1/TEND2 value is used in its body), so nothing new is
+  `[[maybe_unused]]`; the file has no destructor with a TEND and no C4297 pragma. #85's TIgnoreEntry::AssignName
+  calls in TIgnoreListDialog::HandleEvent are as they were. The header says the try blocks and catch lines the comments
+  name are the original's; three comments that named TBEGIN or TEND2 now say the original's.
+- **Kept** (high). Nothing: Dialogs.cpp has no handler of its own besides the TENDs (no try or catch left in it).
+  TASSERT*/TERROR* stay (#79).
+- **The kinds** (high): none changes. The handlers that catch a TMyException by type (without a `catch (...)` that
+  gives the same kind) are graphics.cpp's four loaders, MapWindow.cpp's AddLightSource, Map.cpp's automap pair and
+  FindPath, Preferences.cpp's two and Communication.cpp's cylinder loop; Control.cpp's ChangeEngine pairs each with a
+  `catch (...)`, InitControl's `catch (PROGRAM_ERROR)` surrounds InitTalk only, and MainWindow::Draw's, CheckSurface's
+  and the surface handlers take every type. None of their try blocks reaches a function of Dialogs.cpp (they reach
+  the files, the surfaces, the map and the object flags). Every path into the part comes through a remaining TEND:
+  the 30 creators are called only by Control.cpp's event handler (its ModalWindow switch), the dialogs' virtual
+  functions only through the GUI from Control.cpp's input and timer handlers (UpdateTimers is Control.cpp's) or from
+  MainWindow::Draw's `catch (...)`, and MainFrm.cpp's handlers reach the GUI only through Control.cpp (OnCreate's
+  InitMainWindow creates no dialog). So a third type from the part's functions is converted, as before, by
+  Control.cpp's TENDs (part 7) or ends in MainWindow::Draw's PROGRAM_ERROR 12, and no new type reaches MFC's
+  AfxCallWndProc. The third-type sources in the part's functions: `new` of fixed sizes (the dialogs, their children,
+  the timers, the focus and radio groups, TDialog's nine and TEditListDialog's one TDrawing), of sizes bounded by a
+  text (TReportDialog's and THintsDialog's event copies, strlen + 1), and TNewChannelDialog's `new int[_NumberOfChannels]`,
+  whose count is ReceiveChannelList's GetByte (at most 255, asserted above 0); the calls into Talk.cpp's lists (TIgnoreListDialog's
+  HandleEvent: IgnoreName, AddBuddyIgnore, Container.h's growth). No size comes from input in a way that can make it
+  negative or huge, so no boundary is needed and nothing is recorded: with the heap exhausted the exception reaches
+  the same handler as before. Structured exceptions: the x64 client and the oracle's Patella.exe build with /EHsc, so
+  nothing changes there; under difftest's /EHa none of the counts changed (below).
+- **The images** (high). Main (79411a1) and the branch built at the same path (this worktree), the oracle's and the
+  x64 Release Patella.exe, function by function through the PDBs: issue-78f-scripts\funcs.py, classify.py and owners.py
+  next to the worktree (never committed; part 3's, reused) on `dumpbin -disasm:nobytes`, as part 3 did.
+  - x86: 11,459 functions to 11,448; 11,329 the same; 118 changed, every one of the part, and the unnamed EH region
+    after the code (dumpbin gives it to ___guard_check_icall_thunk) with 74 __ehhandler$ thunks fewer (1,698 to
+    1,624); 11 gone: 7 inlined into the part's creators and HandleEvent now that they have no EH state (the
+    TAddBuddyDialog, TBugReportDialog, THintsDialog, TNetworkOptionsDialog and TReportDialog constructors,
+    TRuleViolationDialog's GetAction and GetReason) and 4 virtual functions folded by identical-code folding into a
+    function of the same code (TDialog::HandleEvent, the KeyPress of THintsDialog, TOptionsDialog and TReportDialog);
+    no new function. .text 0x27cf7a to 0x26ceca, .rdata 0xb4640 to 0xaeb00.
+  - x64: 11,728 functions to 11,716 (without the funclets); 117 changed, every one of the part; 12 gone, the same 11
+    and TDialog::SetExtraButton (inlined into its six creators); no new function. Funclets 3,607 to 3,361: the part's
+    catch funclets go and its dtor funclets are renumbered; one parent outside the part, TMainWindow::ChangeMode, only
+    names two dtor funclets that identical-code folding shares and that a part function had named before; its code is
+    the same. .text 0x32552c to 0x31647c, .rdata 0x10f876 to 0x10d286, .pdata 0x2391c to 0x22da0 (245 unwind entries
+    fewer).
+  No function of another file changed, no caller outside the part inlines one of its functions.
+- **The counts** (high). `python -I tools/build.py oracle-x86`: difftest 16,459,337, sysinctest 67, communicationtest
+  856,621, vlongtest 3,201, 0 failures, CTest 4/4; every test's own line is the same as in part 5's run (issue-78e, whose
+  change is only DialogElements.cpp) (Dialogs errors 173,967 checks, 57,455 exceptions compared in 4,510 calls that threw; Dialogs 93,396; the
+  80 checks of #85), so no comparison saw a kind change, under /EHa either. golden on main's corpus
+  (C:\Tibia\Patella-Modern\build\golden, read only): 15,803,203 replayed + 1,512,822 retired = 17,316,025, 0 failures
+  on windows-x64 (14/14, golden_concurrent passes), windows-x64-debug (13/13) and windows-x64-asan (13/13, no ASan finding).
+  windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11; 0 warnings on every preset. `python -I tools/reference.py
+  compare --reference C:/Tibia/Patella-Modern/build/reference`: the four sessions match (error with #74's deliberate differences). tidy_ci 20 findings, 0 new, 0 gone, 0 bugprone;
+  banned_calls 0; clang-format clean. Logs: build\logs\issue-78f. Left after part 6 on this branch: 499 TBEGIN in 6 files
+  (parts 4, 5 and 7).
