@@ -3,7 +3,8 @@
 # 12 before InitInstance sets the main window. FatalError must still show its box, "Tibia Error" with "(Error Code
 # 12)" (the test mode writes it to messages.txt instead of opening it), and end the client with exit code 1, as the
 # original does: its AfxGetMainWnd()->ShowWindow on NULL raised an access violation that the original's catch (...)
-# (MSVC 7.1) swallowed, and under /EHsc ended the client without the box.
+# (MSVC 7.1) swallowed, and under /EHsc ended the client without the box (fixed by issue #83: FatalError skips
+# ShowWindow without a main window; #83 reaches it through a failing first present, this test through a missing driver).
 #
 # The run folder (<TMPROOT>/fatal-error-box-<time and random suffix>) gets copies of the data files next to
 # Tibia.exe (Tibia.dat, Tibia.spr and Tibia.pic, CipSoft's: they stay on this machine, in the build folder, and the

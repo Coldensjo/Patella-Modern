@@ -148,15 +148,13 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 			SetDisplayMode(1);
 	} catch (...) {
 	}
-	// Before InitInstance has set m_pMainWnd (an error of the main frame's constructor, InitControl: a missing
-	// Tibia.dat, Tibia.spr or Tibia.pic; or of the surfaces' start) AfxGetMainWnd() is the thread's active window,
-	// none, so NULL. The original's call on NULL raised an access violation, which its catch-all handler (MSVC
-	// 7.1) swallowed before the box; under /EHsc it ends the client without the box. The check skips the call as
-	// the original's handler skipped it (issue #67; the CTest test fatal_error_box).
 	try {
-		CWnd *const MainWindow = AfxGetMainWnd();
-		if (MainWindow != nullptr)
-			MainWindow->ShowWindow(SW_HIDE);
+		// Patella-Modern issue #83: before InitInstance sets m_pMainWnd (a fatal error in its first Redraw: a
+		// failing first present) there is no main window. Tibia.exe calls CWnd::ShowWindow on null there too, and
+		// its catch (...) (MSVC 7.1: an access violation as well) goes on to the box; under /EHsc it does not.
+		CWnd *Window = AfxGetMainWnd();
+		if (Window != nullptr)
+			Window->ShowWindow(SW_HIDE);
 	} catch (...) {
 	}
 	PATELLA_MESSAGE_BOX(nullptr, Text, Caption, MB_ICONHAND);

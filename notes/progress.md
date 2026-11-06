@@ -318,12 +318,21 @@ asserts and sends, and the golden ConsoleWindow test throws through it; so `TTab
 `ModalWindow` and `MainWindow` stay raw until M7 (notes/ownership.md section 7). difftest 16,459,337 / 67 / 856,621 /
 3,201 (unchanged); golden 17,316,025, 0 failures. notes/decisions.md, "unique_ptr for the owners blocked by
 noexcept(false) destructors".
+A fatal error before the main window is set (Patella-Modern issue #83, branch issue-83, November 6, 2026; M5): a
+failing first present (#56: the CPU driver on a hidden desktop) crashed the x64 client in FatalError, not in
+ExitControl: InitInstance's first Redraw comes before m_pMainWnd is set, and `AfxGetMainWnd()->ShowWindow` ran on
+null. Tibia.exe makes the same call, inside a `catch (...)` that MSVC 7.1 lets catch the access violation, and shows
+the box; ours now skips ShowWindow without a main window and ends the same way ("Tibia Error", exit code 1). The test
+build's `PATELLA_TEST_FAIL_PRESENT=1` (hook PATELLA_TEST_PRESENT_FAILURE) reproduces it. difftest 16,459,337 / 67 /
+856,621 / 3,201 (unchanged); golden 17,316,025, 0 failures. notes/decisions.md, "A fatal error before the main
+window is set".
 The catch blocks that relied on structured exceptions (Patella-Modern issue #67, part 2, branch issue-67b, November 6,
-2026; M5): the 43 `catch (...)` of src/ decided (21 not SEH-dependent, 17 a driver's or the oracle's engines' traps, 3
-fixed, 2 left to #83: InitControl's ExitControl and FatalError's SetDisplayMode step). PATELLA_DIVISOR
+2026; M5): the 43 `catch (...)` of src/ decided (21 not SEH-dependent, 17 a driver's or the oracle's engines' traps, 2
+fixed, FatalError's ShowWindow settled in #83, 2 left to #83 and not fixed there: InitControl's ExitControl and
+FatalError's SetDisplayMode step). PATELLA_DIVISOR
 (compat/assertion.h) throws the original's TMyException where a divisor from input traps: the game login's Beat in
-StartMovement, Tibia.dat's pattern sizes, phases and exact sizes in six functions. FatalError skips ShowWindow on a
-NULL main window, as the original's catch-all handler did, so a start-up error shows its box (CTest fatal_error_box).
+StartMovement, Tibia.dat's pattern sizes, phases and exact sizes in six functions. The CTest fatal_error_box checks #83's
+ShowWindow fix from a start-up error without a Vulkan driver (the box, exit code 1).
 difftest's Divisions test (15 checks; ported, `Since = "#67"`: main's corpus lacks it); difftest 16,459,352 / 67 /
 856,621 / 3,201; golden 17,316,025, 0 failures. notes/decisions.md, "The catch blocks that relied on catching
 structured exceptions".
@@ -473,8 +482,16 @@ None.
 
 ## Last difftest
 
-Patella-Modern issue #67, part 2 (branch issue-67b, November 6, 2026): PATELLA_DIVISOR at the input divisions,
-FatalError's NULL main window. `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest 16,459,352 (+15:
+Patella-Modern issue #83 (branch issue-83, November 6, 2026): FatalError skips ShowWindow without a main window, so a
+failing first present ends with "Tibia Error" and exit code 1 (PatellaTest.exe with PATELLA_TEST_FAIL_PRESENT=1:
+0xC0000005 before, the box and exit code 1 after). `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest
+16,459,337, sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0. golden on
+main's corpus 15,803,203 replayed + 1,512,822 retired = 17,316,025, 0 failures (windows-x64 14/14, -debug 13/13, -asan
+13/13, no ASan finding); windows-x64-gcc and the Linux presets 11/11, 0 warnings. Images by function: FatalError, and
+line constants or switch-table bytes only elsewhere. tidy_ci 3 findings, 0 new; banned_calls 0; clang-format clean.
+reference.py compare: every session matches. Logs: build\logs\issue-83.
+Patella-Modern issue #67, part 2 (branch issue-67b, November 6, 2026): PATELLA_DIVISOR at the input divisions
+(FatalError's NULL main window settled in #83; the numbers are from before the merge of main 3678f82). `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest 16,459,352 (+15:
 Divisions), sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures, safeseh 0 findings. golden on main's
 corpus 17,316,025, 0 failures (Divisions not in it, noted); windows-x64 15/15, -debug and -asan 14/14 (fatal_error_box
 passes), windows-x64-gcc and the Linux presets 11/11, 0 warnings. Images: only the changed functions and line

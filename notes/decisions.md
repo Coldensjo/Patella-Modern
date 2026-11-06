@@ -9292,7 +9292,8 @@ input desktop cause it (high: each one seen in the runs and in a small program):
   changes nothing. The client draws its first frame (CPlayerApp::InitInstance, Redraw(false)) before ShowWindow,
   and lavapipe's present (Mesa's Win32 WSI, a BitBlt into the window) returns VK_ERROR_MEMORY_MAP_FAILED (-5).
   TRenderer::Present throws, InitControl's catch calls ExitControl, which then crashes (0xC0000005: the original's
-  path). Every PatellaTest.exe and Patella.exe run on the CPU driver (PATELLA_VULKAN=cpu: reference.py compare's
+  path; corrected by issue #83: FatalError's ShowWindow on a null main window crashes, after InitInstance's first
+  Redraw, and Tibia.exe's catch (...) caught it; "A fatal error before the main window is set"). Every PatellaTest.exe and Patella.exe run on the CPU driver (PATELLA_VULKAN=cpu: reference.py compare's
   and testmode_check.py's default, compare_rendering.py's vulkan-cpu) ends this way after 1 s. On a GPU
   (PATELLA_VULKAN=gpu) the Vulkan engine presents and runs.
 - **DirectDraw and Direct3D 9 do not start; OpenGL does.** Tibia.exe and the oracle's Patella.exe with Engine = 0
@@ -11077,6 +11078,64 @@ tidy_ci 3 findings, 0 new (baseline 3); banned_calls 0; clang-format clean. `pyt
 --reference C:/Tibia/Patella-Modern/build/reference`: every session matches (error with #74's deliberate
 differences). Logs: build\logs\issue-81.
 
+## A fatal error before the main window is set (Patella-Modern issue #83)
+
+Settled by Claude Opus 5.5, November 6, 2026, on branch issue-83 (M5, the fatal path of #77). #56 found that a failing
+first present (the CPU driver on a hidden desktop) crashed the x64 client with 0xC0000005 instead of ending it with
+"Tibia Error", and put the crash in ExitControl after InitControl's catch. That was the wrong place.
+
+- **Where it crashes** (high: seen under cdb). The first present is not in InitControl: InitControl has returned
+  (CMainFrame's constructor), and InitInstance's `Redraw(false)` draws the first frame after the surfaces exist and
+  before `m_pMainWnd = MainFrame`. TSurfaceVulkan's present catches the TVulkanError and throws PROGRAM_ERROR 12
+  (Fail), InitInstance's `catch (const TProgramError &)` calls HandleProgramError, and FatalError calls
+  `AfxGetMainWnd()->ShowWindow(SW_HIDE)` with AfxGetMainWnd() null. CWnd::ShowWindow reads `m_pCtrlSite` and
+  `m_hWnd` through the null `this`: an access violation. The stack (build\logs\issue-83\cdb-before.txt):
+  CWnd::ShowWindow, CPlayerApp::FatalError+0xa1, HandleProgramError, InitInstance's catch funclet, InitInstance,
+  AfxWinMain. The log line `[error] Tibia Error: Video surface allocation failed. (Error Code 12)` was already written,
+  the box never shown. ExitControl's steps are safe without a main window or with modules not initialised (each
+  Exit deletes or frees what may be null; GetSurface creates a surface first), and are not on this path.
+- **What Tibia.exe does** (high: the code and its exception tables). FatalError (0x4d7d80) calls CWnd::ShowWindow
+  (0x526c14, MFC 7.1's: `if (m_pCtrlSite == NULL) return ::ShowWindow(m_hWnd, nCmdShow)`, reading `this+0x4c` and
+  `this+0x1c`) with `this` taken from AfxGetMainWnd (0x527436) and null when it returns null: the same null call.
+  The call is in try state 4, whose handler is `catch (...)` at 0x4d7e16 (ehinfo.py: three try blocks, each `catch
+  ...`). MSVC 7.1's `catch (...)` catches structured exceptions too, so the access violation is caught and FatalError
+  goes on to MessageBoxA and `_exit(1)`. Tibia.exe ends with the box; it does not crash. (A hidden desktop with
+  Tibia.exe is not the same path: its DirectX engines fall back to OpenGL there, #56.)
+- **The choice** (high). The original does not crash, so ours matches it: FatalError skips ShowWindow when
+  AfxGetMainWnd() is null (src/Player.cpp), the one step whose `catch (...)` relied on catching an access violation,
+  which /EHsc does not. There is no window to hide then, and the steps after it are unchanged. Every other path is
+  unchanged: with a main window the same call. No deliberate difference (tools/deliberate.py unchanged): the
+  outcome is Tibia.exe's, the box and exit code 1. Considered: compiling Player.cpp with /EHa (catches every
+  structured exception in every handler of the file, a wider change; #67 decides on the SEH-dependent handlers);
+  setting m_pMainWnd before the first Redraw (moves the original's order of InitInstance). The same FatalError is the
+  oracle's (its /EHsc crashed the same way); difftest fakes FatalError, so no count changes.
+- **The test** (high). The test build's hook `PATELLA_TEST_PRESENT_FAILURE(Failure)` (src/TestHooks.h; nothing outside
+  PatellaTest.exe) before TRenderer::Present in TSurfaceVulkan's blit throws the TVulkanError of a failing
+  vkQueuePresentKHR (VkResult -5) when `PATELLA_TEST_FAIL_PRESENT=1` is in the environment (PresentFails,
+  src/testmode/TestModeWin32.cpp, read once). It reproduces #56's path on any desktop and device. Command (from a run
+  folder with the data files; build\repro83):
+  `PATELLA_VULKAN=cpu PATELLA_TEST_FAIL_PRESENT=1 build/windows-x64/Release/PatellaTest.exe --test-script quit.script
+  --test-out out` (quit.script: `wait 2000`, `quit`; with a script the box goes to messages.txt instead of a dialog).
+  Before the fix: the `[error]` line, then exit code 0xC0000005 (bash: 139), no messages.txt. After: the same line
+  on stderr, messages.txt `{"step":1,"time":0,"caption":"Tibia Error","text":"Video surface allocation failed. (Error
+  Code 12)\r\n\r\nPlease choose another video graphics mode.","type":16}`, exit code 1. Without the switch the same
+  run exits 0. Not a CTest test: it opens a window on the desktop of the session, as the live checks do.
+- **The images** (high). Main (f1be76a) and the branch built in this worktree, Release, function by function through
+  the PDBs (scratch funcs2.py, never committed: `dumpbin /disasm:nobytes`, addresses and image-relative displacements
+  of 5+ hex digits masked). x64 Patella.exe: 13,947 functions on both sides, none gone or new; FatalError changed;
+  InitInstance's and Run's catch funclets and GetWindowClassName differ only in their source-line constants (Player.cpp
+  gained five lines above them); the other 22 only in the switch-table bytes after their code (the code after FatalError
+  moved). x86 (oracle-x86's Patella.exe): 11,378 on both sides; FatalError changed; InitInstance, Run and
+  GetWindowClassName only in the line constants. The hook is empty outside the test build: TSurfaceVulkan's blit is the
+  same. Logs: build\logs\issue-83\pecompare-x64.log, pecompare-x86.log.
+- **The gates** (high). `python -I tools/build.py oracle-x86`: CTest 5/5, difftest 16,459,337, sysinctest 67,
+  communicationtest 856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0. windows-x64 14/14, windows-x64-debug
+  and windows-x64-asan 13/13 (no ASan finding): golden on main's corpus 15,803,203 replayed + 1,512,822 retired =
+  17,316,025, 0 failures. windows-x64-gcc, linux-x64-gcc and linux-x64-clang 11/11. 0 warnings on every preset.
+  tidy_ci 3 findings, 0 new (baseline 3), 0 bugprone; tools/tidy.py on the three Windows-only files: no finding on a
+  changed line. banned_calls 0; clang-format clean. `python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference`: the four sessions match (error with #74's deliberate differences). Logs:
+  build\logs\issue-83.
 ## The catch blocks that relied on catching structured exceptions (Patella-Modern issue #67, part 2)
 
 Settled by Claude Opus 5.5, November 6, 2026; M5 (plan 7). #67's first part (a zero-sized patch block) went with the
@@ -11089,7 +11148,8 @@ build do not.
 
 ### The method (high)
 
-`git grep -n "catch *(\.\.\.)" -- src` on f1be76a: 43 handlers (the same 43 on the branch). For each: what its try
+`git grep -n "catch *(\.\.\.)" -- src` on f1be76a: 43 handlers (the same 43 on the branch after the merge of
+#83, whose FatalError comment adds a 44th line that is not a handler, Player.cpp 154). For each: what its try
 block can fault on, whether input (a packet, a file, the environment) can make it fault, and what the original did
 then. Two of them, InitInstance's and Run's top-level `catch (...)` ("unknown exception occurred", then
 HandleException's "Tibia Error - Debug Assertion" box and exit code 1), have the whole client in their try blocks; for
@@ -11123,7 +11183,7 @@ fatal-error path found below are not of that kind: the original's error path mad
 (a) not SEH-dependent, nothing to do; (b) SEH-dependent, input reaches it and the original recovered or reported, so
 x64 now checks where the trap was and takes the original's path, with a test; (c) SEH-dependent, but the trap is
 unreachable from input or a crash is the only sane outcome; #83: left to issue #83's agent (InitControl and
-ExitControl, worked on at the same time). Lines are the branch's.
+ExitControl, worked on at the same time); settled in #83: fixed there. Lines are the branch's, after the merge of #83.
 
 | Location | What can fault in the try block | The original | x64 on main | Decision |
 |---|---|---|---|---|
@@ -11137,10 +11197,10 @@ ExitControl, worked on at the same time). Lines are the branch's.
 | Player.cpp 90, 94, 102, 110: LogDiagnostics | ours (issue #77): the engine's name, the packet bytes, GetCreature's slot or NULL (tested) | - | - | (a) |
 | Player.cpp 144: FatalError, ShutdownConnection | `shutdown` on the socket's handle; Socket tested for NULL | ignored | the same | (a) |
 | Player.cpp 149: FatalError, SetDisplayMode(1) when the view mode is not 1 | before InitPreferences (the view mode still 0: an InitControl failure) SetDisplayMode's Redraw calls CheckSurface on GetSurface(), NULL on x64 before SurfaceInitInstance (above), then `MainWindow->Draw` with MainWindow NULL before OnCreate | its GetSurface makes a surface, any trap swallowed; then the box | not reached today: that path stops in ExitControl first (Control.cpp 1170) | #83: the same root, GetSurface() NULL before SurfaceInitInstance; to be checked again once ExitControl no longer faults ("Found, not done") |
-| Player.cpp 160: FatalError, `AfxGetMainWnd()->ShowWindow(SW_HIDE)` | before InitInstance sets m_pMainWnd, AfxGetMainWnd() is the thread's active window, none, so NULL; CWnd::ShowWindow reads `this->m_pCtrlSite` | the access violation swallowed, then the box, exit code 1 | an access violation in CWnd::ShowWindow (main's PatellaTest.exe with no Vulkan driver: PROGRAM_ERROR 12 from InitInstance's surface start, then FatalError at Player.cpp 152): the developer log's error line, no box, exit code 0xC0000005 | (b): AfxGetMainWnd() tested for NULL, the call skipped as the original's handler skipped it; CTest fatal_error_box |
-| Player.cpp 239: HandleException's log line | ours (#77): GetMessage's std::bad_alloc | - | - | (a) |
-| Player.cpp 318: InitInstance around SurfaceInitInstance, InitSurfaces, InitVideoCache | the Vulkan loader and driver; InitVideoCache divides by the surfaces' own sizes | PROGRAM_ERROR 12 | a driver's trap ends the client | (c), as CheckSurface |
-| Player.cpp 361, 391: InitInstance's and Run's top-level `catch (...)` | the whole client: the divisions above, access violations | "unknown exception occurred": HandleException's box, exit code 1 | the trap ends the client | (b) for the input divisions of the first table: PATELLA_DIVISOR at each (11 divisors in 6 functions), tests below; (c) for access violations (above) |
+| Player.cpp 158: FatalError, `AfxGetMainWnd()->ShowWindow(SW_HIDE)` | before InitInstance sets m_pMainWnd, AfxGetMainWnd() is the thread's active window, none, so NULL; CWnd::ShowWindow reads `this->m_pCtrlSite` | the access violation swallowed, then the box, exit code 1 | an access violation in CWnd::ShowWindow (main's PatellaTest.exe with no Vulkan driver: PROGRAM_ERROR 12 from InitInstance's surface start, then FatalError at Player.cpp 152): the developer log's error line, no box, exit code 0xC0000005 | settled in #83 (3678f82; the original's handler at 0x4d7e16): AfxGetMainWnd() tested for NULL, the call skipped as the original's handler skipped it. This branch had the same check; the merge keeps #83's. The CTest fatal_error_box stays: it reaches the block from another start-up error (no Vulkan driver) than #83's failing first present |
+| Player.cpp 237: HandleException's log line | ours (#77): GetMessage's std::bad_alloc | - | - | (a) |
+| Player.cpp 316: InitInstance around SurfaceInitInstance, InitSurfaces, InitVideoCache | the Vulkan loader and driver; InitVideoCache divides by the surfaces' own sizes | PROGRAM_ERROR 12 | a driver's trap ends the client | (c), as CheckSurface |
+| Player.cpp 359, 389: InitInstance's and Run's top-level `catch (...)` | the whole client: the divisions above, access violations | "unknown exception occurred": HandleException's box, exit code 1 | the trap ends the client | (b) for the input divisions of the first table: PATELLA_DIVISOR at each (11 divisors in 6 functions), tests below; (c) for access violations (above) |
 | Surface.cpp 204: the x64 SurfaceInitInstance, TestEngine | the Vulkan loader and driver | PROGRAM_ERROR 12 | a driver's trap ends the client | (c), as CheckSurface |
 | Surface.cpp 254, 274: the oracle's engine detection (Direct3D 9; ChoosePixelFormat, whose catch the original's compiler removed) | drivers | PROGRAM_ERROR 12 (274: no handler in the binary) | oracle only | (c): oracle only (#29) |
 | SurfaceDX.cpp 591, surfaceDX9.cpp 507, SurfaceGL.cpp 156, 709, 712, 725 | the DirectDraw, Direct3D 9 and OpenGL drivers | the error on, PROGRAM_ERROR 12, or TestEngine false | oracle only | (c): oracle only (#29) |
@@ -11148,9 +11208,9 @@ ExitControl, worked on at the same time). Lines are the branch's.
 | vulkan/Renderer.cpp 254, 1028 | ours: clean-up, then `throw;` | - | - | (a) |
 | compat/cxx26.h 90 (CONTRACT_ASSERT), log/Log.h 187, 199, 234, 331, 347, 367 | ours: the predicate's exception; the log's std::bad_alloc, format errors, the debugger check | - | - | (a) |
 
-In all: 21 (a), 17 (c) (Control.cpp 121, 174, 181, 189, 199, 207; Player.cpp 318; Surface.cpp 204, 254, 274;
-SurfaceDX.cpp 591; surfaceDX9.cpp 507; SurfaceGL.cpp 156, 709, 712, 725; SurfaceVulkan.cpp 560), 3 (b) (Player.cpp
-160, 361, 391), 2 #83 (Control.cpp 1170, Player.cpp 149).
+In all: 21 (a), 17 (c) (Control.cpp 121, 174, 181, 189, 199, 207; Player.cpp 316; Surface.cpp 204, 254, 274;
+SurfaceDX.cpp 591; surfaceDX9.cpp 507; SurfaceGL.cpp 156, 709, 712, 725; SurfaceVulkan.cpp 560), 2 (b) (Player.cpp 359, 389), 1 settled in #83 (Player.cpp 158), 2 #83 (Control.cpp 1170,
+Player.cpp 149; #83 fixed neither: its notes list ExitControl's null dereference as found, not done).
 
 ### The changes (high)
 
@@ -11169,9 +11229,9 @@ SurfaceDX.cpp 591; surfaceDX9.cpp 507; SurfaceGL.cpp 156, 709, 712, 725; Surface
   sizes and phases; DrawCreature's outfit phases; graphics.cpp DrawObject's phases and exact size, DrawOutfit's exact
   size. No check at the load (LoadProperties): the original loads such an entry without an error and fails only when
   the object is drawn, and the error stays where it was.
-- **FatalError's main window** (Player.cpp): `AfxGetMainWnd()` is tested for NULL before ShowWindow(SW_HIDE). When it
-  is NULL the original's call faulted at once (the first read of `this`), and its handler went on to the box; ours
-  skips the call and goes on to the box. With a main window nothing changes.
+- **FatalError's main window** (Player.cpp): settled in #83, which tests `AfxGetMainWnd()` for NULL before
+  ShowWindow(SW_HIDE) (this branch had the same check; the merge keeps #83's). When it is NULL the original's call
+  faulted at once (the first read of `this`), and its handler went on to the box.
 
 ### The tests (high)
 
@@ -11191,7 +11251,7 @@ SurfaceDX.cpp 591; surfaceDX9.cpp 507; SurfaceGL.cpp 156, 709, 712, 725; Surface
 - **PATELLA_DIVISOR** (tests/unit/assertion_test.cpp, in tests_unit and the stand-in build on every preset): a divisor
   that is not zero is the value, evaluated once (quotients and remainders of negative and unsigned operands); zero
   throws the TMyException with this file, the line and the divisor's text, the division not done.
-- **fatal_error_box** (CTest, windows-x64, windows-x64-debug and windows-x64-asan, wherever PatellaTest.exe is built;
+- **fatal_error_box** (CTest, for #83's check, windows-x64, windows-x64-debug and windows-x64-asan, wherever PatellaTest.exe is built;
   cmake/RunFatalErrorBox.cmake): PatellaTest.exe in a temporary folder with copies of Tibia.dat, Tibia.spr and
   Tibia.pic (CipSoft's: local, removed afterwards; skipped without them), `VK_LOADER_DRIVERS_DISABLE=*` and
   `PATELLA_VULKAN=cpu` (no Vulkan driver loads), a one-line script: InitInstance's surface start throws PROGRAM_ERROR
@@ -11215,7 +11275,8 @@ SurfaceDX.cpp 591; surfaceDX9.cpp 507; SurfaceGL.cpp 156, 709, 712, 725; Surface
 
 ### The images (high)
 
-Function by function through the PDBs (#78's funcs.py and classify.py, `dumpbin /disasm:nobytes`), main f1be76a's
+Before the merge of #83 (so FatalError is this branch's check, the same as #83's). Function by function through
+the PDBs (#78's funcs.py and classify.py, `dumpbin /disasm:nobytes`), main f1be76a's
 sources and the branch's built in the same folder (this worktree), the Release Patella.exe of oracle-x86 and of
 windows-x64: x86 11,411 to 11,412 functions, 56 changed, 1 new (patella::DivisionByZero); x64 14,024 to 14,025, 64
 changed, the same new one. Of the changed, 46 (x86) and 55 (x64) differ only in constants (the assertion lines of the

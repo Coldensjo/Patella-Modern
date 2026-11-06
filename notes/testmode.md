@@ -28,7 +28,11 @@ notes/reconstruction.md, "Test server"); its window is still a real window, on t
 it apart from the user's: notes/reconstruction.md, "Checking", "The live checks in a second session"). On a hidden
 desktop (the tools' experimental `--hidden`, tools/desktop.py, issue #56) it runs only on a GPU, not on the CPU
 driver: its first frame comes before the window is shown, and lavapipe's present into a window not yet shown fails
-there (notes/decisions.md, "The live checks on a hidden desktop"). `--test-log` lists every event it
+there (notes/decisions.md, "The live checks on a hidden desktop"). `PATELLA_TEST_FAIL_PRESENT=1` in its environment
+(issue #83; the hook PATELLA_TEST_PRESENT_FAILURE of src/TestHooks.h, before TRenderer::Present) makes every present of
+the Vulkan engine fail as that one does, on any desktop: with a script the client ends at its first frame with the
+"Tibia Error" box (PROGRAM_ERROR 12, in messages.txt), the box text as an `[error]` line on stderr and exit code 1
+(notes/decisions.md, "A fatal error before the main window is set"). `--test-log` lists every event it
 dispatched with its virtual time and script line. A script that cannot be read or does not parse ends the
 program before its window opens: exit code 3, the message (`testmode: <file>:<line>: <error>`) on stderr, in the
 log and through OutputDebugString, never a dialog. The client ignores the test mode's words (its command line
