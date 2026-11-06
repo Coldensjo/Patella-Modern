@@ -506,6 +506,12 @@ through the bridge, so no other caller changed; TCreatures asks the later TPlaye
 TMapState implements. TCommunication writes the game state through references to the five. The golden tests read the
 members and fake them too (the Communication world, the Creatures test). Module cycles: main's 3, unchanged; the
 game state is in none. Golden 17,316,040, 0 failures. notes/decisions.md, "The third move: TMapState".
+Reflection evaluated (Patella-Modern issue #114, branch issue-114, November 6, 2026; M7): adopt later. GCC 16.2's
+`-freflection` wrote the state dump's creature and container entries with the same bytes as the product and as a
+member-pointer table that MSVC and Clang could build (tests/reflection/state_dump_reflection.cpp, outside the build;
+its static_assert keeps the table in sync with the members). With that fallback it saves no code, and Clang and MSVC
+have no reflection yet. Revisit when MSVC and upstream Clang ship P2996. notes/decisions.md, "#114: reflection for the
+state dump and the serialisers".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
