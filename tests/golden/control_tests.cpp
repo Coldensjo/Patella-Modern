@@ -46,6 +46,7 @@
 #endif
 #include "Communication.h"
 #include "MainWindow.h"
+#include "Status.h"
 #include "Surface.h"
 #include <functional>
 
