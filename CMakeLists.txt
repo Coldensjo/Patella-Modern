@@ -26,6 +26,10 @@
 
 cmake_minimum_required(VERSION 3.30)
 
+# import std (issue #113): the option PATELLA_IMPORT_STD and CMake's experimental gate, which must come before the
+# CXX language is enabled (cmake/ImportStd.cmake).
+include(cmake/ImportStd.cmake)
+
 project(Patella
 	DESCRIPTION "Patella-Modern, the modernized reconstruction of the Tibia 7.72 client"
 	LANGUAGES C CXX)
@@ -39,6 +43,7 @@ if(PATELLA_CAPTURE)
 endif()
 
 enable_testing()
+patella_import_std_check()
 include(cmake/Core.cmake)
 include(cmake/TestMode.cmake)
 add_subdirectory(tests/unit)
