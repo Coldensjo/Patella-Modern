@@ -641,15 +641,22 @@ void ConnectionEstablished()
 {
 	if (GetConnectionState() == 2) {
 		SetConnectionState(3);
-		SendLogin(GetAccountNumber(), GetAccountPassword());
+		// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
+		const char *Password = GetAccountPassword();
+		SendLogin(GetAccountNumber(), Password);
 		return;
 	}
 	if (GetConnectionState() == 5) {
 		const int OldConnectionState = GetConnectionState();
 		SetConnectionState(6);
 		OutfitRequested = false;
-		PATELLA_ASSERT_VALUES(In(GetActiveCharacter(),0,GetAccountCharacters()-1), GetActiveCharacter(), OldConnectionState);
-		SendGameLogin(GetAccountNumber(), GetCharacterName(GetActiveCharacter()), GetAccountPassword());
+		// The original's order: In's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
+		const int AccountCharacters = GetAccountCharacters();
+		PATELLA_ASSERT_VALUES(In(GetActiveCharacter(),0,AccountCharacters-1), GetActiveCharacter(), OldConnectionState);
+		// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
+		const char *Password = GetAccountPassword();
+		const char *Name = GetCharacterName(GetActiveCharacter());
+		SendGameLogin(GetAccountNumber(), Name, Password);
 		return;
 	}
 	SetConnectionState(0);
@@ -813,6 +820,19 @@ void ConnectionClosed()
 	}
 }
 
+// The mouse position for the context menus' constructors, the y first: the original's order of their arguments, right
+// to left (MSVC; GCC and Clang may differ, Patella-Modern issue #91).
+namespace {
+struct TMousePosition {
+	int x, y;
+};
+TMousePosition MousePosition()
+{
+	const int y = GetMouseY();
+	return {GetMouseX(), y};
+}
+} // namespace
+
 // 0x4489a0, line 1379. Called by the main frame's timer. Ten ticks after the
 // last mouse move the window under the mouse is told (hover). While the left
 // button is held (button event 6), it is told again every tick from the
@@ -822,12 +842,17 @@ void TimerEvent()
 {
 	IncrementActionNumber();
 	if (LastMouseMove != 0 && LastMouseMove == GetActionNumber() - 10) {
+		// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
+		const int MouseY = GetMouseY();
+		const int MouseX = GetMouseX();
 		if (ModalWindow != nullptr)
-			ModalWindow->MouseHover(GetMouseX() - ModalWindow->OffsetX, GetMouseY() - ModalWindow->OffsetY);
+			ModalWindow->MouseHover(MouseX - ModalWindow->OffsetX, MouseY - ModalWindow->OffsetY);
 		else
-			MainWindow->MouseHover(GetMouseX(), GetMouseY());
-		if (GetMouseOverText() != nullptr)
-			SetMouseOverTextPosition(GetMouseX(), GetMouseY());
+			MainWindow->MouseHover(MouseX, MouseY);
+		if (GetMouseOverText() != nullptr) {
+			const int TextY = GetMouseY();
+			SetMouseOverTextPosition(GetMouseX(), TextY);
+		}
 	}
 	UpdateTalkboxes();
 	UpdateStatusMessage();
@@ -838,10 +863,13 @@ void TimerEvent()
 		if (GetActionNumber() - GetPendingActionNumber() < 7)
 			return;
 		if (GetPendingActionState() == 6) {
+			// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
+			const int MouseY = GetMouseY();
+			const int MouseX = GetMouseX();
 			if (ModalWindow != nullptr)
-				ModalWindow->MouseWheel(GetMouseX() - ModalWindow->OffsetX, GetMouseY() - ModalWindow->OffsetY, 6);
+				ModalWindow->MouseWheel(MouseX - ModalWindow->OffsetX, MouseY - ModalWindow->OffsetY, 6);
 			else
-				MainWindow->MouseWheel(GetMouseX(), GetMouseY(), 6);
+				MainWindow->MouseWheel(MouseX, MouseY, 6);
 		}
 	}
 	CheckConnectionTimeout();
@@ -1053,42 +1081,60 @@ void ProcessEvents()
 			MainWindow->Console->ReportRuleViolation(reinterpret_cast<const char *>(Param1));
 			delete[] reinterpret_cast<char *>(Param1);
 			break;
-		case 0x34:
-			ModalWindow = new TObjectContextMenu(GetMouseX(), GetMouseY(), MainWindow->Width,
+		case 0x34: {
+			const TMousePosition Mouse = MousePosition();
+			ModalWindow = new TObjectContextMenu(Mouse.x, Mouse.y, MainWindow->Width,
 				MainWindow->Height);
 			break;
-		case 0x35:
-			ModalWindow = new TCreatureContextMenu((uint32)Param1, GetMouseX(), GetMouseY(),
+		}
+		case 0x35: {
+			const TMousePosition Mouse = MousePosition();
+			ModalWindow = new TCreatureContextMenu((uint32)Param1, Mouse.x, Mouse.y,
 				MainWindow->Width, MainWindow->Height);
 			break;
-		case 0x36:
-			ModalWindow = new TBuddyContextMenu((uint32)Param1, GetMouseX(), GetMouseY(),
+		}
+		case 0x36: {
+			const TMousePosition Mouse = MousePosition();
+			ModalWindow = new TBuddyContextMenu((uint32)Param1, Mouse.x, Mouse.y,
 				MainWindow->Width, MainWindow->Height);
 			break;
-		case 0x37:
+		}
+		case 0x37: {
+			const TMousePosition Mouse = MousePosition();
 			ModalWindow = new TTextContextMenu(MainWindow->Console->CurrentConsole->TextWindow, (int)Param1,
-				GetMouseX(), GetMouseY(), MainWindow->Width, MainWindow->Height);
+				Mouse.x, Mouse.y, MainWindow->Width, MainWindow->Height);
 			break;
-		case 0x38:
-			ModalWindow = new TChannelContextMenu(MainWindow->Console, GetMouseX(), GetMouseY(),
+		}
+		case 0x38: {
+			const TMousePosition Mouse = MousePosition();
+			ModalWindow = new TChannelContextMenu(MainWindow->Console, Mouse.x, Mouse.y,
 				MainWindow->Width, MainWindow->Height);
 			break;
-		case 0x39:
-			ModalWindow = new TRequestContextMenu(MainWindow->Console, (int)Param1, GetMouseX(),
-				GetMouseY(), MainWindow->Width, MainWindow->Height);
+		}
+		case 0x39: {
+			const TMousePosition Mouse = MousePosition();
+			ModalWindow = new TRequestContextMenu(MainWindow->Console, (int)Param1, Mouse.x,
+				Mouse.y, MainWindow->Width, MainWindow->Height);
 			break;
-		case 0x3a:
-			ModalWindow = new TEditContextMenu(reinterpret_cast<TEditLine *>(Param1), GetMouseX(), GetMouseY(),
+		}
+		case 0x3a: {
+			const TMousePosition Mouse = MousePosition();
+			ModalWindow = new TEditContextMenu(reinterpret_cast<TEditLine *>(Param1), Mouse.x, Mouse.y,
 				MainWindow->Width, MainWindow->Height);
 			break;
-		case 0x3b:
-			ModalWindow = new TMarkContextMenu(reinterpret_cast<TMarkMenuData *>(Param1), GetMouseX(), GetMouseY(),
+		}
+		case 0x3b: {
+			const TMousePosition Mouse = MousePosition();
+			ModalWindow = new TMarkContextMenu(reinterpret_cast<TMarkMenuData *>(Param1), Mouse.x, Mouse.y,
 				MainWindow->Width, MainWindow->Height);
 			break;
-		case 0x3c:
-			ModalWindow = new TSkillContextMenu(reinterpret_cast<TSkillsWindowBody *>(Param1), GetMouseX(), GetMouseY(),
+		}
+		case 0x3c: {
+			const TMousePosition Mouse = MousePosition();
+			ModalWindow = new TSkillContextMenu(reinterpret_cast<TSkillsWindowBody *>(Param1), Mouse.x, Mouse.y,
 				MainWindow->Width, MainWindow->Height);
 			break;
+		}
 		case 0x3d:
 			Redraw(false);
 			ConnectToLoginServer();

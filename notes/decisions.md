@@ -11746,9 +11746,22 @@ Each fixed in src/, the same behaviour on Windows (the corpus replays it), no la
   (CET): in the image's UTC Talk had 97,883 failures. tools/build.py passes Windows' zone to the container as a POSIX
   TZ (GetTimeZoneInformation: "STD-1DST-2,M3.5.0/2:00,M10.5.0/3:00"), TZ itself when it is set. The corpus does not
   record its zone (listed under "Found, not done").
-- **The evaluation order.** Before #55, Clang (left to right) built other inputs than MSVC and GCC (right to left)
-  where a test called Random() twice in one expression: Script, PreferencesFile, Talk, GUI, ContentWindows, Container,
-  MainFrm and Control failed or went stale on linux-x64-clang only. #55 made those calls explicit.
+- **The evaluation order.** Before #55, Clang (a call's arguments left to right) built other inputs than MSVC and
+  GCC (right to left) where a test called Random() twice in one expression: Script, PreferencesFile, Talk, GUI,
+  ContentWindows, Container, MainFrm and Control failed or went stale on linux-x64-clang only. #55 made 53 of those
+  explicit; Clang found the rest, which #55's query (calls that reach Random() or the recorder) does not see: calls
+  that reach a logging fake. In the tests: Container's TRGBColor(Rnd(), Rnd(), Rnd()) and ContentWindows' four
+  height queries (sprintf of GetInitialHeight, GetMaximumHeight, GetContentHeight and the fourth). In our code,
+  where the fakes log the original's order of calls (each now temporaries in that order, right to left):
+  Control.cpp's SendLogin and SendGameLogin arguments, ConnectionEstablished's In(GetActiveCharacter(), 0,
+  GetAccountCharacters() - 1), TimerEvent's GetMouseX/GetMouseY pairs (MouseHover, SetMouseOverTextPosition,
+  MouseWheel) and the nine context menus' (MousePosition); MainFrm.cpp's SetDisplayMode (the two GetSystemMetrics)
+  and OnMouseWheel; ContentWindows.cpp's GetOpponentAt(GetMouseX() - x, GetMouseY() - y) and
+  TSkillsWindowBody::getMinimumHeight's max of two calls. The Windows images' calls are in the same order as before
+  (MSVC's); GCC (also right to left here) had replayed them already.
+- **The runner's operator delete.** #65 removed dialogwindow_tests.cpp's runner-wide operator delete; Dialogs' test
+  redirects operator delete, which on Linux was libstdc++'s, out of a jump's reach: linux/win32.cpp defines it (and
+  the sized one) next to operator new, over free.
 
 ### The sanitizers (high)
 

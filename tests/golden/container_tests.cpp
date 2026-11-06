@@ -517,7 +517,9 @@ static void TestHeaderInlines()
 		const char *Text = (const char *)(uintptr_t)(1 + Rnd());
 		int Length = 1 + (int)(Rnd() % 100), Offset = (int)(Rnd() % 100), Indent = (int)(Rnd() % 50);
 		int Font = (int)(Rnd() % 8);
-		TRGBColor Color((int)(Rnd() % 256), (int)(Rnd() % 256), (int)(Rnd() % 256));
+		// Blue first: the oracle's order (MSVC: a call's arguments right to left; issue #91, GCC and Clang).
+		const int Blue = (int)(Rnd() % 256), Green = (int)(Rnd() % 256), Red = (int)(Rnd() % 256);
+		TRGBColor Color(Red, Green, Blue);
 		bool End = Rnd() % 2 == 0;
 		TLineFormat *Ours = (TLineFormat *)PatternNew(sizeof(TLineFormat));
 		new (Ours) TLineFormat(Line, Text, Length, Offset, Indent, Font, Color, End);

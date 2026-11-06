@@ -2180,8 +2180,10 @@ static void Queries()
 				else
 					ORIGINAL(At<VoidFn>(0x42e4e0)(Body, NULL));
 			} else {
-				sprintf(Buffer, "%d,%d,%d,%d", Body->GetInitialHeight(), Body->GetMaximumHeight(),
-					Body->GetContentHeight(), Body->IsMinimized() ? 1 : 0);
+				// The calls in the oracle's order (MSVC: a call's arguments right to left; issue #91, GCC and Clang).
+				const int Minimized = Body->IsMinimized() ? 1 : 0, Content = Body->GetContentHeight();
+				const int Maximum = Body->GetMaximumHeight(), Initial = Body->GetInitialHeight();
+				sprintf(Buffer, "%d,%d,%d,%d", Initial, Maximum, Content, Minimized);
 				Results[s] = Buffer;
 			}
 		});
@@ -2194,8 +2196,10 @@ static void Queries()
 		Both([&](int s) {
 			TSkillsWindowBody *Body = (TSkillsWindowBody *)Find(s, "SkillsBody");
 			if (Heights) {
-				sprintf(Buffer, "%d,%d,%d,%d", Body->GetInitialHeight(), Body->GetMaximumHeight(),
-					Body->GetContentHeight(), Body->getMinimumHeight());
+				// The calls in the oracle's order (MSVC: a call's arguments right to left; issue #91, GCC and Clang).
+				const int Minimum = Body->getMinimumHeight(), Content = Body->GetContentHeight();
+				const int Maximum = Body->GetMaximumHeight(), Initial = Body->GetInitialHeight();
+				sprintf(Buffer, "%d,%d,%d,%d", Initial, Maximum, Content, Minimum);
 				Results[s] = Buffer;
 				return;
 			}
@@ -2219,8 +2223,10 @@ static void Queries()
 		Both([&](int s) {
 			TSubWindowBody *Body = (TSubWindowBody *)Find(s, Kind);
 			if (Heights) {
-				sprintf(Buffer, "%d,%d,%d,%d", Body->GetInitialHeight(), Body->GetMaximumHeight(),
-					Body->GetContentHeight(), Body->getMinimumHeight());
+				// The calls in the oracle's order (MSVC: a call's arguments right to left; issue #91, GCC and Clang).
+				const int Minimum = Body->getMinimumHeight(), Content = Body->GetContentHeight();
+				const int Maximum = Body->GetMaximumHeight(), Initial = Body->GetInitialHeight();
+				sprintf(Buffer, "%d,%d,%d,%d", Initial, Maximum, Content, Minimum);
 			} else if (Scenario == SC_BATTLE) {
 				sprintf(Buffer, "%d", s == OURS ? ((TBattleWindowBody *)Body)->GetOpponentAt(x, y) : ORIGINAL_OR(At<XYFn>(0x430be0)(Body, NULL, x, y), 0));
 			} else {
@@ -2257,8 +2263,10 @@ static void Queries()
 				else
 					ORIGINAL(At<BoolArgFn>(0x433720)(Body->Buttons, NULL, Cancel));
 			} else if (What == 3) {
-				sprintf(Buffer, "%d,%d,%d,%d", Body->GetInitialHeight(), Body->GetMaximumHeight(),
-					Body->GetContentHeight(), Body->getMinimumHeight());
+				// The calls in the oracle's order (MSVC: a call's arguments right to left; issue #91, GCC and Clang).
+				const int Minimum = Body->getMinimumHeight(), Content = Body->GetContentHeight();
+				const int Maximum = Body->GetMaximumHeight(), Initial = Body->GetInitialHeight();
+				sprintf(Buffer, "%d,%d,%d,%d", Initial, Maximum, Content, Minimum);
 				Results[s] = Buffer;
 			} else {
 				// The partner's offer (as event 21) or the accept (as event 1), when allowed.

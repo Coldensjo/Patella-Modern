@@ -194,8 +194,9 @@ void SetDisplayMode(int ViewMode)
 		MainFrame->ModifyStyle(WS_MAXIMIZE | WS_CAPTION | WS_THICKFRAME, WS_POPUP, 0);
 		MainFrame->ModifyStyleEx(WS_EX_APPWINDOW | WS_EX_CLIENTEDGE, 0, 0);
 		Redraw(false);
-		MainFrame->SetWindowPos(&CWnd::wndTopMost, 0, 0, GetSystemMetrics(SM_CXSCREEN),
-			GetSystemMetrics(SM_CYSCREEN), 0);
+		// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
+		const int ScreenHeight = GetSystemMetrics(SM_CYSCREEN);
+		MainFrame->SetWindowPos(&CWnd::wndTopMost, 0, 0, GetSystemMetrics(SM_CXSCREEN), ScreenHeight, 0);
 		if (curEngine == 2)
 			Resize(0, 0);
 	} else {
@@ -550,8 +551,11 @@ BOOL CMainFrame::OnMouseWheel([[maybe_unused]] UINT nFlags, short zDelta, [[mayb
 	Default();
 	const int Delta = WheelDelta + zDelta;
 	WheelDelta = Delta % 120;
-	for (int i = 0; i < abs(Delta / 120); i++)
-		MouseWheel(GetMouseX(), GetMouseY(), Delta > 0 ? 1 : 2);
+	for (int i = 0; i < abs(Delta / 120); i++) {
+		// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
+		const int MouseY = GetMouseY();
+		MouseWheel(GetMouseX(), MouseY, Delta > 0 ? 1 : 2);
+	}
 	return TRUE;
 }
 

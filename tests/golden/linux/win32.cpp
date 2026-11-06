@@ -512,14 +512,22 @@ void **FindLinuxImport(const char *Function)
 
 } // namespace golden
 
-// The runner's own operator new (issue #91): the window tests redirect it to their pattern (contentwindows_tests.cpp,
-// dialogs_tests.cpp, golden::RedirectOwn), which reaches the runner's image only; on Windows the runner's operator
-// new is in its image, on Linux it would be libstdc++'s. The tests define the others they replace (operator new[],
-// delete and delete[]: container_tests.cpp, dialogwindow_tests.cpp), over malloc and free as this one.
+// The runner's own operator new and delete (issue #91): the window tests redirect them (contentwindows_tests.cpp and
+// dialogs_tests.cpp: new to their pattern, delete to their table of blocks; golden::RedirectOwn), which reaches the
+// runner's image only; on Windows the runner's are in its image, on Linux they would be libstdc++'s. container_tests.cpp
+// defines new[] and delete[], over malloc and free as these.
 void *operator new(std::size_t Size)
 {
 	void *Memory = std::malloc(Size == 0 ? 1 : Size);
 	if (Memory == nullptr)
 		throw std::bad_alloc();
 	return Memory;
+}
+void operator delete(void *Memory) noexcept
+{
+	std::free(Memory);
+}
+void operator delete(void *Memory, std::size_t) noexcept
+{
+	std::free(Memory);
 }
