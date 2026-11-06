@@ -29,9 +29,11 @@ records:
   - the window tree (Tibia.exe: tools/client_state.py gui(); Patella.exe: the test mode's probe; the dialogs,
     their captions and texts, the character list), the character list and the client state (state():
     connection state, player, map, creatures, containers, console) before WM_CLOSE;
-  - error.txt (the crash time masked) and Tibia.cfg as written on exit.
+  - error.txt (the crash time masked) and the options as written on exit (Tibia.exe's Tibia.cfg, the x64
+    client's Patella.ini: Patella-Modern issue #45), as values (tools/settings_file.py).
 and compares the two clients, with the deliberate differences expected (tools/deliberate.py, issue #74:
-Patella.exe writes no error.txt, and its critical error box does not name that file). A difference is reported; --repeat runs Tibia.exe a second time for
+Patella.exe writes no error.txt, and its critical error box does not name that file; issue #45: it writes
+Patella.ini, not Tibia.cfg, and the options are compared by value). A difference is reported; --repeat runs Tibia.exe a second time for
 every scenario that differs, to show whether the difference is the client's run-to-run variation; the
 scenarios marked variable (a wrong XTEA key: the garbage the client decrypts depends on its random session key)
 always get the second run, and differ without failing only when Tibia.exe's two runs differ as well.
@@ -56,6 +58,7 @@ import compare_files as cf  # noqa: E402
 import deliberate  # noqa: E402
 import proxy as px  # noqa: E402
 import session_client as sc  # noqa: E402
+import settings_file  # noqa: E402
 import login_client as lc  # noqa: E402
 
 ROOT = ct.ROOT
@@ -326,6 +329,20 @@ def read_file(run, name):
 		return f.read().decode("latin-1")
 
 
+def options_of(run):
+	"""The options the run's client keeps (issue #45): Tibia.exe's Tibia.cfg, the x64 client's Patella.ini, as
+	values (tools/settings_file.py); None without the file or the options; a text when it cannot be read."""
+	name = settings_file.PATELLA_INI if ct.client_of(run) == "patella" else settings_file.TIBIA_CFG
+	path = os.path.join(cf.folder(run), name)
+	if not os.path.isfile(path):
+		return None
+	with open(path, "rb") as f:
+		try:
+			return settings_file.values_of(name, f.read())
+		except settings_file.SettingsError as e:
+			return "%s: %s" % (name, e)
+
+
 def mask_error_txt(text):
 	"""The crash time (ctime) of every report: two runs of the same client differ there (issue #21)."""
 	if text is None:
@@ -408,7 +425,7 @@ def run(run_name, name, scenario, out):
 	result["packets"] = ct.client_packets(proxy.events)
 	result["problems"] = proxy.mismatches + proxy.errors
 	result["error.txt"] = mask_error_txt(read_file(run_name, "error.txt"))
-	result["Tibia.cfg"] = read_file(run_name, "Tibia.cfg")
+	result["options"] = options_of(run_name)
 	files = cf.collect(run_name, before, prefix + "-files")
 	result["files"] = sorted(files["written"]) + ["-" + n for n in files["removed"]]
 	with open(prefix + ".json", "w", encoding="utf-8", newline="\n") as f:
@@ -444,7 +461,14 @@ def compare(a, b, fork=True):
 	out = []
 	if fork:
 		a = expected_of(a)
-	for key in ("exit", "box", "characters", "error.txt", "Tibia.cfg", "files", "note"):
+	if fork and b.get("files") is not None:
+		# Issue #45: the x64 client's Patella.ini (its options, compared as "options") is not one of Tibia.exe's files.
+		b = dict(b, files=[n for n in b["files"] if n.lstrip("-") != settings_file.PATELLA_INI])
+	for key in ("exit", "box", "characters", "error.txt", "options", "files", "note"):
+		if key == "options" and a.get(key) != b.get(key) and isinstance(a.get(key), dict) and isinstance(b.get(key),
+				dict):
+			out += ["options: " + d for d in settings_file.differences(a[key], b[key], "Tibia.exe", "Patella.exe")]
+			continue
 		if a.get(key) != b.get(key):
 			out.append("%s: %r against %r" % (key, a.get(key), b.get(key)))
 	out += ct.diff_lists(a.get("packets", []), b.get("packets", []), "Tibia.exe", "Patella.exe")

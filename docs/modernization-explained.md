@@ -108,10 +108,14 @@ must keep matching.
   as many laptops, each click switches to the next one) and "CPU" (the compatibility choice: drawing without the
   graphics card). The line above the buttons names the device in use. A click switches at once, as the old engine
   buttons did; in fullscreen mode the choice is greyed out, as before.
-- **Patella.ini:** the modern client's own small settings file, next to Tibia.cfg, with lines like
-  `Device=gpu`. Tibia.cfg stays exactly as the original program writes it (so the original can still read it);
-  new settings go into Patella.ini instead. Today it remembers only the graphics device; later settings (such as
-  the server to connect to) will be added there.
+- **Patella.ini:** the modern client's only settings file, next to the data files, with lines like `Device=gpu`,
+  `LightEffects=yes` or `Hotkey0="exura",yes`. It holds everything the original program kept in Tibia.cfg (the
+  options, the hotkeys, the ignore list, the buddies, the console filters, the window's place) under the same
+  names, plus the modern client's own settings (the graphics device, the developer log). On its first start a
+  modern client reads an existing Tibia.cfg once and copies its settings into Patella.ini; after that it reads
+  only Patella.ini and never changes Tibia.cfg, so the original program keeps its own file. Texts are in double
+  quotes; letters such as "ä" are stored as the single bytes the client uses (Latin-1), so an editor must keep
+  that encoding. Later settings (such as the server to connect to) will be added there.
 - **CPU driver (lavapipe):** a version of Vulkan that runs on the main processor instead of the graphics card. It
   comes with the client as one file next to the program and is used only by the client, only when no graphics
   card with Vulkan is found (or when asked for); nothing is installed on the computer. The tests use it, so the

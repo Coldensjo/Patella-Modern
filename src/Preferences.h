@@ -1,5 +1,6 @@
-// Preferences.cpp: the options stored in Tibia.cfg. The option names in the
-// comments are the keys that the loader and saver after Preferences.cpp
+// Preferences.cpp: the options stored in Tibia.cfg by the original, in
+// Patella.ini by the x64 client (Patella-Modern issue #45). The option names in
+// the comments are the keys that the loader and saver after Preferences.cpp
 // (0x4ddc00, 0x4de890) use, which give the names of the globals.
 //
 // Names are ours unless a comment says they come from the binary.
@@ -7,6 +8,7 @@
 #pragma once
 
 #include "common.h" // IWYU pragma: keep (first: it configures the CRT for the C headers of types/FixedString.h)
+#include "settings/PreferenceKeys.h"
 #include "types/FixedString.h"
 #include <cstddef>
 
@@ -132,6 +134,13 @@ const char *GetBuddyDescription(int CharacterID);
 bool GetBuddyNotify(int CharacterID);
 bool GetSkillBar(int SkillNumber);
 void SetSkillBar(int SkillNumber, bool Value);
+// The original's Tibia.cfg reader and writer (0x4ddc00, 0x4de890; issue #45): the import and the golden
+// corpus's reference. The client calls InitPreferences, SavePreferences and ExitPreferences, which read and
+// write Patella.ini (settings/PreferenceKeys.h); it never writes Tibia.cfg.
+void ReadTibiaCfg();
+void WriteTibiaCfg();
+patella::settings::TPreferenceValues GetPreferenceValues();
+void SetPreferenceValues(const patella::settings::TPreferenceValues &Values);
 void InitPreferences();
 void SavePreferences();
 void ExitPreferences();

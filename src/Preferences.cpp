@@ -10,6 +10,14 @@
 // gap before Script.cpp) use the same data and end the file, in binary
 // order. The inline TReadScriptFile/TWriteScriptFile code after them
 // (0x4df550-0x4df6c9) is Script.h's, kept from this object.
+//
+// Patella-Modern issue #45: Patella.ini is the x64 client's only settings file.
+// The original's loader and saver are ReadTibiaCfg and WriteTibiaCfg: the first
+// imports an existing Tibia.cfg once, the second only the golden corpus calls
+// (the reference its tests read ReadTibiaCfg's results by, byte for byte); the
+// client never writes Tibia.cfg. InitPreferences, SavePreferences and
+// ExitPreferences, the names the client calls, read and write Patella.ini
+// (settings/PreferenceKeys.h) and come last.
 
 #include "Preferences.h"
 #include "Script.h"
@@ -18,10 +26,19 @@
 #include "Container.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include "log/Log.h"
+#include "settings/PreferenceKeys.h"
+#include "settings/Settings.h"
 #include <array>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <vector>
 
 namespace {
 
@@ -76,6 +93,11 @@ vector<TBuddy> Buddies(0, 9, 10);                         // 0x71c388, initialis
 vector<int> KnownHints(0, 9, 10);                         // 0x71c430, initialiser at 0x55a0d0
 
 } // namespace
+
+// Patella.ini's keys have the same numbers of hotkeys and skills (issue #45).
+static_assert(HOTKEYS == patella::settings::PreferenceHotkeys && SKILLS == patella::settings::PreferenceSkills
+		&& HOTKEY_LENGTH - 1 == patella::settings::PreferenceHotkeyLength,
+	"Preferences.h and settings/PreferenceKeys.h");
 
 // The arrays std::arrays (issue #60).
 static_assert(sizeof(SkillBars) == SKILLS && sizeof(BuddySortmethods) == 3 * sizeof(int) && sizeof(HotkeyAutoSend) == HOTKEYS
@@ -709,13 +731,13 @@ void SetSkillBar(int SkillNumber, bool Value)
 	SkillBars[SkillNumber] = Value;
 }
 
-// 0x4ddc00. Loads Tibia.cfg. Every key is tested on its own (no else), so
+// 0x4ddc00 (InitPreferences in the original). Loads Tibia.cfg. Every key is tested on its own (no else), so
 // a key runs one block only because the names differ. Unknown keys raise
 // no error but leave their value unread, which then fails as the next key.
 // Any error (also a missing file) resets everything to the defaults. In
 // both cases the options count as loaded, so SavePreferences writes them.
 // ServerAddress, ServerPort and LoginMessages are read and dropped.
-void InitPreferences()
+void ReadTibiaCfg()
 {
 	SetDefaultPreferences();
 	try {
@@ -942,14 +964,15 @@ void InitPreferences()
 	PreferencesLoaded = true;
 }
 
-// 0x4de890. Writes Tibia.cfg, only after InitPreferences ran; errors are
+// 0x4de890 (SavePreferences in the original). Writes Tibia.cfg, only after the
+// options were loaded (ReadTibiaCfg or InitPreferences); errors are
 // ignored. Odd behaviour kept: one counter serves all loops, and the White
 // list does not reset it, so it starts at NumberOfBuddyEntries and writes a
 // ',' before its first entry when there were buddies. SkillBars writes ','
 // before every skill above 0, also when nothing came before it. Deleted
 // buddies (CharacterID 0) are skipped. The fourth FullscreenMode value is
 // not saved.
-void SavePreferences()
+void WriteTibiaCfg()
 {
 	int i = 0;
 	if (!PreferencesLoaded)
@@ -1175,7 +1198,225 @@ void SavePreferences()
 	}
 }
 
-// 0x4df520. Frees the message of the day and saves Tibia.cfg.
+// The options as WriteTibiaCfg writes them: the hotkeys with a text, the windowed
+// mode, the lists up to their counts, the buddies without the deleted ones, the
+// permanent entries of the Talk lists, NoStretching's "not set yet" as no, no
+// fourth FullscreenMode value. A description is read as WriteTibiaCfg reads it,
+// up to its NUL, within the entry (AssignDescriptionRead's bytes, issue #85).
+patella::settings::TPreferenceValues GetPreferenceValues()
+{
+	patella::settings::TPreferenceValues Values;
+	Values.TestServer = TestServerLogin;
+	if (FullscreenMode.Width != 0)
+		Values.FullscreenMode = std::array<int, 3>{FullscreenMode.Width, FullscreenMode.Height, FullscreenMode.Depth};
+	Values.WindowsMousepointer = WindowsMousepointer;
+	Values.LightEffects = LightEffects;
+	Values.TextualEffects = TextualEffects;
+	Values.CreatureInfo = CreatureInfo;
+	Values.NoStretching = NoStretching == 1;
+	Values.ConfineFramerate = ConfineFramerate;
+	Values.Engine = Engine;
+	for (std::size_t i = 0; i < HOTKEYS; i++) {
+		Values.Hotkeys[i] = static_cast<const char *>(Hotkeys[i]);
+		Values.HotkeyAutoSend[i] = !Values.Hotkeys[i].empty() && HotkeyAutoSend[i];
+	}
+	Values.WindowedMode = {WindowedX, WindowedY, WindowedWidth, WindowedHeight};
+	Values.WindowedMaximized = WindowedMaximized;
+	Values.ConsoleHeight = ConsoleHeight;
+	Values.AutomapZoom = AutomapZoom;
+	for (int i = 0; i < NumberOfContentWindows; i++)
+		Values.ContentWindows.push_back({ContentWindows(i).ID, ContentWindows(i).Size});
+	Values.BuddySortmethods = BuddySortmethods;
+	Values.BuddyHideOffline = BuddyHideOffline;
+	for (int i = 0; i < NumberOfOpenDialogs; i++)
+		Values.OpenDialogs.push_back(OpenDialogs(i));
+	Values.LastMotD = LastMotD;
+	Values.InfoMessages = InfoMessages;
+	Values.EventMessages = EventMessages;
+	Values.StatusMessages = StatusMessages;
+	Values.TimeStamps = TimeStamps;
+	Values.PrivateMessages = PrivateMessages;
+	for (int i = 0; i < NumberOfOpenChannels; i++)
+		Values.OpenChannels.push_back(OpenChannels(i));
+	Values.ClassicControl = ClassicControl;
+	Values.AutoChaseOff = AutoChaseOff;
+	Values.AttackMode = AttackMode;
+	Values.ChaseMode = ChaseMode;
+	Values.SecureMode = SecureMode;
+	for (int i = 0; i < NumberOfBuddyEntries; i++) {
+		const TBuddy &Buddy = Buddies(i);
+		if (Buddy.CharacterID == 0)
+			continue;
+		const char *Description = reinterpret_cast<const char *>(&Buddy) + offsetof(TBuddy, Description);
+		const std::size_t Room = sizeof(TBuddy) - offsetof(TBuddy, Description);
+		const void *End = memchr(Description, 0, Room);
+		const std::size_t Length = End == nullptr ? Room : static_cast<std::size_t>(static_cast<const char *>(End) - Description);
+		Values.Buddies.push_back({Buddy.CharacterID, Buddy.Icon, std::string(Description, Length), Buddy.Notify});
+	}
+	const auto Names = [](char *List, bool (*Permanent)(const char *)) {
+		std::vector<std::string> Result;
+		if (List == nullptr)
+			return Result;
+		std::string_view Rest = List;
+		while (!Rest.empty()) {
+			const std::size_t End = Rest.find('\n');
+			const std::string Name(Rest.substr(0, End));
+			Rest = End == std::string_view::npos ? std::string_view() : Rest.substr(End + 1);
+			if (!Name.empty() && Permanent(Name.c_str()))
+				Result.push_back(Name);
+		}
+		free(List);
+		return Result;
+	};
+	Values.White = Names(GetBuddyIgnoreText(), IsPermanentBuddyIgnore);
+	Values.Ignore = Names(GetIgnoreListText(), IsPermanentIgnore);
+	for (int i = 0; i < NumberOfKnownHints; i++)
+		Values.KnownHints.push_back(KnownHints(i));
+	Values.ShowNewHints = ShowNewHints;
+	Values.LevelBar = LevelBar;
+	Values.MagLevelBar = MagLevelBar;
+	for (std::size_t i = 0; i < SKILLS; i++)
+		Values.SkillBars[i] = SkillBars[i];
+	return Values;
+}
+
+// The options as ReadTibiaCfg reads the file WriteTibiaCfg wrote with Values,
+// after SetDefaultPreferences: the lists are appended to. PreferenceKeys.cpp's
+// ReadPreferences already did what the original's reader does to the values
+// (a hotkey's line breaks, ChaseMode 2, a repeated dialog).
+void SetPreferenceValues(const patella::settings::TPreferenceValues &Values)
+{
+	TestServerLogin = Values.TestServer;
+	if (Values.FullscreenMode) {
+		FullscreenMode.Width = (*Values.FullscreenMode)[0];
+		FullscreenMode.Height = (*Values.FullscreenMode)[1];
+		FullscreenMode.Depth = (*Values.FullscreenMode)[2];
+	}
+	WindowsMousepointer = Values.WindowsMousepointer;
+	LightEffects = Values.LightEffects;
+	TextualEffects = Values.TextualEffects;
+	CreatureInfo = Values.CreatureInfo;
+	NoStretching = Values.NoStretching ? 1 : 0;
+	ConfineFramerate = Values.ConfineFramerate;
+	Engine = Values.Engine;
+	for (std::size_t i = 0; i < HOTKEYS; i++) {
+		if (Values.Hotkeys[i].empty())
+			continue;
+		Hotkeys[i].Assign(Values.Hotkeys[i].c_str());
+		HotkeyAutoSend[i] = Values.HotkeyAutoSend[i];
+	}
+	WindowedX = Values.WindowedMode[0];
+	WindowedY = Values.WindowedMode[1];
+	WindowedWidth = Values.WindowedMode[2];
+	WindowedHeight = Values.WindowedMode[3];
+	WindowedMaximized = Values.WindowedMaximized;
+	ConsoleHeight = Values.ConsoleHeight;
+	AutomapZoom = Values.AutomapZoom;
+	for (const patella::settings::TContentWindowValue &Entry : Values.ContentWindows) {
+		ContentWindows(NumberOfContentWindows).ID = Entry.ID;
+		ContentWindows(NumberOfContentWindows).Size = Entry.Size;
+		NumberOfContentWindows++;
+	}
+	BuddySortmethods = Values.BuddySortmethods;
+	BuddyHideOffline = Values.BuddyHideOffline;
+	for (const int Dialog : Values.OpenDialogs) {
+		// ReadTibiaCfg's duplicate check, on the vector's fields as it reads them (entries an earlier load
+		// left count too; in the client InitPreferences runs once).
+		int i = OpenDialogs.min;
+		for (;;) {
+			if (i >= OpenDialogs.max) {
+				OpenDialogs(NumberOfOpenDialogs) = Dialog;
+				NumberOfOpenDialogs++;
+				break;
+			}
+			if (OpenDialogs.entry[i++] == Dialog)
+				break;
+		}
+	}
+	LastMotD = Values.LastMotD;
+	InfoMessages = Values.InfoMessages;
+	EventMessages = Values.EventMessages;
+	StatusMessages = Values.StatusMessages;
+	TimeStamps = Values.TimeStamps;
+	PrivateMessages = Values.PrivateMessages;
+	for (const int Channel : Values.OpenChannels) {
+		OpenChannels(NumberOfOpenChannels) = Channel;
+		NumberOfOpenChannels++;
+	}
+	ClassicControl = Values.ClassicControl;
+	AutoChaseOff = Values.AutoChaseOff;
+	AttackMode = Values.AttackMode;
+	ChaseMode = Values.ChaseMode;
+	SecureMode = Values.SecureMode;
+	for (const patella::settings::TBuddyValue &Entry : Values.Buddies) {
+		TBuddy &Buddy = Buddies(NumberOfBuddyEntries);
+		Buddy.CharacterID = Entry.CharacterID;
+		Buddy.Icon = Entry.Icon;
+		Buddy.AssignDescriptionRead(Entry.Description.c_str());
+		Buddy.Notify = Entry.Notify;
+		NumberOfBuddyEntries++;
+	}
+	for (const std::string &Name : Values.White)
+		AddBuddyIgnore(Name.c_str(), true);
+	for (const std::string &Name : Values.Ignore)
+		IgnoreName(Name.c_str(), true);
+	for (const int Hint : Values.KnownHints) {
+		KnownHints(NumberOfKnownHints) = Hint;
+		NumberOfKnownHints++;
+	}
+	ShowNewHints = Values.ShowNewHints;
+	LevelBar = Values.LevelBar;
+	MagLevelBar = Values.MagLevelBar;
+	for (std::size_t i = 0; i < SKILLS; i++)
+		SkillBars[i] = Values.SkillBars[i];
+}
+
+// Patella-Modern issue #45. Loads the options from Patella.ini; when it has
+// none (no PreferencesVersion key), imports Tibia.cfg once: the original's
+// reader (ReadTibiaCfg; the defaults without a Tibia.cfg or with one it cannot
+// read), then the options go into Patella.ini at once. Tibia.cfg is left as it is.
+void InitPreferences()
+{
+	using namespace patella::settings;
+	SetDefaultPreferences();
+	if (const std::optional<TSettingsFile> File = Load(FileName, NewFileNewline); File && HasPreferences(*File)) {
+		TPreferenceValues Values = GetPreferenceValues();
+		for (const std::string &Problem : ReadPreferences(*File, Values))
+			patella::log::Warn("{}: {}", FileName, Problem);
+		SetPreferenceValues(Values);
+		PreferencesLoaded = true;
+		return;
+	}
+	std::error_code Error;
+	const bool Import = std::filesystem::exists("Tibia.cfg", Error);
+	ReadTibiaCfg();
+	if (Import)
+		patella::log::Info("{}: the options imported from Tibia.cfg (Tibia.cfg is not written)", FileName);
+	else
+		patella::log::Info("{}: no options and no Tibia.cfg: the default options", FileName);
+	SavePreferences();
+}
+
+// Patella-Modern issue #45. Writes the options into Patella.ini (its other keys
+// and lines stay), only after InitPreferences loaded them; a failure is
+// reported in the log.
+void SavePreferences()
+{
+	using namespace patella::settings;
+	if (!PreferencesLoaded)
+		return;
+	std::optional<TSettingsFile> File = LoadForUpdate(FileName);
+	if (!File) {
+		patella::log::Warn("{} cannot be read: the options are not saved", FileName);
+		return;
+	}
+	WritePreferences(*File, GetPreferenceValues());
+	if (!Save(FileName, *File))
+		patella::log::Warn("{} cannot be written: the options are not saved", FileName);
+}
+
+// 0x4df520. Frees the message of the day and saves the options (Patella.ini
+// since issue #45; Tibia.cfg in the original).
 void ExitPreferences()
 {
 	if (MotD != nullptr)

@@ -397,8 +397,10 @@ tree (about 85 MB). The CPU driver's `vulkan_lvp.dll` and `lvp_icd.x86_64.json` 
 PatellaTest.exe and `tests_vulkan.exe`. The engine is the x64 client's engine 2 (curEngine is always 2; Tibia.cfg's
 `Engine` keeps the original's number for Tibia.exe; notes/vulkan.md, "Choosing the engine"). Its device is the
 advanced graphics options' choice (issue #31: "Automatic", "GPU", "CPU"; notes/vulkan.md, "Choosing the device"),
-stored as `Device` in Patella.ini, the fork's own settings file next to Tibia.cfg (src/settings/Settings.cpp, in
-patella_core); the environment variable `PATELLA_VULKAN` (`auto`, `gpu`, `gpuN`, `cpu`) overrides it at start-up
+stored as `Device` in Patella.ini, the fork's settings file (src/settings/Settings.cpp, in patella_core; since issue
+#45 the only one: it holds every option of Tibia.cfg under Tibia.cfg's names, src/settings/PreferenceKeys.h, the
+first start imports an existing Tibia.cfg once and the client never writes Tibia.cfg; notes/decisions.md, "Patella.ini
+as the only settings file"); the environment variable `PATELLA_VULKAN` (`auto`, `gpu`, `gpuN`, `cpu`) overrides it at start-up
 and is never written. The developer log (issue #77, D16; src/log/Log.h, notes/decisions.md "The developer log and the
 fatal-error path"): every line goes to stderr as `[<level>] <message>`; Patella.ini's `LogLevel` (`error`, `warn`,
 `info`, the default, or `debug`) and `LogFile` (a file the lines are appended to as well; none by default) set it,
@@ -411,8 +413,8 @@ loader). `-DPATELLA_CLIENT=OFF`
 (the hosted CI) builds none of the engine and downloads nothing.
 
 Run either Patella.exe (or PatellaTest.exe) only from a folder with copies of the data files (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg; for
-example build\run), never from the root: the client rewrites Tibia.cfg on exit, and the root's data files
-may be the user's own.
+example build\run), never from the root: the client writes Patella.ini (issue #45; Tibia.cfg until then) on exit, and
+the root's files may be the user's own.
 
 ## Test server
 
@@ -436,7 +438,8 @@ backup: notes/testserver.md.
 `python -I tools/compare_traffic.py` (issue #19) plays a scripted session (walk, talk, look, containers,
 use, trade, logout) with both clients against that server through a recording proxy (tools/proxy.py,
 which decrypts with the server's key), replays each recording to both clients and compares their packets,
-their state after every step and their Tibia.cfg: notes/traffic.md. `--patella <exe>` tests another x64
+their state after every step and their options (Tibia.exe's Tibia.cfg, the x64 client's Patella.ini since issue
+#45, by value): notes/traffic.md. `--patella <exe>` tests another x64
 Patella.exe (default build\windows-x64\Release\Patella.exe since issue #94; until then the oracle's,
 build\oracle-x86\Release). tools/client_state.py reads Tibia.exe's memory (until issue #94 also the oracle's
 Patella.exe's, with its globals and field offsets from its PDB by name, issue #6); `python -I tools/client_state.py --layout <Patella.exe>` checks them without a client (for x86: every one
@@ -446,7 +449,8 @@ test mode's control channel (tools/testmode_client.py: the probe's state, window
 clicks at; notes/testmode.md, "The control channel"); client_state.py refuses a 64-bit process.
 
 `python -I tools/compare_files.py` (issue #21) compares the files both clients write after the same sessions
-(Tibia.cfg after the option dialogs, the automap files after a walk over three floors, a saved channel,
+(the options after the option dialogs: Tibia.exe's Tibia.cfg against the x64 client's Patella.ini by value since
+issue #45, the automap files after a walk over three floors, a saved channel,
 the forced error's end; the files a patch from the login server writes until issue #75, which removed the patcher;
 error.txt and the error report flow until issue #74, which made Tibia.exe's error.txt a deliberate difference,
 tools/deliberate.py):
@@ -471,7 +475,8 @@ channel; the frame dump's pictures and masks are the scenes), never hooked.
 
 `python -I tools/testmode_check.py` (Patella-Modern issue #21) runs the test build, PatellaTest.exe, twice with
 the same input script (tests/testmode/login-walk.script: login, a square walk, a said line, logout) against that
-server through tools/proxy.py and compares the runs' client packets, raw frames, driver logs and Tibia.cfg;
+server through tools/proxy.py and compares the runs' client packets, raw frames, driver logs and Patella.ini
+(Tibia.cfg until issue #45, which the client now never writes: checked);
 nothing drives the window from outside, and the client drops the desktop's own input. Since issue #22 it also
 checks the test mode's dumps in every run: each state dump on its own (one per dump command, StateDump.h's keys, a
 well-formed window tree; until Patella-Modern issue #92 against client_state.py's reading of the same moment from the

@@ -8,7 +8,8 @@
 #	TMyException.cpp      the exception type of PATELLA_ASSERT (compat/assertion.h) and TERROR (common.h)
 #	Utils.cpp             the Latin-1 string helpers, outfit colours and packet buffers
 #	Skins.cpp             the rectangles of the GUI graphics in Tibia.pic
-#	settings/Settings.cpp Patella.ini, the fork's own settings file (issue #31, plan D12)
+#	settings/Settings.cpp Patella.ini, the fork's settings file (issues #31, #45, plan D12)
+#	settings/PreferenceKeys.cpp  the options of Tibia.cfg as Patella.ini's keys (issue #45)
 #	log/LogSettings.cpp   the developer log's keys in Patella.ini (issue #77, plan D16; the log itself,
 #	                      log/Log.h, is header only)
 #	Extern/regexp         Henry Spencer's regexp (K&R C, compiled as C17)
@@ -29,6 +30,7 @@ set(patella_core_sources
 	src/Utils.cpp
 	src/Skins.cpp
 	src/settings/Settings.cpp
+	src/settings/PreferenceKeys.cpp
 	src/log/LogSettings.cpp
 	src/Extern/regexp/regexp.c)
 list(TRANSFORM patella_core_sources PREPEND "${PROJECT_SOURCE_DIR}/")

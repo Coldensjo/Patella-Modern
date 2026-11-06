@@ -9423,6 +9423,8 @@ The comparison tools expect these from the fork's clients against Tibia.exe and 
 | #75 (D9) | No patched file written, replaced or removed (Tibia.da_, Tibia.sp_, Tibia.pi_, Patch.ex_, Tibia.bak; Tibia.dat, Tibia.spr, Tibia.pic, Patch.exe) | ApplyPatch, ApplyFullPatch, InstallPatch (events 0x41-0x44) |
 | #75 (D9) | No data file reloaded, no program started, no "Updating" message | events 0x45-0x47 (ReloadObjects, ReloadSprites, ReloadPictures); "Updating", then event 0x48: CloseProgram and Run's `_execl("patch.exe")` |
 | #71 | The area a live resize uncovers is black | stripes of old pixels (not compared: no tool moves a border) |
+| #45 (D12) | No Tibia.cfg written; the options go into Patella.ini and are compared with Tibia.exe's Tibia.cfg by value (tools/settings_file.py) | SavePreferences writes Tibia.cfg (the options and hotkey dialogs, a logout, the exit) |
+| #45 (D12) | Patella.ini written at the first start without the options in it (the import of Tibia.cfg, or the defaults) | nothing written at the start |
 
 ### The tests
 
@@ -12224,3 +12226,152 @@ Logs: build\logs\issue-97 of the branch's worktree; golden replayed main's froze
   device named by the probe (llvmpipe, CPU) through the device observer. The GPU pass not run (#98).
 - `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, 0 gone; `python -I tools/banned_calls.py`
   exit 0 (0 calls, 121 files); clang-format with CLAUDE.md's command exit 0.
+
+## Patella.ini as the only settings file (Patella-Modern issue #45, M6)
+
+Settled by Claude Opus 5.5, November 6, 2026, on the owner's decision of November 3, 2026: Tibia.cfg kept the
+original's format until the oracle retired (#94), then Patella.ini becomes the x64 client's only settings file. Plan
+D12 and section 3 (tier A) say so now.
+
+### The keys (high)
+
+Every option Tibia.cfg holds (Preferences.cpp's reader and writer, 0x4ddc00 and 0x4de890) is a key of Patella.ini under
+Tibia.cfg's own name, ASCII case-insensitive like every key there (src/settings/PreferenceKeys.h lists them with an
+example each): the flags as `yes`/`no` (`TestServer`, `WindowsMousepointer`, `LightEffects`, `TextualEffects`,
+`NoStretching`, `BuddyHideOffline`, the console filters `InfoMessages`, `EventMessages`, `StatusMessages`, `TimeStamps`,
+`PrivateMessages`, `ClassicControl`, `AutoChaseOff`, `SecureMode` (a number in Tibia.cfg), `ShowNewHints`, `LevelBar`,
+`MagLevelBar`), the numbers (`CreatureInfo`, `ConfineFramerate`, `Engine`, `ConsoleHeight`, `AutomapZoom`, `LastMotD`,
+`AttackMode`, `ChaseMode`), the tuples as comma lists (`FullscreenMode=640,480,32`, no line while none was chosen;
+`WindowedMode=10,10,800,600,no`; `BuddySortmethods=2,1,0`), the lists (`OpenDialogs=1,4`, `OpenChannel=5,7`,
+`KnownHints=1,2,3`, `SkillBars=0,1,2,3,4,5,6`, `White="name",...`, `Ignore="name",...`), and the entries that repeat a
+key in Tibia.cfg as numbered keys: `Hotkey<N>="text",<sent at once>` with Tibia.cfg's number N (0-35, F1 is 0; a line
+only for a hotkey with a text), `ContentWindow<n>=ID,Size` and `Buddy<n>=CharacterID,Icon,"description",notify` with
+n 1, 2, ... in the list's order. `PreferencesVersion=1` marks a file that has the options. ServerAddress, ServerPort and
+LoginMessages, which the original reads and drops, are not kept. Why Tibia.cfg's names: a user (and the comparisons)
+can find each option by the name they know; the numbered keys keep one option per line, as the format asks.
+
+A save sets the keys where they are and appends the missing ones; the numbered keys of entries that are gone, and
+FullscreenMode while none is chosen, are removed (TSettingsFile::Remove, new; also Keys). Every other line (comments,
+Device, LogLevel, LogFile, unknown keys) stays as it was. A new file starts with `# Patella-Modern's settings`, CR LF
+(Settings.h NewFileComment, NewFileNewline, now shared with DeviceSettings.cpp through settings::LoadForUpdate).
+
+### The escaping and the 8-bit bytes (high)
+
+A value is a list of fields separated by `,`: a decimal number (32 bits), `yes`/`no`, or a text in double quotes, in
+which `\\`, `\"`, `\n`, `\r`, `\t` and `\xHH` are escapes and the writer escapes every other byte below 0x20 and 0x7f
+as `\xHH` (`\x00` is refused: the client's texts end there). So a text keeps its spaces at both ends, a `,`, an `=`
+(only the first `=` of a line ends the key) and line breaks, and no line of the file ever holds a line end or a NUL.
+Bytes from 0x80 on are written and read as they are: the client's texts are Latin-1 bytes (a buddy's description, a
+name in the ignore list, a hotkey's text), and plan D4 (UTF-8 at the platform boundary) is undecided, so the file is
+Latin-1 where a text has such a byte, not UTF-8. The conservative choice: no conversion now that D4 could have to undo;
+an editor must keep those bytes. When D4 is decided, the format can say so (PreferencesVersion 2, or UTF-8 at this
+boundary).
+
+### The import (high)
+
+InitPreferences (the name the client calls, Control.cpp InitControl) sets the defaults and reads Patella.ini; when it
+has `PreferencesVersion`, the options are read from it and Tibia.cfg is not opened. Without it (no Patella.ini, or one
+with only issue #31's or #77's keys), the original's reader runs on Tibia.cfg (ReadTibiaCfg, unchanged: a missing or
+unreadable Tibia.cfg gives the defaults, as in the original), and the options go into Patella.ini at once, so the
+import happens once. SavePreferences and ExitPreferences write Patella.ini where the original wrote Tibia.cfg (closing
+the options or hotkey dialog, a logout, the exit); nothing in the client writes Tibia.cfg. The log says which way the
+options came (`[info] Patella.ini: the options imported from Tibia.cfg ...`); a value that cannot be read is a warning.
+
+The reading gives the client the options the original's reader would give it from the Tibia.cfg its writer wrote with
+the same values: ChaseMode 2 reads as 0; a hotkey's text with its sent-at-once flag gets the original's line-break
+handling (a final break: sent at once; the others: spaces) and is cut to 255 bytes; an OpenDialogs number is added
+only when the original's duplicate check would add it (SetPreferenceValues keeps that check as ReadTibiaCfg has it,
+on the vector's fields, entries an earlier load left included; the client loads once); NoStretching's "not set yet"
+(2) is written as no, as the original wrote it; a deleted buddy (CharacterID 0) is not written; a description is read
+as the original's writer read it, up to its NUL within the entry (#85's bytes). One deliberate difference, for a
+hand-edited file only: a value Patella.ini's reader cannot read keeps that option's default and is reported, where the
+original's reader dropped every option on any error. The client never writes such a value.
+
+### The original's reader and writer kept, the golden checks unchanged (high)
+
+Preferences.cpp's InitPreferences and SavePreferences of the original are ReadTibiaCfg and WriteTibiaCfg now (their
+comments give the original's names and addresses). ReadTibiaCfg is the import. WriteTibiaCfg is not called by the
+client; it stays because the golden corpus's Preferences tests read ReadTibiaCfg's results through it (CompareSaved
+compares the Tibia.cfg it writes with the original's, byte for byte, after each of the 400 random files and the
+long-description case), so removing it would retire the checks of the import path too. The tests call the new names;
+the original's ExitPreferences (free the message of the day, save) is ours followed by WriteTibiaCfg. No check is
+retired and the counts are the same: 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures. The tests that
+fake the three entry points (commworld.cpp's InitPreferences, SavePreferences and ExitPreferences, dialogs_tests.cpp's
+SavePreferences) fake the names the client calls, so they are unchanged.
+
+New tests: tests_core's core_preferences_test.cpp (every preset: the escaping of every byte, the fields, the round trip
+of every option, the removal of entries that are gone with the other keys kept, the reading as the original's reader,
+the values it cannot read) and preferences_file (tests/golden/preferences_file_test.cpp: the client's own Preferences.cpp
+and Talk.cpp, no corpus, as dialogwindow_setsize; on Windows and both Linux presets): the import of a Tibia.cfg with
+every kind of option into Patella.ini; the options read back from it equal to the original's reader's; a later start
+does not import a changed Tibia.cfg; no Tibia.cfg: the defaults, and no Tibia.cfg made; a Patella.ini with only Device
+and LogLevel keeps them; a Tibia.cfg the reader refuses imports the defaults; Tibia.cfg's bytes and time unchanged
+after the saves and the exit.
+
+### The comparisons (high)
+
+Tibia.exe still writes Tibia.cfg; the x64 client writes Patella.ini. tools/settings_file.py reads both as values
+(cfg_values: Tibia.exe's reader's semantics; ini_values: PreferenceKeys.cpp's) and compare_options compares Tibia.exe's
+Tibia.cfg (the one it wrote, else the run's start file: the x64 client imported it) with the x64 client's Patella.ini,
+which it must have written (its start imports the run folder's Tibia.cfg). tools/deliberate.py drops Tibia.cfg from
+Tibia.exe's written files (files) and lists the difference (expected_lines); each tool drops Patella.ini from the x64
+client's and compares the options instead:
+
+- reference.py compare: d. files compares the options of files\Tibia.cfg (or Tibia.cfg.start) with the client's
+  Patella.ini, and the options session's saved Tibia.cfg (after-options) with the client's saved Patella.ini: the run's
+  script is the reference's with `save Tibia.cfg` as `save Patella.ini` (the frozen recordings are not touched).
+- compare_files.py: the written files as before without Tibia.cfg and Patella.ini, the options by value; the options
+  scenario also compares the copies after the options dialog.
+- compare_traffic.py d.: the options each client wrote on exit, equal across the runs of a kind, by value.
+- testmode_check.py d.: Patella.ini identical across the runs and with the options; the run's Tibia.cfg never written.
+- compare_network.py: "options" (the values) in place of "Tibia.cfg"'s text; Patella.ini not one of the files.
+
+Not through the state dump or the probe: the frozen reference states (Tibia.exe's, #93) have no options, the dump's
+keys are client_state.py's (testmode_check.py's check h), and the files are written at the same checkpoints (the
+options dialog's OK, the exit), so the written files are the comparison's source on both sides. The issue's "through
+the state dump" is met this way; a probe key for the options can come when a tool needs the options of a running
+client.
+
+### Deliberate tier A differences (high)
+
+Added to the table of "Deliberate tier A differences" (issue #74's section):
+
+| Issue | Difference | Where Tibia.exe differs |
+|---|---|---|
+| #45 (D12) | No Tibia.cfg written; the options in Patella.ini, compared with Tibia.exe's Tibia.cfg by value | SavePreferences writes Tibia.cfg (the options and hotkey dialogs, a logout, the exit) |
+| #45 (D12) | Patella.ini written at the first start without the options in it (the import of Tibia.cfg, or the defaults) | Tibia.exe writes nothing at its start |
+
+### Found, not done (high)
+
+- Plan D4's row still says "Tibia.cfg next to the data files": D4 is undecided and the owner's; the settings file's
+  place is Patella.ini's now (D12, section 7's file layer).
+- The probe has no options; a tool that needs the options of a running client can add them (StateDump.h, "The probe").
+- names.tsv (the decompilation workspace, not in the repository) still names 0x4ddc00 and 0x4de890 InitPreferences and
+  SavePreferences, the original's names; the source's comments give both.
+- compare_rendering.py seeds Tibia.cfg for each engine run; the x64 client imports it (the run folders are emptied
+  first), so it works unchanged. Not run here (#98).
+
+### The gates (high)
+
+Logs: build\logs\issue-45 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 18/18, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), preferences_file and tests_core passed. windows-x64-debug and
+  windows-x64-asan: exit 0, 17/17 each, golden the same. windows-x64-gcc: exit 0, 11/11. linux-x64-gcc: exit 0, 15/15;
+  linux-x64-clang (ASan, UBSan): exit 0, 14/14; golden the same on both, preferences_file passed. The first GCC builds
+  failed on -Wshadow in PreferenceKeys.cpp (TReader's constructor), fixed.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (traffic, options, walk, error), the options equal by value in each (37 options) and in the options
+  session's saved copy; `python -I tools/compare_files.py` exit 0, no differences but the deliberate ones (#45, #74),
+  the options equal at the exit and after the options dialog; `python -I tools/compare_traffic.py` exit 0, no
+  differences (d.: live 2 files, replay 4 files, equal); `python -I tools/testmode_check.py --runs 2` exit 0 (d.:
+  Patella.ini identical, Tibia.cfg as each run started).
+- The manual-equivalent check (manual-check.log): PatellaTest.exe in a fresh folder with the data files and the options
+  session's Tibia.cfg (dated January 1, 2026): the first run logs the import and writes Patella.ini, the second reads
+  it (no import line); `tools/settings_file.py Tibia.cfg Patella.ini`: 0 differences; Tibia.cfg's SHA-256 and time
+  unchanged after both runs.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0.
+  clang-format (CLAUDE.md's command): exit 0. The tools' self-tests (settings_file.py, deliberate.py, reference.py):
+  passed.
+- Hosted CI on the branch: green.

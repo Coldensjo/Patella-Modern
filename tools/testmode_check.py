@@ -40,7 +40,9 @@ Compared, run 1 against every later run:
   b. the raw client frames as sent (encrypted, with the XTEA key, the RSA block's random bytes and the
      padding): identical too, because the virtual clock gives srand the same seed in every run;
   c. the driver's logs (every event with its virtual time and script line): identical;
-  d. the Tibia.cfg the client wrote when it closed: identical.
+  d. the Patella.ini the client wrote (Patella-Modern issue #45: its options, imported from the run's
+     Tibia.cfg at the start and saved when it closed): identical, with the options; the run's Tibia.cfg
+     never written (as the run started).
 Compared in every run (issue #22; the client runs with --test-out <out>\run<N>,
 tools/testmode_dumps.py):
   e. each state dump of the client (state-<NNN>.json, at the script's dump commands) on its own: one
@@ -65,8 +67,8 @@ the recordings already in --out (no server, no client).
 The client runs with PATELLA_VULKAN=cpu (--vulkan): the pinned CPU driver next to PatellaTest.exe,
 copied into the run folder, for frames that do not depend on the machine's GPU.
 
-Results in --out: run<N>.jsonl (the proxy's recordings), run<N>.log (the driver's), run<N>.Tibia.cfg,
-run<N>\ (the client's dumps), report.txt.
+Results in --out: run<N>.jsonl (the proxy's recordings), run<N>.log (the driver's), run<N>.Patella.ini and
+run<N>.Tibia.cfg (the run folder's after the run), run<N>\ (the client's dumps), report.txt.
 """
 
 import argparse
@@ -85,6 +87,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import desktop  # noqa: E402
 import compare_traffic as ct  # noqa: E402
 import proxy as px  # noqa: E402
+import settings_file  # noqa: E402
 import testmode_dumps as td  # noqa: E402
 import testserver  # noqa: E402
 
@@ -179,7 +182,7 @@ def game_answered(events):
 def run_files(out, number):
 	"""A run's files and folder in out."""
 	prefix = os.path.join(out, "run%d" % number)
-	return [prefix + suffix for suffix in (".jsonl", ".log", ".Tibia.cfg", "")]
+	return [prefix + suffix for suffix in (".jsonl", ".log", ".Patella.ini", ".Tibia.cfg", "")]
 
 
 def set_aside(out, number, attempt):
@@ -231,7 +234,9 @@ def live_run(number, script, out, players, timeout, vulkan):
 			run_client(script, prefix + ".log", timeout, prefix, vulkan)
 		if proxy.errors:
 			raise CheckError("proxy errors: %s" % proxy.errors)
-		shutil.copyfile(os.path.join(ct.run_dir(RUN), "Tibia.cfg"), prefix + ".Tibia.cfg")
+		for name in (settings_file.PATELLA_INI, settings_file.TIBIA_CFG):
+			if os.path.isfile(os.path.join(ct.run_dir(RUN), name)):
+				shutil.copyfile(os.path.join(ct.run_dir(RUN), name), prefix + "." + name)
 	finally:
 		ct.server_script("stop")
 
@@ -335,14 +340,27 @@ def compare(out, runs, script, quiet=False, report=None):
 		failed |= bool(differences)
 
 	say()
-	say("d. Tibia.cfg written on exit")
-	cfgs = {}
+	say("d. Patella.ini written (issue #45: the options; Tibia.cfg never written)")
+	inis, untouched = {}, True
+	start = ct.TIBIA_CFG.replace("\n", "\r\n").encode("ascii")
 	for number in range(1, runs + 1):
-		path = os.path.join(out, "run%d.Tibia.cfg" % number)
-		cfgs[number] = open(path, encoding="latin-1").read() if os.path.isfile(path) else None
-	distinct = set(cfgs.values())
-	say("  %d files, %s" % (len(cfgs), "identical" if len(distinct) == 1 and None not in distinct else "DIFFERENT"))
-	failed |= len(distinct) != 1 or None in distinct
+		path = os.path.join(out, "run%d.%s" % (number, settings_file.PATELLA_INI))
+		if os.path.isfile(path):
+			with open(path, "rb") as f:
+				inis[number] = f.read()
+		else:
+			inis[number] = None
+		path = os.path.join(out, "run%d.%s" % (number, settings_file.TIBIA_CFG))
+		with open(path, "rb") as f:
+			if f.read() != start:
+				untouched = False
+				say("  run %d: Tibia.cfg was written: DIFFERENT" % number)
+	distinct = set(inis.values())
+	options = all(data is not None and settings_file.ini_values(data) is not None for data in inis.values())
+	say("  %d files, %s%s; Tibia.cfg %s" % (len(inis), "identical" if len(distinct) == 1 and None not in distinct
+		else "DIFFERENT", "" if options else ", without the options: DIFFERENT", "as each run started" if untouched
+		else "WRITTEN"))
+	failed |= len(distinct) != 1 or None in distinct or not options or not untouched
 
 	say()
 	say("server packets (not compared: the world moves on its own)")

@@ -32,8 +32,9 @@ Runs the scripted session of tools/session_client.py with both clients and compa
       trade, console) and the window tree (classes, places, sizes, label texts) after every
       step, Tibia.exe against Patella.exe in the replay of the same recording: identical (the x64
       client's from its test mode's probe, below);
-   d. the Tibia.cfg each client wrote when it closed: identical across all runs of the same
-      kind;
+   d. the options each client wrote when it closed: equal across all runs of the same kind,
+      by value (Patella-Modern issue #45: Tibia.exe's Tibia.cfg, the x64 client's Patella.ini;
+      tools/settings_file.py);
    e. server packets of the two live sessions: listed, not required to be equal (the
       server's world moves on its own: creatures walk, times differ); the replay shows that
       the clients handle the same server data the same way.
@@ -63,6 +64,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import desktop  # noqa: E402
 import proxy as px  # noqa: E402
 import session_client as sc  # noqa: E402
+import settings_file  # noqa: E402
 import login_client as lc  # noqa: E402
 import testserver  # noqa: E402
 
@@ -270,6 +272,11 @@ def reset_cfg(name):
 		f.write(TIBIA_CFG)
 
 
+def settings_file_name(client):
+	"""The file a client keeps its options in: the x64 client's Patella.ini (issue #45), Tibia.exe's Tibia.cfg."""
+	return settings_file.PATELLA_INI if client_of(client) == "patella" else settings_file.TIBIA_CFG
+
+
 def read_cfg(name):
 	with open(os.path.join(run_dir(name), "Tibia.cfg"), "r", encoding="latin-1") as f:
 		return f.read()
@@ -372,7 +379,8 @@ def play(client, proxy, wait, out_prefix, helper=None):
 		driver.kill()
 	with open(out_prefix + ".states.json", "w", encoding="utf-8", newline="\n") as f:
 		json.dump(checkpoints, f)
-	shutil.copyfile(os.path.join(run_dir(client), "Tibia.cfg"), out_prefix + ".Tibia.cfg")
+	name = settings_file_name(client)
+	shutil.copyfile(os.path.join(run_dir(client), name), out_prefix + "." + name)
 	return checkpoints
 
 
@@ -618,29 +626,31 @@ def main():
 			% (differing, len(runs[0])))
 
 	say()
-	say("d. Tibia.cfg written on exit")
+	say("d. the options written on exit (issue #45: Tibia.exe's Tibia.cfg, the x64 client's Patella.ini, by value)")
 	cfgs = {}
 	for client in CLIENTS:
-		path = os.path.join(out, "%s-live.Tibia.cfg" % client)
+		name = settings_file_name(client)
+		path = os.path.join(out, "%s-live.%s" % (client, name))
 		if os.path.isfile(path):
-			cfgs[("live", "%s live" % client)] = open(path, encoding="latin-1").read()
+			with open(path, "rb") as f:
+				cfgs[("live", "%s live" % client)] = settings_file.values_of(name, f.read())
 		for source in sources:
-			cfgs[("replay", "%s replay of %s" % (client, os.path.basename(source)))] = open(
-				replays[(client, source)][0] + ".Tibia.cfg", encoding="latin-1").read()
+			with open(replays[(client, source)][0] + "." + name, "rb") as f:
+				cfgs[("replay", "%s replay of %s" % (client, os.path.basename(source)))] = settings_file.values_of(name,
+					f.read())
 	for kind in ("live", "replay"):
 		group = {k[1]: v for k, v in cfgs.items() if k[0] == kind}
 		if not group:
 			continue
-		distinct = set(group.values())
-		say("  %s runs: %d files, %s" % (kind, len(group), "identical" if len(distinct) == 1 else "DIFFERENT"))
-		if len(distinct) != 1:
+		names = list(group)
+		found = [(name, settings_file.differences(group[names[0]], group[name], names[0], name)) for name in names[1:]]
+		same = not any(lines for _, lines in found)
+		say("  %s runs: %d files, %s" % (kind, len(group), "equal" if same else "DIFFERENT"))
+		if not same:
 			failed = True
-			names = list(group)
-			first = group[names[0]].splitlines()
-			for name in names[1:]:
-				for i, (x, y) in enumerate(zip(first, group[name].splitlines())):
-					if x != y:
-						say("    %s line %d: %r, %s: %r" % (names[0], i + 1, x, name, y))
+			for name, lines in found:
+				for line in lines:
+					say("    " + line)
 
 	say()
 	say("e. server packets, live sessions (not required to be equal: the world moves on its own)")

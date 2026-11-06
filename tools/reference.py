@@ -42,7 +42,11 @@ compare (the test client, PatellaTest.exe; this file, Python only, no Windows-on
      up to 2 per channel, the user's decision of November 3, 2026; the recorded masks: the measured
      frame rate);
   d. the files written (created or changed, byte for byte) and removed, the files saved during the
-     run (save), Tibia.cfg among them; the message boxes; the exit code.
+     run (save); the message boxes; the exit code. Issue #45: the test client writes its options into
+     Patella.ini, not Tibia.cfg, so Tibia.exe's Tibia.cfg (written, or the one the run started with) and
+     its saved copies are compared by value with the client's Patella.ini and the copies of it the
+     script's `save Tibia.cfg` lines make (the run's script says `save Patella.ini` there;
+     tools/settings_file.py, tools/deliberate.py).
   --check-only compares the results already in --out again (any platform, no client run).
 
 The reference set is CipSoft-derived local data: never committed, pushed or uploaded. Default
@@ -67,6 +71,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import socket
 import struct
@@ -80,6 +85,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import data_manifest  # noqa: E402
 import deliberate  # noqa: E402
 import desktop  # noqa: E402
+import settings_file  # noqa: E402
 import testmode_dumps as td  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -102,9 +108,12 @@ CPU_DRIVER_FILES = ("vulkan_lvp.dll", "lvp_icd.x86_64.json")
 ASAN_RUNTIME_FILES = ("clang_rt.asan_dynamic-x86_64.dll",)
 # The time zone of both clients' local time (Default.txt's "Channel saved at"; Tibia.exe's error.txt too).
 TIME_ZONE = "UTC0"
-# The x64 client's own settings file (issue #31), which Tibia.exe does not have: listed, not compared
-# (compare_files.py PATELLA_INI).
-PATELLA_INI = "Patella.ini"
+# The x64 client's settings file (issues #31, #45): its options compared by value with Tibia.exe's Tibia.cfg
+# (tools/settings_file.py).
+PATELLA_INI = deliberate.PATELLA_INI
+TIBIA_CFG = deliberate.TIBIA_CFG
+# The run's script (issue #45): the reference script's copies of Tibia.cfg are the test client's of Patella.ini.
+RUN_SCRIPT = "session.script"
 REGION_TOLERANCE = 2
 # Issue #48: the display modes of a session that has no display_modes in its meta.json (format 1,
 # recorded before issue #48, November 3, 2026): the modes the recording machine reported then, as
@@ -495,15 +504,26 @@ def snapshot(folder, skip=()):
 
 
 def compare_files(written_dir, removed, meta, reference):
-	"""(differences, lines): the files the test client wrote and removed against Tibia.exe's."""
+	"""(differences, lines): the files the test client wrote and removed against Tibia.exe's; its Patella.ini's options
+	against Tibia.exe's Tibia.cfg (the one it wrote, else Tibia.cfg.start; issue #45)."""
 	differences, lines = [], []
 	ours = sorted(os.listdir(written_dir)) if os.path.isdir(written_dir) else []
+	ini = None
 	if PATELLA_INI in ours:
 		ours.remove(PATELLA_INI)
 		with open(os.path.join(written_dir, PATELLA_INI), "rb") as f:
-			lines.append("  %s (the x64 client's own, not compared): %r" % (PATELLA_INI, f.read()))
-	# The deliberate differences (tools/deliberate.py): Tibia.exe's error.txt is not the test client's (issue #74).
+			ini = f.read()
+	# The deliberate differences (tools/deliberate.py): Tibia.exe's error.txt is not the test client's (issue #74),
+	# its Tibia.cfg is the test client's Patella.ini (issue #45).
 	lines.extend("  " + d for d in deliberate.expected_lines(meta.get("written", []), meta.get("removed", [])))
+	wrote_cfg = TIBIA_CFG in meta.get("written", [])
+	source = os.path.join(reference, "files", TIBIA_CFG) if wrote_cfg else os.path.join(reference, "Tibia.cfg.start")
+	with open(source, "rb") as f:
+		cfg = f.read()
+	found, texts = settings_file.compare_options(cfg, ini, "Tibia.exe's " + (TIBIA_CFG if wrote_cfg else
+		"Tibia.cfg.start"))
+	differences.extend("  " + d for d in found)
+	lines.extend(texts)
 	theirs = sorted(deliberate.files(meta.get("written", [])))
 	if ours != theirs:
 		differences.append("  files written: %s, the reference %s" % (ours, theirs))
@@ -523,18 +543,47 @@ def compare_files(written_dir, removed, meta, reference):
 	return differences, lines
 
 
+def ours_saved_name(name):
+	"""The test client's name of a saved file of the reference (saved-NNN-Tibia.cfg: saved-NNN-Patella.ini, issue
+	#45)."""
+	return name[:-len(TIBIA_CFG)] + PATELLA_INI if name.endswith("-" + TIBIA_CFG) else name
+
+
+def run_script(reference, base):
+	"""The script the test client runs: the reference's, its `save Tibia.cfg` lines `save Patella.ini` (issue #45).
+	Written to <base>\\session.script when that changes it; the reference's own path otherwise."""
+	with open(os.path.join(reference, RUN_SCRIPT), encoding="utf-8") as f:
+		text = f.read()
+	changed = re.sub(r"(?m)^save Tibia\.cfg(?=[ \t]|$)", "save " + PATELLA_INI, text)
+	if changed == text:
+		return os.path.join(reference, RUN_SCRIPT)
+	path = os.path.join(base, RUN_SCRIPT)
+	with open(path, "w", encoding="utf-8", newline="\n") as f:
+		f.write(changed)
+	return path
+
+
 def compare_saved(dumps_dir, reference):
 	differences, lines = [], []
 	ours = sorted(n for n in os.listdir(dumps_dir) if n.startswith("saved-")) if os.path.isdir(dumps_dir) else []
 	saved = os.path.join(reference, "saved")
 	theirs = sorted(os.listdir(saved)) if os.path.isdir(saved) else []
-	if ours != theirs:
+	if ours != sorted(ours_saved_name(n) for n in theirs):
 		differences.append("  saved files %s, the reference %s" % (ours, theirs))
-	for name in sorted(set(ours) & set(theirs)):
-		with open(os.path.join(dumps_dir, name), "rb") as f:
+	for name in theirs:
+		mine = ours_saved_name(name)
+		if mine not in ours:
+			continue
+		with open(os.path.join(dumps_dir, mine), "rb") as f:
 			a = f.read()
 		with open(os.path.join(saved, name), "rb") as f:
 			b = f.read()
+		if mine != name:
+			# Issue #45: Tibia.exe's saved Tibia.cfg against the test client's saved Patella.ini, by value.
+			found, texts = settings_file.compare_options(b, a, "Tibia.exe's " + name)
+			lines.append("  %-22s %s" % (mine, texts[0] if texts else "DIFFERENT"))
+			differences.extend("  %s: %s" % (mine, d) for d in found)
+			continue
 		lines.append("  %-22s %s" % (name, "identical" if a == b else "DIFFERENT"))
 		if a != b:
 			differences.append("  %s differs" % name)
@@ -611,7 +660,7 @@ def run_session(name, reference, exe, out, vulkan, timeout, data_dir):
 	modes_path = os.path.join(base, DISPLAY_MODES_FILE)
 	with open(modes_path, "w", encoding="ascii", newline="\n") as f:
 		f.write(display_modes_text(display_modes(meta)[0]))
-	command = [os.path.join(folder, exe_name), "--test-script", os.path.join(reference, "session.script"),
+	command = [os.path.join(folder, exe_name), "--test-script", run_script(reference, base),
 		"--test-out", dumps, "--test-log", os.path.join(dumps, "driver.log"), "--test-display-modes", modes_path]
 	if meta.get("server"):
 		busy = ports_free((LOGIN_PORT, GAME_PORT))
@@ -921,6 +970,16 @@ def self_test():
 			f.write("testmode: script s, 3 events\n")
 		check("display modes: a client that ignored the option is a difference",
 			len(taken_modes(log_path, FORMAT1_DISPLAY_MODES)[0]) == 1)
+		# Issue #45: the run's script saves Patella.ini where the reference's saved Tibia.cfg.
+		with open(os.path.join(folder, RUN_SCRIPT), "w", encoding="utf-8", newline="\n") as f:
+			f.write("clock manual\nsave Tibia.cfg\nsave Default.txt\n# save Tibia.cfg\nquit\n")
+		base = os.path.join(folder, "run")
+		os.makedirs(base)
+		with open(run_script(folder, base), encoding="utf-8") as f:
+			check("issue #45: the run's script saves Patella.ini", f.read() ==
+				"clock manual\nsave Patella.ini\nsave Default.txt\n# save Tibia.cfg\nquit\n")
+		check("issue #45: saved names", ours_saved_name("saved-001-Tibia.cfg") == "saved-001-Patella.ini"
+			and ours_saved_name("saved-002-Default.txt") == "saved-002-Default.txt")
 	finally:
 		shutil.rmtree(folder, ignore_errors=True)
 	print("self-test: %s" % ("passed" if not failures else "FAILED: %s" % failures))
