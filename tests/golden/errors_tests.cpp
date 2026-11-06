@@ -1,4 +1,4 @@
-// Differential tests of the error paths (issue #22): TASSERT, TERROR,
+// Differential tests of the error paths (issue #22): the assertions, TERROR,
 // PROGRAM_ERROR throws and the TEND wrapping of the original code against the
 // reconstructed code, through imageeh.cpp, plus TMyException's messages and
 // HandleException's end (until Patella-Modern issue #74 the report it wrote

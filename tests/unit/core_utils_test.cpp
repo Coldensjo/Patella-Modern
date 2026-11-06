@@ -14,12 +14,23 @@
 
 namespace {
 
+// An assertion's message names its own line since issue #79 (PATELLA_ASSERT: the line moves with the code), so it
+// is compared as "<file> N: assertion failed..."; an error's message keeps the original's line.
+std::string WithoutAssertionLine(const std::string &Message)
+{
+	const std::string::size_type Space = Message.find(' ');
+	const std::string::size_type Colon = Message.find(": assertion failed");
+	if (Space == std::string::npos || Colon == std::string::npos || Colon < Space)
+		return Message;
+	return Message.substr(0, Space + 1) + "N" + Message.substr(Colon);
+}
+
 std::string MessageOf(void (*Function)())
 {
 	try {
 		Function();
 	} catch (const TMyException &Exception) {
-		return Exception.GetMessage();
+		return WithoutAssertionLine(Exception.GetMessage());
 	}
 	return "no exception";
 }
@@ -70,11 +81,11 @@ TEST_CASE("Utils: strings")
 	CHECK(std::string(Text) == "1,234,567");
 	FormatNumber(999, Text);
 	CHECK(std::string(Text) == "999");
-	CHECK(MessageOf([] { LowerString(NULL); }) == "Utils.cpp 66: assertion failed, reason:\ns!=NULL");
+	CHECK(MessageOf([] { LowerString(NULL); }) == "Utils.cpp N: assertion failed, reason:\ns!=nullptr");
 	CHECK(MessageOf([] {
 		char Buffer[16];
 		FormatNumber(-1, Buffer);
-	}) == "Utils.cpp 468: assertion failed (Number = -1), reason:\nNumber>=0");
+	}) == "Utils.cpp N: assertion failed (Number = -1), reason:\nNumber>=0");
 }
 
 TEST_CASE("Utils: strings, the original's buffer and size as spans")
@@ -82,13 +93,13 @@ TEST_CASE("Utils: strings, the original's buffer and size as spans")
 	// Issue #69: CopyString's Destination and Size and FormatNumber's Buffer are the span's pointer and its size as an
 	// int. A null pointer still fails the assertions the original's text names.
 	CHECK(MessageOf([] { CopyString(patella::TSpan<char>(), "x"); })
-		== "Utils.cpp 124: assertion failed, reason:\nDestination!=NULL");
+		== "Utils.cpp N: assertion failed, reason:\nDestination!=nullptr");
 	CHECK(MessageOf([] {
 		char Text[4];
 		CopyString(Text, nullptr);
-	}) == "Utils.cpp 125: assertion failed, reason:\nSource!=NULL");
+	}) == "Utils.cpp N: assertion failed, reason:\nSource!=nullptr");
 	CHECK(MessageOf([] { FormatNumber(5, patella::TSpan<char>()); })
-		== "Utils.cpp 467: assertion failed, reason:\nBuffer!=NULL");
+		== "Utils.cpp N: assertion failed, reason:\nBuffer!=nullptr");
 
 	// CopyString: strncpy's bytes up to the span's size (its NUL padding included), nothing after it.
 	char Text[8];
@@ -177,9 +188,9 @@ TEST_CASE("Utils: packet buffers, little-endian")
 		In.GetQuad();
 		FAIL("no exception");
 	} catch (const TMyException &Exception) {
-		CHECK(Exception.GetMessage()
-			== "Utils.cpp 321: assertion failed (Position = 14) (Size = 17), reason:\nPosition<=Size-4");
-		CHECK(Exception.GetOrigin() == "Utils.cpp 321");
+		CHECK(WithoutAssertionLine(Exception.GetMessage())
+			== "Utils.cpp N: assertion failed (Position = 14) (Size = 17), reason:\nPosition<=Size-4");
+		CHECK(Exception.GetOrigin().starts_with("Utils.cpp "));
 	}
 }
 
@@ -189,38 +200,38 @@ TEST_CASE("Utils: packet buffers, the original's pointer and length as spans")
 	// pointer still fails them; a size above INT_MAX reads as the original's negative size or MaxLength. Only tests
 	// make such spans; the size is never used to read.
 	CHECK(MessageOf([] { static_cast<void>(TReadBuffer(patella::TSpan<uint8>())); })
-		== "Utils.cpp 286: assertion failed, reason:\ndata!=NULL");
+		== "Utils.cpp N: assertion failed, reason:\ndata!=nullptr");
 	CHECK(MessageOf([] { static_cast<void>(TWriteBuffer(patella::TSpan<uint8>())); })
-		== "Utils.cpp 387: assertion failed, reason:\ndata!=NULL");
+		== "Utils.cpp N: assertion failed, reason:\ndata!=nullptr");
 	CHECK(MessageOf([] {
 		static uint8 Data[4];
 		static_cast<void>(TReadBuffer(patella::TSpan<uint8>(Data, static_cast<std::size_t>(-1))));
-	}) == "Utils.cpp 287: assertion failed, reason:\nsize>=0");
+	}) == "Utils.cpp N: assertion failed, reason:\nsize>=0");
 	CHECK(MessageOf([] {
 		static uint8 Data[4];
 		static_cast<void>(TWriteBuffer(patella::TSpan<uint8>(Data, static_cast<std::size_t>(-7))));
-	}) == "Utils.cpp 388: assertion failed, reason:\nsize>=0");
+	}) == "Utils.cpp N: assertion failed, reason:\nsize>=0");
 	CHECK(MessageOf([] {
 		static uint8 Data[4];
 		TReadBuffer In(Data);
 		In.GetBytes(patella::TSpan<uint8>());
-	}) == "Utils.cpp 371: assertion failed, reason:\nBuffer!=NULL");
+	}) == "Utils.cpp N: assertion failed, reason:\nBuffer!=nullptr");
 	CHECK(MessageOf([] {
 		static uint8 Data[4];
 		TWriteBuffer Out(Data);
 		Out.PutBytes(patella::TSpan<const uint8>());
-	}) == "Utils.cpp 451: assertion failed, reason:\nBuffer!=NULL");
+	}) == "Utils.cpp N: assertion failed, reason:\nBuffer!=nullptr");
 	CHECK(MessageOf([] {
 		static uint8 Data[4] = {1, 0, 'x', 0};
 		TReadBuffer In(Data);
 		In.GetString(patella::TSpan<char>());
-	}) == "Utils.cpp 334: assertion failed, reason:\nBuffer!=NULL");
+	}) == "Utils.cpp N: assertion failed, reason:\nBuffer!=nullptr");
 	CHECK(MessageOf([] {
 		static uint8 Data[4];
 		TWriteBuffer Out(Data);
 		const uint8 Bytes[5] = {};
 		Out.PutBytes(Bytes);
-	}) == "Utils.cpp 452: assertion failed (Position = 0) (Size-Count = -1), reason:\nPosition<=Size-Count");
+	}) == "Utils.cpp N: assertion failed (Position = 0) (Size-Count = -1), reason:\nPosition<=Size-Count");
 
 	// MaxLength: the span's size cuts the text (its last byte is the NUL); a size above INT_MAX is no limit.
 	uint8 Data[16];

@@ -5,7 +5,7 @@
 // FILE * member of a frozen structure (Script.h's four file classes) becomes a TFile without moving anything
 // (IsFileLayout below; the classes check it in the oracle build). It closes its file when it is destroyed, it
 // moves but does not copy, and it compares with nullptr (and NULL) as the pointer did, so the conditions the
-// original wrote (`File != NULL`, TASSERT's `F!=NULL`, whose text is frozen until M5) stay as they were.
+// original wrote (`File != NULL`, the assertion `F!=NULL`) stay as they were.
 //
 // The functions are the C library's, with their results and their errors: Open is fopen (false where fopen
 // returned NULL, errno set by the library), Close is fclose (its result; nothing to do on a closed TFile),

@@ -58,8 +58,8 @@ void CompareThrown(const char *Test, const char *What, const TThrown &Ours, cons
 
 void OurSideAssertion(int Value)
 {
-	// GUI.cpp's TComponent::SetSize: TASSERT1(1092, _Width>=0, _Width), expanded (common.h's
-	// TMYEXCEPTION; the message names the file without its path).
+	// GUI.cpp's TComponent::SetSize: PATELLA_ASSERT_VALUES(_Width>=0, _Width), with the original's line (the
+	// message names the file without its path; since issue #79 ours names our own line, which nothing compares).
 	throw TMyException("GUI.cpp", 1092, "assertion failed", "_Width", Value, "", 0, "_Width>=0");
 }
 

@@ -1721,7 +1721,7 @@ static void Arm(TMapThrower *T[2], bool Armed)
 		T[s]->Armed = Armed;
 }
 
-// Every TASSERT/TERROR of MapWindow.cpp and the TEND blocks: the fakes throw
+// Every PATELLA_ASSERT/TERROR of MapWindow.cpp and the TEND blocks: the fakes throw
 // at the n-th call (FailAt) inside every function the test calls, then the
 // assertions get their bad inputs (no player, bad flags, effect numbers,
 // brightness, field indices, objects and talkbox modes).

@@ -118,8 +118,8 @@ struct TErrorRound {
 // TComponent::SetSize, in the oracle and (since issue #28, GUI.cpp in the
 // runner) in the runner; the runner aborts when asked for the image's side.
 void ThrowSideAssertion(bool Image, int Value);
-// What our TComponent::SetSize(Value, 0) throws for a negative Value: GUI.cpp's TASSERT1(1092,
-// _Width>=0, _Width), our TMyException with the same arguments. The runner's stand-in until issue #28;
+// What our TComponent::SetSize(Value, 0) throws for a negative Value: GUI.cpp's
+// PATELLA_ASSERT_VALUES(_Width>=0, _Width), our TMyException (the same kind; since issue #79 its line differs). The runner's stand-in until issue #28;
 // the oracle still checks it against SetSize (VerifyOurSideAssertion).
 [[noreturn]] void OurSideAssertion(int Value);
 #if GOLDEN_ORACLE

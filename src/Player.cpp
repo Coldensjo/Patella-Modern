@@ -159,7 +159,7 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 // 0x4d9140, line 62. Text needs 9 bytes.
 void GetWindowTitle(char *Text)
 {
-	TASSERT(62, Text!=NULL);
+	PATELLA_ASSERT(Text!=NULL);
 	for (int i = 0; i < 8; i++)
 		Text[i] = (char)(TitleCode[i] ^ TitleKey[i]);
 	Text[8] = 0;
@@ -168,7 +168,7 @@ void GetWindowTitle(char *Text)
 // 0x4d92b0, line 75. Text needs 12 bytes.
 void GetWindowClassName(char *Text)
 {
-	TASSERT(75, Text!=NULL);
+	PATELLA_ASSERT(Text!=NULL);
 	for (int i = 0; i < 11; i++)
 		Text[i] = (char)(ClassNameCode[i] ^ ClassNameKey[i]);
 	Text[11] = 0;

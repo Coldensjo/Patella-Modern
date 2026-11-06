@@ -1641,7 +1641,7 @@ template <class F> static void ErrorCall(TErrorRound &R, const char *What, F Cal
 	GOLDEN_ROUND_COMPARE(R, What, (Side = OURS, Call(OURS)), (Side = ORIGINAL, Call(ORIGINAL)));
 }
 
-// Every TASSERT/TERROR of ContextMenus.cpp that the menus can reach, and the
+// Every PATELLA_ASSERT/TERROR of ContextMenus.cpp that the menus can reach, and the
 // TEND blocks: the text and skin fakes throw (ThrowMask) while the menus are
 // built and drawn, HandleEvent gets events the menu does not know (and the
 // object menu's asserted ones), AddEntry texts that are too long, and the

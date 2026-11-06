@@ -62,10 +62,6 @@ static_assert(sizeof(TBuddylistWindowBody) == 0x3c && offsetof(TBuddylistWindowB
 	"TBuddylistWindowBody's layout");
 #endif
 
-// An assertion whose text carries a bug number (Map.cpp's macro).
-#define TASSERTB2(Line, Expr, V1, V2, Bug) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, #V2, V2, #Expr " " Bug)
-
 namespace {
 
 // Data, in .bss order. ContentWindows.obj's copy of the text table is
@@ -228,7 +224,7 @@ TSubWindow *CreateBuddylistWindow()
 TButtonsWindow::TButtonsWindow(TDialogWindow *_CheckObject, TMainWindow *Receiver)
 	: TContentWindow(5, true)
 {
-	TASSERT(292, _CheckObject!=NULL);
+	PATELLA_ASSERT(_CheckObject!=NULL);
 	CheckObject = _CheckObject;
 	SetSize(SkinProperties.Data184, SkinProperties.Data608);
 	SkillsButton = new TTextToggleButton(SkinProperties.Data60C.x, SkinProperties.Data60C.y, "Skills", 14, 15,
@@ -625,7 +621,7 @@ TMark TAutomapView::GetMark(int x, int y)
 // 0x428680, line 791. No try block; the assertion is the only EH state.
 TCompassRose::TCompassRose(int _RoseSkin)
 {
-	TASSERT2(791, _RoseSkin<NumberOfSkins, _RoseSkin, NumberOfSkins);
+	PATELLA_ASSERT_VALUES(_RoseSkin<NumberOfSkins, _RoseSkin, NumberOfSkins);
 	RoseSkin = _RoseSkin;
 }
 
@@ -726,8 +722,8 @@ void TPlayerStates::Draw(int Surface, int x, int y)
 			desty = SkinProperties.PlayerStates.Data10.y;
 		}
 		const int Skin = GetIcon(i);
-		TASSERT1(920, x+destx>=0, x+destx);
-		TASSERT1(921, y+desty>=0, y+desty);
+		PATELLA_ASSERT_VALUES(x+destx>=0, x+destx);
+		PATELLA_ASSERT_VALUES(y+desty>=0, y+desty);
 		if (Skin != 0)
 			DrawSkin(Surface, x + destx, y + desty, Skins[Skin].width, Skins[Skin].height, Skin, 0, 0);
 	}
@@ -834,10 +830,14 @@ int TPlayerStates::GetIconAt(int x, int y) const
 // 0x429990, lines 1036-1070. The assertion comes before the try block. The
 // skin of the Position'th state that is on, in the order of the jump
 // table 0x429e78 (0-9; the skull has its own table 0x429ea0, 1-4); 0 when fewer
-// states are on. State 9 has no icon.
+// states are on. State 9 has no icon. The original's default, never reached
+// (i is 0-9), was TERROR1(1063, "index out of range", i); it does nothing
+// here (issue #79): MSVC x86 removed its code but kept the function's exception
+// frame, without the frame's handler in the SafeSEH table, so an exception of
+// a callee ended the program (notes/decisions.md, issue #79).
 int TPlayerStates::GetIcon(int Position)
 {
-	TASSERT2(1036, In(Position,0,SkinProperties.PlayerStates.NumberOfIcons-1), Position,
+	PATELLA_ASSERT_VALUES(In(Position,0,SkinProperties.PlayerStates.NumberOfIcons-1), Position,
 		SkinProperties.PlayerStates.NumberOfIcons);
 	int Skin = 0;
 	int Found = 0;
@@ -915,8 +915,8 @@ int TPlayerStates::GetIcon(int Position)
 		case 9:
 			Skin = 0;
 			break;
-		default:
-			TERROR1(1063, "index out of range", i);
+		default: // never reached (i is 0-9): the original's TERROR1, see above
+			break;
 		}
 	}
 	return Skin;
@@ -1010,14 +1010,14 @@ void TInventoryView::Draw(int Surface, int x, int y)
 {
 	int destx = SkinProperties.Style288.Data128.x + x;
 	int desty = SkinProperties.Style288.Data128.y + y;
-	TASSERT1(1181, destx>=0, destx);
-	TASSERT1(1182, desty>=0, desty);
+	PATELLA_ASSERT_VALUES(destx>=0, destx);
+	PATELLA_ASSERT_VALUES(desty>=0, desty);
 	DrawSkin(Surface, destx, desty, SkinProperties.Style288.Data128.width, SkinProperties.Style288.Data128.height, 98,
 		0, 0);
 	destx = SkinProperties.Style288.Data138.x + x;
 	desty = y + SkinProperties.Style288.Data138.y;
-	TASSERT1(1186, destx>=0, destx);
-	TASSERT1(1187, desty>=0, desty);
+	PATELLA_ASSERT_VALUES(destx>=0, destx);
+	PATELLA_ASSERT_VALUES(desty>=0, desty);
 	DrawSkin(Surface, destx, desty, SkinProperties.Style288.Data138.width, SkinProperties.Style288.Data138.height, 98,
 		0, 0);
 	TWindow::Draw(Surface, x, y);
@@ -1069,8 +1069,8 @@ bool TInventoryView::LeftButtonUp(int x, int y, int Flags)
 			if (Obj->Type != 0) {
 				int SrcIndex, SrcX, SrcY, SrcZ;
 				const TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
-				TASSERT(1251, SrcObj!=0);
-				TASSERT(1252, SrcObj.Type!=CREATURE);
+				PATELLA_ASSERT(SrcObj!=0);
+				PATELLA_ASSERT(SrcObj.Type!=CREATURE);
 				SendUseObjectWith(SrcX, SrcY, SrcZ, SrcObj.Type, SrcIndex, 0xffff, Slot, 0, Obj->Type, 0);
 				return true;
 			}
@@ -1145,7 +1145,7 @@ bool TInventoryView::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int 
 {
 	SetHelpHandle(12);
 	const TComponent *Parent = GetParent();
-	TASSERT(1339, Parent!=NULL);
+	PATELLA_ASSERT(Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -1260,7 +1260,7 @@ bool TCombatControls::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int
 	else
 		SetHelpHandle(14);
 	const TComponent *Parent = GetParent();
-	TASSERT(1461, Parent!=NULL);
+	PATELLA_ASSERT(Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -1328,15 +1328,15 @@ void TStatusWindow::Draw(int Surface, int x, int y)
 	int BarWidth = SkinProperties.StatusWindow.HitpointsBar.width;
 	if (Health < MaxHealth)
 		BarWidth = SkinProperties.StatusWindow.HitpointsBar.width * Health / MaxHealth;
-	TASSERT1(1550, x+SkinProperties.StatusWindow.HitpointsBar.x>=0, x);
-	TASSERT1(1551, y+SkinProperties.StatusWindow.HitpointsBar.y>=0, y);
+	PATELLA_ASSERT_VALUES(x+SkinProperties.StatusWindow.HitpointsBar.x>=0, x);
+	PATELLA_ASSERT_VALUES(y+SkinProperties.StatusWindow.HitpointsBar.y>=0, y);
 	DrawSkin(Surface, SkinProperties.StatusWindow.HitpointsBar.x + x, y + SkinProperties.StatusWindow.HitpointsBar.y,
 		BarWidth, Skins[121].height, 121, 0, 0);
 	BarWidth = SkinProperties.StatusWindow.ManaBar.width;
 	if (Mana < MaxMana)
 		BarWidth = SkinProperties.StatusWindow.ManaBar.width * Mana / MaxMana;
-	TASSERT1(1555, x+SkinProperties.StatusWindow.ManaBar.x>=0, x);
-	TASSERT1(1556, y+SkinProperties.StatusWindow.ManaBar.y>=0, y);
+	PATELLA_ASSERT_VALUES(x+SkinProperties.StatusWindow.ManaBar.x>=0, x);
+	PATELLA_ASSERT_VALUES(y+SkinProperties.StatusWindow.ManaBar.y>=0, y);
 	DrawSkin(Surface, SkinProperties.StatusWindow.ManaBar.x + x, SkinProperties.StatusWindow.ManaBar.y + y, BarWidth,
 		Skins[124].height, 124, 0, 0);
 }
@@ -1397,8 +1397,8 @@ void TContainerWindowBody::Draw(int Surface, int x, int y)
 			TWindow::Draw(Surface, x, y);
 		const int ScrollY = ScrollBar->Range->Value;
 		const int Bottom = Height - 1;
-		TASSERT1(1644, x>=0, x);
-		TASSERT1(1645, y>=0, y);
+		PATELLA_ASSERT_VALUES(x>=0, x);
+		PATELLA_ASSERT_VALUES(y>=0, y);
 		DrawSkin(Surface, x, y, Width - ScrollBar->Width, Height, 7, 0, ScrollY % Skins[7].height);
 		if (IsContainerOpen(Container)) {
 			for (int i = 0; i < Capacity; i++) {
@@ -1440,7 +1440,7 @@ void TContainerWindowBody::Draw(int Surface, int x, int y)
 void TContainerWindowBody::SetSize(int Width, int Height)
 {
 	const int ScrollbarX = Width - ScrollBar->Width;
-	TASSERT1(1675, ScrollbarX>0, ScrollbarX);
+	PATELLA_ASSERT_VALUES(ScrollbarX>0, ScrollbarX);
 	const int Maximum = GetMaximumHeight();
 	if (Height > Maximum && this->Height < Height)
 		Height = (std::max)(this->Height, Maximum);
@@ -1508,8 +1508,8 @@ bool TContainerWindowBody::LeftButtonUp(int x, int y, int Flags)
 				if (Obj.Type != 0) {
 					int SrcIndex, SrcX, SrcY, SrcZ;
 					const TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
-					TASSERT(1785, SrcObj!=0);
-					TASSERT(1786, SrcObj.Type!=CREATURE);
+					PATELLA_ASSERT(SrcObj!=0);
+					PATELLA_ASSERT(SrcObj.Type!=CREATURE);
 					SendUseObjectWith(SrcX, SrcY, SrcZ, SrcObj.Type, SrcIndex, 0xffff, Container + 0x40, Position,
 						Obj.Type, Position);
 				}
@@ -1592,7 +1592,7 @@ bool TContainerWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]
 {
 	SetHelpHandle(20);
 	const TComponent *Parent = GetParent();
-	TASSERT(1885, Parent!=NULL);
+	PATELLA_ASSERT(Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -1684,8 +1684,8 @@ void TSkillsWindowBody::Draw(int Surface, int x, int y)
 	if (!IsMinimized()) {
 		const int ScrollY = ScrollBar->Range->Value;
 		const int Bottom = Height - 1;
-		TASSERT1(2003, x>=0, x);
-		TASSERT1(2004, y>=0, y);
+		PATELLA_ASSERT_VALUES(x>=0, x);
+		PATELLA_ASSERT_VALUES(y>=0, y);
 		DrawSkin(Surface, x, y, Width - ScrollBar->Width, Height, 7, 0, ScrollY % Skins[7].height);
 		if (!Minimized)
 			TWindow::Draw(Surface, x, y);
@@ -1761,7 +1761,7 @@ bool TSkillsWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] i
 {
 	SetHelpHandle(17);
 	const TComponent *Parent = GetParent();
-	TASSERT(2086, Parent!=NULL);
+	PATELLA_ASSERT(Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -1818,7 +1818,7 @@ bool TSkillsWindowBody::RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] i
 void TSkillsWindowBody::SetSize(int Width, int Height)
 {
 	const int ScrollbarX = Width - ScrollBar->Width;
-	TASSERT1(2153, ScrollbarX>0, ScrollbarX);
+	PATELLA_ASSERT_VALUES(ScrollbarX>0, ScrollbarX);
 	const int Maximum = GetMaximumHeight();
 	if (Height >= Maximum)
 		Height = Maximum;
@@ -1886,7 +1886,7 @@ int TSkillsWindowBody::GetContentHeight()
 // checks below) and the seven skills. Progress is -1 without a bar.
 bool TSkillsWindowBody::GetLine(int NumberOfLine, char *Text, int &Value, int &Progress) const
 {
-	TASSERT2(2234, In(NumberOfLine,1,Lines), NumberOfLine, Lines);
+	PATELLA_ASSERT_VALUES(In(NumberOfLine,1,Lines), NumberOfLine, Lines);
 	Value = 0;
 	Progress = -1;
 	TStringBuffer Name(Text, 100); // every caller passes char[100]
@@ -1946,8 +1946,8 @@ bool TSkillsWindowBody::GetLine(int NumberOfLine, char *Text, int &Value, int &P
 		break;
 	}
 	}
-	TASSERTB2(2276, Value>=0, Value, NumberOfLine, "[bug0000996]");
-	TASSERTB2(2277, In(Progress,-1,100), Progress, NumberOfLine, "[bug0000038]");
+	PATELLA_ASSERT_VALUES(Value>=0, Value, NumberOfLine);
+	PATELLA_ASSERT_VALUES(In(Progress,-1,100), Progress, NumberOfLine);
 	return true;
 }
 
@@ -1984,8 +1984,8 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 			TWindow::Draw(Surface, x, y);
 		const int ScrollY = ScrollBar->Range->Value;
 		const int Bottom = Height - 1;
-		TASSERT1(2328, x>=0, x);
-		TASSERT1(2329, y>=0, y);
+		PATELLA_ASSERT_VALUES(x>=0, x);
+		PATELLA_ASSERT_VALUES(y>=0, y);
 		DrawSkin(Surface, x, y, Width - ScrollBar->Width, Height, 7, 0, ScrollY % Skins[7].height);
 		const int ClipWidth = Width - ScrollBar->Width;
 		for (int i = 0; i < Opponents; i++) {
@@ -2126,7 +2126,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 void TBattleWindowBody::SetSize(int Width, int Height)
 {
 	const int ScrollbarX = Width - ScrollBar->Width;
-	TASSERT1(2465, ScrollbarX>0, ScrollbarX);
+	PATELLA_ASSERT_VALUES(ScrollbarX>0, ScrollbarX);
 	TWindow::SetSize(Width, Height);
 	ScrollBar->SetPosition(ScrollbarX, 0);
 	ScrollBar->SetSize(ScrollBar->Width, Height);
@@ -2162,8 +2162,8 @@ bool TBattleWindowBody::LeftButtonUp(int x, int y, int Flags)
 				if (GetActionState() == 7) {
 					int SrcIndex, SrcX, SrcY, SrcZ;
 					const TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
-					TASSERT(2521, SrcObj!=0);
-					TASSERT(2522, SrcObj.Type!=CREATURE);
+					PATELLA_ASSERT(SrcObj!=0);
+					PATELLA_ASSERT(SrcObj.Type!=CREATURE);
 					if (!IsPlayer(Creature->CreatureID)) {
 						SendUseObjectOnCreature(SrcX, SrcY, SrcZ, SrcObj.Type, SrcIndex, Creature->CreatureID);
 						return true;
@@ -2172,7 +2172,7 @@ bool TBattleWindowBody::LeftButtonUp(int x, int y, int Flags)
 				} else if (GetActionState() == 8) {
 					int TradeIndex, TradeX, TradeY, TradeZ;
 					const TObject &Obj = *GetTradeObject(&TradeIndex, &TradeX, &TradeY, &TradeZ);
-					TASSERT(2532, Obj!=0);
+					PATELLA_ASSERT(Obj!=0);
 					if (IsPlayer(Creature->CreatureID)) {
 						SendRequestTrade(TradeX, TradeY, TradeZ, Obj.Type, TradeIndex, Creature->CreatureID);
 						return true;
@@ -2244,7 +2244,7 @@ bool TBattleWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] i
 {
 	SetHelpHandle(18);
 	const TComponent *Parent = GetParent();
-	TASSERT(2616, Parent!=NULL);
+	PATELLA_ASSERT(Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -2301,8 +2301,8 @@ void TTradeOffers::Draw(int Surface, int x, int y)
 {
 	const int ScrollY = ScrollBar->Range->Value;
 	const int Bottom = Height - 1;
-	TASSERT1(2698, x>=0, x);
-	TASSERT1(2699, y>=0, y);
+	PATELLA_ASSERT_VALUES(x>=0, x);
+	PATELLA_ASSERT_VALUES(y>=0, y);
 	DrawSkin(Surface, x, y, Width - ScrollBar->Width, Height, 7, 0, ScrollY % Skins[7].height);
 	TWindow::Draw(Surface, x, y);
 	const int ClipHeight = Height;
@@ -2333,8 +2333,8 @@ void TTradeOffers::Draw(int Surface, int x, int y)
 				}
 				if (SlotHeight + DestY > Bottom)
 					SlotHeight = Bottom - DestY + 1;
-				TASSERT1(2720, x+DestX>=0, x+DestX);
-				TASSERT1(2721, y+DestY>=0, y+DestY);
+				PATELLA_ASSERT_VALUES(x+DestX>=0, x+DestX);
+				PATELLA_ASSERT_VALUES(y+DestY>=0, y+DestY);
 				DrawSkin(Surface, x + DestX, y + DestY, AreaWidth, SlotHeight, 125, 0, 0);
 				DrawObject(Surface, OffsetX + SlotX + x, OffsetY + RowY + y, SkinProperties.Style6FC.Data98, Obj,
 					TRGBColor(0, 0, 0), TRect(x, y, ClipWidth, ClipHeight), SkinProperties.Data498, false);
@@ -2472,8 +2472,8 @@ TTradeNames::TTradeNames()
 // 0x432770, lines 2901-2907. Both assertions come before the try block.
 void TTradeNames::Draw(int Surface, int x, int y)
 {
-	TASSERT1(2901, x>=0, x);
-	TASSERT1(2902, y>=0, y);
+	PATELLA_ASSERT_VALUES(x>=0, x);
+	PATELLA_ASSERT_VALUES(y>=0, y);
 	DrawSkin(Surface, x, y, Width, Height, 7, 0, 0);
 	TWindow::Draw(Surface, x, y);
 }
@@ -2516,8 +2516,8 @@ TTradeButtons::TTradeButtons()
 // 0x433140, lines 2954-2960. Both assertions come before the try block.
 void TTradeButtons::Draw(int Surface, int x, int y)
 {
-	TASSERT1(2954, x>=0, x);
-	TASSERT1(2955, y>=0, y);
+	PATELLA_ASSERT_VALUES(x>=0, x);
+	PATELLA_ASSERT_VALUES(y>=0, y);
 	DrawSkin(Surface, x, y, Width, Height, 7, 0, 0);
 	TWindow::Draw(Surface, x, y);
 }
@@ -2554,7 +2554,7 @@ void TTradeButtons::SetCancelButton(bool Cancel)
 // Odd, kept: the wait text is deleted without a NULL check.
 void TTradeButtons::ShowAcceptButton(TComponent *EventComponent)
 {
-	TASSERT(2995, EventComponent!=NULL);
+	PATELLA_ASSERT(EventComponent!=NULL);
 	SetCancelButton(false);
 	DeleteChild(WaitLabel);
 	WaitLabel = nullptr;
@@ -2630,7 +2630,7 @@ bool TTradeWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] in
 {
 	SetHelpHandle(21);
 	const TComponent *Parent = GetParent();
-	TASSERT(3076, Parent!=NULL);
+	PATELLA_ASSERT(Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -2696,8 +2696,8 @@ void TBuddylistWindowBody::Draw(int Surface, int x, int y)
 	if (!IsMinimized()) {
 		const int ScrollY = ScrollBar->Range->Value;
 		const int Bottom = Height - 1;
-		TASSERT1(3176, x>=0, x);
-		TASSERT1(3177, y>=0, y);
+		PATELLA_ASSERT_VALUES(x>=0, x);
+		PATELLA_ASSERT_VALUES(y>=0, y);
 		DrawSkin(Surface, x, y, Width - ScrollBar->Width, Height, 7, 0, ScrollY % Skins[7].height);
 		if (!Minimized)
 			TWindow::Draw(Surface, x, y);
@@ -2712,8 +2712,8 @@ void TBuddylistWindowBody::Draw(int Surface, int x, int y)
 				return;
 			if (GetBuddyListIcon(i) > 0) {
 				const int Icon = GetBuddyListIcon(i);
-				TASSERT1(3192, x+ItemX+SkinProperties.BuddylistWindow.Logo.x>=0, x);
-				TASSERT1(3193, y+ItemY+SkinProperties.BuddylistWindow.Logo.y>=0, y);
+				PATELLA_ASSERT_VALUES(x+ItemX+SkinProperties.BuddylistWindow.Logo.x>=0, x);
+				PATELLA_ASSERT_VALUES(y+ItemY+SkinProperties.BuddylistWindow.Logo.y>=0, y);
 				DrawSkinClipped(Surface, SkinProperties.BuddylistWindow.Logo.x + x,
 					SkinProperties.BuddylistWindow.Logo.y + ItemY + y, SkinProperties.BuddylistWindow.Logo.width,
 					SkinProperties.BuddylistWindow.Logo.height, Icon + 217, x, y, ClipWidth, ClipHeight, 0, 0);
@@ -2742,7 +2742,7 @@ void TBuddylistWindowBody::Draw(int Surface, int x, int y)
 void TBuddylistWindowBody::SetSize(int Width, int Height)
 {
 	const int ScrollbarX = Width - ScrollBar->Width;
-	TASSERT1(3225, ScrollbarX>0, ScrollbarX);
+	PATELLA_ASSERT_VALUES(ScrollbarX>0, ScrollbarX);
 	TWindow::SetSize(Width, Height);
 	ScrollBar->SetPosition(ScrollbarX, 0);
 	ScrollBar->SetSize(ScrollBar->Width, Height);
@@ -2803,7 +2803,7 @@ bool TBuddylistWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]
 {
 	SetHelpHandle(19);
 	const TComponent *Parent = GetParent();
-	TASSERT(3322, Parent!=NULL);
+	PATELLA_ASSERT(Parent!=NULL);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;

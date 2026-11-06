@@ -579,9 +579,9 @@ bool IsKnownHint(int Hint)
 // 0x4dc450, lines 223-225
 void SetHotkey(int Number, const char *Text, bool AutoSend)
 {
-	TASSERT1(223, In(Number,0,HOTKEYS-1), Number);
-	TASSERT(224, Text!=NULL);
-	TASSERT1(225, strlen(Text)<HOTKEY_LENGTH, strlen(Text));
+	PATELLA_ASSERT_VALUES(In(Number,0,HOTKEYS-1), Number);
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(Text)<HOTKEY_LENGTH, strlen(Text));
 	Hotkeys[Number].Assign(Text);
 	HotkeyAutoSend[Number] = AutoSend;
 }
@@ -589,7 +589,7 @@ void SetHotkey(int Number, const char *Text, bool AutoSend)
 // 0x4dc7e0, line 235
 const char *GetHotkey(int Number, bool *AutoSend)
 {
-	TASSERT1(235, In(Number,0,HOTKEYS-1), Number);
+	PATELLA_ASSERT_VALUES(In(Number,0,HOTKEYS-1), Number);
 	*AutoSend = HotkeyAutoSend[Number];
 	return Hotkeys[Number];
 }
@@ -597,7 +597,7 @@ const char *GetHotkey(int Number, bool *AutoSend)
 // 0x4dc950, line 393
 void AddOpenDialog(int Identifier)
 {
-	TASSERT1(393, Identifier>=0, Identifier);
+	PATELLA_ASSERT_VALUES(Identifier>=0, Identifier);
 	OpenDialogs(NumberOfOpenDialogs) = Identifier;
 	NumberOfOpenDialogs++;
 }
@@ -606,7 +606,7 @@ void AddOpenDialog(int Identifier)
 // nothing changes. Returns true when the number differs from the last one.
 bool SetMotD(const char *Text)
 {
-	TASSERT(425, Text != NULL);
+	PATELLA_ASSERT(Text != NULL);
 	const char *Break = strchr(Text, '\n');
 	if (Break == nullptr)
 		return false;
@@ -624,7 +624,7 @@ bool SetMotD(const char *Text)
 // 0x4dccb0, line 551
 void AddOpenChannel(int Identifier)
 {
-	TASSERT1(551, Identifier>=0, Identifier);
+	PATELLA_ASSERT_VALUES(Identifier>=0, Identifier);
 	OpenChannels(NumberOfOpenChannels) = Identifier;
 	NumberOfOpenChannels++;
 }
@@ -632,7 +632,7 @@ void AddOpenChannel(int Identifier)
 // 0x4dce20, line 680. Index of the buddy entry, -1 if there is none.
 int FindBuddy(int CharacterID)
 {
-	TASSERT1(680, CharacterID!=0, CharacterID);
+	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	for (int i = 0; i < NumberOfBuddyEntries; i++) {
 		if (Buddies(i).CharacterID == CharacterID)
 			return i;
@@ -643,9 +643,9 @@ int FindBuddy(int CharacterID)
 // 0x4dcfb0, lines 691-693. Deleted entries are not reused.
 void SetBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 {
-	TASSERT1(691, CharacterID!=0, CharacterID);
-	TASSERT(692, Description!=NULL);
-	TASSERT1(693, strlen(Description)<BUDDYDESCRIPTION_LENGTH, strlen(Description));
+	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
+	PATELLA_ASSERT(Description!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(Description)<BUDDYDESCRIPTION_LENGTH, strlen(Description));
 	int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		Number = NumberOfBuddyEntries++;
@@ -659,7 +659,7 @@ void SetBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 // 0x4dd360, line 711. Only marks the entry as free.
 void DeleteBuddy(int CharacterID)
 {
-	TASSERT1(711, CharacterID!=0, CharacterID);
+	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	const int Number = FindBuddy(CharacterID);
 	if (Number != -1)
 		Buddies(Number).CharacterID = 0;
@@ -668,7 +668,7 @@ void DeleteBuddy(int CharacterID)
 // 0x4dd4c0, line 722
 int GetBuddyIcon(int CharacterID)
 {
-	TASSERT1(722, CharacterID!=0, CharacterID);
+	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	const int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		return 0;
@@ -678,7 +678,7 @@ int GetBuddyIcon(int CharacterID)
 // 0x4dd640, line 733. NULL for an unknown character.
 const char *GetBuddyDescription(int CharacterID)
 {
-	TASSERT1(733, CharacterID!=0, CharacterID);
+	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	const int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		return nullptr;
@@ -688,7 +688,7 @@ const char *GetBuddyDescription(int CharacterID)
 // 0x4dd7c0, line 744
 bool GetBuddyNotify(int CharacterID)
 {
-	TASSERT1(744, CharacterID!=0, CharacterID);
+	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	const int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		return false;
@@ -698,14 +698,14 @@ bool GetBuddyNotify(int CharacterID)
 // 0x4dd940, line 825
 bool GetSkillBar(int SkillNumber)
 {
-	TASSERT1(825, In(SkillNumber,0,SKILLS-1), SkillNumber);
+	PATELLA_ASSERT_VALUES(In(SkillNumber,0,SKILLS-1), SkillNumber);
 	return SkillBars[SkillNumber];
 }
 
 // 0x4ddaa0, line 850
 void SetSkillBar(int SkillNumber, bool Value)
 {
-	TASSERT1(850, In(SkillNumber,0,SKILLS-1), SkillNumber);
+	PATELLA_ASSERT_VALUES(In(SkillNumber,0,SKILLS-1), SkillNumber);
 	SkillBars[SkillNumber] = Value;
 }
 

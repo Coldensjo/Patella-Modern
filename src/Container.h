@@ -93,7 +93,7 @@ template <class T> array<T>::array(int min, int max)
 {
 	this->min = min;
 	d = max - min + 1;
-	TASSERT1(152, d>0, d);
+	PATELLA_ASSERT_VALUES(d>0, d);
 	entry.reset(new T[d]);
 }
 
@@ -142,8 +142,8 @@ template <class T> matrix<T>::matrix(int xmin, int xmax, int ymin, int ymax)
 	this->ymin = ymin;
 	dx = xmax - xmin + 1;
 	dy = ymax - ymin + 1;
-	TASSERT1(217, dx>0, dx);
-	TASSERT1(218, dy>0, dy);
+	PATELLA_ASSERT_VALUES(dx>0, dx);
+	PATELLA_ASSERT_VALUES(dy>0, dy);
 	entry.reset(new T[dx * dy]);
 }
 
@@ -188,9 +188,9 @@ template <class T> matrix3d<T>::matrix3d(int xmin, int xmax, int ymin, int ymax,
 	dx = xmax - xmin + 1;
 	dy = ymax - ymin + 1;
 	dz = zmax - zmin + 1;
-	TASSERT1(282, dx>0, dx);
-	TASSERT1(283, dy>0, dy);
-	TASSERT1(284, dz>0, dz);
+	PATELLA_ASSERT_VALUES(dx>0, dx);
+	PATELLA_ASSERT_VALUES(dy>0, dy);
+	PATELLA_ASSERT_VALUES(dz>0, dz);
 	entry.reset(new T[dx * dy * dz]);
 }
 
@@ -245,8 +245,8 @@ template <class T> vector<T>::vector(int min, int max, int block, T init)
 	this->block = block;
 	initialized = true;
 	this->init = init;
-	TASSERT1(355, space>0, space);
-	TASSERT1(356, block>=0, block);
+	PATELLA_ASSERT_VALUES(space>0, space);
+	PATELLA_ASSERT_VALUES(block>=0, block);
 	entry.reset(new T[space]);
 	for (int i = 0; i < space; i++)
 		entry[i] = init;
@@ -263,8 +263,8 @@ template <class T> vector<T>::vector(int min, int max, int block)
 	space = max - min + 1;
 	this->block = block;
 	initialized = false;
-	TASSERT1(369, space>0, space);
-	TASSERT1(370, block>=0, block);
+	PATELLA_ASSERT_VALUES(space>0, space);
+	PATELLA_ASSERT_VALUES(block>=0, block);
 	entry.reset(new T[space]);
 }
 

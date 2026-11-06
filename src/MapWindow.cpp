@@ -160,8 +160,8 @@ bool TMapWindow::LeftButtonUp(int x, int y, int Flags)
 		if (Obj.Type != 0) {
 			int SrcIndex, SrcX, SrcY, SrcZ;
 			const TObject &SrcObj = *GetUseObject(&SrcIndex, &SrcX, &SrcY, &SrcZ);
-			TASSERT(219, SrcObj!=0);
-			TASSERT(220, SrcObj.Type!=CREATURE);
+			PATELLA_ASSERT(SrcObj!=0);
+			PATELLA_ASSERT(SrcObj.Type!=CREATURE);
 			if (Obj.Type == CREATURE && !IsPlayer(Obj.Data)) {
 				SendUseObjectOnCreature(SrcX, SrcY, SrcZ, SrcObj.Type, SrcIndex, Obj.Data);
 				return true;
@@ -175,7 +175,7 @@ bool TMapWindow::LeftButtonUp(int x, int y, int Flags)
 	} else if (GetActionState() == 8) {
 		int TradeIndex, TradeX, TradeY, TradeZ;
 		const TObject &TradeObject = *GetTradeObject(&TradeIndex, &TradeX, &TradeY, &TradeZ);
-		TASSERT(234, TradeObject!=0);
+		PATELLA_ASSERT(TradeObject!=0);
 		const uint32 CreatureID = GetCreatureAt(x, y);
 		if (CreatureID != 0 && CreatureID != GetPlayerID() && IsPlayer(CreatureID)) {
 			SendRequestTrade(TradeX, TradeY, TradeZ, TradeObject.Type, TradeIndex, CreatureID);
@@ -277,7 +277,7 @@ bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 		}
 		if (Obj.Type == 0)
 			return true;
-		TASSERT(335, Obj!=CREATURE);
+		PATELLA_ASSERT(Obj!=CREATURE);
 		if (GetObjectFlag(Obj, MULTIUSE)) {
 			AddMessage(0x2c, 0, 0);
 			return true;
@@ -303,7 +303,7 @@ bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 			TObject &Obj = *GetUseObject(&Index, &ox, &oy, &oz);
 			if (Obj.Type == 0)
 				return true;
-			TASSERT(358, Obj!=CREATURE);
+			PATELLA_ASSERT(Obj!=CREATURE);
 			if (GetObjectFlag(Obj, MULTIUSE)) {
 				AddMessage(0x2c, 0, 0);
 				return true;
@@ -329,7 +329,7 @@ void TMapWindow::HandleEvent(int Event)
 		DeleteChild(HintButton);
 		HintButton = nullptr;
 		const int Hint = PopEventHelp();
-		TASSERT1(382, In(Hint,1,EVENTHELPS), Hint);
+		PATELLA_ASSERT_VALUES(In(Hint,1,EVENTHELPS), Hint);
 		const std::size_t Size = strlen(GetEventHelpText(Hint)) + 1;
 		char *Text = new char[Size];
 		TStringBuffer(Text, Size).Assign(GetEventHelpText(Hint));
@@ -360,7 +360,7 @@ bool TMapWindow::HelpMouseMove(int x, int y)
 	if (Handle == 0)
 		return false;
 	const TCreature *Player = GetCreature(GetPlayerID());
-	TASSERT(417, Player!=NULL);
+	PATELLA_ASSERT(Player!=NULL);
 	// The help position goes into x and y (the binary stores it in the
 	// parameters' stack slots, 0x4c372a/0x4c3751 and 0x4c3793/0x4c37bd), so
 	// the original's catch wrapper printed it after an error in
@@ -390,7 +390,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	const int CreatureInfo = GetCreatureInfo();
 	ProcessMissileEffects();
 	const TCreature *Player = GetCreature(GetPlayerID());
-	TASSERT(456, Player!=NULL);
+	PATELLA_ASSERT(Player!=NULL);
 	ScrollX = Player->GetDeltaX() + 32;
 	ScrollY = Player->GetDeltaY() + 32;
 	const int Level = GetMapLevel();
@@ -537,8 +537,8 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	const int ScreenHeight = Height;
 	int BorderX = 0, BorderY = 0;
 	if (GetNoStretching()) {
-		TASSERT1(558, getWidth()<=MAP_WIDTH*32, getWidth());
-		TASSERT1(559, getHeight()<=MAP_HEIGHT*32, getHeight());
+		PATELLA_ASSERT_VALUES(getWidth()<=MAP_WIDTH*32, getWidth());
+		PATELLA_ASSERT_VALUES(getHeight()<=MAP_HEIGHT*32, getHeight());
 		if (Width >= 480 && Height >= 352) {
 			GetSurface()->BlitRect(Surface, x, y, 2, TRect(0, 0, 480, 352));
 		} else {
@@ -1019,7 +1019,7 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 // are animated and bypass the field cache.
 void TMapWindow::DrawObject(int posx, int posy, int Level, TObject Obj, int x, int y, int z)
 {
-	TASSERT(1071, Obj.Type!=0);
+	PATELLA_ASSERT(Obj.Type!=0);
 	int PatternX = x % GetObjectPatternWidth(Obj.Type) + 1;
 	int PatternY = y % GetObjectPatternHeight(Obj.Type) + 1;
 	const int PatternZ = z % GetObjectPatternDepth(Obj.Type) + 1;
@@ -1051,8 +1051,8 @@ void TMapWindow::DrawObject(int posx, int posy, int Level, TObject Obj, int x, i
 // is the colour mask (head, body, legs, feet).
 void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature)
 {
-	TASSERT(1106, Creature!=NULL);
-	TASSERT(1107, Creature->OutfitType!=0);
+	PATELLA_ASSERT(Creature!=NULL);
+	PATELLA_ASSERT(Creature->OutfitType!=0);
 	const int OutfitType = Creature->OutfitType;
 	std::array<TRGBColor, 4> Colors;
 	int R, G, B;
@@ -1091,7 +1091,7 @@ void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature
 // darkest; brightness 1-27 gets tile 1, from 224 on nothing is drawn).
 void TMapWindow::DrawLightMask(int posx, int posy, int Brightness)
 {
-	TASSERT1(1138, In(Brightness,0,255), Brightness);
+	PATELLA_ASSERT_VALUES(In(Brightness,0,255), Brightness);
 	int Tile;
 	if (In(Brightness, 1, 27))
 		Tile = 1;
@@ -1255,8 +1255,8 @@ void TMapWindow::FlushField(int FieldX, int FieldY)
 // position, so a field keeps its tile while the map scrolls.
 TCacheField *TMapWindow::GetCacheField(int FieldX, int FieldY)
 {
-	TASSERT1(1264, In(FieldX,0,MAPSIZE_X-1), FieldX);
-	TASSERT1(1265, In(FieldY,0,MAPSIZE_Y-1), FieldY);
+	PATELLA_ASSERT_VALUES(In(FieldX,0,MAPSIZE_X-1), FieldX);
+	PATELLA_ASSERT_VALUES(In(FieldY,0,MAPSIZE_Y-1), FieldY);
 	return &Cache[(PositionX + FieldX) % 16][(PositionY + FieldY) % 12];
 }
 
@@ -1506,7 +1506,7 @@ void TMapWindow::ArrangeTalkboxes()
 void TMapWindow::GetField(int x, int y, int *FieldX, int *FieldY, int *FieldZ)
 {
 	const TCreature *Player = GetCreature(GetPlayerID());
-	TASSERT(1480, Player!=NULL);
+	PATELLA_ASSERT(Player!=NULL);
 	if (GetNoStretching()) {
 		*FieldX = ((480 - Width) / 2 + Player->GetDeltaX() + x) / 32 + 1;
 		*FieldY = ((352 - Height) / 2 + Player->GetDeltaY() + y) / 32 + 1;

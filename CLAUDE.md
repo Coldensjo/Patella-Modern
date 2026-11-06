@@ -80,6 +80,9 @@ src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings
 tests/golden/*.cpp tests/golden/*.h`.
 The Microsoft CRT's and compiler's own spellings (`_snprintf`, `_stricmp`, `__cdecl`, `#pragma warning`...) go
 through `src/compat/msvc.h` and `msvc_io.h` (issue #43), which keep their semantics on every platform.
+Assertions are `PATELLA_ASSERT(expr)` and `PATELLA_ASSERT_VALUES(expr, value[, value])` of `src/compat/assertion.h`
+(issue #79; TASSERT* until then): a TMyException with the assertion's own file and line, checked in every build, no
+`contract_assert`.
 Run clang-tidy through `python -I tools/tidy.py -p <build dir with compile_commands.json> [--fix] <files>` (the
 baseline, `--zero` and `--headers` are its). Retired on November 5, 2026 (issue #76): the stringized-expression rule
 (plan 4.2: no change to the arguments of TASSERT*, TERROR* or TEND*), macrocheck, and tidy.py's guard that reverted

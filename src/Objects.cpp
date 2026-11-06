@@ -52,56 +52,56 @@ inline bool GetEntryFlag(TProperties &Entry, int Flag)
 // 0x4cfbb0, lines 67-70
 int GetEntryWaypoints(TProperties &Entry)
 {
-	TASSERT1(67, GetEntryFlag(Entry,BANK), *(int*)Entry.Flags);
+	PATELLA_ASSERT_VALUES(GetEntryFlag(Entry,BANK), *(int*)Entry.Flags);
 	return Entry.Waypoints;
 }
 
 // 0x4cfe20, lines 91-94
 int GetEntryBrightness(TProperties &Entry)
 {
-	TASSERT(91, GetEntryFlag(Entry,LIGHT));
+	PATELLA_ASSERT(GetEntryFlag(Entry,LIGHT));
 	return Entry.Brightness;
 }
 
 // 0x4d0090, lines 103-106
 int GetEntryLightColor(TProperties &Entry)
 {
-	TASSERT(103, GetEntryFlag(Entry,LIGHT));
+	PATELLA_ASSERT(GetEntryFlag(Entry,LIGHT));
 	return Entry.LightColor;
 }
 
 // 0x4d0300, lines 115-118
 int GetEntryShiftX(TProperties &Entry)
 {
-	TASSERT(115, GetEntryFlag(Entry,SHIFT));
+	PATELLA_ASSERT(GetEntryFlag(Entry,SHIFT));
 	return Entry.ShiftX;
 }
 
 // 0x4d0570, lines 127-130
 int GetEntryShiftY(TProperties &Entry)
 {
-	TASSERT(127, GetEntryFlag(Entry,SHIFT));
+	PATELLA_ASSERT(GetEntryFlag(Entry,SHIFT));
 	return Entry.ShiftY;
 }
 
 // 0x4d07e0, lines 139-142
 int GetEntryElevation(TProperties &Entry)
 {
-	TASSERT(139, GetEntryFlag(Entry,HEIGHT));
+	PATELLA_ASSERT(GetEntryFlag(Entry,HEIGHT));
 	return Entry.Elevation;
 }
 
 // 0x4d0a50, lines 151-154
 int GetEntryAutomapColor(TProperties &Entry)
 {
-	TASSERT(151, GetEntryFlag(Entry,AUTOMAP));
+	PATELLA_ASSERT(GetEntryFlag(Entry,AUTOMAP));
 	return Entry.AutomapColor;
 }
 
 // 0x4d0cc0, lines 163-166
 int GetEntryLensHelp(TProperties &Entry)
 {
-	TASSERT(163, GetEntryFlag(Entry,LENSHELP));
+	PATELLA_ASSERT(GetEntryFlag(Entry,LENSHELP));
 	return Entry.LensHelp;
 }
 
@@ -111,13 +111,13 @@ int GetEntryLensHelp(TProperties &Entry)
 int GetEntrySpriteNumber(TProperties &Entry, int X, int Y, int Layer, int PatternX, int PatternY,
 	int PatternZ, int Phase)
 {
-	TASSERT2(238, In(X,1,Entry.Width), X, Entry.Width);
-	TASSERT2(239, In(Y,1,Entry.Height), Y, Entry.Height);
-	TASSERT2(240, In(Layer,1,Entry.Layers), Layer, Entry.Layers);
-	TASSERT2(241, In(PatternX,1,Entry.PatternWidth), PatternX, Entry.PatternWidth);
-	TASSERT2(242, In(PatternY,1,Entry.PatternHeight), PatternY, Entry.PatternHeight);
-	TASSERT2(243, In(PatternZ,1,Entry.PatternDepth), PatternZ, Entry.PatternDepth);
-	TASSERT2(244, In(Phase,1,Entry.Phases), Phase, Entry.Phases);
+	PATELLA_ASSERT_VALUES(In(X,1,Entry.Width), X, Entry.Width);
+	PATELLA_ASSERT_VALUES(In(Y,1,Entry.Height), Y, Entry.Height);
+	PATELLA_ASSERT_VALUES(In(Layer,1,Entry.Layers), Layer, Entry.Layers);
+	PATELLA_ASSERT_VALUES(In(PatternX,1,Entry.PatternWidth), PatternX, Entry.PatternWidth);
+	PATELLA_ASSERT_VALUES(In(PatternY,1,Entry.PatternHeight), PatternY, Entry.PatternHeight);
+	PATELLA_ASSERT_VALUES(In(PatternZ,1,Entry.PatternDepth), PatternZ, Entry.PatternDepth);
+	PATELLA_ASSERT_VALUES(In(Phase,1,Entry.Phases), Phase, Entry.Phases);
 	return Entry.Sprites[((((((Phase - 1) * Entry.PatternDepth + PatternZ - 1) * Entry.PatternHeight
 								+ PatternY - 1)
 								   * Entry.PatternWidth
@@ -139,7 +139,7 @@ bool GetObjectFlag(int Type, int Flag)
 {
 	if (Type == CREATURE)
 		return Flag == UNPASS;
-	TASSERT2(267, In(Type,ObjectProperties->low(),ObjectProperties->high()), Type, ObjectProperties->high());
+	PATELLA_ASSERT_VALUES(In(Type,ObjectProperties->low(),ObjectProperties->high()), Type, ObjectProperties->high());
 	return GetEntryFlag((*ObjectProperties)(Type), Flag);
 }
 
@@ -409,7 +409,7 @@ int GetMissileLayers(int Number)
 // binary returns 0 there.
 int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction)
 {
-	TASSERT1(766, In(Direction,0,7), Direction);
+	PATELLA_ASSERT_VALUES(In(Direction,0,7), Direction);
 	switch (Direction) {
 	case 0:
 		return GetEntrySpriteNumber((*MissileProperties)(Number), X, Y, Layer, 2, 1, 1, 1);
@@ -438,7 +438,7 @@ int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction)
 // object's pattern size.
 void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY)
 {
-	TASSERT(796, GetObjectFlag(Obj,CUMULATIVE));
+	PATELLA_ASSERT(GetObjectFlag(Obj,CUMULATIVE));
 	const int Count = Obj.Data;
 	if (Count < 2) {
 		*PatternX = 0;
@@ -470,7 +470,7 @@ void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY)
 // 0x4d6b20, lines 821-826. Obj.Data is the liquid: four columns per row.
 void GetLiquidPattern(TObject &Obj, int *PatternX, int *PatternY)
 {
-	TASSERT(821, GetObjectFlag(Obj,LIQUIDPOOL) || GetObjectFlag(Obj,LIQUIDCONTAINER));
+	PATELLA_ASSERT(GetObjectFlag(Obj,LIQUIDPOOL) || GetObjectFlag(Obj,LIQUIDCONTAINER));
 	*PatternX = Obj.Data % 4 % GetObjectPatternWidth(Obj.Type) + 1;
 	*PatternY = Obj.Data / 4 % GetObjectPatternHeight(Obj.Type) + 1;
 }
@@ -480,7 +480,7 @@ void GetLiquidPattern(TObject &Obj, int *PatternX, int *PatternY)
 // when the object has them.
 void GetHangPattern(TObject &Obj, int *PatternX, int *PatternY)
 {
-	TASSERT(837, GetObjectFlag(Obj,HANG));
+	PATELLA_ASSERT(GetObjectFlag(Obj,HANG));
 	if (Obj.Data2 == HOOKSOUTH)
 		*PatternX = (GetObjectPatternWidth(Obj.Type) >= 2) ? 2 : 1;
 	else if (Obj.Data2 == HOOKEAST)
@@ -601,7 +601,7 @@ void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 // by close() and by the destructor.
 void LoadObjects(const char *FileName)
 {
-	TASSERT(948, FileName!=NULL);
+	PATELLA_ASSERT(FileName!=NULL);
 	ReleaseObjects();
 	TReadBinaryFile File;
 	File.open(FileName);

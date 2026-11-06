@@ -162,13 +162,13 @@ void DrawSkin(int Surface, int x, int y, int width, int height, int skin, int sr
 {
 	if (skin == 0 || width == 0 || height == 0)
 		return;
-	TASSERT1(42, x>=0, x);
-	TASSERT1(43, y>=0, y);
-	TASSERT1(44, In(skin,0,LASTSKIN-1), skin);
-	TASSERT1(45, Skins[skin].width>0, Skins[skin].width);
-	TASSERT1(46, Skins[skin].height>0, Skins[skin].height);
-	TASSERT1(47, width>0, width);
-	TASSERT1(48, height>0, height);
+	PATELLA_ASSERT_VALUES(x>=0, x);
+	PATELLA_ASSERT_VALUES(y>=0, y);
+	PATELLA_ASSERT_VALUES(In(skin,0,LASTSKIN-1), skin);
+	PATELLA_ASSERT_VALUES(Skins[skin].width>0, Skins[skin].width);
+	PATELLA_ASSERT_VALUES(Skins[skin].height>0, Skins[skin].height);
+	PATELLA_ASSERT_VALUES(width>0, width);
+	PATELLA_ASSERT_VALUES(height>0, height);
 	if (Skins[skin].width == width && Skins[skin].height == height) {
 		DrawPicturePart(Surface, x, y, 4, Skins[skin].x, Skins[skin].y, Skins[skin].width, Skins[skin].height);
 	} else {
@@ -213,9 +213,9 @@ void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin,
 {
 	if (skin == 0 || width == 0 || height == 0)
 		return;
-	TASSERT1(99, In(skin,0,LASTSKIN-1), skin);
-	TASSERT1(100, width>0, width);
-	TASSERT1(101, height>0, height);
+	PATELLA_ASSERT_VALUES(In(skin,0,LASTSKIN-1), skin);
+	PATELLA_ASSERT_VALUES(width>0, width);
+	PATELLA_ASSERT_VALUES(height>0, height);
 	if (Skins[skin].width < 1 || Skins[skin].height < 1) {
 		std::stringstream s;
 		s << "some assertions failed " << "(surface: " << Surface << " x: " << x << " y: " << y
@@ -1738,7 +1738,7 @@ bool TComponent::IsChild([[maybe_unused]] TComponent *Child)
 // 0x49bc30, lines 1057-1066. The assertion comes before the try block.
 TComponent *TComponent::GetPrevious()
 {
-	TASSERT(1057, Parent!=NULL);
+	PATELLA_ASSERT(Parent!=NULL);
 	TComponent *Search = Parent->GetFirstChild();
 	while (Search != nullptr) {
 		if (Search->GetNext() == this)
@@ -1751,8 +1751,8 @@ TComponent *TComponent::GetPrevious()
 // 0x49bee0, lines 1092-1093. No try block.
 void TComponent::SetSize(int _Width, int _Height)
 {
-	TASSERT1(1092, _Width>=0, _Width);
-	TASSERT1(1093, _Height>=0, _Height);
+	PATELLA_ASSERT_VALUES(_Width>=0, _Width);
+	PATELLA_ASSERT_VALUES(_Height>=0, _Height);
 	Height = _Height;
 	Width = _Width;
 }
@@ -1765,7 +1765,7 @@ void TComponent::Draw(int Surface, int x, int y)
 	for (; i < DrawingListLength; i++) {
 		if (DrawingList[i].skin == 0)
 			continue;
-		TASSERT1(1118, DrawingList[i].skin<NumberOfSkins, DrawingList[i].skin);
+		PATELLA_ASSERT_VALUES(DrawingList[i].skin<NumberOfSkins, DrawingList[i].skin);
 		if (DrawingList[i].width == 0 && DrawingList[i].height == 0) {
 			const TSkin *Skin = &Skins[DrawingList[i].skin];
 			DrawPicturePart(Surface, DrawingList[i].x + x, DrawingList[i].y + y, 4, Skin->x, Skin->y, Skin->width,
@@ -1795,8 +1795,8 @@ void TComponent::Draw(int Surface, int x, int y)
 // 0x49c190, lines 1193-1194. Inserts the child at the front. No try block.
 void TWindow::InsertChild(TComponent *Child)
 {
-	TASSERT(1193, Child!=NULL);
-	TASSERT(1194, Child->Parent==NULL);
+	PATELLA_ASSERT(Child!=NULL);
+	PATELLA_ASSERT(Child->Parent==NULL);
 	Child->Next = FirstChild;
 	FirstChild = Child;
 	Child->Parent = this;
@@ -1806,8 +1806,8 @@ void TWindow::InsertChild(TComponent *Child)
 // reset.
 void TWindow::AppendChild(TComponent *Child)
 {
-	TASSERT(1206, Child!=NULL);
-	TASSERT(1207, Child->Parent==NULL);
+	PATELLA_ASSERT(Child!=NULL);
+	PATELLA_ASSERT(Child->Parent==NULL);
 	if (FirstChild == nullptr) {
 		FirstChild = Child;
 	} else {
@@ -1832,8 +1832,8 @@ void TWindow::DeleteChild(TComponent *Child)
 // NULL), which reaches this window's ReleaseCapture by its parent.
 void TWindow::RemoveChild(TComponent *Child)
 {
-	TASSERT(1239, Child!=NULL);
-	TASSERT(1240, Child->Parent==this);
+	PATELLA_ASSERT(Child!=NULL);
+	PATELLA_ASSERT(Child->Parent==this);
 	if (Child == Capture) {
 		Child->StopDragging();
 		Child->ReleaseCapture(nullptr);
@@ -1843,7 +1843,7 @@ void TWindow::RemoveChild(TComponent *Child)
 	} else {
 		TComponent *Search = FirstChild;
 		for (;;) {
-			TASSERT(1249, Search!=NULL);
+			PATELLA_ASSERT(Search!=NULL);
 			if (Search->Next == Child)
 				break;
 			Search = Search->Next;
@@ -1858,17 +1858,17 @@ void TWindow::RemoveChild(TComponent *Child)
 // when Previous is NULL. The first two assertions are before the try block.
 void TWindow::InsertChildAfter(TComponent *Previous, TComponent *Child)
 {
-	TASSERT(1269, Child!=NULL);
-	TASSERT(1270, Child->Parent==NULL);
+	PATELLA_ASSERT(Child!=NULL);
+	PATELLA_ASSERT(Child->Parent==NULL);
 	if (Previous == nullptr) {
 		InsertChild(Child);
 		return;
 	}
 	TComponent *Search = FirstChild;
-	TASSERT(1280, Search!=NULL);
+	PATELLA_ASSERT(Search!=NULL);
 	while (Search != nullptr && Search != Previous)
 		Search = Search->Next;
-	TASSERT(1282, Search!=NULL);
+	PATELLA_ASSERT(Search!=NULL);
 	Child->Parent = this;
 	Child->Next = Search->Next;
 	Search->Next = Child;
@@ -1880,26 +1880,26 @@ void TWindow::InsertChildAfter(TComponent *Previous, TComponent *Child)
 // their places.
 void TWindow::SwapChildren(TComponent *Child1, TComponent *Child2)
 {
-	TASSERT(1295, Child1!=NULL);
-	TASSERT(1296, Child2!=NULL);
-	TASSERT(1297, Child1->Parent==this);
-	TASSERT(1298, Child2->Parent==this);
-	TASSERT(1299, FirstChild!=NULL);
+	PATELLA_ASSERT(Child1!=NULL);
+	PATELLA_ASSERT(Child2!=NULL);
+	PATELLA_ASSERT(Child1->Parent==this);
+	PATELLA_ASSERT(Child2->Parent==this);
+	PATELLA_ASSERT(FirstChild!=NULL);
 	TComponent *Before1 = nullptr;
 	TComponent *Search1 = FirstChild;
 	while (Search1 != nullptr && Search1 != Child1) {
 		Before1 = Search1;
 		Search1 = Search1->Next;
 	}
-	TASSERT(1310, Search1!=NULL);
+	PATELLA_ASSERT(Search1!=NULL);
 	TComponent *Before2 = nullptr;
 	TComponent *Search2 = FirstChild;
 	while (Search2 != nullptr && Search2 != Child2) {
 		Before2 = Search2;
 		Search2 = Search2->Next;
 	}
-	TASSERT(1318, Search2!=NULL);
-	TASSERT(1319, Before1!=Before2);
+	PATELLA_ASSERT(Search2!=NULL);
+	PATELLA_ASSERT(Before1!=Before2);
 	TComponent *After2 = Search2->Next;
 	if (After2 == Search1) {
 		TComponent *After1 = Search1->Next;
@@ -2066,7 +2066,7 @@ bool TWindow::HelpMouseMove(int x, int y)
 // parents up to the main window capture this window in turn.
 void TWindow::SetCapture(TComponent *Component)
 {
-	TASSERT(1633, Capture==NULL);
+	PATELLA_ASSERT(Capture==NULL);
 	Capture = Component;
 	if (Parent != nullptr)
 		Parent->SetCapture(this);
@@ -2075,7 +2075,7 @@ void TWindow::SetCapture(TComponent *Component)
 // 0x49f1a0, lines 1648-1653. The assertion is before the try block.
 void TWindow::ReleaseCapture(TComponent *Component)
 {
-	TASSERT(1648, Capture==Component);
+	PATELLA_ASSERT(Capture==Component);
 	Capture = nullptr;
 	if (Parent != nullptr)
 		Parent->ReleaseCapture(this);
@@ -2096,9 +2096,9 @@ void TWindow::StopDragging()
 // Height, not the area (whose name is ours, as FitToChild's).
 void TWindow::SetChildArea(TComponent *Child, TRect Area)
 {
-	TASSERT(1679, Child->Parent==this);
-	TASSERT1(1680, Width>0, Width);
-	TASSERT1(1681, Height>0, Height);
+	PATELLA_ASSERT(Child->Parent==this);
+	PATELLA_ASSERT_VALUES(Width>0, Width);
+	PATELLA_ASSERT_VALUES(Height>0, Height);
 	if (Area.x < 0)
 		Area.x = Width + Area.x;
 	if (Area.y < 0)
@@ -2114,9 +2114,9 @@ void TWindow::SetChildArea(TComponent *Child, TRect Area)
 // 0x49fa40, lines 1700-1708. The assertions are before the try block.
 void TWindow::SetChildPosition(TComponent *Child, int x, int y)
 {
-	TASSERT(1700, Child->Parent==this);
-	TASSERT1(1701, Width>0, Width);
-	TASSERT1(1702, Height>0, Height);
+	PATELLA_ASSERT(Child->Parent==this);
+	PATELLA_ASSERT_VALUES(Width>0, Width);
+	PATELLA_ASSERT_VALUES(Height>0, Height);
 	if (x < 0)
 		x = Width + x;
 	if (y < 0)
@@ -2131,9 +2131,9 @@ void TWindow::SetChildPosition(TComponent *Child, int x, int y)
 // the try block.
 void TWindow::FitToChild(TComponent *Child, TRect Area, bool Notify)
 {
-	TASSERT(1724, Child!=NULL);
-	TASSERT1(1725, Child->getWidth()>0, Child->getWidth());
-	TASSERT1(1726, Child->getHeight()>0, Child->getHeight());
+	PATELLA_ASSERT(Child!=NULL);
+	PATELLA_ASSERT_VALUES(Child->getWidth()>0, Child->getWidth());
+	PATELLA_ASSERT_VALUES(Child->getHeight()>0, Child->getHeight());
 	int NewWidth = Child->Width + (Area.x > 0 ? Area.x : 0) + (Area.width < 0 ? -Area.width : 0);
 	int NewHeight = (Area.y > 0 ? Area.y : 0) + Child->Height + (Area.height < 0 ? -Area.height : 0);
 	const int MinimumWidth = getMinimumWidth();
@@ -2171,10 +2171,10 @@ void TWindow::FitToChildren(TRect Margin, bool Notify)
 		if (Height <= Child->Height + Child->OffsetY)
 			Height = Child->Height + Child->OffsetY;
 	}
-	TASSERT1(1772, Width>0, Width);
-	TASSERT1(1773, Height>0, Height);
-	TASSERT1(1774, LeastX<INT_MAX, LeastX);
-	TASSERT1(1775, LeastY<INT_MAX, LeastY);
+	PATELLA_ASSERT_VALUES(Width>0, Width);
+	PATELLA_ASSERT_VALUES(Height>0, Height);
+	PATELLA_ASSERT_VALUES(LeastX<INT_MAX, LeastX);
+	PATELLA_ASSERT_VALUES(LeastY<INT_MAX, LeastY);
 	const int dx = abs(Margin.x) - LeastX;
 	const int dy = abs(Margin.y) - LeastY;
 	Width = Width + abs(Margin.width) + abs(Margin.x);

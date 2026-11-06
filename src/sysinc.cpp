@@ -149,7 +149,7 @@ void ResizeClipboardBuffer(unsigned int Size)
 {
 	if (ClipboardBufferSize < Size) {
 		char *help = new char[Size];
-		TASSERT(63, help!=NULL);
+		PATELLA_ASSERT(help!=NULL);
 		memcpy(help, ClipboardBuffer, ClipboardBufferSize);
 		free(ClipboardBuffer);
 		ClipboardBufferSize = Size;
@@ -174,7 +174,7 @@ char *GetClipboardText()
 	} else {
 		memcpy(ClipboardBuffer, Data, Size);
 		const BOOL result = GlobalUnlock(Memory);
-		TASSERT(104, result!=0 || GetLastError()==NO_ERROR);
+		PATELLA_ASSERT(result!=0 || GetLastError()==NO_ERROR);
 	}
 	CloseClipboard();
 	for (SIZE_T i = 0; i < Size; i++) {
@@ -197,11 +197,11 @@ bool SetClipboardText(const char *Text)
 	HGLOBAL Memory;
 	if (EmptyClipboard() && (Memory = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, Length + 1)) != nullptr) {
 		char *textdata = static_cast<char *>(GlobalLock(Memory));
-		TASSERT(139, textdata!=NULL);
+		PATELLA_ASSERT(textdata!=NULL);
 		memcpy(textdata, Text, Length);
 		textdata[Length] = 0;
 		const BOOL result = GlobalUnlock(Memory);
-		TASSERT2(143, result==0 || GetLastError()==NO_ERROR, result, GetLastError());
+		PATELLA_ASSERT_VALUES(result==0 || GetLastError()==NO_ERROR, result, GetLastError());
 		if (SetClipboardData(CF_TEXT, Memory) != nullptr) {
 			CloseClipboard();
 			return true;

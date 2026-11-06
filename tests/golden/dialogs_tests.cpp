@@ -3253,7 +3253,7 @@ static void ErrorRound()
 	EndDialogs();
 }
 
-// Every TASSERT/TERROR of Dialogs.cpp and the TEND blocks: the test's
+// Every PATELLA_ASSERT/TERROR of Dialogs.cpp and the TEND blocks: the test's
 // operations on new dialogs, the calls of one action per round failing at
 // one of the fake calls it made before, until one throws; then the
 // assertions with direct calls.

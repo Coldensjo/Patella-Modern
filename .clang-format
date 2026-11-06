@@ -4,7 +4,7 @@
 #	clang-format --dry-run --Werror <files>
 # src/Extern keeps its own style (.clang-format-ignore).
 #
-# The arguments of TASSERT*, TERROR* and TMYEXCEPTION are stringized into the exception messages:
+# The arguments of PATELLA_ASSERT*, TERROR* and TMYEXCEPTION are stringized into the exception messages:
 # clang-format leaves them exactly as written (WhitespaceSensitiveMacros). The list names every such
 # macro of src/, the local ones of single files included; a new one is added here. Until issue #76
 # (November 5, 2026) difftest compared those messages (notes/modernization-plan.md, 4.2, retired);
@@ -69,14 +69,8 @@ StatementMacros:
   - PATELLA_TEST_PACKET_RECEIVED
   - PATELLA_TEST_FRAME_OBSERVERS
 WhitespaceSensitiveMacros:
-  - TASSERT
-  - TASSERT1
-  - TASSERT2
-  - TASSERTB
-  - TASSERTB1
-  - TASSERTB2
-  - TASSERT1_BUG
-  - TASSERT2_BUG
+  - PATELLA_ASSERT
+  - PATELLA_ASSERT_VALUES
   - TERROR
   - TERROR1
   - TERROR2

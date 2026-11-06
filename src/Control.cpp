@@ -372,7 +372,7 @@ void MouseMove(int x, int y)
 		break;
 	case 10:
 	case 11:
-		TASSERT1(461, ModalWindow!=NULL, GetActionState());
+		PATELLA_ASSERT_VALUES(ModalWindow!=NULL, GetActionState());
 		ModalWindow->MouseMove(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY);
 		break;
 	case 9: {
@@ -414,7 +414,7 @@ void LeftButtonDown(int x, int y, int Flags)
 		break;
 	case 10:
 	case 11:
-		TASSERT(503, ModalWindow!=NULL);
+		PATELLA_ASSERT(ModalWindow!=NULL);
 		ModalWindow->LeftButtonDown(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
 		break;
 	}
@@ -450,7 +450,7 @@ void LeftButtonUp(int x, int y, int Flags)
 		break;
 	case 10:
 	case 11:
-		TASSERT(548, ModalWindow!=NULL);
+		PATELLA_ASSERT(ModalWindow!=NULL);
 		ModalWindow->LeftButtonUp(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0 || GetActionState() == 7 || GetActionState() == 8) {
 			delete ModalWindow;
@@ -484,7 +484,7 @@ void LeftButtonDoubleClick(int x, int y, int Flags)
 		break;
 	case 10:
 	case 11:
-		TASSERT(586, ModalWindow!=NULL);
+		PATELLA_ASSERT(ModalWindow!=NULL);
 		ModalWindow->LeftButtonDoubleClick(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0 || GetActionState() == 7 || GetActionState() == 8) {
 			delete ModalWindow;
@@ -537,7 +537,7 @@ void RightButtonUp(int x, int y, int Flags)
 		break;
 	case 10:
 	case 11:
-		TASSERT(652, ModalWindow!=NULL);
+		PATELLA_ASSERT(ModalWindow!=NULL);
 		ModalWindow->RightButtonUp(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0) {
 			delete ModalWindow;
@@ -567,7 +567,7 @@ void MouseWheel(int x, int y, int Direction)
 		break;
 	case 10:
 	case 11:
-		TASSERT(681, ModalWindow!=NULL);
+		PATELLA_ASSERT(ModalWindow!=NULL);
 		ModalWindow->MouseWheel(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Direction);
 		break;
 	default:
@@ -648,7 +648,7 @@ void ConnectionEstablished()
 		const int OldConnectionState = GetConnectionState();
 		SetConnectionState(6);
 		OutfitRequested = false;
-		TASSERT2(1174, In(GetActiveCharacter(),0,GetAccountCharacters()-1), GetActiveCharacter(), OldConnectionState);
+		PATELLA_ASSERT_VALUES(In(GetActiveCharacter(),0,GetAccountCharacters()-1), GetActiveCharacter(), OldConnectionState);
 		SendGameLogin(GetAccountNumber(), GetCharacterName(GetActiveCharacter()), GetAccountPassword());
 		return;
 	}

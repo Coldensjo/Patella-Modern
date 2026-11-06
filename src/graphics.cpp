@@ -37,10 +37,6 @@
 #include <cstring>
 #include <memory>
 
-// Assertions whose expression text carries a bug number (as in Map.cpp).
-#define TASSERTB1(Line, Expr, V1, Bug) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr " " Bug)
-
 // Data, in .bss order. 0x5cc75c is not used.
 std::array<int, HASH_TABLE_SIZE> MemoryHashTable; // 0x5cc430
 std::array<int, HASH_TABLE_SIZE> VideoHashTable;  // 0x5cc5c0
@@ -142,8 +138,8 @@ void ExitGraphics()
 // closed twice: by close() and by the destructor.
 void LoadSprites(const char *FileName)
 {
-	TASSERT(130, FileName!=NULL);
-	TASSERT(131, strlen(FileName)<PATH_MAX);
+	PATELLA_ASSERT(FileName!=NULL);
+	PATELLA_ASSERT(strlen(FileName)<PATH_MAX);
 	SpriteFileName.Assign(FileName);
 	try {
 		TReadBinaryFile File;
@@ -166,8 +162,8 @@ void LoadSprites(const char *FileName)
 // file error becomes PROGRAM_ERROR 4. Malformed runs write past the buffer.
 void LoadSprite(int SpriteNumber, uint8 *Buffer)
 {
-	TASSERT2(156, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
-	TASSERT(157, Buffer!=NULL);
+	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
+	PATELLA_ASSERT(Buffer!=NULL);
 	TSprite &Sprite = Sprites[SpriteNumber - 1];
 	if (Sprite.Offset == 0) {
 		Sprite.ColorKey.R = 0;
@@ -218,8 +214,8 @@ void LoadSprite(int SpriteNumber, uint8 *Buffer)
 // error becomes PROGRAM_ERROR 3.
 void LoadPictures(const char *FileName)
 {
-	TASSERT(244, FileName!=NULL);
-	TASSERT(245, strlen(FileName)<PATH_MAX);
+	PATELLA_ASSERT(FileName!=NULL);
+	PATELLA_ASSERT(strlen(FileName)<PATH_MAX);
 	PictureFileName.Assign(FileName);
 	try {
 		TReadBinaryFile File;
@@ -250,14 +246,14 @@ void LoadPictures(const char *FileName)
 // PROGRAM_ERROR 5, like a file error.
 void LoadPictureTile(int PictureNumber, int TileX, int TileY, uint8 *Buffer)
 {
-	TASSERT2(280, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
-	TASSERT(281, Buffer!=NULL);
+	PATELLA_ASSERT_VALUES(In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
+	PATELLA_ASSERT(Buffer!=NULL);
 	const TPicture &Picture = Pictures[PictureNumber - 1];
 	try {
 		TReadBinaryFile File;
 		File.open(PictureFileName);
-		TASSERT2(289, In(TileX,0,Picture.TilesX-1), TileX, Picture.TilesX-1);
-		TASSERT2(290, In(TileY,0,Picture.TilesY-1), TileY, Picture.TilesY-1);
+		PATELLA_ASSERT_VALUES(In(TileX,0,Picture.TilesX-1), TileX, Picture.TilesX-1);
+		PATELLA_ASSERT_VALUES(In(TileY,0,Picture.TilesY-1), TileY, Picture.TilesY-1);
 		File.seek(Picture.Offsets[Picture.TilesX * TileY + TileX]);
 		for (int i = 0; i < 32 * 32; i++) {
 			Buffer[i * 3] = (uint8)Picture.ColorKey.R;
@@ -297,9 +293,9 @@ void LoadPictureTile(int PictureNumber, int TileX, int TileY, uint8 *Buffer)
 void InitFont(int FontName, int PictureNumber, int CharsPerLine, int CharWidth, int CharHeight,
 	int Spacing, int LineHeight)
 {
-	TASSERT1(348, CharsPerLine>0, CharsPerLine);
-	TASSERT1(349, CharWidth>0, CharWidth);
-	TASSERT1(350, CharHeight>0, CharHeight);
+	PATELLA_ASSERT_VALUES(CharsPerLine>0, CharsPerLine);
+	PATELLA_ASSERT_VALUES(CharWidth>0, CharWidth);
+	PATELLA_ASSERT_VALUES(CharHeight>0, CharHeight);
 	TFontInfo &Font = Fonts[FontName - 1];
 	Font.CharHeight = CharHeight;
 	Font.Spacing = Spacing;
@@ -380,7 +376,7 @@ void InitMemoryCache(int MemoryCacheBytes)
 // 0x48cc30, line 466. Makes an item the most recent one.
 void TouchMemoryItem(int Position)
 {
-	TASSERT1(466, In(Position,0,MemoryCacheSize-1), Position);
+	PATELLA_ASSERT_VALUES(In(Position,0,MemoryCacheSize-1), Position);
 	if (Position == MostRecentMemoryItem)
 		return;
 	TMemoryCacheItem &Item = MemoryCache[Position];
@@ -428,7 +424,7 @@ int FindMemoryPicture(int PictureNumber, int TileX, int TileY)
 // 0x48cef0, line 522. Empties an item and takes it out of its hash chain.
 void RemoveMemoryItem(int Position)
 {
-	TASSERT1(522, In(Position,0,MemoryCacheSize-1), Position);
+	PATELLA_ASSERT_VALUES(In(Position,0,MemoryCacheSize-1), Position);
 	TMemoryCacheItem &Item = MemoryCache[Position];
 	if (Item.Type == EMPTY_ITEM)
 		return;
@@ -444,10 +440,10 @@ void RemoveMemoryItem(int Position)
 // 0x48d0a0, lines 536-539. Puts a filled item at the head of a hash chain.
 void InsertMemoryItem(int Position, int HashValue)
 {
-	TASSERT1(536, In(Position,0,MemoryCacheSize-1), Position);
-	TASSERT2(537, In(HashValue,0,HASH_TABLE_SIZE-1), HashValue, Position);
+	PATELLA_ASSERT_VALUES(In(Position,0,MemoryCacheSize-1), Position);
+	PATELLA_ASSERT_VALUES(In(HashValue,0,HASH_TABLE_SIZE-1), HashValue, Position);
 	TMemoryCacheItem &Item = MemoryCache[Position];
-	TASSERT1(539, Item.Type!=EMPTY_ITEM, Position);
+	PATELLA_ASSERT_VALUES(Item.Type!=EMPTY_ITEM, Position);
 	Item.HashValue = HashValue;
 	Item.HashPrevious = -1;
 	Item.HashNext = MemoryHashTable[HashValue];
@@ -459,7 +455,7 @@ void InsertMemoryItem(int Position, int HashValue)
 // 0x48d440, lines 553-569. A missing sprite replaces the least recent item.
 TMemoryCacheItem *GetMemorySprite(int SpriteNumber)
 {
-	TASSERT2(553, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	int Position = -1;
 	Position = FindMemorySprite(SpriteNumber);
 	if (Position == -1) {
@@ -478,7 +474,7 @@ TMemoryCacheItem *GetMemorySprite(int SpriteNumber)
 // 0x48d740, lines 578-595
 TMemoryCacheItem *GetMemoryPicture(int PictureNumber, int TileX, int TileY)
 {
-	TASSERT2(578, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
+	PATELLA_ASSERT_VALUES(In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
 	int Position = FindMemoryPicture(PictureNumber, TileX, TileY);
 	if (Position == -1) {
 		RemoveMemoryItem(LeastRecentMemoryItem);
@@ -537,7 +533,7 @@ void InitVideoCache()
 // 0x48dd70, line 644
 void TouchVideoItem(int Position)
 {
-	TASSERT1(644, In(Position,0,VideoCacheSize-1), Position);
+	PATELLA_ASSERT_VALUES(In(Position,0,VideoCacheSize-1), Position);
 	if (Position == MostRecentVideoItem)
 		return;
 	TVideoCacheItem &Item = VideoCache[Position];
@@ -630,7 +626,7 @@ void RemoveVideoItem(int Position)
 {
 	if (Position <= 0)
 		return;
-	TASSERT1(762, In(Position,0,VideoCacheSize-1), Position);
+	PATELLA_ASSERT_VALUES(In(Position,0,VideoCacheSize-1), Position);
 	TVideoCacheItem &Item = VideoCache[Position];
 	if (Item.Type == EMPTY_ITEM)
 		return;
@@ -646,10 +642,10 @@ void RemoveVideoItem(int Position)
 // 0x48e410, lines 776-779
 void InsertVideoItem(int Position, int HashValue)
 {
-	TASSERT1(776, In(Position,0,VideoCacheSize-1), Position);
-	TASSERT2(777, In(HashValue,0,HASH_TABLE_SIZE-1), HashValue, Position);
+	PATELLA_ASSERT_VALUES(In(Position,0,VideoCacheSize-1), Position);
+	PATELLA_ASSERT_VALUES(In(HashValue,0,HASH_TABLE_SIZE-1), HashValue, Position);
 	TVideoCacheItem &Item = VideoCache[Position];
-	TASSERT2(779, Item.Type!=EMPTY_ITEM, Position, HashValue);
+	PATELLA_ASSERT_VALUES(Item.Type!=EMPTY_ITEM, Position, HashValue);
 	Item.HashValue = HashValue;
 	Item.HashPrevious = -1;
 	Item.HashNext = VideoHashTable[HashValue];
@@ -662,7 +658,7 @@ void InsertVideoItem(int Position, int HashValue)
 // colour key of the slot's surface first.
 TVideoCacheItem *GetVideoSprite(int SpriteNumber)
 {
-	TASSERT2(793, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	int Position = -1;
 	Position = FindVideoSprite(SpriteNumber);
 	if (Position == -1) {
@@ -685,8 +681,8 @@ TVideoCacheItem *GetVideoSprite(int SpriteNumber)
 // 0x48eb30, lines 824-850. A sprite coloured through a mask (outfits).
 TVideoCacheItem *GetVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColor *Colors)
 {
-	TASSERT2(824, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
-	TASSERT2(825, In(MaskNumber,1,NumberOfSprites), MaskNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(MaskNumber,1,NumberOfSprites), MaskNumber, NumberOfSprites);
 	int Position = FindVideoMaskedSprite(SpriteNumber, MaskNumber, Colors);
 	if (Position == -1) {
 		RemoveVideoItem(LeastRecentVideoItem);
@@ -715,7 +711,7 @@ TVideoCacheItem *GetVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColo
 // TRGBColor::operator== (graphics.h).
 TVideoCacheItem *GetVideoPicture(int PictureNumber, int TileX, int TileY)
 {
-	TASSERT2(859, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
+	PATELLA_ASSERT_VALUES(In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
 	int Position = -1;
 	Position = FindVideoPicture(PictureNumber, TileX, TileY);
 	if (Position == -1) {
@@ -745,7 +741,7 @@ TVideoCacheItem *GetVideoPicture(int PictureNumber, int TileX, int TileY)
 // surface paints the pixels that are not the colour key in Color.
 TVideoCacheItem *GetVideoFontChar(int FontNumber, int TileX, int TileY, TRGBColor Color)
 {
-	TASSERT2(894, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
+	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	int Position = -1;
 	const int PictureNumber = Fonts[FontNumber - 1].PictureNumber;
 	Position = FindVideoFontChar(PictureNumber, TileX, TileY, Color);
@@ -778,7 +774,7 @@ void DrawSprite(int Surface, int x, int y, int SpriteNumber)
 {
 	if (SpriteNumber == 0)
 		return;
-	TASSERT2(933, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	const TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
 	GetSurface()->Blit(Surface, x, y, Item->Surface + 6, TRect(Item->x, Item->y, 32, 32),
 		Sprites[SpriteNumber - 1].ColorKey);
@@ -789,7 +785,7 @@ void DrawSpriteClipped(int Surface, int x, int y, int SpriteNumber, TRect Clip)
 {
 	if (SpriteNumber <= 0)
 		return;
-	TASSERT2(948, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	const TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
 	GetSurface()->BlitClipped(Surface, x, y, Item->Surface + 6, TRect(Item->x, Item->y, 32, 32),
 		Sprites[SpriteNumber - 1].ColorKey, Clip);
@@ -801,7 +797,7 @@ void DrawSpriteScaled(int Surface, int x, int y, int Width, int Height, int Spri
 {
 	if (SpriteNumber == 0)
 		return;
-	TASSERT2(979, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
 	const TVideoCacheItem *Item = GetVideoSprite(SpriteNumber);
 	GetSurface()->StretchBlit(Surface, TRect(x, y, Width, Height), Item->Surface + 6,
 		TRect(Item->x, Item->y, 32, 32), Sprites[SpriteNumber - 1].ColorKey, Highlight, Clip);
@@ -814,8 +810,8 @@ void DrawMaskedSprite(int Surface, int x, int y, int SpriteNumber, int MaskNumbe
 		DrawSprite(Surface, x, y, SpriteNumber);
 		return;
 	}
-	TASSERT2(998, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
-	TASSERT2(999, In(MaskNumber,1,NumberOfSprites), MaskNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(MaskNumber,1,NumberOfSprites), MaskNumber, NumberOfSprites);
 	const TVideoCacheItem *Item = GetVideoMaskedSprite(SpriteNumber, MaskNumber, Colors);
 	GetSurface()->Blit(Surface, x, y, Item->Surface + 6, TRect(Item->x, Item->y, 32, 32),
 		Sprites[SpriteNumber - 1].ColorKey);
@@ -829,8 +825,8 @@ void DrawMaskedSpriteScaled(int Surface, int x, int y, int Width, int Height, in
 		DrawSpriteScaled(Surface, x, y, Width, Height, SpriteNumber, Highlight, Clip);
 		return;
 	}
-	TASSERT2(1059, In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
-	TASSERT2(1060, In(MaskNumber,1,NumberOfSprites), MaskNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
+	PATELLA_ASSERT_VALUES(In(MaskNumber,1,NumberOfSprites), MaskNumber, NumberOfSprites);
 	const TVideoCacheItem *Item = GetVideoMaskedSprite(SpriteNumber, MaskNumber, Colors);
 	GetSurface()->StretchBlit(Surface, TRect(x, y, Width, Height), Item->Surface + 6,
 		TRect(Item->x, Item->y, 32, 32), Sprites[SpriteNumber - 1].ColorKey, Highlight, Clip);
@@ -917,7 +913,7 @@ void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, patella::
 // catch blocks (Ghidra splits off 0x490a58).
 void DrawPicture(int Surface, int x, int y, int PictureNumber)
 {
-	TASSERT2(1145, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
+	PATELLA_ASSERT_VALUES(In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
 	const TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = 0; TileY < Picture.TilesY; TileY++) {
 		for (int TileX = 0; TileX < Picture.TilesX; TileX++) {
@@ -936,11 +932,11 @@ void DrawPicture(int Surface, int x, int y, int PictureNumber)
 void DrawPicturePart(int Surface, int x, int y, int PictureNumber, int SourceX, int SourceY,
 	int Width, int Height)
 {
-	TASSERT2(1164, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
+	PATELLA_ASSERT_VALUES(In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
 	if (Width <= 0 || Height <= 0)
 		return;
-	TASSERT1(1166, Width>0, Width);
-	TASSERT1(1167, Height>0, Height);
+	PATELLA_ASSERT_VALUES(Width>0, Width);
+	PATELLA_ASSERT_VALUES(Height>0, Height);
 	const TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = (SourceY / 32 < 0 ? 0 : SourceY / 32);
 		TileY < ((SourceY + Height + 31) / 32 > Picture.TilesY ? Picture.TilesY : (SourceY + Height + 31) / 32);
@@ -968,9 +964,9 @@ void DrawPicturePart(int Surface, int x, int y, int PictureNumber, int SourceX, 
 void DrawPicturePartClipped(int Surface, int x, int y, int PictureNumber, int SourceX, int SourceY,
 	int Width, int Height, TRect Clip)
 {
-	TASSERT2(1191, In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
-	TASSERT1(1192, Width>0, Width);
-	TASSERT1(1193, Height>0, Height);
+	PATELLA_ASSERT_VALUES(In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
+	PATELLA_ASSERT_VALUES(Width>0, Width);
+	PATELLA_ASSERT_VALUES(Height>0, Height);
 	const TPicture &Picture = Pictures[PictureNumber - 1];
 	for (int TileY = (SourceY / 32 < 0 ? 0 : SourceY / 32);
 		TileY < ((SourceY + Height + 31) / 32 > Picture.TilesY ? Picture.TilesY : (SourceY + Height + 31) / 32);
@@ -1003,11 +999,10 @@ void DrawPicturePartClipped(int Surface, int x, int y, int PictureNumber, int So
 void PrintTextPart(int Surface, int x, int y, int FontNumber, TRGBColor Color, const char *Text,
 	int Length, int Alignment)
 {
-	TASSERT2(1215, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	TASSERT(1216, Text!=NULL);
-	TASSERT2(1217, Length<=(int)strlen(Text), Length, strlen(Text));
-	TASSERTB1(1218, Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment,
-		"[bug0000845]");
+	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES(Length<=(int)strlen(Text), Length, strlen(Text));
+	PATELLA_ASSERT_VALUES(Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment);
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	if (Alignment != LEFT_ALIGN) {
 		const int Width = GetTextPartWidth(FontNumber, Text, Length);
@@ -1045,10 +1040,9 @@ void PrintTextPart(int Surface, int x, int y, int FontNumber, TRGBColor Color, c
 void PrintTextClipped(int Surface, int x, int y, int FontNumber, TRGBColor Color, const char *Text,
 	int Alignment, TRect Clip)
 {
-	TASSERT2(1249, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	TASSERT(1250, Text!=NULL);
-	TASSERTB1(1251, Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment,
-		"[bug0000845]");
+	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES(Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment);
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	const int Length = (int)strlen(Text);
 	if (Alignment != LEFT_ALIGN) {
@@ -1087,17 +1081,16 @@ void PrintTextClipped(int Surface, int x, int y, int FontNumber, TRGBColor Color
 void PrintText(int Surface, int x, int y, int FontNumber, TRGBColor Color, const char *Text,
 	int Alignment)
 {
-	TASSERT2(1282, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	TASSERT(1283, Text!=NULL);
-	TASSERTB1(1284, Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment,
-		"[bug0000845]");
+	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES(Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment);
 	PrintTextPart(Surface, x, y, FontNumber, Color, Text, (int)strlen(Text), Alignment);
 }
 
 // 0x493f60, lines 1295-1299
 void PrintFormattedText(int Surface, int x, int y, TFont Format, const char *Text)
 {
-	TASSERT1(1295, Format.Alignment==LEFT_ALIGN || Format.Alignment==CENTER_ALIGN || Format.Alignment==RIGHT_ALIGN,
+	PATELLA_ASSERT_VALUES(Format.Alignment==LEFT_ALIGN || Format.Alignment==CENTER_ALIGN || Format.Alignment==RIGHT_ALIGN,
 		Format.Alignment);
 	PrintText(Surface, x, y, Format.FontNumber, Format.Color, Text, Format.Alignment);
 }
@@ -1117,7 +1110,7 @@ void PrintFormattedTextPart(int Surface, int x, int y, TFont Format, const char 
 // 0x491710, line 1343. No try block.
 int GetFontHeight(int FontNumber)
 {
-	TASSERT2(1343, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
+	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
 	return Fonts[FontNumber - 1].Height;
 }
 
@@ -1126,8 +1119,8 @@ int GetFontHeight(int FontNumber)
 // functions were removed by the compiler; the exception states remain.
 int GetTextHeight(int FontNumber, const char *Text)
 {
-	TASSERT2(1352, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	TASSERT(1353, Text!=NULL);
+	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
+	PATELLA_ASSERT(Text!=NULL);
 	const int Length = (int)strlen(Text);
 	int Height = 0;
 	for (int i = 0; i < Length; i++) {
@@ -1150,8 +1143,8 @@ int GetTextHeight(int FontNumber, const char *Text)
 // 0x494570, lines 1373-1378
 int GetTextWidth(int FontNumber, const char *Text)
 {
-	TASSERT2(1373, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	TASSERT(1374, Text!=NULL);
+	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
+	PATELLA_ASSERT(Text!=NULL);
 	return GetTextPartWidth(FontNumber, Text, (int)strlen(Text));
 }
 
@@ -1159,9 +1152,9 @@ int GetTextWidth(int FontNumber, const char *Text)
 // without the spacing after the last.
 int GetTextPartWidth(int FontNumber, const char *Text, int Length)
 {
-	TASSERT2(1386, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	TASSERT(1387, Text!=NULL);
-	TASSERT1(1388, Length<=(int)strlen(Text), Length);
+	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES(Length<=(int)strlen(Text), Length);
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	int Width = 0;
 	for (int i = 0; i < Length; i++) {
@@ -1190,8 +1183,8 @@ int GetTextPartWidth(int FontNumber, const char *Text, int Length)
 // beyond Width, else the length.
 int GetFittingTextLength(int FontNumber, const char *Text, int Width)
 {
-	TASSERT2(1410, In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	TASSERT(1411, Text!=NULL);
+	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
+	PATELLA_ASSERT(Text!=NULL);
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	int Position = -Font.Spacing;
 	const int Length = (int)strlen(Text);

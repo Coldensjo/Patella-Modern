@@ -287,6 +287,14 @@ out of line (PATELLA_NOINLINE: the golden Communication test fakes it); the Cont
 the original's wrappers its error round sees (MouseMove's extra GetActionState, a structured exception made a
 TMyException). difftest 16,459,337 / 67 / 856,621 / 3,201 (unchanged); golden 15,803,203 replayed + 1,512,822
 retired, 0 failures. notes/decisions.md, "Part 7" and "The closing summary".
+TASSERT* to PATELLA_ASSERT (Patella-Modern issue #79, branch issue-79, November 6, 2026; M5): src/compat/assertion.h's
+PATELLA_ASSERT(expr) and PATELLA_ASSERT_VALUES(expr, values), a function-based check with std::source_location (an
+aggregate stand-in in the oracle's C++17) that throws the same TMyException with the assertion's own file and line; no
+contract_assert (GCC 16 could throw only through the program's one violation handler, which -fcontract-evaluation-
+semantic can bypass and which cannot pass a predicate's exception on). 802 sites in 30 files converted by a script,
+the three macros and nine local bug variants deleted (the CipSoft bug numbers dropped), Utils.cpp's 16 NULL in
+assertions nullptr (tidy baseline 20 to 4). TPlayerStates::GetIcon's unreachable TERROR1 default left out: MSVC x86 had
+kept its exception frame without the handler in the SafeSEH table. notes/decisions.md, "TASSERT* to PATELLA_ASSERT".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -453,6 +461,14 @@ after lavapipe's threads have ended (Patella-Modern issue #87)"). tests/vulkan o
 tools/build.py windows-x64` 14/14 and `windows-x64-asan` 13/13, 0 warnings (no golden corpus in the worktree: golden
 skipped). tests_vulkan `--repeat until-fail:20`: 20/20 on windows-x64, 20/20 on windows-x64-asan, 24 per device in
 every run. In these 40 runs no census found a thread still ending, so the wait never ran. Logs: build\logs\issue-87.
+
+Patella-Modern issue #79 (branch issue-79, November 6, 2026): TASSERT* to PATELLA_ASSERT. `python -I tools/build.py
+oracle-x86`: difftest 16,459,337, sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures, CTest 4/4
+(unchanged). golden on main's corpus 15,803,203 replayed + 1,512,822 retired = 17,316,025, 0 failures (windows-x64
+14/14, -debug 13/13, -asan 13/13, no ASan finding); windows-x64-gcc and the Linux presets 11/11, 0 warnings.
+tests_unit 72 cases on Windows (MSVC 10,166, stand-in 10,170), 71 on Linux. reference.py compare: every session
+matches. Images by function: x64 579 changed (447 assertion sites, the rest inlining that follows), x86 652 (500).
+tidy_ci: 4 findings, 0 new. banned_calls 0, clang-format clean. Logs: build\logs\issue-79.
 
 Patella-Modern issue #78, part 7 (branch issue-78g, November 6, 2026): TBEGIN/TEND deleted from Communication.cpp,
 Network.cpp and Control.cpp (181 try blocks in 180 functions), then the macros. `python -I tools/build.py oracle-x86`:

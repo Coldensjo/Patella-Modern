@@ -80,7 +80,7 @@ TSkillContextMenu::~TSkillContextMenu()
 // is fitted twice: before and after it has laid itself out.
 THelpBubble::THelpBubble(const char *HelpText)
 {
-	TASSERT(106, HelpText!=NULL);
+	PATELLA_ASSERT(HelpText!=NULL);
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
 	Text = new TFormattedText(HelpText);
@@ -215,17 +215,17 @@ void THelpBubble::Place(TWindow *Window)
 		if (GetMouseX() < Window->Width / 2) {
 			newX = Window->Width - w - Margin;
 			newY = Margin;
-			TASSERT1(257, newX>=0, newX);
-			TASSERT1(258, newY>=0, newY);
+			PATELLA_ASSERT_VALUES(newX>=0, newX);
+			PATELLA_ASSERT_VALUES(newY>=0, newY);
 		} else {
 			newX = Margin;
 			newY = Margin;
-			TASSERT1(262, newX>=0, newX);
-			TASSERT1(263, newY>=0, newY);
+			PATELLA_ASSERT_VALUES(newX>=0, newX);
+			PATELLA_ASSERT_VALUES(newY>=0, newY);
 		}
 	}
-	TASSERT1(267, newX>=0, newX);
-	TASSERT1(268, newY>=0, newY);
+	PATELLA_ASSERT_VALUES(newX>=0, newX);
+	PATELLA_ASSERT_VALUES(newY>=0, newY);
 	SetPosition(newX, newY);
 	SetSize(w, h);
 }
@@ -243,8 +243,8 @@ bool THelpBubble::FitsIn(int &x, int &y, int &Width, int &Height, TWindow *Windo
 		return false;
 	if (x + Width > Window->Width - Margin || y + Height > Window->Height - Margin)
 		return false;
-	TASSERT1(289, x>=0, x);
-	TASSERT1(290, y>=0, y);
+	PATELLA_ASSERT_VALUES(x>=0, x);
+	PATELLA_ASSERT_VALUES(y>=0, y);
 	return true;
 }
 
@@ -370,7 +370,7 @@ void TContextMenu::Show(int x, int y, int ParentWidth, int ParentHeight)
 	if (GetLastChild() == nullptr)
 		AddEntry(0, "", nullptr);
 	TContextMenuEntry *LastEntry = static_cast<TContextMenuEntry *>(GetLastChild());
-	TASSERT(486, LastEntry!=NULL);
+	PATELLA_ASSERT(LastEntry!=NULL);
 	LastEntry->SetLast();
 	FitToChildren(SkinProperties.Data0A0, true);
 	Arrange();
@@ -390,9 +390,9 @@ void TContextMenu::Show(int x, int y, int ParentWidth, int ParentHeight)
 // while the menu is empty.
 void TContextMenu::AddEntry(int Event, const char *Text, const char *Shortcut)
 {
-	TASSERT(506, Text!=NULL);
-	TASSERT1(507, strlen(Text)<50, strlen(Text));
-	TASSERT1(508, Shortcut==NULL || strlen(Shortcut)<20, strlen(Shortcut));
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(Text)<50, strlen(Text));
+	PATELLA_ASSERT_VALUES(Shortcut==NULL || strlen(Shortcut)<20, strlen(Shortcut));
 	if (Separator && !Empty) {
 		AddSeparator();
 		Separator = false;
@@ -422,7 +422,7 @@ TObjectContextMenu::TObjectContextMenu(int x, int y, int ParentWidth, int Parent
 	LookedObject = *GetTradeObject(&LookedObjectIndex, &LookedObjectX, &LookedObjectY, &LookedObjectZ);
 	UsedObject = *GetUseObject(&UsedObjectIndex, &UsedObjectX, &UsedObjectY, &UsedObjectZ);
 	CreatureID = GetTradeInfo();
-	TASSERT(560, LookedObject!=0);
+	PATELLA_ASSERT(LookedObject!=0);
 	const bool ClassicControl = GetClassicControl();
 	AddEntry(10001, "Look", ClassicControl ? nullptr : "(Shift)");
 	if (UsedObject != 0) {
@@ -560,14 +560,14 @@ void TObjectContextMenu::HandleEvent(int Event)
 		SendRequestOutfit();
 		break;
 	case 10010:
-		TASSERT1(712, LookedObjectX==0xFFFF, LookedObjectX);
-		TASSERT(713, LookedObject.Type!=CREATURE);
+		PATELLA_ASSERT_VALUES(LookedObjectX==0xFFFF, LookedObjectX);
+		PATELLA_ASSERT(LookedObject.Type!=CREATURE);
 		SendMoveObject(LookedObjectX, LookedObjectY, LookedObjectZ, LookedObject.Type, LookedObjectIndex,
 			LookedObjectX, LookedObjectY, 0xfe, GetObjectFlag(LookedObject, CUMULATIVE) ? LookedObject.Data : 1);
 		break;
 	case 10011:
-		TASSERT1(717, UsedObjectX==0xFFFF, UsedObjectX);
-		TASSERT1(718, UsedObjectY>=64, UsedObjectY);
+		PATELLA_ASSERT_VALUES(UsedObjectX==0xFFFF, UsedObjectX);
+		PATELLA_ASSERT_VALUES(UsedObjectY>=64, UsedObjectY);
 		SendUseObject(UsedObjectX, UsedObjectY, UsedObjectZ, UsedObject.Type, UsedObjectIndex, UsedObjectY - 64);
 		break;
 	case 10012:
@@ -927,8 +927,8 @@ void TBuddyContextMenu::HandleEvent(int Event)
 TTextContextMenu::TTextContextMenu(TTextWindow *_TextWindow, int _LineNumber, int x, int y, int ParentWidth,
 	int ParentHeight)
 {
-	TASSERT(1056, _TextWindow!=NULL);
-	TASSERT1(1057, GetCreature(GetPlayerID()), GetPlayerID());
+	PATELLA_ASSERT(_TextWindow!=NULL);
+	PATELLA_ASSERT_VALUES(GetCreature(GetPlayerID()), GetPlayerID());
 	TextWindow = _TextWindow;
 	LineNumber = _LineNumber;
 	TTalkLine *Line = TextWindow->GetTalkLine(_LineNumber);
@@ -1053,7 +1053,7 @@ void TTextContextMenu::HandleEvent(int Event)
 TRequestContextMenu::TRequestContextMenu(TConsoleWindow *_ConsoleWindow, int _LineNumber, int x, int y,
 	int ParentWidth, int ParentHeight)
 {
-	TASSERT(1181, _ConsoleWindow!=NULL);
+	PATELLA_ASSERT(_ConsoleWindow!=NULL);
 	ConsoleWindow = _ConsoleWindow;
 	LineNumber = _LineNumber;
 	TTalkLine *Line = ConsoleWindow->CurrentConsole->TextWindow->GetTalkLine(_LineNumber);
@@ -1083,7 +1083,7 @@ void TRequestContextMenu::HandleEvent(int Event)
 			Title.Format("{}'s Report", Name);
 			ConsoleWindow->OpenChannel(TALK_PLAYER_ANSWER, TALK_GAMEMASTER_ANSWER, Name, -1, Title);
 			TTalkBuffer *TextBuffer = GetTextBuffer(TALK_PLAYER_ANSWER, Name, -1);
-			TASSERT(1221, TextBuffer!=NULL);
+			PATELLA_ASSERT(TextBuffer!=NULL);
 			TextBuffer->Clear();
 			AddTextBufferLine(TextBuffer, Line->StatementID, Line->Text, TALK_PLAYER_ANSWER, Name, 0);
 			TextBuffer->SetWriteEnabled(true);
@@ -1116,10 +1116,10 @@ void TRequestContextMenu::HandleEvent(int Event)
 TChannelContextMenu::TChannelContextMenu(TConsoleWindow *_ConsoleWindow, int x, int y, int ParentWidth,
 	int ParentHeight)
 {
-	TASSERT(1248, _ConsoleWindow!=NULL);
+	PATELLA_ASSERT(_ConsoleWindow!=NULL);
 	ConsoleWindow = _ConsoleWindow;
 	TTalkBuffer *TextBuffer = ConsoleWindow->GetTextBuffer();
-	TASSERT(1253, TextBuffer!=NULL);
+	PATELLA_ASSERT(TextBuffer!=NULL);
 	if (!TextBuffer->isDefault()) {
 		if (TextBuffer->GetSelected() && TextBuffer->IsPrivateChannel()) {
 			AddEntry(10016, "Invite player", nullptr);
@@ -1160,7 +1160,7 @@ void TChannelContextMenu::HandleEvent(int Event)
 		break;
 	case 10105: {
 		TTalkBuffer *TextBuffer = ConsoleWindow->GetTextBuffer();
-		TASSERT(1307, TextBuffer!=NULL);
+		PATELLA_ASSERT(TextBuffer!=NULL);
 		ClearTextBuffer(TextBuffer);
 		break;
 	}
@@ -1174,7 +1174,7 @@ void TChannelContextMenu::HandleEvent(int Event)
 // 0x444eb0, lines 1324-1349. The assertion comes before the try block.
 TEditContextMenu::TEditContextMenu(TEditLine *_Edit, int x, int y, int ParentWidth, int ParentHeight)
 {
-	TASSERT(1324, _Edit!=NULL);
+	PATELLA_ASSERT(_Edit!=NULL);
 	Edit = _Edit;
 	if (_Edit->SelectionStart != -1 && _Edit->SelectionLength != 0) {
 		if (!_Edit->ReadOnly)
@@ -1223,7 +1223,7 @@ void TEditContextMenu::HandleEvent(int Event)
 // menu keeps a copy of the data and deletes the original.
 TMarkContextMenu::TMarkContextMenu(TMarkMenuData *_Data, int x, int y, int ParentWidth, int ParentHeight)
 {
-	TASSERT(1379, _Data!=NULL);
+	PATELLA_ASSERT(_Data!=NULL);
 	Data = *_Data;
 	if (Data.Mark.x == 0 && Data.Mark.y == 0) {
 		AddEntry(10400, "Set Mark", nullptr);
@@ -1274,7 +1274,7 @@ void TMarkContextMenu::HandleEvent(int Event)
 TSkillContextMenu::TSkillContextMenu(TSkillsWindowBody *_SkillsWindow, int x, int y, int ParentWidth,
 	int ParentHeight)
 {
-	TASSERT(1442, _SkillsWindow);
+	PATELLA_ASSERT(_SkillsWindow);
 	SkillsWindow = _SkillsWindow;
 	_SkillsWindow->ContextMenu = this;
 	AddEntry(10500, GetLevelBar() ? "Hide Level" : "Show Level", nullptr);

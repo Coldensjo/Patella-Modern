@@ -529,9 +529,9 @@ TDialog *CreateHotkeyDialog(void (*OpenURL)(const char *URL))
 // changes them.
 TDialog::TDialog(const char *_Caption, TComponent *_Dialog)
 {
-	TASSERT(650, _Caption!=NULL);
-	TASSERT1(651, strlen(_Caption)<100, strlen(_Caption));
-	TASSERT(652, _Dialog!=NULL);
+	PATELLA_ASSERT(_Caption!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(_Caption)<100, strlen(_Caption));
+	PATELLA_ASSERT(_Dialog!=NULL);
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
 	Caption.Assign(_Caption);
@@ -556,7 +556,7 @@ TDialog::TDialog(const char *_Caption, TComponent *_Dialog)
 void TDialog::SetOkButton(const char *Text, TCallback Callback)
 {
 	if (Text == nullptr) {
-		TASSERT(687, OkButton!=NULL);
+		PATELLA_ASSERT(OkButton!=NULL);
 		DeleteChild(OkButton);
 		OkButton = nullptr;
 		OkCallback = NoCallback;
@@ -576,7 +576,7 @@ void TDialog::SetOkButton(const char *Text, TCallback Callback)
 void TDialog::SetCancelButton(const char *Text, TCallback Callback)
 {
 	if (Text == nullptr) {
-		TASSERT(710, CancelButton!=NULL);
+		PATELLA_ASSERT(CancelButton!=NULL);
 		DeleteChild(CancelButton);
 		CancelButton = nullptr;
 		CancelCallback = TCallback(this, 2);
@@ -596,7 +596,7 @@ void TDialog::SetCancelButton(const char *Text, TCallback Callback)
 void TDialog::SetExtraButton(const char *Text, TCallback Callback)
 {
 	if (Text == nullptr) {
-		TASSERT(734, ExtraButton!=NULL);
+		PATELLA_ASSERT(ExtraButton!=NULL);
 		DeleteChild(ExtraButton);
 		ExtraButton = nullptr;
 	} else {
@@ -867,7 +867,7 @@ void TLoginDialog::KeyPress(int Key)
 		HandleEvent(2);
 	} else {
 		TEditLine *FocusEdit = FocusGroup->Active;
-		TASSERT(1183, FocusEdit!=NULL);
+		PATELLA_ASSERT(FocusEdit!=NULL);
 		FocusEdit->KeyPress(Key);
 	}
 }
@@ -1017,8 +1017,8 @@ TMoveObjectsDialog::TMoveObjectsDialog()
 	LastDigit = 0;
 	DraggedObject = *GetDragObject(&SourceIndex, &SourceX, &SourceY, &SourceZ);
 	GetDragTarget(&DestinationX, &DestinationY, &DestinationZ);
-	TASSERT(1392, DraggedObject!=0);
-	TASSERT2(1393, In(DraggedObject.Data,1,100), DraggedObject.Data, DraggedObject);
+	PATELLA_ASSERT(DraggedObject!=0);
+	PATELLA_ASSERT_VALUES(In(DraggedObject.Data,1,100), DraggedObject.Data, DraggedObject);
 	TComponent::SetSize(SkinProperties.DataC28, SkinProperties.DataC2C);
 	TLabel *Label = new TLabel(0, 0, SkinProperties.StyleB08.Data78, TextSetNumberOfItems);
 	InsertChild(Label);
@@ -1105,7 +1105,7 @@ inline TRGBColor OutfitColor(int Color)
 // 19 from SkinProperties.DataCA8; the head is the first part shown.
 TOutfitDialog::TOutfitDialog(const int *Data)
 {
-	TASSERT(1488, Data!=NULL);
+	PATELLA_ASSERT(Data!=NULL);
 	Outfit = Data[0];
 	FirstOutfit = Data[5];
 	LastOutfit = Data[6];
@@ -1196,7 +1196,7 @@ void TOutfitDialog::HandleEvent(int Event)
 TTextDialog::TTextDialog(int MaximumLength, const char *Text, uint32 _ObjectNumber, TObject _Obj,
 	const char *Description)
 {
-	TASSERT(1702, Text!=NULL);
+	PATELLA_ASSERT(Text!=NULL);
 	ObjectNumber = _ObjectNumber;
 	Obj = _Obj;
 	TComponent::SetSize(SkinProperties.DataCC0, SkinProperties.DataCC4);
@@ -1231,8 +1231,8 @@ void TTextDialog::HandleEvent(int Event)
 TEditListDialog::TEditListDialog(int MaxLength, const char *Text, int _Type, uint32 _Identifier,
 	const char *Description)
 {
-	TASSERT(1752, Text!=NULL);
-	TASSERT2(1753, (int)strlen(Text)<MaxLength, strlen(Text), MaxLength);
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES((int)strlen(Text)<MaxLength, strlen(Text), MaxLength);
 	Type = _Type;
 	Identifier = _Identifier;
 	TComponent::SetSize(SkinProperties.DataD04, SkinProperties.DataD08);
@@ -1323,7 +1323,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 				Text[i] = 0;
 				NewLine = true;
 			} else if (NewLine) {
-				TASSERT2(1875, Number < AllocationNumber, Number, AllocationNumber);
+				PATELLA_ASSERT_VALUES(Number < AllocationNumber, Number, AllocationNumber);
 				Names[Number] = Text + i;
 				Number++;
 				NewLine = false;
@@ -1388,7 +1388,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 				Text[i] = 0;
 				NewLine = true;
 			} else if (NewLine) {
-				TASSERT2(1944, Number < AllocationNumber, Number, AllocationNumber);
+				PATELLA_ASSERT_VALUES(Number < AllocationNumber, Number, AllocationNumber);
 				Names[Number] = Text + i;
 				Number++;
 				NewLine = false;
@@ -1638,8 +1638,8 @@ void TBugReportDialog::HandleEvent(int Event)
 // 0x4733a0, lines 2265-2297
 TNewChannelDialog::TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30]) // NOLINT(modernize-avoid-c-arrays): Dialogs.h
 {
-	TASSERT(2265, _ChannelIDs!=NULL);
-	TASSERT1(2266, _NumberOfChannels>0, _NumberOfChannels);
+	PATELLA_ASSERT(_ChannelIDs!=NULL);
+	PATELLA_ASSERT_VALUES(_NumberOfChannels>0, _NumberOfChannels);
 	TComponent::SetSize(SkinProperties.DataECC, SkinProperties.DataED0);
 	ListBox = new TListBox(NoCallback, TCallback(this, 301));
 	TLabel *Label = new TLabel(SkinProperties.StyleB08.Data78, TextSelectChannel);
@@ -1689,7 +1689,7 @@ void TNewChannelDialog::HandleEvent(int Event)
 		const char *Name = NameEdit->Text;
 		if (strlen(Name) != 0) {
 			TCreature *Creature = GetCreature(GetPlayerID());
-			TASSERT(2333, Creature!=NULL);
+			PATELLA_ASSERT(Creature!=NULL);
 			if (CompareStrings(Creature->Name, Name, -1) == 0)
 				SetStatusMessage(TextNoPrivateChannelWithYourself, false);
 			else
@@ -1839,7 +1839,7 @@ TEditBuddyDialog::TEditBuddyDialog(int _CharacterID)
 {
 	CharacterID = _CharacterID;
 	const int Position = GetBuddyPosition(_CharacterID);
-	TASSERT2(2652, Position >= 0, Position, CharacterID);
+	PATELLA_ASSERT_VALUES(Position >= 0, Position, CharacterID);
 	TComponent::SetSize(SkinProperties.StyleF8C.Data00, SkinProperties.StyleF8C.Data04);
 	TLabel *Label = new TLabel(SkinProperties.StyleB08.Data64, GetBuddyListName(Position));
 	InsertChild(Label);
@@ -2038,7 +2038,7 @@ void THintsDialog::HandleEvent(int Event)
 				break;
 			}
 		}
-		TASSERT(2974, Number!=-1);
+		PATELLA_ASSERT(Number!=-1);
 		const char *HelpText = GetEventHelpText(Number);
 		const std::size_t Size = strlen(HelpText) + 1;
 		char *Text = new char[Size];
@@ -2232,7 +2232,7 @@ TEditMarkDialog::TEditMarkDialog(TCoordinate *_Coordinate, TMark *_Mark)
 	Coordinate.y = 0;
 	Coordinate.z = 0;
 	TComponent::SetSize(SkinProperties.Data11CC, SkinProperties.Data11D0);
-	TASSERT(3207, _Coordinate != NULL);
+	PATELLA_ASSERT(_Coordinate != NULL);
 	Coordinate = *_Coordinate;
 	if (_Mark != nullptr)
 		Mark = *_Mark;
@@ -2845,7 +2845,7 @@ THotkeyDialog::THotkeyDialog(void (*_OpenURL)(const char *URL))
 // own colour.
 void THotkeyDialog::UpdateLine(int Number)
 {
-	TASSERT1(3914, In(Number,0,HOTKEYS-1), Number);
+	PATELLA_ASSERT_VALUES(In(Number,0,HOTKEYS-1), Number);
 	TFixedString<732> Line;
 	if (Number < 12)
 		Line.Format("F{}{}: {}", Number + 1, "", Texts[Number]);

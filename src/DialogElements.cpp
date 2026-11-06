@@ -90,7 +90,7 @@ void TSeparator::Arrange()
 // are the only EH states.
 TResizer::TResizer(TComponent *_ToResize, bool _ResizeWidth, bool _ResizeHeight, bool _Invisible)
 {
-	TASSERT(74, _ToResize!=NULL);
+	PATELLA_ASSERT(_ToResize!=NULL);
 	ToResize = _ToResize;
 	Invisible = _Invisible;
 	DrawingListLength = 1;
@@ -122,7 +122,7 @@ void TResizer::Arrange()
 bool TResizer::MouseMove(int x, int y)
 {
 	SetMouseCursor(2);
-	TASSERT(113, ToResize!=NULL);
+	PATELLA_ASSERT(ToResize!=NULL);
 	if (Dragging) {
 		int NewWidth = ToResize->Width;
 		if (ResizeWidth)
@@ -138,7 +138,7 @@ bool TResizer::MouseMove(int x, int y)
 // 0x4542a0, lines 129-137
 bool TResizer::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 {
-	TASSERT(129, ToResize!=NULL);
+	PATELLA_ASSERT(ToResize!=NULL);
 	Dragging = true;
 	SetCapture(nullptr);
 	StartX = x;
@@ -149,7 +149,7 @@ bool TResizer::LeftButtonDown(int x, int y, [[maybe_unused]] int Flags)
 // 0x454530, lines 144-154
 bool TResizer::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 {
-	TASSERT(144, ToResize!=NULL);
+	PATELLA_ASSERT(ToResize!=NULL);
 	if (Dragging) {
 		int NewWidth = ToResize->Width;
 		if (ResizeWidth)
@@ -169,7 +169,7 @@ bool TResizer::LeftButtonUp(int x, int y, [[maybe_unused]] int Flags)
 // in the body.
 TBorder::TBorder(TComponent *_Window, int _Border)
 {
-	TASSERT(166, _Window!=NULL);
+	PATELLA_ASSERT(_Window!=NULL);
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
@@ -191,7 +191,7 @@ TBorder::TBorder(TComponent *_Window, int _Border)
 TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int _Left, int _Right, int _BottomLeft,
 	int _Bottom, int _BottomRight, int _Border)
 {
-	TASSERT(192, _Window!=NULL);
+	PATELLA_ASSERT(_Window!=NULL);
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
@@ -213,7 +213,7 @@ TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int
 TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int _Left, int _Right, int _BottomLeft,
 	int _Bottom, int _BottomRight, int _Background, int _Border)
 {
-	TASSERT(217, _Window!=NULL);
+	PATELLA_ASSERT(_Window!=NULL);
 	WindowArea = TRect(0, 0, 0, 0);
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
@@ -234,8 +234,8 @@ TBorder::TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int
 // 0x455150, lines 242-251
 void TBorder::SetSize(int Width, int Height)
 {
-	TASSERT1(242, Width>=getMinimumWidth(), Width);
-	TASSERT1(243, Height>=getMinimumHeight(), Height);
+	PATELLA_ASSERT_VALUES(Width>=getMinimumWidth(), Width);
+	PATELLA_ASSERT_VALUES(Height>=getMinimumHeight(), Height);
 	TComponent::SetSize(Width, Height);
 	Arrange();
 	Window->SetPosition(WindowArea.x, WindowArea.y);
@@ -281,7 +281,7 @@ void TBorder::Arrange()
 // 0x465510, lines 337-348. The font's constructor runs before the assertion.
 TLabel::TLabel(int x, int y, int Width, int Height, TFont _Font, const char *_Text, bool Shorten)
 {
-	TASSERT(337, _Text!=NULL);
+	PATELLA_ASSERT(_Text!=NULL);
 	Font = _Font;
 	Text = nullptr;
 	FullText = nullptr;
@@ -295,7 +295,7 @@ TLabel::TLabel(int x, int y, int Width, int Height, TFont _Font, const char *_Te
 // 0x465810, lines 355-369. Sized to the widest line.
 TLabel::TLabel(int x, int y, TFont _Font, const char *_Text)
 {
-	TASSERT(355, _Text!=NULL);
+	PATELLA_ASSERT(_Text!=NULL);
 	Font = _Font;
 	Text = nullptr;
 	FullText = nullptr;
@@ -315,7 +315,7 @@ TLabel::TLabel(int x, int y, TFont _Font, const char *_Text)
 // 0x465b40, lines 376-389
 TLabel::TLabel(TFont _Font, const char *_Text)
 {
-	TASSERT(376, _Text!=NULL);
+	PATELLA_ASSERT(_Text!=NULL);
 	Font = _Font;
 	Text = nullptr;
 	FullText = nullptr;
@@ -354,7 +354,7 @@ void TLabel::MouseHover([[maybe_unused]] int x, [[maybe_unused]] int y)
 // to the width.
 void TLabel::SetText(const char *_Text, bool Shorten)
 {
-	TASSERT(431, _Text!=NULL);
+	PATELLA_ASSERT(_Text!=NULL);
 	if (Text != nullptr) {
 		Text.reset();
 		Text = nullptr;
@@ -657,7 +657,7 @@ void TFormattedText::Arrange()
 // 0x456810, lines 723-734
 void TFormattedText::SetText(const char *_Text, bool Rearrange)
 {
-	TASSERT(723, _Text!=NULL);
+	PATELLA_ASSERT(_Text!=NULL);
 	if (Text != nullptr)
 		Text.reset();
 	if (Line != nullptr)
@@ -678,9 +678,9 @@ void TFormattedText::SetText(const char *_Text, bool Rearrange)
 TLink::TLink(const char *_Text, const char *ButtonText, const char *_Destination, void (*_OpenURL)(const char *URL),
 	TFont Font)
 {
-	TASSERT(785, _Destination!=NULL);
-	TASSERT(786, _Text!=NULL);
-	TASSERT(787, ButtonText!=NULL);
+	PATELLA_ASSERT(_Destination!=NULL);
+	PATELLA_ASSERT(_Text!=NULL);
+	PATELLA_ASSERT(ButtonText!=NULL);
 	const std::size_t Size = strlen(_Destination) + 1;
 	Destination.reset(new char[Size]);
 	TStringBuffer(Destination.get(), Size).Assign(_Destination);
@@ -696,7 +696,7 @@ TLink::TLink(const char *_Text, const char *ButtonText, const char *_Destination
 void TLink::Arrange()
 {
 	const int Width = this->Width - Button->Width;
-	TASSERT1(812, Width>0, Width);
+	PATELLA_ASSERT_VALUES(Width>0, Width);
 	int LabelY = 0;
 	int ButtonY = 0;
 	if (Button->Height < Label->Height)
@@ -738,21 +738,21 @@ TOutfitIcon::TOutfitIcon(int _Outfit, int _Direction, int *ColorData, const TRGB
 void TOutfitIcon::Draw(int Surface, int x, int y)
 {
 	const int Size = Width;
-	TASSERT1(908, getWidth()==getHeight(), getWidth()-getHeight());
+	PATELLA_ASSERT_VALUES(getWidth()==getHeight(), getWidth()-getHeight());
 	DrawOutfit(Surface, x, y, Size, Outfit, Colors, Highlight, TRect(x, y, Size, Height), SkinProperties.Data498);
 }
 
 // 0x457440, line 934. No try block.
 void TOutfitIcon::SetColor(int Mask, int Color)
 {
-	TASSERT1(934, In(Mask,1,4), Mask);
+	PATELLA_ASSERT_VALUES(In(Mask,1,4), Mask);
 	Colors[Mask - 1] = Color;
 }
 
 // 0x4575a0, line 942. No try block.
 void TOutfitIcon::SetColors(const int *ColorData)
 {
-	TASSERT(942, ColorData!=NULL);
+	PATELLA_ASSERT(ColorData!=NULL);
 	Colors[0] = ColorData[0];
 	Colors[1] = ColorData[1];
 	Colors[2] = ColorData[2];
@@ -770,8 +770,8 @@ TSkinIcon::TSkinIcon(int _Skin) : Skin(_Skin)
 // 0x4578c0, lines 1009-1014
 void TSkinIcon::Draw(int Surface, int x, int y)
 {
-	TASSERT1(1009, x>=0, x);
-	TASSERT1(1010, y>=0, y);
+	PATELLA_ASSERT_VALUES(x>=0, x);
+	PATELLA_ASSERT_VALUES(y>=0, y);
 	DrawSkin(Surface, x, y, Width, Height, Skin, 0, 0);
 }
 
@@ -786,15 +786,15 @@ void TObjectIcon::Draw(int Surface, int x, int y)
 	int ClipWidth = Width;
 	int ClipHeight = Height;
 	if (Framed) {
-		TASSERT1(1052, x>=0, x);
-		TASSERT1(1053, y>=0, y);
+		PATELLA_ASSERT_VALUES(x>=0, x);
+		PATELLA_ASSERT_VALUES(y>=0, y);
 		DrawSkin(Surface, x, y, ClipWidth, ClipHeight, 102, 0, 0);
 		ClipX = x + SkinProperties.Data940;
 		ClipY = y + SkinProperties.Data940;
 		ClipWidth -= 2 * SkinProperties.Data940;
 		ClipHeight -= 2 * SkinProperties.Data940;
 	}
-	TASSERT1(1060, getWidth()==getHeight(), getWidth()-getHeight());
+	PATELLA_ASSERT_VALUES(getWidth()==getHeight(), getWidth()-getHeight());
 	DrawObject(Surface, x, y, Width, Obj, Highlight, TRect(ClipX, ClipY, ClipWidth, ClipHeight),
 		SkinProperties.Data498, false);
 }
@@ -820,8 +820,8 @@ TSkinButton::TSkinButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback
 // 0x458150, lines 1122-1127
 void TSkinButton::Draw(int Surface, int x, int y)
 {
-	TASSERT1(1122, x>=0, x);
-	TASSERT1(1123, y>=0, y);
+	PATELLA_ASSERT_VALUES(x>=0, x);
+	PATELLA_ASSERT_VALUES(y>=0, y);
 	DrawSkin(Surface, x, y, Width, Height, IsPressed() ? ButtonDown : ButtonUp, 0, 0);
 }
 
@@ -881,8 +881,8 @@ bool TSkinButton::IsPressed()
 // only (the binary's messages, issue #34).
 void TSkinButton::SetSkins(int _ButtonUp, int _ButtonDown)
 {
-	TASSERT1(1228, _ButtonUp<NumberOfSkins, _ButtonUp);
-	TASSERT1(1229, _ButtonDown<NumberOfSkins, _ButtonDown);
+	PATELLA_ASSERT_VALUES(_ButtonUp<NumberOfSkins, _ButtonUp);
+	PATELLA_ASSERT_VALUES(_ButtonDown<NumberOfSkins, _ButtonDown);
 	ButtonDown = _ButtonDown;
 	ButtonUp = _ButtonUp;
 }
@@ -890,7 +890,7 @@ void TSkinButton::SetSkins(int _ButtonUp, int _ButtonDown)
 // 0x458de0, line 1239. No try block.
 void TSkinButton::SetRadioButtonGroup(TRadioButtonGroup *Group)
 {
-	TASSERT(1239, RadioButtonGroup==NULL);
+	PATELLA_ASSERT(RadioButtonGroup==NULL);
 	RadioButtonGroup = Group;
 	Group->Buttons(Group->Count) = this;
 	Group->Count++;
@@ -923,8 +923,8 @@ TIconButton::TIconButton(int x, int y, int _Icon, int _ButtonUp, int _ButtonDown
 void TIconButton::Draw(int Surface, int x, int y)
 {
 	TSkinButton::Draw(Surface, x, y);
-	TASSERT1(1305, x+SkinProperties.Buttons.Texture.x>=0, x);
-	TASSERT1(1306, y+SkinProperties.Buttons.Texture.y>=0, y);
+	PATELLA_ASSERT_VALUES(x+SkinProperties.Buttons.Texture.x>=0, x);
+	PATELLA_ASSERT_VALUES(y+SkinProperties.Buttons.Texture.y>=0, y);
 	DrawSkin(Surface, x + SkinProperties.Buttons.Texture.x, y + SkinProperties.Buttons.Texture.y, Skins[Icon].width,
 		Skins[Icon].height, Icon, 0, 0);
 }
@@ -964,8 +964,8 @@ void TBlinkingButton::Draw(int Surface, int x, int y)
 TTextButton::TTextButton(int x, int y, const char *_Text, int _ButtonUp, int _ButtonDown, TCallback _Callback,
 	const char *_Tooltip) : TSkinButton(x, y, _ButtonUp, _ButtonDown, _Callback, _Tooltip, false)
 {
-	TASSERT(1378, _Text!=NULL);
-	TASSERT1(1379, strlen(_Text)<50, strlen(_Text));
+	PATELLA_ASSERT(_Text!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(_Text)<50, strlen(_Text));
 	Text.Assign(_Text);
 }
 
@@ -973,8 +973,8 @@ TTextButton::TTextButton(int x, int y, const char *_Text, int _ButtonUp, int _Bu
 TTextButton::TTextButton(int x, int y, const char *_Text, TCallback _Callback, const char *_Tooltip)
 	: TSkinButton(x, y, 12, 13, _Callback, _Tooltip, false)
 {
-	TASSERT(1390, _Text!=NULL);
-	TASSERT1(1391, strlen(_Text)<50, strlen(_Text));
+	PATELLA_ASSERT(_Text!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(_Text)<50, strlen(_Text));
 	Text.Assign(_Text);
 }
 
@@ -1111,8 +1111,8 @@ bool TMultiStateButton::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] in
 // 0x467440, lines 1686-1699
 TCheckBox::TCheckBox(const char *_Text)
 {
-	TASSERT(1686, _Text!=NULL);
-	TASSERT1(1687, strlen(_Text)<50, strlen(_Text));
+	PATELLA_ASSERT(_Text!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(_Text)<50, strlen(_Text));
 	DrawingListLength = 4;
 	DrawingList.reset(new TDrawing[4]);
 	Checked = false;
@@ -1130,8 +1130,8 @@ void TCheckBox::Draw(int Surface, int x, int y)
 	int Skin = 151 - (IsChecked() ? 1 : 0);
 	if (!Enabled)
 		Skin = 151;
-	TASSERT1(1711, x+SkinProperties.CheckBox.Item.x>=0, x);
-	TASSERT1(1712, y+SkinProperties.CheckBox.Item.y>=0, y);
+	PATELLA_ASSERT_VALUES(x+SkinProperties.CheckBox.Item.x>=0, x);
+	PATELLA_ASSERT_VALUES(y+SkinProperties.CheckBox.Item.y>=0, y);
 	DrawSkin(Surface, x + SkinProperties.CheckBox.Item.x, y + SkinProperties.CheckBox.Item.y, Skins[Skin].width,
 		Skins[Skin].height, Skin, 0, 0);
 }
@@ -1165,7 +1165,7 @@ void TCheckBox::SetEnabled(bool _Enabled)
 // 0x467b50, lines 1878-1900. A read-only line uses the second font.
 TEditLine::TEditLine(TRect Area, int _MaxLength, bool _ReadOnly)
 {
-	TASSERT1(1878, _MaxLength>=0, _MaxLength);
+	PATELLA_ASSERT_VALUES(_MaxLength>=0, _MaxLength);
 	Text = new char[_MaxLength + 1];
 	Text[0] = 0;
 	ReadOnly = _ReadOnly;
@@ -1190,7 +1190,7 @@ TEditLine::TEditLine(TRect Area, int _MaxLength, bool _ReadOnly)
 // 0x45a4c0, lines 1908-1927. Without an area (the dialogs size it later).
 TEditLine::TEditLine(int _MaxLength, bool _ReadOnly)
 {
-	TASSERT1(1908, _MaxLength>=0, _MaxLength);
+	PATELLA_ASSERT_VALUES(_MaxLength>=0, _MaxLength);
 	Text = new char[_MaxLength + 1];
 	Text[0] = 0;
 	ReadOnly = _ReadOnly;
@@ -1486,7 +1486,7 @@ void TEditLine::SetActive(bool _Active)
 // 0x468470, lines 2230-2235
 void TEditLine::SetFocusGroup(TFocusGroup *_FocusGroup)
 {
-	TASSERT(2230, _FocusGroup!=NULL);
+	PATELLA_ASSERT(_FocusGroup!=NULL);
 	FocusGroup = _FocusGroup;
 	_FocusGroup->AddMember(this);
 }
@@ -1494,7 +1494,7 @@ void TEditLine::SetFocusGroup(TFocusGroup *_FocusGroup)
 // 0x45bcc0, lines 2243-2252. Cut to MaxLength.
 void TEditLine::SetText(const char *_Text)
 {
-	TASSERT(2243, _Text!=NULL);
+	PATELLA_ASSERT(_Text!=NULL);
 	strncpy(Text, _Text, MaxLength);
 	Text[MaxLength] = 0;
 	SetCursor((int)strlen(Text));
@@ -1508,10 +1508,10 @@ void TEditLine::SetText(const char *_Text)
 // first the rest after the cursor. Returns the inserted length.
 int TEditLine::InsertText(int Position, const char *String, int insertlength)
 {
-	TASSERT2(2263, Position <= (int)strlen(Text), Position, strlen(Text));
+	PATELLA_ASSERT_VALUES(Position <= (int)strlen(Text), Position, strlen(Text));
 	int appendlength = (int)strlen(Text) - Position;
 	if ((int)strlen(Text) + insertlength <= MaxLength) {
-		TASSERT1(2270, Cursor+insertlength+appendlength<=MaxLength, Cursor+insertlength+appendlength);
+		PATELLA_ASSERT_VALUES(Cursor+insertlength+appendlength<=MaxLength, Cursor+insertlength+appendlength);
 		memmove(Text + Cursor + insertlength, Text + Cursor, appendlength + 1);
 		memcpy(Text + Cursor, String, insertlength);
 		LimitCursor();
@@ -1523,7 +1523,7 @@ int TEditLine::InsertText(int Position, const char *String, int insertlength)
 		insertlength = MaxLength - Cursor;
 	if (Cursor + insertlength + appendlength > MaxLength)
 		appendlength = MaxLength - Cursor - insertlength;
-	TASSERT1(2285, Cursor+insertlength+appendlength<=MaxLength, Cursor+insertlength+appendlength);
+	PATELLA_ASSERT_VALUES(Cursor+insertlength+appendlength<=MaxLength, Cursor+insertlength+appendlength);
 	memmove(Text + Cursor + insertlength, Text + Cursor, appendlength);
 	memcpy(Text + Cursor, String, insertlength);
 	Text[Cursor + insertlength + appendlength] = 0;
@@ -1536,7 +1536,7 @@ int TEditLine::InsertText(int Position, const char *String, int insertlength)
 // 0x45c490, lines 2302-2309
 void TEditLine::InsertChar(int Position, char c)
 {
-	TASSERT2(2302, Position<=(int)strlen(Text), Position, strlen(Text));
+	PATELLA_ASSERT_VALUES(Position<=(int)strlen(Text), Position, strlen(Text));
 	TFixedString<2> Help;
 	Help.Format("{}", c);
 	Help[1] = 0;
@@ -1817,7 +1817,7 @@ void TEditText::KeyPress(int Key)
 // and the view go to the end.
 void TEditText::SetText(const char *_Text, bool KeepPosition)
 {
-	TASSERT(2711, _Text!=NULL);
+	PATELLA_ASSERT(_Text!=NULL);
 	TEditLine::SetText(_Text);
 	if (!KeepPosition)
 		SetCursor((int)strlen(Text));
@@ -1877,7 +1877,7 @@ int TEditText::GetPosition(int x, int y)
 // is one; LineStart(Lines) is the text's end.
 void TEditText::FormatText()
 {
-	TASSERT1(2770, FieldWidth>0, FieldWidth);
+	PATELLA_ASSERT_VALUES(FieldWidth>0, FieldWidth);
 	int Position = 0;
 	Lines = 0;
 	const int Length = (int)strlen(Text);
@@ -1929,8 +1929,8 @@ void TFocusGroup::SetActive(TEditLine *Member)
 void TFocusGroup::AddMember(TEditLine *Member)
 {
 	for (int i = 0; i < Members - 1; i++)
-		TASSERT1(2835, MemberList(i) != Member, i);
-	TASSERT(2836, Member!=NULL);
+		PATELLA_ASSERT_VALUES(MemberList(i) != Member, i);
+	PATELLA_ASSERT(Member!=NULL);
 	MemberList(Members) = Member;
 	Members++;
 }
@@ -1938,7 +1938,7 @@ void TFocusGroup::AddMember(TEditLine *Member)
 // 0x45e290, lines 2846-2860
 void TFocusGroup::Next()
 {
-	TASSERT(2846, Active!=NULL);
+	PATELLA_ASSERT(Active!=NULL);
 	int Next = -1;
 	for (int i = 0; i < Members; i++) {
 		if (MemberList(i) == Active) {
@@ -1948,14 +1948,14 @@ void TFocusGroup::Next()
 	}
 	if (Next == Members)
 		Next = 0;
-	TASSERT(2857, Next != -1);
+	PATELLA_ASSERT(Next != -1);
 	SetActive(MemberList(Next));
 }
 
 // 0x45e630, lines 2868-2882
 void TFocusGroup::Previous()
 {
-	TASSERT(2868, Active!=NULL);
+	PATELLA_ASSERT(Active!=NULL);
 	int Next = -1;
 	for (int i = 0; i < Members; i++) {
 		if (MemberList(i) == Active) {
@@ -1965,7 +1965,7 @@ void TFocusGroup::Previous()
 			break;
 		}
 	}
-	TASSERT(2879, Next != -1);
+	PATELLA_ASSERT(Next != -1);
 	SetActive(MemberList(Next));
 }
 
@@ -1975,8 +1975,8 @@ void TFocusGroup::Previous()
 THorizontalScrollBarRange::THorizontalScrollBarRange(int _Min, int _Max, int _Value, int _Visible,
 	TCallback _Callback) : Callback(nullptr, 0)
 {
-	TASSERT2(2925, _Min<=_Max, _Min, _Max);
-	TASSERT2(2926, In(_Value,_Min,_Max), _Value, _Max);
+	PATELLA_ASSERT_VALUES(_Min<=_Max, _Min, _Max);
+	PATELLA_ASSERT_VALUES(In(_Value,_Min,_Max), _Value, _Max);
 	DrawingListLength = 4;
 	DrawingList.reset(new TDrawing[4]);
 	Min = _Min;
@@ -2148,7 +2148,7 @@ void THorizontalScrollBarRange::KeyPress(int Key)
 THorizontalScrollBar::THorizontalScrollBar(int Min, int Max, int _Value, int _Visible, int _ButtonRange,
 	TCallback _Callback)
 {
-	TASSERT1(3158, _ButtonRange>0, _ButtonRange);
+	PATELLA_ASSERT_VALUES(_ButtonRange>0, _ButtonRange);
 	LeftButton = new TSkinButton(0, 0, 165, 166, TCallback(this, 5), nullptr, true);
 	RightButton = new TSkinButton(0, 0, 167, 168, TCallback(this, 6), nullptr, true);
 	TWindow::InsertChild(LeftButton);
@@ -2197,8 +2197,8 @@ void THorizontalScrollBar::HandleEvent(int Event)
 // 0x469670, lines 3227-3248
 TScrollBarRange::TScrollBarRange(int x, int y, int Width, int Height, int _Min, int _Max, int _Value, int _Visible)
 {
-	TASSERT2(3227, _Min<=_Max, _Min, _Max);
-	TASSERT2(3228, In(_Value,_Min,_Max), _Value, _Max);
+	PATELLA_ASSERT_VALUES(_Min<=_Max, _Min, _Max);
+	PATELLA_ASSERT_VALUES(In(_Value,_Min,_Max), _Value, _Max);
 	DrawingListLength = 4;
 	DrawingList.reset(new TDrawing[4]);
 	Min = _Min;
@@ -2221,7 +2221,7 @@ TScrollBarRange::TScrollBarRange(int x, int y, int Width, int Height, int _Min, 
 // 0x460450, lines 3281-3291. The value stays while the slider is dragged.
 void TScrollBarRange::SetRange(int _Min, int _Max, int _Value, int _Visible)
 {
-	TASSERT2(3281, _Min<=_Max, _Min, _Max);
+	PATELLA_ASSERT_VALUES(_Min<=_Max, _Min, _Max);
 	Enabled = _Min != _Max;
 	Min = _Min;
 	Max = _Max;
@@ -2379,7 +2379,7 @@ void TScrollBarRange::KeyPress(int Key)
 // THorizontalScrollBar's.
 TScrollBar::TScrollBar(TRect Area, int Min, int Max, int _Value, int _Visible, int _ButtonRange)
 {
-	TASSERT1(3462, _ButtonRange>0, _ButtonRange);
+	PATELLA_ASSERT_VALUES(_ButtonRange>0, _ButtonRange);
 	UpButton = new TSkinButton(0, 0, 157, 158, TCallback(this, 3), nullptr, true);
 	DownButton = new TSkinButton(0, 0, 159, 160, TCallback(this, 4), nullptr, true);
 	TWindow::InsertChild(UpButton);
@@ -2599,7 +2599,7 @@ void TListBox::KeyPress(int _Key)
 // 0x462460, lines 3799-3806
 void TListBox::AddLine(const char *Text)
 {
-	TASSERT(3799, Text!=NULL);
+	PATELLA_ASSERT(Text!=NULL);
 	const std::size_t Size = strlen(Text) + 1;
 	LineText(Lines) = new char[Size];
 	TStringBuffer(LineText(Lines), Size).Assign(Text);
@@ -2610,8 +2610,8 @@ void TListBox::AddLine(const char *Text)
 // 0x462730, lines 3831-3839
 void TListBox::SetLine(int Number, const char *Text)
 {
-	TASSERT(3831, Text!=NULL);
-	TASSERT2(3832, In(Number,0,Lines-1), Number, Lines);
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES(In(Number,0,Lines-1), Number, Lines);
 	if (LineText(Number) != nullptr)
 		delete[] LineText(Number);
 	const std::size_t Size = strlen(Text) + 1;
@@ -2623,7 +2623,7 @@ void TListBox::SetLine(int Number, const char *Text)
 // 0x462b20, line 3847. No try block.
 char *TListBox::GetLine(int Number)
 {
-	TASSERT2(3847, In(Number,0,Lines-1), Number, Lines);
+	PATELLA_ASSERT_VALUES(In(Number,0,Lines-1), Number, Lines);
 	return LineText(Number);
 }
 
@@ -2635,7 +2635,7 @@ void TListBox::SetSelection(int Number)
 	if (Lines == 0 || Number == -1) {
 		Selected = -1;
 	} else {
-		TASSERT2(3891, In(Number,0,Lines-1), Number, Lines);
+		PATELLA_ASSERT_VALUES(In(Number,0,Lines-1), Number, Lines);
 		Selected = Number;
 		if (Number < ScrollBar->Range->Value)
 			ScrollBar->Range->SetValue(Number);
@@ -2741,7 +2741,7 @@ void TFontListBox::Draw(int Surface, int x, int y)
 // 0x463820, lines 4051-4059
 void TFontListBox::AddLine(const char *Text, TFont Font)
 {
-	TASSERT(4051, Text!=NULL);
+	PATELLA_ASSERT(Text!=NULL);
 	const std::size_t Size = strlen(Text) + 1;
 	FontLines(Lines).Text = new char[Size];
 	TStringBuffer(FontLines(Lines).Text, Size).Assign(Text);
@@ -2754,7 +2754,7 @@ void TFontListBox::AddLine(const char *Text, TFont Font)
 // characters; its font stays the default.
 void TFontListBox::AddLine(int MaxLength)
 {
-	TASSERT1(4067, MaxLength>=0, MaxLength);
+	PATELLA_ASSERT_VALUES(MaxLength>=0, MaxLength);
 	FontLines(Lines).Text = new char[MaxLength + 1];
 	FontLines(Lines).Text[0] = 0;
 	Lines++;
@@ -2764,8 +2764,8 @@ void TFontListBox::AddLine(int MaxLength)
 // 0x463dc0, lines 4082-4091
 void TFontListBox::SetLine(int Number, const char *Text, TFont Font)
 {
-	TASSERT(4082, Text!=NULL);
-	TASSERT2(4083, In(Number,0,Lines-1), Number, Lines-1);
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES(In(Number,0,Lines-1), Number, Lines-1);
 	if (FontLines(Number).Text != nullptr)
 		delete[] FontLines(Number).Text;
 	const std::size_t Size = strlen(Text) + 1;
@@ -2788,7 +2788,7 @@ void TFontListBox::Clear()
 // 0x4643a0, lines 4113-4118
 char *TFontListBox::GetLine(int Number, TFont *Font)
 {
-	TASSERT2(4113, In(Number,0,Lines-1), Number, Lines);
+	PATELLA_ASSERT_VALUES(In(Number,0,Lines-1), Number, Lines);
 	*Font = FontLines(Number).Font;
 	return FontLines(Number).Text;
 }
@@ -2867,7 +2867,7 @@ void TProgressBar::Arrange()
 // 0x464f40, lines 4271-4276
 void TProgressBar::SetMaximum(int maximum)
 {
-	TASSERT1(4271, maximum>0, maximum);
+	PATELLA_ASSERT_VALUES(maximum>0, maximum);
 	Maximum = maximum;
 	Arrange();
 }

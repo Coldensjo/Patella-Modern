@@ -277,7 +277,7 @@ void TDialogWindow::Rearrange(int Strategy, TComponent *Work)
 		Shrink();
 		break;
 	case 4:
-		TASSERT(271, Work!=NULL);
+		PATELLA_ASSERT(Work!=NULL);
 		UpdateFreeHeight = false;
 		PositionChildren(false);
 		Grow(Work);
@@ -288,7 +288,7 @@ void TDialogWindow::Rearrange(int Strategy, TComponent *Work)
 		FitChildren();
 		break;
 	case 16:
-		TASSERT(282, Work!=NULL);
+		PATELLA_ASSERT(Work!=NULL);
 		MakeRoom(Work);
 		AppendChild(Work);
 		PositionChildren(false);
@@ -370,7 +370,7 @@ bool TDialogWindow::Shrink()
 		int DeltaHeight = Shrinking->Height - Shrinking->getMinimumHeight();
 		if (Missing < DeltaHeight)
 			DeltaHeight = Missing;
-		TASSERT1(377, DeltaHeight>0, DeltaHeight);
+		PATELLA_ASSERT_VALUES(DeltaHeight>0, DeltaHeight);
 		Shrinking->SetSize(Shrinking->Width, Shrinking->Height - DeltaHeight);
 		for (TComponent *Next = Shrinking->GetNext(); Next != nullptr; Next = Next->GetNext())
 			Next->SetPosition(Next->OffsetX, Next->OffsetY - DeltaHeight);
@@ -389,7 +389,7 @@ void TDialogWindow::DragChild(TComponent *Work)
 		TComponent *Search = FirstChild;
 		TComponent *Next;
 		for (;;) {
-			TASSERT(419, Search!=NULL);
+			PATELLA_ASSERT(Search!=NULL);
 			Next = Search->GetNext();
 			if (Dragged == Search)
 				break;
@@ -473,8 +473,8 @@ int TDialogWindow::GetFreeHeight()
 void TContentWindow::Draw(int Surface, int x, int y)
 {
 	if (Background) {
-		TASSERT1(681, x>=0, x);
-		TASSERT1(682, y>=0, y);
+		PATELLA_ASSERT_VALUES(x>=0, x);
+		PATELLA_ASSERT_VALUES(y>=0, y);
 		DrawSkin(Surface, x, y, Width, Height, 7, 0, BackgroundY);
 	}
 	TComponent::Draw(Surface, x, y);
@@ -557,7 +557,7 @@ TSubWindow::TSubWindow(int _Identifier, TSubWindowBody *_Body, bool _Resizable, 
 	MinimizeButton = nullptr;
 	Icon = nullptr;
 	Title = nullptr;
-	TASSERT(791, _Body!=NULL);
+	PATELLA_ASSERT(_Body!=NULL);
 	Body = _Body;
 	TWindow::InsertChild(Body);
 	if (_Resizable) {
@@ -622,7 +622,7 @@ void TSubWindow::Arrange()
 {
 	TContentWindow::Arrange();
 	if (Identifier >= 0x40) {
-		TASSERT(891, Body!=NULL);
+		PATELLA_ASSERT(Body!=NULL);
 		(static_cast<TContainerWindowBody *>(Body))->UpdateUpButton();
 	}
 	DrawingList[0] = TDrawing(128, 0, 0, 0, 0, 0, 0);
@@ -695,7 +695,7 @@ void TSubWindow::HandleEvent(int Event)
 // with the resizers.
 void TSubWindow::Minimize()
 {
-	TASSERT(1009, IsMinimized==false);
+	PATELLA_ASSERT(IsMinimized==false);
 	IsMinimized = true;
 	RestoreHeight = Height;
 	Body->Minimize();
@@ -713,7 +713,7 @@ void TSubWindow::Minimize()
 // 0x489500, lines 1027-1037. The assertion comes before the try block.
 void TSubWindow::Maximize()
 {
-	TASSERT(1027, IsMinimized==true);
+	PATELLA_ASSERT(IsMinimized==true);
 	IsMinimized = false;
 	Body->Maximize();
 	if (Body != nullptr)

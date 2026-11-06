@@ -34,14 +34,6 @@
 #include <cstring>
 #include <sstream>
 
-// Assertions whose expression text carries a bug number.
-#define TASSERTB(Line, Expr, Bug) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", "", 0, "", 0, #Expr " " Bug)
-#define TASSERTB1(Line, Expr, V1, Bug) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr " " Bug)
-#define TASSERTB2(Line, Expr, V1, V2, Bug) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, #V2, V2, #Expr " " Bug)
-
 constexpr int AUTOMAP_BLOCKS = 10;
 
 namespace {
@@ -183,9 +175,9 @@ TRGBColor GetAmbientColor()
 // drawing order; NoObject (Type 0) ends it.
 TObject GetFirstObject(int rx, int ry, int rz)
 {
-	TASSERTB1(169, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(170, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(171, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	ObjectIteratorField = FieldNumber(rx, ry, rz);
 	ObjectIteratorCount = 0;
 	const TMapPoint &Point = Fields(ObjectIteratorField);
@@ -207,11 +199,11 @@ TObject GetNextObject()
 // 0x4b6580, lines 197-202. The object at a stack position (0 is the bottom).
 TObject GetMapObject(int rx, int ry, int rz, int Position)
 {
-	TASSERTB1(197, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(198, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(199, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	TASSERT1(202, In(Position,0,OBJECTS_PER_POINT-1), Position);
+	PATELLA_ASSERT_VALUES(In(Position,0,OBJECTS_PER_POINT-1), Position);
 	if (Position < Point.ObjectCount)
 		return Point.Objects[Position];
 	return NoObject;
@@ -222,9 +214,9 @@ TObject GetMapObject(int rx, int ry, int rz, int Position)
 // be moved.
 TObject GetTopMoveObject(int rx, int ry, int rz, int &Position)
 {
-	TASSERTB1(213, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(214, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(215, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
@@ -243,9 +235,9 @@ TObject GetTopMoveObject(int rx, int ry, int rz, int &Position)
 // bottom or top object.
 TObject GetTopLookObject(int rx, int ry, int rz, int &Position)
 {
-	TASSERTB1(237, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(238, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(239, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
@@ -263,9 +255,9 @@ TObject GetTopLookObject(int rx, int ry, int rz, int &Position)
 // stepping down over creatures and liquid pools.
 TObject GetTopUseObject(int rx, int ry, int rz, int &Position)
 {
-	TASSERTB1(259, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(260, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(261, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
@@ -287,9 +279,9 @@ TObject GetTopUseObject(int rx, int ry, int rz, int &Position)
 // one liquid pool is stepped over.
 TObject GetTopMultiUseObject(int rx, int ry, int rz, int &Position)
 {
-	TASSERTB1(284, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(285, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(286, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	Position = 0;
 	while (Position < Point.ObjectCount - 1) {
@@ -313,9 +305,9 @@ namespace {
 // of a hanging object from the hook it hangs on.
 void SortObjects(int rx, int ry, int rz)
 {
-	TASSERTB1(314, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(315, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(316, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	int n = 0;
 	for (int i = 0; i < Point.ObjectCount; i++) {
@@ -344,12 +336,12 @@ void SortObjects(int rx, int ry, int rz)
 // assertions.
 void InsertObject(int rx, int ry, int rz, int Position, TObject Obj)
 {
-	TASSERTB1(351, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(352, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(353, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
-	TASSERT1(355, In(Position,0,OBJECTS_PER_POINT-1), Position);
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
+	PATELLA_ASSERT_VALUES(In(Position,0,OBJECTS_PER_POINT-1), Position);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	TASSERT1(357, Position<=Point.ObjectCount, Position);
+	PATELLA_ASSERT_VALUES(Position<=Point.ObjectCount, Position);
 	int i = Point.ObjectCount;
 	if (i > OBJECTS_PER_POINT - 1)
 		i = OBJECTS_PER_POINT - 1;
@@ -369,9 +361,9 @@ void InsertObject(int rx, int ry, int rz, int Position, TObject Obj)
 // on a full point.
 void AddObject(int rx, int ry, int rz, TObject Obj)
 {
-	TASSERTB1(376, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(377, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(378, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	int Position;
 	for (Position = 0; Position < Point.ObjectCount; Position++) {
@@ -401,9 +393,9 @@ void AddObject(int rx, int ry, int rz, TObject Obj)
 // 0x4b8ec0, lines 410-431. Puts an object on top of the stack.
 void AppendObject(int rx, int ry, int rz, TObject Obj)
 {
-	TASSERTB1(410, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(411, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(412, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	const TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	if (!In(Point.ObjectCount, 0, OBJECTS_PER_POINT - 1)) {
 		std::stringstream s;
@@ -417,11 +409,11 @@ void AppendObject(int rx, int ry, int rz, TObject Obj)
 // that fell off it have to be requested again.
 bool DeleteObject(int rx, int ry, int rz, int Position)
 {
-	TASSERTB1(441, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(442, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(443, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	TASSERT1(447, In(Position,0,Point.ObjectCount-1), Position);
+	PATELLA_ASSERT_VALUES(In(Position,0,Point.ObjectCount-1), Position);
 	for (; Position < Point.ObjectCount - 1; Position++)
 		Point.Objects[Position] = Point.Objects[Position + 1];
 	Point.ObjectCount--;
@@ -432,11 +424,11 @@ bool DeleteObject(int rx, int ry, int rz, int Position)
 // 0x4b9940, lines 463-473
 void ChangeObject(int rx, int ry, int rz, int Position, TObject Obj)
 {
-	TASSERTB1(463, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(464, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(465, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	TASSERT1(469, In(Position,0,Point.ObjectCount-1), Position);
+	PATELLA_ASSERT_VALUES(In(Position,0,Point.ObjectCount-1), Position);
 	Point.Objects[Position] = Obj;
 	SortObjects(rx, ry, rz);
 }
@@ -450,7 +442,7 @@ namespace {
 int GetEffectIteratorNumber(int n)
 {
 	int EffectNumber = Fields(EffectIteratorField).EffectNumber;
-	TASSERTB2(508, In(EffectNumber,-1,EFFECTS-1), EffectNumber, EffectIteratorField, "[bug0000913]");
+	PATELLA_ASSERT_VALUES(In(EffectNumber,-1,EFFECTS-1), EffectNumber, EffectIteratorField);
 	while (EffectNumber != -1 && n != 0) {
 		EffectNumber = Effects[EffectNumber].Next;
 		n--;
@@ -463,9 +455,9 @@ int GetEffectIteratorNumber(int n)
 // 0x4ba100, lines 524-534
 int GetFirstEffect(int rx, int ry, int rz)
 {
-	TASSERTB1(524, In(rx,0,MAPSIZE_X-1), rx, "[bug0000013]");
-	TASSERTB1(525, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000013]");
-	TASSERTB1(526, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000013]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	EffectIteratorField = FieldNumber(rx, ry, rz);
 	EffectIteratorCount = 0;
 	return GetEffectIteratorNumber(0);
@@ -481,71 +473,71 @@ int GetNextEffect()
 // 0x4b1440, line 556. Like the getters below, without a try block.
 int GetEffectStatus(int EffectNumber)
 {
-	TASSERT1(556, In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
 	return Effects[EffectNumber].Status;
 }
 
 // 0x4b15a0, lines 565-566
 int GetGraphicalEffectType(int EffectNumber)
 {
-	TASSERT1(565, In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	TASSERT1(566, Effects[EffectNumber].Status==1, Effects[EffectNumber].Status);
+	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==1, Effects[EffectNumber].Status);
 	return Effects[EffectNumber].Type;
 }
 
 // 0x4b1860, lines 575-576
 int GetGraphicalEffectPhase(int EffectNumber)
 {
-	TASSERT1(575, In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	TASSERT1(576, Effects[EffectNumber].Status==1, Effects[EffectNumber].Status);
+	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==1, Effects[EffectNumber].Status);
 	return Effects[EffectNumber].Phase;
 }
 
 // 0x4b1b20, lines 585-586
 int GetTextualEffectColor(int EffectNumber)
 {
-	TASSERT1(585, In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	TASSERT1(586, Effects[EffectNumber].Status==2, Effects[EffectNumber].Status);
+	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==2, Effects[EffectNumber].Status);
 	return Effects[EffectNumber].Type;
 }
 
 // 0x4b1de0, lines 595-596
 char *GetTextualEffectText(int EffectNumber)
 {
-	TASSERT1(595, In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	TASSERT1(596, Effects[EffectNumber].Status==2, Effects[EffectNumber].Status);
+	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==2, Effects[EffectNumber].Status);
 	return Effects[EffectNumber].Text;
 }
 
 // 0x4b20a0, lines 605-606
 int GetTextualEffectPhase(int EffectNumber)
 {
-	TASSERT1(605, In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	TASSERT1(606, Effects[EffectNumber].Status==2, Effects[EffectNumber].Status);
+	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==2, Effects[EffectNumber].Status);
 	return Effects[EffectNumber].TextPhase;
 }
 
 // 0x4b2360, lines 615-616
 int GetMissileEffectType(int EffectNumber)
 {
-	TASSERT1(615, In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	TASSERT1(616, Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
+	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
 	return Effects[EffectNumber].Type;
 }
 
 // 0x4b2620, lines 625-626
 int GetMissileEffectDirection(int EffectNumber)
 {
-	TASSERT1(625, In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	TASSERT1(626, Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
+	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
 	return Effects[EffectNumber].Direction;
 }
 
 // 0x4b28e0, lines 635-636. Pixels from the field the missile is linked to.
 int GetMissileEffectX(int EffectNumber)
 {
-	TASSERT1(635, In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	TASSERT1(636, Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
+	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
 	const TEffect &Effect = Effects[EffectNumber];
 	return (Effect.DestX - Effect.x) * 32 + Effect.OffsetX;
 }
@@ -553,8 +545,8 @@ int GetMissileEffectX(int EffectNumber)
 // 0x4b2bb0, lines 645-646
 int GetMissileEffectY(int EffectNumber)
 {
-	TASSERT1(645, In(EffectNumber,0,EFFECTS-1), EffectNumber);
-	TASSERT1(646, Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
+	PATELLA_ASSERT_VALUES(In(EffectNumber,0,EFFECTS-1), EffectNumber);
+	PATELLA_ASSERT_VALUES(Effects[EffectNumber].Status==3, Effects[EffectNumber].Status);
 	const TEffect &Effect = Effects[EffectNumber];
 	return (Effect.DestY - Effect.y) * 32 + Effect.OffsetY;
 }
@@ -583,11 +575,11 @@ int NewEffect(int Status, int rx, int ry, int rz)
 	Effect.Status = Status;
 	Effect.Field = FieldNumber(rx, ry, rz);
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
-	TASSERTB1(678, In(Point.EffectNumber,-1,EFFECTS-1), Point.EffectNumber, "[bug0000913]");
+	PATELLA_ASSERT_VALUES(In(Point.EffectNumber,-1,EFFECTS-1), Point.EffectNumber);
 	Effect.Next = Point.EffectNumber;
 	Effect.Previous = -1;
 	if (Point.EffectNumber != -1) {
-		TASSERTB1(682, In(Number,-1,EFFECTS-1), Number, "[bug0000913]");
+		PATELLA_ASSERT_VALUES(In(Number,-1,EFFECTS-1), Number);
 		Effects[Point.EffectNumber].Previous = Number;
 	}
 	Point.EffectNumber = Number;
@@ -609,8 +601,8 @@ void AddGraphicalEffect(int rx, int ry, int rz, int Type)
 // 0x4bad00, lines 712-721
 void AddTextualEffect(int rx, int ry, int rz, int Color, const char *Text)
 {
-	TASSERT(712, Text!=NULL);
-	TASSERT1(713, strlen(Text)<10, strlen(Text));
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(Text)<10, strlen(Text));
 	const int Number = NewEffect(2, rx, ry, rz);
 	if (Number != -1) {
 		Effects[Number].Type = Color;
@@ -625,7 +617,7 @@ void AddTextualEffect(int rx, int ry, int rz, int Color, const char *Text)
 // and tan 67.5 as 106/256 and 618/256).
 void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type)
 {
-	TASSERT1(730, Type>0, Type);
+	PATELLA_ASSERT_VALUES(Type>0, Type);
 	if (sz != GetMapLevel())
 		return;
 	if (dz != GetMapLevel())
@@ -681,20 +673,20 @@ namespace {
 // 0x4bb520, lines 776-789. No try block.
 void DeleteEffect(int Number)
 {
-	TASSERT1(776, In(Number,0,EFFECTS-1), Number);
+	PATELLA_ASSERT_VALUES(In(Number,0,EFFECTS-1), Number);
 	TEffect &Effect = Effects[Number];
-	TASSERT(778, Effect.Status!=0);
+	PATELLA_ASSERT(Effect.Status!=0);
 	Effect.Status = 0;
 	if (Fields(Effect.Field).EffectNumber == Number) {
-		TASSERTB1(781, In(Effect.Next,-1,EFFECTS-1), Effect.Next, "[bug0000913]");
+		PATELLA_ASSERT_VALUES(In(Effect.Next,-1,EFFECTS-1), Effect.Next);
 		Fields(Effect.Field).EffectNumber = Effect.Next;
 	}
 	if (Effect.Previous != -1) {
-		TASSERTB1(785, In(Effect.Next,-1,EFFECTS-1), Effect.Next, "[bug0000913]");
+		PATELLA_ASSERT_VALUES(In(Effect.Next,-1,EFFECTS-1), Effect.Next);
 		Effects[Effect.Previous].Next = Effect.Next;
 	}
 	if (Effect.Next != -1) {
-		TASSERTB1(789, In(Effect.Previous,-1,EFFECTS-1), Effect.Previous, "[bug0000913]");
+		PATELLA_ASSERT_VALUES(In(Effect.Previous,-1,EFFECTS-1), Effect.Previous);
 		Effects[Effect.Next].Previous = Effect.Previous;
 	}
 }
@@ -711,7 +703,7 @@ void ProcessEffects()
 		switch (Effect.Status) {
 		case 1:
 			Effect.Phase++;
-			TASSERT1(807, Effect.Type > 0, Effect.Type);
+			PATELLA_ASSERT_VALUES(Effect.Type > 0, Effect.Type);
 			if (Effect.Phase > GetEffectPhases(Effect.Type))
 				DeleteEffect(i);
 			break;
@@ -753,15 +745,15 @@ void ProcessMissileEffects()
 			int z = Effect.DestZ;
 			if (x != Effect.x || y != Effect.y) {
 				if (Fields(Effect.Field).EffectNumber == i) {
-					TASSERTB1(850, In(Effect.Next,-1,EFFECTS-1), Effect.Next, "[bug0000913]");
+					PATELLA_ASSERT_VALUES(In(Effect.Next,-1,EFFECTS-1), Effect.Next);
 					Fields(Effect.Field).EffectNumber = Effect.Next;
 				}
 				if (Effect.Previous != -1) {
-					TASSERTB1(854, In(Effect.Next,-1,EFFECTS-1), Effect.Next, "[bug0000913]");
+					PATELLA_ASSERT_VALUES(In(Effect.Next,-1,EFFECTS-1), Effect.Next);
 					Effects[Effect.Previous].Next = Effect.Next;
 				}
 				if (Effect.Next != -1) {
-					TASSERTB1(858, In(Effect.Previous,-1,EFFECTS-1), Effect.Previous, "[bug0000913]");
+					PATELLA_ASSERT_VALUES(In(Effect.Previous,-1,EFFECTS-1), Effect.Previous);
 					Effects[Effect.Next].Previous = Effect.Previous;
 				}
 				Effect.x = x;
@@ -774,17 +766,17 @@ void ProcessMissileEffects()
 				}
 				TMapPoint &Point = Fields(FieldNumber(x, y, z));
 				Effect.Field = FieldNumber(x, y, z);
-				TASSERTB1(867, In(Point.EffectNumber,-1,EFFECTS-1), Point.EffectNumber, "[bug0000913]");
+				PATELLA_ASSERT_VALUES(In(Point.EffectNumber,-1,EFFECTS-1), Point.EffectNumber);
 				Effect.Next = Point.EffectNumber;
 				Effect.Previous = -1;
 				if (Point.EffectNumber != -1) {
-					TASSERTB1(871, In(i,-1,EFFECTS-1), i, "[bug0000913]");
+					PATELLA_ASSERT_VALUES(In(i,-1,EFFECTS-1), i);
 					Effects[Point.EffectNumber].Previous = i;
 				}
 				Point.EffectNumber = i;
 			}
 		} else {
-			TASSERT(841, Effect.Status!=0);
+			PATELLA_ASSERT(Effect.Status!=0);
 			DeleteEffect(i);
 		}
 	}
@@ -797,9 +789,9 @@ void ProcessMissileEffects()
 // deleting the effects reports i = -1.
 void ClearField(int rx, int ry, int rz, bool DeleteEffects)
 {
-	TASSERTB1(891, In(rx,0,MAPSIZE_X-1), rx, "[bug0000913]");
-	TASSERTB1(892, In(ry,0,MAPSIZE_Y-1), ry, "[bug0000913]");
-	TASSERTB1(893, In(rz,0,MAPSIZE_Z-1), rz, "[bug0000913]");
+	PATELLA_ASSERT_VALUES(In(rx,0,MAPSIZE_X-1), rx);
+	PATELLA_ASSERT_VALUES(In(ry,0,MAPSIZE_Y-1), ry);
+	PATELLA_ASSERT_VALUES(In(rz,0,MAPSIZE_Z-1), rz);
 	int i = 0;
 	TMapPoint &Point = Fields(FieldNumber(rx, ry, rz));
 	for (i = 0; i < Point.ObjectCount; i++) {
@@ -811,7 +803,7 @@ void ClearField(int rx, int ry, int rz, bool DeleteEffects)
 	i = -1;
 	if (DeleteEffects) {
 		while (Point.EffectNumber != -1) {
-			TASSERTB(908, Effects[Point.EffectNumber].Status!=0, "[bug0000611]");
+			PATELLA_ASSERT(Effects[Point.EffectNumber].Status!=0);
 			DeleteEffect(Point.EffectNumber);
 		}
 	}
@@ -1067,9 +1059,9 @@ void GetFieldAutomapInfo(int rx, int ry, int rz, uint8 *Color, uint8 *Speed)
 // the marks.
 void LoadAutomapBlock(int Position, int bx, int by, int bz)
 {
-	TASSERT1(1199, In(bx,0,999), bx);
-	TASSERT1(1200, In(by,0,999), by);
-	TASSERT1(1201, In(bz,0, 99), bz);
+	PATELLA_ASSERT_VALUES(In(bx,0,999), bx);
+	PATELLA_ASSERT_VALUES(In(by,0,999), by);
+	PATELLA_ASSERT_VALUES(In(bz,0, 99), bz);
 	TAutomapBlock &Block = AutomapBlocks[Position];
 	Block.bx = bx;
 	Block.by = by;
@@ -1148,9 +1140,9 @@ void SaveAutomapBlock(int Position)
 	TAutomapBlock &Block = AutomapBlocks[Position];
 	if (Block.bx == -1 || !Block.Changed)
 		return;
-	TASSERT1(1317, In(Block.bx,0,999), Block.bx);
-	TASSERT1(1318, In(Block.by,0,999), Block.by);
-	TASSERT1(1319, In(Block.bz,0, 99), Block.bz);
+	PATELLA_ASSERT_VALUES(In(Block.bx,0,999), Block.bx);
+	PATELLA_ASSERT_VALUES(In(Block.by,0,999), Block.by);
+	PATELLA_ASSERT_VALUES(In(Block.bz,0, 99), Block.bz);
 	TFixedString<16> FileName;
 	FileName.Format("{:03}{:03}{:02}.map", Block.bx, Block.by, Block.bz);
 	TWriteBinaryFile File;
@@ -1216,9 +1208,9 @@ void SaveAutomapBlock(int Position)
 // part that can fail; the catch block reads it from there.)
 TAutomapBlock *GetAutomapBlock(int bx, int by, int bz)
 {
-	TASSERT1(1420, bx>=0, bx);
-	TASSERT1(1421, by>=0, by);
-	TASSERT1(1422, bz>=0, bz);
+	PATELLA_ASSERT_VALUES(bx>=0, bx);
+	PATELLA_ASSERT_VALUES(by>=0, by);
+	PATELLA_ASSERT_VALUES(bz>=0, bz);
 	int Position = MostRecentBlock;
 	while (Position != -1) {
 		const TAutomapBlock &Block = AutomapBlocks[Position];
@@ -1265,7 +1257,7 @@ void UpdateAutomap(int rx, int ry)
 // 0x4b4370, lines 1473-1479. Black for negative coordinates.
 TRGBColor GetAutomapColor(int x, int y, int z)
 {
-	TASSERT1(1473, In(z,0,15), z);
+	PATELLA_ASSERT_VALUES(In(z,0,15), z);
 	if (x >= 0 && y >= 0) {
 		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
 		return TRGBColor(Block->Color[x % 256][y % 256]);
@@ -1277,7 +1269,7 @@ TRGBColor GetAutomapColor(int x, int y, int z)
 // coordinates here, despite their names.
 void GetAutomapMarks(int x, int y, int z, vector<TMark> *Marks, int *Count)
 {
-	TASSERT1(1485, In(z,0,15), z);
+	PATELLA_ASSERT_VALUES(In(z,0,15), z);
 	if (x >= 0 && y >= 0) {
 		TAutomapBlock *Block = GetAutomapBlock(x, y, z);
 		*Count = Block->MarkCount;
@@ -1291,7 +1283,7 @@ namespace {
 // 0x4b4960, lines 1500-1506. Negative coordinates are blocked.
 bool IsAutomapBlocked(int x, int y, int z)
 {
-	TASSERT1(1500, In(z,0,15), z);
+	PATELLA_ASSERT_VALUES(In(z,0,15), z);
 	if (x >= 0 && y >= 0) {
 		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
 		return Block->Speed[x % 256][y % 256] == 255;
@@ -1302,7 +1294,7 @@ bool IsAutomapBlocked(int x, int y, int z)
 // 0x4b4c60, lines 1514-1520
 int GetAutomapSpeed(int x, int y, int z)
 {
-	TASSERT1(1514, In(z,0,15), z);
+	PATELLA_ASSERT_VALUES(In(z,0,15), z);
 	if (x >= 0 && y >= 0) {
 		const TAutomapBlock *Block = GetAutomapBlock(x / 256, y / 256, z);
 		return Block->Speed[x % 256][y % 256];
@@ -1315,9 +1307,9 @@ int GetAutomapSpeed(int x, int y, int z)
 // 0x4b4f60, lines 1538-1557
 void AddAutomapMark(TCoordinate &Coordinate, const char *Text, int Type)
 {
-	TASSERT(1538, Text!=NULL);
-	TASSERT1(1539, Coordinate.x>0, Coordinate.x);
-	TASSERT1(1540, Coordinate.y>0, Coordinate.y);
+	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT_VALUES(Coordinate.x>0, Coordinate.x);
+	PATELLA_ASSERT_VALUES(Coordinate.y>0, Coordinate.y);
 	TAutomapBlock *Block = GetAutomapBlock(Coordinate.x / 256, Coordinate.y / 256, Coordinate.z);
 	TMark Mark;
 	Mark.x = Coordinate.x;
@@ -1529,7 +1521,7 @@ int FindPath(int StartX, int StartY, int StartZ, int DestX, int DestY, int DestZ
 // 0x4b5610, line 1784. No try block.
 int GetAmbientBrightness()
 {
-	TASSERT1(1784, AmbienteActualBrightness>=0, AmbienteActualBrightness);
+	PATELLA_ASSERT_VALUES(AmbienteActualBrightness>=0, AmbienteActualBrightness);
 	return AmbienteActualBrightness;
 }
 
