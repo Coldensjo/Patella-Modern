@@ -10711,3 +10711,57 @@ Settled by Claude Opus 5.5, November 6, 2026; M5 (notes/modernization-plan.md, 7
   every session matches (error with #74's deliberate differences); the error session's line "[error] Debug
   Assertion 7.72 Player.cpp 383: exception occurred, reason: Control.cpp 1274: unknown packet type during game (Type
   = 255)" (a TERROR, unchanged). Logs: build\logs\issue-79.
+
+## The SafeSEH gate of oracle-x86 (Patella-Modern issue #89)
+
+Settled by Claude Opus 5.5, November 6, 2026. Found in #79 (above, "An MSVC x86 bug the change exposed"): MSVC 19.51 x86
+can keep a function's exception frame and leave the frame's handler out of the object's .sxdata, so it is missing
+from the image's SafeSEH table, and Windows ends the process when an exception passes the frame. #79's scratch
+scanner (build\tools-scratch\safeseh_scan.py, left in place: #80 uses it) is now tools/safeseh_scan.py, and oracle-x86
+runs it. No src/ change.
+
+- **What a registration is** (high). Read from the five images' code (dumpbin /disasm of the oracle's Patella.exe and
+  difftest.exe, every fs:[0] access sorted by its context) and from each fs:[0] load: the C++ EH prologue of MSVC 14.x
+  x86, push -1 (6A FF); push __ehhandler$<function> (68 imm32); mov eax, fs:[0] (64 A1), always adjacent (with or
+  without push ebp; mov ebp, esp, and after the aligned frames' lea ebp / sub esp or __chkstk); the inline SEH4
+  frame (push -2; push <scope table>; push _except_handler4) and the SEH3 form with -1; push handler; push fs:[0]
+  (__SEH_prolog4, __SEH_prolog4_GS, _local_unwind4); the CRT's guard records (mov [ebp+d+4], __CatchGuardHandler or
+  __TranslatorGuardHandler, then mov eax, fs:[0]; mov [ebp+d], eax: the record's two fields, so a nearby unrelated
+  store is not taken); and mov eax, __ehhandler$...; call <helper>, where the helper is __EH_prolog3, _GS, _catch,
+  _catch_GS (push eax; push fs:[0]), __EH_prolog3_align and _GS_align (their aligned frame first) or the old
+  __EH_prolog. The handler must lie in an executable section, or the bytes are no registration (a push -1; push
+  <data> is skipped). The scratch scanner saw only the first pattern (with a 24-byte window) and would have read an
+  SEH3 frame's scope table as its handler; it missed MFC's 1,242 __EH_prolog3 frames in Patella.exe. Counted against
+  the listing: Patella.exe 608 C++ EH, 1,242 EH_prolog (841 + 305 + 51 + 6 + 10 + 29 calls, every one), 12 SEH4, 2
+  guard, 3 push handler; the 4 fs:[0] loads left (_CallSETranslator's second, _JumpToContinuation,
+  _UnwindNestedFrames twice) read or restore the chain. Since the handlers checked are the table's own (the
+  CRT's _except_handler4, the guard handlers, every __ehhandler$ thunk, which jumps to __CxxFrameHandler3), they are
+  fine when present: membership in the table is the whole check.
+- **The table** (high). The load configuration's own Size must reach SEHandlerCount (0x48); SEHandlerTable is a VA,
+  its entries RVAs. No load configuration, a short one or no table (/SAFESEH:NO) is reported as such and fails;
+  IMAGE_DLLCHARACTERISTICS_NO_SEH fails when a handler is registered (Windows calls none) and passes otherwise. A PE32+
+  or non-x86 image is refused (exit 2).
+- **Names** (high). From the PDB of the image's CodeView record (its path, then the image's folder), used only when
+  its GUID is the image's: the module streams' S_GPROC32/S_LPROC32 ranges name the containing function, the publics
+  (S_PUB32) the handler; else `<image>.map`'s publics, else the RVA. A small MSF 7.00 reader with struct (no pefile,
+  no new dependency). Patella.exe has Patella.pdb (/DEBUG); the four test programs are linked without one, as the
+  former build.cmd linked them, so their findings are RVAs: adding /DEBUG or /MAP to them would change their command
+  lines for a name the Patella.exe line already gives. The __ehhandler$ thunks are in neither the publics nor the
+  procedures of Patella.pdb, so a handler shows as its RVA.
+- **A CTest test, not a post-build step** (high). `safeseh` in cmake/OracleX86.cmake after the four difftests: it
+  reads the linked images only, a finding fails `ctest --preset oracle-x86` and build.py like a difftest failure,
+  the images stay for a look, and a post-build step would stop the build before the difftests could show the
+  crash; and `-R safeseh` runs it alone. CTest 4/4 becomes 5/5. The self-test is not a
+  CTest test (it would make six): `python -I tools/safeseh_scan.py --self-test` builds made-up PE32 images (a .text
+  and an .rdata with the load configuration, the table and a CodeView record) with each kind of frame, a clean one,
+  one whose handler is missing from the table, the same with a made-up PDB (the function named) and with a PDB of
+  another GUID (not used), a map, no table, no load configuration, NO_SEH with and without a frame, an x64 image and
+  a file that is no PE.
+- **The proofs** (high). Branch issue-89 at the same path: `python -I tools/build.py oracle-x86` exit 0, CTest 5/5,
+  difftest 16,459,337, sysinctest 67, communicationtest 856,621, vlongtest 3,201, 0 failures; safeseh 0 findings
+  (difftest 2,821 registrations, sysinctest 107, communicationtest 1,040, vlongtest 41, Patella.exe 1,867). #79's
+  GetIcon fix reverted (`default: TERROR1(1063, "index out of range", i);`, never committed): exit 8, CTest 3/5, the
+  gate fails with one finding in each of three images, "TPlayerStates::GetIcon: C++ EH frame at RVA 0x00020503,
+  handler RVA 0x001faa30 not in the SafeSEH table" in Patella.exe and the RVAs in difftest.exe (0x001dfa88) and
+  communicationtest.exe (0x000a30f8), sysinctest and vlongtest clean, and difftest ends with an uncaught C++
+  exception in TestContentWindows, as in #79. Restored: 5/5 again, 0 findings. Logs: build\logs\issue-89.

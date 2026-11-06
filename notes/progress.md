@@ -295,6 +295,11 @@ semantic can bypass and which cannot pass a predicate's exception on). 802 sites
 the three macros and nine local bug variants deleted (the CipSoft bug numbers dropped), Utils.cpp's 16 NULL in
 assertions nullptr (tidy baseline 20 to 4). TPlayerStates::GetIcon's unreachable TERROR1 default left out: MSVC x86 had
 kept its exception frame without the handler in the SafeSEH table. notes/decisions.md, "TASSERT* to PATELLA_ASSERT".
+The SafeSEH gate (Patella-Modern issue #89, branch issue-89, November 6, 2026): tools/safeseh_scan.py finds the x86
+exception-handler registrations (C++ EH prologues, SEH3/SEH4 frames, the CRT's guard records, __EH_prolog3 and its
+variants) and fails on a handler missing from the image's SafeSEH table or an image without one; names from the PDB
+or a map, else RVAs; `--self-test` on made-up PE32 images. oracle-x86's CTest test `safeseh` runs it on difftest,
+sysinctest, communicationtest, vlongtest and Patella.exe (CTest 5/5). notes/decisions.md, "The SafeSEH gate".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
@@ -440,6 +445,13 @@ None.
 - None yet.
 
 ## Last difftest
+
+Patella-Modern issue #89 (branch issue-89, November 6, 2026): the SafeSEH gate. `python -I tools/safeseh_scan.py
+--self-test`: passed. `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest 16,459,337, sysinctest 67,
+communicationtest 856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0 findings. With #79's GetIcon fix
+reverted (not committed): exit 8, CTest 3/5, safeseh names TPlayerStates::GetIcon in Patella.exe and finds the frame
+in difftest.exe and communicationtest.exe, difftest ends in TestContentWindows; restored: 5/5. No src/ change. Logs:
+build\logs\issue-89.
 
 Patella-Modern issue #82 (branch issue-82, November 6, 2026): tools/patch_client.py --rsa patches the Debug clients'
 two copies of the RSA modulus (Debug builds do not pool the two identical literals of src/Communication.cpp; each
