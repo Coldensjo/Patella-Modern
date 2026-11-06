@@ -277,7 +277,7 @@ void TestPatterns(int Type, const TProperties &E)
 		for (int t = 0; t < 24; t++) {
 			TObject Obj;
 			Obj.Type = Type;
-			Obj.Data = t < 22 ? Data[t] : (int)(Random() ^ (Random() << 16));
+			Obj.Data = t < 22 ? Data[t] : (int)Random32();
 			Obj.Data2 = t % 4 == 0 ? HOOKSOUTH : t % 4 == 1 ? HOOKEAST
 															: (int)(Random() % 40) - 5;
 			int X1 = -7, Y1 = -7, Pattern[2] = {-7, -7};
@@ -370,7 +370,7 @@ void RandomEntry(std::string &s, bool Wild)
 std::string RandomDat(bool Wild)
 {
 	std::string s;
-	uint32 Signature = Random() ^ (Random() << 16);
+	uint32 Signature = Random32();
 	for (int i = 0; i < 4; i++)
 		s += (char)(Signature >> (8 * i));
 	int Objects = 100 + (int)(Random() % 40), Outfits = Pick(8), Effects = Pick(8), Missiles = Pick(8);

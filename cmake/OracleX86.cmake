@@ -346,3 +346,27 @@ add_custom_target(golden_corpus ${golden_commands}
 	COMMENT "Recording the golden corpus into ${PATELLA_GOLDEN_DIR}"
 	USES_TERMINAL
 	VERBATIM)
+
+# Issue #55: cmake --build --preset oracle-x86 --target golden_reproducible records the corpus twice from this
+# build, into build/oracle-x86/golden-reproducible/1 and /2 (as golden_corpus, each test program in a temporary
+# folder of its own), and compares the two file by file (cmake/CompareGoldenRecordings.cmake, after its
+# self-test): it fails when any file differs, and keeps both then; when they are the same it removes them.
+# About 8 minutes and 1.8 GB while it runs; not part of the CTest run.
+set(GOLDEN_REPRODUCIBLE_DIR "${PROJECT_BINARY_DIR}/golden-reproducible")
+set(golden_reproducible_commands COMMAND "${CMAKE_COMMAND}" "-DSELFTEST=${ORACLE_TMP_DIR}"
+	-P "${PROJECT_SOURCE_DIR}/cmake/CompareGoldenRecordings.cmake"
+	COMMAND "${CMAKE_COMMAND}" -E rm -rf "${GOLDEN_REPRODUCIBLE_DIR}/1" "${GOLDEN_REPRODUCIBLE_DIR}/2")
+foreach(recording 1 2)
+	foreach(test difftest sysinctest communicationtest)
+		list(APPEND golden_reproducible_commands COMMAND "${CMAKE_COMMAND}" "-DTEST=$<TARGET_FILE:${test}>"
+			"-DTIBIA=${PATELLA_TIBIA_EXE_NATIVE}" "-DRECORD=${GOLDEN_REPRODUCIBLE_DIR}/${recording}"
+			"-DTMPROOT=${ORACLE_TMP_DIR}" "-DNAME=${test}" -P "${PROJECT_SOURCE_DIR}/cmake/RunGoldenRecord.cmake")
+	endforeach()
+endforeach()
+add_custom_target(golden_reproducible ${golden_reproducible_commands}
+	COMMAND "${CMAKE_COMMAND}" "-DA=${GOLDEN_REPRODUCIBLE_DIR}/1" "-DB=${GOLDEN_REPRODUCIBLE_DIR}/2" -DREMOVE=ON
+		-P "${PROJECT_SOURCE_DIR}/cmake/CompareGoldenRecordings.cmake"
+	DEPENDS difftest sysinctest communicationtest
+	COMMENT "Recording the golden corpus twice into ${GOLDEN_REPRODUCIBLE_DIR} and comparing the two"
+	USES_TERMINAL
+	VERBATIM)

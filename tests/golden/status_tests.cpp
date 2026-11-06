@@ -164,7 +164,7 @@ void TestAccessors()
 	};
 	for (int t = 0; t < 2000; t++) {
 		const TIntPair &P = Pairs[Random() % (sizeof(Pairs) / sizeof(Pairs[0]))];
-		int Value = (int)(Random() ^ (Random() << 16));
+		int Value = (int)Random32();
 		ORIGINAL(At<SetIntFn>(P.Set)(Value));
 		P.OurSet(Value);
 		int Got = ORIGINAL_VALUE("get", int, At<IntFn>(P.Get)());
@@ -291,7 +291,7 @@ void TestRights()
 		int Id = (int)(Random() % RIGHT_ANY);
 		switch (Random() % 8) {
 		case 0: {
-			int Value = (Random() % 3 == 0) ? 0 : (int)(Random() ^ (Random() << 16));
+			int Value = (Random() % 3 == 0) ? 0 : (int)Random32();
 			ORIGINAL(At<SetInt2Fn>(0x4e8580)(Id, Value));
 			SetRight(Id, Value);
 			break;
@@ -477,7 +477,7 @@ void TestAccount()
 	for (int t = 0; t < 2000; t++) {
 		char Password[40];
 		RandomText(Password, (int)(Random() % 30));
-		int Number = (int)(Random() ^ (Random() << 16));
+		int Number = (int)Random32();
 		if (t % 5 == 0)
 			Number = -Number;
 		SetAccount(Number, Password);

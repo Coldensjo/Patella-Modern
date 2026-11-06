@@ -27,6 +27,7 @@
 #include <map>
 #include <new>
 #include <stdarg.h>
+#include <stdint.h>
 #include <string>
 #include <vector>
 
@@ -185,12 +186,25 @@ TLineState LineOf(const TTalkLine *O)
 	return State;
 }
 
-bool SameState(const TLineState &a, const TLineState &b)
+// A line's contents as one key: its fields, and each text with whether it is NULL and its length.
+std::string LineKey(const TLineState &State)
 {
-	auto Same = [](const golden::TText &x, const golden::TText &y) { return x.Null == y.Null && x.Text == y.Text; };
-	return a.StatementID == b.StatementID && a.Mode == b.Mode && a.Time == b.Time
-		&& a.WithoutTimeOffset == b.WithoutTimeOffset && a.TextOffset == b.TextOffset && Same(a.Addressee, b.Addressee)
-		&& Same(a.Line, b.Line) && Same(a.WithoutTime, b.WithoutTime) && Same(a.Text, b.Text);
+	std::string Key;
+	auto Number = [&Key](int64_t Value) { Key.append((const char *)&Value, sizeof(Value)); };
+	auto Text = [&Key, &Number](const golden::TText &Value) {
+		Number(Value.Null ? -1 : (int64_t)Value.Text.size());
+		Key += Value.Text;
+	};
+	Number(State.StatementID);
+	Number(State.Mode);
+	Number(State.Time);
+	Number(State.WithoutTimeOffset);
+	Number(State.TextOffset);
+	Text(State.Addressee);
+	Text(State.Line);
+	Text(State.WithoutTime);
+	Text(State.Text);
+	return Key;
 }
 #endif
 
@@ -228,10 +242,12 @@ TLineState OriginalLineState([[maybe_unused]] const TTalkLine *Line)
 	return RecordLine(State);
 }
 
-// Every line of the original seen in a buffer, by identity.
+// Every line of the original seen in a buffer, by contents. Issue #55: by contents, not by the line's address,
+// which the heap chooses (Windows randomises the low-fragmentation heap), so two recordings differed in
+// whether a new line at a freed line's address was new; the runner uses only a line's contents.
 std::vector<TLineState> LineTable;
 #if GOLDEN_ORACLE
-std::map<const TTalkLine *, int> LineIds;
+std::map<std::string, int> LineIds;
 #endif
 
 int OriginalLineId([[maybe_unused]] const TTalkLine *Line)
@@ -240,8 +256,9 @@ int OriginalLineId([[maybe_unused]] const TTalkLine *Line)
 	TLineState State;
 #if GOLDEN_ORACLE
 	State = LineOf(Line);
-	auto Found = LineIds.find(Line);
-	if (Found != LineIds.end() && SameState(LineTable[(size_t)Found->second], State))
+	const std::string Key = LineKey(State);
+	auto Found = LineIds.find(Key);
+	if (Found != LineIds.end())
 		Entry[0] = Found->second;
 	else {
 		Entry[0] = (int)LineTable.size();
@@ -253,7 +270,7 @@ int OriginalLineId([[maybe_unused]] const TTalkLine *Line)
 		if (Entry[0] != (int)LineTable.size())
 			throw golden::TStale{"Talk: a new line out of order"};
 		LineTable.push_back(RecordLine(State));
-		ORIGINAL(LineIds[Line] = Entry[0]);
+		ORIGINAL(LineIds[Key] = Entry[0]);
 	} else if (Entry[0] < 0 || Entry[0] >= (int)LineTable.size())
 		throw golden::TStale{"Talk: an unknown line"};
 	return Entry[0];

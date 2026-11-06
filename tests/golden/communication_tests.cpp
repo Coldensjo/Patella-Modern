@@ -147,7 +147,7 @@ static uint32 PickID()
 	TWorld &W = World[OURS];
 	switch (Random() % 6) {
 	case 0: return 0;
-	case 1: return Random() ^ (Random() << 16);
+	case 1: return Random32();
 	case 2: return 0xffffffff;
 	default: return W.Creatures[Random() % WORLD_CREATURES].CreatureID;
 	}
@@ -155,7 +155,7 @@ static uint32 PickID()
 static uint32 Pick32()
 {
 	static const uint32 Edges[] = {0, 1, 0x7fffffff, 0x80000000, 0xffffffff, 0x10000, 0xffff};
-	return Random() % 3 == 0 ? Edges[Random() % 7] : Random() ^ (Random() << 16);
+	return Random() % 3 == 0 ? Edges[Random() % 7] : Random32();
 }
 static std::string PickText(int Long = 0)
 {

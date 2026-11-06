@@ -512,6 +512,17 @@ patcap capture, no frame within 30 s; rerun once). The tools' self-tests 0 failu
 tools/tidy.py on the Windows-only changed files: no finding on a changed line; banned_calls 0; clang-format clean.
 Logs: build\logs\issue-92.
 
+Patella-Modern issue #55 (branch issue-55, November 6, 2026): two recordings of one build byte for byte the same
+(Buffers' uninitialised text bytes zeroed and their record gone; Talk's lines identified by contents, not by heap
+address), and the 53 unsequenced Random() expressions of tests/golden and tools/difftest's surface tests written in
+the oracle's order (the recording unchanged by it); the target golden_reproducible records twice and compares. No
+src/ change. `python -I tools/build.py oracle-x86`: CTest 5/5, difftest 16,459,352, sysinctest 67, communicationtest
+856,621, vlongtest 3,201, 0 failures (unchanged), safeseh 0. golden on the re-recorded corpus 15,803,218 replayed +
+1,512,822 retired = 17,316,040, 0 failures (windows-x64 16/16, -debug 15/15, -asan 15/15; fatal_error_box failed
+once in windows-x64 and -debug, "A Tibia client is already running!" from another worktree's client, and passed
+alone); windows-x64-gcc and the Linux presets 11/11, 0 warnings. golden_reproducible: 43 files compared, 0
+different. Logs: build\logs\issue-55.
+
 Patella-Modern issue #90 (branch issue-90, November 6, 2026): ExitControl skips ExitSurfaces without a surface,
 FatalError skips SetDisplayMode without a main window or a surface (PatellaTest.exe without Tibia.dat: 0xC0000005
 before, the box and exit code 1 after). `python -I tools/build.py oracle-x86`: exit 0, CTest 5/5, difftest 16,459,352,
