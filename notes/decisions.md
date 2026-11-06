@@ -13084,3 +13084,27 @@ xmin, ymin, zmin) hid the members of the same names (-Wshadow; the reason Contai
 #99's "Found, not done"). They are Min, Max, XMin ... ZMax now; the members, the assertions (which name only d, dx,
 dy, dz) and the code are the same. Container.h stays on the baseline list (cmake/Warnings.cmake) for the files that
 include it there; taking it off is a separate measurement.
+
+### The gates (high)
+
+Logs: build\logs\issue-102b of the branch's worktree, all on d83a4f7; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired =
+  17,316,040, 0 failures (golden_concurrent the same; Container 192,832, Map 639,877, MapWindow 122,324 checks, as
+  before), 0 warnings. windows-x64-debug: exit 0, 18/18; windows-x64-asan: exit 0, 18/18, no ASan report; golden the
+  same on both. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc: exit 0, 16/16; linux-x64-clang (ASan, UBSan): exit 0,
+  14/14, no sanitizer report; golden the same on both. 0 warnings on every preset. The first windows-x64 run (before
+  d83a4f7) failed tests_core on one wrong expectation of the test (a new ground goes in at the bottom of a point of
+  grounds; the code was right); the first windows-x64-gcc and linux-x64-gcc runs failed on Container.h's -Wshadow
+  (above).
+- core_map_point_test.cpp: 6 test cases, in tests_core on MSVC (the stand-in), mingw-w64 GCC, GCC 16
+  (std::inplace_vector) and Clang 22.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (traffic, options, walk, error; two earlier runs stopped on ports 7271/7272 that another agent's
+  client held, without a difference). `python -I tools/compare_traffic.py`: the first run reported differences, all
+  from its live session, where the x64 client's first step ("walk north") was not sent: the two clients' replays of
+  both recordings were identical packet for packet and state for state, so an input lost on the desktop other agents'
+  clients shared; the one rerun: exit 0, no differences.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`:
+  exit 0. clang-format (CLAUDE.md's command): exit 0.
