@@ -836,7 +836,9 @@ void DrawMaskedSpriteScaled(int Surface, int x, int y, int Width, int Height, in
 // object in a Size x Size box whose bottom right corner is x+Size, y+Size,
 // in the animation phase of the action counter; the count of a cumulative
 // object above 1 (or any count with ShowCount) is written in its bottom
-// right corner. Count holds three digits; more overflow it (sic).
+// right corner. Count holds three digits; more overflow it (sic). A phase
+// count or exact size of 0 in Tibia.dat throws a TMyException
+// (PATELLA_DIVISOR, issue #67).
 void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor Highlight, TRect Clip,
 	TFont Font, bool ShowCount)
 {
@@ -849,8 +851,8 @@ void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor High
 	if (GetObjectFlag(Obj.Type, LIQUIDPOOL) || GetObjectFlag(Obj.Type, LIQUIDCONTAINER))
 		GetLiquidPattern(Obj, &PatternX, &PatternY);
 	const int Action = GetActionNumber();
-	const int Phase = Action / 5 % GetObjectPhases(Obj.Type) + 1;
-	const int Scale = Size * 32 / GetObjectExactSize(Obj.Type);
+	const int Phase = Action / 5 % PATELLA_DIVISOR(GetObjectPhases(Obj.Type)) + 1;
+	const int Scale = Size * 32 / PATELLA_DIVISOR(GetObjectExactSize(Obj.Type));
 	for (int Layer = 1; Layer <= GetObjectLayers(Obj.Type); Layer++) {
 		for (int px = 1; px <= GetObjectWidth(Obj.Type); px++) {
 			for (int py = 1; py <= GetObjectHeight(Obj.Type); py++) {
@@ -871,7 +873,8 @@ void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor High
 
 // 0x495080, line 1137. A creature's outfit facing south (direction 2) in
 // its four colours (indices of the outfit palette), with the colour mask on
-// layer 2. Outfit 0 shows the object Colors[0] instead (none if 0).
+// layer 2. Outfit 0 shows the object Colors[0] instead (none if 0). An exact
+// size of 0 in Tibia.dat throws a TMyException (PATELLA_DIVISOR, issue #67).
 void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, patella::TSpan<const int, 4> Colors,
 	TRGBColor Highlight, TRect Clip, TFont Font)
 {
@@ -892,7 +895,7 @@ void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, patella::
 	OutfitColors[2] = TRGBColor(R, G, B);
 	GetOutfitColor(Colors[3], &R, &G, &B);
 	OutfitColors[3] = TRGBColor(R, G, B);
-	const int Scale = Size * 32 / GetOutfitExactSize(OutfitNumber);
+	const int Scale = Size * 32 / PATELLA_DIVISOR(GetOutfitExactSize(OutfitNumber));
 	for (int px = 1; px <= GetOutfitWidth(OutfitNumber); px++) {
 		for (int py = 1; py <= GetOutfitHeight(OutfitNumber); py++) {
 			const int SpriteNumber = GetOutfitSpriteNumber(OutfitNumber, px, py, 1, 2, 1);

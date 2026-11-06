@@ -1016,14 +1016,15 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 
 // 0x4c4af0, lines 1071-1094. The pattern comes from the absolute position
 // (x, y, z), the count, the liquid or the hook; objects with several phases
-// are animated and bypass the field cache.
+// are animated and bypass the field cache. A pattern size or phase count of 0
+// in Tibia.dat throws a TMyException (PATELLA_DIVISOR, issue #67).
 void TMapWindow::DrawObject(int posx, int posy, int Level, TObject Obj, int x, int y, int z)
 {
 	PATELLA_ASSERT(Obj.Type!=0);
-	int PatternX = x % GetObjectPatternWidth(Obj.Type) + 1;
-	int PatternY = y % GetObjectPatternHeight(Obj.Type) + 1;
-	const int PatternZ = z % GetObjectPatternDepth(Obj.Type) + 1;
-	const int Phase = GetActionNumber() / 5 % GetObjectPhases(Obj.Type) + 1;
+	int PatternX = x % PATELLA_DIVISOR(GetObjectPatternWidth(Obj.Type)) + 1;
+	int PatternY = y % PATELLA_DIVISOR(GetObjectPatternHeight(Obj.Type)) + 1;
+	const int PatternZ = z % PATELLA_DIVISOR(GetObjectPatternDepth(Obj.Type)) + 1;
+	const int Phase = GetActionNumber() / 5 % PATELLA_DIVISOR(GetObjectPhases(Obj.Type)) + 1;
 	if (GetObjectFlag(Obj, CUMULATIVE))
 		GetCumulativePattern(Obj, &PatternX, &PatternY);
 	if (GetObjectFlag(Obj, LIQUIDPOOL) || GetObjectFlag(Obj, LIQUIDCONTAINER))
@@ -1048,7 +1049,8 @@ void TMapWindow::DrawObject(int posx, int posy, int Level, TObject Obj, int x, i
 }
 
 // 0x4c4f80, lines 1106-1129. Outfits are always animated; the second layer
-// is the colour mask (head, body, legs, feet).
+// is the colour mask (head, body, legs, feet). A phase count of 0 in
+// Tibia.dat throws a TMyException (PATELLA_DIVISOR, issue #67).
 void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature)
 {
 	PATELLA_ASSERT(Creature!=NULL);
@@ -1071,7 +1073,7 @@ void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature
 	}
 	int Phase;
 	if (GetOutfitFlag(OutfitType, ANIMATEALWAYS))
-		Phase = GetActionNumber() / 3 % GetOutfitPhases(OutfitType) + 1;
+		Phase = GetActionNumber() / 3 % PATELLA_DIVISOR(GetOutfitPhases(OutfitType)) + 1;
 	else
 		Phase = Creature->GetAnimationPhase(GetOutfitPhases(OutfitType));
 	for (int X = 1; X <= GetOutfitWidth(OutfitType); X++) {

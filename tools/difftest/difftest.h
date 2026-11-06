@@ -66,6 +66,11 @@ void TestErrors(const char *ExePath);    // tests/golden/errors_tests.cpp, loads
 void TestNetwork();                      // tests/golden/network_tests.cpp (includes Network.cpp), before TestMapWindow (restores its patches)
 void TestMainFrm();                      // tests/golden/mainfrm_tests.cpp (includes MainFrm.cpp), before TestMapWindow (restores its patches)
 void TestMapWindow(const char *ExePath); // tests/golden/mapwindow_tests.cpp, loads Tibia.dat
+// A test that lets the original divide by zero on purpose sets it (tests/golden/divisions_tests.cpp, issue #67:
+// the original's trap, which its catch wrapper turns into a TMyException): the crash report then leaves such
+// exceptions out.
+extern bool ExpectDivideByZero;
+
 // communicationtest.exe (issue #36, DIFFTEST_COMMUNICATION): Communication.cpp and Control.cpp with every
 // callee faked on both sides; in an executable of their own, because difftest.exe's other tests define
 // fakes under the names of their functions.

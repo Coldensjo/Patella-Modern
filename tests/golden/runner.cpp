@@ -61,6 +61,9 @@ struct TPorted {
 	const char *Name; // the oracle's test name without "Test"
 	void (*Run)();
 	const char *Retired = nullptr; // the issue that retired parts of the test with the oracle (RetiredBegin)
+	// The issue that added the test after corpora had been recorded without it (issue #67's Divisions): a manifest
+	// without the test is not stale for it; the test is skipped with a note until the corpus is recorded again.
+	const char *Since = nullptr;
 };
 struct TExecutable {
 	const char *Name;
@@ -85,7 +88,8 @@ const TExecutable Executables[] = {
 			{"DialogElements", TestDialogElements}, {"Dialogs", TestDialogs, "#28/#31"},
 			{"Errors", [] { TestErrors(nullptr); }, "#26"},
 			{"Network", TestNetwork}, {"MainFrm", TestMainFrm},
-			{"MapWindow", [] { TestMapWindow(nullptr); }}, {"MainWindow", TestMainWindow}}},
+			{"MapWindow", [] { TestMapWindow(nullptr); }}, {"MainWindow", TestMainWindow},
+			{"Divisions", [] { TestDivisions(nullptr); }, nullptr, "#67"}}},
 	{"sysinctest", {{"Sysinc", TestSysinc}}},
 	{"communicationtest",
 		{{"Communication", [] { TestCommunication(nullptr); }}, {"Control", [] { TestControl(nullptr); }, "#30"}}},
@@ -249,7 +253,11 @@ int main(int argc, char **argv)
 			bool Listed = false;
 			for (int t = 0; t < Manifest.NumberOfTests; t++)
 				Listed = Listed || Manifest.Tests[t].Name == Test.Name;
-			if (!Listed) {
+			if (!Listed && Test.Since != nullptr) {
+				printf("golden: %s's manifest has no test %s (added by %s): not replayed; record the corpus again to "
+					   "replay it\n",
+					Executable.Name, Test.Name, Test.Since);
+			} else if (!Listed) {
 				printf("golden: stale corpus: %s's manifest has no test %s; record it again\n", Executable.Name,
 					Test.Name);
 				Ok = false;

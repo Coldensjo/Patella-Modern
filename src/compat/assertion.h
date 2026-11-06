@@ -6,6 +6,8 @@
 // - PATELLA_ASSERT_VALUES(Expression, Value1[, Value2]): the same with one or two values in the message,
 //   "<file> <line>: assertion failed (<Value1's text> = <value>)[ (<Value2's text> = <value>)], reason:\n...", each
 //   value converted to int (static_cast) as the old macros' (int) cast did.
+// - PATELLA_DIVISOR(Value) (issue #67): an integer divisor from input; zero throws a TMyException instead of trapping
+//   (at the end of this file).
 //
 // The expression is evaluated exactly once, the values only when it is false (after it, in an unspecified order, as
 // the old macros' arguments were). The file and line are the assertion's own (std::source_location::current(), or
@@ -79,6 +81,18 @@ template <class... T>
 	AssertionFailed(Expression, Location, Names, static_cast<int>(Values)...);
 }
 
+// PATELLA_DIVISOR's failure (issue #67): the TMyException "<file> <line>: integer division by zero, reason:\n
+// <Expression>".
+[[noreturn]] void DivisionByZero(const char *Expression, const TSourceLocation &Location);
+
+// PATELLA_DIVISOR's call: the divisor itself, or the failure when it is zero.
+template <class T> T CheckedDivisor(T Value, const char *Expression, const TSourceLocation &Location)
+{
+	if (Value == 0)
+		DivisionByZero(Expression, Location);
+	return Value;
+}
+
 } // namespace patella
 
 #define PATELLA_ASSERT(Expression) \
@@ -87,3 +101,10 @@ template <class... T>
 #define PATELLA_ASSERT_VALUES(Expression, ...) \
 	(!(Expression) ? ::patella::AssertionFailedValues(#Expression, PATELLA_SOURCE_LOCATION(), #__VA_ARGS__, __VA_ARGS__) \
 				   : static_cast<void>(0))
+
+// PATELLA_DIVISOR(Value) (Patella-Modern issue #67): an integer divisor that input can make zero (a packet's field, a
+// value of Tibia.dat), as the division's (or the remainder's) right operand. It is the value, evaluated once; when it is
+// zero, a TMyException is thrown instead of the division: the original (MSVC 7.1, whose catch-all handlers caught structured
+// exceptions) trapped there and its catch wrapper turned the trap into a TMyException; the x64 client builds with
+// /EHsc, where nothing catches a trap (notes/decisions.md, "#67, part 2").
+#define PATELLA_DIVISOR(Value) (::patella::CheckedDivisor((Value), #Value, PATELLA_SOURCE_LOCATION()))
