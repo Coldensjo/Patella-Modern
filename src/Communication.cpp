@@ -91,7 +91,7 @@ void InitCommunication()
 // 0x413780, lines 41-96
 void SendLogin(uint32 AccountID, const char *Password)
 {
-	TASSERT(41, Password!=NULL);
+	PATELLA_ASSERT(Password!=NULL);
 	std::array<uint8, 16> Key;
 	for (int i = 0; i < 16; i++)
 		Key[i] = (uint8)rand();
@@ -148,8 +148,8 @@ void SendLogin(uint32 AccountID, const char *Password)
 // 0x413de0, lines 109-166
 void SendGameLogin(uint32 AccountID, const char *Name, const char *Password)
 {
-	TASSERT(109, Name!=NULL);
-	TASSERT(110, Password!=NULL);
+	PATELLA_ASSERT(Name!=NULL);
+	PATELLA_ASSERT(Password!=NULL);
 	std::array<uint8, 16> Key;
 	for (int i = 0; i < 16; i++)
 		Key[i] = (uint8)rand();
@@ -240,7 +240,7 @@ void SendWalk()
 {
 	PrepareMovement();
 	const int Steps = GetNumberOfPlayerSteps();
-	TASSERT1(219, Steps>0, Steps);
+	PATELLA_ASSERT_VALUES(Steps>0, Steps);
 	if (Steps == 1) {
 		switch (GetPlayerStep(0)) {
 		case 1: BeginCommand(0x66); break;
@@ -466,8 +466,8 @@ void SendLook(int x, int y, int z, int ObjectType, int Position)
 // 0x4067c0, lines 541-549
 void SendTalk(int Mode, const char *Text)
 {
-	TASSERT1(541, Mode==TALK_SAY || Mode==TALK_WHISPER || Mode==TALK_YELL || Mode==TALK_GAMEMASTER_REQUEST || Mode==TALK_PLAYER_ANSWER || Mode==TALK_GAMEMASTER_BROADCAST || Mode==TALK_ANONYMOUS_BROADCAST, Mode);
-	TASSERT(542, Text!=NULL);
+	PATELLA_ASSERT_VALUES(Mode==TALK_SAY || Mode==TALK_WHISPER || Mode==TALK_YELL || Mode==TALK_GAMEMASTER_REQUEST || Mode==TALK_PLAYER_ANSWER || Mode==TALK_GAMEMASTER_BROADCAST || Mode==TALK_ANONYMOUS_BROADCAST, Mode);
+	PATELLA_ASSERT(Text!=NULL);
 	BeginCommand(0x96);
 	SendByte(Mode);
 	SendString(Text);
@@ -477,9 +477,9 @@ void SendTalk(int Mode, const char *Text)
 // 0x406b40, lines 557-567
 void SendTalk(int Mode, const char *Addressee, const char *Text)
 {
-	TASSERT1(557, Mode==TALK_PRIVATE_MESSAGE || Mode==TALK_GAMEMASTER_ANSWER || Mode==TALK_GAMEMASTER_MESSAGE || Mode==TALK_ANONYMOUS_MESSAGE, Mode);
-	TASSERT(558, Addressee!=NULL);
-	TASSERT(559, Text!=NULL);
+	PATELLA_ASSERT_VALUES(Mode==TALK_PRIVATE_MESSAGE || Mode==TALK_GAMEMASTER_ANSWER || Mode==TALK_GAMEMASTER_MESSAGE || Mode==TALK_ANONYMOUS_MESSAGE, Mode);
+	PATELLA_ASSERT(Addressee!=NULL);
+	PATELLA_ASSERT(Text!=NULL);
 	BeginCommand(0x96);
 	SendByte(Mode);
 	SendString(Addressee);
@@ -490,8 +490,8 @@ void SendTalk(int Mode, const char *Addressee, const char *Text)
 // 0x406f90, lines 575-584
 void SendTalk(int Mode, int ChannelID, const char *Text)
 {
-	TASSERT1(575, Mode==TALK_CHANNEL_CALL || Mode==TALK_GAMEMASTER_CHANNELCALL || Mode==TALK_ANONYMOUS_CHANNELCALL, Mode);
-	TASSERT(576, Text!=NULL);
+	PATELLA_ASSERT_VALUES(Mode==TALK_CHANNEL_CALL || Mode==TALK_GAMEMASTER_CHANNELCALL || Mode==TALK_ANONYMOUS_CHANNELCALL, Mode);
+	PATELLA_ASSERT(Text!=NULL);
 	BeginCommand(0x96);
 	SendByte(Mode);
 	SendWord(ChannelID);
@@ -686,7 +686,7 @@ void SendRequestOutfit()
 // 0x409830, lines 883-893
 void SendOutfit(int OutfitType, const int *Colors)
 {
-	TASSERT(883, Colors!=NULL);
+	PATELLA_ASSERT(Colors!=NULL);
 	BeginCommand(0xd3);
 	SendWord(OutfitType);
 	SendByte(Colors[0]);
@@ -699,7 +699,7 @@ void SendOutfit(int OutfitType, const int *Colors)
 // 0x409b00, lines 902-908
 void SendAddBuddy(const char *Name)
 {
-	TASSERT(902, Name!=NULL);
+	PATELLA_ASSERT(Name!=NULL);
 	BeginCommand(0xdc);
 	SendString(Name);
 	SendCommand(true);
@@ -880,7 +880,7 @@ uint32 ReadCreature(int Type, int x, int y, int z)
 		const uint32 RemoveID = GetQuad();
 		CreatureID = GetQuad();
 		Creature = AddCreature(RemoveID, CreatureID);
-		TASSERT1(1302, Creature!=NULL, CreatureID);
+		PATELLA_ASSERT_VALUES(Creature!=NULL, CreatureID);
 		GetString(patella::TSpan<char>(Creature->Name.Chars).first(30));
 		if (!IsPlayer(CreatureID))
 			CapitalizeString(Creature->Name);
@@ -1162,7 +1162,7 @@ void ReceiveChangeObject()
 	AbsoluteToRelative(&rx, &ry, &rz);
 	const TObject OldObject = GetMapObject(rx, ry, rz, Position);
 	if (OldObject.Type == NoObject.Type) {
-		TASSERT2(1594, FieldRefreshRequested(rx,ry,rz), rx, ry);
+		PATELLA_ASSERT_VALUES(FieldRefreshRequested(rx,ry,rz), rx, ry);
 		const int Type = GetWord();
 		if (Type == 0x61 || Type == 0x62 || Type == 0x63) {
 			ReadCreature(Type, rx, ry, rz);
@@ -1217,7 +1217,7 @@ void ReceiveDeleteObject()
 	AbsoluteToRelative(&rx, &ry, &rz);
 	const TObject Object = GetMapObject(rx, ry, rz, Position);
 	if (Object.Type == NoObject.Type) {
-		TASSERT2(1649, FieldRefreshRequested(rx,ry,rz), rx, ry);
+		PATELLA_ASSERT_VALUES(FieldRefreshRequested(rx,ry,rz), rx, ry);
 	} else {
 		if (Object.Type == 0x63) {
 			TCreature *Creature = GetCreature(Object.Data);
@@ -1970,7 +1970,7 @@ void ReceiveTextMessage()
 {
 	int Mode = 0;
 	Mode = GetByte();
-	TASSERT1(2634, Mode>=0&&Mode<TALK_MODE_BEYONDLAST, Mode);
+	PATELLA_ASSERT_VALUES(Mode>=0&&Mode<TALK_MODE_BEYONDLAST, Mode);
 	TFixedString<632> Text;
 	GetString(patella::TSpan<char>(Text.Chars).first(512));
 	if (Mode == 18 || Mode == 19 || Mode == 22)

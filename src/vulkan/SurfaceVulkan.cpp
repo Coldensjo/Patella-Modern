@@ -5,7 +5,7 @@
 // TRenderer::Upload, ApplyColorKey's read-back by TRenderer::ReplaceColor, Present by TRenderer::Present.
 // The state surfaceDX9.cpp keeps in file statics (the current target and texture numbers, the colour
 // keys, the queued vertices, the frame counter) is kept the same way, so it outlives the surface
-// object as there. Not new code paths for the error reports: no TASSERT (an index out of range is
+// object as there. Not new code paths for the error reports: no PATELLA_ASSERT (an index out of range is
 // ignored), and the Vulkan back end's failures become PROGRAM_ERROR 12, as Direct3D's device failures.
 
 #include "common.h"

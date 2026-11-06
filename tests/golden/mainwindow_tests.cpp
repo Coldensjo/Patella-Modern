@@ -1592,7 +1592,7 @@ static void ToGame(bool Game)
 	Compare("errors: ChangeMode");
 }
 
-// Every TASSERT/TERROR of MainWindow.cpp and the TEND blocks: the test's
+// Every PATELLA_ASSERT/TERROR of MainWindow.cpp and the TEND blocks: the test's
 // operations on new main windows, each failing at one of the fake calls it
 // made in the counted test, until one throws; then the assertions.
 static void TestMainWindowErrors()

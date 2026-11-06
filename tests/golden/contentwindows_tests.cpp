@@ -2785,7 +2785,7 @@ static void DeleteWindows()
 	Log[ORIGINAL].clear();
 }
 
-// Every TASSERT/TERROR of ContentWindows.cpp and the TEND blocks: the test's
+// Every PATELLA_ASSERT/TERROR of ContentWindows.cpp and the TEND blocks: the test's
 // actions on new windows, the calls of one action per round failing at one
 // of the fake calls such a call made before, until one throws; then direct
 // calls with failing arguments and failing fakes.

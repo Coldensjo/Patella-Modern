@@ -1183,7 +1183,7 @@ template <class F> static void ErrorCall(TErrorRound &R, const char *What, F Cal
 	Compare(What);
 }
 
-// Every TASSERT/TERROR of DialogWindow.cpp that the columns can reach, and
+// Every PATELLA_ASSERT/TERROR of DialogWindow.cpp that the columns can reach, and
 // the TEND blocks: the bodies, elements and fakes throw (ThrowMask, one kind
 // of method per batch), the column functions, the sub-window functions and
 // the setters run on both sides, then the assertions get bad arguments.

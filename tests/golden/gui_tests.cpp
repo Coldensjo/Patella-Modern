@@ -1319,7 +1319,7 @@ int AddThrower(int Mask)
 	return Id;
 }
 
-// Every TASSERT/TERROR of GUI.cpp that a mirrored tree can reach, and the
+// Every PATELLA_ASSERT/TERROR of GUI.cpp that a mirrored tree can reach, and the
 // TEND blocks above them: the inputs come from Random() (the round's own
 // seed), the calls run on both trees, and the trees are compared after each.
 // One comparison, then the trees and the logs (a call that throws on both

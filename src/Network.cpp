@@ -122,15 +122,15 @@ void SetNetworkWindow(HWND Window)
 // 0x4ca450, lines 132-133
 void SetTestServerAddress(const char *Address)
 {
-	TASSERT(132, Address!=NULL);
-	TASSERT1(133, strlen(Address)<100, strlen(Address));
+	PATELLA_ASSERT(Address!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(Address)<100, strlen(Address));
 	TestServer.Address.Assign(Address);
 }
 
 // 0x4ca730, lines 152-164
 void SetServerError(int errorcode)
 {
-	TASSERT1(152, CurrentServer<NUMBEROFSERVER, CurrentServer);
+	PATELLA_ASSERT_VALUES(CurrentServer<NUMBEROFSERVER, CurrentServer);
 	if (GetTestServerLogin()) {
 		TestServer.Available = false;
 		TestServer.ErrorCode = errorcode;
@@ -143,9 +143,9 @@ void SetServerError(int errorcode)
 // 0x4ca9f0, lines 182-184
 void SetServerIPAddress(const char *ipaddress)
 {
-	TASSERT1(182, CurrentServer<NUMBEROFSERVER, CurrentServer);
-	TASSERT(183, ipaddress!=NULL);
-	TASSERT1(184, strlen(ipaddress)<100, strlen(ipaddress));
+	PATELLA_ASSERT_VALUES(CurrentServer<NUMBEROFSERVER, CurrentServer);
+	PATELLA_ASSERT(ipaddress!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(ipaddress)<100, strlen(ipaddress));
 	if (GetTestServerLogin()) {
 		TestServer.Address.Assign(ipaddress);
 		TestServer.Resolved = true;
@@ -158,7 +158,7 @@ void SetServerIPAddress(const char *ipaddress)
 // 0x4cadb0, lines 202-233. Stores the server to try next; false when none is left.
 bool GetCurrentServer(TServer **Server)
 {
-	TASSERT1(202, CurrentServer<NUMBEROFSERVER, CurrentServer);
+	PATELLA_ASSERT_VALUES(CurrentServer<NUMBEROFSERVER, CurrentServer);
 	if (GetTestServerLogin()) {
 		*Server = &TestServer;
 		const bool Available = TestServer.Available;
@@ -197,7 +197,7 @@ int GetServerErrorCode()
 // 0x4cb2a0, lines 268-275. Reserves the 4 header bytes that SendCommand fills in.
 void BeginCommand(int CommandType)
 {
-	TASSERT1(268, In(CommandType,0,255), CommandType);
+	PATELLA_ASSERT_VALUES(In(CommandType,0,255), CommandType);
 	SendBuffer.Position = 0;
 	SendBuffer.PutWord(0);
 	SendBuffer.PutWord(0);
@@ -225,7 +225,7 @@ void SendQuad(uint32 Data)
 // 0x4cba20, lines 316-320
 void SendString(const char *Text)
 {
-	TASSERT(316, Text!=NULL);
+	PATELLA_ASSERT(Text!=NULL);
 	SendBuffer.PutString(Text);
 }
 
@@ -233,7 +233,7 @@ void SendString(const char *Text)
 void SendBytes(patella::TSpan<const uint8> Bytes)
 {
 	const uint8 *const Buffer = Bytes.data();
-	TASSERT(328, Buffer!=NULL);
+	PATELLA_ASSERT(Buffer!=NULL);
 	SendBuffer.PutBytes(Bytes);
 }
 
@@ -335,7 +335,7 @@ void GetString(patella::TSpan<char> Text)
 {
 	const char *const Buffer = Text.data();
 	[[maybe_unused]] const int MaxLength = static_cast<int>(Text.size());
-	TASSERT(466, Buffer!=NULL);
+	PATELLA_ASSERT(Buffer!=NULL);
 	ReceiveBuffer.GetString(Text);
 }
 
@@ -368,7 +368,7 @@ void CheckConnectionTimeout()
 void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int ErrorCode, int ErrorType)
 {
 	char *const Message = MessageBuffer.data();
-	TASSERT(544, Message!=NULL);
+	PATELLA_ASSERT(Message!=NULL);
 	TFixedString<100> Text;
 	bool Offline = false;
 	Message[0] = 0;
@@ -453,7 +453,7 @@ void GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int
 // WM_USER+1 when it completes.
 bool ResolveHostname(const char *Hostname)
 {
-	TASSERT(611, Hostname!=NULL);
+	PATELLA_ASSERT(Hostname!=NULL);
 	HostnameRequest = WSAAsyncGetHostByName(NetworkWindow, WM_USER + 1, Hostname,
 		HostnameResolveBuffer, HostnameResolveBufferSize);
 	if (HostnameRequest == nullptr) {
@@ -471,7 +471,7 @@ bool ResolveHostname(const char *Hostname)
 // 0x4cdca0, lines 634-640
 const char *GetResolvedIPAddress()
 {
-	TASSERT(634, HostnameResolveBuffer!=NULL);
+	PATELLA_ASSERT(HostnameResolveBuffer!=NULL);
 	return inet_ntoa(*reinterpret_cast<in_addr *>(reinterpret_cast<HOSTENT *>(HostnameResolveBuffer)->h_addr_list[0]));
 }
 
@@ -494,7 +494,7 @@ int CreateSocket()
 // 0x4cdf20, lines 671-687. Returns 0 or a WinSock error code.
 int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout)
 {
-	TASSERT(671, IPAddress!=NULL);
+	PATELLA_ASSERT(IPAddress!=NULL);
 	if (!Socket->Connect(IPAddress, Port)) {
 		if (WSAGetLastError() != WSAEWOULDBLOCK) {
 			const int Error = WSAGetLastError();
@@ -554,7 +554,7 @@ void Disconnect(bool force)
 void ConnectToLoginServer()
 {
 	RecursionProtection++;
-	TASSERT1(739, RecursionProtection<=NUMBEROFSERVER+1, RecursionProtection);
+	PATELLA_ASSERT_VALUES(RecursionProtection<=NUMBEROFSERVER+1, RecursionProtection);
 	TServer *Server;
 	if (!GetCurrentServer(&Server)) {
 		char *Message = new char[1024];
@@ -676,9 +676,9 @@ void InitNetwork(void (*ConnectHandler)(), void (*ReceiveHandler)(), void (*Clos
 {
 	if (!AfxSocketInit(nullptr))
 		throw PROGRAM_ERROR_SOCKET_INIT;
-	TASSERT(932, ConnectHandler!=NULL);
-	TASSERT(933, ReceiveHandler!=NULL);
-	TASSERT(934, CloseHandler!=NULL);
+	PATELLA_ASSERT(ConnectHandler!=NULL);
+	PATELLA_ASSERT(ReceiveHandler!=NULL);
+	PATELLA_ASSERT(CloseHandler!=NULL);
 	ReceiveCallback = ReceiveHandler;
 	ConnectCallback = ConnectHandler;
 	CloseCallback = CloseHandler;

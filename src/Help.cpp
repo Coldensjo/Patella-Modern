@@ -226,7 +226,7 @@ const char *GetHelpText(int Handle)
 // 0x4a32e0, line 369. Queues an event help that was not shown before.
 void AddEventHelp(int Number)
 {
-	TASSERT1(369, In(Number,1,EVENTHELPS), Number);
+	PATELLA_ASSERT_VALUES(In(Number,1,EVENTHELPS), Number);
 	if (!IsKnownHint(Number)) {
 		AddKnownHint(Number);
 		EventHelps(NumberOfEventHelps) = Number;
@@ -238,7 +238,7 @@ void AddEventHelp(int Number)
 // Every name is tested on its own.
 void CheckEventHelpName(const char *Name)
 {
-	TASSERT(381, Name!=NULL);
+	PATELLA_ASSERT(Name!=NULL);
 	if (strcmp(Name, "Cipfried") == 0)
 		AddEventHelp(2);
 	if (strcmp(Name, "Seymour") == 0)
@@ -338,7 +338,7 @@ void CheckEventHelpPosition(int x, int y, int z)
 // 0x4a3b60, lines 571-602
 const char *GetEventHelpTitle(int Number)
 {
-	TASSERT1(571, In(Number,1,EVENTHELPS), Number);
+	PATELLA_ASSERT_VALUES(In(Number,1,EVENTHELPS), Number);
 	switch (Number) {
 	case 1:
 		return "First Login";
@@ -376,7 +376,7 @@ const char *GetEventHelpTitle(int Number)
 // 0x4a3fd0, lines 610-691
 const char *GetEventHelpText(int Number)
 {
-	TASSERT1(610, In(Number,1,EVENTHELPS), Number);
+	PATELLA_ASSERT_VALUES(In(Number,1,EVENTHELPS), Number);
 	switch (Number) {
 	case 1:
 		return "<b>Welcome to Tibia!\n<br=7><n>Greetings wanderer! You are about to enter the mysterious world of Tibia. Fight fearsome monsters, find untold treasures and make your character a true hero of the land! There are many different ways to play Tibia, but keep in mind that there are many others players out there who want to enjoy the game just like you, so please play fair and follow the Tibia Rules at all times.\n<br=7>To move your character use the cursor keys or click on a spot on the game window or in the automap. Right-clicking on items, monsters, characters or simply on the map will open context menus in which you can select appropriate actions such as attacking or using things. Items can be moved around by using drag&drop.\n<br=7>If you need assistance, click on the \'Help\' button to the right. There are several help options to choose from. For instance, the \'Client Help\' will provide you with information on important objects on the map or parts of the client program. Also, a flashing exclamation mark will appear in the top right corner from time to time to inform you that further hints like this one you are reading right now are available. To review previous hints click on \'Help\', then \'Hints\'. For detailed information please read the manual and the \'FAQ\' on our offical website www.tibia.com.";

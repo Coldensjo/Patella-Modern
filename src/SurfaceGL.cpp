@@ -866,8 +866,8 @@ void TSurfaceGL::InitSurfaces()
 // written without selecting it.
 void TSurfaceGL::WriteImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data)
 {
-	TASSERT(767, ToSurface!=SCREEN_SURFACE);
-	TASSERT(768, x>=0 && y>=0 && Width>0 && Height>0);
+	PATELLA_ASSERT(ToSurface!=SCREEN_SURFACE);
+	PATELLA_ASSERT(x>=0 && y>=0 && Width>0 && Height>0);
 	if (ToSurface != AUTOMAP_SURFACE)
 		SelectSurface(ToSurface);
 	const int Size = Width * Height;
@@ -899,8 +899,8 @@ void TSurfaceGL::WriteImage(int ToSurface, int x, int y, int Width, int Height, 
 void TSurfaceGL::WriteMaskedImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data,
 	uint8 *Mask, TRGBColor *Colors)
 {
-	TASSERT(802, ToSurface!=SCREEN_SURFACE);
-	TASSERT(803, x>=0 && y>=0 && Width>0 && Height>0);
+	PATELLA_ASSERT(ToSurface!=SCREEN_SURFACE);
+	PATELLA_ASSERT(x>=0 && y>=0 && Width>0 && Height>0);
 	SelectSurface(ToSurface);
 	const int Size = Width * Height;
 	uint8 *Image = new uint8[Size * 4];
@@ -953,7 +953,7 @@ void TSurfaceGL::WriteMaskedImage(int ToSurface, int x, int y, int Width, int He
 // count the unclipped size.
 void TSurfaceGL::BlitRectClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRect Clip)
 {
-	TASSERT(1023, FromSurface != SCREEN_SURFACE);
+	PATELLA_ASSERT(FromSurface != SCREEN_SURFACE);
 	RECT Destination = {x, y, x + FromRect.width, y + FromRect.height};
 	RECT Source = {FromRect.x, FromRect.y, FromRect.x + FromRect.width, FromRect.y + FromRect.height};
 	if (!ClipRect(Clip, &Destination, &Source))
@@ -987,7 +987,7 @@ void TSurfaceGL::BlitRectClipped(int ToSurface, int x, int y, int FromSurface, T
 // 0x4fc480, line 1073. Clipped to the target surface.
 void TSurfaceGL::Blit(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey)
 {
-	TASSERT2(1073, FromRect.width>0 && FromRect.height>0, FromRect.width, FromRect.height);
+	PATELLA_ASSERT_VALUES(FromRect.width>0 && FromRect.height>0, FromRect.width, FromRect.height);
 	TRect Clip;
 	GetSurfaceRect(ToSurface, &Clip);
 	BlitClipped(ToSurface, x, y, FromSurface, FromRect, ColorKey, Clip);
@@ -996,7 +996,7 @@ void TSurfaceGL::Blit(int ToSurface, int x, int y, int FromSurface, TRect FromRe
 // 0x4fc6a0, line 1086
 void TSurfaceGL::BlitRect(int ToSurface, int x, int y, int FromSurface, TRect FromRect)
 {
-	TASSERT2(1086, FromRect.width>0 && FromRect.height>0, FromRect.width, FromRect.height);
+	PATELLA_ASSERT_VALUES(FromRect.width>0 && FromRect.height>0, FromRect.width, FromRect.height);
 	TRect Clip;
 	GetSurfaceRect(ToSurface, &Clip);
 	BlitRectClipped(ToSurface, x, y, FromSurface, FromRect, Clip);
@@ -1005,7 +1005,7 @@ void TSurfaceGL::BlitRect(int ToSurface, int x, int y, int FromSurface, TRect Fr
 // 0x4fc8a0, line 1540
 void TSurfaceGL::GetSurfaceRect(int Surface, TRect *Rect)
 {
-	TASSERT(1540, In(Surface,0,NUMBER_OF_SURFACES_GL-1));
+	PATELLA_ASSERT(In(Surface,0,NUMBER_OF_SURFACES_GL-1));
 	Rect->x = this->Rect[Surface].left;
 	Rect->y = this->Rect[Surface].top;
 	Rect->width = this->Rect[Surface].right - this->Rect[Surface].left;
@@ -1016,7 +1016,7 @@ void TSurfaceGL::GetSurfaceRect(int Surface, TRect *Rect)
 // them; 2 is also set by a display change); reading clears it.
 bool TSurfaceGL::SurfaceRecreated(int Type)
 {
-	TASSERT(1555, Type>=0 && Type<3);
+	PATELLA_ASSERT(Type>=0 && Type<3);
 	const bool Result = Recreated[Type];
 	Recreated[Type] = false;
 	return Result;

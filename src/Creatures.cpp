@@ -38,12 +38,6 @@
 #include <cstdio>
 #include <cstring>
 
-// Assertions whose text carries a bug number after the expression.
-#define TASSERT1_BUG(Line, Expr, Bug, V1) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr " [" #Bug "]")
-#define TASSERT2_BUG(Line, Expr, Bug, V1, V2) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, #V2, V2, #Expr " [" #Bug "]")
-
 namespace {
 
 // Data, in .bss order. 0x5c456c and 0x5c68ac are not used by any code.
@@ -525,7 +519,7 @@ void TCreature::SetMark(int Mark)
 // phases 2 to AvailablePhases, one every 8 pixels.
 int TCreature::GetAnimationPhase(int AvailablePhases) const
 {
-	TASSERT1(163, AvailablePhases>=1, AvailablePhases);
+	PATELLA_ASSERT_VALUES(AvailablePhases>=1, AvailablePhases);
 	if (AvailablePhases == 1)
 		return 1;
 	if (DeltaX == 0 && DeltaY == 0 && GetMilliseconds() > StepEnd)
@@ -541,7 +535,7 @@ int TCreature::GetAnimationPhase(int AvailablePhases) const
 // 0x44c3c0, line 259. No try block.
 int GetPlayerStep(int Step)
 {
-	TASSERT2(259, In(Step,0,NumberOfPlayerSteps-1), Step, NumberOfPlayerSteps-1);
+	PATELLA_ASSERT_VALUES(In(Step,0,NumberOfPlayerSteps-1), Step, NumberOfPlayerSteps-1);
 	return PlayerSteps[Step];
 }
 
@@ -551,7 +545,7 @@ int GetPlayerStep(int Step)
 // stands at (8,6).
 void DoPlayerStep()
 {
-	TASSERT1(278, CurrentPlayerStep<NumberOfPlayerSteps, CurrentPlayerStep);
+	PATELLA_ASSERT_VALUES(CurrentPlayerStep<NumberOfPlayerSteps, CurrentPlayerStep);
 	if (NewPlayerDestination || PlayerHealth == 0)
 		return;
 	TCreature *Player = GetCreature(GetPlayerID());
@@ -723,7 +717,7 @@ bool CancelPlayerWalk(int NewDirection)
 // throw, so the compiler dropped it with its catch blocks.
 TCreature *AddCreature(uint32 RemoveID, uint32 NewCreatureID)
 {
-	TASSERT(450, NewCreatureID!=0);
+	PATELLA_ASSERT(NewCreatureID!=0);
 	int Index = -1;
 	for (int i = 0; i < CREATURES; i++) {
 		if (Creatures[i].CreatureID == RemoveID) {
@@ -746,7 +740,7 @@ TCreature *AddCreature(uint32 RemoveID, uint32 NewCreatureID)
 // 0x44c6e0, line 476. No try block.
 TCreature *GetCreature(uint32 CreatureID)
 {
-	TASSERT(476, CreatureID!=0);
+	PATELLA_ASSERT(CreatureID!=0);
 	for (int i = 0; i < CREATURES; i++) {
 		if (Creatures[i].CreatureID == CreatureID)
 			return &Creatures[i];
@@ -820,7 +814,7 @@ bool MoveCreatures()
 // fails IsOpponent's assertion.
 void CheckMonsterHint(TCreature *Creature)
 {
-	TASSERT(573, Creature!=NULL);
+	PATELLA_ASSERT(Creature!=NULL);
 	if (!Creature->Visible)
 		return;
 	const TCreature *Player = GetCreature(GetPlayerID());
@@ -828,7 +822,7 @@ void CheckMonsterHint(TCreature *Creature)
 		const int Number = GetNumberOfOpponents();
 		for (int i = 0; i < Number; i++) {
 			TCreature *Opponent = GetOpponent(i);
-			TASSERT(585, Opponent!=NULL);
+			PATELLA_ASSERT(Opponent!=NULL);
 			if (!IsPlayer(Opponent->CreatureID) && abs(Opponent->RealX - Player->RealX) <= 2
 				&& abs(Opponent->RealY - Player->RealY) <= 2)
 				CheckEventHelpName(Opponent->Name);
@@ -853,7 +847,7 @@ void NotifySkull(int Flag)
 // levels 2, 8 and 20; none while the level is unknown (0).
 void SetPlayerExperience(int Experience, int Level, int Progress)
 {
-	TASSERT1_BUG(634, In(Progress,-1,100), bug0000038, Progress);
+	PATELLA_ASSERT_VALUES(In(Progress,-1,100), Progress);
 	if (PlayerLevel != 0 && PlayerExperience == 0 && Experience > 0)
 		AddEventHelp(7);
 	if (PlayerLevel != 0 && PlayerLevel < 2 && Level >= 2)
@@ -870,7 +864,7 @@ void SetPlayerExperience(int Experience, int Level, int Progress)
 // 0x44cf10, lines 687-693. SkillNumber is not checked.
 void SetPlayerSkill(int SkillNumber, int Value, int Progress)
 {
-	TASSERT1(687, In(Progress,0,100), Progress);
+	PATELLA_ASSERT_VALUES(In(Progress,0,100), Progress);
 	if (PlayerSkillValue[SkillNumber] != 0 && PlayerSkillValue[SkillNumber] < Value)
 		AddEventHelp(9);
 	PlayerSkillProgress[SkillNumber] = Progress;
@@ -880,21 +874,21 @@ void SetPlayerSkill(int SkillNumber, int Value, int Progress)
 // 0x44d1c0, line 804. No try block.
 int GetPlayerSkillValue(int SkillNumber)
 {
-	TASSERT1(804, In(SkillNumber,0,SKILLS-1), SkillNumber);
+	PATELLA_ASSERT_VALUES(In(SkillNumber,0,SKILLS-1), SkillNumber);
 	return PlayerSkillValue[SkillNumber];
 }
 
 // 0x44d320, line 813. No try block.
 int GetPlayerSkillProgress(int SkillNumber)
 {
-	TASSERT1(813, In(SkillNumber,0,SKILLS-1), SkillNumber);
+	PATELLA_ASSERT_VALUES(In(SkillNumber,0,SKILLS-1), SkillNumber);
 	return PlayerSkillProgress[SkillNumber];
 }
 
 // 0x44d480, line 822. No try block.
 const char *GetSkillName(int SkillNumber)
 {
-	TASSERT1(822, In(SkillNumber,0,SKILLS-1), SkillNumber);
+	PATELLA_ASSERT_VALUES(In(SkillNumber,0,SKILLS-1), SkillNumber);
 	switch (SkillNumber) {
 	case 0: return "Fist Fighting";
 	case 1: return "Club Fighting";
@@ -934,7 +928,7 @@ int GetPlayerPartyFlag()
 // (outfit 0 showing object 0).
 bool IsOpponent(TCreature *Creature)
 {
-	TASSERT(987, Creature!=NULL);
+	PATELLA_ASSERT(Creature!=NULL);
 	if (Creature->CreatureID == 0 || Creature->CreatureID == GetPlayerID() || !Creature->Visible)
 		return false;
 	if (!IsPlayer(Creature->CreatureID) && Creature->OutfitType == 0 && Creature->Colors[0] == 0)
@@ -942,7 +936,7 @@ bool IsOpponent(TCreature *Creature)
 	if (Creature->Health < 1)
 		return false;
 	const TCreature *Player = GetCreature(GetPlayerID());
-	TASSERT(994, Player!=NULL);
+	PATELLA_ASSERT(Player!=NULL);
 	if (Creature->RealZ != Player->RealZ || abs(Creature->RealX - Player->RealX) > 7)
 		return false;
 	return abs(Creature->RealY - Player->RealY) <= 5;
@@ -986,7 +980,7 @@ int GetNumberOfOpponents()
 // 0x44dc70, line 1037. No try block. Number counts from 0 in list order.
 TCreature *GetOpponent(int Number)
 {
-	TASSERT1(1037, Number>=0, Number);
+	PATELLA_ASSERT_VALUES(Number>=0, Number);
 	int i = FirstOpponent;
 	while (i != -1 && Number > 0) {
 		i = Creatures[i].NextOpponent;
@@ -1003,9 +997,9 @@ TCreature *GetOpponent(int Number)
 // before buddy j (also when they are equal).
 bool CompareBuddies(int i, int j)
 {
-	TASSERT1(1069, i!=j, i);
-	TASSERT2(1070, In(i,0,NumberOfBuddies-1), i, NumberOfBuddies-1);
-	TASSERT2(1071, In(j,0,NumberOfBuddies-1), j, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(i!=j, i);
+	PATELLA_ASSERT_VALUES(In(i,0,NumberOfBuddies-1), i, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(In(j,0,NumberOfBuddies-1), j, NumberOfBuddies-1);
 	for (int k = 0; k < 3; k++) {
 		switch (BuddySortMethods[k]) {
 		case 0: {
@@ -1036,9 +1030,9 @@ bool CompareBuddies(int i, int j)
 // 0x44e260, lines 1097-1099. No try block.
 void SwapBuddies(int i, int j)
 {
-	TASSERT1(1097, i!=j, i);
-	TASSERT2(1098, In(i,0,NumberOfBuddies-1), i, NumberOfBuddies-1);
-	TASSERT2(1099, In(j,0,NumberOfBuddies-1), j, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(i!=j, i);
+	PATELLA_ASSERT_VALUES(In(i,0,NumberOfBuddies-1), i, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(In(j,0,NumberOfBuddies-1), j, NumberOfBuddies-1);
 	const TBuddyEntry Help = Buddies[i];
 	Buddies[i] = Buddies[j];
 	Buddies[j] = Help;
@@ -1059,7 +1053,7 @@ void SortBuddies()
 // also true for equal buddies, so i first moves up past every equal one.
 void SortBuddy(int i)
 {
-	TASSERT2(1124, In(i,0,NumberOfBuddies-1), i, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(In(i,0,NumberOfBuddies-1), i, NumberOfBuddies-1);
 	while (i > 0 && CompareBuddies(i, i - 1)) {
 		SwapBuddies(i, i - 1);
 		i--;
@@ -1074,16 +1068,16 @@ void SortBuddy(int i)
 // entry that was online and is updated as offline stays counted as online.
 void AddBuddy(uint32 CharacterID, const char *Name, bool Online)
 {
-	TASSERT(1144, Name!=NULL);
-	TASSERT1(1145, strlen(Name)<30, strlen(Name));
+	PATELLA_ASSERT(Name!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(Name)<30, strlen(Name));
 	int Position = GetBuddyPosition(CharacterID);
 	if (Position == -1) {
-		TASSERT1(1151, NumberOfBuddies<BUDDIES, NumberOfBuddies);
+		PATELLA_ASSERT_VALUES(NumberOfBuddies<BUDDIES, NumberOfBuddies);
 		Position = NumberOfBuddies++;
 		if (Online)
 			NumberOfOnlineBuddies++;
 	} else {
-		TASSERT1(1156, NumberOfBuddies<=BUDDIES, NumberOfBuddies);
+		PATELLA_ASSERT_VALUES(NumberOfBuddies<=BUDDIES, NumberOfBuddies);
 		if (Online && !Buddies[Position].Online)
 			NumberOfOnlineBuddies++;
 	}
@@ -1121,8 +1115,8 @@ void SetBuddyState(uint32 CharacterID, bool Online)
 // (an empty entry deletes it there) and resorts the list.
 void EditBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 {
-	TASSERT(1200, CharacterID!=0);
-	TASSERT(1201, Description!=NULL);
+	PATELLA_ASSERT(CharacterID!=0);
+	PATELLA_ASSERT(Description!=NULL);
 	if (Icon == 0 && Description[0] == 0 && !Notify)
 		DeleteBuddy(CharacterID);
 	else
@@ -1188,21 +1182,21 @@ int GetNumberOfBuddies()
 // 0x44fd40, line 1288. No try block.
 uint32 GetBuddyListID(int Position)
 {
-	TASSERT2(1288, In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
 	return Buddies[Position].CharacterID;
 }
 
 // 0x44feb0, line 1297. No try block.
 const char *GetBuddyListName(int Position)
 {
-	TASSERT2(1297, In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
 	return Buddies[Position].Name;
 }
 
 // 0x450020, line 1306. No try block.
 bool GetBuddyListOnline(int Position)
 {
-	TASSERT2(1306, In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
 	return Buddies[Position].Online;
 }
 
@@ -1210,7 +1204,7 @@ bool GetBuddyListOnline(int Position)
 // actions ago.
 bool GetBuddyListNew(int Position)
 {
-	TASSERT2(1316, In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
 	if (Buddies[Position].Online && GetActionNumber() - 10 < Buddies[Position].LoginAction)
 		return true;
 	return false;
@@ -1219,21 +1213,21 @@ bool GetBuddyListNew(int Position)
 // 0x450330, line 1325. No try block.
 int GetBuddyListIcon(int Position)
 {
-	TASSERT2_BUG(1325, In(Position,0,NumberOfBuddies-1), bug0000289, Position, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
 	return Buddies[Position].Icon;
 }
 
 // 0x4504a0, lines 1334-1338
 const char *GetBuddyListDescription(int Position)
 {
-	TASSERT2(1334, In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
 	return GetBuddyDescription(Buddies[Position].CharacterID);
 }
 
 // 0x450740, lines 1346-1350
 bool GetBuddyListNotify(int Position)
 {
-	TASSERT2(1346, In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
+	PATELLA_ASSERT_VALUES(In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
 	return GetBuddyNotify(Buddies[Position].CharacterID);
 }
 

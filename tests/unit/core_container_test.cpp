@@ -11,12 +11,23 @@
 
 namespace {
 
+// An assertion's message names its own line since issue #79 (PATELLA_ASSERT: the line moves with the code), so it
+// is compared as "<file> N: assertion failed..."; an error's message keeps the original's line.
+std::string WithoutAssertionLine(const std::string &Message)
+{
+	const std::string::size_type Space = Message.find(' ');
+	const std::string::size_type Colon = Message.find(": assertion failed");
+	if (Space == std::string::npos || Colon == std::string::npos || Colon < Space)
+		return Message;
+	return Message.substr(0, Space + 1) + "N" + Message.substr(Colon);
+}
+
 template <class F> std::string MessageOf(F Function)
 {
 	try {
 		Function();
 	} catch (const TMyException &Exception) {
-		return Exception.GetMessage();
+		return WithoutAssertionLine(Exception.GetMessage());
 	}
 	return "no exception";
 }
@@ -34,7 +45,7 @@ TEST_CASE("Container.h: array")
 	CHECK(A(2) == 7);
 	CHECK(MessageOf([&] { A(3); })
 		== "Container.h 178: index out of range (original i: 3, i: 5, min: -2, d: 5)");
-	CHECK(MessageOf([] { array<int> Empty(1, 0); }) == "Container.h 152: assertion failed (d = 0), reason:\nd>0");
+	CHECK(MessageOf([] { array<int> Empty(1, 0); }) == "Container.h N: assertion failed (d = 0), reason:\nd>0");
 }
 
 TEST_CASE("Container.h: matrix and matrix3d")
@@ -45,7 +56,7 @@ TEST_CASE("Container.h: matrix and matrix3d")
 	CHECK(M.entry[1 * 3 + 2] == 9);
 	CHECK(MessageOf([&] { M(0, 12); })
 		== "Container.h 253: index out of range (original x: 0, original y: 12, x: 0, y: 2, xmin: 0, ymin: 10, dx: 3, dy: 2)");
-	CHECK(MessageOf([] { matrix<int> Empty(0, 1, 5, 4); }) == "Container.h 218: assertion failed (dy = 0), reason:\ndy>0");
+	CHECK(MessageOf([] { matrix<int> Empty(0, 1, 5, 4); }) == "Container.h N: assertion failed (dy = 0), reason:\ndy>0");
 
 	matrix3d<int> C(0, 1, 0, 1, -1, 0);
 	C(1, 0, 0) = 4;
@@ -76,5 +87,5 @@ TEST_CASE("Container.h: vector grows by block, or doubles")
 	W(11) = 11;
 	CHECK(W.space == 5);
 	CHECK(W(11) == 11);
-	CHECK(MessageOf([] { vector<int> Bad(0, 0, -1); }) == "Container.h 370: assertion failed (block = -1), reason:\nblock>=0");
+	CHECK(MessageOf([] { vector<int> Bad(0, 0, -1); }) == "Container.h N: assertion failed (block = -1), reason:\nblock>=0");
 }

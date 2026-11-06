@@ -95,7 +95,7 @@ TEST_CASE("file: exactly a FILE *, closed until opened")
 	CHECK(File == nullptr);
 	CHECK(nullptr == File);
 	CHECK(!(File != nullptr));
-	CHECK(File == NULL); // the original's spelling (TTalkBuffer::Write's TASSERT(1672, F!=NULL))
+	CHECK(File == NULL); // the original's spelling (TTalkBuffer::Write's PATELLA_ASSERT(F!=NULL))
 	CHECK(File.Address() == 0);
 	TFile Other;
 	CHECK(Other.Close() == 0);

@@ -545,7 +545,7 @@ void ExitStatus()
 // 0x4e8580, line 91
 void SetRight(int rightid, int Value)
 {
-	TASSERT1(91, In(rightid,0,RIGHT_ANY-1), rightid);
+	PATELLA_ASSERT_VALUES(In(rightid,0,RIGHT_ANY-1), rightid);
 	Rights[rightid] = Value;
 }
 
@@ -553,7 +553,7 @@ void SetRight(int rightid, int Value)
 // be reached after the assertion; it is in the binary.
 bool CheckRight(int rightid, int Bit)
 {
-	TASSERT1(100, In(rightid,0,RIGHT_ANY-1), rightid);
+	PATELLA_ASSERT_VALUES(In(rightid,0,RIGHT_ANY-1), rightid);
 	if (rightid == RIGHT_ANY)
 		return CheckAnyRight();
 	if (Bit == -1)
@@ -623,7 +623,7 @@ const char *GetActionName(int actionid)
 // parameters that ClearMessages frees.
 void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 {
-	TASSERT1(197, In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
+	PATELLA_ASSERT_VALUES(In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
 	Messages(NumberOfMessages).Type = Type;
 	Messages(NumberOfMessages).Param1 = Param1;
 	Messages(NumberOfMessages).Param2 = Param2;
@@ -633,7 +633,7 @@ void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 // 0x4e91d0, line 209. Inserts a message at the front of the queue.
 void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
 {
-	TASSERT1(209, In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
+	PATELLA_ASSERT_VALUES(In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
 	for (int i = NumberOfMessages; i > 0; i--)
 		Messages(i) = Messages(i - 1);
 	Messages(0).Type = Type;
@@ -645,8 +645,8 @@ void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
 // 0x4e93d0, lines 621-622
 void SetAccount(int Number, const char *Password)
 {
-	TASSERT(621, Password!=NULL);
-	TASSERT1(622, strlen(Password)<30, strlen(Password));
+	PATELLA_ASSERT(Password!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(Password)<30, strlen(Password));
 	AccountNumber = Number;
 	TStringBuffer(AccountNumberString, sizeof(AccountNumberString)).Format("{}", Number); // at most 11 characters
 	AccountNumberString[11] = 0;
@@ -656,11 +656,11 @@ void SetAccount(int Number, const char *Password)
 // 0x4e96d0, lines 669-673. Address is the IPv4 address in network order.
 void SetCharacter(int Number, const char *Name, const char *World, const uint8 *Address, int Port)
 {
-	TASSERT1(669, In(Number,0,AccountCharacters-1), Number);
-	TASSERT(670, Name!=NULL);
-	TASSERT1(671, strlen(Name)<30, strlen(Name));
-	TASSERT(672, World!=NULL);
-	TASSERT1(673, strlen(World)<30, strlen(World));
+	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
+	PATELLA_ASSERT(Name!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(Name)<30, strlen(Name));
+	PATELLA_ASSERT(World!=NULL);
+	PATELLA_ASSERT_VALUES(strlen(World)<30, strlen(World));
 	TCharacter *Character = &Characters[Number];
 	Character->Name.Assign(Name);
 	Character->World.Assign(World);
@@ -674,35 +674,35 @@ void SetCharacter(int Number, const char *Name, const char *World, const uint8 *
 // 0x4e9c50, line 696
 void SetActiveCharacter(int Number)
 {
-	TASSERT1(696, In(Number,0,AccountCharacters-1), Number);
+	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	ActiveCharacter = Number;
 }
 
 // 0x4e9db0, line 713
 const char *GetCharacterName(int Number)
 {
-	TASSERT1(713, In(Number,0,AccountCharacters-1), Number);
+	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	return Characters[Number].Name;
 }
 
 // 0x4e9f20, line 722
 const char *GetCharacterWorld(int Number)
 {
-	TASSERT1(722, In(Number,0,AccountCharacters-1), Number);
+	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	return Characters[Number].World;
 }
 
 // 0x4ea090, line 740
 const char *GetCharacterIPAddress(int Number)
 {
-	TASSERT1(740, In(Number,0,AccountCharacters-1), Number);
+	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	return Characters[Number].IPAddress;
 }
 
 // 0x4ea200, line 749
 int GetCharacterPort(int Number)
 {
-	TASSERT1(749, In(Number,0,AccountCharacters-1), Number);
+	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
 	return Characters[Number].Port;
 }
 
@@ -734,14 +734,14 @@ void CheckClipboardText(patella::TSpan<const char> Characters)
 // 0x4ea5b0, line 875
 void CopyToClipboard(const char *text)
 {
-	TASSERT(875, text);
+	PATELLA_ASSERT(text);
 	CheckClipboardText(patella::TSpan<const char>(text, strlen(text)));
 }
 
 // 0x4ea710, line 882
 void CopyTaintedClipboardText()
 {
-	TASSERT(882, TaintedClipboardText);
+	PATELLA_ASSERT(TaintedClipboardText);
 	SetClipboardText(TaintedClipboardText);
 }
 
@@ -749,7 +749,7 @@ void CopyTaintedClipboardText()
 // positions keep their values.
 void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 {
-	TASSERT(1051, linkwarningeventhandler!=NULL);
+	PATELLA_ASSERT(linkwarningeventhandler!=NULL);
 	LinkWarningEventHandler = linkwarningeventhandler;
 	TaintedClipboardText = nullptr;
 	LinkRegexp = nullptr;

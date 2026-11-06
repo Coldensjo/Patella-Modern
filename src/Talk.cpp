@@ -167,7 +167,7 @@ TRGBColor *GetTalkColor(TRGBColor *Color, int TalkMode)
 // 0x4fdd80, line 142
 TTalkbox *GetTalkbox(int Number)
 {
-	TASSERT2(142, In(Number,1,GetNumberOfTalkboxes()), Number, GetNumberOfTalkboxes());
+	PATELLA_ASSERT_VALUES(In(Number,1,GetNumberOfTalkboxes()), Number, GetNumberOfTalkboxes());
 	int Position = 0;
 	while (Talkboxes[Position].State != 1 || --Number != 0)
 		Position++;
@@ -219,7 +219,7 @@ const char *GetTalkboxLine(int Number, int Line)
 // 0x4fe960, line 246
 void RemoveTalkbox(int Position)
 {
-	TASSERT1(246, In(Position,0,TALKBOXES-1), Position);
+	PATELLA_ASSERT_VALUES(In(Position,0,TALKBOXES-1), Position);
 	TTalkbox &Box = Talkboxes[Position];
 	int Oldest = TalkOrder;
 	int Replacement = -1;
@@ -289,9 +289,9 @@ void WrapTalkbox(TTalkbox *Talkbox, const char *Text)
 // 0x5052e0, lines 352-428
 void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *Text)
 {
-	TASSERT1(352, Mode==TALK_SAY || Mode==TALK_WHISPER || Mode==TALK_YELL || Mode==TALK_PRIVATE_MESSAGE || Mode==TALK_GAMEMASTER_BROADCAST || Mode==TALK_GAMEMASTER_MESSAGE || Mode==TALK_ANIMAL_LOW || Mode==TALK_ANIMAL_LOUD, Mode);
-	TASSERT(353, Speaker!=NULL);
-	TASSERT(354, Text!=NULL);
+	PATELLA_ASSERT_VALUES(Mode==TALK_SAY || Mode==TALK_WHISPER || Mode==TALK_YELL || Mode==TALK_PRIVATE_MESSAGE || Mode==TALK_GAMEMASTER_BROADCAST || Mode==TALK_GAMEMASTER_MESSAGE || Mode==TALK_ANIMAL_LOW || Mode==TALK_ANIMAL_LOUD, Mode);
+	PATELLA_ASSERT(Speaker!=NULL);
+	PATELLA_ASSERT(Text!=NULL);
 	if (Mode == 4 && !GetPrivateMessages())
 		return;
 	const int Position = FindFreeTalkbox();
@@ -356,8 +356,8 @@ void AddTalkbox(int Mode, const char *Speaker, int x, int y, int z, const char *
 // 0x505ac0, lines 436-474
 void AddMessageTalkbox(int Mode, const char *Text)
 {
-	TASSERT1(436, Mode==TALK_INFO_MESSAGE || Mode==TALK_EVENT_MESSAGE || Mode==TALK_ADMIN_MESSAGE, Mode);
-	TASSERT(437, Text!=NULL);
+	PATELLA_ASSERT_VALUES(Mode==TALK_INFO_MESSAGE || Mode==TALK_EVENT_MESSAGE || Mode==TALK_ADMIN_MESSAGE, Mode);
+	PATELLA_ASSERT(Text!=NULL);
 	if (Mode == 22)
 		for (int Position = 0; Position < TALKBOXES; Position++)
 			if (Talkboxes[Position].State != 0 && Talkboxes[Position].Mode == 22)
@@ -432,7 +432,7 @@ void SetStatusMessage(const char *Message, bool Permanent)
 		StatusMessageTime = 0;
 		return;
 	}
-	TASSERT1(565, strlen(Message)<STATUSMESSAGE_LENGTH, strlen(Message));
+	PATELLA_ASSERT_VALUES(strlen(Message)<STATUSMESSAGE_LENGTH, strlen(Message));
 	StatusMessage.Assign(Message);
 	StatusMessageTime = Permanent ? -1 : 50;
 }
@@ -453,7 +453,7 @@ bool TTalkFilter::Matches(int _Mode, const char *_Addressee, int _Channel)
 		return false;
 	if (strlen(Addressee) == 0)
 		return true;
-	TASSERT(629, _Addressee!=NULL);
+	PATELLA_ASSERT(_Addressee!=NULL);
 	return CompareStrings(Addressee, _Addressee, -1) == 0;
 }
 // 0x4ff9c0, line 652
@@ -467,7 +467,7 @@ int FindTalkFilter(int Mode, const char *Addressee, int Channel, vector<TTalkFil
 // 0x4ffb90, lines 661-672
 int FindTextBuffer(TTalkBuffer *TextBuffer, vector<TTalkFilter *> &List)
 {
-	TASSERT(661, TextBuffer!=NULL);
+	PATELLA_ASSERT(TextBuffer!=NULL);
 	int i;
 	for (i = List.min; i <= List.max; i++)
 		if (List(i) != nullptr && List(i)->TextBuffer == TextBuffer)
@@ -676,7 +676,7 @@ void ShowPermanentIgnoreWarning()
 		if (IgnoreList(o) != nullptr && strlen(IgnoreList(o)->Addressee) != 0 && IgnoreList(o)->Permanent)
 			Counter++;
 	if (Counter > 0) {
-		TASSERT(1144, DefaultTextBuffer!=NULL);
+		PATELLA_ASSERT(DefaultTextBuffer!=NULL);
 		AddTextBufferLine(DefaultTextBuffer, 0, TextPermanentlyIgnoring, 20, nullptr, 0);
 		ConsoleChanged = true;
 	}
@@ -685,7 +685,7 @@ void ShowPermanentIgnoreWarning()
 void AddTextBufferLine(TTalkBuffer *TargetBuffer, uint32 StatementID, const char *Text,
 	int TalkMode, const char *Name, int Time)
 {
-	TASSERT(1179, TargetBuffer!=NULL);
+	PATELLA_ASSERT(TargetBuffer!=NULL);
 	TTalkLine *Line;
 	if (Name == nullptr)
 		Line = new (std::nothrow) TTalkLine(StatementID, TalkMode, Text, 0);
@@ -697,7 +697,7 @@ void AddTextBufferLine(TTalkBuffer *TargetBuffer, uint32 StatementID, const char
 // 0x5061f0, lines 1198-1257
 void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const char *Name, int Channel, int Time)
 {
-	TASSERT(1198, Text!=NULL);
+	PATELLA_ASSERT(Text!=NULL);
 	bool Broadcast;
 	switch (TalkMode) {
 	case 18: Broadcast = true; break;
@@ -726,13 +726,13 @@ void AddConsoleText(uint32 StatementID, const char *Text, int TalkMode, const ch
 	}
 	if (Broadcast) {
 		TTalkBuffer *TargetBuffer = DefaultTextBuffer;
-		TASSERT(1245, TargetBuffer!=NULL);
+		PATELLA_ASSERT(TargetBuffer!=NULL);
 		AddTextBufferLine(TargetBuffer, StatementID, Text, TalkMode, Name, Time);
 		for (int i = ConsoleFilterList.min; i <= ConsoleFilterList.max; i++) {
 			const TTalkFilter *Filter = ConsoleFilterList(i);
 			if (Filter != nullptr) {
 				TargetBuffer = Filter->TextBuffer;
-				TASSERT(1252, TargetBuffer!=NULL);
+				PATELLA_ASSERT(TargetBuffer!=NULL);
 				if (TargetBuffer->ShowMessages && !TargetBuffer->IsRuleViolationChannel())
 					AddTextBufferLine(TargetBuffer, StatementID, Text, TalkMode, Name, Time);
 			}
@@ -761,7 +761,7 @@ void ClearDefaultTextBuffer()
 // 0x502340, lines 1299-1304
 void ClearTextBuffer(TTalkBuffer *TextBuffer)
 {
-	TASSERT(1299, TextBuffer!=NULL);
+	PATELLA_ASSERT(TextBuffer!=NULL);
 	TextBuffer->Clear();
 	ConsoleChanged = true;
 }
@@ -771,7 +771,7 @@ TTalkBuffer *GetTextBuffer(int Mode, const char *Name, int Channel)
 	const int Filter = FindTalkFilter(Mode, Name, Channel, ConsoleFilterList);
 	if (Filter == -1)
 		return nullptr;
-	TASSERT1(1315, ConsoleFilterList(Filter)!=NULL, Filter);
+	PATELLA_ASSERT_VALUES(ConsoleFilterList(Filter)!=NULL, Filter);
 	return ConsoleFilterList(Filter)->TextBuffer;
 }
 // 0x507bc0, lines 1361-1366
@@ -807,7 +807,7 @@ void DeleteTextBuffer(TTalkBuffer *TextBuffer)
 {
 	if (TextBuffer != DefaultTextBuffer) {
 		const int Filter = FindTextBuffer(TextBuffer, ConsoleFilterList);
-		TASSERT(1377, Filter!=-1);
+		PATELLA_ASSERT(Filter!=-1);
 		free(ConsoleFilterList(Filter));
 		ConsoleFilterList(Filter) = nullptr;
 		if (TextBuffer != nullptr) {
@@ -841,7 +841,7 @@ void TTalkBuffer::Clear()
 void TTalkBuffer::AddText(int Mode, const char *text, int DiffTime)
 {
 	if (Enabled) {
-		TASSERT(1496, text!=NULL);
+		PATELLA_ASSERT(text!=NULL);
 		Append(new (std::nothrow) TTalkLine(0, Mode, text, DiffTime));
 	}
 }
@@ -856,7 +856,7 @@ void TTalkBuffer::Append(TTalkLine *line)
 		}
 		return;
 	}
-	TASSERT(1516, line!=NULL);
+	PATELLA_ASSERT(line!=NULL);
 	if (last == nullptr && first == nullptr) {
 		last = first = line;
 		line->Next = line->Previous = nullptr;
@@ -884,7 +884,7 @@ void TTalkBuffer::Remove(TTalkLine *line)
 	} else {
 		const TTalkLine *Search = first;
 		for (;;) {
-			TASSERT(1569, Search!=NULL);
+			PATELLA_ASSERT(Search!=NULL);
 			if (Search == line)
 				break;
 			Search = Search->Next;
@@ -908,16 +908,16 @@ void TTalkBuffer::Remove(TTalkLine *line)
 // 0x503210, lines 1597-1608
 void TTalkBuffer::Remove(int lineNumber)
 {
-	TASSERT(1597, first!=NULL);
+	PATELLA_ASSERT(first!=NULL);
 	// Not const (issue #39): as a constant the compiler folds i away; the binary keeps it in a stack slot.
 	int i = 0; // NOLINT(misc-const-correctness)
 	TTalkLine *Search = first;
 	while (i != lineNumber) {
 		Search = Search->Next;
-		TASSERT(1603, Search!=NULL);
+		PATELLA_ASSERT(Search!=NULL);
 		// The binary never increments i: nonzero indices eventually assert.
 	}
-	TASSERT(1605, Search!=NULL);
+	PATELLA_ASSERT(Search!=NULL);
 	Remove(Search);
 }
 // 0x503670, lines 1626-1632; includes Ghidra's split block 0x5036c0.
@@ -931,7 +931,7 @@ TTalkLine *TTalkBuffer::GetLine(int lineNumber)
 	}
 	while (i != lineNumber) {
 		Search = Search->Next;
-		TASSERT(1626, Search!=NULL);
+		PATELLA_ASSERT(Search!=NULL);
 		i++;
 	}
 	cursor = Search;
@@ -940,7 +940,7 @@ TTalkLine *TTalkBuffer::GetLine(int lineNumber)
 // 0x503920, line 1651. Returns the advanced cursor, not the previous line.
 TTalkLine *TTalkBuffer::GetNext()
 {
-	TASSERT(1651, cursor!=NULL);
+	PATELLA_ASSERT(cursor!=NULL);
 	cursor = cursor->Next;
 	return cursor;
 }
@@ -949,7 +949,7 @@ TTalkLine *TTalkBuffer::GetNext()
 // file's mode: SaveChannel's text file ends them in CR LF.
 int TTalkBuffer::Write(TFile &F) const
 {
-	TASSERT(1672, F!=NULL);
+	PATELLA_ASSERT(F!=NULL);
 	[[maybe_unused]] const INT_PTR bytes = static_cast<INT_PTR>(F.Address());
 	for (const TTalkLine *Line = first; Line != nullptr; Line = Line->Next)
 		F.Print("{}\n", Line->GetText());
@@ -958,13 +958,13 @@ int TTalkBuffer::Write(TFile &F) const
 // 0x506bf0, lines 1689-1693
 TPrivateTalkBuffer::TPrivateTalkBuffer(int TalkMode, const char *_Addressee) : TTalkBuffer(TalkMode)
 {
-	TASSERT(1689, _Addressee!=NULL);
+	PATELLA_ASSERT(_Addressee!=NULL);
 	CopyString(Addressee.Chars, _Addressee);
 }
 // 0x506ec0, line 1700
 TChannelTalkBuffer::TChannelTalkBuffer(int TalkMode, int _ChannelID) : TTalkBuffer(TalkMode)
 {
-	TASSERT(1700, _ChannelID!=-1);
+	PATELLA_ASSERT(_ChannelID!=-1);
 	ChannelID = _ChannelID;
 }
 // 0x507070, line 1729
@@ -996,7 +996,7 @@ TRuleViolationChannel::TRuleViolationChannel(int TalkMode, int _ChannelID) : TTa
 {
 	SendTalkMode = 0;
 	Closed = false;
-	TASSERT(1758, _ChannelID!=-1);
+	PATELLA_ASSERT(_ChannelID!=-1);
 	ChannelID = _ChannelID;
 }
 // 0x503eb0, line 1773
@@ -1020,7 +1020,7 @@ void TRuleViolationChannel::Remove(int lineNumber)
 // 0x5041f0, lines 1796-1809
 void TRuleViolationChannel::Append(TTalkLine *line)
 {
-	TASSERT(1796, line!=NULL);
+	PATELLA_ASSERT(line!=NULL);
 	cursor = first;
 	TTalkLine *Search = first;
 	while (Search != nullptr) {
@@ -1050,8 +1050,8 @@ std::tm LineLocalTime(std::int64_t Time)
 // 0x5044b0, lines 1821-1847
 TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int DiffTime)
 {
-	TASSERT1(1821, _Mode>=0&&_Mode<TALK_MODE_BEYONDLAST, _Mode);
-	TASSERT(1822, _Line!=NULL);
+	PATELLA_ASSERT_VALUES(_Mode>=0&&_Mode<TALK_MODE_BEYONDLAST, _Mode);
+	PATELLA_ASSERT(_Line!=NULL);
 	Mode = _Mode;
 	StatementID = _StatementID;
 	const std::int64_t LineTime = PATELLA_TIME(nullptr) + DiffTime;
@@ -1069,9 +1069,9 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int Diff
 // 0x5048a0, lines 1854-1889
 TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, const char *_Line, int DiffTime)
 {
-	TASSERT1(1854, _Mode>=0&&_Mode<TALK_MODE_BEYONDLAST, _Mode);
-	TASSERT(1855, _Line!=NULL);
-	TASSERT(1856, _Addressee!=NULL);
+	PATELLA_ASSERT_VALUES(_Mode>=0&&_Mode<TALK_MODE_BEYONDLAST, _Mode);
+	PATELLA_ASSERT(_Line!=NULL);
+	PATELLA_ASSERT(_Addressee!=NULL);
 	Mode = _Mode;
 	StatementID = _StatementID;
 	const std::int64_t LineTime = PATELLA_TIME(nullptr) + DiffTime;

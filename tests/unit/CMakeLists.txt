@@ -21,6 +21,10 @@
 # - Both: the developer log (src/log/Log.h, issue #77): the levels, the lines on the console and in the file, the
 #   formats through both paths (std::format and the stand-in), the fatal path's stack trace (std::stacktrace where the
 #   library has it) and debugger break.
+# - Both: PATELLA_ASSERT and PATELLA_ASSERT_VALUES (src/compat/assertion.h, issue #79) with TMyException.cpp: the
+#   TMyException a false expression throws (this file, the line, the expression, the values), none for a true one, the
+#   expression evaluated once and the values only when it is false; tests_unit with std::source_location,
+#   tests_unit_cxx26_standin with the oracle's C++17 stand-in (PATELLA_SOURCE_LOCATION_STANDIN).
 #
 # - tests_core: patella_core (cmake/Core.cmake, issue #7): vlong and TRSA, TXTEA, Utils and
 #   TMyException's messages, Skins, the regexp, Container.h, Patella.ini's parser (issue #31), the developer log's keys in it (issue #77) and
@@ -74,7 +78,9 @@ function(patella_unit_tests target)
 		time32_test.cpp
 		file_test.cpp
 		span_test.cpp
-		log_test.cpp)
+		log_test.cpp
+		assertion_test.cpp
+		"${PROJECT_SOURCE_DIR}/src/TMyException.cpp")
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
 	target_link_libraries(${target} PRIVATE doctest::doctest)
 	patella_target_language(${target})
@@ -109,7 +115,7 @@ endif()
 
 patella_unit_tests(tests_unit_cxx26_standin)
 target_compile_definitions(tests_unit_cxx26_standin PRIVATE PATELLA_CXX26_STANDIN PATELLA_EXPECT_CXX26=0
-	PATELLA_FORMAT_STANDIN PATELLA_SPAN_STANDIN)
+	PATELLA_FORMAT_STANDIN PATELLA_SPAN_STANDIN PATELLA_SOURCE_LOCATION_STANDIN)
 
 add_executable(tests_core
 	core_main.cpp

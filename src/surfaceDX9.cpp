@@ -25,9 +25,6 @@
 #include <cstddef>
 #include <cstring>
 
-#define TASSERTB1(Line, Expr, V1, Bug) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr " " Bug)
-
 using TDirect3DCreate9 = IDirect3D9 *(WINAPI *)(UINT SDKVersion);
 
 namespace {
@@ -808,7 +805,7 @@ void TSurfaceDX9::InitSurfaces()
 // 0x4f1eb0, line 496
 void TSurfaceDX9::SetSourceColorKey(int ToSurface, TRGBColor Key)
 {
-	TASSERT1(496, In(ToSurface,0,NUMBER_OF_SURFACES_DX9-1), ToSurface);
+	PATELLA_ASSERT_VALUES(In(ToSurface,0,NUMBER_OF_SURFACES_DX9-1), ToSurface);
 	ColorKey[ToSurface] = D3DCOLOR_XRGB(Key.R, Key.G, Key.B);
 }
 
@@ -820,8 +817,8 @@ void TSurfaceDX9::SetSourceColorKey(int ToSurface, TRGBColor Key)
 void TSurfaceDX9::WriteMaskedImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data,
 	uint8 *Mask, TRGBColor *Colors)
 {
-	TASSERT(982, ToSurface!=SCREEN_SURFACE);
-	TASSERT(983, x>=0 && y>=0 && Width>0 && Height>0);
+	PATELLA_ASSERT(ToSurface!=SCREEN_SURFACE);
+	PATELLA_ASSERT(x>=0 && y>=0 && Width>0 && Height>0);
 	const int Size = Width * Height;
 	uint8 *Image = new uint8[Size * 4];
 	uint8 *Pixel = Image;
@@ -887,12 +884,12 @@ void TSurfaceDX9::StretchBlit(int ToSurface, TRect ToRect, int FromSurface, TRec
 		BlitClipped(ToSurface, ToRect.x, ToRect.y, FromSurface, FromRect, ColorKey, Clip);
 		return;
 	}
-	TASSERT(1199, FromSurface!=TEMP_SURFACE);
-	TASSERT(1200, FromSurface!=STRETCH_SURFACE);
-	TASSERT(1201, ToSurface!=TEMP_SURFACE);
-	TASSERT(1202, ToSurface!=STRETCH_SURFACE);
-	TASSERT(1203, FromRect.width+1<=Rect[TEMP_SURFACE].right && FromRect.height+1<=Rect[TEMP_SURFACE].bottom);
-	TASSERT(1204, ToRect.width<=Rect[STRETCH_SURFACE].right && ToRect.height<=Rect[STRETCH_SURFACE].bottom);
+	PATELLA_ASSERT(FromSurface!=TEMP_SURFACE);
+	PATELLA_ASSERT(FromSurface!=STRETCH_SURFACE);
+	PATELLA_ASSERT(ToSurface!=TEMP_SURFACE);
+	PATELLA_ASSERT(ToSurface!=STRETCH_SURFACE);
+	PATELLA_ASSERT(FromRect.width+1<=Rect[TEMP_SURFACE].right && FromRect.height+1<=Rect[TEMP_SURFACE].bottom);
+	PATELLA_ASSERT(ToRect.width<=Rect[STRETCH_SURFACE].right && ToRect.height<=Rect[STRETCH_SURFACE].bottom);
 	if (Flag26)
 		DrawSkin(TEMP_SURFACE, 0, 0, FromRect.width + 1, FromRect.height + 1, 185, 0, 0);
 	else
@@ -911,7 +908,7 @@ void TSurfaceDX9::StretchBlit(int ToSurface, TRect ToRect, int FromSurface, TRec
 // 0x4f2e20, line 1302. Clipped to the target surface.
 void TSurfaceDX9::Blit(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRGBColor ColorKey)
 {
-	TASSERT2(1302, FromRect.width>0 && FromRect.height>0, FromRect.width, FromRect.height);
+	PATELLA_ASSERT_VALUES(FromRect.width>0 && FromRect.height>0, FromRect.width, FromRect.height);
 	TRect Clip;
 	GetSurfaceRect(ToSurface, &Clip);
 	BlitClipped(ToSurface, x, y, FromSurface, FromRect, ColorKey, Clip);
@@ -920,7 +917,7 @@ void TSurfaceDX9::Blit(int ToSurface, int x, int y, int FromSurface, TRect FromR
 // 0x4f3040, line 1315
 void TSurfaceDX9::BlitRect(int ToSurface, int x, int y, int FromSurface, TRect FromRect)
 {
-	TASSERT2(1315, FromRect.width>0 && FromRect.height>0, FromRect.width, FromRect.height);
+	PATELLA_ASSERT_VALUES(FromRect.width>0 && FromRect.height>0, FromRect.width, FromRect.height);
 	TRect Clip;
 	GetSurfaceRect(ToSurface, &Clip);
 	BlitRectClipped(ToSurface, x, y, FromSurface, FromRect, Clip);
@@ -932,10 +929,10 @@ void TSurfaceDX9::BlitRect(int ToSurface, int x, int y, int FromSurface, TRect F
 // reads before the (NULL) array.
 void TSurfaceDX9::InitDisplay(int VMode, TFullscreenMode *GMode)
 {
-	TASSERT(1465, DirectDraw!=NULL);
-	TASSERT(1466, hWindow!=NULL);
-	TASSERT(1467, VMode==WINDOWED_MODE || VMode==FULLSCREEN_MODE);
-	TASSERT(1468, VMode==WINDOWED_MODE || GMode!=NULL);
+	PATELLA_ASSERT(DirectDraw!=NULL);
+	PATELLA_ASSERT(hWindow!=NULL);
+	PATELLA_ASSERT(VMode==WINDOWED_MODE || VMode==FULLSCREEN_MODE);
+	PATELLA_ASSERT(VMode==WINDOWED_MODE || GMode!=NULL);
 	if (VMode == WINDOWED_MODE) {
 		GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
 		GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
@@ -977,15 +974,15 @@ void TSurfaceDX9::InitDisplay(int VMode, TFullscreenMode *GMode)
 // which cannot happen with 16.
 void TSurfaceDX9::CreateSurfaces()
 {
-	TASSERT(1639, DirectDraw!=NULL);
-	TASSERT(1640, Direct3D==NULL);
-	TASSERT(1641, Surface9[PRIMARY_SURFACE]==NULL);
-	TASSERT(1642, Surface9[SCREEN_SURFACE]==NULL);
-	TASSERT(1643, Surface9[TEMP_SURFACE]==NULL);
-	TASSERT(1644, Surface9[CACHE_SURFACE]==NULL);
-	TASSERT(1645, Surface9[AUTOMAP_SURFACE]==NULL);
-	TASSERT(1646, Surface9[SPRITE_SURFACE]==NULL);
-	TASSERT(1647, ViewMode==WINDOWED_MODE || ViewMode==FULLSCREEN_MODE);
+	PATELLA_ASSERT(DirectDraw!=NULL);
+	PATELLA_ASSERT(Direct3D==NULL);
+	PATELLA_ASSERT(Surface9[PRIMARY_SURFACE]==NULL);
+	PATELLA_ASSERT(Surface9[SCREEN_SURFACE]==NULL);
+	PATELLA_ASSERT(Surface9[TEMP_SURFACE]==NULL);
+	PATELLA_ASSERT(Surface9[CACHE_SURFACE]==NULL);
+	PATELLA_ASSERT(Surface9[AUTOMAP_SURFACE]==NULL);
+	PATELLA_ASSERT(Surface9[SPRITE_SURFACE]==NULL);
+	PATELLA_ASSERT(ViewMode==WINDOWED_MODE || ViewMode==FULLSCREEN_MODE);
 	NumberOfSurfaces = 0;
 	DDSURFACEDESC2 Description;
 	Description.dwSize = sizeof(DDSURFACEDESC2);
@@ -1124,7 +1121,7 @@ void TSurfaceDX9::CreateSurfaces()
 // 0x4f4560, line 2055
 void TSurfaceDX9::GetSurfaceRect(int Surface, TRect *Rect)
 {
-	TASSERTB1(2055, In(Surface,0,NUMBER_OF_SURFACES_DX9-1), Surface, "[bug0000290]");
+	PATELLA_ASSERT_VALUES(In(Surface,0,NUMBER_OF_SURFACES_DX9-1), Surface);
 	Rect->x = this->Rect[Surface].left;
 	Rect->y = this->Rect[Surface].top;
 	Rect->width = this->Rect[Surface].right - this->Rect[Surface].left;

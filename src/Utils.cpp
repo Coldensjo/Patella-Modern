@@ -124,7 +124,7 @@ void GetOutfitColor(int Color, int *R, int *G, int *B)
 // 0x5093d0, line 66
 void LowerString(char *s)
 {
-	TASSERT(66, s!=NULL);
+	PATELLA_ASSERT(s!=nullptr);
 	while (*s != 0) {
 		*s = (char)ToLower(*s);
 		s++;
@@ -134,7 +134,7 @@ void LowerString(char *s)
 // 0x509540, line 88. Upper-cases the first letter of each word.
 void CapitalizeString(char *s)
 {
-	TASSERT(88, s!=NULL);
+	PATELLA_ASSERT(s!=nullptr);
 	bool WordStart = true;
 	for (int i = 0; i < (int)strlen(s); i++) {
 		if (IsAlpha(s[i])) {
@@ -150,8 +150,8 @@ void CapitalizeString(char *s)
 // 0x509710, lines 106-107. Like strnicmp, with the Latin-1 case rules above.
 int CompareStrings(const char *s1, const char *s2, int Count)
 {
-	TASSERT(106, s1!=NULL);
-	TASSERT(107, s2!=NULL);
+	PATELLA_ASSERT(s1!=nullptr);
+	PATELLA_ASSERT(s2!=nullptr);
 	for (int i = 0; i != Count; i++) {
 		if (ToLower(s1[i]) > ToLower(s2[i]))
 			return 1;
@@ -170,8 +170,8 @@ void CopyString(patella::TSpan<char> DestinationBytes, const char *Source)
 {
 	char *const Destination = DestinationBytes.data();
 	const int Size = static_cast<int>(DestinationBytes.size());
-	TASSERT(124, Destination!=NULL);
-	TASSERT(125, Source!=NULL);
+	PATELLA_ASSERT(Destination!=nullptr);
+	PATELLA_ASSERT(Source!=nullptr);
 	strncpy(Destination, Source, Size);
 	Destination[Size - 1] = 0;
 }
@@ -179,8 +179,8 @@ void CopyString(patella::TSpan<char> DestinationBytes, const char *Source)
 // 0x509d10, lines 158-159. Copies Source without leading and trailing white space.
 void TrimString(char *Destination, const char *Source)
 {
-	TASSERT(158, Source!=NULL);
-	TASSERT(159, Destination!=NULL);
+	PATELLA_ASSERT(Source!=nullptr);
+	PATELLA_ASSERT(Destination!=nullptr);
 	int i = 0;
 	while (Source[i] != 0 && IsSpace(Source[i]))
 		i++;
@@ -195,7 +195,7 @@ void TrimString(char *Destination, const char *Source)
 // returns whether it was cut.
 bool ShortenString(char *Text, int MaxLength)
 {
-	TASSERT(179, Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	const int Length = (int)strlen(Text);
 	if (Length <= MaxLength)
 		return false;
@@ -212,8 +212,8 @@ TReadBuffer::TReadBuffer(patella::TSpan<uint8> Bytes)
 {
 	uint8 *const data = Bytes.data();
 	const int size = static_cast<int>(Bytes.size());
-	TASSERT(286, data!=NULL);
-	TASSERT(287, size>=0);
+	PATELLA_ASSERT(data!=nullptr);
+	PATELLA_ASSERT(size>=0);
 	Size = size;
 	Position = 0;
 	Data = data;
@@ -222,14 +222,14 @@ TReadBuffer::TReadBuffer(patella::TSpan<uint8> Bytes)
 // 0x50a4b0, line 299
 uint8 TReadBuffer::GetByte()
 {
-	TASSERT2(299, Position<=Size-1, Position, Size);
+	PATELLA_ASSERT_VALUES(Position<=Size-1, Position, Size);
 	return Data[Position++];
 }
 
 // 0x50a610, line 310
 uint16 TReadBuffer::GetWord()
 {
-	TASSERT2(310, Position<=Size-2, Position, Size);
+	PATELLA_ASSERT_VALUES(Position<=Size-2, Position, Size);
 	const uint16 Result = (uint16)(Data[Position] + Data[Position + 1] * 0x100);
 	Position += 2;
 	return Result;
@@ -238,7 +238,7 @@ uint16 TReadBuffer::GetWord()
 // 0x50a780, line 321
 uint32 TReadBuffer::GetQuad()
 {
-	TASSERT2(321, Position<=Size-4, Position, Size);
+	PATELLA_ASSERT_VALUES(Position<=Size-4, Position, Size);
 	const uint32 Result = Data[Position] | (Data[Position + 1] << 8) | (Data[Position + 2] << 16)
 		| (Data[Position + 3] << 24);
 	Position += 4;
@@ -252,12 +252,12 @@ void TReadBuffer::GetString(patella::TSpan<char> Text)
 {
 	char *const Buffer = Text.data();
 	const int MaxLength = static_cast<int>(Text.size());
-	TASSERT(334, Buffer!=NULL);
+	PATELLA_ASSERT(Buffer!=nullptr);
 	const int Length = GetWord();
 	Buffer[0] = 0;
 	if (Length == 0)
 		return;
-	TASSERT2(340, Position<=Size-Length, Position, Size-Length);
+	PATELLA_ASSERT_VALUES(Position<=Size-Length, Position, Size-Length);
 	if (MaxLength < 0 || Length < MaxLength) {
 		memcpy(Buffer, &Data[Position], Length);
 		Buffer[Length] = 0;
@@ -274,7 +274,7 @@ char *TReadBuffer::GetString()
 {
 	const int Length = GetWord();
 	char *Result = new char[Length + 1];
-	TASSERT2(359, Position<=Size-Length, Position, Size-Length);
+	PATELLA_ASSERT_VALUES(Position<=Size-Length, Position, Size-Length);
 	memcpy(Result, &Data[Position], Length);
 	Result[Length] = 0;
 	Position += Length;
@@ -286,8 +286,8 @@ void TReadBuffer::GetBytes(patella::TSpan<uint8> Bytes)
 {
 	uint8 *const Buffer = Bytes.data();
 	const int Count = static_cast<int>(Bytes.size());
-	TASSERT(371, Buffer!=NULL);
-	TASSERT2(372, Position<=Size-Count, Position, Size-Count);
+	PATELLA_ASSERT(Buffer!=nullptr);
+	PATELLA_ASSERT_VALUES(Position<=Size-Count, Position, Size-Count);
 	memcpy(Buffer, &Data[Position], Count);
 	Position += Count;
 }
@@ -297,8 +297,8 @@ TWriteBuffer::TWriteBuffer(patella::TSpan<uint8> Bytes)
 {
 	uint8 *const data = Bytes.data();
 	const int size = static_cast<int>(Bytes.size());
-	TASSERT(387, data!=NULL);
-	TASSERT(388, size>=0);
+	PATELLA_ASSERT(data!=nullptr);
+	PATELLA_ASSERT(size>=0);
 	Size = size;
 	Position = 0;
 	Data = data;
@@ -307,14 +307,14 @@ TWriteBuffer::TWriteBuffer(patella::TSpan<uint8> Bytes)
 // 0x50b2e0, line 400
 void TWriteBuffer::PutByte(uint8 Data)
 {
-	TASSERT2(400, Position<=Size-1, Position, Size);
+	PATELLA_ASSERT_VALUES(Position<=Size-1, Position, Size);
 	this->Data[Position++] = Data;
 }
 
 // 0x50b450, line 410
 void TWriteBuffer::PutWord(uint16 Data)
 {
-	TASSERT2(410, Position<=Size-2, Position, Size);
+	PATELLA_ASSERT_VALUES(Position<=Size-2, Position, Size);
 	this->Data[Position] = (uint8)Data;
 	this->Data[Position + 1] = (uint8)(Data >> 8);
 	Position += 2;
@@ -323,7 +323,7 @@ void TWriteBuffer::PutWord(uint16 Data)
 // 0x50b5e0, line 421
 void TWriteBuffer::PutQuad(uint32 Data)
 {
-	TASSERT2(421, Position<=Size-4, Position, Size);
+	PATELLA_ASSERT_VALUES(Position<=Size-4, Position, Size);
 	this->Data[Position] = (uint8)Data;
 	this->Data[Position + 1] = (uint8)(Data >> 8);
 	this->Data[Position + 2] = (uint8)(Data >> 16);
@@ -335,12 +335,12 @@ void TWriteBuffer::PutQuad(uint32 Data)
 // that line 437 reports (its construction from a null C string faults before the assertion).
 void TWriteBuffer::PutString(const char *s)
 {
-	TASSERT(437, s!=NULL);
+	PATELLA_ASSERT(s!=nullptr);
 	const int Length = (int)strlen(s);
 	PutWord((uint16)Length);
 	if (Length == 0)
 		return;
-	TASSERT2(441, Position<=Size-Length, Position, Size-Length);
+	PATELLA_ASSERT_VALUES(Position<=Size-Length, Position, Size-Length);
 	memcpy(&Data[Position], s, Length);
 	Position += Length;
 }
@@ -350,8 +350,8 @@ void TWriteBuffer::PutBytes(patella::TSpan<const uint8> Bytes)
 {
 	const uint8 *const Buffer = Bytes.data();
 	const int Count = static_cast<int>(Bytes.size());
-	TASSERT(451, Buffer!=NULL);
-	TASSERT2(452, Position<=Size-Count, Position, Size-Count);
+	PATELLA_ASSERT(Buffer!=nullptr);
+	PATELLA_ASSERT_VALUES(Position<=Size-Count, Position, Size-Count);
 	for (int i = 0; i < Count; i++)
 		PutByte(Buffer[i]);
 }
@@ -363,8 +363,8 @@ void TWriteBuffer::PutBytes(patella::TSpan<const uint8> Bytes)
 void FormatNumber(int Number, patella::TSpan<char> BufferBytes)
 {
 	char *const Buffer = BufferBytes.data();
-	TASSERT(467, Buffer!=NULL);
-	TASSERT1(468, Number>=0, Number);
+	PATELLA_ASSERT(Buffer!=nullptr);
+	PATELLA_ASSERT_VALUES(Number>=0, Number);
 	TFixedString<14> Text;
 	Text.Format("{}", Number);
 	for (int Digits = 3; Digits < (int)strlen(Text); Digits += 4) {

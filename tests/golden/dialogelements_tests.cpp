@@ -1862,7 +1862,7 @@ template <class F> static void ElementCall(const char *What, F Call, int Fail = 
 
 static void TestDialogElementsAssertions();
 
-// Every TASSERT/TERROR of DialogElements.cpp and the TEND blocks: the test's
+// Every PATELLA_ASSERT/TERROR of DialogElements.cpp and the TEND blocks: the test's
 // operations on new controls, the calls of one action per round failing at
 // one of the fake calls it made before, until one throws; then the
 // assertions with direct calls.

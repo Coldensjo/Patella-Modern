@@ -1864,7 +1864,7 @@ template <class F> static void ConsoleCall(const char *What, F Call, bool Dump =
 	Threw = Threw && (Thrown || Dump);
 }
 
-// Every TASSERT/TERROR of ConsoleWindow.cpp and the TEND blocks: the test's
+// Every PATELLA_ASSERT/TERROR of ConsoleWindow.cpp and the TEND blocks: the test's
 // actions on new consoles, the calls of one action per round failing at one
 // of the fake calls it made before, until one throws; then the assertions.
 static void TestConsoleWindowErrors()

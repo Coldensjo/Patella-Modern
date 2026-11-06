@@ -93,22 +93,17 @@ enum PROGRAM_ERROR : int {
 static_assert(sizeof(PROGRAM_ERROR) == 4);
 static_assert(std::is_same_v<std::underlying_type_t<PROGRAM_ERROR>, int>);
 
-// Every site names the original's source line as its first argument, the line
-// the binary pushes for that site: TASSERT(66, s!=NULL).
-// difftest and the golden corpus compare the messages, these lines included
-// (tools/lines.py, which read them from Tibia.exe, went with error.txt in
-// Patella-Modern issue #74). The file is __FILE__ (the messages name it
-// without its path).
+// The assertions: PATELLA_ASSERT and PATELLA_ASSERT_VALUES (Patella-Modern issue
+// #79; until then three macros here, which named the original's line).
+#include "compat/assertion.h" // IWYU pragma: export
+
+// Every error site names the original's source line as its first argument, the
+// line the binary pushes for that site: TERROR1(1274, "unknown packet type
+// during game", Type). Since Patella-Modern issue #76 difftest and the golden
+// corpus compare the outcome only (thrown or not, and the kind), not the
+// messages. The file is __FILE__ (the messages name it without its path).
 #define TMYEXCEPTION(Line, Kind, N1, V1, N2, V2, Last) \
 	TMyException(__FILE__, Line, Kind, N1, (int)(V1), N2, (int)(V2), Last)
-
-// Assertions record the expression and up to two values with their source text.
-#define TASSERT(Line, Expr) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", "", 0, "", 0, #Expr)
-#define TASSERT1(Line, Expr, V1) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, "", 0, #Expr)
-#define TASSERT2(Line, Expr, V1, V2) \
-	if (!(Expr)) throw TMYEXCEPTION(Line, "assertion failed", #V1, V1, #V2, V2, #Expr)
 
 #define TERROR(Line, Message) \
 	throw TMYEXCEPTION(Line, Message, "", 0, "", 0, "")

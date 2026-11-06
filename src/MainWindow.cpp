@@ -232,7 +232,7 @@ void TMainWindow::HandleEvent(int Event)
 		break;
 	case 0x17: {
 		TContentWindow *OldWindow = SidePanel->GetContentWindow(1);
-		TASSERT(308, OldWindow!=NULL);
+		PATELLA_ASSERT(OldWindow!=NULL);
 		SidePanel->InsertChildAfter(OldWindow, CreateSmallInventoryWindow(this));
 		SidePanel->DeleteChild(OldWindow);
 		SidePanel->Rearrange(32, nullptr);
@@ -242,7 +242,7 @@ void TMainWindow::HandleEvent(int Event)
 	}
 	case 0x18: {
 		TContentWindow *OldWindow = SidePanel->GetContentWindow(2);
-		TASSERT(317, OldWindow!=NULL);
+		PATELLA_ASSERT(OldWindow!=NULL);
 		SidePanel->InsertChildAfter(OldWindow, CreateInventoryWindow(this));
 		SidePanel->DeleteChild(OldWindow);
 		SidePanel->Rearrange(32, nullptr);
@@ -518,7 +518,7 @@ void TMainWindow::Walk(int dx, int dy, bool Diagonal)
 // container and the "up" state of a container that has a parent here.
 void TMainWindow::OpenContainer(int Container) const
 {
-	TASSERT(511, DialogWindow!=NULL);
+	PATELLA_ASSERT(DialogWindow!=NULL);
 	TSubWindow *Window = static_cast<TSubWindow *>(DialogWindow->GetContentWindow(Container + 0x40));
 	if (Window == nullptr) {
 		DialogWindow->Rearrange(16, CreateContainerWindow(Container));
@@ -550,8 +550,8 @@ void TMainWindow::CloseContainer(int Container) const
 // 0x4afec0, lines 560-565. Both assertions come before the try block.
 void TMainWindow::OpenTrade() const
 {
-	TASSERT(560, DialogWindow!=NULL);
-	TASSERT(561, !DialogWindow->hasContentWindow(TRADE_WINDOW));
+	PATELLA_ASSERT(DialogWindow!=NULL);
+	PATELLA_ASSERT(!DialogWindow->hasContentWindow(TRADE_WINDOW));
 	OpenContentWindow(TRADE_WINDOW);
 }
 
@@ -561,7 +561,7 @@ void TMainWindow::UpdateTrade() const
 {
 	const TSubWindow *Window = static_cast<TSubWindow *>(DialogWindow->GetContentWindow(TRADE_WINDOW));
 	if (Window != nullptr) {
-		TASSERT(576, Window->getBody()!=NULL);
+		PATELLA_ASSERT(Window->getBody()!=NULL);
 		Window->getBody()->HandleEvent(0x15);
 	}
 }
@@ -740,7 +740,7 @@ void InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisp
 	void (*OpenURL)(const char *URL))
 {
 	MainWindow = new TMainWindow(Width, Height);
-	TASSERT1(822, GetActionState()==ACTIONSTATE_NONE, GetActionState());
+	PATELLA_ASSERT_VALUES(GetActionState()==ACTIONSTATE_NONE, GetActionState());
 	ExitProgramCallback = ExitProgram;
 	ModalWindow = nullptr;
 	SetDisplayModeCallback = SetDisplayMode;
