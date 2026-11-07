@@ -116,7 +116,24 @@ def use_patella(path):
 	return "patella: %s, run as its test build %s (read through its test mode's control channel)" % (path, test)
 HELPER = {"exe": "Tibia.exe", "source": os.path.join(ROOT, "Tibia.exe")}
 TRAFFIC = os.path.join(ROOT, "build", "traffic")
-LIVE_SETTLE = 1.5  # seconds after each live step: the server answers in milliseconds
+LIVE_SETTLE = 1.5  # seconds after each live step until issue #144 (compare_files.py's live walk still uses it)
+# Issue #144: after each live step, until no server packet came for LIVE_QUIET seconds, counted from the step's end
+# at the earliest (the server answers in milliseconds; its world's own packets, a creature walking, come seconds
+# apart); a server that is not quiet within LIVE_QUIET_TIMEOUT fails the run.
+LIVE_QUIET = 0.5
+LIVE_QUIET_TIMEOUT = 30
+
+
+def live_wait(proxy):
+	"""run_session's wait for a live run through proxy (issue #144: instead of a fixed LIVE_SETTLE)."""
+	def wait(name):
+		start = time.time()
+		while time.time() - max(proxy.last_s2c, start) < LIVE_QUIET:
+			if time.time() - start > LIVE_QUIET_TIMEOUT:
+				raise RunError("%s: the server sent packets for %d s without a pause of %.1f s" % (name,
+					LIVE_QUIET_TIMEOUT, LIVE_QUIET))
+			time.sleep(0.05)
+	return wait
 
 # The Tibia.cfg every run starts with: a window that fits a 1024x768 screen (the size the
 # display falls back to with the monitor off), no hint dialogs (they would take keys).
@@ -376,7 +393,8 @@ def play(client, proxy, wait, out_prefix, helper=None):
 		if helper is not None:
 			helper()
 		sc.run_session(driver, wait, checkpoint, proxy=proxy, look=LOOK)
-		time.sleep(1)
+		# issue #144: the start screen after the logout (a fixed 1 s until then), then WM_CLOSE
+		driver.wait_window("TStartWindow")
 		code = driver.close()
 		if code != 0:
 			raise RunError("%s exited with code %d" % (info["exe"], code))
@@ -400,14 +418,16 @@ def live_run(client, out, players):
 	try:
 		def start_helper():
 			helper.start(["gamemaster"])
-			sc.login(helper, lambda name: time.sleep(LIVE_SETTLE), sc.TRADE_PARTNER)
-			time.sleep(2)
+			# issue #144: no wait after the login (sc.login waits for the character list itself), then the helper
+			# in the game as it shows it (the server has its player), instead of fixed 1.5 s and 2 s
+			sc.login(helper, lambda name: None, sc.TRADE_PARTNER)
+			sc.wait_in_game(helper)
 			log("helper: %s is in the game" % sc.TRADE_PARTNER)
 
 		proxy = px.Proxy(prefix + ".jsonl", px.load_private_key(PEM), log=log)
 		with proxy:
 			# the proxy listens from here on; the client under test logs in only in the session
-			play(client, proxy, lambda name: time.sleep(LIVE_SETTLE), prefix, helper=start_helper)
+			play(client, proxy, live_wait(proxy), prefix, helper=start_helper)
 		if proxy.errors:
 			raise RunError("proxy errors: %s" % proxy.errors)
 		helper_logout(helper)
