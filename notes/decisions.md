@@ -12659,7 +12659,7 @@ functions become the members of its subsystem under the same names, with their a
 | TNetwork | 2 | Network.cpp (17: Socket, the send and receive buffers, Servers, CurrentServer, TestServer, the host name request, SymmetricKey, the timeouts, NetworkWindow, RecursionProtection); MainFrm.h's PacketHeader (the last packet's first bytes); Control.cpp's Reconnect and ReconnectTimeout | #105, done |
 | TMapState | 3 | the game state, as five smaller objects it owns (below): Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp | #106, done |
 | TCommunication | 4 | Communication.cpp (6: SkipFields, OutfitRequested, CancelCount, LastCancelX/Y/Z); Control.cpp's LastPacketType, LastPacketIndex, LastPacketTypes; Status.cpp's session (ConnectionState, Progress, AccountNumber, AccountNumberString, AccountPassword, Characters, AccountCharacters, ActiveCharacter, PremiumDays, Gamemaster, Rights) | #105, done (the session as TSession, below) |
-| TGraphics (recommended) | 5 | graphics.cpp (21: the sprite, picture and font tables, the two caches and their lists), Surface.cpp (18: the engine choice, the screen, the blit counters, the surfaces), Skins.cpp (Skins, NumberOfSkins): the client's side of TSurface | none yet ("Found, not done") |
+| TGraphics (recommended) | 5 | graphics.cpp (21: the sprite, picture and font tables, the two caches and their lists), Surface.cpp (18: the engine choice, the screen, the blit counters, the surfaces), Skins.cpp (Skins, NumberOfSkins): the client's side of TSurface | #116, done (with GUI.cpp's SkinProperties: "#116") |
 | TGUI | 6 | MainWindow.cpp (ModalWindow, MainWindow); GUI.cpp (SkinProperties, NumberOfHotkeys, the LastTime static of its timer); Help.cpp (8); Talk.cpp (11 and its LastTime static, as a TTalk inside TGUI); ContentWindows.cpp (the two mouse-over texts); Status.cpp's user interaction (the action, drag, use and trade fields and objects, PendingAction*, the message queue Messages and NumberOfMessages, MouseX/Y, WindowWidth/Height, MouseCursor, the blink, the mouse-over text, LinkRegexp, TaintedClipboardText, LinkWarningEventHandler); Control.cpp's LastMouseMove, WindowHandle, ShowFPS | #107, part 1 done (not yet: SkinProperties, the functions of Control.cpp and MainWindow.cpp) |
 | the platform objects | outside TClient | MainFrm.cpp (MainFrame, the cursors, the buttons, Closing, DisplayChanged, ClassName, WheelDelta), Player.cpp (theApp, TitleKey, ClassNameKey, LastMouseCursor, NumberOfTibiaWindows, LastMousePosition), sysinc.cpp (the clipboard buffer; TitleCode and ClassNameCode are constants), src/vulkan (SurfaceVulkan.cpp, DeviceSettings.cpp) | #109 |
 
@@ -14283,3 +14283,137 @@ Logs in build\logs\issue-118 of the branch's worktree; golden replayed main's fr
   (CLAUDE.md's command) exit 0.
 - An early windows-x64 run (before the Control test's redirect of TGUI::ChangeEngine) failed golden with the runner's
   stub GetDeviceChoice: fixed in the test's call, not a behaviour change.
+
+## #116: TGraphics (Patella-Modern issue #116, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-116, from main e8e1602). #104's step 6: graphics.cpp,
+Surface.cpp and Skins.cpp, with GUI.cpp's SkinProperties (the issue's scope addition from #107, settled by the
+orchestrator). TClient makes TPreferences, TNetwork, TMapState, TCommunication, TGraphics, TGUI, in that order
+(Client.h).
+
+### The objects (high)
+
+- **TGraphics** (graphics.h): graphics.cpp's 21 globals (0x5cc430-0x5ccf94, .bss order, `{}` for the zero, the
+  original's comments) and its 57 functions are its members of the same names, with their address comments. All
+  its data is public (rule 2: it was extern; Communication.cpp sends the two signatures, the golden Graphics and
+  Errors tests read and set the tables and the caches). The thirteen members that only read are const (the Find
+  functions, the font and text measures, GetTextPosition). It owns the two objects below as `Engine` and `Skins`.
+- **TGraphicsEngine** (Surface.h, defined in Surface.cpp; TGraphics' `Engine`): Surface.cpp's 18 globals, in .data
+  and .bss order with their initial values (CommandLineEngine -1, the cache surfaces' 256 x 256), and its four
+  functions (GetCurrentEngine const, GetSurface, SurfaceExitInstance, SurfaceInitInstance). An object of its own in
+  Surface.h, as #105's TSession is Status.cpp's inside TCommunication: the file stays the module map. Public: the
+  engine choice and the shared engine data (the Vulkan engine, Control.cpp, Dialogs.cpp, MainFrm.cpp, Player.cpp
+  and the golden tests use them); private: the three file-local values (SurfaceWindow, AvailableEngines, Surface),
+  read by TSurface's TestEngine and GetAvailableEngines, which reach them through `bridge::GraphicsEngine()` (TSurface
+  is a friend). TSurface is unchanged: the same interface, layout and vtable (#119's).
+- **TSkins** (Skins.h, defined in Skins.cpp; TGraphics' `Skins`): NumberOfSkins and the table (0x71c450, 0x71c454)
+  and InitSkins and ExitSkins as members, and SkinProperties (0x5ccfc8) as its third member. SkinProperties' types
+  (TGUIPoint, the TSkinProperties blocks) moved from GUI.h to Skins.h with it, unchanged; GUI.cpp keeps their layout
+  asserts and InitSkinProperties, which fills it. GUI.h includes Skins.h (exported), so the windows see the types as
+  before.
+- **TRect, TRGBColor, TFont and the alignments** moved from graphics.h to types/GraphicsTypes.h (header only,
+  portable, on patella_core's header list), which graphics.h exports: Surface.cpp (TSurface's default slots take
+  them by value) and Skins.h (SkinProperties holds them) need them without graphics.cpp's module.
+
+### The free functions and the bridge (high)
+
+- The original's free functions stay and forward (rule 4): graphics.cpp's 57 to `bridge::Graphics()` (at the end of
+  graphics.cpp), Surface.cpp's four to `bridge::GraphicsEngine()`. InitSkins and ExitSkins forward to `bridge::Skins()`
+  from graphics.cpp, not from Skins.cpp: Skins.cpp is patella_core's, which has no TClient (the golden runner and the
+  unit tests link Skins.cpp from the library), and graphics.cpp is the client's file of TGraphics. Control.cpp calls
+  them; the golden Communication world fakes them by these symbols (commworld.cpp's F()).
+- Calls between graphics.cpp's functions are member calls (the cache lookups, the draws, the text measures); its calls
+  into the other files stay their free functions (GetSurface, which the golden Graphics test redirects to its recording
+  surface and the window tests fake; GetActionNumber; the object table's accessors; Script.cpp's file class). The
+  golden window tests fake the drawing functions by their free symbols, which the windows call, so no member fake was
+  needed.
+- **SkinProperties and the skin table** (high; a deviation from rule 2's `bridge::<Object>().<Name>` at each use):
+  Skins.h has two inline accessors of the globals' names, `SkinProperties()` and `Skins()`, returning the one TClient's
+  TSkins members, and the users write `SkinProperties().TooltipBorder` and `Skins()[skin].width` where they wrote
+  `SkinProperties.TooltipBorder` and `Skins[skin].width` (about 2,000 and 245 uses in src/: the window files, GUI.cpp,
+  Control.cpp, MapWindow.cpp, the test mode's dump; and the golden window tests: a script added `()` in the code, not
+  in comments; the string literals it also changed at first were restored, below). Why: #107 left SkinProperties because
+  the bridge path at each use would rewrite every expression of every window file; the accessor is the same object
+  through the same bridge, with one call per use, and the windows' text stays the original's. NumberOfSkins (four
+  assertions and the tests) is `bridge::Skins().NumberOfSkins`. They go when the windows hold TGraphics (below).
+- The other users of the moved globals write the bridge path (rule 2): Communication.cpp's two signatures
+  (`bridge::Graphics()`: TGraphics is made after TCommunication), the Vulkan engine's shared counters, the screen and
+  the cache surfaces' size, Player.cpp's CommandLineEngine, and curEngine in Control.cpp, Dialogs.cpp and MainFrm.cpp
+  (`bridge::GraphicsEngine()`); inside TGraphics' members curEngine is `Engine.curEngine`.
+- TGraphics takes no constructor reference: everything it calls in an earlier subsystem (the object table) is a free
+  function the golden tests fake, as #118 kept Control.cpp's calls.
+
+### Behaviour (high)
+
+The same code on the same data. What differs: the calls through the accessors (one more call per use of a moved
+global, a guarded static's check in bridge::Client()), and the storage: one object inside TClient instead of each
+file's .data and .bss, made at the first use of the client's state instead of before main (SkinProperties'
+initialiser 0x559e50 ran its constructor before main; TClient is zero-initialised first, as a static, and its
+member's `{}` gives the same zeros, so InitSkinProperties finds what it found). The unique_ptr tables are freed in
+TClient's static destruction as before in the globals'; TGraphicsEngine's Surface stays a raw pointer, freed only by
+SurfaceExitInstance, as the global was. The golden GUI test's placement construction of SkinProperties (and its
+byte comparison with the original's constructor and InitSkinProperties) runs on the member unchanged.
+
+### The include cycles (high)
+
+Measured as #104 and #118 did (every `#include "X.h"` of a src/*.cpp naming another src/*.cpp's module is an edge;
+Tarjan's strongly connected components; build\logs\issue-116\cycles-*.txt): main e8e1602 has 33 modules, 205 edges
+and 2 cycles, {Surface, graphics} and {MainFrm, Player}. The branch has 33 modules, 207 edges and 1 cycle,
+{MainFrm, Player}. Surface -> graphics went (Surface.cpp includes types/GraphicsTypes.h, a header without a module);
+Client -> graphics, Skins and Surface came (the accessors). graphics -> Surface stays (graphics.h holds
+TGraphicsEngine, graphics.cpp calls GetSurface); Surface now reaches only Preferences.
+
+### The golden tests' and the unit test's calls (high)
+
+Adapted, no check changed: the moved data through the bridge (graphics_tests.cpp through a local `Ours()`,
+errors_tests.cpp's static table, commworld.cpp's signatures, the curEngine of the Control, Dialogs, Errors, Graphics,
+MainFrm, MapWindow and Player tests), SkinProperties and the skin table through the accessors (the window tests, the
+GUI test, core_tests.cpp's Skins test). dialogelements_tests.cpp's own `int Skins[9]` member is untouched.
+The first golden run replayed 10,530,710 checks and stopped at the GUI test: the rewrite had changed the string
+literal "SkinProperties constructor" (an output name of the corpus; the runner refused it as a stale corpus) and three
+other literals; restored, the next run replayed everything. tests/unit/core_skins_test.cpp makes a TSkins of its own in each case and calls its members (patella_core has no
+bridge); its checks are the same.
+
+### Found, not done (high)
+
+- The windows reach SkinProperties and the skin table through the accessors (the bridge); when the windows hold their
+  TGUI and TGUI holds TGraphics (rule 5's constructor reference: TGraphics is earlier), the accessors go.
+- Communication.cpp's two signatures and Control.cpp's, Dialogs.cpp's and MainFrm.cpp's curEngine use the bridge:
+  TCommunication is made before TGraphics (an interface, or the signatures passed in), Control.cpp is TGUI's (a
+  reference once TGUI takes TGraphics), MainFrm.cpp is the platform's (#119).
+- The Vulkan engine writes the shared counters, the screen and the cache surfaces' size through
+  `bridge::GraphicsEngine()`, and TSurface's TestEngine and GetAvailableEngines read the engine through it: #119's,
+  when TSurface becomes the platform's interface (the counters the engine's own, or passed to it).
+- InitSkinProperties stays GUI.cpp's free function writing TGraphics' data (rule 3 would make it TGUI's member; it
+  writes no TGUI data).
+- The image comparison #109 made (the x64 Patella.exe function by function against main's) was not made here.
+### The core header's checks (high)
+
+- TRect's and TRGBColor's constructor parameters were named as their members (x, y, width, height; R, G, B):
+  GraphicsTypes.h is a core header now, and patella_core's GCC -Wshadow failed windows-x64-gcc and linux-x64-gcc.
+  Renamed (X ... Height; Red, Green, Blue). The image's clang-tidy checks the header now: the alignments' unnamed enum
+  keeps a NOLINT with "The other ten stay unscoped"'s reason, and DefaultFontColor is constexpr (it was constant-
+  initialised already; bugprone-throwing-static-initialization). The baseline stays at 3.
+
+### The gates (high)
+
+Logs in build\logs\issue-116 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218
+replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset. On the head d100b52:
+
+- `python -I tools/build.py windows-x64` exit 0, 19/19 (golden_concurrent the same); windows-x64-debug exit 0, 18/18;
+  windows-x64-asan exit 0, 18/18, no ASan report; windows-x64-gcc exit 0, 12/12; linux-x64-gcc exit 0, 16/16;
+  linux-x64-clang (ASan, UBSan) exit 0, 14/14, no sanitizer report. The first debug and asan runs of this head overlapped
+  a stopped earlier run's leftover processes (LNK1104 on the Debug golden_runner.exe it held; both loops in the asan
+  folder); rerun alone, they are the results above (`<preset>-overlapped.log` kept). On 580684c windows-x64-gcc and
+  linux-x64-gcc failed on -Wshadow (above), the other four passed.
+- Live (`python -I tools/build.py capture-x86` exit 0 for patcap.dll): `python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches; `python -I tools/compare_traffic.py` exit 1 at
+  the first run (no TibiaClient window within 30 s at the start, while windows-x64-debug was building), exit 0 at the
+  rerun, no differences; `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes windowed --no-repeat
+  --recording build/traffic/result/orig-live.jsonl` exit 0, all 26 scenes identical outside the masks on the GPU pass
+  (NVIDIA GeForce RTX 5080) and the CPU pass (llvmpipe), no problems in any run. The same three passed on 580684c
+  (reference, traffic and rendering each exit 0 at the first run). compare_files.py not run: no file the client writes
+  is touched.
+- `python -I tools/tidy_ci.py` exit 0 on d100b52, 3 findings, the baseline's 3, 0 new (on 116eec2 exit 1: the two
+  header findings above). `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.

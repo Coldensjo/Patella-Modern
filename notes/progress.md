@@ -575,6 +575,13 @@ GUI module cycle is gone (main: {ContentWindows, ContextMenus, DialogWindow, Mai
 {Surface, graphics}, {MainFrm, Player}). TMap and TCreatures/TPlayerState call up into Talk, Help and Status through
 TMapConsole and TCreaturesGUI (Client.cpp's adapters); TMapState's GetPlayerID calls TPlayerState's member.
 TNetworkSession's adapter stays (justified). Golden 17,316,040, 0 failures. notes/decisions.md, "#118".
+TGraphics (Patella-Modern issue #116, branch issue-116, November 7, 2026; M7): graphics.cpp's 21 globals and 57
+functions are TGraphics' members (graphics.h), Surface.cpp's 18 globals and 4 functions TGraphicsEngine's (Surface.h),
+Skins.cpp's table and GUI.cpp's SkinProperties TSkins' (Skins.h, with SkinProperties' types from GUI.h); TClient makes
+TGraphics between TCommunication and TGUI, the free functions forward. The windows read the skin data through the
+accessors SkinProperties() and Skins(). TRect, TRGBColor and TFont are types/GraphicsTypes.h's, so the {Surface,
+graphics} module cycle is gone (205 edges and 2 cycles on main, 207 and 1 now: {MainFrm, Player}). Golden 17,316,040,
+0 failures. notes/decisions.md, "#116".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
