@@ -292,8 +292,9 @@ the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8):
   takes only the attribute, not a comment; Clang `-Wimplicit-fallthrough`; MSVC has none). A parameter that is
   unused on purpose says `[[maybe_unused]]`, a case that falls through on purpose `[[fallthrough]];` (no casts
   to void, no pragmas).
-- `patella_target_hardening(<target>)`: `/guard:cf /CETCOMPAT`; `-fstack-protector-strong`,
-  `_FORTIFY_SOURCE=3` (optimised builds), `_GLIBCXX_ASSERTIONS` (Debug), PIE and, on Linux, full RELRO; with
+- `patella_target_hardening(<target>)`: `/guard:cf /CETCOMPAT`, the MSVC STL's `_MSVC_STL_HARDENING=1` (issue
+  #133); `-fstack-protector-strong`, `_FORTIFY_SOURCE=3` (optimised builds), libstdc++'s `_GLIBCXX_ASSERTIONS`
+  (every configuration since issue #133, Debug only before), PIE and, on Linux, full RELRO; with
   the cache variable `PATELLA_SANITIZE` (GCC and Clang; linux-x64-clang sets `address,undefined`)
   `-fsanitize=<list> -fno-sanitize-recover=all -fno-omit-frame-pointer`, so every finding fails the test. With MSVC
   (issue #70) PATELLA_SANITIZE takes only `address`: `/fsanitize=address`, every executable linked with `/DEBUG

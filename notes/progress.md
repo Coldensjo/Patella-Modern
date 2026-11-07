@@ -600,6 +600,10 @@ glibc's Clang wrappers of the printf family cannot be exported). std::mdspan is 
 a test switch only. cxx26.h keeps the inplace_vector stand-in on Clang (libstdc++ 16's fails under Clang 22). The image's
 tag is now patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16. Golden 17,316,040, 0 failures; tidy baseline 3,
 unchanged. notes/decisions.md, "#121".
+Hardened standard library modes (Patella-Modern issue #133, branch issue-133, November 7, 2026; M9): the MSVC STL's
+_MSVC_STL_HARDENING=1 and libstdc++'s _GLIBCXX_ASSERTIONS (until now Debug only) for C++ in every configuration of
+every product preset (cmake/Hardening.cmake); no check fired. Cost, one run each: golden +16% on Windows, +23% on
+Linux, the reference compare +2%. Golden 17,316,040, 0 failures. notes/decisions.md, "#133".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

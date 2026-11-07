@@ -14530,3 +14530,86 @@ finding moved.
   libstdc++ that exports them (or a std.cc that skips them under fortify) would let it keep the hardening.
 - The old image tag `patella-modern/linux-x64:gcc16.2-clang22.1` stays on this machine until the branches that use it
   are merged.
+
+## #133: hardened standard library modes (Patella-Modern issue #133, M9)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-133). Files: cmake/Hardening.cmake (the settings), the
+comments of cmake/ImportStd.cmake, notes/reconstruction.md ("Building", patella_target_hardening). Every product
+target gets them through patella_target_hardening; capture-x86's patcap.dll still uses none of it.
+
+### What each library offers in this toolchain (high)
+
+- **MSVC STL** (MSVC 14.51.36231, cl 19.51, `_MSVC_STL_UPDATE` 202604; 14.44, also installed, has it too):
+  `_MSVC_STL_HARDENING` (yvals.h, since VS 2022 17.14 / MSVC 14.44; it replaced `_CONTAINER_DEBUG_LEVEL`, which is now
+  an error, STL1006). 1 turns on the precondition checks of array, basic_string, basic_string_view, bitset, deque,
+  vector, list, forward_list, span, mdspan, optional, expected, valarray, shared_ptr<T[]>, basic_stacktrace,
+  common_iterator, counted_iterator and ranges::view_interface (each also its own `_MSVC_STL_HARDENING_<NAME>`). A
+  violation calls the "doom function", `__fastfail(5)` (FAST_FAIL_INVALID_ARG): no exception, no handler, the process
+  ends (a Debug build reports it through _RPTF0 first). ABI-neutral: no `detect_mismatch`, unlike
+  `_ITERATOR_DEBUG_LEVEL`. Not used: `_MSVC_STL_DESTRUCTOR_TOMBSTONES` (writes a bad pointer into destroyed objects;
+  not named by the plan, Found, not done).
+- **libstdc++ 16** (GCC 16.2.0's, in the image, windows-x64-gcc's mingw-w64 GCC 16 and, since #121, linux-x64-clang):
+  `_GLIBCXX_ASSERTIONS` is the hardened mode. It turns on `__glibcxx_assert`, the library's precondition checks
+  (operator[], front/back of the containers, string and string_view, span's and mdspan's indices and extents,
+  optional's and expected's access, marked "hardened precondition"); a violation calls `std::__glibcxx_assert_fail`
+  (the file, line, function and condition on stderr, then abort). It keeps the ABI. GCC's `-fhardened` defines exactly
+  it (checked: `g++ -fhardened -O2 -dM -E` gives `_GLIBCXX_ASSERTIONS 1` and `_FORTIFY_SOURCE 3`); libstdc++ 16 has
+  no other hardened mode. `_GLIBCXX_DEBUG` (the debug mode, checked iterators) changes the containers' layout and
+  ABI: not for release, and not taken. libstdc++ defines `_GLIBCXX_ASSERTIONS` itself in an unoptimised build since
+  GCC 15 (c++config.h: `! defined(__OPTIMIZE__)`), so Debug had it twice already.
+- **libc++**: not used by any preset (Clang uses libstdc++ 16 since #121), so `_LIBCPP_HARDENING_MODE` is not set.
+
+### What is on now (high)
+
+- MSVC (windows-x64, windows-x64-debug, windows-x64-asan and their -debug): `/D_MSVC_STL_HARDENING=1` for C++ in every
+  configuration. In Debug `_ITERATOR_DEBUG_LEVEL` 2 (/MTd's `_DEBUG`) checks the same preconditions and more, so
+  hardening adds nothing there; it is on everywhere for one rule.
+- GCC and Clang (windows-x64-gcc, linux-x64-gcc, linux-x64-clang and their -debug): `-D_GLIBCXX_ASSERTIONS` for C++ in
+  every configuration (Debug only until now). Bounds-checked std::span and std::mdspan in Debug, as the plan asks,
+  come from these two (std's span and mdspan on every preset; span.h's and mdspan.h's stand-ins check nothing, test
+  switches only).
+- They are compile options, not compile definitions: patella_target_import_std gives the std module the importer's
+  COMPILE_OPTIONS (CMake 4.1), so tests_import_std's module is built with the same mode; MSVC would warn C5050 for a
+  macro of the importer that the module lacks (none: 0 warnings).
+- A violation is not a TMyException: golden's error paths (compared by outcome) would see a dead runner, not a
+  different exception, so a firing check fails golden visibly.
+
+### Findings (high)
+
+None. No hardening check fired in golden (every Windows and Linux preset, also under ASan and UBSan), the reference
+compare, compare_traffic's sessions and replays, or the unit tests.
+
+### The gates (high)
+
+- windows-x64, windows-x64-debug, windows-x64-asan: exit 0, golden 15,803,218 + 1,512,822 = 17,316,040, 0 failures,
+  0 compiler warnings (CMake's own "import std is experimental" notice as on main). windows-x64-gcc, linux-x64-gcc,
+  linux-x64-clang (ASan, UBSan): exit 0, golden the same on both Linux presets.
+- `reference.py compare`: exit 0, every session matches (twice: the baseline and the hardened build).
+- `compare_traffic.py`: three runs. 1: exit 1, Tibia.exe's helper got no game connection (the original's live
+  session, before the x64 client ran). 2: exit 1, Tibia.exe's replay window did not appear in 30 s while another
+  session's PatellaTest.exe was on the desktop. 3 (the machine clear): exit 1, one live client packet different,
+  the known live-world race of #101's gates: at "look north" Tibia.exe looked at a creature (0x63) that had walked
+  onto the field, Patella.exe at the field's top item (0x19a); the four replays identical, the 15 states of each
+  replay identical, the options equal. Not run a fourth time.
+- `banned_calls.py`: exit 0. clang-format (CLAUDE.md's command): exit 0. tidy_ci: see below.
+
+### The cost (medium: each run once, on this machine, as the issue asked)
+
+Before: main 30a934a; after: this branch; the same build folders, rebuilt; each command alone on the machine.
+
+| Run | Before | After | Change |
+|---|---|---|---|
+| golden, windows-x64 Release (`ctest -C Release -R ^golden$`) | 100.3 s | 116.1 s | +16% |
+| golden, linux-x64-gcc Release (the same in the image, through build.py --env) | 50.0 s | 61.4 s | +23% |
+| reference compare (`reference.py compare`, 4 sessions, PATELLA_VULKAN=cpu) | 85.5 s | 87.3 s | +2% |
+
+One run each is noisy: the workflow's own golden on Windows (next to golden_concurrent) took 137.6 s before and
+132.1 s after. golden_runner is the worst case, a loop over the library's checked calls without rendering or waiting.
+The reference compare is the frame-time run (the client's cycle with the Vulkan CPU driver under the virtual clock);
+its 2% is within its noise. Kept on: the plan wants the modes in release builds, and the client's cost is the
+reference compare's, not golden's. A per-frame profile is M9's profiling item.
+
+### Found, not done (high)
+
+- `_MSVC_STL_DESTRUCTOR_TOMBSTONES` (MSVC) could catch uses after destruction in release; not asked by the plan.
+- The cost was measured once per run; a repeated measurement (M9's profiling) would narrow golden's +16% / +23%.
