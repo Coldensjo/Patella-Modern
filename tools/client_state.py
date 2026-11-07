@@ -274,6 +274,9 @@ ORIGINAL_VTABLES = {
 	# issue #21 (tools/compare_files.py): the option and mark dialogs, their controls, the automap
 	# and the console's tabs
 	0x56c5c0: "TStartWindow",          # MainWindow.h
+	# issue #144 (tools/session_client.py's waits): the login dialog and the character list
+	0x5627d8: "TLoginDialog",          # Dialogs.h
+	0x562370: "TCharacterListDialog",  # Dialogs.h
 	0x563258: "TOptionsDialog",        # Dialogs.h
 	0x563360: "TGeneralOptionsDialog", # Dialogs.h
 	0x5624b8: "TGraphicsOptionsDialog",  # Dialogs.h

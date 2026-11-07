@@ -1091,14 +1091,9 @@ def craft_error(events):
 
 
 def enter_login(driver):
-	"""Start screen to the login: Enter Game, account, Tab, password, Return (sc.login's start)."""
-	_, _, width, height = lc.client_offset(driver.hwnd)
-	driver.click(113, height - 220)
-	time.sleep(1.5)
-	driver.type(sc.ACCOUNT)
-	driver.char(9)
-	driver.type(sc.PASSWORD)
-	time.sleep(0.3)
+	"""Start screen to the login: Enter Game, account, Tab, password (sc.enter_login: the login dialog waited for,
+	issue #144), Return."""
+	sc.enter_login(driver)
 	driver.char(13)
 
 
