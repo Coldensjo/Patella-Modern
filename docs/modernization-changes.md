@@ -125,7 +125,7 @@ from here on the data structures themselves can be modernized.
 `Patella.ini`, a readable text file next to the game, replaced the original's binary `Tibia.cfg`. The old file is
 imported once. It is stored as UTF-8 since #117.
 
-## M7: data structures and architecture (in progress)
+## M7: data structures and architecture (done, November 7, 2026)
 
 **Standard containers (#99, #100, #101, #102, #103).**
 The original used its own homemade list types, including one indexed from any number (even negative) that grows
