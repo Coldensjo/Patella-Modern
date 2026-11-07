@@ -750,13 +750,15 @@ static TRGBColor *__cdecl FakeGetAutomapColor(TRGBColor *Color, int x, int y, in
 	return Color;
 }
 // A few marks per block, some near the player.
-static void __cdecl FakeGetAutomapMarks(int BlockX, int BlockY, int z, TIndexedVector<TMark> *Marks, int *Count)
+static void __cdecl FakeGetAutomapMarks(int BlockX, int BlockY, int z, std::vector<TMark> *Marks, int *Count)
 {
 	Logf("Marks%d,%d,%d;", BlockX, BlockY, z);
 	uint32 h = (uint32)(BlockX * 7 + BlockY * 13 + z * 3 + World.PlayerX % 5);
 	int n = 1 + (int)(h % 5);
 	for (int i = 0; i < n; i++) {
-		TMark &M = (*Marks)(i);
+		if (Marks->size() <= (size_t)i) // the vector grew to i (GetAutomapMarks' std::vector since issue #100)
+			Marks->resize(i + 1);
+		TMark &M = (*Marks)[i];
 		uint32 g = h * 31 + i * 17;
 		if (g % 3 != 0) {
 			M.x = World.PlayerX - 6 + (int)(g % 13);

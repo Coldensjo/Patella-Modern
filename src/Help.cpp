@@ -10,7 +10,6 @@
 // code kept in this object.
 
 #include "Help.h"
-#include "types/IndexedVector.h"
 #include "Preferences.h"
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "common.h"
@@ -79,26 +78,24 @@ void patella::THelp::InitHelp()
 {
 	HelpHandle = 1;
 	HelpHandleChanged = false;
-	NumberOfEventHelps = 0;
+	EventHelps.clear();
 }
 
 // 0x4a2b00. The next event help to show, 0 if none.
 int patella::THelp::GetEventHelp()
 {
-	if (NumberOfEventHelps == 0)
+	if (EventHelps.empty())
 		return 0;
-	return EventHelps(0);
+	return EventHelps.front();
 }
 
 // 0x4a2b20. Takes the next event help from the queue.
 int patella::THelp::PopEventHelp()
 {
-	if (NumberOfEventHelps == 0)
+	if (EventHelps.empty())
 		return 0;
-	const int Number = EventHelps(0);
-	for (int i = 0; i < NumberOfEventHelps - 1; i++)
-		EventHelps(i) = EventHelps(i + 1);
-	NumberOfEventHelps--;
+	const int Number = EventHelps.front();
+	EventHelps.erase(EventHelps.begin());
 	return Number;
 }
 
@@ -213,8 +210,7 @@ void patella::THelp::AddEventHelp(int Number)
 	PATELLA_ASSERT_VALUES(In(Number,1,EVENTHELPS), Number);
 	if (!IsKnownHint(Number)) {
 		AddKnownHint(Number);
-		EventHelps(NumberOfEventHelps) = Number;
-		NumberOfEventHelps++;
+		EventHelps.push_back(Number);
 	}
 }
 

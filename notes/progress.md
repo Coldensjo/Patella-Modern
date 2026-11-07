@@ -638,6 +638,14 @@ where no creature can stand; run_session keeps "look north" as its default for t
 (reference_record.py, compare_rendering.py). testserver.py gives a failed attempt's server with its world loaded 600 s
 to save instead of killing it after 30 s (a kill in the middle of the save had cut a map sector off; the sector was
 rebuilt). notes/decisions.md, "#137".
+
+The vectors without min..max (Patella-Modern issue #100, branch issue-100, November 7, 2026; M7): every
+TIndexedVector use classified; Help's event helps, Preferences' ContentWindows, OpenChannels, Buddies and KnownHints,
+GUI's timers, Status' messages and GetAutomapMarks' out parameter are std::vectors (their counts their sizes), GUI's hotkeys a
+std::flat_map; kept with the reason: OpenDialogs (its duplicate check reads min..max - 1), the automap blocks' marks
+(a negative count from the file), ConsoleWindow's lines, DialogElements' and Dialogs' vectors and Talk's lists (golden
+compares their headers or their min..max). Golden 17,316,040, 0 failures at
+each commit. notes/decisions.md, "#100".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

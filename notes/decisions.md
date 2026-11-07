@@ -14982,6 +14982,89 @@ replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on ev
   changed (only GetFullscreenModes' list, which the reference compare's display modes check).
 - `python -I tools/tidy_ci.py` on f151aef exit 1: one new misc-include-cleaner finding (LogSettings.h used
   IFileSystem without including platform/FileSystem.h); fixed, on 48e73a5 exit 0, 3 findings, the baseline's 3, 0 new. windows-x64 on 48e73a5 again: exit 0, 20/20, golden the same. `python -I tools/banned_calls.py` exit 0.
+
+## #100: the vectors that need neither min..max nor growth by indexing (Patella-Modern issue #100, M7)
+
+Settled by Claude Opus 5.5, November 7, 2026. Plan M7, containers, second half: each use of TIndexedVector (#99) was
+classified; the lists that append at their count and read below it, and the keyed lookups, are standard containers,
+one subsystem per commit, each commit with the golden replay. "Growth by indexing" here is an index past the end
+other than the append at the count, an index below 0, or a read past the count (entries the range or the init fill
+holds). An index that comes from a file or a packet counts as unbounded unless the code bounds it.
+
+### Converted (high)
+
+- **Help** (7b4c4c8): THelp::EventHelps + NumberOfEventHelps is `std::vector<int>` (the count is its size): a queue,
+  appended at the count (AddEventHelp, Number asserted 1..EVENTHELPS), popped at 0 (the original shifts the entries
+  down), read only below the count.
+- **Preferences** (73e96a9): TPreferences' ContentWindows, OpenChannels, Buddies and KnownHints with their counts are
+  `std::vector`s; the counts are their sizes (cleared where the original set the count to 0: SetDefaultPreferences,
+  ClearOpenChannels). Every reader stops at the count; WriteTibiaCfg's shared counter `i` still ends the Buddy loop at
+  the number of entries, deleted ones included, so the White list's commas are the original's. ReadTibiaCfg wrote an
+  entry in place and counted it after its last token; now the entry is read into a local and appended then. The
+  difference is an entry left half-written by a read error, past the count: the error resets the options
+  (SetDefaultPreferences), so it was never read. `std::flat_map` was not used for ContentWindows (ID to size): the
+  saver writes the entries in insertion order (compare_files, Patella.ini's ContentWindow list), and a Tibia.cfg may
+  hold the same ID twice (the reader appends without a check; GetContentWindowSize returns the first).
+- **GUI** (724388e): TGUI::Timers is `std::vector<TTimer *>`: AddTimer takes the first null entry from 0 or appends
+  (the original's `while (Timers(i) != NULL) i++` grows by one at max + 1, init NULL), RemoveTimer nulls the entry,
+  UpdateTimers goes by index with the size read each time (a callback may add or remove timers); min stays 0, so
+  max + 1 is the size. TGUI::Hotkeys + NumberOfHotkeys is `std::flat_map<int, TCallback>` (MSVC's STL and libstdc++
+  16 have it on every preset, `__cpp_lib_flat_map` 202511 checked; no stand-in): AddHotkey replaces the callback of a
+  key that is there, so each key is there once, and the order is never read (RemoveHotkey moved the last entry into
+  the gap). CheckHotkey sends a copy of the callback, as the original's Send read the entry's two members before it
+  called the receiver. THotkey stays in GUI.h: the golden Container test's vector<THotkey> round uses it.
+- **Map** (ce8f5f6): GetAutomapMarks' out parameter is `std::vector<TMark> *` (the callers' local vector<TMark>(0, 0,
+  10), ContentWindows.cpp's two): it sets the entries 0 to the count - 1, appended past the vector's size, as the
+  original's operator() did from 0 up; the null pointer of the golden Errors test is still not dereferenced without
+  marks. golden's calls adapted (map_tests.cpp's locals, contentwindows_tests.cpp's FakeGetAutomapMarks,
+  errors_tests.cpp's null pointer's type); no check changed.
+- **Status** (after #129's merge, which had Status.cpp): TInteraction::Messages + NumberOfMessages is
+  `std::vector<TMessage>`: AddMessage appends at the count, AddMessageFirst inserts at 0 (the original moved the entries
+  up from the count, the first growth at the count), FetchMessage pops at 0, ClearMessages frees the parameters of
+  the entries below the count, InitStatus empties it without freeing them, as the original. The golden Status test
+  reads only the original's NumberOfMessages (recorded) against its own count.
+
+### Kept as TIndexedVector, with why (high)
+
+- **TPreferences::OpenDialogs** (0, 9, 10, init -1): ReadTibiaCfg's and SetPreferenceValues' duplicate check reads
+  `entry[min .. max - 1]`, past NumberOfOpenDialogs: the init fill and the entries ClearOpenDialogs left count as
+  present.
+- **TAutomapBlock::Marks**: MarkCount comes from the block's file (LoadAutomapBlock's readQuad) and can be negative;
+  AddAutomapMark then indexes below 0 and the vector grows downwards; the reload clears min to max.
+- **TTextWindow::Lines** (ConsoleWindow.h): GetTalkLine and GetLineFormat test `min <= LineNumber <= max`,
+  FormatLines empties the entries up to max, and the golden ConsoleWindow test's dump compares Lines.min, Lines.max
+  and the entries min..max with the original's.
+- **DialogElements.h**: TRadioButtonGroup::Buttons, TEditText::LineStart (PageUp reads LineStart(-1): growth below
+  0), TFocusGroup::MemberList, TListBox::LineText, TFontListBox::FontLines; and **Dialogs.h** TIgnoreListDialog's
+  IgnoreEntries and WhiteEntries: the golden Dialogs test's dumps compare each vector's min, max, start, space and
+  block, and the DialogElements test reads the entries by min..max (a std::vector has no start, space or block:
+  converting them would change those checks).
+- **Talk.h**: BuddyExemptionList, TemporaryIgnoreList, IgnoreList and ConsoleFilterList, and the parameters of
+  FindTalkFilter, FindTextBuffer and AddTalkFilter: the golden Talk test compares the vector's 21-byte header (min ...
+  init, the original's block growth) after each of 65 AddTalkFilter calls; the lists are searched from min to max.
+- The golden tests' own TIndexedVectors (container_tests.cpp, talk_tests.cpp, dialogs_tests.cpp, ...) test the type
+  itself or the original's instances.
+
+So the CipSoft vector is left only where its min..max, its block growth or its growth below 0 is part of the
+behaviour, or a golden check compares its header.
+
+### The gates (high)
+
+Logs: build\logs\issue-100 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- Each commit: 7b4c4c8 (Help), 73e96a9 (Preferences) and 724388e (GUI) built (windows-x64) with golden 15,803,218
+  replayed + 1,512,822 retired = 17,316,040, 0 failures; ce8f5f6 (Map) the same in the full windows-x64 run (20/20,
+  0 warnings); 4bdab3e (Status, after the merge of main e4b67d7 with #129) the same, 20/20.
+- On 35644ac: `python -I tools/build.py windows-x64` exit 0, 20/20; windows-x64-debug exit 0, 19/19; windows-x64-asan
+  exit 0, 19/19, no ASan report; golden 17,316,040, 0 failures on the three. windows-x64-gcc exit 0, 12/12.
+  linux-x64-gcc exit 0, 17/17; linux-x64-clang (ASan, UBSan) exit 0, 16/16, no sanitizer report; golden the same on
+  both. 0 warnings on every preset.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches; `python -I tools/compare_traffic.py` exit 0, no differences (another agent's PatellaTest.exe had
+  started meanwhile); `python -I tools/compare_files.py` exit 0, no differences (Tibia.cfg's lists: the
+  Preferences commit).
+- `python -I tools/tidy_ci.py` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
   clang-format (CLAUDE.md's command) exit 0.
 
 ## #137: compare_traffic's look step at the player's own field (Patella-Modern issue #137, M7)
@@ -15060,3 +15143,10 @@ On this branch's client (main a8ccca5's windows-x64 build, the same sources), th
   would need the world (an NPC's walk radius, the start position), which is the owner's.
 - The live checks share one desktop and one server folder: a client of another agent can still keep a window from
   appearing (run 13), and a server start between another tool's check and its own start is refused (run 11).
+
+- After the merge of main 9ffbb50 (#119; logs in build\logs\issue-100\after-merge), on 3d2b1dd: the six presets
+  exit 0 (windows-x64 20/20, -debug 19/19, -asan 19/19, -gcc 12/12, linux-x64-gcc 17/17, linux-x64-clang 16/16),
+  golden 17,316,040, 0 failures on the five that replay it, 0 warnings, no sanitizer report. reference.py compare
+  and compare_traffic exit 0, no differences. compare_files: the first run exit 1 before our client ran (Tibia.exe's
+  window did not appear within 30 s; other agents' clients had started), its one rerun exit 0, no differences.
+  tidy_ci exit 0 (3, 0 new), banned_calls and clang-format exit 0.

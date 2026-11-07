@@ -31,6 +31,7 @@
 #include <array>
 #include <cstddef>
 #include <iterator> // std::default_sentinel_t, TMapEffects
+#include <vector>
 
 inline constexpr int MAPSIZE_X = 18;
 inline constexpr int MAPSIZE_Y = 14;
@@ -104,14 +105,17 @@ struct TCoordinate {
 struct TAutomapBlock {
 	TAutomapBlock() : Marks(0, 0, 10) { MarkCount = 0; }
 
-	int bx;                      // +0x00, -1 for an unused block
-	int by;                      // +0x04
-	int bz;                      // +0x08
-	int Previous;                // +0x0c, the cache's LRU list, toward the most recent
-	int Next;                    // +0x10, toward the least recent
-	TAutomapLayer Color;         // +0x14, [x, y], palette colour
-	TAutomapLayer Speed;         // +0x10014, [x, y], ground speed, 250 unknown, 255 blocked
-	bool Changed;                // +0x20014
+	int bx;              // +0x00, -1 for an unused block
+	int by;              // +0x04
+	int bz;              // +0x08
+	int Previous;        // +0x0c, the cache's LRU list, toward the most recent
+	int Next;            // +0x10, toward the least recent
+	TAutomapLayer Color; // +0x14, [x, y], palette colour
+	TAutomapLayer Speed; // +0x10014, [x, y], ground speed, 250 unknown, 255 blocked
+	bool Changed;        // +0x20014
+	// The marks from 0 to MarkCount - 1. A TIndexedVector (issue #100): MarkCount comes from the block's file
+	// (LoadAutomapBlock) and may be negative, and AddAutomapMark then indexes below 0, which grows the vector
+	// downwards; the reload clears min to max.
 	TIndexedVector<TMark> Marks; // +0x20018
 	int MarkCount;               // +0x200a4
 };
@@ -249,7 +253,7 @@ public:
 	bool GetAutomapChanged();
 	void UpdateAutomap(int rx, int ry);
 	TRGBColor GetAutomapColor(int x, int y, int z);
-	void GetAutomapMarks(int x, int y, int z, TIndexedVector<TMark> *Marks, int *Count);
+	void GetAutomapMarks(int x, int y, int z, std::vector<TMark> *Marks, int *Count);
 	void AddAutomapMark(TCoordinate &Coordinate, const char *Text, int Type);
 	void DeleteAutomapMark(TMark &Deleted, int z);
 
@@ -422,7 +426,7 @@ bool FieldRefreshRequested(int rx, int ry, int rz);
 bool GetAutomapChanged();
 void UpdateAutomap(int rx, int ry);
 TRGBColor GetAutomapColor(int x, int y, int z);
-void GetAutomapMarks(int x, int y, int z, TIndexedVector<TMark> *Marks, int *Count);
+void GetAutomapMarks(int x, int y, int z, std::vector<TMark> *Marks, int *Count);
 void AddAutomapMark(TCoordinate &Coordinate, const char *Text, int Type);
 void DeleteAutomapMark(TMark &Deleted, int z);
 

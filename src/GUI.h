@@ -24,9 +24,10 @@
 #include "Status.h"
 #include "Talk.h"
 #include "types/FixedString.h"
-#include "types/IndexedVector.h"
 #include <array>
+#include <flat_map>
 #include <memory>
+#include <vector>
 
 void DrawSkin(int Surface, int x, int y, int width, int height, int skin, int srcx, int srcy); // 0x497a00
 void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin, int ClipX, int ClipY,
@@ -370,11 +371,17 @@ public:
 
 private:
 	// GUI.cpp's (SkinProperties, 0x5ccfc8, is TGraphics' since issue #116: Skins.h).
-	int NumberOfHotkeys{};                             // 0x5ccf98, used entries of Hotkeys
-	TIndexedVector<TTimer *> Timers{0, 0, 2, nullptr}; // 0x5ccfa4, initialiser 0x559e30
-	TIndexedVector<THotkey> Hotkeys{0, 50, 10};        // 0x5ce4f0, initialiser 0x559e60
-	int LastTime{};                                    // 0x5ce518, UpdateTimers' static
-	bool LastTimeSet{};                                // its guard (0x5ce51c)
+	// 0x5ccf98 NumberOfHotkeys, the used entries of Hotkeys: Hotkeys.size() (issue #100).
+	// 0x5ccfa4 (initialiser 0x559e30), the original's vector<TTimer *>(0, 0, 2, NULL): AddTimer takes the first
+	// NULL entry from 0 or appends, RemoveTimer sets the entry to NULL, UpdateTimers goes through the entries in
+	// order. Its min stays 0 and max + 1 is the size, so a std::vector (issue #100; notes/decisions.md, "#100").
+	std::vector<TTimer *> Timers;
+	// 0x5ce4f0 (initialiser 0x559e60), the original's vector<THotkey>(0, 50, 10) with NumberOfHotkeys: a lookup by
+	// key, each key at most once (AddHotkey replaces its callback), the order never read (RemoveHotkey moves the
+	// last entry into the gap). A std::flat_map from the key to the callback (issue #100).
+	std::flat_map<int, TCallback> Hotkeys;
+	int LastTime{};     // 0x5ce518, UpdateTimers' static
+	bool LastTimeSet{}; // its guard (0x5ce51c)
 
 public:
 	// MainWindow.cpp's: the callbacks InitMainWindow stores, the modal window and the main window.

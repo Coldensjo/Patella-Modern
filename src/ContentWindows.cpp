@@ -30,7 +30,6 @@
 #include "Text.h"
 #include "Utils.h"
 #include "graphics.h"
-#include "types/IndexedVector.h"
 #include "DialogElements.h"
 #include "DialogWindow.h"
 #include "GUI.h"
@@ -45,6 +44,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <vector>
 
 
 namespace {
@@ -529,11 +529,11 @@ void TAutomapView::Draw(int Surface, int x, int y)
 		const int Top = CentreY - 106 / Window->Zoom;
 		for (int BlockX = Left / 256; BlockX < Left / 256 + 2; BlockX++) {
 			for (int BlockY = Top / 256; BlockY < Top / 256 + 2; BlockY++) {
-				TIndexedVector<TMark> Marks(0, 0, 10);
+				std::vector<TMark> Marks; // the original's vector<TMark>(0, 0, 10) (issue #100)
 				int Count;
 				GetAutomapMarks(BlockX, BlockY, PosZ, &Marks, &Count);
 				for (int i = 0; i < Count; i++) {
-					const TMark Mark = Marks(i);
+					const TMark Mark = Marks[static_cast<std::size_t>(i)];
 					if (Mark.x != 0 || Mark.y != 0) {
 						const int MarkX = (Mark.x - Left) * Window->Zoom / 2;
 						const int MarkY = (Mark.y - Top) * Window->Zoom / 2;
@@ -596,11 +596,11 @@ TMark TAutomapView::GetMark(int x, int y)
 	const int Top = Window->ViewY - 106 / Window->Zoom;
 	for (int BlockX = Left / 256; BlockX < Left / 256 + 2; BlockX++) {
 		for (int BlockY = Top / 256; BlockY < Top / 256 + 2; BlockY++) {
-			TIndexedVector<TMark> Marks(0, 0, 10);
+			std::vector<TMark> Marks; // the original's vector<TMark>(0, 0, 10) (issue #100)
 			int Count;
 			GetAutomapMarks(BlockX, BlockY, Window->ViewZ, &Marks, &Count);
 			for (int i = Count - 1; i >= 0; i--) {
-				TMark Mark = Marks(i);
+				TMark Mark = Marks[static_cast<std::size_t>(i)];
 				if (Mark.x != 0 || Mark.y != 0) {
 					const int MarkX = (Mark.x - Left) * Window->Zoom / 2;
 					const int MarkY = (Mark.y - Top) * Window->Zoom / 2;
