@@ -6,6 +6,7 @@
 #include <doctest/doctest.h>
 
 #include "compat/mdspan.h"
+#include "compat/span.h" // patella::DynamicExtent
 
 #include <array>
 #include <cstddef>

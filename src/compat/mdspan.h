@@ -30,10 +30,7 @@
 
 #pragma once
 
-#include "compat/span.h" // patella::DynamicExtent (std::dynamic_extent)
-
 #include <cstddef>
-#include <type_traits>
 #include <version> // IWYU pragma: keep (the feature-test macro of the #if line)
 
 #if defined(__cpp_lib_mdspan) && __cpp_lib_mdspan >= 202207L && !defined(PATELLA_MDSPAN_STANDIN)
@@ -41,7 +38,10 @@
 #include <mdspan> // IWYU pragma: export
 #else
 #define PATELLA_HAS_MDSPAN 0
+#include "compat/span.h" // patella::DynamicExtent (std::dynamic_extent)
+
 #include <array>
+#include <type_traits>
 #endif
 
 namespace patella {
