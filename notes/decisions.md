@@ -14794,4 +14794,21 @@ changed.
 
 ### The gates (high)
 
-GATES
+Logs in build\logs\issue-119 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218
+replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset.
+
+- `python -I tools/build.py windows-x64` exit 0, 20/20 (golden_concurrent the same); windows-x64-debug exit 0, 19/19;
+  windows-x64-asan exit 0, 19/19, no ASan report; windows-x64-gcc exit 0, 12/12; linux-x64-gcc exit 0, 17/17;
+  linux-x64-clang (ASan, UBSan) exit 0, 16/16, no sanitizer report. The first two windows-x64 runs failed to compile:
+  a script's edit had turned sysinc.cpp's '\r' and '\n' into the characters, and mainfrm_tests.cpp had relied on
+  MainFrm.cpp's include of Player.h (CPlayerApp); both fixed, every preset run again on the final code.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (the message boxes' messages.txt included); `python -I tools/compare_traffic.py` exit 0, no
+  differences; `python -I tools/compare_files.py` exit 1 at the first run (Tibia.exe's options run: no TibiaClient
+  window after 30 s, while windows-x64-asan was building; compare_files-try1.log), exit 0 at the rerun, no
+  differences; `python -I tools/testmode_check.py` exit 0, no differences. compare_rendering not run: TSurface is not
+  changed (only GetFullscreenModes' list, which the reference compare's display modes check).
+- `python -I tools/tidy_ci.py` on f151aef exit 1: one new misc-include-cleaner finding (LogSettings.h used
+  IFileSystem without including platform/FileSystem.h); fixed, on 48e73a5 exit 0, 3 findings, the baseline's 3, 0 new. windows-x64 on 48e73a5 again: exit 0, 20/20, golden the same. `python -I tools/banned_calls.py` exit 0.
+  clang-format (CLAUDE.md's command) exit 0.
