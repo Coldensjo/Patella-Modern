@@ -13,7 +13,7 @@
 //
 //	TWin32Input   GetCursorPos, SetTimer, KillTimer (platform/Win32Platform.h); the idle step does nothing and every
 //	              capture change and desktop event is input: Patella.exe's and the golden runner's (TSdlLoopInput, the
-//	              SDL3 window's: SDL's cursor position and the loop's timer, issues #122, #123)
+//	              SDL3 window's: the loop's timer, GetCursorPos until #127, issues #122, #123)
 //	TTestInput    the test mode's (testmode/TestModeWin32.cpp): with a script the virtual cursor, the driver's ticks
 //	              instead of the timer, the driver's step at each idle call, and the capture changes and the desktop's
 //	              events dropped (issues #52, #123); without one the window path's (the control channel's probe at the

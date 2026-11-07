@@ -269,8 +269,8 @@ window's client origin plus the virtual cursor (sdlframe::ClientToScreen, as the
 pumps the thread's messages as MFC's did and drops the desktop's input messages with a script (DropInput); SDL's events
 of the desktop's input are dropped as well (IInput::IgnoreDesktopInput, TTestInput's with a script). With a script
 neither path has a main timer (the driver's WM_TIMER ticks, which the SDL window's subclass still handles); without a
-script TTestInput passes the timer and the cursor on to the path's input (the SDL3 loop's TLoopTimer and SDL's mouse
-position, or SetTimer and GetCursorPos). `PATELLA_WINDOW=mfc python -I tools/reference.py compare ...` compares the MFC
+script TTestInput passes the timer and the cursor on to the path's input (the SDL3 loop's TLoopTimer, or SetTimer;
+GetCursorPos on both until #127). `PATELLA_WINDOW=mfc python -I tools/reference.py compare ...` compares the MFC
 path (the tools pass their environment on).
 
 

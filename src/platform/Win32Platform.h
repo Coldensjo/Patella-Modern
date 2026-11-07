@@ -80,8 +80,8 @@ public:
 };
 
 // The SDL3 window's input (issue #122; SdlFrame.cpp): the main timer is the loop's (TLoopTimer: SdlFrame.cpp's loop
-// asks TimerDue and calls TimerEvent, where the MFC frame got WM_TIMER from SetTimer); the cursor is SDL's global mouse
-// position (issue #123: SDL_GetGlobalMouseState, Windows' GetCursorPos; Win32's in a build without SDL3). The timer's
+// asks TimerDue and calls TimerEvent, where the MFC frame got WM_TIMER from SetTimer); the cursor is Win32's GetCursorPos
+// until issue #127 (issue #123: the original's last position where Windows cannot read it, which SDL would not keep). The timer's
 // Id is not kept: the client has one timer (1).
 class TSdlLoopInput final : public IInput {
 public:

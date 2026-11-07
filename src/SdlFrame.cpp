@@ -5,8 +5,9 @@
 // their order. What SDL3 does here (the window, its placement and size, the fullscreen switch, its activation, close
 // and display events, the loop): SDL_CreateWindow, SDL_SetWindowPosition/Size, SDL_SetWindowFullscreen, the window and
 // display events; since issue #123 the input (the key, text, button, wheel and motion events, SDL_CaptureMouse, SDL's
-// cursors and mouse position; platform/KeyInput.h has the client's rules). What stays Win32's until its own issue, in
-// the "Win32 until ..." parts below: the loss of the mouse capture (WM_CAPTURECHANGED: SDL has no event for it), the
+// cursors and window coordinates; platform/KeyInput.h has the client's rules). What stays Win32's until its own issue,
+// in the "Win32 until ..." parts below: the loss of the mouse capture (WM_CAPTURECHANGED: SDL has no event for it), the
+// cursor's screen position (GetCursorPos, TSdlLoopInput: it keeps the last position where SDL would report (0, 0)), the
 // host lookup's message WM_USER + 1 (the socket, #125), ShellExecute (#124), and on Windows the message pump itself
 // (SDL's own is off: the loop dispatches the thread's messages as MFC's did, so the MFC sockets' and the test mode's
 // messages are dispatched in the same order).
@@ -636,7 +637,7 @@ void OnCaptureChanged()
 	if (platform::Platform().Input.IgnoreCaptureChange())
 		return;
 	POINT Point;
-	platform::ReadCursorPosition(platform::Platform().Input, Point); // GetCursorPos (issue #119; SDL's, #123)
+	platform::ReadCursorPosition(platform::Platform().Input, Point); // GetCursorPos (issue #119)
 	if (GetViewMode() == 1) {
 		int x = Point.x;
 		int y = Point.y;

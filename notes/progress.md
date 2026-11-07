@@ -699,7 +699,7 @@ through a subclass until #123. The reference compare matches on both paths. note
 
 Input over SDL3 (Patella-Modern issue #123, branch issue-123, November 7, 2026; M8): on the SDL3 window the keys, the
 typed text (SDL_EVENT_TEXT_INPUT, converted to Windows-1252), the buttons, the wheel, the capture (SDL_CaptureMouse),
-the mouse position (SDL_GetGlobalMouseState, SDL_GetWindowPosition) and the cursors (SDL's system cursors, the client's
+the window coordinates (SDL_GetWindowPosition; the cursor's screen position stays GetCursorPos until #127) and the cursors (SDL's system cursors, the client's
 two from its resources through SDL_CreateCursor) are SDL3's. The client's rules (TranslateKey, the modifier flags,
 OnChar, the control characters TranslateMessage made, Windows' double clicks over SDL's click counts, the wheel's
 notches) are portable in platform/KeyInput.h, the cursor decoder in platform/CursorImage.h, both unit-tested. The

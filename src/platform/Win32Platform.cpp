@@ -15,10 +15,6 @@
 
 #if defined(PATELLA_SDL3)
 #include "platform/WindowChoice.h"
-
-#include <SDL3/SDL_mouse.h>
-
-#include <cmath>
 #endif
 
 #include <cstddef>
@@ -197,20 +193,12 @@ void TWin32Input::StopTimer(TWindowHandle Window, unsigned int Id)
 	::KillTimer(static_cast<HWND>(Window), Id);
 }
 
-// Issue #123: SDL's global mouse position (on Windows SDL_GetGlobalMouseState is GetCursorPos; the process is not DPI
-// aware, so the points are the same pixels). Whole pixels, as GetCursorPos's.
+// Win32's GetCursorPos until issue #127 (the owner's decision on #123): where Windows cannot read the cursor (another
+// desktop: the lock screen, UAC's secure desktop) it fails and the point stays the last one, as the original's;
+// SDL_GetGlobalMouseState would report (0, 0) there.
 bool TSdlLoopInput::CursorPosition(TPoint &Point)
 {
-#if defined(PATELLA_SDL3)
-	float X = 0.0F;
-	float Y = 0.0F;
-	SDL_GetGlobalMouseState(&X, &Y);
-	Point.x = static_cast<int>(std::floor(X));
-	Point.y = static_cast<int>(std::floor(Y));
-	return true;
-#else
 	return Win32Input().CursorPosition(Point);
-#endif
 }
 
 void TSdlLoopInput::StartTimer([[maybe_unused]] TWindowHandle Window, [[maybe_unused]] unsigned int Id,

@@ -16391,8 +16391,8 @@ the message that made them, so the order of the client's calls is the messages' 
   frame Windows' (SDL_HINT_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN=1). OnSetCursor's moment (UpdateMouseCursor again at
   each mouse move or press over the client area while no button is held: it picks up a changed Windows-pointer option)
   is the motion and press events. The five cursors are destroyed with the window.
-- **The cursor position**: TSdlLoopInput::CursorPosition is SDL_GetGlobalMouseState (GetCursorPos on Windows);
-  ScreenToClient and ClientToScreen use the window's place as SDL knows it (SDL_GetWindowPosition: the client area's
+- **The cursor position**: TSdlLoopInput::CursorPosition stays Win32's GetCursorPos until #127 (the owner's decision,
+  November 7, 2026: "Behaviour that SDL3 cannot give the same way", the cursor on another desktop); ScreenToClient and ClientToScreen use the window's place as SDL knows it (SDL_GetWindowPosition: the client area's
   top left, from ClientToScreen of the client origin in SDL's WM_WINDOWPOSCHANGED). Player.cpp's InitInstance and
   OnIdle use sdlframe::ScreenToClient on the SDL3 path.
 - **The capture's loss**: SDL has no event for it. On Windows the subclass still takes WM_CAPTURECHANGED (then passes
@@ -16442,8 +16442,10 @@ Each is a choice, recorded; none is reached by the gates' sessions.
   SM_CYDOUBLECLK) and its message times; SDL measures with its clock when it handles the message. A millisecond or a
   pixel at the edges.
 - **The cursor where Windows cannot read it**: GetCursorPos fails on another desktop (the lock screen, UAC's secure
-  desktop) and the original kept the last position; SDL_GetGlobalMouseState then reports (0, 0), so OnIdle sees a move
-  to the screen's corner while the desktop is away, and one back after. Needs the user (below).
+  desktop) and the original kept the last position; SDL_GetGlobalMouseState then reports (0, 0), so OnIdle would see a
+  move to the screen's corner while the desktop is away, and one back after. Decided by the owner on November 7, 2026:
+  the original's behaviour, so TSdlLoopInput::CursorPosition keeps Win32's GetCursorPos on Windows until #127 (the
+  first version of this change used SDL_GetGlobalMouseState).
 - **IME**: SDL's text input with SDL's IME handling (the system draws the composition and candidates); a committed
   string comes as UTF-8 and is converted to Windows-1252 ('?' for what it does not have). The ANSI window got
   WM_IME_CHAR made into code-page bytes by DefWindowProc (double-byte characters as two bytes on an Asian code page).
@@ -16466,14 +16468,14 @@ is not touched.
 
 ### Needs the user (high)
 
-- **The cursor where Windows cannot read it** (above): SDL_GetGlobalMouseState's (0, 0) while the desktop is away
-  (chosen: the issue's SDL call) or Win32's GetCursorPos on Windows until #127, which keeps the original's last
-  position. One line in TSdlLoopInput::CursorPosition.
+- **The cursor where Windows cannot read it** (above): decided on November 7, 2026, GetCursorPos until #127.
 - **The test server's world broke during this issue's first compare_traffic run** (not by this change): testserver.py
   start's bind-race retry (#95) stopped attempt 1, which had come online meanwhile, and killed it after 30 s while it
   saved its map (C:\Tibia\gameserver\data\map's sector files are dated 18:48:11-18:48:15, the save cut off); every later
   start fails with "Cannot load sector". Not restored here (the server's files are not this work's to edit); the backup
-  is build\gameserver-map-backup-20261107.7z in the main checkout. Found, not done: start's stop_timeout reads the log
+  is build\gameserver-map-backup-20261107.7z in the main checkout. Resolved by the orchestrator the same evening: the one
+  cut file (1035-1025-07.sec, 4,096 bytes of the backup's 34,675) restored from the backup; testserver.py's stop_timeout
+  fixed on main in 85d4de6 (600 s once server.log shows "Loading map sectors"), merged here. Found, not done: start's stop_timeout reads the log
   at the bind error (2.1 s), before "Server Online!", so it gives STALLED_STOP to a server that comes online before the
   Ctrl+C (build\logs\issue-123\compare_traffic.log, build\testserver\server-attempt1.log).
 
