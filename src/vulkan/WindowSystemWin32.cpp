@@ -8,6 +8,7 @@
 
 #include "vulkan/WindowSystem.h"
 
+#include "platform/Window.h"
 #include "vulkan/Renderer.h"
 
 #ifndef NOMINMAX
@@ -16,6 +17,7 @@
 #include <windows.h>
 
 #include <volk.h>
+#include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_win32.h>
 
 #include <string>

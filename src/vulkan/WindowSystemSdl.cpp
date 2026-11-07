@@ -13,10 +13,17 @@
 
 #include "vulkan/WindowSystem.h"
 
+#include "platform/Window.h"
 #include "vulkan/Renderer.h"
 
-#include <SDL3/SDL.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
 #include <SDL3/SDL_vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include <string>
 #include <string_view>
@@ -114,7 +121,7 @@ private:
 				break;
 			}
 		}
-		SDL_free(static_cast<void *>(Windows));
+		SDL_free(static_cast<void *>(Windows)); // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): SDL_GetWindows' array
 		return Last;
 	}
 
