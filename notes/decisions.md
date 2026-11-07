@@ -14059,3 +14059,18 @@ another agent's live run, collided on those ports, the most common cause of fail
 - Two compares at the same time (--out reference-compare-a and -b): both exit 0, every session matches; up to four
   PatellaTest.exe at once, no listening socket.
 
+### The gates (high)
+
+Logs in build\logs\issue-120 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden, its manifest verified).
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), 0 warnings. windows-x64-debug: exit 0, 18/18; windows-x64-asan: exit 0,
+  18/18, no ASan report; golden the same on both. windows-x64-gcc: exit 0, 12/12 (after GCC's -Wshadow on the first
+  try: TPipeNetwork's constructor parameter). linux-x64-gcc: exit 0, 16/16; linux-x64-clang (ASan, UBSan): exit 0,
+  14/14, no sanitizer report; golden the same on both. 0 warnings on every preset.
+- Live: the reference compares above; `python -I tools/compare_traffic.py` (the live path, Win32's sockets) exit 0,
+  no differences.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. The Windows tidy.py run on
+  PipeSocketWin32.cpp and TestModeWin32.cpp: none of the new code's (its two fixed). `python -I tools/banned_calls.py`:
+  exit 0. clang-format (CLAUDE.md's command): exit 0.
