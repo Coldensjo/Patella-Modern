@@ -29,8 +29,9 @@
 struct TFullscreenMode;
 class TSurface;
 
-// View modes (TSurface::ViewMode, Init); 0 is none (not initialised).
-enum : int {
+// View modes (TSurface::ViewMode, Init); 0 is none (not initialised). The int constants of the int members and
+// parameters, unscoped as the other unnamed ones (notes/decisions.md, "The other ten stay unscoped").
+enum : int { // NOLINT(cppcoreguidelines-use-enum-class): int constants, above
 	WINDOWED_MODE = 1,
 	FULLSCREEN_MODE = 2,
 };
@@ -42,8 +43,8 @@ static_assert(std::is_same_v<std::underlying_type_t<decltype(WINDOWED_MODE)>, in
 // cache surfaces (graphics.cpp's Item.Surface + 6). The names are from the
 // assertions of SurfaceDX.cpp and surfaceDX9.cpp ("Surface9[SPRITE_SURFACE]");
 // NUMBER_OF_SURFACES is SurfaceDX.cpp's count (surfaceDX9.cpp has its own
-// NUMBER_OF_SURFACES_DX9).
-enum : int {
+// NUMBER_OF_SURFACES_DX9). Unscoped int constants, as the view modes'.
+enum : int { // NOLINT(cppcoreguidelines-use-enum-class): int constants, above
 	PRIMARY_SURFACE = 0,
 	SCREEN_SURFACE = 1,
 	TEMP_SURFACE = 2,

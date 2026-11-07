@@ -19,6 +19,7 @@
 #include "Preferences.h"
 #include "common.h"
 #include "compat/span.h"
+#include "platform/Window.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>

@@ -16,6 +16,7 @@
 #include "vulkan/DeviceSettings.h"
 #include "common.h"
 #include "vulkan/DeviceChoice.h"
+#include "platform/Window.h"
 bool IsVulkanInstalled();
 TSurface *CreateSurfaceVulkan(patella::platform::TSurfaceShared &Shared);
 
