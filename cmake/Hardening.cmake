@@ -5,10 +5,15 @@
 #	patella_target_hardening(<target>)
 #
 # - MSVC: Control Flow Guard (/guard:cf, compiler and linker) and CET shadow stack compatibility
-#   (/CETCOMPAT); ASLR and DEP (/DYNAMICBASE /NXCOMPAT) are the linker's defaults.
+#   (/CETCOMPAT); ASLR and DEP (/DYNAMICBASE /NXCOMPAT) are the linker's defaults. The MSVC STL's hardened mode,
+#   _MSVC_STL_HARDENING=1 (since MSVC 14.44, VS 2022 17.14; every container's, string's, span's, mdspan's, optional's
+#   and expected's preconditions, a violation __fastfail(5)), for C++ in every configuration (issue #133; Debug's
+#   _ITERATOR_DEBUG_LEVEL 2 checks them already).
 # - GCC and Clang: -fstack-protector-strong; _FORTIFY_SOURCE=3 where the code is optimised (it needs
 #   optimisation and warns without it; any level the compiler predefines is replaced);
-#   _GLIBCXX_ASSERTIONS in Debug; position-independent executables; on Linux full RELRO.
+#   libstdc++'s hardened mode, _GLIBCXX_ASSERTIONS (the one -fhardened defines; libstdc++ 16 has no other that keeps
+#   the ABI, _GLIBCXX_DEBUG changes it), for C++ in every configuration (issue #133; Debug only until then; a
+#   violation __glibcxx_assert_fail, an abort); position-independent executables; on Linux full RELRO.
 # - PATELLA_SANITIZE (GCC and Clang; the preset linux-x64-clang sets it to address,undefined, plan
 #   section 5): -fsanitize=<list> for compiling and linking, every finding fatal
 #   (-fno-sanitize-recover=all), frame pointers kept for the reports.
@@ -64,7 +69,10 @@ endfunction()
 function(patella_target_hardening target)
 	get_target_property(type ${target} TYPE)
 	if(MSVC)
-		target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:/guard:cf>)
+		# Options, not compile definitions: patella_target_import_std gives the std module the target's
+		# COMPILE_OPTIONS, and MSVC warns (C5050) when a macro of the importer's is not the module's.
+		target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:/guard:cf>
+			$<$<COMPILE_LANGUAGE:CXX>:/D_MSVC_STL_HARDENING=1>)
 		if(type STREQUAL "EXECUTABLE" OR type STREQUAL "SHARED_LIBRARY" OR type STREQUAL "MODULE_LIBRARY")
 			target_link_options(${target} PRIVATE /guard:cf /CETCOMPAT)
 		endif()
@@ -84,7 +92,7 @@ function(patella_target_hardening target)
 		target_compile_options(${target} PRIVATE
 			$<$<COMPILE_LANGUAGE:C,CXX>:-fstack-protector-strong>
 			$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<NOT:$<CONFIG:Debug>>>:-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3>
-			$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:Debug>>:-D_GLIBCXX_ASSERTIONS>)
+			$<$<COMPILE_LANGUAGE:CXX>:-D_GLIBCXX_ASSERTIONS>)
 		check_pie_supported(LANGUAGES C CXX)
 		set_property(TARGET ${target} PROPERTY POSITION_INDEPENDENT_CODE ON)
 		if(CMAKE_SYSTEM_NAME STREQUAL "Linux"

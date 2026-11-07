@@ -68,7 +68,7 @@ endmacro()
 # with the importer's options (4.4 compiles its BMI with the importer's; below), so the module and its importer would
 # differ in what the options define: MSVC warns C5050 ("Possible incompatible environment while importing module 'std': _CONTROL_FLOW_GUARD=1 is defined in current
 # command line and not in module command line", likewise _UTF8 of /utf-8; an error under /WX), and GCC accepts a module
-# built without the importer's -D_FORTIFY_SOURCE=3, -D_GLIBCXX_ASSERTIONS (Debug), -fstack-protector-strong or the
+# built without the importer's -D_FORTIFY_SOURCE=3, -D_GLIBCXX_ASSERTIONS, -fstack-protector-strong or the
 # sanitizers, which change the library's inline code. So the module gets the target's own options: on MSVC the module
 # is a static library of the build (__cmake_cxx23, which the alias names), its COMPILE_OPTIONS; on GCC an imported
 # target that CMake compiles for its importers, its INTERFACE_COMPILE_OPTIONS (which the importer gets too, the same

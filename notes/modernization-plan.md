@@ -727,6 +727,9 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   (Clang on Linux) and MSVC `/fsanitize=fuzzer`, seeded with the reference recordings.
 - **Hardening:** `_MSVC_STL_HARDENING` and libstdc++'s/libc++'s hardened modes in release builds where the
   library supports them; `-D_GLIBCXX_ASSERTIONS` / bounds-checked `std::span` and `std::mdspan` in debug.
+  Done in #133 (notes/decisions.md, "#133"): `_MSVC_STL_HARDENING=1` and libstdc++'s `_GLIBCXX_ASSERTIONS` in every
+  configuration of every product preset (libc++ is not used); golden +16% (Windows) / +23% (Linux), the reference
+  compare +2%.
 - **Profiling:** frame time and allocations per frame against the reference client; GPU timings of the Vulkan engine
   (timestamp queries).
 - **Packages** through CPack: a Windows zip (and optionally an installer), a Linux tarball and AppImage or

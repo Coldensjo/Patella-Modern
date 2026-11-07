@@ -615,6 +615,11 @@ definitions are prototypes (same types; the implicit conversions now explicit ca
 suppressions: 0 warnings at /W4 and -Wall -Wextra -Wpedantic -Wconversion -Wshadow. `patella::TRegexp`
 (src/types/Regexp.h) owns regcomp's program (free on reset, assignment, destruction); Status.cpp's LinkRegexp is one.
 tests_core's regexp tests go through it. Golden 17,316,040, 0 failures. notes/decisions.md, "#129".
+
+Hardened standard library modes (Patella-Modern issue #133, branch issue-133, November 7, 2026; M9): the MSVC STL's
+_MSVC_STL_HARDENING=1 and libstdc++'s _GLIBCXX_ASSERTIONS (until now Debug only) for C++ in every configuration of
+every product preset (cmake/Hardening.cmake); no check fired. Cost, one run each: golden +16% on Windows, +23% on
+Linux, the reference compare +2%. Golden 17,316,040, 0 failures. notes/decisions.md, "#133".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
