@@ -434,6 +434,8 @@ def run_tree(platform, command, log=None, extra_mounts=(), check_warnings=False)
 		env = dict(os.environ)
 	elif platform == "windows":
 		env = build.environment("windows-x64-asan")
+		# the pinned CMake (issue #141), not the first one on PATH
+		command = build.pinned_cmake(command)
 	else:
 		env = dict(os.environ)
 	stdin = open(listing, "rb") if listing else None

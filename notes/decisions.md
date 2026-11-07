@@ -15744,3 +15744,89 @@ Release build (C:\Tibia\Patella-Modern\build\windows-x64\Release, built from 289
   build/render/result`: exit 0, "result: all scenes identical": vulkan (RTX 5080) and vulkan-cpu (llvmpipe), 26
   scenes each, "look at own field" among them; on the CPU driver every difference within the region tolerance
   (largest channel difference 2), the advanced options' masks as always. The issue's "Done when".
+
+## #141: CMake 4.4.5 everywhere (Patella-Modern issue #141, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-141, from main b24483a; CMake 4.4.5, MSVC 14.51, mingw-w64 GCC
+16.2, GCC 16.2 and Clang 22.1.8 in the image). Files: tools/build.py (pinned_cmake, install_cmake, CMAKE_VERSION,
+CMAKE_SHA256, the image tag), tools/compare_rendering.py and tools/fuzz.py (the pinned CMake for their own cmake
+calls), docker/linux-x64/Dockerfile, cmake/ImportStd.cmake, .github/workflows/hosted.yml and self-hosted.yml, CLAUDE.md,
+README.md, notes/reconstruction.md.
+
+### One version, pinned in three places (high)
+
+The owner's decision: CMake 4.4.5 (the newest stable release, October 27, 2026) for every build. Before: 4.1.2 locally
+(C:\Program Files\CMake, first on the machine PATH; and vcvarsall.bat puts Visual Studio's 4.3.1 first in the MSVC
+presets' environment), 4.1.2 in the image, whatever the hosted Windows runner had (4.4.5, unpinned).
+
+- This machine: Kitware's cmake-4.4.5-windows-x86_64.zip in C:\Servers\Software\cmake (the owner's rule for portable
+  tools), its bin folder on the user PATH, the zip's SHA-256 checked against the release's cmake-4.4.5-SHA-256.txt
+  (326c8264...f004). C:\Program Files\CMake, mingw64's 4.4.2 and Visual Studio's copy are untouched.
+- tools/build.py: on Windows a bare cmake, ctest or cpack becomes the pinned executable (PATELLA_CMAKE_DIR, default
+  C:\Servers\Software\cmake), checked once per run with `--version`; a missing one or another version is a BuildError
+  that says how to install it. A path stays as it is; Linux (in the image, or a Linux host) uses PATH. The machine
+  PATH comes before the user PATH, so PATH alone could not pick it. compare_rendering.py (patcap's build) and fuzz.py
+  (the Windows fuzz tree) call cmake themselves with build.py's environment; they now go through pinned_cmake too.
+- `python -I tools/build.py --install-cmake <folder>`: downloads the zip, checks it against build.py's CMAKE_SHA256,
+  unpacks it into a new folder. Hosted CI's three Windows jobs run it into $RUNNER_TEMP\cmake and set
+  PATELLA_CMAKE_DIR, so the runner's own CMake is never used; one copy of the hash serves CI and a new machine.
+- The image: CMAKE_VERSION 4.4.5, CMAKE_SHA256 ed85135c...0be0 (the release's Linux x86_64 tarball), a new tag
+  `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5` (in build.py, both workflows and the docs):
+  branches still on the old Dockerfile keep the old image, which is not removed.
+- Hosted CI prints the version in every job that runs CMake: the Windows jobs' install step (and windows-msvc's Tool
+  versions through build.py), and a `cmake --version` step in each job that builds the image (linux, clang-format,
+  clang-tidy). The banned-calls job runs no CMake.
+
+A build folder configured by 4.1.2 needs one `python -I tools/build.py <preset> --fresh` (or a new folder): its cache
+names the old cmake and 4.1's std module target. Said in CLAUDE.md and notes/reconstruction.md, "Building".
+
+### ImportStd.cmake: the 4.4 path, and kept the 4.1 path (high)
+
+Every build takes the 4.4 gate now. Kept: the 4.1 gate and code path, and cmake_minimum_required 3.30 (and the
+presets' 3.30): they cost a few lines, and a distribution build with its own CMake (4.1, or 3.30 without import std,
+where the option is off with a warning) still configures. Removing them would gain nothing the pin does not already
+give.
+
+Clang under 4.4 failed two ways, both fixed in patella_target_import_std (Clang only):
+
+- The fortify exception (#121) stays, but differently. 4.4 compiles the std BMI per importer with the importer's
+  options (@cmake_cxx_std@synth_0), de-duplicated: #121's second `-U_FORTIFY_SOURCE` after Hardening.cmake's
+  `-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3` was dropped, the BMI was compiled with -D_FORTIFY_SOURCE=3, and bits/std.cc
+  failed as in #121 ("using declaration referring to 'printf' with internal linkage cannot be exported"). 4.4's
+  per-importer module does not remove the exception: the module is compiled with the importer's options, so it needs
+  the importer without fortify. The target's COMPILE_OPTIONS now lose the hardening's _FORTIFY_SOURCE item (list
+  FILTER) instead; the target and its BMI compile without it, as before. It works on 4.1 as well (its module copies
+  the filtered options).
+- 4.4 also compiles bits/std.cc and std.compat.cc into the objects of a target @cmake_cxx_std with the directory's
+  flags only, and Clang warns "'std' is a reserved name for a module [-Wreserved-module-identifier]"; 4.1 gave its
+  module target -Wno-reserved-module-identifier (Modules/Compiler/Clang-CXX-CXXImportStd.cmake), 4.4 does not and
+  has no property for it. The function sets it in the caller's CMAKE_CXX_FLAGS (PARENT_SCOPE: tests/unit, whose only
+  module is std) on CMake 4.4 and newer. build.py fails any warning, so this was a build failure.
+
+Found, not changed: 4.4.5's synthesized BMI evaluates the importer's configuration-dependent options for the first
+configuration (Release): in Debug, GCC's std BMI gets `-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3`, which the Debug
+importer does not have (compile_commands.json of linux-x64-gcc). GCC accepts it without a warning and
+linux-x64-gcc-debug passes; MSVC's options have no configuration-dependent item (its runtime flag comes from CMake's
+own per-configuration flags, correct in both). A CMake bug to report upstream; nothing here depends on it.
+
+MSVC and GCC needed no change: windows-x64 (and -debug, -asan) and windows-x64-gcc, linux-x64-gcc build tests_import_std
+on 4.4.5 as they did on 4.1.2.
+
+### The gates (high)
+
+Logs in build\logs\issue-141 of the worktree. Fresh build folders (a new worktree), PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden.
+
+- `python -I tools/build.py windows-x64`: exit 0, 0 warnings, 28/28, golden 15,803,218 replayed + 1,512,822 retired =
+  17,316,040, 0 failures; "import std: on (C++23, CMake 4.4.5, MSVC 19.51.36260.0)"; CMAKE_COMMAND
+  C:/Servers/Software/cmake/bin/cmake.exe.
+- windows-x64-debug: exit 0, 27/27, golden 0 failures. windows-x64-asan: exit 0, 27/27, golden 0 failures.
+  windows-x64-gcc: exit 0, 13/13.
+- linux-x64-gcc: exit 0, 25/25, golden 0 failures. linux-x64-clang (after the ImportStd fix, with --fresh): exit 0,
+  24/24, golden 0 failures (before it: exit 1, the BMI's 5 errors and 3 warnings). linux-x64-gcc-debug and
+  linux-x64-clang-debug (hosted CI's Debug jobs): exit 0, 24/24 each, golden 0 failures.
+- `python -I tools/tidy_ci.py --worktree` (the new image): exit 0, 3 findings, 0 new, 0 bugprone-; `python -I
+  tools/banned_calls.py`: exit 0; clang-format with CLAUDE.md's command: exit 0.
+- `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` (PatellaTest.exe built by
+  4.4.5): exit 0, "every session matches its reference". No live client runs (compare_traffic): src/ is unchanged and
+  the client's compile and link flags come from the same presets; the build gates and the replay cover a change of
+  CMake.

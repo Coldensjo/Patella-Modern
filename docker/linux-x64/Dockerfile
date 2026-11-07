@@ -1,9 +1,9 @@
 # The Linux build image of Patella-Modern (issue #7; notes/modernization-plan.md, sections 4.7 and 5):
-# GCC 16 and Clang, CMake 4.1.2 and Ninja, for the presets linux-x64-gcc and linux-x64-clang, and
+# GCC 16 and Clang, CMake 4.4.5 and Ninja, for the presets linux-x64-gcc and linux-x64-clang, and
 # clang-format and clang-tidy for the checks of CI (issue #11). Every version is pinned: the base image
 # by digest, the Debian packages by version, CMake by its SHA-256.
 #
-#	docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 docker/linux-x64
+#	docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5 docker/linux-x64
 #
 # - GCC 16.2.0: Docker Hub's official gcc image (built from source by the Docker library, installed in
 #   /usr/local, libstdc++exp.a included; /usr/local/lib64 is first in ld.so.conf). It is Debian 13
@@ -17,9 +17,10 @@
 #   every caller has it, CMake's probe for the std module (`clang++ -print-file-name=libstdc++.modules.json`,
 #   which passes no CMAKE_CXX_FLAGS) and clang-tidy (its driver reads the same file) as well as the builds.
 #   The RUN checks that clang++ selects that installation and finds the module's description.
-# - CMake 4.1.2 (issue #113; Debian's CMake 3.31.6 until then): Kitware's release for Linux x86_64, checked
-#   against its SHA-256, in /opt/cmake, linked into /usr/local/bin. The version of the Windows builds; 3.31 has
-#   no `import std` for GCC and only libc++'s for Clang (cmake/ImportStd.cmake, notes/decisions.md, "import std
+# - CMake 4.4.5 (issue #141; 4.1.2 since issue #113, Debian's CMake 3.31.6 before): Kitware's release for Linux
+#   x86_64, checked against its SHA-256 (cmake-4.4.5-SHA-256.txt of the release), in /opt/cmake, linked into
+#   /usr/local/bin. The version of the Windows builds, local and hosted (one version everywhere); 3.31 has no
+#   `import std` for GCC and only libc++'s for Clang (cmake/ImportStd.cmake, notes/decisions.md, "import std
 #   (issue #113)"). GCC 16.2's std module (bits/std.cc, libstdc++.modules.json) comes with the gcc image.
 #
 # When Debian replaces one of the pinned package versions (a point release), the build fails at
@@ -44,8 +45,8 @@ RUN apt-get update \
 
 RUN gcc_dir="$(dirname "$(gcc -print-libgcc-file-name)")" 	&& test "$gcc_dir" = /usr/local/lib/gcc/x86_64-linux-gnu/16.2.0 	&& for driver in clang clang++; do echo "--gcc-install-dir=$gcc_dir" > /usr/lib/llvm-22/bin/$driver.cfg; done 	&& clang++ -v -E -x c++ /dev/null 2>&1 | grep -qx "Selected GCC installation: $gcc_dir" 	&& clang -v -E -x c /dev/null 2>&1 | grep -qx "Selected GCC installation: $gcc_dir" 	&& test -f "$(clang++ -print-file-name=libstdc++.modules.json)"
 
-ARG CMAKE_VERSION=4.1.2
-ARG CMAKE_SHA256=773cc679c3a7395413bd096523f8e5d6c39f8718af4e12eb4e4195f72f35e4ab
+ARG CMAKE_VERSION=4.4.5
+ARG CMAKE_SHA256=ed85135c5a5135b45e50423cb406dea04ca3338da0b8ef3c9ede963559680be0
 RUN curl -fsSL -o /tmp/cmake.tar.gz \
 		"https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" \
 	&& echo "${CMAKE_SHA256}  /tmp/cmake.tar.gz" | sha256sum -c - \

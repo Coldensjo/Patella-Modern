@@ -40,14 +40,17 @@ that the tools load into Tibia.exe, `cmake/Capture.cmake`; no client, no tests; 
 build: the oracle (the 32-bit Patella.exe, the differential tests, the x86 layout asserts, the engines DirectDraw,
 Direct3D 9 and OpenGL) left the fork with issue #94, M6; it is in upstream Patella and at the tag `layout-frozen-final`
 (`notes/decisions.md`, issue #94). `import std;` (issue #113, `cmake/ImportStd.cmake`): PATELLA_IMPORT_STD is ON in windows-x64, windows-x64-asan,
-windows-x64-gcc and linux-x64-gcc (CMake's experimental gate, known for CMake 4.1 and 4.4; the image has CMake 4.1.2),
+windows-x64-gcc and linux-x64-gcc (CMake's experimental gate, known for CMake 4.1 and 4.4; CMake is 4.4.5 everywhere since issue #141),
 and since issue #121 linux-x64-clang (Clang 22 on GCC 16's libstdc++: the image's Clang configuration files; no
 fortify for the std module there); its one user is tests_import_std. Every product preset also compiles each header of src/ on its own
 (`cmake/HeaderCheck.cmake`, issue #49: the `header_check_*` object libraries, a generated one-line source per
 header with a target's settings; a new header goes on one of its lists, or the configure fails). On Windows build.py runs the Linux presets in the Docker image
-`patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16` (build it once: `docker build -t
-patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 docker/linux-x64`). `python -I tools/build.py --env <preset>
-<command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. The
+`patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5` (build it once: `docker build -t
+patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5 docker/linux-x64`). `python -I tools/build.py --env <preset>
+<command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. CMake
+(issue #141): 4.4.5 everywhere; on Windows build.py runs the portable `C:\Servers\Software\cmake` (PATELLA_CMAKE_DIR
+overrides it; `python -I tools/build.py --install-cmake <folder>` installs Kitware's zip, SHA-256 checked), never the
+first cmake on PATH, and refuses another version; a build folder from CMake 4.1.2 needs one `--fresh`. The
 test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/reconstruction.md`, "Building",
 "Test server", "Checking".
 The x64 client's only engine is the Vulkan engine, as engine 2 (issues #19, #20, `notes/vulkan.md`; the original

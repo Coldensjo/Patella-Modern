@@ -652,6 +652,15 @@ because the golden window tests use them as seams (constructors redirected to th
 as the class, TContainerWindowBody::UpdateUpButton patched and inlined once `final`); TXTEA's destructor is
 `= default` (#34's case). Patella.exe's .text +0x4e0. Golden 17,316,040, 0 failures. notes/decisions.md, "#47".
 
+CMake 4.4.5 everywhere (Patella-Modern issue #141, branch issue-141, November 7, 2026; M7): the owner's decision, one
+CMake version. tools/build.py runs cmake, ctest and cpack on Windows from the portable C:\Servers\Software\cmake
+(Kitware's zip, SHA-256 checked; `--install-cmake <folder>` installs it, PATELLA_CMAKE_DIR names another folder) and
+refuses a missing one or another version; the Linux image has 4.4.5 (new tag
+patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5), hosted CI's Windows jobs install the same zip.
+Clang's std module under 4.4: the target loses the hardening's _FORTIFY_SOURCE item (4.4 de-duplicates the second
+-U of #121 away) and tests/unit gets -Wno-reserved-module-identifier (4.1 gave it its module target). Build folders
+from 4.1.2 need one --fresh. Golden 17,316,040, 0 failures. notes/decisions.md, "#141".
+
 compare_rendering's look step (Patella-Modern issue #140, branch issue-140, November 7, 2026; M7): compare_rendering.py
 replays compare_traffic.py's live recording but still scripted "look north", so a recording made since #137 replayed
 one client packet off. Its session now looks at the player's own field as compare_traffic's does, and both tools read
