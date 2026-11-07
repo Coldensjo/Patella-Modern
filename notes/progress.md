@@ -697,6 +697,18 @@ CR at the end of a CRLF file's last line without a line end; WritePreferences ke
 (Buddy01), which then shadowed the renumbered entry; Set took a key starting with a byte order mark. The original's
 findings are filed (notes/decisions.md, "#132").
 
+The original's failures on corrupt files and hostile frames, fixed (Patella-Modern issue #139 and #72's outcome,
+branch issue-139, November 7, 2026; M9; the owner's decisions of November 7, deliberate differences): a server frame
+the client cannot use (#72's inner length past the frame or size 0, a size that is no multiple of 8, a frame larger
+than the 16 KB receive buffer) is dropped, a warn line goes to the developer log, and the connection goes on with the
+next frame (#72's frame no longer ends the client; the original read past it, threw at every later call, or waited
+forever). A failed Tibia.dat or Tibia.pic load frees only what it allocated; a sprite's or tile's run past the 1024th
+pixel is a data error (PROGRAM_ERROR 4 or 5); GetString checks before it allocates; a .map file with a negative mark
+count is a corrupted file. Golden 17,316,040, 0 failures; the Network test's deliberate parts: #72 274 parts, 36,104
+checks, 16,588 differing; #139 33 parts (item 6's "frames" in the corpus's out-of-step streams), 3,343 checks, 1,178
+differing (before: #72 280, 37,052, 14,165). bounded_reads covers each item; the fuzz harnesses' guards are gone,
+properties check the fixes, new synthetic seeds. notes/decisions.md, "#139".
+
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

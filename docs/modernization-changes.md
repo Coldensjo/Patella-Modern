@@ -206,4 +206,14 @@ memory. It costs about 2% in a realistic run.
 **Fuzzing (#132).**
 Eight fuzz targets feed the packet parser and every file loader millions of random, broken inputs on Linux and
 Windows to find crashes. They found three bugs in our own settings code (fixed) and seven weaknesses in the
-original's code (to be fixed in #139).
+original's code (fixed in #139, below).
+
+**Broken data and hostile servers handled safely (#139, and a change to #72).**
+The seven weaknesses the fuzzing found in the original's code are fixed, each as a deliberate difference. A damaged
+Tibia.dat or Tibia.pic no longer makes the program free memory it never allocated; a damaged picture can no longer
+write past its buffer; a damaged map file with an impossible number of marks is treated as damaged instead of
+eating memory for minutes; a message that does not fit no longer leaks memory. A server message that is broken
+(too long for its own frame, too large for the receive buffer, or the wrong size for its encryption) is now thrown
+away, noted in the developer log, and the game carries on with the next message, where the original read past its
+data, froze waiting forever, or quit. *Why it matters:* a corrupt file or a hostile server can no longer crash,
+freeze or corrupt the client; every one of these cases has a unit test and a fuzzing seed.
