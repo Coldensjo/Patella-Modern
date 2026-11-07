@@ -15150,3 +15150,78 @@ On this branch's client (main a8ccca5's windows-x64 build, the same sources), th
   and compare_traffic exit 0, no differences. compare_files: the first run exit 1 before our client ran (Tibia.exe's
   window did not appear within 30 s; other agents' clients had started), its one rerun exit 0, no differences.
   tidy_ci exit 0 (3, 0 new), banned_calls and clang-format exit 0.
+
+## #47: final on the classes nothing derives from (Patella-Modern issue #47, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-47, from main 8006002). #33 added `override` and left `final`
+for after the oracle (`final` changes the generated code: devirtualized calls, other inlining); with the oracle gone
+(#94) the proof is behaviour: the golden corpus, the reference compare and the live comparisons.
+
+### The count (high)
+
+Recounted on main 8006002 (a scan of src/ and tests/ without src/Extern: every class or struct definition, its bases,
+whether its body says `override`): 100 classes of src/ override and have no subclass in src/ or tests/ (#33 counted
+107 on November 2; the subsystem moves and the oracle's departure removed and added classes: TSurfaceDX and the other
+engines went with #94, the platform classes of #109/#119, TClient's adapters of #118 are new and already `final`). 20
+classes were `final` already (Client.cpp's three adapters, TMapState, TNetwork, TTalk, the platform and test-mode
+classes). Classes without an override (TXTEA, the cipher and exception bases, the interfaces) are not in the issue's
+scope.
+
+### Marked (high)
+
+70 classes, one keyword each: ConsoleWindow.h's TTextWindow, TConsole, TTab, TTabBar; ContentWindows.h's
+TAutomapView, TCompassRose, TCapacityLabel, TSoulLabel, TPlayerStates, TSmallInventoryWindow, TInventoryView,
+TCombatControls, TBattleWindowBody, TTradeOffers, TTradeNames, TTradeButtons, TTradeWindowBody, TBuddylistWindowBody;
+ContextMenus.h's TContextMenuEntry; DialogElements.h's TLink, TOutfitIcon, TObjectIcon, TColorButton, TIconButton,
+TCheckBox, TPasswordEditLine, TEditText, THorizontalScrollBarRange, THorizontalScrollBar, TFontListBox, TProgressBar;
+DialogWindow.h's TSubWindow, TDialogWindow; Dialogs.h's 28 (TQuestionLabel, TLogoutLabel, TWaitLabel,
+TReconnectWindow and every dialog class but TDialog); MainWindow.h's TStartWindow, TSplitter; Player.h's CPlayerApp;
+Talk.h's TPrivateTalkBuffer, TRuleViolationTalkBuffer, TRuleViolationChannel, TPrivateChannel; Win32Platform.h's
+TSocket; SurfaceVulkan.h's TSurfaceVulkan.
+
+### Left without final: the golden tests' seams (high)
+
+Nothing in src/ or tests/ derives from these 30, but the golden window tests use them as seams that `final` closes. With all
+100 marked, golden failed (DialogWindow: an Inventory.cpp assertion with a garbage container, then "windows differ"
+in five operations).
+- **The tests build objects of their own where our code expects the class** (29). They redirect our constructors
+  (`/alternatename` to the decorated names, elementfakes.cpp's PatchElementFakes, commworld.cpp's GOLDEN_SYMBOLs), so
+  `new TResizer(...)` in our code builds a mirror fake (elementfakes.h) or a TCtlWindow; or they hand a stand-in to
+  our code as the class (casts). A virtual call through a pointer of a `final` class is direct, so our code would run
+  our function on the fake instead of the fake's override. Constructors redirected: TAutomapWindow, TButtonsWindow,
+  TStatusWindow (mainwindow_tests' TMainSide*), TConsoleWindow (TFakeConsole), THelpBubble and the nine context menus
+  (TObjectContextMenu, TCreatureContextMenu, TBuddyContextMenu, TTextContextMenu, TChannelContextMenu,
+  TRequestContextMenu, TEditContextMenu, TMarkContextMenu, TSkillContextMenu: commworld's TCtlWindow),
+  TBlinkingButton, TBorder, TFormattedText, TMultiStateButton, TResizer, TScrollBar, TSkinIcon, TTextToggleButton,
+  TToggleButton (elementfakes.h). Stand-ins as the class: TScrollBarRange (TFakeScrollBarRange), TSkillsWindowBody
+  (contextmenus_tests' TMenuSkillsStandIn), TMapFrame (TFakeMapFrame), TMapWindow (mapwindow_tests' TMapThrower),
+  TMainWindow (commworld's TCtlMainWindow), TDialog (commworld's DIALOG_RESULT: every creator returns a TCtlWindow).
+- **A member function the tests redirect that `final` lets the compiler inline** (1): TContainerWindowBody. golden
+  patches TContainerWindowBody::UpdateUpButton's first bytes (FakeUpdateUpButton); as `final`, its `GetParent()` is
+  direct and inline, the function small enough that MSVC inlines it into UpdateContainerUpButton (same file), and the
+  patch is not reached (the first failure). The tests' TFakeBody also stands in for the container body.
+- **Checked, not only run**: golden_client's Release objects (dumpbin) of main and of the branch compared call by
+  call: every function of ours that some function calls less often in the branch, and whether the tests redirect
+  it. Redirected ones: CreateTextBuffer and GetTextBuffer (main had TConsoleWindow::OpenChannel inline in
+  ReportRuleViolation; the branch calls OpenChannel, which calls them), TConsoleWindow::AddChannel (now inline in
+  OpenChannel; commworld redirects both), GetNumberOfBuddies and TScrollBarRange::SetRange (more calls in all). Not
+  redirected: TTradeButtons::SetCancelButton, TWaitLabel::SetTimer, TMainWindow::CloseContentWindow,
+  THorizontalScrollBarRange::SetValue, TTalkBuffer::Append, TTradeWindowBody::getMinimumHeight, TIndexedVector's
+  Grow, the subsystem destructors in TClient's unwinding.
+- The tests' own classes (fakes, probes, surfaces) are not marked: the issue is src/'s classes, and the fakes are
+  the tests' to change.
+- When a test stops using one of these seams, its class can get `final`; a new stand-in or redirect of a `final`
+  class removes the keyword (golden fails first, as here).
+
+### TXTEA's destructor (high)
+
+#34 kept `virtual ~TXTEA() {}` (with a NOLINT) because `= default` changed the oracle's image; it is `= default`
+now, still virtual (the vtable pointer first, as in the original). Its effect: the scalar deleting destructor and
+TNetwork's out-of-line destructor are gone from the golden objects (inlined; TNetwork holds a TXTEA). `TSurfaceDX()
+{}`, #34's other case, left with the DirectDraw engine in #94.
+
+### The code (high)
+
+windows-x64 Release, built at the same path from main 8006002 and from the branch: Patella.exe's `.text` 0x2e36fc ->
+0x2e3bdc (+0x4e0, 1,248 bytes), PatellaTest.exe's 0x314c5c -> 0x31515c (+0x500): devirtualized calls get inlined.
+(#33's experiment, with all of its 107 marked and the oracle's code, shrank it by 0x1400.)

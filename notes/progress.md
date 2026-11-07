@@ -646,6 +646,11 @@ std::flat_map; kept with the reason: OpenDialogs (its duplicate check reads min.
 (a negative count from the file), ConsoleWindow's lines, DialogElements' and Dialogs' vectors and Talk's lists (golden
 compares their headers or their min..max). Golden 17,316,040, 0 failures at
 each commit. notes/decisions.md, "#100".
+final on the classes nothing derives from (Patella-Modern issue #47, branch issue-47, November 7, 2026; M7):
+70 of the 100 classes of src/ that override and have no subclass in src/ or tests/ are `final`; 30 stay without it
+because the golden window tests use them as seams (constructors redirected to the tests' fakes, stand-ins passed
+as the class, TContainerWindowBody::UpdateUpButton patched and inlined once `final`); TXTEA's destructor is
+`= default` (#34's case). Patella.exe's .text +0x4e0. Golden 17,316,040, 0 failures. notes/decisions.md, "#47".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

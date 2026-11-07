@@ -108,7 +108,11 @@ absolute defaults left are the test server's (`PATELLA_TESTSERVER`) and the self
   copy constructor and copy assignment `= delete`, or defines them where the code copies it (vlong's shared
   value) (issue #34). An empty special member is `= default` when it is defined outside the class (it stays
   user-provided); inside the class only where that changes neither the image nor value-initialization
-  (`TSurfaceDX() {}` and TXTEA's destructor keep their bodies, with a NOLINT; notes/decisions.md).
+  (issue #34; since issue #47, with the oracle gone, TXTEA's destructor is `= default` too; TSurfaceDX left with
+  #94). A class that overrides and that nothing derives from is `final` (issue #47), unless the golden tests put
+  objects of their own where our code expects it (a redirected constructor, a stand-in passed as its type) or
+  redirect a member function that `final` lets the compiler inline; such classes are listed in
+  notes/decisions.md, "#47".
 - A local that is not changed is `const` (values, references, and what a pointer points to), and a member
   function that changes no member of its object is `const` (issue #39; misc-const-correctness and
   readability-make-member-function-const in .clang-tidy). `const` goes first (`const int`, `const T *`), also
