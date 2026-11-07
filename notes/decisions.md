@@ -9435,6 +9435,7 @@ The comparison tools expect these from the fork's clients against Tibia.exe and 
 | #139 (5) | A .map file with a negative mark count is a corrupted file: "Map file '...' was corrupted!", the block cleared, as for a file that ends early | keeps the count; a mark added then grows the marks down to that index (minutes, much memory) (not compared: no session has such a file) |
 | #139 (6) | A server frame larger than the 16 KB receive buffer is dropped as its bytes come, a warn line goes to the developer log, and the frames after it are read | keeps its first bytes and waits for it forever: the buffer fills and nothing more is received (not compared) |
 | #139 (7) | A server frame whose size is no multiple of 8 is dropped (not decrypted), a warn line goes to the developer log, and the next frame is read | throws "packet size does not fit to symmetric encryption" without dropping it, which ends the client (every later read would throw the same) (not compared) |
+| #142 | A server packet of inner length 0 (empty) is read past: the frames after it are read in the same call, and its frame leaves the receive buffer at once (no drop, no log line) | returns it as the packet read (no command), so the frames behind it wait for the next receive that completes a frame, and its frame stays in the receive buffer until then: a following frame that fits only without it never completes and the connection stalls (not compared: the reference compare and compare_traffic show no difference; the golden Network test's deliberate parts, "#142") |
 | #86 | An ignore or white list entry's name of 30 characters, and a buddy's description of 128, read as those characters only (the list's line, GetBuddyDescription, Patella.ini, Tibia.cfg's writer) | reads on past the name into Permanent (with it set, "\x01" and the next entry's name), past the description into Notify and the padding (not compared: no session has such a name or description) |
 
 ### The tests
@@ -15906,7 +15907,8 @@ the drop our side reads the next frame's commands while the original reads on pa
   and the connection stalls as item 6's did. A hostile server only; fuzz_network's first 180-s run found it
   (crash-ad1d7aa4..., build\logs\issue-139\fuzz-linux-180\artifacts: an empty packet received 2 bytes at a time,
   then a frame of 0x3ff8) and its property now excludes an input once an empty packet stayed in ReceiveData. A fix would go on to the next frame after an empty one (a deliberate difference;
-  golden's MakeFrame makes such frames, so it would add parts).
+  golden's MakeFrame makes such frames, so it would add parts). Done in #142 (below): the owner's decision of
+  November 7, the fix as a deliberate difference.
 
 ### The gates (high)
 
@@ -16229,3 +16231,87 @@ warnings on every preset, SDL3's build included.
   `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
 - Not run: #109's image comparison (the default path is SDL3 now); compare_rendering's fullscreen scenes (#98's set is
   windowed).
+
+## #142: an empty packet no longer stalls the reading (Patella-Modern issue #142, M9)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-142, from main 260f066), after the owner's decision of
+November 7: fix #139's last fuzzing case ("#139", "Found, not done") as a deliberate difference, with #139's rule for
+bad frames (go on to the next frame; a warn line in the developer log where it is a drop). A row of the table of
+deliberate tier A differences (#74's section).
+
+### The fix (high)
+
+- **What the original did.** PrepareNextPacket prepared a packet of inner length 0 (a frame of 8 bytes, Size 4, no
+  command in it) like any other, so GetNextCommand returned -1 at once: ReceivePackets (Control.cpp) and
+  Communication.cpp's loop stopped with the complete frames behind it unread, until a later receive completed another
+  frame. Its own frame stayed in ReceiveData (ReceiveRead past it) until the next PrepareNextPacket, so a following
+  frame that fit ReceiveData only without those 10 bytes (up to 16 KB) never completed, and with ReceiveData full the
+  connection stalled as #139's item 6 had.
+- **Now** (Network.cpp PrepareNextPacket): an empty packet has nothing left to read, so the loop that #139 made goes
+  on to the next frame in the same call, as after a dropped frame, and the empty packet's frame leaves ReceiveData at
+  once. TNetwork counts it in EmptyPackets (the tests'). The test hook (PATELLA_TEST_PACKET_RECEIVED) and PacketHeader
+  are set for it as before (it was decrypted), then by the next frame.
+- **Not a drop, no log line** (high; the owner's rule: "a warn line where it is a drop"): an empty packet is a
+  well-formed packet whose length is inside its frame; it is read, to its end, and has no command. So it is not
+  counted in DroppedFrames, LastDrop is unchanged, and the developer log gets no line. Considered: dropping it as a
+  bad frame with a warn line (TFrameDrop would gain a fourth reason for a packet nothing is wrong with; a server that
+  sent them as keep-alives would fill the log). If the owner wants a line, it is one `patella::log::Debug` or `Warn`
+  call in the new branch.
+
+### The golden corpus (high)
+
+The frozen corpus is replayed unchanged. Its generated frames (network_tests.cpp's MakeFrame) include empty packets,
+and where our side now reads on past one, the round's checks differ from the original's until the round's ResetSides
+(our side reads the next frame's commands and has moved the frame out; the original returned -1 with the frame still
+in ReceiveData). Recorded as #139's parts are: a deliberate part named "#142" opens in our side's call that went on
+past an empty packet (Both: TNetwork's EmptyPackets before and after the call, normal and error rounds alike;
+OpenDropPart), unless a drop in the same call opened a "#72" or "#139" part first, and ends at ResetSides. Every other
+check is compared as before.
+
+- **The counts** (windows-x64 and linux-x64-gcc alike, every preset that replays the corpus the same): 15,803,218
+  replayed + 1,512,822 retired = 17,316,040, 0 failures, as on main. Deliberate parts: **#72: 269 parts, 35,460
+  checks, 16,386 differ; #139: 32 parts, 3,303 checks, 1,167 differ; #142 (new): 36 parts, 3,688 checks, 1,037
+  differ**; together 337 parts, 42,451 checks, 18,590 differ. Before (#139): #72 274 parts, 36,104 checks, 16,588
+  differ; #139 33, 3,343, 1,178; together 307 parts, 39,447 checks, 17,766 differ. Six rounds or error-round
+  iterations whose part #139 opened at a later drop now open it earlier at an empty packet (5 of #72's, 1 of #139's),
+  and 30 have a part they did not have (both sides stopped at the empty packet alike until now).
+- The Communication tests (Communication.cpp's GetNextCommand loop in the golden world) replay with 0 failures and no
+  part, unchanged.
+
+### The tests (high)
+
+- **bounded_reads** (3 new cases, 19 in all): empty packets before, between and after frames, all read in one call,
+  EmptyPackets counted, nothing dropped or logged; an empty packet alone, its frame out of ReceiveData after the call
+  (ReceiveDataSize, ReceivePacketEnd and ReceiveRead 0; nothing past it read under ASan's poison) and the next frame
+  read; #139's fuzzing case, an empty packet then a frame of 0x3ff8 bytes (0x4004 together, more than ReceiveData) and
+  another frame, received 1, 2, 7 and 0x4000 bytes at a time: every receive takes bytes and both frames are read (with
+  the original's behaviour Receive gets no room after the empty packet: the REQUIRE fails).
+- **fuzz_network**: the stall property in full: the exclusion of an input once an empty packet stayed in ReceiveData
+  (`Waiting`) is gone, and a new property fails when GetNextCommand returns -1 with a frame left in ReceiveData
+  (ReceiveRead or ReceivePacketEnd not 0). New synthetic seeds (`python -I tools/fuzz.py synthetic`, hand-made):
+  142-empty-packets, 142-empty-then-largest (#139's case, 2-byte receives).
+
+### Found, not done (high)
+
+- The MSVC libFuzzer tree (`python -I tools/fuzz.py run --platform windows`) was not run; Linux's was (below), and
+  every preset's fuzz_network smoke run (the synthetic seeds and fixed mutations) passes, windows-x64-asan's among them.
+
+### The gates (high)
+
+Logs in build\logs\issue-142 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed
++ 1,512,822 retired = 17,316,040, 0 failures, with the parts above; 0 compiler warnings.
+
+- `python -I tools/build.py windows-x64` exit 0, 28/28; windows-x64-debug exit 0, 27/27; windows-x64-asan exit 0,
+  27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0, 25/25 (golden); linux-x64-clang (ASan,
+  UBSan) exit 0, 24/24 (golden), no sanitizer report.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches its reference (the known deliberate differences of #45 and #74); `python -I tools/compare_traffic.py`
+  exit 0, no differences.
+- Fuzzing: `python -I tools/fuzz.py run --platform linux --time 180 fuzz_network` (Clang 22, ASan and UBSan; the
+  synthetic seeds and the local ones of `fuzz.py seeds`) exit 0: 233,177 executions (1,288 per s), cov 487, ft 2,698,
+  no finding, with the stall property in full (build\logs\issue-142\fuzz-linux-180\summary.tsv). #139's rerun with
+  the exclusion had 180,572.
+- `python -I tools/tidy_ci.py --worktree` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`
+  exit 0. clang-format (CLAUDE.md's command) exit 0.
+- Not run: compare_files and compare_rendering (no setting, file or drawing changed), the MSVC libFuzzer tree.
