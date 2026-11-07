@@ -203,7 +203,18 @@ MSBuild project (`Patella.sln`, `Patella.vcxproj`) and the .cmd/.ps1 scripts are
 step they did is a CMake target, a CTest test or a Python tool now (notes/decisions.md, "Removing the Visual
 Studio project and the scripts (issue #10)"). The MSVC presets mark their architecture and toolset
 `external`: CMake does not set up the compiler. `tools/build.py` does it (vcvarsall.bat for the preset's
-architecture, found through vswhere) and runs the workflow, from any shell:
+architecture, found through vswhere) and runs the workflow, from any shell.
+
+CMake is 4.4.5 everywhere (issue #141; 4.1.2 from #113 until then): on Windows build.py runs cmake, ctest and cpack
+from the portable CMake in `C:\Servers\Software\cmake` (Kitware's cmake-4.4.5-windows-x86_64.zip; PATELLA_CMAKE_DIR
+names another folder), never the first one on PATH (the machine PATH's C:\Program Files\CMake comes before the user
+PATH, and vcvarsall.bat puts Visual Studio's CMake first), and refuses a missing one or another version with a
+message. `python -I tools/build.py --install-cmake <folder>` downloads the zip, checks it against build.py's
+CMAKE_SHA256 (the release's cmake-4.4.5-SHA-256.txt) and unpacks it; hosted CI's Windows jobs do that, the Linux
+image has Kitware's Linux release of the same version. tools/compare_rendering.py and tools/fuzz.py run the same
+CMake. A build folder configured with CMake 4.1.2 needs one `python -I tools/build.py <preset> --fresh` (or a new
+folder): its cache names the old cmake and its std module.
+
 
 ```
 python -I tools/build.py windows-x64             # the x64 client and the unit tests, Release
@@ -243,7 +254,8 @@ python -I tools/build.py linux-x64-clang         # under ASan and UBSan
 
 `import std;` (issue #113, M7; `cmake/ImportStd.cmake`): the option PATELLA_IMPORT_STD, ON in the presets windows-x64
 (and windows-x64-asan), windows-x64-gcc, linux-x64-gcc and since issue #121 linux-x64-clang, sets CMake's experimental gate
-(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD, a UUID per CMake minor version: 4.1 and 4.4 are known) before project() and
+(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD, a UUID per CMake minor version: 4.1 and 4.4 are known; every build takes
+4.4's since issue #141) before project() and
 requires the compiler's std module; `patella_target_import_std(<target>)`, after the target's language, warning and
 hardening settings, lets a target's sources import it and gives the std module the target's options. Its one user is
 tests_import_std (tests/unit/import_std_test.cpp). linux-x64-clang (issue #121): the image's Clang 22 uses GCC 16's
@@ -322,15 +334,15 @@ The Linux presets `linux-x64-gcc` (GCC 16) and `linux-x64-clang` (Clang, with Ad
 each with a `-debug` workflow, build patella_core and the unit tests, not the client (PATELLA_CLIENT is OFF; the
 client needs Tibia.exe for its resources, and MFC). On Linux: `cmake --workflow --preset linux-x64-gcc`. On
 Windows, `python -I tools/build.py linux-x64-gcc` (and `--env linux-x64-gcc <command>`) runs them in the Docker
-image `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
-pinned by digest, Debian's Clang 22.1.8 and Ninja 1.12.1 pinned by version, Kitware's CMake 4.1.2 by its SHA-256
-(issue #113; Debian's 3.31.6 until then), Clang on GCC 16.2's libstdc++ through its configuration files
+image `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
+pinned by digest, Debian's Clang 22.1.8 and Ninja 1.12.1 pinned by version, Kitware's CMake 4.4.5 by its SHA-256
+(issue #141; 4.1.2 from issue #113, Debian's 3.31.6 before), Clang on GCC 16.2's libstdc++ through its configuration files
 /usr/lib/llvm-22/bin/clang++.cfg and clang.cfg (`--gcc-install-dir`, issue #121; Debian's GCC 14 and its libstdc++
 until then, and the tag `gcc16.2-clang22.1`), since issue #11
 also clang-format and clang-tidy 22.1.8; build it once with
-`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 docker/linux-x64`, about half a minute, and again
-when the Dockerfile changes: the tag stays the same while it names the same compilers and library; issue #121
-gave it a new one, so a branch with the old Dockerfile keeps its image). build.py
+`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5 docker/linux-x64`, about half a minute, and again
+when the Dockerfile changes: the tag stays the same while it names the same compilers, library and CMake; issues #121
+and #141 gave it a new one, so a branch with the old Dockerfile keeps its image). build.py
 mounts the repository read-only, copies the files git knows (tracked, and untracked ones that are not ignored:
 never the CipSoft files) with their times to the container's case-sensitive /work and runs there;
 build\<preset> is mounted as /work/build/<preset>, so the build tree and doctest stay. Details:

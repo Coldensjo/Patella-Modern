@@ -4,6 +4,7 @@ Usage:
   python -I tools/build.py <workflow preset> [cmake --workflow options, e.g. --fresh]
   python -I tools/build.py --env <preset> <command> [arguments ...]
   python -I tools/build.py --list
+  python -I tools/build.py --install-cmake <folder>
 
 The first form runs `cmake --workflow --preset <workflow preset>` (CMakePresets.json: windows-x64,
 windows-x64-debug, windows-x64-asan, windows-x64-gcc, windows-x64-gcc-debug, linux-x64-gcc,
@@ -22,8 +23,9 @@ already a developer prompt for that architecture is used as it is. The other pre
 and the Linux presets on Linux) run CMake in the shell's own environment.
 
 Docker (issue #7): on Windows, a preset whose condition asks for a Linux host (linux-x64-gcc,
-linux-x64-clang) runs in the image patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 (PATELLA_DOCKER_IMAGE
-overrides it; `docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 docker/linux-x64` builds
+linux-x64-clang) runs in the image patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5
+(PATELLA_DOCKER_IMAGE overrides it; `docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5
+docker/linux-x64` builds
 it), in both forms. The repository is mounted read-only at /src; the files git knows (tracked, and
 untracked ones that are not ignored: never Tibia.exe or the data files) are copied with their times
 to /work, on the container's own case-sensitive file system, and the command runs there.
@@ -40,6 +42,14 @@ begins, so the tests' output is not scanned. A warning makes the script exit 1 a
 32-bit oracle preset, which kept the former Patella.vcxproj's /WX- (plan section 4.1: no warnings on any
 preset; the oracle left with Patella-Modern issue #94). Ninja recompiles only
 what changed, so a build that is up to date shows no warnings: --fresh checks every file.
+
+CMake (issue #141): one version everywhere, 4.4.5. On Windows the script runs cmake, ctest and cpack from the
+pinned portable CMake, Kitware's windows-x86_64 release in C:\Servers\Software\cmake (PATELLA_CMAKE_DIR overrides
+the folder; hosted CI unpacks the same zip with --install-cmake and sets it), never the first cmake on PATH:
+the machine PATH (C:\Program Files\CMake) comes before the user PATH, and vcvarsall.bat puts Visual Studio's own
+CMake first. It refuses a missing or other version with a message. The image (docker/linux-x64) has the same version;
+on Linux the command's cmake is the one on PATH. `--install-cmake <folder>` downloads that zip, checks it against
+CMAKE_SHA256 (the release's cmake-4.4.5-SHA-256.txt) and unpacks it into <folder>, which must not exist.
 
 Exit code: the command's, or 1 when it succeeded but warned.
 """
@@ -58,8 +68,16 @@ VCVARSALL = r"VC\Auxiliary\Build\vcvarsall.bat"
 # where the .cmd scripts found it before issue #10; vswhere's answer comes first
 DEFAULT_VS = r"C:\Program Files\Microsoft Visual Studio\18\Community"
 # The Linux build image (docker/linux-x64/Dockerfile).
-DOCKER_IMAGE = "patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16"
+DOCKER_IMAGE = "patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5"
 DOCKER_DIR = "docker/linux-x64"
+# The pinned CMake of the Windows builds (issue #141; the module comment).
+CMAKE_VERSION = "4.4.5"
+CMAKE_DEFAULT_DIR = r"C:\Servers\Software\cmake"
+CMAKE_TOOLS = ("cmake", "ctest", "cpack")
+CMAKE_ARCHIVE = "https://github.com/Kitware/CMake/releases/download/v%s/cmake-%s-windows-x86_64.zip" % (
+	CMAKE_VERSION, CMAKE_VERSION)
+# cmake-4.4.5-SHA-256.txt of the release: cmake-4.4.5-windows-x86_64.zip
+CMAKE_SHA256 = "326c826486d46a23cf9d5a1c9ee3a567d427bdd02c4a34071937a2a675cff004"
 
 
 # A warning of a tool of the build: MSVC's cl, link, lib, rc, cvtres and ml print "warning <code>" with a
@@ -187,6 +205,65 @@ def developer_environment(argument):
 	if not shutil.which("cl", path=env.get("PATH") or env.get("Path")):
 		raise BuildError("cl.exe is not on PATH after vcvarsall.bat %s" % argument)
 	return env
+
+
+_checked_cmake = set()
+
+
+def pinned_cmake(command):
+	"""`command` with a bare cmake, ctest or cpack replaced by the pinned CMake's executable (issue #141), on Windows;
+	unchanged elsewhere, or when the command names another program or a path. Raises BuildError when the pinned CMake
+	is missing or reports another version."""
+	tool = os.path.splitext(command[0])[0].lower()
+	if os.name != "nt" or tool not in CMAKE_TOOLS or os.path.dirname(command[0]):
+		return command
+	folder = os.environ.get("PATELLA_CMAKE_DIR") or CMAKE_DEFAULT_DIR
+	executable = os.path.join(folder, "bin", tool + ".exe")
+	if not os.path.isfile(executable):
+		raise BuildError("the pinned CMake %s is missing: no %s. Install it: python -I tools/build.py --install-cmake "
+			"%s (Kitware's %s, its SHA-256 checked), and add its bin folder to the user PATH; or set PATELLA_CMAKE_DIR "
+			"(issue #141; notes/reconstruction.md, \"Building\")" % (CMAKE_VERSION, executable, folder, CMAKE_ARCHIVE))
+	if executable not in _checked_cmake:
+		result = subprocess.run([executable, "--version"], capture_output=True, text=True)
+		first = (result.stdout.splitlines() or [""])[0].strip()
+		if result.returncode != 0 or first != "%s version %s" % (tool, CMAKE_VERSION):
+			raise BuildError("%s reports %r, not %s version %s (issue #141: one CMake version everywhere)"
+				% (executable, first, tool, CMAKE_VERSION))
+		_checked_cmake.add(executable)
+	return [executable] + list(command[1:])
+
+
+def install_cmake(folder):
+	"""Downloads Kitware's CMAKE_ARCHIVE, checks its SHA-256 and unpacks it into `folder` (issue #141)."""
+	import hashlib
+	import urllib.request
+	import zipfile
+	folder = os.path.abspath(folder)
+	if os.path.lexists(folder):
+		raise BuildError("--install-cmake: %s exists already" % folder)
+	parent = os.path.dirname(folder)
+	os.makedirs(parent, exist_ok=True)
+	work = tempfile.mkdtemp(prefix="cmake-", dir=parent)
+	archive = os.path.join(work, "cmake.zip")
+	print("build.py: downloading %s" % CMAKE_ARCHIVE, flush=True)
+	with urllib.request.urlopen(CMAKE_ARCHIVE) as response, open(archive, "wb") as out:
+		shutil.copyfileobj(response, out)
+	digest = hashlib.sha256()
+	with open(archive, "rb") as f:
+		for block in iter(lambda: f.read(1 << 20), b""):
+			digest.update(block)
+	if digest.hexdigest() != CMAKE_SHA256:
+		raise BuildError("--install-cmake: %s has SHA-256 %s, not %s; left in %s" % (CMAKE_ARCHIVE,
+			digest.hexdigest(), CMAKE_SHA256, work))
+	with zipfile.ZipFile(archive) as z:
+		z.extractall(work)
+	top = os.path.join(work, "cmake-%s-windows-x86_64" % CMAKE_VERSION)
+	if not os.path.isfile(os.path.join(top, "bin", "cmake.exe")):
+		raise BuildError("--install-cmake: no bin/cmake.exe in the archive; left in %s" % work)
+	os.replace(top, folder)
+	os.remove(archive)
+	os.rmdir(work)
+	print("build.py: CMake %s (SHA-256 %s) in %s" % (CMAKE_VERSION, CMAKE_SHA256, folder), flush=True)
 
 
 def needs_linux(preset):
@@ -332,6 +409,8 @@ def run(command, env, check_warnings=False, docker=None):
 			flush=True)
 		command, listing = docker_command(docker, command)
 		stdin = open(listing, "rb")
+	else:
+		command = pinned_cmake(command)
 	try:
 		executable = shutil.which(command[0], path=env.get("PATH") or env.get("Path"))
 		if executable is None:
@@ -388,6 +467,12 @@ def main(argv):
 	if argv[0] == "--list":
 		for preset in load_presets().get("workflowPresets", []):
 			print("%-24s %s" % (preset["name"], preset.get("displayName", "")))
+		return 0
+	if argv[0] == "--install-cmake":
+		if len(argv) != 2:
+			print("build.py: --install-cmake <folder>", file=sys.stderr)
+			return 2
+		install_cmake(argv[1])
 		return 0
 	if argv[0] == "--env":
 		if len(argv) < 3:

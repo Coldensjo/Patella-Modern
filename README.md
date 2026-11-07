@@ -59,11 +59,11 @@ On Linux there is no client yet: the presets `linux-x64-gcc` and `linux-x64-clan
 library of the code that is already portable (big numbers and RSA, XTEA, the string helpers and packet
 buffers, the regexp, the container templates), and run its unit tests. They need no CipSoft file. On Linux,
 `cmake --workflow --preset linux-x64-gcc` (GCC 16, CMake 3.30+, Ninja); on Windows, `tools/build.py` runs them
-in a Docker image with GCC 16.2, Clang 22, CMake and Ninja, which you build once from
+in a Docker image with GCC 16.2, Clang 22, CMake 4.4.5 and Ninja, which you build once from
 [docker/linux-x64/Dockerfile](docker/linux-x64/Dockerfile):
 
 ```
-docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 docker/linux-x64
+docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5 docker/linux-x64
 ```
 
 CI (GitHub Actions): `.github/workflows/hosted.yml` builds and tests the Windows (MSVC x64) and Linux (GCC 16,

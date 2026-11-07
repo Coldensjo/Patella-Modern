@@ -245,6 +245,11 @@ def build_capture(preset):
 	commands = [["cmake", "--build", "--preset", preset, "--target", "patcap"]]
 	if not os.path.isfile(os.path.join(ROOT, "build", preset, "CMakeCache.txt")):
 		commands.insert(0, ["cmake", "--preset", preset])
+	try:
+		# the pinned CMake (issue #141), not the first one on PATH
+		commands = [build.pinned_cmake(command) for command in commands]
+	except build.BuildError as e:
+		raise RunError("cannot build patcap.dll: %s" % e)
 	for command in commands:
 		result = subprocess.run(command, capture_output=True, text=True, env=env, cwd=ROOT)
 		if result.returncode != 0:
