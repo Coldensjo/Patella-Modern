@@ -14414,3 +14414,20 @@ Done by Claude Opus 5.5, November 7, 2026 (branch issue-129, from main 8d9cd2c).
   parameter" (on an empty TRegexp and a NULL text), the ownership (move, assignment, Reset), and the client's own
   pattern, Status.h's LinkPattern, on more texts (a URL, a parenthesised host, a long top-level domain, four numbers
   that are not an address, upper case, the empty text).
+
+### The gates (high)
+
+Logs in build\logs\issue-129 of the branch's worktree, all on f2057e4's tree; golden replayed main's frozen corpus read
+only (PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218
+replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset, regexp.c at the full level.
+
+- `python -I tools/build.py windows-x64` exit 0, 19/19; windows-x64-debug exit 0, 18/18; windows-x64-asan exit 0,
+  18/18, no ASan report; windows-x64-gcc exit 0, 12/12; linux-x64-gcc exit 0, 16/16 (golden); linux-x64-clang (ASan,
+  UBSan) exit 0, 14/14 (golden), no sanitizer report. (A first run of windows-x64 and linux-x64-gcc failed one check
+  of the new unit test, whose expectation was wrong: `^abc` has no regstart, its first node is BOL; golden was
+  green in both. Logs `*-attempt1.log`.)
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches its reference; `python -I tools/compare_traffic.py` exit 0, no differences.
+- `python -I tools/tidy_ci.py` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
+  clang-format (CLAUDE.md's command) exit 0.
+- Not run: compare_files (no settings or files touched), compare_rendering (nothing drawn changed).
