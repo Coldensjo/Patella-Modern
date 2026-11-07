@@ -15412,6 +15412,25 @@ linux-x64-clang.
   them in tests_core needs the files they call in the library too (#111), or fakes of the bridge.
 - GCC's and Clang's sign and int conversions in the six (the baselines above): the original's integer types.
 
+### The gates (high)
+
+Logs in build\logs\issue-110 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed
++ 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset. On afa3a97 (main 3e9d0cf with #132
+merged; `<preset>-final.log`):
+
+- `python -I tools/build.py windows-x64` exit 0, 28/28 (golden_concurrent the same); windows-x64-debug exit 0, 27/27;
+  windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0, 24/24;
+  linux-x64-clang (ASan, UBSan) exit 0, 25/25, no sanitizer report. patella_core in linux-x64-gcc's Debug (-fanalyzer)
+  built clean too (core-linux-x64-gcc-debug.log). The same six passed on 5971cd5, before the merge.
+- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, bugprone- 0 (the first run, on a92eadd:
+  296 new, above). `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
+- Live, on 5971cd5 (the merge changed no client source but the fuzz test): `python -I tools/reference.py compare
+  --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches; `python -I tools/compare_traffic.py`
+  exit 0, no differences; `python -I tools/compare_files.py` exit 1 at the first run (no TibiaClient window in 30 s:
+  another agent's client was on the desktop; compare_files-try1.log; its Tibia.exe left behind was stopped), exit 0 at
+  the rerun, no differences; `python -I tools/testmode_check.py` exit 0, no differences.
+
 ## #132: fuzzing the packet parser and the file loaders (Patella-Modern issue #132, M9)
 
 Done by Claude Opus 5.5, November 7, 2026 (branch issue-132, from main e4b67d7). Plan section 7, M9, "Fuzzing".
