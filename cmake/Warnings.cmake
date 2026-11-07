@@ -88,7 +88,7 @@ function(patella_target_language target)
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16)
 			target_link_libraries(${target} PRIVATE $<$<LINK_LANGUAGE:CXX>:stdc++exp>)
 		endif()
-		# Clang with libstdc++ (linux-x64-clang: Debian's GCC 14 library) keeps std::stacktrace there too (the
+		# Clang with libstdc++ (linux-x64-clang: GCC 16's library since issue #121, Debian's GCC 14 one until then) keeps std::stacktrace there too (the
 		# developer log's stack trace, src/log/Log.h, issue #77); with a library that has no libstdc++exp the
 		# check fails and std::stacktrace is not used (the header has no __cpp_lib_stacktrace there).
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT MSVC)

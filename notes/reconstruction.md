@@ -238,12 +238,13 @@ python -I tools/build.py linux-x64-clang         # under ASan and UBSan
 ```
 
 `import std;` (issue #113, M7; `cmake/ImportStd.cmake`): the option PATELLA_IMPORT_STD, ON in the presets windows-x64
-(and windows-x64-asan), windows-x64-gcc and linux-x64-gcc, sets CMake's experimental gate
+(and windows-x64-asan), windows-x64-gcc, linux-x64-gcc and since issue #121 linux-x64-clang, sets CMake's experimental gate
 (CMAKE_EXPERIMENTAL_CXX_IMPORT_STD, a UUID per CMake minor version: 4.1 and 4.4 are known) before project() and
 requires the compiler's std module; `patella_target_import_std(<target>)`, after the target's language, warning and
 hardening settings, lets a target's sources import it and gives the std module the target's options. Its one user is
-tests_import_std (tests/unit/import_std_test.cpp). Not linux-x64-clang: Clang uses Debian's libstdc++ 14, which has
-no std module. On a CMake version without a known gate the configure warns and builds without it. Per compiler, the
+tests_import_std (tests/unit/import_std_test.cpp). linux-x64-clang (issue #121): the image's Clang 22 uses GCC 16's
+libstdc++ (Debian's libstdc++ 14, which has no std module, until then), and on Clang the target and its std module
+are compiled without _FORTIFY_SOURCE (glibc's Clang wrappers of the printf family cannot be exported). On a CMake version without a known gate the configure warns and builds without it. Per compiler, the
 errors and what would unblock Clang: notes/decisions.md, "import std (Patella-Modern issue #113, M7)". A build folder
 configured before #113 fails its configure ("Experimental `import std` support not enabled when detecting toolchain"),
 because the compiler was detected without the gate: configure it once with `python -I tools/build.py <preset> --fresh`.
@@ -315,12 +316,15 @@ The Linux presets `linux-x64-gcc` (GCC 16) and `linux-x64-clang` (Clang, with Ad
 each with a `-debug` workflow, build patella_core and the unit tests, not the client (PATELLA_CLIENT is OFF; the
 client needs Tibia.exe for its resources, and MFC). On Linux: `cmake --workflow --preset linux-x64-gcc`. On
 Windows, `python -I tools/build.py linux-x64-gcc` (and `--env linux-x64-gcc <command>`) runs them in the Docker
-image `patella-modern/linux-x64:gcc16.2-clang22.1` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
+image `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
 pinned by digest, Debian's Clang 22.1.8 and Ninja 1.12.1 pinned by version, Kitware's CMake 4.1.2 by its SHA-256
-(issue #113; Debian's 3.31.6 until then), since issue #11
+(issue #113; Debian's 3.31.6 until then), Clang on GCC 16.2's libstdc++ through its configuration files
+/usr/lib/llvm-22/bin/clang++.cfg and clang.cfg (`--gcc-install-dir`, issue #121; Debian's GCC 14 and its libstdc++
+until then, and the tag `gcc16.2-clang22.1`), since issue #11
 also clang-format and clang-tidy 22.1.8; build it once with
-`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`, about half a minute, and again
-when the Dockerfile changes: the tag stays the same). build.py
+`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 docker/linux-x64`, about half a minute, and again
+when the Dockerfile changes: the tag stays the same while it names the same compilers and library; issue #121
+gave it a new one, so a branch with the old Dockerfile keeps its image). build.py
 mounts the repository read-only, copies the files git knows (tracked, and untracked ones that are not ignored:
 never the CipSoft files) with their times to the container's case-sensitive /work and runs there;
 build\<preset> is mounted as /work/build/<preset>, so the build tree and doctest stay. Details:
@@ -338,7 +342,8 @@ python -I tools/build.py windows-x64-gcc     # (and windows-x64-gcc-debug); cmak
 ```
 
 They write build\<preset>\tests\unit\<Configuration>: `tests_unit` (src/compat/cxx26.h as the compiler selects
-it: the stand-ins on MSVC and on Clang 22 with libstdc++ 14, contract_assert and std::inplace_vector on GCC 16)
+it: the stand-ins on MSVC and on Clang 22 (also with GCC 16's libstdc++, issue #121: its inplace_vector is GCC's),
+contract_assert and std::inplace_vector on GCC 16)
 and `tests_unit_cxx26_standin` (the same tests with PATELLA_CXX26_STANDIN), each a CTest test, plus one per
 contract violation scenario (RunContractViolation.cmake), `tests_core` and, since Patella-Modern issue #21,
 `tests_testmode` (the test mode's clock, script parser and scheduler; since issue #22 also the dumps' formats:

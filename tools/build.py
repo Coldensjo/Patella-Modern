@@ -22,8 +22,8 @@ already a developer prompt for that architecture is used as it is. The other pre
 and the Linux presets on Linux) run CMake in the shell's own environment.
 
 Docker (issue #7): on Windows, a preset whose condition asks for a Linux host (linux-x64-gcc,
-linux-x64-clang) runs in the image patella-modern/linux-x64:gcc16.2-clang22.1 (PATELLA_DOCKER_IMAGE
-overrides it; `docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64` builds
+linux-x64-clang) runs in the image patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 (PATELLA_DOCKER_IMAGE
+overrides it; `docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 docker/linux-x64` builds
 it), in both forms. The repository is mounted read-only at /src; the files git knows (tracked, and
 untracked ones that are not ignored: never Tibia.exe or the data files) are copied with their times
 to /work, on the container's own case-sensitive file system, and the command runs there.
@@ -58,7 +58,7 @@ VCVARSALL = r"VC\Auxiliary\Build\vcvarsall.bat"
 # where the .cmd scripts found it before issue #10; vswhere's answer comes first
 DEFAULT_VS = r"C:\Program Files\Microsoft Visual Studio\18\Community"
 # The Linux build image (docker/linux-x64/Dockerfile).
-DOCKER_IMAGE = "patella-modern/linux-x64:gcc16.2-clang22.1"
+DOCKER_IMAGE = "patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16"
 DOCKER_DIR = "docker/linux-x64"
 
 

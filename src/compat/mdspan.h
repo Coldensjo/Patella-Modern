@@ -3,9 +3,10 @@
 // of the original source.
 //
 // After this header PATELLA_HAS_MDSPAN is 1 where the library has std::mdspan (MSVC /std:c++latest: 202207; GCC 16's
-// libstdc++, also mingw-w64's: 202406) and 0 elsewhere (linux-x64-clang: Clang 22 with Debian's libstdc++ 14, which has
-// no <mdspan>) or with PATELLA_MDSPAN_STANDIN, which tests/unit's stand-in build defines for a whole target (never for
-// one file: the two are different types), so that the stand-in runs the tests std::mdspan passes, on the same compiler.
+// libstdc++, also mingw-w64's and linux-x64-clang's since issue #121: 202406) and 0 with a library without it (none of
+// the presets since #121; linux-x64-clang's Debian libstdc++ 14 until then) or with PATELLA_MDSPAN_STANDIN, which
+// tests/unit's stand-in build defines for a whole target (never for one file: the two are different types), so that the
+// stand-in runs the tests std::mdspan passes, on the same compiler.
 //
 // The names are std's where PATELLA_HAS_MDSPAN is 1, and the stand-ins otherwise, with the part of the interface the
 // code uses and the same meaning:

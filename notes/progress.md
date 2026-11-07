@@ -575,6 +575,14 @@ GUI module cycle is gone (main: {ContentWindows, ContextMenus, DialogWindow, Mai
 {Surface, graphics}, {MainFrm, Player}). TMap and TCreatures/TPlayerState call up into Talk, Help and Status through
 TMapConsole and TCreaturesGUI (Client.cpp's adapters); TMapState's GetPlayerID calls TPlayerState's member.
 TNetworkSession's adapter stays (justified). Golden 17,316,040, 0 failures. notes/decisions.md, "#118".
+linux-x64-clang on GCC 16's libstdc++ (Patella-Modern issue #121, branch issue-121, November 7, 2026; M7): the image's
+Clang 22 uses GCC 16.2's installation through its configuration files (clang++.cfg, clang.cfg: --gcc-install-dir),
+so CMake's std module probe, the builds and clang-tidy see libstdc++ 16; PATELLA_IMPORT_STD is ON in linux-x64-clang
+and tests_import_std passes there under ASan and UBSan (the target and its module without _FORTIFY_SOURCE on Clang:
+glibc's Clang wrappers of the printf family cannot be exported). std::mdspan is std's in every preset; the stand-in is
+a test switch only. cxx26.h keeps the inplace_vector stand-in on Clang (libstdc++ 16's fails under Clang 22). The image's
+tag is now patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16. Golden 17,316,040, 0 failures; tidy baseline 3,
+unchanged. notes/decisions.md, "#121".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

@@ -41,11 +41,12 @@ build: the oracle (the 32-bit Patella.exe, the differential tests, the x86 layou
 Direct3D 9 and OpenGL) left the fork with issue #94, M6; it is in upstream Patella and at the tag `layout-frozen-final`
 (`notes/decisions.md`, issue #94). `import std;` (issue #113, `cmake/ImportStd.cmake`): PATELLA_IMPORT_STD is ON in windows-x64, windows-x64-asan,
 windows-x64-gcc and linux-x64-gcc (CMake's experimental gate, known for CMake 4.1 and 4.4; the image has CMake 4.1.2),
-not in linux-x64-clang (Debian's libstdc++ 14 has no std module); its one user is tests_import_std. Every product preset also compiles each header of src/ on its own
+and since issue #121 linux-x64-clang (Clang 22 on GCC 16's libstdc++: the image's Clang configuration files; no
+fortify for the std module there); its one user is tests_import_std. Every product preset also compiles each header of src/ on its own
 (`cmake/HeaderCheck.cmake`, issue #49: the `header_check_*` object libraries, a generated one-line source per
 header with a target's settings; a new header goes on one of its lists, or the configure fails). On Windows build.py runs the Linux presets in the Docker image
-`patella-modern/linux-x64:gcc16.2-clang22.1` (build it once: `docker build -t
-patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64`). `python -I tools/build.py --env <preset>
+`patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16` (build it once: `docker build -t
+patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 docker/linux-x64`). `python -I tools/build.py --env <preset>
 <command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. The
 test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/reconstruction.md`, "Building",
 "Test server", "Checking".

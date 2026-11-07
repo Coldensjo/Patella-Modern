@@ -63,7 +63,7 @@ in a Docker image with GCC 16.2, Clang 22, CMake and Ninja, which you build once
 [docker/linux-x64/Dockerfile](docker/linux-x64/Dockerfile):
 
 ```
-docker build -t patella-modern/linux-x64:gcc16.2-clang22.1 docker/linux-x64
+docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16 docker/linux-x64
 ```
 
 CI (GitHub Actions): `.github/workflows/hosted.yml` builds and tests the Windows (MSVC x64) and Linux (GCC 16,
