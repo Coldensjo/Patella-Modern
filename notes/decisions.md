@@ -14591,7 +14591,8 @@ compare, compare_traffic's sessions and replays, or the unit tests.
   the known live-world race of #101's gates: at "look north" Tibia.exe looked at a creature (0x63) that had walked
   onto the field, Patella.exe at the field's top item (0x19a); the four replays identical, the 15 states of each
   replay identical, the options equal. Not run a fourth time.
-- `banned_calls.py`: exit 0. clang-format (CLAUDE.md's command): exit 0. tidy_ci: see below.
+- `banned_calls.py`: exit 0. clang-format (CLAUDE.md's command): exit 0. `tidy_ci.py`: exit 0, 3 findings, the
+  baseline's 3, 0 new, 0 gone.
 
 ### The cost (medium: each run once, on this machine, as the issue asked)
 
