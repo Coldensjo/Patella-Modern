@@ -47,7 +47,10 @@ accounts; its sources are in `gameserver\src`.
   `start` started is touched: the process in server.pid, if it is still `C:\Tibia\gameserver\tibia-server.exe`
   with the same creation time. A server the tools did not start (one started by hand) is never stopped: stop
   names its PID and exits with 1 (the former stop-testserver.ps1 also stopped a tibia-server.exe from that
-  folder it found by name). `--force` kills the server after `--timeout` (60 s) without saving.
+  folder it found by name). Stop waits `--timeout` seconds for the exit: by default 600 once server.log shows the
+  world loaded (the server saves its map on Ctrl+C, which can take minutes on a busy machine; a stop that gave up
+  after 60 s failed compare_traffic in #141 while the server was still saving), else 30. `--force` kills the server
+  after `--timeout` without saving: never on a server that is saving (#137 cut a sector file that way).
 - **Ctrl+C must not be ignored by the server**: a process that ignores Ctrl+C (SetConsoleCtrlHandler(NULL,
   TRUE)) passes that to its children. A server started from Git Bash (whose processes ignore it) did not
   react to stop-testserver.ps1 at all; it was re-enabled with a remote thread calling
