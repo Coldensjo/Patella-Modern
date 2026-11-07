@@ -170,18 +170,18 @@ void TMainWindow::SetSize(int Width, int Height)
 			MapHeight = MinMapHeight;
 		if (MapHeight > MaxMapHeight)
 			MapHeight = MaxMapHeight;
-		const int MapWidth = Width - SkinProperties.Data184;
+		const int MapWidth = Width - SkinProperties().Data184;
 		MapFrame->SetPosition(0, 0);
 		MapFrame->SetSize(MapWidth, MapHeight);
 		MapHeight = MapFrame->Height;
-		Splitter->SetSize(MapWidth, SkinProperties.Data138);
+		Splitter->SetSize(MapWidth, SkinProperties().Data138);
 		Splitter->SetPosition(0, MapHeight);
 		Splitter->Arrange();
-		Console->SetSize(MapWidth, Height - SkinProperties.Data138 - MapHeight);
+		Console->SetSize(MapWidth, Height - SkinProperties().Data138 - MapHeight);
 		Console->SetPosition(0, Splitter->Height + MapHeight);
 		Console->Arrange();
 		SideBar->SetPosition(MapWidth, 0);
-		DialogWindow->SetSize(SkinProperties.Data184, Height - SideBar->Height);
+		DialogWindow->SetSize(SkinProperties().Data184, Height - SideBar->Height);
 		DialogWindow->SetPosition(MapWidth, SideBar->Height);
 	} else {
 		StartWindow->SetSize(Width, Height);
@@ -264,7 +264,7 @@ void TMainWindow::HandleEvent(int Event)
 		SidePanel->InsertChildAfter(OldWindow, CreateSmallInventoryWindow(this));
 		SidePanel->DeleteChild(OldWindow);
 		SidePanel->Rearrange(32, nullptr);
-		SideBar->SetSize(SkinProperties.Data184, SidePanel->getMinimumHeight() + SideBar->getMinimumHeight());
+		SideBar->SetSize(SkinProperties().Data184, SidePanel->getMinimumHeight() + SideBar->getMinimumHeight());
 		SetSize(Width, Height);
 		break;
 	}
@@ -274,7 +274,7 @@ void TMainWindow::HandleEvent(int Event)
 		SidePanel->InsertChildAfter(OldWindow, CreateInventoryWindow(this));
 		SidePanel->DeleteChild(OldWindow);
 		SidePanel->Rearrange(32, nullptr);
-		SideBar->SetSize(SkinProperties.Data184, SidePanel->getMinimumHeight() + SideBar->getMinimumHeight());
+		SideBar->SetSize(SkinProperties().Data184, SidePanel->getMinimumHeight() + SideBar->getMinimumHeight());
 		SetSize(Width, Height);
 		break;
 	}
@@ -439,25 +439,25 @@ void TMainWindow::ChangeMode(bool InGame)
 		const int StoredHeight = GetConsoleHeight();
 		if (StoredHeight > ConsoleHeight)
 			ConsoleHeight = StoredHeight;
-		int MapWidth = Width - SkinProperties.Data184;
-		int MapHeight = Height - ConsoleHeight - SkinProperties.Data138;
+		int MapWidth = Width - SkinProperties().Data184;
+		int MapHeight = Height - ConsoleHeight - SkinProperties().Data138;
 		if (MapHeight < MapFrame->getMinimumHeight()) {
 			ConsoleHeight = Console->getMinimumHeight();
-			MapWidth = Width - SkinProperties.Data184;
-			MapHeight = Height - ConsoleHeight - SkinProperties.Data138;
+			MapWidth = Width - SkinProperties().Data184;
+			MapHeight = Height - ConsoleHeight - SkinProperties().Data138;
 		}
 		MapFrame->SetPosition(0, 0);
 		MapFrame->SetSize(MapWidth, MapHeight);
-		Splitter->SetSize(MapWidth, SkinProperties.Data138);
+		Splitter->SetSize(MapWidth, SkinProperties().Data138);
 		Splitter->SetPosition(0, MapHeight);
 		Splitter->Arrange();
 		Console->SetSize(MapWidth, ConsoleHeight);
-		Console->SetPosition(0, MapHeight + SkinProperties.Data138);
+		Console->SetPosition(0, MapHeight + SkinProperties().Data138);
 		Console->OpenDefaultChannel(patella::bridge::Talk().DefaultTextBuffer, "Default");
 		Console->Arrange();
 		SideBar->SetPosition(MapWidth, 0);
-		SideBar->SetSize(SkinProperties.Data184, SidePanel->getMinimumHeight() + SideBar->getMinimumHeight());
-		DialogWindow->SetSize(SkinProperties.Data184, Height - SideBar->Height);
+		SideBar->SetSize(SkinProperties().Data184, SidePanel->getMinimumHeight() + SideBar->getMinimumHeight());
+		DialogWindow->SetSize(SkinProperties().Data184, Height - SideBar->Height);
 		DialogWindow->SetPosition(MapWidth, SideBar->Height);
 		for (int i = 0; i < Count; i++) {
 			const int Identifier = Dialogs[i];
@@ -556,8 +556,8 @@ void TMainWindow::OpenContainer(int Container) const
 	TContainerWindowBody *Body = static_cast<TContainerWindowBody *>(Window->Body);
 	Body->Update();
 	if (Body->IsMinimized()) {
-		Window->SetTitle(new TLabel(SkinProperties.Style194.Data38, GetContainerName(Container)));
-		Window->SetIcon(new TObjectIcon(GetContainerObject(Container), &SkinProperties.Style194.Data80, false));
+		Window->SetTitle(new TLabel(SkinProperties().Style194.Data38, GetContainerName(Container)));
+		Window->SetIcon(new TObjectIcon(GetContainerObject(Container), &SkinProperties().Style194.Data80, false));
 		if (GetContainerHasParent(Container))
 			Window->ShowUpButton();
 		else
@@ -648,23 +648,23 @@ void TMainWindow::SetConsoleActive(bool Active) const
 TStartWindow::TStartWindow()
 {
 	TWindow *Panel = new TWindow;
-	Panel->SetSize(SkinProperties.Style0D8.Data00, SkinProperties.Style0D8.Data04);
+	Panel->SetSize(SkinProperties().Style0D8.Data00, SkinProperties().Style0D8.Data04);
 	TComponent *Button = new TTextButton(0, 0, "Enter Game", 0x12, 0x13, TCallback(this, 0x1f5), nullptr);
 	Panel->InsertChild(Button);
-	Panel->SetChildPosition(Button, SkinProperties.Style0D8.Data10.x, SkinProperties.Style0D8.Data10.y);
+	Panel->SetChildPosition(Button, SkinProperties().Style0D8.Data10.x, SkinProperties().Style0D8.Data10.y);
 	Button = new TTextButton(0, 0, "Options", 0x12, 0x13, TCallback(this, 0x1f7), nullptr);
 	Panel->InsertChild(Button);
-	Panel->SetChildPosition(Button, SkinProperties.Style0D8.Data18.x, SkinProperties.Style0D8.Data18.y);
+	Panel->SetChildPosition(Button, SkinProperties().Style0D8.Data18.x, SkinProperties().Style0D8.Data18.y);
 	Button = new TTextButton(0, 0, "Info", 0x12, 0x13, TCallback(this, 0x1f6), nullptr);
 	Panel->InsertChild(Button);
-	Panel->SetChildPosition(Button, SkinProperties.Style0D8.Data20.x, SkinProperties.Style0D8.Data20.y);
+	Panel->SetChildPosition(Button, SkinProperties().Style0D8.Data20.x, SkinProperties().Style0D8.Data20.y);
 	Button = new TTextButton(0, 0, "Exit Game", 0x12, 0x13, TCallback(this, 7), nullptr);
 	Panel->InsertChild(Button);
-	Panel->SetChildPosition(Button, SkinProperties.Style0D8.Data28.x, SkinProperties.Style0D8.Data28.y);
+	Panel->SetChildPosition(Button, SkinProperties().Style0D8.Data28.x, SkinProperties().Style0D8.Data28.y);
 	Button = new TTextButton(0, 0, "Access Account", 0x12, 0x13, TCallback(this, 0x1fc), nullptr);
 	Panel->InsertChild(Button);
-	Panel->SetChildPosition(Button, SkinProperties.Style0D8.Data30.x, SkinProperties.Style0D8.Data30.y);
-	Frame = new TBorder(Panel, 0x34, 0x3a, 0x35, 0x38, 0x39, 0x36, 0x3b, 0x37, 0x3c, SkinProperties.Data134);
+	Panel->SetChildPosition(Button, SkinProperties().Style0D8.Data30.x, SkinProperties().Style0D8.Data30.y);
+	Frame = new TBorder(Panel, 0x34, 0x3a, 0x35, 0x38, 0x39, 0x36, 0x3b, 0x37, 0x3c, SkinProperties().Data134);
 	InsertChild(Frame);
 	Frame->FitToWindow();
 }
@@ -682,7 +682,7 @@ void TStartWindow::Draw(int Surface, int x, int y)
 void TStartWindow::SetSize(int Width, int Height)
 {
 	TWindow::SetSize(Width, Height);
-	SetChildPosition(Frame, SkinProperties.Style0D8.Data08.x, SkinProperties.Style0D8.Data08.y);
+	SetChildPosition(Frame, SkinProperties().Style0D8.Data08.x, SkinProperties().Style0D8.Data08.y);
 }
 
 // 0x4ae030, line 731. The buttons work only while there is no connection.
@@ -726,9 +726,9 @@ TSplitter::TSplitter()
 // GetConsoleWindowHeight the try block is gone.
 void TSplitter::Arrange()
 {
-	DrawingList[0] = TDrawing(8, 0, 0, Width, Skins[8].height, 0, 0);
-	DrawingList[1] = TDrawing(7, 0, Skins[8].height, Width, Height - Skins[9].height - Skins[8].height, 0, 0);
-	DrawingList[2] = TDrawing(9, 0, Height - Skins[9].height, Width, Skins[9].height, 0, 0);
+	DrawingList[0] = TDrawing(8, 0, 0, Width, Skins()[8].height, 0, 0);
+	DrawingList[1] = TDrawing(7, 0, Skins()[8].height, Width, Height - Skins()[9].height - Skins()[8].height, 0, 0);
+	DrawingList[2] = TDrawing(9, 0, Height - Skins()[9].height, Width, Skins()[9].height, 0, 0);
 }
 
 // 0x4ae530, line 780. Mouse cursor 2 is the vertical size arrow. While

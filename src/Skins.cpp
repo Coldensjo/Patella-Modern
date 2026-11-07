@@ -16,9 +16,9 @@
 #include "Skins.h"
 #include <memory>
 
-// Data, in .bss order.
-int NumberOfSkins;              // 0x71c450
-std::unique_ptr<TSkin[]> Skins; // 0x71c454 (issue #58)
+// The data (NumberOfSkins 0x71c450, Skins 0x71c454) is TSkins' since issue #116 (Skins.h): a part of TGraphics, with
+// GUI.cpp's SkinProperties. The original's free functions InitSkins and ExitSkins forward to the members from
+// graphics.cpp (the client's; this file is patella_core's, which has no bridge).
 
 // The table as a std::unique_ptr (issue #58): a pointer, as the original's. TSkin has no destructor, so a table
 // still set when FatalError calls exit(1) is only memory freed during static destruction.
@@ -30,7 +30,7 @@ static_assert(sizeof(std::unique_ptr<TSkin[]>) == sizeof(TSkin *) && alignof(std
 // (12,506 bytes of code). Odd behaviour kept from the binary: the loop stops
 // one entry before the LASTSKIN terminator, and no entry has skin number 152,
 // so Skins[152] stays uninitialised.
-void InitSkins()
+void patella::TSkins::InitSkins()
 {
 	const struct { // NOLINT(modernize-avoid-c-arrays): the binary's table of an unnamed type, sized by its entries (issue #60)
 		int skin;
@@ -309,7 +309,7 @@ void InitSkins()
 }
 
 // 0x4e6da0
-void ExitSkins()
+void patella::TSkins::ExitSkins()
 {
 	Skins.reset();
 	Skins = nullptr;

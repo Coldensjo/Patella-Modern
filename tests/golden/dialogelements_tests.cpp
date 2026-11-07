@@ -1427,7 +1427,7 @@ static void Special(int r1, int r2, int r3)
 		int Value = (int)(r2 % 300) - 50, Maximum = 1 + r3 % 200;
 		if (r3 % 3 == 0 && Control[OURS]->Width > 0) {
 			Maximum = Control[OURS]->Width;
-			Value = Skins[259].width + (int)(r2 % 3) - 1;
+			Value = Skins()[259].width + (int)(r2 % 3) - 1;
 			Pick = r2 % 2 == 0 ? 3 : 0;
 		}
 		OperationName = "Progress";
@@ -1917,10 +1917,10 @@ static void TestDialogElementsAssertions()
 		static const int DrawKinds[] = {K_SKINICON, K_OBJECTICON, K_SKINBUTTON, K_COLORBUTTON, K_ICONBUTTON, K_BLINKING,
 			K_TEXTBUTTON, K_TOGGLE, K_TEXTTOGGLE, K_MULTI, K_CHECKBOX};
 		for (int k : DrawKinds) {
-			int dx = k == K_ICONBUTTON ? SkinProperties.Buttons.Texture.x : k == K_CHECKBOX ? SkinProperties.CheckBox.Item.x
-																							: 0;
-			int dy = k == K_ICONBUTTON ? SkinProperties.Buttons.Texture.y : k == K_CHECKBOX ? SkinProperties.CheckBox.Item.y
-																							: 0;
+			int dx = k == K_ICONBUTTON ? SkinProperties().Buttons.Texture.x : k == K_CHECKBOX ? SkinProperties().CheckBox.Item.x
+																							  : 0;
+			int dy = k == K_ICONBUTTON ? SkinProperties().Buttons.Texture.y : k == K_CHECKBOX ? SkinProperties().CheckBox.Item.y
+																							  : 0;
 			int x = r % 2 == 0 ? -dx - 1 - r : 0, y = r % 2 == 0 ? 0 : -dy - 1 - r;
 			Direct(k, "Draw at a negative place", [&](int s) {
 				if (k == K_OBJECTICON)
@@ -1938,7 +1938,7 @@ static void TestDialogElementsAssertions()
 		static const int ButtonKinds[] = {K_SKINBUTTON, K_COLORBUTTON, K_ICONBUTTON, K_BLINKING, K_TEXTBUTTON, K_TOGGLE,
 			K_TEXTTOGGLE, K_MULTI};
 		for (int k : ButtonKinds) {
-			int Up = r % 2 == 0 ? NumberOfSkins + r : 30, Down = r % 2 == 0 ? 30 : NumberOfSkins + r;
+			int Up = r % 2 == 0 ? patella::bridge::Skins().NumberOfSkins + r : 30, Down = r % 2 == 0 ? 30 : patella::bridge::Skins().NumberOfSkins + r;
 			Direct(k, "TSkinButton::SetSkins", [&](int s) {
 				if (s == OURS) ((TSkinButton *)Control[s])->SetSkins(Up, Down);
 				else CallI<void>(0x458b20, Control[s], Up, Down); });
@@ -2081,8 +2081,8 @@ static void TestDialogElementsAssertions()
 			else CallI<void *>(0x4666a0, PatternNew(0x48), 130, r, (int *)NULL, &C); });
 		Direct(K_SEPARATOR, "TSkinButton::TSkinButton skin outside", [&](int s) {
 			TCallback CB(Receiver[s], 1);
-			if (s == OURS) new TSkinButton(1, 2, 30, NumberOfSkins + r, CB, "Tip", false);
-			else CallI<void *>(0x466860, PatternNew(0x44), 1, 2, 30, NumberOfSkins + r, CB, "Tip", false); });
+			if (s == OURS) new TSkinButton(1, 2, 30, patella::bridge::Skins().NumberOfSkins + r, CB, "Tip", false);
+			else CallI<void *>(0x466860, PatternNew(0x44), 1, 2, 30, patella::bridge::Skins().NumberOfSkins + r, CB, "Tip", false); });
 		Direct(K_SEPARATOR, "TEditLine::TEditLine negative width", [&](int s) {
 			TRect Area(1, 2, r % 2 == 0 ? -1 - r : 60, r % 2 == 0 ? 16 : -1 - r);
 			if (s == OURS) new TEditLine(Area, 20, false);
@@ -2126,7 +2126,7 @@ void TestDialogElements()
 		LogFile = fopen(getenv("DE_LOGS"), "w");
 	ORIGINAL(PatchImage());
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
+	ORIGINAL(Global<int>(0x71c450) = patella::bridge::Skins().NumberOfSkins; Global<TSkin *>(0x71c454) = Skins().get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	LastDump.clear();

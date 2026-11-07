@@ -299,7 +299,7 @@ BOOL CPlayerApp::InitInstance()
 						Expected = 0;
 						break;
 					case 3:
-						CommandLineEngine = atoi(Token);
+						patella::bridge::GraphicsEngine().CommandLineEngine = atoi(Token);
 						Expected = 0;
 						break;
 					}

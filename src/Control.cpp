@@ -182,8 +182,8 @@ void patella::TGUI::Redraw(bool Force)
 	if (Tooltip != nullptr) {
 		int x, y;
 		GetMouseOverTextPosition(&x, &y);
-		const int Width = GetTextWidth(SkinProperties.TooltipFont.FontNumber, Tooltip) + SkinProperties.TooltipBorder * 2;
-		const int Height = GetTextHeight(SkinProperties.TooltipFont.FontNumber, Tooltip) + SkinProperties.TooltipBorder * 2;
+		const int Width = GetTextWidth(SkinProperties().TooltipFont.FontNumber, Tooltip) + SkinProperties().TooltipBorder * 2;
+		const int Height = GetTextHeight(SkinProperties().TooltipFont.FontNumber, Tooltip) + SkinProperties().TooltipBorder * 2;
 		y -= Height;
 		const int MaxX = GetWindowWidth() - Width - 1;
 		if (MaxX >= 1) {
@@ -210,14 +210,14 @@ void patella::TGUI::Redraw(bool Force)
 				y = 1;
 		}
 		const TRect Rect = {x, y, Width, Height};
-		GetSurface()->FillRectangle(1, Rect, SkinProperties.TooltipBackground);
-		GetSurface()->DrawFrame(1, Rect, 1, SkinProperties.TooltipFrame);
-		PrintFormattedText(1, SkinProperties.TooltipBorder + x, SkinProperties.TooltipBorder + y,
-			SkinProperties.TooltipFont, Tooltip);
+		GetSurface()->FillRectangle(1, Rect, SkinProperties().TooltipBackground);
+		GetSurface()->DrawFrame(1, Rect, 1, SkinProperties().TooltipFrame);
+		PrintFormattedText(1, SkinProperties().TooltipBorder + x, SkinProperties().TooltipBorder + y,
+			SkinProperties().TooltipFont, Tooltip);
 	}
 	if (ShowFPS) {
 		TFixedString<4> Engine; // _snprintf(Engine, 4, "DX5") until issue #64: three characters and the NUL
-		switch (curEngine) {
+		switch (patella::bridge::GraphicsEngine().curEngine) {
 		case 0:
 			Engine.Assign("DX5");
 			break;
@@ -246,31 +246,31 @@ void patella::TGUI::Redraw(bool Force)
 			int y = GetMouseY();
 			switch (Cursor) {
 			case 1:
-				x -= SkinProperties.CursorHotspot1.x;
-				y -= SkinProperties.CursorHotspot1.y;
+				x -= SkinProperties().CursorHotspot1.x;
+				y -= SkinProperties().CursorHotspot1.y;
 				break;
 			case 2:
-				x -= SkinProperties.CursorHotspot2.x;
-				y -= SkinProperties.CursorHotspot2.y;
+				x -= SkinProperties().CursorHotspot2.x;
+				y -= SkinProperties().CursorHotspot2.y;
 				break;
 			case 3:
-				x -= SkinProperties.CursorHotspot3.x;
-				y -= SkinProperties.CursorHotspot3.y;
+				x -= SkinProperties().CursorHotspot3.x;
+				y -= SkinProperties().CursorHotspot3.y;
 				break;
 			case 4:
-				x -= SkinProperties.CursorHotspot4.x;
-				y -= SkinProperties.CursorHotspot4.y;
+				x -= SkinProperties().CursorHotspot4.x;
+				y -= SkinProperties().CursorHotspot4.y;
 				break;
 			case 5:
-				x -= SkinProperties.CursorHotspot5.x;
-				y -= SkinProperties.CursorHotspot5.y;
+				x -= SkinProperties().CursorHotspot5.x;
+				y -= SkinProperties().CursorHotspot5.y;
 				break;
 			case 6:
-				x -= SkinProperties.CursorHotspot6.x;
-				y -= SkinProperties.CursorHotspot6.y;
+				x -= SkinProperties().CursorHotspot6.x;
+				y -= SkinProperties().CursorHotspot6.y;
 				break;
 			}
-			const TSkin *Picture = &Skins[Cursor];
+			const TSkin *Picture = &Skins()[Cursor];
 			DrawPicturePart(1, x, y, 4, Picture->x, Picture->y, Picture->width, Picture->height);
 		}
 	}

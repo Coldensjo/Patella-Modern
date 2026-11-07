@@ -47,6 +47,12 @@ static_assert(offsetof(TVideoCacheItem, Previous) == 0x48, "TVideoCacheItem::Pre
 
 namespace GraphicsTest {
 
+// Our graphics.cpp's data: TGraphics' members since issue #116 (the one TClient's, through the bridge).
+patella::TGraphics &Ours()
+{
+	return patella::bridge::Graphics();
+}
+
 const int TILE = 32 * 32 * 3;
 
 // --- The recording surface -------------------------------------------------
@@ -291,33 +297,33 @@ void CompareSprites(const char *What)
 {
 	uint32 Signature = ORIGINAL_VALUE("sprite signature", uint32, OSpriteSignature);
 	OriginalSprites = ORIGINAL_VALUE("sprites", int, ONumberOfSprites);
-	CHECK(SpriteSignature == Signature && NumberOfSprites == OriginalSprites, "%s: sprite file %x/%d, original %x/%d",
-		What, SpriteSignature, NumberOfSprites, Signature, OriginalSprites);
+	CHECK(Ours().SpriteSignature == Signature && Ours().NumberOfSprites == OriginalSprites, "%s: sprite file %x/%d, original %x/%d",
+		What, Ours().SpriteSignature, Ours().NumberOfSprites, Signature, OriginalSprites);
 	std::string Name = golden::OutputText("sprite file name", ORIGINAL_OR(Relative(OSpriteFileName), std::string()).c_str());
-	CHECK(Relative(SpriteFileName) == Name, "%s: sprite file name", What);
+	CHECK(Relative(Ours().SpriteFileName) == Name, "%s: sprite file name", What);
 	bool Present = ORIGINAL_VALUE("sprite table", bool, OSprites != NULL);
-	if (NumberOfSprites != OriginalSprites || Sprites == nullptr || !Present)
+	if (Ours().NumberOfSprites != OriginalSprites || Ours().Sprites == nullptr || !Present)
 		return;
-	std::vector<uint8> Table((size_t)NumberOfSprites * sizeof(TSprite));
+	std::vector<uint8> Table((size_t)Ours().NumberOfSprites * sizeof(TSprite));
 	ORIGINAL(memcpy(Table.data(), OSprites, Table.size()));
 	golden::OutputBytes("sprite table", Table.data(), Table.size());
-	CHECK(memcmp(Sprites.get(), Table.data(), Table.size()) == 0, "%s: sprite table differs", What);
+	CHECK(memcmp(Ours().Sprites.get(), Table.data(), Table.size()) == 0, "%s: sprite table differs", What);
 }
 
 void ComparePictures(const char *What)
 {
 	uint32 Signature = ORIGINAL_VALUE("picture signature", uint32, OPictureSignature);
 	OriginalPictures = ORIGINAL_VALUE("pictures", int, ONumberOfPictures);
-	CHECK(PictureSignature == Signature && NumberOfPictures == OriginalPictures,
-		"%s: picture file %x/%d, original %x/%d", What, PictureSignature, NumberOfPictures, Signature,
+	CHECK(Ours().PictureSignature == Signature && Ours().NumberOfPictures == OriginalPictures,
+		"%s: picture file %x/%d, original %x/%d", What, Ours().PictureSignature, Ours().NumberOfPictures, Signature,
 		OriginalPictures);
 	std::string Name = golden::OutputText("picture file name", ORIGINAL_OR(Relative(OPictureFileName), std::string()).c_str());
-	CHECK(Relative(PictureFileName) == Name, "%s: picture file name", What);
+	CHECK(Relative(Ours().PictureFileName) == Name, "%s: picture file name", What);
 	bool Present = ORIGINAL_VALUE("picture table", bool, OPictures != NULL);
-	if (NumberOfPictures != OriginalPictures || Pictures == nullptr || !Present)
+	if (Ours().NumberOfPictures != OriginalPictures || Ours().Pictures == nullptr || !Present)
 		return;
-	for (int i = 0; i < NumberOfPictures; i++) {
-		TPicture &A = Pictures[i];
+	for (int i = 0; i < Ours().NumberOfPictures; i++) {
+		TPicture &A = Ours().Pictures[i];
 		// The original's picture: TilesX, TilesY, ColorKey, then its offsets.
 		int B[5] = {};
 		ORIGINAL(B[0] = OPictures[i].TilesX; B[1] = OPictures[i].TilesY; B[2] = OPictures[i].ColorKey.R;
@@ -335,17 +341,17 @@ void ComparePictures(const char *What)
 void CompareFonts(const char *What)
 {
 	int Count = ORIGINAL_VALUE("fonts", int, ONumberOfFonts);
-	CHECK(NumberOfFonts == Count, "%s: %d fonts, original %d", What, NumberOfFonts, Count);
+	CHECK(Ours().NumberOfFonts == Count, "%s: %d fonts, original %d", What, Ours().NumberOfFonts, Count);
 	bool Present = ORIGINAL_VALUE("font table", bool, OFonts != NULL);
-	if (Fonts == nullptr || !Present) {
-		CHECK(Fonts == nullptr && !Present, "%s: font table presence", What);
+	if (Ours().Fonts == nullptr || !Present) {
+		CHECK(Ours().Fonts == nullptr && !Present, "%s: font table presence", What);
 		return;
 	}
-	for (int i = 0; i < NumberOfFonts && i < Count; i++) {
+	for (int i = 0; i < Ours().NumberOfFonts && i < Count; i++) {
 		TFontInfo B = {};
 		ORIGINAL(B = OFonts[i]);
 		golden::OutputBytes("font", &B, sizeof(B));
-		CHECK(memcmp(&Fonts[i], &B, sizeof(TFontInfo)) == 0, "%s: font %d differs", What, i + 1);
+		CHECK(memcmp(&Ours().Fonts[i], &B, sizeof(TFontInfo)) == 0, "%s: font %d differs", What, i + 1);
 	}
 }
 
@@ -374,43 +380,43 @@ void CompareMemoryCache(const char *What)
 	int Lists[3] = {};
 	ORIGINAL(Lists[0] = OMemoryCacheSize; Lists[1] = OLeastRecentMemoryItem; Lists[2] = OMostRecentMemoryItem);
 	golden::Output("memory cache", Lists);
-	CHECK(MemoryCacheSize == Lists[0] && LeastRecentMemoryItem == Lists[1] && MostRecentMemoryItem == Lists[2],
-		"%s: memory cache %d %d-%d, original %d %d-%d", What, MemoryCacheSize, MostRecentMemoryItem,
-		LeastRecentMemoryItem, Lists[0], Lists[2], Lists[1]);
+	CHECK(Ours().MemoryCacheSize == Lists[0] && Ours().LeastRecentMemoryItem == Lists[1] && Ours().MostRecentMemoryItem == Lists[2],
+		"%s: memory cache %d %d-%d, original %d %d-%d", What, Ours().MemoryCacheSize, Ours().MostRecentMemoryItem,
+		Ours().LeastRecentMemoryItem, Lists[0], Lists[2], Lists[1]);
 	int Hash[HASH_TABLE_SIZE] = {};
 	ORIGINAL(memcpy(Hash, OMemoryHashTable, sizeof(Hash)));
 	golden::Output("memory hash table", Hash);
-	CHECK(memcmp(MemoryHashTable.data(), Hash, sizeof(MemoryHashTable)) == 0, "%s: memory hash table", What);
+	CHECK(memcmp(Ours().MemoryHashTable.data(), Hash, sizeof(Ours().MemoryHashTable)) == 0, "%s: memory hash table", What);
 	bool Present = ORIGINAL_VALUE("memory cache table", bool, OMemoryCache != NULL);
-	if (MemoryCacheSize != Lists[0] || MemoryCache == nullptr || !Present)
+	if (Ours().MemoryCacheSize != Lists[0] || Ours().MemoryCache == nullptr || !Present)
 		return;
-	std::vector<int32_t> Items((size_t)MemoryCacheSize * ITEM_FIELDS);
-	ORIGINAL(for (int i = 0; i < MemoryCacheSize; i++)
+	std::vector<int32_t> Items((size_t)Ours().MemoryCacheSize * ITEM_FIELDS);
+	ORIGINAL(for (int i = 0; i < Ours().MemoryCacheSize; i++)
 			GetItemFields(OMemoryCache[i], OMemoryCacheData, &Items[(size_t)i * ITEM_FIELDS]));
 	if (LastItems.size() != Items.size())
 		LastItems.assign(Items.size(), 0);
 	golden::OutputRuns("memory cache items", LastItems.data(), Items.data(), Items.size() * sizeof(int32_t));
-	for (int i = 0; i < MemoryCacheSize; i++) {
+	for (int i = 0; i < Ours().MemoryCacheSize; i++) {
 		int32_t A[ITEM_FIELDS];
-		GetItemFields(MemoryCache[i], MemoryCacheData.get(), A);
+		GetItemFields(Ours().MemoryCache[i], Ours().MemoryCacheData.get(), A);
 		bool Same = memcmp(A, &LastItems[(size_t)i * ITEM_FIELDS], sizeof(A)) == 0;
 		CHECK(Same, "%s: memory cache item %d differs", What, i);
 	}
 	// The data, slot by slot: an unchanged slot as such, a changed one through the tile dictionary.
-	size_t Size = (size_t)MemoryCacheSize * TILE;
+	size_t Size = (size_t)Ours().MemoryCacheSize * TILE;
 	if (LastData.size() != Size)
 		LastData.assign(Size, 0);
-	std::vector<uint8> Changed(MemoryCacheSize);
-	ORIGINAL(for (int i = 0; i < MemoryCacheSize; i++) Changed[i] =
+	std::vector<uint8> Changed(Ours().MemoryCacheSize);
+	ORIGINAL(for (int i = 0; i < Ours().MemoryCacheSize; i++) Changed[i] =
 				 memcmp(&LastData[(size_t)i * TILE], OMemoryCacheData + (size_t)i * TILE, TILE) != 0);
 	golden::OutputArray("memory cache slots", Changed.data(), Changed.size());
-	for (int i = 0; i < MemoryCacheSize; i++) {
+	for (int i = 0; i < Ours().MemoryCacheSize; i++) {
 		if (Changed[i] == 0)
 			continue;
 		ORIGINAL(memcpy(&LastData[(size_t)i * TILE], OMemoryCacheData + (size_t)i * TILE, TILE));
 		RecordTile("memory cache slot", &LastData[(size_t)i * TILE]);
 	}
-	CHECK(memcmp(MemoryCacheData.get(), LastData.data(), Size) == 0, "%s: memory cache data differs", What);
+	CHECK(memcmp(Ours().MemoryCacheData.get(), LastData.data(), Size) == 0, "%s: memory cache data differs", What);
 }
 
 std::vector<uint8> LastVideo;
@@ -418,25 +424,25 @@ std::vector<uint8> LastVideo;
 void CompareVideoCache(const char *What)
 {
 	bool Present = ORIGINAL_VALUE("video cache table", bool, OVideoCache != NULL);
-	CHECK((VideoCache == nullptr) == !Present, "%s: video cache presence", What);
+	CHECK((Ours().VideoCache == nullptr) == !Present, "%s: video cache presence", What);
 	int Lists[3] = {};
 	ORIGINAL(Lists[0] = OVideoCacheSize; Lists[1] = OLeastRecentVideoItem; Lists[2] = OMostRecentVideoItem);
 	golden::Output("video cache", Lists);
-	CHECK(VideoCacheSize == Lists[0] && LeastRecentVideoItem == Lists[1] && MostRecentVideoItem == Lists[2],
-		"%s: video cache %d %d-%d, original %d %d-%d", What, VideoCacheSize, MostRecentVideoItem,
-		LeastRecentVideoItem, Lists[0], Lists[2], Lists[1]);
+	CHECK(Ours().VideoCacheSize == Lists[0] && Ours().LeastRecentVideoItem == Lists[1] && Ours().MostRecentVideoItem == Lists[2],
+		"%s: video cache %d %d-%d, original %d %d-%d", What, Ours().VideoCacheSize, Ours().MostRecentVideoItem,
+		Ours().LeastRecentVideoItem, Lists[0], Lists[2], Lists[1]);
 	int Hash[HASH_TABLE_SIZE] = {};
 	ORIGINAL(memcpy(Hash, OVideoHashTable, sizeof(Hash)));
 	golden::Output("video hash table", Hash);
-	CHECK(memcmp(VideoHashTable.data(), Hash, sizeof(VideoHashTable)) == 0, "%s: video hash table", What);
-	if (VideoCache == nullptr || !Present || VideoCacheSize != Lists[0])
+	CHECK(memcmp(Ours().VideoHashTable.data(), Hash, sizeof(Ours().VideoHashTable)) == 0, "%s: video hash table", What);
+	if (Ours().VideoCache == nullptr || !Present || Ours().VideoCacheSize != Lists[0])
 		return;
-	size_t Size = (size_t)VideoCacheSize * sizeof(TVideoCacheItem);
+	size_t Size = (size_t)Ours().VideoCacheSize * sizeof(TVideoCacheItem);
 	if (LastVideo.size() != Size)
 		LastVideo.assign(Size, 0);
 	golden::OutputRuns("video cache items", LastVideo.data(), ORIGINAL_OR((const void *)OVideoCache, nullptr), Size);
-	for (int i = 0; i < VideoCacheSize; i++)
-		CHECK(memcmp(&VideoCache[i], &LastVideo[i * sizeof(TVideoCacheItem)], sizeof(TVideoCacheItem)) == 0,
+	for (int i = 0; i < Ours().VideoCacheSize; i++)
+		CHECK(memcmp(&Ours().VideoCache[i], &LastVideo[i * sizeof(TVideoCacheItem)], sizeof(TVideoCacheItem)) == 0,
 			"%s: video cache item %d differs", What, i);
 }
 
@@ -451,22 +457,22 @@ void CompareCaches(const char *What)
 // read, on both sides.
 void ClearNewMemoryItems()
 {
-	for (int i = 0; i < MemoryCacheSize; i++)
-		MemoryCache[i].Number = MemoryCache[i].TileX = MemoryCache[i].TileY = 0;
-	ORIGINAL(for (int i = 0; i < MemoryCacheSize; i++) OMemoryCache[i].Number = OMemoryCache[i].TileX =
+	for (int i = 0; i < Ours().MemoryCacheSize; i++)
+		Ours().MemoryCache[i].Number = Ours().MemoryCache[i].TileX = Ours().MemoryCache[i].TileY = 0;
+	ORIGINAL(for (int i = 0; i < Ours().MemoryCacheSize; i++) OMemoryCache[i].Number = OMemoryCache[i].TileX =
 				 OMemoryCache[i].TileY = 0);
-	memset(MemoryCacheData.get(), 0, (size_t)MemoryCacheSize * TILE);
+	memset(Ours().MemoryCacheData.get(), 0, (size_t)Ours().MemoryCacheSize * TILE);
 	ORIGINAL(memset(OMemoryCacheData, 0, OMemoryCacheSize * TILE));
 }
 
 void ClearNewVideoItems()
 {
 	bool Present = ORIGINAL_VALUE("video cache cleared", bool, OVideoCache != NULL);
-	if (VideoCache == nullptr || !Present)
+	if (Ours().VideoCache == nullptr || !Present)
 		return;
-	for (int i = 0; i < VideoCacheSize; i++)
-		VideoCache[i].Number = VideoCache[i].MaskNumber = 0;
-	ORIGINAL(for (int i = 0; i < VideoCacheSize; i++) OVideoCache[i].Number = OVideoCache[i].MaskNumber = 0);
+	for (int i = 0; i < Ours().VideoCacheSize; i++)
+		Ours().VideoCache[i].Number = Ours().VideoCache[i].MaskNumber = 0;
+	ORIGINAL(for (int i = 0; i < Ours().VideoCacheSize; i++) OVideoCache[i].Number = OVideoCache[i].MaskNumber = 0);
 }
 
 // --- Inputs ----------------------------------------------------------------------
@@ -524,7 +530,7 @@ void RandomString(char *Text, int Length)
 std::vector<int> DrawableObjects;
 std::vector<int> DrawableOutfits;
 
-bool SpriteOK(int SpriteNumber) { return SpriteNumber >= 0 && SpriteNumber <= NumberOfSprites; }
+bool SpriteOK(int SpriteNumber) { return SpriteNumber >= 0 && SpriteNumber <= Ours().NumberOfSprites; }
 
 void FindDrawables()
 {
@@ -566,7 +572,7 @@ void FindDrawables()
 
 void SetEngine(int Engine)
 {
-	curEngine = Engine;
+	patella::bridge::GraphicsEngine().curEngine = Engine;
 	ORIGINAL(Global<int>(0x71d0c4) = Engine);
 }
 
@@ -578,7 +584,7 @@ void TestFiles(const std::string &Spr, const std::string &Pic)
 	ORIGINAL(At<LoadFn>(0x48b550)(Spr.c_str()));
 	CompareSprites("LoadSprites");
 	static uint8 A[TILE], B[TILE];
-	for (int s = 1; s <= NumberOfSprites && s <= OriginalSprites; s++) {
+	for (int s = 1; s <= Ours().NumberOfSprites && s <= OriginalSprites; s++) {
 		memset(A, 0x55, sizeof(A));
 		memset(B, 0x55, sizeof(B));
 		LoadSprite(s, A);
@@ -589,15 +595,15 @@ void TestFiles(const std::string &Spr, const std::string &Pic)
 		ORIGINAL(Key[0] = OSprites[s - 1].ColorKey.R; Key[1] = OSprites[s - 1].ColorKey.G;
 			Key[2] = OSprites[s - 1].ColorKey.B);
 		golden::Output("sprite colour key", Key);
-		CHECK(memcmp(A, B, sizeof(A)) == 0 && Sprites[s - 1].ColorKey == TRGBColor(Key[0], Key[1], Key[2]),
+		CHECK(memcmp(A, B, sizeof(A)) == 0 && Ours().Sprites[s - 1].ColorKey == TRGBColor(Key[0], Key[1], Key[2]),
 			"LoadSprite(%d) differs", s);
 	}
 	LoadPictures(Pic.c_str());
 	ORIGINAL(At<LoadFn>(0x48bea0)(Pic.c_str()));
 	ComparePictures("LoadPictures");
-	for (int p = 1; p <= NumberOfPictures && p <= OriginalPictures; p++) {
-		for (int ty = 0; ty < Pictures[p - 1].TilesY; ty++) {
-			for (int tx = 0; tx < Pictures[p - 1].TilesX; tx++) {
+	for (int p = 1; p <= Ours().NumberOfPictures && p <= OriginalPictures; p++) {
+		for (int ty = 0; ty < Ours().Pictures[p - 1].TilesY; ty++) {
+			for (int tx = 0; tx < Ours().Pictures[p - 1].TilesX; tx++) {
 				memset(A, 0x55, sizeof(A));
 				memset(B, 0x55, sizeof(B));
 				LoadPictureTile(p, tx, ty, A);
@@ -623,24 +629,24 @@ void TestMemoryCache()
 	for (int t = 0; t < 4000; t++) {
 		int Op = Random() % 10;
 		if (Op < 4) {
-			int s = Range(1, NumberOfSprites);
+			int s = Range(1, Ours().NumberOfSprites);
 			if (t % 3 == 0)
 				s = Range(1, 30);
 			TMemoryCacheItem *A = GetMemorySprite(s);
 			int B = ORIGINAL_VALUE("GetMemorySprite", int, At<MemSpriteFn>(0x48d440)(s) - OMemoryCache);
-			CHECK(A - MemoryCache.get() == B, "GetMemorySprite(%d): %d, original %d", s, (int)(A - MemoryCache.get()), B);
+			CHECK(A - Ours().MemoryCache.get() == B, "GetMemorySprite(%d): %d, original %d", s, (int)(A - Ours().MemoryCache.get()), B);
 		} else if (Op < 8) {
-			int p = Range(1, NumberOfPictures);
-			int tx = Range(0, Pictures[p - 1].TilesX - 1);
-			int ty = Range(0, Pictures[p - 1].TilesY - 1);
+			int p = Range(1, Ours().NumberOfPictures);
+			int tx = Range(0, Ours().Pictures[p - 1].TilesX - 1);
+			int ty = Range(0, Ours().Pictures[p - 1].TilesY - 1);
 			TMemoryCacheItem *A = GetMemoryPicture(p, tx, ty);
 			int B = ORIGINAL_VALUE("GetMemoryPicture", int, At<MemPictureFn>(0x48d740)(p, tx, ty) - OMemoryCache);
-			CHECK(A - MemoryCache.get() == B, "GetMemoryPicture(%d, %d, %d)", p, tx, ty);
+			CHECK(A - Ours().MemoryCache.get() == B, "GetMemoryPicture(%d, %d, %d)", p, tx, ty);
 		} else if (Op == 8) {
 			int s = Range(1, 30);
 			CHECK(FindMemorySprite(s) == ORIGINAL_VALUE("FindMemorySprite", int, At<IntRetFn>(0x48ce00)(s)),
 				"FindMemorySprite(%d)", s);
-			int p = Range(1, NumberOfPictures);
+			int p = Range(1, Ours().NumberOfPictures);
 			int tx = Range(0, 3);
 			int ty = Range(0, 3);
 			CHECK(FindMemoryPicture(p, tx, ty) == ORIGINAL_VALUE("FindMemoryPicture", int, At<Find3Fn>(0x48ce70)(p, tx, ty)),
@@ -706,15 +712,15 @@ void RandomDraw(int t)
 	TRGBColor Colors[4] = {RandomColor(), RandomColor(), RandomColor(), RandomColor()};
 	if (t % 4 == 0) // repeated colours, so that cached masked sprites are found again
 		Colors[0] = Colors[1] = Colors[2] = Colors[3] = TRGBColor(t % 3, 0, 0);
-	int Sprite = t % 2 ? Range(0, 40) : Range(0, NumberOfSprites);
+	int Sprite = t % 2 ? Range(0, 40) : Range(0, Ours().NumberOfSprites);
 	char Text[80];
 	RandomString(Text, Range(0, 30));
 	int Length = Range(0, (int)strlen(Text));
 	int Width = Range(1, 64);
 	int Height = Range(1, 64);
 	int SmallMask = t % 3 == 0 ? 0 : Range(1, 40);
-	int LargeMask = t % 3 == 0 ? 0 : Range(1, NumberOfSprites);
-	int Picture = 1 + t % NumberOfPictures;
+	int LargeMask = t % 3 == 0 ? 0 : Range(1, Ours().NumberOfSprites);
+	int Picture = 1 + t % Ours().NumberOfPictures;
 	int SourceX = Range(-40, 300);
 	int SourceY = Range(-40, 300);
 	int PartWidth = Range(-2, 200);
@@ -932,7 +938,7 @@ void TestGraphics([[maybe_unused]] const char *ExePath)
 	FindDrawables();
 	CHECK(!DrawableObjects.empty() && !DrawableOutfits.empty(), "no drawable objects (%d) or outfits (%d)",
 		(int)DrawableObjects.size(), (int)DrawableOutfits.size());
-	int SavedEngine = curEngine;
+	int SavedEngine = patella::bridge::GraphicsEngine().curEngine;
 	if (!DrawableObjects.empty() && !DrawableOutfits.empty())
 		TestVideoCache();
 
@@ -960,8 +966,8 @@ void TestGraphics([[maybe_unused]] const char *ExePath)
 	CompareCaches("ReloadPictures");
 	ExitGraphics();
 	ORIGINAL(At<VoidFn>(0x48b4a0)());
-	CHECK(VideoCache == nullptr && MemoryCacheData == nullptr && MemoryCache == nullptr && Fonts == nullptr
-			&& Pictures == nullptr && Sprites == nullptr,
+	CHECK(Ours().VideoCache == nullptr && Ours().MemoryCacheData == nullptr && Ours().MemoryCache == nullptr && Ours().Fonts == nullptr
+			&& Ours().Pictures == nullptr && Ours().Sprites == nullptr,
 		"ExitGraphics leaves a table");
 	bool Left = ORIGINAL_VALUE("tables left", bool,
 		!(OVideoCache == NULL && OMemoryCacheData == NULL && OMemoryCache == NULL && OFonts == NULL

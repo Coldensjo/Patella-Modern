@@ -17,9 +17,8 @@ struct TRect;
 struct TRGBColor;
 struct TFullscreenMode;
 
-// Engines: 0 DirectX 5 (SurfaceDX.cpp), 1 OpenGL (SurfaceGL.cpp), 2 DirectX 9
+// Engines (TGraphicsEngine::curEngine, below): 0 DirectX 5 (SurfaceDX.cpp), 1 OpenGL (SurfaceGL.cpp), 2 DirectX 9
 // (surfaceDX9.cpp).
-extern int curEngine; // 0x71d0c4
 
 // View modes (TSurface::ViewMode, Init); 0 is none (not initialised).
 enum : int {
@@ -156,29 +155,75 @@ public:
 	int Data6C;        // +0x6c
 };
 
+namespace patella {
+
+// Surface.cpp's data (issue #116, M7; notes/decisions.md, "#104: TClient and the subsystem objects" and "#116"): the
+// engine choice, the surface object of that engine, and the data the engines share (the blit statistics, the screen,
+// the cache surfaces' size), in the original's .data and .bss order with the same initial values. A part of
+// TGraphics (graphics.h, its member Engine), declared here and defined in Surface.cpp, as TSession is Status.cpp's
+// inside TCommunication. Surface.cpp's functions are its members of the same names; the free functions forward to
+// them. The data the other files read or write was extern and is public (the Vulkan engine, Control.cpp, Dialogs.cpp,
+// MainFrm.cpp, Player.cpp and the golden tests); the three file-local values are private, read by TSurface's
+// TestEngine and GetAvailableEngines (a friend: TSurface keeps its interface and layout, the Vulkan engine's seam).
+class TGraphicsEngine {
+public:
+	TGraphicsEngine() = default;
+	TGraphicsEngine(const TGraphicsEngine &) = delete;
+	TGraphicsEngine &operator=(const TGraphicsEngine &) = delete;
+	TGraphicsEngine(TGraphicsEngine &&) = delete;
+	TGraphicsEngine &operator=(TGraphicsEngine &&) = delete;
+	~TGraphicsEngine() = default;
+
+	int GetCurrentEngine() const;           // 0x4eaa80
+	TSurface *GetSurface();                 // 0x4eaa90 (the x64 client's)
+	void SurfaceExitInstance();             // 0x4eab60
+	void SurfaceInitInstance(HWND *Window); // the x64 client's
+
+	// .data
+	int CommandLineEngine = -1;   // 0x5c2564, "engine N" on the command line (Player.cpp); -1 = none
+	int CacheSurfaceWidth = 256;  // 0x5c2568, the size of a video cache surface (256 at start)
+	int CacheSurfaceHeight = 256; // 0x5c256c
+	// .bss. The statistics count the blits of a frame (the engines').
+	int InitStep{}; // 0x71d0bc, the step reached in Direct3D's initialisation; 0 done
+
+private:
+	friend class ::TSurface;
+	HWND SurfaceWindow{}; // 0x71d0c0, the main window, from SurfaceInitInstance
+
+public:
+	int curEngine{}; // 0x71d0c4
+
+private:
+	uint8 AvailableEngines{}; // 0x71d0c8, bit 0 OpenGL works, bit 1 DirectX 9 passed TestEngine
+	TSurface *Surface{};      // 0x71d0cc, the engine's surface; raw, as the original's (deleted by SurfaceExitInstance)
+
+public:
+	int BlitCount{};        // 0x71d0d0
+	int BlitPixels{};       // 0x71d0d4
+	int Data71D0D8{};       // 0x71d0d8, cleared by surfaceDX9.cpp and SurfaceGL.cpp
+	int ScreenWidth{};      // 0x71d0dc, of the last frame
+	int ScreenHeight{};     // 0x71d0e0
+	int ScreenDepth{};      // 0x71d0e4
+	int LastBlitCount{};    // 0x71d0e8, BlitCount of the last frame
+	int LastBlitPixels{};   // 0x71d0ec
+	int NumberOfSurfaces{}; // 0x71d0f0, the surfaces created (SurfaceDX.cpp's SurfaceMemory entries)
+	int Data71D0F4{};       // 0x71d0f4, SurfaceGL.cpp's
+};
+
+// The transition's access path (notes/decisions.md, "#104: TClient and the subsystem objects"): the one TClient's
+// TGraphicsEngine (Client.cpp). It goes when no free function needs it.
+namespace bridge {
+TGraphicsEngine &GraphicsEngine();
+} // namespace bridge
+
+} // namespace patella
+
 int GetCurrentEngine();
 TSurface *GetSurface();
 void SurfaceExitInstance();
 void SurfaceInitInstance(HWND *Window);
-extern int CommandLineEngine; // 0x5c2564, "engine N" on the command line (Player.cpp); -1 = none
 
 // surfaceDX9.cpp (surfaceDX9.h): declared here because SurfaceDX.h's DirectX 6
 // d3d.h and surfaceDX9.h's d3d9.h cannot be included together.
 bool IsDirect3D9Installed();  // 0x4efd10
 TSurface *CreateSurfaceDX9(); // 0x4f1430
-
-// Data the engines share (Surface.cpp's; SurfaceDX.cpp, surfaceDX9.cpp and
-// SurfaceGL.cpp use them). The statistics count the blits of a frame.
-extern int InitStep;           // 0x71d0bc, the step reached in Direct3D's initialisation; 0 done
-extern int BlitCount;          // 0x71d0d0
-extern int BlitPixels;         // 0x71d0d4
-extern int Data71D0D8;         // 0x71d0d8, cleared by surfaceDX9.cpp and SurfaceGL.cpp
-extern int ScreenWidth;        // 0x71d0dc, of the last frame
-extern int ScreenHeight;       // 0x71d0e0
-extern int ScreenDepth;        // 0x71d0e4
-extern int LastBlitCount;      // 0x71d0e8, BlitCount of the last frame
-extern int LastBlitPixels;     // 0x71d0ec
-extern int NumberOfSurfaces;   // 0x71d0f0, the surfaces created (SurfaceDX.cpp's SurfaceMemory entries)
-extern int Data71D0F4;         // 0x71d0f4, SurfaceGL.cpp's
-extern int CacheSurfaceWidth;  // 0x5c2568, the size of a video cache surface (256 at start)
-extern int CacheSurfaceHeight; // 0x5c256c

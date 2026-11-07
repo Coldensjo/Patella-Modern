@@ -214,7 +214,7 @@ void TFakeLabel::SetText(const char *_Text, bool Param)
 TFakeSkinIcon::TFakeSkinIcon(int _Skin)
 {
 	Skin = _Skin;
-	SetSize(Skins[_Skin].width, Skins[_Skin].height);
+	SetSize(Skins()[_Skin].width, Skins()[_Skin].height);
 	ReportElement(this, "SkinIcon", "%d", _Skin);
 }
 void TFakeSkinButton::SetRadioButtonGroup(TRadioButtonGroup *Group)
@@ -1750,26 +1750,26 @@ static void RandomPoint(TComponent *C, const std::string &Kind, int &x, int &y)
 		return;
 	int i = Random() % 12;
 	if (Kind == "InvView") {
-		TRect &Area = SkinProperties.Style288.Data60[i % 10];
+		TRect &Area = SkinProperties().Style288.Data60[i % 10];
 		x = Area.x + (int)(Random() % (Area.width + 2));
 		y = Area.y + (int)(Random() % (Area.height + 2));
 	} else if (Kind == "ContainerBody") {
-		x = SkinProperties.Data630.x + i % SkinProperties.Data62C * SkinProperties.Data648 + (int)(Random() % 36);
-		y = SkinProperties.Data630.y + i / SkinProperties.Data62C * SkinProperties.Data64C + (int)(Random() % 36);
+		x = SkinProperties().Data630.x + i % SkinProperties().Data62C * SkinProperties().Data648 + (int)(Random() % 36);
+		y = SkinProperties().Data630.y + i / SkinProperties().Data62C * SkinProperties().Data64C + (int)(Random() % 36);
 	} else if (Kind == "BattleBody") {
-		y = i * SkinProperties.Style688.Data00 + (int)(Random() % SkinProperties.Style688.Data00);
+		y = i * SkinProperties().Style688.Data00 + (int)(Random() % SkinProperties().Style688.Data00);
 	} else if (Kind == "BuddyBody") {
-		y = i * SkinProperties.BuddylistWindow.Data04 + (int)(Random() % SkinProperties.BuddylistWindow.Data04);
+		y = i * SkinProperties().BuddylistWindow.Data04 + (int)(Random() % SkinProperties().BuddylistWindow.Data04);
 	} else if (Kind == "States") {
-		x = SkinProperties.PlayerStates.Data00.x + i * SkinProperties.PlayerStates.Data24 + (int)(Random() % 6);
-		y = SkinProperties.PlayerStates.Data00.y + (int)(Random() % 6);
+		x = SkinProperties().PlayerStates.Data00.x + i * SkinProperties().PlayerStates.Data24 + (int)(Random() % 6);
+		y = SkinProperties().PlayerStates.Data00.y + (int)(Random() % 6);
 	} else if (Kind == "AutomapView" || Kind == "Automap") {
 		// Near the centre of the view, where the marks next to the player are.
 		x = 53 + (int)(Random() % 41) - 20;
 		y = 53 + (int)(Random() % 41) - 20;
 		if (Kind == "Automap") {
-			x += SkinProperties.Data234.x;
-			y += SkinProperties.Data234.y;
+			x += SkinProperties().Data234.x;
+			y += SkinProperties().Data234.y;
 		}
 	} else if (Kind == "Rose") {
 		static const int Points[][2] = {{0, 0}, {0, -12}, {0, 12}, {-12, 0}, {12, 0}, {6, 6}, {-5, 5}, {5, -5}};
@@ -1880,7 +1880,7 @@ static void Size()
 {
 	int Width = 150 + Random() % 100, Height = 10 + Random() % 300;
 	if (Random() % 3 == 0)
-		Width = SkinProperties.Data184;
+		Width = SkinProperties().Data184;
 	bool Columns = Random() % 4 == 0;
 	Both([&](int s) {
 		if (Columns)
@@ -1966,8 +1966,8 @@ static void Queries()
 		if (Scenario == SC_SMALL_INVENTORY && Random() % 2 == 0) {
 			// A drop on the small inventory's area (a pile asks for the count).
 			TComponent *W = Window[OURS];
-			int x = SkinProperties.Data590.x + (int)(Random() % (SkinProperties.Data590.width + 2));
-			int y = SkinProperties.Data590.y + (int)(Random() % (SkinProperties.Data590.height + 2));
+			int x = SkinProperties().Data590.x + (int)(Random() % (SkinProperties().Data590.width + 2));
+			int y = SkinProperties().Data590.y + (int)(Random() % (SkinProperties().Data590.height + 2));
 			int Flags = RandomFlags();
 			World.ActionState = 6;
 			if (Random() % 2 == 0) {
@@ -2237,7 +2237,7 @@ static void Build()
 				Checked[s]->AppendChild(W);
 			}
 		}
-		Column[s]->SetSize(SkinProperties.Data184, 600);
+		Column[s]->SetSize(SkinProperties().Data184, 600);
 		Window[s] = Create(s);
 		Column[s]->Rearrange(16, Window[s]);
 	});
@@ -2362,7 +2362,7 @@ static void DirectAssertions()
 	if (Parts("InvView", P)) {
 		int Slot = Random() % 10;
 		World.Body[Slot + 1] = RandomObject(false);
-		TRect &Area = SkinProperties.Style288.Data60[Slot];
+		TRect &Area = SkinProperties().Style288.Data60[Slot];
 		int x = Area.x + 1, y = Area.y + 1;
 		sprintf(What, "errors: InvView LeftButtonUp use object %d", World.UseObject.Type);
 		ContentCall(What, [&](int s) { P[s]->LeftButtonUp(x, y, 0); });
@@ -2374,7 +2374,7 @@ static void DirectAssertions()
 		if (World.ObjectCount[B->Container] == 0)
 			World.ObjectCount[B->Container] = 1;
 		World.Contents[B->Container][0] = RandomObject(false);
-		int x = SkinProperties.Data630.x + 1, y = SkinProperties.Data630.y + 1 - B->ScrollBar->Range->Value;
+		int x = SkinProperties().Data630.x + 1, y = SkinProperties().Data630.y + 1 - B->ScrollBar->Range->Value;
 		sprintf(What, "errors: ContainerBody LeftButtonUp use object %d", World.UseObject.Type);
 		ContentCall(What, [&](int s) { P[s]->LeftButtonUp(x, y, 0); });
 		Threw = false;
@@ -2394,7 +2394,7 @@ static void DirectAssertions()
 	// The members' arguments.
 	if (Parts("States", P)) {
 		int Position = Random() % 2 == 0 ? -1 - (int)(Random() % 3)
-										 : SkinProperties.PlayerStates.NumberOfIcons + (int)(Random() % 3);
+										 : SkinProperties().PlayerStates.NumberOfIcons + (int)(Random() % 3);
 		sprintf(What, "errors: TPlayerStates::GetIcon %d", Position);
 		ContentCall(What, [&](int s) {
 			if (s == OURS) ((TPlayerStates *)P[s])->GetIcon(Position);
@@ -2450,7 +2450,7 @@ static void DirectAssertions()
 		if (s == OURS) new TButtonsWindow(NULL, Main);
 		else ORIGINAL(At<ButtonsCtorFn>(0x426480)(PatternNew(0x58), NULL, NULL, Main)); });
 	Threw = false;
-	int Skin = NumberOfSkins + (int)(Random() % 3);
+	int Skin = patella::bridge::Skins().NumberOfSkins + (int)(Random() % 3);
 	ContentCall("errors: TCompassRose::TCompassRose", [&](int s) {
 		if (s == OURS) new TCompassRose(Skin);
 		else ORIGINAL(At<IntCtorFn>(0x428680)(PatternNew(0x28), NULL, Skin)); });
@@ -2625,7 +2625,7 @@ static void DirectFailures()
 		case 22:
 			// A press on a body slot (it may drag the slot's object).
 			if (Parts(Kind = "InvView", P)) {
-				TRect &Area = SkinProperties.Style288.Data60[Random() % 10];
+				TRect &Area = SkinProperties().Style288.Data60[Random() % 10];
 				int x = Area.x + 2, y = Area.y + 2;
 				sprintf(What, "errors: InvView LeftButtonDown %d,%d", x, y);
 				ContentCall(What, [&](int s) { P[s]->LeftButtonDown(x, y, 0); }, true, Fail);
@@ -2748,7 +2748,7 @@ void TestContentWindows()
 		setvbuf(stdout, NULL, _IONBF, 0);
 	ORIGINAL(PatchImage());
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
+	ORIGINAL(Global<int>(0x71c450) = patella::bridge::Skins().NumberOfSkins; Global<TSkin *>(0x71c454) = Skins().get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	LastDump.clear();

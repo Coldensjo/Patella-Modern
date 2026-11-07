@@ -7,7 +7,8 @@
 //
 // Today: TPreferences (Preferences.cpp, issue #104), TNetwork (Network.cpp), TMapState (the game state: Objects.cpp,
 // Map.cpp, Creatures.cpp, Inventory.cpp, issue #106; MapState.h), TCommunication (Communication.cpp and Status.cpp's
-// session, issue #105) and TGUI (Talk.cpp, Help.cpp, Status.cpp's user interaction and the windows' data, issue
+// session, issue #105), TGraphics (graphics.cpp, Surface.cpp and Skins.cpp with GUI.cpp's SkinProperties, issue
+// #116; graphics.h) and TGUI (Talk.cpp, Help.cpp, Status.cpp's user interaction and the windows' data, issue
 // #107; GUI.h). The platform's services are interfaces (issue #109, platform/Platform.h): TClient takes them in its
 // constructor and passes them on (TPreferences the file system, TNetwork the socket).
 //
@@ -24,6 +25,7 @@
 #include "MapState.h"
 #include "Network.h"
 #include "Preferences.h"
+#include "graphics.h"
 #include "platform/Platform.h"
 
 namespace patella {
@@ -43,7 +45,8 @@ public:
 	TNetwork Network;
 	TMapState MapState;
 	TCommunication Communication;
-	TGUI GUI; // issue #107
+	TGraphics Graphics; // issue #116
+	TGUI GUI;           // issue #107
 };
 
 namespace bridge {

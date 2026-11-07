@@ -237,15 +237,15 @@ public:
 	// first slot, the same as Data630.y in the game's skin).
 	int GetInitialHeight() override
 	{
-		return (ObjectCount / SkinProperties.Data62C + (ObjectCount % SkinProperties.Data62C > 0))
-			* SkinProperties.Data64C
-			+ SkinProperties.Data630.x;
+		return (ObjectCount / SkinProperties().Data62C + (ObjectCount % SkinProperties().Data62C > 0))
+			* SkinProperties().Data64C
+			+ SkinProperties().Data630.x;
 	}
 	int GetContentHeight() override
 	{
-		return (Capacity / SkinProperties.Data62C + (Capacity % SkinProperties.Data62C > 0))
-			* SkinProperties.Data64C
-			+ SkinProperties.Data630.x;
+		return (Capacity / SkinProperties().Data62C + (Capacity % SkinProperties().Data62C > 0))
+			* SkinProperties().Data64C
+			+ SkinProperties().Data630.x;
 	}
 
 	TScrollBar *ScrollBar; // +0x30

@@ -180,14 +180,14 @@ public:
 	TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback Callback); // 0x41a870, lines 806-831
 	~TTab() override;                                                         // +0x00, 0x41acd0, lines 849-866 (deleting 0x421b10)
 	// Inline (0x417700, folded with TTabBar's): the tab height.
-	int getMinimumHeight() override { return SkinProperties.StyleAA4.Data04; } // +0x40
-	void Draw(int Surface, int x, int y) override;                             // +0x44, 0x41b890, lines 981-996
-	void Arrange() override;                                                   // +0x48, 0x41b6c0, line 974
-	bool MouseMove(int x, int y) override;                                     // +0x4c, 0x41b190, line 898
-	bool LeftButtonDown(int x, int y, int Flags) override;                     // +0x50, 0x424200, line 916
-	bool LeftButtonUp(int x, int y, int Flags) override;                       // +0x54, 0x41b370, line 931
-	bool RightButtonUp(int x, int y, int Flags) override;                      // +0x5c, 0x4243d0, line 945
-	void MouseHover(int x, int y) override;                                    // +0x64, 0x41b520, line 956
+	int getMinimumHeight() override { return SkinProperties().StyleAA4.Data04; } // +0x40
+	void Draw(int Surface, int x, int y) override;                               // +0x44, 0x41b890, lines 981-996
+	void Arrange() override;                                                     // +0x48, 0x41b6c0, line 974
+	bool MouseMove(int x, int y) override;                                       // +0x4c, 0x41b190, line 898
+	bool LeftButtonDown(int x, int y, int Flags) override;                       // +0x50, 0x424200, line 916
+	bool LeftButtonUp(int x, int y, int Flags) override;                         // +0x54, 0x41b370, line 931
+	bool RightButtonUp(int x, int y, int Flags) override;                        // +0x5c, 0x4243d0, line 945
+	void MouseHover(int x, int y) override;                                      // +0x64, 0x41b520, line 956
 	// Inline (0x41acc0): the end of a drag.
 	void ReleaseCapture(TComponent *Component) override
 	{
@@ -240,12 +240,12 @@ public:
 	bool IsChild(TComponent *Child) override;                                // +0x1c, 0x41c950, line 1191
 	void SetSize(int Width, int Height) override;                            // +0x34, 0x41bf40, line 1055
 	// Inline (0x417700, folded with TTab's).
-	int getMinimumHeight() override { return SkinProperties.StyleAA4.Data04; } // +0x40
-	void Draw(int Surface, int x, int y) override;                             // +0x44, 0x41bd40, line 1043
-	void Arrange() override;                                                   // +0x48, 0x41c0f0, line 1068
-	bool HelpMouseMove(int x, int y) override;                                 // +0x68, 0x41cda0, lines 1215-1220
-	void HandleEvent(int Event) override;                                      // +0x70, 0x41d040, line 1258
-	virtual void Rearrange(TTab *_Moved);                                      // +0xa0, 0x41d810, lines 1372-1427
+	int getMinimumHeight() override { return SkinProperties().StyleAA4.Data04; } // +0x40
+	void Draw(int Surface, int x, int y) override;                               // +0x44, 0x41bd40, line 1043
+	void Arrange() override;                                                     // +0x48, 0x41c0f0, line 1068
+	bool HelpMouseMove(int x, int y) override;                                   // +0x68, 0x41cda0, lines 1215-1220
+	void HandleEvent(int Event) override;                                        // +0x70, 0x41d040, line 1258
+	virtual void Rearrange(TTab *_Moved);                                        // +0xa0, 0x41d810, lines 1372-1427
 
 	void SetCurrentTab(TTab *Tab);            // 0x421d10, lines 1075-1085
 	TWindow *GetContainer(TComponent *Child); // 0x41cb20, lines 1203-1205
@@ -275,13 +275,13 @@ public:
 	~TConsoleWindow() override;                   // +0x00, 0x41dbe0, line 1543 (deleting 0x422aa0)
 	void SetSize(int Width, int Height) override; // +0x34, 0x41de80, line 1571
 	// Inline (0x41de70).
-	int getMinimumHeight() override { return SkinProperties.Style9E8.Data00; } // +0x40
-	void Draw(int Surface, int x, int y) override;                             // +0x44, 0x422ac0, lines 1583-1601
-	void Arrange() override;                                                   // +0x48, 0x41e1e0, line 1647
-	bool LeftButtonDown(int x, int y, int Flags) override;                     // +0x50, 0x41e5e0, line 1659
-	bool HelpMouseMove(int x, int y) override;                                 // +0x68, 0x41e7a0, line 1673
-	void KeyPress(int Key) override;                                           // +0x6c, 0x424580, lines 1718-1773
-	void HandleEvent(int Event) override;                                      // +0x70, 0x424b10, lines 1856-1859
+	int getMinimumHeight() override { return SkinProperties().Style9E8.Data00; } // +0x40
+	void Draw(int Surface, int x, int y) override;                               // +0x44, 0x422ac0, lines 1583-1601
+	void Arrange() override;                                                     // +0x48, 0x41e1e0, line 1647
+	bool LeftButtonDown(int x, int y, int Flags) override;                       // +0x50, 0x41e5e0, line 1659
+	bool HelpMouseMove(int x, int y) override;                                   // +0x68, 0x41e7a0, line 1673
+	void KeyPress(int Key) override;                                             // +0x6c, 0x424580, lines 1718-1773
+	void HandleEvent(int Event) override;                                        // +0x70, 0x424b10, lines 1856-1859
 
 	void SetActive(bool Active) const;                                     // 0x41e960, lines 1869-1875
 	void UpdateButtons();                                                  // 0x41ed00, lines 1888-1938

@@ -372,7 +372,7 @@ void ReadProbe(TProbe &Probe)
 	}
 
 	// The skin values the drivers place their clicks and masks by (client_state.py skin_rects, skin_int).
-	const TSkinProperties &Skin = SkinProperties;
+	const TSkinProperties &Skin = SkinProperties();
 	SkinRects(Probe.Skin, "Style288.Data60", Skin.Style288.Data60);
 	SkinInt(Probe.Skin, "Data62C", Skin.Data62C);
 	SkinInt(Probe.Skin, "Data630.x", Skin.Data630.x);

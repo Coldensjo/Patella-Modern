@@ -192,7 +192,7 @@ void SetDisplayMode(int ViewMode)
 		// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
 		const int ScreenHeight = GetSystemMetrics(SM_CYSCREEN);
 		MainFrame->SetWindowPos(&CWnd::wndTopMost, 0, 0, GetSystemMetrics(SM_CXSCREEN), ScreenHeight, 0);
-		if (curEngine == 2)
+		if (patella::bridge::GraphicsEngine().curEngine == 2)
 			Resize(0, 0);
 	} else {
 		MainFrame->ModifyStyle(WS_POPUP, WS_CAPTION | WS_THICKFRAME, 0);

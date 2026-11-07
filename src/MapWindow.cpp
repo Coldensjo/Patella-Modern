@@ -114,7 +114,7 @@ void TMapWindow::SetSize(int Width, int Height)
 void TMapWindow::Arrange()
 {
 	if (HintButton != nullptr)
-		SetChildArea(HintButton, SkinProperties.Data140);
+		SetChildArea(HintButton, SkinProperties().Data140);
 }
 
 // 0x4c24d0, line 196. Starts dragging the top movable object of the field.
@@ -651,7 +651,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 					Blink = GetBlinkState();
 			}
 			if (Icon1 != 0) {
-				const TSkin *Skin = &Skins[Icon1];
+				const TSkin *Skin = &Skins()[Icon1];
 				int IconX = nx - Skin->width + 20;
 				int IconY = ny + 1;
 				if (Icon2 != 0) {
@@ -659,7 +659,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 					Limit(IconY, 1, Height - Skin->height - 1);
 					DrawSkin(Surface, IconX + x, IconY + y, Skin->width, Skin->height, Icon1, 0, 0);
 					if (Blink)
-						DrawSkin(Surface, IconX + x + 13, IconY + y, Skins[Icon2].width, Skins[Icon2].height,
+						DrawSkin(Surface, IconX + x + 13, IconY + y, Skins()[Icon2].width, Skins()[Icon2].height,
 							Icon2, 0, 0);
 				} else {
 					Limit(IconX, 1, Width - Skin->width - 1);
@@ -867,13 +867,13 @@ void TMapWindow::DrawField(int posx, int posy, int FieldX, int FieldY, int Field
 	for (i = 0; i < NumberOfCreatures; i++) {
 		TRGBColor Color;
 		if (Creatures[i]->CreatureID == GetHighlightID())
-			Color = SkinProperties.HighlightColor;
+			Color = SkinProperties().HighlightColor;
 		if (Creatures[i]->CreatureID == GetAttackID())
-			Color = Creatures[i]->CreatureID == GetHighlightID() ? SkinProperties.HighlightedAttackColor
-																 : SkinProperties.AttackColor;
+			Color = Creatures[i]->CreatureID == GetHighlightID() ? SkinProperties().HighlightedAttackColor
+																 : SkinProperties().AttackColor;
 		if (Creatures[i]->CreatureID == GetFollowID())
-			Color = Creatures[i]->CreatureID == GetHighlightID() ? SkinProperties.HighlightedFollowColor
-																 : SkinProperties.FollowColor;
+			Color = Creatures[i]->CreatureID == GetHighlightID() ? SkinProperties().HighlightedFollowColor
+																 : SkinProperties().FollowColor;
 		const int ox = OffsetX[i], oy = OffsetY[i];
 		if (Color != TRGBColor(0, 0, 0)) {
 			const int cx = (ScrollX - Elevation + ox + posx) / 32, cy = (ScrollY - Elevation + oy + posy) / 32;
@@ -1576,49 +1576,49 @@ TMapFrame::TMapFrame()
 // follows it.
 void TMapFrame::SetSize(int Width, int Height)
 {
-	const int Border = SkinProperties.Data13C;
+	const int Border = SkinProperties().Data13C;
 	const int MaxWidth = (Height - Border * 2) * 15 / 11 + 2;
 	ViewWidth = Width - Border * 2 < MaxWidth ? Width - Border * 2 : MaxWidth;
 	if (GetNoStretching())
 		ViewWidth = ViewWidth < 480 ? ViewWidth : 480;
 	ViewHeight = (int)floor(ViewWidth * (11.0f / 15.0f));
-	ViewX = (Width - SkinProperties.Data13C * 2 - ViewWidth) / 2 + SkinProperties.Data13C;
-	ViewY = SkinProperties.Data13C;
+	ViewX = (Width - SkinProperties().Data13C * 2 - ViewWidth) / 2 + SkinProperties().Data13C;
+	ViewY = SkinProperties().Data13C;
 	MapWindow->SetSize(ViewWidth, ViewHeight);
 	MapWindow->SetPosition(ViewX, ViewY);
-	TWindow::SetSize(Width, ViewHeight + SkinProperties.Data13C * 2);
+	TWindow::SetSize(Width, ViewHeight + SkinProperties().Data13C * 2);
 	Arrange();
 }
 
 // 0x4c1ea0, line 1595
 int TMapFrame::getMinimumWidth()
 {
-	return MapWindow->getMinimumWidth() + SkinProperties.Data13C * 2;
+	return MapWindow->getMinimumWidth() + SkinProperties().Data13C * 2;
 }
 
 // 0x4c2040, line 1606
 int TMapFrame::getMinimumHeight()
 {
-	return MapWindow->getMinimumHeight() + SkinProperties.Data13C * 2;
+	return MapWindow->getMinimumHeight() + SkinProperties().Data13C * 2;
 }
 
 // 0x4c21e0. No exception frame. The border (skins 8-11) and skin 7 tiled
 // over the rest, its pattern aligned to the frame.
 void TMapFrame::Arrange()
 {
-	DrawingList[0] = TDrawing(9, ViewX - Skins[11].width, ViewY - Skins[9].height,
-		Skins[10].width + Skins[11].width + ViewWidth, Skins[9].height, 0, 0);
-	DrawingList[1] = TDrawing(11, ViewX - Skins[11].width, ViewY, Skins[11].width, Skins[8].height + ViewHeight, 0, 0);
-	DrawingList[2] = TDrawing(10, ViewX + ViewWidth, ViewY, Skins[10].width, Skins[8].height + ViewHeight, 0, 0);
-	DrawingList[3] = TDrawing(8, ViewX, ViewY + ViewHeight, ViewWidth, Skins[8].height, 0, 0);
-	const int Top = ViewY - Skins[9].height;
-	const int Left = ViewX - Skins[11].width;
-	const int Right = Skins[10].width + ViewX + ViewWidth;
+	DrawingList[0] = TDrawing(9, ViewX - Skins()[11].width, ViewY - Skins()[9].height,
+		Skins()[10].width + Skins()[11].width + ViewWidth, Skins()[9].height, 0, 0);
+	DrawingList[1] = TDrawing(11, ViewX - Skins()[11].width, ViewY, Skins()[11].width, Skins()[8].height + ViewHeight, 0, 0);
+	DrawingList[2] = TDrawing(10, ViewX + ViewWidth, ViewY, Skins()[10].width, Skins()[8].height + ViewHeight, 0, 0);
+	DrawingList[3] = TDrawing(8, ViewX, ViewY + ViewHeight, ViewWidth, Skins()[8].height, 0, 0);
+	const int Top = ViewY - Skins()[9].height;
+	const int Left = ViewX - Skins()[11].width;
+	const int Right = Skins()[10].width + ViewX + ViewWidth;
 	const int RightWidth = Width - Right;
-	const int Bottom = Skins[8].height + ViewY + ViewHeight;
+	const int Bottom = Skins()[8].height + ViewY + ViewHeight;
 	DrawingList[4] = TDrawing(7, 0, 0, Width, Top, 0, 0);
-	DrawingList[5] = TDrawing(7, 0, Top, Left, Height - Top, 0, Top % Skins[7].height);
-	DrawingList[6] = TDrawing(7, Right, Top, RightWidth, Height - Top, Right % Skins[7].width, Top % Skins[7].height);
-	DrawingList[7] = TDrawing(7, Left, Bottom, Width - RightWidth - Left, Height - Bottom, Left % Skins[7].width,
-		Bottom % Skins[7].height);
+	DrawingList[5] = TDrawing(7, 0, Top, Left, Height - Top, 0, Top % Skins()[7].height);
+	DrawingList[6] = TDrawing(7, Right, Top, RightWidth, Height - Top, Right % Skins()[7].width, Top % Skins()[7].height);
+	DrawingList[7] = TDrawing(7, Left, Bottom, Width - RightWidth - Left, Height - Bottom, Left % Skins()[7].width,
+		Bottom % Skins()[7].height);
 }

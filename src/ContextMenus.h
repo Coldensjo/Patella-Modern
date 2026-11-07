@@ -46,8 +46,8 @@ public:
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
 	void SetSize(int Width, int Height) override; // +0x34, 0x43d730, line 142
 	// Inline: emitted with the vtable after the constructor (0x4420f0, 0x442100).
-	int getMinimumWidth() override { return SkinProperties.Data150; }      // +0x3c
-	int getMinimumHeight() override { return SkinProperties.Data154; }     // +0x40
+	int getMinimumWidth() override { return SkinProperties().Data150; }    // +0x3c
+	int getMinimumHeight() override { return SkinProperties().Data154; }   // +0x40
 	void Arrange() override;                                               // +0x48, 0x43d9b0
 	void Place(TWindow *Window);                                           // 0x442110, lines 257-272
 	bool FitsIn(int &x, int &y, int &Width, int &Height, TWindow *Window); // 0x43dca0, lines 289-293

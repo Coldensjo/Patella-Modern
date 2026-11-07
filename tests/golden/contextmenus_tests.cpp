@@ -1161,7 +1161,7 @@ static void RandomSkinProperties()
 {
 	// The image's skin properties get the same values as ours (the oracle only). Each constructor's arguments
 	// are drawn in the order the x86 oracle evaluated them, right to left (#55).
-	TSkinProperties &M = SkinProperties;
+	TSkinProperties &M = SkinProperties();
 	TSkinProperties &O = ORIGINAL_OR(Global<TSkinProperties>(0x5ccfc8), M); // the runner: ours twice
 	M.Data09C = O.Data09C = 1 + Random() % 40;
 	{
@@ -1389,7 +1389,7 @@ static void Action()
 			// Another Show (positions change, the last entry shrinks again; both
 			// versions fail when it would get a negative height).
 			TComponent *Last = O->GetLastChild();
-			int Font = SkinProperties.Data0B0.FontNumber;
+			int Font = SkinProperties().Data0B0.FontNumber;
 			if (Last != NULL && Last->Height - ((10 + Font) - (8 + Font % 3)) <= 0)
 				return;
 			int x = (int)(Random() % 900) - 20, y = (int)(Random() % 700) - 20, pw = 200 + Random() % 800,
@@ -1411,8 +1411,8 @@ static void Action()
 			World.HelpWidth = Random() % 300;
 			World.HelpHeight = Random() % 300;
 			TWindow Parent;
-			Parent.Width = O->Width + SkinProperties.Data178 + Random() % 800;
-			Parent.Height = O->Height + SkinProperties.Data178 + Random() % 600;
+			Parent.Width = O->Width + SkinProperties().Data178 + Random() % 800;
+			Parent.Height = O->Height + SkinProperties().Data178 + Random() % 600;
 			Both([&](int s) {
 				if (s == OURS)
 					((THelpBubble *)Window[s])->Place(&Parent);
@@ -1457,9 +1457,9 @@ static void Action()
 		int x = (int)(Random() % 60) - 5, y = (int)(Random() % 60) - 5, w = Random() % 300, h = Random() % 300;
 		// Often at the margin, where the tests change.
 		if (Random() % 2 == 0)
-			x = SkinProperties.Data178 + (int)(Random() % 3) - 1;
+			x = SkinProperties().Data178 + (int)(Random() % 3) - 1;
 		if (Random() % 2 == 0)
-			y = SkinProperties.Data178 + (int)(Random() % 3) - 1;
+			y = SkinProperties().Data178 + (int)(Random() % 3) - 1;
 		int Width = 50 + Random() % 500, Height = 50 + Random() % 500;
 		TWindow Parent;
 		Parent.Width = Width;
@@ -1636,7 +1636,7 @@ void TestContextMenus()
 	int Before = Checks, BeforeFailures = Failures;
 	ORIGINAL(PatchImage());
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
+	ORIGINAL(Global<int>(0x71c450) = patella::bridge::Skins().NumberOfSkins; Global<TSkin *>(0x71c454) = Skins().get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	LastDump.clear();

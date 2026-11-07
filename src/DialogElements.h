@@ -91,11 +91,11 @@ public:
 	TBorder(TComponent *_Window, int _TopLeft, int _Top, int _TopRight, int _Left, int _Right, int _BottomLeft,
 		int _Bottom, int _BottomRight, int _Background, int _Border); // 0x454e30, lines 217-235
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void SetSize(int Width, int Height) override;                                                     // +0x34, 0x455150, lines 242-251
-	int getMinimumWidth() override { return Skins[Right].width + Skins[Left].width + 2 * Border; }    // +0x3c, 0x4525a0
-	int getMinimumHeight() override { return Skins[Bottom].height + Skins[Top].height + 2 * Border; } // +0x40, 0x452570
-	void Arrange() override;                                                                          // +0x48, 0x4556b0
-	void FitToWindow();                                                                               // 0x455500, line 262
+	void SetSize(int Width, int Height) override;                                                         // +0x34, 0x455150, lines 242-251
+	int getMinimumWidth() override { return Skins()[Right].width + Skins()[Left].width + 2 * Border; }    // +0x3c, 0x4525a0
+	int getMinimumHeight() override { return Skins()[Bottom].height + Skins()[Top].height + 2 * Border; } // +0x40, 0x452570
+	void Arrange() override;                                                                              // +0x48, 0x4556b0
+	void FitToWindow();                                                                                   // 0x455500, line 262
 
 	TComponent *Window; // +0x2c, a window or an element (the outfit dialog frames its icon)
 	int TopLeft;        // +0x30, skins
@@ -537,11 +537,11 @@ public:
 // end right of or below it.
 inline int TEditLine::GetPosition(int x, int y)
 {
-	x -= SkinProperties.Data99C;
-	y -= SkinProperties.Data99C;
+	x -= SkinProperties().Data99C;
+	y -= SkinProperties().Data99C;
 	if (x < 0 || y < 0)
 		return FirstVisible;
-	if (x > Width - 2 * SkinProperties.Data99C || y > Height - 2 * SkinProperties.Data99C)
+	if (x > Width - 2 * SkinProperties().Data99C || y > Height - 2 * SkinProperties().Data99C)
 		return (int)strlen(Text.get());
 	const int Position = GetFittingTextLength(Font.FontNumber, Text.get() + FirstVisible, x) + FirstVisible;
 	if (Position > (int)strlen(Text.get()))
@@ -615,16 +615,16 @@ class THorizontalScrollBarRange : public TElement {
 public:
 	THorizontalScrollBarRange(int _Min, int _Max, int _Value, int _Visible, TCallback _Callback); // 0x45e9e0, lines 2925-2944
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void SetSize(int Width, int Height) override;                      // +0x34, 0x45eff0, line 2986
-	int getMinimumWidth() override { return SkinProperties.Data87C; }  // +0x3c, 0x45ee00
-	int getMinimumHeight() override { return SkinProperties.Data880; } // +0x40, 0x45edf0
-	void Arrange() override;                                           // +0x48, 0x45f1a0
-	bool MouseMove(int x, int y) override;                             // +0x4c, 0x45f3d0, line 3039
-	bool LeftButtonDown(int x, int y, int Flags) override;             // +0x50, 0x45f5c0, line 3057
-	bool LeftButtonUp(int x, int y, int Flags) override;               // +0x54, 0x45f790, line 3081
-	bool MouseWheel(int x, int y, int Code) override;                  // +0x60, 0x45f9d0, line 3113
-	void KeyPress(int Key) override;                                   // +0x6c, 0x45fca0, line 3131
-	void ReleaseCapture(TComponent *Component) override                // +0x7c, 0x45ede0
+	void SetSize(int Width, int Height) override;                        // +0x34, 0x45eff0, line 2986
+	int getMinimumWidth() override { return SkinProperties().Data87C; }  // +0x3c, 0x45ee00
+	int getMinimumHeight() override { return SkinProperties().Data880; } // +0x40, 0x45edf0
+	void Arrange() override;                                             // +0x48, 0x45f1a0
+	bool MouseMove(int x, int y) override;                               // +0x4c, 0x45f3d0, line 3039
+	bool LeftButtonDown(int x, int y, int Flags) override;               // +0x50, 0x45f5c0, line 3057
+	bool LeftButtonUp(int x, int y, int Flags) override;                 // +0x54, 0x45f790, line 3081
+	bool MouseWheel(int x, int y, int Code) override;                    // +0x60, 0x45f9d0, line 3113
+	void KeyPress(int Key) override;                                     // +0x6c, 0x45fca0, line 3131
+	void ReleaseCapture(TComponent *Component) override                  // +0x7c, 0x45ede0
 	{
 		Dragging = false;
 		TElement::ReleaseCapture(Component);
@@ -652,12 +652,12 @@ class THorizontalScrollBar : public TWindow {
 public:
 	THorizontalScrollBar(int Min, int Max, int _Value, int _Visible, int _ButtonRange, TCallback _Callback); // 0x4692d0, lines 3158-3169
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void SetSize(int Width, int Height) override;                      // +0x34, 0x45fe90, line 3188
-	int getMinimumWidth() override { return SkinProperties.Data884; }  // +0x3c, 0x4692c0
-	int getMinimumHeight() override { return SkinProperties.Data880; } // +0x40, 0x45edf0
-	bool MouseWheel(int x, int y, int Code) override;                  // +0x60, 0x4600c0, line 3200
-	void KeyPress(int Key) override;                                   // +0x6c, 0x4731d0 (inline, below)
-	void HandleEvent(int Event) override;                              // +0x70, 0x460280, line 3213
+	void SetSize(int Width, int Height) override;                        // +0x34, 0x45fe90, line 3188
+	int getMinimumWidth() override { return SkinProperties().Data884; }  // +0x3c, 0x4692c0
+	int getMinimumHeight() override { return SkinProperties().Data880; } // +0x40, 0x45edf0
+	bool MouseWheel(int x, int y, int Code) override;                    // +0x60, 0x4600c0, line 3200
+	void KeyPress(int Key) override;                                     // +0x6c, 0x4731d0 (inline, below)
+	void HandleEvent(int Event) override;                                // +0x70, 0x460280, line 3213
 
 	THorizontalScrollBarRange *Range; // +0x2c
 	TSkinButton *LeftButton;          // +0x30, event 5
@@ -674,16 +674,16 @@ class TScrollBarRange : public TElement {
 public:
 	TScrollBarRange(int x, int y, int Width, int Height, int _Min, int _Max, int _Value, int _Visible); // 0x469670, lines 3227-3248
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void SetSize(int Width, int Height) override;                      // +0x34, 0x4608e0, line 3315
-	int getMinimumWidth() override { return SkinProperties.Data870; }  // +0x3c, 0x469e60
-	int getMinimumHeight() override { return SkinProperties.Data86C; } // +0x40, 0x460440
-	void Arrange() override;                                           // +0x48, 0x460a90
-	bool MouseMove(int x, int y) override;                             // +0x4c, 0x460cc0, line 3367
-	bool LeftButtonDown(int x, int y, int Flags) override;             // +0x50, 0x460eb0, line 3385
-	bool LeftButtonUp(int x, int y, int Flags) override;               // +0x54, 0x461080, line 3408
-	bool MouseWheel(int x, int y, int Code) override;                  // +0x60, 0x4612c0, line 3438
-	void KeyPress(int Key) override;                                   // +0x6c, 0x461580, line 3455
-	void ReleaseCapture(TComponent *Component) override                // +0x7c, 0x460430
+	void SetSize(int Width, int Height) override;                        // +0x34, 0x4608e0, line 3315
+	int getMinimumWidth() override { return SkinProperties().Data870; }  // +0x3c, 0x469e60
+	int getMinimumHeight() override { return SkinProperties().Data86C; } // +0x40, 0x460440
+	void Arrange() override;                                             // +0x48, 0x460a90
+	bool MouseMove(int x, int y) override;                               // +0x4c, 0x460cc0, line 3367
+	bool LeftButtonDown(int x, int y, int Flags) override;               // +0x50, 0x460eb0, line 3385
+	bool LeftButtonUp(int x, int y, int Flags) override;                 // +0x54, 0x461080, line 3408
+	bool MouseWheel(int x, int y, int Code) override;                    // +0x60, 0x4612c0, line 3438
+	void KeyPress(int Key) override;                                     // +0x6c, 0x461580, line 3455
+	void ReleaseCapture(TComponent *Component) override                  // +0x7c, 0x460430
 	{
 		Dragging = false;
 		TElement::ReleaseCapture(Component);
@@ -711,12 +711,12 @@ class TScrollBar : public TWindow {
 public:
 	TScrollBar(TRect Area, int Min, int Max, int _Value, int _Visible, int _ButtonRange); // 0x469a80, lines 3462-3475
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	void SetSize(int Width, int Height) override;                      // +0x34, 0x461770, line 3509
-	int getMinimumWidth() override { return SkinProperties.Data870; }  // +0x3c, 0x469e60
-	int getMinimumHeight() override { return SkinProperties.Data874; } // +0x40, 0x469e50
-	bool MouseWheel(int x, int y, int Code) override;                  // +0x60, 0x4619a0, line 3521
-	void KeyPress(int Key) override { Range->KeyPress(Key); }          // +0x6c, 0x4731d0 (folded)
-	void HandleEvent(int Event) override;                              // +0x70, 0x461b60, line 3534
+	void SetSize(int Width, int Height) override;                        // +0x34, 0x461770, line 3509
+	int getMinimumWidth() override { return SkinProperties().Data870; }  // +0x3c, 0x469e60
+	int getMinimumHeight() override { return SkinProperties().Data874; } // +0x40, 0x469e50
+	bool MouseWheel(int x, int y, int Code) override;                    // +0x60, 0x4619a0, line 3521
+	void KeyPress(int Key) override { Range->KeyPress(Key); }            // +0x6c, 0x4731d0 (folded)
+	void HandleEvent(int Event) override;                                // +0x70, 0x461b60, line 3534
 
 	TScrollBarRange *Range;  // +0x2c
 	TSkinButton *UpButton;   // +0x30, event 3
@@ -841,12 +841,12 @@ public:
 		Maximum = 100;
 	}
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	int getMinimumWidth() override { return Skins[256].width + Skins[258].width + Skins[257].width; } // +0x3c, 0x452a90
-	int getMinimumHeight() override { return Skins[256].height; }                                     // +0x40, 0x452ab0
-	void Arrange() override;                                                                          // +0x48, 0x464d00
-	void SetMaximum(int maximum);                                                                     // 0x464f40, lines 4271-4276
-	void SetCurrent(int current);                                                                     // 0x4651c0, line 4289
-	void SetComplete();                                                                               // 0x465380, line 4301
+	int getMinimumWidth() override { return Skins()[256].width + Skins()[258].width + Skins()[257].width; } // +0x3c, 0x452a90
+	int getMinimumHeight() override { return Skins()[256].height; }                                         // +0x40, 0x452ab0
+	void Arrange() override;                                                                                // +0x48, 0x464d00
+	void SetMaximum(int maximum);                                                                           // 0x464f40, lines 4271-4276
+	void SetCurrent(int current);                                                                           // 0x4651c0, line 4289
+	void SetComplete();                                                                                     // 0x465380, line 4301
 
 	int Maximum; // +0x24
 	int Current; // +0x28

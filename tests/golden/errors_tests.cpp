@@ -457,7 +457,7 @@ void TestPlayer()
 		memset(OurApp, 0, sizeof(OurApp));
 		CPlayerApp *App = (CPlayerApp *)OurApp;
 		App->Terminating = Terminating;
-		curEngine = Engine;
+		patella::bridge::GraphicsEngine().curEngine = Engine;
 		remove("error.txt");
 		if (Existing)
 			WriteEarlierReport();
@@ -863,11 +863,11 @@ void TestGraphics()
 		uint32 Original;
 		int Value;
 	} Counts[] = {
-		{&NumberOfFonts, 0x5cc750, 4},
-		{&NumberOfPictures, 0x5cc754, 3},
-		{&NumberOfSprites, 0x5ccb60, 2000},
-		{&MemoryCacheSize, 0x5ccf70, 500},
-		{&VideoCacheSize, 0x5ccf80, 300},
+		{&patella::bridge::Graphics().NumberOfFonts, 0x5cc750, 4},
+		{&patella::bridge::Graphics().NumberOfPictures, 0x5cc754, 3},
+		{&patella::bridge::Graphics().NumberOfSprites, 0x5ccb60, 2000},
+		{&patella::bridge::Graphics().MemoryCacheSize, 0x5ccf70, 500},
+		{&patella::bridge::Graphics().VideoCacheSize, 0x5ccf80, 300},
 	};
 	int Saved[5][2];
 	for (int i = 0; i < 5; i++) {

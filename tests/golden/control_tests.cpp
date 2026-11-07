@@ -430,7 +430,7 @@ static void ControlAfterRetired()
 	patella::bridge::Network().Reconnect = Numbers[3] != 0;
 	patella::bridge::GUI().LastMouseMove = Numbers[4];
 	patella::bridge::GUI().ShowFPS = Numbers[5] != 0;
-	curEngine = Numbers[6];
+	patella::bridge::GraphicsEngine().curEngine = Numbers[6];
 	memcpy(Communication.LastPacketTypes.data(), Types, sizeof(Types));
 	std::string Ours = DumpStatics(OURS);
 	Ours = Ours.substr(Ours.find(" WindowHandle"));
@@ -472,8 +472,8 @@ static void ScriptWorld()
 	int Next = Random() % 3 == 0 ? (int)(Random() % 12) : -1;
 	for (int S = 0; S < 2; S++) {
 		World[S].NextActionState = Next;
-		curEngine = Random() % 5 == 0 ? 3 : (int)(Random() % 3);
-		ORIGINAL(Global<int>(0x71d0c4) = curEngine);
+		patella::bridge::GraphicsEngine().curEngine = Random() % 5 == 0 ? 3 : (int)(Random() % 3);
+		ORIGINAL(Global<int>(0x71d0c4) = patella::bridge::GraphicsEngine().curEngine);
 	}
 	if (Random() % 4 == 0) {
 		int State = Random() % 12;
@@ -560,7 +560,7 @@ static void Step(int Round)
 		ControlBoth(What, [&] { ChangeEngine(Engine); }, ORIGINAL_SIDE(At<TIntFn>(0x445c20)(Engine)));
 		if (!SkippingRetired()) {
 			const int Original = ORIGINAL_VALUE("curEngine", int, Global<int>(0x71d0c4));
-			CHECK(curEngine == Original, "%s: curEngine %d, original %d", What, curEngine, Original);
+			CHECK(patella::bridge::GraphicsEngine().curEngine == Original, "%s: curEngine %d, original %d", What, patella::bridge::GraphicsEngine().curEngine, Original);
 		}
 		break;
 	case 12:
@@ -637,7 +637,7 @@ static void Step(int Round)
 		if (Text != NULL && Random() % 2 == 0) {
 			// The limits' edges: MaxX and MaxY of -1 to 2 (GetTextWidth and
 			// GetTextHeight answer hashes of the text, commworld.cpp).
-			int Border = SkinProperties.TooltipBorder * 2;
+			int Border = SkinProperties().TooltipBorder * 2;
 			Width = (int)(HashText(Text) % 2000) + Border + (int)(Random() % 4);
 			Height = (int)(HashText(Text) % 40) + Border + (int)(Random() % 4);
 		}
