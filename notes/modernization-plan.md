@@ -595,6 +595,9 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   (`src/compat/mdspan.h`, std::mdspan or a stand-in where the library lacks it); matrix3d and matrix index their
   storage through `view()`, the automap's Color and Speed are `TAutomapLayer` (`src/AutomapLayer.h`), owned bytes in
   the file's order with an mdspan view; array stays.
+  Done in #100 (notes/decisions.md, "#100"): the lists that append at their count are std::vectors (Help, Preferences
+  but OpenDialogs, GUI's timers, GetAutomapMarks), GUI's hotkeys a std::flat_map; TIndexedVector stays where min..max,
+  block growth or growth below 0 is behaviour or golden compares the header, each listed; Status' messages after #129.
 - **Fixed-capacity lists** (`TMapPoint::Objects[10]` + `ObjectCount`, the effect table):
   `std::inplace_vector<T, N>` where available, `TStaticVector<T, N>` (same interface) elsewhere.
   Done in #102 for the effect table (notes/decisions.md, "#102: fixed-capacity lists"): `TSlotTable<TEffect, EFFECTS>`

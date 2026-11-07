@@ -14664,3 +14664,65 @@ replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on ev
   is touched.
 - `python -I tools/tidy_ci.py` exit 0 on d100b52, 3 findings, the baseline's 3, 0 new (on 116eec2 exit 1: the two
   header findings above). `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
+
+## #100: the vectors that need neither min..max nor growth by indexing (Patella-Modern issue #100, M7)
+
+Settled by Claude Opus 5.5, November 7, 2026. Plan M7, containers, second half: each use of TIndexedVector (#99) was
+classified; the lists that append at their count and read below it, and the keyed lookups, are standard containers,
+one subsystem per commit, each commit with the golden replay. "Growth by indexing" here is an index past the end
+other than the append at the count, an index below 0, or a read past the count (entries the range or the init fill
+holds). An index that comes from a file or a packet counts as unbounded unless the code bounds it.
+
+### Converted (high)
+
+- **Help** (7b4c4c8): THelp::EventHelps + NumberOfEventHelps is `std::vector<int>` (the count is its size): a queue,
+  appended at the count (AddEventHelp, Number asserted 1..EVENTHELPS), popped at 0 (the original shifts the entries
+  down), read only below the count.
+- **Preferences** (73e96a9): TPreferences' ContentWindows, OpenChannels, Buddies and KnownHints with their counts are
+  `std::vector`s; the counts are their sizes (cleared where the original set the count to 0: SetDefaultPreferences,
+  ClearOpenChannels). Every reader stops at the count; WriteTibiaCfg's shared counter `i` still ends the Buddy loop at
+  the number of entries, deleted ones included, so the White list's commas are the original's. ReadTibiaCfg wrote an
+  entry in place and counted it after its last token; now the entry is read into a local and appended then. The
+  difference is an entry left half-written by a read error, past the count: the error resets the options
+  (SetDefaultPreferences), so it was never read. `std::flat_map` was not used for ContentWindows (ID to size): the
+  saver writes the entries in insertion order (compare_files, Patella.ini's ContentWindow list), and a Tibia.cfg may
+  hold the same ID twice (the reader appends without a check; GetContentWindowSize returns the first).
+- **GUI** (724388e): TGUI::Timers is `std::vector<TTimer *>`: AddTimer takes the first null entry from 0 or appends
+  (the original's `while (Timers(i) != NULL) i++` grows by one at max + 1, init NULL), RemoveTimer nulls the entry,
+  UpdateTimers goes by index with the size read each time (a callback may add or remove timers); min stays 0, so
+  max + 1 is the size. TGUI::Hotkeys + NumberOfHotkeys is `std::flat_map<int, TCallback>` (MSVC's STL and libstdc++
+  16 have it on every preset, `__cpp_lib_flat_map` 202511 checked; no stand-in): AddHotkey replaces the callback of a
+  key that is there, so each key is there once, and the order is never read (RemoveHotkey moved the last entry into
+  the gap). CheckHotkey sends a copy of the callback, as the original's Send read the entry's two members before it
+  called the receiver. THotkey stays in GUI.h: the golden Container test's vector<THotkey> round uses it.
+- **Map** (ce8f5f6): GetAutomapMarks' out parameter is `std::vector<TMark> *` (the callers' local vector<TMark>(0, 0,
+  10), ContentWindows.cpp's two): it sets the entries 0 to the count - 1, appended past the vector's size, as the
+  original's operator() did from 0 up; the null pointer of the golden Errors test is still not dereferenced without
+  marks. golden's calls adapted (map_tests.cpp's locals, contentwindows_tests.cpp's FakeGetAutomapMarks,
+  errors_tests.cpp's null pointer's type); no check changed.
+
+### Kept as TIndexedVector, with why (high)
+
+- **TPreferences::OpenDialogs** (0, 9, 10, init -1): ReadTibiaCfg's and SetPreferenceValues' duplicate check reads
+  `entry[min .. max - 1]`, past NumberOfOpenDialogs: the init fill and the entries ClearOpenDialogs left count as
+  present.
+- **TAutomapBlock::Marks**: MarkCount comes from the block's file (LoadAutomapBlock's readQuad) and can be negative;
+  AddAutomapMark then indexes below 0 and the vector grows downwards; the reload clears min to max.
+- **TTextWindow::Lines** (ConsoleWindow.h): GetTalkLine and GetLineFormat test `min <= LineNumber <= max`,
+  FormatLines empties the entries up to max, and the golden ConsoleWindow test's dump compares Lines.min, Lines.max
+  and the entries min..max with the original's.
+- **DialogElements.h**: TRadioButtonGroup::Buttons, TEditText::LineStart (PageUp reads LineStart(-1): growth below
+  0), TFocusGroup::MemberList, TListBox::LineText, TFontListBox::FontLines; and **Dialogs.h** TIgnoreListDialog's
+  IgnoreEntries and WhiteEntries: the golden Dialogs test's dumps compare each vector's min, max, start, space and
+  block, and the DialogElements test reads the entries by min..max (a std::vector has no start, space or block:
+  converting them would change those checks).
+- **Talk.h**: BuddyExemptionList, TemporaryIgnoreList, IgnoreList and ConsoleFilterList, and the parameters of
+  FindTalkFilter, FindTextBuffer and AddTalkFilter: the golden Talk test compares the vector's 21-byte header (min ...
+  init, the original's block growth) after each of 65 AddTalkFilter calls; the lists are searched from min to max.
+- **TInteraction::Messages** (Status.h): a queue that only appends at its count and reads below it, so a candidate;
+  not converted here because Status.cpp is #129's file (the instructions: after #129 merges, in a later commit).
+- The golden tests' own TIndexedVectors (container_tests.cpp, talk_tests.cpp, dialogs_tests.cpp, ...) test the type
+  itself or the original's instances.
+
+So the CipSoft vector is left where its min..max, its block growth or its growth below 0 is part of the behaviour,
+plus Messages.

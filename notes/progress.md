@@ -608,6 +608,13 @@ TGraphics between TCommunication and TGUI, the free functions forward. The windo
 accessors SkinProperties() and Skins(). TRect, TRGBColor and TFont are types/GraphicsTypes.h's, so the {Surface,
 graphics} module cycle is gone (205 edges and 2 cycles on main, 207 and 1 now: {MainFrm, Player}). Golden 17,316,040,
 0 failures. notes/decisions.md, "#116".
+The vectors without min..max (Patella-Modern issue #100, branch issue-100, November 7, 2026; M7): every
+TIndexedVector use classified; Help's event helps, Preferences' ContentWindows, OpenChannels, Buddies and KnownHints,
+GUI's timers and GetAutomapMarks' out parameter are std::vectors (their counts their sizes), GUI's hotkeys a
+std::flat_map; kept with the reason: OpenDialogs (its duplicate check reads min..max - 1), the automap blocks' marks
+(a negative count from the file), ConsoleWindow's lines, DialogElements' and Dialogs' vectors and Talk's lists (golden
+compares their headers or their min..max), Status' messages (left for after #129). Golden 17,316,040, 0 failures at
+each commit. notes/decisions.md, "#100".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
