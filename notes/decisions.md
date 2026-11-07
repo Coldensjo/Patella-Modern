@@ -16376,3 +16376,31 @@ GetSystemMetrics (also after a resize, 0 x 0 for an unknown handle), the extensi
 surface's wrapper leaves no SDL window, the device window's procedure and no SDL data behind, the window still
 transparent to hits, and SDL's own window refused. 16 cases, 1,552 assertions (CPU driver, RTX 5080, and the Radeon
 among the switches' choices).
+
+### Found, not done (medium)
+
+- The per-file Windows clang-tidy (`python -I tools/tidy.py -p build/windows-x64`, Visual Studio's) on SurfaceVulkan.cpp
+  and render_test.cpp reports findings of the kinds those files had before (misc-include-cleaner, const-correctness,
+  varargs, printf); the new files WindowSystemSdl.cpp and WindowSystemWin32.cpp have 0. The hosted gate (the image's
+  baseline) does not compile src/vulkan.
+- compare_rendering's fullscreen scenes were not run (#98's set is windowed); fullscreen mode's display change is
+  still ChangeDisplaySettingsA (#124).
+
+### The gates (high)
+
+Logs in build\logs\issue-126 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed
++ 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset.
+
+- `python -I tools/build.py windows-x64` exit 0, 28/28 (tests_vulkan 16 cases, 1,552 assertions); windows-x64-debug
+  exit 0, 27/27; windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0,
+  25/25; linux-x64-clang (ASan, UBSan) exit 0, 24/24, no sanitizer report.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (SDL3 path); `PATELLA_WINDOW=mfc python -I tools/reference.py compare ...` exit 0, every session
+  matches (`window: MFC`); `python -I tools/compare_traffic.py --patella build/windows-x64/Release/Patella.exe` exit 0,
+  no differences; `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes windowed --no-repeat
+  --recording build/traffic/result/orig-live.jsonl --patella build/windows-x64/Release/Patella.exe` exit 0, "result:
+  all scenes identical" (NVIDIA GeForce RTX 5080 and llvmpipe, 26 scenes each).
+- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
+  clang-format (CLAUDE.md's command) exit 0.
+- Not run: compare_files and testmode_check (no setting, file or input changed); compare_rendering's fullscreen scenes.
