@@ -32,7 +32,9 @@
 
 struct TObject; // Objects.h, passed to DrawObject
 
-inline constexpr int PATH_MAX = 1024;
+// The original's PATH_MAX (its assertions' name); GRAPHICS_PATH_MAX since issue #111: mingw-w64's and the Linux
+// headers define PATH_MAX as a macro.
+inline constexpr int GRAPHICS_PATH_MAX = 1024;
 inline constexpr int HASH_TABLE_SIZE = 100;
 
 // Kinds of cache items. Pictures and font characters are both PICTURE_ITEM. An unscoped int enum: the items' Type is an
@@ -234,10 +236,10 @@ public:
 	int NumberOfFonts{};                                // 0x5cc750
 	int NumberOfPictures{};                             // 0x5cc754
 	uint32 PictureSignature{};                          // 0x5cc758
-	TFixedString<PATH_MAX> PictureFileName{};           // 0x5cc760
+	TFixedString<GRAPHICS_PATH_MAX> PictureFileName{};  // 0x5cc760
 	int NumberOfSprites{};                              // 0x5ccb60
 	uint32 SpriteSignature{};                           // 0x5ccb64
-	TFixedString<PATH_MAX> SpriteFileName{};            // 0x5ccb68
+	TFixedString<GRAPHICS_PATH_MAX> SpriteFileName{};   // 0x5ccb68
 	int LeastRecentMemoryItem{};                        // 0x5ccf68, tail of the memory cache's LRU list
 	int MostRecentMemoryItem{};                         // 0x5ccf6c, head
 	int MemoryCacheSize{};                              // 0x5ccf70

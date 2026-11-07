@@ -124,7 +124,7 @@ void patella::TGraphics::ExitGraphics()
 void patella::TGraphics::LoadSprites(const char *FileName)
 {
 	PATELLA_ASSERT(FileName!=nullptr);
-	PATELLA_ASSERT(strlen(FileName)<PATH_MAX);
+	PATELLA_ASSERT(strlen(FileName)<GRAPHICS_PATH_MAX);
 	SpriteFileName.Assign(FileName);
 	try {
 		TReadBinaryFile File;
@@ -200,7 +200,7 @@ void patella::TGraphics::LoadSprite(int SpriteNumber, uint8 *Buffer)
 void patella::TGraphics::LoadPictures(const char *FileName)
 {
 	PATELLA_ASSERT(FileName!=nullptr);
-	PATELLA_ASSERT(strlen(FileName)<PATH_MAX);
+	PATELLA_ASSERT(strlen(FileName)<GRAPHICS_PATH_MAX);
 	PictureFileName.Assign(FileName);
 	try {
 		TReadBinaryFile File;

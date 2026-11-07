@@ -820,6 +820,10 @@ void TTalkBuffer::AddText(int Mode, const char *text, int DiffTime)
 	}
 }
 // 0x502c00, lines 1516-1536
+// The original frees with free() what AddText allocates with new (VC7.1's new was malloc; notes/ownership.md): GCC's
+// -Wmismatched-new-delete (mingw-w64, where it inlines AddText here) names it, allowed for this function (issue #111).
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wmismatched-new-delete\"")
 void TTalkBuffer::Append(TTalkLine *line)
 {
 	if (!Enabled) {
@@ -847,6 +851,7 @@ void TTalkBuffer::Append(TTalkLine *line)
 		Remove(first);
 	Changed = LinesChanged = true;
 }
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 // 0x502f00, lines 1569-1588; includes Ghidra's split block 0x502f70.
 void TTalkBuffer::Remove(TTalkLine *line)
 {
