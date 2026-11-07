@@ -355,6 +355,8 @@ class TestDriver(sc.Driver):
 	every message goes through the control channel (scripted: post lines), advance() is an advance line,
 	frame() a frame line (the next frame the Vulkan engine shows, frame-NNN.png and .filtered.png)."""
 
+	manual_clock = True  # clock manual: run_session checks a step's condition after its settle (issue #144)
+
 	def __init__(self, run_dir, exe, script, env=None, **kwargs):
 		super().__init__(run_dir, exe, None, test=True, scripted=True, test_arguments=["--test-script", script],
 			**kwargs)
@@ -395,6 +397,8 @@ TEST_START_SCRIPT = "# compare_rendering.py (issue #92): patcap's time course\nc
 class Driver(sc.Driver):
 	"""session_client's driver for a client whose copy imports patcap.dll (add_import): Tibia.exe (and the
 	oracle's 32-bit Patella.exe, until issue #94)."""
+
+	manual_clock = True  # patcap's clock: run_session checks a step's condition after its settle (issue #144)
 
 	def __init__(self, *args, env=None, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -791,20 +795,12 @@ def session(driver, proxy, shot, fullscreen=False, device_choice=False, look=LOO
 			wait_gone(driver, dialog)
 			settle()
 
-	def enter_login():
-		_, _, width, height = lc.client_offset(driver.hwnd)
-		driver.click(113, height - 220)  # Enter Game (session_client.login)
-		time.sleep(1.0)
-		driver.type(sc.ACCOUNT)
-		driver.char(9)
-		driver.type(sc.PASSWORD)
-
-	step("login", enter_login)
+	# Enter Game, the login dialog (waited for, not a fixed 1 s: issue #144), account, Tab, password
+	step("login", lambda: sc.enter_login(driver))
 
 	def charlist():
 		driver.char(13)
 		proxy.wait_idle(0.5, 60)
-		time.sleep(0.5)
 
 	step("charlist", charlist)
 

@@ -714,14 +714,23 @@ primary display's bounds) and Win32's on the MFC window until #127; SurfaceVulka
 ClientToScreen, GetSystemMetrics or vkCreateWin32SurfaceKHR any more, its rectangles are TEdgeRects. tests_vulkan runs
 its device windows' tests on SDL3's surfaces. notes/decisions.md, "#126".
 
+Faster scripted sessions (Patella-Modern issue #144, branch issue-144, November 7, 2026; M7): tools/session_client.py
+posts a gesture's messages back to back (a key, a click, a whole typed string; the scripted test client gets them as
+one control-channel command of post lines) and waits on what each step is meant to do, as both clients show it (the
+start screen, the login dialog, the character list, the player in the game, each walk's position, the turn, the said
+line, the windows opening and closing), with a timeout and a named error, instead of fixed sleeps; compare_traffic's
+live wait is 0.5 s of server quiet after the step instead of a fixed 1.5 s. The same messages in the same order: three
+compare_traffic runs in a row without a difference. compare_traffic 351 s to 145-189 s (a session 44-62 s to 14-20 s),
+compare_rendering 473 s to 392 s, compare_files 251 s to 157 s. notes/traffic.md, "The waits"; notes/decisions.md, "#144".
+
 The portable socket (Patella-Modern issue #125, branch issue-125, November 7, 2026; M8): TPortableSocket
 (src/platform/PortableSocket.h, patella_platform, tests_platform on Windows and Linux) is Patella.exe's and the test
 build's live network over Winsock or POSIX sockets: non-blocking IPv6 sockets with IPv4 mapped, polled at the start of
 every idle step (Player.cpp's OnIdle, both window paths) with WSAAsyncSelect's event rules, and getaddrinfo on a
 std::jthread whose result the loop's Poll delivers (IPv4 first, IPv6). CAsyncSocket, AfxSocketInit,
 WSAAsyncGetHostByName and afxsock.h are gone from the client; the golden runner keeps those calls
-(tests/golden/network/MfcSocket.cpp, its fakes' level). A thread timer polls the modal loops while a connection or a
-lookup is open (platform/NetworkWin32.cpp). The SDL3 frame's WM_USER + 1 went (SdlFrame.cpp's HostResolved).
+(tests/golden/network/MfcSocket.cpp, its fakes' level). A message-only window's timer polls the modal loops while a
+connection or a lookup is open (platform/NetworkWin32.cpp). The SDL3 frame's WM_USER + 1 went (SdlFrame.cpp's HostResolved).
 notes/decisions.md, "#125".
 
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,

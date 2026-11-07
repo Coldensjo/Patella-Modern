@@ -12,6 +12,17 @@ slot areas and the map window's creature names, read from Tibia.exe's memory
 the driver waits until the server side is quiet (the proxy's wait_idle) and, if asked,
 records the client's state.
 
+Timing (Patella-Modern issue #144; notes/traffic.md, "The waits"): a gesture's messages (a key with its modifier, a
+click with its modifier and mouse move, a typed string) are posted back to back, with no sleep between them: Windows'
+queue keeps their order and the clients handle each message on its own (the scripted test client gets them as one
+control-channel command of post lines, each still delivered in an idle call of its own). No step sleeps for a fixed
+time: each waits for what it is meant to do, as both clients show it (Tibia.exe through tools/client_state.py, the
+test client through its probe), with a timeout and an error that names what did not happen (Driver.wait_until):
+the start screen, the login dialog, the character list, the player in the game, the player's position after each
+walk, the direction after the turn, the said line in the console, a window that opens or closes. With a manual clock
+(compare_rendering.py's drivers: the clock moves only by the step's wait, an advance) the condition is checked after
+the step's wait instead of before it.
+
 Session steps (STEPS below); the coordinates are those of the map window's fields (the
 player is on field 8,6) and of the body slots (3: the container slot):
   login, charlist, enter, walk N/E/S/W (arrow keys, back to the start), turn S (Ctrl+Down),
@@ -57,6 +68,11 @@ class SessionError(Exception):
 
 
 NODE_TIMEOUT = 5.0  # seconds Driver.node reads the window tree again before a window counts as missing
+STEP_TIMEOUT = 10.0  # seconds a step's condition (Driver.wait_until) may take (issue #144)
+START_TIMEOUT = 30.0  # seconds from the window to the start screen (TStartWindow in the window tree)
+POLL = 0.05  # seconds between two readings of a condition
+# The player's direction (TCreature.Direction): north, east, south, west.
+NORTH, EAST, SOUTH, WEST = 0, 1, 2, 3
 
 
 def key_lparam(vk, up):
@@ -81,7 +97,11 @@ class Driver:
 	(tools/testmode_client.py), never through its memory; else Tibia.exe (the oracle's Patella.exe until #94),
 	read with tools/client_state.py (pdb_exe: the exe whose PDB it uses, None for Tibia.exe). scripted:
 	the test client runs a script (test_arguments has --test-script), so it drops Windows' input, and
-	post() sends every message through the channel instead."""
+	post() sends every message through the channel instead. manual_clock: the client's clock moves only by the
+	step's wait (compare_rendering.py's drivers, an advance), so run_session checks a step's condition after the
+	wait, not before it (issue #144)."""
+
+	manual_clock = False
 
 	def __init__(self, run_dir, exe, pdb_exe=None, game_port=7272, log=lc.log, test=False, test_arguments=(),
 			scripted=False):
@@ -116,8 +136,9 @@ class Driver:
 			time.sleep(0.25)
 		if self.hwnd is None:
 			raise SessionError("no TibiaClient window after 30 s")
-		time.sleep(4)
 		self.mem = self.reader()
+		# Issue #144: the start screen, not a fixed 4 s (the Enter Game click needs its window).
+		self.wait_window("TStartWindow", START_TIMEOUT)
 
 	def environment(self):
 		"""The client's environment (None: this one's)."""
@@ -163,65 +184,94 @@ class Driver:
 	# input
 
 	def post(self, msg, wparam=0, lparam=0):
+		self.post_all([(msg, wparam, lparam)])
+
+	def post_all(self, messages):
+		"""Posts the messages [(msg, wparam, lparam)] back to back, in their order (issue #144): Windows' queue
+		keeps it. The scripted test client drops Windows' input: there they go through its control channel as one
+		command of post lines (a script's post lines, each dispatched as Windows would, in an idle call of its own
+		with the quiet idle calls after it)."""
 		if self.scripted:
-			# The scripted test client drops Windows' input: the message goes through its control channel and
-			# is dispatched as Windows would (a script's post line).
-			self.channel.command("post 0x%x 0x%x 0x%x" % (msg, wparam & 0xffffffffffffffff, lparam & 0xffffffffffffffff),
-				alive=self.alive)
+			self.channel.command("\n".join("post 0x%x 0x%x 0x%x" % (msg, wparam & 0xffffffffffffffff,
+				lparam & 0xffffffffffffffff) for msg, wparam, lparam in messages), alive=self.alive)
 			return
-		lc.post(self.hwnd, msg, wparam, lparam)
+		for msg, wparam, lparam in messages:
+			lc.post(self.hwnd, msg, wparam, lparam)
 
 	def key(self, vk, modifier=None):
+		messages = [(WM_KEYDOWN, vk, key_lparam(vk, False)), (WM_KEYUP, vk, key_lparam(vk, True))]
 		if modifier:
-			self.post(WM_KEYDOWN, modifier, key_lparam(modifier, False))
-			time.sleep(0.05)
-		self.post(WM_KEYDOWN, vk, key_lparam(vk, False))
-		time.sleep(0.05)
-		self.post(WM_KEYUP, vk, key_lparam(vk, True))
-		if modifier:
-			time.sleep(0.05)
-			self.post(WM_KEYUP, modifier, key_lparam(modifier, True))
-		time.sleep(0.1)
+			messages = [(WM_KEYDOWN, modifier, key_lparam(modifier, False))] + messages + [
+				(WM_KEYUP, modifier, key_lparam(modifier, True))]
+		self.post_all(messages)
 
-	# login_client.py's key_char, type_text and ctrl_char, through post()
+	# login_client.py's key_char, type_text and ctrl_char, through post_all() and without their sleeps
 
 	def char(self, code):
 		self.post(lc.WM_CHAR, code, 1)
-		time.sleep(0.1)
 
 	def type(self, text):
-		for ch in text:
-			self.post(lc.WM_CHAR, ord(ch), 1)
-			time.sleep(0.05)
+		"""The text's WM_CHARs, all at once (issue #144)."""
+		self.post_all([(lc.WM_CHAR, ord(ch), 1) for ch in text])
 
 	def ctrl(self, letter):
-		self.post(WM_KEYDOWN, VK_CONTROL, 0x001d0001)
-		time.sleep(0.05)
-		self.post(lc.WM_CHAR, ord(letter.lower()) - 0x60, 1)
-		time.sleep(0.05)
-		self.post(WM_KEYUP, VK_CONTROL, 0xc01d0001)
-		time.sleep(0.1)
+		self.post_all([(WM_KEYDOWN, VK_CONTROL, 0x001d0001), (lc.WM_CHAR, ord(letter.lower()) - 0x60, 1),
+			(WM_KEYUP, VK_CONTROL, 0xc01d0001)])
 
 	def click(self, x, y, right=False, modifier=None):
 		x, y = int(x), int(y)
 		flags = {None: 0, VK_SHIFT: MK_SHIFT, VK_CONTROL: MK_CONTROL}[modifier]
+		down, up, button = ((WM_RBUTTONDOWN, WM_RBUTTONUP, MK_RBUTTON) if right
+			else (lc.WM_LBUTTONDOWN, lc.WM_LBUTTONUP, lc.MK_LBUTTON))
+		point = lc.lparam_xy(x, y)
+		messages = [(lc.WM_MOUSEMOVE, flags, point), (down, button | flags, point), (up, flags, point)]
 		if modifier:
-			self.post(WM_KEYDOWN, modifier, key_lparam(modifier, False))
-			time.sleep(0.05)
-		self.post(lc.WM_MOUSEMOVE, flags, lc.lparam_xy(x, y))
-		time.sleep(0.1)
-		if right:
-			self.post(WM_RBUTTONDOWN, MK_RBUTTON | flags, lc.lparam_xy(x, y))
-			time.sleep(0.1)
-			self.post(WM_RBUTTONUP, flags, lc.lparam_xy(x, y))
-		else:
-			self.post(lc.WM_LBUTTONDOWN, lc.MK_LBUTTON | flags, lc.lparam_xy(x, y))
-			time.sleep(0.1)
-			self.post(lc.WM_LBUTTONUP, flags, lc.lparam_xy(x, y))
-		time.sleep(0.1)
-		if modifier:
-			self.post(WM_KEYUP, modifier, key_lparam(modifier, True))
-		time.sleep(0.1)
+			messages = [(WM_KEYDOWN, modifier, key_lparam(modifier, False))] + messages + [
+				(WM_KEYUP, modifier, key_lparam(modifier, True))]
+		self.post_all(messages)
+
+	# waits (issue #144)
+
+	def wait_until(self, what, test, timeout=STEP_TIMEOUT):
+		"""test()'s value once it is true, read every POLL seconds. SessionError naming `what` when it is not
+		within timeout seconds or the client ends. A reading that fails (a window tree read while the client
+		changes it) counts as not yet; the last failure is in the error."""
+		deadline = time.time() + timeout
+		failure = None
+		while True:
+			try:
+				value = test()
+				if value:
+					return value
+			except SessionError:
+				raise
+			except Exception as e:  # client_state.ReadError, testmode_client.ControlError, ...
+				failure = e
+			if not self.alive():
+				raise SessionError("the client ended while waiting for %s" % what)
+			if time.time() >= deadline:
+				raise SessionError("%s: not within %.0f s%s" % (what, timeout,
+					"" if failure is None else " (the last reading failed: %s)" % failure))
+			time.sleep(POLL)
+
+	def windows(self, cls):
+		return [n for n in self.mem.gui() if n["class"] == cls]
+
+	def wait_window(self, cls, timeout=STEP_TIMEOUT):
+		"""The first window of class cls, once there is one."""
+		return self.wait_until("a window of class %s" % cls, lambda: (self.windows(cls) or [None])[0], timeout)
+
+	def wait_no_window(self, cls, timeout=STEP_TIMEOUT):
+		self.wait_until("no window of class %s" % cls, lambda: not self.windows(cls), timeout)
+
+	def player(self, state=None):
+		"""The player's own creature in the client's table (None before the game login)."""
+		state = state if state is not None else self.mem.state()
+		player_id = state["player"]["PlayerID"]
+		for c in state["creatures"]:
+			if player_id and c["id"] == player_id:
+				return c
+		return None
 
 	# places, from the client's memory
 
@@ -278,11 +328,18 @@ class Driver:
 			time.sleep(0.05)
 		raise SessionError("creature %d has no name on the map" % creature_id)
 
-	def menu_entry_point(self, text):
+	def menu_entry(self, text):
+		"""The context menu's entry with this text (None: none)."""
 		for n in self.mem.gui():
 			if n["class"] == "TContextMenuEntry" and n.get("text") == text:
-				return n["x"] + n["w"] // 2, n["y"] + n["h"] // 2
-		raise SessionError("no context menu entry %r" % text)
+				return n
+		return None
+
+	def menu_entry_point(self, text):
+		n = self.menu_entry(text)
+		if n is None:
+			raise SessionError("no context menu entry %r" % text)
+		return n["x"] + n["w"] // 2, n["y"] + n["h"] // 2
 
 
 	def offer_slot_point(self, side, position):
@@ -366,24 +423,40 @@ def game_connections(proxy):
 	return sum(1 for e in list(proxy.events) if e["kind"] == "game" and "fields_end" in e)
 
 
+def enter_login(driver):
+	"""Start screen to the filled login dialog: Enter Game (a click: the client takes no key for it while
+	disconnected), the login dialog (waited for, issue #144), then the account, Tab and the password, typed at once
+	(the same WM_CHARs as before, one batch). Return is the caller's."""
+	_, _, width, height = lc.client_offset(driver.hwnd)
+	driver.click(113, height - 220)
+	driver.wait_window("TLoginDialog")
+	driver.type(ACCOUNT + "\t" + PASSWORD)
+
+
+def wait_character_list(driver):
+	"""The character list dialog and its names (issue #144: instead of a fixed 0.5 s after the login's wait)."""
+	return driver.wait_until("the character list",
+		lambda: driver.windows("TCharacterListDialog") and driver.mem.characters())
+
+
+def wait_in_game(driver):
+	"""The player's own creature in the client's table: the server's game login answer is in (issue #144)."""
+	return driver.wait_until("the player in the game", driver.player)
+
+
 def login(driver, wait, character, proxy=None):
 	"""Start screen to the game: Enter Game, account, password, the character named `character`
 	in the list (Down until it is highlighted: the list comes in the server's order). The game
 	connection counts as made when the client's TCP table shows it established or, with a proxy,
 	when the proxy got the client's game login packet: the TCP table check alone missed a connection
 	the proxy had (issue #21; the replay into x86 Patella of issue #12's first attempts, where the
-	connection "dropped" when the client was killed after that check)."""
-	_, _, width, height = lc.client_offset(driver.hwnd)
-	driver.click(113, height - 220)
-	time.sleep(1.5)
-	driver.type(ACCOUNT)
-	driver.char(9)
-	driver.type(PASSWORD)
-	time.sleep(0.3)
+	connection "dropped" when the client was killed after that check). The player in the game (wait_in_game) is
+	the caller's to wait for: tools/compare_files.py's crafted error replay ends the game login with a critical
+	error box instead."""
+	enter_login(driver)
 	driver.char(13)
 	wait("login")
-	time.sleep(0.5)
-	names = driver.mem.characters()
+	names = wait_character_list(driver)
 	if character not in names:
 		raise SessionError("%s is not in the character list %s" % (character, names))
 	for _ in range(names.index(character)):
@@ -418,42 +491,93 @@ def run_session(driver, wait, checkpoint, until=None, with_login=True, proxy=Non
 	the client state. Returns the list of step names. until: stop before this step (testing).
 	with_login False: the caller has logged in already (tools/compare_rendering.py, issue #20).
 	proxy: the proxy the client goes through (login's check of the game connection). look: the look step's name
-	and map field (LOOK_NORTH, LOOK_OWN_FIELD)."""
+	and map field (LOOK_NORTH, LOOK_OWN_FIELD).
+
+	Each step's done (issue #144), when it has one: called before the step's input, it returns (what, test), the
+	condition the step is meant to bring about as the client shows it; Driver.wait_until waits for it after the input
+	(with a manual clock after the step's wait, which moves the clock) and the step fails with `what` when it does
+	not come. The steps without one (the looks, use in container, trade with's click on the player) change nothing a
+	reading shows but the server's text; the step's wait covers them, as before."""
 	steps = []
 
-	def step(name, action, snapshot=True):
+	def step(name, action, snapshot=True, done=None):
 		if name == until:
 			raise StopSession(name)
 		driver.log("step: " + name)
+		condition = done() if done is not None else None
 		action()
+		if condition is not None and not driver.manual_clock:
+			driver.wait_until(*condition)
 		wait(name)
+		if condition is not None and driver.manual_clock:
+			driver.wait_until(*condition)
 		steps.append(name)
 		if snapshot:
 			checkpoint(name)
 
+	def walked(dx, dy):
+		def done():
+			x, y, z = driver.wait_until("the player's position", driver.player)["pos"]
+			target = [x + dx, y + dy, z]
+			return "the player on %s (walked from %s)" % (target, [x, y, z]), lambda: driver.player()["pos"] == target
+		return done
+
+	def turned(direction):
+		return lambda: ("the player turned to direction %d" % direction,
+			lambda: driver.player()["direction"] == direction)
+
+	def said(text):
+		def lines():
+			return sum(1 for mode, line in driver.mem.state()["console"] if line == text)
+
+		def done():
+			before = lines()
+			return "the console line %r" % text, lambda: lines() > before
+		return done
+
+	def window_count(cls, change):
+		"""The number of windows of class cls changed by change (+1: one opened, -1: one closed)."""
+		def done():
+			target = len(driver.windows(cls)) + change
+			return ("%d window(s) of class %s" % (target, cls)), lambda: len(driver.windows(cls)) == target
+		return done
+
+	def menu_entry(text):
+		return lambda: ("the context menu entry %r" % text, lambda: driver.menu_entry(text) is not None)
+
+	def menu_gone(text):
+		return lambda: ("the context menu closed (no entry %r)" % text, lambda: driver.menu_entry(text) is None)
+
 	if with_login:
-		step("login", lambda: login(driver, wait, CHARACTER, proxy))
-	for name, vk in (("walk north", VK_UP), ("walk east", VK_RIGHT), ("walk south", VK_DOWN), ("walk west", VK_LEFT)):
-		step(name, lambda vk=vk: (driver.key(vk), time.sleep(1.0)))
-	step("turn south", lambda: driver.key(VK_DOWN, VK_CONTROL))
-	step("say", lambda: (driver.type(SAY), driver.char(13)))
+		step("login", lambda: login(driver, wait, CHARACTER, proxy),
+			done=lambda: ("the player in the game", driver.player))
+	for name, vk, dx, dy in (("walk north", VK_UP, 0, -1), ("walk east", VK_RIGHT, 1, 0), ("walk south", VK_DOWN, 0, 1),
+			("walk west", VK_LEFT, -1, 0)):
+		step(name, lambda vk=vk: driver.key(vk), done=walked(dx, dy))
+	step("turn south", lambda: driver.key(VK_DOWN, VK_CONTROL), done=turned(SOUTH))
+	step("say", lambda: driver.type(SAY + "\r"), done=said("%s: %s" % (CHARACTER, SAY)))
 	look_name, look_field = look
 	step(look_name, lambda: driver.click(*driver.field_point(*look_field), right=True, modifier=VK_SHIFT))
-	step("open container", lambda: driver.click(*driver.body_slot_point(3), right=True, modifier=VK_CONTROL))
+	step("open container", lambda: driver.click(*driver.body_slot_point(3), right=True, modifier=VK_CONTROL),
+		done=window_count("TContainerWindowBody", 1))
 	step("look in container", lambda: driver.click(*driver.container_slot_point(0), right=True, modifier=VK_SHIFT))
 	step("use in container", lambda: driver.click(*driver.container_slot_point(0), right=True, modifier=VK_CONTROL))
-	step("context menu", lambda: driver.click(*driver.body_slot_point(5), right=True), snapshot=False)
-	step("trade with", lambda: driver.click(*driver.menu_entry_point("Trade with ...")), snapshot=False)
-	step("trade request", lambda: driver.click(*driver.creature_point(driver.creature_id(TRADE_PARTNER))))
+	step("context menu", lambda: driver.click(*driver.body_slot_point(5), right=True), snapshot=False,
+		done=menu_entry("Trade with ..."))
+	step("trade with", lambda: driver.click(*driver.menu_entry_point("Trade with ...")), snapshot=False,
+		done=menu_gone("Trade with ..."))
+	step("trade request", lambda: driver.click(*driver.creature_point(driver.creature_id(TRADE_PARTNER))),
+		done=window_count("TTradeOffers", 1))
 	step("look at offer", lambda: driver.click(*driver.offer_slot_point(0, 0), right=True, modifier=VK_SHIFT))
 	step("cancel trade", lambda: driver.click(*driver.component_point(
-		driver.mem.member(driver.node("TTradeButtons")["ptr"], "TTradeButtons.CancelButton"))))
+		driver.mem.member(driver.node("TTradeButtons")["ptr"], "TTradeButtons.CancelButton"))),
+		done=window_count("TTradeOffers", -1))
 
 	def close_container():
 		body = driver.node("TContainerWindowBody")
 		window = driver.mem.member(body["ptr"], "TComponent.Parent")
 		driver.click(*driver.component_point(driver.mem.member(window, "TSubWindow.CloseButton")))
 
-	step("close container", close_container)
+	step("close container", close_container, done=window_count("TContainerWindowBody", -1))
 	step("logout", lambda: logout(driver), snapshot=False)
 	return steps

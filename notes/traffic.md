@@ -88,7 +88,9 @@ the server's frames are cut differently), so live server streams never match.
 
 `wait_idle()` tells the session driver when the server side is quiet: in a replay, when every recorded
 server packet before the client's next packet has been sent and no client packet came for 0.5 s (a
-connection counts as busy from its accept until it waits for the client); live, after a fixed 1.5 s.
+connection counts as busy from its accept until it waits for the client); live (since issue #144; a fixed 1.5 s
+until then), when no server packet came for 0.5 s, counted from the end of the step at the earliest
+(compare_traffic.py `live_wait`; a server that sends for 30 s without such a pause fails the run).
 
 ### The session (tools/session_client.py)
 
@@ -122,6 +124,47 @@ the few classes the driver needs are named by their vtables (client_state.ORIGIN
 
 The said text was "hello patella" at first: the client then shows the "Account Data Warning" dialog and
 sends nothing, because the text contains the password (both clients do this).
+
+### The waits (issue #144)
+
+The session sleeps for no fixed time. Each gesture's messages are posted back to back: a key with its modifier's
+key down and up around it, a click's modifier, mouse move, button down and up, and a typed string's WM_CHARs
+(account, Tab and password as one string; "hello world" and its Return as one). Windows' queue keeps their order,
+and the clients take each message on its own (the modifiers are TMainFrame's KeyFlags from the WM_KEYDOWN/UP
+messages, not GetKeyState), so the messages, their order and the packets they cause are the same as with the
+sleeps between them that were there until #144 (50 to 100 ms each, at least 250 ms a click, 150 ms a key). The
+scripted test client (compare_rendering.py's TestDriver) gets a gesture as one control-channel command of post
+lines instead of one command per message; it still delivers each in an idle call of its own with the quiet idle
+calls after it (notes/testmode.md, "The control channel").
+
+Instead of the fixed sleeps, each step waits for what it is meant to do, as both clients show it (Tibia.exe
+through tools/client_state.py, the test client through its probe), with a timeout (10 s; 30 s for the start
+screen) and an error naming what did not come (session_client.Driver.wait_until):
+
+| Where | Waits for | Fixed time until #144 |
+| :--- | :--- | :--- |
+| start | the start screen: a TStartWindow in the window tree | 4 s after the window appeared |
+| login: Enter Game | the login dialog (TLoginDialog) | 1.5 s (compare_rendering.py 1 s) |
+| login: Return | the character list dialog (TCharacterListDialog) with its names, after the step's wait | 0.3 s before Return, 0.5 s after the wait |
+| login step | the player's own creature in the client's table (the server's game login answer) | none |
+| the helper's login | the character list, then the helper in the game | 1.5 s, then 2 s |
+| walk north, east, south, west | the player's position one field on (read before the key) | 1.0 s after the key |
+| turn south | the player's direction south (2) | none |
+| say | one more console line "Patella Tester: hello world" | none |
+| open container, close container | one TContainerWindowBody more, one less | none |
+| context menu | the entry "Trade with ..." | none |
+| trade with | the entry gone (the menu closed) | none |
+| trade request, cancel trade | a TTradeOffers there, gone | none |
+| after the logout | the start screen again, before WM_CLOSE (compare_traffic.py) | 1 s |
+
+The looks, "use in container" and the trade request's look at the offer change nothing a reading shows but the
+server's text: the step's wait covers them, as before. With a real clock (compare_traffic.py, compare_files.py) the
+condition is waited for right after the input, then the step's wait; with a manual clock (compare_rendering.py:
+Tibia.exe under patcap, the test client with `clock manual`) the clock moves only in the step's wait (its advance),
+so the condition is checked after it. Tibia.exe's login dialog and character list are named by their vtables
+(client_state.ORIGINAL_VTABLES: 0x5627d8, 0x562370).
+
+The time saved: notes/decisions.md, "#144".
 
 ### State compared (tools/client_state.py state())
 
