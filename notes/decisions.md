@@ -14816,3 +14816,22 @@ holds). An index that comes from a file or a packet counts as unbounded unless t
 
 So the CipSoft vector is left only where its min..max, its block growth or its growth below 0 is part of the
 behaviour, or a golden check compares its header.
+
+### The gates (high)
+
+Logs: build\logs\issue-100 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- Each commit: 7b4c4c8 (Help), 73e96a9 (Preferences) and 724388e (GUI) built (windows-x64) with golden 15,803,218
+  replayed + 1,512,822 retired = 17,316,040, 0 failures; ce8f5f6 (Map) the same in the full windows-x64 run (20/20,
+  0 warnings); 4bdab3e (Status, after the merge of main e4b67d7 with #129) the same, 20/20.
+- On 35644ac: `python -I tools/build.py windows-x64` exit 0, 20/20; windows-x64-debug exit 0, 19/19; windows-x64-asan
+  exit 0, 19/19, no ASan report; golden 17,316,040, 0 failures on the three. windows-x64-gcc exit 0, 12/12.
+  linux-x64-gcc exit 0, 17/17; linux-x64-clang (ASan, UBSan) exit 0, 16/16, no sanitizer report; golden the same on
+  both. 0 warnings on every preset.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches; `python -I tools/compare_traffic.py` exit 0, no differences (another agent's PatellaTest.exe had
+  started meanwhile); `python -I tools/compare_files.py` exit 0, no differences (Tibia.cfg's lists: the
+  Preferences commit).
+- `python -I tools/tidy_ci.py` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
+  clang-format (CLAUDE.md's command) exit 0.
