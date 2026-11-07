@@ -4,9 +4,11 @@
 // Each function says which of MainFrm.cpp's (CMainFrame) or MFC's it stands for; the client calls are theirs, in
 // their order. What SDL3 does here (the window, its placement and size, the fullscreen switch, its activation, close
 // and display events, the loop): SDL_CreateWindow, SDL_SetWindowPosition/Size, SDL_SetWindowFullscreen, the window and
-// display events; since issue #123 the input (the key, text, button, wheel and motion events, SDL_CaptureMouse, SDL's
-// cursors and window coordinates; platform/KeyInput.h has the client's rules). What stays Win32's until its own issue,
-// in the "Win32 until ..." parts below: the loss of the mouse capture (WM_CAPTURECHANGED: SDL has no event for it), the
+// display events; since issue #123 the input's wheel, motion and IME text events, SDL_CaptureMouse, SDL's cursors and
+// window coordinates (platform/KeyInput.h has the client's rules). What stays Win32's until its own issue, in the
+// "Win32 until ..." parts below: the keys, the characters and the buttons as window messages (SDL's events differ from
+// them for posted messages and keys Windows does not hold), the loss of the mouse capture (WM_CAPTURECHANGED: SDL has
+// no event for it), the
 // cursor's screen position (GetCursorPos, TSdlLoopInput: it keeps the last position where SDL would report (0, 0)), the
 // host lookup's message WM_USER + 1 (the socket, #125), ShellExecute (#124), and on Windows the message pump itself
 // (SDL's own is off: the loop dispatches the thread's messages as MFC's did, so the MFC sockets' and the test mode's
@@ -70,9 +72,10 @@ int DisplayHeight = 0;
 // MainFrm.cpp's file-local button flags and wheel rest, with SDL's click counts made into Windows' double clicks.
 static_assert(platform::KeyFlagShift == KEY_SHIFT && platform::KeyFlagControl == KEY_CONTROL && platform::KeyFlagAlt == KEY_ALT);
 platform::TKeyFlags Keys;
-platform::TClickCounter Clicks;
+#if !defined(_WIN32)
+platform::TClickCounter Clicks; // SDL's click counts as Windows' double clicks (not on Windows: OnButtonMessage)
+#endif
 platform::TWheel Wheel;
-bool AltGrControl = false;      // the left Control that Windows' AltGr holds (OnKey)
 bool LeftButtonPressed = false; // MainFrm.cpp's
 bool RightButtonPressed = false;
 bool Closing = false;
@@ -377,6 +380,7 @@ SDL_Cursor *LoadClientCursor(int Id)
 
 constexpr UINT_PTR InputSubclassId = 122;
 
+#if !defined(_WIN32)
 // SDL's scan code as one of the keys the client tells apart: the position on the keyboard, as Windows' scan code; the
 // virtual keys TranslateKey reads follow from it (the keypad's with NumLock: platform::PadNavigates).
 platform::TKey KeyOf(SDL_Scancode Code)
@@ -436,6 +440,7 @@ platform::TKeyEvent DescribeKey(const SDL_KeyboardEvent &Key)
 	Event.Alt = (Key.mod & SDL_KMOD_ALT) != 0;
 	return Event;
 }
+#endif
 
 // CMainFrame::OnChar: a character of the client's code page.
 void OnChar(unsigned int Char)
@@ -445,10 +450,18 @@ void OnChar(unsigned int Char)
 		KeyPress(Code);
 }
 
+// Whether a key down makes its control character here (platform::KeyCharacter): where SDL's text input is the only
+// source of characters, which delivers printable characters only. Not on Windows: there the window's WM_CHAR stays the
+// characters' source (OnWindowChar below), control characters included.
+#if defined(_WIN32)
+constexpr bool KeysMakeCharacters = false;
+#else
+constexpr bool KeysMakeCharacters = true;
+#endif
+
 // CMainFrame::KeyDown with its key's character: a modifier remembered, Alt+F4 closes, the other translated keys go to
-// KeyPress; then the control character TranslateMessage makes of the key (WM_CHAR right after the WM_KEYDOWN), which
-// SDL's text input does not deliver (it has the printable characters only: OnText). A scripted key's characters are
-// the script's own events.
+// KeyPress; then, where keys make their characters (KeysMakeCharacters), the control character TranslateMessage made
+// of the key (WM_CHAR right after the WM_KEYDOWN). A scripted key's characters are the script's own events.
 void KeyDown(const platform::TKeyEvent &Key, bool Scripted)
 {
 	const platform::TKeyAction Action = Keys.Down(Key);
@@ -458,39 +471,68 @@ void KeyDown(const platform::TKeyEvent &Key, bool Scripted)
 	}
 	if (Action.Kind == platform::TKeyAction::TKind::Press)
 		KeyPress(Action.Code);
-	if (!Scripted) {
+	if (KeysMakeCharacters && !Scripted) {
 		const int Char = platform::KeyCharacter(Key);
 		if (Char >= 0)
 			OnChar(static_cast<unsigned int>(Char));
 	}
 }
 
-// SDL_EVENT_KEY_DOWN and SDL_EVENT_KEY_UP (also SDL's repeats, which are Windows' repeated WM_KEYDOWNs). Windows' AltGr
-// (the right Alt of a layout that has one) holds a left Control with it, a WM_KEYDOWN of its own that the original's
-// KeyDown counted; SDL leaves that Control out (SDL_windowsevents.c SkipAltGrLeftControl). So a right Alt that comes
-// while Windows' keyboard state has the left Control down and SDL's has not is given that Control first, as the
-// original saw it, and the Control goes up with the Alt.
+#if !defined(_WIN32)
+// SDL_EVENT_KEY_DOWN and SDL_EVENT_KEY_UP, where SDL's key events are the keys' source (not on Windows: OnKeyMessage).
+// SDL's repeats are the platform's repeated presses.
 void OnKey(const SDL_KeyboardEvent &Event, bool Scripted)
 {
 	const platform::TKeyEvent Key = DescribeKey(Event);
-	const bool RightAlt = Event.scancode == SDL_SCANCODE_RALT;
-	if (Event.down) {
-		if (RightAlt && !Scripted && (GetKeyState(VK_LCONTROL) & 0x8000) != 0 && (Event.mod & SDL_KMOD_LCTRL) == 0) {
-			platform::TKeyEvent Control = Key;
-			Control.Key = platform::TKey::Control;
-			AltGrControl = true;
-			KeyDown(Control, Scripted);
-		}
+	if (Event.down)
 		KeyDown(Key, Scripted);
-		return;
+	else
+		Keys.Up(Key);
+}
+#endif
+
+// Win32 until the Linux client: the key messages (WM_KEYDOWN, WM_SYSKEYDOWN, WM_KEYUP, WM_SYSKEYUP), as CMainFrame's
+// KeyDown and KeyUp got them: the virtual key with lParam's extended flag, as TranslateKey read them, through the same
+// rules (platform/KeyInput.h). SDL's key events would differ from the messages: SDL keeps its own key state and makes or
+// drops key events from it (its pump releases a Shift or Windows key that Windows' keyboard state does not hold, such as
+// one posted by another program, and then drops that key's WM_KEYUP; a key down of a key it holds is a repeat; it drops
+// AltGr's left Control, which the original counted). So on Windows SDL never sees the key messages, as the MFC frame's
+// DefWindowProc never did (no menu from Alt or F10).
+platform::TKeyEvent KeyOfMessage(WPARAM VirtualKey, LPARAM LParam)
+{
+	using platform::TKey;
+	const bool Extended = ((static_cast<std::uint32_t>(LParam) >> 24) & 1U) != 0;
+	platform::TKeyEvent Key; // NumLock off: the keypad's keys come here only as the navigation keys Windows made them
+	switch (VirtualKey) {
+	case VK_SHIFT: Key.Key = TKey::Shift; break;
+	case VK_CONTROL: Key.Key = TKey::Control; break;
+	case VK_MENU: Key.Key = TKey::Alt; break;
+	case VK_PRIOR: Key.Key = Extended ? TKey::PageUp : TKey::PadPageUp; break;
+	case VK_NEXT: Key.Key = Extended ? TKey::PageDown : TKey::PadPageDown; break;
+	case VK_END: Key.Key = Extended ? TKey::End : TKey::PadEnd; break;
+	case VK_HOME: Key.Key = Extended ? TKey::Home : TKey::PadHome; break;
+	case VK_LEFT: Key.Key = TKey::Left; break;
+	case VK_UP: Key.Key = TKey::Up; break;
+	case VK_RIGHT: Key.Key = TKey::Right; break;
+	case VK_DOWN: Key.Key = TKey::Down; break;
+	case VK_INSERT: Key.Key = TKey::Insert; break;
+	case VK_DELETE: Key.Key = TKey::Delete; break;
+	case VK_RETURN: Key.Key = TKey::Return; break;
+	default:
+		if (VirtualKey >= VK_F1 && VirtualKey <= VK_F12)
+			Key.Key = static_cast<TKey>(static_cast<int>(TKey::F1) + static_cast<int>(VirtualKey - VK_F1));
+		break;
 	}
-	Keys.Up(Key);
-	if (RightAlt && AltGrControl) {
-		platform::TKeyEvent Control = Key;
-		Control.Key = platform::TKey::Control;
-		Keys.Up(Control);
-		AltGrControl = false;
-	}
+	return Key;
+}
+
+void OnKeyMessage(UINT Message, WPARAM WParam, LPARAM LParam)
+{
+	const platform::TKeyEvent Key = KeyOfMessage(WParam, LParam);
+	if (Message == WM_KEYDOWN || Message == WM_SYSKEYDOWN)
+		KeyDown(Key, false);
+	else
+		Keys.Up(Key);
 }
 
 // SDL_EVENT_TEXT_INPUT: the characters of the typed text (WM_CHAR, which an ANSI window got in the code page), each
@@ -504,15 +546,29 @@ void OnText(const char *Text)
 		OnChar(static_cast<unsigned char>(Byte));
 }
 
-// The window's point of a mouse event (window coordinates; negative or past the size while the mouse is captured): in
-// fullscreen mode a screen point (ClientToScreen), as the button handlers of CMainFrame passed them.
-POINT EventPoint(float X, float Y)
+// Win32 until the Linux client: the window's WM_CHAR (a UTF-16 unit: SDL's window is a Unicode window; a surrogate pair
+// comes as two), as CMainFrame::OnChar got it, converted to the client's Windows-1252 (issue #112) and handed to OnChar.
+// SDL's text events would differ from the original's WM_CHAR: SDL delivers text only to the window with the keyboard
+// focus and drops every text that starts with a control character, but the original handled every WM_CHAR its window
+// got, focused or not, posted by another program or made by TranslateMessage (Return, Tab, Ctrl+letter ...). So on
+// Windows SDL never sees WM_CHAR; its text events still bring the IME's results (SDL takes those from
+// WM_IME_COMPOSITION itself) and the test mode's scripted characters (OnText).
+char16_t HighSurrogate = 0;
+
+void OnWindowChar(WPARAM WParam)
 {
-	int x = static_cast<int>(std::floor(X));
-	int y = static_cast<int>(std::floor(Y));
-	if (GetViewMode() == 2)
-		ClientToScreen(x, y);
-	return POINT{x, y};
+	const auto Unit = static_cast<char16_t>(WParam & 0xffff);
+	if (Unit >= 0xd800 && Unit <= 0xdbff) {
+		HighSurrogate = Unit;
+		return;
+	}
+	std::u16string Text;
+	if (HighSurrogate != 0 && Unit >= 0xdc00 && Unit <= 0xdfff)
+		Text.push_back(HighSurrogate);
+	HighSurrogate = 0;
+	Text.push_back(Unit);
+	for (const char Byte : text::Utf16ToCp1252(Text))
+		OnChar(static_cast<unsigned char>(Byte));
 }
 
 bool InsideClient(float X, float Y)
@@ -536,8 +592,35 @@ void OnSetCursor(float X, float Y)
 	UpdateMouseCursor();
 }
 
-// The button handlers of CMainFrame: the first button down takes the mouse (SDL_CaptureMouse, SetCapture), the last
-// one up releases it. A left double click is LeftButtonDoubleClick; a right double click is a click (OnRButtonDblClk).
+// The mouse capture (SetCapture, ReleaseCapture): SDL_CaptureMouse. SDL refuses it while no window of the process has
+// the keyboard focus, and takes none while the mouse is not over the window as SDL saw it, where SetCapture took it (a
+// click posted to the window by another program, or one in the test mode); on Windows the capture is then
+// SetCapture's, as the original's, and released with ReleaseCapture.
+bool Win32Capture = false;
+
+void TakeCapture()
+{
+	if (SDL_CaptureMouse(true) && (SDL_GetWindowFlags(Window) & SDL_WINDOW_MOUSE_CAPTURE) != 0)
+		return;
+#if defined(_WIN32)
+	::SetCapture(WindowHandle);
+	Win32Capture = true;
+#endif
+}
+
+void FreeCapture()
+{
+	SDL_CaptureMouse(false);
+#if defined(_WIN32)
+	if (Win32Capture) {
+		Win32Capture = false;
+		::ReleaseCapture();
+	}
+#endif
+}
+
+// The button handlers of CMainFrame: the first button down takes the mouse, the last one up releases it. A left double
+// click is LeftButtonDoubleClick; a right double click is a click (OnRButtonDblClk).
 void ButtonDown(const POINT &Point, bool Left, bool Double)
 {
 	if (Left) {
@@ -547,12 +630,12 @@ void ButtonDown(const POINT &Point, bool Left, bool Double)
 			LeftButtonDown(Point.x, Point.y, Keys.Flags());
 		LeftButtonPressed = true;
 		if (!RightButtonPressed)
-			SDL_CaptureMouse(true);
+			TakeCapture();
 	} else {
 		RightButtonDown(Point.x, Point.y, Keys.Flags());
 		RightButtonPressed = true;
 		if (!LeftButtonPressed)
-			SDL_CaptureMouse(true);
+			TakeCapture();
 	}
 }
 
@@ -563,21 +646,33 @@ void ButtonUp(const POINT &Point, bool Left)
 			LeftButtonUp(Point.x, Point.y, Keys.Flags());
 			LeftButtonPressed = false;
 			if (!RightButtonPressed)
-				SDL_CaptureMouse(false);
+				FreeCapture();
 		}
 	} else if (RightButtonPressed) {
 		RightButtonUp(Point.x, Point.y, Keys.Flags());
 		RightButtonPressed = false;
 		if (!LeftButtonPressed)
-			SDL_CaptureMouse(false);
+			FreeCapture();
 	}
 }
 
-// SDL_EVENT_MOUSE_BUTTON_DOWN and _UP. The point is SDL's mouse position at the button (the last motion's, which
-// Windows' WM_MOUSEMOVE keeps where the button message's point is). Whether a press is a double click: Windows' rule
-// over SDL's click counts (platform::TClickCounter; every button's presses count, as every button's messages reset
-// Windows' double click); a scripted press is the script's (clicks 2 for WM_xBUTTONDBLCLK). The middle and side
-// buttons have no handler, as in the original.
+#if !defined(_WIN32)
+// The window's point of a mouse event (window coordinates; negative or past the size while the mouse is captured): in
+// fullscreen mode a screen point (ClientToScreen), as the button handlers of CMainFrame passed them.
+POINT EventPoint(float X, float Y)
+{
+	int x = static_cast<int>(std::floor(X));
+	int y = static_cast<int>(std::floor(Y));
+	if (GetViewMode() == 2)
+		ClientToScreen(x, y);
+	return POINT{x, y};
+}
+
+// SDL_EVENT_MOUSE_BUTTON_DOWN and _UP, where SDL's button events are the buttons' source (not on Windows: OnButtonMessage
+// below). The point is SDL's mouse position at the button (its last motion's). Whether a press is a double click:
+// Windows' rule over SDL's click counts (platform::TClickCounter; every button's presses count, as every button's
+// messages reset Windows' double click); a scripted press is the script's. The middle and side buttons have no
+// handler, as in the original.
 void OnButton(const SDL_MouseButtonEvent &Event, bool Scripted)
 {
 	if (Event.down) {
@@ -589,6 +684,33 @@ void OnButton(const SDL_MouseButtonEvent &Event, bool Scripted)
 		ButtonDown(EventPoint(Event.x, Event.y), Event.button == SDL_BUTTON_LEFT, Double);
 	} else if (Event.button == SDL_BUTTON_LEFT || Event.button == SDL_BUTTON_RIGHT) {
 		ButtonUp(EventPoint(Event.x, Event.y), Event.button == SDL_BUTTON_LEFT);
+	}
+}
+#endif
+
+// Win32 until the Linux client: the button messages, as CMainFrame's handlers got them (OnLButtonDown, OnLButtonDblClk,
+// OnLButtonUp, OnRButtonDown, OnRButtonDblClk, OnRButtonUp), after SDL's window procedure has seen them (their
+// Default()). SDL's button events would differ from the original's messages: their point is SDL's last mouse position,
+// not the message's (a click posted by another program comes without the cursor there: SDL had the real cursor's
+// place, clamped to the window), their double clicks SDL's own count over its clock, not the message Windows made
+// (WM_LBUTTONDBLCLK), and SDL makes or drops presses from the message's MK_ flags against its own button state. So on
+// Windows SDL's button events are not used, and each button message is the press or release it says, at its point
+// (in fullscreen mode a screen point).
+void OnButtonMessage(UINT Message, LPARAM LParam)
+{
+	int x = static_cast<short>(LOWORD(LParam));
+	int y = static_cast<short>(HIWORD(LParam));
+	if (GetViewMode() == 2)
+		ClientToScreen(x, y);
+	const POINT Point{x, y};
+	switch (Message) {
+	case WM_LBUTTONDOWN: ButtonDown(Point, true, false); break;
+	case WM_LBUTTONDBLCLK: ButtonDown(Point, true, true); break;
+	case WM_RBUTTONDOWN:
+	case WM_RBUTTONDBLCLK: ButtonDown(Point, false, false); break;
+	case WM_LBUTTONUP: ButtonUp(Point, true); break;
+	case WM_RBUTTONUP: ButtonUp(Point, false); break;
+	default: break;
 	}
 }
 
@@ -615,10 +737,18 @@ void Input(const SDL_Event &Event, bool Scripted)
 		return;
 	switch (Event.type) {
 	case SDL_EVENT_KEY_DOWN:
-	case SDL_EVENT_KEY_UP: OnKey(Event.key, Scripted); break;
+	case SDL_EVENT_KEY_UP:
+#if !defined(_WIN32)
+		OnKey(Event.key, Scripted); // on Windows the key messages (OnKeyMessage)
+#endif
+		break;
 	case SDL_EVENT_TEXT_INPUT: OnText(Event.text.text); break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
-	case SDL_EVENT_MOUSE_BUTTON_UP: OnButton(Event.button, Scripted); break;
+	case SDL_EVENT_MOUSE_BUTTON_UP:
+#if !defined(_WIN32)
+		OnButton(Event.button, Scripted); // on Windows the button messages (OnButtonMessage)
+#endif
+		break;
 	case SDL_EVENT_MOUSE_WHEEL: OnWheel(Event.wheel); break;
 	case SDL_EVENT_MOUSE_MOTION:
 		if (!Scripted)
@@ -631,7 +761,7 @@ void Input(const SDL_Event &Event, bool Scripted)
 // CMainFrame::OnCaptureChanged: another window took the mouse; the held buttons are released at the cursor. SDL has no
 // event for a lost capture, so on Windows it is still the window's WM_CAPTURECHANGED (the subclass below), which comes
 // also when the client releases the capture itself, after it has cleared its button flags (nothing to do then).
-// SDL's capture state is then set free too (SDL_CaptureMouse(false)), so that the next press takes the mouse again.
+// SDL's capture state is then set free too (FreeCapture), so that the next press takes the mouse again.
 void OnCaptureChanged()
 {
 	if (platform::Platform().Input.IgnoreCaptureChange())
@@ -652,7 +782,7 @@ void OnCaptureChanged()
 		RightButtonUp(Point.x, Point.y, Keys.Flags());
 		RightButtonPressed = false;
 	}
-	SDL_CaptureMouse(false);
+	FreeCapture();
 }
 
 // CMainFrame::OnHostResolved (the socket's message until issue #125): WSAAsyncGetHostByName finished.
@@ -679,15 +809,40 @@ void OnHostResolved(LPARAM LParam)
 	ConnectToLoginServer();
 }
 
-// The SDL window's subclass, for what SDL3 has no event for: the loss of the mouse capture (WM_CAPTURECHANGED, then
-// SDL's own handling of it), the test mode's main timer ticks (WM_TIMER 1: with a script the driver dispatches them),
-// the host lookup's message (WM_USER + 1, the socket until issue #125) and the fullscreen window's hit test. The keys,
-// the buttons, the wheel and the cursor are SDL's (issue #123).
+// The SDL window's subclass, for what SDL3 has no event for or gives otherwise: the loss of the mouse capture
+// (WM_CAPTURECHANGED, then SDL's own handling of it), the typed characters (WM_CHAR, OnWindowChar), the mouse buttons
+// (OnButtonMessage), the keys (OnKeyMessage), the test mode's main timer ticks (WM_TIMER 1: with a script the driver dispatches them), the host
+// lookup's message (WM_USER + 1, the socket until issue #125) and the fullscreen window's hit test. The wheel, the
+// cursors, the capture, the window's coordinates and the IME's text are SDL's (issue #123).
 LRESULT CALLBACK InputProc(HWND Hwnd, UINT Message, WPARAM WParam, LPARAM LParam, [[maybe_unused]] UINT_PTR Id,
 	[[maybe_unused]] DWORD_PTR Data)
 {
 	switch (Message) {
 	case WM_CAPTURECHANGED: OnCaptureChanged(); break;
+	case WM_KEYDOWN:
+	case WM_SYSKEYDOWN:
+	case WM_KEYUP:
+	case WM_SYSKEYUP:
+		if (Created)
+			OnKeyMessage(Message, WParam, LParam);
+		return 0;
+	case WM_CHAR:
+		// CMainFrame::OnChar called Default() first (DefWindowProc: nothing for WM_CHAR).
+		::DefWindowProcW(Hwnd, Message, WParam, LParam);
+		if (Created)
+			OnWindowChar(WParam);
+		return 0;
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONDBLCLK:
+	case WM_LBUTTONUP:
+	case WM_RBUTTONDOWN:
+	case WM_RBUTTONDBLCLK:
+	case WM_RBUTTONUP: {
+		const LRESULT Result = DefSubclassProc(Hwnd, Message, WParam, LParam); // SDL's (its button events unused)
+		if (Created)
+			OnButtonMessage(Message, LParam);
+		return Result;
+	}
 	case WM_TIMER:
 		// CMainFrame::OnTimer: the test mode's ticks (with a script the driver dispatches WM_TIMER 1); the loop's own
 		// timer does not use WM_TIMER.
@@ -771,16 +926,12 @@ bool Create(bool Gamemaster, const char *Title, const char *ClassName)
 	// minimized when it loses the focus (the client leaves fullscreen mode instead, OnActivateApp); Alt+F4 is the
 	// client's key (KeyDown).
 	// Issue #123, the input as Windows gave it to the MFC frame: the click that activates the window is a click
-	// (Windows' WM_MOUSEACTIVATE default; SDL would drop it); two presses are a double click within Windows' double-click
-	// rectangle (SM_CXDOUBLECLK around the first: SDL's radius is half of it; its time is GetDoubleClickTime already);
-	// the system menu's keys (Alt+Space: WM_SYSCHAR, SC_KEYMENU) work, as DefWindowProc gave them; the frame keeps
+	// (Windows' WM_MOUSEACTIVATE default; SDL would drop it from its own button state); the system menu's keys (Alt+Space: WM_SYSCHAR, SC_KEYMENU) work, as DefWindowProc gave them; the frame keeps
 	// Windows' cursors while the client's is hidden.
 	SDL_SetHint(SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP, "0");
 	SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "unaware");
 	SDL_SetHint(SDL_HINT_MOUSE_AUTO_CAPTURE, "0");
 	SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
-	const std::string ClickRadius = std::to_string(GetSystemMetrics(SM_CXDOUBLECLK) / 2);
-	SDL_SetHint(SDL_HINT_MOUSE_DOUBLE_CLICK_RADIUS, ClickRadius.c_str());
 	SDL_SetHint(SDL_HINT_WINDOWS_ENABLE_MENU_MNEMONICS, "1");
 	SDL_SetHint(SDL_HINT_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN, "1");
 	SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON, "128");

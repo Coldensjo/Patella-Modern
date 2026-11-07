@@ -187,8 +187,10 @@ identically. *Why it matters:* this is the first step toward a Linux client. Key
 the Windows path for now (next step), and the old MFC window can still be chosen for comparison until MFC is removed.
 
 **Keyboard and mouse now come through SDL3 (#123).**
-Key presses, typed text, mouse clicks, the mouse wheel and the mouse pointer's shapes in the SDL3 window now come
-from SDL3 instead of Windows messages. The rules the original game applied to them (which keys do what, which
+The mouse wheel, the mouse pointer's shapes, holding the mouse during a drag and foreign-language text input in the
+SDL3 window now come from SDL3 instead of Windows messages. On Windows, key presses, typed characters and mouse clicks
+still come the Windows way, because SDL3 would treat some of them differently from the original game (for example
+clicks and keys sent by another program). The rules the original game applied to them (which keys do what, which
 characters reach the chat, what counts as a double click) were taken out into a small piece of code of their own that
 works on any operating system and is tested on its own. Typed text now arrives as Unicode and is converted to the
 game's character set, so a letter the game cannot show (from a Polish or Russian keyboard, say) becomes a question

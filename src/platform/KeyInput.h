@@ -3,9 +3,11 @@
 //
 // CMainFrame's input handlers (MainFrm.cpp) read Windows' virtual keys and messages: TranslateKey's table of the keys
 // the client tells apart, the modifier flags KeyDown and KeyUp keep, OnChar's characters, the double clicks Windows
-// makes (CS_DBLCLKS) and the wheel's notches. The SDL3 window (SdlFrame.cpp) gets SDL's events instead, which carry
-// scan codes, UTF-8 text and click counts; it describes each key as a TKeyEvent and leaves the rules to these
-// classes, so the client gets the calls the original's handlers made:
+// makes (CS_DBLCLKS) and the wheel's notches. The SDL3 window (SdlFrame.cpp) describes each key as a TKeyEvent and
+// leaves the rules to these classes, so the client gets the calls the original's handlers made. On Windows its keys,
+// characters and buttons are still the window's messages (SDL's events differ from them: notes/decisions.md, "#123"),
+// so TranslateKey, TKeyFlags and TWheel are used there; KeyCharacter and TClickCounter are for a platform where SDL's
+// events (scan codes, printable UTF-8 text, click counts) are the only source:
 //
 //	TKeyEvent       a key: which of the keys the client tells apart (TKey), its letter in the active layout, the
 //	                platform's NumLock, Shift, Control and Alt state at the key

@@ -257,14 +257,12 @@ replay").
 The test build runs on the window path PATELLA_WINDOW chooses, as Patella.exe (src/platform/WindowChoice.h): the SDL3
 window and loop by default (src/SdlFrame.cpp), MFC's frame with `mfc`. The driver works the same on both: MainWindow()
 is the SDL window's HWND or the MFC frame's, and the script's events (and the recordings' `post` lines) are the same
-Win32 messages. The MFC frame gets them with DispatchMessageA. The SDL3 window's input is SDL's events since issue #123,
-so on that path each input message becomes the SDL event SDL makes of the same input and goes to the window's input
-handling as a scripted event (src/testmode/SdlInputWin32.h, `sdlframe::ScriptedInput`): WM_KEYDOWN/UP and
-WM_SYSKEYDOWN/UP a key event with the key's scan code (from the virtual key and the extended flag; NumLock on only for
-the keypad's digits), WM_CHAR a text event with the byte as UTF-8 (control characters too: a scripted key makes no
-character of its own, the script's WM_CHAR is its character), the buttons a button event at the message's point with
-1 click (2 for a double click), WM_MOUSEWHEEL a wheel event in notches, WM_MOUSEMOVE nothing (the frame had no
-handler); every other message (WM_TIMER, WM_CLOSE) is dispatched as before. The cursor's screen point is the SDL
+Win32 messages. The MFC frame gets them with DispatchMessageA. The SDL3 window's wheel is SDL's events since issue
+#123, so on that path WM_MOUSEWHEEL becomes the SDL wheel event (in notches) and goes to the window's input handling as
+a scripted event (src/testmode/SdlInputWin32.h, `sdlframe::ScriptedInput`); WM_MOUSEMOVE is nothing (the frame had no
+handler). The key messages, WM_CHAR and the button messages stay window messages on Windows (the SDL window's
+subclass takes them: SDL's key, text and button events differ from them, notes/decisions.md "#123"), so they are
+dispatched, as is every other message (WM_TIMER, WM_CLOSE). The cursor's screen point is the SDL
 window's client origin plus the virtual cursor (sdlframe::ClientToScreen, as the client converts it back). The SDL3 loop
 pumps the thread's messages as MFC's did and drops the desktop's input messages with a script (DropInput); SDL's events
 of the desktop's input are dropped as well (IInput::IgnoreDesktopInput, TTestInput's with a script). With a script

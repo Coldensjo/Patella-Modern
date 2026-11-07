@@ -16319,9 +16319,47 @@ Logs in build\logs\issue-142 of the branch's worktree; golden replayed main's fr
 ## #123: input over SDL3 (Patella-Modern issue #123, M8)
 
 Done by Claude Opus 5.5, November 7, 2026 (branch issue-123, from main 9100384). Plan section 7, M8, second step: on the
-SDL3 window (src/SdlFrame.cpp, the default path) the keys, the typed text, the mouse buttons, the wheel, the mouse
-capture, the mouse position and the cursors come from SDL3 instead of Win32 messages through a subclass. The MFC path
+SDL3 window (src/SdlFrame.cpp, the default path) the wheel, the mouse capture, the window coordinates, the cursors and
+the IME's text come from SDL3. On Windows the keys, the typed characters (WM_CHAR) and the mouse buttons stay window
+messages through the subclass, because SDL's key, text and button events would change what the client gets ("Why the
+keys, the characters and the buttons stay window messages", below), and go through the same portable rules; the cursor's screen position stays
+GetCursorPos (the owner's decision). The client's input rules are portable and unit-tested either way. The MFC path
 (PATELLA_WINDOW=mfc) and MainFrm.cpp are unchanged.
+
+### Why the keys, the characters and the buttons stay window messages on Windows (high)
+
+The first version took them from SDL too. The reference compare matched (its scripted messages became SDL events made
+by the test mode), but compare_traffic's live run, where the tools post Win32 messages to the window of an unscripted
+client (session_client.py, login_client.py, as other programs may), stopped at the login: nothing was typed or clicked
+(build\logs\issue-123\compare_traffic-merged-try*.log; a probe with a log line in the button handler).
+
+- **Characters**: SDL_SendKeyboardText delivers text only to the window with the keyboard focus (the helper Tibia.exe
+  had it) and drops every text that starts with an ASCII control character (a posted WM_CHAR 9 or 13 is lost). The
+  original's OnChar handled every WM_CHAR its window got: focused or not, posted or made by TranslateMessage, control
+  characters included. So the subclass takes WM_CHAR (OnWindowChar: the window is a Unicode window, so a UTF-16 unit,
+  a surrogate pair as two; converted with Utf16ToCp1252, #112) and SDL never sees it. KeyCharacter (the control
+  characters made from keys) is then not used on Windows: TranslateMessage makes them, as before.
+- **Buttons**: an SDL button event's point is SDL's last mouse position, not the message's (the posted click came at
+  (779, 556): the real cursor's place clamped to the window, not the posted (113, 337)); its double click is SDL's own
+  count over its clock, not the WM_LBUTTONDBLCLK Windows made; and SDL makes or drops presses by comparing the message's
+  MK_ flags with its own button state. The original handled each button message as the press or release it says, at
+  its point. So the subclass passes each button message to SDL first (CMainFrame's handlers called Default() first; SDL's
+  button events are not used on Windows) and then handles it (OnButtonMessage) with its own point and kind.
+  TClickCounter and SDL's button events are the path where SDL is the buttons' source (not on Windows).
+- **Capture**: SDL_CaptureMouse refuses while no window of the process has the keyboard focus and takes nothing while
+  SDL saw the mouse outside the window; SetCapture took it. So where SDL took no capture, the window's capture is
+  SetCapture's, as the original's, released with ReleaseCapture (TakeCapture, FreeCapture).
+- **Keys**: with the characters and buttons from the messages, the second live run got past the login, the walks and
+  "say", and lost Shift+right-click (look) and Ctrl+right-click (open container): SDL keeps its own key state, and its
+  pump (WIN_PumpEvents, after its message loop) releases a Shift or Windows key that Windows' keyboard state does not
+  hold, so a Shift posted for the click posted after it was up before the click; SDL then drops the posted WM_KEYUP
+  (its state is already up), and it treats a key down of a key it holds as a repeat and drops AltGr's left Control.
+  The original's KeyFlags changed with each WM_KEYDOWN and WM_KEYUP. So the subclass takes the key messages
+  (OnKeyMessage: the virtual key and lParam's extended flag to a TKeyEvent, then TKeyFlags as before) and does not pass
+  them on (the MFC frame's handlers did not call DefWindowProc either: no menu from Alt or F10). An exact copy of the
+  original's handling: AltGr's Control, NumLock with Shift's fake Shift messages and the repeats are Windows' own again.
+- **The wheel** comes from SDL's events also for posted messages: SDL handles WM_MOUSEWHEEL without the focus, with
+  its distance.
 
 ### The client's rules, apart from SDL (high)
 
@@ -16361,25 +16399,23 @@ The event watch hands SDL_EVENT_KEY_DOWN/UP, SDL_EVENT_TEXT_INPUT, SDL_EVENT_MOU
 and SDL_EVENT_MOUSE_MOTION to the input handling as SDL sends them, inside its window procedure during the dispatch of
 the message that made them, so the order of the client's calls is the messages' order, as before.
 
-- **Keys**: SDL's scan code to a TKey (F1-F12, the shifts, controls and alts, the navigation block, the keypad's 0-9
-  and decimal point, Return, keypad Enter, Escape, Tab, Backspace; every other key Other), then TKeyFlags::Down or Up,
-  KeyPress, and KeyCharacter's character through OnChar. SDL's repeats (repeat=true) are Windows' repeated WM_KEYDOWNs
-  and are handled as presses, as before.
-- **AltGr**: Windows sends a left Control down before AltGr's right Alt; the original counted it (Ctrl+Alt flags on
-  every AltGr character). SDL drops that Control (SDL_windowsevents.c SkipAltGrLeftControl). So a right Alt down that
-  comes while Windows' keyboard state has the left Control down (GetKeyState(VK_LCONTROL)) and SDL's modifiers have not
-  is given that Control first (KeyDown of Control, its KeyPress), and the Control goes up with the Alt. Windows only
-  (the one Win32 call left in the key path); a scripted key never.
-- **Text**: SDL_StartTextInput on the window at its creation; SDL_EVENT_TEXT_INPUT's UTF-8 is converted to
-  Windows-1252 (types/Cp1252.h Utf8ToCp1252, #112: a character it does not have is '?') and each byte goes to OnChar.
-  On this machine (ANSI 1252) the same bytes as the ANSI window's WM_CHAR; on other code pages the conversion #112
-  deferred to M8 is now done: a Polish ł is '?' (no Windows-1252 byte), not 0xb3.
-- **Buttons**: left and right as the original's handlers (the first press takes the mouse with SDL_CaptureMouse(true),
-  SetCapture on Windows; the last release frees it); a right double click is a click; middle and side buttons nothing.
-  The point is SDL's event position (window coordinates; in fullscreen mode made screen points, ClientToScreen as
-  before). Hints: SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH=1 (the click that activates the window is a click, as Windows'
-  WM_MOUSEACTIVATE default; SDL drops it otherwise); SDL_HINT_MOUSE_DOUBLE_CLICK_RADIUS = SM_CXDOUBLECLK / 2 (SDL's
-  default is 32 pixels; its time is GetDoubleClickTime already).
+- **Keys**: on Windows the key messages (above). Where SDL's key events are the source (not Windows): SDL's scan code
+  to a TKey (F1-F12, the shifts, controls and alts, the navigation block, the keypad's 0-9 and decimal point, Return,
+  keypad Enter, Escape, Tab, Backspace; every other key Other), then TKeyFlags::Down or Up, KeyPress, and
+  KeyCharacter's character through OnChar; SDL's repeats are presses. (A first version gave a right Alt the left
+  Control Windows' AltGr holds, from GetKeyState; with the key messages that Control is the message's own again.)
+- **Text**: SDL_StartTextInput on the window at its creation (the IME). On Windows the characters are WM_CHAR's
+  (above); SDL_EVENT_TEXT_INPUT brings the IME's results (SDL takes them from WM_IME_COMPOSITION itself) and, where SDL is
+  the only source, the typed text. Both are converted to Windows-1252 (types/Cp1252.h, #112: a character it does not
+  have is '?') and each byte goes to OnChar. On this machine (ANSI 1252) the same bytes as the ANSI window's WM_CHAR;
+  on other code pages the conversion #112 deferred to M8 is now done: a Polish ł is '?' (no Windows-1252 byte), not
+  0xb3. (#122's subclass passed the Unicode window's WM_CHAR unit to OnChar as it was: a typed € was 0x20AC there and
+  dropped; now 0x80.)
+- **Buttons**: left and right as the original's handlers (the first press takes the mouse, TakeCapture: SDL_CaptureMouse,
+  else SetCapture; the last release frees it); a right double click is a click; middle and side buttons nothing. On
+  Windows the button messages with their points and kinds (above); in fullscreen mode screen points (ClientToScreen with
+  SDL's window position). SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH=1 keeps SDL's own button state in step with the activating
+  click (Windows' WM_MOUSEACTIVATE default).
 - **Wheel**: SDL's distance in notches times 120 (exact for every WM_MOUSEWHEEL delta), negated for a flipped wheel,
   into TWheel; MouseWheel per notch at the client's mouse position, as before. The horizontal wheel has no handler.
 - **The cursor**: UpdateMouseCursor sets SDL cursors: SDL_SYSTEM_CURSOR_DEFAULT, NS_RESIZE and WAIT for IDC_ARROW,
@@ -16397,26 +16433,23 @@ the message that made them, so the order of the client's calls is the messages' 
   OnIdle use sdlframe::ScreenToClient on the SDL3 path.
 - **The capture's loss**: SDL has no event for it. On Windows the subclass still takes WM_CAPTURECHANGED (then passes
   it to SDL, which checks for released buttons) and runs OnCaptureChanged as before (the held buttons released at the
-  cursor; nothing when the client released the capture itself, its flags already clear), then SDL_CaptureMouse(false),
-  so that SDL's capture state follows and the next press takes the mouse again. The test build with a script ignores
+  cursor; nothing when the client released the capture itself, its flags already clear), then FreeCapture, so that
+  SDL's capture state follows and the next press takes the mouse again. The test build with a script ignores
   it (#52), as before.
-- **What the subclass keeps**: WM_CAPTURECHANGED, WM_TIMER (the test mode's ticks), WM_USER + 1 (the socket, #125), the
-  fullscreen hit test (#127). No key, character, button, wheel or cursor message is handled there any more; they go to
-  SDL's window procedure. SDL_HINT_WINDOWS_ENABLE_MENU_MNEMONICS=1 keeps Alt+Space's system menu (WM_SYSCHAR's
+- **What the subclass keeps**: WM_CAPTURECHANGED, the key messages, WM_CHAR, the left and right button messages (after
+  SDL's window procedure), WM_TIMER (the test mode's ticks), WM_USER + 1 (the socket, #125), the fullscreen hit test (#127). The wheel
+  and cursor messages go to SDL's window procedure. SDL_HINT_WINDOWS_ENABLE_MENU_MNEMONICS=1 keeps Alt+Space's system menu (WM_SYSCHAR's
   SC_KEYMENU, which DefWindowProc gave the MFC frame; SDL blocks it by default). Alt alone and F10 open no menu on
-  either path (SDL returns 0 for WM_SYSKEYDOWN/UP, as the subclass did).
+  either path (the subclass returns 0 for WM_SYSKEYDOWN/UP without DefWindowProc, as #122's did).
 
 ### The test mode (high)
 
 The scripts' events and the recordings' `post` lines stay Win32 messages, unchanged. On the SDL3 path the driver gives
 each input message to src/testmode/SdlInputWin32.cpp (PatellaTest.exe only), which makes the SDL event SDL makes of the
-same input and hands it to `sdlframe::ScriptedInput` (the watch's handling, with two differences: a scripted key makes
-no character, since the script's WM_CHAR is its character; a scripted press's click count is the message's, 2 for
-WM_xBUTTONDBLCLK). Key messages: the scan code from the virtual key and the extended flag (the keypad's keys without
-it, the right Shift by its scan code 0x36), NumLock on only for VK_NUMPAD0-9 and VK_DECIMAL, repeat from lParam's
-previous-state bit. WM_CHAR: a text event with the byte as UTF-8 (a value above 255 nothing, as OnChar dropped it).
-Buttons at lParam's point; WM_MOUSEWHEEL in notches; WM_MOUSEMOVE nothing (the frame had no handler and a dispatched
-move makes no WM_SETCURSOR). Every other message is dispatched as before. With a script the desktop's SDL input events
+same input and hands it to `sdlframe::ScriptedInput` (the watch's handling): WM_MOUSEWHEEL in notches; WM_MOUSEMOVE
+nothing (the frame had no handler and a dispatched move makes no WM_SETCURSOR). The key messages, WM_CHAR and the
+button messages are dispatched to the window, as the desktop's come (the subclass takes them on Windows), as is every
+other message; so the scripted sessions drive the real Windows path. With a script the desktop's SDL input events
 are dropped (IInput::IgnoreDesktopInput, new: TTestInput's with a script, false in Patella.exe), as DropInput drops the
 desktop's messages; the cursor's screen point on the SDL3 path is sdlframe::ClientToScreen of the virtual cursor, the
 inverse of what the client does. Without a script the cursor is the window path's (WindowInput()). notes/testmode.md,
@@ -16424,7 +16457,9 @@ inverse of what the client does. Without a script the cursor is the window path'
 
 ### Behaviour that SDL3 cannot give the same way (medium)
 
-Each is a choice, recorded; none is reached by the gates' sessions.
+Each is a choice, recorded; none is reached by the gates' sessions. The first three and the double clicks concern
+the path where SDL is the source of the keys, characters and buttons (not Windows, where they stay the window's
+messages: exact).
 
 - **Control characters from SDL's modifier state**: KeyCharacter reads SDL's modifiers, TranslateMessage read Windows'
   keyboard state. They differ where a modifier went down before the window had the focus (Windows' state has it, SDL's
@@ -16449,8 +16484,6 @@ Each is a choice, recorded; none is reached by the gates' sessions.
 - **IME**: SDL's text input with SDL's IME handling (the system draws the composition and candidates); a committed
   string comes as UTF-8 and is converted to Windows-1252 ('?' for what it does not have). The ANSI window got
   WM_IME_CHAR made into code-page bytes by DefWindowProc (double-byte characters as two bytes on an Asian code page).
-- **The button's point**: SDL's mouse position at the button (its last motion, from WM_MOUSEMOVE), not the button
-  message's lParam; Windows sends a WM_MOUSEMOVE before a button message whose point moved, so they agree.
 - **WM_SETCURSOR between moves**: SDL re-sets its cursor at each WM_SETCURSOR; the client's UpdateMouseCursor runs at
   each motion or press event (no held button, in the client area) where the original ran it at each WM_SETCURSOR.
 

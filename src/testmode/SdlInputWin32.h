@@ -3,20 +3,15 @@
 // original source. Only PatellaTest.exe compiles it (cmake/WindowsX64.cmake).
 //
 // The driver's events and the reference recordings' `post` lines are Win32 window messages (the MFC frame gets them
-// with DispatchMessageA). On the SDL3 window, whose input is SDL's events since issue #123, each input message becomes
-// the SDL event SDL makes of the same input, handed to the window as a scripted event (sdlframe::ScriptedInput):
+// with DispatchMessageA). On the SDL3 window, whose wheel is SDL's events since issue #123, those messages become the
+// SDL event SDL makes of the same input, handed to the window as a scripted event (sdlframe::ScriptedInput):
 //
-//	WM_KEYDOWN, WM_SYSKEYDOWN    SDL_EVENT_KEY_DOWN: the scan code of the key's position (the virtual key with the
-//	WM_KEYUP, WM_SYSKEYUP        extended flag: the keypad's keys without it; NumLock on for the keypad's digits only),
-//	                             repeat from lParam's previous-state bit; SDL_EVENT_KEY_UP
-//	WM_CHAR                      SDL_EVENT_TEXT_INPUT: the byte (the client's Windows-1252) as UTF-8, control
-//	                             characters too (the script's own characters: a scripted key makes none)
-//	WM_LBUTTONDOWN/UP/DBLCLK,    SDL_EVENT_MOUSE_BUTTON_DOWN/UP at lParam's client point, 1 click (2 for a double
-//	WM_RBUTTON...                click)
-//	WM_MOUSEWHEEL                SDL_EVENT_MOUSE_WHEEL: wParam's distance in notches (120 each)
-//	WM_MOUSEMOVE                 nothing: the frame had no handler, and a dispatched move makes no WM_SETCURSOR
+//	WM_MOUSEWHEEL    SDL_EVENT_MOUSE_WHEEL: wParam's distance in notches (120 each)
+//	WM_MOUSEMOVE     nothing: the frame had no handler, and a dispatched move makes no WM_SETCURSOR
 //
-// Every other message (WM_TIMER, WM_CLOSE, WM_SYSCHAR ...) is not input here: the caller dispatches it as before.
+// The key messages, WM_CHAR and the button messages stay window messages on Windows (SdlFrame.cpp's OnKeyMessage,
+// OnWindowChar and OnButtonMessage: SDL's key, text and button events differ from them), so they are dispatched, as is
+// every other message (WM_TIMER, WM_CLOSE ...).
 
 #pragma once
 
