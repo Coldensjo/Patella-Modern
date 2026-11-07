@@ -704,6 +704,15 @@ primary display's bounds) and Win32's on the MFC window until #127; SurfaceVulka
 ClientToScreen, GetSystemMetrics or vkCreateWin32SurfaceKHR any more, its rectangles are TEdgeRects. tests_vulkan runs
 its device windows' tests on SDL3's surfaces. notes/decisions.md, "#126".
 
+Faster scripted sessions (Patella-Modern issue #144, branch issue-144, November 7, 2026; M7): tools/session_client.py
+posts a gesture's messages back to back (a key, a click, a whole typed string; the scripted test client gets them as
+one control-channel command of post lines) and waits on what each step is meant to do, as both clients show it (the
+start screen, the login dialog, the character list, the player in the game, each walk's position, the turn, the said
+line, the windows opening and closing), with a timeout and a named error, instead of fixed sleeps; compare_traffic's
+live wait is 0.5 s of server quiet after the step instead of a fixed 1.5 s. The same messages in the same order: three
+compare_traffic runs in a row without a difference. compare_traffic 351 s to 145-189 s (a session 44-62 s to 14-20 s),
+compare_rendering 473 s to 392 s, compare_files 251 s to 157 s. notes/traffic.md, "The waits"; notes/decisions.md, "#144".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,

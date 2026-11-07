@@ -703,6 +703,8 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   creature can stand, so its live client packets compare without excuses; testserver.py no longer kills a server
   that is saving its map. Done in #140 (notes/decisions.md, "#140"): compare_rendering.py's session has the same look
   step, and both tools refuse a recording with another one (session_client.recorded_look).
+- **Faster scripted sessions:** done in #144 (notes/decisions.md, "#144"): session_client.py posts whole gestures and
+  strings at once and waits on the clients' state instead of fixed sleeps; compare_traffic about 2.2 times faster.
 - **`final` on the classes nothing derives from** (#33's second half, after the oracle): done in #47
   (notes/decisions.md, "#47"): 70 classes; the 30 the golden tests use as seams (their fakes built by our
   constructors, stand-ins, a patched member that `final` lets MSVC inline) are listed with the reason.

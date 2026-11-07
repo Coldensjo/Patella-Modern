@@ -667,7 +667,9 @@ How the tools use it (tools/session_client.py `Driver(test=True)`, compare_traff
   characters(), member(), map_names(), ... from a probe each), its --test-out next to the run folder
   (`<run folder>.testmode`, so the files the client writes into its folder are compared as before);
 - compare_rendering.py with an x64 `--patella` (TestDriver): the script `clock manual` and `cursor 1020 760`
-  (patcap's clock and cursor), then every window message as a `post` line (a scripted client drops Windows' input),
+  (patcap's clock and cursor), then every window message as a `post` line (a scripted client drops Windows' input;
+  since issue #144 a gesture's messages, a click or a typed string, are the post lines of one command, each still
+  delivered in an idle call of its own with the quiet idle calls after it),
   each step's advance as an `advance 2000 20` line and each capture as a `frame` line; the frame dump's
   frame-NNN.png and .filtered.png are the scene and its mask; the probe gives the device the run checks, the frames
   and the ticks.

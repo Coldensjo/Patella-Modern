@@ -16404,3 +16404,63 @@ Logs in build\logs\issue-126 of the branch's worktree; golden replayed main's fr
 - `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
   clang-format (CLAUDE.md's command) exit 0.
 - Not run: compare_files and testmode_check (no setting, file or input changed); compare_rendering's fullscreen scenes.
+
+## #144: faster scripted sessions (Patella-Modern issue #144, M7)
+
+The owner's request: the live checks' scripted sessions (tools/session_client.py) slept for fixed times around every
+message and step. Tools only: no change in src/, no new control-channel command.
+
+### Whole gestures at once (high)
+
+Driver.post_all posts a gesture's messages back to back: a key with its modifier, a click (modifier, mouse move,
+button down and up, modifier up), a typed string. The messages and their order are those of before; only the sleeps
+between them (50 to 100 ms, a click at least 250 ms) are gone. Windows' queue keeps the order, and both clients take
+each message on its own: the modifiers are the frame's KeyFlags from WM_KEYDOWN/UP (MainFrm.cpp TranslateKey's
+callers), not GetKeyState, and a click's place is in each message's lParam. Account, Tab and password are one
+string, "hello world" and its Return another (the same WM_CHARs as type() and char() posted). The scripted test
+client gets a gesture as one control-channel command of post lines: the channel took several script lines per command
+since #92, and with `clock manual` each line is still an event of its own idle call with QuietPasses after it
+(TestModeWin32.cpp Idle), so the client sees what it saw with one command per message.
+
+### Waits on the client's state (high)
+
+Every fixed sleep of the session became a wait on what the step is meant to do, read from both clients (Tibia.exe
+through client_state.py, the test client through its probe), with a timeout and an error that names it
+(Driver.wait_until; the table in notes/traffic.md, "The waits"): the start screen (TStartWindow), the login dialog,
+the character list, the player in the game, each walk's position, the turn's direction, the said console line, the
+container, context menu and trade windows opening and closing, the start screen after the logout. With a real clock
+the condition is waited for right after the input; with compare_rendering.py's manual clocks (patcap's, `clock
+manual`) after the step's settle, which is when the clock moves. client_state.ORIGINAL_VTABLES names Tibia.exe's
+TLoginDialog (0x5627d8) and TCharacterListDialog (0x562370), from Dialogs.h's comments; the frozen reference
+recordings keep their vt_ names (reference.py's comparison pairs them as before).
+
+The steps that change nothing a reading shows but the server's text (the looks, use in container) have no condition:
+the step's wait covers them as before. compare_traffic.py's live wait is no longer a fixed 1.5 s but "no server
+packet for 0.5 s, counted from the step's end at the earliest" (live_wait; 30 s without such a pause fails the run):
+the step's own condition comes first, so the quiet time only catches the server's follow-up packets. The replay's
+wait (proxy.wait_idle, 0.5 s without a client packet) is unchanged: it is what notices a client packet too many.
+
+The waits are not pushed into sc.login: compare_files.py's crafted error replay ends the game login with a critical
+error box, during which the test client answers no probe; the callers wait for the player in the game
+(run_session's login step, compare_traffic's helper).
+
+### compare_files' own sleeps (medium)
+
+compare_files.py, compare_rendering.py and compare_network.py get the faster input and the shared enter_login (the
+login dialog waited for); their own settle times (window placement, options dialogs, the live walk's LIVE_SETTLE,
+patcap's settle) stay: they are outside the session of the issue and each guards something of its own (#68's window
+placement, #98's first frame). Found, not done.
+
+### The time saved (high)
+
+On a free desktop, the same build (07def6a's client, build\windows-x64), each comparison once with the old tools
+(a worktree at 07def6a) and with the new ones:
+
+| Comparison | Before | After |
+| :--- | :--- | :--- |
+| compare_traffic | 351 s | 145 s, 189 s, 156 s (three runs; 189 s: the test server's save on stop) |
+| per session (client start to exit, six per run) | 44 to 62 s, 311 s in all | 14 to 20 s, 103 to 113 s in all |
+| compare_rendering (vulkan, vulkan-cpu, windowed, --no-repeat) | 473 s | 392 s |
+| compare_files | 251 s | 157 s |
+
+compare_rendering saves least: its time is the frames and patcap's settles, which stay.
