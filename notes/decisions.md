@@ -16746,3 +16746,54 @@ Poll); a connection deleted inside its own OnReceive (no further event, nothing 
 calls on no connection and a name that does not resolve; the lookups of 127.0.0.1, localhost, ::1 and a .invalid name,
 delivered only at Poll with the window, message and request, a cancelled one (no reply), a short buffer (WSAENOBUFS),
 the Busy hook's changes. bounded_reads_test's and fuzz_network's ISocket stand-ins got an empty Poll.
+
+### The gates (high)
+
+Logs in build\logs\issue-125 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed +
+1,512,822 retired = 17,316,040, 0 failures. The final runs are on 29ab392 (the branch with main 1096f00 merged: #144's
+tools; `<name>-final.log`):
+
+- `python -I tools/build.py <preset>`: windows-x64 exit 0, 29/29 (golden_concurrent the same); windows-x64-debug exit 0,
+  28/28; windows-x64-asan exit 0, 28/28, no ASan report; windows-x64-gcc exit 0, 14/14; linux-x64-gcc exit 0, 26/26
+  (-fanalyzer on patella_platform); linux-x64-clang (ASan, UBSan) exit 0, 25/25, no sanitizer report. 0 compiler
+  warnings on every preset. tests_platform passes on all six.
+- Earlier runs: windows-x64's first tests_platform failed (an empty name connects on Windows: above, the test changed
+  to a .invalid name); linux-x64-clang and windows-x64-gcc failed to compile the test once each (a sign conversion, a
+  const cast type); windows-x64-asan's tests_vulkan failed once while another agent rendered on the GPU
+  (failed_create_device), and passed alone (windows-x64-asan-tests_vulkan-rerun.log).
+- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, bugprone- 0 (the first run: 12 new,
+  include-cleaner's POSIX headers and a branch clone, fixed). `python -I tools/banned_calls.py` exit 0. clang-format
+  (CLAUDE.md's command) exit 0.
+- Live, on the final client: `python -I tools/compare_traffic.py` exit 0, no differences (also on the first client);
+  `python -I tools/testmode_check.py` exit 0, no differences (on the timer-window client its first run lost run 2's
+  first scripted walk, testmode_check-try1.log, as #111 saw once; the rerun matched); `python -I tools/reference.py
+  compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0 on the SDL3 path and with PATELLA_WINDOW=mfc,
+  every session matches; `python -I tools/compare_files.py`: walk and error the same (error: the box and exit 1, as
+  Tibia.exe's but for #74's sentence), options failed on Tibia.exe's side (a memory read 3 s after its start, the first
+  read of #144's new waits; on the client before, "no TibiaClient window"), and `--only options --skip-live` exit 0, no
+  differences.
+- `python -I tools/compare_network.py --recording C:/Tibia/Patella-Modern/build/recordings/orig-live.jsonl --repeat`
+  (issue #19's recording, sha256 61103b95...): of 51 scenarios 41 the same, 4 variable (the wrong keys and an empty
+  frame coalesced: the session key's garbage, Tibia.exe's two runs differ too), 6 different, each one of #139's and
+  #142's deliberate outcomes, which compare_network's expectations (tools/deliberate.py) do not know yet: login-bad-size
+  and game-bad-size (#139 item 7, a size no multiple of 8), login-inner-long and game-inner-long (#139 item 6 and #72's
+  outcome, a length past the frame), game-two-empty-together and game-empty-alone (#142, empty packets): Tibia.exe ends
+  with the critical error or stops before the game, Patella.exe drops the frame or reads past the empty packet and goes
+  on into the game. The run is compare_network-final.log (its first 18 scenarios) and compare_network-final-rest.log
+  (the other 33, rerun after my own compare_files run, started by mistake while it ran, left Tibia.exe's "A Tibia client
+  is already running!" boxes that blocked every later start). The first try on the first client (TIMERPROC) hung on
+  another client's window in the same way (compare_network-try1.log); its second (try2 logs) counted 8 differences,
+  two of them (login-inner-short, game-inner-short) the TIMERPROC's swallowed TERROR: now the same in both clients.
+
+### Found, not done
+
+- tools/deliberate.py (compare_network.py's expected differences) lacks #139's and #142's frame outcomes, so
+  compare_network reports the six scenarios above as differences on main as well.
+- Tibia.exe refuses to start ("A Tibia client is already running!") while any client window of another run is open, and
+  its box then blocks every later Tibia.exe start of the same tool: the live comparisons of two agents collide even
+  without ports (the reference compare's PatellaTest.exe counts). compare_network and compare_files report it only as
+  "no TibiaClient window after 30 s".
+- TestModeWin32.cpp calls the alias `Win32Socket()`; rename it to NetworkSocket() after #123.
+- The MFC path's lookup reply (WM_USER + 1 by SendMessage) and IPv6 servers are not exercised live: every recording and
+  comparison patches the client to 127.0.0.1. tests_platform covers the lookup and an IPv6 connection.
