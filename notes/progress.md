@@ -552,6 +552,14 @@ the delete. Converted: TTabBar::LeftTabs and RightTabs, TGUI::MainWindow (FatalE
 TClient's static destruction leaves it); kept raw with the reason: ModalWindow (the help bubble's freed pointer that
 the golden Control test compares), the conditional members, the text buffers. Golden 17,316,040, 0 failures.
 notes/decisions.md, "#108".
+
+The matrices and the automap layers as mdspan views (Patella-Modern issue #101, branch issue-101, November 7, 2026; M7):
+`src/compat/mdspan.h` gives patella::TMdspan (std::mdspan in MSVC and GCC 16's libstdc++, a stand-in for
+linux-x64-clang's libstdc++ 14 and with PATELLA_MDSPAN_STANDIN); Container.h's matrix and matrix3d index their
+unique_ptr storage through a layout_left `view()` (members unchanged: golden compares them); TAutomapBlock's Color and
+Speed are `TAutomapLayer` (src/AutomapLayer.h), 256 x 256 owned bytes in the file's order with a layout_right view, and
+Map.cpp's file format check also checks the view's mapping. array<T> stays (one-dimensional). Golden 17,316,040, 0
+failures. notes/decisions.md, "#101".
 TGUI, part 2 (Patella-Modern issue #118, branch issue-118, November 7, 2026; M7): Control.cpp's 26 functions and
 MainWindow.cpp's InitMainWindow and ExitMainWindow are TGUI's members (the free functions forward); TGUI takes TNetwork
 and TCommunication by reference, so Control.cpp no longer uses the bridge; TGUIController and its adapter are gone. The

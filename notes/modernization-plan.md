@@ -591,6 +591,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Done in issue #99 (notes/decisions.md): `src/types/IndexedVector.h`'s TIndexedVector<T> over a std::vector (its
   allocator allocates as `new T[n]`), every `vector<T>` converted, Container.h keeps array, matrix and matrix3d. The
   call sites that need no min..max or growth move to standard containers in #100.
+  Done in #101 (notes/decisions.md, "#101: the matrices and the automap layers as mdspan views"): `patella::TMdspan`
+  (`src/compat/mdspan.h`, std::mdspan or a stand-in where the library lacks it); matrix3d and matrix index their
+  storage through `view()`, the automap's Color and Speed are `TAutomapLayer` (`src/AutomapLayer.h`), owned bytes in
+  the file's order with an mdspan view; array stays.
 - **Fixed-capacity lists** (`TMapPoint::Objects[10]` + `ObjectCount`, the effect table):
   `std::inplace_vector<T, N>` where available, `TStaticVector<T, N>` (same interface) elsewhere.
   Done in #102 for the effect table (notes/decisions.md, "#102: fixed-capacity lists"): `TSlotTable<TEffect, EFFECTS>`

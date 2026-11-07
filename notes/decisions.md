@@ -14009,6 +14009,92 @@ is a getter with `SetSideMainWindow`; the MainWindow test reads and releases `Ma
 `release()`; the console test reads `LeftTabs`/`RightTabs` through `.get()`; the MapWindow test, which runs
 `~TMapWindow` by hand on its own block, calls `Close()` first.
 
+## #101: the matrices and the automap layers as mdspan views (Patella-Modern issue #101, M7)
+
+Settled by Claude Opus 5.5, November 7, 2026. Plan M7, "Containers": `matrix3d<T>` and the automap's `uint8
+Color[256][256]` and `Speed[256][256]` become std::mdspan views over owned storage.
+
+### std::mdspan and its stand-in (high)
+
+- `src/compat/mdspan.h` gives `patella::TMdspan<T, Extents, Layout>`, `TExtents`, `TDynamicExtents`, `TLayoutRight` and
+  `TLayoutLeft`: std's where the library has `__cpp_lib_mdspan` (checked November 7, 2026: MSVC 19.51 /std:c++latest
+  202207; GCC 16.2's libstdc++, mingw-w64 and the image's, 202406), a stand-in elsewhere: the image's Clang 22 with
+  Debian's libstdc++ 14 has no `<mdspan>` (linux-x64-clang). All four compilers have C++23's multidimensional
+  subscript (`__cpp_multidimensional_subscript` 202211), so the stand-in's `operator[]` takes the indices as std's
+  does and the code is the same on both paths. `PATELLA_MDSPAN_STANDIN` selects the stand-in for a whole target, as
+  span.h's and expected.h's do: tests_unit_cxx26_standin and header_check_cxx26_standin.
+- The stand-in has the part of the interface the code uses (the header lists it): the extents, layout_right and
+  layout_left with their mappings, construction from a pointer and the dynamic extents, the const conversion,
+  `operator[]`, `data_handle`, `extent`, `size`, `stride`. It checks no precondition, like std::mdspan without
+  hardening: the containers check their indices first.
+- A view is made where the storage is indexed and never stored in a structure (it would be a second pointer to keep
+  in step with the owner).
+
+### The containers (high)
+
+- `matrix<T>` and `matrix3d<T>` (src/Container.h) keep their members and their storage (`std::unique_ptr<T[]> entry`,
+  issue #58): the golden Container test compares the members before entry with the original's bytes and reads
+  `entry.get()` for the entries and the element addresses, so nothing there changed and no golden call changed.
+  `view()` (and a const one) make a `TMdspan<T, TDynamicExtents<int, N>, TLayoutLeft>` over entry with dx, dy (and
+  dz); layout_left because x is the fastest index: `view()[x, y]` is entry[y * dx + x], `view()[x, y, z]` entry[(z *
+  dy + y) * dx + x], the original's formulas, now in the mapping. operator() checks the indices and builds the same
+  error as before, then returns the view's element.
+- `matrix<T>` is included, though the issue names matrix3d only: the issue's exit is "no raw 2-D/3-D array indexing
+  of these remains", and matrix's `entry[y * dx + x]` is the same raw 2-D indexing in the same header (FindPath's
+  nodes); the same two lines as matrix3d's. `array<T>` stays as it is: it is one-dimensional (an mdspan of rank 1
+  would be a span), so it has no multi-dimensional indexing to replace.
+- The index type is int, the original's arithmetic: the extents are the containers' int dx, dy, dz, and the offsets
+  fit (FieldNumber 18 x 14 x 8, FindPath's nodes 223 x 223).
+
+### The automap layers (high)
+
+- `TAutomapLayer` (src/AutomapLayer.h, new, header only, in patella_core's header list): a layer owns its 256 x 256
+  bytes (`std::array<uint8, 65536> Bytes`) and `view()` gives `TMdspan<uint8, TExtents<int, 256, 256>>`
+  (layout_right): `view()[x, y]` is `Bytes[x * 256 + y]`, the byte order of the original's `Color[x][y]` and of the
+  automap file. TAutomapBlock's Color and Speed are TAutomapLayer: the same size (0x10000 each), at the same offsets
+  (not frozen since M6, but unchanged). Its own header so tests_core can test it without Map.h, which is the client's.
+- Map.cpp: UpdateAutomap, GetAutomapColor, IsAutomapBlocked and GetAutomapSpeed index `Color.view()[x % 256, y %
+  256]`; LoadAutomapBlock and SaveAutomapBlock read and write `Bytes` in one piece as before (a TSpan of the array:
+  the same 65,536 bytes each, in the same order) and empty a block with `Bytes.fill(0)` / `fill(250)`, which were
+  memset of the same bytes.
+- The file format check stays a check of the file layout (#94): `sizeof(TAutomapLayer::Bytes)` is the file layer's
+  256 x 256 bytes, and a second static_assert checks the view's mapping against the file's offset x * 256 + y (0,1;
+  1,0; 255,255; the span size). A change of the layer's order or size fails to compile instead of writing another
+  file.
+
+### Tests (high)
+
+- tests/unit/mdspan_test.cpp (tests_unit and tests_unit_cxx26_standin): the extents (static, mixed, dynamic), both
+  mappings at compile time, indexing and strides of both layouts, the const view, an empty view; and in tests_unit
+  that the names are std's where the library has std::mdspan. The automap layer's mapping at compile time.
+- tests/unit/core_container_test.cpp (tests_core): matrix's and matrix3d's views against operator() and against the
+  original's offsets of entry, over every element of a matrix and a matrix3d with negative bounds, and the const views.
+- tests/unit/core_automap_layer_test.cpp (tests_core): TAutomapLayer's view against the bytes at x * 256 + y, both
+  ways, and its const view.
+- The golden Container test (matrix3d<int>'s and matrix<TPathNode>'s headers, entries and operator() addresses
+  against the original) and the Map test (GetAutomapColor and the automap's other calls) replay unchanged; the
+  automap files: compare_files.
+
+### The gates (high)
+
+Logs: build\logs\issue-101 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified.
+
+- `python -I tools/build.py windows-x64 --fresh`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired =
+  17,316,040, 0 failures (golden_concurrent the same; Container 192,832 and Map 639,877 checks, as before), 0
+  warnings. windows-x64-debug: exit 0, 18/18; windows-x64-asan: exit 0, 18/18, no ASan report; golden the same on
+  both. windows-x64-gcc: exit 0, 12/12. linux-x64-gcc (std::mdspan): exit 0, 16/16; linux-x64-clang (the stand-in;
+  ASan, UBSan): exit 0, 14/14, no sanitizer report; golden the same on both. 0 warnings on every preset. All six again,
+  incrementally, on the second commit (the stand-in's includes): the same results.
+- `python -I tools/tidy_ci.py`: the first commit exit 1, two new misc-include-cleaner findings (span.h and
+  type_traits, used only by the stand-in, included on the std path too), fixed in the second commit; then exit 0, 3
+  findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`: exit 0. clang-format (CLAUDE.md's command,
+  Visual Studio's 22.1.3): exit 0.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: the first run exit
+  2, its traffic session refused to start (ports 7271/7272 held by another agent's client); its rerun exit 0, every
+  session matches. `python -I tools/compare_traffic.py`: exit 0, no differences. `python -I tools/compare_files.py`:
+  exit 0, no differences (the four automap files of the walk, 12512506.map ... 12512607.map, identical).
+
 ## #118: TGUI, part 2 (Patella-Modern issue #118, M7)
 
 Done by Claude Opus 5.5, November 7, 2026 (branch issue-118, from main 89f0231). Part 1 is "The fourth move: TGUI

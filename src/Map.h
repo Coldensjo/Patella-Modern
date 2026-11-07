@@ -20,6 +20,7 @@
 #pragma once
 
 #include "common.h"
+#include "AutomapLayer.h" // TAutomapLayer (issue #101)
 #include "types/FixedString.h"
 #include "types/IndexedVector.h"
 #include "types/SlotTable.h"
@@ -97,20 +98,22 @@ struct TCoordinate {
 
 // One automap block: 256x256 fields of one floor (0x200a8 bytes). The
 // inline constructor is 0x4b1410, the compiler-generated destructor (which
-// frees Marks) 0x4b0b30.
+// frees Marks) 0x4b0b30. Color and Speed were uint8 [256][256], indexed [x][y];
+// since Patella-Modern issue #101 they are TAutomapLayer (AutomapLayer.h), the
+// same bytes in the same order, indexed through Color.view()[x, y].
 struct TAutomapBlock {
 	TAutomapBlock() : Marks(0, 0, 10) { MarkCount = 0; }
 
-	int bx;                                        // +0x00, -1 for an unused block
-	int by;                                        // +0x04
-	int bz;                                        // +0x08
-	int Previous;                                  // +0x0c, the cache's LRU list, toward the most recent
-	int Next;                                      // +0x10, toward the least recent
-	std::array<std::array<uint8, 256>, 256> Color; // +0x14, [x][y], palette colour
-	std::array<std::array<uint8, 256>, 256> Speed; // +0x10014, [x][y], ground speed, 250 unknown, 255 blocked
-	bool Changed;                                  // +0x20014
-	TIndexedVector<TMark> Marks;                   // +0x20018
-	int MarkCount;                                 // +0x200a4
+	int bx;                      // +0x00, -1 for an unused block
+	int by;                      // +0x04
+	int bz;                      // +0x08
+	int Previous;                // +0x0c, the cache's LRU list, toward the most recent
+	int Next;                    // +0x10, toward the least recent
+	TAutomapLayer Color;         // +0x14, [x, y], palette colour
+	TAutomapLayer Speed;         // +0x10014, [x, y], ground speed, 250 unknown, 255 blocked
+	bool Changed;                // +0x20014
+	TIndexedVector<TMark> Marks; // +0x20018
+	int MarkCount;               // +0x200a4
 };
 
 // A node of FindPath's search (0x20 bytes); constructor 0x4b0880.
