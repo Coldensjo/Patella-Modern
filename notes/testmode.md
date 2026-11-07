@@ -252,7 +252,18 @@ client answers 0x1e) would differ in number if a run took another real time (tes
 pings). Issue #23 removes this: the client replays the server side of a recording, in virtual time ("The server
 replay").
 
-## The dumps (issue #22)
+### The two window paths (issue #122)
+
+The test build runs on the window path PATELLA_WINDOW chooses, as Patella.exe (src/platform/WindowChoice.h): the SDL3
+window and loop by default (src/SdlFrame.cpp), MFC's frame with `mfc`. The driver works the same on both: MainWindow()
+is the SDL window's HWND or the MFC frame's, the script's events are the same Win32 messages dispatched to it (the SDL
+window's subclass handles them with MainFrm.cpp's handlers until SDL3's input, issue #123), the SDL3 loop pumps the
+thread's messages as MFC's did and drops the desktop's input with a script (DropInput), and with a script neither path
+has a main timer (the driver's WM_TIMER ticks); without a script TTestInput passes the timer on to the path's input (the
+SDL3 loop's TLoopTimer, or SetTimer). `PATELLA_WINDOW=mfc python -I tools/reference.py compare ...` compares the MFC
+path (the tools pass their environment on).
+
+
 
 With `--test-out <folder>` the test build writes into that folder (created if needed):
 

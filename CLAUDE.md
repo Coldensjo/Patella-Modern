@@ -58,6 +58,10 @@ settings file, `src/settings/`), and `PATELLA_VULKAN=auto|gpu|gpuN|cpu` in its e
 driver (Mesa's lavapipe, copied next to
 the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it
 headless.
+The window and event loop (issue #122, M8): SDL 3.4.18, pinned and built by `cmake/Sdl3.cmake` (windows-x64 only; the
+Linux presets do not use it yet), `src/SdlFrame.cpp` by default; `PATELLA_WINDOW=mfc` in the client's environment keeps
+MFC's frame and loop until issue #127 (the tools pass it on, so `PATELLA_WINDOW=mfc python -I tools/reference.py compare
+...` checks that path). Keys, buttons and wheel still arrive as Win32 messages until issue #123.
 The developer log (issue #77, D16; `src/log/`, every preset): lines `[<level>] <message>` on stderr;
 Patella.ini's `LogLevel` (error, warn, info: the default, debug) and `LogFile` (also appended to; none by default) set
 it in the x64 client. A fatal error's box text goes there at error, error.txt's old diagnostics at debug, and Debug

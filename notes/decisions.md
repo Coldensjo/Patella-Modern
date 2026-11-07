@@ -15549,3 +15549,142 @@ TNetwork's out-of-line destructor are gone from the golden objects (inlined; TNe
 windows-x64 Release, built at the same path from main 8006002 and from the branch: Patella.exe's `.text` 0x2e36fc ->
 0x2e3bdc (+0x4e0, 1,248 bytes), PatellaTest.exe's 0x314c5c -> 0x31515c (+0x500): devirtualized calls get inlined.
 (#33's experiment, with all of its 107 marked and the oracle's code, shrank it by 0x1400.)
+
+## #122: the SDL3 window and its event loop (Patella-Modern issue #122, M8)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-122, from main 2898a44). Plan section 7, M8, first step: SDL3
+as the pinned dependency, the client's main window and event loop on SDL3, the game timer in the loop. Input (#123),
+the display, clipboard, URLs and message boxes (#124), the socket (#125), the Vulkan surface (#126) and the MFC removal
+(#127) come after it.
+
+### SDL3, pinned (high)
+
+cmake/Sdl3.cmake, included by cmake/WindowsX64.cmake: SDL **3.4.18** (released October 2, 2026), the release archive
+SDL3-3.4.18.tar.gz by URL and SHA256 (9c75cf16...334a3, the digest GitHub publishes for the asset, checked against the
+download), built by FetchContent with SDL's own CMakeLists into build/<preset>/_deps, as cmake/Vulkan.cmake builds
+glslang. Nothing is installed on the system. Why 3.4.18: the newest 3.4 release with a month in the field (3.4.20 came
+out four days before this change); 3.4 is SDL's current stable series. Settings:
+
+- the static library only (SDL3-static), the client's static CRT (CMAKE_MSVC_RUNTIME_LIBRARY in the function that adds
+  it), no test library, tests, examples or install rules;
+- only the subsystems the client uses: video and events. Audio, camera, joystick, haptic, HIDAPI, sensor, power, GPU,
+  render, dialog, tray, OpenGL and OpenGL ES are off. Vulkan support stays on (#126 needs SDL_Vulkan_CreateSurface);
+- SDL's /W3 replaced by /W0 on its target (third-party code: build.py fails a build on any warning; a /W0 in
+  CMAKE_C_FLAGS would print D9025 against SDL's /W3). The build log has no SDL warning;
+- the client targets link SDL3::SDL3-static; the compile-only targets (Patella_compile, PatellaTest_compile, the hosted
+  CI) and the header checks only SDL3::Headers, so they do not build the library;
+- plan section 5's `find_package` first: FetchContent's FIND_PACKAGE_ARGS (3.4.18 or newer, CONFIG) on platforms other
+  than Windows; on Windows always the pinned archive. No Linux preset includes the file yet: the Linux presets build
+  patella_core, the unit tests and the golden runner, none of which uses SDL3, so **the Linux image does not get
+  SDL3** in this change (patella_core does not depend on it).
+
+### The two paths: a run-time switch (high)
+
+`PATELLA_WINDOW` in the environment (platform/WindowChoice.h, read once, before main): `mfc` (any case) MFC's frame
+window and message loop, as before; `sdl`, unset or empty the SDL3 window, **the default**; any other value the SDL3
+window with a warning in the log. A run-time switch, not a build option: one build's Patella.exe and PatellaTest.exe
+run either way, so every comparison checks both paths from the same binaries (the tools pass the environment on:
+`PATELLA_WINDOW=mfc python -I tools/reference.py compare ...`), the MFC path is compiled and linked by every client
+build (the issue's "the MFC path still builds"), and #127 removes the switch with MFC. MFC stays linked on the SDL3
+path in any case: the sockets are MFC's CAsyncSocket until #125. The start-up log names the path (`[info] window:
+SDL3`).
+
+### What the SDL3 window does (high)
+
+src/SdlFrame.cpp (namespace patella::sdlframe; SdlFrame.h has no SDL header: the golden tests compile Player.cpp,
+which includes it, and stub its functions in client_stubs.cpp) stands for CMainFrame and CWinApp::Run, function for
+function, with the client calls in their order:
+
+- **Start** (Player.cpp InitInstance; its SDL3 branch InitSdlWindow takes the same steps after the command line): SDL's
+  hints, `SDL_RegisterApp(ClassName, CS_OWNDC | CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW)` (the class InitInstance registers
+  for the MFC frame, so CountTibiaWindows finds the window by its class, and Windows makes the double clicks the client
+  handles; the icon is resource 128 through SDL_HINT_WINDOWS_INTRESOURCE_ICON, the MFC path's class icon and
+  WM_SETICON), SDL_Init(VIDEO), then CMainFrame's constructor's steps (InitControl ...), SDL_CreateWindow hidden and
+  resizable (WS_OVERLAPPEDWINDOW's styles), OnCreate's steps (InitMainWindow with the client size, InitWindow with the
+  HWND, the placement from Patella.ini or the default 600x450 centred, the main timer, the size once more as
+  CreateWindowEx's WM_SIZE), the surfaces, the count of the Tibia windows and its boxes, the first Redraw, the window
+  shown (maximized if stored so), the first mouse position.
+- **SDL's hints**: its message pump off (below); **no DPI awareness** (`SDL_WINDOWS_DPI_AWARENESS=unaware`: SDL3 would
+  declare per-monitor awareness, and the original's process is not DPI aware: no manifest); no SDL mouse capture (the
+  client takes the capture itself); a fullscreen window not minimized on focus loss (the client leaves fullscreen
+  instead); Alt+F4 the client's key.
+- **The frame**: MFC's frame windows have WS_EX_CLIENTEDGE (CFrameWnd::PreCreateWindow), SDL's window has not. The SDL
+  window gets it (and SetDisplayMode takes it away with WS_EX_APPWINDOW for fullscreen and gives both back, as the
+  original's ModifyStyleEx). SDL3 reads the window's extended style when it computes the outer rectangle, so the same
+  Patella.ini gives the same outer rectangle and the same client area as the MFC frame. A first version computed the
+  edge into the stored numbers instead: the reference compare matched, but compare_files' placement check (#68) reads
+  the HWND's GetWindowPlacement, found the window 2 pixels inside Tibia.cfg's rectangle on each side and moved it, and
+  the client then stored [8, 8, 804, 604] for [10, 10, 800, 600] (build\logs\issue-122\compare_files-try1.log).
+- **Placement**: GetWindowRect is SDL's position and size plus SDL_GetWindowBordersSize (GetWindowRect against
+  GetClientRect, as AddFrameSize); MoveWindow the same backwards; GetWindowPlacement's normal rectangle is the last
+  rectangle seen while the window was neither maximized, minimized nor fullscreen, in workspace coordinates (minus the
+  primary display's work-area offset, as rcNormalPosition: with the taskbar at the top or the left the window moves by
+  it at each start, as Tibia.exe's does); SM_CXSCREEN is the primary display's bounds.
+- **Events through an event watch** (SDL_AddEventWatch): SDL calls it as it sends the event, inside its window
+  procedure, so the client sees a size change within the call that made it, as with MFC's WM_SIZE (SetDisplayMode's
+  Resize(0, 0) comes after the fullscreen size's Resize, as in the original). Resized and restored: OnSize (Resize,
+  the client area at least 550x450; SDL_SetWindowMinimumSize is OnGetMinMaxInfo). Focus gained or lost: OnActivateApp
+  (KeyFlags 0; leaving fullscreen is done after the message). Close requested: OnClose after the message
+  (CloseRequest, then DestroyWindow's and OnDestroy's steps: fullscreen left, the placement saved for Patella.ini, the
+  timer stopped, the cursors destroyed; the window destroyed, the frame's destructor's ExitControl, the loop ends,
+  ExitInstance). The display's mode changed: OnDisplayChange after the message. What would change the window from
+  inside SDL's window procedure is only noted there and done right after the message that caused it.
+- **The loop** (Run, CWinApp::Run's place): on Windows the thread's messages are pumped as MFC's PumpMessage did
+  (PeekMessageA, the test build's DropInput filter with a script, TranslateMessage, DispatchMessageA), each message
+  followed by what it noted, until the queue is empty; then SDL_PumpEvents (its own message loop off:
+  SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP=0) with its queue flushed (the watch has seen every event), the main timer, and
+  CPlayerApp::OnIdle with MFC's idle count. Why not SDL's own pump: it breaks off after a few new messages per call
+  (SDL_windowsevents.c WIN_PumpEvents), so the idle step could run between messages MFC dispatched together (the test
+  mode's replay socket and the MFC sockets post them), and it has no place for the test build's filter but a hook. The
+  order of messages, idle steps and ticks is MFC's; the reference compare's sessions match on it.
+- **The main timer in the loop** (platform/LoopTimer.h; TSdlLoopInput, platform/Win32Platform.h): IInput's StartTimer
+  arms a TLoopTimer (no SetTimer); the loop asks it once per pass with IClock::Milliseconds and calls TimerEvent when
+  100 ms have passed since the last tick: one tick at a time, none queued while the loop was held up, as WM_TIMER.
+  SetTimer's ticks came at the system timer's granularity (100 ms rounded up to 15.6 ms steps, about 109 ms); the
+  loop's at 100 ms (at the next pass). The test build with a script has no timer on either path (the driver dispatches
+  WM_TIMER 1, which the SDL window's subclass handles as OnTimer); without a script TTestInput passes the timer on to the
+  path's input (platform::WindowInput()). Patella.exe's Platform() gives WindowInput() (compiled with PATELLA_SDL3; the
+  golden runner, without it, keeps TWin32Input).
+
+### Win32 until its own issue (high)
+
+On the SDL3 path these stay Win32, each named in SdlFrame.cpp: the keys, buttons and wheel come as window messages
+through a subclass of the SDL window (SetWindowSubclass), whose handlers are MainFrm.cpp's (TranslateKey, KeyDown,
+KeyUp, OnChar, the button handlers with SetCapture/ReleaseCapture, OnCaptureChanged, OnMouseWheel, OnSetCursor,
+OnTimer; their Default() is DefWindowProc, the MFC frame's default, so SDL never sees them and makes no key or mouse
+events): #123 replaces them with SDL's events. This is also what keeps the test mode working unchanged: its driver
+dispatches the script's Win32 messages to the main window (TestModeWin32.cpp's MainWindow() names the SDL window's
+HWND), and the reference recordings' `post` lines are Win32 messages. Also Win32: the Windows cursors and SetCursor
+(#123), WM_USER + 1 of the host lookup (#125), ShellExecute for OpenURL (#124), the message boxes, the windows' count
+and the display modes (IWindow's Win32 implementation, #124), the Vulkan surface on the HWND (vkCreateWin32SurfaceKHR,
+#126), ExitProgram's posted WM_CLOSE (after the messages already queued, as MFC's), the client edge's extended style
+and the message pump (#127).
+
+The handlers are copies of MainFrm.cpp's, not calls: MainFrm.cpp is unchanged (the golden MainFrm test compares
+CMainFrame's handlers and layout against the original), and #123 and #127 replace both.
+
+### Behaviour changes of the SDL3 path (medium)
+
+None the gates see. Known, by construction: the timer's ticks at 100 ms instead of about 109 ms (above); the window
+class's small icon is resource 128 too (the MFC frame's class had none: Windows took it from the large one); the IME
+messages go to SDL's window procedure instead of DefWindowProc (#123's input); fullscreen is SDL's fullscreen-desktop
+window (borderless, the display's size; the original's a topmost popup of the screen's size), and compare_rendering's
+fullscreen scenes (they need a 1024x768 desktop) were not run (#98's windowed set). The MFC path is unchanged.
+
+### The golden tests (high)
+
+No check changed. Player.cpp includes SdlFrame.h and platform/WindowChoice.h; the runner's stubs (client_stubs.cpp)
+stand in for the nine sdlframe functions and CWinThread::ExitInstance, which the shim (src/compat/mfc_shim.h) now
+declares (Player.cpp's Run calls it after the SDL3 loop, as CWinThread::Run does at WM_QUIT). MainFrm.cpp is not
+touched.
+
+### The image (high)
+
+Not compared: Patella.exe's default path changed (SDL3), so #109's function-by-function image comparison does not
+apply. The MFC path's code is MainFrm.cpp's, unchanged, and Player.cpp's branches.
+
+### Unit tests (high)
+
+tests_core's core_window_loop_test.cpp: TLoopTimer (nothing due before Start or after Stop, the tick once the interval
+has passed and the next one an interval after it was seen, no backlog after a late pass, the clock's wrap at 2^32, an
+interval of 0, a restart) and ParseWindowSystem / IsUnknownWindowSystem (PATELLA_WINDOW's values), on every preset.

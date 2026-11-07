@@ -661,6 +661,14 @@ TNetwork's NetworkWindow and SetNetworkWindow take a TWindowHandle; CreateSurfac
 IWindow::DesktopMode. Patella.exe changes only at those call sites and in displacements (the image comparison).
 Golden 17,316,040, 0 failures; compare_rendering all 26 scenes identical. notes/decisions.md, "#138".
 
+The SDL3 window and event loop (Patella-Modern issue #122, branch issue-122, November 7, 2026; M8): SDL 3.4.18 is
+pinned (cmake/Sdl3.cmake: release archive by URL and SHA256, built static with the client's CRT, video and events only).
+The Windows x64 client runs on src/SdlFrame.cpp by default: SDL_CreateWindow with the client's window class and MFC's
+client edge, placement, size, fullscreen, activation, close and display events through an event watch, the thread's
+messages pumped as MFC did, the 100 ms timer in the loop (platform/LoopTimer.h, TSdlLoopInput). PATELLA_WINDOW=mfc
+keeps the MFC frame (platform/WindowChoice.h, a run-time switch) until #127. Keys, buttons and wheel stay Win32 messages
+through a subclass until #123. The reference compare matches on both paths. notes/decisions.md, "#122".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,
