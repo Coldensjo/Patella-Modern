@@ -668,6 +668,16 @@ TNetwork's NetworkWindow and SetNetworkWindow take a TWindowHandle; CreateSurfac
 IWindow::DesktopMode. Patella.exe changes only at those call sites and in displacements (the image comparison).
 Golden 17,316,040, 0 failures; compare_rendering all 26 scenes identical. notes/decisions.md, "#138".
 
+The preferences and the GUI's logic into patella_core (Patella-Modern issue #111, branch issue-111, November 7, 2026;
+M7's exit): Preferences, Status, Talk, Help, Script, sysinc, graphics, Client (the bridge), GUI, the window and dialog
+files and Control.cpp are patella_core's (34 sources, 38,744 lines; was 16, 12,278; 70 core headers, was 56). The library
+is the whole client but the platform layer (MainFrm.cpp, Player.cpp, Surface.cpp, src/platform's Win32, src/vulkan, the
+test mode's Windows files); it needs of them only platform::Platform(), GetSurface, SurfaceExitInstance and the graphics
+device choice (vulkan/DeviceSettings.h), which tests_core_link proves by linking TClient against stand-ins of those.
+INT_PTR is std::intptr_t there, Dialogs.h lost PATELLA_VULKAN's guard; 879 clang-tidy findings on the newly seen code
+fixed or suppressed with reasons (the baseline stays at 3). No tests/golden/linux file can go yet (the golden runner's
+shim). Golden 17,316,040, 0 failures. notes/decisions.md, "#111".
+
 Packet parsing and the game state into patella_core (Patella-Modern issue #110, branch issue-110, November 7, 2026;
 M7, half of its exit): Network.cpp, Communication.cpp, Objects.cpp, Map.cpp, Creatures.cpp and Inventory.cpp are
 patella_core's (16 sources, 12,278 lines; was 10, 3,671), with their headers and those they include on the core

@@ -183,6 +183,9 @@ void ResizeClipboardBuffer(unsigned int Size)
 // closed before the buffer is filled, and a clipboard without text gives an
 // empty text, Size 1 (the original's Size 0 and a NUL in the buffer: the same
 // buffer).
+// GCC's analyzer (Debug, issue #111): the original's read one byte past the text at a removed CR (above), kept.
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-out-of-bounds\"")
 char *GetClipboardText()
 {
 	const std::optional<std::string> Text = patella::platform::Platform().Clipboard.Text();
@@ -201,6 +204,7 @@ char *GetClipboardText()
 	}
 	return ClipboardBuffer;
 }
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 
 // 0x4fd1b0, lines 139-143. Since Patella-Modern issue #112 the text (the
 // client's, Windows-1252) goes on the clipboard as UTF-16 (CF_UNICODETEXT),

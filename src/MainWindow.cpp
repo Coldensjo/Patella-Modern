@@ -561,6 +561,11 @@ void TMainWindow::Walk(int dx, int dy, bool Diagonal)
 // the top, its counts, icon, title and "up" button; ContentWindows.cpp) and,
 // while it is minimized, the window gets the name and the object of the
 // container and the "up" state of a container that has a parent here.
+// GCC's analyzer (Debug, issue #111) takes SkinProperties()' styles, set by InitSkinProperties, as uninitialized, and
+// the title and icon SetTitle and SetIcon take as leaks (the window owns them).
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-use-of-uninitialized-value\"")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-malloc-leak\"")
 void TMainWindow::OpenContainer(int Container) const
 {
 	PATELLA_ASSERT(DialogWindow!=nullptr);
@@ -581,6 +586,7 @@ void TMainWindow::OpenContainer(int Container) const
 			Window->HideUpButton();
 	}
 }
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 
 // 0x4acdb0, line 552
 void TMainWindow::CloseContainer(int Container) const
