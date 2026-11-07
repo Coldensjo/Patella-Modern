@@ -15883,3 +15883,44 @@ apply. The MFC path's code is MainFrm.cpp's, unchanged, and Player.cpp's branche
 tests_core's core_window_loop_test.cpp: TLoopTimer (nothing due before Start or after Stop, the tick once the interval
 has passed and the next one an interval after it was seen, no backlog after a late pass, the clock's wrap at 2^32, an
 interval of 0, a restart) and ParseWindowSystem / IsUnknownWindowSystem (PATELLA_WINDOW's values), on every preset.
+
+### Found, not done (medium)
+
+- compare_rendering against a compare_traffic recording made after #137 reported the look step as a problem on both
+  clients (the recording looks at the own field, the session north of it; all 26 scenes identical): #140 fixed the
+  tools, and the run on the merged head passes.
+- testmode_check's first walk (north) was lost in one of the two runs twice (before the merge and after it), each time
+  with Cipfried next to the field north of the player in the run's state dump just before the walk, and the player one
+  field south of the other run's end: #137's "Found, not done" (a creature on the walk's field blocks the step). The
+  reruns passed. The script's walk would need a field no creature reaches (the owner's world).
+- tests_vulkan crashed once ("quick device switches", SIGSEGV) in the first windows-x64 run, while tidy_ci ran next to
+  it; it passed alone right after and in every later run. It does not use SDL3 or any file of this change.
+
+### The gates (high)
+
+Logs in build\logs\issue-122 of the branch's worktree (merged\ for the head after the merge of main b24483a, #110 and
+#140); golden replayed main's frozen corpus read only (PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its
+manifest verified. Every golden run: 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 compiler
+warnings on every preset, SDL3's build included.
+
+- On the merged head: `python -I tools/build.py windows-x64` exit 0, 28/28; windows-x64-debug exit 0, 27/27;
+  windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0, 25/25;
+  linux-x64-clang (ASan, UBSan) exit 0, 24/24, no sanitizer report. Before the merge (9b5c3b0) the same, except
+  windows-x64 exit 8 at tests_vulkan's crash (above; its rerun 1/1).
+- Live, on the SDL3 path (the default): `python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches (the clients' logs say `window: SDL3`);
+  `python -I tools/compare_traffic.py --patella build/windows-x64/Release/Patella.exe` exit 0, no differences (the
+  merged head's first run, exit 1, stopped in Tibia.exe's helper login with no game connection while another agent's
+  test client was on the desktop; merged\compare_traffic-try1.log); `python -I tools/compare_files.py --patella ...`
+  exit 0, no differences, no window placement corrected (before the client edge was the window's: exit 1, the
+  WindowedMode difference above; on the merged head the first run stopped in Tibia.exe's live recording, still
+  connected 10 s after Ctrl+L, same desktop; merged\compare_files-try1.log); `python -I tools/testmode_check.py --exe
+  build/windows-x64/Release/PatellaTest.exe` exit 0 at the rerun (above); `python -I tools/compare_rendering.py
+  --engines vulkan,vulkan-cpu --modes windowed --no-repeat --recording build/traffic/result/orig-live.jsonl --patella
+  build/windows-x64/Release/Patella.exe` exit 0, "result: all scenes identical" (NVIDIA GeForce RTX 5080 and llvmpipe).
+- Live, on the MFC path: `PATELLA_WINDOW=mfc python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches (`window: MFC`).
+- `python -I tools/tidy_ci.py` exit 0 (9b5c3b0 and the merged head): 3 findings, the baseline's 3, 0 new.
+  `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
+- Not run: #109's image comparison (the default path is SDL3 now); compare_rendering's fullscreen scenes (#98's set is
+  windowed).
