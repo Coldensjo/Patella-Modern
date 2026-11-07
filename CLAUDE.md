@@ -90,7 +90,13 @@ first and refuse when missing or mismatched (`--unverified`, golden_runner also 
 experiments only). The corpus is recorded with TZ=UTC0 and replayed in its manifest's zone. Regenerated only from the
 tag `layout-frozen-final`; new checks are unit tests or test-mode recordings against Tibia.exe
 (notes/reconstruction.md, "The golden corpus"; notes/testmode.md, "Reference recordings").
-The live checks run on the desktop of the session that starts them; a second interactive session (another Windows
+Headless (issue #145; notes/testmode.md, "Headless"): PatellaTest.exe `--test-headless` (with a script) never shows
+its window and renders without a Vulkan surface, the same packets, dumps, frames and files as windowed; reference.py
+compare, testmode_check.py, compare_rendering.py's windowed x64 runs and the CTest tests that start PatellaTest.exe use
+it by default (`--windowed`: the window as before), several at once, beside a client on the desktop. Still on the
+desktop: Tibia.exe's runs (reference.py record, compare_traffic.py, compare_files.py, compare_rendering.py), the x64
+client's unscripted live runs (compare_traffic.py, compare_files.py) and compare_rendering.py's fullscreen runs.
+Those live checks run on the desktop of the session that starts them; a second interactive session (another Windows
 user, kept connected and unlocked) keeps the user's input away (issue #56; notes/reconstruction.md, "Checking").
 `--hidden` (tools/desktop.py) is experimental: DirectDraw, Direct3D 9, the CPU driver and GetCursorPos fail there.
 

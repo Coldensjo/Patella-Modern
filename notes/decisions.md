@@ -16847,3 +16847,76 @@ On a free desktop, the same build (07def6a's client, build\windows-x64), each co
 | compare_files | 251 s | 157 s |
 
 compare_rendering saves least: its time is the frames and patcap's settles, which stay.
+
+## #145: a headless PatellaTest.exe for the replays (Patella-Modern issue #145, M7)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-145, from main bb9d01d). The owner's request: test clients
+kept popping up in front of his game, and parallel agents collided on the one desktop. notes/testmode.md, "Headless".
+
+### What headless is on Windows: a window never shown, a device without a surface (high)
+
+`--test-headless` (with `--test-script`) makes the platform's `IWindow::Headless()` (platform/Window.h; TTestWindow's
+answer, TWin32Window's always false, so Patella.exe is unchanged) true, and three places of the client ask it:
+
+- sdlframe::Show and InitInstance's MFC branch skip ShowWindow (SDL_ShowWindow, SDL_MaximizeWindow; CWnd::ShowWindow).
+  The window is made as always, with its class, place and size;
+- TSurfaceVulkan::Request gives the device no surface (TRenderer as tests_vulkan's headless one): the same images,
+  the same drawing, the frame observer's read-back before Present as always; Present submits the frame and shows
+  nothing, so PresentWindows.Presented is never called (the retired device windows are destroyed at Retire, as for a
+  device that never showed a frame);
+- CreateSurfaces' fullscreen ChangeDisplaySettingsA is skipped (counted as made; nothing to restore).
+
+Considered: SDL's offscreen or dummy video driver. On Windows the client still lives on window messages: the keys,
+characters and buttons (#123: SDL's events differ from them), the socket's WM_USER + 1, the test mode's dispatched
+messages and WM_TIMER ticks, the device windows (#52) and GetClientRect-style sizes all need a real HWND, which the
+offscreen driver has not (its windows are SDL's own objects). A hidden window keeps every one of them, so the script's
+input takes exactly the path it takes windowed. On Linux (no client yet) the offscreen driver is the natural choice;
+recorded for M8. Also considered: VK_EXT_headless_surface, which would keep the swapchain path; the pinned lavapipe
+(Mesa 26.2.6 for Windows) and the GPUs here do not offer it, and the surface-less device is the renderer's own
+existing mode.
+
+Without a script `--test-headless` is refused (exit code 3, before the window): an unscripted client takes the
+desktop's input, reads the real cursor and shows real message boxes, so it would not be headless. Conservative; an
+unscripted headless client for the control channel (compare_traffic's x64 runs) is #146's to decide.
+
+### The same results (high)
+
+The reference compare (frozen set, PATELLA_VULKAN=cpu) matches every session headless, on both window paths, and
+headless equals windowed byte for byte in every file the runs write (packets.log, frames-*.png and .filtered.png,
+frames.txt, messages.txt, saved-*, the written files, Patella.ini included). Of the 178 files per path, the 52 state
+dumps are identical but for "ptr" and "vtable", this run's addresses, which differ between any two runs; the four
+driver logs differ only by the run folder's path and the line "testmode: headless"; the other 122 are identical
+(build\logs\issue-145\headless-vs-windowed-sdl.txt, -mfc.txt). Also matching headless: --vulkan gpu (the RTX 5080,
+named in the advanced options' state dump), testmode_check.py (live, two runs), compare_rendering.py's windowed
+vulkan-cpu run (every scene identical to Tibia.exe's within the tolerance).
+
+What cannot be the same, and why (none is reached by the reference sessions, login-walk.script or compare_rendering's
+windowed scenes): a placement stored as maximized stays a normal window (SDL keeps a hidden window's maximize until it
+is shown; a warning in the log); fullscreen mode is neither shown nor set, so its window is not the display's size;
+no activation or focus change reaches the client (OnActivateApp's reset of the held modifiers runs windowed when the
+window is shown and whenever the desktop's focus moves; headless never, which is if anything more deterministic).
+
+### Running in parallel, off the desktop (high)
+
+Two headless reference compares and a windowed one (a client on the desktop) at the same time: all three matched
+every session. A watcher polled every 20 ms for visible windows and the foreground window of every PatellaTest.exe:
+the headless clients' windows were never visible and never the foreground (build\logs\issue-145\watch-*.txt). The
+headless runs share nothing: the replay opens no port (#120), the window count sees only the process's windows
+(#96), each run has its own folder and control-channel names.
+
+### The tools (high)
+
+Headless by default, `--windowed` to show the window: reference.py compare (and the record/compare forwarding of
+compare_traffic.py, compare_files.py, compare_rendering.py), testmode_check.py, compare_rendering.py's windowed runs
+of the x64 client (TestDriver; its fullscreen runs stay shown); login_client.find_window(visible=False) finds a hidden
+window, session_client.Driver asks for it when its test arguments have --test-headless (the only change there). The
+CTest tests that start PatellaTest.exe (fatal_error_box, init_control_failure) pass --test-headless; the new
+headless_client (cmake/RunHeadless.cmake) runs a script with a dump and a frame headless and checks the refusal
+without a script. `--hidden` (tools/desktop.py) is untouched; with a headless client it no longer meets the CPU
+driver's failing present (there is none), not tried.
+
+### Found, not done (medium)
+
+- compare_traffic.py's and compare_files.py's x64 runs are unscripted (posted messages, GetCursorPos) and keep the
+  desktop; #146 changes those tools.
+- tests_vulkan still presents into hidden SDL3 windows of the session's desktop.

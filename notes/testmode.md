@@ -22,7 +22,7 @@ only: client_state.py refuses a 64-bit process, patcap.c does not build for x64.
 python -I tools/build.py windows-x64            # builds Patella.exe and PatellaTest.exe (and the unit tests)
 build\windows-x64\Release\PatellaTest.exe --test-script <file> [--test-log <file>] [--test-out <folder>]
                                           [--test-replay <file>] [--test-display-modes <file>]
-                                          [--test-control <name>]
+                                          [--test-control <name>] [--test-headless]
                                           [the client's own words]
 python -I tools/testmode_check.py               # the determinism and dump check against the test server
 python -I tools/testmode_check.py --self-test   # the check's comparisons on made-up data (no server, no client)
@@ -32,8 +32,9 @@ Run PatellaTest.exe from a run folder (copies of the data files, a patched clien
 from the root. Without `--test-script` it is the client on the system clock, through the same hooks. With a
 script it plays the script on the virtual clock and drops the keyboard and mouse input that comes from Windows,
 so the desktop's own mouse and keyboard cannot reach it (the limit of the GUI comparisons in
-notes/reconstruction.md, "Test server"); its window is still a real window, on the desktop of the session it is started in (a second session keeps
-it apart from the user's: notes/reconstruction.md, "Checking", "The live checks in a second session"). On a hidden
+notes/reconstruction.md, "Test server"); without `--test-headless` its window is still a real window, on the desktop of the session it is started in (a second session keeps
+it apart from the user's: notes/reconstruction.md, "Checking", "The live checks in a second session"); with it
+nothing is shown ("Headless", below). On a hidden
 desktop (the tools' experimental `--hidden`, tools/desktop.py, issue #56) it runs only on a GPU, not on the CPU
 driver: its first frame comes before the window is shown, and lavapipe's present into a window not yet shown fails
 there (notes/decisions.md, "The live checks on a hidden desktop"). `PATELLA_TEST_FAIL_PRESENT=1` in its environment
@@ -69,6 +70,46 @@ game (game login, walks, logout), the server packets, and which state dumps and 
 CPU driver, copied into the run folder), `--compare-only` (the recordings in --out again), `--self-test`. The
 test server must be stopped; the script starts and stops it. About 25 s of script per run at real-time pace,
 plus the server's start and stop: two runs take two to four minutes.
+
+### Headless (issue #145)
+
+`--test-headless` (with `--test-script`; without a script the client ends before its window with exit code 3, as for
+a script that does not parse: without a script it takes the desktop's input) runs the test client without a desktop:
+
+- its main window (the SDL3 window, or MFC's frame with PATELLA_WINDOW=mfc) is made as always, with its place and
+  size, but never shown (sdlframe::Show and InitInstance skip ShowWindow), so it never appears, never takes the focus
+  or the foreground, and the desktop's mouse and keyboard cannot reach it. Everything the client and the test mode
+  do through it stays as with a window: the script's and the recordings' window messages are dispatched to it, the
+  socket's and the replay's messages come through the thread's queue, the device windows (PresentWindow.h) are made
+  as its children;
+- the Vulkan engine's device gets no surface (TSurfaceVulkan::Request; TRenderer without a surface, as tests_vulkan's):
+  it renders into the same images, and TRenderer::Present submits the frame's work and shows nothing. The frame dump
+  reads the canvas back before Present, as with a window, so the frames are the same; the device is the same one
+  (PATELLA_VULKAN chooses it; without a surface a GPU need not be able to present, and the CPU driver's present,
+  which fails on a hidden desktop, is never made);
+- fullscreen mode does not change the display's mode (CreateSurfaces skips ChangeDisplaySettingsA and counts it as
+  made).
+
+The switch is the platform's `IWindow::Headless()` (platform/Window.h): TTestWindow's answer; Patella.exe's
+TWin32Window always says false, so the product is unchanged. The driver's log says `testmode: headless`. Several
+headless clients run at once and beside any client on the desktop: the replay opens no port (#120), the count of
+the Tibia windows sees only the process's own (#96), the control channel's events are named per run.
+
+What a headless run cannot give as a shown window does (none of it is reached by the reference sessions or
+login-walk.script; notes/decisions.md, "#145"): a window placement stored as maximized stays a normal window (SDL
+keeps a hidden window's maximize until it is shown; a warning in the log); fullscreen mode is neither shown nor set
+(the window's size is not the display's); no activation or focus change ever reaches the client (OnActivateApp's
+reset of the held modifiers, which with a window happens when the window is shown and whenever the desktop's
+focus moves); without a script it is refused.
+
+Who runs headless by default: `reference.py compare` (and `compare_traffic.py compare`, `compare_files.py compare`,
+`compare_rendering.py compare`), `testmode_check.py`, compare_rendering.py's windowed runs of the x64 client, and
+the CTest tests that start PatellaTest.exe (fatal_error_box, init_control_failure, headless_client). `--windowed`
+of each tool shows the window as before. What still needs the desktop: Tibia.exe's runs (reference.py record,
+compare_traffic.py's and compare_files.py's live runs, compare_rendering.py's Tibia.exe runs), the x64 client's
+unscripted live runs (compare_traffic.py, compare_files.py: the tools post messages to its window and it reads the
+cursor with GetCursorPos), compare_rendering.py's fullscreen runs, and tests_vulkan (its windows are hidden, but
+it presents into them).
 
 ### The cold start (issue #25)
 
