@@ -59,6 +59,7 @@ void patella::sdlframe::ExitProgram() { STUB(); }
 void patella::sdlframe::SetDisplayMode(int) { STUB(); }
 void patella::sdlframe::OpenURL(const char *) { STUB(); }
 void patella::sdlframe::UpdateMouseCursor() { STUB(); }
+void patella::sdlframe::ScreenToClient(int &, int &) { STUB(); } // issue #123
 
 // src/compat/mfc_shim.h's MFC members (those MainFrm.cpp calls are mainfrm_tests.cpp's fakes, issue #54).
 // Player.cpp's theApp is constructed at start-up (as in difftest.exe's playertest.cpp).

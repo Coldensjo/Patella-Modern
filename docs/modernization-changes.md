@@ -186,6 +186,16 @@ from the settings file, same frame, same timing of events, and every recorded te
 identically. *Why it matters:* this is the first step toward a Linux client. Keyboard and mouse handling still use
 the Windows path for now (next step), and the old MFC window can still be chosen for comparison until MFC is removed.
 
+**Keyboard and mouse now come through SDL3 (#123).**
+Key presses, typed text, mouse clicks, the mouse wheel and the mouse pointer's shapes in the SDL3 window now come
+from SDL3 instead of Windows messages. The rules the original game applied to them (which keys do what, which
+characters reach the chat, what counts as a double click) were taken out into a small piece of code of their own that
+works on any operating system and is tested on its own. Typed text now arrives as Unicode and is converted to the
+game's character set, so a letter the game cannot show (from a Polish or Russian keyboard, say) becomes a question
+mark instead of a different, wrong letter. Recorded test
+sessions still play back identically. *Why it matters:* keyboard and mouse input no longer depend on Windows, another
+step toward a Linux client.
+
 ## M8 and M9, started early
 
 **Big-number maths fully unit-tested (#128).**

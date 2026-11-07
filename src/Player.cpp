@@ -117,6 +117,16 @@ void LogDiagnostics() noexcept
 
 // Not in the original (Patella-Modern issue #122): the main window's handle on the window path the process runs
 // (platform/WindowChoice.h): the SDL3 window's, or MFC's main window's (m_pMainWnd).
+// Issue #123: ScreenToClient on the SDL3 window (its client area's place as SDL knows it).
+void SdlScreenToClient(POINT &Point)
+{
+	int x = Point.x;
+	int y = Point.y;
+	patella::sdlframe::ScreenToClient(x, y);
+	Point.x = x;
+	Point.y = y;
+}
+
 HWND MainWindowHandle(CWinApp &App)
 {
 	if (patella::platform::UseSdlWindow())
@@ -311,7 +321,7 @@ BOOL InitSdlWindow(bool Gamemaster, const char *ClassName)
 	patella::sdlframe::Show(Maximized);
 	patella::platform::ReadCursorPosition(patella::platform::Platform().Input, LastMousePosition); // GetCursorPos
 	if (GetViewMode() == 1)
-		ScreenToClient(static_cast<HWND>(patella::sdlframe::Handle()), &LastMousePosition);
+		SdlScreenToClient(LastMousePosition); // issue #123: the SDL window's coordinates
 	MouseMove(LastMousePosition.x, LastMousePosition.y);
 	return TRUE;
 }
@@ -496,8 +506,12 @@ BOOL CPlayerApp::OnIdle(LONG lCount)
 	CWinApp::OnIdle(lCount);
 	POINT Point;
 	patella::platform::ReadCursorPosition(patella::platform::Platform().Input, Point); // GetCursorPos (issue #119)
-	if (GetViewMode() == 1)
-		ScreenToClient(MainWindowHandle(*this), &Point);
+	if (GetViewMode() == 1) {
+		if (patella::platform::UseSdlWindow())
+			SdlScreenToClient(Point); // issue #123: the SDL window's coordinates
+		else
+			ScreenToClient(MainWindowHandle(*this), &Point);
+	}
 	if (LastMousePosition.x != Point.x || LastMousePosition.y != Point.y) {
 		LastMousePosition.x = Point.x;
 		LastMousePosition.y = Point.y;

@@ -75,6 +75,8 @@ list(APPEND PATELLA_HEADERS_CORE platform/Clipboard.h platform/Input.h platform/
 list(APPEND PATELLA_HEADERS_CORE platform/Surface.h)
 # Issue #122: the SDL3 window's loop timer and the choice of the window path (portable).
 list(APPEND PATELLA_HEADERS_CORE platform/LoopTimer.h platform/WindowChoice.h)
+# Issue #123: the client's keyboard and mouse rules over SDL3's events, and the cursor resources' decoder (portable).
+list(APPEND PATELLA_HEADERS_CORE platform/CursorImage.h platform/KeyInput.h)
 # The C++26 features behind feature-test macros (issue #9): tests/unit, real or stand-ins.
 set(PATELLA_HEADERS_CXX26
 	compat/cxx26.h)
@@ -159,7 +161,8 @@ set(PATELLA_HEADERS_VULKAN_CLIENT
 # The Windows side of the test mode (PatellaTest.exe).
 set(PATELLA_HEADERS_TEST_BUILD
 	testmode/ClientStateWin32.h
-	testmode/PipeSocketWin32.h)
+	testmode/PipeSocketWin32.h
+	testmode/SdlInputWin32.h)
 # Headers that are not checked on their own, each with the reason. (The shaders' SPIR-V headers, ColorKeyFrag.h and
 # the others, are generated into the build tree by glslang, cmake/Vulkan.cmake: not headers of src/.)
 # - compat/mfc_shim.h: MFC's stand-in (TIBIA_MFC_SHIM), which only the golden tests' targets compile (tests/golden,

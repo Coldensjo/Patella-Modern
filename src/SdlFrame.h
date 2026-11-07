@@ -6,9 +6,10 @@
 // instead of SetTimer). Player.cpp's CPlayerApp uses it when platform/WindowChoice.h's UseSdlWindow() holds (the
 // default; PATELLA_WINDOW=mfc keeps MFC's until issue #127). The window is SDL_CreateWindow's; on Windows its HWND is
 // the client's window handle (the Vulkan engine's surface, TGUI's and TNetwork's window: #126 moves the surface to
-// SDL_Vulkan_CreateSurface), and its keys, buttons and wheel still come as Win32 window messages (a subclass of the
-// SDL window, the handlers of MainFrm.cpp's message map), so that the test mode's scripted messages reach it as they
-// reach the MFC frame: SDL3's input is issue #123.
+// SDL_Vulkan_CreateSurface). Its input is SDL3's (issue #123): the key, text, button, wheel and motion events, mapped to
+// the calls MainFrm.cpp's handlers made (platform/KeyInput.h has the rules), the mouse capture SDL_CaptureMouse, the
+// cursors SDL's; the test mode's scripted messages become the same SDL events (testmode/SdlInputWin32.cpp, through
+// ScriptedInput).
 //
 // No SDL header here: Player.cpp includes it, and the golden tests compile Player.cpp (their stubs stand in for these
 // functions, tests/golden/client_stubs.cpp).
@@ -16,6 +17,8 @@
 #pragma once
 
 #include "platform/Window.h"
+
+union SDL_Event; // SDL3's (SDL_events.h)
 
 namespace patella::sdlframe {
 
@@ -41,5 +44,14 @@ void ExitProgram();
 void SetDisplayMode(int ViewMode);
 void OpenURL(const char *URL);
 void UpdateMouseCursor();
+
+// Issue #123: the window's coordinates. ScreenToClient and ClientToScreen with the client area's place on the screen as
+// SDL knows it (SDL_GetWindowPosition, the client area's top left corner); nothing without a window.
+void ScreenToClient(int &X, int &Y);
+void ClientToScreen(int &X, int &Y);
+// The test mode's scripted input (testmode/SdlInputWin32.cpp): an SDL key, text, button or wheel event made from a
+// script's window message, handled as the desktop's events are, except that a key's characters come as their own text
+// events (the script's WM_CHAR) and a button's click count is the message's (1, or 2 for a double click).
+void ScriptedInput(const SDL_Event &Event);
 
 } // namespace patella::sdlframe

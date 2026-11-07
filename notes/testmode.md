@@ -256,11 +256,21 @@ replay").
 
 The test build runs on the window path PATELLA_WINDOW chooses, as Patella.exe (src/platform/WindowChoice.h): the SDL3
 window and loop by default (src/SdlFrame.cpp), MFC's frame with `mfc`. The driver works the same on both: MainWindow()
-is the SDL window's HWND or the MFC frame's, the script's events are the same Win32 messages dispatched to it (the SDL
-window's subclass handles them with MainFrm.cpp's handlers until SDL3's input, issue #123), the SDL3 loop pumps the
-thread's messages as MFC's did and drops the desktop's input with a script (DropInput), and with a script neither path
-has a main timer (the driver's WM_TIMER ticks); without a script TTestInput passes the timer on to the path's input (the
-SDL3 loop's TLoopTimer, or SetTimer). `PATELLA_WINDOW=mfc python -I tools/reference.py compare ...` compares the MFC
+is the SDL window's HWND or the MFC frame's, and the script's events (and the recordings' `post` lines) are the same
+Win32 messages. The MFC frame gets them with DispatchMessageA. The SDL3 window's input is SDL's events since issue #123,
+so on that path each input message becomes the SDL event SDL makes of the same input and goes to the window's input
+handling as a scripted event (src/testmode/SdlInputWin32.h, `sdlframe::ScriptedInput`): WM_KEYDOWN/UP and
+WM_SYSKEYDOWN/UP a key event with the key's scan code (from the virtual key and the extended flag; NumLock on only for
+the keypad's digits), WM_CHAR a text event with the byte as UTF-8 (control characters too: a scripted key makes no
+character of its own, the script's WM_CHAR is its character), the buttons a button event at the message's point with
+1 click (2 for a double click), WM_MOUSEWHEEL a wheel event in notches, WM_MOUSEMOVE nothing (the frame had no
+handler); every other message (WM_TIMER, WM_CLOSE) is dispatched as before. The cursor's screen point is the SDL
+window's client origin plus the virtual cursor (sdlframe::ClientToScreen, as the client converts it back). The SDL3 loop
+pumps the thread's messages as MFC's did and drops the desktop's input messages with a script (DropInput); SDL's events
+of the desktop's input are dropped as well (IInput::IgnoreDesktopInput, TTestInput's with a script). With a script
+neither path has a main timer (the driver's WM_TIMER ticks, which the SDL window's subclass still handles); without a
+script TTestInput passes the timer and the cursor on to the path's input (the SDL3 loop's TLoopTimer and SDL's mouse
+position, or SetTimer and GetCursorPos). `PATELLA_WINDOW=mfc python -I tools/reference.py compare ...` compares the MFC
 path (the tools pass their environment on).
 
 

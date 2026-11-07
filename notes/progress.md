@@ -697,6 +697,16 @@ messages pumped as MFC did, the 100 ms timer in the loop (platform/LoopTimer.h, 
 keeps the MFC frame (platform/WindowChoice.h, a run-time switch) until #127. Keys, buttons and wheel stay Win32 messages
 through a subclass until #123. The reference compare matches on both paths. notes/decisions.md, "#122".
 
+Input over SDL3 (Patella-Modern issue #123, branch issue-123, November 7, 2026; M8): on the SDL3 window the keys, the
+typed text (SDL_EVENT_TEXT_INPUT, converted to Windows-1252), the buttons, the wheel, the capture (SDL_CaptureMouse),
+the mouse position (SDL_GetGlobalMouseState, SDL_GetWindowPosition) and the cursors (SDL's system cursors, the client's
+two from its resources through SDL_CreateCursor) are SDL3's. The client's rules (TranslateKey, the modifier flags,
+OnChar, the control characters TranslateMessage made, Windows' double clicks over SDL's click counts, the wheel's
+notches) are portable in platform/KeyInput.h, the cursor decoder in platform/CursorImage.h, both unit-tested. The
+subclass keeps WM_CAPTURECHANGED (SDL has no event for a lost capture), the test mode's WM_TIMER, the socket's message
+and the fullscreen hit test. The test mode's scripted messages become the same SDL events (testmode/SdlInputWin32.cpp).
+The places where SDL cannot give the same input are listed in notes/decisions.md, "#123".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,

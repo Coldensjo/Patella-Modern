@@ -165,6 +165,8 @@ add_executable(tests_core
 target_sources(tests_core PRIVATE core_platform_input_test.cpp)
 # Issue #122: the SDL3 window's loop timer and the choice of the window path.
 target_sources(tests_core PRIVATE core_window_loop_test.cpp)
+# Issue #123: the client's keyboard and mouse rules over SDL3's events, and the cursor resources' decoder.
+target_sources(tests_core PRIVATE core_key_input_test.cpp)
 target_link_libraries(tests_core PRIVATE patella_core doctest::doctest)
 patella_target_language(tests_core)
 patella_target_warnings(tests_core)
