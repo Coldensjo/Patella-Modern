@@ -28,7 +28,7 @@
 #   32-bit oracle passed the packet buffers', TXTEA's and TRSA's spans with (until #94) in tests_unit_cxx26_standin
 #   (PATELLA_SPAN_STANDIN): the same construction, conversion, size and part tests for both.
 # - Both: patella::TMdspan (src/compat/mdspan.h, issue #101), std::mdspan in tests_unit where the library has it
-#   (MSVC, GCC 16; not linux-x64-clang's libstdc++ 14) and the stand-in in tests_unit_cxx26_standin
+#   (MSVC, GCC 16's libstdc++, also Clang's since #121) and the stand-in in tests_unit_cxx26_standin
 #   (PATELLA_MDSPAN_STANDIN): the extents, both layouts' mappings, indexing, the const view.
 # - Both: the developer log (src/log/Log.h, issue #77): the levels, the lines on the console and in the file, the
 #   formats through both paths (std::format and the stand-in), the fatal path's stack trace (std::stacktrace where the

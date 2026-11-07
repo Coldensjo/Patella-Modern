@@ -9,8 +9,9 @@
 #	patella_target_import_std(<target>)     a target whose sources may say import std;
 #
 # PATELLA_IMPORT_STD is set ON by the presets where it works (CMakePresets.json): windows-x64 and windows-x64-asan
-# (MSVC 14.51), windows-x64-gcc (mingw-w64 GCC 16.2) and linux-x64-gcc (GCC 16.2; the image's CMake 4.1.2). Not
-# linux-x64-clang: its library is Debian's libstdc++ 14, which has no std module (notes/decisions.md).
+# (MSVC 14.51), windows-x64-gcc (mingw-w64 GCC 16.2), linux-x64-gcc (GCC 16.2; the image's CMake 4.1.2) and since
+# issue #121 linux-x64-clang (Clang 22 with GCC 16.2's libstdc++, the image's Clang configuration files; Debian's
+# libstdc++ 14 until then, which has no std module; notes/decisions.md).
 #
 # The gates below are the ones verified (CMake 4.1.2: the local builds and the Linux image; 4.4.5: the hosted Windows
 # runner). On another CMake version the option is turned off with a warning at configure, so a runner's newer CMake
@@ -71,7 +72,13 @@ endmacro()
 # sanitizers, which change the library's inline code. So the module gets the target's own options: on MSVC the module
 # is a static library of the build (__cmake_cxx23, which the alias names), its COMPILE_OPTIONS; on GCC an imported
 # target that CMake compiles for its importers, its INTERFACE_COMPILE_OPTIONS (which the importer gets too, the same
-# options again). The warning level is a source property (patella_target_warnings), so the module keeps the
+# options again).
+#
+# Clang with glibc's _FORTIFY_SOURCE (Hardening.cmake's -D_FORTIFY_SOURCE=3 in optimised builds): glibc 2.41 declares
+# its checked printf family for Clang as static overloads (__fortify_clang_overload_arg), which the std module cannot
+# export ("using declaration referring to 'printf' with internal linkage cannot be exported", bits/std.cc; GCC's
+# wrappers are extern inline and export), so the target and its module get -U_FORTIFY_SOURCE after the hardening
+# options (issue #121). The target says only import std;, no header, so it has no call fortify would check. The warning level is a source property (patella_target_warnings), so the module keeps the
 # compiler's default level; its headers are the library's own. One target per build uses it (tests_import_std), so the
 # options are that target's.
 function(patella_target_import_std target)
@@ -90,6 +97,10 @@ function(patella_target_import_std target)
 	# CMake 4.4 creates the std module's target at generate time (@cmake_cxx_std) and compiles its BMI for each
 	# importer with the importer's own options (@cmake_cxx_std@synth_<n>), so there is nothing to give it; 4.1
 	# creates __CMAKE::CXX<level> at project() and compiles it with the directory's flags only.
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT MSVC)
+		target_compile_options(${target} PRIVATE "SHELL:-U_FORTIFY_SOURCE")
+	endif()
+
 	set(module __CMAKE::CXX${PATELLA_IMPORT_STD_LEVEL})
 	get_target_property(options ${target} COMPILE_OPTIONS)
 	if(NOT options OR NOT TARGET ${module})

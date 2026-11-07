@@ -14447,3 +14447,86 @@ counted as the issue's (golden::Deliberates: the parts, their checks, those that
 - #72's fuzz seed (the issue: M9, with the fuzzing).
 - A #72 part runs to the round's end; a narrower end (where both sides' receive buffers agree again) would need the
   original's buffer state compared field by field; not tried.
+
+## #121: linux-x64-clang on GCC 16's libstdc++ (Patella-Modern issue #121, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-121). The owner decided on November 7 that linux-x64-clang
+moves from Debian's libstdc++ 14 to GCC 16's libstdc++ (in the image already), so `import std;` (#113) builds in all
+four presets that know it, and std::mdspan (#101) is std's there. Files: docker/linux-x64/Dockerfile,
+CMakePresets.json, cmake/ImportStd.cmake, src/compat/cxx26.h, the comments of src/compat/mdspan.h,
+tests/unit/mdspan_test.cpp, tests/unit/CMakeLists.txt and cmake/Warnings.cmake; the image's tag in tools/build.py,
+both workflows, CLAUDE.md, README.md and notes/reconstruction.md.
+
+### How Clang gets GCC 16's library (high)
+
+- Clang's default configuration files, `/usr/lib/llvm-22/bin/clang++.cfg` and `clang.cfg` in the image, each one line
+  `--gcc-install-dir=/usr/local/lib/gcc/x86_64-linux-gnu/16.2.0` (the directory of `gcc -print-libgcc-file-name`; the
+  Dockerfile's RUN checks the path, that `clang++ -v` and `clang -v` say "Selected GCC installation:" that directory,
+  and that `clang++ -print-file-name=libstdc++.modules.json` exists). Clang reads `<driver>.cfg` from its executable's
+  directory (`clang++ -v`: "Configuration file: /usr/lib/llvm-22/bin/clang++.cfg"), so every caller has it.
+- Why not the preset's flags: CMake 4.1's probe for the std module (Modules/Compiler/Clang-CXX-CXXImportStd.cmake)
+  runs `${CMAKE_CXX_COMPILER} ${CMAKE_CXX_COMPILER_ID_ARG1} -print-file-name=libstdc++.modules.json`, without
+  CMAKE_CXX_FLAGS, so a `--gcc-install-dir` there leaves the probe on libstdc++ 14 (#113 tried it). A configuration
+  file is part of the compiler; it also reaches clang-tidy, whose driver reads the same file (checked: `<mdspan>`,
+  which libstdc++ 14 lacks, compiles under clang-tidy with a compile_commands.json that names only `clang++`). The C
+  driver gets the same installation, so C and C++ objects link against one libgcc and its start files.
+- `--gcc-install-dir` rather than `--gcc-toolchain`: the install dir names the one installation (GCC 16.2.0's
+  directory, checked by the RUN), a toolchain names a prefix in which Clang picks a version itself; the gcc image has
+  GCC 16 in /usr/local next to Debian's GCC 14 in /usr.
+- The image's tag is new, `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16` (was `gcc16.2-clang22.1`, which
+  #113 kept because the compilers did not change): Clang's library changed, and a local image under the old tag keeps
+  serving the branches that still have the old Dockerfile (#116 and #72/#86 run meanwhile). After the merge a local
+  image is built once with CLAUDE.md's command; the old tag can then be removed (`docker rmi`).
+- PATELLA_IMPORT_STD is ON in linux-x64-clang (CMakePresets.json). An image without the configuration files fails its
+  configure ("PATELLA_IMPORT_STD: Clang 22.1.8 has no std module ...", ImportStd.cmake), which names the cause.
+
+### What the library switch changed in the build (high)
+
+- The std module under _FORTIFY_SOURCE: glibc 2.41 declares its checked printf family (fprintf, printf, snprintf,
+  sprintf, swprintf) for Clang as static overloads (`__fortify_clang_overload_arg`, bits/stdio2.h, bits/wchar2.h), and
+  bits/std.cc's `export using std::printf;` cannot export a name with internal linkage ("using declaration referring
+  to 'printf' with internal linkage cannot be exported", 5 errors in Release, where Hardening.cmake defines
+  _FORTIFY_SOURCE=3). GCC's wrappers are extern inline and export. So on Clang patella_target_import_std gives the
+  target (and with it the module, which takes the target's options) `-U_FORTIFY_SOURCE` after the hardening options.
+  It is `SHELL:-U_FORTIFY_SOURCE`: CMake removes a repeated option, and the hardening already says
+  `-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3`, so a plain `-U_FORTIFY_SOURCE` was dropped (checked in the Ninja files:
+  both std.cc and import_std_test.cpp end with -U_FORTIFY_SOURCE). tests_import_std includes no header, so it has no
+  call fortify would check; every other target keeps _FORTIFY_SOURCE=3.
+  - Considered: the module without fortify and the importer with it: the module and its importer would differ in a
+    macro of the library again (#113's reason to give the module the target's options).
+- std::inplace_vector: libstdc++ 16 says `__cpp_lib_inplace_vector` 202603 under Clang too, so cxx26.h selected it,
+  and it fails there: its `_M_init` names `is_trivial_v` (deprecated in C++26) in a template the code instantiates,
+  which Clang reports at the instantiation (-Wdeprecated-declarations, an error under -Werror: tests_unit's
+  cxx26_contracts_test, slot_table_test, cxx26_static_vector_test), and its constexpr copy is not a constant
+  expression under Clang ("subobject '_M_elems' is not initialized", cxx26_static_vector_test.cpp:122). cxx26.h keeps
+  the stand-in for Clang with libstdc++ (`__clang__` and `__GLIBCXX__`), what linux-x64-clang had: TStaticVector
+  (TMapPoint::Objects, the effect table's TSlotTable) is the same type there as before. tests_unit's path check
+  expects nothing on Clang (PATELLA_EXPECT_CXX26 is empty), so no test changed. The stand-in goes when libstdc++'s
+  inplace_vector builds under Clang (Found, not done).
+- What else Clang now takes from libstdc++ 16: std::mdspan (`__cpp_lib_mdspan` 202406; below), and the newer
+  library's headers everywhere; contracts stay off (Clang 22 has no `__cpp_contracts`). std::stacktrace through
+  libstdc++exp (Warnings.cmake's check) passes as before.
+
+### The mdspan stand-in (high)
+
+Every preset's library has std::mdspan now (MSVC 202207, GCC 16's libstdc++ 202406 in windows-x64-gcc, linux-x64-gcc
+and linux-x64-clang), so no preset compiles the stand-in in its product code. It stays, as the test switch
+PATELLA_MDSPAN_STANDIN only (tests_unit_cxx26_standin, header_check_cxx26_standin), like span.h's and expected.h's
+stand-ins: removing it would be a change of src/compat/mdspan.h's interface for no gain, and the header still serves a
+library without `<mdspan>`. mdspan_test's static_assert branches are unchanged (the "library without std::mdspan"
+branch is now reached by no preset). Only comments changed.
+
+### clang-tidy (high)
+
+tidy_ci runs clang-tidy in the image on linux-x64-clang's compile commands, so it now reads GCC 16's headers:
+3 findings, the baseline's 3 (cppcoreguidelines-owning-memory in Utils.cpp and vlong.cpp), 0 new, 0 gone. No
+finding moved.
+
+### Found, not done (high)
+
+- cxx26.h's Clang exception for std::inplace_vector: when libstdc++ (or Clang) fixes the deprecated is_trivial_v use
+  and the constexpr copy, Clang can take std::inplace_vector as GCC does.
+- tests_import_std on Clang is built without _FORTIFY_SOURCE while glibc's Clang wrappers are internal; a glibc or
+  libstdc++ that exports them (or a std.cc that skips them under fortify) would let it keep the hardening.
+- The old image tag `patella-modern/linux-x64:gcc16.2-clang22.1` stays on this machine until the branches that use it
+  are merged.

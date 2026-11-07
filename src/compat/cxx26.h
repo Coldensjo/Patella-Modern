@@ -3,8 +3,9 @@
 // (notes/modernization-plan.md, sections 1.1 and 8; issue #9). Not part of the original source.
 //
 // The code reaches a C++26 feature only through this header. Today GCC 16 has both features below
-// (with -std=c++26, which cmake/Warnings.cmake gives GCC and Clang); MSVC 19.51 has neither and
-// gets the stand-ins. When a compiler catches up, its stand-in goes and the name stays as it is.
+// (with -std=c++26, which cmake/Warnings.cmake gives GCC and Clang); MSVC 19.51 and Clang 22 (with
+// GCC 16's libstdc++, below) have neither and get the stand-ins. When a compiler catches up, its
+// stand-in goes and the name stays as it is.
 //
 // PATELLA_CXX26_STANDIN, defined for a whole target (never for one file: the two paths are not
 // interchangeable inside one program), selects every stand-in also where the real feature exists;
@@ -43,7 +44,13 @@
 #define PATELLA_HAS_CONTRACTS 0
 #endif
 
-#if defined(__cpp_lib_inplace_vector) && __cpp_lib_inplace_vector >= 202603L && !defined(PATELLA_CXX26_STANDIN)
+// Not Clang with libstdc++ (linux-x64-clang since issue #121: Clang 22 with GCC 16's library, which says
+// 202603): libstdc++ 16's inplace_vector is GCC's. Under Clang 22 its _M_init names is_trivial_v, deprecated in
+// C++26, in a template the code instantiates (-Wdeprecated-declarations, an error under -Werror), and its constexpr
+// copy is not a constant expression ("subobject '_M_elems' is not initialized"). Clang keeps the stand-in.
+#if defined(__clang__) && defined(__GLIBCXX__)
+#define PATELLA_HAS_INPLACE_VECTOR 0
+#elif defined(__cpp_lib_inplace_vector) && __cpp_lib_inplace_vector >= 202603L && !defined(PATELLA_CXX26_STANDIN)
 #define PATELLA_HAS_INPLACE_VECTOR 1
 #else
 #define PATELLA_HAS_INPLACE_VECTOR 0

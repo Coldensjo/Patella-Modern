@@ -126,11 +126,12 @@
 		{
 			"name": "linux-x64-clang",
 			"displayName": "linux-x64-clang: Clang on Linux x64 with AddressSanitizer and UBSan: patella_core and the unit tests (issue #7)",
-			"description": "Needs Clang (clang, clang++) with compiler-rt on PATH; the Docker image of docker/linux-x64 has Clang 22. On Windows: python -I tools/build.py linux-x64-clang runs it in that image.",
+			"description": "Needs Clang (clang, clang++) with compiler-rt on PATH, using GCC 16's libstdc++ (issue #121); the Docker image of docker/linux-x64 has Clang 22 with it. On Windows: python -I tools/build.py linux-x64-clang runs it in that image.",
 			"inherits": "linux-base",
 			"cacheVariables": {
 				"CMAKE_C_COMPILER": "clang",
 				"CMAKE_CXX_COMPILER": "clang++",
+				"PATELLA_IMPORT_STD": "ON",
 				"PATELLA_SANITIZE": "address,undefined"
 			}
 		}

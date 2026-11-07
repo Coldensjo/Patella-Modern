@@ -1,7 +1,7 @@
 // patella::TMdspan, TExtents, TDynamicExtents, TLayoutRight and TLayoutLeft (src/compat/mdspan.h, issue #101):
-// std::mdspan in tests_unit where the library has it (MSVC, GCC 16's libstdc++), the stand-in in
-// tests_unit_cxx26_standin (PATELLA_MDSPAN_STANDIN) and in tests_unit with a library without it (linux-x64-clang:
-// libstdc++ 14). The same tests hold for both, so the stand-in behaves as std::mdspan where the code uses it.
+// std::mdspan in tests_unit where the library has it (MSVC, GCC 16's libstdc++: every preset since issue #121), the
+// stand-in in tests_unit_cxx26_standin (PATELLA_MDSPAN_STANDIN) and in tests_unit with a library without it. The same
+// tests hold for both, so the stand-in behaves as std::mdspan where the code uses it.
 
 #include <doctest/doctest.h>
 
