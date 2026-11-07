@@ -560,6 +560,14 @@ unique_ptr storage through a layout_left `view()` (members unchanged: golden com
 Speed are `TAutomapLayer` (src/AutomapLayer.h), 256 x 256 owned bytes in the file's order with a layout_right view, and
 Map.cpp's file format check also checks the view's mapping. array<T> stays (one-dimensional). Golden 17,316,040, 0
 failures. notes/decisions.md, "#101".
+
+The server replay's socket inside the process (Patella-Modern issue #120, branch issue-120, November 7, 2026; M7):
+with --test-replay PatellaTest.exe's ISocket is TPipeSocketWin32 (src/testmode/PipeSocketWin32.h) over TPipeNetwork
+(src/testmode/PipeNetwork.h, portable, tested in tests_testmode): the replay's listeners and connections inside the
+process, the events WinSock's and posted through a message-only window as MFC's. No port is opened, so two reference
+compares ran at the same time and both matched; the packet and driver logs are the loopback run's. The live runs
+(without --test-replay) keep Win32's sockets; Patella.exe is not touched. Golden 17,316,040, 0 failures.
+notes/decisions.md, "#120".
 TGUI, part 2 (Patella-Modern issue #118, branch issue-118, November 7, 2026; M7): Control.cpp's 26 functions and
 MainWindow.cpp's InitMainWindow and ExitMainWindow are TGUI's members (the free functions forward); TGUI takes TNetwork
 and TCommunication by reference, so Control.cpp no longer uses the bridge; TGUIController and its adapter are gone. The

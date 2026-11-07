@@ -13836,10 +13836,9 @@ The interfaces are portable headers in src/platform (no platform header, on pate
 - Files: compare_files.py and the reference compare read the files the client writes in its working folder (the
   options, the automap, the saved channels), and the test build must write them as Patella.exe does. A folder of its
   own (TFolderFileSystem) would be a test mode switch; none is needed yet.
-- Sockets: the server replay (--test-replay) is a server on the loopback ports in the client's own process, which the
-  client reaches through real sockets, so the client's network code runs as Patella.exe's. An ISocket that replays the
-  recording in the process (no ports) is possible now and would end the port collisions between parallel runs; not
-  done ("Unfinished").
+- Sockets: the server replay (--test-replay) was a server on the loopback ports in the client's own process, which the
+  client reached through real sockets. Done in #120: with --test-replay the test build's ISocket is the replay's
+  inside the process, no ports ("#120: the server replay's socket inside the process"); without it Win32's.
 
 ### The hooks that remain (high)
 
@@ -13870,7 +13869,7 @@ Not touched (#108 works there): the interfaces needed nothing of it.
 
 - IClipboard (sysinc.cpp's clipboard and its buffer), IInput and IWindow (MainFrm.cpp, Player.cpp: the hooks above),
   and TSurface as the platform's (the Vulkan engine's seam; with TGraphics, #104's step 6).
-- A test implementation of ISocket: the server replay inside the process (above).
+- A test implementation of ISocket: the server replay inside the process (above). Done in #120.
 - IFileSystem for the fork's own files: Settings.cpp's Patella.ini (std::fstream) and the log's LogFile (TFile) open
   themselves; they are patella_core's and portable already.
 - sysinc.cpp's FileExists and RemoveFile (no caller in the client since issues #74 and #75; the golden tests' only)
@@ -14094,6 +14093,73 @@ Logs: build\logs\issue-101 of the branch's worktree; golden replayed main's froz
   2, its traffic session refused to start (ports 7271/7272 held by another agent's client); its rerun exit 0, every
   session matches. `python -I tools/compare_traffic.py`: exit 0, no differences. `python -I tools/compare_files.py`:
   exit 0, no differences (the four automap files of the walk, 12512506.map ... 12512607.map, identical).
+
+## #120: the server replay's socket inside the process (Patella-Modern issue #120, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-120). Until now PatellaTest.exe's server replay
+(`--test-replay`, the reference compare's sessions) was a server on the loopback ports 7271 and 7272 inside the
+client's process, which the client reached through real sockets; two replays at the same time, or a replay and
+another agent's live run, collided on those ports, the most common cause of failed live runs during M7.
+
+### The design (high)
+
+- **TPipeNetwork** (src/testmode/PipeNetwork.h, portable, patella_testmode, tests_testmode's testmode_pipe_test.cpp):
+  the loopback network without ports. The replay's listen lines are listeners on 127.0.0.1 and a port; a client
+  connection is two byte queues with TCP's ends (each side's shutdown for sending, its close, a close with unread
+  bytes as a reset). Its events for the client follow WinSock's WSAAsyncSelect rules: a connect never completes in
+  the call (Connect, then Write, are posted; a port nothing listens on posts Connect refused), Read is posted when
+  bytes come and none is posted and again after a receive that leaves bytes (WinSock's re-enabling recv), Close once
+  at the server's shutdown or close. The server's side polls (Accept, ServerReceive, ServerSend, ServerShutdown,
+  ServerClose), as the driver polled accept, recv, send, shutdown and closesocket.
+- **TPipeSocketWin32** (src/testmode/PipeSocketWin32.h, the test build only): the ISocket of #109 over TPipeNetwork.
+  The connection stays Win32's TSocket (a CAsyncSocket that never gets a handle), so TNetwork and its events are
+  untouched. The events are posted to a message-only window of the client's thread (made when the replay opens) and
+  its window procedure calls the TSocket's OnConnect, OnSend, OnReceive or OnClose: from the message loop, or a modal
+  loop's (the message boxes' hook), as MFC's socket window's WM_SOCKET_NOTIFY. OnReceive only when the connection is
+  readable at that time (MFC's CAsyncSocket::DoCallBack selects first); an event of a connection closed since it was
+  posted is dropped (MFC's handle map has it no more). The error codes are WinSock's (WSAEWOULDBLOCK, WSAENOTCONN,
+  WSAESHUTDOWN, WSAECONNRESET, WSAECONNREFUSED). Startup (AfxSocketInit) and the name resolution go to TWin32Socket:
+  no recording resolves a name (the client is patched to 127.0.0.1).
+- **Which socket** (high): the test build's Platform() (TestModeWin32.cpp) gives TNetwork TPipeSocketWin32 with
+  --test-replay and TWin32Socket without it. The live runs against the test server (compare_traffic.py,
+  compare_files.py, compare_rendering.py, compare_network.py, testmode_check.py) run without --test-replay and keep
+  the real sockets; Patella.exe and the golden runner are not touched (Win32Platform.cpp unchanged).
+- **The driver** (TestModeWin32.cpp): PumpReplay, ReplayDeliver and CloseReplaySocket call the network's server side
+  instead of accept, recv, send, shutdown and closesocket; the out queue went (a pipe takes the whole frame). The
+  schedule, the holds, the keys and the logs are as before; the log adds a line per listener ("listens on
+  127.0.0.1:7271 in the process (no port)").
+- **The loopback replay went** (high): no tool needs it (only reference.py passes --test-replay), and keeping both
+  would be a test mode switch with nothing to choose it. reference.py no longer checks that 7271 and 7272 are free.
+- **An address other than 127.0.0.1** is refused (OnConnect with WSAECONNREFUSED), as a loopback listener bound to
+  127.0.0.1 refuses 127.0.0.2; a host name is refused too, where CAsyncSocket::Connect would have resolved it. The
+  recordings name 127.0.0.1 only (the proxy's character list).
+
+### The proof (high)
+
+- `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` (out in the worktree's
+  build\reference-compare): exit 0, every session matches (traffic, options, walk, error), as main's loopback run of
+  November 7, 01:29. Each session's packets.log is byte for byte the loopback run's, and driver.log line for line
+  (but the new listener lines): the same packets at the same virtual times, the same opens, closes ("end of stream")
+  and holds, so the same event order. netstat sampled every second during the run: no LISTENING or ESTABLISHED
+  socket on 7271 or 7272.
+- Two compares at the same time (--out reference-compare-a and -b): both exit 0, every session matches; up to four
+  PatellaTest.exe at once, no listening socket.
+
+### The gates (high)
+
+Logs in build\logs\issue-120 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden, its manifest verified).
+
+- `python -I tools/build.py windows-x64`: exit 0, 19/19, golden 15,803,218 replayed + 1,512,822 retired = 17,316,040,
+  0 failures (golden_concurrent the same), 0 warnings. windows-x64-debug: exit 0, 18/18; windows-x64-asan: exit 0,
+  18/18, no ASan report; golden the same on both. windows-x64-gcc: exit 0, 12/12 (after GCC's -Wshadow on the first
+  try: TPipeNetwork's constructor parameter). linux-x64-gcc: exit 0, 16/16; linux-x64-clang (ASan, UBSan): exit 0,
+  14/14, no sanitizer report; golden the same on both. 0 warnings on every preset.
+- Live: the reference compares above; `python -I tools/compare_traffic.py` (the live path, Win32's sockets) exit 0,
+  no differences.
+- `python -I tools/tidy_ci.py`: exit 0, 3 findings, the baseline's 3, 0 new. The Windows tidy.py run on
+  PipeSocketWin32.cpp and TestModeWin32.cpp: none of the new code's (its two fixed). `python -I tools/banned_calls.py`:
+  exit 0. clang-format (CLAUDE.md's command): exit 0.
 
 ## #118: TGUI, part 2 (Patella-Modern issue #118, M7)
 
