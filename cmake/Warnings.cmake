@@ -37,7 +37,6 @@ set(PATELLA_WARNING_BASELINE_MSVC
 	src/DialogElements.cpp
 	src/DialogWindow.cpp
 	src/Dialogs.cpp
-	src/Extern/regexp/regexp.c
 	src/GUI.cpp
 	src/MainFrm.cpp
 	src/MainWindow.cpp
@@ -56,14 +55,12 @@ set(PATELLA_WARNING_BASELINE_MSVC
 # compile there yet; each is measured when it joins patella_core.
 set(PATELLA_WARNING_BASELINE_GCC
 	src/Container.h
-	src/Extern/regexp/regexp.c
 	src/TXTEA.cpp
 	src/Utils.cpp
 	src/vlong.cpp
 	tests/unit/core_container_test.cpp
 )
 set(PATELLA_WARNING_BASELINE_CLANG
-	src/Extern/regexp/regexp.c
 	src/Skins.cpp
 	src/TXTEA.cpp
 	src/Utils.cpp
@@ -73,14 +70,16 @@ set(PATELLA_WARNING_BASELINE_CLANG
 
 # C++23 with the conformance switches. MSVC has no /std:c++23 yet, so /std:c++latest; GCC and Clang
 # compile as C++26, whose features the code reaches only through src/compat/cxx26.h (issue #9). The
-# targets do not set CXX_STANDARD, which would add a second standard flag.
+# targets do not set CXX_STANDARD, which would add a second standard flag. The C sources (the regexp,
+# src/Extern/regexp) are C17 with every compiler (issue #129): MSVC's default is its C89 dialect, GCC
+# 16's C23.
 function(patella_target_language target)
 	if(MSVC)
 		target_compile_options(${target} PRIVATE
 			$<$<COMPILE_LANGUAGE:CXX>:/std:c++latest /permissive- /Zc:__cplusplus>
+			$<$<COMPILE_LANGUAGE:C>:/std:c17>
 			$<$<COMPILE_LANGUAGE:C,CXX>:/utf-8 /Zc:preprocessor /Zc:inline>)
 	elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-		# C17 for the C sources: the regexp's K&R function definitions are not C23, GCC 16's default.
 		target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-std=c++26>
 			$<$<COMPILE_LANGUAGE:C>:-std=c17>)
 		# GCC 16 keeps the default contract violation handler, which contract_assert calls
@@ -169,9 +168,6 @@ function(patella_target_warnings target)
 		else()
 			set(baseline_list ${PATELLA_WARNING_BASELINE_CLANG})
 			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wimplicit-fallthrough>)
-			# Clang warns about K&R function definitions in every C standard, at any level; they are
-			# valid C17, the regexp's (src/Extern) form, kept until M6.
-			target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wno-deprecated-non-prototype>)
 		endif()
 	else()
 		message(FATAL_ERROR "patella_target_warnings: no settings for ${CMAKE_CXX_COMPILER_ID}")

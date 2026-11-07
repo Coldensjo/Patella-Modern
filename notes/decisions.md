@@ -8970,8 +8970,8 @@ they include) report nothing that is not suppressed in the code with its reason,
   | clang-tidy | bugprone-easily-swappable-parameters | 17 (HSVToRGB, vlong's exp, modinv, modexp, Settings' Parse, testmode, vulkan) | style | off in .clang-tidy | a heuristic on parameter lists, most of them the original's; no bug |
   | clang-tidy | bugprone-reserved-identifier | 2 in the core (common.h's `_CRT_SECURE_NO_WARNINGS`, `_WINSOCK_DEPRECATED_NO_WARNINGS`) | false positive | off in .clang-tidy | the CRT's and the SDK's own macro names; the client's sources have several hundred `_Name` parameters (the reconstruction's convention), which the per-target Windows runs would report |
   | clang-tidy | bugprone-narrowing-conversions, -implicit-widening-of-multiplication-result | 0 in the core (the one widening fixed above) | - | off in .clang-tidy | the client's integer types are the original's (issue #8); not turned on, as the per-target Windows runs would report the client's |
-  | MSVC /analyze | C28278 (no prototype in scope) | regexp.c, 108 | false positive | `#pragma warning(disable: 28278 6001)` in the file | K&R C (src/Extern, kept until M6): no function has a prototype |
-  | MSVC /analyze | C6001 (uninitialized memory 'flags') | regexp.c, 5 (regcomp, reg, regbranch, regpiece) | false positive | the same pragma | without prototypes the analysis cannot see that reg, regbranch, regpiece and regatom set `*flagp` before they return non-NULL |
+  | MSVC /analyze | C28278 (no prototype in scope) | regexp.c, 108 | false positive | `#pragma warning(disable: 28278 6001)` in the file; gone since issue #129 (prototypes, no finding left) | K&R C (src/Extern, kept until M6): no function has a prototype |
+  | MSVC /analyze | C6001 (uninitialized memory 'flags') | regexp.c, 5 (regcomp, reg, regbranch, regpiece) | false positive | the same pragma; gone since issue #129, as above | without prototypes the analysis cannot see that reg, regbranch, regpiece and regatom set `*flagp` before they return non-NULL |
   | GCC -fanalyzer | -Wanalyzer-null-dereference | vlong.cpp, flex_unit::set | false positive | PATELLA_GCC_DIAGNOSTIC push/ignored/pop around the function | the path needs `i + 1` to wrap to 0 in reserve; i is below a source value's n |
   | GCC -fanalyzer | -Wanalyzer-null-dereference | regexp.c, regmatch's STAR/PLUS | false positive | `#pragma GCC diagnostic ignored` in the file (GCC only) | regnext of a STAR or PLUS node is never NULL: regcomp links each to the node that follows |
 
@@ -14344,3 +14344,73 @@ Logs in build\logs\issue-128 of the branch's worktree; golden replayed main's fr
   its operands and result in the message; the row restored.
 - Not run: the live checks (reference compare, compare_traffic, compare_files). src/ changed by comments only
   (Communication.cpp, TRSA.cpp), so the client's code is unchanged.
+
+## #129: the regexp as C17 behind TRegexp (Patella-Modern issue #129, M8)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-129, from main 8d9cd2c). Plan section 7, M8, "regexp".
+
+### What was there (high)
+
+- src/Extern/regexp/regexp.c (Henry Spencer's regexp of 1986, the client's version, issue #15) was in patella_core and
+  the client's own sources. It was C17 on GCC and Clang only (`-std=c17`, issue #7); MSVC compiled it in its default
+  C dialect (C89 with extensions). It was on all three warning baselines (MSVC /W3, GCC and Clang -Wall) and Clang's
+  `-Wdeprecated-non-prototype` was off for every C source, both because of its K&R definitions; regexp.c also turned
+  off MSVC's C4018 and /analyze's C28278 and C6001.
+- Status.cpp, the one user, held the program as `regexp *LinkRegexp` (InitStatus: regcomp; CheckClipboardText:
+  regexec; ExitStatus: free, by hand). tests/unit's core_regexp_test.cpp freed its programs by hand too.
+
+### regexp.c as C17, 0 warnings at the full level (high)
+
+- C17 on every compiler: patella_target_language gives C sources `/std:c17` on MSVC too (cmake/Warnings.cmake).
+- The K&R function definitions and the forward declarations without parameters are prototypes, with the same
+  parameter types (`register` kept where it was). K&R definitions are obsolescent in C17 and gone in C23; MSVC warns
+  about them at /W4 (C4131, 16) and Clang in every mode. The calls were all to definitions in the same file, so the
+  values passed do not change; the char parameters of regnode, regc and reginsert now get their conversion at the
+  call instead of in the callee, the same value. GCC 16.2 -O2's code for the old and the new file differs only in
+  instruction order and register choice in reg and regatom (120 of 1,762 lines of objdump).
+- The implicit conversions that the prototypes and the full levels show are casts to the type they already
+  converted to: regnode's and regc's char arguments (MAGIC through unsigned char: MSVC's C4310 on a constant cast
+  that does not fit; the byte stays 0x9c), regtail's offset bytes, and the int lengths given to strncmp and compared
+  with strlen (unsigned, as the binary compares; the pragma off C4018 is gone). reg's parno keeps its 1986 form
+  (set and read only when paren is set): GCC's -Wmaybe-uninitialized was already off for that function, MSVC's
+  C4701 now is too (push/pop around it).
+- The /analyze suppressions C28278 and C6001 are gone: with prototypes MSVC /analyze reports nothing in the file
+  (Release and Debug), so the static analysis table ("Static analysis of the core library") marks those two rows.
+  GCC -fanalyzer's -Wanalyzer-null-dereference suppression stays (regmatch's regnext, unrelated to the K&R form).
+- regexp.c is off the three warning baselines, and Clang's `-Wno-deprecated-non-prototype` is gone: the file builds
+  at /W4, and at -Wall -Wextra -Wpedantic -Wconversion -Wshadow with GCC 16.2 and Clang 22.1, with no warning
+  (measured by hand for each compiler at -O0 and -O2 before the presets ran).
+- Everything else is the 1986 text and the client's changes; each change is described in the file's own header,
+  marked "Patella-Modern change (issue #129)". The file stays out of clang-format (`.clang-format-ignore`).
+
+### TRegexp (high)
+
+- src/types/Regexp.h, header only, in patella_core's header list (cmake/HeaderCheck.cmake, a separate
+  `list(APPEND ...)`): `patella::TRegexp` holds regcomp's program in a `std::unique_ptr` whose deleter is free (the
+  allocation is regcomp's malloc). Construct from a pattern (regcomp; empty when it fails or the pattern is
+  nullptr), IsCompiled / `explicit operator bool`, Execute (regexec, 1 or 0), Subexpression(n) (a string_view of
+  startp/endp, empty when that group did not take part), Reset, Get (the program, for tests). Movable, not copyable.
+- Every call is regcomp's or regexec's own, with the same errors through regerrorhandler: Execute on an empty
+  TRegexp is regexec(NULL, ...), which returns 0 ("NULL parameter"), as Status.cpp's call did when LinkRegexp was
+  NULL. The const_cast to char * of the K&R interface is the wrapper's (neither function writes to the text).
+- Status.h's `regexp *LinkRegexp` is `TRegexp LinkRegexp` (the forward declaration of struct regexp is gone; Status.h
+  includes types/Regexp.h). Status.cpp: InitStatus assigns `TRegexp(LinkPattern)`, CheckClipboardText calls Execute,
+  ExitStatus calls Reset. No caller frees a program by hand; the only direct regcomp/regexec calls left are
+  regexp.c's own, the wrapper's, golden's regexp_tests.cpp (the differential test of the C code itself against the
+  original's, frozen corpus) and core_regexp_test.cpp's checks of the error texts through the header's names.
+- Two differences, both outside what the client does (conservative choice, owner's to revisit): ExitStatus now
+  clears LinkRegexp (the original left it dangling until the next InitStatus, so a link check between the two was a
+  use after free; now it is regexec(NULL), 0, and the text is copied), and a second InitStatus without ExitStatus
+  frees the old program instead of leaking it. The client calls InitStatus once at start-up and ExitStatus once at
+  exit, and golden's status test runs Init, the checks, Exit, twice; neither path is reached otherwise.
+
+### Unit tests (high)
+
+- tests/unit/core_regexp_test.cpp (tests_core, every preset with tests_core; ASan on windows-x64-asan and
+  linux-x64-clang, where LeakSanitizer would see a program not freed) goes through TRegexp: matching and the
+  subexpressions (pointing into the text), leftmost-first alternation (`(a|ab)(c|bcd)` on "abcd": a, bcd; one reason
+  std::regex is no drop-in), a group that takes no part, Latin-1 classes, the program's fields (reganch, regstart,
+  regmust/regmlen, the magic byte), every error text regcomp gives for a syntax error and regexec's "NULL
+  parameter" (on an empty TRegexp and a NULL text), the ownership (move, assignment, Reset), and the client's own
+  pattern, Status.h's LinkPattern, on more texts (a URL, a parenthesised host, a long top-level domain, four numbers
+  that are not an address, upper case, the empty text).

@@ -581,6 +581,12 @@ case's number, operands and result in the message) against tests/unit/core_vlong
 case from Python's exact integers (core_expected.py --vlong-cases); a test of the unpadded RSA's properties. vlong
 needed no change on any preset. The protocol's raw RSA without padding is documented (notes/decisions.md, "#128")
 and commented at Communication.cpp's two Encrypt calls. Golden 17,316,040, 0 failures.
+The regexp as C17 behind TRegexp (Patella-Modern issue #129, branch issue-129, November 7, 2026; M8): regexp.c's K&R
+definitions are prototypes (same types; the implicit conversions now explicit casts), C17 on every compiler (MSVC
+`/std:c17`), off the three warning baselines and without Clang's -Wno-deprecated-non-prototype or /analyze's
+suppressions: 0 warnings at /W4 and -Wall -Wextra -Wpedantic -Wconversion -Wshadow. `patella::TRegexp`
+(src/types/Regexp.h) owns regcomp's program (free on reset, assignment, destruction); Status.cpp's LinkRegexp is one.
+tests_core's regexp tests go through it. Golden 17,316,040, 0 failures. notes/decisions.md, "#129".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

@@ -20,6 +20,7 @@
 #include "types/FixedString.h"
 #include "Objects.h" // TObject
 #include "types/IndexedVector.h"
+#include "types/Regexp.h"
 #include <array>
 #include <cstddef>
 #include <memory>
@@ -53,8 +54,6 @@ struct TCharacter {
 static_assert(sizeof(TCharacter) == 0x54 && offsetof(TCharacter, World) == 0x1e && offsetof(TCharacter, IP) == 0x3c
 		&& offsetof(TCharacter, IPAddress) == 0x40 && offsetof(TCharacter, Port) == 0x50,
 	"TCharacter's layout");
-
-struct regexp; // Extern/regexp/regexp.h (TInteraction holds the compiled link pattern)
 
 namespace patella {
 
@@ -186,7 +185,7 @@ public:
 
 private:
 	// Data, in the original's .bss order (0x71c478-0x71c58b, between MouseOverText and TradeInfo, is TSession's).
-	regexp *LinkRegexp{};                        // 0x71c458, LinkPattern compiled
+	TRegexp LinkRegexp;                          // 0x71c458, LinkPattern compiled (issue #129: owned, TRegexp)
 	char *TaintedClipboardText{};                // 0x71c45c, name from an assertion
 	void (*LinkWarningEventHandler)(){};         // 0x71c460, from "linkwarningeventhandler!=NULL"
 	bool BlinkState{};                           // 0x71c464, toggled every 300 ms

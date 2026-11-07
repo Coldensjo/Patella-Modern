@@ -12,7 +12,7 @@
 #	settings/PreferenceKeys.cpp  the options of Tibia.cfg as Patella.ini's keys (issue #45)
 #	log/LogSettings.cpp   the developer log's keys in Patella.ini (issue #77, plan D16; the log itself,
 #	                      log/Log.h, is header only)
-#	Extern/regexp         Henry Spencer's regexp (K&R C, compiled as C17)
+#	Extern/regexp         Henry Spencer's regexp (C17, issue #129; types/Regexp.h, TRegexp, owns a compiled one)
 #	Container.h           the container templates (header only; their mdspan views, issue #101)
 #	AutomapLayer.h        an automap block's layer, 256 x 256 bytes and their mdspan view (header only, issue #101)
 #	compat/mdspan.h       std::mdspan, or its stand-in where the library has none (header only, issue #101)
