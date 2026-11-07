@@ -308,6 +308,13 @@ PASSWORD = "patella"
 SAY = "hello world"
 CHARACTER = "Patella Tester"
 TRADE_PARTNER = "Patella Second"
+# The map field the session's look step looks at (Shift+right click), with the step's name. LOOK_NORTH is the
+# recorded sessions' (tools/reference_record.py, compare_rendering.py: the frozen reference recordings have it);
+# compare_traffic.py's live runs look at the player's own field (issue #137): north of the player Cipfried, the
+# temple NPC, wanders onto the field, and then one client's look names him and the other's the field's top item.
+# No creature can stand on the player's field, so both clients look at the player.
+LOOK_NORTH = ("look north", (8, 5))
+LOOK_OWN_FIELD = ("look at own field", (8, 6))
 
 
 def game_connections(proxy):
@@ -362,11 +369,12 @@ class StopSession(Exception):
 	pass
 
 
-def run_session(driver, wait, checkpoint, until=None, with_login=True, proxy=None):
+def run_session(driver, wait, checkpoint, until=None, with_login=True, proxy=None, look=LOOK_NORTH):
 	"""The scripted session. wait(name): until the server side is quiet; checkpoint(name): record
 	the client state. Returns the list of step names. until: stop before this step (testing).
 	with_login False: the caller has logged in already (tools/compare_rendering.py, issue #20).
-	proxy: the proxy the client goes through (login's check of the game connection)."""
+	proxy: the proxy the client goes through (login's check of the game connection). look: the look step's name
+	and map field (LOOK_NORTH, LOOK_OWN_FIELD)."""
 	steps = []
 
 	def step(name, action, snapshot=True):
@@ -385,7 +393,8 @@ def run_session(driver, wait, checkpoint, until=None, with_login=True, proxy=Non
 		step(name, lambda vk=vk: (driver.key(vk), time.sleep(1.0)))
 	step("turn south", lambda: driver.key(VK_DOWN, VK_CONTROL))
 	step("say", lambda: (driver.type(SAY), driver.char(13)))
-	step("look north", lambda: driver.click(*driver.field_point(8, 5), right=True, modifier=VK_SHIFT))
+	look_name, look_field = look
+	step(look_name, lambda: driver.click(*driver.field_point(*look_field), right=True, modifier=VK_SHIFT))
 	step("open container", lambda: driver.click(*driver.body_slot_point(3), right=True, modifier=VK_CONTROL))
 	step("look in container", lambda: driver.click(*driver.container_slot_point(0), right=True, modifier=VK_SHIFT))
 	step("use in container", lambda: driver.click(*driver.container_slot_point(0), right=True, modifier=VK_CONTROL))

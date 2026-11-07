@@ -99,7 +99,7 @@ partner. Fifteen steps, each followed by the wait and a state snapshot:
 | walk north, east, south, west | arrow keys (WM_KEYDOWN/UP), back to the start | 0x65, 0x66, 0x67, 0x68 |
 | turn south | Ctrl+Down | 0x71 |
 | say | "hello world", Return | 0x96 (Cipfried, the temple NPC, answers "hello") |
-| look north | Shift+right click on map field (8,5) | 0x8c |
+| look at own field | Shift+right click on map field (8,6), the player's own (issue #137; "look north", field (8,5), in the reference recordings and compare_rendering.py) | 0x8c |
 | open container | Ctrl+right click on body slot 3 (the bag) | 0x82 |
 | look in container | Shift+right click on the bag's first slot | 0x8c |
 | use in container | Ctrl+right click on it (eats the red apple) | 0x82 |

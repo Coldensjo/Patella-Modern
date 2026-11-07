@@ -683,6 +683,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   every optimisation level"): the golden Communication test's check that ExitCommunication is empty accepts GCC's -O0
   frame, so linux-x64-gcc-debug and linux-x64-clang-debug replay the corpus with 0 failures.
 
+- **Tier A's live traffic check is deterministic:** done in #137 (notes/decisions.md, "#137: compare_traffic's look
+  step at the player's own field"): compare_traffic's look step looks at the player's own field, where no wandering
+  creature can stand, so its live client packets compare without excuses; testserver.py no longer kills a server
+  that is saving its map.
 Exit: `patella_core` contains everything except the platform layer and builds on both platforms;
 no CipSoft `vector` in core code; tier A green.
 

@@ -370,7 +370,8 @@ def play(client, proxy, wait, out_prefix, helper=None):
 		driver.start()
 		if helper is not None:
 			helper()
-		sc.run_session(driver, wait, checkpoint, proxy=proxy)
+		# The player's own field, not north of it: no creature can stand there (issue #137).
+		sc.run_session(driver, wait, checkpoint, proxy=proxy, look=sc.LOOK_OWN_FIELD)
 		time.sleep(1)
 		code = driver.close()
 		if code != 0:
