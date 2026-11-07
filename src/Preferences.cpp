@@ -32,10 +32,12 @@
 #include "log/Log.h"
 #include "settings/PreferenceKeys.h"
 #include "settings/Settings.h"
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -325,7 +327,7 @@ bool TPreferences::GetPrivateMessages() const
 // 0x4db610
 void TPreferences::ClearOpenChannels()
 {
-	NumberOfOpenChannels = 0;
+	OpenChannels.clear();
 }
 
 // 0x4db620
@@ -443,7 +445,7 @@ void TPreferences::SetDefaultPreferences(TTalkLists &Lists)
 	WindowedMaximized = false;
 	ConsoleHeight = 0;
 	AutomapZoom = 2;
-	NumberOfContentWindows = 0;
+	ContentWindows.clear();
 	BuddySortmethods[0] = 2;
 	BuddySortmethods[1] = 1;
 	BuddySortmethods[2] = 0;
@@ -456,14 +458,14 @@ void TPreferences::SetDefaultPreferences(TTalkLists &Lists)
 	StatusMessages = false;
 	TimeStamps = false;
 	PrivateMessages = true;
-	NumberOfOpenChannels = 0;
+	OpenChannels.clear();
 	ClassicControl = false;
 	AutoChaseOff = true;
 	AttackMode = 2;
 	ChaseMode = 0;
 	SecureMode = true;
-	NumberOfBuddyEntries = 0;
-	NumberOfKnownHints = 0;
+	Buddies.clear();
+	KnownHints.clear();
 	ShowNewHints = true;
 	LevelBar = true;
 	MagLevelBar = true;
@@ -479,23 +481,21 @@ void TPreferences::SetDefaultPreferences(TTalkLists &Lists)
 // 0x4dbcd0. Updates the entry for ID or appends one.
 void TPreferences::SetContentWindowSize(int ID, int Size)
 {
-	for (int i = 0; i < NumberOfContentWindows; i++) {
-		if (ContentWindows(i).ID == ID) {
-			ContentWindows(i).Size = Size;
+	for (TContentWindowSize &Entry : ContentWindows) {
+		if (Entry.ID == ID) {
+			Entry.Size = Size;
 			return;
 		}
 	}
-	ContentWindows(NumberOfContentWindows).ID = ID;
-	ContentWindows(NumberOfContentWindows).Size = Size;
-	NumberOfContentWindows++;
+	ContentWindows.push_back({ID, Size});
 }
 
 // 0x4dbd50. 0 for an unknown ID.
 int TPreferences::GetContentWindowSize(int ID)
 {
-	for (int i = 0; i < NumberOfContentWindows; i++) {
-		if (ContentWindows(i).ID == ID)
-			return ContentWindows(i).Size;
+	for (const TContentWindowSize &Entry : ContentWindows) {
+		if (Entry.ID == ID)
+			return Entry.Size;
 	}
 	return 0;
 }
@@ -515,29 +515,23 @@ int TPreferences::GetOpenDialogs(int **List)
 // 0x4dbde0. Like GetOpenDialogs.
 int TPreferences::GetOpenChannels(int **List)
 {
-	if (NumberOfOpenChannels == 0)
+	if (OpenChannels.empty())
 		return 0;
-	*List = new int[NumberOfOpenChannels];
-	for (int i = 0; i < NumberOfOpenChannels; i++)
-		(*List)[i] = OpenChannels(i);
-	return NumberOfOpenChannels;
+	*List = new int[OpenChannels.size()];
+	std::ranges::copy(OpenChannels, *List);
+	return static_cast<int>(OpenChannels.size());
 }
 
 // 0x4dbe30. Does not check for duplicates.
 void TPreferences::AddKnownHint(int Hint)
 {
-	KnownHints(NumberOfKnownHints) = Hint;
-	NumberOfKnownHints++;
+	KnownHints.push_back(Hint);
 }
 
 // 0x4dbe50
 bool TPreferences::IsKnownHint(int Hint)
 {
-	for (int i = 0; i < NumberOfKnownHints; i++) {
-		if (KnownHints(i) == Hint)
-			return true;
-	}
-	return false;
+	return std::ranges::find(KnownHints, Hint) != KnownHints.end();
 }
 
 // 0x4dbe90: vector<TContentWindowSize>::vector(min, max, block) (Container.h).
@@ -592,16 +586,15 @@ bool TPreferences::SetMotD(const char *Text)
 void TPreferences::AddOpenChannel(int Identifier)
 {
 	PATELLA_ASSERT_VALUES(Identifier>=0, Identifier);
-	OpenChannels(NumberOfOpenChannels) = Identifier;
-	NumberOfOpenChannels++;
+	OpenChannels.push_back(Identifier);
 }
 
 // 0x4dce20, line 680. Index of the buddy entry, -1 if there is none.
 int TPreferences::FindBuddy(int CharacterID)
 {
 	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
-	for (int i = 0; i < NumberOfBuddyEntries; i++) {
-		if (Buddies(i).CharacterID == CharacterID)
+	for (int i = 0; i < std::ssize(Buddies); i++) {
+		if (Buddies[static_cast<std::size_t>(i)].CharacterID == CharacterID)
 			return i;
 	}
 	return -1;
@@ -613,10 +606,8 @@ void TPreferences::SetBuddy(int CharacterID, int Icon, const char *Description, 
 	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	PATELLA_ASSERT(Description!=NULL);
 	PATELLA_ASSERT_VALUES(strlen(Description)<BUDDYDESCRIPTION_LENGTH, strlen(Description));
-	int Number = FindBuddy(CharacterID);
-	if (Number == -1)
-		Number = NumberOfBuddyEntries++;
-	TBuddy *Buddy = &Buddies(Number);
+	const int Number = FindBuddy(CharacterID);
+	TBuddy *Buddy = Number == -1 ? &Buddies.emplace_back() : &Buddies[static_cast<std::size_t>(Number)];
 	Buddy->CharacterID = CharacterID;
 	Buddy->Icon = Icon;
 	Buddy->Description.Assign(Description);
@@ -629,7 +620,7 @@ void TPreferences::DeleteBuddy(int CharacterID)
 	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
 	const int Number = FindBuddy(CharacterID);
 	if (Number != -1)
-		Buddies(Number).CharacterID = 0;
+		Buddies[static_cast<std::size_t>(Number)].CharacterID = 0;
 }
 
 // 0x4dd4c0, line 722
@@ -639,7 +630,7 @@ int TPreferences::GetBuddyIcon(int CharacterID)
 	const int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		return 0;
-	return Buddies(Number).Icon;
+	return Buddies[static_cast<std::size_t>(Number)].Icon;
 }
 
 // 0x4dd640, line 733. NULL for an unknown character.
@@ -649,7 +640,7 @@ const char *TPreferences::GetBuddyDescription(int CharacterID)
 	const int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		return nullptr;
-	BuddyDescription = Buddies(Number).DescriptionText();
+	BuddyDescription = Buddies[static_cast<std::size_t>(Number)].DescriptionText();
 	return BuddyDescription;
 }
 
@@ -660,7 +651,7 @@ bool TPreferences::GetBuddyNotify(int CharacterID)
 	const int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		return false;
-	return Buddies(Number).Notify;
+	return Buddies[static_cast<std::size_t>(Number)].Notify;
 }
 
 // 0x4dd940, line 825
@@ -771,12 +762,15 @@ void TPreferences::ReadTibiaCfg(TTalkLists &Lists)
 			if (strcmp(Identifier, "automapzoom") == 0)
 				AutomapZoom = Script.readNumber();
 			if (strcmp(Identifier, "contentwindow") == 0) {
+				// Appended when it is complete; the original wrote the entry in place and counted it then (an error on
+				// the way resets the options, SetDefaultPreferences, so a partial entry was never read; issue #100).
+				TContentWindowSize Entry{};
 				Script.readSymbol('(');
-				ContentWindows(NumberOfContentWindows).ID = Script.readNumber();
+				Entry.ID = Script.readNumber();
 				Script.readSymbol(',');
-				ContentWindows(NumberOfContentWindows).Size = Script.readNumber();
+				Entry.Size = Script.readNumber();
 				Script.readSymbol(')');
-				NumberOfContentWindows++;
+				ContentWindows.push_back(Entry);
 			}
 			if (strcmp(Identifier, "buddysortmethods") == 0) {
 				Script.readSymbol('(');
@@ -820,8 +814,7 @@ void TPreferences::ReadTibiaCfg(TTalkLists &Lists)
 			if (strcmp(Identifier, "privatemessages") == 0)
 				PrivateMessages = strcmp(Script.readIdentifier(), "yes") == 0;
 			if (strcmp(Identifier, "openchannel") == 0) {
-				OpenChannels(NumberOfOpenChannels) = Script.readNumber();
-				NumberOfOpenChannels++;
+				OpenChannels.push_back(Script.readNumber());
 			}
 			if (strcmp(Identifier, "classiccontrol") == 0)
 				ClassicControl = strcmp(Script.readIdentifier(), "yes") == 0;
@@ -840,18 +833,20 @@ void TPreferences::ReadTibiaCfg(TTalkLists &Lists)
 				// The description is copied without a length limit: a description of 128 characters is kept
 				// whole, its NUL in Notify, set below; one of 132 or more wrote past the entry in the original
 				// (undefined), cut to 131 characters here (issues #57, #85).
+				// Appended when it is complete, as a ContentWindow's entry.
+				TBuddy Buddy{};
 				Script.readSymbol('(');
-				Buddies(NumberOfBuddyEntries).CharacterID = Script.readNumber();
+				Buddy.CharacterID = Script.readNumber();
 				Script.readSymbol(',');
-				Buddies(NumberOfBuddyEntries).Icon = Script.readNumber();
+				Buddy.Icon = Script.readNumber();
 				Script.readSymbol(',');
 				const char *Description = Script.readString();
-				Buddies(NumberOfBuddyEntries).AssignDescriptionRead(Description);
+				Buddy.AssignDescriptionRead(Description);
 				Script.readSymbol(',');
 				const char *Notify = Script.readIdentifier();
-				Buddies(NumberOfBuddyEntries).Notify = strcmp(Notify, "yes") == 0;
+				Buddy.Notify = strcmp(Notify, "yes") == 0;
 				Script.readSymbol(')');
-				NumberOfBuddyEntries++;
+				Buddies.push_back(Buddy);
 			}
 			if (strcmp(Identifier, "white") == 0) {
 				Script.readSymbol('{');
@@ -880,8 +875,7 @@ void TPreferences::ReadTibiaCfg(TTalkLists &Lists)
 					if (Script.Token == TOKEN::SPECIAL && Script.getSpecial() == '}')
 						break;
 					if (Script.Token != TOKEN::SPECIAL || Script.getSpecial() != ',') {
-						KnownHints(NumberOfKnownHints) = Script.getNumber();
-						NumberOfKnownHints++;
+						KnownHints.push_back(Script.getNumber());
 					}
 				}
 			}
@@ -913,7 +907,7 @@ void TPreferences::ReadTibiaCfg(TTalkLists &Lists)
 // 0x4de890 (SavePreferences in the original). Writes Tibia.cfg, only after the
 // options were loaded (ReadTibiaCfg or InitPreferences); errors are
 // ignored. Odd behaviour kept: one counter serves all loops, and the White
-// list does not reset it, so it starts at NumberOfBuddyEntries and writes a
+// list does not reset it, so it starts at the number of buddy entries and writes a
 // ',' before its first entry when there were buddies. SkillBars writes ','
 // before every skill above 0, also when nothing came before it. Deleted
 // buddies (CharacterID 0) are skipped. The fourth FullscreenMode value is
@@ -996,11 +990,11 @@ void TPreferences::WriteTibiaCfg(TTalkLists &Lists)
 		Script.writeText("AutomapZoom = ");
 		Script.writeNumber(AutomapZoom);
 		Script.writeLn();
-		for (i = 0; i < NumberOfContentWindows; i++) {
+		for (const TContentWindowSize &Entry : ContentWindows) {
 			Script.writeText("ContentWindow = (");
-			Script.writeNumber(ContentWindows(i).ID);
+			Script.writeNumber(Entry.ID);
 			Script.writeText(",");
-			Script.writeNumber(ContentWindows(i).Size);
+			Script.writeNumber(Entry.Size);
 			Script.writeText(")");
 			Script.writeLn();
 		}
@@ -1038,9 +1032,9 @@ void TPreferences::WriteTibiaCfg(TTalkLists &Lists)
 		Script.writeText("PrivateMessages = ");
 		Script.writeText(PrivateMessages ? "yes" : "no");
 		Script.writeLn();
-		for (i = 0; i < NumberOfOpenChannels; i++) {
+		for (const int Channel : OpenChannels) {
 			Script.writeText("OpenChannel = ");
-			Script.writeNumber(OpenChannels(i));
+			Script.writeNumber(Channel);
 			Script.writeLn();
 		}
 		Script.writeText("ClassicControl = ");
@@ -1058,17 +1052,19 @@ void TPreferences::WriteTibiaCfg(TTalkLists &Lists)
 		Script.writeText("SecureMode = ");
 		Script.writeNumber(SecureMode);
 		Script.writeLn();
-		for (i = 0; i < NumberOfBuddyEntries; i++) {
-			if (Buddies(i).CharacterID == 0)
+		// i ends at the number of entries, the deleted ones included: the White list counts on from there.
+		for (i = 0; i < std::ssize(Buddies); i++) {
+			const TBuddy &Buddy = Buddies[static_cast<std::size_t>(i)];
+			if (Buddy.CharacterID == 0)
 				continue;
 			Script.writeText("Buddy = (");
-			Script.writeNumber(Buddies(i).CharacterID);
+			Script.writeNumber(Buddy.CharacterID);
 			Script.writeText(",");
-			Script.writeNumber(Buddies(i).Icon);
+			Script.writeNumber(Buddy.Icon);
 			Script.writeText(",");
-			Script.writeString(Buddies(i).DescriptionText());
+			Script.writeString(Buddy.DescriptionText());
 			Script.writeText(",");
-			Script.writeText(Buddies(i).Notify ? "yes" : "no");
+			Script.writeText(Buddy.Notify ? "yes" : "no");
 			Script.writeText(")");
 			Script.writeLn();
 		}
@@ -1110,10 +1106,10 @@ void TPreferences::WriteTibiaCfg(TTalkLists &Lists)
 		Script.writeText("}");
 		Script.writeLn();
 		Script.writeText("KnownHints = {");
-		for (i = 0; i < NumberOfKnownHints; i++) {
+		for (i = 0; i < std::ssize(KnownHints); i++) {
 			if (i > 0)
 				Script.writeText(",");
-			Script.writeNumber(KnownHints(i));
+			Script.writeNumber(KnownHints[static_cast<std::size_t>(i)]);
 		}
 		Script.writeText("}");
 		Script.writeLn();
@@ -1170,8 +1166,8 @@ patella::settings::TPreferenceValues TPreferences::GetPreferenceValues(TTalkList
 	Values.WindowedMaximized = WindowedMaximized;
 	Values.ConsoleHeight = ConsoleHeight;
 	Values.AutomapZoom = AutomapZoom;
-	for (int i = 0; i < NumberOfContentWindows; i++)
-		Values.ContentWindows.push_back({ContentWindows(i).ID, ContentWindows(i).Size});
+	for (const TContentWindowSize &Entry : ContentWindows)
+		Values.ContentWindows.push_back({Entry.ID, Entry.Size});
 	Values.BuddySortmethods = BuddySortmethods;
 	Values.BuddyHideOffline = BuddyHideOffline;
 	for (int i = 0; i < NumberOfOpenDialogs; i++)
@@ -1182,15 +1178,13 @@ patella::settings::TPreferenceValues TPreferences::GetPreferenceValues(TTalkList
 	Values.StatusMessages = StatusMessages;
 	Values.TimeStamps = TimeStamps;
 	Values.PrivateMessages = PrivateMessages;
-	for (int i = 0; i < NumberOfOpenChannels; i++)
-		Values.OpenChannels.push_back(OpenChannels(i));
+	Values.OpenChannels = OpenChannels;
 	Values.ClassicControl = ClassicControl;
 	Values.AutoChaseOff = AutoChaseOff;
 	Values.AttackMode = AttackMode;
 	Values.ChaseMode = ChaseMode;
 	Values.SecureMode = SecureMode;
-	for (int i = 0; i < NumberOfBuddyEntries; i++) {
-		const TBuddy &Buddy = Buddies(i);
+	for (const TBuddy &Buddy : Buddies) {
 		if (Buddy.CharacterID == 0)
 			continue;
 		Values.Buddies.push_back({Buddy.CharacterID, Buddy.Icon, std::string(Buddy.Description.View()), Buddy.Notify});
@@ -1212,8 +1206,7 @@ patella::settings::TPreferenceValues TPreferences::GetPreferenceValues(TTalkList
 	};
 	Values.White = Names(Lists.GetBuddyIgnoreText(), &TTalkLists::IsPermanentBuddyIgnore);
 	Values.Ignore = Names(Lists.GetIgnoreListText(), &TTalkLists::IsPermanentIgnore);
-	for (int i = 0; i < NumberOfKnownHints; i++)
-		Values.KnownHints.push_back(KnownHints(i));
+	Values.KnownHints = KnownHints;
 	Values.ShowNewHints = ShowNewHints;
 	Values.LevelBar = LevelBar;
 	Values.MagLevelBar = MagLevelBar;
@@ -1254,11 +1247,8 @@ void TPreferences::SetPreferenceValues(const patella::settings::TPreferenceValue
 	WindowedMaximized = Values.WindowedMaximized;
 	ConsoleHeight = Values.ConsoleHeight;
 	AutomapZoom = Values.AutomapZoom;
-	for (const patella::settings::TContentWindowValue &Entry : Values.ContentWindows) {
-		ContentWindows(NumberOfContentWindows).ID = Entry.ID;
-		ContentWindows(NumberOfContentWindows).Size = Entry.Size;
-		NumberOfContentWindows++;
-	}
+	for (const patella::settings::TContentWindowValue &Entry : Values.ContentWindows)
+		ContentWindows.push_back({Entry.ID, Entry.Size});
 	BuddySortmethods = Values.BuddySortmethods;
 	BuddyHideOffline = Values.BuddyHideOffline;
 	for (const int Dialog : Values.OpenDialogs) {
@@ -1281,31 +1271,24 @@ void TPreferences::SetPreferenceValues(const patella::settings::TPreferenceValue
 	StatusMessages = Values.StatusMessages;
 	TimeStamps = Values.TimeStamps;
 	PrivateMessages = Values.PrivateMessages;
-	for (const int Channel : Values.OpenChannels) {
-		OpenChannels(NumberOfOpenChannels) = Channel;
-		NumberOfOpenChannels++;
-	}
+	OpenChannels.insert(OpenChannels.end(), Values.OpenChannels.begin(), Values.OpenChannels.end());
 	ClassicControl = Values.ClassicControl;
 	AutoChaseOff = Values.AutoChaseOff;
 	AttackMode = Values.AttackMode;
 	ChaseMode = Values.ChaseMode;
 	SecureMode = Values.SecureMode;
 	for (const patella::settings::TBuddyValue &Entry : Values.Buddies) {
-		TBuddy &Buddy = Buddies(NumberOfBuddyEntries);
+		TBuddy &Buddy = Buddies.emplace_back();
 		Buddy.CharacterID = Entry.CharacterID;
 		Buddy.Icon = Entry.Icon;
 		Buddy.AssignDescriptionRead(Entry.Description.c_str());
 		Buddy.Notify = Entry.Notify;
-		NumberOfBuddyEntries++;
 	}
 	for (const std::string &Name : Values.White)
 		Lists.AddBuddyIgnore(Name.c_str(), true);
 	for (const std::string &Name : Values.Ignore)
 		Lists.IgnoreName(Name.c_str(), true);
-	for (const int Hint : Values.KnownHints) {
-		KnownHints(NumberOfKnownHints) = Hint;
-		NumberOfKnownHints++;
-	}
+	KnownHints.insert(KnownHints.end(), Values.KnownHints.begin(), Values.KnownHints.end());
 	ShowNewHints = Values.ShowNewHints;
 	LevelBar = Values.LevelBar;
 	MagLevelBar = Values.MagLevelBar;
