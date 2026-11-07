@@ -81,6 +81,43 @@ list(APPEND PATELLA_WARNING_BASELINE_CLANG
 	src/Network.cpp
 	src/Objects.cpp)
 
+# Issue #111: the files that joined patella_core, measured then (GCC 16.2 and Clang 22.1 in the image, Release, the
+# full level without -Werror; notes/decisions.md, "#111"). GCC: -Wshadow (the windows' SetSize(Width, Height) and
+# constructor parameters named as their members) and -Wconversion. Clang: -Wsign-conversion, -Wshadow,
+# -Wunnecessary-virtual-specifier (virtual members of final classes); the window headers that warn so are on it too.
+list(APPEND PATELLA_WARNING_BASELINE_GCC
+	src/ConsoleWindow.cpp
+	src/ContentWindows.cpp
+	src/ContextMenus.cpp
+	src/DialogElements.cpp
+	src/DialogWindow.cpp
+	src/Dialogs.cpp
+	src/GUI.cpp
+	src/MainWindow.cpp
+	src/MapWindow.cpp)
+list(APPEND PATELLA_WARNING_BASELINE_CLANG
+	src/Client.cpp
+	src/ConsoleWindow.cpp
+	src/ContentWindows.cpp
+	src/ContextMenus.cpp
+	src/Control.cpp
+	src/DialogElements.cpp
+	src/DialogWindow.cpp
+	src/Dialogs.cpp
+	src/GUI.cpp
+	src/MainWindow.cpp
+	src/MapWindow.cpp
+	src/Preferences.cpp
+	src/Script.cpp
+	src/Status.cpp
+	src/Talk.cpp
+	src/graphics.cpp
+	src/ConsoleWindow.h
+	src/ContentWindows.h
+	src/DialogElements.h
+	src/DialogWindow.h
+	src/Dialogs.h
+	src/MapWindow.h)
 # C++23 with the conformance switches. MSVC has no /std:c++23 yet, so /std:c++latest; GCC and Clang
 # compile as C++26, whose features the code reaches only through src/compat/cxx26.h (issue #9). The
 # targets do not set CXX_STANDARD, which would add a second standard flag. The C sources (the regexp,

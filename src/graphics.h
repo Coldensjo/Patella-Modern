@@ -32,11 +32,14 @@
 
 struct TObject; // Objects.h, passed to DrawObject
 
-inline constexpr int PATH_MAX = 1024;
+// The original's PATH_MAX (its assertions' name); GRAPHICS_PATH_MAX since issue #111: mingw-w64's and the Linux
+// headers define PATH_MAX as a macro.
+inline constexpr int GRAPHICS_PATH_MAX = 1024;
 inline constexpr int HASH_TABLE_SIZE = 100;
 
-// Kinds of cache items. Pictures and font characters are both PICTURE_ITEM.
-enum : int {
+// Kinds of cache items. Pictures and font characters are both PICTURE_ITEM. An unscoped int enum: the items' Type is an
+// int (as Objects.h's flags and Talk.h's modes, #110).
+enum : int { // NOLINT(cppcoreguidelines-use-enum-class)
 	EMPTY_ITEM = 0,
 	SPRITE_ITEM = 1,
 	PICTURE_ITEM = 2,
@@ -88,7 +91,13 @@ struct TMemoryCacheItem {
 
 // A tile on a cache surface (0x5c bytes). Masked sprites (outfits) keep the
 // mask and four colours, pictures the tile, font characters the tile and the
-// text colour, in the same place.
+// text colour, in the same place. Tile's type is unnamed inside an anonymous union, an extension of every compiler
+// here that Clang's -Wpedantic names (-Wnested-anon-types): allowed for this structure alone since patella_core
+// compiles graphics.h (issue #111), as Map.h's TEffect.
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnested-anon-types"
+#endif
 struct TVideoCacheItem {
 	TVideoCacheItem();
 	int Surface; // +0x00, cache surface; the engine's surface number is Surface+6
@@ -115,6 +124,9 @@ struct TVideoCacheItem {
 	int HashNext;     // +0x54
 	int HashValue;    // +0x58
 };
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 // TGraphics (issue #116, M7; notes/decisions.md, "#104: TClient and the subsystem objects" and "#116"), the fifth of
 // TClient's subsystems: graphics.cpp's data and functions (its members of the same names; the free functions below
@@ -153,8 +165,8 @@ public:
 	void InitMemoryCache(int MemoryCacheBytes);
 	void ClearMemoryCache();
 	void TouchMemoryItem(int Position);
-	int FindMemorySprite(int SpriteNumber) const;
-	int FindMemoryPicture(int PictureNumber, int TileX, int TileY) const;
+	[[nodiscard]] int FindMemorySprite(int SpriteNumber) const;
+	[[nodiscard]] int FindMemoryPicture(int PictureNumber, int TileX, int TileY) const;
 	void RemoveMemoryItem(int Position);
 	void InsertMemoryItem(int Position, int HashValue);
 	TMemoryCacheItem *GetMemorySprite(int SpriteNumber);
@@ -162,10 +174,10 @@ public:
 
 	// The video cache.
 	void TouchVideoItem(int Position);
-	int FindVideoSprite(int SpriteNumber) const;
+	[[nodiscard]] int FindVideoSprite(int SpriteNumber) const;
 	int FindVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColor *Colors) const;
-	int FindVideoPicture(int PictureNumber, int TileX, int TileY) const;
-	int FindVideoFontChar(int PictureNumber, int TileX, int TileY, TRGBColor Color) const;
+	[[nodiscard]] int FindVideoPicture(int PictureNumber, int TileX, int TileY) const;
+	[[nodiscard]] int FindVideoFontChar(int PictureNumber, int TileX, int TileY, TRGBColor Color) const;
 	void RemoveVideoItem(int Position);
 	void InsertVideoItem(int Position, int HashValue);
 	TVideoCacheItem *GetVideoSprite(int SpriteNumber);
@@ -206,8 +218,8 @@ public:
 	void PrintFormattedText(int Surface, int x, int y, TFont Format, const char *Text);
 	void PrintFormattedTextClipped(int Surface, int x, int y, TFont Format, const char *Text, TRect Clip);
 	void PrintFormattedTextPart(int Surface, int x, int y, TFont Format, const char *Text, int Length);
-	int GetFontLineHeight(int FontNumber) const;
-	int GetFontHeight(int FontNumber) const;
+	[[nodiscard]] int GetFontLineHeight(int FontNumber) const;
+	[[nodiscard]] int GetFontHeight(int FontNumber) const;
 	int GetTextHeight(int FontNumber, const char *Text) const;
 	int GetTextWidth(int FontNumber, const char *Text) const;
 	int GetTextPartWidth(int FontNumber, const char *Text, int Length) const;
@@ -224,10 +236,10 @@ public:
 	int NumberOfFonts{};                                // 0x5cc750
 	int NumberOfPictures{};                             // 0x5cc754
 	uint32 PictureSignature{};                          // 0x5cc758
-	TFixedString<PATH_MAX> PictureFileName{};           // 0x5cc760
+	TFixedString<GRAPHICS_PATH_MAX> PictureFileName{};  // 0x5cc760
 	int NumberOfSprites{};                              // 0x5ccb60
 	uint32 SpriteSignature{};                           // 0x5ccb64
-	TFixedString<PATH_MAX> SpriteFileName{};            // 0x5ccb68
+	TFixedString<GRAPHICS_PATH_MAX> SpriteFileName{};   // 0x5ccb68
 	int LeastRecentMemoryItem{};                        // 0x5ccf68, tail of the memory cache's LRU list
 	int MostRecentMemoryItem{};                         // 0x5ccf6c, head
 	int MemoryCacheSize{};                              // 0x5ccf70

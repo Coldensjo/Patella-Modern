@@ -25,10 +25,19 @@
 #	                      the game state (TMapState's TObjectTypes, TMap, TCreatures and TPlayerState, TInventory;
 #	                      issue #110)
 #
-# Since issue #110 the library's objects may call the client's files that are not in it yet (Status.cpp, Talk.cpp,
-# Help.cpp, Preferences.cpp, graphics.cpp, GUI.cpp, sysinc.cpp, Script.cpp, Client.cpp's bridge): their headers are
-# portable (the core header list, cmake/HeaderCheck.cmake), their code moves with #111. What links the library's
-# objects links those too (the client compiles all of them itself; the unit tests use only the self-contained ones).
+#	Preferences.cpp, Status.cpp, Talk.cpp, Help.cpp, Script.cpp, sysinc.cpp, graphics.cpp, Client.cpp
+#	                      the preferences, the session and the messages, the consoles, the hints, the script and
+#	                      binary files, the error texts, the sprite and picture caches, the one TClient (issue #111)
+#	GUI.cpp, DialogWindow.cpp, DialogElements.cpp, Dialogs.cpp, ContentWindows.cpp, ContextMenus.cpp,
+#	ConsoleWindow.cpp, MapWindow.cpp, MainWindow.cpp, Control.cpp
+#	                      the GUI's logic, the windows and the dialogs, and the main loop's control (issue #111)
+#
+# Since issue #111 (plan M7's exit) the library is everything but the platform layer: SdlFrame.cpp (the SDL3 window
+# and event loop, issue #122), MainFrm.cpp and Player.cpp (the MFC frame and the application), Surface.cpp (the engine selection, which makes the Vulkan engine's surface),
+# platform/Win32Platform.cpp, src/vulkan and the test mode's Windows files. Drawing goes through TSurface (platform/
+# Surface.h); the library's objects call the platform through platform::Platform(), GetSurface and
+# SurfaceExitInstance (Surface.h), and the graphics device choice of vulkan/DeviceSettings.h and DeviceChoice.h
+# (Dialogs.cpp's advanced options and Control.cpp's ChangeEngine): what links the library's GUI objects links those.
 #
 # PATELLA_CORE (common.h) leaves out MFC and the Windows headers, so no core source can use them
 # (plan section 8). The client (cmake/WindowsX64.cmake) and the oracle still compile these sources
@@ -56,6 +65,26 @@ list(APPEND patella_core_sources
 	src/Map.cpp
 	src/Creatures.cpp
 	src/Inventory.cpp)
+# Issue #111 (plan M7): the preferences, the client's state, the GUI's logic, the windows and the dialogs.
+list(APPEND patella_core_sources
+	src/Preferences.cpp
+	src/Status.cpp
+	src/Talk.cpp
+	src/Help.cpp
+	src/Script.cpp
+	src/sysinc.cpp
+	src/graphics.cpp
+	src/Client.cpp
+	src/GUI.cpp
+	src/DialogWindow.cpp
+	src/DialogElements.cpp
+	src/Dialogs.cpp
+	src/ContentWindows.cpp
+	src/ContextMenus.cpp
+	src/ConsoleWindow.cpp
+	src/MapWindow.cpp
+	src/MainWindow.cpp
+	src/Control.cpp)
 list(TRANSFORM patella_core_sources PREPEND "${PROJECT_SOURCE_DIR}/")
 
 add_library(patella_core STATIC ${patella_core_sources})

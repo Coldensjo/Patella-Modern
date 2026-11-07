@@ -172,6 +172,14 @@ checked on Windows and Linux with the strictest analysers. *Why it matters:* the
 depends on Windows, which is half of what M7 set out to do; the preferences and the interface's logic follow in
 #111.
 
+**The whole game, without Windows, in the portable library (#111).**
+The rest of the game followed: the settings, the chat consoles, the hints, the picture caches and the whole interface
+(every window, dialog, button and list, and the code that runs the game's main loop) now build inside `patella_core`.
+The library grew from about 12,300 to about 38,700 lines and now holds everything except the "platform layer", the
+small part that opens the window, draws with the graphics card and talks to Windows. A test proves that the library
+needs nothing else. *Why it matters:* this is M7's goal reached: the game itself no longer depends on Windows, so
+replacing the platform layer (M8, with SDL3) is all it takes to run it on Linux.
+
 **Test replays without network ports (#120).**
 The test client used to replay a recorded server over real network ports, so two test runs at once would collide.
 The replay now runs inside the program, so many runs can happen side by side.

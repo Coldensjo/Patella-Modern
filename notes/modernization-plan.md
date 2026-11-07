@@ -662,6 +662,11 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   game state (Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp) are patella_core's sources, without MFC or a Windows
   header, on Windows and Linux (no stand-in of tests/golden/linux); the files they call (Status, Talk, Help,
   Preferences, Script, sysinc, graphics, the bridge) have portable headers and move with #111.
+  Done in #111 (notes/decisions.md, "#111"), M7's exit: the preferences, the session and consoles, the script files,
+  the caches, the bridge, the GUI's logic, the windows, the dialogs and Control.cpp are patella_core's too; the library
+  is the client but the platform layer (MainFrm.cpp, Player.cpp, Surface.cpp, the Win32 platform, src/vulkan, the test
+  mode's Windows files), and needs of it only Platform(), GetSurface, SurfaceExitInstance and the device choice
+  (tests_core_link). The client and the golden runner still compile the sources themselves.
 - **Text encoding:** the 7.72 protocol and files use the client's 8-bit code page (Latin-1 / Windows-1252).
   Internally, decide (D4) between keeping 8-bit text (simplest, closest to the original) and UTF-8 with
   conversion at the protocol and file boundaries. The platform layer converts in either case: SDL3 and Linux

@@ -43,9 +43,15 @@
 #include "GUI.h"
 #include "common.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <utility>
+
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory off for the file:
+// the original's malloc'd entries and texts, freed by their lists; the original's raw owners (notes/ownership.md):
+// the window tree owns its children, the message queue its blocks, the lists their entries
+// NOLINTBEGIN(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)
 
 // The .bss before NoCallback (OpenURLCallback 0x5d16a0, SetDisplayModeCallback 0x5d16a4, ExitProgramCallback 0x5d16a8,
 // ModalWindow 0x5d16ac, MainWindow 0x5d16b0) is TGUI's (GUI.h, issue #107).
@@ -54,6 +60,7 @@ namespace {
 
 // At 0x5d16b4, constructed by the static initialiser 0x559f30 as
 // TCallback(NULL, 0) and never used (MapWindow.cpp has one too).
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's global; TCallback's constructor (GUI.cpp) stores two values
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
@@ -221,9 +228,12 @@ void TMainWindow::KeyPress(int Key)
 // windows; 0xe, 0xf and 0x16 open or close the skill, battle and VIP
 // windows; 0x1d gives up a connection; 0x1f8 switches between windowed and
 // fullscreen mode (a fullscreen mode below 640x480 is raised to it first).
+// GCC's analyzer (issue #111): the message queue owns the block it gets as an integer (AddMessage; the message's handler deletes it).
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-malloc-leak\"")
 void TMainWindow::HandleEvent(int Event)
 {
-	patella::TGUI &GUI = patella::bridge::GUI();
+	const patella::TGUI &GUI = patella::bridge::GUI();
 	switch (Event) {
 	case 0x21:
 		CopyTaintedClipboardText();
@@ -260,7 +270,7 @@ void TMainWindow::HandleEvent(int Event)
 		break;
 	case 0x17: {
 		TContentWindow *OldWindow = SidePanel->GetContentWindow(1);
-		PATELLA_ASSERT(OldWindow!=NULL);
+		PATELLA_ASSERT(OldWindow!=nullptr);
 		SidePanel->InsertChildAfter(OldWindow, CreateSmallInventoryWindow(this));
 		SidePanel->DeleteChild(OldWindow);
 		SidePanel->Rearrange(32, nullptr);
@@ -270,7 +280,7 @@ void TMainWindow::HandleEvent(int Event)
 	}
 	case 0x18: {
 		TContentWindow *OldWindow = SidePanel->GetContentWindow(2);
-		PATELLA_ASSERT(OldWindow!=NULL);
+		PATELLA_ASSERT(OldWindow!=nullptr);
 		SidePanel->InsertChildAfter(OldWindow, CreateInventoryWindow(this));
 		SidePanel->DeleteChild(OldWindow);
 		SidePanel->Rearrange(32, nullptr);
@@ -317,12 +327,12 @@ void TMainWindow::HandleEvent(int Event)
 		break;
 	case 0x1fb: {
 		// A question with an answer event; message 6 deletes the block.
-		INT_PTR *Data = new INT_PTR[4];
-		Data[0] = reinterpret_cast<INT_PTR>("Warning");
-		Data[1] = reinterpret_cast<INT_PTR>("Are you sure you want to leave Tibia?");
-		Data[2] = reinterpret_cast<INT_PTR>(this);
+		std::intptr_t *Data = new std::intptr_t[4];
+		Data[0] = reinterpret_cast<std::intptr_t>("Warning");
+		Data[1] = reinterpret_cast<std::intptr_t>("Are you sure you want to leave Tibia?");
+		Data[2] = reinterpret_cast<std::intptr_t>(this);
 		Data[3] = 0x1fa;
-		AddMessage(6, reinterpret_cast<INT_PTR>(Data), 0);
+		AddMessage(6, reinterpret_cast<std::intptr_t>(Data), 0);
 		break;
 	}
 	case 0x1fd:
@@ -354,8 +364,11 @@ void TMainWindow::HandleEvent(int Event)
 	case 802:
 		patella::TGUI::ChangeEngine(1); // Control.cpp's (issue #118)
 		break;
+	default:
+		break;
 	}
 }
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 
 // 0x4af5e0, line 463. Rebuilds the window for the game (InGame) or for the
 // start window. The open sub-windows are stored in the preferences first and
@@ -416,6 +429,8 @@ void TMainWindow::ChangeMode(bool InGame)
 			case 5:
 				SidePanel->InsertChild(new TButtonsWindow(DialogWindow, this));
 				HaveButtons = true;
+				break;
+			default:
 				break;
 			}
 		}
@@ -536,6 +551,8 @@ void TMainWindow::Walk(int dx, int dy, bool Diagonal)
 	case 2:
 		SendStop();
 		break;
+	default:
+		break;
 	}
 }
 
@@ -544,9 +561,14 @@ void TMainWindow::Walk(int dx, int dy, bool Diagonal)
 // the top, its counts, icon, title and "up" button; ContentWindows.cpp) and,
 // while it is minimized, the window gets the name and the object of the
 // container and the "up" state of a container that has a parent here.
+// GCC's analyzer (Debug, issue #111) takes SkinProperties()' styles, set by InitSkinProperties, as uninitialized, and
+// the title and icon SetTitle and SetIcon take as leaks (the window owns them).
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-use-of-uninitialized-value\"")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-malloc-leak\"")
 void TMainWindow::OpenContainer(int Container) const
 {
-	PATELLA_ASSERT(DialogWindow!=NULL);
+	PATELLA_ASSERT(DialogWindow!=nullptr);
 	TSubWindow *Window = static_cast<TSubWindow *>(DialogWindow->GetContentWindow(Container + 0x40));
 	if (Window == nullptr) {
 		DialogWindow->Rearrange(16, CreateContainerWindow(Container));
@@ -564,6 +586,7 @@ void TMainWindow::OpenContainer(int Container) const
 			Window->HideUpButton();
 	}
 }
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 
 // 0x4acdb0, line 552
 void TMainWindow::CloseContainer(int Container) const
@@ -578,7 +601,7 @@ void TMainWindow::CloseContainer(int Container) const
 // 0x4afec0, lines 560-565. Both assertions come before the try block.
 void TMainWindow::OpenTrade() const
 {
-	PATELLA_ASSERT(DialogWindow!=NULL);
+	PATELLA_ASSERT(DialogWindow!=nullptr);
 	PATELLA_ASSERT(!DialogWindow->hasContentWindow(TRADE_WINDOW));
 	OpenContentWindow(TRADE_WINDOW);
 }
@@ -589,7 +612,7 @@ void TMainWindow::UpdateTrade() const
 {
 	const TSubWindow *Window = static_cast<TSubWindow *>(DialogWindow->GetContentWindow(TRADE_WINDOW));
 	if (Window != nullptr) {
-		PATELLA_ASSERT(Window->getBody()!=NULL);
+		PATELLA_ASSERT(Window->getBody()!=nullptr);
 		Window->getBody()->HandleEvent(0x15);
 	}
 }
@@ -688,7 +711,7 @@ void TStartWindow::SetSize(int Width, int Height)
 // 0x4ae030, line 731. The buttons work only while there is no connection.
 void TStartWindow::HandleEvent(int Event)
 {
-	patella::TGUI &GUI = patella::bridge::GUI();
+	const patella::TGUI &GUI = patella::bridge::GUI();
 	if (GetConnectionState() != 0)
 		return;
 	switch (Event) {
@@ -706,6 +729,8 @@ void TStartWindow::HandleEvent(int Event)
 		break;
 	case 0x1fc:
 		GUI.OpenURLCallback(TextAccountURL);
+		break;
+	default:
 		break;
 	}
 }
@@ -786,3 +811,4 @@ void InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisp
 {
 	patella::bridge::GUI().InitMainWindow(Width, Height, ExitProgram, SetDisplayMode, OpenURL);
 }
+// NOLINTEND(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)

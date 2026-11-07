@@ -43,6 +43,11 @@
 #include <string_view>
 #include <vector>
 
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory off for the file:
+// the original's malloc'd entries and texts, freed by their lists; the original's raw owners (notes/ownership.md):
+// the window tree owns its children, the message queue its blocks, the lists their entries
+// NOLINTBEGIN(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)
+
 
 // Patella.ini's keys have the same numbers of hotkeys and skills (issue #45).
 static_assert(HOTKEYS == patella::settings::PreferenceHotkeys && SKILLS == patella::settings::PreferenceSkills
@@ -541,7 +546,7 @@ bool TPreferences::IsKnownHint(int Hint)
 void TPreferences::SetHotkey(int Number, const char *Text, bool AutoSend)
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,HOTKEYS-1), Number);
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(Text)<HOTKEY_LENGTH, strlen(Text));
 	Hotkeys[Number].Assign(Text);
 	HotkeyAutoSend[Number] = AutoSend;
@@ -567,11 +572,11 @@ void TPreferences::AddOpenDialog(int Identifier)
 // nothing changes. Returns true when the number differs from the last one.
 bool TPreferences::SetMotD(const char *Text)
 {
-	PATELLA_ASSERT(Text != NULL);
+	PATELLA_ASSERT(Text != nullptr);
 	const char *Break = strchr(Text, '\n');
 	if (Break == nullptr)
 		return false;
-	const int Number = atoi(Text);
+	const int Number = atoi(Text); // NOLINT(bugprone-unchecked-string-to-number-conversion): the original's; no number is 0
 	const bool New = Number != LastMotD;
 	LastMotD = Number;
 	if (MotD != nullptr)
@@ -604,7 +609,7 @@ int TPreferences::FindBuddy(int CharacterID)
 void TPreferences::SetBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 {
 	PATELLA_ASSERT_VALUES(CharacterID!=0, CharacterID);
-	PATELLA_ASSERT(Description!=NULL);
+	PATELLA_ASSERT(Description!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(Description)<BUDDYDESCRIPTION_LENGTH, strlen(Description));
 	const int Number = FindBuddy(CharacterID);
 	TBuddy *Buddy = Number == -1 ? &Buddies.emplace_back() : &Buddies[static_cast<std::size_t>(Number)];
@@ -1136,7 +1141,7 @@ void TPreferences::WriteTibiaCfg(TTalkLists &Lists)
 		Script.writeNumber(Engine);
 		Script.writeLn();
 		Script.close();
-	} catch (TMyException &) {
+	} catch (TMyException &) { // NOLINT(bugprone-empty-catch): the original's; Tibia.cfg not written leaves the old file
 	}
 }
 
@@ -1791,3 +1796,4 @@ void ExitPreferences()
 {
 	patella::bridge::Preferences().ExitPreferences(patella::bridge::TalkLists());
 }
+// NOLINTEND(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)

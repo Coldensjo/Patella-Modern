@@ -41,13 +41,21 @@ public:
 	template <class U> explicit(false) TArrayNewAllocator(const TArrayNewAllocator<U> & /*Other*/) noexcept {}
 
 	T *allocate(std::size_t Count) { return static_cast<T *>(::operator new[](Count * sizeof(T))); }
-	void deallocate(T *Entries, std::size_t /*Count*/) noexcept { ::operator delete[](Entries); }
+	void deallocate(T *Entries, std::size_t /*Count*/) noexcept { ::operator delete[](static_cast<void *>(Entries)); }
 
-	// new T[n]'s initialisation of each entry; with arguments a plain construction.
+	// new T[n]'s initialisation of each entry; with arguments a plain construction. GCC's analyzer (issue #111) takes
+	// the null storage of a vector of no entries into the loop that constructs none (-Wanalyzer-null-dereference).
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wanalyzer-null-dereference"
+#endif
 	template <class U> void construct(U *Entry) noexcept(std::is_nothrow_default_constructible_v<U>)
 	{
 		::new (static_cast<void *>(Entry)) U;
 	}
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 	template <class U, class... A> void construct(U *Entry, A &&...Arguments)
 	{
 		::new (static_cast<void *>(Entry)) U(std::forward<A>(Arguments)...);
@@ -64,9 +72,10 @@ template <class T> inline void SwapIndexedEntries(T &A, T &B)
 {
 	if constexpr (std::is_trivially_copyable_v<T>) {
 		unsigned char Help[sizeof(T)];
-		std::memcpy(Help, &A, sizeof(T));
-		std::memcpy(&A, &B, sizeof(T));
-		std::memcpy(&B, Help, sizeof(T));
+		// The entries as bytes (a vector of pointers too: bugprone-bitwise-pointer-cast takes the copy for a cast).
+		std::memcpy(Help, static_cast<const void *>(&A), sizeof(T));
+		std::memcpy(static_cast<void *>(&A), static_cast<const void *>(&B), sizeof(T)); // NOLINT(bugprone-bitwise-pointer-cast): a copy of bytes
+		std::memcpy(static_cast<void *>(&B), Help, sizeof(T));
 	} else {
 		T Help = A;
 		A = B;

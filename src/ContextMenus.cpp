@@ -42,9 +42,13 @@
 #include "GUI.h"
 #include "common.h"
 #include "types/FixedString.h"
-#include <cstddef>
-#include <cstdio>
+#include <cstdint>
 #include <cstring>
+
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries; the original's varargs (TMultiStateButton's constructor, _snprintf)
+// NOLINTBEGIN(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)
 
 namespace {
 
@@ -53,6 +57,7 @@ namespace {
 // ContextMenus.obj's only datum, right after ContentWindows.obj's
 // NoCallback (0x5c4500, initialiser 0x559dd0) and before Control.obj's .bss
 // (0x5c4510).
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's global; TCallback's constructor (GUI.cpp) stores two values
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
@@ -73,7 +78,7 @@ TSkillContextMenu::~TSkillContextMenu()
 // is fitted twice: before and after it has laid itself out.
 THelpBubble::THelpBubble(const char *HelpText)
 {
-	PATELLA_ASSERT(HelpText!=NULL);
+	PATELLA_ASSERT(HelpText!=nullptr);
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
 	Text = new TFormattedText(HelpText);
@@ -364,7 +369,7 @@ void TContextMenu::Show(int x, int y, int ParentWidth, int ParentHeight)
 	if (GetLastChild() == nullptr)
 		AddEntry(0, "", nullptr);
 	TContextMenuEntry *LastEntry = static_cast<TContextMenuEntry *>(GetLastChild());
-	PATELLA_ASSERT(LastEntry!=NULL);
+	PATELLA_ASSERT(LastEntry!=nullptr);
 	LastEntry->SetLast();
 	FitToChildren(SkinProperties().Data0A0, true);
 	Arrange();
@@ -384,9 +389,9 @@ void TContextMenu::Show(int x, int y, int ParentWidth, int ParentHeight)
 // while the menu is empty.
 void TContextMenu::AddEntry(int Event, const char *Text, const char *Shortcut)
 {
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(Text)<50, strlen(Text));
-	PATELLA_ASSERT_VALUES(Shortcut==NULL || strlen(Shortcut)<20, strlen(Shortcut));
+	PATELLA_ASSERT_VALUES(Shortcut==nullptr || strlen(Shortcut)<20, strlen(Shortcut));
 	if (Separator && !Empty) {
 		AddSeparator();
 		Separator = false;
@@ -638,7 +643,7 @@ void TObjectContextMenu::HandleEvent(int Event)
 		if (Creature != nullptr && CheckAnyRight()) {
 			char *Name = new char[30];
 			TStringBuffer(Name, 30).Assign(Creature->Name);
-			AddMessage(0x1c, reinterpret_cast<INT_PTR>(Name), 0);
+			AddMessage(0x1c, reinterpret_cast<std::intptr_t>(Name), 0);
 		}
 		break;
 	}
@@ -803,7 +808,7 @@ void TCreatureContextMenu::HandleEvent(int Event)
 		if (Creature != nullptr && CheckAnyRight()) {
 			char *Name = new char[30];
 			TStringBuffer(Name, 30).Assign(Creature->Name);
-			AddMessage(0x1c, reinterpret_cast<INT_PTR>(Name), 0);
+			AddMessage(0x1c, reinterpret_cast<std::intptr_t>(Name), 0);
 		}
 		break;
 	}
@@ -863,7 +868,7 @@ void TBuddyContextMenu::HandleEvent(int Event)
 		if (Position != -1 && CheckAnyRight()) {
 			char *Name = new char[30];
 			TStringBuffer(Name, 30).Assign(GetBuddyListName(Position));
-			AddMessage(0x1c, reinterpret_cast<INT_PTR>(Name), 0);
+			AddMessage(0x1c, reinterpret_cast<std::intptr_t>(Name), 0);
 		}
 		break;
 	}
@@ -921,7 +926,7 @@ void TBuddyContextMenu::HandleEvent(int Event)
 TTextContextMenu::TTextContextMenu(TTextWindow *_TextWindow, int _LineNumber, int x, int y, int ParentWidth,
 	int ParentHeight)
 {
-	PATELLA_ASSERT(_TextWindow!=NULL);
+	PATELLA_ASSERT(_TextWindow!=nullptr);
 	PATELLA_ASSERT_VALUES(GetCreature(GetPlayerID()), GetPlayerID());
 	TextWindow = _TextWindow;
 	LineNumber = _LineNumber;
@@ -1033,10 +1038,12 @@ void TTextContextMenu::HandleEvent(int Event)
 				AddMessage(0x1c, 0, 0);
 			} else {
 				AddMessage(0x1c, 0,
-					reinterpret_cast<INT_PTR>(new TTalkLine(Line->StatementID, Line->Mode, Line->Addressee,
+					reinterpret_cast<std::intptr_t>(new TTalkLine(Line->StatementID, Line->Mode, Line->Addressee,
 						Line->Text, 0)));
 			}
 		}
+		break;
+	default:
 		break;
 	}
 }
@@ -1047,7 +1054,7 @@ void TTextContextMenu::HandleEvent(int Event)
 TRequestContextMenu::TRequestContextMenu(TConsoleWindow *_ConsoleWindow, int _LineNumber, int x, int y,
 	int ParentWidth, int ParentHeight)
 {
-	PATELLA_ASSERT(_ConsoleWindow!=NULL);
+	PATELLA_ASSERT(_ConsoleWindow!=nullptr);
 	ConsoleWindow = _ConsoleWindow;
 	LineNumber = _LineNumber;
 	TTalkLine *Line = ConsoleWindow->CurrentConsole->TextWindow->GetTalkLine(_LineNumber);
@@ -1077,7 +1084,7 @@ void TRequestContextMenu::HandleEvent(int Event)
 			Title.Format("{}'s Report", Name);
 			ConsoleWindow->OpenChannel(TALK_PLAYER_ANSWER, TALK_GAMEMASTER_ANSWER, Name, -1, Title);
 			TTalkBuffer *TextBuffer = GetTextBuffer(TALK_PLAYER_ANSWER, Name, -1);
-			PATELLA_ASSERT(TextBuffer!=NULL);
+			PATELLA_ASSERT(TextBuffer!=nullptr);
 			TextBuffer->Clear();
 			AddTextBufferLine(TextBuffer, Line->StatementID, Line->Text, TALK_PLAYER_ANSWER, Name, 0);
 			TextBuffer->SetWriteEnabled(true);
@@ -1095,8 +1102,10 @@ void TRequestContextMenu::HandleEvent(int Event)
 			break;
 		case 10023:
 			if (CheckAnyRight()) {
-				AddMessage(0x1c, 0, reinterpret_cast<INT_PTR>(new TTalkLine(Line->StatementID, Line->Mode, Name, Line->Text, 0)));
+				AddMessage(0x1c, 0, reinterpret_cast<std::intptr_t>(new TTalkLine(Line->StatementID, Line->Mode, Name, Line->Text, 0)));
 			}
+			break;
+		default:
 			break;
 		}
 	}
@@ -1110,10 +1119,10 @@ void TRequestContextMenu::HandleEvent(int Event)
 TChannelContextMenu::TChannelContextMenu(TConsoleWindow *_ConsoleWindow, int x, int y, int ParentWidth,
 	int ParentHeight)
 {
-	PATELLA_ASSERT(_ConsoleWindow!=NULL);
+	PATELLA_ASSERT(_ConsoleWindow!=nullptr);
 	ConsoleWindow = _ConsoleWindow;
 	TTalkBuffer *TextBuffer = ConsoleWindow->GetTextBuffer();
-	PATELLA_ASSERT(TextBuffer!=NULL);
+	PATELLA_ASSERT(TextBuffer!=nullptr);
 	if (!TextBuffer->isDefault()) {
 		if (TextBuffer->GetSelected() && TextBuffer->IsPrivateChannel()) {
 			AddEntry(10016, "Invite player", nullptr);
@@ -1150,11 +1159,11 @@ void TChannelContextMenu::HandleEvent(int Event)
 		ConsoleWindow->SetServerMessages(ShowServerMessages);
 		break;
 	case 10102:
-		ConsoleWindow->SaveChannel();
+		static_cast<void>(ConsoleWindow->SaveChannel()); // the original ignores whether it was saved
 		break;
 	case 10105: {
 		TTalkBuffer *TextBuffer = ConsoleWindow->GetTextBuffer();
-		PATELLA_ASSERT(TextBuffer!=NULL);
+		PATELLA_ASSERT(TextBuffer!=nullptr);
 		ClearTextBuffer(TextBuffer);
 		break;
 	}
@@ -1168,7 +1177,7 @@ void TChannelContextMenu::HandleEvent(int Event)
 // 0x444eb0, lines 1324-1349. The assertion comes before the try block.
 TEditContextMenu::TEditContextMenu(TEditLine *_Edit, int x, int y, int ParentWidth, int ParentHeight)
 {
-	PATELLA_ASSERT(_Edit!=NULL);
+	PATELLA_ASSERT(_Edit!=nullptr);
 	Edit = _Edit;
 	if (_Edit->SelectionStart != -1 && _Edit->SelectionLength != 0) {
 		if (!_Edit->ReadOnly)
@@ -1217,7 +1226,7 @@ void TEditContextMenu::HandleEvent(int Event)
 // menu keeps a copy of the data and deletes the original.
 TMarkContextMenu::TMarkContextMenu(TMarkMenuData *_Data, int x, int y, int ParentWidth, int ParentHeight)
 {
-	PATELLA_ASSERT(_Data!=NULL);
+	PATELLA_ASSERT(_Data!=nullptr);
 	Data = *_Data;
 	if (Data.Mark.x == 0 && Data.Mark.y == 0) {
 		AddEntry(10400, "Set Mark", nullptr);
@@ -1236,10 +1245,10 @@ void TMarkContextMenu::HandleEvent(int Event)
 {
 	switch (Event) {
 	case 10400:
-		AddMessage(0x1d, reinterpret_cast<INT_PTR>(new TCoordinate(Data.Coordinate)), 0);
+		AddMessage(0x1d, reinterpret_cast<std::intptr_t>(new TCoordinate(Data.Coordinate)), 0);
 		break;
 	case 10401:
-		AddMessage(0x1e, reinterpret_cast<INT_PTR>(new TCoordinate(Data.Coordinate)), reinterpret_cast<INT_PTR>(new TMark(Data.Mark)));
+		AddMessage(0x1e, reinterpret_cast<std::intptr_t>(new TCoordinate(Data.Coordinate)), reinterpret_cast<std::intptr_t>(new TMark(Data.Mark)));
 		break;
 	case 10402:
 		if (Data.Mark.x != 0 && Data.Mark.y != 0) {
@@ -1249,6 +1258,8 @@ void TMarkContextMenu::HandleEvent(int Event)
 				break;
 			case 2:
 				SendStop();
+				break;
+			default:
 				break;
 			}
 		}
@@ -1324,3 +1335,4 @@ void TSkillContextMenu::HandleEvent(int Event)
 	if (SkillsWindow != nullptr)
 		ArrangeSkillsWindow(SkillsWindow);
 }
+// NOLINTEND(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)

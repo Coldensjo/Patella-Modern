@@ -14,15 +14,20 @@
 #include "Script.h"
 #include "compat/msvc_io.h"
 #include "Utils.h"
-#include "sysinc.h"
 #include "common.h"
 #include "compat/expected.h"
 #include "compat/span.h"
 #include "platform/Platform.h"
 #include "types/FixedString.h"
+#include "types/File.h"
 #include <cstdio>
 #include <cstring>
 #include <utility>
+
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries; the original's varargs (TMultiStateButton's constructor, _snprintf)
+// NOLINTBEGIN(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)
 
 // 0x4df6d0, lines 48-50: TryOpen, its failure thrown.
 void TReadScriptFile::open(const char *FileName)
@@ -50,12 +55,15 @@ patella::TExpected<void, TError> TReadScriptFile::TryOpen(const char *FileName)
 // 1054 are used.
 void TReadScriptFile::error(const char *Text)
 {
-	char Message[1056]; // NOLINT(modernize-avoid-c-arrays): TMYEXCEPTION(84)'s argument, frozen until M5 (issue #60)
+	char Message[1056] = {}; // NOLINT(modernize-avoid-c-arrays): TMYEXCEPTION(84)'s argument, frozen until M5 (issue #60)
 	TFixedString<10> Unknown = {"(unknown)"};
 	File.Close();
 	MsvcSnprintf(Message, 1054, "error in script file '%s' in line %d", Filename, Line);
 	if (Text == nullptr)
 		Text = Unknown;
+	// MSVC's analysis (C6053, issue #111): _snprintf leaves the text unterminated when it fills the 1054 bytes;
+	// Message's zeroed last two bytes end it then (the buffer is zeroed since issue #111; the original's was not).
+	PATELLA_MSVC_WARNING(suppress : 6053)
 	throw TMYEXCEPTION(Message, "", 0, "", 0, Text);
 }
 
@@ -481,7 +489,11 @@ patella::TExpected<void, TError> TReadBinaryFile::TryOpen(const char *FileName)
 		return TUNEXPECTED_REASON("file still open", Filename);
 	if (!patella::platform::Platform().FileSystem.Open(File, FileName, TFile::TAccess::Read, TFile::TContent::Binary))
 		return TUNEXPECTED_REASON("failed to open file", FileName);
+	// The original's copy: unterminated when the name fills the buffer (GCC's -Wstringop-truncation, issue #111).
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wstringop-truncation\"")
 	strncpy(Filename, FileName, sizeof(Filename));
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 	return {};
 }
 
@@ -577,7 +589,11 @@ patella::TExpected<void, TError> TWriteBinaryFile::TryOpen(const char *FileName)
 		return TUNEXPECTED_REASON("file still open", Filename);
 	if (!patella::platform::Platform().FileSystem.Open(File, FileName, TFile::TAccess::Write, TFile::TContent::Binary))
 		return TUNEXPECTED_REASON("failed to open file", FileName);
+	// The original's copy: unterminated when the name fills the buffer (GCC's -Wstringop-truncation, issue #111).
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wstringop-truncation\"")
 	strncpy(Filename, FileName, sizeof(Filename));
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 	return {};
 }
 
@@ -673,3 +689,4 @@ void TReadScriptFile::readSymbol(char Symbol)
 	if (Special != Symbol)
 		error("special-char expected");
 }
+// NOLINTEND(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)

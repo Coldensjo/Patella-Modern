@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include "common.h"
 #include "platform/Surface.h" // IWYU pragma: export
 #include "platform/Window.h"
 
@@ -38,7 +37,7 @@ public:
 	TGraphicsEngine &operator=(TGraphicsEngine &&) = delete;
 	~TGraphicsEngine() = default;
 
-	int GetCurrentEngine() const;                             // 0x4eaa80
+	[[nodiscard]] int GetCurrentEngine() const;               // 0x4eaa80
 	TSurface *GetSurface();                                   // 0x4eaa90 (the x64 client's)
 	void SurfaceExitInstance();                               // 0x4eab60
 	void SurfaceInitInstance(platform::TWindowHandle Window); // the x64 client's

@@ -21,12 +21,16 @@
 #include "compat/span.h"
 #include "types/FixedString.h"
 #include <array>
-#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <vector>
+
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries
+// NOLINTBEGIN(cppcoreguidelines-owning-memory)
 
 // Characters owns its array as a std::unique_ptr<TCharacter[]> (issue #58): a pointer, as the original's.
 static_assert(sizeof(std::unique_ptr<TCharacter[]>) == sizeof(TCharacter *)
@@ -462,6 +466,8 @@ void patella::TInteraction::ClearMessages()
 			if (Param2 != nullptr)
 				delete[] static_cast<char *>(Param2);
 			break;
+		default:
+			break;
 		}
 	}
 	Messages.clear();
@@ -574,21 +580,26 @@ void patella::TInteraction::AddMessageFirst(int Type, std::intptr_t Param1, std:
 // 0x4e93d0, lines 621-622
 void patella::TSession::SetAccount(int Number, const char *Password)
 {
-	PATELLA_ASSERT(Password!=NULL);
+	PATELLA_ASSERT(Password!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(Password)<30, strlen(Password));
 	AccountNumber = Number;
 	TStringBuffer(AccountNumberString, sizeof(AccountNumberString)).Format("{}", Number); // at most 11 characters
 	AccountNumberString[11] = 0;
+	// The original's copy, up to the buffer's 30 bytes (the assertion keeps the password shorter; GCC's
+	// -Wstringop-truncation sees the bound only, issue #111).
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wstringop-truncation\"")
 	strncpy(AccountPassword, Password, 30);
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 }
 
 // 0x4e96d0, lines 669-673. Address is the IPv4 address in network order.
 void patella::TSession::SetCharacter(int Number, const char *Name, const char *World, const uint8 *Address, int Port)
 {
 	PATELLA_ASSERT_VALUES(In(Number,0,AccountCharacters-1), Number);
-	PATELLA_ASSERT(Name!=NULL);
+	PATELLA_ASSERT(Name!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(Name)<30, strlen(Name));
-	PATELLA_ASSERT(World!=NULL);
+	PATELLA_ASSERT(World!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(World)<30, strlen(World));
 	TCharacter *Character = &Characters[Number];
 	Character->Name.Assign(Name);
@@ -678,7 +689,7 @@ void patella::TInteraction::CopyTaintedClipboardText()
 // positions keep their values.
 void patella::TInteraction::InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 {
-	PATELLA_ASSERT(linkwarningeventhandler!=NULL);
+	PATELLA_ASSERT(linkwarningeventhandler!=nullptr);
 	LinkWarningEventHandler = linkwarningeventhandler;
 	TaintedClipboardText = nullptr;
 	// The original set LinkRegexp to NULL first, so a second InitStatus without ExitStatus leaked the program;
@@ -1082,3 +1093,4 @@ void InitStatus(bool Gamemaster, void (*linkwarningeventhandler)())
 {
 	patella::bridge::Interaction().InitStatus(Gamemaster, linkwarningeventhandler);
 }
+// NOLINTEND(cppcoreguidelines-owning-memory)

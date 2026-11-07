@@ -36,6 +36,10 @@
 #include <cstddef>
 #include <memory>
 
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-pro-type-vararg off for the file:
+// the original's varargs (TMultiStateButton's constructor, _snprintf)
+// NOLINTBEGIN(cppcoreguidelines-pro-type-vararg)
+
 class TDialog;
 struct TTalkLine;
 
@@ -128,8 +132,8 @@ public:
 class TQuestionLabel final : public TLabel {
 public:
 	// Inline (out-of-line copy 0x46b790).
-	TQuestionLabel(TFont &Font, const char *Text, TCallback _YesCallback, TCallback _NoAnswerCallback)
-		: TLabel(Font, Text)
+	TQuestionLabel(TFont &_Font, const char *_Text, TCallback _YesCallback, TCallback _NoAnswerCallback)
+		: TLabel(_Font, _Text)
 	{
 		YesCallback = _YesCallback;
 		NoAnswerCallback = _NoAnswerCallback;
@@ -147,8 +151,8 @@ public:
 class TLogoutLabel final : public TLabel {
 public:
 	// Inline (out-of-line copy 0x46b840).
-	TLogoutLabel(TFont &Font, const char *Text, TCallback _LogoutCallback, TCallback _ExitCallback)
-		: TLabel(Font, Text)
+	TLogoutLabel(TFont &_Font, const char *_Text, TCallback _LogoutCallback, TCallback _ExitCallback)
+		: TLabel(_Font, _Text)
 	{
 		LogoutCallback = _LogoutCallback;
 		ExitCallback = _ExitCallback;
@@ -169,8 +173,8 @@ public:
 	TWaitLabel(const TWaitLabel &) = delete;
 	TWaitLabel &operator=(const TWaitLabel &) = delete;
 	// Inline (out-of-line copy 0x46b8f0).
-	TWaitLabel(const char *Text, bool _CloseOnMessage, bool _ClearOnAbort)
-		: TLabel(SkinProperties().StyleB08.Data64, Text)
+	TWaitLabel(const char *_Text, bool _CloseOnMessage, bool _ClearOnAbort)
+		: TLabel(SkinProperties().StyleB08.Data64, _Text)
 	{
 		ClearOnAbort = _ClearOnAbort;
 		Timer = nullptr;
@@ -567,7 +571,7 @@ public:
 	void HandleEvent(int Event) override; // +0x70, 0x484e70, lines 3124-3128
 	void UpdateActions();                 // 0x47eae0, line 3158
 	int GetReason();                      // 0x4776b0, line 3171
-	int GetAction() const;                // 0x477860, line 3191
+	[[nodiscard]] int GetAction() const;  // 0x477860, line 3191
 
 	std::unique_ptr<TFocusGroup> FocusGroup; // +0x2c (issue #58)
 	TEditLine *NameEdit;                     // +0x30
@@ -675,14 +679,13 @@ public:
 	TTextButton *DirectX9Button;                    // +0x48
 	TTextButton *OpenGLButton;                      // +0x4c
 	std::unique_ptr<TRadioButtonGroup> EngineGroup; // +0x50 (issue #58)
-#if defined(PATELLA_VULKAN)
 	// The x64 client (Patella-Modern issue #31, plan 6.3): the three buttons choose the graphics device
 	// ("Automatic", "GPU", "CPU" in the places of DirectX5Button, DirectX9Button, OpenGLButton), and the
-	// line above them names the device in use. Not in the oracle, whose layout stays the original's.
+	// line above them names the device in use. Since issue #111 without PATELLA_VULKAN's guard (the oracle,
+	// whose layout kept the original's, left with #94), so patella_core compiles it too.
 	void ShowDevice();                 // the selected button and the device's name
 	TLabel *DeviceLabel;               // the line above the buttons (the original's "Select graphics engine:")
 	TFixedString<128> DeviceLabelName; // the device the line names
-#endif
 };
 
 // "Console Options" (vtable 0x563598, 0x44 bytes).
@@ -730,3 +733,4 @@ public:
 	int Selected;                                 // +0x245c, -1 for none
 	void (*OpenURL)(const char *URL);             // +0x2460, kept, not used
 };
+// NOLINTEND(cppcoreguidelines-pro-type-vararg)

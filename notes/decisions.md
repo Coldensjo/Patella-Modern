@@ -16404,3 +16404,166 @@ Logs in build\logs\issue-126 of the branch's worktree; golden replayed main's fr
 - `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
   clang-format (CLAUDE.md's command) exit 0.
 - Not run: compare_files and testmode_check (no setting, file or input changed); compare_rendering's fullscreen scenes.
+
+## #111: the preferences and the GUI's logic into patella_core (Patella-Modern issue #111, M7's exit)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-111, from main b24483a). The other half of M7's exit (#110 was
+the first): Preferences.cpp, Status.cpp, Talk.cpp, Help.cpp, Script.cpp, sysinc.cpp, graphics.cpp, Client.cpp (the one
+TClient and the bridge), GUI.cpp, DialogWindow.cpp, DialogElements.cpp, Dialogs.cpp, ContentWindows.cpp,
+ContextMenus.cpp, ConsoleWindow.cpp, MapWindow.cpp, MainWindow.cpp and Control.cpp are patella_core's sources
+(cmake/Core.cmake, a block of their own), compiled with PATELLA_CORE (no MFC, no Windows header) on every product
+preset, under MSVC /analyze and GCC -fanalyzer. patella_core is now the whole client but the platform layer, and it
+builds on Windows and Linux: M7's exit.
+
+### What patella_core is now (high)
+
+| | Sources | Lines of the sources | Headers on the core list (cmake/HeaderCheck.cmake) |
+| :--- | ---: | ---: | ---: |
+| main b24483a | 16 | 12,278 | 56 |
+| issue-111 | 34 | 38,744 (the 18: 26,460) | 70 |
+
+The 14 headers that joined the core list (`patella_headers_core_111`): Client.h, ConsoleWindow.h, ContentWindows.h,
+ContextMenus.h, Control.h, DialogElements.h, DialogWindow.h, Dialogs.h, GUI.h, MainWindow.h, MapWindow.h, Surface.h,
+graphics.h, and vulkan/DeviceSettings.h (the graphics device choice: free functions, no Vulkan header). The client's
+header checks still compile them with its settings.
+
+What is not in the library, the platform layer: SdlFrame.cpp (#122's SDL3 window and event loop, merged during this
+issue), MainFrm.cpp and Player.cpp (the MFC frame, PATELLA_WINDOW=mfc, and the application), Surface.cpp (the engine selection: it makes the Vulkan engine's surface and tests the device),
+platform/Win32Platform.cpp, src/vulkan (the engine, its device settings and choice) and the test mode's Windows files
+(src/testmode/*Win32.cpp). What the library's objects need of them, measured (`nm` of linux-x64-gcc's
+libpatella_core.a: the undefined symbols that no object of it defines, the C and C++ libraries left out;
+build/logs/issue-111/core-undefined.txt of the worktree): platform::Platform(); GetSurface and SurfaceExitInstance
+(Surface.cpp's free functions, which the golden tests fake); vulkan/DeviceSettings.h's GetDeviceChoice,
+SetDeviceChoice, SaveDeviceChoice, GetNumberOfGpus, GetBestGpu, GetCpuDriverManifest, DeviceButtonOfEngine and
+GetDeviceName (Dialogs.cpp's advanced graphics options, Control.cpp's ChangeEngine); vulkan/DeviceChoice.h's ButtonOf
+and ChoiceAfterButton (portable, in the Vulkan engine's library). Nothing of MainFrm.cpp or Player.cpp.
+
+**tests_core_link** (tests/unit/core_link_test.cpp, every product preset) links the library's TClient, and with it
+every subsystem, against stand-ins of exactly those entry points and DeviceChoice.cpp: a symbol the library lacks fails
+its link. It is a link check, not a CTest test: sysinc.cpp's StartTime reads the platform's clock in a static
+initialiser (the original's 0x55a130), before main.
+
+### What the 18 needed, and what they use now (high)
+
+- **INT_PTR** (the message queue's parameters in Talk.cpp, DialogElements.cpp, Dialogs.cpp, ContentWindows.cpp,
+  ContextMenus.cpp, ConsoleWindow.cpp, MapWindow.cpp, MainWindow.cpp, Control.cpp): `std::intptr_t`, as #110 did (the
+  same type; MainFrm.cpp keeps INT_PTR).
+- **PATELLA_VULKAN's guard in Dialogs.h** (TAdvancedGraphicsDialog's ShowDevice, DeviceLabel and DeviceLabelName, the
+  x64 client's device choice, #31): gone. The client always defines it, and the oracle, whose layout kept the
+  original's, left with #94; the library compiles the members as the client does.
+- Nothing else: the files had no Windows or MFC name left after #109, #116, #118, #119 and #138.
+
+### The compilers' checks (high)
+
+- **Fixed at -Wall** (errors in every build): GCC's -Wstringop-truncation at the original's three strncpy copies
+  (Script.cpp's file names, Status.cpp's password: allowed around the call, the copies are the original's); GCC's and
+  Clang's -Winvalid-offsetof (GUI.cpp's static_assert of TComponent's x64 layout: allowed around it); GCC's
+  -Woverloaded-virtual (TEditText's SetText(Text, KeepPosition) hid TEditLine's SetText(Text): `using
+  TEditLine::SetText;`); Clang's -Wdelete-non-abstract-non-virtual-dtor (TTalkBuffer's destructor is not virtual, the
+  original's: Talk.cpp's two destroys and ConsoleWindow.h's new History deleter call it by its qualified name); Clang's
+  -Wnon-pod-varargs (TMultiStateButton's varargs constructor reads TCallbacks, which are trivially copyable: allowed at
+  the va_arg); GCC's and Clang's -Wuninitialized in the toggle buttons' constructors (next item). mingw-w64 GCC
+  (windows-x64-gcc) besides: its headers define PATH_MAX as a macro, so graphics.h's constant (the original's name, in
+  its assertions) is GRAPHICS_PATH_MAX; it inlines AddText's new into TTalkBuffer::Append's free (the original's
+  mismatched pair, VC7.1's new being malloc): -Wmismatched-new-delete allowed for Append.
+- **The toggle buttons' Tooltip** (TToggleButton, TTextToggleButton): the original passes the button's own, not yet set
+  Tooltip to the base, which stores it back. A first version passed nullptr; the golden DialogElements test compares the
+  field (34,267 failures, all "toggle button: controls differ"), so the original's read stays, with the warning allowed
+  around the two constructors. Nothing reads the field (MouseHover shows Tooltip1 or Tooltip2).
+- **Warnings at the full level**, measured when the files joined (the image, Release, without -Werror): GCC -Wshadow (the
+  windows' SetSize(Width, Height) and constructors whose parameters have their members' names, 117) and -Wconversion (4)
+  in ConsoleWindow, ContentWindows, ContextMenus, DialogElements, DialogWindow, Dialogs, GUI, MainWindow and
+  MapWindow.cpp; Clang -Wsign-conversion, -Wshadow and -Wunnecessary-virtual-specifier (virtual members of final
+  classes) in 16 of the 18 and in ConsoleWindow.h, ContentWindows.h, DialogElements.h, DialogWindow.h, Dialogs.h and
+  MapWindow.h. Those are on the GCC and Clang baselines (-Wall), in a list(APPEND) of their own (cmake/Warnings.cmake).
+  Fixed instead of listed: the shadowing parameters of TDrawing's constructor (GUI.h), the three labels of Dialogs.h and
+  TRuleViolationTalkBuffer's constructor, and graphics.h's TVideoCacheItem (Clang's -Wnested-anon-types, allowed for that
+  structure as for Map.h's TEffect). MSVC's baseline is unchanged (12 of the 18 were on it); Script, Talk, Help,
+  sysinc, graphics and Client.cpp build at /W4.
+- **Static analysis**, rows for the table of "Static analysis of the core library" (high):
+
+  | Analyzer | Finding | Where | Kind | Suppression | Reason |
+  |---|---|---|---|---|---|
+  | MSVC /analyze | C6011 (NULL 'Child') | ConsoleWindow.cpp, TTabBar::Rearrange | false positive | PATELLA_MSVC_WARNING(suppress : 6011) | the loop's condition: Child is not null in its body |
+  | MSVC /analyze | C6011 (NULL 'last') | Talk.cpp, TTalkBuffer::Append | false positive | the same | first and last are null together |
+  | MSVC /analyze | C6262 (stack) | ContentWindows.cpp TAutomapView::Draw, MapWindow.cpp TMapWindow::Draw | the original's | suppress : 6262 | the pixels' buffers on the stack |
+  | MSVC /analyze | C28020 (`_Param_(1)<10`) | Talk.cpp GetTalkbox, MapWindow.cpp CacheSprite | false positive | suppress : 28020 | the assertion keeps Number among the open talkboxes; Sprites is below CachedSprites there |
+  | MSVC /analyze | C28182 (NULL from new(nothrow)) | Talk.cpp, the buddy and ignore texts | the original's | suppress : 28182 | the original's unchecked allocation |
+  | MSVC /analyze | C6053 (_snprintf unterminated) | Script.cpp, TReadScriptFile::error | the original's | suppress : 6053, and the buffer zeroed | the zeroed last two bytes end the text (the original's buffer was not zeroed: a difference only for a message of 1,054 characters) |
+  | MSVC /analyze | C6246 (inner Obj hides outer) | MapWindow.cpp, TMapWindow's click | fixed | - | the inner references are UseObj |
+  | GCC -fanalyzer | -Wanalyzer-malloc-leak | Control.cpp CloseRequest and ConnectionClosed, MainWindow.cpp and MapWindow.cpp HandleEvent | false positive | PATELLA_GCC_DIAGNOSTIC around the function | the message queue owns the block it gets as an integer (AddMessage) |
+  | GCC -fanalyzer | -Wanalyzer-null-dereference | types/IndexedVector.h, TArrayNewAllocator::construct | false positive | #pragma GCC around it | a vector of no entries constructs none |
+  | GCC -fanalyzer (Debug) | -Wanalyzer-out-of-bounds | sysinc.cpp, GetClipboardText | the original's | PATELLA_GCC_DIAGNOSTIC around the function | the memmove at a removed CR reads one byte past the text, kept (the function's comment) |
+  | GCC -fanalyzer (Debug) | -Wanalyzer-use-of-uninitialized-value, -malloc-leak | MainWindow.cpp, TMainWindow::OpenContainer | false positive | the same | SkinProperties()' styles are set by InitSkinProperties; the window owns the title and icon it is given |
+
+### clang-tidy (high)
+
+The image's clang-tidy (tools/tidy_ci.py, `--all --headers`) saw the 18 files and the headers they include for the first
+time: 879 new findings at the first run (build\logs\tidy-ci\10eab3a.log), 0 after (the baseline stays at its 3;
+bugprone- at 0):
+
+- modernize-use-nullptr 180 and modernize-use-nodiscard 30: clang-tidy's own fixes (run in the image, copied out). The
+  callers that discard a now nodiscard result say so: ContextMenus.cpp's SaveChannel (the original ignores it) and four
+  calls of the golden ConsoleWindow test (`(void)`, the checks unchanged).
+- cppcoreguidelines-owning-memory 550, -no-malloc 22 and -pro-type-vararg 15: the original's raw owners (the window tree
+  owns its children, `new TButton(...)` handed to InsertChild; the message queue owns its blocks; the lists their
+  malloc'd entries), TMultiStateButton's varargs and _snprintf. One NOLINTBEGIN/NOLINTEND region per file (18 files,
+  the checks the file had, the reason above it) rather than 587 NOLINTs; the ownership is notes/ownership.md's.
+- bugprone (69): the 32 switches without a default get `default: break;` (what happened without it); NOLINTs with the
+  reason for the NoCallback copies and sysinc.cpp's StartTime (throwing-static-initialization, 9), the calls of the
+  base's base (parent-virtual-call, 8), TEditText::SetActive and TFontListBox::Clear (derived-method-shadowing, 2), the
+  empty catches of InitControl and SavePreferences (2), atoi of the account number and the MotD (2), the talkboxes' and
+  the status message's countdowns in their conditions (2) and graphics.cpp's two identical colour key branches
+  (branch-clone); explicit `void *` casts at Dialogs.cpp's qsort and memset of the name lists and IndexedVector.h's byte
+  copies (multi-level pointer conversion 9, bitwise-pointer-cast 1).
+- misc-include-cleaner 24, misc-const-correctness 3, readability-make-member-function-const 1 (TTab::getCaption is const
+  now), cppcoreguidelines-use-enum-class 1 (graphics.h's item kinds stay an int enum: NOLINT).
+
+### The golden runner and the stand-ins (high)
+
+golden_runner compiles its own copies of the client's sources with the MFC shim, as before (its fakes patch functions in
+its own build). No file of tests/golden/linux can go: windows.h and winsock2.h serve compat/mfc_shim.h, which every
+golden source includes through common.h (MainFrm.cpp's and Player.cpp's MFC, the network tests' CAsyncSocket);
+mmsystem.h serves Win32Platform.cpp; direct.h, io.h and process.h the golden tests themselves. What the window files
+used of them (windows.h's INT_PTR) they no longer use; a golden build that compiles the core sources with PATELLA_CORE
+and only the platform files with the shim is what would let the stand-ins shrink.
+
+### Found, not done (high)
+
+- #110's items carried here: Control.cpp's calls into the other files as member calls, TCreature's bridge use for the
+  player's step, Creatures.cpp's nine calls of Preferences' buddy functions. They need member fakes in the golden
+  Control, Communication and window worlds; not part of the exit, left as they are.
+- The client (cmake/WindowsX64.cmake) and the golden runner still compile every source themselves; linking patella_core
+  into Patella.exe is a build change of its own (the test build compiles the same sources with PATELLA_TEST_MODE, which
+  the library is not).
+- The library calls the platform's device choice through vulkan/DeviceSettings.h's free functions; an interface of
+  platform::TPlatform (a graphics device) would make the dependency explicit, with #122's platform work.
+- GCC's and Clang's shadow, sign and int conversions in the 18 (the baselines above): the original's names and types.
+
+### The gates (high)
+
+Logs in build\logs\issue-111 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed +
+1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset. The final runs are on 5d6d1ce (the
+branch with main 048a535 merged: #139, #141's CMake 4.4.5 and image, #122's SDL3 frame; `<preset>-final.log`, every
+preset `--fresh`):
+
+- `python -I tools/build.py <preset> --fresh`: windows-x64 exit 0, 28/28 (golden_concurrent the same); windows-x64-debug
+  exit 0, 27/27; windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0,
+  25/25; linux-x64-clang (ASan, UBSan) exit 0, 24/24, no sanitizer report. patella_core and tests_core_link in
+  linux-x64-gcc's Debug (-fanalyzer): clean after the two Debug rows above (core-linux-x64-gcc-debug.log).
+- Earlier runs: windows-x64 on 5ba9ece's first version failed golden with 34,267 DialogElements failures (the toggle
+  buttons' Tooltip, above, reverted to the original's read); windows-x64-gcc on 5ba9ece failed to compile (PATH_MAX,
+  Talk.cpp's free: above).
+- `python -I tools/tidy_ci.py` exit 0 on 5d6d1ce: 3 findings, the baseline's 3, 0 new, bugprone- 0 (the first run, on
+  10eab3a: 879 new). `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
+- Live, with 5d6d1ce's Patella.exe: `python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches its reference; `python -I tools/compare_traffic.py`
+  exit 0, no differences; `python -I tools/compare_files.py` exit 0, no differences; `python -I tools/testmode_check.py`
+  exit 0, no differences; `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes windowed --no-repeat
+  --patella <worktree>/build/windows-x64/Release/Patella.exe --recording build/traffic/result/orig-live.jsonl --out
+  build/render/result` (the recording of this compare_traffic run) exit 0, "result: all scenes identical", 26 scenes on
+  vulkan (RTX 5080) and vulkan-cpu (llvmpipe). On 8e31f50 (main 260f066 merged) compare_files failed twice in its error
+  scenario on Tibia.exe's side ("no TibiaClient window after 30 s"; compare_files-try1.log) and testmode_check once (a
+  scripted walk key lost in run 1 of the same client; testmode_check-try1.log), while other agents ran live checks; the
+  error scenario alone passed (compare_files-error-diag.log), and both passed on 5d6d1ce.

@@ -1863,7 +1863,7 @@ static void TestConsoleWindowErrors()
 		}
 		// The default channel's server messages.
 		ConsoleCall("TConsoleWindow::GetServerMessages default", [&](int s) {
-			if (s == OURS) C(s)->GetServerMessages(); else ORIGINAL(At<BoolFn>(0x41f1c0)(C(s), NULL)); });
+			if (s == OURS) (void)C(s)->GetServerMessages(); else ORIGINAL(At<BoolFn>(0x41f1c0)(C(s), NULL)); });
 		ConsoleCall("TConsoleWindow::SetServerMessages default", [&](int s) {
 			if (s == OURS) C(s)->SetServerMessages(true); else ORIGINAL(At<BoolArgFn>(0x41f470)(C(s), NULL, true)); });
 		ConsoleCall("TConsoleWindow::AddChannel NULL", [&](int s) {
@@ -1924,11 +1924,11 @@ static void TestConsoleWindowErrors()
 				case 1: W->KeyPress('a'); break;
 				case 2: case 9: if (s == OURS) W->SetActive(true); else ORIGINAL(At<BoolArgFn>(0x41e960)(W, NULL, true)); break;
 				case 3: if (s == OURS) W->UpdateButtons(); else ORIGINAL(At<VoidFn>(0x41ed00)(W, NULL)); break;
-				case 4: if (s == OURS) W->GetServerMessages(); else ORIGINAL(At<BoolFn>(0x41f1c0)(W, NULL)); break;
+				case 4: if (s == OURS) (void)W->GetServerMessages(); else ORIGINAL(At<BoolFn>(0x41f1c0)(W, NULL)); break;
 				case 5: if (s == OURS) W->SetServerMessages(true); else ORIGINAL(At<BoolArgFn>(0x41f470)(W, NULL, true)); break;
-				case 6: if (s == OURS) W->GetTextBuffer(); else ORIGINAL(At<BufferFn>(0x41f7f0)(W, NULL)); break;
+				case 6: if (s == OURS) (void)W->GetTextBuffer(); else ORIGINAL(At<BufferFn>(0x41f7f0)(W, NULL)); break;
 				case 10: if (s == OURS) W->CloseChannel(); else ORIGINAL(At<VoidFn>(0x4234b0)(W, NULL)); break;
-				default: if (s == OURS) W->SaveChannel(); else ORIGINAL(At<BoolFn>(0x420090)(W, NULL)); break;
+				default: if (s == OURS) (void)W->SaveChannel(); else ORIGINAL(At<BoolFn>(0x420090)(W, NULL)); break;
 				} }, false);
 			_chdir(OldDir);
 			World.ConsoleChanged = false;

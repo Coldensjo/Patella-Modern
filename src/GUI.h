@@ -47,8 +47,8 @@ class TComponent;
 // 0x4c1ab4), and the subclasses assign whole entries.
 struct TDrawing {
 	TDrawing() : skin(0), x(0), y(0), width(0), height(0), srcx(0), srcy(0) {}
-	TDrawing(int skin, int x, int y, int width, int height, int srcx, int srcy)
-		: skin(skin), x(x), y(y), width(width), height(height), srcx(srcx), srcy(srcy) {}
+	TDrawing(int _skin, int _x, int _y, int _width, int _height, int _srcx, int _srcy)
+		: skin(_skin), x(_x), y(_y), width(_width), height(_height), srcx(_srcx), srcy(_srcy) {}
 	int skin;   // +0x00
 	int x;      // +0x04
 	int y;      // +0x08
@@ -112,8 +112,8 @@ public:
 	// is left allocated and marked closed (the original had freed it): see notes/ownership.md, section 7.
 	void Close();
 
-	int getWidth() const { return Width; }   // "Child->getWidth()" (line 1725), inlined
-	int getHeight() const { return Height; } // "Child->getHeight()" (line 1726), inlined
+	[[nodiscard]] int getWidth() const { return Width; }   // "Child->getWidth()" (line 1725), inlined
+	[[nodiscard]] int getHeight() const { return Height; } // "Child->getHeight()" (line 1726), inlined
 
 	std::unique_ptr<TDrawing[]> DrawingList; // +0x04, allocated by the subclasses (issue #58: the list's only owner)
 	int DrawingListLength;                   // +0x08
@@ -233,8 +233,8 @@ class TTimer {
 public:
 	TTimer(int Time, TCallback Callback); // 0x49b290, line 905; Time in tenths of a second
 	virtual ~TTimer();                    // +0x00, inlined into the deleting destructor 0x4a1dc0
-	int GetTime() const;                  // 0x496000, tenths of a second left
-	bool IsExpired() const;               // 0x496020
+	[[nodiscard]] int GetTime() const;    // 0x496000, tenths of a second left
+	[[nodiscard]] bool IsExpired() const; // 0x496020
 	void Update(int elapsed);             // 0x4a1df0, line 947
 	int Remaining;                        // +0x04, milliseconds
 	bool Active;                          // +0x08
