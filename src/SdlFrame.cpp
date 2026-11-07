@@ -1027,9 +1027,16 @@ void Show(bool Maximized)
 {
 	if (Window == nullptr)
 		return;
-	SDL_ShowWindow(Window);
-	if (Maximized)
-		SDL_MaximizeWindow(Window);
+	// Issue #145: a headless test client's window is never shown (nor maximized: SDL keeps a hidden window's
+	// maximize for its show); it keeps its place and size and gets its messages as a shown one.
+	if (platform::Platform().Window.Headless()) {
+		if (Maximized)
+			log::Warn("headless: the window stays hidden, so it is not maximized");
+	} else {
+		SDL_ShowWindow(Window);
+		if (Maximized)
+			SDL_MaximizeWindow(Window);
+	}
 	SDL_SyncWindow(Window);
 	HandleNoted();
 }

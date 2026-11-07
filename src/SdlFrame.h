@@ -31,7 +31,7 @@ namespace patella::sdlframe {
 [[nodiscard]] bool Create(bool Gamemaster, const char *Title, const char *ClassName);
 // The window's handle (an HWND on Windows), or null before Create and after the window is gone.
 [[nodiscard]] platform::TWindowHandle Handle();
-// ShowWindow(SW_SHOWNORMAL or SW_SHOWMAXIMIZED) and UpdateWindow.
+// ShowWindow(SW_SHOWNORMAL or SW_SHOWMAXIMIZED) and UpdateWindow; nothing shown in a headless test client (#145).
 void Show(bool Maximized);
 // FatalError's ShowWindow(SW_HIDE): nothing without a window.
 void Hide();

@@ -11,7 +11,8 @@
 //	                 (platform/Win32Platform.h): Patella.exe's and the golden runner's
 //	TTestWindow      the test mode's (testmode/TestModeWin32.cpp): with a script a box is not shown (messages.txt);
 //	                 only the process's own windows are visited (issue #96); with --test-display-modes the file's
-//	                 modes (issue #48); the rest Win32's (the desktop's mode too: the machine's)
+//	                 modes (issue #48); the rest Win32's (the desktop's mode too: the machine's); with --test-headless
+//	                 headless (issue #145)
 //
 // The frame window itself (MainFrm.cpp's CMainFrame, MFC) is the Win32 side's, as the application (Player.cpp's
 // CPlayerApp) is: M8's SDL3 window takes their place behind this interface and IInput (Input.h).
@@ -57,6 +58,10 @@ public:
 	// The display's current mode, the desktop's (EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS); issue #138):
 	// false when it cannot be read.
 	[[nodiscard]] virtual bool DesktopMode(TDisplayMode &Mode) = 0;
+	// True when the client runs without a desktop (the test build's --test-headless, issue #145; Patella.exe's
+	// false): its main window is never shown (it exists, hidden, for its messages), the Vulkan engine renders without
+	// a surface and presents nothing, and fullscreen mode leaves the display's mode alone.
+	[[nodiscard]] virtual bool Headless() = 0;
 
 protected:
 	// Never destroyed through the interface (Clock.h's IClock).

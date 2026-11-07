@@ -132,13 +132,14 @@ def log(text):
 	print("[%s] %s" % (time.strftime("%H:%M:%S"), text), flush=True)
 
 
-def find_window(pid):
+def find_window(pid, visible=True):
+	"""The process's TibiaClient window; with visible=False also a hidden one (a headless test client's, issue #145)."""
 	found = []
 
 	def callback(hwnd, lparam):
 		owner = wt.DWORD()
 		user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
-		if owner.value == pid and user32.IsWindowVisible(hwnd):
+		if owner.value == pid and (not visible or user32.IsWindowVisible(hwnd)):
 			name = ctypes.create_unicode_buffer(64)
 			user32.GetClassNameW(hwnd, name, 64)
 			if name.value == "TibiaClient":
