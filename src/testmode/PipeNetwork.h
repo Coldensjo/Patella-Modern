@@ -62,7 +62,7 @@ public:
 	using TNotify = std::function<void(int Id, TPipeEvent Event, bool Failed)>;
 
 	TPipeNetwork() = default;
-	explicit TPipeNetwork(TNotify Notify) : Notify(std::move(Notify)) {}
+	explicit TPipeNetwork(TNotify Handler) : Notify(std::move(Handler)) {}
 
 	// The replay's listen line: connections to Address:Port are Kind's (login, game).
 	void Listen(std::string Address, int Port, std::string Kind);
