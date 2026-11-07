@@ -185,6 +185,9 @@ public:
 	int ReceiveSkip{};
 	int DroppedFrames{};
 	TFrameDrop LastDrop{TFrameDrop::None};
+	// Not the original's either (issue #142, a deliberate difference): the empty packets (inner length 0) that
+	// PrepareNextPacket went on past to the next frame, where Tibia.exe stopped at them (the tests').
+	int EmptyPackets{};
 
 private:
 	void DropFrame(TFrameDrop Reason, int FrameEnd);

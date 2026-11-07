@@ -131,6 +131,11 @@ def synthetic_network():
 	seeds["139-6-too-large.bin"] = u8(0) + large
 	seeds["139-6-too-large-split.bin"] = u8(4) + large
 	seeds["139-6-largest.bin"] = u8(0) + frames(network_frame(b"\x05" * 0x3ff6))
+	# Issue #142: empty packets (inner length 0) with frames after them, which are read in the same call; and #139's
+	# fuzzing case: an empty packet received 2 bytes at a time, then a frame that fits ReceiveData only without it.
+	empty = network_frame(b"")
+	seeds["142-empty-packets.bin"] = u8(0) + frames(empty, network_frame(b"\x09"), empty, empty, network_frame(b"\x07"))
+	seeds["142-empty-then-largest.bin"] = u8(2) + frames(empty, network_frame(b"\x05" * 0x3ff6), network_frame(b"\x09"))
 	seeds["split.bin"] = u8(1) + frames(ok, ok, network_frame(b"\x03hello\x00"))
 	seeds["commands.bin"] = u8(5) + frames(network_frame(bytes(range(7)) + text("abc") + b"\x04" + u32(7)),
 		network_frame(b"\x05" + bytes(5) + b"\x06" + bytes(20)))

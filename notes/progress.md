@@ -699,6 +699,14 @@ checks, 16,588 differing; #139 33 parts (item 6's "frames" in the corpus's out-o
 differing (before: #72 280, 37,052, 14,165). bounded_reads covers each item; the fuzz harnesses' guards are gone,
 properties check the fixes, new synthetic seeds. notes/decisions.md, "#139".
 
+An empty packet no longer stalls the reading (Patella-Modern issue #142, branch issue-142, November 7, 2026; M9; the
+owner's decision of November 7, a deliberate difference): a server packet of inner length 0 is read past to the next
+frame in the same call and its frame leaves the receive buffer at once (not a drop, no log line); the original
+stopped there with the frames behind it waiting, and a frame that fit only without it never completed. Golden
+17,316,040, 0 failures; the Network test's deliberate parts: #72 269 parts, 35,460 checks, 16,386 differing; #139 32,
+3,303, 1,167; #142 36, 3,688, 1,037 (before: 307 parts, 39,447 checks, 17,766 differing). bounded_reads has three
+new cases; fuzz_network's stall property holds in full. notes/decisions.md, "#142".
+
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

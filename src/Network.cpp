@@ -248,6 +248,11 @@ void patella::TNetwork::SendCommand(bool Encrypt)
 //   buffer's size from it as it was, so its reads went on past the frame: into the next frames, and past ReceiveData
 //   into SendData. Until the owner's change of November 7 (#139) such a frame threw "packet length exceeds the
 //   received data" and ended the client.
+// - #142: a packet of inner length 0 (nothing in it) is not a bad frame and is not dropped or logged, but nothing of
+//   it is left to read, so the next frame is prepared in its place too, in the same call. Tibia.exe returned it as the
+//   prepared packet: GetNextCommand returned -1 with complete frames behind it, and the empty packet's frame stayed in
+//   ReceiveData until the next PrepareNextPacket, so a following frame that fits only without it never completed and
+//   the connection stalled. EmptyPackets counts them (the tests').
 void patella::TNetwork::PrepareNextPacket()
 {
 	while (true) {
@@ -286,6 +291,11 @@ void patella::TNetwork::PrepareNextPacket()
 			else
 				patella::log::Warn("server frame dropped: its length {} runs past its size {}", Size - 4, PacketSize);
 			DropFrame(TFrameDrop::Length, FrameEnd);
+			continue;
+		}
+		if (Size == 4) {
+			// Issue #142: an empty packet (inner length 0) has no command; the next frame is prepared in its place.
+			EmptyPackets++;
 			continue;
 		}
 		ReceiveBuffer.SetSize(Size);

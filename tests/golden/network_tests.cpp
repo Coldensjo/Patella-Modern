@@ -702,11 +702,28 @@ TFunctions Fn[2];
 // DroppedFrames before and after it), named by the drop's reason. Until #139 our side threw "packet length exceeds
 // the received data" at #72's frames (the part opened at that throw) and had no other drop; the two sides never agree
 // again within the round, so the part still ends at the round's end.
-void OpenDropPart(int DroppedBefore)
+//
+// Issue #142, the same way (notes/decisions.md, "#142"): our PrepareNextPacket goes on past an empty packet (inner
+// length 0) to the next frame and moves the empty packet's frame out of ReceiveData at once, where the original
+// returned the empty packet (GetNextCommand -1, the frame left in ReceiveData until the next PrepareNextPacket). From
+// that call on the sides' receive buffers differ until ResetSides: a part named "#142", opened in our side's call that
+// went on past one (TNetwork's EmptyPackets before and after it), unless a drop in the same call opened one first.
+struct TFrameCounts {
+	int Dropped;
+	int Empty;
+};
+TFrameCounts FrameCounts()
 {
 	const patella::TNetwork &N = patella::bridge::Network();
-	if (N.DroppedFrames != DroppedBefore)
+	return {N.DroppedFrames, N.EmptyPackets};
+}
+void OpenDropPart(TFrameCounts Before)
+{
+	const patella::TNetwork &N = patella::bridge::Network();
+	if (N.DroppedFrames != Before.Dropped)
 		golden::BeginDeliberate(N.LastDrop == patella::TFrameDrop::Length ? "#72" : "#139");
+	else if (N.EmptyPackets != Before.Empty)
+		golden::BeginDeliberate("#142");
 }
 
 template <class T> void SetFn(T &Slot, uint32 Address) { Slot = (T)(uintptr_t)Address; }
@@ -970,7 +987,7 @@ uint8 TestKey[16];  // the key both sides have, for the server's frames
 // constructed once by TestNetwork).
 void ResetSides()
 {
-	// A part of #72 or #139 (above) ends: both sides from here on are in step again. ReceiveSkip is ours only (#139:
+	// A part of #72, #139 or #142 (above) ends: both sides from here on are in step again. ReceiveSkip is ours only (#139:
 	// the rest of a frame larger than ReceiveData still to be dropped), cleared with the receive state below.
 	golden::EndDeliberate();
 	patella::bridge::Network().ReceiveSkip = 0;
@@ -1034,14 +1051,14 @@ template <class F> void Both(const char *Name, F Call)
 	}
 	if (Trace)
 		printf("Network: %s\n", Name);
-	const int Dropped = patella::bridge::Network().DroppedFrames;
+	const TFrameCounts Dropped = FrameCounts();
 	if (Round == NULL) {
 		Side = OURS;
 		try {
 			Call(OURS);
 		} catch (const TMyException &) {
-			// Our side's throw inside a deliberate part of #72 or #139 (after a dropped frame our side reads other
-			// packets than the original); any other is the test's. Until #139 our side threw at the #72 frame itself.
+			// Our side's throw inside a deliberate part of #72, #139 or #142 (after a dropped frame or an empty
+			// packet our side reads other packets than the original); any other is the test's. Until #139 our side threw at the #72 frame itself.
 			OpenDropPart(Dropped);
 			if (!golden::InDeliberate())
 				throw;
@@ -1773,6 +1790,10 @@ void TestNetwork()
 		if (Part.Issue == "#72" || Part.Issue == "#139")
 			printf("Network: %lld checks in %lld parts after a frame dropped by %s (a deliberate difference), %lld of "
 				   "them differ\n",
+				Part.Checks, Part.Parts, Part.Issue.c_str(), Part.Differ);
+		else if (Part.Issue == "#142")
+			printf("Network: %lld checks in %lld parts after an empty packet read past by %s (a deliberate "
+				   "difference), %lld of them differ\n",
 				Part.Checks, Part.Parts, Part.Issue.c_str(), Part.Differ);
 	RestoreAll();
 	golden::SetImport(RandSlot, SavedRand);

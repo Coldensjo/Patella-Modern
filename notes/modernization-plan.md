@@ -758,6 +758,8 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   mark); the original's filed. Done in #139 (notes/decisions.md, "#139"): the original's seven findings fixed as
   deliberate differences (the data files' loaders, GetString, and every bad server frame dropped and logged with the
   connection going on), each with a unit test (bounded_reads) and synthetic seeds; the harnesses check the fixes.
+  Done in #142 (notes/decisions.md, "#142"): an empty packet is read past to the next frame (#139's last fuzzing
+  case, the original's stall); fuzz_network's stall property in full.
 - **Hardening:** `_MSVC_STL_HARDENING` and libstdc++'s/libc++'s hardened modes in release builds where the
   library supports them; `-D_GLIBCXX_ASSERTIONS` / bounds-checked `std::span` and `std::mdspan` in debug.
   Done in #133 (notes/decisions.md, "#133"): `_MSVC_STL_HARDENING=1` and libstdc++'s `_GLIBCXX_ASSERTIONS` in every
