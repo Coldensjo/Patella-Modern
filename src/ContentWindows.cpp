@@ -21,7 +21,6 @@
 #include "ContextMenus.h"
 #include "Creatures.h"
 #include "Inventory.h"
-#include "MainWindow.h"
 #include "Objects.h"
 #include "Map.h"
 #include "Preferences.h"
@@ -67,7 +66,7 @@ static_assert(sizeof(patella::bridge::GUI().AutomapMouseOverText) == 100 && size
 
 // 0x4362b0, line 106. The inventory: a plain content window with the body
 // slots and the large combat controls.
-TContentWindow *CreateInventoryWindow(TMainWindow *Receiver)
+TContentWindow *CreateInventoryWindow(TWindow *Receiver)
 {
 	TContentWindow *Window = new TContentWindow(1, true);
 	Window->SetSize(SkinProperties.Data184, SkinProperties.Data274);
@@ -83,7 +82,7 @@ TContentWindow *CreateInventoryWindow(TMainWindow *Receiver)
 
 // 0x436510, line 140. The small inventory: the small combat controls, the
 // "maximise" button (event 24 of the main window), capacity, soul and states.
-TContentWindow *CreateSmallInventoryWindow(TMainWindow *Receiver)
+TContentWindow *CreateSmallInventoryWindow(TWindow *Receiver)
 {
 	TSmallInventoryWindow *Window = new TSmallInventoryWindow;
 	Window->SetSize(SkinProperties.Data184, SkinProperties.Data54C);
@@ -206,7 +205,7 @@ TSubWindow *CreateBuddylistWindow()
 
 // 0x426480, lines 292-309. The assertion comes before the try block (after
 // the base class).
-TButtonsWindow::TButtonsWindow(TDialogWindow *_CheckObject, TMainWindow *Receiver)
+TButtonsWindow::TButtonsWindow(TDialogWindow *_CheckObject, TWindow *Receiver)
 	: TContentWindow(5, true)
 {
 	PATELLA_ASSERT(_CheckObject!=NULL);
@@ -983,7 +982,7 @@ bool TSmallInventoryWindow::HelpMouseMove(int x, int y)
 
 // 0x42a750, line 1170. The try block starts after the base class. The
 // "minimise" button is event 23 of the main window.
-TInventoryView::TInventoryView(TMainWindow *Receiver)
+TInventoryView::TInventoryView(TWindow *Receiver)
 {
 	SetSize(SkinProperties.Style288.Data00, SkinProperties.Style288.Data04);
 	TSkinButton *Minimise = new TSkinButton(0, 0, 138, 139, TCallback(Receiver, 23), TextMinimiseInventory, false);
@@ -1168,7 +1167,7 @@ int TInventoryView::GetSlotAt(int x, int y)
 // layout (Style4AC for the large controls, Style4FC for the small ones) is
 // copied first. The radio groups have no selection until the modes are read
 // at the end (none for an unknown mode).
-TCombatControls::TCombatControls(TMainWindow *Receiver, bool Large)
+TCombatControls::TCombatControls(TWindow *Receiver, bool Large)
 {
 	IsLarge = Large;
 	const TCombatControlsProperties Layout = Large ? SkinProperties.Style4AC : SkinProperties.Style4FC;
@@ -1684,6 +1683,24 @@ TSkillsWindowBody::~TSkillsWindowBody()
 {
 	if (ContextMenu != nullptr)
 		ContextMenu->SkillsWindow = nullptr;
+}
+
+// Not in the original (issue #118; ContextMenus.h): TSkillContextMenu's stores into the window and its call of the
+// window's Arrange, here where the class is complete.
+void SetSkillsWindowMenu(TSkillsWindowBody *Window, TSkillContextMenu *Menu) noexcept
+{
+	Window->ContextMenu = Menu;
+}
+
+void ArrangeSkillsWindow(TSkillsWindowBody *Window)
+{
+	Window->Arrange();
+}
+
+// Not in the original (issue #118; DialogWindow.h): TSubWindow::Arrange's call for a container's window.
+void UpdateContainerUpButton(TSubWindowBody *Body)
+{
+	(static_cast<TContainerWindowBody *>(Body))->UpdateUpButton();
 }
 
 // 0x4394d0, lines 2003-2063. One line per skill: the name on the left, the

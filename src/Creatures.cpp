@@ -19,13 +19,10 @@
 // DialogElements.obj (file-ranges.tsv).
 
 #include "Creatures.h"
-#include "GUI.h"
-#include "Help.h"
+#include "GUI.h" // TCallback (NoCallback)
 #include "Map.h"
 #include "Objects.h"
 #include "Preferences.h"
-#include "Status.h"
-#include "Talk.h"
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "sysinc.h"
 #include "common.h"
@@ -63,10 +60,14 @@ static_assert(offsetof(TCreature, Name) == 0x04 && sizeof(TCreature::Name) == 32
 	"TCreature's arrays");
 // The globals' arrays: TCreatures' and TPlayerState's static_asserts (Creatures.h).
 
-patella::TCreatures::TCreatures(TCreaturesPlayer &PlayerStateRef) : PlayerState(PlayerStateRef) {}
+patella::TCreatures::TCreatures(TCreaturesPlayer &PlayerStateRef, TCreaturesGUI &GUIRef)
+	: PlayerState(PlayerStateRef), GUI(GUIRef)
+{
+}
 
-patella::TPlayerState::TPlayerState(TObjectTypes &ObjectTypesRef, TMap &MapRef, TCreatures &CreaturesRef)
-	: ObjectTypes(ObjectTypesRef), Map(MapRef), Creatures(CreaturesRef)
+patella::TPlayerState::TPlayerState(TObjectTypes &ObjectTypesRef, TMap &MapRef, TCreatures &CreaturesRef,
+	TCreaturesGUI &GUIRef)
+	: ObjectTypes(ObjectTypesRef), Map(MapRef), Creatures(CreaturesRef), GUI(GUIRef)
 {
 }
 
@@ -595,16 +596,16 @@ int patella::TPlayerState::FindPlayerPath()
 	}
 	switch (Result) {
 	case -4:
-		SetStatusMessage("There is no way.", false);
+		GUI.SetStatusMessage("There is no way.", false);
 		return 0;
 	case -3:
-		SetStatusMessage("Destination is out of range.", false);
+		GUI.SetStatusMessage("Destination is out of range.", false);
 		return 0;
 	case -2:
-		SetStatusMessage("First go downstairs.", false);
+		GUI.SetStatusMessage("First go downstairs.", false);
 		return 0;
 	case -1:
-		SetStatusMessage("First go upstairs.", false);
+		GUI.SetStatusMessage("First go upstairs.", false);
 		return 0;
 	}
 	return 0;
@@ -630,7 +631,7 @@ int patella::TPlayerState::SetPlayerDestination(int x, int y, int z, bool Exact,
 	Map.AbsoluteToRelative(&x, &y, &z);
 	if (In(x, 1, 15) && In(y, 1, 11) && z == Map.GetMapLevel() && (x != 8 || y != 6)) {
 		if (!Map.IsFieldPassable(x, y, z, true)) {
-			SetStatusMessage("Sorry, not possible.", false);
+			GUI.SetStatusMessage("Sorry, not possible.", false);
 			DestinationX = 0;
 			return 0;
 		}
@@ -796,11 +797,11 @@ void patella::TCreatures::CheckMonsterHint(TCreature *Creature)
 			PATELLA_ASSERT(Opponent!=NULL);
 			if (!IsPlayer(Opponent->CreatureID) && abs(Opponent->RealX - Player->RealX) <= 2
 				&& abs(Opponent->RealY - Player->RealY) <= 2)
-				CheckEventHelpName(Opponent->Name);
+				GUI.CheckEventHelpName(Opponent->Name);
 		}
 	} else if (!IsPlayer(Creature->CreatureID) && IsOpponent(Creature)
 		&& abs(Creature->RealX - Player->RealX) <= 2 && abs(Creature->RealY - Player->RealY) <= 2) {
-		CheckEventHelpName(Creature->Name);
+		GUI.CheckEventHelpName(Creature->Name);
 	}
 }
 
@@ -809,7 +810,7 @@ void patella::TCreatures::CheckMonsterHint(TCreature *Creature)
 void patella::TCreatures::NotifySkull(int Flag)
 {
 	if (Flag != 0)
-		AddEventHelp(13);
+		GUI.AddEventHelp(13);
 }
 
 // --- Experience and skills -------------------------------------------------
@@ -820,13 +821,13 @@ void patella::TPlayerState::SetPlayerExperience(int Experience, int Level, int P
 {
 	PATELLA_ASSERT_VALUES(In(Progress,-1,100), Progress);
 	if (PlayerLevel != 0 && PlayerExperience == 0 && Experience > 0)
-		AddEventHelp(7);
+		GUI.AddEventHelp(7);
 	if (PlayerLevel != 0 && PlayerLevel < 2 && Level >= 2)
-		AddEventHelp(8);
+		GUI.AddEventHelp(8);
 	if (PlayerLevel != 0 && PlayerLevel < 8 && Level >= 8)
-		AddEventHelp(10);
+		GUI.AddEventHelp(10);
 	if (PlayerLevel != 0 && PlayerLevel < 20 && Level >= 20)
-		AddEventHelp(14);
+		GUI.AddEventHelp(14);
 	PlayerExperience = Experience;
 	PlayerLevel = Level;
 	PlayerLevelProgress = Progress;
@@ -837,7 +838,7 @@ void patella::TPlayerState::SetPlayerSkill(int SkillNumber, int Value, int Progr
 {
 	PATELLA_ASSERT_VALUES(In(Progress,0,100), Progress);
 	if (PlayerSkillValue[SkillNumber] != 0 && PlayerSkillValue[SkillNumber] < Value)
-		AddEventHelp(9);
+		GUI.AddEventHelp(9);
 	PlayerSkillProgress[SkillNumber] = Progress;
 	PlayerSkillValue[SkillNumber] = Value;
 }
@@ -1073,11 +1074,11 @@ void patella::TCreatures::SetBuddyState(uint32 CharacterID, bool Online)
 	Buddy->Online = Online;
 	if (Online)
 		NumberOfOnlineBuddies++;
-	Buddy->LoginAction = GetActionNumber();
+	Buddy->LoginAction = GUI.GetActionNumber();
 	if (Online && GetBuddyNotify(CharacterID)) {
 		TFixedString<256> Text;
 		Text.Format("{} has logged in.", Buddy->Name);
-		SetStatusMessage(Text, false);
+		GUI.SetStatusMessage(Text, false);
 	}
 	SortBuddy(Position);
 }
@@ -1105,7 +1106,7 @@ void patella::TCreatures::RemoveBuddy(uint32 CharacterID)
 	const int Position = GetBuddyPosition(CharacterID);
 	if (Position == -1)
 		return;
-	AddMessage(0x1a, reinterpret_cast<INT_PTR>(MsvcStrdup(Buddies[Position].Name)), 0);
+	GUI.AddMessage(0x1a, reinterpret_cast<INT_PTR>(MsvcStrdup(Buddies[Position].Name)), 0);
 	if (Buddies[Position].Online)
 		NumberOfOnlineBuddies--;
 	for (int i = Position; i < NumberOfBuddies - 1; i++)
@@ -1176,7 +1177,7 @@ bool patella::TCreatures::GetBuddyListOnline(int Position) const
 bool patella::TCreatures::GetBuddyListNew(int Position) const
 {
 	PATELLA_ASSERT_VALUES(In(Position,0,NumberOfBuddies-1), Position, NumberOfBuddies-1);
-	if (Buddies[Position].Online && GetActionNumber() - 10 < Buddies[Position].LoginAction)
+	if (Buddies[Position].Online && GUI.GetActionNumber() - 10 < Buddies[Position].LoginAction)
 		return true;
 	return false;
 }

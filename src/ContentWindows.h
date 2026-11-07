@@ -26,7 +26,6 @@
 #pragma once
 
 #include "common.h" // IWYU pragma: keep (first: it configures the CRT and MFC for the headers after it)
-#include <climits>
 #include "GUI.h"
 #include "Creatures.h" // SetHighlightID
 #include "DialogWindow.h"
@@ -35,7 +34,6 @@
 #include "types/FixedString.h"
 #include <memory>
 
-class TMainWindow;       // MainWindow.h
 class TSkillContextMenu; // ContextMenus.h
 
 // --- The side-bar windows -------------------------------------------------------
@@ -46,7 +44,7 @@ class TSkillContextMenu; // ContextMenus.h
 // battle, 22 VIP, 507 logout).
 class TButtonsWindow : public TContentWindow {
 public:
-	TButtonsWindow(TDialogWindow *_CheckObject, TMainWindow *Receiver); // 0x426480, lines 292-309
+	TButtonsWindow(TDialogWindow *_CheckObject, TWindow *Receiver); // 0x426480, lines 292-309
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
 	void Draw(int Surface, int x, int y) override; // +0x44, 0x4268c0, line 322
 	bool HelpMouseMove(int x, int y) override;     // +0x68, 0x426aa0, line 334
@@ -161,7 +159,7 @@ public:
 // and the states.
 class TInventoryView : public TWindow {
 public:
-	TInventoryView(TMainWindow *Receiver); // 0x42a750, line 1170
+	TInventoryView(TWindow *Receiver); // 0x42a750, line 1170
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
 	void Draw(int Surface, int x, int y) override;         // +0x44, 0x42aa90, lines 1181-1209
 	bool LeftButtonDown(int x, int y, int Flags) override; // +0x50, 0x437930, line 1229
@@ -178,7 +176,7 @@ class TCombatControls : public TWindow {
 public:
 	TCombatControls(const TCombatControls &) = delete;
 	TCombatControls &operator=(const TCombatControls &) = delete;
-	TCombatControls(TMainWindow *Receiver, bool Large); // 0x42b4d0, line 1425
+	TCombatControls(TWindow *Receiver, bool Large); // 0x42b4d0, line 1425
 	// Inline (0x425e00, deleting destructor 0x425e50).
 	~TCombatControls() override
 	{
@@ -212,24 +210,7 @@ public:
 
 // --- The bodies of the sub-windows ------------------------------------------------
 
-// The content of a TSubWindow. Its constructor and its virtual functions
-// are inline; no vtable of its own is left (the constructors of the
-// subclasses store theirs right after Minimized).
-class TSubWindowBody : public TWindow {
-public:
-	TSubWindowBody() { Minimized = false; }
-	// +0x58: a double click on the body is taken (it does not minimize the
-	// window); the folded true-returning 0x425a00 (the VIP body overrides it).
-	bool LeftButtonDoubleClick([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return true; }
-	virtual void Minimize() { Minimized = true; }      // +0xa0, 0x4259c0, TSubWindow::Minimize
-	virtual void Maximize() { Minimized = false; }     // +0xa4, 0x4259d0, TSubWindow::Maximize
-	virtual bool IsMinimized() { return Minimized; }   // +0xa8, 0x4259e0
-	virtual int GetInitialHeight() = 0;                // +0xac, the creators size the window with it
-	virtual int GetMaximumHeight() { return INT_MAX; } // +0xb0, 0x425b00
-	virtual int GetContentHeight() = 0;                // +0xb4
-
-	bool Minimized; // +0x2c
-};
+// TSubWindowBody, the content of a TSubWindow, is DialogWindow.h's since issue #118.
 
 // The objects of a container in rows of SkinProperties.Data62C slots, with
 // a scroll bar.
@@ -444,10 +425,15 @@ public:
 
 // --- The creators ------------------------------------------------------------------
 
-TContentWindow *CreateInventoryWindow(TMainWindow *Receiver);      // 0x4362b0, line 106
-TContentWindow *CreateSmallInventoryWindow(TMainWindow *Receiver); // 0x436510, line 140
-TSubWindow *CreateContainerWindow(int Container);                  // 0x43c520, line 170
-TSubWindow *CreateSkillsWindow();                                  // 0x43c920, line 197
-TSubWindow *CreateBattleWindow();                                  // 0x43cc90, line 225
-TSubWindow *CreateTradeWindow();                                   // 0x43d000, line 253
-TSubWindow *CreateBuddylistWindow();                               // 0x43d390, line 280
+// The inventory windows' Receiver (and TButtonsWindow's, TInventoryView's, TCombatControls'), the main window
+// (MainWindow.cpp passes this): only their buttons' TCallback receiver, so a TWindow since issue #118 (the original's
+// TMainWindow; ContentWindows.cpp then does not include MainWindow.h, which made ContentWindows and MainWindow a
+// cycle).
+
+TContentWindow *CreateInventoryWindow(TWindow *Receiver);      // 0x4362b0, line 106
+TContentWindow *CreateSmallInventoryWindow(TWindow *Receiver); // 0x436510, line 140
+TSubWindow *CreateContainerWindow(int Container);              // 0x43c520, line 170
+TSubWindow *CreateSkillsWindow();                              // 0x43c920, line 197
+TSubWindow *CreateBattleWindow();                              // 0x43cc90, line 225
+TSubWindow *CreateTradeWindow();                               // 0x43d000, line 253
+TSubWindow *CreateBuddylistWindow();                           // 0x43d390, line 280

@@ -426,16 +426,16 @@ using namespace MainWindowTest;
 #if defined(_MSC_VER)
 extern "C" void OurAutomapConstructor();
 extern "C" void OurStatusConstructor();
-extern "C" void OurButtonsConstructor();
+extern "C" void OurButtonsConstructor(); // TButtonsWindow(TDialogWindow *, TWindow *): the receiver a TWindow since issue #118
 #endif
 #if defined(_MSC_VER)
 #pragma comment(linker, "/alternatename:OurAutomapConstructor=??0TAutomapWindow@@QEAA@XZ")
 #pragma comment(linker, "/alternatename:OurStatusConstructor=??0TStatusWindow@@QEAA@XZ")
-#pragma comment(linker, "/alternatename:OurButtonsConstructor=??0TButtonsWindow@@QEAA@PEAVTDialogWindow@@PEAVTMainWindow@@@Z")
+#pragma comment(linker, "/alternatename:OurButtonsConstructor=??0TButtonsWindow@@QEAA@PEAVTDialogWindow@@PEAVTWindow@@@Z")
 #else
 GOLDEN_SYMBOL(OurAutomapConstructor, "_ZN14TAutomapWindowC1Ev");
 GOLDEN_SYMBOL(OurStatusConstructor, "_ZN13TStatusWindowC1Ev");
-GOLDEN_SYMBOL(OurButtonsConstructor, "_ZN14TButtonsWindowC1EP13TDialogWindowP11TMainWindow");
+GOLDEN_SYMBOL(OurButtonsConstructor, "_ZN14TButtonsWindowC1EP13TDialogWindowP7TWindow");
 #endif
 
 // elementfakes.h's fakes this test introduced (the border, the first text button constructor, the label's
@@ -769,7 +769,7 @@ static void PatchCallees()
 		{0x409140, (void *)SendCancel, (void *)FakeSendCancel},
 		{0x404350, (void *)SendLogout, (void *)FakeSendLogout},
 		{0x4074a0, (void *)SendJoinChannel, (void *)FakeSendJoinChannel},
-		{0x445c20, (void *)ChangeEngine, (void *)FakeChangeEngine},
+		{0x445c20, (void *)&patella::TGUI::ChangeEngine, (void *)FakeChangeEngine}, // TGUI's static member (issue #118)
 	};
 	for (auto &U : Undefined) {
 		PatchOwn(U.Ours, U.Fake);

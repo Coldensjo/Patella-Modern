@@ -861,42 +861,30 @@ class TMainWindow;
 
 namespace patella {
 
+class TNetwork;       // Network.h
+class TCommunication; // Communication.h
+
 // The GUI's state (issue #107, M7; notes/decisions.md, "#104: TClient and the subsystem objects" and "#107"), the
 // sixth of TClient's subsystems: Talk.cpp's TTalk, Help.cpp's THelp and Status.cpp's TInteraction, and the data of
 // GUI.cpp (the timers and hotkeys), ContentWindows.cpp (the two mouse-over texts), Control.cpp (the window, the
 // callbacks, the mouse's last move, the frame counter's switch) and MainWindow.cpp (ModalWindow, MainWindow and the
-// callbacks), in the original's address order with the same initial values. GUI.cpp's timer and hotkey functions are
-// its members of the same names; the free functions forward to them. SkinProperties is still GUI.cpp's global (its
-// 2,000 readers in the window files: notes/decisions.md, "#107", "Found, not done").
+// callbacks), in the original's address order with the same initial values. GUI.cpp's timer and hotkey functions,
+// Control.cpp's and MainWindow.cpp's functions (issue #118) are its members of the same names; the free functions
+// forward to them. SkinProperties is still GUI.cpp's global (its 2,000 readers in the window files: notes/decisions.md,
+// "#107", "Found, not done"; it moves with Skins.cpp into TGraphics, #116).
 //
-// The windows' calls into Control.cpp, the controller above them, go through TGUIController (rule 5 of the design: a
-// lower module declares the interface, the upper one implements it), so MainWindow.cpp and Dialogs.cpp do not include
-// Control.h.
+// Control.cpp, the controller above the windows, is TGUI's since issue #118: the windows' calls into it (the engine
+// buttons of the main window's options, MainWindow.cpp, and the graphics options' fullscreen switch, Dialogs.cpp) are
+// calls of TGUI's members, and TGUI takes the earlier subsystems Control.cpp reads (TNetwork's reconnect, TCommunication's
+// packet ring and outfit request) by constructor reference.
 //
 // MainWindow owns the main window (issue #108; raw until then): InitMainWindow makes it, ExitMainWindow closes and
 // frees it, at the original's new and delete; CPlayerApp::FatalError abandons it before exit(1) (AbandonWindows), so
 // TClient's static destruction never destroys it. ModalWindow keeps the original's raw pointer (below): Control.cpp
 // makes each dialog into it and closes and deletes the one it ends (DeleteComponent). notes/decisions.md, "#108".
-// Control.cpp's functions that the windows call (issue #107): the engine buttons of the main window's options
-// (MainWindow.cpp) and the graphics options' fullscreen switch (Dialogs.cpp). Implemented in Client.cpp by Control.cpp's
-// free functions until Control.cpp's functions are an object's.
-class TGUIController {
-public:
-	TGUIController() = default;
-	TGUIController(const TGUIController &) = delete;
-	TGUIController &operator=(const TGUIController &) = delete;
-	TGUIController(TGUIController &&) = delete;
-	TGUIController &operator=(TGUIController &&) = delete;
-	virtual void ChangeEngine(int engine) = 0;
-	virtual void Resize(int Width, int Height) = 0;
-
-protected:
-	~TGUIController() = default;
-};
-
 class TGUI {
 public:
-	explicit TGUI(TGUIController &Controller); // MainWindow.cpp (TMainWindow is complete there)
+	TGUI(TNetwork &Network, TCommunication &Communication); // MainWindow.cpp (TMainWindow is complete there)
 	TGUI(const TGUI &) = delete;
 	TGUI &operator=(const TGUI &) = delete;
 	TGUI(TGUI &&) = delete;
@@ -913,7 +901,44 @@ public:
 	void RemoveHotkey(int Key);
 	bool CheckHotkey(int Key);
 
-	TGUIController &Controller; // Control.cpp's functions (above)
+	// Control.cpp's (issue #118; Control.h has the free functions of the same names, which forward here). Their calls
+	// into the other files (GUI.cpp's and MainWindow.cpp's included) are those files' free functions, which the golden
+	// Control and Communication tests fake (commworld.cpp's WorldFakes); their calls of each other are member calls.
+	void Resize(int Width, int Height);
+	void CheckSurface(bool Force);
+	static void ChangeEngine(int engine);
+	void Redraw(bool Force);
+	void EnterGame() const;
+	void LeaveGame();
+	void MouseMove(int x, int y);
+	void LeftButtonDown(int x, int y, int Flags);
+	void LeftButtonUp(int x, int y, int Flags);
+	void LeftButtonDoubleClick(int x, int y, int Flags);
+	void RightButtonDown(int x, int y, int Flags);
+	void RightButtonUp(int x, int y, int Flags);
+	void MouseWheel(int x, int y, int Direction);
+	void KeyPress(int Key);
+	[[nodiscard]] bool CloseRequest() const;
+	void HandleEvents();
+	static void LinkCopyWarning();
+	void ConnectionEstablished();
+	void ReceivePackets();
+	void ConnectionClosed();
+	void TimerEvent() const;
+	void ProcessEvents();
+	void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL));
+	static void InitControl(bool Gamemaster);
+	static void ExitControl();
+	[[nodiscard]] std::array<uint8, 10> GetLastPacketTypes() const;
+
+	// MainWindow.cpp's (issue #118; MainWindow.h has the free functions).
+	void InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode),
+		void (*OpenURL)(const char *URL));
+	void ExitMainWindow();
+
+	// The earlier subsystems Control.cpp reads (issue #118).
+	TNetwork &Network;
+	TCommunication &Communication;
 
 	// The files' objects.
 	TTalk Talk;               // Talk.cpp

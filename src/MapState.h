@@ -23,7 +23,11 @@ namespace patella {
 
 class TMapState final : private TCreaturesPlayer {
 public:
-	TMapState() : Map(ObjectTypes), Creatures(*this), PlayerState(ObjectTypes, Map, Creatures), Inventory(ObjectTypes) {}
+	// Console and GUI: the calls up into TGUI (issue #118), which TClient passes (Client.cpp's adapters).
+	TMapState(TMapConsole &Console, TCreaturesGUI &GUI)
+		: Map(ObjectTypes, Console), Creatures(*this, GUI), PlayerState(ObjectTypes, Map, Creatures, GUI), Inventory(ObjectTypes)
+	{
+	}
 	TMapState(const TMapState &) = delete;
 	TMapState &operator=(const TMapState &) = delete;
 	TMapState(TMapState &&) = delete;
@@ -38,10 +42,10 @@ public:
 	TInventory Inventory;
 
 private:
-	// TCreaturesPlayer: TCreatures' calls of the player's state. GetPlayerID calls the original's free function
-	// (Creatures.h), as IsOpponent, CheckMonsterHint and MoveCreatures did: the golden tests that fake it by its symbol
-	// (the Communication world, the window tests) are reached as before. It goes to the member when those fakes do.
-	uint32 GetPlayerID() override { return ::GetPlayerID(); }
+	// TCreaturesPlayer: TCreatures' calls of the player's state. GetPlayerID calls TPlayerState's member since issue
+	// #118 (the free function until then): the golden tests that fake the free one (the Communication world, the window
+	// tests) fake the member too.
+	uint32 GetPlayerID() override { return PlayerState.GetPlayerID(); }
 	bool ContinuePlayerWalk() override { return PlayerState.ContinuePlayerWalk(); }
 	void ResetPlayer() override { PlayerState.ResetPlayer(); }
 };

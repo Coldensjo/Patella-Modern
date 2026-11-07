@@ -2247,7 +2247,7 @@ const TFake WorldFakes[] = {
 	FMF(TPlayerState, GetPlayerStep),
 	FMF(TCreatures, AddCreature),
 	FMF(TCreatures, GetCreature),
-	{"TCreatures::NotifySkull", 0, (void *)&patella::TCreatures::NotifySkull, (void *)F_NotifySkull},
+	FMF(TCreatures, NotifySkull), // a member since issue #118 (static before: it calls TCreaturesGUI)
 	FMF(TPlayerState, SetPlayerExperience),
 	FMF(TPlayerState, SetPlayerSkill),
 	FMF(TCreatures, AddBuddy),

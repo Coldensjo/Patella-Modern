@@ -124,6 +124,28 @@ protected:
 	~TCreaturesPlayer() = default;
 };
 
+// What TCreatures and TPlayerState ask of the GUI (Patella-Modern issue #118; rule 5 of notes/decisions.md, "#104"):
+// Talk.cpp's status message, Help.cpp's hints, Status.cpp's message queue and action number, all TGUI's, a later
+// subsystem than TMapState, so they reach them only through this interface. Client.cpp implements it with those
+// files' free functions (the golden tests fake them by their symbols). Each member is the original's call of the same
+// name and parameters.
+class TCreaturesGUI {
+public:
+	TCreaturesGUI() = default;
+	TCreaturesGUI(const TCreaturesGUI &) = delete;
+	TCreaturesGUI &operator=(const TCreaturesGUI &) = delete;
+	TCreaturesGUI(TCreaturesGUI &&) = delete;
+	TCreaturesGUI &operator=(TCreaturesGUI &&) = delete;
+	virtual void SetStatusMessage(const char *Message, bool Permanent) = 0; // Talk.cpp
+	virtual void AddEventHelp(int Number) = 0;                              // Help.cpp
+	virtual void CheckEventHelpName(const char *Name) = 0;                  // Help.cpp
+	virtual void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2) = 0;  // Status.cpp
+	virtual int GetActionNumber() = 0;                                      // Status.cpp
+
+protected:
+	~TCreaturesGUI() = default;
+};
+
 // Creatures.cpp's creature table, battle list and VIP list (Patella-Modern issue #106, M7; notes/decisions.md, "#104:
 // TClient and the subsystem objects" and "#106"): Creatures, FirstOpponent, LastOpponent, Beat, the attack, follow and
 // highlight targets and the buddy window's list, in the original's .bss order (0x5c4560-0x5c67d7, 0x5c6814-0x5c681f,
@@ -132,7 +154,7 @@ protected:
 // statics were; TCreature's StartMovement reads Beat (a friend). TMapState owns it (MapState.h), after TMap.
 class TCreatures {
 public:
-	explicit TCreatures(TCreaturesPlayer &PlayerState);
+	TCreatures(TCreaturesPlayer &PlayerState, TCreaturesGUI &GUI);
 	TCreatures(const TCreatures &) = delete;
 	TCreatures &operator=(const TCreatures &) = delete;
 	TCreatures(TCreatures &&) = delete;
@@ -159,7 +181,7 @@ public:
 	void HideCreature(int CreatureID);                             // 0x44c8c0, line 517; a callback for Map.cpp
 	bool MoveCreatures();                                          // 0x451ab0, line 549
 	void CheckMonsterHint(TCreature *Creature);                    // 0x451db0, lines 573-592
-	static void NotifySkull(int Flag);                             // 0x44ca60, line 604
+	void NotifySkull(int Flag);                                    // 0x44ca60, line 604
 
 	// The battle list.
 	bool IsOpponent(TCreature *Creature); // 0x44d740, lines 987-994
@@ -197,6 +219,7 @@ private:
 	friend class ::TCreature;
 
 	TCreaturesPlayer &PlayerState;
+	TCreaturesGUI &GUI; // issue #118
 
 	// Data, in .bss order. 0x5c456c and 0x5c68ac are not used by any code.
 	std::array<int, 3> BuddySortMethods{};      // 0x5c4560, 0 name, 1 icon, 2 online; most significant first
@@ -229,7 +252,7 @@ private:
 // TCreatures, whose creature table it reads; it reads the map and the object types too.
 class TPlayerState {
 public:
-	TPlayerState(TObjectTypes &ObjectTypes, TMap &Map, TCreatures &Creatures);
+	TPlayerState(TObjectTypes &ObjectTypes, TMap &Map, TCreatures &Creatures, TCreaturesGUI &GUI);
 	TPlayerState(const TPlayerState &) = delete;
 	TPlayerState &operator=(const TPlayerState &) = delete;
 	TPlayerState(TPlayerState &&) = delete;
@@ -296,6 +319,7 @@ private:
 	TObjectTypes &ObjectTypes;
 	TMap &Map;
 	TCreatures &Creatures;
+	TCreaturesGUI &GUI; // issue #118
 
 	// Data, in .bss order.
 	int PlayerState{};                             // 0x5c67d8, the state icons, one bit each

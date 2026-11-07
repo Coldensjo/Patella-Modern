@@ -337,9 +337,10 @@ static void FindStatics()
 	// in the oracle our x86 one, compared nowhere (it leaves only curEngine, which every scenario sets again
 	// before a comparison reads it); here the x64 client's device choice, which the runner does not have. For the
 	// search alone it is a stand-in that logs the call (the log is cleared below).
+	// TGUI's static member since issue #118 (CheckSurface calls it member to member).
 	uint8 ChangeEngineStart[5];
-	golden::SaveOwn((const void *)&ChangeEngine, ChangeEngineStart);
-	golden::RedirectOwn((void *)&ChangeEngine, (void *)SearchChangeEngine);
+	golden::SaveOwn((const void *)&patella::TGUI::ChangeEngine, ChangeEngineStart);
+	golden::RedirectOwn((void *)&patella::TGUI::ChangeEngine, (void *)SearchChangeEngine);
 	ResetWorlds();
 	auto Init = [](uint32 v) {
 		InitWindow((HWND)(uintptr_t)v, (void (*)())(uintptr_t)(v + 1), (void (*)(int))(uintptr_t)(v + 3),
@@ -372,7 +373,7 @@ static void FindStatics()
 		ReceivePackets(); }, 0xd3, 0xd4);
 	Log[OURS].clear();
 	FreeWorlds();
-	golden::RestoreOwn((void *)&ChangeEngine, ChangeEngineStart);
+	golden::RestoreOwn((void *)&patella::TGUI::ChangeEngine, ChangeEngineStart);
 }
 
 static std::string DumpStatics(int S)

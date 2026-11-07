@@ -815,6 +815,9 @@ static void PatchCallees()
 		{0x4ea5b0, (void *)CopyToClipboard, (void *)FakeCopyToClipboard},
 		{0x4e6dc0, (void *)CheckAnyRight, (void *)FakeCheckAnyRight},
 		{0x44b9c0, (void *)GetPlayerID, (void *)FakeGetPlayerID},
+		// TMapState's TCreaturesPlayer::GetPlayerID calls the member since issue #118 (IsOpponent, CheckMonsterHint,
+		// MoveCreatures): faked as the free function is (no arguments: the fake ignores this).
+		{0x44b9c0, Member(&patella::TPlayerState::GetPlayerID), (void *)FakeGetPlayerID},
 		{0x44c6e0, (void *)GetCreature, (void *)FakeGetCreature},
 		{0x44b910, (void *)IsPlayer, (void *)FakeIsPlayer},
 		{0x44bb50, (void *)GetAttackID, (void *)FakeGetAttackID},

@@ -40,6 +40,7 @@
 #include "compat/mfc_shim.h"
 #include "Communication.h"
 #include "Control.h"
+#include "GUI.h"
 #include "MainWindow.h"
 #include "Network.h"
 #include "Status.h"
@@ -57,8 +58,10 @@
 static void F_EnterGame() { Call("EnterGame()"); }
 static void F_HandleEvents() { Call("HandleEvents()"); }
 static const TFake ControlFakes[] = {
-	{"EnterGame", 0x4465f0, (void *)&EnterGame, (void *)F_EnterGame},
-	{"HandleEvents", 0x44a770, (void *)&HandleEvents, (void *)F_HandleEvents},
+	// TGUI's members since issue #118 (ReceivePackets calls them member to member); without arguments, so a function
+	// fake ignores this.
+	{"EnterGame", 0x4465f0, MemberAddress(&patella::TGUI::EnterGame), (void *)F_EnterGame},
+	{"HandleEvents", 0x44a770, MemberAddress(&patella::TGUI::HandleEvents), (void *)F_HandleEvents},
 };
 
 // --- Values ------------------------------------------------------------------------

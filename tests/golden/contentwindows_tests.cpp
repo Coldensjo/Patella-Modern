@@ -1097,6 +1097,9 @@ static void PatchCallees()
 		{0x450190, (void *)GetBuddyListNew, (void *)FakeGetBuddyListNew},
 		{0x44fd40, (void *)GetBuddyListID, (void *)FakeGetBuddyListID},
 		{0x44b9c0, (void *)GetPlayerID, (void *)FakeGetPlayerID},
+		// TMapState's TCreaturesPlayer::GetPlayerID calls the member since issue #118 (IsOpponent, CheckMonsterHint,
+		// MoveCreatures): faked as the free function is (no arguments: the fake ignores this).
+		{0x44b9c0, Member(&patella::TPlayerState::GetPlayerID), (void *)FakeGetPlayerID},
 		{0x44c6e0, (void *)GetCreature, (void *)FakeGetCreature},
 		{0x44b9d0, (void *)GetPlayerHealth, (void *)FakeGetPlayerHealth},
 		{0x44b9e0, (void *)GetPlayerMaxHealth, (void *)FakeGetPlayerMaxHealth},
@@ -1348,7 +1351,7 @@ static TContentWindow *NewContentWindow(int s, int Identifier)
 
 static TContentWindow *Create(int s)
 {
-	TMainWindow *Main = (TMainWindow *)(TWindow *)Receiver;
+	TWindow *Main = (TWindow *)Receiver; // the creators' receiver, a TWindow since issue #118
 	bool Ours = s == OURS;
 	if (!Ours)
 		return nullptr; // the runner has no original
@@ -2288,7 +2291,7 @@ static TScrollBar *ScrollOf(TComponent *C, const std::string &Kind)
 // after them.
 static void DirectAssertions()
 {
-	TMainWindow *Main = (TMainWindow *)(TWindow *)Receiver;
+	TWindow *Main = (TWindow *)Receiver; // the creators' receiver, a TWindow since issue #118
 	TComponent *P[2];
 	char What[128];
 	TContentWorld Saved = World;

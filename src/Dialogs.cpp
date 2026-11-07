@@ -2485,7 +2485,7 @@ void TGraphicsOptionsDialog::HandleEvent(int Event)
 			&& (!Fullscreen->IsChecked() || ResolutionList->GetSelection() != -1))
 			SetDisplayMode(Fullscreen->IsChecked() + 1);
 		if (curEngine == 2 && Fullscreen->IsChecked())
-			patella::bridge::GUI().Controller.Resize(0, 0); // Control.cpp's (issue #107)
+			patella::bridge::GUI().Resize(0, 0); // Control.cpp's (issues #107, #118)
 	} else if (Event == 407) {
 		AddMessageFirst(0x23, 0, 0);
 		AddMessageFirst(0x24, reinterpret_cast<INT_PTR>(Parent), 0);

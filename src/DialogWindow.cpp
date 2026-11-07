@@ -24,7 +24,6 @@
 // close. Arrange then fills the space below the last child with nine skins.
 
 #include "DialogWindow.h"
-#include "ContentWindows.h"
 #include "DialogElements.h"
 #include "Preferences.h"
 #include "Skins.h"
@@ -666,7 +665,7 @@ void TSubWindow::Arrange()
 	TContentWindow::Arrange();
 	if (Identifier >= 0x40) {
 		PATELLA_ASSERT(Body!=NULL);
-		(static_cast<TContainerWindowBody *>(Body))->UpdateUpButton();
+		UpdateContainerUpButton(Body);
 	}
 	DrawingList[0] = TDrawing(128, 0, 0, 0, 0, 0, 0);
 	DrawingList[1] = TDrawing(132, Skins[128].width, 0, Width - Skins[129].width - Skins[128].width,
