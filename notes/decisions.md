@@ -15549,3 +15549,57 @@ TNetwork's out-of-line destructor are gone from the golden objects (inlined; TNe
 windows-x64 Release, built at the same path from main 8006002 and from the branch: Patella.exe's `.text` 0x2e36fc ->
 0x2e3bdc (+0x4e0, 1,248 bytes), PatellaTest.exe's 0x314c5c -> 0x31515c (+0x500): devirtualized calls get inlined.
 (#33's experiment, with all of its 107 marked and the oracle's code, shrank it by 0x1400.)
+
+## #140: compare_rendering's look step and the recordings' scenario check (Patella-Modern issue #140, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-140, from main 2898a44). Files: tools/session_client.py
+(LOOKS, recorded_look, check_recorded_look), tools/compare_rendering.py (LOOK, scenes(), session's `look`, main's
+check, the self-test's recording checks), tools/compare_traffic.py (LOOK, replay_run's check), tools/reference_record.py
+(passes LOOK_NORTH), notes/rendering.md, notes/traffic.md.
+
+### The same scenario, and a check of the recording (high)
+
+compare_rendering.py replays compare_traffic.py's orig-live.jsonl, but its session kept run_session's default look
+step, "look north" (field (8,5)), while compare_traffic's has looked at the player's own field (8,6) since #137: a
+fresh recording replayed one client packet off, and the proxy reported it as a client difference. Both fixes of the
+issue, together:
+
+- compare_rendering.py's session has compare_traffic.py's look step (LOOK = LOOK_OWN_FIELD in both); its scene names
+  follow it (scenes(look): "look at own field").
+- Both tools read the recording's look step before they replay it and refuse another one with its name and field
+  (compare_rendering's main: SystemExit, before any client starts, also with --compare-only; compare_traffic's
+  replay_run: a RunError, which matters for --skip-live on recordings from before #137). session_client.recorded_look
+  reads it from the recording itself, not from a side file, so recordings made before this change are classified too:
+  the client's first look packet (0x8c x y z; "look in container" and "look at offer" come later and look at a
+  container slot, x 0xffff) against the player's position in the game server's first packet (0x0a player, beat, bug
+  reports, 0x64 x y z). The four walks bring the player back to that field before the look, so the difference is the
+  look field's offset from the player's field (8,6): (0,-1) is "look north", (0,0) "look at own field"; anything else,
+  no look or no game login answer is refused too.
+- On the real files: the fresh orig-live.jsonl and patella-live.jsonl (and their replays) are "look at own field",
+  the frozen reference session traffic (reference.jsonl, server.jsonl) "look north". The other reference sessions
+  (walk, report, error, error-login, patch, patch-exe) have no look or no game connection: the check is never run on them.
+
+The frozen reference recordings stay as they are: tools/reference_record.py passes LOOK_NORTH to compare_rendering's
+session (it records from a live server, and never again since #93), and `reference.py compare` replays its recorded
+window messages without run_session or this check.
+
+### The gates (high)
+
+The machine shared with the agents of #110 and #122; src/ and CMake unchanged, so the clients are main's windows-x64
+Release build (C:\Tibia\Patella-Modern\build\windows-x64\Release, built from 2898a44). Logs in build\logs\issue-140.
+
+- `python -I -m py_compile` of the four tools, and `python -I tools/compare_rendering.py --self-test`: passed (39
+  offsets, 5 diagnosis texts, 7 recording checks: own field, north, east refused, no look, no game login answer, a
+  north recording refused with its message, an own-field recording accepted).
+- The refusal: `python -I tools/compare_rendering.py --compare-only --engines vulkan --modes windowed --recording
+  C:/Tibia/Patella-Modern/build/reference/traffic/server.jsonl ...`: exit 1, "the recording does not fit this
+  session: ... was recorded with the look step 'look north' (map field (8, 5)), the session here has 'look at own
+  field' (map field (8, 6)) ..." (refusal.txt).
+- `python -I tools/compare_traffic.py --patella C:/Tibia/Patella-Modern/build/windows-x64/Release/Patella.exe --out
+  build/traffic/result`: exit 0, "RESULT: no differences"; a. 16 and 16 client packets identical, the four replays
+  identical (each passed the new check).
+- `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes windowed --no-repeat --patella
+  C:/Tibia/Patella-Modern/build/windows-x64/Release/Patella.exe --recording build/traffic/result/orig-live.jsonl --out
+  build/render/result`: exit 0, "result: all scenes identical": vulkan (RTX 5080) and vulkan-cpu (llvmpipe), 26
+  scenes each, "look at own field" among them; on the CPU driver every difference within the region tolerance
+  (largest channel difference 2), the advanced options' masks as always. The issue's "Done when".

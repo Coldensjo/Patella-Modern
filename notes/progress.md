@@ -652,6 +652,13 @@ because the golden window tests use them as seams (constructors redirected to th
 as the class, TContainerWindowBody::UpdateUpButton patched and inlined once `final`); TXTEA's destructor is
 `= default` (#34's case). Patella.exe's .text +0x4e0. Golden 17,316,040, 0 failures. notes/decisions.md, "#47".
 
+compare_rendering's look step (Patella-Modern issue #140, branch issue-140, November 7, 2026; M7): compare_rendering.py
+replays compare_traffic.py's live recording but still scripted "look north", so a recording made since #137 replayed
+one client packet off. Its session now looks at the player's own field as compare_traffic's does, and both tools read
+a recording's look step first (the look packet's field against the player's start field) and refuse a recording
+with another one, naming it. The frozen reference recordings keep "look north" (reference_record.py passes it).
+notes/decisions.md, "#140".
+
 TSurface as a platform interface (Patella-Modern issue #138, branch issue-138, November 7, 2026; M7; #119's part 2):
 TSurface is in src/platform/Surface.h (portable, no Win32 type: the window a TWindowHandle, the rectangles a
 TEdgeRect). The data the engines share with the client is platform::TSurfaceShared, TGraphicsEngine's base (the same

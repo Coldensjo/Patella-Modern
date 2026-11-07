@@ -354,6 +354,11 @@ def gui_summary(nodes):
 		for n in nodes]
 
 
+# The session's look step: the player's own field, not north of it: no creature can stand there (issue #137).
+# compare_rendering.py replays this tool's orig-live.jsonl with the same step (issue #140).
+LOOK = sc.LOOK_OWN_FIELD
+
+
 def play(client, proxy, wait, out_prefix, helper=None):
 	"""One session of `client` through `proxy`. Returns [{"step", "state", "gui"}] in step order."""
 	info = CLIENTS[client]
@@ -370,8 +375,7 @@ def play(client, proxy, wait, out_prefix, helper=None):
 		driver.start()
 		if helper is not None:
 			helper()
-		# The player's own field, not north of it: no creature can stand there (issue #137).
-		sc.run_session(driver, wait, checkpoint, proxy=proxy, look=sc.LOOK_OWN_FIELD)
+		sc.run_session(driver, wait, checkpoint, proxy=proxy, look=LOOK)
 		time.sleep(1)
 		code = driver.close()
 		if code != 0:
@@ -440,6 +444,10 @@ def helper_logout(helper):
 
 
 def replay_run(client, source, out):
+	try:
+		sc.check_recorded_look(px.load_events(source), LOOK, source)  # issue #140: --skip-live's older recordings
+	except sc.SessionError as e:
+		raise RunError(str(e)) from e
 	name = os.path.splitext(os.path.basename(source))[0]
 	log("=== replay of %s: %s" % (name, client))
 	prefix = os.path.join(out, "%s-replay-of-%s" % (client, name))
