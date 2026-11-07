@@ -15066,3 +15066,9 @@ Logs: build\logs\issue-100 of the branch's worktree; golden replayed main's froz
   Preferences commit).
 - `python -I tools/tidy_ci.py` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
   clang-format (CLAUDE.md's command) exit 0.
+- After the merge of main 9ffbb50 (#119; logs in build\logs\issue-100\after-merge), on 3d2b1dd: the six presets
+  exit 0 (windows-x64 20/20, -debug 19/19, -asan 19/19, -gcc 12/12, linux-x64-gcc 17/17, linux-x64-clang 16/16),
+  golden 17,316,040, 0 failures on the five that replay it, 0 warnings, no sanitizer report. reference.py compare
+  and compare_traffic exit 0, no differences. compare_files: the first run exit 1 before our client ran (Tibia.exe's
+  window did not appear within 30 s; other agents' clients had started), its one rerun exit 0, no differences.
+  tidy_ci exit 0 (3, 0 new), banned_calls and clang-format exit 0.
