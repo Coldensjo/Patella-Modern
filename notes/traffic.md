@@ -19,7 +19,9 @@ python -I tools/compare_traffic.py [--out build\traffic\result] [--skip-live] [-
 The test server must be stopped (the script starts and stops it itself, with `python -I tools/testserver.py
 start` and `stop`). About 9 minutes: two live sessions (server start, session, server stop with its
 save) and four replays. Exit code 0 when nothing differs. `--skip-live` replays and compares the live
-recordings already in `--out` (no server needed); `--no-cross` replays only Tibia.exe's recording.
+recordings already in `--out` (no server needed); `--no-cross` replays only Tibia.exe's recording. A recording whose
+look step is not this session's (one made before issue #137 looks north) is refused before its replay, with the step
+it has (issue #140: session_client.recorded_look reads the look packet's field against the player's start field).
 
 What it leaves in `--out`: `<client>-live.jsonl` (the recordings), `<client>-replay-of-<recording>.jsonl`,
 `*.states.json` (the client state and window tree after every step), `*.Tibia.cfg` (as each client wrote
@@ -99,7 +101,7 @@ partner. Fifteen steps, each followed by the wait and a state snapshot:
 | walk north, east, south, west | arrow keys (WM_KEYDOWN/UP), back to the start | 0x65, 0x66, 0x67, 0x68 |
 | turn south | Ctrl+Down | 0x71 |
 | say | "hello world", Return | 0x96 (Cipfried, the temple NPC, answers "hello") |
-| look at own field | Shift+right click on map field (8,6), the player's own (issue #137; "look north", field (8,5), in the reference recordings and compare_rendering.py) | 0x8c |
+| look at own field | Shift+right click on map field (8,6), the player's own (issue #137; compare_rendering.py's too since #140; "look north", field (8,5), in the frozen reference recordings) | 0x8c |
 | open container | Ctrl+right click on body slot 3 (the bag) | 0x82 |
 | look in container | Shift+right click on the bag's first slot | 0x8c |
 | use in container | Ctrl+right click on it (eats the red apple) | 0x82 |
