@@ -78,7 +78,11 @@ include("${PROJECT_SOURCE_DIR}/cmake/Vulkan.cmake")
 include("${PROJECT_SOURCE_DIR}/cmake/Sdl3.cmake")
 # The platform's Win32 implementations (issue #109, src/platform: the clock, the files, the network; Patella.exe's
 # Platform(), PatellaTest.exe's being the test mode's) are compiled with them.
-set(patella_vulkan_client_sources "${PROJECT_SOURCE_DIR}/src/vulkan/SurfaceVulkan.cpp"
+# The engine's window systems (issue #126, src/vulkan/WindowSystem.h): SDL3's (SDL_Vulkan_CreateSurface) and, for
+# PATELLA_WINDOW=mfc until issue #127, Win32's.
+set(patella_vulkan_window_sources "${PROJECT_SOURCE_DIR}/src/vulkan/WindowSystemSdl.cpp"
+	"${PROJECT_SOURCE_DIR}/src/vulkan/WindowSystemWin32.cpp")
+set(patella_vulkan_client_sources "${PROJECT_SOURCE_DIR}/src/vulkan/SurfaceVulkan.cpp" ${patella_vulkan_window_sources}
 	"${PROJECT_SOURCE_DIR}/src/vulkan/DeviceSettings.cpp" "${PROJECT_SOURCE_DIR}/src/settings/Settings.cpp"
 	"${PROJECT_SOURCE_DIR}/src/settings/PreferenceKeys.cpp" "${PROJECT_SOURCE_DIR}/src/log/LogSettings.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/Win32Platform.cpp")

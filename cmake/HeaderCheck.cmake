@@ -157,12 +157,34 @@ set(PATELLA_HEADERS_VULKAN_CLIENT
 	vulkan/DeviceSettings.h
 	vulkan/PresentWindow.h
 	vulkan/Renderer.h
-	vulkan/SurfaceVulkan.h)
+	vulkan/SurfaceVulkan.h
+	vulkan/WindowSystem.h)
 # The Windows side of the test mode (PatellaTest.exe).
 set(PATELLA_HEADERS_TEST_BUILD
 	testmode/ClientStateWin32.h
 	testmode/PipeSocketWin32.h
 	testmode/SdlInputWin32.h)
+# Issue #111: patella_core compiles the rest of the client but the platform layer (the preferences, the state, the GUI's
+# logic, the windows and the dialogs), so their headers and what they include are portable too: checked with
+# patella_core's settings, and still with the client's below. vulkan/DeviceSettings.h (the graphics device choice,
+# no Vulkan header) is what Dialogs.cpp and Control.cpp call of the platform's engine.
+set(patella_headers_core_111
+	Client.h
+	ConsoleWindow.h
+	ContentWindows.h
+	ContextMenus.h
+	Control.h
+	DialogElements.h
+	DialogWindow.h
+	Dialogs.h
+	GUI.h
+	MainWindow.h
+	MapWindow.h
+	Surface.h
+	graphics.h)
+list(REMOVE_ITEM PATELLA_HEADERS_CLIENT ${patella_headers_core_111})
+list(REMOVE_ITEM PATELLA_HEADERS_VULKAN_CLIENT vulkan/DeviceSettings.h)
+list(APPEND PATELLA_HEADERS_CORE ${patella_headers_core_111} vulkan/DeviceSettings.h)
 # Headers that are not checked on their own, each with the reason. (The shaders' SPIR-V headers, ColorKeyFrag.h and
 # the others, are generated into the build tree by glslang, cmake/Vulkan.cmake: not headers of src/.)
 # - compat/mfc_shim.h: MFC's stand-in (TIBIA_MFC_SHIM), which only the golden tests' targets compile (tests/golden,

@@ -39,17 +39,24 @@
 #include "common.h"
 #include "types/FixedString.h"
 
+#include <cstdint>
 #include <array>
 #include <cmath>
 #include <sstream>
 #include <cstddef>
 #include <cstring>
 
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries
+// NOLINTBEGIN(cppcoreguidelines-owning-memory)
+
 namespace {
 
 // At 0x7152e8, constructed by the static initialiser 0x559fc0 as
 // TCallback(NULL, 0) and never used; the only datum of MapWindow.obj besides its copy of the
 // text table (Text.h).
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's global; TCallback's constructor (GUI.cpp) stores two values
 TCallback NoCallback(nullptr, 0);
 
 // Limits Value to the range between Bound1 and Bound2, which may come in
@@ -209,6 +216,8 @@ bool TMapWindow::LeftButtonUp(int x, int y, int Flags)
 		case 2:
 			SendStop();
 			return true;
+		default:
+			break;
 		}
 	}
 	return true;
@@ -263,20 +272,20 @@ bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 			return true;
 		}
 		const uint32 Target = GetTradeInfo();
-		TObject &Obj = *GetUseObject(&Index, &ox, &oy, &oz);
-		if (Target != 0 && Target != GetPlayerID() && Obj.Type != 0 && !GetObjectFlag(Obj, FORCEUSE)) {
+		TObject &UseObj = *GetUseObject(&Index, &ox, &oy, &oz);
+		if (Target != 0 && Target != GetPlayerID() && UseObj.Type != 0 && !GetObjectFlag(UseObj, FORCEUSE)) {
 			SetAttackID(Target != GetAttackID() ? Target : 0);
 			SendAttack(GetAttackID());
 			return true;
 		}
-		if (Obj.Type == 0)
+		if (UseObj.Type == 0)
 			return true;
-		PATELLA_ASSERT(Obj!=CREATURE);
-		if (GetObjectFlag(Obj, MULTIUSE)) {
+		PATELLA_ASSERT(UseObj!=CREATURE);
+		if (GetObjectFlag(UseObj, MULTIUSE)) {
 			AddMessage(0x2c, 0, 0);
 			return true;
 		}
-		SendUseObject(ox, oy, oz, Obj.Type, Index, GetFreeContainer());
+		SendUseObject(ox, oy, oz, UseObj.Type, Index, GetFreeContainer());
 		return true;
 	} else {
 		if (Flags & 0x800) {
@@ -294,15 +303,15 @@ bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 			return true;
 		}
 		if (Flags & 0x400) {
-			TObject &Obj = *GetUseObject(&Index, &ox, &oy, &oz);
-			if (Obj.Type == 0)
+			TObject &UseObj = *GetUseObject(&Index, &ox, &oy, &oz);
+			if (UseObj.Type == 0)
 				return true;
-			PATELLA_ASSERT(Obj!=CREATURE);
-			if (GetObjectFlag(Obj, MULTIUSE)) {
+			PATELLA_ASSERT(UseObj!=CREATURE);
+			if (GetObjectFlag(UseObj, MULTIUSE)) {
 				AddMessage(0x2c, 0, 0);
 				return true;
 			}
-			SendUseObject(ox, oy, oz, Obj.Type, Index, GetFreeContainer());
+			SendUseObject(ox, oy, oz, UseObj.Type, Index, GetFreeContainer());
 			return true;
 		}
 		if (GetTradeObject(&Index, &ox, &oy, &oz)->Type != 0)
@@ -313,6 +322,9 @@ bool TMapWindow::RightButtonUp(int x, int y, int Flags)
 
 // 0x4bffa0, lines 382-388. Events 600 and 601 are the hotkeys of the
 // constructor, 27 the hint button: it shows the next event help as a message.
+// GCC's analyzer (issue #111): the message queue owns the block it gets as an integer (AddMessage; the message's handler deletes it).
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-malloc-leak\"")
 void TMapWindow::HandleEvent(int Event)
 {
 	if (Event == 600)
@@ -327,9 +339,10 @@ void TMapWindow::HandleEvent(int Event)
 		const std::size_t Size = strlen(GetEventHelpText(Hint)) + 1;
 		char *Text = new char[Size];
 		TStringBuffer(Text, Size).Assign(GetEventHelpText(Hint));
-		AddMessage(2, reinterpret_cast<INT_PTR>(GetEventHelpTitle(Hint)), reinterpret_cast<INT_PTR>(Text));
+		AddMessage(2, reinterpret_cast<std::intptr_t>(GetEventHelpTitle(Hint)), reinterpret_cast<std::intptr_t>(Text));
 	}
 }
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 
 // 0x4c3520, lines 417-432. Help mode: the help bubble for the creature or
 // object under the mouse (1001 the player, 1000 another creature, the
@@ -354,7 +367,7 @@ bool TMapWindow::HelpMouseMove(int x, int y)
 	if (Handle == 0)
 		return false;
 	const TCreature *Player = GetCreature(GetPlayerID());
-	PATELLA_ASSERT(Player!=NULL);
+	PATELLA_ASSERT(Player!=nullptr);
 	// The help position goes into x and y (the binary stores it in the
 	// parameters' stack slots, 0x4c372a/0x4c3751 and 0x4c3793/0x4c37bd), so
 	// the original's catch wrapper printed it after an error in
@@ -376,7 +389,9 @@ bool TMapWindow::HelpMouseMove(int x, int y)
 
 // 0x4c7580, lines 456-834 (Ghidra split it at 0x4c7750). The blocks with
 // their own try (lines 477, 495, 527, 550, 757 with 599 inside, 776, 815
-// with 794 inside, 830) follow the binary's exception table.
+// with 794 inside, 830) follow the binary's exception table. MSVC's analysis (C6262, issue #111): the original's
+// buffers on the stack.
+PATELLA_MSVC_WARNING(suppress : 6262)
 void TMapWindow::Draw(int Surface, int x, int y)
 {
 	const bool LightEffects = GetLightEffects() && GetSurface()->CanShadeRectangles();
@@ -384,7 +399,7 @@ void TMapWindow::Draw(int Surface, int x, int y)
 	const int CreatureInfo = GetCreatureInfo();
 	ProcessMissileEffects();
 	const TCreature *Player = GetCreature(GetPlayerID());
-	PATELLA_ASSERT(Player!=NULL);
+	PATELLA_ASSERT(Player!=nullptr);
 	ScrollX = Player->GetDeltaX() + 32;
 	ScrollY = Player->GetDeltaY() + 32;
 	const int Level = GetMapLevel();
@@ -1046,7 +1061,7 @@ void TMapWindow::DrawObject(int posx, int posy, int Level, TObject Obj, int x, i
 // Tibia.dat throws a TMyException (PATELLA_DIVISOR, issue #67).
 void TMapWindow::DrawCreature(int posx, int posy, int Level, TCreature *Creature)
 {
-	PATELLA_ASSERT(Creature!=NULL);
+	PATELLA_ASSERT(Creature!=nullptr);
 	PATELLA_ASSERT(Creature->OutfitType!=0);
 	const int OutfitType = Creature->OutfitType;
 	std::array<TRGBColor, 4> Colors;
@@ -1192,6 +1207,9 @@ void TMapWindow::CacheSprite(int FieldX, int FieldY, int SpriteNumber, int dx, i
 		Field->SpriteX[Field->CachedSprites] = dx;
 		Field->SpriteY[Field->CachedSprites] = dy;
 		Field->CachedSprites++;
+		// MSVC's analysis (C28020 on the next line, issue #111) takes Sprites as any int: it is below CachedSprites
+		// there (they differ, and Sprites only counts up to it), and a field with 10 was flushed above.
+		PATELLA_MSVC_WARNING(suppress : 28020)
 	} else if (Field->Sprite[Field->Sprites] != SpriteNumber || Field->SpriteX[Field->Sprites] != dx
 		|| Field->SpriteY[Field->Sprites] != dy) {
 		for (int i = 0; i < Field->Sprites; i++) {
@@ -1501,7 +1519,7 @@ void TMapWindow::ArrangeTalkboxes()
 void TMapWindow::GetField(int x, int y, int *FieldX, int *FieldY, int *FieldZ)
 {
 	const TCreature *Player = GetCreature(GetPlayerID());
-	PATELLA_ASSERT(Player!=NULL);
+	PATELLA_ASSERT(Player!=nullptr);
 	if (GetNoStretching()) {
 		*FieldX = ((480 - Width) / 2 + Player->GetDeltaX() + x) / 32 + 1;
 		*FieldY = ((352 - Height) / 2 + Player->GetDeltaY() + y) / 32 + 1;
@@ -1622,3 +1640,4 @@ void TMapFrame::Arrange()
 	DrawingList[7] = TDrawing(7, Left, Bottom, Width - RightWidth - Left, Height - Bottom, Left % Skins()[7].width,
 		Bottom % Skins()[7].height);
 }
+// NOLINTEND(cppcoreguidelines-owning-memory)

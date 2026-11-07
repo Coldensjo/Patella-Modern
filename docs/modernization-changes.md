@@ -125,7 +125,7 @@ from here on the data structures themselves can be modernized.
 `Patella.ini`, a readable text file next to the game, replaced the original's binary `Tibia.cfg`. The old file is
 imported once. It is stored as UTF-8 since #117.
 
-## M7: data structures and architecture (in progress)
+## M7: data structures and architecture (done, November 7, 2026)
 
 **Standard containers (#99, #100, #101, #102, #103).**
 The original used its own homemade list types, including one indexed from any number (even negative) that grows
@@ -172,6 +172,14 @@ checked on Windows and Linux with the strictest analysers. *Why it matters:* the
 depends on Windows, which is half of what M7 set out to do; the preferences and the interface's logic follow in
 #111.
 
+**The whole game, without Windows, in the portable library (#111).**
+The rest of the game followed: the settings, the chat consoles, the hints, the picture caches and the whole interface
+(every window, dialog, button and list, and the code that runs the game's main loop) now build inside `patella_core`.
+The library grew from about 12,300 to about 38,700 lines and now holds everything except the "platform layer", the
+small part that opens the window, draws with the graphics card and talks to Windows. A test proves that the library
+needs nothing else. *Why it matters:* this is M7's goal reached: the game itself no longer depends on Windows, so
+replacing the platform layer (M8, with SDL3) is all it takes to run it on Linux.
+
 **Test replays without network ports (#120).**
 The test client used to replay a recorded server over real network ports, so two test runs at once would collide.
 The replay now runs inside the program, so many runs can happen side by side.
@@ -192,11 +200,16 @@ SDL3 window now come from SDL3 instead of Windows messages. On Windows, key pres
 still come the Windows way, because SDL3 would treat some of them differently from the original game (for example
 clicks and keys sent by another program). The rules the original game applied to them (which keys do what, which
 characters reach the chat, what counts as a double click) were taken out into a small piece of code of their own that
-works on any operating system and is tested on its own. Typed text now arrives as Unicode and is converted to the
-game's character set, so a letter the game cannot show (from a Polish or Russian keyboard, say) becomes a question
-mark instead of a different, wrong letter. Recorded test
-sessions still play back identically. *Why it matters:* keyboard and mouse input no longer depend on Windows, another
-step toward a Linux client.
+works on any operating system and is tested on its own. Typed text is converted to the game's character set from
+Unicode, so a letter the game cannot show (from a Polish or Russian keyboard, say) becomes a question mark instead of a
+different, wrong letter. Recorded test sessions still play back identically. *Why it matters:* the input rules no
+longer depend on Windows, and a Linux client can feed them from SDL3.
+
+**The graphics now attach to the window through SDL3 (#126).**
+The graphics engine used to hook its drawing area onto the window with a Windows-only call. It now asks SDL3 for it,
+the same library that makes the window, through one small interface that also answers the window's size. Nothing
+looks different: the same pictures, the same choice of graphics card or the built-in software renderer. *Why it
+matters:* the graphics no longer depend directly on Windows, so the same code can draw into a Linux window later.
 
 ## M8 and M9, started early
 

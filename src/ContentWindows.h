@@ -27,7 +27,6 @@
 
 #include "common.h" // IWYU pragma: keep (first: it configures the CRT and MFC for the headers after it)
 #include "GUI.h"
-#include "Creatures.h" // SetHighlightID
 #include "DialogWindow.h"
 #include "Map.h" // TMark
 #include "DialogElements.h"
@@ -133,11 +132,11 @@ class TPlayerStates final : public TElement {
 public:
 	TPlayerStates(bool islarge); // 0x4292e0, line 901
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
-	void Draw(int Surface, int x, int y) override; // +0x44, 0x437210, lines 920-925
-	void MouseHover(int x, int y) override;        // +0x64, 0x437630, lines 973-976
-	int GetNumberOfIcons() const;                  // 0x4295b0, line 947
-	int GetIconAt(int x, int y) const;             // 0x4297a0, line 995
-	int GetIcon(int Position);                     // 0x429990, lines 1036-1070
+	void Draw(int Surface, int x, int y) override;   // +0x44, 0x437210, lines 920-925
+	void MouseHover(int x, int y) override;          // +0x64, 0x437630, lines 973-976
+	[[nodiscard]] int GetNumberOfIcons() const;      // 0x4295b0, line 947
+	[[nodiscard]] int GetIconAt(int x, int y) const; // 0x4297a0, line 995
+	int GetIcon(int Position);                       // 0x429990, lines 1036-1070
 
 	bool IsLarge; // +0x24
 	int MaxIcons; // +0x28, 10 or 9
@@ -216,22 +215,22 @@ public:
 // a scroll bar.
 class TContainerWindowBody : public TSubWindowBody {
 public:
-	TContainerWindowBody(int _Container);                  // 0x438500, line 1618
-	~TContainerWindowBody() override;                      // +0x00, 0x42cc70, line 1628 (deleting 0x438700)
-	void Draw(int Surface, int x, int y) override;         // +0x44, 0x42ce10, lines 1644-1666
-	void SetSize(int Width, int Height) override;          // +0x34, 0x42d420, lines 1675-1683
-	int getMinimumHeight() override;                       // +0x40, 0x42d6f0, line 1693
-	int GetMaximumHeight() override;                       // +0xb0, 0x42d890, line 1712
-	void Arrange() override;                               // +0x48, 0x42da20, line 1744
-	bool LeftButtonDown(int x, int y, int Flags) override; // +0x50, 0x438720, line 1764
-	bool LeftButtonUp(int x, int y, int Flags) override;   // +0x54, 0x438920, lines 1785-1812
-	bool RightButtonUp(int x, int y, int Flags) override;  // +0x5c, 0x438dd0, line 1862
-	bool MouseWheel(int x, int y, int Code) override;      // +0x60, 0x42dcb0, line 1875
-	bool HelpMouseMove(int x, int y) override;             // +0x68, 0x42de80, lines 1885-1890
-	void HandleEvent(int Event) override;                  // +0x70, 0x42e120, line 1904
-	virtual void Update();                                 // +0xb8, 0x439100, line 1917
-	int GetSlotAt(int x, int y, bool Occupied) const;      // 0x42e2c0, line 1940
-	void UpdateUpButton();                                 // 0x42e4e0, line 1960
+	TContainerWindowBody(int _Container);                           // 0x438500, line 1618
+	~TContainerWindowBody() override;                               // +0x00, 0x42cc70, line 1628 (deleting 0x438700)
+	void Draw(int Surface, int x, int y) override;                  // +0x44, 0x42ce10, lines 1644-1666
+	void SetSize(int Width, int Height) override;                   // +0x34, 0x42d420, lines 1675-1683
+	int getMinimumHeight() override;                                // +0x40, 0x42d6f0, line 1693
+	int GetMaximumHeight() override;                                // +0xb0, 0x42d890, line 1712
+	void Arrange() override;                                        // +0x48, 0x42da20, line 1744
+	bool LeftButtonDown(int x, int y, int Flags) override;          // +0x50, 0x438720, line 1764
+	bool LeftButtonUp(int x, int y, int Flags) override;            // +0x54, 0x438920, lines 1785-1812
+	bool RightButtonUp(int x, int y, int Flags) override;           // +0x5c, 0x438dd0, line 1862
+	bool MouseWheel(int x, int y, int Code) override;               // +0x60, 0x42dcb0, line 1875
+	bool HelpMouseMove(int x, int y) override;                      // +0x68, 0x42de80, lines 1885-1890
+	void HandleEvent(int Event) override;                           // +0x70, 0x42e120, line 1904
+	virtual void Update();                                          // +0xb8, 0x439100, line 1917
+	[[nodiscard]] int GetSlotAt(int x, int y, bool Occupied) const; // 0x42e2c0, line 1940
+	void UpdateUpButton();                                          // 0x42e4e0, line 1960
 	// Inline: emitted at the start of the object (0x425a10, 0x425a40).
 	// Odd, kept: the rows start at Data630.x (the left edge of the
 	// first slot, the same as Data630.y in the game's skin).

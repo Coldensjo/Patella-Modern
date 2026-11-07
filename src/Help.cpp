@@ -14,7 +14,6 @@
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "common.h"
 #include "types/FixedString.h"
-#include <cstddef>
 #include <cstring>
 
 
@@ -218,7 +217,7 @@ void patella::THelp::AddEventHelp(int Number)
 // Every name is tested on its own.
 void patella::THelp::CheckEventHelpName(const char *Name)
 {
-	PATELLA_ASSERT(Name!=NULL);
+	PATELLA_ASSERT(Name!=nullptr);
 	if (strcmp(Name, "Cipfried") == 0)
 		AddEventHelp(2);
 	if (strcmp(Name, "Seymour") == 0)

@@ -30,6 +30,7 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 
 } // namespace
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -44,7 +45,6 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 #include "Talk.h"
 #include "Text.h"
 #include "Utils.h"
-#include "sysinc.h"
 #include "DialogElements.h"
 #include "GUI.h"
 #include "Skins.h"
@@ -54,7 +54,11 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 #include "graphics.h"
 #include <cstddef>
 #include <memory>
-#include <ostream>
+
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries; the original's varargs (TMultiStateButton's constructor, _snprintf)
+// NOLINTBEGIN(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)
 
 
 namespace {
@@ -63,6 +67,7 @@ namespace {
 // 0x559e10). Its copy of the text table (0x5c123c-0x5c1484, then its
 // regular expression pointer 0x5c1488 and its copy of DefaultFontColor
 // 0x5c148c) is Text.h's (Dialogs.h includes it).
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's global; TCallback's constructor (GUI.cpp) stores two values
 TCallback NoCallback(nullptr, 0); // 0x5cc420
 
 } // namespace
@@ -481,9 +486,9 @@ TDialog *CreateHotkeyDialog(void (*OpenURL)(const char *URL))
 // changes them.
 TDialog::TDialog(const char *_Caption, TComponent *_Dialog)
 {
-	PATELLA_ASSERT(_Caption!=NULL);
+	PATELLA_ASSERT(_Caption!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(_Caption)<100, strlen(_Caption));
-	PATELLA_ASSERT(_Dialog!=NULL);
+	PATELLA_ASSERT(_Dialog!=nullptr);
 	DrawingListLength = 9;
 	DrawingList.reset(new TDrawing[9]);
 	Caption.Assign(_Caption);
@@ -508,7 +513,7 @@ TDialog::TDialog(const char *_Caption, TComponent *_Dialog)
 void TDialog::SetOkButton(const char *Text, TCallback Callback)
 {
 	if (Text == nullptr) {
-		PATELLA_ASSERT(OkButton!=NULL);
+		PATELLA_ASSERT(OkButton!=nullptr);
 		DeleteChild(OkButton);
 		OkButton = nullptr;
 		OkCallback = NoCallback;
@@ -528,7 +533,7 @@ void TDialog::SetOkButton(const char *Text, TCallback Callback)
 void TDialog::SetCancelButton(const char *Text, TCallback Callback)
 {
 	if (Text == nullptr) {
-		PATELLA_ASSERT(CancelButton!=NULL);
+		PATELLA_ASSERT(CancelButton!=nullptr);
 		DeleteChild(CancelButton);
 		CancelButton = nullptr;
 		CancelCallback = TCallback(this, 2);
@@ -548,7 +553,7 @@ void TDialog::SetCancelButton(const char *Text, TCallback Callback)
 void TDialog::SetExtraButton(const char *Text, TCallback Callback)
 {
 	if (Text == nullptr) {
-		PATELLA_ASSERT(ExtraButton!=NULL);
+		PATELLA_ASSERT(ExtraButton!=nullptr);
 		DeleteChild(ExtraButton);
 		ExtraButton = nullptr;
 	} else {
@@ -819,7 +824,7 @@ void TLoginDialog::KeyPress(int Key)
 		HandleEvent(2);
 	} else {
 		TEditLine *FocusEdit = FocusGroup->Active;
-		PATELLA_ASSERT(FocusEdit!=NULL);
+		PATELLA_ASSERT(FocusEdit!=nullptr);
 		FocusEdit->KeyPress(Key);
 	}
 }
@@ -828,7 +833,7 @@ void TLoginDialog::KeyPress(int Key)
 void TLoginDialog::HandleEvent(int Event)
 {
 	if (Event == 1) {
-		SetAccount(atoi(Account->Text.get()), Password->Text.get());
+		SetAccount(atoi(Account->Text.get()), Password->Text.get()); // NOLINT(bugprone-unchecked-string-to-number-conversion): the original's; the field takes digits only
 		AddMessage(0x3d, 0, 0);
 		AddMessage(3, 0, 0);
 	}
@@ -1057,7 +1062,7 @@ inline TRGBColor OutfitColor(int Color)
 // 19 from SkinProperties.DataCA8; the head is the first part shown.
 TOutfitDialog::TOutfitDialog(const int *Data)
 {
-	PATELLA_ASSERT(Data!=NULL);
+	PATELLA_ASSERT(Data!=nullptr);
 	Outfit = Data[0];
 	FirstOutfit = Data[5];
 	LastOutfit = Data[6];
@@ -1089,6 +1094,8 @@ TOutfitDialog::TOutfitDialog(const int *Data)
 			break;
 		case 3:
 			PartName = "Feet";
+			break;
+		default:
 			break;
 		}
 		PartButtons[i] = new TTextButton(70, i * 25, PartName, TCallback(this, i + 1000), nullptr);
@@ -1148,7 +1155,7 @@ void TOutfitDialog::HandleEvent(int Event)
 TTextDialog::TTextDialog(int MaximumLength, const char *Text, uint32 _ObjectNumber, TObject _Obj,
 	const char *Description)
 {
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	ObjectNumber = _ObjectNumber;
 	Obj = _Obj;
 	TComponent::SetSize(SkinProperties().DataCC0, SkinProperties().DataCC4);
@@ -1183,7 +1190,7 @@ void TTextDialog::HandleEvent(int Event)
 TEditListDialog::TEditListDialog(int MaxLength, const char *Text, int _Type, uint32 _Identifier,
 	const char *Description)
 {
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	PATELLA_ASSERT_VALUES((int)strlen(Text)<MaxLength, strlen(Text), MaxLength);
 	Type = _Type;
 	Identifier = _Identifier;
@@ -1267,7 +1274,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 				AllocationNumber++;
 		}
 		char **Names = new char *[AllocationNumber];
-		memset(Names, 0, AllocationNumber * sizeof(char *));
+		memset(static_cast<void *>(Names), 0, AllocationNumber * sizeof(char *));
 		int Number = 0;
 		bool NewLine = true;
 		for (int i = 0; i < Length; i++) {
@@ -1281,7 +1288,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 				NewLine = false;
 			}
 		}
-		qsort(Names, Number, sizeof(char *), CompareNames);
+		qsort(static_cast<void *>(Names), Number, sizeof(char *), CompareNames);
 		for (int i = 0; i < Number; i++) {
 			CopyString(patella::TSpan<char>(IgnoreEntries(i).Name.Chars).first(29), Names[i]);
 			IgnoreEntries(i).Permanent = IsPermanentIgnore(Names[i]);
@@ -1332,7 +1339,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 				AllocationNumber++;
 		}
 		char **Names = new char *[AllocationNumber];
-		memset(Names, 0, AllocationNumber * sizeof(char *));
+		memset(static_cast<void *>(Names), 0, AllocationNumber * sizeof(char *));
 		int Number = 0;
 		bool NewLine = true;
 		for (int i = 0; i < Length; i++) {
@@ -1346,7 +1353,7 @@ TIgnoreListDialog::TIgnoreListDialog()
 				NewLine = false;
 			}
 		}
-		qsort(Names, Number, sizeof(char *), CompareNames);
+		qsort(static_cast<void *>(Names), Number, sizeof(char *), CompareNames);
 		for (int i = 0; i < Number; i++) {
 			CopyString(patella::TSpan<char>(WhiteEntries(i).Name.Chars).first(29), Names[i]);
 			WhiteEntries(i).Permanent = IsPermanentBuddyIgnore(Names[i]);
@@ -1590,7 +1597,7 @@ void TBugReportDialog::HandleEvent(int Event)
 // 0x4733a0, lines 2265-2297
 TNewChannelDialog::TNewChannelDialog(int _NumberOfChannels, const int *_ChannelIDs, const char (*ChannelNames)[30]) // NOLINT(modernize-avoid-c-arrays): Dialogs.h
 {
-	PATELLA_ASSERT(_ChannelIDs!=NULL);
+	PATELLA_ASSERT(_ChannelIDs!=nullptr);
 	PATELLA_ASSERT_VALUES(_NumberOfChannels>0, _NumberOfChannels);
 	TComponent::SetSize(SkinProperties().DataECC, SkinProperties().DataED0);
 	ListBox = new TListBox(NoCallback, TCallback(this, 301));
@@ -1641,7 +1648,7 @@ void TNewChannelDialog::HandleEvent(int Event)
 		const char *Name = NameEdit->Text.get();
 		if (strlen(Name) != 0) {
 			TCreature *Creature = GetCreature(GetPlayerID());
-			PATELLA_ASSERT(Creature!=NULL);
+			PATELLA_ASSERT(Creature!=nullptr);
 			if (CompareStrings(Creature->Name, Name, -1) == 0)
 				SetStatusMessage(TextNoPrivateChannelWithYourself, false);
 			else
@@ -1741,7 +1748,7 @@ void TReportDialog::HandleEvent(int Event)
 		const std::size_t Size = strlen(TextEdit->Text.get()) + 1;
 		char *Text = new char[Size];
 		TStringBuffer(Text, Size).Assign(TextEdit->Text.get());
-		AddMessage(0x33, reinterpret_cast<INT_PTR>(Text), 0);
+		AddMessage(0x33, reinterpret_cast<std::intptr_t>(Text), 0);
 	}
 	SetActionState(0);
 }
@@ -1996,7 +2003,7 @@ void THintsDialog::HandleEvent(int Event)
 		char *Text = new char[Size];
 		TStringBuffer(Text, Size).Assign(HelpText);
 		AddMessageFirst(0x20, 0, 0);
-		AddMessageFirst(2, reinterpret_cast<INT_PTR>(GetEventHelpTitle(Number)), reinterpret_cast<INT_PTR>(Text));
+		AddMessageFirst(2, reinterpret_cast<std::intptr_t>(GetEventHelpTitle(Number)), reinterpret_cast<std::intptr_t>(Text));
 	}
 	SetActionState(0);
 }
@@ -2184,7 +2191,7 @@ TEditMarkDialog::TEditMarkDialog(TCoordinate *_Coordinate, TMark *_Mark)
 	Coordinate.y = 0;
 	Coordinate.z = 0;
 	TComponent::SetSize(SkinProperties().Data11CC, SkinProperties().Data11D0);
-	PATELLA_ASSERT(_Coordinate != NULL);
+	PATELLA_ASSERT(_Coordinate != nullptr);
 	Coordinate = *_Coordinate;
 	if (_Mark != nullptr)
 		Mark = *_Mark;
@@ -2466,6 +2473,8 @@ void TGraphicsOptionsDialog::KeyPress(int Key)
 	case 0x10f:
 		ResolutionList->KeyPress(0x10f);
 		break;
+	default:
+		break;
 	}
 }
 
@@ -2488,7 +2497,7 @@ void TGraphicsOptionsDialog::HandleEvent(int Event)
 			patella::bridge::GUI().Resize(0, 0); // Control.cpp's (issues #107, #118)
 	} else if (Event == 407) {
 		AddMessageFirst(0x23, 0, 0);
-		AddMessageFirst(0x24, reinterpret_cast<INT_PTR>(Parent), 0);
+		AddMessageFirst(0x24, reinterpret_cast<std::intptr_t>(Parent), 0);
 	} else if (Event == 701) {
 		OpenURL(TextGraphicsOptionsURL);
 		return;
@@ -2571,6 +2580,8 @@ TAdvancedGraphicsDialog::TAdvancedGraphicsDialog(void (*_OpenURL)(const char *UR
 		case 2:
 			EngineGroup->Selected = DirectX9Button;
 			break;
+		default:
+			break;
 		}
 	}
 	ShowDevice();
@@ -2630,6 +2641,8 @@ void TAdvancedGraphicsDialog::Draw(int Surface, int x, int y)
 		break;
 	case 2:
 		EngineGroup->Selected = DirectX9Button;
+		break;
+	default:
 		break;
 	}
 	ShowDevice();
@@ -2861,3 +2874,4 @@ bool THotkeyDialog::LeftButtonUp(int x, int y, int Flags)
 	}
 	return Result;
 }
+// NOLINTEND(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)

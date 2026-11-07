@@ -31,6 +31,11 @@
 #include <memory>
 #include <type_traits>
 
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries
+// NOLINTBEGIN(cppcoreguidelines-owning-memory)
+
 // TComponent::DrawingList as a std::unique_ptr<TDrawing[]> (issue #58): a pointer at the original's offset. The
 // subclasses' constructors allocate it with reset(new TDrawing[n]) (each list is the first: TComponent's constructor
 // leaves it null, and no class allocates over a base's), ~TComponent frees it with reset() where the original had
@@ -83,8 +88,17 @@ TComponent::~TComponent()
 
 static_assert(std::is_nothrow_destructible_v<TComponent> && std::is_nothrow_destructible_v<TWindow>,
 	"issue #108: the window classes' destructors are noexcept");
+// offsetof of a class with virtual functions: conditionally supported, and supported by every compiler here (GCC's
+// and Clang's -Winvalid-offsetof, issue #111).
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#endif
 static_assert(sizeof(void *) != 8 || (sizeof(TComponent) == 56 && offsetof(TComponent, Parent) == 24),
 	"issue #108: Closed is in the padding after DrawingListLength, TComponent's x64 layout unchanged");
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 // Issue #108 (not in the original). Closed is set first: a close that throws is
 // not run again, as the original's destructor was not.
@@ -1756,7 +1770,7 @@ bool TComponent::IsChild([[maybe_unused]] TComponent *Child)
 // 0x49bc30, lines 1057-1066. The assertion comes before the try block.
 TComponent *TComponent::GetPrevious()
 {
-	PATELLA_ASSERT(Parent!=NULL);
+	PATELLA_ASSERT(Parent!=nullptr);
 	TComponent *Search = Parent->GetFirstChild();
 	while (Search != nullptr) {
 		if (Search->GetNext() == this)
@@ -1813,8 +1827,8 @@ void TComponent::Draw(int Surface, int x, int y)
 // 0x49c190, lines 1193-1194. Inserts the child at the front. No try block.
 void TWindow::InsertChild(TComponent *Child)
 {
-	PATELLA_ASSERT(Child!=NULL);
-	PATELLA_ASSERT(Child->Parent==NULL);
+	PATELLA_ASSERT(Child!=nullptr);
+	PATELLA_ASSERT(Child->Parent==nullptr);
 	Child->Next = FirstChild;
 	FirstChild = Child;
 	Child->Parent = this;
@@ -1824,8 +1838,8 @@ void TWindow::InsertChild(TComponent *Child)
 // reset.
 void TWindow::AppendChild(TComponent *Child)
 {
-	PATELLA_ASSERT(Child!=NULL);
-	PATELLA_ASSERT(Child->Parent==NULL);
+	PATELLA_ASSERT(Child!=nullptr);
+	PATELLA_ASSERT(Child->Parent==nullptr);
 	if (FirstChild == nullptr) {
 		FirstChild = Child;
 	} else {
@@ -1851,7 +1865,7 @@ void TWindow::DeleteChild(TComponent *Child)
 // NULL), which reaches this window's ReleaseCapture by its parent.
 void TWindow::RemoveChild(TComponent *Child)
 {
-	PATELLA_ASSERT(Child!=NULL);
+	PATELLA_ASSERT(Child!=nullptr);
 	PATELLA_ASSERT(Child->Parent==this);
 	if (Child == Capture) {
 		Child->StopDragging();
@@ -1862,7 +1876,7 @@ void TWindow::RemoveChild(TComponent *Child)
 	} else {
 		TComponent *Search = FirstChild;
 		for (;;) {
-			PATELLA_ASSERT(Search!=NULL);
+			PATELLA_ASSERT(Search!=nullptr);
 			if (Search->Next == Child)
 				break;
 			Search = Search->Next;
@@ -1877,17 +1891,17 @@ void TWindow::RemoveChild(TComponent *Child)
 // when Previous is NULL. The first two assertions are before the try block.
 void TWindow::InsertChildAfter(TComponent *Previous, TComponent *Child)
 {
-	PATELLA_ASSERT(Child!=NULL);
-	PATELLA_ASSERT(Child->Parent==NULL);
+	PATELLA_ASSERT(Child!=nullptr);
+	PATELLA_ASSERT(Child->Parent==nullptr);
 	if (Previous == nullptr) {
 		InsertChild(Child);
 		return;
 	}
 	TComponent *Search = FirstChild;
-	PATELLA_ASSERT(Search!=NULL);
+	PATELLA_ASSERT(Search!=nullptr);
 	while (Search != nullptr && Search != Previous)
 		Search = Search->Next;
-	PATELLA_ASSERT(Search!=NULL);
+	PATELLA_ASSERT(Search!=nullptr);
 	Child->Parent = this;
 	Child->Next = Search->Next;
 	Search->Next = Child;
@@ -1899,25 +1913,25 @@ void TWindow::InsertChildAfter(TComponent *Previous, TComponent *Child)
 // their places.
 void TWindow::SwapChildren(TComponent *Child1, TComponent *Child2)
 {
-	PATELLA_ASSERT(Child1!=NULL);
-	PATELLA_ASSERT(Child2!=NULL);
+	PATELLA_ASSERT(Child1!=nullptr);
+	PATELLA_ASSERT(Child2!=nullptr);
 	PATELLA_ASSERT(Child1->Parent==this);
 	PATELLA_ASSERT(Child2->Parent==this);
-	PATELLA_ASSERT(FirstChild!=NULL);
+	PATELLA_ASSERT(FirstChild!=nullptr);
 	TComponent *Before1 = nullptr;
 	TComponent *Search1 = FirstChild;
 	while (Search1 != nullptr && Search1 != Child1) {
 		Before1 = Search1;
 		Search1 = Search1->Next;
 	}
-	PATELLA_ASSERT(Search1!=NULL);
+	PATELLA_ASSERT(Search1!=nullptr);
 	TComponent *Before2 = nullptr;
 	TComponent *Search2 = FirstChild;
 	while (Search2 != nullptr && Search2 != Child2) {
 		Before2 = Search2;
 		Search2 = Search2->Next;
 	}
-	PATELLA_ASSERT(Search2!=NULL);
+	PATELLA_ASSERT(Search2!=nullptr);
 	PATELLA_ASSERT(Before1!=Before2);
 	TComponent *After2 = Search2->Next;
 	if (After2 == Search1) {
@@ -2104,7 +2118,7 @@ bool TWindow::HelpMouseMove(int x, int y)
 // parents up to the main window capture this window in turn.
 void TWindow::SetCapture(TComponent *Component)
 {
-	PATELLA_ASSERT(Capture==NULL);
+	PATELLA_ASSERT(Capture==nullptr);
 	Capture = Component;
 	if (Parent != nullptr)
 		Parent->SetCapture(this);
@@ -2169,7 +2183,7 @@ void TWindow::SetChildPosition(TComponent *Child, int x, int y)
 // the try block.
 void TWindow::FitToChild(TComponent *Child, TRect Area, bool Notify)
 {
-	PATELLA_ASSERT(Child!=NULL);
+	PATELLA_ASSERT(Child!=nullptr);
 	PATELLA_ASSERT_VALUES(Child->getWidth()>0, Child->getWidth());
 	PATELLA_ASSERT_VALUES(Child->getHeight()>0, Child->getHeight());
 	int NewWidth = Child->Width + (Area.x > 0 ? Area.x : 0) + (Area.width < 0 ? -Area.width : 0);
@@ -2380,3 +2394,4 @@ bool CheckHotkey(int Key)
 {
 	return patella::bridge::GUI().CheckHotkey(Key);
 }
+// NOLINTEND(cppcoreguidelines-owning-memory)

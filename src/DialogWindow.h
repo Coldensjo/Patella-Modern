@@ -112,7 +112,7 @@ public:
 	void SetTitle(TComponent *_Title);                                                     // 0x48a2a0, line 1127
 	static int GetFrameHeight();                                                           // 0x485670, the title bar and the bottom edge
 	// Inline ("Window->getBody()!=NULL", MainWindow.cpp).
-	TSubWindowBody *getBody() const { return Body; }
+	[[nodiscard]] TSubWindowBody *getBody() const { return Body; }
 
 	// The parts are owned by the child list while they are children and by the member while they are not (a minimized
 	// window's, a hidden "up" button), so they stay raw (notes/ownership.md, section 7; issue #108).

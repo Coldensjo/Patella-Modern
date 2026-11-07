@@ -54,6 +54,11 @@
 #include <memory>
 #include <type_traits>
 
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries
+// NOLINTBEGIN(cppcoreguidelines-owning-memory)
+
 
 namespace {
 
@@ -63,6 +68,7 @@ namespace {
 // (0x5c4340-0x5c438f; 0x5c4388 and 0x5c438c are used by its STL code) and
 // before ContentWindows.obj's (0x5c4398; its NoCallback 0x5c4500,
 // initialiser 0x559dd0).
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's global; TCallback's constructor (GUI.cpp) stores two values
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
@@ -117,8 +123,8 @@ void TTextWindow::Draw(int Surface, int x, int y)
 	bool First = true;
 	for (int CurrentLine = CurrentLineNumber; CurrentLine >= getFirstLineNumber(); CurrentLine--) {
 		const TLineFormat *Format = GetLineFormat(CurrentLine);
-		PATELLA_ASSERT_VALUES(Format!=NULL, CurrentLine, getFirstLineNumber());
-		PATELLA_ASSERT_VALUES(Format->LineText!=NULL, CurrentLine, getFirstLineNumber());
+		PATELLA_ASSERT_VALUES(Format!=nullptr, CurrentLine, getFirstLineNumber());
+		PATELLA_ASSERT_VALUES(Format->LineText!=nullptr, CurrentLine, getFirstLineNumber());
 		int LineHeight;
 		if (First) {
 			LineHeight = GetFontHeight(Format->FontNumber);
@@ -697,8 +703,8 @@ void TConsole::Arrange()
 // 11-11). The caption is shortened to the tab's width less its margins.
 TTab::TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback _Callback)
 {
-	PATELLA_ASSERT(_Caption!=NULL);
-	PATELLA_ASSERT(_TextBuffer!=NULL);
+	PATELLA_ASSERT(_Caption!=nullptr);
+	PATELLA_ASSERT(_TextBuffer!=nullptr);
 	TextBuffer = _TextBuffer;
 	LineCount = -1;
 	BlinkEnd = 0;
@@ -750,7 +756,7 @@ void TTab::OnClose()
 	} else if (TextBuffer->IsRuleViolation() && TextBuffer->GetReceiveTalkMode() == TALK_PLAYER_ANSWER
 		&& TextBuffer->CanWrite()) {
 		const char *PlayerName = TextBuffer->GetAddressee();
-		PATELLA_ASSERT(PlayerName!=NULL);
+		PATELLA_ASSERT(PlayerName!=nullptr);
 		SendCloseRuleViolation(PlayerName);
 	} else if (!TextBuffer->IsPrivateChannel()) {
 		if (TextBuffer->GetChannelID() != -1)
@@ -885,6 +891,7 @@ TTabBar::TTabBar()
 // 0x41bd40, line 1043. The dragged tab is drawn last, over the others.
 void TTabBar::Draw(int Surface, int x, int y)
 {
+	// NOLINTNEXTLINE(bugprone-parent-virtual-call): the original's call of the base's base (the image's)
 	TComponent::Draw(Surface, x, y);
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext()) {
 		if (Child != Moved)
@@ -915,9 +922,9 @@ void TTabBar::Arrange()
 // (states 5-10).
 void TTabBar::SetCurrentTab(TTab *Tab)
 {
-	PATELLA_ASSERT(Tab!=NULL);
+	PATELLA_ASSERT(Tab!=nullptr);
 	const TWindow *Container = GetContainer(Tab);
-	PATELLA_ASSERT(Container!=NULL);
+	PATELLA_ASSERT(Container!=nullptr);
 	Changed = true;
 	if (CurrentTab != nullptr)
 		CurrentTab->SetActive(false);
@@ -1008,7 +1015,7 @@ bool TTabBar::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int y)
 {
 	SetHelpHandle(23);
 	const TComponent *Parent = GetParent();
-	PATELLA_ASSERT(Parent!=NULL);
+	PATELLA_ASSERT(Parent!=nullptr);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -1137,7 +1144,7 @@ void TTabBar::Rearrange(TTab *_Moved)
 			TComponent *Search = FirstChild;
 			TComponent *Next;
 			for (;;) {
-				PATELLA_ASSERT(Search!=NULL);
+				PATELLA_ASSERT(Search!=nullptr);
 				Next = Search->GetNext();
 				if (Moved == Search)
 					break;
@@ -1155,6 +1162,9 @@ void TTabBar::Rearrange(TTab *_Moved)
 			TComponent *Next = Child->GetNext();
 			if (Moved != Child)
 				Child->SetPosition(x, Child->OffsetY);
+			// MSVC's analysis (C6011, issue #111): Child is not null inside the loop (its condition); the path it
+			// reports takes the assertion's loop above as leaving Next null and Child with it.
+			PATELLA_MSVC_WARNING(suppress : 6011)
 			x += Child->Width;
 			if (x > Width) {
 				RemoveChild(Child);
@@ -1315,9 +1325,9 @@ void TConsoleWindow::Draw(int Surface, int x, int y)
 {
 	if (GetConsoleChanged()) {
 		TabBar->Arrange();
-		PATELLA_ASSERT(CurrentConsole!=NULL);
+		PATELLA_ASSERT(CurrentConsole!=nullptr);
 		TTalkBuffer *TextBuffer = CurrentConsole->getTextBuffer();
-		PATELLA_ASSERT(TextBuffer!=NULL);
+		PATELLA_ASSERT(TextBuffer!=nullptr);
 		CurrentConsole->Arrange();
 		SetActive(TextBuffer->CanWrite());
 		Input->SetDisabled(!TextBuffer->CanWrite());
@@ -1423,7 +1433,7 @@ void TConsoleWindow::KeyPress(int Key)
 			return;
 	}
 	TTalkBuffer *TextBuffer = CurrentConsole->getTextBuffer();
-	PATELLA_ASSERT(TextBuffer!=NULL);
+	PATELLA_ASSERT(TextBuffer!=nullptr);
 	if (!TextBuffer->CanWrite())
 		return;
 	Input->KeyPress(Key);
@@ -1569,10 +1579,10 @@ void TConsoleWindow::HandleEvent(int Event)
 void TConsoleWindow::SetActive(bool Active) const
 {
 	TTalkBuffer *TextBuffer = CurrentConsole->getTextBuffer();
-	PATELLA_ASSERT(TextBuffer!=NULL);
+	PATELLA_ASSERT(TextBuffer!=nullptr);
 	if (!TextBuffer->CanWrite())
 		Active = false;
-	PATELLA_ASSERT(Input!=NULL);
+	PATELLA_ASSERT(Input!=nullptr);
 	if (!Active && GetActionState() == 11)
 		return;
 	Input->SetActive(Active);
@@ -1585,7 +1595,7 @@ void TConsoleWindow::SetActive(bool Active) const
 void TConsoleWindow::UpdateButtons()
 {
 	TTalkBuffer *TextBuffer = CurrentConsole->getTextBuffer();
-	PATELLA_ASSERT(TextBuffer!=NULL);
+	PATELLA_ASSERT(TextBuffer!=nullptr);
 	if (IsChild(VolumeButton))
 		RemoveChild(VolumeButton);
 	if (IsChild(CloseButton))
@@ -1639,7 +1649,7 @@ TTalkBuffer *TConsoleWindow::OpenChannel(int RecvMode, int SendMode, const char 
 	TTalkBuffer *TextBuffer = CreateTextBuffer(RecvMode, SendMode, Name, Channel);
 	if (TextBuffer == nullptr) {
 		TextBuffer = ::GetTextBuffer(RecvMode, Name, Channel);
-		PATELLA_ASSERT(TextBuffer!=NULL);
+		PATELLA_ASSERT(TextBuffer!=nullptr);
 	}
 	AddChannel(TextBuffer, Caption);
 	return TextBuffer;
@@ -1652,7 +1662,7 @@ TTalkBuffer *TConsoleWindow::OpenChannel(int RecvMode, int SendMode, const char 
 // new tab is made inactive. The assertion on NewTab comes after its use.
 void TConsoleWindow::AddChannel(TTalkBuffer *TextBuffer, const char *Caption)
 {
-	PATELLA_ASSERT(TextBuffer!=NULL);
+	PATELLA_ASSERT(TextBuffer!=nullptr);
 	TTab *NewTab = TabBar->FindTab(TextBuffer);
 	if (NewTab == nullptr) {
 		NewTab = new TTab(Caption, TextBuffer, TCallback(this, 201));
@@ -1661,7 +1671,7 @@ void TConsoleWindow::AddChannel(TTalkBuffer *TextBuffer, const char *Caption)
 			AddTextBufferLine(TextBuffer, 0, TextHelpChannelWelcome, TALK_ADMIN_MESSAGE, nullptr, 0);
 			TextBuffer->Close();
 		}
-		PATELLA_ASSERT(NewTab!=NULL);
+		PATELLA_ASSERT(NewTab!=nullptr);
 	}
 	const TTab *CurrentTab = TabBar->CurrentTab;
 	TextBuffer->SetWriteEnabled(true);
@@ -1680,7 +1690,7 @@ void TConsoleWindow::CloseChannel()
 {
 	TTab *CurrentTab = TabBar->CurrentTab;
 	if (DefaultTab != CurrentTab) {
-		PATELLA_ASSERT(DefaultTab!=NULL);
+		PATELLA_ASSERT(DefaultTab!=nullptr);
 		TComponent *NewTab = CurrentTab->GetNext();
 		if (NewTab == nullptr)
 			NewTab = CurrentTab->GetPrevious();
@@ -1688,7 +1698,7 @@ void TConsoleWindow::CloseChannel()
 		TabBar->RemoveChild(CurrentTab);
 		if (NewTab == nullptr) {
 			NewTab = TabBar->GetFirstChild();
-			PATELLA_ASSERT(NewTab!=NULL);
+			PATELLA_ASSERT(NewTab!=nullptr);
 		}
 		TabBar->SetCurrentTab(static_cast<TTab *>(NewTab));
 		DeleteComponent(CurrentTab);
@@ -1704,16 +1714,16 @@ void TConsoleWindow::ReportRuleViolation(const char *Question)
 	TTalkBuffer *TextBuffer = ::GetTextBuffer(TALK_GAMEMASTER_ANSWER, nullptr, -1);
 	if (TextBuffer != nullptr) {
 		TTab *NewTab = TabBar->FindTab(TextBuffer);
-		PATELLA_ASSERT(NewTab!=NULL);
+		PATELLA_ASSERT(NewTab!=nullptr);
 		TabBar->SetCurrentTab(NewTab);
 		SetStatusMessage(TextRequestSubmitted, false);
 		return;
 	}
-	PATELLA_ASSERT(Question!=NULL);
+	PATELLA_ASSERT(Question!=nullptr);
 	PATELLA_ASSERT(strlen(Question)>0);
 	OpenChannel(TALK_GAMEMASTER_ANSWER, TALK_PLAYER_ANSWER, nullptr, -1, TextReportRuleViolation);
 	TextBuffer = ::GetTextBuffer(TALK_GAMEMASTER_ANSWER, nullptr, -1);
-	PATELLA_ASSERT(TextBuffer!=NULL);
+	PATELLA_ASSERT(TextBuffer!=nullptr);
 	PATELLA_ASSERT_VALUES(GetCreature(GetPlayerID()), GetPlayerID());
 	AddTextBufferLine(TextBuffer, 0, Question, TALK_PLAYER_ANSWER, GetCreature(GetPlayerID())->Name, 0);
 	AddTextBufferLine(TextBuffer, 0, TextWaitForGamemaster, TALK_ADMIN_MESSAGE, nullptr, 0);
@@ -1724,7 +1734,7 @@ void TConsoleWindow::ReportRuleViolation(const char *Question)
 // 0x41f1c0, lines 2060-2061. No try block (ContextMenus.cpp's channel menu).
 bool TConsoleWindow::GetServerMessages() const
 {
-	PATELLA_ASSERT(CurrentConsole->getTextBuffer()!=NULL);
+	PATELLA_ASSERT(CurrentConsole->getTextBuffer()!=nullptr);
 	PATELLA_ASSERT(CurrentConsole->getTextBuffer()->isDefault()==false);
 	return ServerMessagesButton->State;
 }
@@ -1733,7 +1743,7 @@ bool TConsoleWindow::GetServerMessages() const
 // (states 10-10).
 void TConsoleWindow::SetServerMessages(bool Show)
 {
-	PATELLA_ASSERT(CurrentConsole->getTextBuffer()!=NULL);
+	PATELLA_ASSERT(CurrentConsole->getTextBuffer()!=nullptr);
 	PATELLA_ASSERT(CurrentConsole->getTextBuffer()->isDefault()==false);
 	ServerMessagesButton->State = Show;
 	HandleEvent(203);
@@ -1742,7 +1752,7 @@ void TConsoleWindow::SetServerMessages(bool Show)
 // 0x41f7f0, line 2085. No try block.
 TTalkBuffer *TConsoleWindow::GetTextBuffer() const
 {
-	PATELLA_ASSERT(CurrentConsole->getTextBuffer()!=NULL);
+	PATELLA_ASSERT(CurrentConsole->getTextBuffer()!=nullptr);
 	return CurrentConsole->getTextBuffer();
 }
 
@@ -1800,7 +1810,7 @@ void TConsoleWindow::SendInput()
 		case TALK_PRIVATE_MESSAGE:
 		case TALK_GAMEMASTER_MESSAGE:
 		case TALK_ANONYMOUS_MESSAGE:
-			PATELLA_ASSERT(Addressee!=NULL);
+			PATELLA_ASSERT(Addressee!=nullptr);
 			PATELLA_ASSERT_VALUES(GetCreature(GetPlayerID()), GetPlayerID());
 			AddChannelNotice(GetCreature(GetPlayerID())->Name, Text, TalkMode, Addressee, ChannelID);
 			if (CompareStrings(Addressee, GetCreature(GetPlayerID())->Name, -1) != 0)
@@ -1813,7 +1823,7 @@ void TConsoleWindow::SendInput()
 			SendTalk(TalkMode, ChannelID, Text);
 			break;
 		case TALK_GAMEMASTER_ANSWER:
-			PATELLA_ASSERT(Addressee!=NULL);
+			PATELLA_ASSERT(Addressee!=nullptr);
 			PATELLA_ASSERT_VALUES(GetCreature(GetPlayerID()), GetPlayerID());
 			SendTalk(TALK_GAMEMASTER_ANSWER, Addressee, Text);
 			AddChannelNotice(GetCreature(GetPlayerID())->Name, Text, TALK_PLAYER_ANSWER, Addressee, -1);
@@ -1889,6 +1899,8 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 		case 'W': *TalkMode = TALK_WHISPER; break;
 		case 'X': *TalkMode = 0; break;
 		case 'Y': *TalkMode = TALK_YELL; break;
+		default:
+			break;
 		}
 	} else if (MessageSeparator == '*' || MessageSeparator == '@' || MessageSeparator == '$') {
 		i++;
@@ -1922,7 +1934,7 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 		*Addressee = nullptr;
 		*TalkMode = 0;
 		*Separator = 0;
-		AddMessage(0xc, reinterpret_cast<INT_PTR>("Account Data Warning"), 0);
+		AddMessage(0xc, reinterpret_cast<std::intptr_t>("Account Data Warning"), 0);
 		return;
 	}
 	while (IsSpace(Line[i]))
@@ -1935,16 +1947,16 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 // channel to "<caption>.txt" in the working directory.
 bool TConsoleWindow::SaveChannel() const
 {
-	TTab *CurrentTab = TabBar->CurrentTab;
-	PATELLA_ASSERT(CurrentTab!=NULL);
-	PATELLA_ASSERT(CurrentTab->getCaption()!=NULL);
+	const TTab *CurrentTab = TabBar->CurrentTab;
+	PATELLA_ASSERT(CurrentTab!=nullptr);
+	PATELLA_ASSERT(CurrentTab->getCaption()!=nullptr);
 	TFixedString<1024> FileName;
 	FileName.Format("{}.txt", CurrentTab->getCaption());
 	TFile File;
 	if (!patella::platform::Platform().FileSystem.Open(File, FileName, TFile::TAccess::Append, TFile::TContent::Text))
 		return false;
 	const TTalkBuffer *TextBuffer = GetTextBuffer();
-	PATELLA_ASSERT(TextBuffer!=NULL);
+	PATELLA_ASSERT(TextBuffer!=nullptr);
 	const std::int64_t Now = patella::platform::Platform().Clock.WallSeconds();
 	// ctime's text, the day as MSVC 7.1 writes it, of the 64-bit time (issue #62: after 2038 too, where the
 	// original's 32-bit time had none); where there is none (before 1970), printf wrote "(null)"
@@ -1958,3 +1970,4 @@ bool TConsoleWindow::SaveChannel() const
 	SetStatusMessage(Message, false);
 	return true;
 }
+// NOLINTEND(cppcoreguidelines-owning-memory)
