@@ -6,7 +6,9 @@
 // notes/written-files.md). The input's first byte: bit 0 set, the rest of the input is the file as it is; clear, the
 // harness puts the two layers (128 KiB, a pattern) before the rest, so the fuzzer's bytes are the marks. Bit 1: a mark
 // is added and the block saved (ExitMap, SaveAutomapBlock), and the file it wrote loaded again by a new cache.
-// A damaged file is the original's "Map file '...' was corrupted!" in the default console (here a fake), no error.
+// A damaged file is the original's "Map file '...' was corrupted!" in the default console (here a fake), no error; since
+// issue #139 (item 5) so is a negative mark count, which the original kept (a mark added then grew the marks down to
+// that index, filed by #132). The harness's property: a loaded block's mark count is never negative.
 
 #include "client.h"
 
@@ -15,7 +17,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -44,6 +45,8 @@ void Load()
 	std::vector<TMark> Marks; // #100: GetAutomapMarks fills a std::vector
 	int Count = 0;
 	Map->GetAutomapMarks(0, 0, 0, &Marks, &Count);
+	if (Count < 0)
+		patella::fuzz::Fail(Target, "a block kept a negative mark count");
 	static_cast<void>(Map->GetAutomapColor(0, 0, 0));
 	static_cast<void>(Map->GetAutomapColor(255, 255, 0));
 }
@@ -72,13 +75,7 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t *Data, std::size_t Size
 	File += Input.Rest();
 	patella::fuzz::WriteFile("00000000.map", File);
 	patella::fuzz::Guard(Target, Load);
-	// The block's mark count as the file has it (LoadAutomapBlock keeps a negative one: it reads no mark then). A mark
-	// added to a block of a negative count goes to that index: TIndexedVector grows down to it, 10 entries at a time
-	// (the original's, filed by #132), which for a count far below 0 takes as long as it needs memory. Not added there.
-	int Count = 0;
-	if (File.size() >= 2 * 256 * 256 + 4)
-		std::memcpy(&Count, File.data() + 2 * 256 * 256, sizeof(Count));
-	if ((Mode & 2) != 0 && Count >= -64) {
+	if ((Mode & 2) != 0) {
 		patella::fuzz::Guard(Target, [] {
 			TCoordinate Coordinate{1, 1, 0};
 			Map->AddAutomapMark(Coordinate, "fuzz", 1);

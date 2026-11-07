@@ -552,9 +552,13 @@ static void Run()
 } // namespace ContainerTest
 
 // The runner's operator new[]: the pattern while the test runs (the oracle patches its CRT's instead),
-// else malloc, as MSVC's; delete[] frees.
+// else malloc, as MSVC's; delete[] frees. GoldenArrayNews counts the calls (bounded_reads' #139 item 4: a check that
+// throws before its allocation).
+extern long long GoldenArrayNews;
+long long GoldenArrayNews = 0;
 void *operator new[](size_t Size)
 {
+	GoldenArrayNews++;
 	if (ContainerTest::PatternActive)
 		return ContainerTest::PatternNew(Size);
 	void *Memory = malloc(Size == 0 ? 1 : Size);

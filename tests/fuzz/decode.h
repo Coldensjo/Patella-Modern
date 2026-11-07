@@ -1,10 +1,11 @@
 // decode.h: the harness's own reading of a sprite or picture tile of Tibia.spr or Tibia.pic, for fuzz_sprites and
 // fuzz_pictures (Patella-Modern issue #132).
 //
-// graphics.cpp's LoadSprite and LoadPictureTile decode the runs of a sprite or tile into 32 x 32 RGB triples without a
-// bound: a run whose pixels pass the 1024th writes past the buffer (the original's, kept: graphics.cpp's comment
-// "Malformed runs write past the buffer"; filed by #132, notes/decisions.md). Overflows reads the input as they do and
-// tells whether they would write past it; the harness decodes only the ones that would not, so the fuzzer goes on.
+// graphics.cpp's LoadSprite and LoadPictureTile decode the runs of a sprite or tile into 32 x 32 RGB triples. The
+// original had no bound: a run whose pixels pass the 1024th wrote past the buffer (filed by #132). Since issue #139
+// (item 3, notes/decisions.md "#139") such a run is a data error (PROGRAM_ERROR 4 or 5). Overflows reads the input as
+// they do and tells whether the original would have written past it: the harness's property is that the client's
+// decode then throws, and decodes as before otherwise.
 
 #pragma once
 

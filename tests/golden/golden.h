@@ -219,8 +219,11 @@ long long RetiredChecks();
 // difference inside it is not a failure: the check is counted as the issue's (Deliberates: its checks, and those that
 // differed). The test opens the part where its own side reaches the difference (BeginDeliberate, with the issue) and
 // closes it (EndDeliberate). Only the tests of the listed issues open one:
-//	#72  network_tests.cpp: our PrepareNextPacket drops a frame whose inner length runs past it and throws, where the
-//	     original read on past the frame; the part runs to the end of the round (ResetSides).
+//	#72  network_tests.cpp: our PrepareNextPacket drops a frame whose inner length runs past it (a warn line in the
+//	     developer log, the next frame prepared; until #139 it threw), where the original read on past the frame; the
+//	     part runs to the end of the round (ResetSides).
+//	#139 network_tests.cpp: the same for a frame whose size is no multiple of 8 (item 7; none in the corpus) and the
+//	     part's name for any other drop of TNetwork's (TFrameDrop).
 // A check's result: true when it is a failure (Same false, outside a deliberate part).
 void BeginDeliberate(const char *Issue);
 void EndDeliberate();

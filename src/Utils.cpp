@@ -267,13 +267,14 @@ void TReadBuffer::GetString(patella::TSpan<char> Text)
 	Position += Length;
 }
 
-// 0x50abb0, line 359. The caller owns the result. The check comes after the
-// allocation, as in the binary.
+// 0x50abb0, line 359. The caller owns the result. Patella-Modern issue #139, item 4, a deliberate difference
+// (notes/decisions.md, "#139"): the check comes before the allocation, so a text that does not fit throws with
+// nothing allocated. The binary allocated first and lost the text when the check threw.
 char *TReadBuffer::GetString()
 {
 	const int Length = GetWord();
-	char *Result = new char[Length + 1];
 	PATELLA_ASSERT_VALUES(Position<=Size-Length, Position, Size-Length);
+	char *Result = new char[Length + 1];
 	memcpy(Result, &Data[Position], Length);
 	Result[Length] = 0;
 	Position += Length;

@@ -123,6 +123,14 @@ def synthetic_network():
 	seeds["72-empty-frame.bin"] = u8(0) + frames(b"", network_frame(b"\x07"))
 	seeds["72-full.bin"] = u8(0) + frames(network_frame(b"\x03" * (0x3ff0 - 2 - 8), inner=0xffff))
 	seeds["odd-size.bin"] = u8(0) + frames(b"\x02\x00\x01\x02\x03")
+	# Issue #139: a frame whose size is no multiple of 8 (item 7) and one larger than ReceiveData (item 6), each with
+	# frames before and after it, which are read; the large one also as 64-byte receives.
+	seeds["139-7-odd-sizes.bin"] = u8(0) + frames(b"\x02\x00\x01\x02\x03", network_frame(b"\x09"), bytes(13),
+		network_frame(b"\x0a"))
+	large = frames(network_frame(b"\x08"), b"\x22" * 0x5000, network_frame(b"\x09"))
+	seeds["139-6-too-large.bin"] = u8(0) + large
+	seeds["139-6-too-large-split.bin"] = u8(4) + large
+	seeds["139-6-largest.bin"] = u8(0) + frames(network_frame(b"\x05" * 0x3ff6))
 	seeds["split.bin"] = u8(1) + frames(ok, ok, network_frame(b"\x03hello\x00"))
 	seeds["commands.bin"] = u8(5) + frames(network_frame(bytes(range(7)) + text("abc") + b"\x04" + u32(7)),
 		network_frame(b"\x05" + bytes(5) + b"\x06" + bytes(20)))
@@ -180,6 +188,10 @@ def synthetic_map():
 		"save.bin": u8(2) + u32(1) + mark,
 		"short.bin": u8(1) + bytes(100),
 		"negative-count.bin": u8(0) + u32(0xffffffff),
+		# Issue #139, item 5: a negative count with a mark added and the block saved (the original grew the marks
+		# down to the count).
+		"139-5-negative-save.bin": u8(2) + u32(0xfffffffb),
+		"139-5-most-negative-save.bin": u8(2) + u32(0x80000000),
 	}
 
 
@@ -200,6 +212,10 @@ def synthetic_dat():
 		"small.dat": header + ground + light + big + outfit + dat_entry() + dat_entry(),
 		"short.dat": header + ground + light[:5],
 		"no-objects.dat": u32(1) + u16(99) + u16(1) + u16(1) + u16(1),
+		# Issue #139, item 1: a load that fails after the first entry, and one whose outfits' table refuses its count
+		# after the objects' table was allocated.
+		"139-1-ends-after-one.dat": header + ground,
+		"139-1-no-outfits.dat": u32(1) + u16(101) + u16(0) + u16(1) + u16(1) + dat_entry(),
 		"high-flag.dat": u32(1) + u16(100) + u16(1) + u16(1) + u16(1) + dat_entry(b"\x20\xfe") + dat_entry()
 			+ dat_entry() + dat_entry(),
 	}
@@ -223,6 +239,9 @@ def synthetic_sprites():
 		"sprites.spr": data,
 		"short.spr": data[:header_size + 5],
 		"bad-offset.spr": u32(1) + u16(1) + u32(0xfffffff0),
+		# Issue #139, item 3: runs past the 1024th pixel (the original wrote past the buffer).
+		"139-3-overflow.spr": u32(1) + u16(2) + u32(4 + 2 + 8) + u32(4 + 2 + 8 + 3 + 2 + 4 + 30 * 3)
+			+ b"\x00\x00\x00" + runs([(1000, [(9, 9, 9)] * 30)]) + b"\x00\x00\x00" + runs([(1024, [(1, 1, 1)])]),
 	}
 
 
@@ -236,6 +255,11 @@ def synthetic_pictures():
 		"pictures.pic": data,
 		"short.pic": data[:12],
 		"empty-picture.pic": u32(1) + u16(1) + u8(0) + u8(0) + b"\x00\x00\x00",
+		# Issue #139: a file that ends after the first picture's table (item 2), a tile whose runs pass the 1024th
+		# pixel (item 3).
+		"139-2-ends-after-one.pic": u32(1) + u16(3) + u8(1) + u8(1) + b"\x00\x00\x00" + u32(0) + u8(1),
+		"139-3-overflow.pic": u32(1) + u16(1) + u8(1) + u8(1) + b"\x00\x00\x00" + u32(4 + 2 + 5 + 4)
+			+ runs([(0, [(1, 2, 3)]), (1022, [(4, 5, 6)] * 2)]),
 	}
 
 

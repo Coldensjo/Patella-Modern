@@ -1021,6 +1021,11 @@ void patella::TMap::LoadAutomapBlock(int Position, int bx, int by, int bz)
 					Block.MarkCount = 0;
 				else
 					Block.MarkCount = File.readQuad();
+				// Patella-Modern issue #139, item 5, a deliberate difference (notes/decisions.md, "#139"): a negative
+				// count is a corrupted file, as a file that ends early is ("Map file ... was corrupted!", the block
+				// cleared). The binary kept it, and AddAutomapMark then grew the marks down to that index.
+				if (Block.MarkCount < 0)
+					TERROR1("negative mark count", Block.MarkCount);
 				for (int i = 0; i < Block.MarkCount; i++) {
 					const int x = File.readQuad();
 					Block.Marks(i).x = x;
