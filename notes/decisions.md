@@ -16514,21 +16514,27 @@ is not touched.
 
 ### The gates (high)
 
-Logs in build\logs\issue-123 of the branch's worktree; golden replayed main's frozen corpus read only
+Logs in build\logs\issue-123 of the branch's worktree (final\ for the head after the merge of main 968f54c: #126,
+#111, testserver.py's 85d4de6); golden replayed main's frozen corpus read only
 (PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden). Every golden run: 15,803,218 replayed + 1,512,822 retired =
 17,316,040, 0 failures; 0 compiler warnings on every preset.
 
-- `python -I tools/build.py windows-x64` exit 0, 28/28 (again on the committed head: windows-x64-final.log);
-  windows-x64-debug exit 0, 27/27; windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13;
-  linux-x64-gcc exit 0, 25/25; linux-x64-clang (ASan, UBSan) exit 0, 24/24, no sanitizer report.
-- `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every session
-  matches, the clients' logs `window: SDL3` (reference-sdl.log, and on the committed head reference-sdl-final.log);
-  `PATELLA_WINDOW=mfc` the same, `window: MFC` (reference-mfc.log).
+- On the merged head: `python -I tools/build.py windows-x64` exit 0, 28/28 (merged2-windows-x64.log); windows-x64-debug
+  exit 0, 27/27; windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0,
+  25/25; linux-x64-clang (ASan, UBSan) exit 0, 24/24, no sanitizer report.
+- Live, on the merged head: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`
+  exit 0, every session matches (`window: SDL3`); `PATELLA_WINDOW=mfc` the same, exit 0 (`window: MFC`); `python -I
+  tools/compare_traffic.py --patella build/windows-x64/Release/Patella.exe` exit 0, no differences; `python -I
+  tools/compare_files.py --patella ...` exit 0, no differences; `python -I tools/testmode_check.py --exe
+  build/windows-x64/Release/PatellaTest.exe` exit 0, no differences; `python -I tools/compare_rendering.py --engines
+  vulkan,vulkan-cpu --modes windowed --no-repeat --recording build/traffic/result/orig-live.jsonl --patella
+  build/windows-x64/Release/Patella.exe` exit 0 (the recording from that compare_traffic run), all scenes identical.
+- Before: the first compare_traffic runs (keys, characters and buttons from SDL) exit 1 at the login and at
+  "open container" (compare_traffic-merged-try1.log and the later ones, above); one exit 1 where Tibia.exe found no
+  window while another agent's client started (not this client).
 - `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
   clang-format (CLAUDE.md's command) exit 0.
-- Not run: compare_traffic, compare_files, testmode_check and compare_rendering (the test server's world, above;
-  compare_traffic's first run exit 1 at the server's start), hosted CI (the branch is not pushed while live gates are
-  missing).
+- Not run: compare_rendering's fullscreen scenes (#98's set is windowed).
 
 ## #126: the Vulkan surface through SDL_Vulkan_CreateSurface (Patella-Modern issue #126, M8)
 
