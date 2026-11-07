@@ -33,7 +33,11 @@ accounts; its sources are in `gameserver\src`.
   code's meaning and whether Windows excludes the port (`netsh int ipv4|ipv6 show excludedportrange
   protocol=tcp`); the attempt's server is stopped once it says `Server Online!` (the usual shutdown, not a Ctrl+C
   during the map's load) and started again, up to `--bind-retries` (3) times on top of `--retries` (below, "The
-  bind race"). Refuses to start a second server or to start when
+  bind race"). A failed attempt's server that never said `Server Online!` is killed 30 s after its Ctrl+C (it
+  has nothing to save); one whose world is loaded saves every map sector on the way out and gets 600 s
+  (Patella-Modern issue #137: on a busy machine the save took more than 30 s, the kill cut
+  `data\map\1040-1009-10.sec` off at 4096 bytes, and every later start failed with "Cannot load sector").
+  Refuses to start a second server or to start when
   7171/7172 is taken, also before a retry. Exit code 0 when the server is ready. `self-test` checks the wait on
   made-up servers (no server).
 - **Stop**: `python -I tools/testserver.py stop`. Sends Ctrl+C to the server's console, the shutdown the

@@ -24,7 +24,9 @@ grew, a port began to listen, the process used CPU time) for --stall seconds, or
 both ports listening --after-online seconds later (issue #88's run); or after --timeout seconds in all. A
 busy machine only slows the start down (issue #75's second start took more than the old 300 s), so the
 progress, not the clock, decides. A failed attempt's server, the one this start started (server.pid), is
-stopped (Ctrl+C, killed after 30 s: it never came online, so it has nothing to save), its server.log kept as
+stopped (Ctrl+C, killed after 30 s when it never came online and has nothing to save; once its world is loaded,
+"Server Online!", it saves every map sector on the way out and gets 600 s: issue #137, where a kill after 30 s cut
+a sector file off and every later start failed), its server.log kept as
 server-attempt<N>.log, and the server started again, --retries times (default 1). A server the tools did not
 start is never touched: when one runs or holds a port before a retry, start gives up.
 
@@ -92,6 +94,10 @@ AFTER_ONLINE = 60  # seconds from "Server Online!" to both ports listening
 START_RETRIES = 1
 BIND_RETRIES = 3  # more starts after a bind error in server.log (issue #95), on top of START_RETRIES
 STALLED_STOP = 30  # seconds a stalled server gets for its Ctrl+C before it is killed
+# Seconds a failed attempt's server whose world is loaded ("Server Online!") gets for its Ctrl+C: it saves every map
+# sector then, which took more than 30 s on a busy machine, and a kill in the middle left a sector file cut off (issue
+# #137: 1040-1009-10.sec at 4096 bytes; every later start failed with "Cannot load sector").
+SAVING_STOP = 600
 # The lines the server writes when a bind fails (issue #95; its strings, login/login_server.cc and
 # game/communication.cc): "<date> <time> [ERR] LoginServerWorker: Failed to bind Login Server on port 7171 (error
 # 10049)" and "LaunchServer: Failed to bind Game Server on port 7172." (no code).
@@ -492,6 +498,12 @@ def wait_online(poll, log_text, seconds, clock=time.monotonic, sleep=time.sleep)
 	return True
 
 
+def stop_timeout(log_text):
+	"""The seconds a failed attempt's server gets for its Ctrl+C before it is killed: SAVING_STOP once its world is
+	loaded (it saves the map on the way out: never kill it in the middle, issue #137), else STALLED_STOP."""
+	return SAVING_STOP if LOG_ONLINE in log_text else STALLED_STOP
+
+
 def spawn(exe, server_dir, window):
 	"""Starts the server (its output to server.log, its PID to server.pid); returns the Popen."""
 	os.makedirs(STATE_DIR, exist_ok=True)
@@ -579,13 +591,13 @@ def start(server_dir, timeout=START_TIMEOUT, window=False, stall=START_STALL, af
 				", %r not said within %d s" % (LOG_ONLINE, after_online)))
 			if process.poll() is not None:
 				remove_pid_file()
-			elif stop(server_dir, STALLED_STOP, True) != 0:
+			elif stop(server_dir, stop_timeout(read_log()), True) != 0:
 				say("start", "could not stop PID %d: giving up" % process.pid)
 				return 1
 		else:
 			say("start", "the server (PID %d) %s: %s; stopping it (the one this start started)" % (process.pid,
 				"stalled" if state == "stalled" else "timed out", detail))
-			if stop(server_dir, STALLED_STOP, True) != 0:
+			if stop(server_dir, stop_timeout(read_log()), True) != 0:
 				say("start", "could not stop PID %d: giving up" % process.pid)
 				return 1
 		kept = keep_attempt_log(attempt)
@@ -792,6 +804,10 @@ def self_test(out=print):
 	now[0], lines[0] = 0.0, ""
 	check("wait_online: never online, gives up after the time", not wait_online(lambda: None, lambda: "", 60,
 		lambda: now[0], tick) and now[0] == 60)
+
+	# a failed attempt's stop (issue #137): a loaded world saves on Ctrl+C, so no kill after 30 s
+	check("stop timeout: world not loaded, 30 s", stop_timeout("\n".join(SELF_TEST_LOG[:2])) == STALLED_STOP)
+	check("stop timeout: world loaded, time to save", stop_timeout("\n".join(SELF_TEST_LOG)) == SAVING_STOP)
 	out("testserver self test: %d failures" % failures)
 	return failures
 

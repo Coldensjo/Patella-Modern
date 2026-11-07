@@ -14835,3 +14835,80 @@ reference compare's, not golden's. A per-frame profile is M9's profiling item.
 
 - `_MSVC_STL_DESTRUCTOR_TOMBSTONES` (MSVC) could catch uses after destruction in release; not asked by the plan.
 - The cost was measured once per run; a repeated measurement (M9's profiling) would narrow golden's +16% / +23%.
+
+## #137: compare_traffic's look step at the player's own field (Patella-Modern issue #137, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-137). Files: tools/session_client.py (run_session's `look`,
+LOOK_NORTH, LOOK_OWN_FIELD), tools/compare_traffic.py (play passes LOOK_OWN_FIELD), notes/traffic.md (the step table).
+
+### The race (high)
+
+The live part a. of compare_traffic failed now and then at "look north" (#101's gates, three of #133's, main after
+#133): one client's look packet named a creature (type 0x63, stack position 1), the other the field's top item
+(0x19a, stack position 0). The recorded states of main's failing run (build/traffic/result, a8ccca5) name the
+creature: Cipfried, the temple NPC, stood on [32098, 32218, 7], the field north of the player, in Tibia.exe's live
+session at "say" and "look north", and on [32096, 32217, 7] in Patella.exe's. The NPC wanders around the start
+fields of the test server's world; the clients behaved alike (the four replays identical, every replayed step's state
+equal).
+
+### The fix (high)
+
+The scenario, not the tool: compare_traffic's sessions (live and replays) look at the player's own field (map field
+(8,6)) instead of the one north of it; the step is named "look at own field". No creature can stand on a player's
+field, so both clients send the look at the player, with the same position and stack position. Nothing of the client
+packets is masked or excused; a. compares as before. The test server's world and files are unchanged.
+
+The frozen reference recordings (build/reference, recorded through compare_rendering.py's session, which calls the
+same run_session) have "look north" at field (8,5): run_session keeps it as its default (LOOK_NORTH), so
+reference_record.py and compare_rendering.py are unchanged, and `reference.py compare` replays its recorded window
+messages anyway (it never calls run_session). So compare_traffic's live session now differs from the recorded
+"traffic" session in that one step: its name and the field clicked (the player's own field there, north of it in the
+recordings). A `--skip-live` run on recordings made before this change replays them with the new step, and the proxy
+reports the look packet as different: record them again.
+
+### A kill in the middle of the server's save (high)
+
+The fourth live run of the first series (07:16) met the server's bind race (#95) in its first start: testserver.py
+waited for "Server Online!", sent Ctrl+C and killed the server 30 s later (STALLED_STOP). A server whose world is
+loaded saves all 9,873 map sectors on Ctrl+C, and with the fuzzers of #132 and two builds on the machine that took
+longer: the kill at 07:17:35 cut `C:\Tibia\gameserver\data\map\1040-1009-10.sec` off at 4096 bytes, in the
+middle of a line, and every later start failed with "Game initialization failed: Cannot load sector" (the fifth run
+and the five of the second series, in seconds each; for the other agents' live runs as well). The truncated file was
+the only sector not ending in a newline.
+
+- testserver.py: a failed attempt's server whose server.log says "Server Online!" gets SAVING_STOP, 600 s, for its
+  Ctrl+C (stop_timeout; both of start's stop paths, the bind error's and the stall's); one that never came online
+  keeps the 30 s. Two self-test checks. notes/testserver.md, "Start".
+- The sector, rebuilt (a repair of what the run broke, not a change of the world): the server writes a sector as
+  origmap's lines with the coordinates without leading zeros under its own header ("# Data for sector x/y/z"); that
+  rebuild from data\origmap gives 6,975 of the 9,872 other sectors byte for byte (the rest have changed in play), its
+  z=10 neighbours among them, and the cut-off file's 4096 bytes are an exact prefix of the rebuild of
+  1040-1009-10.sec (21,586 bytes). Written back; the server then loaded the world (17.3 s) and stopped cleanly. The
+  cut-off file and the rebuild are kept in build\logs\issue-137 (1040-1009-10.sec.truncated-0717, .rebuilt).
+
+### The gates (high)
+
+On this branch's client (main a8ccca5's windows-x64 build, the same sources), the machine shared with the agents of
+#119, #100 and #132; logs in build\logs\issue-137 (summary.txt lists every run).
+
+- `python -I tools/compare_traffic.py --patella build/windows-x64/Release/Patella.exe`: 18 runs. Every run that
+  played both live sessions passed: 1, 2, 3, 12, 14, 15, 16, 17, 18, each exit 0, "RESULT: no differences", a. 18 and
+  18 client packets identical, the look packet `8c 627d db7d 07 6300 01` (the player's field [32098, 32219, 7], type
+  0x63, stack position 1) in both clients. **14 to 18: five in a row**, with testserver.py's fix. The others never
+  compared anything: 4 (the bind race, then the kill in the middle of the save, above) and 5 to 10 (the cut-off
+  sector: no server); 11 (another agent's server came up between the check and the start: refused); 13 (the replay
+  of patella-live: Tibia.exe's window not there in 30 s while another agent's PatellaTest.exe was on the desktop,
+  #133's run 2).
+- `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: exit 0, every session
+  matches its reference (07:21, and 08:09 on the final tools).
+- `python -I tools/testserver.py self-test`: 0 failures (the two new checks among them). The changed tools compile
+  (`python -I -m py_compile`).
+- No C++ preset, banned_calls or clang-format: src/ and CMake are unchanged.
+
+### Found, not done (medium)
+
+- The walk steps share the race in principle: "walk north" steps onto the field Cipfried stood on in main's failing
+  run; a creature there blocks the step and the sessions part. Not seen in 18 runs; a field no creature can reach
+  would need the world (an NPC's walk radius, the start position), which is the owner's.
+- The live checks share one desktop and one server folder: a client of another agent can still keep a window from
+  appearing (run 13), and a server start between another tool's check and its own start is refused (run 11).

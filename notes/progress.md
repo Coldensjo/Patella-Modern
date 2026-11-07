@@ -620,6 +620,14 @@ Hardened standard library modes (Patella-Modern issue #133, branch issue-133, No
 _MSVC_STL_HARDENING=1 and libstdc++'s _GLIBCXX_ASSERTIONS (until now Debug only) for C++ in every configuration of
 every product preset (cmake/Hardening.cmake); no check fired. Cost, one run each: golden +16% on Windows, +23% on
 Linux, the reference compare +2%. Golden 17,316,040, 0 failures. notes/decisions.md, "#133".
+
+compare_traffic's look step (Patella-Modern issue #137, branch issue-137, November 7, 2026; M7): the live part a.
+failed now and then because Cipfried, the temple NPC, wandered onto the field north of the player that "look north"
+looked at. compare_traffic's sessions now look at the player's own field ("look at own field", map field (8,6)),
+where no creature can stand; run_session keeps "look north" as its default for the recorded sessions
+(reference_record.py, compare_rendering.py). testserver.py gives a failed attempt's server with its world loaded 600 s
+to save instead of killing it after 30 s (a kill in the middle of the save had cut a map sector off; the sector was
+rebuilt). notes/decisions.md, "#137".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
