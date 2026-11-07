@@ -32,13 +32,15 @@ static_assert(std::is_same_v<std::underlying_type_t<decltype(LEFT_ALIGN)>, int>)
 // TDrawing (GUI.h) have the same lower-case names (issue #29).
 struct TRect { // passed by value (16 bytes)
 	constexpr TRect() : x(0), y(0), width(0), height(0) {}
-	constexpr TRect(int x, int y, int width, int height) : x(x), y(y), width(width), height(height) {}
+	// The parameters are not named as the members (Patella-Modern issue #116): patella_core's GCC -Wshadow, since
+	// Skins.h includes this header.
+	constexpr TRect(int X, int Y, int Width, int Height) : x(X), y(Y), width(Width), height(Height) {}
 	int x, y, width, height;
 };
 
 struct TRGBColor { // passed by value (12 bytes)
 	constexpr TRGBColor() : R(0), G(0), B(0) {}
-	constexpr TRGBColor(int R, int G, int B) : R(R), G(G), B(B) {}
+	constexpr TRGBColor(int Red, int Green, int Blue) : R(Red), G(Green), B(Blue) {}
 	// 0x425950 (out-of-line copy between ConsoleWindow.cpp and
 	// ContentWindows.cpp; inlined in Map.cpp's SetAmbientLight): a colour of
 	// the 6x6x6 palette, Color = R*36 + G*6 + B with steps of 51.
