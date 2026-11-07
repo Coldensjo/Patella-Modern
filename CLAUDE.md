@@ -94,13 +94,23 @@ in windows-x64 and since issue #91 in linux-x64-gcc and linux-x64-clang: build.p
 `/golden` of the image (PATELLA_GOLDEN_DIR of the environment, else the repository's `build/golden`; `none`: no
 corpus) and passes the corpus manifest's time zone as TZ (issue #93: UTC0; Windows' zone for a corpus without one). Details: `notes/reconstruction.md`, "Checking", "The golden corpus".
 
+The fuzz targets (issue #132, M9; tests/fuzz, notes/reconstruction.md "Fuzzing"): the packet parser (fuzz_network:
+TNetwork's frames; fuzz_packets: ReceivePackets and Communication.cpp in the golden Communication test's world) and the
+loaders (fuzz_settings: Patella.ini; fuzz_tibia_cfg: the import of Tibia.cfg; fuzz_map, fuzz_dat, fuzz_sprites,
+fuzz_pictures). Every preset builds them with a replay driver: CTest's `fuzz_<name>` (label fuzz) runs the synthetic
+seeds of tests/fuzz/seeds (hand-made, committed) and fixed mutations. libFuzzer: `python -I tools/fuzz.py build
+--platform linux|windows` (build/linux-x64-clang-fuzz, Clang's -fsanitize=fuzzer in the image; build/windows-x64-fuzz,
+MSVC's /fsanitize=fuzzer) and `python -I tools/fuzz.py run --platform ... [--time 600]`. `python -I tools/fuzz.py seeds
+--reference C:/Tibia/Patella-Modern/build/reference` writes local seeds from the reference recordings and the data
+files to build/fuzz-seeds: CipSoft-derived, never committed, pushed, uploaded or given to CI.
+
 ## Code style
 
 `.clang-format` describes the style of `src/` (tabs; `src/Extern` and `tools/` excluded by
 `.clang-format-ignore`), `.editorconfig` the editor settings. Check with Visual Studio's clang-format
 (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/types/*.h src/testmode/*.cpp
 src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h src/log/*.cpp src/log/*.h src/platform/*.cpp src/platform/*.h src/res/resource.h tests/unit/*.cpp tests/vulkan/*.cpp
-tests/golden/*.cpp tests/golden/*.h`.
+tests/golden/*.cpp tests/golden/*.h tests/fuzz/*.cpp tests/fuzz/*.h`.
 The Microsoft CRT's and compiler's own spellings (`_snprintf`, `_stricmp`, `__cdecl`, `#pragma warning`...) go
 through `src/compat/msvc.h` and `msvc_io.h` (issue #43), which keep their semantics on every platform.
 Assertions are `PATELLA_ASSERT(expr)` and `PATELLA_ASSERT_VALUES(expr, value[, value])` of `src/compat/assertion.h`

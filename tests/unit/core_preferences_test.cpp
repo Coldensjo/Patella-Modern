@@ -314,6 +314,30 @@ TEST_CASE("Preferences: the other keys and lines stay, the entries that are gone
 	CHECK(File.Text() == Second);
 }
 
+TEST_CASE("Preferences: a numbered key written otherwise goes when the entries are written (issue #132)")
+{
+	// Buddy01 is entry 1 as well; the buddy of Buddy2 is written as Buddy1, after it in the file.
+	TSettingsFile File = TSettingsFile::Parse("PreferencesVersion=2\nBuddy01=0,2,?\nBuddy2=5,1,\"x\",no\nHotkey01=\"a\",no\n"
+											  "ContentWindow007=3,100\n");
+	TPreferenceValues Values;
+	CHECK(ReadPreferences(File, Values).size() == 1); // Buddy01
+	REQUIRE(Values.Buddies.size() == 1);
+	CHECK(Values.Buddies[0].CharacterID == 5);
+	CHECK(Values.Hotkeys[1] == "a");
+	REQUIRE(Values.ContentWindows.size() == 1);
+	WritePreferences(File, Values);
+	CHECK_FALSE(File.Get("Buddy01").has_value());
+	CHECK_FALSE(File.Get("Buddy2").has_value());
+	CHECK(File.Get("Buddy1") == "5,1,\"x\",no");
+	CHECK_FALSE(File.Get("Hotkey01").has_value());
+	CHECK(File.Get("Hotkey1") == "\"a\",no");
+	CHECK_FALSE(File.Get("ContentWindow007").has_value());
+	CHECK(File.Get("ContentWindow1") == "3,100");
+	TPreferenceValues Again;
+	CHECK(ReadPreferences(File, Again).empty());
+	CHECK(Again == Values);
+}
+
 TEST_CASE("Preferences: read as the original's reader reads its own Tibia.cfg")
 {
 	const TSettingsFile File = TSettingsFile::Parse("PreferencesVersion=1\n"
