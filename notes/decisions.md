@@ -15984,3 +15984,28 @@ check is compared as before.
   (`Waiting`) is gone, and a new property fails when GetNextCommand returns -1 with a frame left in ReceiveData
   (ReceiveRead or ReceivePacketEnd not 0). New synthetic seeds (`python -I tools/fuzz.py synthetic`, hand-made):
   142-empty-packets, 142-empty-then-largest (#139's case, 2-byte receives).
+
+### Found, not done (high)
+
+- The MSVC libFuzzer tree (`python -I tools/fuzz.py run --platform windows`) was not run; Linux's was (below), and
+  every preset's fuzz_network smoke run (the synthetic seeds and fixed mutations) passes, windows-x64-asan's among them.
+
+### The gates (high)
+
+Logs in build\logs\issue-142 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed
++ 1,512,822 retired = 17,316,040, 0 failures, with the parts above; 0 compiler warnings.
+
+- `python -I tools/build.py windows-x64` exit 0, 28/28; windows-x64-debug exit 0, 27/27; windows-x64-asan exit 0,
+  27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0, 25/25 (golden); linux-x64-clang (ASan,
+  UBSan) exit 0, 24/24 (golden), no sanitizer report.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches its reference (the known deliberate differences of #45 and #74); `python -I tools/compare_traffic.py`
+  exit 0, no differences.
+- Fuzzing: `python -I tools/fuzz.py run --platform linux --time 180 fuzz_network` (Clang 22, ASan and UBSan; the
+  synthetic seeds and the local ones of `fuzz.py seeds`) exit 0: 233,177 executions (1,288 per s), cov 487, ft 2,698,
+  no finding, with the stall property in full (build\logs\issue-142\fuzz-linux-180\summary.tsv). #139's rerun with
+  the exclusion had 180,572.
+- `python -I tools/tidy_ci.py --worktree` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`
+  exit 0. clang-format (CLAUDE.md's command) exit 0.
+- Not run: compare_files and compare_rendering (no setting, file or drawing changed), the MSVC libFuzzer tree.
