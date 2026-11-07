@@ -914,7 +914,8 @@ bool DropInput(const MSG *Message)
 // Issue #48: the display modes of the Graphics Options dialog (vulkan/SurfaceVulkan.cpp
 // GetFullscreenModes). With --test-display-modes the Index-th mode of the file; without it the machine's
 // (Win32's EnumDisplaySettingsA). Since issue #119 TTestWindow::DisplayMode (below). The desktop's own mode
-// (ENUM_CURRENT_SETTINGS, the Vulkan engine's CreateSurfaces) stays the machine's: not through the interface.
+// (ENUM_CURRENT_SETTINGS, the Vulkan engine's CreateSurfaces) stays the machine's: TTestWindow::DesktopMode is
+// Win32's (issue #138).
 
 // Issue #83: PATELLA_TEST_FAIL_PRESENT=1 makes every present of the Vulkan engine fail (TestHooks.h), read once.
 bool PresentFails()
@@ -1319,6 +1320,11 @@ public:
 		Mode.Height = static_cast<int>(Found.Height);
 		Mode.Depth = static_cast<int>(Found.Depth);
 		return true;
+	}
+	// The machine's, with or without --test-display-modes (issue #138: the Vulkan engine's own call until then).
+	[[nodiscard]] bool DesktopMode(patella::platform::TDisplayMode &Mode) override
+	{
+		return patella::platform::Win32Window().DesktopMode(Mode);
 	}
 };
 

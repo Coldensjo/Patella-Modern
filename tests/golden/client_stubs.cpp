@@ -33,7 +33,7 @@ namespace {
 
 // The engine (Surface.cpp with PATELLA_VULKAN, as in Patella.exe).
 bool IsVulkanInstalled() { STUB(); }
-TSurface *CreateSurfaceVulkan() { STUB(); }
+TSurface *CreateSurfaceVulkan(patella::platform::TSurfaceShared &) { STUB(); }
 void LoadDeviceChoice() { STUB(); }
 patella::vulkan::TDeviceChoice GetDeviceChoice() { STUB(); }
 void SetDeviceChoice(const patella::vulkan::TDeviceChoice &) { STUB(); }

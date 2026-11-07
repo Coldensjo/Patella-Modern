@@ -144,6 +144,7 @@ TTestWindow, and with a script TMemoryClipboard (notes/decisions.md, "#119: the 
 | IWindow::ShowMessageBox | PATELLA_MESSAGE_BOX(...) (#23) | Player.cpp FatalError and the start's two boxes | with a script not shown ("Message boxes"; messages.txt's type is MessageBoxA's flags, as before) |
 | IWindow::VisitWindows | PATELLA_ENUM_WINDOWS(...) (#96) | Player.cpp InitInstance (CountTibiaWindows) | this process's windows only |
 | IWindow::DisplayMode | PATELLA_ENUM_DISPLAY_SETTINGS(...) (#48) | vulkan/SurfaceVulkan.cpp GetFullscreenModes | with `--test-display-modes` the file's modes ("The display modes") |
+| IWindow::DesktopMode (#138) | none (the engine's own EnumDisplaySettingsA, ENUM_CURRENT_SETTINGS) | vulkan/SurfaceVulkan.cpp CreateSurfaces (the desktop's depth) | Win32's: the machine's, with or without `--test-display-modes` |
 | IClipboard (HasText, Text, SetText) | none (the system's clipboard) | sysinc.cpp IsClipboardEmpty, GetClipboardText, SetClipboardText | with a script the process's own clipboard (TMemoryClipboard): a scripted run neither reads nor changes the desktop's |
 
 The hooks that remain (the test mode's observers and failures, not a platform's service):
