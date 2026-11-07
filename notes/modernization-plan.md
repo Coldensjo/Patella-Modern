@@ -692,6 +692,9 @@ One platform layer for both operating systems, with **SDL3** (D3) for the things
 - **Crypto:** XTEA and raw RSA are protocol requirements and stay. `vlong` stays as a portable, tested
   component (`vlongtest`'s cases become unit tests). The protocol's lack of RSA padding is documented as a
   property of the protocol.
+  Done in #128 (notes/decisions.md, "#128"): each of vlongtest's 3,201 cases is checked on its own in tests_core,
+  against a digest per case from Python's exact integers (tests/unit/core_vlong_cases.inc), on every preset with
+  ASan and UBSan; the unpadded RSA is documented there and at the call site (Communication.cpp, TRSA::Encrypt).
 - **regexp:** Henry Spencer's code stays (compiled as C17), behind an RAII wrapper. `std::regex` is not a
   drop-in (syntax, speed, exact matching behaviour).
 - **Files and paths:** `std::filesystem`; the data files are found next to the executable or in a configured

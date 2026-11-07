@@ -93,6 +93,8 @@ void patella::TCommunication::SendLogin(uint32 AccountID, const char *Password)
 	Buffer.PutBytes(Key);
 	Buffer.PutQuad(AccountID);
 	Buffer.PutString(Password);
+	// Raw RSA, no padding: the protocol's block is the plain text (a zero byte, the XTEA key, the login data,
+	// rand()'s filler) raised to 65537 modulo the key, as the server expects (notes/decisions.md, "#128").
 	PATELLA_TEST_RSA_BLOCK(Data)
 	try {
 		TRSA RSA;
@@ -153,6 +155,7 @@ void patella::TCommunication::SendGameLogin(uint32 AccountID, const char *Name, 
 	Buffer.PutQuad(AccountID);
 	Buffer.PutString(Name);
 	Buffer.PutString(Password);
+	// Raw RSA, no padding, as in SendLogin (notes/decisions.md, "#128").
 	PATELLA_TEST_RSA_BLOCK(Data)
 	try {
 		TRSA RSA;

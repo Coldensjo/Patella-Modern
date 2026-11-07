@@ -575,6 +575,12 @@ GUI module cycle is gone (main: {ContentWindows, ContextMenus, DialogWindow, Mai
 {Surface, graphics}, {MainFrm, Player}). TMap and TCreatures/TPlayerState call up into Talk, Help and Status through
 TMapConsole and TCreaturesGUI (Client.cpp's adapters); TMapState's GetPlayerID calls TPlayerState's member.
 TNetworkSession's adapter stays (justified). Golden 17,316,040, 0 failures. notes/decisions.md, "#118".
+vlong as a tested component (Patella-Modern issue #128, branch issue-128, November 7, 2026; M8): vlongtest's 3,201
+cases, until now one combined digest in tests_core, are checked case by case (a test case per operation, the failing
+case's number, operands and result in the message) against tests/unit/core_vlong_cases.inc, one FNV-1a digest per
+case from Python's exact integers (core_expected.py --vlong-cases); a test of the unpadded RSA's properties. vlong
+needed no change on any preset. The protocol's raw RSA without padding is documented (notes/decisions.md, "#128")
+and commented at Communication.cpp's two Encrypt calls. Golden 17,316,040, 0 failures.
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
