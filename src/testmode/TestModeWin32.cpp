@@ -1285,7 +1285,7 @@ void FrameObservers(int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **P
 // TPipeSocketWin32, no port), else Win32's (a live run against the test server).
 patella::platform::TPlatform &patella::platform::Platform()
 {
-	patella::testmode::TState &Current = patella::testmode::State();
+	const patella::testmode::TState &Current = patella::testmode::State();
 	static TPlatform Instance{*Current.Clock, SystemFileSystem(),
 		Current.Replay.Active ? static_cast<ISocket &>(*Current.Replay.Pipes) : static_cast<ISocket &>(Win32Socket())};
 	return Instance;

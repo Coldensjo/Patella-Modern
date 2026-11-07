@@ -2,7 +2,6 @@
 
 #include "testmode/PipeSocketWin32.h"
 
-#include "common.h"
 #include "platform/Platform.h"
 #include "platform/Win32Platform.h"
 #include "testmode/PipeNetwork.h"
