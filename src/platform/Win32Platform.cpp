@@ -13,6 +13,10 @@
 
 #include <mmsystem.h>
 
+#if defined(PATELLA_SDL3)
+#include "platform/WindowChoice.h"
+#endif
+
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -180,6 +184,22 @@ void TWin32Input::StopTimer(TWindowHandle Window, unsigned int Id)
 	::KillTimer(static_cast<HWND>(Window), Id);
 }
 
+bool TSdlLoopInput::CursorPosition(TPoint &Point)
+{
+	return Win32Input().CursorPosition(Point);
+}
+
+void TSdlLoopInput::StartTimer([[maybe_unused]] TWindowHandle Window, [[maybe_unused]] unsigned int Id,
+	unsigned int Milliseconds)
+{
+	Timer.Start(Milliseconds, Platform().Clock.Milliseconds());
+}
+
+void TSdlLoopInput::StopTimer([[maybe_unused]] TWindowHandle Window, [[maybe_unused]] unsigned int Id)
+{
+	Timer.Stop();
+}
+
 void TWin32Window::ShowMessageBox(TWindowHandle Owner, const char *Text, const char *Caption, TMessageBoxIcon Icon)
 {
 	MessageBoxA(static_cast<HWND>(Owner), Text, Caption, Icon == TMessageBoxIcon::Error ? MB_ICONHAND : MB_ICONEXCLAMATION);
@@ -245,6 +265,7 @@ constinit TWin32Socket Win32SocketInstance;
 constinit TWin32Clipboard Win32ClipboardInstance;
 constinit TWin32Input Win32InputInstance;
 constinit TWin32Window Win32WindowInstance;
+constinit TSdlLoopInput SdlLoopInputInstance;
 } // namespace
 
 TWin32Clock &Win32Clock()
@@ -277,12 +298,27 @@ TWin32Window &Win32Window()
 	return Win32WindowInstance;
 }
 
+TSdlLoopInput &SdlLoopInput()
+{
+	return SdlLoopInputInstance;
+}
+
+IInput &WindowInput()
+{
+#if defined(PATELLA_SDL3)
+	if (UseSdlWindow())
+		return SdlLoopInputInstance;
+#endif
+	return Win32InputInstance;
+}
+
 #if !defined(PATELLA_TEST_MODE)
-// Patella.exe's and the golden runner's platform (Platform.h); the test build's is TestModeWin32.cpp's.
+// Patella.exe's and the golden runner's platform (Platform.h); the test build's is TestModeWin32.cpp's. Issue #122: the
+// input is the window path's (WindowInput).
 TPlatform &Platform()
 {
 	static TPlatform Instance{Win32ClockInstance, SystemFileSystemInstance, Win32SocketInstance, Win32ClipboardInstance,
-		Win32InputInstance, Win32WindowInstance};
+		WindowInput(), Win32WindowInstance};
 	return Instance;
 }
 #endif
