@@ -10,7 +10,9 @@
 #include <type_traits>
 
 // Text alignment (TFont::Alignment, the Alignment parameters).
-enum : int {
+// An unnamed enum of int constants (TFont's int Alignment), unscoped as the other unnamed ones (notes/decisions.md,
+// "The other ten stay unscoped"); clang-tidy's image checks it since it is a core header (issue #116).
+enum : int { // NOLINT(cppcoreguidelines-use-enum-class): int constants, above
 	LEFT_ALIGN = 0,
 	CENTER_ALIGN = 1,
 	RIGHT_ALIGN = 2,
@@ -70,7 +72,7 @@ struct TRGBColor { // passed by value (12 bytes)
 // that constructs a TFont has its own copy (GUI.obj 0x5c1954, DialogElements
 // 0x5c1230, an earlier object 0x5c066c), so it is a constant defined in a
 // header (internal linkage). The name is ours.
-const TRGBColor DefaultFontColor(224, 224, 224);
+constexpr TRGBColor DefaultFontColor(224, 224, 224); // constexpr since issue #116 (constant-initialised as before)
 
 // A text format: font, colour and alignment ("Format.Alignment" in
 // PrintFormattedText's assertion).
