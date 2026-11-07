@@ -751,6 +751,12 @@ SDL_CreateWindow, its placement, size, fullscreen, activation and close events) 
 the loop (platform/LoopTimer.h), by default; `PATELLA_WINDOW=mfc` keeps the MFC frame and message loop until #127. The
 keys, buttons and wheel still reach it as Win32 messages (#123), so the test mode drives both paths unchanged.
 
+Done in #126 (notes/decisions.md, "#126"): the Vulkan engine asks a window system (src/vulkan/WindowSystem.h) for the
+client area, the screen's size and its surfaces; on the SDL3 window it is SDL's (SDL_Vulkan_GetInstanceExtensions,
+SDL_Vulkan_CreateSurface on each device's own window, which SDL wraps for the call; SDL_GetWindowSizeInPixels), on the
+MFC window Win32's until #127. The device choice and lavapipe are unchanged; tests_vulkan takes its surfaces through
+SDL3.
+
 Exit: the Linux client logs into the test server and plays the scripted sessions; tier A green on Windows
 x64 and Linux x64 against the reference recordings; the Vulkan engine passes the reference frames on Linux
 (hardware drivers and the CPU driver).

@@ -1,4 +1,4 @@
-// SurfaceVulkan.h: the Vulkan engine's surface on the MFC window (issue #19; notes/vulkan.md; plan 6.2).
+// SurfaceVulkan.h: the Vulkan engine's surface on the client's window (issue #19; notes/vulkan.md; plan 6.2).
 //
 // TSurfaceVulkan does what surfaceDX9.cpp's TSurfaceDX9 does, call for call, the reference engine of
 // the frames (plan D7): the same surfaces and sizes, the same batching of quads (drawn when the
@@ -10,7 +10,9 @@
 //
 // The engine is the x64 client's only engine, curEngine 2 (DirectX 9 in the original and in the oracle;
 // Surface.cpp; notes/vulkan.md, "Choosing the engine"). Its device is the graphics device choice of
-// DeviceSettings.h (issue #31): the advanced options' buttons, Patella.ini's Device, PATELLA_VULKAN.
+// DeviceSettings.h (issue #31): the advanced options' buttons, Patella.ini's Device, PATELLA_VULKAN. Its window system
+// (the client area, the screen, the surfaces) is the window path's, vulkan/WindowSystem.h (issue #126): SDL3's by
+// default, Win32's on MFC's window until issue #127.
 
 #pragma once
 
@@ -106,6 +108,8 @@ public:
 	[[nodiscard]] const char *DeviceName() const;
 
 private:
+	using TEdgeRect = patella::platform::TEdgeRect; // the rectangles (RECT's edges; RECTs until issue #126)
+
 	void AddShadeQuad(int Left, int Top, int Right, int Bottom, uint32 TopLeft, uint32 TopRight, uint32 BottomRight,
 		uint32 BottomLeft);
 	void FlushVertices();
@@ -116,30 +120,31 @@ private:
 	void AddQuad(int Left, int Top, int Right, int Bottom, double Left_u, double Right_u, double Top_v,
 		double Bottom_v, uint32 TopLeft, uint32 TopRight, uint32 BottomRight, uint32 BottomLeft);
 	void ColorFill(int Image, const patella::platform::TEdgeRect *Rect, uint32 Color);
-	// The main window as Win32's (hWindow, a TWindowHandle since issue #138).
+	// The main window as Win32's, for the devices' own windows (PresentWindow.h, issue #52; hWindow, a TWindowHandle
+	// since issue #138).
 	[[nodiscard]] HWND MainWindow() const { return static_cast<HWND>(hWindow); }
 	int TextureWidth(int Surface);
 	int TextureHeight(int Surface);
-	patella::vulkan::TDeviceRequest Request(HWND Window);
+	patella::vulkan::TDeviceRequest Request(patella::platform::TWindowHandle Window);
 	bool Masked(int Target);
 	void Track(int Target, int Texture, const patella::vulkan::TQuad *Quads, size_t Count);
 	void Fail();
 
-	bool Ready;                                           // CreateSurfaces has finished (SurfaceRecreated)
-	std::array<RECT, NUMBER_OF_SURFACES_VULKAN> Rect;     // the surfaces' rectangles, as surfaceDX9.cpp's
-	RECT WindowRect;                                      // the client area on the screen
-	RECT SurfaceArea;                                     // SetSurfaceRect
-	bool Initialized;                                     // between InitSurfaces and ExitSurfaces (surfaceDX9.cpp: DirectDraw exists)
-	std::unique_ptr<patella::vulkan::TRenderer> Renderer; // surfaceDX9.cpp's Direct3D and Device
-	std::array<int, NUMBER_OF_SURFACES_VULKAN> Image;     // the renderer's images (SCREEN_SURFACE: the canvas)
-	int ScreenTexture;                                    // the 106x106 texture of SCREEN_SURFACE
-	int WhiteTexture;                                     // Direct3D 9's stage without a texture: opaque white
-	int DeviceTarget;                                     // the image the device draws quads into
-	int DeviceTexture;                                    // the image the device samples (-1 none)
-	int CurrentTarget;                                    // surfaceDX9.cpp's CurrentTarget: ColorFill's image
-	patella::vulkan::TFilter Filter;                      // the sampler state (D3DSAMP_MAGFILTER/MINFILTER)
-	std::vector<patella::vulkan::TQuad> Shade;            // ShadeVertices
-	bool DisplayModeSet;                                  // fullscreen changed the display mode
+	bool Ready;                                            // CreateSurfaces has finished (SurfaceRecreated)
+	std::array<TEdgeRect, NUMBER_OF_SURFACES_VULKAN> Rect; // the surfaces' rectangles, as surfaceDX9.cpp's
+	TEdgeRect WindowRect;                                  // the client area (from 0, 0 since issue #126: only its size)
+	TEdgeRect SurfaceArea;                                 // SetSurfaceRect
+	bool Initialized;                                      // between InitSurfaces and ExitSurfaces (surfaceDX9.cpp: DirectDraw exists)
+	std::unique_ptr<patella::vulkan::TRenderer> Renderer;  // surfaceDX9.cpp's Direct3D and Device
+	std::array<int, NUMBER_OF_SURFACES_VULKAN> Image;      // the renderer's images (SCREEN_SURFACE: the canvas)
+	int ScreenTexture;                                     // the 106x106 texture of SCREEN_SURFACE
+	int WhiteTexture;                                      // Direct3D 9's stage without a texture: opaque white
+	int DeviceTarget;                                      // the image the device draws quads into
+	int DeviceTexture;                                     // the image the device samples (-1 none)
+	int CurrentTarget;                                     // surfaceDX9.cpp's CurrentTarget: ColorFill's image
+	patella::vulkan::TFilter Filter;                       // the sampler state (D3DSAMP_MAGFILTER/MINFILTER)
+	std::vector<patella::vulkan::TQuad> Shade;             // ShadeVertices
+	bool DisplayModeSet;                                   // fullscreen changed the display mode
 	TVulkanDeviceObserver DeviceObserver;
 	TVulkanFrameObserver FrameObserver;
 	TVulkanPixelsObserver PixelsObserver;

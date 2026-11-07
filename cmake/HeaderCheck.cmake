@@ -155,7 +155,8 @@ set(PATELLA_HEADERS_VULKAN_CLIENT
 	vulkan/DeviceSettings.h
 	vulkan/PresentWindow.h
 	vulkan/Renderer.h
-	vulkan/SurfaceVulkan.h)
+	vulkan/SurfaceVulkan.h
+	vulkan/WindowSystem.h)
 # The Windows side of the test mode (PatellaTest.exe).
 set(PATELLA_HEADERS_TEST_BUILD
 	testmode/ClientStateWin32.h

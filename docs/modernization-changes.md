@@ -186,6 +186,12 @@ from the settings file, same frame, same timing of events, and every recorded te
 identically. *Why it matters:* this is the first step toward a Linux client. Keyboard and mouse handling still use
 the Windows path for now (next step), and the old MFC window can still be chosen for comparison until MFC is removed.
 
+**The graphics now attach to the window through SDL3 (#126).**
+The graphics engine used to hook its drawing area onto the window with a Windows-only call. It now asks SDL3 for it,
+the same library that makes the window, through one small interface that also answers the window's size. Nothing
+looks different: the same pictures, the same choice of graphics card or the built-in software renderer. *Why it
+matters:* the graphics no longer depend directly on Windows, so the same code can draw into a Linux window later.
+
 ## M8 and M9, started early
 
 **Big-number maths fully unit-tested (#128).**

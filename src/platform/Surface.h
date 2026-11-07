@@ -6,8 +6,8 @@
 // src/Surface.h with its slots, their order and their default bodies (still Surface.cpp's code, at its addresses),
 // so that the engine is a platform implementation behind it:
 //
-//	TSurfaceVulkan   the Vulkan engine (vulkan/SurfaceVulkan.h): Patella.exe's and PatellaTest.exe's; its surface is
-//	                 Win32's (vkCreateWin32SurfaceKHR) until M8's SDL_Vulkan_CreateSurface (#126) sits behind it
+//	TSurfaceVulkan   the Vulkan engine (vulkan/SurfaceVulkan.h): Patella.exe's and PatellaTest.exe's; its surfaces are
+//	                 SDL_Vulkan_CreateSurface's since M8's #126 (vulkan/WindowSystem.h; Win32's on MFC's window until #127)
 //	the golden tests' recording surfaces (tests/golden: testsurface.h, commworld.cpp's)
 //
 // No Win32 type in it: the window is a TWindowHandle (platform/Window.h), ClipRect's rectangles and ScreenRect a

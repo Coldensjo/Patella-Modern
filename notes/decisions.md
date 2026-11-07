@@ -16315,3 +16315,92 @@ Logs in build\logs\issue-142 of the branch's worktree; golden replayed main's fr
 - `python -I tools/tidy_ci.py --worktree` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`
   exit 0. clang-format (CLAUDE.md's command) exit 0.
 - Not run: compare_files and compare_rendering (no setting, file or drawing changed), the MSVC libFuzzer tree.
+
+## #126: the Vulkan surface through SDL_Vulkan_CreateSurface (Patella-Modern issue #126, M8)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-126, from main 9100384). Plan section 6.2 and section 7, M8:
+the Vulkan engine creates its surfaces with SDL_Vulkan_CreateSurface on the SDL3 window instead of
+VK_KHR_win32_surface on the MFC window. notes/vulkan.md, "The window system (issue #126)".
+
+### The engine's window system (high)
+
+src/vulkan/WindowSystem.h, `patella::vulkan::IWindowSystem` (no platform header): the main window's client area
+(GetClientRect's: 0 x 0 while minimised), the primary display's size, the surface's instance extension and the surface
+on a device's window. TSurfaceVulkan asks the one of the client's window path (platform/WindowChoice.h's
+UseSdlWindow()): `SdlWindowSystem()` (WindowSystemSdl.cpp) by default, `Win32WindowSystem()` (WindowSystemWin32.cpp,
+GetClientRect, GetSystemMetrics, vkCreateWin32SurfaceKHR) with PATELLA_WINDOW=mfc, where SDL is not started, until
+#127. Gone from SurfaceVulkan.cpp: GetClientRect, ClientToScreen, GetSystemMetrics, vkCreateWin32SurfaceKHR and
+vulkan_win32.h; its rectangles (Rect, WindowRect, SurfaceArea) are platform::TEdgeRects instead of RECTs, SetRect is an
+assignment. WindowRect starts at 0, 0 now (ClientToScreen's screen offset was never read: only its width and height,
+the swapchain's size and the blit statistics). Still Win32 on both paths: the devices' own windows and the main
+window's erase (PresentWindow.h, #52 and #71, Windows' problems by nature) and ChangeDisplaySettingsA for fullscreen
+mode (#124's display).
+
+Considered: a window-system object in the device request only (the surface), leaving the sizes Win32's: less change,
+but the issue asks to remove what the SDL3 path allows, and the sizes are what a Linux client needs next.
+
+### One window per device, with SDL3 (high)
+
+#52's rule stays: no device ever presents in the main window; each device has a child window of its own. SDL3 has no
+child windows (only popup windows, which are top-level and owned: they would take focus and input and move on their
+own), so the device's window stays a native child window made by TPresentWindows, and the SDL window system wraps it
+for the call: SDL_CreateWindowWithProperties with SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER and
+SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN (SDL loads the Vulkan loader, the same vulkan-1.dll volk uses), then
+SDL_Vulkan_CreateSurface, then SDL_DestroyWindow, which for an external window restores its window procedure and
+removes SDL's data without destroying the window. The surface belongs to the native window, which lives as long as the
+device (TPresentWindows retires and destroys it as before). Why not keep the wrapper for the device's life: SDL's
+window procedure would then run on a window that must let every mouse message through (HTTRANSPARENT), never erase
+and never take focus; SDL's handling of mouse, focus and erase (its default erase paints black once, which would hide
+the retired device's last frame before the new one's first) would act on it. The wrapper's events (its creation size,
+its destruction) carry its own window id; SdlFrame.cpp's event watch handles the main window's id only. One of SDL's
+own windows (the main window) is refused (a TVulkanError, PROGRAM_ERROR 12 for the client): a second SDL window on
+the same handle would replace its SDL data.
+
+The surface's extension comes from SDL_Vulkan_GetInstanceExtensions (VK_KHR_win32_surface on Windows, besides
+VK_KHR_surface); Renderer.cpp's instance builder still enables the platform's surface extension on every instance
+(issue-31-fix). The sizes come from SDL_GetWindowSizeInPixels of the SDL window whose native handle is the main
+window's (found among SDL_GetWindows, the last one kept), 0 x 0 when SDL_WINDOW_MINIMIZED, and the screen from the
+primary display's bounds, as SdlFrame.cpp's SM_CXSCREEN; the process is not DPI aware (#122), so these are Win32's
+numbers. Known difference by construction: while SDL keeps its size events off (its leaving fullscreen into a
+maximized window) SDL's size can lag GetClientRect for that one SetWindowPos; the engine reads the size per frame, from
+OnIdle, after the messages.
+
+### The tests (high)
+
+tests_vulkan starts SDL's video subsystem (not DPI aware, as the client) and links SDL3 with the window systems'
+sources: the start-up order test runs a device on a device window of a hidden SDL3 main window with SDL's surfaces,
+and on a Win32 main window with Win32's (the MFC path); the quick device switches (#52) run on a hidden SDL3 main
+window with SDL's surfaces, and also check the window system's client size against GetClientRect each frame; the held
+click (#52) takes SDL's surfaces; a new case checks the SDL window system: the sizes against GetClientRect and
+GetSystemMetrics (also after a resize, 0 x 0 for an unknown handle), the extension, and on every device that the
+surface's wrapper leaves no SDL window, the device window's procedure and no SDL data behind, the window still
+transparent to hits, and SDL's own window refused. 16 cases, 1,552 assertions (CPU driver, RTX 5080, and the Radeon
+among the switches' choices).
+
+### Found, not done (medium)
+
+- The per-file Windows clang-tidy (`python -I tools/tidy.py -p build/windows-x64`, Visual Studio's) on SurfaceVulkan.cpp
+  and render_test.cpp reports findings of the kinds those files had before (misc-include-cleaner, const-correctness,
+  varargs, printf); the new files WindowSystemSdl.cpp and WindowSystemWin32.cpp have 0. The hosted gate (the image's
+  baseline) does not compile src/vulkan.
+- compare_rendering's fullscreen scenes were not run (#98's set is windowed); fullscreen mode's display change is
+  still ChangeDisplaySettingsA (#124).
+
+### The gates (high)
+
+Logs in build\logs\issue-126 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed
++ 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset.
+
+- `python -I tools/build.py windows-x64` exit 0, 28/28 (tests_vulkan 16 cases, 1,552 assertions); windows-x64-debug
+  exit 0, 27/27; windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0,
+  25/25; linux-x64-clang (ASan, UBSan) exit 0, 24/24, no sanitizer report.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (SDL3 path); `PATELLA_WINDOW=mfc python -I tools/reference.py compare ...` exit 0, every session
+  matches (`window: MFC`); `python -I tools/compare_traffic.py --patella build/windows-x64/Release/Patella.exe` exit 0,
+  no differences; `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes windowed --no-repeat
+  --recording build/traffic/result/orig-live.jsonl --patella build/windows-x64/Release/Patella.exe` exit 0, "result:
+  all scenes identical" (NVIDIA GeForce RTX 5080 and llvmpipe, 26 scenes each).
+- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
+  clang-format (CLAUDE.md's command) exit 0.
+- Not run: compare_files and testmode_check (no setting, file or input changed); compare_rendering's fullscreen scenes.
