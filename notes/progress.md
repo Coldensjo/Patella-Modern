@@ -655,6 +655,15 @@ GetAvailableEngines no longer use bridge::GraphicsEngine(). SurfaceInitInstance,
 TNetwork's NetworkWindow and SetNetworkWindow take a TWindowHandle; CreateSurfaces' desktop depth is
 IWindow::DesktopMode. Patella.exe changes only at those call sites and in displacements (the image comparison).
 Golden 17,316,040, 0 failures; compare_rendering all 26 scenes identical. notes/decisions.md, "#138".
+
+Packet parsing and the game state into patella_core (Patella-Modern issue #110, branch issue-110, November 7, 2026;
+M7, half of its exit): Network.cpp, Communication.cpp, Objects.cpp, Map.cpp, Creatures.cpp and Inventory.cpp are
+patella_core's (16 sources, 12,278 lines; was 10, 3,671), with their headers and those they include on the core
+header list (56; was 40); linux-x64-gcc and linux-x64-clang compile them without tests/golden/linux. INT_PTR is
+std::intptr_t there, WinSock's numbers are platform/Socket.h's, the login signatures come through TLoginSignatures,
+TCallback is types/Callback.h's; the image's clang-tidy findings on the newly seen code (296) are fixed or NOLINTed
+with reasons (the baseline stays at 3). The golden runner keeps its own copies (its fakes), so no stand-in file goes
+yet. Golden 17,316,040, 0 failures. notes/decisions.md, "#110".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
