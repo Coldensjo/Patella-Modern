@@ -14,12 +14,12 @@
 #include "Preferences.h"
 #include "Surface.h"
 #include "graphics.h"
+#include "platform/Platform.h"
 #include "vulkan/DeviceChoice.h"
 #include "vulkan/PresentWindow.h"
 #include "vulkan/Quads.h"
 #include "vulkan/Renderer.h"
 #include <array>
-#include <mmsystem.h>
 
 #include <volk.h>
 
@@ -257,7 +257,7 @@ bool TSurfaceVulkan::ClipRect(TRect Clip, RECT *Area, RECT *Source)
 
 void TSurfaceVulkan::ResetFrameTimer()
 {
-	const double Now = PATELLA_TIME_GET_TIME();
+	const double Now = patella::platform::Platform().Clock.Milliseconds();
 	StartTime = Now;
 	Framerate = 0xffff;
 	NextFrame = Now;
@@ -267,7 +267,7 @@ void TSurfaceVulkan::ResetFrameTimer()
 
 void TSurfaceVulkan::WaitForNextFrame()
 {
-	const double Now = PATELLA_TIME_GET_TIME();
+	const double Now = patella::platform::Platform().Clock.Milliseconds();
 	FrameCount++;
 	if (Now - LastFPSTime > 1000.0) {
 		FPS = (FrameCount * 1000) / (Now - LastFPSTime);
@@ -276,7 +276,7 @@ void TSurfaceVulkan::WaitForNextFrame()
 	}
 	NextFrame += FrameTime;
 	if (NextFrame > Now)
-		PATELLA_FRAME_SLEEP((int)(NextFrame - Now));
+		patella::platform::Platform().Clock.FrameWait(static_cast<std::uint32_t>((int)(NextFrame - Now)));
 	else if (Now - NextFrame > 1.0)
 		NextFrame = Now - 1.0;
 }

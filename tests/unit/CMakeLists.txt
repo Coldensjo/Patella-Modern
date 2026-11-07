@@ -140,6 +140,7 @@ target_compile_definitions(tests_unit_cxx26_standin PRIVATE PATELLA_CXX26_STANDI
 add_executable(tests_core
 	core_main.cpp
 	core_platform_test.cpp
+	core_file_system_test.cpp
 	core_vlong_test.cpp
 	core_txtea_test.cpp
 	core_utils_test.cpp

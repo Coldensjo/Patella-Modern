@@ -12,6 +12,7 @@
 #include "types/IndexedVector.h"
 #include "Preferences.h"
 #include "common.h"
+#include "platform/Platform.h"
 #include "types/File.h"
 #include "types/FixedString.h"
 #include "types/Time32.h"
@@ -23,7 +24,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <ctime>
 
 // The data (0x71dbd0-0x71eff4) is TTalk's (Talk.h, issue #107).
 
@@ -1012,7 +1012,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Line, int Diff
 	PATELLA_ASSERT(_Line!=NULL);
 	Mode = _Mode;
 	StatementID = _StatementID;
-	const std::int64_t LineTime = PATELLA_TIME(nullptr) + DiffTime;
+	const std::int64_t LineTime = patella::platform::Platform().Clock.WallSeconds() + DiffTime;
 	Time = StoreTime32(LineTime);
 	const std::tm LocalTime = LineLocalTime(LineTime);
 	TFixedString<8> Stamp;
@@ -1032,7 +1032,7 @@ TTalkLine::TTalkLine(uint32 _StatementID, int _Mode, const char *_Addressee, con
 	PATELLA_ASSERT(_Addressee!=NULL);
 	Mode = _Mode;
 	StatementID = _StatementID;
-	const std::int64_t LineTime = PATELLA_TIME(nullptr) + DiffTime;
+	const std::int64_t LineTime = patella::platform::Platform().Clock.WallSeconds() + DiffTime;
 	Time = StoreTime32(LineTime);
 	const std::tm LocalTime = LineLocalTime(LineTime);
 	TFixedString<8> Stamp;

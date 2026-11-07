@@ -4,14 +4,16 @@
 // In the product and oracle builds every hook is the system call it replaces, word for word, so they
 // compile to the same code and contain nothing of the test mode. The test build (PatellaTest.exe,
 // cmake/WindowsX64.cmake) defines PATELLA_TEST_MODE: the hooks go to src/testmode/TestModeWin32.cpp,
-// which sends the clocks through one IClock (src/testmode/Clock.h) and, with a script
-// (--test-script <file>), drives the client from src/testmode/InputScript.h:
+// which, with a script (--test-script <file>), drives the client from src/testmode/InputScript.h.
 //
-//	PATELLA_TIME_GET_TIME()            timeGetTime: sysinc.cpp (GetMilliseconds, srand), the frame timers
-//	PATELLA_TIME(Time)                 time, the wall clock in 64 bits: Talk.cpp,
-//	                                   Creatures.cpp, ContentWindows.cpp, ConsoleWindow.cpp (issue #62: no
-//	                                   _time32 any more; the 4-byte fields convert through types/Time32.h)
-//	PATELLA_FRAME_SLEEP(Milliseconds)  the frame timer's Sleep (WaitForNextFrame of the three engines)
+// Issue #109 (notes/decisions.md, "#109: the platform interfaces"): the clocks are no hooks any more. timeGetTime,
+// time and the frame timer's Sleep (PATELLA_TIME_GET_TIME, PATELLA_TIME and PATELLA_FRAME_SLEEP until then) are the
+// platform's IClock (src/platform/Platform.h), whose test implementation is the test mode's clock (TestModeWin32.cpp's
+// Platform()). The hooks below are the services of the interfaces still to come (IInput: the cursor, the timer, the
+// idle step, the dropped input, the capture; IWindow: the message boxes, the windows' count, the display modes) and
+// the test mode's observers and failures, which are not a platform's service (the packets, the frames, the present
+// and InitControl failures):
+//
 //	PATELLA_GET_CURSOR_POS(Point)      GetCursorPos: the mouse, polled in OnIdle (Player.cpp, MainFrm.cpp)
 //	PATELLA_SET_MAIN_TIMER(...)        the main frame's 100 ms timer (MainFrm.cpp OnCreate); with a script
 //	                                   the driver makes its ticks
@@ -96,16 +98,12 @@
 // MFC requires; the test build has real MFC, never the shim). PATELLA_CDECL: compat/msvc.h.
 // In the client's sources common.h has included both already (issue #49).
 #include <afxwin.h>
-#include <ctime>
 
 #include "compat/msvc.h"
 #include "compat/span.h"
 #include "testmode/ClientView.h" // IWYU pragma: export
 
 namespace patella::testmode {
-DWORD TimeGetTime();
-time_t WallTime(time_t *Result);
-void FrameSleep(DWORD Milliseconds);
 BOOL GetCursorPosition(LPPOINT Point);
 UINT_PTR SetMainTimer(HWND Window, UINT_PTR Id, UINT Elapse, TIMERPROC Function);
 void Idle();
@@ -130,9 +128,6 @@ bool InitFails(int Step);
 BOOL EnumOwnWindows(WNDENUMPROC Function, LPARAM Parameter);
 } // namespace patella::testmode
 
-#define PATELLA_TIME_GET_TIME() patella::testmode::TimeGetTime()
-#define PATELLA_TIME(Time) patella::testmode::WallTime(Time)
-#define PATELLA_FRAME_SLEEP(Milliseconds) patella::testmode::FrameSleep(Milliseconds)
 #define PATELLA_GET_CURSOR_POS(Point) patella::testmode::GetCursorPosition(Point)
 #define PATELLA_SET_MAIN_TIMER(Window, Id, Elapse, Function) patella::testmode::SetMainTimer(Window, Id, Elapse, Function)
 #define PATELLA_TEST_IDLE patella::testmode::Idle();
@@ -156,9 +151,6 @@ BOOL EnumOwnWindows(WNDENUMPROC Function, LPARAM Parameter);
 
 #else
 
-#define PATELLA_TIME_GET_TIME() timeGetTime()
-#define PATELLA_TIME(Time) time(Time)
-#define PATELLA_FRAME_SLEEP(Milliseconds) Sleep(Milliseconds)
 #define PATELLA_GET_CURSOR_POS(Point) GetCursorPos(Point)
 #define PATELLA_SET_MAIN_TIMER(Window, Id, Elapse, Function) ::SetTimer(Window, Id, Elapse, Function)
 // No statement at all: an empty one is a nop in an unoptimised MSVC build (Debug), which would move

@@ -29,6 +29,7 @@
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "sysinc.h"
 #include "common.h"
+#include "platform/Platform.h"
 #include "types/FixedString.h"
 #include "types/Time32.h"
 #include <array>
@@ -114,7 +115,7 @@ bool TCreature::IsMarked() const
 void TCreature::SetSkull(int Skull, bool Delay)
 {
 	if (Delay && this->PKFlag != 0 && Skull == 0) {
-		SkullTime = StoreTime32(PATELLA_TIME(nullptr));
+		SkullTime = StoreTime32(patella::platform::Platform().Clock.WallSeconds());
 		return;
 	}
 	SkullTime = 0;
@@ -726,7 +727,7 @@ TCreature *patella::TCreatures::GetCreature(uint32 CreatureID)
 // binary has the EH states of a try block it dropped.
 void patella::TCreatures::UpdateSkulls()
 {
-	const std::int64_t Now = PATELLA_TIME(nullptr);
+	const std::int64_t Now = patella::platform::Platform().Clock.WallSeconds();
 	for (int i = 0; i < CREATURES; i++) {
 		TCreature *Creature = &Creatures[i];
 		if (Creature->SkullTime != 0 && !Creature->SkullKept(Now)) {

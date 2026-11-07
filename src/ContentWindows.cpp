@@ -39,6 +39,7 @@
 #include "Talk.h"
 #include "common.h"
 #include "compat/print.h"
+#include "platform/Platform.h"
 #include "types/FixedString.h"
 #include <cstddef>
 #include <cstdio>
@@ -2074,7 +2075,7 @@ void TBattleWindowBody::Draw(int Surface, int x, int y)
 					break;
 				}
 				if (Skin != 0) {
-					if (Creature->SkullTime == 0 || !Creature->SkullKept(PATELLA_TIME(nullptr)) || GetBlinkState())
+					if (Creature->SkullTime == 0 || !Creature->SkullKept(patella::platform::Platform().Clock.WallSeconds()) || GetBlinkState())
 						DrawSkinClipped(Surface, SkinProperties.Style688.Data14.x + Offset + x,
 							SkinProperties.Style688.Data14.y + RowY + y, Skins[Skin].width, Skins[Skin].height, Skin, x,
 							ClipY, ClipWidth, ClipHeight, 0, 0);

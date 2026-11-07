@@ -6,8 +6,8 @@
 //	                [--test-replay <file>] [--test-display-modes <file>] [--test-control <name>]
 //	                [the client's own words]
 //
-// Without --test-script the test build is the client on the system clock (TSystemClock: timeGetTime,
-// time, Sleep), through the same hooks. With a script (src/testmode/InputScript.h):
+// Without --test-script the test build is the client on the system clock (issue #109: the platform's
+// TWin32Clock: timeGetTime, time, Sleep). With a script (src/testmode/InputScript.h):
 //
 // - the clock is virtual (TVirtualClock, src/testmode/Clock.h): timeGetTime starts at 100000 and the
 //   wall clock at 2026-11-02 12:00:00 UTC, as tools/capture/patcap.c's, so srand(timeGetTime()) gets
@@ -113,9 +113,10 @@
 #include "testmode/Png.h"
 #include "testmode/ServerReplay.h"
 #include "testmode/StateDump.h"
+#include "platform/Platform.h"
+#include "platform/Win32Platform.h"
 #include "types/File.h"
 
-#include <mmsystem.h>
 #include <shellapi.h>
 
 #include <algorithm>
@@ -126,7 +127,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <ctime>
 #include <cwchar>
 #include <deque>
 #include <filesystem>
@@ -149,13 +149,6 @@ namespace {
 
 // Exit code of a script that cannot be read or does not parse.
 constexpr UINT ScriptErrorExitCode = 3;
-
-class TSystemClock final : public IClock {
-public:
-	[[nodiscard]] std::uint32_t Milliseconds() override { return ::timeGetTime(); }
-	[[nodiscard]] std::int64_t WallSeconds() override { return std::time(nullptr); }
-	void FrameWait(std::uint32_t Duration) override { ::Sleep(Duration); }
-};
 
 void RealYield()
 {
@@ -213,9 +206,8 @@ struct TPendingFrame {
 };
 
 struct TState {
-	TSystemClock System;
 	TVirtualClock Virtual{RealYield};
-	IClock *Clock = &System;
+	IClock *Clock = &platform::Win32Clock(); // the system's clock (issue #109: the platform's own)
 	bool Scripted = false;
 	TScheduler Scheduler;
 	POINT Cursor = {-1, -1}; // client coordinates
@@ -900,24 +892,6 @@ bool ReplayNextTime(TState &State, std::uint32_t *Time)
 
 } // namespace
 
-DWORD TimeGetTime()
-{
-	return State().Clock->Milliseconds();
-}
-
-time_t WallTime(time_t *Result)
-{
-	auto Now = static_cast<time_t>(State().Clock->WallSeconds());
-	if (Result != nullptr)
-		*Result = Now;
-	return Now;
-}
-
-void FrameSleep(DWORD Milliseconds)
-{
-	State().Clock->FrameWait(Milliseconds);
-}
-
 BOOL GetCursorPosition(LPPOINT Point)
 {
 	const TState &Current = State();
@@ -1334,3 +1308,12 @@ void FrameObservers(int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **P
 }
 
 } // namespace patella::testmode
+
+// The test build's platform (issue #109; platform/Platform.h): the clock is the test mode's (the virtual clock with a
+// script, the system's without one, as Initialize chose it), the files and the network Win32's (the comparisons
+// read the files the client writes in its folder; the server replay is a server on the loopback ports).
+patella::platform::TPlatform &patella::platform::Platform()
+{
+	static TPlatform Instance{*patella::testmode::State().Clock, SystemFileSystem(), Win32Socket()};
+	return Instance;
+}

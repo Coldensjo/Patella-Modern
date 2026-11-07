@@ -18,6 +18,7 @@
 #include "common.h"
 #include "compat/expected.h"
 #include "compat/span.h"
+#include "platform/Platform.h"
 #include "types/FixedString.h"
 #include <cstdio>
 #include <cstring>
@@ -36,7 +37,7 @@ patella::TExpected<void, TError> TReadScriptFile::TryOpen(const char *FileName)
 {
 	if (File != nullptr)
 		return TUNEXPECTED_REASON("file still open", Filename);
-	if (!File.Open(FileName, TFile::TAccess::Read))
+	if (!patella::platform::Platform().FileSystem.Open(File, FileName, TFile::TAccess::Read, TFile::TContent::Binary))
 		return TUNEXPECTED_REASON("failed to open file", FileName);
 	Line = 1;
 	// Filename stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
@@ -402,7 +403,7 @@ patella::TExpected<void, TError> TWriteScriptFile::TryOpen(const char *FileName)
 {
 	if (File != nullptr)
 		return TUNEXPECTED_REASON("file still open", Filename);
-	if (!File.Open(FileName, TFile::TAccess::Write))
+	if (!patella::platform::Platform().FileSystem.Open(File, FileName, TFile::TAccess::Write, TFile::TContent::Binary))
 		return TUNEXPECTED_REASON("failed to open file", FileName);
 	Line = 0;
 	// Filename stays char[1024] until M5: TERROR_REASON's reason (a std::string) names it (issue #57).
@@ -478,7 +479,7 @@ patella::TExpected<void, TError> TReadBinaryFile::TryOpen(const char *FileName)
 {
 	if (File != nullptr)
 		return TUNEXPECTED_REASON("file still open", Filename);
-	if (!File.Open(FileName, TFile::TAccess::Read))
+	if (!patella::platform::Platform().FileSystem.Open(File, FileName, TFile::TAccess::Read, TFile::TContent::Binary))
 		return TUNEXPECTED_REASON("failed to open file", FileName);
 	strncpy(Filename, FileName, sizeof(Filename));
 	return {};
@@ -574,7 +575,7 @@ patella::TExpected<void, TError> TWriteBinaryFile::TryOpen(const char *FileName)
 {
 	if (File != nullptr)
 		return TUNEXPECTED_REASON("file still open", Filename);
-	if (!File.Open(FileName, TFile::TAccess::Write))
+	if (!patella::platform::Platform().FileSystem.Open(File, FileName, TFile::TAccess::Write, TFile::TContent::Binary))
 		return TUNEXPECTED_REASON("failed to open file", FileName);
 	strncpy(Filename, FileName, sizeof(Filename));
 	return {};

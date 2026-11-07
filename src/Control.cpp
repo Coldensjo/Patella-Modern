@@ -45,6 +45,7 @@
 #include "GUI.h"
 #include "common.h"
 #include "compat/span.h"
+#include "platform/Platform.h"
 #include "types/FixedString.h"
 #include <array>
 #include <ostream>
@@ -163,7 +164,7 @@ void Redraw(bool Force)
 	const patella::TGUI &GUI = patella::bridge::GUI();
 	CheckSurface(Force);
 	if (GetSurface()->IsUnavailable()) {
-		Sleep(10);
+		patella::platform::Platform().Clock.FrameWait(10); // Sleep(10): the platform's frame wait (issue #109)
 		return;
 	}
 	GUI.MainWindow->Draw(1, 0, 0);

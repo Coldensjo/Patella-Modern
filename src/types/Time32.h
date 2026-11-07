@@ -2,7 +2,7 @@
 // client's 64-bit time. Patella-Modern issue #62 (notes/modernization-plan.md, section 7, M4; notes/decisions.md,
 // "64-bit time everywhere"). Not part of the original source.
 //
-// The client reads the wall clock in 64 bits (time(), PATELLA_TIME in TestHooks.h: seconds since 1970-01-01 00:00
+// The client reads the wall clock in 64 bits (the platform clock's WallSeconds, time(): seconds since 1970-01-01 00:00
 // UTC) and computes with that time. Two fields of the original's layout hold a time in 4 bytes, and keep them until
 // the layout unfreezes (M6): TCreature::SkullTime (+0x98, Creatures.h) and TTalkLine::Time (Talk.h). They are
 // Time32, and each is written through StoreTime32 and read through LoadTime32, nowhere else.
