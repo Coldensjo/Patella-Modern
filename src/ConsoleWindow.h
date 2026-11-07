@@ -86,7 +86,7 @@ struct TLineFormat {
 // CurrentLineNumber is the bottom line shown (the scroll bar's value). A
 // selection runs from (SelectionStartLine, SelectionStartOffset) to
 // (SelectionEndLine, SelectionEndOffset) in either order; -1 is none.
-class TTextWindow : public TElement {
+class TTextWindow final : public TElement {
 public:
 	TTextWindow(const TTextWindow &) = delete;
 	TTextWindow &operator=(const TTextWindow &) = delete;
@@ -155,7 +155,7 @@ public:
 
 // The view of the current channel: the text window with a scroll bar on its
 // right (ScrollToEnd moves it to the last line at the next Arrange).
-class TConsole : public TWindow {
+class TConsole final : public TWindow {
 public:
 	TConsole(); // 0x41a280, line 695
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -173,7 +173,7 @@ public:
 // The tab of a channel. Caption is the trimmed and, where it is too wide,
 // shortened title; FullCaption the trimmed one. A tab that is not active
 // lights up when its buffer gets new lines (Unread), blinking for 10 actions.
-class TTab : public TElement {
+class TTab final : public TElement {
 public:
 	TTab(const TTab &) = delete;
 	TTab &operator=(const TTab &) = delete;
@@ -219,7 +219,7 @@ protected:
 // The tab bar: its own tabs and the two hidden windows with the tabs that do
 // not fit. The child functions work on whichever of the three holds the tab
 // (GetContainer); Moved is the tab being dragged, drawn last.
-class TTabBar : public TWindow {
+class TTabBar final : public TWindow {
 public:
 	TTabBar(const TTabBar &) = delete;
 	TTabBar &operator=(const TTabBar &) = delete;

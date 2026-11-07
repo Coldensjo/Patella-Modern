@@ -180,7 +180,7 @@ class TTextButton;
 
 // A text with a button that opens Destination with OpenURL (vtable 0x560ce8,
 // 0x3c bytes): the dialogs' links to the web site.
-class TLink : public TWindow {
+class TLink final : public TWindow {
 public:
 	TLink(const TLink &) = delete;
 	TLink &operator=(const TLink &) = delete;
@@ -203,7 +203,7 @@ public:
 // --- Icons ------------------------------------------------------------------------
 
 // An outfit with its four colours (vtable 0x561970, 0x48 bytes).
-class TOutfitIcon : public TElement {
+class TOutfitIcon final : public TElement {
 public:
 	TOutfitIcon(int _Outfit, int _Direction, int *ColorData, const TRGBColor *_Highlight); // 0x4666a0, line 899
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
@@ -239,7 +239,7 @@ public:
 };
 
 // An object (vtable 0x560d88, 0x50 bytes), optionally in a frame (skin 102).
-class TObjectIcon : public TElement {
+class TObjectIcon final : public TElement {
 public:
 	// Inline (out-of-line copy 0x4526c0).
 	TObjectIcon(TObject _Obj, const TRGBColor *_Highlight, bool _Framed);
@@ -309,7 +309,7 @@ struct TRadioButtonGroup {
 };
 
 // A button on a coloured background (vtable 0x561a80, 0x50 bytes).
-class TColorButton : public TSkinButton {
+class TColorButton final : public TSkinButton {
 public:
 	TColorButton(int x, int y, TRGBColor _Color, int _ButtonUp, int _ButtonDown, TCallback _Callback,
 		const char *_Tooltip);                     // 0x466a60
@@ -319,7 +319,7 @@ public:
 };
 
 // A button with an icon skin on it (vtable 0x561b08, 0x48 bytes).
-class TIconButton : public TSkinButton {
+class TIconButton final : public TSkinButton {
 public:
 	TIconButton(int x, int y, int _Icon, int _ButtonUp, int _ButtonDown, TCallback _Callback,
 		const char *_Tooltip);                     // 0x466ad0
@@ -438,7 +438,7 @@ public:
 };
 
 // A check box with a text (vtable 0x561de8, 0x34 bytes).
-class TCheckBox : public TWindow {
+class TCheckBox final : public TWindow {
 public:
 	TCheckBox(const char *_Text); // 0x467440, lines 1686-1699
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -550,7 +550,7 @@ inline int TEditLine::GetPosition(int x, int y)
 }
 
 // An edit line that shows stars (vtable 0x560f60, 0x6c bytes). It only pastes.
-class TPasswordEditLine : public TEditLine {
+class TPasswordEditLine final : public TEditLine {
 public:
 	TPasswordEditLine(const TPasswordEditLine &) = delete;
 	TPasswordEditLine &operator=(const TPasswordEditLine &) = delete;
@@ -569,7 +569,7 @@ public:
 // LineStart holds the first character of every line (Lines entries, then the
 // text's end).
 class TScrollBar;
-class TEditText : public TEditLine {
+class TEditText final : public TEditLine {
 public:
 	TEditText(int MaxLength, bool _ReadOnly); // 0x46b570, line 2466
 	// The destructor is the implicit one (0x46b540, deleting destructor 0x46b520).
@@ -611,7 +611,7 @@ public:
 
 // The track and slider of a horizontal scroll bar (vtable 0x5617e0, 0x54
 // bytes); Callback is sent on every change of Value.
-class THorizontalScrollBarRange : public TElement {
+class THorizontalScrollBarRange final : public TElement {
 public:
 	THorizontalScrollBarRange(int _Min, int _Max, int _Value, int _Visible, TCallback _Callback); // 0x45e9e0, lines 2925-2944
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
@@ -648,7 +648,7 @@ public:
 
 // A horizontal scroll bar: two buttons and the range (vtable 0x561ed0, 0x38
 // bytes). The height is always SkinProperties.Data880.
-class THorizontalScrollBar : public TWindow {
+class THorizontalScrollBar final : public TWindow {
 public:
 	THorizontalScrollBar(int Min, int Max, int _Value, int _Visible, int _ButtonRange, TCallback _Callback); // 0x4692d0, lines 3158-3169
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -803,7 +803,7 @@ struct TListBoxLine {
 
 // A list box whose lines have their own fonts (vtable 0x5611e0, 0xb0 bytes).
 // It keeps its lines in FontLines; the base's LineText stays empty.
-class TFontListBox : public TListBox {
+class TFontListBox final : public TListBox {
 public:
 	TFontListBox(const TFontListBox &) = delete;
 	TFontListBox &operator=(const TFontListBox &) = delete;
@@ -830,7 +830,7 @@ public:
 // --- Progress bar -----------------------------------------------------------------
 
 // A bar filled to current/maximum (vtable 0x561028, 0x2c bytes).
-class TProgressBar : public TElement {
+class TProgressBar final : public TElement {
 public:
 	// Inline (out-of-line copy 0x452a00).
 	TProgressBar()

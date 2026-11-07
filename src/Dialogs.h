@@ -125,7 +125,7 @@ public:
 
 // A question whose keys answer it (vtable 0x562110, 0x5c bytes): Return, y
 // and Y send YesCallback, Escape, n and N send NoAnswerCallback.
-class TQuestionLabel : public TLabel {
+class TQuestionLabel final : public TLabel {
 public:
 	// Inline (out-of-line copy 0x46b790).
 	TQuestionLabel(TFont &Font, const char *Text, TCallback _YesCallback, TCallback _NoAnswerCallback)
@@ -144,7 +144,7 @@ public:
 // The logout question (vtable 0x562198, 0x5c bytes): Return, l and L send
 // LogoutCallback and close the dialog, e and E send ExitCallback, Escape, c
 // and C close it.
-class TLogoutLabel : public TLabel {
+class TLogoutLabel final : public TLabel {
 public:
 	// Inline (out-of-line copy 0x46b840).
 	TLogoutLabel(TFont &Font, const char *Text, TCallback _LogoutCallback, TCallback _ExitCallback)
@@ -164,7 +164,7 @@ public:
 // dialogs. Event 31 is its timer, 29 the Abort button; both close the
 // dialog (an Abort first clears the message queue when ClearOnAbort is
 // set). With CloseOnMessage, the next queued message closes it.
-class TWaitLabel : public TLabel {
+class TWaitLabel final : public TLabel {
 public:
 	TWaitLabel(const TWaitLabel &) = delete;
 	TWaitLabel &operator=(const TWaitLabel &) = delete;
@@ -191,7 +191,7 @@ public:
 
 // The reconnect countdown (vtable 0x5622b0, 0x23c bytes): a text, a progress
 // bar and the time left. When the timer runs out it connects again.
-class TReconnectWindow : public TWindow {
+class TReconnectWindow final : public TWindow {
 public:
 	TReconnectWindow(const TReconnectWindow &) = delete;
 	TReconnectWindow &operator=(const TReconnectWindow &) = delete;
@@ -223,7 +223,7 @@ public:
 
 // "Enter Game" (vtable 0x5627d8, 0x38 bytes): account number and password,
 // both shown as stars, and a link to the account creation.
-class TLoginDialog : public TWindow {
+class TLoginDialog final : public TWindow {
 public:
 	TLoginDialog(const TLoginDialog &) = delete;
 	TLoginDialog &operator=(const TLoginDialog &) = delete;
@@ -241,7 +241,7 @@ public:
 // "Select Character" (vtable 0x562370, 0x38 bytes): the account's characters
 // and its premium state. With a timeout the selection is confirmed when the
 // timer runs out; every key and click starts it again.
-class TCharacterListDialog : public TWindow {
+class TCharacterListDialog final : public TWindow {
 public:
 	TCharacterListDialog(const TCharacterListDialog &) = delete;
 	TCharacterListDialog &operator=(const TCharacterListDialog &) = delete;
@@ -269,7 +269,7 @@ public:
 
 // "Move Objects" (vtable 0x562b68, 0x60 bytes): the number of a dragged pile
 // to move, chosen with a scroll bar or typed.
-class TMoveObjectsDialog : public TWindow {
+class TMoveObjectsDialog final : public TWindow {
 public:
 	TMoveObjectsDialog(); // 0x470670, lines 1392-1406
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -296,7 +296,7 @@ public:
 // Next button, the four parts (head, body, legs, feet) as a radio group and
 // the 133 colours as another. Data holds the outfit, its four colours and
 // the first and last outfit the player may choose.
-class TOutfitDialog : public TWindow {
+class TOutfitDialog final : public TWindow {
 public:
 	TOutfitDialog(const TOutfitDialog &) = delete;
 	TOutfitDialog &operator=(const TOutfitDialog &) = delete;
@@ -327,7 +327,7 @@ public:
 // readable or writable object, with its icon and a line about who wrote it.
 // The text can be edited when the object is writable, or writable once and
 // still empty.
-class TTextDialog : public TWindow {
+class TTextDialog final : public TWindow {
 public:
 	TTextDialog(int MaximumLength, const char *Text, uint32 _ObjectNumber, TObject _Obj,
 		const char *Description); // 0x471500, lines 1702-1727
@@ -342,7 +342,7 @@ public:
 };
 
 // "Edit List" (vtable 0x563868, 0x38 bytes): a house list, one name per line.
-class TEditListDialog : public TWindow {
+class TEditListDialog final : public TWindow {
 public:
 	TEditListDialog(int MaxLength, const char *Text, int _Type, uint32 _Identifier,
 		const char *Description); // 0x47d660, lines 1752-1775
@@ -397,7 +397,7 @@ static_assert(sizeof(TIgnoreEntry) == 0x1f && offsetof(TIgnoreEntry, Name) == 0 
 // as editable font list boxes (permanent entries in their own colour), the
 // Add and Delete buttons and the global settings. The entries are kept in
 // two vectors next to the lists; OK (602) writes everything back to Talk.cpp.
-class TIgnoreListDialog : public TWindow {
+class TIgnoreListDialog final : public TWindow {
 public:
 	TIgnoreListDialog(); // 0x47db60, lines 1875-1975
 	// The destructor is the implicit one (0x47eab0, deleting destructor 0x47ea90).
@@ -433,7 +433,7 @@ inline int CompareNames(const void *Name1, const void *Name2)
 // --- Bug report and channels ----------------------------------------------------
 
 // "Reporting" (vtable 0x562cd8, 0x30 bytes): a bug report.
-class TBugReportDialog : public TWindow {
+class TBugReportDialog final : public TWindow {
 public:
 	TBugReportDialog(); // 0x472f20, line 2240
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -447,7 +447,7 @@ public:
 // "New Channel" (vtable 0x562418, 0x44 bytes): the channels the server
 // offers (ID 0xffff opens an own private channel) and a name for a private
 // conversation.
-class TNewChannelDialog : public TWindow {
+class TNewChannelDialog final : public TWindow {
 public:
 	TNewChannelDialog(const TNewChannelDialog &) = delete;
 	TNewChannelDialog &operator=(const TNewChannelDialog &) = delete;
@@ -467,7 +467,7 @@ public:
 
 // "Invite player to private chat channel" and "Exclude player from private
 // chat channel" (vtable 0x562db8, 0x34 bytes).
-class TPrivateChannelDialog : public TWindow {
+class TPrivateChannelDialog final : public TWindow {
 public:
 	TPrivateChannelDialog(bool _Exclude); // 0x473e60, line 2378
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -480,7 +480,7 @@ public:
 
 // "Report Rule Violation" (vtable 0x562e58, 0x30 bytes): a player's request
 // to the gamemasters, one sentence.
-class TReportDialog : public TWindow {
+class TReportDialog final : public TWindow {
 public:
 	TReportDialog(); // 0x4744b0, line 2551
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -493,7 +493,7 @@ public:
 // --- VIP list -----------------------------------------------------------------
 
 // "Add to VIP list" (vtable 0x562ef8, 0x30 bytes).
-class TAddBuddyDialog : public TWindow {
+class TAddBuddyDialog final : public TWindow {
 public:
 	TAddBuddyDialog(); // 0x474b20, line 2607
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -505,7 +505,7 @@ public:
 
 // "Change player in VIP list" (vtable 0x562558, 0x68 bytes): the icon, the
 // description and the login notification of a VIP.
-class TEditBuddyDialog : public TWindow {
+class TEditBuddyDialog final : public TWindow {
 public:
 	TEditBuddyDialog(const TEditBuddyDialog &) = delete;
 	TEditBuddyDialog &operator=(const TEditBuddyDialog &) = delete;
@@ -529,7 +529,7 @@ public:
 // Patella-Modern issue #75.
 
 // "Help" (vtable 0x5630c0, 0x30 bytes): six buttons with their texts.
-class THelpDialog : public TWindow {
+class THelpDialog final : public TWindow {
 public:
 	THelpDialog(void (*_OpenURL)(const char *URL)); // 0x4760a0, line 2869
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -540,7 +540,7 @@ public:
 };
 
 // "Hints for Tibia" (vtable 0x563160, 0x30 bytes): the hints shown so far.
-class THintsDialog : public TWindow {
+class THintsDialog final : public TWindow {
 public:
 	THintsDialog(); // 0x476cd0, line 2945
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -556,7 +556,7 @@ public:
 // player, optionally about a statement: the reasons are the rights the
 // player has (Reasons maps the list's lines to them), the actions those the
 // selected reason allows.
-class TRuleViolationDialog : public TWindow {
+class TRuleViolationDialog final : public TWindow {
 public:
 	TRuleViolationDialog(const TRuleViolationDialog &) = delete;
 	TRuleViolationDialog &operator=(const TRuleViolationDialog &) = delete;
@@ -585,7 +585,7 @@ public:
 // "Edit Mark" (vtable 0x562698, 0xe8 bytes): the text and the symbol of an
 // automap mark. It takes the coordinate and the mark (if any) and deletes
 // them.
-class TEditMarkDialog : public TWindow {
+class TEditMarkDialog final : public TWindow {
 public:
 	TEditMarkDialog(const TEditMarkDialog &) = delete;
 	TEditMarkDialog &operator=(const TEditMarkDialog &) = delete;
@@ -606,7 +606,7 @@ public:
 
 // "Options" (vtable 0x563258, 0x2c bytes): buttons that open the option
 // dialogs (each reopens this one when it closes) and the message of the day.
-class TOptionsDialog : public TWindow {
+class TOptionsDialog final : public TWindow {
 public:
 	TOptionsDialog(); // 0x4786d0, line 3366
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -615,7 +615,7 @@ public:
 };
 
 // "General Options" (vtable 0x563360, 0x44 bytes).
-class TGeneralOptionsDialog : public TWindow {
+class TGeneralOptionsDialog final : public TWindow {
 public:
 	TGeneralOptionsDialog(void (*_OpenURL)(const char *URL)); // 0x479310, line 3472
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -631,7 +631,7 @@ public:
 
 // "Graphics Options" (vtable 0x5624b8, 0x4c bytes): fullscreen and its
 // resolution; Advanced (407) opens the advanced options.
-class TGraphicsOptionsDialog : public TWindow {
+class TGraphicsOptionsDialog final : public TWindow {
 public:
 	TGraphicsOptionsDialog(const TGraphicsOptionsDialog &) = delete;
 	TGraphicsOptionsDialog &operator=(const TGraphicsOptionsDialog &) = delete;
@@ -655,7 +655,7 @@ public:
 // "Advanced Graphics Options" (vtable 0x562738, 0x54 bytes): light,
 // stretching, the mouse pointer, the frame rate limit and the engine. The
 // engine buttons send 800-802 to Receiver (the main window).
-class TAdvancedGraphicsDialog : public TWindow {
+class TAdvancedGraphicsDialog final : public TWindow {
 public:
 	TAdvancedGraphicsDialog(const TAdvancedGraphicsDialog &) = delete;
 	TAdvancedGraphicsDialog &operator=(const TAdvancedGraphicsDialog &) = delete;
@@ -686,7 +686,7 @@ public:
 };
 
 // "Console Options" (vtable 0x563598, 0x44 bytes).
-class TConsoleOptionsDialog : public TWindow {
+class TConsoleOptionsDialog final : public TWindow {
 public:
 	TConsoleOptionsDialog(void (*_OpenURL)(const char *URL)); // 0x47afb0, line 3797
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -701,7 +701,7 @@ public:
 };
 
 // "Network Options" (vtable 0x563650, 0x34 bytes).
-class TNetworkOptionsDialog : public TWindow {
+class TNetworkOptionsDialog final : public TWindow {
 public:
 	TNetworkOptionsDialog(void (*_OpenURL)(const char *URL)); // 0x47b5e0, line 3843
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -713,7 +713,7 @@ public:
 
 // "Hotkey Options" (vtable 0x563a90, 0x2464 bytes): the texts of the 36
 // hotkeys (F1-F12 with Shift and Control), edited one at a time.
-class THotkeyDialog : public TWindow {
+class THotkeyDialog final : public TWindow {
 public:
 	THotkeyDialog(void (*_OpenURL)(const char *URL)); // 0x47edf0, line 3906
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).

@@ -693,6 +693,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   step at the player's own field"): compare_traffic's look step looks at the player's own field, where no wandering
   creature can stand, so its live client packets compare without excuses; testserver.py no longer kills a server
   that is saving its map.
+- **`final` on the classes nothing derives from** (#33's second half, after the oracle): done in #47
+  (notes/decisions.md, "#47"): 70 classes; the 30 the golden tests use as seams (their fakes built by our
+  constructors, stand-ins, a patched member that `final` lets MSVC inline) are listed with the reason.
+
 Exit: `patella_core` contains everything except the platform layer and builds on both platforms;
 no CipSoft `vector` in core code; tier A green.
 

@@ -28,7 +28,7 @@ public:
 
 // A connection: the original's CAsyncSocket of Network.cpp (vtable 0x56d388), whose events call the ISocketEvents
 // it was made for. The golden Network test fires them through this vtable (network_tests.cpp FireEvent).
-class TSocket : public CAsyncSocket {
+class TSocket final : public CAsyncSocket {
 public:
 	explicit TSocket(ISocketEvents &Owner) : Events(Owner) {}
 	void OnReceive(int ErrorCode) override { Events.OnReceive(*this, ErrorCode); }

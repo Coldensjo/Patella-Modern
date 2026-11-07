@@ -58,7 +58,7 @@ public:
 
 // The map of the automap window: 106x106 pixels around ViewX/ViewY/ViewZ of
 // its parent, one automap point per Zoom/2 pixels.
-class TAutomapView : public TElement {
+class TAutomapView final : public TElement {
 public:
 	// The constructor and the destructor are the implicit ones (deleting
 	// destructor 0x429590, folded).
@@ -70,7 +70,7 @@ public:
 
 // The compass rose of the automap window: a click on one of its five areas
 // (the middle and the four directions) centres or scrolls the map.
-class TCompassRose : public TElement {
+class TCompassRose final : public TElement {
 public:
 	TCompassRose(int _RoseSkin); // 0x428680, line 791
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
@@ -116,12 +116,12 @@ protected:
 };
 
 // The capacity and the soul points of the inventory (Style3E0, Style428).
-class TCapacityLabel : public TElement {
+class TCapacityLabel final : public TElement {
 public:
 	// The constructor and the destructor are the implicit ones.
 	void Draw(int Surface, int x, int y) override; // +0x44, 0x428e40, line 858
 };
-class TSoulLabel : public TElement {
+class TSoulLabel final : public TElement {
 public:
 	// The constructor and the destructor are the implicit ones.
 	void Draw(int Surface, int x, int y) override; // +0x44, 0x429090, line 875
@@ -129,7 +129,7 @@ public:
 
 // The icons of the player's states (poisoned, burning, ...) in a row: in the
 // inventory (IsLarge, ten icons) or in the small inventory (nine).
-class TPlayerStates : public TElement {
+class TPlayerStates final : public TElement {
 public:
 	TPlayerStates(bool islarge); // 0x4292e0, line 901
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
@@ -146,7 +146,7 @@ public:
 // Identifier 2: the small inventory, a drop area for the body slots (skin
 // 99) with the combat controls, the "maximise" button, capacity, soul and
 // the states.
-class TSmallInventoryWindow : public TContentWindow {
+class TSmallInventoryWindow final : public TContentWindow {
 public:
 	TSmallInventoryWindow(); // 0x429eb0, line 1083
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -157,7 +157,7 @@ public:
 
 // The inventory's ten body slots with the "minimise" button, capacity, soul
 // and the states.
-class TInventoryView : public TWindow {
+class TInventoryView final : public TWindow {
 public:
 	TInventoryView(TWindow *Receiver); // 0x42a750, line 1170
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -172,7 +172,7 @@ public:
 // The fight modes (radio buttons), the secure mode, "Stop" and the options
 // and help buttons; skin buttons in the small inventory, text buttons in the
 // large one (IsLarge).
-class TCombatControls : public TWindow {
+class TCombatControls final : public TWindow {
 public:
 	TCombatControls(const TCombatControls &) = delete;
 	TCombatControls &operator=(const TCombatControls &) = delete;
@@ -284,7 +284,7 @@ public:
 
 // The battle list: the opponents (Creatures.cpp) with outfit, name, health
 // bar and marks.
-class TBattleWindowBody : public TSubWindowBody {
+class TBattleWindowBody final : public TSubWindowBody {
 public:
 	TBattleWindowBody(); // 0x43a0c0, line 2300
 	// Inline (0x425a70, deleting destructor 0x425dc0); its SetHighlightID(0) is
@@ -313,7 +313,7 @@ protected:
 };
 // The parts of the trade body: the two offers (TTradeOffers), the names
 // above them (TTradeNames) and the buttons below (TTradeButtons).
-class TTradeOffers : public TWindow {
+class TTradeOffers final : public TWindow {
 public:
 	TTradeOffers(); // 0x430dc0, line 2687
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -332,7 +332,7 @@ public:
 	TSeparator *Separator; // +0x30
 };
 
-class TTradeNames : public TWindow {
+class TTradeNames final : public TWindow {
 public:
 	TTradeNames(); // 0x432470, line 2894
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -345,7 +345,7 @@ public:
 	TSeparator *Separator; // +0x34
 };
 
-class TTradeButtons : public TWindow {
+class TTradeButtons final : public TWindow {
 public:
 	TTradeButtons(); // 0x432f00, line 2947
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
@@ -366,7 +366,7 @@ public:
 
 // The trade: both offers, the names and the buttons. Event 21 (MainWindow.cpp's
 // UpdateTrade: the counter offer came) shows "Accept", event 1 accepts.
-class TTradeWindowBody : public TSubWindowBody {
+class TTradeWindowBody final : public TSubWindowBody {
 public:
 	TTradeWindowBody();           // 0x43baf0, line 3037
 	~TTradeWindowBody() override; // +0x00, 0x433e60, line 3048 (deleting 0x43bd20)
@@ -393,7 +393,7 @@ protected:
 };
 
 // The VIP list (Creatures.cpp's buddies) with icon, name and online state.
-class TBuddylistWindowBody : public TSubWindowBody {
+class TBuddylistWindowBody final : public TSubWindowBody {
 public:
 	TBuddylistWindowBody(const TBuddylistWindowBody &) = delete;
 	TBuddylistWindowBody &operator=(const TBuddylistWindowBody &) = delete;

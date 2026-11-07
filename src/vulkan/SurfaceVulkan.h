@@ -44,7 +44,7 @@ using TVulkanPixelsObserver = void(PATELLA_CDECL *)(const void *Bits, int Pitch,
 // interpolation (the bilinear stretches, the light; notes/vulkan.md, "Pixels"), else 0.
 using TVulkanMaskObserver = void(PATELLA_CDECL *)(const unsigned char *Mask, int Width, int Height);
 
-class TSurfaceVulkan : public TSurface {
+class TSurfaceVulkan final : public TSurface {
 public:
 	// Shared: the data the engine shares with the client (platform/Surface.h; TGraphicsEngine, issue #138).
 	explicit TSurfaceVulkan(patella::platform::TSurfaceShared &Shared);

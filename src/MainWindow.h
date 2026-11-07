@@ -68,7 +68,7 @@ protected:
 };
 
 // The window behind the start dialogs (vtable 0x56c5c0, 0x30 bytes).
-class TStartWindow : public TWindow {
+class TStartWindow final : public TWindow {
 public:
 	TStartWindow(); // 0x4ad7f0, line 671
 	// The destructor is the implicit one; its deleting destructor 0x4adc40
@@ -82,7 +82,7 @@ public:
 
 // The bar between the map and the console (vtable 0x56c660, 0x30 bytes):
 // dragging it changes the console's height.
-class TSplitter : public TElement {
+class TSplitter final : public TElement {
 public:
 	TSplitter(); // 0x4ae240, line 749
 	// The destructor is the implicit one (its deleting destructor is folded
