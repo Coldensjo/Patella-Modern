@@ -129,7 +129,7 @@ public:
 	int lines, limit;
 	bool ShowMessages, Enabled, Complete, LinesChanged, Locked, Selected;
 };
-class TPrivateTalkBuffer : public TTalkBuffer {
+class TPrivateTalkBuffer final : public TTalkBuffer {
 public:
 	TPrivateTalkBuffer(int TalkMode, const char *_Addressee);
 	// 0x506eb0, Talk.h inline.
@@ -143,7 +143,7 @@ public:
 	int GetChannelID() override { return ChannelID; }
 	int ChannelID;
 };
-class TRuleViolationTalkBuffer : public TTalkBuffer {
+class TRuleViolationTalkBuffer final : public TTalkBuffer {
 public:
 	TRuleViolationTalkBuffer(int ReceiveTalkMode, int SendTalkMode, const char *_Addressee);
 	// 0x507260 and 0x507270, Talk.h inline.
@@ -160,7 +160,7 @@ public:
 	TFixedString<30> Addressee;
 	bool WriteEnabled;
 };
-class TRuleViolationChannel : public TTalkBuffer {
+class TRuleViolationChannel final : public TTalkBuffer {
 public:
 	TRuleViolationChannel(int TalkMode, int _ChannelID);
 	int GetChannelID() override { return ChannelID; }
@@ -176,7 +176,7 @@ public:
 	bool AcceptMessages() override { return true; }
 	bool IsRuleViolationChannel() override { return true; }
 };
-class TPrivateChannel : public TChannelTalkBuffer {
+class TPrivateChannel final : public TChannelTalkBuffer {
 public:
 	TPrivateChannel(int TalkMode, int _ChannelID);
 	// Folded with 0x467420/0x467430 from another header instantiation.

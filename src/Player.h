@@ -8,7 +8,7 @@
 
 #include "common.h"
 
-class CPlayerApp : public CWinApp {
+class CPlayerApp final : public CWinApp {
 public:
 	CPlayerApp();
 	BOOL InitInstance() override;

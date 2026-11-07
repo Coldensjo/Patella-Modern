@@ -88,7 +88,7 @@ void UpdateContainerUpButton(TSubWindowBody *Body);
 
 // A content window with a body and a frame (MainWindow.cpp's containers and
 // the skill, battle, VIP and trade windows).
-class TSubWindow : public TContentWindow {
+class TSubWindow final : public TContentWindow {
 public:
 	TSubWindow(const TSubWindow &) = delete;
 	TSubWindow &operator=(const TSubWindow &) = delete;
@@ -133,7 +133,7 @@ protected:
 };
 
 // A column of content windows.
-class TDialogWindow : public TWindow {
+class TDialogWindow final : public TWindow {
 public:
 	TDialogWindow(); // 0x4856c0
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).

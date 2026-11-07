@@ -56,7 +56,7 @@ public:
 };
 
 // One entry of a context menu.
-class TContextMenuEntry : public TElement {
+class TContextMenuEntry final : public TElement {
 public:
 	TContextMenuEntry(const char *_Text, const char *_Shortcut, TCallback _Callback); // 0x43dfe0, line 316
 	// The destructor is the implicit one (deleting destructor 0x429590, folded).
