@@ -14331,4 +14331,16 @@ Done by Claude Opus 5.5, November 7, 2026 (branch issue-128, from main e8e1602).
 
 ### The gates (high)
 
-GATES-PLACEHOLDER
+Logs in build\logs\issue-128 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed
++ 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset.
+
+- On 8bea8d4: `python -I tools/build.py windows-x64` exit 0, 19/19; windows-x64-debug exit 0, 18/18; windows-x64-asan
+  exit 0, 18/18, no ASan report; windows-x64-gcc exit 0, 12/12; linux-x64-gcc exit 0, 16/16 (golden); linux-x64-clang
+  (ASan, UBSan) exit 0, 14/14 (golden), no sanitizer report. tests_core passed in all six (logs `<preset>-8bea8d4.log`).
+- `python -I tools/tidy_ci.py` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
+  clang-format (CLAUDE.md's command) exit 0.
+- A mutation check: one row of core_vlong_cases.inc changed (case 996, a subtraction) failed exactly that case, with
+  its operands and result in the message; the row restored.
+- Not run: the live checks (reference compare, compare_traffic, compare_files). src/ changed by comments only
+  (Communication.cpp, TRSA.cpp), so the client's code is unchanged.
