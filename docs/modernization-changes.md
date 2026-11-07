@@ -164,6 +164,14 @@ speaks.
 New code can import the whole C++ standard library as a module (`import std;`) with Microsoft's compiler, GCC and
 Clang.
 
+**The heart of the game moves into the portable library (#110).**
+The code that talks to the server (the network buffers and every message the client sends and understands) and
+the game world (objects, the map, creatures, the inventory) now build as part of `patella_core`, the library that
+contains no Windows code at all. The library grew from about 3,700 to about 12,300 lines, and it builds and is
+checked on Windows and Linux with the strictest analysers. *Why it matters:* the core of the game no longer
+depends on Windows, which is half of what M7 set out to do; the preferences and the interface's logic follow in
+#111.
+
 **Test replays without network ports (#120).**
 The test client used to replay a recorded server over real network ports, so two test runs at once would collide.
 The replay now runs inside the program, so many runs can happen side by side.
