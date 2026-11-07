@@ -630,6 +630,15 @@ open through IFileSystem. CMainFrame takes the registered window class, so the {
 last, is gone (207 edges and 1 cycle on main, 206 and 0 now). Patella.exe changes only at those call sites (the image
 comparison). Not yet: TSurface as the platform's interface (part 2). Golden 17,316,040, 0 failures.
 notes/decisions.md, "#119".
+
+TSurface as a platform interface (Patella-Modern issue #138, branch issue-138, November 7, 2026; M7; #119's part 2):
+TSurface is in src/platform/Surface.h (portable, no Win32 type: the window a TWindowHandle, the rectangles a
+TEdgeRect). The data the engines share with the client is platform::TSurfaceShared, TGraphicsEngine's base (the same
+80 bytes), lent to the surface at its construction, so the Vulkan engine and TSurface's TestEngine and
+GetAvailableEngines no longer use bridge::GraphicsEngine(). SurfaceInitInstance, TGUI's WindowHandle and InitWindow,
+TNetwork's NetworkWindow and SetNetworkWindow take a TWindowHandle; CreateSurfaces' desktop depth is
+IWindow::DesktopMode. Patella.exe changes only at those call sites and in displacements (the image comparison).
+Golden 17,316,040, 0 failures; compare_rendering all 26 scenes identical. notes/decisions.md, "#138".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
