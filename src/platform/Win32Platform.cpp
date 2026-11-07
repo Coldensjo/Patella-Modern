@@ -193,6 +193,9 @@ void TWin32Input::StopTimer(TWindowHandle Window, unsigned int Id)
 	::KillTimer(static_cast<HWND>(Window), Id);
 }
 
+// Win32's GetCursorPos until issue #127 (the owner's decision on #123): where Windows cannot read the cursor (another
+// desktop: the lock screen, UAC's secure desktop) it fails and the point stays the last one, as the original's;
+// SDL_GetGlobalMouseState would report (0, 0) there.
 bool TSdlLoopInput::CursorPosition(TPoint &Point)
 {
 	return Win32Input().CursorPosition(Point);

@@ -194,6 +194,17 @@ from the settings file, same frame, same timing of events, and every recorded te
 identically. *Why it matters:* this is the first step toward a Linux client. Keyboard and mouse handling still use
 the Windows path for now (next step), and the old MFC window can still be chosen for comparison until MFC is removed.
 
+**Keyboard and mouse now come through SDL3 (#123).**
+The mouse wheel, the mouse pointer's shapes, holding the mouse during a drag and foreign-language text input in the
+SDL3 window now come from SDL3 instead of Windows messages. On Windows, key presses, typed characters and mouse clicks
+still come the Windows way, because SDL3 would treat some of them differently from the original game (for example
+clicks and keys sent by another program). The rules the original game applied to them (which keys do what, which
+characters reach the chat, what counts as a double click) were taken out into a small piece of code of their own that
+works on any operating system and is tested on its own. Typed text is converted to the game's character set from
+Unicode, so a letter the game cannot show (from a Polish or Russian keyboard, say) becomes a question mark instead of a
+different, wrong letter. Recorded test sessions still play back identically. *Why it matters:* the input rules no
+longer depend on Windows, and a Linux client can feed them from SDL3.
+
 **The graphics now attach to the window through SDL3 (#126).**
 The graphics engine used to hook its drawing area onto the window with a Windows-only call. It now asks SDL3 for it,
 the same library that makes the window, through one small interface that also answers the window's size. Nothing

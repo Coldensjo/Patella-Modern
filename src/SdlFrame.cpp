@@ -4,10 +4,15 @@
 // Each function says which of MainFrm.cpp's (CMainFrame) or MFC's it stands for; the client calls are theirs, in
 // their order. What SDL3 does here (the window, its placement and size, the fullscreen switch, its activation, close
 // and display events, the loop): SDL_CreateWindow, SDL_SetWindowPosition/Size, SDL_SetWindowFullscreen, the window and
-// display events. What stays Win32's until its own issue, in the "Win32 until ..." parts below: the keys, buttons and
-// wheel as window messages and the Windows cursors (#123), the host lookup's message WM_USER + 1 (the socket, #125),
-// ShellExecute (#124), and on Windows the message pump itself (SDL's own is off: the loop dispatches the thread's
-// messages as MFC's did, so the MFC sockets' and the test mode's messages are dispatched in the same order).
+// display events; since issue #123 the input's wheel, motion and IME text events, SDL_CaptureMouse, SDL's cursors and
+// window coordinates (platform/KeyInput.h has the client's rules). What stays Win32's until its own issue, in the
+// "Win32 until ..." parts below: the keys, the characters and the buttons as window messages (SDL's events differ from
+// them for posted messages and keys Windows does not hold), the loss of the mouse capture (WM_CAPTURECHANGED: SDL has
+// no event for it), the
+// cursor's screen position (GetCursorPos, TSdlLoopInput: it keeps the last position where SDL would report (0, 0)), the
+// host lookup's message WM_USER + 1 (the socket, #125), ShellExecute (#124), and on Windows the message pump itself
+// (SDL's own is off: the loop dispatches the thread's messages as MFC's did, so the MFC sockets' and the test mode's
+// messages are dispatched in the same order).
 //
 // Events: the size, move and activation changes come through an event watch (SDL_AddEventWatch), which SDL calls as it
 // sends the event, inside the window procedure, so the client sees a size change within the call that made it, as
@@ -27,8 +32,11 @@
 #include "common.h"
 #include "compat/span.h"
 #include "log/Log.h"
+#include "platform/CursorImage.h"
+#include "platform/KeyInput.h"
 #include "platform/Platform.h"
 #include "platform/Win32Platform.h"
+#include "types/Cp1252.h"
 
 #define SDL_MAIN_HANDLED // NOLINT(cppcoreguidelines-macro-usage): SDL_main.h's switch; MFC's WinMain is the entry
 #include <SDL3/SDL.h>
@@ -36,9 +44,13 @@
 
 #include <commctrl.h>
 
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
+#include <span>
+#include <string>
 
 namespace patella::sdlframe {
 
@@ -56,11 +68,17 @@ bool DisplayChange = false;   // a display mode change (OnDisplayChange), with t
 int DisplayWidth = 0;
 int DisplayHeight = 0;
 
-int KeyFlags = 0;               // CMainFrame::KeyFlags
+// The client's input state (issue #123: platform/KeyInput.h's rules over SDL's events): CMainFrame::KeyFlags and
+// MainFrm.cpp's file-local button flags and wheel rest, with SDL's click counts made into Windows' double clicks.
+static_assert(platform::KeyFlagShift == KEY_SHIFT && platform::KeyFlagControl == KEY_CONTROL && platform::KeyFlagAlt == KEY_ALT);
+platform::TKeyFlags Keys;
+#if !defined(_WIN32)
+platform::TClickCounter Clicks; // SDL's click counts as Windows' double clicks (not on Windows: OnButtonMessage)
+#endif
+platform::TWheel Wheel;
 bool LeftButtonPressed = false; // MainFrm.cpp's
 bool RightButtonPressed = false;
 bool Closing = false;
-int WheelDelta = 0;
 
 // The window rectangle as the client stores it (Patella.ini's window position and size, SetWindowedMode): the MFC
 // frame's outer rectangle (GetWindowRect, WINDOWPLACEMENT's rcNormalPosition).
@@ -237,7 +255,7 @@ void OnSize(int cx, int cy)
 // CMainFrame::OnActivateApp: forgets the held modifiers and leaves fullscreen mode (after the message).
 void OnActivateApp()
 {
-	KeyFlags = 0;
+	Keys.Reset();
 	if (GetViewMode() == 2)
 		LeaveFullscreen = true;
 }
@@ -252,6 +270,8 @@ void OnDisplayChange(int Width, int Height)
 		DisplayChanged = true;
 	}
 }
+
+void Input(const SDL_Event &Event, bool Scripted);
 
 // The event watch (above): called by SDL as it sends each event.
 bool SDLCALL WatchEvent([[maybe_unused]] void *UserData, SDL_Event *Event)
@@ -295,6 +315,18 @@ bool SDLCALL WatchEvent([[maybe_unused]] void *UserData, SDL_Event *Event)
 			DisplayHeight = Mode->h;
 		}
 		break;
+	case SDL_EVENT_KEY_DOWN:
+	case SDL_EVENT_KEY_UP:
+	case SDL_EVENT_TEXT_INPUT:
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_EVENT_MOUSE_BUTTON_UP:
+	case SDL_EVENT_MOUSE_WHEEL:
+	case SDL_EVENT_MOUSE_MOTION:
+		// Issue #123: the input, as it comes (WM_KEYDOWN, WM_CHAR, WM_LBUTTONDOWN ... in SDL's window procedure); the
+		// test build drops the desktop's with a script (IInput::IgnoreDesktopInput, as its message filter DropInput).
+		if (!platform::Platform().Input.IgnoreDesktopInput())
+			Input(*Event, false);
+		break;
 	default: break;
 	}
 	return true;
@@ -308,182 +340,449 @@ void OnClose()
 	DestroyWanted = true;
 }
 
-// Win32 until issue #123: the Windows cursors (MainFrm.cpp's), and the keys, buttons and wheel as window messages.
-HCURSOR HandCursor = nullptr;    // cursor resource 0x89 (mouse cursor 6)
-HCURSOR SizeCursor = nullptr;    // IDC_SIZENS (mouse cursor 2)
-HCURSOR WaitCursor = nullptr;    // IDC_WAIT (mouse cursor 3)
-HCURSOR ArrowCursor = nullptr;   // IDC_ARROW (mouse cursor 1)
-HCURSOR DefaultCursor = nullptr; // cursor resource 0x84 (the others)
+// Issue #123: the cursors (MainFrm.cpp's: CMainFrame's constructor loaded them, UpdateMouseCursor sets them) as SDL's.
+SDL_Cursor *HandCursor = nullptr;    // cursor resource 0x89 (mouse cursor 6)
+SDL_Cursor *SizeCursor = nullptr;    // IDC_SIZENS (mouse cursor 2)
+SDL_Cursor *WaitCursor = nullptr;    // IDC_WAIT (mouse cursor 3)
+SDL_Cursor *ArrowCursor = nullptr;   // IDC_ARROW (mouse cursor 1)
+SDL_Cursor *DefaultCursor = nullptr; // cursor resource 0x84 (the others)
+
+// LoadCursorA(GetModuleHandleA(nullptr), Id) as an SDL cursor: the group's image for the system's cursor size (as
+// LoadCursor picks it: LookupIconIdFromDirectoryEx), a monochrome RT_CURSOR resource, decoded (platform/CursorImage.h)
+// into SDL_CreateCursor's bitmaps (which make the colour cursor, SDL_CreateColorCursor, with Windows' inverted
+// pixels). Null where the resource is missing or not monochrome, as LoadCursor's null cursor.
+SDL_Cursor *LoadClientCursor(int Id)
+{
+	const HMODULE Module = GetModuleHandleA(nullptr);
+	HRSRC Group = FindResourceA(Module, MAKEINTRESOURCEA(Id), MAKEINTRESOURCEA(12)); // RT_GROUP_CURSOR
+	HGLOBAL GroupData = Group != nullptr ? LoadResource(Module, Group) : nullptr;
+	auto *Directory = GroupData != nullptr ? static_cast<PBYTE>(LockResource(GroupData)) : nullptr;
+	const int ImageId = Directory != nullptr ? LookupIconIdFromDirectoryEx(Directory, FALSE, 0, 0, LR_DEFAULTCOLOR) : 0;
+	HRSRC Image = ImageId != 0 ? FindResourceA(Module, MAKEINTRESOURCEA(ImageId), MAKEINTRESOURCEA(1)) : nullptr; // RT_CURSOR
+	HGLOBAL ImageData = Image != nullptr ? LoadResource(Module, Image) : nullptr;
+	const auto *Bytes = ImageData != nullptr ? static_cast<const std::uint8_t *>(LockResource(ImageData)) : nullptr;
+	if (Bytes == nullptr) {
+		log::Warn("cursor resource {} not found", Id);
+		return nullptr;
+	}
+	const std::optional<platform::TMonochromeCursor> Decoded =
+		platform::DecodeMonochromeCursor(std::span<const std::uint8_t>(Bytes, SizeofResource(Module, Image)));
+	if (!Decoded) {
+		log::Warn("cursor resource {} is not a monochrome cursor", Id);
+		return nullptr;
+	}
+	SDL_Cursor *Cursor = SDL_CreateCursor(Decoded->Data.data(), Decoded->Mask.data(), Decoded->Width, Decoded->Height,
+		Decoded->HotX, Decoded->HotY);
+	if (Cursor == nullptr)
+		log::Warn("SDL_CreateCursor of cursor resource {} failed: {}", Id, SDL_GetError());
+	return Cursor;
+}
 
 constexpr UINT_PTR InputSubclassId = 122;
 
-// CMainFrame::TranslateKey.
-int TranslateKey(UINT nChar, UINT nFlags)
+#if !defined(_WIN32)
+// SDL's scan code as one of the keys the client tells apart: the position on the keyboard, as Windows' scan code; the
+// virtual keys TranslateKey reads follow from it (the keypad's with NumLock: platform::PadNavigates).
+platform::TKey KeyOf(SDL_Scancode Code)
 {
-	const bool Extended = (nFlags & 0x100) == 0x100;
-	switch (nChar) {
-	case VK_SHIFT: return KEY_SHIFT;
-	case VK_CONTROL: return KEY_CONTROL;
-	case VK_MENU: return KEY_ALT;
-	case VK_PRIOR: return Extended ? 0x114 : 0x119;
-	case VK_NEXT: return Extended ? 0x115 : 0x117;
-	case VK_END: return Extended ? 0x113 : 0x116;
-	case VK_HOME: return Extended ? 0x112 : 0x118;
-	case VK_LEFT: return 0x10d;
-	case VK_UP: return 0x10c;
-	case VK_RIGHT: return 0x10e;
-	case VK_DOWN: return 0x10f;
-	case VK_INSERT: return 0x110;
-	case VK_DELETE: return 0x111;
-	default: break;
+	using platform::TKey;
+	if (Code >= SDL_SCANCODE_F1 && Code <= SDL_SCANCODE_F12)
+		return static_cast<TKey>(static_cast<int>(TKey::F1) + (Code - SDL_SCANCODE_F1));
+	switch (Code) {
+	case SDL_SCANCODE_LSHIFT:
+	case SDL_SCANCODE_RSHIFT: return TKey::Shift;
+	case SDL_SCANCODE_LCTRL:
+	case SDL_SCANCODE_RCTRL: return TKey::Control;
+	case SDL_SCANCODE_LALT:
+	case SDL_SCANCODE_RALT: return TKey::Alt;
+	case SDL_SCANCODE_PAGEUP: return TKey::PageUp;
+	case SDL_SCANCODE_PAGEDOWN: return TKey::PageDown;
+	case SDL_SCANCODE_END: return TKey::End;
+	case SDL_SCANCODE_HOME: return TKey::Home;
+	case SDL_SCANCODE_LEFT: return TKey::Left;
+	case SDL_SCANCODE_UP: return TKey::Up;
+	case SDL_SCANCODE_RIGHT: return TKey::Right;
+	case SDL_SCANCODE_DOWN: return TKey::Down;
+	case SDL_SCANCODE_INSERT: return TKey::Insert;
+	case SDL_SCANCODE_DELETE: return TKey::Delete;
+	case SDL_SCANCODE_KP_9: return TKey::PadPageUp;
+	case SDL_SCANCODE_KP_3: return TKey::PadPageDown;
+	case SDL_SCANCODE_KP_1: return TKey::PadEnd;
+	case SDL_SCANCODE_KP_7: return TKey::PadHome;
+	case SDL_SCANCODE_KP_4: return TKey::PadLeft;
+	case SDL_SCANCODE_KP_8: return TKey::PadUp;
+	case SDL_SCANCODE_KP_6: return TKey::PadRight;
+	case SDL_SCANCODE_KP_2: return TKey::PadDown;
+	case SDL_SCANCODE_KP_0: return TKey::PadInsert;
+	case SDL_SCANCODE_KP_PERIOD: return TKey::PadDelete;
+	case SDL_SCANCODE_RETURN: return TKey::Return;
+	case SDL_SCANCODE_KP_ENTER: return TKey::PadEnter;
+	case SDL_SCANCODE_ESCAPE: return TKey::Escape;
+	case SDL_SCANCODE_TAB: return TKey::Tab;
+	case SDL_SCANCODE_BACKSPACE: return TKey::Backspace;
+	default: return TKey::Other;
 	}
-	if (nChar >= VK_F1 && nChar <= VK_F12)
-		return static_cast<int>(nChar + 0x90);
-	if ((KeyFlags & KEY_ALT) != 0 && nChar == VK_RETURN)
-		return VK_RETURN;
-	return 0;
 }
 
-// CMainFrame::KeyDown: the modifiers remembered, Alt+F4 closes, the other translated keys go to KeyPress.
-void KeyDown(UINT nChar, UINT nFlags)
+// An SDL key event as the client's key: the key, its letter in the active layout (SDL's key code without modifiers:
+// with SDL's default "latin_letters" the Latin letter of a letter key in every layout, as Windows' virtual keys A-Z),
+// and SDL's modifier state at the key.
+platform::TKeyEvent DescribeKey(const SDL_KeyboardEvent &Key)
 {
-	const int Key = TranslateKey(nChar, nFlags);
-	if (Key == KEY_SHIFT) {
-		KeyFlags |= KEY_SHIFT;
-	} else if (Key == KEY_CONTROL) {
-		KeyFlags |= KEY_CONTROL;
-	} else if (Key == KEY_ALT) {
-		KeyFlags |= KEY_ALT;
-	} else if (Key == 0x103) {
-		if ((KeyFlags & KEY_ALT) != 0) {
-			OnClose();
-			return;
-		}
-	} else if (Key < 1) {
+	platform::TKeyEvent Event;
+	Event.Key = KeyOf(Key.scancode);
+	const SDL_Keycode Letter = SDL_GetKeyFromScancode(Key.scancode, SDL_KMOD_NONE, true);
+	if (Letter >= SDLK_A && Letter <= SDLK_Z)
+		Event.Letter = static_cast<char>('a' + (Letter - SDLK_A));
+	Event.NumLock = (Key.mod & SDL_KMOD_NUM) != 0;
+	Event.Shift = (Key.mod & SDL_KMOD_SHIFT) != 0;
+	Event.Control = (Key.mod & SDL_KMOD_CTRL) != 0;
+	Event.Alt = (Key.mod & SDL_KMOD_ALT) != 0;
+	return Event;
+}
+#endif
+
+// CMainFrame::OnChar: a character of the client's code page.
+void OnChar(unsigned int Char)
+{
+	const int Code = Keys.Character(Char);
+	if (Code >= 0)
+		KeyPress(Code);
+}
+
+// Whether a key down makes its control character here (platform::KeyCharacter): where SDL's text input is the only
+// source of characters, which delivers printable characters only. Not on Windows: there the window's WM_CHAR stays the
+// characters' source (OnWindowChar below), control characters included.
+#if defined(_WIN32)
+constexpr bool KeysMakeCharacters = false;
+#else
+constexpr bool KeysMakeCharacters = true;
+#endif
+
+// CMainFrame::KeyDown with its key's character: a modifier remembered, Alt+F4 closes, the other translated keys go to
+// KeyPress; then, where keys make their characters (KeysMakeCharacters), the control character TranslateMessage made
+// of the key (WM_CHAR right after the WM_KEYDOWN). A scripted key's characters are the script's own events.
+void KeyDown(const platform::TKeyEvent &Key, bool Scripted)
+{
+	const platform::TKeyAction Action = Keys.Down(Key);
+	if (Action.Kind == platform::TKeyAction::TKind::Close) {
+		OnClose();
 		return;
 	}
-	KeyPress(KeyFlags | Key);
+	if (Action.Kind == platform::TKeyAction::TKind::Press)
+		KeyPress(Action.Code);
+	if (KeysMakeCharacters && !Scripted) {
+		const int Char = platform::KeyCharacter(Key);
+		if (Char >= 0)
+			OnChar(static_cast<unsigned int>(Char));
+	}
 }
 
-// CMainFrame::KeyUp.
-void KeyUp(UINT nChar, UINT nFlags)
+#if !defined(_WIN32)
+// SDL_EVENT_KEY_DOWN and SDL_EVENT_KEY_UP, where SDL's key events are the keys' source (not on Windows: OnKeyMessage).
+// SDL's repeats are the platform's repeated presses.
+void OnKey(const SDL_KeyboardEvent &Event, bool Scripted)
 {
-	const int Key = TranslateKey(nChar, nFlags);
-	if (Key == KEY_SHIFT)
-		KeyFlags &= ~KEY_SHIFT;
-	else if (Key == KEY_CONTROL)
-		KeyFlags &= ~KEY_CONTROL;
-	else if (Key == KEY_ALT)
-		KeyFlags &= ~KEY_ALT;
+	const platform::TKeyEvent Key = DescribeKey(Event);
+	if (Event.down)
+		KeyDown(Key, Scripted);
+	else
+		Keys.Up(Key);
+}
+#endif
+
+// Win32 until the Linux client: the key messages (WM_KEYDOWN, WM_SYSKEYDOWN, WM_KEYUP, WM_SYSKEYUP), as CMainFrame's
+// KeyDown and KeyUp got them: the virtual key with lParam's extended flag, as TranslateKey read them, through the same
+// rules (platform/KeyInput.h). SDL's key events would differ from the messages: SDL keeps its own key state and makes or
+// drops key events from it (its pump releases a Shift or Windows key that Windows' keyboard state does not hold, such as
+// one posted by another program, and then drops that key's WM_KEYUP; a key down of a key it holds is a repeat; it drops
+// AltGr's left Control, which the original counted). So on Windows SDL never sees the key messages, as the MFC frame's
+// DefWindowProc never did (no menu from Alt or F10).
+platform::TKeyEvent KeyOfMessage(WPARAM VirtualKey, LPARAM LParam)
+{
+	using platform::TKey;
+	const bool Extended = ((static_cast<std::uint32_t>(LParam) >> 24) & 1U) != 0;
+	platform::TKeyEvent Key; // NumLock off: the keypad's keys come here only as the navigation keys Windows made them
+	switch (VirtualKey) {
+	case VK_SHIFT: Key.Key = TKey::Shift; break;
+	case VK_CONTROL: Key.Key = TKey::Control; break;
+	case VK_MENU: Key.Key = TKey::Alt; break;
+	case VK_PRIOR: Key.Key = Extended ? TKey::PageUp : TKey::PadPageUp; break;
+	case VK_NEXT: Key.Key = Extended ? TKey::PageDown : TKey::PadPageDown; break;
+	case VK_END: Key.Key = Extended ? TKey::End : TKey::PadEnd; break;
+	case VK_HOME: Key.Key = Extended ? TKey::Home : TKey::PadHome; break;
+	case VK_LEFT: Key.Key = TKey::Left; break;
+	case VK_UP: Key.Key = TKey::Up; break;
+	case VK_RIGHT: Key.Key = TKey::Right; break;
+	case VK_DOWN: Key.Key = TKey::Down; break;
+	case VK_INSERT: Key.Key = TKey::Insert; break;
+	case VK_DELETE: Key.Key = TKey::Delete; break;
+	case VK_RETURN: Key.Key = TKey::Return; break;
+	default:
+		if (VirtualKey >= VK_F1 && VirtualKey <= VK_F12)
+			Key.Key = static_cast<TKey>(static_cast<int>(TKey::F1) + static_cast<int>(VirtualKey - VK_F1));
+		break;
+	}
+	return Key;
 }
 
-// CMainFrame::OnChar: characters up to 255; with Control (and not Alt) 1-26 become 'a'-'z'.
-void OnChar(UINT nChar)
+void OnKeyMessage(UINT Message, WPARAM WParam, LPARAM LParam)
 {
-	if ((KeyFlags & KEY_CONTROL) != 0 && (KeyFlags & KEY_ALT) == 0) {
-		if (nChar == 0 || nChar > 26)
-			return;
-		nChar += 0x60;
-	} else if (nChar > 255) {
+	const platform::TKeyEvent Key = KeyOfMessage(WParam, LParam);
+	if (Message == WM_KEYDOWN || Message == WM_SYSKEYDOWN)
+		KeyDown(Key, false);
+	else
+		Keys.Up(Key);
+}
+
+// SDL_EVENT_TEXT_INPUT: the characters of the typed text (WM_CHAR, which an ANSI window got in the code page), each
+// converted to the client's Windows-1252 (issue #112; a character it does not have is '?', as Windows' conversion for
+// the ANSI window made it on this code page).
+void OnText(const char *Text)
+{
+	if (Text == nullptr)
+		return;
+	for (const char Byte : text::Utf8ToCp1252(Text))
+		OnChar(static_cast<unsigned char>(Byte));
+}
+
+// Win32 until the Linux client: the window's WM_CHAR (a UTF-16 unit: SDL's window is a Unicode window; a surrogate pair
+// comes as two), as CMainFrame::OnChar got it, converted to the client's Windows-1252 (issue #112) and handed to OnChar.
+// SDL's text events would differ from the original's WM_CHAR: SDL delivers text only to the window with the keyboard
+// focus and drops every text that starts with a control character, but the original handled every WM_CHAR its window
+// got, focused or not, posted by another program or made by TranslateMessage (Return, Tab, Ctrl+letter ...). So on
+// Windows SDL never sees WM_CHAR; its text events still bring the IME's results (SDL takes those from
+// WM_IME_COMPOSITION itself) and the test mode's scripted characters (OnText).
+char16_t HighSurrogate = 0;
+
+void OnWindowChar(WPARAM WParam)
+{
+	const auto Unit = static_cast<char16_t>(WParam & 0xffff);
+	if (Unit >= 0xd800 && Unit <= 0xdbff) {
+		HighSurrogate = Unit;
 		return;
 	}
-	KeyPress(KeyFlags | static_cast<int>(nChar));
+	std::u16string Text;
+	if (HighSurrogate != 0 && Unit >= 0xdc00 && Unit <= 0xdfff)
+		Text.push_back(HighSurrogate);
+	HighSurrogate = 0;
+	Text.push_back(Unit);
+	for (const char Byte : text::Utf16ToCp1252(Text))
+		OnChar(static_cast<unsigned char>(Byte));
 }
 
-// The button handlers of CMainFrame: in fullscreen mode the points are screen points; the first button down takes the
-// mouse, the last one up releases it.
-POINT MessagePoint(HWND Hwnd, LPARAM LParam)
+bool InsideClient(float X, float Y)
 {
-	POINT Point = {static_cast<short>(LOWORD(LParam)), static_cast<short>(HIWORD(LParam))};
-	if (GetViewMode() == 2)
-		::ClientToScreen(Hwnd, &Point);
-	return Point;
+	int Width = 0;
+	int Height = 0;
+	SDL_GetWindowSize(Window, &Width, &Height);
+	return X >= 0.0F && Y >= 0.0F && X < static_cast<float>(Width) && Y < static_cast<float>(Height);
 }
 
-void ButtonDown(HWND Hwnd, LPARAM LParam, bool Left, bool Double)
+// CMainFrame::OnSetCursor's moment: Windows sends WM_SETCURSOR as the mouse moves or a button goes down over the
+// window, when no window has the capture; in the client area (always in fullscreen mode) the client sets its cursor.
+// SDL sets the cursor UpdateMouseCursor chose at each WM_SETCURSOR itself; this keeps the original's updates in between
+// (a change of the client's cursor or of its Windows-pointer option, read again at the next move).
+void OnSetCursor(float X, float Y)
 {
-	const POINT Point = MessagePoint(Hwnd, LParam);
+	if (LeftButtonPressed || RightButtonPressed)
+		return;
+	if (GetViewMode() != 2 && !InsideClient(X, Y))
+		return;
+	UpdateMouseCursor();
+}
+
+// The mouse capture (SetCapture, ReleaseCapture): SDL_CaptureMouse. SDL refuses it while no window of the process has
+// the keyboard focus, and takes none while the mouse is not over the window as SDL saw it, where SetCapture took it (a
+// click posted to the window by another program, or one in the test mode); on Windows the capture is then
+// SetCapture's, as the original's, and released with ReleaseCapture.
+bool Win32Capture = false;
+
+void TakeCapture()
+{
+	if (SDL_CaptureMouse(true) && (SDL_GetWindowFlags(Window) & SDL_WINDOW_MOUSE_CAPTURE) != 0)
+		return;
+#if defined(_WIN32)
+	::SetCapture(WindowHandle);
+	Win32Capture = true;
+#endif
+}
+
+void FreeCapture()
+{
+	SDL_CaptureMouse(false);
+#if defined(_WIN32)
+	if (Win32Capture) {
+		Win32Capture = false;
+		::ReleaseCapture();
+	}
+#endif
+}
+
+// The button handlers of CMainFrame: the first button down takes the mouse, the last one up releases it. A left double
+// click is LeftButtonDoubleClick; a right double click is a click (OnRButtonDblClk).
+void ButtonDown(const POINT &Point, bool Left, bool Double)
+{
 	if (Left) {
 		if (Double)
-			LeftButtonDoubleClick(Point.x, Point.y, KeyFlags);
+			LeftButtonDoubleClick(Point.x, Point.y, Keys.Flags());
 		else
-			LeftButtonDown(Point.x, Point.y, KeyFlags);
+			LeftButtonDown(Point.x, Point.y, Keys.Flags());
 		LeftButtonPressed = true;
 		if (!RightButtonPressed)
-			::SetCapture(Hwnd);
+			TakeCapture();
 	} else {
-		RightButtonDown(Point.x, Point.y, KeyFlags); // a right double click is a click (OnRButtonDblClk)
+		RightButtonDown(Point.x, Point.y, Keys.Flags());
 		RightButtonPressed = true;
 		if (!LeftButtonPressed)
-			::SetCapture(Hwnd);
+			TakeCapture();
 	}
 }
 
-void ButtonUp(HWND Hwnd, LPARAM LParam, bool Left)
+void ButtonUp(const POINT &Point, bool Left)
 {
 	if (Left) {
 		if (LeftButtonPressed) {
-			const POINT Point = MessagePoint(Hwnd, LParam);
-			LeftButtonUp(Point.x, Point.y, KeyFlags);
+			LeftButtonUp(Point.x, Point.y, Keys.Flags());
 			LeftButtonPressed = false;
 			if (!RightButtonPressed)
-				::ReleaseCapture();
+				FreeCapture();
 		}
 	} else if (RightButtonPressed) {
-		const POINT Point = MessagePoint(Hwnd, LParam);
-		RightButtonUp(Point.x, Point.y, KeyFlags);
+		RightButtonUp(Point.x, Point.y, Keys.Flags());
 		RightButtonPressed = false;
 		if (!LeftButtonPressed)
-			::ReleaseCapture();
+			FreeCapture();
 	}
 }
 
-// CMainFrame::OnCaptureChanged: another window took the mouse; the held buttons are released at the cursor.
-void OnCaptureChanged(HWND Hwnd)
+#if !defined(_WIN32)
+// The window's point of a mouse event (window coordinates; negative or past the size while the mouse is captured): in
+// fullscreen mode a screen point (ClientToScreen), as the button handlers of CMainFrame passed them.
+POINT EventPoint(float X, float Y)
+{
+	int x = static_cast<int>(std::floor(X));
+	int y = static_cast<int>(std::floor(Y));
+	if (GetViewMode() == 2)
+		ClientToScreen(x, y);
+	return POINT{x, y};
+}
+
+// SDL_EVENT_MOUSE_BUTTON_DOWN and _UP, where SDL's button events are the buttons' source (not on Windows: OnButtonMessage
+// below). The point is SDL's mouse position at the button (its last motion's). Whether a press is a double click:
+// Windows' rule over SDL's click counts (platform::TClickCounter; every button's presses count, as every button's
+// messages reset Windows' double click); a scripted press is the script's. The middle and side buttons have no
+// handler, as in the original.
+void OnButton(const SDL_MouseButtonEvent &Event, bool Scripted)
+{
+	if (Event.down) {
+		const bool Double = Scripted ? Event.clicks >= 2 : Clicks.IsDouble(Event.button, Event.clicks);
+		if (Event.button != SDL_BUTTON_LEFT && Event.button != SDL_BUTTON_RIGHT)
+			return;
+		if (!Scripted)
+			OnSetCursor(Event.x, Event.y);
+		ButtonDown(EventPoint(Event.x, Event.y), Event.button == SDL_BUTTON_LEFT, Double);
+	} else if (Event.button == SDL_BUTTON_LEFT || Event.button == SDL_BUTTON_RIGHT) {
+		ButtonUp(EventPoint(Event.x, Event.y), Event.button == SDL_BUTTON_LEFT);
+	}
+}
+#endif
+
+// Win32 until the Linux client: the button messages, as CMainFrame's handlers got them (OnLButtonDown, OnLButtonDblClk,
+// OnLButtonUp, OnRButtonDown, OnRButtonDblClk, OnRButtonUp), after SDL's window procedure has seen them (their
+// Default()). SDL's button events would differ from the original's messages: their point is SDL's last mouse position,
+// not the message's (a click posted by another program comes without the cursor there: SDL had the real cursor's
+// place, clamped to the window), their double clicks SDL's own count over its clock, not the message Windows made
+// (WM_LBUTTONDBLCLK), and SDL makes or drops presses from the message's MK_ flags against its own button state. So on
+// Windows SDL's button events are not used, and each button message is the press or release it says, at its point
+// (in fullscreen mode a screen point).
+void OnButtonMessage(UINT Message, LPARAM LParam)
+{
+	int x = static_cast<short>(LOWORD(LParam));
+	int y = static_cast<short>(HIWORD(LParam));
+	if (GetViewMode() == 2)
+		ClientToScreen(x, y);
+	const POINT Point{x, y};
+	switch (Message) {
+	case WM_LBUTTONDOWN: ButtonDown(Point, true, false); break;
+	case WM_LBUTTONDBLCLK: ButtonDown(Point, true, true); break;
+	case WM_RBUTTONDOWN:
+	case WM_RBUTTONDBLCLK: ButtonDown(Point, false, false); break;
+	case WM_LBUTTONUP: ButtonUp(Point, true); break;
+	case WM_RBUTTONUP: ButtonUp(Point, false); break;
+	default: break;
+	}
+}
+
+// CMainFrame::OnMouseWheel: one MouseWheel call per notch (WM_MOUSEWHEEL's 120; SDL's wheel distance is notches) at
+// the client's mouse position. The horizontal wheel has no handler.
+void OnWheel(const SDL_MouseWheelEvent &Event)
+{
+	float Distance = Event.y * 120.0F;
+	if (Event.direction == SDL_MOUSEWHEEL_FLIPPED)
+		Distance = -Distance;
+	const int Notches = Wheel.Notches(static_cast<int>(std::lround(Distance)));
+	for (int i = 0; i < std::abs(Notches); i++) {
+		// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
+		const int MouseY = GetMouseY();
+		MouseWheel(GetMouseX(), MouseY, Notches > 0 ? 1 : 2);
+	}
+}
+
+// Every input event of the window (the event watch's and the test mode's scripted ones), once the client has its
+// window (InitMainWindow).
+void Input(const SDL_Event &Event, bool Scripted)
+{
+	if (!Created)
+		return;
+	switch (Event.type) {
+	case SDL_EVENT_KEY_DOWN:
+	case SDL_EVENT_KEY_UP:
+#if !defined(_WIN32)
+		OnKey(Event.key, Scripted); // on Windows the key messages (OnKeyMessage)
+#endif
+		break;
+	case SDL_EVENT_TEXT_INPUT: OnText(Event.text.text); break;
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_EVENT_MOUSE_BUTTON_UP:
+#if !defined(_WIN32)
+		OnButton(Event.button, Scripted); // on Windows the button messages (OnButtonMessage)
+#endif
+		break;
+	case SDL_EVENT_MOUSE_WHEEL: OnWheel(Event.wheel); break;
+	case SDL_EVENT_MOUSE_MOTION:
+		if (!Scripted)
+			OnSetCursor(Event.motion.x, Event.motion.y);
+		break;
+	default: break;
+	}
+}
+
+// CMainFrame::OnCaptureChanged: another window took the mouse; the held buttons are released at the cursor. SDL has no
+// event for a lost capture, so on Windows it is still the window's WM_CAPTURECHANGED (the subclass below), which comes
+// also when the client releases the capture itself, after it has cleared its button flags (nothing to do then).
+// SDL's capture state is then set free too (FreeCapture), so that the next press takes the mouse again.
+void OnCaptureChanged()
 {
 	if (platform::Platform().Input.IgnoreCaptureChange())
 		return;
 	POINT Point;
 	platform::ReadCursorPosition(platform::Platform().Input, Point); // GetCursorPos (issue #119)
-	if (GetViewMode() == 1)
-		::ScreenToClient(Hwnd, &Point);
+	if (GetViewMode() == 1) {
+		int x = Point.x;
+		int y = Point.y;
+		ScreenToClient(x, y);
+		Point = POINT{x, y};
+	}
 	if (LeftButtonPressed) {
-		LeftButtonUp(Point.x, Point.y, KeyFlags);
+		LeftButtonUp(Point.x, Point.y, Keys.Flags());
 		LeftButtonPressed = false;
 	}
 	if (RightButtonPressed) {
-		RightButtonUp(Point.x, Point.y, KeyFlags);
+		RightButtonUp(Point.x, Point.y, Keys.Flags());
 		RightButtonPressed = false;
 	}
-}
-
-// CMainFrame::OnMouseWheel: one MouseWheel call per notch (120) at the client's mouse position.
-void OnMouseWheel(short zDelta)
-{
-	const int Delta = WheelDelta + zDelta;
-	WheelDelta = Delta % 120;
-	for (int i = 0; i < std::abs(Delta / 120); i++) {
-		// The original's order: a call's arguments right to left (MSVC; GCC and Clang may differ, issue #91).
-		const int MouseY = GetMouseY();
-		MouseWheel(GetMouseX(), MouseY, Delta > 0 ? 1 : 2);
-	}
-}
-
-// CMainFrame::OnSetCursor: outside the client area Windows sets the cursor.
-bool OnSetCursor(HWND Hwnd)
-{
-	if (GetViewMode() != 2) {
-		RECT Client;
-		::GetClientRect(Hwnd, &Client);
-		::ClientToScreen(Hwnd, reinterpret_cast<POINT *>(&Client.left));
-		::ClientToScreen(Hwnd, reinterpret_cast<POINT *>(&Client.right));
-		POINT Cursor;
-		platform::ReadCursorPosition(platform::Platform().Input, Cursor); // GetCursorPos (issue #119)
-		if (!PtInRect(&Client, Cursor))
-			return false;
-	}
-	UpdateMouseCursor();
-	return true;
+	FreeCapture();
 }
 
 // CMainFrame::OnHostResolved (the socket's message until issue #125): WSAAsyncGetHostByName finished.
@@ -510,49 +809,40 @@ void OnHostResolved(LPARAM LParam)
 	ConnectToLoginServer();
 }
 
-// The SDL window's subclass: the messages CMainFrame's message map handled as input go to its handlers; Default()
-// there is DefWindowProc (the MFC frame's window procedure's default), so SDL never sees the keys, the buttons or the
-// wheel (no SDL key or mouse events, no SDL mouse capture). The keyboard and mouse messages the frame had no handler
-// for go to DefWindowProc too, as the frame's. Everything else is SDL's.
+// The SDL window's subclass, for what SDL3 has no event for or gives otherwise: the loss of the mouse capture
+// (WM_CAPTURECHANGED, then SDL's own handling of it), the typed characters (WM_CHAR, OnWindowChar), the mouse buttons
+// (OnButtonMessage), the keys (OnKeyMessage), the test mode's main timer ticks (WM_TIMER 1: with a script the driver dispatches them), the host
+// lookup's message (WM_USER + 1, the socket until issue #125) and the fullscreen window's hit test. The wheel, the
+// cursors, the capture, the window's coordinates and the IME's text are SDL's (issue #123).
 LRESULT CALLBACK InputProc(HWND Hwnd, UINT Message, WPARAM WParam, LPARAM LParam, [[maybe_unused]] UINT_PTR Id,
 	[[maybe_unused]] DWORD_PTR Data)
 {
 	switch (Message) {
+	case WM_CAPTURECHANGED: OnCaptureChanged(); break;
 	case WM_KEYDOWN:
 	case WM_SYSKEYDOWN:
-		KeyDown(static_cast<UINT>(WParam), HIWORD(LParam));
-		return 0;
 	case WM_KEYUP:
 	case WM_SYSKEYUP:
-		KeyUp(static_cast<UINT>(WParam), HIWORD(LParam));
+		if (Created)
+			OnKeyMessage(Message, WParam, LParam);
 		return 0;
 	case WM_CHAR:
-		::DefWindowProcA(Hwnd, Message, WParam, LParam);
-		OnChar(static_cast<UINT>(WParam));
+		// CMainFrame::OnChar called Default() first (DefWindowProc: nothing for WM_CHAR).
+		::DefWindowProcW(Hwnd, Message, WParam, LParam);
+		if (Created)
+			OnWindowChar(WParam);
 		return 0;
 	case WM_LBUTTONDOWN:
 	case WM_LBUTTONDBLCLK:
+	case WM_LBUTTONUP:
 	case WM_RBUTTONDOWN:
 	case WM_RBUTTONDBLCLK:
-		::DefWindowProcA(Hwnd, Message, WParam, LParam);
-		ButtonDown(Hwnd, LParam, Message == WM_LBUTTONDOWN || Message == WM_LBUTTONDBLCLK, Message == WM_LBUTTONDBLCLK);
-		return 0;
-	case WM_LBUTTONUP:
-	case WM_RBUTTONUP:
-		::DefWindowProcA(Hwnd, Message, WParam, LParam);
-		ButtonUp(Hwnd, LParam, Message == WM_LBUTTONUP);
-		return 0;
-	case WM_MOUSEWHEEL:
-		::DefWindowProcA(Hwnd, Message, WParam, LParam);
-		OnMouseWheel(static_cast<short>(HIWORD(WParam)));
-		return TRUE;
-	case WM_CAPTURECHANGED:
-		OnCaptureChanged(Hwnd);
-		return ::DefWindowProcA(Hwnd, Message, WParam, LParam);
-	case WM_SETCURSOR:
-		if (OnSetCursor(Hwnd))
-			return TRUE;
-		return ::DefWindowProcA(Hwnd, Message, WParam, LParam);
+	case WM_RBUTTONUP: {
+		const LRESULT Result = DefSubclassProc(Hwnd, Message, WParam, LParam); // SDL's (its button events unused)
+		if (Created)
+			OnButtonMessage(Message, LParam);
+		return Result;
+	}
 	case WM_TIMER:
 		// CMainFrame::OnTimer: the test mode's ticks (with a script the driver dispatches WM_TIMER 1); the loop's own
 		// timer does not use WM_TIMER.
@@ -567,10 +857,7 @@ LRESULT CALLBACK InputProc(HWND Hwnd, UINT Message, WPARAM WParam, LPARAM LParam
 			return HTCLIENT;
 		break;
 	case WM_NCDESTROY: RemoveWindowSubclass(Hwnd, InputProc, InputSubclassId); break;
-	default:
-		if ((Message >= WM_KEYFIRST && Message <= WM_KEYLAST) || (Message >= WM_MOUSEFIRST && Message <= WM_MOUSELAST))
-			return ::DefWindowProcA(Hwnd, Message, WParam, LParam);
-		break;
+	default: break;
 	}
 	return DefSubclassProc(Hwnd, Message, WParam, LParam);
 }
@@ -615,8 +902,11 @@ void DestroyFrame()
 	SetWindowedMode(Placement.Left, Placement.Top, Placement.Right - Placement.Left, Placement.Bottom - Placement.Top,
 		IsMaximized());
 	platform::Platform().Input.StopTimer(WindowHandle, 1); // KillTimer (issue #119; the loop's timer, #122)
-	DestroyCursor(DefaultCursor);
-	DestroyCursor(HandCursor);
+	// The cursors (OnDestroy destroyed the two of the client's resources; issue #123: all five are SDL's).
+	for (SDL_Cursor **Cursor : {&DefaultCursor, &HandCursor, &ArrowCursor, &SizeCursor, &WaitCursor}) {
+		SDL_DestroyCursor(*Cursor);
+		*Cursor = nullptr;
+	}
 	Created = false;
 	SDL_DestroyWindow(Window);
 	Window = nullptr;
@@ -635,9 +925,15 @@ bool Create(bool Gamemaster, const char *Title, const char *ClassName)
 	// (resource 128, which InitInstance gave the MFC frame's class and WM_SETICON); a fullscreen window is not
 	// minimized when it loses the focus (the client leaves fullscreen mode instead, OnActivateApp); Alt+F4 is the
 	// client's key (KeyDown).
+	// Issue #123, the input as Windows gave it to the MFC frame: the click that activates the window is a click
+	// (Windows' WM_MOUSEACTIVATE default; SDL would drop it from its own button state); the system menu's keys (Alt+Space: WM_SYSCHAR, SC_KEYMENU) work, as DefWindowProc gave them; the frame keeps
+	// Windows' cursors while the client's is hidden.
 	SDL_SetHint(SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP, "0");
 	SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "unaware");
 	SDL_SetHint(SDL_HINT_MOUSE_AUTO_CAPTURE, "0");
+	SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
+	SDL_SetHint(SDL_HINT_WINDOWS_ENABLE_MENU_MNEMONICS, "1");
+	SDL_SetHint(SDL_HINT_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN, "1");
 	SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON, "128");
 	SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON_SMALL, "128");
 	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
@@ -661,13 +957,15 @@ bool Create(bool Gamemaster, const char *Title, const char *ClassName)
 	SDL_AddEventWatch(WatchEvent, nullptr);
 
 	// CMainFrame's constructor.
-	KeyFlags = 0;
+	Keys.Reset();
 	memset(patella::bridge::Network().PacketHeader.data(), 0, sizeof(patella::bridge::Network().PacketHeader));
-	ArrowCursor = LoadCursorA(nullptr, IDC_ARROW);
-	SizeCursor = LoadCursorA(nullptr, IDC_SIZENS);
-	WaitCursor = LoadCursorA(nullptr, IDC_WAIT);
-	DefaultCursor = LoadCursorA(GetModuleHandleA(nullptr), MAKEINTRESOURCEA(0x84));
-	HandCursor = LoadCursorA(GetModuleHandleA(nullptr), MAKEINTRESOURCEA(0x89));
+	// The cursors (issue #123: SDL's system cursors for IDC_ARROW, IDC_SIZENS and IDC_WAIT, which SDL loads as those on
+	// Windows; the client's two from its resources, LoadClientCursor).
+	ArrowCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
+	SizeCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
+	WaitCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+	DefaultCursor = LoadClientCursor(0x84);
+	HandCursor = LoadClientCursor(0x89);
 	SetWindowedMode(-1, -1, 0, 0, false);
 	InitControl(Gamemaster);
 	SetViewMode(1);
@@ -691,6 +989,10 @@ bool Create(bool Gamemaster, const char *Title, const char *ClassName)
 	SetFrameStyle(0, WS_EX_CLIENTEDGE); // CFrameWnd::PreCreateWindow's
 	// OnGetMinMaxInfo: the client area at least 550x450.
 	SDL_SetWindowMinimumSize(Window, 550, 450);
+	// Issue #123: the typed characters as SDL_EVENT_TEXT_INPUT (WM_CHAR, the IME's results, dead keys combined), for as
+	// long as the window lives.
+	if (!SDL_StartTextInput(Window))
+		log::Warn("SDL_StartTextInput failed: {}", SDL_GetError());
 
 	// CMainFrame::OnCreate.
 	int ClientWidth = 0;
@@ -820,14 +1122,13 @@ void OpenURL(const char *URL)
 	ShellExecuteA(nullptr, nullptr, URL, nullptr, nullptr, SW_SHOWNORMAL);
 }
 
-// MainFrm.cpp's UpdateMouseCursor: the Windows cursor for the client's mouse cursor (Status.cpp), or none when the
-// client draws its own. Win32 until issue #123 (SDL_CreateColorCursor).
+// MainFrm.cpp's UpdateMouseCursor: the cursor for the client's mouse cursor (Status.cpp), or none when the client
+// draws its own (SetCursor(NULL): SDL_HideCursor). Issue #123: SDL's cursors, which SDL sets in the client area (its
+// WM_SETCURSOR); a cursor that could not be made is none, as SetCursor of LoadCursor's null cursor.
 void UpdateMouseCursor()
 {
-	HCURSOR Cursor;
-	if (!GetWindowsMousepointer()) {
-		Cursor = nullptr;
-	} else {
+	SDL_Cursor *Cursor = nullptr;
+	if (GetWindowsMousepointer()) {
 		Cursor = DefaultCursor;
 		switch (GetMouseCursor()) {
 		case 1: Cursor = ArrowCursor; break;
@@ -839,7 +1140,39 @@ void UpdateMouseCursor()
 		default: return;
 		}
 	}
-	SetCursor(Cursor);
+	if (Cursor == nullptr) {
+		SDL_HideCursor();
+		return;
+	}
+	SDL_SetCursor(Cursor);
+	SDL_ShowCursor();
+}
+
+void ScreenToClient(int &X, int &Y)
+{
+	if (Window == nullptr)
+		return;
+	int Left = 0;
+	int Top = 0;
+	SDL_GetWindowPosition(Window, &Left, &Top);
+	X -= Left;
+	Y -= Top;
+}
+
+void ClientToScreen(int &X, int &Y)
+{
+	if (Window == nullptr)
+		return;
+	int Left = 0;
+	int Top = 0;
+	SDL_GetWindowPosition(Window, &Left, &Top);
+	X += Left;
+	Y += Top;
+}
+
+void ScriptedInput(const SDL_Event &Event)
+{
+	Input(Event, true);
 }
 
 } // namespace patella::sdlframe

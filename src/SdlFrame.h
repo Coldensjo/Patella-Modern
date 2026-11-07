@@ -6,9 +6,11 @@
 // instead of SetTimer). Player.cpp's CPlayerApp uses it when platform/WindowChoice.h's UseSdlWindow() holds (the
 // default; PATELLA_WINDOW=mfc keeps MFC's until issue #127). The window is SDL_CreateWindow's; on Windows its HWND is
 // the client's window handle (the Vulkan engine's main window, TGUI's and TNetwork's window; the engine's surfaces are
-// SDL_Vulkan_CreateSurface's since #126), and its keys, buttons and wheel still come as Win32 window messages (a subclass of the
-// SDL window, the handlers of MainFrm.cpp's message map), so that the test mode's scripted messages reach it as they
-// reach the MFC frame: SDL3's input is issue #123.
+// SDL_Vulkan_CreateSurface's since #126). Its input (issue #123): the wheel, motion and IME text events, the mouse
+// capture (SDL_CaptureMouse), the cursors and the window's coordinates are SDL3's; on Windows the keys, the characters
+// and the buttons stay the window's messages, because SDL's events differ from them (notes/decisions.md, "#123").
+// Either way platform/KeyInput.h has the client's rules. The test mode's scripted wheel becomes the same SDL event
+// (testmode/SdlInputWin32.cpp, through ScriptedInput); its other messages are dispatched to the window.
 //
 // No SDL header here: Player.cpp includes it, and the golden tests compile Player.cpp (their stubs stand in for these
 // functions, tests/golden/client_stubs.cpp).
@@ -16,6 +18,8 @@
 #pragma once
 
 #include "platform/Window.h"
+
+union SDL_Event; // SDL3's (SDL_events.h)
 
 namespace patella::sdlframe {
 
@@ -41,5 +45,14 @@ void ExitProgram();
 void SetDisplayMode(int ViewMode);
 void OpenURL(const char *URL);
 void UpdateMouseCursor();
+
+// Issue #123: the window's coordinates. ScreenToClient and ClientToScreen with the client area's place on the screen as
+// SDL knows it (SDL_GetWindowPosition, the client area's top left corner); nothing without a window.
+void ScreenToClient(int &X, int &Y);
+void ClientToScreen(int &X, int &Y);
+// The test mode's scripted input (testmode/SdlInputWin32.cpp): an SDL event made from a script's window message (on
+// Windows the wheel), handled as the desktop's events are, except that a key makes no character (the script's WM_CHAR
+// is its character) and a button's click count is the message's (1, or 2 for a double click).
+void ScriptedInput(const SDL_Event &Event);
 
 } // namespace patella::sdlframe

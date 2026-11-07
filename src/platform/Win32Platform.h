@@ -76,11 +76,13 @@ public:
 	void StopTimer(TWindowHandle Window, unsigned int Id) override;
 	void BeginIdle() override {}
 	[[nodiscard]] bool IgnoreCaptureChange() override { return false; }
+	[[nodiscard]] bool IgnoreDesktopInput() override { return false; }
 };
 
 // The SDL3 window's input (issue #122; SdlFrame.cpp): the main timer is the loop's (TLoopTimer: SdlFrame.cpp's loop
-// asks TimerDue and calls TimerEvent, where the MFC frame got WM_TIMER from SetTimer); the cursor and the rest are
-// Win32's until SDL3's input (issue #123). The timer's Id is not kept: the client has one timer (1).
+// asks TimerDue and calls TimerEvent, where the MFC frame got WM_TIMER from SetTimer); the cursor is Win32's GetCursorPos
+// until issue #127 (issue #123: the original's last position where Windows cannot read it, which SDL would not keep). The timer's
+// Id is not kept: the client has one timer (1).
 class TSdlLoopInput final : public IInput {
 public:
 	bool CursorPosition(TPoint &Point) override;
@@ -88,6 +90,7 @@ public:
 	void StopTimer(TWindowHandle Window, unsigned int Id) override;
 	void BeginIdle() override {}
 	[[nodiscard]] bool IgnoreCaptureChange() override { return false; }
+	[[nodiscard]] bool IgnoreDesktopInput() override { return false; }
 	// One tick of the main timer when it is due at Now (the platform clock's milliseconds).
 	[[nodiscard]] bool TimerDue(std::uint32_t Now) { return Timer.Due(Now); }
 
