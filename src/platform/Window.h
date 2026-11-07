@@ -3,14 +3,15 @@
 //
 // What the client asks of the desktop besides its own window's messages: the message boxes (Player.cpp FatalError,
 // the start's two), the other top-level windows (InitInstance's count of the Tibia clients, CountTibiaWindows) and
-// the display's modes (the Graphics Options dialog's list, vulkan/SurfaceVulkan.cpp GetFullscreenModes). Each goes
+// the display's modes (the Graphics Options dialog's list, vulkan/SurfaceVulkan.cpp GetFullscreenModes; the desktop's
+// own, CreateSurfaces' depth check, issue #138). Each goes
 // through the process's IWindow (platform/Platform.h):
 //
 //	TWin32Window     MessageBoxA, EnumWindows with GetWindowTextA and GetClassNameA, EnumDisplaySettingsA
 //	                 (platform/Win32Platform.h): Patella.exe's and the golden runner's
 //	TTestWindow      the test mode's (testmode/TestModeWin32.cpp): with a script a box is not shown (messages.txt);
 //	                 only the process's own windows are visited (issue #96); with --test-display-modes the file's
-//	                 modes (issue #48); the rest Win32's
+//	                 modes (issue #48); the rest Win32's (the desktop's mode too: the machine's)
 //
 // The frame window itself (MainFrm.cpp's CMainFrame, MFC) is the Win32 side's, as the application (Player.cpp's
 // CPlayerApp) is: M8's SDL3 window takes their place behind this interface and IInput (Input.h).
@@ -53,6 +54,9 @@ public:
 	virtual void VisitWindows(TWindowVisitor Visit) = 0;
 	// The display's Index-th mode (EnumDisplaySettingsA(nullptr, Index)): false past the last one.
 	[[nodiscard]] virtual bool DisplayMode(unsigned int Index, TDisplayMode &Mode) = 0;
+	// The display's current mode, the desktop's (EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS); issue #138):
+	// false when it cannot be read.
+	[[nodiscard]] virtual bool DesktopMode(TDisplayMode &Mode) = 0;
 
 protected:
 	// Never destroyed through the interface (Clock.h's IClock).

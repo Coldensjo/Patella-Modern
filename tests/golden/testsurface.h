@@ -17,7 +17,7 @@
 
 class TTestSurface : public TSurface {
 public:
-	TTestSurface(); // graphicstest.cpp
+	TTestSurface(); // graphicstest.cpp; the client's engine data (bridge::GraphicsEngine(), issue #138)
 
 	// graphicstest.cpp
 	void WriteImage(int ToSurface, int x, int y, int Width, int Height, uint8 *Data);
@@ -49,7 +49,7 @@ public:
 	void DrawFrame(int, TRect, int, TRGBColor) { abort(); }
 	void BlitRectClipped(int, int, int, int, TRect, TRect) { abort(); }
 	void StretchBlitUnclipped(int, TRect, int, TRect, TRGBColor, TRGBColor) { abort(); }
-	bool ClipRect(TRect, RECT *, RECT *) { abort(); }
+	bool ClipRect(TRect, patella::platform::TEdgeRect *, patella::platform::TEdgeRect *) { abort(); }
 	void ResetFrameTimer() { abort(); }
 	void WaitForNextFrame() { abort(); }
 	void UpdateWindowRect() { abort(); }
@@ -59,7 +59,7 @@ public:
 	void ResetDisplay(int, TFullscreenMode *) { abort(); }
 	void RestoreSurfaces(int, TFullscreenMode *) { abort(); }
 	void FinishFrame() { abort(); }
-	bool Init(HWND *, int, TFullscreenMode *, bool) { abort(); }
+	bool Init(patella::platform::TWindowHandle *, int, TFullscreenMode *, bool) { abort(); }
 	int GetFullscreenModes(TFullscreenMode **) { abort(); }
 	bool IsUnavailable() { abort(); }
 	int GetSurfaceMemory(int) { abort(); }

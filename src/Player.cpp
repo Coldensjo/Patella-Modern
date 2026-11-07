@@ -317,7 +317,7 @@ BOOL CPlayerApp::InitInstance()
 				return FALSE;
 			}
 			try {
-				SurfaceInitInstance(&MainFrame->m_hWnd);
+				SurfaceInitInstance(MainFrame->m_hWnd);
 				GetSurface()->InitSurfaces();
 				InitVideoCache();
 			} catch (...) {

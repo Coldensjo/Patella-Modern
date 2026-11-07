@@ -23,6 +23,7 @@
 #include "Skins.h" // IWYU pragma: export
 #include "Status.h"
 #include "Talk.h"
+#include "platform/Window.h"
 #include "types/FixedString.h"
 #include "types/IndexedVector.h"
 #include <array>
@@ -338,7 +339,7 @@ public:
 	void ConnectionClosed();
 	void TimerEvent() const;
 	void ProcessEvents();
-	void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL));
+	void InitWindow(platform::TWindowHandle Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL));
 	static void InitControl(bool Gamemaster);
 	static void ExitControl();
 	[[nodiscard]] std::array<uint8, 10> GetLastPacketTypes() const;
@@ -365,7 +366,7 @@ public:
 	void (*URLCallback)(const char *URL){};  // 0x5c452c
 	void (*DisplayModeCallback)(int Mode){}; // 0x5c4530
 	void (*ExitCallback)(){};                // 0x5c4538, stored but not used
-	HWND WindowHandle{};                     // 0x5c453c
+	platform::TWindowHandle WindowHandle{};  // 0x5c453c
 	bool ShowFPS{};                          // 0x5c4554, toggled by key 0x907
 
 private:

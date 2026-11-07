@@ -46,7 +46,8 @@ using TVulkanMaskObserver = void(PATELLA_CDECL *)(const unsigned char *Mask, int
 
 class TSurfaceVulkan : public TSurface {
 public:
-	TSurfaceVulkan();
+	// Shared: the data the engine shares with the client (platform/Surface.h; TGraphicsEngine, issue #138).
+	explicit TSurfaceVulkan(patella::platform::TSurfaceShared &Shared);
 	~TSurfaceVulkan() override;
 
 	void SetPixel(int Surface, int x, int y, TRGBColor Color) override;
@@ -71,7 +72,7 @@ public:
 		TRGBColor Highlight, TRect Clip) override;
 	void ShadeRectangles(int Surface, int Count, TRect *Rects, TRGBColor *Colors) override;
 	void SetSourceColorKey(int ToSurface, TRGBColor ColorKey) override;
-	bool ClipRect(TRect Clip, RECT *Rect, RECT *Source) override;
+	bool ClipRect(TRect Clip, patella::platform::TEdgeRect *Rect, patella::platform::TEdgeRect *Source) override;
 	void ResetFrameTimer() override;
 	void WaitForNextFrame() override;
 	void UpdateWindowRect() override;
@@ -81,7 +82,7 @@ public:
 	void ResetDisplay(int VMode, TFullscreenMode *GMode) override;
 	void RestoreSurfaces(int ViewMode, TFullscreenMode *Resolution) override;
 	void FinishFrame() override;
-	bool Init(HWND *Window, int ViewMode, TFullscreenMode *Resolution, bool Force) override;
+	bool Init(patella::platform::TWindowHandle *Window, int ViewMode, TFullscreenMode *Resolution, bool Force) override;
 	int GetFullscreenModes(TFullscreenMode **Modes) override;
 	int GetCacheSurfaces() override;
 	void GetSurfaceRect(int Surface, TRect *Rect) override;
@@ -114,7 +115,9 @@ private:
 	void FlushShade();
 	void AddQuad(int Left, int Top, int Right, int Bottom, double Left_u, double Right_u, double Top_v,
 		double Bottom_v, uint32 TopLeft, uint32 TopRight, uint32 BottomRight, uint32 BottomLeft);
-	void ColorFill(int Image, const RECT *Rect, uint32 Color);
+	void ColorFill(int Image, const patella::platform::TEdgeRect *Rect, uint32 Color);
+	// The main window as Win32's (hWindow, a TWindowHandle since issue #138).
+	[[nodiscard]] HWND MainWindow() const { return static_cast<HWND>(hWindow); }
 	int TextureWidth(int Surface);
 	int TextureHeight(int Surface);
 	patella::vulkan::TDeviceRequest Request(HWND Window);
@@ -146,4 +149,4 @@ private:
 
 // Surface.cpp's engine selection.
 bool IsVulkanInstalled();
-TSurface *CreateSurfaceVulkan();
+TSurface *CreateSurfaceVulkan(patella::platform::TSurfaceShared &Shared);

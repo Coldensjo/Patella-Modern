@@ -369,6 +369,7 @@ static void SurfaceTrap(const char *Name)
 
 class TCtlSurface : public TSurface {
 public:
+	TCtlSurface() : TSurface(patella::bridge::GraphicsEngine()) {}
 	bool InitResult, Recreated, Unavailable, TestResult;
 	void SetPixel(int, int, int, TRGBColor) override { SurfaceTrap("SetPixel"); }
 	void FillRectangleClipped(int, TRect, TRGBColor, TRect) override { SurfaceTrap("FillRectangleClipped"); }
@@ -396,7 +397,7 @@ public:
 	void StretchBlit(int, TRect, int, TRect, TRGBColor, TRGBColor, TRect) override { SurfaceTrap("StretchBlit"); }
 	void ShadeRectangles(int, int, TRect *, TRGBColor *) override { SurfaceTrap("ShadeRectangles"); }
 	void SetSourceColorKey(int, TRGBColor) override { SurfaceTrap("SetSourceColorKey"); }
-	bool ClipRect(TRect, RECT *, RECT *) override
+	bool ClipRect(TRect, patella::platform::TEdgeRect *, patella::platform::TEdgeRect *) override
 	{
 		SurfaceTrap("ClipRect");
 		return false;
@@ -410,7 +411,7 @@ public:
 	void ResetDisplay(int, TFullscreenMode *) override { SurfaceTrap("ResetDisplay"); }
 	void RestoreSurfaces(int, TFullscreenMode *) override { SurfaceTrap("RestoreSurfaces"); }
 	void FinishFrame() override { Call("Surface.FinishFrame()"); }
-	bool Init(HWND *Window, int Mode, TFullscreenMode *Resolution, bool Force) override
+	bool Init(patella::platform::TWindowHandle *Window, int Mode, TFullscreenMode *Resolution, bool Force) override
 	{
 		Call("Surface.Init(%s,%d,%s,%d)=%d", Window != NULL ? NameOf(*Window).c_str() : "NULL", Mode,
 			NameOf(Resolution).c_str(), Force ? 1 : 0, InitResult ? 1 : 0);
@@ -908,7 +909,7 @@ static void F_SendCommand(bool Encrypt)
 	TBuffer *B = SendBufferOf(Side);
 	Call("SendCommand(%d,%s)", Encrypt ? 1 : 0, Hex(B->Data, B->Position).c_str());
 }
-static void F_SetNetworkWindow(HWND Window) { Call("SetNetworkWindow(%s)", NameOf(Window).c_str()); }
+static void F_SetNetworkWindow(patella::platform::TWindowHandle Window) { Call("SetNetworkWindow(%s)", NameOf(Window).c_str()); }
 static void F_GetErrorMessage(char *Message, int ErrorCode, int ErrorType)
 {
 	Call("GetErrorMessage(%d,%d)", ErrorCode, ErrorType);

@@ -17,7 +17,7 @@
 #include "common.h"
 #include "vulkan/DeviceChoice.h"
 bool IsVulkanInstalled();
-TSurface *CreateSurfaceVulkan();
+TSurface *CreateSurfaceVulkan(patella::platform::TSurfaceShared &Shared);
 
 // Data: TGraphicsEngine's members since issue #116 (Surface.h), in the original's .data and .bss order. The shared
 // data the engines use lies around this file's own; 0x71d0f8 and up are SurfaceDX.cpp's.
@@ -32,7 +32,7 @@ int patella::TGraphicsEngine::GetCurrentEngine() const
 TSurface *patella::TGraphicsEngine::GetSurface()
 {
 	if (curEngine == 2 && Surface == nullptr)
-		Surface = CreateSurfaceVulkan();
+		Surface = CreateSurfaceVulkan(*this);
 	return Surface;
 }
 
@@ -44,15 +44,15 @@ void patella::TGraphicsEngine::SurfaceExitInstance()
 	Surface = nullptr;
 }
 
-// 0x4eab80. The default test only takes the main window.
+// 0x4eab80. The default test only takes the main window (the engine's shared data since issue #138).
 bool TSurface::TestEngine()
 {
-	hWindow = patella::bridge::GraphicsEngine().SurfaceWindow;
+	hWindow = Shared.SurfaceWindow;
 	return true;
 }
 
-// 0x4eab90
-TSurface::TSurface()
+// 0x4eab90. Shared: issue #138's (platform/Surface.h).
+TSurface::TSurface(patella::platform::TSurfaceShared &Shared) : Shared(Shared)
 {
 	NumberOfModes = 0;
 	Data3C = 0;
@@ -70,10 +70,10 @@ void TSurface::SetColorKey(int Surface, TRGBColor ColorKey)
 TSurface::~TSurface() = default;
 
 // 0x4eabe0. A member (Dialogs.cpp calls it on GetSurface()) that reads only the
-// global (TGraphicsEngine's since issue #116).
+// global (TGraphicsEngine's since issue #116, the engine's shared data since issue #138).
 uint8 TSurface::GetAvailableEngines()
 {
-	return patella::bridge::GraphicsEngine().AvailableEngines;
+	return Shared.AvailableEngines;
 }
 
 // 0x4eabf0
@@ -116,9 +116,9 @@ void TSurface::AttachWindow()
 // the original's on a machine with Direct3D 9 and OpenGL when the test passes. Without a Vulkan device
 // there is no engine to fall back to: curEngine stays 2 and the engine's InitSurfaces or CreateSurfaces
 // fails with PROGRAM_ERROR 12, as the original's Direct3D 9 device would.
-void patella::TGraphicsEngine::SurfaceInitInstance(HWND *Window)
+void patella::TGraphicsEngine::SurfaceInitInstance(platform::TWindowHandle Window)
 {
-	SurfaceWindow = *Window;
+	SurfaceWindow = Window;
 	curEngine = 2;
 	LoadDeviceChoice();
 	if (CommandLineEngine >= 0 && CommandLineEngine < 3) {
@@ -130,7 +130,7 @@ void patella::TGraphicsEngine::SurfaceInitInstance(HWND *Window)
 		Engine = 2;
 	try {
 		if (IsVulkanInstalled()) {
-			GetSurface()->hWindow = *Window;
+			GetSurface()->hWindow = Window;
 			bool Works = GetSurface()->TestEngine();
 			if (!Works && GetDeviceChoice().Kind != patella::vulkan::TDeviceKind::Automatic) {
 				SetDeviceChoice(patella::vulkan::TDeviceChoice{});
@@ -165,7 +165,7 @@ void SurfaceExitInstance()
 	patella::bridge::GraphicsEngine().SurfaceExitInstance();
 }
 
-void SurfaceInitInstance(HWND *Window)
+void SurfaceInitInstance(patella::platform::TWindowHandle Window)
 {
 	patella::bridge::GraphicsEngine().SurfaceInitInstance(Window);
 }
