@@ -758,6 +758,12 @@ SDL_CreateWindow, its placement, size, fullscreen, activation and close events) 
 the loop (platform/LoopTimer.h), by default; `PATELLA_WINDOW=mfc` keeps the MFC frame and message loop until #127. The
 keys, buttons and wheel still reach it as Win32 messages (#123), so the test mode drives both paths unchanged.
 
+Done in #123 (notes/decisions.md, "#123"): the SDL3 window's input is SDL3's: IME text (UTF-8 to Windows-1252), wheel
+and motion events, SDL_CaptureMouse, SDL's window coordinates, SDL cursors (the
+client's own from its resources, platform/CursorImage.h). The client's input rules are portable and unit-tested
+(platform/KeyInput.h); the test mode's scripted wheel becomes the same SDL event. Win32 is left for the key messages, WM_CHAR and the button
+messages (SDL's events differ from them), the loss of the capture (WM_CAPTURECHANGED), the cursor's screen position (GetCursorPos, the original's on another desktop).
+
 Done in #125 (notes/decisions.md, "#125"): TPortableSocket (src/platform/PortableSocket.h, the library
 patella_platform, tests_platform on every preset) over Winsock and POSIX sockets, non-blocking, polled from the loop's
 idle step with WSAAsyncSelect's rules (OnConnect once, OnReceive while bytes are taken, OnClose once); getaddrinfo on a

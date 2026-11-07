@@ -22,10 +22,13 @@
 //   for it has come (pace: real milliseconds per 100 virtual ms, default 100, real time);
 // - events become the window messages Windows would send (WM_KEYDOWN/UP or WM_SYSKEYDOWN/UP with
 //   the scan code in lParam, WM_CHAR, WM_LBUTTONDOWN/UP/DBLCLK, WM_RBUTTON..., WM_MOUSEWHEEL, WM_CLOSE
-//   posted for quit), dispatched with DispatchMessageA like the message loop's; the mouse is a
-//   virtual cursor that GetCursorPos returns (the client polls it in OnIdle);
-// - the keyboard and mouse input from Windows is dropped (CPlayerApp::PreTranslateMessage), so the
-//   desktop's own mouse and keyboard do not reach the client during a run;
+//   posted for quit), dispatched with DispatchMessageA like the message loop's (on the SDL3 window,
+//   whose input is SDL's events since issue #123, the input messages become those SDL events:
+//   testmode/SdlInputWin32.h); the mouse is a virtual cursor that GetCursorPos returns (the client
+//   polls it in OnIdle);
+// - the keyboard and mouse input from Windows is dropped (CPlayerApp::PreTranslateMessage; on the
+//   SDL3 window also SDL's events, IInput::IgnoreDesktopInput), so the desktop's own mouse and
+//   keyboard do not reach the client during a run;
 // - --test-log <file> lists every event dispatched with its virtual time and script line.
 //
 // Issue #22, the dumps (notes/testmode.md), into the folder of --test-out:
@@ -114,6 +117,7 @@
 #include "testmode/PacketLog.h"
 #include "testmode/PipeNetwork.h"
 #include "testmode/PipeSocketWin32.h"
+#include "testmode/SdlInputWin32.h"
 #include "testmode/Png.h"
 #include "testmode/ServerReplay.h"
 #include "testmode/StateDump.h"
@@ -453,13 +457,26 @@ POINT ScreenCursor(const TState &State, HWND Window)
 	if (State.Scheduler.FixedCursor())
 		return POINT{State.Scheduler.CursorX(), State.Scheduler.CursorY()};
 	POINT Point = State.Cursor;
-	if (Window != nullptr)
-		::ClientToScreen(Window, &Point);
+	if (Window != nullptr) {
+		if (patella::platform::UseSdlWindow()) {
+			// Issue #123: the SDL3 window's coordinates, as the client converts the cursor back (sdlframe::ScreenToClient).
+			int x = Point.x;
+			int y = Point.y;
+			patella::sdlframe::ClientToScreen(x, y);
+			Point = POINT{x, y};
+		} else {
+			::ClientToScreen(Window, &Point);
+		}
+	}
 	return Point;
 }
 
 void Dispatch(TState &State, HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
+	// Issue #123: the SDL3 window's input is SDL's events; an input message goes to it as the SDL event it stands for
+	// (testmode/SdlInputWin32.h). Every other message, and every message to the MFC frame, is dispatched.
+	if (patella::platform::UseSdlWindow() && patella::testmode::DeliverToSdlWindow(Message, WParam, LParam))
+		return;
 	MSG Msg = {};
 	Msg.hwnd = Window;
 	Msg.message = Message;
@@ -875,8 +892,14 @@ namespace {
 BOOL GetCursorPosition(LPPOINT Point)
 {
 	const TState &Current = State();
-	if (!Current.Scripted)
-		return ::GetCursorPos(Point);
+	if (!Current.Scripted) {
+		// The window path's (issue #123: SDL's global mouse position on the SDL3 window, GetCursorPos on MFC's).
+		patella::platform::TPoint Position;
+		if (!patella::platform::WindowInput().CursorPosition(Position))
+			return FALSE;
+		*Point = POINT{Position.x, Position.y};
+		return TRUE;
+	}
 	if (Current.Scheduler.FixedCursor()) {
 		*Point = POINT{Current.Scheduler.CursorX(), Current.Scheduler.CursorY()};
 		return TRUE;
@@ -1296,6 +1319,8 @@ public:
 	void BeginIdle() override { Idle(); }
 	// Issue #52: with a script every WM_CAPTURECHANGED is the desktop's (above).
 	[[nodiscard]] bool IgnoreCaptureChange() override { return State().Scripted; }
+	// Issue #123: with a script the desktop's SDL events are dropped, as DropInput drops Windows' input messages.
+	[[nodiscard]] bool IgnoreDesktopInput() override { return State().Scripted; }
 };
 
 // The test mode's IWindow (platform/Window.h; issue #119): the hooks PATELLA_MESSAGE_BOX, PATELLA_ENUM_WINDOWS and
@@ -1343,15 +1368,16 @@ constinit TTestWindow TestWindow;
 // The test build's platform (issue #109; platform/Platform.h): the clock is the test mode's (the virtual clock with a
 // script, the system's without one, as Initialize chose it), the files Win32's (the comparisons read the files the
 // client writes in its folder), the network the server replay's inside the process with --test-replay (issue #120:
-// TPipeSocketWin32, no port), else Win32's (a live run against the test server). Issue #119: the clipboard the
-// process's own with a script (TMemoryClipboard: the desktop's clipboard neither reaches a scripted run nor is
-// changed by it), else Win32's; the input and the windows the test mode's (above).
+// TPipeSocketWin32, no port), else the portable socket's (TPortableSocket, issue #125: a live run against the test
+// server). Issue #119: the clipboard the process's own with a script (TMemoryClipboard: the desktop's clipboard
+// neither reaches a scripted run nor is changed by it), else Win32's; the input and the windows the test mode's
+// (above).
 patella::platform::TPlatform &patella::platform::Platform()
 {
 	const patella::testmode::TState &Current = patella::testmode::State();
 	static TMemoryClipboard ScriptClipboard;
 	static TPlatform Instance{*Current.Clock, SystemFileSystem(),
-		Current.Replay.Active ? static_cast<ISocket &>(*Current.Replay.Pipes) : static_cast<ISocket &>(Win32Socket()),
+		Current.Replay.Active ? static_cast<ISocket &>(*Current.Replay.Pipes) : static_cast<ISocket &>(NetworkSocket()),
 		Current.Scripted ? static_cast<IClipboard &>(ScriptClipboard) : static_cast<IClipboard &>(Win32Clipboard()),
 		patella::testmode::TestInput, patella::testmode::TestWindow};
 	return Instance;

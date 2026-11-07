@@ -43,11 +43,13 @@ public:
 	void StopTimer(TWindowHandle Window, unsigned int Id) override;
 	void BeginIdle() override {}
 	[[nodiscard]] bool IgnoreCaptureChange() override { return false; }
+	[[nodiscard]] bool IgnoreDesktopInput() override { return false; }
 };
 
 // The SDL3 window's input (issue #122; SdlFrame.cpp): the main timer is the loop's (TLoopTimer: SdlFrame.cpp's loop
-// asks TimerDue and calls TimerEvent, where the MFC frame got WM_TIMER from SetTimer); the cursor and the rest are
-// Win32's until SDL3's input (issue #123). The timer's Id is not kept: the client has one timer (1).
+// asks TimerDue and calls TimerEvent, where the MFC frame got WM_TIMER from SetTimer); the cursor is Win32's GetCursorPos
+// until issue #127 (issue #123: the original's last position where Windows cannot read it, which SDL would not keep). The timer's
+// Id is not kept: the client has one timer (1).
 class TSdlLoopInput final : public IInput {
 public:
 	bool CursorPosition(TPoint &Point) override;
@@ -55,6 +57,7 @@ public:
 	void StopTimer(TWindowHandle Window, unsigned int Id) override;
 	void BeginIdle() override {}
 	[[nodiscard]] bool IgnoreCaptureChange() override { return false; }
+	[[nodiscard]] bool IgnoreDesktopInput() override { return false; }
 	// One tick of the main timer when it is due at Now (the platform clock's milliseconds).
 	[[nodiscard]] bool TimerDue(std::uint32_t Now) { return Timer.Due(Now); }
 
@@ -89,11 +92,6 @@ TSystemFileSystem &SystemFileSystem();
 // the lookups' replies to the window, the modal loops' polling), the original's CAsyncSocket calls in the golden runner
 // (tests/golden/network/MfcSocket.cpp, whose fakes its Network test logs).
 ISocket &NetworkSocket();
-// TestModeWin32.cpp's name for it (TWin32Socket's until issue #125; that file is issue #123's, renamed after it).
-inline ISocket &Win32Socket()
-{
-	return NetworkSocket();
-}
 TWin32Clipboard &Win32Clipboard();
 TWin32Input &Win32Input();
 TWin32Window &Win32Window();

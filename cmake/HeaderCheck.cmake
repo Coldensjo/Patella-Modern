@@ -76,6 +76,8 @@ list(APPEND PATELLA_HEADERS_CORE platform/Clipboard.h platform/Input.h platform/
 list(APPEND PATELLA_HEADERS_CORE platform/Surface.h)
 # Issue #122: the SDL3 window's loop timer and the choice of the window path (portable).
 list(APPEND PATELLA_HEADERS_CORE platform/LoopTimer.h platform/WindowChoice.h)
+# Issue #123: the client's keyboard and mouse rules over SDL3's events, and the cursor resources' decoder (portable).
+list(APPEND PATELLA_HEADERS_CORE platform/CursorImage.h platform/KeyInput.h)
 # The C++26 features behind feature-test macros (issue #9): tests/unit, real or stand-ins.
 set(PATELLA_HEADERS_CXX26
 	compat/cxx26.h)
@@ -161,7 +163,8 @@ set(PATELLA_HEADERS_VULKAN_CLIENT
 # The Windows side of the test mode (PatellaTest.exe).
 set(PATELLA_HEADERS_TEST_BUILD
 	testmode/ClientStateWin32.h
-	testmode/PipeSocketWin32.h)
+	testmode/PipeSocketWin32.h
+	testmode/SdlInputWin32.h)
 # Issue #111: patella_core compiles the rest of the client but the platform layer (the preferences, the state, the GUI's
 # logic, the windows and the dialogs), so their headers and what they include are portable too: checked with
 # patella_core's settings, and still with the client's below. vulkan/DeviceSettings.h (the graphics device choice,
