@@ -14787,6 +14787,11 @@ holds). An index that comes from a file or a packet counts as unbounded unless t
   original's operator() did from 0 up; the null pointer of the golden Errors test is still not dereferenced without
   marks. golden's calls adapted (map_tests.cpp's locals, contentwindows_tests.cpp's FakeGetAutomapMarks,
   errors_tests.cpp's null pointer's type); no check changed.
+- **Status** (after #129's merge, which had Status.cpp): TInteraction::Messages + NumberOfMessages is
+  `std::vector<TMessage>`: AddMessage appends at the count, AddMessageFirst inserts at 0 (the original moved the entries
+  up from the count, the first growth at the count), FetchMessage pops at 0, ClearMessages frees the parameters of
+  the entries below the count, InitStatus empties it without freeing them, as the original. The golden Status test
+  reads only the original's NumberOfMessages (recorded) against its own count.
 
 ### Kept as TIndexedVector, with why (high)
 
@@ -14806,10 +14811,8 @@ holds). An index that comes from a file or a packet counts as unbounded unless t
 - **Talk.h**: BuddyExemptionList, TemporaryIgnoreList, IgnoreList and ConsoleFilterList, and the parameters of
   FindTalkFilter, FindTextBuffer and AddTalkFilter: the golden Talk test compares the vector's 21-byte header (min ...
   init, the original's block growth) after each of 65 AddTalkFilter calls; the lists are searched from min to max.
-- **TInteraction::Messages** (Status.h): a queue that only appends at its count and reads below it, so a candidate;
-  not converted here because Status.cpp is #129's file (the instructions: after #129 merges, in a later commit).
 - The golden tests' own TIndexedVectors (container_tests.cpp, talk_tests.cpp, dialogs_tests.cpp, ...) test the type
   itself or the original's instances.
 
-So the CipSoft vector is left where its min..max, its block growth or its growth below 0 is part of the behaviour,
-plus Messages.
+So the CipSoft vector is left only where its min..max, its block growth or its growth below 0 is part of the
+behaviour, or a golden check compares its header.
