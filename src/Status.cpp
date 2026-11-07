@@ -22,6 +22,7 @@
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -400,7 +401,7 @@ int patella::TInteraction::PeekMessageType()
 
 // 0x4e75f0. Removes the first message; all zero when the queue is empty.
 // The parameters now belong to the caller.
-void patella::TInteraction::FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2)
+void patella::TInteraction::FetchMessage(int *Type, std::intptr_t *Param1, std::intptr_t *Param2)
 {
 	if (!Messages.empty()) {
 		*Type = Messages.front().Type;
@@ -557,14 +558,14 @@ const char *GetActionName(int actionid)
 
 // 0x4e9020, line 197. Appends a message; the queue takes ownership of the
 // parameters that ClearMessages frees.
-void patella::TInteraction::AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
+void patella::TInteraction::AddMessage(int Type, std::intptr_t Param1, std::intptr_t Param2)
 {
 	PATELLA_ASSERT_VALUES(In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
 	Messages.push_back({Type, Param1, Param2});
 }
 
 // 0x4e91d0, line 209. Inserts a message at the front of the queue.
-void patella::TInteraction::AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
+void patella::TInteraction::AddMessageFirst(int Type, std::intptr_t Param1, std::intptr_t Param2)
 {
 	PATELLA_ASSERT_VALUES(In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
 	Messages.insert(Messages.begin(), {Type, Param1, Param2});
@@ -1037,7 +1038,7 @@ int PeekMessageType()
 	return patella::bridge::Interaction().PeekMessageType();
 }
 
-void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2)
+void FetchMessage(int *Type, std::intptr_t *Param1, std::intptr_t *Param2)
 {
 	patella::bridge::Interaction().FetchMessage(Type, Param1, Param2);
 }
@@ -1052,12 +1053,12 @@ void ExitStatus()
 	patella::bridge::Interaction().ExitStatus();
 }
 
-void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
+void AddMessage(int Type, std::intptr_t Param1, std::intptr_t Param2)
 {
 	patella::bridge::Interaction().AddMessage(Type, Param1, Param2);
 }
 
-void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
+void AddMessageFirst(int Type, std::intptr_t Param1, std::intptr_t Param2)
 {
 	patella::bridge::Interaction().AddMessageFirst(Type, Param1, Param2);
 }

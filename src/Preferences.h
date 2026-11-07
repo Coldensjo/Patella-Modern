@@ -16,6 +16,7 @@
 #include "platform/FileSystem.h"
 #include "settings/PreferenceKeys.h"
 #include "types/FixedString.h"
+#include <array>
 #include <cstddef>
 #include <vector>
 
@@ -106,7 +107,7 @@ public:
 	TPreferences &operator=(TPreferences &&) = delete;
 	~TPreferences() = default;
 
-	bool GetTestServerLogin() const;
+	[[nodiscard]] bool GetTestServerLogin() const;
 	void SetTestServerLogin(bool Value);
 	void SetViewMode(int Value);
 	void SetFullscreenMode(const TFullscreenMode *Mode);
@@ -118,52 +119,52 @@ public:
 	void SetDefaultNoStretching(bool Value);
 	void SetConfineFramerate(int Value);
 	void SetEngine(int Value);
-	int GetViewMode() const;
+	[[nodiscard]] int GetViewMode() const;
 	TFullscreenMode *GetFullscreenMode();
-	bool GetWindowsMousepointer() const;
-	bool GetLightEffects() const;
-	bool GetTextualEffects() const;
-	int GetCreatureInfo() const;
-	bool GetNoStretching() const;
-	int GetConfineFramerate() const;
-	int GetEngine() const;
+	[[nodiscard]] bool GetWindowsMousepointer() const;
+	[[nodiscard]] bool GetLightEffects() const;
+	[[nodiscard]] bool GetTextualEffects() const;
+	[[nodiscard]] int GetCreatureInfo() const;
+	[[nodiscard]] bool GetNoStretching() const;
+	[[nodiscard]] int GetConfineFramerate() const;
+	[[nodiscard]] int GetEngine() const;
 	void SetWindowedMode(int x, int y, int Width, int Height, bool Maximized);
 	void GetWindowedMode(int *x, int *y, int *Width, int *Height, bool *Maximized) const;
 	void SetConsoleHeight(int Value);
-	int GetConsoleHeight() const;
+	[[nodiscard]] int GetConsoleHeight() const;
 	void SetAutomapZoom(int Value);
-	int GetAutomapZoom() const;
+	[[nodiscard]] int GetAutomapZoom() const;
 	void SetBuddySortmethods(const int *Methods);
 	void GetBuddySortmethods(int *Methods) const;
 	void SetBuddyHideOffline(bool Value);
-	bool GetBuddyHideOffline() const;
+	[[nodiscard]] bool GetBuddyHideOffline() const;
 	void ClearOpenDialogs();
-	const char *GetMotD() const;
+	[[nodiscard]] const char *GetMotD() const;
 	void SetInfoMessages(bool Value);
 	void SetEventMessages(bool Value);
 	void SetStatusMessages(bool Value);
 	void SetTimeStamps(bool Value);
 	void SetPrivateMessages(bool Value);
-	bool GetInfoMessages() const;
-	bool GetEventMessages() const;
-	bool GetStatusMessages() const;
-	bool GetTimeStamps() const;
-	bool GetPrivateMessages() const;
+	[[nodiscard]] bool GetInfoMessages() const;
+	[[nodiscard]] bool GetEventMessages() const;
+	[[nodiscard]] bool GetStatusMessages() const;
+	[[nodiscard]] bool GetTimeStamps() const;
+	[[nodiscard]] bool GetPrivateMessages() const;
 	void ClearOpenChannels();
 	void SetClassicControl(bool Value);
 	void SetAutoChaseOff(bool Value);
-	bool GetClassicControl() const;
-	bool GetAutoChaseOff() const;
+	[[nodiscard]] bool GetClassicControl() const;
+	[[nodiscard]] bool GetAutoChaseOff() const;
 	void SetAttackMode(int Value);
 	void SetChaseMode(int Value);
 	void SetSecureMode(bool Value);
-	int GetAttackMode() const;
-	int GetChaseMode() const;
-	bool GetSecureMode() const;
+	[[nodiscard]] int GetAttackMode() const;
+	[[nodiscard]] int GetChaseMode() const;
+	[[nodiscard]] bool GetSecureMode() const;
 	void SetShowNewHints(bool Value);
-	bool GetShowNewHints() const;
-	bool GetLevelBar() const;
-	bool GetMagLevelBar() const;
+	[[nodiscard]] bool GetShowNewHints() const;
+	[[nodiscard]] bool GetLevelBar() const;
+	[[nodiscard]] bool GetMagLevelBar() const;
 	void SetLevelBar(bool Value);
 	void SetMagLevelBar(bool Value);
 	void SetDefaultPreferences(TTalkLists &Lists);
@@ -184,7 +185,7 @@ public:
 	int GetBuddyIcon(int CharacterID);
 	const char *GetBuddyDescription(int CharacterID);
 	bool GetBuddyNotify(int CharacterID);
-	bool GetSkillBar(int SkillNumber) const;
+	[[nodiscard]] bool GetSkillBar(int SkillNumber) const;
 	void SetSkillBar(int SkillNumber, bool Value);
 	void ReadTibiaCfg(TTalkLists &Lists);
 	void WriteTibiaCfg(TTalkLists &Lists);

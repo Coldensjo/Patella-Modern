@@ -46,6 +46,15 @@ void TWin32Clock::FrameWait(std::uint32_t Duration)
 	Sleep(Duration);
 }
 
+// ISocket's numbers are WinSock's (platform/Socket.h, issue #110): TWin32Socket passes WinSock's on unchanged.
+static_assert(socket_error::Invalid == WSAEINVAL && socket_error::WouldBlock == WSAEWOULDBLOCK
+	&& socket_error::MessageSize == WSAEMSGSIZE && socket_error::AddressNotAvailable == WSAEADDRNOTAVAIL
+	&& socket_error::NetworkDown == WSAENETDOWN && socket_error::NetworkUnreachable == WSAENETUNREACH
+	&& socket_error::TimedOut == WSAETIMEDOUT && socket_error::ConnectionRefused == WSAECONNREFUSED
+	&& socket_error::HostUnreachable == WSAEHOSTUNREACH && socket_error::HostNotFound == WSAHOST_NOT_FOUND
+	&& socket_error::TryAgain == WSATRY_AGAIN && socket_error::NoData == WSANO_DATA);
+static_assert(SocketFailed == SOCKET_ERROR && HostEntrySize == MAXGETHOSTSTRUCT);
+
 bool TWin32Socket::Startup()
 {
 	return AfxSocketInit(nullptr) != FALSE;

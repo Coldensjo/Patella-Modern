@@ -24,6 +24,7 @@ player is on field 8,6) and of the body slots (3: the container slot):
 
 import ctypes
 import os
+import struct
 import subprocess
 import sys
 import time
@@ -309,12 +310,55 @@ SAY = "hello world"
 CHARACTER = "Patella Tester"
 TRADE_PARTNER = "Patella Second"
 # The map field the session's look step looks at (Shift+right click), with the step's name. LOOK_NORTH is the
-# recorded sessions' (tools/reference_record.py, compare_rendering.py: the frozen reference recordings have it);
-# compare_traffic.py's live runs look at the player's own field (issue #137): north of the player Cipfried, the
-# temple NPC, wanders onto the field, and then one client's look names him and the other's the field's top item.
-# No creature can stand on the player's field, so both clients look at the player.
+# frozen reference recordings' (tools/reference_record.py through compare_rendering.py's session); compare_traffic.py's
+# live runs look at the player's own field (issue #137): north of the player Cipfried, the temple NPC, wanders onto the
+# field, and then one client's look names him and the other's the field's top item. No creature can stand on the
+# player's field, so both clients look at the player. compare_rendering.py replays compare_traffic.py's recordings, so
+# it has LOOK_OWN_FIELD too, and both check a recording's look step before they replay it (recorded_look, issue #140).
 LOOK_NORTH = ("look north", (8, 5))
 LOOK_OWN_FIELD = ("look at own field", (8, 6))
+LOOKS = (LOOK_NORTH, LOOK_OWN_FIELD)
+# The player's own map field (the middle of the 15x11 view, Map.cpp), against which a look field is a direction.
+PLAYER_FIELD = (8, 6)
+
+
+def _plain_game(events, direction):
+	return [bytes.fromhex(e["plain"]) for e in events
+		if e.get("kind") == "game" and e.get("dir") == direction and "plain" in e and "fields_end" not in e]
+
+
+def recorded_look(events):
+	"""The look step of a recorded session (proxy events, tools/proxy.py: compare_traffic.py's <client>-live.jsonl):
+	LOOK_NORTH or LOOK_OWN_FIELD, from the client's look packet (0x8c x y z, the first in the session: "look in
+	container" and "look at offer" come later) against the player's position in the game server's first packet (0x0a
+	player, beat, bug reports, then 0x64 x y z: the map description). The four walk steps bring the player back to
+	that field before the look. Raises SessionError when the recording has no look or looks at another field, so that a
+	recording of another scenario is refused, not compared (Patella-Modern issue #140)."""
+	server = _plain_game(events, "s2c")
+	if not server or len(server[0]) < 14 or server[0][0] != 0x0a or server[0][8] != 0x64:
+		raise SessionError("the recording has no game login answer (0x0a, then the map description 0x64)")
+	start = struct.unpack_from("<HHB", server[0], 9)
+	looks = [p for p in _plain_game(events, "c2s") if p[:1] == b"\x8c" and len(p) >= 6]
+	if not looks:
+		raise SessionError("the recording has no look packet (0x8c)")
+	at = struct.unpack_from("<HHB", looks[0], 1)
+	if at[2] != start[2]:
+		raise SessionError("the recording's look is at %s, on another floor than the player's start %s" % (at, start))
+	offset = (at[0] - start[0], at[1] - start[1])
+	for look in LOOKS:
+		if offset == (look[1][0] - PLAYER_FIELD[0], look[1][1] - PLAYER_FIELD[1]):
+			return look
+	raise SessionError("the recording's look is at %s, %s from the player's start %s: none of the session's look steps"
+		% (at, offset, start))
+
+
+def check_recorded_look(events, look, path):
+	"""SessionError unless the recording at path (its events) has the look step look (recorded_look)."""
+	found = recorded_look(events)
+	if found != look:
+		raise SessionError("%s was recorded with the look step %r (map field %s), the session here has %r (map field "
+			"%s): a recording made before issue #137 or by another scenario; make a fresh one with "
+			"python -I tools/compare_traffic.py (its orig-live.jsonl)" % (path, found[0], found[1], look[0], look[1]))
 
 
 def game_connections(proxy):

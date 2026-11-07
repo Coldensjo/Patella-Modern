@@ -39,7 +39,7 @@ inline constexpr int CREATURE = 99;
 // Tibia.dat flags: the bit numbers in TProperties::Flags. The names of
 // 1-20 follow CipSoft's game server (medium confidence); 22, 23, 26 and 27
 // are ours (low).
-enum : int {
+enum : int {  // NOLINT(cppcoreguidelines-use-enum-class): int constants ("The other ten stay unscoped"), the flags' bit numbers
 	BANK = 0, // ground; reads Waypoints
 	CLIP = 1,
 	BOTTOM = 2,
@@ -131,58 +131,58 @@ public:
 	~TObjectTypes() = default;
 
 	// Object types. Type CREATURE has only UNPASS.
-	bool GetObjectFlag(int Type, int Flag) const;
-	bool GetObjectFlag(const TObject &Obj, int Flag) const { return GetObjectFlag(Obj.Type, Flag); }
-	int GetObjectWaypoints(int Type) const;
-	int GetObjectBrightness(int Type) const;
-	int GetObjectLightColor(int Type) const;
-	int GetObjectShiftX(int Type) const;
-	int GetObjectShiftY(int Type) const;
-	int GetObjectElevation(int Type) const;
-	int GetObjectAutomapColor(int Type) const;
-	int GetObjectLensHelp(int Type) const;
-	int GetObjectWidth(int Type) const;
-	int GetObjectHeight(int Type) const;
-	int GetObjectExactSize(int Type) const;
-	int GetObjectLayers(int Type) const;
-	int GetObjectPatternWidth(int Type) const;
-	int GetObjectPatternHeight(int Type) const;
-	int GetObjectPatternDepth(int Type) const;
-	int GetObjectPhases(int Type) const;
-	int GetObjectSpriteNumber(int Type, int X, int Y, int Layer, int PatternX, int PatternY, int PatternZ,
+	[[nodiscard]] bool GetObjectFlag(int Type, int Flag) const;
+	[[nodiscard]] bool GetObjectFlag(const TObject &Obj, int Flag) const { return GetObjectFlag(Obj.Type, Flag); }
+	[[nodiscard]] int GetObjectWaypoints(int Type) const;
+	[[nodiscard]] int GetObjectBrightness(int Type) const;
+	[[nodiscard]] int GetObjectLightColor(int Type) const;
+	[[nodiscard]] int GetObjectShiftX(int Type) const;
+	[[nodiscard]] int GetObjectShiftY(int Type) const;
+	[[nodiscard]] int GetObjectElevation(int Type) const;
+	[[nodiscard]] int GetObjectAutomapColor(int Type) const;
+	[[nodiscard]] int GetObjectLensHelp(int Type) const;
+	[[nodiscard]] int GetObjectWidth(int Type) const;
+	[[nodiscard]] int GetObjectHeight(int Type) const;
+	[[nodiscard]] int GetObjectExactSize(int Type) const;
+	[[nodiscard]] int GetObjectLayers(int Type) const;
+	[[nodiscard]] int GetObjectPatternWidth(int Type) const;
+	[[nodiscard]] int GetObjectPatternHeight(int Type) const;
+	[[nodiscard]] int GetObjectPatternDepth(int Type) const;
+	[[nodiscard]] int GetObjectPhases(int Type) const;
+	[[nodiscard]] int GetObjectSpriteNumber(int Type, int X, int Y, int Layer, int PatternX, int PatternY, int PatternZ,
 		int Phase) const;
 
 	// Outfits; Direction 0-3 selects the pattern column.
-	bool GetOutfitFlag(int Number, int Flag) const;
-	int GetOutfitBrightness(int Number) const;
-	int GetOutfitLightColor(int Number) const;
-	int GetOutfitShiftX(int Number) const;
-	int GetOutfitShiftY(int Number) const;
-	int GetOutfitWidth(int Number) const;
-	int GetOutfitExactSize(int Number) const;
-	int GetOutfitHeight(int Number) const;
-	int GetOutfitLayers(int Number) const;
-	int GetOutfitPhases(int Number) const;
-	int GetOutfitSpriteNumber(int Number, int X, int Y, int Layer, int Direction, int Phase) const;
+	[[nodiscard]] bool GetOutfitFlag(int Number, int Flag) const;
+	[[nodiscard]] int GetOutfitBrightness(int Number) const;
+	[[nodiscard]] int GetOutfitLightColor(int Number) const;
+	[[nodiscard]] int GetOutfitShiftX(int Number) const;
+	[[nodiscard]] int GetOutfitShiftY(int Number) const;
+	[[nodiscard]] int GetOutfitWidth(int Number) const;
+	[[nodiscard]] int GetOutfitExactSize(int Number) const;
+	[[nodiscard]] int GetOutfitHeight(int Number) const;
+	[[nodiscard]] int GetOutfitLayers(int Number) const;
+	[[nodiscard]] int GetOutfitPhases(int Number) const;
+	[[nodiscard]] int GetOutfitSpriteNumber(int Number, int X, int Y, int Layer, int Direction, int Phase) const;
 
 	// Effects.
-	bool GetEffectFlag(int Number, int Flag) const;
-	int GetEffectBrightness(int Number) const;
-	int GetEffectLightColor(int Number) const;
-	int GetEffectWidth(int Number) const;
-	int GetEffectHeight(int Number) const;
-	int GetEffectLayers(int Number) const;
-	int GetEffectPhases(int Number) const;
-	int GetEffectSpriteNumber(int Number, int X, int Y, int Layer, int Phase) const;
+	[[nodiscard]] bool GetEffectFlag(int Number, int Flag) const;
+	[[nodiscard]] int GetEffectBrightness(int Number) const;
+	[[nodiscard]] int GetEffectLightColor(int Number) const;
+	[[nodiscard]] int GetEffectWidth(int Number) const;
+	[[nodiscard]] int GetEffectHeight(int Number) const;
+	[[nodiscard]] int GetEffectLayers(int Number) const;
+	[[nodiscard]] int GetEffectPhases(int Number) const;
+	[[nodiscard]] int GetEffectSpriteNumber(int Number, int X, int Y, int Layer, int Phase) const;
 
 	// Missiles; Direction 0-7 clockwise from north.
-	bool GetMissileFlag(int Number, int Flag) const;
-	int GetMissileBrightness(int Number) const;
-	int GetMissileLightColor(int Number) const;
-	int GetMissileWidth(int Number) const;
-	int GetMissileHeight(int Number) const;
-	int GetMissileLayers(int Number) const;
-	int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction) const;
+	[[nodiscard]] bool GetMissileFlag(int Number, int Flag) const;
+	[[nodiscard]] int GetMissileBrightness(int Number) const;
+	[[nodiscard]] int GetMissileLightColor(int Number) const;
+	[[nodiscard]] int GetMissileWidth(int Number) const;
+	[[nodiscard]] int GetMissileHeight(int Number) const;
+	[[nodiscard]] int GetMissileLayers(int Number) const;
+	[[nodiscard]] int GetMissileSpriteNumber(int Number, int X, int Y, int Layer, int Direction) const;
 
 	// The pattern (1-based) that shows an object's count, liquid or wall side.
 	void GetCumulativePattern(TObject &Obj, int *PatternX, int *PatternY) const;

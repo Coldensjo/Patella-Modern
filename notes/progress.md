@@ -652,6 +652,13 @@ because the golden window tests use them as seams (constructors redirected to th
 as the class, TContainerWindowBody::UpdateUpButton patched and inlined once `final`); TXTEA's destructor is
 `= default` (#34's case). Patella.exe's .text +0x4e0. Golden 17,316,040, 0 failures. notes/decisions.md, "#47".
 
+compare_rendering's look step (Patella-Modern issue #140, branch issue-140, November 7, 2026; M7): compare_rendering.py
+replays compare_traffic.py's live recording but still scripted "look north", so a recording made since #137 replayed
+one client packet off. Its session now looks at the player's own field as compare_traffic's does, and both tools read
+a recording's look step first (the look packet's field against the player's start field) and refuse a recording
+with another one, naming it. The frozen reference recordings keep "look north" (reference_record.py passes it).
+notes/decisions.md, "#140".
+
 TSurface as a platform interface (Patella-Modern issue #138, branch issue-138, November 7, 2026; M7; #119's part 2):
 TSurface is in src/platform/Surface.h (portable, no Win32 type: the window a TWindowHandle, the rectangles a
 TEdgeRect). The data the engines share with the client is platform::TSurfaceShared, TGraphicsEngine's base (the same
@@ -660,6 +667,15 @@ GetAvailableEngines no longer use bridge::GraphicsEngine(). SurfaceInitInstance,
 TNetwork's NetworkWindow and SetNetworkWindow take a TWindowHandle; CreateSurfaces' desktop depth is
 IWindow::DesktopMode. Patella.exe changes only at those call sites and in displacements (the image comparison).
 Golden 17,316,040, 0 failures; compare_rendering all 26 scenes identical. notes/decisions.md, "#138".
+
+Packet parsing and the game state into patella_core (Patella-Modern issue #110, branch issue-110, November 7, 2026;
+M7, half of its exit): Network.cpp, Communication.cpp, Objects.cpp, Map.cpp, Creatures.cpp and Inventory.cpp are
+patella_core's (16 sources, 12,278 lines; was 10, 3,671), with their headers and those they include on the core
+header list (56; was 40); linux-x64-gcc and linux-x64-clang compile them without tests/golden/linux. INT_PTR is
+std::intptr_t there, WinSock's numbers are platform/Socket.h's, the login signatures come through TLoginSignatures,
+TCallback is types/Callback.h's; the image's clang-tidy findings on the newly seen code (296) are fixed or NOLINTed
+with reasons (the baseline stays at 3). The golden runner keeps its own copies (its fakes), so no stand-in file goes
+yet. Golden 17,316,040, 0 failures. notes/decisions.md, "#110".
 
 The SDL3 window and event loop (Patella-Modern issue #122, branch issue-122, November 7, 2026; M8): SDL 3.4.18 is
 pinned (cmake/Sdl3.cmake: release archive by URL and SHA256, built static with the client's CRT, video and events only).

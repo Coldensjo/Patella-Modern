@@ -244,8 +244,10 @@ class Recorder:
 def session_traffic(rec, driver, proxy):
 	"""compare_rendering.py's scenes (windowed): the start screen, the option dialogs, the login, the
 	game session of compare_traffic.py (session_client.run_session) with the automap zoom and the side
-	windows, the logout; a dump and a frame at every scene."""
-	cr.session(driver, proxy, lambda name, masks=None: rec.checkpoint(name, True, masks), device_choice=True)
+	windows, the logout; a dump and a frame at every scene. Its look step is "look north", the frozen reference
+	recordings' (compare_traffic.py and compare_rendering.py look at the player's own field since issues #137, #140)."""
+	cr.session(driver, proxy, lambda name, masks=None: rec.checkpoint(name, True, masks), device_choice=True,
+		look=sc.LOOK_NORTH)
 	return {"exit": rec.close()}
 
 

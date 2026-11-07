@@ -40,7 +40,7 @@ public:
 	int GetActiveCharacter() override { return 0; }
 	const char *GetCharacterIPAddress(int) override { return "127.0.0.1"; }
 	int GetCharacterPort(int) override { return 7172; }
-	void AddMessage(int, INT_PTR, INT_PTR) override {}
+	void AddMessage(int, std::intptr_t, std::intptr_t) override {}
 	int State = 8;
 };
 

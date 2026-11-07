@@ -658,6 +658,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Done in #138 (notes/decisions.md, "#138: TSurface as a platform interface"): `TSurface` in `src/platform/Surface.h`
   without a Win32 type, the engine's shared data (`TSurfaceShared`, TGraphicsEngine's base) given to the surface
   instead of the client's accessor, `TWindowHandle` for the client's HWND uses, the desktop's mode through `IWindow`.
+  Done in #110 (notes/decisions.md, "#110"): packet parsing and building (Network.cpp, Communication.cpp) and the
+  game state (Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp) are patella_core's sources, without MFC or a Windows
+  header, on Windows and Linux (no stand-in of tests/golden/linux); the files they call (Status, Talk, Help,
+  Preferences, Script, sysinc, graphics, the bridge) have portable headers and move with #111.
 - **Text encoding:** the 7.72 protocol and files use the client's 8-bit code page (Latin-1 / Windows-1252).
   Internally, decide (D4) between keeping 8-bit text (simplest, closest to the original) and UTF-8 with
   conversion at the protocol and file boundaries. The platform layer converts in either case: SDL3 and Linux
@@ -692,7 +696,8 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
 - **Tier A's live traffic check is deterministic:** done in #137 (notes/decisions.md, "#137: compare_traffic's look
   step at the player's own field"): compare_traffic's look step looks at the player's own field, where no wandering
   creature can stand, so its live client packets compare without excuses; testserver.py no longer kills a server
-  that is saving its map.
+  that is saving its map. Done in #140 (notes/decisions.md, "#140"): compare_rendering.py's session has the same look
+  step, and both tools refuse a recording with another one (session_client.recorded_look).
 - **`final` on the classes nothing derives from** (#33's second half, after the oracle): done in #47
   (notes/decisions.md, "#47"): 70 classes; the 30 the golden tests use as seams (their fakes built by our
   constructors, stand-ins, a patched member that `final` lets MSVC inline) are listed with the reason.

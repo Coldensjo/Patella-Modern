@@ -45,7 +45,12 @@ python -I tools/compare_rendering.py [--out build\render\result] [--engines dx5,
   (compare_traffic.py's `orig-live.jsonl`: login, walking, talking, looking, a container, a trade with
   "Patella Second", logout); copy it to `build\render\session.jsonl` or pass `--recording`. A new one:
   `python -I tools/compare_traffic.py --out <dir>` (starts and stops the test server itself), then use
-  `<dir>\orig-live.jsonl`.
+  `<dir>\orig-live.jsonl`. The session's look step is compare_traffic.py's, "look at own field" (map field (8,6),
+  issues #137, #140; LOOK in the script). Before any run the script reads the recording's look step (the look
+  packet's field against the player's start field, session_client.recorded_look) and refuses a recording with
+  another one: a recording made before #137 (it looks north, field (8,5)) would replay one client packet off, and the
+  proxy would report it as a difference of the client. The frozen reference recordings keep "look north":
+  tools/reference_record.py passes LOOK_NORTH to the session.
 - The capture helper is loaded into the client, so it has the client's bitness (`cmake/Capture.cmake`):
   `build\capture-x86\Release\patcap.dll`, the patcap target of the capture-x86 preset (issue #94; the oracle-x86
   preset's until then), for Tibia.exe. The script builds the target itself when the DLL is missing or older than
@@ -220,7 +225,7 @@ this order, each captured after its step and the advance:
 | automap-zoom | the minimap zoomed in |
 | walk north, walk east, walk south, walk west, turn south | the player after each step (and Cipfried, the rabbits, Patella Second as the server moved them) |
 | say | the talk box "hello world" over the player, Cipfried's answer, the console lines |
-| look north | the look text over the map and in the console |
+| look at own field | the look text (the player) over the map and in the console ("look north" until issue #140, and in the frozen reference recordings) |
 | open container, look in container, use in container | the bag window in the side bar, its apple, the apple eaten |
 | context menu | the body slot's context menu ("Trade with ...") |
 | trade with | the trade cursor state after choosing the entry |

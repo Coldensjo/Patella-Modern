@@ -102,5 +102,6 @@ public:
 
 private:
 	patella::TStaticVector<T, N> Entries;
+	// NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization): a free entry is all zeros, the original's (TEffect's links too)
 	static constexpr T FreeEntry{};
 };

@@ -22,6 +22,7 @@
 #include "types/Regexp.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -37,8 +38,8 @@ inline constexpr int MESSAGE_STARTPATCHER = 72;
 // One queued message (12 bytes). Type is named in the assertions.
 struct TMessage {
 	int Type;
-	INT_PTR Param1;
-	INT_PTR Param2;
+	std::intptr_t Param1;
+	std::intptr_t Param2;
 };
 
 // One entry of the character list (0x54 bytes). The 30-byte limits come
@@ -70,37 +71,37 @@ public:
 	TSession &operator=(TSession &&) = delete;
 	~TSession() = default;
 
-	bool CheckAnyRight() const;
+	[[nodiscard]] bool CheckAnyRight() const;
 	void ClearRights();
 	void SetConnectionState(int State);
-	int GetConnectionState() const;
+	[[nodiscard]] int GetConnectionState() const;
 	void SetProgress(int Value);
-	int GetProgress() const;
-	int GetAccountNumber() const;
-	const char *GetAccountNumberString() const;
-	const char *GetAccountPassword() const;
+	[[nodiscard]] int GetProgress() const;
+	[[nodiscard]] int GetAccountNumber() const;
+	[[nodiscard]] const char *GetAccountNumberString() const;
+	[[nodiscard]] const char *GetAccountPassword() const;
 	void SetAccountCharacters(int Number);
 	void SetPremiumDays(int Days);
-	int GetAccountCharacters() const;
-	int GetPremiumDays() const;
-	int GetActiveCharacter() const;
-	bool GetGamemaster() const;
+	[[nodiscard]] int GetAccountCharacters() const;
+	[[nodiscard]] int GetPremiumDays() const;
+	[[nodiscard]] int GetActiveCharacter() const;
+	[[nodiscard]] bool GetGamemaster() const;
 	void SetRight(int rightid, int Value);
-	bool CheckRight(int rightid, int Bit) const;
+	[[nodiscard]] bool CheckRight(int rightid, int Bit) const;
 	void SetAccount(int Number, const char *Password);
 	void SetCharacter(int Number, const char *Name, const char *World, const uint8 *Address, int Port);
 	void SetActiveCharacter(int Number);
-	const char *GetCharacterName(int Number) const;
-	const char *GetCharacterWorld(int Number) const;
-	const char *GetCharacterIPAddress(int Number) const;
-	int GetCharacterPort(int Number) const;
+	[[nodiscard]] const char *GetCharacterName(int Number) const;
+	[[nodiscard]] const char *GetCharacterWorld(int Number) const;
+	[[nodiscard]] const char *GetCharacterIPAddress(int Number) const;
+	[[nodiscard]] int GetCharacterPort(int Number) const;
 	void InitSession(bool Value);
 	void ExitSession();
 
 	// The test mode's views (ClientView.h's ViewConnectionState and ViewCharacters read through them).
-	const int *ViewConnectionState() const { return &ConnectionState; }
-	const TCharacter *ViewCharacters() const { return Characters.get(); }
-	const int *ViewAccountCharacters() const { return &AccountCharacters; }
+	[[nodiscard]] const int *ViewConnectionState() const { return &ConnectionState; }
+	[[nodiscard]] const TCharacter *ViewCharacters() const { return Characters.get(); }
+	[[nodiscard]] const int *ViewAccountCharacters() const { return &AccountCharacters; }
 
 private:
 	// Data, in the original's .bss order.
@@ -139,21 +140,21 @@ public:
 	TInteraction &operator=(TInteraction &&) = delete;
 	~TInteraction() = default;
 
-	int GetActionNumber() const;
+	[[nodiscard]] int GetActionNumber() const;
 	void IncrementActionNumber();
 	void SetActionState(int State);
-	int GetActionState() const;
+	[[nodiscard]] int GetActionState() const;
 	void SetMousePosition(int x, int y);
-	int GetMouseX() const;
-	int GetMouseY() const;
+	[[nodiscard]] int GetMouseX() const;
+	[[nodiscard]] int GetMouseY() const;
 	void SetMouseCursor(int Cursor);
-	int GetMouseCursor() const;
+	[[nodiscard]] int GetMouseCursor() const;
 	void SetPendingAction(int State, int Number);
-	int GetPendingActionState() const;
-	int GetPendingActionNumber() const;
+	[[nodiscard]] int GetPendingActionState() const;
+	[[nodiscard]] int GetPendingActionNumber() const;
 	void SetWindowSize(int Width, int Height);
-	int GetWindowWidth() const;
-	int GetWindowHeight() const;
+	[[nodiscard]] int GetWindowWidth() const;
+	[[nodiscard]] int GetWindowHeight() const;
 	void SetDragStart(int x, int y);
 	void SetDragObject(TObject Obj, int Index, int x, int y, int z);
 	void SetDragTarget(int x, int y, int z);
@@ -165,19 +166,19 @@ public:
 	void SetTradeInfo(int Info);
 	TObject *GetTradeObject(int *Index, int *x, int *y, int *z);
 	TObject *GetUseObject(int *Index, int *x, int *y, int *z);
-	int GetTradeInfo() const;
+	[[nodiscard]] int GetTradeInfo() const;
 	void SetMouseOverText(const char *Text);
 	void SetMouseOverTextPosition(int x, int y);
-	const char *GetMouseOverText() const;
+	[[nodiscard]] const char *GetMouseOverText() const;
 	void GetMouseOverTextPosition(int *x, int *y) const;
 	void UpdateBlinkState();
-	bool GetBlinkState() const;
+	[[nodiscard]] bool GetBlinkState() const;
 	int PeekMessageType();
-	void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2);
+	void FetchMessage(int *Type, std::intptr_t *Param1, std::intptr_t *Param2);
 	void ClearMessages();
 	void ExitStatus();
-	void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2);
-	void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2);
+	void AddMessage(int Type, std::intptr_t Param1, std::intptr_t Param2);
+	void AddMessageFirst(int Type, std::intptr_t Param1, std::intptr_t Param2);
 	void CheckClipboardText(TSpan<const char> Characters);
 	void CopyToClipboard(const char *text);
 	void CopyTaintedClipboardText();
@@ -295,15 +296,15 @@ void GetMouseOverTextPosition(int *x, int *y);
 void UpdateBlinkState();
 bool GetBlinkState();
 int PeekMessageType();
-void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2);
+void FetchMessage(int *Type, std::intptr_t *Param1, std::intptr_t *Param2);
 void ClearMessages();
 void ExitStatus();
 void SetRight(int rightid, int Value);
 bool CheckRight(int rightid, int Bit);
 const char *GetRightName(int rightid);
 const char *GetActionName(int actionid);
-void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2);
-void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2);
+void AddMessage(int Type, std::intptr_t Param1, std::intptr_t Param2);
+void AddMessageFirst(int Type, std::intptr_t Param1, std::intptr_t Param2);
 void SetAccount(int Number, const char *Password);
 void SetCharacter(int Number, const char *Name, const char *World, const uint8 *Address, int Port);
 void SetActiveCharacter(int Number);

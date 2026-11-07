@@ -19,7 +19,8 @@
 // DialogElements.obj (file-ranges.tsv).
 
 #include "Creatures.h"
-#include "GUI.h" // TCallback (NoCallback)
+#include "types/Callback.h"      // TCallback (NoCallback)
+#include "types/GraphicsTypes.h" // TRGBColor
 #include "Map.h"
 #include "Objects.h"
 #include "Preferences.h"
@@ -33,7 +34,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <cstdio>
 #include <cstring>
 
 // The data (0x5c4560-0x5cc417) is TCreatures' and TPlayerState's (Creatures.h, issue #106).
@@ -43,6 +43,7 @@ namespace {
 // At 0x5cc418, constructed by the static initialiser 0x559e00 as
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // the end of Creatures.obj's .bss, before Dialogs.obj's NoCallback 0x5cc420.
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's global; TCallback's constructor (GUI.cpp) stores two values
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
@@ -485,9 +486,9 @@ void TCreature::StartMovement(int dx, int dy, int Waypoints)
 }
 
 // 0x44bf20, line 154
-void TCreature::SetMark(int Mark)
+void TCreature::SetMark(int Value)
 {
-	this->Mark = Mark;
+	Mark = Value;
 	MarkTime = GetMilliseconds() + 1000;
 }
 
@@ -543,6 +544,7 @@ void patella::TPlayerState::DoPlayerStep()
 	case 6: dx = -1; dy = 1; break;
 	case 7: dx = 0; dy = 1; break;
 	case 8: dx = 1; dy = 1; break;
+	default: break; // no step: dx and dy stay 0, as without it (bugprone-switch-missing-default-case, issue #110)
 		// clang-format on
 	}
 	const TObject Bank = Map.GetFirstObject(dx + 8, dy + 6, Map.GetMapLevel());
@@ -607,6 +609,8 @@ int patella::TPlayerState::FindPlayerPath()
 	case -1:
 		GUI.SetStatusMessage("First go upstairs.", false);
 		return 0;
+	default: // the 0 below, as without it (bugprone-switch-missing-default-case, issue #110)
+		break;
 	}
 	return 0;
 }
@@ -786,7 +790,7 @@ bool patella::TCreatures::MoveCreatures()
 // fails IsOpponent's assertion.
 void patella::TCreatures::CheckMonsterHint(TCreature *Creature)
 {
-	PATELLA_ASSERT(Creature!=NULL);
+	PATELLA_ASSERT(Creature!=nullptr);
 	if (!Creature->Visible)
 		return;
 	const TCreature *Player = GetCreature(PlayerState.GetPlayerID());
@@ -794,12 +798,14 @@ void patella::TCreatures::CheckMonsterHint(TCreature *Creature)
 		const int Number = GetNumberOfOpponents();
 		for (int i = 0; i < Number; i++) {
 			TCreature *Opponent = GetOpponent(i);
-			PATELLA_ASSERT(Opponent!=NULL);
+			PATELLA_ASSERT(Opponent!=nullptr);
 			if (!IsPlayer(Opponent->CreatureID) && abs(Opponent->RealX - Player->RealX) <= 2
 				&& abs(Opponent->RealY - Player->RealY) <= 2)
 				GUI.CheckEventHelpName(Opponent->Name);
 		}
 	} else if (!IsPlayer(Creature->CreatureID) && IsOpponent(Creature)
+		// IsOpponent asserts the player creature (a null Player throws there; MSVC /analyze's C6011, issue #110).
+		PATELLA_MSVC_WARNING(suppress : 6011)
 		&& abs(Creature->RealX - Player->RealX) <= 2 && abs(Creature->RealY - Player->RealY) <= 2) {
 		GUI.CheckEventHelpName(Creature->Name);
 	}
@@ -900,7 +906,7 @@ int patella::TPlayerState::GetPlayerPartyFlag() const
 // (outfit 0 showing object 0).
 bool patella::TCreatures::IsOpponent(TCreature *Creature)
 {
-	PATELLA_ASSERT(Creature!=NULL);
+	PATELLA_ASSERT(Creature!=nullptr);
 	if (Creature->CreatureID == 0 || Creature->CreatureID == PlayerState.GetPlayerID() || !Creature->Visible)
 		return false;
 	if (!IsPlayer(Creature->CreatureID) && Creature->OutfitType == 0 && Creature->Colors[0] == 0)
@@ -908,7 +914,7 @@ bool patella::TCreatures::IsOpponent(TCreature *Creature)
 	if (Creature->Health < 1)
 		return false;
 	const TCreature *Player = GetCreature(PlayerState.GetPlayerID());
-	PATELLA_ASSERT(Player!=NULL);
+	PATELLA_ASSERT(Player!=nullptr);
 	if (Creature->RealZ != Player->RealZ || abs(Creature->RealX - Player->RealX) > 7)
 		return false;
 	return abs(Creature->RealY - Player->RealY) <= 5;
@@ -994,6 +1000,8 @@ bool patella::TCreatures::CompareBuddies(int i, int j) const
 			if (!Buddies[i].Online && Buddies[j].Online)
 				return false;
 			break;
+		default: // another method compares nothing, as without it (bugprone-switch-missing-default-case, issue #110)
+			break;
 		}
 	}
 	return true;
@@ -1040,7 +1048,7 @@ void patella::TCreatures::SortBuddy(int i)
 // entry that was online and is updated as offline stays counted as online.
 void patella::TCreatures::AddBuddy(uint32 CharacterID, const char *Name, bool Online)
 {
-	PATELLA_ASSERT(Name!=NULL);
+	PATELLA_ASSERT(Name!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(Name)<30, strlen(Name));
 	int Position = GetBuddyPosition(CharacterID);
 	if (Position == -1) {
@@ -1088,7 +1096,7 @@ void patella::TCreatures::SetBuddyState(uint32 CharacterID, bool Online)
 void patella::TCreatures::EditBuddy(int CharacterID, int Icon, const char *Description, bool Notify)
 {
 	PATELLA_ASSERT(CharacterID!=0);
-	PATELLA_ASSERT(Description!=NULL);
+	PATELLA_ASSERT(Description!=nullptr);
 	if (Icon == 0 && Description[0] == 0 && !Notify)
 		DeleteBuddy(CharacterID);
 	else
@@ -1106,7 +1114,7 @@ void patella::TCreatures::RemoveBuddy(uint32 CharacterID)
 	const int Position = GetBuddyPosition(CharacterID);
 	if (Position == -1)
 		return;
-	GUI.AddMessage(0x1a, reinterpret_cast<INT_PTR>(MsvcStrdup(Buddies[Position].Name)), 0);
+	GUI.AddMessage(0x1a, reinterpret_cast<std::intptr_t>(MsvcStrdup(Buddies[Position].Name)), 0);
 	if (Buddies[Position].Online)
 		NumberOfOnlineBuddies--;
 	for (int i = Position; i < NumberOfBuddies - 1; i++)

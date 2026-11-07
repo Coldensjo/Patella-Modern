@@ -22,7 +22,6 @@
 #include "Script.h"
 #include "Container.h"
 #include "common.h"
-#include <cstddef>
 #include <memory>
 
 // The tables as std::unique_ptr (issue #58): each a pointer, as the original's.
@@ -46,7 +45,7 @@ inline bool GetEntryFlag(TProperties &Entry, int Flag)
 // 0x4cfbb0, lines 67-70
 int GetEntryWaypoints(TProperties &Entry)
 {
-	PATELLA_ASSERT_VALUES(GetEntryFlag(Entry,BANK), *(int*)Entry.Flags);
+	PATELLA_ASSERT_VALUES(GetEntryFlag(Entry,BANK), *reinterpret_cast<const int*>(Entry.Flags));
 	return Entry.Waypoints;
 }
 
@@ -421,6 +420,8 @@ int patella::TObjectTypes::GetMissileSpriteNumber(int Number, int X, int Y, int 
 		return GetEntrySpriteNumber((*MissileProperties)(Number), X, Y, Layer, 1, 2, 1, 1);
 	case 7:
 		return GetEntrySpriteNumber((*MissileProperties)(Number), X, Y, Layer, 1, 1, 1, 1);
+	default: // the 0 below, as without it (bugprone-switch-missing-default-case, issue #110)
+		break;
 	}
 	return 0;
 }
@@ -493,24 +494,28 @@ void patella::TObjectTypes::ReleaseObjects()
 {
 	if (ObjectProperties != nullptr) {
 		for (int i = ObjectProperties->low(); i <= ObjectProperties->high(); i++)
+			// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): LoadProperties' sprite table
 			delete[] (*ObjectProperties)(i).Sprites;
 		ObjectProperties.reset();
 		ObjectProperties = nullptr;
 	}
 	if (OutfitProperties != nullptr) {
 		for (int i = OutfitProperties->low(); i <= OutfitProperties->high(); i++)
+			// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): LoadProperties' sprite table
 			delete[] (*OutfitProperties)(i).Sprites;
 		OutfitProperties.reset();
 		OutfitProperties = nullptr;
 	}
 	if (EffectProperties != nullptr) {
 		for (int i = EffectProperties->low(); i <= EffectProperties->high(); i++)
+			// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): LoadProperties' sprite table
 			delete[] (*EffectProperties)(i).Sprites;
 		EffectProperties.reset();
 		EffectProperties = nullptr;
 	}
 	if (MissileProperties != nullptr) {
 		for (int i = MissileProperties->low(); i <= MissileProperties->high(); i++)
+			// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): LoadProperties' sprite table
 			delete[] (*MissileProperties)(i).Sprites;
 		MissileProperties.reset();
 		MissileProperties = nullptr;
@@ -546,9 +551,7 @@ void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 		case BANK:
 			Entry->Waypoints = File->readWord();
 			break;
-		case WRITE:
-			Entry->MaxLength = File->readWord();
-			break;
+		case WRITE: // and WRITEONCE: the same read (two identical cases until issue #110, bugprone-branch-clone)
 		case WRITEONCE:
 			Entry->MaxLength = File->readWord();
 			break;
@@ -569,6 +572,8 @@ void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 		case LENSHELP:
 			Entry->LensHelp = File->readWord();
 			break;
+		default: // nothing, as without it (bugprone-switch-missing-default-case, issue #110)
+			break;
 		}
 	}
 	Entry->Width = File->readByte();
@@ -584,6 +589,7 @@ void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 	Entry->Phases = File->readByte();
 	const int Count = Entry->Width * Entry->Height * Entry->Layers * Entry->PatternWidth * Entry->PatternHeight
 		* Entry->PatternDepth * Entry->Phases;
+	// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): the entry's sprite table, deleted by ReleaseObjects (notes/ownership.md)
 	Entry->Sprites = new uint16[Count];
 	for (int i = 0; i < Count; i++)
 		Entry->Sprites[i] = File->readWord();
@@ -597,7 +603,7 @@ void LoadProperties(TReadBinaryFile *File, TProperties *Entry)
 // by close() and by the destructor.
 void patella::TObjectTypes::LoadObjects(const char *FileName)
 {
-	PATELLA_ASSERT(FileName!=NULL);
+	PATELLA_ASSERT(FileName!=nullptr);
 	ReleaseObjects();
 	TReadBinaryFile File;
 	File.open(FileName);
@@ -606,9 +612,13 @@ void patella::TObjectTypes::LoadObjects(const char *FileName)
 	const int Outfits = File.readWord();
 	const int Effects = File.readWord();
 	const int Missiles = File.readWord();
+	// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): unique_ptr::reset, a template, is not among its owners
 	ObjectProperties.reset(new array<TProperties>(100, Objects));
+	// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): unique_ptr::reset, a template, is not among its owners
 	OutfitProperties.reset(new array<TProperties>(1, Outfits));
+	// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): unique_ptr::reset, a template, is not among its owners
 	EffectProperties.reset(new array<TProperties>(1, Effects));
+	// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): unique_ptr::reset, a template, is not among its owners
 	MissileProperties.reset(new array<TProperties>(1, Missiles));
 	for (int i = 100; i <= Objects; i++)
 		LoadProperties(&File, &(*ObjectProperties)(i));

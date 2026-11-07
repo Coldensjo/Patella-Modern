@@ -607,14 +607,26 @@ ADVANCE_MS = 2000
 ADVANCE_TICKS = 20
 SKIP_FRAMES = 2  # frames drawn after the advance before the capture
 
-# The scenes, in session order (the replayed session: tools/session_client.py run_session).
-SCENES = ["start", "options", "graphics-options", "advanced-options", "login", "charlist", "game", "automap-zoom",
-	"walk north", "walk east", "walk south", "walk west", "turn south", "say", "look north", "open container",
-	"look in container", "use in container", "context menu", "trade with", "trade request", "look at offer",
-	"cancel trade", "close container", "side windows", "logout"]
+# The look step of the replayed session (Patella-Modern issue #140): compare_traffic.py's (issue #137), whose
+# orig-live.jsonl is the recording replayed here. main refuses a recording with another look step
+# (session_client.check_recorded_look); tools/reference_record.py passes LOOK_NORTH, the frozen reference recordings'.
+LOOK = sc.LOOK_OWN_FIELD
 
 
-FULLSCREEN_SCENES = [n for n in SCENES if n not in ("options", "graphics-options", "advanced-options")]
+def scenes(look=LOOK, fullscreen=False):
+	"""The scenes, in session order (the replayed session: tools/session_client.py run_session, its look step
+	look); fullscreen: without the option dialogs."""
+	names = ["start", "options", "graphics-options", "advanced-options", "login", "charlist", "game", "automap-zoom",
+		"walk north", "walk east", "walk south", "walk west", "turn south", "say", look[0], "open container",
+		"look in container", "use in container", "context menu", "trade with", "trade request", "look at offer",
+		"cancel trade", "close container", "side windows", "logout"]
+	if fullscreen:
+		names = [n for n in names if n not in ("options", "graphics-options", "advanced-options")]
+	return names
+
+
+SCENES = scenes()
+FULLSCREEN_SCENES = scenes(fullscreen=True)
 
 # The fullscreen runs use the desktop's own mode, so that no display mode really changes.
 FULLSCREEN_MODE = (1024, 768, 32)
@@ -730,11 +742,12 @@ def switch_fullscreen(driver):
 	time.sleep(1)
 
 
-def session(driver, proxy, shot, fullscreen=False, device_choice=False):
+def session(driver, proxy, shot, fullscreen=False, device_choice=False, look=LOOK):
 	"""The scenes: the start screen, the option dialogs, the login, then the replayed game session
 	(session_client.run_session) with an automap zoom; shot(name) captures. fullscreen: switch to
 	fullscreen mode first, then the same scenes without the option dialogs. device_choice: the advanced
-	options' engine buttons and the line above them are masked too (device_choice_mask)."""
+	options' engine buttons and the line above them are masked too (device_choice_mask). look: run_session's
+	look step (LOOK, compare_traffic.py's; tools/reference_record.py: LOOK_NORTH)."""
 	def settle(name=None):
 		if proxy is not None:
 			proxy.wait_idle(0.5, 60)
@@ -839,7 +852,7 @@ def session(driver, proxy, shot, fullscreen=False, device_choice=False):
 		if name == "close container":  # the last step before the logout: the side windows stay open
 			step("side windows", side_windows)
 
-	sc.run_session(driver, session_wait, checkpoint, with_login=False)
+	sc.run_session(driver, session_wait, checkpoint, with_login=False, look=look)
 	shot("logout")
 
 
@@ -1101,6 +1114,10 @@ def main():
 	if not os.path.isfile(args.recording):
 		raise SystemExit("no recording %s: copy compare_traffic.py's orig-live.jsonl there, or pass --recording"
 			% args.recording)
+	try:
+		sc.check_recorded_look(px.load_events(args.recording), LOOK, args.recording)  # issue #140
+	except sc.SessionError as e:
+		raise SystemExit("the recording does not fit this session: %s" % e)
 	os.makedirs(args.out, exist_ok=True)
 	runs = {}
 	failed = []
@@ -1125,8 +1142,8 @@ def main():
 	report = []
 	say = report.append
 	say("Rendering comparison (issue #20), %s" % time.strftime("%Y-%m-%d %H:%M"))
-	say("recording %s; every step: %d ms and %d ticks of virtual time, capture after %d frames"
-		% (args.recording, ADVANCE_MS, ADVANCE_TICKS, SKIP_FRAMES))
+	say("recording %s (its look step: %s); every step: %d ms and %d ticks of virtual time, capture after %d frames"
+		% (args.recording, LOOK[0], ADVANCE_MS, ADVANCE_TICKS, SKIP_FRAMES))
 	patella = CLIENTS["patella"]["source"]
 	say(named + " (%s)" % patella_preset if named else "patella: %s (missing)" % patella)
 	if args.tolerance:
@@ -1446,13 +1463,51 @@ def self_test():
 	for got, want in checks:
 		if got != want:
 			raise SystemExit("self-test: %r, expected %r" % (got, want))
+	looks = look_self_test()
 	if os.name == "nt":
 		summary = display_summary()  # reads only: no window of its own stays, no setting changes
 		if not summary.startswith("display "):
 			raise SystemExit("self-test: display_summary() gave %r" % summary)
 		print("compare_rendering.py: this display: %s" % summary)
-	print("compare_rendering.py: self-test passed (%d offsets, %d diagnosis texts)" % (len(OFF), len(checks)))
+	print("compare_rendering.py: self-test passed (%d offsets, %d diagnosis texts, %d recording checks)"
+		% (len(OFF), len(checks), looks))
 	return 0
+
+
+def look_self_test():
+	"""session_client.recorded_look and check_recorded_look on made-up recordings (issue #140): the game login
+	answer at [32098, 32219, 7] (the test server's start field) and a look at the own field, north of it, east of it,
+	none. Returns the number of checks."""
+	def game(direction, plain):
+		return {"kind": "game", "dir": direction, "plain": plain}
+
+	answer = game("s2c", "0a4e1ee700c8000064627ddb7d07" + "67" * 20)
+	login = {"kind": "game", "dir": "c2s", "plain": "0a02", "fields_end": 47}
+
+	def recording(look_hex):
+		return [login, answer, game("c2s", "65"), game("c2s", "96010b0068656c6c6f20776f726c64")] + (
+			[game("c2s", look_hex)] if look_hex else []) + [game("c2s", "8cffff4000000c0c0000")]
+
+	own, north, east = "8c627ddb7d07630001", "8c627dda7d079a0100", "8c637ddb7d079a0100"
+	checks = 0
+	for events, want in ((recording(own), sc.LOOK_OWN_FIELD), (recording(north), sc.LOOK_NORTH)):
+		got = sc.recorded_look(events)
+		if got != want:
+			raise SystemExit("self-test: recorded_look gave %r, expected %r" % (got, want))
+		checks += 1
+	for events, part in ((recording(east), "none of the session's look steps"),
+			(recording(None)[:-1], "no look packet"), ([login, game("c2s", own)], "no game login answer"),
+			(recording(north), "recorded with the look step 'look north'")):
+		try:
+			sc.check_recorded_look(events, LOOK, "made-up.jsonl")
+		except sc.SessionError as e:
+			if part not in str(e):
+				raise SystemExit("self-test: check_recorded_look said %r, expected %r in it" % (str(e), part))
+		else:
+			raise SystemExit("self-test: check_recorded_look accepted a recording that should say %r" % part)
+		checks += 1
+	sc.check_recorded_look(recording(own), LOOK, "made-up.jsonl")
+	return checks + 1
 
 
 def kill_clients():

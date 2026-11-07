@@ -19,6 +19,16 @@
 #	types/IndexedVector.h TIndexedVector, the growable vector over std::vector (header only, issue #99)
 #	types/Cp1252.h       the client's code page (Windows-1252) to and from UTF-8 and UTF-16 (header only,
 #	                      issue #112, plan D4: 8-bit inside, Unicode at the platform boundary)
+#	Network.cpp           the connection's buffers, the frames and the XTEA, the servers (TNetwork; issue #110)
+#	Communication.cpp     the packets: the senders and the receive handlers (TCommunication; issue #110)
+#	Objects.cpp, Map.cpp, Creatures.cpp, Inventory.cpp
+#	                      the game state (TMapState's TObjectTypes, TMap, TCreatures and TPlayerState, TInventory;
+#	                      issue #110)
+#
+# Since issue #110 the library's objects may call the client's files that are not in it yet (Status.cpp, Talk.cpp,
+# Help.cpp, Preferences.cpp, graphics.cpp, GUI.cpp, sysinc.cpp, Script.cpp, Client.cpp's bridge): their headers are
+# portable (the core header list, cmake/HeaderCheck.cmake), their code moves with #111. What links the library's
+# objects links those too (the client compiles all of them itself; the unit tests use only the self-contained ones).
 #
 # PATELLA_CORE (common.h) leaves out MFC and the Windows headers, so no core source can use them
 # (plan section 8). The client (cmake/WindowsX64.cmake) and the oracle still compile these sources
@@ -38,6 +48,14 @@ set(patella_core_sources
 	src/settings/PreferenceKeys.cpp
 	src/log/LogSettings.cpp
 	src/Extern/regexp/regexp.c)
+# Issue #110 (plan M7): packet parsing and building, and the game state.
+list(APPEND patella_core_sources
+	src/Network.cpp
+	src/Communication.cpp
+	src/Objects.cpp
+	src/Map.cpp
+	src/Creatures.cpp
+	src/Inventory.cpp)
 list(TRANSFORM patella_core_sources PREPEND "${PROJECT_SOURCE_DIR}/")
 
 add_library(patella_core STATIC ${patella_core_sources})
