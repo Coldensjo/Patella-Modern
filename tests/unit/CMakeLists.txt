@@ -50,7 +50,8 @@
 #   scripts in tests/testmode parse; the dumps of issue #22: the script's dump and frame commands, the
 #   state dump's JSON, the packet log's lines and connections, the frame dump's PNG pictures; issue #23:
 #   the reference scripts' commands (clock manual, advance, cursor, post, save), the server replay's
-#   file, schedule and XTEA frames; issue #48: the fixed display modes' file and choice.
+#   file, schedule and XTEA frames; issue #48: the fixed display modes' file and choice; issue #120: the
+#   replay's network inside the process (TPipeNetwork) and WinSock's rules for its events.
 #
 # - tests_render: src/vulkan/Quads.cpp, the Vulkan engine's Direct3D 9 quads, and src/vulkan/FilterMask.cpp,
 #   its device-filtered pixels (issue #19); src/vulkan/DeviceChoice.cpp, the graphics device choice
@@ -165,7 +166,8 @@ add_executable(tests_testmode
 	testmode_script_test.cpp
 	testmode_dump_test.cpp
 	testmode_replay_test.cpp
-	testmode_display_modes_test.cpp)
+	testmode_display_modes_test.cpp
+	testmode_pipe_test.cpp)
 target_link_libraries(tests_testmode PRIVATE patella_testmode doctest::doctest)
 target_compile_definitions(tests_testmode PRIVATE "PATELLA_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\"")
 patella_target_language(tests_testmode)

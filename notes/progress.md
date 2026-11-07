@@ -552,6 +552,14 @@ the delete. Converted: TTabBar::LeftTabs and RightTabs, TGUI::MainWindow (FatalE
 TClient's static destruction leaves it); kept raw with the reason: ModalWindow (the help bubble's freed pointer that
 the golden Control test compares), the conditional members, the text buffers. Golden 17,316,040, 0 failures.
 notes/decisions.md, "#108".
+
+The server replay's socket inside the process (Patella-Modern issue #120, branch issue-120, November 7, 2026; M7):
+with --test-replay PatellaTest.exe's ISocket is TPipeSocketWin32 (src/testmode/PipeSocketWin32.h) over TPipeNetwork
+(src/testmode/PipeNetwork.h, portable, tested in tests_testmode): the replay's listeners and connections inside the
+process, the events WinSock's and posted through a message-only window as MFC's. No port is opened, so two reference
+compares ran at the same time and both matched; the packet and driver logs are the loopback run's. The live runs
+(without --test-replay) keep Win32's sockets; Patella.exe is not touched. Golden 17,316,040, 0 failures.
+notes/decisions.md, "#120".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

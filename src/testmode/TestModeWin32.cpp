@@ -42,8 +42,9 @@
 // Issue #23, the reference recordings (notes/testmode.md, "Reference recordings"):
 //
 // - --test-replay <file> (src/testmode/ServerReplay.h): the server side of a recording, without a
-//   server. The driver listens on the file's ports on 127.0.0.1, takes each connection's XTEA key from
-//   the client's RSA block, and sends the recorded server packets and closes when they are due (their
+//   server. The driver listens on the file's ports on 127.0.0.1 inside the process (issue #120: the client's
+//   socket is TPipeSocketWin32, src/testmode/PipeSocketWin32.h, no port is opened), takes each connection's XTEA
+//   key from the client's RSA block, and sends the recorded server packets and closes when they are due (their
 //   virtual time has come and the client packets recorded before them have come). It holds the clock
 //   and the script while the network is busy: while the client resolves or connects (connection state
 //   1, 2, 5), while a client packet has not reached the replay, while a server packet has not been
@@ -110,6 +111,8 @@
 #include "testmode/DisplayModes.h"
 #include "testmode/InputScript.h"
 #include "testmode/PacketLog.h"
+#include "testmode/PipeNetwork.h"
+#include "testmode/PipeSocketWin32.h"
 #include "testmode/Png.h"
 #include "testmode/ServerReplay.h"
 #include "testmode/StateDump.h"
@@ -133,6 +136,7 @@
 #include <fstream>
 #include <ios>
 #include <iterator>
+#include <memory>
 #include <span>
 #include <string>
 #include <system_error>
@@ -168,23 +172,22 @@ constexpr long long HoldLimit = 10000;
 
 // A connection of the client to the server replay (issue #23).
 struct TReplaySocket {
-	SOCKET Socket = INVALID_SOCKET;
+	int Pipe = -1; // the connection of TPipeNetwork (issue #120)
 	std::string Kind;
 	int Index = -1; // the recorded connection (TServerReplay), -1: none
 	std::array<std::uint8_t, 16> Key{};
 	bool HasKey = false;
-	std::vector<std::uint8_t> In;  // bytes from the client, not yet a whole frame
-	std::vector<std::uint8_t> Out; // bytes to the client, not yet sent
-	int Unread = 0;                // frames sent that the client has not decrypted yet
-	bool ServerClosing = false;    // shut down for sending; the client's close is awaited
-	bool Closed = false;           // closed by the client (or failed)
-	int Frames = 0;                // client frames read
+	std::vector<std::uint8_t> In; // bytes from the client, not yet a whole frame
+	int Unread = 0;               // frames sent that the client has not decrypted yet
+	bool ServerClosing = false;   // shut down for sending; the client's close is awaited
+	bool Closed = false;          // closed by the client (or failed)
+	int Frames = 0;               // client frames read
 };
 
 struct TReplayState {
 	bool Active = false;
 	TServerReplay Schedule;
-	std::vector<std::pair<SOCKET, std::string>> Listeners;
+	std::unique_ptr<TPipeSocketWin32> Pipes; // the client's socket and the replay's network (issue #120)
 	std::vector<TReplaySocket> Sockets;
 	std::array<std::uint8_t, 16> PendingKey{};
 	bool HasPendingKey = false;
@@ -341,7 +344,7 @@ void OpenControl(TState &State, const std::wstring &Name)
 	WriteLog(State, "testmode: control channel " + Narrow(Name));
 }
 
-// The server replay (--test-replay): the file and the listening sockets.
+// The server replay (--test-replay): the file and its listeners, inside the process (issue #120).
 void OpenReplay(TState &State, const std::wstring &Path)
 {
 	std::ifstream In(Path, std::ios::binary);
@@ -353,20 +356,12 @@ void OpenReplay(TState &State, const std::wstring &Path)
 		Fail(State, Narrow(Path) + ":" + std::to_string(Parsed.ErrorLine) + ": " + Parsed.Error);
 	if (Parsed.File.Listen.empty())
 		Fail(State, Narrow(Path) + ": no listen lines");
-	WSADATA Data = {};
-	if (::WSAStartup(MAKEWORD(2, 2), &Data) != 0)
-		Fail(State, "replay: WSAStartup failed");
+	State.Replay.Pipes = std::make_unique<TPipeSocketWin32>();
+	if (!State.Replay.Pipes->Start())
+		Fail(State, "replay: cannot make the socket events' window (error " + std::to_string(::GetLastError()) + ")");
 	for (const TReplayListen &Listen : Parsed.File.Listen) {
-		const SOCKET Socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		sockaddr_in Address = {};
-		Address.sin_family = AF_INET;
-		Address.sin_port = ::htons(static_cast<u_short>(Listen.Port));
-		Address.sin_addr.s_addr = ::htonl(INADDR_LOOPBACK);
-		u_long NonBlocking = 1;
-		if (Socket == INVALID_SOCKET || ::bind(Socket, reinterpret_cast<const sockaddr *>(&Address), sizeof(Address)) != 0
-			|| ::listen(Socket, 4) != 0 || ::ioctlsocket(Socket, FIONBIO, &NonBlocking) != 0)
-			Fail(State, "replay: cannot listen on 127.0.0.1:" + std::to_string(Listen.Port) + " (error " + std::to_string(::WSAGetLastError()) + ")");
-		State.Replay.Listeners.emplace_back(Socket, Listen.Kind);
+		State.Replay.Pipes->Network().Listen("127.0.0.1", Listen.Port, Listen.Kind);
+		WriteLog(State, "testmode: replay: " + Listen.Kind + " listens on 127.0.0.1:" + std::to_string(Listen.Port) + " in the process (no port)");
 	}
 	std::size_t Connections = Parsed.File.Connections.size();
 	State.Replay.Schedule = TServerReplay(std::move(Parsed.File.Connections));
@@ -706,59 +701,35 @@ void CloseReplaySocket(TState &State, TReplaySocket &Socket, const char *Why)
 		return;
 	Socket.Closed = true;
 	Socket.Unread = 0;
-	Socket.Out.clear();
-	::closesocket(Socket.Socket);
-	Socket.Socket = INVALID_SOCKET;
+	State.Replay.Pipes->Network().ServerClose(Socket.Pipe);
 	State.Replay.Schedule.ClientClosed(Socket.Index);
 	WriteLog(State, "testmode: replay: " + ReplayName(Socket) + " closed by the client (" + Why + ")");
 }
 
-void FlushReplaySocket(TState &State, TReplaySocket &Socket)
-{
-	while (!Socket.Out.empty() && !Socket.Closed) {
-		const int Count = ::send(Socket.Socket, reinterpret_cast<const char *>(Socket.Out.data()),
-			static_cast<int>((std::min)(Socket.Out.size(), static_cast<std::size_t>(0x10000))), 0);
-		if (Count == SOCKET_ERROR) {
-			if (::WSAGetLastError() != WSAEWOULDBLOCK)
-				CloseReplaySocket(State, Socket, "send failed");
-			return;
-		}
-		Socket.Out.erase(Socket.Out.begin(), Socket.Out.begin() + Count);
-	}
-}
-
-// New connections, the client's bytes and closes, the bytes still to send.
+// New connections, the client's bytes and closes.
 void PumpReplay(TState &State)
 {
 	TReplayState &Replay = State.Replay;
-	for (const auto &[Listener, Kind] : Replay.Listeners) {
-		while (true) {
-			const SOCKET Client = ::accept(Listener, nullptr, nullptr);
-			if (Client == INVALID_SOCKET)
-				break;
-			u_long NonBlocking = 1;
-			::ioctlsocket(Client, FIONBIO, &NonBlocking);
-			BOOL NoDelay = TRUE;
-			::setsockopt(Client, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char *>(&NoDelay), sizeof(NoDelay));
-			TReplaySocket Socket;
-			Socket.Socket = Client;
-			Socket.Kind = Kind;
-			Socket.Index = Replay.Schedule.Open(Kind);
-			Replay.Sockets.push_back(std::move(Socket));
-			WriteLog(State, "testmode: replay: " + ReplayName(Replay.Sockets.back()) + " opened at " + std::to_string(State.Virtual.Elapsed()) + " ms");
-		}
+	TPipeNetwork &Network = Replay.Pipes->Network();
+	for (auto Accepted = Network.Accept(); Accepted.has_value(); Accepted = Network.Accept()) {
+		TReplaySocket Socket;
+		Socket.Pipe = Accepted->Id;
+		Socket.Kind = Accepted->Kind;
+		Socket.Index = Replay.Schedule.Open(Socket.Kind);
+		Replay.Sockets.push_back(std::move(Socket));
+		WriteLog(State, "testmode: replay: " + ReplayName(Replay.Sockets.back()) + " opened at " + std::to_string(State.Virtual.Elapsed()) + " ms");
 	}
 	for (TReplaySocket &Socket : Replay.Sockets) {
 		while (!Socket.Closed) {
-			std::array<char, 0x4000> Buffer{};
-			const int Count = ::recv(Socket.Socket, Buffer.data(), static_cast<int>(Buffer.size()), 0);
-			if (Count == SOCKET_ERROR && ::WSAGetLastError() == WSAEWOULDBLOCK)
+			std::array<std::uint8_t, 0x4000> Buffer{};
+			const TPipeResult Received = Network.ServerReceive(Socket.Pipe, Buffer);
+			if (Received.Count < 0 && Received.Error == TPipeError::WouldBlock)
 				break;
-			if (Count <= 0) {
-				CloseReplaySocket(State, Socket, Count == 0 ? "end of stream" : "receive failed");
+			if (Received.Count <= 0) {
+				CloseReplaySocket(State, Socket, Received.Count == 0 ? "end of stream" : "receive failed");
 				break;
 			}
-			Socket.In.insert(Socket.In.end(), Buffer.begin(), Buffer.begin() + Count);
+			Socket.In.insert(Socket.In.end(), Buffer.begin(), Buffer.begin() + Received.Count);
 		}
 		while (Socket.In.size() >= 2) {
 			std::size_t Size = Socket.In[0] | (static_cast<std::size_t>(Socket.In[1]) << 8U);
@@ -778,7 +749,6 @@ void PumpReplay(TState &State)
 			Replay.ReplayRead++;
 			Replay.Schedule.ClientPacket(Socket.Index);
 		}
-		FlushReplaySocket(State, Socket);
 	}
 }
 
@@ -798,7 +768,7 @@ std::string ReplayBusy(TState &State)
 	for (const TReplaySocket &Socket : Replay.Sockets) {
 		if (Socket.Closed)
 			continue;
-		if (Socket.Unread > 0 || !Socket.Out.empty())
+		if (Socket.Unread > 0)
 			return ReplayName(Socket) + ": a server packet is on its way";
 		if (Socket.ServerClosing)
 			return ReplayName(Socket) + ": the client's close is awaited";
@@ -855,7 +825,7 @@ bool ReplayDeliver(TState &State, std::uint32_t Elapsed)
 			continue;
 		if (Event->Kind == TReplayKind::ServerClose) {
 			WriteLog(State, std::to_string(Elapsed) + " ms, replay line " + std::to_string(Event->Line) + ": " + ReplayName(Socket) + " closed by the server");
-			::shutdown(Socket.Socket, SD_SEND);
+			Replay.Pipes->Network().ServerShutdown(Socket.Pipe);
 			Socket.ServerClosing = true;
 			Replay.Schedule.Take(Socket.Index);
 			return true;
@@ -864,11 +834,11 @@ bool ReplayDeliver(TState &State, std::uint32_t Elapsed)
 			WriteLog(State, "testmode: replay: " + ReplayName(Socket) + ": no XTEA key, the packet goes out with a zero key");
 		std::vector<std::uint8_t> Frame = EncryptFrame(Event->Payload, Socket.Key);
 		WriteLog(State, std::to_string(Elapsed) + " ms, replay line " + std::to_string(Event->Line) + ": " + ReplayName(Socket) + " server packet, " + std::to_string(Event->Payload.size()) + " bytes");
-		Socket.Out.insert(Socket.Out.end(), Frame.begin(), Frame.end());
 		Socket.Unread++;
 		Replay.Sent++;
 		Replay.Schedule.Take(Socket.Index);
-		FlushReplaySocket(State, Socket);
+		if (Replay.Pipes->Network().ServerSend(Socket.Pipe, Frame).Count < 0)
+			CloseReplaySocket(State, Socket, "send failed");
 		return true;
 	}
 	return false;
@@ -1310,10 +1280,13 @@ void FrameObservers(int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **P
 } // namespace patella::testmode
 
 // The test build's platform (issue #109; platform/Platform.h): the clock is the test mode's (the virtual clock with a
-// script, the system's without one, as Initialize chose it), the files and the network Win32's (the comparisons
-// read the files the client writes in its folder; the server replay is a server on the loopback ports).
+// script, the system's without one, as Initialize chose it), the files Win32's (the comparisons read the files the
+// client writes in its folder), the network the server replay's inside the process with --test-replay (issue #120:
+// TPipeSocketWin32, no port), else Win32's (a live run against the test server).
 patella::platform::TPlatform &patella::platform::Platform()
 {
-	static TPlatform Instance{*patella::testmode::State().Clock, SystemFileSystem(), Win32Socket()};
+	patella::testmode::TState &Current = patella::testmode::State();
+	static TPlatform Instance{*Current.Clock, SystemFileSystem(),
+		Current.Replay.Active ? static_cast<ISocket &>(*Current.Replay.Pipes) : static_cast<ISocket &>(Win32Socket())};
 	return Instance;
 }

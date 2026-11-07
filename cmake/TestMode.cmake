@@ -8,9 +8,10 @@
 #	src/testmode/Png.cpp          the frame dump's PNG pictures (issue #22)
 #	src/testmode/ServerReplay.cpp the server replay's file format and schedule, XTEA (issue #23)
 #	src/testmode/DisplayModes.cpp the fixed display modes' file format and choice (issue #48)
+#	src/testmode/PipeNetwork.cpp  the server replay's network inside the process, no ports (issue #120)
 #
 # The test build of the client (PatellaTest.exe, cmake/WindowsX64.cmake) links it with
-# src/testmode/TestModeWin32.cpp and ClientStateWin32.cpp, the Windows side. Patella.exe never links it: its
+# src/testmode/TestModeWin32.cpp, ClientStateWin32.cpp and PipeSocketWin32.cpp, the Windows side. Patella.exe never links it: its
 # hooks (src/TestHooks.h) are the system calls themselves, or nothing.
 
 include("${PROJECT_SOURCE_DIR}/cmake/Warnings.cmake")
@@ -23,7 +24,8 @@ add_library(patella_testmode STATIC
 	"${PROJECT_SOURCE_DIR}/src/testmode/PacketLog.cpp"
 	"${PROJECT_SOURCE_DIR}/src/testmode/Png.cpp"
 	"${PROJECT_SOURCE_DIR}/src/testmode/ServerReplay.cpp"
-	"${PROJECT_SOURCE_DIR}/src/testmode/DisplayModes.cpp")
+	"${PROJECT_SOURCE_DIR}/src/testmode/DisplayModes.cpp"
+	"${PROJECT_SOURCE_DIR}/src/testmode/PipeNetwork.cpp")
 target_include_directories(patella_testmode PUBLIC "${PROJECT_SOURCE_DIR}/src")
 patella_target_language(patella_testmode)
 patella_target_warnings(patella_testmode)

@@ -109,7 +109,9 @@ written as it goes, the game port with the world.
 | src/testmode/PacketLog.h, PacketLog.cpp | the packet log: the line format, the connections (portable; #22) |
 | src/testmode/Png.h, Png.cpp | the frame dump's PNG pictures: CRC-32, Adler-32, stored deflate (portable; #22) |
 | src/testmode/ServerReplay.h, ServerReplay.cpp | the server replay: its file, its schedule, XTEA frames (portable; #23) |
-| src/testmode/TestModeWin32.cpp | the Windows side: the test build's Platform() (#109), the command line, the driver, the messages, the dumps' files, the replay's sockets (#23) |
+| src/testmode/PipeNetwork.h, PipeNetwork.cpp | the replay's network inside the process: listeners, connections, WinSock's event rules (portable; #120) |
+| src/testmode/PipeSocketWin32.h, PipeSocketWin32.cpp | the test build's ISocket over it with --test-replay: the events through a message-only window (#120) |
+| src/testmode/TestModeWin32.cpp | the Windows side: the test build's Platform() (#109), the command line, the driver, the messages, the dumps' files, the replay's server side (#23, #120) |
 | src/testmode/ClientStateWin32.cpp, ClientView.h | the state dump's and the probe's reading of the client (test build only; #22, #92) |
 | cmake/TestMode.cmake | patella_testmode, the portable part, on every product preset |
 | cmake/WindowsX64.cmake | PatellaTest.exe (option PATELLA_TEST_BUILD, default ON) next to Patella.exe; PatellaTest_compile, its sources compiled without Tibia.exe (PATELLA_CLIENT_COMPILE_ONLY, the hosted CI; #25; Patella_compile the same for Patella.exe, #46) |
@@ -119,6 +121,7 @@ written as it goes, the game port with the world.
 | tools/testmode_dumps.py | the dumps' readers and checks, the static key lists, the self-test |
 | tools/testmode_client.py | the control channel's tool side and TestClient, client_state.Client's reading interface over the probe (#92) |
 | tests/unit/testmode_replay_test.cpp | the reference scripts' commands, the replay's file, schedule and frames (#23) |
+| tests/unit/testmode_pipe_test.cpp | the replay's network inside the process and its events (#120) |
 | tools/reference.py | the reference recordings: record (through reference_record.py) and compare (#23) |
 | tools/reference_record.py | the record step: live recordings, Tibia.exe's reference runs under patcap.dll (#23) |
 
@@ -487,8 +490,20 @@ key from the client's RSA block before encryption, the hook PATELLA_TEST_RSA_BLO
 proxy's: a server packet or close is due once the client packets recorded before it have come and its time has
 come; a client packet that comes early waits for its place; after the client's close nothing more is sent.
 
-The driver, at the start of each idle call: accepts connections, reads the client's frames and closes, sends
-what is left of a frame; while the network is busy it does nothing else and the clock stands still (each wait at
+No port is opened (issue #120; until then the replay listened on the loopback ports, and two replays at the same
+time, or a replay and a live run, collided on them). With --test-replay the test build's ISocket is
+TPipeSocketWin32 (src/testmode/PipeSocketWin32.h), whose connections are TPipeNetwork's (src/testmode/PipeNetwork.h):
+the listen lines are listeners on 127.0.0.1 inside the process, a connection is two byte queues with TCP's ends, and
+the client's TSocket (still Win32's CAsyncSocket, never given a handle) gets its events as WinSock and MFC give them:
+a connect never completes in the call (OnConnect, then OnSend, are window messages; a port nothing listens on is
+OnConnect with WSAECONNREFUSED), one read message until a receive and another after a receive that leaves bytes
+(OnReceive only when the socket is readable at dispatch, as MFC's select), one close message at the server's
+shutdown. The messages go to a message-only window of the client's thread, so the message loop and a modal loop
+dispatch them as they dispatch MFC's socket window's. Startup (AfxSocketInit) and the name resolution stay
+Win32's. Without --test-replay (a live run against the test server) the test build's socket is Win32's, as
+Patella.exe's.
+
+The driver, at the start of each idle call: accepts connections, reads the client's frames and closes; while the network is busy it does nothing else and the clock stands still (each wait at
 most 10 s real, then it gives up, writes "gave up waiting" in the log, and compare reports it):
 
 - the client resolves or connects (connection state 1, 2 or 5);
