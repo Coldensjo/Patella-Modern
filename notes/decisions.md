@@ -16567,3 +16567,122 @@ preset `--fresh`):
   scenario on Tibia.exe's side ("no TibiaClient window after 30 s"; compare_files-try1.log) and testmode_check once (a
   scripted walk key lost in run 1 of the same client; testmode_check-try1.log), while other agents ran live checks; the
   error scenario alone passed (compare_files-error-diag.log), and both passed on 5d6d1ce.
+
+## #125: a portable TSocket over Winsock and POSIX, the name lookup on a jthread (Patella-Modern issue #125, M8)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-125, from main 968f54c). Plan section 7, M8: the client's network
+no longer uses MFC's CAsyncSocket or WSAAsyncGetHostByName; one implementation over Winsock and POSIX sockets,
+non-blocking and polled from the loop, with getaddrinfo on a std::jthread.
+
+### The socket (high)
+
+- **TPortableSocket** (src/platform/PortableSocket.h and .cpp, portable: no platform header in the .h; the library
+  patella_platform of cmake/Core.cmake, with patella_core's warnings, hardening and static analysis; the client compiles
+  the source itself for its static CRT) is the ISocket of Patella.exe and of PatellaTest.exe's live runs. The same code
+  on both systems but for the system calls' spellings (SOCKET and closesocket, ioctlsocket, select; a file descriptor,
+  close, SOCK_NONBLOCK, poll, MSG_NOSIGNAL).
+- **The connection** is the portable TSocket (in PortableSocket.h; each executable defines TSocket once): the
+  original's four events, which call TNetwork's ISocketEvents as the CAsyncSocket subclass did, plus the socket's state.
+  Create makes a non-blocking stream socket, IPv6 with IPv4 mapped (IPV6_V6ONLY 0) where the system has IPv6, else IPv4,
+  not inherited by child processes. MFC's bind to port 0 is left out (connect binds). No TCP_NODELAY, as MFC's.
+- **Connect** resolves the address as MFC's CAsyncSocket::Connect did (inet_addr, else gethostbyname, both blocking):
+  getaddrinfo, blocking, the first IPv4 address, else the first IPv6 one; neither: WSAEINVAL, MFC's. On Windows an
+  empty name is the local host for gethostbyname and getaddrinfo alike; POSIX's getaddrinfo refuses it (WSAEINVAL).
+  A connect that completes in the call (POSIX on loopback may) returns true and still gets OnConnect(0) at the next
+  Poll, as WinSock's FD_CONNECT came after a TRUE Connect. A null connection (TNetwork's ConnectSocket after a failed
+  Create; MFC read the null object's handle and crashed) is WSAENOTSOCK.
+- **The error codes** stay WinSock's numbers (platform/Socket.h's socket_error, which gained the rest of WinSock's
+  socket errors): Windows passes WSAGetLastError and getaddrinfo's codes on (asserted equal); POSIX maps errno
+  (EINPROGRESS and EAGAIN: WSAEWOULDBLOCK, EPIPE: WSAESHUTDOWN, ENOMEM: WSAENOBUFS, an errno WinSock has no number for:
+  WSAEINVAL) and getaddrinfo's EAI_* (EAI_NONAME: WSAHOST_NOT_FOUND, EAI_AGAIN: WSATRY_AGAIN, EAI_FAIL and unknown:
+  WSANO_RECOVERY, EAI_NODATA and EAI_ADDRFAMILY: WSANO_DATA, EAI_MEMORY: WSAENOBUFS). TNetwork's messages name the same
+  numbers on both systems.
+
+### The events: polled where WinSock posted (high)
+
+Nothing posts the connections' events. ISocket::Poll (new; the golden runner's does nothing, the replay's polls only the
+lookups) is the loop's turn, called at the start of every idle step (CPlayerApp::OnIdle, before the test mode's
+BeginIdle) on both window paths: the SDL3 loop and MFC's CWinApp::Run call OnIdle right after they have dispatched the
+thread's messages, where WinSock's messages were dispatched. Poll asks each connection, in the order they were made:
+
+- **Connecting**: select (Windows: write and except sets) or poll (POLLOUT, POLLERR, POLLHUP) with no wait; done:
+  SO_ERROR, and OnConnect once with 0 or the error (WinSock's FD_CONNECT). A failed connect has no further event.
+- **Connected**: recv with MSG_PEEK of one byte. Bytes: OnReceive, again while bytes are left and the handler took some
+  (WinSock posts FD_READ again after a recv that leaves bytes; MFC's DoCallBack selected before OnReceive), at most
+  ReadRounds (64) in one Poll; a handler that takes nothing (its buffer full) gets one OnReceive per Poll, as WinSock's
+  re-enabling recv of 0 bytes reposted one message. The peer's end (0) or an error (a reset): OnClose once (FD_CLOSE),
+  after the bytes before it.
+- **A connection closed in an event** (TNetwork's OnClose and the handlers' Disconnect close and delete it) has no
+  further event: the registry is checked by id after each event, as MFC's handle map dropped the messages of a closed
+  socket.
+
+What the model cannot give the same way, and the choice made:
+
+- **The timing**: WinSock's message came as soon as the loop pumped after the packet's arrival; the idle step's Poll
+  comes after the same pump, so a packet is read in the same loop turn as before, but the reads of one burst come in
+  one Poll instead of interleaved with other messages of the same pump. compare_traffic, compare_network and the
+  reference compare see the same packets in the same order.
+- **Modal loops** (a message box, the window's move and size loops) do not run the idle step, where the original's
+  socket window still got WinSock's messages: FatalError's ShutdownConnection then waits for the server's close inside
+  its box, and the client leaves the game and saves its settings there. While the socket has a connection or a lookup,
+  platform/NetworkWin32.cpp keeps a timer (USER_TIMER_MINIMUM, 10 ms) on a message-only window whose procedure polls:
+  every loop that dispatches the thread's messages (the main pump, MFC's, the boxes', the test mode's box loop) runs it
+  (DropInput drops only the main window's timer 1). A window, not a TIMERPROC (high): the first version used a thread
+  timer's TIMERPROC, and compare_files' error scenario (the server packet 0xff in the game) hung without the critical
+  error box: the packet was read in the timer's Poll, TERROR's TMyException left the TIMERPROC, and Windows swallows an
+  exception there (UOI_TIMERPROC_EXCEPTION_SUPPRESSION, on by default), so the client stopped in the middle of the
+  packet. Out of a window procedure DispatchMessage passes it on, as it did out of MFC's socket window, to
+  CPlayerApp::Run's handlers and FatalError.
+- **After the client's own shutdown of both directions** (ShutdownConnection) Windows' recv fails with WSAESHUTDOWN at
+  once and POSIX's returns 0: OnClose comes at the next Poll, where WinSock's FD_CLOSE came when the server closed in
+  answer (on loopback within milliseconds); the client does the same either way (Disconnect, the close handler).
+- **The close notification's error code** (WSAECONNRESET, WSAECONNABORTED) reaches no one: TSocket's OnClose ignored
+  its argument in the original too.
+
+### The name lookup (high)
+
+ResolveHostname starts a std::jthread with getaddrinfo (AF_UNSPEC, SOCK_STREAM) and returns a request handle (a number,
+never null). The thread writes only its own TLookup (the address's text, the error, then an atomic Done with release);
+the client's thread takes finished lookups at Poll (acquire), writes the address's text into TNetwork's buffer (the
+1,024-byte MAXGETHOSTSTRUCT buffer, so an IPv6 text fits; too small a buffer is WSAENOBUFS, WinSock's) and hands the
+request to the Resolved hook. The address is the first IPv4 one, else the first IPv6 one (gethostbyname had IPv4
+only: a host with both is reached as before); ResolvedAddress returns the buffer's text, where inet_ntoa read the
+HOSTENT. CancelResolve marks the request: no reply; its thread runs to its end (getaddrinfo cannot be interrupted) and
+is dropped at a later Poll. The client's instance is never destroyed, so a lookup still running at the exit is not
+waited for (the unit tests' instances wait in the destructor).
+
+The reply goes to the window as WSAAsyncGetHostByName's did (NetworkWin32.cpp): on the SDL3 path straight to
+SdlFrame.cpp's OnHostResolved (sdlframe::HostResolved(Error); the subclass's WM_USER + 1, marked for #125 in #122, is
+gone), on MFC's (PATELLA_WINDOW=mfc until #127) as WM_USER + 1 sent to CMainFrame's message map with
+WSAMAKEASYNCREPLY's LPARAM, so MainFrm.cpp and its golden test are unchanged.
+
+Considered: posting the reply from the thread (PostMessage, what WinSock did itself): Windows-only, and the issue asks
+for the loop to take it. An SDL user event: the MFC path has no SDL loop.
+
+### What moved (high)
+
+- **The golden runner keeps the original's calls**: its Network test compares Network.cpp's calls into MFC and WinSock
+  with the original's through fakes at that level, and dumps the CAsyncSocket objects. TWin32Socket and the CAsyncSocket
+  TSocket moved from src/platform/Win32Platform.h and .cpp to tests/golden/network/MfcSocket.h and .cpp (TMfcSocket,
+  unchanged but for the name and an empty Poll); Win32Platform.cpp's Platform() takes the process's NetworkSocket()
+  (Win32Platform.h), which NetworkWin32.cpp defines for the client and MfcSocket.cpp for the runner. Golden replays
+  the frozen corpus unchanged.
+- **The client no longer uses MFC's sockets**: common.h includes winsock2.h instead of afxsock.h (MFC's headers leave
+  winsock.h out; WSAGETASYNCERROR stays for MainFrm.cpp); no CAsyncSocket, AfxSocketInit, WSAAsyncGetHostByName,
+  WSACancelAsyncRequest or inet_ntoa in src/. The MFC shim's CAsyncSocket stays for the golden runner.
+- **The replay's socket** (TPipeSocketWin32, #120) is unchanged but for the portable TSocket (the same four events) and
+  its Startup, lookups and Poll, which go to NetworkSocket().
+- **TestModeWin32.cpp** (issue #123's file during this issue) still calls `Win32Socket()`: Win32Platform.h keeps that
+  name as an inline alias of NetworkSocket(), to be renamed there after #123.
+
+### The tests (high)
+
+tests_platform (tests/unit/platform_socket_test.cpp, every preset, CTest): on the loopback interface with the system's
+sockets as the server side: the connect and OnConnect once, bytes both ways, nothing to read (WSAEWOULDBLOCK, no
+event), the peer's end after its last bytes (OnReceive, then OnClose once), TNetwork's Disconnect sequence; OnReceive's
+rounds (a one-byte handler gets an event per byte, ReadRounds in one Poll, a handler that takes nothing one event per
+Poll); a connection deleted inside its own OnReceive (no further event, nothing left open; ASan); a refused connect
+(WSAECONNREFUSED by OnConnect, or in the call); an IPv6 connection to ::1 (skipped without an IPv6 loopback); the
+calls on no connection and a name that does not resolve; the lookups of 127.0.0.1, localhost, ::1 and a .invalid name,
+delivered only at Poll with the window, message and request, a cancelled one (no reply), a short buffer (WSAENOBUFS),
+the Busy hook's changes. bounded_reads_test's and fuzz_network's ISocket stand-ins got an empty Poll.

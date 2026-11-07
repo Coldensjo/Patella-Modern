@@ -756,6 +756,12 @@ SDL_CreateWindow, its placement, size, fullscreen, activation and close events) 
 the loop (platform/LoopTimer.h), by default; `PATELLA_WINDOW=mfc` keeps the MFC frame and message loop until #127. The
 keys, buttons and wheel still reach it as Win32 messages (#123), so the test mode drives both paths unchanged.
 
+Done in #125 (notes/decisions.md, "#125"): TPortableSocket (src/platform/PortableSocket.h, the library
+patella_platform, tests_platform on every preset) over Winsock and POSIX sockets, non-blocking, polled from the loop's
+idle step with WSAAsyncSelect's rules (OnConnect once, OnReceive while bytes are taken, OnClose once); getaddrinfo on a
+std::jthread, its result delivered by the loop's Poll (IPv4 first, then IPv6). CAsyncSocket and WSAAsyncGetHostByName
+are no longer used by the client (the golden runner keeps their calls, the level its fakes compare).
+
 Done in #126 (notes/decisions.md, "#126"): the Vulkan engine asks a window system (src/vulkan/WindowSystem.h) for the
 client area, the screen's size and its surfaces; on the SDL3 window it is SDL's (SDL_Vulkan_GetInstanceExtensions,
 SDL_Vulkan_CreateSurface on each device's own window, which SDL wraps for the call; SDL_GetWindowSizeInPixels), on the

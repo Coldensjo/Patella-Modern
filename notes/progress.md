@@ -714,6 +714,16 @@ primary display's bounds) and Win32's on the MFC window until #127; SurfaceVulka
 ClientToScreen, GetSystemMetrics or vkCreateWin32SurfaceKHR any more, its rectangles are TEdgeRects. tests_vulkan runs
 its device windows' tests on SDL3's surfaces. notes/decisions.md, "#126".
 
+The portable socket (Patella-Modern issue #125, branch issue-125, November 7, 2026; M8): TPortableSocket
+(src/platform/PortableSocket.h, patella_platform, tests_platform on Windows and Linux) is Patella.exe's and the test
+build's live network over Winsock or POSIX sockets: non-blocking IPv6 sockets with IPv4 mapped, polled at the start of
+every idle step (Player.cpp's OnIdle, both window paths) with WSAAsyncSelect's event rules, and getaddrinfo on a
+std::jthread whose result the loop's Poll delivers (IPv4 first, IPv6). CAsyncSocket, AfxSocketInit,
+WSAAsyncGetHostByName and afxsock.h are gone from the client; the golden runner keeps those calls
+(tests/golden/network/MfcSocket.cpp, its fakes' level). A thread timer polls the modal loops while a connection or a
+lookup is open (platform/NetworkWin32.cpp). The SDL3 frame's WM_USER + 1 went (SdlFrame.cpp's HostResolved).
+notes/decisions.md, "#125".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,
