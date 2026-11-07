@@ -615,6 +615,16 @@ definitions are prototypes (same types; the implicit conversions now explicit ca
 suppressions: 0 warnings at /W4 and -Wall -Wextra -Wpedantic -Wconversion -Wshadow. `patella::TRegexp`
 (src/types/Regexp.h) owns regcomp's program (free on reset, assignment, destruction); Status.cpp's LinkRegexp is one.
 tests_core's regexp tests go through it. Golden 17,316,040, 0 failures. notes/decisions.md, "#129".
+Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
+fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
+fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,
+fuzz_map, fuzz_dat, fuzz_sprites and fuzz_pictures; every preset runs each as a CTest smoke test (label fuzz) on the
+hand-made seeds of tests/fuzz/seeds; tools/fuzz.py builds and runs the libFuzzer trees (Clang 22 in the image, MSVC
+/fsanitize=fuzzer) with local seeds from the reference recordings. Fixed, the fork's Patella.ini code: Parse dropped a
+CR at the end of a CRLF file's last line without a line end; WritePreferences kept a numbered key spelled otherwise
+(Buddy01), which then shadowed the renumbered entry; Set took a key starting with a byte order mark. The original's
+findings are filed (notes/decisions.md, "#132").
+
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

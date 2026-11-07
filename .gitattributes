@@ -3,3 +3,5 @@
 *.dat binary
 *.spr binary
 *.pic binary
+# The fuzz targets' seeds (issue #132): their bytes as written, line ends included.
+tests/fuzz/seeds/** binary

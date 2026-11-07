@@ -93,11 +93,13 @@ TSettingsFile TSettingsFile::Parse(std::string_view Text, std::string_view Newli
 	size_t Start = 0;
 	while (Start < Text.size()) {
 		size_t End = Text.find('\n', Start);
-		if (End == std::string_view::npos)
+		const bool Ended = End != std::string_view::npos;
+		if (!Ended)
 			End = Text.size();
 		std::string_view Line = Text.substr(Start, End - Start);
-		// With CRLF line ends the CR belongs to the end; a lone CR stays in the line (and is a blank).
-		if (Crlf && Line.ends_with('\r'))
+		// With CRLF line ends the CR belongs to the end; a lone CR stays in the line (and is a blank), and so does a CR
+		// at the end of a last line without a line end (Patella-Modern issue #132: it went, so Text() lost it).
+		if (Crlf && Ended && Line.ends_with('\r'))
 			Line.remove_suffix(1);
 		Result.Lines.push_back(ParseLine(std::string(Line), Result.Lines.empty()));
 		Start = End + 1;
@@ -116,8 +118,10 @@ std::optional<std::string> TSettingsFile::Get(std::string_view Key) const
 
 bool TSettingsFile::Set(std::string_view Key, std::string_view Value)
 {
+	// A key that starts with a byte order mark (Patella-Modern issue #132): on the first line the next parse would take
+	// the mark as the file's, and the key would be another.
 	if (Key.empty() || Key.find('=') != std::string_view::npos || Key.front() == '#' || Key.front() == ';'
-		|| HasLineEnd(Key) || Padded(Key) || HasLineEnd(Value) || Padded(Value))
+		|| Key.starts_with(ByteOrderMark) || HasLineEnd(Key) || Padded(Key) || HasLineEnd(Value) || Padded(Value))
 		return false;
 	const std::string Text = std::string(Key) + "=" + std::string(Value);
 	for (size_t i = 0; i < Lines.size(); i++) {

@@ -93,6 +93,15 @@ TEST_CASE("Settings: line ends")
 		REQUIRE(File.Set("C", "4"));
 		CHECK(File.Text() == "A=1\r\nB=3\r\nC=4\r\n");
 	}
+	SUBCASE("a CR at the end of a last line without a line end stays (issue #132)")
+	{
+		TSettingsFile File = TSettingsFile::Parse("A=1\r\nB=2\r");
+		CHECK(File.Get("B") == "2");
+		CHECK(File.Text() == "A=1\r\nB=2\r");
+		CHECK(TSettingsFile::Parse(File.Text()).Text() == "A=1\r\nB=2\r");
+		CHECK(TSettingsFile::Parse("A=1\r\nB=2\r\r").Text() == "A=1\r\nB=2\r\r");
+		CHECK(TSettingsFile::Parse("A=1\r\n\r").Text() == "A=1\r\n\r");
+	}
 	SUBCASE("a single line without an end takes the default")
 	{
 		TSettingsFile File = TSettingsFile::Parse("A=1", "\r\n");
@@ -148,6 +157,7 @@ TEST_CASE("Settings: keys and values Set refuses")
 	CHECK_FALSE(File.Set("A=B", "x"));
 	CHECK_FALSE(File.Set("#A", "x"));
 	CHECK_FALSE(File.Set(";A", "x"));
+	CHECK_FALSE(File.Set(std::string("\xEF\xBB\xBF") + "A", "x")); // a byte order mark first (issue #132)
 	CHECK_FALSE(File.Set(" A", "x"));
 	CHECK_FALSE(File.Set("A\n", "x"));
 	CHECK_FALSE(File.Set("Device", "a\nb"));

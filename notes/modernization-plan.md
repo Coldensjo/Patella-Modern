@@ -725,6 +725,12 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
 
 - **Fuzzing:** the packet parser and the file loaders (Tibia.cfg, `*.map`, Tibia.dat/.spr/.pic) with libFuzzer
   (Clang on Linux) and MSVC `/fsanitize=fuzzer`, seeded with the reference recordings.
+  Done in #132 (notes/decisions.md, "#132"): eight targets in tests/fuzz (Patella.ini, TNetwork's frames, the packet
+  handlers in the golden Communication world, the Tibia.cfg import, *.map, Tibia.dat, .spr, .pic), a CTest smoke run
+  of each on hand-made seeds in every preset, libFuzzer trees for Clang (Linux) and MSVC (tools/fuzz.py), local seeds
+  from the reference recordings and the data files (build/fuzz-seeds, never committed). Three findings of ours fixed
+  (Patella.ini: a lost CR, a renumbered entry shadowed by a key spelled otherwise, a key starting with a byte order
+  mark); the original's filed.
 - **Hardening:** `_MSVC_STL_HARDENING` and libstdc++'s/libc++'s hardened modes in release builds where the
   library supports them; `-D_GLIBCXX_ASSERTIONS` / bounds-checked `std::span` and `std::mdspan` in debug.
 - **Profiling:** frame time and allocations per frame against the reference client; GPU timings of the Vulkan engine

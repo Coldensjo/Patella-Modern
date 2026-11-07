@@ -108,12 +108,14 @@ std::vector<std::pair<int, std::string>> Indexed(const TSettingsFile &File, std:
 	return Result;
 }
 
-// Removes the Prefix<n> lines whose n is not in Keep (Keep[n] true).
+// Removes the Prefix<n> lines whose n is not in Keep (Keep[n] true), and those whose n is not written as the writer writes
+// it (Buddy01 for Buddy1, Patella-Modern issue #132: Indexed takes the first line of a number, so such a line before the
+// written one would be read in its place, and a renumbered entry lost).
 void RemoveIndexed(TSettingsFile &File, std::string_view Prefix, const std::vector<bool> &Keep)
 {
 	for (const std::string &Key : File.Keys()) {
 		const std::optional<int> Index = IndexOf(Key, Prefix);
-		if (Index && (static_cast<size_t>(*Index) >= Keep.size() || !Keep[static_cast<size_t>(*Index)]))
+		if (Index && (static_cast<size_t>(*Index) >= Keep.size() || !Keep[static_cast<size_t>(*Index)] || !SameText(Key, std::string(Prefix) + std::to_string(*Index))))
 			File.Remove(Key);
 	}
 }
