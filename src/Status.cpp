@@ -579,7 +579,12 @@ void patella::TSession::SetAccount(int Number, const char *Password)
 	AccountNumber = Number;
 	TStringBuffer(AccountNumberString, sizeof(AccountNumberString)).Format("{}", Number); // at most 11 characters
 	AccountNumberString[11] = 0;
+	// The original's copy, up to the buffer's 30 bytes (the assertion keeps the password shorter; GCC's
+	// -Wstringop-truncation sees the bound only, issue #111).
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wstringop-truncation\"")
 	strncpy(AccountPassword, Password, 30);
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 }
 
 // 0x4e96d0, lines 669-673. Address is the IPv4 address in network order.

@@ -43,11 +43,19 @@ public:
 	T *allocate(std::size_t Count) { return static_cast<T *>(::operator new[](Count * sizeof(T))); }
 	void deallocate(T *Entries, std::size_t /*Count*/) noexcept { ::operator delete[](Entries); }
 
-	// new T[n]'s initialisation of each entry; with arguments a plain construction.
+	// new T[n]'s initialisation of each entry; with arguments a plain construction. GCC's analyzer (issue #111) takes
+	// the null storage of a vector of no entries into the loop that constructs none (-Wanalyzer-null-dereference).
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wanalyzer-null-dereference"
+#endif
 	template <class U> void construct(U *Entry) noexcept(std::is_nothrow_default_constructible_v<U>)
 	{
 		::new (static_cast<void *>(Entry)) U;
 	}
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 	template <class U, class... A> void construct(U *Entry, A &&...Arguments)
 	{
 		::new (static_cast<void *>(Entry)) U(std::forward<A>(Arguments)...);

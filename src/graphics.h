@@ -88,7 +88,13 @@ struct TMemoryCacheItem {
 
 // A tile on a cache surface (0x5c bytes). Masked sprites (outfits) keep the
 // mask and four colours, pictures the tile, font characters the tile and the
-// text colour, in the same place.
+// text colour, in the same place. Tile's type is unnamed inside an anonymous union, an extension of every compiler
+// here that Clang's -Wpedantic names (-Wnested-anon-types): allowed for this structure alone since patella_core
+// compiles graphics.h (issue #111), as Map.h's TEffect.
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnested-anon-types"
+#endif
 struct TVideoCacheItem {
 	TVideoCacheItem();
 	int Surface; // +0x00, cache surface; the engine's surface number is Surface+6
@@ -115,6 +121,9 @@ struct TVideoCacheItem {
 	int HashNext;     // +0x54
 	int HashValue;    // +0x58
 };
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 // TGraphics (issue #116, M7; notes/decisions.md, "#104: TClient and the subsystem objects" and "#116"), the fifth of
 // TClient's subsystems: graphics.cpp's data and functions (its members of the same names; the free functions below

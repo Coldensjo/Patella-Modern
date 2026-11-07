@@ -56,6 +56,7 @@
 #include "compat/span.h"
 #include "platform/Platform.h"
 #include "types/FixedString.h"
+#include <cstdint>
 #include <array>
 #include <ostream>
 #include <cstddef>
@@ -556,23 +557,27 @@ void patella::TGUI::KeyPress(int Key)
 // 0x4480b0, line 1117. False while a character is in the game; then the
 // logout warning is posted (event 7) unless another window is open. The
 // array is allocated with new[]; ProcessEvents deletes it.
+// GCC's analyzer (issue #111): the message queue owns the block it gets as an integer (AddMessage; the message's handler deletes it).
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-malloc-leak\"")
 bool patella::TGUI::CloseRequest() const
 {
 	if (GetConnectionState() == 8) {
 		if (ModalWindow == nullptr) {
-			INT_PTR *Data = new INT_PTR[4];
-			Data[0] = reinterpret_cast<INT_PTR>("Warning");
-			Data[1] = reinterpret_cast<INT_PTR>("If you shut down the program, your character might stay in the game.\n"
-												"Click on \"Logout\" to ensure that your character leaves the game properly.\n"
-												"Click on \"Exit\" if you want to exit the program without logging out your character.");
+			std::intptr_t *Data = new std::intptr_t[4];
+			Data[0] = reinterpret_cast<std::intptr_t>("Warning");
+			Data[1] = reinterpret_cast<std::intptr_t>("If you shut down the program, your character might stay in the game.\n"
+													  "Click on \"Logout\" to ensure that your character leaves the game properly.\n"
+													  "Click on \"Exit\" if you want to exit the program without logging out your character.");
 			Data[2] = 0;
 			Data[3] = 0;
-			AddMessage(7, reinterpret_cast<INT_PTR>(Data), 0);
+			AddMessage(7, reinterpret_cast<std::intptr_t>(Data), 0);
 		}
 		return false;
 	}
 	return true;
 }
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 
 // 0x44a770, line 1133. After the character list and similar login packets.
 void patella::TGUI::HandleEvents()
@@ -584,7 +589,7 @@ void patella::TGUI::HandleEvents()
 void patella::TGUI::LinkCopyWarning()
 {
 	SetActionState(0);
-	AddMessage(11, reinterpret_cast<INT_PTR>("Link Copy Warning"), 0);
+	AddMessage(11, reinterpret_cast<std::intptr_t>("Link Copy Warning"), 0);
 }
 
 // 0x448430, lines 1174-1182. The connect handler for InitNetwork: sends the
@@ -742,6 +747,9 @@ void patella::TGUI::ReceivePackets()
 // 0x448720, line 1322. The close handler for InitNetwork. A pending
 // reconnect (event 0x3f) logs in again: to the game server if the character
 // was in the game and the 5 seconds have not passed, else to the login server.
+// GCC's analyzer (issue #111): the message queue owns the block it gets as an integer (AddMessage; the message's handler deletes it).
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-malloc-leak\"")
 void patella::TGUI::ConnectionClosed()
 {
 	const bool InGame = GetConnectionState() == 8;
@@ -750,12 +758,12 @@ void patella::TGUI::ConnectionClosed()
 	} else if (GetConnectionState() == 6) {
 		char *Message = new char[1024];
 		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), ERROR_DISCONNECTED, 2);
-		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+		AddMessage(1, reinterpret_cast<std::intptr_t>("Connection failed"), reinterpret_cast<std::intptr_t>(Message));
 		AddMessage(10, 300, 0);
 	} else if (GetConnectionState() == 3) {
 		char *Message = new char[1024];
 		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), ERROR_DISCONNECTED, 1);
-		AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+		AddMessage(1, reinterpret_cast<std::intptr_t>("Connection failed"), reinterpret_cast<std::intptr_t>(Message));
 	}
 	SetConnectionState(0);
 	if (Network.Reconnect) {
@@ -771,6 +779,7 @@ void patella::TGUI::ConnectionClosed()
 		}
 	}
 }
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 
 // The mouse position for the context menus' constructors, the y first: the original's order of their arguments, right
 // to left (MSVC; GCC and Clang may differ, Patella-Modern issue #91).
@@ -847,7 +856,7 @@ void patella::TGUI::ProcessEvents()
 		Redraw(false);
 	}
 	while (MainWindow->GetCapture() == nullptr && ModalWindow == nullptr && PeekMessageType() != 0) {
-		INT_PTR Param1, Param2;
+		std::intptr_t Param1, Param2;
 		FetchMessage(&Type, &Param1, &Param2);
 		switch (Type) {
 		case 0x01:
@@ -869,14 +878,14 @@ void patella::TGUI::ProcessEvents()
 			delete[] reinterpret_cast<char *>(Param1);
 			break;
 		case 0x06: {
-			const INT_PTR *Data = reinterpret_cast<INT_PTR *>(Param1);
+			const std::intptr_t *Data = reinterpret_cast<std::intptr_t *>(Param1);
 			ModalWindow = CreateQuestionDialog(reinterpret_cast<const char *>(Data[0]), reinterpret_cast<const char *>(Data[1]), reinterpret_cast<TWindow *>(Data[2]),
 				(int)Data[3], 2);
 			delete[] Data;
 			break;
 		}
 		case 0x07: {
-			const INT_PTR *Data = reinterpret_cast<INT_PTR *>(Param1);
+			const std::intptr_t *Data = reinterpret_cast<std::intptr_t *>(Param1);
 			ModalWindow = CreateLogoutDialog(reinterpret_cast<const char *>(Data[0]), reinterpret_cast<const char *>(Data[1]), MainWindow.get());
 			delete[] Data;
 			break;
@@ -900,7 +909,7 @@ void patella::TGUI::ProcessEvents()
 			ModalWindow = CreateMoveObjectsDialog();
 			break;
 		case 0x0e: {
-			const INT_PTR *Texts = reinterpret_cast<INT_PTR *>(Param2);
+			const std::intptr_t *Texts = reinterpret_cast<std::intptr_t *>(Param2);
 			ModalWindow = CreateTextDialog(reinterpret_cast<int *>(Param1), reinterpret_cast<const char *>(Texts[0]), reinterpret_cast<const char *>(Texts[1]));
 			delete[] reinterpret_cast<char *>(Param1);
 			delete[] reinterpret_cast<char *>(Texts[0]);

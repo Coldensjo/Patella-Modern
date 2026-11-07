@@ -582,6 +582,7 @@ public:
 	int GetPosition(int x, int y) override;                     // +0xc4, 0x45d770, line 2762
 	virtual void SetActive(bool _Active);                       // +0xc8, 0x45d5d0, line 2728
 	virtual void SetText(const char *_Text, bool KeepPosition); // +0xcc, 0x469120, line 2711
+	using TEditLine::SetText;                                   // TEditLine's SetText(Text) too (GCC's -Woverloaded-virtual, issue #111)
 	void FormatText();                                          // 0x45da90, lines 2770-2795
 
 	TIndexedVector<int> LineStart; // +0x68

@@ -30,6 +30,7 @@ const char *TextUseCpuDevice = "CPU (compatibility): draw without the graphics c
 
 } // namespace
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -1741,7 +1742,7 @@ void TReportDialog::HandleEvent(int Event)
 		const std::size_t Size = strlen(TextEdit->Text.get()) + 1;
 		char *Text = new char[Size];
 		TStringBuffer(Text, Size).Assign(TextEdit->Text.get());
-		AddMessage(0x33, reinterpret_cast<INT_PTR>(Text), 0);
+		AddMessage(0x33, reinterpret_cast<std::intptr_t>(Text), 0);
 	}
 	SetActionState(0);
 }
@@ -1996,7 +1997,7 @@ void THintsDialog::HandleEvent(int Event)
 		char *Text = new char[Size];
 		TStringBuffer(Text, Size).Assign(HelpText);
 		AddMessageFirst(0x20, 0, 0);
-		AddMessageFirst(2, reinterpret_cast<INT_PTR>(GetEventHelpTitle(Number)), reinterpret_cast<INT_PTR>(Text));
+		AddMessageFirst(2, reinterpret_cast<std::intptr_t>(GetEventHelpTitle(Number)), reinterpret_cast<std::intptr_t>(Text));
 	}
 	SetActionState(0);
 }
@@ -2488,7 +2489,7 @@ void TGraphicsOptionsDialog::HandleEvent(int Event)
 			patella::bridge::GUI().Resize(0, 0); // Control.cpp's (issues #107, #118)
 	} else if (Event == 407) {
 		AddMessageFirst(0x23, 0, 0);
-		AddMessageFirst(0x24, reinterpret_cast<INT_PTR>(Parent), 0);
+		AddMessageFirst(0x24, reinterpret_cast<std::intptr_t>(Parent), 0);
 	} else if (Event == 701) {
 		OpenURL(TextGraphicsOptionsURL);
 		return;

@@ -1155,6 +1155,9 @@ void TTabBar::Rearrange(TTab *_Moved)
 			TComponent *Next = Child->GetNext();
 			if (Moved != Child)
 				Child->SetPosition(x, Child->OffsetY);
+			// MSVC's analysis (C6011, issue #111): Child is not null inside the loop (its condition); the path it
+			// reports takes the assertion's loop above as leaving Next null and Child with it.
+			PATELLA_MSVC_WARNING(suppress : 6011)
 			x += Child->Width;
 			if (x > Width) {
 				RemoveChild(Child);
@@ -1922,7 +1925,7 @@ void TConsoleWindow::ParseInput(char **Text, char **Addressee, int *TalkMode, ch
 		*Addressee = nullptr;
 		*TalkMode = 0;
 		*Separator = 0;
-		AddMessage(0xc, reinterpret_cast<INT_PTR>("Account Data Warning"), 0);
+		AddMessage(0xc, reinterpret_cast<std::intptr_t>("Account Data Warning"), 0);
 		return;
 	}
 	while (IsSpace(Line[i]))

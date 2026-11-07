@@ -299,14 +299,25 @@ public:
 	void ParseInput(char **Text, char **Addressee, int *TalkMode, char *MessageSeparator) const; // 0x41fb60, lines 2258-2304
 	bool SaveChannel() const;                                                                    // 0x420090, lines 2316-2335
 
-	TTabBar *TabBar;                      // +0x2c
-	int Data30;                           // +0x30, not used
-	TConsole *CurrentConsole;             // +0x34
-	TTab *DefaultTab;                     // +0x38
-	TEditLine *Input;                     // +0x3c
-	int SwitchTime;                       // +0x40, new channels become current only from this action number on
-	int HistoryPosition;                  // +0x44
-	std::unique_ptr<TTalkBuffer> History; // +0x48 (issue #81)
+	TTabBar *TabBar;          // +0x2c
+	int Data30;               // +0x30, not used
+	TConsole *CurrentConsole; // +0x34
+	TTab *DefaultTab;         // +0x38
+	TEditLine *Input;         // +0x3c
+	int SwitchTime;           // +0x40, new channels become current only from this action number on
+	int HistoryPosition;      // +0x44
+	// The input history, a plain TTalkBuffer (+0x48, issue #81). TTalkBuffer's destructor is not virtual (the
+	// original's; Talk.cpp's DeleteTextBuffer destroys the derived buffers through it), so the deleter calls it
+	// as a delete would, by its qualified name, which Clang's -Wdelete-non-abstract-non-virtual-dtor does not take for
+	// a virtual call (issue #111).
+	struct THistoryDelete {
+		void operator()(TTalkBuffer *Buffer) const noexcept
+		{
+			Buffer->TTalkBuffer::~TTalkBuffer();
+			::operator delete(Buffer);
+		}
+	};
+	std::unique_ptr<TTalkBuffer, THistoryDelete> History;
 	// The buttons shown by need (UpdateButtons) are owned by the child list while they are children and by the
 	// member while they are not, so they stay raw (notes/ownership.md, section 7; issue #108).
 	TMultiStateButton *VolumeButton;     // +0x4c, events 206-208

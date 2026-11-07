@@ -17,6 +17,7 @@
 // catch wrappers, common.h); since issue #78 the functions here have none.
 
 #include "DialogElements.h"
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <cstdarg>
@@ -967,11 +968,12 @@ void TTextButton::Draw(int Surface, int x, int y)
 		Enabled ? SkinProperties().Buttons.Data00 : SkinProperties().Buttons.Data14, Text);
 }
 
-// 0x4671e0. No try block. The base gets the button's own Tooltip, which is
-// not set yet.
+// 0x4671e0. No try block. The original gives the base the button's own Tooltip, which is not set yet (a read of
+// an indeterminate value, GCC's -Wuninitialized); since issue #111 a null pointer. Nothing reads Tooltip: MouseHover
+// shows Tooltip1 or Tooltip2.
 TToggleButton::TToggleButton(int x, int y, int _ButtonUp, int _ButtonDown, TCallback _Callback,
 	const char *_Tooltip1, const char *_Tooltip2, bool _State)
-	: TSkinButton(x, y, _ButtonUp, _ButtonDown, _Callback, Tooltip, false)
+	: TSkinButton(x, y, _ButtonUp, _ButtonDown, _Callback, nullptr, false)
 {
 	Tooltip2 = _Tooltip2;
 	State = _State;
@@ -1004,10 +1006,11 @@ bool TToggleButton::IsPressed()
 	return Pressed && MouseInside;
 }
 
-// 0x467230. No try block; the base gets the button's own Tooltip.
+// 0x467230. No try block; the original gives the base the button's own Tooltip, not set yet: a null pointer since
+// issue #111, as TToggleButton's.
 TTextToggleButton::TTextToggleButton(int x, int y, const char *_Text, int _ButtonUp, int _ButtonDown,
 	TCallback _Callback, const char *_Tooltip1, const char *_Tooltip2, bool _State)
-	: TTextButton(x, y, _Text, _ButtonUp, _ButtonDown, _Callback, Tooltip)
+	: TTextButton(x, y, _Text, _ButtonUp, _ButtonDown, _Callback, nullptr)
 {
 	Tooltip1 = _Tooltip1;
 	State = _State;
@@ -1059,7 +1062,16 @@ TMultiStateButton::TMultiStateButton(int x, int y, const char *_Tooltip, int _St
 	for (int i = 1; i < States; i++) {
 		ButtonUps[i] = va_arg(Arguments, int);
 		ButtonDowns[i] = va_arg(Arguments, int);
+		// TCallback is trivially copyable (passed through ... as the caller's copy), but not a POD (its constructors),
+		// which Clang's va_arg refuses by default (-Wnon-pod-varargs, issue #111).
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnon-pod-varargs"
+#endif
 		Callbacks[i] = va_arg(Arguments, TCallback);
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 	}
 	va_end(Arguments);
 }
@@ -1310,7 +1322,7 @@ bool TEditLine::RightButtonUp(int x, int y, int Flags)
 {
 	if (!TWindow::LeftButtonUp(x, y, Flags) && !IsDisabled() && GetActionState() != 10
 		&& GetActionState() != 11)
-		AddMessage(58, reinterpret_cast<INT_PTR>(this), 0);
+		AddMessage(58, reinterpret_cast<std::intptr_t>(this), 0);
 	return true;
 }
 

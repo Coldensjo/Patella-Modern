@@ -15,6 +15,7 @@
 // catch wrappers, common.h); since issue #78 the functions here have none.
 
 #include "ContentWindows.h"
+#include <cstdint>
 #include <algorithm>
 #include <array>
 #include "Communication.h"
@@ -457,7 +458,9 @@ void TAutomapWindow::Scroll(int Direction)
 // colours, a white cross at the player's position and the marks of the four
 // 256x256 blocks around the view (skins 74 and up, 11x11); then the surface
 // is copied to the screen. Odd, kept: at zoom 1 the centre is rounded down
-// to even coordinates once per pixel, inside the loop.
+// to even coordinates once per pixel, inside the loop. MSVC's analysis (C6262, issue #111): the pixels' buffer
+// on the stack, the original's.
+PATELLA_MSVC_WARNING(suppress : 6262)
 void TAutomapView::Draw(int Surface, int x, int y)
 {
 	TAutomapWindow *Window = static_cast<TAutomapWindow *>(GetParent());
@@ -581,7 +584,7 @@ bool TAutomapView::RightButtonUp(int x, int y, [[maybe_unused]] int Flags)
 	Data->Coordinate.y = (y - Height / 2) * 2 / Window->Zoom + Window->ViewY;
 	Data->Coordinate.z = Window->ViewZ;
 	Data->Mark = GetMark(x, y);
-	AddMessage(59, reinterpret_cast<INT_PTR>(Data), 0);
+	AddMessage(59, reinterpret_cast<std::intptr_t>(Data), 0);
 	return true;
 }
 
@@ -1840,7 +1843,7 @@ void TSkillsWindowBody::MouseHover(int x, int y)
 // 0x42eb70, line 2144. Opens the skill menu (Control.cpp's message 60).
 bool TSkillsWindowBody::RightButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags)
 {
-	AddMessage(60, reinterpret_cast<INT_PTR>(this), 0);
+	AddMessage(60, reinterpret_cast<std::intptr_t>(this), 0);
 	return true;
 }
 

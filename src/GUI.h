@@ -47,8 +47,8 @@ class TComponent;
 // 0x4c1ab4), and the subclasses assign whole entries.
 struct TDrawing {
 	TDrawing() : skin(0), x(0), y(0), width(0), height(0), srcx(0), srcy(0) {}
-	TDrawing(int skin, int x, int y, int width, int height, int srcx, int srcy)
-		: skin(skin), x(x), y(y), width(width), height(height), srcx(srcx), srcy(srcy) {}
+	TDrawing(int _skin, int _x, int _y, int _width, int _height, int _srcx, int _srcy)
+		: skin(_skin), x(_x), y(_y), width(_width), height(_height), srcx(_srcx), srcy(_srcy) {}
 	int skin;   // +0x00
 	int x;      // +0x04
 	int y;      // +0x08

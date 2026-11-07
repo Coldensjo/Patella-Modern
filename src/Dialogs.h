@@ -128,8 +128,8 @@ public:
 class TQuestionLabel final : public TLabel {
 public:
 	// Inline (out-of-line copy 0x46b790).
-	TQuestionLabel(TFont &Font, const char *Text, TCallback _YesCallback, TCallback _NoAnswerCallback)
-		: TLabel(Font, Text)
+	TQuestionLabel(TFont &_Font, const char *_Text, TCallback _YesCallback, TCallback _NoAnswerCallback)
+		: TLabel(_Font, _Text)
 	{
 		YesCallback = _YesCallback;
 		NoAnswerCallback = _NoAnswerCallback;
@@ -147,8 +147,8 @@ public:
 class TLogoutLabel final : public TLabel {
 public:
 	// Inline (out-of-line copy 0x46b840).
-	TLogoutLabel(TFont &Font, const char *Text, TCallback _LogoutCallback, TCallback _ExitCallback)
-		: TLabel(Font, Text)
+	TLogoutLabel(TFont &_Font, const char *_Text, TCallback _LogoutCallback, TCallback _ExitCallback)
+		: TLabel(_Font, _Text)
 	{
 		LogoutCallback = _LogoutCallback;
 		ExitCallback = _ExitCallback;
@@ -169,8 +169,8 @@ public:
 	TWaitLabel(const TWaitLabel &) = delete;
 	TWaitLabel &operator=(const TWaitLabel &) = delete;
 	// Inline (out-of-line copy 0x46b8f0).
-	TWaitLabel(const char *Text, bool _CloseOnMessage, bool _ClearOnAbort)
-		: TLabel(SkinProperties().StyleB08.Data64, Text)
+	TWaitLabel(const char *_Text, bool _CloseOnMessage, bool _ClearOnAbort)
+		: TLabel(SkinProperties().StyleB08.Data64, _Text)
 	{
 		ClearOnAbort = _ClearOnAbort;
 		Timer = nullptr;
@@ -675,14 +675,13 @@ public:
 	TTextButton *DirectX9Button;                    // +0x48
 	TTextButton *OpenGLButton;                      // +0x4c
 	std::unique_ptr<TRadioButtonGroup> EngineGroup; // +0x50 (issue #58)
-#if defined(PATELLA_VULKAN)
 	// The x64 client (Patella-Modern issue #31, plan 6.3): the three buttons choose the graphics device
 	// ("Automatic", "GPU", "CPU" in the places of DirectX5Button, DirectX9Button, OpenGLButton), and the
-	// line above them names the device in use. Not in the oracle, whose layout stays the original's.
+	// line above them names the device in use. Since issue #111 without PATELLA_VULKAN's guard (the oracle,
+	// whose layout kept the original's, left with #94), so patella_core compiles it too.
 	void ShowDevice();                 // the selected button and the device's name
 	TLabel *DeviceLabel;               // the line above the buttons (the original's "Select graphics engine:")
 	TFixedString<128> DeviceLabelName; // the device the line names
-#endif
 };
 
 // "Console Options" (vtable 0x563598, 0x44 bytes).

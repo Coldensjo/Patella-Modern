@@ -50,12 +50,15 @@ patella::TExpected<void, TError> TReadScriptFile::TryOpen(const char *FileName)
 // 1054 are used.
 void TReadScriptFile::error(const char *Text)
 {
-	char Message[1056]; // NOLINT(modernize-avoid-c-arrays): TMYEXCEPTION(84)'s argument, frozen until M5 (issue #60)
+	char Message[1056] = {}; // NOLINT(modernize-avoid-c-arrays): TMYEXCEPTION(84)'s argument, frozen until M5 (issue #60)
 	TFixedString<10> Unknown = {"(unknown)"};
 	File.Close();
 	MsvcSnprintf(Message, 1054, "error in script file '%s' in line %d", Filename, Line);
 	if (Text == nullptr)
 		Text = Unknown;
+	// MSVC's analysis (C6053, issue #111): _snprintf leaves the text unterminated when it fills the 1054 bytes;
+	// Message's zeroed last two bytes end it then (the buffer is zeroed since issue #111; the original's was not).
+	PATELLA_MSVC_WARNING(suppress : 6053)
 	throw TMYEXCEPTION(Message, "", 0, "", 0, Text);
 }
 
@@ -481,7 +484,11 @@ patella::TExpected<void, TError> TReadBinaryFile::TryOpen(const char *FileName)
 		return TUNEXPECTED_REASON("file still open", Filename);
 	if (!patella::platform::Platform().FileSystem.Open(File, FileName, TFile::TAccess::Read, TFile::TContent::Binary))
 		return TUNEXPECTED_REASON("failed to open file", FileName);
+	// The original's copy: unterminated when the name fills the buffer (GCC's -Wstringop-truncation, issue #111).
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wstringop-truncation\"")
 	strncpy(Filename, FileName, sizeof(Filename));
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 	return {};
 }
 
@@ -577,7 +584,11 @@ patella::TExpected<void, TError> TWriteBinaryFile::TryOpen(const char *FileName)
 		return TUNEXPECTED_REASON("file still open", Filename);
 	if (!patella::platform::Platform().FileSystem.Open(File, FileName, TFile::TAccess::Write, TFile::TContent::Binary))
 		return TUNEXPECTED_REASON("failed to open file", FileName);
+	// The original's copy: unterminated when the name fills the buffer (GCC's -Wstringop-truncation, issue #111).
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wstringop-truncation\"")
 	strncpy(Filename, FileName, sizeof(Filename));
+	PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 	return {};
 }
 

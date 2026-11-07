@@ -122,6 +122,9 @@ TTalkbox *patella::TTalk::GetTalkbox(int Number)
 	int Position = 0;
 	while (Talkboxes[Position].State != 1 || --Number != 0)
 		Position++;
+	// MSVC's analysis (C28020, issue #111) takes Position as any int: the assertion keeps Number within the open
+	// talkboxes, so the loop stops at one of them.
+	PATELLA_MSVC_WARNING(suppress : 28020)
 	return &Talkboxes[Position];
 }
 // 0x4fdf10, line 158
@@ -477,6 +480,8 @@ char *patella::TTalk::GetBuddyIgnoreText()
 	if (Length == 0)
 		return nullptr;
 	char *Text = new (std::nothrow) char[Length + 1];
+	// MSVC's analysis (C28182, issue #111): the original's unchecked allocation (VC7.1's new returned null), kept.
+	PATELLA_MSVC_WARNING(suppress : 28182)
 	Text[0] = 0;
 	// The original wrote each name and its line break at Text + Length, the text's length so far.
 	TStringBuffer Buffer(Text, static_cast<std::size_t>(Length) + 1);
@@ -552,6 +557,8 @@ char *patella::TTalk::GetIgnoreListText()
 	if (Length == 0)
 		return nullptr;
 	char *Text = new (std::nothrow) char[Length + 1];
+	// MSVC's analysis (C28182, issue #111): the original's unchecked allocation (VC7.1's new returned null), kept.
+	PATELLA_MSVC_WARNING(suppress : 28182)
 	Text[0] = 0;
 	// The original wrote each name and its line break at Text + Length, the text's length so far.
 	TStringBuffer Buffer(Text, static_cast<std::size_t>(Length) + 1);
@@ -765,7 +772,7 @@ void patella::TTalk::DeleteTextBuffer(TTalkBuffer *TextBuffer)
 		free(ConsoleFilterList(Filter));
 		ConsoleFilterList(Filter) = nullptr;
 		if (TextBuffer != nullptr) {
-			TextBuffer->~TTalkBuffer();
+			TextBuffer->TTalkBuffer::~TTalkBuffer(); // non-virtual, by its qualified name (issue #111: Clang's warning)
 			free(TextBuffer);
 		}
 	}
@@ -821,6 +828,9 @@ void TTalkBuffer::Append(TTalkLine *line)
 	} else {
 		line->Next = nullptr;
 		line->Previous = last;
+		// MSVC's analysis (C6011, issue #111): first and last are null together (the list's ends), so last is not
+		// null when first is not.
+		PATELLA_MSVC_WARNING(suppress : 6011)
 		last->Next = line;
 		last = line;
 	}
@@ -908,7 +918,7 @@ TTalkLine *TTalkBuffer::GetNext()
 int TTalkBuffer::Write(TFile &F) const
 {
 	PATELLA_ASSERT(F!=NULL);
-	[[maybe_unused]] const INT_PTR bytes = static_cast<INT_PTR>(F.Address());
+	[[maybe_unused]] const std::intptr_t bytes = static_cast<std::intptr_t>(F.Address());
 	for (const TTalkLine *Line = first; Line != nullptr; Line = Line->Next)
 		F.Print("{}\n", Line->GetText());
 	return 0;
@@ -926,10 +936,10 @@ TChannelTalkBuffer::TChannelTalkBuffer(int TalkMode, int _ChannelID) : TTalkBuff
 	ChannelID = _ChannelID;
 }
 // 0x507070, line 1729
-TRuleViolationTalkBuffer::TRuleViolationTalkBuffer(int ReceiveTalkMode, int SendTalkMode,
-	const char *_Addressee) : TTalkBuffer(ReceiveTalkMode)
+TRuleViolationTalkBuffer::TRuleViolationTalkBuffer(int _ReceiveTalkMode, int _SendTalkMode,
+	const char *_Addressee) : TTalkBuffer(_ReceiveTalkMode)
 {
-	this->SendTalkMode = SendTalkMode;
+	SendTalkMode = _SendTalkMode;
 	Closed = false;
 	if (_Addressee == nullptr)
 		Addressee[0] = 0;
@@ -1077,7 +1087,7 @@ void patella::TTalk::ExitTalk()
 	ClearTemporaryIgnore();
 	ClearIgnoreList();
 	if (DefaultTextBuffer != nullptr) {
-		DefaultTextBuffer->~TTalkBuffer();
+		DefaultTextBuffer->TTalkBuffer::~TTalkBuffer(); // non-virtual, by its qualified name (issue #111)
 		free(DefaultTextBuffer);
 	}
 	DefaultTextBuffer = nullptr;

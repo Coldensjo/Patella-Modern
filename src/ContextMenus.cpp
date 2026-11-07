@@ -42,6 +42,7 @@
 #include "GUI.h"
 #include "common.h"
 #include "types/FixedString.h"
+#include <cstdint>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -638,7 +639,7 @@ void TObjectContextMenu::HandleEvent(int Event)
 		if (Creature != nullptr && CheckAnyRight()) {
 			char *Name = new char[30];
 			TStringBuffer(Name, 30).Assign(Creature->Name);
-			AddMessage(0x1c, reinterpret_cast<INT_PTR>(Name), 0);
+			AddMessage(0x1c, reinterpret_cast<std::intptr_t>(Name), 0);
 		}
 		break;
 	}
@@ -803,7 +804,7 @@ void TCreatureContextMenu::HandleEvent(int Event)
 		if (Creature != nullptr && CheckAnyRight()) {
 			char *Name = new char[30];
 			TStringBuffer(Name, 30).Assign(Creature->Name);
-			AddMessage(0x1c, reinterpret_cast<INT_PTR>(Name), 0);
+			AddMessage(0x1c, reinterpret_cast<std::intptr_t>(Name), 0);
 		}
 		break;
 	}
@@ -863,7 +864,7 @@ void TBuddyContextMenu::HandleEvent(int Event)
 		if (Position != -1 && CheckAnyRight()) {
 			char *Name = new char[30];
 			TStringBuffer(Name, 30).Assign(GetBuddyListName(Position));
-			AddMessage(0x1c, reinterpret_cast<INT_PTR>(Name), 0);
+			AddMessage(0x1c, reinterpret_cast<std::intptr_t>(Name), 0);
 		}
 		break;
 	}
@@ -1033,7 +1034,7 @@ void TTextContextMenu::HandleEvent(int Event)
 				AddMessage(0x1c, 0, 0);
 			} else {
 				AddMessage(0x1c, 0,
-					reinterpret_cast<INT_PTR>(new TTalkLine(Line->StatementID, Line->Mode, Line->Addressee,
+					reinterpret_cast<std::intptr_t>(new TTalkLine(Line->StatementID, Line->Mode, Line->Addressee,
 						Line->Text, 0)));
 			}
 		}
@@ -1095,7 +1096,7 @@ void TRequestContextMenu::HandleEvent(int Event)
 			break;
 		case 10023:
 			if (CheckAnyRight()) {
-				AddMessage(0x1c, 0, reinterpret_cast<INT_PTR>(new TTalkLine(Line->StatementID, Line->Mode, Name, Line->Text, 0)));
+				AddMessage(0x1c, 0, reinterpret_cast<std::intptr_t>(new TTalkLine(Line->StatementID, Line->Mode, Name, Line->Text, 0)));
 			}
 			break;
 		}
@@ -1236,10 +1237,10 @@ void TMarkContextMenu::HandleEvent(int Event)
 {
 	switch (Event) {
 	case 10400:
-		AddMessage(0x1d, reinterpret_cast<INT_PTR>(new TCoordinate(Data.Coordinate)), 0);
+		AddMessage(0x1d, reinterpret_cast<std::intptr_t>(new TCoordinate(Data.Coordinate)), 0);
 		break;
 	case 10401:
-		AddMessage(0x1e, reinterpret_cast<INT_PTR>(new TCoordinate(Data.Coordinate)), reinterpret_cast<INT_PTR>(new TMark(Data.Mark)));
+		AddMessage(0x1e, reinterpret_cast<std::intptr_t>(new TCoordinate(Data.Coordinate)), reinterpret_cast<std::intptr_t>(new TMark(Data.Mark)));
 		break;
 	case 10402:
 		if (Data.Mark.x != 0 && Data.Mark.y != 0) {

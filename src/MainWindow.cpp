@@ -43,6 +43,7 @@
 #include "GUI.h"
 #include "common.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <utility>
@@ -221,6 +222,9 @@ void TMainWindow::KeyPress(int Key)
 // windows; 0xe, 0xf and 0x16 open or close the skill, battle and VIP
 // windows; 0x1d gives up a connection; 0x1f8 switches between windowed and
 // fullscreen mode (a fullscreen mode below 640x480 is raised to it first).
+// GCC's analyzer (issue #111): the message queue owns the block it gets as an integer (AddMessage; the message's handler deletes it).
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic push")
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic ignored \"-Wanalyzer-malloc-leak\"")
 void TMainWindow::HandleEvent(int Event)
 {
 	patella::TGUI &GUI = patella::bridge::GUI();
@@ -317,12 +321,12 @@ void TMainWindow::HandleEvent(int Event)
 		break;
 	case 0x1fb: {
 		// A question with an answer event; message 6 deletes the block.
-		INT_PTR *Data = new INT_PTR[4];
-		Data[0] = reinterpret_cast<INT_PTR>("Warning");
-		Data[1] = reinterpret_cast<INT_PTR>("Are you sure you want to leave Tibia?");
-		Data[2] = reinterpret_cast<INT_PTR>(this);
+		std::intptr_t *Data = new std::intptr_t[4];
+		Data[0] = reinterpret_cast<std::intptr_t>("Warning");
+		Data[1] = reinterpret_cast<std::intptr_t>("Are you sure you want to leave Tibia?");
+		Data[2] = reinterpret_cast<std::intptr_t>(this);
 		Data[3] = 0x1fa;
-		AddMessage(6, reinterpret_cast<INT_PTR>(Data), 0);
+		AddMessage(6, reinterpret_cast<std::intptr_t>(Data), 0);
 		break;
 	}
 	case 0x1fd:
@@ -356,6 +360,7 @@ void TMainWindow::HandleEvent(int Event)
 		break;
 	}
 }
+PATELLA_GCC_DIAGNOSTIC("GCC diagnostic pop")
 
 // 0x4af5e0, line 463. Rebuilds the window for the game (InGame) or for the
 // start window. The open sub-windows are stored in the preferences first and
