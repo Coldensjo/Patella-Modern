@@ -340,13 +340,14 @@ The Linux presets `linux-x64-gcc` (GCC 16) and `linux-x64-clang` (Clang, with Ad
 each with a `-debug` workflow, build patella_core and the unit tests, not the client (PATELLA_CLIENT is OFF; the
 client needs Tibia.exe for its resources, and MFC). On Linux: `cmake --workflow --preset linux-x64-gcc`. On
 Windows, `python -I tools/build.py linux-x64-gcc` (and `--env linux-x64-gcc <command>`) runs them in the Docker
-image `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
-pinned by digest, Debian's Clang 22.1.8 and Ninja 1.12.1 pinned by version, Kitware's CMake 4.4.5 by its SHA-256
+image `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
+pinned by digest, Debian's Clang 22.1.8 pinned by version, Kitware's CMake 4.4.5 and the ninja-build project's Ninja
+1.13.2 by their SHA-256 (Ninja: Debian's 1.12.1 until issue #141's second part)
 (issue #141; 4.1.2 from issue #113, Debian's 3.31.6 before), Clang on GCC 16.2's libstdc++ through its configuration files
 /usr/lib/llvm-22/bin/clang++.cfg and clang.cfg (`--gcc-install-dir`, issue #121; Debian's GCC 14 and its libstdc++
 until then, and the tag `gcc16.2-clang22.1`), since issue #11
 also clang-format and clang-tidy 22.1.8; build it once with
-`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5 docker/linux-x64`, about half a minute, and again
+`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2 docker/linux-x64`, about half a minute, and again
 when the Dockerfile changes: the tag stays the same while it names the same compilers, library and CMake; issues #121
 and #141 gave it a new one, so a branch with the old Dockerfile keeps its image). build.py
 mounts the repository read-only, copies the files git knows (tracked, and untracked ones that are not ignored:
@@ -433,7 +434,7 @@ issue #20 as their only engine (SurfaceDX.cpp, surfaceDX9.cpp and SurfaceGL.cpp 
 opengl32 and glu32 not linked; their sources left with the oracle in issue #94): src/vulkan/SurfaceVulkan.cpp on the back end `patella_render_vulkan`
 (src/vulkan/Renderer.cpp and Quads.cpp) and the libraries' `patella_vulkan_deps` (volk, vk-bootstrap, VMA), the
 shaders compiled by a glslang built in the tree; Vulkan-Headers, volk, VMA, vk-bootstrap, glslang and the CPU
-driver (Mesa 26.2.5's lavapipe) are pinned by URL and SHA256 and downloaded on the first configure of a build
+driver (Mesa 26.2.6's lavapipe) are pinned by URL and SHA256 and downloaded on the first configure of a build
 tree (about 85 MB). The CPU driver's `vulkan_lvp.dll` and `lvp_icd.x86_64.json` are copied next to Patella.exe,
 PatellaTest.exe and `tests_vulkan.exe`. The engine is the x64 client's engine 2 (curEngine is always 2; Tibia.cfg's
 `Engine` keeps the original's number for Tibia.exe; notes/vulkan.md, "Choosing the engine"). Its device is the

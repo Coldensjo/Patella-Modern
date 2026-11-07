@@ -660,6 +660,9 @@ patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5), hosted CI's 
 Clang's std module under 4.4: the target loses the hardening's _FORTIFY_SOURCE item (4.4 de-duplicates the second
 -U of #121 away) and tests/unit gets -Wno-reserved-module-identifier (4.1 gave it its module target). Build folders
 from 4.1.2 need one --fresh. Golden 17,316,040, 0 failures. notes/decisions.md, "#141".
+Part 2 (branch issue-141b): the CPU driver is Mesa 26.2.6's lavapipe (reference compare and compare_rendering within the
+tolerance), and the image has the ninja-build project's Ninja 1.13.2 (SHA-256 checked) instead of Debian's 1.12.1, tag
+patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2.
 
 compare_rendering's look step (Patella-Modern issue #140, branch issue-140, November 7, 2026; M7): compare_rendering.py
 replays compare_traffic.py's live recording but still scripted "look north", so a recording made since #137 replayed

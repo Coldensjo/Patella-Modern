@@ -45,8 +45,8 @@ and since issue #121 linux-x64-clang (Clang 22 on GCC 16's libstdc++: the image'
 fortify for the std module there); its one user is tests_import_std. Every product preset also compiles each header of src/ on its own
 (`cmake/HeaderCheck.cmake`, issue #49: the `header_check_*` object libraries, a generated one-line source per
 header with a target's settings; a new header goes on one of its lists, or the configure fails). On Windows build.py runs the Linux presets in the Docker image
-`patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5` (build it once: `docker build -t
-patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5 docker/linux-x64`). `python -I tools/build.py --env <preset>
+`patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2` (build it once: `docker build -t
+patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2 docker/linux-x64`). `python -I tools/build.py --env <preset>
 <command>` runs another command (`cmake --build --preset ...`, `ctest --preset ...`) in that environment. CMake
 (issue #141): 4.4.5 everywhere; on Windows build.py runs the portable `C:\Servers\Software\cmake` (PATELLA_CMAKE_DIR
 overrides it; `python -I tools/build.py --install-cmake <folder>` installs Kitware's zip, SHA-256 checked), never the

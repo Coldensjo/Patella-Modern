@@ -348,7 +348,7 @@ code: notes/decisions.md).
 
 ## The CPU driver
 
-Mesa 26.2.5's **lavapipe** (the `llvmpipe` device, Vulkan 1.4), the MSVC build of the mesa-dist-win project:
+Mesa 26.2.6's **lavapipe** (the `llvmpipe` device, Vulkan 1.4; 26.2.5 until issue #141), the MSVC build of the mesa-dist-win project:
 `vulkan_lvp.dll` (56 MB, only system DLLs as dependencies) and its manifest `lvp_icd.x86_64.json`, taken from the
 release archive at configure time and copied next to Patella.exe, PatellaTest.exe and tests_vulkan.exe. The engine
 loads it only through the loader's driver setting of its own process: `VK_DRIVER_FILES` (and `VK_ICD_FILENAMES`
@@ -409,7 +409,7 @@ its own CMakeLists, only its executable, warnings off.
 | VMA | v3.5.0 | https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/archive/refs/tags/v3.5.0.tar.gz | c5f3db848fca9cb9726b41f256cc3007773321fa92a86d1e0902e66474e8a9e3 |
 | vk-bootstrap | v1.4.363 | https://github.com/charles-lunarg/vk-bootstrap/archive/refs/tags/v1.4.363.tar.gz | 11927b43a5c5d64646982b273d6436d2243acaa2da8834f7ba382060431155fe |
 | glslang | 16.6.0 | https://github.com/KhronosGroup/glslang/archive/refs/tags/16.6.0.tar.gz | 9c09b901149c729df745057dafa815278aaa101b84d2b6e14f16a42de52f97f2 |
-| Mesa lavapipe (mesa-dist-win) | 26.2.5, release-msvc | https://github.com/pal1000/mesa-dist-win/releases/download/26.2.5/mesa3d-26.2.5-release-msvc.7z | 997123ef4ce8896204ab912d5b54f19372c487ff9835bcefafa2fca23b8953c2 |
+| Mesa lavapipe (mesa-dist-win) | 26.2.6, release-msvc | https://github.com/pal1000/mesa-dist-win/releases/download/26.2.6/mesa3d-26.2.6-release-msvc.7z | b2e00615feaba45942343c265cc8c5f576142ca682c1ac6661922d4b72492877 |
 
 The Mesa archive's hash is the one GitHub publishes for the release asset; the others were computed on November
 3, 2026 from the downloads. An update: new URL and hash in cmake/Vulkan.cmake and here, the stamp name of the
