@@ -711,6 +711,10 @@ One platform layer for both operating systems, with **SDL3** (D3) for the things
   ASan and UBSan; the unpadded RSA is documented there and at the call site (Communication.cpp, TRSA::Encrypt).
 - **regexp:** Henry Spencer's code stays (compiled as C17), behind an RAII wrapper. `std::regex` is not a
   drop-in (syntax, speed, exact matching behaviour).
+  Done in #129 (notes/decisions.md, "#129"): regexp.c is C17 on every compiler (MSVC `/std:c17` too) with prototypes
+  for its K&R definitions, off the warning baselines, 0 warnings at the full level; `patella::TRegexp`
+  (src/types/Regexp.h) owns regcomp's program, Status.cpp's link check goes through it, unit tests of the client's
+  pattern in tests_core.
 - **Files and paths:** `std::filesystem`; the data files are found next to the executable or in a configured
   directory, with case-insensitive lookup of the original names on Linux. Tibia.cfg's location stays next to
   the data by default (portable), with an XDG option on Linux (D4); since #45 that is Patella.ini's (D12), and
