@@ -690,34 +690,23 @@ struct TFunctions {
 };
 TFunctions Fn[2];
 
-// Issue #72, a deliberate difference (notes/decisions.md, "#72 and #86"): our PrepareNextPacket drops a frame whose
-// inner length runs past it and throws ("packet length exceeds the received data"), where the original set its read
-// buffer's size from the length and read on past the frame. From that call on the sides' receive buffers differ
-// until the next round's ResetSides, so that part of the round is a deliberate part (golden::BeginDeliberate): still
-// run, its values read, its checks counted, a difference not a failure. Our side's two entries that reach it.
-bool BoundedFrame(const TMyException &Exception)
+// Issues #72 and #139, deliberate differences (notes/decisions.md, "#72 and #86" and "#139"): our TNetwork drops a
+// server frame the client cannot use, writes a warn line to the developer log and goes on with the next frame, where
+// the original read on past the frame (#72: an inner length past it, a frame of size 0; PrepareNextPacket), threw at
+// every later call (#139, item 7: a size that is no multiple of 8; none in the corpus), or kept the frame's first
+// bytes and waited for the rest (#139, item 6: a frame larger than ReceiveData; OnReceive: the corpus's streams have
+// such "frames" where their bytes are out of step with the frames). From that call on the sides' receive buffers
+// differ (ours reads the next frame, the original past the frame or nothing more) until the next round's
+// ResetSides, so that part of the round is a deliberate part (golden::BeginDeliberate): still run, its values read,
+// its checks counted, a difference not a failure. It opens in our side's call that dropped a frame (Both: TNetwork's
+// DroppedFrames before and after it), named by the drop's reason. Until #139 our side threw "packet length exceeds
+// the received data" at #72's frames (the part opened at that throw) and had no other drop; the two sides never agree
+// again within the round, so the part still ends at the round's end.
+void OpenDropPart(int DroppedBefore)
 {
-	return Exception.GetMessage().find("packet length exceeds the received data") != std::string::npos;
-}
-void OurPrepareNextPacket()
-{
-	try {
-		PrepareNextPacket();
-	} catch (const TMyException &Exception) {
-		if (BoundedFrame(Exception))
-			golden::BeginDeliberate("#72");
-		throw;
-	}
-}
-int OurGetNextCommand()
-{
-	try {
-		return GetNextCommand();
-	} catch (const TMyException &Exception) {
-		if (BoundedFrame(Exception))
-			golden::BeginDeliberate("#72");
-		throw;
-	}
+	const patella::TNetwork &N = patella::bridge::Network();
+	if (N.DroppedFrames != DroppedBefore)
+		golden::BeginDeliberate(N.LastDrop == patella::TFrameDrop::Length ? "#72" : "#139");
 }
 
 template <class T> void SetFn(T &Slot, uint32 Address) { Slot = (T)(uintptr_t)Address; }
@@ -741,8 +730,8 @@ void MakeFunctions()
 	O.SendString = SendString;
 	O.SendBytes = [](const uint8 *Buffer, int Count) { SendBytes(OriginalSpan(Buffer, Count)); };
 	O.SendCommand = SendCommand;
-	O.PrepareNextPacket = OurPrepareNextPacket;
-	O.GetNextCommand = OurGetNextCommand;
+	O.PrepareNextPacket = PrepareNextPacket;
+	O.GetNextCommand = GetNextCommand;
 	O.GetByte = GetByte;
 	O.GetWord = GetWord;
 	O.GetQuad = GetQuad;
@@ -981,7 +970,10 @@ uint8 TestKey[16];  // the key both sides have, for the server's frames
 // constructed once by TestNetwork).
 void ResetSides()
 {
-	golden::EndDeliberate(); // a part of #72 (above) ends: both sides from here on are in step again
+	// A part of #72 or #139 (above) ends: both sides from here on are in step again. ReceiveSkip is ours only (#139:
+	// the rest of a frame larger than ReceiveData still to be dropped), cleared with the receive state below.
+	golden::EndDeliberate();
+	patella::bridge::Network().ReceiveSkip = 0;
 	for (int s = FIRST_SIDE; s < 2; s++) {
 		TView &V = View[s];
 		*V.CurrentServer = 0;
@@ -1042,19 +1034,24 @@ template <class F> void Both(const char *Name, F Call)
 	}
 	if (Trace)
 		printf("Network: %s\n", Name);
+	const int Dropped = patella::bridge::Network().DroppedFrames;
 	if (Round == NULL) {
 		Side = OURS;
 		try {
 			Call(OURS);
 		} catch (const TMyException &) {
-			// Our side's throw of a frame bounded by #72 (its deliberate part begins there); any other is the test's.
+			// Our side's throw inside a deliberate part of #72 or #139 (after a dropped frame our side reads other
+			// packets than the original); any other is the test's. Until #139 our side threw at the #72 frame itself.
+			OpenDropPart(Dropped);
 			if (!golden::InDeliberate())
 				throw;
 		}
+		OpenDropPart(Dropped);
 	} else {
 		Round->Calling(Name, "ours");
 		Side = OURS;
 		TThrown Ours = OurThrow([&] { Call(OURS); });
+		OpenDropPart(Dropped);
 		Round->Calling(Name, "the original");
 		TThrown Original = ORIGINAL_THROWN("thrown", Side = IMAGE; Call(IMAGE));
 		Round->Compare(Name, Ours, Original);
@@ -1710,6 +1707,9 @@ void TestNetwork()
 	// Random()'s state is put back at the end: the later tests (MapWindow, MainWindow) get
 	// the inputs they had before this test existed.
 	uint32 SavedSeed = GetRandomSeed();
+	// Our side's dropped frames (#72, #139) write a warn line each: not the test's output.
+	const patella::log::TLevel SavedLevel = patella::log::Log().GetLevel();
+	patella::log::Log().SetLevel(patella::log::TLevel::Error);
 	ORIGINAL(PatchImage());
 	ORIGINAL(PatchScript()); // the image's sprintf
 	memset(LastDump, 0, sizeof(LastDump));
@@ -1770,13 +1770,14 @@ void TestNetwork()
 	TestNetworkErrors();
 	ResetSides();
 	for (const golden::TDeliberate &Part : golden::Deliberates())
-		if (Part.Issue == "#72")
-			printf("Network: %lld checks in %lld parts after a frame bounded by #72 (a deliberate difference), %lld of "
+		if (Part.Issue == "#72" || Part.Issue == "#139")
+			printf("Network: %lld checks in %lld parts after a frame dropped by %s (a deliberate difference), %lld of "
 				   "them differ\n",
-				Part.Checks, Part.Parts, Part.Differ);
+				Part.Checks, Part.Parts, Part.Issue.c_str(), Part.Differ);
 	RestoreAll();
 	golden::SetImport(RandSlot, SavedRand);
 	SetRandomSeed(SavedSeed);
+	patella::log::Log().SetLevel(SavedLevel);
 	if (LogFile != NULL)
 		fclose(LogFile);
 }

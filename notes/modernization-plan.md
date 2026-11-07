@@ -682,7 +682,9 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
 - **The original's reads past their data** (the owner's decision of November 7, 2026: bounded now, as deliberate
   differences): done in #72 (with #86; notes/decisions.md, "#72 and #86"): a frame whose inner length runs past it is
   dropped and throws; the 30-character ignore names and 128-character buddy descriptions are read as those characters
-  only; the golden runner's deliberate parts count #72's 37,052 Network checks apart.
+  only; the golden runner's deliberate parts count #72's 37,052 Network checks apart. Changed in #139 (the owner's
+  decision of November 7; notes/decisions.md, "#139"): such a frame is dropped and logged, and the connection goes
+  on.
 - **Modules:** `import std;` in new code once all three compilers support it under CMake. The client's own
   headers become named modules after MFC is gone (M8): one module per subsystem, partitions per original
   file.
@@ -753,7 +755,9 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   of each on hand-made seeds in every preset, libFuzzer trees for Clang (Linux) and MSVC (tools/fuzz.py), local seeds
   from the reference recordings and the data files (build/fuzz-seeds, never committed). Three findings of ours fixed
   (Patella.ini: a lost CR, a renumbered entry shadowed by a key spelled otherwise, a key starting with a byte order
-  mark); the original's filed.
+  mark); the original's filed. Done in #139 (notes/decisions.md, "#139"): the original's seven findings fixed as
+  deliberate differences (the data files' loaders, GetString, and every bad server frame dropped and logged with the
+  connection going on), each with a unit test (bounded_reads) and synthetic seeds; the harnesses check the fixes.
 - **Hardening:** `_MSVC_STL_HARDENING` and libstdc++'s/libc++'s hardened modes in release builds where the
   library supports them; `-D_GLIBCXX_ASSERTIONS` / bounds-checked `std::span` and `std::mdspan` in debug.
   Done in #133 (notes/decisions.md, "#133"): `_MSVC_STL_HARDENING=1` and libstdc++'s `_GLIBCXX_ASSERTIONS` in every

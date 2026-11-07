@@ -9427,7 +9427,14 @@ The comparison tools expect these from the fork's clients against Tibia.exe and 
 | #71 | The area a live resize uncovers is black | stripes of old pixels (not compared: no tool moves a border) |
 | #45 (D12) | No Tibia.cfg written; the options go into Patella.ini and are compared with Tibia.exe's Tibia.cfg by value (tools/settings_file.py) | SavePreferences writes Tibia.cfg (the options and hotkey dialogs, a logout, the exit) |
 | #45 (D12) | Patella.ini written at the first start without the options in it (the import of Tibia.cfg, or the defaults) | nothing written at the start |
-| #72 | A server frame whose inner length runs past it, or a frame of size 0, is dropped and ends the client as a read past a packet's end does (the TMyException "packet length exceeds the received data") | reads on past the frame: into the next frames, past ReceiveData into SendData (not compared: no session has such a frame; the golden Network test's deliberate parts, "#72 and #86") |
+| #72 | A server frame whose inner length runs past it, or a frame of size 0, is dropped, a warn line goes to the developer log, and the connection goes on with the next frame (the owner's change of November 7, #139; until then the frame ended the client with the TMyException "packet length exceeds the received data") | reads on past the frame: into the next frames, past ReceiveData into SendData (not compared: no session has such a frame; the golden Network test's deliberate parts, "#72 and #86" and "#139") |
+| #139 (1) | After a Tibia.dat that ends early (or a count the next table refuses), only the sprite tables LoadProperties allocated are deleted | deletes the unreached entries' indeterminate pointers (not compared: the reference sessions load the real Tibia.dat) |
+| #139 (2) | After a Tibia.pic that ends early, only the pictures' offset tables LoadPictures allocated are deleted | deletes the unreached pictures' indeterminate pointers (not compared) |
+| #139 (3) | A sprite or picture tile whose runs pass the 1024th pixel is a data error: PROGRAM_ERROR 4 (Tibia.spr) or 5 (Tibia.pic), the pixels before it written as before | writes past the 32 x 32 buffer (not compared: the real files have no such run) |
+| #139 (4) | TReadBuffer::GetString checks that the text fits before it allocates it | allocates first and loses the text at the throw (not observable apart from the memory) |
+| #139 (5) | A .map file with a negative mark count is a corrupted file: "Map file '...' was corrupted!", the block cleared, as for a file that ends early | keeps the count; a mark added then grows the marks down to that index (minutes, much memory) (not compared: no session has such a file) |
+| #139 (6) | A server frame larger than the 16 KB receive buffer is dropped as its bytes come, a warn line goes to the developer log, and the frames after it are read | keeps its first bytes and waits for it forever: the buffer fills and nothing more is received (not compared) |
+| #139 (7) | A server frame whose size is no multiple of 8 is dropped (not decrypted), a warn line goes to the developer log, and the next frame is read | throws "packet size does not fit to symmetric encryption" without dropping it, which ends the client (every later read would throw the same) (not compared) |
 | #86 | An ignore or white list entry's name of 30 characters, and a buddy's description of 128, read as those characters only (the list's line, GetBuddyDescription, Patella.ini, Tibia.cfg's writer) | reads on past the name into Permanent (with it set, "\x01" and the next entry's name), past the description into Notify and the padding (not compared: no session has such a name or description) |
 
 ### The tests
@@ -14357,6 +14364,9 @@ inputs; every other check stays as it was.
 
 ### #72: a frame whose inner length runs past it (high)
 
+Changed by #139 (the owner's decision of November 7, "#139" below): such a frame is now dropped and logged, and the
+connection goes on with the next frame; it no longer throws. The rest of this section is #72's outcome until then.
+
 - **The read.** PrepareNextPacket set ReceiveBuffer's size from the frame's inner length as it was (`GetWord() + 4`).
   A length larger than the frame made every later read of the packet go on past the frame: into the next frames, and
   for a long one past ReceiveData into SendData (the read #70's ASan run found; since #105 the buffers are TNetwork's
@@ -15744,3 +15754,172 @@ Release build (C:\Tibia\Patella-Modern\build\windows-x64\Release, built from 289
   build/render/result`: exit 0, "result: all scenes identical": vulkan (RTX 5080) and vulkan-cpu (llvmpipe), 26
   scenes each, "look at own field" among them; on the CPU driver every difference within the region tolerance
   (largest channel difference 2), the advanced options' masks as always. The issue's "Done when".
+
+## #139: the original's failures on corrupt data files and hostile frames, fixed; #72's frames dropped (Patella-Modern issue #139, M9, and #72's outcome)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-139, from main b24483a), after the owner's decisions of
+November 7: fix all seven findings of #132 ("#132", "Found, filed: the original's code paths", items 1 to 7) as
+deliberate differences; and change #72's outcome: a frame whose inner length runs past it is no longer an error that
+ends the client, it is dropped, a line goes to the developer log at warn, and the connection goes on with the next
+frame, the same "drop and log" for #139's frames (items 6, 7) where it fits, so that every bad frame behaves alike.
+Each difference is a row of the table of deliberate tier A differences (#74's section). #132's eighth note (the sprite
+count's int product) is unchanged: no fix was asked for.
+
+### The bad frames: one rule (high)
+
+TNetwork drops a server frame the client cannot use, writes one warn line (`[warn] server frame dropped: ...`, the
+frame's numbers; src/log, #77), counts it (DroppedFrames, and LastDrop: a TFrameDrop, Network.h, which says which of
+the three it was; the members follow the original's data, not the original's) and goes on with the next complete frame
+in the same call, so a caller that asked for a command gets the next frame's. Network.cpp's DropFrame is the one
+place that drops in PrepareNextPacket (ReceiveRead past the frame, the read buffer empty); PrepareNextPacket is a loop
+that prepares the next frame after a drop.
+
+- **#72, the change** (high; the owner's): a frame of size 0, or one whose payload `[u16 length][length bytes]` runs
+  past it, was dropped and threw "packet length exceeds the received data" (#72's outcome, which ended the client
+  through HandleException). Now dropped and logged ("it has no length (size 0)", "its length L runs past its size
+  S"), no throw. The frame's test hook (PATELLA_TEST_PACKET_RECEIVED) and PacketHeader are set as before, since the
+  frame was decrypted.
+- **#139, item 7** (high): a frame whose size is no multiple of 8 (XTEA's block) threw "packet size does not fit to
+  symmetric encryption" before the frame was dropped, so every later call threw the same (the client ended at the
+  first). Now dropped before decryption ("its size S is no multiple of 8"): no test hook, PacketHeader unchanged (the
+  frame was never decrypted, so it has no packet). Considered: decrypting its whole blocks (bytes the server cannot
+  have meant); keeping the throw but dropping first (the client still ends on a frame it can skip: not "alike").
+- **#139, item 6** (high): a frame larger than ReceiveData (a size above 0x3ffe) can never be complete there. The
+  original kept its first bytes and waited: ReceiveData filled up, Receive got no room and returned 0, and no later
+  byte came through, forever. (Since #133 the hardened library would also have stopped the x64 client at the next
+  receive event: `&ReceiveData[ReceiveDataSize]` at a full buffer is operator[] at the array's end. OnReceive now
+  takes the free part's start as a pointer, so a full buffer, still possible while the handler has not read the
+  frames in it, gives Receive no room as the original's did.) Now OnReceive drops it as soon as its size is read:
+  the bytes of it already received are cut off (ReceiveDataSize back to the frame's start) and the rest is dropped as
+  it comes (ReceiveSkip: the bytes still to come; a receive's bytes after them are moved down and read as the next
+  frames), with one warn line ("its size S does not fit the receive buffer of 16384 bytes"). The complete frames
+  before it are kept and read. ConnectSocket and InitNetwork clear ReceiveSkip with the other receive state.
+  Considered: closing the connection (a hostile server could then end the session with one frame; not "alike").
+- **What a caller sees**: the connection never ends because of a frame's shape; ReceivePackets (Control.cpp) gets
+  the next frame's commands. A frame's commands that are wrong in themselves (a read past the packet's end) still
+  throw at the read, as before.
+
+### The data files and GetString (high)
+
+- **Item 1, Tibia.dat** (Objects.cpp LoadObjects): each table's entries get a null sprite table as soon as the table
+  is allocated (before the next table's constructor, which can refuse its count: a header with 0 outfits), so
+  ReleaseObjects after a file that ends early deletes only the tables LoadProperties allocated. The original left the
+  entries' Sprites indeterminate (array's `new T[d]`) and InitControl's error path deleted them (ASan: a free of
+  0xbebebebebebebebe; the plain client showed the error box only because that memory happened to be zero). Considered:
+  value-initialising every array of Container.h (`new T[d]()`: changes every user of the template, which needs none of
+  it). The outcome (PROGRAM_ERROR 1, the box) is the original's.
+- **Item 2, Tibia.pic** (graphics.cpp LoadPictures): every picture's Offsets is null before the first picture is read,
+  so ExitGraphics and ReloadPictures delete only the tables LoadPictures allocated. Outcome as before
+  (PROGRAM_ERROR 3).
+- **Item 3, the runs** (graphics.cpp LoadSprite, LoadPictureTile): a pixel past the 1024th is a data error (a
+  PATELLA_ASSERT inside the functions' try blocks: PROGRAM_ERROR 4 for Tibia.spr, 5 for Tibia.pic, as a short sprite
+  or tile already was). The order is the original's: each byte is read, then the pixel checked, then written, so a
+  sprite or tile the original decoded without writing past the buffer decodes to the same pixels, and a read past the
+  file's end is still the error it was; the pixels before the 1024th are written as before. Considered: clipping (a
+  silently wrong picture from a corrupt file, where a short file is already an error).
+- **Item 4, GetString** (Utils.cpp TReadBuffer::GetString, the allocating one): the check that the text fits comes
+  before the allocation, so a text that does not fit throws with nothing allocated. Same outcome (the TMyException);
+  "free before the throw" without a free.
+- **Item 5, the .map files** (Map.cpp LoadAutomapBlock): a negative mark count throws "negative mark count" inside the
+  marks' try block, so the file is a corrupted one, as a file that ends early is: "Map file '...' was corrupted!" in
+  the default console, the block cleared (no marks, the colours 0 and the speeds 250). The original kept the count,
+  read no mark, and AddAutomapMark then wrote Marks(count): TIndexedVector grew down to that index (minutes and much
+  memory for a count far below 0). Considered: taking the count as 0 and keeping the layers (a file whose count is
+  impossible is not trusted elsewhere either). The block is saved again only when a mark is added (Changed), as for
+  any corrupted file.
+
+### The golden corpus (high)
+
+The frozen corpus (#93) is replayed unchanged; the golden Network test's deliberate parts (golden::BeginDeliberate,
+"#72 and #86") follow the new outcome. A part now opens in the call of our side that dropped a frame (Both:
+TNetwork's DroppedFrames before and after our side's call, normal and error rounds alike; network_tests.cpp
+OpenDropPart), named "#72" for a length drop and "#139" for the others, and still ends at the round's ResetSides: after
+the drop our side reads the next frame's commands while the original reads on past the frame (#72) or keeps waiting
+(item 6), so the two sides do not agree again within the round. Until #139 the part opened at our side's #72 throw
+(OurGetNextCommand, OurPrepareNextPacket, now gone).
+
+- **Item 6 is in the corpus.** MakeFrame's frames are at most 58 bytes, yet some OnReceive calls of the corpus read a
+  "frame size" above 0x3ffe: bytes of a stream that are out of step with its frames (the fake world's queued bytes
+  read from the middle of a frame). The original keeps them and waits; ours drops them. Those are the "#139" parts.
+  Item 7 is not in the corpus (every frame's size is a multiple of 8).
+- **The counts** (windows-x64; the same on every preset that replays the corpus): 15,803,218 replayed + 1,512,822
+  retired = 17,316,040, 0 failures, as on main. Deliberate parts: **#72: 274 parts, 36,104 checks, 16,588 of them
+  differ; #139: 33 parts, 3,343 checks, 1,178 differ**; together 307 parts, 39,447 checks, 17,766 differ. Before
+  (#72's outcome of ac846d8): 280 parts, 37,052 checks, 14,165 differ. The 280 rounds and error-round iterations with
+  a #72 frame still have a part each; in 6 of them an item-6 drop now comes first and opens it (so 274 are #72's), and
+  27 rounds with only an item-6 drop have a part they did not have (until #139 both sides waited there alike). More of
+  #72's checks differ than before because our side now goes on reading the next frames where it stopped at the throw.
+- **Items 1 to 5: 0 checks affected.** The Objects, Graphics, Map, Communication and Network tests replay with 0
+  failures and no part for them: nothing the corpus reaches changes (a GetString that throws still throws, an
+  initialised pointer is not compared, and the corpus has no run past the 1024th pixel and no negative mark count that
+  its tests read back differently).
+- The Network test's log level is error while it runs (our side's warn lines are not the test's output).
+
+### The tests (high)
+
+- **bounded_reads** (tests/golden/bounded_reads_test.cpp, now #72, #86 and #139; every preset that builds the golden
+  objects): #72's cases rewritten for the drop (no throw; the frame dropped and moved out of ReceiveData, nothing past
+  it read under ASan's poison, the warn line captured through the log's console, the next frame read in the same call
+  or after the next receive); #139: a frame of sizes 1, 7, 9 and 13 dropped and the next read (item 7); a frame of
+  0x5000 bytes between two frames, received 1, 7, 1000 and 0x4000 bytes at a time, with the frames around it read and
+  every byte taken (item 6), and the largest frame that fits still read; a Tibia.dat that ends after one entry and
+  one with 0 outfits (the unreached entries' tables null, ReleaseObjects and ExitObjects clean); a Tibia.pic that ends
+  after one picture (item 2); sprites and tiles past, at and after the 1024th pixel in buffers of exactly 32 x 32 x 3
+  bytes (item 3); GetString's throw with no allocation (container_tests.cpp's operator new[], the runner's, counts
+  them: GoldenArrayNews) (item 4); .map files with the counts -1, -5 and -2,000,000,000 (corrupted, then a mark at
+  index 0) (item 5). 16 cases.
+- **The fuzz targets** (tests/fuzz): the harness's guards around the original's findings are gone, so the fuzzers now
+  exercise the fixes, and properties check them: fuzz_network reads every string with the allocating GetString, has
+  no "four throws in a row" guard, and fails when bytes of the stream are never taken while its handler read every
+  packet (item 6; an empty packet that stays in ReceiveData is the original's and excluded, "Found, not done"); fuzz_dat and fuzz_pictures free through the client's own ReleaseObjects and ExitGraphics after a failed load
+  (items 1, 2); fuzz_sprites and fuzz_pictures decode every sprite and tile and fail when one whose runs pass the
+  1024th pixel (decode.h Overflows, now the expectation) is decoded (item 3); fuzz_map adds a mark to every block and
+  fails when a loaded block has a negative count (item 5). fuzz_network's log is at error. New synthetic seeds
+  (`python -I tools/fuzz.py synthetic`, hand-made): fuzz_network 139-7-odd-sizes, 139-6-too-large (also as 64-byte
+  receives), 139-6-largest; fuzz_dat 139-1-ends-after-one, 139-1-no-outfits; fuzz_pictures 139-2-ends-after-one,
+  139-3-overflow; fuzz_sprites 139-3-overflow; fuzz_map 139-5-negative-save, 139-5-most-negative-save. CipSoft-derived
+  seeds stay local (build/fuzz-seeds).
+- **The fuzz runs**: Linux libFuzzer (Clang 22, ASan and UBSan; `python -I tools/fuzz.py run --platform linux --time 180`;
+  synthetic and local seeds; build/logs/issue-139/fuzz-linux-180*/summary.tsv). With #132's guards gone, none of the
+  seven findings comes back:
+
+  | Target | Executions (per s), cov, ft | Findings |
+  |---|---|---|
+  | fuzz_network | 180,572 (997), 488, 2,700 (the rerun) | none |
+  | fuzz_map | 20,668 (114), 1,133, 2,968 | none |
+  | fuzz_dat | 26,898 (148), 501, 1,973 | none |
+  | fuzz_sprites | 258,879 (1,430), 413, 1,908 | none |
+  | fuzz_pictures | 100,701 (556), 540, 2,245 | none |
+
+  fuzz_network's first run (145,407 executions) ended at the harness's stall property on the original's empty-packet
+  stall ("Found, not done"), not one of #139's; the property now excludes it, and the rerun is clean. #132's GetString
+  leak showed as out of memory after about 110,000 executions; fuzz_network now reads every string with GetString and
+  ran 180,572 without it. The MSVC fuzzer was not run (the smoke runs of every preset, MSVC's ASan among them, pass).
+
+### Found, not done (high)
+
+- **A packet of length 0 leaves the frames after it waiting** (the original's, not one of #139's): a frame whose
+  inner length is 0 (Size 4) makes GetNextCommand return -1 with complete frames behind it; ReceivePackets stops, and
+  those frames are read only when a later receive completes another frame. The empty packet's own frame also stays
+  in ReceiveData until the next PrepareNextPacket (an ordinary end moves the read frame out at once), so a following
+  frame that fits ReceiveData only without it (up to 16 KB) never completes either. With ReceiveData full none can,
+  and the connection stalls as item 6's did. A hostile server only; fuzz_network's first 180-s run found it
+  (crash-ad1d7aa4..., build\logs\issue-139\fuzz-linux-180\artifacts: an empty packet received 2 bytes at a time,
+  then a frame of 0x3ff8) and its property now excludes an input once an empty packet stayed in ReceiveData. A fix would go on to the next frame after an empty one (a deliberate difference;
+  golden's MakeFrame makes such frames, so it would add parts).
+
+### The gates (high)
+
+Logs in build\logs\issue-139 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed
++ 1,512,822 retired = 17,316,040, 0 failures, with the parts above; 0 compiler warnings.
+
+- `python -I tools/build.py windows-x64` exit 0, 28/28; windows-x64-debug exit 0, 27/27; windows-x64-asan exit 0,
+  27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0, 25/25 (golden); linux-x64-clang (ASan,
+  UBSan) exit 0, 24/24 (golden), no sanitizer report.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches its reference (the known deliberate differences of #45 and #74); `python -I tools/compare_traffic.py`
+  exit 0, no differences; `python -I tools/compare_files.py` exit 0, no differences.
+- `python -I tools/tidy_ci.py --worktree` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`
+  exit 0. clang-format (CLAUDE.md's command) exit 0.
+- Not run: compare_rendering (nothing drawn changed), the MSVC libFuzzer tree.

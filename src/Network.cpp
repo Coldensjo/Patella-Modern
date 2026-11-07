@@ -18,6 +18,7 @@
 #include "TXTEA.h"
 #include "Preferences.h"
 #include "common.h"
+#include "log/Log.h"
 #include "compat/span.h"
 #include "platform/Socket.h"
 #include "platform/Window.h"
@@ -235,44 +236,71 @@ void patella::TNetwork::SendCommand(bool Encrypt)
 
 // 0x4cc130, lines 391-410. Drops the packet already read, then decrypts the next
 // complete packet in place and points ReceiveBuffer at its payload.
+//
+// Patella-Modern issues #72 and #139, deliberate differences (notes/decisions.md, "#139"): a frame the client cannot
+// use is dropped (DropFrame), a warn line goes to the developer log, and the next complete frame is prepared in its
+// place, so the connection goes on. Two such frames:
+// - #139, item 7: a size that is no multiple of 8 (XTEA's block). Tibia.exe threw "packet size does not fit to
+//   symmetric encryption" before it dropped the frame, so every later call threw the same; the frame is not decrypted.
+// - #72: the payload, [u16 length][length bytes], must lie inside the frame, its PacketSize bytes after the size (a
+//   length that runs into the XTEA padding is still inside it and read as before). A frame of size 0 (no length in
+//   it) or one whose length runs past it is dropped. Tibia.exe read the length past an empty frame and set the read
+//   buffer's size from it as it was, so its reads went on past the frame: into the next frames, and past ReceiveData
+//   into SendData. Until the owner's change of November 7 (#139) such a frame threw "packet length exceeds the
+//   received data" and ended the client.
 void patella::TNetwork::PrepareNextPacket()
 {
-	if (ReceiveRead > 0) {
-		if (ReceiveRead < ReceiveDataSize)
-			memmove(ReceiveData.data(), &ReceiveData[ReceiveRead], ReceiveDataSize - ReceiveRead);
-		ReceiveDataSize -= ReceiveRead;
-		ReceivePacketEnd -= ReceiveRead;
-		ReceiveRead = 0;
-	}
-	if (ReceivePacketEnd > 0) {
+	while (true) {
+		if (ReceiveRead > 0) {
+			if (ReceiveRead < ReceiveDataSize)
+				memmove(ReceiveData.data(), &ReceiveData[ReceiveRead], ReceiveDataSize - ReceiveRead);
+			ReceiveDataSize -= ReceiveRead;
+			ReceivePacketEnd -= ReceiveRead;
+			ReceiveRead = 0;
+		}
+		if (ReceivePacketEnd <= 0)
+			return;
 		ReceiveBuffer.Size = 4;
 		ReceiveBuffer.Position = 0;
 		const int PacketSize = ReceiveBuffer.GetWord();
-		if (PacketSize % 8 != 0)
-			TERROR1("packet size does not fit to symmetric encryption", PacketSize);
+		const int FrameEnd = PacketSize + 2;
+		if (PacketSize % 8 != 0) {
+			patella::log::Warn("server frame dropped: its size {} is no multiple of 8", PacketSize);
+			DropFrame(TFrameDrop::Size, FrameEnd);
+			continue;
+		}
 		try {
 			for (int i = 2; i < PacketSize + 2; i += 8)
 				SymmetricKey.DecryptBlock(TXTEA::TBlock(&ReceiveData[i], 8));
 		} catch (...) {
 			TERROR("Symmetric decryption failed with unknown exception");
 		}
-		// Patella-Modern issue #72, a deliberate difference (notes/decisions.md): the payload, [u16 length][length
-		// bytes], must lie inside the frame, its PacketSize bytes after the size. A frame of size 0 (no length in it)
-		// or one whose length runs past it is dropped and throws, as a read past a packet's end throws. Tibia.exe
-		// read the length past an empty frame and set the read buffer's size from it as it was, so its reads went on
-		// past the frame: into the next frames, and past ReceiveData into SendData.
-		const int FrameEnd = PacketSize + 2;
 		const int Size = PacketSize >= 2 ? ReceiveBuffer.GetWord() + 4 : 0;
 		PATELLA_TEST_PACKET_RECEIVED(ReceiveData, PacketSize)
 		memset(PacketHeader.data(), 0, sizeof(PacketHeader));
 		ReceiveRead = FrameEnd;
 		memcpy(PacketHeader.data(), &ReceiveData[2], PacketSize < 16 ? PacketSize : 16);
 		if (PacketSize < 2 || Size > FrameEnd) {
-			ReceiveBuffer.SetSize(ReceiveBuffer.Position);
-			TERROR2("packet length exceeds the received data", Size, FrameEnd);
+			if (PacketSize < 2)
+				patella::log::Warn("server frame dropped: it has no length (size {})", PacketSize);
+			else
+				patella::log::Warn("server frame dropped: its length {} runs past its size {}", Size - 4, PacketSize);
+			DropFrame(TFrameDrop::Length, FrameEnd);
+			continue;
 		}
 		ReceiveBuffer.SetSize(Size);
+		return;
 	}
+}
+
+// Not the original's (issues #72 and #139): the frame up to FrameEnd is dropped (the next PrepareNextPacket moves the
+// data after it down), the read buffer is empty, and the drop is counted. The caller has written the log line.
+void patella::TNetwork::DropFrame(TFrameDrop Reason, int FrameEnd)
+{
+	ReceiveRead = FrameEnd;
+	ReceiveBuffer.SetSize(ReceiveBuffer.Position);
+	DroppedFrames++;
+	LastDrop = Reason;
 }
 
 // 0x4cc550, line 423. Returns the next command byte, or -1 when no packet is complete.
@@ -483,6 +511,7 @@ int patella::TNetwork::ConnectSocket(const char *IPAddress, int Port, bool SetTi
 	ReceiveRead = 0;
 	ReceivePacketEnd = 0;
 	ReceiveDataSize = 0;
+	ReceiveSkip = 0;
 	if (SetTimeout) {
 		TimeoutLimit = 150;
 		TimeoutCounter = 0;
@@ -620,14 +649,38 @@ void patella::TNetwork::OnReceive(platform::TSocket &Receiver, int ErrorCode)
 {
 	if (ErrorCode != 0)
 		return;
-	const int Count = Sockets.Receive(&Receiver, &ReceiveData[ReceiveDataSize], sizeof(ReceiveData) - ReceiveDataSize);
+	// The free part's start as a pointer: with ReceiveData full (frames the handler has not read yet) it is the
+	// array's end, which the hardened library's operator[] refuses (issue #139; Receive then gets no room).
+	const int Count =
+		Sockets.Receive(&Receiver, ReceiveData.data() + ReceiveDataSize, sizeof(ReceiveData) - ReceiveDataSize);
 	if (Count == 0 || Count == platform::SocketFailed)
 		return;
-	ReceiveDataSize += Count;
+	// Patella-Modern issue #139, item 6, a deliberate difference (notes/decisions.md, "#139"): a frame larger than
+	// ReceiveData can never be complete there. Tibia.exe kept its first bytes and waited: ReceiveData filled up,
+	// Receive got no room, and no later frame came through, forever. Now its bytes are dropped as they come
+	// (ReceiveSkip: those still to come), a warn line goes to the developer log, and the frames after it are read.
+	int Kept = Count;
+	if (ReceiveSkip > 0) {
+		const int Skipped = Count < ReceiveSkip ? Count : ReceiveSkip;
+		ReceiveSkip -= Skipped;
+		Kept = Count - Skipped;
+		if (Kept > 0)
+			memmove(&ReceiveData[ReceiveDataSize], &ReceiveData[ReceiveDataSize + Skipped], Kept);
+	}
+	ReceiveDataSize += Kept;
 	bool Complete = false;
 	while (ReceivePacketEnd + 2 <= ReceiveDataSize) {
 		TReadBuffer Header(patella::TSpan<uint8>(&ReceiveData[ReceivePacketEnd], 2));
 		const int Length = Header.GetWord() + 2;
+		if (Length > static_cast<int>(ReceiveData.size())) {
+			patella::log::Warn("server frame dropped: its size {} does not fit the receive buffer of {} bytes", Length - 2,
+				ReceiveData.size());
+			ReceiveSkip = Length - (ReceiveDataSize - ReceivePacketEnd);
+			ReceiveDataSize = ReceivePacketEnd;
+			DroppedFrames++;
+			LastDrop = TFrameDrop::TooLarge;
+			break;
+		}
 		if (ReceiveDataSize - ReceivePacketEnd < Length)
 			break;
 		Complete = true;
@@ -665,6 +718,7 @@ void patella::TNetwork::InitNetwork(void (*ConnectHandler)(), void (*ReceiveHand
 	ReceiveRead = 0;
 	ReceivePacketEnd = 0;
 	ReceiveDataSize = 0;
+	ReceiveSkip = 0;
 	Socket = nullptr;
 	HostnameResolveBuffer = nullptr;
 	// NOLINTNEXTLINE(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): the original's malloc, freed in ExitNetwork

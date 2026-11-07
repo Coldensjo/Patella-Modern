@@ -139,7 +139,10 @@ void patella::TGraphics::LoadSprites(const char *FileName)
 // 0x48b9a0, lines 156-212. Decodes a sprite into 32*32 RGB triples: the
 // colour key, then runs of transparent and coloured pixels. Opens Tibia.spr
 // for every sprite. An empty sprite (offset 0) gets the colour key 0,0,0. A
-// file error becomes PROGRAM_ERROR 4. Malformed runs write past the buffer.
+// file error becomes PROGRAM_ERROR 4. Patella-Modern issue #139, item 3, a deliberate difference
+// (notes/decisions.md, "#139"): a run past the 1024th pixel is a data error too (each byte is read, then the pixel
+// checked, then written, so every sprite the binary decoded without writing past the buffer decodes as before);
+// the binary wrote past the buffer.
 void patella::TGraphics::LoadSprite(int SpriteNumber, uint8 *Buffer)
 {
 	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
@@ -175,9 +178,11 @@ void patella::TGraphics::LoadSprite(int SpriteNumber, uint8 *Buffer)
 				const int Count = File.readWord();
 				Read += 4;
 				for (int i = 0; i < Count; i++) {
-					Buffer[Pixel * 3] = File.readByte();
-					Buffer[Pixel * 3 + 1] = File.readByte();
-					Buffer[Pixel * 3 + 2] = File.readByte();
+					for (int c = 0; c < 3; c++) {
+						const uint8 Value = File.readByte();
+						PATELLA_ASSERT_VALUES(Pixel<32*32, Pixel);
+						Buffer[Pixel * 3 + c] = Value;
+					}
 					Read += 3;
 					Pixel++;
 				}
@@ -204,6 +209,11 @@ void patella::TGraphics::LoadPictures(const char *FileName)
 		NumberOfPictures = File.readWord();
 		static_cast<void>(Pictures.release()); // NOLINT(bugprone-unused-return-value): a table still held leaks, as in the original
 		Pictures.reset(new TPicture[NumberOfPictures]);
+		// Patella-Modern issue #139, item 2, a deliberate difference (notes/decisions.md, "#139"): every picture's
+		// offsets start empty, so ExitGraphics and ReloadPictures, after a file that ends before the last picture,
+		// delete only the tables allocated here. The binary left the later pictures' Offsets indeterminate.
+		for (int i = 0; i < NumberOfPictures; i++)
+			Pictures[i].Offsets = nullptr;
 		for (int i = 0; i < NumberOfPictures; i++) {
 			Pictures[i].TilesX = File.readByte();
 			Pictures[i].TilesY = File.readByte();
@@ -223,7 +233,8 @@ void patella::TGraphics::LoadPictures(const char *FileName)
 
 // 0x48c3b0, lines 280-322. Decodes one tile of a picture like a sprite. The
 // tile assertions are inside the inner try block, so a bad tile also becomes
-// PROGRAM_ERROR 5, like a file error.
+// PROGRAM_ERROR 5, like a file error; since Patella-Modern issue #139, item 3, so does a run past the 1024th pixel
+// (as in LoadSprite).
 void patella::TGraphics::LoadPictureTile(int PictureNumber, int TileX, int TileY, uint8 *Buffer)
 {
 	PATELLA_ASSERT_VALUES(In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
@@ -248,9 +259,11 @@ void patella::TGraphics::LoadPictureTile(int PictureNumber, int TileX, int TileY
 			const int Count = File.readWord();
 			Read += 4;
 			for (int i = 0; i < Count; i++) {
-				Buffer[Pixel * 3] = File.readByte();
-				Buffer[Pixel * 3 + 1] = File.readByte();
-				Buffer[Pixel * 3 + 2] = File.readByte();
+				for (int c = 0; c < 3; c++) {
+					const uint8 Value = File.readByte();
+					PATELLA_ASSERT_VALUES(Pixel<32*32, Pixel);
+					Buffer[Pixel * 3 + c] = Value;
+				}
 				Read += 3;
 				Pixel++;
 			}

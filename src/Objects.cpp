@@ -612,14 +612,26 @@ void patella::TObjectTypes::LoadObjects(const char *FileName)
 	const int Outfits = File.readWord();
 	const int Effects = File.readWord();
 	const int Missiles = File.readWord();
+	// Patella-Modern issue #139, item 1, a deliberate difference (notes/decisions.md, "#139"): every entry's sprite
+	// table starts empty, each table's as soon as it is allocated, so ReleaseObjects, after a file that ends before
+	// the last entry (or a count of 0, which the next table's constructor refuses), deletes only the tables
+	// LoadProperties allocated. The binary left the entries' Sprites indeterminate and deleted them.
+	const auto ClearSprites = [](array<TProperties> &Table) {
+		for (int i = Table.low(); i <= Table.high(); i++)
+			Table(i).Sprites = nullptr;
+	};
 	// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): unique_ptr::reset, a template, is not among its owners
 	ObjectProperties.reset(new array<TProperties>(100, Objects));
+	ClearSprites(*ObjectProperties);
 	// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): unique_ptr::reset, a template, is not among its owners
 	OutfitProperties.reset(new array<TProperties>(1, Outfits));
+	ClearSprites(*OutfitProperties);
 	// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): unique_ptr::reset, a template, is not among its owners
 	EffectProperties.reset(new array<TProperties>(1, Effects));
+	ClearSprites(*EffectProperties);
 	// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): unique_ptr::reset, a template, is not among its owners
 	MissileProperties.reset(new array<TProperties>(1, Missiles));
+	ClearSprites(*MissileProperties);
 	for (int i = 100; i <= Objects; i++)
 		LoadProperties(&File, &(*ObjectProperties)(i));
 	for (int i = 1; i <= Outfits; i++)

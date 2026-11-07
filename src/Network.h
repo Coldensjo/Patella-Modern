@@ -73,6 +73,16 @@ protected:
 	~TNetworkSession() = default;
 };
 
+// Why TNetwork dropped a server frame (issues #72 and #139; notes/decisions.md, "#139"). The original had no such
+// outcome: it read on past the frame (Length), ended the client at every later read (Size), or waited for the frame
+// forever (TooLarge).
+enum class TFrameDrop : unsigned char {
+	None,
+	Length,   // #72: a frame of size 0, or one whose inner length runs past it (PrepareNextPacket)
+	Size,     // #139, item 7: a frame size that is no multiple of 8, XTEA's block (PrepareNextPacket)
+	TooLarge, // #139, item 6: a frame larger than ReceiveData, which can never hold it (OnReceive)
+};
+
 // Network.cpp's data and functions (issue #105): the globals of the original (0x5c22c4, 0x7152f0-0x719d8b), with
 // Control.cpp's ReconnectTimeout and Reconnect (0x5c4520-0x5c4524) and MainFrm.cpp's PacketHeader (0x5d1644), are
 // the members, with the same initial values (the others 0, as the original's .bss), and the functions the members of
@@ -152,8 +162,8 @@ public:
 	int ReceiveDataSize{};                                   // 0x715530, bytes in ReceiveData
 	int ReceivePacketEnd{};                                  // 0x715534, end of the complete packets
 	int ReceiveRead{};                                       // 0x715538, start of the next unread packet
-	// A frame whose inner length runs past it throws in PrepareNextPacket (issue #72), so ReceiveBuffer's reads stay
-	// inside the frame: Tibia.exe read on past ReceiveData, into SendData.
+	// A frame whose inner length runs past it is dropped in PrepareNextPacket (issues #72 and #139), so
+	// ReceiveBuffer's reads stay inside the frame: Tibia.exe read on past ReceiveData, into SendData.
 	std::array<uint8, 0x4000> ReceiveData{};            // 0x715540
 	std::array<uint8, 0x800> SendData{};                // 0x719540
 	platform::TWindowHandle NetworkWindow{};            // 0x719d40, receives WM_USER+1 when a name is resolved
@@ -168,7 +178,17 @@ public:
 	TXTEA SymmetricKey;                                 // 0x719d74, initialiser at 0x55a010
 	int RecursionProtection{};                          // 0x719d88
 
+	// Not the original's (issues #72 and #139, deliberate differences; notes/decisions.md, "#139"): a server frame
+	// the client cannot use is dropped, a warn line goes to the developer log, and the connection goes on with the
+	// next frame. ReceiveSkip: the bytes still to come of a frame too large for ReceiveData (OnReceive reads and
+	// drops them). DroppedFrames and LastDrop: how many frames were dropped and why the last one was (the tests').
+	int ReceiveSkip{};
+	int DroppedFrames{};
+	TFrameDrop LastDrop{TFrameDrop::None};
+
 private:
+	void DropFrame(TFrameDrop Reason, int FrameEnd);
+
 	TPreferences &Preferences;
 	TNetworkSession &Session;
 	platform::ISocket &Sockets;

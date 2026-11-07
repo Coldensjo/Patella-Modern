@@ -7,10 +7,9 @@
 // AddressSanitizer the files with a table it cannot allocate are left out (below).
 // After a load the harness reads the loaded types' properties through the getters the client uses.
 //
-// A load that fails leaves the tables' entries it did not reach with their Sprites pointer never set (array's new T[d],
-// as the original's), and ReleaseObjects (the next load's start, ExitObjects) deletes them: the original's, filed as
-// a finding of #132 (notes/decisions.md). The harness reads the file as LoadProperties does (Expected) and frees the
-// entries that were reached itself, the others' pointers cleared, before ReleaseObjects.
+// After each input ReleaseObjects frees the tables, as ExitObjects does, also after a load that failed: since issue
+// #139 (item 1) the entries LoadObjects did not reach have no sprite table (the original deleted indeterminate
+// pointers there, filed by #132).
 
 #include "client.h"
 
@@ -18,7 +17,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 
 namespace {
 
@@ -26,20 +24,12 @@ const char *const Target = "fuzz_dat";
 
 patella::TObjectTypes *Types = nullptr;
 
-// How far LoadObjects gets in the file: the entries it filled, in its order (objects, outfits, effects, missiles),
-// and whether the one after them has its sprite table (the reads failed after its allocation).
-struct TExpected {
-	int Filled = 0;
-	bool PartialTable = false;
-	bool Unallocatable = false; // a sprite table of a negative or more than 2^30 entries is reached
-};
-
-TExpected Expected(const std::uint8_t *Data, std::size_t Size)
+// Whether LoadObjects reaches a sprite table of a negative or more than 2^30 entries (the file read as it reads it).
+bool Unallocatable(const std::uint8_t *Data, std::size_t Size)
 {
 	patella::fuzz::TInput Input(Data, Size);
-	TExpected Result;
 	if (Input.Left() < 12)
-		return Result;
+		return false;
 	static_cast<void>(Input.Bytes(4));
 	const int Objects = Input.Word();
 	const int Outfits = Input.Word();
@@ -47,12 +37,12 @@ TExpected Expected(const std::uint8_t *Data, std::size_t Size)
 	const int Missiles = Input.Word();
 	// A table of no entries is array's assertion, before any entry is read.
 	if (Objects < 100 || Outfits < 1 || Effects < 1 || Missiles < 1)
-		return Result;
+		return false;
 	const long long Entries = static_cast<long long>(Objects - 99) + Outfits + Effects + Missiles;
 	for (long long Entry = 0; Entry < Entries; Entry++) {
 		for (;;) {
 			if (Input.Empty())
-				return Result;
+				return false;
 			const int Flag = Input.Byte();
 			if (Flag == 0xff)
 				break;
@@ -69,16 +59,16 @@ TExpected Expected(const std::uint8_t *Data, std::size_t Size)
 			default: break;
 			}
 			if (Input.Left() < static_cast<std::size_t>(2 * Words))
-				return Result;
+				return false;
 			static_cast<void>(Input.Bytes(static_cast<std::size_t>(2 * Words)));
 		}
 		if (Input.Left() < 2)
-			return Result;
+			return false;
 		const int Width = Input.Byte();
 		const int Height = Input.Byte();
 		const int Sizes = Width > 1 || Height > 1 ? 6 : 5;
 		if (Input.Left() < static_cast<std::size_t>(Sizes))
-			return Result;
+			return false;
 		if (Sizes == 6)
 			static_cast<void>(Input.Byte());
 		unsigned int Count = static_cast<unsigned int>(Width) * static_cast<unsigned int>(Height);
@@ -86,36 +76,13 @@ TExpected Expected(const std::uint8_t *Data, std::size_t Size)
 			Count *= Input.Byte();
 		// LoadProperties' int product (wrapped, -fwrapv); a negative one throws std::bad_array_new_length.
 		const int Signed = static_cast<int>(Count);
-		if (Signed < 0 || Signed > (1 << 30)) {
-			Result.Unallocatable = true;
-			return Result;
-		}
-		if (Input.Left() < 2 * static_cast<std::size_t>(Signed)) {
-			Result.PartialTable = true;
-			return Result;
-		}
+		if (Signed < 0 || Signed > (1 << 30))
+			return true;
+		if (Input.Left() < 2 * static_cast<std::size_t>(Signed))
+			return false;
 		static_cast<void>(Input.Bytes(2 * static_cast<std::size_t>(Signed)));
-		Result.Filled++;
 	}
-	return Result;
-}
-
-// The tables as LoadObjects left them after a failure: the entries not reached get a null sprite table.
-void ClearUnreached(const TExpected &Reached)
-{
-	int Entry = 0;
-	const auto Clear = [&](std::unique_ptr<array<TProperties>> &Table) {
-		if (Table == nullptr)
-			return;
-		for (int i = Table->low(); i <= Table->high(); i++, Entry++) {
-			if (Entry > Reached.Filled || (Entry == Reached.Filled && !Reached.PartialTable))
-				(*Table)(i).Sprites = nullptr;
-		}
-	};
-	Clear(Types->ObjectProperties);
-	Clear(Types->OutfitProperties);
-	Clear(Types->EffectProperties);
-	Clear(Types->MissileProperties);
+	return false;
 }
 
 } // namespace
@@ -133,7 +100,7 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t *Data, std::size_t Size
 	// Under AddressSanitizer a new[] of a negative size (std::bad_array_new_length) or of more than its limit (std::bad_alloc)
 	// is a report, not the exception the client gets (InitObjects: PROGRAM_ERROR 1): such a file is not loaded there.
 	if constexpr (PATELLA_FUZZ_ASAN) {
-		if (Expected(Data, Size).Unallocatable)
+		if (Unallocatable(Data, Size))
 			return 0;
 	}
 	patella::fuzz::WriteFile("Tibia.dat", Data, Size);
@@ -152,8 +119,6 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t *Data, std::size_t Size
 				static_cast<void>(Types->GetObjectHeight(Type));
 			}
 		});
-	} else {
-		ClearUnreached(Expected(Data, Size));
 	}
 	Types->ReleaseObjects();
 	return 0;

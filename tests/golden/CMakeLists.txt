@@ -343,9 +343,10 @@ if(golden_linux AND PATELLA_SANITIZE MATCHES "address")
 		"ASAN_OPTIONS=detect_leaks=0:alloc_dealloc_mismatch=0") # as golden's (above)
 endif()
 
-# Issues #72 and #86: the original's reads past their data, bounded as deliberate differences (bounded_reads_test.cpp):
-# PrepareNextPacket's frames whose inner length runs past them, the ignore entries' names of 30 characters and the
-# buddies' descriptions of 128. Our client's code alone, no corpus, as dialogwindow_setsize; under ASan
+# Issues #72, #86 and #139: the original's reads past their data and its failures on hostile input, bounded as
+# deliberate differences (bounded_reads_test.cpp): PrepareNextPacket's and OnReceive's frames that are dropped, the
+# ignore entries' names of 30 characters and the buddies' descriptions of 128, the loaders of Tibia.dat, Tibia.spr,
+# Tibia.pic and the .map files, GetString. Our client's code alone, no corpus, as dialogwindow_setsize; under ASan
 # (windows-x64-asan, linux-x64-clang) the bytes after the data are poisoned, so a read past them is a report.
 add_library(golden_bounded_reads OBJECT bounded_reads_test.cpp)
 golden_client_settings(golden_bounded_reads)
