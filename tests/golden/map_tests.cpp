@@ -518,7 +518,7 @@ void TestAutomap()
 		}
 		case 4: {
 			int bx = BlockX[Random() % 2], by = BlockX[Random() % 2], bz = LevelMin + Random() % (LevelMax - LevelMin + 1);
-			TIndexedVector<TMark> M1(0, 0, 10);
+			std::vector<TMark> M1; // GetAutomapMarks' std::vector (issue #100)
 			int C1 = -5;
 			Side(0);
 			GetAutomapMarks(bx, by, bz, &M1, &C1);
@@ -534,7 +534,7 @@ void TestAutomap()
 				golden::OutputBytes("marks", M2.data(), C2 * sizeof(TMark));
 			}
 			for (int i = 0; i < C1 && C1 == C2; i++)
-				CHECK(memcmp(&M1(i), &M2[i], sizeof(TMark)) == 0, "mark %d of %d,%d,%d", i, bx, by, bz);
+				CHECK(memcmp(&M1[i], &M2[i], sizeof(TMark)) == 0, "mark %d of %d,%d,%d", i, bx, by, bz);
 			break;
 		}
 		case 5: {
@@ -551,7 +551,7 @@ void TestAutomap()
 		}
 		case 6: {
 			int bx = BlockX[Random() % 2], by = BlockX[Random() % 2], bz = LevelMin + Random() % (LevelMax - LevelMin + 1);
-			TIndexedVector<TMark> M(0, 0, 10);
+			std::vector<TMark> M;
 			int Count = 0;
 			Side(0);
 			GetAutomapMarks(bx, by, bz, &M, &Count);
@@ -559,7 +559,7 @@ void TestAutomap()
 			ORIGINAL(TIndexedVector<TMark> M2(0, 0, 10); int Count2 = 0; At<MarksFn>(0x4b4680)(bx, by, bz, &M2, &Count2));
 			if (Count == 0)
 				break;
-			TMark &Mark = M(Random() % Count);
+			TMark &Mark = M[Random() % Count];
 			TMark Where;
 			Where.x = Mark.x;
 			Where.y = Mark.y;

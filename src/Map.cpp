@@ -34,7 +34,9 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 #include <sstream>
+#include <vector>
 
 // The data (0x5d16c0-0x5d4c4b, 0x7152d0-0x7152e7) is TMap's (Map.h, issue #106).
 
@@ -1181,14 +1183,22 @@ TRGBColor patella::TMap::GetAutomapColor(int x, int y, int z)
 
 // 0x4b4680, lines 1485-1493. Copies the marks of a block; x and y are block
 // coordinates here, despite their names.
-void patella::TMap::GetAutomapMarks(int x, int y, int z, TIndexedVector<TMark> *Marks, int *Count)
+//
+// Marks was the caller's vector<TMark>(0, 0, 10), filled from 0 up: a std::vector since issue #100, its entries 0 to
+// the count - 1 set (appended past its size), the others left as they were.
+void patella::TMap::GetAutomapMarks(int x, int y, int z, std::vector<TMark> *Marks, int *Count)
 {
 	PATELLA_ASSERT_VALUES(In(z,0,15), z);
 	if (x >= 0 && y >= 0) {
 		TAutomapBlock *Block = GetAutomapBlock(x, y, z);
 		*Count = Block->MarkCount;
-		for (int i = 0; i < Block->MarkCount; i++)
-			(*Marks)(i) = Block->Marks(i);
+		for (int i = 0; i < Block->MarkCount; i++) {
+			const TMark &Mark = Block->Marks(i);
+			if (i < std::ssize(*Marks))
+				(*Marks)[static_cast<std::size_t>(i)] = Mark;
+			else
+				Marks->push_back(Mark);
+		}
 	}
 }
 
@@ -1738,7 +1748,7 @@ TRGBColor GetAutomapColor(int x, int y, int z)
 	return patella::bridge::Map().GetAutomapColor(x, y, z);
 }
 
-void GetAutomapMarks(int x, int y, int z, TIndexedVector<TMark> *Marks, int *Count)
+void GetAutomapMarks(int x, int y, int z, std::vector<TMark> *Marks, int *Count)
 {
 	patella::bridge::Map().GetAutomapMarks(x, y, z, Marks, Count);
 }

@@ -694,7 +694,7 @@ void TestMap()
 		int Floor = Outside(0, 15);
 		Both("GetAutomapColor", 0x4b4370, GetAutomapColor, 100, 200, Floor);
 		int Count = 0;
-		Both("GetAutomapMarks", 0x4b4680, GetAutomapMarks, 100, 200, Floor, (TIndexedVector<TMark> *)nullptr, &Count);
+		Both("GetAutomapMarks", 0x4b4680, GetAutomapMarks, 100, 200, Floor, (std::vector<TMark> *)nullptr, &Count);
 		TCoordinate Coordinate;
 		memset(&Coordinate, 0, sizeof(Coordinate));
 		Coordinate.x = t % 3 == 0 ? 100 : -(int)(ErRandom() % 3);
