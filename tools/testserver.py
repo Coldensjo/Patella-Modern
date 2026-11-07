@@ -3,7 +3,7 @@ r"""Start and stop the local 7.72 test server (issue #18, notes/testserver.md); 
 Usage:
   python -I tools/testserver.py start [--server-dir DIR] [--timeout 900] [--stall 180] [--after-online 60]
                                       [--retries 1] [--bind-retries 3] [--window]
-  python -I tools/testserver.py stop [--server-dir DIR] [--timeout 60] [--force]
+  python -I tools/testserver.py stop [--server-dir DIR] [--timeout SECONDS] [--force]
   python -I tools/testserver.py self-test      (no server: the start's wait on made-up servers, issue #68)
 
 start runs tibia-server.exe (tibia-server elsewhere) from its own folder (--server-dir; default the
@@ -833,7 +833,7 @@ def main(argv):
 	start_parser.add_argument("--window", action="store_true", help="show the server's console, minimised")
 	stop_parser = commands.add_parser("stop", help="Ctrl+C to the server start started, and wait")
 	stop_parser.add_argument("--server-dir", default=SERVER_DIR, help=SERVER_DIR_HELP)
-	stop_parser.add_argument("--timeout", type=int, default=60, help="seconds to wait for the exit")
+	stop_parser.add_argument("--timeout", type=int, default=None, help="seconds to wait for the exit (default: %d once the world is loaded, since it saves the map on the way out; else %d)" % (SAVING_STOP, STALLED_STOP))
 	stop_parser.add_argument("--force", action="store_true", help="kill it after --timeout")
 	commands.add_parser("self-test", help="the start's wait on made-up servers (no server)")
 	args = parser.parse_args(argv)
@@ -842,7 +842,10 @@ def main(argv):
 	if args.command == "start":
 		return start(args.server_dir, args.timeout, args.window, args.stall, args.after_online, max(0, args.retries),
 			max(0, args.bind_retries))
-	return stop(args.server_dir, args.timeout, args.force)
+	# A server with its world loaded saves the map on Ctrl+C, which can take minutes on a busy machine: wait for it
+	# rather than report a failed stop (issue #141's finding; #137 for the kill that cut a sector file).
+	timeout = args.timeout if args.timeout is not None else stop_timeout(read_log())
+	return stop(args.server_dir, timeout, args.force)
 
 
 if __name__ == "__main__":

@@ -46,11 +46,11 @@ FetchContent_Declare(patella_glslang
 	URL https://github.com/KhronosGroup/glslang/archive/refs/tags/16.6.0.tar.gz
 	URL_HASH SHA256=9c09b901149c729df745057dafa815278aaa101b84d2b6e14f16a42de52f97f2
 	EXCLUDE_FROM_ALL)
-# The CPU driver: Mesa 26.2.5's lavapipe, prebuilt with MSVC by the mesa-dist-win project (the archive's
+# The CPU driver: Mesa 26.2.6's lavapipe, prebuilt with MSVC by the mesa-dist-win project (the archive's
 # SHA256 is the one GitHub publishes for the release asset). Only two files are taken from it.
 FetchContent_Declare(patella_lavapipe
-	URL https://github.com/pal1000/mesa-dist-win/releases/download/26.2.5/mesa3d-26.2.5-release-msvc.7z
-	URL_HASH SHA256=997123ef4ce8896204ab912d5b54f19372c487ff9835bcefafa2fca23b8953c2
+	URL https://github.com/pal1000/mesa-dist-win/releases/download/26.2.6/mesa3d-26.2.6-release-msvc.7z
+	URL_HASH SHA256=b2e00615feaba45942343c265cc8c5f576142ca682c1ac6661922d4b72492877
 	DOWNLOAD_NO_EXTRACT TRUE)
 
 FetchContent_MakeAvailable(patella_vulkan_headers patella_volk patella_vma patella_vk_bootstrap patella_lavapipe)
@@ -134,10 +134,10 @@ patella_target_hardening(patella_render_vulkan)
 
 # The CPU driver's two files, taken from the archive once per build tree.
 set(PATELLA_VULKAN_CPU_DRIVER_DIR "${PROJECT_BINARY_DIR}/vulkan-cpu")
-set(patella_lavapipe_archive "${patella_lavapipe_SOURCE_DIR}/mesa3d-26.2.5-release-msvc.7z")
+set(patella_lavapipe_archive "${patella_lavapipe_SOURCE_DIR}/mesa3d-26.2.6-release-msvc.7z")
 set(patella_lavapipe_files "${PATELLA_VULKAN_CPU_DRIVER_DIR}/x64/vulkan_lvp.dll"
 	"${PATELLA_VULKAN_CPU_DRIVER_DIR}/x64/lvp_icd.x86_64.json")
-set(patella_lavapipe_stamp "${PATELLA_VULKAN_CPU_DRIVER_DIR}/extracted-997123ef")
+set(patella_lavapipe_stamp "${PATELLA_VULKAN_CPU_DRIVER_DIR}/extracted-b2e00615")
 if(NOT EXISTS "${patella_lavapipe_stamp}")
 	file(REMOVE_RECURSE "${PATELLA_VULKAN_CPU_DRIVER_DIR}")
 	file(MAKE_DIRECTORY "${PATELLA_VULKAN_CPU_DRIVER_DIR}")

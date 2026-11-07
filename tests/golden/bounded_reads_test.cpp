@@ -1,4 +1,4 @@
-// bounded_reads (Patella-Modern issues #72, #86 and #139): the reads and writes of Tibia.exe that ran past their data,
+// bounded_reads (Patella-Modern issues #72, #86, #139 and #142): the reads and writes of Tibia.exe that ran past their data,
 // and its other failures on hostile input, bounded as deliberate differences (notes/decisions.md, "#72 and #86" and
 // "#139"):
 //
@@ -13,6 +13,8 @@
 //   stay inside the 32 x 32 buffer (3), GetString throws before it allocates (4), a .map file's negative mark count is
 //   a corrupted file (5), a frame larger than ReceiveData (6) or of a size that is no multiple of 8 (7) is dropped as
 //   #72's frames are.
+// - #142: an empty packet (inner length 0) is read past to the next frame, and its frame leaves ReceiveData at once;
+//   Tibia.exe stopped at it with the frames behind it waiting, and a frame that fit only without it never completed.
 //
 // Under AddressSanitizer (windows-x64-asan, linux-x64-clang) the bytes past the data are poisoned (the frame's end to
 // the end of ReceiveData and SendData, which lie inside TNetwork, have no redzone of their own), or the entry is an
@@ -408,6 +410,73 @@ TEST_CASE("#139, item 6: the largest frame ReceiveData holds is still read")
 	CHECK(Received == 1);
 	CHECK(T.Network->GetNextCommand() == 5);
 	CHECK(T.Network->DroppedFrames == 0);
+}
+
+TEST_CASE("#142: an empty packet is read past: the frame after it is read in the same call, nothing dropped or logged")
+{
+	TNetworkTest T;
+	const TLogCapture Log;
+	const std::string Empty = Frame("", 0);
+	REQUIRE(Empty.size() == 10);
+	T.Put(Empty + Frame("\x09", 1) + Empty + Empty + Frame("\x07", 1));
+	CHECK(Received == 1);
+	// Tibia.exe returned -1 here, with the four frames behind the empty packet waiting.
+	CHECK(T.Network->GetNextCommand() == 9);
+	CHECK(T.Network->EmptyPackets == 1);
+	CHECK(T.Network->GetNextCommand() == 7);
+	CHECK(T.Network->EmptyPackets == 3);
+	CHECK(T.Network->GetNextCommand() == -1);
+	CHECK(T.Network->DroppedFrames == 0);
+	CHECK(T.Network->LastDrop == patella::TFrameDrop::None);
+	CHECK(LogLines.empty());
+}
+
+TEST_CASE("#142: an empty packet's frame leaves ReceiveData in the call that reads it")
+{
+	TNetworkTest T;
+	T.Put(Frame("", 0));
+	CHECK(Received == 1);
+	{
+		const auto Poison = T.PoisonAfter(10);
+		CHECK(T.Network->GetNextCommand() == -1);
+	}
+	// Tibia.exe left it there (ReceiveRead 10) until the next PrepareNextPacket.
+	CHECK(T.Network->ReceiveDataSize == 0);
+	CHECK(T.Network->ReceivePacketEnd == 0);
+	CHECK(T.Network->ReceiveRead == 0);
+	CHECK(T.Network->ReceiveBuffer.Position == T.Network->ReceiveBuffer.Size);
+	CHECK(T.Network->EmptyPackets == 1);
+	T.Put(Frame("\x08", 1));
+	CHECK(T.Network->GetNextCommand() == 8);
+	CHECK(T.Network->GetNextCommand() == -1);
+}
+
+TEST_CASE("#142: a frame that fits ReceiveData only without the empty packet before it is read (the stall is gone)")
+{
+	// fuzz_network's case of #139: an empty packet, then a frame of 0x3ff8 bytes (0x3ffa with its size); together
+	// 0x4004 bytes, more than ReceiveData. Tibia.exe kept the empty packet's frame in ReceiveData, the large frame
+	// never completed, and no later byte came through.
+	for (const int Chunk : {1, 2, 7, 0x4000}) {
+		CAPTURE(Chunk);
+		TNetworkTest T;
+		std::string Incoming = Frame("", 0) + Frame(std::string(0x3ff6, '\x05'), 0x3ff6) + Frame("\x09", 1);
+		std::string Commands;
+		while (!Incoming.empty()) {
+			const std::size_t Count = Incoming.size() < static_cast<std::size_t>(Chunk) ? Incoming.size() : Chunk;
+			T.Put(Incoming.substr(0, Count));
+			const std::size_t Taken = Count - T.Sockets.Incoming.size();
+			REQUIRE(Taken > 0);
+			Incoming.erase(0, Taken);
+			for (int Command = T.Network->GetNextCommand(); Command != -1; Command = T.Network->GetNextCommand()) {
+				Commands += static_cast<char>('0' + Command);
+				while (T.Network->ReceiveBuffer.Position < T.Network->ReceiveBuffer.Size)
+					(void)T.Network->GetByte();
+			}
+		}
+		CHECK(Commands == "59");
+		CHECK(T.Network->EmptyPackets == 1);
+		CHECK(T.Network->DroppedFrames == 0);
+	}
 }
 
 // --- #86 ---------------------------------------------------------------------------------------

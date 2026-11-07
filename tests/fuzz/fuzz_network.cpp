@@ -15,7 +15,9 @@
 // Since issue #139 the frames the client cannot use (#72's inner length past the frame or a frame of size 0, a size
 // that is no multiple of 8, a frame larger than ReceiveData) are dropped and logged, and the connection goes on: the
 // harness's property is that every byte of the stream is taken (none waits forever, #139 item 6), as long as the
-// handler read every packet and no empty packet stayed in ReceiveData (below).
+// handler read every packet. Since issue #142 an empty packet (inner length 0) no longer ends the reading with its
+// frame left in ReceiveData, so the property holds for every input (until #142 the harness excluded those), and
+// GetNextCommand's -1 leaves no frame in ReceiveData.
 
 #include "client.h"
 
@@ -84,7 +86,6 @@ const uint8 Key[16] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 patella::TNetwork *Current = nullptr;
 std::size_t Reads = 0; // the reads left for this input: a bound on the handler's work
 int Throws = 0;        // the throws left for this input (each costs as much as many reads)
-bool Waiting = false;  // an empty packet stayed in ReceiveData (ReceiveHandler)
 
 // One packet's commands, read as their low bits say.
 void ReadCommand(patella::TNetwork &N, int Command)
@@ -137,12 +138,10 @@ void ReceiveHandler()
 			Threw = false;
 		});
 		if (Ended) {
-			// A packet of length 0 (Size 4, nothing in it) ends the reading while its frame is still in ReceiveData
-			// (only the next PrepareNextPacket moves it out) and with any frames behind it, as in the original: they
-			// wait for the next frame that completes, and with ReceiveData full none can (not #139's). An ordinary
-			// end leaves ReceiveRead at 0.
-			if (N.ReceiveRead > 0)
-				Waiting = true;
+			// Every complete frame read and the last one moved out of ReceiveData (issue #142: an empty packet's
+			// too, which Tibia.exe left there with the frames behind it waiting).
+			if (N.ReceiveRead != 0 || N.ReceivePacketEnd != 0)
+				patella::fuzz::Fail(Target, "GetNextCommand returned -1 with a frame left in ReceiveData");
 			return;
 		}
 		Throws -= Threw ? 1 : 0;
@@ -191,7 +190,6 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t *Data, std::size_t Size
 	Current = Network.get();
 	Reads = 4 * Size + 64;
 	Throws = 32;
-	Waiting = false;
 	Network->InitNetwork(OtherHandler, ReceiveHandler, OtherHandler);
 	Network->SetSymmetricKey(Key);
 	auto &Socket = *reinterpret_cast<patella::platform::TSocket *>(&Sockets);
@@ -202,9 +200,9 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t *Data, std::size_t Size
 		if (Sockets.Taken == Before)
 			break;
 	}
-	// Issue #139, item 6: a frame larger than ReceiveData no longer stalls the stream. While the handler read every
-	// packet it was given, there is always room: the frames are taken to the end.
-	if (Reads != 0 && Throws > 0 && !Waiting && Sockets.Taken != Sockets.Incoming.size())
+	// Issue #139, item 6: a frame larger than ReceiveData no longer stalls the stream, nor (issue #142) an empty
+	// packet. While the handler read every packet it was given, there is always room: the frames are taken to the end.
+	if (Reads != 0 && Throws > 0 && Sockets.Taken != Sockets.Incoming.size())
 		patella::fuzz::Fail(Target, "the stream stalled: " + std::to_string(Sockets.Incoming.size() - Sockets.Taken) + " bytes never taken");
 	Network->ExitNetwork();
 	Current = nullptr;

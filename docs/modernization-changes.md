@@ -226,4 +226,6 @@ eating memory for minutes; a message that does not fit no longer leaks memory. A
 (too long for its own frame, too large for the receive buffer, or the wrong size for its encryption) is now thrown
 away, noted in the developer log, and the game carries on with the next message, where the original read past its
 data, froze waiting forever, or quit. *Why it matters:* a corrupt file or a hostile server can no longer crash,
-freeze or corrupt the client; every one of these cases has a unit test and a fuzzing seed.
+freeze or corrupt the client; every one of these cases has a unit test and a fuzzing seed. An empty server message,
+which made the original stop reading the messages after it and could freeze the connection, is now simply skipped
+(#142).

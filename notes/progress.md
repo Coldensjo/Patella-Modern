@@ -660,6 +660,9 @@ patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5), hosted CI's 
 Clang's std module under 4.4: the target loses the hardening's _FORTIFY_SOURCE item (4.4 de-duplicates the second
 -U of #121 away) and tests/unit gets -Wno-reserved-module-identifier (4.1 gave it its module target). Build folders
 from 4.1.2 need one --fresh. Golden 17,316,040, 0 failures. notes/decisions.md, "#141".
+Part 2 (branch issue-141b): the CPU driver is Mesa 26.2.6's lavapipe (reference compare and compare_rendering within the
+tolerance), and the image has the ninja-build project's Ninja 1.13.2 (SHA-256 checked) instead of Debian's 1.12.1, tag
+patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2.
 
 compare_rendering's look step (Patella-Modern issue #140, branch issue-140, November 7, 2026; M7): compare_rendering.py
 replays compare_traffic.py's live recording but still scripted "look north", so a recording made since #137 replayed
@@ -725,6 +728,14 @@ count is a corrupted file. Golden 17,316,040, 0 failures; the Network test's del
 checks, 16,588 differing; #139 33 parts (item 6's "frames" in the corpus's out-of-step streams), 3,343 checks, 1,178
 differing (before: #72 280, 37,052, 14,165). bounded_reads covers each item; the fuzz harnesses' guards are gone,
 properties check the fixes, new synthetic seeds. notes/decisions.md, "#139".
+
+An empty packet no longer stalls the reading (Patella-Modern issue #142, branch issue-142, November 7, 2026; M9; the
+owner's decision of November 7, a deliberate difference): a server packet of inner length 0 is read past to the next
+frame in the same call and its frame leaves the receive buffer at once (not a drop, no log line); the original
+stopped there with the frames behind it waiting, and a frame that fit only without it never completed. Golden
+17,316,040, 0 failures; the Network test's deliberate parts: #72 269 parts, 35,460 checks, 16,386 differing; #139 32,
+3,303, 1,167; #142 36, 3,688, 1,037 (before: 307 parts, 39,447 checks, 17,766 differing). bounded_reads has three
+new cases; fuzz_network's stall property holds in full. notes/decisions.md, "#142".
 
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
