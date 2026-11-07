@@ -18,13 +18,13 @@
 #include "Status.h" // IWYU pragma: keep (uses nothing from it, but GUI.obj has its LinkPattern copy, 0x5c1704)
 #include "Text.h"   // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "sysinc.h"
-#include "types/IndexedVector.h"
 #include "Help.h"
 #include "common.h"
 #include "graphics.h"
 #include "log/Log.h"
 
 #include <sstream>
+#include <algorithm>
 #include <climits>
 #include <cstddef>
 #include <cstdlib>
@@ -161,7 +161,7 @@ TCallback::TCallback(TComponent *Receiver, int Event)
 // 0x496150. Called last by InitControl.
 void patella::TGUI::InitHotkeys()
 {
-	NumberOfHotkeys = 0;
+	Hotkeys.clear();
 }
 
 // 0x496160, the one copy the linker kept of many identical empty functions
@@ -1637,38 +1637,35 @@ void InitSkinProperties()
 // 0x49af20, line 851. Takes the first free entry.
 void patella::TGUI::AddTimer(TTimer *Timer)
 {
-	int i = 0;
-	while (Timers(i) != nullptr)
-		i++;
-	Timers(i) = Timer;
+	const auto Free = std::ranges::find(Timers, nullptr);
+	if (Free == Timers.end())
+		Timers.push_back(Timer);
+	else
+		*Free = Timer;
 }
 
 // 0x49b0d0, line 868
 void patella::TGUI::RemoveTimer(TTimer *Timer)
 {
-	int i;
-	for (i = Timers.min; i <= Timers.max; i++) {
-		if (Timers(i) == Timer) {
-			Timers(i) = nullptr;
-			return;
-		}
-	}
+	const auto Entry = std::ranges::find(Timers, Timer);
+	if (Entry != Timers.end())
+		*Entry = nullptr;
 }
 
 // 0x4a27c0, line 887. Called by ProcessEvents. The first call only starts
 // the clock.
 void patella::TGUI::UpdateTimers()
 {
-	int i;
 	if (!LastTimeSet) { // the original's function-local static, initialised on the first call (issue #107)
 		LastTime = GetMilliseconds();
 		LastTimeSet = true;
 	}
 	const int elapsed = GetMilliseconds() - LastTime;
 	LastTime = GetMilliseconds();
-	for (i = Timers.min; i <= Timers.max; i++) {
-		if (Timers(i) != nullptr && !Timers(i)->IsExpired())
-			Timers(i)->Update(elapsed);
+	// By index, the size read each time: a timer's callback may add or remove timers, as in the original.
+	for (std::size_t i = 0; i < Timers.size(); i++) {
+		if (Timers[i] != nullptr && !Timers[i]->IsExpired())
+			Timers[i]->Update(elapsed);
 	}
 }
 
@@ -2316,47 +2313,30 @@ void TCallback::Send() const
 // 0x4a10a0, line 1965. Replaces the callback of a key that is already there.
 void patella::TGUI::AddHotkey(int Key, TCallback Callback)
 {
-	int i;
-	for (i = 0; i < NumberOfHotkeys; i++) {
-		if (Key == Hotkeys(i).Key) {
-			Hotkeys(i).Callback = Callback;
-			return;
-		}
-	}
-	Hotkeys(NumberOfHotkeys).Key = Key;
-	Hotkeys(NumberOfHotkeys).Callback = Callback;
-	NumberOfHotkeys++;
+	Hotkeys.insert_or_assign(Key, Callback);
 }
 
 // 0x4a12a0, lines 1983. The last entry takes the place of the removed one.
 void patella::TGUI::RemoveHotkey(int Key)
 {
-	int i;
-	for (i = 0; i < NumberOfHotkeys; i++) {
-		if (Key == Hotkeys(i).Key) {
-			Hotkeys(i) = Hotkeys(NumberOfHotkeys - 1);
-			NumberOfHotkeys--;
-			return;
-		}
-	}
+	Hotkeys.erase(Key);
 }
 
 // 0x4a1480, line 2004. Called by Control.cpp's KeyPress when no modal window
 // is open. Flag 0x200 is ignored and lower-case letters count as upper case.
 bool patella::TGUI::CheckHotkey(int Key)
 {
-	int i;
 	if ((Key & 0x200) != 0)
 		Key -= 0x200;
 	if ((Key & 0x1ff) > 0x60 && (Key & 0x1ff) < 0x7b)
 		Key -= 0x20;
-	for (i = 0; i < NumberOfHotkeys; i++) {
-		if (Key == Hotkeys(i).Key) {
-			Hotkeys(i).Callback.Send();
-			return true;
-		}
-	}
-	return false;
+	const auto Hotkey = Hotkeys.find(Key);
+	if (Hotkey == Hotkeys.end())
+		return false;
+	// A copy: the receiver may add or remove hotkeys (the original's Send read the entry before it called).
+	const TCallback Callback = Hotkey->second;
+	Callback.Send();
+	return true;
 }
 
 // The functions of the original (issue #107): each calls its member on the one TClient's TGUI.
