@@ -697,6 +697,13 @@ messages pumped as MFC did, the 100 ms timer in the loop (platform/LoopTimer.h, 
 keeps the MFC frame (platform/WindowChoice.h, a run-time switch) until #127. Keys, buttons and wheel stay Win32 messages
 through a subclass until #123. The reference compare matches on both paths. notes/decisions.md, "#122".
 
+The Vulkan surface through SDL3 (Patella-Modern issue #126, branch issue-126, November 7, 2026; M8): the engine's
+window system (src/vulkan/WindowSystem.h: the client area, the screen's size, the surfaces) is SDL3's on the default
+path (SDL_Vulkan_CreateSurface on each device's own window, wrapped by SDL for the call; SDL_GetWindowSizeInPixels, the
+primary display's bounds) and Win32's on the MFC window until #127; SurfaceVulkan.cpp calls no GetClientRect,
+ClientToScreen, GetSystemMetrics or vkCreateWin32SurfaceKHR any more, its rectangles are TEdgeRects. tests_vulkan runs
+its device windows' tests on SDL3's surfaces. notes/decisions.md, "#126".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,
