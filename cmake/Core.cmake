@@ -13,7 +13,9 @@
 #	log/LogSettings.cpp   the developer log's keys in Patella.ini (issue #77, plan D16; the log itself,
 #	                      log/Log.h, is header only)
 #	Extern/regexp         Henry Spencer's regexp (K&R C, compiled as C17)
-#	Container.h           the container templates (header only)
+#	Container.h           the container templates (header only; their mdspan views, issue #101)
+#	AutomapLayer.h        an automap block's layer, 256 x 256 bytes and their mdspan view (header only, issue #101)
+#	compat/mdspan.h       std::mdspan, or its stand-in where the library has none (header only, issue #101)
 #	types/IndexedVector.h TIndexedVector, the growable vector over std::vector (header only, issue #99)
 #	types/Cp1252.h       the client's code page (Windows-1252) to and from UTF-8 and UTF-16 (header only,
 #	                      issue #112, plan D4: 8-bit inside, Unicode at the platform boundary)

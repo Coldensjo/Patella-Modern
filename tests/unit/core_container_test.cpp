@@ -65,3 +65,43 @@ TEST_CASE("Container.h: matrix and matrix3d")
 		== "Container.h N: index out of range (original x: 0, original y: 0, original z: 1, x: 0, y: 0, z: 2, "
 		   "xmin: 0, ymin: 0, zmin: -1, dx: 2, dy: 2, dz: 2), reason:\n[bug0000013]");
 }
+
+// The views over the entries (issue #101, src/compat/mdspan.h): x the fastest index, the same element as operator().
+TEST_CASE("Container.h: the matrices' views")
+{
+	matrix<int> M(-1, 1, 10, 13);
+	const matrix<int>::TView View = M.view();
+	CHECK(View.data_handle() == M.entry.get());
+	CHECK(View.extent(0) == 3);
+	CHECK(View.extent(1) == 4);
+	CHECK(View.stride(0) == 1);
+	CHECK(View.stride(1) == 3);
+	for (int y = 10; y <= 13; y++) {
+		for (int x = -1; x <= 1; x++) {
+			M(x, y) = x * 100 + y;
+			CHECK(&View[x + 1, y - 10] == &M(x, y));
+			CHECK(&M(x, y) == M.entry.get() + ((y - 10) * 3 + (x + 1)));
+		}
+	}
+	const matrix<int> &Read = M;
+	CHECK(Read.view()[2, 3] == 113);
+
+	matrix3d<int> C(0, 3, -2, 0, 5, 6);
+	const matrix3d<int>::TView View3 = C.view();
+	CHECK(View3.data_handle() == C.entry.get());
+	CHECK(View3.extent(0) == 4);
+	CHECK(View3.extent(1) == 3);
+	CHECK(View3.extent(2) == 2);
+	CHECK(View3.size() == 24U);
+	for (int z = 5; z <= 6; z++) {
+		for (int y = -2; y <= 0; y++) {
+			for (int x = 0; x <= 3; x++) {
+				C(x, y, z) = (x * 10 + y) * 10 + z;
+				CHECK(&View3[x, y + 2, z - 5] == &C(x, y, z));
+				CHECK(&C(x, y, z) == C.entry.get() + (((z - 5) * 3 + (y + 2)) * 4 + x));
+			}
+		}
+	}
+	const matrix3d<int> &Read3 = C;
+	CHECK(Read3.view()[3, 2, 1] == (3 * 10 + 0) * 10 + 6);
+}

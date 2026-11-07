@@ -552,6 +552,14 @@ the delete. Converted: TTabBar::LeftTabs and RightTabs, TGUI::MainWindow (FatalE
 TClient's static destruction leaves it); kept raw with the reason: ModalWindow (the help bubble's freed pointer that
 the golden Control test compares), the conditional members, the text buffers. Golden 17,316,040, 0 failures.
 notes/decisions.md, "#108".
+
+The matrices and the automap layers as mdspan views (Patella-Modern issue #101, branch issue-101, November 7, 2026; M7):
+`src/compat/mdspan.h` gives patella::TMdspan (std::mdspan in MSVC and GCC 16's libstdc++, a stand-in for
+linux-x64-clang's libstdc++ 14 and with PATELLA_MDSPAN_STANDIN); Container.h's matrix and matrix3d index their
+unique_ptr storage through a layout_left `view()` (members unchanged: golden compares them); TAutomapBlock's Color and
+Speed are `TAutomapLayer` (src/AutomapLayer.h), 256 x 256 owned bytes in the file's order with a layout_right view, and
+Map.cpp's file format check also checks the view's mapping. array<T> stays (one-dimensional). Golden 17,316,040, 0
+failures. notes/decisions.md, "#101".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
