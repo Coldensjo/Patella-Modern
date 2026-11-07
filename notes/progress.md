@@ -615,6 +615,21 @@ definitions are prototypes (same types; the implicit conversions now explicit ca
 suppressions: 0 warnings at /W4 and -Wall -Wextra -Wpedantic -Wconversion -Wshadow. `patella::TRegexp`
 (src/types/Regexp.h) owns regcomp's program (free on reset, assignment, destruction); Status.cpp's LinkRegexp is one.
 tests_core's regexp tests go through it. Golden 17,316,040, 0 failures. notes/decisions.md, "#129".
+
+Hardened standard library modes (Patella-Modern issue #133, branch issue-133, November 7, 2026; M9): the MSVC STL's
+_MSVC_STL_HARDENING=1 and libstdc++'s _GLIBCXX_ASSERTIONS (until now Debug only) for C++ in every configuration of
+every product preset (cmake/Hardening.cmake); no check fired. Cost, one run each: golden +16% on Windows, +23% on
+Linux, the reference compare +2%. Golden 17,316,040, 0 failures. notes/decisions.md, "#133".
+
+The platform interfaces, part 2 (Patella-Modern issue #119, branch issue-119, November 7, 2026; M7; part 1 of the
+issue): IClipboard, IInput and IWindow in src/platform (portable, no Win32 type in a signature, for M8's SDL3), with
+Win32 implementations (the calls sysinc.cpp, MainFrm.cpp, Player.cpp and the Vulkan engine made) and the test mode's
+(TTestInput, TTestWindow; TMemoryClipboard with a script). TestHooks.h lost seven hooks (the cursor, the main timer,
+the idle step, the capture change, the message boxes, the windows' count, the display modes). Patella.ini and LogFile
+open through IFileSystem. CMainFrame takes the registered window class, so the {MainFrm, Player} cycle, the client's
+last, is gone (207 edges and 1 cycle on main, 206 and 0 now). Patella.exe changes only at those call sites (the image
+comparison). Not yet: TSurface as the platform's interface (part 2). Golden 17,316,040, 0 failures.
+notes/decisions.md, "#119".
 The vectors without min..max (Patella-Modern issue #100, branch issue-100, November 7, 2026; M7): every
 TIndexedVector use classified; Help's event helps, Preferences' ContentWindows, OpenChannels, Buddies and KnownHints,
 GUI's timers, Status' messages and GetAutomapMarks' out parameter are std::vectors (their counts their sizes), GUI's hotkeys a

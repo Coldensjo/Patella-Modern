@@ -30,6 +30,7 @@
 #include "TXTEA.h"
 #include "platform/Socket.h"
 #include "settings/Settings.h"
+#include "platform/Platform.h"
 
 #include <cstddef>
 #include <cstring>
@@ -384,7 +385,7 @@ TEST_CASE("#86: GetBuddyDescription, Patella.ini and Tibia.cfg's writer take 128
 	REQUIRE(Values.Buddies.size() == 3);
 	CHECK(Values.Buddies[0].Description == Long);
 	CHECK(Values.Buddies[1].Description == Long);
-	const std::optional<patella::settings::TSettingsFile> Ini = patella::settings::Load(patella::settings::FileName);
+	const std::optional<patella::settings::TSettingsFile> Ini = patella::settings::Load(patella::platform::Platform().FileSystem, patella::settings::FileName);
 	REQUIRE(Ini.has_value());
 	CHECK(Ini->Get("Buddy1") == "11,1,\"" + Long + "\",yes");
 	CHECK(Ini->Get("Buddy2") == "12,2,\"" + Long + "\",yes");

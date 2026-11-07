@@ -39,6 +39,8 @@
 #include "log/Log.h"
 #include "types/FixedString.h"
 #include "log/LogSettings.h"
+#include "platform/Platform.h"
+#include "platform/Win32Platform.h"
 #include <array>
 #include <sstream>
 #include <string>
@@ -162,7 +164,8 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 			Window->ShowWindow(SW_HIDE);
 	} catch (...) {
 	}
-	PATELLA_MESSAGE_BOX(nullptr, Text, Caption, MB_ICONHAND);
+	// MessageBoxA with MB_ICONHAND (issue #119: the platform's IWindow).
+	patella::platform::Platform().Window.ShowMessageBox(nullptr, Text, Caption, patella::platform::TMessageBoxIcon::Error);
 	// Issue #108: the main window stays as the original's global did, allocated and not closed. TGUI owns it, and
 	// TClient's static destruction after exit(1) would destroy it and close its children (packets, preferences).
 	patella::bridge::GUI().AbandonWindows();
@@ -191,20 +194,18 @@ namespace {
 
 // 0x4d9420 (missed by Ghidra). EnumWindows callback: counts the windows
 // whose title or class matches the client's (caseless), this one included.
-BOOL CALLBACK CountTibiaWindows(HWND Window, [[maybe_unused]] LPARAM Parameter)
+// Since Patella-Modern issue #119 the platform's IWindow::VisitWindows calls it
+// with the window's title and class (TWin32Window: the original's
+// GetWindowTextA and GetClassNameA with 30, platform/Win32Platform.cpp).
+void CountTibiaWindows(const char *WindowText, int TextLength, const char *WindowClass, int ClassLength)
 {
 	TFixedString<32> Title;
-	TFixedString<32> WindowText;
 	TFixedString<32> ClassName;
-	TFixedString<32> WindowClass;
-	const int TextLength = GetWindowTextA(Window, WindowText, 30);
-	const int ClassLength = GetClassNameA(Window, WindowClass, 30);
 	GetWindowTitle(Title);
 	GetWindowClassName(ClassName);
 	if ((TextLength > 0 && CompareStrings(WindowText, Title, -1) == 0)
 		|| (ClassLength > 0 && CompareStrings(WindowClass, ClassName, -1) == 0))
 		NumberOfTibiaWindows++;
-	return TRUE;
 }
 
 } // namespace
@@ -260,7 +261,7 @@ void CPlayerApp::HandleException(TMyException &Exception)
 BOOL CPlayerApp::InitInstance()
 {
 	// Not in the original (Patella-Modern issue #77, D16): the developer log's level and file from Patella.ini.
-	patella::log::LoadSettings();
+	patella::log::LoadSettings(patella::platform::Platform().FileSystem); // issue #119: through the platform's files
 	try {
 		try {
 			TFixedString<32> ClassName;
@@ -308,7 +309,7 @@ BOOL CPlayerApp::InitInstance()
 			}
 
 			CMainFrame *MainFrame;
-			MainFrame = new CMainFrame(Gamemaster);
+			MainFrame = new CMainFrame(Gamemaster, ClassName); // issue #119: the class registered above
 			TFixedString<56> Title;
 			GetWindowTitle(Title);
 			if (!MainFrame->Create(nullptr, Title, WS_OVERLAPPEDWINDOW, CFrameWnd::rectDefault, nullptr, nullptr, 0, nullptr)) {
@@ -324,14 +325,16 @@ BOOL CPlayerApp::InitInstance()
 			}
 			if (!Gamemaster) {
 				NumberOfTibiaWindows = 0;
-				PATELLA_ENUM_WINDOWS(CountTibiaWindows, 0);
+				patella::platform::Platform().Window.VisitWindows(CountTibiaWindows); // EnumWindows (issue #119)
 				if (NumberOfTibiaWindows == 0) {
-					PATELLA_MESSAGE_BOX(nullptr, "Application is corrupted! Please re-install Tibia.", "Tibia - Error", MB_ICONEXCLAMATION);
+					patella::platform::Platform().Window.ShowMessageBox(nullptr, "Application is corrupted! Please re-install Tibia.",
+						"Tibia - Error", patella::platform::TMessageBoxIcon::Warning); // MB_ICONEXCLAMATION
 					ExitProgram();
 					return FALSE;
 				}
 				if (NumberOfTibiaWindows > 1) {
-					PATELLA_MESSAGE_BOX(nullptr, "A Tibia client is already running!", "Tibia - Error", MB_ICONEXCLAMATION);
+					patella::platform::Platform().Window.ShowMessageBox(nullptr, "A Tibia client is already running!", "Tibia - Error",
+						patella::platform::TMessageBoxIcon::Warning); // MB_ICONEXCLAMATION
 					ExitProgram();
 					return FALSE;
 				}
@@ -345,7 +348,7 @@ BOOL CPlayerApp::InitInstance()
 			GetWindowedMode(&x, &y, &Width, &Height, &Maximized);
 			m_pMainWnd->ShowWindow(Maximized ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL);
 			m_pMainWnd->UpdateWindow();
-			PATELLA_GET_CURSOR_POS(&LastMousePosition);
+			patella::platform::ReadCursorPosition(patella::platform::Platform().Input, LastMousePosition); // GetCursorPos
 			if (GetViewMode() == 1)
 				ScreenToClient(m_pMainWnd->GetSafeHwnd(), &LastMousePosition);
 			MouseMove(LastMousePosition.x, LastMousePosition.y);
@@ -405,10 +408,10 @@ int CPlayerApp::Run()
 // handles the event queue (Control.cpp).
 BOOL CPlayerApp::OnIdle(LONG lCount)
 {
-	PATELLA_TEST_IDLE
+	patella::platform::Platform().Input.BeginIdle(); // issue #119: the test mode's driver step (TestHooks.h until then)
 	CWinApp::OnIdle(lCount);
 	POINT Point;
-	PATELLA_GET_CURSOR_POS(&Point);
+	patella::platform::ReadCursorPosition(patella::platform::Platform().Input, Point); // GetCursorPos (issue #119)
 	if (GetViewMode() == 1)
 		ScreenToClient(m_pMainWnd->GetSafeHwnd(), &Point);
 	if (LastMousePosition.x != Point.x || LastMousePosition.y != Point.y) {

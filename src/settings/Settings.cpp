@@ -4,15 +4,15 @@
 
 #include "types/Cp1252.h"
 
+#include "platform/FileSystem.h"
+#include "types/File.h"
+
 #include <array>
+#include <cerrno>
 #include <cstddef>
-#include <filesystem>
-#include <fstream>
-#include <ios>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -188,42 +188,63 @@ std::string ClientText(const TSettingsFile &File, std::string_view Value)
 	return EncodingOf(File) == TEncoding::Cp1252 ? std::string(Value) : patella::text::Utf8ToCp1252(Value);
 }
 
-std::optional<TSettingsFile> Load(const std::string &Path, std::string_view Newline)
+namespace {
+
+enum class TRead : unsigned char { Read,
+	Missing,
+	Failed };
+
+// The file's bytes into Text: Missing where it is not there (the open's ENOENT), Failed where it cannot be opened or
+// read, or is larger than MaxFileSize.
+TRead ReadFile(patella::platform::IFileSystem &Files, const std::string &Path, std::string &Text)
 {
-	std::ifstream File(Path, std::ios::binary);
-	if (!File)
-		return std::nullopt;
-	std::string Text;
+	TFile File;
+	errno = 0;
+	if (!Files.Open(File, Path.c_str(), TFile::TAccess::Read, TFile::TContent::Binary))
+		return errno == ENOENT ? TRead::Missing : TRead::Failed;
 	std::array<char, 4096> Buffer;
-	while (File.read(Buffer.data(), Buffer.size()) || File.gcount() > 0) {
-		Text.append(Buffer.data(), static_cast<size_t>(File.gcount()));
+	while (true) {
+		const std::size_t Count = File.Read(Buffer.data(), 1, Buffer.size());
+		Text.append(Buffer.data(), Count);
 		if (Text.size() > MaxFileSize)
-			return std::nullopt;
+			return TRead::Failed;
+		if (Count < Buffer.size())
+			break;
 	}
-	if (File.bad())
+	return File.Failed() ? TRead::Failed : TRead::Read;
+}
+
+} // namespace
+
+std::optional<TSettingsFile> Load(patella::platform::IFileSystem &Files, const std::string &Path, std::string_view Newline)
+{
+	std::string Text;
+	if (ReadFile(Files, Path, Text) != TRead::Read)
 		return std::nullopt;
 	return TSettingsFile::Parse(Text, Newline);
 }
 
-std::optional<TSettingsFile> LoadForUpdate(const std::string &Path)
+std::optional<TSettingsFile> LoadForUpdate(patella::platform::IFileSystem &Files, const std::string &Path)
 {
-	if (std::optional<TSettingsFile> File = Load(Path, NewFileNewline))
-		return File;
-	std::error_code Error;
-	if (std::filesystem::exists(Path, Error) || Error)
-		return std::nullopt;
-	return TSettingsFile::Parse(std::string(NewFileComment) + NewFileNewline, NewFileNewline);
+	std::string Text;
+	switch (ReadFile(Files, Path, Text)) {
+	case TRead::Read:
+		return TSettingsFile::Parse(Text, NewFileNewline);
+	case TRead::Missing:
+		return TSettingsFile::Parse(std::string(NewFileComment) + NewFileNewline, NewFileNewline);
+	case TRead::Failed:
+		break;
+	}
+	return std::nullopt;
 }
 
-bool Save(const std::string &Path, const TSettingsFile &Settings)
+bool Save(patella::platform::IFileSystem &Files, const std::string &Path, const TSettingsFile &Settings)
 {
-	std::ofstream File(Path, std::ios::binary | std::ios::trunc);
-	if (!File)
+	TFile File;
+	if (!Files.Open(File, Path.c_str(), TFile::TAccess::Write, TFile::TContent::Binary))
 		return false;
-	std::string Text = Settings.Text();
-	File.write(Text.data(), static_cast<std::streamsize>(Text.size()));
-	File.close();
-	return !File.fail();
+	const bool Written = File.Write(Settings.Text());
+	return File.Close() == 0 && Written;
 }
 
 } // namespace patella::settings

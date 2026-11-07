@@ -16,6 +16,7 @@
 #pragma once
 
 #include "log/Log.h"
+#include "platform/FileSystem.h"
 #include "settings/Settings.h"
 
 namespace patella::log {
@@ -23,10 +24,12 @@ namespace patella::log {
 inline constexpr const char *LevelKey = "LogLevel";
 inline constexpr const char *FileKey = "LogFile";
 
-// Sets Target's level and file from Settings' keys (above); the other keys are not read.
-void Configure(TLog &Target, const patella::settings::TSettingsFile &Settings);
+// Sets Target's level and file from Settings' keys (above); the other keys are not read. The log file is opened
+// through Files (issue #119).
+void Configure(TLog &Target, const patella::settings::TSettingsFile &Settings, patella::platform::IFileSystem &Files);
 
-// Reads Patella.ini (settings::FileName, the working directory) and configures Log() with it; nothing without the file.
-void LoadSettings();
+// Reads Patella.ini (settings::FileName) through Files (the platform's IFileSystem: the working folder's) and
+// configures Log() with it; nothing without the file.
+void LoadSettings(patella::platform::IFileSystem &Files);
 
 } // namespace patella::log

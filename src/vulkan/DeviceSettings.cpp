@@ -2,6 +2,7 @@
 
 #include "vulkan/DeviceSettings.h"
 
+#include "platform/Platform.h"
 #include "settings/Settings.h"
 #include "vulkan/Renderer.h"
 #include "vulkan/DeviceChoice.h"
@@ -64,7 +65,7 @@ void LoadDeviceChoice()
 	if (std::optional<std::string> Override = Environment("PATELLA_VULKAN")) {
 		// As before issue #31: a value it does not know (off, dx9 ...) is automatic.
 		Choice = patella::vulkan::ParseDeviceChoice(*Override).value_or(TDeviceChoice{});
-	} else if (std::optional<patella::settings::TSettingsFile> File = patella::settings::Load(patella::settings::FileName)) {
+	} else if (std::optional<patella::settings::TSettingsFile> File = patella::settings::Load(patella::platform::Platform().FileSystem, patella::settings::FileName)) {
 		if (std::optional<std::string> Value = File->Get(DeviceKey))
 			Choice = patella::vulkan::ParseDeviceChoice(*Value).value_or(TDeviceChoice{});
 	}
@@ -92,10 +93,10 @@ void SetDeviceChoice(const TDeviceChoice &NewChoice)
 bool SaveDeviceChoice()
 {
 	// A file that is there but cannot be read (or is too large to be a settings file) is left alone.
-	std::optional<patella::settings::TSettingsFile> File = patella::settings::LoadForUpdate(patella::settings::FileName);
+	std::optional<patella::settings::TSettingsFile> File = patella::settings::LoadForUpdate(patella::platform::Platform().FileSystem, patella::settings::FileName);
 	if (!File || !File->Set(DeviceKey, patella::vulkan::FormatDeviceChoice(Choice)))
 		return false;
-	return patella::settings::Save(patella::settings::FileName, *File);
+	return patella::settings::Save(patella::platform::Platform().FileSystem, patella::settings::FileName, *File);
 }
 
 int GetNumberOfGpus()
