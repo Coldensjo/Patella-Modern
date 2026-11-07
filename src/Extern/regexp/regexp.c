@@ -39,6 +39,16 @@
  * (callees first: regnode, regc, reginsert, regrepeat, regnext, regtail,
  * regoptail, regmatch, regpiece, regtry, regbranch, regexec, reg, regatom,
  * regcomp); the static functions got register arguments from the compiler.
+ *
+ * Patella-Modern change (issue #129): C17 without warnings at every
+ * compiler's full level (cmake/Warnings.cmake). The K&R definitions and
+ * declarations are prototypes, of the same types (obsolescent in C17, gone
+ * in C23; MSVC's C4131 and Clang's -Wdeprecated-non-prototype), and the
+ * implicit conversions that a prototype now shows are casts to the type they
+ * converted to before: the char arguments of regnode and regc (MAGIC through
+ * unsigned char, MSVC's C4310 on a constant that does not fit), the offset
+ * bytes of regtail, and the int lengths given to strlen's comparison and
+ * strncmp (unsigned, as the binary compares; MSVC's C4018 was off for it).
  */
 
 /* Client change: "regexp.h" and the two ANSI headers (see above). */
@@ -48,22 +58,12 @@
 #include "regexp.h"
 #include "regmagic.h"
 
-/* strlen(OPERAND(scan)) >= len compares unsigned, as the binary does. */
-/* Patella-Modern change (issue #7): the pragma is MSVC's; GCC and Clang warn about it. */
-#ifdef _MSC_VER
-#pragma warning(disable: 4018)
-#endif
-
 /*
- * Patella-Modern change (issue #63): patella_core's static analysis, false positives of the file as
- * written (K&R C, kept until M6). MSVC /analyze: the functions have no prototypes (C28278 at each
- * call), so it cannot see that reg, regbranch, regpiece and regatom set *flagp before they return
- * non-NULL (C6001 on the callers' flags). GCC -fanalyzer: regmatch's regnext of a STAR or PLUS node
- * is never NULL, as regcomp links each to the node that follows it, which the analyzer cannot know.
+ * Patella-Modern change (issue #63): patella_core's static analysis, a false positive. GCC -fanalyzer:
+ * regmatch's regnext of a STAR or PLUS node is never NULL, as regcomp links each to the node that
+ * follows it, which the analyzer cannot know. (MSVC /analyze's C28278 and C6001 went with the K&R
+ * definitions, issue #129.)
  */
-#ifdef _MSC_VER
-#pragma warning(disable: 28278 6001)
-#endif
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic ignored "-Wanalyzer-null-dereference"
 #endif
@@ -76,8 +76,7 @@
 void (*regerrorhandler)(char *s) = NULL;
 
 static void
-regerror(s)
-char *s;
+regerror(char *s)
 {
 	if (regerrorhandler != NULL)
 		(*regerrorhandler)(s);
@@ -213,18 +212,18 @@ static long regsize;		/* Code size. */			/* 0x71f014 */
 #ifndef STATIC
 #define	STATIC	static
 #endif
-STATIC char *reg();
-STATIC char *regbranch();
-STATIC char *regpiece();
-STATIC char *regatom();
-STATIC char *regnode();
-STATIC char *regnext();
-STATIC void regc();
-STATIC void reginsert();
-STATIC void regtail();
-STATIC void regoptail();
+STATIC char *reg(int paren, int *flagp);
+STATIC char *regbranch(int *flagp);
+STATIC char *regpiece(int *flagp);
+STATIC char *regatom(int *flagp);
+STATIC char *regnode(char op);
+STATIC char *regnext(char *p);
+STATIC void regc(char b);
+STATIC void reginsert(char op, char *opnd);
+STATIC void regtail(char *p, char *val);
+STATIC void regoptail(char *p, char *val);
 #ifdef STRCSPN
-STATIC int strcspn();
+STATIC int strcspn(char *s1, char *s2);
 #endif
 
 /*
@@ -243,8 +242,7 @@ STATIC int strcspn();
  * of the structure of the compiled regexp.
  */
 regexp *
-regcomp(exp)
-char *exp;
+regcomp(char *exp)
 {
 	register regexp *r;
 	register char *scan;
@@ -261,7 +259,7 @@ char *exp;
 	regnpar = 1;
 	regsize = 0L;
 	regcode = &regdummy;
-	regc(MAGIC);
+	regc((char)(unsigned char)MAGIC);
 	if (reg(0, &flags) == NULL)
 		return(NULL);
 
@@ -278,7 +276,7 @@ char *exp;
 	regparse = exp;
 	regnpar = 1;
 	regcode = r->program;
-	regc(MAGIC);
+	regc((char)(unsigned char)MAGIC);
 	if (reg(0, &flags) == NULL)
 		return(NULL);
 
@@ -309,7 +307,7 @@ char *exp;
 			longest = NULL;
 			len = 0;
 			for (; scan != NULL; scan = regnext(scan))
-				if (OP(scan) == EXACTLY && strlen(OPERAND(scan)) >= len) {
+				if (OP(scan) == EXACTLY && strlen(OPERAND(scan)) >= (size_t)len) {
 					longest = OPERAND(scan);
 					len = (int)strlen(OPERAND(scan));
 				}
@@ -333,17 +331,20 @@ char *exp;
 /*
  * Patella-Modern change (issue #7): parno is set and read only when paren is
  * set, which GCC's optimiser cannot see (-Wmaybe-uninitialized, in -Wall;
- * MSVC's C4701 at /W4). Initialising it would change the oracle's code, so
- * the warning is off for this function, as for Talk.cpp's C4701 (issue #5).
+ * MSVC's C4701 at /W4). The 1986 text leaves it uninitialised, so the
+ * warning is off for this function (MSVC's too since issue #129, which
+ * builds the file at /W4).
  */
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4701)
+#endif
 static char *
-reg(paren, flagp)
-int paren;			/* Parenthesized? */
-int *flagp;
+reg(int paren /* Parenthesized? */, int *flagp)
 {
 	register char *ret;
 	register char *br;
@@ -359,7 +360,7 @@ int *flagp;
 			FAIL("too many ()");
 		parno = regnpar;
 		regnpar++;
-		ret = regnode(OPEN+parno);
+		ret = regnode((char)(OPEN+parno));
 	} else
 		ret = NULL;
 
@@ -386,7 +387,7 @@ int *flagp;
 	}
 
 	/* Make a closing node, and hook it on the end. */
-	ender = regnode((paren) ? CLOSE+parno : END);
+	ender = regnode((char)((paren) ? CLOSE+parno : END));
 	regtail(ret, ender);
 
 	/* Hook the tails of the branches to the closing node. */
@@ -406,6 +407,9 @@ int *flagp;
 
 	return(ret);
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -416,8 +420,7 @@ int *flagp;
  * Implements the concatenation operator.
  */
 static char *
-regbranch(flagp)
-int *flagp;
+regbranch(int *flagp)
 {
 	register char *ret;
 	register char *chain;
@@ -455,8 +458,7 @@ int *flagp;
  * endmarker role is not redundant.
  */
 static char *
-regpiece(flagp)
-int *flagp;
+regpiece(int *flagp)
 {
 	register char *ret;
 	register char op;
@@ -519,8 +521,7 @@ int *flagp;
  * separate node; the code is simpler that way and it's not worth fixing.
  */
 static char *
-regatom(flagp)
-int *flagp;
+regatom(int *flagp)
 {
 	register char *ret;
 	int flags;
@@ -560,7 +561,7 @@ int *flagp;
 						if (class > classend+1)
 							FAIL("invalid [] range");
 						for (; class <= classend; class++)
-							regc(class);
+							regc((char)class);
 						regparse++;
 					}
 				} else
@@ -628,8 +629,7 @@ int *flagp;
  - regnode - emit a node
  */
 static char *			/* Location. */
-regnode(op)
-char op;
+regnode(char op)
 {
 	register char *ret;
 	register char *ptr;
@@ -653,8 +653,7 @@ char op;
  - regc - emit (if appropriate) a byte of code
  */
 static void
-regc(b)
-char b;
+regc(char b)
 {
 	if (regcode != &regdummy)
 		*regcode++ = b;
@@ -668,9 +667,7 @@ char b;
  * Means relocating the operand.
  */
 static void
-reginsert(op, opnd)
-char op;
-char *opnd;
+reginsert(char op, char *opnd)
 {
 	register char *src;
 	register char *dst;
@@ -697,9 +694,7 @@ char *opnd;
  - regtail - set the next-pointer at the end of a node chain
  */
 static void
-regtail(p, val)
-char *p;
-char *val;
+regtail(char *p, char *val)
 {
 	register char *scan;
 	register char *temp;
@@ -721,17 +716,15 @@ char *val;
 		offset = (int)(scan - val);
 	else
 		offset = (int)(val - scan);
-	*(scan+1) = (offset>>8)&0377;
-	*(scan+2) = offset&0377;
+	*(scan+1) = (char)((offset>>8)&0377);
+	*(scan+2) = (char)(offset&0377);
 }
 
 /*
  - regoptail - regtail on operand of first argument; nop if operandless
  */
 static void
-regoptail(p, val)
-char *p;
-char *val;
+regoptail(char *p, char *val)
 {
 	/* "Operandless" and "op != BRANCH" are synonymous in practice. */
 	if (p == NULL || p == &regdummy || OP(p) != BRANCH)
@@ -754,23 +747,21 @@ static char **regendp;		/* Ditto for endp. */			/* 0x71f02c */
 /*
  * Forwards.
  */
-STATIC int regtry();
-STATIC int regmatch();
-STATIC int regrepeat();
+STATIC int regtry(regexp *prog, char *string);
+STATIC int regmatch(char *prog);
+STATIC int regrepeat(char *p);
 
 #ifdef DEBUG
 int regnarrate = 0;
-void regdump();
-STATIC char *regprop();
+void regdump(regexp *r);
+STATIC char *regprop(char *op);
 #endif
 
 /*
  - regexec - match a regexp against a string
  */
 int
-regexec(prog, string)
-register regexp *prog;
-register char *string;
+regexec(register regexp *prog, register char *string)
 {
 	register char *s;
 	/* Client change: no "extern char *strchr();" (<string.h>). */
@@ -791,7 +782,7 @@ register char *string;
 	if (prog->regmust != NULL) {
 		s = string;
 		while ((s = strchr(s, prog->regmust[0])) != NULL) {
-			if (strncmp(s, prog->regmust, prog->regmlen) == 0)
+			if (strncmp(s, prog->regmust, (size_t)prog->regmlen) == 0)
 				break;	/* Found it. */
 			s++;
 		}
@@ -830,9 +821,7 @@ register char *string;
  - regtry - try match at specific point
  */
 static int			/* 0 failure, 1 success */
-regtry(prog, string)
-regexp *prog;
-char *string;
+regtry(regexp *prog, char *string)
 {
 	register int i;
 	register char **sp;
@@ -867,8 +856,7 @@ char *string;
  * by recursion.
  */
 static int			/* 0 failure, 1 success */
-regmatch(prog)
-char *prog;
+regmatch(char *prog)
 {
 	register char *scan;	/* Current node. */
 	char *next;		/* Next node. */
@@ -909,7 +897,7 @@ char *prog;
 				if (*opnd != *reginput)
 					return(0);
 				len = (int)strlen(opnd);
-				if (len > 1 && strncmp(opnd, reginput, len) != 0)
+				if (len > 1 && strncmp(opnd, reginput, (size_t)len) != 0)
 					return(0);
 				reginput += len;
 			}
@@ -1055,8 +1043,7 @@ char *prog;
  - regrepeat - repeatedly match something simple, report how many
  */
 static int
-regrepeat(p)
-char *p;
+regrepeat(char *p)
 {
 	register int count = 0;
 	register char *scan;
@@ -1101,8 +1088,7 @@ char *p;
  - regnext - dig the "next" pointer out of a node
  */
 static char *
-regnext(p)
-register char *p;
+regnext(register char *p)
 {
 	register int offset;
 
@@ -1121,14 +1107,13 @@ register char *p;
 
 #ifdef DEBUG
 
-STATIC char *regprop();
+STATIC char *regprop(char *op);
 
 /*
  - regdump - dump a regexp onto stdout in vaguely comprehensible form
  */
 void
-regdump(r)
-regexp *r;
+regdump(regexp *r)
 {
 	register char *s;
 	register char op = EXACTLY;	/* Arbitrary non-END op. */
@@ -1171,8 +1156,7 @@ regexp *r;
  - regprop - printable representation of opcode
  */
 static char *
-regprop(op)
-char *op;
+regprop(char *op)
 {
 	register char *p;
 	static char buf[50];
@@ -1263,9 +1247,7 @@ char *op;
  */
 
 static int
-strcspn(s1, s2)
-char *s1;
-char *s2;
+strcspn(char *s1, char *s2)
 {
 	register char *scan1;
 	register char *scan2;

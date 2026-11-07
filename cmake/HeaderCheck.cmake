@@ -67,6 +67,8 @@ set(PATELLA_HEADERS_CORE
 	vlong.h)
 # Issue #116: the drawing interface's value types (TRect, TRGBColor, TFont), graphics.h's until then; Skins.h includes it.
 list(APPEND PATELLA_HEADERS_CORE types/GraphicsTypes.h)
+# TRegexp, the owner of a compiled regexp (issue #129; patella_core's regexp.c, Status.cpp's link check).
+list(APPEND PATELLA_HEADERS_CORE types/Regexp.h)
 # The C++26 features behind feature-test macros (issue #9): tests/unit, real or stand-ins.
 set(PATELLA_HEADERS_CXX26
 	compat/cxx26.h)

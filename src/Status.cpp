@@ -15,7 +15,7 @@
 #include "Status.h"
 #include "Utils.h"
 #include "sysinc.h"
-#include "Extern/regexp/regexp.h"
+#include "types/Regexp.h"
 #include "types/IndexedVector.h"
 #include "Objects.h"
 #include "common.h"
@@ -471,16 +471,16 @@ void patella::TInteraction::ClearMessages()
 	NumberOfMessages = 0;
 }
 
-// 0x4e7f00. LinkRegexp and TaintedClipboardText are freed but not cleared,
-// and the queued messages are not freed. The original cleared the error
-// reports first (gone since issue #74).
+// 0x4e7f00. TaintedClipboardText is freed but not cleared, and the queued
+// messages are not freed. The original cleared the error reports first (gone
+// since issue #74). LinkRegexp is freed and, since issue #129 (TRegexp),
+// cleared too: the original left it dangling until InitStatus.
 void patella::TInteraction::ExitStatus()
 {
 	patella::bridge::Session().ExitSession(); // the character list (issue #105)
 	if (TaintedClipboardText != nullptr)
 		delete[] TaintedClipboardText;
-	if (LinkRegexp != nullptr)
-		free(LinkRegexp);
+	LinkRegexp.Reset();
 }
 
 // 0x4e8580, line 91
@@ -668,7 +668,7 @@ void patella::TInteraction::CheckClipboardText(patella::TSpan<const char> Charac
 	char *Lower = new char[Length + 1];
 	memcpy(Lower, TaintedClipboardText, Length + 1);
 	LowerString(Lower);
-	const int Match = regexec(LinkRegexp, Lower);
+	const int Match = LinkRegexp.Execute(Lower);
 	delete[] Lower;
 	if (Match == 1) {
 		LinkWarningEventHandler();
@@ -698,8 +698,9 @@ void patella::TInteraction::InitStatus(bool Gamemaster, void (*linkwarningeventh
 	PATELLA_ASSERT(linkwarningeventhandler!=NULL);
 	LinkWarningEventHandler = linkwarningeventhandler;
 	TaintedClipboardText = nullptr;
-	LinkRegexp = nullptr;
-	LinkRegexp = regcomp(const_cast<char *>(LinkPattern));
+	// The original set LinkRegexp to NULL first, so a second InitStatus without ExitStatus leaked the program;
+	// TRegexp's assignment frees it (issue #129).
+	LinkRegexp = patella::TRegexp(LinkPattern);
 	patella::bridge::Session().InitSession(Gamemaster); // the session's part (issue #105), in its order below
 	NumberOfMessages = 0;
 	ActionNumber = 0;

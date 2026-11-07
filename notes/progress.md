@@ -608,6 +608,13 @@ TGraphics between TCommunication and TGUI, the free functions forward. The windo
 accessors SkinProperties() and Skins(). TRect, TRGBColor and TFont are types/GraphicsTypes.h's, so the {Surface,
 graphics} module cycle is gone (205 edges and 2 cycles on main, 207 and 1 now: {MainFrm, Player}). Golden 17,316,040,
 0 failures. notes/decisions.md, "#116".
+
+The regexp as C17 behind TRegexp (Patella-Modern issue #129, branch issue-129, November 7, 2026; M8): regexp.c's K&R
+definitions are prototypes (same types; the implicit conversions now explicit casts), C17 on every compiler (MSVC
+`/std:c17`), off the three warning baselines and without Clang's -Wno-deprecated-non-prototype or /analyze's
+suppressions: 0 warnings at /W4 and -Wall -Wextra -Wpedantic -Wconversion -Wshadow. `patella::TRegexp`
+(src/types/Regexp.h) owns regcomp's program (free on reset, assignment, destruction); Status.cpp's LinkRegexp is one.
+tests_core's regexp tests go through it. Golden 17,316,040, 0 failures. notes/decisions.md, "#129".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook
