@@ -16329,22 +16329,26 @@ and only the platform files with the shim is what would let the stand-ins shrink
 
 Logs in build\logs\issue-111 of the branch's worktree; golden replayed main's frozen corpus read only
 (PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed +
-1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset. On 9cb042f (`<preset>-final.log`; the
-GCC-only analyzer pragmas of the last commit were built on linux-x64-gcc and windows-x64-gcc again, below):
+1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset. The final runs are on 5d6d1ce (the
+branch with main 048a535 merged: #139, #141's CMake 4.4.5 and image, #122's SDL3 frame; `<preset>-final.log`, every
+preset `--fresh`):
 
-- `python -I tools/build.py windows-x64` exit 0, 28/28 (golden_concurrent the same); windows-x64-debug exit 0, 27/27;
-  windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0, 25/25;
-  linux-x64-clang (ASan, UBSan) exit 0, 24/24, no sanitizer report. patella_core and tests_core_link in linux-x64-gcc's
-  Debug (-fanalyzer): clean after the two rows above (core-linux-x64-gcc-debug.log).
-- An earlier run of windows-x64 (5ba9ece's first version) failed golden with 34,267 DialogElements failures: the toggle
-  buttons' Tooltip (above), reverted to the original's read.
-- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, bugprone- 0 (the first run, on 10eab3a: 879
-  new). `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
-- Live, with 9cb042f's Patella.exe: `python -I tools/reference.py compare --reference
+- `python -I tools/build.py <preset> --fresh`: windows-x64 exit 0, 28/28 (golden_concurrent the same); windows-x64-debug
+  exit 0, 27/27; windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0,
+  25/25; linux-x64-clang (ASan, UBSan) exit 0, 24/24, no sanitizer report. patella_core and tests_core_link in
+  linux-x64-gcc's Debug (-fanalyzer): clean after the two Debug rows above (core-linux-x64-gcc-debug.log).
+- Earlier runs: windows-x64 on 5ba9ece's first version failed golden with 34,267 DialogElements failures (the toggle
+  buttons' Tooltip, above, reverted to the original's read); windows-x64-gcc on 5ba9ece failed to compile (PATH_MAX,
+  Talk.cpp's free: above).
+- `python -I tools/tidy_ci.py` exit 0 on 5d6d1ce: 3 findings, the baseline's 3, 0 new, bugprone- 0 (the first run, on
+  10eab3a: 879 new). `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
+- Live, with 5d6d1ce's Patella.exe: `python -I tools/reference.py compare --reference
   C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches its reference; `python -I tools/compare_traffic.py`
   exit 0, no differences; `python -I tools/compare_files.py` exit 0, no differences; `python -I tools/testmode_check.py`
   exit 0, no differences; `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes windowed --no-repeat
   --patella <worktree>/build/windows-x64/Release/Patella.exe --recording build/traffic/result/orig-live.jsonl --out
   build/render/result` (the recording of this compare_traffic run) exit 0, "result: all scenes identical", 26 scenes on
-  vulkan (RTX 5080) and vulkan-cpu (llvmpipe), on the CPU driver every difference within the region tolerance (largest
-  channel difference 2).
+  vulkan (RTX 5080) and vulkan-cpu (llvmpipe). On 8e31f50 (main 260f066 merged) compare_files failed twice in its error
+  scenario on Tibia.exe's side ("no TibiaClient window after 30 s"; compare_files-try1.log) and testmode_check once (a
+  scripted walk key lost in run 1 of the same client; testmode_check-try1.log), while other agents ran live checks; the
+  error scenario alone passed (compare_files-error-diag.log), and both passed on 5d6d1ce.
