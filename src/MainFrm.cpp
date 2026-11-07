@@ -22,13 +22,14 @@
 #include "GUI.h"
 #include "MainWindow.h"
 #include "Network.h"
-#include "Player.h"
 #include "Preferences.h"
 #include "Status.h"
 #include "Surface.h"
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "common.h"
 #include "compat/span.h"
+#include "platform/Platform.h"
+#include "platform/Win32Platform.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
@@ -139,9 +140,12 @@ int CMainFrame::TranslateKey(UINT nChar, [[maybe_unused]] UINT nRepCnt, UINT nFl
 	return 0;
 }
 
-// 0x4a8520, line 112
-CMainFrame::CMainFrame(bool Gamemaster)
+// 0x4a8520, line 112. WindowClass (not the original's parameter, Patella-Modern issue #119): the window class
+// InitInstance registered (Player.cpp's GetWindowClassName, "TibiaClient"), for PreCreateWindow; the original
+// decoded it there itself, which made MainFrm.cpp and Player.cpp a module cycle.
+CMainFrame::CMainFrame(bool Gamemaster, const char *WindowClass)
 {
+	this->WindowClass.Assign(WindowClass);
 	MainFrame = this;
 	KeyFlags = 0;
 	memset(KeyStates.data(), 0, sizeof(KeyStates));
@@ -211,10 +215,11 @@ void OpenURL(const char *URL)
 	ShellExecuteA(nullptr, nullptr, URL, nullptr, nullptr, SW_SHOWNORMAL);
 }
 
-// 0x4a8f30, line 244. The window class registered by InitInstance.
+// 0x4a8f30, line 244. The window class registered by InitInstance. The original decoded it here
+// (GetWindowClassName); since Patella-Modern issue #119 the constructor's copy (the same text).
 BOOL CMainFrame::PreCreateWindow(CREATESTRUCT &cs)
 {
-	GetWindowClassName(ClassName);
+	ClassName = WindowClass;
 	cs.lpszClass = ClassName;
 	CFrameWnd::PreCreateWindow(cs);
 	return TRUE;
@@ -239,7 +244,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		MoveWindow(x, y, Width, Height, TRUE);
 	else
 		SetDefaultWindowPosition();
-	PATELLA_SET_MAIN_TIMER(m_hWnd, 1, 100, nullptr);
+	patella::platform::Platform().Input.StartTimer(m_hWnd, 1, 100); // SetTimer (issue #119: the platform's input)
 	return 0;
 }
 
@@ -387,7 +392,7 @@ void CMainFrame::OnDestroy()
 	SetWindowedMode(Normal.left, Normal.top, Normal.right - Normal.left, Normal.bottom - Normal.top,
 		::IsZoomed(m_hWnd) != 0);
 	CFrameWnd::OnDestroy();
-	::KillTimer(m_hWnd, 1);
+	patella::platform::Platform().Input.StopTimer(m_hWnd, 1); // KillTimer (issue #119)
 	DestroyCursor(DefaultCursor);
 	DestroyCursor(HandCursor);
 }
@@ -433,7 +438,7 @@ BOOL CMainFrame::OnSetCursor(CWnd *pWnd, UINT nHitTest, UINT message)
 		::ClientToScreen(m_hWnd, reinterpret_cast<POINT *>(&Client.left));
 		::ClientToScreen(m_hWnd, reinterpret_cast<POINT *>(&Client.right));
 		POINT Cursor;
-		PATELLA_GET_CURSOR_POS(&Cursor);
+		patella::platform::ReadCursorPosition(patella::platform::Platform().Input, Cursor); // GetCursorPos (issue #119)
 		if (!PtInRect(&Client, Cursor))
 			return CFrameWnd::OnSetCursor(pWnd, nHitTest, message);
 	}
@@ -519,12 +524,15 @@ void CMainFrame::OnRButtonDblClk([[maybe_unused]] UINT nFlags, CPoint point)
 
 // 0x4ab110, line 686. Another window took the mouse: releases the held
 // buttons at the cursor position. The test build's scripted runs skip it
-// (TestHooks.h, Patella-Modern issue #52).
+// (Patella-Modern issue #52; since issue #119 the platform's IInput, platform/Input.h: never in Patella.exe).
 void CMainFrame::OnCaptureChanged([[maybe_unused]] CWnd *pWnd)
 {
-	PATELLA_TEST_CAPTURE_CHANGED
+	if (patella::platform::Platform().Input.IgnoreCaptureChange()) {
+		Default();
+		return;
+	}
 	POINT Point;
-	PATELLA_GET_CURSOR_POS(&Point);
+	patella::platform::ReadCursorPosition(patella::platform::Platform().Input, Point); // GetCursorPos (issue #119)
 	if (GetViewMode() == 1)
 		::ScreenToClient(m_hWnd, &Point);
 	if (LeftButtonPressed) {

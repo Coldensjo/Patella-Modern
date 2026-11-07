@@ -14835,3 +14835,151 @@ reference compare's, not golden's. A per-frame profile is M9's profiling item.
 
 - `_MSVC_STL_DESTRUCTOR_TOMBSTONES` (MSVC) could catch uses after destruction in release; not asked by the plan.
 - The cost was measured once per run; a repeated measurement (M9's profiling) would narrow golden's +16% / +23%.
+
+## #119: the platform interfaces, part 2 (Patella-Modern issue #119, M7, part 1 of the issue)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-119, from main 025376f). The issue's IClipboard, IInput and
+IWindow with their Win32 and test implementations, the test hooks they replace, Patella.ini and LogFile through
+IFileSystem, and the {MainFrm, Player} module cycle. TSurface as the platform's interface is not done: part 2
+("Unfinished", below), as the brief allowed.
+
+### The interfaces (high)
+
+Portable headers in src/platform (no platform header, on patella_core's header list; cmake/HeaderCheck.cmake), in
+#109's form (no copies, a protected non-virtual destructor, the process's objects through `platform::Platform()`,
+whose TPlatform holds them after the clock, the files and the socket). No Win32 type in a signature, so M8's SDL3
+implementations (#122, #123, #124) sit behind them as they are: a window is `TWindowHandle` (`void *`: an HWND, an
+SDL_Window), a point `TPoint`, a display mode `TDisplayMode`, an icon `TMessageBoxIcon`, the text the client's
+(Windows-1252, #112; each implementation converts).
+
+| Interface | Header | Calls | Win32 implementation (Patella.exe, the golden runner) | Test implementation (PatellaTest.exe) |
+| :--- | :--- | :--- | :--- | :--- |
+| IClipboard: HasText, Text, SetText | platform/Clipboard.h | sysinc.cpp IsClipboardEmpty, GetClipboardText, SetClipboardText | TWin32Clipboard: IsClipboardFormatAvailable, OpenClipboard ... CloseClipboard with CF_UNICODETEXT and #112's conversion, the calls sysinc.cpp made | TMemoryClipboard (portable, in the header; tests_core's core_platform_input_test.cpp): with a script; without one Win32's |
+| IInput: CursorPosition, StartTimer, StopTimer, BeginIdle, IgnoreCaptureChange | platform/Input.h | MainFrm.cpp OnCreate, OnDestroy, OnSetCursor, OnCaptureChanged; Player.cpp InitInstance, OnIdle | TWin32Input: GetCursorPos, SetTimer, KillTimer; BeginIdle nothing, IgnoreCaptureChange false | TTestInput (TestModeWin32.cpp): the hooks' code (the script's cursor, the driver's ticks, the driver's step, #52's dropped capture changes); KillTimer always |
+| IWindow: ShowMessageBox, VisitWindows, DisplayMode | platform/Window.h | Player.cpp FatalError, InitInstance (the two boxes, CountTibiaWindows); vulkan/SurfaceVulkan.cpp GetFullscreenModes | TWin32Window: MessageBoxA (MB_ICONHAND, MB_ICONEXCLAMATION), EnumWindows with GetWindowTextA and GetClassNameA (30), EnumDisplaySettingsA | TTestWindow: the boxes not shown with a script (messages.txt's type stays MessageBoxA's flags), the process's own windows only (#96), `--test-display-modes` (#48) |
+
+- **The cursor into a POINT** (high): the callers keep their POINTs (ScreenToClient takes them);
+  `ReadCursorPosition(IInput &, POINT &)` (Win32Platform.h) writes the point only when the cursor was read, as
+  GetCursorPos left it unchanged.
+- **CountTibiaWindows** (high): a visitor of the window's title and class (`TWindowVisitor`), called by VisitWindows;
+  the Win32 side reads them as the callback did (GetWindowTextA, GetClassNameA with 30, in that order, before the
+  decoders), so the count is the same. SDL3 has no other process's windows: M8's single-instance check is another
+  implementation of this one call.
+- **The clipboard's text** (high): the interface carries the client's text, so the implementation converts (Win32:
+  UTF-16, '?' for a character Windows-1252 does not have, #112, the owner's decision; SDL3: UTF-8). GetClipboardText keeps its buffer and the original's
+  odd CR removal (one byte past the data); two changes of order, no change of result: the clipboard is closed before
+  the buffer is filled (the original closed it after the copy; only an exception there, a std::bad_alloc, left it
+  open), and a clipboard without text data is an empty text, Size 1 (the original's Size 0 and a NUL in the buffer:
+  the same buffer, ResizeClipboardBuffer of 0 or 1 does nothing).
+- **TMemoryClipboard with a script** (high, a change of the test build only): a scripted run (the reference compare,
+  compare_rendering) neither reads the desktop's clipboard (another program's, a parallel test client's) nor
+  changes it. No recording pastes text it did not copy; the reference compare is the check. Without a script (the
+  live runs against the test server) Win32's, as Patella.exe.
+- **The display modes** (high): through IWindow, so the hook went. The desktop's own mode (CreateSurfaces'
+  ENUM_CURRENT_SETTINGS) stays the Vulkan engine's own EnumDisplaySettingsA: the engine's call, part 2 (TSurface).
+
+### The hooks (high)
+
+Gone from src/TestHooks.h: PATELLA_GET_CURSOR_POS, PATELLA_SET_MAIN_TIMER, PATELLA_TEST_IDLE,
+PATELLA_TEST_CAPTURE_CHANGED (IInput), PATELLA_MESSAGE_BOX, PATELLA_ENUM_WINDOWS, PATELLA_ENUM_DISPLAY_SETTINGS
+(IWindow). Remaining: PATELLA_TEST_RSA_BLOCK, PATELLA_TEST_PACKET_SENT, PATELLA_TEST_PACKET_RECEIVED,
+PATELLA_TEST_FRAME_OBSERVERS, PATELLA_TEST_PRESENT_FAILURE, PATELLA_TEST_INIT_FAILURE (the test mode's observers
+and failures, as #109 decided: an observer interface would be a test-only interface in the product), and
+CPlayerApp::PreTranslateMessage's DropInput (the test build's override): a filter of Win32 window messages (MSG),
+which no portable IInput call can carry; M8's SDL3 input has events of its own, and the test mode's input then comes
+from its own IInput. notes/testmode.md, "The hooks".
+
+### Patella.ini and LogFile through IFileSystem (high)
+
+- settings::Load, LoadForUpdate and Save take an IFileSystem and open Patella.ini through it as a binary TFile
+  (TFile::Open, _wfsopen with _SH_DENYNO: what std::ifstream and std::ofstream opened on Windows; on Linux fopen with
+  the UTF-8 name). Callers: Preferences.cpp (TPreferences' IFileSystem of #109), the Vulkan engine's device choice and
+  the developer log's settings (Platform()'s). The name is the client's text, as every TFile name; "Patella.ini" is
+  ASCII, so the same file.
+- LoadForUpdate's "no file" is the open's ENOENT (until now std::filesystem::exists after a failed read). The same
+  outcome in every case: not there (or its folder not there) a new file; there but not readable (EACCES, a folder)
+  nothing; read but larger than MaxFileSize or a read error nothing. Load's read error is TFile::Failed (ferror;
+  new, in types/File.h), where it was the stream's bad().
+- The log: TLog::OpenFile, log::Configure and log::LoadSettings take the IFileSystem; Player.cpp passes Platform()'s.
+  OpenFile stays noexcept (an implementation's std::bad_alloc is a failed open).
+- The unit tests (core_settings_test, core_log_settings_test, log_test) pass a TSystemFileSystem; golden's
+  preferences_file and bounded_reads tests Platform()'s. No check changed.
+
+### The {MainFrm, Player} cycle (high)
+
+MainFrm.cpp included Player.h for one call: PreCreateWindow decoded the window class (GetWindowClassName, Player.cpp's
+0x4d92b0). CMainFrame's constructor takes the class InitInstance registered (`CMainFrame(bool Gamemaster, const char
+*WindowClass)`, a TFixedString<32> member WindowClass, not the original's), and PreCreateWindow copies it into
+ClassName, the same 32 bytes the decoder wrote. Player.cpp still includes MainFrm.h (the application makes its frame
+window). Measured as #118 and #116 did (every `#include "X.h"` of a src/*.cpp naming another src/*.cpp's module is an
+edge; Tarjan's strongly connected components; build\logs\issue-119\cycles-main-025376f.txt, cycles-branch.txt):
+main 025376f 33 modules, 207 edges, 1 cycle {MainFrm, Player}; the branch 33 modules, 206 edges, 0 cycles (the edge
+MainFrm -> Player went). The client has no module cycle any more.
+
+### The golden tests' calls (high)
+
+No check changed. mainfrm_tests.cpp constructs ours with "TibiaClient" (the class InitInstance registers) and
+includes Player.h itself (it lays out a CPlayerApp; MainFrm.cpp no longer brings it). The MainFrm test's user32 fakes
+(GetCursorPos, SetTimer, KillTimer) land as before: TWin32Input calls the same imports, in the runner's image
+(Win32Platform.cpp, compiled in tests/golden/network with /EHs, so the error round's throwing fakes pass through it).
+
+### The image (high)
+
+Main 025376f and the branch, the x64 Release Patella.exe built from the same source path (main's into build/pe-main
+before the first change, the branch's into build/pe-branch), compared function by function through their PDBs
+(dumpbin /disasm:nobytes with the PDB's labels; absolute addresses and image-relative table offsets masked, each
+function cut at its first jump table or padding; the script is not committed: build\logs\issue-119\pecompare.txt):
+14,393 and 14,335 functions; 101 gone, 43 new, 24 changed, 44 whose only change is a called symbol's name (identical
+COMDATs the linker folded under another name, e.g. `_Myptr` for `c_str`), 13 whose only change is an immediate (the
+assertion line numbers of InitInstance's and Run's catch funclets, Player.cpp's lines moved; CMainFrame's deleting
+destructor, its size). The 24 changed (build\logs\issue-119\pecompare-changed.txt):
+
+- the call sites: MainFrm.cpp's OnCaptureChanged, OnCreate, OnDestroy, OnSetCursor, PreCreateWindow (and the
+  constructor's unwind funclet); Player.cpp's CountTibiaWindows, FatalError, InitInstance, OnIdle; sysinc.cpp's
+  GetClipboardText, IsClipboardEmpty, SetClipboardText; the Vulkan engine's GetFullscreenModes, LoadDeviceChoice,
+  SaveDeviceChoice; Preferences.cpp's InitPreferences and SavePreferences (Patella.ini through IFileSystem);
+- four functions the call sites' new code changed through the optimiser, with the same calls but for inlined
+  std::string members (LTCG: the new code uses the same templates): FindCpuDriverManifest (DeviceSettings.cpp,
+  `_Append` called where `_Reallocate_grow_by` and memcpy were inlined), settings::ReadPreferences and two of its
+  unwind funclets (`resize`), std::sort's partition of `pair<int, string>` (`_Traits_compare` called), and TFile::Open
+  (Cp1252ToWide's conversion a call now: Settings.cpp and the log open files through it too).
+
+Gone: std::ifstream and std::ofstream with their filebuf, codecvt and CRT parts (_fsopen, _sopen_s, fsetpos ...:
+Patella.ini's streams, now TFile), the old Load, LoadForUpdate, Save, Configure, LoadSettings and CMainFrame
+constructor signatures, GetWindowClassName (inlined into its two callers now that MainFrm.cpp no longer calls it), and
+funclets and folded names the linker numbered or chose differently (TTalkBuffer::IsPrivateChannel is folded with
+TPrivateChannel's). New: the Win32 implementations (TWin32Clipboard, TWin32Input, TWin32Window, VisitWindow), the
+new signatures, Settings.cpp's ReadFile, ferror, and the same kind of funclets and folded names. No other function
+changed.
+
+### Unfinished: part 2 (high)
+
+- **TSurface as the platform's interface** (#104's step 6 with TGraphics, #116's note): the Vulkan engine's shared
+  counters, TSurface's TestEngine and GetAvailableEngines through `bridge::GraphicsEngine()`, the window handle
+  (`HWND *` of TSurface::Init and SurfaceInitInstance, TGUI's WindowHandle, TNetwork's SetNetworkWindow) as a
+  TWindowHandle, the desktop's mode of CreateSurfaces, and compare_rendering per #98 for it.
+- The frame window and the application themselves (CMainFrame, CPlayerApp: MFC) stay the Win32 side; the core
+  calls into them through Control.cpp's callbacks (ExitProgram, SetDisplayMode, OpenURL) as the original. M8's SDL3
+  window replaces them (#122).
+- DropInput stays a hook (above).
+
+### The gates (high)
+
+Logs in build\logs\issue-119 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218
+replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset.
+
+- `python -I tools/build.py windows-x64` exit 0, 20/20 (golden_concurrent the same); windows-x64-debug exit 0, 19/19;
+  windows-x64-asan exit 0, 19/19, no ASan report; windows-x64-gcc exit 0, 12/12; linux-x64-gcc exit 0, 17/17;
+  linux-x64-clang (ASan, UBSan) exit 0, 16/16, no sanitizer report. The first two windows-x64 runs failed to compile:
+  a script's edit had turned sysinc.cpp's '\r' and '\n' into the characters, and mainfrm_tests.cpp had relied on
+  MainFrm.cpp's include of Player.h (CPlayerApp); both fixed, every preset run again on the final code.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every
+  session matches (the message boxes' messages.txt included); `python -I tools/compare_traffic.py` exit 0, no
+  differences; `python -I tools/compare_files.py` exit 1 at the first run (Tibia.exe's options run: no TibiaClient
+  window after 30 s, while windows-x64-asan was building; compare_files-try1.log), exit 0 at the rerun, no
+  differences; `python -I tools/testmode_check.py` exit 0, no differences. compare_rendering not run: TSurface is not
+  changed (only GetFullscreenModes' list, which the reference compare's display modes check).
+- `python -I tools/tidy_ci.py` on f151aef exit 1: one new misc-include-cleaner finding (LogSettings.h used
+  IFileSystem without including platform/FileSystem.h); fixed, on 48e73a5 exit 0, 3 findings, the baseline's 3, 0 new. windows-x64 on 48e73a5 again: exit 0, 20/20, golden the same. `python -I tools/banned_calls.py` exit 0.
+  clang-format (CLAUDE.md's command) exit 0.

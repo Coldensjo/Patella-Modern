@@ -620,6 +620,16 @@ Hardened standard library modes (Patella-Modern issue #133, branch issue-133, No
 _MSVC_STL_HARDENING=1 and libstdc++'s _GLIBCXX_ASSERTIONS (until now Debug only) for C++ in every configuration of
 every product preset (cmake/Hardening.cmake); no check fired. Cost, one run each: golden +16% on Windows, +23% on
 Linux, the reference compare +2%. Golden 17,316,040, 0 failures. notes/decisions.md, "#133".
+
+The platform interfaces, part 2 (Patella-Modern issue #119, branch issue-119, November 7, 2026; M7; part 1 of the
+issue): IClipboard, IInput and IWindow in src/platform (portable, no Win32 type in a signature, for M8's SDL3), with
+Win32 implementations (the calls sysinc.cpp, MainFrm.cpp, Player.cpp and the Vulkan engine made) and the test mode's
+(TTestInput, TTestWindow; TMemoryClipboard with a script). TestHooks.h lost seven hooks (the cursor, the main timer,
+the idle step, the capture change, the message boxes, the windows' count, the display modes). Patella.ini and LogFile
+open through IFileSystem. CMainFrame takes the registered window class, so the {MainFrm, Player} cycle, the client's
+last, is gone (207 edges and 1 cycle on main, 206 and 0 now). Patella.exe changes only at those call sites (the image
+comparison). Not yet: TSurface as the platform's interface (part 2). Golden 17,316,040, 0 failures.
+notes/decisions.md, "#119".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

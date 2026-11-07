@@ -648,6 +648,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Done in #120 (notes/decisions.md, "#120: the server replay's socket inside the process"): with `--test-replay` the
   test build's `ISocket` is TPipeSocketWin32 over TPipeNetwork (src/testmode), the replay's network inside the
   process: no ports, so replays run side by side; the live runs keep Win32's sockets.
+  Done in #119 (part 1; notes/decisions.md, "#119: the platform interfaces, part 2"): `IClipboard`, `IInput` and
+  `IWindow` with their Win32 implementations and the test mode's (seven TestHooks.h hooks gone), Patella.ini and
+  LogFile through `IFileSystem`, and the {MainFrm, Player} module cycle broken (no module cycle left). Not yet:
+  `TSurface` as the platform's interface.
 - **Text encoding:** the 7.72 protocol and files use the client's 8-bit code page (Latin-1 / Windows-1252).
   Internally, decide (D4) between keeping 8-bit text (simplest, closest to the original) and UTF-8 with
   conversion at the protocol and file boundaries. The platform layer converts in either case: SDL3 and Linux

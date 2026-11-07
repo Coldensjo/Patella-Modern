@@ -6,6 +6,7 @@
 
 #include "log/Log.h"
 #include "types/FixedString.h"
+#include "platform/FileSystem.h"
 
 #include <filesystem>
 #include <fstream>
@@ -17,6 +18,12 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+
+namespace {
+// The working folder's files: Load, Save, LoadSettings, Configure and OpenFile take the platform's IFileSystem
+// (issue #119).
+patella::platform::TSystemFileSystem Files; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): the tests' file system
+} // namespace
 
 using patella::log::TLevel;
 using patella::log::TLog;
@@ -97,7 +104,7 @@ TEST_CASE("Log: the lines in the file and on the console are UTF-8 (issue #112)"
 	const TCapture Console;
 	{
 		TLog Log(Capture);
-		REQUIRE(Log.OpenFile(Path.Path));
+		REQUIRE(Log.OpenFile(Files, Path.Path));
 		Log.Info("{} \xe4\xdf", "J\xf6rg");
 	}
 	CHECK(FileBytes(Path.Path) == "[info] J\xc3\xb6rg \xc3\xa4\xc3\x9f\n");
@@ -178,7 +185,7 @@ TEST_CASE("Log: the file")
 		TLog Log(Capture);
 		CHECK_FALSE(Log.HasFile());
 		Log.Info("before the file");
-		REQUIRE(Log.OpenFile(Path.Path));
+		REQUIRE(Log.OpenFile(Files, Path.Path));
 		CHECK(Log.HasFile());
 		Log.Info("one");
 		Log.Debug("not at info");
@@ -193,7 +200,7 @@ TEST_CASE("Log: the file")
 	// Opened again: appended, never emptied.
 	{
 		TLog Log(nullptr);
-		REQUIRE(Log.OpenFile(Path.Path));
+		REQUIRE(Log.OpenFile(Files, Path.Path));
 		Log.Warn("three");
 	}
 	CHECK(FileBytes(Path.Path) == "[info] one\n[error] two\n[warn] three\n");
@@ -201,8 +208,8 @@ TEST_CASE("Log: the file")
 	{
 		const TCapture Second;
 		TLog Log(Capture);
-		REQUIRE(Log.OpenFile(Path.Path));
-		CHECK_FALSE(Log.OpenFile(std::filesystem::temp_directory_path().string()));
+		REQUIRE(Log.OpenFile(Files, Path.Path));
+		CHECK_FALSE(Log.OpenFile(Files, std::filesystem::temp_directory_path().string()));
 		CHECK_FALSE(Log.HasFile());
 		Log.Error("console only");
 		CHECK(Second.Text() == "[error] console only\n");

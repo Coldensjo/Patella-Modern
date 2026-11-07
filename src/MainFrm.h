@@ -12,6 +12,7 @@
 #pragma once
 
 #include "common.h"
+#include "types/FixedString.h"
 #include <array>
 
 // Key codes of the client (Control.cpp's KeyPress) for the modifier flags.
@@ -23,7 +24,7 @@ class CMainFrame : public CFrameWnd {
 public:
 	CMainFrame(const CMainFrame &) = delete;
 	CMainFrame &operator=(const CMainFrame &) = delete;
-	CMainFrame(bool Gamemaster);
+	CMainFrame(bool Gamemaster, const char *WindowClass);
 	~CMainFrame() override;
 	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
 	BOOL DestroyWindow() override;
@@ -38,6 +39,8 @@ public:
 	WINDOWPLACEMENT Placement;     // +0xd4, the windowed placement while fullscreen
 	std::array<int, 64> KeyStates; // +0x100, cleared by the constructor, not used
 	int KeyFlags;                  // +0x200, KEY_SHIFT/KEY_CONTROL/KEY_ALT held
+	// Not in the original (Patella-Modern issue #119): the constructor's window class, for PreCreateWindow.
+	TFixedString<32> WindowClass;
 
 protected:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);

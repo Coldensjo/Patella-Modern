@@ -1,6 +1,6 @@
 // Issue #48: the test build's fixed display modes (src/testmode/DisplayModes.h): the file
-// tools/reference.py writes, and the choice of PATELLA_ENUM_DISPLAY_SETTINGS (TestModeWin32.cpp
-// EnumDisplayMode): with a list the client gets that list whatever the machine reports, without one the
+// tools/reference.py writes, and the choice of the test mode's IWindow::DisplayMode (TestModeWin32.cpp
+// TTestWindow, issue #119; PATELLA_ENUM_DISPLAY_SETTINGS until then): with a list the client gets that list whatever the machine reports, without one the
 // machine's, as in Patella.exe.
 
 #include <doctest/doctest.h>

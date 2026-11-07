@@ -147,6 +147,8 @@ public:
 	}
 
 	[[nodiscard]] bool IsOpen() const noexcept { return Handle != nullptr; }
+	// ferror: true when a read or write of the open file failed.
+	[[nodiscard]] bool Failed() const noexcept { return std::ferror(Handle) != 0; }
 
 	// fread and fwrite: the number of whole items of Size bytes.
 	std::size_t Read(void *Buffer, std::size_t Size, std::size_t Count) noexcept

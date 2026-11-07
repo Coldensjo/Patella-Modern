@@ -3,6 +3,7 @@
 #include <doctest/doctest.h>
 
 #include "settings/Settings.h"
+#include "platform/FileSystem.h"
 
 #include <cstdio>
 #include <fstream>
@@ -10,6 +11,12 @@
 #include <optional>
 #include <string>
 #include <vector>
+
+namespace {
+// The working folder's files: Load, Save, LoadSettings, Configure and OpenFile take the platform's IFileSystem
+// (issue #119).
+patella::platform::TSystemFileSystem Files; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): the tests' file system
+} // namespace
 
 using patella::settings::TSettingsFile;
 
@@ -166,16 +173,16 @@ TEST_CASE("Settings: Load and Save")
 {
 	const std::string Path = "core_settings_test.ini";
 	std::remove(Path.c_str());
-	CHECK_FALSE(patella::settings::Load(Path).has_value());
+	CHECK_FALSE(patella::settings::Load(Files, Path).has_value());
 	{
 		std::ofstream Out(Path, std::ios::binary);
 		Out << "# kept\r\nDevice=cpu\r\nOther=1\r\n";
 	}
-	std::optional<TSettingsFile> File = patella::settings::Load(Path);
+	std::optional<TSettingsFile> File = patella::settings::Load(Files, Path);
 	REQUIRE(File.has_value());
 	CHECK(File->Get("Device") == "cpu");
 	REQUIRE(File->Set("Device", "gpu2"));
-	REQUIRE(patella::settings::Save(Path, *File));
+	REQUIRE(patella::settings::Save(Files, Path, *File));
 	std::ifstream In(Path, std::ios::binary);
 	std::string Written((std::istreambuf_iterator<char>(In)), std::istreambuf_iterator<char>());
 	In.close();
@@ -188,7 +195,7 @@ TEST_CASE("Settings: Load and Save")
 		for (int i = 0; i < 1025; i++)
 			Out << Line;
 	}
-	CHECK_FALSE(patella::settings::Load(Path).has_value());
+	CHECK_FALSE(patella::settings::Load(Files, Path).has_value());
 	std::remove(Path.c_str());
-	CHECK_FALSE(patella::settings::Save("no-such-directory/core_settings_test.ini", TSettingsFile()));
+	CHECK_FALSE(patella::settings::Save(Files, "no-such-directory/core_settings_test.ini", TSettingsFile()));
 }

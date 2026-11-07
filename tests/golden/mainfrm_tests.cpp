@@ -78,6 +78,8 @@
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
+// CPlayerApp (the application object the test lays out): MainFrm.cpp no longer includes Player.h (issue #119).
+#include "Player.h"
 #include <new>
 #include <string>
 #include <vector>
@@ -1045,6 +1047,8 @@ POINT RandomPoint()
 	return Chance(80) ? POINT{Between(0, 800), Between(0, 600)} : POINT{Between(-40000, 40000), Between(-40000, 40000)};
 }
 
+// Ours takes the window class InitInstance registered ("TibiaClient", GetWindowClassName's; issue #119), which the
+// original's PreCreateWindow decoded itself.
 void Construct()
 {
 	bool Gamemaster = Chance(20);
@@ -1055,7 +1059,7 @@ void Construct()
 		if (s == IMAGE)
 			ImageMember<void *>(0x4a8520, Gamemaster);
 		else
-			new (OurFrame) CMainFrame(Gamemaster);
+			new (OurFrame) CMainFrame(Gamemaster, "TibiaClient");
 		WindowOf(FrameOf(s)) = FAKE_WINDOW; // as Create would set it
 	});
 }
@@ -1502,7 +1506,7 @@ void TestMainFrmErrors()
 						if (s == IMAGE)
 							ImageMember<void *>(0x4a8520, Gamemaster);
 						else
-							new (OurFrame) CMainFrame(Gamemaster);
+							new (OurFrame) CMainFrame(Gamemaster, "TibiaClient");
 					});
 					Threw = World[0].Ticks >= n || World[1].Ticks >= n;
 					FailAt = 0;
