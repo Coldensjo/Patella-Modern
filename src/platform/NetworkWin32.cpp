@@ -6,10 +6,11 @@
 // - A finished lookup goes to the window as WSAAsyncGetHostByName's reply did: on the SDL3 path to SdlFrame.cpp's
 //   OnHostResolved (HostResolved: no window message), on MFC's (PATELLA_WINDOW=mfc, until issue #127) as WM_USER + 1
 //   to CMainFrame's message map (SendMessage from the loop's thread, with WSAMAKEASYNCREPLY's LPARAM).
-// - While the socket has a connection or a lookup, a thread timer (SetTimer without a window, USER_TIMER_MINIMUM) polls
-//   it from every message loop that dispatches the thread's messages: the main loop's pump, and the modal loops the
-//   idle step does not run in (a message box's: FatalError's ShutdownConnection, whose close the original handled in
-//   the box's loop; the window's move and size loops), where MFC's socket window got WinSock's messages.
+// - While the socket has a connection or a lookup, a timer (USER_TIMER_MINIMUM) of a message-only window polls it from
+//   every message loop that dispatches the thread's messages: the main loop's pump, and the modal loops the idle step
+//   does not run in (a message box's: FatalError's ShutdownConnection, whose close the original handled in the box's
+//   loop; the window's move and size loops), where MFC's socket window got WinSock's messages. A window's, as MFC's
+//   socket window: an exception of an event's handler leaves DispatchMessage, where a TIMERPROC's is swallowed.
 
 #include "platform/Win32Platform.h"
 
@@ -25,23 +26,49 @@ namespace patella::platform {
 
 namespace {
 
-UINT_PTR PollTimer = 0;
+// The polling timer's message-only window (made at the first connection or lookup) and whether its timer runs.
+HWND PollWindow = nullptr;
+bool PollTimer = false;
+constexpr UINT_PTR PollTimerId = 1;
+constexpr wchar_t PollWindowClass[] = L"PatellaSocketPoll";
 
 TPortableSocket &Instance();
 
-void CALLBACK PollOnTimer([[maybe_unused]] HWND Window, [[maybe_unused]] UINT Message, [[maybe_unused]] UINT_PTR Id,
-	[[maybe_unused]] DWORD Time)
+// A window procedure, not a TIMERPROC: Windows swallows an exception thrown out of a TIMERPROC
+// (UOI_TIMERPROC_EXCEPTION_SUPPRESSION), and a packet handler's TMyException (TERROR: an unknown packet type) must reach
+// the loop's handlers as it did out of MFC's socket window (DispatchMessage passes it on).
+LRESULT CALLBACK PollWindowProcedure(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
-	Instance().Poll();
+	if (Message == WM_TIMER && WParam == PollTimerId) {
+		Instance().Poll();
+		return 0;
+	}
+	return ::DefWindowProcW(Window, Message, WParam, LParam);
+}
+
+bool MakePollWindow()
+{
+	if (PollWindow != nullptr)
+		return true;
+	HINSTANCE Module = ::GetModuleHandleW(nullptr);
+	WNDCLASSEXW Class = {};
+	Class.cbSize = sizeof(Class);
+	Class.lpfnWndProc = PollWindowProcedure;
+	Class.hInstance = Module;
+	Class.lpszClassName = PollWindowClass;
+	if (::RegisterClassExW(&Class) == 0 && ::GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
+		return false;
+	PollWindow = ::CreateWindowExW(0, PollWindowClass, L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, Module, nullptr);
+	return PollWindow != nullptr;
 }
 
 void Busy(bool Now)
 {
-	if (Now && PollTimer == 0) {
-		PollTimer = ::SetTimer(nullptr, 0, USER_TIMER_MINIMUM, PollOnTimer);
-	} else if (!Now && PollTimer != 0) {
-		::KillTimer(nullptr, PollTimer);
-		PollTimer = 0;
+	if (Now && !PollTimer && MakePollWindow()) {
+		PollTimer = ::SetTimer(PollWindow, PollTimerId, USER_TIMER_MINIMUM, nullptr) != 0;
+	} else if (!Now && PollTimer) {
+		::KillTimer(PollWindow, PollTimerId);
+		PollTimer = false;
 	}
 }
 
