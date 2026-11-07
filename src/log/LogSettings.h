@@ -16,6 +16,7 @@
 #pragma once
 
 #include "log/Log.h"
+#include "platform/FileSystem.h"
 #include "settings/Settings.h"
 
 namespace patella::log {
