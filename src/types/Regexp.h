@@ -61,7 +61,7 @@ public:
 private:
 	// regcomp's allocation is malloc's.
 	struct TFree {
-		void operator()(regexp *P) const noexcept { std::free(P); }
+		void operator()(regexp *P) const noexcept { std::free(P); } // NOLINT(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory): regcomp's malloc
 	};
 	std::unique_ptr<regexp, TFree> Program;
 };

@@ -20,7 +20,6 @@
 #include "compat/span.h"
 #include "types/File.h"
 #include "types/FixedString.h"
-#include <cstddef>
 #include <cstring>
 #include <type_traits>
 
@@ -178,7 +177,7 @@ public:
 	[[nodiscard]] patella::TExpected<void, TError> TryOpen(const char *FileName);
 	void open(const char *FileName);
 	void seek(int Offset);
-	bool eof() const;
+	[[nodiscard]] bool eof() const;
 	uint8 readByte();
 	uint16 readWord();
 	int readQuad();

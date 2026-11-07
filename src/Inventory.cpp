@@ -16,7 +16,6 @@
 #include "common.h"
 #include "types/FixedString.h"
 #include <array>
-#include <cstddef>
 #include <cstring>
 
 
@@ -77,7 +76,7 @@ void patella::TInventory::OpenContainer(int Container, TObject Object, const cha
 {
 	PATELLA_ASSERT_VALUES(In(Container,0,OPEN_CONTAINERS-1), Container);
 	PATELLA_ASSERT(!Containers[Container].IsOpen);
-	PATELLA_ASSERT(Name!=NULL);
+	PATELLA_ASSERT(Name!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(Name)<30, strlen(Name));
 	Containers[Container].IsOpen = true;
 	Containers[Container].Object = Object;
@@ -215,7 +214,7 @@ int patella::TInventory::GetFreeContainer() const
 bool patella::TInventory::SetOwnOffer(const char *Name)
 {
 	PATELLA_ASSERT_VALUES(OwnOffer.Count==0, OwnOffer.Count);
-	PATELLA_ASSERT(Name!=NULL);
+	PATELLA_ASSERT(Name!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(Name)<30, strlen(Name));
 	OwnOffer.Name.Assign(Name);
 	return true;
@@ -226,7 +225,7 @@ bool patella::TInventory::SetCounterOffer(const char *Name)
 {
 	if (CounterOffer.Count != 0)
 		return false;
-	PATELLA_ASSERT(Name!=NULL);
+	PATELLA_ASSERT(Name!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(Name)<30, strlen(Name));
 	CounterOffer.Name.Assign(Name);
 	return true;

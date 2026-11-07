@@ -208,15 +208,15 @@ public:
 	// Position and coordinates (the gap before Map.cpp's first assertion).
 	void SetMapPosition(int x, int y, int z);
 	void GetMapPosition(int *x, int *y, int *z) const;
-	int GetMapLevel() const;
+	[[nodiscard]] int GetMapLevel() const;
 	void RelativeToAbsolute(int *x, int *y, int *z) const;
 	void AbsoluteToRelative(int *x, int *y, int *z) const;
 
 	// Ambient light.
 	void SetAmbientLight(int Brightness, int Color);
 	void UpdateAmbientLight();
-	TRGBColor GetAmbientColor() const;
-	int GetAmbientBrightness() const;
+	[[nodiscard]] TRGBColor GetAmbientColor() const;
+	[[nodiscard]] int GetAmbientBrightness() const;
 
 	// Objects.
 	TObject GetFirstObject(int rx, int ry, int rz);
@@ -234,16 +234,16 @@ public:
 	// Effects.
 	TEffectId GetFirstEffect(int rx, int ry, int rz);
 	TEffectId GetNextEffect();
-	int GetEffectStatus(TEffectId EffectNumber) const;
-	int GetGraphicalEffectType(TEffectId EffectNumber) const;
-	int GetGraphicalEffectPhase(TEffectId EffectNumber) const;
-	int GetTextualEffectColor(TEffectId EffectNumber) const;
+	[[nodiscard]] int GetEffectStatus(TEffectId EffectNumber) const;
+	[[nodiscard]] int GetGraphicalEffectType(TEffectId EffectNumber) const;
+	[[nodiscard]] int GetGraphicalEffectPhase(TEffectId EffectNumber) const;
+	[[nodiscard]] int GetTextualEffectColor(TEffectId EffectNumber) const;
 	char *GetTextualEffectText(TEffectId EffectNumber);
-	int GetTextualEffectPhase(TEffectId EffectNumber) const;
-	int GetMissileEffectType(TEffectId EffectNumber) const;
-	int GetMissileEffectDirection(TEffectId EffectNumber) const;
-	int GetMissileEffectX(TEffectId EffectNumber) const;
-	int GetMissileEffectY(TEffectId EffectNumber) const;
+	[[nodiscard]] int GetTextualEffectPhase(TEffectId EffectNumber) const;
+	[[nodiscard]] int GetMissileEffectType(TEffectId EffectNumber) const;
+	[[nodiscard]] int GetMissileEffectDirection(TEffectId EffectNumber) const;
+	[[nodiscard]] int GetMissileEffectX(TEffectId EffectNumber) const;
+	[[nodiscard]] int GetMissileEffectY(TEffectId EffectNumber) const;
 	void AddGraphicalEffect(int rx, int ry, int rz, int Type);
 	void AddTextualEffect(int rx, int ry, int rz, int Color, const char *Text);
 	void AddMissileEffect(int sx, int sy, int sz, int dx, int dy, int dz, int Type);

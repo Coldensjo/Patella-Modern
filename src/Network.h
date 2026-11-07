@@ -123,7 +123,7 @@ public:
 	void CheckConnectionTimeout();
 	void GetErrorMessage(TSpan<char, ERROR_MESSAGE_SIZE> MessageBuffer, int ErrorCode, int ErrorType);
 	bool ResolveHostname(const char *Hostname);
-	const char *GetResolvedIPAddress() const;
+	[[nodiscard]] const char *GetResolvedIPAddress() const;
 	int CreateSocket();
 	int ConnectSocket(const char *IPAddress, int Port, bool SetTimeout);
 	void SetSymmetricKey(const uint8 *Key);

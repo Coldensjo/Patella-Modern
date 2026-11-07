@@ -25,7 +25,7 @@
 #include "AutomapLayer.h"
 #include "Container.h"
 #include "types/IndexedVector.h"
-#include "types/SlotTable.h"
+#include "MapPoint.h"
 #include "common.h"
 #include "compat/span.h"
 #include "types/FixedString.h"
@@ -523,7 +523,7 @@ void patella::TMap::AddGraphicalEffect(int rx, int ry, int rz, int Type)
 // 0x4bad00, lines 712-721
 void patella::TMap::AddTextualEffect(int rx, int ry, int rz, int Color, const char *Text)
 {
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	PATELLA_ASSERT_VALUES(strlen(Text)<10, strlen(Text));
 	const TEffectId Number = NewEffect(2, rx, ry, rz);
 	if (Number != TEffectId::None) {
@@ -629,6 +629,8 @@ void patella::TMap::ProcessEffects()
 			Effect.TextPhase++;
 			if (Effect.TextPhase > 10)
 				DeleteEffect(EffectIdOf(i));
+			break;
+		default: // nothing, as without it (bugprone-switch-missing-default-case, issue #110)
 			break;
 		}
 	}
@@ -1029,6 +1031,7 @@ void patella::TMap::LoadAutomapBlock(int Position, int bx, int by, int bz)
 					const char *Text = File.readString();
 					if (Text != nullptr) {
 						CopyString(Block.Marks(i).Text.Chars, Text);
+						// NOLINTNEXTLINE(cppcoreguidelines-owning-memory): readString's text, the caller's (notes/ownership.md)
 						delete[] Text;
 					}
 				}
@@ -1230,7 +1233,7 @@ int patella::TMap::GetAutomapSpeed(int x, int y, int z)
 // 0x4b4f60, lines 1538-1557
 void patella::TMap::AddAutomapMark(TCoordinate &Coordinate, const char *Text, int Type)
 {
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	PATELLA_ASSERT_VALUES(Coordinate.x>0, Coordinate.x);
 	PATELLA_ASSERT_VALUES(Coordinate.y>0, Coordinate.y);
 	TAutomapBlock *Block = GetAutomapBlock(Coordinate.x / 256, Coordinate.y / 256, Coordinate.z);
