@@ -19,6 +19,7 @@
 #include "Preferences.h"
 #include "common.h"
 #include "compat/span.h"
+#include "platform/Window.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
@@ -77,7 +78,7 @@ void patella::TNetwork::SetConnectionTimeout(int Timeout)
 }
 
 // 0x4ca2b0
-void patella::TNetwork::SetNetworkWindow(HWND Window)
+void patella::TNetwork::SetNetworkWindow(platform::TWindowHandle Window)
 {
 	NetworkWindow = Window;
 }
@@ -697,7 +698,7 @@ void SetConnectionTimeout(int Timeout)
 	patella::bridge::Network().SetConnectionTimeout(Timeout);
 }
 
-void SetNetworkWindow(HWND Window)
+void SetNetworkWindow(patella::platform::TWindowHandle Window)
 {
 	patella::bridge::Network().SetNetworkWindow(Window);
 }

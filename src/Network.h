@@ -13,6 +13,7 @@
 #include "Utils.h"
 #include "compat/span.h"
 #include "platform/Socket.h"
+#include "platform/Window.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
@@ -90,7 +91,7 @@ public:
 	void SetTestServerPort(int Port);
 	void ResetServerAvailability();
 	void SetConnectionTimeout(int Timeout);
-	void SetNetworkWindow(HWND Window);
+	void SetNetworkWindow(platform::TWindowHandle Window);
 	void SetTestServerAddress(const char *Address);
 	void SetServerError(int errorcode);
 	void SetServerIPAddress(const char *ipaddress);
@@ -150,7 +151,7 @@ public:
 	// inside the frame: Tibia.exe read on past ReceiveData, into SendData.
 	std::array<uint8, 0x4000> ReceiveData{};            // 0x715540
 	std::array<uint8, 0x800> SendData{};                // 0x719540
-	HWND NetworkWindow{};                               // 0x719d40, receives WM_USER+1 when a name is resolved
+	platform::TWindowHandle NetworkWindow{};            // 0x719d40, receives WM_USER+1 when a name is resolved
 	void (*CloseCallback)(){};                          // 0x719d44
 	void (*ReceiveCallback)(){};                        // 0x719d48
 	void (*ConnectCallback)(){};                        // 0x719d4c
@@ -187,7 +188,7 @@ void InitServerList();
 void SetTestServerPort(int Port);
 void ResetServerAvailability();
 void SetConnectionTimeout(int Timeout);
-void SetNetworkWindow(HWND Window);
+void SetNetworkWindow(patella::platform::TWindowHandle Window);
 void SetTestServerAddress(const char *Address);
 void SetServerError(int errorcode);
 void SetServerIPAddress(const char *ipaddress);

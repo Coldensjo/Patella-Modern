@@ -655,6 +655,9 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   `IWindow` with their Win32 implementations and the test mode's (seven TestHooks.h hooks gone), Patella.ini and
   LogFile through `IFileSystem`, and the {MainFrm, Player} module cycle broken (no module cycle left). Not yet:
   `TSurface` as the platform's interface.
+  Done in #138 (notes/decisions.md, "#138: TSurface as a platform interface"): `TSurface` in `src/platform/Surface.h`
+  without a Win32 type, the engine's shared data (`TSurfaceShared`, TGraphicsEngine's base) given to the surface
+  instead of the client's accessor, `TWindowHandle` for the client's HWND uses, the desktop's mode through `IWindow`.
 - **Text encoding:** the 7.72 protocol and files use the client's 8-bit code page (Latin-1 / Windows-1252).
   Internally, decide (D4) between keeping 8-bit text (simplest, closest to the original) and UTF-8 with
   conversion at the protocol and file boundaries. The platform layer converts in either case: SDL3 and Linux
