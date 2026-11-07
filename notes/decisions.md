@@ -16463,3 +16463,34 @@ cursor decoder (black, white, transparent and inverted pixels, rows top-down, re
 
 No check changed. Player.cpp calls sdlframe::ScreenToClient on the SDL3 path: client_stubs.cpp stubs it. MainFrm.cpp
 is not touched.
+
+### Needs the user (high)
+
+- **The cursor where Windows cannot read it** (above): SDL_GetGlobalMouseState's (0, 0) while the desktop is away
+  (chosen: the issue's SDL call) or Win32's GetCursorPos on Windows until #127, which keeps the original's last
+  position. One line in TSdlLoopInput::CursorPosition.
+- **The test server's world broke during this issue's first compare_traffic run** (not by this change): testserver.py
+  start's bind-race retry (#95) stopped attempt 1, which had come online meanwhile, and killed it after 30 s while it
+  saved its map (C:\Tibia\gameserver\data\map's sector files are dated 18:48:11-18:48:15, the save cut off); every later
+  start fails with "Cannot load sector". Not restored here (the server's files are not this work's to edit); the backup
+  is build\gameserver-map-backup-20261107.7z in the main checkout. Found, not done: start's stop_timeout reads the log
+  at the bind error (2.1 s), before "Server Online!", so it gives STALLED_STOP to a server that comes online before the
+  Ctrl+C (build\logs\issue-123\compare_traffic.log, build\testserver\server-attempt1.log).
+
+### The gates (high)
+
+Logs in build\logs\issue-123 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden). Every golden run: 15,803,218 replayed + 1,512,822 retired =
+17,316,040, 0 failures; 0 compiler warnings on every preset.
+
+- `python -I tools/build.py windows-x64` exit 0, 28/28 (again on the committed head: windows-x64-final.log);
+  windows-x64-debug exit 0, 27/27; windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13;
+  linux-x64-gcc exit 0, 25/25; linux-x64-clang (ASan, UBSan) exit 0, 24/24, no sanitizer report.
+- `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every session
+  matches, the clients' logs `window: SDL3` (reference-sdl.log, and on the committed head reference-sdl-final.log);
+  `PATELLA_WINDOW=mfc` the same, `window: MFC` (reference-mfc.log).
+- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
+  clang-format (CLAUDE.md's command) exit 0.
+- Not run: compare_traffic, compare_files, testmode_check and compare_rendering (the test server's world, above;
+  compare_traffic's first run exit 1 at the server's start), hosted CI (the branch is not pushed while live gates are
+  missing).
