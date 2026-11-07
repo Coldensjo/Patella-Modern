@@ -79,6 +79,8 @@ pull requests. Details: "Checking" in [notes/reconstruction.md](notes/reconstruc
   It is the source of truth.
 - [docs/modernization-explained.md](docs/modernization-explained.md): the same plan in plain language,
   written for readers who are not programmers.
+- [docs/modernization-changes.md](docs/modernization-changes.md): every major modernization done so far, in plain
+  language: what changed, what it gives, how it modernizes the code.
 - [notes/decisions.md](notes/decisions.md): every judgement call, including the modernization decisions D1
   to D17.
 - [notes/reconstruction.md](notes/reconstruction.md) and [notes/progress.md](notes/progress.md): how the
