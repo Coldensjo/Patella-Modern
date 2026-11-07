@@ -486,10 +486,11 @@ bool OnSetCursor(HWND Hwnd)
 	return true;
 }
 
-// CMainFrame::OnHostResolved (the socket's message until issue #125): WSAAsyncGetHostByName finished.
-void OnHostResolved(LPARAM LParam)
+// CMainFrame::OnHostResolved: the name lookup is done (Error 0: the address is there). Since issue #125 the portable
+// socket's Poll calls it (HostResolved, below), where WSAAsyncGetHostByName posted WM_USER + 1 to the window.
+void OnHostResolved(int Error)
 {
-	if (WSAGETASYNCERROR(LParam) == 0) {
+	if (Error == 0) {
 		if (GetConnectionState() != 1) {
 			SetConnectionTimeout(0);
 			SetConnectionState(0);
@@ -505,7 +506,7 @@ void OnHostResolved(LPARAM LParam)
 	} else {
 		SetConnectionTimeout(0);
 		SetConnectionState(0);
-		SetServerError(WSAGETASYNCERROR(LParam));
+		SetServerError(Error);
 	}
 	ConnectToLoginServer();
 }
@@ -558,9 +559,6 @@ LRESULT CALLBACK InputProc(HWND Hwnd, UINT Message, WPARAM WParam, LPARAM LParam
 		// timer does not use WM_TIMER.
 		::DefWindowProcA(Hwnd, Message, WParam, LParam);
 		TimerEvent();
-		return 0;
-	case WM_USER + 1:
-		OnHostResolved(LParam);
 		return 0;
 	case WM_NCHITTEST:
 		if (GetViewMode() == 2)
@@ -776,6 +774,11 @@ int Run(void (*Idle)(long Count))
 	}
 	SDL_Quit();
 	return 0;
+}
+
+void HostResolved(int Error)
+{
+	OnHostResolved(Error);
 }
 
 // MainFrm.cpp's ExitProgram: closes the client without asking. Win32 until issue #127: a posted WM_CLOSE (SDL's

@@ -1,7 +1,8 @@
 // Win32Platform.cpp: the Win32 implementations of the platform's interfaces (Patella-Modern issue #109;
 // platform/Win32Platform.h). Not part of the original source: each function is the call the client made itself
-// before #109 (sysinc.cpp's timeGetTime, the wall clock's time, the frame timer's Sleep, Network.cpp's CAsyncSocket
-// and WinSock calls) or before #119 (sysinc.cpp's clipboard, MainFrm.cpp's and Player.cpp's GetCursorPos, SetTimer,
+// before #109 (sysinc.cpp's timeGetTime, the wall clock's time, the frame timer's Sleep; Network.cpp's CAsyncSocket
+// and WinSock calls until issue #125, now platform/PortableSocket.cpp's and, in the golden runner,
+// tests/golden/network/MfcSocket.cpp's) or before #119 (sysinc.cpp's clipboard, MainFrm.cpp's and Player.cpp's GetCursorPos, SetTimer,
 // KillTimer, MessageBoxA and EnumWindows, the Vulkan engine's EnumDisplaySettingsA), with the same arguments.
 
 #include "platform/Win32Platform.h"
@@ -44,83 +45,6 @@ std::int64_t TWin32Clock::WallSeconds()
 void TWin32Clock::FrameWait(std::uint32_t Duration)
 {
 	Sleep(Duration);
-}
-
-// ISocket's numbers are WinSock's (platform/Socket.h, issue #110): TWin32Socket passes WinSock's on unchanged.
-static_assert(socket_error::Invalid == WSAEINVAL && socket_error::WouldBlock == WSAEWOULDBLOCK
-	&& socket_error::MessageSize == WSAEMSGSIZE && socket_error::AddressNotAvailable == WSAEADDRNOTAVAIL
-	&& socket_error::NetworkDown == WSAENETDOWN && socket_error::NetworkUnreachable == WSAENETUNREACH
-	&& socket_error::TimedOut == WSAETIMEDOUT && socket_error::ConnectionRefused == WSAECONNREFUSED
-	&& socket_error::HostUnreachable == WSAEHOSTUNREACH && socket_error::HostNotFound == WSAHOST_NOT_FOUND
-	&& socket_error::TryAgain == WSATRY_AGAIN && socket_error::NoData == WSANO_DATA);
-static_assert(SocketFailed == SOCKET_ERROR && HostEntrySize == MAXGETHOSTSTRUCT);
-
-bool TWin32Socket::Startup()
-{
-	return AfxSocketInit(nullptr) != FALSE;
-}
-
-int TWin32Socket::LastError()
-{
-	return WSAGetLastError();
-}
-
-TSocket *TWin32Socket::New(ISocketEvents &Events)
-{
-	return new TSocket(Events); // NOLINT(cppcoreguidelines-owning-memory): TNetwork's Socket, released by Delete
-}
-
-void TWin32Socket::Delete(TSocket *Connection)
-{
-	delete Connection; // NOLINT(cppcoreguidelines-owning-memory): New's
-}
-
-bool TWin32Socket::Create(TSocket *Connection)
-{
-	return Connection->Create(0, SOCK_STREAM, FD_READ | FD_WRITE | FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE, nullptr)
-		!= FALSE;
-}
-
-// Connection may be null: TNetwork's ConnectSocket without a socket calls it so, as the original called
-// CAsyncSocket::Connect (the golden Network test's rounds reach it; tests/golden/network/CMakeLists.txt).
-bool TWin32Socket::Connect(TSocket *Connection, const char *Address, int Port)
-{
-	return Connection->Connect(Address, Port) != FALSE;
-}
-
-int TWin32Socket::Send(TSocket *Connection, const void *Data, int Length)
-{
-	return Connection->Send(Data, Length, 0);
-}
-
-int TWin32Socket::Receive(TSocket *Connection, void *Buffer, int Length)
-{
-	return Connection->Receive(Buffer, Length, 0);
-}
-
-void TWin32Socket::Shutdown(TSocket *Connection, TShutdown How)
-{
-	shutdown(Connection->m_hSocket, How == TShutdown::Send ? SD_SEND : SD_BOTH);
-}
-
-void TWin32Socket::Close(TSocket *Connection)
-{
-	Connection->Close();
-}
-
-void *TWin32Socket::ResolveHostname(void *Window, unsigned int Message, const char *Hostname, char *Buffer, int Length)
-{
-	return WSAAsyncGetHostByName(static_cast<HWND>(Window), Message, Hostname, Buffer, Length);
-}
-
-void TWin32Socket::CancelResolve(void *Request)
-{
-	WSACancelAsyncRequest(Request);
-}
-
-const char *TWin32Socket::ResolvedAddress(const char *Buffer)
-{
-	return inet_ntoa(*reinterpret_cast<const in_addr *>(reinterpret_cast<const HOSTENT *>(Buffer)->h_addr_list[0]));
 }
 
 bool TWin32Clipboard::HasText()
@@ -270,7 +194,6 @@ bool TWin32Window::DesktopMode(TDisplayMode &Mode)
 namespace {
 constinit TWin32Clock Win32ClockInstance;
 constinit TSystemFileSystem SystemFileSystemInstance;
-constinit TWin32Socket Win32SocketInstance;
 constinit TWin32Clipboard Win32ClipboardInstance;
 constinit TWin32Input Win32InputInstance;
 constinit TWin32Window Win32WindowInstance;
@@ -285,11 +208,6 @@ TWin32Clock &Win32Clock()
 TSystemFileSystem &SystemFileSystem()
 {
 	return SystemFileSystemInstance;
-}
-
-TWin32Socket &Win32Socket()
-{
-	return Win32SocketInstance;
 }
 
 TWin32Clipboard &Win32Clipboard()
@@ -326,7 +244,7 @@ IInput &WindowInput()
 // input is the window path's (WindowInput).
 TPlatform &Platform()
 {
-	static TPlatform Instance{Win32ClockInstance, SystemFileSystemInstance, Win32SocketInstance, Win32ClipboardInstance,
+	static TPlatform Instance{Win32ClockInstance, SystemFileSystemInstance, NetworkSocket(), Win32ClipboardInstance,
 		WindowInput(), Win32WindowInstance};
 	return Instance;
 }

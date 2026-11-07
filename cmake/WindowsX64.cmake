@@ -85,7 +85,10 @@ set(patella_vulkan_window_sources "${PROJECT_SOURCE_DIR}/src/vulkan/WindowSystem
 set(patella_vulkan_client_sources "${PROJECT_SOURCE_DIR}/src/vulkan/SurfaceVulkan.cpp" ${patella_vulkan_window_sources}
 	"${PROJECT_SOURCE_DIR}/src/vulkan/DeviceSettings.cpp" "${PROJECT_SOURCE_DIR}/src/settings/Settings.cpp"
 	"${PROJECT_SOURCE_DIR}/src/settings/PreferenceKeys.cpp" "${PROJECT_SOURCE_DIR}/src/log/LogSettings.cpp"
-	"${PROJECT_SOURCE_DIR}/src/platform/Win32Platform.cpp")
+	"${PROJECT_SOURCE_DIR}/src/platform/Win32Platform.cpp"
+	# Issue #125: the network, TPortableSocket (patella_platform's source, compiled here again for the static CRT) and
+	# the Windows client's glue (the lookups' replies to the window, the modal loops' polling).
+	"${PROJECT_SOURCE_DIR}/src/platform/PortableSocket.cpp" "${PROJECT_SOURCE_DIR}/src/platform/NetworkWin32.cpp")
 
 # The client: Patella.exe, the product; PatellaTest.exe, the test build (issue #21; plan 4.4), the
 # same sources with PATELLA_TEST_MODE, which turns the hooks of src/TestHooks.h into the test mode:

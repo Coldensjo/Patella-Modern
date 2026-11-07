@@ -10,15 +10,17 @@
 
 string(REPLACE "/EHsc" "/EHs" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# The platform's Win32 implementations (issue #109, src/platform/Win32Platform.cpp: the runner's Platform()) are here,
-# with the same exception model: they are the WinSock and CAsyncSocket calls Network.cpp made itself until then, through
-# which the error round's fakes throw.
-add_library(golden_network_tests OBJECT ../network_tests.cpp "${PROJECT_SOURCE_DIR}/src/platform/Win32Platform.cpp")
+# The platform's Win32 implementations (issue #109, src/platform/Win32Platform.cpp: the runner's Platform()) and the
+# runner's socket (issue #125, MfcSocket.cpp: TMfcSocket, Patella.exe's TWin32Socket until then) are here, with the same
+# exception model: they are the WinSock and CAsyncSocket calls Network.cpp made itself until #109, through which the
+# error round's fakes throw.
+add_library(golden_network_tests OBJECT ../network_tests.cpp "${PROJECT_SOURCE_DIR}/src/platform/Win32Platform.cpp"
+	MfcSocket.cpp)
 golden_client_settings(golden_network_tests)
 # Linux with UBSan (linux-x64-clang, issue #91): the Network test calls ConnectSocket without a socket, as its rounds
 # reach it, and CAsyncSocket::Connect is called on the null pointer, as the original does (since issue #109 by
-# TWin32Socket::Connect, src/platform/Win32Platform.cpp); the test's CAsyncSocket takes a null this (network_tests.cpp
-# SocketConnect). UBSan's null check reports the member call, so it is off for these two files only
+# TWin32Socket::Connect, since issue #125 TMfcSocket::Connect of MfcSocket.cpp); the test's CAsyncSocket takes a null
+# this (network_tests.cpp SocketConnect). UBSan's null check reports the member call, so it is off for these files only
 # (notes/decisions.md, "The golden corpus on Linux (issue #91)").
 if(golden_linux AND PATELLA_SANITIZE MATCHES "undefined")
 	target_compile_options(golden_network_tests PRIVATE -fno-sanitize=null)

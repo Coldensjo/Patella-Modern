@@ -3,6 +3,7 @@
 #include "testmode/PipeSocketWin32.h"
 
 #include "platform/Platform.h"
+#include "platform/PortableSocket.h"
 #include "platform/Win32Platform.h"
 #include "testmode/PipeNetwork.h"
 
@@ -121,7 +122,7 @@ int TPipeSocketWin32::Fail(TPipeError Code)
 
 bool TPipeSocketWin32::Startup()
 {
-	return platform::Win32Socket().Startup();
+	return platform::NetworkSocket().Startup();
 }
 
 int TPipeSocketWin32::LastError()
@@ -212,20 +213,26 @@ void TPipeSocketWin32::Close(platform::TSocket *Connection)
 
 void *TPipeSocketWin32::ResolveHostname(void *Owner, unsigned int Message, const char *Hostname, char *Buffer, int Length)
 {
-	void *Request = platform::Win32Socket().ResolveHostname(Owner, Message, Hostname, Buffer, Length);
+	void *Request = platform::NetworkSocket().ResolveHostname(Owner, Message, Hostname, Buffer, Length);
 	if (Request == nullptr)
-		Error = platform::Win32Socket().LastError();
+		Error = platform::NetworkSocket().LastError();
 	return Request;
 }
 
 void TPipeSocketWin32::CancelResolve(void *Request)
 {
-	platform::Win32Socket().CancelResolve(Request);
+	platform::NetworkSocket().CancelResolve(Request);
 }
 
 const char *TPipeSocketWin32::ResolvedAddress(const char *Buffer)
 {
-	return platform::Win32Socket().ResolvedAddress(Buffer);
+	return platform::NetworkSocket().ResolvedAddress(Buffer);
+}
+
+// The connections' events come as the window's messages; the lookups are the live runs' socket's.
+void TPipeSocketWin32::Poll()
+{
+	platform::NetworkSocket().Poll();
 }
 
 } // namespace patella::testmode

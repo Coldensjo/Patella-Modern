@@ -6,38 +6,58 @@
 // (platform/Platform.h), call for call: the same calls, in the same order, with the same arguments, so the golden
 // Network test's fakes of WinSock and CAsyncSocket see what they saw.
 //
-//	TWin32Socket   MFC's CAsyncSocket and WinSock (platform/Win32Platform.h): Patella.exe's, PatellaTest.exe's (whose
-//	               server replay is a server on the loopback ports, notes/testmode.md) and the golden runner's
+//	TPortableSocket   Winsock or POSIX sockets, non-blocking, polled from the loop, the name lookup on a std::jthread
+//	                  (platform/PortableSocket.h, issue #125): Patella.exe's, and PatellaTest.exe's live runs'
+//	TPipeSocketWin32  the test build's server replay inside the process (testmode/PipeSocketWin32.h, issue #120)
+//	TMfcSocket        MFC's CAsyncSocket and WinSock, the original's calls (tests/golden/network/MfcSocket.h): the
+//	                  golden runner's, whose Network test fakes those calls (Patella.exe's too until issue #125)
 //
-// A connection is a TSocket, which each implementation defines (Win32's: a CAsyncSocket); TNetwork holds it as the
-// original held its CAsyncSocket, and the golden Network test reaches its events through it. Its events go to the
-// ISocketEvents it was made for (TNetwork).
+// A connection is a TSocket, which each executable defines once (PortableSocket.h's in Patella.exe and PatellaTest.exe,
+// a CAsyncSocket in the golden runner); TNetwork holds it as the original held its CAsyncSocket, and the golden Network
+// test reaches its events through it. Its events go to the ISocketEvents it was made for (TNetwork).
 
 #pragma once
 
 namespace patella::platform {
 
 // The numbers the interface carries (issue #110): WinSock's, which every implementation reports and TNetwork's error
-// messages name (GetErrorMessage's table; the protocol's numbers here, whatever the system's own are). Win32Platform.cpp
-// asserts that they are WinSock's.
+// messages name (GetErrorMessage's table; the protocol's numbers here, whatever the system's own are). PortableSocket.cpp
+// asserts on Windows that they are WinSock's, and gives them for POSIX's errno and getaddrinfo's codes (issue #125).
 namespace socket_error {
+inline constexpr int Interrupted = 10004;         // WSAEINTR
+inline constexpr int AccessDenied = 10013;        // WSAEACCES
+inline constexpr int Fault = 10014;               // WSAEFAULT
 inline constexpr int Invalid = 10022;             // WSAEINVAL
+inline constexpr int TooManySockets = 10024;      // WSAEMFILE
 inline constexpr int WouldBlock = 10035;          // WSAEWOULDBLOCK: Connect's while it connects
+inline constexpr int Already = 10037;             // WSAEALREADY
+inline constexpr int NotSocket = 10038;           // WSAENOTSOCK
 inline constexpr int MessageSize = 10040;         // WSAEMSGSIZE
+inline constexpr int FamilyNotSupported = 10047;  // WSAEAFNOSUPPORT
+inline constexpr int AddressInUse = 10048;        // WSAEADDRINUSE
 inline constexpr int AddressNotAvailable = 10049; // WSAEADDRNOTAVAIL
 inline constexpr int NetworkDown = 10050;         // WSAENETDOWN
 inline constexpr int NetworkUnreachable = 10051;  // WSAENETUNREACH
+inline constexpr int NetworkReset = 10052;        // WSAENETRESET
+inline constexpr int ConnectionAborted = 10053;   // WSAECONNABORTED
+inline constexpr int ConnectionReset = 10054;     // WSAECONNRESET
+inline constexpr int NoBuffers = 10055;           // WSAENOBUFS
+inline constexpr int AlreadyConnected = 10056;    // WSAEISCONN
+inline constexpr int NotConnected = 10057;        // WSAENOTCONN
+inline constexpr int Shutdown = 10058;            // WSAESHUTDOWN
 inline constexpr int TimedOut = 10060;            // WSAETIMEDOUT
 inline constexpr int ConnectionRefused = 10061;   // WSAECONNREFUSED
 inline constexpr int HostUnreachable = 10065;     // WSAEHOSTUNREACH
 inline constexpr int HostNotFound = 11001;        // WSAHOST_NOT_FOUND
 inline constexpr int TryAgain = 11002;            // WSATRY_AGAIN
+inline constexpr int NoRecovery = 11003;          // WSANO_RECOVERY
 inline constexpr int NoData = 11004;              // WSANO_DATA
 } // namespace socket_error
 
 // Send's and Receive's failure: SOCKET_ERROR.
 inline constexpr int SocketFailed = -1;
-// The size of ResolveHostname's buffer for the host's entry: MAXGETHOSTSTRUCT.
+// The size of ResolveHostname's buffer for the host's entry: MAXGETHOSTSTRUCT (TPortableSocket writes the address's
+// text there).
 inline constexpr int HostEntrySize = 1024;
 
 // What shutdown stops: SD_SEND, SD_BOTH.
@@ -89,18 +109,25 @@ public:
 	virtual int Receive(TSocket *Connection, void *Buffer, int Length) = 0;
 	// shutdown of the connection's socket.
 	virtual void Shutdown(TSocket *Connection, TShutdown How) = 0;
-	// CAsyncSocket::Close.
+	// CAsyncSocket::Close: no event of the connection after it.
 	virtual void Close(TSocket *Connection) = 0;
 
 	// WSAAsyncGetHostByName: the request (nullptr where it could not start, LastError says why); Window gets Message
-	// when it is done, with the host's entry in Buffer.
+	// (HOSTNAME_RESOLVED_MESSAGE, WM_USER + 1: the frames' OnHostResolved) when it is done, with the host's entry in
+	// Buffer. TPortableSocket's lookup is done at a later Poll.
 	[[nodiscard]] virtual void *ResolveHostname(void *Window, unsigned int Message, const char *Hostname, char *Buffer,
 		int Length) = 0;
-	// WSACancelAsyncRequest.
+	// WSACancelAsyncRequest: no message for the request (nullptr, or one that is done: nothing).
 	virtual void CancelResolve(void *Request) = 0;
 	// inet_ntoa of the first address of the host's entry in Buffer (ResolveHostname's): the text, valid until the next
 	// call.
 	[[nodiscard]] virtual const char *ResolvedAddress(const char *Buffer) = 0;
+
+	// The loop's turn (issue #125): the connections' events (OnConnect, OnReceive, OnClose) and the finished name
+	// lookups, on the calling thread (the client's), where the message loop dispatched WinSock's messages. The client
+	// calls it at the start of every idle step (Player.cpp's OnIdle, on both window paths). Nothing where the events
+	// come otherwise (the golden runner's fakes, the replay's window messages).
+	virtual void Poll() = 0;
 
 protected:
 	~ISocket() = default;

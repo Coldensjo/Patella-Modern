@@ -146,6 +146,7 @@ public:
 	}
 	void Shutdown(patella::platform::TSocket *, patella::platform::TShutdown) override {}
 	void Close(patella::platform::TSocket *) override {}
+	void Poll() override {}
 	void *ResolveHostname(void *, unsigned int, const char *, char *, int) override { return nullptr; }
 	void CancelResolve(void *) override {}
 	const char *ResolvedAddress(const char *) override { return ""; }

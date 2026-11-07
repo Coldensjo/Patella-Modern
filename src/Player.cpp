@@ -492,6 +492,8 @@ int CPlayerApp::Run()
 // handles the event queue (Control.cpp).
 BOOL CPlayerApp::OnIdle(LONG lCount)
 {
+	// Issue #125: the socket's events and lookups, where the message loop had just dispatched WinSock's messages.
+	patella::platform::Platform().Socket.Poll();
 	patella::platform::Platform().Input.BeginIdle(); // issue #119: the test mode's driver step (TestHooks.h until then)
 	CWinApp::OnIdle(lCount);
 	POINT Point;
