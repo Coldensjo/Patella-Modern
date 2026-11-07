@@ -1,4 +1,4 @@
-// SurfaceVulkan.cpp: the Vulkan engine's surface on the MFC window (SurfaceVulkan.h; notes/vulkan.md).
+// SurfaceVulkan.cpp: the Vulkan engine's surface on the client's window (SurfaceVulkan.h; notes/vulkan.md).
 //
 // Every function follows its counterpart in surfaceDX9.cpp (the comments name it), with the Direct3D 9
 // calls replaced: ColorFill by TRenderer::Fill, the dynamic vertex buffer by TRenderer::Draw, LockRect by
@@ -7,6 +7,11 @@
 // keys, the queued vertices, the frame counter) is kept the same way, so it outlives the surface
 // object as there. Not new code paths for the error reports: no PATELLA_ASSERT (an index out of range is
 // ignored), and the Vulkan back end's failures become PROGRAM_ERROR 12, as Direct3D's device failures.
+//
+// The window system (issue #126; vulkan/WindowSystem.h): the main window's client area, the screen's size and each
+// device's surface come from the window path's (platform/WindowChoice.h): SDL3's (SDL_Vulkan_CreateSurface) by default,
+// Win32's on MFC's window until issue #127. Still Win32 on both: the devices' own windows (PresentWindow.h, issue #52)
+// and the fullscreen display mode (ChangeDisplaySettingsA, the display's issue #124).
 
 #include "common.h"
 #include "vulkan/SurfaceVulkan.h"
@@ -15,16 +20,15 @@
 #include "Surface.h"
 #include "graphics.h"
 #include "platform/Platform.h"
+#include "platform/WindowChoice.h"
 #include "vulkan/DeviceChoice.h"
 #include "vulkan/PresentWindow.h"
 #include "vulkan/Quads.h"
 #include "vulkan/Renderer.h"
+#include "vulkan/WindowSystem.h"
 #include <array>
 
-#include <volk.h>
-
 #include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_win32.h>
 
 #include <cstdint>
 #include <cstdlib>
@@ -61,6 +65,18 @@ patella::vulkan::TPresentWindows PresentWindows;
 
 const int VertexLimit = 9600; // surfaceDX9.cpp's vertex buffer
 
+// The window system of the client's window path (WindowSystem.h, issue #126).
+patella::vulkan::IWindowSystem &WindowSystem()
+{
+	return patella::platform::UseSdlWindow() ? patella::vulkan::SdlWindowSystem() : patella::vulkan::Win32WindowSystem();
+}
+
+// A rectangle from the origin to Size.
+patella::platform::TEdgeRect SizeRect(int Width, int Height)
+{
+	return patella::platform::TEdgeRect{0, 0, Width, Height};
+}
+
 uint32 Xrgb(int R, int G, int B)
 {
 	return 0xff000000u | (uint32)(R & 0xff) << 16 | (uint32)(G & 0xff) << 8 | (uint32)(B & 0xff);
@@ -94,8 +110,8 @@ const char *TSurfaceVulkan::DeviceName() const
 
 // The device request: the graphics device choice (DeviceSettings.h: the advanced options' buttons,
 // Patella.ini, PATELLA_VULKAN; issue #31), the CPU driver next to the executable, the window the device
-// presents in (Window; nullptr: headless).
-TDeviceRequest TSurfaceVulkan::Request(HWND Window)
+// presents in (Window, a device's window; nullptr: headless) and its surface through the window system (issue #126).
+TDeviceRequest TSurfaceVulkan::Request(patella::platform::TWindowHandle Window)
 {
 	TDeviceRequest Result;
 	const patella::vulkan::TDeviceChoice Choice = GetDeviceChoice();
@@ -107,17 +123,11 @@ TDeviceRequest TSurfaceVulkan::Request(HWND Window)
 	Result.Validation = getenv_s(&ValidationLength, Validation.data(), Validation.size(), "PATELLA_VULKAN_VALIDATION") == 0
 		&& ValidationLength > 0 && Validation[0] == '1';
 	if (Window != nullptr) {
-		Result.SurfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
-		Result.CreateSurface = [Window](VkInstance Instance) {
-			PFN_vkCreateWin32SurfaceKHR Create = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(vkGetInstanceProcAddr(Instance, "vkCreateWin32SurfaceKHR"));
-			VkWin32SurfaceCreateInfoKHR Info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-			Info.hinstance = GetModuleHandleA(nullptr);
-			Info.hwnd = Window;
-			VkSurfaceKHR Surface = VK_NULL_HANDLE;
-			if (Create == nullptr || Create(Instance, &Info, nullptr, &Surface) != VK_SUCCESS)
-				throw TVulkanError("vkCreateWin32SurfaceKHR failed");
-			return Surface;
-		};
+		patella::vulkan::IWindowSystem &System = WindowSystem();
+		Result.SurfaceExtension = System.SurfaceExtension();
+		if (Result.SurfaceExtension.empty())
+			throw TVulkanError("the window system names no surface extension");
+		Result.CreateSurface = [&System, Window](VkInstance Instance) { return System.CreateSurface(Instance, Window); };
 	}
 	return Result;
 }
@@ -140,7 +150,7 @@ bool TSurfaceVulkan::TestEngine()
 		if (hWindow != nullptr && Window.Handle() == nullptr)
 			return false;
 		TRenderer Test;
-		Test.Create(Request(Window.Handle()));
+		Test.Create(Request(static_cast<patella::platform::TWindowHandle>(Window.Handle())));
 	} catch (const TVulkanError &) {
 		return false;
 	}
@@ -286,11 +296,10 @@ void TSurfaceVulkan::WaitForNextFrame()
 void TSurfaceVulkan::UpdateWindowRect()
 {
 	if (ViewMode == WINDOWED_MODE) {
-		GetClientRect(MainWindow(), &Rect[PRIMARY_SURFACE]);
-		GetClientRect(MainWindow(), &Rect[SCREEN_SURFACE]);
-		GetClientRect(MainWindow(), &WindowRect);
-		ClientToScreen(MainWindow(), reinterpret_cast<POINT *>(&WindowRect.left));
-		ClientToScreen(MainWindow(), reinterpret_cast<POINT *>(&WindowRect.right));
+		const patella::vulkan::TWindowSize Client = WindowSystem().ClientSize(hWindow);
+		Rect[PRIMARY_SURFACE] = SizeRect(Client.Width, Client.Height);
+		Rect[SCREEN_SURFACE] = SizeRect(Client.Width, Client.Height);
+		WindowRect = SizeRect(Client.Width, Client.Height);
 		if (Renderer != nullptr && Image[SCREEN_SURFACE] >= 0) {
 			const int Canvas = Image[SCREEN_SURFACE];
 			const int CanvasWidth = Renderer->ImageWidth(Canvas);
@@ -678,9 +687,9 @@ void TSurfaceVulkan::ExitSurfaces()
 TSurfaceVulkan::TSurfaceVulkan(patella::platform::TSurfaceShared &Shared) : TSurface(Shared)
 {
 	Ready = false;
-	memset(Rect.data(), 0, sizeof(Rect));
-	memset(&WindowRect, 0, sizeof(WindowRect));
-	memset(&SurfaceArea, 0, sizeof(SurfaceArea));
+	Rect.fill(patella::platform::TEdgeRect{});
+	WindowRect = patella::platform::TEdgeRect{};
+	SurfaceArea = patella::platform::TEdgeRect{};
 	Initialized = false;
 	for (int i = 0; i < NUMBER_OF_SURFACES_VULKAN; i++)
 		Image[i] = -1;
@@ -784,10 +793,10 @@ void TSurfaceVulkan::InitSurfaces()
 		SurfaceCreated[i] = 0;
 		SurfaceKeys[i] = 0;
 	}
-	SetRect(&Rect[TEMP_SURFACE], 0, 0, 640, 480);
-	SetRect(&Rect[STRETCH_SURFACE], 0, 0, 64, 64);
-	SetRect(&Rect[CACHE_SURFACE], 0, 0, 512, 384);
-	SetRect(&Rect[AUTOMAP_SURFACE], 0, 0, 106, 106);
+	Rect[TEMP_SURFACE] = SizeRect(640, 480);
+	Rect[STRETCH_SURFACE] = SizeRect(64, 64);
+	Rect[CACHE_SURFACE] = SizeRect(512, 384);
+	Rect[AUTOMAP_SURFACE] = SizeRect(106, 106);
 	for (int i = SPRITE_SURFACE; i < NUMBER_OF_SURFACES_VULKAN; i++) {
 		Rect[i].left = 0;
 		Rect[i].top = 0;
@@ -907,11 +916,10 @@ void TSurfaceVulkan::BlitRect(int ToSurface, int x, int y, int FromSurface, TRec
 void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 {
 	if (VMode == WINDOWED_MODE) {
-		GetClientRect(MainWindow(), &Rect[PRIMARY_SURFACE]);
-		GetClientRect(MainWindow(), &Rect[SCREEN_SURFACE]);
-		GetClientRect(MainWindow(), &WindowRect);
-		ClientToScreen(MainWindow(), reinterpret_cast<POINT *>(&WindowRect.left));
-		ClientToScreen(MainWindow(), reinterpret_cast<POINT *>(&WindowRect.right));
+		const patella::vulkan::TWindowSize Client = WindowSystem().ClientSize(hWindow);
+		Rect[PRIMARY_SURFACE] = SizeRect(Client.Width, Client.Height);
+		Rect[SCREEN_SURFACE] = SizeRect(Client.Width, Client.Height);
+		WindowRect = SizeRect(Client.Width, Client.Height);
 	} else {
 		TFullscreenMode *Modes;
 		const int Number = GetFullscreenModes(&Modes);
@@ -930,9 +938,9 @@ void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 		Width = GMode->Width;
 		Height = GMode->Height;
 		Depth = GMode->Depth;
-		SetRect(&Rect[PRIMARY_SURFACE], 0, 0, Width, Height);
-		SetRect(&Rect[SCREEN_SURFACE], 0, 0, Width, Height);
-		SetRect(&WindowRect, 0, 0, Width, Height);
+		Rect[PRIMARY_SURFACE] = SizeRect(Width, Height);
+		Rect[SCREEN_SURFACE] = SizeRect(Width, Height);
+		WindowRect = SizeRect(Width, Height);
 	}
 	ViewMode = VMode;
 }
@@ -969,7 +977,7 @@ void TSurfaceVulkan::CreateSurfaces()
 	PATELLA_TEST_FRAME_OBSERVERS(FrameObserver, PixelsObserver, MaskObserver, DeviceObserver)
 	try {
 		// A window of its own for the new device (PresentWindow.h, issue #52).
-		HWND Window = nullptr;
+		patella::platform::TWindowHandle Window = nullptr;
 		if (hWindow != nullptr) {
 			Window = PresentWindows.Open(MainWindow());
 			if (Window == nullptr)
@@ -979,8 +987,9 @@ void TSurfaceVulkan::CreateSurfaces()
 		Renderer->Create(Request(Window));
 		int CanvasWidth, CanvasHeight;
 		if (ViewMode == WINDOWED_MODE) {
-			CanvasWidth = GetSystemMetrics(SM_CXSCREEN);
-			CanvasHeight = GetSystemMetrics(SM_CYSCREEN);
+			const patella::vulkan::TWindowSize Screen = WindowSystem().ScreenSize();
+			CanvasWidth = Screen.Width;
+			CanvasHeight = Screen.Height;
 			if (CanvasWidth < Rect[SCREEN_SURFACE].right)
 				CanvasWidth = Rect[SCREEN_SURFACE].right;
 			if (CanvasHeight < Rect[SCREEN_SURFACE].bottom)

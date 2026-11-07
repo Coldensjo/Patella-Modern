@@ -1,11 +1,12 @@
 # SDL3, the platform layer of plan M8 (decision D3; notes/modernization-plan.md, sections 5 and 7, M8;
 # notes/decisions.md, "#122: the SDL3 window and its event loop"). Included by cmake/WindowsX64.cmake: the x64 client's
 # window and event loop (src/SdlFrame.cpp, issue #122); input (#123), the display, clipboard, URLs and message boxes
-# (#124) and the Vulkan surface (#126) come after it. patella_core does not use it.
+# (#124) come after it; the Vulkan engine's surfaces are SDL_Vulkan_CreateSurface's since #126 (src/vulkan/WindowSystem.h,
+# also in tests_vulkan). patella_core does not use it.
 #
 #	SDL3::SDL3-static   SDL 3.4.18, built from its release archive with its own CMakeLists as a static library
 #	                    with the client's CRT (the static one), only the subsystems the client needs (video and
-#	                    events; Vulkan stays on for #126)
+#	                    events; Vulkan on: SDL_Vulkan_CreateSurface, #126)
 #	SDL3::Headers       its headers alone: what Patella_compile and PatellaTest_compile (PATELLA_CLIENT_COMPILE_ONLY,
 #	                    the hosted CI) compile against, so they do not build the library
 #

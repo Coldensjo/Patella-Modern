@@ -5,8 +5,8 @@
 // switch, activation, closing and destruction) and of CWinApp::Run (the message loop, with the main timer in the loop
 // instead of SetTimer). Player.cpp's CPlayerApp uses it when platform/WindowChoice.h's UseSdlWindow() holds (the
 // default; PATELLA_WINDOW=mfc keeps MFC's until issue #127). The window is SDL_CreateWindow's; on Windows its HWND is
-// the client's window handle (the Vulkan engine's surface, TGUI's and TNetwork's window: #126 moves the surface to
-// SDL_Vulkan_CreateSurface), and its keys, buttons and wheel still come as Win32 window messages (a subclass of the
+// the client's window handle (the Vulkan engine's main window, TGUI's and TNetwork's window; the engine's surfaces are
+// SDL_Vulkan_CreateSurface's since #126), and its keys, buttons and wheel still come as Win32 window messages (a subclass of the
 // SDL window, the handlers of MainFrm.cpp's message map), so that the test mode's scripted messages reach it as they
 // reach the MFC frame: SDL3's input is issue #123.
 //

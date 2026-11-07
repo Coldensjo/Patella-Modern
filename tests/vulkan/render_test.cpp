@@ -9,6 +9,9 @@
 // and on the machine's best GPU, if it has one. One more lists the graphics device choice's devices
 // (issue #31).
 // Device switches (issue #52) and the handles they leave (issue #53) are checked at the end.
+// The devices for a window get their surfaces through the engine's window systems (src/vulkan/WindowSystem.h, issue
+// #126): SDL3's (SDL_Vulkan_CreateSurface on the device's window, the client's default path) and Win32's (the MFC
+// window's, until issue #127). SDL's video subsystem is started in main, as the client starts it.
 
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest/doctest.h>
@@ -25,9 +28,10 @@
 #include <tlhelp32.h>
 #include <winternl.h>
 
-#include <vulkan/vulkan_win32.h>
-
 #include "vulkan/PresentWindow.h"
+#include "vulkan/WindowSystem.h"
+
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <cmath>
@@ -56,6 +60,54 @@ std::string CpuManifest()
 	DWORD Length = GetModuleFileNameA(nullptr, Path, MAX_PATH);
 	std::string Result(Path, Length);
 	return Result.substr(0, Result.find_last_of("\\/") + 1) + "lvp_icd.x86_64.json";
+}
+
+// Request for a device that presents in Window (a device's window, PresentWindow.h), its surface made by System (the
+// engine's window system, WindowSystem.h); every window a surface is made on goes to Surfaces when it is given.
+pv::TDeviceRequest OnWindow(
+	pv::TDeviceRequest Request, HWND Window, pv::IWindowSystem &System, std::vector<HWND> *Surfaces = nullptr)
+{
+	Request.SurfaceExtension = System.SurfaceExtension();
+	Request.CreateSurface = [Window, &System, Surfaces](VkInstance Instance) {
+		if (Surfaces != nullptr)
+			Surfaces->push_back(Window);
+		return System.CreateSurface(Instance, Window);
+	};
+	return Request;
+}
+
+// A hidden SDL3 window, as the client's main window on its default path (SdlFrame.cpp: SDL_CreateWindow, hidden and
+// resizable), with its HWND; destroyed with the object.
+class TSdlMainWindow {
+public:
+	TSdlMainWindow(int Width, int Height)
+		: Window(SDL_CreateWindow("tests_vulkan", Width, Height, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE))
+	{
+		if (Window != nullptr)
+			Handle = static_cast<HWND>(SDL_GetPointerProperty(
+				SDL_GetWindowProperties(Window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
+	}
+	~TSdlMainWindow()
+	{
+		if (Window != nullptr)
+			SDL_DestroyWindow(Window);
+		SDL_FlushEvents(SDL_EVENT_FIRST, SDL_EVENT_LAST);
+	}
+	TSdlMainWindow(const TSdlMainWindow &) = delete;
+	TSdlMainWindow &operator=(const TSdlMainWindow &) = delete;
+	TSdlMainWindow(TSdlMainWindow &&) = delete;
+	TSdlMainWindow &operator=(TSdlMainWindow &&) = delete;
+
+	SDL_Window *Window = nullptr;
+	HWND Handle = nullptr;
+};
+
+// The number of SDL's windows.
+int SdlWindows()
+{
+	int Count = 0;
+	SDL_free(static_cast<void *>(SDL_GetWindows(&Count)));
+	return Count;
 }
 
 // A deterministic pseudo-random sequence (the pictures are the same in every run).
@@ -352,6 +404,40 @@ TEST_CASE("a device for a window after headless instances (the start-up order)")
 {
 	REQUIRE_NOTHROW(pv::ListGpus());
 	REQUIRE_NOTHROW(pv::CpuDriverDevice(CpuManifest()));
+	// A device and its first frame on a device window of Parent, its surface through System.
+	auto OnEveryDevice = [](HWND Parent, pv::IWindowSystem &System, const char *Path) {
+		pv::TPresentWindows Windows;
+		HWND Window = Windows.Open(Parent);
+		REQUIRE(Window != nullptr);
+		for (TDevice &Device : Devices) {
+			CAPTURE(Device.Label);
+			CAPTURE(Path);
+			pv::TRenderer Renderer;
+			REQUIRE_NOTHROW(Renderer.Create(OnWindow(Device.Request, Window, System)));
+			std::printf("%s: a device for a hidden window (%s): %s\n", Device.Label.c_str(), Path,
+				Renderer.Device().Name.c_str());
+			// The swapchain (vk-bootstrap's surface format and present mode queries) on the first frame.
+			const int Image = Renderer.CreateImage(160, 120);
+			Renderer.Fill(Image, 0, 0, 160, 120, 0xff204060u);
+			const pv::TWindowSize Client = System.ClientSize(Parent);
+			CHECK(Client.Width > 0);
+			CHECK(Client.Height > 0);
+			CHECK_NOTHROW(Renderer.Present(
+				Image, 0, 0, 160, 120, static_cast<uint32_t>(Client.Width), static_cast<uint32_t>(Client.Height)));
+			Renderer.Finish();
+		}
+		Windows.Close();
+	};
+
+	// The SDL3 window (the client's default): the main window SDL's, the surface SDL_Vulkan_CreateSurface's.
+	{
+		const TSdlMainWindow Main(160, 120);
+		REQUIRE(Main.Handle != nullptr);
+		CHECK_FALSE(IsWindowVisible(Main.Handle));
+		OnEveryDevice(Main.Handle, pv::SdlWindowSystem(), "SDL3");
+		CHECK_FALSE(IsWindowVisible(Main.Handle));
+	}
+	// The MFC window's path (PATELLA_WINDOW=mfc, until issue #127): a Win32 main window, vkCreateWin32SurfaceKHR.
 	HINSTANCE Module = GetModuleHandleA(nullptr);
 	WNDCLASSA Class = {};
 	Class.lpfnWndProc = DefWindowProcA;
@@ -362,36 +448,61 @@ TEST_CASE("a device for a window after headless instances (the start-up order)")
 		nullptr, Module, nullptr);
 	REQUIRE(Window != nullptr);
 	CHECK_FALSE(IsWindowVisible(Window));
-	for (TDevice &Device : Devices) {
-		CAPTURE(Device.Label);
-		pv::TDeviceRequest Request = Device.Request;
-		Request.SurfaceExtension = "VK_KHR_win32_surface";
-		Request.CreateSurface = [Window, Module](VkInstance Instance) {
-			auto Create = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(
-				vkGetInstanceProcAddr(Instance, "vkCreateWin32SurfaceKHR"));
-			VkWin32SurfaceCreateInfoKHR Info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-			Info.hinstance = Module;
-			Info.hwnd = Window;
-			VkSurfaceKHR Surface = VK_NULL_HANDLE;
-			if (Create == nullptr || Create(Instance, &Info, nullptr, &Surface) != VK_SUCCESS)
-				throw pv::TVulkanError("vkCreateWin32SurfaceKHR failed");
-			return Surface;
-		};
-		pv::TRenderer Renderer;
-		REQUIRE_NOTHROW(Renderer.Create(Request));
-		std::printf("%s: a device for a hidden window: %s\n", Device.Label.c_str(), Renderer.Device().Name.c_str());
-		// The swapchain (vk-bootstrap's surface format and present mode queries) on the first frame.
-		int Image = Renderer.CreateImage(160, 120);
-		Renderer.Fill(Image, 0, 0, 160, 120, 0xff204060u);
-		RECT Client;
-		GetClientRect(Window, &Client);
-		CHECK_NOTHROW(Renderer.Present(Image, 0, 0, 160, 120, static_cast<uint32_t>(Client.right),
-			static_cast<uint32_t>(Client.bottom)));
-		Renderer.Finish();
-	}
+	OnEveryDevice(Window, pv::Win32WindowSystem(), "Win32");
 	CHECK_FALSE(IsWindowVisible(Window));
 	DestroyWindow(Window);
 	UnregisterClassA(Class.lpszClassName, Module);
+}
+
+// The SDL3 window system (issue #126): the client area and the screen as Win32 gives them (the process is not DPI
+// aware, as the client), the surface made on a device's window through a wrapper SDL window that is gone again with
+// the call (SDL's window procedure and data off the device's window), never on one of SDL's own windows.
+TEST_CASE("the SDL3 window system: sizes, and SDL_Vulkan_CreateSurface on a device's window (issue #126)")
+{
+	pv::IWindowSystem &System = pv::SdlWindowSystem();
+	const TSdlMainWindow Main(320, 240);
+	REQUIRE(Main.Handle != nullptr);
+	RECT Client = {};
+	GetClientRect(Main.Handle, &Client);
+	CHECK(System.ClientSize(Main.Handle).Width == Client.right);
+	CHECK(System.ClientSize(Main.Handle).Height == Client.bottom);
+	SetWindowPos(Main.Handle, nullptr, 0, 0, 410, 330, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+	GetClientRect(Main.Handle, &Client);
+	CHECK(System.ClientSize(Main.Handle).Width == Client.right);
+	CHECK(System.ClientSize(Main.Handle).Height == Client.bottom);
+	CHECK(System.ClientSize(nullptr).Width == 0);
+	CHECK(System.ClientSize(nullptr).Height == 0);
+	CHECK(System.ScreenSize().Width == GetSystemMetrics(SM_CXSCREEN));
+	CHECK(System.ScreenSize().Height == GetSystemMetrics(SM_CYSCREEN));
+	CHECK(System.SurfaceExtension() == "VK_KHR_win32_surface");
+
+	pv::TPresentWindows Windows;
+	HWND Window = Windows.Open(Main.Handle);
+	REQUIRE(Window != nullptr);
+	CHECK(System.ClientSize(Window).Width == 0); // not one of SDL's windows
+	const LONG_PTR Procedure = GetWindowLongPtrA(Window, GWLP_WNDPROC);
+	const int Before = SdlWindows();
+	for (TDevice &Device : Devices) {
+		CAPTURE(Device.Label);
+		pv::TRenderer Renderer;
+		REQUIRE_NOTHROW(Renderer.Create(OnWindow(Device.Request, Window, System)));
+		CHECK(SdlWindows() == Before);
+		CHECK(GetWindowLongPtrA(Window, GWLP_WNDPROC) == Procedure);
+		CHECK(GetPropA(Window, "SDL_WindowData") == nullptr);
+		CHECK(SendMessageA(Window, WM_NCHITTEST, 0, MAKELPARAM(10, 10)) == HTTRANSPARENT);
+		const int Image = Renderer.CreateImage(64, 64);
+		Renderer.Fill(Image, 0, 0, 64, 64, 0xff102030u);
+		const pv::TWindowSize Size = System.ClientSize(Main.Handle);
+		CHECK_NOTHROW(Renderer.Present(
+			Image, 0, 0, 64, 64, static_cast<uint32_t>(Size.Width), static_cast<uint32_t>(Size.Height)));
+		Renderer.Finish();
+		// SDL's own window is refused.
+		pv::TRenderer Refused;
+		CHECK_THROWS_AS(Refused.Create(OnWindow(Device.Request, Main.Handle, System)), pv::TVulkanError);
+		CHECK_FALSE(Refused.Created());
+	}
+	Windows.Close();
+	CHECK(SdlWindows() == Before);
 }
 
 TEST_CASE("colour fills are exact (ColorFill)")
@@ -890,21 +1001,9 @@ TEST_CASE("scripted clicks reach the main window while device windows come and g
 	REQUIRE(Parent != nullptr);
 	InputLog = TInputLog{};
 
-	auto OnWindow = [Module](pv::TDeviceRequest Request, HWND Window) {
-		Request.SurfaceExtension = "VK_KHR_win32_surface";
-		Request.CreateSurface = [Window, Module](VkInstance Instance) {
-			auto Create = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(
-				vkGetInstanceProcAddr(Instance, "vkCreateWin32SurfaceKHR"));
-			VkWin32SurfaceCreateInfoKHR Info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-			Info.hinstance = Module;
-			Info.hwnd = Window;
-			VkSurfaceKHR Surface = VK_NULL_HANDLE;
-			if (Create == nullptr || Create(Instance, &Info, nullptr, &Surface) != VK_SUCCESS)
-				throw pv::TVulkanError("vkCreateWin32SurfaceKHR failed");
-			return Surface;
-		};
-		return Request;
-	};
+	// The surfaces SDL3's (issue #126): SDL wraps each device's window for the call; the clicks still reach the main
+	// window.
+	pv::IWindowSystem &System = pv::SdlWindowSystem();
 	auto Frames = [Parent](pv::TPresentWindows &Windows, pv::TRenderer &Engine, int Canvas, int Count) {
 		for (int Frame = 0; Frame < Count; Frame++) {
 			Windows.Fit();
@@ -931,7 +1030,7 @@ TEST_CASE("scripted clicks reach the main window while device windows come and g
 		auto Engine = std::make_unique<pv::TRenderer>();
 		HWND Window = Windows.Open(Parent);
 		REQUIRE(Window != nullptr);
-		REQUIRE_NOTHROW(Engine->Create(OnWindow(From.Request, Window)));
+		REQUIRE_NOTHROW(Engine->Create(OnWindow(From.Request, Window, System)));
 		int Canvas = Engine->CreateImage(400, 300);
 		Frames(Windows, *Engine, Canvas, 3);
 		SetWindowPos(Parent, nullptr, 0, 0, 300 + static_cast<int>(First) * 10, 230, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -944,12 +1043,12 @@ TEST_CASE("scripted clicks reach the main window while device windows come and g
 		{
 			const pv::TTestWindow Test(Parent);
 			pv::TRenderer Tested;
-			REQUIRE_NOTHROW(Tested.Create(OnWindow(To.Request, Test.Handle())));
+			REQUIRE_NOTHROW(Tested.Create(OnWindow(To.Request, Test.Handle(), System)));
 		}
 		Engine = std::make_unique<pv::TRenderer>();
 		Window = Windows.Open(Parent);
 		REQUIRE(Window != nullptr);
-		REQUIRE_NOTHROW(Engine->Create(OnWindow(To.Request, Window)));
+		REQUIRE_NOTHROW(Engine->Create(OnWindow(To.Request, Window, System)));
 		Canvas = Engine->CreateImage(400, 300);
 		Frames(Windows, *Engine, Canvas, 3);
 		CHECK(Windows.Retired() == nullptr);
@@ -986,15 +1085,11 @@ TEST_CASE("scripted clicks reach the main window while device windows come and g
 // the next device has shown a frame (until then it keeps the old picture). The windows are never shown.
 TEST_CASE("quick device switches: one window per device, an old device's window goes (issue #52)")
 {
-	HINSTANCE Module = GetModuleHandleA(nullptr);
-	WNDCLASSA Class = {};
-	Class.lpfnWndProc = DefWindowProcA;
-	Class.hInstance = Module;
-	Class.lpszClassName = "PatellaTestsVulkanSwitches";
-	RegisterClassA(&Class);
-	HWND Parent = CreateWindowExA(0, Class.lpszClassName, "tests_vulkan", WS_OVERLAPPEDWINDOW, 0, 0, 320, 240, nullptr,
-		nullptr, Module, nullptr);
+	// The client's default path (issue #126): the main window SDL3's, the surfaces SDL_Vulkan_CreateSurface's.
+	const TSdlMainWindow Main(320, 240);
+	HWND Parent = Main.Handle;
 	REQUIRE(Parent != nullptr);
+	pv::IWindowSystem &System = pv::SdlWindowSystem();
 
 	// The client's choices: Automatic, every listed GPU, the CPU driver.
 	std::vector<pv::TDeviceRequest> Choices;
@@ -1014,22 +1109,6 @@ TEST_CASE("quick device switches: one window per device, an old device's window 
 	Choices.push_back(Cpu);
 
 	std::vector<HWND> Surfaces; // every window a surface was created on, in order
-	auto OnWindow = [&Surfaces, Module](pv::TDeviceRequest Request, HWND Window) {
-		Request.SurfaceExtension = "VK_KHR_win32_surface";
-		Request.CreateSurface = [Window, Module, &Surfaces](VkInstance Instance) {
-			Surfaces.push_back(Window);
-			auto Create = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(
-				vkGetInstanceProcAddr(Instance, "vkCreateWin32SurfaceKHR"));
-			VkWin32SurfaceCreateInfoKHR Info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-			Info.hinstance = Module;
-			Info.hwnd = Window;
-			VkSurfaceKHR Surface = VK_NULL_HANDLE;
-			if (Create == nullptr || Create(Instance, &Info, nullptr, &Surface) != VK_SUCCESS)
-				throw pv::TVulkanError("vkCreateWin32SurfaceKHR failed");
-			return Surface;
-		};
-		return Request;
-	};
 
 	pv::TPresentWindows Windows;
 	std::unique_ptr<pv::TRenderer> Engine;
@@ -1059,7 +1138,7 @@ TEST_CASE("quick device switches: one window per device, an old device's window 
 			CHECK(GetParent(TestWindow) == Parent);
 			CHECK_FALSE((GetWindowLongA(TestWindow, GWL_STYLE) & WS_VISIBLE) != 0);
 			pv::TRenderer Tested;
-			REQUIRE_NOTHROW(Tested.Create(OnWindow(Choices[Choice], TestWindow)));
+			REQUIRE_NOTHROW(Tested.Create(OnWindow(Choices[Choice], TestWindow, System, &Surfaces)));
 		}
 		CHECK_FALSE(IsWindow(TestWindow));
 		Switches++;
@@ -1078,7 +1157,7 @@ TEST_CASE("quick device switches: one window per device, an old device's window 
 		CHECK(SendMessageA(Window, WM_NCHITTEST, 0, MAKELPARAM(10, 10)) == HTTRANSPARENT);
 		CHECK(ChildWindows(Parent) <= 2);
 		Engine = std::make_unique<pv::TRenderer>();
-		REQUIRE_NOTHROW(Engine->Create(OnWindow(Choices[Choice], Window)));
+		REQUIRE_NOTHROW(Engine->Create(OnWindow(Choices[Choice], Window, System, &Surfaces)));
 		Opened[Choice]++;
 		const int Canvas = Engine->CreateImage(400, 300);
 		// Frames (FinishFrame): the window takes the main window's client area, then the picture is shown;
@@ -1093,6 +1172,8 @@ TEST_CASE("quick device switches: one window per device, an old device's window 
 			GetClientRect(Window, &Inside);
 			CHECK(Inside.right == Client.right);
 			CHECK(Inside.bottom == Client.bottom);
+			CHECK(System.ClientSize(Parent).Width == Client.right);
+			CHECK(System.ClientSize(Parent).Height == Client.bottom);
 			Engine->Fill(Canvas, 0, 0, 400, 300, 0xff000000u | (Random.Next() & 0xffffff));
 			bool Showed = false;
 			REQUIRE_NOTHROW(Showed = Engine->Present(Canvas, 0, 0, Client.right, Client.bottom,
@@ -1122,8 +1203,6 @@ TEST_CASE("quick device switches: one window per device, an old device's window 
 	std::printf("device switches: %d switches, %d before a device existed, %d frames shown, %zu windows\n", Switches,
 		Pending, Shown, Presented.size());
 	CHECK_FALSE(IsWindowVisible(Parent));
-	DestroyWindow(Parent);
-	UnregisterClassA(Class.lpszClassName, Module);
 }
 
 namespace {
@@ -1472,6 +1551,14 @@ int main(int argc, char **argv)
 	} catch (const pv::TVulkanError &Error) {
 		std::printf("tests_vulkan: no GPU with Vulkan 1.3 (%s); the CPU driver only\n", Error.what());
 	}
+	// SDL3's video subsystem, as the client starts it (SdlFrame.cpp's Create: not DPI aware, as the original).
+	SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "unaware");
+	if (!SDL_Init(SDL_INIT_VIDEO)) {
+		std::printf("tests_vulkan: SDL_Init failed: %s\n", SDL_GetError());
+		return 1;
+	}
 	doctest::Context Context(argc, argv);
-	return Context.run();
+	const int Result = Context.run();
+	SDL_Quit();
+	return Result;
 }
