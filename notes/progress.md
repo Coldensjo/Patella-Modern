@@ -552,6 +552,13 @@ the delete. Converted: TTabBar::LeftTabs and RightTabs, TGUI::MainWindow (FatalE
 TClient's static destruction leaves it); kept raw with the reason: ModalWindow (the help bubble's freed pointer that
 the golden Control test compares), the conditional members, the text buffers. Golden 17,316,040, 0 failures.
 notes/decisions.md, "#108".
+TGUI, part 2 (Patella-Modern issue #118, branch issue-118, November 7, 2026; M7): Control.cpp's 26 functions and
+MainWindow.cpp's InitMainWindow and ExitMainWindow are TGUI's members (the free functions forward); TGUI takes TNetwork
+and TCommunication by reference, so Control.cpp no longer uses the bridge; TGUIController and its adapter are gone. The
+GUI module cycle is gone (main: {ContentWindows, ContextMenus, DialogWindow, MainWindow}; 213 edges, 205 now; left:
+{Surface, graphics}, {MainFrm, Player}). TMap and TCreatures/TPlayerState call up into Talk, Help and Status through
+TMapConsole and TCreaturesGUI (Client.cpp's adapters); TMapState's GetPlayerID calls TPlayerState's member.
+TNetworkSession's adapter stays (justified). Golden 17,316,040, 0 failures. notes/decisions.md, "#118".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

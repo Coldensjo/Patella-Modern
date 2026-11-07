@@ -14008,3 +14008,105 @@ whose faked closes throw: a plain delete would reach them inside ~TWindow, noexc
 is a getter with `SetSideMainWindow`; the MainWindow test reads and releases `MainWindow` through `.get()` and
 `release()`; the console test reads `LeftTabs`/`RightTabs` through `.get()`; the MapWindow test, which runs
 `~TMapWindow` by hand on its own block, calls `Close()` first.
+
+## #118: TGUI, part 2 (Patella-Modern issue #118, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-118, from main 89f0231). Part 1 is "The fourth move: TGUI
+(issue #107, part 1)" above; its "Found, not done" is this issue's list.
+
+### Control.cpp's and MainWindow.cpp's functions (high)
+
+- **TGUI's members** (GUI.h): Control.cpp's 26 functions (Resize ... ExitControl, and GetLastPacketTypes, ours of
+  #77) and MainWindow.cpp's InitMainWindow and ExitMainWindow, of the same names, defined in their files with their
+  address comments. TGUI, not a TControl inside it: the data they read is already TGUI's (#107: LastMouseMove, the
+  callbacks, WindowHandle, ShowFPS, ModalWindow, MainWindow), and rule 3 makes a file's functions its subsystem's.
+  Static where they use no member (ChangeEngine, LinkCopyWarning, InitControl, ExitControl, as #106's IsPlayer),
+  const where they only read (EnterGame, CloseRequest, TimerEvent, GetLastPacketTypes). Control.cpp's file-local
+  MousePosition reads no data and stays a free function.
+- **TGUI's constructor** takes TNetwork and TCommunication (earlier subsystems: rule 5's constructor references).
+  Control.cpp's eleven `bridge::Network()` and `bridge::Communication()` uses (the reconnect pair, the packet ring,
+  the outfit request) are its members `Network` and `Communication`; Control.cpp's members no longer use the bridge.
+- **The free functions** of the original's names stay at the end of Control.cpp and next to the two in
+  MainWindow.cpp, each forwarding (rule 4): MainFrm.cpp, Player.cpp, the test mode and the golden tests call them by
+  name, and InitControl passes four of them as callbacks (InitStatus's LinkCopyWarning, InitNetwork's three), so the
+  callbacks' addresses stay the free functions', which the golden Control test names with NameFunction.
+- **Calls between them** are member calls (Redraw -> CheckSurface -> ChangeEngine, ReceivePackets -> EnterGame,
+  ConnectionClosed -> LeaveGame, HandleEvents and ProcessEvents -> Redraw, InitControl -> ExitControl). Their calls
+  into the other files stay those files' free functions, GUI.cpp's (CheckHotkey, UpdateTimers, InitHotkeys,
+  ExitHotkeys) and MainWindow.cpp's ExitMainWindow included, written with `::` where a TGUI member of the same name
+  would hide them: the golden Control and Communication tests fake every callee in another file by its free function
+  (commworld.cpp's WorldFakes) and compare the log of each call. Considered: member calls with member fakes; not for
+  ExitHotkeys at least (an empty static member a redirect would patch, #115: the linker folds empty functions), and
+  one rule for every call into another file is simpler to check. The callers move to the members when the fakes do
+  (#104's bridge rules; #110).
+- **TGUIController and Client.cpp's TControlCppController are gone**: MainWindow.cpp's engine buttons call
+  `patella::TGUI::ChangeEngine`, Dialogs.cpp's fullscreen switch `bridge::GUI().Resize(0, 0)`.
+
+### The GUI cycle (high)
+
+Measured as #104 says (every `#include "X.h"` of a src/*.cpp that names another src/*.cpp's module is an edge;
+Tarjan's strongly connected components): main 89f0231 has 33 modules, 213 edges and 3 cycles, {ContentWindows,
+ContextMenus, DialogWindow, MainWindow}, {Surface, graphics}, {MainFrm, Player}. The branch has 33 modules, 205 edges
+and 2 cycles, {Surface, graphics} and {MainFrm, Player}: the GUI cycle is gone. The edges that went:
+
+- ContentWindows -> MainWindow: ContentWindows.cpp needed TMainWindow only to convert its Receiver to the buttons'
+  TCallback receiver, and TRADE_WINDOW. The Receiver of CreateInventoryWindow, CreateSmallInventoryWindow and the
+  constructors of TButtonsWindow, TInventoryView and TCombatControls is a `TWindow *` (MainWindow.cpp passes `this`
+  as before; the pointer's value is the same, single inheritance). TRADE_WINDOW is DialogWindow.h's.
+- ContextMenus -> ContentWindows: TSkillContextMenu's stores into the skill window's ContextMenu and its call of the
+  window's Arrange go through SetSkillsWindowMenu and ArrangeSkillsWindow, declared in ContextMenus.h and defined in
+  ContentWindows.cpp, the module that makes the menu (rule 5 as a function pair: an interface base would add a vptr to
+  TSkillsWindowBody, whose layout the golden tests' fakes assert).
+- DialogWindow -> ContentWindows: TSubWindowBody (inline only) is DialogWindow.h's, where TSubWindow holds it;
+  TSubWindow::Arrange's call of a container body's UpdateUpButton is UpdateContainerUpButton (declared in
+  DialogWindow.h, defined in ContentWindows.cpp).
+- Client -> Control (the adapter went); Map -> Talk; Creatures -> Help, Status, Talk (below).
+
+### #106's follow-ups (high)
+
+- **TMap's calls up** (Map.cpp's three automap file messages) go through TMapConsole (Map.h): HasDefaultConsole, the
+  original's check of DefaultTextBuffer, and AddDefaultConsoleLine, its AddTextBufferLine and SetConsoleChanged.
+  Map.cpp no longer includes Talk.h nor reaches TTalk through the bridge.
+- **TCreatures' and TPlayerState's calls up** go through TCreaturesGUI (Creatures.h: SetStatusMessage, AddEventHelp,
+  CheckEventHelpName, AddMessage, GetActionNumber; the original's 17 calls). Creatures.cpp no longer includes Help.h,
+  Status.h or Talk.h. TCreatures::NotifySkull is no longer static (it calls AddEventHelp).
+- Both are implemented by Client.cpp's stateless adapters (TTalkCppConsole, TGUICppCreatures) calling the free
+  functions, which TClient passes to TMapState's new constructor, as TStatusCppSession is passed to TNetwork: TGUI is
+  made after TMapState, and a reference to a member not yet constructed may not be converted to its base
+  ([class.cdtor]; why #106 made TMapState its own TCreaturesPlayer). The adapters are in another object file than
+  Map.cpp's and Creatures.cpp's, so the golden tests' fakes of the free functions (the Creatures test's hints) land.
+- Creatures.cpp's nine calls of Preferences' buddy functions stay free functions: TPreferences is earlier and could be
+  a constructor reference, but the golden window tests fake those by symbol (member fakes first).
+- **TMapState's GetPlayerID** (TCreaturesPlayer) calls `PlayerState.GetPlayerID()`. The window tests that fake the
+  free GetPlayerID (ConsoleWindow, ContentWindows, ContextMenus, Dialogs, MapWindow) fake the member too, with the same
+  fake (no arguments: it ignores this); commworld.cpp has faked it since #106.
+- **TCreature's bridge uses** (GetDeltaX, GetDeltaY, GetDrawDirection, StartMovement read the step not confirmed yet
+  and Beat): not done. Their callers (MapWindow.cpp's drawing, Communication.cpp) reach the game state through the
+  free functions too, so a step parameter would move the bridge call into MapWindow.cpp, not remove it. Later, when
+  the windows hold their TGUI and TGUI holds TMapState.
+
+### TNetworkSession (high)
+
+Kept as Client.cpp's TStatusCppSession (the decision #118 was asked to record). The alternative, an interface TClient
+wires into TNetwork after construction, would make TNetwork hold a pointer that is unset between its constructor and
+TClient's (a two-phase start that the golden runner, the unit tests and the test mode would each have to reach), for
+no behaviour gained; and the golden Network test fakes Status.cpp's free functions, which the adapter calls. It goes
+with the bridge (#111), or with #109's ISocket events if those carry the session's calls.
+
+### The golden tests' calls (high)
+
+Adapted, no check changed: communication_tests.cpp fakes TGUI::EnterGame and TGUI::HandleEvents (ReceivePackets
+calls the members); control_tests.cpp's statics search redirects TGUI::ChangeEngine (CheckSurface calls it; the
+first run with the free function's redirect reached the runner's stub GetDeviceChoice); dialogs_tests.cpp fakes
+TGUI::Resize through a member shim (TFakeGUI); mainwindow_tests.cpp fakes TGUI::ChangeEngine (static) and names
+TButtonsWindow's constructor by its new symbol (the receiver a TWindow); contentwindows_tests.cpp passes its receiver
+as a TWindow; commworld.cpp fakes TCreatures::NotifySkull with FMF (no longer static); the five window tests fake
+TPlayerState::GetPlayerID.
+
+### Found, not done (high)
+
+- Control.cpp's calls into the other files and subsystems are their free functions; member calls with member fakes in
+  the golden Control and Communication worlds when those files move into patella_core (#110).
+- TCreature's step parameter and Creatures.cpp's Preferences calls (above).
+- SkinProperties: with Skins.cpp into TGraphics (#116, settled).
+- The remaining module cycles: {MainFrm, Player} (#109's platform layer), {Surface, graphics} (TGraphics).

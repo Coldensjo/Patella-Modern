@@ -626,6 +626,9 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   so TComponent's destructor and the window destructors are noexcept; TTabBar's two windows and TGUI's MainWindow are
   `std::unique_ptr`s, ModalWindow, the conditional members and the text buffers stay raw with their reasons; FatalError
   abandons the main window before `exit(1)` (notes/decisions.md, "#108"; notes/ownership.md, sections 6 and 7).
+  Done in #118 (TGUI part 2): Control.cpp's and MainWindow.cpp's functions are TGUI's members, TGUIController's adapter
+  is gone, the GUI module cycle is gone (2 cycles left: Surface/graphics, MainFrm/Player), TMap's and TCreatures' calls
+  up go through TMapConsole and TCreaturesGUI; TNetworkSession's adapter stays (notes/decisions.md, "#118").
 - **The core/platform split is completed:** packet parsing and building, game state (Creatures, Map,
   Objects, Inventory, Player), preferences, and the GUI's logic are in `patella_core` and
   include neither `<windows.h>` nor MFC. The platform interfaces are `IWindow`, `IInput`, `IClock`,
