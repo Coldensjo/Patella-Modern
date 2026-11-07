@@ -16010,6 +16010,46 @@ Logs in build\logs\issue-141 of the worktree. Fresh build folders (a new worktre
   the client's compile and link flags come from the same presets; the build gates and the replay cover a change of
   CMake.
 
+### Part 2: Mesa lavapipe 26.2.6 and Ninja 1.13.2 (high)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-141b, from main 048a535; the owner's two additions to the
+issue). Files: cmake/Vulkan.cmake, docker/linux-x64/Dockerfile, tools/build.py (the image tag), both workflows,
+CLAUDE.md, README.md, notes/reconstruction.md, notes/vulkan.md.
+
+- The CPU driver: mesa-dist-win's 26.2.6 release (November 3, 2026), mesa3d-26.2.6-release-msvc.7z, SHA-256
+  b2e00615feaba45942343c265cc8c5f576142ca682c1ac6661922d4b72492877 (the one GitHub publishes for the asset; the
+  download matched it); the stamp of the extracted driver is extracted-b2e00615. Still LLVM 23.1.4 ("llvmpipe (LLVM
+  23.1.4, 256 bits)"). The release's notes name a known issue ("vulkan software rendering unavailable on MSVC and
+  MinGW 32-bit", d3d12 video acceleration): the x64 MSVC archive has x64\vulkan_lvp.dll (56,409,600 bytes) and its
+  manifest, and the build's copy is that file (same SHA-256); 32-bit is not used here.
+- Ninja in the image: 1.13.2, the version of the Windows builds. Debian trixie has 1.12.1 only, so the ninja-build
+  project's release binary (ninja-linux.zip of v1.13.2, SHA-256
+  5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6, the one GitHub publishes), checked like CMake,
+  unpacked with the image's python3 into /usr/local/bin; the RUN checks `ninja --version`. Debian's ninja-build
+  package is no longer installed. New tag `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2`;
+  the part-1 tag (…-cmake4.4.5) and the older ones stay for running branches. Hosted CI's image jobs print both
+  versions.
+
+The gates (logs in build\logs\issue-141b; build folders configured with --fresh, PATELLA_GOLDEN_DIR the frozen corpus):
+
+- `python -I tools/build.py windows-x64 --fresh`: exit 0, 0 warnings, 28/28 (tests_vulkan on 26.2.6), golden 15,803,218
+  + 1,512,822 = 17,316,040, 0 failures.
+- `python -I tools/build.py linux-x64-gcc --fresh`: exit 0, 25/25, golden 0 failures; linux-x64-clang --fresh: exit 0,
+  24/24, golden 0 failures (both in the new image, Ninja 1.13.2).
+- `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` (PATELLA_VULKAN=cpu, the
+  new lavapipe): exit 0, "every session matches its reference", every frame within the tolerance (largest channel
+  difference 2, as with 26.2.5).
+- `python -I tools/compare_traffic.py --patella <worktree>/build/windows-x64/Release/Patella.exe --out
+  build/traffic/result`: exit 0, "RESULT: no differences". Its first attempt failed after the sessions: the plain
+  `testserver.py stop` waits 60 s, the server needed longer to save its map and then exited cleanly ("Server shut down
+  successfully") (compare_traffic-attempt1.log); not this change: the second run's stops took a few seconds.
+- `python -I tools/compare_rendering.py --engines vulkan,vulkan-cpu --modes windowed --no-repeat --patella ...
+  --recording build/traffic/result/orig-live.jsonl --out build/render/result`: exit 0, "all scenes identical": vulkan
+  (RTX 5080) and vulkan-cpu (llvmpipe 26.2.6), 26 scenes each, largest channel difference 2 (none beyond the
+  tolerance). Tibia.exe's first start had no frame within 30 s and the tool started it again (its own retry).
+- `python -I tools/tidy_ci.py --worktree` (the new image): exit 0, 3 findings, 0 new; banned_calls and clang-format:
+  exit 0.
+
 ## #122: the SDL3 window and its event loop (Patella-Modern issue #122, M8)
 
 Done by Claude Opus 5.5, November 7, 2026 (branch issue-122, from main 2898a44). Plan section 7, M8, first step: SDL3

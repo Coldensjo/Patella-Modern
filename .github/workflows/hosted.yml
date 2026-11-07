@@ -4,7 +4,7 @@
 # #46, PATELLA_CLIENT_COMPILE_ONLY: Patella.exe's and PatellaTest.exe's C and C++ sources, each with its own
 # definitions, without the resource script, whose pictures come from Tibia.exe; never linked, never run); and the
 # unit tests under MSVC's AddressSanitizer (issue #70, preset windows-x64-asan without the client, Release). Linux: the Docker image of docker/linux-x64 (GCC 16.2, Clang
-# 22.1 with ASan and UBSan, clang-format and clang-tidy 22.1, CMake 4.4.5), built from its pinned Dockerfile in each
+# 22.1 with ASan and UBSan, clang-format and clang-tidy 22.1, CMake 4.4.5, Ninja 1.13.2), built from its pinned Dockerfile in each
 # job: the presets linux-x64-gcc and linux-x64-clang, Release and Debug; the clang-format check; and
 # clang-tidy against the findings baseline tools/tidy-baseline.tsv. notes/reconstruction.md, "Checking".
 #
@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  IMAGE: patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5
+  IMAGE: patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2
 
 jobs:
   windows-msvc:
@@ -142,8 +142,8 @@ jobs:
           persist-credentials: false
       - name: Build the image (docker/linux-x64)
         run: docker build -t "$IMAGE" docker/linux-x64
-      - name: CMake of the image (issue #141: 4.4.5)
-        run: docker run --rm "$IMAGE" cmake --version
+      - name: CMake and Ninja of the image (issue #141: 4.4.5, 1.13.2)
+        run: docker run --rm "$IMAGE" bash -c "cmake --version && ninja --version"
       # On Linux tools/build.py runs cmake --workflow itself, with its warning check. linux-x64-gcc
       # compiles patella_core with GCC's static analyzer, -fanalyzer (issue #63, cmake/Core.cmake): a
       # finding fails the build like a warning.
@@ -162,8 +162,8 @@ jobs:
           persist-credentials: false
       - name: Build the image (docker/linux-x64)
         run: docker build -t "$IMAGE" docker/linux-x64
-      - name: CMake of the image (issue #141: 4.4.5)
-        run: docker run --rm "$IMAGE" cmake --version
+      - name: CMake and Ninja of the image (issue #141: 4.4.5, 1.13.2)
+        run: docker run --rm "$IMAGE" bash -c "cmake --version && ninja --version"
       # The files of CLAUDE.md's check; .clang-format-ignore leaves src/Extern and tools/ out.
       - name: clang-format --dry-run --Werror
         run: >-
@@ -194,8 +194,8 @@ jobs:
           persist-credentials: false
       - name: Build the image (docker/linux-x64)
         run: docker build -t "$IMAGE" docker/linux-x64
-      - name: CMake of the image (issue #141: 4.4.5)
-        run: docker run --rm "$IMAGE" cmake --version
+      - name: CMake and Ninja of the image (issue #141: 4.4.5, 1.13.2)
+        run: docker run --rm "$IMAGE" bash -c "cmake --version && ninja --version"
       # The compile commands of linux-x64-clang (configure only): every source of src/ that builds on
       # Linux (patella_core), and the headers of src/ they include; with --headers, misc-include-cleaner
       # on each header of the preset's header checks as its own main file (issue #49). Fails on a finding that is not in
