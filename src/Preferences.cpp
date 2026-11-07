@@ -649,7 +649,8 @@ const char *TPreferences::GetBuddyDescription(int CharacterID)
 	const int Number = FindBuddy(CharacterID);
 	if (Number == -1)
 		return nullptr;
-	return Buddies(Number).Description;
+	BuddyDescription = Buddies(Number).DescriptionText();
+	return BuddyDescription;
 }
 
 // 0x4dd7c0, line 744
@@ -1065,7 +1066,7 @@ void TPreferences::WriteTibiaCfg(TTalkLists &Lists)
 			Script.writeText(",");
 			Script.writeNumber(Buddies(i).Icon);
 			Script.writeText(",");
-			Script.writeString(Buddies(i).Description);
+			Script.writeString(Buddies(i).DescriptionText());
 			Script.writeText(",");
 			Script.writeText(Buddies(i).Notify ? "yes" : "no");
 			Script.writeText(")");
@@ -1147,7 +1148,7 @@ void TPreferences::WriteTibiaCfg(TTalkLists &Lists)
 // mode, the lists up to their counts, the buddies without the deleted ones, the
 // permanent entries of the Talk lists, NoStretching's "not set yet" as no, no
 // fourth FullscreenMode value. A description is read as WriteTibiaCfg reads it,
-// up to its NUL, within the entry (AssignDescriptionRead's bytes, issue #85).
+// up to its NUL, at most its 128 characters (issue #86).
 patella::settings::TPreferenceValues TPreferences::GetPreferenceValues(TTalkLists &Lists)
 {
 	patella::settings::TPreferenceValues Values;
@@ -1192,11 +1193,7 @@ patella::settings::TPreferenceValues TPreferences::GetPreferenceValues(TTalkList
 		const TBuddy &Buddy = Buddies(i);
 		if (Buddy.CharacterID == 0)
 			continue;
-		const char *Description = reinterpret_cast<const char *>(&Buddy) + offsetof(TBuddy, Description);
-		const std::size_t Room = sizeof(TBuddy) - offsetof(TBuddy, Description);
-		const void *End = memchr(Description, 0, Room);
-		const std::size_t Length = End == nullptr ? Room : static_cast<std::size_t>(static_cast<const char *>(End) - Description);
-		Values.Buddies.push_back({Buddy.CharacterID, Buddy.Icon, std::string(Description, Length), Buddy.Notify});
+		Values.Buddies.push_back({Buddy.CharacterID, Buddy.Icon, std::string(Buddy.Description.View()), Buddy.Notify});
 	}
 	const auto Names = [&Lists](char *List, bool (TTalkLists::*Permanent)(const char *)) {
 		std::vector<std::string> Result;

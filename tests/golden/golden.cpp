@@ -564,6 +564,41 @@ void RetiredEnd(int Checks)
 
 long long RetiredChecks() { return TotalRetired; }
 
+namespace {
+std::vector<TDeliberate> DeliberateList;
+TDeliberate *Deliberate = nullptr; // the open part's issue (no entry is added while one is open)
+} // namespace
+
+void BeginDeliberate(const char *Issue)
+{
+	if (Deliberate != nullptr)
+		return;
+	for (TDeliberate &Entry : DeliberateList)
+		if (Entry.Issue == Issue)
+			Deliberate = &Entry;
+	if (Deliberate == nullptr) {
+		DeliberateList.push_back(TDeliberate{Issue});
+		Deliberate = &DeliberateList.back();
+	}
+	Deliberate->Parts++;
+}
+
+void EndDeliberate() { Deliberate = nullptr; }
+
+bool InDeliberate() { return Deliberate != nullptr; }
+
+bool CheckFailed(bool Same)
+{
+	if (Deliberate == nullptr)
+		return !Same;
+	Deliberate->Checks++;
+	if (!Same)
+		Deliberate->Differ++;
+	return false;
+}
+
+const std::vector<TDeliberate> &Deliberates() { return DeliberateList; }
+
 void Exchange(const char *Name, char Role, char Type, size_t ElementSize, size_t Count, void *Data)
 {
 	if (CurrentMode == TMode::Replay)

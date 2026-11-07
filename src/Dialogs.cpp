@@ -1463,11 +1463,11 @@ void TIgnoreListDialog::HandleEvent(int Event)
 			}
 			IgnoreEntries(i).Name[0] = 0;
 			for (i = 0; i < IgnoreEntries.max - IgnoreEntries.min; i++) {
-				if (strlen(IgnoreEntries(i).Name) != 0) {
+				if (IgnoreEntries(i).Name.Length() != 0) {
 					TFont LineFont;
 					if (IgnoreEntries(i).Permanent)
 						LineFont.Color = SkinProperties.StyleD3C.Data88;
-					IgnoreList->AddLine(IgnoreEntries(i).Name, LineFont);
+					IgnoreList->AddLine(IgnoreEntries(i).NameText(), LineFont);
 				}
 			}
 		}
@@ -1488,11 +1488,11 @@ void TIgnoreListDialog::HandleEvent(int Event)
 			}
 			WhiteEntries(i).Name[0] = 0;
 			for (i = 0; i < WhiteEntries.max - WhiteEntries.min; i++) {
-				if (strlen(WhiteEntries(i).Name) != 0) {
+				if (WhiteEntries(i).Name.Length() != 0) {
 					TFont LineFont;
 					if (WhiteEntries(i).Permanent)
 						LineFont.Color = SkinProperties.StyleD3C.Data88;
-					WhiteList->AddLine(WhiteEntries(i).Name, LineFont);
+					WhiteList->AddLine(WhiteEntries(i).NameText(), LineFont);
 				}
 			}
 		}

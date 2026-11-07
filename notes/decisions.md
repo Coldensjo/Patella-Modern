@@ -9425,6 +9425,8 @@ The comparison tools expect these from the fork's clients against Tibia.exe and 
 | #71 | The area a live resize uncovers is black | stripes of old pixels (not compared: no tool moves a border) |
 | #45 (D12) | No Tibia.cfg written; the options go into Patella.ini and are compared with Tibia.exe's Tibia.cfg by value (tools/settings_file.py) | SavePreferences writes Tibia.cfg (the options and hotkey dialogs, a logout, the exit) |
 | #45 (D12) | Patella.ini written at the first start without the options in it (the import of Tibia.cfg, or the defaults) | nothing written at the start |
+| #72 | A server frame whose inner length runs past it, or a frame of size 0, is dropped and ends the client as a read past a packet's end does (the TMyException "packet length exceeds the received data") | reads on past the frame: into the next frames, past ReceiveData into SendData (not compared: no session has such a frame; the golden Network test's deliberate parts, "#72 and #86") |
+| #86 | An ignore or white list entry's name of 30 characters, and a buddy's description of 128, read as those characters only (the list's line, GetBuddyDescription, Patella.ini, Tibia.cfg's writer) | reads on past the name into Permanent (with it set, "\x01" and the next entry's name), past the description into Notify and the padding (not compared: no session has such a name or description) |
 
 ### The tests
 
@@ -14283,3 +14285,104 @@ Logs in build\logs\issue-118 of the branch's worktree; golden replayed main's fr
   (CLAUDE.md's command) exit 0.
 - An early windows-x64 run (before the Control test's redirect of TGUI::ChangeEngine) failed golden with the runner's
   stub GetDeviceChoice: fixed in the test's call, not a behaviour change.
+
+## #72 and #86: the original's reads past their data, bounded (Patella-Modern issues #72 and #86, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-72, from main e8e1602), after the owner's decision of
+November 7: bound these over-reads of Tibia.exe now, as deliberate differences. Behaviour changes only for these
+inputs; every other check stays as it was.
+
+### #72: a frame whose inner length runs past it (high)
+
+- **The read.** PrepareNextPacket set ReceiveBuffer's size from the frame's inner length as it was (`GetWord() + 4`).
+  A length larger than the frame made every later read of the packet go on past the frame: into the next frames, and
+  for a long one past ReceiveData into SendData (the read #70's ASan run found; since #105 the buffers are TNetwork's
+  members, inside one object, so ASan no longer saw it). A frame of size 0 has no inner length at all: Tibia.exe read
+  it from the two bytes after the frame.
+- **What a short packet does now** (high; the issue's suggestion). The payload, `[u16 length][length bytes]`, must
+  lie inside the frame (the length at most the frame's size minus 2; a length that runs into the frame's XTEA padding
+  is still inside it and read as before). Otherwise the frame is dropped (ReceiveRead past it, PacketHeader and the
+  test hook as before, the read buffer empty: Size = Position) and PrepareNextPacket throws the TMyException "packet
+  length exceeds the received data" (TERROR2: the length + 4 and the frame's end). That is what a read past a packet's
+  end already does (TReadBuffer's assertion): the exception leaves the receive handler and ends the client through
+  HandleException and FatalError. Considered: cutting the size to the frame's end (the reads past it would then throw
+  at the read, later, after commands read from a packet whose length lied); dropping the frame silently (hides a
+  broken or hostile server, and differs from the short read). Because the frame is dropped first, the buffer stays
+  consistent: a caller that catches the exception reads the next frame normally (bounded_reads checks it).
+- **The suppressions.** #70's PATELLA_NO_SANITIZE_ADDRESS on ReceiveData and SendData went with #105 already (the
+  globals became members); its one use left is TRGBColor::operator== (graphics.h, #70's other row). Gone now, their
+  reason being this read: PATELLA_IN_DEFINITION_ORDER (src/compat/msvc.h, no user since #105) and golden_linux's GCC
+  option -fno-toplevel-reorder (tests/golden/CMakeLists.txt: ReceiveData before SendData for the replayed over-read).
+  Linux golden replays without it (gates below).
+
+### #86: names of 30 and descriptions of 128 characters without a NUL (high)
+
+- **The reads.** #85 kept the original's bytes: a 30-character ignore or white list name fills TIgnoreEntry::Name and
+  its NUL lands in Permanent, which the caller sets next; a 128-character buddy description fills TBuddy::Description,
+  its NUL in Notify. The readers read the field as a C string and went on into Permanent (with it set, "\x01" and the
+  next entry's name in the rebuilt list line), and past the description into Notify, the padding and further.
+- **Bounded** (the writes unchanged, #85's bytes): `TIgnoreEntry::NameText()` (Dialogs.h) and
+  `TBuddy::DescriptionText()` (Preferences.h) give the field's characters up to its NUL or its end, as a
+  TFixedString<31> or <129> with a NUL. Their users: TIgnoreListDialog::HandleEvent's two list rebuilds (Delete, 710
+  and 713: `Name.Length()` for the empty test, NameText for the line); TPreferences::GetBuddyDescription (the text in
+  a member of its own, `BuddyDescription`, not the original's: valid until the next call, which is how its callers use
+  it; the edit buddy dialog's SetText copies it); WriteTibiaCfg's description; GetPreferenceValues' description for
+  Patella.ini (#85 read up to the NUL within the entry's last 132 bytes; now at most 128). No layout change
+  (non-virtual members; TPreferences' new member follows the original's data, no layout is asserted for it).
+  Considered: writing a NUL into the field (cuts the name to 29 and the description to 127: #57's regression that #85
+  fixed, and the saved files lose a character).
+
+### The golden corpus: deliberate parts (high)
+
+The corpus is frozen (#93), so a difference cannot be recorded, and a retired part (golden::RetiredBegin) needs the
+oracle's records around it, which these places do not have. New, the narrowest mechanism that fits:
+`golden::BeginDeliberate(Issue)` and `EndDeliberate()` (golden.h, golden.cpp). Between them the runner still runs our
+side and reads every value of the corpus (the inputs still compared, so a test that generates other inputs is still
+stale), and every check still counts in Checks (the test's total is still the oracle's); a check that differs is
+counted as the issue's (golden::Deliberates: the parts, their checks, those that differed), not as a failure. CHECK
+(golden_test.h) and the Network test's log check ask golden::CheckFailed. The runner prints each issue's numbers.
+
+- **#72** (network_tests.cpp, the only user). Our side's GetNextCommand and PrepareNextPacket are called through
+  OurGetNextCommand and OurPrepareNextPacket, which open a part for #72 exactly when ours throws "packet length exceeds
+  the received data". From there the sides' receive buffers differ (the original's size is the frame's length, ours
+  the frame's end; the original goes on reading commands past the frame), so nothing of the round compares until
+  ResetSides, where both sides start the next round from the same cleared statics: the part ends there. In the main
+  rounds Both catches our side's throw while a part is open (the error rounds' OurThrow catches it anyway). The frozen
+  corpus has such frames (MakeFrame's modes 2 and 3: a length past the frame, a frame of size 0) in 196 of the 300
+  main rounds and in 84 iterations of the error round's failure injection: **280 parts, 37,052 checks (of the Network
+  test's 111,893), 14,165 of them differ**; the other 22,887 checks in the parts still agree. Every other check of the
+  corpus is compared as before.
+- **#86: 0 checks affected, no part.** The Dialogs test's rounds of #85 (LongIgnoreNames, 80 checks) never set
+  Permanent on the 30-character entry: the dumps show its Permanent byte 0 in all four rounds, the permanent box set
+  or not, when the list is rebuilt after "Delete the first line" (DG_LOGS). So the original's line there ends at
+  Permanent's 0, as ours does; #85's note that the rebuilt line had "\x01" and "new entry" is not what the corpus
+  holds. PreferencesFile's 179 checks of #85 have Notify "no" for the descriptions of 128 characters or more, whose
+  read stops at Notify's 0 in the original too. Both replay with 0 failures, unchanged.
+- **Counts**: 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures, as on main; of the replayed, 37,052 in
+  #72's parts.
+
+### The tests (high)
+
+- **bounded_reads** (tests/golden/bounded_reads_test.cpp; a CTest test of every preset that builds the golden
+  objects: windows-x64, -debug, -asan, linux-x64-gcc, linux-x64-clang): the golden runner's objects with doctest, no
+  corpus, as preferences_file. #72: a TNetwork of its own (a fake session and sockets), XTEA frames through OnReceive:
+  a length into the padding read as before; lengths 7, 8, 100, 0x3ff0 and 0xffff in a frame of 8 (dropped, the throw,
+  the buffer empty, the next frame read); a frame of size 0; a frame that fills ReceiveData with the length 0xffff.
+  #86: TIgnoreEntry and TBuddy in allocations of their own size (the padding filled), NameText and DescriptionText; a
+  Tibia.cfg with descriptions of 128 and 131 characters and Notify yes: GetBuddyDescription, Patella.ini's Buddy1 and
+  Buddy2 and WriteTibiaCfg's lines have the 128 characters. 7 cases, 75 assertions.
+- **ASan** (high). Under ASan the test poisons the bytes after the frame up to the end of ReceiveData and SendData
+  (ASAN_POISON_MEMORY_REGION: inside TNetwork they have no redzone of their own), and the entries are allocations of
+  their own size. Proof (temporary, never committed): with the original's reads put back (the size from the length;
+  NameText and DescriptionText reading the field with strlen) windows-x64-asan's bounded_reads reports 5 sites
+  (`ASAN_OPTIONS=halt_on_error=0:continue_on_error=1`): use-after-poison in TReadBuffer::GetByte and GetWord from
+  PrepareNextPacket and GetNextCommand (3), heap-buffer-overflow past the TIgnoreEntry and the TBuddy (2)
+  (build\logs\issue-72\asan-proof-original-reads.log); with the fix none (asan-proof-fixed.log).
+- **Tier A**: no reference or traffic session has such a frame, name or description; the two rows are in the table of
+  deliberate tier A differences ("not compared"), tools/deliberate.py unchanged (as #71's row).
+
+### Found, not done (high)
+
+- #72's fuzz seed (the issue: M9, with the fuzzing).
+- A #72 part runs to the round's end; a narrower end (where both sides' receive buffers agree again) would need the
+  original's buffer state compared field by field; not tried.

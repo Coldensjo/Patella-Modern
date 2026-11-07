@@ -923,6 +923,13 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
     change to a ported test's code under test that changes what the original's records mean is a stale corpus
     (the runner stops with "the test changed since the recording"): the test is then retired with the oracle
     (golden::RetiredBegin, runner.cpp's RetiredTests) with the user's decision, not recorded again.
+  - A deliberate difference that a ported test replays (issue #72): the part of the test from the point where our
+    side differs on purpose to the point where both sides are in step again goes between `golden::BeginDeliberate(
+    "#<issue>")` and `golden::EndDeliberate()`; the runner still runs it and reads its values (its inputs compared as
+    everywhere), its checks count, and a difference inside it is the issue's, not a failure. The runner prints each
+    issue's checks and differences ("golden: N of the replayed checks in P parts of the deliberate difference #72, D
+    of them differ"). Its one user: network_tests.cpp, from our PrepareNextPacket's throw for a frame bounded by #72
+    to the round's ResetSides (notes/decisions.md, "#72 and #86").
   - Staleness: every file carries the format version (golden::GOLDEN_FORMAT) and the SHA-256 of the Tibia.exe it
     was recorded from, which must be the 7.72 client's; every value carries its name and role, and the
     runner checks each against what the test asks for, each input against the one it generated, and the test's

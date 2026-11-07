@@ -255,11 +255,22 @@ void patella::TNetwork::PrepareNextPacket()
 		} catch (...) {
 			TERROR("Symmetric decryption failed with unknown exception");
 		}
-		ReceiveBuffer.SetSize(ReceiveBuffer.GetWord() + 4);
+		// Patella-Modern issue #72, a deliberate difference (notes/decisions.md): the payload, [u16 length][length
+		// bytes], must lie inside the frame, its PacketSize bytes after the size. A frame of size 0 (no length in it)
+		// or one whose length runs past it is dropped and throws, as a read past a packet's end throws. Tibia.exe
+		// read the length past an empty frame and set the read buffer's size from it as it was, so its reads went on
+		// past the frame: into the next frames, and past ReceiveData into SendData.
+		const int FrameEnd = PacketSize + 2;
+		const int Size = PacketSize >= 2 ? ReceiveBuffer.GetWord() + 4 : 0;
 		PATELLA_TEST_PACKET_RECEIVED(ReceiveData, PacketSize)
 		memset(PacketHeader.data(), 0, sizeof(PacketHeader));
-		ReceiveRead = PacketSize + 2;
+		ReceiveRead = FrameEnd;
 		memcpy(PacketHeader.data(), &ReceiveData[2], PacketSize < 16 ? PacketSize : 16);
+		if (PacketSize < 2 || Size > FrameEnd) {
+			ReceiveBuffer.SetSize(ReceiveBuffer.Position);
+			TERROR2("packet length exceeds the received data", Size, FrameEnd);
+		}
+		ReceiveBuffer.SetSize(Size);
 	}
 }
 

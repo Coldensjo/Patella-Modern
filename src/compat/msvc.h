@@ -84,16 +84,6 @@
 #define PATELLA_NO_SANITIZE_ADDRESS
 #endif
 
-// A global that the compiler emits where it is defined, in the order of the definitions, as MSVC places globals:
-// GCC's and Clang's used attribute (Clang emits a global with internal linkage where it is first used, otherwise;
-// GCC reorders them unless -fno-toplevel-reorder). Network.cpp's ReceiveData, whose over-read reads SendData after
-// it, as the original's (#72; the golden corpus replays it on Linux, issue #91). Nothing for MSVC.
-#if defined(__GNUC__)
-#define PATELLA_IN_DEFINITION_ORDER __attribute__((used))
-#else
-#define PATELLA_IN_DEFINITION_ORDER
-#endif
-
 // A function kept out of line, as the original has it, where a test replaces its code (the golden corpus's
 // fakes: tests/golden/commworld.cpp InstallFakes) and the compiler would otherwise inline it into a caller now
 // that it has no exception state (Patella-Modern issue #78): MSVC's __declspec(noinline), GCC's and Clang's

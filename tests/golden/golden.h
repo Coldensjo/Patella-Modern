@@ -211,6 +211,29 @@ void RetiredEnd(int Checks);
 // of a test to be the replayed ones plus the test's retired ones.
 long long RetiredChecks();
 
+// A deliberate difference (Patella-Modern issue #72; notes/decisions.md, "#72 and #86"): a part of a test from the
+// point where our side differs from the original on purpose to the point where both sides are in step again. The
+// frozen corpus cannot be recorded again (issue #93), so the part is not skipped as a retired one (which needs the
+// oracle's records around it): the runner runs it and reads its values as everywhere (its inputs are still compared,
+// a test that generates other inputs is still stale), and each of its checks still counts in Checks, but a
+// difference inside it is not a failure: the check is counted as the issue's (Deliberates: its checks, and those that
+// differed). The test opens the part where its own side reaches the difference (BeginDeliberate, with the issue) and
+// closes it (EndDeliberate). Only the tests of the listed issues open one:
+//	#72  network_tests.cpp: our PrepareNextPacket drops a frame whose inner length runs past it and throws, where the
+//	     original read on past the frame; the part runs to the end of the round (ResetSides).
+// A check's result: true when it is a failure (Same false, outside a deliberate part).
+void BeginDeliberate(const char *Issue);
+void EndDeliberate();
+bool InDeliberate();
+bool CheckFailed(bool Same);
+struct TDeliberate {
+	std::string Issue;
+	long long Parts = 0;  // the parts opened
+	long long Checks = 0; // the checks inside them
+	long long Differ = 0; // those of them that differed
+};
+const std::vector<TDeliberate> &Deliberates();
+
 // A data file next to Tibia.exe that both sides load (Tibia.dat; issue #27). The oracle records whether
 // it exists and its contents, and returns its path (empty when it does not exist); the runner writes the
 // recorded contents to a directory of its TEMP and returns that path. So the runner needs no data files:

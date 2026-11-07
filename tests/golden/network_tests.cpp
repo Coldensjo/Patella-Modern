@@ -690,6 +690,36 @@ struct TFunctions {
 };
 TFunctions Fn[2];
 
+// Issue #72, a deliberate difference (notes/decisions.md, "#72 and #86"): our PrepareNextPacket drops a frame whose
+// inner length runs past it and throws ("packet length exceeds the received data"), where the original set its read
+// buffer's size from the length and read on past the frame. From that call on the sides' receive buffers differ
+// until the next round's ResetSides, so that part of the round is a deliberate part (golden::BeginDeliberate): still
+// run, its values read, its checks counted, a difference not a failure. Our side's two entries that reach it.
+bool BoundedFrame(const TMyException &Exception)
+{
+	return Exception.GetMessage().find("packet length exceeds the received data") != std::string::npos;
+}
+void OurPrepareNextPacket()
+{
+	try {
+		PrepareNextPacket();
+	} catch (const TMyException &Exception) {
+		if (BoundedFrame(Exception))
+			golden::BeginDeliberate("#72");
+		throw;
+	}
+}
+int OurGetNextCommand()
+{
+	try {
+		return GetNextCommand();
+	} catch (const TMyException &Exception) {
+		if (BoundedFrame(Exception))
+			golden::BeginDeliberate("#72");
+		throw;
+	}
+}
+
 template <class T> void SetFn(T &Slot, uint32 Address) { Slot = (T)(uintptr_t)Address; }
 void MakeFunctions()
 {
@@ -711,8 +741,8 @@ void MakeFunctions()
 	O.SendString = SendString;
 	O.SendBytes = [](const uint8 *Buffer, int Count) { SendBytes(OriginalSpan(Buffer, Count)); };
 	O.SendCommand = SendCommand;
-	O.PrepareNextPacket = PrepareNextPacket;
-	O.GetNextCommand = GetNextCommand;
+	O.PrepareNextPacket = OurPrepareNextPacket;
+	O.GetNextCommand = OurGetNextCommand;
 	O.GetByte = GetByte;
 	O.GetWord = GetWord;
 	O.GetQuad = GetQuad;
@@ -911,7 +941,7 @@ void Compare(const char *Operation)
 	Checks++;
 	// The runner gets the original's log from the corpus.
 	Log[IMAGE] = golden::OutputText("log", Log[IMAGE].c_str());
-	if (Log[IMAGE] != Log[OURS]) {
+	if (golden::CheckFailed(Log[IMAGE] == Log[OURS])) {
 		Failures++;
 		if (Failures <= FailuresPrinted)
 			printf("FAIL Network %s (%s): log\n%s\noriginal\n%s\n", Operation, What, Log[OURS].c_str(),
@@ -951,6 +981,7 @@ uint8 TestKey[16];  // the key both sides have, for the server's frames
 // constructed once by TestNetwork).
 void ResetSides()
 {
+	golden::EndDeliberate(); // a part of #72 (above) ends: both sides from here on are in step again
 	for (int s = FIRST_SIDE; s < 2; s++) {
 		TView &V = View[s];
 		*V.CurrentServer = 0;
@@ -1013,7 +1044,13 @@ template <class F> void Both(const char *Name, F Call)
 		printf("Network: %s\n", Name);
 	if (Round == NULL) {
 		Side = OURS;
-		Call(OURS);
+		try {
+			Call(OURS);
+		} catch (const TMyException &) {
+			// Our side's throw of a frame bounded by #72 (its deliberate part begins there); any other is the test's.
+			if (!golden::InDeliberate())
+				throw;
+		}
 	} else {
 		Round->Calling(Name, "ours");
 		Side = OURS;
@@ -1732,6 +1769,11 @@ void TestNetwork()
 	printf("Network: %d checks\n", Checks - Before);
 	TestNetworkErrors();
 	ResetSides();
+	for (const golden::TDeliberate &Part : golden::Deliberates())
+		if (Part.Issue == "#72")
+			printf("Network: %lld checks in %lld parts after a frame bounded by #72 (a deliberate difference), %lld of "
+				   "them differ\n",
+				Part.Checks, Part.Parts, Part.Differ);
 	RestoreAll();
 	golden::SetImport(RandSlot, SavedRand);
 	SetRandomSeed(SavedSeed);

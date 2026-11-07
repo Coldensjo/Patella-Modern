@@ -24,11 +24,12 @@ extern int Failures;
 extern int Checks;
 extern int FailuresPrinted;
 
-// tools/difftest/difftest.h's CHECK.
+// tools/difftest/difftest.h's CHECK; inside a deliberate part (golden::BeginDeliberate, issue #72) a difference is
+// the part's, not a failure.
 #define CHECK(Cond, ...) \
 	do { \
 		Checks++; \
-		if (!(Cond)) { \
+		if (golden::CheckFailed(Cond)) { \
 			Failures++; \
 			if (Failures <= FailuresPrinted) { \
 				printf("FAIL %s:%d: ", __FILE__, __LINE__); \

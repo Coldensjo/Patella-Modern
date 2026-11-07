@@ -391,5 +391,9 @@ int main(int argc, char **argv)
 	printf("golden: %lld of the oracle's %lld checks replayed, %lld retired with the oracle, %lld not ported yet, %d "
 		   "failures\n",
 		TotalReplayed, TotalRecorded, TotalRetired, TotalMissing, Failures);
+	// The deliberate differences' parts (golden::BeginDeliberate): replayed checks that are not failures.
+	for (const golden::TDeliberate &Part : golden::Deliberates())
+		printf("golden: %lld of the replayed checks in %lld parts of the deliberate difference %s, %lld of them differ\n",
+			Part.Checks, Part.Parts, Part.Issue.c_str(), Part.Differ);
 	return Ok && Failures == 0 ? 0 : 1;
 }

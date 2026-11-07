@@ -65,9 +65,9 @@ set(golden_linux_dir "${CMAKE_CURRENT_SOURCE_DIR}/linux")
 #   calls them through pointers of our types, whose dynamic type is not the static one. UBSan's checks of the dynamic
 #   type and of the object's size report each such call and cast; its other checks stay.
 # - GCC: -fno-lifetime-dse: the tests fill memory with a pattern before they construct an object in it, to compare
-#   the bytes a constructor leaves untouched (TSkinProperties, TTalkBuffer), which GCC removes as dead stores;
-#   -fno-toplevel-reorder: the globals in the order of their definitions, as MSVC places them (Network.cpp's
-#   ReceiveData, whose over-read the Network test replays, #72, is followed by SendData).
+#   the bytes a constructor leaves untouched (TSkinProperties, TTalkBuffer), which GCC removes as dead stores.
+#   (-fno-toplevel-reorder, the globals in the order of their definitions for Network.cpp's over-read past
+#   ReceiveData into SendData, went with that read: the buffers are TNetwork's since #105, the read bounded since #72.)
 # - -Wno-invalid-offsetof: the fakes and dumps take offsetof of our classes, which are not standard-layout (GCC and
 #   Clang compute it as MSVC does: no virtual bases).
 # - -Wno-overloaded-virtual: the original's classes hide virtual functions of their bases (DialogElements.h).
@@ -81,7 +81,7 @@ set(golden_linux_dir "${CMAKE_CURRENT_SOURCE_DIR}/linux")
 set(golden_linux_options -fno-strict-aliasing -fno-delete-null-pointer-checks -fwrapv)
 set(golden_linux_warnings -Wno-invalid-offsetof -Wno-overloaded-virtual -Wno-delete-non-virtual-dtor)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	list(APPEND golden_linux_options -fno-lifetime-dse -fno-toplevel-reorder)
+	list(APPEND golden_linux_options -fno-lifetime-dse)
 	list(APPEND golden_linux_warnings -Wno-class-memaccess -Wno-stringop-truncation -Wno-mismatched-new-delete
 		-Wno-nonnull-compare)
 else()
@@ -340,5 +340,30 @@ golden_executable_settings(preferences_file)
 add_test(NAME preferences_file COMMAND preferences_file)
 if(golden_linux AND PATELLA_SANITIZE MATCHES "address")
 	set_tests_properties(preferences_file PROPERTIES ENVIRONMENT
+		"ASAN_OPTIONS=detect_leaks=0:alloc_dealloc_mismatch=0") # as golden's (above)
+endif()
+
+# Issues #72 and #86: the original's reads past their data, bounded as deliberate differences (bounded_reads_test.cpp):
+# PrepareNextPacket's frames whose inner length runs past them, the ignore entries' names of 30 characters and the
+# buddies' descriptions of 128. Our client's code alone, no corpus, as dialogwindow_setsize; under ASan
+# (windows-x64-asan, linux-x64-clang) the bytes after the data are poisoned, so a read past them is a report.
+add_library(golden_bounded_reads OBJECT bounded_reads_test.cpp)
+golden_client_settings(golden_bounded_reads)
+target_link_libraries(golden_bounded_reads PRIVATE doctest::doctest)
+add_executable(bounded_reads
+	golden.cpp
+	core_tests.cpp
+	regexp_tests.cpp
+	sysinc_tests.cpp
+	$<TARGET_OBJECTS:golden_sysinc>
+	$<TARGET_OBJECTS:golden_client>
+	$<TARGET_OBJECTS:golden_client_tests>
+	$<TARGET_OBJECTS:golden_network_tests>
+	$<TARGET_OBJECTS:golden_comm_tests>
+	$<TARGET_OBJECTS:golden_bounded_reads>)
+golden_executable_settings(bounded_reads)
+add_test(NAME bounded_reads COMMAND bounded_reads)
+if(golden_linux AND PATELLA_SANITIZE MATCHES "address")
+	set_tests_properties(bounded_reads PROPERTIES ENVIRONMENT
 		"ASAN_OPTIONS=detect_leaks=0:alloc_dealloc_mismatch=0") # as golden's (above)
 endif()

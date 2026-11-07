@@ -146,8 +146,8 @@ public:
 	int ReceiveDataSize{};                            // 0x715530, bytes in ReceiveData
 	int ReceivePacketEnd{};                           // 0x715534, end of the complete packets
 	int ReceiveRead{};                                // 0x715538, start of the next unread packet
-	// A packet whose inner length is larger than the data read makes TReadBuffer read on past ReceiveData, into
-	// SendData and the members after it, as in the original (the golden Network test replays it, issue #72).
+	// A frame whose inner length runs past it throws in PrepareNextPacket (issue #72), so ReceiveBuffer's reads stay
+	// inside the frame: Tibia.exe read on past ReceiveData, into SendData.
 	std::array<uint8, 0x4000> ReceiveData{};            // 0x715540
 	std::array<uint8, 0x800> SendData{};                // 0x719540
 	HWND NetworkWindow{};                               // 0x719d40, receives WM_USER+1 when a name is resolved
