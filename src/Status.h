@@ -22,6 +22,7 @@
 #include "types/Regexp.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -37,8 +38,8 @@ inline constexpr int MESSAGE_STARTPATCHER = 72;
 // One queued message (12 bytes). Type is named in the assertions.
 struct TMessage {
 	int Type;
-	INT_PTR Param1;
-	INT_PTR Param2;
+	std::intptr_t Param1;
+	std::intptr_t Param2;
 };
 
 // One entry of the character list (0x54 bytes). The 30-byte limits come
@@ -173,11 +174,11 @@ public:
 	void UpdateBlinkState();
 	bool GetBlinkState() const;
 	int PeekMessageType();
-	void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2);
+	void FetchMessage(int *Type, std::intptr_t *Param1, std::intptr_t *Param2);
 	void ClearMessages();
 	void ExitStatus();
-	void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2);
-	void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2);
+	void AddMessage(int Type, std::intptr_t Param1, std::intptr_t Param2);
+	void AddMessageFirst(int Type, std::intptr_t Param1, std::intptr_t Param2);
 	void CheckClipboardText(TSpan<const char> Characters);
 	void CopyToClipboard(const char *text);
 	void CopyTaintedClipboardText();
@@ -295,15 +296,15 @@ void GetMouseOverTextPosition(int *x, int *y);
 void UpdateBlinkState();
 bool GetBlinkState();
 int PeekMessageType();
-void FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2);
+void FetchMessage(int *Type, std::intptr_t *Param1, std::intptr_t *Param2);
 void ClearMessages();
 void ExitStatus();
 void SetRight(int rightid, int Value);
 bool CheckRight(int rightid, int Bit);
 const char *GetRightName(int rightid);
 const char *GetActionName(int actionid);
-void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2);
-void AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2);
+void AddMessage(int Type, std::intptr_t Param1, std::intptr_t Param2);
+void AddMessageFirst(int Type, std::intptr_t Param1, std::intptr_t Param2);
 void SetAccount(int Number, const char *Password);
 void SetCharacter(int Number, const char *Name, const char *World, const uint8 *Address, int Port);
 void SetActiveCharacter(int Number);

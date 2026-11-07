@@ -31,10 +31,9 @@
 #include <cstdlib> // IWYU pragma: keep
 // The Microsoft CRT's and compiler's spellings behind portable names (issue #43).
 #include "compat/msvc.h" // IWYU pragma: export
-#if !defined(PATELLA_CORE)
-// The test mode's hooks (issue #21): the system calls themselves outside the test build.
+// The test mode's hooks (issue #21): nothing outside the test build. patella_core is never the test build, so its
+// hooks are empty (issue #110: Network.cpp's and Communication.cpp's packet hooks).
 #include "TestHooks.h" // IWYU pragma: export
-#endif
 
 // The original's unsigned integer types, as aliases of the std types (Patella-Modern issue #35). They
 // are the same types as before, not only the same sizes: std::uint8_t, std::uint16_t and std::uint32_t

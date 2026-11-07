@@ -19,7 +19,7 @@
 // DialogElements.obj (file-ranges.tsv).
 
 #include "Creatures.h"
-#include "GUI.h" // TCallback (NoCallback)
+#include "types/Callback.h" // TCallback (NoCallback)
 #include "Map.h"
 #include "Objects.h"
 #include "Preferences.h"
@@ -485,9 +485,9 @@ void TCreature::StartMovement(int dx, int dy, int Waypoints)
 }
 
 // 0x44bf20, line 154
-void TCreature::SetMark(int Mark)
+void TCreature::SetMark(int Value)
 {
-	this->Mark = Mark;
+	Mark = Value;
 	MarkTime = GetMilliseconds() + 1000;
 }
 
@@ -800,6 +800,8 @@ void patella::TCreatures::CheckMonsterHint(TCreature *Creature)
 				GUI.CheckEventHelpName(Opponent->Name);
 		}
 	} else if (!IsPlayer(Creature->CreatureID) && IsOpponent(Creature)
+		// IsOpponent asserts the player creature (a null Player throws there; MSVC /analyze's C6011, issue #110).
+		PATELLA_MSVC_WARNING(suppress : 6011)
 		&& abs(Creature->RealX - Player->RealX) <= 2 && abs(Creature->RealY - Player->RealY) <= 2) {
 		GUI.CheckEventHelpName(Creature->Name);
 	}
@@ -1106,7 +1108,7 @@ void patella::TCreatures::RemoveBuddy(uint32 CharacterID)
 	const int Position = GetBuddyPosition(CharacterID);
 	if (Position == -1)
 		return;
-	GUI.AddMessage(0x1a, reinterpret_cast<INT_PTR>(MsvcStrdup(Buddies[Position].Name)), 0);
+	GUI.AddMessage(0x1a, reinterpret_cast<std::intptr_t>(MsvcStrdup(Buddies[Position].Name)), 0);
 	if (Buddies[Position].Online)
 		NumberOfOnlineBuddies--;
 	for (int i = Position; i < NumberOfBuddies - 1; i++)

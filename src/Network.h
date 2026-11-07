@@ -13,15 +13,21 @@
 #include "Utils.h"
 #include "compat/span.h"
 #include "platform/Socket.h"
+#include "platform/Window.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 inline constexpr int NUMBEROFSERVER = 4;
 
 // Error codes besides the WinSock ones.
 inline constexpr int ERROR_LOGINSERVER_OVERLOADED = 200001;
 inline constexpr int ERROR_DISCONNECTED = 200002;
+
+// The message NetworkWindow gets when ResolveHostname's lookup is done (WM_USER + 1; MainFrm.cpp's OnHostResolved,
+// which asserts it): a number, so that Network.cpp needs no Windows header (issue #110).
+inline constexpr unsigned int HOSTNAME_RESOLVED_MESSAGE = 0x0400 + 1;
 
 // The size of the buffer GetErrorMessage writes into: every caller passes new char[1024].
 inline constexpr std::size_t ERROR_MESSAGE_SIZE = 1024;
@@ -61,7 +67,7 @@ public:
 	virtual int GetActiveCharacter() = 0;
 	virtual const char *GetCharacterIPAddress(int Number) = 0;
 	virtual int GetCharacterPort(int Number) = 0;
-	virtual void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2) = 0;
+	virtual void AddMessage(int Type, std::intptr_t Param1, std::intptr_t Param2) = 0;
 
 protected:
 	~TNetworkSession() = default;
@@ -90,7 +96,7 @@ public:
 	void SetTestServerPort(int Port);
 	void ResetServerAvailability();
 	void SetConnectionTimeout(int Timeout);
-	void SetNetworkWindow(HWND Window);
+	void SetNetworkWindow(platform::TWindowHandle Window);
 	void SetTestServerAddress(const char *Address);
 	void SetServerError(int errorcode);
 	void SetServerIPAddress(const char *ipaddress);
@@ -134,23 +140,23 @@ public:
 	void OnClose() override;
 
 	// Data, in the original's .data/.bss order.
-	int HostnameResolveBufferSize = MAXGETHOSTSTRUCT; // 0x5c22c4, initialised to 0x400
-	int ReconnectTimeout{};                           // 0x5c4520, Control.cpp's: GetMilliseconds time
-	bool Reconnect{};                                 // 0x5c4524, Control.cpp's: set by event 0x3f
-	std::array<uint8, 16> PacketHeader{};             // 0x5d1644, MainFrm.cpp's: the first bytes of the last packet
-	int CurrentServer{};                              // 0x7152f0
-	TServer TestServer{};                             // 0x7152f8
-	std::array<TServer, NUMBEROFSERVER> Servers{};    // 0x715368
-	HANDLE HostnameRequest{};                         // 0x715528
-	char *HostnameResolveBuffer{};                    // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
-	int ReceiveDataSize{};                            // 0x715530, bytes in ReceiveData
-	int ReceivePacketEnd{};                           // 0x715534, end of the complete packets
-	int ReceiveRead{};                                // 0x715538, start of the next unread packet
+	int HostnameResolveBufferSize = platform::HostEntrySize; // 0x5c22c4, initialised to 0x400 (MAXGETHOSTSTRUCT)
+	int ReconnectTimeout{};                                  // 0x5c4520, Control.cpp's: GetMilliseconds time
+	bool Reconnect{};                                        // 0x5c4524, Control.cpp's: set by event 0x3f
+	std::array<uint8, 16> PacketHeader{};                    // 0x5d1644, MainFrm.cpp's: the first bytes of the last packet
+	int CurrentServer{};                                     // 0x7152f0
+	TServer TestServer{};                                    // 0x7152f8
+	std::array<TServer, NUMBEROFSERVER> Servers{};           // 0x715368
+	void *HostnameRequest{};                                 // 0x715528, ResolveHostname's request (a HANDLE)
+	char *HostnameResolveBuffer{};                           // 0x71552c, a HOSTENT filled by WSAAsyncGetHostByName
+	int ReceiveDataSize{};                                   // 0x715530, bytes in ReceiveData
+	int ReceivePacketEnd{};                                  // 0x715534, end of the complete packets
+	int ReceiveRead{};                                       // 0x715538, start of the next unread packet
 	// A frame whose inner length runs past it throws in PrepareNextPacket (issue #72), so ReceiveBuffer's reads stay
 	// inside the frame: Tibia.exe read on past ReceiveData, into SendData.
 	std::array<uint8, 0x4000> ReceiveData{};            // 0x715540
 	std::array<uint8, 0x800> SendData{};                // 0x719540
-	HWND NetworkWindow{};                               // 0x719d40, receives WM_USER+1 when a name is resolved
+	platform::TWindowHandle NetworkWindow{};            // 0x719d40, receives WM_USER+1 when a name is resolved
 	void (*CloseCallback)(){};                          // 0x719d44
 	void (*ReceiveCallback)(){};                        // 0x719d48
 	void (*ConnectCallback)(){};                        // 0x719d4c
@@ -187,7 +193,7 @@ void InitServerList();
 void SetTestServerPort(int Port);
 void ResetServerAvailability();
 void SetConnectionTimeout(int Timeout);
-void SetNetworkWindow(HWND Window);
+void SetNetworkWindow(patella::platform::TWindowHandle Window);
 void SetTestServerAddress(const char *Address);
 void SetServerError(int errorcode);
 void SetServerIPAddress(const char *ipaddress);

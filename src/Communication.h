@@ -26,6 +26,25 @@ class TNetwork;
 class TObjectTypes;
 class TPlayerState;
 
+// The signatures of Tibia.spr and Tibia.pic that the login packet sends (SendLogin; issue #110): TGraphics' data
+// (graphics.h), and TGraphics is made after TCommunication, so an interface this header declares (notes/decisions.md,
+// "#104", rule 5), which Client.cpp's adapter implements by reading the one TClient's TGraphics. Communication.cpp
+// does not include graphics.h (whose engine part is the platform's surface): patella_core compiles it.
+class TLoginSignatures {
+public:
+	TLoginSignatures() = default;
+	TLoginSignatures(const TLoginSignatures &) = delete;
+	TLoginSignatures &operator=(const TLoginSignatures &) = delete;
+	TLoginSignatures(TLoginSignatures &&) = delete;
+	TLoginSignatures &operator=(TLoginSignatures &&) = delete;
+
+	virtual uint32 SpriteSignature() = 0;
+	virtual uint32 PictureSignature() = 0;
+
+protected:
+	~TLoginSignatures() = default;
+};
+
 // Communication.cpp's data and functions (issue #105): the globals of the original (0x5c4340-0x5c4387), with
 // Control.cpp's LastPacketType, LastPacketIndex and LastPacketTypes (0x5c0d8c, 0x5c4510-0x5c451d), are the members,
 // with the same initial values, and the functions the members of the same names; Status.cpp's session is its TSession
@@ -33,7 +52,7 @@ class TPlayerState;
 // five objects (issue #106) and call the windows through those files' functions until TGUI (#107) is an object.
 class TCommunication {
 public:
-	TCommunication(TNetwork &NetworkRef, TMapState &MapState);
+	TCommunication(TNetwork &NetworkRef, TMapState &MapState, TLoginSignatures &SignaturesRef);
 	TCommunication(const TCommunication &) = delete;
 	TCommunication &operator=(const TCommunication &) = delete;
 	TCommunication(TCommunication &&) = delete;
@@ -196,6 +215,7 @@ private:
 	TCreatures &Creatures;
 	TPlayerState &PlayerState;
 	TInventory &Inventory;
+	TLoginSignatures &Signatures; // issue #110
 
 	// LastPacketTypes a std::array (issue #60).
 	static_assert(sizeof(LastPacketTypes) == 10, "LastPacketTypes");

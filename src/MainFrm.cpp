@@ -69,6 +69,8 @@ int WheelDelta;             // 0x5d169c, the remainder below one notch (120)
 // The arrays std::arrays and TFixedStrings (issue #60). CMainFrame derives from MFC's CFrameWnd, whose size is
 // the MFC's or the shim's (the golden tests): KeyStates' place among CMainFrame's own members.
 static_assert(sizeof(ClassName) == 32, "ClassName");
+// Network.cpp's name lookup posts WM_USER + 1 to this window (issue #110: a number there, Network.h).
+static_assert(HOSTNAME_RESOLVED_MESSAGE == WM_USER + 1);
 // 0x4a8200. The handlers that share an address in the table (OnKeyDown
 // and OnSysKeyDown, OnKeyUp and OnSysKeyUp) have identical code that the
 // linker folded.
@@ -96,7 +98,7 @@ ON_WM_GETMINMAXINFO()
 ON_WM_NCHITTEST()
 ON_WM_CAPTURECHANGED()
 ON_MESSAGE(WM_DISPLAYCHANGE, OnDisplayChange)
-ON_MESSAGE(WM_USER + 1, OnHostResolved)
+ON_MESSAGE(HOSTNAME_RESOLVED_MESSAGE, OnHostResolved)
 END_MESSAGE_MAP()
 
 // 0x4a8210. A virtual key to the client's key code: the modifiers, the

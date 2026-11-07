@@ -67,6 +67,19 @@ set(PATELLA_WARNING_BASELINE_CLANG
 	src/vlong.cpp
 	tests/unit/core_container_test.cpp
 )
+# Issue #110: the files that joined patella_core, measured then (GCC 16.2 and Clang 22.1 in the image, Release, the
+# full level without -Werror; notes/decisions.md, "#110"): GCC Communication.cpp 69 -Wconversion; Clang
+# Communication.cpp 69 -Wimplicit-int-conversion and 17 -Wsign-conversion, Creatures.cpp 69, Inventory.cpp 63,
+# Network.cpp 24, Map.cpp 18 (with Container.h's) and Objects.cpp 2 (with Container.h's 6 in all) -Wsign-conversion.
+list(APPEND PATELLA_WARNING_BASELINE_GCC
+	src/Communication.cpp)
+list(APPEND PATELLA_WARNING_BASELINE_CLANG
+	src/Communication.cpp
+	src/Creatures.cpp
+	src/Inventory.cpp
+	src/Map.cpp
+	src/Network.cpp
+	src/Objects.cpp)
 
 # C++23 with the conformance switches. MSVC has no /std:c++23 yet, so /std:c++latest; GCC and Clang
 # compile as C++26, whose features the code reaches only through src/compat/cxx26.h (issue #9). The

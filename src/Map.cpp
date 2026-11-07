@@ -1154,6 +1154,9 @@ TAutomapBlock *patella::TMap::GetAutomapBlock(int bx, int by, int bz)
 		AutomapBlocks[MostRecentBlock].Previous = Position;
 		MostRecentBlock = Position;
 	}
+	// The cache list links all AUTOMAP_BLOCKS entries (InitMap), so Position is one of them, the least recent at worst
+	// (MSVC /analyze's C28020 sees LeastRecentBlock as any int; issue #110).
+	PATELLA_MSVC_WARNING(suppress : 28020)
 	return &AutomapBlocks[Position];
 }
 

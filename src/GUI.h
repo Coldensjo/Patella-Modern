@@ -23,6 +23,7 @@
 #include "Skins.h" // IWYU pragma: export
 #include "Status.h"
 #include "Talk.h"
+#include "types/Callback.h" // IWYU pragma: export (TCallback, GUI.h's until issue #110)
 #include "types/FixedString.h"
 #include <array>
 #include <flat_map>
@@ -37,15 +38,7 @@ void DrawSkinClipped(int Surface, int x, int y, int width, int height, int skin,
 
 class TComponent;
 
-// A receiver and an event number (8 bytes, passed by value): Send() calls
-// Receiver->HandleEvent(Event). Buttons, timers and hotkeys keep one.
-struct TCallback {
-	TCallback() : Receiver(nullptr), Event(0) {} // inlined (vector<THotkey>, TTimer)
-	TCallback(TComponent *Receiver, int Event);  // 0x496130
-	void Send() const;                           // 0x4a0f00, line 1931
-	TComponent *Receiver;                        // +0x00
-	int Event;                                   // +0x04
-};
+// TCallback: types/Callback.h (issue #110), exported above.
 
 // One entry of a component's drawing list (0x1c bytes): a skin drawn at an
 // offset in the component, tiled to width x height when they are not 0. The

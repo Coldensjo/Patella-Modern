@@ -14,7 +14,6 @@
 #include "Help.h"
 #include "Inventory.h"
 #include "Creatures.h"
-#include "graphics.h"
 #include "Map.h"
 #include "MapState.h"
 #include "Network.h"
@@ -30,6 +29,7 @@
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -47,9 +47,9 @@ constexpr std::string_view TextUpdateRefused = "This server wants to update the 
 
 } // namespace
 
-patella::TCommunication::TCommunication(TNetwork &NetworkRef, TMapState &MapState)
+patella::TCommunication::TCommunication(TNetwork &NetworkRef, TMapState &MapState, TLoginSignatures &SignaturesRef)
 	: Network(NetworkRef), ObjectTypes(MapState.ObjectTypes), Map(MapState.Map), Creatures(MapState.Creatures),
-	  PlayerState(MapState.PlayerState), Inventory(MapState.Inventory)
+	  PlayerState(MapState.PlayerState), Inventory(MapState.Inventory), Signatures(SignaturesRef)
 {
 }
 
@@ -130,8 +130,8 @@ void patella::TCommunication::SendLogin(uint32 AccountID, const char *Password)
 	Network.SendWord(2);
 	Network.SendWord(772);
 	Network.SendQuad(ObjectTypes.DatSignature);
-	Network.SendQuad(patella::bridge::Graphics().SpriteSignature);
-	Network.SendQuad(patella::bridge::Graphics().PictureSignature);
+	Network.SendQuad(Signatures.SpriteSignature());
+	Network.SendQuad(Signatures.PictureSignature());
 	Network.SendBytes(Data);
 	Network.SendCommand(false);
 }
@@ -733,7 +733,7 @@ void patella::TCommunication::SendRuleViolationReport(const char *Name, uint8 Re
 void patella::TCommunication::ReceiveLoginError()
 {
 	const char *Text = Network.GetString();
-	AddMessage(1, reinterpret_cast<INT_PTR>("Sorry"), reinterpret_cast<INT_PTR>(Text));
+	AddMessage(1, reinterpret_cast<std::intptr_t>("Sorry"), reinterpret_cast<std::intptr_t>(Text));
 	Network.Disconnect(false);
 	Session.SetConnectionState(0);
 }
@@ -742,7 +742,7 @@ void patella::TCommunication::ReceiveLoginError()
 void patella::TCommunication::ReceiveLoginMessage()
 {
 	const char *Text = Network.GetString();
-	AddMessage(1, reinterpret_cast<INT_PTR>("For Your Information"), reinterpret_cast<INT_PTR>(Text));
+	AddMessage(1, reinterpret_cast<std::intptr_t>("For Your Information"), reinterpret_cast<std::intptr_t>(Text));
 }
 
 // 0x40a810, lines 1020-1020
@@ -768,7 +768,7 @@ void patella::TCommunication::ReceiveUpdateRequest()
 	char *Text = new char[TextUpdateRefused.size() + 1];
 	memcpy(Text, TextUpdateRefused.data(), TextUpdateRefused.size());
 	Text[TextUpdateRefused.size()] = 0;
-	AddMessage(1, reinterpret_cast<INT_PTR>("Sorry"), reinterpret_cast<INT_PTR>(Text));
+	AddMessage(1, reinterpret_cast<std::intptr_t>("Sorry"), reinterpret_cast<std::intptr_t>(Text));
 	Network.Disconnect(false);
 	Session.SetConnectionState(0);
 }
@@ -836,7 +836,7 @@ void patella::TCommunication::ReceiveGamemasterActions()
 void patella::TCommunication::ReceiveGameError()
 {
 	const char *Text = Network.GetString();
-	AddMessage(1, reinterpret_cast<INT_PTR>("Sorry"), reinterpret_cast<INT_PTR>(Text));
+	AddMessage(1, reinterpret_cast<std::intptr_t>("Sorry"), reinterpret_cast<std::intptr_t>(Text));
 	Network.Disconnect(false);
 	Session.SetConnectionState(0);
 }
@@ -845,7 +845,7 @@ void patella::TCommunication::ReceiveGameError()
 void patella::TCommunication::ReceiveGameMessage()
 {
 	const char *Text = Network.GetString();
-	AddMessage(1, reinterpret_cast<INT_PTR>("For Your Information"), reinterpret_cast<INT_PTR>(Text));
+	AddMessage(1, reinterpret_cast<std::intptr_t>("For Your Information"), reinterpret_cast<std::intptr_t>(Text));
 }
 
 // 0x40c500, lines 1271-1271
@@ -853,7 +853,7 @@ void patella::TCommunication::ReceiveLoginWait()
 {
 	const char *Text = Network.GetString();
 	const int Delay = Network.GetByte();
-	AddMessage(5, reinterpret_cast<INT_PTR>(Text), Delay);
+	AddMessage(5, reinterpret_cast<std::intptr_t>(Text), Delay);
 }
 
 // 0x40c6a0, lines 1282-1282
@@ -1383,15 +1383,15 @@ void patella::TCommunication::ReceiveOpenContainer(int &Container)
 	Inventory.OpenContainer(Container, TObject{Type, 0, 0}, Name, Capacity, HasParent);
 	const int Count = Network.GetByte();
 	for (int i = 0; i < Count; i++) {
-		const int Type = Network.GetWord();
+		const int ObjectType = Network.GetWord(); // Type until issue #110 (GCC's -Wshadow in patella_core)
 		int Data = 0;
-		if (ObjectTypes.GetObjectFlag(Type, 5))
+		if (ObjectTypes.GetObjectFlag(ObjectType, 5))
 			Data = Network.GetByte();
-		if (ObjectTypes.GetObjectFlag(Type, 11))
+		if (ObjectTypes.GetObjectFlag(ObjectType, 11))
 			Data = Network.GetByte();
-		if (ObjectTypes.GetObjectFlag(Type, 10))
+		if (ObjectTypes.GetObjectFlag(ObjectType, 10))
 			Data = Network.GetByte();
-		Inventory.AppendContainerObject(Container, TObject{Type, (int)Data, 0});
+		Inventory.AppendContainerObject(Container, TObject{ObjectType, (int)Data, 0});
 	}
 }
 
@@ -1708,7 +1708,7 @@ void patella::TCommunication::ReceiveEditText()
 	char **Strings = new char *[2];
 	Strings[0] = Writer;
 	Strings[1] = Text;
-	AddMessage(14, reinterpret_cast<INT_PTR>(Info), reinterpret_cast<INT_PTR>(Strings));
+	AddMessage(14, reinterpret_cast<std::intptr_t>(Info), reinterpret_cast<std::intptr_t>(Strings));
 }
 
 // 0x410260, lines 2318-2318
@@ -1718,7 +1718,7 @@ void patella::TCommunication::ReceiveEditHouseText()
 	Info[0] = Network.GetByte();
 	Info[1] = Network.GetQuad();
 	const char *Text = Network.GetString();
-	AddMessage(15, reinterpret_cast<INT_PTR>(Info), reinterpret_cast<INT_PTR>(Text));
+	AddMessage(15, reinterpret_cast<std::intptr_t>(Info), reinterpret_cast<std::intptr_t>(Text));
 }
 
 // 0x410410, lines 2347-2347
@@ -1857,7 +1857,7 @@ void patella::TCommunication::ReceiveChannelList()
 		Channels[i + 1] = Network.GetWord();
 		Network.GetString(patella::TSpan<char>(Names + i * 30, 30));
 	}
-	AddMessage(0x12, reinterpret_cast<INT_PTR>(Channels), reinterpret_cast<INT_PTR>(Names));
+	AddMessage(0x12, reinterpret_cast<std::intptr_t>(Channels), reinterpret_cast<std::intptr_t>(Names));
 }
 
 // 0x411230, lines 2502-2502
@@ -1867,7 +1867,7 @@ void patella::TCommunication::ReceiveOpenChannel()
 	ChannelID = Network.GetWord();
 	char *Name = new char[30];
 	Network.GetString(patella::TSpan<char>(Name, 30));
-	AddMessage(48, ChannelID, reinterpret_cast<INT_PTR>(Name));
+	AddMessage(48, ChannelID, reinterpret_cast<std::intptr_t>(Name));
 }
 
 // 0x4113f0, lines 2515-2515
@@ -1875,7 +1875,7 @@ void patella::TCommunication::ReceiveOpenPrivateConversation()
 {
 	char *Name = new char[30];
 	Network.GetString(patella::TSpan<char>(Name, 30));
-	AddMessage(0x2f, 0, reinterpret_cast<INT_PTR>(Name));
+	AddMessage(0x2f, 0, reinterpret_cast<std::intptr_t>(Name));
 }
 
 // 0x4115a0, lines 2530-2530
@@ -1886,7 +1886,7 @@ void patella::TCommunication::ReceiveRuleViolationChannel()
 	const TTalkBuffer *Channel = CreateTextBuffer(6, 1, nullptr, ChannelID);
 	if (Channel == nullptr)
 		Channel = GetTextBuffer(6, nullptr, -1);
-	AddMessage(0x32, reinterpret_cast<INT_PTR>(Channel), 0);
+	AddMessage(0x32, reinterpret_cast<std::intptr_t>(Channel), 0);
 }
 
 // 0x411760, lines 2551-2551
@@ -1941,7 +1941,7 @@ void patella::TCommunication::ReceiveOwnChannel()
 	ChannelID = Network.GetWord();
 	char *Name = new char[40];
 	Network.GetString(patella::TSpan<char>(Name, 40));
-	AddMessage(49, ChannelID, reinterpret_cast<INT_PTR>(Name));
+	AddMessage(49, ChannelID, reinterpret_cast<std::intptr_t>(Name));
 }
 
 // 0x411ea0, lines 2623-2623
@@ -2085,7 +2085,7 @@ void patella::TCommunication::ReceiveOutfit()
 	Outfit[4] = Network.GetByte();
 	Outfit[5] = Network.GetWord();
 	Outfit[6] = Network.GetWord();
-	AddMessage(16, reinterpret_cast<INT_PTR>(Outfit), 0);
+	AddMessage(16, reinterpret_cast<std::intptr_t>(Outfit), 0);
 }
 
 // 0x412540, lines 2785-2785
@@ -2099,7 +2099,7 @@ void patella::TCommunication::ReceiveBuddy()
 	const int State = Network.GetByte();
 	Creatures.AddBuddy(CharacterID, Name, State == 1);
 	const char *Copy = MsvcStrdup(Name);
-	AddMessage(25, reinterpret_cast<INT_PTR>(Copy), 0);
+	AddMessage(25, reinterpret_cast<std::intptr_t>(Copy), 0);
 }
 
 // 0x412720, lines 2798-2798

@@ -25,9 +25,9 @@
 #include "types/IndexedVector.h"
 #include "types/SlotTable.h"
 #include "Container.h"
-#include "graphics.h" // TRGBColor
-#include "MapPoint.h" // TMapPoint, OBJECTS_PER_POINT (issue #102)
-#include "Objects.h"  // TObject
+#include "types/GraphicsTypes.h" // TRGBColor
+#include "MapPoint.h"            // TMapPoint, OBJECTS_PER_POINT (issue #102)
+#include "Objects.h"             // TObject
 #include <array>
 #include <cstddef>
 #include <iterator> // std::default_sentinel_t, TMapEffects
@@ -40,6 +40,15 @@ inline constexpr int EFFECTS = 200;
 
 // An effect (0x44 bytes). Status 0 is a free entry, 1 a graphical effect, 2 an
 // animated text, 3 a missile. The three kinds share the space after Type.
+// Its anonymous structs are a Microsoft extension (GCC and Clang have it too), which MFC's headers switched on for
+// their includers (C4201) and -Wpedantic names: allowed for TEffect alone since patella_core compiles Map.h without
+// MFC (issue #110; their members are TEffect's own names, Text, Direction..., throughout Map.cpp and the windows).
+PATELLA_MSVC_WARNING(push)
+PATELLA_MSVC_WARNING(disable : 4201)
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 struct TEffect {
 	int Status; // +0x00
 	int Type;   // +0x04, the colour of a text
@@ -68,6 +77,10 @@ struct TEffect {
 	TEffectId Previous; // +0x3c, effects of the same point; None for the first
 	TEffectId Next;     // +0x40, None for the last
 };
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+PATELLA_MSVC_WARNING(pop)
 // The original's layout (no pointers: the same on x64), with Text a TFixedString (issue #57).
 static_assert(sizeof(TEffect) == 0x44 && offsetof(TEffect, Text) == 0x08 && offsetof(TEffect, TextPhase) == 0x14
 		&& offsetof(TEffect, Field) == 0x38,

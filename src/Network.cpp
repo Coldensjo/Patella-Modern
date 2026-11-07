@@ -19,9 +19,11 @@
 #include "Preferences.h"
 #include "common.h"
 #include "compat/span.h"
+#include "platform/Window.h"
 #include "types/FixedString.h"
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -77,7 +79,7 @@ void patella::TNetwork::SetConnectionTimeout(int Timeout)
 }
 
 // 0x4ca2b0
-void patella::TNetwork::SetNetworkWindow(HWND Window)
+void patella::TNetwork::SetNetworkWindow(platform::TWindowHandle Window)
 {
 	NetworkWindow = Window;
 }
@@ -331,7 +333,7 @@ void patella::TNetwork::CheckConnectionTimeout()
 	if (TimeoutLimit != 0 && ++TimeoutCounter > TimeoutLimit) {
 		TimeoutLimit = 0;
 		TimeoutCounter = 0;
-		SetServerError(WSAETIMEDOUT);
+		SetServerError(platform::socket_error::TimedOut);
 		Disconnect(false);
 		Session.SetConnectionState(0);
 		ConnectToLoginServer();
@@ -349,34 +351,34 @@ void patella::TNetwork::GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>
 	// Every caller passes new char[1024] (ERROR_MESSAGE_SIZE); the longest message has about 300 characters.
 	TStringBuffer Out(Message, MessageBuffer.size());
 	switch (ErrorCode) {
-	case WSAEINVAL:
-	case WSAEADDRNOTAVAIL:
+	case platform::socket_error::Invalid:
+	case platform::socket_error::AddressNotAvailable:
 		Text.Assign("Invalid server address.");
 		break;
-	case WSAEMSGSIZE:
+	case platform::socket_error::MessageSize:
 		Text.Assign("Connection error.");
 		break;
-	case WSAENETDOWN:
-	case WSAENETUNREACH:
+	case platform::socket_error::NetworkDown:
+	case platform::socket_error::NetworkUnreachable:
 		Text.Assign("Network is unreachable.");
 		break;
-	case WSAETIMEDOUT:
+	case platform::socket_error::TimedOut:
 		Text.Assign("Connection timeout.");
 		break;
-	case WSAECONNREFUSED:
+	case platform::socket_error::ConnectionRefused:
 		Text.Assign("Connection refused.");
 		Offline = true;
 		break;
-	case WSAEHOSTUNREACH:
+	case platform::socket_error::HostUnreachable:
 		Text.Assign("Server is unreachable.");
 		break;
-	case WSAHOST_NOT_FOUND:
+	case platform::socket_error::HostNotFound:
 		Text.Assign("Server name does not exist.");
 		break;
-	case WSATRY_AGAIN:
+	case platform::socket_error::TryAgain:
 		Text.Assign("Could not resolve server name.");
 		break;
-	case WSANO_DATA:
+	case platform::socket_error::NoData:
 		Text.Assign("Error while resolving the server name.");
 		break;
 	case ERROR_LOGINSERVER_OVERLOADED:
@@ -424,16 +426,16 @@ void patella::TNetwork::GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>
 }
 
 // 0x4cd9a0, lines 611-625. Starts an asynchronous lookup; NetworkWindow gets
-// WM_USER+1 when it completes.
+// HOSTNAME_RESOLVED_MESSAGE (WM_USER+1) when it completes.
 bool patella::TNetwork::ResolveHostname(const char *Hostname)
 {
 	PATELLA_ASSERT(Hostname!=NULL);
-	HostnameRequest = Sockets.ResolveHostname(NetworkWindow, WM_USER + 1, Hostname, HostnameResolveBuffer,
+	HostnameRequest = Sockets.ResolveHostname(NetworkWindow, HOSTNAME_RESOLVED_MESSAGE, Hostname, HostnameResolveBuffer,
 		HostnameResolveBufferSize);
 	if (HostnameRequest == nullptr) {
 		char *Message = new char[1024];
 		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), Sockets.LastError(), 1);
-		Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+		Session.AddMessage(1, reinterpret_cast<std::intptr_t>("Connection failed"), reinterpret_cast<std::intptr_t>(Message));
 		Session.SetConnectionState(0);
 		return false;
 	}
@@ -470,7 +472,7 @@ int patella::TNetwork::ConnectSocket(const char *IPAddress, int Port, bool SetTi
 {
 	PATELLA_ASSERT(IPAddress!=NULL);
 	if (!Sockets.Connect(Socket, IPAddress, Port)) {
-		if (Sockets.LastError() != WSAEWOULDBLOCK) {
+		if (Sockets.LastError() != platform::socket_error::WouldBlock) {
 			const int Error = Sockets.LastError();
 			Sockets.Delete(Socket);
 			Socket = nullptr;
@@ -513,7 +515,7 @@ void patella::TNetwork::Disconnect(bool force)
 			Count = Sockets.Receive(Socket, Buffer, sizeof(Buffer));
 			if (Count == 0)
 				break;
-		} while (Count != SOCKET_ERROR);
+		} while (Count != platform::SocketFailed);
 		Sockets.Shutdown(Socket, platform::TShutdown::Both);
 		Sockets.Close(Socket);
 		Sockets.Delete(Socket);
@@ -533,7 +535,7 @@ void patella::TNetwork::ConnectToLoginServer()
 	if (!GetCurrentServer(&Server)) {
 		char *Message = new char[1024];
 		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), GetServerErrorCode(), 1);
-		Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+		Session.AddMessage(1, reinterpret_cast<std::intptr_t>("Connection failed"), reinterpret_cast<std::intptr_t>(Message));
 		for (int i = 0; i < NUMBEROFSERVER; i++)
 			Servers[i].Available = true;
 		TestServer.Available = true;
@@ -567,14 +569,14 @@ void patella::TNetwork::ConnectToGameServer()
 	if (Error != 0) {
 		char *Message = new char[1024];
 		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), Error, 2);
-		Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+		Session.AddMessage(1, reinterpret_cast<std::intptr_t>("Connection failed"), reinterpret_cast<std::intptr_t>(Message));
 		Session.AddMessage(10, 300, 0);
 	}
 	Error = ConnectSocket(IPAddress, Session.GetCharacterPort(Character), false);
 	if (Error != 0) {
 		char *Message = new char[1024];
 		GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), Error, 2);
-		Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+		Session.AddMessage(1, reinterpret_cast<std::intptr_t>("Connection failed"), reinterpret_cast<std::intptr_t>(Message));
 		Session.AddMessage(10, 300, 0);
 	}
 }
@@ -602,7 +604,7 @@ void patella::TNetwork::OnConnect(int ErrorCode)
 	}
 	char *Message = new char[1024];
 	GetErrorMessage(patella::TSpan<char, ERROR_MESSAGE_SIZE>(Message, ERROR_MESSAGE_SIZE), ErrorCode, 2);
-	Session.AddMessage(1, reinterpret_cast<INT_PTR>("Connection failed"), reinterpret_cast<INT_PTR>(Message));
+	Session.AddMessage(1, reinterpret_cast<std::intptr_t>("Connection failed"), reinterpret_cast<std::intptr_t>(Message));
 	Session.AddMessage(10, 300, 0);
 	Disconnect(false);
 	Session.SetConnectionState(0);
@@ -615,7 +617,7 @@ void patella::TNetwork::OnReceive(platform::TSocket &Receiver, int ErrorCode)
 	if (ErrorCode != 0)
 		return;
 	const int Count = Sockets.Receive(&Receiver, &ReceiveData[ReceiveDataSize], sizeof(ReceiveData) - ReceiveDataSize);
-	if (Count == 0 || Count == SOCKET_ERROR)
+	if (Count == 0 || Count == platform::SocketFailed)
 		return;
 	ReceiveDataSize += Count;
 	bool Complete = false;
@@ -697,7 +699,7 @@ void SetConnectionTimeout(int Timeout)
 	patella::bridge::Network().SetConnectionTimeout(Timeout);
 }
 
-void SetNetworkWindow(HWND Window)
+void SetNetworkWindow(patella::platform::TWindowHandle Window)
 {
 	patella::bridge::Network().SetNetworkWindow(Window);
 }

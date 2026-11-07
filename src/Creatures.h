@@ -16,8 +16,8 @@
 #include "common.h"
 #include "types/FixedString.h"
 #include "types/Time32.h"
-#include "graphics.h"    // TRGBColor
-#include "Preferences.h" // SKILLS
+#include "types/GraphicsTypes.h" // TRGBColor
+#include "Preferences.h"         // SKILLS
 
 #include <array>
 #include <cstdint>
@@ -39,7 +39,7 @@ public:
 	int GetDeltaY() const;                             // 0x44bc10
 	int GetDrawDirection() const;                      // 0x44bc30
 	void StartMovement(int dx, int dy, int Waypoints); // 0x44bc70, line 142
-	void SetMark(int Mark);                            // 0x44bf20, line 154
+	void SetMark(int Value);                           // 0x44bf20, line 154
 	int GetAnimationPhase(int AvailablePhases) const;  // 0x44c0d0, lines 163-169
 	// Ours (issue #62): the skull SetSkull kept (Delay) is still shown at Now, the wall clock's 64-bit time:
 	// SkullTime is set, and Now is from it to four seconds after it. SkullTime holds the original's 4 bytes of the
@@ -136,11 +136,11 @@ public:
 	TCreaturesGUI &operator=(const TCreaturesGUI &) = delete;
 	TCreaturesGUI(TCreaturesGUI &&) = delete;
 	TCreaturesGUI &operator=(TCreaturesGUI &&) = delete;
-	virtual void SetStatusMessage(const char *Message, bool Permanent) = 0; // Talk.cpp
-	virtual void AddEventHelp(int Number) = 0;                              // Help.cpp
-	virtual void CheckEventHelpName(const char *Name) = 0;                  // Help.cpp
-	virtual void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2) = 0;  // Status.cpp
-	virtual int GetActionNumber() = 0;                                      // Status.cpp
+	virtual void SetStatusMessage(const char *Message, bool Permanent) = 0;            // Talk.cpp
+	virtual void AddEventHelp(int Number) = 0;                                         // Help.cpp
+	virtual void CheckEventHelpName(const char *Name) = 0;                             // Help.cpp
+	virtual void AddMessage(int Type, std::intptr_t Param1, std::intptr_t Param2) = 0; // Status.cpp
+	virtual int GetActionNumber() = 0;                                                 // Status.cpp
 
 protected:
 	~TCreaturesGUI() = default;
