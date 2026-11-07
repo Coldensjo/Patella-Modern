@@ -35,6 +35,11 @@
 #include <cstring>
 #include <memory>
 
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries
+// NOLINTBEGIN(cppcoreguidelines-owning-memory)
+
 // --- Separator, resizer and frame -----------------------------------------------
 
 // A line between groups (vtable 0x5610b0, 0x28 bytes): skins 9 and 8 one above
@@ -503,7 +508,7 @@ public:
 	void SetActive(bool _Active);                                               // 0x45bc80
 	void SetFocusGroup(TFocusGroup *_FocusGroup);                               // 0x468470, lines 2230-2235
 	// Inline (out-of-line copy 0x417520 in ConsoleWindow.obj).
-	bool HasSelection() const { return SelectionStart != -1 && SelectionLength != 0; }
+	[[nodiscard]] bool HasSelection() const { return SelectionStart != -1 && SelectionLength != 0; }
 	// Inline (out-of-line copies 0x4524e0, 0x452530, 0x452880).
 	void SetCursor(int Position)
 	{
@@ -557,8 +562,10 @@ public:
 	TPasswordEditLine(int _MaxLength); // 0x45cb50
 	// Inline (out-of-line copy 0x452980, deleting destructor 0x452df0).
 	~TPasswordEditLine() override { Stars.reset(); }
-	void Draw(int Surface, int x, int y) override;                                                       // +0x44, 0x45cbb0, line 2420
-	bool MouseMove(int x, int y) override { return TWindow::MouseMove(x, y); }                           // +0x4c, 0x4529c0, no selecting
+	void Draw(int Surface, int x, int y) override; // +0x44, 0x45cbb0, line 2420
+	// NOLINTNEXTLINE(bugprone-parent-virtual-call): the original's call of the base's base (the image's)
+	bool MouseMove(int x, int y) override { return TWindow::MouseMove(x, y); } // +0x4c, 0x4529c0, no selecting
+	// NOLINTNEXTLINE(bugprone-parent-virtual-call): the original's call of the base's base (the image's)
 	bool RightButtonUp(int x, int y, int Flags) override { return TWindow::RightButtonUp(x, y, Flags); } // +0x5c, 0x4529b0, no menu
 	void HandleEvent(int Event) override;                                                                // +0x70, 0x45cda0, line 2430
 
@@ -573,13 +580,14 @@ class TEditText final : public TEditLine {
 public:
 	TEditText(int MaxLength, bool _ReadOnly); // 0x46b570, line 2466
 	// The destructor is the implicit one (0x46b540, deleting destructor 0x46b520).
-	int getMinimumWidth() override;                             // +0x3c, 0x46b500 (inline, below)
-	int getMinimumHeight() override;                            // +0x40, 0x46b510 (inline, below)
-	void Draw(int Surface, int x, int y) override;              // +0x44, 0x45cf30, line 2503
-	void Arrange() override;                                    // +0x48, 0x4686f0, line 2536
-	bool MouseWheel(int x, int y, int Code) override;           // +0x60, 0x45d400, line 2549
-	void KeyPress(int Key) override;                            // +0x6c, 0x468a60, line 2703
-	int GetPosition(int x, int y) override;                     // +0xc4, 0x45d770, line 2762
+	int getMinimumWidth() override;                   // +0x3c, 0x46b500 (inline, below)
+	int getMinimumHeight() override;                  // +0x40, 0x46b510 (inline, below)
+	void Draw(int Surface, int x, int y) override;    // +0x44, 0x45cf30, line 2503
+	void Arrange() override;                          // +0x48, 0x4686f0, line 2536
+	bool MouseWheel(int x, int y, int Code) override; // +0x60, 0x45d400, line 2549
+	void KeyPress(int Key) override;                  // +0x6c, 0x468a60, line 2703
+	int GetPosition(int x, int y) override;           // +0xc4, 0x45d770, line 2762
+	// NOLINTNEXTLINE(bugprone-derived-method-shadowing-base-method): the original's virtual over TEditLine's plain one
 	virtual void SetActive(bool _Active);                       // +0xc8, 0x45d5d0, line 2728
 	virtual void SetText(const char *_Text, bool KeepPosition); // +0xcc, 0x469120, line 2711
 	using TEditLine::SetText;                                   // TEditLine's SetText(Text) too (GCC's -Woverloaded-virtual, issue #111)
@@ -768,9 +776,9 @@ public:
 	char *GetLine(int Number);                                    // 0x462b20, line 3847
 	void SetSelection(int Number);                                // 0x46ad10, lines 3891-3896
 	void Clear();                                                 // 0x462ca0, line 3921
-	int GetLineAt(int x, int y) const;                            // 0x462e70, line 3938
+	[[nodiscard]] int GetLineAt(int x, int y) const;              // 0x462e70, line 3938
 	// Inline (out-of-line copies 0x4529d0 and 0x4529f0, called by Dialogs.cpp).
-	int GetSelection() const
+	[[nodiscard]] int GetSelection() const
 	{
 		if (Selected < 0 || Selected > Lines - 1)
 			return -1;
@@ -779,7 +787,7 @@ public:
 	void SetEditable(bool _Editable) { Editable = _Editable; }
 	// Inline (Dialogs.cpp; the out-of-line copy is folded with Talk.h's
 	// TChannelTalkBuffer::GetChannelID 0x507060).
-	int GetNumberOfLines() const { return Lines; }
+	[[nodiscard]] int GetNumberOfLines() const { return Lines; }
 
 	int Lines;                       // +0x2c
 	int TextWidth;                   // +0x30
@@ -822,8 +830,9 @@ public:
 	void AddLine(const char *Text, TFont Font);             // 0x463820, lines 4051-4059
 	void AddLine(int MaxLength);                            // 0x463b10, lines 4067-4074
 	void SetLine(int Number, const char *Text, TFont Font); // 0x463dc0, lines 4082-4091
-	void Clear();                                           // 0x4641e0, line 4105
-	char *GetLine(int Number, TFont *Font);                 // 0x4643a0, lines 4113-4118
+	// NOLINTNEXTLINE(bugprone-derived-method-shadowing-base-method): the original's, called on a TFontListBox only
+	void Clear();                           // 0x4641e0, line 4105
+	char *GetLine(int Number, TFont *Font); // 0x4643a0, lines 4113-4118
 
 	TIndexedVector<TListBoxLine> FontLines; // +0x7c
 };
@@ -852,3 +861,4 @@ public:
 	int Maximum; // +0x24
 	int Current; // +0x28
 };
+// NOLINTEND(cppcoreguidelines-owning-memory)

@@ -29,7 +29,6 @@
 #include "GUI.h"
 #include "Talk.h"
 #include "graphics.h"
-#include <cstddef>
 #include <memory>
 
 class TEditLine;         // DialogElements.h
@@ -56,8 +55,8 @@ struct TLineFormat {
 	TLineFormat(TTalkLine *_TextLine, const char *_LineText, int _LineLength, int _OriginalOffset, int _Indent,
 		int _FontNumber, TRGBColor _Color, bool _LineEnd)
 	{
-		PATELLA_ASSERT(_TextLine!=NULL);
-		PATELLA_ASSERT(_LineText!=NULL);
+		PATELLA_ASSERT(_TextLine!=nullptr);
+		PATELLA_ASSERT(_LineText!=nullptr);
 		PATELLA_ASSERT_VALUES(_LineLength>0, _LineLength);
 		PATELLA_ASSERT_VALUES(_Indent>=0, _Indent);
 		PATELLA_ASSERT_VALUES(_OriginalOffset>=0, _OriginalOffset);
@@ -122,11 +121,11 @@ public:
 	bool GetSelectionEnd(int *Line, int *Offset);      // 0x4197a0, line 510
 	bool SelectAll();                                  // 0x4199e0, line 526
 	const char *GetSelectedText();                     // 0x419bd0, line 626
-	int getFirstLineNumber() const { return Lines.min; }
-	int getLastLineNumber() const { return LastLineNumber; }
+	[[nodiscard]] int getFirstLineNumber() const { return Lines.min; }
+	[[nodiscard]] int getLastLineNumber() const { return LastLineNumber; }
 	// Inline (out-of-line copy 0x417590; inlined into KeyPress): a selection
 	// of at least one character exists.
-	bool HasSelection() const
+	[[nodiscard]] bool HasSelection() const
 	{
 		if (TextBuffer == nullptr)
 			return false;
@@ -163,7 +162,7 @@ public:
 	void Draw(int Surface, int x, int y) override;    // +0x44, 0x41a4f0, line 706
 	void Arrange() override;                          // +0x48, 0x421450, lines 753-794
 	bool MouseWheel(int x, int y, int Code) override; // +0x60, 0x41a6a0, line 717
-	TTalkBuffer *getTextBuffer() const { return TextWindow->TextBuffer; }
+	[[nodiscard]] TTalkBuffer *getTextBuffer() const { return TextWindow->TextBuffer; }
 
 	TTextWindow *TextWindow; // +0x2c
 	TScrollBar *ScrollBar;   // +0x30
@@ -195,8 +194,8 @@ public:
 		TElement::ReleaseCapture(Component);
 	}
 	void SetActive(bool _Active); // 0x41afe0, line 880
-	const char *getCaption() { return Shortened ? FullCaption.get() : Caption.get(); }
-	TTalkBuffer *getTextBuffer() const { return TextBuffer; }
+	[[nodiscard]] const char *getCaption() const { return Shortened ? FullCaption.get() : Caption.get(); }
+	[[nodiscard]] TTalkBuffer *getTextBuffer() const { return TextBuffer; }
 
 	TTalkBuffer *TextBuffer;             // +0x24 (with the console's filter list: not one owner, notes/ownership.md 7)
 	int LineCount;                       // +0x28, the buffer's lines when the tab last looked
@@ -291,13 +290,13 @@ public:
 	void AddChannel(TTalkBuffer *TextBuffer, const char *Caption);                               // 0x423060, lines 1977-1998
 	void CloseChannel();                                                                         // 0x4234b0, lines 2009-2020
 	void ReportRuleViolation(const char *Question);                                              // 0x425330, lines 2033-2051
-	bool GetServerMessages() const;                                                              // 0x41f1c0, lines 2060-2061
+	[[nodiscard]] bool GetServerMessages() const;                                                // 0x41f1c0, lines 2060-2061
 	void SetServerMessages(bool Show);                                                           // 0x41f470, lines 2071-2077
-	TTalkBuffer *GetTextBuffer() const;                                                          // 0x41f7f0, line 2085
+	[[nodiscard]] TTalkBuffer *GetTextBuffer() const;                                            // 0x41f7f0, line 2085
 	void SendInput();                                                                            // 0x423830, lines 2145-2184
 	void AddToHistory();                                                                         // 0x41f940, line 2207
 	void ParseInput(char **Text, char **Addressee, int *TalkMode, char *MessageSeparator) const; // 0x41fb60, lines 2258-2304
-	bool SaveChannel() const;                                                                    // 0x420090, lines 2316-2335
+	[[nodiscard]] bool SaveChannel() const;                                                      // 0x420090, lines 2316-2335
 
 	TTabBar *TabBar;          // +0x2c
 	int Data30;               // +0x30, not used

@@ -14,15 +14,20 @@
 #include "Script.h"
 #include "compat/msvc_io.h"
 #include "Utils.h"
-#include "sysinc.h"
 #include "common.h"
 #include "compat/expected.h"
 #include "compat/span.h"
 #include "platform/Platform.h"
 #include "types/FixedString.h"
+#include "types/File.h"
 #include <cstdio>
 #include <cstring>
 #include <utility>
+
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries; the original's varargs (TMultiStateButton's constructor, _snprintf)
+// NOLINTBEGIN(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)
 
 // 0x4df6d0, lines 48-50: TryOpen, its failure thrown.
 void TReadScriptFile::open(const char *FileName)
@@ -684,3 +689,4 @@ void TReadScriptFile::readSymbol(char Symbol)
 	if (Special != Symbol)
 		error("special-char expected");
 }
+// NOLINTEND(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)

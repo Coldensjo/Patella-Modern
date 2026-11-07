@@ -31,7 +31,11 @@
 #include "Text.h" // IWYU pragma: keep (the object's own copy of the text table, see Text.h)
 #include "GUI.h"
 #include "common.h"
-#include <cstddef>
+
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries
+// NOLINTBEGIN(cppcoreguidelines-owning-memory)
 
 namespace {
 
@@ -39,6 +43,7 @@ namespace {
 // TCallback(NULL, 0) and never used (MainWindow.cpp and MapWindow.cpp have
 // one too); Dialogs.cpp's is the one before it (0x5cc420, initialiser
 // 0x559e10).
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's global; TCallback's constructor (GUI.cpp) stores two values
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
@@ -195,6 +200,7 @@ void TDialogWindow::Draw(int Surface, int x, int y)
 		}
 		Position += Child->Height;
 	}
+	// NOLINTNEXTLINE(bugprone-parent-virtual-call): the original's call of the base's base (the image's)
 	TComponent::Draw(Surface, x, y);
 	if (Dragged != nullptr)
 		Dragged->Draw(Surface, Dragged->OffsetX + x, Dragged->OffsetY + y);
@@ -319,7 +325,7 @@ void TDialogWindow::Rearrange(int Strategy, TComponent *Work)
 		Shrink();
 		break;
 	case 4:
-		PATELLA_ASSERT(Work!=NULL);
+		PATELLA_ASSERT(Work!=nullptr);
 		UpdateFreeHeight = false;
 		PositionChildren(false);
 		Grow(Work);
@@ -330,7 +336,7 @@ void TDialogWindow::Rearrange(int Strategy, TComponent *Work)
 		FitChildren();
 		break;
 	case 16:
-		PATELLA_ASSERT(Work!=NULL);
+		PATELLA_ASSERT(Work!=nullptr);
 		MakeRoom(Work);
 		AppendChild(Work);
 		PositionChildren(false);
@@ -431,7 +437,7 @@ void TDialogWindow::DragChild(TComponent *Work)
 		TComponent *Search = FirstChild;
 		TComponent *Next;
 		for (;;) {
-			PATELLA_ASSERT(Search!=NULL);
+			PATELLA_ASSERT(Search!=nullptr);
 			Next = Search->GetNext();
 			if (Dragged == Search)
 				break;
@@ -519,6 +525,7 @@ void TContentWindow::Draw(int Surface, int x, int y)
 		PATELLA_ASSERT_VALUES(y>=0, y);
 		DrawSkin(Surface, x, y, Width, Height, 7, 0, BackgroundY);
 	}
+	// NOLINTNEXTLINE(bugprone-parent-virtual-call): the original's call of the base's base (the image's)
 	TComponent::Draw(Surface, x, y);
 	for (TComponent *Child = FirstChild; Child != nullptr; Child = Child->GetNext())
 		Child->Draw(Surface, Child->OffsetX + x, Child->OffsetY + y);
@@ -599,7 +606,7 @@ TSubWindow::TSubWindow(int _Identifier, TSubWindowBody *_Body, bool _Resizable, 
 	MinimizeButton = nullptr;
 	Icon = nullptr;
 	Title = nullptr;
-	PATELLA_ASSERT(_Body!=NULL);
+	PATELLA_ASSERT(_Body!=nullptr);
 	Body = _Body;
 	TWindow::InsertChild(Body);
 	if (_Resizable) {
@@ -650,6 +657,8 @@ void TSubWindow::SetSize(int Width, int Height)
 		case 1:
 			Column->Rearrange(2, this);
 			break;
+		default:
+			break;
 		}
 		Column->Rearrange(8, nullptr);
 	}
@@ -664,7 +673,7 @@ void TSubWindow::Arrange()
 {
 	TContentWindow::Arrange();
 	if (Identifier >= 0x40) {
-		PATELLA_ASSERT(Body!=NULL);
+		PATELLA_ASSERT(Body!=nullptr);
 		UpdateContainerUpButton(Body);
 	}
 	DrawingList[0] = TDrawing(128, 0, 0, 0, 0, 0, 0);
@@ -853,3 +862,4 @@ void TSubWindow::SetTitle(TComponent *_Title)
 	InsertChild(_Title);
 	SetChildArea(Title, SkinProperties().Style194.Data28);
 }
+// NOLINTEND(cppcoreguidelines-owning-memory)

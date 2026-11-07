@@ -36,6 +36,10 @@
 #include <cstddef>
 #include <memory>
 
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-pro-type-vararg off for the file:
+// the original's varargs (TMultiStateButton's constructor, _snprintf)
+// NOLINTBEGIN(cppcoreguidelines-pro-type-vararg)
+
 class TDialog;
 struct TTalkLine;
 
@@ -567,7 +571,7 @@ public:
 	void HandleEvent(int Event) override; // +0x70, 0x484e70, lines 3124-3128
 	void UpdateActions();                 // 0x47eae0, line 3158
 	int GetReason();                      // 0x4776b0, line 3171
-	int GetAction() const;                // 0x477860, line 3191
+	[[nodiscard]] int GetAction() const;  // 0x477860, line 3191
 
 	std::unique_ptr<TFocusGroup> FocusGroup; // +0x2c (issue #58)
 	TEditLine *NameEdit;                     // +0x30
@@ -729,3 +733,4 @@ public:
 	int Selected;                                 // +0x245c, -1 for none
 	void (*OpenURL)(const char *URL);             // +0x2460, kept, not used
 };
+// NOLINTEND(cppcoreguidelines-pro-type-vararg)

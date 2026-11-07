@@ -47,6 +47,11 @@
 #include <memory>
 #include <vector>
 
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries; the original's varargs (TMultiStateButton's constructor, _snprintf)
+// NOLINTBEGIN(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)
+
 
 namespace {
 
@@ -56,6 +61,7 @@ namespace {
 // At 0x5c4500, constructed by the static initialiser 0x559dd0 as
 // TCallback(NULL, 0) like the other window files' (ConsoleWindow.obj's is at
 // 0x5c4390, initialiser 0x559dc0); here TTradeButtons' constructor copies it.
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's global; TCallback's constructor (GUI.cpp) stores two values
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
@@ -209,7 +215,7 @@ TSubWindow *CreateBuddylistWindow()
 TButtonsWindow::TButtonsWindow(TDialogWindow *_CheckObject, TWindow *Receiver)
 	: TContentWindow(5, true)
 {
-	PATELLA_ASSERT(_CheckObject!=NULL);
+	PATELLA_ASSERT(_CheckObject!=nullptr);
 	CheckObject = _CheckObject;
 	SetSize(SkinProperties().Data184, SkinProperties().Data608);
 	SkillsButton = new TTextToggleButton(SkinProperties().Data60C.x, SkinProperties().Data60C.y, "Skills", 14, 15,
@@ -417,6 +423,8 @@ void TAutomapWindow::HandleEvent(int Event)
 	case 110:
 		Scroll(4);
 		break;
+	default:
+		break;
 	}
 }
 
@@ -446,6 +454,8 @@ void TAutomapWindow::Scroll(int Direction)
 		break;
 	case 4:
 		ViewX += 24 / Zoom;
+		break;
+	default:
 		break;
 	}
 	Changed = true;
@@ -887,6 +897,8 @@ int TPlayerStates::GetIcon(int Position)
 				Found++;
 				Skin = 239;
 				break;
+			default:
+				break;
 			}
 			break;
 		case 5:
@@ -1146,7 +1158,7 @@ bool TInventoryView::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int 
 {
 	SetHelpHandle(12);
 	const TComponent *Parent = GetParent();
-	PATELLA_ASSERT(Parent!=NULL);
+	PATELLA_ASSERT(Parent!=nullptr);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -1223,6 +1235,8 @@ TCombatControls::TCombatControls(TWindow *Receiver, bool Large)
 	case 3:
 		AttackModes->Selected = Defensive;
 		break;
+	default:
+		break;
 	}
 	switch (GetChaseMode()) {
 	case 0:
@@ -1230,6 +1244,8 @@ TCombatControls::TCombatControls(TWindow *Receiver, bool Large)
 		break;
 	case 1:
 		ChaseModes->Selected = ChaseButton;
+		break;
+	default:
 		break;
 	}
 	SecureButton->State = !GetSecureMode();
@@ -1249,6 +1265,8 @@ void TCombatControls::Draw(int Surface, int x, int y)
 		if (ChaseModes->Selected != ChaseButton)
 			ChaseModes->Selected = ChaseButton;
 		break;
+	default:
+		break;
 	}
 	TWindow::Draw(Surface, x, y);
 }
@@ -1261,7 +1279,7 @@ bool TCombatControls::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] int
 	else
 		SetHelpHandle(14);
 	const TComponent *Parent = GetParent();
-	PATELLA_ASSERT(Parent!=NULL);
+	PATELLA_ASSERT(Parent!=nullptr);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -1606,7 +1624,7 @@ bool TContainerWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]
 {
 	SetHelpHandle(20);
 	const TComponent *Parent = GetParent();
-	PATELLA_ASSERT(Parent!=NULL);
+	PATELLA_ASSERT(Parent!=nullptr);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -1793,7 +1811,7 @@ bool TSkillsWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] i
 {
 	SetHelpHandle(17);
 	const TComponent *Parent = GetParent();
-	PATELLA_ASSERT(Parent!=NULL);
+	PATELLA_ASSERT(Parent!=nullptr);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -1980,6 +1998,8 @@ bool TSkillsWindowBody::GetLine(int NumberOfLine, char *Text, int &Value, int &P
 			Progress = -1;
 		break;
 	}
+	default:
+		break;
 	}
 	PATELLA_ASSERT_VALUES(Value>=0, Value, NumberOfLine);
 	PATELLA_ASSERT_VALUES(In(Progress,-1,100), Progress, NumberOfLine);
@@ -2297,7 +2317,7 @@ bool TBattleWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] i
 {
 	SetHelpHandle(18);
 	const TComponent *Parent = GetParent();
-	PATELLA_ASSERT(Parent!=NULL);
+	PATELLA_ASSERT(Parent!=nullptr);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -2607,7 +2627,7 @@ void TTradeButtons::SetCancelButton(bool Cancel)
 // Odd, kept: the wait text is deleted without a NULL check.
 void TTradeButtons::ShowAcceptButton(TComponent *EventComponent)
 {
-	PATELLA_ASSERT(EventComponent!=NULL);
+	PATELLA_ASSERT(EventComponent!=nullptr);
 	SetCancelButton(false);
 	DeleteChild(WaitLabel);
 	WaitLabel = nullptr;
@@ -2696,7 +2716,7 @@ bool TTradeWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]] in
 {
 	SetHelpHandle(21);
 	const TComponent *Parent = GetParent();
-	PATELLA_ASSERT(Parent!=NULL);
+	PATELLA_ASSERT(Parent!=nullptr);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -2828,6 +2848,7 @@ bool TBuddylistWindowBody::RightButtonUp(int x, int y, int Flags)
 // 0x43c110, line 3267. A double click opens a private channel.
 bool TBuddylistWindowBody::LeftButtonDoubleClick(int x, int y, int Flags)
 {
+	// NOLINTNEXTLINE(bugprone-parent-virtual-call): the original's call of the base's base (the image's)
 	if (!TWindow::LeftButtonDoubleClick(x, y, Flags)) {
 		const int Position = GetBuddyAt(x, y);
 		if (Position != -1)
@@ -2869,7 +2890,7 @@ bool TBuddylistWindowBody::HelpMouseMove([[maybe_unused]] int x, [[maybe_unused]
 {
 	SetHelpHandle(19);
 	const TComponent *Parent = GetParent();
-	PATELLA_ASSERT(Parent!=NULL);
+	PATELLA_ASSERT(Parent!=nullptr);
 	SetHelpSize(Parent->Width, Parent->Height);
 	MoveHelpPosition(-OffsetX, -OffsetY);
 	return true;
@@ -2921,3 +2942,4 @@ int TBuddylistWindowBody::GetBuddyAt(int x, int y)
 	}
 	return -1;
 }
+// NOLINTEND(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)

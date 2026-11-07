@@ -58,12 +58,16 @@
 #include "types/FixedString.h"
 #include <cstdint>
 #include <array>
-#include <ostream>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include "vulkan/DeviceSettings.h"
 #include "vulkan/DeviceChoice.h"
+
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries; the original's varargs (TMultiStateButton's constructor, _snprintf)
+// NOLINTBEGIN(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)
 
 namespace {
 
@@ -78,6 +82,7 @@ namespace {
 // TCallback(NULL, 0) and never used (the other window files have one too);
 // the end of Control.obj's .bss, after ShowFPS and before Creatures.obj's
 // BuddySortMethods (0x5c4560).
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's global; TCallback's constructor (GUI.cpp) stores two values
 TCallback NoCallback(nullptr, 0);
 
 } // namespace
@@ -270,6 +275,8 @@ void patella::TGUI::Redraw(bool Force)
 				x -= SkinProperties().CursorHotspot6.x;
 				y -= SkinProperties().CursorHotspot6.y;
 				break;
+			default:
+				break;
 			}
 			const TSkin *Picture = &Skins()[Cursor];
 			DrawPicturePart(1, x, y, 4, Picture->x, Picture->y, Picture->width, Picture->height);
@@ -325,7 +332,7 @@ void patella::TGUI::MouseMove(int x, int y)
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT_VALUES(ModalWindow!=NULL, GetActionState());
+		PATELLA_ASSERT_VALUES(ModalWindow!=nullptr, GetActionState());
 		ModalWindow->MouseMove(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY);
 		break;
 	case 9: {
@@ -367,8 +374,10 @@ void patella::TGUI::LeftButtonDown(int x, int y, int Flags)
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT(ModalWindow!=NULL);
+		PATELLA_ASSERT(ModalWindow!=nullptr);
 		ModalWindow->LeftButtonDown(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
+		break;
+	default:
 		break;
 	}
 	SetPendingAction(6, GetActionNumber());
@@ -403,7 +412,7 @@ void patella::TGUI::LeftButtonUp(int x, int y, int Flags)
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT(ModalWindow!=NULL);
+		PATELLA_ASSERT(ModalWindow!=nullptr);
 		ModalWindow->LeftButtonUp(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0 || GetActionState() == 7 || GetActionState() == 8) {
 			DeleteComponent(ModalWindow);
@@ -415,6 +424,8 @@ void patella::TGUI::LeftButtonUp(int x, int y, int Flags)
 		DeleteComponent(ModalWindow);
 		ModalWindow = nullptr;
 		SetActionState(0);
+		break;
+	default:
 		break;
 	}
 	SetPendingAction(0, 0);
@@ -437,13 +448,15 @@ void patella::TGUI::LeftButtonDoubleClick(int x, int y, int Flags)
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT(ModalWindow!=NULL);
+		PATELLA_ASSERT(ModalWindow!=nullptr);
 		ModalWindow->LeftButtonDoubleClick(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0 || GetActionState() == 7 || GetActionState() == 8) {
 			DeleteComponent(ModalWindow);
 			ModalWindow = nullptr;
 			MainWindow->SetConsoleActive(true);
 		}
+		break;
+	default:
 		break;
 	}
 	SetPendingAction(6, GetActionNumber());
@@ -462,6 +475,8 @@ void patella::TGUI::RightButtonDown([[maybe_unused]] int x, [[maybe_unused]] int
 	case 1:
 		if (GetClassicControl())
 			SetActionState(3);
+		break;
+	default:
 		break;
 	}
 	LastMouseMove = 0;
@@ -490,7 +505,7 @@ void patella::TGUI::RightButtonUp(int x, int y, int Flags)
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT(ModalWindow!=NULL);
+		PATELLA_ASSERT(ModalWindow!=nullptr);
 		ModalWindow->RightButtonUp(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Flags);
 		if (GetActionState() == 0) {
 			DeleteComponent(ModalWindow);
@@ -507,6 +522,8 @@ void patella::TGUI::RightButtonUp(int x, int y, int Flags)
 	case 8:
 		SetActionState(0);
 		break;
+	default:
+		break;
 	}
 	LastMouseMove = 0;
 	SetMouseOverText(nullptr);
@@ -520,7 +537,7 @@ void patella::TGUI::MouseWheel(int x, int y, int Direction)
 		break;
 	case 10:
 	case 11:
-		PATELLA_ASSERT(ModalWindow!=NULL);
+		PATELLA_ASSERT(ModalWindow!=nullptr);
 		ModalWindow->MouseWheel(x - ModalWindow->OffsetX, y - ModalWindow->OffsetY, Direction);
 		break;
 	default:
@@ -1192,7 +1209,7 @@ void patella::TGUI::InitControl(bool Gamemaster)
 	} catch (const TProgramError &Error) {
 		try {
 			ExitControl();
-		} catch (...) {
+		} catch (...) { // NOLINT(bugprone-empty-catch): the original's; the start-up's own error is thrown on
 		}
 		throw Error;
 	}
@@ -1377,3 +1394,4 @@ std::array<uint8, 10> GetLastPacketTypes()
 {
 	return patella::bridge::GUI().GetLastPacketTypes();
 }
+// NOLINTEND(cppcoreguidelines-owning-memory,cppcoreguidelines-pro-type-vararg)

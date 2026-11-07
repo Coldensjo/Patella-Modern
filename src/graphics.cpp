@@ -31,11 +31,16 @@
 #include "common.h"
 #include "compat/span.h"
 #include "types/FixedString.h"
+#include "Skins.h"
 #include <array>
 #include <cstddef>
-#include <cstdio>
 #include <cstring>
 #include <memory>
+
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-owning-memory off for the file:
+// the original's raw owners (notes/ownership.md): the window tree owns its children, the message queue its blocks,
+// the lists their entries
+// NOLINTBEGIN(cppcoreguidelines-owning-memory)
 
 // Data: TGraphics' members since issue #116 (graphics.h), in the original's .bss order.
 
@@ -118,7 +123,7 @@ void patella::TGraphics::ExitGraphics()
 // closed twice: by close() and by the destructor.
 void patella::TGraphics::LoadSprites(const char *FileName)
 {
-	PATELLA_ASSERT(FileName!=NULL);
+	PATELLA_ASSERT(FileName!=nullptr);
 	PATELLA_ASSERT(strlen(FileName)<PATH_MAX);
 	SpriteFileName.Assign(FileName);
 	try {
@@ -143,7 +148,7 @@ void patella::TGraphics::LoadSprites(const char *FileName)
 void patella::TGraphics::LoadSprite(int SpriteNumber, uint8 *Buffer)
 {
 	PATELLA_ASSERT_VALUES(In(SpriteNumber,1,NumberOfSprites), SpriteNumber, NumberOfSprites);
-	PATELLA_ASSERT(Buffer!=NULL);
+	PATELLA_ASSERT(Buffer!=nullptr);
 	TSprite &Sprite = Sprites[SpriteNumber - 1];
 	if (Sprite.Offset == 0) {
 		Sprite.ColorKey.R = 0;
@@ -194,7 +199,7 @@ void patella::TGraphics::LoadSprite(int SpriteNumber, uint8 *Buffer)
 // error becomes PROGRAM_ERROR 3.
 void patella::TGraphics::LoadPictures(const char *FileName)
 {
-	PATELLA_ASSERT(FileName!=NULL);
+	PATELLA_ASSERT(FileName!=nullptr);
 	PATELLA_ASSERT(strlen(FileName)<PATH_MAX);
 	PictureFileName.Assign(FileName);
 	try {
@@ -227,7 +232,7 @@ void patella::TGraphics::LoadPictures(const char *FileName)
 void patella::TGraphics::LoadPictureTile(int PictureNumber, int TileX, int TileY, uint8 *Buffer)
 {
 	PATELLA_ASSERT_VALUES(In(PictureNumber,1,NumberOfPictures), PictureNumber, NumberOfPictures);
-	PATELLA_ASSERT(Buffer!=NULL);
+	PATELLA_ASSERT(Buffer!=nullptr);
 	const TPicture &Picture = Pictures[PictureNumber - 1];
 	try {
 		TReadBinaryFile File;
@@ -700,6 +705,7 @@ TVideoCacheItem *patella::TGraphics::GetVideoPicture(int PictureNumber, int Tile
 		TVideoCacheItem &Item = VideoCache[LeastRecentVideoItem];
 		const TMemoryCacheItem *Tile = GetMemoryPicture(PictureNumber, TileX, TileY);
 		if (Engine.curEngine == 1 || Engine.curEngine == 2) {
+			// NOLINTNEXTLINE(bugprone-branch-clone): the original's two identical branches (both the previous picture's key)
 			if (Pictures[PictureNumber].ColorKey != TRGBColor(1, 1, 1))
 				GetSurface()->SetColorKey(Item.Surface + 6, Pictures[PictureNumber - 1].ColorKey);
 			else
@@ -983,7 +989,7 @@ void patella::TGraphics::PrintTextPart(int Surface, int x, int y, int FontNumber
 	int Length, int Alignment)
 {
 	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	PATELLA_ASSERT_VALUES(Length<=(int)strlen(Text), Length, strlen(Text));
 	PATELLA_ASSERT_VALUES(Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment);
 	const TFontInfo &Font = Fonts[FontNumber - 1];
@@ -1024,7 +1030,7 @@ void patella::TGraphics::PrintTextClipped(int Surface, int x, int y, int FontNum
 	int Alignment, TRect Clip)
 {
 	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	PATELLA_ASSERT_VALUES(Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment);
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	const int Length = (int)strlen(Text);
@@ -1065,7 +1071,7 @@ void patella::TGraphics::PrintText(int Surface, int x, int y, int FontNumber, TR
 	int Alignment)
 {
 	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	PATELLA_ASSERT_VALUES(Alignment==LEFT_ALIGN || Alignment==CENTER_ALIGN || Alignment==RIGHT_ALIGN, Alignment);
 	PrintTextPart(Surface, x, y, FontNumber, Color, Text, (int)strlen(Text), Alignment);
 }
@@ -1103,7 +1109,7 @@ int patella::TGraphics::GetFontHeight(int FontNumber) const
 int patella::TGraphics::GetTextHeight(int FontNumber, const char *Text) const
 {
 	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	const int Length = (int)strlen(Text);
 	int Height = 0;
 	for (int i = 0; i < Length; i++) {
@@ -1127,7 +1133,7 @@ int patella::TGraphics::GetTextHeight(int FontNumber, const char *Text) const
 int patella::TGraphics::GetTextWidth(int FontNumber, const char *Text) const
 {
 	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	return GetTextPartWidth(FontNumber, Text, (int)strlen(Text));
 }
 
@@ -1136,7 +1142,7 @@ int patella::TGraphics::GetTextWidth(int FontNumber, const char *Text) const
 int patella::TGraphics::GetTextPartWidth(int FontNumber, const char *Text, int Length) const
 {
 	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	PATELLA_ASSERT_VALUES(Length<=(int)strlen(Text), Length);
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	int Width = 0;
@@ -1167,7 +1173,7 @@ int patella::TGraphics::GetTextPartWidth(int FontNumber, const char *Text, int L
 int patella::TGraphics::GetFittingTextLength(int FontNumber, const char *Text, int Width) const
 {
 	PATELLA_ASSERT_VALUES(In(FontNumber,1,NumberOfFonts), FontNumber, NumberOfFonts);
-	PATELLA_ASSERT(Text!=NULL);
+	PATELLA_ASSERT(Text!=nullptr);
 	const TFontInfo &Font = Fonts[FontNumber - 1];
 	int Position = -Font.Spacing;
 	const int Length = (int)strlen(Text);
@@ -1549,3 +1555,4 @@ void ExitSkins()
 {
 	patella::bridge::Skins().ExitSkins();
 }
+// NOLINTEND(cppcoreguidelines-owning-memory)

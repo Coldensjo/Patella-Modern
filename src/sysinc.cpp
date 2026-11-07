@@ -13,12 +13,18 @@
 #include "common.h"
 #include "compat/msvc_io.h"
 #include "platform/Platform.h"
+#include <cstdio>
 #include <array>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <optional>
 #include <string>
+
+// Issue #111 (clang-tidy, the first look at this file in patella_core): cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory off for the file:
+// the original's malloc'd entries and texts, freed by their lists; the original's raw owners (notes/ownership.md):
+// the window tree owns its children, the message queue its blocks, the lists their entries
+// NOLINTBEGIN(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)
 
 // The other half of Player.cpp's XOR-encoded window title ("Tibia   ") and
 // class name ("TibiaClient"); the keys are Player.cpp's. First in this
@@ -30,8 +36,9 @@ const std::array<int, 11> ClassNameCode = {57, 193, 225, 58, 140, 118, 195, 214,
 namespace {
 
 // Data, in .bss order.
-char *ClipboardBuffer;                                                   // 0x71dbc4
-unsigned int ClipboardBufferSize;                                        // 0x71dbc8
+char *ClipboardBuffer;            // 0x71dbc4
+unsigned int ClipboardBufferSize; // 0x71dbc8
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization): the binary's initialiser (0x55a130) reads the clock before main; the platform's clock does not throw
 int StartTime = (int)patella::platform::Platform().Clock.Milliseconds(); // 0x71dbcc, initialiser at 0x55a130
 
 } // namespace
@@ -51,7 +58,7 @@ bool FileExists(const char *FileName)
 // 0x4fcbc0
 bool RemoveFile(const char *FileName)
 {
-	return remove(FileName) == 0;
+	return std::remove(FileName) == 0;
 }
 
 // 0x4fcbe0. True when the clipboard has no text. Since Patella-Modern issue
@@ -152,7 +159,7 @@ void ResizeClipboardBuffer(unsigned int Size)
 {
 	if (ClipboardBufferSize < Size) {
 		char *help = new char[Size];
-		PATELLA_ASSERT(help!=NULL);
+		PATELLA_ASSERT(help!=nullptr);
 		memcpy(help, ClipboardBuffer, ClipboardBufferSize);
 		free(ClipboardBuffer);
 		ClipboardBufferSize = Size;
@@ -205,3 +212,4 @@ bool SetClipboardText(const char *Text)
 {
 	return patella::platform::Platform().Clipboard.SetText(Text);
 }
+// NOLINTEND(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)

@@ -35,8 +35,9 @@ struct TObject; // Objects.h, passed to DrawObject
 inline constexpr int PATH_MAX = 1024;
 inline constexpr int HASH_TABLE_SIZE = 100;
 
-// Kinds of cache items. Pictures and font characters are both PICTURE_ITEM.
-enum : int {
+// Kinds of cache items. Pictures and font characters are both PICTURE_ITEM. An unscoped int enum: the items' Type is an
+// int (as Objects.h's flags and Talk.h's modes, #110).
+enum : int { // NOLINT(cppcoreguidelines-use-enum-class)
 	EMPTY_ITEM = 0,
 	SPRITE_ITEM = 1,
 	PICTURE_ITEM = 2,
@@ -162,8 +163,8 @@ public:
 	void InitMemoryCache(int MemoryCacheBytes);
 	void ClearMemoryCache();
 	void TouchMemoryItem(int Position);
-	int FindMemorySprite(int SpriteNumber) const;
-	int FindMemoryPicture(int PictureNumber, int TileX, int TileY) const;
+	[[nodiscard]] int FindMemorySprite(int SpriteNumber) const;
+	[[nodiscard]] int FindMemoryPicture(int PictureNumber, int TileX, int TileY) const;
 	void RemoveMemoryItem(int Position);
 	void InsertMemoryItem(int Position, int HashValue);
 	TMemoryCacheItem *GetMemorySprite(int SpriteNumber);
@@ -171,10 +172,10 @@ public:
 
 	// The video cache.
 	void TouchVideoItem(int Position);
-	int FindVideoSprite(int SpriteNumber) const;
+	[[nodiscard]] int FindVideoSprite(int SpriteNumber) const;
 	int FindVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColor *Colors) const;
-	int FindVideoPicture(int PictureNumber, int TileX, int TileY) const;
-	int FindVideoFontChar(int PictureNumber, int TileX, int TileY, TRGBColor Color) const;
+	[[nodiscard]] int FindVideoPicture(int PictureNumber, int TileX, int TileY) const;
+	[[nodiscard]] int FindVideoFontChar(int PictureNumber, int TileX, int TileY, TRGBColor Color) const;
 	void RemoveVideoItem(int Position);
 	void InsertVideoItem(int Position, int HashValue);
 	TVideoCacheItem *GetVideoSprite(int SpriteNumber);
@@ -215,8 +216,8 @@ public:
 	void PrintFormattedText(int Surface, int x, int y, TFont Format, const char *Text);
 	void PrintFormattedTextClipped(int Surface, int x, int y, TFont Format, const char *Text, TRect Clip);
 	void PrintFormattedTextPart(int Surface, int x, int y, TFont Format, const char *Text, int Length);
-	int GetFontLineHeight(int FontNumber) const;
-	int GetFontHeight(int FontNumber) const;
+	[[nodiscard]] int GetFontLineHeight(int FontNumber) const;
+	[[nodiscard]] int GetFontHeight(int FontNumber) const;
 	int GetTextHeight(int FontNumber, const char *Text) const;
 	int GetTextWidth(int FontNumber, const char *Text) const;
 	int GetTextPartWidth(int FontNumber, const char *Text, int Length) const;

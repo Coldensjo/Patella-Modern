@@ -169,6 +169,16 @@ patella_target_warnings(tests_core)
 patella_target_hardening(tests_core)
 add_test(NAME tests_core COMMAND tests_core)
 
+# Issue #111 (plan M7's exit): tests_core_link links the library's TClient, the whole client but the platform layer,
+# with stand-ins of the platform layer's entry points only (core_link_test.cpp) and the device choice's words
+# (src/vulkan/DeviceChoice.cpp, which the platform's Vulkan engine compiles too). Its link is the check (every preset's
+# build); it is not a CTest test, as its stand-ins are no platform to run on.
+add_executable(tests_core_link core_link_test.cpp "${PROJECT_SOURCE_DIR}/src/vulkan/DeviceChoice.cpp")
+target_link_libraries(tests_core_link PRIVATE patella_core)
+patella_target_language(tests_core_link)
+patella_target_warnings(tests_core_link)
+patella_target_hardening(tests_core_link)
+
 add_executable(tests_testmode
 	testmode_main.cpp
 	testmode_clock_test.cpp
