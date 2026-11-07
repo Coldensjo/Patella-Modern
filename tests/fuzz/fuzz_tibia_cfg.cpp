@@ -17,6 +17,7 @@
 #include "Preferences.h"
 #include "Talk.h"
 #include "log/Log.h"
+#include "platform/FileSystem.h"
 #include "settings/PreferenceKeys.h"
 #include "settings/Settings.h"
 
@@ -58,7 +59,8 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t *Data, std::size_t Size
 	});
 	if (!Loaded)
 		return 0;
-	const std::optional<patella::settings::TSettingsFile> File = patella::settings::Load(patella::settings::FileName);
+	patella::platform::TSystemFileSystem Files; // #119: Load takes the file system
+	const std::optional<patella::settings::TSettingsFile> File = patella::settings::Load(Files, patella::settings::FileName);
 	if (!File)
 		patella::fuzz::Fail(Target, "the import wrote no Patella.ini");
 	patella::settings::TPreferenceValues Read = Imported;

@@ -15,6 +15,7 @@
 
 #include "log/Log.h"
 #include "log/LogSettings.h"
+#include "platform/FileSystem.h"
 #include "settings/PreferenceKeys.h"
 #include "settings/Settings.h"
 
@@ -103,7 +104,8 @@ void Run(std::string_view Text)
 	TSettingsFile LogKeys = File;
 	LogKeys.Remove(patella::log::FileKey);
 	patella::log::TLog Log(NoConsole);
-	patella::log::Configure(Log, LogKeys);
+	patella::platform::TSystemFileSystem Files; // LogKeys has no LogFile, so nothing is opened (#119: Configure takes the file system)
+	patella::log::Configure(Log, LogKeys, Files);
 }
 
 } // namespace

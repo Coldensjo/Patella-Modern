@@ -12,13 +12,13 @@
 
 #include "Map.h"
 #include "Objects.h"
-#include "types/IndexedVector.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -41,7 +41,7 @@ std::unique_ptr<patella::TMap> Map;
 void Load()
 {
 	Map->InitMap(NoCreature);
-	TIndexedVector<TMark> Marks(0, 0, 10);
+	std::vector<TMark> Marks; // #100: GetAutomapMarks fills a std::vector
 	int Count = 0;
 	Map->GetAutomapMarks(0, 0, 0, &Marks, &Count);
 	static_cast<void>(Map->GetAutomapColor(0, 0, 0));
