@@ -75,6 +75,7 @@ set(PATELLA_HEADERS_TESTMODE
 	testmode/DisplayModes.h
 	testmode/InputScript.h
 	testmode/PacketLog.h
+	testmode/PipeNetwork.h
 	testmode/Png.h
 	testmode/ServerReplay.h
 	testmode/StateDump.h)
@@ -125,7 +126,8 @@ set(PATELLA_HEADERS_VULKAN_CLIENT
 	vulkan/SurfaceVulkan.h)
 # The Windows side of the test mode (PatellaTest.exe).
 set(PATELLA_HEADERS_TEST_BUILD
-	testmode/ClientStateWin32.h)
+	testmode/ClientStateWin32.h
+	testmode/PipeSocketWin32.h)
 # Headers that are not checked on their own, each with the reason. (The shaders' SPIR-V headers, ColorKeyFrag.h and
 # the others, are generated into the build tree by glslang, cmake/Vulkan.cmake: not headers of src/.)
 # - compat/mfc_shim.h: MFC's stand-in (TIBIA_MFC_SHIM), which only the golden tests' targets compile (tests/golden,

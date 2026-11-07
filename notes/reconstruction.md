@@ -718,7 +718,8 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
      Remote Desktop).
   2. There: a terminal in the repository's folder, `python -I tools/testserver.py start`, the tools as usual
      (without `--hidden`), `python -I tools/testserver.py stop`. The test server's ports (7171, 7172, the proxy's
-     7271, 7272) are the machine's, not the session's: one session at a time runs live checks.
+     7271, 7272) are the machine's, not the session's: one session at a time runs live checks. (The reference
+     compare's replay opens none since issue #120: compares run side by side, and next to a live check.)
   What Windows does to such a session (Windows 11 Pro, a client edition):
   - **One connected session at a time.** A workstation lets one user at a time use its desktop: a switch to the
     other user, or a Remote Desktop logon, disconnects the session that was connected (its programs keep

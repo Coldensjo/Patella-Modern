@@ -29,7 +29,7 @@ compare (the test client, PatellaTest.exe; this file, Python only, no Windows-on
   session runs once in a fresh run folder (the data files, the client patched to 127.0.0.1:7271 by
   tools/patch_client.py, the session's Tibia.cfg and seed files, the CPU driver) with
   --test-script session.script --test-replay replay.txt (the server side, replayed inside the client:
-  no server) --test-display-modes (the recording machine's display modes, issue #48: the Graphics
+  no server, and since issue #120 no port either, so compares run side by side) --test-display-modes (the recording machine's display modes, issue #48: the Graphics
   Options dialog lists them, not this machine's) --test-out, PATELLA_VULKAN=cpu and TZ=UTC0 (as the
   record step's Tibia.exe); then compared:
   a. the client's packets (packets.log) against Tibia.exe's, per connection, in order: the payloads,
@@ -73,7 +73,6 @@ import json
 import os
 import re
 import shutil
-import socket
 import struct
 import subprocess
 import sys
@@ -606,19 +605,6 @@ def normalize_box_text(text):
 
 # --- compare --------------------------------------------------------------------------------------
 
-def ports_free(ports):
-	busy = []
-	for port in ports:
-		sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		try:
-			sock.bind(("127.0.0.1", port))
-		except OSError:
-			busy.append(port)
-		finally:
-			sock.close()
-	return busy
-
-
 def prepare_run(folder, exe, meta, reference, data_dir):
 	"""A fresh run folder: the data files, the patched client, its CPU driver, the session's Tibia.cfg
 	and seed files. Returns the snapshot before the run."""
@@ -663,9 +649,7 @@ def run_session(name, reference, exe, out, vulkan, timeout, data_dir):
 	command = [os.path.join(folder, exe_name), "--test-script", run_script(reference, base),
 		"--test-out", dumps, "--test-log", os.path.join(dumps, "driver.log"), "--test-display-modes", modes_path]
 	if meta.get("server"):
-		busy = ports_free((LOGIN_PORT, GAME_PORT))
-		if busy:
-			raise ReferenceError_("ports %s are in use (a proxy or another client?)" % busy)
+		# The replay's listen lines are inside the client (issue #120, src/testmode/PipeNetwork.h): no port.
 		command += ["--test-replay", replay]
 	env = dict(os.environ, PATELLA_VULKAN=vulkan, TZ=TIME_ZONE)
 	log("=== %s: %s" % (name, " ".join(command)))
