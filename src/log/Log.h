@@ -33,6 +33,7 @@
 #pragma once
 
 #include "compat/format.h"
+#include "platform/FileSystem.h"
 #include "types/Cp1252.h"
 #include "types/File.h"
 #include "types/FixedString.h" // IWYU pragma: keep (std::format's branch: TFormatArgument)
@@ -154,13 +155,18 @@ public:
 		Console = Target;
 	}
 
-	// Opens Path for appending (created where it does not exist), instead of an open one. False (and no file)
-	// where that fails.
-	bool OpenFile(const std::string &Path) noexcept
+	// Opens Path for appending (created where it does not exist) through Files (the platform's IFileSystem, issue
+	// #119), instead of an open one. False (and no file) where that fails.
+	bool OpenFile(patella::platform::IFileSystem &Files, const std::string &Path) noexcept
 	{
 		const std::lock_guard<std::mutex> Lock(Mutex);
 		File.Close();
-		return File.Open(Path.c_str(), TFile::TAccess::Append, TFile::TContent::Binary);
+		try {
+			return Files.Open(File, Path.c_str(), TFile::TAccess::Append, TFile::TContent::Binary);
+		} catch (...) { // an implementation's std::bad_alloc (TFolderFileSystem's list)
+			File.Close();
+			return false;
+		}
 	}
 
 	void CloseFile() noexcept

@@ -5,8 +5,8 @@
 // TSurfaceVulkan::GetFullscreenModes), and those depend on the machine's monitor, driver and scaling,
 // which can change between the recording of a reference session and its comparison. PatellaTest.exe
 // --test-display-modes <file> answers the client's EnumDisplaySettings(nullptr, Index) from a fixed
-// list instead (the hook PATELLA_ENUM_DISPLAY_SETTINGS, src/TestHooks.h); tools/reference.py writes the
-// file from the session's meta.json (the modes the recording machine reported). Without the option the
+// list instead (the test mode's IWindow::DisplayMode, TestModeWin32.cpp TTestWindow; issue #119);
+// tools/reference.py writes the file from the session's meta.json (the modes the recording machine reported). Without the option the
 // test build asks Windows, as Patella.exe does. This file is the portable half: the file format and
 // the choice. Portable: no platform header.
 //

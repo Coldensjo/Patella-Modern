@@ -3,6 +3,7 @@
 #include "log/LogSettings.h"
 
 #include "log/Log.h"
+#include "platform/FileSystem.h"
 #include "settings/Settings.h"
 
 #include <optional>
@@ -10,7 +11,7 @@
 
 namespace patella::log {
 
-void Configure(TLog &Target, const patella::settings::TSettingsFile &Settings)
+void Configure(TLog &Target, const patella::settings::TSettingsFile &Settings, patella::platform::IFileSystem &Files)
 {
 	if (const std::optional<std::string> Name = Settings.Get(LevelKey)) {
 		if (const std::optional<TLevel> Level = ParseLevel(*Name))
@@ -23,7 +24,7 @@ void Configure(TLog &Target, const patella::settings::TSettingsFile &Settings)
 	if (const std::optional<std::string> Value = Settings.Get(FileKey); Value.has_value() && !Value->empty()) {
 		// The client's text, as every name TFile opens (issue #117: converted from the file's UTF-8).
 		const std::string Path = patella::settings::ClientText(Settings, *Value);
-		if (Target.OpenFile(Path))
+		if (Target.OpenFile(Files, Path))
 			Opened = Path;
 		else
 			Target.Warn("{}: {} \"{}\" cannot be opened for appending; no log file", patella::settings::FileName, FileKey,
@@ -33,10 +34,10 @@ void Configure(TLog &Target, const patella::settings::TSettingsFile &Settings)
 		Opened.empty() ? "no log file" : "log file ", Opened);
 }
 
-void LoadSettings()
+void LoadSettings(patella::platform::IFileSystem &Files)
 {
-	if (const std::optional<patella::settings::TSettingsFile> Settings = patella::settings::Load(patella::settings::FileName))
-		Configure(Log(), *Settings);
+	if (const std::optional<patella::settings::TSettingsFile> Settings = patella::settings::Load(Files, patella::settings::FileName))
+		Configure(Log(), *Settings, Files);
 }
 
 } // namespace patella::log

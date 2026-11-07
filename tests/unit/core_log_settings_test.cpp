@@ -6,6 +6,7 @@
 #include "log/Log.h"
 #include "log/LogSettings.h"
 #include "settings/Settings.h"
+#include "platform/FileSystem.h"
 
 #include <filesystem>
 #include <fstream>
@@ -16,6 +17,12 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+
+namespace {
+// The working folder's files: Load, Save, LoadSettings, Configure and OpenFile take the platform's IFileSystem
+// (issue #119).
+patella::platform::TSystemFileSystem Files; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables): the tests' file system
+} // namespace
 
 using patella::log::TLevel;
 using patella::log::TLog;
@@ -55,11 +62,11 @@ TEST_CASE("Log settings: the defaults")
 {
 	const TCapture Console;
 	TLog Log(Capture);
-	patella::log::Configure(Log, TSettingsFile::Parse("# no log keys\nDevice=cpu\n"));
+	patella::log::Configure(Log, TSettingsFile::Parse("# no log keys\nDevice=cpu\n"), Files);
 	CHECK(Log.GetLevel() == TLevel::Info);
 	CHECK_FALSE(Log.HasFile());
 	CHECK(Console.Text().empty());
-	patella::log::Configure(Log, TSettingsFile::Parse("LogFile=\nLogFile=ignored.log\n"));
+	patella::log::Configure(Log, TSettingsFile::Parse("LogFile=\nLogFile=ignored.log\n"), Files);
 	CHECK_FALSE(Log.HasFile());
 	CHECK(Console.Text().empty());
 	CHECK_FALSE(std::filesystem::exists("ignored.log"));
@@ -70,23 +77,23 @@ TEST_CASE("Log settings: LogLevel")
 	for (const TLevel Level : {TLevel::Error, TLevel::Warn, TLevel::Info, TLevel::Debug}) {
 		const TCapture Console;
 		TLog Log(Capture);
-		patella::log::Configure(Log, TSettingsFile::Parse("loglevel = " + std::string(patella::log::LevelName(Level)) + "\r\n"));
+		patella::log::Configure(Log, TSettingsFile::Parse("loglevel = " + std::string(patella::log::LevelName(Level)) + "\r\n"), Files);
 		CHECK(Log.GetLevel() == Level);
 		CHECK(Console.Text() == (Level == TLevel::Debug ? "[debug] Patella.ini: level debug, no log file\n" : ""));
 	}
 	const TCapture Console;
 	TLog Log(Capture);
-	patella::log::Configure(Log, TSettingsFile::Parse("LogLevel=DEBUG\n"));
+	patella::log::Configure(Log, TSettingsFile::Parse("LogLevel=DEBUG\n"), Files);
 	CHECK(Log.GetLevel() == TLevel::Debug);
 	Log.SetLevel(TLevel::Warn);
-	patella::log::Configure(Log, TSettingsFile::Parse("LogLevel=verbose\n"));
+	patella::log::Configure(Log, TSettingsFile::Parse("LogLevel=verbose\n"), Files);
 	CHECK(Log.GetLevel() == TLevel::Warn);
 	CHECK(Console.Text()
 		== "[debug] Patella.ini: level debug, no log file\n"
 		   "[warn] Patella.ini: LogLevel \"verbose\" is not error, warn, info or debug; warn kept\n");
 	// At error the warning itself is not written.
 	Log.SetLevel(TLevel::Error);
-	patella::log::Configure(Log, TSettingsFile::Parse("LogLevel=\n"));
+	patella::log::Configure(Log, TSettingsFile::Parse("LogLevel=\n"), Files);
 	CHECK(Log.GetLevel() == TLevel::Error);
 	CHECK(Console.Text()
 		== "[debug] Patella.ini: level debug, no log file\n"
@@ -99,7 +106,7 @@ TEST_CASE("Log settings: LogFile")
 	{
 		const TCapture Console;
 		TLog Log(Capture);
-		patella::log::Configure(Log, TSettingsFile::Parse("LogLevel=debug\nLogFile=" + Path + "\n"));
+		patella::log::Configure(Log, TSettingsFile::Parse("LogLevel=debug\nLogFile=" + Path + "\n"), Files);
 		CHECK(Log.HasFile());
 		Log.Error("to both");
 		const std::string Opened = "[debug] Patella.ini: level debug, log file " + Path + "\n";
@@ -111,7 +118,7 @@ TEST_CASE("Log settings: LogFile")
 		const TCapture Console;
 		TLog Log(Capture);
 		const std::string Folder = std::filesystem::temp_directory_path().string();
-		patella::log::Configure(Log, TSettingsFile::Parse("LogFile=" + Folder + "\n"));
+		patella::log::Configure(Log, TSettingsFile::Parse("LogFile=" + Folder + "\n"), Files);
 		CHECK_FALSE(Log.HasFile());
 		CHECK(Console.Text() == "[warn] Patella.ini: LogFile \"" + Folder + "\" cannot be opened for appending; no log file\n");
 	}
@@ -128,14 +135,14 @@ TEST_CASE("Log settings: LoadSettings")
 	std::filesystem::current_path(Folder);
 	const TCapture Console;
 	patella::log::Log().SetConsole(Capture);
-	patella::log::LoadSettings();
+	patella::log::LoadSettings(Files);
 	CHECK(patella::log::Log().GetLevel() == TLevel::Info);
 	CHECK_FALSE(patella::log::Log().HasFile());
 	{
 		std::ofstream Out(patella::settings::FileName, std::ios::binary);
 		Out << "Device=cpu\r\nLogLevel=warn\r\nLogFile=dev.log\r\n";
 	}
-	patella::log::LoadSettings();
+	patella::log::LoadSettings(Files);
 	CHECK(patella::log::Log().GetLevel() == TLevel::Warn);
 	CHECK(patella::log::Log().HasFile());
 	patella::log::Warn("in the file");

@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "platform/FileSystem.h"
+
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -104,14 +106,20 @@ private:
 // A value of File as the client's text (Windows-1252): converted from UTF-8, or as it is in a file of version 1.
 [[nodiscard]] std::string ClientText(const TSettingsFile &File, std::string_view Value);
 
+// The file is opened through Files (the platform's IFileSystem, issue #119: Patella.exe's TSystemFileSystem, the
+// working folder; Path is the client's text, as every name TFile opens), as a binary file (TFile, _wfsopen with
+// _SH_DENYNO on Windows: what std::fstream opened until then).
+
 // Reads the file. Nothing when it does not exist, cannot be read or is larger than MaxFileSize.
-std::optional<TSettingsFile> Load(const std::string &Path, std::string_view Newline = "\n");
+std::optional<TSettingsFile> Load(patella::platform::IFileSystem &Files, const std::string &Path,
+	std::string_view Newline = "\n");
 
 // The file to change and write back: the file as Load reads it; a new one (NewFileComment, NewFileNewline)
-// when there is no file at Path; nothing when there is one that Load cannot read (it is left alone).
-std::optional<TSettingsFile> LoadForUpdate(const std::string &Path);
+// when there is no file at Path (its open fails with ENOENT); nothing when there is one that Load cannot read (it is
+// left alone).
+std::optional<TSettingsFile> LoadForUpdate(patella::platform::IFileSystem &Files, const std::string &Path);
 
 // Writes Settings.Text() to the file (created or replaced). False when that fails.
-bool Save(const std::string &Path, const TSettingsFile &Settings);
+bool Save(patella::platform::IFileSystem &Files, const std::string &Path, const TSettingsFile &Settings);
 
 } // namespace patella::settings

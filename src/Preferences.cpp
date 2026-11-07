@@ -1321,7 +1321,7 @@ void TPreferences::InitPreferences(TTalkLists &Lists)
 {
 	using namespace patella::settings;
 	SetDefaultPreferences(Lists);
-	if (const std::optional<TSettingsFile> File = Load(FileName, NewFileNewline); File && HasPreferences(*File)) {
+	if (const std::optional<TSettingsFile> File = Load(FileSystem, FileName, NewFileNewline); File && HasPreferences(*File)) {
 		TPreferenceValues Values = GetPreferenceValues(Lists);
 		for (const std::string &Problem : ReadPreferences(*File, Values))
 			patella::log::Warn("{}: {}", FileName, Problem);
@@ -1349,13 +1349,13 @@ void TPreferences::SavePreferences(TTalkLists &Lists)
 	using namespace patella::settings;
 	if (!PreferencesLoaded)
 		return;
-	std::optional<TSettingsFile> File = LoadForUpdate(FileName);
+	std::optional<TSettingsFile> File = LoadForUpdate(FileSystem, FileName);
 	if (!File) {
 		patella::log::Warn("{} cannot be read: the options are not saved", FileName);
 		return;
 	}
 	WritePreferences(*File, GetPreferenceValues(Lists));
-	if (!Save(FileName, *File))
+	if (!Save(FileSystem, FileName, *File))
 		patella::log::Warn("{} cannot be written: the options are not saved", FileName);
 }
 

@@ -96,7 +96,7 @@
 //
 // Issue #96: InitInstance's count of the Tibia windows (CountTibiaWindows, Player.cpp: "A Tibia client is already
 // running!" with more than one, "Application is corrupted!" with none) sees only this process's windows
-// (EnumOwnWindows, TestHooks.h), so another client on the machine (another worktree's test, a parallel CTest test,
+// (TTestWindow::VisitWindows, issue #119), so another client on the machine (another worktree's test, a parallel CTest test,
 // a Tibia.exe) cannot stop a test client. Patella.exe counts every window, as the original.
 //
 // A script that does not parse ends the program before the window opens, with exit code 3 and the
@@ -119,6 +119,7 @@
 #include "platform/Platform.h"
 #include "platform/Win32Platform.h"
 #include "types/File.h"
+#include "types/FixedString.h"
 
 #include <shellapi.h>
 
@@ -862,6 +863,10 @@ bool ReplayNextTime(TState &State, std::uint32_t *Time)
 
 } // namespace
 
+namespace {
+
+// The cursor (IInput::CursorPosition): with a script the script's (fixed, or the virtual cursor on the main window),
+// else the desktop's.
 BOOL GetCursorPosition(LPPOINT Point)
 {
 	const TState &Current = State();
@@ -875,14 +880,18 @@ BOOL GetCursorPosition(LPPOINT Point)
 	return TRUE;
 }
 
-UINT_PTR SetMainTimer(HWND Window, UINT_PTR Id, UINT Elapse, TIMERPROC Function)
+// The main frame's timer (IInput::StartTimer): with a script none, the driver makes its ticks (Idle).
+void SetMainTimer(HWND Window, unsigned int Id, unsigned int Elapse)
 {
 	TState &Current = State();
-	if (!Current.Scripted)
-		return ::SetTimer(Window, Id, Elapse, Function);
+	if (!Current.Scripted) {
+		patella::platform::Win32Input().StartTimer(Window, Id, Elapse);
+		return;
+	}
 	WriteLog(Current, "testmode: the main timer's ticks come from the driver");
-	return Id;
 }
+
+} // namespace
 
 bool DropInput(const MSG *Message)
 {
@@ -900,34 +909,12 @@ bool DropInput(const MSG *Message)
 // window loses the Windows capture only through the desktop (another window activated, the user's own
 // clicks: a scripted run of the reference compare lost a click that way), which, as DropInput's input,
 // must not reach the client. The client's own ReleaseCapture comes after it has cleared its button flags,
-// when the handler does nothing.
-bool IgnoreCaptureChange()
-{
-	return State().Scripted;
-}
+// when the handler does nothing. Since issue #119 TTestInput::IgnoreCaptureChange (below).
 
 // Issue #48: the display modes of the Graphics Options dialog (vulkan/SurfaceVulkan.cpp
-// GetFullscreenModes). With --test-display-modes the Index-th mode of the file, with the fields
-// EnumDisplaySettings sets; the current and registry settings (ENUM_CURRENT_SETTINGS, the desktop's mode)
-// and another device stay the machine's.
-BOOL EnumDisplayMode(LPCSTR Device, DWORD Index, DEVMODEA *Mode)
-{
-	const TState &Current = State();
-	if (!Current.FixedDisplayModes || Device != nullptr || Index == ENUM_CURRENT_SETTINGS || Index == ENUM_REGISTRY_SETTINGS)
-		return ::EnumDisplaySettingsA(Device, Index, Mode);
-	TDisplayMode Found;
-	const bool Listed = EnumerateDisplayMode(&Current.DisplayModes, Index, &Found,
-		[](std::uint32_t, TDisplayMode *) { return false; });
-	if (!Listed)
-		return FALSE;
-	Mode->dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY | DM_DISPLAYFLAGS;
-	Mode->dmBitsPerPel = Found.Depth;
-	Mode->dmPelsWidth = Found.Width;
-	Mode->dmPelsHeight = Found.Height;
-	Mode->dmDisplayFlags = 0;
-	Mode->dmDisplayFrequency = 60;
-	return TRUE;
-}
+// GetFullscreenModes). With --test-display-modes the Index-th mode of the file; without it the machine's
+// (Win32's EnumDisplaySettingsA). Since issue #119 TTestWindow::DisplayMode (below). The desktop's own mode
+// (ENUM_CURRENT_SETTINGS, the Vulkan engine's CreateSurfaces) stays the machine's: not through the interface.
 
 // Issue #83: PATELLA_TEST_FAIL_PRESENT=1 makes every present of the Vulkan engine fail (TestHooks.h), read once.
 bool PresentFails()
@@ -958,28 +945,24 @@ bool InitFails(int Step)
 
 namespace {
 
-// Issue #96: EnumOwnWindows's callback and its parameter, and the filter that hands it only this process's windows.
-struct TOwnWindows {
-	WNDENUMPROC Function;
-	LPARAM Parameter;
-};
-
-BOOL CALLBACK EnumOwnWindow(HWND Window, LPARAM Parameter)
+// Issue #96: the windows the count of the Tibia windows sees (TTestWindow::VisitWindows): this process's only, each
+// with its title and class as Win32's TWin32Window reads them (GetWindowTextA, GetClassNameA with 30).
+BOOL CALLBACK VisitOwnWindow(HWND Window, LPARAM Parameter)
 {
-	const auto *const Own = reinterpret_cast<const TOwnWindows *>(Parameter);
 	DWORD Process = 0;
 	GetWindowThreadProcessId(Window, &Process);
-	return Process == GetCurrentProcessId() ? Own->Function(Window, Own->Parameter) : TRUE;
+	if (Process != GetCurrentProcessId())
+		return TRUE;
+	const auto Visit = reinterpret_cast<patella::platform::TWindowVisitor>(Parameter);
+	TFixedString<32> WindowText;
+	TFixedString<32> WindowClass;
+	const int TextLength = GetWindowTextA(Window, WindowText, 30);
+	const int ClassLength = GetClassNameA(Window, WindowClass, 30);
+	Visit(WindowText, TextLength, WindowClass, ClassLength);
+	return TRUE;
 }
 
-} // namespace
-
-BOOL EnumOwnWindows(WNDENUMPROC Function, LPARAM Parameter)
-{
-	const TOwnWindows Own{Function, Parameter};
-	return EnumWindows(EnumOwnWindow, reinterpret_cast<LPARAM>(&Own));
-}
-
+// The driver's step (IInput::BeginIdle, the start of CPlayerApp::OnIdle).
 void Idle()
 {
 	TState &Current = State();
@@ -1055,6 +1038,8 @@ void Idle()
 	if (TScheduler::IsTick(Stop))
 		Dispatch(Current, Window, WM_TIMER, 1, 0);
 }
+
+} // namespace
 
 // --- the packet log ---
 
@@ -1204,8 +1189,7 @@ void PATELLA_CDECL FramePixels(const void *Bits, int Pitch, int Width, int Heigh
 		WriteLog(Current, "testmode: cannot write " + Name);
 }
 
-} // namespace
-
+// A message box (IWindow::ShowMessageBox): with a script not shown.
 int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type)
 {
 	TState &Current = State();
@@ -1264,6 +1248,8 @@ int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type
 	return IDOK;
 }
 
+} // namespace
+
 void FrameObservers(int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **Pixels)(const void *, int, int, int),
 	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int), void(PATELLA_CDECL **Device)(const char *, int, int))
 {
@@ -1277,16 +1263,85 @@ void FrameObservers(int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **P
 	*Mask = FrameMask;
 }
 
+namespace {
+
+// The test mode's IInput (platform/Input.h; issue #119): the hooks PATELLA_GET_CURSOR_POS, PATELLA_SET_MAIN_TIMER,
+// PATELLA_TEST_IDLE and PATELLA_TEST_CAPTURE_CHANGED until then.
+class TTestInput final : public patella::platform::IInput {
+public:
+	bool CursorPosition(patella::platform::TPoint &Point) override
+	{
+		POINT Cursor;
+		if (GetCursorPosition(&Cursor) == FALSE)
+			return false;
+		Point.x = Cursor.x;
+		Point.y = Cursor.y;
+		return true;
+	}
+	void StartTimer(patella::platform::TWindowHandle Window, unsigned int Id, unsigned int Milliseconds) override
+	{
+		SetMainTimer(static_cast<HWND>(Window), Id, Milliseconds);
+	}
+	// KillTimer, with a script too (of a timer never set: nothing), as before #119.
+	void StopTimer(patella::platform::TWindowHandle Window, unsigned int Id) override
+	{
+		patella::platform::Win32Input().StopTimer(Window, Id);
+	}
+	void BeginIdle() override { Idle(); }
+	// Issue #52: with a script every WM_CAPTURECHANGED is the desktop's (above).
+	[[nodiscard]] bool IgnoreCaptureChange() override { return State().Scripted; }
+};
+
+// The test mode's IWindow (platform/Window.h; issue #119): the hooks PATELLA_MESSAGE_BOX, PATELLA_ENUM_WINDOWS and
+// PATELLA_ENUM_DISPLAY_SETTINGS until then.
+class TTestWindow final : public patella::platform::IWindow {
+public:
+	void ShowMessageBox(patella::platform::TWindowHandle Owner, const char *Text, const char *Caption,
+		patella::platform::TMessageBoxIcon Icon) override
+	{
+		// messages.txt's type: MessageBoxA's flags, as the hook passed them.
+		const UINT Type = Icon == patella::platform::TMessageBoxIcon::Error ? MB_ICONHAND : MB_ICONEXCLAMATION;
+		patella::testmode::ShowMessageBox(static_cast<HWND>(Owner), Text, Caption, Type);
+	}
+	void VisitWindows(patella::platform::TWindowVisitor Visit) override
+	{
+		EnumWindows(VisitOwnWindow, reinterpret_cast<LPARAM>(Visit));
+	}
+	[[nodiscard]] bool DisplayMode(unsigned int Index, patella::platform::TDisplayMode &Mode) override
+	{
+		const TState &Current = State();
+		if (!Current.FixedDisplayModes)
+			return patella::platform::Win32Window().DisplayMode(Index, Mode);
+		TDisplayMode Found;
+		if (!EnumerateDisplayMode(&Current.DisplayModes, Index, &Found, [](std::uint32_t, TDisplayMode *) { return false; }))
+			return false;
+		Mode.Width = static_cast<int>(Found.Width);
+		Mode.Height = static_cast<int>(Found.Height);
+		Mode.Depth = static_cast<int>(Found.Depth);
+		return true;
+	}
+};
+
+constinit TTestInput TestInput;
+constinit TTestWindow TestWindow;
+
+} // namespace
+
 } // namespace patella::testmode
 
 // The test build's platform (issue #109; platform/Platform.h): the clock is the test mode's (the virtual clock with a
 // script, the system's without one, as Initialize chose it), the files Win32's (the comparisons read the files the
 // client writes in its folder), the network the server replay's inside the process with --test-replay (issue #120:
-// TPipeSocketWin32, no port), else Win32's (a live run against the test server).
+// TPipeSocketWin32, no port), else Win32's (a live run against the test server). Issue #119: the clipboard the
+// process's own with a script (TMemoryClipboard: the desktop's clipboard neither reaches a scripted run nor is
+// changed by it), else Win32's; the input and the windows the test mode's (above).
 patella::platform::TPlatform &patella::platform::Platform()
 {
 	const patella::testmode::TState &Current = patella::testmode::State();
+	static TMemoryClipboard ScriptClipboard;
 	static TPlatform Instance{*Current.Clock, SystemFileSystem(),
-		Current.Replay.Active ? static_cast<ISocket &>(*Current.Replay.Pipes) : static_cast<ISocket &>(Win32Socket())};
+		Current.Replay.Active ? static_cast<ISocket &>(*Current.Replay.Pipes) : static_cast<ISocket &>(Win32Socket()),
+		Current.Scripted ? static_cast<IClipboard &>(ScriptClipboard) : static_cast<IClipboard &>(Win32Clipboard()),
+		patella::testmode::TestInput, patella::testmode::TestWindow};
 	return Instance;
 }

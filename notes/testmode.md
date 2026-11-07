@@ -42,7 +42,7 @@ the Vulkan engine fail as that one does, on any desktop: with a script the clien
 "Tibia Error" box (PROGRAM_ERROR 12, in messages.txt), the box text as an `[error]` line on stderr and exit code 1
 (notes/decisions.md, "A fatal error before the main window is set"). The start's count of the Tibia windows
 ("A Tibia client is already running!" with more than one; Player.cpp CountTibiaWindows) sees only the test client's
-own windows (issue #96; the hook PATELLA_ENUM_WINDOWS of src/TestHooks.h), so another client on the machine (another
+own windows (issue #96; TTestWindow::VisitWindows since issue #119, the hook PATELLA_ENUM_WINDOWS until then), so another client on the machine (another
 worktree's test or reference session, a parallel CTest test, Tibia.exe) cannot stop it; Patella.exe counts every
 window, as the original. A client built without #96 still counts a test client's window. `--test-log` lists every event it
 dispatched with its virtual time and script line. A script that cannot be read or does not parse ends the
@@ -130,19 +130,32 @@ written as it goes, the game port with the world.
 Since issue #109 the clocks are no hooks: timeGetTime, time and the frame timer's Sleep (PATELLA_TIME_GET_TIME,
 PATELLA_TIME, PATELLA_FRAME_SLEEP until then) are the platform's IClock (src/platform/Platform.h), and the test build's
 Platform() (TestModeWin32.cpp) gives the clock below (notes/decisions.md, "#109: the platform interfaces").
+Since issue #119 the cursor, the main timer, the idle step and the capture change are the platform's IInput
+(src/platform/Input.h), the message boxes, the windows' count and the display modes its IWindow (Window.h) and the
+clipboard its IClipboard (Clipboard.h); the test build's Platform() gives TestModeWin32.cpp's TTestInput and
+TTestWindow, and with a script TMemoryClipboard (notes/decisions.md, "#119: the platform interfaces, part 2"):
+
+| Interface call | Was the hook | Where | The test implementation |
+| :--- | :--- | :--- | :--- |
+| IInput::CursorPosition | PATELLA_GET_CURSOR_POS(Point) | Player.cpp (InitInstance, OnIdle), MainFrm.cpp (OnSetCursor, OnCaptureChanged) | with a script the script's cursor, else GetCursorPos |
+| IInput::StartTimer, StopTimer | PATELLA_SET_MAIN_TIMER(...); StopTimer was ::KillTimer | MainFrm.cpp OnCreate, OnDestroy (the 100 ms timer of ActionNumber) | with a script no timer (the driver's ticks), else SetTimer; KillTimer always |
+| IInput::BeginIdle | PATELLA_TEST_IDLE | the start of CPlayerApp::OnIdle | the driver's step (Win32's: nothing) |
+| IInput::IgnoreCaptureChange | PATELLA_TEST_CAPTURE_CHANGED (Patella-Modern #52) | MainFrm.cpp OnCaptureChanged, before its body | true with a script (below); Win32's: false |
+| IWindow::ShowMessageBox | PATELLA_MESSAGE_BOX(...) (#23) | Player.cpp FatalError and the start's two boxes | with a script not shown ("Message boxes"; messages.txt's type is MessageBoxA's flags, as before) |
+| IWindow::VisitWindows | PATELLA_ENUM_WINDOWS(...) (#96) | Player.cpp InitInstance (CountTibiaWindows) | this process's windows only |
+| IWindow::DisplayMode | PATELLA_ENUM_DISPLAY_SETTINGS(...) (#48) | vulkan/SurfaceVulkan.cpp GetFullscreenModes | with `--test-display-modes` the file's modes ("The display modes") |
+| IClipboard (HasText, Text, SetText) | none (the system's clipboard) | sysinc.cpp IsClipboardEmpty, GetClipboardText, SetClipboardText | with a script the process's own clipboard (TMemoryClipboard): a scripted run neither reads nor changes the desktop's |
+
+The hooks that remain (the test mode's observers and failures, not a platform's service):
 
 | Hook | Replaces | Where |
 | :--- | :--- | :--- |
-| PATELLA_GET_CURSOR_POS(Point) | GetCursorPos(Point) | Player.cpp (InitInstance, OnIdle), MainFrm.cpp (OnSetCursor, OnCaptureChanged) |
-| PATELLA_SET_MAIN_TIMER(...) | ::SetTimer(...) | MainFrm.cpp OnCreate (the 100 ms timer of ActionNumber) |
-| PATELLA_TEST_IDLE | nothing (a statement macro without a semicolon) | the start of CPlayerApp::OnIdle |
 | PATELLA_TEST_RSA_BLOCK(Block) | nothing (a statement macro, #22) | Communication.cpp SendLogin, SendGameLogin: the RSA block before RSA.Encrypt |
 | PATELLA_TEST_PACKET_SENT(Data, Size, Padded) | nothing (#22) | Network.cpp SendCommand: the packet complete, before XTEA (or before the unencrypted send) |
 | PATELLA_TEST_PACKET_RECEIVED(Data, PacketSize) | nothing (#22) | Network.cpp PrepareNextPacket: the next packet decrypted |
 | PATELLA_TEST_FRAME_OBSERVERS(Frame, Pixels, Mask, Device) | nothing (#22; Device #92; no Patcap argument since #97) | vulkan/SurfaceVulkan.cpp InitDisplay: the frame dump observes the engine (the only observer since #97: no patcap.dll lookup); with the control channel the probe names the engine's device |
-| PATELLA_MESSAGE_BOX(Window, Text, Caption, Type) | MessageBoxA (#23) | Player.cpp FatalError and the start's two boxes: with a script not shown ("Message boxes") |
-| PATELLA_TEST_CAPTURE_CHANGED | nothing (a statement macro, Patella-Modern #52) | MainFrm.cpp OnCaptureChanged, before its body: with a script skipped (below) |
-| PATELLA_ENUM_DISPLAY_SETTINGS(Device, Index, Mode) | EnumDisplaySettingsA (Patella-Modern #48) | vulkan/SurfaceVulkan.cpp GetFullscreenModes (the Graphics Options dialog's list): with `--test-display-modes` the file's modes ("The display modes") |
+| PATELLA_TEST_PRESENT_FAILURE(Failure) | nothing (Patella-Modern #83) | vulkan/SurfaceVulkan.cpp, before TRenderer::Present |
+| PATELLA_TEST_INIT_FAILURE(Step) | nothing (Patella-Modern #90) | Control.cpp InitControl, before each step |
 
 The state dump also reads the client's file-local data through four View functions at the ends of
 Creatures.cpp, Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h), inside `#if
@@ -161,7 +174,8 @@ window becomes active (or the user clicks elsewhere) while the main window holds
 WM_CAPTURECHANGED, and CMainFrame::OnCaptureChanged releases the held buttons at the cursor, which a script's
 `cursor` puts anywhere. A reference compare lost the click on "Graphics" that way (Patella-Modern issue #52,
 November 4, 2026: the state dumps 3 and 4 still on the Options dialog, every other one equal). So with a script
-PATELLA_TEST_CAPTURE_CHANGED skips the handler (TestModeWin32.cpp IgnoreCaptureChange): the buttons are pressed
+the handler is skipped (TestModeWin32.cpp TTestInput::IgnoreCaptureChange since issue #119; the hook
+PATELLA_TEST_CAPTURE_CHANGED until then): the buttons are pressed
 and released only by the script's events; the client's own ReleaseCapture comes after it has cleared its button
 flags, when the handler does nothing anyway. Without a script nothing changes.
 
@@ -518,11 +532,11 @@ the real time: a session runs in 2 to 5 seconds.
 
 ### Message boxes
 
-With a script the client's message boxes (FatalError's critical error box, the start's two boxes; the hook
-PATELLA_MESSAGE_BOX in Player.cpp) are not shown: their caption, text and type go to messages.txt in
---test-out and the driver's log, the box counts as answered with OK. While a real box is open its modal loop
+With a script the client's message boxes (FatalError's critical error box, the start's two boxes;
+IWindow::ShowMessageBox in Player.cpp, the hook PATELLA_MESSAGE_BOX until issue #119) are not shown: their caption,
+text and type go to messages.txt in --test-out and the driver's log, the box counts as answered with OK. While a real box is open its modal loop
 dispatches the thread's messages (after FatalError's ShutdownConnection the server's close comes, the client
-leaves the game and saves Tibia.cfg); the hook does the same, with the replay pumped, until both have been quiet
+leaves the game and saves Tibia.cfg); the test implementation does the same, with the replay pumped, until both have been quiet
 for 500 ms (at most 5 s).
 
 ### The display modes (Patella-Modern issue #48)
@@ -541,7 +555,8 @@ So a session's client lists the modes of the machine it was recorded on:
   EnumDisplaySettings' order, filtered as the dialog filters them (reference_record.py machine_display_modes,
   read before and after the run: a change during the run is a recording problem);
 - `PatellaTest.exe --test-display-modes <file>` answers the client's `EnumDisplaySettings(nullptr, Index)` from
-  the file (the hook PATELLA_ENUM_DISPLAY_SETTINGS, TestModeWin32.cpp EnumDisplayMode; src/testmode/DisplayModes.h),
+  the file (TestModeWin32.cpp TTestWindow::DisplayMode since issue #119, the hook PATELLA_ENUM_DISPLAY_SETTINGS until
+  then; src/testmode/DisplayModes.h),
   never asking the machine; the current and registry settings (the desktop's mode) and other devices stay the
   machine's. A file that does not parse ends the program with exit code 3, like a script. The file:
 

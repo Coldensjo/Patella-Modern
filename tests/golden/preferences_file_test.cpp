@@ -16,6 +16,7 @@
 #include "common.h"
 #include "settings/PreferenceKeys.h"
 #include "settings/Settings.h"
+#include "platform/Platform.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -198,7 +199,7 @@ void CheckImported(bool FirstLoad)
 
 std::optional<patella::settings::TSettingsFile> PatellaIni()
 {
-	return patella::settings::Load(patella::settings::FileName);
+	return patella::settings::Load(patella::platform::Platform().FileSystem, patella::settings::FileName);
 }
 
 } // namespace
