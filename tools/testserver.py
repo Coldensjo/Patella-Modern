@@ -498,10 +498,15 @@ def wait_online(poll, log_text, seconds, clock=time.monotonic, sleep=time.sleep)
 	return True
 
 
+LOG_MAP_LOADING = "Loading map sectors"
+
+
 def stop_timeout(log_text):
-	"""The seconds a failed attempt's server gets for its Ctrl+C before it is killed: SAVING_STOP once its world is
-	loaded (it saves the map on the way out: never kill it in the middle, issue #137), else STALLED_STOP."""
-	return SAVING_STOP if LOG_ONLINE in log_text else STALLED_STOP
+	"""The seconds a server gets for its Ctrl+C before it is killed: SAVING_STOP once it has begun loading its map (a
+	server that finishes loading saves the map on the way out: never kill it in the middle, issue #137; server.log
+	can lag behind the server, so waiting for "Server Online!" alone let a kill cut a sector file again in #123),
+	else STALLED_STOP."""
+	return SAVING_STOP if (LOG_ONLINE in log_text or LOG_MAP_LOADING in log_text) else STALLED_STOP
 
 
 def spawn(exe, server_dir, window):
@@ -808,6 +813,7 @@ def self_test(out=print):
 	# a failed attempt's stop (issue #137): a loaded world saves on Ctrl+C, so no kill after 30 s
 	check("stop timeout: world not loaded, 30 s", stop_timeout("\n".join(SELF_TEST_LOG[:2])) == STALLED_STOP)
 	check("stop timeout: world loaded, time to save", stop_timeout("\n".join(SELF_TEST_LOG)) == SAVING_STOP)
+	check("stop timeout: map loading, time to save", stop_timeout("\n".join(SELF_TEST_LOG[:4])) == SAVING_STOP)
 	out("testserver self test: %d failures" % failures)
 	return failures
 
