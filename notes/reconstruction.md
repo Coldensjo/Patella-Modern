@@ -572,7 +572,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   (`VC\Tools\Llvm\x64\bin`): `clang-format --dry-run --Werror src/*.cpp src/*.h src/compat/*.h src/types/*.h
   src/testmode/*.cpp src/testmode/*.h src/vulkan/*.cpp src/vulkan/*.h src/settings/*.cpp src/settings/*.h
   src/res/resource.h tests/unit/*.cpp
-  tests/vulkan/*.cpp tests/golden/*.cpp tests/golden/*.h` reports nothing; `clang-format -i` on a changed file
+  tests/vulkan/*.cpp tests/golden/*.cpp tests/golden/*.h tests/fuzz/*.cpp tests/fuzz/*.h` reports nothing; `clang-format -i` on a changed file
   formats it. Hand-laid tables (case
   tables, vertex and pixel format lists) and the macros clang-format cannot parse sit between
   `// clang-format off` and `// clang-format on`.
@@ -1044,6 +1044,26 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   (Release, without the client) and linux-x64-clang; the golden and reference runs are local (CipSoft-derived data).
   The original's reads that ASan reports are suppressed with `PATELLA_NO_SANITIZE_ADDRESS` (src/compat/msvc.h), each in
   notes/decisions.md's table ("Sanitizers over the replayed sessions").
+- Fuzzing (Patella-Modern issue #132; plan section 7, M9; notes/decisions.md, "#132"): tests/fuzz has a target per
+  input the client reads, each an LLVMFuzzerTestOneInput (tests/fuzz/CMakeLists.txt lists them): fuzz_settings
+  (Patella.ini, patella_core only, with its round trips), fuzz_network (TNetwork's frames, the #72 cases among the
+  seeds), fuzz_packets (Control.cpp's ReceivePackets and Communication.cpp's handlers in the golden Communication
+  test's world: every callee a fake), fuzz_tibia_cfg (the import of Tibia.cfg and the Patella.ini it writes), fuzz_map,
+  fuzz_dat, fuzz_sprites and fuzz_pictures. All but fuzz_settings link the golden runner's objects (the client's code
+  is not patella_core's yet), so they build where golden_runner does (not windows-x64-gcc). Each preset links them with
+  tests/fuzz/driver.cpp: CTest's `fuzz_<name>` (label `fuzz`) replays tests/fuzz/seeds/<name> (hand-made from the
+  formats, committed; `python -I tools/fuzz.py synthetic` writes them) and a fixed number of the driver's own
+  mutations, under the preset's sanitizers; the hosted CI runs them so. libFuzzer: `python -I tools/fuzz.py build
+  --platform linux` (build/linux-x64-clang-fuzz: linux-x64-clang with PATELLA_FUZZ=ON in the image, Clang 22's
+  libFuzzer with ASan and UBSan) or `--platform windows` (build/windows-x64-fuzz: windows-x64-asan with PATELLA_FUZZ=ON
+  and without the client, MSVC's /fsanitize=fuzzer; its lines have features, no `cov:`), then `python -I tools/fuzz.py
+  run --platform linux|windows --time 600 [target ...]`: per target its log, summary.tsv (executions, rate, coverage,
+  corpus, findings) and the artifacts (`crash-`, `timeout-`, `oom-`) in the tree's fuzz-artifacts. Seeds from
+  CipSoft's data stay local: `python -I tools/fuzz.py seeds --reference C:/Tibia/Patella-Modern/build/reference`
+  writes build/fuzz-seeds (the reference sessions' server packets, their Tibia.cfg and *.map files, files cut from
+  Tibia.dat, .spr and .pic), which `run` adds when they are there; never committed, pushed, uploaded or given to CI.
+  A finding the driver hits writes the input to `fuzz-crash-<target>.bin` in its working directory;
+  PATELLA_FUZZ_TRACE=1 makes fuzz_packets print the calls of each input.
 - Before finishing a file, compare each function against its pseudocode once more: every
   branch, constant, call and side effect.
 - Static objects and removed try blocks (issue #24): `tools\listing.cmd File.cpp` writes our

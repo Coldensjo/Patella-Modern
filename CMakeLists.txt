@@ -48,6 +48,8 @@ include(cmake/Core.cmake)
 include(cmake/TestMode.cmake)
 add_subdirectory(tests/unit)
 add_subdirectory(tests/golden)
+# The fuzz targets (issue #132), after the golden objects some of them link.
+add_subdirectory(tests/fuzz)
 if(PATELLA_CLIENT AND MSVC)
 	include(cmake/WindowsX64.cmake)
 endif()

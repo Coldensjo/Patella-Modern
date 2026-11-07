@@ -67,7 +67,7 @@ public:
 	[[nodiscard]] std::optional<std::string> Get(std::string_view Key) const;
 
 	// Sets the first line with Key to "Key=Value", or appends that line. False (and nothing changed)
-	// for a key that is empty, has spaces around it, starts with '#' or ';' or holds '=', or a key or
+	// for a key that is empty, has spaces around it, starts with '#', ';' or a byte order mark or holds '=', or a key or
 	// value with a line end, a NUL or spaces around it.
 	bool Set(std::string_view Key, std::string_view Value);
 

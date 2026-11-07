@@ -15289,3 +15289,188 @@ corpus read only (PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its 
   Visual Studio's clang-tidy (tools/tidy.py -p build/windows-x64) on the changed Windows-only files: two
   misc-include-cleaner findings of this change (fixed in b2fe7ae), the moved enums (NOLINT, above), and the two
   findings main has (above). `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
+
+## #132: fuzzing the packet parser and the file loaders (Patella-Modern issue #132, M9)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-132, from main e4b67d7). Plan section 7, M9, "Fuzzing".
+
+### The targets (high)
+
+tests/fuzz, added by the top-level CMakeLists.txt after tests/golden (one line); each target an LLVMFuzzerTestOneInput
+and an LLVMFuzzerInitialize (tests/fuzz/fuzz.h):
+
+| Target | Input | Code under test | Reached how |
+|---|---|---|---|
+| fuzz_settings | Patella.ini's text | settings/Settings.cpp, settings/PreferenceKeys.cpp, log/LogSettings.cpp | patella_core alone |
+| fuzz_network | the server's stream, frames in the clear (the harness encrypts each whole 8-byte block with the session key); byte 0 picks the receive size, 1 to 0x4000 | Network.cpp: OnReceive, PrepareNextPacket, GetNextCommand, the readers | a TNetwork of its own, a fake session and sockets, as bounded_reads (#72) |
+| fuzz_packets | [connection state][u16 size][frame]... (payloads as PrepareNextPacket leaves them) | Control.cpp's ReceivePackets, Communication.cpp's Receive* | the golden Communication test's world (commworld.h): every callee a fake, the readers on a buffer of the frame's own size |
+| fuzz_tibia_cfg | Tibia.cfg | Preferences.cpp's ReadTibiaCfg (Script.cpp), the import into Patella.ini (#45), the next start | the client's TPreferences (the golden objects' TClient) |
+| fuzz_map | 00000000.map (byte 0: as it is, or after 128 KiB of layers; bit 1: add a mark and save) | Map.cpp's LoadAutomapBlock, SaveAutomapBlock through the block cache | a TMap of its own |
+| fuzz_dat | Tibia.dat | Objects.cpp's LoadObjects, LoadProperties | a TObjectTypes of its own |
+| fuzz_sprites | Tibia.spr | graphics.cpp's LoadSprites, LoadSprite (the first 16 sprites) | a TGraphics of its own |
+| fuzz_pictures | Tibia.pic | graphics.cpp's LoadPictures, LoadPictureTile (16 tiles, one past each picture's edge) | a TGraphics of its own |
+
+- **Outside patella_core** (the issue's question): only fuzz_settings is patella_core's. The others need the client's
+  code, which is not in patella_core yet; they link the golden runner's objects (the client's code against the MFC
+  shim, on Linux the Windows stand-ins) with tests/fuzz/client.cpp in place of runner.cpp, as bounded_reads does
+  (`patella_fuzz_client`; the golden directory's settings read through get_directory_property). So they are built
+  where golden_runner is (windows-x64, -debug, -asan, linux-x64-gcc, linux-x64-clang), not on windows-x64-gcc.
+  ReceivePackets with the real game state and windows is not reachable outside the full client: fuzz_packets runs
+  every handler's own code with the comm world's fakes below it (map, creatures, windows, events), so a finding in
+  the handlers' parsing shows, one in the game state they feed does not.
+- **Outcomes** (client.h Guard): a TMyException, a TProgramError and std::bad_alloc are the client's own errors (it
+  ends through HandleException and FatalError on each), not findings; any other exception, a sanitizer report, a
+  hang (libFuzzer's -timeout=25) and a property that does not hold (fuzz.h Fail: abort) are.
+- **Properties** (the fork's code only, never the original's): fuzz_settings: Parse(Text()) is Text(); Set/Get/Remove;
+  ReadPreferences of what WritePreferences wrote gives the options again, without a problem, into a new file and into
+  the file itself, and a second write changes nothing. fuzz_tibia_cfg: the Patella.ini the import wrote reads the
+  options the client held after the import, the next start holds them again, and a third start holds what the second
+  did. "The options" are as the client can hold them (tests/fuzz/values.h Held: a text ends at its first NUL; a hotkey
+  without a text has no "sent at once", Tibia.cfg's writer skips it as well). Not compared with the import: OpenDialogs
+  (SetPreferenceValues keeps ReadTibiaCfg's duplicate check, which reads the vector's entries of the first load in the
+  same process; the client loads once per process), White and Ignore (a name longer than the list keeps is kept cut,
+  so the import can hold it twice; saved, both are the same cut name, which the next load adds once, as Tibia.exe's
+  next start does). The white list is cleared before each start (SetDefaultPreferences clears the ignore list only).
+
+### Builds, seeds and runs (high)
+
+- **PATELLA_FUZZ=OFF** (every preset): each target is linked with tests/fuzz/driver.cpp, which replays its inputs and a
+  fixed number of its own mutations (bits, bytes, 8- and 16-bit edges, insertions, removals, repeats, splices; seed
+  1, the same on every platform). CTest's `fuzz_<name>` (label `fuzz`) runs it on tests/fuzz/seeds/<name>: the smoke
+  run, under each preset's sanitizers; the hosted CI runs them so (synthetic seeds only). Mutations: settings 5,000,
+  network 20,000, packets 5,000, tibia_cfg, dat, sprites, pictures 1,000, map 200.
+- **PATELLA_FUZZ=ON** (a tree of its own; the presets are #133's, so no new preset): on top of linux-x64-clang (Clang
+  22's -fsanitize=fuzzer-no-link on patella_core, the golden objects and the targets, -fsanitize=fuzzer on the link,
+  with ASan and UBSan) or windows-x64-asan (MSVC's /fsanitize=fuzzer; refused without PATELLA_SANITIZE=address).
+  CTest's `fuzz_<name>` then runs libFuzzer for 10 s on the synthetic seeds. `python -I tools/fuzz.py build --platform
+  linux|windows` makes build/linux-x64-clang-fuzz (in the image, through build.py's Docker command) or
+  build/windows-x64-fuzz (-DPATELLA_CLIENT=OFF); `run` runs each target for --time seconds with the options the
+  targets need (-max_len per target, fuzz_dat's -rss_limit_mb and -malloc_limit_mb 8192, -timeout=25; on Linux the
+  corpus on the container's own file system, copied back after the run, and addr2line as the symbolizer: the image
+  has no llvm-symbolizer) and writes summary.tsv.
+- **Seeds**: tests/fuzz/seeds (106 files, 143 KB, `python -I tools/fuzz.py synthetic`) are written from the formats the
+  code reads, nothing taken from CipSoft's files or recordings; .gitattributes keeps their bytes (`binary`). Among
+  them #72's short packets (#72's "Found, not done"): inner lengths 7, 8, 100, 0x3ff0 and 0xffff in a frame of 8, a
+  frame of size 0, a frame filling ReceiveData with the length 0xffff. `python -I tools/fuzz.py seeds` writes the
+  local ones to build/fuzz-seeds: the reference sessions' server packets (replay.txt, 4 frames to a seed, for
+  fuzz_packets and, as frames, fuzz_network), their Tibia.cfg and *.map files, and small files cut from Tibia.dat (1,
+  10, 100 types), Tibia.spr (2, 16, 64 sprites) and Tibia.pic (1, 3 pictures) with their counts and offsets made to
+  fit. CipSoft-derived: build/ is ignored, nothing of it is committed, pushed, uploaded or given to CI; the frozen
+  reference set is only read.
+- **The harness, not the code**: the inputs the original's code cannot take without corrupting memory or hanging are
+  left out by the harness, so the fuzzer goes on past them; each is a finding below. decode.h: sprites and tiles
+  whose runs pass the 1024th pixel; fuzz_dat and fuzz_pictures free what a failed load allocated and clear what it
+  did not (the original deletes indeterminate pointers there); fuzz_map adds no mark to a block whose file has a count
+  below -64; fuzz_network reads a string that does not fit with the non-allocating reader, and stops after 32 throws
+  per input and 4 in a row; fuzz_dat under ASan skips files with a sprite table of a negative or more than 2^30
+  entries (ASan reports a new[] it cannot satisfy instead of throwing std::bad_alloc or std::bad_array_new_length,
+  which is what the client gets: PROGRAM_ERROR 1); fuzz_tibia_cfg clears the white list before each input (below).
+
+### Found and fixed (ours) (high)
+
+- **TSettingsFile::Parse lost a CR** (src/settings/Settings.cpp, #31/#45's): in a file with CRLF line ends, the last
+  line, when it has no line end, lost a CR it ended with ("A=1\r\nB=2\r": B's line text "B=2", so Text(), which Save
+  writes, dropped the CR, one more at every save). The CR belongs to a line end only when a LF follows; now it stays.
+  Values never changed (Trim takes CR as a blank). Found by fuzz_settings' Parse(Text()) property on Linux after
+  224,882 executions (artifact crash-f68e2ec2...). tests_core: a subcase of "Settings: line ends". Behaviour of the
+  client: only the bytes Save writes for such a file.
+- **A renumbered entry lost to a numbered key written otherwise** (src/settings/PreferenceKeys.cpp RemoveIndexed, #45's):
+  Indexed takes the first line of a number, and IndexOf reads Buddy01 as entry 1. A file with Buddy01 (say, one that
+  cannot be read) and Buddy2: the buddy of Buddy2 is written as Buddy1, appended after Buddy01, which RemoveIndexed
+  kept (its number is written), so the next read took Buddy01 again: the buddy was gone and every start reported the
+  line. Now RemoveIndexed also removes the Hotkey<n>, ContentWindow<n> and Buddy<n> lines whose key is not spelled as
+  the writer spells it (`Prefix` + std::to_string(n), any case). Found by fuzz_settings' round trip into the file itself
+  (143,483 executions, crash-ac9b15c9...). tests_core: "Preferences: a numbered key written otherwise goes when the
+  entries are written (issue #132)".
+- **Set with a key that starts with a byte order mark** (src/settings/Settings.cpp TSettingsFile::Set): on the first
+  line (after spaces, or appended to an empty file) the next parse took the mark as the file's, so Get did not find the
+  key Set had just written. Set refuses such a key now, as it refuses a key that starts with '#' or ';' (the client
+  sets only its own keys). Found by fuzz_settings' Set/Get property (610,436 executions, crash-8ad1f856...).
+  tests_core: "Settings: keys and values Set refuses".
+
+### The runs (high)
+
+Logs and summary.tsv in build\logs\issue-132 of the branch's worktree (fuzz-linux-600, fuzz-windows-180, and the
+reruns after each fix; artifacts in build\logs\issue-132\artifacts). Linux: Clang 22's libFuzzer with ASan and UBSan,
+600 s per target, synthetic and local seeds. MSVC: /fsanitize=fuzzer with ASan, 180 s per target. Coverage: libFuzzer's
+cov (PCs) and ft (features); MSVC's libFuzzer reports features only.
+
+| Target | Linux: executions (per s), cov, ft, corpus | MSVC: executions (per s), ft | Findings |
+|---|---|---|---|
+| fuzz_settings | 910,731 (1,515), 1,537, 5,743, 8,812 (final round) | 22,618 (124), 5,809 (final round) | three of ours, fixed (above), each found before the final round |
+| fuzz_network | 2,252,320 (3,747), 464, 2,541, 1,046 (after the guard) | 255,201 (1,409), 3,066 (after the guard) | GetString's leak (4), out of memory before the harness's guard |
+| fuzz_packets | 735,698 (1,224), 2,260, 9,759, 2,630 | not run (below) | none |
+| fuzz_tibia_cfg | 350,657 (583), 2,758, 7,963, 2,911 (final round) | 8,066 (44), 5,016 (final round) | none in the client (the harness's in-process artefacts, below) |
+| fuzz_map | 99,195 (165), 1,067, 2,804, 175 | 10,440 (57), 2,030 | the negative mark count (5), a timeout before the guard |
+| fuzz_dat | 96,894 (161), 507, 1,998, 636 | 2,719 (15), 1,367 | ASan's new[] of a negative size (8) before the guard |
+| fuzz_sprites | 966,458 (1,608), 390, 1,800, 430 | 34,039 (188), 2,042 | none past the guard (3) |
+| fuzz_pictures | 1,255,188 (2,088), 482, 2,468, 613 | 10,210 (56), 2,430 | none past the guard (2, 3) |
+
+The slow ones write their file for every input (Windows' file system and its scanner for the MSVC runs).
+
+### Found, filed: the original's code paths (high)
+
+None is changed (the original's behaviour; the owner's to decide, as #72 was).
+
+1. **A failed load of Tibia.dat deletes indeterminate pointers** (Objects.cpp LoadObjects, ReleaseObjects; Container.h
+   array's `new T[d]`): the tables are allocated first, then LoadProperties fills entry after entry; a file that ends
+   early leaves the later entries' Sprites unset, and ExitObjects (InitControl's catch calls ExitControl) deletes them.
+   Shown in the client: build\windows-x64-asan\Release\PatellaTest.exe in a folder with the first 300 bytes of
+   Tibia.dat (and Tibia.spr, Tibia.pic): AddressSanitizer "attempting free on address which was not malloc()-ed:
+   0xbebebebebebebebe" in ReleaseObjects from ExitControl from InitControl's catch
+   (build\logs\issue-132\dat-finding.log). The Release client without ASan shows the box "Cannot find file "Tibia.dat".
+   (Error Code 1)", exit 1, because that memory happened to be zero: undefined, latent. A fix would value-initialise
+   the tables (`new T[d]()`), a deliberate difference.
+2. **The same for Tibia.pic** (graphics.cpp LoadPictures, ExitGraphics): `new TPicture[n]`; a file that ends early
+   leaves later pictures' Offsets unset, ExitGraphics deletes them (InitGraphics is InitControl's step 10).
+3. **Sprite and tile runs write past the buffer** (graphics.cpp LoadSprite, LoadPictureTile; its comment says so):
+   Pixel grows with each run's skip and count without a bound, so a Tibia.spr or Tibia.pic whose runs pass the
+   1024th pixel writes past the 32 x 32 x 3 bytes the caches pass.
+4. **TReadBuffer::GetString leaks a string that does not fit** (Utils.cpp): it allocates Length + 1 bytes before its
+   assertion that the text fits; the assertion throws and the allocation is lost. The client ends at that assertion,
+   so only a caller that goes on (the fuzzer: out of memory after 109,455 executions on Linux, 83,738 with MSVC)
+   accumulates it.
+5. **A negative mark count in a .map file** (Map.cpp LoadAutomapBlock keeps it and reads no mark; AddAutomapMark then
+   writes Marks(MarkCount)): TIndexedVector grows down to that index, 10 entries at a time, which for a count far below
+   0 runs for minutes and takes the memory it needs (libFuzzer's timeout after 37 s on a 19-byte input).
+6. **A frame larger than ReceiveData never completes** (Network.cpp OnReceive): a frame size above 0x3ffe leaves
+   ReceiveData full, Receive gets no room and returns 0, and the client waits for the frame forever: a server can stall
+   the client so.
+7. **A frame whose size is no multiple of 8 is refused before it is dropped** (PrepareNextPacket): every later
+   GetNextCommand throws the same error. The client ends at the first, so nothing more follows from it.
+8. **LoadProperties' sprite count is the int product of seven bytes**: on x64 up to 2^31 - 1 entries (a 4 GB
+   allocation before the reads fail); a negative product throws std::bad_array_new_length. Both end as PROGRAM_ERROR 1,
+   as the original's (whose 32-bit new[] did not check the size); noted, nothing to fix.
+
+Also seen, not findings: the white list (Talk.cpp's BuddyExemptionList) is not cleared by SetDefaultPreferences, and
+OpenDialogs' duplicate check reads earlier entries, so a second InitPreferences in one process differs from the
+first (the client runs it once).
+
+### Not done (high)
+
+- **fuzz_packets under MSVC's /fsanitize=fuzzer**: every input ends in a heap report inside the comm world's own
+  strings (commworld.cpp's log: use after free, double free, container overflow, in the first inputs). The same target
+  is clean under Clang's libFuzzer (10 minutes) and under windows-x64-asan's driver (its smoke test), so it is the
+  test world (its redirections of our code) under MSVC's fuzzer instrumentation, not the client's code. Built in
+  build/windows-x64-fuzz, not run (tools/fuzz.py UNSUPPORTED; no CTest test there).
+- The full ReceivePackets (the real game state and windows behind it) needs the whole client; fuzzing the client
+  through the test mode's replay is not done.
+
+### The gates (high)
+
+Logs in build\logs\issue-132 of the branch's worktree, on the final tree; golden replayed main's frozen corpus read
+only (PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218
+replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset.
+
+- `python -I tools/build.py windows-x64` exit 0, 28/28; windows-x64-debug exit 0, 27/27; windows-x64-asan exit 0,
+  27/27, no ASan report; windows-x64-gcc exit 0, 13/13 (fuzz_settings only: no golden objects there); linux-x64-gcc
+  exit 0, 25/25 (golden); linux-x64-clang (ASan, UBSan) exit 0, 24/24 (golden), no sanitizer report. The eight
+  fuzz_<name> smoke tests pass in each. Reruns: windows-x64-gcc and linux-x64-gcc failed once on the harness's own
+  -Wshadow (values.h; attempt1/), fixed; a windows-x64 run before the last fixes failed tests_vulkan once (a crash in
+  "the colour key pass is exact", no code of it changed; other agents' clients on the GPU), green in the final run.
+- Live: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every session
+  matches its reference; `python -I tools/compare_traffic.py` exit 0; `python -I tools/compare_files.py` exit 0, no
+  differences (settings touched).
+- `python -I tools/tidy_ci.py --worktree` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py`
+  exit 0. clang-format (CLAUDE.md's command, tests/fuzz added to it and to the hosted job) exit 0.
+- Not run: compare_rendering (nothing drawn changed).
