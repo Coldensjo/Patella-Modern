@@ -36,7 +36,8 @@ void TRSA::SetPublicKey(const char *ModulusM)
 	}
 }
 
-// 0x508aa0
+// 0x508aa0. Textbook RSA: the 128 bytes are the number, encrypted as they are (no padding, by the protocol;
+// notes/decisions.md, "#128").
 void TRSA::Encrypt(patella::TSpan<uint8, 128> Data)
 {
 	if (Data.data() == nullptr)

@@ -14283,3 +14283,64 @@ Logs in build\logs\issue-118 of the branch's worktree; golden replayed main's fr
   (CLAUDE.md's command) exit 0.
 - An early windows-x64 run (before the Control test's redirect of TGUI::ChangeEngine) failed golden with the runner's
   stub GetDeviceChoice: fixed in the test's call, not a behaviour change.
+
+## #128: vlong as a portable, tested component; the protocol's unpadded RSA (Patella-Modern issue #128, M8)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-128, from main e8e1602). Plan section 7, M8, "Crypto".
+
+### vlongtest's cases as unit tests (high)
+
+- What was there: tests_core (tests/unit/core_vlong_test.cpp, issue #7) already ran all of the retired vlongtest's
+  3,201 cases (tools/difftest/vlongtest.cpp at the tag `layout-frozen-final`: 200 RSA blocks, 600 each of `+ - * / %`,
+  one decimal conversion; seed 4242, none skipped for a zero divisor) in every preset, but as one check: the FNV-1a
+  digest of all the result bytes against the one tests/unit/core_expected.py computes with Python's integers
+  (`pow(m, 65537, n)`, `+ - * // %`), the way vlongcheck.py checked vlongtest.exe. A wrong case failed that one
+  check, without saying which case or what vlong gave.
+- Now each case is checked on its own: tests/unit/core_vlong_cases.inc is one row per case in vlongtest's order (the
+  operation and the 64-bit FNV-1a digest of the expected result bytes), written by
+  `python -I tests/unit/core_expected.py --vlong-cases tests/unit/core_vlong_cases.inc` from Python's exact integers
+  only; vlong never computes an expected value. tests_core has a test case per operation (`r`, `+`, `-`, `*`, `/`,
+  `%`, `d`) that compares each of its cases with its row and names, on a failure, the case's number, its operands and
+  vlong's result in hex (the full expected value is Python's for the same case, core_expected.py's vlong_cases()).
+  The test also checks the row's operation and the count, so a change of the generator fails; the old combined
+  digest stays as a test of its own (the same constant, 0x4850195d8e8c8047).
+- A digest per case, not the expected bytes (medium): the results alone would be about 0.8 MB of hex in the
+  repository; 64 bits per case catch any wrong result with certainty in practice, and the RSA rows are no more
+  than the digest committed since #7 is (the modulus is the client's public key, a literal in src/Communication.cpp).
+- One more test, "TRSA: raw RSA without padding": the same block encrypts to the same cipher text, and
+  E(a)·E(b) mod n = E(a·b) for three pairs, which holds only for textbook RSA.
+- The cases run in every preset that builds tests_core: windows-x64 (-debug), windows-x64-asan (AddressSanitizer),
+  windows-x64-gcc, linux-x64-gcc and linux-x64-clang (AddressSanitizer and UBSan). They found no portability fault, so
+  src/vlong.cpp is unchanged (its 32-bit units are `unsigned`, 32 bits on every target; `long` is cast where it has 8
+  bytes on Linux since issue #7). Golden's replay of vlong is unchanged.
+
+### The protocol's RSA has no padding (high)
+
+- The login packets (Communication.cpp SendLogin and SendGameLogin) encrypt one 128-byte block with TRSA::Encrypt:
+  the block, big-endian, is the number m, and the client sends m^65537 mod n (n: the 1024-bit public key, first byte
+  0xb1). The block is a zero byte, the 16-byte XTEA key, the login data (game login: the gamemaster flag, account,
+  name, password; login server: account, password) and rand()'s bytes after them. There is no PKCS #1 v1.5 or OAEP
+  padding: the leading zero byte only keeps m below n (Encrypt refuses a first byte above 127, and m >= n). The server
+  decrypts with the raw private exponent and reads the block at fixed offsets, so this is a property of the 7.72
+  protocol, not of the client's code, and it stays (plan section 7, M8: XTEA and raw RSA are protocol requirements).
+- What follows from it (documented, not changed): textbook RSA is deterministic and malleable; what keeps two logins
+  apart is the XTEA key and the filler, both from rand() (seeded from timeGetTime, so guessable), and nothing protects
+  the block's integrity. A client that padded the block would not log in to a 7.72 server.
+- Comments at the call site (Communication.cpp, both Encrypt calls) and at TRSA::Encrypt point here; comment-only
+  changes, so no live client run was needed for them.
+
+### The gates (high)
+
+Logs in build\logs\issue-128 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed
++ 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset.
+
+- On 8bea8d4: `python -I tools/build.py windows-x64` exit 0, 19/19; windows-x64-debug exit 0, 18/18; windows-x64-asan
+  exit 0, 18/18, no ASan report; windows-x64-gcc exit 0, 12/12; linux-x64-gcc exit 0, 16/16 (golden); linux-x64-clang
+  (ASan, UBSan) exit 0, 14/14 (golden), no sanitizer report. tests_core passed in all six (logs `<preset>-8bea8d4.log`).
+- `python -I tools/tidy_ci.py` exit 0, 3 findings, the baseline's 3, 0 new. `python -I tools/banned_calls.py` exit 0.
+  clang-format (CLAUDE.md's command) exit 0.
+- A mutation check: one row of core_vlong_cases.inc changed (case 996, a subtraction) failed exactly that case, with
+  its operands and result in the message; the row restored.
+- Not run: the live checks (reference compare, compare_traffic, compare_files). src/ changed by comments only
+  (Communication.cpp, TRSA.cpp), so the client's code is unchanged.
