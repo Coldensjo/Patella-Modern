@@ -112,6 +112,9 @@ public:
 	int PlayerY;                  // +0x74
 	int PlayerZ;                  // +0x78
 	int Zoom;                     // +0x7c, 1, 2, 4 or 8 (Preferences.cpp's AutomapZoom)
+
+protected:
+	void OnClose() override; // the destructor's zoom and hotkeys (issue #108)
 };
 
 // The capacity and the soul points of the inventory (Style3E0, Style428).
@@ -269,6 +272,9 @@ public:
 	int ObjectCount;       // +0x38, at the last Arrange
 	int Capacity;          // +0x3c
 	bool HasParent;        // +0x40, the "up" button is shown
+
+protected:
+	void OnClose() override; // the destructor's SendCloseContainer (issue #108)
 };
 
 // The player's skills, one per line (Lines, 15), with a progress bar for
@@ -300,8 +306,9 @@ public:
 class TBattleWindowBody : public TSubWindowBody {
 public:
 	TBattleWindowBody(); // 0x43a0c0, line 2300
-	// Inline (0x425a70, deleting destructor 0x425dc0).
-	~TBattleWindowBody() override { SetHighlightID(0); }
+	// Inline (0x425a70, deleting destructor 0x425dc0); its SetHighlightID(0) is
+	// the close since issue #108.
+	~TBattleWindowBody() override { CheckClosed("TBattleWindowBody"); }
 	void Draw(int Surface, int x, int y) override;         // +0x44, 0x43a2c0, lines 2328-2452
 	void SetSize(int Width, int Height) override;          // +0x34, 0x42fc80, lines 2465-2472
 	void Arrange() override;                               // +0x48, 0x42ff30, line 2487
@@ -319,6 +326,9 @@ public:
 	TScrollBar *ScrollBar;          // +0x30
 	int NumberOfOpponents;          // +0x34, at the last Draw; -1 at first
 	TFixedString<32> MouseOverText; // +0x38, a shortened name in full
+
+protected:
+	void OnClose() override; // the destructor's SetHighlightID(0) (issue #108)
 };
 // The parts of the trade body: the two offers (TTradeOffers), the names
 // above them (TTradeNames) and the buttons below (TTradeButtons).
@@ -396,6 +406,9 @@ public:
 	TTradeButtons *Buttons; // +0x30
 	TTradeOffers *Offers;   // +0x34
 	TTradeNames *Names;     // +0x38
+
+protected:
+	void OnClose() override; // the destructor's SendRejectTrade and ClearOffers (issue #108)
 };
 
 // The VIP list (Creatures.cpp's buddies) with icon, name and online state.

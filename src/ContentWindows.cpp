@@ -293,19 +293,32 @@ TAutomapWindow::TAutomapWindow()
 	AddHotkey(0x90f, TCallback(this, 111));
 }
 
-// 0x426c40, line 406 (deleting destructor 0x436e80). The zoom goes back into
-// the preferences.
+// 0x426c40, line 406 (deleting destructor 0x436e80). Its work is the close
+// since issue #108.
 TAutomapWindow::~TAutomapWindow()
 {
-	SetAutomapZoom(Zoom);
-	RemoveHotkey(0x912);
-	RemoveHotkey(0x913);
-	RemoveHotkey(0x914);
-	RemoveHotkey(0x915);
-	RemoveHotkey(0x90c);
-	RemoveHotkey(0x90d);
-	RemoveHotkey(0x90e);
-	RemoveHotkey(0x90f);
+	CheckClosed("TAutomapWindow");
+}
+
+// The destructor's work until issue #108 (0x426c40): the zoom goes back into
+// the preferences, the hotkeys are removed; then the children.
+void TAutomapWindow::OnClose()
+{
+	try {
+		SetAutomapZoom(Zoom);
+		RemoveHotkey(0x912);
+		RemoveHotkey(0x913);
+		RemoveHotkey(0x914);
+		RemoveHotkey(0x915);
+		RemoveHotkey(0x90c);
+		RemoveHotkey(0x90d);
+		RemoveHotkey(0x90e);
+		RemoveHotkey(0x90f);
+	} catch (...) {
+		CloseWhileUnwinding([this] { TContentWindow::OnClose(); });
+		throw;
+	}
+	TContentWindow::OnClose();
 }
 
 // 0x426e40, line 418
@@ -1362,11 +1375,24 @@ TContainerWindowBody::TContainerWindowBody(int _Container)
 	Arrange();
 }
 
-// 0x42cc70, line 1628 (deleting destructor 0x438700). Closing the window
-// closes the container.
+// 0x42cc70, line 1628 (deleting destructor 0x438700). Its work is the close
+// since issue #108.
 TContainerWindowBody::~TContainerWindowBody()
 {
-	SendCloseContainer(Container);
+	CheckClosed("TContainerWindowBody");
+}
+
+// The destructor's work until issue #108 (0x42cc70): closing the window
+// closes the container; then the children.
+void TContainerWindowBody::OnClose()
+{
+	try {
+		SendCloseContainer(Container);
+	} catch (...) {
+		CloseWhileUnwinding([this] { TSubWindowBody::OnClose(); });
+		throw;
+	}
+	TSubWindowBody::OnClose();
 }
 
 // 0x42ce10, lines 1644-1666. The background (skin 7, scrolled with the
@@ -1952,6 +1978,19 @@ TBattleWindowBody::TBattleWindowBody()
 	MouseOverText[0] = 0;
 	NumberOfOpponents = -1;
 	Arrange();
+}
+
+// The inline destructor's work until issue #108 (0x425a70): no creature is
+// highlighted any more; then the children.
+void TBattleWindowBody::OnClose()
+{
+	try {
+		SetHighlightID(0);
+	} catch (...) {
+		CloseWhileUnwinding([this] { TSubWindowBody::OnClose(); });
+		throw;
+	}
+	TSubWindowBody::OnClose();
 }
 
 // 0x43a2c0, lines 2328-2452. One row per opponent: a frame in the colour of
@@ -2584,13 +2623,26 @@ TTradeWindowBody::TTradeWindowBody()
 	SetSize(170, 100);
 }
 
-// 0x433e60, line 3048 (deleting destructor 0x43bd20). Closing the window
-// rejects an open offer.
+// 0x433e60, line 3048 (deleting destructor 0x43bd20). Its work is the close
+// since issue #108.
 TTradeWindowBody::~TTradeWindowBody()
 {
-	if (GetOwnOfferCount() > 0)
-		SendRejectTrade();
-	ClearOffers();
+	CheckClosed("TTradeWindowBody");
+}
+
+// The destructor's work until issue #108 (0x433e60): closing the window
+// rejects an open offer; then the children.
+void TTradeWindowBody::OnClose()
+{
+	try {
+		if (GetOwnOfferCount() > 0)
+			SendRejectTrade();
+		ClearOffers();
+	} catch (...) {
+		CloseWhileUnwinding([this] { TSubWindowBody::OnClose(); });
+		throw;
+	}
+	TSubWindowBody::OnClose();
 }
 
 // 0x434000 (no frame)

@@ -267,7 +267,9 @@ argument whose text would need `.get()` (until M5 the text may not change), memc
 
 The reasons an owner stays raw, in short (section 7 names each owner):
 
-- **The pointee's destructor may throw.** Every `TComponent` (`virtual ~TComponent() noexcept(false)`, issue #34).
+- **The pointee's destructor may throw** (until issue #108). Every `TComponent` (`virtual ~TComponent() noexcept(false)`, issue #34
+  to #108; since #108 the work that could throw is the components' close, `TComponent::Close`, and the destructors
+  are `noexcept`: notes/decisions.md, "#108").
   `std::unique_ptr`'s `reset()` and destructor are `noexcept` whatever the deleter, so an exception from such a
   destructor would end in `std::terminate` instead of reaching the caller's handler. Issue #81 checked whether that is
   still so after #78 (TBEGIN/TEND gone) and #80: it is. `~TTab` asserts (`PlayerName!=NULL`, a player's report
@@ -294,7 +296,8 @@ The reasons an owner stays raw, in short (section 7 names each owner):
   plain arrays (memory only), not for objects whose destructors act: `ModalWindow` and `MainWindow` (window trees,
   timers, Tibia.cfg's open dialogs), `Socket` (MFC's CAsyncSocket after MFC's module state), `Surface` (the engine's
   device and windows). M7 moves the globals into subsystems owned by one `TClient` with a defined end; M8 replaces
-  CAsyncSocket.
+  CAsyncSocket. Since #108 TGUI's `MainWindow` is a `unique_ptr`, and FatalError releases it before `exit(1)`
+  (`TGUI::AbandonWindows`), so it is left as the original left it.
 - **Not one owner**: the child list, the conditional members, the event queue's blocks, the owned entries of
   Container.h `vector<T *>`s, Talk.cpp's lines (section 3), and `vlong_value`, which copies of a vlong share with a
   count (never a `unique_ptr`; no `std::shared_ptr` either, a settled decision). M7 redesigns the GUI's tree, the
@@ -384,6 +387,18 @@ destructor; every reader takes `.get()`) and `TPasswordEditLine::Stars` (the sam
 History +0x48; TEditLine 0x68, Text +0x2c; TPasswordEditLine 0x6c, Stars +0x68). The rest of the M5 list stays raw
 (section 7): the owners of components, because `TComponent`'s destructor still throws.
 
+Issue #108 (M7) converted three more once `TComponent`'s destructor was `noexcept` (the destructors' work is the
+components' close, run before each delete: notes/decisions.md, "#108"): `TTabBar::LeftTabs` and `RightTabs`
+(`std::unique_ptr<TWindow>`: `reset(new TWindow)` in the constructor, `reset()` in the destructor, left before right,
+after the close closed their tabs) and `TGUI::MainWindow` (`std::unique_ptr<TMainWindow>`: InitMainWindow stores the
+new window over the one it never had set, ExitMainWindow closes and frees it, FatalError abandons it before
+`exit(1)`, `TGUI::AbandonWindows`). Layouts are not frozen since M6; no size asserts.
+
+| Subsystem | Members and globals | Commit |
+|---|---|---|
+| Console (ConsoleWindow.h; issue #108) | `TTabBar::LeftTabs`, `RightTabs` (`TWindow`) | issue-108 |
+| GUI (GUI.h; issue #108) | `TGUI::MainWindow` (`TMainWindow`) | issue-108 |
+
 ## 7. The owners that stay raw, and the milestone that unblocks each
 
 After the second part every owning member and global of src/ is a `std::unique_ptr` or one of these (the reasons in
@@ -392,14 +407,14 @@ with the owners below):
 
 | Owner | Why raw | Unblocked by |
 |---|---|---|
-| The component members that own a component: `TTabBar::LeftTabs`, `RightTabs` (`TWindow`); the conditional members (`TSubWindow`'s eight parts, `TConsoleWindow`'s five buttons, `TListBox::EditLine`) | the pointee's destructor throws (`TComponent`, `noexcept(false)`, kept by #81): the two windows hold the tabs that do not fit, and `~TTab` asserts on a nameless report, sends and calls DeleteTextBuffer's assertion (the golden ConsoleWindow test throws through it); as a `unique_ptr`, `reset()` would end in `std::terminate`, and a throw from `delete LeftTabs` would destroy `RightTabs` while unwinding (its tabs' sends) where the original left it. The conditional ones are also owned by the child list or the member, by `IsChild`/`Editing` | M7 (the GUI tree): the destructors' work that can fail (a tab leaving its channel, the console storing the channels and its height, a body closing its container or trade, the preferences) moves into an explicit close before the delete, so `TComponent`'s destructor can become `noexcept`; then the exclusive ones convert, and the conditional ones with the tree |
-| The child list: `TWindow::FirstChild`, `TComponent::Next` (379 allocation sites) | not one owner: an intrusive list, ownership moves between lists and is decided by `IsChild`; its destruction order is DeleteChild's | M7 (the GUI tree) |
-| `ModalWindow`, `MainWindow` (TGUI's raw members since #107) | the pointee's destructor throws (`TComponent`, kept `noexcept(false)` by #81; the main window's tree holds the console and its tabs); a global's destructor would run the window destructors during static destruction after FatalError's `exit(1)` | M7 (owned by `TClient`, with the GUI tree's `noexcept` destructors) |
+| The conditional component members: `TSubWindow`'s eight parts, `TConsoleWindow`'s five buttons, `TListBox::EditLine` | not one owner: the child list owns them while they are children, the member while they are not (`IsChild`, `Editing`); the destructor deletes those that are not children, the close (issue #108) closes them first | M7 (the GUI tree: one owner for each part) |
+| The child list: `TWindow::FirstChild`, `TComponent::Next` (379 allocation sites) | not one owner: an intrusive list, ownership moves between lists and is decided by `IsChild`; its destruction order is DeleteChild's (since #108 it closes each child before it frees it) | M7 (the GUI tree) |
+| `ModalWindow` (TGUI's raw member) | one owner, but MouseMove's help bubble leaves it pointing to the bubble it deleted when the new bubble or its Place throws (issue #36), which the golden Control test compares; an owner cannot hold a freed window (issue #108). Never destroyed at exit (raw) | M7 (when MouseMove's exception path need not keep the freed bubble: a deliberate difference, or the golden check retired with it) |
 | `Socket` (`TSocket`, a CAsyncSocket) | its destructor acts at `exit(1)`, after MFC's module state | M8 (CAsyncSocket replaced) |
-| `Surface` (the engine) | its destructor releases the device and the windows at `exit(1)` | M7 (owned by `TClient`) |
+| `Surface` (the engine) | its destructor releases the device and the windows at `exit(1)` | M7 (owned by `TClient`; FatalError's teardown before `exit(1)` as #108's AbandonWindows) |
 | `TPicture::Offsets`, `TProperties::Sprites` | a pointer in each element of an owned array: a `unique_ptr` would clear it in `new T[n]` and give the element a destructor | M7 (the tables as `std::vector`s) |
 | The list boxes' lines (`TListBox::LineText`, `TFontListBox::FontLines(i).Text`), Talk.cpp's filter lists (Container.h `vector<T *>` entries) | owned entries of a container of pointers; the filters are also freed with `free` | M7 (the containers) |
-| `DefaultTextBuffer`, the text buffers of CreateTextBuffer, a `TTalkBuffer`'s lines (`first` ... `last`, `TTalkLine::Line`) | mismatched release (`new (std::nothrow)`, then the destructor and `free`; `free` of `new` text); the buffers are also not one owner (a tab's `TextBuffer` and the console filter list's entry; DeleteTextBuffer frees both). `~TTalkBuffer` is `noexcept` since #81, so that reason is gone | M7 (matching releases, the filter list, the lines' list) |
+| `DefaultTextBuffer`, the text buffers of CreateTextBuffer, a tab's `TextBuffer`, a `TTalkBuffer`'s lines (`first` ... `last`, `TTalkLine::Line`) | mismatched release (`new (std::nothrow)`, then the destructor and `free`; `free` of `new` text); the buffers are also not one owner (a tab's `TextBuffer` and the console filter list's entry; DeleteTextBuffer, the tab's close since #108, frees both). `~TTalkBuffer` is `noexcept` since #81, so that reason is gone | M7 (matching releases, the filter list, the lines' list) |
 | `MotD` (Preferences.cpp), `ClipboardBuffer` (sysinc.cpp) | mismatched release (`free` of `new char[]`) | M7 |
 | `TaintedClipboardText` (Status.cpp) | freed without being cleared (ExitStatus); the second delete after it is the original's | M7 (a deliberate fix, recorded) |
 | `LinkRegexp` (Status.cpp) | regcomp's `malloc`, freed with `free` and not cleared | M8 (the regexp behind an RAII wrapper) |

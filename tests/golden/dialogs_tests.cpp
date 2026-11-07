@@ -2677,7 +2677,7 @@ static void MainRound()
 		OperationName = "destructor";
 		CurrentAction = ACTION_DESTRUCTOR;
 		Both([&](int s) {
-			delete Frame[s];
+			DeleteComponent(Frame[s]);
 			Frame[s] = NULL;
 		});
 		OutputOriginalLog();
@@ -2758,7 +2758,7 @@ static void EndDialogs()
 		OperationName = "destructor";
 		CurrentAction = ACTION_DESTRUCTOR;
 		Both([&](int s) {
-			delete Frame[s];
+			DeleteComponent(Frame[s]);
 			Frame[s] = NULL;
 		});
 		OutputOriginalLog();
@@ -3179,7 +3179,7 @@ static void LongIgnoreNames()
 			OperationName = "destructor (30 characters)";
 			CurrentAction = ACTION_DESTRUCTOR;
 			Both([&](int s) {
-				delete Frame[s];
+				DeleteComponent(Frame[s]);
 				Frame[s] = NULL;
 			});
 			OutputOriginalLog();
@@ -3275,8 +3275,8 @@ void TestDialogs()
 	LongIgnoreNames();
 
 	for (int s = 0; s < SIDES; s++) {
-		delete Receiver[s];
-		delete ParentWindow[s];
+		DeleteComponent(Receiver[s]);
+		DeleteComponent(ParentWindow[s]);
 	}
 	RestoreAll();
 	if (getenv("DG_BLOCKS") != NULL) {

@@ -67,12 +67,9 @@ class TMapWindow : public TWindow {
 public:
 	TMapWindow(); // 0x4bfa00, line 130
 	// 0x4bf860 (inline, out-of-line copy before the constructor; deleting
-	// destructor 0x4bf9e0).
-	~TMapWindow() override
-	{
-		RemoveHotkey(0x44e);
-		RemoveHotkey(0x457);
-	}
+	// destructor 0x4bf9e0). Its two RemoveHotkey calls are the close since
+	// issue #108.
+	~TMapWindow() override { CheckClosed("TMapWindow"); }
 	void SetSize(int Width, int Height) override;          // +0x34, 0x4bfc30, line 152
 	int getMinimumWidth() override { return 240; }         // +0x3c, 0x4bf8d0
 	int getMinimumHeight() override { return 176; }        // +0x40, 0x4bf8e0
@@ -134,6 +131,20 @@ public:
 	int ScrollY;                                                   // +0x29d0
 	std::array<std::array<TCacheField, 12>, 16> Cache;             // +0x29d4
 	TComponent *HintButton;                                        // +0x92d4, "Receive hint"
+
+protected:
+	// The destructor's work until issue #108 (0x4bf860), then the children.
+	void OnClose() override
+	{
+		try {
+			RemoveHotkey(0x44e);
+			RemoveHotkey(0x457);
+		} catch (...) {
+			CloseWhileUnwinding([this] { TWindow::OnClose(); });
+			throw;
+		}
+		TWindow::OnClose();
+	}
 };
 
 class TMapFrame : public TWindow {

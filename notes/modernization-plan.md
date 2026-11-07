@@ -622,6 +622,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Control.cpp's and MainWindow.cpp's data; ModalWindow and MainWindow are its members (raw, for #108); the windows
   reach Control.cpp through TGUIController. The GUI cycle is 4 modules (was 6). Not yet: SkinProperties, Control.cpp's
   and MainWindow.cpp's functions as members (notes/decisions.md, "The fourth move: TGUI").
+  Done in #108: the window destructors' work is the components' close (`TComponent::Close`, run before each delete),
+  so TComponent's destructor and the window destructors are noexcept; TTabBar's two windows and TGUI's MainWindow are
+  `std::unique_ptr`s, ModalWindow, the conditional members and the text buffers stay raw with their reasons; FatalError
+  abandons the main window before `exit(1)` (notes/decisions.md, "#108"; notes/ownership.md, sections 6 and 7).
 - **The core/platform split is completed:** packet parsing and building, game state (Creatures, Map,
   Objects, Inventory, Player), preferences, and the GUI's logic are in `patella_core` and
   include neither `<windows.h>` nor MFC. The platform interfaces are `IWindow`, `IInput`, `IClock`,

@@ -224,8 +224,10 @@ template <class T> void *MemberAddress(T Member)
 // test sets their buffers; SendCommand is faked and logs the packet).
 extern const TFake WorldFakes[];
 extern const int WorldFakeCount;
-// Control.cpp's MainWindow and ModalWindow, per side.
-TCtlMainWindow *&SideMainWindow(int Side);
+// Control.cpp's MainWindow and ModalWindow, per side (MainWindow an owner since issue #108: set through
+// SetSideMainWindow, which does not free the window it replaces).
+TCtlMainWindow *SideMainWindow(int Side);
+void SetSideMainWindow(int Side, TCtlMainWindow *Window);
 TWindow *&SideModalWindow(int Side);
 
 // The receive buffer of a side (Network.cpp's ReceiveBuffer: the image's

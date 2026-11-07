@@ -163,6 +163,9 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 	} catch (...) {
 	}
 	PATELLA_MESSAGE_BOX(nullptr, Text, Caption, MB_ICONHAND);
+	// Issue #108: the main window stays as the original's global did, allocated and not closed. TGUI owns it, and
+	// TClient's static destruction after exit(1) would destroy it and close its children (packets, preferences).
+	patella::bridge::GUI().AbandonWindows();
 	exit(1);
 }
 

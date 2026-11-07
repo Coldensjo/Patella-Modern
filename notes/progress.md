@@ -540,6 +540,18 @@ original's number, None its -1), the table is TSlotTable<TEffect, EFFECTS, TEffe
 give TEffectId; TSlotTable::Chain walks a point's effects (GetEffectIteratorNumber, ClearField's deletes) and
 TMapEffects wraps GetFirstEffect/GetNextEffect for DrawField's loop. Field (a map point's number) and the original's
 free functions (golden calls and fakes them) keep ints. Golden 17,316,040, 0 failures. notes/decisions.md, "#103".
+
+noexcept destructors (Patella-Modern issue #108, branch issue-108, November 6, 2026; M7): the window destructors'
+work that could fail or acts outside the window (the Send functions, the preferences, the hotkeys, TTab's assertion,
+DeleteTextBuffer, SetHighlightID) is the components' close: `TComponent::Close` and the classes' `OnClose`, in the
+destructors' order (a class's own part, then its base's; a window's children first to last), with the original's
+unwinding (the bases' closes run while an exception passes). Every delete of a component closes it first
+(DeleteComponent, TWindow::DeleteChild); TComponent's destructor and every window destructor are noexcept and only
+free, in the original's order. The golden ConsoleWindow test's nameless report now throws from TTab::OnClose, before
+the delete. Converted: TTabBar::LeftTabs and RightTabs, TGUI::MainWindow (FatalError abandons it before exit(1), so
+TClient's static destruction leaves it); kept raw with the reason: ModalWindow (the help bubble's freed pointer that
+the golden Control test compares), the conditional members, the text buffers. Golden 17,316,040, 0 failures.
+notes/decisions.md, "#108".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

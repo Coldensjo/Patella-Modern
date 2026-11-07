@@ -71,7 +71,7 @@ public:
 	// Inlined into the constructors of TWindow and TElement.
 	TComponent() : DrawingList(nullptr), DrawingListLength(0), Parent(nullptr), Next(nullptr), OffsetX(0),
 				   OffsetY(0), Width(0), Height(0) {}
-	virtual ~TComponent() noexcept(false);                                  // +0x00, 0x496040 (deleting 0x496520)
+	virtual ~TComponent();                                                  // +0x00, 0x496040 (deleting 0x496520); noexcept (issue #108)
 	virtual void InsertChild(TComponent *Child);                            // +0x04, 0x49b450, line 993
 	virtual void AppendChild(TComponent *Child);                            // +0x08, 0x49b570, line 1001
 	virtual void RemoveChild(TComponent *Child);                            // +0x0c, 0x49b690, line 1009
@@ -106,18 +106,51 @@ public:
 	virtual void ReleaseCapture(TComponent *Component) = 0;          // +0x7c
 	virtual void StopDragging() = 0;                                 // +0x80
 
+	// The work of the original's destructors that can fail or acts outside the component (issue #108): the Send
+	// functions, the preferences, the hotkeys, the assertions, DeleteTextBuffer. Close does it, once, in the order the
+	// original's destructors did (a class's own part first, then its bases', a window's children in the order of its
+	// list, an owned part that is not a child where the original's destructor deleted it); the destructors free the
+	// memory only and are noexcept. Each delete of a component closes it first (DeleteComponent, below; TWindow's
+	// DeleteChild). An exception of a close passes to the caller as the original's destructor's did, and the component
+	// is left allocated and marked closed (the original had freed it): see notes/ownership.md, section 7.
+	void Close();
+
 	int getWidth() const { return Width; }   // "Child->getWidth()" (line 1725), inlined
 	int getHeight() const { return Height; } // "Child->getHeight()" (line 1726), inlined
 
 	std::unique_ptr<TDrawing[]> DrawingList; // +0x04, allocated by the subclasses (issue #58: the list's only owner)
 	int DrawingListLength;                   // +0x08
-	TComponent *Parent;                      // +0x0c
-	TComponent *Next;                        // +0x10, the next child of Parent
-	int OffsetX;                             // +0x14, relative to Parent
-	int OffsetY;                             // +0x18
-	int Width;                               // +0x1c
-	int Height;                              // +0x20
+
+private:
+	// Close has run (issue #108; not in the original's layout). Here, in the padding after DrawingListLength on x64,
+	// so that no class's size or member offsets change (at the end the Itanium ABI would put derived members into its
+	// tail padding, which the golden tests' fake elements do not mirror).
+	bool Closed = false;
+
+public:
+	TComponent *Parent; // +0x0c
+	TComponent *Next;   // +0x10, the next child of Parent
+	int OffsetX;        // +0x14, relative to Parent
+	int OffsetY;        // +0x18
+	int Width;          // +0x1c
+	int Height;         // +0x20
+
+protected:
+	// A class's own part of the close (issue #108), overridden by the classes whose destructors did such work; each
+	// override ends with its base's, as a destructor ends with its base's. Not one of the original's virtual functions.
+	virtual void OnClose() {}
+	// The rest of a close after an exception of a class's own part: the original's destructor went on with its bases'
+	// destructors while the exception passed, and a second exception there ended the program (std::terminate), which
+	// noexcept keeps.
+	template <class F> static void CloseWhileUnwinding(F &&Rest) noexcept { Rest(); }
+	// A component of a class with a close of its own that is destroyed without it (a delete without Close: a missed
+	// close, its work not done) writes a line to the developer log (error level).
+	void CheckClosed(const char *Class) const noexcept;
 };
+
+// Closes the component and deletes it (issue #108): the original's `delete Component`. Nothing for NULL. When the
+// close throws, the component is not deleted and the exception passes on.
+void DeleteComponent(TComponent *Component);
 
 // A component without children (vtable 0x5645c8, 0x24 bytes). It takes
 // every mouse event; a double click is a second button press. The inline
@@ -189,6 +222,9 @@ public:
 
 	TComponent *FirstChild; // +0x24
 	TComponent *Capture;    // +0x28
+
+protected:
+	void OnClose() override; // the children, first to last (~TWindow's order; issue #108)
 };
 
 // --- Timers ---------------------------------------------------------------
@@ -837,9 +873,10 @@ namespace patella {
 // lower module declares the interface, the upper one implements it), so MainWindow.cpp and Dialogs.cpp do not include
 // Control.h.
 //
-// ModalWindow and MainWindow keep the original's raw ownership: Control.cpp news the dialogs into ModalWindow and
-// deletes the one it replaces, Player.cpp and Control.cpp the main window (notes/ownership.md, section 7). They are
-// TGUI's members, no longer globals; #108 turns them into owners.
+// MainWindow owns the main window (issue #108; raw until then): InitMainWindow makes it, ExitMainWindow closes and
+// frees it, at the original's new and delete; CPlayerApp::FatalError abandons it before exit(1) (AbandonWindows), so
+// TClient's static destruction never destroys it. ModalWindow keeps the original's raw pointer (below): Control.cpp
+// makes each dialog into it and closes and deletes the one it ends (DeleteComponent). notes/decisions.md, "#108".
 // Control.cpp's functions that the windows call (issue #107): the engine buttons of the main window's options
 // (MainWindow.cpp) and the graphics options' fullscreen switch (Dialogs.cpp). Implemented in Client.cpp by Control.cpp's
 // free functions until Control.cpp's functions are an object's.
@@ -859,12 +896,12 @@ protected:
 
 class TGUI {
 public:
-	explicit TGUI(TGUIController &Controller) : Controller(Controller) {}
+	explicit TGUI(TGUIController &Controller); // MainWindow.cpp (TMainWindow is complete there)
 	TGUI(const TGUI &) = delete;
 	TGUI &operator=(const TGUI &) = delete;
 	TGUI(TGUI &&) = delete;
 	TGUI &operator=(TGUI &&) = delete;
-	~TGUI() = default;
+	~TGUI();
 
 	// GUI.cpp's timers and hotkeys.
 	void AddTimer(TTimer *Timer);
@@ -907,8 +944,17 @@ public:
 	void (*OpenURLCallback)(const char *URL){}; // 0x5d16a0
 	void (*SetDisplayModeCallback)(int Mode){}; // 0x5d16a4
 	void (*ExitProgramCallback)(){};            // 0x5d16a8
-	TWindow *ModalWindow{};                     // 0x5d16ac, the dialog on top (raw, as the original's; #108)
-	TMainWindow *MainWindow{};                  // 0x5d16b0 (raw, as the original's; #108)
+	// The dialog on top. Raw (one owner, but not a std::unique_ptr; issue #108): MouseMove's help bubble leaves it
+	// pointing to the bubble it deleted when the new bubble or its Place throws (issue #36), which the golden Control
+	// test compares ("deleted ..."), and an owner cannot hold a freed window. Never destroyed at exit (a raw pointer).
+	TWindow *ModalWindow{};                  // 0x5d16ac
+	std::unique_ptr<TMainWindow> MainWindow; // 0x5d16b0 (issue #108: its owner)
+
+	// Issue #108: leaves the main window allocated, neither closed nor freed, and MainWindow empty: what the
+	// original's global was at exit(1). Called by CPlayerApp::FatalError before it, so that TClient's static
+	// destruction does not run the window's destructors (nor, through ~TWindow, close its children: the leave-channel
+	// and close-container packets and the preferences the original never sent or wrote on a fatal error).
+	void AbandonWindows() noexcept;
 };
 
 // The transition's access path (issue #107; notes/decisions.md, "#104: TClient and the subsystem objects"): the one

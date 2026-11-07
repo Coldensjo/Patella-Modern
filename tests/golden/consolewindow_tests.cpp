@@ -932,8 +932,8 @@ static void NameParts(int s)
 	TConsoleWindow *W = C(s);
 	Roles[s][W] = "Console";
 	Roles[s][W->TabBar] = "Bar";
-	Roles[s][W->TabBar->LeftTabs] = "Left";
-	Roles[s][W->TabBar->RightTabs] = "Right";
+	Roles[s][W->TabBar->LeftTabs.get()] = "Left";
+	Roles[s][W->TabBar->RightTabs.get()] = "Right";
 	Roles[s][W->CurrentConsole] = "View";
 	Roles[s][W->CurrentConsole->TextWindow] = "Text";
 	Roles[s][W->Input] = "Input";
@@ -1125,9 +1125,9 @@ static void DumpComponent(int s, std::string &Out, TComponent *Component, int De
 			Name(s, B->CurrentTab).c_str(), B->Busy ? 1 : 0, DumpChanged ? (B->Changed ? 1 : 0) : -1);
 		DumpChildren(s, Out, B, Depth);
 		Add(Out, "\n%*sleft", Depth * 2 + 2, "");
-		DumpChildren(s, Out, B->LeftTabs, Depth + 1);
+		DumpChildren(s, Out, B->LeftTabs.get(), Depth + 1);
 		Add(Out, "\n%*sright", Depth * 2 + 2, "");
-		DumpChildren(s, Out, B->RightTabs, Depth + 1);
+		DumpChildren(s, Out, B->RightTabs.get(), Depth + 1);
 		return;
 	} else if (Kind == "View") {
 		TConsole *V = (TConsole *)Component;
@@ -1192,7 +1192,7 @@ static int TabCount(int s)
 {
 	int Count = 0;
 	TTabBar *B = C(s)->TabBar;
-	TWindow *Parts[] = {B, B->LeftTabs, B->RightTabs};
+	TWindow *Parts[] = {B, B->LeftTabs.get(), B->RightTabs.get()};
 	for (TWindow *P : Parts) {
 		for (TComponent *Child = P->FirstChild; Child != NULL; Child = Child->Next)
 			Count++;
@@ -1208,7 +1208,7 @@ static std::vector<int> OpenBuffers()
 	int Saved = Side;
 	Side = OURS;
 	TTabBar *B = C(OURS)->TabBar;
-	TWindow *Parts[] = {B, B->LeftTabs, B->RightTabs};
+	TWindow *Parts[] = {B, B->LeftTabs.get(), B->RightTabs.get()};
 	for (TWindow *P : Parts) {
 		for (TComponent *Child = P->FirstChild; Child != NULL; Child = Child->Next)
 			List.push_back(BufferIndex(((TTab *)Child)->TextBuffer));
@@ -1775,7 +1775,7 @@ static void TestConsoleWindowErrors()
 			continue;
 		CurrentAction = 24;
 		Both([&](int s) {
-			delete C(s);
+			DeleteComponent(C(s));
 			Console[s] = NULL;
 		});
 		OutputOriginalLog();
@@ -2080,7 +2080,8 @@ static void TestConsoleWindowErrors()
 			if (Threw)
 				continue;
 		}
-		// A player's report without a name: its tab's destructor asserts.
+		// A player's report without a name: its tab's destructor asserts (since issue #108 its close: TTab::OnClose,
+		// reached through DeleteComponent's TConsoleWindow::Close, before the delete; the round keeps its name).
 		if (Round % 4 == 0 && TabCount(OURS) < 10) {
 			static const TBufferSpec Nameless = {8, 7, false, true, false, false, true, -1, NULL, "Nameless Report"};
 			int ReportIndex = (int)Buffers[OURS].size();
@@ -2093,7 +2094,7 @@ static void TestConsoleWindowErrors()
 				else ORIGINAL(At<BufferStringFn>(0x423060)(C(s), NULL, Buffers[s][Index], "Nameless")); });
 			if (Threw)
 				continue;
-			ConsoleCall("TConsoleWindow::~TConsoleWindow nameless report", [&](int s) { delete C(s); });
+			ConsoleCall("TConsoleWindow::~TConsoleWindow nameless report", [&](int s) { DeleteComponent(C(s)); });
 			continue;
 		}
 	}
@@ -2121,7 +2122,7 @@ static void TestConsoleWindowErrors()
 		if (Threw)
 			continue;
 		if (Round % 2 != 0) {
-			ConsoleCall("TConsoleWindow::~TConsoleWindow nameless report", [&](int s) { delete C(s); }, false);
+			ConsoleCall("TConsoleWindow::~TConsoleWindow nameless report", [&](int s) { DeleteComponent(C(s)); }, false);
 			continue;
 		}
 		for (int Fail = 2; Fail <= 6; Fail++) {
@@ -2161,26 +2162,26 @@ void TestConsoleWindow()
 	{
 		TTestEditLine *E = new TTestEditLine;
 		TestEditVtable = VtableOf(E);
-		delete E;
+		DeleteComponent(E);
 		TTestScrollBar *S = new TTestScrollBar;
 		TestScrollVtable = VtableOf(S);
-		delete S;
+		DeleteComponent(S);
 		TTestSkinButtonC *B = new TTestSkinButtonC;
 		TestButtonVtable = VtableOf(B);
-		delete B;
+		DeleteComponent(B);
 		TTestToggleButton *T = new TTestToggleButton;
 		TestToggleVtable = VtableOf(T);
-		delete T;
+		DeleteComponent(T);
 		TTestMultiStateButton *M = new TTestMultiStateButton;
 		TestMultiVtable = VtableOf(M);
-		delete M;
+		DeleteComponent(M);
 		TWindow *W = new TWindow;
 		Kinds[OURS][VtableOf(W)] = "Window";
 		OurWindowVtable = VtableOf(W);
-		delete W;
+		DeleteComponent(W);
 		TElement *E2 = new TElement;
 		OurElementVtable = VtableOf(E2);
-		delete E2;
+		DeleteComponent(E2);
 	}
 	for (int s = 0; s < 2; s++) {
 		Kinds[s][TestEditVtable] = "Edit";
@@ -2208,8 +2209,8 @@ void TestConsoleWindow()
 		TConsoleBuffer *B = new TConsoleBuffer(-1, Specs[1]);
 		TTab *T = new TTab("x", B, TCallback());
 		Kinds[OURS][VtableOf(T)] = "Tab";
-		delete T;
-		delete W;
+		DeleteComponent(T);
+		DeleteComponent(W);
 	}
 	Testing = true;
 
@@ -2245,7 +2246,7 @@ void TestConsoleWindow()
 		}
 		Stage = "destructor";
 		Both([&](int s) {
-			delete C(s);
+			DeleteComponent(C(s));
 			Console[s] = NULL;
 		});
 		OutputOriginalLog();

@@ -44,6 +44,8 @@
 #include "common.h"
 
 #include <cstdlib>
+#include <memory>
+#include <utility>
 
 // The .bss before NoCallback (OpenURLCallback 0x5d16a0, SetDisplayModeCallback 0x5d16a4, ExitProgramCallback 0x5d16a8,
 // ModalWindow 0x5d16ac, MainWindow 0x5d16b0) is TGUI's (GUI.h, issue #107).
@@ -69,27 +71,55 @@ TMainWindow::TMainWindow(int Width, int Height)
 	AddHotkey(0x80d, TCallback(this, 0x1f8));
 }
 
-// 0x4ac010. No exception frame of its own; ChangeMode starts with the same
-// code.
+// 0x4ac010. Its work is the close since issue #108.
 TMainWindow::~TMainWindow()
 {
-	if (FirstChild != nullptr && InGame) {
-		ClearOpenDialogs();
-		if (SidePanel != nullptr)
-			SidePanel->StoreOpenDialogs();
-		if (DialogWindow != nullptr)
-			DialogWindow->StoreOpenDialogs();
-	}
+	CheckClosed("TMainWindow");
 }
 
-// 0x4ac090. Called by Control.cpp's ExitControl.
+// The destructor's work until issue #108 (0x4ac010; no exception frame of its
+// own; ChangeMode starts with the same code): the open sub-windows go into the
+// preferences; then the children.
+void TMainWindow::OnClose()
+{
+	try {
+		if (FirstChild != nullptr && InGame) {
+			ClearOpenDialogs();
+			if (SidePanel != nullptr)
+				SidePanel->StoreOpenDialogs();
+			if (DialogWindow != nullptr)
+				DialogWindow->StoreOpenDialogs();
+		}
+	} catch (...) {
+		CloseWhileUnwinding([this] { TWindow::OnClose(); });
+		throw;
+	}
+	TWindow::OnClose();
+}
+
+// TGUI's constructor and destructor (GUI.h, issue #108): here, where TMainWindow is complete for its owner.
+patella::TGUI::TGUI(TGUIController &Controller) : Controller(Controller)
+{
+}
+
+patella::TGUI::~TGUI() = default;
+
+void patella::TGUI::AbandonWindows() noexcept
+{
+	(void)MainWindow.release(); // NOLINT(bugprone-unused-return-value): left allocated on purpose (GUI.h)
+}
+
+// 0x4ac090. Called by Control.cpp's ExitControl. Each window is closed and then
+// freed where the original deleted it (issue #108); a close that throws leaves
+// its window allocated (the main window in its owner).
 void ExitMainWindow()
 {
 	patella::TGUI &GUI = patella::bridge::GUI();
-	delete GUI.MainWindow;
-	GUI.MainWindow = nullptr;
+	if (GUI.MainWindow != nullptr)
+		GUI.MainWindow->Close();
+	GUI.MainWindow.reset();
 	if (GUI.ModalWindow != nullptr) {
-		delete GUI.ModalWindow;
+		DeleteComponent(GUI.ModalWindow);
 		SetActionState(0);
 	}
 	GUI.ModalWindow = nullptr;
@@ -734,7 +764,9 @@ void InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisp
 	void (*OpenURL)(const char *URL))
 {
 	patella::TGUI &GUI = patella::bridge::GUI();
-	GUI.MainWindow = new TMainWindow(Width, Height);
+	std::unique_ptr<TMainWindow> Made(new TMainWindow(Width, Height));
+	(void)GUI.MainWindow.release(); // NOLINT(bugprone-unused-return-value): the original stored over it (set only once)
+	GUI.MainWindow = std::move(Made);
 	PATELLA_ASSERT_VALUES(GetActionState()==ACTIONSTATE_NONE, GetActionState());
 	GUI.ExitProgramCallback = ExitProgram;
 	GUI.ModalWindow = nullptr;

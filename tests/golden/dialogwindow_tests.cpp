@@ -1297,7 +1297,7 @@ static void TestDialogWindowErrors()
 				Register(Stranger, "Stranger");
 			ErrorCall(R, "TDialogWindow::DragChild stranger", [&](int s) {
 				if (s == OURS) Column[s][c]->DragChild(Stranger); else ORIGINAL(At<SetFn>(0x486b30)(Column[s][c], NULL, Stranger)); });
-			delete Stranger;
+			DeleteComponent(Stranger);
 			// Shrink with a child below its minimum height and no room.
 			std::vector<TComponent *> Children = ChildrenOf(Column[OURS][c]);
 			if (!Children.empty()) {
@@ -1350,7 +1350,7 @@ static void TestDialogWindowErrors()
 			}
 		}
 		int Identifier = 0x40 + (int)(Random() % 16);
-		GOLDEN_ROUND_COMPARE(R, "TSubWindow without a body", delete new TSubWindow(Identifier, NULL, false, false),
+		GOLDEN_ROUND_COMPARE(R, "TSubWindow without a body", DeleteComponent(new TSubWindow(Identifier, NULL, false, false)),
 			At<SubCtorFn>(0x487e80)(operator new(sizeof(TSubWindow)), NULL, Identifier, NULL, false, false));
 		Log[OURS].clear();
 		Log[ORIGINAL].clear();
@@ -1360,7 +1360,7 @@ static void TestDialogWindowErrors()
 				Both([&](int s) { Column[s][c]->LeftButtonUp(0, 0, 0); });
 		Both([&](int s) {
 			for (int c = 0; c < 2; c++) {
-				delete Column[s][c];
+				DeleteComponent(Column[s][c]);
 				Column[s][c] = NULL;
 			}
 		});
@@ -1396,7 +1396,7 @@ void TestDialogWindow()
 	{
 		TDWTestResizer *R = new TDWTestResizer;
 		FakeResizerVtable = VtableOf(R);
-		delete R;
+		DeleteComponent(R);
 		TDialogWindow *D = new TDialogWindow;
 		TContentWindow *C = new TContentWindow(1, false);
 		TTestBody *B = new TTestBody;
@@ -1405,9 +1405,9 @@ void TestDialogWindow()
 		ClassOf[OURS][VtableOf(D)] = CLASS_COLUMN;
 		ClassOf[OURS][VtableOf(C)] = CLASS_CONTENT;
 		ClassOf[OURS][VtableOf(W)] = CLASS_SUB;
-		delete D;
-		delete C;
-		delete W;
+		DeleteComponent(D);
+		DeleteComponent(C);
+		DeleteComponent(W);
 		ORIGINAL(ClassOf[ORIGINAL][(void *)(uintptr_t)0x563f80] = CLASS_COLUMN;
 			ClassOf[ORIGINAL][(void *)(uintptr_t)0x563e38] = CLASS_CONTENT;
 			ClassOf[ORIGINAL][(void *)(uintptr_t)0x563ed8] = CLASS_SUB);
@@ -1439,7 +1439,7 @@ void TestDialogWindow()
 		// The columns go, with their windows (the sub-windows store their sizes).
 		Both([&](int s) {
 			for (int c = 0; c < 2; c++) {
-				delete Column[s][c];
+				DeleteComponent(Column[s][c]);
 				Column[s][c] = NULL;
 			}
 		});
