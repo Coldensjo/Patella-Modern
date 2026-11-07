@@ -17,6 +17,29 @@
 
 namespace patella::platform {
 
+// The numbers the interface carries (issue #110): WinSock's, which every implementation reports and TNetwork's error
+// messages name (GetErrorMessage's table; the protocol's numbers here, whatever the system's own are). Win32Platform.cpp
+// asserts that they are WinSock's.
+namespace socket_error {
+inline constexpr int Invalid = 10022;             // WSAEINVAL
+inline constexpr int WouldBlock = 10035;          // WSAEWOULDBLOCK: Connect's while it connects
+inline constexpr int MessageSize = 10040;         // WSAEMSGSIZE
+inline constexpr int AddressNotAvailable = 10049; // WSAEADDRNOTAVAIL
+inline constexpr int NetworkDown = 10050;         // WSAENETDOWN
+inline constexpr int NetworkUnreachable = 10051;  // WSAENETUNREACH
+inline constexpr int TimedOut = 10060;            // WSAETIMEDOUT
+inline constexpr int ConnectionRefused = 10061;   // WSAECONNREFUSED
+inline constexpr int HostUnreachable = 10065;     // WSAEHOSTUNREACH
+inline constexpr int HostNotFound = 11001;        // WSAHOST_NOT_FOUND
+inline constexpr int TryAgain = 11002;            // WSATRY_AGAIN
+inline constexpr int NoData = 11004;              // WSANO_DATA
+} // namespace socket_error
+
+// Send's and Receive's failure: SOCKET_ERROR.
+inline constexpr int SocketFailed = -1;
+// The size of ResolveHostname's buffer for the host's entry: MAXGETHOSTSTRUCT.
+inline constexpr int HostEntrySize = 1024;
+
 // What shutdown stops: SD_SEND, SD_BOTH.
 enum class TShutdown : unsigned char { Send,
 	Both };
@@ -59,9 +82,9 @@ public:
 	virtual void Delete(TSocket *Connection) = 0;
 	// CAsyncSocket::Create: a stream socket, non-blocking, with every event.
 	[[nodiscard]] virtual bool Create(TSocket *Connection) = 0;
-	// CAsyncSocket::Connect: false with LastError WSAEWOULDBLOCK while it connects (OnConnect follows).
+	// CAsyncSocket::Connect: false with LastError socket_error::WouldBlock while it connects (OnConnect follows).
 	[[nodiscard]] virtual bool Connect(TSocket *Connection, const char *Address, int Port) = 0;
-	// CAsyncSocket::Send and Receive (flags 0): the bytes sent or read, 0 at the end, SOCKET_ERROR (-1).
+	// CAsyncSocket::Send and Receive (flags 0): the bytes sent or read, 0 at the end, SocketFailed (SOCKET_ERROR).
 	virtual int Send(TSocket *Connection, const void *Data, int Length) = 0;
 	virtual int Receive(TSocket *Connection, void *Buffer, int Length) = 0;
 	// shutdown of the connection's socket.

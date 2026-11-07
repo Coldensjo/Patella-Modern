@@ -661,6 +661,15 @@ TNetwork's NetworkWindow and SetNetworkWindow take a TWindowHandle; CreateSurfac
 IWindow::DesktopMode. Patella.exe changes only at those call sites and in displacements (the image comparison).
 Golden 17,316,040, 0 failures; compare_rendering all 26 scenes identical. notes/decisions.md, "#138".
 
+Packet parsing and the game state into patella_core (Patella-Modern issue #110, branch issue-110, November 7, 2026;
+M7, half of its exit): Network.cpp, Communication.cpp, Objects.cpp, Map.cpp, Creatures.cpp and Inventory.cpp are
+patella_core's (16 sources, 12,278 lines; was 10, 3,671), with their headers and those they include on the core
+header list (56; was 40); linux-x64-gcc and linux-x64-clang compile them without tests/golden/linux. INT_PTR is
+std::intptr_t there, WinSock's numbers are platform/Socket.h's, the login signatures come through TLoginSignatures,
+TCallback is types/Callback.h's; the image's clang-tidy findings on the newly seen code (296) are fixed or NOLINTed
+with reasons (the baseline stays at 3). The golden runner keeps its own copies (its fakes), so no stand-in file goes
+yet. Golden 17,316,040, 0 failures. notes/decisions.md, "#110".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,

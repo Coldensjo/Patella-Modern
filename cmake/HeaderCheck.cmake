@@ -126,6 +126,26 @@ set(PATELLA_HEADERS_CLIENT
 	platform/Win32Platform.h
 	sysinc.h
 	res/resource.h)
+# Issue #110: patella_core compiles Network.cpp, Communication.cpp and the game state's files, so their headers and
+# the headers they include are portable (checked with patella_core's settings, and still with the client's below).
+set(patella_headers_core_110
+	Communication.h
+	Creatures.h
+	Help.h
+	Inventory.h
+	Map.h
+	MapState.h
+	Network.h
+	Objects.h
+	Preferences.h
+	Script.h
+	Status.h
+	Talk.h
+	TestHooks.h
+	Text.h
+	sysinc.h)
+list(REMOVE_ITEM PATELLA_HEADERS_CLIENT ${patella_headers_core_110})
+list(APPEND PATELLA_HEADERS_CORE ${patella_headers_core_110} types/Callback.h)
 # The x64 client's Vulkan engine (patella_render_vulkan and TSurfaceVulkan, cmake/Vulkan.cmake).
 set(PATELLA_HEADERS_VULKAN_CLIENT
 	vulkan/DeviceSettings.h

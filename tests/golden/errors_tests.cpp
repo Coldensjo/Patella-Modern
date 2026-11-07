@@ -1243,7 +1243,7 @@ void TestScript()
 				break;
 			}
 		}
-		Both2("TReadBinaryFile::eof", [&] { OurReader.eof(); }, [&] { ORIGINAL(At<ScriptRetFn>(0x4e15e0)(Reader, NULL)); });
+		Both2("TReadBinaryFile::eof", [&] { (void)OurReader.eof(); }, [&] { ORIGINAL(At<ScriptRetFn>(0x4e15e0)(Reader, NULL)); });
 		OurReader.close();
 		ORIGINAL(At<ScriptFn>(0x4df6b0)(Reader, NULL));
 

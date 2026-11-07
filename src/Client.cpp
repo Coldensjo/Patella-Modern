@@ -20,6 +20,7 @@
 #include "graphics.h"
 #include "common.h"
 #include "platform/Platform.h"
+#include <cstdint>
 
 namespace patella {
 
@@ -40,7 +41,7 @@ public:
 	int GetActiveCharacter() override { return ::GetActiveCharacter(); }
 	const char *GetCharacterIPAddress(int Number) override { return ::GetCharacterIPAddress(Number); }
 	int GetCharacterPort(int Number) override { return ::GetCharacterPort(Number); }
-	void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2) override { ::AddMessage(Type, Param1, Param2); }
+	void AddMessage(int Type, std::intptr_t Param1, std::intptr_t Param2) override { ::AddMessage(Type, Param1, Param2); }
 };
 
 // Made on first use, as TClient is (a static initialiser of another file may make TClient first).
@@ -69,9 +70,23 @@ public:
 	void SetStatusMessage(const char *Message, bool Permanent) override { ::SetStatusMessage(Message, Permanent); }
 	void AddEventHelp(int Number) override { ::AddEventHelp(Number); }
 	void CheckEventHelpName(const char *Name) override { ::CheckEventHelpName(Name); }
-	void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2) override { ::AddMessage(Type, Param1, Param2); }
+	void AddMessage(int Type, std::intptr_t Param1, std::intptr_t Param2) override { ::AddMessage(Type, Param1, Param2); }
 	int GetActionNumber() override { return ::GetActionNumber(); }
 };
+
+// TGraphics' signatures for TCommunication's login packet (TLoginSignatures, issue #110): TGraphics is made after
+// TCommunication, so an adapter as the ones above. Stateless: it reads the one TClient's TGraphics.
+class TGraphicsSignatures final : public TLoginSignatures {
+public:
+	uint32 SpriteSignature() override { return bridge::Graphics().SpriteSignature; }
+	uint32 PictureSignature() override { return bridge::Graphics().PictureSignature; }
+};
+
+TLoginSignatures &GraphicsSignatures()
+{
+	static TGraphicsSignatures Signatures;
+	return Signatures;
+}
 
 TMapConsole &TalkCppConsole()
 {
@@ -89,7 +104,7 @@ TCreaturesGUI &GUICppCreatures()
 
 TClient::TClient(platform::TPlatform &Platform)
 	: Preferences(Platform.FileSystem), Network(Preferences, StatusCppSession(), Platform.Socket),
-	  MapState(TalkCppConsole(), GUICppCreatures()), Communication(Network, MapState), GUI(Network, Communication)
+	  MapState(TalkCppConsole(), GUICppCreatures()), Communication(Network, MapState, GraphicsSignatures()), GUI(Network, Communication)
 {
 }
 

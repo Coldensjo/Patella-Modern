@@ -312,7 +312,8 @@ the settings of `cmake/Warnings.cmake` and `cmake/Hardening.cmake` (issue #8):
 
 `patella_core` (`cmake/Core.cmake`, issue #7) is the static library of the code that is already portable,
 built by every product preset: vlong.cpp, TRSA.cpp, TXTEA.cpp, TMyException.cpp, Utils.cpp, Skins.cpp,
-src/Extern/regexp/regexp.c and the header-only Container.h and types/IndexedVector.h (issue #99). It defines `PATELLA_CORE`, which keeps MFC and the
+src/Extern/regexp/regexp.c, since issue #110 Network.cpp, Communication.cpp, Objects.cpp, Map.cpp, Creatures.cpp and
+Inventory.cpp (notes/decisions.md, "#110"), and the header-only Container.h and types/IndexedVector.h (issue #99). It defines `PATELLA_CORE`, which keeps MFC and the
 Windows headers out of common.h, so no core source can use them. The client and the oracle still compile these
 sources themselves, with MFC. Its tests are `tests_core` (tests/unit/core_*.cpp; the expected values that are
 not the code's own come from `tests/unit/core_expected.py`, Python's exact integers and doubles).
@@ -621,7 +622,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   switch inside one, so ProcessEvents' kept goto carries a NOLINT with the binary's block ("Writing the source").
 - No new clang-tidy findings (issue #11; plan 4.1): `tools/tidy-baseline.tsv` lists the findings, counted by
   file, check and message (not by line, so moved code keeps its entry), for the
-  compile commands of linux-x64-clang (the 16 sources of src/ that build on Linux: patella_core's, src/testmode's
+  compile commands of linux-x64-clang (the 27 sources of src/ that build on Linux since issue #110: patella_core's, src/testmode's
   and src/vulkan's portable ones, and the headers of src/ they include; the rest of src/ needs the Windows
   headers and MFC) with clang-tidy 22.1.8 of the Docker image. `--baseline <file>` fails
   (exit 1) only on a finding that is not in the list, or one more of a kind, and reports the ones that are

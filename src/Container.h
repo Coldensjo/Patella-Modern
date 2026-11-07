@@ -140,7 +140,7 @@ public:
 	using TView = patella::TMdspan<T, patella::TDynamicExtents<int, 2>, patella::TLayoutLeft>;
 	using TConstView = patella::TMdspan<const T, patella::TDynamicExtents<int, 2>, patella::TLayoutLeft>;
 	TView view() { return TView(entry.get(), dx, dy); }
-	TConstView view() const { return TConstView(entry.get(), dx, dy); }
+	[[nodiscard]] TConstView view() const { return TConstView(entry.get(), dx, dy); }
 
 	int xmin;                   // +0x00
 	int ymin;                   // +0x04
@@ -188,7 +188,7 @@ public:
 	using TView = patella::TMdspan<T, patella::TDynamicExtents<int, 3>, patella::TLayoutLeft>;
 	using TConstView = patella::TMdspan<const T, patella::TDynamicExtents<int, 3>, patella::TLayoutLeft>;
 	TView view() { return TView(entry.get(), dx, dy, dz); }
-	TConstView view() const { return TConstView(entry.get(), dx, dy, dz); }
+	[[nodiscard]] TConstView view() const { return TConstView(entry.get(), dx, dy, dz); }
 
 	int xmin;                   // +0x00
 	int ymin;                   // +0x04

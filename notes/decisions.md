@@ -8974,6 +8974,8 @@ they include) report nothing that is not suppressed in the code with its reason,
   | MSVC /analyze | C6001 (uninitialized memory 'flags') | regexp.c, 5 (regcomp, reg, regbranch, regpiece) | false positive | the same pragma; gone since issue #129, as above | without prototypes the analysis cannot see that reg, regbranch, regpiece and regatom set `*flagp` before they return non-NULL |
   | GCC -fanalyzer | -Wanalyzer-null-dereference | vlong.cpp, flex_unit::set | false positive | PATELLA_GCC_DIAGNOSTIC push/ignored/pop around the function | the path needs `i + 1` to wrap to 0 in reserve; i is below a source value's n |
   | GCC -fanalyzer | -Wanalyzer-null-dereference | regexp.c, regmatch's STAR/PLUS | false positive | `#pragma GCC diagnostic ignored` in the file (GCC only) | regnext of a STAR or PLUS node is never NULL: regcomp links each to the node that follows |
+  | MSVC /analyze | C6011 (dereferencing NULL 'Player') | Creatures.cpp, TCreatures::CheckMonsterHint (since issue #110) | false positive | PATELLA_MSVC_WARNING(suppress : 6011) on the line | the else branch reads Player only after IsOpponent returned true, which asserts the player creature |
+  | MSVC /analyze | C28020 (`_Param_(1)<10`) | Map.cpp, TMap::GetAutomapBlock (since issue #110) | false positive | PATELLA_MSVC_WARNING(suppress : 28020) on the return | the cache list links all AUTOMAP_BLOCKS entries (InitMap), so Position is one of them; the analysis takes LeastRecentBlock as any int |
 
   The GCC pragmas go through compat/msvc.h's new PATELLA_GCC_DIAGNOSTIC (`_Pragma`, GCC only: Clang knows the pragma
   but not the analyzer's warnings); regexp.c is C and includes none of src/'s headers, so it keeps its own
@@ -15289,6 +15291,145 @@ corpus read only (PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its 
   Visual Studio's clang-tidy (tools/tidy.py -p build/windows-x64) on the changed Windows-only files: two
   misc-include-cleaner findings of this change (fixed in b2fe7ae), the moved enums (NOLINT, above), and the two
   findings main has (above). `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
+
+## #110: packet parsing and building and the game state into patella_core (Patella-Modern issue #110, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-110, from main 8006002, with #138's main 4b94b69 merged). Half
+of M7's exit (#111 is the other): Network.cpp, Communication.cpp, Objects.cpp, Map.cpp, Creatures.cpp and Inventory.cpp
+are patella_core's sources (cmake/Core.cmake), compiled with PATELLA_CORE (no MFC, no Windows header) on every product
+preset, under MSVC /analyze and GCC -fanalyzer, and linux-x64-gcc and linux-x64-clang compile them without
+tests/golden/linux.
+
+### What patella_core is now (high)
+
+| | Sources | Lines of the sources | Headers on the core list (cmake/HeaderCheck.cmake) |
+| :--- | ---: | ---: | ---: |
+| main 8006002 (and 4b94b69) | 10 | 3,671 | 40 |
+| issue-110 | 16 | 12,278 (the six: 8,607) | 56 |
+
+The 16 headers that joined the core list: the six files' (Communication.h, Creatures.h, Inventory.h, Map.h,
+MapState.h, Network.h, Objects.h), what they include of the client's (Help.h, Preferences.h, Script.h, Status.h,
+Talk.h, TestHooks.h, Text.h, sysinc.h), and the new types/Callback.h. They leave the client's list in a block of their
+own (`patella_headers_core_110`); the client's header checks still compile them with its settings. Status.cpp,
+Talk.cpp, Help.cpp, Preferences.cpp, Script.cpp, sysinc.cpp, graphics.cpp and Client.cpp (the bridge) are not in the
+library: the six objects call them, the client links them (it compiles every source itself, as before: the library is
+not linked into it yet), and their move is #111's. The unit tests (tests_core) use only the library's self-contained
+objects, so nothing links the six from the library yet.
+
+### What the six needed of Windows, and what they use now (high)
+
+- **INT_PTR** (the message queue's parameters: Status.h, the TCreaturesGUI and TNetworkSession interfaces, their
+  callers and Client.cpp's adapters): `std::intptr_t`, the same type (MSVC x64's `__int64`, the stand-ins'
+  `std::intptr_t`), so no signature, mangled name or golden fake changes. The client's other files (Control.cpp, the
+  windows, MainFrm.cpp) keep INT_PTR.
+- **WinSock's numbers** in Network.cpp (GetErrorMessage's table, WSAETIMEDOUT, WSAEWOULDBLOCK, SOCKET_ERROR,
+  MAXGETHOSTSTRUCT): constants of ISocket in platform/Socket.h (`socket_error::TimedOut` ..., `SocketFailed`,
+  `HostEntrySize`) with WinSock's values, which every implementation reports (#109: the protocol's numbers here);
+  Win32Platform.cpp asserts them against WinSock. HostnameRequest is a `void *` (ISocket's ResolveHostname returned one
+  already); the lookup's message WM_USER + 1 is Network.h's HOSTNAME_RESOLVED_MESSAGE, which MainFrm.cpp's message map
+  uses and asserts. NetworkWindow and SetNetworkWindow are #138's TWindowHandle.
+- **The test hooks** (PATELLA_TEST_PACKET_SENT, _RECEIVED, _RSA_BLOCK): common.h includes TestHooks.h with
+  PATELLA_CORE too; the library is never the test build, so they are empty there. The test build compiles the files
+  itself with PATELLA_TEST_MODE, as before.
+- **graphics.h** (whose engine part was the platform's surface until #138, and which defines PATH_MAX, a macro of the
+  Linux headers): Map.h and Creatures.h needed only TRGBColor and include types/GraphicsTypes.h; Creatures.cpp needed
+  GUI.h only for NoCallback's TCallback, which is types/Callback.h's now (GUI.h exports it; its two functions stay
+  GUI.cpp's). Communication.cpp read TGraphics' two signatures for the login packet through the bridge; now through
+  TLoginSignatures (Communication.h; #104's rule 5, TGraphics being made after TCommunication), which Client.cpp's
+  stateless TGraphicsSignatures implements by reading the one TClient's TGraphics, as TStatusCppSession does for
+  TNetwork. The golden Communication world sets bridge::Graphics()'s signatures, which the adapter reads.
+
+Behaviour: the same code on the same data. What differs: the two signatures through a virtual call, and the code of
+the bugprone fixes below, which takes the same paths.
+
+### The compilers' checks (high)
+
+- **Warnings.** At GCC's and Clang's full level (-Wall -Wextra -Wpedantic -Wconversion -Wshadow) the six files were
+  measured when they joined (cmake/Warnings.cmake's rule; in the image, Release, without -Werror): GCC
+  Communication.cpp 69 -Wconversion; Clang Communication.cpp 69 -Wimplicit-int-conversion and 17 -Wsign-conversion,
+  Creatures.cpp 69, Inventory.cpp 63, Network.cpp 24, Map.cpp 18 and Objects.cpp 2 -Wsign-conversion (and Container.h's
+  6, in Map.cpp's and Objects.cpp's units). Those files are on the GCC and Clang baselines (-Wall), in a list(APPEND) of
+  their own. Fixed: two -Wshadow (ReceiveOpenContainer's inner Type is ObjectType, TCreature::SetMark's parameter
+  Value). MSVC's baseline is unchanged (Communication.cpp and Creatures.cpp were on it); Map.cpp builds at /W4.
+- **TEffect's anonymous structs** (Map.h): a Microsoft extension that MFC's headers allowed for their includers (C4201)
+  and -Wpedantic names; allowed for TEffect alone (warning push, disable, pop for MSVC; `#pragma GCC diagnostic` for
+  GCC and Clang). Naming the structs would rewrite every effect access of Map.cpp and the windows.
+- **Static analysis**, rows for the table of "Static analysis of the core library" (high):
+
+  | Analyzer | Finding | Where | Kind | Suppression | Reason |
+  |---|---|---|---|---|---|
+  | MSVC /analyze | C6011 (dereferencing NULL 'Player') | Creatures.cpp, TCreatures::CheckMonsterHint | false positive | PATELLA_MSVC_WARNING(suppress : 6011) on the line | the else branch reads Player only after IsOpponent returned true, which asserts the player creature |
+  | MSVC /analyze | C28020 (`_Param_(1)<10`) | Map.cpp, TMap::GetAutomapBlock | false positive | PATELLA_MSVC_WARNING(suppress : 28020) on the return | the cache list links all AUTOMAP_BLOCKS entries (InitMap), so Position is one of them; the analysis takes LeastRecentBlock as any int |
+
+  GCC -fanalyzer found nothing in the six (Release and Debug).
+
+### clang-tidy (high)
+
+The image's clang-tidy (tools/tidy_ci.py: linux-x64-clang's compile commands, `--all --headers`) saw the six files
+and the headers they include for the first time: 296 new findings at the first run (build\logs\tidy-ci\a92eadd.log),
+0 after (the baseline stays at its 3 findings; bugprone- at 0):
+
+- modernize-use-nodiscard 182 and modernize-use-nullptr 34: clang-tidy's own fixes (run in the image, copied out).
+  The `NULL` they replaced inside assertions changes those assertions' text only (#76: the golden corpus compares the
+  error paths by outcome). The golden Errors test discarded TReadBinaryFile::eof()'s result: a `(void)` call now (its
+  check unchanged). The C headers that gave only NULL went (include-cleaner, second run).
+- misc-include-cleaner 33: the providers included (platform/Socket.h in Network.cpp, MapPoint.h in Map.cpp,
+  types/GraphicsTypes.h in Creatures.cpp, `<string>`, `<array>` in Preferences.h), SlotTable.h in Map.cpp and
+  `<cstddef>` in Script.h removed.
+- bugprone (9): the switches without a default (SendWalk's step, the bank step, the path results, the buddy sort, the
+  missile sprite, the dat flags, ProcessEffects' status) get `default: break;` with what happens there (as without
+  it); LoadProperties' identical WRITE and WRITEONCE cases share one; NOLINTs with the reason for NoCallback's static
+  constructor (bugprone-throwing-static-initialization: TCallback's constructor stores two values; the original's
+  global), compat/cxx26.h's ContractViolation (exception-escape: std::print's exception ends in terminate, as the
+  violation does) and types/SlotTable.h's free entry (invalid-enum-default-initialization: all zeros, the original's
+  free entry, TEffect's links included).
+- cppcoreguidelines (21): NOLINTs with the reason, the owners being the original's (notes/ownership.md): the message
+  queue's blocks (Communication.cpp's, Network.cpp's error texts), GetString's and readString's texts deleted by their
+  callers, the dat's sprite tables and the unique_ptr::reset of the four tables (Objects.cpp), InitNetwork's malloc and
+  ExitNetwork's free, regcomp's free (types/Regexp.h); the three unscoped int enums (Objects.h's flags, Talk.h's
+  TALK_MODE and TALKBOXES: "The other ten stay unscoped"); the flags assertion's C cast a reinterpret_cast.
+
+### The golden runner and the stand-ins (high)
+
+golden_runner still compiles its own copies of the six (golden_client, tests/golden/network, tests/golden/comm) with the
+MFC shim and, on Linux, tests/golden/linux: its fakes patch the functions' first bytes, which needs its build
+(-fsemantic-interposition, the shim's CWnd and CAsyncSocket), and the tests compile Network.cpp, Communication.cpp and
+Control.cpp into themselves. The library's objects do not reach the runner (its own define every symbol first). So no
+file of tests/golden/linux can go yet: what the six used of them (windows.h's INT_PTR, HANDLE and WM_USER, winsock2.h's
+WSAE* numbers, SOCKET_ERROR and MAXGETHOSTSTRUCT) other code still uses (Win32Platform.cpp, PipeSocketWin32.cpp,
+Control.cpp, MainFrm.cpp, the windows, network_tests.cpp, mainfrm_tests.cpp). What changed: the Linux presets compile
+the six without any stand-in (patella_core's objects), so a Windows name in them now fails linux-x64-gcc and
+linux-x64-clang.
+
+### Found, not done (high)
+
+- #118's items left on the issue: Control.cpp's calls into the other files stay their free functions (member calls
+  need member fakes in the golden Control and Communication worlds; Control.cpp's move, #111, is the place);
+  TCreature's bridge uses (a step parameter: its callers are MapWindow.cpp's drawing, TGUI's); Creatures.cpp's nine
+  calls of Preferences' buddy functions (TPreferences is earlier and could be a constructor reference, but the golden
+  window tests fake the free functions, which a member call would bypass: member fakes first).
+- Nothing links the six from the library yet (the client and the runner compile them themselves); a unit test of
+  them in tests_core needs the files they call in the library too (#111), or fakes of the bridge.
+- GCC's and Clang's sign and int conversions in the six (the baselines above): the original's integer types.
+
+### The gates (high)
+
+Logs in build\logs\issue-110 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed
++ 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset. On afa3a97 (main 3e9d0cf with #132
+merged; `<preset>-final.log`):
+
+- `python -I tools/build.py windows-x64` exit 0, 28/28 (golden_concurrent the same); windows-x64-debug exit 0, 27/27;
+  windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0, 24/24;
+  linux-x64-clang (ASan, UBSan) exit 0, 25/25, no sanitizer report. patella_core in linux-x64-gcc's Debug (-fanalyzer)
+  built clean too (core-linux-x64-gcc-debug.log). The same six passed on 5971cd5, before the merge.
+- `python -I tools/tidy_ci.py` exit 0: 3 findings, the baseline's 3, 0 new, bugprone- 0 (the first run, on a92eadd:
+  296 new, above). `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
+- Live, on 5971cd5 (the merge changed no client source but the fuzz test): `python -I tools/reference.py compare
+  --reference C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches; `python -I tools/compare_traffic.py`
+  exit 0, no differences; `python -I tools/compare_files.py` exit 1 at the first run (no TibiaClient window in 30 s:
+  another agent's client was on the desktop; compare_files-try1.log; its Tibia.exe left behind was stopped), exit 0 at
+  the rerun, no differences; `python -I tools/testmode_check.py` exit 0, no differences.
 
 ## #132: fuzzing the packet parser and the file loaders (Patella-Modern issue #132, M9)
 

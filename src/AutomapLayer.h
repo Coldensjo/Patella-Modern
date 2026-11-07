@@ -24,7 +24,7 @@ struct TAutomapLayer {
 
 	// [x, y], 0 to 255 each.
 	TView view() { return TView(Bytes.data()); }
-	TConstView view() const { return TConstView(Bytes.data()); }
+	[[nodiscard]] TConstView view() const { return TConstView(Bytes.data()); }
 
 	std::array<uint8, static_cast<std::size_t>(AUTOMAP_BLOCK_SIZE) * AUTOMAP_BLOCK_SIZE> Bytes;
 };

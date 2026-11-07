@@ -74,6 +74,7 @@ namespace patella::cxx26 {
 
 // The violation of a CONTRACT_ASSERT: GCC's message, then std::terminate (inside the handler of the
 // exception when the predicate threw, as GCC does).
+// NOLINTNEXTLINE(bugprone-exception-escape): an exception of std::print ends in std::terminate, as the violation does
 [[noreturn]] inline void ContractViolation(const char *Predicate, bool Threw, const std::source_location &Location) noexcept
 {
 	std::print(stderr,

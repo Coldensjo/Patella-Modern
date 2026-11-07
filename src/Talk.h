@@ -10,7 +10,7 @@
 
 struct TRGBColor;
 
-enum TALK_MODE : int {
+enum TALK_MODE : int { // NOLINT(cppcoreguidelines-use-enum-class): int constants, the packets' talk modes ("The other ten stay unscoped")
 	TALK_SAY = 1,
 	TALK_WHISPER = 2,
 	TALK_YELL = 3,
@@ -34,7 +34,7 @@ enum TALK_MODE : int {
 };
 static_assert(sizeof(TALK_MODE) == 4);
 static_assert(std::is_same_v<std::underlying_type_t<TALK_MODE>, int>);
-enum : int {
+enum : int { // NOLINT(cppcoreguidelines-use-enum-class): int constants ("The other ten stay unscoped")
 	TALKBOXES = 10,
 	STATUSMESSAGE_LENGTH = 512,
 };
@@ -213,14 +213,14 @@ public:
 	~TTalk() = default;
 
 	bool GetTalkChanged();
-	int GetNumberOfTalkboxes() const;
-	const char *GetStatusMessage() const;
+	[[nodiscard]] int GetNumberOfTalkboxes() const;
+	[[nodiscard]] const char *GetStatusMessage() const;
 	void SetIgnoreEnabled(bool Value);
-	bool GetIgnoreEnabled() const;
+	[[nodiscard]] bool GetIgnoreEnabled() const;
 	void SetBuddyIgnore(bool Value);
-	bool GetBuddyIgnore() const;
+	[[nodiscard]] bool GetBuddyIgnore() const;
 	void SetIgnoreListEnabled(bool Value);
-	bool GetIgnoreListEnabled() const;
+	[[nodiscard]] bool GetIgnoreListEnabled() const;
 	bool IsTalkThrottled();
 	bool GetConsoleChanged();
 	TRGBColor *GetTalkColor(TRGBColor *Color, int TalkMode);
