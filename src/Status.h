@@ -19,11 +19,11 @@
 #include "compat/span.h"
 #include "types/FixedString.h"
 #include "Objects.h" // TObject
-#include "types/IndexedVector.h"
 #include "types/Regexp.h"
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <vector>
 
 // "In(rightid,0,RIGHT_ANY-1)"; CheckRight treats RIGHT_ANY as "any right".
 inline constexpr int RIGHT_ANY = 50;
@@ -185,46 +185,48 @@ public:
 
 private:
 	// Data, in the original's .bss order (0x71c478-0x71c58b, between MouseOverText and TradeInfo, is TSession's).
-	TRegexp LinkRegexp;                          // 0x71c458, LinkPattern compiled (issue #129: owned, TRegexp)
-	char *TaintedClipboardText{};                // 0x71c45c, name from an assertion
-	void (*LinkWarningEventHandler)(){};         // 0x71c460, from "linkwarningeventhandler!=NULL"
-	bool BlinkState{};                           // 0x71c464, toggled every 300 ms
-	int BlinkTime{};                             // 0x71c468
-	int MouseOverTextY{};                        // 0x71c46c
-	int MouseOverTextX{};                        // 0x71c470
-	const char *MouseOverText{};                 // 0x71c474
-	int TradeInfo{};                             // 0x71c58c
-	int UseZ{};                                  // 0x71c590
-	int UseY{};                                  // 0x71c594
-	int UseX{};                                  // 0x71c598
-	int UseIndex{};                              // 0x71c59c
-	int TradeZ{};                                // 0x71c5a0
-	int TradeY{};                                // 0x71c5a4
-	int TradeX{};                                // 0x71c5a8
-	int TradeIndex{};                            // 0x71c5ac
-	int DragTargetZ{};                           // 0x71c5b0
-	int DragTargetY{};                           // 0x71c5b4
-	int DragTargetX{};                           // 0x71c5b8
-	int DragZ{};                                 // 0x71c5bc
-	int DragY{};                                 // 0x71c5c0
-	int DragX{};                                 // 0x71c5c4
-	int DragIndex{};                             // 0x71c5c8
-	int DragStartY{};                            // 0x71c5cc
-	int DragStartX{};                            // 0x71c5d0
-	int PendingActionNumber{};                   // 0x71c5d4
-	int PendingActionState{};                    // 0x71c5d8
-	int WindowHeight{};                          // 0x71c5dc
-	int WindowWidth{};                           // 0x71c5e0
-	int MouseCursor{};                           // 0x71c5e4
-	int ActionState{};                           // 0x71c5e8, from "GetActionState()" in Control.cpp
-	int ActionNumber{};                          // 0x71c5ec
-	int NumberOfMessages{};                      // 0x71c5f0
-	TIndexedVector<TMessage> Messages{0, 9, 10}; // 0x71c5f4, initialiser at 0x55a0f0
-	int MouseX{};                                // 0x71c61c
-	int MouseY{};                                // 0x71c620
-	TObject DraggedObject{};                     // 0x71c624
-	TObject TradeObject{};                       // 0x71c630, from "TradeObject!=0" in MapWindow.cpp
-	TObject UseObject{};                         // 0x71c63c, "SrcObj" in MapWindow.cpp
+	TRegexp LinkRegexp;                  // 0x71c458, LinkPattern compiled (issue #129: owned, TRegexp)
+	char *TaintedClipboardText{};        // 0x71c45c, name from an assertion
+	void (*LinkWarningEventHandler)(){}; // 0x71c460, from "linkwarningeventhandler!=NULL"
+	bool BlinkState{};                   // 0x71c464, toggled every 300 ms
+	int BlinkTime{};                     // 0x71c468
+	int MouseOverTextY{};                // 0x71c46c
+	int MouseOverTextX{};                // 0x71c470
+	const char *MouseOverText{};         // 0x71c474
+	int TradeInfo{};                     // 0x71c58c
+	int UseZ{};                          // 0x71c590
+	int UseY{};                          // 0x71c594
+	int UseX{};                          // 0x71c598
+	int UseIndex{};                      // 0x71c59c
+	int TradeZ{};                        // 0x71c5a0
+	int TradeY{};                        // 0x71c5a4
+	int TradeX{};                        // 0x71c5a8
+	int TradeIndex{};                    // 0x71c5ac
+	int DragTargetZ{};                   // 0x71c5b0
+	int DragTargetY{};                   // 0x71c5b4
+	int DragTargetX{};                   // 0x71c5b8
+	int DragZ{};                         // 0x71c5bc
+	int DragY{};                         // 0x71c5c0
+	int DragX{};                         // 0x71c5c4
+	int DragIndex{};                     // 0x71c5c8
+	int DragStartY{};                    // 0x71c5cc
+	int DragStartX{};                    // 0x71c5d0
+	int PendingActionNumber{};           // 0x71c5d4
+	int PendingActionState{};            // 0x71c5d8
+	int WindowHeight{};                  // 0x71c5dc
+	int WindowWidth{};                   // 0x71c5e0
+	int MouseCursor{};                   // 0x71c5e4
+	int ActionState{};                   // 0x71c5e8, from "GetActionState()" in Control.cpp
+	int ActionNumber{};                  // 0x71c5ec
+	// 0x71c5f0 NumberOfMessages and 0x71c5f4 (initialiser 0x55a0f0) the original's vector<TMessage>(0, 9, 10): a
+	// queue that appends at its count (AddMessage), inserts at 0 (AddMessageFirst), pops at 0 and reads below the
+	// count only, so a std::vector, its size the count (issue #100; notes/decisions.md, "#100").
+	std::vector<TMessage> Messages;
+	int MouseX{};            // 0x71c61c
+	int MouseY{};            // 0x71c620
+	TObject DraggedObject{}; // 0x71c624
+	TObject TradeObject{};   // 0x71c630, from "TradeObject!=0" in MapWindow.cpp
+	TObject UseObject{};     // 0x71c63c, "SrcObj" in MapWindow.cpp
 };
 
 // The transition's access path (issue #105; notes/decisions.md, "#104: TClient and the subsystem objects"): the

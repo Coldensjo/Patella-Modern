@@ -16,7 +16,6 @@
 #include "Utils.h"
 #include "sysinc.h"
 #include "types/Regexp.h"
-#include "types/IndexedVector.h"
 #include "Objects.h"
 #include "common.h"
 #include "compat/span.h"
@@ -26,6 +25,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <vector>
 
 // Characters owns its array as a std::unique_ptr<TCharacter[]> (issue #58): a pointer, as the original's.
 static_assert(sizeof(std::unique_ptr<TCharacter[]>) == sizeof(TCharacter *)
@@ -393,25 +393,20 @@ bool patella::TInteraction::GetBlinkState() const
 // 0x4e75d0. Type of the first message, 0 when the queue is empty.
 int patella::TInteraction::PeekMessageType()
 {
-	if (NumberOfMessages == 0)
+	if (Messages.empty())
 		return 0;
-	return Messages(0).Type;
+	return Messages.front().Type;
 }
 
 // 0x4e75f0. Removes the first message; all zero when the queue is empty.
 // The parameters now belong to the caller.
 void patella::TInteraction::FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Param2)
 {
-	if (NumberOfMessages != 0) {
-		*Type = Messages(0).Type;
-		*Param1 = Messages(0).Param1;
-		*Param2 = Messages(0).Param2;
-		for (int i = 0; i < NumberOfMessages - 1; i++) {
-			Messages(i).Type = Messages(i + 1).Type;
-			Messages(i).Param1 = Messages(i + 1).Param1;
-			Messages(i).Param2 = Messages(i + 1).Param2;
-		}
-		NumberOfMessages--;
+	if (!Messages.empty()) {
+		*Type = Messages.front().Type;
+		*Param1 = Messages.front().Param1;
+		*Param2 = Messages.front().Param2;
+		Messages.erase(Messages.begin());
 		return;
 	}
 	*Type = 0;
@@ -423,10 +418,10 @@ void patella::TInteraction::FetchMessage(int *Type, INT_PTR *Param1, INT_PTR *Pa
 // Param2 points to two more blocks.
 void patella::TInteraction::ClearMessages()
 {
-	for (int i = 0; i < NumberOfMessages; i++) {
-		const int Type = Messages(i).Type;
-		void *Param1 = reinterpret_cast<void *>(Messages(i).Param1);
-		void *Param2 = reinterpret_cast<void *>(Messages(i).Param2);
+	for (const TMessage &Message : Messages) {
+		const int Type = Message.Type;
+		void *Param1 = reinterpret_cast<void *>(Message.Param1);
+		void *Param2 = reinterpret_cast<void *>(Message.Param2);
 		switch (Type) {
 		case 1:
 		case 2:
@@ -468,7 +463,7 @@ void patella::TInteraction::ClearMessages()
 			break;
 		}
 	}
-	NumberOfMessages = 0;
+	Messages.clear();
 }
 
 // 0x4e7f00. TaintedClipboardText is freed but not cleared, and the queued
@@ -565,27 +560,14 @@ const char *GetActionName(int actionid)
 void patella::TInteraction::AddMessage(int Type, INT_PTR Param1, INT_PTR Param2)
 {
 	PATELLA_ASSERT_VALUES(In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
-	Messages(NumberOfMessages).Type = Type;
-	Messages(NumberOfMessages).Param1 = Param1;
-	Messages(NumberOfMessages).Param2 = Param2;
-	NumberOfMessages++;
+	Messages.push_back({Type, Param1, Param2});
 }
 
 // 0x4e91d0, line 209. Inserts a message at the front of the queue.
 void patella::TInteraction::AddMessageFirst(int Type, INT_PTR Param1, INT_PTR Param2)
 {
 	PATELLA_ASSERT_VALUES(In(Type,MESSAGE_NONE,MESSAGE_STARTPATCHER), Type);
-	// The new last element first (Patella-Modern issue #91): Messages(NumberOfMessages) may grow the vector, which
-	// moves its elements, and C++17 evaluates the right side of an assignment first, GCC and Clang so: a reference to
-	// Messages(i - 1) taken before would read freed memory. The original (and MSVC) evaluate the left side first.
-	for (int i = NumberOfMessages; i > 0; i--) {
-		TMessage &Moved = Messages(i);
-		Moved = Messages(i - 1);
-	}
-	Messages(0).Type = Type;
-	Messages(0).Param1 = Param1;
-	Messages(0).Param2 = Param2;
-	NumberOfMessages++;
+	Messages.insert(Messages.begin(), {Type, Param1, Param2});
 }
 
 // 0x4e93d0, lines 621-622
@@ -702,7 +684,7 @@ void patella::TInteraction::InitStatus(bool Gamemaster, void (*linkwarningeventh
 	// TRegexp's assignment frees it (issue #129).
 	LinkRegexp = patella::TRegexp(LinkPattern);
 	patella::bridge::Session().InitSession(Gamemaster); // the session's part (issue #105), in its order below
-	NumberOfMessages = 0;
+	Messages.clear();                                   // the parameters not freed, as the original
 	ActionNumber = 0;
 	DraggedObject.Type = 0;
 	DraggedObject.Data = 0;
