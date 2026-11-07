@@ -265,6 +265,12 @@ errors and what would unblock Clang: notes/decisions.md, "import std (Patella-Mo
 configured before #113 fails its configure ("Experimental `import std` support not enabled when detecting toolchain"),
 because the compiler was detected without the gate: configure it once with `python -I tools/build.py <preset> --fresh`.
 
+SDL3 (issue #122, M8; `cmake/Sdl3.cmake`): windows-x64 and its variants fetch SDL 3.4.18's release archive (pinned by URL
+and SHA256, like cmake/Vulkan.cmake's libraries) at the first configure and build it into build\<preset>\_deps as a static
+library with the client's CRT; nothing is installed. The client runs on SDL3's window and event loop by default and on
+MFC's with `PATELLA_WINDOW=mfc` in its environment, until the MFC removal (issue #127); the start-up log says which
+(`[info] window: SDL3`). The Linux presets do not use SDL3 yet (notes/decisions.md, "#122").
+
 No warnings on any preset (plan section 4.1): the product presets and capture-x86 build with /WX or -Werror, and
 `tools/build.py` fails a warning besides (issue #17; it was what failed the oracle, which kept /WX-). It passes
 cmake's output through and scans it, up to the test step, for compiler, resource compiler, assembler and linker

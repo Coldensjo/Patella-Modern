@@ -72,6 +72,10 @@ set_source_files_properties("${patella_rc}" PROPERTIES OBJECT_DEPENDS "${PATELLA
 # developer log's keys in Patella.ini (issue #77): src/log/LogSettings.cpp, patella_core's, compiled here again too, and
 # so are the options' keys in it (issue #45: src/settings/PreferenceKeys.cpp, Preferences.cpp's Patella.ini).
 include("${PROJECT_SOURCE_DIR}/cmake/Vulkan.cmake")
+# SDL3 (issue #122, plan M8; cmake/Sdl3.cmake): the window and the event loop of src/SdlFrame.cpp, the default window
+# path (PATELLA_WINDOW=mfc: MFC's until issue #127). PATELLA_SDL3 gives Patella.exe's Platform() the SDL3 window's input
+# (src/platform/Win32Platform.cpp); the golden runner compiles that file without it.
+include("${PROJECT_SOURCE_DIR}/cmake/Sdl3.cmake")
 # The platform's Win32 implementations (issue #109, src/platform: the clock, the files, the network; Patella.exe's
 # Platform(), PatellaTest.exe's being the test mode's) are compiled with them.
 set(patella_vulkan_client_sources "${PROJECT_SOURCE_DIR}/src/vulkan/SurfaceVulkan.cpp"
@@ -102,6 +106,10 @@ function(patella_client_compile_settings target)
 	patella_target_hardening(${target})
 	target_compile_definitions(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:PATELLA_VULKAN>)
 	target_link_libraries(${target} PRIVATE patella_render_vulkan)
+	# Issue #122: SDL3's headers (the library itself is linked by patella_client: the compile-only targets and the
+	# header checks do not build it).
+	target_compile_definitions(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:PATELLA_SDL3>)
+	target_link_libraries(${target} PRIVATE SDL3::Headers)
 endfunction()
 
 function(patella_client target)
@@ -110,7 +118,7 @@ function(patella_client target)
 	patella_client_compile_settings(${target})
 	target_link_libraries(${target} PRIVATE
 		winmm kernel32 user32 gdi32 winspool advapi32 shell32 comctl32 shlwapi
-		oleaut32 ws2_32 delayimp)
+		oleaut32 ws2_32 delayimp SDL3::SDL3-static)
 	target_link_options(${target} PRIVATE
 		/NODEFAULTLIB:wsock32.lib /DELAYLOAD:oleacc.dll /MANIFEST:NO /DEBUG
 		$<$<CONFIG:Release>:/INCREMENTAL:NO /OPT:REF /OPT:ICF>)

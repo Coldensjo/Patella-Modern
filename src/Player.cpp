@@ -30,6 +30,7 @@
 #include "graphics.h"
 #include "Network.h"
 #include "Preferences.h"
+#include "SdlFrame.h"
 #include "Status.h"
 #include "Surface.h"
 #include "Text.h"
@@ -41,6 +42,7 @@
 #include "log/LogSettings.h"
 #include "platform/Platform.h"
 #include "platform/Win32Platform.h"
+#include "platform/WindowChoice.h"
 #include <array>
 #include <sstream>
 #include <string>
@@ -113,6 +115,15 @@ void LogDiagnostics() noexcept
 	}
 }
 
+// Not in the original (Patella-Modern issue #122): the main window's handle on the window path the process runs
+// (platform/WindowChoice.h): the SDL3 window's, or MFC's main window's (m_pMainWnd).
+HWND MainWindowHandle(CWinApp &App)
+{
+	if (patella::platform::UseSdlWindow())
+		return static_cast<HWND>(patella::sdlframe::Handle());
+	return App.m_pMainWnd->GetSafeHwnd();
+}
+
 } // namespace
 
 CPlayerApp theApp; // 0x719dc0
@@ -151,17 +162,25 @@ void CPlayerApp::FatalError(const char *Text, const char *Caption)
 		// MainFrame points to the freed frame: SetDisplayMode's calls would fault. Tibia.exe makes them (under
 		// cdb its CWnd::ModifyStyle faults on the freed frame, 0xfeeefeee), and its catch (...) (MSVC 7.1: an
 		// access violation as well) goes on to the box; under /EHsc it does not, so the step is skipped.
-		if (GetViewMode() != 1 && patella::bridge::GUI().MainWindow != nullptr && GetSurface() != nullptr)
-			SetDisplayMode(1);
+		if (GetViewMode() != 1 && patella::bridge::GUI().MainWindow != nullptr && GetSurface() != nullptr) {
+			if (patella::platform::UseSdlWindow())
+				patella::sdlframe::SetDisplayMode(1); // issue #122: the SDL3 window's
+			else
+				SetDisplayMode(1);
+		}
 	} catch (...) {
 	}
 	try {
 		// Patella-Modern issue #83: before InitInstance sets m_pMainWnd (a fatal error in its first Redraw: a
 		// failing first present) there is no main window. Tibia.exe calls CWnd::ShowWindow on null there too, and
 		// its catch (...) (MSVC 7.1: an access violation as well) goes on to the box; under /EHsc it does not.
-		CWnd *Window = AfxGetMainWnd();
-		if (Window != nullptr)
-			Window->ShowWindow(SW_HIDE);
+		if (patella::platform::UseSdlWindow()) {
+			patella::sdlframe::Hide(); // issue #122: the SDL3 window's ShowWindow(SW_HIDE)
+		} else {
+			CWnd *Window = AfxGetMainWnd();
+			if (Window != nullptr)
+				Window->ShowWindow(SW_HIDE);
+		}
 	} catch (...) {
 	}
 	// MessageBoxA with MB_ICONHAND (issue #119: the platform's IWindow).
@@ -249,6 +268,56 @@ void CPlayerApp::HandleException(TMyException &Exception)
 	FatalError(TextCriticalError, "Tibia Error - Debug Assertion");
 }
 
+namespace {
+
+// Not in the original (Patella-Modern issue #122): InitInstance's steps after the command line on the SDL3 window
+// (SdlFrame.h), in the same order: the frame (CMainFrame's constructor and Create), the surfaces, the count of the
+// Tibia windows and its two boxes, the first Redraw, the window shown, the first mouse position. Its exceptions go to
+// InitInstance's handlers, as the MFC path's. The icon is the window class's (SDL_RegisterApp with resource 128; the
+// MFC path sends it again with WM_SETICON), and m_pMainWnd stays null (MFC's loop does not run).
+BOOL InitSdlWindow(bool Gamemaster, const char *ClassName)
+{
+	TFixedString<56> Title;
+	GetWindowTitle(Title);
+	if (!patella::sdlframe::Create(Gamemaster, Title, ClassName))
+		return FALSE;
+	try {
+		SurfaceInitInstance(patella::sdlframe::Handle());
+		GetSurface()->InitSurfaces();
+		InitVideoCache();
+	} catch (...) {
+		throw TProgramError{PROGRAM_ERROR::SURFACE}; // "Video surface allocation failed."
+	}
+	if (!Gamemaster) {
+		NumberOfTibiaWindows = 0;
+		patella::platform::Platform().Window.VisitWindows(CountTibiaWindows); // EnumWindows (issue #119)
+		if (NumberOfTibiaWindows == 0) {
+			patella::platform::Platform().Window.ShowMessageBox(nullptr, "Application is corrupted! Please re-install Tibia.",
+				"Tibia - Error", patella::platform::TMessageBoxIcon::Warning); // MB_ICONEXCLAMATION
+			patella::sdlframe::ExitProgram();
+			return FALSE;
+		}
+		if (NumberOfTibiaWindows > 1) {
+			patella::platform::Platform().Window.ShowMessageBox(nullptr, "A Tibia client is already running!", "Tibia - Error",
+				patella::platform::TMessageBoxIcon::Warning); // MB_ICONEXCLAMATION
+			patella::sdlframe::ExitProgram();
+			return FALSE;
+		}
+	}
+	Redraw(false);
+	int x, y, Width, Height;
+	bool Maximized;
+	GetWindowedMode(&x, &y, &Width, &Height, &Maximized);
+	patella::sdlframe::Show(Maximized);
+	patella::platform::ReadCursorPosition(patella::platform::Platform().Input, LastMousePosition); // GetCursorPos
+	if (GetViewMode() == 1)
+		ScreenToClient(static_cast<HWND>(patella::sdlframe::Handle()), &LastMousePosition);
+	MouseMove(LastMousePosition.x, LastMousePosition.y);
+	return TRUE;
+}
+
+} // namespace
+
 // 0x4da3e0, lines 255-347. Registers the window class, parses the command
 // line, creates the frame window and the surfaces, and refuses to run twice
 // (except for gamemasters). Odd behaviour kept: "host" and "port" are
@@ -262,17 +331,24 @@ BOOL CPlayerApp::InitInstance()
 {
 	// Not in the original (Patella-Modern issue #77, D16): the developer log's level and file from Patella.ini.
 	patella::log::LoadSettings(patella::platform::Platform().FileSystem); // issue #119: through the platform's files
+	// Issue #122: the window path (platform/WindowChoice.h): the SDL3 window and loop, or PATELLA_WINDOW=mfc MFC's.
+	const bool Sdl = patella::platform::UseSdlWindow();
+	if (patella::platform::IsUnknownWindowSystem(patella::platform::WindowSystemSetting()))
+		patella::log::Warn("PATELLA_WINDOW={}: neither sdl nor mfc; the SDL3 window", patella::platform::WindowSystemSetting());
+	patella::log::Info("window: {}", Sdl ? "SDL3" : "MFC");
 	try {
 		try {
 			TFixedString<32> ClassName;
 			GetWindowClassName(ClassName);
-			WNDCLASSA WindowClass = {0};
-			WindowClass.style = CS_OWNDC | CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW;
-			WindowClass.lpfnWndProc = AfxGetAfxWndProc();
-			WindowClass.hInstance = AfxGetInstanceHandle();
-			WindowClass.lpszClassName = ClassName;
-			WindowClass.hIcon = ::LoadIconA(AfxGetResourceHandle(), MAKEINTRESOURCEA(128));
-			AfxRegisterClass(&WindowClass);
+			if (!Sdl) { // the SDL3 window's class is SDL_RegisterApp's (SdlFrame.cpp), with the same name and styles
+				WNDCLASSA WindowClass = {0};
+				WindowClass.style = CS_OWNDC | CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW;
+				WindowClass.lpfnWndProc = AfxGetAfxWndProc();
+				WindowClass.hInstance = AfxGetInstanceHandle();
+				WindowClass.lpszClassName = ClassName;
+				WindowClass.hIcon = ::LoadIconA(AfxGetResourceHandle(), MAKEINTRESOURCEA(128));
+				AfxRegisterClass(&WindowClass);
+			}
 
 			TFixedString<1024> CommandLine;
 			strncpy(CommandLine, m_lpCmdLine, sizeof(CommandLine));
@@ -308,6 +384,8 @@ BOOL CPlayerApp::InitInstance()
 				Token = strtok(nullptr, " \t\n");
 			}
 
+			if (Sdl)
+				return InitSdlWindow(Gamemaster, ClassName);
 			CMainFrame *MainFrame;
 			MainFrame = new CMainFrame(Gamemaster, ClassName); // issue #119: the class registered above
 			TFixedString<56> Title;
@@ -350,7 +428,7 @@ BOOL CPlayerApp::InitInstance()
 			m_pMainWnd->UpdateWindow();
 			patella::platform::ReadCursorPosition(patella::platform::Platform().Input, LastMousePosition); // GetCursorPos
 			if (GetViewMode() == 1)
-				ScreenToClient(m_pMainWnd->GetSafeHwnd(), &LastMousePosition);
+				ScreenToClient(MainWindowHandle(*this), &LastMousePosition);
 			MouseMove(LastMousePosition.x, LastMousePosition.y);
 			return TRUE;
 		} catch (const TProgramError &Error) {
@@ -382,7 +460,13 @@ int CPlayerApp::Run()
 	int Result = 0;
 	try {
 		try {
-			Result = CWinApp::Run();
+			if (patella::platform::UseSdlWindow()) {
+				// Issue #122: the SDL3 window's loop (SdlFrame.cpp), then what CWinThread::Run does at WM_QUIT.
+				patella::sdlframe::Run([](long Count) { theApp.OnIdle(static_cast<LONG>(Count)); });
+				Result = ExitInstance();
+			} else {
+				Result = CWinApp::Run();
+			}
 		} catch (const TProgramError &Error) {
 			HandleProgramError(Error.Code);
 		} catch (TMyException &Exception_) {
@@ -413,7 +497,7 @@ BOOL CPlayerApp::OnIdle(LONG lCount)
 	POINT Point;
 	patella::platform::ReadCursorPosition(patella::platform::Platform().Input, Point); // GetCursorPos (issue #119)
 	if (GetViewMode() == 1)
-		ScreenToClient(m_pMainWnd->GetSafeHwnd(), &Point);
+		ScreenToClient(MainWindowHandle(*this), &Point);
 	if (LastMousePosition.x != Point.x || LastMousePosition.y != Point.y) {
 		LastMousePosition.x = Point.x;
 		LastMousePosition.y = Point.y;
@@ -421,7 +505,10 @@ BOOL CPlayerApp::OnIdle(LONG lCount)
 	}
 	const int Cursor = GetMouseCursor();
 	if (Cursor != LastMouseCursor) {
-		UpdateMouseCursor();
+		if (patella::platform::UseSdlWindow())
+			patella::sdlframe::UpdateMouseCursor(); // issue #122: the SDL3 window's
+		else
+			UpdateMouseCursor();
 		LastMouseCursor = Cursor;
 	}
 	ProcessEvents();
