@@ -22,7 +22,6 @@
 // catch wrappers, common.h); since issue #78 the functions here have none.
 
 #include "ContextMenus.h"
-#include "ContentWindows.h"
 #include "Communication.h"
 #include "ConsoleWindow.h"
 #include "Creatures.h"
@@ -65,7 +64,7 @@ TCallback NoCallback(nullptr, 0);
 TSkillContextMenu::~TSkillContextMenu()
 {
 	if (SkillsWindow != nullptr)
-		SkillsWindow->ContextMenu = nullptr;
+		SetSkillsWindowMenu(SkillsWindow, nullptr);
 }
 
 // --- THelpBubble ---------------------------------------------------------------
@@ -1271,7 +1270,7 @@ TSkillContextMenu::TSkillContextMenu(TSkillsWindowBody *_SkillsWindow, int x, in
 {
 	PATELLA_ASSERT(_SkillsWindow);
 	SkillsWindow = _SkillsWindow;
-	_SkillsWindow->ContextMenu = this;
+	SetSkillsWindowMenu(_SkillsWindow, this);
 	AddEntry(10500, GetLevelBar() ? "Hide Level" : "Show Level", nullptr);
 	AddEntry(10501, GetMagLevelBar() ? "Hide Magic Level" : "Show Magic Level", nullptr);
 	AddEntry(10502, GetSkillBar(0) ? "Hide Fist Fighting" : "Show Fist Fighting", nullptr);
@@ -1323,5 +1322,5 @@ void TSkillContextMenu::HandleEvent(int Event)
 		TERROR1("unknown event", Event);
 	}
 	if (SkillsWindow != nullptr)
-		SkillsWindow->Arrange();
+		ArrangeSkillsWindow(SkillsWindow);
 }

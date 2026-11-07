@@ -98,7 +98,7 @@ void TMainWindow::OnClose()
 }
 
 // TGUI's constructor and destructor (GUI.h, issue #108): here, where TMainWindow is complete for its owner.
-patella::TGUI::TGUI(TGUIController &Controller) : Controller(Controller)
+patella::TGUI::TGUI(TNetwork &Network, TCommunication &Communication) : Network(Network), Communication(Communication)
 {
 }
 
@@ -112,17 +112,23 @@ void patella::TGUI::AbandonWindows() noexcept
 // 0x4ac090. Called by Control.cpp's ExitControl. Each window is closed and then
 // freed where the original deleted it (issue #108); a close that throws leaves
 // its window allocated (the main window in its owner).
-void ExitMainWindow()
+void patella::TGUI::ExitMainWindow()
 {
-	patella::TGUI &GUI = patella::bridge::GUI();
-	if (GUI.MainWindow != nullptr)
-		GUI.MainWindow->Close();
-	GUI.MainWindow.reset();
-	if (GUI.ModalWindow != nullptr) {
-		DeleteComponent(GUI.ModalWindow);
+	if (MainWindow != nullptr)
+		MainWindow->Close();
+	MainWindow.reset();
+	if (ModalWindow != nullptr) {
+		DeleteComponent(ModalWindow);
 		SetActionState(0);
 	}
-	GUI.ModalWindow = nullptr;
+	ModalWindow = nullptr;
+}
+
+// The free function of the original's name (issue #118): Control.cpp's ExitControl and the golden MainWindow test call
+// it, the golden Control and Communication tests fake it (commworld.cpp).
+void ExitMainWindow()
+{
+	patella::bridge::GUI().ExitMainWindow();
 }
 
 // 0x4ac0f0, line 127. Out of the game an error while drawing the start
@@ -340,13 +346,13 @@ void TMainWindow::HandleEvent(int Event)
 			AddMessage(0x1c, 0, 0);
 		break;
 	case 800:
-		patella::bridge::GUI().Controller.ChangeEngine(0);
+		patella::TGUI::ChangeEngine(0); // Control.cpp's (issue #118)
 		break;
 	case 801:
-		patella::bridge::GUI().Controller.ChangeEngine(2);
+		patella::TGUI::ChangeEngine(2); // Control.cpp's (issue #118)
 		break;
 	case 802:
-		patella::bridge::GUI().Controller.ChangeEngine(1);
+		patella::TGUI::ChangeEngine(1); // Control.cpp's (issue #118)
 		break;
 	}
 }
@@ -760,16 +766,23 @@ bool TSplitter::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] int y, [[m
 // --- The main window -------------------------------------------------------
 
 // 0x4b05b0, lines 822-828. Called by CMainFrame::OnCreate.
+void patella::TGUI::InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode),
+	void (*OpenURL)(const char *URL))
+{
+	std::unique_ptr<TMainWindow> Made(new TMainWindow(Width, Height));
+	(void)MainWindow.release(); // NOLINT(bugprone-unused-return-value): the original stored over it (set only once)
+	MainWindow = std::move(Made);
+	PATELLA_ASSERT_VALUES(GetActionState()==ACTIONSTATE_NONE, GetActionState());
+	ExitProgramCallback = ExitProgram;
+	ModalWindow = nullptr;
+	SetDisplayModeCallback = SetDisplayMode;
+	OpenURLCallback = OpenURL;
+}
+
+// The free function of the original's name (issue #118): MainFrm.cpp's OnCreate and the golden MainWindow test call
+// it, the golden MainFrm test fakes it.
 void InitMainWindow(int Width, int Height, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode),
 	void (*OpenURL)(const char *URL))
 {
-	patella::TGUI &GUI = patella::bridge::GUI();
-	std::unique_ptr<TMainWindow> Made(new TMainWindow(Width, Height));
-	(void)GUI.MainWindow.release(); // NOLINT(bugprone-unused-return-value): the original stored over it (set only once)
-	GUI.MainWindow = std::move(Made);
-	PATELLA_ASSERT_VALUES(GetActionState()==ACTIONSTATE_NONE, GetActionState());
-	GUI.ExitProgramCallback = ExitProgram;
-	GUI.ModalWindow = nullptr;
-	GUI.SetDisplayModeCallback = SetDisplayMode;
-	GUI.OpenURLCallback = OpenURL;
+	patella::bridge::GUI().InitMainWindow(Width, Height, ExitProgram, SetDisplayMode, OpenURL);
 }

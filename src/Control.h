@@ -4,6 +4,10 @@
 // packet dispatcher, and start-up and shutdown of all modules.
 // Function names are ours; parameter names come from the binary's catch
 // strings ("engine", "Force", "x", "y", "Key").
+//
+// Since Patella-Modern issue #118 the functions are TGUI's members (GUI.h), defined in Control.cpp; these free
+// functions of the original's names forward to them for the callers outside TGUI (MainFrm.cpp, Player.cpp, the test
+// mode), InitControl's callbacks and the golden tests, which call and fake them by name.
 
 #pragma once
 

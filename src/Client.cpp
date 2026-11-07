@@ -4,7 +4,6 @@
 #include "Client.h"
 
 #include "Communication.h"
-#include "Control.h"
 #include "Creatures.h"
 #include "GUI.h"
 #include "Help.h"
@@ -23,8 +22,12 @@ namespace patella {
 
 namespace {
 
-// Status.cpp's session and message queue for TNetwork (TNetworkSession, issue #105). TSession and TGUI's
-// TInteraction are made after TNetwork, so it stays an adapter (issue #107: a reference to them would point up).
+// Status.cpp's session and message queue for TNetwork (TNetworkSession, issue #105). TSession (TCommunication's) and
+// TGUI's TInteraction are made after TNetwork, so it stays an adapter (issue #107: a reference to them would point up).
+// Issue #118 kept it rather than an interface TClient wires into TNetwork after construction: that would be a pointer
+// TNetwork holds unset between its construction and TClient's (a two-phase start the golden runner, the unit tests
+// and the test mode would each have to reach), and the golden Network test fakes Status.cpp's free functions, which
+// this adapter calls. It goes with the bridge (#111) or with #109's ISocket events (notes/decisions.md, "#118").
 // Stateless: each member calls Status.cpp's function of its name (from another object file than Network.cpp's, so the
 // golden Network test's fakes of those functions are reached as before).
 class TStatusCppSession final : public TNetworkSession {
@@ -37,21 +40,6 @@ public:
 	void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2) override { ::AddMessage(Type, Param1, Param2); }
 };
 
-// Control.cpp's functions for TGUI's windows (TGUIController, issue #107), until Control.cpp's functions are an
-// object's. Stateless, as TStatusCppSession: each member calls Control.cpp's function of its name (from another object
-// file than the windows', so the golden tests' fakes of Resize and ChangeEngine are reached as before).
-class TControlCppController final : public TGUIController {
-public:
-	void ChangeEngine(int engine) override { ::ChangeEngine(engine); }
-	void Resize(int Width, int Height) override { ::Resize(Width, Height); }
-};
-
-TGUIController &ControlCppController()
-{
-	static TControlCppController Controller;
-	return Controller;
-}
-
 // Made on first use, as TClient is (a static initialiser of another file may make TClient first).
 TNetworkSession &StatusCppSession()
 {
@@ -59,11 +47,46 @@ TNetworkSession &StatusCppSession()
 	return Session;
 }
 
+// Talk.cpp's default console for TMap (TMapConsole, issue #118) and Talk.cpp's, Help.cpp's and Status.cpp's functions
+// for TCreatures and TPlayerState (TCreaturesGUI): TGUI's, made after TMapState, so adapters as TStatusCppSession is.
+// Stateless: each member calls the free functions of the original's code (from another object file than Map.cpp's and
+// Creatures.cpp's, so the golden tests' fakes of those functions are reached as before).
+class TTalkCppConsole final : public TMapConsole {
+public:
+	bool HasDefaultConsole() override { return bridge::Talk().DefaultTextBuffer != nullptr; }
+	void AddDefaultConsoleLine(const char *Message) override
+	{
+		::AddTextBufferLine(bridge::Talk().DefaultTextBuffer, 0, Message, 20, nullptr, 0);
+		::SetConsoleChanged();
+	}
+};
+
+class TGUICppCreatures final : public TCreaturesGUI {
+public:
+	void SetStatusMessage(const char *Message, bool Permanent) override { ::SetStatusMessage(Message, Permanent); }
+	void AddEventHelp(int Number) override { ::AddEventHelp(Number); }
+	void CheckEventHelpName(const char *Name) override { ::CheckEventHelpName(Name); }
+	void AddMessage(int Type, INT_PTR Param1, INT_PTR Param2) override { ::AddMessage(Type, Param1, Param2); }
+	int GetActionNumber() override { return ::GetActionNumber(); }
+};
+
+TMapConsole &TalkCppConsole()
+{
+	static TTalkCppConsole Console;
+	return Console;
+}
+
+TCreaturesGUI &GUICppCreatures()
+{
+	static TGUICppCreatures Adapter;
+	return Adapter;
+}
+
 } // namespace
 
 TClient::TClient(platform::TPlatform &Platform)
 	: Preferences(Platform.FileSystem), Network(Preferences, StatusCppSession(), Platform.Socket),
-	  Communication(Network, MapState), GUI(ControlCppController())
+	  MapState(TalkCppConsole(), GUICppCreatures()), Communication(Network, MapState), GUI(Network, Communication)
 {
 }
 

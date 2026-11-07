@@ -20,7 +20,6 @@
 #include "Map.h"
 #include "Objects.h"
 #include "Script.h"
-#include "Talk.h"
 #include "Utils.h"
 #include "sysinc.h"
 #include "Container.h"
@@ -39,7 +38,7 @@
 // The data (0x5d16c0-0x5d4c4b, 0x7152d0-0x7152e7) is TMap's (Map.h, issue #106).
 
 // 0x559f40, 0x559f60, 0x559f90: the initialisers of Fields, FieldNumber and AutomapBlocks are the members'.
-patella::TMap::TMap(TObjectTypes &ObjectTypesRef) : ObjectTypes(ObjectTypesRef) {}
+patella::TMap::TMap(TObjectTypes &ObjectTypesRef, TMapConsole &ConsoleRef) : ObjectTypes(ObjectTypesRef), Console(ConsoleRef) {}
 
 // TMark's arrays std::arrays and its Text a TFixedString (issue #60), no pointers: the same on x64. TMapPoint's layout
 // is free since issue #102 (MapPoint.h: its objects a TStaticVector).
@@ -976,7 +975,6 @@ static_assert(sizeof(TAutomapBlock::Color) == AUTOMAP_FILE_LAYER_BYTES && sizeof
 // the marks.
 void patella::TMap::LoadAutomapBlock(int Position, int bx, int by, int bz)
 {
-	const patella::TTalk &Talk = patella::bridge::Talk();
 	PATELLA_ASSERT_VALUES(In(bx,0,999), bx);
 	PATELLA_ASSERT_VALUES(In(by,0,999), by);
 	PATELLA_ASSERT_VALUES(In(bz,0, 99), bz);
@@ -1036,11 +1034,10 @@ void patella::TMap::LoadAutomapBlock(int Position, int bx, int by, int bz)
 			for (int i = Block.Marks.min; i <= Block.Marks.max; i++)
 				Block.Marks(i) = TMark();
 			Block.MarkCount = 0;
-			if (Talk.DefaultTextBuffer != nullptr) {
+			if (Console.HasDefaultConsole()) {
 				TFixedString<256> Message;
 				Message.Format("Map file '{}' was corrupted!", FileName);
-				AddTextBufferLine(Talk.DefaultTextBuffer, 0, Message, 20, nullptr, 0);
-				SetConsoleChanged();
+				Console.AddDefaultConsoleLine(Message);
 			}
 		}
 	}
@@ -1051,7 +1048,6 @@ void patella::TMap::LoadAutomapBlock(int Position, int bx, int by, int bz)
 // reported in the default console; the block counts as saved either way.
 void patella::TMap::SaveAutomapBlock(int Position)
 {
-	const patella::TTalk &Talk = patella::bridge::Talk();
 	TAutomapBlock &Block = AutomapBlocks[Position];
 	if (Block.bx == -1 || !Block.Changed)
 		return;
@@ -1097,18 +1093,16 @@ void patella::TMap::SaveAutomapBlock(int Position)
 			File.close();
 		} catch (TMyException &) {
 			File.close();
-			if (Talk.DefaultTextBuffer != nullptr) {
+			if (Console.HasDefaultConsole()) {
 				TFixedString<256> Message;
 				Message.Format("Error while saving file '{}'!", FileName);
-				AddTextBufferLine(Talk.DefaultTextBuffer, 0, Message, 20, nullptr, 0);
-				SetConsoleChanged();
+				Console.AddDefaultConsoleLine(Message);
 			}
 		}
-	} else if (Talk.DefaultTextBuffer != nullptr) {
+	} else if (Console.HasDefaultConsole()) {
 		TFixedString<256> Message;
 		Message.Format("Could not save file '{}'!", FileName);
-		AddTextBufferLine(Talk.DefaultTextBuffer, 0, Message, 20, nullptr, 0);
-		SetConsoleChanged();
+		Console.AddDefaultConsoleLine(Message);
 	}
 	Block.Changed = false;
 }

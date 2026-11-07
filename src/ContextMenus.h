@@ -205,3 +205,11 @@ public:
 
 	TSkillsWindowBody *SkillsWindow; // +0x34, its ContextMenu points back
 };
+
+// The skill window's side of the link between it and its menu (issue #118), defined in ContentWindows.cpp where
+// TSkillsWindowBody is complete, so that ContextMenus.cpp does not include ContentWindows.h (the content windows make
+// the menus, the menus called back into them: the two modules were a cycle). The menu's constructor and destructor
+// set and clear the window's ContextMenu with SetSkillsWindowMenu (the original's stores at +0x30), its HandleEvent
+// lays the window out again with ArrangeSkillsWindow (the window's virtual Arrange, as the original's call).
+void SetSkillsWindowMenu(TSkillsWindowBody *Window, TSkillContextMenu *Menu) noexcept;
+void ArrangeSkillsWindow(TSkillsWindowBody *Window);

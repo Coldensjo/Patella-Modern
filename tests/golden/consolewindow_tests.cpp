@@ -860,6 +860,9 @@ static void PatchCallees()
 		{0x4e7230, (void *)GetAccountNumberString, (void *)FakeGetAccountNumberString},
 		{0x4e7240, (void *)GetAccountPassword, (void *)FakeGetAccountPassword},
 		{0x44b9c0, (void *)GetPlayerID, (void *)FakeGetPlayerID},
+		// TMapState's TCreaturesPlayer::GetPlayerID calls the member since issue #118 (IsOpponent, CheckMonsterHint,
+		// MoveCreatures): faked as the free function is (no arguments: the fake ignores this).
+		{0x44b9c0, Member(&patella::TPlayerState::GetPlayerID), (void *)FakeGetPlayerID},
 		{0x44c6e0, (void *)GetCreature, (void *)FakeGetCreature},
 		// Communication.cpp: ours are this file's definitions (NULL) or other tests' (redirected).
 		{0x4067c0, DEFINED_HERE((void (*)(int, const char *))SendTalk), (void *)FakeSendTalk1},

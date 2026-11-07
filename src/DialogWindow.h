@@ -27,14 +27,21 @@
 
 #include "GUI.h"
 #include "graphics.h"
+#include <climits>
 
-class TSubWindowBody; // ContentWindows.h
-class TResizer;       // DialogElements.h
-class TSkinButton;    // DialogElements.h
+class TResizer;    // DialogElements.h
+class TSkinButton; // DialogElements.h
+
+// The dialog window's identifier of the trade window ("hasContentWindow(
+// TRADE_WINDOW)", MainWindow.cpp). The skill, battle and VIP windows are 6, 7 and 9, a
+// container's window is 0x40 plus the container number. MainWindow.h's until issue #118: here, where both of its
+// users (MainWindow.cpp and ContentWindows.cpp's CreateTradeWindow) find it without ContentWindows.cpp including
+// MainWindow.h.
+inline constexpr int TRADE_WINDOW = 8;
 
 // A window in a TDialogWindow. Identifier: 1 and 2 the two inventory
 // windows, 3 the automap, 4 the status bars, 5 the buttons, 6 skills, 7 battle, TRADE_WINDOW
-// (8, MainWindow.h), 9 VIP, 0x40 plus the number of a container.
+// (8, above), 9 VIP, 0x40 plus the number of a container.
 class TContentWindow : public TWindow {
 public:
 	TContentWindow(int _Identifier, bool _Background); // 0x4854c0
@@ -54,6 +61,30 @@ public:
 	int DragY;       // +0x3c
 	int DragBottom;  // +0x40, from the drag start to the bottom edge; set, never read
 };
+
+// The content of a TSubWindow (ContentWindows.h's bodies derive from it; here since issue #118, so that
+// DialogWindow.cpp, which calls its virtual functions, does not include ContentWindows.h). Its constructor and its virtual functions
+// are inline; no vtable of its own is left (the constructors of the
+// subclasses store theirs right after Minimized).
+class TSubWindowBody : public TWindow {
+public:
+	TSubWindowBody() { Minimized = false; }
+	// +0x58: a double click on the body is taken (it does not minimize the
+	// window); the folded true-returning 0x425a00 (the VIP body overrides it).
+	bool LeftButtonDoubleClick([[maybe_unused]] int x, [[maybe_unused]] int y, [[maybe_unused]] int Flags) override { return true; }
+	virtual void Minimize() { Minimized = true; }      // +0xa0, 0x4259c0, TSubWindow::Minimize
+	virtual void Maximize() { Minimized = false; }     // +0xa4, 0x4259d0, TSubWindow::Maximize
+	virtual bool IsMinimized() { return Minimized; }   // +0xa8, 0x4259e0
+	virtual int GetInitialHeight() = 0;                // +0xac, the creators size the window with it
+	virtual int GetMaximumHeight() { return INT_MAX; } // +0xb0, 0x425b00
+	virtual int GetContentHeight() = 0;                // +0xb4
+
+	bool Minimized; // +0x2c
+};
+
+// Not in the original (issue #118): TSubWindow::Arrange's call of a container body's UpdateUpButton
+// (TContainerWindowBody, ContentWindows.h), defined in ContentWindows.cpp where that class is complete.
+void UpdateContainerUpButton(TSubWindowBody *Body);
 
 // A content window with a body and a frame (MainWindow.cpp's containers and
 // the skill, battle, VIP and trade windows).

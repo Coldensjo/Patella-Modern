@@ -151,6 +151,25 @@ namespace testmode {
 struct TMapView;
 } // namespace testmode
 
+// The default console, where TMap reports an automap file it could not read or save (Patella-Modern issue #118; rule 5
+// of notes/decisions.md, "#104"): Talk.cpp's, TGUI's, a later subsystem than TMapState, so TMap reaches it only through
+// this interface; Client.cpp implements it with Talk.cpp's free functions (the golden tests fake them by their
+// symbols). HasDefaultConsole is the original's check of DefaultTextBuffer before the message is made,
+// AddDefaultConsoleLine its AddTextBufferLine(DefaultTextBuffer, 0, Message, 20, NULL, 0) and SetConsoleChanged.
+class TMapConsole {
+public:
+	TMapConsole() = default;
+	TMapConsole(const TMapConsole &) = delete;
+	TMapConsole &operator=(const TMapConsole &) = delete;
+	TMapConsole(TMapConsole &&) = delete;
+	TMapConsole &operator=(TMapConsole &&) = delete;
+	virtual bool HasDefaultConsole() = 0;
+	virtual void AddDefaultConsoleLine(const char *Message) = 0;
+
+protected:
+	~TMapConsole() = default;
+};
+
 // Map.cpp's data and functions (Patella-Modern issue #106, M7; notes/decisions.md, "#104: TClient and the subsystem
 // objects" and "#106"): the map points and their position, the effect table and the two iterators, the automap blocks
 // and their cache list, the ambient light (0x5d16c0-0x5d4c4b, 0x7152d0-0x7152e7), private as the file-local statics
@@ -159,7 +178,7 @@ struct TMapView;
 // (MapState.h), after TObjectTypes, which it reads.
 class TMap {
 public:
-	explicit TMap(TObjectTypes &ObjectTypes);
+	TMap(TObjectTypes &ObjectTypes, TMapConsole &Console);
 	TMap(const TMap &) = delete;
 	TMap &operator=(const TMap &) = delete;
 	TMap(TMap &&) = delete;
@@ -261,6 +280,7 @@ private:
 	int GetAutomapSpeed(int x, int y, int z);
 
 	TObjectTypes &ObjectTypes;
+	TMapConsole &Console; // issue #118
 
 	// Data, in the original's .data/.bss order.
 	void (*CreatureCallback)(int CreatureID){};                                      // 0x5d16c0, called for every creature ClearField removes

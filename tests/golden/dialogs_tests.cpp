@@ -1000,6 +1000,11 @@ static void RestoreAll()
 #define DEFINED_HERE(Function) ((void *)Function)
 
 #define F(Name) (void *)Fake##Name
+// Ours of Resize is TGUI's member since issue #118 (Dialogs.cpp calls it on the bridge's TGUI): its fake is a member
+// function too, so that it finds the arguments where a member's caller puts them (after this).
+struct TFakeGUI {
+	void Resize(int Width, int Height) { FakeResize(Width, Height); }
+};
 static void PatchCallees()
 {
 	struct {
@@ -1115,6 +1120,9 @@ static void PatchCallees()
 		{0x5025c0, (void *)GetTextBuffer, F(GetTextBuffer)},
 		// Creatures.cpp
 		{0x44b9c0, (void *)GetPlayerID, F(GetPlayerID)},
+		// TMapState's TCreaturesPlayer::GetPlayerID calls the member since issue #118 (IsOpponent, CheckMonsterHint,
+		// MoveCreatures): faked as the free function is (no arguments: the fake ignores this).
+		{0x44b9c0, Member(&patella::TPlayerState::GetPlayerID), F(GetPlayerID)},
 		{0x44c6e0, (void *)GetCreature, F(GetCreature)},
 		{0x44bb80, (void *)GetBuddyPosition, F(GetBuddyPosition)},
 		{0x44feb0, (void *)GetBuddyListName, F(GetBuddyListName)},
@@ -1122,15 +1130,15 @@ static void PatchCallees()
 		{0x4504a0, (void *)GetBuddyListDescription, F(GetBuddyListDescription)},
 		{0x450740, (void *)GetBuddyListNotify, F(GetBuddyListNotify)},
 		{0x44f230, (void *)EditBuddy, F(EditBuddy)},
-		// Help.cpp, Objects.cpp, Map.cpp, Control.cpp (ours of Resize is playertest.cpp's; the runner's
-		// client_stubs.cpp's)
+		// Help.cpp, Objects.cpp, Map.cpp, Control.cpp (ours of Resize: TGUI's member, issue #118)
 		{0x4a3b60, (void *)GetEventHelpTitle, F(GetEventHelpTitle)},
 		{0x4a3fd0, (void *)GetEventHelpText, F(GetEventHelpText)},
 		{0x4d1c40, (void *)(bool (*)(int, int))GetObjectFlag, F(GetObjectFlag)},
 		{0x4d6800, (void *)GetCumulativePattern, F(GetCumulativePattern)},
 		{0x4b4f60, (void *)AddAutomapMark, F(AddAutomapMark)},
 		{0x4b5410, (void *)DeleteAutomapMark, F(DeleteAutomapMark)},
-		{0x4459b0, (void *)Resize, F(Resize)},
+		{0x4459b0, NULL, F(Resize)},
+		{0, Member(&patella::TGUI::Resize), Member(&TFakeGUI::Resize)},
 		// Communication.cpp: ours of the first ones are the other tests' fakes (the runner's stubs); the rest
 		// are this file's (the oracle's) or the runner's stubs.
 		{0x404350, (void *)SendLogout, F(SendLogout)},
