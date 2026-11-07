@@ -15924,6 +15924,272 @@ Logs in build\logs\issue-139 of the branch's worktree; golden replayed main's fr
   exit 0. clang-format (CLAUDE.md's command) exit 0.
 - Not run: compare_rendering (nothing drawn changed), the MSVC libFuzzer tree.
 
+## #141: CMake 4.4.5 everywhere (Patella-Modern issue #141, M7)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-141, from main b24483a; CMake 4.4.5, MSVC 14.51, mingw-w64 GCC
+16.2, GCC 16.2 and Clang 22.1.8 in the image). Files: tools/build.py (pinned_cmake, install_cmake, CMAKE_VERSION,
+CMAKE_SHA256, the image tag), tools/compare_rendering.py and tools/fuzz.py (the pinned CMake for their own cmake
+calls), docker/linux-x64/Dockerfile, cmake/ImportStd.cmake, .github/workflows/hosted.yml and self-hosted.yml, CLAUDE.md,
+README.md, notes/reconstruction.md.
+
+### One version, pinned in three places (high)
+
+The owner's decision: CMake 4.4.5 (the newest stable release, October 27, 2026) for every build. Before: 4.1.2 locally
+(C:\Program Files\CMake, first on the machine PATH; and vcvarsall.bat puts Visual Studio's 4.3.1 first in the MSVC
+presets' environment), 4.1.2 in the image, whatever the hosted Windows runner had (4.4.5, unpinned).
+
+- This machine: Kitware's cmake-4.4.5-windows-x86_64.zip in C:\Servers\Software\cmake (the owner's rule for portable
+  tools), its bin folder on the user PATH, the zip's SHA-256 checked against the release's cmake-4.4.5-SHA-256.txt
+  (326c8264...f004). C:\Program Files\CMake, mingw64's 4.4.2 and Visual Studio's copy are untouched.
+- tools/build.py: on Windows a bare cmake, ctest or cpack becomes the pinned executable (PATELLA_CMAKE_DIR, default
+  C:\Servers\Software\cmake), checked once per run with `--version`; a missing one or another version is a BuildError
+  that says how to install it. A path stays as it is; Linux (in the image, or a Linux host) uses PATH. The machine
+  PATH comes before the user PATH, so PATH alone could not pick it. compare_rendering.py (patcap's build) and fuzz.py
+  (the Windows fuzz tree) call cmake themselves with build.py's environment; they now go through pinned_cmake too.
+- `python -I tools/build.py --install-cmake <folder>`: downloads the zip, checks it against build.py's CMAKE_SHA256,
+  unpacks it into a new folder. Hosted CI's three Windows jobs run it into $RUNNER_TEMP\cmake and set
+  PATELLA_CMAKE_DIR, so the runner's own CMake is never used; one copy of the hash serves CI and a new machine.
+- The image: CMAKE_VERSION 4.4.5, CMAKE_SHA256 ed85135c...0be0 (the release's Linux x86_64 tarball), a new tag
+  `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5` (in build.py, both workflows and the docs):
+  branches still on the old Dockerfile keep the old image, which is not removed.
+- Hosted CI prints the version in every job that runs CMake: the Windows jobs' install step (and windows-msvc's Tool
+  versions through build.py), and a `cmake --version` step in each job that builds the image (linux, clang-format,
+  clang-tidy). The banned-calls job runs no CMake.
+
+A build folder configured by 4.1.2 needs one `python -I tools/build.py <preset> --fresh` (or a new folder): its cache
+names the old cmake and 4.1's std module target. Said in CLAUDE.md and notes/reconstruction.md, "Building".
+
+### ImportStd.cmake: the 4.4 path, and kept the 4.1 path (high)
+
+Every build takes the 4.4 gate now. Kept: the 4.1 gate and code path, and cmake_minimum_required 3.30 (and the
+presets' 3.30): they cost a few lines, and a distribution build with its own CMake (4.1, or 3.30 without import std,
+where the option is off with a warning) still configures. Removing them would gain nothing the pin does not already
+give.
+
+Clang under 4.4 failed two ways, both fixed in patella_target_import_std (Clang only):
+
+- The fortify exception (#121) stays, but differently. 4.4 compiles the std BMI per importer with the importer's
+  options (@cmake_cxx_std@synth_0), de-duplicated: #121's second `-U_FORTIFY_SOURCE` after Hardening.cmake's
+  `-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3` was dropped, the BMI was compiled with -D_FORTIFY_SOURCE=3, and bits/std.cc
+  failed as in #121 ("using declaration referring to 'printf' with internal linkage cannot be exported"). 4.4's
+  per-importer module does not remove the exception: the module is compiled with the importer's options, so it needs
+  the importer without fortify. The target's COMPILE_OPTIONS now lose the hardening's _FORTIFY_SOURCE item (list
+  FILTER) instead; the target and its BMI compile without it, as before. It works on 4.1 as well (its module copies
+  the filtered options).
+- 4.4 also compiles bits/std.cc and std.compat.cc into the objects of a target @cmake_cxx_std with the directory's
+  flags only, and Clang warns "'std' is a reserved name for a module [-Wreserved-module-identifier]"; 4.1 gave its
+  module target -Wno-reserved-module-identifier (Modules/Compiler/Clang-CXX-CXXImportStd.cmake), 4.4 does not and
+  has no property for it. The function sets it in the caller's CMAKE_CXX_FLAGS (PARENT_SCOPE: tests/unit, whose only
+  module is std) on CMake 4.4 and newer. build.py fails any warning, so this was a build failure.
+
+Found, not changed: 4.4.5's synthesized BMI evaluates the importer's configuration-dependent options for the first
+configuration (Release): in Debug, GCC's std BMI gets `-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3`, which the Debug
+importer does not have (compile_commands.json of linux-x64-gcc). GCC accepts it without a warning and
+linux-x64-gcc-debug passes; MSVC's options have no configuration-dependent item (its runtime flag comes from CMake's
+own per-configuration flags, correct in both). A CMake bug to report upstream; nothing here depends on it.
+
+MSVC and GCC needed no change: windows-x64 (and -debug, -asan) and windows-x64-gcc, linux-x64-gcc build tests_import_std
+on 4.4.5 as they did on 4.1.2.
+
+### The gates (high)
+
+Logs in build\logs\issue-141 of the worktree. Fresh build folders (a new worktree), PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden.
+
+- `python -I tools/build.py windows-x64`: exit 0, 0 warnings, 28/28, golden 15,803,218 replayed + 1,512,822 retired =
+  17,316,040, 0 failures; "import std: on (C++23, CMake 4.4.5, MSVC 19.51.36260.0)"; CMAKE_COMMAND
+  C:/Servers/Software/cmake/bin/cmake.exe.
+- windows-x64-debug: exit 0, 27/27, golden 0 failures. windows-x64-asan: exit 0, 27/27, golden 0 failures.
+  windows-x64-gcc: exit 0, 13/13.
+- linux-x64-gcc: exit 0, 25/25, golden 0 failures. linux-x64-clang (after the ImportStd fix, with --fresh): exit 0,
+  24/24, golden 0 failures (before it: exit 1, the BMI's 5 errors and 3 warnings). linux-x64-gcc-debug and
+  linux-x64-clang-debug (hosted CI's Debug jobs): exit 0, 24/24 each, golden 0 failures.
+- `python -I tools/tidy_ci.py --worktree` (the new image): exit 0, 3 findings, 0 new, 0 bugprone-; `python -I
+  tools/banned_calls.py`: exit 0; clang-format with CLAUDE.md's command: exit 0.
+- `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` (PatellaTest.exe built by
+  4.4.5): exit 0, "every session matches its reference". No live client runs (compare_traffic): src/ is unchanged and
+  the client's compile and link flags come from the same presets; the build gates and the replay cover a change of
+  CMake.
+
+## #122: the SDL3 window and its event loop (Patella-Modern issue #122, M8)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-122, from main 2898a44). Plan section 7, M8, first step: SDL3
+as the pinned dependency, the client's main window and event loop on SDL3, the game timer in the loop. Input (#123),
+the display, clipboard, URLs and message boxes (#124), the socket (#125), the Vulkan surface (#126) and the MFC removal
+(#127) come after it.
+
+### SDL3, pinned (high)
+
+cmake/Sdl3.cmake, included by cmake/WindowsX64.cmake: SDL **3.4.18** (released October 2, 2026), the release archive
+SDL3-3.4.18.tar.gz by URL and SHA256 (9c75cf16...334a3, the digest GitHub publishes for the asset, checked against the
+download), built by FetchContent with SDL's own CMakeLists into build/<preset>/_deps, as cmake/Vulkan.cmake builds
+glslang. Nothing is installed on the system. Why 3.4.18: the newest 3.4 release with a month in the field (3.4.20 came
+out four days before this change); 3.4 is SDL's current stable series. Settings:
+
+- the static library only (SDL3-static), the client's static CRT (CMAKE_MSVC_RUNTIME_LIBRARY in the function that adds
+  it), no test library, tests, examples or install rules;
+- only the subsystems the client uses: video and events. Audio, camera, joystick, haptic, HIDAPI, sensor, power, GPU,
+  render, dialog, tray, OpenGL and OpenGL ES are off. Vulkan support stays on (#126 needs SDL_Vulkan_CreateSurface);
+- SDL's /W3 replaced by /W0 on its target (third-party code: build.py fails a build on any warning; a /W0 in
+  CMAKE_C_FLAGS would print D9025 against SDL's /W3). The build log has no SDL warning;
+- the client targets link SDL3::SDL3-static; the compile-only targets (Patella_compile, PatellaTest_compile, the hosted
+  CI) and the header checks only SDL3::Headers, so they do not build the library;
+- plan section 5's `find_package` first: FetchContent's FIND_PACKAGE_ARGS (3.4.18 or newer, CONFIG) on platforms other
+  than Windows; on Windows always the pinned archive. No Linux preset includes the file yet: the Linux presets build
+  patella_core, the unit tests and the golden runner, none of which uses SDL3, so **the Linux image does not get
+  SDL3** in this change (patella_core does not depend on it).
+
+### The two paths: a run-time switch (high)
+
+`PATELLA_WINDOW` in the environment (platform/WindowChoice.h, read once, before main): `mfc` (any case) MFC's frame
+window and message loop, as before; `sdl`, unset or empty the SDL3 window, **the default**; any other value the SDL3
+window with a warning in the log. A run-time switch, not a build option: one build's Patella.exe and PatellaTest.exe
+run either way, so every comparison checks both paths from the same binaries (the tools pass the environment on:
+`PATELLA_WINDOW=mfc python -I tools/reference.py compare ...`), the MFC path is compiled and linked by every client
+build (the issue's "the MFC path still builds"), and #127 removes the switch with MFC. MFC stays linked on the SDL3
+path in any case: the sockets are MFC's CAsyncSocket until #125. The start-up log names the path (`[info] window:
+SDL3`).
+
+### What the SDL3 window does (high)
+
+src/SdlFrame.cpp (namespace patella::sdlframe; SdlFrame.h has no SDL header: the golden tests compile Player.cpp,
+which includes it, and stub its functions in client_stubs.cpp) stands for CMainFrame and CWinApp::Run, function for
+function, with the client calls in their order:
+
+- **Start** (Player.cpp InitInstance; its SDL3 branch InitSdlWindow takes the same steps after the command line): SDL's
+  hints, `SDL_RegisterApp(ClassName, CS_OWNDC | CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW)` (the class InitInstance registers
+  for the MFC frame, so CountTibiaWindows finds the window by its class, and Windows makes the double clicks the client
+  handles; the icon is resource 128 through SDL_HINT_WINDOWS_INTRESOURCE_ICON, the MFC path's class icon and
+  WM_SETICON), SDL_Init(VIDEO), then CMainFrame's constructor's steps (InitControl ...), SDL_CreateWindow hidden and
+  resizable (WS_OVERLAPPEDWINDOW's styles), OnCreate's steps (InitMainWindow with the client size, InitWindow with the
+  HWND, the placement from Patella.ini or the default 600x450 centred, the main timer, the size once more as
+  CreateWindowEx's WM_SIZE), the surfaces, the count of the Tibia windows and its boxes, the first Redraw, the window
+  shown (maximized if stored so), the first mouse position.
+- **SDL's hints**: its message pump off (below); **no DPI awareness** (`SDL_WINDOWS_DPI_AWARENESS=unaware`: SDL3 would
+  declare per-monitor awareness, and the original's process is not DPI aware: no manifest); no SDL mouse capture (the
+  client takes the capture itself); a fullscreen window not minimized on focus loss (the client leaves fullscreen
+  instead); Alt+F4 the client's key.
+- **The frame**: MFC's frame windows have WS_EX_CLIENTEDGE (CFrameWnd::PreCreateWindow), SDL's window has not. The SDL
+  window gets it (and SetDisplayMode takes it away with WS_EX_APPWINDOW for fullscreen and gives both back, as the
+  original's ModifyStyleEx). SDL3 reads the window's extended style when it computes the outer rectangle, so the same
+  Patella.ini gives the same outer rectangle and the same client area as the MFC frame. A first version computed the
+  edge into the stored numbers instead: the reference compare matched, but compare_files' placement check (#68) reads
+  the HWND's GetWindowPlacement, found the window 2 pixels inside Tibia.cfg's rectangle on each side and moved it, and
+  the client then stored [8, 8, 804, 604] for [10, 10, 800, 600] (build\logs\issue-122\compare_files-try1.log).
+- **Placement**: GetWindowRect is SDL's position and size plus SDL_GetWindowBordersSize (GetWindowRect against
+  GetClientRect, as AddFrameSize); MoveWindow the same backwards; GetWindowPlacement's normal rectangle is the last
+  rectangle seen while the window was neither maximized, minimized nor fullscreen, in workspace coordinates (minus the
+  primary display's work-area offset, as rcNormalPosition: with the taskbar at the top or the left the window moves by
+  it at each start, as Tibia.exe's does); SM_CXSCREEN is the primary display's bounds.
+- **Events through an event watch** (SDL_AddEventWatch): SDL calls it as it sends the event, inside its window
+  procedure, so the client sees a size change within the call that made it, as with MFC's WM_SIZE (SetDisplayMode's
+  Resize(0, 0) comes after the fullscreen size's Resize, as in the original). Resized and restored: OnSize (Resize,
+  the client area at least 550x450; SDL_SetWindowMinimumSize is OnGetMinMaxInfo). Focus gained or lost: OnActivateApp
+  (KeyFlags 0; leaving fullscreen is done after the message). Close requested: OnClose after the message
+  (CloseRequest, then DestroyWindow's and OnDestroy's steps: fullscreen left, the placement saved for Patella.ini, the
+  timer stopped, the cursors destroyed; the window destroyed, the frame's destructor's ExitControl, the loop ends,
+  ExitInstance). The display's mode changed: OnDisplayChange after the message. What would change the window from
+  inside SDL's window procedure is only noted there and done right after the message that caused it.
+- **The loop** (Run, CWinApp::Run's place): on Windows the thread's messages are pumped as MFC's PumpMessage did
+  (PeekMessageA, the test build's DropInput filter with a script, TranslateMessage, DispatchMessageA), each message
+  followed by what it noted, until the queue is empty; then SDL_PumpEvents (its own message loop off:
+  SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP=0) with its queue flushed (the watch has seen every event), the main timer, and
+  CPlayerApp::OnIdle with MFC's idle count. Why not SDL's own pump: it breaks off after a few new messages per call
+  (SDL_windowsevents.c WIN_PumpEvents), so the idle step could run between messages MFC dispatched together (the test
+  mode's replay socket and the MFC sockets post them), and it has no place for the test build's filter but a hook. The
+  order of messages, idle steps and ticks is MFC's; the reference compare's sessions match on it.
+- **The main timer in the loop** (platform/LoopTimer.h; TSdlLoopInput, platform/Win32Platform.h): IInput's StartTimer
+  arms a TLoopTimer (no SetTimer); the loop asks it once per pass with IClock::Milliseconds and calls TimerEvent when
+  100 ms have passed since the last tick: one tick at a time, none queued while the loop was held up, as WM_TIMER.
+  SetTimer's ticks came at the system timer's granularity (100 ms rounded up to 15.6 ms steps, about 109 ms); the
+  loop's at 100 ms (at the next pass). The test build with a script has no timer on either path (the driver dispatches
+  WM_TIMER 1, which the SDL window's subclass handles as OnTimer); without a script TTestInput passes the timer on to the
+  path's input (platform::WindowInput()). Patella.exe's Platform() gives WindowInput() (compiled with PATELLA_SDL3; the
+  golden runner, without it, keeps TWin32Input).
+
+### Win32 until its own issue (high)
+
+On the SDL3 path these stay Win32, each named in SdlFrame.cpp: the keys, buttons and wheel come as window messages
+through a subclass of the SDL window (SetWindowSubclass), whose handlers are MainFrm.cpp's (TranslateKey, KeyDown,
+KeyUp, OnChar, the button handlers with SetCapture/ReleaseCapture, OnCaptureChanged, OnMouseWheel, OnSetCursor,
+OnTimer; their Default() is DefWindowProc, the MFC frame's default, so SDL never sees them and makes no key or mouse
+events): #123 replaces them with SDL's events. This is also what keeps the test mode working unchanged: its driver
+dispatches the script's Win32 messages to the main window (TestModeWin32.cpp's MainWindow() names the SDL window's
+HWND), and the reference recordings' `post` lines are Win32 messages. Also Win32: the Windows cursors and SetCursor
+(#123), WM_USER + 1 of the host lookup (#125), ShellExecute for OpenURL (#124), the message boxes, the windows' count
+and the display modes (IWindow's Win32 implementation, #124), the Vulkan surface on the HWND (vkCreateWin32SurfaceKHR,
+#126), ExitProgram's posted WM_CLOSE (after the messages already queued, as MFC's), the client edge's extended style
+and the message pump (#127).
+
+The handlers are copies of MainFrm.cpp's, not calls: MainFrm.cpp is unchanged (the golden MainFrm test compares
+CMainFrame's handlers and layout against the original), and #123 and #127 replace both.
+
+### Behaviour changes of the SDL3 path (medium)
+
+None the gates see. Known, by construction: the timer's ticks at 100 ms instead of about 109 ms (above); the window
+class's small icon is resource 128 too (the MFC frame's class had none: Windows took it from the large one); the IME
+messages go to SDL's window procedure instead of DefWindowProc (#123's input); fullscreen is SDL's fullscreen-desktop
+window (borderless, the display's size; the original's a topmost popup of the screen's size), and compare_rendering's
+fullscreen scenes (they need a 1024x768 desktop) were not run (#98's windowed set). The MFC path is unchanged.
+
+### The golden tests (high)
+
+No check changed. Player.cpp includes SdlFrame.h and platform/WindowChoice.h; the runner's stubs (client_stubs.cpp)
+stand in for the nine sdlframe functions and CWinThread::ExitInstance, which the shim (src/compat/mfc_shim.h) now
+declares (Player.cpp's Run calls it after the SDL3 loop, as CWinThread::Run does at WM_QUIT). MainFrm.cpp is not
+touched.
+
+### The image (high)
+
+Not compared: Patella.exe's default path changed (SDL3), so #109's function-by-function image comparison does not
+apply. The MFC path's code is MainFrm.cpp's, unchanged, and Player.cpp's branches.
+
+### Unit tests (high)
+
+tests_core's core_window_loop_test.cpp: TLoopTimer (nothing due before Start or after Stop, the tick once the interval
+has passed and the next one an interval after it was seen, no backlog after a late pass, the clock's wrap at 2^32, an
+interval of 0, a restart) and ParseWindowSystem / IsUnknownWindowSystem (PATELLA_WINDOW's values), on every preset.
+
+### Found, not done (medium)
+
+- compare_rendering against a compare_traffic recording made after #137 reported the look step as a problem on both
+  clients (the recording looks at the own field, the session north of it; all 26 scenes identical): #140 fixed the
+  tools, and the run on the merged head passes.
+- testmode_check's first walk (north) was lost in one of the two runs twice (before the merge and after it), each time
+  with Cipfried next to the field north of the player in the run's state dump just before the walk, and the player one
+  field south of the other run's end: #137's "Found, not done" (a creature on the walk's field blocks the step). The
+  reruns passed. The script's walk would need a field no creature reaches (the owner's world).
+- tests_vulkan crashed once ("quick device switches", SIGSEGV) in the first windows-x64 run, while tidy_ci ran next to
+  it; it passed alone right after and in every later run. It does not use SDL3 or any file of this change.
+
+### The gates (high)
+
+Logs in build\logs\issue-122 of the branch's worktree (merged\ for the head after the merge of main b24483a, #110 and
+#140); golden replayed main's frozen corpus read only (PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its
+manifest verified. Every golden run: 15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 compiler
+warnings on every preset, SDL3's build included.
+
+- On the merged head: `python -I tools/build.py windows-x64` exit 0, 28/28; windows-x64-debug exit 0, 27/27;
+  windows-x64-asan exit 0, 27/27, no ASan report; windows-x64-gcc exit 0, 13/13; linux-x64-gcc exit 0, 25/25;
+  linux-x64-clang (ASan, UBSan) exit 0, 24/24, no sanitizer report. Before the merge (9b5c3b0) the same, except
+  windows-x64 exit 8 at tests_vulkan's crash (above; its rerun 1/1).
+- Live, on the SDL3 path (the default): `python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches (the clients' logs say `window: SDL3`);
+  `python -I tools/compare_traffic.py --patella build/windows-x64/Release/Patella.exe` exit 0, no differences (the
+  merged head's first run, exit 1, stopped in Tibia.exe's helper login with no game connection while another agent's
+  test client was on the desktop; merged\compare_traffic-try1.log); `python -I tools/compare_files.py --patella ...`
+  exit 0, no differences, no window placement corrected (before the client edge was the window's: exit 1, the
+  WindowedMode difference above; on the merged head the first run stopped in Tibia.exe's live recording, still
+  connected 10 s after Ctrl+L, same desktop; merged\compare_files-try1.log); `python -I tools/testmode_check.py --exe
+  build/windows-x64/Release/PatellaTest.exe` exit 0 at the rerun (above); `python -I tools/compare_rendering.py
+  --engines vulkan,vulkan-cpu --modes windowed --no-repeat --recording build/traffic/result/orig-live.jsonl --patella
+  build/windows-x64/Release/Patella.exe` exit 0, "result: all scenes identical" (NVIDIA GeForce RTX 5080 and llvmpipe).
+- Live, on the MFC path: `PATELLA_WINDOW=mfc python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches (`window: MFC`).
+- `python -I tools/tidy_ci.py` exit 0 (9b5c3b0 and the merged head): 3 findings, the baseline's 3, 0 new.
+  `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.
+- Not run: #109's image comparison (the default path is SDL3 now); compare_rendering's fullscreen scenes (#98's set is
+  windowed).
+
 ## #111: the preferences and the GUI's logic into patella_core (Patella-Modern issue #111, M7's exit)
 
 Done by Claude Opus 5.5, November 7, 2026 (branch issue-111, from main b24483a). The other half of M7's exit (#110 was
@@ -15946,8 +16212,8 @@ ContextMenus.h, Control.h, DialogElements.h, DialogWindow.h, Dialogs.h, GUI.h, M
 graphics.h, and vulkan/DeviceSettings.h (the graphics device choice: free functions, no Vulkan header). The client's
 header checks still compile them with its settings.
 
-What is not in the library, the platform layer: MainFrm.cpp and Player.cpp (the MFC frame and application; #122's SDL3
-window replaces them), Surface.cpp (the engine selection: it makes the Vulkan engine's surface and tests the device),
+What is not in the library, the platform layer: SdlFrame.cpp (#122's SDL3 window and event loop, merged during this
+issue), MainFrm.cpp and Player.cpp (the MFC frame, PATELLA_WINDOW=mfc, and the application), Surface.cpp (the engine selection: it makes the Vulkan engine's surface and tests the device),
 platform/Win32Platform.cpp, src/vulkan (the engine, its device settings and choice) and the test mode's Windows files
 (src/testmode/*Win32.cpp). What the library's objects need of them, measured (`nm` of linux-x64-gcc's
 libpatella_core.a: the undefined symbols that no object of it defines, the C and C++ libraries left out;

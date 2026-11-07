@@ -184,6 +184,16 @@ replacing the platform layer (M8, with SDL3) is all it takes to run it on Linux.
 The test client used to replay a recorded server over real network ports, so two test runs at once would collide.
 The replay now runs inside the program, so many runs can happen side by side.
 
+## M8: one platform layer on SDL3 (in progress)
+
+**The game window now comes from SDL3 (#122).**
+The client's window and its main loop (the part that waits for events and keeps the game ticking) were built on
+Microsoft's MFC, a Windows-only framework from the 1990s. They now come from SDL3, a widely used cross-platform library,
+fixed to one exact version and built with the project. The window looks and behaves the same: same size and position
+from the settings file, same frame, same timing of events, and every recorded test session still plays back
+identically. *Why it matters:* this is the first step toward a Linux client. Keyboard and mouse handling still use
+the Windows path for now (next step), and the old MFC window can still be chosen for comparison until MFC is removed.
+
 ## M8 and M9, started early
 
 **Big-number maths fully unit-tested (#128).**

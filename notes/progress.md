@@ -652,6 +652,15 @@ because the golden window tests use them as seams (constructors redirected to th
 as the class, TContainerWindowBody::UpdateUpButton patched and inlined once `final`); TXTEA's destructor is
 `= default` (#34's case). Patella.exe's .text +0x4e0. Golden 17,316,040, 0 failures. notes/decisions.md, "#47".
 
+CMake 4.4.5 everywhere (Patella-Modern issue #141, branch issue-141, November 7, 2026; M7): the owner's decision, one
+CMake version. tools/build.py runs cmake, ctest and cpack on Windows from the portable C:\Servers\Software\cmake
+(Kitware's zip, SHA-256 checked; `--install-cmake <folder>` installs it, PATELLA_CMAKE_DIR names another folder) and
+refuses a missing one or another version; the Linux image has 4.4.5 (new tag
+patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5), hosted CI's Windows jobs install the same zip.
+Clang's std module under 4.4: the target loses the hardening's _FORTIFY_SOURCE item (4.4 de-duplicates the second
+-U of #121 away) and tests/unit gets -Wno-reserved-module-identifier (4.1 gave it its module target). Build folders
+from 4.1.2 need one --fresh. Golden 17,316,040, 0 failures. notes/decisions.md, "#141".
+
 compare_rendering's look step (Patella-Modern issue #140, branch issue-140, November 7, 2026; M7): compare_rendering.py
 replays compare_traffic.py's live recording but still scripted "look north", so a recording made since #137 replayed
 one client packet off. Its session now looks at the player's own field as compare_traffic's does, and both tools read
@@ -671,7 +680,7 @@ Golden 17,316,040, 0 failures; compare_rendering all 26 scenes identical. notes/
 The preferences and the GUI's logic into patella_core (Patella-Modern issue #111, branch issue-111, November 7, 2026;
 M7's exit): Preferences, Status, Talk, Help, Script, sysinc, graphics, Client (the bridge), GUI, the window and dialog
 files and Control.cpp are patella_core's (34 sources, 38,744 lines; was 16, 12,278; 70 core headers, was 56). The library
-is the whole client but the platform layer (MainFrm.cpp, Player.cpp, Surface.cpp, src/platform's Win32, src/vulkan, the
+is the whole client but the platform layer (SdlFrame.cpp, MainFrm.cpp, Player.cpp, Surface.cpp, src/platform's Win32, src/vulkan, the
 test mode's Windows files); it needs of them only platform::Platform(), GetSurface, SurfaceExitInstance and the graphics
 device choice (vulkan/DeviceSettings.h), which tests_core_link proves by linking TClient against stand-ins of those.
 INT_PTR is std::intptr_t there, Dialogs.h lost PATELLA_VULKAN's guard; 879 clang-tidy findings on the newly seen code
@@ -686,6 +695,14 @@ std::intptr_t there, WinSock's numbers are platform/Socket.h's, the login signat
 TCallback is types/Callback.h's; the image's clang-tidy findings on the newly seen code (296) are fixed or NOLINTed
 with reasons (the baseline stays at 3). The golden runner keeps its own copies (its fakes), so no stand-in file goes
 yet. Golden 17,316,040, 0 failures. notes/decisions.md, "#110".
+
+The SDL3 window and event loop (Patella-Modern issue #122, branch issue-122, November 7, 2026; M8): SDL 3.4.18 is
+pinned (cmake/Sdl3.cmake: release archive by URL and SHA256, built static with the client's CRT, video and events only).
+The Windows x64 client runs on src/SdlFrame.cpp by default: SDL_CreateWindow with the client's window class and MFC's
+client edge, placement, size, fullscreen, activation, close and display events through an event watch, the thread's
+messages pumped as MFC did, the 100 ms timer in the loop (platform/LoopTimer.h, TSdlLoopInput). PATELLA_WINDOW=mfc
+keeps the MFC frame (platform/WindowChoice.h, a run-time switch) until #127. Keys, buttons and wheel stay Win32 messages
+through a subclass until #123. The reference compare matches on both paths. notes/decisions.md, "#122".
 
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),

@@ -10,6 +10,7 @@
 #pragma once
 
 #include "common.h"
+#include "platform/LoopTimer.h"
 #include "platform/Platform.h"
 
 #include <cstdint>
@@ -77,6 +78,23 @@ public:
 	[[nodiscard]] bool IgnoreCaptureChange() override { return false; }
 };
 
+// The SDL3 window's input (issue #122; SdlFrame.cpp): the main timer is the loop's (TLoopTimer: SdlFrame.cpp's loop
+// asks TimerDue and calls TimerEvent, where the MFC frame got WM_TIMER from SetTimer); the cursor and the rest are
+// Win32's until SDL3's input (issue #123). The timer's Id is not kept: the client has one timer (1).
+class TSdlLoopInput final : public IInput {
+public:
+	bool CursorPosition(TPoint &Point) override;
+	void StartTimer(TWindowHandle Window, unsigned int Id, unsigned int Milliseconds) override;
+	void StopTimer(TWindowHandle Window, unsigned int Id) override;
+	void BeginIdle() override {}
+	[[nodiscard]] bool IgnoreCaptureChange() override { return false; }
+	// One tick of the main timer when it is due at Now (the platform clock's milliseconds).
+	[[nodiscard]] bool TimerDue(std::uint32_t Now) { return Timer.Due(Now); }
+
+private:
+	TLoopTimer Timer;
+};
+
 // MessageBoxA, EnumWindows (GetWindowTextA, GetClassNameA), EnumDisplaySettingsA.
 class TWin32Window final : public IWindow {
 public:
@@ -104,5 +122,10 @@ TWin32Socket &Win32Socket();
 TWin32Clipboard &Win32Clipboard();
 TWin32Input &Win32Input();
 TWin32Window &Win32Window();
+// Issue #122: the SDL3 window's input, and the input of the process's window path (platform/WindowChoice.h):
+// SdlLoopInput() on the SDL3 path, Win32Input() on MFC's. Patella.exe's Platform() gives it; the test build's TTestInput
+// passes its timer on to it without a script. The golden runner, built without PATELLA_SDL3, has Win32's only.
+TSdlLoopInput &SdlLoopInput();
+IInput &WindowInput();
 
 } // namespace patella::platform

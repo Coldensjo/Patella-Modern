@@ -696,6 +696,8 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Done in #113 for MSVC and GCC (cmake/ImportStd.cmake, tests_import_std), and in #121 for Clang (notes/decisions.md,
   "#121: linux-x64-clang on GCC 16's libstdc++"): the image's Clang 22 uses GCC 16's libstdc++, so every product
   preset builds `import std;`, and std::mdspan is std's on all of them (the stand-in is a test switch only).
+  Done in #141 (notes/decisions.md, "#141"): one CMake version everywhere, 4.4.5 (tools/build.py's pinned portable
+  CMake on Windows, local and hosted CI; the Linux image), so every build takes ImportStd.cmake's 4.4 path.
 - **Debug presets replay the corpus too:** done in #115 (notes/decisions.md, "#115: an empty function's code at
   every optimisation level"): the golden Communication test's check that ExitCommunication is empty accepts GCC's -O0
   frame, so linux-x64-gcc-debug and linux-x64-clang-debug replay the corpus with 0 failures.
@@ -746,6 +748,12 @@ One platform layer for both operating systems, with **SDL3** (D3) for the things
   directory, with case-insensitive lookup of the original names on Linux. Tibia.cfg's location stays next to
   the data by default (portable), with an XDG option on Linux (D4); since #45 that is Patella.ini's (D12), and
   Tibia.cfg is only read, once, for the import.
+
+Done in #122 (notes/decisions.md, "#122"): SDL 3.4.18 pinned (cmake/Sdl3.cmake, FetchContent with URL and SHA256, a
+static library; `find_package` first off Windows); the Windows x64 client runs on SDL3's window (src/SdlFrame.cpp:
+SDL_CreateWindow, its placement, size, fullscreen, activation and close events) and event loop, with the game timer in
+the loop (platform/LoopTimer.h), by default; `PATELLA_WINDOW=mfc` keeps the MFC frame and message loop until #127. The
+keys, buttons and wheel still reach it as Win32 messages (#123), so the test mode drives both paths unchanged.
 
 Exit: the Linux client logs into the test server and plays the scripted sessions; tier A green on Windows
 x64 and Linux x64 against the reference recordings; the Vulkan engine passes the reference frames on Linux

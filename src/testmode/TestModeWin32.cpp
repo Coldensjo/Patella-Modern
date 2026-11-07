@@ -106,6 +106,7 @@
 #include "compat/span.h"
 
 #include "MainFrm.h"
+#include "SdlFrame.h"
 #include "testmode/ClientStateWin32.h"
 #include "testmode/Clock.h"
 #include "testmode/DisplayModes.h"
@@ -118,6 +119,7 @@
 #include "testmode/StateDump.h"
 #include "platform/Platform.h"
 #include "platform/Win32Platform.h"
+#include "platform/WindowChoice.h"
 #include "types/File.h"
 #include "types/FixedString.h"
 
@@ -438,8 +440,11 @@ TState &State()
 	return *Instance;
 }
 
+// The main window: the SDL3 window's (issue #122) or the MFC frame's, on the process's window path.
 HWND MainWindow()
 {
+	if (patella::platform::UseSdlWindow())
+		return static_cast<HWND>(patella::sdlframe::Handle());
 	return MainFrame != nullptr ? MainFrame->m_hWnd : nullptr;
 }
 
@@ -885,7 +890,7 @@ void SetMainTimer(HWND Window, unsigned int Id, unsigned int Elapse)
 {
 	TState &Current = State();
 	if (!Current.Scripted) {
-		patella::platform::Win32Input().StartTimer(Window, Id, Elapse);
+		patella::platform::WindowInput().StartTimer(Window, Id, Elapse); // issue #122: the SDL3 loop's, or SetTimer
 		return;
 	}
 	WriteLog(Current, "testmode: the main timer's ticks come from the driver");
@@ -1283,10 +1288,10 @@ public:
 	{
 		SetMainTimer(static_cast<HWND>(Window), Id, Milliseconds);
 	}
-	// KillTimer, with a script too (of a timer never set: nothing), as before #119.
+	// KillTimer, with a script too (of a timer never set: nothing), as before #119; issue #122: the window path's.
 	void StopTimer(patella::platform::TWindowHandle Window, unsigned int Id) override
 	{
-		patella::platform::Win32Input().StopTimer(Window, Id);
+		patella::platform::WindowInput().StopTimer(Window, Id);
 	}
 	void BeginIdle() override { Idle(); }
 	// Issue #52: with a script every WM_CAPTURECHANGED is the desktop's (above).

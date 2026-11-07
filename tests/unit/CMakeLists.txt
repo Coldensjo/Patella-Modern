@@ -163,6 +163,8 @@ add_executable(tests_core
 	core_automap_layer_test.cpp)
 # Issue #119: the platform interfaces of part 2 (the memory clipboard, the interfaces' value types).
 target_sources(tests_core PRIVATE core_platform_input_test.cpp)
+# Issue #122: the SDL3 window's loop timer and the choice of the window path.
+target_sources(tests_core PRIVATE core_window_loop_test.cpp)
 target_link_libraries(tests_core PRIVATE patella_core doctest::doctest)
 patella_target_language(tests_core)
 patella_target_warnings(tests_core)

@@ -32,8 +32,8 @@
 #	ConsoleWindow.cpp, MapWindow.cpp, MainWindow.cpp, Control.cpp
 #	                      the GUI's logic, the windows and the dialogs, and the main loop's control (issue #111)
 #
-# Since issue #111 (plan M7's exit) the library is everything but the platform layer: MainFrm.cpp and Player.cpp (the
-# MFC frame and application), Surface.cpp (the engine selection, which makes the Vulkan engine's surface),
+# Since issue #111 (plan M7's exit) the library is everything but the platform layer: SdlFrame.cpp (the SDL3 window
+# and event loop, issue #122), MainFrm.cpp and Player.cpp (the MFC frame and the application), Surface.cpp (the engine selection, which makes the Vulkan engine's surface),
 # platform/Win32Platform.cpp, src/vulkan and the test mode's Windows files. Drawing goes through TSurface (platform/
 # Surface.h); the library's objects call the platform through platform::Platform(), GetSurface and
 # SurfaceExitInstance (Surface.h), and the graphics device choice of vulkan/DeviceSettings.h and DeviceChoice.h

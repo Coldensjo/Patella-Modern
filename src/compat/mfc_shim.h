@@ -91,6 +91,7 @@ public:
 	virtual BOOL InitInstance();
 	virtual int Run();
 	virtual BOOL OnIdle(LONG lCount);
+	virtual int ExitInstance(); // issue #122: the SDL3 loop's end (Player.cpp Run)
 
 	CWnd *m_pMainWnd;
 };

@@ -73,6 +73,8 @@ list(APPEND PATELLA_HEADERS_CORE types/Regexp.h)
 list(APPEND PATELLA_HEADERS_CORE platform/Clipboard.h platform/Input.h platform/Window.h)
 # Issue #138: TSurface, the platform's drawing surface (portable; the engines implement it).
 list(APPEND PATELLA_HEADERS_CORE platform/Surface.h)
+# Issue #122: the SDL3 window's loop timer and the choice of the window path (portable).
+list(APPEND PATELLA_HEADERS_CORE platform/LoopTimer.h platform/WindowChoice.h)
 # The C++26 features behind feature-test macros (issue #9): tests/unit, real or stand-ins.
 set(PATELLA_HEADERS_CXX26
 	compat/cxx26.h)
@@ -146,6 +148,8 @@ set(patella_headers_core_110
 	sysinc.h)
 list(REMOVE_ITEM PATELLA_HEADERS_CLIENT ${patella_headers_core_110})
 list(APPEND PATELLA_HEADERS_CORE ${patella_headers_core_110} types/Callback.h)
+# Issue #122: the SDL3 window and its loop (no SDL header in it; the golden tests compile Player.cpp, which includes it).
+list(APPEND PATELLA_HEADERS_CLIENT SdlFrame.h)
 # The x64 client's Vulkan engine (patella_render_vulkan and TSurfaceVulkan, cmake/Vulkan.cmake).
 set(PATELLA_HEADERS_VULKAN_CLIENT
 	vulkan/DeviceSettings.h
