@@ -376,6 +376,15 @@ struct TIgnoreEntry {
 	{
 		TStringBuffer(reinterpret_cast<char *>(this), sizeof(TIgnoreEntry)).Assign(Text);
 	}
+	// The name as a C string, at most its 30 characters (issue #86, a deliberate difference): one of 30 has no NUL
+	// of its own (its 31st byte is Permanent), and Tibia.exe read on past it, so with Permanent set the rebuilt
+	// list's line had the byte 1 and the next entry's name after it.
+	[[nodiscard]] TFixedString<31> NameText() const noexcept
+	{
+		TFixedString<31> Text;
+		Text.Assign(Name.View());
+		return Text;
+	}
 
 	TFixedString<30> Name; // +0x00
 	bool Permanent;        // +0x1e

@@ -581,6 +581,16 @@ case's number, operands and result in the message) against tests/unit/core_vlong
 case from Python's exact integers (core_expected.py --vlong-cases); a test of the unpadded RSA's properties. vlong
 needed no change on any preset. The protocol's raw RSA without padding is documented (notes/decisions.md, "#128")
 and commented at Communication.cpp's two Encrypt calls. Golden 17,316,040, 0 failures.
+
+The original's reads past their data, bounded (Patella-Modern issues #72 and #86, branch issue-72, November 7, 2026;
+M7; the owner's decision of November 7, deliberate differences): PrepareNextPacket drops a frame whose inner length
+runs past it (or of size 0) and throws "packet length exceeds the received data", as a read past a packet's end
+throws; TIgnoreEntry::NameText and TBuddy::DescriptionText read at most 30 and 128 characters (the ignore list's
+rebuilt lines, GetBuddyDescription, Patella.ini, WriteTibiaCfg). PATELLA_IN_DEFINITION_ORDER and golden_linux's
+-fno-toplevel-reorder gone. The golden runner's deliberate parts (golden::BeginDeliberate): #72's 280 parts, 37,052
+of the Network test's checks, 14,165 differing, counted as #72's; #86 affects no golden check. Golden 17,316,040, 0
+failures. bounded_reads (ASan poisons the bytes after the data; the original's reads give 5 ASan reports).
+notes/decisions.md, "#72 and #86".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

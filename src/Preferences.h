@@ -50,6 +50,15 @@ struct TBuddy {
 		TStringBuffer(reinterpret_cast<char *>(this) + offsetof(TBuddy, Description), sizeof(TBuddy) - offsetof(TBuddy, Description))
 			.Assign(Text);
 	}
+	// The description as a C string, at most its 128 characters (issue #86, a deliberate difference): one of 128
+	// has no NUL of its own (its 129th byte is Notify), and Tibia.exe's readers read on past it (with Notify set,
+	// into the padding and the next entry).
+	[[nodiscard]] TFixedString<BUDDYDESCRIPTION_LENGTH + 1> DescriptionText() const noexcept
+	{
+		TFixedString<BUDDYDESCRIPTION_LENGTH + 1> Text;
+		Text.Assign(Description.View());
+		return Text;
+	}
 
 	int CharacterID;
 	int Icon;
@@ -236,6 +245,8 @@ private:
 	TIndexedVector<int> KnownHints{0, 9, 10};                    // 0x71c430, initialiser at 0x55a0d0
 
 	patella::platform::IFileSystem &FileSystem;
+	// Not the original's: GetBuddyDescription's text, the entry's description with a NUL (issue #86).
+	TFixedString<BUDDYDESCRIPTION_LENGTH + 1> BuddyDescription{};
 
 	// The arrays std::arrays (issue #60).
 	static_assert(sizeof(SkillBars) == SKILLS && sizeof(BuddySortmethods) == 3 * sizeof(int)

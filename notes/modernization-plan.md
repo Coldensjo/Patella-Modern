@@ -661,6 +661,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Done in #114 (notes/decisions.md, "#114: reflection for the state dump and the serialisers"): evaluated, adopt later.
   GCC 16.2's reflection gives the same bytes and works reliably, but with the fallback MSVC and Clang need it saves no
   code. Revisit when MSVC and upstream Clang ship P2996; the experiment is tests/reflection/state_dump_reflection.cpp.
+- **The original's reads past their data** (the owner's decision of November 7, 2026: bounded now, as deliberate
+  differences): done in #72 (with #86; notes/decisions.md, "#72 and #86"): a frame whose inner length runs past it is
+  dropped and throws; the 30-character ignore names and 128-character buddy descriptions are read as those characters
+  only; the golden runner's deliberate parts count #72's 37,052 Network checks apart.
 - **Modules:** `import std;` in new code once all three compilers support it under CMake. The client's own
   headers become named modules after MFC is gone (M8): one module per subsystem, partitions per original
   file.
