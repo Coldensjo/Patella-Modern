@@ -14262,3 +14262,24 @@ TPlayerState::GetPlayerID.
 - TCreature's step parameter and Creatures.cpp's Preferences calls (above).
 - SkinProperties: with Skins.cpp into TGraphics (#116, settled).
 - The remaining module cycles: {MainFrm, Player} (#109's platform layer), {Surface, graphics} (TGraphics).
+
+### The gates (high)
+
+Logs in build\logs\issue-118 of the branch's worktree; golden replayed main's frozen corpus read only
+(PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run: 15,803,218 replayed
++ 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset.
+
+- On 5d384f5 (with #101 merged): `python -I tools/build.py windows-x64` exit 0, 19/19 (golden_concurrent the same);
+  windows-x64-debug exit 0, 18/18; windows-x64-asan exit 0, 18/18, no ASan report; windows-x64-gcc exit 0, 12/12;
+  linux-x64-gcc exit 0, 16/16; linux-x64-clang (ASan, UBSan) exit 0, 14/14, no sanitizer report (logs
+  `<preset>-5d384f5.log`).
+- On 0d73856 (with #120 merged too: notes, src/testmode and build lists, none of this branch's files):
+  windows-x64 exit 0, 19/19. Live: `python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches; `python -I tools/compare_traffic.py` exit 0,
+  no differences; `python -I tools/compare_files.py` exit 0, no differences (run because the automap files' messages
+  go through TMapConsole now).
+- `python -I tools/tidy_ci.py` exit 0, 3 findings, the baseline's 3, 0 new (its first run, on cd642ff, stopped at the
+  image build, docker's empty image id; the rerun passed). `python -I tools/banned_calls.py` exit 0. clang-format
+  (CLAUDE.md's command) exit 0.
+- An early windows-x64 run (before the Control test's redirect of TGUI::ChangeEngine) failed golden with the runner's
+  stub GetDeviceChoice: fixed in the test's call, not a behaviour change.
