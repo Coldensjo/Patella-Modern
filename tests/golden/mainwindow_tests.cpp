@@ -345,7 +345,7 @@ static TWindow *NewSubWindow(int Identifier)
 			abort(); // (the original's side: the oracle only)
 		}
 		Register(Window, "CW", Identifier);
-		Window->SetSize(SkinProperties.Data184, Height);
+		Window->SetSize(SkinProperties().Data184, Height);
 		Logf("NCW%s;", NameOf(Side, Window).c_str());
 		return Window;
 	}
@@ -359,7 +359,7 @@ static TWindow *NewSubWindow(int Identifier)
 		abort(); // (the original's side: the oracle only)
 	}
 	Register(Window, "Sub", Identifier);
-	Window->SetSize(SkinProperties.Data184, Height);
+	Window->SetSize(SkinProperties().Data184, Height);
 	Logf("NSub%s;", NameOf(Side, Window).c_str());
 	return Window;
 }
@@ -1058,29 +1058,29 @@ static TContentWindow *Find(int s, TDialogWindow *Dialog, int Identifier)
 
 static void RandomSkinProperties()
 {
-	int Width = 150 + Random() % 60, Splitter = Skins[9].height + Random() % 6, Border = Random() % 12;
-	SkinProperties.Data184 = Width;
-	SkinProperties.Data138 = Splitter;
-	SkinProperties.Data134 = Border;
-	SkinProperties.Style0D8.Data00 = 60 + Random() % 60;
-	SkinProperties.Style0D8.Data04 = 100 + Random() % 80;
+	int Width = 150 + Random() % 60, Splitter = Skins()[9].height + Random() % 6, Border = Random() % 12;
+	SkinProperties().Data184 = Width;
+	SkinProperties().Data138 = Splitter;
+	SkinProperties().Data134 = Border;
+	SkinProperties().Style0D8.Data00 = 60 + Random() % 60;
+	SkinProperties().Style0D8.Data04 = 100 + Random() % 80;
 	int x = (int)(Random() % 120) - 60, y = (int)(Random() % 400) - 300;
-	SkinProperties.Style0D8.Data08.x = x;
-	SkinProperties.Style0D8.Data08.y = y;
-	TGUIPoint *Ours = &SkinProperties.Style0D8.Data10;
+	SkinProperties().Style0D8.Data08.x = x;
+	SkinProperties().Style0D8.Data08.y = y;
+	TGUIPoint *Ours = &SkinProperties().Style0D8.Data10;
 	for (int i = 0; i < 5; i++) {
 		Ours[i].x = Random() % 20;
 		Ours[i].y = Random() % 140;
 	}
-	SkinProperties.Style194.Data38.FontNumber = Random() % 5;
+	SkinProperties().Style194.Data38.FontNumber = Random() % 5;
 	// TRGBColor(Random() % 256, Random() % 256, 7) and TRGBColor(Random() % 256, 3, Random() % 256) with their
 	// calls in the x86 oracle's order (issue #55: the constructor's arguments right to left).
 	int G = (int)(Random() % 256);
 	int R = (int)(Random() % 256);
-	SkinProperties.Style194.Data38.Color = TRGBColor(R, G, 7);
+	SkinProperties().Style194.Data38.Color = TRGBColor(R, G, 7);
 	int B = (int)(Random() % 256);
 	R = (int)(Random() % 256);
-	SkinProperties.Style194.Data80 = TRGBColor(R, 3, B);
+	SkinProperties().Style194.Data80 = TRGBColor(R, 3, B);
 }
 
 static void RandomWorld()
@@ -1664,7 +1664,7 @@ void TestMainWindow()
 	Running = true;
 	ORIGINAL(PatchImage());
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
+	ORIGINAL(Global<int>(0x71c450) = patella::bridge::Skins().NumberOfSkins; Global<TSkin *>(0x71c454) = Skins().get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	TTalkBuffer *SavedBuffer = patella::bridge::Talk().DefaultTextBuffer;

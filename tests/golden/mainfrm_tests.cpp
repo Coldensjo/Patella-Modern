@@ -1028,7 +1028,7 @@ void RandomWorld()
 		World[s].MouseY = y;
 		World[s].ConnectionState = State;
 	}
-	curEngine = Engine;
+	patella::bridge::GraphicsEngine().curEngine = Engine;
 	ORIGINAL(Global<int>(0x71d0c4) = Engine);
 }
 
@@ -1618,7 +1618,7 @@ void TestMainFrm()
 	}
 	ORIGINAL(Redirect((void *)(uintptr_t)0x448c50, (void *)FakeInitWindow));
 	Redirect((void *)InitWindow, (void *)FakeOurInitWindow);
-	int SavedEngine = curEngine;
+	int SavedEngine = patella::bridge::GraphicsEngine().curEngine;
 	ORIGINAL(int SavedImageEngine = Global<int>(0x71d0c4));
 
 	int Before = Checks;
@@ -1636,7 +1636,7 @@ void TestMainFrm()
 	printf("MainFrm: %d checks\n", Checks - Before);
 	TestMainFrmErrors();
 	ResetStatics();
-	curEngine = SavedEngine;
+	patella::bridge::GraphicsEngine().curEngine = SavedEngine;
 	ORIGINAL(Global<int>(0x71d0c4) = SavedImageEngine);
 	RestoreAll();
 	SetRandomSeed(SavedSeed);

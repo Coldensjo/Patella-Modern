@@ -92,14 +92,14 @@ class TDialog : public TWindow {
 public:
 	TDialog(const char *_Caption, TComponent *_Dialog); // 0x47c970, lines 650-677
 	// The destructor is the implicit one (deleting destructor 0x4adc40, folded).
-	int getMinimumWidth() override { return SkinProperties.StyleB08.Data00; }  // +0x3c, 0x47cf50
-	int getMinimumHeight() override { return SkinProperties.StyleB08.Data04; } // +0x40, 0x47cf60
-	void Arrange() override;                                                   // +0x48, 0x46cd20, line 812
-	bool MouseMove(int x, int y) override;                                     // +0x4c, 0x46d410, line 848
-	bool LeftButtonDown(int x, int y, int Flags) override;                     // +0x50, 0x46d660, line 867
-	bool LeftButtonUp(int x, int y, int Flags) override;                       // +0x54, 0x46d830, line 880
-	void KeyPress(int Key) override;                                           // +0x6c, 0x46d220, line 831
-	void HandleEvent(int Event) override;                                      // +0x70, 0x46d9f0, line 891
+	int getMinimumWidth() override { return SkinProperties().StyleB08.Data00; }  // +0x3c, 0x47cf50
+	int getMinimumHeight() override { return SkinProperties().StyleB08.Data04; } // +0x40, 0x47cf60
+	void Arrange() override;                                                     // +0x48, 0x46cd20, line 812
+	bool MouseMove(int x, int y) override;                                       // +0x4c, 0x46d410, line 848
+	bool LeftButtonDown(int x, int y, int Flags) override;                       // +0x50, 0x46d660, line 867
+	bool LeftButtonUp(int x, int y, int Flags) override;                         // +0x54, 0x46d830, line 880
+	void KeyPress(int Key) override;                                             // +0x6c, 0x46d220, line 831
+	void HandleEvent(int Event) override;                                        // +0x70, 0x46d9f0, line 891
 	// A NULL text removes the button. The OK button's callback NoCallback
 	// becomes (this, 1) for Return; the buttons themselves keep the callback
 	// given.
@@ -170,7 +170,7 @@ public:
 	TWaitLabel &operator=(const TWaitLabel &) = delete;
 	// Inline (out-of-line copy 0x46b8f0).
 	TWaitLabel(const char *Text, bool _CloseOnMessage, bool _ClearOnAbort)
-		: TLabel(SkinProperties.StyleB08.Data64, Text)
+		: TLabel(SkinProperties().StyleB08.Data64, Text)
 	{
 		ClearOnAbort = _ClearOnAbort;
 		Timer = nullptr;

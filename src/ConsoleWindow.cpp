@@ -156,7 +156,7 @@ void TTextWindow::Draw(int Surface, int x, int y)
 				SelectionWidth = GetTextPartWidth(Format->FontNumber, Format->LineText, Format->LineLength);
 			}
 			GetSurface()->FillRectangle(Surface, TRect(SelectionX, LineY, SelectionWidth, SelectionHeight),
-				SkinProperties.Style9E8.Data9C);
+				SkinProperties().Style9E8.Data9C);
 		}
 		PrintTextPart(Surface, LineX, LineY, Format->FontNumber, Format->Color, Format->LineText,
 			Format->LineLength, 0);
@@ -615,7 +615,7 @@ TConsole::TConsole()
 	DrawingListLength = 8;
 	DrawingList.reset(new TDrawing[8]);
 	TextWindow = new TTextWindow;
-	ScrollBar = new TScrollBar(TRect(0, 0, SkinProperties.Data878, SkinProperties.Data874), 0, 0, 0, 0, 1);
+	ScrollBar = new TScrollBar(TRect(0, 0, SkinProperties().Data878, SkinProperties().Data874), 0, 0, 0, 0, 1);
 	InsertChild(ScrollBar);
 	InsertChild(TextWindow);
 }
@@ -650,12 +650,12 @@ bool TConsole::MouseWheel(int x, int y, int Code)
 void TConsole::Arrange()
 {
 	const int WindowWidth = Width;
-	const int Top = Skins[175].height;
-	const int RightEdge = Skins[174].width;
-	const int LeftEdge = Skins[173].width;
-	ScrollBar->SetSize(ScrollBar->Width, Height - Skins[176].height - Top);
+	const int Top = Skins()[175].height;
+	const int RightEdge = Skins()[174].width;
+	const int LeftEdge = Skins()[173].width;
+	ScrollBar->SetSize(ScrollBar->Width, Height - Skins()[176].height - Top);
 	ScrollBar->SetPosition(WindowWidth - RightEdge - LeftEdge - ScrollBar->Width + LeftEdge, Top);
-	SetChildArea(TextWindow, SkinProperties.Style9E8.Data8C);
+	SetChildArea(TextWindow, SkinProperties().Style9E8.Data8C);
 	TWindow::Arrange();
 	const int Visible = TextWindow->getLastLineNumber() - TextWindow->getFirstLineNumber() - TextWindow->InvisibleLines;
 	const int Minimum = TextWindow->getFirstLineNumber() + Visible;
@@ -678,17 +678,17 @@ void TConsole::Arrange()
 	TextWindow->SetCurrentLineNumber(ScrollBar->Range->Value);
 
 	DrawingList[0] = TDrawing(169, 0, 0, 0, 0, 0, 0);
-	DrawingList[1] = TDrawing(175, Skins[169].width, 0, Width - Skins[170].width - Skins[169].width,
-		Skins[175].height, 0, 0);
-	DrawingList[2] = TDrawing(170, Width - Skins[170].width, 0, 0, 0, 0, 0);
-	DrawingList[3] = TDrawing(173, 0, Skins[169].height, Skins[173].width,
-		Height - Skins[171].height - Skins[169].height, 0, 0);
-	DrawingList[4] = TDrawing(174, Width - Skins[174].width, Skins[170].height, Skins[174].width,
-		Height - Skins[172].height - Skins[170].height, 0, 0);
-	DrawingList[5] = TDrawing(171, 0, Height - Skins[171].height, 0, 0, 0, 0);
-	DrawingList[6] = TDrawing(176, Skins[171].width, Height - Skins[176].height,
-		Width - Skins[172].width - Skins[171].width, Skins[176].height, 0, 0);
-	DrawingList[7] = TDrawing(172, Width - Skins[172].width, Height - Skins[172].height, 0, 0, 0, 0);
+	DrawingList[1] = TDrawing(175, Skins()[169].width, 0, Width - Skins()[170].width - Skins()[169].width,
+		Skins()[175].height, 0, 0);
+	DrawingList[2] = TDrawing(170, Width - Skins()[170].width, 0, 0, 0, 0, 0);
+	DrawingList[3] = TDrawing(173, 0, Skins()[169].height, Skins()[173].width,
+		Height - Skins()[171].height - Skins()[169].height, 0, 0);
+	DrawingList[4] = TDrawing(174, Width - Skins()[174].width, Skins()[170].height, Skins()[174].width,
+		Height - Skins()[172].height - Skins()[170].height, 0, 0);
+	DrawingList[5] = TDrawing(171, 0, Height - Skins()[171].height, 0, 0, 0, 0);
+	DrawingList[6] = TDrawing(176, Skins()[171].width, Height - Skins()[176].height,
+		Width - Skins()[172].width - Skins()[171].width, Skins()[176].height, 0, 0);
+	DrawingList[7] = TDrawing(172, Width - Skins()[172].width, Height - Skins()[172].height, 0, 0, 0, 0);
 }
 
 // --- TTab ------------------------------------------------------------------------------------
@@ -715,11 +715,11 @@ TTab::TTab(const char *_Caption, TTalkBuffer *_TextBuffer, TCallback _Callback)
 	TStringBuffer(FullCaption.get(), Size).Assign(Caption.get());
 	Callback = _Callback;
 	Shortened = false;
-	const int Length = GetFittingTextLength(SkinProperties.StyleAA4.Data14.FontNumber, Caption.get(),
-		SkinProperties.StyleAA4.Data00 - SkinProperties.StyleAA4.Data10 * 2);
+	const int Length = GetFittingTextLength(SkinProperties().StyleAA4.Data14.FontNumber, Caption.get(),
+		SkinProperties().StyleAA4.Data00 - SkinProperties().StyleAA4.Data10 * 2);
 	if (ShortenString(Caption.get(), Length))
 		Shortened = true;
-	SetSize(SkinProperties.StyleAA4.Data00, SkinProperties.StyleAA4.Data04);
+	SetSize(SkinProperties().StyleAA4.Data00, SkinProperties().StyleAA4.Data04);
 }
 
 // 0x41acd0, lines 849-866: the destructor frees the captions; the rest of its
@@ -854,14 +854,14 @@ void TTab::Draw(int Surface, int x, int y)
 	DrawSkin(Surface, x, y, Width, Height, 187 - (Active ? 1 : 0), 0, 0);
 	const TFont *Font;
 	if (Active)
-		Font = &SkinProperties.StyleAA4.Data14;
+		Font = &SkinProperties().StyleAA4.Data14;
 	else if (Unread && BlinkEnd == 0)
-		Font = &SkinProperties.StyleAA4.Data3C;
+		Font = &SkinProperties().StyleAA4.Data3C;
 	else if (Unread && BlinkEnd != 0)
-		Font = &SkinProperties.StyleAA4.Data50;
+		Font = &SkinProperties().StyleAA4.Data50;
 	else
-		Font = &SkinProperties.StyleAA4.Data28;
-	PrintFormattedText(Surface, SkinProperties.StyleAA4.Data08.x + x, SkinProperties.StyleAA4.Data08.y + y, *Font,
+		Font = &SkinProperties().StyleAA4.Data28;
+	PrintFormattedText(Surface, SkinProperties().StyleAA4.Data08.x + x, SkinProperties().StyleAA4.Data08.y + y, *Font,
 		Caption.get());
 	if (BlinkEnd != 0 && BlinkEnd < GetActionNumber())
 		BlinkEnd = 0;
@@ -1290,21 +1290,21 @@ void TConsoleWindow::OnClose()
 void TConsoleWindow::SetSize(int Width, int Height)
 {
 	TComponent::SetSize(Width, Height);
-	SetChildArea(TabBar, SkinProperties.Style9E8.Data04);
-	SetChildArea(Input, SkinProperties.Style9E8.Data24);
-	SetChildArea(CurrentConsole, SkinProperties.Style9E8.Data44);
+	SetChildArea(TabBar, SkinProperties().Style9E8.Data04);
+	SetChildArea(Input, SkinProperties().Style9E8.Data24);
+	SetChildArea(CurrentConsole, SkinProperties().Style9E8.Data44);
 	if (IsChild(VolumeButton))
-		SetChildPosition(VolumeButton, SkinProperties.Style9E8.Data64.x, SkinProperties.Style9E8.Data64.y);
-	SetChildPosition(IgnoreButton, SkinProperties.Style9E8.Data7C.x, SkinProperties.Style9E8.Data7C.y);
-	SetChildPosition(NewChannelButton, SkinProperties.Style9E8.Data84.x, SkinProperties.Style9E8.Data84.y);
+		SetChildPosition(VolumeButton, SkinProperties().Style9E8.Data64.x, SkinProperties().Style9E8.Data64.y);
+	SetChildPosition(IgnoreButton, SkinProperties().Style9E8.Data7C.x, SkinProperties().Style9E8.Data7C.y);
+	SetChildPosition(NewChannelButton, SkinProperties().Style9E8.Data84.x, SkinProperties().Style9E8.Data84.y);
 	if (IsChild(CloseButton))
-		SetChildPosition(CloseButton, SkinProperties.Style9E8.Data6C.x, SkinProperties.Style9E8.Data6C.y);
+		SetChildPosition(CloseButton, SkinProperties().Style9E8.Data6C.x, SkinProperties().Style9E8.Data6C.y);
 	if (IsChild(ServerMessagesButton))
-		SetChildPosition(ServerMessagesButton, SkinProperties.Style9E8.Data74.x, SkinProperties.Style9E8.Data74.y);
+		SetChildPosition(ServerMessagesButton, SkinProperties().Style9E8.Data74.x, SkinProperties().Style9E8.Data74.y);
 	if (MoveRightButton != nullptr && IsChild(MoveRightButton))
-		SetChildPosition(MoveRightButton, SkinProperties.Style9E8.Data54.x, SkinProperties.Style9E8.Data54.y);
+		SetChildPosition(MoveRightButton, SkinProperties().Style9E8.Data54.x, SkinProperties().Style9E8.Data54.y);
 	if (MoveLeftButton != nullptr && IsChild(MoveLeftButton))
-		SetChildPosition(MoveLeftButton, SkinProperties.Style9E8.Data5C.x, SkinProperties.Style9E8.Data5C.y);
+		SetChildPosition(MoveLeftButton, SkinProperties().Style9E8.Data5C.x, SkinProperties().Style9E8.Data5C.y);
 	Arrange();
 }
 
@@ -1336,19 +1336,19 @@ void TConsoleWindow::Arrange()
 {
 	TWindow::Arrange();
 	DrawingList[0] = TDrawing(177, 0, 0, 0, 0, 0, 0);
-	DrawingList[1] = TDrawing(183, Skins[177].width, 0, Width - Skins[178].width - Skins[177].width,
-		Skins[183].height, 0, 0);
-	DrawingList[2] = TDrawing(178, Width - Skins[178].width, 0, 0, 0, 0, 0);
-	DrawingList[3] = TDrawing(181, 0, Skins[177].height, Skins[181].width,
-		Height - Skins[179].height - Skins[177].height, 0, 0);
-	DrawingList[4] = TDrawing(182, Width - Skins[182].width, Skins[178].height, Skins[182].width,
-		Height - Skins[180].height - Skins[178].height, 0, 0);
-	DrawingList[5] = TDrawing(179, 0, Height - Skins[179].height, 0, 0, 0, 0);
-	DrawingList[6] = TDrawing(184, Skins[179].width, Height - Skins[184].height,
-		Width - Skins[180].width - Skins[179].width, Skins[184].height, 0, 0);
-	DrawingList[7] = TDrawing(180, Width - Skins[180].width, Height - Skins[180].height, 0, 0, 0, 0);
-	DrawingList[8] = TDrawing(185, Skins[181].width, Skins[183].height, Width - Skins[182].width - Skins[181].width,
-		Height - Skins[184].height - Skins[183].height, 0, OffsetY % Skins[185].height);
+	DrawingList[1] = TDrawing(183, Skins()[177].width, 0, Width - Skins()[178].width - Skins()[177].width,
+		Skins()[183].height, 0, 0);
+	DrawingList[2] = TDrawing(178, Width - Skins()[178].width, 0, 0, 0, 0, 0);
+	DrawingList[3] = TDrawing(181, 0, Skins()[177].height, Skins()[181].width,
+		Height - Skins()[179].height - Skins()[177].height, 0, 0);
+	DrawingList[4] = TDrawing(182, Width - Skins()[182].width, Skins()[178].height, Skins()[182].width,
+		Height - Skins()[180].height - Skins()[178].height, 0, 0);
+	DrawingList[5] = TDrawing(179, 0, Height - Skins()[179].height, 0, 0, 0, 0);
+	DrawingList[6] = TDrawing(184, Skins()[179].width, Height - Skins()[184].height,
+		Width - Skins()[180].width - Skins()[179].width, Skins()[184].height, 0, 0);
+	DrawingList[7] = TDrawing(180, Width - Skins()[180].width, Height - Skins()[180].height, 0, 0, 0, 0);
+	DrawingList[8] = TDrawing(185, Skins()[181].width, Skins()[183].height, Width - Skins()[182].width - Skins()[181].width,
+		Height - Skins()[184].height - Skins()[183].height, 0, OffsetY % Skins()[185].height);
 }
 
 // 0x41e5e0, line 1659. A click clears both selections.
@@ -1596,26 +1596,26 @@ void TConsoleWindow::UpdateButtons()
 		RemoveChild(MoveRightButton);
 	if (!IsChild(MoveRightButton) && TabBar->LeftTabs->GetFirstChild() != nullptr) {
 		InsertChild(MoveRightButton);
-		SetChildPosition(MoveRightButton, SkinProperties.Style9E8.Data54.x, SkinProperties.Style9E8.Data54.y);
+		SetChildPosition(MoveRightButton, SkinProperties().Style9E8.Data54.x, SkinProperties().Style9E8.Data54.y);
 	}
 	if (IsChild(MoveLeftButton) && TabBar->RightTabs->GetFirstChild() == nullptr)
 		RemoveChild(MoveLeftButton);
 	if (!IsChild(MoveLeftButton) && TabBar->RightTabs->GetFirstChild() != nullptr) {
 		InsertChild(MoveLeftButton);
-		SetChildPosition(MoveLeftButton, SkinProperties.Style9E8.Data5C.x, SkinProperties.Style9E8.Data5C.y);
+		SetChildPosition(MoveLeftButton, SkinProperties().Style9E8.Data5C.x, SkinProperties().Style9E8.Data5C.y);
 	}
 	if (!TextBuffer->isDefault()) {
 		InsertChild(CloseButton);
-		SetChildPosition(CloseButton, SkinProperties.Style9E8.Data6C.x, SkinProperties.Style9E8.Data6C.y);
+		SetChildPosition(CloseButton, SkinProperties().Style9E8.Data6C.x, SkinProperties().Style9E8.Data6C.y);
 		InsertChild(ServerMessagesButton);
-		SetChildPosition(ServerMessagesButton, SkinProperties.Style9E8.Data74.x, SkinProperties.Style9E8.Data74.y);
+		SetChildPosition(ServerMessagesButton, SkinProperties().Style9E8.Data74.x, SkinProperties().Style9E8.Data74.y);
 		ServerMessagesButton->State = TextBuffer->ShowMessages;
 	}
-	TFont Font = SkinProperties.Style9E8.DataA8;
+	TFont Font = SkinProperties().Style9E8.DataA8;
 	if (TextBuffer->AcceptMessages()) {
 		InsertChild(VolumeButton);
-		SetChildPosition(VolumeButton, SkinProperties.Style9E8.Data64.x, SkinProperties.Style9E8.Data64.y);
-		Font = SkinProperties.Style944.Data24;
+		SetChildPosition(VolumeButton, SkinProperties().Style9E8.Data64.x, SkinProperties().Style9E8.Data64.y);
+		Font = SkinProperties().Style944.Data24;
 	}
 	Input->SetFont(Font);
 	Input->SetDisabled(!TextBuffer->CanWrite());

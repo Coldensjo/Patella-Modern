@@ -1973,11 +1973,11 @@ void TestMapWindow(const char *ExePath)
 	ORIGINAL(At<void(__cdecl *)(const char *)>(0x4d7380)(Dat.c_str()));
 	SortTypes();
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
+	ORIGINAL(Global<int>(0x71c450) = patella::bridge::Skins().NumberOfSkins; Global<TSkin *>(0x71c454) = Skins().get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
-	int SavedEngine = curEngine;
-	curEngine = 1;
+	int SavedEngine = patella::bridge::GraphicsEngine().curEngine;
+	patella::bridge::GraphicsEngine().curEngine = 1;
 	FakeSurface = GetSurface();
 	PatchWorld();
 	CHECK(GetEffectPhases(13) >= 4, "effect 13 has %d phases", GetEffectPhases(13));
@@ -2009,7 +2009,7 @@ void TestMapWindow(const char *ExePath)
 
 	ExitSkins();
 	ORIGINAL(Global<TSkin *>(0x71c454) = NULL);
-	curEngine = SavedEngine;
+	patella::bridge::GraphicsEngine().curEngine = SavedEngine;
 	ReleaseObjects();
 	ORIGINAL(At<void(__cdecl *)()>(0x4d70c0)());
 	int Least = Executed[0];

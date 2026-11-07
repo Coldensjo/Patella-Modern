@@ -11,7 +11,7 @@
 // SurfaceGL.cpp and surfaceDX9.cpp; GetSurface and SurfaceInitInstance have their own versions for it
 // below. The original's versions and the three engines left the fork with the 32-bit oracle (issue #94).
 #include "Surface.h"
-#include "graphics.h"
+#include "types/GraphicsTypes.h"
 #include "Preferences.h"
 #include "vulkan/DeviceSettings.h"
 #include "common.h"
@@ -19,47 +19,17 @@
 bool IsVulkanInstalled();
 TSurface *CreateSurfaceVulkan();
 
-// Data, in .data and .bss order. The shared data the engines use (Surface.h)
-// lies around this file's own; 0x71d0f8 and up are SurfaceDX.cpp's.
-int CommandLineEngine = -1;   // 0x5c2564, set by Player.cpp from "engine N"
-int CacheSurfaceWidth = 256;  // 0x5c2568
-int CacheSurfaceHeight = 256; // 0x5c256c
-int InitStep;                 // 0x71d0bc
-
-namespace {
-
-HWND SurfaceWindow; // 0x71d0c0, the main window, from SurfaceInitInstance
-
-} // namespace
-
-int curEngine; // 0x71d0c4
-
-namespace {
-
-uint8 AvailableEngines; // 0x71d0c8, bit 0 OpenGL works, bit 1 DirectX 9 passed TestEngine
-TSurface *Surface;      // 0x71d0cc
-
-} // namespace
-
-int BlitCount;        // 0x71d0d0
-int BlitPixels;       // 0x71d0d4
-int Data71D0D8;       // 0x71d0d8
-int ScreenWidth;      // 0x71d0dc
-int ScreenHeight;     // 0x71d0e0
-int ScreenDepth;      // 0x71d0e4
-int LastBlitCount;    // 0x71d0e8
-int LastBlitPixels;   // 0x71d0ec
-int NumberOfSurfaces; // 0x71d0f0
-int Data71D0F4;       // 0x71d0f4
+// Data: TGraphicsEngine's members since issue #116 (Surface.h), in the original's .data and .bss order. The shared
+// data the engines use lies around this file's own; 0x71d0f8 and up are SurfaceDX.cpp's.
 
 // 0x4eaa80. Was written to error.txt as "Graphic Engine"; no caller in the client since issue #74.
-int GetCurrentEngine()
+int patella::TGraphicsEngine::GetCurrentEngine() const
 {
 	return curEngine;
 }
 
 // The x64 client: curEngine is always 2, the Vulkan engine (SurfaceInitInstance).
-TSurface *GetSurface()
+TSurface *patella::TGraphicsEngine::GetSurface()
 {
 	if (curEngine == 2 && Surface == nullptr)
 		Surface = CreateSurfaceVulkan();
@@ -67,7 +37,7 @@ TSurface *GetSurface()
 }
 
 // 0x4eab60
-void SurfaceExitInstance()
+void patella::TGraphicsEngine::SurfaceExitInstance()
 {
 	if (Surface != nullptr)
 		delete Surface;
@@ -77,7 +47,7 @@ void SurfaceExitInstance()
 // 0x4eab80. The default test only takes the main window.
 bool TSurface::TestEngine()
 {
-	hWindow = SurfaceWindow;
+	hWindow = patella::bridge::GraphicsEngine().SurfaceWindow;
 	return true;
 }
 
@@ -100,10 +70,10 @@ void TSurface::SetColorKey(int Surface, TRGBColor ColorKey)
 TSurface::~TSurface() = default;
 
 // 0x4eabe0. A member (Dialogs.cpp calls it on GetSurface()) that reads only the
-// global.
+// global (TGraphicsEngine's since issue #116).
 uint8 TSurface::GetAvailableEngines()
 {
-	return AvailableEngines;
+	return patella::bridge::GraphicsEngine().AvailableEngines;
 }
 
 // 0x4eabf0
@@ -146,7 +116,7 @@ void TSurface::AttachWindow()
 // the original's on a machine with Direct3D 9 and OpenGL when the test passes. Without a Vulkan device
 // there is no engine to fall back to: curEngine stays 2 and the engine's InitSurfaces or CreateSurfaces
 // fails with PROGRAM_ERROR 12, as the original's Direct3D 9 device would.
-void SurfaceInitInstance(HWND *Window)
+void patella::TGraphicsEngine::SurfaceInitInstance(HWND *Window)
 {
 	SurfaceWindow = *Window;
 	curEngine = 2;
@@ -176,4 +146,26 @@ void SurfaceInitInstance(HWND *Window)
 		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
 	SetEngine(Engine);
+}
+
+// The original's free functions (issue #116): each calls its member on the one TClient's TGraphicsEngine. The other
+// files call them, and the golden tests fake GetSurface and SurfaceExitInstance by these symbols.
+int GetCurrentEngine()
+{
+	return patella::bridge::GraphicsEngine().GetCurrentEngine();
+}
+
+TSurface *GetSurface()
+{
+	return patella::bridge::GraphicsEngine().GetSurface();
+}
+
+void SurfaceExitInstance()
+{
+	patella::bridge::GraphicsEngine().SurfaceExitInstance();
+}
+
+void SurfaceInitInstance(HWND *Window)
+{
+	patella::bridge::GraphicsEngine().SurfaceInitInstance(Window);
 }

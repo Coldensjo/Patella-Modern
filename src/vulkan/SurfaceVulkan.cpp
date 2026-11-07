@@ -223,7 +223,7 @@ int TSurfaceVulkan::GetSurfaceMemory(int Surface)
 // The device goes before its window is retired (PresentWindow.h).
 TSurfaceVulkan::~TSurfaceVulkan()
 {
-	NumberOfSurfaces = 0;
+	patella::bridge::GraphicsEngine().NumberOfSurfaces = 0;
 	Renderer.reset();
 	PresentWindows.Retire();
 }
@@ -333,8 +333,8 @@ void TSurfaceVulkan::FillRectangle(int Surface, TRect Area, TRGBColor Color)
 		SetRenderTarget(Surface);
 		FlushVertices();
 		ColorFill(CurrentTarget, &R, Xrgb(Color.R, Color.G, Color.B));
-		BlitCount++;
-		BlitPixels += Area.height * Area.width;
+		patella::bridge::GraphicsEngine().BlitCount++;
+		patella::bridge::GraphicsEngine().BlitPixels += Area.height * Area.width;
 	}
 }
 
@@ -349,8 +349,8 @@ void TSurfaceVulkan::FillRectangleClipped(int Surface, TRect Area, TRGBColor Col
 			SetRenderTarget(Surface);
 			FlushVertices();
 			ColorFill(CurrentTarget, &R, Xrgb(Color.R, Color.G, Color.B));
-			BlitCount++;
-			BlitPixels += Pixels;
+			patella::bridge::GraphicsEngine().BlitCount++;
+			patella::bridge::GraphicsEngine().BlitPixels += Pixels;
 		}
 	}
 }
@@ -362,8 +362,8 @@ void TSurfaceVulkan::DrawHorizontalLine(int Surface, int x, int y, int Length, T
 		SetRenderTarget(Surface);
 		FlushVertices();
 		ColorFill(CurrentTarget, &R, Xrgb(Color.R, Color.G, Color.B));
-		BlitCount++;
-		BlitPixels += Length;
+		patella::bridge::GraphicsEngine().BlitCount++;
+		patella::bridge::GraphicsEngine().BlitPixels += Length;
 	}
 }
 
@@ -374,8 +374,8 @@ void TSurfaceVulkan::DrawVerticalLine(int Surface, int x, int y, int Length, TRG
 		SetRenderTarget(Surface);
 		FlushVertices();
 		ColorFill(CurrentTarget, &R, Xrgb(Color.R, Color.G, Color.B));
-		BlitCount++;
-		BlitPixels += Length;
+		patella::bridge::GraphicsEngine().BlitCount++;
+		patella::bridge::GraphicsEngine().BlitPixels += Length;
 	}
 }
 
@@ -461,13 +461,13 @@ void TSurfaceVulkan::FinishFrame()
 {
 	if (ViewMode != 0) {
 		WaitForNextFrame();
-		ScreenWidth = Rect[SCREEN_SURFACE].right;
-		ScreenHeight = Rect[SCREEN_SURFACE].bottom;
-		LastBlitPixels = BlitPixels;
-		LastBlitCount = BlitCount;
-		Data71D0D8 = 0;
-		BlitCount = 0;
-		BlitPixels = 0;
+		patella::bridge::GraphicsEngine().ScreenWidth = Rect[SCREEN_SURFACE].right;
+		patella::bridge::GraphicsEngine().ScreenHeight = Rect[SCREEN_SURFACE].bottom;
+		patella::bridge::GraphicsEngine().LastBlitPixels = patella::bridge::GraphicsEngine().BlitPixels;
+		patella::bridge::GraphicsEngine().LastBlitCount = patella::bridge::GraphicsEngine().BlitCount;
+		patella::bridge::GraphicsEngine().Data71D0D8 = 0;
+		patella::bridge::GraphicsEngine().BlitCount = 0;
+		patella::bridge::GraphicsEngine().BlitPixels = 0;
 		FlushVertices();
 		if (Renderer != nullptr && Image[SCREEN_SURFACE] >= 0) {
 			const int x = Rect[SCREEN_SURFACE].left;
@@ -499,8 +499,8 @@ void TSurfaceVulkan::FinishFrame()
 				Fail();
 			}
 		}
-		BlitCount++;
-		BlitPixels += (WindowRect.bottom - WindowRect.top) * (WindowRect.right - WindowRect.left);
+		patella::bridge::GraphicsEngine().BlitCount++;
+		patella::bridge::GraphicsEngine().BlitPixels += (WindowRect.bottom - WindowRect.top) * (WindowRect.right - WindowRect.left);
 	}
 }
 
@@ -735,8 +735,8 @@ void TSurfaceVulkan::StretchBlitRect(int ToSurface, TRect Destination, int FromS
 		(Source.x + 0.5) / Rect[FromSurface].right, (Source.x + Source.width + 0.5) / Rect[FromSurface].right,
 		(Source.y + 0.5) / Rect[FromSurface].bottom, (Source.y + Source.height + 0.5) / Rect[FromSurface].bottom,
 		0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff);
-	BlitCount++;
-	BlitPixels += Destination.height * Destination.width;
+	patella::bridge::GraphicsEngine().BlitCount++;
+	patella::bridge::GraphicsEngine().BlitPixels += Destination.height * Destination.width;
 }
 
 // BlitRectClipped: ScreenTexture (SCREEN_SURFACE) is always mapped as a whole.
@@ -761,8 +761,8 @@ void TSurfaceVulkan::BlitRectClipped(int ToSurface, int x, int y, int FromSurfac
 		}
 		AddQuad(To.left, To.top, To.right, To.bottom, Left_u, Right_u, Top_v, Bottom_v, 0xffffffff, 0xffffffff,
 			0xffffffff, 0xffffffff);
-		BlitCount++;
-		BlitPixels += FromRect.height * FromRect.width;
+		patella::bridge::GraphicsEngine().BlitCount++;
+		patella::bridge::GraphicsEngine().BlitPixels += FromRect.height * FromRect.width;
 	}
 }
 
@@ -777,8 +777,8 @@ void TSurfaceVulkan::InitSurfaces()
 	Initialized = false;
 	Renderer.reset();
 	PresentWindows.Retire();
-	CacheSurfaceWidth = 512;
-	CacheSurfaceHeight = 512;
+	patella::bridge::GraphicsEngine().CacheSurfaceWidth = 512;
+	patella::bridge::GraphicsEngine().CacheSurfaceHeight = 512;
 	CurrentTarget = -1;
 	for (int i = 0; i < NUMBER_OF_SURFACES_VULKAN; i++) {
 		Image[i] = -1;
@@ -792,8 +792,8 @@ void TSurfaceVulkan::InitSurfaces()
 	for (int i = SPRITE_SURFACE; i < NUMBER_OF_SURFACES_VULKAN; i++) {
 		Rect[i].left = 0;
 		Rect[i].top = 0;
-		Rect[i].right = CacheSurfaceWidth;
-		Rect[i].bottom = CacheSurfaceHeight;
+		Rect[i].right = patella::bridge::GraphicsEngine().CacheSurfaceWidth;
+		Rect[i].bottom = patella::bridge::GraphicsEngine().CacheSurfaceHeight;
 	}
 	Initialized = true;
 	CanStretch = true;
@@ -943,7 +943,7 @@ void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 // desktop, 12 without a Vulkan device.
 void TSurfaceVulkan::CreateSurfaces()
 {
-	NumberOfSurfaces = 0;
+	patella::bridge::GraphicsEngine().NumberOfSurfaces = 0;
 	// surfaceDX9.cpp: DirectDraw's GetDisplayMode, the desktop's depth (0 before InitSurfaces).
 	DEVMODEA Desktop;
 	memset(&Desktop, 0, sizeof(Desktop));
@@ -963,7 +963,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		Mode.dmBitsPerPel = Depth;
 		Mode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 		if (ChangeDisplaySettingsA(&Mode, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL) {
-			InitStep = 1;
+			patella::bridge::GraphicsEngine().InitStep = 1;
 			throw TProgramError{PROGRAM_ERROR::SURFACE};
 		}
 		DisplayModeSet = true;
@@ -998,32 +998,32 @@ void TSurfaceVulkan::CreateSurfaces()
 		Renderer->Fill(WhiteTexture, 0, 0, 1, 1, 0xffffffffu);
 
 		Image[PRIMARY_SURFACE] = Renderer->CreateImage(Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom);
-		SurfaceCreated[NumberOfSurfaces++] = 1;
+		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
 		if (Masked(Image[PRIMARY_SURFACE]))
 			Masks.Fill(Image[PRIMARY_SURFACE], 0, 0, Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom);
 		Renderer->Fill(Image[PRIMARY_SURFACE], 0, 0, Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom, 0xffff0000u);
 
 		ScreenTexture = Renderer->CreateImage(106, 106);
-		SurfaceCreated[NumberOfSurfaces++] = 1;
+		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
 
 		Image[TEMP_SURFACE] = Renderer->CreateImage(Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom);
-		SurfaceCreated[NumberOfSurfaces++] = 1;
+		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
 		Image[STRETCH_SURFACE] = Renderer->CreateImage(Rect[STRETCH_SURFACE].right, Rect[STRETCH_SURFACE].bottom);
-		SurfaceCreated[NumberOfSurfaces++] = 1;
+		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
 		Image[CACHE_SURFACE] = Renderer->CreateImage(Rect[CACHE_SURFACE].right, Rect[CACHE_SURFACE].bottom);
-		SurfaceCreated[NumberOfSurfaces++] = 1;
+		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
 		Image[AUTOMAP_SURFACE] = Renderer->CreateImage(Rect[AUTOMAP_SURFACE].right, Rect[AUTOMAP_SURFACE].bottom);
-		SurfaceCreated[NumberOfSurfaces++] = 1;
+		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
 		for (int i = 0; i < 16; i++) {
 			const int Surface = SPRITE_SURFACE + i;
 			Image[Surface] = Renderer->CreateImage(Rect[Surface].right, Rect[Surface].bottom);
-			SurfaceCreated[NumberOfSurfaces++] = 1;
+			SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
 			CacheSurfaces++;
 		}
 	} catch (const TVulkanError &) {
 		Renderer.reset();
 		PresentWindows.Retire();
-		InitStep = 1;
+		patella::bridge::GraphicsEngine().InitStep = 1;
 		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
 	// A new device draws into the back buffer and has no texture; the numbers above stay as they were

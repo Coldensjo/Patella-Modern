@@ -610,7 +610,7 @@ static bool CanDraw(int c, int x, int y)
 	return true;
 }
 
-static int FrameHeight() { return Skins[133].height + Skins[132].height; }
+static int FrameHeight() { return Skins()[133].height + Skins()[132].height; }
 
 static int SerialIdentifier = 0;
 static int NewIdentifier(int c)
@@ -678,7 +678,7 @@ static TSubWindow *MakeSub(int s, int Identifier, int MinHeight, bool Resizable,
 // expression is unspecified; x64 MSVC may take another).
 static void RandomSkinProperties()
 {
-	TSkinProperties &M = SkinProperties;
+	TSkinProperties &M = SkinProperties();
 	TSkinProperties &O = ORIGINAL_OR(Global<TSkinProperties>(0x5ccfc8), M); // the runner: ours twice
 	M.Data184 = O.Data184 = 140 + Random() % 80;
 	{
@@ -702,7 +702,7 @@ static void RandomSkinProperties()
 	A.Data28.height = B.Data28.height = 8 + Random() % 6;
 	// A minimized window is as high as its frame (as in the game): lower, Shrink
 	// fails its assertion; higher, it loops for ever, in both versions.
-	A.Data4C = B.Data4C = Skins[133].height + Skins[132].height;
+	A.Data4C = B.Data4C = Skins()[133].height + Skins()[132].height;
 	// The body needs a height of at least 1 in the 19-pixel frame.
 	{
 		int Height = -(int)(2 + Random() % 3), Width = -(int)(2 + Random() % 4), y = 13 + Random() % 3,
@@ -1381,7 +1381,7 @@ void TestDialogWindow()
 	int Before = Checks, BeforeFailures = Failures;
 	ORIGINAL(PatchImage());
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
+	ORIGINAL(Global<int>(0x71c450) = patella::bridge::Skins().NumberOfSkins; Global<TSkin *>(0x71c454) = Skins().get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	LastDump.clear();

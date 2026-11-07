@@ -300,22 +300,22 @@ void TestSkins()
 	int OriginalCount = 0;
 	InitSkins();
 	golden::Output("count", OriginalCount);
-	CHECK(NumberOfSkins == OriginalCount, "NumberOfSkins %d, original %d", NumberOfSkins, OriginalCount);
-	for (int i = 0; i < NumberOfSkins && i < OriginalCount; i++) {
+	CHECK(patella::bridge::Skins().NumberOfSkins == OriginalCount, "NumberOfSkins %d, original %d", patella::bridge::Skins().NumberOfSkins, OriginalCount);
+	for (int i = 0; i < patella::bridge::Skins().NumberOfSkins && i < OriginalCount; i++) {
 		if (i == 152)
 			continue; // left uninitialised by both
 		int Original[4] = {};
 		golden::Output("skin", Original);
 		Checks++;
-		if (Skins[i].x != Original[0] || Skins[i].y != Original[1] || Skins[i].width != Original[2]
-			|| Skins[i].height != Original[3]) {
+		if (Skins()[i].x != Original[0] || Skins()[i].y != Original[1] || Skins()[i].width != Original[2]
+			|| Skins()[i].height != Original[3]) {
 			Failures++;
-			printf("FAIL Skins[%d]: %d,%d,%d,%d original %d,%d,%d,%d\n", i, Skins[i].x, Skins[i].y,
-				Skins[i].width, Skins[i].height, Original[0], Original[1], Original[2], Original[3]);
+			printf("FAIL Skins[%d]: %d,%d,%d,%d original %d,%d,%d,%d\n", i, Skins()[i].x, Skins()[i].y,
+				Skins()[i].width, Skins()[i].height, Original[0], Original[1], Original[2], Original[3]);
 		}
 	}
 	uint8 OriginalFreed = 0;
 	ExitSkins();
 	golden::Output("freed", OriginalFreed);
-	CHECK(Skins == NULL && OriginalFreed != 0, "ExitSkins leaves a pointer");
+	CHECK(Skins() == NULL && OriginalFreed != 0, "ExitSkins leaves a pointer");
 }

@@ -78,10 +78,10 @@ THelpBubble::THelpBubble(const char *HelpText)
 	DrawingList.reset(new TDrawing[9]);
 	Text = new TFormattedText(HelpText);
 	InsertChild(Text);
-	SetSize(SkinProperties.Data158, SkinProperties.Data15C);
-	FitToChild(Text, SkinProperties.Data160, true);
+	SetSize(SkinProperties().Data158, SkinProperties().Data15C);
+	FitToChild(Text, SkinProperties().Data160, true);
 	Text->FitToChildren(TRect(0, 0, 0, 0), true);
-	FitToChild(Text, SkinProperties.Data160, true);
+	FitToChild(Text, SkinProperties().Data160, true);
 }
 
 // 0x43d730, line 142. The size is rounded up to Data174 modulo Data170 and
@@ -89,13 +89,13 @@ THelpBubble::THelpBubble(const char *HelpText)
 // when the minimum is above the maximum).
 void THelpBubble::SetSize(int Width, int Height)
 {
-	const int MaxWidth = SkinProperties.Data158;
-	if (Width % SkinProperties.Data170 != SkinProperties.Data174)
-		Width += SkinProperties.Data174 - Width % SkinProperties.Data170;
-	if (Height % SkinProperties.Data170 != SkinProperties.Data174)
-		Height += SkinProperties.Data174 - Height % SkinProperties.Data170;
+	const int MaxWidth = SkinProperties().Data158;
+	if (Width % SkinProperties().Data170 != SkinProperties().Data174)
+		Width += SkinProperties().Data174 - Width % SkinProperties().Data170;
+	if (Height % SkinProperties().Data170 != SkinProperties().Data174)
+		Height += SkinProperties().Data174 - Height % SkinProperties().Data170;
 	const int MinWidth = getMinimumWidth();
-	const int MaxHeight = SkinProperties.Data15C;
+	const int MaxHeight = SkinProperties().Data15C;
 	if (MaxWidth < MinWidth) {
 		if (Width < MaxWidth)
 			Width = MaxWidth;
@@ -120,7 +120,7 @@ void THelpBubble::SetSize(int Width, int Height)
 			Height = MaxHeight;
 	}
 	TWindow::SetSize(Width, Height);
-	SetChildArea(Text, SkinProperties.Data160);
+	SetChildArea(Text, SkinProperties().Data160);
 	Arrange();
 }
 
@@ -128,19 +128,19 @@ void THelpBubble::SetSize(int Width, int Height)
 void THelpBubble::Arrange()
 {
 	DrawingList[0] = TDrawing(52, 0, 0, 0, 0, 0, 0);
-	DrawingList[1] = TDrawing(58, Skins[52].width, 0, Width - Skins[53].width - Skins[52].width, Skins[58].height,
+	DrawingList[1] = TDrawing(58, Skins()[52].width, 0, Width - Skins()[53].width - Skins()[52].width, Skins()[58].height,
 		0, 0);
-	DrawingList[2] = TDrawing(53, Width - Skins[53].width, 0, 0, 0, 0, 0);
-	DrawingList[3] = TDrawing(56, 0, Skins[52].height, Skins[56].width, Height - Skins[54].height - Skins[52].height,
+	DrawingList[2] = TDrawing(53, Width - Skins()[53].width, 0, 0, 0, 0, 0);
+	DrawingList[3] = TDrawing(56, 0, Skins()[52].height, Skins()[56].width, Height - Skins()[54].height - Skins()[52].height,
 		0, 0);
-	DrawingList[4] = TDrawing(57, Width - Skins[57].width, Skins[53].height, Skins[57].width,
-		Height - Skins[55].height - Skins[53].height, 0, 0);
-	DrawingList[5] = TDrawing(54, 0, Height - Skins[54].height, 0, 0, 0, 0);
-	DrawingList[6] = TDrawing(59, Skins[54].width, Height - Skins[59].height,
-		Width - Skins[55].width - Skins[54].width, Skins[59].height, 0, 0);
-	DrawingList[7] = TDrawing(55, Width - Skins[55].width, Height - Skins[55].height, 0, 0, 0, 0);
-	DrawingList[8] = TDrawing(60, Skins[56].width, Skins[58].height, Width - Skins[57].width - Skins[56].width,
-		Height - Skins[59].height - Skins[58].height, 0, 0);
+	DrawingList[4] = TDrawing(57, Width - Skins()[57].width, Skins()[53].height, Skins()[57].width,
+		Height - Skins()[55].height - Skins()[53].height, 0, 0);
+	DrawingList[5] = TDrawing(54, 0, Height - Skins()[54].height, 0, 0, 0, 0);
+	DrawingList[6] = TDrawing(59, Skins()[54].width, Height - Skins()[59].height,
+		Width - Skins()[55].width - Skins()[54].width, Skins()[59].height, 0, 0);
+	DrawingList[7] = TDrawing(55, Width - Skins()[55].width, Height - Skins()[55].height, 0, 0, 0, 0);
+	DrawingList[8] = TDrawing(60, Skins()[56].width, Skins()[58].height, Width - Skins()[57].width - Skins()[56].width,
+		Height - Skins()[59].height - Skins()[58].height, 0, 0);
 }
 
 // 0x442110, lines 257-272. Tries eight places next to the help area (left
@@ -153,7 +153,7 @@ void THelpBubble::Arrange()
 // that path skips lines 267-268.
 void THelpBubble::Place(TWindow *Window)
 {
-	const int Margin = SkinProperties.Data178;
+	const int Margin = SkinProperties().Data178;
 	int HelpX, HelpY, HelpWidth, HelpHeight;
 	GetHelpArea(&HelpX, &HelpY, &HelpWidth, &HelpHeight);
 	int w = Width;
@@ -227,7 +227,7 @@ void THelpBubble::Place(TWindow *Window)
 // every edge of the window; a coordinate of 0 becomes the margin first.
 bool THelpBubble::FitsIn(int &x, int &y, int &Width, int &Height, TWindow *Window)
 {
-	const int Margin = SkinProperties.Data178;
+	const int Margin = SkinProperties().Data178;
 	if (x == 0)
 		x = Margin;
 	if (y == 0)
@@ -254,11 +254,11 @@ TContextMenuEntry::TContextMenuEntry(const char *_Text, const char *_Shortcut, T
 	else
 		CopyString(Shortcut.Chars, _Shortcut);
 	Callback = _Callback;
-	const int h = GetFontLineHeight(SkinProperties.Data0B0.FontNumber) + SkinProperties.Data0D4 * 2;
-	int w = GetTextWidth(SkinProperties.Data0B0.FontNumber, Text) + SkinProperties.Data0D4 * 2
-		+ SkinProperties.Data09C;
+	const int h = GetFontLineHeight(SkinProperties().Data0B0.FontNumber) + SkinProperties().Data0D4 * 2;
+	int w = GetTextWidth(SkinProperties().Data0B0.FontNumber, Text) + SkinProperties().Data0D4 * 2
+		+ SkinProperties().Data09C;
 	if (Shortcut[0] != 0)
-		w += GetTextWidth(SkinProperties.Data0B0.FontNumber, Shortcut);
+		w += GetTextWidth(SkinProperties().Data0B0.FontNumber, Shortcut);
 	SetSize(w, h);
 }
 
@@ -269,15 +269,15 @@ void TContextMenuEntry::Draw(int Surface, int x, int y)
 	if (In(GetMouseX() - x, 0, Width - 1) && In(GetMouseY() - y, 0, Height - 1)) {
 		GetSurface()->FillRectangle(Surface,
 			TRect(x, y, Width,
-				GetFontHeight(SkinProperties.Data0B0.FontNumber) + SkinProperties.Data0D4 * 2),
-			SkinProperties.Data0C8);
+				GetFontHeight(SkinProperties().Data0B0.FontNumber) + SkinProperties().Data0D4 * 2),
+			SkinProperties().Data0C8);
 	}
-	y += SkinProperties.Data0D4;
-	PrintText(Surface, x + SkinProperties.Data0D4, y, SkinProperties.Data0B0.FontNumber, SkinProperties.Data0B0.Color,
+	y += SkinProperties().Data0D4;
+	PrintText(Surface, x + SkinProperties().Data0D4, y, SkinProperties().Data0B0.FontNumber, SkinProperties().Data0B0.Color,
 		Text, LEFT_ALIGN);
 	if (Shortcut[0] != 0) {
-		PrintText(Surface, x + Width - SkinProperties.Data0D4 - 1, y, SkinProperties.Data0B0.FontNumber,
-			SkinProperties.Data0B0.Color, Shortcut, RIGHT_ALIGN);
+		PrintText(Surface, x + Width - SkinProperties().Data0D4 - 1, y, SkinProperties().Data0B0.FontNumber,
+			SkinProperties().Data0B0.Color, Shortcut, RIGHT_ALIGN);
 	}
 }
 
@@ -292,8 +292,8 @@ bool TContextMenuEntry::LeftButtonUp([[maybe_unused]] int x, [[maybe_unused]] in
 void TContextMenuEntry::SetLast()
 {
 	// The original's order: the left operand first (MSVC; GCC and Clang may differ, issue #91).
-	const int LineHeight = GetFontLineHeight(SkinProperties.Data0B0.FontNumber);
-	SetSize(Width, Height - (LineHeight - GetFontHeight(SkinProperties.Data0B0.FontNumber)));
+	const int LineHeight = GetFontLineHeight(SkinProperties().Data0B0.FontNumber);
+	SetSize(Width, Height - (LineHeight - GetFontHeight(SkinProperties().Data0B0.FontNumber)));
 }
 
 // --- TContextMenu --------------------------------------------------------------
@@ -312,19 +312,19 @@ TContextMenu::TContextMenu()
 void TContextMenu::Arrange()
 {
 	DrawingList[0] = TDrawing(208, 0, 0, 0, 0, 0, 0);
-	DrawingList[1] = TDrawing(214, Skins[208].width, 0, Width - Skins[209].width - Skins[208].width,
-		Skins[214].height, 0, 0);
-	DrawingList[2] = TDrawing(209, Width - Skins[209].width, 0, 0, 0, 0, 0);
-	DrawingList[3] = TDrawing(212, 0, Skins[208].height, Skins[212].width,
-		Height - Skins[210].height - Skins[208].height, 0, 0);
-	DrawingList[4] = TDrawing(213, Width - Skins[213].width, Skins[209].height, Skins[213].width,
-		Height - Skins[211].height - Skins[209].height, 0, 0);
-	DrawingList[5] = TDrawing(210, 0, Height - Skins[210].height, 0, 0, 0, 0);
-	DrawingList[6] = TDrawing(215, Skins[210].width, Height - Skins[215].height,
-		Width - Skins[211].width - Skins[210].width, Skins[215].height, 0, 0);
-	DrawingList[7] = TDrawing(211, Width - Skins[211].width, Height - Skins[211].height, 0, 0, 0, 0);
-	DrawingList[8] = TDrawing(207, Skins[212].width, Skins[214].height, Width - Skins[213].width - Skins[212].width,
-		Height - Skins[215].height - Skins[214].height, 0, 0);
+	DrawingList[1] = TDrawing(214, Skins()[208].width, 0, Width - Skins()[209].width - Skins()[208].width,
+		Skins()[214].height, 0, 0);
+	DrawingList[2] = TDrawing(209, Width - Skins()[209].width, 0, 0, 0, 0, 0);
+	DrawingList[3] = TDrawing(212, 0, Skins()[208].height, Skins()[212].width,
+		Height - Skins()[210].height - Skins()[208].height, 0, 0);
+	DrawingList[4] = TDrawing(213, Width - Skins()[213].width, Skins()[209].height, Skins()[213].width,
+		Height - Skins()[211].height - Skins()[209].height, 0, 0);
+	DrawingList[5] = TDrawing(210, 0, Height - Skins()[210].height, 0, 0, 0, 0);
+	DrawingList[6] = TDrawing(215, Skins()[210].width, Height - Skins()[215].height,
+		Width - Skins()[211].width - Skins()[210].width, Skins()[215].height, 0, 0);
+	DrawingList[7] = TDrawing(211, Width - Skins()[211].width, Height - Skins()[211].height, 0, 0, 0, 0);
+	DrawingList[8] = TDrawing(207, Skins()[212].width, Skins()[214].height, Width - Skins()[213].width - Skins()[212].width,
+		Height - Skins()[215].height - Skins()[214].height, 0, 0);
 }
 
 // 0x43ecf0, line 437. The entry under the mouse sends its event first.
@@ -366,7 +366,7 @@ void TContextMenu::Show(int x, int y, int ParentWidth, int ParentHeight)
 	TContextMenuEntry *LastEntry = static_cast<TContextMenuEntry *>(GetLastChild());
 	PATELLA_ASSERT(LastEntry!=NULL);
 	LastEntry->SetLast();
-	FitToChildren(SkinProperties.Data0A0, true);
+	FitToChildren(SkinProperties().Data0A0, true);
 	Arrange();
 	if (x + Width >= ParentWidth)
 		x -= Width;
@@ -402,7 +402,7 @@ void TContextMenu::AddEntry(int Event, const char *Text, const char *Shortcut)
 void TContextMenu::AddSeparator()
 {
 	TSeparator *Line = new TSeparator(true);
-	Line->SetSize(50, SkinProperties.Data0C4);
+	Line->SetSize(50, SkinProperties().Data0C4);
 	AppendChild(Line);
 }
 

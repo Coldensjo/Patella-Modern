@@ -633,6 +633,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   Done in #118 (TGUI part 2): Control.cpp's and MainWindow.cpp's functions are TGUI's members, TGUIController's adapter
   is gone, the GUI module cycle is gone (2 cycles left: Surface/graphics, MainFrm/Player), TMap's and TCreatures' calls
   up go through TMapConsole and TCreaturesGUI; TNetworkSession's adapter stays (notes/decisions.md, "#118").
+  Done in #116 (TGraphics): graphics.cpp's, Surface.cpp's (TGraphicsEngine) and Skins.cpp's (TSkins, with GUI.cpp's
+  SkinProperties) globals and functions are TGraphics' members, made between TCommunication and TGUI; the windows read
+  the skin data through the accessors SkinProperties() and Skins(); the {Surface, graphics} module cycle is gone (1
+  cycle left: MainFrm/Player) (notes/decisions.md, "#116").
 - **The core/platform split is completed:** packet parsing and building, game state (Creatures, Map,
   Objects, Inventory, Player), preferences, and the GUI's logic are in `patella_core` and
   include neither `<windows.h>` nor MFC. The platform interfaces are `IWindow`, `IInput`, `IClock`,

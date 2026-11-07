@@ -2579,8 +2579,8 @@ void BeginWorld()
 	BindOwnImport("rand", (void *)F_Rand);
 	// The same signatures and the same empty object as the original's.
 	patella::bridge::ObjectTypes().DatSignature = 0x4495fa2b;
-	SpriteSignature = 0x449a1c41;
-	PictureSignature = 0x43fc1d0c;
+	patella::bridge::Graphics().SpriteSignature = 0x449a1c41;
+	patella::bridge::Graphics().PictureSignature = 0x43fc1d0c;
 	patella::bridge::ObjectTypes().NoObject = TObject();
 }
 

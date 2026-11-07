@@ -130,8 +130,8 @@ void patella::TCommunication::SendLogin(uint32 AccountID, const char *Password)
 	Network.SendWord(2);
 	Network.SendWord(772);
 	Network.SendQuad(ObjectTypes.DatSignature);
-	Network.SendQuad(SpriteSignature);
-	Network.SendQuad(PictureSignature);
+	Network.SendQuad(patella::bridge::Graphics().SpriteSignature);
+	Network.SendQuad(patella::bridge::Graphics().PictureSignature);
 	Network.SendBytes(Data);
 	Network.SendCommand(false);
 }

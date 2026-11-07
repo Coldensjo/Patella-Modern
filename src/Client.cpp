@@ -14,7 +14,10 @@
 #include "Objects.h"
 #include "Preferences.h"
 #include "Status.h"
+#include "Skins.h"
+#include "Surface.h"
 #include "Talk.h"
+#include "graphics.h"
 #include "common.h"
 #include "platform/Platform.h"
 
@@ -139,6 +142,21 @@ TPlayerState &bridge::PlayerState()
 TInventory &bridge::Inventory()
 {
 	return Client().MapState.Inventory;
+}
+
+TGraphics &bridge::Graphics()
+{
+	return Client().Graphics;
+}
+
+TGraphicsEngine &bridge::GraphicsEngine()
+{
+	return Client().Graphics.Engine;
+}
+
+TSkins &bridge::Skins()
+{
+	return Client().Graphics.Skins;
 }
 
 // TPreferences' TTalkLists is TGUI's TTalk since issue #107 (Client.cpp's adapter over Talk.cpp's functions until

@@ -165,10 +165,10 @@ std::vector<int> GoodSkins;
 void PrepareSkins()
 {
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
+	ORIGINAL(Global<int>(0x71c450) = patella::bridge::Skins().NumberOfSkins; Global<TSkin *>(0x71c454) = Skins().get());
 	GoodSkins.clear();
-	for (int i = 1; i < NumberOfSkins && i < LASTSKIN; i++) {
-		if (i != 152 && Skins[i].width > 0 && Skins[i].height > 0) // 152 is left uninitialised
+	for (int i = 1; i < patella::bridge::Skins().NumberOfSkins && i < LASTSKIN; i++) {
+		if (i != 152 && Skins()[i].width > 0 && Skins()[i].height > 0) // 152 is left uninitialised
 			GoodSkins.push_back(i);
 	}
 }
@@ -193,16 +193,16 @@ void TestSkinProperties()
 			*(uint32 *)(Ours + i), *(uint32 *)(Original + i));
 	}
 	// As at start-up: zeroed static storage, the constructor, then InitControl's call.
-	memset(&SkinProperties, 0, sizeof(SkinProperties));
+	memset(&SkinProperties(), 0, sizeof(SkinProperties()));
 	ORIGINAL(memset(Image, 0, 0x1528));
-	new (&SkinProperties) TSkinProperties;
+	new (&SkinProperties()) TSkinProperties;
 	ORIGINAL(At<ThisFn>(0x496800)(Image, NULL));
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)(); memcpy(Original, Image, 0x1528));
 	golden::OutputBytes("InitSkinProperties", Original, sizeof(Original));
 	for (int i = 0; i < 0x1528; i += 4) {
-		CHECK(memcmp((uint8 *)&SkinProperties + i, Original + i, 4) == 0, "InitSkinProperties +0x%x: %d, original %d",
-			i, *(int *)((uint8 *)&SkinProperties + i), *(int *)(Original + i));
+		CHECK(memcmp((uint8 *)&SkinProperties() + i, Original + i, 4) == 0, "InitSkinProperties +0x%x: %d, original %d",
+			i, *(int *)((uint8 *)&SkinProperties() + i), *(int *)(Original + i));
 	}
 }
 
@@ -212,7 +212,7 @@ int RandomSize(int Skin)
 {
 	switch (Random() % 4) {
 	case 0:
-		return Skins[Skin].width;
+		return Skins()[Skin].width;
 	case 1:
 		return 1 + Random() % 8;
 	default:
@@ -227,13 +227,13 @@ void TestDrawSkin()
 		int Surface = Random() % 3;
 		int x = Random() % 500, y = Random() % 500;
 		int Width = Skin != 0 ? RandomSize(Skin) : 5;
-		int Height = Skin != 0 ? (Random() % 4 == 0 ? Skins[Skin].height : RandomSize(Skin)) : 5;
+		int Height = Skin != 0 ? (Random() % 4 == 0 ? Skins()[Skin].height : RandomSize(Skin)) : 5;
 		if (Random() % 20 == 0)
 			Width = 0;
 		if (Random() % 20 == 0)
 			Height = 0;
 		int SrcX = (int)(Random() % 8) - 2, SrcY = (int)(Random() % 8) - 2;
-		if (Skin != 0 && (SrcX >= Skins[Skin].width || SrcY >= Skins[Skin].height))
+		if (Skin != 0 && (SrcX >= Skins()[Skin].width || SrcY >= Skins()[Skin].height))
 			SrcX = SrcY = 0; // a non-positive piece width would never end the loop
 		if (Random() % 2 == 0) {
 			DrawSkin(Surface, x, y, Width, Height, Skin, SrcX, SrcY);
@@ -921,7 +921,7 @@ void TestComponentDraw()
 			E.height = Whole ? 0 : 1 + Random() % 80;
 			E.srcx = (int)(Random() % 4) - 1;
 			E.srcy = (int)(Random() % 4) - 1;
-			if (E.skin != 0 && (E.srcx >= Skins[E.skin].width || E.srcy >= Skins[E.skin].height))
+			if (E.skin != 0 && (E.srcx >= Skins()[E.skin].width || E.srcy >= Skins()[E.skin].height))
 				E.srcx = E.srcy = 0;
 		}
 		int Surface = Random() % 3, x = 10 + Random() % 100, y = 10 + Random() % 100;
@@ -1216,8 +1216,8 @@ void TestGUIErrors()
 	InitHotkeys();
 	ORIGINAL(At<void(__cdecl *)()>(0x496150)());
 	std::vector<int> EmptySkins; // skins of no width or height (DrawSkin asserts, DrawSkinClipped reports)
-	for (int i = 1; i < NumberOfSkins && i < LASTSKIN; i++) {
-		if (i != 152 && (Skins[i].width <= 0 || Skins[i].height <= 0))
+	for (int i = 1; i < patella::bridge::Skins().NumberOfSkins && i < LASTSKIN; i++) {
+		if (i != 152 && (Skins()[i].width <= 0 || Skins()[i].height <= 0))
 			EmptySkins.push_back(i);
 	}
 	for (int Round = 0; Round < 25; Round++) {
@@ -1491,7 +1491,7 @@ void TestGUIErrors()
 		}
 		for (int i = 0; i < Length; i++) {
 			TDrawing D;
-			D.skin = i < Length - 1 ? RandomSkin() : (Random() % 2 == 0 ? NumberOfSkins + (int)(Random() % 3) : RandomSkin());
+			D.skin = i < Length - 1 ? RandomSkin() : (Random() % 2 == 0 ? patella::bridge::Skins().NumberOfSkins + (int)(Random() % 3) : RandomSkin());
 			D.x = i < Length - 1 ? (int)(Random() % 20) : -(int)(Random() % 20) - 1;
 			D.y = (int)(Random() % 20);
 			D.width = 1 + (int)(Random() % 10);
@@ -1500,9 +1500,9 @@ void TestGUIErrors()
 			// makes DrawSkin's pieces 0 wide, and both versions tile forever
 			// (until the logs exhaust the heap: the first full runs).
 			D.srcx = D.srcy = (int)(Random() % 3);
-			if (D.skin < NumberOfSkins) {
-				D.srcx %= Skins[D.skin].width;
-				D.srcy %= Skins[D.skin].height;
+			if (D.skin < patella::bridge::Skins().NumberOfSkins) {
+				D.srcx %= Skins()[D.skin].width;
+				D.srcy %= Skins()[D.skin].height;
 			}
 			for (int s = 0; s < SIDES; s++)
 				P[s]->DrawingList[i] = D;
@@ -1521,11 +1521,11 @@ void TestGUIErrors()
 				Args[k] = Random() % 4 == 0 ? INT_MIN : Bad;
 			if (k == 4 && Random() % 2 == 0)
 				Args[4] = LASTSKIN + (int)(Random() % 5);
-			int SavedSkin[2] = {Skins[Skin].width, Skins[Skin].height};
+			int SavedSkin[2] = {Skins()[Skin].width, Skins()[Skin].height};
 			if (k == 5)
-				Skins[Skin].width = Random() % 2 == 0 ? 0 : Bad; // the table both sides read
+				Skins()[Skin].width = Random() % 2 == 0 ? 0 : Bad; // the table both sides read
 			if (k == 6)
-				Skins[Skin].height = Random() % 2 == 0 ? 0 : Bad;
+				Skins()[Skin].height = Random() % 2 == 0 ? 0 : Bad;
 			PictureThrows = k == 7;
 			snprintf(What, sizeof(What), "DrawSkin(%d, %d, %d, %d, skin %d) case %d", Args[0], Args[1], Args[2], Args[3],
 				Args[4], k);
@@ -1538,8 +1538,8 @@ void TestGUIErrors()
 			if (k >= 2)
 				GUI_ROUND_COMPARE(R, "DrawSkinClipped", DrawSkinClipped(Big, Args[0], Args[1], Args[2], Args[3], Args[4], 0, 0, 100, 100, 1, 2), At<DrawSkinClippedFn>(0x4a1690)(Big, Args[0], Args[1], Args[2], Args[3], Args[4], 0, 0, 100, 100, 1, 2));
 			PictureThrows = false;
-			Skins[Skin].width = SavedSkin[0];
-			Skins[Skin].height = SavedSkin[1];
+			Skins()[Skin].width = SavedSkin[0];
+			Skins()[Skin].height = SavedSkin[1];
 		}
 		Log[0].clear();
 		Log[1].clear();

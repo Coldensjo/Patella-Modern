@@ -20,9 +20,12 @@
 
 #pragma once
 
+#include "Skins.h"
+#include "Surface.h"
 #include "common.h"
 #include "compat/span.h"
 #include "types/FixedString.h"
+#include "types/GraphicsTypes.h" // IWYU pragma: export (TRect, TRGBColor, TFont: graphics.h's until issue #116)
 #include <array>
 #include <memory>
 #include <type_traits>
@@ -31,76 +34,6 @@ struct TObject; // Objects.h, passed to DrawObject
 
 inline constexpr int PATH_MAX = 1024;
 inline constexpr int HASH_TABLE_SIZE = 100;
-
-// Text alignment (TFont::Alignment, the Alignment parameters).
-enum : int {
-	LEFT_ALIGN = 0,
-	CENTER_ALIGN = 1,
-	RIGHT_ALIGN = 2,
-};
-static_assert(sizeof(decltype(LEFT_ALIGN)) == 4);
-static_assert(std::is_same_v<std::underlying_type_t<decltype(LEFT_ALIGN)>, int>);
-
-// --- Graphics types -----------------------------------------------------------
-// The types of the drawing interface, used by every window file (GUI.h
-// includes this header). Default construction zeroes them, as the binary's
-// compiler-generated constructors do (SkinProperties' constructor 0x496800,
-// the new TSprite[] and new TPicture[] loops, DrawOutfit's colours).
-
-// A rectangle: position and size. The members are named by the assertions
-// "FromRect.width>0 && FromRect.height>0" (the surfaces' Blit and BlitRect)
-// and "ToRect.width<=..." (StretchBlit), and by the TRect members of
-// SkinProperties that GUI.cpp's assertions name with .x and .y
-// (StatusWindow.HitpointsBar.x, BuddylistWindow.Logo.y); TSkin (Skins.h) and
-// TDrawing (GUI.h) have the same lower-case names (issue #29).
-struct TRect { // passed by value (16 bytes)
-	constexpr TRect() : x(0), y(0), width(0), height(0) {}
-	constexpr TRect(int x, int y, int width, int height) : x(x), y(y), width(width), height(height) {}
-	int x, y, width, height;
-};
-
-struct TRGBColor { // passed by value (12 bytes)
-	constexpr TRGBColor() : R(0), G(0), B(0) {}
-	constexpr TRGBColor(int R, int G, int B) : R(R), G(G), B(B) {}
-	// 0x425950 (out-of-line copy between ConsoleWindow.cpp and
-	// ContentWindows.cpp; inlined in Map.cpp's SetAmbientLight): a colour of
-	// the 6x6x6 palette, Color = R*36 + G*6 + B with steps of 51.
-	TRGBColor(int Color)
-	{
-		R = Color / 36 * 51;
-		B = Color % 6 * 51;
-		G = Color / 6 % 6 * 51;
-	}
-	// 0x48b380 and 0x48b3b0: out-of-line copies at the start of graphics.obj,
-	// the first object that calls them (SurfaceGL.cpp calls 0x48b380 too).
-	// operator!= negates the inlined operator==, as the binary's does.
-	// Not checked by AddressSanitizer (issue #70): GetVideoPicture compares the colour key of the picture after
-	// the one it draws, past the end of Pictures for the last one, as the original does (graphics.cpp).
-	PATELLA_NO_SANITIZE_ADDRESS bool operator==(TRGBColor Other) const
-	{
-		return R == Other.R && G == Other.G && B == Other.B;
-	}
-	bool operator!=(TRGBColor Other) const
-	{
-		return !(*this == Other);
-	}
-	int R, G, B;
-};
-
-// The colour TFont's default constructor reads from memory. Every object
-// that constructs a TFont has its own copy (GUI.obj 0x5c1954, DialogElements
-// 0x5c1230, an earlier object 0x5c066c), so it is a constant defined in a
-// header (internal linkage). The name is ours.
-const TRGBColor DefaultFontColor(224, 224, 224);
-
-// A text format: font, colour and alignment ("Format.Alignment" in
-// PrintFormattedText's assertion).
-struct TFont { // passed by value (20 bytes)
-	TFont() : FontNumber(4), Color(DefaultFontColor), Alignment(LEFT_ALIGN) {}
-	int FontNumber;
-	TRGBColor Color;
-	int Alignment; // LEFT_ALIGN, CENTER_ALIGN, RIGHT_ALIGN
-};
 
 // Kinds of cache items. Pictures and font characters are both PICTURE_ITEM.
 enum : int {
@@ -183,29 +116,141 @@ struct TVideoCacheItem {
 	int HashValue;    // +0x58
 };
 
-// Data. Only graphics.cpp uses them except the two signatures (sent at login
-// and when patching); the others are declared for the differential tests.
-extern std::array<int, HASH_TABLE_SIZE> MemoryHashTable; // 0x5cc430
-extern std::array<int, HASH_TABLE_SIZE> VideoHashTable;  // 0x5cc5c0
-extern int NumberOfFonts;                                // 0x5cc750
-extern int NumberOfPictures;                             // 0x5cc754
-extern uint32 PictureSignature;                          // 0x5cc758
-extern TFixedString<PATH_MAX> PictureFileName;           // 0x5cc760
-extern int NumberOfSprites;                              // 0x5ccb60
-extern uint32 SpriteSignature;                           // 0x5ccb64
-extern TFixedString<PATH_MAX> SpriteFileName;            // 0x5ccb68
-extern int LeastRecentMemoryItem;                        // 0x5ccf68
-extern int MostRecentMemoryItem;                         // 0x5ccf6c
-extern int MemoryCacheSize;                              // 0x5ccf70
-extern std::unique_ptr<uint8[]> MemoryCacheData;         // 0x5ccf74 (issue #58: the tables' only owners)
-extern int LeastRecentVideoItem;                         // 0x5ccf78
-extern int MostRecentVideoItem;                          // 0x5ccf7c
-extern int VideoCacheSize;                               // 0x5ccf80
-extern std::unique_ptr<TVideoCacheItem[]> VideoCache;    // 0x5ccf84
-extern std::unique_ptr<TMemoryCacheItem[]> MemoryCache;  // 0x5ccf88
-extern std::unique_ptr<TSprite[]> Sprites;               // 0x5ccf8c
-extern std::unique_ptr<TPicture[]> Pictures;             // 0x5ccf90
-extern std::unique_ptr<TFontInfo[]> Fonts;               // 0x5ccf94
+// TGraphics (issue #116, M7; notes/decisions.md, "#104: TClient and the subsystem objects" and "#116"), the fifth of
+// TClient's subsystems: graphics.cpp's data and functions (its members of the same names; the free functions below
+// forward to them), Surface.cpp's TGraphicsEngine (Surface.h) and Skins.cpp's TSkins with GUI.cpp's SkinProperties
+// (Skins.h). The data was extern and is public: Communication.cpp sends the two signatures, the golden Graphics and
+// Errors tests read and set the tables and the caches.
+namespace patella {
+
+class TGraphics {
+public:
+	TGraphics() = default;
+	TGraphics(const TGraphics &) = delete;
+	TGraphics &operator=(const TGraphics &) = delete;
+	TGraphics(TGraphics &&) = delete;
+	TGraphics &operator=(TGraphics &&) = delete;
+	~TGraphics() = default;
+
+	// Start-up and shut-down.
+	void InitGraphics(int MemoryCacheBytes);
+	void InitVideoCache();
+	void ResetVideoCache();
+	void ReloadSprites();
+	void ReloadPictures();
+	void ExitGraphics();
+
+	// The files and the fonts.
+	void LoadSprites(const char *FileName);
+	void LoadSprite(int SpriteNumber, uint8 *Buffer);
+	void LoadPictures(const char *FileName);
+	void LoadPictureTile(int PictureNumber, int TileX, int TileY, uint8 *Buffer);
+	void InitFont(int FontName, int PictureNumber, int CharsPerLine, int CharWidth, int CharHeight,
+		int Spacing, int LineHeight);
+	void InitFonts();
+
+	// The memory cache.
+	void InitMemoryCache(int MemoryCacheBytes);
+	void ClearMemoryCache();
+	void TouchMemoryItem(int Position);
+	int FindMemorySprite(int SpriteNumber) const;
+	int FindMemoryPicture(int PictureNumber, int TileX, int TileY) const;
+	void RemoveMemoryItem(int Position);
+	void InsertMemoryItem(int Position, int HashValue);
+	TMemoryCacheItem *GetMemorySprite(int SpriteNumber);
+	TMemoryCacheItem *GetMemoryPicture(int PictureNumber, int TileX, int TileY);
+
+	// The video cache.
+	void TouchVideoItem(int Position);
+	int FindVideoSprite(int SpriteNumber) const;
+	int FindVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColor *Colors) const;
+	int FindVideoPicture(int PictureNumber, int TileX, int TileY) const;
+	int FindVideoFontChar(int PictureNumber, int TileX, int TileY, TRGBColor Color) const;
+	void RemoveVideoItem(int Position);
+	void InsertVideoItem(int Position, int HashValue);
+	TVideoCacheItem *GetVideoSprite(int SpriteNumber);
+	TVideoCacheItem *GetVideoMaskedSprite(int SpriteNumber, int MaskNumber, TRGBColor *Colors);
+	TVideoCacheItem *GetVideoPicture(int PictureNumber, int TileX, int TileY);
+	TVideoCacheItem *GetVideoFontChar(int FontNumber, int TileX, int TileY, TRGBColor Color);
+
+	// Sprites, objects and outfits. Sprite number 0 draws nothing (except in the
+	// masked forms, where it fails the assertion).
+	void DrawSprite(int Surface, int x, int y, int SpriteNumber);
+	void DrawSpriteClipped(int Surface, int x, int y, int SpriteNumber, TRect Clip);
+	void DrawSpriteScaled(int Surface, int x, int y, int Width, int Height, int SpriteNumber,
+		TRGBColor Highlight, TRect Clip);
+	void DrawMaskedSprite(int Surface, int x, int y, int SpriteNumber, int MaskNumber, TRGBColor *Colors);
+	void DrawMaskedSpriteScaled(int Surface, int x, int y, int Width, int Height, int SpriteNumber,
+		int MaskNumber, TRGBColor *Colors, TRGBColor Highlight, TRect Clip);
+	void DrawObject(int Surface, int x, int y, int Size, TObject Obj, TRGBColor Highlight, TRect Clip,
+		TFont Font, bool ShowCount);
+	// Colors: the four outfit colours (TCreature::Colors); a fixed extent, passed as the pointer was (issue #69).
+	void DrawOutfit(int Surface, int x, int y, int Size, int OutfitNumber, patella::TSpan<const int, 4> Colors,
+		TRGBColor Highlight, TRect Clip, TFont Font);
+
+	// Pictures.
+	void DrawPicture(int Surface, int x, int y, int PictureNumber);
+	void DrawPicturePart(int Surface, int x, int y, int PictureNumber, int SourceX, int SourceY,
+		int Width, int Height);
+	void DrawPicturePartClipped(int Surface, int x, int y, int PictureNumber, int SourceX, int SourceY,
+		int Width, int Height, TRect Clip);
+
+	// Text. Characters 10 and 32 are blanks, other control characters show
+	// character 127.
+	void PrintTextPart(int Surface, int x, int y, int FontNumber, TRGBColor Color, const char *Text,
+		int Length, int Alignment);
+	void PrintTextClipped(int Surface, int x, int y, int FontNumber, TRGBColor Color, const char *Text,
+		int Alignment, TRect Clip);
+	void PrintText(int Surface, int x, int y, int FontNumber, TRGBColor Color, const char *Text,
+		int Alignment);
+	void PrintFormattedText(int Surface, int x, int y, TFont Format, const char *Text);
+	void PrintFormattedTextClipped(int Surface, int x, int y, TFont Format, const char *Text, TRect Clip);
+	void PrintFormattedTextPart(int Surface, int x, int y, TFont Format, const char *Text, int Length);
+	int GetFontLineHeight(int FontNumber) const;
+	int GetFontHeight(int FontNumber) const;
+	int GetTextHeight(int FontNumber, const char *Text) const;
+	int GetTextWidth(int FontNumber, const char *Text) const;
+	int GetTextPartWidth(int FontNumber, const char *Text, int Length) const;
+	int GetFittingTextLength(int FontNumber, const char *Text, int Width) const;
+	void GetTextPosition(int *TextX, int *TextY, int x, int y, int Width, int Height, TFont *Format) const;
+
+	// Surface.cpp's and Skins.cpp's (with GUI.cpp's SkinProperties) objects.
+	TGraphicsEngine Engine;
+	TSkins Skins;
+
+	// graphics.cpp's data, in .bss order (0x5cc75c is not used).
+	std::array<int, HASH_TABLE_SIZE> MemoryHashTable{}; // 0x5cc430
+	std::array<int, HASH_TABLE_SIZE> VideoHashTable{};  // 0x5cc5c0
+	int NumberOfFonts{};                                // 0x5cc750
+	int NumberOfPictures{};                             // 0x5cc754
+	uint32 PictureSignature{};                          // 0x5cc758
+	TFixedString<PATH_MAX> PictureFileName{};           // 0x5cc760
+	int NumberOfSprites{};                              // 0x5ccb60
+	uint32 SpriteSignature{};                           // 0x5ccb64
+	TFixedString<PATH_MAX> SpriteFileName{};            // 0x5ccb68
+	int LeastRecentMemoryItem{};                        // 0x5ccf68, tail of the memory cache's LRU list
+	int MostRecentMemoryItem{};                         // 0x5ccf6c, head
+	int MemoryCacheSize{};                              // 0x5ccf70
+	std::unique_ptr<uint8[]> MemoryCacheData{};         // 0x5ccf74, MemoryCacheSize tiles of 32*32*3 bytes
+	int LeastRecentVideoItem{};                         // 0x5ccf78
+	int MostRecentVideoItem{};                          // 0x5ccf7c
+	int VideoCacheSize{};                               // 0x5ccf80
+	std::unique_ptr<TVideoCacheItem[]> VideoCache{};    // 0x5ccf84
+	std::unique_ptr<TMemoryCacheItem[]> MemoryCache{};  // 0x5ccf88
+	std::unique_ptr<TSprite[]> Sprites{};               // 0x5ccf8c
+	std::unique_ptr<TPicture[]> Pictures{};             // 0x5ccf90
+	std::unique_ptr<TFontInfo[]> Fonts{};               // 0x5ccf94
+};
+
+// The transition's access path (notes/decisions.md, "#104: TClient and the subsystem objects"): the one TClient's
+// TGraphics (Client.cpp). It goes when no free function needs it.
+namespace bridge {
+TGraphics &Graphics();
+} // namespace bridge
+
+} // namespace patella
+
+// The original's free functions (issue #116: each forwards to its TGraphics member on the bridge).
 
 // Start-up and shut-down.
 void InitGraphics(int MemoryCacheBytes);

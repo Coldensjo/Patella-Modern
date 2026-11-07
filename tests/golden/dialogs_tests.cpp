@@ -2412,7 +2412,7 @@ static int OurTimersClock = -1;
 // The engine the dialogs see (the advanced graphics dialog's selection): ours and the image's.
 static void SetEngine(int Engine)
 {
-	curEngine = Engine;
+	patella::bridge::GraphicsEngine().curEngine = Engine;
 	ORIGINAL(Global<int>(0x71d0c4) = Engine);
 }
 // Forced >= 0: that operation (the error round), with the same random numbers.
@@ -3230,7 +3230,7 @@ void TestDialogs()
 	}
 	ORIGINAL(PatchImage());
 	InitSkins();
-	ORIGINAL(Global<int>(0x71c450) = NumberOfSkins; Global<TSkin *>(0x71c454) = Skins.get());
+	ORIGINAL(Global<int>(0x71c450) = patella::bridge::Skins().NumberOfSkins; Global<TSkin *>(0x71c454) = Skins().get());
 	InitSkinProperties();
 	ORIGINAL(At<void(__cdecl *)()>(0x498160)());
 	InitClasses();

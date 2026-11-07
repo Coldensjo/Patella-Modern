@@ -21,7 +21,7 @@ namespace {
 void TestSurface()
 {
 	for (int Engine = -2; Engine < 5; Engine++) {
-		curEngine = Engine;
+		patella::bridge::GraphicsEngine().curEngine = Engine;
 		ORIGINAL(Global<int>(0x71d0c4) = Engine);
 		int Original = ORIGINAL_VALUE("GetCurrentEngine", int, At<int(__cdecl *)()>(0x4eaa80)());
 		CHECK(GetCurrentEngine() == Original, "GetCurrentEngine %d", Engine);
