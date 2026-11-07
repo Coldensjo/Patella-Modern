@@ -206,8 +206,10 @@ void TWin32Window::VisitWindows(TWindowVisitor Visit)
 	EnumWindows(VisitWindow, reinterpret_cast<LPARAM>(Visit));
 }
 
-// The Vulkan engine's GetFullscreenModes until issue #119 (EnumDisplaySettingsA of the display, its fields read).
-bool TWin32Window::DisplayMode(unsigned int Index, TDisplayMode &Mode)
+namespace {
+
+// EnumDisplaySettingsA of the display with Index (a mode's number or ENUM_CURRENT_SETTINGS), its fields read.
+bool ReadDisplaySettings(DWORD Index, TDisplayMode &Mode)
 {
 	DEVMODEA Settings;
 	memset(&Settings, 0, sizeof(Settings));
@@ -218,6 +220,20 @@ bool TWin32Window::DisplayMode(unsigned int Index, TDisplayMode &Mode)
 	Mode.Height = (int)Settings.dmPelsHeight;
 	Mode.Depth = (int)Settings.dmBitsPerPel;
 	return true;
+}
+
+} // namespace
+
+// The Vulkan engine's GetFullscreenModes until issue #119.
+bool TWin32Window::DisplayMode(unsigned int Index, TDisplayMode &Mode)
+{
+	return ReadDisplaySettings(Index, Mode);
+}
+
+// The Vulkan engine's CreateSurfaces until issue #138 (it read only the depth).
+bool TWin32Window::DesktopMode(TDisplayMode &Mode)
+{
+	return ReadDisplaySettings(ENUM_CURRENT_SETTINGS, Mode);
 }
 
 // Stateless, with trivial destructors: constant-initialised, so they are there before any static initialiser and

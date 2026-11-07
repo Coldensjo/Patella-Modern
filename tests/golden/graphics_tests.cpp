@@ -152,7 +152,7 @@ void OutputOriginalLog()
 
 } // namespace GraphicsTest
 
-TTestSurface::TTestSurface() {}
+TTestSurface::TTestSurface() : TSurface(patella::bridge::GraphicsEngine()) {}
 void TTestSurface::WriteImage(int ToSurface, int x, int y, int ImageWidth, int ImageHeight, uint8 *Data)
 {
 	using namespace GraphicsTest;

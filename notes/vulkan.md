@@ -9,7 +9,7 @@ their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)
 
 | File | What |
 | :--- | :--- |
-| `src/vulkan/SurfaceVulkan.h`, `.cpp` | `TSurfaceVulkan`, the `TSurface` of the client: surfaceDX9.cpp's logic with the Direct3D 9 calls replaced; the device request; the Win32 surface; the display modes |
+| `src/vulkan/SurfaceVulkan.h`, `.cpp` | `TSurfaceVulkan`, the `TSurface` of the client (the platform's interface, `src/platform/Surface.h`, since issue #138: the engine gets the client's shared data, `TSurfaceShared`, at its construction): surfaceDX9.cpp's logic with the Direct3D 9 calls replaced; the device request; the Win32 surface; the display modes |
 | `src/vulkan/DeviceSettings.h`, `.cpp` | the client's graphics device choice (issue #31): `PATELLA_VULKAN`, Patella.ini's `Device`, the GPU list, the CPU driver's manifest |
 | `src/vulkan/DeviceChoice.h`, `.cpp` | the choice's words (`auto`, `gpu`, `gpuN`, `cpu`) and what each button chooses; no Vulkan (tests_render on every preset) |
 | `src/settings/Settings.h`, `.cpp` | Patella.ini's parser and writer (D12), in patella_core (tests_core on every preset) |

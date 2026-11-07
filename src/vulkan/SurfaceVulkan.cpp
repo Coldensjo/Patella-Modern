@@ -75,9 +75,9 @@ bool IsVulkanInstalled()
 	return patella::vulkan::LoaderAvailable();
 }
 
-TSurface *CreateSurfaceVulkan()
+TSurface *CreateSurfaceVulkan(patella::platform::TSurfaceShared &Shared)
 {
-	return new TSurfaceVulkan;
+	return new TSurfaceVulkan(Shared);
 }
 
 // The name of the device the engine runs on (DeviceSettings.h; the advanced options show it).
@@ -136,7 +136,7 @@ bool TSurfaceVulkan::TestEngine()
 	if (!IsVulkanInstalled())
 		return false;
 	try {
-		const patella::vulkan::TTestWindow Window(hWindow);
+		const patella::vulkan::TTestWindow Window(MainWindow());
 		if (hWindow != nullptr && Window.Handle() == nullptr)
 			return false;
 		TRenderer Test;
@@ -223,13 +223,13 @@ int TSurfaceVulkan::GetSurfaceMemory(int Surface)
 // The device goes before its window is retired (PresentWindow.h).
 TSurfaceVulkan::~TSurfaceVulkan()
 {
-	patella::bridge::GraphicsEngine().NumberOfSurfaces = 0;
+	Shared.NumberOfSurfaces = 0;
 	Renderer.reset();
 	PresentWindows.Retire();
 }
 
 // The same code in all engines.
-bool TSurfaceVulkan::ClipRect(TRect Clip, RECT *Area, RECT *Source)
+bool TSurfaceVulkan::ClipRect(TRect Clip, patella::platform::TEdgeRect *Area, patella::platform::TEdgeRect *Source)
 {
 	const int ClipRight = Clip.x + Clip.width;
 	const int ClipBottom = Clip.y + Clip.height;
@@ -286,11 +286,11 @@ void TSurfaceVulkan::WaitForNextFrame()
 void TSurfaceVulkan::UpdateWindowRect()
 {
 	if (ViewMode == WINDOWED_MODE) {
-		GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
-		GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
-		GetClientRect(hWindow, &WindowRect);
-		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.left));
-		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.right));
+		GetClientRect(MainWindow(), &Rect[PRIMARY_SURFACE]);
+		GetClientRect(MainWindow(), &Rect[SCREEN_SURFACE]);
+		GetClientRect(MainWindow(), &WindowRect);
+		ClientToScreen(MainWindow(), reinterpret_cast<POINT *>(&WindowRect.left));
+		ClientToScreen(MainWindow(), reinterpret_cast<POINT *>(&WindowRect.right));
 		if (Renderer != nullptr && Image[SCREEN_SURFACE] >= 0) {
 			const int Canvas = Image[SCREEN_SURFACE];
 			const int CanvasWidth = Renderer->ImageWidth(Canvas);
@@ -306,7 +306,7 @@ void TSurfaceVulkan::UpdateWindowRect()
 }
 
 // Direct3D 9's ColorFill: a rectangle that does not lie inside the surface is refused (D3DERR_INVALIDCALL).
-void TSurfaceVulkan::ColorFill(int Target, const RECT *R, uint32 Color)
+void TSurfaceVulkan::ColorFill(int Target, const patella::platform::TEdgeRect *R, uint32 Color)
 {
 	if (Renderer == nullptr || Target < 0)
 		return;
@@ -320,7 +320,7 @@ void TSurfaceVulkan::ColorFill(int Target, const RECT *R, uint32 Color)
 
 void TSurfaceVulkan::SetPixel(int Surface, int x, int y, TRGBColor Color)
 {
-	const RECT R = {x, y, x + 1, y + 1};
+	const patella::platform::TEdgeRect R = {x, y, x + 1, y + 1};
 	SetRenderTarget(Surface);
 	FlushVertices();
 	ColorFill(CurrentTarget, &R, Xrgb(Color.R, Color.G, Color.B));
@@ -328,54 +328,54 @@ void TSurfaceVulkan::SetPixel(int Surface, int x, int y, TRGBColor Color)
 
 void TSurfaceVulkan::FillRectangle(int Surface, TRect Area, TRGBColor Color)
 {
-	const RECT R = {Area.x, Area.y, Area.x + Area.width, Area.y + Area.height};
+	const patella::platform::TEdgeRect R = {Area.x, Area.y, Area.x + Area.width, Area.y + Area.height};
 	if (R.top != R.bottom && R.left != R.right) {
 		SetRenderTarget(Surface);
 		FlushVertices();
 		ColorFill(CurrentTarget, &R, Xrgb(Color.R, Color.G, Color.B));
-		patella::bridge::GraphicsEngine().BlitCount++;
-		patella::bridge::GraphicsEngine().BlitPixels += Area.height * Area.width;
+		Shared.BlitCount++;
+		Shared.BlitPixels += Area.height * Area.width;
 	}
 }
 
 // FillRectangleClipped: the pixel count uses the size before clipping.
 void TSurfaceVulkan::FillRectangleClipped(int Surface, TRect Area, TRGBColor Color, TRect Clip)
 {
-	RECT R = {Area.x, Area.y, Area.x + Area.width, Area.y + Area.height};
+	patella::platform::TEdgeRect R = {Area.x, Area.y, Area.x + Area.width, Area.y + Area.height};
 	if (R.top != R.bottom && R.left != R.right) {
 		const int Pixels = Area.height * Area.width;
-		RECT Unused = R;
+		patella::platform::TEdgeRect Unused = R;
 		if (ClipRect(Clip, &R, &Unused)) {
 			SetRenderTarget(Surface);
 			FlushVertices();
 			ColorFill(CurrentTarget, &R, Xrgb(Color.R, Color.G, Color.B));
-			patella::bridge::GraphicsEngine().BlitCount++;
-			patella::bridge::GraphicsEngine().BlitPixels += Pixels;
+			Shared.BlitCount++;
+			Shared.BlitPixels += Pixels;
 		}
 	}
 }
 
 void TSurfaceVulkan::DrawHorizontalLine(int Surface, int x, int y, int Length, TRGBColor Color)
 {
-	const RECT R = {x, y, x + Length, y + 1};
+	const patella::platform::TEdgeRect R = {x, y, x + Length, y + 1};
 	if (R.top != R.bottom && R.left != R.right) {
 		SetRenderTarget(Surface);
 		FlushVertices();
 		ColorFill(CurrentTarget, &R, Xrgb(Color.R, Color.G, Color.B));
-		patella::bridge::GraphicsEngine().BlitCount++;
-		patella::bridge::GraphicsEngine().BlitPixels += Length;
+		Shared.BlitCount++;
+		Shared.BlitPixels += Length;
 	}
 }
 
 void TSurfaceVulkan::DrawVerticalLine(int Surface, int x, int y, int Length, TRGBColor Color)
 {
-	const RECT R = {x, y, x + 1, y + Length};
+	const patella::platform::TEdgeRect R = {x, y, x + 1, y + Length};
 	if (R.top != R.bottom && R.left != R.right) {
 		SetRenderTarget(Surface);
 		FlushVertices();
 		ColorFill(CurrentTarget, &R, Xrgb(Color.R, Color.G, Color.B));
-		patella::bridge::GraphicsEngine().BlitCount++;
-		patella::bridge::GraphicsEngine().BlitPixels += Length;
+		Shared.BlitCount++;
+		Shared.BlitPixels += Length;
 	}
 }
 
@@ -461,13 +461,13 @@ void TSurfaceVulkan::FinishFrame()
 {
 	if (ViewMode != 0) {
 		WaitForNextFrame();
-		patella::bridge::GraphicsEngine().ScreenWidth = Rect[SCREEN_SURFACE].right;
-		patella::bridge::GraphicsEngine().ScreenHeight = Rect[SCREEN_SURFACE].bottom;
-		patella::bridge::GraphicsEngine().LastBlitPixels = patella::bridge::GraphicsEngine().BlitPixels;
-		patella::bridge::GraphicsEngine().LastBlitCount = patella::bridge::GraphicsEngine().BlitCount;
-		patella::bridge::GraphicsEngine().Data71D0D8 = 0;
-		patella::bridge::GraphicsEngine().BlitCount = 0;
-		patella::bridge::GraphicsEngine().BlitPixels = 0;
+		Shared.ScreenWidth = Rect[SCREEN_SURFACE].right;
+		Shared.ScreenHeight = Rect[SCREEN_SURFACE].bottom;
+		Shared.LastBlitPixels = Shared.BlitPixels;
+		Shared.LastBlitCount = Shared.BlitCount;
+		Shared.Data71D0D8 = 0;
+		Shared.BlitCount = 0;
+		Shared.BlitPixels = 0;
 		FlushVertices();
 		if (Renderer != nullptr && Image[SCREEN_SURFACE] >= 0) {
 			const int x = Rect[SCREEN_SURFACE].left;
@@ -499,8 +499,8 @@ void TSurfaceVulkan::FinishFrame()
 				Fail();
 			}
 		}
-		patella::bridge::GraphicsEngine().BlitCount++;
-		patella::bridge::GraphicsEngine().BlitPixels += (WindowRect.bottom - WindowRect.top) * (WindowRect.right - WindowRect.left);
+		Shared.BlitCount++;
+		Shared.BlitPixels += (WindowRect.bottom - WindowRect.top) * (WindowRect.right - WindowRect.left);
 	}
 }
 
@@ -572,7 +572,7 @@ void TSurfaceVulkan::RestoreSurfaces(int, TFullscreenMode *)
 
 // Init: switches to VMode (with the resolution Resolution in fullscreen mode) only when something
 // changes, or always with Force.
-bool TSurfaceVulkan::Init(HWND *Window, int VMode, TFullscreenMode *Resolution, bool Force)
+bool TSurfaceVulkan::Init(patella::platform::TWindowHandle *Window, int VMode, TFullscreenMode *Resolution, bool Force)
 {
 	Ready = false;
 	if (Force) {
@@ -675,7 +675,7 @@ void TSurfaceVulkan::ExitSurfaces()
 	Initialized = false;
 }
 
-TSurfaceVulkan::TSurfaceVulkan()
+TSurfaceVulkan::TSurfaceVulkan(patella::platform::TSurfaceShared &Shared) : TSurface(Shared)
 {
 	Ready = false;
 	memset(Rect.data(), 0, sizeof(Rect));
@@ -734,15 +734,15 @@ void TSurfaceVulkan::StretchBlitRect(int ToSurface, TRect Destination, int FromS
 		(Source.x + 0.5) / Rect[FromSurface].right, (Source.x + Source.width + 0.5) / Rect[FromSurface].right,
 		(Source.y + 0.5) / Rect[FromSurface].bottom, (Source.y + Source.height + 0.5) / Rect[FromSurface].bottom,
 		0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff);
-	patella::bridge::GraphicsEngine().BlitCount++;
-	patella::bridge::GraphicsEngine().BlitPixels += Destination.height * Destination.width;
+	Shared.BlitCount++;
+	Shared.BlitPixels += Destination.height * Destination.width;
 }
 
 // BlitRectClipped: ScreenTexture (SCREEN_SURFACE) is always mapped as a whole.
 void TSurfaceVulkan::BlitRectClipped(int ToSurface, int x, int y, int FromSurface, TRect FromRect, TRect Clip)
 {
-	RECT To = {x, y, x + FromRect.width, y + FromRect.height};
-	RECT From = {FromRect.x, FromRect.y, FromRect.x + FromRect.width, FromRect.y + FromRect.height};
+	patella::platform::TEdgeRect To = {x, y, x + FromRect.width, y + FromRect.height};
+	patella::platform::TEdgeRect From = {FromRect.x, FromRect.y, FromRect.x + FromRect.width, FromRect.y + FromRect.height};
 	if (ClipRect(Clip, &To, &From)) {
 		SetRenderTarget(ToSurface);
 		SetTexture(FromSurface);
@@ -760,8 +760,8 @@ void TSurfaceVulkan::BlitRectClipped(int ToSurface, int x, int y, int FromSurfac
 		}
 		AddQuad(To.left, To.top, To.right, To.bottom, Left_u, Right_u, Top_v, Bottom_v, 0xffffffff, 0xffffffff,
 			0xffffffff, 0xffffffff);
-		patella::bridge::GraphicsEngine().BlitCount++;
-		patella::bridge::GraphicsEngine().BlitPixels += FromRect.height * FromRect.width;
+		Shared.BlitCount++;
+		Shared.BlitPixels += FromRect.height * FromRect.width;
 	}
 }
 
@@ -776,8 +776,8 @@ void TSurfaceVulkan::InitSurfaces()
 	Initialized = false;
 	Renderer.reset();
 	PresentWindows.Retire();
-	patella::bridge::GraphicsEngine().CacheSurfaceWidth = 512;
-	patella::bridge::GraphicsEngine().CacheSurfaceHeight = 512;
+	Shared.CacheSurfaceWidth = 512;
+	Shared.CacheSurfaceHeight = 512;
 	CurrentTarget = -1;
 	for (int i = 0; i < NUMBER_OF_SURFACES_VULKAN; i++) {
 		Image[i] = -1;
@@ -791,8 +791,8 @@ void TSurfaceVulkan::InitSurfaces()
 	for (int i = SPRITE_SURFACE; i < NUMBER_OF_SURFACES_VULKAN; i++) {
 		Rect[i].left = 0;
 		Rect[i].top = 0;
-		Rect[i].right = patella::bridge::GraphicsEngine().CacheSurfaceWidth;
-		Rect[i].bottom = patella::bridge::GraphicsEngine().CacheSurfaceHeight;
+		Rect[i].right = Shared.CacheSurfaceWidth;
+		Rect[i].bottom = Shared.CacheSurfaceHeight;
 	}
 	Initialized = true;
 	CanStretch = true;
@@ -907,11 +907,11 @@ void TSurfaceVulkan::BlitRect(int ToSurface, int x, int y, int FromSurface, TRec
 void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 {
 	if (VMode == WINDOWED_MODE) {
-		GetClientRect(hWindow, &Rect[PRIMARY_SURFACE]);
-		GetClientRect(hWindow, &Rect[SCREEN_SURFACE]);
-		GetClientRect(hWindow, &WindowRect);
-		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.left));
-		ClientToScreen(hWindow, reinterpret_cast<POINT *>(&WindowRect.right));
+		GetClientRect(MainWindow(), &Rect[PRIMARY_SURFACE]);
+		GetClientRect(MainWindow(), &Rect[SCREEN_SURFACE]);
+		GetClientRect(MainWindow(), &WindowRect);
+		ClientToScreen(MainWindow(), reinterpret_cast<POINT *>(&WindowRect.left));
+		ClientToScreen(MainWindow(), reinterpret_cast<POINT *>(&WindowRect.right));
 	} else {
 		TFullscreenMode *Modes;
 		const int Number = GetFullscreenModes(&Modes);
@@ -942,14 +942,13 @@ void TSurfaceVulkan::InitDisplay(int VMode, TFullscreenMode *GMode)
 // desktop, 12 without a Vulkan device.
 void TSurfaceVulkan::CreateSurfaces()
 {
-	patella::bridge::GraphicsEngine().NumberOfSurfaces = 0;
-	// surfaceDX9.cpp: DirectDraw's GetDisplayMode, the desktop's depth (0 before InitSurfaces).
-	DEVMODEA Desktop;
-	memset(&Desktop, 0, sizeof(Desktop));
-	Desktop.dmSize = sizeof(DEVMODEA);
-	if (!Initialized || !EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS, &Desktop))
-		Desktop.dmBitsPerPel = 0;
-	if (Desktop.dmBitsPerPel < 16)
+	Shared.NumberOfSurfaces = 0;
+	// surfaceDX9.cpp: DirectDraw's GetDisplayMode, the desktop's depth (0 before InitSurfaces). Since issue #138 the
+	// platform's IWindow::DesktopMode (platform/Window.h; Win32's: EnumDisplaySettingsA with ENUM_CURRENT_SETTINGS).
+	patella::platform::TDisplayMode Desktop;
+	if (!Initialized || !patella::platform::Platform().Window.DesktopMode(Desktop))
+		Desktop.Depth = 0;
+	if (Desktop.Depth < 16)
 		throw TProgramError{PROGRAM_ERROR::COLOR_DEPTH};
 	if (ViewMode == FULLSCREEN_MODE) {
 		// Direct3D 9's fullscreen device sets the display mode; the window is already a popup over the
@@ -962,7 +961,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		Mode.dmBitsPerPel = Depth;
 		Mode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 		if (ChangeDisplaySettingsA(&Mode, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL) {
-			patella::bridge::GraphicsEngine().InitStep = 1;
+			Shared.InitStep = 1;
 			throw TProgramError{PROGRAM_ERROR::SURFACE};
 		}
 		DisplayModeSet = true;
@@ -972,7 +971,7 @@ void TSurfaceVulkan::CreateSurfaces()
 		// A window of its own for the new device (PresentWindow.h, issue #52).
 		HWND Window = nullptr;
 		if (hWindow != nullptr) {
-			Window = PresentWindows.Open(hWindow);
+			Window = PresentWindows.Open(MainWindow());
 			if (Window == nullptr)
 				throw TVulkanError("the device's window could not be created");
 		}
@@ -997,32 +996,32 @@ void TSurfaceVulkan::CreateSurfaces()
 		Renderer->Fill(WhiteTexture, 0, 0, 1, 1, 0xffffffffu);
 
 		Image[PRIMARY_SURFACE] = Renderer->CreateImage(Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom);
-		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
+		SurfaceCreated[Shared.NumberOfSurfaces++] = 1;
 		if (Masked(Image[PRIMARY_SURFACE]))
 			Masks.Fill(Image[PRIMARY_SURFACE], 0, 0, Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom);
 		Renderer->Fill(Image[PRIMARY_SURFACE], 0, 0, Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom, 0xffff0000u);
 
 		ScreenTexture = Renderer->CreateImage(106, 106);
-		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
+		SurfaceCreated[Shared.NumberOfSurfaces++] = 1;
 
 		Image[TEMP_SURFACE] = Renderer->CreateImage(Rect[TEMP_SURFACE].right, Rect[TEMP_SURFACE].bottom);
-		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
+		SurfaceCreated[Shared.NumberOfSurfaces++] = 1;
 		Image[STRETCH_SURFACE] = Renderer->CreateImage(Rect[STRETCH_SURFACE].right, Rect[STRETCH_SURFACE].bottom);
-		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
+		SurfaceCreated[Shared.NumberOfSurfaces++] = 1;
 		Image[CACHE_SURFACE] = Renderer->CreateImage(Rect[CACHE_SURFACE].right, Rect[CACHE_SURFACE].bottom);
-		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
+		SurfaceCreated[Shared.NumberOfSurfaces++] = 1;
 		Image[AUTOMAP_SURFACE] = Renderer->CreateImage(Rect[AUTOMAP_SURFACE].right, Rect[AUTOMAP_SURFACE].bottom);
-		SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
+		SurfaceCreated[Shared.NumberOfSurfaces++] = 1;
 		for (int i = 0; i < 16; i++) {
 			const int Surface = SPRITE_SURFACE + i;
 			Image[Surface] = Renderer->CreateImage(Rect[Surface].right, Rect[Surface].bottom);
-			SurfaceCreated[patella::bridge::GraphicsEngine().NumberOfSurfaces++] = 1;
+			SurfaceCreated[Shared.NumberOfSurfaces++] = 1;
 			CacheSurfaces++;
 		}
 	} catch (const TVulkanError &) {
 		Renderer.reset();
 		PresentWindows.Retire();
-		patella::bridge::GraphicsEngine().InitStep = 1;
+		Shared.InitStep = 1;
 		throw TProgramError{PROGRAM_ERROR::SURFACE};
 	}
 	// A new device draws into the back buffer and has no texture; the numbers above stay as they were

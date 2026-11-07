@@ -646,6 +646,15 @@ std::flat_map; kept with the reason: OpenDialogs (its duplicate check reads min.
 (a negative count from the file), ConsoleWindow's lines, DialogElements' and Dialogs' vectors and Talk's lists (golden
 compares their headers or their min..max). Golden 17,316,040, 0 failures at
 each commit. notes/decisions.md, "#100".
+
+TSurface as a platform interface (Patella-Modern issue #138, branch issue-138, November 7, 2026; M7; #119's part 2):
+TSurface is in src/platform/Surface.h (portable, no Win32 type: the window a TWindowHandle, the rectangles a
+TEdgeRect). The data the engines share with the client is platform::TSurfaceShared, TGraphicsEngine's base (the same
+80 bytes), lent to the surface at its construction, so the Vulkan engine and TSurface's TestEngine and
+GetAvailableEngines no longer use bridge::GraphicsEngine(). SurfaceInitInstance, TGUI's WindowHandle and InitWindow,
+TNetwork's NetworkWindow and SetNetworkWindow take a TWindowHandle; CreateSurfaces' desktop depth is
+IWindow::DesktopMode. Patella.exe changes only at those call sites and in displacements (the image comparison).
+Golden 17,316,040, 0 failures; compare_rendering all 26 scenes identical. notes/decisions.md, "#138".
 Display modes of the reference sessions (Patella-Modern issue #48, November 4, 2026; M2): the Graphics Options
 dialog listed the machine's display modes, which had gained a 1176x664 mode since the recording (traffic frame 3:
 664 pixels). The test build now takes the list from `--test-display-modes <file>` (the hook

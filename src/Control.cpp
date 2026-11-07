@@ -1129,7 +1129,7 @@ void patella::TGUI::ProcessEvents()
 
 // 0x448c50, line 1585. Called when the main frame window is created. Tibia.exe's third parameter, CloseProgram
 // (event 0x48's callback), is gone with the patcher since issue #75.
-void patella::TGUI::InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL))
+void patella::TGUI::InitWindow(platform::TWindowHandle Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL))
 {
 	WindowHandle = Window;
 	SetNetworkWindow(Window);
@@ -1349,7 +1349,7 @@ void ProcessEvents()
 	patella::bridge::GUI().ProcessEvents();
 }
 
-void InitWindow(HWND Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL))
+void InitWindow(patella::platform::TWindowHandle Window, void (*ExitProgram)(), void (*SetDisplayMode)(int Mode), void (*OpenURL)(const char *URL))
 {
 	patella::bridge::GUI().InitWindow(Window, ExitProgram, SetDisplayMode, OpenURL);
 }

@@ -83,6 +83,7 @@ public:
 	void ShowMessageBox(TWindowHandle Owner, const char *Text, const char *Caption, TMessageBoxIcon Icon) override;
 	void VisitWindows(TWindowVisitor Visit) override;
 	[[nodiscard]] bool DisplayMode(unsigned int Index, TDisplayMode &Mode) override;
+	[[nodiscard]] bool DesktopMode(TDisplayMode &Mode) override;
 };
 
 // The cursor's screen position into a POINT, as GetCursorPos(&Point) wrote it: unchanged where it cannot be read.

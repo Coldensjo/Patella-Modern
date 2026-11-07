@@ -15150,3 +15150,142 @@ On this branch's client (main a8ccca5's windows-x64 build, the same sources), th
   and compare_traffic exit 0, no differences. compare_files: the first run exit 1 before our client ran (Tibia.exe's
   window did not appear within 30 s; other agents' clients had started), its one rerun exit 0, no differences.
   tidy_ci exit 0 (3, 0 new), banned_calls and clang-format exit 0.
+
+## #138: TSurface as a platform interface (Patella-Modern issue #138, M7; part 2 of #119)
+
+Done by Claude Opus 5.5, November 7, 2026 (branch issue-138, from main 9ffbb50). #119's "Unfinished: part 2" and
+#116's leftovers: TSurface is the platform's interface, the engine's shared data no longer goes through
+`bridge::GraphicsEngine()`, and the window handle is a `TWindowHandle` where the client held an HWND.
+
+### TSurface in src/platform (high)
+
+- **platform/Surface.h** (portable, no platform header; patella_core's header list, cmake/HeaderCheck.cmake, a separate
+  `list(APPEND ...)`): TSurface with its slots in the original's order and their comments, and the view mode and
+  surface index constants (WINDOWED_MODE ..., PRIMARY_SURFACE ... NUMBER_OF_SURFACES), moved from src/Surface.h, which
+  exports it (every user includes Surface.h as before). The default bodies (the constructor, the destructor,
+  SetColorKey, TestEngine, GetAvailableEngines and the empty slots) stay Surface.cpp's, at their addresses: the
+  original's code, as #109's TSocket stayed the original's class. TSurface keeps its global name (the engines, the
+  window files and the golden tests name it). The two unnamed enums keep a NOLINT with GraphicsTypes.h's reason
+  ("The other ten stay unscoped"): Visual Studio's clang-tidy reports them in the new header.
+- **No Win32 type in it** (the issue's condition, for M8: #126 puts SDL_Vulkan_CreateSurface behind it, #122 replaces
+  the MFC window): `Init(TWindowHandle *Window, ...)` (a pointer, as the slot's: Control.cpp's CheckSurface passes
+  `&WindowHandle`, the engine reads it during the call), `hWindow` a TWindowHandle, `DeviceContext` (SurfaceGL.cpp's
+  HDC, unused since #94) a `void *`, ClipRect's two rectangles and `ScreenRect` a `platform::TEdgeRect` (RECT's four
+  edges as ints, the same members in the same order: the engine's code reads `.left` ... as before), the bytes
+  `std::uint8_t` (`uint8` is the same type, common.h). The engine's local rectangles that go to ClipRect and its
+  ColorFill are TEdgeRects; its surface rectangles stay RECTs (GetClientRect writes them).
+- **The shared data** (high): `platform::TSurfaceShared` holds what the engines and the client share (the cache
+  surfaces' size, InitStep, the blit statistics, the screen's size, NumberOfSurfaces, the two SurfaceGL.cpp values,
+  and Surface.cpp's file-local SurfaceWindow and AvailableEngines, protected, TSurface a friend). TGraphicsEngine
+  derives from it (users write `bridge::GraphicsEngine().BlitCount`, `Engine.curEngine` as before) and keeps
+  CommandLineEngine, curEngine and the surface pointer. TSurface's constructor takes a `TSurfaceShared &` (its
+  member `Shared`, protected, after the original's members): GetSurface passes `*this` to CreateSurfaceVulkan, so
+  the Vulkan engine writes `Shared.BlitCount++` where it wrote `patella::bridge::GraphicsEngine().BlitCount++`, and
+  TestEngine and GetAvailableEngines read `Shared.SurfaceWindow` and `Shared.AvailableEngines`. No accessor of the
+  client is left in the engine code (src/vulkan and TSurface's bodies); the free functions of Surface.cpp keep
+  theirs (rule 4: GetSurface, GetCurrentEngine, SurfaceExitInstance, SurfaceInitInstance).
+- **Its layout** (high): the pointer first, the thirteen ints in the original's relative order, the byte last, so
+  TGraphicsEngine is 80 bytes on x64 as before and TGraphics' and TClient's later members keep their offsets. A
+  first version in the original's .data/.bss order (the byte in the middle) made it 88 and changed every function
+  that reads a later member of TGraphics or TClient (91 changed in the image comparison; 50 with this order).
+- **Why a base, not an interface the engine calls** (medium): the data is plain fields the engine increments in its
+  drawing loops (as the original's globals); a virtual call per blit would change the drawing code, and a pointer to
+  TGraphicsEngine would make the platform side depend on the client's class. TSurfaceShared is portable data that
+  the client owns and lends to the engine for the surface's life (SurfaceExitInstance deletes the surface before
+  TClient goes).
+
+### TWindowHandle for the HWND uses (high)
+
+`SurfaceInitInstance(TWindowHandle)` (by value: the x64 client's own function; Player.cpp passes `MainFrame->m_hWnd`
+where it passed its address, and the function read it at once), TGUI's `WindowHandle` and `InitWindow(TWindowHandle,
+...)` (GUI.h, Control.h, Control.cpp), TNetwork's `NetworkWindow` and `SetNetworkWindow(TWindowHandle)` (Network.h,
+Network.cpp; ISocket::ResolveHostname took a `void *` already). MainFrm.cpp passes its m_hWnd (an HWND converts to
+`void *`); the Vulkan engine converts back where it calls Win32 (GetClientRect, ClientToScreen, its present and test
+windows: `TSurfaceVulkan::MainWindow()`, a static_cast). Control.h, GUI.h and Network.h include platform/Window.h and
+need no HWND any more.
+
+### The desktop's mode through IWindow (high)
+
+`IWindow::DesktopMode(TDisplayMode &)` (platform/Window.h): EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS) in
+TWin32Window (Win32Platform.cpp; DisplayMode and DesktopMode share ReadDisplaySettings, the code DisplayMode had), and
+Win32's in TTestWindow too (the machine's, with or without `--test-display-modes`, as the engine's own call was).
+CreateSurfaces reads its depth: `if (!Initialized || !DesktopMode(Desktop)) Depth = 0; if (Depth < 16)` PROGRAM_ERROR 8,
+the same order and outcome as with the DEVMODEA it filled (it read only dmBitsPerPel).
+
+### The golden tests' calls (high)
+
+No check changed. The recording surfaces pass the client's TGraphicsEngine to TSurface's constructor
+(testsurface.h's TTestSurface, defined in graphics_tests.cpp; commworld.cpp's TCtlSurface) and take the new ClipRect
+and Init signatures; client_stubs.cpp's CreateSurfaceVulkan stub takes the shared data; network_tests.cpp's view and
+function table and commworld.cpp's SetNetworkWindow fake take a TWindowHandle. player_tests.cpp's GetAvailableEngines
+check called the member on a null surface on Windows (the original's member does not read `this`); ours reads the
+shared data through the surface now, so it uses a real TTestSurface on every platform, as Linux has since #91 (the
+same check: 0 on both sides).
+
+### The image (high)
+
+Main 9ffbb50 and the branch, the x64 Release Patella.exe of the same build folder (main's copied to build/pe-main
+before the first change, the branch's to build/pe-branch), compared function by function through their PDBs as #109
+and #119 did (dumpbin /disasm:nobytes with the PDB's labels, absolute and image-relative addresses masked, each
+function cut at its first jump table or padding; the script is not committed: build\logs\issue-138\pecompare.txt, and
+pecompare-classified.txt with the memory displacements masked too): 14,344 and 14,346 functions; 10 gone, 12 new, 50
+changed, 4 whose only change is a called symbol's name, 21 whose only change is an immediate (the folded
+GetFirstChild/GetLastChild's offset, TSurface's deleting destructor's size, and the assertion line numbers of 18
+Network.cpp functions and funclets: its include of platform/Window.h moved its lines by one). The 50 changed:
+
+- 30 only in memory displacements: the engine's members moved by the 8 bytes of TSurface's `Shared` (TSurfaceVulkan's
+  CanShadeRectangles, ExitSurfaces, FlushVertices, GetFullscreenModes, GetSurfaceRect, Masked, SetPixel,
+  SetRenderTarget, SetSurfaceRect, ShadeRectangles, StretchBlit, StretchBlitUnclipped, SurfaceRecreated, Track,
+  UpdateWindowRect, WriteImage, WriteMaskedImage, a CreateSurfaces funclet, GetDeviceName), and TGraphicsEngine's own
+  members at other offsets (curEngine, the cache surfaces' size: TGraphics' GetVideoFontChar, GetVideoMaskedSprite,
+  GetVideoPicture, GetVideoSprite, TGUI::Redraw, the graphics and advanced graphics dialogs, MainFrm.cpp's
+  SetDisplayMode, GetCurrentEngine, SurfaceExitInstance);
+- the call sites: TSurface's TestEngine (reads its Shared), GetSurface (passes the engine), CreateSurfaceVulkan's
+  funclet, the engine's functions that wrote the shared data (a load of `Shared` where the bridge was called:
+  BlitRectClipped, CreateSurfaces and its catch funclet, DrawHorizontalLine, DrawVerticalLine, ExitDisplay,
+  FillRectangle, FillRectangleClipped, FinishFrame, InitSurfaces, StretchBlitRect, the deleting destructor),
+  CPlayerApp's InitInstance (SurfaceInitInstance's argument; CommandLineEngine's offset), TClient's constructor
+  (TGraphicsEngine's initial values at their new offsets), TWin32Window::DisplayMode (calls ReadDisplaySettings);
+- two std templates the optimiser compiled differently (LTCG), with the same calls: std::_Integer_to_chars<unsigned
+  char> (`mov ecx,eax` for `mov rcx,rax`, twice) and a lambda of std::format's _Write_escaped matched under another
+  name.
+
+Gone: the old signatures (InitWindow, SetNetworkWindow, both SurfaceInitInstance, TSurface's constructor,
+CreateSurfaceVulkan, TSurfaceVulkan's Init, ClipRect and ColorFill with HWND and RECT) and a FindCpuDriverManifest
+funclet the linker numbered differently. New: the same functions with the new signatures, TWin32Window::DesktopMode,
+ReadDisplaySettings, and a WritePreferences funclet. No other function changed (measured on the head b2fe7ae).
+
+### Found, not done (high)
+
+- TSurfaceVulkan keeps its Win32 side inside the engine (the RECT arrays, GetClientRect, vkCreateWin32SurfaceKHR, the
+  present windows): #126 (SDL_Vulkan_CreateSurface) replaces it behind TSurface.
+- MainFrm.cpp and Player.cpp (MFC) still hold the HWND they pass on; #122 replaces them.
+- Control.cpp's, Dialogs.cpp's and MainFrm.cpp's curEngine and Surface.cpp's free functions still use
+  `bridge::GraphicsEngine()` (#116's note: the windows reach TGraphics when TGUI holds it).
+- Visual Studio's clang-tidy reports two findings on lines this change touched that it reported on main too:
+  GetCurrentEngine without [[nodiscard]] (Surface.h) and CreateSurfaceVulkan's `new` (cppcoreguidelines-owning-memory).
+
+### The gates (high)
+
+Logs in build\logs\issue-138 of the branch's worktree (final\ for the head b2fe7ae); golden replayed main's frozen
+corpus read only (PATELLA_GOLDEN_DIR=C:/Tibia/Patella-Modern/build/golden), its manifest verified. Every golden run:
+15,803,218 replayed + 1,512,822 retired = 17,316,040, 0 failures; 0 compiler warnings on every preset.
+
+- On b2fe7ae: `python -I tools/build.py windows-x64` exit 0, 20/20; windows-x64-debug exit 0, 19/19; windows-x64-asan
+  exit 0, 19/19, no ASan report (its first run, exit 1, stopped in the middle of golden's output with no test result,
+  while the reference compare ran next to it; kept as final\windows-x64-asan-try1.log; the rerun alone passed);
+  windows-x64-gcc exit 0, 12/12; linux-x64-gcc exit 0, 17/17; linux-x64-clang (ASan, UBSan) exit 0, 16/16, no sanitizer
+  report. On 6bf3582 (the code without b2fe7ae's includes and NOLINTs) all six passed with the same numbers.
+- Live (`python -I tools/build.py capture-x86` exit 0): `python -I tools/reference.py compare --reference
+  C:/Tibia/Patella-Modern/build/reference` exit 0, every session matches (on 6bf3582 and on b2fe7ae);
+  `python -I tools/compare_traffic.py` exit 1 at one run: the only difference is live client packet #9, "look north"
+  (Tibia.exe looked at a creature, 0x63, Patella.exe at the field's item, 0x19a: #137's race), the four replays
+  identical, the 15 states of each replay identical, the options equal; not rerun. `python -I tools/compare_rendering.py
+  --engines vulkan,vulkan-cpu --modes windowed --no-repeat --recording build/traffic/result/orig-live.jsonl` exit 0,
+  all 26 scenes identical outside the masks on the GPU pass (NVIDIA GeForce RTX 5080) and the CPU pass (llvmpipe), no
+  problems. `ctest --preset windows-x64 -R tests_vulkan` 1/1. compare_files.py not run: no file the client writes is
+  touched.
+- `python -I tools/tidy_ci.py` exit 0 on 6bf3582 and on b2fe7ae: 3 findings, the baseline's 3, 0 new.
+  Visual Studio's clang-tidy (tools/tidy.py -p build/windows-x64) on the changed Windows-only files: two
+  misc-include-cleaner findings of this change (fixed in b2fe7ae), the moved enums (NOLINT, above), and the two
+  findings main has (above). `python -I tools/banned_calls.py` exit 0. clang-format (CLAUDE.md's command) exit 0.

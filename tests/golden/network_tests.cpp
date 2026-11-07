@@ -272,7 +272,7 @@ struct TView {
 	char **HostnameResolveBuffer;
 	int *ReceiveDataSize, *ReceivePacketEnd, *ReceiveRead;
 	uint8 *ReceiveData, *SendData;
-	HWND *NetworkWindow;
+	patella::platform::TWindowHandle *NetworkWindow;
 	void (**CloseCallback)(), (**ReceiveCallback)(), (**ConnectCallback)();
 	void **Socket;
 	int *TimeoutCounter, *TimeoutLimit;
@@ -653,7 +653,7 @@ struct TFunctions {
 	void (*SetTestServerPort)(int);
 	void (*ResetServerAvailability)();
 	void (*SetConnectionTimeout)(int);
-	void (*SetNetworkWindow)(HWND);
+	void (*SetNetworkWindow)(patella::platform::TWindowHandle);
 	void (*SetTestServerAddress)(const char *);
 	void (*SetServerError)(int);
 	void (*SetServerIPAddress)(const char *);
