@@ -812,6 +812,12 @@ error box, or stalled at "Connecting") and the fork's client's (the login server
 reports exactly those as DELIBERATE with their issue, still compares the rest, and lists every deliberate difference
 it expected. In Windows Sandbox: 41 the same, 4 variable, 6 deliberate, 0 differ. notes/decisions.md, "#150".
 
+login-walk.script's walk (Patella-Modern issue #151, branch issue-151, November 8, 2026; M7): Cipfried, the temple NPC,
+could stand on the field of the script's first step north, and the client then sends no step (1 of 22 runs of #146).
+The square now goes south first and stays on rows beyond his radius (#137's way: the scenario, not the check);
+testmode_check is unchanged. 20 testmode_check runs in a row passed, 4 walks in every run; none of them met a block.
+notes/decisions.md, "#151".
+
 CI's downloads (Patella-Modern issue #153, branch issue-153, November 8, 2026; M7): GitHub's release downloads answered
 504 for hours and failed whole runs. A timeout or 5xx is now retried with a pause everywhere the builds download, and
 CMake falls back to Kitware's own site; a 404 or a wrong SHA-256 stops at once. tools/build.py's download_verified,

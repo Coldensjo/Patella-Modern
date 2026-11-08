@@ -17751,6 +17751,41 @@ All on the merged tree (merge 3f80efe of main c7e1f40, with #124), logs in build
 - GCC's -fanalyzer reported the exception paths of std::filesystem::path copies in the new code (false positive; the table in "Static analysis of the core library").
 - The XDG folder is not created by anything yet: a save of Patella.ini there fails until the Linux client's start-up creates it (with the rest of its start-up, above).
 
+## #151: login-walk.script's square on rows the temple NPC cannot reach (Patella-Modern issue #151, M7)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-151, from main c7e1f40). File: tests/testmode/login-walk.script.
+
+### The race and the fix (high for the race, medium for the limit)
+
+testmode_check's first step north was lost in 1 of 22 runs of #146: the client sends no step onto a field with a
+creature, and Cipfried (data\npc\cipfried.npc: Home [32097,32217,7], Radius 1) walks at random around the field north
+of the player (32098,32219). #137's way: the scenario, not the check. The square is now south, east, north, west, on
+the fields (32098,32220), (32099,32220), (32099,32219) and back; every one has y >= 32219, one row beyond his box
+(x 32096 to 32098, y 32216 to 32218). All four walk opcodes are still sent, and the square ends where it started.
+
+Nothing in tools/testmode_check.py changed, so a step lost in one run still fails a. and b. A step lost alike in both
+runs passes the comparison, as it did before; `walks` in the report shows it, and this issue's series counted 4/4.
+
+The limit is measured, not read: the server's sources are no longer on this machine, so Radius as a hard limit rests
+on the dumps. Cipfried stayed in his box in all 160 in-game state dumps of the series, and in those #137 and #146
+quote. The rabbits' spawn (data\dat\monster.db: 32108,32230, radius 10) overlaps the rows on paper, but the temple's
+map has walls or windows along y 32223 and x 32102 next to the square; none was seen there.
+
+### Gates (high)
+
+Logs in build\logs\issue-151 (series.txt: every run's result and Cipfried's positions). Tools only: no C++ preset,
+golden, tidy or clang-format.
+
+- `python -I tools/testmode_check.py --self-test`: exit 0, 0 failures (self-test.log). No Python changed, so no
+  py_compile.
+- 20 × `python -I tools/testmode_check.py --exe C:/Tibia/Patella-Modern/build/windows-x64/Release/PatellaTest.exe --out
+  build/testmode/proof/<NN>` (headless, a private server each, 09:01 to 10:10): 20 of 20 exit 0, "no differences", 4/4
+  walks in every run (series-01.log to series-20.log; the trial before them, trial.log, also passed).
+- What the series does not show: **no block was met**. Cipfried was never on the old first step's field in the dumps
+  before the walk (0 of 40), so no run shows a block being avoided, and at the old 1-in-22 rate 20 passes alone would
+  come up about 40% of the time. The evidence is the geometry above together with the series.
+- `reference.py compare` not run: the reference sessions do not use this script.
+
 ## #153: retries and a fallback for the builds' downloads (Patella-Modern issue #153, M7)
 
 November 8: GitHub's release downloads answered 504 on and off for hours, on the hosted runners and on this machine, with githubstatus.com all operational. Six of eight jobs of a run failed before any code was built.
