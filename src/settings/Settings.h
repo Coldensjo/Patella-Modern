@@ -107,8 +107,8 @@ private:
 // A value of File as the client's text (Windows-1252): converted from UTF-8, or as it is in a file of version 1.
 [[nodiscard]] std::string ClientText(const TSettingsFile &File, std::string_view Value);
 
-// The file is opened through Files (the platform's IFileSystem, issue #119: Patella.exe's TSystemFileSystem, the
-// working folder; Path is the client's text, as every name TFile opens), as a binary file (TFile, _wfsopen with
+// The file is opened through Files (the platform's IFileSystem, issue #119: Patella.exe's TDataFileSystem, the
+// data folder or the settings folder; Path is the client's text, as every name TFile opens), as a binary file (TFile, _wfsopen with
 // _SH_DENYNO on Windows: what std::fstream opened until then).
 
 // Reads the file. Nothing when it does not exist, cannot be read or is larger than MaxFileSize.

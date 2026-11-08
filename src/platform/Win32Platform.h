@@ -5,7 +5,9 @@
 // clock). The file system is the portable TDataFileSystem (platform/FileSystem.h; issue #130); the network (MFC's CAsyncSocket
 // and WinSock until issue #125) is NetworkSocket(), below. Since issue #119 also the clipboard (sysinc.cpp's until then),
 // the input (GetCursorPos, SetTimer, KillTimer: MainFrm.cpp's and Player.cpp's) and the desktop's windows and display
-// (MessageBoxA, EnumWindows, EnumDisplaySettingsA: Player.cpp's and the Vulkan engine's).
+// (MessageBoxA, EnumWindows, EnumDisplaySettingsA: Player.cpp's and the Vulkan engine's; ChangeDisplaySettingsA since
+// issue #124). Since issue #124 the SDL3 window's clipboard and desktop are SDL3's (platform/SdlPlatform.h), these the
+// MFC window's and the golden runner's.
 
 #pragma once
 
@@ -65,13 +67,15 @@ private:
 	TLoopTimer Timer;
 };
 
-// MessageBoxA, EnumWindows (GetWindowTextA, GetClassNameA), EnumDisplaySettingsA.
+// MessageBoxA, EnumWindows (GetWindowTextA, GetClassNameA), EnumDisplaySettingsA, ChangeDisplaySettingsA (issue #124:
+// the Vulkan engine's until then).
 class TWin32Window final : public IWindow {
 public:
 	void ShowMessageBox(TWindowHandle Owner, const char *Text, const char *Caption, TMessageBoxIcon Icon) override;
 	void VisitWindows(TWindowVisitor Visit) override;
 	[[nodiscard]] bool DisplayMode(unsigned int Index, TDisplayMode &Mode) override;
 	[[nodiscard]] bool DesktopMode(TDisplayMode &Mode) override;
+	bool SetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode) override;
 	// Patella.exe always has a desktop.
 	[[nodiscard]] bool Headless() override { return false; }
 };
@@ -108,5 +112,10 @@ TWin32Window &Win32Window();
 // passes its timer on to it without a script. The golden runner, built without PATELLA_SDL3, has Win32's only.
 TSdlLoopInput &SdlLoopInput();
 IInput &WindowInput();
+// Issue #124: the clipboard and the desktop of the process's window path: SDL3's (platform/SdlPlatform.h) on the SDL3
+// path, Win32's on MFC's. Patella.exe's Platform() gives them; the test build's TTestWindow passes on to WindowDesktop()
+// what it does not do itself, and its clipboard without a script is WindowClipboard(). The golden runner has Win32's.
+IClipboard &WindowClipboard();
+IWindow &WindowDesktop();
 
 } // namespace patella::platform

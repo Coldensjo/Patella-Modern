@@ -78,6 +78,8 @@ list(APPEND PATELLA_HEADERS_CORE platform/Surface.h)
 list(APPEND PATELLA_HEADERS_CORE platform/LoopTimer.h platform/WindowChoice.h)
 # Issue #123: the client's keyboard and mouse rules over SDL3's events, and the cursor resources' decoder (portable).
 list(APPEND PATELLA_HEADERS_CORE platform/CursorImage.h platform/KeyInput.h)
+# Issue #124: the display's modes over SDL3 as the client lists and sets them (portable).
+list(APPEND PATELLA_HEADERS_CORE platform/DisplayModeList.h)
 # The C++26 features behind feature-test macros (issue #9): tests/unit, real or stand-ins.
 set(PATELLA_HEADERS_CXX26
 	compat/cxx26.h)
@@ -128,6 +130,7 @@ set(PATELLA_HEADERS_CLIENT
 	TestHooks.h
 	Text.h
 	graphics.h
+	platform/SdlPlatform.h
 	platform/Win32Platform.h
 	sysinc.h
 	res/resource.h)
