@@ -12,7 +12,9 @@ proxy's login port) and the local test server. Two modes:
   answered from a recording of a live session: the recorded server packets are re-encrypted
   with the client's key and sent in the recorded order, each after the client packet that
   preceded it in the recording, with the recorded delay. Every client packet is checked
-  against the recording; the client gets the same server data whatever it sends.
+  against the recording; the client gets the same server data whatever it sends. The one
+  exception is the game port in a character list, which becomes this replay's own game port
+  (issue #157: a recording holds the port of the run that made it, its private server's since #146).
 
 Decryption: the first packet of both connections is unencrypted ([u16 size][opcode 0x01
 login, 0x0a game][u16 os][u16 version]([u32 dat][u32 spr][u32 pic], login only)[128 bytes
@@ -259,31 +261,45 @@ def masked(event):
 
 # --- login server reply: the character list ------------------------------------------------
 
-def rewrite_character_list(payload, old_port, new_port):
-	"""The login server's reply with the game port old_port replaced by new_port (same length)."""
-	out = bytearray(payload)
+def character_list_ports(payload):
+	"""The offsets of the game ports in a login server's reply. An unknown opcode ends the walk, and so does a reply
+	that ends early (a crafted stream's, issue #157): the ports read until then are the answer."""
+	offsets = []
 	pos = 0
-	changed = 0
-	while pos < len(payload):
-		opcode = payload[pos]
-		pos += 1
-		if opcode in (0x0a, 0x0b, 0x14, 0x1e):  # error, error, message of the day, ...: a string
-			text, pos = read_string(payload, pos)
-		elif opcode == 0x64:
-			count = payload[pos]
+	try:
+		while pos < len(payload):
+			opcode = payload[pos]
 			pos += 1
-			for _ in range(count):
-				name, pos = read_string(payload, pos)
-				world, pos = read_string(payload, pos)
-				pos += 4
-				port = struct.unpack_from("<H", payload, pos)[0]
-				if port == old_port:
-					struct.pack_into("<H", out, pos, new_port)
-					changed += 1
-				pos += 2
-			pos += 2  # premium days
-		else:
-			break  # unknown: leave the rest alone
+			if opcode in (0x0a, 0x0b, 0x14, 0x1e):  # error, error, message of the day, ...: a string
+				text, pos = read_string(payload, pos)
+			elif opcode == 0x64:
+				count = payload[pos]
+				pos += 1
+				for _ in range(count):
+					name, pos = read_string(payload, pos)
+					world, pos = read_string(payload, pos)
+					pos += 4
+					struct.unpack_from("<H", payload, pos)
+					offsets.append(pos)
+					pos += 2
+				pos += 2  # premium days
+			else:
+				break  # unknown: leave the rest alone
+	except (IndexError, struct.error):
+		pass
+	return offsets
+
+
+def rewrite_character_list(payload, old_port, new_port):
+	"""The login server's reply with the game port old_port replaced by new_port (same length), and the number of
+	ports changed. old_port None: every port (issue #157, a replay, where no other game server exists)."""
+	out = bytearray(payload)
+	changed = 0
+	for pos in character_list_ports(payload):
+		port = struct.unpack_from("<H", payload, pos)[0]
+		if port != new_port and old_port in (None, port):
+			struct.pack_into("<H", out, pos, new_port)
+			changed += 1
 	return bytes(out), changed
 
 
@@ -355,8 +371,18 @@ class Proxy:
 		if replay is not None:
 			self.replay_conns = {}
 			for event in replay:
+				event = self.replay_event(event)
 				key = (event["kind"], event["conn_ordinal"])
 				self.replay_conns.setdefault(key, []).append(event)
+
+	def replay_event(self, event):
+		"""A recorded event as this replay sends it (issue #157): a character list names this replay's game port,
+		whichever the recording's run had (its private server's proxy, since #146; 7272 before). The caller's event
+		is left alone. The length stays, so a crafted frame's "inner", "cut" and "pieces" still fit."""
+		if event["kind"] != "login" or event["dir"] != "s2c" or "plain" not in event:
+			return event
+		new, changed = rewrite_character_list(bytes.fromhex(event["plain"]), None, self.game_port)
+		return dict(event, plain=new.hex()) if changed else event
 
 	# events
 
@@ -726,8 +752,113 @@ def load_events(path):
 		return [json.loads(line) for line in f if line.strip()]
 
 
+def self_test():
+	"""The game port of a replayed character list (issue #157), without a server, a client or tibia.pem: a made-up
+	login answer, then the same answer through a replaying Proxy and a socket."""
+	def check(what, ok):
+		if not ok:
+			raise SystemExit("proxy.py self-test FAILED: " + what)
+
+	def text(value):
+		return struct.pack("<H", len(value)) + value
+
+	def characters(*ports):
+		out = b"\x64" + bytes([len(ports)])
+		for i, port in enumerate(ports):
+			out += text(b"Char %d" % i) + text(b"World") + bytes([127, 0, 0, 1]) + struct.pack("<H", port)
+		return out + struct.pack("<H", 30)
+
+	def ports_of(payload):
+		return [struct.unpack_from("<H", payload, pos)[0] for pos in character_list_ports(payload)]
+
+	motd = b"\x14" + text(b"1\nHello")
+	private = motd + characters(7403, 7403)
+	# the live proxy: only the server's port, and the same length
+	mixed = motd + characters(7172, 9000)
+	new, changed = rewrite_character_list(mixed, 7172, 7272)
+	check("live rewrite", ports_of(new) == [7272, 9000] and changed == 1 and len(new) == len(mixed))
+	# a replay: every port, wherever it was recorded
+	new, changed = rewrite_character_list(private, None, 7272)
+	check("any port", ports_of(new) == [7272, 7272] and changed == 2 and new[:len(motd)] == motd and len(new) == len(private))
+	check("list alone", ports_of(rewrite_character_list(characters(7403), None, 7272)[0]) == [7272])
+	check("nothing to change", rewrite_character_list(characters(7272), None, 7272) == (characters(7272), 0))
+	for payload in (b"", b"\x28", b"\x0a" + text(b"Account number"), motd, b"\x64\x00\x05\x00"):
+		check("no list: %r" % payload, rewrite_character_list(payload, None, 7272) == (payload, 0))
+	# a reply cut anywhere (a crafted stream's) neither raises nor changes its length
+	for cut in range(len(private)):
+		new, changed = rewrite_character_list(private[:cut], None, 7272)
+		check("cut at %d" % cut, len(new) == cut and changed <= 2)
+
+	key = bytes(range(16))
+	block = bytes(1) + key + struct.pack("<I", 123456) + text(b"secret")
+	fields_end = len(block)
+	block += bytes(128 - len(block))
+	header = bytes([OPCODE_LOGIN]) + bytes(16)
+	first = {"t": 0, "conn": 1, "kind": "login", "conn_ordinal": 1, "dir": "c2s", "plain": (header + block).hex(),
+		"fields_end": fields_end}
+
+	def s2c(kind, payload, **options):
+		return dict({"t": 0, "conn": 1, "kind": kind, "conn_ordinal": 1, "dir": "s2c", "plain": payload.hex()}, **options)
+
+	close = {"t": 0, "conn": 1, "kind": "login", "conn_ordinal": 1, "dir": "close", "side": "server"}
+	rsa_key = (2 ** 1024 - 1, 1)  # d = 1: the block goes in clear
+
+	def replayed(game_port, frames):
+		"""What a client receives from a replay of frames on a login connection: (frames, the proxy)."""
+		events = [first] + frames + [close]
+		before = json.dumps(events, sort_keys=True)
+		with Proxy(None, rsa_key, replay=events, login_port=0, game_port=game_port, refuse=("game",)) as proxy:
+			with socket.create_connection(("127.0.0.1", proxy.listeners[0].getsockname()[1]), timeout=10) as sock:
+				sock.sendall(struct.pack("<H", len(header + block)) + header + block)
+				got = []
+				while True:
+					frame = recv_frame(sock)
+					if frame is None:
+						break
+					got.append(frame)
+		check("the recording was changed", json.dumps(events, sort_keys=True) == before)
+		check("replay problems: %s" % (proxy.mismatches + proxy.errors), not proxy.mismatches and not proxy.errors)
+		return got, proxy
+
+	k = xtea_key(key)
+	# a private server's recording, the event made as compare_network's are (no "orig"), then as the live proxy's
+	for extra in ({}, {"orig": (motd + characters(7302, 7302)).hex(), "raw_sent": "00"}):
+		got, proxy = replayed(7272, [s2c("login", private, **extra)])
+		payload, padding = decrypt_frame(got[0][2:], k)
+		check("private recording", ports_of(payload) == [7272, 7272] and payload[:len(motd)] == motd)
+		check("frame size", len(got[0]) == len(encrypt_frame(private, k)) and len(payload) == len(private))
+		sent = [e for e in proxy.events if e["dir"] == "s2c"]
+		check("the replay's own record", len(sent) == 1 and sent[0]["plain"] == payload.hex())
+	# an old recording on the default ports is sent byte for byte
+	default = motd + characters(7272, 7272)
+	got, proxy = replayed(7272, [s2c("login", default)])
+	check("default recording", decrypt_frame(got[0][2:], k)[0] == default)
+	# a replay on a private server's own port
+	got, proxy = replayed(7405, [s2c("login", default)])
+	check("own port", ports_of(decrypt_frame(got[0][2:], k)[0]) == [7405, 7405])
+	# a list across two frames, a crafted inner length, a list cut short, a broken frame
+	got, proxy = replayed(7272, [s2c("login", motd), s2c("login", characters(7403))])
+	check("two frames", decrypt_frame(got[0][2:], k)[0] == motd and ports_of(decrypt_frame(got[1][2:], k)[0]) == [7272])
+	got, proxy = replayed(7272, [s2c("login", private, inner=len(private) - 5)])
+	plain = xtea_decrypt(got[0][2:], k)
+	check("inner length", struct.unpack_from("<H", plain)[0] == len(private) - 5
+		and ports_of(plain[2:2 + len(private)]) == [7272, 7272])
+	short = private[:-5]
+	got, proxy = replayed(7272, [s2c("login", short)])
+	check("a list cut short", len(decrypt_frame(got[0][2:], k)[0]) == len(short))
+	got, proxy = replayed(7272, [s2c("login", b"", frame_hex="0000"), s2c("login", private)])
+	check("a broken frame", got[0] == b"\x00\x00" and ports_of(decrypt_frame(got[1][2:], k)[0]) == [7272, 7272])
+	# the game connection's packets are never read as a list
+	proxy = Proxy(None, rsa_key, replay=[s2c("game", characters(7403))], game_port=7272)
+	check("a game packet", proxy.replay_conns[("game", 1)][0]["plain"] == characters(7403).hex())
+	print("proxy.py: self-test passed")
+	return 0
+
+
 def main():
 	import argparse
+	if sys.argv[1:] == ["--self-test"]:  # issue #157
+		return self_test()
 	parser = argparse.ArgumentParser(description="Record one live session through the proxy.")
 	parser.add_argument("output")
 	parser.add_argument("--pem", default=DEFAULT_PEM, help="the server's private key (default %(default)s)")

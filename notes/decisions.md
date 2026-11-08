@@ -18032,3 +18032,42 @@ tell in a minute.
 
 Comments of tools/sandbox.py (the limit's source; the error window), notes/testserver.md, this file's #147 entry,
 CLAUDE.md. No behaviour changed. The probe's scripts and logs are local, in build\logs\issue-154\.
+
+## #157: a recording replays wherever it was made (Patella-Modern issue #157, M7)
+
+Tools only. A live proxy puts its own game port into the character list and records that, so since #146 a recording holds
+its private run's port (here 7407). compare_rendering and compare_network replay without a private server on 7272, so
+the client went to a port nobody listened on. #127 and #134 worked around it by hand.
+
+- **The fix is in the replay, not the recording** (tools/proxy.py, `Proxy.replay_event`): every game port of a replayed
+  character list becomes the replay's own. Considered: a neutral port in the recording. It would not help the recordings
+  that exist. 7272 recordings go through unchanged, byte for byte (`changed` 0, the same event). It serves every replaying tool,
+  compare_files' and compare_traffic's `--skip-live` too.
+- **Every port, not only the recording's** (`rewrite_character_list(payload, None, new)`): a replay has no other game server,
+  and compare_network's crafted lists are made of a recorded list's port and carry no "orig", so the recorded port cannot
+  be told from the event. No scenario names a dead port (`game-refused` closes the listener).
+- **Same length**: the port is two bytes in place. The frames have no checksum at this protocol version, and a crafted
+  frame's "inner", "cut" and "pieces" still fit. The replay's own record holds the bytes it sent, and the caller's events are
+  not changed. `character_list_ports` stops at a list that ends early instead of raising, for crafted streams.
+- **What the comparisons compare is unchanged**: the two clients of a scenario get the same bytes, as before.
+
+### Found on the way: compare_network and a session that walks at once
+
+A fresh recording then stopped in `scenarios()` with an IndexError: since #144 the session steps at once, so no server
+packet lies between the fight modes (0xa0) and the first step, and compare_files.game_start, which stops at that step, leaves
+only the map frame. compare_network's own `game_start` (not compare_files', whose walk and error sessions keep theirs) takes the next
+server packet of the same 3 s as the second frame, without the client's step. Only that one: with every packet of the 3 s,
+`game-inner-long` broke, since the fork's client drops that frame (#142) and the next creature move then does not fit its map,
+a critical error instead of the deliberate outcome. A recording with a packet before the first step, as the older ones,
+gives exactly game_start's; fewer than two packets are now a RunError instead of an IndexError.
+
+### Checked
+
+`python -I tools/proxy.py --self-test` (new: the rewrite, a list alone and across two frames, a cut list at every length, a
+default-port recording, frame size, the inner length, a broken frame, a game packet) and `python -I tools/compare_network.py
+--self-test` (new: both session shapes, too few packets, every scenario made of both); compare_rendering's self-test. Sandbox,
+main's Patella.exe, a compare_traffic recording made on a private server (character list 7407; server 7405): compare_traffic "no
+differences"; compare_rendering `--modes windowed` "all scenes identical" (first try ended at the Sandbox's Direct3D 9 first
+frame, before any replay; passed on the rerun); compare_network 18 scenarios (login, game entry, cuts, inner lengths), 0 differ, 2
+deliberate. The old `build/recordings/orig-live.jsonl` in compare_network: 10 scenarios, 0 differ, 1 deliberate, before the
+one-frame change, which does not touch that recording's path.
