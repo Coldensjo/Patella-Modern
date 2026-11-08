@@ -220,6 +220,29 @@ names at file offsets 0x323d48, 0x323d60, 0x323d78, 0x323d90, the modulus at 0x3
 server.tibia.com at 0x84aa3 (`movups xmm0, [rip+29fea1h]`), the four port immediates at 0x84b20, 0x84b31,
 0x84b42, 0x84b53; 344 bytes changed without `--port`, 348 with it, as in the oracle-x86 build.
 
+## Windows Sandbox (Patella-Modern issue #147)
+
+Tibia.exe's live runs no longer use the user's desktop: compare_traffic.py, compare_files.py, compare_rendering.py and
+compare_network.py run themselves inside Windows Sandbox by default (tools/sandbox.py; `--desktop` runs them here as
+before), and `python -I tools/sandbox.py run -- <tool.py> [arguments]` runs any tool there. The Sandbox's window is
+made on a hidden desktop of its own: nothing of it, of Tibia.exe or of the x64 client appears on the user's screen,
+and nothing takes the focus. One Sandbox at a time: a second run waits for the first. notes/decisions.md, "#147".
+
+- **The server stays here.** The tool runs inside, with the clients and the proxy; the test server stays on the host
+  (until issue #146 the shared one of this file). `testserver.py start|stop` inside the Sandbox is passed to the host,
+  which runs it here, so a run started inside starts and stops the host's server exactly as before (and one it leaves
+  running is stopped when the run ends). Only one live run at a time, as before: the server and its ports are this
+  machine's.
+- **The ports reach the Sandbox through a reverse tunnel.** Inside, 127.0.0.1:7171 and 127.0.0.1:7172 are the host's:
+  the Sandbox listens on them and the host, which connected to the Sandbox at its start, opens each connection to its
+  own 127.0.0.1 and passes the bytes. So the clients are patched to 127.0.0.1 (and the proxy's 7271/7272 inside the
+  Sandbox are its own) as on the host, the character list's 127.0.0.1:7172 is right inside too, and the server keeps
+  its bind_address 127.0.0.1. No firewall rule on the host (the Sandbox cannot connect to the host: its connections
+  to the host's addresses time out); the Sandbox turns its own firewall off for the host's connection.
+- **The files**: the test server's folder is mapped read-only at its own path (tibia.pem, the map), its data\usr
+  writable (the tools restore the test characters' player files from inside). The server's own files are written
+  only by the server on the host.
+
 ## Run folders
 
 The clients run from `build\run-orig\` (patched Tibia.exe) and `build\run-patella\` (patched Patella.exe),

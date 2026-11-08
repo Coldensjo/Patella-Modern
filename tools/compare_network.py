@@ -54,6 +54,7 @@ import traceback
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import desktop  # noqa: E402
 import compare_traffic as ct  # noqa: E402
+import sandbox  # noqa: E402
 import compare_files as cf  # noqa: E402
 import deliberate  # noqa: E402
 import proxy as px  # noqa: E402
@@ -513,6 +514,7 @@ def main():
 	parser.add_argument("--patella", metavar="EXE", help="the x64 Patella.exe to test (its test build next to it "
 		"runs, issue #92); default build/windows-x64/Release/Patella.exe; as tools/compare_traffic.py's --patella")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
+	parser.add_argument(sandbox.DESKTOP, action="store_true", help=sandbox.DESKTOP_HELP)
 	args = parser.parse_args()
 	base = Base(px.load_events(args.recording))
 	all_scenarios = scenarios(base)
@@ -579,5 +581,6 @@ def main():
 
 
 if __name__ == "__main__":
+	sandbox.redirect(writable=[NETWORK], skip=("--list", "-h", "--help"))  # issue #147: unless --desktop (or --hidden)
 	desktop.hide(skip=("--list", "-h", "--help"))  # issue #56: only with --hidden
 	sys.exit(main())
