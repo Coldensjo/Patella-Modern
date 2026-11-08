@@ -727,7 +727,7 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   Release and Debug builds and `ctest`; cmake --workflow takes no -D, and the client needs Tibia.exe; the builds
   run `/analyze` on patella_core, issue #63), the
   full client and test build in a job of its own (issue #127: `-DPATELLA_PLACEHOLDER_RESOURCES=ON`; "Building" above),
-  ctest over what needs no CipSoft data, and on
+  ctest over what needs no CipSoft data, without tests_vulkan (the runner's CPU driver does not load), and on
   ubuntu-latest the image of docker/linux-x64, built from its pinned Dockerfile in each job: linux-x64-gcc and
   linux-x64-clang (Release and Debug, `python3 -I tools/build.py <preset>` in the container; linux-x64-gcc runs
   `-fanalyzer` on patella_core, issue #63), clang-format (the files above), clang-tidy against the baseline (above;

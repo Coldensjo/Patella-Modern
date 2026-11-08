@@ -172,7 +172,7 @@ capture-x86's patcap.dll never uses them. Details: `notes/reconstruction.md`, "C
 `.github/workflows/hosted.yml` (GitHub's runners, also on pull requests): windows-x64 with MSVC x64 and
 `-DPATELLA_CLIENT=OFF`, windows-x64-asan's unit tests (Release, `-DPATELLA_CLIENT=OFF`, issue #70), the full client and test build (issue #127:
 `-DPATELLA_PLACEHOLDER_RESOURCES=ON`, neutral generated pictures since the runner has no Tibia.exe; the option refuses
-where a Tibia.exe exists; ctest runs what needs no CipSoft data, such as `start_without_data`), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, the grep gate `python -I tools/banned_calls.py` (no strcpy, strcat, sprintf, vsprintf or gets in src/; the buffers are `TFixedString`/`TStringBuffer` of `src/types/FixedString.h`, issue #57), and
+where a Tibia.exe exists; ctest runs what needs no CipSoft data, such as `start_without_data`, without tests_vulkan: the runner's CPU driver does not load), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, the grep gate `python -I tools/banned_calls.py` (no strcpy, strcat, sprintf, vsprintf or gets in src/; the buffers are `TFixedString`/`TStringBuffer` of `src/types/FixedString.h`, issue #57), and
 clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings; `--all --headers`; `--zero bugprone-`: no
 bugprone-* finding at all, issue #63). Static analysis of patella_core (issue #63, `cmake/Core.cmake`): the windows-x64 builds
 compile it with MSVC `/analyze`, linux-x64-gcc (and windows-x64-gcc) with GCC `-fanalyzer`; a finding fails the build like a
