@@ -17176,7 +17176,8 @@ client_state.py, login_client.py and session_client.py would need a remote form;
   now runs the job with SAFER's normal-user token, its integrity label lowered to medium (CreateProcessAsUserW with
   a restricted copy of its own token); llvmpipe is found and both match. Tibia.exe, patcap.dll and the memory reads
   work at medium integrity as on the host.
-- **One Sandbox at a time** (high). Windows runs one instance. A lock file in the user's temporary folder
+- **One Sandbox at a time** (high; the limit itself was assumed here and measured only in #154, below: Windows
+  refuses a second Sandbox). A lock file in the user's temporary folder
   (msvcrt.locking, released by Windows when the holder dies) plus a check that no Sandbox process runs: a second run
   says who holds it and waits, polling every 5 s; it neither fails nor starts a second Sandbox. Checked with two runs
   started 3 s apart: the second waited and started 1 s after the first had closed its Sandbox.
@@ -17820,3 +17821,57 @@ fetch.sh is bind-mounted for the two RUNs (`RUN --mount`, BuildKit, Docker's def
 ### The proof
 
 `python -I tools/download_selftest.py` (no network) serves scripted answers from 127.0.0.1 to all three paths: 504s then the file; 408, 429, 500 and 503; a dropped connection; a transfer cut short; 404 and 403; a wrong file first, after a 504, after a cut transfer and from the fallback; a fallback answering 504 once. For each it checks the outcome, the number of requests to each URL, that the pauses are kept, and that no result and no partial file is left behind after a failure. patella_fetch_declare also runs in a small project: an extracted archive after a 504, a DOWNLOAD_NO_EXTRACT file after a 503 and a 502, an installed package that is never fetched, a `--fresh` configure with no request at all, a wrong archive after a 504 that fails the configure and is not kept. Hosted CI runs it in the clang-format job, in the image (its CMake 4.4.5, curl and dash).
+
+## #154: Windows refuses a second Sandbox (Patella-Modern issue #154, M7)
+
+#147 recorded "Windows runs one instance" without measuring it: its one check was two of our runs 3 s apart, which
+shows the lock works. This issue measured the limit, on Windows 11 Pro N build 26300 with `wsb` 0.8.107.0, on a Ryzen
+9 9900 with 64 GB. **Result (high): Windows refuses a second Sandbox, both ways. The lock stays as it was.**
+
+### How it was measured
+
+While the probe ran, tools/sandbox.py's own Lock was held (14:43 to 14:53 on November 8, after the run in progress had
+ended), so no other agent's run could start; the two agents using the Sandbox were told. The probe started Sandbox A,
+waited for its guest (a Python script in a mapped folder: address, GPUs, a listener, a heartbeat every second), then
+tried Sandbox B beside it. Every start was on a hidden desktop. A watcher (sandbox.WindowKeeper) on the user's desktop
+saw no Sandbox window restored and none as the foreground window in either probe.
+
+### What happened
+
+- **`WindowsSandbox.exe` (the way sandbox.py starts it; A up in 14.8 s).** B's launcher process ended within 0.5 s,
+  and no second virtual machine came: one vmmemWindowsSandbox, `wsb list` one ID, B's guest never ran in 240 s. A second
+  WindowsSandboxRemoteSession.exe opened a window titled "Windows Sandbox", read through UI Automation on its hidden
+  desktop: "Fel", then "Det går bara att köra en instans av Windows Sandbox-miljö åt gången." (Error: only one instance
+  of Windows Sandbox can run at a time), and a button "Stäng". The window stays until it is closed: `taskkill` without
+  /F (a WM_CLOSE) left it running, as #147 found for the Sandbox's window on a hidden desktop; ending the process did it.
+- **`wsb start --id <guid> -c "<configuration>"` (A's start returned in 1.9 s).** B's start: exit code 0x800401F6, "Det går inte att
+  köra programmet mer än en gång (0x800401F6 (CO_E_APPSINGLEUSE))". No window, and `wsb list` still showed only A.
+- **The first Sandbox was not disturbed** in either case. After the refused start A's heartbeat went on (237 beats in
+  the 240 s the probe waited), and it ended normally when told to.
+
+So the issue's follow-up questions (a network, mapped folders and a GPU per Sandbox, the display of two at once) do not
+arise: there is never a second one. A has the guest facts #147 recorded: WDAGUtilityAccount at its own NAT address
+(172.22.x.y), both GPUs and the Remote Display Adapter, 8 GB, 24 processors, about 2.9 GB in vmmemWindowsSandbox.
+
+### Also seen
+
+- `wsb start` shows nothing on any desktop, but without `wsb connect` nobody is logged on inside: the configuration's
+  LogonCommand had not run after 60 s (`wsb exec -r ExistingLogin` would fail for the same reason, by its help text).
+  `wsb exec -r System` ran the guest 5 s later as the machine account, with no Remote Display Adapter. sandbox.py needs a
+  logged-on desktop for Tibia.exe, so `wsb` offers it nothing over WindowsSandbox.exe.
+- WindowsSandboxServer.exe can run with no Sandbox (seen before the first start; its PID changes between Sandboxes). It
+  is not among SANDBOX_PROCESSES, rightly, or a run would wait for it.
+- A refused start's error window counts as a Sandbox process, so sandbox.py's check would make every later run wait until
+  it is closed. sandbox.py never makes one (it starts only under the lock with no Sandbox running); it can come from a
+  Sandbox started by hand beside a run. Left as it is: the owner closing that window is the right end of it.
+
+### Not tried
+
+Starting one Sandbox each way at once, and a Sandbox from a second Windows user's session; neither would change the
+tools, and the second means using another account. Later Windows builds may lift the limit: the two commands above
+tell in a minute.
+
+### Changed
+
+Comments of tools/sandbox.py (the limit's source; the error window), notes/testserver.md, this file's #147 entry,
+CLAUDE.md. No behaviour changed. The probe's scripts and logs are local, in build\logs\issue-154\.

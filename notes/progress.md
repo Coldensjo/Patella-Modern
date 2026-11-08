@@ -824,6 +824,11 @@ CMake falls back to Kitware's own site; a 404 or a wrong SHA-256 stops at once. 
 docker/linux-x64/fetch.sh and cmake/Download.cmake's patella_fetch_declare; tools/download_selftest.py shows them
 against a local server, also in hosted CI's clang-format job. notes/decisions.md, "#153".
 
+Two Sandboxes at once (Patella-Modern issue #154, branch issue-154, November 8, 2026; M7): measured, and Windows
+refuses. A second WindowsSandbox.exe leaves only an error window ("only one instance"), a second `wsb start` fails with
+CO_E_APPSINGLEUSE, and the first Sandbox is not disturbed. tools/sandbox.py's lock stays as it is; #147's unmeasured
+note corrected. notes/decisions.md, "#154"; notes/testserver.md, "Windows Sandbox".
+
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),
 fuzz_packets (ReceivePackets and Communication.cpp's handlers in the golden Communication world), fuzz_tibia_cfg,

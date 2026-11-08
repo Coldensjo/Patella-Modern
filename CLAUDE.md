@@ -112,7 +112,9 @@ run themselves inside Windows Sandbox by default, the whole tool (Tibia.exe, the
 private test server (#146) on the host through a reverse tunnel of its two ports (its folder mapped read-only, its
 copy's data\usr writable, the master not mapped); a host-side live run (testmode_check's online part, headless) runs
 beside it on a server of its own; the Sandbox's window on a hidden desktop, so nothing shows on
-the user's desktop; one Sandbox at a time (a second run waits); `python -I tools/sandbox.py run -- <tool.py> [args]`
+the user's desktop; one Sandbox at a time (a second run waits; measured in issue #154: on build 26300 Windows refuses a
+second Sandbox, both WindowsSandbox.exe's "only one instance" window and `wsb start`'s CO_E_APPSINGLEUSE;
+notes/testserver.md "Windows Sandbox", notes/decisions.md "#154"); `python -I tools/sandbox.py run -- <tool.py> [args]`
 runs any tool there. `--desktop` runs them on this session's desktop as before; there a second interactive session
 (another Windows user, kept connected and unlocked) keeps the user's input away (issue #56; notes/reconstruction.md,
 "Checking"). Still on the user's desktop: reference.py record (frozen) and tests_vulkan's hidden windows.

@@ -287,6 +287,21 @@ before), and `python -I tools/sandbox.py run -- <tool.py> [arguments]` runs any 
 made on a hidden desktop of its own: nothing of it, of Tibia.exe or of the x64 client appears on the user's screen,
 and nothing takes the focus. One Sandbox at a time: a second run waits for the first. notes/decisions.md, "#147".
 
+**The limit is Windows' (measured in issue #154, November 8, 2026; Windows 11 Pro N build 26300, `wsb` 0.8.107.0).**
+With no other Sandbox running, and sandbox.py's lock held so that none could start:
+
+| second start, beside a running Sandbox | what Windows did |
+|---|---|
+| `WindowsSandbox.exe <file>.wsb` (as sandbox.py starts it) | The launcher exits at once, no second virtual machine, and `wsb list` still shows one ID. A new WindowsSandboxRemoteSession.exe opens a window titled "Windows Sandbox" with the text "Fel" and "Det går bara att köra en instans av Windows Sandbox-miljö åt gången." (Error: only one instance of Windows Sandbox can run at a time) and a "Stäng" button. It stays until it is closed. |
+| `wsb start --id <guid> -c "<configuration>"` | Exit code 0x800401F6 and "Det går inte att köra programmet mer än en gång (0x800401F6 (CO_E_APPSINGLEUSE))". No window, no second ID. |
+
+The first Sandbox was not disturbed either way (its heartbeat went on: 237 beats in 240 s after the refused start).
+Because no second Sandbox ever started, separate network, mapped folders and GPUs per Sandbox do not arise. One
+consequence for anyone starting one by hand beside a run: the refused start's error window is a
+WindowsSandboxRemoteSession.exe, so sandbox.py's check for other Sandbox processes makes every later run wait until
+it is closed. On a hidden desktop a WM_CLOSE did not close it; only ending the process did. Not tried: a Sandbox
+started by each of the two ways at once, or from another Windows user's session. notes/decisions.md, "#154".
+
 - **The server stays here.** The tool runs inside, with the clients and the proxy; the test server stays on the host
   (since issue #146 the run's private copy, below). `testserver.py start|stop` inside the Sandbox is passed to the
   host, which runs it here, so a run started inside starts and stops the host's server exactly as before (and one it
