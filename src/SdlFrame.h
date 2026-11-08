@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "common.h"
 #include "platform/Window.h"
 
 union SDL_Event; // SDL3's (SDL_events.h)
@@ -58,5 +59,12 @@ void ClientToScreen(int &X, int &Y);
 // Windows the wheel), handled as the desktop's events are, except that a key makes no character (the script's WM_CHAR
 // is its character) and a button's click count is the message's (1, or 2 for a double click).
 void ScriptedInput(const SDL_Event &Event);
+
+#if !defined(_WIN32)
+// Issue #131: the Linux path of the test mode's window messages (testmode/SdlInputWin32.cpp): what the window procedure
+// does on Windows with a key, character, button, timer or close message. And the window's client area, GetClientRect's.
+void WindowMessage(UINT Message, WPARAM WParam, LPARAM LParam);
+void ClientSize(int &Width, int &Height);
+#endif
 
 } // namespace patella::sdlframe

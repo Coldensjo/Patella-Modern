@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  IMAGE: patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2
+  IMAGE: patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7
 
 jobs:
   windows-msvc:
@@ -129,9 +129,9 @@ jobs:
         run: python -I tools/build.py --env windows-x64 ctest --preset windows-x64 -E "^tests_vulkan$"
 
   linux:
-    name: ${{ matrix.preset }} (Docker), unit tests
+    name: ${{ matrix.preset }} (Docker), unit tests and the Linux client (placeholders)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -148,9 +148,10 @@ jobs:
       # compiles patella_core with GCC's static analyzer, -fanalyzer (issue #63, cmake/Core.cmake): a
       # finding fails the build like a warning.
       - name: Release
-        run: docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" python3 -I tools/build.py ${{ matrix.preset }}
+        # Issue #131: the Linux client with neutral placeholder pictures (the runner has no Tibia.exe, as the Windows job's).
+        run: docker run --rm -e PATELLA_PLACEHOLDER_RESOURCES=1 -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" python3 -I tools/build.py ${{ matrix.preset }}
       - name: Debug
-        run: docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" python3 -I tools/build.py ${{ matrix.preset }}-debug
+        run: docker run --rm -e PATELLA_PLACEHOLDER_RESOURCES=1 -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" python3 -I tools/build.py ${{ matrix.preset }}-debug
 
   clang-format:
     name: clang-format
@@ -208,4 +209,4 @@ jobs:
       - name: tools/tidy.py --baseline
         run: >-
           docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work "$IMAGE" bash -c
-          'clang-tidy --version && cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --headers --baseline tools/tidy-baseline.tsv --zero bugprone-'
+          'clang-tidy --version && PATELLA_PLACEHOLDER_RESOURCES=1 cmake --preset linux-x64-clang && python3 -I tools/tidy.py -p build/linux-x64-clang --all --headers --baseline tools/tidy-baseline.tsv --zero bugprone-'

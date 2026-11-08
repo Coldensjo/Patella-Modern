@@ -42,6 +42,12 @@ constexpr std::uint32_t ReadLittle(std::span<const std::uint8_t> Bytes, std::siz
 
 } // namespace detail
 
+#if !defined(_WIN32)
+// Issue #131 (cmake/LinuxX64.cmake, tools/embed_cursors.py): the Linux client's built-in copy of a cursor resource (an
+// RT_CURSOR image), or empty when the build has none of that number.
+[[nodiscard]] std::span<const std::uint8_t> EmbeddedCursor(int Id);
+#endif
+
 // An RT_CURSOR resource's bytes (the hot spot and the DIB) as a monochrome cursor; nothing where they are not a 1-bit
 // cursor of a sensible size or are too short.
 [[nodiscard]] inline std::optional<TMonochromeCursor> DecodeMonochromeCursor(std::span<const std::uint8_t> Resource)

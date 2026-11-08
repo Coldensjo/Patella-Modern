@@ -43,7 +43,14 @@ test mode (PatellaTest.exe --test-control: the frame dump, the probe; tools/test
 by hooking it, so this file no longer builds for x64 (issue #18 had built a 64-bit one). Its Vulkan
 exports (PatcapVulkanDevice, PatcapVulkanFrame, PatcapVulkanMask, PatcapVulkanPixels, issue #19) served
 Patella.exe's lookup of the DLL, which issue #97 removed; they left with issue #98, and with them the
-shared memory's Vulkan fields (version 4). */
+shared memory's Vulkan fields (version 4).
+
+Profile windows (Patella-Modern issue #134, tools/profiling.py, version 5): the commands CMD_PROFILE_START and
+CMD_PROFILE_STOP open and close a window between two frames; per Direct3D 9 Present the performance counter and
+Present's own duration (a time window), and with Arg0 PROFILE_ALLOCS the client's own heap calls since the last
+Present, counted at the main module's imports of HeapAlloc, HeapReAlloc and HeapFree, as PatellaTest.exe counts
+its own (src/testmode/ProfileWin32.cpp, the file's form too). The heap hooks are a call through while no window
+is open; what the system DLLs and drivers allocate (their own imports) is in no count. */
 
 #if defined(_WIN64)
 #error "patcap.dll is Tibia.exe's only (Patella-Modern issues #92, #94): the x64 client is read through its test mode"
@@ -72,6 +79,10 @@ shared memory's Vulkan fields (version 4). */
 #define CMD_ADVANCE 1               /* arg0 milliseconds, arg1 ticks */
 #define CMD_CAPTURE 2               /* arg0 frames to let pass first; path */
 #define CMD_REALTIME 3              /* arg0 1: the clock and the timer run in real time, 0: virtual again */
+#define CMD_PROFILE_START 4         /* arg0 PROFILE_*; path: the file CMD_PROFILE_STOP writes (issue #134) */
+#define CMD_PROFILE_STOP 5
+
+#define PROFILE_ALLOCS 1
 
 #define API_DDRAW_BLT 1
 #define API_DDRAW_FLIP 2
@@ -243,6 +254,95 @@ static BOOL WINAPI HookKillTimer(HWND Window, UINT_PTR Id)
 
 static BOOL CapturePending;
 static LONG CaptureSkip;
+
+/* --- profile windows (issue #134) --------------------------------------------------------- */
+
+#define PROFILE_MAX_SAMPLES 400000  /* 40 s at 10,000 frames per second */
+#define PROFILE_SMALL 1016          /* the small-block heap's limit in the original's CRT */
+
+typedef struct {
+	ULONGLONG Start;
+	DWORD Present;
+	LONG Allocations;
+	LONG Frees;
+	LONG Small;
+	ULONGLONG Bytes;
+} TProfileSample;
+
+static volatile LONG ProfileCounting;
+static volatile LONG ProfileAllocations, ProfileFrees, ProfileSmall;
+static volatile LONGLONG ProfileBytes;
+static TProfileSample *ProfileSamples;
+static LONG ProfileCount, ProfileDropped;
+static BOOL ProfileOpen;
+static char ProfilePath[520];
+static LARGE_INTEGER ProfileFrequency, ProfilePresentStart;
+static LONG ProfileLastAllocations, ProfileLastFrees, ProfileLastSmall;
+static LONGLONG ProfileLastBytes;
+
+/* HeapAlloc etc. below are this DLL's own imports (PatchImports patches only the client's). */
+
+static LPVOID WINAPI HookHeapAlloc(HANDLE Heap, DWORD Flags, SIZE_T Size)
+{
+	if (ProfileCounting) {
+		InterlockedIncrement(&ProfileAllocations);
+		InterlockedExchangeAdd64(&ProfileBytes, (LONGLONG)Size);
+		if (Size <= PROFILE_SMALL)
+			InterlockedIncrement(&ProfileSmall);
+	}
+	return HeapAlloc(Heap, Flags, Size);
+}
+
+static LPVOID WINAPI HookHeapReAlloc(HANDLE Heap, DWORD Flags, LPVOID Memory, SIZE_T Size)
+{
+	if (ProfileCounting) {
+		InterlockedIncrement(&ProfileAllocations);
+		InterlockedExchangeAdd64(&ProfileBytes, (LONGLONG)Size);
+	}
+	return HeapReAlloc(Heap, Flags, Memory, Size);
+}
+
+static BOOL WINAPI HookHeapFree(HANDLE Heap, DWORD Flags, LPVOID Memory)
+{
+	if (ProfileCounting)
+		InterlockedIncrement(&ProfileFrees);
+	return HeapFree(Heap, Flags, Memory);
+}
+
+static void ProfilePresentBegin(void)
+{
+	if (ProfileOpen)
+		QueryPerformanceCounter(&ProfilePresentStart);
+}
+
+static void ProfilePresentEnd(void)
+{
+	LARGE_INTEGER End;
+	LONG Allocations, Frees, Small;
+	LONGLONG Bytes;
+	if (!ProfileOpen)
+		return;
+	QueryPerformanceCounter(&End);
+	Allocations = ProfileAllocations;
+	Frees = ProfileFrees;
+	Small = ProfileSmall;
+	Bytes = InterlockedCompareExchange64(&ProfileBytes, 0, 0);
+	if (ProfileCount < PROFILE_MAX_SAMPLES) {
+		TProfileSample *Sample = &ProfileSamples[ProfileCount++];
+		Sample->Start = (ULONGLONG)ProfilePresentStart.QuadPart;
+		Sample->Present = (DWORD)(End.QuadPart - ProfilePresentStart.QuadPart);
+		Sample->Allocations = Allocations - ProfileLastAllocations;
+		Sample->Frees = Frees - ProfileLastFrees;
+		Sample->Small = Small - ProfileLastSmall;
+		Sample->Bytes = (ULONGLONG)(Bytes - ProfileLastBytes);
+	} else {
+		ProfileDropped++;
+	}
+	ProfileLastAllocations = Allocations;
+	ProfileLastFrees = Frees;
+	ProfileLastSmall = Small;
+	ProfileLastBytes = Bytes;
+}
 static char CapturePath[520];
 
 static void Finish(LONG Result, const char *Message)
@@ -304,6 +404,57 @@ static BOOL WriteBitmap(const char *Path, const BYTE *Bits, int Pitch, int Width
 	}
 	free(Line);
 	return fclose(Out) == 0;
+}
+
+static void ProfileStart(LONG Flags, const char *Path)
+{
+	if (ProfileOpen) {
+		Finish(4, "a profile window is open");
+		return;
+	}
+	if (ProfileSamples == NULL) {
+		ProfileSamples = (TProfileSample *)VirtualAlloc(NULL, PROFILE_MAX_SAMPLES * sizeof(TProfileSample),
+			MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+		if (ProfileSamples == NULL) {
+			Finish(5, "no memory for the samples");
+			return;
+		}
+	}
+	lstrcpynA(ProfilePath, Path, sizeof(ProfilePath));
+	QueryPerformanceFrequency(&ProfileFrequency);
+	ProfileCount = 0;
+	ProfileDropped = 0;
+	ProfileLastAllocations = ProfileAllocations;
+	ProfileLastFrees = ProfileFrees;
+	ProfileLastSmall = ProfileSmall;
+	ProfileLastBytes = InterlockedCompareExchange64(&ProfileBytes, 0, 0);
+	ProfileOpen = TRUE;
+	InterlockedExchange(&ProfileCounting, (Flags & PROFILE_ALLOCS) != 0);
+	Finish(0, "");
+}
+
+static void ProfileStop(void)
+{
+	FILE *Out;
+	LONG i;
+	if (!ProfileOpen) {
+		Finish(6, "no profile window is open");
+		return;
+	}
+	ProfileOpen = FALSE;
+	InterlockedExchange(&ProfileCounting, 0);
+	if (fopen_s(&Out, ProfilePath, "w") != 0) {
+		Finish(7, "cannot write the profile file");
+		return;
+	}
+	fprintf(Out, "# patella-profile 1\n# freq %llu\n# dropped %ld\n", (unsigned long long)ProfileFrequency.QuadPart,
+		(long)ProfileDropped);
+	for (i = 0; i < ProfileCount; i++) {
+		const TProfileSample *Sample = &ProfileSamples[i];
+		fprintf(Out, "F %llu %lu %ld %ld %llu %ld\n", (unsigned long long)Sample->Start, (unsigned long)Sample->Present,
+			(long)Sample->Allocations, (long)Sample->Frees, (unsigned long long)Sample->Bytes, (long)Sample->Small);
+	}
+	Finish(fclose(Out) == 0 ? 0 : 7, "");
 }
 
 /* Called before each frame is shown; TRUE when this frame is to be captured. */
@@ -560,7 +711,9 @@ static HRESULT STDMETHODCALLTYPE HookPresent(IDirect3DDevice9 *This, const RECT 
 	S->LastPresentTime = Now;
 	if (FrameShown(API_D3D9))
 		CaptureDirect3D9(This, From);
+	ProfilePresentBegin();
 	Result = Real(This, From, To, Window, Dirty);
+	ProfilePresentEnd();
 	if (Result != D3D_OK)
 		S->PresentFailures++;
 	if (Result != S->PresentResult)
@@ -754,6 +907,12 @@ static void Commands(void)
 	case CMD_REALTIME:
 		SetRealtime(S->Arg0 != 0);
 		break;
+	case CMD_PROFILE_START:
+		ProfileStart(S->Arg0, S->Path);
+		break;
+	case CMD_PROFILE_STOP:
+		ProfileStop();
+		break;
 	default:
 		Finish(9, "unknown command");
 	}
@@ -794,6 +953,9 @@ static const THook Hooks[] = {
 	{"gdi32.dll", "SwapBuffers", (void *)HookSwapBuffers},
 	{"opengl32.dll", "wglMakeCurrent", (void *)HookWglMakeCurrent},
 	{"ddraw.dll", "DirectDrawCreate", (void *)HookDirectDrawCreate},
+	{"kernel32.dll", "HeapAlloc", (void *)HookHeapAlloc},
+	{"kernel32.dll", "HeapReAlloc", (void *)HookHeapReAlloc},
+	{"kernel32.dll", "HeapFree", (void *)HookHeapFree},
 };
 
 static int PatchImports(void)
@@ -849,7 +1011,7 @@ BOOL WINAPI DllMain(HINSTANCE Instance, DWORD Reason, LPVOID Reserved)
 		if (S == NULL)
 			return FALSE;
 		S->Magic = 'PCAP';
-		S->Version = 4;
+		S->Version = 5;
 		S->LoadTick = (LONG)GetTickCount();
 		S->DeviceResult = 1;
 		S->CooperativeLevel = 1;

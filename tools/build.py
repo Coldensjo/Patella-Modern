@@ -23,8 +23,8 @@ already a developer prompt for that architecture is used as it is. The other pre
 and the Linux presets on Linux) run CMake in the shell's own environment.
 
 Docker (issue #7): on Windows, a preset whose condition asks for a Linux host (linux-x64-gcc,
-linux-x64-clang) runs in the image patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2
-(PATELLA_DOCKER_IMAGE overrides it; `docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2
+linux-x64-clang) runs in the image patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7
+(PATELLA_DOCKER_IMAGE overrides it; `docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7
 docker/linux-x64` builds
 it), in both forms. The repository is mounted read-only at /src; the files git knows (tracked, and
 untracked ones that are not ignored: never Tibia.exe or the data files) are copied with their times
@@ -59,6 +59,7 @@ Exit code: the command's, or 1 when it succeeded but warned.
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -70,7 +71,7 @@ VCVARSALL = r"VC\Auxiliary\Build\vcvarsall.bat"
 # where the .cmd scripts found it before issue #10; vswhere's answer comes first
 DEFAULT_VS = r"C:\Program Files\Microsoft Visual Studio\18\Community"
 # The Linux build image (docker/linux-x64/Dockerfile).
-DOCKER_IMAGE = "patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2"
+DOCKER_IMAGE = "patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7"
 DOCKER_DIR = "docker/linux-x64"
 # The pinned CMake of the Windows builds (issue #141; the module comment).
 CMAKE_VERSION = "4.4.5"
@@ -438,7 +439,12 @@ def docker_command(configure, command):
 		'cd /work; exec "$@"')
 	# The golden corpus read-only at /golden (issue #91), and PATELLA_GOLDEN_DIR naming it whether it is mounted or
 	# not (tests/golden/CMakeLists.txt takes it as the default at the first configure; the runner skips without one).
-	mounts = []
+	mounts = shlex.split(os.environ.get("PATELLA_DOCKER_MOUNTS", ""))
+	# The client's cursors (issue #131, cmake/LinuxX64.cmake): the local Tibia.exe read-only at /tibia, the environment
+	# naming it for the configure. Never copied into the image or the build tree beyond the extracted cursor resources.
+	tibia = os.path.join(ROOT, "Tibia.exe")
+	if os.path.isfile(tibia):
+		mounts += ["-v", "%s:/tibia/Tibia.exe:ro" % tibia, "-e", "PATELLA_TIBIA_EXE=/tibia/Tibia.exe"]
 	corpus = golden_corpus()
 	if corpus is not None:
 		mounts += ["-v", "%s:/golden:ro" % corpus]

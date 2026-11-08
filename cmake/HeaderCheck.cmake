@@ -128,6 +128,8 @@ set(PATELLA_HEADERS_CLIENT
 	TestHooks.h
 	Text.h
 	graphics.h
+	platform/Process.h
+	platform/Process.h
 	platform/SdlPlatform.h
 	platform/Win32Platform.h
 	sysinc.h
@@ -165,6 +167,7 @@ set(PATELLA_HEADERS_VULKAN_CLIENT
 set(PATELLA_HEADERS_TEST_BUILD
 	testmode/ClientStateWin32.h
 	testmode/PipeSocketWin32.h
+	testmode/ProfileWin32.h
 	testmode/SdlInputWin32.h)
 # Issue #111: patella_core compiles the rest of the client but the platform layer (the preferences, the state, the GUI's
 # logic, the windows and the dialogs), so their headers and what they include are portable too: checked with
@@ -189,7 +192,9 @@ list(REMOVE_ITEM PATELLA_HEADERS_VULKAN_CLIENT vulkan/DeviceSettings.h)
 list(APPEND PATELLA_HEADERS_CORE ${patella_headers_core_111} vulkan/DeviceSettings.h)
 # Headers that are not checked on their own, each with the reason. (The shaders' SPIR-V headers, ColorKeyFrag.h and
 # the others, are generated into the build tree by glslang, cmake/Vulkan.cmake: not headers of src/.)
-set(PATELLA_HEADER_CHECK_EXCEPTIONS)
+# compat/win32_types.h (issue #131): the Linux client's Windows types; it refuses _WIN32 (the Windows headers are there),
+# and on Linux the client's header checks include it through common.h.
+set(PATELLA_HEADER_CHECK_EXCEPTIONS compat/win32_types.h)
 
 # Every header of src/ outside src/Extern is on a list.
 file(GLOB_RECURSE patella_all_headers RELATIVE "${PROJECT_SOURCE_DIR}/src" CONFIGURE_DEPENDS
@@ -272,5 +277,10 @@ function(patella_header_checks)
 			${PATELLA_HEADERS_TEST_BUILD})
 		patella_client_compile_settings(header_check_test_build)
 		target_compile_definitions(header_check_test_build PRIVATE PATELLA_TEST_MODE)
+		if(NOT MSVC)
+			# Issue #131: as the Linux client's sources (cmake/LinuxX64.cmake), not in the compile commands that tidy.py --headers
+			# reads: the client's headers against the Windows types are the Windows presets' to check with clang-tidy.
+			set_property(TARGET header_check_client header_check_test_build PROPERTY EXPORT_COMPILE_COMMANDS OFF)
+		endif()
 	endif()
 endfunction()

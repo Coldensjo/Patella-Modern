@@ -12,8 +12,8 @@
 #pragma once
 
 #include "common.h"
-#include "platform/LoopTimer.h"
 #include "platform/Platform.h"
+#include "platform/Process.h" // IWYU pragma: export
 
 #include <cstdint>
 #include <optional>
@@ -48,25 +48,6 @@ public:
 	[[nodiscard]] bool IgnoreDesktopInput() override { return false; }
 };
 
-// The SDL3 window's input (issue #122; SdlFrame.cpp): the main timer is the loop's (TLoopTimer: SdlFrame.cpp's loop
-// asks TimerDue and calls TimerEvent, where the MFC frame got WM_TIMER from SetTimer); the cursor is Win32's GetCursorPos
-// (issue #123: the original's last position where Windows cannot read it, which SDL would not keep). The timer's
-// Id is not kept: the client has one timer (1).
-class TSdlLoopInput final : public IInput {
-public:
-	bool CursorPosition(TPoint &Point) override;
-	void StartTimer(TWindowHandle Window, unsigned int Id, unsigned int Milliseconds) override;
-	void StopTimer(TWindowHandle Window, unsigned int Id) override;
-	void BeginIdle() override {}
-	[[nodiscard]] bool IgnoreCaptureChange() override { return false; }
-	[[nodiscard]] bool IgnoreDesktopInput() override { return false; }
-	// One tick of the main timer when it is due at Now (the platform clock's milliseconds).
-	[[nodiscard]] bool TimerDue(std::uint32_t Now) { return Timer.Due(Now); }
-
-private:
-	TLoopTimer Timer;
-};
-
 // MessageBoxA, EnumWindows (GetWindowTextA, GetClassNameA), EnumDisplaySettingsA, ChangeDisplaySettingsA (issue #124:
 // the Vulkan engine's until then).
 class TWin32Window final : public IWindow {
@@ -80,42 +61,10 @@ public:
 	[[nodiscard]] bool Headless() override { return false; }
 };
 
-// The cursor's screen position into a POINT, as GetCursorPos(&Point) wrote it: unchanged where it cannot be read.
-inline void ReadCursorPosition(IInput &Input, POINT &Point)
-{
-	TPoint Position;
-	if (Input.CursorPosition(Position)) {
-		Point.x = Position.x;
-		Point.y = Position.y;
-	}
-}
-
 // The Win32 implementations, made on first use and never destroyed: Patella.exe's Platform(), and the parts of the
 // test build's (TestModeWin32.cpp) that are not the test mode's.
 TWin32Clock &Win32Clock();
-TDataFileSystem &SystemFileSystem();
-// Issue #130 (DataLocationWin32.cpp, Patella.exe's and PatellaTest.exe's): sets SystemFileSystem's folders
-// (settings::ChooseLocations: --data, the working folder, the executable's, Patella.ini's DataFolder), once, at the
-// start (Player.cpp InitInstance), before the first file is opened; LogDataFiles logs them once the log's settings
-// (Patella.ini's, in the folder chosen) are read.
-void ConfigureDataFiles();
-void LogDataFiles();
-// The process's network (issue #125): TPortableSocket in Patella.exe and PatellaTest.exe (platform/NetworkWin32.cpp:
-// the lookups' replies to the window, the modal loops' polling), the original's CAsyncSocket calls in the golden runner
-// (tests/golden/network/MfcSocket.cpp, whose fakes its Network test logs).
-ISocket &NetworkSocket();
 TWin32Clipboard &Win32Clipboard();
 TWin32Input &Win32Input();
 TWin32Window &Win32Window();
-// Issue #122: the SDL3 window's input, and the input of the process's window (WindowInput: SdlLoopInput() where the
-// client has its SDL3 window, built with PATELLA_SDL3). Patella.exe's Platform() gives it; the test build's TTestInput
-// passes its timer on to it without a script. The golden runner, built without PATELLA_SDL3, has Win32's only.
-TSdlLoopInput &SdlLoopInput();
-IInput &WindowInput();
-// Issue #124: the clipboard and the desktop of the process's window: SDL3's (platform/SdlPlatform.h), where built with
-// PATELLA_SDL3. Patella.exe's Platform() gives them; the test build's TTestWindow passes on to WindowDesktop() what it
-// does not do itself, and its clipboard without a script is WindowClipboard(). The golden runner has Win32's.
-IClipboard &WindowClipboard();
-IWindow &WindowDesktop();
-
 } // namespace patella::platform

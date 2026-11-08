@@ -17917,6 +17917,68 @@ fetch.sh is bind-mounted for the two RUNs (`RUN --mount`, BuildKit, Docker's def
 
 `python -I tools/download_selftest.py` (no network) serves scripted answers from 127.0.0.1 to all three paths: 504s then the file; 408, 429, 500 and 503; a dropped connection; a transfer cut short; 404 and 403; a wrong file first, after a 504, after a cut transfer and from the fallback; a fallback answering 504 once. For each it checks the outcome, the number of requests to each URL, that the pauses are kept, and that no result and no partial file is left behind after a failure. patella_fetch_declare also runs in a small project: an extracted archive after a 504, a DOWNLOAD_NO_EXTRACT file after a 503 and a 502, an installed package that is never fetched, a `--fresh` configure with no request at all, a wrong archive after a 504 that fails the configure and is not kept. Hosted CI runs it in the clang-format job, in the image (its CMake 4.4.5, curl and dash).
 
+## #134: profiling: frame time, heap calls per frame, GPU timestamps against Tibia.exe (Patella-Modern issue #134, M9)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-134, from main b71c815). tools/profiling.py, src/testmode/ProfileWin32.cpp,
+TRenderer::SetFrameTimestamps, patcap.dll's profile windows (shared memory version 5, the structure unchanged);
+notes/testmode.md "Profile windows", notes/progress.md "Profiling" (the numbers), notes/vulkan.md "GPU timings".
+
+### The measurement (high)
+
+- **The environment.** Tibia.exe cannot run on the owner's desktop (the owner's instruction of November 8), so both
+  clients run in Windows Sandbox, in one job (tools/profiling.py, `sandbox.redirect`, `testserver.isolate`, one private
+  server for the whole job, 5 runs each, alternating so a load change hits both): the same machine, the same GPU
+  through GPU paravirtualization, the same windowed 800x600 session. A Sandbox display of 1024x768 (sandbox.run's
+  `display`). The numbers are Sandbox numbers, and the report and the notes say so.
+- **A frame is Present to Present, on real time.** Tibia.exe: patcap.dll's real-time mode (the existing CMD_REALTIME,
+  so no virtual clock) and the D3D9 Present hook, the counter at its entry and Present's duration. x64 client:
+  PatellaTest.exe without a script, on the system clock (not the virtual one), through the code of Patella.exe plus
+  the test hooks, with the same two points around TRenderer::Present. The difference between the two points gives
+  "work before Present" (the whole idle pass, windows, the map, the Direct3D 9 calls or the Vulkan recording) and
+  Present's own duration. Considered: timing against the reference recordings' frozen scenes with the virtual clock
+  (a clock that stands still gives a time per frame of a frozen scene, but no frames in Tibia.exe until it moves, and
+  it would not be real time); a live session gives every frame for both clients.
+- **Windows kept apart.** Each scene has a `time` window (only the counter), an `allocs` window (the heap hooks on) and,
+  for the x64 client, a `gpu` window (the timestamps on), so neither the hooks nor the queries influence the time
+  windows. Scenes: the title screen, in the game standing, walking a square.
+- **The heap count.** Tibia.exe's CRT: this MSVC 7.1 static CRT has no __MSVCRT_HEAP_SELECT string and on Windows NT 5 and later
+  uses the system heap; the HeapAlloc imports see requests of 1016 bytes and less in the same counts (`small_share`
+  in the report), so a CRT small-block heap does not hide its calls. patcap.dll counts at the main module's imports of
+  HeapAlloc, HeapReAlloc and HeapFree; PatellaTest.exe counts at its own imports the same way (static CRT since M3: its
+  malloc and operator new end there): the two counts are the same calls of the same clients' own code. Direct3D's, the
+  Vulkan driver's and any allocator with its own arena are in neither (SDL3 in the x64 client: its malloc if built
+  with the CRT). Bytes differ a little by bitness; the count does not.
+- **The GPU time.** Only the Vulkan engine (vkCmdWriteTimestamp2 around a frame's command buffers); Tibia.exe's GPU work
+  cannot be timed. Timings run only in `gpu` windows.
+
+### The numbers and what is filed (high)
+
+notes/progress.md, "Profiling" (the table); build\profile\run1\report.txt in the worktree (local). Sandbox numbers,
+5 runs per client, spread reported: the work before Present is the same in both game scenes; on the title screen
+about 1.5 times (0.060 against 0.039 ms): #156. The heap allocations per frame (8 and about 70 against about 0.003): #155. The
+whole frame time and Present's own duration differ by the API behind GPU paravirtualization (Vulkan's present 0.80
+ms, Direct3D 9's Present 0.43 ms; both clients over 880 frames per second), which only a bare-metal run can tell from
+the clients: no regression filed (the issue's rule). Fix only what the numbers show, each as its own issue: nothing
+fixed here. `JUDGEMENT` in the tool's report: non-overlapping spreads and 10% worse, or one heap call more per frame.
+
+### Measurement code stays out of the product (high)
+
+The hooks and ProfileWin32.cpp are `PATELLA_TEST_MODE` only; Patella.exe contains none of it. TRenderer gets four
+functions and fields compiled into every build, but with timestamps off (the default, never turned on in Patella.exe)
+BeginFrame and Submit only test a flag and a member, and no query pool exists. The golden corpus and the reference compare
+are unchanged (the gates).
+
+### Found, not done
+
+- A run of the tool can fail to size the Sandbox's display (sandbox.set_display's error, once in three runs here; the
+  next run worked); it never ran the clients then.
+- The frame-time difference at Present on bare metal: a run of the tool in a second session or on another machine
+  would settle whether Vulkan's Present costs more than Direct3D 9's on the real driver.
+- compare_rendering.py's default recording flow since #146: a recording from compare_traffic.py's private server names that
+  run's game port in the character list, and compare_rendering.py replays on the default ports, so every run ends with
+  "no game connection" (a replay has no rewrite of the port; here it was run with a recording on the default ports,
+  the main checkout's build/traffic/result/orig-live.jsonl, and every scene is identical).
+
 ## #154: Windows refuses a second Sandbox (Patella-Modern issue #154, M7)
 
 #147 recorded "Windows runs one instance" without measuring it: its one check was two of our runs 3 s apart, which
@@ -18002,3 +18064,135 @@ No check compares src/SdlFrame.cpp's window rules (resizing, styles) function by
 -Wno-nonnull-compare (GCC) and -Wno-tautological-undefined-compare (Clang) went with the stand-in's GetSafeHwnd.
 -fno-delete-null-pointer-checks stays although GetSafeHwnd was its documented reason: without it GCC removes the null
 comparison in network_tests.cpp's SocketIndex (69 Network failures, Connect-2 for the original's Connect-1).
+
+## #131: the Linux client (Patella-Modern issue #131, M8)
+
+M8's exit, the Linux half. The Linux presets (linux-x64-gcc, linux-x64-clang) now build the client: `Patella` and its
+test build `PatellaTest` (cmake/LinuxX64.cmake), SDL3 3.4.18 and the Vulkan engine, in the Docker image with its X11 and
+Wayland dependencies, with the local Tibia.exe's cursors (never its other data, never in an image or a commit).
+
+### What runs, on what
+
+- **Replays (reference compare, tier A against Tibia.exe's recordings):** `PatellaTest --test-headless` (SDL's dummy video
+  driver, the CPU driver lavapipe) plays all four reference sessions; every session matches byte for byte, frame for frame
+  (the frames exact but for the device-filtered pixels within 2, as on Windows; the states, packets, files, boxes, exit
+  codes): `python -I tools/build.py --env linux-x64-gcc python3 -I tools/reference.py compare --reference /reference
+  --exe build/linux-x64-gcc/Release/PatellaTest --data /data --out /out` with those folders mounted (PATELLA_DOCKER_MOUNTS),
+  on GCC, and on Clang under ASan and UBSan.
+- **Live:** tools/linux_live.py logs the test build into a private test server and plays
+  tests/testmode/login-walk.script (login, character list, game, a square, logout) headless and under Xvfb (the X11 video
+  driver, a Vulkan swapchain on lavapipe; nothing is drawn on a display of the user's), and starts the product `Patella`
+  under Xvfb on the CPU driver for 20 s.
+
+### The decisions
+
+- **The Windows types (compat/win32_types.h).** The client's platform layer still names POINT, UINT, WM_*, VK_* and the
+  like. The types and constants of the golden runner's stand-in windows.h moved to src/compat/win32_types.h (types and
+  constants only, no function: a Windows call left over fails the Linux build), which both the stand-in and the
+  Linux client (PATELLA_WIN32_TYPES, common.h) include. The client's sources compile with PATELLA_CORE as patella_core
+  does (no windows.h); only the platform layer's Linux files, SdlFrame.cpp, the Vulkan engine's window code and
+  the test mode are new or guarded by `#if defined(_WIN32)`.
+- **Windows' rand on Linux (PATELLA_MSVC_RAND, compat/msvc.h).** The client's random numbers (XTEA keys, filler bytes, the
+  first login server) are MSVC's formula, so a run with the same seed sends the same random bytes as on Windows.
+- **The login servers and the RSA key come from the environment** (PATELLA_LOGIN_SERVER=host:port and PATELLA_RSA_MODULUS,
+  decimal, read by Network.cpp and Communication.cpp): tools/patch_client.py patches a PE, not an ELF. Developer
+  environment variables, unset by default; plan D8's Patella.ini key stays open.
+- **The window frame in scripted runs on Linux.** SDL reports no borders under Xvfb or the dummy driver, so Patella.ini's
+  outer window 800x600 would be an 800x600 client area where the recordings' client area is 780x557. Scripted runs on
+  Linux use the recordings' frame (33 above, 10 on the other sides) regardless of the window manager (FrameSize,
+  SdlFrame.cpp); unscripted runs use SDL's.
+- **The device window.** SDL3 has no child windows on X11 or Wayland, so TPresentWindows on Linux gives the device
+  the main window itself (issue #52's retired window has nothing to keep); the main window is created with SDL_WINDOW_VULKAN
+  (not in a headless run: the dummy driver has no Vulkan). The surface-less device test's window (TTestWindow) is a
+  hidden SDL window of its own, or none in a headless run (its device is created without a surface, as a headless run's).
+  Every instance enables every Linux surface extension the loader offers (xlib, xcb, wayland), as issue-31-fix did on Windows.
+- **The CPU driver** is the system's Mesa lavapipe on Linux (the distribution's mesa-vulkan-drivers package,
+  /usr/share/vulkan/icd.d/lvp_icd.json; FindCpuDriverManifest), not a copy next to the executable. The tools' CPU runs
+  pin the loader to that one manifest (VK_DRIVER_FILES): the image's other Mesa drivers load in the loader's scan and
+  intel_hasvk crashed there under address randomization (a crash in the driver's own XML parsing, not ours).
+- **The test build's window messages on Linux.** The driver's and the recordings' window messages reach the same handlers
+  the window procedure uses on Windows (sdlframe::WindowMessage, testmode/SdlInputWin32.cpp), so scripted keys and clicks behave
+  as on Windows. The replay's pipe events go through a queue that the idle step delivers until empty, as the window
+  messages were delivered by the message loop.
+- **The test mode's arguments** come from /proc/self/cmdline (platform::Arguments): TState reads them before main, as
+  GetCommandLine answers at any time. **The control channel** is files on Linux (control-command, control-done in
+  --test-out; tools/testmode_client.py) in place of the named events.
+- **The XDG option** is the command line's `--xdg-config` (Patella.ini in $XDG_CONFIG_HOME/patella, else
+  ~/.config/patella; the folder is created). **"A Tibia client is already running!"** on Linux: a per-user lock
+  (flock of /run/user/.../patella-client-<uid>.lock, else /tmp), since SDL lists only the process's own windows.
+- **Reused:** the golden stand-ins' types (above), the fuzz targets and golden_runner are unchanged, the portable
+  socket (#125), TDataFileSystem and FindNoCase (#130), SDL3's display modes and clipboard (#124).
+- **Packages of the image** (docker/linux-x64/Dockerfile, tag `...-sdl3-mesa25.0.7`): libx11-dev, libxext-dev, libxcursor-dev,
+  libxi-dev, libxfixes-dev, libxrandr-dev, libxss-dev (SDL3's X11 driver), libwayland-dev, wayland-protocols, libxkbcommon-dev,
+  libegl-dev (its Wayland driver; SDL's CMake asks for egl.pc), libvulkan1 (the loader), mesa-vulkan-drivers (lavapipe),
+  xvfb (the virtual X display). SDL3 is still built from its pinned archive (`patella_fetch_declare`), not a package.
+- **An uninitialised bool of the original** (TTalkBuffer::Closed: its constructor leaves it as the heap has it): UBSan reported its load in GetClosed. The golden corpus records the bytes the constructor leaves untouched, so the constructor stays; GetClosed reads the byte (a memcpy; the same test of the byte as the original's). With ASan the reference compare passes `malloc_fill_byte=0` (ASan's default fill of 0xbe would make the field non-zero and close a channel, which a fresh heap does not do).
+- **Clang-tidy:** the client's sources and header checks on Linux stay out of compile_commands.json (tidy.py --all and
+  --headers keep reading patella_core's and the libraries'); the same sources are checked by the Windows runs. New Linux files
+  (LinuxPlatform.cpp, DataLocationLinux.cpp, NetworkLinux.cpp, EntryLinux.cpp) are thus not in the hosted tidy job; see "Found, not done".
+
+### Checks (merged with #134 and #157; logs in build\logs\issue-131)
+
+Golden 15,803,218 + 1,512,822 = 17,316,040, 0 failures, 0 warnings on windows-x64, windows-x64-debug, windows-x64-asan,
+linux-x64-gcc and linux-x64-clang (ASan, UBSan); windows-x64-gcc 14/14 tests, no corpus. Reference compare: every session
+matches on Windows (headless), Linux GCC and Linux Clang under ASan and UBSan. Live on Linux: login, game login, 4 walks,
+logout, headless and under Xvfb; the product ran 20 s under Xvfb. Windows: testmode_check, compare_traffic, compare_files,
+compare_rendering both modes (all scenes identical, on this run's traffic recording: the brief's orig-live.jsonl of November 2
+has the old look step and is refused), compare_network 0 of 51 differ. tidy_ci baseline 3, 0 new; banned_calls and clang-format clean.
+
+### Not run, or not possible here
+
+- **Hardware Vulkan drivers on Linux**: the container has no GPU; only lavapipe ran. Everything said above about frames is
+  the CPU driver's. The plan's "hardware drivers" is unverified.
+- **A real X11 or Wayland desktop**: Xvfb only; no window manager, no Wayland compositor, so SDL's real borders, cursors,
+  keyboard, the system clipboard and the SDL3 fullscreen mode switch (SdlSetFullscreenMode on a real display) have not run.
+  SDL_GetDesktopDisplayMode (SdlDesktopMode) did, in the windowed Xvfb run.
+- **tests_vulkan** is not built on Linux (Windows' windows and messages). **The `Patella` window icon** is not set on Linux
+  (no resource file there; the taskbar shows SDL's default).
+
+### Found, not done
+
+- Plan D8's Patella.ini key for the servers and the RSA key (the environment variables stand in).
+- #134's profile windows are Windows' (the heap hooks patch kernel32's import table); on Linux the control channel answers that they are not implemented (src/testmode/ProfileWin32.cpp).
+- tests_vulkan on Linux; tidy's coverage of the new Linux platform files; the window icon on Linux; AppImage (M9).
+- `XDG_RUNTIME_DIR` not set in the container makes SDL's Wayland probe print one line to stderr ("error: XDG_RUNTIME_DIR is
+  invalid"), harmless (SDL falls back to X11).
+
+## #157: a recording replays wherever it was made (Patella-Modern issue #157, M7)
+
+Tools only. A live proxy puts its own game port into the character list and records that, so since #146 a recording holds
+its private run's port (here 7407). compare_rendering and compare_network replay without a private server on 7272, so
+the client went to a port nobody listened on. #127 and #134 worked around it by hand.
+
+- **The fix is in the replay, not the recording** (tools/proxy.py, `Proxy.replay_event`): every game port of a replayed
+  character list becomes the replay's own. Considered: a neutral port in the recording. It would not help the recordings
+  that exist. 7272 recordings go through unchanged, byte for byte (`changed` 0, the same event). It serves every replaying tool,
+  compare_files' and compare_traffic's `--skip-live` too.
+- **Every port, not only the recording's** (`rewrite_character_list(payload, None, new)`): a replay has no other game server,
+  and compare_network's crafted lists are made of a recorded list's port and carry no "orig", so the recorded port cannot
+  be told from the event. No scenario names a dead port (`game-refused` closes the listener).
+- **Same length**: the port is two bytes in place. The frames have no checksum at this protocol version, and a crafted
+  frame's "inner", "cut" and "pieces" still fit. The replay's own record holds the bytes it sent, and the caller's events are
+  not changed. `character_list_ports` stops at a list that ends early instead of raising, for crafted streams.
+- **What the comparisons compare is unchanged**: the two clients of a scenario get the same bytes, as before.
+
+### Found on the way: compare_network and a session that walks at once
+
+A fresh recording then stopped in `scenarios()` with an IndexError: since #144 the session steps at once, so no server
+packet lies between the fight modes (0xa0) and the first step, and compare_files.game_start, which stops at that step, leaves
+only the map frame. compare_network's own `game_start` (not compare_files', whose walk and error sessions keep theirs) takes the next
+server packet of the same 3 s as the second frame, without the client's step. Only that one: with every packet of the 3 s,
+`game-inner-long` broke, since the fork's client drops that frame (#142) and the next creature move then does not fit its map,
+a critical error instead of the deliberate outcome. A recording with a packet before the first step, as the older ones,
+gives exactly game_start's; fewer than two packets are now a RunError instead of an IndexError.
+
+### Checked
+
+`python -I tools/proxy.py --self-test` (new: the rewrite, a list alone and across two frames, a cut list at every length, a
+default-port recording, frame size, the inner length, a broken frame, a game packet) and `python -I tools/compare_network.py
+--self-test` (new: both session shapes, too few packets, every scenario made of both); compare_rendering's self-test. Sandbox,
+main's Patella.exe, a compare_traffic recording made on a private server (character list 7407; server 7405): compare_traffic "no
+differences"; compare_rendering `--modes windowed` "all scenes identical" (first try ended at the Sandbox's Direct3D 9 first
+frame, before any replay; passed on the rerun); compare_network 18 scenarios (login, game entry, cuts, inner lengths), 0 differ, 2
+deliberate. The old `build/recordings/orig-live.jsonl` in compare_network: 10 scenarios, 0 differ, 1 deliberate, before the
+one-frame change, which does not touch that recording's path.

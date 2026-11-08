@@ -41,7 +41,10 @@ recording; a replayed server event can now also say how its frame is made and de
 | `cut` | send only the first n bytes (held frames included), then close (a disconnect at any point) |
 
 `Proxy(refuse=("login",))` or `("game",)` leaves that port closed (connection refused). Recordings and the other
-scripts use none of these, so they replay as before.
+scripts use none of these, so they replay as before. Every replay (issue #157) names its own game port in a character
+list, so `--recording` takes a recording from a private server (#146) too; crafted lists are recorded lists, port included.
+The game's start is compare_files.game_start's, plus (a session that steps at once, compare_traffic's since #144) the
+next server packet of the 3 s after the fight modes as the second frame the scenarios cut and change (issue #157).
 
 The scenarios (`--list`): the login server's answer as recorded (the message of the day and the character list in
 one frame), as two frames, coalesced, one byte at a time 3 ms apart, in random pieces, after an empty frame; the

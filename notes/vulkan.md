@@ -393,6 +393,11 @@ and the engine says so ("an elevated process ignores VK_DRIVER_FILES"). `auto` a
 loads the CPU driver only when they offer no Vulkan 1.3 GPU. Why lavapipe and not SwiftShader: notes/decisions.md.
 Mesa is MIT-licensed; a package (M9) must carry Mesa's licence text next to the DLL.
 
+On Linux (issue #131) the CPU driver is the system's lavapipe (the distribution's mesa-vulkan-drivers package,
+`/usr/share/vulkan/icd.d/lvp_icd.json`, found by DeviceSettings.cpp's FindCpuDriverManifest); nothing is copied next to
+the executable. A device's surface is the main window's own there (PresentWindow.h: SDL3 has no child windows on X11
+or Wayland).
+
 The engine needs the Vulkan loader (vulkan-1.dll, which every GPU driver with Vulkan installs). A machine
 without any Vulkan driver has no loader; the plan names no loader to ship (Vulkan-Loader is not among its
 dependencies), so such a machine falls back to the original engines today (notes/decisions.md, "Found, not
@@ -448,6 +453,15 @@ its own CMakeLists, only its executable, warnings off.
 The Mesa archive's hash is the one GitHub publishes for the release asset; the others were computed on November
 3, 2026 from the downloads. An update: new URL and hash in cmake/Vulkan.cmake and here, the stamp name of the
 extracted CPU driver (`extracted-<first hash digits>`) with it, and tests_vulkan again.
+
+## GPU timings (issue #134)
+
+`TRenderer::SetFrameTimestamps(true)` gives every command buffer of a frame two timestamp queries
+(vkCmdWriteTimestamp2, a query pool per frame in flight, created at the first call); `TakeFrameTimes` hands out the
+device time of each finished frame (the sum over its submissions, nanoseconds), read after the fence of the frame's
+submission. False: the device has no timestamps (a queue with timestampValidBits 0). Off by default, and nothing in
+Patella.exe ever turns it on: the only caller is the test build's profile windows (notes/testmode.md, "Profile
+windows"), with the tool in tools/profiling.py. tests_vulkan checks it (off: no times; on: a time per frame).
 
 ## Capture for compare_rendering.py
 

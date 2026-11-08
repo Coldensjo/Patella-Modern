@@ -4,7 +4,7 @@
 
 #include "platform/Platform.h"
 #include "platform/PortableSocket.h"
-#include "platform/Win32Platform.h"
+#include "platform/Process.h"
 #include "testmode/PipeNetwork.h"
 
 #include <cstddef>
@@ -16,9 +16,11 @@ namespace patella::testmode {
 
 namespace {
 
+#if defined(_WIN32)
 // The events' window message: WParam the connection's id, LParam the event and (bit 8) Failed.
 constexpr UINT PipeMessage = WM_USER + 0x120;
 constexpr wchar_t WindowClass[] = L"PatellaReplaySockets";
+#endif
 
 int ErrorCode(TPipeError Error)
 {
@@ -26,15 +28,15 @@ int ErrorCode(TPipeError Error)
 	case TPipeError::None:
 		return 0;
 	case TPipeError::WouldBlock:
-		return WSAEWOULDBLOCK;
+		return platform::socket_error::WouldBlock;
 	case TPipeError::NotConnected:
-		return WSAENOTCONN;
+		return platform::socket_error::NotConnected;
 	case TPipeError::Shutdown:
-		return WSAESHUTDOWN;
+		return platform::socket_error::Shutdown;
 	case TPipeError::Reset:
-		return WSAECONNRESET;
+		return platform::socket_error::ConnectionReset;
 	}
-	return WSAEINVAL;
+	return platform::socket_error::Invalid;
 }
 
 } // namespace
@@ -43,6 +45,7 @@ TPipeSocketWin32::TPipeSocketWin32() : Pipes([this](int Id, TPipeEvent Event, bo
 {
 }
 
+#if defined(_WIN32)
 bool TPipeSocketWin32::Start()
 {
 	if (Window != nullptr)
@@ -79,6 +82,19 @@ void TPipeSocketWin32::Post(int Id, TPipeEvent Event, bool Failed)
 	const auto Bits = static_cast<std::uintptr_t>(Event) | (Failed ? 0x100U : 0U);
 	::PostMessageW(Window, PipeMessage, static_cast<WPARAM>(Id), static_cast<LPARAM>(Bits));
 }
+#else
+bool TPipeSocketWin32::Start()
+{
+	return true;
+}
+
+// Linux (issue #131): the events wait for the loop's idle step (Poll, below), as the window messages wait for the
+// message loop on Windows.
+void TPipeSocketWin32::Post(int Id, TPipeEvent Event, bool Failed)
+{
+	Posted.push_back(TPosted{Id, Event, Failed});
+}
+#endif
 
 void TPipeSocketWin32::Deliver(int Id, TPipeEvent Event, bool Failed)
 {
@@ -88,7 +104,7 @@ void TPipeSocketWin32::Deliver(int Id, TPipeEvent Event, bool Failed)
 	platform::TSocket *Connection = Found->second;
 	switch (Event) {
 	case TPipeEvent::Connect:
-		Connection->OnConnect(Failed ? WSAECONNREFUSED : 0);
+		Connection->OnConnect(Failed ? platform::socket_error::ConnectionRefused : 0);
 		break;
 	case TPipeEvent::Write:
 		Connection->OnSend(0);
@@ -99,7 +115,7 @@ void TPipeSocketWin32::Deliver(int Id, TPipeEvent Event, bool Failed)
 			Connection->OnReceive(0);
 		break;
 	case TPipeEvent::Close:
-		Connection->OnClose(Failed ? WSAECONNRESET : 0);
+		Connection->OnClose(Failed ? platform::socket_error::ConnectionReset : 0);
 		break;
 	}
 }
@@ -108,7 +124,7 @@ int TPipeSocketWin32::IdOf(platform::TSocket *Connection)
 {
 	const auto Found = Ids.find(Connection);
 	if (Found == Ids.end()) {
-		Error = WSAENOTSOCK;
+		Error = platform::socket_error::NotSocket;
 		return -1;
 	}
 	return Found->second;
@@ -117,7 +133,7 @@ int TPipeSocketWin32::IdOf(platform::TSocket *Connection)
 int TPipeSocketWin32::Fail(TPipeError Code)
 {
 	Error = ErrorCode(Code);
-	return SOCKET_ERROR;
+	return platform::SocketFailed;
 }
 
 bool TPipeSocketWin32::Startup()
@@ -146,7 +162,7 @@ void TPipeSocketWin32::Delete(platform::TSocket *Connection)
 bool TPipeSocketWin32::Create(platform::TSocket *Connection)
 {
 	if (Connection == nullptr || Ids.contains(Connection)) {
-		Error = WSAEINVAL;
+		Error = platform::socket_error::Invalid;
 		return false;
 	}
 	const int Id = Pipes.Open();
@@ -161,10 +177,10 @@ bool TPipeSocketWin32::Connect(platform::TSocket *Connection, const char *Addres
 	if (Id < 0)
 		return false;
 	if (!Pipes.Connect(Id, Address != nullptr ? std::string_view(Address) : std::string_view(), Port)) {
-		Error = WSAEISCONN;
+		Error = platform::socket_error::AlreadyConnected;
 		return false;
 	}
-	Error = WSAEWOULDBLOCK; // a non-blocking connect: OnConnect follows
+	Error = platform::socket_error::WouldBlock; // a non-blocking connect: OnConnect follows
 	return false;
 }
 
@@ -172,10 +188,10 @@ int TPipeSocketWin32::Send(platform::TSocket *Connection, const void *Data, int 
 {
 	const int Id = IdOf(Connection);
 	if (Id < 0)
-		return SOCKET_ERROR;
+		return platform::SocketFailed;
 	if (Length < 0) {
-		Error = WSAEINVAL;
-		return SOCKET_ERROR;
+		Error = platform::socket_error::Invalid;
+		return platform::SocketFailed;
 	}
 	const TPipeResult Result = Pipes.Send(Id, std::span(static_cast<const std::uint8_t *>(Data), static_cast<std::size_t>(Length)));
 	return Result.Count < 0 ? Fail(Result.Error) : Result.Count;
@@ -185,10 +201,10 @@ int TPipeSocketWin32::Receive(platform::TSocket *Connection, void *Buffer, int L
 {
 	const int Id = IdOf(Connection);
 	if (Id < 0)
-		return SOCKET_ERROR;
+		return platform::SocketFailed;
 	if (Length < 0) {
-		Error = WSAEINVAL;
-		return SOCKET_ERROR;
+		Error = platform::socket_error::Invalid;
+		return platform::SocketFailed;
 	}
 	const TPipeResult Result = Pipes.Receive(Id, std::span(static_cast<std::uint8_t *>(Buffer), static_cast<std::size_t>(Length)));
 	return Result.Count < 0 ? Fail(Result.Error) : Result.Count;
@@ -233,6 +249,14 @@ const char *TPipeSocketWin32::ResolvedAddress(const char *Buffer)
 void TPipeSocketWin32::Poll()
 {
 	platform::NetworkSocket().Poll();
+#if !defined(_WIN32)
+	// Issue #131: the message loop's work on Windows: every event posted, in order, those posted by a delivery included.
+	while (!Posted.empty()) {
+		const TPosted Next = Posted.front();
+		Posted.pop_front();
+		Deliver(Next.Id, Next.Event, Next.Failed);
+	}
+#endif
 }
 
 } // namespace patella::testmode

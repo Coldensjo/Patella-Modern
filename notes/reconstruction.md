@@ -342,14 +342,14 @@ The Linux presets `linux-x64-gcc` (GCC 16) and `linux-x64-clang` (Clang, with Ad
 each with a `-debug` workflow, build patella_core and the unit tests, not the client (PATELLA_CLIENT is OFF; the
 client needs Tibia.exe for its resources, and Windows). On Linux: `cmake --workflow --preset linux-x64-gcc`. On
 Windows, `python -I tools/build.py linux-x64-gcc` (and `--env linux-x64-gcc <command>`) runs them in the Docker
-image `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
+image `patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7` (docker/linux-x64/Dockerfile: Docker Hub's gcc:16.2.0-trixie
 pinned by digest, Debian's Clang 22.1.8 pinned by version, Kitware's CMake 4.4.5 and the ninja-build project's Ninja
 1.13.2 by their SHA-256 (Ninja: Debian's 1.12.1 until issue #141's second part)
 (issue #141; 4.1.2 from issue #113, Debian's 3.31.6 before), Clang on GCC 16.2's libstdc++ through its configuration files
 /usr/lib/llvm-22/bin/clang++.cfg and clang.cfg (`--gcc-install-dir`, issue #121; Debian's GCC 14 and its libstdc++
 until then, and the tag `gcc16.2-clang22.1`), since issue #11
 also clang-format and clang-tidy 22.1.8; build it once with
-`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2 docker/linux-x64`, about half a minute, and again
+`docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7 docker/linux-x64`, about half a minute, and again
 when the Dockerfile changes: the tag stays the same while it names the same compilers, library and CMake; issues #121
 and #141 gave it a new one, so a branch with the old Dockerfile keeps its image). build.py
 mounts the repository read-only, copies the files git knows (tracked, and untracked ones that are not ignored:
@@ -912,7 +912,10 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   14,978,772 of 16,471,911 replayed, communicationtest 1,023,146 of 1,044,013, sysinctest 67: 16,001,985 replayed +
   1,514,006 retired (Dialogs 8,924, Errors 36, Control 20,867, SurfaceDX 1,366,501, DX9 62,432, GL 55,246) =
   17,515,991; the per-test counts are in notes/decisions.md, "The error paths compared by outcome only". Control's replay found an x64 defect of src/Control.cpp (event 0x12 read Communication's channel
-  list, an `int[]`, as INT_PTR[]), fixed with it (notes/decisions.md, issue #30's third part). The runner links the reconstructed files the
+  list, an `int[]`, as INT_PTR[]), fixed with it (notes/decisions.md, issue #30's third part). Today's expected result,
+  since the original frame's checks were retired after issue #127 (MainFrm 45,621 and Player's TranslateKey 18,432, whose
+  test code left tests/golden, of which tests/golden/mfc keeps only the socket declarations): 15,739,165 replayed +
+  1,576,875 retired = 17,316,040, 0 failures. The runner links the reconstructed files the
   ported tests call (golden_client: compiled against the Windows headers with the product settings; since issue #28
   graphics.cpp, GUI.cpp and every window file too; since issue #30's second part Communication.cpp and Control.cpp, in
   tests/golden/comm) and aborting stubs of the others (tests/golden/client_stubs.cpp: the Vulkan engine and the

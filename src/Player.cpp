@@ -40,7 +40,7 @@
 #include "types/FixedString.h"
 #include "log/LogSettings.h"
 #include "platform/Platform.h"
-#include "platform/Win32Platform.h"
+#include "platform/Process.h"
 #include <array>
 #include <sstream>
 #include <string>
@@ -332,7 +332,7 @@ BOOL CPlayerApp::InitInstance()
 			GetWindowClassName(ClassName);
 
 			TFixedString<1024> Arguments;
-			strncpy(Arguments, CommandLine, sizeof(Arguments));
+			strncpy(Arguments, CommandLine, sizeof(Arguments) - 1); // the last byte is set next (GCC's -Wstringop-truncation, issue #131)
 			Arguments[sizeof(Arguments) - 1] = 0;
 			const char *Token = strtok(Arguments, " \t\n");
 			int Expected = 0;

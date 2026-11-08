@@ -131,4 +131,32 @@
 // it needs this header's spellings, which come first, and this header needs nothing after them.
 #include "compat/msvc_portable.h" // IWYU pragma: export
 
+// The Linux client (issue #131, cmake/LinuxX64.cmake): the original's rand, MSVC's (the state * 214013 + 2531011, bits
+// 16-30), so the client's random numbers (the XTEA keys and the login's filler, Network.cpp's first server, the frames'
+// padding) are the ones a seed gives on Windows; glibc's are another sequence. Not the golden runner's: its rand is its
+// import slot (tests/golden/linux/windows.h).
+#if defined(PATELLA_MSVC_RAND) && !defined(_WIN32)
+inline unsigned int &PatellaRandState() noexcept
+{
+	static unsigned int State = 1;
+	return State;
+}
+inline void PatellaSrand(unsigned int Seed) noexcept
+{
+	PatellaRandState() = Seed;
+}
+inline int PatellaRand() noexcept
+{
+	unsigned int &State = PatellaRandState();
+	State = State * 214013U + 2531011U;
+	return static_cast<int>((State >> 16U) & 0x7fffU);
+}
+namespace std {
+using ::PatellaRand;
+using ::PatellaSrand;
+} // namespace std
+#define rand PatellaRand
+#define srand PatellaSrand
+#endif
+
 #endif

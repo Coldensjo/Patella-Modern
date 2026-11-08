@@ -18,6 +18,9 @@
 
 namespace patella {
 
+// Issue #131: the login's RSA modulus (Communication.cpp): the environment's PATELLA_RSA_MODULUS, else Original.
+[[nodiscard]] const char *LoginRsaModulus(const char *Original);
+
 class TCreatures;
 class TInventory;
 class TMap;

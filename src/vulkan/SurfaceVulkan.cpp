@@ -120,10 +120,8 @@ TDeviceRequest TSurfaceVulkan::Request(patella::platform::TWindowHandle Window)
 	Result.Kind = Choice.Kind;
 	Result.GpuIndex = Choice.Kind == TDeviceKind::Gpu ? Choice.GpuIndex : -1;
 	Result.CpuDriverManifest = GetCpuDriverManifest();
-	std::array<char, 8> Validation = {};
-	size_t ValidationLength = 0;
-	Result.Validation = getenv_s(&ValidationLength, Validation.data(), Validation.size(), "PATELLA_VULKAN_VALIDATION") == 0
-		&& ValidationLength > 0 && Validation[0] == '1';
+	const char *const Validation = std::getenv("PATELLA_VULKAN_VALIDATION"); // NOLINT(concurrency-mt-unsafe): read on the window's thread
+	Result.Validation = Validation != nullptr && Validation[0] == '1';
 	if (Window != nullptr && !patella::platform::Platform().Window.Headless()) {
 		patella::vulkan::IWindowSystem &System = WindowSystem();
 		Result.SurfaceExtension = System.SurfaceExtension();
@@ -149,7 +147,9 @@ bool TSurfaceVulkan::TestEngine()
 		return false;
 	try {
 		const patella::vulkan::TTestWindow Window(MainWindow());
-		if (hWindow != nullptr && Window.Handle() == nullptr)
+		// Issue #131: a headless run has no window to test on (SDL's dummy driver has no Vulkan windows on Linux); its device
+		// is created without a surface, as the headless client's are.
+		if (hWindow != nullptr && Window.Handle() == nullptr && !patella::platform::Platform().Window.Headless())
 			return false;
 		TRenderer Test;
 		Test.Create(Request(static_cast<patella::platform::TWindowHandle>(Window.Handle())));
@@ -503,9 +503,11 @@ void TSurfaceVulkan::FinishFrame()
 				// issue #52; once it shows a frame, the window of the device before it goes.
 				PresentWindows.Fit();
 				PATELLA_TEST_PRESENT_FAILURE(throw TVulkanError("vkQueuePresentKHR failed (VkResult -5)"))
+				PATELLA_TEST_PROFILE_PRESENT_BEGIN(Renderer.get())
 				if (Renderer->Present(Image[SCREEN_SURFACE], x, y, ShownWidth, ShownHeight,
 						(uint32_t)(WindowRect.right - WindowRect.left), (uint32_t)(WindowRect.bottom - WindowRect.top)))
 					PresentWindows.Presented();
+				PATELLA_TEST_PROFILE_PRESENT_END(Renderer.get())
 			} catch (const TVulkanError &) {
 				Fail();
 			}

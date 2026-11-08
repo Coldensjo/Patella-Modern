@@ -422,6 +422,34 @@ window text its class has not, a window two levels below its parent, a modal's w
 line, a changed client packet, padding or server packet, a missing dump or frame each fail, and the report names it)
 and the static key lists, without a server or a client.
 
+## The Linux client (issue #131)
+
+The Linux test build is `PatellaTest` of the presets linux-x64-gcc and linux-x64-clang (cmake/LinuxX64.cmake). Everything
+above holds; what differs:
+
+- `--test-headless` uses SDL's dummy video driver (no display at all); without it SDL chooses X11 or Wayland (Xvfb here).
+- The script's and the recordings' window messages (`post`) reach the handlers Windows' window procedure uses
+  (sdlframe::WindowMessage); the replay's pipe events are delivered by the idle step (TPipeSocketWin32::Poll).
+- A scripted run has the recordings' window frame (33 above, 10 on the other sides; SdlFrame.cpp FrameSize) whatever the
+  window manager, so Tibia.cfg's 800x600 outer window is the recordings' 780x557 client area.
+- The control channel's events are files in --test-out: the tool creates `control-command` after writing control.txt, the
+  client removes it, answers in control-reply.txt and creates `control-done` (tools/testmode_client.py).
+- The login server and the RSA modulus come from the environment, `PATELLA_LOGIN_SERVER=<host>[:<port>]` and
+  `PATELLA_RSA_MODULUS=<decimal>` (patch_client.py patches a PE, not an ELF).
+- The CPU driver is the image's Mesa lavapipe; the tools pin the loader to `/usr/share/vulkan/icd.d/lvp_icd.json`.
+
+On Windows, from any shell (the folders mounted read-only; CipSoft's data never enters the image):
+
+```
+PATELLA_DOCKER_MOUNTS="-v <worktree>/Tibia.exe:/data/Tibia.exe:ro -v <worktree>/Tibia.dat:/data/Tibia.dat:ro \
+ -v <worktree>/Tibia.spr:/data/Tibia.spr:ro -v <worktree>/Tibia.pic:/data/Tibia.pic:ro -v <worktree>/Tibia.cfg:/data/Tibia.cfg:ro \
+ -v C:/Tibia/Patella-Modern/build/reference:/reference:ro -v <worktree>/build/ref-linux:/out" \
+python -I tools/build.py --env linux-x64-gcc python3 -I tools/reference.py compare --reference /reference \
+ --exe build/linux-x64-gcc/Release/PatellaTest --data /data --out /out
+
+python -I tools/linux_live.py [--windowed] [--product]   (a private test server of its own, headless by default)
+```
+
 ## Reference recordings (issue #23)
 
 The tier A comparisons (compare_traffic.py, compare_files.py, compare_rendering.py) drive two clients from
@@ -696,6 +724,7 @@ A command is taken only once the one before it is done. The commands:
 | Command | Without a script | With a script |
 | :--- | :--- | :--- |
 | `probe` | probe.json (below) | the same, between other commands |
+| `profile start <kind> <file>`, `profile stop` (issue #134) | a profile window ("Profile windows", below) | the same |
 | script lines (src/testmode/InputScript.h) | refused | appended after the script's last event at the clock's time (with `clock manual` parsed after it: no wait or at; pace, clock and cursor refused); done once every one was handed out, the idle calls after them passed and their frames were written |
 
 probe.json (src/testmode/StateDump.h, "The probe"), one line of JSON: "format" (`patella-probe 1`), "step", "time"
@@ -726,3 +755,21 @@ How the tools use it (tools/session_client.py `Driver(test=True)`, compare_traff
 
 `python -I tools/testmode_client.py --self-test` checks TestClient on made-up probes; the channel's lines are
 unit-tested (tests_testmode: TScheduler::Append, the probe's JSON).
+
+### Profile windows (issue #134, tools/profiling.py)
+
+PatellaTest.exe's control channel opens and closes a profile window between two frames, with or without a script
+(src/testmode/ProfileWin32.cpp; the hooks PATELLA_TEST_PROFILE_PRESENT_BEGIN/_END of src/TestHooks.h around
+TRenderer::Present; nothing of it is in Patella.exe):
+
+`profile start <kind> <file>`, `profile stop` (the answer `ok` or `error: ...`). Kinds: `time` (per frame the
+performance counter at Present's entry and Present's duration), `allocs` (the same and the frame's heap calls:
+the executable's own imports of HeapAlloc, HeapReAlloc and HeapFree patched once and counted, what system DLLs and
+drivers allocate not), `gpu` (the same and the Vulkan engine's timestamp queries, `TRenderer::SetFrameTimestamps`:
+off by default, no query pool and no timing commands unless a `gpu` window is open). The file is written at `profile
+stop` (`# patella-profile 1`; `F` lines per frame, `G` lines the frames' device time in nanoseconds, a frame or two
+later than the frame); tools/capture/patcap.c writes the same form for Tibia.exe (CMD_PROFILE_START, CMD_PROFILE_STOP,
+version 5 of the shared memory). A window has room for 400,000 frames; the rest count as dropped. A profiled client's
+clock stays what it was (unscripted: the system clock, so a real frame time; scripted: the virtual clock, whose wait
+for a tick is real time; the samples are always the performance counter's). tools/profiling.py drives both clients:
+notes/decisions.md, "#134", and the numbers in notes/progress.md, "Profiling".

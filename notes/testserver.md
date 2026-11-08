@@ -208,6 +208,8 @@ saved its map), and every live run waited for that server. notes/decisions.md, "
   is taken when no run's instance.json has it, nothing listens on its ports, they bind on 0.0.0.0 and none is in a
   Windows excluded range; the choice and the instance.json are made under a lock (RUNS_DIR\lock, released by Windows
   when its process ends).
+- **A run's recording** names that run's proxy game port in its character list; replays rewrite it to their own (tools/proxy.py,
+  issue #157), so it replays elsewhere, with no private server at all, unchanged.
 - **Inside Windows Sandbox** the tunnel listens on the run's login and game port (the host writes them to
   tunnel.json in the exchange folder), so the character list's 127.0.0.1:<game port> is right inside too; the run's
   folder is mapped read-only and its copy's data\usr writable. The master is not mapped.
@@ -226,6 +228,14 @@ saved its map), and every live run waited for that server. notes/decisions.md, "
   the master's server itself, for the owner's own use (it writes the master, as before #146).
 - **Disk**: about 550 MB a running copy (365 MB of it new data), so two runs at once take about 1.1 GB of `%TEMP%`'s
   drive (it must be the master's for the hard links; elsewhere they are copies).
+
+## From a Linux container (issue #131)
+
+The server stays a Windows program on the host, on the run's private copy (below), bound to 127.0.0.1. A container
+reaches it through Docker Desktop's `host.docker.internal`, whose back end dials the host's localhost: measured with a
+listener on 127.0.0.1 only, so no firewall rule and no change of the machine. Inside the container tools/linux_live.py
+listens on 127.0.0.1 on the same ports and forwards to host.docker.internal, so the character list's world address
+(127.0.0.1) reaches the server without touching the private copy's config.
 
 ## Pointing the clients at it: tools/patch_client.py
 

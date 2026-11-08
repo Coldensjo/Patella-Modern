@@ -25,9 +25,18 @@ bool DeliverToSdlWindow(UINT Message, WPARAM WParam, LPARAM LParam)
 	case WM_RBUTTONDOWN:
 	case WM_RBUTTONUP:
 	case WM_RBUTTONDBLCLK:
+#if defined(_WIN32)
 		// The SDL3 window takes the keys, the characters and the buttons as window messages on Windows (SdlFrame.cpp
 		// OnKeyMessage, OnWindowChar, OnButtonMessage): dispatched, as the desktop's come.
 		return false;
+#else
+		sdlframe::WindowMessage(Message, WParam, LParam); // issue #131: the same handlers
+		return true;
+	case WM_TIMER:
+	case WM_CLOSE:
+		sdlframe::WindowMessage(Message, WParam, LParam);
+		return true;
+#endif
 	case WM_MOUSEWHEEL:
 		Event.type = SDL_EVENT_MOUSE_WHEEL;
 		Event.wheel.y = static_cast<float>(static_cast<short>(HIWORD(WParam))) / static_cast<float>(WHEEL_DELTA);

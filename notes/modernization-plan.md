@@ -812,6 +812,14 @@ custom mode Windows does not enumerate and other refresh rates; SDL3's versions 
 SDL_SetWindowFullscreenMode, platform/DisplayModeList.h, unit-tested) are the other systems'. The Win32 calls are left
 only in the Win32 implementation (Win32Platform.cpp, and the MFC path's MainFrm.cpp and WindowSystemWin32.cpp).
 
+Done in #131 (notes/decisions.md, "#131"), the Linux half of the exit: the Linux presets build the client and its test
+build (cmake/LinuxX64.cmake; SDL3 with its X11 and Wayland drivers, the Vulkan engine, the image's Mesa lavapipe), and the
+test build replays every reference session on Linux against Tibia.exe's recordings (GCC, and Clang under ASan and UBSan,
+headless on the CPU driver: tools/reference.py compare, the frames included); tools/linux_live.py logs it into a private
+test server and plays login-walk.script headless and under Xvfb, and starts the product under Xvfb. What remains of
+the exit is not runnable on this machine: the hardware drivers (the container has no GPU) and a real X11 or Wayland desktop;
+D8's Patella.ini key for the servers (the environment variables PATELLA_LOGIN_SERVER and PATELLA_RSA_MODULUS stand in).
+
 Exit: the Linux client logs into the test server and plays the scripted sessions; tier A green on Windows
 x64 and Linux x64 against the reference recordings; the Vulkan engine passes the reference frames on Linux
 (hardware drivers and the CPU driver).
@@ -837,6 +845,9 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   compare +2%.
 - **Profiling:** frame time and allocations per frame against the reference client; GPU timings of the Vulkan engine
   (timestamp queries).
+  Done in #134 (notes/decisions.md, "#134"): `tools/profiling.py` runs both clients in Windows Sandbox on the same live
+  session (notes/testmode.md, "Profile windows"); the numbers are in notes/progress.md, "Profiling"; the regressions
+  it found are #155 (heap allocations per frame) and #156 (the title screen's work before Present).
 - **Packages** through CPack: a Windows zip (and optionally an installer), a Linux tarball and AppImage or
   Flatpak (D4). The packages contain no CipSoft files: the user points the client at their own data files.
 - Reproducible builds, a changelog, a release checklist.
