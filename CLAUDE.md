@@ -70,7 +70,9 @@ headless.
 The window and event loop (issue #122, M8): SDL 3.4.18, pinned and built by `cmake/Sdl3.cmake` (windows-x64 only; the
 Linux presets do not use it yet), `src/SdlFrame.cpp` by default; `PATELLA_WINDOW=mfc` in the client's environment keeps
 MFC's frame and loop until issue #127 (the tools pass it on, so `PATELLA_WINDOW=mfc python -I tools/reference.py compare
-...` checks that path). Keys, buttons and wheel still arrive as Win32 messages until issue #123.
+...` checks that path). Keys, buttons and wheel still arrive as Win32 messages until issue #123. Since issue #124 the
+SDL3 path's clipboard, message boxes and URLs are SDL3's (src/platform/SdlPlatform.cpp); the display modes stay Win32's
+on Windows behind IWindow (SDL3's list differs; notes/decisions.md, "#124").
 The developer log (issue #77, D16; `src/log/`, every preset): lines `[<level>] <message>` on stderr;
 Patella.ini's `LogLevel` (error, warn, info: the default, debug) and `LogFile` (also appended to; none by default) set
 it in the x64 client. A fatal error's box text goes there at error, error.txt's old diagnostics at debug, and Debug

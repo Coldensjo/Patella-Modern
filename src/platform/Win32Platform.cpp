@@ -3,7 +3,8 @@
 // before #109 (sysinc.cpp's timeGetTime, the wall clock's time, the frame timer's Sleep; Network.cpp's CAsyncSocket
 // and WinSock calls until issue #125, now platform/PortableSocket.cpp's and, in the golden runner,
 // tests/golden/network/MfcSocket.cpp's) or before #119 (sysinc.cpp's clipboard, MainFrm.cpp's and Player.cpp's GetCursorPos, SetTimer,
-// KillTimer, MessageBoxA and EnumWindows, the Vulkan engine's EnumDisplaySettingsA), with the same arguments.
+// KillTimer, MessageBoxA and EnumWindows, the Vulkan engine's EnumDisplaySettingsA) or #124 (the Vulkan engine's
+// ChangeDisplaySettingsA), with the same arguments.
 
 #include "platform/Win32Platform.h"
 
@@ -15,6 +16,7 @@
 #include <mmsystem.h>
 
 #if defined(PATELLA_SDL3)
+#include "platform/SdlPlatform.h"
 #include "platform/WindowChoice.h"
 #endif
 
@@ -192,6 +194,22 @@ bool TWin32Window::DesktopMode(TDisplayMode &Mode)
 	return ReadDisplaySettings(ENUM_CURRENT_SETTINGS, Mode);
 }
 
+// The Vulkan engine's CreateSurfaces and ExitDisplay until issue #124 (Direct3D 9's fullscreen device's mode change):
+// the primary display's mode, whatever the window.
+bool TWin32Window::SetFullscreenMode([[maybe_unused]] TWindowHandle Window, const TDisplayMode *Mode)
+{
+	if (Mode == nullptr)
+		return ChangeDisplaySettingsA(nullptr, 0) == DISP_CHANGE_SUCCESSFUL;
+	DEVMODEA Settings;
+	memset(&Settings, 0, sizeof(Settings));
+	Settings.dmSize = sizeof(DEVMODEA);
+	Settings.dmPelsWidth = (DWORD)Mode->Width;
+	Settings.dmPelsHeight = (DWORD)Mode->Height;
+	Settings.dmBitsPerPel = (DWORD)Mode->Depth;
+	Settings.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+	return ChangeDisplaySettingsA(&Settings, CDS_FULLSCREEN) == DISP_CHANGE_SUCCESSFUL;
+}
+
 // Stateless, with trivial destructors: constant-initialised, so they are there before any static initialiser and
 // after every static destructor.
 namespace {
@@ -242,13 +260,31 @@ IInput &WindowInput()
 	return Win32InputInstance;
 }
 
+IClipboard &WindowClipboard()
+{
+#if defined(PATELLA_SDL3)
+	if (UseSdlWindow())
+		return SdlClipboard();
+#endif
+	return Win32ClipboardInstance;
+}
+
+IWindow &WindowDesktop()
+{
+#if defined(PATELLA_SDL3)
+	if (UseSdlWindow())
+		return SdlWindow();
+#endif
+	return Win32WindowInstance;
+}
+
 #if !defined(PATELLA_TEST_MODE)
 // Patella.exe's and the golden runner's platform (Platform.h); the test build's is TestModeWin32.cpp's. Issue #122: the
-// input is the window path's (WindowInput).
+// input is the window path's (WindowInput); issue #124: the clipboard and the desktop too.
 TPlatform &Platform()
 {
-	static TPlatform Instance{Win32ClockInstance, SystemFileSystemInstance, NetworkSocket(), Win32ClipboardInstance,
-		WindowInput(), Win32WindowInstance};
+	static TPlatform Instance{Win32ClockInstance, SystemFileSystemInstance, NetworkSocket(), WindowClipboard(),
+		WindowInput(), WindowDesktop()};
 	return Instance;
 }
 #endif

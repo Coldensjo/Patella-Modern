@@ -87,8 +87,8 @@ a script that does not parse: without a script it takes the desktop's input) run
   reads the canvas back before Present, as with a window, so the frames are the same; the device is the same one
   (PATELLA_VULKAN chooses it; without a surface a GPU need not be able to present, and the CPU driver's present,
   which fails on a hidden desktop, is never made);
-- fullscreen mode does not change the display's mode (CreateSurfaces skips ChangeDisplaySettingsA and counts it as
-  made).
+- fullscreen mode does not change the display's mode (CreateSurfaces skips IWindow::SetFullscreenMode, until issue
+  #124 ChangeDisplaySettingsA, and counts it as made).
 
 The switch is the platform's `IWindow::Headless()` (platform/Window.h): TTestWindow's answer; Patella.exe's
 TWin32Window always says false, so the product is unchanged. The driver's log says `testmode: headless`. Several
@@ -184,11 +184,12 @@ TTestWindow, and with a script TMemoryClipboard (notes/decisions.md, "#119: the 
 | IInput::StartTimer, StopTimer | PATELLA_SET_MAIN_TIMER(...); StopTimer was ::KillTimer | MainFrm.cpp OnCreate, OnDestroy (the 100 ms timer of ActionNumber) | with a script no timer (the driver's ticks), else SetTimer; KillTimer always |
 | IInput::BeginIdle | PATELLA_TEST_IDLE | the start of CPlayerApp::OnIdle | the driver's step (Win32's: nothing) |
 | IInput::IgnoreCaptureChange | PATELLA_TEST_CAPTURE_CHANGED (Patella-Modern #52) | MainFrm.cpp OnCaptureChanged, before its body | true with a script (below); Win32's: false |
-| IWindow::ShowMessageBox | PATELLA_MESSAGE_BOX(...) (#23) | Player.cpp FatalError and the start's two boxes | with a script not shown ("Message boxes"; messages.txt's type is MessageBoxA's flags, as before) |
+| IWindow::ShowMessageBox | PATELLA_MESSAGE_BOX(...) (#23) | Player.cpp FatalError and the start's two boxes | with a script not shown ("Message boxes"; messages.txt's type is MessageBoxA's flags, as before); without one the window path's box (#124: SDL_ShowSimpleMessageBox on the SDL3 window, MessageBoxA on MFC's) |
 | IWindow::VisitWindows | PATELLA_ENUM_WINDOWS(...) (#96) | Player.cpp InitInstance (CountTibiaWindows) | this process's windows only |
-| IWindow::DisplayMode | PATELLA_ENUM_DISPLAY_SETTINGS(...) (#48) | vulkan/SurfaceVulkan.cpp GetFullscreenModes | with `--test-display-modes` the file's modes ("The display modes") |
-| IWindow::DesktopMode (#138) | none (the engine's own EnumDisplaySettingsA, ENUM_CURRENT_SETTINGS) | vulkan/SurfaceVulkan.cpp CreateSurfaces (the desktop's depth) | Win32's: the machine's, with or without `--test-display-modes` |
-| IClipboard (HasText, Text, SetText) | none (the system's clipboard) | sysinc.cpp IsClipboardEmpty, GetClipboardText, SetClipboardText | with a script the process's own clipboard (TMemoryClipboard): a scripted run neither reads nor changes the desktop's |
+| IWindow::DisplayMode | PATELLA_ENUM_DISPLAY_SETTINGS(...) (#48) | vulkan/SurfaceVulkan.cpp GetFullscreenModes | with `--test-display-modes` the file's modes ("The display modes"), else the machine's (Win32's on both window paths, #124) |
+| IWindow::DesktopMode (#138) | none (the engine's own EnumDisplaySettingsA, ENUM_CURRENT_SETTINGS) | vulkan/SurfaceVulkan.cpp CreateSurfaces (the desktop's depth) | the window path's: the machine's, with or without `--test-display-modes` |
+| IWindow::SetFullscreenMode (#124) | none (the engine's own ChangeDisplaySettingsA) | vulkan/SurfaceVulkan.cpp CreateSurfaces, ExitDisplay | the window path's; headless never called |
+| IClipboard (HasText, Text, SetText) | none (the system's clipboard) | sysinc.cpp IsClipboardEmpty, GetClipboardText, SetClipboardText | with a script the process's own clipboard (TMemoryClipboard): a scripted run neither reads nor changes the desktop's; without one the window path's (#124: SDL3's on the SDL3 window) |
 
 The hooks that remain (the test mode's observers and failures, not a platform's service):
 
@@ -606,7 +607,8 @@ for 500 ms (at most 5 s).
 
 The Graphics Options dialog (the traffic session's frame and state 3; the options session selects its first
 mode, written to Tibia.cfg as FullscreenMode) lists the display modes Windows reports: EnumDisplaySettings in
-the x64 client (vulkan/SurfaceVulkan.cpp GetFullscreenModes), DirectDraw's EnumDisplayModes in Tibia.exe; the same
+the x64 client (vulkan/SurfaceVulkan.cpp GetFullscreenModes; on both window paths since issue #124 too: SDL3's list
+differs, notes/decisions.md "#124"), DirectDraw's EnumDisplayModes in Tibia.exe; the same
 list on this machine (issue #20), at least 640x480 and 16 bits, each size and depth once. They depend on the
 monitor, the driver and the scaling, which change between a recording and its comparison: on November 3, 2026 the
 display reported a 1176x664 mode it had not reported at the recording, and frame 3 differed in 664 pixels (the

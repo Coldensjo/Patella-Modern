@@ -9,8 +9,8 @@
 // "Win32 until ..." parts below: the keys, the characters and the buttons as window messages (SDL's events differ from
 // them for posted messages and keys Windows does not hold), the loss of the mouse capture (WM_CAPTURECHANGED: SDL has
 // no event for it), the
-// cursor's screen position (GetCursorPos, TSdlLoopInput: it keeps the last position where SDL would report (0, 0)), the
-// ShellExecute (#124), and on Windows the message pump itself (SDL's own is off: the loop dispatches the thread's
+// cursor's screen position (GetCursorPos, TSdlLoopInput: it keeps the last position where SDL would report (0, 0)), and
+// on Windows the message pump itself (SDL's own is off: the loop dispatches the thread's
 // messages as MFC's did, so the socket's polling timer's and the test mode's messages are dispatched in the same
 // order). The host lookup's reply is no message since #125 (HostResolved, below).
 //
@@ -1100,7 +1100,8 @@ void ExitProgram()
 }
 
 // MainFrm.cpp's SetDisplayMode: view mode 2 is fullscreen (SDL's fullscreen desktop window, the original's topmost
-// popup window over the whole screen), 1 a normal window at its old placement.
+// popup window over the whole screen; the Vulkan engine then switches the display's mode through IWindow), 1 a normal
+// window at its old placement.
 void SetDisplayMode(int ViewMode)
 {
 	if (Window == nullptr)
@@ -1124,12 +1125,15 @@ void SetDisplayMode(int ViewMode)
 	}
 }
 
-// MainFrm.cpp's OpenURL: leaves fullscreen mode first. ShellExecute until issue #124 (SDL_OpenURL).
+// MainFrm.cpp's OpenURL: leaves fullscreen mode first. ShellExecuteA(nullptr, nullptr, URL, ..., SW_SHOWNORMAL) until
+// issue #124: SDL_OpenURL (on Windows ShellExecuteW's "open", the default verb, with SW_SHOWNORMAL), the URL (the
+// client's text) in UTF-8. As ShellExecute's, a failure is not reported to the client.
 void OpenURL(const char *URL)
 {
 	if (GetViewMode() == 2)
 		SetDisplayMode(1);
-	ShellExecuteA(nullptr, nullptr, URL, nullptr, nullptr, SW_SHOWNORMAL);
+	if (!SDL_OpenURL(text::Cp1252ToUtf8(URL).c_str()))
+		log::Warn("SDL_OpenURL failed: {}", SDL_GetError());
 }
 
 // MainFrm.cpp's UpdateMouseCursor: the cursor for the client's mouse cursor (Status.cpp), or none when the client

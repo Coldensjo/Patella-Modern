@@ -74,7 +74,8 @@ set_source_files_properties("${patella_rc}" PROPERTIES OBJECT_DEPENDS "${PATELLA
 include("${PROJECT_SOURCE_DIR}/cmake/Vulkan.cmake")
 # SDL3 (issue #122, plan M8; cmake/Sdl3.cmake): the window and the event loop of src/SdlFrame.cpp, the default window
 # path (PATELLA_WINDOW=mfc: MFC's until issue #127). PATELLA_SDL3 gives Patella.exe's Platform() the SDL3 window's input
-# (src/platform/Win32Platform.cpp); the golden runner compiles that file without it.
+# (src/platform/Win32Platform.cpp) and, since issue #124, its clipboard and desktop (src/platform/SdlPlatform.cpp); the
+# golden runner compiles Win32Platform.cpp without it.
 include("${PROJECT_SOURCE_DIR}/cmake/Sdl3.cmake")
 # The platform's Win32 implementations (issue #109, src/platform: the clock, the files, the network; Patella.exe's
 # Platform(), PatellaTest.exe's being the test mode's) are compiled with them.
@@ -86,6 +87,8 @@ set(patella_vulkan_client_sources "${PROJECT_SOURCE_DIR}/src/vulkan/SurfaceVulka
 	"${PROJECT_SOURCE_DIR}/src/vulkan/DeviceSettings.cpp" "${PROJECT_SOURCE_DIR}/src/settings/Settings.cpp"
 	"${PROJECT_SOURCE_DIR}/src/settings/PreferenceKeys.cpp" "${PROJECT_SOURCE_DIR}/src/log/LogSettings.cpp"
 	"${PROJECT_SOURCE_DIR}/src/platform/Win32Platform.cpp"
+	# Issue #124: the SDL3 window's clipboard and desktop (message boxes, display modes).
+	"${PROJECT_SOURCE_DIR}/src/platform/SdlPlatform.cpp"
 	# Issue #125: the network, TPortableSocket (patella_platform's source, compiled here again for the static CRT) and
 	# the Windows client's glue (the lookups' replies to the window, the modal loops' polling).
 	"${PROJECT_SOURCE_DIR}/src/platform/PortableSocket.cpp" "${PROJECT_SOURCE_DIR}/src/platform/NetworkWin32.cpp")

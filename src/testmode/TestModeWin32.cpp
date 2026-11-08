@@ -63,7 +63,7 @@
 // Issue #48: --test-display-modes <file> (src/testmode/DisplayModes.h), with or without a script: the
 // client's EnumDisplaySettings(nullptr, Index) (the Graphics Options dialog's list, vulkan/SurfaceVulkan.cpp
 // GetFullscreenModes) answers from the file instead of the machine, so a reference session lists the
-// modes of the machine it was recorded on. Without it the test build asks Windows, as Patella.exe.
+// modes of the machine it was recorded on. Without it the test build asks the machine, as Patella.exe.
 //
 // A script with dump or frame needs --test-out. (Until issue #97 --test-sync <name> made the client wait
 // at each state dump for testmode_check.py's reading from outside; no tool used it after issue #92.)
@@ -959,9 +959,9 @@ bool DropInput(const MSG *Message)
 
 // Issue #48: the display modes of the Graphics Options dialog (vulkan/SurfaceVulkan.cpp
 // GetFullscreenModes). With --test-display-modes the Index-th mode of the file; without it the machine's
-// (Win32's EnumDisplaySettingsA). Since issue #119 TTestWindow::DisplayMode (below). The desktop's own mode
-// (ENUM_CURRENT_SETTINGS, the Vulkan engine's CreateSurfaces) stays the machine's: TTestWindow::DesktopMode is
-// Win32's (issue #138).
+// (Win32's EnumDisplaySettingsA; since issue #124 through the window path's IWindow, Win32's on both). Since issue #119
+// TTestWindow::DisplayMode (below). The desktop's own mode (ENUM_CURRENT_SETTINGS, the Vulkan engine's CreateSurfaces)
+// stays the machine's: TTestWindow::DesktopMode is the window path's (issue #138; #124).
 
 // Issue #83: PATELLA_TEST_FAIL_PRESENT=1 makes every present of the Vulkan engine fail (TestHooks.h), read once.
 bool PresentFails()
@@ -1236,12 +1236,11 @@ void PATELLA_CDECL FramePixels(const void *Bits, int Pitch, int Width, int Heigh
 		WriteLog(Current, "testmode: cannot write " + Name);
 }
 
-// A message box (IWindow::ShowMessageBox): with a script not shown.
-int ShowMessageBox(HWND Window, const char *Text, const char *Caption, UINT Type)
+// A message box (IWindow::ShowMessageBox) with a script: not shown. Without one TTestWindow shows the window path's
+// (issue #124).
+int ShowMessageBox([[maybe_unused]] HWND Window, const char *Text, const char *Caption, UINT Type)
 {
 	TState &Current = State();
-	if (!Current.Scripted)
-		return ::MessageBoxA(Window, Text, Caption, Type);
 	// A test run never opens a modal dialog: the box's caption and text are written down instead, and
 	// it counts as answered with OK.
 	const std::string Caption8 = Caption != nullptr ? Caption : "";
@@ -1348,6 +1347,11 @@ public:
 	void ShowMessageBox(patella::platform::TWindowHandle Owner, const char *Text, const char *Caption,
 		patella::platform::TMessageBoxIcon Icon) override
 	{
+		// Without a script the window path's box (issue #124: SDL3's on the SDL3 window, MessageBoxA on MFC's).
+		if (!State().Scripted) {
+			patella::platform::WindowDesktop().ShowMessageBox(Owner, Text, Caption, Icon);
+			return;
+		}
 		// messages.txt's type: MessageBoxA's flags, as the hook passed them.
 		const UINT Type = Icon == patella::platform::TMessageBoxIcon::Error ? MB_ICONHAND : MB_ICONEXCLAMATION;
 		patella::testmode::ShowMessageBox(static_cast<HWND>(Owner), Text, Caption, Type);
@@ -1360,7 +1364,7 @@ public:
 	{
 		const TState &Current = State();
 		if (!Current.FixedDisplayModes)
-			return patella::platform::Win32Window().DisplayMode(Index, Mode);
+			return patella::platform::WindowDesktop().DisplayMode(Index, Mode);
 		TDisplayMode Found;
 		if (!EnumerateDisplayMode(&Current.DisplayModes, Index, &Found, [](std::uint32_t, TDisplayMode *) { return false; }))
 			return false;
@@ -1372,7 +1376,13 @@ public:
 	// The machine's, with or without --test-display-modes (issue #138: the Vulkan engine's own call until then).
 	[[nodiscard]] bool DesktopMode(patella::platform::TDisplayMode &Mode) override
 	{
-		return patella::platform::Win32Window().DesktopMode(Mode);
+		return patella::platform::WindowDesktop().DesktopMode(Mode);
+	}
+	// The machine's display (issue #124: the Vulkan engine's ChangeDisplaySettingsA until then); headless the engine
+	// never asks (SurfaceVulkan.cpp CreateSurfaces).
+	bool SetFullscreenMode(patella::platform::TWindowHandle Window, const patella::platform::TDisplayMode *Mode) override
+	{
+		return patella::platform::WindowDesktop().SetFullscreenMode(Window, Mode);
 	}
 	// Issue #145: --test-headless.
 	[[nodiscard]] bool Headless() override { return State().Headless; }
@@ -1390,15 +1400,15 @@ constinit TTestWindow TestWindow;
 // client writes in its folder), the network the server replay's inside the process with --test-replay (issue #120:
 // TPipeSocketWin32, no port), else the portable socket's (TPortableSocket, issue #125: a live run against the test
 // server). Issue #119: the clipboard the process's own with a script (TMemoryClipboard: the desktop's clipboard
-// neither reaches a scripted run nor is changed by it), else Win32's; the input and the windows the test mode's
-// (above).
+// neither reaches a scripted run nor is changed by it), else the window path's (issue #124: SDL3's on the SDL3 window,
+// Win32's on MFC's); the input and the windows the test mode's (above).
 patella::platform::TPlatform &patella::platform::Platform()
 {
 	const patella::testmode::TState &Current = patella::testmode::State();
 	static TMemoryClipboard ScriptClipboard;
 	static TPlatform Instance{*Current.Clock, SystemFileSystem(),
 		Current.Replay.Active ? static_cast<ISocket &>(*Current.Replay.Pipes) : static_cast<ISocket &>(NetworkSocket()),
-		Current.Scripted ? static_cast<IClipboard &>(ScriptClipboard) : static_cast<IClipboard &>(Win32Clipboard()),
+		Current.Scripted ? static_cast<IClipboard &>(ScriptClipboard) : WindowClipboard(),
 		patella::testmode::TestInput, patella::testmode::TestWindow};
 	return Instance;
 }
