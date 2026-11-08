@@ -40,13 +40,15 @@ dump
 frame
 key Return
 
-# A square: north, east, south, west, back where the character started.
+# A square: south, east, north, west, back where the character started (32098,32219 in the test server's
+# world). It stays on the rows y >= 32219 because the client sends no step onto a field with a creature and
+# Cipfried (home 32097,32217, radius 1) walks at random on the rows up to 32218 (issue #151, #137's way).
 wait 1000
-key Up
+key Down
 wait 1500
 key Right
 wait 1500
-key Down
+key Up
 wait 1500
 key Left
 wait 1500
