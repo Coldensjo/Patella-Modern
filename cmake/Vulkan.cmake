@@ -154,6 +154,10 @@ set_target_properties(patella_render_vulkan PROPERTIES
 patella_target_language(patella_render_vulkan)
 patella_target_warnings(patella_render_vulkan)
 patella_target_hardening(patella_render_vulkan)
+if(NOT WIN32)
+	# Issue #131: as the Linux client's sources (cmake/LinuxX64.cmake): the Windows presets' clang-tidy runs check them.
+	set_property(TARGET patella_vulkan_deps patella_render_vulkan PROPERTY EXPORT_COMPILE_COMMANDS OFF)
+endif()
 
 # The CPU driver's two files, taken from the archive once per build tree (Windows; on Linux lavapipe is the system's,
 # the distribution's mesa-vulkan-drivers package, DeviceSettings.cpp FindCpuDriverManifest).

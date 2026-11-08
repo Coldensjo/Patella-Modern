@@ -1,5 +1,4 @@
 #pragma once
-#include <cstring>
 #include "common.h"
 #include "types/File.h"
 #include "types/FixedString.h"
@@ -8,6 +7,7 @@
 #include "Preferences.h"
 #include <array>
 #include <type_traits>
+#include <cstring>
 
 struct TRGBColor;
 

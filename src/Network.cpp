@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 // The data is TNetwork's (Network.h, issue #105), in the original's order with its addresses. The socket is the
 // platform's (issue #109: ISocket, platform/Socket.h; the original's CAsyncSocket class of this file is Win32's
@@ -49,7 +50,7 @@ void patella::TNetwork::ApplyLoginServerOverride()
 	int Port = 7171;
 	const std::string::size_type Colon = Host.rfind(':');
 	if (Colon != std::string::npos) {
-		Port = std::atoi(Host.c_str() + Colon + 1);
+		Port = static_cast<int>(std::strtol(Host.c_str() + Colon + 1, nullptr, 10));
 		Host.resize(Colon);
 	}
 	for (int i = 0; i < NUMBEROFSERVER; i++) {
