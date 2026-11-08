@@ -26,6 +26,14 @@ Patella.ini (src/settings/PreferenceKeys.h) at the same moments, and once at its
 Tibia.exe's written files (files) and Patella.ini from the x64 client's, and compares the options by value
 (tools/settings_file.py): Tibia.exe's Tibia.cfg (the one it wrote, else the one the run started with) against the x64
 client's Patella.ini, which it must have written.
+
+Issues #72 (changed by #139), #139 (item 7) and #142 (issue #150): a bad server frame no longer stops the client.
+compare_network.py's six frame scenarios (FRAME_SCENARIOS) are deliberate differences there, each only with its own
+outcome on both sides: a frame whose size is no multiple of 8 (#139) or whose inner length runs past it (#72) ends
+Tibia.exe with the critical error box, and the fork's client drops it and goes on (in the login, to the server's close:
+"Connection failed", "Disconnected from server"; in the game, into the game); an empty packet (#142) before the map
+frame ends Tibia.exe with the critical error (alone) or stalls it at "Connecting" (two together), and the fork's client
+reads past it into the game. The same outcome in another scenario, or another outcome in these, is still a difference.
 """
 
 ISSUE = "#74"
@@ -54,6 +62,39 @@ PATCH_FILES = ("tibia.da_", "tibia.sp_", "tibia.pi_", "patch.ex_", "tibia.bak", 
 # dialog's caption, and the text.
 UPDATE_REFUSED_CAPTION = "Sorry"
 UPDATE_REFUSED_TEXT = "This server wants to update the client"
+# The bad frames (issues #72, #139, #142; compare_network.py's scenarios, issue #150).
+ISSUE_INNER_LONG = "#72, #139"  # #72's frames, dropped since #139
+ISSUE_BAD_SIZE = "#139"
+ISSUE_EMPTY = "#142"
+# The outcomes of a compare_network.py result (outcome_of).
+CRITICAL_ERROR = "critical error"  # the critical error box, exit 1
+CONNECTING = "connecting"  # still "Connecting" to the game server, no player
+LOGIN_CLOSED = "login closed"  # the login server closed: "Connection failed", no character list
+IN_GAME = "in the game"  # a player and the game window; WM_CLOSE gets the logout warning (killed)
+OUTCOME_TEXT = {
+	CRITICAL_ERROR: "ends with the critical error box",
+	CONNECTING: "stalls at \"Connecting\"",
+	LOGIN_CLOSED: "goes on to the server's close (\"Connection failed\")",
+	IN_GAME: "goes on into the game",
+}
+# {scenario: (issue, the frame, Tibia.exe's outcome, the fork's client's outcome, what the fork's client does)}
+FRAME_SCENARIOS = {
+	"login-bad-size": (ISSUE_BAD_SIZE, "a login frame whose size is no multiple of 8", CRITICAL_ERROR, LOGIN_CLOSED,
+		"drops it"),
+	"login-inner-long": (ISSUE_INNER_LONG, "a login frame whose inner length runs past it", CRITICAL_ERROR,
+		LOGIN_CLOSED, "drops it"),
+	"game-bad-size": (ISSUE_BAD_SIZE, "a game frame whose size is no multiple of 8", CRITICAL_ERROR, IN_GAME,
+		"drops it"),
+	"game-inner-long": (ISSUE_INNER_LONG, "a game frame whose inner length runs past it", CRITICAL_ERROR, IN_GAME,
+		"drops it"),
+	"game-empty-alone": (ISSUE_EMPTY, "an empty packet alone before the map frame", CRITICAL_ERROR, IN_GAME,
+		"reads past it"),
+	"game-two-empty-together": (ISSUE_EMPTY, "two empty packets sent with the map frame", CONNECTING, IN_GAME,
+		"reads past them"),
+}
+# The keys of a compare_network.py result that make up the outcome; the others are still compared. "options" too when
+# Tibia.exe wrote Tibia.cfg at its end (it saves the game's options there; the fork's client is killed in the game).
+OUTCOME_KEYS = ("exit", "box", "characters", "state", "gui", "gui_after_close", "packets", "problems")
 
 
 def _lines(text):
@@ -110,7 +151,113 @@ def expected_lines(written=(), removed=(), boxes=(), packets=(), server_packets=
 	return out
 
 
+def _labels(result, cls):
+	return [n.get("text", "") for n in result.get("gui") or [] if n.get("class") == cls]
+
+
+def outcome_of(result):
+	"""A compare_network.py result's outcome (CRITICAL_ERROR, CONNECTING, LOGIN_CLOSED, IN_GAME), or None for any
+	other end."""
+	box = result.get("box")
+	if box:
+		if (box[0] == CRITICAL_ERROR_CAPTION and result.get("exit") == 1 and "state" not in result
+				and all(_lines(t) in (_lines(CRITICAL_ERROR_TEXT_TIBIA), CRITICAL_ERROR_TEXT) for t in box[1])):
+			return CRITICAL_ERROR
+		return None
+	player = ((result.get("state") or {}).get("player") or {}).get("PlayerID")
+	labels = _labels(result, "TLabel")
+	if player is None:
+		return None
+	if player == 0 and result.get("exit") == 0:
+		if "Connecting" in labels and result.get("characters"):
+			return CONNECTING
+		if (result.get("characters") == [] and "Connection failed" in labels
+				and any("Error: Disconnected from server." in t for t in labels)):
+			return LOGIN_CLOSED
+		return None
+	if player != 0 and "Logout" in _labels(result, "TTextButton") and result.get("exit") == "running (killed)":
+		return IN_GAME
+	return None
+
+
+def frame_outcome(scenario, tibia, ours):
+	"""compare_network.py's deliberate outcome of a bad frame (FRAME_SCENARIOS; issues #72, #139, #142): (the report's
+	line, the result keys it explains) when the scenario is one of them, Tibia.exe's result (tibia) has the expected
+	outcome, the fork's client's (ours) its own, and ours sent Tibia.exe's packets first; else None."""
+	entry = FRAME_SCENARIOS.get(scenario)
+	if entry is None:
+		return None
+	issue, frame, theirs, own, does = entry
+	if outcome_of(tibia) != theirs or outcome_of(ours) != own:
+		return None
+	packets = tibia.get("packets") or []
+	if (ours.get("packets") or [])[:len(packets)] != packets:
+		return None
+	keys = OUTCOME_KEYS
+	if any(name.lower() == TIBIA_CFG.lower() for name in tibia.get("files") or []):
+		keys += ("options",)
+	line = "deliberate (%s): %s: Tibia.exe %s, the fork's client %s and %s" % (issue, frame, OUTCOME_TEXT[theirs],
+		does, OUTCOME_TEXT[own])
+	return line, keys
+
+
+def _self_test_frames():
+	"""FRAME_SCENARIOS on results shaped as compare_network.py's (issue #150's run)."""
+	login = ["login", 1, "0102"]
+	game = [["game", 1, "0a02"], ["game", 1, "a0020001"]]
+	error = {"exit": 1, "box": [CRITICAL_ERROR_CAPTION, [CRITICAL_ERROR_TEXT_TIBIA]], "packets": [login],
+		"files": ["error.txt"]}
+	error_game = dict(error, packets=[login] + game, files=["Tibia.cfg", "error.txt"])
+	screen = [{"class": "TTextButton", "text": t} for t in ("Enter Game", "Ok")]
+	closed = {"exit": 0, "characters": [], "packets": [login], "state": {"player": {"PlayerID": 0}},
+		"gui": screen + [{"class": "TLabel", "text": "Connection failed"}, {"class": "TLabel", "text":
+		"Cannot connect to a login server.\n\nError: Disconnected from server.\n\nFor more"}]}
+	connecting = {"exit": 0, "characters": ["A"], "packets": [login] + game[:1], "state": {"player": {"PlayerID": 0}},
+		"gui": screen + [{"class": "TLabel", "text": "Connecting"}]}
+	in_game = {"exit": "running (killed)", "characters": ["A"], "packets": [login] + game,
+		"state": {"player": {"PlayerID": 15146574}}, "gui": [{"class": "TTextButton", "text": "Logout"}]}
+	assert outcome_of(error) == CRITICAL_ERROR
+	assert outcome_of(dict(error, box=[CRITICAL_ERROR_CAPTION, [CRITICAL_ERROR_TEXT]])) == CRITICAL_ERROR
+	assert outcome_of(dict(error, box=["Tibia Error", [CRITICAL_ERROR_TEXT]])) is None
+	assert outcome_of(dict(error, exit=0)) is None
+	assert outcome_of(closed) == LOGIN_CLOSED and outcome_of(connecting) == CONNECTING
+	assert outcome_of(in_game) == IN_GAME
+	assert outcome_of(dict(in_game, exit=0)) is None
+	assert outcome_of(dict(closed, gui=screen)) is None
+	cases = {"login-bad-size": (error, closed), "login-inner-long": (error, closed),
+		"game-bad-size": (error_game, in_game), "game-inner-long": (error_game, in_game),
+		"game-empty-alone": (dict(error, packets=[login] + game[:1]), in_game),
+		"game-two-empty-together": (connecting, in_game)}
+	assert set(cases) == set(FRAME_SCENARIOS)
+	outcomes = list({id(o): o for pair in cases.values() for o in pair}.values())
+	for name, (tibia, ours) in cases.items():
+		issue = FRAME_SCENARIOS[name][0]
+		found = frame_outcome(name, tibia, ours)
+		assert found and found[0].startswith("deliberate (%s): " % issue), name
+		assert ("options" in found[1]) == ("Tibia.cfg" in tibia["files"] if "files" in tibia else False), name
+		# Another outcome on either side is still a difference.
+		for other in outcomes:
+			if outcome_of(other) != outcome_of(tibia):
+				assert frame_outcome(name, other, ours) is None, name
+			if outcome_of(other) != outcome_of(ours):
+				assert frame_outcome(name, tibia, other) is None, name
+		assert frame_outcome(name, tibia, tibia) is None, name
+		assert frame_outcome(name, ours, ours) is None, name
+		# Ours must have sent Tibia.exe's packets first.
+		assert frame_outcome(name, dict(tibia, packets=[["login", 1, "ffff"]]), ours) is None, name
+		# The same outcome in another scenario is still a difference.
+		for other in ("game-normal", "login-normal", "login-inner-short", "game-inner-short", "game-empty-together",
+				"game-empty-after", "login-empty-frame", "login-cut-start", "game-cut-second"):
+			assert frame_outcome(other, tibia, ours) is None, (name, other)
+	# Each scenario's outcomes are its own: the login scenarios do not take the game's, nor the reverse.
+	assert frame_outcome("login-bad-size", error_game, in_game) is None
+	assert frame_outcome("game-bad-size", error, closed) is None
+	assert frame_outcome("game-two-empty-together", error_game, in_game) is None
+	assert frame_outcome("game-empty-alone", connecting, in_game) is None
+
+
 def self_test():
+	_self_test_frames()
 	assert box_text(CRITICAL_ERROR_CAPTION, CRITICAL_ERROR_TEXT_TIBIA) == CRITICAL_ERROR_TEXT
 	assert box_text(CRITICAL_ERROR_CAPTION, CRITICAL_ERROR_TEXT_TIBIA.replace("\r\n", "\n")) == CRITICAL_ERROR_TEXT
 	assert box_text("Tibia Error", CRITICAL_ERROR_TEXT_TIBIA) == CRITICAL_ERROR_TEXT_TIBIA
