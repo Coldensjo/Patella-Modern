@@ -33,7 +33,10 @@ records:
     client's Patella.ini: Patella-Modern issue #45), as values (tools/settings_file.py).
 and compares the two clients, with the deliberate differences expected (tools/deliberate.py, issue #74:
 Patella.exe writes no error.txt, and its critical error box does not name that file; issue #45: it writes
-Patella.ini, not Tibia.cfg, and the options are compared by value). A difference is reported; --repeat runs Tibia.exe a second time for
+Patella.ini, not Tibia.cfg, and the options are compared by value; issue #150: in the six bad-frame scenarios of
+deliberate.FRAME_SCENARIOS, issues #72, #139 and #142, Tibia.exe ends or stalls and Patella.exe goes on: that outcome,
+and only that one, is reported as DELIBERATE, named with its issue, and the rest of the result is still compared).
+Every deliberate difference a scenario expected is listed under it. A difference is reported; --repeat runs Tibia.exe a second time for
 every scenario that differs, to show whether the difference is the client's run-to-run variation; the
 scenarios marked variable (a wrong XTEA key: the garbage the client decrypts depends on its random session key)
 always get the second run, and differ without failing only when Tibia.exe's two runs differ as well.
@@ -456,11 +459,31 @@ def expected_of(a):
 	return e
 
 
-def compare(a, b, fork=True):
+def deliberate_lines(name, a, b):
+	"""The deliberate differences (tools/deliberate.py) the comparison of scenario name expected, for the report: the
+	bad frame's outcome (issues #72, #139, #142; issue #150), Tibia.exe's error.txt and Tibia.cfg (#74, #45) and its
+	critical error box's text (#74)."""
+	out = []
+	frame = deliberate.frame_outcome(name, a, b)
+	if frame:
+		out.append(frame[0])
+	files = a.get("files") or []
+	box = a.get("box")
+	out += deliberate.expected_lines([n for n in files if not n.startswith("-")],
+		[n[1:] for n in files if n.startswith("-")], [(box[0], t) for t in box[1]] if box else ())
+	return out
+
+
+def compare(a, b, fork=True, name=None):
 	"""Differences between Tibia.exe's result a and Patella.exe's b (fork: with the deliberate ones expected; False for
-	two runs of Tibia.exe)."""
+	two runs of Tibia.exe). name: the scenario, whose bad frame's outcome may be deliberate (issue #150): then the
+	keys that make the outcome are not compared, the rest is."""
 	out = []
 	if fork:
+		frame = deliberate.frame_outcome(name, a, b) if name else None
+		if frame:
+			a = {k: v for k, v in a.items() if k not in frame[1]}
+			b = {k: v for k, v in b.items() if k not in frame[1]}
 		a = expected_of(a)
 	if fork and b.get("files") is not None:
 		# Issue #45: the x64 client's Patella.ini (its options, compared as "options") is not one of Tibia.exe's files.
@@ -531,6 +554,7 @@ def main():
 	lines = []
 	failed = 0
 	variable = 0
+	deliberates = 0  # the bad frames' deliberate outcomes (issue #150)
 
 	def say(text=""):
 		print(text, flush=True)
@@ -554,7 +578,9 @@ def main():
 			say("%s: HARNESS ERROR %s" % (name, e))
 			traceback.print_exc()
 			continue
-		differences = compare(results["orig"], results["patella"])
+		differences = compare(results["orig"], results["patella"], name=name)
+		expected = deliberate_lines(name, results["orig"], results["patella"])
+		frame = deliberate.frame_outcome(name, results["orig"], results["patella"])
 		varies = False
 		if differences and (args.repeat or scenario[4]):
 			again = run(cf.REPEAT_RUN, name + "-repeat", scenario, args.out)
@@ -571,10 +597,16 @@ def main():
 			say("%s: DIFFERENT (%s)" % (name, scenario[0]))
 			for d in differences:
 				say("    " + d)
+		elif frame:
+			deliberates += 1
+			say("%s: DELIBERATE (%s): Tibia.exe %s; Patella.exe %s" % (name, scenario[0], summary(results["orig"]),
+				summary(results["patella"])))
 		else:
 			say("%s: same (%s): %s" % (name, scenario[0], summary(results["orig"])))
-	say("%d of %d scenarios differ or failed, %d variable (the session key's random garbage); %.0f s"
-		% (failed, len(chosen), variable, time.time() - start))
+		for line in expected:
+			say("    " + line)
+	say("%d of %d scenarios differ or failed, %d variable (the session key's random garbage), %d deliberate (the bad "
+		"frames: tools/deliberate.py); %.0f s" % (failed, len(chosen), variable, deliberates, time.time() - start))
 	with open(os.path.join(args.out, "report.txt"), "w", encoding="utf-8", newline="\n") as f:
 		f.write("\n".join(lines) + "\n")
 	return 0 if failed == 0 else 1

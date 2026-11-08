@@ -9427,15 +9427,15 @@ The comparison tools expect these from the fork's clients against Tibia.exe and 
 | #71 | The area a live resize uncovers is black | stripes of old pixels (not compared: no tool moves a border) |
 | #45 (D12) | No Tibia.cfg written; the options go into Patella.ini and are compared with Tibia.exe's Tibia.cfg by value (tools/settings_file.py) | SavePreferences writes Tibia.cfg (the options and hotkey dialogs, a logout, the exit) |
 | #45 (D12) | Patella.ini written at the first start without the options in it (the import of Tibia.cfg, or the defaults) | nothing written at the start |
-| #72 | A server frame whose inner length runs past it, or a frame of size 0, is dropped, a warn line goes to the developer log, and the connection goes on with the next frame (the owner's change of November 7, #139; until then the frame ended the client with the TMyException "packet length exceeds the received data") | reads on past the frame: into the next frames, past ReceiveData into SendData (not compared: no session has such a frame; the golden Network test's deliberate parts, "#72 and #86" and "#139") |
+| #72 | A server frame whose inner length runs past it, or a frame of size 0, is dropped, a warn line goes to the developer log, and the connection goes on with the next frame (the owner's change of November 7, #139; until then the frame ended the client with the TMyException "packet length exceeds the received data") | reads on past the frame: into the next frames, past ReceiveData into SendData; ends with the critical error box (compare_network's login-inner-long and game-inner-long, deliberate since #150; the golden Network test's deliberate parts, "#72 and #86" and "#139") |
 | #139 (1) | After a Tibia.dat that ends early (or a count the next table refuses), only the sprite tables LoadProperties allocated are deleted | deletes the unreached entries' indeterminate pointers (not compared: the reference sessions load the real Tibia.dat) |
 | #139 (2) | After a Tibia.pic that ends early, only the pictures' offset tables LoadPictures allocated are deleted | deletes the unreached pictures' indeterminate pointers (not compared) |
 | #139 (3) | A sprite or picture tile whose runs pass the 1024th pixel is a data error: PROGRAM_ERROR 4 (Tibia.spr) or 5 (Tibia.pic), the pixels before it written as before | writes past the 32 x 32 buffer (not compared: the real files have no such run) |
 | #139 (4) | TReadBuffer::GetString checks that the text fits before it allocates it | allocates first and loses the text at the throw (not observable apart from the memory) |
 | #139 (5) | A .map file with a negative mark count is a corrupted file: "Map file '...' was corrupted!", the block cleared, as for a file that ends early | keeps the count; a mark added then grows the marks down to that index (minutes, much memory) (not compared: no session has such a file) |
 | #139 (6) | A server frame larger than the 16 KB receive buffer is dropped as its bytes come, a warn line goes to the developer log, and the frames after it are read | keeps its first bytes and waits for it forever: the buffer fills and nothing more is received (not compared) |
-| #139 (7) | A server frame whose size is no multiple of 8 is dropped (not decrypted), a warn line goes to the developer log, and the next frame is read | throws "packet size does not fit to symmetric encryption" without dropping it, which ends the client (every later read would throw the same) (not compared) |
-| #142 | A server packet of inner length 0 (empty) is read past: the frames after it are read in the same call, and its frame leaves the receive buffer at once (no drop, no log line) | returns it as the packet read (no command), so the frames behind it wait for the next receive that completes a frame, and its frame stays in the receive buffer until then: a following frame that fits only without it never completes and the connection stalls (not compared: the reference compare and compare_traffic show no difference; the golden Network test's deliberate parts, "#142") |
+| #139 (7) | A server frame whose size is no multiple of 8 is dropped (not decrypted), a warn line goes to the developer log, and the next frame is read | throws "packet size does not fit to symmetric encryption" without dropping it, which ends the client (every later read would throw the same) (compare_network's login-bad-size and game-bad-size, deliberate since #150) |
+| #142 | A server packet of inner length 0 (empty) is read past: the frames after it are read in the same call, and its frame leaves the receive buffer at once (no drop, no log line) | returns it as the packet read (no command), so the frames behind it wait for the next receive that completes a frame, and its frame stays in the receive buffer until then: a following frame that fits only without it never completes and the connection stalls (compare_network's game-empty-alone: the critical error box, and game-two-empty-together: stalled at "Connecting", deliberate since #150; the reference compare and compare_traffic show no difference; the golden Network test's deliberate parts, "#142") |
 | #86 | An ignore or white list entry's name of 30 characters, and a buddy's description of 128, read as those characters only (the list's line, GetBuddyDescription, Patella.ini, Tibia.cfg's writer) | reads on past the name into Permanent (with it set, "\x01" and the next entry's name), past the description into Notify and the padding (not compared: no session has such a name or description) |
 
 ### The tests
@@ -17388,3 +17388,60 @@ there sees only them.
   within 30 s (#147's Direct3D 9 start in the Sandbox) retried by Driver.start (1039 s); compare_network.py (#19's
   recording) exit 1 with 41 of 51 the same, 4 variable, and exactly the 6 known differences of #139 and #142 (#150),
   no harness error (1324 s). gate3-compare_*.log.
+
+## #150: compare_network's bad frames as deliberate differences (Patella-Modern issue #150, M7)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-150, from main e4d3067). Tools only. Found by #125 and #147:
+tools/deliberate.py did not know #139's and #142's frame outcomes, so compare_network reported its six bad-frame
+scenarios as differences on main (41 the same, 4 variable, 6 different).
+
+### The entries (high)
+
+`deliberate.FRAME_SCENARIOS` names each scenario with its issue, Tibia.exe's outcome and the fork's client's, as
+issue #150's Sandbox run of the six on main's tree recorded them (build\logs\issue-150\network-six-before.log):
+
+| Scenario | Issue | Tibia.exe | The fork's client |
+|---|---|---|---|
+| login-bad-size | #139 (7) | the critical error box, exit 1 | drops the frame, then the server's close: "Connection failed", "Disconnected from server", no character list |
+| login-inner-long | #72, #139 | the critical error box, exit 1 | as login-bad-size |
+| game-bad-size | #139 (7) | the critical error box, exit 1 | drops the frame and goes on into the game (a player, Logout; the logout warning at WM_CLOSE) |
+| game-inner-long | #72, #139 | the critical error box, exit 1 | as game-bad-size |
+| game-empty-alone | #142 | the critical error box, exit 1 | reads past the empty packet into the game |
+| game-two-empty-together | #142 | stalls at "Connecting" (no player, the game's first packet not answered), exit 0 at WM_CLOSE | reads past them into the game |
+
+- **Narrow** (high). `deliberate.outcome_of` classifies a result (the critical error box with its caption, Tibia.exe's
+  or the fork's text and exit 1; "Connecting" with a character list and no player; the login's "Connection failed"
+  with "Error: Disconnected from server." and an empty character list; a player, the Logout button and "running
+  (killed)"), and `frame_outcome(scenario, tibia, ours)` matches only a listed scenario whose two results have exactly
+  its two outcomes, and where the fork's client sent Tibia.exe's packets first (a prefix: Tibia.exe stopped earlier).
+  Any other outcome in these scenarios, or these outcomes in any other scenario, is still a difference.
+- **What is still compared** (high). For a match compare_network leaves out only the keys that make the outcome
+  (exit, box, characters, state, gui, gui_after_close, packets, problems) and compares the rest as before: error.txt
+  and the files (#74's and #45's expectations), the note, and the options, except when Tibia.exe wrote Tibia.cfg at
+  its critical error in the game (it saves the game's options there; the fork's client never exits, it is killed at
+  the logout warning, so its Patella.ini has the start's). Considered: comparing the fork's client in these scenarios
+  with Tibia.exe's result of the matching clean scenario (game-normal, login-cut-*): a cross-scenario comparison the
+  tool does not have, and the run-to-run parts of a game start would need their own rules.
+- **The report** (high, as compare_files and reference.py list theirs). A matched scenario is `DELIBERATE` with both
+  clients' summaries, and every scenario lists the deliberate differences it expected under it: the frame's line
+  (`deliberate (#139): a login frame whose size is no multiple of 8: Tibia.exe ends with the critical error box, the
+  fork's client drops it and goes on to the server's close ("Connection failed")`), and #74's and #45's lines
+  (deliberate.expected_lines on Tibia.exe's files and box). The last line counts them: "0 of 51 scenarios differ or
+  failed, 4 variable (...), 6 deliberate (...)"; the exit code is 0 when nothing differs, as before.
+- **The self-test** (`python -I tools/deliberate.py --self-test`): each entry matches its scenario with its outcomes;
+  no entry matches with another outcome on either side, with one client's result on both sides, with other packets,
+  or in nine other scenarios (game-normal, login-normal, the two inner-short ones, the two variable empty frames,
+  login-empty-frame, login-cut-start, game-cut-second); the login entries refuse the game's outcomes and the reverse.
+
+### The checks (high)
+
+- `python -I tools/deliberate.py --self-test` exit 0; `python -I -m py_compile tools/compare_network.py
+  tools/deliberate.py` exit 0 (build\logs\issue-150\deliberate-self-test.log).
+- In Windows Sandbox (#147; the host had no client and the ports 7171, 7172, 7271, 7272 were free for two minutes
+  before each run): `python -I tools/compare_network.py --patella
+  C:/Tibia/Patella-Modern/build/windows-x64/Release/Patella.exe --out build/network/result-150` (issue #19's
+  recording, sha256 61103b95..., copied to build\network) exit 0: of 51 scenarios 41 the same, 4 variable (the wrong
+  keys and the coalesced empty frames, as before), 6 deliberate, each named with its issue, 0 differ; 1305 s
+  (build\logs\issue-150\compare_network.log). Before the change the six alone differed (network-six-before.log, 176 s).
+- Not run: the C++ presets, golden, tidy and clang-format (no C++ changed); the reference compare (the functions of
+  deliberate.py it calls are unchanged).
