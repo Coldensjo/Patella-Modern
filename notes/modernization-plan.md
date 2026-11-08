@@ -717,7 +717,8 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
 - **Tibia.exe's live runs off the user's desktop:** done in #147 (notes/decisions.md, "#147"): compare_traffic.py,
   compare_files.py, compare_rendering.py and compare_network.py run inside Windows Sandbox by default
   (tools/sandbox.py; its window on a hidden desktop, the test server on the host through a reverse tunnel); `--desktop`
-  as before.
+  as before. Done in #154 (notes/decisions.md, "#154"): measured that Windows refuses a second Sandbox, so runs stay one
+  at a time.
 - **compare_network's bad frames are deliberate:** done in #150 (notes/decisions.md, "#150"): tools/deliberate.py
   lists #72's, #139's and #142's six frame scenarios with both clients' outcomes; compare_network reports them as
   deliberate, named with their issue, and nothing else differs.
