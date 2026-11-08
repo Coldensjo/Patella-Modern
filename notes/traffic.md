@@ -54,6 +54,10 @@ immediates are found through the RIP-relative reference to server.tibia.com ther
 the game connection to 127.0.0.1:7172. The character list carries the game server's port (7172); the
 proxy decrypts the login server's reply, puts its own game port (7272) in, and encrypts it again with the
 same padding (the recording keeps the server's original as "orig"). Both clients get the same rewrite.
+A recording therefore holds the game port of the proxy that made it (7272, or its private server's run's since #146).
+A replay sets every game port of a character list to its own game port (issue #157, Proxy.replay_event, the only place
+a replay departs from the recorded bytes; the frame's length stays), so a recording replays wherever it was made:
+7272 recordings byte for byte, a private server's in compare_rendering, compare_network and a later `--skip-live`.
 
 The first packet of each connection is unencrypted: `[u16 size][0x01 login | 0x0a game][u16 os][u16
 version]([u32 dat][u32 spr][u32 pic] for the login)[128-byte RSA block]`. The server's private key

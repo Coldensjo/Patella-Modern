@@ -772,6 +772,11 @@ refuses). Shown: compare_traffic or compare_files in the Sandbox and testmode_ch
 servers with game connections at once, both passing; the master's checksums identical after them and after a killed
 run's cleanup. notes/testserver.md, "A private server per run"; notes/decisions.md, "#146".
 
+A recording replays wherever it was made (Patella-Modern issue #157, branch issue-157, November 8, 2026; M7): a replay
+(tools/proxy.py, every tool's) names its own game port in a character list, so a compare_traffic recording from a private
+server plays in compare_rendering and compare_network without a hand-edited copy, and 7272 recordings byte for byte.
+`python -I tools/proxy.py --self-test`. notes/traffic.md; notes/decisions.md, "#157".
+
 MFC removed (Patella-Modern issue #127, branch issue-127, November 8, 2026; M8): no source includes MFC; the SDL3
 window is the client's only one (PATELLA_WINDOW and platform/WindowChoice.h gone, the Win32 window system gone with it),
 CPlayerApp derives from nothing, WinMain is platform/EntryWin32.cpp. The original's CMainFrame and the MFC declarations
@@ -1000,6 +1005,50 @@ as INT_PTR[]: the new-channel dialog's IDs shifted by one on x64), fixed in src/
 unchanged, pecompare); the queue's other messages audited, no other defect. Control replays with 0 failures.
 notes/decisions.md, "The golden corpus: Control (Patella-Modern issue #30, third part)".
 Next: the live check of the x64 client's "Open a channel" dialog; the other open issues; see GitHub.
+
+## Profiling (issue #134, November 8, 2026)
+
+Frame time, heap calls per frame and GPU time of the x64 client against Tibia.exe: `python -I tools/profiling.py --reps 5
+--variants gpu,cpu` (`notes/testmode.md`, "Profile windows"; `notes/decisions.md`, "#134"). Both clients in **Windows Sandbox**,
+the host's RTX 5080 through GPU paravirtualization (GPU-PV), a 1024x768 Sandbox display, 5 runs of each client in turn
+(10 s time window, 4 s allocs window, 4 s gpu window per scene, private test server, proxy in the path). **These are
+Sandbox numbers, not bare-metal numbers.** Numbers are the median of the runs, in parentheses the runs' spread.
+
+| | title screen | in the game, standing | walking |
+| :--- | :--- | :--- | :--- |
+| Frame time, ms, Tibia.exe | 0.468 (0.464-0.471) | 0.727 (0.716-0.782) | 0.735 (0.728-0.785) |
+| Frame time, ms, x64 client on the GPU | 0.864 (0.842-0.868) | 1.119 (1.109-1.188) | 1.121 (1.113-1.186) |
+| Frame time, ms, x64 client on the CPU driver | 4.165 (4.150-4.259) | 10.454 (10.169-10.628) | 10.416 (10.227-10.692) |
+| Frames per second, Tibia.exe / GPU / CPU | 2113 / 1147 / 237 | 1357 / 881 / 95 | 1335 / 877 / 95 |
+| Frame time p99, ms, Tibia.exe / GPU | 0.624 / 1.047 | 0.947 / 1.404 | 0.990 / 1.372 |
+| Work before Present, ms, Tibia.exe | 0.039 (0.039-0.040) | 0.288 (0.282-0.341) | 0.291 (0.286-0.340) |
+| Work before Present, ms, x64 client, GPU | 0.060 (0.060-0.060) | 0.311 (0.306-0.379) | 0.312 (0.311-0.376) |
+| Present's own duration, ms, Tibia.exe / GPU | 0.428 / 0.803 | 0.441 / 0.807 | 0.445 / 0.808 |
+| Heap allocations per frame, Tibia.exe | 0.00 | 0.003 | 0.003 |
+| Heap allocations per frame, x64 client, GPU | 8.00 (8.00-8.00) | 71.8 (70.1-87.1) | 67.6 (66.4-79.6) |
+| Bytes asked for per frame, Tibia.exe / x64 client | 0 / 93,609 | about 5 / about 278,000 | about 0 / about 281,000 |
+| GPU time per frame, ms, Vulkan engine, GPU | 0.018 (0.018-0.018) | 0.032 (0.032-0.033) | 0.032 (0.032-0.033) |
+| GPU time per frame, ms, Vulkan engine, CPU driver | 6.765 (6.711-6.885) | 12.442 (12.321-12.791) | 12.521 (12.320-12.827) |
+
+What the numbers say:
+
+- A frame's work before Present (the client's own, windows and map) is the same in the two game scenes: 0.311 against
+  0.288 ms standing, 0.312 against 0.291 ms walking, the runs' spreads overlapping (no regression).
+- On the **title screen** the x64 client's work before Present is about 1.5 times Tibia.exe's (0.060 against 0.039 ms,
+  spreads apart): filed as #156, the frame times' 0.02 ms there.
+- The **heap allocations per frame** of the x64 client (8 on the title screen, about 70 in the game, 93,609 bytes and
+  about 280,000 bytes per frame) against Tibia.exe's about none: filed as #155, with its lead.
+- The whole frame time and Present's own duration are not judged. Vulkan's present through GPU-PV costs 0.80 ms, Tibia.exe's
+  Direct3D 9 Present 0.43 ms: a difference of graphics API behind the same GPU paravirtualization that only a bare-metal
+  run could tell from the clients themselves. No regression filed for it (below); both clients run at about 880 to 2100
+  frames per second.
+- The CPU driver's frame time is its render time (Present about 10 ms in the game).
+
+Limits: frame = Present to Present on the system clock (unscripted, no virtual clock). Tibia.exe's frame times and
+heap calls come through patcap.dll (the D3D9 Present hook and its imports); its GPU time cannot be measured (the
+original program). Heap counts are the client's own HeapAlloc/HeapReAlloc/HeapFree calls; drivers and system DLLs (and
+any allocator with its own arena) are in neither. A bare-metal run was not made (Tibia.exe's runs stay off the owner's
+desktop); run the tool in a second session or on another machine for that.
 
 ## Resources (issue #17)
 

@@ -115,6 +115,7 @@ set(patella_test_build_sources
 	"${PROJECT_SOURCE_DIR}/src/testmode/ClientStateWin32.cpp"
 	"${PROJECT_SOURCE_DIR}/src/testmode/PipeSocketWin32.cpp"
 	"${PROJECT_SOURCE_DIR}/src/testmode/SdlInputWin32.cpp"
+	"${PROJECT_SOURCE_DIR}/src/testmode/ProfileWin32.cpp" # issue #134's; on Linux its stubs
 	${patella_testmode_sources})
 
 patella_client(Patella)

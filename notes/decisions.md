@@ -17917,6 +17917,68 @@ fetch.sh is bind-mounted for the two RUNs (`RUN --mount`, BuildKit, Docker's def
 
 `python -I tools/download_selftest.py` (no network) serves scripted answers from 127.0.0.1 to all three paths: 504s then the file; 408, 429, 500 and 503; a dropped connection; a transfer cut short; 404 and 403; a wrong file first, after a 504, after a cut transfer and from the fallback; a fallback answering 504 once. For each it checks the outcome, the number of requests to each URL, that the pauses are kept, and that no result and no partial file is left behind after a failure. patella_fetch_declare also runs in a small project: an extracted archive after a 504, a DOWNLOAD_NO_EXTRACT file after a 503 and a 502, an installed package that is never fetched, a `--fresh` configure with no request at all, a wrong archive after a 504 that fails the configure and is not kept. Hosted CI runs it in the clang-format job, in the image (its CMake 4.4.5, curl and dash).
 
+## #134: profiling: frame time, heap calls per frame, GPU timestamps against Tibia.exe (Patella-Modern issue #134, M9)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-134, from main b71c815). tools/profiling.py, src/testmode/ProfileWin32.cpp,
+TRenderer::SetFrameTimestamps, patcap.dll's profile windows (shared memory version 5, the structure unchanged);
+notes/testmode.md "Profile windows", notes/progress.md "Profiling" (the numbers), notes/vulkan.md "GPU timings".
+
+### The measurement (high)
+
+- **The environment.** Tibia.exe cannot run on the owner's desktop (the owner's instruction of November 8), so both
+  clients run in Windows Sandbox, in one job (tools/profiling.py, `sandbox.redirect`, `testserver.isolate`, one private
+  server for the whole job, 5 runs each, alternating so a load change hits both): the same machine, the same GPU
+  through GPU paravirtualization, the same windowed 800x600 session. A Sandbox display of 1024x768 (sandbox.run's
+  `display`). The numbers are Sandbox numbers, and the report and the notes say so.
+- **A frame is Present to Present, on real time.** Tibia.exe: patcap.dll's real-time mode (the existing CMD_REALTIME,
+  so no virtual clock) and the D3D9 Present hook, the counter at its entry and Present's duration. x64 client:
+  PatellaTest.exe without a script, on the system clock (not the virtual one), through the code of Patella.exe plus
+  the test hooks, with the same two points around TRenderer::Present. The difference between the two points gives
+  "work before Present" (the whole idle pass, windows, the map, the Direct3D 9 calls or the Vulkan recording) and
+  Present's own duration. Considered: timing against the reference recordings' frozen scenes with the virtual clock
+  (a clock that stands still gives a time per frame of a frozen scene, but no frames in Tibia.exe until it moves, and
+  it would not be real time); a live session gives every frame for both clients.
+- **Windows kept apart.** Each scene has a `time` window (only the counter), an `allocs` window (the heap hooks on) and,
+  for the x64 client, a `gpu` window (the timestamps on), so neither the hooks nor the queries influence the time
+  windows. Scenes: the title screen, in the game standing, walking a square.
+- **The heap count.** Tibia.exe's CRT: this MSVC 7.1 static CRT has no __MSVCRT_HEAP_SELECT string and on Windows NT 5 and later
+  uses the system heap; the HeapAlloc imports see requests of 1016 bytes and less in the same counts (`small_share`
+  in the report), so a CRT small-block heap does not hide its calls. patcap.dll counts at the main module's imports of
+  HeapAlloc, HeapReAlloc and HeapFree; PatellaTest.exe counts at its own imports the same way (static CRT since M3: its
+  malloc and operator new end there): the two counts are the same calls of the same clients' own code. Direct3D's, the
+  Vulkan driver's and any allocator with its own arena are in neither (SDL3 in the x64 client: its malloc if built
+  with the CRT). Bytes differ a little by bitness; the count does not.
+- **The GPU time.** Only the Vulkan engine (vkCmdWriteTimestamp2 around a frame's command buffers); Tibia.exe's GPU work
+  cannot be timed. Timings run only in `gpu` windows.
+
+### The numbers and what is filed (high)
+
+notes/progress.md, "Profiling" (the table); build\profile\run1\report.txt in the worktree (local). Sandbox numbers,
+5 runs per client, spread reported: the work before Present is the same in both game scenes; on the title screen
+about 1.5 times (0.060 against 0.039 ms): #156. The heap allocations per frame (8 and about 70 against about 0.003): #155. The
+whole frame time and Present's own duration differ by the API behind GPU paravirtualization (Vulkan's present 0.80
+ms, Direct3D 9's Present 0.43 ms; both clients over 880 frames per second), which only a bare-metal run can tell from
+the clients: no regression filed (the issue's rule). Fix only what the numbers show, each as its own issue: nothing
+fixed here. `JUDGEMENT` in the tool's report: non-overlapping spreads and 10% worse, or one heap call more per frame.
+
+### Measurement code stays out of the product (high)
+
+The hooks and ProfileWin32.cpp are `PATELLA_TEST_MODE` only; Patella.exe contains none of it. TRenderer gets four
+functions and fields compiled into every build, but with timestamps off (the default, never turned on in Patella.exe)
+BeginFrame and Submit only test a flag and a member, and no query pool exists. The golden corpus and the reference compare
+are unchanged (the gates).
+
+### Found, not done
+
+- A run of the tool can fail to size the Sandbox's display (sandbox.set_display's error, once in three runs here; the
+  next run worked); it never ran the clients then.
+- The frame-time difference at Present on bare metal: a run of the tool in a second session or on another machine
+  would settle whether Vulkan's Present costs more than Direct3D 9's on the real driver.
+- compare_rendering.py's default recording flow since #146: a recording from compare_traffic.py's private server names that
+  run's game port in the character list, and compare_rendering.py replays on the default ports, so every run ends with
+  "no game connection" (a replay has no rewrite of the port; here it was run with a recording on the default ports,
+  the main checkout's build/traffic/result/orig-live.jsonl, and every scene is identical).
+
 ## #154: Windows refuses a second Sandbox (Patella-Modern issue #154, M7)
 
 #147 recorded "Windows runs one instance" without measuring it: its one check was two of our runs 3 s apart, which
@@ -18050,6 +18112,46 @@ Wayland dependencies, with the local Tibia.exe's cursors (never its other data, 
 ### Found, not done
 
 - Plan D8's Patella.ini key for the servers and the RSA key (the environment variables stand in).
+- #134's profile windows are Windows' (the heap hooks patch kernel32's import table); on Linux the control channel answers that they are not implemented (src/testmode/ProfileWin32.cpp).
 - tests_vulkan on Linux; tidy's coverage of the new Linux platform files; the window icon on Linux; AppImage (M9).
 - `XDG_RUNTIME_DIR` not set in the container makes SDL's Wayland probe print one line to stderr ("error: XDG_RUNTIME_DIR is
   invalid"), harmless (SDL falls back to X11).
+
+## #157: a recording replays wherever it was made (Patella-Modern issue #157, M7)
+
+Tools only. A live proxy puts its own game port into the character list and records that, so since #146 a recording holds
+its private run's port (here 7407). compare_rendering and compare_network replay without a private server on 7272, so
+the client went to a port nobody listened on. #127 and #134 worked around it by hand.
+
+- **The fix is in the replay, not the recording** (tools/proxy.py, `Proxy.replay_event`): every game port of a replayed
+  character list becomes the replay's own. Considered: a neutral port in the recording. It would not help the recordings
+  that exist. 7272 recordings go through unchanged, byte for byte (`changed` 0, the same event). It serves every replaying tool,
+  compare_files' and compare_traffic's `--skip-live` too.
+- **Every port, not only the recording's** (`rewrite_character_list(payload, None, new)`): a replay has no other game server,
+  and compare_network's crafted lists are made of a recorded list's port and carry no "orig", so the recorded port cannot
+  be told from the event. No scenario names a dead port (`game-refused` closes the listener).
+- **Same length**: the port is two bytes in place. The frames have no checksum at this protocol version, and a crafted
+  frame's "inner", "cut" and "pieces" still fit. The replay's own record holds the bytes it sent, and the caller's events are
+  not changed. `character_list_ports` stops at a list that ends early instead of raising, for crafted streams.
+- **What the comparisons compare is unchanged**: the two clients of a scenario get the same bytes, as before.
+
+### Found on the way: compare_network and a session that walks at once
+
+A fresh recording then stopped in `scenarios()` with an IndexError: since #144 the session steps at once, so no server
+packet lies between the fight modes (0xa0) and the first step, and compare_files.game_start, which stops at that step, leaves
+only the map frame. compare_network's own `game_start` (not compare_files', whose walk and error sessions keep theirs) takes the next
+server packet of the same 3 s as the second frame, without the client's step. Only that one: with every packet of the 3 s,
+`game-inner-long` broke, since the fork's client drops that frame (#142) and the next creature move then does not fit its map,
+a critical error instead of the deliberate outcome. A recording with a packet before the first step, as the older ones,
+gives exactly game_start's; fewer than two packets are now a RunError instead of an IndexError.
+
+### Checked
+
+`python -I tools/proxy.py --self-test` (new: the rewrite, a list alone and across two frames, a cut list at every length, a
+default-port recording, frame size, the inner length, a broken frame, a game packet) and `python -I tools/compare_network.py
+--self-test` (new: both session shapes, too few packets, every scenario made of both); compare_rendering's self-test. Sandbox,
+main's Patella.exe, a compare_traffic recording made on a private server (character list 7407; server 7405): compare_traffic "no
+differences"; compare_rendering `--modes windowed` "all scenes identical" (first try ended at the Sandbox's Direct3D 9 first
+frame, before any replay; passed on the rerun); compare_network 18 scenarios (login, game entry, cuts, inner lengths), 0 differ, 2
+deliberate. The old `build/recordings/orig-live.jsonl` in compare_network: 10 scenarios, 0 differ, 1 deliberate, before the
+one-frame change, which does not touch that recording's path.

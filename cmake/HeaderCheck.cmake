@@ -167,6 +167,7 @@ set(PATELLA_HEADERS_VULKAN_CLIENT
 set(PATELLA_HEADERS_TEST_BUILD
 	testmode/ClientStateWin32.h
 	testmode/PipeSocketWin32.h
+	testmode/ProfileWin32.h
 	testmode/SdlInputWin32.h)
 # Issue #111: patella_core compiles the rest of the client but the platform layer (the preferences, the state, the GUI's
 # logic, the windows and the dialogs), so their headers and what they include are portable too: checked with

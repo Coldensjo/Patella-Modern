@@ -91,6 +91,12 @@ struct TFrame {
 	VkSemaphore Acquired = VK_NULL_HANDLE;
 	std::vector<TBuffer> Vertices;
 	std::vector<TBuffer> Staging;
+	// Issue #134, the frame timings (TRenderer::SetFrameTimestamps): two timestamps around each submission.
+	VkQueryPool Timestamps = VK_NULL_HANDLE;
+	bool TimestampWritten = false; // this command buffer has its first timestamp
+	bool TimestampPending = false; // a submission with both timestamps, its results not read yet
+	bool EndsFrame = false;        // and it was the frame's last
+	uint64_t FrameTicks = 0;       // the frame's submissions so far (device ticks)
 };
 
 uint32_t ToUint(int Value)
@@ -326,6 +332,12 @@ struct TRenderer::TState {
 	int FrameIndex = 0;
 	bool Recording = false;
 
+	// Issue #134: off unless SetFrameTimestamps asks for them; with them off no timing command is recorded.
+	bool TimestampsOn = false;
+	uint64_t TimestampMask = 0;       // the queue's valid timestamp bits
+	double TimestampPeriod = 0.0;     // nanoseconds per device tick
+	std::vector<uint64_t> FrameTimes; // nanoseconds of finished frames, not taken yet
+
 	int PassTarget = -1;
 	VkPipeline BoundPipeline = VK_NULL_HANDLE;
 	VkDescriptorSet BoundSet = VK_NULL_HANDLE;
@@ -502,6 +514,8 @@ struct TRenderer::TState {
 	{
 		TFrame &F = Frame();
 		Check(vkWaitForFences(Device.device, 1, &F.Fence, VK_TRUE, UINT64_MAX), "vkWaitForFences");
+		if (F.TimestampPending)
+			ReadTimestamps(F);
 		Check(vkResetFences(Device.device, 1, &F.Fence), "vkResetFences");
 		Check(vkResetCommandPool(Device.device, F.Pool, 0), "vkResetCommandPool");
 		for (TBuffer &Chunk : F.Vertices)
@@ -511,6 +525,12 @@ struct TRenderer::TState {
 		VkCommandBufferBeginInfo Begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 		Begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		Check(vkBeginCommandBuffer(F.Commands, &Begin), "vkBeginCommandBuffer");
+		F.TimestampWritten = false;
+		if (TimestampsOn && F.Timestamps != VK_NULL_HANDLE) {
+			vkCmdResetQueryPool(F.Commands, F.Timestamps, 0, 2);
+			vkCmdWriteTimestamp2(F.Commands, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, F.Timestamps, 0);
+			F.TimestampWritten = true;
+		}
 		Recording = true;
 		PassTarget = -1;
 		BoundPipeline = VK_NULL_HANDLE;
@@ -518,11 +538,52 @@ struct TRenderer::TState {
 		BoundVertices = VK_NULL_HANDLE;
 	}
 
+	// Issue #134: the results of a submission whose fence has signalled; the frame's last one completes a frame.
+	void ReadTimestamps(TFrame &F)
+	{
+		F.TimestampPending = false;
+		std::array<uint64_t, 2> Values{};
+		if (vkGetQueryPoolResults(Device.device, F.Timestamps, 0, 2, sizeof(Values), Values.data(), sizeof(uint64_t),
+				VK_QUERY_RESULT_64_BIT)
+			== VK_SUCCESS)
+			F.FrameTicks += (Values[1] - Values[0]) & TimestampMask;
+		if (F.EndsFrame) {
+			F.EndsFrame = false;
+			FrameTimes.push_back(static_cast<uint64_t>(static_cast<double>(F.FrameTicks) * TimestampPeriod));
+			F.FrameTicks = 0;
+		}
+	}
+
+	bool EnableTimestamps()
+	{
+		if (Frames.front().Timestamps == VK_NULL_HANDLE) {
+			const uint32_t Family = Value(Device.get_queue_index(vkb::QueueType::graphics), "the graphics queue");
+			const uint32_t ValidBits = Device.queue_families[Family].timestampValidBits;
+			TimestampPeriod = static_cast<double>(Device.physical_device.properties.limits.timestampPeriod);
+			if (ValidBits == 0 || TimestampPeriod <= 0.0)
+				return false;
+			TimestampMask = ValidBits >= 64 ? ~uint64_t{0} : (uint64_t{1} << ValidBits) - 1;
+			VkQueryPoolCreateInfo Info{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+			Info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+			Info.queryCount = 2;
+			for (TFrame &F : Frames)
+				Check(vkCreateQueryPool(Device.device, &Info, nullptr, &F.Timestamps), "vkCreateQueryPool");
+			// Room for the frames between two takes: taking them in a frame loop allocates nothing.
+			FrameTimes.reserve(64);
+		}
+		TimestampsOn = true;
+		return true;
+	}
+
 	// Ends and submits the frame's commands (waiting for Wait at the transfer stage, signalling Signal).
 	void Submit(VkSemaphore Wait, VkSemaphore Signal)
 	{
 		EndPass();
-		const TFrame &F = Frame();
+		TFrame &F = Frame();
+		if (F.TimestampWritten) {
+			vkCmdWriteTimestamp2(F.Commands, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, F.Timestamps, 1);
+			F.TimestampPending = true;
+		}
 		Check(vkEndCommandBuffer(F.Commands), "vkEndCommandBuffer");
 		Recording = false;
 		VkCommandBufferSubmitInfo CommandInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
@@ -552,6 +613,7 @@ struct TRenderer::TState {
 
 	void NextFrame()
 	{
+		Frame().EndsFrame = Frame().TimestampPending;
 		FrameIndex = (FrameIndex + 1) % FramesInFlight;
 		BeginFrame();
 	}
@@ -974,6 +1036,8 @@ struct TRenderer::TState {
 					vkDestroyFence(Device.device, F.Fence, nullptr);
 				if (F.Pool != VK_NULL_HANDLE)
 					vkDestroyCommandPool(Device.device, F.Pool, nullptr);
+				if (F.Timestamps != VK_NULL_HANDLE)
+					vkDestroyQueryPool(Device.device, F.Timestamps, nullptr);
 				F = TFrame{};
 			}
 			DestroySwapchainSemaphores();
@@ -1305,6 +1369,23 @@ void TRenderer::Finish()
 	TState &S = *State;
 	S.SubmitAndWait();
 	Check(vkDeviceWaitIdle(S.Device.device), "vkDeviceWaitIdle");
+}
+
+bool TRenderer::SetFrameTimestamps(bool On)
+{
+	TState &S = *State;
+	if (!On) {
+		S.TimestampsOn = false;
+		return true;
+	}
+	return S.EnableTimestamps();
+}
+
+void TRenderer::TakeFrameTimes(std::vector<uint64_t> &Nanoseconds)
+{
+	TState &S = *State;
+	Nanoseconds.insert(Nanoseconds.end(), S.FrameTimes.begin(), S.FrameTimes.end());
+	S.FrameTimes.clear();
 }
 
 VkPresentModeKHR TRenderer::PresentMode() const

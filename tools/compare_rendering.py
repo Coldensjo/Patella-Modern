@@ -128,10 +128,11 @@ CLIENTS = ct.CLIENTS
 RunError = ct.RunError
 log = ct.log
 
-# patcap.c struct Shared, version 4 (issue #98: Direct3D 9's course where versions 2 and 3 had the Vulkan
+# patcap.c struct Shared, version 5 (issue #98: Direct3D 9's course where versions 2 and 3 had the Vulkan
 # engine's fields, which left with the DLL's Vulkan exports; --self-test compares the offsets with patcap.c)
-PATCAP_VERSION = 4
-CMD_ADVANCE, CMD_CAPTURE, CMD_REALTIME = 1, 2, 3
+PATCAP_VERSION = 5  # 5: issue #134's profile windows (the commands below, the heap hooks), no new field
+CMD_ADVANCE, CMD_CAPTURE, CMD_REALTIME, CMD_PROFILE_START, CMD_PROFILE_STOP = 1, 2, 3, 4, 5
+PROFILE_ALLOCS = 1
 API_NAMES = {0: "none", 1: "DirectDraw Blt", 2: "DirectDraw Flip", 3: "Direct3D 9 Present", 4: "OpenGL SwapBuffers"}
 OFF = {"Magic": 0, "Version": 4, "CmdSeq": 8, "DoneSeq": 12, "Cmd": 16, "Arg0": 20, "Arg1": 24, "Result": 28,
 	"Frames": 32, "Api": 36, "Now": 40, "Ticks": 44, "TimerWindow": 48, "TimerActive": 52, "Width": 56,
@@ -160,7 +161,8 @@ VULKAN_TYPES = {0: "other", 1: "integrated GPU", 2: "discrete GPU", 3: "virtual 
 CPU_DRIVER_FILES = ("vulkan_lvp.dll", "lvp_icd.x86_64.json")
 API_NAMES_INDEX = {v: k for k, v in API_NAMES.items()}
 HOOK_NAMES = ["timeGetTime", "GetSystemTimeAsFileTime", "GetSystemTimePreciseAsFileTime", "GetProcAddress",
-	"SetTimer", "KillTimer", "GetCursorPos", "PeekMessageA", "SwapBuffers", "wglMakeCurrent", "DirectDrawCreate"]
+	"SetTimer", "KillTimer", "GetCursorPos", "PeekMessageA", "SwapBuffers", "wglMakeCurrent", "DirectDrawCreate",
+	"HeapAlloc", "HeapReAlloc", "HeapFree"]
 
 
 class Capture:
