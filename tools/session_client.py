@@ -132,7 +132,8 @@ class Driver:
 		while self.hwnd is None and time.time() < deadline:
 			if self.proc.poll() is not None:
 				raise SessionError("the client exited with code %d" % self.proc.returncode)
-			self.hwnd = lc.find_window(self.proc.pid)
+			# Issue #145: a headless test client's window is never shown.
+			self.hwnd = lc.find_window(self.proc.pid, visible="--test-headless" not in self.test_arguments)
 			time.sleep(0.25)
 		if self.hwnd is None:
 			raise SessionError("no TibiaClient window after 30 s")

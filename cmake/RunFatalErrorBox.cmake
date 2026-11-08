@@ -9,6 +9,7 @@
 # The run folder (<TMPROOT>/fatal-error-box-<time and random suffix>) gets copies of the data files next to
 # Tibia.exe (Tibia.dat, Tibia.spr and Tibia.pic, CipSoft's: they stay on this machine, in the build folder, and the
 # folder is removed afterwards) and a one-line script. Without them the test is skipped (exit code 77).
+# The client runs headless (--test-headless, issue #145): nothing appears on the desktop.
 # Arguments: -DEXE=<PatellaTest.exe> -DDATA=<the folder of Tibia.exe> -DTMPROOT=<folder>
 
 foreach(argument EXE DATA TMPROOT)
@@ -40,7 +41,7 @@ file(WRITE "${dir}/start.script" "wait 1000\n")
 
 set(ENV{VK_LOADER_DRIVERS_DISABLE} "*")
 set(ENV{PATELLA_VULKAN} "cpu")
-execute_process(COMMAND "${EXE}" --test-script start.script --test-out out WORKING_DIRECTORY "${dir}"
+execute_process(COMMAND "${EXE}" --test-script start.script --test-out out --test-headless WORKING_DIRECTORY "${dir}"
 	RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE errors TIMEOUT 120)
 set(messages "")
 if(EXISTS "${dir}/out/messages.txt")

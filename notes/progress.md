@@ -734,6 +734,14 @@ live wait is 0.5 s of server quiet after the step instead of a fixed 1.5 s. The 
 compare_traffic runs in a row without a difference. compare_traffic 351 s to 145-189 s (a session 44-62 s to 14-20 s),
 compare_rendering 473 s to 392 s, compare_files 251 s to 157 s. notes/traffic.md, "The waits"; notes/decisions.md, "#144".
 
+A headless test client (Patella-Modern issue #145, branch issue-145, November 8, 2026; M7): PatellaTest.exe
+`--test-headless` (with a script; IWindow::Headless, platform/Window.h) never shows its window (SDL3's or MFC's) and
+gives the Vulkan device no surface (the frame dump reads the canvas back as before; fullscreen leaves the display
+alone). reference.py compare, testmode_check.py, compare_rendering.py's windowed x64 runs and the client's CTest tests
+use it by default (`--windowed`); CTest headless_client. The reference compare matches headless on both window paths
+and on the GPU, equal to windowed byte for byte but for the state dumps' addresses; two headless compares beside a
+windowed one all matched, no headless window ever visible. notes/testmode.md, "Headless"; notes/decisions.md, "#145".
+
 The portable socket (Patella-Modern issue #125, branch issue-125, November 7, 2026; M8): TPortableSocket
 (src/platform/PortableSocket.h, patella_platform, tests_platform on Windows and Linux) is Patella.exe's and the test
 build's live network over Winsock or POSIX sockets: non-blocking IPv6 sockets with IPv4 mapped, polled at the start of

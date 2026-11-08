@@ -710,6 +710,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   step, and both tools refuse a recording with another one (session_client.recorded_look).
 - **Faster scripted sessions:** done in #144 (notes/decisions.md, "#144"): session_client.py posts whole gestures and
   strings at once and waits on the clients' state instead of fixed sleeps; compare_traffic about 2.2 times faster.
+- **A headless test client:** done in #145 (notes/decisions.md, "#145"): PatellaTest.exe `--test-headless` (with a
+  script) never shows its window and renders without a Vulkan surface (the frames read back as before); reference.py
+  compare, testmode_check.py, compare_rendering.py's windowed x64 runs and the client's CTest tests run headless by
+  default (`--windowed`), several at once and beside a client on the desktop.
 - **`final` on the classes nothing derives from** (#33's second half, after the oracle): done in #47
   (notes/decisions.md, "#47"): 70 classes; the 30 the golden tests use as seams (their fakes built by our
   constructors, stand-ins, a patched member that `final` lets MSVC inline) are listed with the reason.

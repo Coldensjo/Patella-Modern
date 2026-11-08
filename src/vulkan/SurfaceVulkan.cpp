@@ -12,6 +12,10 @@
 // device's surface come from the window path's (platform/WindowChoice.h): SDL3's (SDL_Vulkan_CreateSurface) by default,
 // Win32's on MFC's window until issue #127. Still Win32 on both: the devices' own windows (PresentWindow.h, issue #52)
 // and the fullscreen display mode (ChangeDisplaySettingsA, the display's issue #124).
+//
+// Headless (issue #145; platform/Window.h IWindow::Headless, the test build's --test-headless): the device gets no
+// surface (TRenderer renders into its images and presents nothing; the frame observer reads the canvas back before
+// Present as always), and fullscreen mode does not change the display's mode. The devices' windows are made as always.
 
 #include "common.h"
 #include "vulkan/SurfaceVulkan.h"
@@ -110,7 +114,7 @@ const char *TSurfaceVulkan::DeviceName() const
 
 // The device request: the graphics device choice (DeviceSettings.h: the advanced options' buttons,
 // Patella.ini, PATELLA_VULKAN; issue #31), the CPU driver next to the executable, the window the device
-// presents in (Window, a device's window; nullptr: headless) and its surface through the window system (issue #126).
+// presents in (Window, a device's window; nullptr, or a headless client (issue #145): no surface) and its surface through the window system (issue #126).
 TDeviceRequest TSurfaceVulkan::Request(patella::platform::TWindowHandle Window)
 {
 	TDeviceRequest Result;
@@ -122,7 +126,7 @@ TDeviceRequest TSurfaceVulkan::Request(patella::platform::TWindowHandle Window)
 	size_t ValidationLength = 0;
 	Result.Validation = getenv_s(&ValidationLength, Validation.data(), Validation.size(), "PATELLA_VULKAN_VALIDATION") == 0
 		&& ValidationLength > 0 && Validation[0] == '1';
-	if (Window != nullptr) {
+	if (Window != nullptr && !patella::platform::Platform().Window.Headless()) {
 		patella::vulkan::IWindowSystem &System = WindowSystem();
 		Result.SurfaceExtension = System.SurfaceExtension();
 		if (Result.SurfaceExtension.empty())
@@ -968,11 +972,14 @@ void TSurfaceVulkan::CreateSurfaces()
 		Mode.dmPelsHeight = Height;
 		Mode.dmBitsPerPel = Depth;
 		Mode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
-		if (ChangeDisplaySettingsA(&Mode, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL) {
-			Shared.InitStep = 1;
-			throw TProgramError{PROGRAM_ERROR::SURFACE};
+		// Issue #145: headless, the display's mode stays the desktop's (the change counts as made).
+		if (!patella::platform::Platform().Window.Headless()) {
+			if (ChangeDisplaySettingsA(&Mode, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL) {
+				Shared.InitStep = 1;
+				throw TProgramError{PROGRAM_ERROR::SURFACE};
+			}
+			DisplayModeSet = true;
 		}
-		DisplayModeSet = true;
 	}
 	PATELLA_TEST_FRAME_OBSERVERS(FrameObserver, PixelsObserver, MaskObserver, DeviceObserver)
 	try {

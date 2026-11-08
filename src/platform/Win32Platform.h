@@ -72,6 +72,8 @@ public:
 	void VisitWindows(TWindowVisitor Visit) override;
 	[[nodiscard]] bool DisplayMode(unsigned int Index, TDisplayMode &Mode) override;
 	[[nodiscard]] bool DesktopMode(TDisplayMode &Mode) override;
+	// Patella.exe always has a desktop.
+	[[nodiscard]] bool Headless() override { return false; }
 };
 
 // The cursor's screen position into a POINT, as GetCursorPos(&Point) wrote it: unchanged where it cannot be read.

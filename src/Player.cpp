@@ -434,7 +434,9 @@ BOOL CPlayerApp::InitInstance()
 			int x, y, Width, Height;
 			bool Maximized;
 			GetWindowedMode(&x, &y, &Width, &Height, &Maximized);
-			m_pMainWnd->ShowWindow(Maximized ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL);
+			// Issue #145: a headless test client's window is never shown.
+			if (!patella::platform::Platform().Window.Headless())
+				m_pMainWnd->ShowWindow(Maximized ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL);
 			m_pMainWnd->UpdateWindow();
 			patella::platform::ReadCursorPosition(patella::platform::Platform().Input, LastMousePosition); // GetCursorPos
 			if (GetViewMode() == 1)
