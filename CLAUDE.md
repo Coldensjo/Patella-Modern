@@ -70,9 +70,10 @@ driver (Mesa's lavapipe, copied next to
 the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it
 headless.
 The window and event loop (issue #122, M8): SDL 3.4.18, pinned and built by `cmake/Sdl3.cmake` (windows-x64 only; the
-Linux presets do not use it yet), `src/SdlFrame.cpp` by default; `PATELLA_WINDOW=mfc` in the client's environment keeps
-MFC's frame and loop until issue #127 (the tools pass it on, so `PATELLA_WINDOW=mfc python -I tools/reference.py compare
-...` checks that path). Keys, buttons and wheel still arrive as Win32 messages until issue #123. Since issue #124 the
+Linux presets do not use it yet), `src/SdlFrame.cpp`. MFC is gone (issue #127): no source includes it and Visual Studio's
+MFC component is not needed; the original's frame and the MFC declarations the golden corpus's calls are named after are
+test code in `tests/golden/mfc` (the MainFrm test), and WinMain is `src/platform/EntryWin32.cpp`. On Windows the keys,
+characters and buttons still arrive as window messages (issue #123) and the display modes are Win32's. Since issue #124 the
 SDL3 path's clipboard, message boxes and URLs are SDL3's (src/platform/SdlPlatform.cpp); the display modes stay Win32's
 on Windows behind IWindow (SDL3's list differs; notes/decisions.md, "#124").
 The developer log (issue #77, D16; `src/log/`, every preset): lines `[<level>] <message>` on stderr;
@@ -169,9 +170,9 @@ capture-x86's patcap.dll never uses them. Details: `notes/reconstruction.md`, "C
 ## CI
 
 `.github/workflows/hosted.yml` (GitHub's runners, also on pull requests): windows-x64 with MSVC x64 and
-`-DPATELLA_CLIENT=OFF`, windows-x64-asan's unit tests (Release, `-DPATELLA_CLIENT=OFF`, issue #70), the client's and the test build's sources compiled without Tibia.exe
-(`-DPATELLA_CLIENT_COMPILE_ONLY=ON`, targets `Patella_compile` and `PatellaTest_compile`, issues #25, #46, and
-their headers alone, `header_check_client` and `header_check_test_build`, issue #49), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, the grep gate `python -I tools/banned_calls.py` (no strcpy, strcat, sprintf, vsprintf or gets in src/; the buffers are `TFixedString`/`TStringBuffer` of `src/types/FixedString.h`, issue #57), and
+`-DPATELLA_CLIENT=OFF`, windows-x64-asan's unit tests (Release, `-DPATELLA_CLIENT=OFF`, issue #70), the full client and test build (issue #127:
+`-DPATELLA_PLACEHOLDER_RESOURCES=ON`, neutral generated pictures since the runner has no Tibia.exe; the option refuses
+where a Tibia.exe exists; ctest runs what needs no CipSoft data, such as `start_without_data`), linux-x64-gcc and linux-x64-clang in the image of `docker/linux-x64`, clang-format, the grep gate `python -I tools/banned_calls.py` (no strcpy, strcat, sprintf, vsprintf or gets in src/; the buffers are `TFixedString`/`TStringBuffer` of `src/types/FixedString.h`, issue #57), and
 clang-tidy against the findings baseline `tools/tidy-baseline.tsv` (no new findings; `--all --headers`; `--zero bugprone-`: no
 bugprone-* finding at all, issue #63). Static analysis of patella_core (issue #63, `cmake/Core.cmake`): the windows-x64 builds
 compile it with MSVC `/analyze`, linux-x64-gcc (and windows-x64-gcc) with GCC `-fanalyzer`; a finding fails the build like a

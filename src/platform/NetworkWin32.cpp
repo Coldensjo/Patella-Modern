@@ -3,9 +3,8 @@
 // Patella.exe and PatellaTest.exe compile it; the golden runner has its own NetworkSocket()
 // (tests/golden/network/MfcSocket.cpp).
 //
-// - A finished lookup goes to the window as WSAAsyncGetHostByName's reply did: on the SDL3 path to SdlFrame.cpp's
-//   OnHostResolved (HostResolved: no window message), on MFC's (PATELLA_WINDOW=mfc, until issue #127) as WM_USER + 1
-//   to CMainFrame's message map (SendMessage from the loop's thread, with WSAMAKEASYNCREPLY's LPARAM).
+// - A finished lookup goes to the window as WSAAsyncGetHostByName's reply did: to SdlFrame.cpp's OnHostResolved
+//   (HostResolved: no window message).
 // - While the socket has a connection or a lookup, a timer (USER_TIMER_MINIMUM) of a message-only window polls it from
 //   every message loop that dispatches the thread's messages: the main loop's pump, and the modal loops the idle step
 //   does not run in (a message box's: FatalError's ShutdownConnection, whose close the original handled in the box's
@@ -19,7 +18,6 @@
 
 #if defined(PATELLA_SDL3)
 #include "SdlFrame.h"
-#include "platform/WindowChoice.h"
 #endif
 
 namespace patella::platform {
@@ -72,17 +70,9 @@ void Busy(bool Now)
 	}
 }
 
-void Resolved(void *Window, unsigned int Message, void *Request, int Error)
+void Resolved([[maybe_unused]] void *Window, [[maybe_unused]] unsigned int Message, [[maybe_unused]] void *Request, int Error)
 {
-#if defined(PATELLA_SDL3)
-	if (UseSdlWindow()) {
-		sdlframe::HostResolved(Error);
-		return;
-	}
-#endif
-	if (Window != nullptr)
-		::SendMessageA(static_cast<HWND>(Window), Message, reinterpret_cast<WPARAM>(Request),
-			MAKELPARAM(0, static_cast<WORD>(Error))); // WSAMAKEASYNCREPLY(0, Error)
+	sdlframe::HostResolved(Error);
 }
 
 TPortableSocket &Instance()

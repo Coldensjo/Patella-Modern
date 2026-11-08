@@ -1,10 +1,10 @@
 // SdlFrame.h: the client's main window and event loop on SDL3 (Patella-Modern issue #122, plan M8; notes/decisions.md,
 // "#122: the SDL3 window and its event loop"). Not part of the original source.
 //
-// The SDL3 counterpart of MainFrm.cpp's CMainFrame (the frame window: its creation, placement, size, fullscreen
-// switch, activation, closing and destruction) and of CWinApp::Run (the message loop, with the main timer in the loop
-// instead of SetTimer). Player.cpp's CPlayerApp uses it when platform/WindowChoice.h's UseSdlWindow() holds (the
-// default; PATELLA_WINDOW=mfc keeps MFC's until issue #127). The window is SDL_CreateWindow's; on Windows its HWND is
+// The client's main window: the SDL3 counterpart of the original's CMainFrame (the frame window: its creation,
+// placement, size, fullscreen switch, activation, closing and destruction) and of CWinApp::Run (the message loop, with
+// the main timer in the loop instead of SetTimer). Player.cpp's CPlayerApp runs on it (since issue #127 the only frame:
+// the original's handlers stay in tests/golden/mfc for the golden corpus). The window is SDL_CreateWindow's; on Windows its HWND is
 // the client's window handle (the Vulkan engine's main window, TGUI's and TNetwork's window; the engine's surfaces are
 // SDL_Vulkan_CreateSurface's since #126). Its input (issue #123): the wheel, motion and IME text events, the mouse
 // capture (SDL_CaptureMouse), the cursors and the window's coordinates are SDL3's; on Windows the keys, the characters
@@ -36,9 +36,8 @@ void Show(bool Maximized);
 // FatalError's ShowWindow(SW_HIDE): nothing without a window.
 void Hide();
 // The event loop (CWinApp::Run): until the window is closed and destroyed (OnClose, OnDestroy, the frame's
-// destructor's ExitControl). Idle is CPlayerApp::OnIdle, called whenever the queue is empty, with MFC's idle count
-// (0 after a message, then counting up). Returns the exit code.
-int Run(void (*Idle)(long Count));
+// destructor's ExitControl). Idle is CPlayerApp::OnIdle, called whenever the queue is empty. Returns the exit code.
+int Run(void (*Idle)());
 
 // CMainFrame::OnHostResolved for this window (issue #125): the name lookup is done, Error 0 or WinSock's number. The
 // portable socket's Poll calls it on the SDL3 path (platform/NetworkWin32.cpp), where WSAAsyncGetHostByName posted

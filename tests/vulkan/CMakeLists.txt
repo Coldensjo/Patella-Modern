@@ -10,9 +10,8 @@
 
 # The engine's window systems (src/vulkan/WindowSystem.h, issue #126) with SDL3 (cmake/Sdl3.cmake, included after this
 # file: the target is resolved when the build is generated): the devices for a window get their surfaces through
-# SDL_Vulkan_CreateSurface, the client's default path, and through Win32's, the MFC window's until issue #127.
-add_executable(tests_vulkan render_test.cpp "${PROJECT_SOURCE_DIR}/src/vulkan/WindowSystemSdl.cpp"
-	"${PROJECT_SOURCE_DIR}/src/vulkan/WindowSystemWin32.cpp")
+# SDL_Vulkan_CreateSurface, the client's only path since issue #127.
+add_executable(tests_vulkan render_test.cpp "${PROJECT_SOURCE_DIR}/src/vulkan/WindowSystemSdl.cpp")
 target_link_libraries(tests_vulkan PRIVATE patella_render_vulkan doctest::doctest SDL3::SDL3-static)
 set_target_properties(tests_vulkan PROPERTIES
 	MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"

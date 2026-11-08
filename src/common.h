@@ -10,15 +10,12 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 // PATELLA_CORE: the portable code of the patella_core library (cmake/Core.cmake, issue #7), built
-// without MFC and the Windows headers (notes/modernization-plan.md, section 8).
-#if defined(PATELLA_CORE)
-#elif defined(TIBIA_MFC_SHIM)
-#include "compat/mfc_shim.h"
-#else
-#include <afxwin.h>
-// WinSock 2 (MFC's headers leave winsock.h out): its names that MainFrm.cpp uses (WSAGETASYNCERROR). MFC's sockets
-// (afxsock.h, CAsyncSocket) left the client with issue #125 (platform/PortableSocket.h).
+// without the Windows headers (notes/modernization-plan.md, section 8). The rest of the client's code: the Windows
+// headers (issue #127: MFC's afxwin.h until then; WinSock 2 first, it must come before windows.h); on Linux the
+// golden runner's stand-ins of tests/golden/linux, of the same names.
+#if !defined(PATELLA_CORE)
 #include <winsock2.h>
+#include <windows.h>
 #endif
 // <string>, <cstring>, <cstdio> and <cstdlib>: nothing of them is used here, and every file that uses them
 // includes them itself (issue #40), but here they come before compat/msvc.h's C headers and TestHooks.h. Without

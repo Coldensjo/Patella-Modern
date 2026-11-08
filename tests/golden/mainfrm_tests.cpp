@@ -69,17 +69,15 @@
 
 #include "golden_eh.h"
 #include "golden_patch.h"
-// MainFrm.cpp is compiled into this file (its statics are in an unnamed namespace), at its own warning
-// level (cmake/Warnings.cmake's baseline).
+// MainFrm.cpp (mfc/: the original's frame, the client's own being src/SdlFrame.cpp since issue #127) is compiled into
+// this file (its statics are in an unnamed namespace), at its own warning level (cmake/Warnings.cmake's baseline).
 #ifdef _MSC_VER
 #pragma warning(push, 3)
 #endif
-#include "../../src/MainFrm.cpp"
+#include "mfc/MainFrm.cpp"
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-// CPlayerApp (the application object the test lays out): MainFrm.cpp no longer includes Player.h (issue #119).
-#include "Player.h"
 #include <new>
 #include <string>
 #include <vector>
@@ -222,8 +220,6 @@ bool Alive;
 CMainFrame *Frame() { return (CMainFrame *)OurFrame; }
 uint8 *FrameOf(int S) { return S == IMAGE ? ImageFrame : OurFrame; }
 HWND FAKE_WINDOW = (HWND)(uintptr_t)0x10ab0;
-uint8 ImageApp[0x200];
-alignas(16) uint8 OurApp[sizeof(CPlayerApp) + 16];
 const HINSTANCE FAKE_INSTANCE = (HINSTANCE)(uintptr_t)0x770000;
 
 const char *Who(const void *Window)
@@ -707,11 +703,6 @@ void __cdecl FakeGetErrorMessage(char *Message, int Code, int Type)
 
 // Ours: the shim's MFC declarations, defined as the fakes (they were
 // playertest.cpp's stubs).
-CWinApp *AfxGetApp()
-{
-	ModuleStateUsed();
-	return Script.HasApp ? (CWinApp *)OurApp : NULL;
-}
 HINSTANCE AfxGetInstanceHandle()
 {
 	ModuleStateUsed();
@@ -1464,8 +1455,6 @@ void ResetStatics()
 		*T.WheelDelta = 0;
 		World[s].Ticks = 0;
 	}
-	memset(ImageApp, 0, sizeof(ImageApp));
-	memset(OurApp, 0, sizeof(OurApp));
 	Log[0].clear();
 	Log[1].clear();
 }

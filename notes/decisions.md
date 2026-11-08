@@ -17750,3 +17750,75 @@ All on the merged tree (merge 3f80efe of main c7e1f40, with #124), logs in build
 
 - GCC's -fanalyzer reported the exception paths of std::filesystem::path copies in the new code (false positive; the table in "Static analysis of the core library").
 - The XDG folder is not created by anything yet: a save of Patella.ini there fails until the Linux client's start-up creates it (with the rest of its start-up, above).
+
+## #127: MFC removed; hosted CI builds the whole client (Patella-Modern issue #127, M8)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-127, from main 301774a). Plan section 7, M8: MFC, the MFC shim
+and the Win32 code only they needed go; hosted CI builds and tests Patella.exe and PatellaTest.exe.
+
+### What depended on MFC, and what did not (high: the code)
+
+Before deleting the path: #123's keys, characters and buttons as window messages and #124's Windows display modes are
+Win32, not MFC, and stay (SdlFrame.cpp's subclass, TWin32Window's EnumDisplaySettingsA and ChangeDisplaySettingsA), as
+do SdlFrame.cpp's message pump, its client edge style and ExitProgram's posted WM_CLOSE. The SDL3 path used MFC only for
+the process's entry (AfxWinMain calling InitInstance and Run) and CPlayerApp's base class. So the removal does not touch
+what the running client does on that path; it deletes the other path.
+
+### The entry point: what AfxWinMain did (high)
+
+src/platform/EntryWin32.cpp is WinMain. From MFC's sources: AfxWinInit's `SetErrorMode(SEM_FAILCRITICALERRORS |
+SEM_NOOPENFILEERRORBOX)` (kept: the original's process has it), the command line, InitInstance, then Run unless
+InitInstance returned FALSE. The exit code is 0 after a FALSE (CWinApp::ExitInstance's value with no MFC message
+current; the two start-up boxes' paths) and Run's otherwise (0). The rest of MFC's start (resource handles, the thread
+hook, the module state) had nothing left to act on. CPlayerApp derives from nothing and has `CommandLine`; OnIdle lost
+MFC's idle count, which nothing read.
+
+One small difference only MFC's own handler could cause: MFC installed a new handler that threw CMemoryException, which
+Player.cpp's `catch (...)` reported as "unknown exception occurred"; with MFC gone an out-of-memory `new` is
+std::bad_alloc, which its existing `catch (std::bad_alloc &)` reports as "bad_alloc_exception occurred". Both end at
+the same box; no test gets there. Not reproduced (a `new` handler of our own would only preserve a wrong message).
+
+### The golden corpus's MainFrm test (medium: the owner may prefer another way)
+
+The frozen corpus records CMainFrame's calls at the level of MFC ("CFrameWnd::OnSize(...)", ModifyStyle, MoveWindow) and
+is never recorded again. The client's frame is SdlFrame.cpp, whose functions are not those calls: replaying the corpus
+against it would mean a seam of MFC-shaped calls through the SDL3 window, a large change for a check of the wrong thing.
+So src/MainFrm.cpp and src/MainFrm.h moved, unchanged but for the header's first comment and include, to tests/golden/mfc
+with what was src/compat/mfc_shim.h (mfc_standin.h, its CWinApp and CFrameWnd::Create parts removed: nothing calls them
+now), and the test keeps its 0 failures. **From now on those checks (MainFrm's rounds and the TranslateKey loop of
+player_tests.cpp) test the frozen copy, not the code the client runs.** The window's rules the client runs are checked by
+the reference compare, compare_traffic and compare_rendering, and the input rules by tests/unit/core_key_input_test.cpp
+(#123). The golden Network test keeps TMfcSocket's calls the same way; the client's socket is TPortableSocket (#125).
+Player.cpp is still the product's and still compiled into the runner (the text decoders and engine getters compare it).
+
+### Resources (high)
+
+src/res/Patella.rc keeps the client's own: icon 128, cursors 0x84 and 0x89, the version information. MFC's half (its
+cursors, dialog, bitmaps and string tables, unused without MFC) is gone, so Patella.exe's section no longer matches
+Tibia.exe's entry for entry; compare_resources.py left with the oracle (#94) and is not a gate. rc.exe now includes
+`<winresrc.h>` (the Windows SDK's) instead of `<winres.h>` (MFC's atlmfc folder).
+
+### The build without Tibia.exe (high)
+
+`-DPATELLA_PLACEHOLDER_RESOURCES=ON` (cmake/WindowsX64.cmake, Resources.cmake): tools/placeholder_resources.py writes
+three generated files under Patella.rc's names (hollow-square cursors, a solid-square icon; no CipSoft input) into
+build\<preset>\res-placeholder. What keeps them from replacing the real pictures: the option is off by default and only
+hosted.yml sets it; the configure stops with an error when a Tibia.exe exists at PATELLA_TIBIA_EXE or in the source
+root; they go to their own folder, so a folder of real pictures is neither used nor overwritten; the client logs a
+warning at start. PATELLA_CLIENT_COMPILE_ONLY and the targets Patella_compile and PatellaTest_compile (#25, #46) went:
+the full build covers them, and the header checks are in its default target.
+
+Also a new CTest test, start_without_data (cmake/RunStartWithoutData.cmake): PatellaTest.exe headless in an empty
+folder ends with the original's box "Cannot find file "Tibia.dat". (Error Code 1)" and exit code 1. It needs no
+CipSoft file, so hosted CI runs it, with the unit tests and tests_vulkan.
+
+### Link libraries (high)
+
+Patella.exe's list loses what only MFC needed: winspool, shlwapi, oleaut32, delayimp, /DELAYLOAD:oleacc.dll,
+/NODEFAULTLIB:wsock32.lib. SDL3::SDL3-static brings its own.
+
+### Removed
+
+`PATELLA_WINDOW`, platform/WindowChoice.h and its unit tests; vulkan/WindowSystemWin32.cpp (Win32WindowSystem) and its
+tests_vulkan case; the MFC branches of Player.cpp, TestModeWin32.cpp, Win32Platform.cpp, NetworkWin32.cpp and
+SurfaceVulkan.cpp; `DisplayChanged`'s write in SdlFrame.cpp (nothing has read it since SurfaceGL.cpp left).

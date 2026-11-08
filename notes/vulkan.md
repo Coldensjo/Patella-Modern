@@ -1,7 +1,7 @@
 # The Vulkan engine (Patella-Modern issue #19)
 
 The Vulkan 1.3 engine of notes/modernization-plan.md, 6.2 (decision D5), in the Windows x64 client on its SDL3
-window (the MFC window with PATELLA_WINDOW=mfc until issue #127; "The window system (issue #126)" below). It draws what surfaceDX9.cpp draws, the reference engine of the frames (plan D7), call for call, and it
+window ("The window system (issue #126)" below). It draws what surfaceDX9.cpp draws, the reference engine of the frames (plan D7), call for call, and it
 renders off screen with a read-back, which the frame dump of the test mode (issue #22) will use. The choices and
 their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)".
 
@@ -10,7 +10,7 @@ their reasons: notes/decisions.md, "The Vulkan engine (Patella-Modern issue #19)
 | File | What |
 | :--- | :--- |
 | `src/vulkan/SurfaceVulkan.h`, `.cpp` | `TSurfaceVulkan`, the `TSurface` of the client (the platform's interface, `src/platform/Surface.h`, since issue #138: the engine gets the client's shared data, `TSurfaceShared`, at its construction): surfaceDX9.cpp's logic with the Direct3D 9 calls replaced; the device request; the display modes |
-| `src/vulkan/WindowSystem.h`, `WindowSystemSdl.cpp`, `WindowSystemWin32.cpp` | the window system the engine asks (issue #126): the main window's client area, the screen's size, each device's surface; SDL3's (SDL_Vulkan_CreateSurface) on the default path, Win32's (vkCreateWin32SurfaceKHR) on MFC's window until issue #127 |
+| `src/vulkan/WindowSystem.h`, `WindowSystemSdl.cpp` | the window system the engine asks (issue #126): the main window's client area, the screen's size, each device's surface; SDL3's (SDL_Vulkan_CreateSurface) on the default path, Win32's (vkCreateWin32SurfaceKHR) on MFC's window until issue #127 |
 | `src/vulkan/DeviceSettings.h`, `.cpp` | the client's graphics device choice (issue #31): `PATELLA_VULKAN`, Patella.ini's `Device`, the GPU list, the CPU driver's manifest |
 | `src/vulkan/DeviceChoice.h`, `.cpp` | the choice's words (`auto`, `gpu`, `gpuN`, `cpu`) and what each button chooses; no Vulkan (tests_render on every preset) |
 | `src/settings/Settings.h`, `.cpp` | Patella.ini's parser and writer (D12), in patella_core (tests_core on every preset) |
@@ -262,13 +262,10 @@ surface function: TSurfaceVulkan::Request). Which one it asks follows the client
   mouse message through and paint nothing. One of SDL's own windows (the main window) is refused: a second SDL window
   on its handle would take over its data. The wrapper's events carry its own window id, which SdlFrame.cpp's event
   watch ignores.
-- **Win32's** (`Win32WindowSystem()`, WindowSystemWin32.cpp; PATELLA_WINDOW=mfc, until issue #127): GetClientRect,
-  GetSystemMetrics and vkCreateWin32SurfaceKHR, as the engine did on every path before; SDL is not started there.
-
-Still Win32 on both paths: the devices' own windows and the main window's erase (PresentWindow.h; Windows-only by
+Still Win32 (since issue #127 the only path is SDL3's; `Win32WindowSystem()` went with the MFC window): the devices' own windows and the main window's erase (PresentWindow.h; Windows-only by
 their nature: issue #52 is a Windows driver's leftover, issue #71 Windows' modal size loop). The fullscreen display
-mode is the platform's IWindow::SetFullscreenMode since issue #124 (on Windows still ChangeDisplaySettingsA on both
-window paths; SDL_SetWindowFullscreenMode on the other systems). The engine's rectangles are TEdgeRects
+mode is the platform's IWindow::SetFullscreenMode since issue #124 (on Windows still ChangeDisplaySettingsA;
+SDL_SetWindowFullscreenMode on the other systems). The engine's rectangles are TEdgeRects
 (platform/Surface.h) since issue #126; the client area's rectangle starts at 0, 0 (only its size was ever read).
 
 ## How it works
@@ -303,7 +300,7 @@ host-visible buffers of the frame (VMA).
 
 **Presenting**: the rectangle of SCREEN_SURFACE that surfaceDX9.cpp presents (`Present(&Rect[SCREEN_SURFACE],
 ...)`) is blitted into a swapchain image of the client area's size (the surface of the device's own window, which
-the window system makes: SDL_Vulkan_CreateSurface, or VK_KHR_win32_surface on MFC's window; issue #126) and
+the window system makes: SDL_Vulkan_CreateSurface; issue #126) and
 presented. The present mode is IMMEDIATE (Direct3D 9: D3DPRESENT_INTERVAL_IMMEDIATE; the frame limiter is the
 client's), MAILBOX or FIFO where IMMEDIATE is missing; vsync by default (D13) comes with the settings file. The
 swapchain is created again when the client area's size changes or Vulkan reports it out of date; a minimised

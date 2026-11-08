@@ -750,6 +750,11 @@ One platform layer for both operating systems, with **SDL3** (D3) for the things
 
 - MFC and the MFC shim are deleted (the original engines and `glh` went in M2). The Windows build no longer needs the
   Visual Studio MFC component, so hosted CI can build everything.
+  Done in #127 (notes/decisions.md, "#127"): no source includes MFC; `src/compat/mfc_shim.h`, `PATELLA_WINDOW=mfc` and the
+  Win32 window system are gone; CPlayerApp derives from nothing and WinMain is `src/platform/EntryWin32.cpp`; the golden
+  corpus's MainFrm test runs on the original's frame kept as test code in `tests/golden/mfc`. Hosted CI builds and tests
+  the full Patella.exe and PatellaTest.exe with neutral placeholder pictures (`PATELLA_PLACEHOLDER_RESOURCES`, refused
+  where a Tibia.exe exists).
 - **Crypto:** XTEA and raw RSA are protocol requirements and stay. `vlong` stays as a portable, tested
   component (`vlongtest`'s cases become unit tests). The protocol's lack of RSA padding is documented as a
   property of the protocol.

@@ -50,8 +50,8 @@
 		},
 		{
 			"name": "windows-x64",
-			"displayName": "windows-x64: the Windows product (MSVC x64, static x64 MFC): the client and the unit tests",
-			"description": "Needs MSVC for x64 set up (vcvarsall.bat x64): python -I tools/build.py windows-x64 does it. Needs Tibia.exe in the root (or PATELLA_TIBIA_EXE) for the client's resources, and Python; PATELLA_CLIENT=OFF builds only the unit tests.",
+			"displayName": "windows-x64: the Windows product (MSVC x64, SDL3): the client and the unit tests",
+			"description": "Needs MSVC for x64 set up (vcvarsall.bat x64): python -I tools/build.py windows-x64 does it. Needs Tibia.exe in the root (or PATELLA_TIBIA_EXE) for the client's resources, and Python; PATELLA_CLIENT=OFF builds only the unit tests; without Tibia.exe PATELLA_PLACEHOLDER_RESOURCES=ON builds the client with neutral pictures (the hosted CI's build).",
 			"inherits": "windows-base",
 			"architecture": {
 				"value": "x64",

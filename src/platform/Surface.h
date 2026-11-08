@@ -7,7 +7,7 @@
 // so that the engine is a platform implementation behind it:
 //
 //	TSurfaceVulkan   the Vulkan engine (vulkan/SurfaceVulkan.h): Patella.exe's and PatellaTest.exe's; its surfaces are
-//	                 SDL_Vulkan_CreateSurface's since M8's #126 (vulkan/WindowSystem.h; Win32's on MFC's window until #127)
+//	                 SDL_Vulkan_CreateSurface's since M8's #126 (vulkan/WindowSystem.h)
 //	the golden tests' recording surfaces (tests/golden: testsurface.h, commworld.cpp's)
 //
 // No Win32 type in it: the window is a TWindowHandle (platform/Window.h), ClipRect's rectangles and ScreenRect a
