@@ -1,7 +1,6 @@
 // The golden runner's stand-in for <windows.h> on Linux (issue #91): the types, constants and functions of the
 // Windows API that the client's code under test (tests/golden/CMakeLists.txt's golden_client, golden_sysinc,
-// Network.cpp, Communication.cpp, Control.cpp, MainFrm.cpp) and the ported tests use, compiled against
-// src/compat/mfc_shim.h as on Windows. Test code only: no product target sees this directory.
+// Network.cpp, Communication.cpp, Control.cpp, MainFrm.cpp) and the ported tests use, compiled as on Windows. Test code only: no product target sees this directory.
 //
 // The types have the Windows x64 sizes (LONG and DWORD 4 bytes, where Linux's long has 8; the handles and the
 // *_PTR types 8), the constants the Windows SDK's values (the tests record some of them, the virtual keys and the

@@ -252,6 +252,13 @@ game files, or, on Linux, can live in the usual personal settings folder. Starte
 same files are opened under the same names, and every test still matches. *Why it matters:* a packaged client (such
 as a Linux AppImage, which may not include the game's own files) can be pointed at a copy of them anywhere.
 
+**The old Windows framework is gone (#127).**
+MFC, the Windows-only framework from the 1990s the original game was built on, has been removed from the client
+entirely, along with the option to run on its old window. The game now starts through a small piece of code of its own
+and runs on the SDL3 window alone. *Why it matters:* a Windows build no longer needs Microsoft's extra MFC package, and
+the automatic builds on GitHub can now build and start the whole program, using neutral stand-in pictures because the
+game's own never leave the owner's machine. It is one of the last large steps before a Linux client.
+
 ## M8 and M9, started early
 
 **Big-number maths fully unit-tested (#128).**

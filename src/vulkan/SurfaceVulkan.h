@@ -11,8 +11,7 @@
 // The engine is the x64 client's only engine, curEngine 2 (DirectX 9 in the original and in the oracle;
 // Surface.cpp; notes/vulkan.md, "Choosing the engine"). Its device is the graphics device choice of
 // DeviceSettings.h (issue #31): the advanced options' buttons, Patella.ini's Device, PATELLA_VULKAN. Its window system
-// (the client area, the screen, the surfaces) is the window path's, vulkan/WindowSystem.h (issue #126): SDL3's by
-// default, Win32's on MFC's window until issue #127.
+// (the client area, the screen, the surfaces) is SDL3's, vulkan/WindowSystem.h (issue #126).
 
 #pragma once
 

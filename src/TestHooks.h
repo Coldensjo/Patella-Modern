@@ -65,17 +65,17 @@
 // The state dump reads the client's data through the View functions at the end of Creatures.cpp,
 // Inventory.cpp, Map.cpp and Status.cpp (src/testmode/ClientView.h; test build only).
 //
-// With a script, CPlayerApp::PreTranslateMessage (test build only) drops the keyboard and mouse input
+// With a script, the event loop (SdlFrame.cpp's Run, test build only) drops the keyboard and mouse input
 // that comes from Windows, so the desktop's own mouse and keyboard cannot reach the client.
 
 #pragma once
 
 #if defined(PATELLA_TEST_MODE)
 
-// The Windows types of the declarations: MFC, as common.h includes it (before anything of Windows, which
-// MFC requires; the test build has real MFC, never the shim). PATELLA_CDECL: compat/msvc.h.
-// In the client's sources common.h has included both already (issue #49).
-#include <afxwin.h>
+// The Windows types of the declarations, as common.h includes them (WinSock 2 before windows.h). PATELLA_CDECL:
+// compat/msvc.h. In the client's sources common.h has included both already (issue #49).
+#include <winsock2.h>
+#include <windows.h>
 
 #include "compat/msvc.h"
 #include "compat/span.h"

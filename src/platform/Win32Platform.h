@@ -6,8 +6,8 @@
 // and WinSock until issue #125) is NetworkSocket(), below. Since issue #119 also the clipboard (sysinc.cpp's until then),
 // the input (GetCursorPos, SetTimer, KillTimer: MainFrm.cpp's and Player.cpp's) and the desktop's windows and display
 // (MessageBoxA, EnumWindows, EnumDisplaySettingsA: Player.cpp's and the Vulkan engine's; ChangeDisplaySettingsA since
-// issue #124). Since issue #124 the SDL3 window's clipboard and desktop are SDL3's (platform/SdlPlatform.h), these the
-// MFC window's and the golden runner's.
+// issue #124). Since issue #124 the SDL3 window's clipboard and desktop are SDL3's (platform/SdlPlatform.h), and these
+// the golden runner's (the Win32 display modes the SDL3 window's too).
 
 #pragma once
 
@@ -50,7 +50,7 @@ public:
 
 // The SDL3 window's input (issue #122; SdlFrame.cpp): the main timer is the loop's (TLoopTimer: SdlFrame.cpp's loop
 // asks TimerDue and calls TimerEvent, where the MFC frame got WM_TIMER from SetTimer); the cursor is Win32's GetCursorPos
-// until issue #127 (issue #123: the original's last position where Windows cannot read it, which SDL would not keep). The timer's
+// (issue #123: the original's last position where Windows cannot read it, which SDL would not keep). The timer's
 // Id is not kept: the client has one timer (1).
 class TSdlLoopInput final : public IInput {
 public:
@@ -107,14 +107,14 @@ ISocket &NetworkSocket();
 TWin32Clipboard &Win32Clipboard();
 TWin32Input &Win32Input();
 TWin32Window &Win32Window();
-// Issue #122: the SDL3 window's input, and the input of the process's window path (platform/WindowChoice.h):
-// SdlLoopInput() on the SDL3 path, Win32Input() on MFC's. Patella.exe's Platform() gives it; the test build's TTestInput
+// Issue #122: the SDL3 window's input, and the input of the process's window (WindowInput: SdlLoopInput() where the
+// client has its SDL3 window, built with PATELLA_SDL3). Patella.exe's Platform() gives it; the test build's TTestInput
 // passes its timer on to it without a script. The golden runner, built without PATELLA_SDL3, has Win32's only.
 TSdlLoopInput &SdlLoopInput();
 IInput &WindowInput();
-// Issue #124: the clipboard and the desktop of the process's window path: SDL3's (platform/SdlPlatform.h) on the SDL3
-// path, Win32's on MFC's. Patella.exe's Platform() gives them; the test build's TTestWindow passes on to WindowDesktop()
-// what it does not do itself, and its clipboard without a script is WindowClipboard(). The golden runner has Win32's.
+// Issue #124: the clipboard and the desktop of the process's window: SDL3's (platform/SdlPlatform.h), where built with
+// PATELLA_SDL3. Patella.exe's Platform() gives them; the test build's TTestWindow passes on to WindowDesktop() what it
+// does not do itself, and its clipboard without a script is WindowClipboard(). The golden runner has Win32's.
 IClipboard &WindowClipboard();
 IWindow &WindowDesktop();
 

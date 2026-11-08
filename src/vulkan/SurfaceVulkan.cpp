@@ -9,10 +9,9 @@
 // ignored), and the Vulkan back end's failures become PROGRAM_ERROR 12, as Direct3D's device failures.
 //
 // The window system (issue #126; vulkan/WindowSystem.h): the main window's client area, the screen's size and each
-// device's surface come from the window path's (platform/WindowChoice.h): SDL3's (SDL_Vulkan_CreateSurface) by default,
-// Win32's on MFC's window until issue #127. Still Win32 on both: the devices' own windows (PresentWindow.h, issue #52).
-// The fullscreen display mode is the platform's IWindow::SetFullscreenMode since issue #124 (on Windows
-// ChangeDisplaySettingsA on both window paths; SDL3's SDL_SetWindowFullscreenMode on the other systems).
+// device's surface come from SDL3 (SDL_Vulkan_CreateSurface). Still Win32: the devices' own windows (PresentWindow.h,
+// issue #52). The fullscreen display mode is the platform's IWindow::SetFullscreenMode since issue #124 (on Windows
+// ChangeDisplaySettingsA; SDL3's SDL_SetWindowFullscreenMode on the other systems).
 //
 // Headless (issue #145; platform/Window.h IWindow::Headless, the test build's --test-headless): the device gets no
 // surface (TRenderer renders into its images and presents nothing; the frame observer reads the canvas back before
@@ -25,7 +24,6 @@
 #include "Surface.h"
 #include "graphics.h"
 #include "platform/Platform.h"
-#include "platform/WindowChoice.h"
 #include "vulkan/DeviceChoice.h"
 #include "vulkan/PresentWindow.h"
 #include "vulkan/Quads.h"
@@ -69,10 +67,10 @@ patella::vulkan::TPresentWindows PresentWindows;
 
 const int VertexLimit = 9600; // surfaceDX9.cpp's vertex buffer
 
-// The window system of the client's window path (WindowSystem.h, issue #126).
+// The window system of the client's window (WindowSystem.h, issue #126).
 patella::vulkan::IWindowSystem &WindowSystem()
 {
-	return patella::platform::UseSdlWindow() ? patella::vulkan::SdlWindowSystem() : patella::vulkan::Win32WindowSystem();
+	return patella::vulkan::SdlWindowSystem();
 }
 
 // A rectangle from the origin to Size.

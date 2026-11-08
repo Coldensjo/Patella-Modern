@@ -15,8 +15,8 @@ src/res/Patella.rc; tools/compare_resources.py checks that the compiled script g
 same entries. --list prints the table instead of writing files.
 
 The PE parser is shared with tools/compare_resources.py. CipSoft's icons and cursors and
-Microsoft's MFC cursors and bitmaps are not committed: run this script against a local
-Tibia.exe to get them (notes/resources.md).
+the MFC cursors and bitmaps of the image (not used since MFC went, issue #127, but extracted with the rest) are not
+committed: run this script against a local Tibia.exe to get them (notes/resources.md).
 """
 
 import os

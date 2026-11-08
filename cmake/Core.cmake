@@ -33,15 +33,15 @@
 #	                      the GUI's logic, the windows and the dialogs, and the main loop's control (issue #111)
 #
 # Since issue #111 (plan M7's exit) the library is everything but the platform layer: SdlFrame.cpp (the SDL3 window
-# and event loop, issue #122), MainFrm.cpp and Player.cpp (the MFC frame and the application), Surface.cpp (the engine selection, which makes the Vulkan engine's surface),
+# and event loop, issue #122), Player.cpp (the application), Surface.cpp (the engine selection, which makes the Vulkan engine's surface),
 # platform/Win32Platform.cpp, src/vulkan and the test mode's Windows files. Drawing goes through TSurface (platform/
 # Surface.h); the library's objects call the platform through platform::Platform(), GetSurface and
 # SurfaceExitInstance (Surface.h), and the graphics device choice of vulkan/DeviceSettings.h and DeviceChoice.h
 # (Dialogs.cpp's advanced options and Control.cpp's ChangeEngine): what links the library's GUI objects links those.
 #
-# PATELLA_CORE (common.h) leaves out MFC and the Windows headers, so no core source can use them
-# (plan section 8). The client (cmake/WindowsX64.cmake) and the oracle still compile these sources
-# themselves, with MFC; the library is not linked into them yet.
+# PATELLA_CORE (common.h) leaves out the Windows headers, so no core source can use them
+# (plan section 8). The client (cmake/WindowsX64.cmake) still compiles these sources itself; the library is not
+# linked into it yet.
 
 include("${PROJECT_SOURCE_DIR}/cmake/Warnings.cmake")
 include("${PROJECT_SOURCE_DIR}/cmake/Hardening.cmake")

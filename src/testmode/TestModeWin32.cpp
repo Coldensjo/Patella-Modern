@@ -115,7 +115,6 @@
 #include "common.h"
 #include "compat/span.h"
 
-#include "MainFrm.h"
 #include "SdlFrame.h"
 #include "testmode/ClientStateWin32.h"
 #include "testmode/Clock.h"
@@ -131,7 +130,6 @@
 #include "testmode/StateDump.h"
 #include "platform/Platform.h"
 #include "platform/Win32Platform.h"
-#include "platform/WindowChoice.h"
 #include "types/File.h"
 #include "types/FixedString.h"
 
@@ -463,12 +461,10 @@ TState &State()
 	return *Instance;
 }
 
-// The main window: the SDL3 window's (issue #122) or the MFC frame's, on the process's window path.
+// The main window: the SDL3 window's (issue #122).
 HWND MainWindow()
 {
-	if (patella::platform::UseSdlWindow())
-		return static_cast<HWND>(patella::sdlframe::Handle());
-	return MainFrame != nullptr ? MainFrame->m_hWnd : nullptr;
+	return static_cast<HWND>(patella::sdlframe::Handle());
 }
 
 POINT ScreenCursor(const TState &State, HWND Window)
@@ -477,15 +473,11 @@ POINT ScreenCursor(const TState &State, HWND Window)
 		return POINT{State.Scheduler.CursorX(), State.Scheduler.CursorY()};
 	POINT Point = State.Cursor;
 	if (Window != nullptr) {
-		if (patella::platform::UseSdlWindow()) {
-			// Issue #123: the SDL3 window's coordinates, as the client converts the cursor back (sdlframe::ScreenToClient).
-			int x = Point.x;
-			int y = Point.y;
-			patella::sdlframe::ClientToScreen(x, y);
-			Point = POINT{x, y};
-		} else {
-			::ClientToScreen(Window, &Point);
-		}
+		// Issue #123: the SDL3 window's coordinates, as the client converts the cursor back (sdlframe::ScreenToClient).
+		int x = Point.x;
+		int y = Point.y;
+		patella::sdlframe::ClientToScreen(x, y);
+		Point = POINT{x, y};
 	}
 	return Point;
 }
@@ -493,8 +485,8 @@ POINT ScreenCursor(const TState &State, HWND Window)
 void Dispatch(TState &State, HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
 	// Issue #123: the SDL3 window's input is SDL's events; an input message goes to it as the SDL event it stands for
-	// (testmode/SdlInputWin32.h). Every other message, and every message to the MFC frame, is dispatched.
-	if (patella::platform::UseSdlWindow() && patella::testmode::DeliverToSdlWindow(Message, WParam, LParam))
+	// (testmode/SdlInputWin32.h). Every other message is dispatched.
+	if (patella::testmode::DeliverToSdlWindow(Message, WParam, LParam))
 		return;
 	MSG Msg = {};
 	Msg.hwnd = Window;
@@ -1407,8 +1399,8 @@ constinit TTestWindow TestWindow;
 // client writes in its folder), the network the server replay's inside the process with --test-replay (issue #120:
 // TPipeSocketWin32, no port), else the portable socket's (TPortableSocket, issue #125: a live run against the test
 // server). Issue #119: the clipboard the process's own with a script (TMemoryClipboard: the desktop's clipboard
-// neither reaches a scripted run nor is changed by it), else the window path's (issue #124: SDL3's on the SDL3 window,
-// Win32's on MFC's); the input and the windows the test mode's (above).
+// neither reaches a scripted run nor is changed by it), else the window's (issue #124: SDL3's); the input and the
+// windows the test mode's (above).
 patella::platform::TPlatform &patella::platform::Platform()
 {
 	const patella::testmode::TState &Current = patella::testmode::State();

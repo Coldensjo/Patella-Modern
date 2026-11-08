@@ -76,7 +76,7 @@ plus the server's start and stop: two runs take two to four minutes.
 `--test-headless` (with `--test-script`; without a script the client ends before its window with exit code 3, as for
 a script that does not parse: without a script it takes the desktop's input) runs the test client without a desktop:
 
-- its main window (the SDL3 window, or MFC's frame with PATELLA_WINDOW=mfc) is made as always, with its place and
+- its main window (the SDL3 window) is made as always, with its place and
   size, but never shown (sdlframe::Show and InitInstance skip ShowWindow), so it never appears, never takes the focus
   or the foreground, and the desktop's mouse and keyboard cannot reach it. Everything the client and the test mode
   do through it stays as with a window: the script's and the recordings' window messages are dispatched to it, the
@@ -296,13 +296,12 @@ client answers 0x1e) would differ in number if a run took another real time (tes
 pings). Issue #23 removes this: the client replays the server side of a recording, in virtual time ("The server
 replay").
 
-### The two window paths (issue #122)
+### The window (issue #122)
 
-The test build runs on the window path PATELLA_WINDOW chooses, as Patella.exe (src/platform/WindowChoice.h): the SDL3
-window and loop by default (src/SdlFrame.cpp), MFC's frame with `mfc`. The driver works the same on both: MainWindow()
-is the SDL window's HWND or the MFC frame's, and the script's events (and the recordings' `post` lines) are the same
-Win32 messages. The MFC frame gets them with DispatchMessageA. The SDL3 window's wheel is SDL's events since issue
-#123, so on that path WM_MOUSEWHEEL becomes the SDL wheel event (in notches) and goes to the window's input handling as
+The test build runs on the SDL3 window and loop, as Patella.exe (src/SdlFrame.cpp; MFC's frame and the PATELLA_WINDOW
+choice went with issue #127). MainWindow() is the SDL window's HWND, and the script's events (and the recordings'
+`post` lines) are Win32 messages. The SDL3 window's wheel is SDL's events since issue
+#123, so WM_MOUSEWHEEL becomes the SDL wheel event (in notches) and goes to the window's input handling as
 a scripted event (src/testmode/SdlInputWin32.h, `sdlframe::ScriptedInput`); WM_MOUSEMOVE is nothing (the frame had no
 handler). The key messages, WM_CHAR and the button messages stay window messages on Windows (the SDL window's
 subclass takes them: SDL's key, text and button events differ from them, notes/decisions.md "#123"), so they are
@@ -310,10 +309,8 @@ dispatched, as is every other message (WM_TIMER, WM_CLOSE). The cursor's screen 
 window's client origin plus the virtual cursor (sdlframe::ClientToScreen, as the client converts it back). The SDL3 loop
 pumps the thread's messages as MFC's did and drops the desktop's input messages with a script (DropInput); SDL's events
 of the desktop's input are dropped as well (IInput::IgnoreDesktopInput, TTestInput's with a script). With a script
-neither path has a main timer (the driver's WM_TIMER ticks, which the SDL window's subclass still handles); without a
-script TTestInput passes the timer and the cursor on to the path's input (the SDL3 loop's TLoopTimer, or SetTimer;
-GetCursorPos on both until #127). `PATELLA_WINDOW=mfc python -I tools/reference.py compare ...` compares the MFC
-path (the tools pass their environment on).
+there is no main timer (the driver's WM_TIMER ticks, which the SDL window's subclass still handles); without a
+script TTestInput passes the timer and the cursor on to the window's input (the SDL3 loop's TLoopTimer and GetCursorPos).
 
 
 

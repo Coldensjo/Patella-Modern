@@ -3,15 +3,13 @@
 // a TWindowHandle (platform/Window.h), the surface Vulkan's.
 //
 // TSurfaceVulkan (SurfaceVulkan.cpp) reads the main window's client area and the screen's size, and creates each
-// device's surface, through the window system of the client's window path (platform/WindowChoice.h):
+// device's surface, through the window system of the client's window:
 //
-//	SdlWindowSystem()    the SDL3 window's (the default; WindowSystemSdl.cpp): SDL_GetWindowSizeInPixels, the primary
+//	SdlWindowSystem()    the SDL3 window's (WindowSystemSdl.cpp): SDL_GetWindowSizeInPixels, the primary
 //	                     display's bounds, SDL_Vulkan_GetInstanceExtensions and SDL_Vulkan_CreateSurface
-//	Win32WindowSystem()  the MFC window's, until issue #127 (PATELLA_WINDOW=mfc; WindowSystemWin32.cpp): GetClientRect,
-//	                     GetSystemMetrics, VK_KHR_win32_surface's vkCreateWin32SurfaceKHR
 //
 // The surface goes on the device's own window (PresentWindow.h, issue #52: a child window per device, never the main
-// window), which TPresentWindows makes and destroys on both paths.
+// window), which TPresentWindows makes and destroys.
 
 #pragma once
 
@@ -58,7 +56,5 @@ protected:
 
 // The SDL3 window's (SDL's video subsystem started: SdlFrame.cpp's Create, tests_vulkan's main).
 [[nodiscard]] IWindowSystem &SdlWindowSystem();
-// The MFC window's, until issue #127.
-[[nodiscard]] IWindowSystem &Win32WindowSystem();
 
 } // namespace patella::vulkan

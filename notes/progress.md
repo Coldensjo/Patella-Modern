@@ -772,6 +772,14 @@ refuses). Shown: compare_traffic or compare_files in the Sandbox and testmode_ch
 servers with game connections at once, both passing; the master's checksums identical after them and after a killed
 run's cleanup. notes/testserver.md, "A private server per run"; notes/decisions.md, "#146".
 
+MFC removed (Patella-Modern issue #127, branch issue-127, November 8, 2026; M8): no source includes MFC; the SDL3
+window is the client's only one (PATELLA_WINDOW and platform/WindowChoice.h gone, the Win32 window system gone with it),
+CPlayerApp derives from nothing, WinMain is platform/EntryWin32.cpp. The original's CMainFrame and the MFC declarations
+the frozen golden corpus's calls are named after moved to tests/golden/mfc (test code; the MainFrm cases replay against
+it, not against src/SdlFrame.cpp). Patella.rc has only the client's own resources. Hosted CI builds and tests the full
+client and test build with neutral placeholder pictures (PATELLA_PLACEHOLDER_RESOURCES, tools/placeholder_resources.py;
+refused where a Tibia.exe exists); the compile-only targets of #25/#46 are gone. notes/decisions.md, "#127".
+
 Data files and paths (Patella-Modern issue #130, branch issue-130, November 8, 2026; M8): the client's files go through
 platform::TDataFileSystem (platform/FileSystem.h), the data folder chosen at start-up by settings::ChooseLocations
 (--data, the working folder with Tibia.dat, the executable's folder, Patella.ini's DataFolder); Patella.ini next to the
@@ -823,6 +831,11 @@ CI's downloads (Patella-Modern issue #153, branch issue-153, November 8, 2026; M
 CMake falls back to Kitware's own site; a 404 or a wrong SHA-256 stops at once. tools/build.py's download_verified,
 docker/linux-x64/fetch.sh and cmake/Download.cmake's patella_fetch_declare; tools/download_selftest.py shows them
 against a local server, also in hosted CI's clang-format job. notes/decisions.md, "#153".
+
+Two Sandboxes at once (Patella-Modern issue #154, branch issue-154, November 8, 2026; M7): measured, and Windows
+refuses. A second WindowsSandbox.exe leaves only an error window ("only one instance"), a second `wsb start` fails with
+CO_E_APPSINGLEUSE, and the first Sandbox is not disturbed. tools/sandbox.py's lock stays as it is; #147's unmeasured
+note corrected. notes/decisions.md, "#154"; notes/testserver.md, "Windows Sandbox".
 
 Fuzzing (Patella-Modern issue #132, branch issue-132, November 7, 2026; M9): tests/fuzz has eight libFuzzer targets,
 fuzz_settings (Patella.ini, patella_core only), fuzz_network (TNetwork's frames, #72's short packets among the seeds),

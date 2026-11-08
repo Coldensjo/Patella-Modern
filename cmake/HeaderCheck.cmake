@@ -9,7 +9,7 @@
 # The lists below name every header of src/ (not src/Extern) by the targets whose code includes it; the
 # configure fails on a header that is in none of them (a new header is added to a list, or to
 # PATELLA_HEADER_CHECK_EXCEPTIONS with the reason). Where a header's content depends on the target's
-# definitions (common.h: PATELLA_CORE, TIBIA_MFC_SHIM, PATELLA_VULKAN, PATELLA_TEST_MODE), it is checked
+# definitions (common.h: PATELLA_CORE, PATELLA_VULKAN, PATELLA_TEST_MODE), it is checked
 # once per such target:
 #
 #	header_check_core            patella_core's settings (PATELLA_CORE)               every product preset
@@ -21,9 +21,8 @@
 #	header_check_test_build      PatellaTest.exe's (PATELLA_VULKAN, PATELLA_TEST_MODE) windows-x64 (client)
 #
 # Until Patella-Modern issue #94 the 32-bit oracle preset had two more, header_check_oracle (real MFC, C++17, x86) and
-# header_check_oracle_shim (TIBIA_MFC_SHIM); they left with the oracle.
+# header_check_oracle_shim (the shim, removed with MFC in issue #127); they left with the oracle.
 #
-# The x64 client's two exist with PATELLA_CLIENT_COMPILE_ONLY too (the hosted CI builds them by name).
 # Included by CMakeLists.txt after the targets they copy: patella_header_checks() makes the ones whose
 # target exists in the preset.
 
@@ -74,8 +73,8 @@ list(APPEND PATELLA_HEADERS_CORE types/Regexp.h)
 list(APPEND PATELLA_HEADERS_CORE platform/Clipboard.h platform/Input.h platform/Window.h)
 # Issue #138: TSurface, the platform's drawing surface (portable; the engines implement it).
 list(APPEND PATELLA_HEADERS_CORE platform/Surface.h)
-# Issue #122: the SDL3 window's loop timer and the choice of the window path (portable).
-list(APPEND PATELLA_HEADERS_CORE platform/LoopTimer.h platform/WindowChoice.h)
+# Issue #122: the SDL3 window's loop timer (portable).
+list(APPEND PATELLA_HEADERS_CORE platform/LoopTimer.h)
 # Issue #123: the client's keyboard and mouse rules over SDL3's events, and the cursor resources' decoder (portable).
 list(APPEND PATELLA_HEADERS_CORE platform/CursorImage.h platform/KeyInput.h)
 # Issue #124: the display's modes over SDL3 as the client lists and sets them (portable).
@@ -99,7 +98,7 @@ set(PATELLA_HEADERS_RENDER
 	vulkan/DeviceChoice.h
 	vulkan/FilterMask.h
 	vulkan/Quads.h)
-# The client's own headers (Windows, MFC or its shim): the x64 client's, and the golden tests' (with the shim).
+# The client's own headers (Windows): the x64 client's, and the golden tests'.
 set(PATELLA_HEADERS_CLIENT
 	Client.h
 	Communication.h
@@ -114,7 +113,6 @@ set(PATELLA_HEADERS_CLIENT
 	GUI.h
 	Help.h
 	Inventory.h
-	MainFrm.h
 	MainWindow.h
 	Map.h
 	MapState.h
@@ -192,11 +190,7 @@ list(REMOVE_ITEM PATELLA_HEADERS_VULKAN_CLIENT vulkan/DeviceSettings.h)
 list(APPEND PATELLA_HEADERS_CORE ${patella_headers_core_111} vulkan/DeviceSettings.h)
 # Headers that are not checked on their own, each with the reason. (The shaders' SPIR-V headers, ColorKeyFrag.h and
 # the others, are generated into the build tree by glslang, cmake/Vulkan.cmake: not headers of src/.)
-# - compat/mfc_shim.h: MFC's stand-in (TIBIA_MFC_SHIM), which only the golden tests' targets compile (tests/golden,
-#   through common.h, which includes it first). Its check of its own was the oracle's header_check_oracle_shim,
-#   which left with the oracle (issue #94); every golden target still compiles it, on Windows and on Linux.
-set(PATELLA_HEADER_CHECK_EXCEPTIONS
-	compat/mfc_shim.h)
+set(PATELLA_HEADER_CHECK_EXCEPTIONS)
 
 # Every header of src/ outside src/Extern is on a list.
 file(GLOB_RECURSE patella_all_headers RELATIVE "${PROJECT_SOURCE_DIR}/src" CONFIGURE_DEPENDS
@@ -270,7 +264,7 @@ function(patella_header_checks)
 		patella_target_hardening(header_check_render)
 	endif()
 	# The x64 client: every header its sources include, with its settings (cmake/WindowsX64.cmake).
-	if(TARGET Patella_compile OR TARGET Patella)
+	if(TARGET Patella)
 		set(headers ${PATELLA_HEADERS_CORE} ${PATELLA_HEADERS_RENDER} ${PATELLA_HEADERS_CLIENT}
 			${PATELLA_HEADERS_VULKAN_CLIENT})
 		patella_header_check(header_check_client ${headers})

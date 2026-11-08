@@ -717,7 +717,8 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
 - **Tibia.exe's live runs off the user's desktop:** done in #147 (notes/decisions.md, "#147"): compare_traffic.py,
   compare_files.py, compare_rendering.py and compare_network.py run inside Windows Sandbox by default
   (tools/sandbox.py; its window on a hidden desktop, the test server on the host through a reverse tunnel); `--desktop`
-  as before.
+  as before. Done in #154 (notes/decisions.md, "#154"): measured that Windows refuses a second Sandbox, so runs stay one
+  at a time.
 - **compare_network's bad frames are deliberate:** done in #150 (notes/decisions.md, "#150"): tools/deliberate.py
   lists #72's, #139's and #142's six frame scenarios with both clients' outcomes; compare_network reports them as
   deliberate, named with their issue, and nothing else differs.
@@ -750,6 +751,11 @@ One platform layer for both operating systems, with **SDL3** (D3) for the things
 
 - MFC and the MFC shim are deleted (the original engines and `glh` went in M2). The Windows build no longer needs the
   Visual Studio MFC component, so hosted CI can build everything.
+  Done in #127 (notes/decisions.md, "#127"): no source includes MFC; `src/compat/mfc_shim.h`, `PATELLA_WINDOW=mfc` and the
+  Win32 window system are gone; CPlayerApp derives from nothing and WinMain is `src/platform/EntryWin32.cpp`; the golden
+  corpus's MainFrm test runs on the original's frame kept as test code in `tests/golden/mfc`. Hosted CI builds and tests
+  the full Patella.exe and PatellaTest.exe with neutral placeholder pictures (`PATELLA_PLACEHOLDER_RESOURCES`, refused
+  where a Tibia.exe exists).
 - **Crypto:** XTEA and raw RSA are protocol requirements and stay. `vlong` stays as a portable, tested
   component (`vlongtest`'s cases become unit tests). The protocol's lack of RSA padding is documented as a
   property of the protocol.

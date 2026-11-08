@@ -8,18 +8,17 @@
 // #124). Each goes through the process's IWindow (platform/Platform.h):
 //
 //	TWin32Window     MessageBoxA, EnumWindows with GetWindowTextA and GetClassNameA, EnumDisplaySettingsA,
-//	                 ChangeDisplaySettingsA (platform/Win32Platform.h): the golden runner's, and Patella.exe's on the
-//	                 MFC window (PATELLA_WINDOW=mfc, until issue #127)
+//	                 ChangeDisplaySettingsA (platform/Win32Platform.h): the golden runner's, and on Windows the
+//	                 SDL3 window's display modes (TSdlWindow)
 //	TSdlWindow       SDL3's (issue #124; platform/SdlPlatform.h): SDL_ShowSimpleMessageBox; the display's modes
 //	                 SDL3's off Windows, Win32's on Windows (SDL3's list differs there); the other windows Win32's
 //	                 EnumWindows (SDL3 has no such call): Patella.exe's on the SDL3 window
 //	TTestWindow      the test mode's (testmode/TestModeWin32.cpp): with a script a box is not shown (messages.txt);
 //	                 only the process's own windows are visited (issue #96); with --test-display-modes the file's
-//	                 modes (issue #48); the rest the window path's (TSdlWindow or TWin32Window, as Patella.exe's; the
-//	                 desktop's mode too: the machine's); with --test-headless headless (issue #145)
+//	                 modes (issue #48); the rest the window's (TSdlWindow, as Patella.exe's; the desktop's mode too:
+//	                 the machine's); with --test-headless headless (issue #145)
 //
-// The frame window itself (MainFrm.cpp's CMainFrame, MFC) is the Win32 side's, as the application (Player.cpp's
-// CPlayerApp) is; since issue #122 SdlFrame.cpp's SDL3 window takes their place by default.
+// The frame window itself is SdlFrame.cpp's SDL3 window (issue #122; since #127 the only one).
 
 #pragma once
 

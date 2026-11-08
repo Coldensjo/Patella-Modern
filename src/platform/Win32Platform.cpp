@@ -17,7 +17,6 @@
 
 #if defined(PATELLA_SDL3)
 #include "platform/SdlPlatform.h"
-#include "platform/WindowChoice.h"
 #endif
 
 #include <cstddef>
@@ -119,7 +118,7 @@ void TWin32Input::StopTimer(TWindowHandle Window, unsigned int Id)
 	::KillTimer(static_cast<HWND>(Window), Id);
 }
 
-// Win32's GetCursorPos until issue #127 (the owner's decision on #123): where Windows cannot read the cursor (another
+// Win32's GetCursorPos (the owner's decision on #123): where Windows cannot read the cursor (another
 // desktop: the lock screen, UAC's secure desktop) it fails and the point stays the last one, as the original's;
 // SDL_GetGlobalMouseState would report (0, 0) there.
 bool TSdlLoopInput::CursorPosition(TPoint &Point)
@@ -257,33 +256,33 @@ TSdlLoopInput &SdlLoopInput()
 IInput &WindowInput()
 {
 #if defined(PATELLA_SDL3)
-	if (UseSdlWindow())
-		return SdlLoopInputInstance;
-#endif
+	return SdlLoopInputInstance;
+#else
 	return Win32InputInstance;
+#endif
 }
 
 IClipboard &WindowClipboard()
 {
 #if defined(PATELLA_SDL3)
-	if (UseSdlWindow())
-		return SdlClipboard();
-#endif
+	return SdlClipboard();
+#else
 	return Win32ClipboardInstance;
+#endif
 }
 
 IWindow &WindowDesktop()
 {
 #if defined(PATELLA_SDL3)
-	if (UseSdlWindow())
-		return SdlWindow();
-#endif
+	return SdlWindow();
+#else
 	return Win32WindowInstance;
+#endif
 }
 
 #if !defined(PATELLA_TEST_MODE)
 // Patella.exe's and the golden runner's platform (Platform.h); the test build's is TestModeWin32.cpp's. Issue #122: the
-// input is the window path's (WindowInput); issue #124: the clipboard and the desktop too.
+// input is the window's (WindowInput); issue #124: the clipboard and the desktop too.
 TPlatform &Platform()
 {
 	static TPlatform Instance{Win32ClockInstance, SystemFileSystem(), NetworkSocket(), WindowClipboard(),

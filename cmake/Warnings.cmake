@@ -38,7 +38,6 @@ set(PATELLA_WARNING_BASELINE_MSVC
 	src/DialogWindow.cpp
 	src/Dialogs.cpp
 	src/GUI.cpp
-	src/MainFrm.cpp
 	src/MainWindow.cpp
 	src/MapWindow.cpp
 	src/Player.cpp

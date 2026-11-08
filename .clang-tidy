@@ -53,11 +53,11 @@ CheckOptions:
   modernize-deprecated-headers.CheckHeaderFile: true
   # Each file includes what it uses (issue #40), but not the platform's internal headers: a Windows SDK
   # symbol is declared in winuser.h, minwindef.h, corecrt_io.h and the like, which the SDK means to be
-  # reached through windows.h, io.h and MFC's afxwin.h (common.h). The Windows SDK and the UCRT (Windows
-  # Kits), MFC (atlmfc) and the MFC shim that stands for it (compat/mfc_shim.h) are neither suggested nor
+  # reached through windows.h and io.h (common.h). The Windows SDK and the UCRT (Windows
+  # Kits) are neither suggested nor
   # reported unused; the C and C++ standard library is checked by name (<cstring>, <ostream>), not by path.
   # (POSIX bracket expressions: [/\] is a slash or a backslash.)
-  misc-include-cleaner.IgnoreHeaders: '.*[/\]Windows Kits[/\].*;.*[/\]atlmfc[/\].*;.*[/\]compat[/\]mfc_shim\.h'
+  misc-include-cleaner.IgnoreHeaders: '.*[/\]Windows Kits[/\].*'
   # const locals (issue #39): the check's defaults, i.e. values, references and the pointees of pointers
   # (AnalyzeValues, AnalyzeReferences, AnalyzePointers, WarnPointersAsPointers), not the pointers themselves
   # (WarnPointersAsValues off: `T *const p` adds noise and no safety). Spelled out, so that a change of

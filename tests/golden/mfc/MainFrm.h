@@ -1,4 +1,5 @@
-// MainFrm.h: the MFC frame window. It turns window messages into calls of
+// MainFrm.h: the original's MFC frame window, kept for the golden corpus's MainFrm test (Patella-Modern issue #127:
+// the client's frame is src/SdlFrame.cpp; this one is test code, against mfc_standin.h). It turns window messages into calls of
 // Control.cpp (mouse, keys, timer, closing) and switches between windowed
 // and fullscreen mode.
 //
@@ -12,6 +13,7 @@
 #pragma once
 
 #include "common.h"
+#include "mfc_standin.h"
 #include "types/FixedString.h"
 #include <array>
 

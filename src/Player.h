@@ -1,33 +1,30 @@
-// Player.h: the MFC application class (c:\mud\tibiaplayer, so Player.cpp).
+// Player.h: the application class (c:\mud\tibiaplayer, so Player.cpp).
 //
-// The class name CPlayerApp follows MFC's wizard naming for the project
-// "tibiaplayer"; the member names are ours. Layout: CWinApp (0xa0 bytes),
-// then the two flags (the second is padding since issue #75).
+// The class name CPlayerApp is the original's, MFC's wizard naming for the
+// project "tibiaplayer"; the member names are ours. Since Patella-Modern issue
+// #127 it derives from nothing: the process's entry is WinMain
+// (platform/EntryWin32.cpp), which does what MFC's did and calls InitInstance
+// and Run.
 
 #pragma once
 
 #include "common.h"
 
-class CPlayerApp final : public CWinApp {
+class CPlayerApp final {
 public:
 	CPlayerApp();
-	BOOL InitInstance() override;
-	int Run() override;
-	BOOL OnIdle(LONG lCount) override;
-#if defined(PATELLA_TEST_MODE)
-	// The test build only (src/TestHooks.h): drops the input from Windows while a script drives.
-	BOOL PreTranslateMessage(MSG *pMsg) override;
-#endif
+	BOOL InitInstance();
+	int Run();
+	void OnIdle();
 
 	void FatalError(const char *Text, const char *Caption);
 	void HandleProgramError(PROGRAM_ERROR Error);
 	void HandleException(TMyException &Exception);
 
-	bool Terminating; // +0xa0, a fatal error is being shown; later errors return at once
-	// +0xa1 was RunPatch (Run started patch.exe when the message loop ended), gone with the patcher since
-	// Patella-Modern issue #75 (decision D9): padding now, the size is the original's.
-
-	DECLARE_MESSAGE_MAP()
+	// The original's byte after Terminating was RunPatch (Run started patch.exe when the message loop ended), gone with
+	// the patcher since Patella-Modern issue #75 (decision D9).
+	bool Terminating;             // a fatal error is being shown; later errors return at once
+	const char *CommandLine = ""; // WinMain's (CWinApp::m_lpCmdLine until issue #127)
 };
 
 

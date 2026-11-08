@@ -21,8 +21,9 @@ or desktop.HIDDEN on the command line, with an argument of skip, or off Windows;
 line in the Sandbox (run below) and exits with its exit code.
 
 How a run goes (run):
-  1. One Sandbox at a time (Windows runs one instance): a lock file in the user's temporary folder, held while the
-     Sandbox runs; a second run waits for it (and for a Sandbox someone else started), it does not fail.
+  1. One Sandbox at a time (Windows refuses a second one, by WindowsSandbox.exe and by `wsb start`: measured in issue
+     #154, notes/decisions.md "#154"): a lock file in the user's temporary folder, held while the Sandbox runs; a
+     second run waits for it (and for a Sandbox someone else started), it does not fail.
   2. The configuration (tools/sandbox/patella.wsb.template, filled in; build\sandbox\<run>\patella.wsb): virtual GPU
      and networking on; mapped at the same paths as on the host, so every path of the tools and of the command line
      is valid inside: the portable Python (read-only), the repository (read-only), the run's private test server
@@ -683,7 +684,8 @@ class WindowKeeper:
 
 class Lock:
 	"""One Sandbox at a time: an exclusive lock on a file in the user's temporary folder (msvcrt.locking; Windows
-	releases it when the process ends). A second run waits for it."""
+	releases it when the process ends). A second run waits for it: a second WindowsSandbox.exe would only leave an
+	error window ("only one instance", issue #154) that stays until it is closed."""
 
 	PATH = os.path.join(tempfile.gettempdir(), "patella-sandbox.lock")
 

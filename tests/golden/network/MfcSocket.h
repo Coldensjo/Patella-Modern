@@ -3,7 +3,7 @@
 //
 // The client's network is TPortableSocket since #125 (src/platform/PortableSocket.h). The golden corpus's Network test
 // (network_tests.cpp) compares the calls Network.cpp makes with the original's at the level of MFC and WinSock: its
-// fakes stand in for CAsyncSocket (the MFC shim's declarations, defined there), AfxSocketInit and the WinSock
+// fakes stand in for CAsyncSocket (the stand-in's declarations, ../mfc/mfc_standin.h, defined there), AfxSocketInit and the WinSock
 // functions, and log each call. So the runner's ISocket is still those calls, call for call, and its connection still
 // the original's CAsyncSocket class, whose vtable the test fires the events through (FireEvent) and whose objects it
 // dumps.
@@ -11,6 +11,7 @@
 #pragma once
 
 #include "common.h"
+#include "../mfc/mfc_standin.h"
 #include "platform/Socket.h"
 
 namespace patella::platform {

@@ -1,8 +1,8 @@
 # The golden corpus's runner (notes/modernization-plan.md, 4.3; issue #24): golden_runner replays the
 # frozen corpus (tests/golden/golden.h; recorded by the 32-bit oracle until Patella-Modern issue #94, frozen since
 # issue #93), against this build's code and without Tibia.exe: on Windows x64 with MSVC (plan M2) and, since issue #91 (plan M6), on Linux x64
-# with GCC and Clang (linux-x64-gcc, linux-x64-clang), where tests/golden/linux stands in for the Windows API and
-# MFC parts the client's code and the tests use (tests/golden/linux/README.md).
+# with GCC and Clang (linux-x64-gcc, linux-x64-clang), where tests/golden/linux stands in for the Windows API
+# parts the client's code and the tests use (tests/golden/linux/README.md).
 #
 # CTest test golden: the corpus in PATELLA_GOLDEN_DIR (default build/golden of the source tree, where the
 # frozen corpus is kept). Without a corpus (hosted CI: it is derived from Tibia.exe and never leaves
@@ -38,10 +38,9 @@ set(PATELLA_GOLDEN_DIR "${golden_dir_default}" CACHE PATH
 	"The golden corpus that the CTest test golden replays (frozen since issue #93; local only)")
 option(PATELLA_GOLDEN_REQUIRE "The CTest test golden fails instead of being skipped when there is no corpus" OFF)
 
-# The client's code the ported tests call (issue #26) is not portable yet either: compiled against
-# src/compat/mfc_shim.h, as the oracle's test programs compiled it, with the product's settings. The real
-# MFC headers switch C4201 (nameless struct/union, graphics.h) off for every file that includes them
-# (afx.h); the shim does not, so the files that include graphics.h get the same switch here.
+# The client's code the ported tests call (issue #26) is not portable yet either: compiled against the Windows
+# headers (on Linux tests/golden/linux's), with the product's settings. The files that include graphics.h get C4201
+# (nameless struct/union) switched off here (MFC's headers used to do it for every file that includes them, issue #127).
 # On Linux (issue #91) the Windows headers the shim includes are tests/golden/linux's (windows.h, winsock2.h: the
 # types, constants and functions the code uses; the functions themselves, behind import slots, linux/win32.cpp).
 # The tests redirect our functions to their fakes by overwriting the functions' first bytes (golden_patch.h), so
@@ -55,7 +54,7 @@ set(golden_linux_dir "${CMAKE_CURRENT_SOURCE_DIR}/linux")
 # Linux (issue #91)".
 # - -fno-strict-aliasing: the tests read our objects, vtables and member pointers through other types (as the oracle's
 #   tests did); MSVC never optimises on the aliasing rules.
-# - -fno-delete-null-pointer-checks: the MFC shim's GetSafeHwnd compares this with nullptr, as MFC's does, and MSVC
+# - -fno-delete-null-pointer-checks: the MFC stand-in's GetSafeHwnd compares this with nullptr, as MFC's does, and MSVC
 #   keeps the comparison; GCC and Clang warn about it (-Wno-nonnull-compare, -Wno-tautological-undefined-compare).
 # - -fwrapv: the error rounds give the code extreme sizes and positions (INT_MAX), whose sums the original and MSVC's
 #   code wrap around (TWindow::FitToChild, GUI.cpp); GCC and Clang assume a signed int never overflows, and UBSan
@@ -106,7 +105,6 @@ function(golden_linux_warning_level target)
 endfunction()
 function(golden_client_settings target)
 	target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/src")
-	target_compile_definitions(${target} PRIVATE TIBIA_MFC_SHIM)
 	patella_target_language(${target})
 	if(golden_linux)
 		golden_linux_warning_level(${target})
@@ -125,8 +123,8 @@ function(golden_client_settings target)
 	endif()
 endfunction()
 
-# sysinc.cpp is not portable yet (the clipboard, timeGetTime): compiled against src/compat/mfc_shim.h,
-# as the oracle's sysinctest compiled it. The oracle kept it out of its main test program, whose tests define
+# sysinc.cpp is not portable yet (the clipboard, timeGetTime): compiled against the Windows headers
+# (on Linux the stand-ins), as the oracle's sysinctest compiled it. The oracle kept it out of its main test program, whose tests define
 # GetMilliseconds, RemoveFile, SetClipboardText and FileExists as recorders (status_tests.cpp,
 # script_tests.cpp); the runner has both in one program, so sysinc.cpp's four are renamed here.
 add_library(golden_sysinc OBJECT "${PROJECT_SOURCE_DIR}/src/sysinc.cpp")
@@ -140,9 +138,9 @@ target_compile_definitions(golden_sysinc PRIVATE GetMilliseconds=SysincGetMillis
 # client_stubs.cpp has the functions of the other files, which the tests never call. Since issue #28
 # graphics.cpp, GUI.cpp and every window file (the classes the window tests build and the files Errors,
 # MapWindow, MainWindow, Communication and Control reach) are here too, as in the oracle; the stubs are the
-# files below them (Communication.cpp's Send functions, Control.cpp, the Vulkan engine). MainFrm.cpp and
-# Network.cpp are compiled into their tests (mainfrm_tests.cpp, network_tests.cpp, as in the oracle: the
-# tests read their statics). Client.cpp (issue #104): the one TClient that Preferences.cpp's free functions reach.
+# files below them (Communication.cpp's Send functions, Control.cpp, the Vulkan engine). mfc/MainFrm.cpp (the original's
+# frame, kept for the corpus: issue #127) and Network.cpp are compiled into their tests (mainfrm_tests.cpp,
+# network_tests.cpp, as in the oracle: the tests read their statics). Client.cpp (issue #104): the one TClient that Preferences.cpp's free functions reach.
 add_library(golden_client OBJECT
 	"${PROJECT_SOURCE_DIR}/src/Status.cpp"
 	"${PROJECT_SOURCE_DIR}/src/Client.cpp"
@@ -228,8 +226,8 @@ target_compile_definitions(golden_runner PRIVATE "GOLDEN_DEFAULT_DIR=\"${golden_
 # The settings of an executable of the golden objects (golden_runner, dialogwindow_setsize).
 function(golden_executable_settings target)
 	if(golden_linux)
-		# The executable's own sources see the same stand-ins (golden_test.h includes common.h, which includes the
-		# MFC shim), and linux/win32.cpp has the Windows functions. The C library's functions the tests replace
+		# The executable's own sources see the same stand-ins (golden_test.h includes common.h), and linux/win32.cpp has
+		# the Windows functions. The C library's functions the tests replace
 		# through their import slots on Windows (time, the _time64 of the MSVC runtime, and fwrite; rand is the
 		# stand-ins' own, linux/windows.h) are wrapped (ld --wrap): every call of the executable's objects goes to
 		# __wrap_<name>, which calls through a slot of linux/win32.cpp, the C library's function at first
@@ -242,7 +240,6 @@ function(golden_executable_settings target)
 	patella_target_hardening(${target})
 	if(golden_linux)
 		target_include_directories(${target} BEFORE PRIVATE "${golden_linux_dir}")
-		target_compile_definitions(${target} PRIVATE TIBIA_MFC_SHIM)
 		target_compile_options(${target} PRIVATE ${golden_linux_options})
 		target_link_libraries(${target} PRIVATE patella_core)
 		target_link_options(${target} PRIVATE LINKER:--wrap=time LINKER:--wrap=fwrite)

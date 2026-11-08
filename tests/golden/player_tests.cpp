@@ -1,11 +1,10 @@
 // difftest.exe's Player test (moved here from tools/difftest/playertest.cpp, issue #26): Player.cpp's
 // text decoders, Surface.cpp's engine getters and MainFrm.cpp's TranslateKey against the original, as
-// a golden-corpus test (golden.h). playertest.cpp keeps difftest.exe's link stubs of Player.cpp and
-// MainFrm.cpp; the runner's are tests/golden/client_stubs.cpp.
+// a golden-corpus test (golden.h). The runner's link stubs are tests/golden/client_stubs.cpp.
 
 #include "golden_test.h"
 
-#include "MainFrm.h"
+#include "mfc/MainFrm.h"
 #include "Player.h"
 #include "Surface.h"
 #include "testsurface.h"
