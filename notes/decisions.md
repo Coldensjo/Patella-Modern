@@ -17810,7 +17810,8 @@ the full build covers them, and the header checks are in its default target.
 
 Also a new CTest test, start_without_data (cmake/RunStartWithoutData.cmake): PatellaTest.exe headless in an empty
 folder ends with the original's box "Cannot find file "Tibia.dat". (Error Code 1)" and exit code 1. It needs no
-CipSoft file, so hosted CI runs it, with the unit tests and tests_vulkan.
+CipSoft file, so hosted CI runs it, with the unit tests. tests_vulkan is left out there: on GitHub's runner no CPU Vulkan driver
+loads (`creating the Vulkan instance failed: failed_create_instance`); not diagnosed further ("Found, not done").
 
 ### Link libraries (high)
 
@@ -17834,6 +17835,9 @@ the proxy's), which compare_rendering's and compare_network's replays do not rew
 through build/traffic/result/orig-live.jsonl they never reach the game (a "no game connection" or every scenario ending at
 "Connection refused"). This run edited a local copy's ports to 7272 for compare_rendering and used
 buildecordings\orig-live.jsonl (issue #19's, port 7172) for compare_network. The tools should rewrite the port in replay.
+
+Also: tests_vulkan fails on GitHub's windows-latest runner (Vulkan instance creation, lavapipe does not load); the
+hosted job excludes it, and it runs on every local build.
 
 ### Removed
 
