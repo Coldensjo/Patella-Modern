@@ -449,6 +449,15 @@ The Mesa archive's hash is the one GitHub publishes for the release asset; the o
 3, 2026 from the downloads. An update: new URL and hash in cmake/Vulkan.cmake and here, the stamp name of the
 extracted CPU driver (`extracted-<first hash digits>`) with it, and tests_vulkan again.
 
+## GPU timings (issue #134)
+
+`TRenderer::SetFrameTimestamps(true)` gives every command buffer of a frame two timestamp queries
+(vkCmdWriteTimestamp2, a query pool per frame in flight, created at the first call); `TakeFrameTimes` hands out the
+device time of each finished frame (the sum over its submissions, nanoseconds), read after the fence of the frame's
+submission. False: the device has no timestamps (a queue with timestampValidBits 0). Off by default, and nothing in
+Patella.exe ever turns it on: the only caller is the test build's profile windows (notes/testmode.md, "Profile
+windows"), with the tool in tools/profiling.py. tests_vulkan checks it (off: no times; on: a time per frame).
+
 ## Capture for compare_rendering.py
 
 A Vulkan swapchain image cannot be read back from outside the engine (an injected DLL would need the engine's

@@ -123,6 +123,7 @@
 #include "testmode/PacketLog.h"
 #include "testmode/PipeNetwork.h"
 #include "testmode/PipeSocketWin32.h"
+#include "testmode/ProfileWin32.h"
 #include "testmode/SdlInputWin32.h"
 #include "testmode/Png.h"
 #include "testmode/ServerReplay.h"
@@ -707,8 +708,14 @@ void ControlPoll(TState &State, std::uint32_t Elapsed)
 		ControlReply(State, "ok");
 		return;
 	}
+	if (Text.starts_with("profile ")) {
+		// Issue #134: a profile window opens and closes between two frames, with or without a script.
+		const std::string Error = ProfileCommand(Text);
+		ControlReply(State, Error.empty() ? "ok" : "error: " + Error);
+		return;
+	}
 	if (!State.Scripted) {
-		ControlReply(State, "error: without --test-script the channel answers probe only");
+		ControlReply(State, "error: without --test-script the channel answers probe and profile only");
 		return;
 	}
 	const std::string Error = AppendLines(State, Text, Elapsed);

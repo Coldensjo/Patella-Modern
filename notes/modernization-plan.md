@@ -836,6 +836,9 @@ x64 and Linux x64 against the reference recordings; the Vulkan engine passes the
   compare +2%.
 - **Profiling:** frame time and allocations per frame against the reference client; GPU timings of the Vulkan engine
   (timestamp queries).
+  Done in #134 (notes/decisions.md, "#134"): `tools/profiling.py` runs both clients in Windows Sandbox on the same live
+  session (notes/testmode.md, "Profile windows"); the numbers are in notes/progress.md, "Profiling"; the regressions
+  it found are #155 (heap allocations per frame) and #156 (the title screen's work before Present).
 - **Packages** through CPack: a Windows zip (and optionally an installer), a Linux tarball and AppImage or
   Flatpak (D4). The packages contain no CipSoft files: the user points the client at their own data files.
 - Reproducible builds, a changelog, a release checklist.
