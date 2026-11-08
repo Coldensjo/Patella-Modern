@@ -17878,3 +17878,7 @@ are unchanged (the gates).
   next run worked); it never ran the clients then.
 - The frame-time difference at Present on bare metal: a run of the tool in a second session or on another machine
   would settle whether Vulkan's Present costs more than Direct3D 9's on the real driver.
+- compare_rendering.py's default recording flow since #146: a recording from compare_traffic.py's private server names that
+  run's game port in the character list, and compare_rendering.py replays on the default ports, so every run ends with
+  "no game connection" (a replay has no rewrite of the port; here it was run with a recording on the default ports,
+  the main checkout's build	rafficesult\orig-live.jsonl, and every scene is identical).
