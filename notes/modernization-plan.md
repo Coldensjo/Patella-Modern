@@ -718,6 +718,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
   compare_files.py, compare_rendering.py and compare_network.py run inside Windows Sandbox by default
   (tools/sandbox.py; its window on a hidden desktop, the test server on the host through a reverse tunnel); `--desktop`
   as before.
+- **A test server of its own for every live run:** done in #146 (notes/decisions.md, "#146"): tools/testserver.py
+  makes each run a private copy of the master server folder on 4 ports of its own and removes it afterwards (a killed
+  run's by the next one); the tools never write C:\Tibia\gameserver, and live runs no longer wait for each other's
+  server.
 - **`final` on the classes nothing derives from** (#33's second half, after the oracle): done in #47
   (notes/decisions.md, "#47"): 70 classes; the 30 the golden tests use as seams (their fakes built by our
   constructors, stand-ins, a patched member that `final` lets MSVC inline) are listed with the reason.

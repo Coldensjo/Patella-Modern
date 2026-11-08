@@ -196,6 +196,10 @@ need the desktop.
 **Test runs of the original game inside a sandbox (#147).** The original Tibia.exe's test runs now happen inside
 Windows Sandbox, a throwaway Windows of their own, so they no longer use the owner's screen at all.
 
+**A test world of its own for every test run (#146).** Test runs no longer share, or write, the one test game world:
+each run plays on its own temporary copy, which is thrown away afterwards, so runs can happen side by side and can no
+longer damage the original world.
+
 ## M8: one platform layer on SDL3 (in progress)
 
 **The game window now comes from SDL3 (#122).**

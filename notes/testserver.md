@@ -16,7 +16,9 @@ server (port 7172); the accounts and characters are in SQLite (`tibia.db`), the 
 accounts; its sources are in `gameserver\src`.
 
 - **Start**: `python -I tools/testserver.py start` (from the repository or a worktree; Python since issue #10,
-  before it tools\run-testserver.ps1, which did the same). Runs tibia-server.exe from `C:\Tibia\gameserver`
+  before it tools\run-testserver.ps1, which did the same). Since Patella-Modern issue #146 only inside a run, on
+  the run's private copy and its ports (below, "A private server per run"; the ports here are the master's,
+  7171/7172); `start --master` for the master itself. Runs tibia-server.exe from `C:\Tibia\gameserver`
   (`PATELLA_TESTSERVER`)
   (it finds config.cfg, tibia.db and tibia.pem relative to its working directory) in a hidden console of its
   own, writes its output to `build\testserver\server.log` (overwritten at each start; stderr: server.err) and
@@ -168,6 +170,63 @@ the server logged it out at its shutdown). The server rewrote `data\usr\03\83955
 new last login/logout times) and Characters.LastLoginTime; there is no copy of the old .usr file
 (`data\usr.bak` has .dat/.obj files only), the database backup has the old row. Use 772001.
 
+## A private server per run (Patella-Modern issue #146)
+
+Every live run has a test server of its own; the tools never write `C:\Tibia\gameserver` (the master) again. Two
+world files were cut on November 7 (#137, #123) by runs that shared the one server (a stop that killed it while it
+saved its map), and every live run waited for that server. notes/decisions.md, "#146".
+
+- **How a run gets one.** compare_traffic.py, compare_files.py (when it records its live walk) and testmode_check.py
+  (its online runs) call `testserver.isolate()` first in their `__main__` block, before the Sandbox: it makes the
+  run's copy, runs the same command line again with `PATELLA_TESTSERVER_RUN=<the run's folder>`, then stops the
+  run's server if it still runs and removes the copy. Any other command: `python -I tools/testserver.py run [--keep]
+  -- <command> [arguments]`. Inside such a run `testserver.SERVER_DIR` is the copy and the ports are the run's, so
+  every tool takes them from there (compare_traffic.PLAYER_FILES and PEM, proxy.py's four ports, session_client's
+  game port, login_client.py, the Sandbox's tunnel and mappings).
+- **The copy** (`PATELLA_TESTSERVER_RUNS`, default `%TEMP%\patella-testservers\<date>-<time>-<PID>\server`, next to
+  the run's instance.json, server.log, server.err and server.pid): config.cfg with the run's login_port and
+  game_port, tibia.db with every world's Port set to the run's game port (the character list's), data\map, data\usr,
+  data\dat and data\save copied (the server rewrites every map sector and about 520 player files on a clean stop,
+  data\dat\owners.dat too, and the tools restore the test characters' player files), data\mon, data\npc and
+  data\origmap as hard links to the master's files (read only: none of them was written in the six days of runs
+  before this issue, their times are 2006's), data\log empty (the master's logs are 112 MB). Left out: the
+  executable and its DLLs, the backup folder, tibia.db-shm. About 74,400 files (363 MB) copied and 10,400 hard links
+  (182 MB) in 44 to 65 s, up to 105 s beside another run's copy; the first map load of a fresh copy takes 42 to 116 s
+  (cold files), its restarts 3.5 to 8 s. A configuration whose files would not be the copy's (an absolute or `..` path in data_path,
+  map_path, user_path..., database_file, rsa_key_file; a db_type other than sqlite) is refused before anything is
+  made. When the master changed while it was copied (someone else's server saved it), the copy is made again.
+- **The server.** The master's own tibia-server.exe runs, with the copy as its working directory (it finds
+  config.cfg, tibia.db, tibia.pem and data relative to it): its path is the one Windows Firewall's rules name, so no
+  firewall prompt comes up (a copied executable at a new path would ask), and nothing of it is copied. Its login
+  server and game server listen on the run's ports. start and stop keep their rules (the 600 s wait once the map
+  loads, never a kill of a server that saves, the bind race's retries); with the master's executable shared by
+  several runs, start and stop know their server by the run's server.pid only (PID, path and creation time), and a
+  run's stop never reports another run's server as "not started by the tools". Its log is kept in
+  `build\testserver\runs\<run>` when the copy is removed.
+- **The ports.** Four a run, one block of 7300-7499 (50 blocks): the login and game server's, and the proxy's pair
+  (compare_traffic's and testmode_check's clients are patched to that login port; 7271/7272 without a run). A block
+  is taken when no run's instance.json has it, nothing listens on its ports, they bind on 0.0.0.0 and none is in a
+  Windows excluded range; the choice and the instance.json are made under a lock (RUNS_DIR\lock, released by Windows
+  when its process ends).
+- **Inside Windows Sandbox** the tunnel listens on the run's login and game port (the host writes them to
+  tunnel.json in the exchange folder), so the character list's 127.0.0.1:<game port> is right inside too; the run's
+  folder is mapped read-only and its copy's data\usr writable. The master is not mapped.
+- **Cleanup.** At the end of a run its server, if still running, gets Ctrl+C and up to 600 s for its save; then the
+  folder is removed file by file, never through a link or junction (a hard link's removal leaves the master's file
+  as it is). A run killed midway leaves its folder (and maybe its server): the next run's start (or `python -I
+  tools/testserver.py cleanup`) finds every folder whose owner process has exited (an exited process can still be opened while its parent holds a
+  handle: its exit counts, not its PID), stops its server the same way (never
+  killed: a server that does not end within 600 s is left for the next cleanup) and removes it. `instances` lists the
+  runs' folders.
+- **The master stays as it was.** The tools only read it (the copy, tibia.pem, compare_files --check-route's map).
+  Every run compares the size and time of all its files before the copy and after the run and says "the master is
+  unchanged", or names the files that changed (then another user of the master changed them: tools of a branch
+  before #146, or the owner's own `start --master`). `python -I tools/testserver.py checksums --write FILE` /
+  `--compare FILE` takes and compares the SHA-256 of every file. `start` without a run refuses; `start --master` runs
+  the master's server itself, for the owner's own use (it writes the master, as before #146).
+- **Disk**: about 550 MB a running copy (365 MB of it new data), so two runs at once take about 1.1 GB of `%TEMP%`'s
+  drive (it must be the master's for the hard links; elsewhere they are copies).
+
 ## Pointing the clients at it: tools/patch_client.py
 
 Both clients have the login servers and CipSoft's RSA modulus compiled in (src/Network.cpp InitServerList:
@@ -229,19 +288,21 @@ made on a hidden desktop of its own: nothing of it, of Tibia.exe or of the x64 c
 and nothing takes the focus. One Sandbox at a time: a second run waits for the first. notes/decisions.md, "#147".
 
 - **The server stays here.** The tool runs inside, with the clients and the proxy; the test server stays on the host
-  (until issue #146 the shared one of this file). `testserver.py start|stop` inside the Sandbox is passed to the host,
-  which runs it here, so a run started inside starts and stops the host's server exactly as before (and one it leaves
-  running is stopped when the run ends). Only one live run at a time, as before: the server and its ports are this
-  machine's.
-- **The ports reach the Sandbox through a reverse tunnel.** Inside, 127.0.0.1:7171 and 127.0.0.1:7172 are the host's:
+  (since issue #146 the run's private copy, below). `testserver.py start|stop` inside the Sandbox is passed to the
+  host, which runs it here, so a run started inside starts and stops the host's server exactly as before (and one it
+  leaves running is stopped when the run ends). A host-side live run (testmode_check's online part, headless) runs at
+  the same time on a private server of its own.
+- **The ports reach the Sandbox through a reverse tunnel.** Inside, 127.0.0.1:7171 and 127.0.0.1:7172 (since #146
+  the run's login and game port, from tunnel.json) are the host's:
   the Sandbox listens on them and the host, which connected to the Sandbox at its start, opens each connection to its
   own 127.0.0.1 and passes the bytes. So the clients are patched to 127.0.0.1 (and the proxy's 7271/7272 inside the
   Sandbox are its own) as on the host, the character list's 127.0.0.1:7172 is right inside too, and the server keeps
   its bind_address 127.0.0.1. No firewall rule on the host (the Sandbox cannot connect to the host: its connections
   to the host's addresses time out); the Sandbox turns its own firewall off for the host's connection.
-- **The files**: the test server's folder is mapped read-only at its own path (tibia.pem, the map), its data\usr
-  writable (the tools restore the test characters' player files from inside). The server's own files are written
-  only by the server on the host.
+- **The files**: the run's folder (its private server: instance.json and the copy) is mapped read-only at its own
+  path (tibia.pem, the map), the copy's data\usr writable (the tools restore the test characters' player files from
+  inside); the master is not mapped (issue #146; until then its data\usr was writable). The server's own files are
+  written only by the server on the host.
 
 ## Run folders
 

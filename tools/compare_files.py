@@ -1522,7 +1522,24 @@ def kill_client(run):
 	return result.returncode
 
 
+def live_needed(argv):
+	"""Whether main's arguments make the live recording (the one use of the test server): a scenario other than options,
+	and no --skip-live with a recording in --out."""
+	parser = argparse.ArgumentParser(add_help=False)
+	parser.add_argument("--out", default=os.path.join(FILES, "result"))
+	parser.add_argument("--only", default=",".join(SCENARIOS))
+	parser.add_argument("--skip-live", action="store_true")
+	args, _ = parser.parse_known_args(argv)
+	if all(name.strip() == "options" for name in args.only.split(",") if name.strip()):
+		return False
+	return not (args.skip_live and os.path.isfile(os.path.join(os.path.abspath(args.out), "walk-live.jsonl")))
+
+
 if __name__ == "__main__":
+	# issue #146: a private test server of its own for the live recording (a copy of the master, its own ports)
+	if live_needed(sys.argv[1:]):
+		ct.testserver.isolate(skip=("record", "compare", "--check-only", "--check-route", "--self-test", "-h",
+			"--help"))
 	# issue #147: inside Windows Sandbox unless --desktop (or --hidden) is given
 	sandbox.redirect(writable=[FILES], skip=("record", "compare", "--check-only", "--check-route", "--self-test", "-h",
 		"--help"))

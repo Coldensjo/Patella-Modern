@@ -51,8 +51,14 @@ patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2 do
 (issue #141): 4.4.5 everywhere; on Windows build.py runs the portable `C:\Servers\Software\cmake` (PATELLA_CMAKE_DIR
 overrides it; `python -I tools/build.py --install-cmake <folder>` installs Kitware's zip, SHA-256 checked), never the
 first cmake on PATH, and refuses another version; a build folder from CMake 4.1.2 needs one `--fresh`. The
-test server: `python -I tools/testserver.py start` / `stop`. Details: `notes/reconstruction.md`, "Building",
-"Test server", "Checking".
+test server (issue #146; notes/testserver.md, "A private server per run"): each live run has its own, a private copy of
+the master `C:\Tibia\gameserver` in `%TEMP%\patella-testservers\<run>` (config.cfg and tibia.db on 4 ports of its own
+from 7300-7499, data\map, usr, dat copied, mon, npc, origmap hard links, the master's tibia-server.exe run in it),
+removed afterwards; the tools never write the master. compare_traffic, compare_files and testmode_check make theirs
+(testserver.isolate); `python -I tools/testserver.py run -- <command>` for any other; inside a run `testserver.py
+start` / `stop` (outside one start refuses; `start --master` is the owner's own); `cleanup` removes a killed run's
+copy (the next run does it too); `checksums --write|--compare FILE` checks the master. Details:
+`notes/reconstruction.md`, "Building", "Test server", "Checking".
 The x64 client's only engine is the Vulkan engine, as engine 2 (issues #19, #20, `notes/vulkan.md`; the original
 engines left with the oracle, #94); its device is the advanced graphics options' choice (issue #31: "Automatic",
 "GPU", "CPU" in the engine buttons' places), stored as `Device` in `Patella.ini` next to Tibia.cfg (the fork's own
@@ -98,8 +104,10 @@ need a desktop (Tibia.exe's, the x64 client's unscripted live runs, compare_rend
 Windows Sandbox's since issue #147 (below).
 Windows Sandbox (issue #147; tools/sandbox.py, notes/testserver.md "Windows Sandbox"): compare_traffic.py,
 compare_files.py, compare_rendering.py (windowed and fullscreen, its display set to 1024x768) and compare_network.py
-run themselves inside Windows Sandbox by default, the whole tool (Tibia.exe, the x64 client, the proxy), the test
-server on the host through a reverse tunnel of 7171/7172; the Sandbox's window on a hidden desktop, so nothing shows on
+run themselves inside Windows Sandbox by default, the whole tool (Tibia.exe, the x64 client, the proxy), the run's
+private test server (#146) on the host through a reverse tunnel of its two ports (its folder mapped read-only, its
+copy's data\usr writable, the master not mapped); a host-side live run (testmode_check's online part, headless) runs
+beside it on a server of its own; the Sandbox's window on a hidden desktop, so nothing shows on
 the user's desktop; one Sandbox at a time (a second run waits); `python -I tools/sandbox.py run -- <tool.py> [args]`
 runs any tool there. `--desktop` runs them on this session's desktop as before; there a second interactive session
 (another Windows user, kept connected and unlocked) keeps the user's input away (issue #56; notes/reconstruction.md,
