@@ -17817,6 +17817,24 @@ CipSoft file, so hosted CI runs it, with the unit tests and tests_vulkan.
 Patella.exe's list loses what only MFC needed: winspool, shlwapi, oleaut32, delayimp, /DELAYLOAD:oleacc.dll,
 /NODEFAULTLIB:wsock32.lib. SDL3::SDL3-static brings its own.
 
+### Checks
+
+On the merged tree (main dd1147f, #153; logs in build\logs\issue-127\). All builds with golden: 15,803,218 + 1,512,822 =
+17,316,040, 0 failures. windows-x64 31 of 31, windows-x64-debug 30 of 30, windows-x64-asan 30 of 30, windows-x64-gcc 14 of
+14, linux-x64-gcc 26 of 26, linux-x64-clang 25 of 25 (ASan, UBSan); 0 warnings. reference compare: every session matches;
+testmode_check, compare_traffic, compare_files: no differences; compare_rendering both modes: all scenes identical;
+compare_network: 0 of 51 differ, 4 variable, 6 deliberate (#150's), with recordings\orig-live.jsonl. tidy_ci: 3 findings, the
+baseline; banned_calls and clang-format exit 0. The placeholder build's resource script compiled locally with rc.exe; the
+whole placeholder build runs on the hosted CI only.
+
+### Found, not done
+
+A recording made by compare_traffic since #146 carries its run's private ports in the character list (the game server's and
+the proxy's), which compare_rendering's and compare_network's replays do not rewrite to their own game port: replayed
+through build/traffic/result/orig-live.jsonl they never reach the game (a "no game connection" or every scenario ending at
+"Connection refused"). This run edited a local copy's ports to 7272 for compare_rendering and used
+buildecordings\orig-live.jsonl (issue #19's, port 7172) for compare_network. The tools should rewrite the port in replay.
+
 ### Removed
 
 `PATELLA_WINDOW`, platform/WindowChoice.h and its unit tests; vulkan/WindowSystemWin32.cpp (Win32WindowSystem) and its
