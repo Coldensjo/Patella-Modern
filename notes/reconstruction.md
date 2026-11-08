@@ -461,7 +461,9 @@ the root's files may be the user's own.
 ## Test server
 
 A local 7.72 server (C:\Tibia\gameserver, or the folder in `PATELLA_TESTSERVER`; not in the repository) that
-both clients log into (issue #18):
+both clients log into (issue #18). Since Patella-Modern issue #146 that folder is the master, which the tools only
+read: each live run gets a private copy on 4 ports of its own (`python -I tools/testserver.py run -- <command>`; the
+comparisons make theirs; notes/testserver.md, "A private server per run"), and inside a run
 `python -I tools/testserver.py start` / `stop` start and stop it (only a server it started is stopped; since
 Patella-Modern issue #68 start returns when both ports listen and the world is loaded, server.log's "Server
 Online!", and stops and restarts once a server of its own that stalls; since Patella-Modern issue #95 a bind error in
@@ -770,9 +772,9 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
      through fast user switching on this machine (Ctrl+Alt+Del, Switch user; or Start, the user's picture), or a
      Remote Desktop connection from another computer (Windows 11 Pro is a Remote Desktop host: Settings, System,
      Remote Desktop).
-  2. There: a terminal in the repository's folder, `python -I tools/testserver.py start`, the tools as usual
-     (without `--hidden`), `python -I tools/testserver.py stop`. The test server's ports (7171, 7172, the proxy's
-     7271, 7272) are the machine's, not the session's: one session at a time runs live checks. (The reference
+  2. There: a terminal in the repository's folder, the tools as usual (since #146 each makes its own server)
+     (without `--hidden`). The test server's ports are the machine's, not the session's (since #146 each run has
+     4 of its own, from 7300-7499, so runs no longer collide on them). (The reference
      compare's replay opens none since issue #120: compares run side by side, and next to a live check.)
   What Windows does to such a session (Windows 11 Pro, a client edition):
   - **One connected session at a time.** A workstation lets one user at a time use its desktop: a switch to the

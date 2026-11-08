@@ -721,6 +721,10 @@ manifests. The only 32-bit build is that DLL; no client is 32-bit. notes/decisio
 - **compare_network's bad frames are deliberate:** done in #150 (notes/decisions.md, "#150"): tools/deliberate.py
   lists #72's, #139's and #142's six frame scenarios with both clients' outcomes; compare_network reports them as
   deliberate, named with their issue, and nothing else differs.
+- **A test server of its own for every live run:** done in #146 (notes/decisions.md, "#146"): tools/testserver.py
+  makes each run a private copy of the master server folder on 4 ports of its own and removes it afterwards (a killed
+  run's by the next one); the tools never write C:\Tibia\gameserver, and live runs no longer wait for each other's
+  server.
 - **`final` on the classes nothing derives from** (#33's second half, after the oracle): done in #47
   (notes/decisions.md, "#47"): 70 classes; the 30 the golden tests use as seams (their fakes built by our
   constructors, stand-ins, a patched member that `final` lets MSVC inline) are listed with the reason.

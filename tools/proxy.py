@@ -4,7 +4,8 @@ A TCP proxy on 127.0.0.1 between a client (patched by tools/patch_client.py --po
 proxy's login port) and the local test server. Two modes:
 
 - live (Proxy(record_path)): the login connection goes to 127.0.0.1:7171, the game
-  connection to 127.0.0.1:7172. The character list the login server sends carries the game
+  connection to 127.0.0.1:7172 (a run's private server: its own ports, testserver.py, issue #146).
+  The character list the login server sends carries the game
   server's address; its port (7172) is rewritten to the proxy's game port, so the client's
   game connection comes through the proxy as well.
 - replay (Proxy(record_path, replay=events)): no server. Each connection of the client is
@@ -63,10 +64,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import testserver  # noqa: E402
 
 SERVER_HOST = "127.0.0.1"
-SERVER_LOGIN_PORT = 7171
-SERVER_GAME_PORT = 7172
-PROXY_LOGIN_PORT = 7271
-PROXY_GAME_PORT = 7272
+# The test server's ports and the proxy's: 7171, 7172, 7271, 7272, or the run's own (a private server per run,
+# testserver.py, issue #146: 4 ports from 7300-7499; inside Windows Sandbox the same, through its tunnel)
+SERVER_LOGIN_PORT = testserver.LOGIN_PORT
+SERVER_GAME_PORT = testserver.GAME_PORT
+PROXY_LOGIN_PORT = testserver.PROXY_LOGIN_PORT
+PROXY_GAME_PORT = testserver.PROXY_GAME_PORT
 DEFAULT_PEM = os.path.join(testserver.SERVER_DIR, "tibia.pem")  # the test server's (testserver.py, PATELLA_TESTSERVER)
 OPCODE_LOGIN = 0x01
 OPCODE_GAME = 0x0a

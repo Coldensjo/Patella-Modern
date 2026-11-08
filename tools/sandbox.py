@@ -25,8 +25,9 @@ How a run goes (run):
      Sandbox runs; a second run waits for it (and for a Sandbox someone else started), it does not fail.
   2. The configuration (tools/sandbox/patella.wsb.template, filled in; build\sandbox\<run>\patella.wsb): virtual GPU
      and networking on; mapped at the same paths as on the host, so every path of the tools and of the command line
-     is valid inside: the portable Python (read-only), the repository (read-only), the test server's folder
-     (read-only; its data\usr writable: the tools restore the test characters' player files), the tool's work
+     is valid inside: the portable Python (read-only), the repository (read-only), the run's private test server
+     (issue #146: its folder read-only, its copy's data\usr writable: the tools restore the test characters' player
+     files; without one the master's folder, read-only), the tool's work
      folders and --out (writable), the folder of any other existing path on the command line (read-only), and the
      run's exchange folder build\sandbox\<run> (writable).
   3. WindowsSandbox.exe starts it on a hidden desktop of its own (CreateDesktopW, STARTUPINFO.lpDesktop, as
@@ -38,8 +39,9 @@ How a run goes (run):
      the window so that the Sandbox's display has that size (it follows its window; compare_rendering.py's fullscreen
      runs need 1024x768). The Sandbox logs on and starts this script's guest part (LogonCommand), which turns the
      Sandbox's own firewall off (only inside it), starts the tunnel and writes ready.json.
-  4. The test server stays on the host (until issue #146 the shared one, tools/testserver.py). Its ports
-     (127.0.0.1:7171 and 7172) appear inside the Sandbox on the Sandbox's own 127.0.0.1, so the clients are patched
+  4. The test server stays on the host (since issue #146 the run's private one, tools/testserver.py). Its ports
+     (127.0.0.1:7171 and 7172, or the run's own: tunnel.json tells the guest) appear inside the Sandbox at the same
+     numbers on the Sandbox's own 127.0.0.1, so the clients are patched
      and the proxy forwards exactly as on the host: a connection to them inside goes, through a reverse tunnel, to
      the host's 127.0.0.1. Reverse: the host connects to the Sandbox (its address from ready.json), never the other
      way, because the host's firewall drops what comes from the Sandbox's network (and the login server listens on
@@ -82,7 +84,7 @@ SANDBOX_EXE = r"C:\Windows\System32\WindowsSandbox.exe"
 SANDBOX_PROCESSES = ("WindowsSandbox.exe", "WindowsSandboxRemoteSession.exe", "WindowsSandboxClient.exe",
 	"vmmemWindowsSandbox")
 WINDOW_PROCESSES = ("WindowsSandbox.exe", "WindowsSandboxRemoteSession.exe", "WindowsSandboxClient.exe")
-SERVER_PORTS = (7171, 7172)  # the test server's (tools/testserver.py), tunnelled into the Sandbox
+SERVER_PORTS = (7171, 7172)  # the test server's (tools/testserver.py), tunnelled into the Sandbox; a run's own: run()
 CONTROL_PORT = 47170  # inside the Sandbox: the host's control connection of the tunnel
 DATA_PORT = 47169  # inside the Sandbox: the host's data connections, one per tunnelled connection
 MEMORY_MB = 8192
@@ -185,7 +187,7 @@ def serve_request(io, name, value, state):
 	if op == "server-running" and len(args) == 1:
 		sys.path.insert(0, os.path.join(ROOT, "tools"))
 		import testserver
-		return {"running": bool(testserver.server_processes(testserver.server_exe(args[0])))}
+		return {"running": testserver.running(args[0])}  # issue #146: the run's private server
 	return {"code": 2, "output": "sandbox.py: unknown request %r\n" % value}
 
 
@@ -524,11 +526,12 @@ def guest(io):
 			text=True)
 		say("firewall inside the Sandbox off: exit %d" % result.returncode)
 		threading.Thread(target=watch_display, args=(io,), daemon=True).start()
-		tunnel = GuestTunnel(SERVER_PORTS)
+		ports = (read_json(os.path.join(io, "tunnel.json")) or {}).get("ports") or SERVER_PORTS  # issue #146
+		tunnel = GuestTunnel(ports)
 		tunnel.start()
 		address = guest_address()
 		write_json(os.path.join(io, "ready.json"), {"address": address, "control": CONTROL_PORT, "data": DATA_PORT,
-			"ports": list(SERVER_PORTS), "python": sys.version, "user": os.environ.get("USERNAME"),
+			"ports": list(ports), "python": sys.version, "user": os.environ.get("USERNAME"),
 			"logon": started})
 		say("ready at %s" % address)
 		deadline = time.monotonic() + 3600
@@ -743,10 +746,15 @@ def under(path, folder):
 	return path == folder or path.startswith(folder.rstrip("\\/") + os.sep)
 
 
-def server_dir():
+def server_folders():
+	"""(the folder mapped read-only, its writable data\\usr or None, the ports tunnelled): the run's private server
+	(testserver.py, issue #146: its run folder with instance.json and the copy), else the master, read-only."""
 	sys.path.insert(0, os.path.join(ROOT, "tools"))
 	import testserver
-	return testserver.SERVER_DIR
+	if testserver.INSTANCE is not None:
+		return (testserver.INSTANCE["folder"], os.path.join(testserver.SERVER_DIR, "data", "usr"),
+			(testserver.LOGIN_PORT, testserver.GAME_PORT))
+	return testserver.MASTER_DIR, None, SERVER_PORTS
 
 
 def path_arguments(args):
@@ -770,14 +778,14 @@ def out_arguments(args):
 	return [os.path.abspath(p) for p in found]
 
 
-def mappings(io, writable, args, gameserver):
+def mappings(io, writable, args, gameserver, usr=None):
 	"""[(folder, read_only)] in the order the Sandbox maps them, each at its own path inside. A writable folder under
-	a read-only one comes after it."""
+	a read-only one comes after it. gameserver: the test server's folder (read-only), usr: its writable data\\usr
+	(the run's private copy's; never the master's, issue #146)."""
 	result = [(python_home(), True), (ROOT, True)]
 	if gameserver and os.path.isdir(gameserver):
 		result.append((gameserver, True))
-		usr = os.path.join(gameserver, "data", "usr")
-		if os.path.isdir(usr):
+		if usr and os.path.isdir(usr):
 			result.append((usr, False))
 	for path in path_arguments(args):
 		folder = path if os.path.isdir(path) else os.path.dirname(path)
@@ -919,11 +927,13 @@ def run(argv, writable=(), keep=False, timeout=None, show_window=False, display=
 		name = time.strftime("%Y%m%d-%H%M%S") + "-%d" % os.getpid()
 		io = os.path.join(RUNS, name)
 		os.makedirs(io)
-		folders = mappings(io, writable, argv[1:], server_dir())
+		gameserver, usr, ports = server_folders()
+		folders = mappings(io, writable, argv[1:], gameserver, usr)
+		write_json(os.path.join(io, "tunnel.json"), {"ports": list(ports)})
 		wsb = os.path.join(io, "patella.wsb")
 		with open(wsb, "w", encoding="utf-8", newline="\r\n") as f:
 			f.write(configuration(folders, guest_command(io)))
-		log("run %s: %s" % (io, what))
+		log("run %s: %s (test server ports %s tunnelled)" % (io, what, ", ".join(map(str, ports))))
 		for folder, read_only in folders:
 			log("  mapped %s %s" % ("read-only" if read_only else "writable ", folder))
 		keeper = WindowKeeper()

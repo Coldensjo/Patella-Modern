@@ -17445,3 +17445,119 @@ issue #150's Sandbox run of the six on main's tree recorded them (build\logs\iss
   (build\logs\issue-150\compare_network.log). Before the change the six alone differed (network-six-before.log, 176 s).
 - Not run: the C++ presets, golden, tidy and clang-format (no C++ changed); the reference compare (the functions of
   deliberate.py it calls are unchanged).
+
+## #146: a private test server per run, on its own ports; the master never written (Patella-Modern issue #146, M7)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-146, from main c7e984f). The owner's request of November 7,
+the second step of the sandboxed tests (#147 was the first): two world files were cut that day (#137, #123) by runs
+sharing the one server in C:\Tibia\gameserver (a stop that killed it while it saved its map), and every live run waited
+for that server. Tools only; no client change. notes/testserver.md, "A private server per run".
+
+### What the server writes (high: the master's file times, its log, the server's own lines)
+
+The master's files by their modification time against the install (November 2, 08:54), after six days of runs:
+data\map all 9,873 sectors (179 MB: rewritten by every clean stop), data\usr 561 of 64,514 player files (the ~520 a stop
+saves, #18's finding), data\dat owners.dat (and monster.db, edited by hand on November 5), tibia.db, data\log all 7
+logs (112 MB, growing). Never written: the executable and DLLs, tibia.pem, schema.sql, data\mon (195 files), data\npc
+(376), data\origmap (9,873 sectors, 180 MB), the other data\dat files (2004-2006 times). config.cfg names its paths
+relative to the working directory (data_path "data", database_file, rsa_key_file); the server's banner prints the
+login and game port it took from config.cfg; tibia.db's Worlds.Port (7172) is the character list's game port.
+
+### The design (medium: the choices)
+
+- **A copy, not copy-on-write.** C: is NTFS (no block cloning for these files); hard links are only safe for files
+  the server never opens for writing, since a write through a link changes the master. So data\mon, data\npc and
+  data\origmap are hard links (10,444 files, 182 MB, free), everything else the server or the tools may write is a
+  real copy (74,406 files, 363 MB), data\log starts empty, the backup folder, the executable and its DLLs are left
+  out. 44 to 65 s alone, up to 105 s beside another run's copy (16 threads; the 64,514 small player files are most
+  of it). Copying only the 561 player files the server writes would be faster, but which ones it writes depends on
+  who is in the world at the stop: all are copied.
+- **The master's executable, run in the copy.** The server finds everything relative to its working directory, so
+  the master's tibia-server.exe runs with the copy as its working directory. Its path keeps the two Windows Firewall
+  "Allow" rules that name it (#18): a copied executable at a new path listening on 0.0.0.0 (the game port always
+  is) would bring up Windows' firewall prompt on the owner's desktop, and a dismissed prompt adds block rules, one
+  pair per run folder. Since several runs share that executable, start, stop and running() know their server by the
+  run's server.pid only (PID, image path, creation time), never by the image path alone.
+- **Four ports a run.** The login and game port (config.cfg's login_port and game_port, tibia.db's Worlds.Port) and
+  the proxy's pair, one block of 4 from 7300-7499: two host-side runs would otherwise both want the proxy's
+  7271/7272. A block is taken when no run's instance.json has it, nothing listens on it, it binds on 0.0.0.0 and no
+  Windows excluded range holds it (7300-7499 is in none on November 8); under a lock (msvcrt.locking of
+  RUNS_DIR\lock, released by Windows when its holder dies). Without a run the ports are 7171, 7172, 7271, 7272 as
+  before (reference.py's replays keep their own 7271/7272: no sockets since #120).
+- **The run's folder** is `%TEMP%\patella-testservers\<date>-<time>-<PID>` (PATELLA_TESTSERVER_RUNS overrides it):
+  machine-wide, so runs of several worktrees see each other's ports and stale copies; on the master's drive (the hard
+  links). PATELLA_TESTSERVER_RUN names it to the tools; testserver.py reads instance.json at import, and everything
+  that took SERVER_DIR or the ports from it before (compare_traffic.PLAYER_FILES and PEM, proxy.py, session_client's
+  game port, login_client.py, the Sandbox) follows without further change.
+- **Where a run begins: testserver.isolate()** in the `__main__` block of compare_traffic.py, compare_files.py (only
+  when it records its live walk) and testmode_check.py (its online runs), before sandbox.redirect(): it makes the copy
+  and runs the same command line again in that environment (as redirect does for the Sandbox), so every module-level
+  constant is the run's; afterwards it stops the run's server if it still runs and removes the copy. compare_rendering
+  and compare_network use no server; reference_record.py (frozen) is not changed and its start now refuses.
+- **start without a run refuses** ("the master is never written by the tools"); `start --master` keeps the old
+  behaviour for the owner's own use. The Sandbox no longer maps the master at all: the run's folder read-only, its
+  copy's data\usr writable (until now the master's data\usr was writable inside).
+- **The checks of the master.** Each run scans the master (size and modification time of all 84,865 files, about
+  2 s) before the copy and after the run: unchanged, or a WARNING naming the files (not a failure: tools of a branch
+  from before this issue, or the owner, may still run the master's server). A copy during which the master changed
+  is made again (up to 3 times): someone's server saved it meanwhile. `checksums --write|--compare` hashes every file
+  (18 s).
+- **Cleanup.** The end of a run stops its server (Ctrl+C, 600 s for the save once the map loads: #137's rule, never
+  a kill), keeps its logs in build\testserver\runs\<run>, removes the folder file by file without following a link
+  or junction. A run killed midway leaves its folder and maybe its server: the next run's start (or `cleanup`) takes
+  every folder whose owner process has exited (claimed through cleanup.claim, so two cleaners never meet), stops its
+  server the same way (one that does not end in 600 s is left for the next time) and removes it.
+- **The bind race's retry waits up to 180 s for "Server Online!"** (--stall, was --after-online's 60 s) before the
+  Ctrl+C of the failed attempt: a fresh copy's first map load took 42 to 116 s (the copied files are cold; the
+  restarts of the same copy load in 3.5 to 5.6 s), and the Ctrl+C is meant to come after the load (#95).
+
+### Found while proving it (high)
+
+- **A killed process still "ran"** for the first version: owner_alive compared the PID's creation time only, and a
+  process that has exited can still be opened (with its creation time) while its parent holds a handle, as the shell
+  or Popen that started the run does. process_running() now also waits on it (WaitForSingleObject, 0 ms); the
+  server's started_server() too. Self-test: an exited child with its handle still held is "gone".
+- **testmode_check's walk meets the temple NPC.** In the third proof one of 8 testmode_check runs sent no first step
+  north (8 client packets, not 9): the dump before the walks has Cipfried at 32097,32218, next to the player at
+  32098,32219 (run 1: 32096,32217), and the client does not step onto a field with a creature. That is world state of
+  the run's own server (the NPC walks at random), the race #137 removed from compare_traffic's look, not this change;
+  the other 7 runs and every other testmode_check run of this issue were identical. Not done here: a walk script
+  that the NPC cannot block (#137's way).
+
+### Checks
+
+- Gate 1: `python -I tools/testserver.py self-test` exit 0 (the start's wait: 0 failures; the private copies: 26
+  checks, 0 failures: the copy's plan, config.cfg and tibia.db, the hard links and the copies, data\log and data\save,
+  the config's refusals, the ports, an owner that ended with its handle held, the sweep of a run whose owner is gone
+  with a junction into the made-up master in its folder, the master's checksums unchanged, remove_tree's refusal),
+  `python -I tools/sandbox.py --self-test` exit 0, testmode_check.py and compare_files.py `--self-test` exit 0,
+  py_compile of every changed tool (build\logs\issue-146\gate1-*.log).
+- The master's checksums: `testserver.py checksums --write` before the first run (06:38, 84,865 files, 671 MB,
+  master-before.sha256), identical after the first parallel pair (06:51) and after the kill test (07:19:31).
+- Two live runs on separate servers at the same time, both passing (proof-*.log, proof3-*.log):
+  1. compare_traffic.py in Windows Sandbox (its server on 7380/7381, 8 tunnelled connections) and testmode_check.py
+     on the host, headless (7404/7405): both servers ran at once (proof-overlap.log, 06:49:54), both exit 0, no
+     differences, both copies removed, "the master is unchanged" from each.
+  2. A Windows Sandbox start that ended 12 s after WindowsSandbox.exe without running its logon command (no guest.log;
+     compare_files exit 2, nothing of the run had started; testmode_check --runs 4 beside it exit 0, no differences).
+  3. Again: testmode_check.py --runs 8 (7364/7365) and compare_files.py in the Sandbox (7324/7325): both servers had
+     established game connections at the same moment, five samples 07:04:24-07:04:34 (proof3-overlap.log: netstat's
+     ESTABLISHED rows of 7365 and 7325, the two server PIDs); compare_files exit 0, no differences; testmode_check 7 of
+     8 runs identical, run 4 without its first step (the NPC, above), exit 1.
+  4. With the final code (after the two fixes above): compare_traffic in the Sandbox (7396/7397) exit 0, no
+     differences, and testmode_check on the host (7380/7381) exit 0, no differences, its copy made while
+     compare_traffic's server ran (final-*.log). compare_traffic's run named the master's change of 07:21-07:22: the
+     server of #124's worktree (code from before this issue) on the master, which shut down cleanly ("Server shut down
+     successfully", its build\testserver\server.log); 131 files differ by content from master-before.sha256
+     (master-final-compare.log), none written by this issue's runs.
+- A run killed midway (proof-kill-midway.log; build\logs\issue-146\kill_test.py, not committed): `testserver.py run`
+  with a command that starts the server and sleeps; once start returned with the world loaded, the wrapper and its
+  command were killed (TerminateProcess, never the server). The copy and its server (PID 12020) stayed, "owner PID
+  gone"; the next `testserver.py run -- python -c pass` cleaned it up first (Ctrl+C, the server exited after its
+  save, the folder removed), then made and removed its own; no private server left; the master's checksums
+  identical. The first attempt of that test found the owner bug above and left a run whose cleanup is
+  proof-kill-midway-cleanup.log.
+- Gate 3: compare_traffic (runs 1 and 4) and compare_files (run 3) in the Sandbox on private servers, no
+  differences; `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference --exe
+  C:/Tibia/Patella-Modern/build/windows-x64/Release/PatellaTest.exe` exit 0, every session matches its reference
+  (gate3-reference-compare.log). The clients were main's build (C:\Tibia\Patella-Modern, a11086e; no src change here).

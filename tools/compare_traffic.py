@@ -211,8 +211,9 @@ def setup(extra=()):
 	the clients under test log in through the proxy's port, the helper straight to the server.
 	extra: more run folders for the clients under test (orig-repeat: a second run of Tibia.exe gets
 	a folder of its own, issue #12)."""
+	# the helper's login port: the server's (7171 needs no patch; a run's private server has its own, issue #146)
 	runs = [("orig", CLIENTS["orig"], px.PROXY_LOGIN_PORT), ("patella", CLIENTS["patella"], px.PROXY_LOGIN_PORT),
-		("helper", HELPER, None)]
+		("helper", HELPER, None if px.SERVER_LOGIN_PORT == 7171 else px.SERVER_LOGIN_PORT)]
 	runs += [(name, CLIENTS[client_of(name)], px.PROXY_LOGIN_PORT) for name in extra]
 	for name, info, port in runs:
 		folder = run_dir(name)
@@ -307,7 +308,7 @@ def server_running():
 	answer (issue #147)."""
 	if sandbox.inside():
 		return sandbox.server_running(SERVER_DIR)
-	return bool(testserver.server_processes(testserver.server_exe(SERVER_DIR)))
+	return testserver.running(SERVER_DIR)  # issue #146: the run's private server, not another run's
 
 
 def start_server():
@@ -317,13 +318,14 @@ def start_server():
 	login server listens on 0.0.0.0. The server's login thread reads its bind address from a global
 	(GameAddress) that LoadWorldConfig overwrites while the thread starts (src/main.cc,
 	login/login_server.cc), so now and then it binds 0.0.0.0:7171 although config.cfg says 127.0.0.1."""
+	anywhere = "0.0.0.0:%d" % px.SERVER_LOGIN_PORT  # 7171, or the run's private server's (issue #146)
 	for attempt in range(1, 6):
 		output = server_script("start")
-		if "0.0.0.0:7171" not in output:
+		if anywhere not in output:
 			return
-		log("the login server listens on 0.0.0.0:7171 (the server's start-up race): restarting it")
+		log("the login server listens on %s (the server's start-up race): restarting it" % anywhere)
 		server_script("stop")
-	raise RunError("the login server listened on 0.0.0.0:7171 five times")
+	raise RunError("the login server listened on %s five times" % anywhere)
 
 
 def server_script(command):
@@ -705,7 +707,9 @@ def main():
 
 
 if __name__ == "__main__":
-	# issue #147: inside Windows Sandbox unless --desktop (or --hidden) is given
+	# issue #146: a private test server of its own (a copy of the master, its own ports), then (issue #147) inside
+	# Windows Sandbox unless --desktop (or --hidden) is given
+	testserver.isolate(skip=("record", "compare", "--check-only", "-h", "--help"))
 	sandbox.redirect(writable=[TRAFFIC], skip=("record", "compare", "--check-only", "-h", "--help"))
 	desktop.hide(skip=("--check-only", "-h", "--help"))  # issue #56: only with --hidden
 	try:

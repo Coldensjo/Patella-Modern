@@ -44,6 +44,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import client_start  # noqa: E402
 import login_client as lc  # noqa: E402
 import testmode_client as tc  # noqa: E402
+import testserver  # noqa: E402
 
 WM_KEYDOWN = 0x0100
 WM_KEYUP = 0x0101
@@ -110,12 +111,13 @@ class Driver:
 
 	manual_clock = False
 
-	def __init__(self, run_dir, exe, pdb_exe=None, game_port=7272, log=lc.log, test=False, test_arguments=(),
+	def __init__(self, run_dir, exe, pdb_exe=None, game_port=None, log=lc.log, test=False, test_arguments=(),
 			scripted=False):
 		self.run_dir = os.path.abspath(run_dir)
 		self.exe = exe
 		self.pdb_exe = pdb_exe
-		self.game_port = game_port
+		# the proxy's game port (tools/proxy.py: 7272, or the run's own since issue #146)
+		self.game_port = game_port if game_port is not None else testserver.PROXY_GAME_PORT
 		self.log = log
 		self.proc = None
 		self.hwnd = None

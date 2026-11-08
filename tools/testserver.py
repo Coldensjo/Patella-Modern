@@ -4,7 +4,24 @@ Usage:
   python -I tools/testserver.py start [--server-dir DIR] [--timeout 900] [--stall 180] [--after-online 60]
                                       [--retries 1] [--bind-retries 3] [--window]
   python -I tools/testserver.py stop [--server-dir DIR] [--timeout SECONDS] [--force]
-  python -I tools/testserver.py self-test      (no server: the start's wait on made-up servers, issue #68)
+  python -I tools/testserver.py self-test      (no server: the start's wait on made-up servers, issue #68; the private
+                                               copies on a made-up master, issue #146)
+  python -I tools/testserver.py run [--keep] -- <command> [arguments]
+  python -I tools/testserver.py cleanup | instances
+  python -I tools/testserver.py checksums (--write FILE | --compare FILE) [--server-dir DIR]
+
+A private server per run (Patella-Modern issue #146; notes/testserver.md, "A private server per run"): `run` makes a
+private copy of the master server folder (C:\Tibia\gameserver, PATELLA_TESTSERVER) in PATELLA_TESTSERVER_RUNS (default
+%TEMP%\patella-testservers\<run>\server): config.cfg with ports of its own, tibia.db with the world's port changed,
+data\map, data\usr, data\dat and data\save copied, data\mon, data\npc and data\origmap hard links (the server never
+writes them), data\log empty. It runs <command> with PATELLA_TESTSERVER_RUN=<run folder>; in that environment start and
+stop run the master's tibia-server.exe (its firewall rule; nothing copied of it) with the copy as its working
+directory, on the run's ports (login, game, and the proxy's pair: 4 ports from 7300-7499), and every tool takes the
+copy's folder and ports from here. Afterwards the server is stopped (never killed: it saves) and the copy removed. A
+copy whose run ended without that (killed) is cleaned up by the next run's start (`cleanup` does it at once).
+The comparisons call isolate() before sandbox.redirect(), so each live run has its own copy. Without
+PATELLA_TESTSERVER_RUN, start refuses: the master is never written by the tools (`start --master` runs the master
+itself, the owner's own use). `checksums` writes or compares the SHA-256 of every file of a server folder.
 
 start runs tibia-server.exe (tibia-server elsewhere) from its own folder (--server-dir; default the
 environment variable PATELLA_TESTSERVER, else C:\Tibia\gameserver, issue #2; where config.cfg, tibia.db
@@ -60,30 +77,80 @@ there, the server's start-up race) and then "world loaded" or "world: not shown 
 """
 import argparse
 import ctypes
+import hashlib
 import ipaddress
+import json
 import os
 import re
+import shutil
 import signal
+import socket
+import sqlite3
+import stat
 import struct
 import subprocess
 import sys
+import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STATE_DIR = os.path.join(ROOT, "build", "testserver")
-PID_FILE = os.path.join(STATE_DIR, "server.pid")
-LOG_FILE = os.path.join(STATE_DIR, "server.log")
-ERR_FILE = os.path.join(STATE_DIR, "server.err")
-# The test server's folder (issue #2): PATELLA_TESTSERVER, else C:\Tibia\gameserver. The one place of
-# that default: compare_traffic.py (and through it the other comparisons), proxy.py and compare_files.py
-# take SERVER_DIR from here.
+MASTER_STATE_DIR = os.path.join(ROOT, "build", "testserver")  # start --master's server.pid and server.log
+# The test server's folder (issue #2): PATELLA_TESTSERVER, else C:\Tibia\gameserver: the master copy, which the tools
+# only read since issue #146. The one place of that default: compare_traffic.py (and through it the other
+# comparisons), proxy.py and compare_files.py take SERVER_DIR from here.
 DEFAULT_SERVER_DIR = r"C:\Tibia\gameserver"
-SERVER_DIR = os.environ.get("PATELLA_TESTSERVER") or DEFAULT_SERVER_DIR
-SERVER_DIR_HELP = ("the server's folder (default %(default)s: PATELLA_TESTSERVER, else "
-	+ DEFAULT_SERVER_DIR.replace("%", "%%") + ")")
+MASTER_DIR = os.environ.get("PATELLA_TESTSERVER") or DEFAULT_SERVER_DIR
 EXE_NAME = "tibia-server.exe" if os.name == "nt" else "tibia-server"
-LOGIN_PORT, GAME_PORT = 7171, 7172
 WINDOWS = os.name == "nt"
+DEFAULT_PORTS = (7171, 7172, 7271, 7272)  # the master's login and game port, the proxy's (tools/proxy.py)
+# --- a private server per run (issue #146) ---
+ENV_RUN = "PATELLA_TESTSERVER_RUN"  # the run's folder: instance.json, server.log, server.pid, server\ (the copy)
+RUNS_DIR = os.environ.get("PATELLA_TESTSERVER_RUNS") or os.path.join(tempfile.gettempdir(), "patella-testservers")
+INSTANCE_FILE = "instance.json"
+RUN_NAME = re.compile(r"^\d{8}-\d{6}-\d+$")
+PORT_FIRST, PORT_BLOCKS = 7300, 50  # 4 ports a run: login, game, the proxy's login and game; 7300-7499
+LINKED = ("mon", "npc", "origmap")  # data\ folders the server only reads: hard links to the master's files
+EMPTY = ("log",)  # data\ folders that start empty (the master's logs are 100 MB and only grow)
+# The config.cfg keys that name files or folders: relative paths only, or the copy's server would use the master's
+CONFIG_PATHS = ("data_path", "map_path", "monster_path", "npc_path", "user_path", "save_path", "log_path",
+	"database_file", "rsa_key_file")
+
+
+def load_instance(folder):
+	"""instance.json of a run's folder as a dict (its paths made absolute), or None."""
+	try:
+		with open(os.path.join(folder, INSTANCE_FILE), encoding="utf-8") as f:
+			value = json.load(f)
+	except (OSError, ValueError):
+		return None
+	value["folder"] = os.path.abspath(folder)
+	value["server"] = os.path.join(value["folder"], "server")
+	return value
+
+
+RUN_DIR = os.environ.get(ENV_RUN) or None
+INSTANCE = load_instance(RUN_DIR) if RUN_DIR else None
+if RUN_DIR and INSTANCE is None:
+	raise RuntimeError("%s=%s: no %s there (the run's private server is gone)" % (ENV_RUN, RUN_DIR, INSTANCE_FILE))
+# The server folder every tool uses: the run's private copy, else the master (read only).
+SERVER_DIR = INSTANCE["server"] if INSTANCE else MASTER_DIR
+LOGIN_PORT, GAME_PORT, PROXY_LOGIN_PORT, PROXY_GAME_PORT = (tuple(INSTANCE["ports"]) if INSTANCE else DEFAULT_PORTS)
+STATE_DIR = INSTANCE["folder"] if INSTANCE else MASTER_STATE_DIR
+SERVER_DIR_HELP = ("the server's folder (default %(default)s: the run's private copy, else PATELLA_TESTSERVER, else "
+	+ DEFAULT_SERVER_DIR.replace("%", "%%") + ")")
+
+
+def set_state(folder):
+	"""The folder of server.pid, server.log and server.err that start and stop use (a run's, or the master's)."""
+	global STATE_DIR, PID_FILE, LOG_FILE, ERR_FILE
+	STATE_DIR = folder
+	PID_FILE = os.path.join(folder, "server.pid")
+	LOG_FILE = os.path.join(folder, "server.log")
+	ERR_FILE = os.path.join(folder, "server.err")
+
+
+set_state(STATE_DIR)
 # The server's output in server.log: a line it writes before it listens, and the line it writes once the
 # world is loaded and it is online (issue #25; the wait moved here from testmode_check.py in issue #68).
 LOG_EARLY = "Starting Login Server"
@@ -381,12 +448,14 @@ def read_log():
 
 
 def wait_ready(poll, listening, log_text, cpu, timeout=START_TIMEOUT, stall=START_STALL, after_online=AFTER_ONLINE,
-		clock=time.monotonic, sleep=time.sleep):
+		clock=time.monotonic, sleep=time.sleep, ports=None):
 	"""Waits until a starting server is ready (issue #68): both ports listening and its world loaded.
 	poll() is the process's exit code or None, listening() its listening sockets as "address:port",
 	log_text() server.log's text, cpu() its CPU time in seconds (or None). Returns (state, detail):
 	("ready", (listening, "online" or "unknown")), ("exited", code), ("bind", (server, port, code or None, the
-	line)) as soon as server.log has a bind error (issue #95), ("stalled", text) or ("timeout", text)."""
+	line)) as soon as server.log has a bind error (issue #95), ("stalled", text) or ("timeout", text).
+	ports: (login, game), default the run's (issue #146)."""
+	login_port, game_port = ports or (LOGIN_PORT, GAME_PORT)
 	started = clock()
 	last_progress = started
 	seen = None
@@ -401,7 +470,7 @@ def wait_ready(poll, listening, log_text, cpu, timeout=START_TIMEOUT, stall=STAR
 		if failed is not None:
 			return "bind", failed
 		ports = {int(entry.rpartition(":")[2]) for entry in entries}
-		both = LOGIN_PORT in ports and GAME_PORT in ports
+		both = login_port in ports and game_port in ports
 		online = LOG_ONLINE in text
 		if both and online:
 			return "ready", (entries, "online")
@@ -415,7 +484,7 @@ def wait_ready(poll, listening, log_text, cpu, timeout=START_TIMEOUT, stall=STAR
 			last_progress = now
 		elif used is not None and seen[1] is None:
 			seen = (seen[0], used)
-		missing = ", ".join(str(port) for port in (LOGIN_PORT, GAME_PORT) if port not in ports)
+		missing = ", ".join(str(port) for port in (login_port, game_port) if port not in ports)
 		if online:
 			if online_since is None:
 				online_since = now
@@ -545,28 +614,63 @@ def keep_attempt_log(attempt):
 	return target
 
 
+def run_exe(server_dir):
+	"""The executable start runs for server_dir: the master's for the run's private copy (issue #146: its own path, so
+	Windows Firewall's rule for it holds and nothing of it is copied), else the folder's own."""
+	if INSTANCE is not None and norm(server_dir) == norm(INSTANCE["server"]):
+		return INSTANCE["exe"]
+	return os.path.abspath(os.path.join(server_dir, EXE_NAME))
+
+
+def norm(path):
+	return os.path.normcase(os.path.abspath(path))
+
+
+def running(server_dir=None):
+	"""Whether the server of server_dir runs (compare_traffic.server_running): for the run's private copy the server
+	its start started (server.pid; the master's executable runs other runs' servers too), else any process of the
+	folder's executable."""
+	server_dir = server_dir or SERVER_DIR
+	exe = server_exe_path(run_exe(server_dir))
+	if INSTANCE is not None and norm(server_dir) == norm(INSTANCE["server"]):
+		return started_server(exe) is not None
+	return bool(server_processes(exe))
+
+
+def server_exe_path(exe):
+	return os.path.normcase(os.path.abspath(exe) if WINDOWS else os.path.realpath(exe))
+
+
 def start(server_dir, timeout=START_TIMEOUT, window=False, stall=START_STALL, after_online=AFTER_ONLINE,
-		retries=START_RETRIES, bind_retries=BIND_RETRIES):
-	exe = os.path.join(server_dir, EXE_NAME)
+		retries=START_RETRIES, bind_retries=BIND_RETRIES, master=False):
+	private = INSTANCE is not None and norm(server_dir) == norm(INSTANCE["server"])
+	if not private and not master:
+		# issue #146: the master (C:\Tibia\gameserver) is never written by the tools
+		say("start", "no private server for %s: a run's own copy comes with `python -I tools/testserver.py run -- "
+			"<command>` (the comparisons make one themselves); --master starts the master folder's server itself "
+			"(it writes that folder: the owner's own use, never the tools')" % server_dir)
+		return 1
+	exe = run_exe(server_dir)
 	if not os.path.isfile(exe):
 		say("start", "%s not found" % exe)
 		return 1
-	exe = os.path.abspath(exe)
 	failures = {"bind": 0, "other": 0}
 	attempt = 0
 	while True:
 		attempt += 1
 		# before every attempt: a server the tools did not start, or a port someone else holds, is never touched
-		running = server_processes(server_exe(server_dir))
-		if running:
-			say("start", "already running (PID %s)" % ", ".join(map(str, running)))
+		running_now = [started_server(server_exe_path(exe))] if private else server_processes(server_exe(server_dir))
+		running_now = [pid for pid in running_now if pid is not None]
+		if running_now:
+			say("start", "already running (PID %s)" % ", ".join(map(str, running_now)))
 			return 1
 		for port in (LOGIN_PORT, GAME_PORT):
 			if any(p == port for _, _, p in listeners()):
 				say("start", "port %d is already in use" % port)
 				return 1
 		process = spawn(exe, server_dir, window)
-		say("start", "started PID %d, log %s (attempt %d)" % (process.pid, LOG_FILE, attempt))
+		say("start", "started PID %d, log %s (attempt %d)%s" % (process.pid, LOG_FILE, attempt, (", private copy %s,"
+			" ports %d and %d" % (server_dir, LOGIN_PORT, GAME_PORT)) if private else ""))
 		begun = time.monotonic()
 		state, detail = wait_ready(process.poll,
 			lambda: ["%s:%d" % (address, port) for pid, address, port in listeners()
@@ -590,10 +694,12 @@ def start(server_dir, timeout=START_TIMEOUT, window=False, stall=START_STALL, af
 			server, port, code, line = detail
 			say("start", "bind error in server.log after %.1f s: %r" % (time.monotonic() - begun, line))
 			say("start", explain_bind(server, port, code, windows_excluded_ranges()))
-			# its Ctrl+C once the world is loaded: the usual shutdown, not one in the middle of the map's load
-			online = wait_online(process.poll, read_log, after_online)
+			# its Ctrl+C once the world is loaded: the usual shutdown, not one in the middle of the map's load. Up to
+			# --stall (180 s), not --after-online: a run's fresh private copy loads its map in 45 to 120 s (issue #146)
+			loading = max(after_online, stall)
+			online = wait_online(process.poll, read_log, loading)
 			say("start", "stopping PID %d (the one this start started)%s" % (process.pid, "" if online else
-				", %r not said within %d s" % (LOG_ONLINE, after_online)))
+				", %r not said within %d s" % (LOG_ONLINE, loading)))
 			if process.poll() is not None:
 				remove_pid_file()
 			elif stop(server_dir, stop_timeout(read_log()), True) != 0:
@@ -627,6 +733,8 @@ def started_server(exe):
 		return None
 	if started is not None and process_started(pid) != started:
 		return None
+	if not process_running(pid):  # ended, its handle still held (issue #146)
+		return None
 	return pid
 
 
@@ -644,18 +752,25 @@ def send_ctrl_c(pid):
 
 
 def stop(server_dir, timeout, force):
-	exe = server_exe(server_dir)
+	private = INSTANCE is not None and norm(server_dir) == norm(INSTANCE["server"])
+	exe = server_exe_path(run_exe(server_dir))
 	pid = started_server(exe)
 	if pid is None:
 		remove_pid_file()
-		others = server_processes(exe)
+		# a run's copy: the master's executable also runs other runs' servers, none of them this run's
+		others = [] if private else server_processes(exe)
 		if others:
 			say("stop", "a server these tools did not start is running (PID %s): not touched"
 				% ", ".join(map(str, others)))
 			return 1
 		say("stop", "no server running")
 		return 0
+	return stop_pid(pid, timeout, force)
 
+
+def stop_pid(pid, timeout, force):
+	"""Ctrl+C (SIGINT) to the server `pid` that start started (server.pid of STATE_DIR), then the wait; with force it is
+	killed after `timeout`. 0 when it is gone."""
 	if WINDOWS:
 		DETACHED_PROCESS = 0x00000008
 		code = subprocess.call([sys.executable, "-I", os.path.abspath(__file__), "_ctrl-c", str(pid)],
@@ -678,6 +793,534 @@ def stop(server_dir, timeout, force):
 		return 0
 	say("stop", "PID %d still running after %d s (use --force to kill it)" % (pid, timeout))
 	return 1
+
+
+# --- a private server per run (issue #146) -------------------------------------------------
+
+def run_say(text):
+	print("testserver run: %s" % text, flush=True)
+
+
+class RunsLock:
+	"""The lock of RUNS_DIR (held while a run picks its ports and writes its instance.json): a byte-range lock on
+	RUNS_DIR\\lock, which Windows (or flock) releases when its process ends, killed or not."""
+
+	def __init__(self, root=None, timeout=300):
+		self.root = root or RUNS_DIR
+		self.timeout = timeout
+		self.file = None
+
+	def __enter__(self):
+		os.makedirs(self.root, exist_ok=True)
+		self.file = open(os.path.join(self.root, "lock"), "a+b")
+		deadline = time.monotonic() + self.timeout
+		while True:
+			try:
+				if WINDOWS:
+					import msvcrt
+					self.file.seek(0)
+					msvcrt.locking(self.file.fileno(), msvcrt.LK_NBLCK, 1)
+				else:
+					import fcntl
+					fcntl.flock(self.file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+				return self
+			except OSError:
+				if time.monotonic() > deadline:
+					self.file.close()
+					raise RuntimeError("%s: locked for %d s by another run" % (os.path.join(self.root, "lock"),
+						self.timeout))
+				time.sleep(0.2)
+
+	def __exit__(self, *exc):
+		try:
+			if WINDOWS:
+				import msvcrt
+				self.file.seek(0)
+				msvcrt.locking(self.file.fileno(), msvcrt.LK_UNLCK, 1)
+			else:
+				import fcntl
+				fcntl.flock(self.file.fileno(), fcntl.LOCK_UN)
+		finally:
+			self.file.close()
+
+
+def is_reparse(entry_stat):
+	"""A symbolic link or a junction (never followed into: a junction may lead into the master)."""
+	return stat.S_ISLNK(entry_stat.st_mode) or bool(getattr(entry_stat, "st_file_attributes", 0) & 0x400)
+
+
+def scan(root, dirs=None):
+	"""{relative path: (size, mtime_ns)} of every file under root, and the relative paths of the links and junctions
+	found (not followed); the folders' relative paths are appended to dirs (a list) when given."""
+	files = {}
+	links = []
+	pending = [""]
+	while pending:
+		rel = pending.pop()
+		with os.scandir(os.path.join(root, rel)) as entries:
+			for entry in entries:
+				path = os.path.join(rel, entry.name)
+				info = entry.stat(follow_symlinks=False)
+				if is_reparse(info):
+					links.append(path)
+				elif stat.S_ISDIR(info.st_mode):
+					pending.append(path)
+					if dirs is not None:
+						dirs.append(path)
+				else:
+					files[path] = (info.st_size, info.st_mtime_ns)
+	return files, links
+
+
+def state_changes(before, after):
+	"""The relative paths that differ between two scans' files (changed, added, removed), sorted."""
+	return sorted(path for path in set(before) | set(after) if before.get(path) != after.get(path))
+
+
+def config_value(text, key):
+	"""The value of an uncommented `key = value` line of config.cfg (quotes removed), or None; ValueError when the key
+	is there more than once."""
+	values = re.findall(r'(?m)^[ \t]*%s[ \t]*=[ \t]*("([^"\n]*)"|[^\s#]+)' % re.escape(key), text)
+	if len(values) > 1:
+		raise ValueError("config.cfg has %s %d times" % (key, len(values)))
+	if not values:
+		return None
+	return values[0][1] if values[0][0].startswith('"') else values[0][0]
+
+
+def private_config(text, login_port, game_port):
+	"""config.cfg for a private copy: its own login and game port. Refuses (ValueError) a configuration whose files
+	would not be the copy's own: an absolute or `..` path, a database other than SQLite (a MySQL or PostgreSQL server
+	is shared)."""
+	for key in CONFIG_PATHS:
+		value = config_value(text, key)
+		if value is None:
+			continue
+		parts = re.split(r"[\\/]", value)
+		if os.path.isabs(value) or re.match(r"^[A-Za-z]:", value) or ".." in parts:
+			raise ValueError("config.cfg's %s = %r is not inside the server's folder: the private copy's server would use"
+				" the master's files" % (key, value))
+	db_type = config_value(text, "db_type")
+	if db_type is not None and db_type.lower() != "sqlite":
+		raise ValueError("config.cfg's db_type = %r: only SQLite (tibia.db, copied) keeps a run's database its own"
+			% db_type)
+	for key, port in (("login_port", login_port), ("game_port", game_port)):
+		text, count = re.subn(r"(?m)^([ \t]*%s[ \t]*=[ \t]*)\d+" % key, lambda m: m.group(1) + str(port), text)
+		if count != 1:
+			raise ValueError("config.cfg has %d %s lines (one expected)" % (count, key))
+	return text
+
+
+def private_database(path, game_port):
+	"""The copy's tibia.db: every world's Port (the character list's game port) set to the run's."""
+	connection = sqlite3.connect(path)
+	try:
+		count = connection.execute("UPDATE Worlds SET Port = ?", (game_port,)).rowcount
+		connection.commit()
+	finally:
+		connection.close()
+	if count < 1:
+		raise ValueError("%s: no world in the Worlds table" % path)
+	return count
+
+
+def copy_plan(master, files, folders=()):
+	"""[(action, relative path)] of a private copy, from scan(master)'s files: "link" (a hard link: data\\mon, npc,
+	origmap, which the server only reads), "copy" (everything the server or the tools may write: config.cfg, tibia.db,
+	data\\map, usr, dat, save), "dir" (data\\log, empty). Left out: the executable and its DLLs (the master's run),
+	tibia.db-shm (rebuilt from the WAL) and every other folder than data (backups)."""
+	plan = []
+	dirs = set()
+	for rel in sorted(files):
+		parts = rel.split(os.sep)
+		if len(parts) == 1:
+			name = parts[0].lower()
+			if name == EXE_NAME.lower() or (WINDOWS and name.endswith(".dll")) or name.endswith("-shm"):
+				continue
+			plan.append(("copy", rel))
+		elif parts[0].lower() == "data":
+			sub = parts[1].lower() if len(parts) > 2 else None
+			if sub in EMPTY:
+				dirs.add(os.path.join(parts[0], parts[1]))
+			else:
+				plan.append(("link" if sub in LINKED else "copy", rel))
+	for rel in folders:  # the empty ones too (data\save)
+		parts = rel.split(os.sep)
+		if parts[0].lower() == "data" and not (len(parts) > 2 and parts[1].lower() in EMPTY):
+			dirs.add(rel)
+	for name in EMPTY:  # data\log even when the master has none
+		if os.path.isdir(os.path.join(master, "data")):
+			dirs.add(os.path.join("data", name))
+	return [("dir", rel) for rel in sorted(dirs)] + plan
+
+
+def copy_master(master, target, plan, threads=16):
+	"""Carries out copy_plan into target; returns {"copy": (files, bytes), "link": (files, bytes)}. A hard link that
+	cannot be made (another volume) is a copy."""
+	made = set()
+	for action, rel in plan:
+		folder = os.path.join(target, rel) if action == "dir" else os.path.dirname(os.path.join(target, rel))
+		if folder not in made:
+			os.makedirs(folder, exist_ok=True)
+			made.add(folder)
+	totals = {"copy": [0, 0], "link": [0, 0]}
+
+	def one(item):
+		action, rel = item
+		source, destination = os.path.join(master, rel), os.path.join(target, rel)
+		if action == "link":
+			try:
+				os.link(source, destination)
+				return "link", os.path.getsize(destination)
+			except OSError:
+				pass
+		shutil.copy2(source, destination)
+		return "copy", os.path.getsize(destination)
+
+	with ThreadPoolExecutor(threads) as pool:
+		for kind, size in pool.map(one, [item for item in plan if item[0] != "dir"]):
+			totals[kind][0] += 1
+			totals[kind][1] += size
+	return {kind: tuple(value) for kind, value in totals.items()}
+
+
+def port_free(port, listening):
+	"""Nothing listens on the port and it binds on 0.0.0.0 (the game server binds all interfaces)."""
+	if port in listening:
+		return False
+	s = socket.socket()
+	try:
+		s.bind(("0.0.0.0", port))
+		return True
+	except OSError:
+		return False
+	finally:
+		s.close()
+
+
+def pick_ports(used, listening, excluded, first=PORT_FIRST, blocks=PORT_BLOCKS, start=0):
+	"""The run's 4 ports (login, game, proxy login, proxy game): the first block of 4 from `first` (beginning at block
+	`start`, round) of which no port is another run's (`used`), listened on, in an excluded range or unbindable."""
+	for i in range(blocks):
+		base = first + 4 * ((start + i) % blocks)
+		ports = (base, base + 1, base + 2, base + 3)
+		if any(port in used for port in ports):
+			continue
+		if any(lo <= port <= hi for port in ports for lo, hi in excluded or ()):
+			continue
+		if all(port_free(port, listening) for port in ports):
+			return ports
+	raise RuntimeError("no free block of 4 ports in %d-%d" % (first, first + 4 * blocks - 1))
+
+
+def run_folders(root=None):
+	root = root or RUNS_DIR
+	try:
+		names = sorted(os.listdir(root))
+	except FileNotFoundError:
+		return []
+	return [os.path.join(root, name) for name in names if RUN_NAME.match(name) and os.path.isdir(os.path.join(root,
+		name))]
+
+
+def write_instance(folder, value):
+	value = {k: v for k, v in value.items() if k not in ("folder", "server")}
+	tmp = os.path.join(folder, INSTANCE_FILE + ".tmp")
+	with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+		json.dump(value, f, indent=1)
+	os.replace(tmp, os.path.join(folder, INSTANCE_FILE))
+
+
+def process_running(pid, started=None):
+	"""Whether the process `pid` (with that creation time, when given) runs. A process that ended can still be opened
+	while someone holds a handle to it (its parent's), with its creation time: its exit is what counts."""
+	if not pid:
+		return False
+	if started is not None and process_started(pid) != started:
+		return False
+	if WINDOWS:
+		handle = open_process(pid, SYNCHRONIZE)
+		if handle is None:
+			return False
+		try:
+			return kernel32.WaitForSingleObject(handle, 0) != WAIT_OBJECT_0
+		finally:
+			kernel32.CloseHandle(handle)
+	return alive(pid)
+
+
+def owner_alive(instance):
+	owner = instance.get("owner") or [0, None]
+	return process_running(owner[0], owner[1])
+
+
+def create_instance(master=None, root=None, say=run_say, owner=None, attempts=3):
+	"""A run's private copy of the master (see the module's text); returns its instance (load_instance)."""
+	master = os.path.abspath(master or MASTER_DIR)
+	root = root or RUNS_DIR
+	exe = os.path.join(master, EXE_NAME)
+	if not os.path.isfile(exe):
+		raise RuntimeError("%s not found" % exe)
+	with open(os.path.join(master, "config.cfg"), encoding="utf-8", errors="surrogateescape") as f:
+		config = f.read()
+	private_config(config, 1, 2)  # refused before anything is made
+	owner = owner or [os.getpid(), process_started(os.getpid())]
+	with RunsLock(root):
+		used = set()
+		for folder in run_folders(root):
+			other = load_instance(folder)
+			if other is not None:
+				used.update(other.get("ports", ()))
+		ports = pick_ports(used, {port for _, _, port in listeners()}, windows_excluded_ranges(),
+			start=os.getpid() % PORT_BLOCKS)
+		name = time.strftime("%Y%m%d-%H%M%S") + "-%d" % os.getpid()
+		folder = os.path.join(root, name)
+		os.makedirs(os.path.join(folder, "server"))
+		instance = {"name": name, "master": master, "exe": exe, "ports": list(ports), "owner": owner,
+			"created": time.strftime("%Y-%m-%d %H:%M:%S"), "state": "copying"}
+		write_instance(folder, instance)
+	instance = load_instance(folder)
+	try:
+		return fill_instance(instance, master, config, ports, say, attempts)
+	except BaseException:
+		remove_tree(folder, root)
+		raise
+
+
+def fill_instance(instance, master, config, ports, say, attempts):
+	"""create_instance's copy, config.cfg and tibia.db."""
+	folder = instance["folder"]
+	begun = time.monotonic()
+	for attempt in range(1, attempts + 1):
+		folders = []
+		before, links = scan(master, folders)
+		plan = copy_plan(master, before, folders)
+		totals = copy_master(master, instance["server"], plan)
+		after, _ = scan(master)
+		changed = state_changes(before, after)
+		if not changed:
+			break
+		# someone else's server saved the master meanwhile: a copy of half a save is no world
+		say("the master changed while it was copied (%d files, %s...): copying again" % (len(changed), changed[0]))
+		remove_tree(instance["server"], folder)
+		os.makedirs(instance["server"])
+	else:
+		raise RuntimeError("the master kept changing while it was copied (%d attempts)" % attempts)
+	with open(os.path.join(instance["server"], "config.cfg"), "w", encoding="utf-8", errors="surrogateescape",
+			newline="") as f:
+		f.write(private_config(config, ports[0], ports[1]))
+	worlds = private_database(os.path.join(instance["server"], "tibia.db"), ports[1])
+	instance["state"] = "ready"
+	instance["copied"] = {"files": totals["copy"][0], "bytes": totals["copy"][1], "linked": totals["link"][0],
+		"linked_bytes": totals["link"][1], "seconds": round(time.monotonic() - begun, 1), "worlds": worlds}
+	write_instance(folder, instance)
+	instance["master_state"] = after
+	say("private server %s: ports %d (login), %d (game), %d and %d (the proxy); %d files copied (%.0f MB), %d hard"
+		" links (%.0f MB), %.1f s%s" % (instance["server"], ports[0], ports[1], ports[2], ports[3], totals["copy"][0],
+		totals["copy"][1] / 1e6, totals["link"][0], totals["link"][1] / 1e6, time.monotonic() - begun,
+		"; not followed: %s" % ", ".join(links) if links else ""))
+	return instance
+
+
+def remove_tree(folder, root):
+	"""Deletes folder (under root) file by file, never through a link or junction (a junction's own entry is removed,
+	what it leads to is not: it may be the master). A hard link's removal leaves the master's file as it is."""
+	folder, root = os.path.abspath(folder), os.path.abspath(root)
+	if not norm(folder).startswith(norm(root).rstrip("\\/") + os.sep):
+		raise RuntimeError("%s is not under %s: not removed" % (folder, root))
+
+	def remove(path):
+		with os.scandir(path) as it:
+			entries = list(it)
+		for entry in entries:
+			info = entry.stat(follow_symlinks=False)
+			if is_reparse(info):
+				try:
+					os.rmdir(entry.path)  # a junction or directory link: the link only
+				except OSError:
+					os.remove(entry.path)
+			elif stat.S_ISDIR(info.st_mode):
+				remove(entry.path)
+			else:
+				try:
+					os.remove(entry.path)
+				except PermissionError:
+					if info.st_nlink > 1:  # a hard link's attributes are the master's file's: never changed
+						raise
+					os.chmod(entry.path, stat.S_IWRITE)
+					os.remove(entry.path)
+		os.rmdir(path)
+
+	if os.path.isdir(folder):
+		remove(folder)
+
+
+def stop_instance(instance, say=run_say):
+	"""Stops the server a run's start started and left running (Ctrl+C; the wait for its save, never a kill: issue
+	#137). True when none runs afterwards."""
+	previous = STATE_DIR
+	set_state(instance["folder"])
+	try:
+		pid = started_server(server_exe_path(instance["exe"]))
+		if pid is None:
+			return True
+		say("the run's server (PID %d) still runs: stopping it (Ctrl+C, waiting for its save)" % pid)
+		return stop_pid(pid, stop_timeout(read_log()), False) == 0
+	finally:
+		set_state(previous)
+
+
+def keep_logs(instance):
+	"""The run's server.log (and server.err, attempt logs, instance.json) in build\\testserver\\runs\\<run>."""
+	target = os.path.join(MASTER_STATE_DIR, "runs", instance["name"])
+	os.makedirs(target, exist_ok=True)
+	for name in os.listdir(instance["folder"]):
+		if name.startswith("server") and (name.endswith(".log") or name.endswith(".err")) or name == INSTANCE_FILE:
+			try:
+				shutil.copyfile(os.path.join(instance["folder"], name), os.path.join(target, name))
+			except OSError:
+				pass
+	return target
+
+
+def claim(folder):
+	"""cleanup.claim in a stale run's folder: True when this process may clean it (no other living cleaner)."""
+	path = os.path.join(folder, "cleanup.claim")
+	me = "%d %s" % (os.getpid(), process_started(os.getpid()))
+	try:
+		fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+	except FileExistsError:
+		try:
+			with open(path, encoding="ascii") as f:
+				pid, started = f.read().split()
+			if process_running(int(pid), None if started == "None" else int(started)):
+				return False
+		except (OSError, ValueError):
+			pass
+		with open(path, "w", encoding="ascii") as f:
+			f.write(me)
+		return True
+	with os.fdopen(fd, "w", encoding="ascii") as f:
+		f.write(me)
+	return True
+
+
+def sweep(root=None, say=run_say, keep=None):
+	"""Cleans up the runs whose owner is gone (a run killed midway): their server stopped (Ctrl+C, its save waited
+	for), their logs kept, their folder removed. A folder without instance.json (its creation died) older than 10
+	minutes is removed too. Returns the number of folders removed."""
+	root = root or RUNS_DIR
+	removed = 0
+	for folder in run_folders(root):
+		instance = load_instance(folder)
+		if instance is None:
+			try:
+				age = time.time() - os.path.getmtime(folder)
+			except OSError:
+				continue
+			if age > 600:
+				remove_tree(folder, root)
+				removed += 1
+			continue
+		if owner_alive(instance) or not claim(folder):
+			continue
+		say("cleaning up %s (its run ended without it: owner PID %s gone)" % (folder, instance.get("owner", ["?"])[0]))
+		if not stop_instance(instance, say):
+			say("its server still runs: left for the next cleanup")
+			try:
+				os.remove(os.path.join(folder, "cleanup.claim"))
+			except OSError:
+				pass
+			continue
+		if keep is not False:
+			keep_logs(instance)
+		remove_tree(folder, root)
+		removed += 1
+	return removed
+
+
+def run_private(command, keep=False, say=run_say):
+	"""Runs command with a private server of its own (PATELLA_TESTSERVER_RUN); afterwards stops it and removes the
+	copy. Returns the command's exit code."""
+	sweep(say=say)
+	instance = create_instance(say=say)
+	env = dict(os.environ)
+	env[ENV_RUN] = instance["folder"]
+	code = 2
+	try:
+		code = subprocess.call(command, env=env)
+	finally:
+		stopped = stop_instance(instance, say)
+		logs = keep_logs(instance)
+		if keep:
+			say("--keep: %s stays (python -I tools/testserver.py cleanup removes it)" % instance["folder"])
+			instance["owner"] = [0, None]
+			write_instance(instance["folder"], instance)
+		elif stopped:
+			begun = time.monotonic()
+			remove_tree(instance["folder"], RUNS_DIR)
+			say("private server removed (%.1f s); its logs: %s" % (time.monotonic() - begun, logs))
+		else:
+			say("the run's server did not stop: %s left for the next run's cleanup" % instance["folder"])
+		after, _ = scan(instance["master"])
+		changed = state_changes(instance["master_state"], after)
+		if changed:
+			say("WARNING: the master %s changed during the run (%d files: %s); this run's server did not write it,"
+				" another user of the master did" % (instance["master"], len(changed), ", ".join(changed[:10])))
+		else:
+			say("the master is unchanged (%d files, size and time)" % len(after))
+	return code
+
+
+def isolate(skip=()):
+	"""In a live tool's `if __name__ == "__main__":` block, before sandbox.redirect: runs the same command line again
+	with a private server of its own (run_private) and exits with its exit code; returns at once inside such a run,
+	inside Windows Sandbox (the host's run made it), or with an argument of skip (no server needed)."""
+	if RUN_DIR or os.environ.get("PATELLA_SANDBOX_IO") or any(a in skip for a in sys.argv[1:]):
+		return
+	try:
+		code = run_private([sys.executable, "-I", os.path.abspath(sys.argv[0])] + sys.argv[1:])
+	except (RuntimeError, ValueError, OSError, sqlite3.Error) as e:
+		print("testserver.py: no private server: %s" % e, file=sys.stderr)
+		code = 2
+	sys.exit(code)
+
+
+def file_hash(path):
+	digest = hashlib.sha256()
+	with open(path, "rb") as f:
+		for chunk in iter(lambda: f.read(1 << 20), b""):
+			digest.update(chunk)
+	return digest.hexdigest()
+
+
+def checksums(folder, threads=8):
+	"""{relative path: (size, sha256)} of every file under folder (links and junctions not followed)."""
+	files, _ = scan(folder)
+	names = sorted(files)
+	with ThreadPoolExecutor(threads) as pool:
+		hashes = list(pool.map(lambda rel: file_hash(os.path.join(folder, rel)), names))
+	return {rel: (files[rel][0], digest) for rel, digest in zip(names, hashes)}
+
+
+def write_checksums(folder, path):
+	sums = checksums(folder)
+	with open(path, "w", encoding="utf-8", newline="\n") as f:
+		f.write("# sha256\tsize\tpath (%s, %s)\n" % (folder, time.strftime("%Y-%m-%d %H:%M:%S")))
+		for rel, (size, digest) in sorted(sums.items()):
+			f.write("%s\t%d\t%s\n" % (digest, size, rel.replace(os.sep, "/")))
+	return sums
+
+
+def read_checksums(path):
+	sums = {}
+	with open(path, encoding="utf-8") as f:
+		for line in f:
+			if line.startswith("#") or not line.strip():
+				continue
+			digest, size, rel = line.rstrip("\n").split("\t")
+			sums[rel.replace("/", os.sep)] = (int(size), digest)
+	return sums
 
 
 # --- the self-test (issue #68) -------------------------------------------------------------
@@ -711,10 +1354,11 @@ def self_test(out=print):
 			lambda: ["127.0.0.1:%d" % port for port in at()[1]],
 			lambda: "".join(line + "\n" for line in log[:at()[0]]),
 			lambda: at()[2], timeout, stall, after_online, clock=lambda: now[0],
-			sleep=lambda seconds: now.__setitem__(0, now[0] + seconds))
+			sleep=lambda seconds: now.__setitem__(0, now[0] + seconds), ports=(7171, 7172))
 		return state, detail, now[0]
 
-	both = (LOGIN_PORT, GAME_PORT)
+	login_port, game_port = 7171, 7172  # the made-up servers' (not the run's)
+	both = (login_port, game_port)
 	state, detail, waited = run(lambda t: (5, both, 1.0))
 	check("listening and online at once: ready", state == "ready" and detail[1] == "online" and waited == 0)
 	# issue #64's run: both ports listen at once, the world loads for 20 s (CPU busy), then online
@@ -734,7 +1378,7 @@ def self_test(out=print):
 	state, detail, waited = run(lambda t: (5, (), t))
 	check("online but not listening: stalled after --after-online", state == "stalled" and waited == 60
 		and "7171, 7172" in detail)
-	state, detail, waited = run(lambda t: (5, (LOGIN_PORT,), t))
+	state, detail, waited = run(lambda t: (5, (login_port,), t))
 	check("online, only the login port: stalled, names 7172", state == "stalled" and detail.endswith(
 		"nothing listens on 7172 60 s later"))
 	state, detail, waited = run(lambda t: (3, both, t), timeout=900)
@@ -743,20 +1387,20 @@ def self_test(out=print):
 	check("the server exits while it loads: exited", state == "exited" and waited == 10)
 	state, detail, waited = run(lambda t: (0, both, t))
 	check("a log not written as it goes: the ports alone", state == "ready" and detail[1] == "unknown")
-	state, detail, waited = run(lambda t: (2 if t < 30 else 5, (LOGIN_PORT,) if t < 30 else both, t))
+	state, detail, waited = run(lambda t: (2 if t < 30 else 5, (login_port,) if t < 30 else both, t))
 	check("the login port first, the game port with the world", state == "ready" and waited == 30)
 
 	out("a bind error in server.log (issue #95)")
 	login_error = "2026-11-06 10:00:01 [ERR] LoginServerWorker: Failed to bind Login Server on port 7171 (error 10049)"
 	bind_log = SELF_TEST_LOG[:2] + (login_error,) + SELF_TEST_LOG[2:]
 	# #88's and #92's starts: the login thread's bind fails, the server goes on, says online, listens on 7172 only
-	state, detail, waited = run(lambda t: (2 if t < 1 else 6, (GAME_PORT,) if t >= 2 else (), t), log=bind_log)
+	state, detail, waited = run(lambda t: (2 if t < 1 else 6, (game_port,) if t >= 2 else (), t), log=bind_log)
 	check("login bind error 10049: failed at once, port and code", state == "bind" and waited == 1
 		and detail[:3] == ("login", 7171, 10049) and detail[3] == login_error)
-	state, detail, waited = run(lambda t: (6, (GAME_PORT,), t), log=bind_log)
+	state, detail, waited = run(lambda t: (6, (game_port,), t), log=bind_log)
 	check("the error with 'Server Online!' after it: still the bind", state == "bind" and waited == 0)
 	game_log = SELF_TEST_LOG[:4] + ("LaunchServer: Failed to bind Game Server on port 7172.",) + SELF_TEST_LOG[4:]
-	state, detail, waited = run(lambda t: (5, (LOGIN_PORT,), t), log=game_log)
+	state, detail, waited = run(lambda t: (5, (login_port,), t), log=game_log)
 	check("game bind error (no code): failed at once", state == "bind" and detail[:3] == ("game", 7172, None))
 	state, detail, waited = run(lambda t: (6, both, 1.0), log=SELF_TEST_LOG[:2]
 		+ ("Failed to listen on Login Server on port 7171",) + SELF_TEST_LOG[2:])
@@ -818,6 +1462,143 @@ def self_test(out=print):
 	return failures
 
 
+def private_self_test(out=print):
+	"""The private copies (issue #146) on a made-up master in a temporary folder: the copy's plan, config.cfg and
+	tibia.db, the hard links, the ports, the cleanup of a run whose owner is gone (and one through a junction that
+	must not reach the master), the master unchanged. No server. Returns the number of failed expectations."""
+	failures = 0
+	out("the private copies (issue #146)")
+
+	def check(title, ok):
+		nonlocal failures
+		failures += not ok
+		out("  %-62s %s" % (title, "ok" if ok else "FAILED"))
+
+	base = tempfile.mkdtemp(prefix="testserver-self-test-")
+	try:
+		master = os.path.join(base, "master")
+		root = os.path.join(base, "runs")
+		files = {EXE_NAME: b"exe", "z.dll": b"dll", "tibia.pem": b"pem", "schema.sql": b"sql",
+			os.path.join("backup-2026-11-02", "tibia.db"): b"old", os.path.join("data", "map", "1000-1000-07.sec"): b"map",
+			os.path.join("data", "usr", "74", "15146574.usr"): b"usr", os.path.join("data", "dat", "owners.dat"): b"own",
+			os.path.join("data", "mon", "rat.mon"): b"rat", os.path.join("data", "npc", "cipfried.npc"): b"npc",
+			os.path.join("data", "origmap", "1000-1000-07.sec"): b"orig", os.path.join("data", "log", "game.log"): b"log"}
+		for rel, data in files.items():
+			os.makedirs(os.path.dirname(os.path.join(master, rel)) or master, exist_ok=True)
+			with open(os.path.join(master, rel), "wb") as f:
+				f.write(data)
+		os.makedirs(os.path.join(master, "data", "save"))
+		config = ('login_port = 7171\ngame_port = 7172\nbind_address = "127.0.0.1"\ndata_path = "data"\n'
+			'# map_path = "C:/elsewhere"\ndb_type = "sqlite"\ndatabase_file = "tibia.db"\n')
+		with open(os.path.join(master, "config.cfg"), "w", encoding="utf-8", newline="\n") as f:
+			f.write(config)
+		connection = sqlite3.connect(os.path.join(master, "tibia.db"))
+		connection.execute("CREATE TABLE Worlds (WorldID INTEGER, Name TEXT, Host TEXT, Port INTEGER)")
+		connection.execute("INSERT INTO Worlds VALUES (1, 'Zanera', 'localhost', 7172)")
+		connection.commit()
+		connection.close()
+		before = checksums(master)
+
+		# the configuration's checks
+		check("config: ports replaced, the rest kept", private_config(config, 7300, 7301) == config.replace("7171",
+			"7300").replace("7172", "7301"))
+		for bad, what in (('data_path = "C:/Tibia/gameserver/data"', "an absolute data_path"), ('user_path = '
+				'"../gameserver/data/usr"', "a .. user_path"), ('db_type = "mysql"', "a MySQL database")):
+			try:
+				private_config(config + bad + "\n", 1, 2)
+				refused = False
+			except ValueError:
+				refused = True
+			check("config refused: %s" % what, refused)
+		try:
+			private_config(config.replace("game_port = 7172\n", ""), 1, 2)
+			refused = False
+		except ValueError:
+			refused = True
+		check("config refused: no game_port line", refused)
+
+		# the ports
+		check("ports: the first free block", pick_ports(set(), set(), []) == (7300, 7301, 7302, 7303))
+		check("ports: another run's block skipped", pick_ports({7301}, set(), []) == (7304, 7305, 7306, 7307))
+		check("ports: a listened port's block skipped", pick_ports(set(), {7302}, []) == (7304, 7305, 7306, 7307))
+		check("ports: an excluded range skipped", pick_ports(set(), set(), [(7290, 7305)]) == (7308, 7309, 7310, 7311))
+		check("ports: from the start block, round", pick_ports(set(), set(), [], start=49) == (7496, 7497, 7498, 7499))
+		held = socket.socket()
+		held.bind(("0.0.0.0", 0))
+		port = held.getsockname()[1]
+		check("ports: a port bound elsewhere is not free", not port_free(port, set()))
+		held.close()
+
+		# a run's copy
+		instance = create_instance(master, root, say=lambda text: None)
+		copy = instance["server"]
+		check("instance: 4 ports, in instance.json", load_instance(instance["folder"])["ports"] == instance["ports"]
+			and len(set(instance["ports"])) == 4)
+		check("copy: no executable or DLL (the master's runs)", not os.path.exists(os.path.join(copy, EXE_NAME))
+			and not os.path.exists(os.path.join(copy, "z.dll")) and instance["exe"] == os.path.join(master, EXE_NAME))
+		check("copy: no backup folder", not os.path.exists(os.path.join(copy, "backup-2026-11-02")))
+		with open(os.path.join(copy, "config.cfg"), encoding="utf-8") as f:
+			text = f.read()
+		check("copy: config.cfg with the run's ports", config_value(text, "login_port") == str(instance["ports"][0])
+			and config_value(text, "game_port") == str(instance["ports"][1]))
+		connection = sqlite3.connect(os.path.join(copy, "tibia.db"))
+		port = connection.execute("SELECT Port FROM Worlds").fetchone()[0]
+		connection.close()
+		check("copy: tibia.db's world on the run's game port", port == instance["ports"][1])
+		same = lambda rel: os.path.samefile(os.path.join(master, rel), os.path.join(copy, rel))  # noqa: E731
+		check("copy: data\\mon, npc, origmap hard links", all(same(os.path.join("data", d, n)) for d, n in (("mon",
+			"rat.mon"), ("npc", "cipfried.npc"), ("origmap", "1000-1000-07.sec"))))
+		check("copy: data\\map, usr, dat copies (never links)", not any(same(os.path.join("data", d, n)) for d, n in
+			(("map", "1000-1000-07.sec"), ("usr", os.path.join("74", "15146574.usr")), ("dat", "owners.dat"))))
+		check("copy: data\\log empty, data\\save there", os.listdir(os.path.join(copy, "data", "log")) == []
+			and os.path.isdir(os.path.join(copy, "data", "save")))
+		with open(os.path.join(copy, "data", "map", "1000-1000-07.sec"), "wb") as f:
+			f.write(b"saved")  # the copy's server saves its map
+		with open(os.path.join(copy, "data", "usr", "74", "15146574.usr"), "wb") as f:
+			f.write(b"restored")  # a tool restores a player file
+		check("a write to the copy leaves the master as it was", checksums(master) == before)
+		check("a living owner's run is not cleaned up", sweep(root, say=lambda text: None, keep=False) == 0
+			and os.path.isdir(instance["folder"]))
+
+		# an owner that ended while its parent still holds a handle to it (the killed run of #146's proof)
+		ended = subprocess.Popen([sys.executable, "-I", "-c", "import time; time.sleep(1)"])
+		started = process_started(ended.pid)
+		check("an owner that runs: alive", owner_alive({"owner": [ended.pid, started]}))
+		ended.wait()
+		check("an owner that ended, its handle still held: gone", not owner_alive({"owner": [ended.pid, started]}))
+		del ended
+		# a run killed midway: its owner gone; a junction in it leads into the master
+		instance["owner"] = [0, None]
+		write_instance(instance["folder"], instance)
+		junction = os.path.join(instance["folder"], "junction")
+		made = False
+		if WINDOWS:
+			try:
+				import _winapi
+				_winapi.CreateJunction(os.path.join(master, "data"), junction)
+				made = True
+			except (ImportError, AttributeError, OSError):
+				pass
+		else:
+			os.symlink(os.path.join(master, "data"), junction)
+			made = True
+		removed = sweep(root, say=lambda text: None, keep=False)
+		check("a run whose owner is gone: removed by the next sweep", removed == 1
+			and not os.path.exists(instance["folder"]))
+		check("the master unchanged after the copy, the writes and the cleanup%s" % ("" if made else
+			" (no junction made)"), checksums(master) == before)
+		try:
+			remove_tree(master, root)
+			refused = False
+		except RuntimeError:
+			refused = True
+		check("remove_tree refuses a folder outside the runs' folder", refused and os.path.isdir(master))
+	finally:
+		shutil.rmtree(base, ignore_errors=True)
+	out("private copies self test: %d failures" % failures)
+	return failures
+
+
 def main(argv):
 	# issue #147: inside Windows Sandbox the server stays on the host: start and stop run there (tools/sandbox.py)
 	sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -843,17 +1624,68 @@ def main(argv):
 	start_parser.add_argument("--bind-retries", type=int, default=BIND_RETRIES, help="more starts after a bind error"
 		" in server.log, on top of --retries (default %(default)s; issue #95)")
 	start_parser.add_argument("--window", action="store_true", help="show the server's console, minimised")
+	start_parser.add_argument("--master", action="store_true", help="outside a run (no %s): start the master folder's"
+		" server itself, which writes that folder (the owner's own use; the tools never do, issue #146)" % ENV_RUN)
 	stop_parser = commands.add_parser("stop", help="Ctrl+C to the server start started, and wait")
 	stop_parser.add_argument("--server-dir", default=SERVER_DIR, help=SERVER_DIR_HELP)
 	stop_parser.add_argument("--timeout", type=int, default=None, help="seconds to wait for the exit (default: %d once the world is loaded, since it saves the map on the way out; else %d)" % (SAVING_STOP, STALLED_STOP))
 	stop_parser.add_argument("--force", action="store_true", help="kill it after --timeout")
-	commands.add_parser("self-test", help="the start's wait on made-up servers (no server)")
+	commands.add_parser("self-test", help="the start's wait on made-up servers, the private copies on a made-up master"
+		" (no server)")
+	run_parser = commands.add_parser("run", help="run a command with a private server of its own (issue #146)")
+	run_parser.add_argument("--keep", action="store_true", help="keep the copy afterwards (cleanup removes it)")
+	run_parser.add_argument("argv", nargs=argparse.REMAINDER, metavar="command", help="-- <command>"
+		" [arguments]")
+	commands.add_parser("cleanup", help="stop and remove the private servers whose run is gone")
+	commands.add_parser("instances", help="list the private servers")
+	sums_parser = commands.add_parser("checksums", help="SHA-256 of every file of a server folder")
+	sums_parser.add_argument("--server-dir", default=MASTER_DIR, help="the folder (default %(default)s: the master)")
+	sums_group = sums_parser.add_mutually_exclusive_group(required=True)
+	sums_group.add_argument("--write", help="write them to this file")
+	sums_group.add_argument("--compare", help="compare with this file (exit 1 on a difference)")
 	args = parser.parse_args(argv)
 	if args.command == "self-test":
-		return 1 if self_test() else 0
+		return 1 if self_test() + private_self_test() else 0
+	if args.command == "run":
+		command = args.argv[1:] if args.argv[:1] == ["--"] else args.argv
+		if not command:
+			parser.error("no command given")
+		if RUN_DIR:
+			parser.error("already inside a run (%s=%s)" % (ENV_RUN, RUN_DIR))
+		return run_private(command, args.keep)
+	if args.command == "cleanup":
+		run_say("%d private server%s removed" % ((lambda n: (n, "" if n == 1 else "s"))(sweep())))
+		return 0
+	if args.command == "instances":
+		for folder in run_folders():
+			instance = load_instance(folder)
+			if instance is None:
+				print("%s: no %s" % (folder, INSTANCE_FILE))
+				continue
+			set_state(folder)
+			server = started_server(server_exe_path(instance["exe"]))
+			print("%s: ports %s, %s, owner PID %s %s, server %s" % (folder, "/".join(map(str, instance["ports"])),
+				instance.get("state"), instance["owner"][0], "running" if owner_alive(instance) else "gone",
+				"PID %d" % server if server else "not running"))
+		return 0
+	if args.command == "checksums":
+		folder = os.path.abspath(args.server_dir)
+		if args.write:
+			sums = write_checksums(folder, args.write)
+			print("testserver checksums: %d files, %.0f MB of %s written to %s" % (len(sums), sum(v[0] for v in
+				sums.values()) / 1e6, folder, args.write))
+			return 0
+		old = read_checksums(args.compare)
+		new = checksums(folder)
+		changed = sorted(rel for rel in set(old) | set(new) if old.get(rel) != new.get(rel))
+		for rel in changed[:50]:
+			print("  %s: %s -> %s" % (rel, old.get(rel, "missing"), new.get(rel, "missing")))
+		print("testserver checksums: %d files of %s compared with %s: %s" % (len(new), folder, args.compare,
+			"identical" if not changed else "%d differ" % len(changed)))
+		return 1 if changed else 0
 	if args.command == "start":
 		return start(args.server_dir, args.timeout, args.window, args.stall, args.after_online, max(0, args.retries),
-			max(0, args.bind_retries))
+			max(0, args.bind_retries), args.master)
 	# A server with its world loaded saves the map on Ctrl+C, which can take minutes on a busy machine: wait for it
 	# rather than report a failed stop (issue #141's finding; #137 for the kill that cut a sector file).
 	timeout = args.timeout if args.timeout is not None else stop_timeout(read_log())
