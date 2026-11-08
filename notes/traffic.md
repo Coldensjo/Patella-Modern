@@ -12,6 +12,10 @@ python -I tools/build.py windows-x64
 python -I tools/compare_traffic.py [--out build\traffic\result] [--skip-live] [--no-cross] [--patella EXE]
 ```
 
+Since Patella-Modern issue #147 the whole run happens inside Windows Sandbox (both clients and the proxy; the test
+server stays on the host, its ports tunnelled in; notes/testserver.md, "Windows Sandbox"); `--desktop` runs it on this
+desktop as before.
+
 `--patella` names the x64 Patella.exe to test (default build\windows-x64\Release\Patella.exe since Patella-Modern issue
 #94; its test build runs, issue #92). Until #94 the default was the 32-bit oracle's build\oracle-x86\Release\Patella.exe
 (build\Release\Patella.exe, the MSBuild output, before issue #10), read with its PDB (issue #6).

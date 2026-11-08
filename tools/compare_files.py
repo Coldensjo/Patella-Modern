@@ -73,6 +73,7 @@ import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import desktop  # noqa: E402
+import sandbox  # noqa: E402
 import compare_traffic as ct  # noqa: E402
 import deliberate  # noqa: E402
 import proxy as px  # noqa: E402
@@ -1257,6 +1258,7 @@ def main():
 	parser.add_argument("--self-test", action="store_true", help="the window placement on a window of its own "
 		"(no client, no server) and exit")
 	parser.add_argument(desktop.HIDDEN, action="store_true", help=desktop.HIDDEN_HELP)
+	parser.add_argument(sandbox.DESKTOP, action="store_true", help=sandbox.DESKTOP_HELP)
 	args = parser.parse_args()
 	if args.self_test:
 		return 1 if self_test() else 0
@@ -1437,6 +1439,9 @@ def kill_client(run):
 
 
 if __name__ == "__main__":
+	# issue #147: inside Windows Sandbox unless --desktop (or --hidden) is given
+	sandbox.redirect(writable=[FILES], skip=("record", "compare", "--check-only", "--check-route", "--self-test", "-h",
+		"--help"))
 	desktop.hide(skip=("--check-only", "--check-route", "--self-test", "-h", "--help"))  # issue #56: only with --hidden
 	try:
 		sys.exit(main())

@@ -193,6 +193,9 @@ check and our client's rendering runs now work this way by default, several at a
 computer. Only the runs of the original Tibia.exe (and a few that test the window itself, such as fullscreen) still
 need the desktop.
 
+**Test runs of the original game inside a sandbox (#147).** The original Tibia.exe's test runs now happen inside
+Windows Sandbox, a throwaway Windows of their own, so they no longer use the owner's screen at all.
+
 ## M8: one platform layer on SDL3 (in progress)
 
 **The game window now comes from SDL3 (#122).**

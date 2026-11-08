@@ -553,7 +553,16 @@ Limits of the GUI comparisons until M2's built-in test mode replaces them (Patel
   below are those of the runs that still need it: Tibia.exe's (reference.py record, compare_traffic.py,
   compare_files.py, compare_rendering.py), the x64 client's unscripted live runs (compare_traffic.py,
   compare_files.py: posted messages and GetCursorPos) and compare_rendering.py's fullscreen runs.
-- **They run on the desktop of the session they are started in (Patella-Modern issue #56).** For a run that no
+- **Inside Windows Sandbox since Patella-Modern issue #147.** compare_traffic.py, compare_files.py,
+  compare_rendering.py and compare_network.py run themselves inside Windows Sandbox by default (tools/sandbox.py:
+  the whole tool, both clients and the proxy inside, the test server on the host through a reverse tunnel of its
+  ports; the Sandbox's window on a hidden desktop of the host, so nothing appears on the user's screen or takes the
+  focus; one Sandbox at a time, a second run waits). The same results as on the desktop: compare_traffic and
+  compare_files without a difference, compare_rendering's windowed and fullscreen passes on both devices (the
+  Sandbox's display is set to 1024x768 for it). `--desktop` runs a tool on this session's desktop as before, and the
+  points below are that path's. `python -I tools/sandbox.py run -- <tool.py> [arguments]` runs any tool invocation
+  inside. Limits, times and the reasons: notes/decisions.md, "#147"; notes/testserver.md, "Windows Sandbox".
+- **With `--desktop` they run on the desktop of the session they are started in (Patella-Modern issue #56).** For a run that no
   one's mouse and keyboard may reach, start it in a second interactive session ("Checking", "The live checks in a
   second session"). `--hidden` (every live tool; tools/desktop.py; experimental) runs the tool on a hidden desktop
   of its own instead, where most results differ: DirectDraw and Direct3D 9 do not start (Tibia.exe and the oracle
