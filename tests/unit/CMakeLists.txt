@@ -64,12 +64,13 @@
 # All get the product settings of cmake/Warnings.cmake and cmake/Hardening.cmake.
 
 include(FetchContent)
+include("${PROJECT_SOURCE_DIR}/cmake/Download.cmake")
 
 # doctest: an installed one first (find_package), otherwise the pinned release.
 set(DOCTEST_WITH_TESTS OFF)
 set(DOCTEST_WITH_MAIN_IN_STATIC_LIB OFF)
 set(DOCTEST_NO_INSTALL ON)
-FetchContent_Declare(doctest
+patella_fetch_declare(doctest
 	URL https://github.com/doctest/doctest/releases/download/v2.5.3/doctest-v2.5.3.tar.gz
 	URL_HASH SHA256=eb4a39729d091e43d4d593888bf4d145ee9a0f0e13f7404484b6f2fb60d5d50f
 	FIND_PACKAGE_ARGS 2.5.3 CONFIG)
