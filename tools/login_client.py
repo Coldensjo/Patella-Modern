@@ -50,6 +50,9 @@ import sys
 import time
 import zlib
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import client_start  # noqa: E402
+
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
 iphlpapi = ctypes.WinDLL("iphlpapi")
@@ -276,6 +279,12 @@ def main():
 			print("login_client.py: %s has no %s" % (run_dir, name), file=sys.stderr)
 			return 1
 
+	# Issue #148: Tibia.exe refuses to start beside another client's window and waits on its box.
+	blocking = client_start.wait_free(log)
+	if blocking:
+		print("login_client.py: not started, another client's window is still open: %s" % client_start.describe(blocking),
+			file=sys.stderr)
+		return 1
 	proc = subprocess.Popen([exe], cwd=run_dir)
 	log("started %s, PID %d" % (exe, proc.pid))
 	success = False
@@ -285,6 +294,8 @@ def main():
 		while hwnd is None and time.time() < deadline:
 			if proc.poll() is not None:
 				raise Failure("the client exited with code %d before showing its window" % proc.returncode)
+			if client_start.refused(client_start.message_boxes(proc.pid)):
+				raise Failure("the client refused to start (%r)" % client_start.REFUSED)
 			hwnd = find_window(proc.pid)
 			time.sleep(0.25)
 		if hwnd is None:
@@ -369,6 +380,12 @@ def main():
 				except subprocess.TimeoutExpired:
 					pass
 			if proc.poll() is None:
+				# issue #148: a box of the client's (a refused start's) and the other clients' windows, said
+				for _, caption, text in client_start.message_boxes(proc.pid):
+					log("PID %d's message box %r: %r" % (proc.pid, caption, text))
+				others = client_start.client_windows(exclude=(proc.pid,))
+				if others:
+					log("blocking client window: %s" % client_start.describe(others))
 				proc.kill()
 				proc.wait()
 				log("killed PID %d" % proc.pid)

@@ -41,6 +41,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import client_start  # noqa: E402
 import login_client as lc  # noqa: E402
 import testmode_client as tc  # noqa: E402
 
@@ -67,9 +68,15 @@ class SessionError(Exception):
 	pass
 
 
+class StartError(SessionError):
+	"""A client that did not start twice, or another client's window that stayed open (issue #148): ends the run
+	(the tools' loops over scenarios let it through), since every later start would meet the same."""
+
+
 NODE_TIMEOUT = 5.0  # seconds Driver.node reads the window tree again before a window counts as missing
 STEP_TIMEOUT = 10.0  # seconds a step's condition (Driver.wait_until) may take (issue #144)
 START_TIMEOUT = 30.0  # seconds from the window to the start screen (TStartWindow in the window tree)
+START_ATTEMPTS = 2  # starts of a client before StartError (issue #148: one more after a failed one)
 POLL = 0.05  # seconds between two readings of a condition
 # The player's direction (TCreature.Direction): north, east, south, west.
 NORTH, EAST, SOUTH, WEST = 0, 1, 2, 3
@@ -121,6 +128,34 @@ class Driver:
 	# process
 
 	def start(self, arguments=()):
+		"""Starts the client and waits for its start screen (issue #148): before a start of a client that counts
+		the desktop's client windows (counts_windows), waits for another client's window to close
+		(tools/client_start.py wait_free; still open after FREE_TIMEOUT: StartError, nothing started). A start
+		that fails (no window, an exit, a box: "A Tibia client is already running!" ends the wait at once) is
+		closed (failed_start: the box's text and the blocking windows to the log, then its own PID ended), and
+		the client is started once more; a second failure is StartError, which ends the run."""
+		counts = self.counts_windows(arguments)
+		for attempt in range(1, START_ATTEMPTS + 1):
+			if counts:
+				blocking = client_start.wait_free(self.log)
+				if blocking:
+					raise StartError("%s not started: another client's window is still open after %d s, and %s refuses "
+						"to start beside it (%r): %s" % (self.exe, client_start.free_timeout(), self.exe,
+						client_start.REFUSED, client_start.describe(blocking)))
+			try:
+				return self.start_once(arguments)
+			except Exception as e:  # noqa: BLE001 - every failed start is closed, and said
+				reason = self.failed_start(e)
+				if attempt == START_ATTEMPTS:
+					raise StartError("%s did not start, %d times; the last: %s" % (self.exe, attempt, reason)) from e
+				self.log("start %d of %d failed (%s); starting the client again" % (attempt, START_ATTEMPTS, reason))
+
+	def counts_windows(self, arguments):
+		"""Whether the client refuses to start beside another client's window: Tibia.exe, but not as
+		"gamemaster" (InitInstance skips the count) and not the test build (its own windows only, issue #96)."""
+		return not self.test and "gamemaster" not in arguments
+
+	def start_once(self, arguments=()):
 		path = os.path.join(self.run_dir, self.exe)
 		words = list(arguments)
 		if self.test:
@@ -132,6 +167,7 @@ class Driver:
 		while self.hwnd is None and time.time() < deadline:
 			if self.proc.poll() is not None:
 				raise SessionError("the client exited with code %d" % self.proc.returncode)
+			self.check_refused()
 			# Issue #145: a headless test client's window is never shown.
 			self.hwnd = lc.find_window(self.proc.pid, visible="--test-headless" not in self.test_arguments)
 			time.sleep(0.25)
@@ -140,6 +176,36 @@ class Driver:
 		self.mem = self.reader()
 		# Issue #144: the start screen, not a fixed 4 s (the Enter Game click needs its window).
 		self.wait_window("TStartWindow", START_TIMEOUT)
+
+	def check_refused(self):
+		"""SessionError at once when the client shows the refused start's box (issue #148), instead of the wait
+		for its window."""
+		boxes = client_start.message_boxes(self.proc.pid)
+		if client_start.refused(boxes):
+			raise SessionError("the client refused to start: its box %r says %r" % (boxes[0][1], boxes[0][2]))
+
+	def failed_start(self, error):
+		"""After a failed start (issue #148): the client's message boxes and the other clients' windows to the
+		log, then the client this driver started ended (its own PID, nothing else). Returns the reason, in one
+		line: the error, the box, the blocking windows."""
+		reason = str(error)
+		if self.proc is not None and self.proc.poll() is None:
+			for _, caption, text in client_start.message_boxes(self.proc.pid):
+				self.log("PID %d's message box %r: %r" % (self.proc.pid, caption, text))
+				if text not in reason:
+					reason += "; its box %r: %r" % (caption, text)
+		others = client_start.client_windows(exclude=(self.proc.pid,) if self.proc is not None else ())
+		if others:
+			self.log("blocking client window: %s" % client_start.describe(others))
+			reason += "; blocking client window: %s" % client_start.describe(others)
+		self.kill()
+		self.reset_start()
+		return reason
+
+	def reset_start(self):
+		"""What a failed start leaves for the next one to make again."""
+		self.hwnd = None
+		self.channel = None
 
 	def environment(self):
 		"""The client's environment (None: this one's)."""

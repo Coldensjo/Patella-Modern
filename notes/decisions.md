@@ -17310,3 +17310,81 @@ Each run took 69 s from the Sandbox's start to its end. The full compare_files r
 its live recording against the test server, error) found no differences, exit 0, 201 s
 (gate3-compare_files-full.log). Also: compare_files and client_state --self-test, py_compile, the headless reference
 compare (every session matches).
+
+## #148: a refused Tibia.exe start is closed, tried once more, then ends the run (Patella-Modern issue #148, M7)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-148, from main 437e7f0). Found by #125: compare_network.py
+met Tibia.exe's "A Tibia client is already running!", gave up on the start without closing it and started the next
+one into the same box, 9 boxes in 4 minutes in front of the owner's work. Tools only; no client change.
+
+### Why a start is refused (high: src/Player.cpp, #96's section)
+
+InitInstance (not as "gamemaster") counts the desktop's top-level windows, hidden ones too (EnumWindows), whose title
+is "Tibia   " (TitleCode ^ TitleKey: "Tibia" and three spaces) or whose class is "TibiaClient", caseless, its own
+included; with more than one it shows the box and waits on it (MB_ICONEXCLAMATION, no owner), then exits with 0. Its
+own frame window exists but is not shown yet, so the tools saw "no TibiaClient window after 30 s". Since #96 the test
+build counts only its own windows, so PatellaTest.exe never refuses, but its window (a headless one too: hidden
+windows count) blocks Tibia.exe and Patella.exe. A hidden desktop (`--hidden`) has windows of its own: EnumWindows
+there sees only them.
+
+### What the tools do now (high)
+
+- **tools/client_start.py** (new, shared): client_windows (the windows the count sees, with PID and process name,
+  QueryFullProcessImageNameW), describe, wait_free (before a start: waits up to 120 s, PATELLA_CLIENT_WAIT sets other
+  seconds, naming the windows once; "off" skips it, for the issue's proof of the failed-start path), message_boxes
+  (compare_files.dialog_windows' enumeration; that one stays, #149 owns its callers), refused. `--self-test`:
+  a hidden window of its own titled "tibia   " (counted, named, excluded by PID, wait_free's timeout and its line),
+  PATELLA_CLIENT_WAIT, and session_client.Driver.start's policy on a driver whose starts fail without a process.
+- **session_client.Driver.start**: for a client that counts (Tibia.exe, not "gamemaster", not the test build) it
+  waits for another client's window first, and refuses with StartError when one stays (nothing started). Then
+  start_once (the old start); its window wait ends at once on the refused box (check_refused). Any failed start goes
+  to failed_start: the client's message boxes and the other clients' windows to the log ("blocking client window:
+  PID ... (Tibia.exe): window 0x..., class 'TibiaClient', title 'Tibia   ', visible"), then its own PID killed (never
+  another process), and one more start; the second failure is StartError (a SessionError) with the reason, the box
+  and the blocking windows. compare_rendering.Driver's own retry for a missing first frame (#98) is now this one
+  (its start_once and reset_start, which closes patcap's mapping); START_ATTEMPTS moved to session_client (still 2).
+- **StartError ends the run**: compare_network's scenario loop (reports the scenario as a harness error, says the run
+  is stopped, and writes its report), compare_files' and compare_rendering's run loops and reference_record's session
+  loop re-raise it instead of going on (each later start would meet the same window); compare_traffic and
+  compare_files already end on a SessionError at the top. login_client.py: the same wait before its start, the
+  refused box ends its window wait, and its failure path logs the box and the blocking windows before killing its PID.
+- **Not changed**: testmode_check.py and reference.py compare start only PatellaTest.exe (no count since #96; each
+  already kills its client on a timeout); desktop.py starts the tool, not a client; reference.py record goes through
+  reference_record's cr.Driver.
+
+### Choices (medium: the owner's to change)
+
+- Wait 120 s, then refuse, rather than refuse at once: the previous scenario's window in its last second, or a short
+  build test's client, go away by themselves; the owner's game does not, and then the run stops after two minutes
+  with the window's process named, instead of piling up boxes.
+- One more start after any failed start (not only a refused one): the #98 rule for the first frame, made general;
+  a second failure ends the run, since it would repeat for every scenario.
+
+### Checks
+
+- `python -I tools/client_start.py --self-test` exit 0 (11 checks), `python -I tools/compare_rendering.py --self-test`
+  exit 0, `python -I tools/compare_files.py --self-test` exit 0, py_compile of every changed tool
+  (build\logs\issue-148\gate1-*.log).
+- `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference` (headless) exit 0, every
+  session matches its reference (gate3-reference-compare.log).
+- **The issue's proof, inside Windows Sandbox** (#147; on November 8 the owner stopped live runs on the desktop):
+  one job, `python -I tools/sandbox.py run --writable build/proof ... -- build/logs/issue-148/proof.py run --patella
+  C:/Tibia/Patella-Modern/build/windows-x64/Release/Patella.exe` (proof.py is kept with the logs, not committed), so
+  the blocker and the comparisons share the Sandbox's desktop: a Tibia.exe of its own kept open (its window
+  `PID 4464 (Tibia.exe): class 'TibiaClient', title 'Tibia   ', visible`), then compare_network (--only
+  login-normal), compare_traffic (--skip-live --no-cross), compare_files (--only options) and compare_rendering
+  (--engines vulkan-cpu --modes windowed --no-repeat) each twice beside it. PATELLA_CLIENT_WAIT=10: every one exited 1
+  after 13-14 s with "Tibia.exe not started: another client's window is still open after 10 s ...: PID 4464
+  (Tibia.exe) ...", no Tibia.exe started. PATELLA_CLIENT_WAIT=off: every one exited 1 after 5-6 s: two starts, each
+  logging "PID n's message box 'Tibia - Error': 'A Tibia client is already running!'" and the blocking window, each
+  killed, then StartError (compare_network: "login-normal: HARNESS ERROR ..." and "the run is stopped"). After each
+  of the 8 runs only the blocker was left and no message box; the blocker closed with exit 0. 8 of 8 as expected
+  (gate2-proof-sandbox.log, proof-summary.log, proof-<tool>-wait-<10|off>.log). The Sandbox's own processes have no
+  window the count sees (client windows before the blocker: none). The Sandbox's window never showed.
+- **One clean run of each comparison, in Windows Sandbox** (their default since #147), `--patella
+  C:/Tibia/Patella-Modern/build/windows-x64/Release/Patella.exe`: compare_traffic.py exit 0, no differences (197 s);
+  compare_files.py exit 0, no differences (189 s); compare_rendering.py (both modes, `--recording` the traffic run's
+  orig-live.jsonl) exit 0, all scenes identical in its four passes, twice a first Tibia.exe start without a frame
+  within 30 s (#147's Direct3D 9 start in the Sandbox) retried by Driver.start (1039 s); compare_network.py (#19's
+  recording) exit 1 with 41 of 51 the same, 4 variable, and exactly the 6 known differences of #139 and #142 (#150),
+  no harness error (1324 s). gate3-compare_*.log.

@@ -148,9 +148,8 @@ HRESULTS = {0: "D3D_OK", 1: "not called yet", 0x88760868: "D3DERR_DEVICELOST", 0
 # How long Tibia.exe may take from its window to its first frame (patcap.dll's first Present): the device
 # is made at start-up; normally the first frame comes within a second.
 FIRST_FRAME_TIMEOUT = 30
-# Starts of Tibia.exe before a run fails for want of a first frame (issue #98: the driver's CreateDevice did not
-# return once in a while at the first start after the GPU was idle; the next start worked).
-START_ATTEMPTS = 2
+# Issue #98: the driver's CreateDevice did not return once in a while at the first start after the GPU was idle; the
+# next start worked. session_client.START_ATTEMPTS starts (issue #148: every failed start) before a run fails.
 
 
 class FirstFrameError(RunError):
@@ -410,22 +409,16 @@ class Driver(sc.Driver):
 	def environment(self):
 		return self.env
 
-	def start(self, arguments=()):
-		"""Starts the client and waits for its first frame (issue #98). A client that shows none within
-		FIRST_FRAME_TIMEOUT (its Direct3D 9 device not made: the driver's CreateDevice did not return) is ended
-		and started once more: nothing has been sent to it yet, so the run is the same as with a first start that
-		worked. The second failure is the run's, with the diagnosis."""
-		for attempt in range(1, START_ATTEMPTS + 1):
-			try:
-				return self.start_once(arguments)
-			except FirstFrameError as e:
-				if attempt == START_ATTEMPTS:
-					raise
-				self.log("start %d of %d failed, starting the client again: %s" % (attempt, START_ATTEMPTS, e))
-				self.kill()
-				self.cap.close()
-				self.cap = None
-				self.hwnd = None
+	# Issue #98: a client that shows no first frame within FIRST_FRAME_TIMEOUT (its Direct3D 9 device not made: the
+	# driver's CreateDevice did not return) is ended and started once more: nothing has been sent to it yet, so the
+	# run is the same as with a first start that worked. Since issue #148 that is session_client's Driver.start, for
+	# every failed start (start_once below), with the refused start's box and the other clients' windows said.
+
+	def reset_start(self):
+		super().reset_start()
+		if getattr(self, "cap", None) is not None:
+			self.cap.close()
+			self.cap = None
 
 	def start_once(self, arguments=()):
 		path = os.path.join(self.run_dir, self.exe)
@@ -436,6 +429,7 @@ class Driver(sc.Driver):
 		while (self.hwnd is None or self.cap is None) and time.time() < deadline:
 			if self.proc.poll() is not None:
 				raise sc.SessionError("the client exited with code %d" % self.proc.returncode)
+			self.check_refused()  # issue #148
 			if self.cap is None:
 				try:
 					self.cap = Capture(self.proc.pid)
@@ -1139,6 +1133,9 @@ def main():
 				try:
 					runs[(name, label)] = run(engine, client, args.out, args.recording, label, fullscreen,
 						headless=not fullscreen and not args.windowed)
+				except sc.StartError:  # issue #148: a client that cannot start ends the run
+					keep_display_on(False)
+					raise
 				except Exception as e:
 					traceback.print_exc()
 					failed.append("%s %s: %s" % (name, label, e))

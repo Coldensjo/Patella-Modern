@@ -754,6 +754,14 @@ difference (one compare_traffic run of three failed at the helper's game login; 
 every scene identical on the GPU and the CPU driver, compare_network as on the host; ready 8-12 s after the start.
 notes/testserver.md, "Windows Sandbox"; notes/decisions.md, "#147".
 
+A refused Tibia.exe start (Patella-Modern issue #148, branch issue-148, November 8, 2026; M7): the tools that start
+Tibia.exe (session_client.py's Driver for compare_traffic, compare_files, compare_network, compare_rendering and
+reference_record; login_client.py) wait up to 120 s for another client's window (tools/client_start.py, naming its
+process), close a failed start (its box's text logged, its own PID only), start once more, and end the run on a
+second failure instead of piling "A Tibia client is already running!" boxes. Shown in Windows Sandbox with a
+Tibia.exe kept open beside each of the four comparisons: refused and named, or the box logged and the client closed,
+nothing left. notes/decisions.md, "#148".
+
 The portable socket (Patella-Modern issue #125, branch issue-125, November 7, 2026; M8): TPortableSocket
 (src/platform/PortableSocket.h, patella_platform, tests_platform on Windows and Linux) is Patella.exe's and the test
 build's live network over Winsock or POSIX sockets: non-blocking IPv6 sockets with IPv4 mapped, polled at the start of

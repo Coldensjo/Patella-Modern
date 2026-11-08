@@ -544,6 +544,11 @@ def main():
 			for client in ("orig", "patella"):
 				log("== %s: %s" % (name, client))
 				results[client] = run(client, name, scenario, args.out)
+		except sc.StartError as e:  # issue #148: a client that cannot start ends the run (every later start would fail)
+			failed += 1
+			say("%s: HARNESS ERROR %s" % (name, e))
+			say("the run is stopped: a client did not start (issue #148)")
+			break
 		except Exception as e:  # a harness problem: reported, the run goes on
 			failed += 1
 			say("%s: HARNESS ERROR %s" % (name, e))
