@@ -772,6 +772,13 @@ refuses). Shown: compare_traffic or compare_files in the Sandbox and testmode_ch
 servers with game connections at once, both passing; the master's checksums identical after them and after a killed
 run's cleanup. notes/testserver.md, "A private server per run"; notes/decisions.md, "#146".
 
+Data files and paths (Patella-Modern issue #130, branch issue-130, November 8, 2026; M8): the client's files go through
+platform::TDataFileSystem (platform/FileSystem.h), the data folder chosen at start-up by settings::ChooseLocations
+(--data, the working folder with Tibia.dat, the executable's folder, Patella.ini's DataFolder); Patella.ini next to the
+data or in the XDG folder (Linux option); FindNoCase finds the original names without regard to ASCII case on Linux.
+The working folder stays the data folder wherever it has Tibia.dat, so the tools and the golden runner open the same
+files by the same names. Unit tests in tests_core on every preset. notes/decisions.md, "#130".
+
 The portable socket (Patella-Modern issue #125, branch issue-125, November 7, 2026; M8): TPortableSocket
 (src/platform/PortableSocket.h, patella_platform, tests_platform on Windows and Linux) is Patella.exe's and the test
 build's live network over Winsock or POSIX sockets: non-blocking IPv6 sockets with IPv4 mapped, polled at the start of

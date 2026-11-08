@@ -11,6 +11,7 @@
 #include "Objects.h"
 #include "SdlFrame.h"
 #include "Surface.h"
+#include "platform/Win32Platform.h"
 #include "vulkan/DeviceChoice.h"
 #include "vulkan/DeviceSettings.h"
 
@@ -47,6 +48,11 @@ bool SaveDeviceChoice() { STUB(); }
 int GetBestGpu() { STUB(); }
 patella::vulkan::TDeviceButton DeviceButtonOfEngine(int) { STUB(); }
 patella::vulkan::TDeviceChoice patella::vulkan::ChoiceAfterButton(const TDeviceChoice &, TDeviceButton, int, int) { STUB(); }
+
+// Where the files are (src/platform/DataLocationWin32.cpp, issue #130), which Player.cpp's InitInstance calls: the
+// runner's files stay the working folder's.
+void patella::platform::ConfigureDataFiles() { STUB(); }
+void patella::platform::LogDataFiles() { STUB(); }
 
 // The SDL3 window (src/SdlFrame.cpp, issue #122), which Player.cpp's InitInstance, Run, OnIdle and FatalError call on
 // the SDL3 path; the tests call none of them.

@@ -62,7 +62,9 @@ copy (the next run does it too); `checksums --write|--compare FILE` checks the m
 The x64 client's only engine is the Vulkan engine, as engine 2 (issues #19, #20, `notes/vulkan.md`; the original
 engines left with the oracle, #94); its device is the advanced graphics options' choice (issue #31: "Automatic",
 "GPU", "CPU" in the engine buttons' places), stored as `Device` in `Patella.ini` next to Tibia.cfg (the fork's own
-settings file, `src/settings/`), and `PATELLA_VULKAN=auto|gpu|gpuN|cpu` in its environment overrides it at start-up
+settings file, `src/settings/`; issue #130: the data files and Patella.ini are the working folder's where it has
+Tibia.dat, as the tools' run folders, else the executable's folder, `--data <folder>` (first) or Patella.ini's `DataFolder`,
+`src/platform/FileSystem.h` TDataFileSystem, settings::ChooseLocations; on Linux the names are found without regard to case), and `PATELLA_VULKAN=auto|gpu|gpuN|cpu` in its environment overrides it at start-up
 (the comparisons' and tests' choice; `notes/vulkan.md`, "Choosing the device"); its pinned libraries and the CPU
 driver (Mesa's lavapipe, copied next to
 the executables) come with the first configure of windows-x64 (`cmake/Vulkan.cmake`); `tests_vulkan` checks it

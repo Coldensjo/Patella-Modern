@@ -235,6 +235,15 @@ the game loop picks up, so the game itself stays single-threaded. Server address
 recorded session and live comparison still matches the original byte for byte. *Why it matters:* the network was one
 of the last Windows-only parts between the client and Linux.
 
+**The client finds its game files by itself (#130).**
+The client used to open its game files (the graphics, the item data, the settings, the maps it draws as you explore)
+only from the folder it was started in. It now also finds them next to the program itself, or in a folder given with
+`--data` or written in its settings file, and on Linux it finds the original files whatever mix of capital letters
+their names have (Linux, unlike Windows, tells `Tibia.dat` and `tibia.dat` apart). The settings file stays next to the
+game files, or, on Linux, can live in the usual personal settings folder. Started the old way, nothing changes: the
+same files are opened under the same names, and every test still matches. *Why it matters:* a packaged client (such
+as a Linux AppImage, which may not include the game's own files) can be pointed at a copy of them anywhere.
+
 ## M8 and M9, started early
 
 **Big-number maths fully unit-tested (#128).**

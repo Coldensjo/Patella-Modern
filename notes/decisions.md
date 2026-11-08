@@ -8976,6 +8976,7 @@ they include) report nothing that is not suppressed in the code with its reason,
   | GCC -fanalyzer | -Wanalyzer-null-dereference | regexp.c, regmatch's STAR/PLUS | false positive | `#pragma GCC diagnostic ignored` in the file (GCC only) | regnext of a STAR or PLUS node is never NULL: regcomp links each to the node that follows |
   | MSVC /analyze | C6011 (dereferencing NULL 'Player') | Creatures.cpp, TCreatures::CheckMonsterHint (since issue #110) | false positive | PATELLA_MSVC_WARNING(suppress : 6011) on the line | the else branch reads Player only after IsOpponent returned true, which asserts the player creature |
   | MSVC /analyze | C28020 (`_Param_(1)<10`) | Map.cpp, TMap::GetAutomapBlock (since issue #110) | false positive | PATELLA_MSVC_WARNING(suppress : 28020) on the return | the cache list links all AUTOMAP_BLOCKS entries (InitMap), so Position is one of them; the analysis takes LeastRecentBlock as any int |
+  | GCC -fanalyzer | -Wanalyzer-use-of-uninitialized-value | platform/FileSystem.h FindNoCase, settings/Settings.cpp HasData to ChooseLocations (since issue #130) | false positive | PATELLA_GCC_DIAGNOSTIC push/ignored/pop around them | the path goes through a std::filesystem::path copy whose string throws length_error, then reads after the throw: the analyzer's exception paths through libstdc++ |
 
   The GCC pragmas go through compat/msvc.h's new PATELLA_GCC_DIAGNOSTIC (`_Pragma`, GCC only: Clang knows the pragma
   but not the analyzer's warnings); regexp.c is C and includes none of src/'s headers, so it keeps its own
