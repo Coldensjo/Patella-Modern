@@ -18099,6 +18099,15 @@ Wayland dependencies, with the local Tibia.exe's cursors (never its other data, 
   --headers keep reading patella_core's and the libraries'); the same sources are checked by the Windows runs. New Linux files
   (LinuxPlatform.cpp, DataLocationLinux.cpp, NetworkLinux.cpp, EntryLinux.cpp) are thus not in the hosted tidy job; see "Found, not done".
 
+### Checks (merged with #134 and #157; logs in build\logs\issue-131)
+
+Golden 15,803,218 + 1,512,822 = 17,316,040, 0 failures, 0 warnings on windows-x64, windows-x64-debug, windows-x64-asan,
+linux-x64-gcc and linux-x64-clang (ASan, UBSan); windows-x64-gcc 14/14 tests, no corpus. Reference compare: every session
+matches on Windows (headless), Linux GCC and Linux Clang under ASan and UBSan. Live on Linux: login, game login, 4 walks,
+logout, headless and under Xvfb; the product ran 20 s under Xvfb. Windows: testmode_check, compare_traffic, compare_files,
+compare_rendering both modes (all scenes identical, on this run's traffic recording: the brief's orig-live.jsonl of November 2
+has the old look step and is refused), compare_network 0 of 51 differ. tidy_ci baseline 3, 0 new; banned_calls and clang-format clean.
+
 ### Not run, or not possible here
 
 - **Hardware Vulkan drivers on Linux**: the container has no GPU; only lavapipe ran. Everything said above about frames is
