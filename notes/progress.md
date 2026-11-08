@@ -780,6 +780,13 @@ it, not against src/SdlFrame.cpp). Patella.rc has only the client's own resource
 client and test build with neutral placeholder pictures (PATELLA_PLACEHOLDER_RESOURCES, tools/placeholder_resources.py;
 refused where a Tibia.exe exists); the compile-only targets of #25/#46 are gone. notes/decisions.md, "#127".
 
+The Linux client (Patella-Modern issue #131, branch issue-131, November 8, 2026; M8): linux-x64-gcc and linux-x64-clang
+build Patella and PatellaTest (cmake/LinuxX64.cmake, the Windows client's sources with the platform layer's *Linux.cpp
+files), and PatellaTest replays all four reference sessions on Linux headless on lavapipe, frames included (GCC; Clang
+under ASan and UBSan). tools/linux_live.py runs the live login and the scripted walk on a private test server from
+the container, headless and under Xvfb, and starts the product under Xvfb. Hardware Vulkan and a real desktop were not
+run (no GPU, no display in the container). notes/decisions.md, "#131".
+
 Data files and paths (Patella-Modern issue #130, branch issue-130, November 8, 2026; M8): the client's files go through
 platform::TDataFileSystem (platform/FileSystem.h), the data folder chosen at start-up by settings::ChooseLocations
 (--data, the working folder with Tibia.dat, the executable's folder, Patella.ini's DataFolder); Patella.ini next to the

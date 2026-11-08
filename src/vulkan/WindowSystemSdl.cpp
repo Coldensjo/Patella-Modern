@@ -38,8 +38,7 @@ void *NativeHandle(SDL_Window *Window)
 #if defined(_WIN32)
 	return SDL_GetPointerProperty(SDL_GetWindowProperties(Window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
 #else
-	static_cast<void>(Window);
-	return nullptr;
+	return Window; // Linux: the client's handle is the SDL_Window (SdlFrame.cpp, issue #131)
 #endif
 }
 
@@ -81,13 +80,21 @@ public:
 	{
 		if (SDL_WasInit(SDL_INIT_VIDEO) == 0)
 			throw TVulkanError("SDL_Vulkan_CreateSurface: SDL's video subsystem is not started");
+#if !defined(_WIN32)
+		// Issue #131: SDL3 has no child windows here: the surface is the window's own (PresentWindow.h), the main window's,
+		// or the hidden one of the device test (TTestWindow).
+		if (Window == nullptr || Find(Window) == nullptr)
+			throw TVulkanError("SDL_Vulkan_CreateSurface: not a window of this process");
+		VkSurfaceKHR Own = VK_NULL_HANDLE;
+		if (!SDL_Vulkan_CreateSurface(Find(Window), Instance, nullptr, &Own) || Own == VK_NULL_HANDLE)
+			throw TVulkanError(std::string("SDL_Vulkan_CreateSurface failed: ") + SDL_GetError());
+		return Own;
+#else
 		// Never one of SDL's own windows (the main window): a second SDL window on its handle would take over its data.
 		if (Window == nullptr || Find(Window) != nullptr)
 			throw TVulkanError("SDL_Vulkan_CreateSurface: not a device's window");
 		const SDL_PropertiesID Properties = SDL_CreateProperties();
-#if defined(_WIN32)
 		SDL_SetPointerProperty(Properties, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, Window);
-#endif
 		SDL_SetBooleanProperty(Properties, SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN, true);
 		SDL_Window *const Wrapper = SDL_CreateWindowWithProperties(Properties);
 		SDL_DestroyProperties(Properties);
@@ -100,6 +107,7 @@ public:
 		if (!Created || Surface == VK_NULL_HANDLE)
 			throw TVulkanError("SDL_Vulkan_CreateSurface failed: " + Error);
 		return Surface;
+#endif
 	}
 
 private:

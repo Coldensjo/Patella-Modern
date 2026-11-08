@@ -96,7 +96,8 @@ REPLAY_HEADER = "# patella-replay 1"
 TIBIA_SHA256 = "1a82fe97a39e536c29327d6d5dde316775f537dcc01506831429b1a0433b76f8"
 DEFAULT_REFERENCE = os.path.join(ROOT, "build", "reference")
 DEFAULT_OUT = os.path.join(ROOT, "build", "reference-compare")
-DEFAULT_EXE = os.path.join(ROOT, "build", "windows-x64", "Release", "PatellaTest.exe")
+DEFAULT_EXE = (os.path.join(ROOT, "build", "windows-x64", "Release", "PatellaTest.exe") if os.name == "nt"
+	else os.path.join(ROOT, "build", "linux-x64-gcc", "Release", "PatellaTest"))
 DATA_FILES = ("Tibia.dat", "Tibia.spr", "Tibia.pic")
 # The proxy's ports (tools/proxy.py PROXY_LOGIN_PORT, PROXY_GAME_PORT): the record step's Tibia.exe was
 # patched to the first, the character list it got names the second.
@@ -616,10 +617,14 @@ def prepare_run(folder, exe, meta, reference, data_dir):
 	for name in DATA_FILES:
 		shutil.copyfile(os.path.join(data_dir, name), os.path.join(folder, name))
 	target = os.path.join(folder, os.path.basename(exe))
-	result = subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools", "patch_client.py"), exe, target,
-		"--host", "127.0.0.1", "--port", str(LOGIN_PORT)], capture_output=True, text=True)
-	if result.returncode != 0:
-		raise ReferenceError_("patch_client.py failed: %s" % (result.stderr.strip() or result.stdout.strip()))
+	if os.name == "nt":
+		result = subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools", "patch_client.py"), exe, target,
+			"--host", "127.0.0.1", "--port", str(LOGIN_PORT)], capture_output=True, text=True)
+		if result.returncode != 0:
+			raise ReferenceError_("patch_client.py failed: %s" % (result.stderr.strip() or result.stdout.strip()))
+	else:
+		# Issue #131: the Linux test build's servers come from the environment (PATELLA_LOGIN_SERVER, below; no patching).
+		shutil.copy2(exe, target)
 	for name in CPU_DRIVER_FILES + ASAN_RUNTIME_FILES:
 		source = os.path.join(os.path.dirname(exe), name)
 		if os.path.isfile(source):
@@ -656,6 +661,15 @@ def run_session(name, reference, exe, out, vulkan, timeout, data_dir, headless=T
 	if headless:
 		command.append("--test-headless")  # issue #145: no window shown, no Vulkan surface
 	env = dict(os.environ, PATELLA_VULKAN=vulkan, TZ=TIME_ZONE)
+	if os.name != "nt":
+		env["PATELLA_LOGIN_SERVER"] = "127.0.0.1:%d" % LOGIN_PORT
+		if vulkan == "cpu":
+			# Issue #131: only lavapipe at the Vulkan loader's scan, as the Windows run has only its copy next to the
+			# executable; a container's other Mesa drivers (intel_hasvk crashes in its scan under the image's address
+			# layout) are no part of a CPU-driver comparison.
+			manifest = "/usr/share/vulkan/icd.d/lvp_icd.json"
+			if os.path.isfile(manifest):
+				env["VK_DRIVER_FILES"] = env["VK_ICD_FILENAMES"] = manifest
 	log("=== %s: %s" % (name, " ".join(command)))
 	start = time.time()
 	with open(os.path.join(base, "client-output.txt"), "w", encoding="utf-8") as output:

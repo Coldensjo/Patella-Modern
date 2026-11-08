@@ -128,11 +128,18 @@
 #include "testmode/ServerReplay.h"
 #include "testmode/StateDump.h"
 #include "platform/Platform.h"
-#include "platform/Win32Platform.h"
+#include "platform/Process.h"
 #include "types/File.h"
 #include "types/FixedString.h"
 
+#if defined(_WIN32)
 #include <shellapi.h>
+#else
+#include "platform/SdlPlatform.h"
+
+#include <filesystem>
+#include <thread>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -168,7 +175,11 @@ constexpr UINT ScriptErrorExitCode = 3;
 
 void RealYield()
 {
+#if defined(_WIN32)
 	::Sleep(1);
+#else
+	std::this_thread::sleep_for(std::chrono::milliseconds(1));
+#endif
 }
 
 // The modal loop of a message box that is not shown (ShowMessageBox): it ends after this many real
@@ -222,7 +233,7 @@ struct TPendingFrame {
 
 struct TState {
 	TVirtualClock Virtual{RealYield};
-	IClock *Clock = &platform::Win32Clock(); // the system's clock (issue #109: the platform's own)
+	IClock *Clock = &platform::SystemClock(); // the system's clock (issue #109: the platform's own)
 	bool Scripted = false;
 	bool Headless = false; // --test-headless (issue #145)
 	TScheduler Scheduler;
@@ -249,8 +260,11 @@ struct TState {
 	int MaskHeight = 0;
 
 	// Issue #92: the control channel (--test-control).
+	bool ControlOn = false;
+#if defined(_WIN32)
 	HANDLE ControlCommand = nullptr;
 	HANDLE ControlDone = nullptr;
+#endif
 	bool ControlBusy = false; // a command's script lines are being handed out
 	int Probes = 0;
 	TProbeDevice Device;
@@ -283,26 +297,35 @@ void WriteLog(TState &State, const std::string &Line)
 	WriteLog(State, Line);
 	std::fputs((Line + "\n").c_str(), stderr);
 	std::fflush(stderr);
+#if defined(_WIN32)
 	::OutputDebugStringA((Line + "\n").c_str());
 	::ExitProcess(ScriptErrorExitCode);
+#else
+	std::_Exit(static_cast<int>(ScriptErrorExitCode));
+#endif
 }
 
-std::string Narrow(const std::wstring &Text)
+std::string Narrow(const std::filesystem::path &Path)
 {
+#if defined(_WIN32)
+	const std::wstring &Text = Path.native();
 	const int Length = ::WideCharToMultiByte(CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()), nullptr, 0, nullptr, nullptr);
 	std::string Result(static_cast<std::size_t>(Length > 0 ? Length : 0), '\0');
 	if (Length > 0)
 		::WideCharToMultiByte(CP_UTF8, 0, Text.c_str(), static_cast<int>(Text.size()), Result.data(), Length, nullptr, nullptr);
 	return Result;
+#else
+	return Path.string();
+#endif
 }
 
 struct TArguments {
-	std::wstring Script;
-	std::wstring Log;
-	std::wstring Out;
-	std::wstring Replay;
-	std::wstring DisplayModes;
-	std::wstring Control;
+	std::filesystem::path Script;
+	std::filesystem::path Log;
+	std::filesystem::path Out;
+	std::filesystem::path Replay;
+	std::filesystem::path DisplayModes;
+	std::filesystem::path Control;
 	bool Headless = false;
 };
 
@@ -311,59 +334,71 @@ struct TArguments {
 TArguments ReadArguments()
 {
 	TArguments Result;
+	std::vector<std::filesystem::path> Words;
+#if defined(_WIN32)
 	int Count = 0;
 	LPWSTR *Arguments = ::CommandLineToArgvW(::GetCommandLineW(), &Count);
 	if (Arguments == nullptr)
 		return Result;
-	for (int i = 1; i < Count; i++) {
-		if (wcscmp(Arguments[i], L"--test-headless") == 0)
+	for (int i = 1; i < Count; i++)
+		Words.emplace_back(Arguments[i]);
+	::LocalFree(Arguments);
+#else
+	for (const std::string &Word : platform::Arguments())
+		Words.emplace_back(Word);
+#endif
+	const auto Is = [](const std::filesystem::path &Word, const char *Name) { return Word.native() == std::filesystem::path(Name).native(); };
+	for (const std::filesystem::path &Word : Words) {
+		if (Is(Word, "--test-headless"))
 			Result.Headless = true;
 	}
-	for (int i = 1; i + 1 < Count; i++) {
-		if (wcscmp(Arguments[i], L"--test-script") == 0)
-			Result.Script = Arguments[i + 1];
-		else if (wcscmp(Arguments[i], L"--test-log") == 0)
-			Result.Log = Arguments[i + 1];
-		else if (wcscmp(Arguments[i], L"--test-out") == 0)
-			Result.Out = Arguments[i + 1];
-		else if (wcscmp(Arguments[i], L"--test-replay") == 0)
-			Result.Replay = Arguments[i + 1];
-		else if (wcscmp(Arguments[i], L"--test-display-modes") == 0)
-			Result.DisplayModes = Arguments[i + 1];
-		else if (wcscmp(Arguments[i], L"--test-control") == 0)
-			Result.Control = Arguments[i + 1];
+	for (std::size_t i = 0; i + 1 < Words.size(); i++) {
+		if (Is(Words[i], "--test-script"))
+			Result.Script = Words[i + 1];
+		else if (Is(Words[i], "--test-log"))
+			Result.Log = Words[i + 1];
+		else if (Is(Words[i], "--test-out"))
+			Result.Out = Words[i + 1];
+		else if (Is(Words[i], "--test-replay"))
+			Result.Replay = Words[i + 1];
+		else if (Is(Words[i], "--test-display-modes"))
+			Result.DisplayModes = Words[i + 1];
+		else if (Is(Words[i], "--test-control"))
+			Result.Control = Words[i + 1];
 	}
-	::LocalFree(Arguments);
 	return Result;
 }
 
 // The dumps' folder and the packet log.
-void OpenOut(TState &State, const std::wstring &Folder)
+void OpenOut(TState &State, const std::filesystem::path &Folder)
 {
 	State.Out = Folder;
 	std::error_code Error;
 	std::filesystem::create_directories(State.Out, Error);
 	const std::filesystem::path Log = State.Out / L"packets.log";
-	if (!State.Packets.Open(Log.c_str(), TFile::TAccess::Write))
+	if (!State.Packets.OpenSystemName(Log.c_str(), TFile::TAccess::Write))
 		Fail(State, "cannot write " + Narrow(Log.wstring()));
 	State.Packets.Write(std::string(PacketLogHeader) + "\n");
 	State.Packets.Flush();
 }
 
 // The tool's two events of the control channel (--test-control, issue #92).
-void OpenControl(TState &State, const std::wstring &Name)
+void OpenControl(TState &State, const std::filesystem::path &Name)
 {
 	if (State.Out.empty())
 		Fail(State, "--test-control needs --test-out <folder>");
-	State.ControlCommand = ::OpenEventW(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, (Name + L"-command").c_str());
-	State.ControlDone = ::OpenEventW(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, (Name + L"-done").c_str());
+#if defined(_WIN32)
+	State.ControlCommand = ::OpenEventW(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, (Name.native() + L"-command").c_str());
+	State.ControlDone = ::OpenEventW(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, (Name.native() + L"-done").c_str());
 	if (State.ControlCommand == nullptr || State.ControlDone == nullptr)
 		Fail(State, "--test-control " + Narrow(Name) + ": the events " + Narrow(Name) + "-command and -done do not exist");
+#endif
+	State.ControlOn = true;
 	WriteLog(State, "testmode: control channel " + Narrow(Name));
 }
 
 // The server replay (--test-replay): the file and its listeners, inside the process (issue #120).
-void OpenReplay(TState &State, const std::wstring &Path)
+void OpenReplay(TState &State, const std::filesystem::path &Path)
 {
 	std::ifstream In(Path, std::ios::binary);
 	if (!In)
@@ -376,7 +411,7 @@ void OpenReplay(TState &State, const std::wstring &Path)
 		Fail(State, Narrow(Path) + ": no listen lines");
 	State.Replay.Pipes = std::make_unique<TPipeSocketWin32>();
 	if (!State.Replay.Pipes->Start())
-		Fail(State, "replay: cannot make the socket events' window (error " + std::to_string(::GetLastError()) + ")");
+		Fail(State, "replay: cannot make the socket events' window");
 	for (const TReplayListen &Listen : Parsed.File.Listen) {
 		State.Replay.Pipes->Network().Listen("127.0.0.1", Listen.Port, Listen.Kind);
 		WriteLog(State, "testmode: replay: " + Listen.Kind + " listens on 127.0.0.1:" + std::to_string(Listen.Port) + " in the process (no port)");
@@ -388,7 +423,7 @@ void OpenReplay(TState &State, const std::wstring &Path)
 }
 
 // The fixed display modes (--test-display-modes).
-void OpenDisplayModes(TState &State, const std::wstring &Path)
+void OpenDisplayModes(TState &State, const std::filesystem::path &Path)
 {
 	std::ifstream In(Path, std::ios::binary);
 	if (!In)
@@ -406,7 +441,7 @@ void Initialize(TState &State)
 {
 	const TArguments Arguments = ReadArguments();
 	if (!Arguments.Log.empty())
-		State.Log.Open(Arguments.Log.c_str(), TFile::TAccess::Write, TFile::TContent::Text); // stays closed where it fails
+		State.Log.OpenSystemName(Arguments.Log.c_str(), TFile::TAccess::Write, TFile::TContent::Text); // stays closed where it fails
 	if (!Arguments.Out.empty())
 		OpenOut(State, Arguments.Out);
 	if (!Arguments.Replay.empty())
@@ -415,7 +450,7 @@ void Initialize(TState &State)
 		OpenDisplayModes(State, Arguments.DisplayModes);
 	if (!Arguments.Control.empty())
 		OpenControl(State, Arguments.Control);
-	const std::wstring &ScriptPath = Arguments.Script;
+	const std::filesystem::path &ScriptPath = Arguments.Script;
 	if (Arguments.Headless && ScriptPath.empty())
 		Fail(State, "--test-headless needs --test-script <file>: without a script the client takes the desktop's input");
 	if (ScriptPath.empty())
@@ -438,7 +473,7 @@ void Initialize(TState &State)
 	if (Dumps && State.Out.empty())
 		Fail(State, Narrow(ScriptPath) + ": the script has dump or frame commands: --test-out <folder> is needed");
 	// The control channel's frame lines (issue #92) need the observer, which the engine takes at its start.
-	if (State.ControlCommand != nullptr)
+	if (State.ControlOn)
 		State.FramesWanted = true;
 	State.Scheduler = TScheduler(std::move(Parsed.Script));
 	State.Clock = &State.Virtual;
@@ -487,6 +522,7 @@ void Dispatch(TState &State, HWND Window, UINT Message, WPARAM WParam, LPARAM LP
 	// (testmode/SdlInputWin32.h). Every other message is dispatched.
 	if (patella::testmode::DeliverToSdlWindow(Message, WParam, LParam))
 		return;
+#if defined(_WIN32)
 	MSG Msg = {};
 	Msg.hwnd = Window;
 	Msg.message = Message;
@@ -495,6 +531,10 @@ void Dispatch(TState &State, HWND Window, UINT Message, WPARAM WParam, LPARAM LP
 	Msg.time = State.Clock->Milliseconds();
 	Msg.pt = ScreenCursor(State, Window);
 	::DispatchMessageA(&Msg);
+#else
+	static_cast<void>(State);
+	static_cast<void>(Window);
+#endif
 }
 
 // lParam of a key message: repeat count 1, the scan code, the extended flag, the context code (Alt
@@ -544,7 +584,15 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 {
 	WriteLog(State, Describe(Event));
 	RECT Client = {};
+#if defined(_WIN32)
 	::GetClientRect(Window, &Client);
+#else
+	int ClientWidth = 0;
+	int ClientHeight = 0;
+	patella::sdlframe::ClientSize(ClientWidth, ClientHeight);
+	Client.right = ClientWidth;
+	Client.bottom = ClientHeight;
+#endif
 	const POINT Point = {Event.X.Resolve(Client.right), Event.Y.Resolve(Client.bottom)};
 	WPARAM MouseFlags = 0;
 	if ((Event.Buttons & ButtonLeft) != 0)
@@ -604,7 +652,11 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 	case TEventKind::Quit:
 		if (!State.PendingFrames.empty())
 			WriteLog(State, "testmode: " + std::to_string(State.PendingFrames.size()) + " frame dumps were not taken (no frame of the Vulkan engine shown)");
+#if defined(_WIN32)
 		::PostMessageA(Window, WM_CLOSE, 0, 0);
+#else
+		Dispatch(State, Window, WM_CLOSE, 0, 0);
+#endif
 		break;
 	case TEventKind::StateDump: WriteStateDump(State, Event); break;
 	case TEventKind::FrameDump:
@@ -616,7 +668,11 @@ void Deliver(TState &State, HWND Window, const TInputEvent &Event)
 		std::uint32_t Step = Event.Ticks > 0 ? Event.Duration / Event.Ticks : 0;
 		for (std::uint32_t i = 0; i < Event.Ticks; i++) {
 			State.Virtual.AdvanceTo(State.Virtual.Elapsed() + Step);
+#if defined(_WIN32)
 			::SendMessageA(Window, WM_TIMER, 1, 0);
+#else
+			Dispatch(State, Window, WM_TIMER, 1, 0);
+#endif
 			State.Ticks++;
 		}
 		State.Virtual.AdvanceTo(State.Virtual.Elapsed() + (Event.Duration - Step * Event.Ticks));
@@ -651,7 +707,13 @@ void ControlReply(TState &State, const std::string &Reply)
 		WriteLog(State, "testmode: cannot write control-reply.txt");
 	if (Reply != "ok")
 		WriteLog(State, "testmode: control: " + Reply);
+#if defined(_WIN32)
 	::SetEvent(State.ControlDone);
+#else
+	// Issue #131: the channel's event on Linux, a file in --test-out (tools/testmode_client.py).
+	if (!SaveFile(State.Out / "control-done", std::string_view{"\n"}))
+		WriteLog(State, "testmode: cannot write control-done");
+#endif
 }
 
 void WriteProbe(TState &State)
@@ -696,8 +758,15 @@ void ControlPoll(TState &State, std::uint32_t Elapsed)
 		State.ControlBusy = false;
 		ControlReply(State, "ok");
 	}
+#if defined(_WIN32)
 	if (::WaitForSingleObject(State.ControlCommand, 0) != WAIT_OBJECT_0)
 		return;
+#else
+	// Issue #131: the channel's event on Linux, a file in --test-out (tools/testmode_client.py).
+	std::error_code ControlError;
+	if (!std::filesystem::remove(State.Out / "control-command", ControlError))
+		return;
+#endif
 	std::string Text = ReadText(State.Out / L"control.txt");
 	while (!Text.empty() && (Text.back() == '\n' || Text.back() == '\r' || Text.back() == ' '))
 		Text.pop_back();
@@ -931,6 +1000,7 @@ void SetMainTimer(HWND Window, unsigned int Id, unsigned int Elapse)
 
 } // namespace
 
+#if defined(_WIN32)
 bool DropInput(const MSG *Message)
 {
 	const TState &Current = State();
@@ -941,6 +1011,7 @@ bool DropInput(const MSG *Message)
 		return true;
 	return Kind == WM_TIMER && Message->wParam == 1 && Message->hwnd == MainWindow();
 }
+#endif
 
 // Issue #52: the main window's WM_CAPTURECHANGED (MainFrm.cpp OnCaptureChanged). With a script the
 // buttons are pressed and released only by the script's events, dispatched to the main window; the
@@ -959,9 +1030,8 @@ bool DropInput(const MSG *Message)
 bool PresentFails()
 {
 	static const bool Fails = [] {
-		std::array<char, 8> Value{};
-		std::size_t Length = 0;
-		return getenv_s(&Length, Value.data(), Value.size(), "PATELLA_TEST_FAIL_PRESENT") == 0 && Length == 2 && Value[0] == '1';
+		const char *const Value = std::getenv("PATELLA_TEST_FAIL_PRESENT"); // NOLINT(concurrency-mt-unsafe): read once, at the first present
+		return Value != nullptr && std::string_view(Value) == "1";
 	}();
 	return Fails;
 }
@@ -970,14 +1040,13 @@ bool PresentFails()
 bool InitFails(int Step)
 {
 	static const int FailingStep = [] {
-		std::array<char, 8> Value{};
-		std::size_t Length = 0;
-		if (getenv_s(&Length, Value.data(), Value.size(), "PATELLA_TEST_FAIL_INIT") != 0 || Length < 2)
+		const char *const Value = std::getenv("PATELLA_TEST_FAIL_INIT"); // NOLINT(concurrency-mt-unsafe): read once, at the first step
+		if (Value == nullptr)
 			return 0;
+		const std::string_view Text(Value);
 		int Parsed = 0;
-		const char *const Last = Value.data() + (Length - 1); // Length counts the terminating zero
-		const auto [End, Error] = std::from_chars(Value.data(), Last, Parsed);
-		return Error == std::errc{} && End == Last ? Parsed : 0;
+		const auto [End, Error] = std::from_chars(Text.data(), Text.data() + Text.size(), Parsed); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic): the end of the text
+		return Error == std::errc{} && End == Text.data() + Text.size() ? Parsed : 0;              // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic): the end of the text
 	}();
 	return FailingStep != 0 && Step == FailingStep;
 }
@@ -986,6 +1055,7 @@ namespace {
 
 // Issue #96: the windows the count of the Tibia windows sees (TTestWindow::VisitWindows): this process's only, each
 // with its title and class as Win32's TWin32Window reads them (GetWindowTextA, GetClassNameA with 30).
+#if defined(_WIN32)
 BOOL CALLBACK VisitOwnWindow(HWND Window, LPARAM Parameter)
 {
 	DWORD Process = 0;
@@ -1000,6 +1070,7 @@ BOOL CALLBACK VisitOwnWindow(HWND Window, LPARAM Parameter)
 	Visit(WindowText, TextLength, WindowClass, ClassLength);
 	return TRUE;
 }
+#endif
 
 // The driver's step (IInput::BeginIdle, the start of CPlayerApp::OnIdle).
 void Idle()
@@ -1007,7 +1078,7 @@ void Idle()
 	TState &Current = State();
 	if (!Current.Scripted) {
 		// Issue #92: without a script the control channel answers probe only, at any idle call.
-		if (Current.ControlCommand != nullptr && MainWindow() != nullptr)
+		if (Current.ControlOn && MainWindow() != nullptr)
 			ControlPoll(Current, 0);
 		return;
 	}
@@ -1051,7 +1122,7 @@ void Idle()
 		Current.Quiet = Current.Scheduler.ManualClock() ? QuietPasses : 0;
 		return;
 	}
-	if (Current.ControlCommand != nullptr) {
+	if (Current.ControlOn) {
 		// Issue #92: the control channel's next command once the script and the last command are done.
 		if (Current.Scheduler.Finished()) {
 			ControlPoll(Current, Elapsed);
@@ -1219,7 +1290,7 @@ void PATELLA_CDECL FramePixels(const void *Bits, int Pitch, int Width, int Heigh
 	Current.MaskHeight = 0;
 	// frames.txt: <step> <requested ms> <script line> <shown ms> <width> <height> <filtered pixels, -1: no mask>
 	TFile Index;
-	if (Index.Open((Current.Out / L"frames.txt").c_str(), TFile::TAccess::Append)) {
+	if (Index.OpenSystemName((Current.Out / L"frames.txt").c_str(), TFile::TAccess::Append)) {
 		Index.Print("{} {} {} {} {} {} {}\n", Frame.Step, Frame.Requested, Frame.Line, Current.Virtual.Elapsed(), Width,
 			Height, Filtered);
 		Index.Close();
@@ -1240,7 +1311,7 @@ int ShowMessageBox([[maybe_unused]] HWND Window, const char *Text, const char *C
 	WriteLog(Current, "testmode: message box \"" + Caption8 + "\": " + Text8);
 	if (!Current.Out.empty()) {
 		TFile File;
-		if (File.Open((Current.Out / L"messages.txt").c_str(), TFile::TAccess::Append)) {
+		if (File.OpenSystemName((Current.Out / L"messages.txt").c_str(), TFile::TAccess::Append)) {
 			const std::string Line = "{\"step\":" + std::to_string(++Current.Messages) + ",\"time\":" + std::to_string(Current.Virtual.Elapsed())
 				+ ",\"caption\":" + JsonString(Caption8) + ",\"text\":" + JsonString(Text8) + ",\"type\":" + std::to_string(Type) + "}\n";
 			File.Write(Line);
@@ -1267,6 +1338,7 @@ int ShowMessageBox([[maybe_unused]] HWND Window, const char *Text, const char *C
 				Closed -= Socket.Closed ? 1 : 0;
 			Activity = Closed != 0;
 		}
+#if defined(_WIN32)
 		MSG Message = {};
 		while (::PeekMessageA(&Message, nullptr, 0, 0, PM_REMOVE)) {
 			if (Message.message == WM_QUIT) {
@@ -1279,9 +1351,13 @@ int ShowMessageBox([[maybe_unused]] HWND Window, const char *Text, const char *C
 			::DispatchMessageA(&Message);
 			Activity = true;
 		}
+#else
+		// Issue #131: what the box's modal loop did for the sockets (the connection's close): the socket's events.
+		patella::platform::Platform().Socket.Poll();
+#endif
 		if (Activity)
 			LastActivity = std::chrono::steady_clock::now();
-		::Sleep(1);
+		RealYield();
 	}
 	return IDOK;
 }
@@ -1292,7 +1368,7 @@ void FrameObservers(int(PATELLA_CDECL **Frame)(int, int), void(PATELLA_CDECL **P
 	void(PATELLA_CDECL **Mask)(const unsigned char *, int, int), void(PATELLA_CDECL **Device)(const char *, int, int))
 {
 	const TState &Current = State();
-	if (Current.ControlCommand != nullptr)
+	if (Current.ControlOn)
 		*Device = DeviceSeen;
 	if (!Current.FramesWanted)
 		return;
@@ -1350,7 +1426,11 @@ public:
 	}
 	void VisitWindows(patella::platform::TWindowVisitor Visit) override
 	{
+#if defined(_WIN32)
 		EnumWindows(VisitOwnWindow, reinterpret_cast<LPARAM>(Visit));
+#else
+		patella::platform::SdlWindow().VisitOwnWindows(Visit); // issue #131: the process's own, SDL's list
+#endif
 	}
 	[[nodiscard]] bool DisplayMode(unsigned int Index, patella::platform::TDisplayMode &Mode) override
 	{

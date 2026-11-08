@@ -34,14 +34,16 @@
 #include "platform/CursorImage.h"
 #include "platform/KeyInput.h"
 #include "platform/Platform.h"
-#include "platform/Win32Platform.h"
+#include "platform/Process.h"
 #include "types/Cp1252.h"
 
-#define SDL_MAIN_HANDLED // NOLINT(cppcoreguidelines-macro-usage): SDL_main.h's switch; WinMain is the entry (platform/EntryWin32.cpp)
+#define SDL_MAIN_HANDLED // NOLINT(cppcoreguidelines-macro-usage): SDL_main.h's switch; WinMain (platform/EntryWin32.cpp), main (EntryLinux.cpp) are the entries
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#if defined(_WIN32)
 #include <commctrl.h>
+#endif
 
 #include <cmath>
 #include <cstdint>
@@ -104,6 +106,14 @@ struct TFrame {
 
 TFrame FrameSize()
 {
+#if !defined(_WIN32)
+	// Issue #131: a scripted run on Linux has the Windows frame of the recordings (WS_OVERLAPPEDWINDOW with its client
+	// edge on the recording machine's metrics, 33 above the client area and 10 on each other side), so Patella.ini's 800 x 600
+	// outer window is the recording's 780 x 557 client area, under any X11 or Wayland window manager or none (SDL
+	// reports no borders under Xvfb or the dummy driver).
+	if (platform::Platform().Input.IgnoreCaptureChange())
+		return TFrame{33, 10, 10, 10};
+#endif
 	TFrame Frame;
 	if (!SDL_GetWindowBordersSize(Window, &Frame.Top, &Frame.Left, &Frame.Bottom, &Frame.Right))
 		Frame = TFrame{};
@@ -115,11 +125,13 @@ TFrame FrameSize()
 // takes away with WS_EX_APPWINDOW for fullscreen mode and gives back for windowed mode (ModifyStyleEx). SDL3 reads the
 // window's extended styles when it computes the outer rectangle, so its sizes stay the client area's, and the outer
 // rectangle (Patella.ini's, the comparisons' GetWindowPlacement) is the MFC frame's for the same client area.
-void SetFrameStyle(DWORD Remove, DWORD Add)
+void SetFrameStyle([[maybe_unused]] DWORD Remove, [[maybe_unused]] DWORD Add)
 {
+#if defined(_WIN32)
 	const LONG_PTR Style = GetWindowLongPtrA(WindowHandle, GWL_EXSTYLE);
 	SetWindowLongPtrA(WindowHandle, GWL_EXSTYLE, static_cast<LONG_PTR>((static_cast<DWORD>(Style) & ~Remove) | Add));
 	SetWindowPos(WindowHandle, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+#endif
 }
 
 // GetSystemMetrics(SM_CXSCREEN), SM_CYSCREEN: the primary display's size.
@@ -350,6 +362,7 @@ SDL_Cursor *DefaultCursor = nullptr; // cursor resource 0x84 (the others)
 // pixels). Null where the resource is missing or not monochrome, as LoadCursor's null cursor.
 SDL_Cursor *LoadClientCursor(int Id)
 {
+#if defined(_WIN32)
 	const HMODULE Module = GetModuleHandleA(nullptr);
 	HRSRC Group = FindResourceA(Module, MAKEINTRESOURCEA(Id), MAKEINTRESOURCEA(12)); // RT_GROUP_CURSOR
 	HGLOBAL GroupData = Group != nullptr ? LoadResource(Module, Group) : nullptr;
@@ -358,12 +371,21 @@ SDL_Cursor *LoadClientCursor(int Id)
 	HRSRC Image = ImageId != 0 ? FindResourceA(Module, MAKEINTRESOURCEA(ImageId), MAKEINTRESOURCEA(1)) : nullptr; // RT_CURSOR
 	HGLOBAL ImageData = Image != nullptr ? LoadResource(Module, Image) : nullptr;
 	const auto *Bytes = ImageData != nullptr ? static_cast<const std::uint8_t *>(LockResource(ImageData)) : nullptr;
+	const std::size_t BytesSize = Bytes != nullptr ? SizeofResource(Module, Image) : 0;
+#else
+	// The cursor resources of the local Tibia.exe (or the placeholders), built in (cmake/LinuxX64.cmake,
+	// tools/embed_cursors.py): the RT_CURSOR image of the first matching size, as LoadCursor picks one for the
+	// system's cursor size.
+	const std::span<const std::uint8_t> Resource = platform::EmbeddedCursor(Id);
+	const std::uint8_t *Bytes = Resource.empty() ? nullptr : Resource.data();
+	const std::size_t BytesSize = Resource.size();
+#endif
 	if (Bytes == nullptr) {
 		log::Warn("cursor resource {} not found", Id);
 		return nullptr;
 	}
 	const std::optional<platform::TMonochromeCursor> Decoded =
-		platform::DecodeMonochromeCursor(std::span<const std::uint8_t>(Bytes, SizeofResource(Module, Image)));
+		platform::DecodeMonochromeCursor(std::span<const std::uint8_t>(Bytes, BytesSize));
 	if (!Decoded) {
 		log::Warn("cursor resource {} is not a monochrome cursor", Id);
 		return nullptr;
@@ -375,7 +397,9 @@ SDL_Cursor *LoadClientCursor(int Id)
 	return Cursor;
 }
 
+#if defined(_WIN32)
 constexpr UINT_PTR InputSubclassId = 122;
+#endif
 
 #if !defined(_WIN32)
 // SDL's scan code as one of the keys the client tells apart: the position on the keyboard, as Windows' scan code; the
@@ -488,7 +512,7 @@ void OnKey(const SDL_KeyboardEvent &Event, bool Scripted)
 }
 #endif
 
-// Win32 until the Linux client: the key messages (WM_KEYDOWN, WM_SYSKEYDOWN, WM_KEYUP, WM_SYSKEYUP), as CMainFrame's
+// On Windows the key messages (WM_KEYDOWN, WM_SYSKEYDOWN, WM_KEYUP, WM_SYSKEYUP), as CMainFrame's
 // KeyDown and KeyUp got them: the virtual key with lParam's extended flag, as TranslateKey read them, through the same
 // rules (platform/KeyInput.h). SDL's key events would differ from the messages: SDL keeps its own key state and makes or
 // drops key events from it (its pump releases a Shift or Windows key that Windows' keyboard state does not hold, such as
@@ -523,11 +547,13 @@ platform::TKeyEvent KeyOfMessage(WPARAM VirtualKey, LPARAM LParam)
 	return Key;
 }
 
-void OnKeyMessage(UINT Message, WPARAM WParam, LPARAM LParam)
+// On Linux (issue #131) the test mode's scripted keys come this way too (WindowMessage below): a key of a script
+// makes no character (its WM_CHAR is its own event), as Scripted says on Windows' KeysMakeCharacters path.
+void OnKeyMessage(UINT Message, WPARAM WParam, LPARAM LParam, bool Scripted = false)
 {
 	const platform::TKeyEvent Key = KeyOfMessage(WParam, LParam);
 	if (Message == WM_KEYDOWN || Message == WM_SYSKEYDOWN)
-		KeyDown(Key, false);
+		KeyDown(Key, Scripted);
 	else
 		Keys.Up(Key);
 }
@@ -593,7 +619,9 @@ void OnSetCursor(float X, float Y)
 // the keyboard focus, and takes none while the mouse is not over the window as SDL saw it, where SetCapture took it (a
 // click posted to the window by another program, or one in the test mode); on Windows the capture is then
 // SetCapture's, as the original's, and released with ReleaseCapture.
+#if defined(_WIN32)
 bool Win32Capture = false;
+#endif
 
 void TakeCapture()
 {
@@ -755,6 +783,7 @@ void Input(const SDL_Event &Event, bool Scripted)
 	}
 }
 
+#if defined(_WIN32)
 // CMainFrame::OnCaptureChanged: another window took the mouse; the held buttons are released at the cursor. SDL has no
 // event for a lost capture, so on Windows it is still the window's WM_CAPTURECHANGED (the subclass below), which comes
 // also when the client releases the capture itself, after it has cleared its button flags (nothing to do then).
@@ -781,6 +810,7 @@ void OnCaptureChanged()
 	}
 	FreeCapture();
 }
+#endif
 
 // CMainFrame::OnHostResolved: the name lookup is done (Error 0: the address is there). Since issue #125 the portable
 // socket's Poll calls it (HostResolved, below), where WSAAsyncGetHostByName posted WM_USER + 1 to the window.
@@ -807,6 +837,7 @@ void OnHostResolved(int Error)
 	ConnectToLoginServer();
 }
 
+#if defined(_WIN32)
 // The SDL window's subclass, for what SDL3 has no event for or gives otherwise: the loss of the mouse capture
 // (WM_CAPTURECHANGED, then SDL's own handling of it), the typed characters (WM_CHAR, OnWindowChar), the mouse buttons
 // (OnButtonMessage), the keys (OnKeyMessage), the test mode's main timer ticks (WM_TIMER 1: with a script the driver dispatches them)
@@ -856,6 +887,8 @@ LRESULT CALLBACK InputProc(HWND Hwnd, UINT Message, WPARAM WParam, LPARAM LParam
 	}
 	return DefSubclassProc(Hwnd, Message, WParam, LParam);
 }
+
+#endif // _WIN32
 
 // What a message noted for the loop (above): a close answered (OnClose), fullscreen left (OnActivateApp), a display
 // change (OnDisplayChange), the window destroyed (OnDestroy and the frame's destructor).
@@ -935,6 +968,7 @@ bool Create(bool Gamemaster, const char *Title, const char *ClassName)
 	SDL_SetHint(SDL_HINT_WINDOWS_CLOSE_ON_ALT_F4, "0");
 	SDL_SetHint(SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE, "0");
 	SDL_SetMainReady();
+#if defined(_WIN32)
 	// The window class: InitInstance's (the client's class name, CS_OWNDC | CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW), so
 	// that the start's count of the Tibia windows (CountTibiaWindows) finds this window by its class as by its title,
 	// and Windows makes the double clicks the client handles.
@@ -942,6 +976,12 @@ bool Create(bool Gamemaster, const char *Title, const char *ClassName)
 		log::Error("SDL_RegisterApp failed: {}", SDL_GetError());
 		return false;
 	}
+#else
+	static_cast<void>(ClassName);
+	// Issue #131: a headless test client (--test-headless) has no display at all: SDL's dummy video driver.
+	if (platform::Platform().Window.Headless())
+		SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy"); // read at SDL_Init; a display-less run never probes X11 or Wayland
+#endif
 	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		log::Error("SDL_Init failed: {}", SDL_GetError());
 		return false;
@@ -967,11 +1007,20 @@ bool Create(bool Gamemaster, const char *Title, const char *ClassName)
 
 	// Create (CFrameWnd::Create with WS_OVERLAPPEDWINDOW: SDL's resizable window), hidden, as the MFC frame is until
 	// InitInstance shows it.
-	Window = SDL_CreateWindow(Title, 600, 450, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
+	// Issue #131: on Linux SDL_Vulkan_CreateSurface needs the Vulkan flag (the surface is the main window's own there,
+	// PresentWindow.h; on Windows each device has a window of its own).
+#if defined(_WIN32)
+	constexpr SDL_WindowFlags VulkanFlag = 0;
+#else
+	// A headless run has SDL's dummy video driver, which has no Vulkan surfaces and no use for them.
+	const SDL_WindowFlags VulkanFlag = platform::Platform().Window.Headless() ? 0 : SDL_WINDOW_VULKAN;
+#endif
+	Window = SDL_CreateWindow(Title, 600, 450, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | VulkanFlag);
 	if (Window == nullptr) {
 		log::Error("SDL_CreateWindow failed: {}", SDL_GetError());
 		return false;
 	}
+#if defined(_WIN32)
 	WindowHandle = static_cast<HWND>(
 		SDL_GetPointerProperty(SDL_GetWindowProperties(Window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
 	if (WindowHandle == nullptr || !SetWindowSubclass(WindowHandle, InputProc, InputSubclassId, 0)) {
@@ -981,6 +1030,10 @@ bool Create(bool Gamemaster, const char *Title, const char *ClassName)
 		WindowHandle = nullptr;
 		return false;
 	}
+#else
+	// Linux: the client knows the window by the SDL_Window itself (platform/SdlPlatform.cpp SdlWindowOf).
+	WindowHandle = reinterpret_cast<HWND>(Window);
+#endif
 	SetFrameStyle(0, WS_EX_CLIENTEDGE); // CFrameWnd::PreCreateWindow's
 	// OnGetMinMaxInfo: the client area at least 550x450.
 	SDL_SetWindowMinimumSize(Window, 550, 450);
@@ -1045,6 +1098,7 @@ void Hide()
 int Run(void (*Idle)())
 {
 	while (!Destroyed) {
+#if defined(_WIN32)
 		// Win32's on Windows: the thread's messages, as MFC's PumpMessage dispatched them (the test build drops the
 		// desktop's input with a script), each followed by what it noted; SDL's own pump is off
 		// (SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP: its order differs, notes/decisions.md "#122").
@@ -1064,6 +1118,7 @@ int Run(void (*Idle)())
 		}
 		if (Destroyed)
 			break;
+#endif
 		// The rest of SDL's work; its events have been seen by the watch.
 		SDL_PumpEvents();
 		SDL_FlushEvents(SDL_EVENT_FIRST, SDL_EVENT_LAST);
@@ -1089,8 +1144,13 @@ void HostResolved(int Error)
 void ExitProgram()
 {
 	Closing = true;
+#if defined(_WIN32)
 	if (WindowHandle != nullptr)
 		PostMessageA(WindowHandle, WM_CLOSE, 0, 0);
+#else
+	// Issue #131: the close request SDL_EVENT_WINDOW_CLOSE_REQUESTED would make, for the loop.
+	CloseWanted = true;
+#endif
 }
 
 // MainFrm.cpp's SetDisplayMode: view mode 2 is fullscreen (SDL's fullscreen desktop window, the original's topmost
@@ -1182,5 +1242,40 @@ void ScriptedInput(const SDL_Event &Event)
 {
 	Input(Event, true);
 }
+
+#if !defined(_WIN32)
+// Issue #131: what the Windows path's window messages do on Linux: the test mode's scripted keys, characters, buttons,
+// main timer ticks and close (TestModeWin32.cpp, testmode/SdlInputWin32.cpp), through the handlers the window procedure
+// calls on Windows.
+void WindowMessage(UINT Message, WPARAM WParam, LPARAM LParam)
+{
+	if (!Created)
+		return;
+	switch (Message) {
+	case WM_KEYDOWN:
+	case WM_SYSKEYDOWN:
+	case WM_KEYUP:
+	case WM_SYSKEYUP: OnKeyMessage(Message, WParam, LParam, true); break;
+	case WM_CHAR: OnWindowChar(WParam); break;
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONDBLCLK:
+	case WM_LBUTTONUP:
+	case WM_RBUTTONDOWN:
+	case WM_RBUTTONDBLCLK:
+	case WM_RBUTTONUP: OnButtonMessage(Message, LParam); break;
+	case WM_TIMER: TimerEvent(); break;
+	case WM_CLOSE: CloseWanted = true; break;
+	default: break;
+	}
+}
+
+void ClientSize(int &Width, int &Height)
+{
+	Width = 0;
+	Height = 0;
+	if (Window != nullptr)
+		SDL_GetWindowSize(Window, &Width, &Height);
+}
+#endif
 
 } // namespace patella::sdlframe

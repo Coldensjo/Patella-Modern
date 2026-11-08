@@ -140,7 +140,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build the image (docker/linux-x64)
-        run: docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2 docker/linux-x64
+        run: docker build -t patella-modern/linux-x64:gcc16.2-clang22.1-libstdcxx16-cmake4.4.5-ninja1.13.2-sdl3-mesa25.0.7 docker/linux-x64
       - name: python -I tools/build.py linux-x64-gcc
         run: python -I tools/build.py linux-x64-gcc
       - name: python -I tools/build.py linux-x64-clang

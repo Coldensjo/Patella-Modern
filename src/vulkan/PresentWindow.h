@@ -19,14 +19,20 @@
 // window's class has no background brush (Player.cpp InitInstance, as the original's); TPresentWindows
 // subclasses it from the first Open to Close or the main window's end.
 //
-// Windows only (the x64 client and tests_vulkan); everything runs on the window's thread.
+// Windows: the x64 client and tests_vulkan; everything runs on the window's thread. Linux (issue #131): SDL3 has no
+// child windows there, so the device's window is the main window itself, and these functions keep only that state
+// (a retired device has no window to outlive); the device test's window is a hidden SDL window of its own.
 
 #pragma once
 
+#if defined(_WIN32)
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
+#else
+#include "compat/win32_types.h" // issue #131: the Linux client's HWND
+#endif
 
 namespace patella::vulkan {
 

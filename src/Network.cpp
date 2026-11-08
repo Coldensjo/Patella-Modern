@@ -37,6 +37,27 @@ patella::TNetwork::TNetwork(TPreferences &PreferencesRef, TNetworkSession &Sessi
 {
 }
 
+// Not in the original (Patella-Modern issue #131; tools/patch_client.py's job for an ELF the tools cannot patch): the
+// environment's PATELLA_LOGIN_SERVER=<host>[:<port>] replaces every login server (the Linux test build's replays and
+// live runs; plan D8's Patella.ini key is not done yet). Unset: the original list, as before.
+void patella::TNetwork::ApplyLoginServerOverride()
+{
+	const char *const Override = std::getenv("PATELLA_LOGIN_SERVER");
+	if (Override == nullptr || Override[0] == '\0')
+		return;
+	std::string Host(Override);
+	int Port = 7171;
+	const std::string::size_type Colon = Host.rfind(':');
+	if (Colon != std::string::npos) {
+		Port = std::atoi(Host.c_str() + Colon + 1);
+		Host.resize(Colon);
+	}
+	for (int i = 0; i < NUMBEROFSERVER; i++) {
+		Servers[i].Address.Assign(Host.c_str());
+		Servers[i].Port = Port;
+	}
+}
+
 // 0x4ca0e0
 void patella::TNetwork::InitServerList()
 {
@@ -52,6 +73,7 @@ void patella::TNetwork::InitServerList()
 		Servers[i].Port = 7171;
 		Servers[i].Available = true;
 	}
+	ApplyLoginServerOverride();
 	CurrentServer = rand() % NUMBEROFSERVER;
 }
 

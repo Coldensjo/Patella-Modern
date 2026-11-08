@@ -16,6 +16,10 @@
 #if !defined(PATELLA_CORE)
 #include <winsock2.h>
 #include <windows.h>
+#elif defined(PATELLA_WIN32_TYPES)
+// The Linux client (issue #131, cmake/LinuxX64.cmake): the Windows types and constants its platform layer still names
+// (POINT, UINT, WM_*, VK_*), without any Windows function.
+#include "compat/win32_types.h" // IWYU pragma: export
 #endif
 // <string>, <cstring>, <cstdio> and <cstdlib>: nothing of them is used here, and every file that uses them
 // includes them itself (issue #40), but here they come before compat/msvc.h's C headers and TestHooks.h. Without

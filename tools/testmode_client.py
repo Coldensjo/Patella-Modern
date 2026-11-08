@@ -47,6 +47,7 @@ class Channel:
 		self.name = "Local\\patella-control-%d-%d-%d" % (os.getpid(), _counter[0], int(time.time() * 1000) % 1000000)
 		self.kernel32 = None
 		self.handles = []
+		self.closed = False
 		if sys.platform == "win32":
 			import ctypes.wintypes as wt
 			k = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -73,10 +74,11 @@ class Channel:
 		for handle in self.handles:
 			self.kernel32.CloseHandle(handle)
 		self.handles = []
+		self.closed = True
 
 	def command(self, text, timeout=COMMAND_TIMEOUT, alive=None):
 		"""Sends one command (text: "probe" or script lines) and waits for its answer."""
-		if not self.handles:
+		if self.closed:
 			raise ControlError("the control channel is closed")
 		reply = os.path.join(self.out, "control-reply.txt")
 		if os.path.isfile(reply):
@@ -84,10 +86,26 @@ class Channel:
 		with open(os.path.join(self.out, "control.txt"), "w", encoding="utf-8", newline="\n") as f:
 			f.write(text.rstrip("\n") + "\n")
 		self.commands += 1
-		self.kernel32.ResetEvent(self.done_event)
-		self.kernel32.SetEvent(self.command_event)
 		deadline = time.time() + timeout
-		while self.kernel32.WaitForSingleObject(self.done_event, 50) != WAIT_OBJECT_0:
+		if self.kernel32 is not None:
+			self.kernel32.ResetEvent(self.done_event)
+			self.kernel32.SetEvent(self.command_event)
+			wait = lambda: self.kernel32.WaitForSingleObject(self.done_event, 50) == WAIT_OBJECT_0
+		else:
+			# Linux (issue #131): the channel's "events" are files in the test-out folder (TestModeWin32.cpp ControlPoll,
+			# ControlReply). control-command is created after control.txt is written; the client removes it, answers in
+			# control-reply.txt and then creates control-done.
+			done_file = os.path.join(self.out, "control-done")
+			if os.path.isfile(done_file):
+				os.remove(done_file)
+			open(os.path.join(self.out, "control-command"), "w", newline="\n").close()
+			def wait():
+				if os.path.isfile(done_file):
+					os.remove(done_file)
+					return True
+				time.sleep(0.05)
+				return False
+		while not wait():
 			if alive is not None and not alive():
 				raise ControlError("the client ended during the command %r" % first_line(text))
 			if time.time() > deadline:

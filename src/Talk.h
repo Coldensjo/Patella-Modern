@@ -1,4 +1,5 @@
 #pragma once
+#include <cstring>
 #include "common.h"
 #include "types/File.h"
 #include "types/FixedString.h"
@@ -80,7 +81,12 @@ public:
 	}
 	virtual bool GetClosed()
 	{
-		const bool Result = Closed;
+		// Issue #131: Closed is never set by the constructor (the original's; the golden corpus records the bytes it leaves
+		// untouched), so it holds whatever the heap had: read as the byte the original tested (a load of a bool that holds
+		// another value is undefined, UBSan's report on Linux).
+		unsigned char Byte = 0;
+		std::memcpy(&Byte, &Closed, sizeof(Byte));
+		const bool Result = Byte != 0;
 		Closed = false;
 		return Result;
 	}

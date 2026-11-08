@@ -8,9 +8,14 @@
 #include "vulkan/DeviceChoice.h"
 #include "compat/msvc.h"
 
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <array>
 #include <windows.h>
+#else
+#include <filesystem>
+#include <system_error>
+#endif
 
 #include <cstdlib>
 #include <optional>
@@ -43,6 +48,22 @@ std::optional<std::string> Environment(const char *Name)
 	return Result;
 }
 
+#if !defined(_WIN32)
+// Linux (issue #131): Mesa's lavapipe as the system has it (the distribution's mesa-vulkan-drivers package; Windows has
+// its copy next to the executable, cmake/Vulkan.cmake). Empty where it is not installed.
+std::string FindCpuDriverManifest()
+{
+	for (const char *Folder : {"/usr/share/vulkan/icd.d", "/etc/vulkan/icd.d", "/usr/local/share/vulkan/icd.d"}) {
+		for (const char *Name : {"lvp_icd.json", "lvp_icd.x86_64.json"}) {
+			const std::filesystem::path Manifest = std::filesystem::path(Folder) / Name;
+			std::error_code Error;
+			if (std::filesystem::is_regular_file(Manifest, Error))
+				return Manifest.string();
+		}
+	}
+	return {};
+}
+#else
 std::string FindCpuDriverManifest()
 {
 	std::array<char, MAX_PATH> Path;
@@ -56,6 +77,7 @@ std::string FindCpuDriverManifest()
 		return {};
 	return Manifest;
 }
+#endif
 
 } // namespace
 

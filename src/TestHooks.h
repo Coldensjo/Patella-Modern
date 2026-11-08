@@ -67,16 +67,22 @@
 
 // The Windows types of the declarations, as common.h includes them (WinSock 2 before windows.h). PATELLA_CDECL:
 // compat/msvc.h. In the client's sources common.h has included both already (issue #49).
+#if defined(_WIN32)
 #include <winsock2.h>
 #include <windows.h>
+#else
+#include "compat/win32_types.h" // issue #131: the Linux client's test build
+#endif
 
 #include "compat/msvc.h"
 #include "compat/span.h"
 #include "testmode/ClientView.h" // IWYU pragma: export
 
 namespace patella::testmode {
+#if defined(_WIN32)
 // True: the message is input from Windows that the driver's script replaces (dropped).
 bool DropInput(const MSG *Message);
+#endif
 // The buffers as spans (issue #60): the RSA block, and the whole of SendData and ReceiveData.
 void RsaBlock(patella::TSpan<const unsigned char, 128> Block);
 void PacketSent(patella::TSpan<const unsigned char> Data, int Size, int Padded);

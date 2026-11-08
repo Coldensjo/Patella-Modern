@@ -37,6 +37,10 @@ public:
 	bool SetFullscreenMode(TWindowHandle Window, const TDisplayMode *Mode) override;
 	// Patella.exe always has a desktop.
 	[[nodiscard]] bool Headless() override { return false; }
+#if !defined(_WIN32)
+	// Issue #131: this process's own SDL windows (the test build's count of the Tibia windows, issue #96).
+	void VisitOwnWindows(TWindowVisitor Visit);
+#endif
 };
 
 // SDL3's display modes, as IWindow's DisplayMode, DesktopMode and SetFullscreenMode (platform/DisplayModeList.h's
