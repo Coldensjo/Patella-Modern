@@ -49,7 +49,9 @@ the folder; hosted CI unpacks the same zip with --install-cmake and sets it), ne
 the machine PATH (C:\Program Files\CMake) comes before the user PATH, and vcvarsall.bat puts Visual Studio's own
 CMake first. It refuses a missing or other version with a message. The image (docker/linux-x64) has the same version;
 on Linux the command's cmake is the one on PATH. `--install-cmake <folder>` downloads that zip, checks it against
-CMAKE_SHA256 (the release's cmake-4.4.5-SHA-256.txt) and unpacks it into <folder>, which must not exist.
+CMAKE_SHA256 (the release's cmake-4.4.5-SHA-256.txt) and unpacks it into <folder>, which must not exist. A timeout or
+a 5xx is retried with a pause, and when GitHub keeps failing the same zip comes from Kitware's own site, under the
+same check (issue #153: download_verified; tools/download_selftest.py shows it against a local server).
 
 Exit code: the command's, or 1 when it succeeded but warned.
 """
@@ -76,8 +78,16 @@ CMAKE_DEFAULT_DIR = r"C:\Servers\Software\cmake"
 CMAKE_TOOLS = ("cmake", "ctest", "cpack")
 CMAKE_ARCHIVE = "https://github.com/Kitware/CMake/releases/download/v%s/cmake-%s-windows-x86_64.zip" % (
 	CMAKE_VERSION, CMAKE_VERSION)
+# Kitware's own site, the fallback when GitHub keeps failing (issue #153); the same file, the same SHA-256.
+CMAKE_ARCHIVES = (CMAKE_ARCHIVE, "https://cmake.org/files/v%s/cmake-%s-windows-x86_64.zip" % (
+	CMAKE_VERSION.rpartition(".")[0], CMAKE_VERSION))
 # cmake-4.4.5-SHA-256.txt of the release: cmake-4.4.5-windows-x86_64.zip
 CMAKE_SHA256 = "326c826486d46a23cf9d5a1c9ee3a567d427bdd02c4a34071937a2a675cff004"
+# download_verified (issue #153), the same numbers as cmake/Download.cmake and docker/linux-x64/fetch.sh.
+DOWNLOAD_TRIES = 10
+DOWNLOAD_FIRST_TRIES = 4
+DOWNLOAD_PAUSE = 10
+DOWNLOAD_INACTIVITY = 60
 
 
 # A warning of a tool of the build: MSVC's cl, link, lib, rc, cvtres and ml print "warning <code>" with a
@@ -233,10 +243,70 @@ def pinned_cmake(command):
 	return [executable] + list(command[1:])
 
 
-def install_cmake(folder):
-	"""Downloads Kitware's CMAKE_ARCHIVE, checks its SHA-256 and unpacks it into `folder` (issue #141)."""
-	import hashlib
+def fetch_once(url, path):
+	"""One attempt: `url` to `path`. Returns None, or the reason when the failure is one to retry (a timeout, HTTP 408,
+	429 or 5xx, a refused or dropped connection, an unfinished transfer). Raises BuildError on any other failure."""
+	import http.client
+	import socket
+	import ssl
+	import urllib.error
 	import urllib.request
+	transient = (TimeoutError, ConnectionError, http.client.HTTPException, socket.gaierror, ssl.SSLError)
+	try:
+		with urllib.request.urlopen(url, timeout=DOWNLOAD_INACTIVITY) as response, open(path, "wb") as out:
+			shutil.copyfileobj(response, out)
+			# An early close ends the copy without an error when the body was read in blocks.
+			if response.length:
+				raise http.client.IncompleteRead(b"", response.length)
+	except urllib.error.HTTPError as e:
+		if e.code in (408, 429) or 500 <= e.code < 600:
+			return "HTTP %d" % e.code
+		raise BuildError("%s: HTTP %d; not retried" % (url, e.code))
+	except (urllib.error.URLError, *transient) as e:
+		reason = e.reason if isinstance(e, urllib.error.URLError) else e
+		if isinstance(reason, transient) and not isinstance(reason, ssl.SSLCertVerificationError):
+			return repr(reason)
+		raise BuildError("%s: %r; not retried" % (url, reason))
+	return None
+
+
+def download_verified(urls, sha256, path, tries=DOWNLOAD_TRIES, first_tries=DOWNLOAD_FIRST_TRIES, pause=DOWNLOAD_PAUSE):
+	"""Downloads the first of `urls` that answers to `path`, which only exists afterwards with the SHA-256 `sha256`
+	(issue #153). A URL with a fallback after it gets `first_tries` attempts, the last one `tries`, with a pause of
+	`pause` seconds times the attempt (at most six times `pause`) after each failure fetch_once retries. Raises
+	BuildError on anything else, without a retry or a fallback: a 404 is a wrong pin, a wrong SHA-256 a wrong file."""
+	import hashlib
+	import time
+	part = path + ".part"
+	for position, url in enumerate(urls):
+		limit = first_tries if position + 1 < len(urls) else tries
+		for attempt in range(1, limit + 1):
+			print("build.py: downloading %s (attempt %d of %d)" % (url, attempt, limit), flush=True)
+			reason = fetch_once(url, part)
+			if reason is None:
+				digest = hashlib.sha256()
+				with open(part, "rb") as f:
+					for block in iter(lambda: f.read(1 << 20), b""):
+						digest.update(block)
+				if digest.hexdigest() != sha256:
+					os.remove(part)
+					raise BuildError("%s has SHA-256 %s, not %s; not retried" % (url, digest.hexdigest(), sha256))
+				os.replace(part, path)
+				return
+			if os.path.exists(part):
+				os.remove(part)
+			if attempt < limit:
+				wait = pause * min(attempt, 6)
+				print("build.py: %s: %s; again in %d s" % (url, reason, wait), flush=True)
+				time.sleep(wait)
+			else:
+				print("build.py: %s: %s; giving up on this URL" % (url, reason), flush=True)
+	raise BuildError("every URL failed: %s" % ", ".join(urls))
+
+
+def install_cmake(folder):
+	"""Downloads Kitware's CMake zip (CMAKE_ARCHIVES, in order), checks its SHA-256 and unpacks it into `folder`
+	(issues #141, #153)."""
 	import zipfile
 	folder = os.path.abspath(folder)
 	if os.path.lexists(folder):
@@ -245,16 +315,11 @@ def install_cmake(folder):
 	os.makedirs(parent, exist_ok=True)
 	work = tempfile.mkdtemp(prefix="cmake-", dir=parent)
 	archive = os.path.join(work, "cmake.zip")
-	print("build.py: downloading %s" % CMAKE_ARCHIVE, flush=True)
-	with urllib.request.urlopen(CMAKE_ARCHIVE) as response, open(archive, "wb") as out:
-		shutil.copyfileobj(response, out)
-	digest = hashlib.sha256()
-	with open(archive, "rb") as f:
-		for block in iter(lambda: f.read(1 << 20), b""):
-			digest.update(block)
-	if digest.hexdigest() != CMAKE_SHA256:
-		raise BuildError("--install-cmake: %s has SHA-256 %s, not %s; left in %s" % (CMAKE_ARCHIVE,
-			digest.hexdigest(), CMAKE_SHA256, work))
+	try:
+		download_verified(CMAKE_ARCHIVES, CMAKE_SHA256, archive)
+	except BuildError as e:
+		shutil.rmtree(work, ignore_errors=True)
+		raise BuildError("--install-cmake: %s" % e)
 	with zipfile.ZipFile(archive) as z:
 		z.extractall(work)
 	top = os.path.join(work, "cmake-%s-windows-x86_64" % CMAKE_VERSION)
