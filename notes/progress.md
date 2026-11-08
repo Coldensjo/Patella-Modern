@@ -772,6 +772,11 @@ refuses). Shown: compare_traffic or compare_files in the Sandbox and testmode_ch
 servers with game connections at once, both passing; the master's checksums identical after them and after a killed
 run's cleanup. notes/testserver.md, "A private server per run"; notes/decisions.md, "#146".
 
+A recording replays wherever it was made (Patella-Modern issue #157, branch issue-157, November 8, 2026; M7): a replay
+(tools/proxy.py, every tool's) names its own game port in a character list, so a compare_traffic recording from a private
+server plays in compare_rendering and compare_network without a hand-edited copy, and 7272 recordings byte for byte.
+`python -I tools/proxy.py --self-test`. notes/traffic.md; notes/decisions.md, "#157".
+
 MFC removed (Patella-Modern issue #127, branch issue-127, November 8, 2026; M8): no source includes MFC; the SDL3
 window is the client's only one (PATELLA_WINDOW and platform/WindowChoice.h gone, the Win32 window system gone with it),
 CPlayerApp derives from nothing, WinMain is platform/EntryWin32.cpp. The original's CMainFrame and the MFC declarations

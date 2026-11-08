@@ -3,6 +3,7 @@ r"""Compare how Patella.exe and the original Tibia.exe take crafted and fuzzed s
 Usage (from the repository or a worktree; python -I tools/build.py windows-x64 first; no server is needed):
   python -I tools/compare_network.py [--out build\network\result] [--only a,b] [--list] [--repeat]
       [--recording build\network\orig-live.jsonl] [--patella build\windows-x64\Release\Patella.exe]
+  python -I tools/compare_network.py --self-test   (issue #157: the scenarios of made-up recordings; no client)
 
 Patella.exe is the x64 client, run as its test build PatellaTest.exe next to it and read through its control
 channel (compare_traffic.py's use_patella; Patella-Modern issue #92). Until issue #94 this tool ran the 32-bit
@@ -90,6 +91,25 @@ def string(text):
 	return struct.pack("<H", len(data)) + data
 
 
+def game_start(events):
+	"""compare_files.game_start's login and game connection, with the two server frames the scenarios cut and change
+	(issue #157): a session that walks at once (compare_traffic's since #144) has no server packet between the fight
+	modes and its first step, and game_start stops at that step. Then the next server packet of the same 3 s is the
+	second frame, without the client's step, which the clients here do not take. Only that one: a later frame can
+	depend on the second, which a scenario drops, and would then break the stream. A recording with a packet before
+	the step, as the older ones, gives what game_start gives."""
+	login, game = cf.game_start(events)
+	if sum(e["dir"] == "s2c" for e in game) >= 2:
+		return login, game
+	fight_modes = [e["t"] for e in game if e["dir"] == "c2s" and e["plain"].startswith("a0")][-1]
+	for e in connection(events, "game")[len(game):]:
+		if e["dir"] == "close" or e["t"] > fight_modes + 3:
+			break
+		if e["dir"] == "s2c":
+			return login, game + [e]
+	raise RunError("the recording has fewer than two server packets at the game's start")
+
+
 class Base:
 	"""The pieces of the recording the scenarios are made of."""
 
@@ -105,7 +125,7 @@ class Base:
 		if self.characters[0] != 0x64:
 			raise RunError("no character list after the message of the day")
 		self.t = self.login_first["t"]
-		self.login_events, self.game_events = cf.game_start(events)
+		self.login_events, self.game_events = game_start(events)
 		self.game_first = self.game_events[0]
 		self.game_s2c = [e for e in self.game_events if e["dir"] == "s2c"]
 		self.world = self.character_world()
@@ -526,7 +546,61 @@ def summary(result):
 	return ", ".join(parts)
 
 
+def self_test():
+	"""Issue #157: the game's start and every scenario of a made-up session that steps at once, and of an older one."""
+	def event(kind, direction, t, plain):
+		return {"t": t, "conn": 1, "kind": kind, "conn_ordinal": 1, "dir": direction, "plain": plain.hex()}
+
+	def session(*game):
+		motd = b"\x14" + string("1\nHello")
+		world = b"\x7f\x00\x00\x01"
+		characters = b"\x64\x01" + string("Char") + string("World") + world + struct.pack("<H", 7407) + b"\x1e\x00"
+		events = [event("login", "c2s", 1.0, b"\x01" + bytes(16)), event("login", "s2c", 1.1, motd + characters)]
+		for t, direction, plain in game:
+			events.append(event("game", direction, t, plain))
+		return events
+
+	def check(what, ok):
+		if not ok:
+			raise SystemExit("compare_network.py self-test FAILED: " + what)
+
+	def s2c_times(events):
+		return [e["t"] for e in game_start(events)[1] if e["dir"] == "s2c"]
+
+	big = b"\x0a" + bytes(399)  # a map frame long enough for the cuts
+	first = (5.0, "c2s", b"\x0a" + bytes(16))
+	fight = (5.3, "c2s", b"\xa0\x02\x00\x01")
+	map_frame = (5.2, "s2c", big)
+	# a session that steps at once (#144): the next server packet without the step, nothing after it
+	at_once = session(first, map_frame, fight, (6.0, "c2s", b"\x65"), (6.1, "s2c", b"\x6d" + bytes(40)),
+		(7.0, "c2s", b"\x66"), (7.1, "s2c", b"\x6d" + bytes(40)), (8.3, "s2c", b"\x6d" + bytes(4)),
+		(8.4, "s2c", b"\x6d" + bytes(4)), (9.0, "close", b""))
+	check("a session that steps at once", s2c_times(at_once) == [5.2, 6.1])
+	check("no client step", [e["t"] for e in game_start(at_once)[1] if e["dir"] == "c2s"] == [5.0, 5.3])
+	check("the login connection", len(game_start(at_once)[0]) == 3)
+	# an older session: a packet before the first step, so exactly compare_files.game_start's
+	older = session(first, map_frame, fight, (6.3, "s2c", b"\x6d" + bytes(11)), (6.8, "c2s", b"\x65"),
+		(6.9, "s2c", b"\x6d" + bytes(40)))
+	check("an older session", s2c_times(older) == [5.2, 6.3] and game_start(older) == cf.game_start(older))
+	# too few packets are said so: none, after a close, and later than the 3 s
+	for rest in (((6.0, "c2s", b"\x65"),), ((6.0, "c2s", b"\x65"), (6.1, "close", b""), (6.2, "s2c", b"\x6d")),
+			((6.0, "c2s", b"\x65"), (8.4, "s2c", b"\x6d"))):
+		try:
+			s2c_times(session(first, map_frame, fight, *rest))
+		except RunError as e:
+			check("too few packets", "two server packets" in str(e))
+		else:
+			check("too few packets: not refused: %r" % (rest,), False)
+	# every scenario can be made of both
+	for events in (at_once, older):
+		check("the scenarios", len(scenarios(Base(events))) > 40)
+	print("compare_network.py: self-test passed")
+	return 0
+
+
 def main():
+	if sys.argv[1:] == ["--self-test"]:  # issue #157
+		return self_test()
 	ctypes.windll.user32.SetProcessDPIAware()
 	parser = argparse.ArgumentParser(description="Compare Patella.exe and Tibia.exe on crafted server streams.")
 	parser.add_argument("--out", default=os.path.join(NETWORK, "result"))
@@ -613,6 +687,6 @@ def main():
 
 
 if __name__ == "__main__":
-	sandbox.redirect(writable=[NETWORK], skip=("--list", "-h", "--help"))  # issue #147: unless --desktop (or --hidden)
-	desktop.hide(skip=("--list", "-h", "--help"))  # issue #56: only with --hidden
+	sandbox.redirect(writable=[NETWORK], skip=("--list", "--self-test", "-h", "--help"))  # issue #147: unless --desktop (or --hidden)
+	desktop.hide(skip=("--list", "--self-test", "-h", "--help"))  # issue #56: only with --hidden
 	sys.exit(main())
