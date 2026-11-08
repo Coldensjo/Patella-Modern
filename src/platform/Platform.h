@@ -11,11 +11,11 @@
 //
 // Platform() is defined once per executable, by its entry point's side:
 //
-//	Patella.exe, the golden runner     platform/Win32Platform.cpp: TWin32Clock, TSystemFileSystem, NetworkSocket()
+//	Patella.exe, the golden runner     platform/Win32Platform.cpp: TWin32Clock, TDataFileSystem, NetworkSocket()
 //	                                   (issue #125: TPortableSocket, the golden runner's TMfcSocket), TWin32Clipboard,
 //	                                   TWin32Input, TWin32Window
 //	PatellaTest.exe                    testmode/TestModeWin32.cpp: the test mode's clock (TVirtualClock with
-//	                                   --test-script, else TWin32Clock), TSystemFileSystem, the replay's socket
+//	                                   --test-script, else TWin32Clock), TDataFileSystem, the replay's socket
 //	                                   with --test-replay (issue #120) else TPortableSocket, TMemoryClipboard with a
 //	                                   script else TWin32Clipboard, the test mode's TTestInput and TTestWindow
 //

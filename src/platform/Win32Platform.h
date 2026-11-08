@@ -2,7 +2,7 @@
 // platform/Platform.h, notes/decisions.md, "#109: the platform interfaces"). Not part of the original source.
 //
 // The code behind each is what the client called before #109, call for call: timeGetTime, time and Sleep (the
-// clock). The file system is the portable TSystemFileSystem (platform/FileSystem.h); the network (MFC's CAsyncSocket
+// clock). The file system is the portable TDataFileSystem (platform/FileSystem.h; issue #130); the network (MFC's CAsyncSocket
 // and WinSock until issue #125) is NetworkSocket(), below. Since issue #119 also the clipboard (sysinc.cpp's until then),
 // the input (GetCursorPos, SetTimer, KillTimer: MainFrm.cpp's and Player.cpp's) and the desktop's windows and display
 // (MessageBoxA, EnumWindows, EnumDisplaySettingsA: Player.cpp's and the Vulkan engine's; ChangeDisplaySettingsA since
@@ -93,7 +93,13 @@ inline void ReadCursorPosition(IInput &Input, POINT &Point)
 // The Win32 implementations, made on first use and never destroyed: Patella.exe's Platform(), and the parts of the
 // test build's (TestModeWin32.cpp) that are not the test mode's.
 TWin32Clock &Win32Clock();
-TSystemFileSystem &SystemFileSystem();
+TDataFileSystem &SystemFileSystem();
+// Issue #130 (DataLocationWin32.cpp, Patella.exe's and PatellaTest.exe's): sets SystemFileSystem's folders
+// (settings::ChooseLocations: --data, the working folder, the executable's, Patella.ini's DataFolder), once, at the
+// start (Player.cpp InitInstance), before the first file is opened; LogDataFiles logs them once the log's settings
+// (Patella.ini's, in the folder chosen) are read.
+void ConfigureDataFiles();
+void LogDataFiles();
 // The process's network (issue #125): TPortableSocket in Patella.exe and PatellaTest.exe (platform/NetworkWin32.cpp:
 // the lookups' replies to the window, the modal loops' polling), the original's CAsyncSocket calls in the golden runner
 // (tests/golden/network/MfcSocket.cpp, whose fakes its Network test logs).

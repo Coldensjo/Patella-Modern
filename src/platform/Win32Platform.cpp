@@ -214,7 +214,6 @@ bool TWin32Window::SetFullscreenMode([[maybe_unused]] TWindowHandle Window, cons
 // after every static destructor.
 namespace {
 constinit TWin32Clock Win32ClockInstance;
-constinit TSystemFileSystem SystemFileSystemInstance;
 constinit TWin32Clipboard Win32ClipboardInstance;
 constinit TWin32Input Win32InputInstance;
 constinit TWin32Window Win32WindowInstance;
@@ -226,9 +225,13 @@ TWin32Clock &Win32Clock()
 	return Win32ClockInstance;
 }
 
-TSystemFileSystem &SystemFileSystem()
+// Issue #130: the data folder's files (platform/FileSystem.h), set by ConfigureDataFiles (DataLocationWin32.cpp); until
+// then, and in the golden runner, the working folder's. Its folders are not constant-initialised: made on first use,
+// never destroyed (the files are open to the very end, as the clock is read).
+TDataFileSystem &SystemFileSystem()
 {
-	return SystemFileSystemInstance;
+	static TDataFileSystem &Instance = *new TDataFileSystem; // NOLINT(cppcoreguidelines-owning-memory): never destroyed
+	return Instance;
 }
 
 TWin32Clipboard &Win32Clipboard()
@@ -283,7 +286,7 @@ IWindow &WindowDesktop()
 // input is the window path's (WindowInput); issue #124: the clipboard and the desktop too.
 TPlatform &Platform()
 {
-	static TPlatform Instance{Win32ClockInstance, SystemFileSystemInstance, NetworkSocket(), WindowClipboard(),
+	static TPlatform Instance{Win32ClockInstance, SystemFileSystem(), NetworkSocket(), WindowClipboard(),
 		WindowInput(), WindowDesktop()};
 	return Instance;
 }

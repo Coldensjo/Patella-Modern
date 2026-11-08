@@ -766,6 +766,12 @@ One platform layer for both operating systems, with **SDL3** (D3) for the things
   directory, with case-insensitive lookup of the original names on Linux. Tibia.cfg's location stays next to
   the data by default (portable), with an XDG option on Linux (D4); since #45 that is Patella.ini's (D12), and
   Tibia.cfg is only read, once, for the import.
+  Done in #130 (notes/decisions.md, "#130"): every file the client opens goes through platform::TDataFileSystem
+  (platform/FileSystem.h): the data folder is `--data <folder>`, else the working folder where it has Tibia.dat (as
+  before: the tools' run folders), else the executable's folder, else Patella.ini's DataFolder (settings::ChooseLocations);
+  Patella.ini is next to the data, or in $XDG_CONFIG_HOME/patella with the XDG option (Linux); the original names are
+  found without regard to ASCII case on Linux (platform::FindNoCase). Unit-tested on every preset, mixed-case names on
+  Linux. The Linux client's start-up and D14's "asks once" are not done yet.
 
 Done in #122 (notes/decisions.md, "#122"): SDL 3.4.18 pinned (cmake/Sdl3.cmake, FetchContent with URL and SHA256, a
 static library; `find_package` first off Windows); the Windows x64 client runs on SDL3's window (src/SdlFrame.cpp:

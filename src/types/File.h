@@ -91,20 +91,33 @@ public:
 		}
 		try {
 #if defined(_WIN32)
-			const std::wstring WideName = patella::text::Cp1252ToWide(Name);
-			Handle = _wfsopen(WideName.c_str(), WideModeText(Access, Content).data(), _SH_DENYNO);
+			const std::wstring SystemName = patella::text::Cp1252ToWide(Name);
 #else
-			const std::string Utf8Name = patella::text::Cp1252ToUtf8(Name);
-			if (Content == TContent::Text)
-				Handle = OpenText(Utf8Name.c_str(), Access);
-			else
-				Handle = std::fopen(Utf8Name.c_str(), ModeText(Access, Content)); // NOLINT(cppcoreguidelines-owning-memory): TFile owns it (Close)
+			const std::string SystemName = patella::text::Cp1252ToUtf8(Name);
 #endif
+			return OpenSystem(SystemName.c_str(), Access, Content);
 		} catch (...) { // std::bad_alloc of the name
 			errno = ENOMEM;
 			return false;
 		}
-		return Handle != nullptr;
+	}
+
+#if defined(_WIN32)
+	using TSystemChar = wchar_t;
+#else
+	using TSystemChar = char;
+#endif
+	// Open of a name in the system's own form (std::filesystem::path's c_str(); issue #130: the data folder's files,
+	// platform/FileSystem.h): UTF-16 on Windows, opened as Open opens it (_wfsopen, _SH_DENYNO), the bytes elsewhere.
+	bool OpenSystemName(const TSystemChar *Name, TAccess Access, TContent Content = TContent::Binary) noexcept
+	{
+		if (!Usable(Access, Content))
+			return false;
+		if (Name == nullptr) {
+			errno = EINVAL;
+			return false;
+		}
+		return OpenSystem(Name, Access, Content);
 	}
 
 #if defined(_WIN32)
@@ -211,6 +224,20 @@ public:
 	friend bool operator!=(std::nullptr_t, const TFile &File) noexcept { return File.Handle != nullptr; }
 
 private:
+	// fopen of a usable mode on a closed TFile, the name in the system's form (Open, OpenSystemName).
+	bool OpenSystem(const TSystemChar *Name, TAccess Access, TContent Content) noexcept
+	{
+#if defined(_WIN32)
+		Handle = _wfsopen(Name, WideModeText(Access, Content).data(), _SH_DENYNO);
+#else
+		if (Content == TContent::Text)
+			Handle = OpenText(Name, Access);
+		else
+			Handle = std::fopen(Name, ModeText(Access, Content)); // NOLINT(cppcoreguidelines-owning-memory): TFile owns it (Close)
+#endif
+		return Handle != nullptr;
+	}
+
 	std::FILE *Handle = nullptr;
 
 	// A mode Open takes, on a closed TFile: else false with errno.

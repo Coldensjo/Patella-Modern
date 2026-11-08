@@ -15,8 +15,8 @@
 // of patella_core and tested on every preset (tests/unit/core_settings_test.cpp).
 //
 // Keys today: Device (auto, gpu, gpuN, cpu; notes/vulkan.md, "Choosing the device"), LogLevel and LogFile
-// (log/LogSettings.h, issue #77), the options of Tibia.cfg (settings/PreferenceKeys.h, issue #45). The other
-// D12 keys (servers, scale, vsync, data folder) come with their issues.
+// (log/LogSettings.h, issue #77), the options of Tibia.cfg (settings/PreferenceKeys.h, issue #45), DataFolder (issue
+// #130, ChooseLocations below). The other D12 keys (servers, scale, vsync) come with their issues.
 //
 // The text (issue #117, plan D4): the file is UTF-8, and a value that is the client's text (a hotkey, a name, LogFile)
 // is converted to the client's Windows-1252 when read (types/Cp1252.h; '?' for a character it does not have). A file
@@ -28,6 +28,7 @@
 #include "platform/FileSystem.h"
 
 #include <cstddef>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -35,8 +36,8 @@
 
 namespace patella::settings {
 
-// The file's name, in the working directory as Tibia.cfg.
-inline constexpr const char *FileName = "Patella.ini";
+// The file's name, next to the data files by default (ChooseLocations below; the working folder's until issue #130).
+inline constexpr const char *FileName = patella::platform::SettingsFileName;
 
 // The first line of a file the client creates, and its line ends.
 inline constexpr const char *NewFileComment = "# Patella-Modern's settings";
@@ -106,8 +107,8 @@ private:
 // A value of File as the client's text (Windows-1252): converted from UTF-8, or as it is in a file of version 1.
 [[nodiscard]] std::string ClientText(const TSettingsFile &File, std::string_view Value);
 
-// The file is opened through Files (the platform's IFileSystem, issue #119: Patella.exe's TSystemFileSystem, the
-// working folder; Path is the client's text, as every name TFile opens), as a binary file (TFile, _wfsopen with
+// The file is opened through Files (the platform's IFileSystem, issue #119: Patella.exe's TDataFileSystem, the
+// data folder or the settings folder; Path is the client's text, as every name TFile opens), as a binary file (TFile, _wfsopen with
 // _SH_DENYNO on Windows: what std::fstream opened until then).
 
 // Reads the file. Nothing when it does not exist, cannot be read or is larger than MaxFileSize.
@@ -121,5 +122,64 @@ std::optional<TSettingsFile> LoadForUpdate(patella::platform::IFileSystem &Files
 
 // Writes Settings.Text() to the file (created or replaced). False when that fails.
 bool Save(patella::platform::IFileSystem &Files, const std::string &Path, const TSettingsFile &Settings);
+
+// --- Where the files are (issue #130, plans D4, D12, D14) ------------------------------------------------------------
+//
+// The data folder (Tibia.dat, Tibia.spr, Tibia.pic, Tibia.cfg, the automap and the saved channels), the first of:
+//	1. Option      --data <folder> of the command line (relative to the working folder);
+//	2. Working     the working folder, where it has Tibia.dat (the original's place, and the tools' run folders);
+//	3. Executable  the executable's folder, where it has Tibia.dat;
+//	4. Settings    DataFolder of a Patella.ini (relative to that file's folder), where the folder it names has
+//	               Tibia.dat: the XDG folder's with the XDG option, else the working folder's, then the executable's;
+//	5. Default     the working folder (the original's error where Tibia.dat is missing).
+// Tibia.dat is looked for without regard to ASCII case where CaseInsensitive (Linux; platform::FindNoCase).
+// Patella.ini is in the settings folder: XdgFolder with the XDG option (Linux, D4), else the folder of the Patella.ini
+// that step 4 read, else the data folder (portable). A folder that is the working folder stays an empty path in the
+// locations, so the files open by their names as written, as before.
+
+inline constexpr const char *DataFolderKey = "DataFolder";
+
+enum class TDataSource : unsigned char { Option,
+	Working,
+	Executable,
+	Settings,
+	Default };
+
+struct TLocationInputs {
+	std::filesystem::path Working;                   // the working folder (absolute)
+	std::filesystem::path Executable;                // the executable's folder; empty: not known
+	std::optional<std::filesystem::path> DataOption; // --data <folder>
+	bool Xdg = false;                                // the XDG option (Linux): Patella.ini in XdgFolder
+	std::filesystem::path XdgFolder;                 // XdgSettingsFolder's
+	bool CaseInsensitive = false;                    // Linux's lookup of the original names
+};
+
+struct TLocationChoice {
+	patella::platform::TFileLocations Locations; // for platform::TDataFileSystem
+	TDataSource Source = TDataSource::Default;
+	std::filesystem::path DataFolder;     // absolute (the log's)
+	std::filesystem::path SettingsFolder; // absolute (the log's)
+};
+
+[[nodiscard]] TLocationChoice ChooseLocations(const TLocationInputs &Inputs);
+
+// The XDG option's folder: $XDG_CONFIG_HOME/patella, else $HOME/.config/patella (an XDG_CONFIG_HOME that is empty or
+// not absolute is not used, as the XDG Base Directory Specification says); empty where neither is set. The variables'
+// values are passed (null: not set), so the rule is tested on every platform.
+[[nodiscard]] std::filesystem::path XdgSettingsFolder(const char *XdgConfigHome, const char *Home);
+
+// The folder of the last "--data <folder>" of the arguments (without the program's name); nothing without one.
+template <class String>
+[[nodiscard]] std::optional<std::filesystem::path> DataOption(const std::vector<String> &Arguments)
+{
+	std::optional<std::filesystem::path> Folder;
+	for (std::size_t i = 0; i + 1 < Arguments.size(); i++)
+		if (std::filesystem::path(Arguments[i]).native() == std::filesystem::path("--data").native())
+			Folder = std::filesystem::path(Arguments[i + 1]);
+	return Folder;
+}
+
+// The source's words in the log.
+[[nodiscard]] const char *SourceName(TDataSource Source);
 
 } // namespace patella::settings

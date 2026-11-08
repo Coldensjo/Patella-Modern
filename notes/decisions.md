@@ -8976,6 +8976,7 @@ they include) report nothing that is not suppressed in the code with its reason,
   | GCC -fanalyzer | -Wanalyzer-null-dereference | regexp.c, regmatch's STAR/PLUS | false positive | `#pragma GCC diagnostic ignored` in the file (GCC only) | regnext of a STAR or PLUS node is never NULL: regcomp links each to the node that follows |
   | MSVC /analyze | C6011 (dereferencing NULL 'Player') | Creatures.cpp, TCreatures::CheckMonsterHint (since issue #110) | false positive | PATELLA_MSVC_WARNING(suppress : 6011) on the line | the else branch reads Player only after IsOpponent returned true, which asserts the player creature |
   | MSVC /analyze | C28020 (`_Param_(1)<10`) | Map.cpp, TMap::GetAutomapBlock (since issue #110) | false positive | PATELLA_MSVC_WARNING(suppress : 28020) on the return | the cache list links all AUTOMAP_BLOCKS entries (InitMap), so Position is one of them; the analysis takes LeastRecentBlock as any int |
+  | GCC -fanalyzer | -Wanalyzer-use-of-uninitialized-value | platform/FileSystem.h FindNoCase, settings/Settings.cpp HasData to ChooseLocations (since issue #130) | false positive | PATELLA_GCC_DIAGNOSTIC push/ignored/pop around them | the path goes through a std::filesystem::path copy whose string throws length_error, then reads after the throw: the analyzer's exception paths through libstdc++ |
 
   The GCC pragmas go through compat/msvc.h's new PATELLA_GCC_DIAGNOSTIC (`_Pragma`, GCC only: Clang knows the pragma
   but not the analyzer's warnings); regexp.c is C and includes none of src/'s headers, so it keeps its own
@@ -17675,3 +17676,77 @@ a
 b" reached CF_UNICODETEXT as J U+00F6 r g CR LF a CR LF b and came back with those bytes; another
   program's U+0141 U+00E4 x read as `?`, 0xE4, x; an empty text left no text. Not run: SDL_OpenURL (it would open a
   browser); its Windows code was read (SDL_sysurl.c).
+
+## #130: data files and paths (Patella-Modern issue #130, M8)
+
+Done by Claude Opus 5.5, November 8, 2026 (branch issue-130, from main c212e8b). Plan section 7, M8 ("Files and
+paths"), D4, D12, D14: the data files are found next to the executable or in a configured folder, the original names
+without regard to case on Linux, Patella.ini next to the data by default with an XDG option on Linux.
+
+### Where the client opened its files (high: the code)
+
+Every file the client opens goes through the platform's IFileSystem since #109/#119: Script.cpp's four file classes
+(Tibia.dat through TReadBinaryFile in Objects.cpp, Tibia.spr and Tibia.pic in graphics.cpp, the automap's
+`<bx><by><bz>.map` in Map.cpp, Tibia.cfg's import), ConsoleWindow.cpp's saved channels, Preferences.cpp's Tibia.cfg
+test, Patella.ini (Settings.cpp's Load/Save from Preferences.cpp, DeviceSettings.cpp, LogSettings.cpp) and the log's
+LogFile. All of them by names relative to the working folder. So one change of the process's IFileSystem moves them
+all, and nothing else had to change. The tools all run the client with the working folder set to a run folder that
+holds the data files and Patella.ini/Tibia.cfg: build\run-patella, compare_traffic's, compare_files', compare_rendering's
+and compare_network's run folders, the reference compare's `<session>\run` (PatellaTest.exe is copied in), and
+testmode_check's. The golden runner never calls InitInstance; its file tests use the working folder.
+
+### The design (medium: the choices)
+
+- **TDataFileSystem** (platform/FileSystem.h) replaces TSystemFileSystem as SystemFileSystem() (Win32Platform.cpp:
+  Patella.exe's, PatellaTest.exe's and the golden runner's Platform()). Its locations: the data folder, the settings
+  folder (Patella.ini only, by name) and whether names are looked up without regard to case. With the default locations
+  (the working folder, names as written), Open is TFile::Open(Name) and Exists is std::filesystem::exists(name), the
+  same calls as before. The default holds until start-up sets the folders, in the golden runner, and whenever the data
+  folder is the working folder. Otherwise the path is built with std::filesystem and opened by TFile::OpenSystemName
+  (new: the system's form of a name, _wfsopen with _SH_DENYNO on Windows as Open, the bytes elsewhere). Made on first
+  use and never destroyed (std::filesystem::path cannot be constant-initialised everywhere, and files may be opened
+  late at exit).
+- **The data folder** (settings::ChooseLocations, Settings.cpp; Player.cpp InitInstance calls ConfigureDataFiles,
+  DataLocationWin32.cpp, first): `--data <folder>`; else the working folder where it has Tibia.dat; else the
+  executable's folder where it has Tibia.dat; else DataFolder of a Patella.ini (the XDG folder's with the XDG option,
+  else the working folder's, then the executable's; relative to that file) where the folder has Tibia.dat; else the
+  working folder (the original's error on a missing Tibia.dat). D14 lists "next to itself" first; the working folder is
+  put before it so that every run folder of the tools and a shortcut with a "Start in" folder keep their files
+  (a double-click has the executable's folder as the working folder, so it is the same there). `--data` comes first
+  as the explicit choice. The original's command-line parser (strtok, "gamemaster", "host", "port", "engine") ignores
+  `--data` and its folder; the folder is read with CommandLineToArgvW (quotes, any characters).
+- **Patella.ini**: the data folder's (portable, D4) by default; the folder of the Patella.ini whose DataFolder was used;
+  the XDG folder ($XDG_CONFIG_HOME/patella, else $HOME/.config/patella, settings::XdgSettingsFolder) with the XDG
+  option. Tibia.cfg is the data folder's, read once for the import (unchanged since #45).
+- **The lookup without regard to case** (platform::FindNoCase): each part of the name as written where it is there,
+  else the folder's entry equal to it without regard to ASCII case (the first in name order when there are several),
+  else as written (a file to create keeps its own name, in the folder found). ASCII only: the original names are
+  ASCII, and folding other characters would depend on the encoding and locale. On Linux only (Windows' file system
+  does it itself); Windows' client sets it off.
+- **The log**: "data files: <folder> (<source>); Patella.ini: <folder>" at info when the data folder is not the
+  working folder, at debug when it is (so the default run's stderr is unchanged), a warning for a `--data` folder
+  without Tibia.dat. Logged after the log's settings are read, from the Patella.ini of the folder chosen.
+
+### Choices (medium: the owner's to change)
+
+- The working folder before the executable's folder (above). D14's order would put the executable's first.
+- The XDG option is chosen by the Linux client's start-up, which does not exist yet: settings::TLocationInputs has
+  `Xdg` and `XdgFolder`, tested; how the user turns it on (an environment variable, a command-line word, or automatic
+  when the data folder cannot be written) is decided with the Linux client.
+- D14's "otherwise asks once" (a folder dialog when no Tibia.dat is found) is not done: the client keeps the original's
+  error. It needs a dialog of its own (SDL3 has a folder dialog) and a decision on where the answer is stored.
+
+### Checks
+
+All on the merged tree (merge 3f80efe of main c7e1f40, with #124), logs in build\logs\issue-130\.
+
+- Gate 1: `python -I tools/build.py windows-x64`, `windows-x64-debug`, `windows-x64-asan`: exit 0, 30, 29 and 29 of the tests, golden 15,803,218 + 1,512,822 = 17,316,040 with 0 failures, 0 compiler warnings.
+- Gate 2: `windows-x64-gcc` exit 0 (14 of 14); `linux-x64-gcc` exit 0 (26 of 26) and `linux-x64-clang` exit 0 (25 of 25, ASan and UBSan), golden 0 failures on both; tests_core carries the mixed-case lookup tests.
+- Gate 3: `python -I tools/reference.py compare --reference C:/Tibia/Patella-Modern/build/reference`: every session matches its reference. compare_traffic and compare_files in the Sandbox on private servers, testmode_check headless: no differences, the master unchanged.
+- Gate 4: tidy_ci exit 0 (3 findings, the baseline; 0 bugprone-), banned_calls and clang-format exit 0.
+- `--data` in a real session (data-option-smoke.log): the traffic recording, headless, with an empty working folder and the (patched) executable in a folder without data, so only `--data` finds the files: exit 0, the working folder still empty, Patella.ini, the automap, packets.log and every frame identical to the normal run's; the 26 state dumps differ only in 168 `ptr` and `vtable` fields (process addresses). A manual run outside the tools, not a test in the repository.
+
+### Found while proving it (high)
+
+- GCC's -fanalyzer reported the exception paths of std::filesystem::path copies in the new code (false positive; the table in "Static analysis of the core library").
+- The XDG folder is not created by anything yet: a save of Patella.ini there fails until the Linux client's start-up creates it (with the rest of its start-up, above).
